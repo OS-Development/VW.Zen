@@ -370,22 +370,35 @@ class LinuxSetup(UnixSetup):
                 cpus += m and int(m.group(1)) or 1
             return hosts, cpus
 
-        def mk_distcc_hosts():
+        def mk_distcc_hosts(basename, range, num_cpus):
             '''Generate a list of LL-internal machines to build on.'''
             loc_entry, cpus = localhost()
             hosts = [loc_entry]
             dead = []
-            stations = [s for s in xrange(36) if s not in dead]
+            stations = [s for s in xrange(range) if s not in dead]
             random.shuffle(stations)
-            hosts += ['station%d.lindenlab.com/2,lzo' % s for s in stations]
+            hosts += ['%s%d.lindenlab.com/%d,lzo' % (basename, s, num_cpus) for s in stations]
             cpus += 2 * len(stations)
             return ' '.join(hosts), cpus
 
+        if os.getenv('DISTCC_DIR') is None:
+            distcc_dir = os.path.join(getcwd(), '.distcc')
+            if not os.path.exists(distcc_dir):
+                os.mkdir(distcc_dir)
+            os.putenv('DISTCC_DIR', distcc_dir)
+ 
         if job_count is None:
             hosts, job_count = count_distcc_hosts()
-            if hosts == 1 and socket.gethostname().startswith('station'):
-                hosts, job_count = mk_distcc_hosts()
-                os.putenv('DISTCC_HOSTS', hosts)
+            if hosts == 1:
+                hostname = socket.gethostname()
+                if hostname.startswith('station'):
+                    hosts, job_count = mk_distcc_hosts('station', 36, 2)
+                    os.putenv('DISTCC_HOSTS', hosts)
+                if hostname.startswith('eniac'):
+                    hosts, job_count = mk_distcc_hosts('eniac', 71, 2)
+                    os.putenv('DISTCC_HOSTS', hosts)
+            if job_count > 12:
+                job_count = 12;
             opts.extend(['-j', str(job_count)])
 
         if targets:
