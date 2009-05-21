@@ -381,22 +381,16 @@ class LinuxSetup(UnixSetup):
             cpus += 2 * len(stations)
             return ' '.join(hosts), cpus
 
-        if os.getenv('DISTCC_DIR') is None:
-            distcc_dir = os.path.join(getcwd(), '.distcc')
-            if not os.path.exists(distcc_dir):
-                os.mkdir(distcc_dir)
-            os.putenv('DISTCC_DIR', distcc_dir)
- 
         if job_count is None:
             hosts, job_count = count_distcc_hosts()
             if hosts == 1:
                 hostname = socket.gethostname()
                 if hostname.startswith('station'):
                     hosts, job_count = mk_distcc_hosts('station', 36, 2)
-                    os.putenv('DISTCC_HOSTS', hosts)
+                    os.environ['DISTCC_HOSTS'] = hosts
                 if hostname.startswith('eniac'):
                     hosts, job_count = mk_distcc_hosts('eniac', 71, 2)
-                    os.putenv('DISTCC_HOSTS', hosts)
+                    os.environ['DISTCC_HOSTS'] = hosts
             if job_count > 12:
                 job_count = 12;
             opts.extend(['-j', str(job_count)])
@@ -710,6 +704,15 @@ Examples:
 '''
 
 def main(arguments):
+    if os.getenv('DISTCC_DIR') is None:
+        distcc_dir = os.path.join(getcwd(), '.distcc')
+        if not os.path.exists(distcc_dir):
+            os.mkdir(distcc_dir)
+        print "setting DISTCC_DIR to %s" % distcc_dir
+        os.environ['DISTCC_DIR'] = distcc_dir
+    else:
+        print "DISTCC_DIR is set to %s" % os.getenv('DISTCC_DIR')
+ 
     setup = setup_platform[sys.platform]()
     try:
         opts, args = getopt.getopt(
