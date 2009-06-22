@@ -43,6 +43,7 @@ class LLCommandLineParser;
 class LLAllocator;
 
 
+
 class LLAppViewer : public LLApp
 {
 public:
@@ -265,10 +266,6 @@ extern LLSD gDebugInfo;
 
 extern BOOL	gAllowTapTapHoldRun;
 extern BOOL	gShowObjectUpdates;
-
-extern BOOL gAcceptTOS;
-extern BOOL gAcceptCriticalMessage;
-
 
 typedef enum 
 {
