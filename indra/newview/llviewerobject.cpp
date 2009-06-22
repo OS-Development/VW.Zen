@@ -79,6 +79,7 @@
 #include "llviewertextureanim.h"
 #include "llviewerwindow.h" // For getSpinAxis
 #include "llvoavatar.h"
+#include "llvoavatarself.h"
 #include "llvoclouds.h"
 #include "llvograss.h"
 #include "llvoground.h"
@@ -97,6 +98,7 @@
 #include "llviewernetwork.h"
 #include "llvowlsky.h"
 #include "llmanip.h"
+#include "lltrans.h"
 
 //#define DEBUG_UPDATE_TYPE
 
@@ -123,7 +125,18 @@ LLViewerObject *LLViewerObject::createObject(const LLUUID &id, const LLPCode pco
 	case LL_PCODE_VOLUME:
 	  res = new LLVOVolume(id, pcode, regionp); break;
 	case LL_PCODE_LEGACY_AVATAR:
-	  res = new LLVOAvatar(id, pcode, regionp); break;
+	{
+		if (id == gAgentID)
+		{
+			res = new LLVOAvatarSelf(id, pcode, regionp);
+		}
+		else
+		{
+			res = new LLVOAvatar(id, pcode, regionp); 
+		}
+		static_cast<LLVOAvatar*>(res)->initInstance();
+		break;
+	}
 	case LL_PCODE_LEGACY_GRASS:
 	  res = new LLVOGrass(id, pcode, regionp); break;
 	case LL_PCODE_LEGACY_PART_SYS:
@@ -2461,7 +2474,7 @@ void LLViewerObject::processTaskInv(LLMessageSystem* msg, void** user_data)
 		LLPointer<LLInventoryObject> obj;
 		obj = new LLInventoryObject(object->mID, LLUUID::null,
 									LLAssetType::AT_CATEGORY,
-									std::string("Contents"));
+									LLTrans::getString("ViewerObjectContents").c_str());
 		object->mInventory->push_front(obj);
 		object->doInventoryCallback();
 		delete ft;
@@ -2528,6 +2541,7 @@ void LLViewerObject::loadTaskInvFile(const std::string& filename)
 			{
 				LLPointer<LLInventoryObject> inv = new LLInventoryObject;
 				inv->importLegacyStream(ifs);
+				inv->rename(LLTrans::getString("ViewerObjectContents").c_str());
 				mInventory->push_front(inv);
 			}
 			else
@@ -2587,11 +2601,6 @@ void LLViewerObject::removeInventory(const LLUUID& item_id)
 	msg->sendReliable(mRegionp->getHost());
 	deleteInventoryItem(item_id);
 	++mInventorySerialNum;
-
-	// The viewer object should not refresh UI since this is a utility
-	// function. The UI functionality that called this method should
-	// refresh the views if necessary.
-	//gBuildView->refresh();
 }
 
 void LLViewerObject::updateInventory(

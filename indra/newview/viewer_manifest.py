@@ -84,6 +84,7 @@ class ViewerManifest(LLManifest):
                         self.path("textures.xml")
                         self.end_prefix("*/textures")
                 self.path("*/xui/*/*.xml")
+                self.path("*/xui/*/widgets/*.xml")
                 self.path("*/*.xml")
                 
                 # Local HTML files (e.g. loading screen)
@@ -255,9 +256,9 @@ class WindowsManifest(ViewerManifest):
                   dst="updater.exe")
 
         # For google-perftools tcmalloc allocator.
-        #if self.prefix(src="../../libraries/i686-win32/lib/release", dst=""):
-        #        self.path("libtcmalloc_minimal.dll")
-        #        self.end_prefix()
+        if self.prefix(src="../../libraries/i686-win32/lib/release", dst=""):
+                self.path("libtcmalloc_minimal.dll")
+                self.end_prefix()
 
 
     def nsi_file_commands(self, install=True):
@@ -667,7 +668,7 @@ class Linux_i686Manifest(LinuxManifest):
         self.path("app_settings/mozilla-runtime-linux-i686")
 
         if self.prefix("../../libraries/i686-linux/lib_release_client", dst="lib"):
-            self.path("libkdu_v42R.so", "libkdu.so")
+            #self.path("libkdu_v42R.so", "libkdu.so")
             self.path("libfmod-3.75.so")
             self.path("libapr-1.so.0")
             self.path("libaprutil-1.so.0")

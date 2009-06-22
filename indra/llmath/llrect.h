@@ -64,15 +64,9 @@ public:
 	mLeft(left), mTop(top), mRight(right), mBottom(bottom)
 	{}
 
-	LLRectBase(const LLSD& sd)
+	explicit LLRectBase(const LLSD& sd)
 	{
 		setValue(sd);
-	}
-
-	const LLRectBase& operator=(const LLSD& sd)
-	{
-		setValue(sd);
-		return *this;
 	}
 
 	void setValue(const LLSD& sd)
@@ -271,8 +265,8 @@ public:
 			<< " W " << rect.getWidth() << " H " << rect.getHeight() << " }";
 		return s;
 	}
-
-	bool operator==(const LLRectBase &b)
+	
+	bool operator==(const LLRectBase &b) const
 	{
 		return ((mLeft == b.mLeft) &&
 				(mTop == b.mTop) &&
@@ -280,7 +274,7 @@ public:
 				(mBottom == b.mBottom));
 	}
 
-	bool operator!=(const LLRectBase &b)
+	bool operator!=(const LLRectBase &b) const
 	{
 		return ((mLeft != b.mLeft) ||
 				(mTop != b.mTop) ||

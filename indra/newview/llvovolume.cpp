@@ -72,7 +72,7 @@ const F32 FORCE_CULL_AREA = 8.f;
 const S32 MAX_SCULPT_REZ = 128;
 
 BOOL gAnimateTextures = TRUE;
-extern BOOL gHideSelectedObjects;
+//extern BOOL gHideSelectedObjects;
 
 F32 LLVOVolume::sLODFactor = 1.f;
 F32	LLVOVolume::sLODSlopDistanceFactor = 0.5f; //Changing this to zero, effectively disables the LOD transition slop 
@@ -512,6 +512,7 @@ void LLVOVolume::updateTextures()
 			mSculptTexture->addTextureStats(2.f * tex_size * tex_size);
 			mSculptTexture->setBoostLevel(llmax((S32)mSculptTexture->getBoostLevel(),
 												(S32)LLViewerImage::BOOST_SCULPTED));
+			mSculptTexture->setForSculpt() ;
 		}
 
 		S32 texture_discard = mSculptTexture->getDiscardLevel(); //try to match the texture
@@ -781,6 +782,11 @@ void LLVOVolume::sculpt()
 			sculpt_width = 0;
 			sculpt_height = 0;
 			sculpt_data = NULL ;
+
+			if(LLViewerImage::sTesterp)
+			{
+				LLViewerImage::sTesterp->updateGrayTextureBinding();
+			}
 		}
 		else
 		{
@@ -789,6 +795,11 @@ void LLVOVolume::sculpt()
 					   << " < " << sculpt_height << " x " << sculpt_width << " x " <<sculpt_components << llendl;
 					   
 			sculpt_data = raw_image->getData();
+
+			if(LLViewerImage::sTesterp)
+			{
+				mSculptTexture->updateBindStats() ;
+			}
 		}
 		getVolume()->sculpt(sculpt_width, sculpt_height, sculpt_components, sculpt_data, discard_level);
 	}
@@ -1977,10 +1988,9 @@ BOOL LLVOVolume::lineSegmentIntersect(const LLVector3& start, const LLVector3& e
 									  LLVector3* intersection,LLVector2* tex_coord, LLVector3* normal, LLVector3* bi_normal)
 	
 {
-	if (!mbCanSelect ||
-		(gHideSelectedObjects && isSelected()) ||
-			mDrawable->isDead() || 
-			!gPipeline.hasRenderType(mDrawable->getRenderType()))
+	if (!mbCanSelect 
+		|| mDrawable->isDead() 
+		|| !gPipeline.hasRenderType(mDrawable->getRenderType()))
 	{
 		return FALSE;
 	}
@@ -2120,7 +2130,7 @@ void LLVolumeGeometryManager::registerFace(LLSpatialGroup* group, LLFace* facep,
 {
 	LLMemType mt(LLMemType::MTYPE_SPACE_PARTITION);
 
-	if (facep->getViewerObject()->isSelected() && gHideSelectedObjects)
+	if (facep->getViewerObject()->isSelected() && LLSelectMgr::getInstance()->mHideSelectedObjects)
 	{
 		return;
 	}

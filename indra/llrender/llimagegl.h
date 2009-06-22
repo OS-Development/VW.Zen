@@ -37,7 +37,8 @@
 #include "llimage.h"
 
 #include "llgltypes.h"
-#include "llmemory.h"
+#include "llpointer.h"
+#include "llrefcount.h"
 #include "v2math.h"
 
 #include "llrender.h"
@@ -57,6 +58,7 @@ public:
 	static S32 dataFormatComponents(S32 dataformat);
 
 	void updateBindStats(void) const;
+	virtual void updateTestStats(void) const;
 
 	// needs to be called every frame
 	static void updateStats(F32 current_time);
@@ -110,7 +112,7 @@ public:
 	BOOL setSubImageFromFrameBuffer(S32 fb_x, S32 fb_y, S32 x_pos, S32 y_pos, S32 width, S32 height);
 	BOOL setDiscardLevel(S32 discard_level);
 	// Read back a raw image for this discard level, if it exists
-	BOOL readBackRaw(S32 discard_level, LLImageRaw* imageraw, bool compressed_ok); 
+	BOOL readBackRaw(S32 discard_level, LLImageRaw* imageraw, bool compressed_ok) const;
 	void destroyGLTexture();
 
 	void setExplicitFormat(LLGLint internal_format, LLGLenum primary_format, LLGLenum type_format = 0, BOOL swap_bytes = FALSE);
@@ -247,6 +249,7 @@ public:
 	static U32 sBindCount;					// Tracks number of texture binds for current frame
 	static U32 sUniqueCount;				// Tracks number of unique texture binds for current frame
 	static BOOL sGlobalUseAnisotropic;
+
 #if DEBUG_MISS
 	BOOL mMissed; // Missed on last bind?
 	BOOL getMissed() const { return mMissed; };

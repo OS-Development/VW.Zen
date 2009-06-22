@@ -36,6 +36,7 @@ set(test_SOURCE_FILES
     llbuffer_tut.cpp
     lldate_tut.cpp
     lldependencies_tut.cpp
+    lldoubledispatch_tut.cpp
     llerror_tut.cpp
     llevents_tut.cpp
     llhost_tut.cpp
@@ -67,6 +68,7 @@ set(test_SOURCE_FILES
     lltimestampcache_tut.cpp
     lltiming_tut.cpp
     lltranscode_tut.cpp
+    lltreeiterators_tut.cpp
     lltut.cpp
     lluri_tut.cpp
     lluuidhashmap_tut.cpp
@@ -88,6 +90,7 @@ set(test_SOURCE_FILES
 set(test_HEADER_FILES
     CMakeLists.txt
 
+    debug.h
     llpipeutil.h
     llsdtraits.h
     lltut.h
@@ -124,7 +127,10 @@ target_link_libraries(test
     ${APRICONV_LIBRARIES}
     ${PTHREAD_LIBRARY}
     ${WINDOWS_LIBRARIES}
+    ${BOOST_PROGRAM_OPTIONS_LIBRARY}
+    ${BOOST_REGEX_LIBRARY}
     ${DL_LIBRARY}
+    ${GOOGLE_PERFTOOLS_LIBRARIES}
     )
 
 if (WINDOWS)

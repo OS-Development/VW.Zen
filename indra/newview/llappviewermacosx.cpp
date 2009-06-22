@@ -188,7 +188,7 @@ bool LLAppViewerMacOSX::initParseCommandLine(LLCommandLineParser& clp)
 		// in the "General" tab, click the "Add Localization" button
 		// create a new localization for the language you're adding
 		// set the contents of the new localization of the file to the string corresponding to our localization
-		//   (i.e. "en-us", "ja", etc.  Use the existing ones as a guide.)
+		//   (i.e. "en", "ja", etc.  Use the existing ones as a guide.)
 	CFURLRef url = CFBundleCopyResourceURL(CFBundleGetMainBundle(), CFSTR("language"), CFSTR("txt"), NULL);
 	char path[MAX_PATH];
 	if(CFURLGetFileSystemRepresentation(url, false, (UInt8 *)path, sizeof(path)))

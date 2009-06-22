@@ -314,10 +314,8 @@ public:
 
 	// methods to load up inventory skeleton & meat. These are used
 	// during authentication. return true if everything parsed.
-	typedef std::map<std::string, std::string> response_t;
-	typedef std::vector<response_t> options_t;
-	bool loadSkeleton(const options_t& options, const LLUUID& owner_id);
-	bool loadMeat(const options_t& options, const LLUUID& owner_id);
+	bool loadSkeleton(const LLSD& options, const LLUUID& owner_id);
+	bool loadMeat(const LLSD& options, const LLUUID& owner_id);
 
 	// This is a brute force method to rebuild the entire parent-child
 	// relations.
@@ -365,7 +363,15 @@ public:
 	// returns true iff category version is known and theoretical
 	// descendents == actual descendents.
 	bool isCategoryComplete(const LLUUID& cat_id) const;
+	
+	// callbacks
+	// Trigger a notification and empty the folder type (AT_TRASH or AT_LOST_AND_FOUND) if confirmed
+	void emptyFolderType(const std::string notification, LLAssetType::EType folder_type);
+	bool callbackEmptyFolderType(const LLSD& notification, const LLSD& response, LLAssetType::EType folder_type);
 
+	// Utility Functions
+	void removeItem(const LLUUID& item_id);
+	
 	// start and stop background breadth-first fetching of inventory contents
 	// this gets triggered when performing a filter-search
 	static void startBackgroundFetch(const LLUUID& cat_id = LLUUID::null); // start fetch process

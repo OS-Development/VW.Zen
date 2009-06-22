@@ -63,6 +63,7 @@ BOOL LLImageGL::sGlobalUseAnisotropic	= FALSE;
 F32 LLImageGL::sLastFrameTime			= 0.f;
 
 std::set<LLImageGL*> LLImageGL::sImageList;
+
 //**************************************************************************************
 //below are functions for debug use
 //do not delete them even though they are not currently being used.
@@ -87,9 +88,18 @@ void LLImageGL::checkTexSize() const
 	{
 		GLint texname;
 		glGetIntegerv(GL_TEXTURE_BINDING_2D, &texname);
+		BOOL error = FALSE;
 		if (texname != mTexName)
 		{
-			llerrs << "Invalid texture bound!" << llendl;
+			error = TRUE;
+			if (gDebugSession)
+			{
+				gFailLog << "Invalid texture bound!" << std::endl;
+			}
+			else
+			{
+				llerrs << "Invalid texture bound!" << llendl;
+			}
 		}
 		stop_glerror() ;
 		LLGLint x = 0, y = 0 ;
@@ -102,7 +112,20 @@ void LLImageGL::checkTexSize() const
 		}
 		if(x != (mWidth >> mCurrentDiscardLevel) || y != (mHeight >> mCurrentDiscardLevel))
 		{
-			llerrs << "wrong texture size and discard level!" << llendl ;
+			error = TRUE;
+			if (gDebugSession)
+			{
+				gFailLog << "wrong texture size and discard level!" << std::endl;
+			}
+			else
+			{
+				llerrs << "wrong texture size and discard level!" << llendl ;
+			}
+		}
+
+		if (error)
+		{
+			ll_fail("LLImageGL::checkTexSize failed.");
 		}
 	}
 }
@@ -453,8 +476,18 @@ void LLImageGL::updateBindStats(void) const
 			sUniqueCount++;
 			updateBoundTexMem(mTextureMemory);
 			mLastBindTime = sLastFrameTime;
+
+			if(LLFastTimer::sMetricLog)
+			{
+				updateTestStats() ;
+			}
 		}
 	}
+}
+
+//virtual 
+void LLImageGL::updateTestStats(void) const
+{
 }
 
 //virtual
@@ -680,7 +713,6 @@ void LLImageGL::setImage(const U8* data_in, BOOL data_hasmips)
 	}
 	else
 	{
-// 		LLFastTimer t2(LLFastTimer::FTM_TEMP5);
 		S32 w = getWidth();
 		S32 h = getHeight();
 		if (is_compressed)
@@ -1096,7 +1128,7 @@ BOOL LLImageGL::isValidForSculpt(S32 discard_level, S32 image_width, S32 image_h
 	return glwidth >= image_width && glheight >= image_height && (GL_RGB8 == glcomponents || GL_RGBA8 == glcomponents) ;
 }
 
-BOOL LLImageGL::readBackRaw(S32 discard_level, LLImageRaw* imageraw, bool compressed_ok)
+BOOL LLImageGL::readBackRaw(S32 discard_level, LLImageRaw* imageraw, bool compressed_ok) const
 {
 	llpushcallstacks ;
 	if (discard_level < 0)
@@ -1377,7 +1409,6 @@ void LLImageGL::analyzeAlpha(const void* data_in, S32 w, S32 h)
 		stride = 4;
 		break;
 	default:
-		llwarns << "Cannot analyze alpha of image with primary format " << std::hex << mFormatPrimary << std::dec << llendl;
 		return;
 	}
 

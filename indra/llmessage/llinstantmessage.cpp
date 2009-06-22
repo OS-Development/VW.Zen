@@ -40,8 +40,8 @@
 #include "lluuid.h"
 #include "llsd.h"
 #include "llsdserialize.h"
-#include "llsdutil.h"
-#include "llmemory.h"
+#include "llsdutil_math.h"
+#include "llpointer.h"
 #include "message.h"
 
 #include "message.h"

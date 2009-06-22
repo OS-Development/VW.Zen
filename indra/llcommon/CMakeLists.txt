@@ -3,7 +3,10 @@
 project(llcommon)
 
 include(00-Common)
+include(LLAddBuildTest)
 include(LLCommon)
+include(Linking)
+include(Boost)
 
 include_directories(
     ${EXPAT_INCLUDE_DIRS}
@@ -11,13 +14,22 @@ include_directories(
     ${ZLIB_INCLUDE_DIRS}
     )
 
+# add_executable(lltreeiterators lltreeiterators.cpp)
+# 
+# target_link_libraries(lltreeiterators
+#     ${LLCOMMON_LIBRARIES})
+
 set(llcommon_SOURCE_FILES
+    llallocator.cpp
+    llallocator_heap_profile.cpp
     llapp.cpp
     llapr.cpp
+    llaprsockstream.cpp
     llassettype.cpp
     llbase32.cpp
     llbase64.cpp
     llcommon.cpp
+    llcoros.cpp
     llcrc.cpp
     llcriticaldamp.cpp
     llcursortypes.cpp
@@ -26,6 +38,9 @@ set(llcommon_SOURCE_FILES
     llerror.cpp
     llerrorthread.cpp
     llevent.cpp
+    lleventcoro.cpp
+    lleventdispatcher.cpp
+    lleventfilter.cpp
     llevents.cpp
     llfasttimer.cpp
     llfile.cpp
@@ -40,11 +55,14 @@ set(llcommon_SOURCE_FILES
     llmd5.cpp
     llmemory.cpp
     llmemorystream.cpp
+    llmemtype.cpp
     llmetrics.cpp
     llmortician.cpp
+    llptrto.cpp 
     llprocessor.cpp
     llqueuedthread.cpp
     llrand.cpp
+    llrefcount.cpp
     llrun.cpp
     llsd.cpp
     llsdserialize.cpp
@@ -52,6 +70,7 @@ set(llcommon_SOURCE_FILES
     llsdutil.cpp
     llsecondlifeurls.cpp
     llstat.cpp
+    llstacktrace.cpp
     llstreamtools.cpp
     llstring.cpp
     llstringtable.cpp
@@ -78,9 +97,12 @@ set(llcommon_HEADER_FILES
     indra_constants.h
     linden_common.h
     linked_lists.h
+    llallocator.h
+    llallocator_heap_profile.h
     llagentconstants.h
     llapp.h
     llapr.h
+    llaprsockstream.h
     llassettype.h
     llassoclist.h
     llavatarconstants.h
@@ -90,6 +112,7 @@ set(llcommon_HEADER_FILES
     llchat.h
     llclickaction.h
     llcommon.h
+    llcoros.h
     llcrc.h
     llcriticaldamp.h
     llcursortypes.h
@@ -98,8 +121,11 @@ set(llcommon_HEADER_FILES
     lldate.h
     lldefs.h
     lldependencies.h
+    lldeleteutils.h
     lldepthstack.h
+    lldictionary.h
     lldlinked.h
+    lldoubledispatch.h
     lldqueueptr.h
     llendianswizzle.h
     llenum.h
@@ -108,6 +134,9 @@ set(llcommon_HEADER_FILES
     llerrorlegacy.h
     llerrorthread.h
     llevent.h
+    lleventcoro.h
+    lleventdispatcher.h
+    lleventfilter.h
     llevents.h
     lleventemitter.h
     llextendedstatus.h
@@ -121,6 +150,8 @@ set(llcommon_HEADER_FILES
     llheartbeat.h
     llhttpstatuscodes.h
     llindexedqueue.h
+    llinstancetracker.h
+    llinstancetracker.h
     llkeythrottle.h
     lllazy.h
     lllinkedqueue.h
@@ -137,23 +168,30 @@ set(llcommon_HEADER_FILES
     llmetrics.h
     llmortician.h
     llnametable.h
+    llpointer.h
     llpreprocessor.h
     llpriqueuemap.h
     llprocessor.h
     llptrskiplist.h
     llptrskipmap.h
+    llptrto.h
     llqueuedthread.h
     llrand.h
+    llrefcount.h
     llrun.h
+    llrefcount.h
+    llsafehandle.h
     llsd.h
     llsdserialize.h
     llsdserialize_xml.h
     llsdutil.h
     llsecondlifeurls.h
     llsimplehash.h
+    llsingleton.h
     llskiplist.h
     llskipmap.h
     llstack.h
+    llstacktrace.h
     llstat.h
     llstatenums.h
     llstl.h
@@ -164,6 +202,7 @@ set(llcommon_HEADER_FILES
     llsys.h
     llthread.h
     lltimer.h
+    lltreeiterators.h
     lluri.h
     lluuid.h
     lluuidhashmap.h
@@ -192,13 +231,22 @@ set_source_files_properties(${llcommon_HEADER_FILES}
 
 list(APPEND llcommon_SOURCE_FILES ${llcommon_HEADER_FILES})
 
-add_library (llcommon ${llcommon_SOURCE_FILES})
+if(LLCOMMON_LINK_SHARED)
+    add_library (llcommon SHARED ${llcommon_SOURCE_FILES})
+    add_definitions(-DLL_COMMON_BUILD=1)
+else(LLCOMMON_LINK_SHARED)
+    add_library (llcommon ${llcommon_SOURCE_FILES})
+endif(LLCOMMON_LINK_SHARED)
+
 target_link_libraries(
     llcommon
     ${APRUTIL_LIBRARIES}
     ${APR_LIBRARIES}
     ${EXPAT_LIBRARIES}
     ${ZLIB_LIBRARIES}
+    ${WINDOWS_LIBRARIES}
+    ${BOOST_PROGRAM_OPTIONS_LIBRARY}
+    ${BOOST_REGEX_LIBRARY}
     )
 
 include(LLAddBuildTest)
@@ -207,4 +255,9 @@ SET(llcommon_TEST_SOURCE_FILES
   # lllazy.cpp
   )
 LL_ADD_PROJECT_UNIT_TESTS(llcommon "${llcommon_TEST_SOURCE_FILES}")
+
+# *TODO - reenable these once tcmalloc libs no longer break the build.
+#ADD_BUILD_TEST(llallocator llcommon)
+#ADD_BUILD_TEST(llallocator_heap_profile llcommon)
+#ADD_BUILD_TEST(llmemtype llcommon)
 

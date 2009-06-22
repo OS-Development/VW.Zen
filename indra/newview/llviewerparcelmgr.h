@@ -36,9 +36,12 @@
 #include "v3dmath.h"
 #include "lldarray.h"
 #include "llframetimer.h"
-#include "llmemory.h"
+#include "llsingleton.h"
 #include "llparcelselection.h"
 #include "llui.h"
+
+#include <boost/function.hpp>
+#include <boost/signals2.hpp>
 
 class LLUUID;
 class LLMessageSystem;
@@ -79,6 +82,9 @@ class LLViewerParcelMgr : public LLSingleton<LLViewerParcelMgr>
 {
 
 public:
+	typedef boost::function<void()> parcel_changed_callback_t;
+	typedef boost::signals2::signal<void()> parcel_changed_signal_t;
+
 	LLViewerParcelMgr();
 	~LLViewerParcelMgr();
 
@@ -163,7 +169,7 @@ public:
 	BOOL	agentCanTakeDamage() const;
 	BOOL	agentCanFly() const;
 	F32		agentDrawDistance() const;
-	BOOL	agentCanBuild() const;
+	bool	agentCanBuild() const;
 
 	F32		getHoverParcelWidth() const		
 				{ return F32(mHoverEastNorth.mdV[VX] - mHoverWestSouth.mdV[VX]); }
@@ -256,6 +262,12 @@ public:
 	// the agent is banned or not in the allowed group
 	BOOL isCollisionBanned();
 
+	boost::signals2::connection setAgentParcelChangedCallback(parcel_changed_callback_t cb);
+	boost::signals2::connection setTeleportFinishedCallback(parcel_changed_callback_t cb);
+	boost::signals2::connection setTeleportFailedCallback(parcel_changed_callback_t cb);
+	void onTeleportFinished();
+	void onTeleportFailed();
+
 	static BOOL isParcelOwnedByAgent(const LLParcel* parcelp, U64 group_proxy_power);
 	static BOOL isParcelModifiableByAgent(const LLParcel* parcelp, U64 group_proxy_power);
 
@@ -302,6 +314,11 @@ private:
 	LLVector3d					mHoverEastNorth;
 
 	LLDynamicArray<LLParcelObserver*> mObservers;
+
+	BOOL						mTeleportInProgress;
+	parcel_changed_signal_t		mTeleportFinishedSignal;
+	parcel_changed_signal_t		mTeleportFailedSignal;
+	parcel_changed_signal_t		mAgentParcelChangedSignal;
 
 	// Array of pieces of parcel edges to potentially draw
 	// Has (parcels_per_edge + 1) * (parcels_per_edge + 1) elements so
