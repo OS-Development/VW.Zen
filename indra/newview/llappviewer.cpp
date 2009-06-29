@@ -71,6 +71,7 @@
 #include "llurlhistory.h"
 #include "llfirstuse.h"
 #include "llrender.h"
+#include "llteleporthistory.h"
 #include "lllocationhistory.h"
 #include "llfasttimerview.h"
 #include "llweb.h"
@@ -145,7 +146,6 @@
 #include "llfolderview.h"
 #include "lltoolbar.h"
 #include "llagentpilot.h"
-#include "llsrv.h"
 #include "llvovolume.h"
 #include "llflexibleobject.h" 
 #include "llvosurfacepatch.h"
@@ -181,7 +181,10 @@
 //----------------------------------------------------------------------------
 // llviewernetwork.h
 #include "llviewernetwork.h"
+// define a self-registering event API object
+#include "llappviewerlistener.h"
 
+static LLAppViewerListener sAppViewerListener("LLAppViewer", LLAppViewer::instance());
 
 ////// Windows-specific includes to the bottom - nasty defines in these pollute the preprocessor
 //
@@ -206,9 +209,6 @@ F32 gSimFrames;
 BOOL gAllowTapTapHoldRun = TRUE;
 BOOL gShowObjectUpdates = FALSE;
 BOOL gUseQuickTime = TRUE;
-
-BOOL gAcceptTOS = FALSE;
-BOOL gAcceptCriticalMessage = FALSE;
 
 eLastExecEvent gLastExecEvent = LAST_EXEC_NORMAL;
 
@@ -558,9 +558,9 @@ LLAppViewer::LLAppViewer() :
 	mYieldTime(-1),
 	mMainloopTimeout(NULL),
 	mAgentRegionLastAlive(false),
-	mFastTimerLogThread(NULL),
 	mRandomizeFramerate(LLCachedControl<bool>(gSavedSettings,"Randomize Framerate", FALSE)),
-	mPeriodicSlowFrame(LLCachedControl<bool>(gSavedSettings,"Periodic Slow Frame", FALSE))
+	mPeriodicSlowFrame(LLCachedControl<bool>(gSavedSettings,"Periodic Slow Frame", FALSE)),
+	mFastTimerLogThread(NULL)
 {
 	if(NULL != sInstance)
 	{
@@ -3656,6 +3656,17 @@ void LLAppViewer::idleShutdown()
 	if (gFloaterView
 		&& !gFloaterView->allChildrenClosed())
 	{
+		return;
+	}
+	
+	// ProductEngine: Try moving this code to where we shut down sTextureCache in cleanup()
+	// *TODO: ugly
+	static bool saved_teleport_history = false;
+	if (!saved_teleport_history)
+	{
+		saved_teleport_history = true;
+		LLTeleportHistory::getInstance()->dump();
+		LLLocationHistory::getInstance()->save(); // *TODO: find a better place for doing this
 		return;
 	}
 

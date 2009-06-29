@@ -5,6 +5,7 @@ project(llcommon)
 include(00-Common)
 include(LLAddBuildTest)
 include(LLCommon)
+include(Linking)
 include(Boost)
 
 include_directories(
@@ -23,10 +24,12 @@ set(llcommon_SOURCE_FILES
     llallocator_heap_profile.cpp
     llapp.cpp
     llapr.cpp
+    llaprsockstream.cpp
     llassettype.cpp
     llbase32.cpp
     llbase64.cpp
     llcommon.cpp
+    llcoros.cpp
     llcrc.cpp
     llcriticaldamp.cpp
     llcursortypes.cpp
@@ -35,6 +38,9 @@ set(llcommon_SOURCE_FILES
     llerror.cpp
     llerrorthread.cpp
     llevent.cpp
+    lleventcoro.cpp
+    lleventdispatcher.cpp
+    lleventfilter.cpp
     llevents.cpp
     llfasttimer.cpp
     llfile.cpp
@@ -96,6 +102,7 @@ set(llcommon_HEADER_FILES
     llagentconstants.h
     llapp.h
     llapr.h
+    llaprsockstream.h
     llassettype.h
     llassoclist.h
     llavatarconstants.h
@@ -105,6 +112,7 @@ set(llcommon_HEADER_FILES
     llchat.h
     llclickaction.h
     llcommon.h
+    llcoros.h
     llcrc.h
     llcriticaldamp.h
     llcursortypes.h
@@ -126,6 +134,9 @@ set(llcommon_HEADER_FILES
     llerrorlegacy.h
     llerrorthread.h
     llevent.h
+    lleventcoro.h
+    lleventdispatcher.h
+    lleventfilter.h
     llevents.h
     lleventemitter.h
     llextendedstatus.h
@@ -139,6 +150,7 @@ set(llcommon_HEADER_FILES
     llheartbeat.h
     llhttpstatuscodes.h
     llindexedqueue.h
+    llinstancetracker.h
     llinstancetracker.h
     llkeythrottle.h
     lllazy.h
@@ -219,13 +231,20 @@ set_source_files_properties(${llcommon_HEADER_FILES}
 
 list(APPEND llcommon_SOURCE_FILES ${llcommon_HEADER_FILES})
 
-add_library (llcommon ${llcommon_SOURCE_FILES})
+if(LLCOMMON_LINK_SHARED)
+    add_library (llcommon SHARED ${llcommon_SOURCE_FILES})
+    add_definitions(-DLL_COMMON_BUILD=1)
+else(LLCOMMON_LINK_SHARED)
+    add_library (llcommon ${llcommon_SOURCE_FILES})
+endif(LLCOMMON_LINK_SHARED)
+
 target_link_libraries(
     llcommon
     ${APRUTIL_LIBRARIES}
     ${APR_LIBRARIES}
     ${EXPAT_LIBRARIES}
     ${ZLIB_LIBRARIES}
+    ${WINDOWS_LIBRARIES}
     ${BOOST_PROGRAM_OPTIONS_LIBRARY}
     ${BOOST_REGEX_LIBRARY}
     )

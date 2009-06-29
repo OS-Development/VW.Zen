@@ -48,6 +48,7 @@ class LLWatchdogTimeout;
 class LLWorkerThread;
 
 
+
 class LLAppViewer : public LLApp
 {
 public:
@@ -270,10 +271,6 @@ extern LLSD gDebugInfo;
 
 extern BOOL	gAllowTapTapHoldRun;
 extern BOOL	gShowObjectUpdates;
-
-extern BOOL gAcceptTOS;
-extern BOOL gAcceptCriticalMessage;
-
 
 typedef enum 
 {
