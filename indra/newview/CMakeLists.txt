@@ -63,6 +63,7 @@ include_directories(
 set(viewer_SOURCE_FILES
     llaccordionpanel.cpp
     llagent.cpp
+    llagentlistener.cpp
     llagentaccess.cpp
     llagentdata.cpp
     llagentlanguage.cpp
@@ -374,6 +375,7 @@ set(viewer_SOURCE_FILES
     llvieweraudio.cpp
     llviewercamera.cpp
     llviewercontrol.cpp
+    llviewercontrollistener.cpp
     llviewerdisplay.cpp
     llviewerfloaterreg.cpp
     llviewergenericmessage.cpp
@@ -478,6 +480,7 @@ set(viewer_HEADER_FILES
     ViewerInstall.cmake
     llaccordionpanel.h
     llagent.h
+    llagentlistener.h
     llagentaccess.h
     llagentdata.h
     llagentlanguage.h
@@ -797,6 +800,7 @@ set(viewer_HEADER_FILES
     llviewerbuild.h
     llviewercamera.h
     llviewercontrol.h
+    llviewercontrollistener.h
     llviewerdisplay.h
     llviewerfloaterreg.h
     llviewergenericmessage.h
