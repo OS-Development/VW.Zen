@@ -34,7 +34,10 @@
 #define LL_LLLOGININSTANCE_H
 
 #include <boost/scoped_ptr.hpp>
+#include <boost/function.hpp>
 class LLLogin;
+class LLEventStream;
+class LLNotificationsInterface;
 
 // This class hosts the login module and is used to 
 // negotiate user authentication attempts.
@@ -49,16 +52,6 @@ public:
 	void reconnect(); // reconnect using the current credentials.
 	void disconnect();
 
-	// Set whether this class will drive user interaction.
-	// If not, login failures like 'need tos agreement' will 
-	// end the login attempt.
-	void setUserInteraction(bool state) { mUserInteraction = state; } 
-	bool getUserInteraction() { return mUserInteraction; }
-
-	// Whether to tell login to skip optional update request.
-	// False by default.
-	void setSkipOptionalUpdate(bool state) { mSkipOptionalUpdate = state; }
-	
 	bool authFailure() { return mAttemptComplete && mLoginState == "offline"; }
 	bool authSuccess() { return mAttemptComplete && mLoginState == "online"; }
 
@@ -68,6 +61,23 @@ public:
 
 	// Only valid when authSuccess == true.
 	const F64 getLastTransferRateBPS() { return mTransferRate; }
+
+		// Set whether this class will drive user interaction.
+	// If not, login failures like 'need tos agreement' will 
+	// end the login attempt.
+	void setUserInteraction(bool state) { mUserInteraction = state; } 
+	bool getUserInteraction() { return mUserInteraction; }
+
+	// Whether to tell login to skip optional update request.
+	// False by default.
+	void setSkipOptionalUpdate(bool state) { mSkipOptionalUpdate = state; }
+	void setSerialNumber(const std::string& sn) { mSerialNumber = sn; }
+	void setLastExecEvent(int lee) { mLastExecEvent = lee; }
+
+	void setNotificationsInterface(LLNotificationsInterface* ni) { mNotifications = ni; }
+
+	typedef boost::function<void()> UpdaterLauncherCallback;
+	void setUpdaterLauncher(const UpdaterLauncherCallback& ulc) { mUpdaterLauncher = ulc; }
 
 private:
 	void constructAuthParams(const LLSD& credentials); 
@@ -83,6 +93,8 @@ private:
 	void attemptComplete() { mAttemptComplete = true; } // In the future an event?
 
 	boost::scoped_ptr<LLLogin> mLoginModule;
+	LLNotificationsInterface* mNotifications;
+
 	std::string mLoginState;
 	LLSD mRequestData;
 	LLSD mResponseData;
@@ -90,6 +102,10 @@ private:
 	bool mSkipOptionalUpdate;
 	bool mAttemptComplete;
 	F64 mTransferRate;
+	std::string mSerialNumber;
+	int mLastExecEvent;
+	UpdaterLauncherCallback mUpdaterLauncher;
+	boost::scoped_ptr<LLEventStream> mUpdateAppResponse;
 };
 
 #endif
