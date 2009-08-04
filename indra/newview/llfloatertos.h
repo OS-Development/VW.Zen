@@ -36,6 +36,7 @@
 #include "llmodaldialog.h"
 #include "llassetstorage.h"
 #include "llwebbrowserctrl.h"
+#include <boost/function.hpp>
 
 class LLButton;
 class LLRadioGroup;
@@ -50,6 +51,8 @@ class LLFloaterTOS :
 public:
 	LLFloaterTOS(const LLSD& message);
 	virtual ~LLFloaterTOS();
+
+	typedef boost::function<void(bool)> YesNoCallback;
 
 	BOOL postBuild();
 	
@@ -67,6 +70,7 @@ private:
 	std::string		mMessage;
 	int				mWebBrowserWindowId;
 	int				mLoadCompleteCount;
+	YesNoCallback	mCallback;
 };
 
 #endif // LL_LLFLOATERTOS_H
