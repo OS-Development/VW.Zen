@@ -57,7 +57,7 @@ LLFloaterTOS::LLFloaterTOS(const LLSD& message)
 	mMessage(message.asString()),
 	mWebBrowserWindowId( 0 ),
 	mLoadCompleteCount( 0 ),
-	mCallback(callback)
+	mCallback()
 {
 }
 
