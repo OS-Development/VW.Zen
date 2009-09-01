@@ -43,6 +43,7 @@
 #include "lluictrlfactory.h"
 
 #include "llagent.h"
+#include "lllandmarkactions.h"
 #include "lllandmarklist.h"
 #include "llfloaterworldmap.h"
 #include "llpanelplaces.h"
@@ -50,14 +51,23 @@
 #include "llpanelteleporthistory.h"
 #include "llsidetray.h"
 #include "lltoggleablemenu.h"
+#include "llviewermenu.h"
 #include "llviewerparcelmgr.h"
 #include "llviewerregion.h"
+
+static const S32 LANDMARK_FOLDERS_MENU_WIDTH = 250;
+static const std::string AGENT_INFO_TYPE			= "agent";
+static const std::string CREATE_LANDMARK_INFO_TYPE	= "create_landmark";
+static const std::string LANDMARK_INFO_TYPE			= "landmark";
+static const std::string REMOTE_PLACE_INFO_TYPE		= "remote_place";
+static const std::string TELEPORT_HISTORY_INFO_TYPE	= "teleport_history";
 
 // Helper functions
 static bool cmp_folders(const folder_pair_t& left, const folder_pair_t& right);
 static std::string getFullFolderName(const LLViewerInventoryCategory* cat);
 static void collectLandmarkFolders(LLInventoryModel::cat_array_t& cats);
 static const LLVector3 get_pos_local_from_global(const LLVector3d &pos_global);
+static void onSLURLBuilt(std::string& slurl);
 
 static LLRegisterPanelClassWrapper<LLPanelPlaces> t_places("panel_places");
 
@@ -68,12 +78,14 @@ LLPanelPlaces::LLPanelPlaces()
 		mFilterEditor(NULL),
 		mPlaceInfo(NULL),
 		mItem(NULL),
+		mPlaceMenu(NULL),
+		mLandmarkMenu(NULL),		
 		mLandmarkFoldersMenuHandle(),
 		mPosGlobal()
 {
 	gInventory.addObserver(this);
 
-	LLViewerParcelMgr::getInstance()->setAgentParcelChangedCallback(
+	LLViewerParcelMgr::getInstance()->addAgentParcelChangedCallback(
 			boost::bind(&LLPanelPlaces::onAgentParcelChange, this));
 
 	//LLUICtrlFactory::getInstance()->buildPanel(this, "panel_places.xml"); // Called from LLRegisterPanelClass::defaultPanelClassBuilder()
@@ -107,7 +119,23 @@ BOOL LLPanelPlaces::postBuild()
 	mOverflowBtn = getChild<LLButton>("overflow_btn");
 
 	// *TODO: Assign the action to an appropriate event.
-	mOverflowBtn->setClickedCallback(boost::bind(&LLPanelPlaces::toggleMediaPanel, this));
+	//mOverflowBtn->setClickedCallback(boost::bind(&LLPanelPlaces::toggleMediaPanel, this));
+	mOverflowBtn->setClickedCallback(boost::bind(&LLPanelPlaces::onOverflowButtonClicked, this));
+
+	LLUICtrl::CommitCallbackRegistry::ScopedRegistrar registrar;
+	registrar.add("Places.OverflowMenu.Action",  boost::bind(&LLPanelPlaces::onOverflowMenuItemClicked, this, _2));
+
+	mPlaceMenu = LLUICtrlFactory::getInstance()->createFromFile<LLToggleableMenu>("menu_place.xml", gMenuHolder, LLViewerMenuHolderGL::child_registry_t::instance());
+	if (!mPlaceMenu)
+	{
+		llwarns << "Error loading Place menu" << llendl;
+	}
+
+	mLandmarkMenu = LLUICtrlFactory::getInstance()->createFromFile<LLToggleableMenu>("menu_landmark.xml", gMenuHolder, LLViewerMenuHolderGL::child_registry_t::instance());
+	if (!mLandmarkMenu)
+	{
+		llwarns << "Error loading Landmark menu" << llendl;
+	}
 
 	mTabContainer = getChild<LLTabContainer>("Places Tabs");
 	if (mTabContainer)
@@ -122,14 +150,12 @@ BOOL LLPanelPlaces::postBuild()
 	}
 
 	mPlaceInfo = getChild<LLPanelPlaceInfo>("panel_place_info");
-	if (!mPlaceInfo)
-		return FALSE;
 	
 	LLButton* back_btn = mPlaceInfo->getChild<LLButton>("back_btn");
-	if (back_btn)
-	{
-		back_btn->setClickedCallback(boost::bind(&LLPanelPlaces::onBackButtonClicked, this));
-	}
+	back_btn->setClickedCallback(boost::bind(&LLPanelPlaces::onBackButtonClicked, this));
+
+	// *TODO: Assign the action to an appropriate event.
+	mOverflowBtn->setClickedCallback(boost::bind(&LLPanelPlaces::toggleMediaPanel, this));
 
 	return TRUE;
 }
@@ -147,21 +173,21 @@ void LLPanelPlaces::onOpen(const LLSD& key)
 	togglePlaceInfoPanel(TRUE);
 	updateVerbs();
 
-	if (mPlaceInfoType == "agent")
+	if (mPlaceInfoType == AGENT_INFO_TYPE)
 	{
-		mPlaceInfo->setInfoType(LLPanelPlaceInfo::PLACE);
+		mPlaceInfo->setInfoType(LLPanelPlaceInfo::AGENT);
 		mPlaceInfo->displayAgentParcelInfo();
 		
 		mPosGlobal = gAgent.getPositionGlobal();
 	}
-	else if (mPlaceInfoType == "create_landmark")
+	else if (mPlaceInfoType == CREATE_LANDMARK_INFO_TYPE)
 	{
 		mPlaceInfo->setInfoType(LLPanelPlaceInfo::CREATE_LANDMARK);
 		mPlaceInfo->displayAgentParcelInfo();
 		
 		mPosGlobal = gAgent.getPositionGlobal();
 	}
-	else if (mPlaceInfoType == "landmark")
+	else if (mPlaceInfoType == LANDMARK_INFO_TYPE)
 	{
 		LLUUID item_uuid = key["id"].asUUID();
 		LLInventoryItem* item = gInventory.getItem(item_uuid);
@@ -170,7 +196,7 @@ void LLPanelPlaces::onOpen(const LLSD& key)
 		
 		setItem(item);
 	}
-	else if (mPlaceInfoType == "remote_place")
+	else if (mPlaceInfoType == REMOTE_PLACE_INFO_TYPE)
 	{
 		if (mPlaceInfo->isMediaPanelVisible())
 		{
@@ -186,19 +212,19 @@ void LLPanelPlaces::onOpen(const LLSD& key)
 									  LLUUID(),
 									  mPosGlobal);
 	}
-	else if (mPlaceInfoType == "teleport_history")
+	else if (mPlaceInfoType == TELEPORT_HISTORY_INFO_TYPE)
 	{
 		S32 index = key["id"].asInteger();
 
 		const LLTeleportHistory::slurl_list_t& hist_items =
 			LLTeleportHistory::getInstance()->getItems();
 
-		LLVector3d pos_global = hist_items[index].mGlobalPos;
+		mPosGlobal = hist_items[index].mGlobalPos;
 
 		mPlaceInfo->setInfoType(LLPanelPlaceInfo::TELEPORT_HISTORY);
-		mPlaceInfo->displayParcelInfo(get_pos_local_from_global(pos_global),
+		mPlaceInfo->displayParcelInfo(get_pos_local_from_global(mPosGlobal),
 									  hist_items[index].mRegionID,
-									  pos_global);
+									  mPosGlobal);
 	}
 	
 
@@ -237,11 +263,10 @@ void LLPanelPlaces::onLandmarkLoaded(LLLandmark* landmark)
 
 	LLUUID region_id;
 	landmark->getRegionID(region_id);
-	LLVector3d pos_global;
-	landmark->getGlobalPos(pos_global);
+	landmark->getGlobalPos(mPosGlobal);
 	mPlaceInfo->displayParcelInfo(landmark->getRegionPos(),
 								  region_id,
-								  pos_global);
+								  mPosGlobal);
 }
 
 void LLPanelPlaces::onFilterEdit(const std::string& search_string)
@@ -273,11 +298,6 @@ void LLPanelPlaces::onShareButtonClicked()
 {
 	// TODO: Launch the "Things" Share wizard
 }
-
-void LLPanelPlaces::onCopySLURLButtonClicked()
-{
-	mActivePanel->onCopySLURL();
-}
 */
 
 void LLPanelPlaces::onTeleportButtonClicked()
@@ -287,13 +307,15 @@ void LLPanelPlaces::onTeleportButtonClicked()
 
 	if (mPlaceInfo->getVisible())
 	{
-		if (mPlaceInfoType == "landmark")
+		if (mPlaceInfoType == LANDMARK_INFO_TYPE)
 		{
 			LLSD payload;
 			payload["asset_id"] = mItem->getAssetUUID();
 			LLNotifications::instance().add("TeleportFromLandmark", LLSD(), payload);
 		}
-		else if (mPlaceInfoType == "remote_place" || mPlaceInfoType == "agent")
+		else if (mPlaceInfoType == AGENT_INFO_TYPE ||
+				 mPlaceInfoType == REMOTE_PLACE_INFO_TYPE ||
+				 mPlaceInfoType == TELEPORT_HISTORY_INFO_TYPE)
 		{
 			LLFloaterWorldMap* worldmap_instance = LLFloaterWorldMap::getInstance();
 			if (!mPosGlobal.isExactlyZero() && worldmap_instance)
@@ -320,9 +342,10 @@ void LLPanelPlaces::onShowOnMapButtonClicked()
 		if(!worldmap_instance)
 			return;
 
-		if (mPlaceInfoType == "agent" ||
-			mPlaceInfoType == "create_landmark" ||
-			mPlaceInfoType == "remote_place")
+		if (mPlaceInfoType == AGENT_INFO_TYPE ||
+			mPlaceInfoType == CREATE_LANDMARK_INFO_TYPE ||
+			mPlaceInfoType == REMOTE_PLACE_INFO_TYPE ||
+			mPlaceInfoType == TELEPORT_HISTORY_INFO_TYPE)
 		{
 			if (!mPosGlobal.isExactlyZero())
 			{
@@ -330,7 +353,7 @@ void LLPanelPlaces::onShowOnMapButtonClicked()
 				LLFloaterReg::showInstance("world_map", "center");
 			}
 		}
-		else if (mPlaceInfoType == "landmark")
+		else if (mPlaceInfoType == LANDMARK_INFO_TYPE)
 		{
 			LLLandmark* landmark = gLandmarkList.getAsset(mItem->getAssetUUID());
 			if (!landmark)
@@ -353,23 +376,104 @@ void LLPanelPlaces::onShowOnMapButtonClicked()
 	}
 }
 
+void LLPanelPlaces::onOverflowButtonClicked()
+{
+	LLToggleableMenu* menu;
+
+	bool is_agent_place_info_visible = mPlaceInfoType == AGENT_INFO_TYPE;
+
+	if ((is_agent_place_info_visible ||
+		 mPlaceInfoType == "remote_place" ||
+		 mPlaceInfoType == "teleport_history") && mPlaceMenu != NULL)
+	{
+		menu = mPlaceMenu;
+		
+		// Enable adding a landmark only for agent current parcel and if
+		// there is no landmark already pointing to that parcel in agent's inventory.
+		menu->getChild<LLMenuItemCallGL>("landmark")->setEnabled(is_agent_place_info_visible &&
+																 !LLLandmarkActions::landmarkAlreadyExists());
+	}
+	else if (mPlaceInfoType == LANDMARK_INFO_TYPE && mLandmarkMenu != NULL)
+	{
+		menu = mLandmarkMenu;
+
+		BOOL is_landmark_removable = FALSE;
+		if (mItem.notNull())
+		{
+			const LLUUID& item_id = mItem->getUUID();
+			const LLUUID& trash_id = gInventory.findCategoryUUIDForType(LLAssetType::AT_TRASH);
+			is_landmark_removable = gInventory.isObjectDescendentOf(item_id, gInventory.getRootFolderID()) &&
+									!gInventory.isObjectDescendentOf(item_id, trash_id);
+		}
+
+		menu->getChild<LLMenuItemCallGL>("delete")->setEnabled(is_landmark_removable);
+	}
+	else
+	{
+		return;
+	}
+
+	if (!menu->toggleVisibility())
+		return;
+
+	menu->updateParent(LLMenuGL::sMenuContainer);
+	LLRect rect = mOverflowBtn->getRect();
+	menu->setButtonRect(rect, this);
+	LLMenuGL::showPopup(this, menu, rect.mRight, rect.mTop);
+}
+
+void LLPanelPlaces::onOverflowMenuItemClicked(const LLSD& param)
+{
+	std::string item = param.asString();
+	if (item == "landmark")
+	{
+		onOpen(LLSD().insert("type", CREATE_LANDMARK_INFO_TYPE));
+	}
+	else if (item == "copy")
+	{
+		LLLandmarkActions::getSLURLfromPosGlobal(mPosGlobal, boost::bind(&onSLURLBuilt, _1));
+	}
+	else if (item == "delete")
+	{
+		gInventory.removeItem(mItem->getUUID());
+
+		onBackButtonClicked();
+	}
+	else if (item == "pick")
+	{
+		if (!mPlaceInfo)
+			return;
+		
+		mPlaceInfo->createPick(mPosGlobal);
+
+		onBackButtonClicked();
+	}
+}
+
 void LLPanelPlaces::onCreateLandmarkButtonClicked(const LLUUID& folder_id)
 {
 	if (!mPlaceInfo)
 		return;
 
 	mPlaceInfo->createLandmark(folder_id);
-
-	onBackButtonClicked();
-	LLSideTray::getInstance()->collapseSideBar();
 }
 
 void LLPanelPlaces::onBackButtonClicked()
 {
-	togglePlaceInfoPanel(FALSE);
+	if (!mPlaceInfo)
+		return;
+	
+	if (mPlaceInfo->isMediaPanelVisible())
+	{
+		toggleMediaPanel();
+	}
+	else
+	{
+		togglePlaceInfoPanel(FALSE);
 
-	// Resetting mPlaceInfoType when Place Info panel is closed.
-	mPlaceInfoType = LLStringUtil::null;
+		// Resetting mPlaceInfoType when Place Info panel is closed.
+		mPlaceInfoType = LLStringUtil::null;
+	}
 
 	updateVerbs();
 }
@@ -380,11 +484,11 @@ void LLPanelPlaces::toggleMediaPanel()
 		return;
 
 	mPlaceInfo->toggleMediaPanel(!mPlaceInfo->isMediaPanelVisible());
-	
+
 	// Refresh the current place info because
 	// the media panel controls can't refer to
 	// the remote parcel media.
-	onOpen(LLSD().insert("type", "agent"));
+	onOpen(LLSD().insert("type", AGENT_INFO_TYPE));
 }
 
 void LLPanelPlaces::togglePlaceInfoPanel(BOOL visible)
@@ -402,7 +506,7 @@ void LLPanelPlaces::togglePlaceInfoPanel(BOOL visible)
 
 		LLRect rect = getRect();
 		LLRect new_rect = LLRect(rect.mLeft, rect.mTop, rect.mRight, mTabContainer->getRect().mBottom);
-		mPlaceInfo->reshape(new_rect.getWidth(),new_rect.getHeight());	
+		mPlaceInfo->reshape(new_rect.getWidth(),new_rect.getHeight());
 	}
 }
 
@@ -450,13 +554,13 @@ void LLPanelPlaces::onAgentParcelChange()
 	if (!mPlaceInfo)
 		return;
 
-	if (mPlaceInfo->getVisible() && mPlaceInfoType == "create_landmark")
+	if (mPlaceInfo->getVisible() && mPlaceInfoType == CREATE_LANDMARK_INFO_TYPE)
 	{
 		onOpen(LLSD().insert("type", mPlaceInfoType));
 	}
 	else if (mPlaceInfo->isMediaPanelVisible())
 	{
-		onOpen(LLSD().insert("type", "agent"));
+		onOpen(LLSD().insert("type", AGENT_INFO_TYPE));
 	}
 	else
 	{
@@ -470,8 +574,8 @@ void LLPanelPlaces::updateVerbs()
 		return;
 
 	bool is_place_info_visible = mPlaceInfo->getVisible();
-	bool is_agent_place_info_visible = mPlaceInfoType == "agent";
-	bool is_create_landmark_visible = mPlaceInfoType == "create_landmark";
+	bool is_agent_place_info_visible = mPlaceInfoType == AGENT_INFO_TYPE;
+	bool is_create_landmark_visible = mPlaceInfoType == CREATE_LANDMARK_INFO_TYPE;
 	bool is_media_panel_visible = mPlaceInfo->isMediaPanelVisible();
 	
 	mTeleportBtn->setVisible(!is_create_landmark_visible);
@@ -479,9 +583,7 @@ void LLPanelPlaces::updateVerbs()
 	mCreateLandmarkBtn->setVisible(is_create_landmark_visible);
 	mFolderMenuBtn->setVisible(is_create_landmark_visible);
 
-	// Enable overflow button only when showing the information
-	// about agent's current location.
-	mOverflowBtn->setEnabled(is_agent_place_info_visible);
+	mOverflowBtn->setEnabled(is_place_info_visible && !is_media_panel_visible && !is_create_landmark_visible);
 
 	if (is_place_info_visible)
 	{
@@ -493,7 +595,15 @@ void LLPanelPlaces::updateVerbs()
 									 !mPosGlobal.isExactlyZero() &&
 									 !LLViewerParcelMgr::getInstance()->inAgentParcel(mPosGlobal));
 		}
-		else if (mPlaceInfoType == "landmark" || mPlaceInfoType == "remote_place")
+		else if (is_create_landmark_visible)
+		{
+			// Enable "Create Landmark" only if there is no landmark
+			// for the current parcel.
+			bool no_landmark = !LLLandmarkActions::landmarkAlreadyExists();
+			mCreateLandmarkBtn->setEnabled(no_landmark);
+			mFolderMenuBtn->setEnabled(no_landmark);
+		}
+		else if (mPlaceInfoType == LANDMARK_INFO_TYPE || mPlaceInfoType == REMOTE_PLACE_INFO_TYPE)
 		{
 			mTeleportBtn->setEnabled(TRUE);
 		}
@@ -515,6 +625,7 @@ void LLPanelPlaces::showLandmarkFoldersMenu()
 		menu_p.can_tear_off(false);
 		menu_p.visible(false);
 		menu_p.scrollable(true);
+		menu_p.max_scrollable_items = 10;
 
 		LLToggleableMenu* menu = LLUICtrlFactory::create<LLToggleableMenu>(menu_p);
 
@@ -525,18 +636,8 @@ void LLPanelPlaces::showLandmarkFoldersMenu()
 	if(!menu)
 		return;
 
-	if (menu->getClosedByButtonClick())
-	{
-		menu->resetClosedByButtonClick();
+	if (!menu->toggleVisibility())
 		return;
-	}
-
-	if (menu->getVisible())
-	{
-		menu->setVisible(FALSE);
-		menu->resetClosedByButtonClick();
-		return;
-	}
 
 	// Collect all folders that can contain landmarks.
 	LLInventoryModel::cat_array_t cats;
@@ -591,7 +692,6 @@ void LLPanelPlaces::showLandmarkFoldersMenu()
 	mLandmarkFoldersCache = folders;
 
 	menu->empty();
-	U32 max_width = 0;
 
 	// Menu width must not exceed the root view limits,
 	// so we assume the space between the left edge of
@@ -599,6 +699,7 @@ void LLPanelPlaces::showLandmarkFoldersMenu()
 	LLRect screen_btn_rect;
 	localRectToScreen(btn_rect, &screen_btn_rect);
 	S32 free_space = screen_btn_rect.mRight;
+	U32 max_width = llmin(LANDMARK_FOLDERS_MENU_WIDTH, free_space);
 
 	for(folder_vec_t::const_iterator it = mLandmarkFoldersCache.begin(); it != mLandmarkFoldersCache.end(); it++)
 	{
@@ -612,13 +713,14 @@ void LLPanelPlaces::showLandmarkFoldersMenu()
 
 		LLMenuItemCallGL *menu_item = LLUICtrlFactory::create<LLMenuItemCallGL>(item_params);
 
+		// *TODO: Use a separate method for menu width calculation.
 		// Check whether item name wider than menu
-		if ((S32) menu_item->getNominalWidth() > free_space)
+		if (menu_item->getNominalWidth() > max_width)
 		{
 			S32 chars_total = item_name.length();
 			S32 chars_fitted = 1;
 			menu_item->setLabel(LLStringExplicit(""));
-			S32 label_space = free_space - menu_item->getFont()->getWidth("...") -
+			S32 label_space = max_width - menu_item->getFont()->getWidth("...") -
 				menu_item->getNominalWidth(); // This returns width of menu item with empty label (pad pixels)
 
 			while (chars_fitted < chars_total && menu_item->getFont()->getWidth(item_name, 0, chars_fitted) < label_space)
@@ -629,8 +731,6 @@ void LLPanelPlaces::showLandmarkFoldersMenu()
 
 			menu_item->setLabel(item_name.substr(0, chars_fitted) + "...");
 		}
-
-		max_width = llmax(max_width, menu_item->getNominalWidth());
 
 		menu->addChild(menu_item);
 	}
@@ -705,11 +805,21 @@ static void collectLandmarkFolders(LLInventoryModel::cat_array_t& cats)
 	}
 }
 
-const LLVector3 get_pos_local_from_global(const LLVector3d &pos_global)
+static const LLVector3 get_pos_local_from_global(const LLVector3d &pos_global)
 {
 	F32 region_x = (F32)fmod( pos_global.mdV[VX], (F64)REGION_WIDTH_METERS );
 	F32 region_y = (F32)fmod( pos_global.mdV[VY], (F64)REGION_WIDTH_METERS );
 
 	LLVector3 pos_local(region_x, region_y, (F32)pos_global.mdV[VZ]);
 	return pos_local;
+}
+
+static void onSLURLBuilt(std::string& slurl)
+{
+	LLView::getWindow()->copyTextToClipboard(utf8str_to_wstring(slurl));
+		
+	LLSD args;
+	args["SLURL"] = slurl;
+
+	LLNotifications::instance().add("CopySLURL", args);
 }

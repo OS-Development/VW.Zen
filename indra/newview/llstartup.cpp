@@ -40,14 +40,15 @@
 #	include <sys/stat.h>		// mkdir()
 #endif
 
-#include "audioengine.h"
+#include "llviewermedia_streamingaudio.h"
+#include "llaudioengine.h"
 
 #ifdef LL_FMOD
-# include "audioengine_fmod.h"
+# include "llaudioengine_fmod.h"
 #endif
 
 #ifdef LL_OPENAL
-#include "audioengine_openal.h"
+#include "llaudioengine_openal.h"
 #endif
 
 #include "llares.h"
@@ -188,10 +189,6 @@
 #include "lllogin.h"
 #include "llevents.h"
 
-#if LL_LIBXUL_ENABLED
-#include "llmozlib.h"
-#endif // LL_LIBXUL_ENABLED
-
 #if LL_WINDOWS
 #include "llwindebug.h"
 #include "lldxhardware.h"
@@ -316,6 +313,59 @@ void update_texture_fetch()
 	LLAppViewer::getTextureFetch()->update(1); // unpauses the texture fetch thread
 	gTextureList.updateImages(0.10f);
 }
+
+//Copies landmarks from the "Library" to "My Favorites"
+void populate_favorites_bar()
+{
+	//*TODO consider extending LLInventoryModel::findCategoryUUIDForType(...) to support both root's
+	LLInventoryModel::cat_array_t* lib_cats = NULL;
+	LLInventoryModel::item_array_t* lib_items = NULL;
+	gInventory.getDirectDescendentsOf(gInventory.getLibraryRootFolderID(), lib_cats, lib_items);
+	if (!lib_cats) return;
+
+	LLUUID lib_landmarks(LLUUID::null);
+	S32 count = lib_cats->count();
+	for(S32 i = 0; i < count; ++i)
+	{
+		if(lib_cats->get(i)->getPreferredType() == LLAssetType::AT_LANDMARK)
+		{
+			lib_landmarks = lib_cats->get(i)->getUUID();
+			break;
+		}
+	}
+	if (lib_landmarks.isNull())
+	{
+		llerror("Library inventory is missing Landmarks", 0);
+		return;
+	}
+
+	LLInventoryModel::cat_array_t* lm_cats = NULL;
+	LLInventoryModel::item_array_t* lm_items = NULL;
+	gInventory.getDirectDescendentsOf(lib_landmarks, lm_cats, lm_items);
+	if (!lm_items) return;
+
+	LLUUID favorites_id = gInventory.findCategoryUUIDForType(LLAssetType::AT_FAVORITE);
+	if (favorites_id.isNull())
+	{
+		llerror("My Inventory is missing My Favorites", 0);
+		return;
+	}
+
+	S32 lm_count = lm_items->count();
+	for (S32 i = 0; i < lm_count; ++i)
+	{
+		LLInventoryItem* item = lm_items->get(i);
+		if (item->getUUID().isNull()) continue;
+
+		copy_inventory_item(gAgent.getID(),
+			item->getPermissions().getOwner(),
+			item->getUUID(),
+			favorites_id,
+			std::string(),
+			LLPointer<LLInventoryCallback>(NULL));
+	}
+}
+
 
 // Returns false to skip other idle processing. Should only return
 // true when all initialization done.
@@ -651,6 +701,16 @@ bool idle_startup()
 					delete gAudiop;
 					gAudiop = NULL;
 				}
+
+				if (gAudiop)
+				{
+					// if the audio engine hasn't set up its own preferred handler for streaming audio then set up the generic streaming audio implementation which uses media plugins
+					if (NULL == gAudiop->getStreamingAudioImpl())
+					{
+						LL_INFOS("AppInit") << "Using media plugins to render streaming audio" << LL_ENDL;
+						gAudiop->setStreamingAudioImpl(new LLStreamingAudio_MediaPlugins());
+					}
+				}
 			}
 		}
 		
@@ -735,10 +795,7 @@ bool idle_startup()
 		std::string msg = LLTrans::getString("LoginInitializingBrowser");
 		set_startup_status(0.03f, msg.c_str(), gAgent.mMOTD.c_str());
 		display_startup();
-#if !defined(LL_WINDOWS) || !defined(LL_DEBUG)
-		// This generates an error in debug mode on Windows
-		LLViewerMedia::initBrowser();
-#endif
+		// LLViewerMedia::initBrowser();
 		LLStartUp::setStartupState( STATE_LOGIN_SHOW );
 		return FALSE;
 	}
@@ -912,11 +969,10 @@ bool idle_startup()
 		}
 
 		
-		//For HTML parsing in text boxes.
-		LLTextEditor::setLinkColor( LLUIColorTable::instance().getColor("HTMLLinkColor") );
-
 		// Load URL History File
 		LLURLHistory::loadFile("url_history.xml");
+		// Load location history 
+		LLLocationHistory::getInstance()->load();
 
 		//-------------------------------------------------
 		// Handle startup progress screen
@@ -1587,7 +1643,7 @@ bool idle_startup()
 		}
 
 
-		//all categories loaded. lets create "My Favourites" category
+		//all categories loaded. lets create "My Favorites" category
 		gInventory.findCategoryUUIDForType(LLAssetType::AT_FAVORITE,true);
 
 		gInventory.buildParentChildMap();
@@ -1621,6 +1677,12 @@ bool idle_startup()
 		// Create the inventory views
 		llinfos << "Creating Inventory Views" << llendl;
 		LLFloaterReg::getInstance("inventory");
+
+		//default initial content for Favorites Bar 
+		if (gAgent.isFirstLogin())
+		{
+			populate_favorites_bar();
+		}
 
 		LLStartUp::setStartupState( STATE_MISC );
 		return FALSE;
@@ -1998,7 +2060,7 @@ bool idle_startup()
 		// reset timers now that we are running "logged in" logic
 		LLFastTimer::reset();
 
-		LLLocationHistory::getInstance()->load();
+		
 
 		return TRUE;
 	}
@@ -2686,7 +2748,7 @@ void LLStartUp::multimediaInit()
 	set_startup_status(0.42f, msg.c_str(), gAgent.mMOTD.c_str());
 	display_startup();
 
-	LLViewerMedia::initClass();
+	// LLViewerMedia::initClass();
 	LLViewerParcelMedia::initClass();
 }
 
@@ -2705,7 +2767,7 @@ bool LLStartUp::dispatchURL()
 	// ok, if we've gotten this far and have a startup URL
 	if (!sSLURLCommand.empty())
 	{
-		LLWebBrowserCtrl* web = NULL;
+		LLMediaCtrl* web = NULL;
 		const bool trusted_browser = false;
 		LLURLDispatcher::dispatch(sSLURLCommand, web, trusted_browser);
 	}
@@ -2723,7 +2785,7 @@ bool LLStartUp::dispatchURL()
 			|| (dy*dy > SLOP*SLOP) )
 		{
 			std::string url = LLURLSimString::getURL();
-			LLWebBrowserCtrl* web = NULL;
+			LLMediaCtrl* web = NULL;
 			const bool trusted_browser = false;
 			LLURLDispatcher::dispatch(url, web, trusted_browser);
 		}

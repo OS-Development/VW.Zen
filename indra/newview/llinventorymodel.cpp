@@ -1786,6 +1786,12 @@ void LLInventoryModel::addItem(LLViewerInventoryItem* item)
 	//llinfos << "LLInventoryModel::addItem()" << llendl;
 	if(item)
 	{
+		// This condition means that we tried to add a link without the baseobj being in memory.
+		// The item will show up as a broken link.
+		if (item->getIsBrokenLink())
+		{
+			llwarns << "Add link item without baseobj present ( name: " << item->getName() << " itemID: " << item->getUUID() << " assetID: " << item->getAssetUUID() << " )  parent: " << item->getParentUUID() << llendl;
+		}
 		mItemMap[item->getUUID()] = item;
 		//mInventory[item->getUUID()] = item;
 	}
@@ -2028,6 +2034,7 @@ bool LLInventoryModel::loadSkeleton(
 		update_map_t child_counts;
 		cat_array_t categories;
 		item_array_t items;
+		cat_set_t invalid_categories; // Used to mark categories that weren't successfully loaded.
 		std::string owner_id_str;
 		owner_id.toString(owner_id_str);
 		std::string path(gDirUtilp->getExpandedFilename(LL_PATH_CACHE, owner_id_str));
@@ -2093,7 +2100,7 @@ bool LLInventoryModel::loadSkeleton(
 			}
 
 			// go ahead and add the cats returned during the download
-			std::set<LLUUID>::iterator not_cached_id = cached_ids.end();
+			std::set<LLUUID>::const_iterator not_cached_id = cached_ids.end();
 			cached_category_count = cached_ids.size();
 			for(cat_set_t::iterator it = temp_cats.begin(); it != temp_cats.end(); ++it)
 			{
@@ -2113,16 +2120,26 @@ bool LLInventoryModel::loadSkeleton(
 			// category with a correctly cached parent
 			count = items.count();
 			cat_map_t::iterator unparented = mCategoryMap.end();
-			for(int i = 0; i < count; ++i)
+			for(item_array_t::const_iterator item_iter = items.begin();
+				item_iter != items.end();
+				++item_iter)
 			{
-				cat_map_t::iterator cit = mCategoryMap.find(items[i]->getParentUUID());
+				LLViewerInventoryItem *item = (*item_iter).get();
+				const cat_map_t::iterator cit = mCategoryMap.find(item->getParentUUID());
 				
 				if(cit != unparented)
 				{
-					LLViewerInventoryCategory* cat = cit->second;
+					const LLViewerInventoryCategory* cat = cit->second.get();
 					if(cat->getVersion() != NO_VERSION)
 					{
-						addItem(items[i]);
+						// This can happen if the linked object's baseobj is removed from the cache but the linked object is still in the cache.
+						if (item->getIsBrokenLink())
+						{
+							llinfos << "Attempted to cached link item without baseobj present ( itemID: " << item->getUUID() << " assetID: " << item->getAssetUUID() << " ) " << llendl;
+							invalid_categories.insert(cit->second);
+							continue;
+						}
+						addItem(item);
 						cached_item_count += 1;
 						++child_counts[cat->getUUID()];
 					}
@@ -2144,14 +2161,13 @@ bool LLInventoryModel::loadSkeleton(
 		// At this point, we need to set the known descendents for each
 		// category which successfully cached so that we do not
 		// needlessly fetch descendents for categories which we have.
-		update_map_t::iterator no_child_counts = child_counts.end();
-		update_map_t::iterator the_count;
+		update_map_t::const_iterator no_child_counts = child_counts.end();
 		for(cat_set_t::iterator it = temp_cats.begin(); it != temp_cats.end(); ++it)
 		{
-			LLViewerInventoryCategory* cat = (*it);
+			LLViewerInventoryCategory* cat = (*it).get();
 			if(cat->getVersion() != NO_VERSION)
 			{
-				the_count = child_counts.find(cat->getUUID());
+				update_map_t::const_iterator the_count = child_counts.find(cat->getUUID());
 				if(the_count != no_child_counts)
 				{
 					cat->setDescendentCount((*the_count).second.mValue);
@@ -2161,6 +2177,17 @@ bool LLInventoryModel::loadSkeleton(
 					cat->setDescendentCount(0);
 				}
 			}
+		}
+
+		// Invalidate all categories that failed fetching descendents for whatever
+		// reason (e.g. one of the descendents was a broken link).
+		for (cat_set_t::iterator invalid_cat_it = invalid_categories.begin();
+			 invalid_cat_it != invalid_categories.end();
+			 invalid_cat_it++)
+		{
+			LLViewerInventoryCategory* cat = (*invalid_cat_it).get();
+			cat->setVersion(NO_VERSION);
+			llinfos << "Invalidating category name: " << cat->getName() << " UUID: " << cat->getUUID() << " due to invalid descendents cache" << llendl;
 		}
 
 		if(remove_inventory_file)

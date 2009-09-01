@@ -381,6 +381,7 @@
   <texture name="icon_groupnoticeinventory.tga"/>
   <texture name="icon_lock.tga"/>
   <texture name="icon_place.tga"/>
+  <texture name="icon_place_for_sale.tga"/>
   <texture name="icon_popular.tga"/>
   <texture name="icon_top_pick.tga"/>
 
@@ -414,6 +415,8 @@
   <texture name="inv_item_jacket.tga"/>
   <texture name="inv_item_landmark.tga"/>
   <texture name="inv_item_landmark_visited.tga"/>
+  <texture name="inv_item_linkitem.tga"/>
+  <texture name="inv_item_linkfolder.tga"/>
   <texture name="inv_item_notecard.tga"/>
   <texture name="inv_item_object.tga"/>
   <texture name="inv_item_object_multi.tga"/>
@@ -527,5 +530,24 @@
   <texture name="default_land_picture.j2c"/>
   <texture name="default_profile_picture.j2c"/>
   <texture name="locked_image.j2c"/>
+  
+  <texture name="media_btn_back.png"/>
+  <texture name="media_btn_done.png"/>
+  <texture name="media_btn_forward.png"/>
+  <texture name="media_btn_home.png"/>
+  <texture name="media_btn_newwindow.png"/>
+  <texture name="media_btn_optimalzoom.png"/>
+  <texture name="media_btn_reload.png"/>
+  <texture name="media_btn_scrolldown.png"/>
+  <texture name="media_btn_scrollleft.png"/>
+  <texture name="media_btn_scrollright.png"/>
+  <texture name="media_btn_scrollup.png"/>
+  <texture name="media_btn_stoploading.png"/>
+  <texture name="media_panel_divider.png"/>
+
+  <texture name="media_floater_border_16.png" scale_top="12" scale_left="4" scale_bottom="4" scale_right="12"/>
+
+  <texture name="media_panel_bg.png" preload="true" scale_left="9" scale_top="9" scale_right="9" scale_bottom="9" />
+  <texture name="media_panel_hoverrectangle.png" preload="true" scale_left="9" scale_top="9" scale_right="9" scale_bottom="9" />
 
 </textures>

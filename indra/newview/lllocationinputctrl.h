@@ -40,6 +40,7 @@ class LLLandmark;
 // internals
 class LLAddLandmarkObserver;
 class LLRemoveLandmarkObserver;
+class LLMenuGL;
 
 /**
  * Location input control.
@@ -58,7 +59,9 @@ public:
 	:	public LLInitParam::Block<Params, LLComboBox::Params>
 	{
 		Optional<LLUIImage*>				add_landmark_image_enabled,
-											add_landmark_image_disabled;
+											add_landmark_image_disabled,
+											add_landmark_image_hover,
+											add_landmark_image_selected;
 		Optional<S32>						add_landmark_hpad;
 		Optional<LLButton::Params>			add_landmark_button,
 											info_button;
@@ -92,22 +95,32 @@ private:
 	virtual ~LLLocationInputCtrl();
 
 	void					focusTextEntry();
+	/**
+	 * Changes the "Add landmark" button image
+	 * depending on whether current parcel has been landmarked.
+	 */
 	void					enableAddLandmarkButton(bool val);
 	void					refresh();
 	void					refreshLocation();
 	void					rebuildLocationHistory(std::string filter = "");
 	void					setText(const LLStringExplicit& text);
 	void					updateAddLandmarkButton();
+	void 					updateContextMenu();
 	void					updateWidgetlayout();
+	void					changeLocationPresentation();
 
 	void					onInfoButtonClicked();
 	void					onLocationHistoryLoaded();
 	void					onLocationPrearrange(const LLSD& data);
-	void 					onTextEditorMouseUp(S32 x, S32 y, MASK mask);
+	void 					onTextEditorRightClicked(S32 x, S32 y, MASK mask);
 	void					onLandmarkLoaded(LLLandmark* lm);
 	void					onAddLandmarkButtonClicked();
 	void					onAgentParcelChange();
+	// callbacks
+	bool					onLocationContextMenuItemEnabled(const LLSD& userdata);
+	void 					onLocationContextMenuItemClicked(const LLSD& userdata);
 
+	LLMenuGL*				mLocationContextMenu;
 	LLButton*				mAddLandmarkBtn;
 	LLButton*				mInfoBtn;
 	S32						mAddLandmarkHPad;
@@ -117,6 +130,11 @@ private:
 
 	boost::signals2::connection	mParcelMgrConnection;
 	boost::signals2::connection	mLocationHistoryConnection;
+	LLUIImage* mLandmarkImageOn;
+	LLUIImage* mLandmarkImageOff;
+
+	std::string mAddLandmarkTooltip;
+	std::string mEditLandmarkTooltip;
 };
 
 #endif

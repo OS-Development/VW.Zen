@@ -10,7 +10,7 @@
 	width="318"
 	height="35"
   layout="topleft"
-  follows="top"
+  follows="left|right"
   background_opaque="false"
   background_visible="true"
   bg_alpha_color="0.0 0.0 0.0 0.0" >
@@ -54,6 +54,7 @@
     name="close_btn" 
     mouse_opaque="true"
     label=""
+    tab_stop="false"
     image_unselected="toast_hide_btn.tga" 
     image_disabled="toast_hide_btn.tga"
     image_selected="toast_hide_btn.tga" 

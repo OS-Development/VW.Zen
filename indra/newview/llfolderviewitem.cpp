@@ -233,7 +233,7 @@ void LLFolderViewItem::refreshFromListener()
 		// temporary attempt to display the inventory folder in the user locale.
 		if (LLAssetType::lookupIsProtectedCategoryType(preferred_type))
 		{
-			mLabel = LLTrans::getString("InvFolder " + mLabel);
+			LLTrans::findString(mLabel, "InvFolder " + mLabel);
 		};
 
 		setIcon(mListener->getIcon());
@@ -2115,6 +2115,14 @@ BOOL LLFolderViewFolder::handleMouseDown( S32 x, S32 y, MASK mask )
 
 BOOL LLFolderViewFolder::handleDoubleClick( S32 x, S32 y, MASK mask )
 {
+	const LLUUID &cat_uuid = getListener()->getUUID();
+	const LLViewerInventoryCategory *cat = gInventory.getCategory(cat_uuid);
+	if (cat && cat->getPreferredType() == LLAssetType::AT_OUTFIT)
+	{
+		getListener()->performAction(NULL, NULL,"replaceoutfit");
+		return TRUE;
+	}
+
 	BOOL handled = FALSE;
 	if( mIsOpen )
 	{

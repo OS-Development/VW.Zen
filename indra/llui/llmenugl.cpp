@@ -184,6 +184,13 @@ LLMenuItemGL::LLMenuItemGL(const LLMenuItemGL::Params& p)
 		<< LL_ENDL;
 }
 
+//virtual
+void LLMenuItemGL::setValue(const LLSD& value)
+{
+	setLabel(value.asString());
+}
+
+//virtual
 BOOL LLMenuItemGL::handleAcceleratorKey(KEY key, MASK mask)
 {
 	if( getEnabled() && (!gKeyboard->getKeyRepeated(key) || mAllowKeyRepeat) && (key == mAcceleratorKey) && (mask == (mAcceleratorMask & MASK_NORMALKEYS)) )
@@ -199,6 +206,26 @@ BOOL LLMenuItemGL::handleHover(S32 x, S32 y, MASK mask)
 	setHover(TRUE);
 	getWindow()->setCursor(UI_CURSOR_ARROW);
 	return TRUE;
+}
+
+//virtual
+BOOL LLMenuItemGL::handleRightMouseDown(S32 x, S32 y, MASK mask)
+{
+	return LLUICtrl::handleRightMouseDown(x,y,mask);
+}
+
+//virtual
+BOOL LLMenuItemGL::handleRightMouseUp(S32 x, S32 y, MASK mask)
+{
+	// If this event came from a right-click context menu spawn,
+	// process as a left-click to allow menu items to be hit
+	if (LLMenuHolderGL::sContextMenuSpawnPos.mX != S32_MAX
+		|| LLMenuHolderGL::sContextMenuSpawnPos.mY != S32_MAX)
+	{
+		BOOL handled = handleMouseUp(x, y, mask);
+		return handled;
+	}
+	return LLUICtrl::handleRightMouseUp(x,y,mask);
 }
 
 // This function checks to see if the accelerator key is already in use;
@@ -306,6 +333,17 @@ U32 LLMenuItemGL::getNominalHeight( void ) const
 	return llround(mFont->getLineHeight()) + MENU_ITEM_PADDING; 
 }
 
+//virtual
+void LLMenuItemGL::setBriefItem(BOOL brief)
+{
+	mBriefItem = brief;
+}
+
+//virtual
+BOOL LLMenuItemGL::isBriefItem() const
+{
+	return mBriefItem;
+}
 
 // Get the parent menu for this item
 LLMenuGL* LLMenuItemGL::getMenu() const
@@ -800,15 +838,8 @@ BOOL LLMenuItemCallGL::handleAcceleratorKey( KEY key, MASK mask )
 	return FALSE;
 }
 
-BOOL LLMenuItemCallGL::handleRightMouseUp(S32 x, S32 y, MASK mask)
-{
-	if (pointInView(x, y))
-	{
-		mRightClickSignal(this,x,y, mask);
-	}
-
-	return TRUE;
-}
+// handleRightMouseUp moved into base class LLMenuItemGL so clicks are
+// handled for all menu item types
 
 ///============================================================================
 /// Class LLMenuItemCheckGL
@@ -898,24 +929,38 @@ LLMenuItemBranchGL::~LLMenuItemBranchGL()
 }
 
 // virtual
-LLView* LLMenuItemBranchGL::getChildView(const std::string& name, BOOL recurse, BOOL create_if_missing) const
+LLView* LLMenuItemBranchGL::getChildView(const std::string& name, BOOL recurse) const
 {
 	LLMenuGL* branch = getBranch();
-	if (!branch)
-		return LLView::getChildView(name, recurse, create_if_missing);
+	if (branch)
+	{
+		if (branch->getName() == name)
+		{
+			return branch;
+		}
 
-	// richard: this is redundant with parent, remove
-	if (branch->getName() == name)
-	{
-		return branch;
+		// Always recurse on branches
+		return branch->getChildView(name, recurse);
 	}
-	// Always recurse on branches
-	LLView* child = branch->getChildView(name, recurse, FALSE);
-	if (!child)
+
+	return LLView::getChildView(name, recurse);
+}
+
+LLView* LLMenuItemBranchGL::findChildView(const std::string& name, BOOL recurse) const
+{
+	LLMenuGL* branch = getBranch();
+	if (branch)
 	{
-		child = LLView::getChildView(name, recurse, create_if_missing);
+		if (branch->getName() == name)
+		{
+			return branch;
+		}
+
+		// Always recurse on branches
+		return branch->findChildView(name, recurse);
 	}
-	return child;
+
+	return LLView::findChildView(name, recurse);
 }
 
 // virtual
@@ -1123,6 +1168,18 @@ BOOL LLMenuItemBranchGL::handleKeyHere( KEY key, MASK mask )
 	return LLMenuItemGL::handleKeyHere(key, mask);
 }
 
+//virtual
+BOOL LLMenuItemBranchGL::isActive() const
+{
+	return isOpen() && getBranch() && getBranch()->getHighlightedItem();
+}
+
+//virtual
+BOOL LLMenuItemBranchGL::isOpen() const
+{
+	return getBranch() && getBranch()->isOpen();
+}
+
 void LLMenuItemBranchGL::openMenu()
 {
 	LLMenuGL* branch = getBranch();
@@ -1296,20 +1353,26 @@ void LLMenuItemBranchDownGL::openMenu( void )
 // set the hover status (called by it's menu)
 void LLMenuItemBranchDownGL::setHighlight( BOOL highlight )
 {
-	if (highlight == getHighlight()) return;
+ 	if (highlight == getHighlight())
+		return;
 
 	//NOTE: Purposely calling all the way to the base to bypass auto-open.
 	LLMenuItemGL::setHighlight(highlight);
+
+	LLMenuGL* branch = getBranch();
+	if (!branch)
+		return;
+	
 	if( !highlight)
 	{
-		if (getBranch()->getTornOff())
+		if (branch->getTornOff())
 		{
-			((LLFloater*)getBranch()->getParent())->setFocus(FALSE);
-			getBranch()->clearHoverItem();
+			((LLFloater*)branch->getParent())->setFocus(FALSE);
+			branch->clearHoverItem();
 		}
 		else
 		{
-			getBranch()->setVisible( FALSE );
+			branch->setVisible( FALSE );
 		}
 	}
 }
@@ -1578,6 +1641,7 @@ LLMenuGL::LLMenuGL(const LLMenuGL::Params& p)
 	mDropShadowed( p.drop_shadow ),
 	mHorizontalLayout( p.horizontal_layout ),
 	mScrollable(mHorizontalLayout ? FALSE : p.scrollable), // Scrolling is supported only for vertical layout
+	mMaxScrollableItems(p.max_scrollable_items),
 	mKeepFixedSize( p.keep_fixed_size ),
 	mLabel (p.label),
 	mLastMouseX(0),
@@ -1851,6 +1915,7 @@ void LLMenuGL::arrange( void )
 		item_list_t::iterator first_hidden_item_iter = mItems.end();
 		S32 height_before_first_visible_item = -1;
 		S32 visible_items_height = 0;
+		U32 scrollable_items_cnt = 0;
 		
 		if (mHorizontalLayout)
 		{
@@ -1945,12 +2010,16 @@ void LLMenuGL::arrange( void )
 						{
 							height_before_first_visible_item = height - (*item_iter)->getNominalHeight();
 							first_visible_item_iter = item_iter;
+							scrollable_items_cnt = 0;
 						}
 
-						if (-1 != height_before_first_visible_item && 0 == visible_items_height && height - height_before_first_visible_item > max_height - spillover_item_height * 2)
+						if (-1 != height_before_first_visible_item && 0 == visible_items_height &&
+						    (++scrollable_items_cnt > mMaxScrollableItems ||
+						     height - height_before_first_visible_item > max_height - spillover_item_height * 2 ))
 						{
 							first_hidden_item_iter = item_iter;
 							visible_items_height = height - height_before_first_visible_item - (*item_iter)->getNominalHeight();
+							scrollable_items_cnt--;
 						}
 					}
 				}
@@ -1960,16 +2029,16 @@ void LLMenuGL::arrange( void )
 			{
 				S32 max_items_height = max_height - spillover_item_height * 2;
 
-				// Fix mFirstVisibleItem value, if it doesn't allow to display all items, that can fit
-				if (visible_items_height < max_items_height)
-				{
-					if (visible_items_height == 0)
-					{
-						visible_items_height = height - height_before_first_visible_item;
-					}
+				if (visible_items_height == 0)
+					visible_items_height = height - height_before_first_visible_item;
 
+				// Fix mFirstVisibleItem value, if it doesn't allow to display all items, that can fit
+				if (visible_items_height < max_items_height && scrollable_items_cnt < mMaxScrollableItems)
+				{
 					item_list_t::iterator tmp_iter(first_visible_item_iter);
-					while (visible_items_height < max_items_height && first_visible_item_iter != mItems.begin())
+					while (visible_items_height < max_items_height &&
+					       scrollable_items_cnt < mMaxScrollableItems &&
+					       first_visible_item_iter != mItems.begin())
 					{
 						if ((*first_visible_item_iter)->getVisible())
 						{
@@ -1983,6 +2052,7 @@ void LLMenuGL::arrange( void )
 						{
 							visible_items_height += (*first_visible_item_iter)->getNominalHeight();
 							height_before_first_visible_item -= (*first_visible_item_iter)->getNominalHeight();
+							scrollable_items_cnt++;
 						}
 					}
 
@@ -1991,6 +2061,7 @@ void LLMenuGL::arrange( void )
 					{
 						visible_items_height -= (*first_visible_item_iter)->getNominalHeight();
 						height_before_first_visible_item += (*first_visible_item_iter)->getNominalHeight();
+						scrollable_items_cnt--;
 						first_visible_item_iter = tmp_iter;
 					}
 					if (!(*first_visible_item_iter)->getVisible())
@@ -2803,9 +2874,9 @@ void LLMenuGL::setVisible(BOOL visible)
 	}
 }
 
-LLMenuGL* LLMenuGL::getChildMenuByName(const std::string& name, BOOL recurse) const
+LLMenuGL* LLMenuGL::findChildMenuByName(const std::string& name, BOOL recurse) const
 {
-	LLView* view = getChildView(name, recurse, FALSE);
+	LLView* view = findChildView(name, recurse);
 	if (view)
 	{
 		LLMenuItemBranchGL* branch = dynamic_cast<LLMenuItemBranchGL*>(view);
@@ -2844,9 +2915,19 @@ void hide_top_view( LLView* view )
 }
 
 
+// x and y are the desired location for the popup, NOT necessarily the
+// mouse location
 // static
 void LLMenuGL::showPopup(LLView* spawning_view, LLMenuGL* menu, S32 x, S32 y)
 {
+	// Save click point for detecting cursor moves before mouse-up.
+	// Must be in local coords to compare with mouseUp events.
+	// If the mouse doesn't move, the menu will stay open ala the Mac.
+	// See also LLContextMenu::show()
+	S32 mouse_x, mouse_y;
+	LLUI::getCursorPositionLocal(menu->getParent(), &mouse_x, &mouse_y);
+	LLMenuHolderGL::sContextMenuSpawnPos.set(mouse_x,mouse_y);
+
 	const LLRect menu_region_rect = LLMenuGL::sMenuContainer->getMenuRect();
 
 	const S32 HPAD = 2;
@@ -2857,9 +2938,6 @@ void LLMenuGL::showPopup(LLView* spawning_view, LLMenuGL* menu, S32 x, S32 y)
 	spawning_view->localPointToOtherView(left, top, &left, &top, menu->getParent());
 	rect.setLeftTopAndSize( left, top,
 							rect.getWidth(), rect.getHeight() );
-
-
-	//rect.setLeftTopAndSize(x + HPAD, y, rect.getWidth(), rect.getHeight());
 	menu->setRect( rect );
 
 	// Resetting scrolling position
@@ -2871,18 +2949,16 @@ void LLMenuGL::showPopup(LLView* spawning_view, LLMenuGL* menu, S32 x, S32 y)
 	menu->arrangeAndClear(); // Fix menu rect if needed.
 	rect = menu->getRect();
 
+	// Adjust context menu to fit onscreen
 	S32 bottom;
 	left = rect.mLeft;
 	bottom = rect.mBottom;
-	//menu->getParent()->localPointToScreen( rect.mLeft, rect.mBottom, 
-	//									&left, &bottom ); 
 	S32 delta_x = 0;
 	S32 delta_y = 0;
 	if( bottom < menu_region_rect.mBottom )
 	{
 		// At this point, we need to move the context menu to the
 		// other side of the mouse.
-		//delta_y = menu_region_rect.mBottom - bottom;
 		delta_y = (rect.getHeight() + 2 * HPAD);
 	}
 
@@ -2890,7 +2966,6 @@ void LLMenuGL::showPopup(LLView* spawning_view, LLMenuGL* menu, S32 x, S32 y)
 	{
 		// At this point, we need to move the context menu to the
 		// other side of the mouse.
-		//delta_x = (window_width - rect.getWidth()) - x;
 		delta_x = -(rect.getWidth() + 2 * HPAD);
 	}
 	menu->translate( delta_x, delta_y );
@@ -3002,21 +3077,6 @@ BOOL LLMenuBarGL::handleMouseDown(S32 x, S32 y, MASK mask)
 
 	return LLMenuGL::handleMouseDown(x, y, mask);
 }
-
-/*
-BOOL LLMenuBarGL::handleRightMouseDown(S32 x, S32 y, MASK mask)
-{
-	// clicks on menu bar closes existing menus from other contexts but leave
-	// own menu open so that we get toggle behavior
-	if (!getHighlightedItem() || !getHighlightedItem()->isActive())
-	{
-		LLMenuGL::sMenuContainer->hideMenus();
-	}
-
-	return LLMenuGL::handleMouseDown(x, y, mask);
-}
-*/
-
 
 void LLMenuBarGL::draw()
 {
@@ -3400,17 +3460,14 @@ LLTearOffMenu::LLTearOffMenu(LLMenuGL* menup) :
 
 	// highlight first item (tear off item will be disabled)
 	mMenu->highlightNextItem(NULL);
+
+	// Can't do this in postBuild() because that is only called for floaters
+	// constructed from XML.
+	mCloseSignal.connect(boost::bind(&LLTearOffMenu::closeTearOff, this));
 }
 
 LLTearOffMenu::~LLTearOffMenu()
 {
-}
-
-// virtual
-BOOL LLTearOffMenu::postBuild()
-{
-	mCloseSignal.connect(boost::bind(&LLTearOffMenu::closeTearOff, this));
-	return TRUE;
 }
 
 void LLTearOffMenu::draw()
@@ -3651,6 +3708,7 @@ void LLContextMenu::show(S32 x, S32 y)
 	// Save click point for detecting cursor moves before mouse-up.
 	// Must be in local coords to compare with mouseUp events.
 	// If the mouse doesn't move, the menu will stay open ala the Mac.
+	// See also LLMenuGL::showPopup()
 	LLMenuHolderGL::sContextMenuSpawnPos.set(x,y);
 
 	arrangeAndClear();

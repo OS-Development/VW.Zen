@@ -55,9 +55,10 @@ class LLPanelPlaceInfo : public LLPanel, LLRemoteParcelInfoObserver
 public:
 	enum INFO_TYPE
 	{
+		AGENT,
 		CREATE_LANDMARK,
-		PLACE,
 		LANDMARK,
+		PLACE,
 		TELEPORT_HISTORY
 	};
 
@@ -80,8 +81,12 @@ public:
 	void setInfoType(INFO_TYPE type);
 
 	// Create a landmark for the current location
-	// in a folder specified by folder_id
+	// in a folder specified by folder_id.
 	void createLandmark(const LLUUID& folder_id);
+	
+	// Create a pick for the location specified
+	// by global_pos.
+	void createPick(const LLVector3d& global_pos);
 
 	BOOL isMediaPanelVisible();
 	void toggleMediaPanel(BOOL visible);
@@ -129,6 +134,8 @@ private:
 	LLTextBox*			mParcelName;
 	LLTextEditor*		mDescEditor;
 	LLIconCtrl*			mRating;
+	LLButton*			mRegionInfoDrillIn;
+	LLButton*			mMediaDrillIn;
 	LLTextBox*			mOwner;
 	LLTextBox*			mCreator;
 	LLTextBox*			mCreated;

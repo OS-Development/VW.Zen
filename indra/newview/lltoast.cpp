@@ -49,10 +49,8 @@ LLToast::LLToast(LLToast::Params p) :	LLFloater(LLSD()),
 										mCanBeStored(p.can_be_stored),
 										mHideBtnEnabled(p.enable_hide_btn),
 										mIsModal(p.is_modal),
-										mIsTipNotification(p.is_tip),
 										mHideBtn(NULL),
 										mNotification(p.notification),
-										mIsViewed(false), 
 										mHideBtnPressed(false)
 {
 	LLUICtrlFactory::getInstance()->buildFloater(this, "panel_toast.xml", NULL);
@@ -147,7 +145,6 @@ bool LLToast::timerHasExpired()
 void LLToast::hide()
 {
 	setVisible(FALSE);
-	mIsViewed = false;
 	mTimer.stop();
 	mOnFade(this);
 }
@@ -228,9 +225,8 @@ void LLToast::onMouseEnter(S32 x, S32 y, MASK mask)
 {
 	mOnToastHover(this, MOUSE_ENTER);
 
-	setVisibleAndFrontmost();
 	setBackgroundOpaque(TRUE);
-	if(mCanFade && !mIsViewed)
+	if(mCanFade)
 	{
 		mTimer.stop();
 	}
@@ -246,7 +242,7 @@ void LLToast::onMouseLeave(S32 x, S32 y, MASK mask)
 {	
 	mOnToastHover(this, MOUSE_LEAVE);
 
-	if(mCanFade && !mIsViewed)
+	if(mCanFade)
 	{
 		mTimer.start();
 	}

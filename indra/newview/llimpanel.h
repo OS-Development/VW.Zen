@@ -47,6 +47,7 @@ class LLInventoryItem;
 class LLInventoryCategory;
 class LLIMSpeakerMgr;
 class LLPanelActiveSpeakers;
+class LLPanelChatControlPanel;
 
 class LLVoiceChannel : public LLVoiceClientStatusObserver
 {
@@ -383,7 +384,12 @@ public:
 	// LLFloater overrides
 	/*virtual*/ void setDocked(bool docked,  bool pop_on_undock = true);
 
+	// Make IM conversion visible and update the message history
 	static LLIMFloater* show(const LLUUID& session_id);
+
+	// Toggle panel specified by session_id
+	// Returns true iff panel became visible
+	static bool toggle(const LLUUID& session_id);
 
 	// get new messages from LLIMModel
 	void updateMessages();
@@ -405,11 +411,16 @@ private:
 	static void		onInputEditorFocusLost(LLFocusableElement* caller, void* userdata);
 	static void		onInputEditorKeystroke(LLLineEditor* caller, void* userdata);
 	void			setTyping(BOOL typing);
-
-	void onSlide();
+	void			onSlide();
+	static void*	createPanelIMControl(void* userdata);
+	static void*	createPanelGroupControl(void* userdata);
 	
+	LLPanelChatControlPanel* mControlPanel;
 	LLUUID mSessionID;
 	S32 mLastMessageIndex;
+	// username of last user who added text to this conversation, used to
+	// suppress duplicate username divider bars
+	std::string mLastFromName;
 	EInstantMessage mDialog;
 	LLUUID mOtherParticipantUUID;
 	LLViewerTextEditor* mHistoryEditor;

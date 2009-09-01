@@ -18,17 +18,17 @@ include(LLImage)
 include(LLImageJ2COJ)
 include(LLInventory)
 include(LLMath)
-include(LLMedia)
 include(LLMessage)
+include(LLPlugin)
 include(LLPrimitive)
 include(LLRender)
 include(LLUI)
 include(LLVFS)
 include(LLWindow)
 include(LLXML)
+include(LLXUIXML)
 include(LScript)
 include(Linking)
-include(Mozlib)
 include(NDOF)
 include(GooglePerfTools)
 include(TemplateCheck)
@@ -47,14 +47,15 @@ include_directories(
     ${LLIMAGE_INCLUDE_DIRS}
     ${LLINVENTORY_INCLUDE_DIRS}
     ${LLMATH_INCLUDE_DIRS}
-    ${LLMEDIA_INCLUDE_DIRS}
     ${LLMESSAGE_INCLUDE_DIRS}
+    ${LLPLUGIN_INCLUDE_DIRS}
     ${LLPRIMITIVE_INCLUDE_DIRS}
     ${LLRENDER_INCLUDE_DIRS}
     ${LLUI_INCLUDE_DIRS}
     ${LLVFS_INCLUDE_DIRS}
     ${LLWINDOW_INCLUDE_DIRS}
     ${LLXML_INCLUDE_DIRS}
+    ${LLXUIXML_INCLUDE_DIRS}
     ${LSCRIPT_INCLUDE_DIRS}
     ${LSCRIPT_INCLUDE_DIRS}/lscript_compile
     ${LLLOGIN_INCLUDE_DIRS}
@@ -63,12 +64,14 @@ include_directories(
 set(viewer_SOURCE_FILES
     llaccordionctrltab.cpp
     llaccordionctrl.cpp
+    llactiveimwindow.cpp
     llagent.cpp
     llagentlistener.cpp
     llagentaccess.cpp
     llagentdata.cpp
     llagentlanguage.cpp
     llagentpilot.cpp
+    llagentui.cpp
     llagentwearables.cpp
     llanimstatelabels.cpp
     llappviewer.cpp
@@ -165,9 +168,8 @@ set(viewer_SOURCE_FILES
     llfloatergroups.cpp
     llfloaterhandler.cpp
     llfloaterhardwaresettings.cpp
-    llfloaterhtml.cpp
     llfloaterhtmlcurrency.cpp
-    llfloaterhtmlhelp.cpp
+    llfloatermediabrowser.cpp
     llfloaterhtmlsimple.cpp
     llfloaterhud.cpp
     llfloaterimagepreview.cpp
@@ -232,6 +234,7 @@ set(viewer_SOURCE_FILES
     llhudrender.cpp
     llhudtext.cpp
     llhudview.cpp
+    llimhandler.cpp
     llimpanel.cpp
     llimview.cpp
     llimcontrolpanel.cpp
@@ -305,12 +308,14 @@ set(viewer_SOURCE_FILES
     llpanelinventory.cpp
     llpanelimcontrolpanel.cpp
     llpanelland.cpp
+    llpanellandaudio.cpp
     llpanellandmarks.cpp
     llpanellandmedia.cpp
     llpanellogin.cpp
     llpanellookinfo.cpp
     llpanellooks.cpp
     llpanelmedia.cpp
+    llpanelmediahud.cpp
     llpanelmeprofile.cpp
     llpanelmovetip.cpp
     llpanelobject.cpp
@@ -361,6 +366,7 @@ set(viewer_SOURCE_FILES
     llsyswellitem.cpp
     llsyswellwindow.cpp
     llteleporthistory.cpp
+    llteleporthistorystorage.cpp
     lltexglobalcolor.cpp
     lltexlayer.cpp
     lltexlayerparams.cpp
@@ -371,6 +377,7 @@ set(viewer_SOURCE_FILES
     lltoast.cpp
     lltoastalertpanel.cpp
     lltoastgroupnotifypanel.cpp
+    lltoastimpanel.cpp
     lltoastnotifypanel.cpp
     lltoastpanel.cpp
     lltoggleablemenu.cpp
@@ -423,6 +430,8 @@ set(viewer_SOURCE_FILES
     llviewerkeyboard.cpp
     llviewerlayer.cpp
     llviewermedia.cpp
+    llviewermediafocus.cpp
+    llviewermedia_streamingaudio.cpp
     llviewermenu.cpp
     llviewermenufile.cpp
     llviewermessage.cpp
@@ -475,7 +484,7 @@ set(viewer_SOURCE_FILES
     llwearabledictionary.cpp
     llwearablelist.cpp
     llweb.cpp
-    llwebbrowserctrl.cpp
+    llmediactrl.cpp
     llwind.cpp
     llwlanimator.cpp
     llwldaycycle.cpp
@@ -512,12 +521,14 @@ set(viewer_HEADER_FILES
     ViewerInstall.cmake
     llaccordionctrltab.h
     llaccordionctrl.h
+    llactiveimwindow.h
     llagent.h
     llagentlistener.h
     llagentaccess.h
     llagentdata.h
     llagentlanguage.h
     llagentpilot.h
+    llagentui.h
     llagentwearables.h
     llanimstatelabels.h
     llappearance.h
@@ -617,9 +628,8 @@ set(viewer_HEADER_FILES
     llfloatergroups.h
     llfloaterhandler.h
     llfloaterhardwaresettings.h
-    llfloaterhtml.h
     llfloaterhtmlcurrency.h
-    llfloaterhtmlhelp.h
+    llfloatermediabrowser.h
     llfloaterhtmlsimple.h
     llfloaterhud.h
     llfloaterimagepreview.h
@@ -756,12 +766,14 @@ set(viewer_HEADER_FILES
     llpanelinventory.h
     llpanelimcontrolpanel.h
     llpanelland.h
+    llpanellandaudio.h
     llpanellandmarks.h
     llpanellandmedia.h
     llpanellogin.h
     llpanellookinfo.h
     llpanellooks.h
     llpanelmedia.h
+    llpanelmediahud.h
     llpanelmeprofile.h
     llpanelmovetip.h
     llpanelobject.h
@@ -815,6 +827,7 @@ set(viewer_HEADER_FILES
     llsyswellwindow.h    
     lltable.h
     llteleporthistory.h
+    llteleporthistorystorage.h
     lltexglobalcolor.h
     lltexlayer.h
     lltexlayerparams.h
@@ -825,6 +838,7 @@ set(viewer_HEADER_FILES
     lltoast.h
     lltoastalertpanel.h
     lltoastgroupnotifypanel.h
+    lltoastimpanel.h
     lltoastnotifypanel.h
     lltoastpanel.h
     lltoggleablemenu.h
@@ -876,6 +890,8 @@ set(viewer_HEADER_FILES
     llviewerkeyboard.h
     llviewerlayer.h
     llviewermedia.h
+    llviewermediaobserver.h
+    llviewermediafocus.h
     llviewermenu.h
     llviewermenufile.h
     llviewermessage.h
@@ -930,7 +946,7 @@ set(viewer_HEADER_FILES
     llwearabledictionary.h
     llwearablelist.h
     llweb.h
-    llwebbrowserctrl.h
+    llmediactrl.h
     llwind.h
     llwindebug.h
     llwlanimator.h
@@ -1131,6 +1147,9 @@ endif (WINDOWS)
 set(viewer_XUI_FILES
     skins/default/colors.xml
     skins/default/textures/textures.xml
+
+
+
     )
 file(GLOB DEFAULT_XUI_FILE_GLOB_LIST
      ${CMAKE_CURRENT_SOURCE_DIR}/skins/default/xui/en/*.xml)
@@ -1376,6 +1395,9 @@ if (WINDOWS)
               --touch=${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/touched.bat
         DEPENDS ${VIEWER_BINARY_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/viewer_manifest.py
         )
+
+    add_dependencies(${VIEWER_BINARY_NAME} SLPlugin media_plugin_quicktime media_plugin_webkit media_plugin_flash_activex media_plugin_awesomium)
+
     if (PACKAGE)
       add_custom_command(
           OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/event_host.tar.bz2
@@ -1407,8 +1429,8 @@ target_link_libraries(${VIEWER_BINARY_NAME}
     ${LLIMAGE_LIBRARIES}
     ${LLIMAGEJ2COJ_LIBRARIES}
     ${LLINVENTORY_LIBRARIES}
-    ${LLMEDIA_LIBRARIES}
     ${LLMESSAGE_LIBRARIES}
+    ${LLPLUGIN_LIBRARIES}
     ${LLPRIMITIVE_LIBRARIES}
     ${LLRENDER_LIBRARIES}
     ${FREETYPE_LIBRARIES}
@@ -1416,6 +1438,7 @@ target_link_libraries(${VIEWER_BINARY_NAME}
     ${LLVFS_LIBRARIES}
     ${LLWINDOW_LIBRARIES}
     ${LLXML_LIBRARIES}
+    ${LLXUIXML_LIBRARIES}
     ${LSCRIPT_LIBRARIES}
     ${LLMATH_LIBRARIES}
     ${LLCOMMON_LIBRARIES}
@@ -1427,11 +1450,9 @@ target_link_libraries(${VIEWER_BINARY_NAME}
     ${OPENGL_LIBRARIES}
     ${FMODWRAPPER_LIBRARY}
     ${OPENGL_LIBRARIES}
-    ${MOZLIB_LIBRARIES}
     ${SDL_LIBRARY}
     ${SMARTHEAP_LIBRARY}
     ${UI_LIBRARIES}
-    ${QUICKTIME_LIBRARY}
     ${WINDOWS_LIBRARIES}
     ${XMLRPCEPI_LIBRARIES}
     ${ELFIO_LIBRARIES}
@@ -1473,9 +1494,12 @@ if (LINUX)
       DEPENDS secondlife-stripped ${CMAKE_CURRENT_SOURCE_DIR}/viewer_manifest.py
       )
 
+  add_dependencies(${VIEWER_BINARY_NAME} SLPlugin media_plugin_gstreamer010 media_plugin_webkit)
+
   if (NOT INSTALL)
     add_custom_target(package ALL DEPENDS ${product}.tar.bz2)
     add_dependencies(package linux-crash-logger-strip-target)
+    add_dependencies(package linux-updater-strip-target)
   endif (NOT INSTALL)
 endif (LINUX)
 
@@ -1509,6 +1533,8 @@ if (DARWIN)
       --dest=${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/${product}.app
     DEPENDS ${VIEWER_BINARY_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/viewer_manifest.py
     )
+
+  add_dependencies(${VIEWER_BINARY_NAME} SLPlugin media_plugin_quicktime media_plugin_webkit media_plugin_awesomium)
 
   if (PACKAGE)
       add_custom_target(package ALL DEPENDS ${VIEWER_BINARY_NAME}) 
@@ -1576,3 +1602,79 @@ set_source_files_properties(
 LL_ADD_PROJECT_UNIT_TESTS(${VIEWER_BINARY_NAME} "${viewer_TEST_SOURCE_FILES}")
 
 #ADD_VIEWER_BUILD_TEST(llmemoryview viewer)
+
+
+# Don't do these for DARWIN or LINUX here -- they're taken care of by viewer_manifest.py
+if (WINDOWS)
+  get_target_property(BUILT_SLPLUGIN SLPlugin LOCATION)
+  add_custom_command(
+      TARGET ${VIEWER_BINARY_NAME} POST_BUILD
+      COMMAND ${CMAKE_COMMAND}
+      ARGS
+        -E
+        copy_if_different
+        ${BUILT_SLPLUGIN}
+        ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/llplugin
+      COMMENT "Copying SLPlugin executable to the runtime folder."
+      )
+
+  get_target_property(BUILT_WEBKIT_PLUGIN media_plugin_webkit LOCATION)
+    add_custom_command(
+        TARGET ${VIEWER_BINARY_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND}
+        ARGS
+          -E
+          copy_if_different
+          ${BUILT_WEBKIT_PLUGIN}
+          ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/llplugin
+        COMMENT "Copying WebKit Plugin to the runtime folder."
+        )
+
+  get_target_property(BUILT_QUICKTIME_PLUGIN media_plugin_quicktime LOCATION)
+    add_custom_command(
+        TARGET ${VIEWER_BINARY_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND}
+        ARGS
+          -E
+          copy_if_different
+          ${BUILT_QUICKTIME_PLUGIN}
+          ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/llplugin
+        COMMENT "Copying Quicktime Plugin to the runtime folder."
+        )
+endif (WINDOWS)
+
+if (WINDOWS)
+  get_target_property(BUILT_FLASH_ACTIVEX_PLUGIN media_plugin_flash_activex LOCATION)
+    add_custom_command(
+        TARGET ${VIEWER_BINARY_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND}
+        ARGS
+          -E
+          copy_if_different
+          ${BUILT_FLASH_ACTIVEX_PLUGIN}
+          ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/llplugin
+        COMMENT "Copying Flash (ActiveX) Plugin to the runtime folder."
+        )
+endif (WINDOWS)
+
+if (WINDOWS)
+  get_target_property(BUILT_AWESOMIUM_PLUGIN media_plugin_awesomium LOCATION)
+    add_custom_command(
+        TARGET ${VIEWER_BINARY_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND}
+        ARGS
+          -E
+          copy_if_different
+          ${BUILT_AWESOMIUM_PLUGIN}
+          ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/llplugin
+        COMMENT "Copying Flash (Awesomium) Plugin to the runtime folder."
+        )
+endif (WINDOWS)
+
+if (DARWIN)
+# Don't do this here -- it's taken care of by viewer_manifest.py
+#  add_custom_command(TARGET ${VIEWER_BINARY_NAME} POST_BUILD
+#    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/../libraries/universal-darwin/lib_release/libllwebkitlib.dylib ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/llplugin/
+#    DEPENDS ${CMAKE_SOURCE_DIR}/../libraries/universal-darwin/lib_release/libllwebkitlib.dylib
+#  )
+endif (DARWIN)

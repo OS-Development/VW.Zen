@@ -62,13 +62,11 @@
 #include "llpanellogin.h"
 #include "llradiogroup.h"
 #include "llsky.h"
-#include "llstylemap.h"
 #include "llscrolllistctrl.h"
 #include "llscrolllistitem.h"
 #include "llsliderctrl.h"
 #include "lltabcontainer.h"
 #include "lltrans.h"
-#include "lltexteditor.h"
 #include "llviewercontrol.h"
 #include "llviewercamera.h"
 #include "llviewerwindow.h"
@@ -101,6 +99,8 @@
 #include "pipeline.h"
 #include "lluictrlfactory.h"
 #include "llboost.h"
+#include "llviewermedia.h"
+#include "llpluginclassmedia.h"
 
 
 //RN temporary includes for resolution switching
@@ -168,10 +168,8 @@ void LLVoiceSetKeyDialog::onCancel(void* user_data)
 // if creating/destroying these is too slow, we'll need to create
 // a static member and update all our static callbacks
 
-void free_web_media(LLMediaBase *media_source);
-void handleHTMLLinkColorChanged(const LLSD& newvalue);	
 void handleNameTagOptionChanged(const LLSD& newvalue);	
-LLMediaBase *get_web_media();
+viewer_media_t get_web_media();
 bool callback_clear_browser_cache(const LLSD& notification, const LLSD& response);
 
 bool callback_skip_dialogs(const LLSD& notification, const LLSD& response, LLFloaterPreference* floater);
@@ -180,40 +178,11 @@ bool callback_reset_dialogs(const LLSD& notification, const LLSD& response, LLFl
 bool extractWindowSizeFromString(const std::string& instr, U32 &width, U32 &height);
 void fractionFromDecimal(F32 decimal_val, S32& numerator, S32& denominator);
 
-LLMediaBase *get_web_media()
+viewer_media_t get_web_media()
 {
-	LLMediaBase *media_source;
-	LLMediaManager *mgr = LLMediaManager::getInstance();
-	
-	if (!mgr)
-	{
-		llwarns << "cannot get media manager" << llendl;
-		return NULL;
-	}
-	
-	media_source = mgr->createSourceFromMimeType("http", "text/html" );
-	if ( !media_source )
-	{
-		llwarns << "media source create failed " << llendl;
-		return NULL;
-	}
+	viewer_media_t media_source = LLViewerMedia::newMediaImpl("", LLUUID::null, 0, 0, 0, 0, "text/html");
 	
 	return media_source;
-}
-
-void free_web_media(LLMediaBase *media_source)
-{
-	if (!media_source)
-		return;
-	
-	LLMediaManager *mgr = LLMediaManager::getInstance();
-	if (!mgr)
-	{
-		llwarns << "cannot get media manager" << llendl;
-		return;
-	}
-	
-	mgr->destroySource(media_source);
 }
 
 
@@ -223,10 +192,9 @@ bool callback_clear_browser_cache(const LLSD& notification, const LLSD& response
 	if ( option == 0 ) // YES
 	{
 		// clean web
-		LLMediaBase *media_source = get_web_media();
-		if (media_source)
-			media_source->clearCache();
-		free_web_media(media_source);
+		viewer_media_t media_source = get_web_media();
+		if (media_source && media_source->hasMedia())
+			media_source->getMediaPlugin()->clear_cache();
 		
 		// clean nav bar history
 		LLNavigationBar::getInstance()->clearHistoryCache();
@@ -239,12 +207,6 @@ bool callback_clear_browser_cache(const LLSD& notification, const LLSD& response
 	return false;
 }
 
-void handleHTMLLinkColorChanged(const LLSD& newvalue)
-{
-	LLTextEditor::setLinkColor(LLColor4(newvalue));
-	LLStyleMap::instance().update();
-	
-}
 void handleNameTagOptionChanged(const LLSD& newvalue)
 {
 	S32 name_tag_option = S32(newvalue);
@@ -422,7 +384,7 @@ void LLFloaterPreference::apply()
 			panel->apply();
 	}
 	// hardware menu apply
-	LLFloaterHardwareSettings* hardware_settings = LLFloaterReg::findTypedInstance<LLFloaterHardwareSettings>("prefs_hardware_settings");
+	LLFloaterHardwareSettings* hardware_settings = LLFloaterReg::getTypedInstance<LLFloaterHardwareSettings>("prefs_hardware_settings");
 	if (hardware_settings)
 	{
 		hardware_settings->apply();
@@ -443,29 +405,25 @@ void LLFloaterPreference::apply()
 	std::string cache_location = gDirUtilp->getExpandedFilename(LL_PATH_CACHE, "");
 	childSetText("cache_location", cache_location);		
 	
-	LLMediaBase *media_source = get_web_media();
-	if (media_source)
+	viewer_media_t media_source = get_web_media();
+	if (media_source && media_source->hasMedia())
 	{
-		media_source->enableCookies(childGetValue("cookies_enabled"));
+		media_source->getMediaPlugin()->enable_cookies(childGetValue("cookies_enabled"));
 		if(hasChild("web_proxy_enabled") &&hasChild("web_proxy_editor") && hasChild("web_proxy_port"))
 		{
 			bool proxy_enable = childGetValue("web_proxy_enabled");
 			std::string proxy_address = childGetValue("web_proxy_editor");
-			
 			int proxy_port = childGetValue("web_proxy_port");
-			media_source->enableProxy(proxy_enable, proxy_address, proxy_port);
+			media_source->getMediaPlugin()->proxy_setup(proxy_enable, proxy_address, proxy_port);
 		}
 	}
-	free_web_media(media_source);
 	
-	LLTextEditor* busy = getChild<LLTextEditor>("busy_response");
-	LLWString busy_response;
-	if (busy) busy_response = busy->getWText(); 
-	LLWStringUtil::replaceTabsWithSpaces(busy_response, 4);
+//	LLWString busy_response = utf8str_to_wstring(getChild<LLUICtrl>("busy_response")->getValue().asString());
+//	LLWStringUtil::replaceTabsWithSpaces(busy_response, 4);
 	
 	if(mGotPersonalInfo)
 	{ 
-		gSavedPerAccountSettings.setString("BusyModeResponse2", std::string(wstring_to_utf8str(busy_response)));
+//		gSavedSettings.setString("BusyModeResponse2", std::string(wstring_to_utf8str(busy_response)));
 		bool new_im_via_email = childGetValue("send_im_to_email").asBoolean();
 		bool new_hide_online = childGetValue("online_visibility").asBoolean();		
 	
@@ -514,7 +472,7 @@ void LLFloaterPreference::cancel()
 	LLFloaterReg::hideInstance("pref_joystick");
 	
 	// cancel hardware menu
-	LLFloaterHardwareSettings* hardware_settings = LLFloaterReg::findTypedInstance<LLFloaterHardwareSettings>("prefs_hardware_settings");
+	LLFloaterHardwareSettings* hardware_settings = LLFloaterReg::getTypedInstance<LLFloaterHardwareSettings>("prefs_hardware_settings");
 	if (hardware_settings)
 	{
 		hardware_settings->cancel();
@@ -569,7 +527,7 @@ void LLFloaterPreference::onBtnOK()
 	// commit any outstanding text entry
 	if (hasFocus())
 	{
-		LLUICtrl* cur_focus = gFocusMgr.getKeyboardFocus();
+		LLUICtrl* cur_focus = dynamic_cast<LLUICtrl*>(gFocusMgr.getKeyboardFocus());
 		if (cur_focus->acceptsTextInput())
 		{
 			cur_focus->onCommit();
@@ -606,7 +564,7 @@ void LLFloaterPreference::onBtnApply( )
 {
 	if (hasFocus())
 	{
-		LLUICtrl* cur_focus = gFocusMgr.getKeyboardFocus();
+		LLUICtrl* cur_focus = dynamic_cast<LLUICtrl*>(gFocusMgr.getKeyboardFocus());
 		if (cur_focus->acceptsTextInput())
 		{
 			cur_focus->onCommit();
@@ -622,7 +580,7 @@ void LLFloaterPreference::onBtnCancel()
 {
 	if (hasFocus())
 	{
-		LLUICtrl* cur_focus = gFocusMgr.getKeyboardFocus();
+		LLUICtrl* cur_focus = dynamic_cast<LLUICtrl*>(gFocusMgr.getKeyboardFocus());
 		if (cur_focus->acceptsTextInput())
 		{
 			cur_focus->onCommit();
@@ -649,7 +607,7 @@ void LLFloaterPreference::refreshEnabledGraphics()
 	{
 		instance->refreshEnabledState();
 	}
-	LLFloaterHardwareSettings* hardware_settings = LLFloaterReg::findTypedInstance<LLFloaterHardwareSettings>("prefs_hardware_settings");
+	LLFloaterHardwareSettings* hardware_settings = LLFloaterReg::getTypedInstance<LLFloaterHardwareSettings>("prefs_hardware_settings");
 	if (hardware_settings)
 	{
 		hardware_settings->refreshEnabledState();
@@ -1172,13 +1130,13 @@ void LLFloaterPreference::setPersonalInfo(const std::string& visibility, bool im
 	childSetValue("send_im_to_email", im_via_email);
 	childEnable("log_instant_messages");
 //	childEnable("log_chat");
-	childEnable("busy_response");
+//	childEnable("busy_response");
 //	childEnable("log_instant_messages_timestamp");
 //	childEnable("log_chat_timestamp");
 	childEnable("log_chat_IM");
 	childEnable("log_date_timestamp");
 	
-	childSetText("busy_response", gSavedPerAccountSettings.getString("BusyModeResponse2"));
+//	childSetText("busy_response", gSavedSettings.getString("BusyModeResponse2"));
 	
 	enableHistory();
 	std::string display_email(email);
@@ -1349,8 +1307,7 @@ static LLRegisterPanelClassWrapper<LLPanelPreference> t_places("panel_preference
 LLPanelPreference::LLPanelPreference()
 : LLPanel()
 {
-	//
-	mCommitCallbackRegistrar.add("setControlFalse",		boost::bind(&LLPanelPreference::setControlFalse,this, _2));
+	mCommitCallbackRegistrar.add("Pref.setControlFalse",		boost::bind(&LLPanelPreference::setControlFalse,this, _2));
 }
 
 static void applyUIColor(const std::string& color_name, LLUICtrl* ctrl, const LLSD& param)
@@ -1422,23 +1379,17 @@ BOOL LLPanelPreference::postBuild()
 	//////
 	if(hasChild("online_visibility") && hasChild("send_im_to_email"))
 	{
-		requires("online_visibility");
-		requires("send_im_to_email");
-		if (!checkRequirements())
-		{
-			return FALSE;
-		}
 		childSetText("email_address",getString("log_in_to_change") );
-		childSetText("busy_response", getString("log_in_to_change"));
+//		childSetText("busy_response", getString("log_in_to_change"));
 		
 	}
 
 
-	if(hasChild("fullscreen combo"))
+	if(hasChild("aspect_ratio"))
 	{
 		//============================================================================
 		// Resolution
-
+/*
 		S32 num_resolutions = 0;
 		LLWindow::LLWindowResolution* supported_resolutions = gViewerWindow->getWindow()->getSupportedResolutions(num_resolutions);
 		
@@ -1481,7 +1432,7 @@ BOOL LLPanelPreference::postBuild()
 				ctrl_full_screen->setCurrentByIndex(0);
 			}
 		}
-		
+	*/	
 		LLFloaterPreference::initWindowSizeControls(this);
 		
 		if (gSavedSettings.getBOOL("FullScreenAutoDetectAspectRatio"))

@@ -50,6 +50,7 @@
 #include "llscrolllistcell.h"
 #include "lltextbox.h"
 #include "lltabcontainer.h"
+#include "lltexteditor.h"
 #include "lltrans.h"
 #include "lltransactiontypes.h"
 #include "lltrans.h"
@@ -1514,16 +1515,15 @@ void LLPanelGroupLandMoney::setGroupID(const LLUUID& id)
 		mImplementationp->mGroupOverLimitIconp->setVisible(FALSE);
 	}
 
-	if ( !can_view )
+	if ( mImplementationp->mGroupParcelsp )
 	{
-		if ( mImplementationp->mGroupParcelsp )
-		{
-			mImplementationp->mGroupParcelsp->setCommentText(
-							mImplementationp->mCantViewParcelsText);
-			mImplementationp->mGroupParcelsp->setEnabled(FALSE);
-		}
+		mImplementationp->mGroupParcelsp->setEnabled(can_view);
 	}
 
+	if ( !can_view && mImplementationp->mGroupParcelsp )
+	{
+		mImplementationp->mGroupParcelsp->setEnabled(FALSE);
+	}
 
 
 	LLButton* earlierp, *laterp;

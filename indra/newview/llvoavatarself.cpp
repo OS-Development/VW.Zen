@@ -38,7 +38,7 @@
 #include <stdio.h>
 #include <ctype.h>
 
-#include "audioengine.h"
+#include "llaudioengine.h"
 #include "noise.h"
 
 // TODO: Seraph - Remove unnecessary headers.  These are copied from llvoavatar.h.
@@ -988,6 +988,19 @@ LLViewerJointAttachment *LLVOAvatarSelf::attachObject(LLViewerObject *viewer_obj
 	gInventory.notifyObservers();
 
 	return attachment;
+}
+
+void LLVOAvatarSelf::getAllAttachmentsArray(LLDynamicArray<S32>& attachments)
+{
+	for (LLVOAvatar::attachment_map_t::const_iterator iter = mAttachmentPoints.begin(); 
+		 iter != mAttachmentPoints.end(); ++iter)
+	{
+		LLViewerJointAttachment* attachment = iter->second;
+		if ( attachment && (attachment->getNumObjects() > 0))
+		{
+			attachments.push_back(iter->first);
+		}
+	}
 }
 
 U32 LLVOAvatarSelf::getNumWearables(LLVOAvatarDefines::ETextureIndex i) const

@@ -40,7 +40,7 @@
 #include <sstream>
 
 // linden library includes
-#include "audioengine.h"
+#include "llaudioengine.h"
 #include "llfloaterreg.h"
 #include "indra_constants.h"
 #include "llassetstorage.h"
@@ -104,9 +104,8 @@
 #include "llfloatergodtools.h"
 #include "llfloatergroupinvite.h"
 #include "llfloatergroups.h"
-#include "llfloaterhtml.h"
 #include "llfloaterhtmlcurrency.h"
-#include "llfloaterhtmlhelp.h"			// gViewerHtmlHelp
+#include "llfloatermediabrowser.h"			// gViewerHtmlHelp
 #include "llfloaterhtmlsimple.h"
 #include "llfloaterhud.h"
 #include "llfloaterinspect.h"
@@ -150,6 +149,7 @@
 #include "llpanellogin.h"
 #include "llmenucommands.h"
 #include "llmenugl.h"
+#include "llmimetypes.h"
 #include "llmorphview.h"
 #include "llmoveview.h"
 #include "llmutelist.h"
@@ -461,13 +461,13 @@ void set_underclothes_menu_options()
 {
 	if (gMenuHolder && gAgent.isTeen())
 	{
-		gMenuHolder->getChild<LLView>("Self Underpants", TRUE)->setVisible(FALSE);
-		gMenuHolder->getChild<LLView>("Self Undershirt", TRUE)->setVisible(FALSE);
+		gMenuHolder->getChild<LLView>("Self Underpants")->setVisible(FALSE);
+		gMenuHolder->getChild<LLView>("Self Undershirt")->setVisible(FALSE);
 	}
 	if (gMenuBarView && gAgent.isTeen())
 	{
-		gMenuBarView->getChild<LLView>("Menu Underpants", TRUE)->setVisible(FALSE);
-		gMenuBarView->getChild<LLView>("Menu Undershirt", TRUE)->setVisible(FALSE);
+		gMenuBarView->getChild<LLView>("Menu Underpants")->setVisible(FALSE);
+		gMenuBarView->getChild<LLView>("Menu Undershirt")->setVisible(FALSE);
 	}
 }
 
@@ -570,8 +570,8 @@ void init_menus()
 
 	gAFKMenu = gMenuBarView->getChild<LLMenuItemCallGL>("Set Away", TRUE);
 	gBusyMenu = gMenuBarView->getChild<LLMenuItemCallGL>("Set Busy", TRUE);
-	gAttachSubMenu = gMenuBarView->getChildMenuByName("Attach Object", TRUE);
-	gDetachSubMenu = gMenuBarView->getChildMenuByName("Detach Object", TRUE);
+	gAttachSubMenu = gMenuBarView->findChildMenuByName("Attach Object", TRUE);
+	gDetachSubMenu = gMenuBarView->findChildMenuByName("Detach Object", TRUE);
 
 	gMenuBarView->createJumpKeys();
 
@@ -3461,7 +3461,10 @@ class LLSelfFriends : public view_listener_t
 	bool handleEvent(const LLSD& userdata)
 	{
 		// Open "Friends" tab of the "People" panel in side tray.
-		LLSideTray::getInstance()->showPanel("panel_people", "friends_panel");
+		LLSD param;
+		param["people_panel_tab_name"] = "friends_panel";
+
+		LLSideTray::getInstance()->showPanel("panel_people", param);
 		return true;
 	}
 };
@@ -3471,7 +3474,9 @@ class LLSelfGroups : public view_listener_t
 	bool handleEvent(const LLSD& userdata)
 	{
 		// Open "Groups" tab of the "People" panel in side tray.
-		LLSideTray::getInstance()->showPanel("panel_people", "groups_panel");
+		LLSD param;
+		param["people_panel_tab_name"] = "groups_panel";
+		LLSideTray::getInstance()->showPanel("panel_people", param);
 		return true;
 	}
 };
@@ -5579,6 +5584,7 @@ class LLShowFloater : public view_listener_t
 		}
 		else if (floater_name == "help f1")
 		{
+			llinfos << "Spawning HTML help window" << llendl;
 			gViewerHtmlHelp.show();
 		}
 		else if (floater_name == "complaint reporter")
@@ -6883,7 +6889,7 @@ void handle_grab_texture(void* data)
 			// user know that the image is now in inventory.
 			if(view)
 			{
-				LLUICtrl* focus_ctrl = gFocusMgr.getKeyboardFocus();
+				LLFocusableElement* focus_ctrl = gFocusMgr.getKeyboardFocus();
 
 				view->getPanel()->setSelection(item_id, TAKE_FOCUS_NO);
 				view->getPanel()->openSelected();
@@ -7082,13 +7088,7 @@ void handle_load_from_xml(void*)
 
 void handle_web_browser_test(void*)
 {
-	const bool open_links_externally = false;
-	const bool open_app_slurls = true;
-	LLFloaterHtml::getInstance()->show(
-		"http://secondlife.com/app/search/slurls.html",
-		"Web Browser Test", 
-		open_links_externally, 
-		open_app_slurls);
+	LLWeb::loadURL("http://secondlife.com/app/search/slurls.html");
 }
 
 void handle_buy_currency_test(void*)

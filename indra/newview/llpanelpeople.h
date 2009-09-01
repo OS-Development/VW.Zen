@@ -57,15 +57,17 @@ public:
 	class Updater;
 
 private:
+	// methods indirectly called by the updaters
 	bool					updateFriendList(U32 changed_mask);
 	bool					updateNearbyList();
 	bool					updateRecentList();
 	bool					updateGroupList();
+
 	bool					filterFriendList();
 	bool					filterNearbyList();
 	bool					filterRecentList();
 	void					updateButtons();
-	LLAvatarList*			getActiveAvatarList() const;
+	const std::string&		getActiveTabName() const;
 	LLUUID					getCurrentItemID() const;
 	void					buttonSetVisible(std::string btn_name, BOOL visible);
 	void					buttonSetEnabled(const std::string& btn_name, bool enabled);
@@ -91,11 +93,18 @@ private:
 	void					onShareButtonClicked();
 	void					onMoreButtonClicked();
 	void					onActivateButtonClicked();
+	void					onRecentViewSortButtonClicked();
+	void					onNearbyViewSortButtonClicked();
+	void					onFriendsViewSortButtonClicked();
 	void					onAvatarListDoubleClicked(LLAvatarList* list);
 	void					onAvatarListCommitted(LLAvatarList* list);
 	void					onGroupPlusButtonClicked();
 	void					onGroupMinusButtonClicked();
 	void					onGroupPlusMenuItemClicked(const LLSD& userdata);
+
+	void					onFriendsViewSortMenuItemClicked(const LLSD& userdata);
+	void					onNearbyViewSortMenuItemClicked(const LLSD& userdata);
+	void					onRecentViewSortMenuItemClicked(const LLSD& userdata);
 
 	// misc callbacks
 	bool					onFriendListUpdate(U32 changed_mask);
@@ -106,12 +115,16 @@ private:
 
 	LLFilterEditor*			mFilterEditor;
 	LLTabContainer*			mTabContainer;
-	LLAvatarList*			mFriendList;
+	LLAvatarList*			mOnlineFriendList;
+	LLAvatarList*			mOfflineFriendList;
 	LLAvatarList*			mNearbyList;
 	LLAvatarList*			mRecentList;
 	LLGroupList*			mGroupList;
 
 	LLHandle<LLView>		mGroupPlusMenuHandle;
+	LLHandle<LLView>		mNearbyViewSortMenuHandle;
+	LLHandle<LLView>		mFriendsViewSortMenuHandle;
+	LLHandle<LLView>		mRecentViewSortMenuHandle;
 
 	Updater*				mFriendListUpdater;
 	Updater*				mNearbyListUpdater;
@@ -128,7 +141,8 @@ private:
 	// since re-fetching the groups list is always fast.
 	typedef std::vector<LLUUID> uuid_vector_t;
 	uuid_vector_t			mNearbyVec;
-	uuid_vector_t			mFriendVec;
+	uuid_vector_t			mOnlineFriendVec;
+	uuid_vector_t			mOfflineFriendVec;
 	uuid_vector_t			mRecentVec;
 };
 

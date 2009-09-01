@@ -48,6 +48,7 @@
 #include "llversionviewer.h"
 #include "message.h"
 #include "v3math.h"
+#include "lltexteditor.h"
 
 // viewer project includes
 #include "llagent.h"
@@ -61,7 +62,6 @@
 #include "llimview.h"
 #include "lltextbox.h"
 #include "lldispatcher.h"
-#include "llviewertexteditor.h"
 #include "llviewerobject.h"
 #include "llviewerregion.h"
 #include "llcombobox.h"
@@ -85,6 +85,7 @@
 #include "llviewernetwork.h"
 
 #include "llassetuploadresponders.h"
+#include "llagentui.h"
 
 const U32 INCLUDE_SCREENSHOT  = 0x01 << 0;
 
@@ -137,7 +138,7 @@ void LLFloaterReporter::processRegionInfo(LLMessageSystem* msg)
 // virtual
 BOOL LLFloaterReporter::postBuild()
 {
-	childSetText("abuse_location_edit", gAgent.getSLURL() );
+	childSetText("abuse_location_edit", LLAgentUI::buildSLURL());
 
 	enableControls(TRUE);
 
@@ -190,7 +191,7 @@ BOOL LLFloaterReporter::postBuild()
 	
 	// grab the user's name
 	std::string fullname;
-	gAgent.buildFullname(fullname);
+	LLAgentUI::buildFullname(fullname);
 	childSetText("reporter_field", fullname);
 	
 	center();
@@ -499,7 +500,7 @@ void LLFloaterReporter::showFromObject(const LLUUID& object_id)
 
 	// grab the user's name
 	std::string fullname;
-	gAgent.buildFullname(fullname);
+	LLAgentUI::buildFullname(fullname);
 	f->childSetText("reporter_field", fullname);
 
 	// Request info for this object

@@ -20,9 +20,7 @@
                 top="16"
                 left="2">
     <layout_panel
-      class="panel_im_control_panel"
       name="panel_im_control_panel"
-      filename="panel_im_control_panel.xml"
       layout="topleft"
       top_delta="-3"
       min_width="96" 
@@ -57,6 +55,7 @@
        layout="topleft"
        max_length="2147483647"
        name="im_text"
+       track_bottom="true" 
        width="195"
        word_wrap="true">
       </text_editor>

@@ -54,6 +54,7 @@
 #include "llcursortypes.h"
 #include "lluictrlfactory.h"
 #include "lltreeiterators.h"
+#include "llfocusmgr.h"
 
 #include <list>
 
@@ -141,7 +142,7 @@ virtual BOOL	handleUnicodeCharHere(llwchar uni_char);
 class LLViewWidgetRegistry : public LLChildRegistry<LLViewWidgetRegistry>
 {};
 
-class LLView : public LLMouseHandler, public LLMortician
+class LLView : public LLMouseHandler, public LLMortician, public LLFocusableElement
 {
 public:
 	struct Follows : public LLInitParam::Choice<Follows>
@@ -213,6 +214,9 @@ protected:
 	LLView(const LLView::Params&);
 	friend class LLUICtrlFactory;
 
+private:
+	// widgets in general are not copyable
+	LLView(const LLView& other) {};
 public:
 #if LL_DEBUG
 	static BOOL sIsDrawing;
@@ -410,8 +414,10 @@ public:
 	virtual BOOL	canSnapTo(const LLView* other_view);
 	virtual void	setSnappedTo(const LLView* snap_view);
 
-	virtual BOOL	handleKey(KEY key, MASK mask, BOOL called_from_parent);
-	virtual BOOL	handleUnicodeChar(llwchar uni_char, BOOL called_from_parent);
+	// inherited from LLFocusableElement
+	/* virtual */ BOOL	handleKey(KEY key, MASK mask, BOOL called_from_parent);
+	/* virtual */ BOOL	handleUnicodeChar(llwchar uni_char, BOOL called_from_parent);
+
 	virtual BOOL	handleDragAndDrop(S32 x, S32 y, MASK mask, BOOL drop,
 									  EDragAndDropType cargo_type,
 									  void* cargo_data,
@@ -421,6 +427,7 @@ public:
 	virtual std::string getShowNamesToolTip();
 
 	virtual void	draw();
+	void	drawChildren();
 
 	void parseFollowsFlags(const LLView::Params& params);
 
@@ -428,8 +435,9 @@ public:
 	BOOL getSaveToXML() const { return mSaveToXML; }
 	void setSaveToXML(BOOL b) { mSaveToXML = b; }
 
-	virtual void onFocusLost();
-	virtual void onFocusReceived();
+	// inherited from LLFocusableElement
+	/* virtual */ void onFocusLost();
+	/* virtual */ void onFocusReceived();
 
 	typedef enum e_hit_test_type
 	{
@@ -484,19 +492,20 @@ public:
 
 	template <class T> T* findChild(const std::string& name, BOOL recurse = TRUE) const
 	{
-		LLView* child = getChildView(name, recurse, FALSE);
+		LLView* child = findChildView(name, recurse);
 		T* result = dynamic_cast<T*>(child);
 		return result;
 	}
 
-	template <class T> T* getChild(const std::string& name, BOOL recurse = TRUE, BOOL create_if_missing = TRUE) const;
+	template <class T> T* getChild(const std::string& name, BOOL recurse = TRUE) const;
 
 	template <class T> T& getChildRef(const std::string& name, BOOL recurse = TRUE) const
 	{
-		return *getChild<T>(name, recurse, TRUE);
+		return *getChild<T>(name, recurse);
 	}
 
-	virtual LLView* getChildView(const std::string& name, BOOL recurse = TRUE, BOOL create_if_missing = TRUE) const;
+	virtual LLView* getChildView(const std::string& name, BOOL recurse = TRUE) const;
+	virtual LLView* findChildView(const std::string& name, BOOL recurse = TRUE) const;
 
 	template <class T> T* getDefaultWidget(const std::string& name) const
 	{
@@ -636,9 +645,9 @@ private:
 	LLView::child_tab_order_t mTabOrder;
 };
 
-template <class T> T* LLView::getChild(const std::string& name, BOOL recurse, BOOL create_if_missing) const
+template <class T> T* LLView::getChild(const std::string& name, BOOL recurse) const
 {
-	LLView* child = getChildView(name, recurse, FALSE);
+	LLView* child = findChildView(name, recurse);
 	T* result = dynamic_cast<T*>(child);
 	if (!result)
 	{
@@ -647,28 +656,25 @@ template <class T> T* LLView::getChild(const std::string& name, BOOL recurse, BO
 		{
 			llwarns << "Found child named " << name << " but of wrong type " << typeid(child).name() << ", expecting " << typeid(T*).name() << llendl;
 		}
-		if (create_if_missing)
+		result = getDefaultWidget<T>(name);
+		if (!result)
 		{
-			result = getDefaultWidget<T>(name);
-			if (!result)
+			result = LLUICtrlFactory::getDefaultWidget<T>(name);
+
+			if (result)
 			{
-				result = LLUICtrlFactory::getDefaultWidget<T>(name);
-
-				if (result)
-				{
-					// *NOTE: You cannot call mFoo = getChild<LLFoo>("bar")
-					// in a floater or panel constructor.  The widgets will not
-					// be ready.  Instead, put it in postBuild().
-					llwarns << "Making dummy " << typeid(T).name() << " named \"" << name << "\" in " << getName() << llendl;
-				}
-				else
-				{
-					llwarns << "Failed to create dummy " << typeid(T).name() << llendl;
-					return NULL;
-				}
-
-				getDefaultWidgetMap()[name] = result;
+				// *NOTE: You cannot call mFoo = getChild<LLFoo>("bar")
+				// in a floater or panel constructor.  The widgets will not
+				// be ready.  Instead, put it in postBuild().
+				llwarns << "Making dummy " << typeid(T).name() << " named \"" << name << "\" in " << getName() << llendl;
 			}
+			else
+			{
+				llwarns << "Failed to create dummy " << typeid(T).name() << llendl;
+				return NULL;
+			}
+
+			getDefaultWidgetMap()[name] = result;
 		}
 	}
 	return result;

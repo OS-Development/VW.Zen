@@ -711,10 +711,7 @@ void LLFloater::releaseFocus()
 		gFocusMgr.setTopCtrl(NULL);
 	}
 
-	if( gFocusMgr.childHasKeyboardFocus( this ) )
-	{
-		gFocusMgr.setKeyboardFocus(NULL);
-	}
+	setFocus(FALSE);
 
 	if( gFocusMgr.childHasMouseCapture( this ) )
 	{
@@ -1074,7 +1071,7 @@ void LLFloater::setFocus( BOOL b )
 	}
 	LLUICtrl* last_focus = gFocusMgr.getLastFocusForGroup(this);
 	// a descendent already has focus
-	BOOL child_had_focus = gFocusMgr.childHasKeyboardFocus(this);
+	BOOL child_had_focus = hasFocus();
 
 	// give focus to first valid descendent
 	LLPanel::setFocus(b);
@@ -1598,9 +1595,9 @@ void LLFloater::draw()
 	{
 		if (hasFocus() && getDefaultButton()->getEnabled())
 		{
-			LLUICtrl* focus_ctrl = gFocusMgr.getKeyboardFocus();
+			LLFocusableElement* focus_ctrl = gFocusMgr.getKeyboardFocus();
 			// is this button a direct descendent and not a nested widget (e.g. checkbox)?
-			BOOL focus_is_child_button = dynamic_cast<LLButton*>(focus_ctrl) != NULL && focus_ctrl->getParent() == this;
+			BOOL focus_is_child_button = dynamic_cast<LLButton*>(focus_ctrl) != NULL && dynamic_cast<LLButton*>(focus_ctrl)->getParent() == this;
 			// only enable default button when current focus is not a button
 			getDefaultButton()->setBorderEnabled(!focus_is_child_button);
 		}
@@ -1620,7 +1617,7 @@ void LLFloater::draw()
 	else
 	{
 		// draw children
-		LLView* focused_child = gFocusMgr.getKeyboardFocus();
+		LLView* focused_child = dynamic_cast<LLView*>(gFocusMgr.getKeyboardFocus());
 		BOOL focused_child_visible = FALSE;
 		if (focused_child && focused_child->getParent() == this)
 		{
@@ -1948,7 +1945,7 @@ LLRect LLFloaterView::findNeighboringPosition( LLFloater* reference_floater, LLF
 		if (sibling && 
 			sibling != neighbor && 
 			sibling->getVisible() && 
-			expanded_base_rect.rectInRect(&sibling->getRect()))
+			expanded_base_rect.overlaps(sibling->getRect()))
 		{
 			base_rect.unionWith(sibling->getRect());
 		}
@@ -2593,6 +2590,8 @@ void LLFloater::initFromParams(const LLFloater::Params& p)
 		initCommitCallback(p.close_callback, mCloseSignal);
 }
 
+LLFastTimer::DeclareTimer POST_BUILD("Floater Post Build");
+
 void LLFloater::initFloaterXML(LLXMLNodePtr node, LLView *parent, LLXMLNodePtr output_node)
 {
 	Params params(LLUICtrlFactory::getDefaultParams<LLFloater>());
@@ -2626,7 +2625,12 @@ void LLFloater::initFloaterXML(LLXMLNodePtr node, LLView *parent, LLXMLNodePtr o
 		LLFloater::setFloaterHost(last_host);
 	}
 	
-	BOOL result = postBuild();
+	BOOL result;
+	{
+		LLFastTimer ft(POST_BUILD);
+
+		result = postBuild();
+	}
 
 	if (!result)
 	{

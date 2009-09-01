@@ -35,7 +35,7 @@
 
 #include "llmodaldialog.h"
 #include "llassetstorage.h"
-#include "llwebbrowserctrl.h"
+#include "llmediactrl.h"
 #include <boost/function.hpp>
 
 class LLButton;
@@ -46,7 +46,7 @@ class LLUUID;
 
 class LLFloaterTOS : 
 	public LLModalDialog,
-	public LLWebBrowserCtrlObserver
+	public LLViewerMediaObserver
 {
 public:
 	LLFloaterTOS(const LLSD& data);
@@ -62,7 +62,8 @@ public:
 
 	void			setSiteIsAlive( bool alive );
 
-	virtual void onNavigateComplete( const EventType& eventIn );
+	// inherited from LLViewerMediaObserver
+	/*virtual*/ void handleMediaEvent(LLPluginClassMedia* self, EMediaEvent event);
 
 private:
 	std::string		mMessage;

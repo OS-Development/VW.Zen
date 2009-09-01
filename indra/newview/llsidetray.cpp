@@ -34,6 +34,7 @@
 
 #include "lltextbox.h"
 
+#include "llbottomtray.h"
 #include "llsidetray.h"
 #include "llviewerwindow.h"
 #include "llaccordionctrl.h"
@@ -109,12 +110,15 @@ bool	LLSideTray::instanceCreated	()
 }
 
 LLSideTrayTab::LLSideTrayTab(const Params& params):mMainPanel(0)
-												
 {
 	mImagePath = params.image_path;
 	mTabTitle = params.tab_title;
 	mDescription = params.description;
+
+	// Necessary for focus movement among child controls
+	setFocusRoot(TRUE);
 }
+
 LLSideTrayTab::~LLSideTrayTab()
 {
 }
@@ -152,9 +156,12 @@ static const S32 splitter_margin = 1;
 //virtual 
 void	LLSideTrayTab::arrange(S32 width, S32 height )
 {
+	if(!mMainPanel)
+		return;
+	
 	S32 offset = 0;
 
-	LLView* title_panel = getChildView(TAB_PANEL_CAPTION_NAME, true, false);
+	LLView* title_panel = findChildView(TAB_PANEL_CAPTION_NAME, true);
 
 	if(title_panel)
 	{
@@ -177,7 +184,7 @@ void LLSideTrayTab::reshape		(S32 width, S32 height, BOOL called_from_parent )
 		return;
 	S32 offset = 0;
 
-	LLView* title_panel = getChildView(TAB_PANEL_CAPTION_NAME, true, false);
+	LLView* title_panel = findChildView(TAB_PANEL_CAPTION_NAME, true);
 
 	if(title_panel)
 	{
@@ -608,7 +615,7 @@ LLPanel*	LLSideTray::showPanel		(const std::string& panel_name, const LLSD& para
 	child_vector_const_iter_t child_it;
 	for ( child_it = mTabs.begin(); child_it != mTabs.end(); ++child_it)
 	{
-		LLView* view = (*child_it)->getChildView(panel_name,true,false);
+		LLView* view = (*child_it)->findChildView(panel_name,true);
 		if(view)
 		{
 			onTabButtonClick((*child_it)->getName());
@@ -647,7 +654,7 @@ void	LLSideTray::setPanelRect	()
 	if(!mCollapsed)
 		panel_width+=mMaxBarWidth;
 
-	S32 panel_height = parent_rect.getHeight()-fake_top_offset;
+	S32 panel_height = parent_rect.getHeight() - fake_top_offset - LLBottomTray::getInstance()->getRect().getHeight();
 	LLRect panel_rect;
 	panel_rect.setLeftTopAndSize( parent_rect.mRight-panel_width, parent_rect.mTop-fake_top_offset, panel_width, panel_height);
 	setRect(panel_rect);

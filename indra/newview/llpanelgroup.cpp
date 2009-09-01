@@ -33,7 +33,6 @@
 
 #include "llpanelgroup.h"
 
-#include "llagent.h"
 #include "llbutton.h"
 #include "lltabcontainer.h"
 #include "lltextbox.h"
@@ -116,6 +115,9 @@ LLPanelGroup::~LLPanelGroup()
 
 void LLPanelGroup::onOpen(const LLSD& key)
 {
+	if(!key.has("group_id"))
+		return;
+	
 	LLUUID group_id = key["group_id"];
 	if(!key.has("action"))
 	{
@@ -127,7 +129,7 @@ void LLPanelGroup::onOpen(const LLSD& key)
 
 	if(str_action == "refresh")
 	{
-		if(mID == group_id)
+		if(mID == group_id || group_id == LLUUID::null)
 			refreshData();
 	}
 	else if(str_action == "close")
@@ -137,6 +139,12 @@ void LLPanelGroup::onOpen(const LLSD& key)
 	else if(str_action == "create")
 	{
 		setGroupID(LLUUID::null);
+	}
+	else if(str_action == "refresh_notices")
+	{
+		LLPanelGroupNotices* panel_notices = findChild<LLPanelGroupNotices>("group_notices_tab_panel");
+		if(panel_notices)
+			panel_notices->refreshNotices();
 	}
 
 }
@@ -180,21 +188,32 @@ void LLPanelGroup::reshape(S32 width, S32 height, BOOL called_from_parent )
 {
 	LLPanel::reshape(width, height, called_from_parent );
 
-	LLButton* button = getChild<LLButton>("btn_apply");
-	LLRect btn_rect = button->getRect();
-	btn_rect.setLeftTopAndSize( btn_rect.mLeft, 28, btn_rect.getWidth(), btn_rect.getHeight());
-	button->setRect(btn_rect);
+	LLRect btn_rect;
 
-	button = getChild<LLButton>("btn_create");
-	btn_rect = button->getRect();
-	btn_rect.setLeftTopAndSize( btn_rect.mLeft, 28, btn_rect.getWidth(), btn_rect.getHeight());
-	button->setRect(btn_rect);
+	LLButton* button = findChild<LLButton>("btn_apply");
+	if(button)
+	{
+		btn_rect = button->getRect();
+		btn_rect.setLeftTopAndSize( btn_rect.mLeft, 28, btn_rect.getWidth(), btn_rect.getHeight());
+		button->setRect(btn_rect);
+	}
+
+	button = findChild<LLButton>("btn_create");
+	if(button)
+	{
+		btn_rect = button->getRect();
+		btn_rect.setLeftTopAndSize( btn_rect.mLeft, 28, btn_rect.getWidth(), btn_rect.getHeight());
+		button->setRect(btn_rect);
+	}
 
 
-	button = getChild<LLButton>("btn_refresh");
-	btn_rect = button->getRect();
-	btn_rect.setLeftTopAndSize( btn_rect.mLeft, 28, btn_rect.getWidth(), btn_rect.getHeight());
-	button->setRect(btn_rect);
+	button = findChild<LLButton>("btn_refresh");
+	if(button)
+	{
+		btn_rect = button->getRect();
+		btn_rect.setLeftTopAndSize( btn_rect.mLeft, 28, btn_rect.getWidth(), btn_rect.getHeight());
+		button->setRect(btn_rect);
+	}
 }
 
 void LLPanelGroup::onBackBtnClick()
@@ -246,6 +265,7 @@ void LLPanelGroup::notifyObservers()
 	LLGroupMgrGroupData* gdatap = LLGroupMgr::getInstance()->getGroupData(mID);
 	if(gdatap)
 		childSetValue("group_name", gdatap->mName);
+	
 }
 
 
@@ -259,21 +279,30 @@ void LLPanelGroup::setGroupID(const LLUUID& group_id)
 	for(std::vector<LLPanelGroupTab* >::iterator it = mTabs.begin();it!=mTabs.end();++it)
 		(*it)->setGroupID(group_id);
 
-	LLButton* button_apply = getChild<LLButton>("btn_apply");
-	LLButton* button_refresh = getChild<LLButton>("btn_refresh");
-	LLButton* button_create = getChild<LLButton>("btn_create");
+	LLGroupMgrGroupData* gdatap = LLGroupMgr::getInstance()->getGroupData(mID);
+	if(gdatap)
+		childSetValue("group_name", gdatap->mName);
+
+	LLButton* button_apply = findChild<LLButton>("btn_apply");
+	LLButton* button_refresh = findChild<LLButton>("btn_refresh");
+	LLButton* button_create = findChild<LLButton>("btn_create");
 
 
 	bool is_null_group_id = group_id == LLUUID::null;
-	
-	button_apply->setVisible(!is_null_group_id);
-	button_refresh->setVisible(!is_null_group_id);
-	button_create->setVisible(is_null_group_id);
+	if(button_apply)
+		button_apply->setVisible(!is_null_group_id);
+	if(button_refresh)
+		button_refresh->setVisible(!is_null_group_id);
+	if(button_create)
+		button_create->setVisible(is_null_group_id);
 
 	LLAccordionCtrlTab* tab_general = findChild<LLAccordionCtrlTab>("group_general_tab");
 	LLAccordionCtrlTab* tab_roles = findChild<LLAccordionCtrlTab>("group_roles_tab");
 	LLAccordionCtrlTab* tab_notices = findChild<LLAccordionCtrlTab>("group_notices_tab");
 	LLAccordionCtrlTab* tab_land = findChild<LLAccordionCtrlTab>("group_land_tab");
+
+	if(!tab_general || !tab_roles || !tab_notices || !tab_land)
+		return;
 
 	if(is_null_group_id)//creating new group
 	{
@@ -293,6 +322,15 @@ void LLPanelGroup::setGroupID(const LLUUID& group_id)
 	}
 	else
 	{
+		if(!tab_general->getDisplayChildren())
+			tab_general->changeOpenClose(tab_general->getDisplayChildren());
+		if(!tab_roles->getDisplayChildren())
+			tab_roles->changeOpenClose(tab_roles->getDisplayChildren());
+		if(!tab_notices->getDisplayChildren())
+			tab_notices->changeOpenClose(tab_notices->getDisplayChildren());
+		if(!tab_land->getDisplayChildren())
+			tab_land->changeOpenClose(tab_land->getDisplayChildren());
+		
 		tab_roles->canOpenClose(true);
 		tab_notices->canOpenClose(true);
 		tab_land->canOpenClose(true);

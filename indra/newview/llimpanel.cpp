@@ -77,7 +77,6 @@
 #include "lluictrlfactory.h"
 #include "llviewerwindow.h"
 #include "lllogchat.h"
-#include "llfloaterhtml.h"
 #include "llweb.h"
 #include "llhttpclient.h"
 #include "llmutelist.h"
@@ -1097,66 +1096,58 @@ BOOL LLFloaterIMPanel::postBuild()
 	
 	mVisibleSignal.connect(boost::bind(&LLFloaterIMPanel::onVisibilityChange, this, _2));
 	
-	requires<LLLineEditor>("chat_editor");
-	requires<LLTextEditor>("im_history");
+	mInputEditor = getChild<LLLineEditor>("chat_editor");
+	mInputEditor->setFocusReceivedCallback( onInputEditorFocusReceived, this );
+	mInputEditor->setFocusLostCallback( onInputEditorFocusLost, this );
+	mInputEditor->setKeystrokeCallback( onInputEditorKeystroke, this );
+	mInputEditor->setCommitCallback( onCommitChat, this );
+	mInputEditor->setCommitOnFocusLost( FALSE );
+	mInputEditor->setRevertOnEsc( FALSE );
+	mInputEditor->setReplaceNewlinesWithSpaces( FALSE );
 
-	if (checkRequirements())
+	childSetAction("profile_callee_btn", onClickProfile, this);
+	childSetAction("group_info_btn", onClickGroupInfo, this);
+
+	childSetAction("start_call_btn", onClickStartCall, this);
+	childSetAction("end_call_btn", onClickEndCall, this);
+	childSetAction("send_btn", onClickSend, this);
+	childSetAction("toggle_active_speakers_btn", onClickToggleActiveSpeakers, this);
+
+	childSetAction("moderator_kick_speaker", onKickSpeaker, this);
+	//LLButton* close_btn = getChild<LLButton>("close_btn");
+	//close_btn->setClickedCallback(&LLFloaterIMPanel::onClickClose, this);
+
+	mHistoryEditor = getChild<LLViewerTextEditor>("im_history");
+	mHistoryEditor->setParseHTML(TRUE);
+	mHistoryEditor->setParseHighlights(TRUE);
+
+	if ( IM_SESSION_GROUP_START == mDialog )
 	{
-		mInputEditor = getChild<LLLineEditor>("chat_editor");
-		mInputEditor->setFocusReceivedCallback( onInputEditorFocusReceived, this );
-		mInputEditor->setFocusLostCallback( onInputEditorFocusLost, this );
-		mInputEditor->setKeystrokeCallback( onInputEditorKeystroke, this );
-		mInputEditor->setCommitCallback( onCommitChat, this );
-		mInputEditor->setCommitOnFocusLost( FALSE );
-		mInputEditor->setRevertOnEsc( FALSE );
-		mInputEditor->setReplaceNewlinesWithSpaces( FALSE );
-
-		childSetAction("profile_callee_btn", onClickProfile, this);
-		childSetAction("group_info_btn", onClickGroupInfo, this);
-
-		childSetAction("start_call_btn", onClickStartCall, this);
-		childSetAction("end_call_btn", onClickEndCall, this);
-		childSetAction("send_btn", onClickSend, this);
-		childSetAction("toggle_active_speakers_btn", onClickToggleActiveSpeakers, this);
-
-		childSetAction("moderator_kick_speaker", onKickSpeaker, this);
-		//LLButton* close_btn = getChild<LLButton>("close_btn");
-		//close_btn->setClickedCallback(&LLFloaterIMPanel::onClickClose, this);
-
-		mHistoryEditor = getChild<LLViewerTextEditor>("im_history");
-		mHistoryEditor->setParseHTML(TRUE);
-		mHistoryEditor->setParseHighlights(TRUE);
-
-		if ( IM_SESSION_GROUP_START == mDialog )
-		{
-			childSetEnabled("profile_btn", FALSE);
-		}
-		
-		if(!mProfileButtonEnabled)
-		{
-			childSetEnabled("profile_callee_btn", FALSE);
-		}
-
-		sTitleString = getString("title_string");
-		sTypingStartString = getString("typing_start_string");
-		sSessionStartString = getString("session_start_string");
-
-		if (mSpeakerPanel)
-		{
-			mSpeakerPanel->refreshSpeakers();
-		}
-
-		if (mDialog == IM_NOTHING_SPECIAL)
-		{
-			childSetAction("mute_btn", onClickMuteVoice, this);
-			childSetCommitCallback("speaker_volume", onVolumeChange, this);
-		}
-
-		setDefaultBtn("send_btn");
-		return TRUE;
+		childSetEnabled("profile_btn", FALSE);
+	}
+	
+	if(!mProfileButtonEnabled)
+	{
+		childSetEnabled("profile_callee_btn", FALSE);
 	}
 
-	return FALSE;
+	sTitleString = getString("title_string");
+	sTypingStartString = getString("typing_start_string");
+	sSessionStartString = getString("session_start_string");
+
+	if (mSpeakerPanel)
+	{
+		mSpeakerPanel->refreshSpeakers();
+	}
+
+	if (mDialog == IM_NOTHING_SPECIAL)
+	{
+		childSetAction("mute_btn", onClickMuteVoice, this);
+		childSetCommitCallback("speaker_volume", onVolumeChange, this);
+	}
+
+	setDefaultBtn("send_btn");
+	return TRUE;
 }
 
 void* LLFloaterIMPanel::createSpeakersPanel(void* data)
@@ -1385,8 +1376,7 @@ void LLFloaterIMPanel::addHistoryLine(const std::string &utf8msg, const LLColor4
 		else
 		{
 			// Convert the name to a hotlink and add to message.
-			const LLStyleSP &source_style = LLStyleMap::instance().lookupAgent(source);
-			mHistoryEditor->appendStyledText(name + separator_string, false, prepend_newline, source_style);
+			mHistoryEditor->appendStyledText(name + separator_string, false, prepend_newline, LLStyleMap::instance().lookupAgent(source));
 		}
 		prepend_newline = false;
 	}
@@ -2011,13 +2001,29 @@ bool LLFloaterIMPanel::onConfirmForceCloseError(const LLSD& notification, const 
 
 LLIMFloater::LLIMFloater(const LLUUID& session_id)
   : LLFloater(session_id),
+	mControlPanel(NULL),
 	mSessionID(session_id),
 	mLastMessageIndex(-1),
+	mLastFromName(),
 	mDialog(IM_NOTHING_SPECIAL),
 	mHistoryEditor(NULL),
 	mInputEditor(NULL), 
 	mPositioned(false)
 {
+	LLIMModel::LLIMSession* session = get_if_there(LLIMModel::instance().sSessionsMap, mSessionID, (LLIMModel::LLIMSession*)NULL);
+	if(session)
+	{
+		mDialog = session->mType;
+	}
+
+	if (mDialog == IM_NOTHING_SPECIAL)
+	{
+		mFactoryMap["panel_im_control_panel"] = LLCallbackMap(createPanelIMControl, this);
+	}
+	else
+	{
+		mFactoryMap["panel_im_control_panel"] = LLCallbackMap(createPanelGroupControl, this);
+	}
 // 	LLUICtrlFactory::getInstance()->buildFloater(this, "floater_im_session.xml");
 }
 
@@ -2089,22 +2095,19 @@ LLIMFloater::~LLIMFloater()
 //virtual
 BOOL LLIMFloater::postBuild()
 {
-	LLPanelIMControlPanel* im_control_panel = getChild<LLPanelIMControlPanel>("panel_im_control_panel");
-
 	LLIMModel::LLIMSession* session = get_if_there(LLIMModel::instance().sSessionsMap, mSessionID, (LLIMModel::LLIMSession*)NULL);
 	if(session)
 	{
 		mOtherParticipantUUID = session->mOtherParticipantID;
-		im_control_panel->setAvatarId(session->mOtherParticipantID);
-		mDialog = session->mType;
+		mControlPanel->setID(session->mOtherParticipantID);
 	}
 
 	LLButton* slide_left = getChild<LLButton>("slide_left_btn");
-	slide_left->setVisible(im_control_panel->getVisible());
+	slide_left->setVisible(mControlPanel->getVisible());
 	slide_left->setClickedCallback(boost::bind(&LLIMFloater::onSlide, this));
 
 	LLButton* slide_right = getChild<LLButton>("slide_right_btn");
-	slide_right->setVisible(!im_control_panel->getVisible());
+	slide_right->setVisible(!mControlPanel->getVisible());
 	slide_right->setClickedCallback(boost::bind(&LLIMFloater::onSlide, this));
 
 	mInputEditor = getChild<LLLineEditor>("chat_editor");
@@ -2131,6 +2134,28 @@ BOOL LLIMFloater::postBuild()
 	return TRUE;
 }
 
+
+
+// static
+void* LLIMFloater::createPanelIMControl(void* userdata)
+{
+	LLIMFloater *self = (LLIMFloater*)userdata;
+	self->mControlPanel = new LLPanelIMControlPanel();
+	self->mControlPanel->setXMLFilename("panel_im_control_panel.xml");
+	return self->mControlPanel;
+}
+
+
+// static
+void* LLIMFloater::createPanelGroupControl(void* userdata)
+{
+	LLIMFloater *self = (LLIMFloater*)userdata;
+	self->mControlPanel = new LLPanelGroupControlPanel();
+	self->mControlPanel->setXMLFilename("panel_group_control_panel.xml");
+	return self->mControlPanel;
+}
+
+
 const U32 UNDOCK_LEAP_HEIGHT = 12;
 const U32 DOCK_ICON_HEIGHT = 6;
 
@@ -2141,10 +2166,14 @@ void LLIMFloater::onFocusLost()
 	// (hence we are no longer focused)
 	if (isDocked())
 	{
-		// app not quitting
-		closeFloater(false);
+		LLIMFloater* floater = LLFloaterReg::getTypedInstance<LLIMFloater>("impanel", mSessionID);
+		if (floater)
+		{
+			floater->setVisible(false);
+		}	
 	}
 }
+
 
 
 //virtual
@@ -2177,7 +2206,7 @@ LLIMFloater* LLIMFloater::show(const LLUUID& session_id)
 		 iter != inst_list.end(); ++iter)
 	{
 		LLIMFloater* floater = dynamic_cast<LLIMFloater*>(*iter);
-		if (floater)
+		if (floater && floater->isDocked())
 		{
 			floater->setVisible(false);
 		}
@@ -2190,30 +2219,66 @@ LLIMFloater* LLIMFloater::show(const LLUUID& session_id)
 	return floater;
 }
 
+//static
+bool LLIMFloater::toggle(const LLUUID& session_id)
+{
+	LLIMFloater* floater = LLFloaterReg::findTypedInstance<LLIMFloater>("impanel", session_id);
+	if (floater && floater->getVisible())
+	{
+		// clicking on chiclet to close floater just hides it to maintain existing
+		// scroll/text entry state
+		floater->setVisible(false);
+		return false;
+	}
+	else
+	{
+		// ensure the list of messages is updated when floater is made visible
+		show(session_id);
+		// update number of unread notifications in the SysWell
+		LLBottomTray::getInstance()->getSysWell()->updateUreadIMNotifications();
+		return true;
+	}
+}
+
 void LLIMFloater::updateMessages()
 {
-
 	std::list<LLSD> messages = LLIMModel::instance().getMessages(mSessionID, mLastMessageIndex+1);
 
 	if (messages.size())
 	{
+		LLUIColor divider_color = LLUIColorTable::instance().getColor("LtGray_50");
+		LLUIColor chat_color = LLUIColorTable::instance().getColor("IMChatColor");
+
 		std::ostringstream message;
 		std::list<LLSD>::const_reverse_iterator iter = messages.rbegin();
 		std::list<LLSD>::const_reverse_iterator iter_end = messages.rend();
 	    for (; iter != iter_end; ++iter)
 		{
 			LLSD msg = *iter;
-			
-			message << msg["from"].asString() << " : " << msg["time"].asString() << "\n   " << msg["message"].asString() << "\n"; 
-			
+
+			const bool prepend_newline = true;
+			std::string from = msg["from"].asString();
+			if (mLastFromName != from)
+			{
+				message << from << " ----- " << msg["time"].asString();
+				mHistoryEditor->appendColoredText(message.str(), false,
+					prepend_newline, divider_color);
+				message.str("");
+				mLastFromName = from;
+			}
+
+			message << msg["message"].asString(); 
+			mHistoryEditor->appendColoredText(message.str(), false,
+				prepend_newline, chat_color);
+			message.str("");
+
 			mLastMessageIndex = msg["index"].asInteger();
 		}
 
-		mHistoryEditor->appendText(message.str(), false, false);
 		mHistoryEditor->setCursorAndScrollToEnd();
 	}
-
 }
+
 // static
 void LLIMFloater::onInputEditorFocusReceived( LLFocusableElement* caller, void* userdata )
 {

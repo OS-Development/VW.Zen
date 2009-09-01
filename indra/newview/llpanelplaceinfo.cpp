@@ -49,6 +49,7 @@
 #include "lltextbox.h"
 
 #include "llagent.h"
+#include "llavatarpropertiesprocessor.h"
 #include "llfloaterworldmap.h"
 #include "llinventorymodel.h"
 #include "lllandmarkactions.h"
@@ -97,6 +98,10 @@ BOOL LLPanelPlaceInfo::postBuild()
 	mParcelName = getChild<LLTextBox>("parcel_name");
 	mDescEditor = getChild<LLTextEditor>("description");
 	mRating = getChild<LLIconCtrl>("maturity");
+
+	mRegionInfoDrillIn = getChild<LLButton>("region_info_drill_in");
+	mMediaDrillIn = getChild<LLButton>("media_drill_in");
+	mMediaDrillIn->setClickedCallback(boost::bind(&LLPanelPlaceInfo::toggleMediaPanel, this, TRUE));
 
 	mOwner = getChild<LLTextBox>("owner");
 	mCreator = getChild<LLTextBox>("creator");
@@ -242,15 +247,17 @@ void LLPanelPlaceInfo::setParcelID(const LLUUID& parcel_id)
 
 void LLPanelPlaceInfo::setInfoType(INFO_TYPE type)
 {
-	if (type != PLACE)
-		toggleMediaPanel(FALSE);
-	
-	bool is_landmark_info_type = type == LANDMARK;
 	LLPanel* landmark_info_panel = getChild<LLPanel>("landmark_info_panel");
-	if (landmark_info_panel)
-	{
-		landmark_info_panel->setVisible(is_landmark_info_type);
-	}
+	LLPanel* landmark_edit_panel = getChild<LLPanel>("landmark_edit_panel");
+
+	bool is_info_type_agent = type == AGENT;
+	bool is_info_type_landmark = type == LANDMARK;
+
+	landmark_info_panel->setVisible(is_info_type_landmark);
+	landmark_edit_panel->setVisible(is_info_type_landmark || type == CREATE_LANDMARK);
+
+	mRegionInfoDrillIn->setVisible(is_info_type_agent);
+	mMediaDrillIn->setVisible(is_info_type_agent);
 
 	switch(type)
 	{
@@ -258,6 +265,7 @@ void LLPanelPlaceInfo::setInfoType(INFO_TYPE type)
 			mCurrentTitle = getString("title_create_landmark");
 		break;
 
+		case AGENT:
 		case PLACE:
 			mCurrentTitle = getString("title_place");
 
@@ -277,6 +285,9 @@ void LLPanelPlaceInfo::setInfoType(INFO_TYPE type)
 			mCurrentTitle = getString("title_place");
 		break;
 	}
+
+	if (type != PLACE)
+		toggleMediaPanel(FALSE);
 }
 
 BOOL LLPanelPlaceInfo::isMediaPanelVisible()
@@ -366,6 +377,11 @@ void LLPanelPlaceInfo::processParcelInfo(const LLParcelData& parcel_data)
 	}
 	mRating->setValue(rating_icon);
 
+	//update for_sale banner, here we should use DFQ_FOR_SALE instead of PF_FOR_SALE
+	//because we deal with remote parcel response format
+	bool isForSale = (parcel_data.flags & DFQ_FOR_SALE)? TRUE : FALSE;
+	getChild<LLIconCtrl>("icon_for_sale")->setVisible(isForSale);
+	
 	// Just use given region position for display
 	S32 region_x = llround(mPosRegion.mV[0]);
 	S32 region_y = llround(mPosRegion.mV[1]);
@@ -436,8 +452,28 @@ void LLPanelPlaceInfo::displayAgentParcelInfo()
 		return;
 
 	LLParcelData parcel_data;
+
+	// HACK: Converting sim access flags to the format
+	// returned by remote parcel response.
+	switch(region->getSimAccess())
+	{
+	case SIM_ACCESS_MATURE:
+		parcel_data.flags = 0x1;
+
+	case SIM_ACCESS_ADULT:
+		parcel_data.flags = 0x2;
+
+	default:
+		parcel_data.flags = 0;
+	}
+	
+	// Adding "For Sale" flag in remote parcel response format.
+	if (parcel->getForSale())
+	{
+		parcel_data.flags |= DFQ_FOR_SALE;
+	}
+	
 	parcel_data.desc = parcel->getDesc();
-	parcel_data.flags = region->getSimAccess();
 	parcel_data.name = parcel->getName();
 	parcel_data.sim_name = gAgent.getRegion()->getName();
 	parcel_data.snapshot_id = parcel->getSnapshotID();
@@ -445,6 +481,8 @@ void LLPanelPlaceInfo::displayAgentParcelInfo()
 	parcel_data.global_x = global_pos.mdV[0];
 	parcel_data.global_y = global_pos.mdV[1];
 	parcel_data.global_z = global_pos.mdV[2];
+
+	
 
 	processParcelInfo(parcel_data);
 }
@@ -512,6 +550,28 @@ void LLPanelPlaceInfo::createLandmark(const LLUUID& folder_id)
 	// If no folder chosen use the "Landmarks" folder.
 	LLLandmarkActions::createLandmarkHere(name, desc, 
 		folder_id.notNull() ? folder_id : gInventory.findCategoryUUIDForType(LLAssetType::AT_LANDMARK));
+}
+
+void LLPanelPlaceInfo::createPick(const LLVector3d& global_pos)
+{
+	LLPickData pick_data;
+
+	pick_data.agent_id = gAgent.getID();
+	pick_data.session_id = gAgent.getSessionID();
+	pick_data.pick_id = LLUUID::generateNewID();
+	pick_data.creator_id = gAgentID;
+
+	//legacy var  need to be deleted
+	pick_data.top_pick = FALSE;
+	pick_data.parcel_id = mParcelID;
+	pick_data.name = mParcelName->getText();
+	pick_data.desc = mDescEditor->getText();
+	pick_data.snapshot_id = mSnapshotCtrl->getImageAssetID();
+	pick_data.pos_global = global_pos;
+	pick_data.sort_order = 0;
+	pick_data.enabled = TRUE;
+
+	LLAvatarPropertiesProcessor::instance().sendDataUpdate(&pick_data, APT_PICK_INFO);
 }
 
 void LLPanelPlaceInfo::reshape(S32 width, S32 height, BOOL called_from_parent)

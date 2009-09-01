@@ -115,11 +115,10 @@ public:
 	/*virtual*/ BOOL	handleKeyHere( KEY key, MASK mask );
 	/*virtual*/ void 	handleVisibilityChange ( BOOL new_visibility );
 
-	// Override to set not found list:
-	/*virtual*/ LLView* getChildView(const std::string& name, BOOL recurse = TRUE, BOOL create_if_missing = TRUE) const;
-
 	// From LLFocusableElement
 	/*virtual*/ void	setFocus( BOOL b );
+	virtual void setAlpha(F32 alpha);
+
 	
 	// New virtuals
 	virtual 	void	refresh();	// called in setFocus()
@@ -131,19 +130,6 @@ public:
 	void			removeBorder();
 	BOOL			hasBorder() const { return mBorder != NULL; }
 	void			setBorderVisible( BOOL b );
-
-	template <class T> void requires(const std::string& name)
-	{
-		// check for widget with matching type and name
-		if (LLView::getChild<T>(name) == NULL)
-		{
-			mRequirementsError += name + "\n";
-		}
-	}
-	
-	// requires LLView by default
-	void requires(const std::string& name);
-	BOOL			checkRequirements();
 
 	void			setBackgroundColor( const LLColor4& color ) { mBgColorOpaque = color; }
 	const LLColor4&	getBackgroundColor() const { return mBgColorOpaque; }
@@ -160,6 +146,7 @@ public:
 	std::string		getLabel() const { return mLabel; }
 	
 	void			setCtrlsEnabled(BOOL b);
+
 
 	LLHandle<LLPanel>	getHandle() const { return mPanelHandle; }
 
@@ -202,6 +189,7 @@ public:
 	void childSetValidate(const std::string& id, boost::function<bool (const LLSD& data)> cb );
 
 	void childSetColor(const std::string& id, const LLColor4& color);
+	void childSetAlpha(const std::string& id, F32 alpha);
 
 	LLCtrlSelectionInterface* childGetSelectionInterface(const std::string& id) const;
 	LLCtrlListInterface* childGetListInterface(const std::string& id) const;
@@ -241,14 +229,12 @@ public:
 
 	void childSetControlName(const std::string& id, const std::string& control_name);
 
-	// Error reporting
-	void childNotFound(const std::string& id) const;
-	void childDisplayNotFound();
-
 	static LLView*	fromXML(LLXMLNodePtr node, LLView *parent, LLXMLNodePtr output_node = NULL);
 
 	//call onOpen to let panel know when it's about to be shown or activated
 	virtual void	onOpen(const LLSD& key) {}
+
+	void setXMLFilename(std::string filename) { mXMLFilename = filename; };
 	
 protected:
 	// Override to set not found list
@@ -257,7 +243,7 @@ protected:
 	CommitCallbackRegistry::ScopedRegistrar mCommitCallbackRegistrar;
 	EnableCallbackRegistry::ScopedRegistrar mEnableCallbackRegistrar;
 	
-	commit_signal_t mVisibleSignal;		// Called when visibilit changes, passes new visibility as LLSD()
+	commit_signal_t mVisibleSignal;		// Called when visibility changes, passes new visibility as LLSD()
 	
 private:
 	// Unified error reporting for the child* functions
@@ -277,7 +263,8 @@ private:
 	typedef std::map<std::string, std::string> ui_string_map_t;
 	ui_string_map_t	mUIStrings;
 
-	std::string		mRequirementsError;
+	// for setting the xml filename when building panel in context dependent cases
+	std::string		mXMLFilename;
 	
 }; // end class LLPanel
 

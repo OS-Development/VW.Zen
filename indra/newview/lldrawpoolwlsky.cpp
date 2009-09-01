@@ -42,7 +42,6 @@
 #include "llwlparammanager.h"
 #include "llsky.h"
 #include "llvowlsky.h"
-#include "llagent.h"
 #include "llviewerregion.h"
 #include "llface.h"
 #include "llrender.h"
@@ -260,7 +259,7 @@ void LLDrawPoolWLSky::render(S32 pass)
 	{
 		return;
 	}
-	LLFastTimer ftm(LLFastTimer::FTM_RENDER_WL_SKY);
+	LLFastTimer ftm(FTM_RENDER_WL_SKY);
 
 	const F32 camHeightLocal = LLWLParamManager::instance()->getDomeOffset() * LLWLParamManager::instance()->getDomeRadius();
 

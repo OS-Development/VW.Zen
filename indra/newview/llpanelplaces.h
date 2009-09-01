@@ -66,10 +66,11 @@ private:
 	void onFilterEdit(const std::string& search_string);
 	void onTabSelected();
 
-	//void onCopySLURLButtonClicked();
 	//void onShareButtonClicked();
 	void onTeleportButtonClicked();
 	void onShowOnMapButtonClicked();
+	void onOverflowButtonClicked();
+	void onOverflowMenuItemClicked(const LLSD& param);
 	void onCreateLandmarkButtonClicked(const LLUUID& folder_id);
 	void onBackButtonClicked();
 
@@ -85,6 +86,8 @@ private:
 	LLPanelPlacesTab*			mActivePanel;
 	LLTabContainer*				mTabContainer;
 	LLPanelPlaceInfo*			mPlaceInfo;
+	LLToggleableMenu*			mPlaceMenu;
+	LLToggleableMenu*			mLandmarkMenu;
 
 	LLButton*					mCreateLandmarkBtn;
 	LLButton*					mFolderMenuBtn;

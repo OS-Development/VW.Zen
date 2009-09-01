@@ -60,7 +60,7 @@
 //
 
 // linden library includes
-#include "audioengine.h"		// mute on minimize
+#include "llaudioengine.h"		// mute on minimize
 #include "indra_constants.h"
 #include "llassetstorage.h"
 #include "llerrorcontrol.h"
@@ -169,6 +169,8 @@
 #include "llviewertexturelist.h"
 #include "llviewerinventory.h"
 #include "llviewerkeyboard.h"
+#include "llviewermedia.h"
+#include "llviewermediafocus.h"
 #include "llviewermenu.h"
 #include "llviewermessage.h"
 #include "llviewerobjectlist.h"
@@ -190,6 +192,7 @@
 #include "llpostprocess.h"
 #include "llbottomtray.h"
 #include "llnearbychatbar.h"
+#include "llagentui.h"
 
 #include "llnotificationmanager.h"
 
@@ -940,8 +943,6 @@ void LLViewerWindow::handleFocus(LLWindow *window)
 	gAgent.onAppFocusGained();
 	LLToolMgr::getInstance()->onAppFocusGained();
 
-	gShowTextEditCursor = TRUE;
-
 	// See if we're coming in with modifier keys held down
 	if (gKeyboard)
 	{
@@ -970,11 +971,6 @@ void LLViewerWindow::handleFocusLost(LLWindow *window)
 	// restore mouse cursor
 	showCursor();
 	getWindow()->setMouseClipping(FALSE);
-
-	// JC - Leave keyboard focus, so if you're popping in and out editing
-	// a script, you don't have to click in the editor again and again.
-	// gFocusMgr.setKeyboardFocus( NULL );
-	gShowTextEditCursor = FALSE;
 
 	// If losing focus while keys are down, reset them.
 	if (gKeyboard)
@@ -1117,7 +1113,7 @@ BOOL LLViewerWindow::handlePaint(LLWindow *window,  S32 x,  S32 y, S32 width,  S
 		FillRect(hdc, &wnd_rect, CreateSolidBrush(RGB(255, 255, 255)));
 
 		std::string name_str;
-		gAgent.getName(name_str);
+		LLAgentUI::buildName(name_str);
 
 		std::string temp_str;
 		temp_str = llformat( "%s FPS %3.1f Phy FPS %2.1f Time Dil %1.3f",		/* Flawfinder: ignore */
@@ -1166,7 +1162,7 @@ void LLViewerWindow::handleDataCopy(LLWindow *window, S32 data_type, void *data)
 	case SLURL_MESSAGE_TYPE:
 		// received URL
 		std::string url = (const char*)data;
-		LLWebBrowserCtrl* web = NULL;
+		LLMediaCtrl* web = NULL;
 		const bool trusted_browser = false;
 		if (LLURLDispatcher::dispatch(url, web, trusted_browser))
 		{
@@ -1666,6 +1662,19 @@ void LLViewerWindow::initWorldUI()
 	//Notification Manager
 	LLNotificationsUI::LLNotificationManager* notify_manager = LLNotificationsUI::LLNotificationManager::getInstance();
 	getRootView()->addChild(notify_manager);
+
+	if ( gHUDView == NULL )
+	{
+		LLRect hud_rect = full_window;
+		hud_rect.mBottom += 50;
+		if (gMenuBarView)
+		{
+			hud_rect.mTop -= gMenuBarView->getRect().getHeight();
+		}
+		gHUDView = new LLHUDView(hud_rect);
+		// put behind everything else in the UI
+		getRootView()->addChildInBack(gHUDView);
+	}
 }
 
 // Destroy the UI
@@ -2026,6 +2035,11 @@ void LLViewerWindow::draw()
 		// No translation needed, this view is glued to 0,0
 		mRootView->draw();
 
+		if (mToolTip->getVisible() && LLView::sDebugRects)
+		{
+			gl_rect_2d(mToolTipStickyRect, LLColor4::white, false);
+		}
+
 		// Draw optional on-top-of-everyone view
 		LLUICtrl* top_ctrl = gFocusMgr.getTopCtrl();
 		if (top_ctrl && top_ctrl->getVisible())
@@ -2102,7 +2116,7 @@ BOOL LLViewerWindow::handleKey(KEY key, MASK mask)
 		if (key < 0x80)
 		{
 			// Not a special key, so likely (we hope) to generate a character.  Let it fall through to character handler first.
-			return gFocusMgr.childHasKeyboardFocus(mRootView);
+			return (gFocusMgr.getKeyboardFocus() != NULL);
 		}
 	}
 
@@ -2185,7 +2199,7 @@ BOOL LLViewerWindow::handleKey(KEY key, MASK mask)
 	}
 
 	// Traverses up the hierarchy
-	LLUICtrl* keyboard_focus = gFocusMgr.getKeyboardFocus();
+	LLFocusableElement* keyboard_focus = gFocusMgr.getKeyboardFocus();
 	if( keyboard_focus )
 	{
 		LLLineEditor* chat_editor = LLBottomTray::instanceExists() ? LLBottomTray::getInstance()->getNearbyChatBar()->getChatBox() : NULL;
@@ -2320,7 +2334,7 @@ BOOL LLViewerWindow::handleUnicodeChar(llwchar uni_char, MASK mask)
 	}
 
 	// Traverses up the hierarchy
-	LLView* keyboard_focus = gFocusMgr.getKeyboardFocus();
+	LLFocusableElement* keyboard_focus = gFocusMgr.getKeyboardFocus();
 	if( keyboard_focus )
 	{
 		if (keyboard_focus->handleUnicodeChar(uni_char, FALSE))
@@ -2428,6 +2442,7 @@ void LLViewerWindow::updateBottomTrayRect()
 			rc.mRight = right;
 			bottom_tray->reshape(rc.getWidth(), rc.getHeight(), FALSE);
 			bottom_tray->setRect(rc);
+			mOnBottomTrayWidthChanged();
 		}
 	}
 }
@@ -2445,7 +2460,7 @@ void LLViewerWindow::updateUI()
 
 	updateWorldViewRect();
 
-	updateBottomTrayRect();
+	//updateBottomTrayRect();
 
 	LLView::sMouseHandlerMessage.clear();
 
@@ -2809,6 +2824,12 @@ void LLViewerWindow::updatePicking(S32 x, S32 y, MASK mask)
 		do_pick = FALSE;
 	}
 
+	if(LLViewerMediaFocus::getInstance()->getFocus())
+	{
+		// When in-world media is in focus, pick every frame so that browser mouse-overs, dragging scrollbars, etc. work properly.
+		do_pick = TRUE;
+	}
+
 	if (do_pick)
 	{
 		mouse_moved_since_pick = FALSE;
@@ -2913,7 +2934,7 @@ void LLViewerWindow::updateMouseDelta()
 void LLViewerWindow::updateKeyboardFocus()
 {
 	// clean up current focus
-	LLUICtrl* cur_focus = gFocusMgr.getKeyboardFocus();
+	LLUICtrl* cur_focus = dynamic_cast<LLUICtrl*>(gFocusMgr.getKeyboardFocus());
 	if (cur_focus)
 	{
 		if (!cur_focus->isInVisibleChain() || !cur_focus->isInEnabledChain())
@@ -3325,7 +3346,7 @@ void LLViewerWindow::schedulePick(LLPickInfo& pick_info)
 	
 		return;
 	}
-	llassert_always(pick_info.mScreenRegion.notNull());
+	llassert_always(pick_info.mScreenRegion.notEmpty());
 	mPicks.push_back(pick_info);
 	
 	// delay further event processing until we receive results of pick
@@ -4283,7 +4304,6 @@ void LLViewerWindow::drawMouselookInstructions()
 		LLFontGL::HCENTER, LLFontGL::TOP);
 }
 
-
 S32	LLViewerWindow::getWindowHeight()	const 	
 { 
 	return mVirtualWindowRect.getHeight(); 
@@ -4753,7 +4773,7 @@ BOOL LLViewerWindow::changeDisplaySettings(BOOL fullscreen, LLCoordScreen size, 
 	BOOL result_first_try = FALSE;
 	BOOL result_second_try = FALSE;
 
-	LLUICtrl* keyboard_focus = gFocusMgr.getKeyboardFocus();
+	LLFocusableElement* keyboard_focus = gFocusMgr.getKeyboardFocus();
 	send_agent_pause();
 	llinfos << "Stopping GL during changeDisplaySettings" << llendl;
 	stopGL();
@@ -5128,12 +5148,8 @@ void LLPickInfo::updateXYCoords()
 		LLPointer<LLViewerTexture> imagep = LLViewerTextureManager::getFetchedTexture(tep->getID());
 		if(mUVCoords.mV[VX] >= 0.f && mUVCoords.mV[VY] >= 0.f && imagep.notNull())
 		{
-			LLCoordGL coords;
-			
-			coords.mX = llround(mUVCoords.mV[VX] * (F32)imagep->getWidth());
-			coords.mY = llround(mUVCoords.mV[VY] * (F32)imagep->getHeight());
-
-			gViewerWindow->getWindow()->convertCoords(coords, &mXYCoords);
+			mXYCoords.mX = llround(mUVCoords.mV[VX] * (F32)imagep->getWidth());
+			mXYCoords.mY = llround((1.f - mUVCoords.mV[VY]) * (F32)imagep->getHeight());
 		}
 	}
 }

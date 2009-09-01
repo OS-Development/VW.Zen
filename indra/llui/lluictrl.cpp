@@ -54,61 +54,7 @@ LLUICtrl::Params::Params()
 	addSynonym(initial_value, "initial_value");
 }
 
-LLFocusableElement::LLFocusableElement()
-:	mFocusLostCallback(NULL),
-	mFocusReceivedCallback(NULL),
-	mFocusChangedCallback(NULL),
-	mTopLostCallback(NULL),
-	mFocusCallbackUserData(NULL)
-{
-}
-
-//virtual
-LLFocusableElement::~LLFocusableElement()
-{
-}
-
-void LLFocusableElement::onFocusReceived()
-{
-	if( mFocusReceivedCallback )
-	{
-		mFocusReceivedCallback( this, mFocusCallbackUserData );
-	}
-	if( mFocusChangedCallback )
-	{
-		mFocusChangedCallback( this, mFocusCallbackUserData );
-	}
-}
-
-void LLFocusableElement::onFocusLost()
-{
-	if( mFocusLostCallback )
-	{
-		mFocusLostCallback( this, mFocusCallbackUserData );
-	}
-
-	if( mFocusChangedCallback )
-	{
-		mFocusChangedCallback( this, mFocusCallbackUserData );
-	}
-}
-
-void LLFocusableElement::onTopLost()
-{
-	if (mTopLostCallback)
-	{
-		mTopLostCallback(this, mFocusCallbackUserData);
-	}
-}
-
-BOOL LLFocusableElement::hasFocus() const
-{
-	return FALSE;
-}
-
-void LLFocusableElement::setFocus(BOOL b)
-{
-}
+// NOTE: the LLFocusableElement implementation has been moved from here to llfocusmgr.cpp.
 
 //static 
 const LLUICtrl::Params& LLUICtrl::getDefaultParams()
@@ -278,24 +224,46 @@ void LLUICtrl::onMouseLeave(S32 x, S32 y, MASK mask)
 {
 	mMouseLeaveSignal(this, getValue());
 }
+
 //virtual 
-BOOL LLUICtrl::handleMouseDown(S32 x, S32 y, MASK mask){
+BOOL LLUICtrl::handleMouseDown(S32 x, S32 y, MASK mask)
+{
 	BOOL handled  = LLView::handleMouseDown(x,y,mask);
 	mMouseDownSignal(this,x,y,mask);
 	return handled;
 }
+
 //virtual
-BOOL LLUICtrl::handleMouseUp(S32 x, S32 y, MASK mask){
+BOOL LLUICtrl::handleMouseUp(S32 x, S32 y, MASK mask)
+{
 	BOOL handled  = LLView::handleMouseUp(x,y,mask);
 	mMouseUpSignal(this,x,y,mask);
 	return handled;
 }
+
 //virtual
-BOOL LLUICtrl::handleRightMouseUp(S32 x, S32 y, MASK mask){
-	BOOL handled  = LLView::handleRightMouseUp(x,y,mask);
-	mRightClickSignal(this,x,y,mask);
+BOOL LLUICtrl::handleRightMouseDown(S32 x, S32 y, MASK mask)
+{
+	BOOL handled  = LLView::handleRightMouseDown(x,y,mask);
+	mRightMouseDownSignal(this,x,y,mask);
 	return handled;
 }
+
+//virtual
+BOOL LLUICtrl::handleRightMouseUp(S32 x, S32 y, MASK mask)
+{
+	BOOL handled  = LLView::handleRightMouseUp(x,y,mask);
+	mRightMouseUpSignal(this,x,y,mask);
+	return handled;
+}
+
+// can't tab to children of a non-tab-stop widget
+BOOL LLUICtrl::canFocusChildren() const
+{
+	return hasTabStop();
+}
+
+
 void LLUICtrl::onCommit()
 {
 	mCommitSignal(this, getValue());
@@ -538,7 +506,7 @@ void LLUICtrl::onFocusReceived()
 
 	// find first view in hierarchy above new focus that is a LLUICtrl
 	LLView* viewp = getParent();
-	LLUICtrl* last_focus = gFocusMgr.getLastKeyboardFocus();
+	LLUICtrl* last_focus = dynamic_cast<LLUICtrl*>(gFocusMgr.getLastKeyboardFocus());
 
 	while (viewp && !viewp->isCtrl()) 
 	{
@@ -864,6 +832,9 @@ BOOL LLUICtrl::getTentative() const
 void LLUICtrl::setColor(const LLColor4& color)							
 { }
 
+// virtual
+void LLUICtrl::setAlpha(F32 alpha)							
+{ }
 
 
 namespace LLInitParam

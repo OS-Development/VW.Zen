@@ -54,6 +54,8 @@
 #include "llviewertexteditor.h"
 #include "llstylemap.h"
 
+#include "lldraghandle.h"
+
 
 static const S32 RESIZE_BAR_THICKNESS = 3;
 
@@ -87,6 +89,8 @@ BOOL LLNearbyChat::postBuild()
 	mResizeHandle[1]->setVisible(false);
 	mResizeHandle[2]->setVisible(false);
 	mResizeHandle[3]->setVisible(false);
+
+	getDragHandle()->setVisible(false);
 
 	//menu
 	LLUICtrl::CommitCallbackRegistry::ScopedRegistrar registrar;
@@ -204,11 +208,20 @@ void nearbychat_add_timestamped_line(LLViewerTextEditor* edit, LLChat chat, cons
 	{
 		std::string start_line = line.substr(0, chat.mFromName.length() + 1);
 		line = line.substr(chat.mFromName.length() + 1);
-		const LLStyleSP &sourceStyle = LLStyleMap::instance().lookup(chat.mFromID,chat.mURL);
-		edit->appendStyledText(start_line, false, prepend_newline, sourceStyle);
+		edit->appendStyledText(start_line, false, prepend_newline, LLStyleMap::instance().lookup(chat.mFromID,chat.mURL));
 		prepend_newline = false;
 	}
-	edit->appendColoredText(line, false, prepend_newline, color);
+
+	S32 font_size = gSavedSettings.getS32("ChatFontSize");
+
+	std::string font_name = "";
+
+	if (0 == font_size)
+		font_name = "small";
+	else if (2 == font_size)
+		font_name = "sansserifbig";
+
+	edit->appendColoredText(line, false, prepend_newline, color, font_name);
 }
 
 
@@ -339,6 +352,7 @@ BOOL	LLNearbyChat::handleMouseDown	(S32 x, S32 y, MASK mask)
 	S32 local_y = caption_local_y - nearby_speakers_btn->getRect().mBottom;
 	if(nearby_speakers_btn->pointInView(local_x, local_y))
 	{
+
 		onNearbySpeakers();
 		bringToFront( x, y );
 		return true;
@@ -415,6 +429,8 @@ void	LLNearbyChat::pinn_panel()
 	mResizeBar[LLResizeBar::LEFT]->setVisible(false);
 	mResizeBar[LLResizeBar::RIGHT]->setVisible(false);
 
+	getDragHandle()->setVisible(false);
+
 }
 
 void	LLNearbyChat::float_panel()
@@ -426,6 +442,8 @@ void	LLNearbyChat::float_panel()
 	mResizeBar[LLResizeBar::BOTTOM]->setVisible(true);
 	mResizeBar[LLResizeBar::LEFT]->setVisible(true);
 	mResizeBar[LLResizeBar::RIGHT]->setVisible(true);
+
+	getDragHandle()->setVisible(true);
 
 	translate(4,4);
 }
@@ -460,7 +478,7 @@ BOOL LLNearbyChat::handleRightMouseDown(S32 x, S32 y, MASK mask)
 
 void	LLNearbyChat::onOpen(const LLSD& key )
 {
-	LLNotificationsUI::LLScreenChannel* chat_channel = LLNotificationsUI::LLChannelManager::getInstance()->getChannelByID(LLUUID(NEARBY_CHAT_ID));
+	LLNotificationsUI::LLScreenChannel* chat_channel = LLNotificationsUI::LLChannelManager::getInstance()->getChannelByID(LLUUID(gSavedSettings.getString("NearByChatChannelUUID")));
 	if(chat_channel)
 	{
 		chat_channel->removeToastsFromChannel();

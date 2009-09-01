@@ -31,8 +31,7 @@
          layout="topleft"
          left="0"
          top="0"
-         width="5" 
-         min_width="5" />
+         width="5"/>
         <layout_panel
          follows="left|right"
          height="28"
@@ -55,8 +54,7 @@
          left="0"
          name="DUMMY"
          top="0"
-         width="3" 
-         min_width="3"/>
+         width="3"/>
         <layout_panel
          auto_resize="false"
          follows="right"
@@ -67,6 +65,7 @@
          width="70"
          top_delta="-10"
          min_width="70"
+         name="movement_panel"
          user_resize="false">
             <button
              follows="right"
@@ -94,8 +93,7 @@
          left="0"
          name="DUMMY"
          top="0"
-         width="8" 
-         min_width="8"/>
+         width="8"/>
         <layout_panel
          auto_resize="false"
          follows="right"
@@ -103,6 +101,7 @@
          layout="topleft"
          min_height="28"
          min_width="150"
+         name="cam_panel"
          top_delta="-10"
          width="150">
             <split_button
@@ -116,6 +115,7 @@
                  image_unselected="camera_presets/camera_presets_arrow.png"
                  image_disabled_selected="camera_presets/camera_presets_arrow.png" 
                  image_disabled="camera_presets/camera_presets_arrow.png"
+                 name="camera_presets"
                  tool_tip="Camera Presets" 
                  />
                 <split_button.item
@@ -166,8 +166,8 @@
                  image_unselected="camera_presets/camera_presets_arrow_right.png"
                  image_disabled_selected="camera_presets/camera_presets_arrow_right.png" 
                  image_disabled="camera_presets/camera_presets_arrow_right.png"
+                 name="snapshot_settings"
                  tool_tip="Snapshot Settings" />
-                 />
                 <split_button.item
                  image_selected="camera_presets/camera_presets_snapshot.png"
                  image_unselected="camera_presets/camera_presets_snapshot.png"
@@ -185,8 +185,7 @@
          left="0"
          name="DUMMY"
          top="0"
-         width="5" 
-         min_width="5" />
+         width="5"/>
         <layout_panel
          follows="left|right"
          height="28"
@@ -216,8 +215,7 @@
          layout="topleft"
          left="0"
          top="0"
-         width="5" 
-         min_width="5" />
+         width="5"/>
         <layout_panel
          auto_resize="false"
          follows="right"
@@ -245,9 +243,11 @@
                height="20"
                left="18"
                top="23"/>
+<!-- 
 			  <chiclet_notification.commit_callback
 				 function="Notification.Show"
 				 parameter="ClickUnimplemented" />
+ -->               				 
 			</chiclet_notification>
         </layout_panel>
         <icon
@@ -259,8 +259,7 @@
          layout="topleft"
          left="0"
          top="0"
-         width="10" 
-         min_width="10"/>
+         width="10"/>
         <view_border
          auto_resize="false"
          bevel_style="in"
@@ -280,8 +279,7 @@
          layout="topleft"
          left="0"
          top="0"
-         width="10" 
-         min_width="10" />
+         width="10"/>
         <layout_panel
          auto_resize="false"
          follows="right"
@@ -325,7 +323,6 @@
          layout="topleft"
          left="0"
          top="0"
-         width="5" 
-         min_width="5" />
+         width="5"/>
     </layout_stack>
 </panel>

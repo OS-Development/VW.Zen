@@ -38,6 +38,7 @@
 #include "llpanel.h"
 #include "lltextbox.h"
 #include "lloutputmonitorctrl.h"
+#include "llgroupmgr.h"
 
 class LLVoiceControlPanel;
 class LLMenuGL;
@@ -235,12 +236,14 @@ private:
 * IMChiclet displays avatar's icon, number of unread messages(optional)
 * and voice chat status(optional).
 */
-class LLIMChiclet : public LLChiclet
+class LLIMChiclet : public LLChiclet, LLGroupMgrObserver
 {
 public:
 	struct Params : public LLInitParam::Block<Params, LLChiclet::Params>
 	{
 		Optional<LLChicletAvatarIconCtrl::Params> avatar_icon;
+
+		Optional<LLIconCtrl::Params> group_insignia;
 
 		Optional<LLChicletNotificationCounterCtrl::Params> unread_notifications;
 
@@ -253,6 +256,8 @@ public:
 
 	/*virtual*/ ~LLIMChiclet();
 
+	virtual void setSessionId(const LLUUID& session_id);
+
 	/*
 	 * Sets IM session name. This name will be displayed in chiclet tooltip.
 	*/
@@ -260,8 +265,14 @@ public:
 
 	/*
 	 * Sets id of person/group user is chatting with.
+	 * Session id should be set before calling this
 	*/
 	virtual void setOtherParticipantId(const LLUUID& other_participant_id);
+
+	/*
+	 * Gets id of person/group user is chatting with.
+	 */
+	virtual LLUUID getOtherParticipantId();
 
 	/*
 	 * Shows/hides voice chat status control.
@@ -294,11 +305,22 @@ public:
 	*/
 	/*virtual*/ void draw();
 
+	/**
+	 * The action taken on mouse down event.
+	 * 
+	 * Made public so that it can be triggered from outside
+	 * (more specifically, from the Active IM window).
+	 */
+	void onMouseDown();
+
 	/*
 	 * Returns rect, required to display chiclet.
 	 * Width is the only valid value.
 	*/
 	/*virtual*/ LLRect getRequiredRect();
+
+	/** comes from LLGroupMgrObserver */
+	virtual void changed(LLGroupChange gc);
 
 protected:
 
@@ -326,14 +348,43 @@ protected:
 	*/
 	/*virtual*/ BOOL handleRightMouseDown(S32 x, S32 y, MASK mask);
 
+	/*virtual*/ BOOL handleMouseDown(S32 x, S32 y, MASK mask);
+
 protected:
 	LLChicletAvatarIconCtrl* mAvatarCtrl;
+
+	/** the icon of a group in case of group chat */
+	LLIconCtrl* mGroupInsignia;
 	LLChicletNotificationCounterCtrl* mCounterCtrl;
 	LLChicletSpeakerCtrl* mSpeakerCtrl;
 
 	LLMenuGL* mPopupMenu;
 
 	bool mShowSpeaker;
+
+	/** the id of another participant, either an avatar id or a group id*/
+	LLUUID mOtherParticipantId;
+
+	template<typename Container>
+	struct CollectChicletCombiner {
+		typedef Container result_type;
+
+		template<typename InputIterator>
+		Container operator()(InputIterator first, InputIterator last) const {
+			Container c = Container();
+			for (InputIterator iter = first; iter != last; iter++) {
+				if (*iter != NULL) {
+					c.push_back(*iter);
+				}
+			}
+			return c;
+		}
+	};
+
+public:
+	static boost::signals2::signal<LLChiclet* (const LLUUID&),
+			CollectChicletCombiner<std::list<LLChiclet*> > >
+			sFindChicletsSignal;
 };
 
 /*
@@ -366,11 +417,19 @@ public:
 	// Notification Chiclet Window
 	void	setNotificationChicletWindow(LLFloater* wnd) { mNotificationChicletWindow = wnd; }
 
+	// methods for updating a number of unread System or IM notifications
+	void incUreadSystemNotifications() { setCounter(++mUreadSystemNotifications + mUreadIMNotifications); }
+	void decUreadSystemNotifications() { setCounter(--mUreadSystemNotifications + mUreadIMNotifications); }
+	void updateUreadIMNotifications();
+
 protected:
 	LLNotificationChiclet(const Params& p);
 	friend class LLUICtrlFactory;
 
 	LLFloater*	mNotificationChicletWindow;
+
+	static S32 mUreadSystemNotifications;
+	static S32 mUreadIMNotifications;
 
 protected:
 	LLButton* mButton;

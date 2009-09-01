@@ -84,6 +84,7 @@
 #include "llviewerwindow.h"
 #include "llvlcomposition.h"
 #include "lltrans.h"
+#include "llagentui.h"
 
 #define ELAR_ENABLED 0 // Enable when server support is implemented
 
@@ -714,7 +715,7 @@ bool LLPanelRegionGeneralInfo::onMessageCommit(const LLSD& notification, const L
 	gAgent.getID().toString(buffer);
 	strings.push_back(buffer);
 	std::string name;
-	gAgent.buildFullname(name);
+	LLAgentUI::buildFullname(name);
 	strings.push_back(strings_t::value_type(name));
 	strings.push_back(strings_t::value_type(text));
 	LLUUID invoice(LLFloaterRegionInfo::getLastInvoice());
@@ -2659,7 +2660,7 @@ bool LLPanelEstateInfo::onMessageCommit(const LLSD& notification, const LLSD& re
 	strings_t strings;
 	//integers_t integers;
 	std::string name;
-	gAgent.buildFullname(name);
+	LLAgentUI::buildFullname(name);
 	strings.push_back(strings_t::value_type(name));
 	strings.push_back(strings_t::value_type(text));
 	LLUUID invoice(LLFloaterRegionInfo::getLastInvoice());
@@ -2746,7 +2747,6 @@ BOOL LLPanelEstateCovenant::postBuild()
 	mEstateOwnerText = getChild<LLTextBox>("estate_owner_text");
 	mLastModifiedText = getChild<LLTextBox>("covenant_timestamp_text");
 	mEditor = getChild<LLViewerTextEditor>("covenant_editor");
-	if (mEditor) mEditor->setHandleEditKeysDirectly(TRUE);
 	LLButton* reset_button = getChild<LLButton>("reset_covenant");
 	reset_button->setEnabled(gAgent.canManageEstate());
 	reset_button->setClickedCallback(LLPanelEstateCovenant::resetCovenantID, NULL);

@@ -103,10 +103,6 @@ LLChatBar::LLChatBar()
 	mObserver(NULL)
 {
 	setIsChrome(TRUE);
-	
-#if !LL_RELEASE_FOR_DOWNLOAD
-	childDisplayNotFound();
-#endif
 }
 
 
@@ -125,7 +121,7 @@ BOOL LLChatBar::postBuild()
 	// * NOTE: mantipov: getChild with default parameters returns dummy widget.
 	// Seems this class will be completle removed
 	// attempt to bind to an existing combo box named gesture
-	setGestureCombo(getChild<LLComboBox>( "Gesture", TRUE, FALSE));
+	setGestureCombo(findChild<LLComboBox>( "Gesture"));
 
 	mInputEditor = getChild<LLLineEditor>("Chat Editor");
 	mInputEditor->setKeystrokeCallback(&onInputEditorKeystroke, this);
@@ -682,7 +678,7 @@ public:
 
     // Your code here
 	bool handle(const LLSD& tokens, const LLSD& query_map,
-				LLWebBrowserCtrl* web)
+				LLMediaCtrl* web)
 	{
 		if (tokens.size() < 2) return false;
 		S32 channel = tokens[0].asInteger();

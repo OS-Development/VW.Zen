@@ -173,8 +173,7 @@ public:
 	// Name
 	//--------------------------------------------------------------------
 public:
-	void			getName(std::string& name) const;
-	void			buildFullname(std::string &name) const;
+	//*TODO remove, is not used as of August 20, 2009
 	void			buildFullnameAndTitle(std::string &name) const;
 
 	//--------------------------------------------------------------------
@@ -272,18 +271,15 @@ public:
 	{
 		LOCATION_FORMAT_NORMAL,
 		LOCATION_FORMAT_LANDMARK,
+		LOCATION_FORMAT_WITHOUT_SIM,
 		LOCATION_FORMAT_FULL,
 	};
 	void			setRegion(LLViewerRegion *regionp);
 	LLViewerRegion	*getRegion() const;
 	LLHost			getRegionHost() const;
-	std::string		getSLURL() const;
-	std::string		getUnescapedSLURL() const;
 	BOOL			inPrelude();
-	BOOL 			buildLocationString(std::string& str, ELocationFormat fmt = LOCATION_FORMAT_LANDMARK); // Utility to build a location string
 private:
 	LLViewerRegion	*mRegionp;
-	std::string  	buildSLURL(const bool escape) const;
 
 	//--------------------------------------------------------------------
 	// History

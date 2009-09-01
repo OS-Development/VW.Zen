@@ -36,13 +36,20 @@
 
 #include "llbutton.h"
 #include "llfloaterreg.h"
+#include "llfocusmgr.h"
 #include "llinventory.h"
+#include "lllandmarkactions.h"
+#include "lltrans.h"
 #include "lluictrlfactory.h"
 #include "llmenugl.h"
 
 #include "llagent.h"
+#include "llclipboard.h"
+#include "llinventoryclipboard.h"
 #include "llinventorybridge.h"
 #include "llinventorymodel.h"
+#include "llfloaterworldmap.h"
+#include "lllandmarkactions.h"
 #include "llsidetray.h"
 #include "lltoggleablemenu.h"
 #include "llviewerinventory.h"
@@ -50,6 +57,71 @@
 #include "llviewermenu.h"
 
 static LLDefaultChildRegistry::Register<LLFavoritesBarCtrl> r("favorites_bar");
+
+const S32 DROP_DOWN_MENU_WIDTH = 250;
+
+/**
+ * This class is needed to override LLButton default handleToolTip function and
+ * show SLURL as button tooltip.
+ * *NOTE: dzaporozhan: This is a workaround. We could set tooltips for buttons
+ * in createButtons function but landmark data is not available when Favorites Bar is
+ * created. Thats why we are requesting landmark data after 
+ */
+class LLFavoriteLandmarkButton : public LLButton
+{
+public:
+
+	/**
+	 * Requests landmark data from server and shows landmark SLURL as tooltip.
+	 */
+	BOOL handleToolTip(S32 x, S32 y, std::string& msg, LLRect* sticky_rect)
+	{
+		if(LLUI::sShowXUINames)
+		{
+			return LLButton::handleToolTip(x, y, msg, sticky_rect);
+		}
+
+		if(!mLoaded)
+		{
+			LLVector3d g_pos;
+			if(LLLandmarkActions::getLandmarkGlobalPos(mLandmarkID, g_pos))
+			{
+				LLLandmarkActions::getSLURLfromPosGlobal(g_pos, 
+					boost::bind(&LLFavoriteLandmarkButton::landmarkNameCallback, this, _1), false);
+			}
+		}
+
+		msg = mSLURL;
+		return TRUE;
+	}
+
+	void landmarkNameCallback(const std::string& name)
+	{
+		mSLURL = name;
+		mLoaded = true;
+	}
+	
+	void setLandmarkID(const LLUUID& id){ mLandmarkID = id; }
+
+protected:
+
+	LLFavoriteLandmarkButton(const LLButton::Params& p)
+		: LLButton(p)
+		, mLandmarkID(LLUUID::null)
+		, mSLURL("(Loading...)")
+		, mLoaded(false)
+	{
+		static std::string loading_tooltip = LLTrans::getString("favorite_landmark_loading_tooltip");
+		mSLURL = loading_tooltip;
+	}
+
+	friend class LLUICtrlFactory;
+
+private:
+	LLUUID mLandmarkID;
+	std::string mSLURL;
+	bool mLoaded;
+};
 
 // updateButtons's helper
 struct LLFavoritesSort
@@ -71,11 +143,17 @@ struct LLFavoritesSort
 	}
 };
 
+LLFavoritesBarCtrl::Params::Params()
+: chevron_button_tool_tip("chevron_button_tool_tip")
+{
+}
+
 LLFavoritesBarCtrl::LLFavoritesBarCtrl(const LLFavoritesBarCtrl::Params& p)
 :	LLUICtrl(p),
 	mFont(p.font.isProvided() ? p.font() : LLFontGL::getFontSansSerifSmall()),
 	mPopupMenuHandle(),
-	mInventoryItemsPopupMenuHandle()
+	mInventoryItemsPopupMenuHandle(),
+	mChevronButtonToolTip(p.chevron_button_tool_tip)
 {
 	// Register callback for menus with current registrar (will be parent panel's registrar)
 	LLUICtrl::CommitCallbackRegistry::currentRegistrar().add("Favorites.DoToSelected",
@@ -282,7 +360,7 @@ void LLFavoritesBarCtrl::updateButtons(U32 bar_width)
 	if (mFirstDropDownItem != count)
 	{
 		// Chevron button should stay right aligned
-		LLView *chevron_button = getChildView(std::string(">>"), FALSE, FALSE);
+		LLView *chevron_button = findChildView(std::string(">>"), FALSE);
 		if (chevron_button)
 		{
 			LLRect rect;
@@ -314,6 +392,7 @@ void LLFavoritesBarCtrl::updateButtons(U32 bar_width)
 			bparams.tab_stop(false);
 			bparams.font(mFont);
 			bparams.name(">>");
+			bparams.tool_tip(mChevronButtonToolTip);
 			bparams.click_callback.function(boost::bind(&LLFavoritesBarCtrl::showDropDownMenu, this));
 
 			addChildInBack(LLUICtrlFactory::create<LLButton> (bparams));
@@ -324,7 +403,7 @@ void LLFavoritesBarCtrl::updateButtons(U32 bar_width)
 	else
 	{
 		// Hide chevron button if all items are visible on bar
-		LLView *chevron_button = getChildView(std::string(">>"), FALSE, FALSE);
+		LLView *chevron_button = findChildView(std::string(">>"), FALSE);
 		if (chevron_button)
 		{
 			chevron_button->setVisible(FALSE);
@@ -341,13 +420,15 @@ void LLFavoritesBarCtrl::createButtons(const LLInventoryModel::item_array_t &ite
 	{
 		LLInventoryItem* item = items.get(i);
 
-		LLButton* fav_btn = LLUICtrlFactory::defaultBuilder<LLButton>(buttonXMLNode, this, NULL);
+		LLFavoriteLandmarkButton* fav_btn = LLUICtrlFactory::defaultBuilder<LLFavoriteLandmarkButton>(buttonXMLNode, this, NULL);
 		if (NULL == fav_btn)
 		{
 			llwarns << "Unable to create button for landmark: " << item->getName() << llendl;
 			continue;
 		}
 
+		fav_btn->setLandmarkID(item->getUUID());
+		
 		// change only left and save bottom
 		fav_btn->setOrigin(curr_x, fav_btn->getRect().mBottom);
 		fav_btn->setFont(mFont);
@@ -355,7 +436,7 @@ void LLFavoritesBarCtrl::createButtons(const LLInventoryModel::item_array_t &ite
 		fav_btn->setLabel(item->getName());
 		fav_btn->setToolTip(item->getName());
 		fav_btn->setCommitCallback(boost::bind(&LLFavoritesBarCtrl::onButtonClick, this, item->getUUID()));
-		fav_btn->setRightClickedCallback(boost::bind(&LLFavoritesBarCtrl::onButtonRightClick, this, item->getUUID(), _1, _2, _3,_4 ));
+		fav_btn->setRightMouseDownCallback(boost::bind(&LLFavoritesBarCtrl::onButtonRightClick, this, item->getUUID(), _1, _2, _3,_4 ));
 		sendChildToBack(fav_btn);
 
 		curr_x += buttonWidth + buttonHGap;
@@ -401,6 +482,7 @@ void LLFavoritesBarCtrl::showDropDownMenu()
 		menu_p.can_tear_off(false);
 		menu_p.visible(false);
 		menu_p.scrollable(true);
+		menu_p.max_scrollable_items = 10;
 
 		LLToggleableMenu* menu = LLUICtrlFactory::create<LLToggleableMenu>(menu_p);
 
@@ -411,18 +493,8 @@ void LLFavoritesBarCtrl::showDropDownMenu()
 
 	if(menu)
 	{
-		if (menu->getClosedByButtonClick())
-		{
-			menu->resetClosedByButtonClick();
+		if (!menu->toggleVisibility())
 			return;
-		}
-
-		if (menu->getVisible())
-		{
-			menu->setVisible(FALSE);
-			menu->resetClosedByButtonClick();
-			return;
-		}
 
 		LLInventoryModel::item_array_t items;
 
@@ -469,10 +541,8 @@ void LLFavoritesBarCtrl::showDropDownMenu()
 
 		menu->empty();
 
-		U32 max_width = 0;
-
-		// Menu will not be wider, than bar
-		S32 bar_width = getRect().getWidth();
+		U32 max_width = llmin(DROP_DOWN_MENU_WIDTH, getRect().getWidth());
+		U32 widest_item = 0;
 
 		for(S32 i = mFirstDropDownItem; i < count; i++)
 		{
@@ -485,14 +555,14 @@ void LLFavoritesBarCtrl::showDropDownMenu()
 			
 			item_params.on_click.function(boost::bind(&LLFavoritesBarCtrl::onButtonClick, this, item->getUUID()));
 			LLMenuItemCallGL *menu_item = LLUICtrlFactory::create<LLMenuItemCallGL>(item_params);
-			menu_item->setRightClickedCallback(boost::bind(&LLFavoritesBarCtrl::onButtonRightClick, this,item->getUUID(),_1,_2,_3,_4));
+			menu_item->setRightMouseDownCallback(boost::bind(&LLFavoritesBarCtrl::onButtonRightClick, this,item->getUUID(),_1,_2,_3,_4));
 			// Check whether item name wider than menu
-			if ((S32) menu_item->getNominalWidth() > bar_width)
+			if (menu_item->getNominalWidth() > max_width)
 			{
 				S32 chars_total = item_name.length();
 				S32 chars_fitted = 1;
 				menu_item->setLabel(LLStringExplicit(""));
-				S32 label_space = bar_width - menu_item->getFont()->getWidth("...") -
+				S32 label_space = max_width - menu_item->getFont()->getWidth("...") -
 					menu_item->getNominalWidth(); // This returns width of menu item with empty label (pad pixels)
 
 				while (chars_fitted < chars_total && menu_item->getFont()->getWidth(item_name, 0, chars_fitted) < label_space)
@@ -503,21 +573,17 @@ void LLFavoritesBarCtrl::showDropDownMenu()
 
 				menu_item->setLabel(item_name.substr(0, chars_fitted) + "...");
 			}
-
-			max_width = llmax(max_width, menu_item->getNominalWidth());
+			widest_item = llmax(widest_item, menu_item->getNominalWidth());
 
 			menu->addChild(menu_item);
 		}
-
-		// Menu will not be wider, than bar
-		max_width = llmin((S32)max_width, bar_width);
 
 		menu->buildDrawLabels();
 		menu->updateParent(LLMenuGL::sMenuContainer);
 
 		menu->setButtonRect(mChevronRect, this);
 
-		LLMenuGL::showPopup(this, menu, getRect().getWidth() - max_width, 0);
+		LLMenuGL::showPopup(this, menu, getRect().getWidth() - widest_item, 0);
 	}
 }
 
@@ -544,9 +610,19 @@ void LLFavoritesBarCtrl::onButtonRightClick( LLUUID item_id,LLView* fav_button,S
 		return;
 	}
 	
+	// Release mouse capture so hover events go to the popup menu
+	// because this is happening during a mouse down.
+	gFocusMgr.setMouseCapture(NULL);
+
 	menu->updateParent(LLMenuGL::sMenuContainer);
 	LLMenuGL::showPopup(fav_button, menu, x, y);
 }
+
+void copy_slurl_to_clipboard_cb(std::string& slurl)
+{
+	gClipboard.copyFromString(utf8str_to_wstring(slurl));
+}
+
 
 void LLFavoritesBarCtrl::doToSelected(const LLSD& userdata)
 {
@@ -569,13 +645,102 @@ void LLFavoritesBarCtrl::doToSelected(const LLSD& userdata)
 
 		LLSideTray::getInstance()->showPanel("panel_places", key);
 	}
-	else if (action == "rename")
+	else if (action == "copy_slurl")
 	{
-		// Would need to re-implement this:
-		// folder->startRenamingSelectedItem();
+		LLVector3d posGlobal;
+		LLLandmarkActions::getLandmarkGlobalPos(mSelectedItemID, posGlobal);
+
+		if (!posGlobal.isExactlyZero())
+		{
+			LLLandmarkActions::getSLURLfromPosGlobal(posGlobal, copy_slurl_to_clipboard_cb);
+		}
+	}
+	else if (action == "show_on_map")
+	{
+		LLFloaterWorldMap* worldmap_instance = LLFloaterWorldMap::getInstance();
+
+		LLVector3d posGlobal;
+		LLLandmarkActions::getLandmarkGlobalPos(mSelectedItemID, posGlobal);
+
+		if (!posGlobal.isExactlyZero() && worldmap_instance)
+		{
+			worldmap_instance->trackLocation(posGlobal);
+			LLFloaterReg::showInstance("world_map", "center");
+		}
+	}
+	else if (action == "cut")
+	{
+	}
+	else if (action == "copy")
+	{
+		LLInventoryClipboard::instance().store(mSelectedItemID);
+	}
+	else if (action == "paste")
+	{
+		pastFromClipboard();
 	}
 	else if (action == "delete")
 	{
 		gInventory.removeItem(mSelectedItemID);
 	}
 }
+
+BOOL LLFavoritesBarCtrl::isClipboardPasteable() const
+{
+	if (!LLInventoryClipboard::instance().hasContents())
+	{
+		return FALSE;
+	}
+
+	LLDynamicArray<LLUUID> objects;
+	LLInventoryClipboard::instance().retrieve(objects);
+	S32 count = objects.count();
+	for(S32 i = 0; i < count; i++)
+	{
+		const LLUUID &item_id = objects.get(i);
+
+		// Can't paste folders
+		const LLInventoryCategory *cat = gInventory.getCategory(item_id);
+		if (cat)
+		{
+			return FALSE;
+		}
+
+		const LLInventoryItem *item = gInventory.getItem(item_id);
+		if (item && LLAssetType::AT_LANDMARK != item->getType())
+		{
+			return FALSE;
+		}
+	}
+	return TRUE;
+}
+
+void LLFavoritesBarCtrl::pastFromClipboard() const
+{
+	LLInventoryModel* model = &gInventory;
+	if(model && isClipboardPasteable())
+	{
+		LLInventoryItem* item = NULL;
+		LLDynamicArray<LLUUID> objects;
+		LLInventoryClipboard::instance().retrieve(objects);
+		S32 count = objects.count();
+		LLUUID parent_id(mFavoriteFolderId);
+		for(S32 i = 0; i < count; i++)
+		{
+			item = model->getItem(objects.get(i));
+			if (item)
+			{
+				copy_inventory_item(
+					gAgent.getID(),
+					item->getPermissions().getOwner(),
+					item->getUUID(),
+					parent_id,
+					std::string(),
+					LLPointer<LLInventoryCallback>(NULL));
+			}
+		}
+	}
+}
+
+
+// EOF

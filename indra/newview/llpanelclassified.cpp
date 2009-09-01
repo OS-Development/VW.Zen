@@ -57,8 +57,8 @@
 #include "lllineeditor.h"
 #include "lltextbox.h"
 #include "llcombobox.h"
-#include "llviewertexteditor.h"
 #include "lltexturectrl.h"
+#include "lltexteditor.h"
 #include "lluiconstants.h"
 #include "llurldispatcher.h"	// for classified HTML detail click teleports
 #include "lluictrlfactory.h"
@@ -142,7 +142,7 @@ public:
 		const bool from_search = true;
 		LLPanelClassified::sendClassifiedClickMessage(classified_id, "teleport", from_search);
 		// Invoke teleport
-		LLWebBrowserCtrl* web = NULL;
+		LLMediaCtrl* web = NULL;
 		const bool trusted_browser = true;
 		return LLURLDispatcher::dispatch(url, web, trusted_browser);
 	}
@@ -246,8 +246,7 @@ BOOL LLPanelClassified::postBuild()
 	mDescEditor->setCommitOnFocusLost(TRUE);
 	mDescEditor->setFocusReceivedCallback(focusReceived, this);
 	mDescEditor->setCommitCallback(onCommitAny, this);
-	mDescEditor->setTabsToNextField(TRUE);
-
+	
     mLocationEditor = getChild<LLLineEditor>("location_editor");
 
     mSetBtn = getChild<LLButton>( "set_location_btn");

@@ -612,10 +612,7 @@ void LLViewerInventoryCategory::determineFolderType()
 				return;
 			if (item->getInventoryType() == LLInventoryType::IT_WEARABLE)
 			{
-				U32 flags = item->getFlags();
-				if (flags > WT_COUNT)
-					return;
-				const EWearableType wearable_type = EWearableType(flags);
+				const EWearableType wearable_type = EWearableType(item->getFlags() & LLInventoryItem::II_FLAGS_WEARABLES_MASK);
 				const std::string& wearable_name = LLWearableDictionary::getTypeName(wearable_type);
 				U64 valid_folder_types = LLFolderType::lookupValidFolderTypes(wearable_name);
 				folder_valid |= valid_folder_types;
@@ -1183,6 +1180,17 @@ time_t LLViewerInventoryItem::getCreationDate() const
 U32 LLViewerInventoryItem::getCRC32() const
 {
 	return LLInventoryItem::getCRC32();	
+}
+
+// This returns true if the item that this item points to 
+// doesn't exist in memory (i.e. LLInventoryModel).  The baseitem
+// might still be in the database but just not loaded yet.
+bool LLViewerInventoryItem::getIsBrokenLink() const
+{
+	// If the item's type resolves to be a link, that means either:
+	// A. It wasn't able to perform indirection, i.e. the baseobj doesn't exist in memory.
+	// B. It's pointing to another link, which is illegal.
+	return LLAssetType::lookupIsLinkType(getType());
 }
 
 const LLViewerInventoryItem *LLViewerInventoryItem::getLinkedItem() const

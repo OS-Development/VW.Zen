@@ -1,140 +1,112 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <panel
- bevel_style="in"
  follows="left|top|right|bottom"
- height="570"
- width="295"
- border="false"
+ height="420"
+ label="Picks"
  layout="topleft"
  left="0"
+ name="panel_picks"
  top="0"
- label="Picks"
- name="panel_picks">
-    <scroll_container
-     color="DkGray2"
-     follows="left|top|right|bottom"
-     height="570"
-     width="265"
-     layout="topleft"
-     left="5"
-     top_pad="0"
- bevel_style="in"
-     opaque="true"
-     name="profile_scroll"
-     reserve_scroll_corner="false">
-<!-- below is a special title shown for the Agent on the "Picks" tab
-    <text
-     type="string"
-     length="1"
-     follows="top"
-     font="SansSerifBold"
-     height="35"
-     width="250"
-     layout="topleft"
-     left="10"
-     name="pick_title_agent"
-     text_color="white"
-     top_pad="25"
-     visible="false"
-     word_wrap="true">
-        Tell everyone about your favorite Second Life places...
-    </text>-->
-        <panel
-         height="115"
-     width="265"
-         layout="topleft"
-         left="0"
-         name="back_panel"
-         top="0" />
-    </scroll_container>
-   <panel
-     background_visible="true"
-     bevel_style="none"
-     enabled="false"
-     follows="left|right|bottom"
-     height="30"
-     label="bottom_panel"
+ width="285">
+    <layout_stack
+     name="layout"
+     orientation="vertical"
+     follows="all"
      layout="topleft"
      left="0"
-     name="edit_panel"
-     visible="false"
-     top_pad="0"
-     width="280">
-        <button
-         enabled="false"
-         follows="bottom|left"
-         font="SansSerifBigBold"
-         height="18"
-         hover_glow_amount="0.15"
-         image_selected="OptionsMenu_Press"
-         image_unselected="OptionsMenu_Off"
+     top="0"
+     height="420"
+     width="284"
+     border_size="0">
+        <scroll_container
+         color="DkGray2"
+         follows="left|top|right|bottom"
+         height="350"
          layout="topleft"
-         left="10"
-         name="gear_menu_btn"
-         picture_style="true"
-         top="5"
-         width="18" />
-        <button
-         follows="bottom|left"
-         font="SansSerifBigBold"
-         height="18"
-         image_disabled="AddItem_Off"
-         image_disabled_selected="AddItem_Press"
-         hover_glow_amount="0.15"
-         image_selected="AddItem_Press"
-         image_unselected="AddItem_Off"
-         layout="topleft"
-         left="35"
-         name="new_btn"
-         picture_style="true"
-         tool_tip="Create New Pick at Current Location"
-         top="5"
-         width="18" />
-        <button
-         follows="bottom|right"
-         font="SansSerifBigBold"
-         height="18"
-         image_disabled="TrashItem_Off"
-         image_disabled_selected="TrashItem_Press"
-         hover_glow_amount="0.15"
-         image_selected="TrashItem_Press"
-         image_unselected="TrashItem_Off"
-         layout="topleft"
-         name="trash_btn"
-         picture_style="true"
-         right="-10"
-         top="5"
-         width="18" />
-    </panel>
-    <panel
-     follows="bottom|left"
-     height="30"
-     width="280"
-     layout="topleft"
-     left="10"
-     top_pad="5"
-     name="buttons_cucks">
-        <button
-         follows="bottom|left"
-         font="SansSerifSmallBold"
-         height="25"
-         label="Teleport"
-         layout="topleft"
-         left="0"
-         name="teleport_btn"
-         enabled="false"
+         left="2"
+         name="profile_scroll"
+         opaque="true"
          top="0"
-         width="75" />
-        <button
-         follows="bottom|left"
-         font="SansSerifSmallBold"
-         height="25"
-         label="Show on Map"
-         layout="topleft"
-         left_pad="0"
-         name="show_on_map_btn"
+         width="284">
+            <panel
+             height="115"
+             layout="topleft"
+             left="0"
+             name="back_panel"
+             top="0"
+             width="284" />
+        </scroll_container>
+        <panel
+         background_visible="true"
+         bevel_style="none"
          enabled="false"
-         top="0"
-         width="105" />
-    </panel>
+         auto_resize="false"
+         follows="bottom"
+         height="30"
+         label="bottom_panel"
+         layout="topleft"
+         name="edit_panel"
+         top_pad="5"
+         width="284">
+            <button
+             enabled="false"
+             follows="bottom|left"
+             font="SansSerifBigBold"
+             height="18"
+             image_selected="OptionsMenu_Press"
+             image_unselected="OptionsMenu_Off"
+             layout="topleft"
+             left="10"
+             name="gear_menu_btn"
+             picture_style="true"
+             top="5"
+             width="18" />
+            <button
+             follows="bottom|left"
+             font="SansSerifBigBold"
+             height="18"
+             image_disabled="AddItem_Off"
+             image_disabled_selected="AddItem_Press"
+             image_selected="AddItem_Press"
+             image_unselected="AddItem_Off"
+             layout="topleft"
+             left="35"
+             name="new_btn"
+             picture_style="true"
+             tool_tip="Create New Pick at Current Location"
+             top="5"
+             width="18" />
+            <button
+             follows="bottom|right"
+             font="SansSerifBigBold"
+             height="18"
+             image_disabled="TrashItem_Off"
+             image_disabled_selected="TrashItem_Press"
+             image_selected="TrashItem_Press"
+             image_unselected="TrashItem_Off"
+             layout="topleft"
+             name="trash_btn"
+             picture_style="true"
+             right="-10"
+             top="5"
+             width="18" />
+        </panel>
+        <panel
+         follows="bottom"
+         height="30"
+         auto_resize="false"
+         layout="topleft"
+         name="buttons_cucks"
+         width="284">
+            <button
+             enabled="false"
+             follows="bottom|left"
+             font="SansSerifSmallBold"
+             height="25"
+             label="Map"
+             layout="topleft"
+             name="show_on_map_btn"
+             width="85" />
+        </panel>
+    </layout_stack>
 </panel>

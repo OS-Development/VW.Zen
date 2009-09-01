@@ -52,7 +52,7 @@ LLNearbyChatHandler::LLNearbyChatHandler(e_notification_type type, const LLSD& i
 	LLNearbyChat* nearby_chat = LLFloaterReg::getTypedInstance<LLNearbyChat>("nearby_chat", LLSD());
 	/////////////////////////////////////////////////////
 	LLChannelManager::Params p;														  //TODO: check and correct
-	p.id = LLUUID(NEARBY_CHAT_ID);
+	p.id = LLUUID(gSavedSettings.getString("NearByChatChannelUUID"));
 	p.channel_right_bound = nearby_chat->getRect().mRight;
 	p.channel_width = nearby_chat->getRect().mRight - 16;   //HACK: 16 - ?
 	/////////////////////////////////////////////////////
@@ -62,13 +62,14 @@ LLNearbyChatHandler::LLNearbyChatHandler(e_notification_type type, const LLSD& i
 	mChannel = LLChannelManager::getInstance()->createChannel(p);
 	mChannel->setFollows(FOLLOWS_LEFT | FOLLOWS_BOTTOM | FOLLOWS_TOP); 
 	mChannel->setOverflowFormatString("You have %d unread nearby chat messages");
-	mChannel->setCanStoreToasts(false);
 }
 LLNearbyChatHandler::~LLNearbyChatHandler()
 {
 }
 void LLNearbyChatHandler::processChat(const LLChat& chat_msg)
 {
+	if(chat_msg.mMuted == TRUE)
+		return;
 	if(chat_msg.mSourceType == CHAT_SOURCE_AGENT && chat_msg.mFromID.notNull())
          LLRecentPeople::instance().add(chat_msg.mFromID);
 
@@ -96,20 +97,15 @@ void LLNearbyChatHandler::processChat(const LLChat& chat_msg)
 	LLToast::Params p;
 	p.id = id;
 	p.panel = item;
-	p.on_mouse_enter = boost::bind(&LLNearbyChatHandler::onToastDestroy, this, _1);
+	p.on_toast_destroy = boost::bind(&LLNearbyChatHandler::onToastDestroy, this, _1);
+	p.on_mouse_enter = boost::bind(&LLNearbyChatHandler::removeNearbyToastsAndShowChat, this);
 	mChannel->addToast(p);	
 }
 
 void LLNearbyChatHandler::onToastDestroy(LLToast* toast)
 {
-	//TODO: what should be done to toasts here? may be htey are to be destroyed?
-	//toast->hide();
-	if(mChannel)
-		mChannel->removeToastsFromChannel();
-	else if(toast)
-		toast->hide();
-
-	LLFloaterReg::showTypedInstance<LLNearbyChat>("nearby_chat", LLSD());
+	if(toast)
+		toast->closeFloater();
 }
 
 void LLNearbyChatHandler::onChicletClick(void)
@@ -117,7 +113,16 @@ void LLNearbyChatHandler::onChicletClick(void)
 }
 void LLNearbyChatHandler::onChicletClose(void)
 {
+}
 
+void LLNearbyChatHandler::removeNearbyToastsAndShowChat()
+{
+	/*
+	if(mChannel)
+		mChannel->removeToastsFromChannel();
+	
+	LLFloaterReg::showTypedInstance<LLNearbyChat>("nearby_chat", LLSD());
+	*/
 }
 
 }

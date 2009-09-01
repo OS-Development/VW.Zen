@@ -49,7 +49,7 @@ public:
 	LLAgentHandler() : LLCommandHandler("agent", true) { }
 
 	bool handle(const LLSD& params, const LLSD& query_map,
-		LLWebBrowserCtrl* web)
+		LLMediaCtrl* web)
 	{
 		if (params.size() < 2) return false;
 		LLUUID agent_id;
@@ -95,6 +95,8 @@ void LLPanelProfile::onOpen(const LLSD& key)
 {
 	if (key.has("open_tab_name"))
 	{
+		getTabContainer()[PANEL_PICKS]->onClose();
+
 		// onOpen from selected panel will be called from onTabSelected callback
 		getTabCtrl()->selectTabByName(key["open_tab_name"]);
 	}
@@ -102,6 +104,10 @@ void LLPanelProfile::onOpen(const LLSD& key)
 	{
 		getTabCtrl()->getCurrentPanel()->onOpen(getAvatarId());
 	}
+
+	// Update the avatar name.
+	gCacheName->get(getAvatarId(), FALSE,
+		boost::bind(&LLPanelProfile::onAvatarNameCached, this, _1, _2, _3, _4));
 }
 
 //*TODO redo panel toggling
@@ -135,6 +141,7 @@ void LLPanelProfile::togglePanel(LLPanel* panel)
 	else 
 	{
 		this->setAllChildrenVisible(TRUE);
+		panel->setVisible(FALSE);
 		if (panel->getParent() == this) 
 		{
 			removeChild(panel);
@@ -162,4 +169,10 @@ void LLPanelProfile::setAllChildrenVisible(BOOL visible)
 		LLView* viewp = *child_it;
 		viewp->setVisible(visible);
 	}
+}
+
+void LLPanelProfile::onAvatarNameCached(const LLUUID& id, const std::string& first_name, const std::string& last_name, BOOL is_group)
+{
+	llassert(getAvatarId() == id);
+	getChild<LLTextBox>("user_name", FALSE)->setValue(first_name + " " + last_name);
 }

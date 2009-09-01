@@ -56,7 +56,6 @@ public:
 	
 	/*virtual*/ void	draw();
 	/*virtual*/ BOOL	postBuild();
-	/*virtual*/ BOOL	handleRightMouseUp(S32 x, S32 y, MASK mask);
 
 	void handleLoginComplete();
 	void clearHistoryCache();
@@ -71,12 +70,12 @@ private:
 	void showTeleportHistoryMenu();
 	void invokeSearch(std::string search_text);
 
-	static void appendLocalCoordsToRegName(std::string* reg_name, S32 x, S32 y, S32 z);
-	static std::string extractLocalCoordsFromRegName(const std::string & reg_name, S32* x, S32* y, S32* z);
+	/**
+	 * Get region name and local coordinates from typed location
+	 */
+	static std::string parseLocation(const std::string & location, S32* x, S32* y, S32* z);
 
 	// callbacks
-	bool onLocationContextMenuItemEnabled(const LLSD& userdata);
-	void onLocationContextMenuItemClicked(const LLSD& userdata);
 	void onTeleportHistoryMenuItemClicked(const LLSD& userdata);
 	void onTeleportHistoryChanged();
 	void onBackButtonClicked();
@@ -87,7 +86,7 @@ private:
 	void onLocationSelection();
 	void onLocationPrearrange(const LLSD& data);
 	void onSearchCommit();
-	void onTeleportFinished();
+	void onTeleportFinished(const LLVector3d& global_agent_pos);
 	void onRegionNameResponse(
 			std::string typed_location,
 			std::string region_name,
@@ -97,7 +96,6 @@ private:
 
 	static LLNavigationBar *sInstance;
 	
-	LLMenuGL*					mLocationContextMenu;
 	LLMenuGL*					mTeleportHistoryMenu;
 	LLButton*					mBtnBack;
 	LLButton*					mBtnForward;
@@ -108,7 +106,6 @@ private:
 	LLRect						mDefaultFpRect;
 	boost::signals2::connection	mParcelMgrConnection;
 	bool						mPurgeTPHistoryItems;
-	bool						mUpdateTypedLocationHistory;
 };
 
 #endif

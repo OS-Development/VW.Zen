@@ -516,7 +516,6 @@ void LLImageGL::setImage(const LLImageRaw* imageraw)
 
 void LLImageGL::setImage(const U8* data_in, BOOL data_hasmips)
 {
-// 	LLFastTimer t1(LLFastTimer::FTM_TEMP1);
 	llpushcallstacks ;
 	bool is_compressed = false;
 	if (mFormatPrimary >= GL_COMPRESSED_RGBA_S3TC_DXT1_EXT && mFormatPrimary <= GL_COMPRESSED_RGBA_S3TC_DXT5_EXT)
@@ -524,12 +523,10 @@ void LLImageGL::setImage(const U8* data_in, BOOL data_hasmips)
 		is_compressed = true;
 	}
 
-// 		LLFastTimer t2(LLFastTimer::FTM_TEMP2);
 	gGL.getTexUnit(0)->bind(this);
 	
 	if (mUseMipMaps)
 	{
-// 		LLFastTimer t2(LLFastTimer::FTM_TEMP3);
 		if (data_hasmips)
 		{
 			// NOTE: data_in points to largest image; smaller images
@@ -546,14 +543,13 @@ void LLImageGL::setImage(const U8* data_in, BOOL data_hasmips)
 				}
 				if (is_compressed)
 				{
-// 					LLFastTimer t2(LLFastTimer::FTM_TEMP4);
  					S32 tex_size = dataFormatBytes(mFormatPrimary, w, h);
 					glCompressedTexImage2DARB(mTarget, gl_level, mFormatPrimary, w, h, 0, tex_size, (GLvoid *)data_in);
 					stop_glerror();
 				}
 				else
 				{
-// 					LLFastTimer t2(LLFastTimer::FTM_TEMP4);
+// 					LLFastTimer t2(FTM_TEMP4);
 
 					if(mFormatSwapBytes)
 					{
@@ -586,7 +582,7 @@ void LLImageGL::setImage(const U8* data_in, BOOL data_hasmips)
 				glTexParameteri(LLTexUnit::getInternalType(mBindTarget), GL_GENERATE_MIPMAP_SGIS, TRUE);
 				stop_glerror();
 				{
-// 					LLFastTimer t2(LLFastTimer::FTM_TEMP4);
+// 					LLFastTimer t2(FTM_TEMP4);
 
 					if(mFormatSwapBytes)
 					{
@@ -646,7 +642,7 @@ void LLImageGL::setImage(const U8* data_in, BOOL data_hasmips)
 					}
 					llassert(w > 0 && h > 0 && cur_mip_data);
 					{
-// 						LLFastTimer t1(LLFastTimer::FTM_TEMP4);
+// 						LLFastTimer t1(FTM_TEMP4);
 						if(mFormatSwapBytes)
 						{
 							glPixelStorei(GL_UNPACK_SWAP_BYTES, 1);
@@ -732,7 +728,7 @@ void LLImageGL::setImage(const U8* data_in, BOOL data_hasmips)
 	llpushcallstacks ;
 }
 
-BOOL LLImageGL::setSubImage(const U8* datap, S32 data_width, S32 data_height, S32 x_pos, S32 y_pos, S32 width, S32 height)
+BOOL LLImageGL::setSubImage(const U8* datap, S32 data_width, S32 data_height, S32 x_pos, S32 y_pos, S32 width, S32 height, BOOL force_fast_update)
 {
 	llpushcallstacks ;
 	if (!width || !height)
@@ -750,7 +746,8 @@ BOOL LLImageGL::setSubImage(const U8* datap, S32 data_width, S32 data_height, S3
 		return FALSE;
 	}
 	
-	if (x_pos == 0 && y_pos == 0 && width == getWidth() && height == getHeight() && data_width == width && data_height == height)
+	// HACK: allow the caller to explicitly force the fast path (i.e. using glTexSubImage2D here instead of calling setImage) even when updating the full texture.
+	if (!force_fast_update && x_pos == 0 && y_pos == 0 && width == getWidth() && height == getHeight() && data_width == width && data_height == height)
 	{
 		setImage(datap, FALSE);
 	}
@@ -827,9 +824,9 @@ BOOL LLImageGL::setSubImage(const U8* datap, S32 data_width, S32 data_height, S3
 	return TRUE;
 }
 
-BOOL LLImageGL::setSubImage(const LLImageRaw* imageraw, S32 x_pos, S32 y_pos, S32 width, S32 height)
+BOOL LLImageGL::setSubImage(const LLImageRaw* imageraw, S32 x_pos, S32 y_pos, S32 width, S32 height, BOOL force_fast_update)
 {
-	return setSubImage(imageraw->getData(), imageraw->getWidth(), imageraw->getHeight(), x_pos, y_pos, width, height);
+	return setSubImage(imageraw->getData(), imageraw->getWidth(), imageraw->getHeight(), x_pos, y_pos, width, height, force_fast_update);
 }
 
 // Copy sub image from frame buffer
@@ -988,7 +985,6 @@ BOOL LLImageGL::createGLTexture(S32 discard_level, const U8* data_in, BOOL data_
 		LLImageGL::generateTextures(1, &mTexName);
 		stop_glerror();
 		{
-// 			LLFastTimer t1(LLFastTimer::FTM_TEMP6);
 			llverify(gGL.getTexUnit(0)->bind(this));
 			glTexParameteri(LLTexUnit::getInternalType(mBindTarget), GL_TEXTURE_BASE_LEVEL, 0);
 			glTexParameteri(LLTexUnit::getInternalType(mBindTarget), GL_TEXTURE_MAX_LEVEL,  mMaxDiscardLevel-discard_level);

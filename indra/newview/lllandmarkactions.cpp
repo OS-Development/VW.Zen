@@ -33,16 +33,24 @@
 #include "llviewerprecompiledheaders.h"
 #include "lllandmarkactions.h"
 
-#include "llagent.h"
+#include "roles_constants.h"
+
 #include "llinventory.h"
-#include "llinventorymodel.h"
 #include "lllandmark.h"
-#include "lllandmarklist.h"
-#include "llnotifications.h"
 #include "llparcel.h"
+
+#include "llnotifications.h"
+
+#include "llagent.h"
+#include "llinventorymodel.h"
+#include "lllandmarklist.h"
+#include "llslurl.h"
 #include "llviewerinventory.h"
 #include "llviewerparcelmgr.h"
-#include "roles_constants.h"
+#include "llworldmap.h"
+#include "lllandmark.h"
+#include "llinventorymodel.h"
+#include "llagentui.h"
 
 // Returns true if the given inventory item is a landmark pointing to the current parcel.
 // Used to filter inventory items.
@@ -66,7 +74,79 @@ public:
 	}
 };
 
+class LLFetchLandmarksByName : public LLInventoryCollectFunctor
+{
+private:
+	std::string name;
+	BOOL use_substring;
+	//this member will be contain copy of founded items to keep the result unique
+	std::set<std::string> check_duplicate;
+
+public:
+LLFetchLandmarksByName(std::string &landmark_name, BOOL if_use_substring)
+:name(landmark_name),
+use_substring(if_use_substring)
+	{
+	LLStringUtil::toLower(name);
+	}
+
+public:
+	/*virtual*/ bool operator()(LLInventoryCategory* cat, LLInventoryItem* item)
+	{
+		if (!item || item->getType() != LLAssetType::AT_LANDMARK)
+			return false;
+
+		LLLandmark* landmark = gLandmarkList.getAsset(item->getAssetUUID());
+		if (!landmark) // the landmark not been loaded yet
+			return false;
+
+		bool acceptable = false;
+		std::string landmark_name = item->getName();
+		LLStringUtil::toLower(landmark_name);
+		if(use_substring)
+		{
+			acceptable =  landmark_name.find( name ) != std::string::npos;
+		}
+		else
+		{
+			acceptable = landmark_name == name;
+		}
+		if(acceptable){
+			if(check_duplicate.find(landmark_name) != check_duplicate.end()){
+				// we have duplicated items in landmarks
+				acceptable = false;
+			}else{
+				check_duplicate.insert(landmark_name);
+			}
+		}
+
+		return acceptable;
+	}
+};
+
+LLInventoryModel::item_array_t LLLandmarkActions::fetchLandmarksByName(std::string& name, BOOL use_substring)
+{
+	LLInventoryModel::cat_array_t cats;
+	LLInventoryModel::item_array_t items;
+	LLFetchLandmarksByName fetchLandmarks(name, use_substring);
+	gInventory.collectDescendentsIf(gInventory.getRootFolderID(),
+			cats,
+			items,
+			LLInventoryModel::EXCLUDE_TRASH,
+			fetchLandmarks);
+	return items;
+}
+
 bool LLLandmarkActions::landmarkAlreadyExists()
+{
+	// Determine whether there are landmarks pointing to the current parcel.
+	LLInventoryModel::item_array_t items;
+	collectParcelLandmark(items);
+	return !items.empty();
+}
+
+
+LLViewerInventoryItem* LLLandmarkActions::findLandmarkForAgentParcel()
 {
 	// Determine whether there are landmarks pointing to the current parcel.
 	LLInventoryModel::cat_array_t cats;
@@ -78,7 +158,12 @@ bool LLLandmarkActions::landmarkAlreadyExists()
 		LLInventoryModel::EXCLUDE_TRASH,
 		is_current_parcel_landmark);
 
-	return !items.empty();
+	if(items.empty())
+	{
+		return NULL;
+	}
+
+	return items[0];
 }
 
 bool LLLandmarkActions::canCreateLandmarkHere()
@@ -133,9 +218,82 @@ void LLLandmarkActions::createLandmarkHere()
 {
 	std::string landmark_name, landmark_desc;
 
-	gAgent.buildLocationString(landmark_name, LLAgent::LOCATION_FORMAT_LANDMARK);
-	gAgent.buildLocationString(landmark_desc, LLAgent::LOCATION_FORMAT_FULL);
+	LLAgentUI::buildLocationString(landmark_name, LLAgent::LOCATION_FORMAT_LANDMARK);
+	LLAgentUI::buildLocationString(landmark_desc, LLAgent::LOCATION_FORMAT_FULL);
 	LLUUID folder_id = gInventory.findCategoryUUIDForType(LLAssetType::AT_LANDMARK);
 
 	createLandmarkHere(landmark_name, landmark_desc, folder_id);
+}
+
+void LLLandmarkActions::getSLURLfromPosGlobal(const LLVector3d& global_pos, slurl_callback_t cb, bool escaped /* = true */)
+{
+	std::string sim_name;
+	bool gotSimName = LLWorldMap::getInstance()->simNameFromPosGlobal(global_pos, sim_name);
+	if (gotSimName)
+	{
+		std::string slurl = LLSLURL::buildSLURLfromPosGlobal(sim_name, global_pos, escaped);
+		cb(slurl);
+
+		return;
+	}
+	else
+	{
+		U64 new_region_handle = to_region_handle(global_pos);
+
+		LLWorldMap::url_callback_t url_cb = boost::bind(&LLLandmarkActions::onRegionResponse,
+														cb,
+														global_pos,
+														escaped,
+														_1, _2, _3, _4);
+
+		LLWorldMap::getInstance()->sendHandleRegionRequest(new_region_handle, url_cb, std::string("unused"), false);
+	}
+}
+
+void LLLandmarkActions::onRegionResponse(slurl_callback_t cb,
+										 const LLVector3d& global_pos,
+										 bool escaped,
+										 U64 region_handle,
+										 const std::string& url,
+										 const LLUUID& snapshot_id,
+										 bool teleport)
+{
+	std::string sim_name;
+	std::string slurl;
+	bool gotSimName = LLWorldMap::getInstance()->simNameFromPosGlobal(global_pos, sim_name);
+	if (gotSimName)
+	{
+		slurl = LLSLURL::buildSLURLfromPosGlobal(sim_name, global_pos, escaped);
+	}
+	else
+	{
+		slurl = "";
+	}
+
+	cb(slurl);
+}
+
+bool LLLandmarkActions::getLandmarkGlobalPos(const LLUUID& landmarkInventoryItemID, LLVector3d& posGlobal)
+{
+	LLViewerInventoryItem* item = gInventory.getItem(landmarkInventoryItemID);
+	if (NULL == item)
+		return false;
+
+	const LLUUID& asset_id = item->getAssetUUID();
+	LLLandmark* landmark = gLandmarkList.getAsset(asset_id, NULL);
+
+	if (NULL == landmark)
+		return false;
+
+	return landmark->getGlobalPos(posGlobal);
+}
+
+void LLLandmarkActions::collectParcelLandmark(LLInventoryModel::item_array_t& items){
+	LLInventoryModel::cat_array_t cats;
+	LLIsAgentParcelLandmark is_current_parcel_landmark;
+	gInventory.collectDescendentsIf(gInventory.getRootFolderID(),
+		cats,
+		items,
+		LLInventoryModel::EXCLUDE_TRASH,
+		is_current_parcel_landmark);
 }

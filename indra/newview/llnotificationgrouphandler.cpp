@@ -34,8 +34,8 @@
 
 #include "llnotificationhandler.h"
 #include "lltoastgroupnotifypanel.h"
-#include "llagent.h"
 #include "llbottomtray.h"
+#include "llgroupactions.h"
 #include "llviewercontrol.h"
 #include "llfloaterreg.h"
 #include "llsyswellwindow.h"
@@ -51,7 +51,7 @@ LLGroupHandler::LLGroupHandler(e_notification_type type, const LLSD& id)
 	LLBottomTray* tray = LLBottomTray::getInstance();
 	mChiclet = tray->getSysWell();
 	LLChannelManager::Params p;
-	p.chiclet = mChiclet;
+	p.id = LLUUID(gSavedSettings.getString("NotificationChannelUUID"));
 	p.channel_right_bound = tray->getRect().mRight - gSavedSettings.getS32("NotificationChannelRightMargin");
 	p.channel_width = gSavedSettings.getS32("NotifyBoxWidth");
 
@@ -77,7 +77,10 @@ void LLGroupHandler::processNotification(const LLSD& notify)
 		p.panel = notify_box;
 		p.on_toast_destroy = boost::bind(&LLGroupHandler::onToastDestroy, this, _1);
 		mChannel->addToast(p);
-		mChiclet->setCounter(mChiclet->getCounter() + 1);
+		static_cast<LLNotificationChiclet*>(mChiclet)->incUreadSystemNotifications();
+		
+		LLGroupActions::refresh_notices();
+
 	}
 	else if (notify["sigtype"].asString() == "delete")
 	{
@@ -88,7 +91,7 @@ void LLGroupHandler::processNotification(const LLSD& notify)
 //--------------------------------------------------------------------------
 void LLGroupHandler::onToastDestroy(LLToast* toast)
 {
-	mChiclet->setCounter(mChiclet->getCounter() - 1);
+	static_cast<LLNotificationChiclet*>(mChiclet)->decUreadSystemNotifications();
 
 	LLToastPanel* panel = dynamic_cast<LLToastPanel*>(toast->getPanel());
 	LLFloaterReg::getTypedInstance<LLSysWellWindow>("syswell_window")->removeItemByID(panel->getID());
@@ -97,7 +100,7 @@ void LLGroupHandler::onToastDestroy(LLToast* toast)
 	if(toast->hasFocus())
 		mChannel->setHovering(false);
 
-	toast->close();
+	toast->closeFloater();
 }
 
 //--------------------------------------------------------------------------
@@ -112,15 +115,4 @@ void LLGroupHandler::onChicletClose(void)
 
 //--------------------------------------------------------------------------
 
-
-//--------------------------------------------------------------------------
-
-
-//--------------------------------------------------------------------------
-
-
-//--------------------------------------------------------------------------
-
-
-//--------------------------------------------------------------------------
 

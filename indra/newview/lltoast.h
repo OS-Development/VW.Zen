@@ -107,8 +107,6 @@ public:
 	//
 	void stopTimer() { mTimer.stop(); }
 	//
-	void close() { die(); }
-	//
 	virtual void draw();
 	//
 	virtual void setVisible(BOOL show);
@@ -120,8 +118,6 @@ public:
 	// get/set Toast's flags or states
 	// get information whether the notification corresponding to the toast is responded or not
 	bool getIsNotificationUnResponded();
-	//
-	bool isViewed() { return mIsViewed; }
 	//
 	void setCanFade(bool can_fade);
 	//
@@ -163,8 +159,6 @@ private:
 	LLButton*	mHideBtn;
 
 	LLColor4	mBgColor;
-	bool		mIsViewed;
-	bool		mIsTipNotification;
 	bool		mCanFade;
 	bool		mIsModal;
 	bool		mCanBeStored;
