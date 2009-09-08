@@ -34,6 +34,11 @@
 #define LL_LLSTRING_H
 
 #include <string>
+#include <locale>
+#include <iomanip>
+#include <boost/regex.hpp>
+#include "llsd.h"
+#include "llfasttimer.h"
 
 #if LL_LINUX || LL_SOLARIS
 #include <wctype.h>
@@ -145,6 +150,12 @@ struct char_traits<U16>
 
 class LLStringOps
 {
+private:
+	static long sltOffset;
+	static long localTimeOffset;
+	static bool daylightSavings;
+	static std::map<std::string, std::string> datetimeToCodes;
+
 public:
 	static char toUpper(char elem) { return toupper((unsigned char)elem); }
 	static llwchar toUpper(llwchar elem) { return towupper(elem); }
@@ -172,6 +183,12 @@ public:
 
 	static S32	collate(const char* a, const char* b) { return strcoll(a, b); }
 	static S32	collate(const llwchar* a, const llwchar* b);
+
+	static void setupDatetimeInfo (bool daylight);
+	static long getSltOffset (void) {return sltOffset;}
+	static long getLocalTimeOffset (void) {return localTimeOffset;}
+	static bool getDaylightSavings (void) {return daylightSavings;}
+	static std::string getDatetimeCode (std::string key);
 };
 
 /**
@@ -201,6 +218,9 @@ private:
 template <class T>
 class LLStringUtilBase
 {
+private:
+	static std::string sLocale;
+
 public:
 	typedef typename std::basic_string<T>::size_type size_type;
 	
@@ -211,7 +231,16 @@ public:
 	static std::basic_string<T> null;
 	
 	typedef std::map<LLFormatMapString, LLFormatMapString> format_map_t;
-	static S32 format(std::basic_string<T>& s, const format_map_t& fmt_map);
+	static void getTokens(const std::basic_string<T>& instr, std::vector<std::basic_string<T> >& tokens, const std::basic_string<T>& delims);
+	static size_type getSubstitution(const std::basic_string<T>& instr, size_type& start, std::vector<std::basic_string<T> >& tokens);
+	static void formatNumber(std::basic_string<T>& numStr, std::basic_string<T> decimals);
+	static bool formatDatetime(std::basic_string<T>& replacement, std::basic_string<T> token, std::basic_string<T> param, S32 secFromEpoch);
+	static S32 format(std::basic_string<T>& s, const format_map_t& substitutions);
+	static S32 format(std::basic_string<T>& s, const LLSD& substitutions);
+	static bool simpleReplacement(std::basic_string<T>& replacement, std::basic_string<T> token, const format_map_t& substitutions);
+	static bool simpleReplacement(std::basic_string<T>& replacement, std::basic_string<T> token, const LLSD& substitutions);
+	static void setLocale (std::string inLocale) {sLocale = inLocale;};
+	static std::string getLocale (void) {return sLocale;};
 	
 	static bool isValidIndex(const std::basic_string<T>& string, size_type i)
 	{
@@ -253,7 +282,8 @@ public:
 	static void	replaceTabsWithSpaces( std::basic_string<T>& string, size_type spaces_per_tab );
 	static void	replaceNonstandardASCII( std::basic_string<T>& string, T replacement );
 	static void	replaceChar( std::basic_string<T>& string, T target, T replacement );
-
+	static void replaceString( std::basic_string<T>& string, std::basic_string<T> target, std::basic_string<T> replacement );
+	
 	static BOOL	containsNonprintable(const std::basic_string<T>& string);
 	static void	stripNonprintable(std::basic_string<T>& string);
 
@@ -310,6 +340,9 @@ public:
 	// Copies src into dst at a given offset.  
 	static void		copyInto(std::basic_string<T>& dst, const std::basic_string<T>& src, size_type offset);
 	
+	static bool		isPartOfWord(T c) { return (c == (T)'_') || LLStringOps::isAlnum(c); }
+
+
 #ifdef _DEBUG	
 	static void		testHarness();
 #endif
@@ -317,6 +350,7 @@ public:
 };
 
 template<class T> std::basic_string<T> LLStringUtilBase<T>::null;
+template<class T> std::string LLStringUtilBase<T>::sLocale;
 
 typedef LLStringUtilBase<char> LLStringUtil;
 typedef LLStringUtilBase<llwchar> LLWStringUtil;
@@ -378,6 +412,7 @@ U8 hex_as_nybble(char hex);
  * @return Returns true on success. If false, str is unmodified.
  */
 bool _read_file_into_string(std::string& str, const std::string& filename);
+bool iswindividual(llwchar elem);
 
 /**
  * Unicode support
@@ -563,63 +598,12 @@ namespace LLStringFn
 }
 
 ////////////////////////////////////////////////////////////
+// NOTE: LLStringUtil::format, getTokens, and support functions moved to llstring.cpp.
+// There is no LLWStringUtil::format implementation currently.
+// Calling thse for anything other than LLStringUtil will produce link errors.
 
-// LLStringBase::format()
-//
-// This function takes a string 's' and a map 'fmt_map' of strings-to-strings.
-// All occurances of strings in 's' from the left-hand side of 'fmt_map' are
-// then replaced with the corresponding right-hand side of 'fmt_map', non-
-// recursively.  The function returns the number of substitutions made.
+////////////////////////////////////////////////////////////
 
-// static
-template<class T> 
-S32 LLStringUtilBase<T>::format(std::basic_string<T>& s, const format_map_t& fmt_map)
-{
-	typedef typename std::basic_string<T>::size_type string_size_type_t;
-	string_size_type_t scanstart = 0;
-	S32 res = 0;
-
-	// Look for the first match of any keyword, replace that keyword,
-	// repeat from the end of the replacement string.  This avoids
-	// accidentally performing substitution on a substituted string.
-	while (1)
-	{
-		string_size_type_t first_match_pos = scanstart;
-		string_size_type_t first_match_str_length = 0;
-		std::basic_string<T> first_match_str_replacement;
-
-		for (format_map_t::const_iterator iter = fmt_map.begin();
-		     iter != fmt_map.end();
-		     ++iter)
-		{
-			string_size_type_t n = s.find(iter->first, scanstart);
-			if (n != std::basic_string<T>::npos &&
-			    (n < first_match_pos ||
-			     0 == first_match_str_length))
-			{
-				first_match_pos = n;
-				first_match_str_length = iter->first.length();
-				first_match_str_replacement = iter->second;
-			}
-		}
-
-		if (0 == first_match_str_length)
-		{
-			// no more keys found to substitute from this point
-			// in the string forward.
-			break;
-		}
-		else
-		{
-			s.erase(first_match_pos, first_match_str_length);
-			s.insert(first_match_pos, first_match_str_replacement);
-			scanstart = first_match_pos +
-				first_match_str_replacement.length();
-			++res;
-		}
-	}
-	return res;
-}
 
 // static
 template<class T> 
@@ -917,11 +901,22 @@ template<class T>
 void LLStringUtilBase<T>::replaceChar( std::basic_string<T>& string, T target, T replacement )
 {
 	size_type found_pos = 0;
-	for (found_pos = string.find(target, found_pos); 
-		found_pos != std::basic_string<T>::npos; 
-		found_pos = string.find(target, found_pos))
+	while( (found_pos = string.find(target, found_pos)) != std::basic_string<T>::npos ) 
 	{
 		string[found_pos] = replacement;
+		found_pos++; // avoid infinite defeat if target == replacement
+	}
+}
+
+//static
+template<class T> 
+void LLStringUtilBase<T>::replaceString( std::basic_string<T>& string, std::basic_string<T> target, std::basic_string<T> replacement )
+{
+	size_type found_pos = 0;
+	while( (found_pos = string.find(target, found_pos)) != std::basic_string<T>::npos )
+	{
+		string.replace( found_pos, target.length(), replacement );
+		found_pos += replacement.length(); // avoid infinite defeat if replacement contains target
 	}
 }
 
