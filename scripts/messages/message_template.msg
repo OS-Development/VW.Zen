@@ -5288,6 +5288,10 @@ version 2.0
 		{	AgentLegacyAccess		U8	}
 		{	AgentMaxAccess			U8	}
 	}
+	{
+		AgentInfo				Variable
+		{	Flags					U32	}
+	}
 }
 
 // ChildAgentAlive
@@ -8946,6 +8950,7 @@ version 2.0
 	}
 }
 
+// Link inventory
 {
 	LinkInventoryItem	Low	426 NotTrusted	Zerocoded
 	{
@@ -8954,12 +8959,16 @@ version 2.0
 		{	SessionID	LLUUID	}
 	}
 	{
-		InventoryData		Variable
+		InventoryBlock		Single
 		{	CallbackID	U32			} // Async Response
 		{	FolderID		LLUUID	}
+		{	TransactionID			LLUUID	} // Going to become TransactionID
 		{	OldItemID		LLUUID	}
+		{	Type			S8	}
+		{	InvType			S8	}
 		{	Name			Variable	1	}
-		{	AssetType		U8		}
+		{	Description		Variable	1	}
+
 	}
 }
 
