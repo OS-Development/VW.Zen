@@ -64,6 +64,7 @@ LLScreenChannel::LLScreenChannel(LLUUID& id):	mOverflowToastPanel(NULL), mStartU
 	setMouseOpaque( false );
 }
 
+//--------------------------------------------------------------------------
 void LLScreenChannel::init(S32 channel_left, S32 channel_right)
 {
 	S32 channel_top = getRootView()->getRect().getHeight() - gSavedSettings.getS32("NavBarMargin");
@@ -88,9 +89,12 @@ void LLScreenChannel::reshape(S32 width, S32 height, BOOL called_from_parent)
 //--------------------------------------------------------------------------
 void LLScreenChannel::addToast(LLToast::Params p)
 {
-	bool store_toast = !mShowToasts && p.can_be_stored && mCanStoreToasts;
+	bool store_toast = false, show_toast = false;
 
-	if(!mShowToasts && !store_toast)
+	show_toast = mShowToasts || p.force_show;
+	store_toast = !show_toast && p.can_be_stored && mCanStoreToasts;
+
+	if(!show_toast && !store_toast)
 	{
 		mOnRejectToast(p);
 		return;
@@ -106,7 +110,7 @@ void LLScreenChannel::addToast(LLToast::Params p)
 		new_toast_elem.toast->setOnToastHoverCallback(boost::bind(&LLScreenChannel::onToastHover, this, _1, _2));
 	}
 	
-	if(mShowToasts)
+	if(show_toast)
 	{
 		mToastList.push_back(new_toast_elem);
 		showToasts();
@@ -323,6 +327,7 @@ void LLScreenChannel::showToastsBottom()
 		mHiddenToastsNum = 0;
 		for(; it != mToastList.rend(); it++)
 		{
+			(*it).toast->stopTimer();
 			mHiddenToastsNum++;
 		}
 		createOverflowToast(bottom, gSavedSettings.getS32("NotificationToastTime"));

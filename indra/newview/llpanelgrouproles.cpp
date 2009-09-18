@@ -36,6 +36,7 @@
 
 #include "llagent.h"
 #include "llbutton.h"
+#include "llfiltereditor.h"
 #include "llfloatergroupinvite.h"
 #include "llavataractions.h"
 #include "lliconctrl.h"
@@ -49,7 +50,6 @@
 #include "lltabcontainer.h"
 #include "lltextbox.h"
 #include "lltexteditor.h"
-#include "llsearcheditor.h"
 #include "llviewertexturelist.h"
 #include "llviewerwindow.h"
 #include "llfocusmgr.h"
@@ -477,14 +477,12 @@ BOOL LLPanelGroupSubTab::postBuild()
 {
 	// Hook up the search widgets.
 	bool recurse = true;
-	mSearchEditor = getChild<LLSearchEditor>("filter_input", recurse);
+	mSearchEditor = getChild<LLFilterEditor>("filter_input", recurse);
 
 	if (!mSearchEditor) 
 		return FALSE;
 
-	mSearchEditor->setCommitCallback(boost::bind(&LLPanelGroupSubTab::onClickSearch, this));
-	mSearchEditor->setKeystrokeCallback(onSearchKeystroke, this);
-
+	mSearchEditor->setCommitCallback(boost::bind(&LLPanelGroupSubTab::setSearchFilter, this, _2));
 	
 	// Get icons for later use.
 	mActionIcons.clear();
@@ -516,26 +514,6 @@ void LLPanelGroupSubTab::setGroupID(const LLUUID& id)
 		setSearchFilter("");
 	}
 }
-
-// static
-void LLPanelGroupSubTab::onSearchKeystroke(LLLineEditor* caller, void* user_data)
-{
-	LLPanelGroupSubTab* self = static_cast<LLPanelGroupSubTab*>(user_data);
-	self->handleSearchKeystroke(caller);
-
-}
-
-void LLPanelGroupSubTab::handleSearchKeystroke(LLLineEditor* caller)
-{
-	setSearchFilter( caller->getText() );
-}
-
-// static 
-void LLPanelGroupSubTab::onClickSearch()
-{
-	setSearchFilter( mSearchEditor->getText() );
-}
- 
 
 void LLPanelGroupSubTab::setSearchFilter(const std::string& filter)
 {
@@ -659,6 +637,12 @@ void LLPanelGroupSubTab::buildActionCategory(LLScrollListCtrl* ctrl,
 		row["columns"][1]["font"]["style"] = "BOLD";
 
 		LLScrollListItem* title_row = ctrl->addElement(row, ADD_BOTTOM, action_set->mActionSetData);
+		
+		LLScrollListText* name_textp = dynamic_cast<LLScrollListText*>(title_row->getColumn(1));
+		if (name_textp)
+			name_textp->setFontStyle(LLFontGL::BOLD);
+
+
 
 		bool category_matches_filter = (filter) ? matchesActionSearchFilter(action_set->mActionSetData->mName) : true;
 
@@ -837,6 +821,7 @@ BOOL LLPanelGroupMembersSubTab::postBuildSubTab(LLView* root)
 	mMembersList->setCommitCallback(onMemberSelect, this);
 	// Show the member's profile on double click.
 	mMembersList->setDoubleClickCallback(onMemberDoubleClick, this);
+	mMembersList->setContextMenu(LLScrollListCtrl::MENU_AVATAR);
 
 	LLButton* button = parent->getChild<LLButton>("member_invite", recurse);
 	if ( button )
@@ -1731,6 +1716,8 @@ BOOL LLPanelGroupRolesSubTab::postBuildSubTab(LLView* root)
 	mRolesList->setCommitOnSelectionChange(TRUE);
 	mRolesList->setCommitCallback(onRoleSelect, this);
 
+	mAssignedMembersList->setContextMenu(LLScrollListCtrl::MENU_AVATAR);
+
 	mMemberVisibleCheck->setCommitCallback(onMemberVisibilityChange, this);
 
 	mAllowedActionsList->setCommitOnSelectionChange(TRUE);
@@ -2397,6 +2384,7 @@ BOOL LLPanelGroupActionsSubTab::postBuildSubTab(LLView* root)
 
 	mActionList->setCommitOnSelectionChange(TRUE);
 	mActionList->setCommitCallback(boost::bind(&LLPanelGroupActionsSubTab::handleActionSelect, this));
+	mActionList->setContextMenu(LLScrollListCtrl::MENU_AVATAR);
 
 	update(GC_ALL);
 

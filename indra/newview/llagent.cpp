@@ -48,7 +48,6 @@
 #include "llfloaterdirectory.h"
 
 #include "llfloaterland.h"
-#include "llfloatermute.h"
 #include "llfloatersnapshot.h"
 #include "llfloatertools.h"
 #include "llfloaterworldmap.h"
@@ -799,12 +798,10 @@ void LLAgent::setFlying(BOOL fly)
 			LLViewerStats::getInstance()->incStat(LLViewerStats::ST_FLY_COUNT);
 		}
 		setControlFlags(AGENT_CONTROL_FLY);
-		gSavedSettings.setBOOL("FlyBtnState", TRUE);
 	}
 	else
 	{
 		clearControlFlags(AGENT_CONTROL_FLY);
-		gSavedSettings.setBOOL("FlyBtnState", FALSE);
 	}
 
 
@@ -4002,11 +3999,6 @@ void LLAgent::changeCameraToMouselook(BOOL animate)
 
 	LLToolMgr::getInstance()->setCurrentToolset(gMouselookToolset);
 
-	gSavedSettings.setBOOL("FirstPersonBtnState",	FALSE);
-	gSavedSettings.setBOOL("MouselookBtnState",		TRUE);
-	gSavedSettings.setBOOL("ThirdPersonBtnState",	FALSE);
-	gSavedSettings.setBOOL("BuildBtnState",			FALSE);
-
 	if (mAvatarObject.notNull())
 	{
 		mAvatarObject->stopMotion( ANIM_AGENT_BODY_NOISE );
@@ -4102,11 +4094,6 @@ void LLAgent::changeCameraToFollow(BOOL animate)
 			mAvatarObject->startMotion( ANIM_AGENT_BREATHE_ROT );
 		}
 
-		gSavedSettings.setBOOL("FirstPersonBtnState",	FALSE);
-		gSavedSettings.setBOOL("MouselookBtnState",		FALSE);
-		gSavedSettings.setBOOL("ThirdPersonBtnState",	TRUE);
-		gSavedSettings.setBOOL("BuildBtnState",			FALSE);
-
 		// unpause avatar animation
 		mPauseRequest = NULL;
 
@@ -4152,11 +4139,6 @@ void LLAgent::changeCameraToThirdPerson(BOOL animate)
 		mAvatarObject->startMotion( ANIM_AGENT_BODY_NOISE );
 		mAvatarObject->startMotion( ANIM_AGENT_BREATHE_ROT );
 	}
-
-	gSavedSettings.setBOOL("FirstPersonBtnState",	FALSE);
-	gSavedSettings.setBOOL("MouselookBtnState",		FALSE);
-	gSavedSettings.setBOOL("ThirdPersonBtnState",	TRUE);
-	gSavedSettings.setBOOL("BuildBtnState",			FALSE);
 
 	LLVector3 at_axis;
 
@@ -4234,11 +4216,6 @@ void LLAgent::changeCameraToCustomizeAvatar(BOOL avatar_animate, BOOL camera_ani
 	{
 		LLToolMgr::getInstance()->setCurrentToolset(gFaceEditToolset);
 	}
-
-	gSavedSettings.setBOOL("FirstPersonBtnState", FALSE);
-	gSavedSettings.setBOOL("MouselookBtnState", FALSE);
-	gSavedSettings.setBOOL("ThirdPersonBtnState", FALSE);
-	gSavedSettings.setBOOL("BuildBtnState", FALSE);
 
 	if (camera_animate)
 	{

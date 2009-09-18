@@ -37,6 +37,8 @@
 #include "llframetimer.h"
 #include "llwearable.h"
 
+#include <boost/signals2.hpp>	// boost::signals2::trackable
+
 class LLFolderView;
 class LLFolderBridge;
 class LLViewerInventoryCategory;
@@ -55,11 +57,18 @@ public:
 	
 protected:
 	~LLViewerInventoryItem( void ); // ref counted
+	BOOL extractSortFieldAndDisplayName(S32* sortField, std::string* displayName) const;
+	static char getSeparator() { return '@'; }
+	mutable std::string mDisplayName;
 	
 public:
 	virtual LLAssetType::EType getType() const;
 	virtual const LLUUID& getAssetUUID() const;
 	virtual const std::string& getName() const;
+	virtual const std::string& getDisplayName() const;
+	virtual S32 getSortField() const;
+	virtual void setSortField(S32 sortField);
+	virtual void rename(const std::string& new_name);
 	virtual const LLPermissions& getPermissions() const;
 	virtual const LLUUID& getCreatorUUID() const;
 	virtual const std::string& getDescription() const;
@@ -142,8 +151,8 @@ public:
 	LLTransactionID getTransactionID() const { return mTransactionID; }
 	
 	bool getIsBrokenLink() const; // true if the baseitem this points to doesn't exist in memory.
-	const LLViewerInventoryItem *getLinkedItem() const;
-	const LLViewerInventoryCategory *getLinkedCategory() const;
+	LLViewerInventoryItem *getLinkedItem() const;
+	LLViewerInventoryCategory *getLinkedCategory() const;
 
 	// callback
 	void onCallingCardNameLookup(const LLUUID& id, const std::string& first_name, const std::string& last_name);
@@ -223,6 +232,11 @@ public:
 };
 
 class WearOnAvatarCallback : public LLInventoryCallback
+{
+	void fire(const LLUUID& inv_item);
+};
+
+class ModifiedCOFCallback : public LLInventoryCallback
 {
 	void fire(const LLUUID& inv_item);
 };

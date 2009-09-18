@@ -186,6 +186,7 @@
 #include "llagentlanguage.h"
 #include "llwearable.h"
 #include "llinventorybridge.h"
+#include "llappearancemgr.h"
 
 #include "lllogin.h"
 #include "llevents.h"
@@ -2618,10 +2619,10 @@ void LLStartUp::loadInitialOutfit( const std::string& outfit_folder_name,
 	}
 	else
 	{
-		wear_outfit_by_name(outfit_folder_name);
+		LLAppearanceManager::wearOutfitByName(outfit_folder_name);
 	}
-	wear_outfit_by_name(gestures);
-	wear_outfit_by_name(COMMON_GESTURES_FOLDER);
+	LLAppearanceManager::wearOutfitByName(gestures);
+	LLAppearanceManager::wearOutfitByName(COMMON_GESTURES_FOLDER);
 
 	// This is really misnamed -- it means we have started loading
 	// an outfit/shape that will give the avatar a gender eventually. JC

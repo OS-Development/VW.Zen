@@ -40,6 +40,7 @@
 #include "llimpanel.h"				// LLFloaterIMPanel
 #include "llimview.h"
 #include "llfloaterreg.h"
+#include "lllocalcliprect.h"
 #include "llmenugl.h"
 #include "lloutputmonitorctrl.h"
 #include "lltextbox.h"
@@ -47,13 +48,11 @@
 #include "llvoicecontrolpanel.h"
 #include "llgroupmgr.h"
 
-static const std::string P2P_MENU_NAME = "IMChiclet P2P Menu";
-static const std::string GROUP_MENU_NAME = "IMChiclet Group Menu";
-
 static LLDefaultChildRegistry::Register<LLChicletPanel> t1("chiclet_panel");
 static LLDefaultChildRegistry::Register<LLTalkButton> t2("chiclet_talk");
 static LLDefaultChildRegistry::Register<LLNotificationChiclet> t3("chiclet_notification");
-static LLDefaultChildRegistry::Register<LLIMChiclet> t4("chiclet_im");
+static LLDefaultChildRegistry::Register<LLIMP2PChiclet> t4("chiclet_im_p2p");
+static LLDefaultChildRegistry::Register<LLIMGroupChiclet> t5("chiclet_im_group");
 
 S32 LLNotificationChiclet::mUreadSystemNotifications = 0;
 S32 LLNotificationChiclet::mUreadIMNotifications = 0;
@@ -117,6 +116,10 @@ boost::signals2::connection LLNotificationChiclet::setClickCallback(
 	const commit_callback_t& cb)
 {
 	return mButton->setClickedCallback(cb);
+}
+
+void LLNotificationChiclet::setToggleState(BOOL toggled) {
+	mButton->setToggleState(toggled);
 }
 
 void LLNotificationChiclet::updateUreadIMNotifications()
@@ -187,23 +190,77 @@ void LLChiclet::setValue(const LLSD& value)
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
-LLIMChiclet::Params::Params()
+LLIMChiclet::LLIMChiclet(const LLChiclet::Params& p)
+: LLChiclet(p)
+{
+}
+
+void LLIMChiclet::onMouseDown()
+{
+	LLIMFloater::toggle(getSessionId());
+	setCounter(0);
+}
+
+BOOL LLIMChiclet::handleMouseDown(S32 x, S32 y, MASK mask)
+{
+	onMouseDown();
+	return LLChiclet::handleMouseDown(x, y, mask);
+}
+
+void LLIMChiclet::draw()
+{
+	LLUICtrl::draw();
+
+	gl_rect_2d(0, getRect().getHeight(), getRect().getWidth(), 0, LLColor4(0.0f,0.0f,0.0f,1.f), FALSE);
+}
+
+// static
+LLIMChiclet::EType LLIMChiclet::getIMSessionType(const LLUUID& session_id)
+{
+	EType				type	= TYPE_UNKNOWN;
+	LLFloaterIMPanel*	im		= NULL;
+
+	if(session_id.isNull())
+		return type;
+
+	if (!(im = LLIMMgr::getInstance()->findFloaterBySession(session_id)))
+	{
+		llassert_always(0 && "IM session not found"); // should never happen
+		return type;
+	}
+
+	switch(im->getDialogType())
+	{
+	case IM_NOTHING_SPECIAL:
+		type = TYPE_IM;
+		break;
+	case IM_SESSION_GROUP_START:
+	case IM_SESSION_INVITE:
+		type = TYPE_GROUP;
+		break;
+	default:
+		break;
+	}
+
+	return type;
+}
+
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+
+LLIMP2PChiclet::Params::Params()
 : avatar_icon("avatar_icon")
-, group_insignia("group_insignia")
 , unread_notifications("unread_notifications")
 , speaker("speaker")
 , show_speaker("show_speaker")
 {
+	// *TODO Vadim: Get rid of hardcoded values.
 	rect(LLRect(0, 25, 45, 0));
 
 	avatar_icon.name("avatar_icon");
-	avatar_icon.visible(false);
 	avatar_icon.rect(LLRect(0, 25, 25, 0));
-
-	//it's an icon for a group in case there is a group chat created
-	group_insignia.name("group_icon");
-	group_insignia.visible(false);
-	group_insignia.rect(LLRect(0, 25, 25, 0));
+	avatar_icon.mouse_opaque(false);
 
 	unread_notifications.name("unread");
 	unread_notifications.rect(LLRect(25, 25, 45, 0));
@@ -211,6 +268,7 @@ LLIMChiclet::Params::Params()
 	unread_notifications.font_halign(LLFontGL::HCENTER);
 	unread_notifications.v_pad(5);
 	unread_notifications.text_color(LLColor4::white);
+	unread_notifications.mouse_opaque(false);
 
 	speaker.name("speaker");
 	speaker.rect(LLRect(45, 25, 65, 0));
@@ -218,25 +276,16 @@ LLIMChiclet::Params::Params()
 	show_speaker = false;
 }
 
-LLIMChiclet::LLIMChiclet(const Params& p)
-: LLChiclet(p)
-, LLGroupMgrObserver(LLUUID())
-, mAvatarCtrl(NULL)
-, mGroupInsignia(NULL)
+LLIMP2PChiclet::LLIMP2PChiclet(const Params& p)
+: LLIMChiclet(p)
+, mChicletIconCtrl(NULL)
 , mCounterCtrl(NULL)
 , mSpeakerCtrl(NULL)
-, mShowSpeaker(p.show_speaker)
 , mPopupMenu(NULL)
 {
 	LLChicletAvatarIconCtrl::Params avatar_params = p.avatar_icon;
-	mAvatarCtrl = LLUICtrlFactory::create<LLChicletAvatarIconCtrl>(avatar_params);
-	addChild(mAvatarCtrl);
-
-	//Before setOtherParticipantId() we are UNAWARE which dialog type will it be
-	//so keeping both icons for all both p2p and group chat cases
-	LLIconCtrl::Params grop_icon_params = p.group_insignia;
-	mGroupInsignia = LLUICtrlFactory::create<LLIconCtrl>(grop_icon_params);
-	addChild(mGroupInsignia);
+	mChicletIconCtrl = LLUICtrlFactory::create<LLChicletAvatarIconCtrl>(avatar_params);
+	addChild(mChicletIconCtrl);
 
 	LLChicletNotificationCounterCtrl::Params unread_params = p.unread_notifications;
 	mCounterCtrl = LLUICtrlFactory::create<LLChicletNotificationCounterCtrl>(unread_params);
@@ -249,16 +298,10 @@ LLIMChiclet::LLIMChiclet(const Params& p)
 	mSpeakerCtrl = LLUICtrlFactory::create<LLChicletSpeakerCtrl>(speaker_params);
 	addChild(mSpeakerCtrl);
 
-	setShowSpeaker(getShowSpeaker());
+	setShowSpeaker(p.show_speaker);
 }
 
-LLIMChiclet::~LLIMChiclet()
-{
-	LLGroupMgr::getInstance()->removeObserver(this);
-}
-
-
-void LLIMChiclet::setCounter(S32 counter)
+void LLIMP2PChiclet::setCounter(S32 counter)
 {
 	mCounterCtrl->setCounter(counter);
 
@@ -279,15 +322,9 @@ void LLIMChiclet::setCounter(S32 counter)
 	}
 }
 
-void LLIMChiclet::onMouseDown()
+LLRect LLIMP2PChiclet::getRequiredRect()
 {
-	LLIMFloater::toggle(getSessionId());
-	setCounter(0);
-}
-
-LLRect LLIMChiclet::getRequiredRect()
-{
-	LLRect rect(0, 0, mAvatarCtrl->getRect().getWidth(), 0);
+	LLRect rect(0, 0, mChicletIconCtrl->getRect().getWidth(), 0);
 	if(getShowCounter())
 	{
 		rect.mRight += mCounterCtrl->getRequiredRect().getWidth();
@@ -299,169 +336,43 @@ LLRect LLIMChiclet::getRequiredRect()
 	return rect;
 }
 
-void LLIMChiclet::setShowCounter(bool show)
+void LLIMP2PChiclet::setOtherParticipantId(const LLUUID& other_participant_id)
 {
-	bool needs_resize = getShowCounter() != show;
-
-	LLChiclet::setShowCounter(show);
-	mCounterCtrl->setVisible(getShowCounter());
-
-	if(needs_resize)
-	{
-		onChicletSizeChanged();
-	}
+	LLIMChiclet::setOtherParticipantId(other_participant_id);
+	mChicletIconCtrl->setValue(getOtherParticipantId());
 }
 
-
-void LLIMChiclet::setSessionId(const LLUUID& session_id)
-{
-	LLChiclet::setSessionId(session_id);
-
-	//for a group chat session_id = group_id
-	LLFloaterIMPanel* im = LLIMMgr::getInstance()->findFloaterBySession(session_id);
-	if (!im) return; //should never happen
-	
-	EInstantMessage type = im->getDialogType();
-	if (type == IM_SESSION_INVITE || type == IM_SESSION_GROUP_START)
-	{
-		if (!gAgent.isInGroup(session_id)) return;
-
-		if (mGroupInsignia) {
-			LLGroupMgr* grp_mgr = LLGroupMgr::getInstance();
-			LLGroupMgrGroupData* group_data = grp_mgr->getGroupData(session_id);
-			if (group_data && group_data->mInsigniaID.notNull())
-			{
-				mGroupInsignia->setVisible(TRUE);
-				mGroupInsignia->setValue(group_data->mInsigniaID);
-			}
-			else
-			{
-				mID = session_id; //needed for LLGroupMgrObserver
-				grp_mgr->addObserver(this);
-				grp_mgr->sendGroupPropertiesRequest(session_id);
-			}
-		}
-	}	
-}
-
-void LLIMChiclet::setIMSessionName(const std::string& name)
-{
-	setToolTip(name);
-}
-
-//session id should be set before calling this
-void LLIMChiclet::setOtherParticipantId(const LLUUID& other_participant_id)
-{
-	llassert(getSessionId().notNull());
-
-	LLFloaterIMPanel*floater = gIMMgr->findFloaterBySession(getSessionId());
-
-	//all alive sessions have alive floater, haven't they?
-	llassert(floater);
-
-	mOtherParticipantId = other_participant_id;
-
-	if (mAvatarCtrl && floater->getDialogType() == IM_NOTHING_SPECIAL)
-	{
-		mAvatarCtrl->setVisible(TRUE);
-		mAvatarCtrl->setValue(other_participant_id);
-	}
-}
-
-
-void LLIMChiclet::changed(LLGroupChange gc)
-{
-	LLSD group_insignia = mGroupInsignia->getValue();
-	if (group_insignia.isUUID() && group_insignia.asUUID().notNull()) return;
-
-	if (GC_PROPERTIES == gc)
-	{
-		LLGroupMgrGroupData* group_data = LLGroupMgr::getInstance()->getGroupData(getSessionId());
-		if (group_data && group_data->mInsigniaID.notNull())
-		{
-			mGroupInsignia->setVisible(TRUE);
-			mGroupInsignia->setValue(group_data->mInsigniaID);
-		}
-	}
-}
-
-LLUUID LLIMChiclet::getOtherParticipantId()
-{
-	return mOtherParticipantId;
-}
-
-void LLIMChiclet::updateMenuItems()
+void LLIMP2PChiclet::updateMenuItems()
 {
 	if(!mPopupMenu)
 		return;
 	if(getSessionId().isNull())
 		return;
 
-	if(P2P_MENU_NAME == mPopupMenu->getName())
-	{
-		bool is_friend = LLAvatarActions::isFriend(getOtherParticipantId());
+	bool is_friend = LLAvatarActions::isFriend(getOtherParticipantId());
 
-		mPopupMenu->getChild<LLUICtrl>("Add Friend")->setEnabled(!is_friend);
-		mPopupMenu->getChild<LLUICtrl>("Remove Friend")->setEnabled(is_friend);
-	}
+	mPopupMenu->getChild<LLUICtrl>("Add Friend")->setEnabled(!is_friend);
+	mPopupMenu->getChild<LLUICtrl>("Remove Friend")->setEnabled(is_friend);
 }
 
-BOOL LLIMChiclet::handleMouseDown(S32 x, S32 y, MASK mask)
-{
-	onMouseDown();
-	return LLChiclet::handleMouseDown(x, y, mask);
-}
-
-void LLIMChiclet::setShowSpeaker(bool show)
-{
-	bool needs_resize = getShowSpeaker() != show;
-
-	mShowSpeaker = show;
-	mSpeakerCtrl->setVisible(getShowSpeaker());
-
-	if(needs_resize)
-	{
-		onChicletSizeChanged();
-	}
-}
-
-void LLIMChiclet::draw()
-{
-	LLUICtrl::draw();
-
-	//if we have a docked floater, we want to position it relative to us
-	LLIMFloater* im_floater = LLFloaterReg::findTypedInstance<LLIMFloater>("impanel", getSessionId());
-
-	if (im_floater && im_floater->isDocked()) 
-	{
-		S32 x, y;
-		getParent()->localPointToScreen(getRect().getCenterX(), 0, &x, &y);
-		im_floater->translate(x - im_floater->getRect().getCenterX(), 10 - im_floater->getRect().mBottom);	
-		//set this so the docked floater knows it's been positioned and can now draw
-		im_floater->setPositioned(true);
-	}
-
-	gl_rect_2d(0, getRect().getHeight(), getRect().getWidth(), 0, LLColor4(0.0f,0.0f,0.0f,1.f), FALSE);
-}
-
-BOOL LLIMChiclet::handleRightMouseDown(S32 x, S32 y, MASK mask)
+BOOL LLIMP2PChiclet::handleRightMouseDown(S32 x, S32 y, MASK mask)
 {
 	if(!mPopupMenu)
+	{
 		createPopupMenu();
-
-	updateMenuItems();
+	}
 
 	if (mPopupMenu)
 	{
+		updateMenuItems();
 		mPopupMenu->arrangeAndClear();
+		LLMenuGL::showPopup(this, mPopupMenu, x, y);
 	}
-	
-	LLMenuGL::showPopup(this, mPopupMenu, x, y);
 
 	return TRUE;
 }
 
-void LLIMChiclet::createPopupMenu()
+void LLIMP2PChiclet::createPopupMenu()
 {
 	if(mPopupMenu)
 	{
@@ -469,32 +380,18 @@ void LLIMChiclet::createPopupMenu()
 		return;
 	}
 	if(getSessionId().isNull())
+	{
 		return;
-
-	LLFloaterIMPanel*floater = gIMMgr->findFloaterBySession(getSessionId());
-	if(!floater)
-		return;
+	}
 
 	LLUICtrl::CommitCallbackRegistry::ScopedRegistrar registrar;
-	registrar.add("IMChicletMenu.Action", boost::bind(&LLIMChiclet::onMenuItemClicked, this, _2));
+	registrar.add("IMChicletMenu.Action", boost::bind(&LLIMP2PChiclet::onMenuItemClicked, this, _2));
 
-	switch(floater->getDialogType())
-	{
-	case IM_SESSION_GROUP_START:
-		mPopupMenu = LLUICtrlFactory::getInstance()->createFromFile<LLMenuGL>
-			("menu_imchiclet_group.xml", gMenuHolder, LLViewerMenuHolderGL::child_registry_t::instance());
-		break;
-	case IM_NOTHING_SPECIAL:
-		mPopupMenu = LLUICtrlFactory::getInstance()->createFromFile<LLMenuGL>
-			("menu_imchiclet_p2p.xml", gMenuHolder, LLViewerMenuHolderGL::child_registry_t::instance());
-		break;
-	default:
-		llwarns << "Unexpected dialog type" << llendl;
-		break;
-	}
+	mPopupMenu = LLUICtrlFactory::getInstance()->createFromFile<LLMenuGL>
+		("menu_imchiclet_p2p.xml", gMenuHolder, LLViewerMenuHolderGL::child_registry_t::instance());
 }
 
-void LLIMChiclet::onMenuItemClicked(const LLSD& user_data)
+void LLIMP2PChiclet::onMenuItemClicked(const LLSD& user_data)
 {
 	std::string level = user_data.asString();
 	LLUUID other_participant_id = getOtherParticipantId();
@@ -511,13 +408,204 @@ void LLIMChiclet::onMenuItemClicked(const LLSD& user_data)
 	{
 		LLAvatarActions::requestFriendshipDialog(other_participant_id);
 	}
-	else if("group chat" == level)
+}
+
+void LLIMP2PChiclet::setShowSpeaker(bool show)
+{
+	LLIMChiclet::setShowSpeaker(show);
+
+	bool needs_resize = getShowSpeaker() != show;
+	mSpeakerCtrl->setVisible(getShowSpeaker());
+	if(needs_resize)
 	{
-		LLGroupActions::startChat(other_participant_id);
+		onChicletSizeChanged();
+	}
+}
+
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+
+LLIMGroupChiclet::Params::Params()
+: group_icon("group_icon")
+{
+	rect(LLRect(0, 25, 45, 0));
+
+	group_icon.name("group_icon");
+	group_icon.rect(LLRect(0, 25, 25, 0));
+
+	unread_notifications.name("unread");
+	unread_notifications.rect(LLRect(25, 25, 45, 0));
+	unread_notifications.font(LLFontGL::getFontSansSerif());
+	unread_notifications.font_halign(LLFontGL::HCENTER);
+	unread_notifications.v_pad(5);
+	unread_notifications.text_color(LLColor4::white);
+
+	speaker.name("speaker");
+	speaker.rect(LLRect(45, 25, 65, 0));
+
+	show_speaker = false;
+}
+
+LLIMGroupChiclet::LLIMGroupChiclet(const Params& p)
+: LLIMChiclet(p)
+, LLGroupMgrObserver(LLUUID::null)
+, mChicletIconCtrl(NULL)
+, mCounterCtrl(NULL)
+, mSpeakerCtrl(NULL)
+, mPopupMenu(NULL)
+{
+	LLChicletGroupIconCtrl::Params avatar_params = p.group_icon;
+	mChicletIconCtrl = LLUICtrlFactory::create<LLChicletGroupIconCtrl>(avatar_params);
+	addChild(mChicletIconCtrl);
+
+	LLChicletNotificationCounterCtrl::Params unread_params = p.unread_notifications;
+	mCounterCtrl = LLUICtrlFactory::create<LLChicletNotificationCounterCtrl>(unread_params);
+	addChild(mCounterCtrl);
+
+	setCounter(getCounter());
+	setShowCounter(getShowCounter());
+
+	LLChicletSpeakerCtrl::Params speaker_params = p.speaker;
+	mSpeakerCtrl = LLUICtrlFactory::create<LLChicletSpeakerCtrl>(speaker_params);
+	addChild(mSpeakerCtrl);
+
+	setShowSpeaker(p.show_speaker);
+}
+
+LLIMGroupChiclet::~LLIMGroupChiclet()
+{
+	LLGroupMgr::getInstance()->removeObserver(this);
+}
+
+void LLIMGroupChiclet::setCounter(S32 counter)
+{
+	mCounterCtrl->setCounter(counter);
+
+	if(getShowCounter())
+	{
+		LLRect counter_rect = mCounterCtrl->getRect();
+		LLRect required_rect = mCounterCtrl->getRequiredRect();
+		bool needs_resize = required_rect.getWidth() != counter_rect.getWidth();
+
+		if(needs_resize)
+		{
+			counter_rect.mRight = counter_rect.mLeft + required_rect.getWidth();
+			mCounterCtrl->reshape(counter_rect.getWidth(), counter_rect.getHeight());
+			mCounterCtrl->setRect(counter_rect);
+
+			onChicletSizeChanged();
+		}
+	}
+}
+
+LLRect LLIMGroupChiclet::getRequiredRect()
+{
+	LLRect rect(0, 0, mChicletIconCtrl->getRect().getWidth(), 0);
+	if(getShowCounter())
+	{
+		rect.mRight += mCounterCtrl->getRequiredRect().getWidth();
+	}
+	if(getShowSpeaker())
+	{
+		rect.mRight += mSpeakerCtrl->getRect().getWidth();
+	}
+	return rect;
+}
+
+void LLIMGroupChiclet::setSessionId(const LLUUID& session_id)
+{
+	LLChiclet::setSessionId(session_id);
+
+	LLGroupMgr* grp_mgr = LLGroupMgr::getInstance();
+	LLGroupMgrGroupData* group_data = grp_mgr->getGroupData(session_id);
+	if (group_data && group_data->mInsigniaID.notNull())
+	{
+		mChicletIconCtrl->setValue(group_data->mInsigniaID);
+	}
+	else
+	{
+		if(getSessionId() != mID)
+		{
+			grp_mgr->removeObserver(this);
+			mID = getSessionId();
+			grp_mgr->addObserver(this);
+		}
+		grp_mgr->sendGroupPropertiesRequest(session_id);
+	}
+}
+
+void LLIMGroupChiclet::changed(LLGroupChange gc)
+{
+	if (GC_PROPERTIES == gc)
+	{
+		LLGroupMgrGroupData* group_data = LLGroupMgr::getInstance()->getGroupData(getSessionId());
+		if (group_data)
+		{
+			mChicletIconCtrl->setValue(group_data->mInsigniaID);
+		}
+	}
+}
+
+BOOL LLIMGroupChiclet::handleRightMouseDown(S32 x, S32 y, MASK mask)
+{
+	if(!mPopupMenu)
+	{
+		createPopupMenu();
+	}
+
+	if (mPopupMenu)
+	{
+		mPopupMenu->arrangeAndClear();
+		LLMenuGL::showPopup(this, mPopupMenu, x, y);
+	}
+
+	return TRUE;
+}
+
+void LLIMGroupChiclet::createPopupMenu()
+{
+	if(mPopupMenu)
+	{
+		llwarns << "Menu already exists" << llendl;
+		return;
+	}
+	if(getSessionId().isNull())
+	{
+		return;
+	}
+
+	LLUICtrl::CommitCallbackRegistry::ScopedRegistrar registrar;
+	registrar.add("IMChicletMenu.Action", boost::bind(&LLIMGroupChiclet::onMenuItemClicked, this, _2));
+
+	mPopupMenu = LLUICtrlFactory::getInstance()->createFromFile<LLMenuGL>
+		("menu_imchiclet_group.xml", gMenuHolder, LLViewerMenuHolderGL::child_registry_t::instance());
+}
+
+void LLIMGroupChiclet::onMenuItemClicked(const LLSD& user_data)
+{
+	std::string level = user_data.asString();
+	LLUUID group_id = getSessionId();
+
+	if("group chat" == level)
+	{
+		LLGroupActions::startChat(group_id);
 	}
 	else if("info" == level)
 	{
-		LLGroupActions::show(other_participant_id);
+		LLGroupActions::show(group_id);
+	}
+}
+
+void LLIMGroupChiclet::setShowSpeaker(bool show)
+{
+	LLIMChiclet::setShowSpeaker(show);
+
+	bool needs_resize = getShowSpeaker() != show;
+	mSpeakerCtrl->setVisible(getShowSpeaker());
+	if(needs_resize)
+	{
+		onChicletSizeChanged();
 	}
 }
 
@@ -582,6 +670,10 @@ LLChicletPanel::LLChicletPanel(const Params&p)
 
 	LLPanel::Params panel_params;
 	mScrollArea = LLUICtrlFactory::create<LLPanel>(panel_params,this);
+
+	// important for Show/Hide Camera and Move controls menu in bottom tray to work properly
+	mScrollArea->setMouseOpaque(false);
+
 	addChild(mScrollArea);
 }
 
@@ -972,11 +1064,14 @@ BOOL LLChicletPanel::handleScrollWheel(S32 x, S32 y, S32 clicks)
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
+// *TODO Vadim: Move this out of llchiclet.cpp.
+
 LLTalkButton::Params::Params()
  : speak_button("speak_button")
  , show_button("show_button")
  , monitor("monitor")
 {
+	// *TODO Vadim: move hardcoded labels (!) and other params to XUI.
 	speak_button.name("left");
 	speak_button.label("Speak");
 	speak_button.label_selected("Speak");
@@ -1045,6 +1140,8 @@ LLTalkButton::LLTalkButton(const Params& p)
 	LLOutputMonitorCtrl::Params monitor_params = p.monitor;
 	monitor_params.draw_border(false);
 	monitor_params.rect(monitor_rect);
+	monitor_params.auto_update(true);
+	monitor_params.speaker_id(gAgentID);
 	mOutputMonitor = LLUICtrlFactory::create<LLOutputMonitorCtrl>(monitor_params);
 	mSpeakBtn->addChild(mOutputMonitor);
 
@@ -1054,17 +1151,6 @@ LLTalkButton::LLTalkButton(const Params& p)
 
 LLTalkButton::~LLTalkButton()
 {
-}
-
-void LLTalkButton::draw()
-{
-	// Always provide speaking feedback.  User can trigger speaking
-	// with keyboard or middle-mouse shortcut.
-	mOutputMonitor->setPower(gVoiceClient->getCurrentPower(gAgent.getID()));
-	mOutputMonitor->setIsTalking( gVoiceClient->getUserPTTState() );
-	mSpeakBtn->setToggleState( gVoiceClient->getUserPTTState() );
-
-	LLUICtrl::draw();
 }
 
 void LLTalkButton::setSpeakBtnToggleState(bool state)
@@ -1103,13 +1189,14 @@ void LLTalkButton::onClick_ShowBtn()
 	rect.setLeftTopAndSize(x, y, mPrivateCallPanel->getRect().getWidth(), mPrivateCallPanel->getRect().getHeight());
 	mPrivateCallPanel->setRect(rect);
 
-	LLAvatarListItem::Params p;
-	p.buttons.status = true;
-	p.buttons.info = true;
-	p.buttons.profile = false;
-	p.buttons.locator = true;
 
-	mPrivateCallPanel->addItem(new LLAvatarListItem(p));
+	LLAvatarListItem* item = new LLAvatarListItem();
+	item->showStatus(true);
+	item->showInfoBtn(true);
+	item->showSpeakingIndicator(true);
+	item->reshape(mPrivateCallPanel->getRect().getWidth(), item->getRect().getHeight(), FALSE);
+
+	mPrivateCallPanel->addItem(item);
 	mPrivateCallPanel->setVisible(TRUE);
 	mPrivateCallPanel->setFrontmost(TRUE);
 
@@ -1172,6 +1259,28 @@ LLSD LLChicletNotificationCounterCtrl::getValue() const
 LLChicletAvatarIconCtrl::LLChicletAvatarIconCtrl(const Params& p)
  : LLAvatarIconCtrl(p)
 {
+}
+
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+
+LLChicletGroupIconCtrl::LLChicletGroupIconCtrl(const Params& p)
+: LLIconCtrl(p)
+, mDefaultIcon(p.default_icon)
+{
+}
+
+void LLChicletGroupIconCtrl::setValue(const LLSD& value )
+{
+	if(value.asUUID().isNull())
+	{
+		LLIconCtrl::setValue(mDefaultIcon);
+	}
+	else
+	{
+		LLIconCtrl::setValue(value);
+	}
 }
 
 //////////////////////////////////////////////////////////////////////////

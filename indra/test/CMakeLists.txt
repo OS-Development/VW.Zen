@@ -14,6 +14,7 @@ include(LScript)
 include(Linking)
 include(Tut)
 
+include(GoogleMock)
 
 include_directories(
     ${LLCOMMON_INCLUDE_DIRS}
@@ -24,6 +25,7 @@ include_directories(
     ${LLVFS_INCLUDE_DIRS}
     ${LLXML_INCLUDE_DIRS}
     ${LSCRIPT_INCLUDE_DIRS}
+    ${GOOGLEMOCK_INCLUDE_DIRS}
     )
 
 set(test_SOURCE_FILES
@@ -127,7 +129,8 @@ target_link_libraries(test
     ${LLXML_LIBRARIES}
     ${LSCRIPT_LIBRARIES}
     ${LLCOMMON_LIBRARIES}
-	${EXPAT_LIBRARIES}
+    ${EXPAT_LIBRARIES}
+    ${GOOGLEMOCK_LIBRARIES}
     ${APRICONV_LIBRARIES}
     ${PTHREAD_LIBRARY}
     ${WINDOWS_LIBRARIES}

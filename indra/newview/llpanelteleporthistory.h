@@ -39,6 +39,10 @@
 #include "llpanelplacestab.h"
 #include "llteleporthistory.h"
 
+class LLTeleportHistoryStorage;
+class LLAccordionCtrl;
+class LLAccordionCtrlTab;
+
 class LLTeleportHistoryPanel : public LLPanelPlacesTab
 {
 public:
@@ -51,13 +55,14 @@ public:
 	/*virtual*/ void onTeleport();
 	///*virtual*/ void onCopySLURL();
 	/*virtual*/ void updateVerbs();
-	
-	void showTeleportHistory();
-	void handleItemSelect(const LLSD& data);
-
-	static void onDoubleClickItem(void* user_data);
 
 private:
+
+	static void onDoubleClickItem(void* user_data);
+	void showTeleportHistory();
+	void handleItemSelect(LLScrollListCtrl* );
+	LLScrollListCtrl* getScrollListFromTab(LLAccordionCtrlTab *);
+
 	enum TELEPORT_HISTORY_COLUMN_ORDER
 	{
 		LIST_ICON,
@@ -65,9 +70,13 @@ private:
 		LIST_INDEX
 	};
 
-	LLTeleportHistory*		mTeleportHistory;
-	LLScrollListCtrl*		mHistoryItems;
+	LLTeleportHistoryStorage*	mTeleportHistory;
+	LLAccordionCtrl*		mHistoryAccordeon;
+	LLScrollListCtrl*		mLastSelectedScrollList;
 	std::string				mFilterSubString;
+
+	typedef LLDynamicArray<LLAccordionCtrlTab*> item_containers_t;
+	item_containers_t mItemContainers;
 };
 
 #endif //LL_LLPANELTELEPORTHISTORY_H

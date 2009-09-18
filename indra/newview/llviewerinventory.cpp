@@ -53,6 +53,7 @@
 #include "llpreviewgesture.h"
 #include "llviewerwindow.h"
 #include "lltrans.h"
+#include "llappearancemgr.h"
 
 ///----------------------------------------------------------------------------
 /// Local function declarations, constants, enums, and typedefs
@@ -118,6 +119,41 @@ LLViewerInventoryItem::LLViewerInventoryItem(const LLInventoryItem *other) :
 
 LLViewerInventoryItem::~LLViewerInventoryItem()
 {
+}
+
+BOOL LLViewerInventoryItem::extractSortFieldAndDisplayName(S32* sortField, std::string* displayName) const
+{
+	using std::string;
+	using std::stringstream;
+
+	const char separator = getSeparator();
+	const string::size_type separatorPos = mName.find(separator, 0);
+
+	BOOL result = FALSE;
+
+	if (separatorPos < string::npos)
+	{
+		if (sortField)
+		{
+			/*
+			 * The conversion from string to S32 is made this way instead of old plain
+			 * atoi() to ensure portability. If on some other platform S32 will not be
+			 * defined to be signed int, this conversion will still work because of
+			 * operators overloading, but atoi() may fail.
+			 */
+			stringstream ss(mName.substr(0, separatorPos));
+			ss >> *sortField;
+		}
+
+		if (displayName)
+		{
+			*displayName = mName.substr(separatorPos + 1, string::npos);
+		}
+
+		result = TRUE;
+	}
+
+	return result;
 }
 
 void LLViewerInventoryItem::copyViewerItem(const LLViewerInventoryItem* other)
@@ -725,6 +761,11 @@ void WearOnAvatarCallback::fire(const LLUUID& inv_item)
 	}
 }
 
+void ModifiedCOFCallback::fire(const LLUUID& inv_item)
+{
+	LLAppearanceManager::instance().updateAppearanceFromCOF();
+}
+
 RezAttachmentCallback::RezAttachmentCallback(LLViewerJointAttachment *attachmentp)
 {
 	mAttach = attachmentp;
@@ -839,6 +880,27 @@ void link_inventory_item(
 	const LLAssetType::EType asset_type,
 	LLPointer<LLInventoryCallback> cb)
 {
+	const LLInventoryObject *baseobj = gInventory.getObject(item_id);
+	if (!baseobj)
+	{
+		llwarns << "attempt to link to unknown item, linked-to-item's itemID " << item_id << llendl;
+		return;
+	}
+	if (baseobj && baseobj->getIsLinkType())
+	{
+		llwarns << "attempt to create a link to a link, linked-to-item's itemID " << item_id << llendl;
+		return;
+	}
+
+	if (baseobj && !LLAssetType::lookupCanLink(baseobj->getType()))
+	{
+		// Fail if item can be found but is of a type that can't be linked.
+		// Arguably should fail if the item can't be found too, but that could
+		// be a larger behavioral change.
+		llwarns << "attempt to link an unlinkable item, type = " << baseobj->getActualType() << llendl;
+		return;
+	}
+	
 	LLMessageSystem* msg = gMessageSystem;
 	msg->newMessageFast(_PREHASH_LinkInventoryItem);
 	msg->nextBlockFast(_PREHASH_AgentData);
@@ -1102,7 +1164,70 @@ const std::string& LLViewerInventoryItem::getName() const
 		return linked_category->getName();
 	}
 
-	return LLInventoryItem::getName();
+	return getDisplayName();
+}
+
+const std::string& LLViewerInventoryItem::getDisplayName() const
+{
+	std::string result;
+	BOOL hasSortField = extractSortFieldAndDisplayName(0, &result);
+
+	return mDisplayName = hasSortField ? result : LLInventoryItem::getName();
+}
+
+S32 LLViewerInventoryItem::getSortField() const
+{
+	S32 result;
+	BOOL hasSortField = extractSortFieldAndDisplayName(&result, 0);
+
+	return hasSortField ? result : -1;
+}
+
+void LLViewerInventoryItem::setSortField(S32 sortField)
+{
+	using std::string;
+
+	std::stringstream ss;
+	ss << sortField;
+
+	string newSortField = ss.str();
+
+	const char separator = getSeparator();
+	const string::size_type separatorPos = mName.find(separator, 0);
+
+	if (separatorPos < string::npos)
+	{
+		// the name of the LLViewerInventoryItem already consists of sort field and display name.
+		mName = newSortField + separator + mName.substr(separatorPos + 1, string::npos);
+	}
+	else
+	{
+		// there is no sort field in the name of LLViewerInventoryItem, we should add it
+		mName = newSortField + separator + mName;
+	}
+}
+
+void LLViewerInventoryItem::rename(const std::string& n)
+{
+	using std::string;
+
+	string new_name(n);
+	LLStringUtil::replaceNonstandardASCII(new_name, ' ');
+	LLStringUtil::replaceChar(new_name, '|', ' ');
+	LLStringUtil::trim(new_name);
+	LLStringUtil::truncate(new_name, DB_INV_ITEM_NAME_STR_LEN);
+
+	const char separator = getSeparator();
+	const string::size_type separatorPos = mName.find(separator, 0);
+
+	if (separatorPos < string::npos)
+	{
+		mName.replace(separatorPos + 1, string::npos, new_name);
+	}
+	else
+	{
+		mName = new_name;
+	}
 }
 
 const LLPermissions& LLViewerInventoryItem::getPermissions() const
@@ -1193,21 +1318,26 @@ bool LLViewerInventoryItem::getIsBrokenLink() const
 	return LLAssetType::lookupIsLinkType(getType());
 }
 
-const LLViewerInventoryItem *LLViewerInventoryItem::getLinkedItem() const
+LLViewerInventoryItem *LLViewerInventoryItem::getLinkedItem() const
 {
 	if (mType == LLAssetType::AT_LINK)
 	{
-		const LLViewerInventoryItem *linked_item = gInventory.getItem(mAssetUUID);
+		LLViewerInventoryItem *linked_item = gInventory.getItem(mAssetUUID);
+		if (linked_item && linked_item->getIsLinkType())
+		{
+			llwarns << "Warning: Accessing link to link" << llendl;
+			return NULL;
+		}
 		return linked_item;
 	}
 	return NULL;
 }
 
-const LLViewerInventoryCategory *LLViewerInventoryItem::getLinkedCategory() const
+LLViewerInventoryCategory *LLViewerInventoryItem::getLinkedCategory() const
 {
 	if (mType == LLAssetType::AT_LINK_FOLDER)
 	{
-		const LLViewerInventoryCategory *linked_category = gInventory.getCategory(mAssetUUID);
+		LLViewerInventoryCategory *linked_category = gInventory.getCategory(mAssetUUID);
 		return linked_category;
 	}
 	return NULL;

@@ -31,9 +31,12 @@
  */
 
 #include "linden_common.h"
+
 #include "lltabcontainer.h"
+
 #include "llfocusmgr.h"
 #include "llbutton.h"
+#include "lllocalcliprect.h"
 #include "llrect.h"
 #include "llresizehandle.h"
 #include "lltextbox.h"
@@ -303,7 +306,7 @@ void LLTabContainer::draw()
 
 	setScrollPosPixels((S32)lerp((F32)getScrollPosPixels(), (F32)target_pixel_scroll, LLCriticalDamp::getInterpolant(0.08f)));
 
-	BOOL has_scroll_arrows = (mMaxScrollPos > 0) || (mScrollPosPixels > 0);
+	BOOL has_scroll_arrows = !getTabsHidden() && ((mMaxScrollPos > 0) || (mScrollPosPixels > 0));
 	if (!mIsVertical)
 	{
 		mJumpPrevArrowBtn->setVisible( has_scroll_arrows );
@@ -426,7 +429,7 @@ BOOL LLTabContainer::handleMouseDown( S32 x, S32 y, MASK mask )
 {
 	static LLUICachedControl<S32> tabcntrv_pad ("UITabCntrvPad", 0);
 	BOOL handled = FALSE;
-	BOOL has_scroll_arrows = (getMaxScrollPos() > 0);
+	BOOL has_scroll_arrows = (getMaxScrollPos() > 0) && !getTabsHidden();
 
 	if (has_scroll_arrows)
 	{
@@ -495,7 +498,7 @@ BOOL LLTabContainer::handleMouseDown( S32 x, S32 y, MASK mask )
 BOOL LLTabContainer::handleHover( S32 x, S32 y, MASK mask )
 {
 	BOOL handled = FALSE;
-	BOOL has_scroll_arrows = (getMaxScrollPos() > 0);
+	BOOL has_scroll_arrows = (getMaxScrollPos() > 0) && !getTabsHidden();
 
 	if (has_scroll_arrows)
 	{
@@ -537,7 +540,7 @@ BOOL LLTabContainer::handleHover( S32 x, S32 y, MASK mask )
 BOOL LLTabContainer::handleMouseUp( S32 x, S32 y, MASK mask )
 {
 	BOOL handled = FALSE;
-	BOOL has_scroll_arrows = (getMaxScrollPos() > 0);
+	BOOL has_scroll_arrows = (getMaxScrollPos() > 0)  && !getTabsHidden();
 
 	if (has_scroll_arrows)
 	{
@@ -590,7 +593,7 @@ BOOL LLTabContainer::handleMouseUp( S32 x, S32 y, MASK mask )
 }
 
 // virtual
-BOOL LLTabContainer::handleToolTip( S32 x, S32 y, std::string& msg, LLRect* sticky_rect )
+BOOL LLTabContainer::handleToolTip( S32 x, S32 y, std::string& msg, LLRect& sticky_rect )
 {
 	static LLUICachedControl<S32> tabcntrv_pad ("UITabCntrvPad", 0);
 	BOOL handled = LLPanel::handleToolTip( x, y, msg, sticky_rect );
@@ -731,7 +734,7 @@ BOOL LLTabContainer::handleDragAndDrop(S32 x, S32 y, MASK mask,	BOOL drop,	EDrag
 {
 	BOOL has_scroll_arrows = (getMaxScrollPos() > 0);
 
-	if( mDragAndDropDelayTimer.getElapsedTimeF32() > SCROLL_DELAY_TIME )
+	if( mDragAndDropDelayTimer.getStarted() && mDragAndDropDelayTimer.getElapsedTimeF32() > SCROLL_DELAY_TIME )
 	{
 		if (has_scroll_arrows)
 		{
@@ -1837,12 +1840,11 @@ void LLTabContainer::updateMaxScrollPos()
 
 void LLTabContainer::commitHoveredButton(S32 x, S32 y)
 {
-	if (hasMouseCapture())
+	if (!getTabsHidden() && hasMouseCapture())
 	{
 		for(tuple_list_t::iterator iter = mTabList.begin(); iter != mTabList.end(); ++iter)
 		{
 			LLTabTuple* tuple = *iter;
-			tuple->mButton->setVisible( TRUE );
 			S32 local_x = x - tuple->mButton->getRect().mLeft;
 			S32 local_y = y - tuple->mButton->getRect().mBottom;
 			if (tuple->mButton->pointInView(local_x, local_y) && tuple->mButton->getEnabled() && !tuple->mTabPanel->getVisible())

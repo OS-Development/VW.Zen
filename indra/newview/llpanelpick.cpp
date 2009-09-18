@@ -134,11 +134,13 @@ BOOL LLPanelPick::postBuild()
 		childSetAction("teleport_btn", boost::bind(&LLPanelPick::onClickTeleport, this));
 		childSetAction("show_on_map_btn", boost::bind(&LLPanelPick::onClickMap, this));
 
-		if (!mBackCb.empty())
-		{
-			LLButton* button = findChild<LLButton>("back_btn");
-			if (button) button->setClickedCallback(mBackCb);
-		}
+	}
+
+	// EXT-822. We have to process "Back" button click in both Edit & View Modes
+	if (!mBackCb.empty())
+	{
+		LLButton* button = findChild<LLButton>("back_btn");
+		if (button) button->setClickedCallback(mBackCb);
 	}
 
 	return TRUE;
@@ -159,7 +161,7 @@ void LLPanelPick::requestData()
 {
 	mDataReceived = FALSE;
 	LLAvatarPropertiesProcessor::instance().addObserver(mCreatorId, this);
-	LLAvatarPropertiesProcessor::instance().sendDataRequest(mCreatorId, APT_PICK_INFO, &mPickId);
+	LLAvatarPropertiesProcessor::instance().sendPickInfoRequest(mCreatorId, mPickId);
 }
 
 void LLPanelPick::init(LLPickData *pick_data)
@@ -335,7 +337,7 @@ void LLPanelPick::sendUpdate()
 	mDataReceived = FALSE;
 	LLAvatarPropertiesProcessor::instance().addObserver(gAgentID, this);
 
-	LLAvatarPropertiesProcessor::instance().sendDataUpdate(&pick_data, APT_PICK_INFO);
+	LLAvatarPropertiesProcessor::instance().sendPickInfoUpdate(&pick_data);
 }
 
 
@@ -435,11 +437,8 @@ void LLPanelPick::updateButtons()
 void LLPanelPick::setExitCallback(commit_callback_t cb)
 {
 	mBackCb = cb;
-	if (!mEditMode)
-	{
-		LLButton* button = findChild<LLButton>("back_btn");
-		if (button) button->setClickedCallback(mBackCb);
-	}
+	LLButton* button = findChild<LLButton>("back_btn");
+	if (button) button->setClickedCallback(mBackCb);
 }
 
 //static

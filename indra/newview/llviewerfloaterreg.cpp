@@ -78,7 +78,6 @@
 #include "llfloaterlandholdings.h"
 #include "llfloatermap.h"
 #include "llfloatermemleak.h"
-#include "llfloatermute.h"
 #include "llfloaternamedesc.h"
 #include "llfloaternotificationsconsole.h"
 #include "llfloateropenobject.h"
@@ -96,6 +95,7 @@
 #include "llfloatersettingsdebug.h"
 #include "llfloatersnapshot.h"
 #include "llfloatertelehub.h"
+#include "llfloatertestinspectors.h"
 #include "llfloatertestlistview.h"
 #include "llfloatertools.h"
 #include "llfloatertos.h"
@@ -110,6 +110,7 @@
 #include "llmediaremotectrl.h"
 #include "llmoveview.h"
 #include "llnearbychat.h"
+#include "llpanelblockedlist.h"
 #include "llpreviewanim.h"
 #include "llpreviewgesture.h"
 #include "llpreviewnotecard.h"
@@ -177,8 +178,7 @@ void LLViewerFloaterReg::registerFloaters()
 	LLFloaterReg::add("message_critical", "floater_critical.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterTOS>);
 	LLFloaterReg::add("message_tos", "floater_tos.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterTOS>);
 	LLFloaterReg::add("moveview", "floater_moveview.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterMove>);
-	LLFloaterReg::add("mute", "floater_mute.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterMute>);
-	LLFloaterReg::add("mute_object", "floater_mute_object.xml", &LLFloaterMute::buildFloaterMuteObjectUI);
+	LLFloaterReg::add("mute_object_by_name", "floater_mute_object.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterGetBlockedObjectName>);
 	LLFloaterReg::add("mini_map", "floater_map.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterMap>);
 	LLFloaterReg::add("syswell_window", "floater_sys_well.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLSysWellWindow>);
 	
@@ -208,6 +208,8 @@ void LLViewerFloaterReg::registerFloaters()
 	LLFloaterReg::add("properties", "floater_inventory_item_properties.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterProperties>);
 
 	LLFloaterReg::add("telehubs", "floater_telehub.xml",&LLFloaterReg::build<LLFloaterTelehub>);
+	LLFloaterReg::add("test_inspectors", "floater_test_inspectors.xml",
+		&LLFloaterReg::build<LLFloaterTestInspectors>);
 	LLFloaterReg::add("test_list_view", "floater_test_list_view.xml",&LLFloaterReg::build<LLFloaterTestListView>);
 	LLFloaterReg::add("test_widgets", "floater_test_widgets.xml", &LLFloaterReg::build<LLFloater>);
 	LLFloaterReg::add("top_objects", "floater_top_objects.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterTopObjects>);

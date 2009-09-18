@@ -35,7 +35,6 @@
 
 #include "lltexteditor.h"
 
-
 //
 // Classes
 //
@@ -69,7 +68,6 @@ public:
 	virtual BOOL	handleHover(S32 x, S32 y, MASK mask);
 	virtual BOOL	handleDoubleClick(S32 x, S32 y, MASK mask );
 
-	virtual BOOL	handleToolTip(S32 x, S32 y, std::string& msg, LLRect* sticky_rect);
 	virtual BOOL	handleDragAndDrop(S32 x, S32 y, MASK mask,
 										BOOL drop, EDragAndDropType cargo_type, 
 										void *cargo_data, EAcceptance *accept, std::string& tooltip_msg);
@@ -136,9 +134,6 @@ private:
 	LLUUID mPreviewID;
 
 	LLPointer<class LLEmbeddedNotecardOpener> mInventoryCallback;
-
-	// *TODO: Add right click menus for SLURLs
-	//LLViewHandle mPopupMenuHandle;
 
 	//
 	// Inner classes

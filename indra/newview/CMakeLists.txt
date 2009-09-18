@@ -64,7 +64,6 @@ include_directories(
 set(viewer_SOURCE_FILES
     llaccordionctrltab.cpp
     llaccordionctrl.cpp
-    llactiveimwindow.cpp
     llagent.cpp
     llagentlistener.cpp
     llagentaccess.cpp
@@ -74,6 +73,7 @@ set(viewer_SOURCE_FILES
     llagentui.cpp
     llagentwearables.cpp
     llanimstatelabels.cpp
+    llappearancemgr.cpp
     llappviewer.cpp
     llappviewerlistener.cpp
     llassetuploadresponders.cpp
@@ -181,7 +181,6 @@ set(viewer_SOURCE_FILES
     llfloaterlandholdings.cpp
     llfloatermap.cpp
     llfloatermemleak.cpp
-    llfloatermute.cpp
     llfloaternamedesc.cpp
     llfloaternotificationsconsole.cpp
     llfloateropenobject.cpp
@@ -198,6 +197,7 @@ set(viewer_SOURCE_FILES
     llfloatersettingsdebug.cpp
     llfloatersnapshot.cpp
     llfloatertelehub.cpp
+    llfloatertestinspectors.cpp
     llfloatertestlistview.cpp
     llfloatertools.cpp
     llfloatertopobjects.cpp
@@ -222,7 +222,6 @@ set(viewer_SOURCE_FILES
     llgroupmgr.cpp
     llgroupnotify.cpp
     llhomelocationresponder.cpp
-    llhoverview.cpp
     llhudeffectbeam.cpp
     llhudeffect.cpp
     llhudeffectlookat.cpp
@@ -288,6 +287,7 @@ set(viewer_SOURCE_FILES
     llpanelavatar.cpp
     llpanelavatarrow.cpp
     llpanelavatartag.cpp
+    llpanelblockedlist.cpp
     llpanelclassified.cpp
     llpanelcontents.cpp
     llpaneldirbrowser.cpp
@@ -351,6 +351,8 @@ set(viewer_SOURCE_FILES
     llremoteparcelrequest.cpp
     llsavedsettingsglue.cpp
     llscreenchannel.cpp
+    llsearchcombobox.cpp
+    llsearchhistory.cpp
     llselectmgr.cpp
     llsidetray.cpp
     llsidetraypanelcontainer.cpp
@@ -522,7 +524,6 @@ set(viewer_HEADER_FILES
     ViewerInstall.cmake
     llaccordionctrltab.h
     llaccordionctrl.h
-    llactiveimwindow.h
     llagent.h
     llagentlistener.h
     llagentaccess.h
@@ -538,6 +539,7 @@ set(viewer_HEADER_FILES
     llassetuploadresponders.h
     llassetuploadqueue.h
     llaudiosourcevo.h
+    llappearancemgr.h
     llavataractions.h
     llavatariconctrl.h
     llavatarlist.h
@@ -642,7 +644,6 @@ set(viewer_HEADER_FILES
     llfloaterlandholdings.h
     llfloatermap.h
     llfloatermemleak.h
-    llfloatermute.h
     llfloaternamedesc.h
     llfloaternotificationsconsole.h
     llfloateropenobject.h
@@ -659,6 +660,7 @@ set(viewer_HEADER_FILES
     llfloatersettingsdebug.h
     llfloatersnapshot.h
     llfloatertelehub.h
+    llfloatertestinspectors.h
     llfloatertestlistview.h
     llfloatertools.h
     llfloatertopobjects.h
@@ -683,7 +685,6 @@ set(viewer_HEADER_FILES
     llgroupmgr.h
     llgroupnotify.h
     llhomelocationresponder.h
-    llhoverview.h
     llhudeffect.h
     llhudeffectbeam.h
     llhudeffectlookat.h
@@ -747,6 +748,7 @@ set(viewer_HEADER_FILES
     llpanelavatar.h
     llpanelavatarrow.h
     llpanelavatartag.h
+    llpanelblockedlist.h
     llpanelclassified.h
     llpanelcontents.h
     llpaneldirbrowser.h
@@ -812,6 +814,8 @@ set(viewer_HEADER_FILES
     llrootview.h
     llscreenchannel.h
     llsavedsettingsglue.h
+    llsearchcombobox.h
+    llsearchhistory.h
     llselectmgr.h
     llsidetray.h
     llsidetraypanelcontainer.h
@@ -1607,6 +1611,7 @@ set(test_libs
   ${LLVFS_LIBRARIES}
   ${LLMATH_LIBRARIES}
   ${LLCOMMON_LIBRARIES} 
+  ${GOOGLEMOCK_LIBRARIES}
   )
 
 LL_ADD_INTEGRATION_TEST(llcapabilitylistener 

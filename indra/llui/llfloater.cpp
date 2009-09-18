@@ -208,9 +208,6 @@ LLFloater::Params::Params()
 	close_callback("close_callback"),
 	can_dock("can_dock", false)
 {
-	name = "floater";
-	// defaults that differ from LLPanel:
-	background_visible = true;
 	visible = false;
 }
 
@@ -231,41 +228,39 @@ void LLFloater::initClass()
 	}
 }
 
+// defaults for floater param block pulled from widgets/floater.xml
+static LLWidgetNameRegistry::StaticRegistrar sRegisterFloaterParams(&typeid(LLFloater::Params), "floater");
+
 LLFloater::LLFloater(const LLSD& key, const LLFloater::Params& p)
-	:	LLPanel(),
-		mDragHandle(NULL),
-		mTitle(p.title),
-		mShortTitle(p.short_title),
-		mSingleInstance(p.single_instance),
-		mKey(key),
-		mAutoTile(p.auto_tile),
-		mCanTearOff(p.can_tear_off),
-		mCanMinimize(p.can_minimize),
-		mCanClose(p.can_close),
-		mDragOnLeft(p.can_drag_on_left),
-		mResizable(p.can_resize),
-		mMinWidth(p.min_width),
-		mMinHeight(p.min_height),
-		mMinimized(FALSE),
-		mForeground(FALSE),
-		mFirstLook(TRUE),
-		mEditing(FALSE),
-		mButtonScale(1.0f),
-		mAutoFocus(TRUE), // automatically take focus when opened
-		mCanDock(false),
-		mDocked(false),
-		mHasBeenDraggedWhileMinimized(FALSE),
-		mPreviousMinimizedBottom(0),
-		mPreviousMinimizedLeft(0),
-		mNotificationContext(NULL)
+:	LLPanel(),
+	mDragHandle(NULL),
+	mTitle(p.title),
+	mShortTitle(p.short_title),
+	mSingleInstance(p.single_instance),
+	mKey(key),
+	mAutoTile(p.auto_tile),
+	mCanTearOff(p.can_tear_off),
+	mCanMinimize(p.can_minimize),
+	mCanClose(p.can_close),
+	mDragOnLeft(p.can_drag_on_left),
+	mResizable(p.can_resize),
+	mMinWidth(p.min_width),
+	mMinHeight(p.min_height),
+	mMinimized(FALSE),
+	mForeground(FALSE),
+	mFirstLook(TRUE),
+	mEditing(FALSE),
+	mButtonScale(1.0f),
+	mAutoFocus(TRUE), // automatically take focus when opened
+	mCanDock(false),
+	mDocked(false),
+	mHasBeenDraggedWhileMinimized(FALSE),
+	mPreviousMinimizedBottom(0),
+	mPreviousMinimizedLeft(0),
+	mNotificationContext(NULL)
 {
-	static LLUIColor default_background_color = LLUIColorTable::instance().getColor("FloaterDefaultBackgroundColor");
-	static LLUIColor focus_background_color = LLUIColorTable::instance().getColor("FloaterFocusBackgroundColor");
-	
 	mHandle.bind(this);
 	mNotificationContext = new LLFloaterNotificationContext(getHandle());
-	mBgColorAlpha        = default_background_color;
-	mBgColorOpaque       = focus_background_color;
 
 	// Clicks stop here.
 	setMouseOpaque(TRUE);
@@ -769,11 +764,6 @@ void LLFloater::applyRectControl()
 
 void LLFloater::applyTitle()
 {
-	if (gNoRender)
-	{
-		return;
-	}
-
 	if (!mDragHandle)
 	{
 		return;
@@ -1491,7 +1481,8 @@ LLFloater* LLFloater::getClosableFloaterFromFocus()
 
 	// The focused floater may not be closable,
 	// Find and close a parental floater that is closeable, if any.
-	for(LLFloater* floater_to_close = focused_floater; 
+	LLFloater* prev_floater = NULL;
+	for(LLFloater* floater_to_close = focused_floater;
 		NULL != floater_to_close; 
 		floater_to_close = gFloaterView->getParentFloater(floater_to_close))
 	{
@@ -1499,6 +1490,14 @@ LLFloater* LLFloater::getClosableFloaterFromFocus()
 		{
 			return floater_to_close;
 		}
+
+		// If floater has as parent root view
+		// gFloaterView->getParentFloater(floater_to_close) returns
+		// the same floater_to_close, so we need to check this.
+		if (prev_floater == floater_to_close) {
+			break;
+		}
+		prev_floater = floater_to_close;
 	}
 
 	return NULL;
@@ -1536,6 +1535,7 @@ void LLFloater::onClickClose( LLFloater* self )
 // virtual
 void LLFloater::draw()
 {
+	F32 alpha = getDrawContext().mAlpha;
 	// draw background
 	if( isBackgroundVisible() )
 	{
@@ -1555,27 +1555,29 @@ void LLFloater::draw()
 			shadow_color.mV[VALPHA] *= 0.5f;
 		}
 		gl_drop_shadow(left, top, right, bottom, 
-			shadow_color, 
+			shadow_color % alpha, 
 			llround(shadow_offset));
 
 		// No transparent windows in simple UI
 		if (isBackgroundOpaque())
 		{
-			gl_rect_2d( left, top, right, bottom, mBgColorOpaque );
+			gl_rect_2d( left, top, right, bottom, getBackgroundColor() % alpha );
 		}
 		else
 		{
-			gl_rect_2d( left, top, right, bottom, mBgColorAlpha );
+			gl_rect_2d( left, top, right, bottom, getTransparentColor() % alpha );
 		}
 
-		if(gFocusMgr.childHasKeyboardFocus(this) && !getIsChrome() && !getCurrentTitle().empty())
+		if(hasFocus() 
+			&& !getIsChrome() 
+			&& !getCurrentTitle().empty())
 		{
 			static LLUIColor titlebar_focus_color = LLUIColorTable::instance().getColor("TitleBarFocusColor");
 			// draw highlight on title bar to indicate focus.  RDW
 			const LLFontGL* font = LLFontGL::getFontSansSerif();
 			LLRect r = getRect();
 			gl_rect_2d_offset_local(0, r.getHeight(), r.getWidth(), r.getHeight() - (S32)font->getLineHeight() - 1, 
-				titlebar_focus_color, 0, TRUE);
+				titlebar_focus_color % alpha, 0, TRUE);
 		}
 	}
 
@@ -1633,7 +1635,7 @@ void LLFloater::draw()
 		static LLUIColor unfocus_border_color = LLUIColorTable::instance().getColor("FloaterUnfocusBorderColor");
 		LLUI::setLineWidth(1.5f);
 		LLColor4 outlineColor = gFocusMgr.childHasKeyboardFocus(this) ? focus_border_color : unfocus_border_color;
-		gl_rect_2d_offset_local(0, getRect().getHeight() + 1, getRect().getWidth() + 1, 0, outlineColor, -LLPANEL_BORDER_WIDTH, FALSE);
+		gl_rect_2d_offset_local(0, getRect().getHeight() + 1, getRect().getWidth() + 1, 0, outlineColor % alpha, -LLPANEL_BORDER_WIDTH, FALSE);
 		LLUI::setLineWidth(1.f);
 	}
 

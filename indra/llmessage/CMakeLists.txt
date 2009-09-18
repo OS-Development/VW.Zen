@@ -3,6 +3,7 @@
 project(llmessage)
 
 include(00-Common)
+include(GoogleMock)
 include(LLAddBuildTest)
 include(LLCommon)
 include(LLMath)
@@ -223,6 +224,7 @@ IF (NOT LINUX AND VIEWER)
       # llhttpclientadapter.cpp
       lltrustedmessageservice.cpp
       lltemplatemessagedispatcher.cpp
+      llregionpresenceverifier.cpp
       )
 
 #    set(TEST_DEBUG on)
@@ -232,6 +234,7 @@ IF (NOT LINUX AND VIEWER)
       ${LLVFS_LIBRARIES}
       ${LLMATH_LIBRARIES}
       ${LLCOMMON_LIBRARIES}
+      ${GOOGLEMOCK_LIBRARIES}
       )
 
     LL_ADD_INTEGRATION_TEST(
@@ -244,3 +247,4 @@ IF (NOT LINUX AND VIEWER)
 
     LL_ADD_PROJECT_UNIT_TESTS(llmessage "${llmessage_TEST_SOURCE_FILES}")
 ENDIF (NOT LINUX AND VIEWER)
+

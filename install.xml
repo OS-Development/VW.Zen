@@ -464,9 +464,9 @@
           <key>windows</key>
           <map>
             <key>md5sum</key>
-            <string>688944a961e16c2a89f81b60b2ff3acf</string>
+            <string>953027c7718176aace3fd0766e3c4a73</string>
             <key>url</key>
-            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/freetype-2.1.5-windows-20080822.tar.bz2</uri>
+            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/freetype-2.3.9-windows-20090814.tar.bz2</uri>
           </map>
         </map>
       </map>
@@ -575,6 +575,39 @@
             <string>40db900872612615e849f17cbdfd2c27</string>
             <key>url</key>
             <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/google-linux-20080812.tar.bz2</uri>
+          </map>
+        </map>
+      </map>
+      <key>googlemock</key>
+      <map>
+        <key>copyright</key>
+        <string>Copyright 2008, Google Inc.</string>
+        <key>description</key>
+        <string>Google C++ Mocking Framework (or Google Mock for short) is a library for writing and using C++ mock classes.</string>
+        <key>license</key>
+        <string>bsd</string>
+        <key>packages</key>
+        <map>
+          <key>darwin</key>
+          <map>
+            <key>md5sum</key>
+            <string>4863e9fea433d0a4be761ea5d3e8346a</string>
+            <key>url</key>
+            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/googlemock-1.1.0-darwin-20090626.tar.bz2</uri>
+          </map>
+          <key>linux</key>
+          <map>
+            <key>md5sum</key>
+            <string>877dabecf84339690191c6115c76366e</string>
+            <key>url</key>
+            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/googlemock-1.1.0-linux32-20090527.tar.bz2</uri>
+          </map>
+          <key>windows</key>
+          <map>
+            <key>md5sum</key>
+            <string>be37695d9f26552aec81c8e97ded0212</string>
+            <key>url</key>
+            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/googlemock-1.1.0-windows-20090529.tar.bz2</uri>
           </map>
         </map>
       </map>

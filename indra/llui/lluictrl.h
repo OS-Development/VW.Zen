@@ -166,6 +166,7 @@ public:
 	/*virtual*/ BOOL 	handleMouseUp(S32 x, S32 y, MASK mask);
 	/*virtual*/ BOOL	handleRightMouseDown(S32 x, S32 y, MASK mask);
 	/*virtual*/ BOOL	handleRightMouseUp(S32 x, S32 y, MASK mask);
+	/*virtual*/ BOOL	handleDoubleClick(S32 x, S32 y, MASK mask);
 
 	// From LLFocusableElement
 	/*virtual*/ void	setFocus( BOOL b );
@@ -212,7 +213,6 @@ public:
 	virtual void	onTabInto();
 	virtual void	clear();
 	virtual void	setColor(const LLColor4& color);
-	virtual void	setAlpha(F32 alpha);
 
 	BOOL	focusNextItem(BOOL text_entry_only);
 	BOOL	focusPrevItem(BOOL text_entry_only);
@@ -239,6 +239,8 @@ public:
 	boost::signals2::connection setRightMouseDownCallback( const mouse_signal_t::slot_type& cb ) { return mRightMouseDownSignal.connect(cb); }
 	boost::signals2::connection setRightMouseUpCallback( const mouse_signal_t::slot_type& cb ) { return mRightMouseUpSignal.connect(cb); }
 	
+	boost::signals2::connection setDoubleClickCallback( const mouse_signal_t::slot_type& cb ) { return mDoubleClickSignal.connect(cb); }
+
 	// *TODO: Deprecate; for backwards compatability only:
 	boost::signals2::connection setCommitCallback( boost::function<void (LLUICtrl*,void*)> cb, void* data);	
 	boost::signals2::connection setValidateBeforeCommit( boost::function<bool (const LLSD& data)> cb );
@@ -273,6 +275,8 @@ protected:
 	mouse_signal_t		mMouseUpSignal;
 	mouse_signal_t		mRightMouseDownSignal;
 	mouse_signal_t		mRightMouseUpSignal;
+
+	mouse_signal_t		mDoubleClickSignal;
 	
     LLViewModelPtr  mViewModel;
 

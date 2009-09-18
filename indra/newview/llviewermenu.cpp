@@ -100,7 +100,6 @@
 #include "llfloaterdirectory.h"
 #include "llfloaterchatterbox.h"
 #include "llfloaterfonttest.h"
-#include "llfloatergesture.h"
 #include "llfloatergodtools.h"
 #include "llfloatergroupinvite.h"
 #include "llfloatergroups.h"
@@ -113,7 +112,6 @@
 #include "llfloaterland.h"
 #include "llfloaterlandholdings.h"
 #include "llfloatermap.h"
-#include "llfloatermute.h"
 #include "llfloateropenobject.h"
 #include "llfloaterperms.h"
 #include "llfloaterpostprocess.h"
@@ -135,7 +133,7 @@
 #include "llmemoryview.h"
 #include "llgivemoney.h"
 #include "llgroupmgr.h"
-#include "llhoverview.h"
+#include "lltooltip.h"
 #include "llhudeffecttrail.h"
 #include "llhudmanager.h"
 #include "llimage.h"
@@ -147,6 +145,7 @@
 #include "llfloaterinventory.h"
 #include "llkeyboard.h"
 #include "llpanellogin.h"
+#include "llpanelblockedlist.h"
 #include "llmenucommands.h"
 #include "llmenugl.h"
 #include "llmimetypes.h"
@@ -183,7 +182,6 @@
 #include "lluuid.h"
 #include "llviewercamera.h"
 #include "llviewergenericmessage.h"
-#include "llviewergesture.h"
 #include "llviewertexturelist.h"	// gTextureList
 #include "llviewerinventory.h"
 #include "llviewermenufile.h"	// init_menu_file()
@@ -210,9 +208,11 @@
 #include "llwlparammanager.h"
 #include "llwaterparammanager.h"
 #include "llfloaternotificationsconsole.h"
+#include "llfloatercamera.h"
 #include "lluilistener.h"
 
 #include "lltexlayer.h"
+#include "llappearancemgr.h"
 
 using namespace LLVOAvatarDefines;
 
@@ -585,6 +585,8 @@ void init_menus()
 	gLoginMenuBarView->setBackgroundColor( color );
 	gMenuHolder->addChild(gLoginMenuBarView);
 	
+	// tooltips are on top of EVERYTHING, including menus
+	gViewerWindow->getRootView()->sendChildToFront(gToolTipView);
 }
 
 ///////////////////
@@ -1520,14 +1522,6 @@ class LLAdvancedSendTestIms : public view_listener_t
 }
 };
 
-class LLAdvancedAvatarInspector : public view_listener_t
-{
-	bool handleEvent(const LLSD& avatar_id)
-	{
-		LLFloaterReg::showInstance("inspect_avatar", avatar_id);
-		return true;
-	}
-};
 
 ///////////////
 // XUI NAMES //
@@ -2899,7 +2893,7 @@ class LLObjectMute : public view_listener_t
 		else
 		{
 			LLMuteList::getInstance()->add(mute);
-			LLFloaterReg::showInstance("mute");
+			LLPanelBlockedList::showPanelAndSelect(mute.mID);
 		}
 		
 		return true;
@@ -2908,7 +2902,7 @@ class LLObjectMute : public view_listener_t
 
 bool handle_go_to()
 {
-	// JAMESDEBUG try simulator autopilot
+	// try simulator autopilot
 	std::vector<std::string> strings;
 	std::string val;
 	LLVector3d pos = LLToolPie::getInstance()->getPick().mPosGlobal;
@@ -3776,6 +3770,7 @@ void handle_reset_view()
 	else
 	{
 		reset_view_final( TRUE );
+		LLFloaterCamera::resetCameraMode();
 	}
 }
 
@@ -6384,13 +6379,13 @@ void handle_selected_texture_info(void*)
 
 void handle_test_male(void*)
 {
-	wear_outfit_by_name("Male Shape & Outfit");
+	LLAppearanceManager::wearOutfitByName("Male Shape & Outfit");
 	//gGestureList.requestResetFromServer( TRUE );
 }
 
 void handle_test_female(void*)
 {
-	wear_outfit_by_name("Female Shape & Outfit");
+	LLAppearanceManager::wearOutfitByName("Female Shape & Outfit");
 	//gGestureList.requestResetFromServer( FALSE );
 }
 
@@ -6732,15 +6727,12 @@ BOOL enable_god_basic(void*)
 
 void toggle_show_xui_names(void *)
 {
-	BOOL showXUINames = gSavedSettings.getBOOL("ShowXUINames");
-	
-	showXUINames = !showXUINames;
-	gSavedSettings.setBOOL("ShowXUINames", showXUINames);
+	gSavedSettings.setBOOL("DebugShowXUINames", !gSavedSettings.getBOOL("DebugShowXUINames"));
 }
 
 BOOL check_show_xui_names(void *)
 {
-	return gSavedSettings.getBOOL("ShowXUINames");
+	return gSavedSettings.getBOOL("DebugShowXUINames");
 }
 
 class LLToolsSelectOnlyMyObjects : public view_listener_t
@@ -7160,7 +7152,7 @@ class LLViewShowHoverTips : public view_listener_t
 {
 	bool handleEvent(const LLSD& userdata)
 	{
-		LLHoverView::sShowHoverTips = !LLHoverView::sShowHoverTips;
+		gSavedSettings.setBOOL("ShowHoverTips", !gSavedSettings.getBOOL("ShowHoverTips"));
 		return true;
 	}
 };
@@ -7169,7 +7161,7 @@ class LLViewCheckShowHoverTips : public view_listener_t
 {
 	bool handleEvent(const LLSD& userdata)
 	{
-		bool new_value = LLHoverView::sShowHoverTips;
+		bool new_value = gSavedSettings.getBOOL("ShowHoverTips");
 		return new_value;
 	}
 };
@@ -7855,7 +7847,6 @@ void initialize_menus()
 	view_listener_t::addMenu(new LLAdvancedToggleXUINames(), "Advanced.ToggleXUINames");
 	view_listener_t::addMenu(new LLAdvancedCheckXUINames(), "Advanced.CheckXUINames");
 	view_listener_t::addMenu(new LLAdvancedSendTestIms(), "Advanced.SendTestIMs");
-	view_listener_t::addMenu(new LLAdvancedAvatarInspector(), "Advanced.AvatarInspector");
 
 	// Advanced > Character > Grab Baked Texture
 	view_listener_t::addMenu(new LLAdvancedGrabBakedTexture(), "Advanced.GrabBakedTexture");

@@ -17,6 +17,7 @@
       	        show_text_as_tentative="false"
                 max_chars="20"
                 follows="left|top"
+                allow_new_values="true"
                 >
   <info_button name="Place Information"
                           label=""
@@ -43,7 +44,7 @@
                           label=""
                           pad_right="0"
                           tool_tip="My Location History"/>
-  <combo_list bg_writeable_color="MenuDefaultBgColor"/>
+  <combo_list bg_writeable_color="MenuDefaultBgColor" page_lines="10"/>
   <combo_editor name="Combo Text Entry"
                 text_pad_left="20"
                 select_on_focus="false"

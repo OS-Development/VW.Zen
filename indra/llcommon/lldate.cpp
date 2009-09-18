@@ -38,7 +38,7 @@
 #include "apr_time.h"
 
 #include <time.h>
-#include <locale>
+#include <locale.h>
 #include <string>
 #include <iomanip>
 #include <sstream>
@@ -94,33 +94,34 @@ std::string LLDate::asRFC1123() const
 	return toHTTPDateString (std::string ("%A, %d %b %Y %H:%M:%S GMT"));
 }
 
+LLFastTimer::DeclareTimer FT_DATE_FORMAT("Date Format");
+
 std::string LLDate::toHTTPDateString (std::string fmt) const
 {
-	std::ostringstream stream;
+	LLFastTimer ft1(FT_DATE_FORMAT);
+	
 	time_t locSeconds = (time_t) mSecondsSinceEpoch;
 	struct tm * gmt = gmtime (&locSeconds);
-
-	stream.imbue (std::locale(LLStringUtil::getLocale().c_str()));
-	toHTTPDateStream (stream, gmt, fmt);
-	return stream.str();
+	return toHTTPDateString(gmt, fmt);
 }
 
 std::string LLDate::toHTTPDateString (tm * gmt, std::string fmt)
 {
-	std::ostringstream stream;
-	stream.imbue (std::locale(LLStringUtil::getLocale().c_str()));
-	toHTTPDateStream (stream, gmt, fmt);
-	return stream.str();
-}
+	LLFastTimer ft1(FT_DATE_FORMAT);
 
-void LLDate::toHTTPDateStream(std::ostream& s, tm * gmt, std::string fmt)
-{
-	using namespace std;
+	// avoid calling setlocale() unnecessarily - it's expensive.
+	static std::string prev_locale = "";
+	std::string this_locale = LLStringUtil::getLocale();
+	if (this_locale != prev_locale)
+	{
+		setlocale(LC_TIME, this_locale.c_str());
+		prev_locale = this_locale;
+	}
 
-	const char * pBeg = fmt.c_str();
-	const char * pEnd = pBeg + fmt.length();
-	const time_put<char>& tp = use_facet<time_put<char> >(s.getloc());
-	tp.put (s, s, s.fill(), gmt, pBeg, pEnd);
+	// use strftime() as it appears to be faster than std::time_put
+	char buffer[128];
+	strftime(buffer, 128, fmt.c_str(), gmt);
+	return std::string(buffer);
 }
 
 void LLDate::toStream(std::ostream& s) const
@@ -152,6 +153,37 @@ void LLDate::toStream(std::ostream& s) const
 		  << (int)(exp_time.tm_usec / (LL_APR_USEC_PER_SEC / 100));
 	}
 	s << 'Z';
+}
+
+bool LLDate::split(S32 *year, S32 *month, S32 *day, S32 *hour, S32 *min, S32 *sec) const
+{
+	apr_time_t time = (apr_time_t)(mSecondsSinceEpoch * LL_APR_USEC_PER_SEC);
+	
+	apr_time_exp_t exp_time;
+	if (apr_time_exp_gmt(&exp_time, time) != APR_SUCCESS)
+	{
+		return false;
+	}
+
+	if (year)
+		*year = exp_time.tm_year + 1900;
+
+	if (month)
+		*month = exp_time.tm_mon + 1;
+
+	if (day)
+		*day = exp_time.tm_mday;
+
+	if (hour)
+		*hour = exp_time.tm_hour;
+
+	if (min)
+		*min = exp_time.tm_min;
+
+	if (sec)
+		*sec = exp_time.tm_sec;
+
+	return true;
 }
 
 bool LLDate::fromString(const std::string& iso8601_date)

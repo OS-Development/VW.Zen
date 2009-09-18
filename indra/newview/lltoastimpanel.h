@@ -59,13 +59,11 @@ public:
 	virtual ~LLToastIMPanel();
 
 private:
-	static const S32 MAX_MESSAGE_HEIGHT;
-	static const S32 CAPTION_HEIGHT;
-	static const S32 TOP_PAD;
+	static const S32 DEFAULT_MESSAGE_MAX_LINE_COUNT;
 
 	void onClickReplyBtn();
-	void snapToMessageHeight();
 
+	LLNotificationPtr	mNotification;
 	LLUUID				mSessionID;
 	LLAvatarIconCtrl*	mAvatar;
 	LLTextBox*			mUserName;

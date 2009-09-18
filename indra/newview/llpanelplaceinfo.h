@@ -46,9 +46,11 @@
 class LLButton;
 class LLInventoryItem;
 class LLLineEditor;
+class LLParcel;
 class LLTextBox;
 class LLTextEditor;
 class LLTextureCtrl;
+class LLViewerRegion;
 
 class LLPanelPlaceInfo : public LLPanel, LLRemoteParcelInfoObserver
 {
@@ -97,13 +99,19 @@ public:
 
 	// Displays information about a remote parcel.
 	// Sends a request to the server.
-	void displayParcelInfo(const LLVector3& pos_region,
-						   const LLUUID& region_id,
+	void displayParcelInfo(const LLUUID& region_id,
 						   const LLVector3d& pos_global);
 
-	// Displays information about the parcel the agent is currently on
+	// Displays information about the currently selected parcel
 	// without sending a request to the server.
-	void displayAgentParcelInfo();
+	void displaySelectedParcelInfo(LLParcel* parcel,
+								LLViewerRegion* region,
+								const LLVector3d& pos_global);
+
+	void updateEstateName(const std::string& name);
+	void updateEstateOwnerName(const std::string& name);
+	void updateCovenantText(const std::string &text);
+	void updateLastVisitedText(const LLDate &date);
 
 	void nameUpdatedCallback(LLTextBox* text,
 							 const std::string& first,
@@ -111,6 +119,7 @@ public:
 
 	/*virtual*/ void processParcelInfo(const LLParcelData& parcel_data);
 	/*virtual*/ void reshape(S32 width, S32 height, BOOL called_from_parent = TRUE);
+	/*virtual*/ void handleVisibilityChange (BOOL new_visibility);
 
 private:
 	enum LANDMARK_INFO_TYPE
@@ -124,24 +133,53 @@ private:
 	LLUUID			mParcelID;
 	LLUUID			mRequestedID;
 	LLUUID			mLandmarkID;
-	LLVector3		mPosRegion;
 	std::string		mCurrentTitle;
 	S32				mMinHeight;
+	INFO_TYPE 		mInfoType;
 
 	LLTextBox*			mTitle;
 	LLTextureCtrl*		mSnapshotCtrl;
 	LLTextBox*			mRegionName;
 	LLTextBox*			mParcelName;
 	LLTextEditor*		mDescEditor;
-	LLIconCtrl*			mRating;
-	LLButton*			mRegionInfoDrillIn;
-	LLButton*			mMediaDrillIn;
+	LLTextBox*			mMaturityRatingText;
+	LLTextBox*			mParcelOwner;
+	LLTextBox*			mLastVisited;
+
+	LLTextBox*			mRatingText;
+	LLTextBox*			mVoiceText;
+	LLTextBox*			mFlyText;
+	LLTextBox*			mPushText;
+	LLTextBox*			mBuildText;
+	LLTextBox*			mScriptsText;
+	LLTextBox*			mDamageText;
+
+	LLTextBox*			mRegionNameText;
+	LLTextBox*			mRegionTypeText;
+	LLTextBox*			mRegionRatingText;
+	LLTextBox*			mRegionOwnerText;
+	LLTextBox*			mRegionGroupText;
+
+	LLTextBox*			mEstateNameText;
+	LLTextBox*			mEstateRatingText;
+	LLTextBox*			mEstateOwnerText;
+	LLTextEditor*		mCovenantText;
+
+	LLTextBox*			mSalesPriceText;
+	LLTextBox*			mAreaText;
+	LLTextBox*			mTrafficText;
+	LLTextBox*			mPrimitivesText;
+	LLTextBox*			mParcelScriptsText;
+	LLTextBox*			mTerraformLimitsText;
+	LLTextEditor*		mSubdivideText;
+	LLTextEditor*		mResaleText;
+	LLTextBox*			mSaleToText;
+
 	LLTextBox*			mOwner;
 	LLTextBox*			mCreator;
 	LLTextBox*			mCreated;
 	LLLineEditor*		mTitleEditor;
 	LLTextEditor*		mNotesEditor;
-	LLTextBox*			mLocationEditor;
 	LLPanel*            mScrollingPanel;
 	LLPanel*			mInfoPanel;
 	LLMediaPanel*		mMediaPanel;
