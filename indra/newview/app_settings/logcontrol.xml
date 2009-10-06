@@ -25,6 +25,7 @@
 							<string>AppCache</string>
 							<string>Window</string>
 							<string>RenderInit</string>
+							<string>MediaOnAPrim</string>
 						</array>
 				</map>
 				<map>
