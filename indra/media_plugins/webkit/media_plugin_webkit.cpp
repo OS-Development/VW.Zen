@@ -183,7 +183,7 @@ private:
 
 #if LL_WINDOWS
 			// Enable plugins
-			LLQtWebKit::getInstance()->enablePlugins(false);
+			LLQtWebKit::getInstance()->enablePlugins(true);
 #elif LL_DARWIN
 			// Disable plugins
 			LLQtWebKit::getInstance()->enablePlugins(false);
