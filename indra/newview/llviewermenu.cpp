@@ -207,6 +207,7 @@
 #include "llwaterparammanager.h"
 #include "llfloaternotificationsconsole.h"
 #include "llfloatercamera.h"
+#include "lluilistener.h"
 
 #include "lltexlayer.h"
 #include "llappearancemgr.h"
@@ -413,6 +414,8 @@ public:
 };
 
 static LLMenuParcelObserver* gMenuParcelObserver = NULL;
+
+static LLUIListener sUIListener("UI");
 
 LLMenuParcelObserver::LLMenuParcelObserver()
 {
@@ -7048,7 +7051,7 @@ void force_error_bad_memory_access(void *)
 
 void force_error_infinite_loop(void *)
 {
-    LLAppViewer::instance()->forceErrorInifiniteLoop();
+    LLAppViewer::instance()->forceErrorInfiniteLoop();
 }
 
 void force_error_software_exception(void *)
