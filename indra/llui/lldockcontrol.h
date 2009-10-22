@@ -63,6 +63,10 @@ public:
 	void on();
 	void off();
 	void setDock(LLView* dockWidget);
+	LLView* getDock()
+	{
+		return mDockWidget;
+	}
 	void repositionDockable();
 	void drawToungue();
 	bool isDockVisible();

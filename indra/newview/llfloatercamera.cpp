@@ -125,9 +125,15 @@ void LLFloaterCamera::onOpen(const LLSD& key)
 
 }
 
+void LLFloaterCamera::onClose(bool app_quitting)
+{
+	//We don't care of camera mode if app is quitting
+	if(!app_quitting)
+		switchMode(CAMERA_CTRL_MODE_ORBIT);
+}
 
 LLFloaterCamera::LLFloaterCamera(const LLSD& val)
-:	LLDockableFloater(NULL, val),
+:	LLTransientDockableFloater(NULL, true, val),
 	mCurrMode(CAMERA_CTRL_MODE_ORBIT),
 	mPrevMode(CAMERA_CTRL_MODE_ORBIT)
 {
@@ -286,7 +292,7 @@ void LLFloaterCamera::updateState()
 //-------------LLFloaterCameraPresets------------------------
 
 LLFloaterCameraPresets::LLFloaterCameraPresets(const LLSD& key):
-LLDockableFloater(NULL, key)
+LLTransientDockableFloater(NULL, true, key)
 {}
 
 BOOL LLFloaterCameraPresets::postBuild()

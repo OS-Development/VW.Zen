@@ -198,8 +198,8 @@ protected:
 private:
 	static void			onLocalTextureLoaded(BOOL succcess, LLViewerFetchedTexture *src_vi, LLImageRaw* src, LLImageRaw* aux_src, S32 discard_level, BOOL final, void* userdata);
 
-	/*virtual*/	void				setImage(const U8 te, LLViewerTexture *imagep, const U32 index); 
-	/*virtual*/ LLViewerTexture*		getImage(const U8 te, const U32 index) const;
+	/*virtual*/	void	setImage(const U8 te, LLViewerTexture *imagep, const U32 index); 
+	/*virtual*/ LLViewerTexture* getImage(const U8 te, const U32 index) const;
 
 
 	//--------------------------------------------------------------------
@@ -220,7 +220,6 @@ protected:
 public:
 	void 				requestLayerSetUploads();
 	void				requestLayerSetUpdate(LLVOAvatarDefines::ETextureIndex i);
-public:
 	LLTexLayerSet*		getLayerSet(LLVOAvatarDefines::ETextureIndex index) const;
 	
 	//--------------------------------------------------------------------
@@ -267,8 +266,10 @@ protected:
  **/
 
 public:
-	/*virtual*/ BOOL			isWearingWearableType(EWearableType type ) const;
-	void			wearableUpdated(EWearableType type);
+	/*virtual*/ BOOL	isWearingWearableType(EWearableType type) const;
+	void				wearableUpdated(EWearableType type);
+protected:
+	U32 getNumWearables(LLVOAvatarDefines::ETextureIndex i) const;
 
 	//--------------------------------------------------------------------
 	// Attachments
@@ -276,17 +277,18 @@ public:
 public:
 	void 				updateAttachmentVisibility(U32 camera_mode);
 	BOOL 				isWearingAttachment(const LLUUID& inv_item_id, BOOL include_linked_items = FALSE) const;
-	LLViewerObject* 	getWornAttachment(const LLUUID& inv_item_id );
+	LLViewerObject* 	getWornAttachment(const LLUUID& inv_item_id);
 	const std::string   getAttachedPointName(const LLUUID& inv_item_id) const;
 	/*virtual*/ const LLViewerJointAttachment *attachObject(LLViewerObject *viewer_object);
+	/*virtual*/ BOOL 	detachObject(LLViewerObject *viewer_object);
 	void				getAllAttachmentsArray(LLDynamicArray<S32>& attachments);
+protected:
+	const LLUUID&		getBaseAttachmentObject(const LLUUID &object_id) const;
 
 	//--------------------------------------------------------------------
 	// HUDs
 	//--------------------------------------------------------------------
 private:
-	U32 getNumWearables(LLVOAvatarDefines::ETextureIndex i) const;
-
 	LLViewerJoint* 		mScreenp; // special purpose joint for HUD attachments
 	
 /**                    Attachments

@@ -33,7 +33,7 @@
 #ifndef LL_IMFLOATER_H
 #define LL_IMFLOATER_H
 
-#include "lldockablefloater.h"
+#include "lltransientdockablefloater.h"
 #include "lllogchat.h"
 
 class LLLineEditor;
@@ -45,7 +45,7 @@ class LLViewerTextEditor;
  * Individual IM window that appears at the bottom of the screen,
  * optionally "docked" to the bottom tray.
  */
-class LLIMFloater : public LLDockableFloater
+class LLIMFloater : public LLTransientDockableFloater
 {
 public:
 	LLIMFloater(const LLUUID& session_id);
@@ -84,7 +84,12 @@ public:
 	// called when docked floater's position has been set by chiclet
 	void setPositioned(bool b) { mPositioned = b; };
 
+	void onVisibilityChange(const LLSD& new_visibility);
+
 private:
+	// process focus events to set a currently active session
+	/* virtual */ void onFocusLost();
+	/* virtual */ void onFocusReceived();
 	
 	static void		onInputEditorFocusReceived( LLFocusableElement* caller, void* userdata );
 	static void		onInputEditorFocusLost(LLFocusableElement* caller, void* userdata);
