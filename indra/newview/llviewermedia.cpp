@@ -640,13 +640,18 @@ void LLViewerMediaImpl::emitEvent(LLPluginClassMedia* plugin, LLViewerMediaObser
 //////////////////////////////////////////////////////////////////////////////////////////
 bool LLViewerMediaImpl::initializeMedia(const std::string& mime_type)
 {
-	if((mMediaSource == NULL) || (mMimeType != mime_type))
+	bool mimeTypeChanged = (mMimeType != mime_type);
+	bool pluginChanged = (LLMIMETypes::implType(mMimeType) != LLMIMETypes::implType(mime_type));
+	
+	if(!mMediaSource || pluginChanged)
 	{
-		if(! initializePlugin(mime_type))
-		{
-			// This may be the case where the plugin's priority is PRIORITY_UNLOADED
-			return false;
-		}
+		// We don't have a plugin at all, or the new mime type is handled by a different plugin than the old mime type.
+		(void)initializePlugin(mime_type);
+	}
+	else if(mimeTypeChanged)
+	{
+		// The same plugin should be able to handle the new media -- just update the stored mime type.
+		mMimeType = mime_type;
 	}
 
 	// play();
@@ -1192,7 +1197,33 @@ bool LLViewerMediaImpl::handleKeyHere(KEY key, MASK mask)
 	
 	if (mMediaSource)
 	{
-		result = mMediaSource->keyEvent(LLPluginClassMedia::KEY_EVENT_DOWN ,key, mask);
+		// FIXME: THIS IS SO WRONG.
+		// Menu keys should be handled by the menu system and not passed to UI elements, but this is how LLTextEditor and LLLineEditor do it...
+		if( MASK_CONTROL & mask )
+		{
+			if( 'C' == key )
+			{
+				mMediaSource->copy();
+				result = true;
+			}
+			else
+			if( 'V' == key )
+			{
+				mMediaSource->paste();
+				result = true;
+			}
+			else
+			if( 'X' == key )
+			{
+				mMediaSource->cut();
+				result = true;
+			}
+		}
+		
+		if(!result)
+		{
+			result = mMediaSource->keyEvent(LLPluginClassMedia::KEY_EVENT_DOWN ,key, mask);
+		}
 	}
 	
 	return result;
@@ -1205,7 +1236,12 @@ bool LLViewerMediaImpl::handleUnicodeCharHere(llwchar uni_char)
 	
 	if (mMediaSource)
 	{
-		mMediaSource->textInput(wstring_to_utf8str(LLWString(1, uni_char)));
+		// only accept 'printable' characters, sigh...
+		if (uni_char >= 32 // discard 'control' characters
+			&& uni_char != 127) // SDL thinks this is 'delete' - yuck.
+		{
+			mMediaSource->textInput(wstring_to_utf8str(LLWString(1, uni_char)));
+		}
 	}
 	
 	return result;
@@ -1648,8 +1684,7 @@ void LLViewerMediaImpl::calculateInterest()
 	}
 	else
 	{
-		// I don't think this case should ever be hit.
-		LL_WARNS("Plugin") << "no texture!" << LL_ENDL;
+		// This will be a relatively common case now, since it will always be true for unloaded media.
 		mInterest = 0.0f;
 	}
 }
