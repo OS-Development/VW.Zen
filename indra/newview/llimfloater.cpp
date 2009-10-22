@@ -55,7 +55,7 @@
 
 
 LLIMFloater::LLIMFloater(const LLUUID& session_id)
-  : LLDockableFloater(NULL, session_id),
+  : LLTransientDockableFloater(NULL, true, session_id),
 	mControlPanel(NULL),
 	mSessionID(session_id),
 	mLastMessageIndex(-1),
@@ -81,17 +81,22 @@ LLIMFloater::LLIMFloater(const LLUUID& session_id)
 			mFactoryMap["panel_im_control_panel"] = LLCallbackMap(createPanelGroupControl, this);
 		}
 	}
+}
 
-	LLTransientFloaterMgr::getInstance()->registerTransientFloater(this);
+void LLIMFloater::onFocusLost()
+{
+	LLIMModel::getInstance()->resetActiveSessionID();
+}
+
+void LLIMFloater::onFocusReceived()
+{
+	LLIMModel::getInstance()->setActiveSessionID(mSessionID);
 }
 
 // virtual
 void LLIMFloater::onClose(bool app_quitting)
 {
-	LLIMModel::instance().sendLeaveSession(mSessionID, mOtherParticipantUUID);
-
-	//*TODO - move to the IMModel::sendLeaveSession() for the integrity (IB)
-	gIMMgr->removeSession(mSessionID);
+	gIMMgr->leaveSession(mSessionID);
 }
 
 /* static */
@@ -113,6 +118,23 @@ void LLIMFloater::newIMCallback(const LLSD& data){
 		{
 			floater->updateMessages();
 		}
+	}
+}
+
+void LLIMFloater::onVisibilityChange(const LLSD& new_visibility)
+{
+	bool visible = new_visibility.asBoolean();
+
+	LLVoiceChannel* voice_channel = LLIMModel::getInstance()->getVoiceChannel(mSessionID);
+
+	if (visible && voice_channel &&
+		voice_channel->getState() == LLVoiceChannel::STATE_CONNECTED)
+	{
+		LLFloaterReg::showInstance("voice_call", mSessionID);
+	}
+	else
+	{
+		LLFloaterReg::hideInstance("voice_call", mSessionID);
 	}
 }
 
@@ -163,7 +185,6 @@ void LLIMFloater::sendMsg()
 
 LLIMFloater::~LLIMFloater()
 {
-	LLTransientFloaterMgr::getInstance()->unregisterTransientFloater(this);
 }
 
 //virtual
@@ -297,7 +318,7 @@ void LLIMFloater::setDocked(bool docked, bool pop_on_undock)
 		(LLNotificationsUI::LLChannelManager::getInstance()->
 											findChannelByID(LLUUID(gSavedSettings.getString("NotificationChannelUUID"))));
 	
-	LLDockableFloater::setDocked(docked, pop_on_undock);
+	LLTransientDockableFloater::setDocked(docked, pop_on_undock);
 
 	// update notification channel state
 	if(channel)
@@ -311,7 +332,7 @@ void LLIMFloater::setVisible(BOOL visible)
 	LLNotificationsUI::LLScreenChannel* channel = dynamic_cast<LLNotificationsUI::LLScreenChannel*>
 		(LLNotificationsUI::LLChannelManager::getInstance()->
 											findChannelByID(LLUUID(gSavedSettings.getString("NotificationChannelUUID"))));
-	LLDockableFloater::setVisible(visible);
+	LLTransientDockableFloater::setVisible(visible);
 
 	// update notification channel state
 	if(channel)

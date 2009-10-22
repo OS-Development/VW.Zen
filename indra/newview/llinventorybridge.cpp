@@ -1462,6 +1462,39 @@ BOOL LLFolderBridge::copyToClipboard() const
 	return FALSE;
 }
 
+BOOL LLFolderBridge::isClipboardPasteable() const
+{
+	if ( ! LLInvFVBridge::isClipboardPasteable() )
+		return FALSE;
+
+	// Don't allow pasting duplicates to the Calling Card/Friends subfolders, see bug EXT-1599
+	if ( LLFriendCardsManager::instance().isCategoryInFriendFolder( getCategory() ) )
+	{
+		LLInventoryModel* model = getInventoryModel();
+		if ( !model )
+		{
+			return FALSE;
+		}
+
+		LLDynamicArray<LLUUID> objects;
+		LLInventoryClipboard::instance().retrieve(objects);
+		const LLViewerInventoryCategory *current_cat = getCategory();
+
+		// Search for the direct descendent of current Friends subfolder among all pasted items, 
+		// and return false if is found.
+		for(S32 i = objects.count() - 1; i >= 0; --i)
+		{
+			const LLUUID &obj_id = objects.get(i);
+			if ( LLFriendCardsManager::instance().isObjDirectDescendentOfCategory(model->getObject(obj_id), current_cat) )
+			{
+				return FALSE;
+			}
+		}
+
+	}
+	return TRUE;
+}
+
 BOOL LLFolderBridge::isClipboardPasteableAsLink() const
 {
 	// Check normal paste-as-link permissions
@@ -1479,19 +1512,32 @@ BOOL LLFolderBridge::isClipboardPasteableAsLink() const
 	const LLViewerInventoryCategory *current_cat = getCategory();
 	if (current_cat)
 	{
+		const BOOL is_in_friend_folder = LLFriendCardsManager::instance().isCategoryInFriendFolder( current_cat );
 		const LLUUID &current_cat_id = current_cat->getUUID();
 		LLDynamicArray<LLUUID> objects;
 		LLInventoryClipboard::instance().retrieve(objects);
 		S32 count = objects.count();
 		for(S32 i = 0; i < count; i++)
 		{
-			const LLInventoryCategory *cat = model->getCategory(objects.get(i));
+			const LLUUID &obj_id = objects.get(i);
+			const LLInventoryCategory *cat = model->getCategory(obj_id);
 			if (cat)
 			{
 				const LLUUID &cat_id = cat->getUUID();
 				// Don't allow recursive pasting
 				if ((cat_id == current_cat_id) || 
 					model->isObjectDescendentOf(current_cat_id, cat_id))
+				{
+					return FALSE;
+				}
+			}
+			// Don't allow pasting duplicates to the Calling Card/Friends subfolders, see bug EXT-1599
+			if ( is_in_friend_folder )
+			{
+				// If object is direct descendent of current Friends subfolder than return false.
+				// Note: We can't use 'const LLInventoryCategory *cat', because it may be null
+				// in case type of obj_id is LLInventoryItem.
+				if ( LLFriendCardsManager::instance().isObjDirectDescendentOfCategory(model->getObject(obj_id), current_cat) )
 				{
 					return FALSE;
 				}
@@ -1547,6 +1593,12 @@ BOOL LLFolderBridge::dragCategoryIntoFolder(LLInventoryCategory* inv_cat,
 			// BAP - restrictions?
 			is_movable = true;
 		}
+
+		if (mUUID == gInventory.findCategoryUUIDForType(LLAssetType::AT_FAVORITE))
+		{
+			is_movable = FALSE; // It's generally movable but not into Favorites folder. EXT-1604
+		}
+
 		if( is_movable )
 		{
 			gInventory.collectDescendents( cat_id, descendent_categories, descendent_items, FALSE );
@@ -2813,6 +2865,17 @@ BOOL LLFolderBridge::dragItemIntoFolder(LLInventoryItem* inv_item,
 				break;
 			}
 		}
+
+		if ( is_movable )
+		{
+			// Don't allow creating duplicates in the Calling Card/Friends
+			// subfolders, see bug EXT-1599. Check is item direct descendent
+			// of target folder and forbid item's movement if it so.
+			// Note: isItemDirectDescendentOfCategory checks if
+			// passed category is in the Calling Card/Friends folder
+			is_movable = ! LLFriendCardsManager::instance()
+				.isObjDirectDescendentOfCategory (inv_item, getCategory());
+		}
  
 		LLUUID favorites_id = model->findCategoryUUIDForType(LLAssetType::AT_FAVORITE);
 
@@ -3755,12 +3818,14 @@ void LLObjectBridge::performAction(LLFolderView* folder, LLInventoryModel* model
 	else if ("detach" == action)
 	{
 		LLInventoryItem* item = gInventory.getItem(mUUID);
-		if( item )
+		// In case we clicked on a link, detach the base object instead of the link.
+		LLInventoryItem* base_item = gInventory.getItem(item->getLinkedUUID());
+		if(base_item)
 		{
 			gMessageSystem->newMessageFast(_PREHASH_DetachAttachmentIntoInv);
 			gMessageSystem->nextBlockFast(_PREHASH_ObjectData );
 			gMessageSystem->addUUIDFast(_PREHASH_AgentID, gAgent.getID() );
-			gMessageSystem->addUUIDFast(_PREHASH_ItemID, item->getUUID() );
+			gMessageSystem->addUUIDFast(_PREHASH_ItemID, base_item->getUUID() );
 
 			gMessageSystem->sendReliable( gAgent.getRegion()->getHost() );
 		}

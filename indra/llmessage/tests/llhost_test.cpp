@@ -157,8 +157,7 @@ namespace tut
 	template<> template<>
 	void host_object::test<9>()
 	{
-		skip("setHostByName(\"google.com\"); getHostName() -> (e.g.) \"yx-in-f100.1e100.net\"");
-		std::string hostStr = "google.com";		
+		skip("setHostByName(\"linux.org\"); getHostName() -> (e.g.) \"yx-in-f100.1e100.net\"");
 		LLHost host;
 		host.setHostByName(hostStr);	
 

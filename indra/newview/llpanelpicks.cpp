@@ -33,6 +33,7 @@
 #include "llviewerprecompiledheaders.h"
 
 #include "llagent.h"
+#include "llagentpicksinfo.h"
 #include "llavatarconstants.h"
 #include "llflatlistview.h"
 #include "llfloaterreg.h"
@@ -91,7 +92,12 @@ void* LLPanelPicks::create(void* data /* = NULL */)
 
 void LLPanelPicks::updateData()
 {
-	LLAvatarPropertiesProcessor::getInstance()->sendAvatarPicksRequest(getAvatarId());
+	// Send Picks request only when we need to, not on every onOpen(during tab switch).
+	if(isDirty())
+	{
+		mPicksList->clear();
+		LLAvatarPropertiesProcessor::getInstance()->sendAvatarPicksRequest(getAvatarId());
+	}
 }
 
 void LLPanelPicks::processProperties(void* data, EAvatarProcessorType type)
@@ -134,6 +140,7 @@ void LLPanelPicks::processProperties(void* data, EAvatarProcessorType type)
 				picture->setMouseUpCallback(boost::bind(&LLPanelPicks::updateButtons, this));
 			}
 
+			resetDirty();
 			LLAvatarPropertiesProcessor::getInstance()->removeObserver(getAvatarId(),this);
 			updateButtons();
 		}
@@ -183,8 +190,6 @@ void LLPanelPicks::onOpen(const LLSD& key)
 	// Disable buttons when viewing profile for first time
 	if(getAvatarId() != id)
 	{
-		clear();
-
 		childSetEnabled(XML_BTN_INFO,FALSE);
 		childSetEnabled(XML_BTN_TELEPORT,FALSE);
 		childSetEnabled(XML_BTN_SHOW_ON_MAP,FALSE);
@@ -204,6 +209,8 @@ void LLPanelPicks::onOpen(const LLSD& key)
 	if(getAvatarId() != id)
 	{
 		mPicksList->goToTop();
+		// Set dummy value to make panel dirty and make it reload picks
+		setValue(LLSD());
 	}
 
 	LLPanelProfileTab::onOpen(key);
@@ -296,14 +303,13 @@ void LLPanelPicks::onDoubleClickItem(LLUICtrl* item)
 
 void LLPanelPicks::updateButtons()
 {
-	int picks_num = mPicksList->size();
 	bool has_selected = mPicksList->numSelected();
 
 	childSetEnabled(XML_BTN_INFO, has_selected);
 
 	if (getAvatarId() == gAgentID)
 	{
-		childSetEnabled(XML_BTN_NEW, picks_num < MAX_AVATAR_PICKS);
+		childSetEnabled(XML_BTN_NEW, !LLAgentPicksInfo::getInstance()->isPickLimitReached());
 		childSetEnabled(XML_BTN_DELETE, has_selected);
 	}
 
@@ -358,6 +364,12 @@ void LLPanelPicks::onPanelPickClose(LLPanel* panel)
 	panel->setVisible(FALSE);
 }
 
+void LLPanelPicks::onPanelPickSave(LLPanel* panel)
+{
+	onPanelPickClose(panel);
+	updateButtons();
+}
+
 void LLPanelPicks::createPickInfoPanel()
 {
 	if(!mPanelPickInfo)
@@ -375,7 +387,7 @@ void LLPanelPicks::createPickEditPanel()
 	{
 		mPanelPickEdit = LLPanelPickEdit::create();
 		mPanelPickEdit->setExitCallback(boost::bind(&LLPanelPicks::onPanelPickClose, this, mPanelPickEdit));
-		mPanelPickEdit->setSaveCallback(boost::bind(&LLPanelPicks::onPanelPickClose, this, mPanelPickEdit));
+		mPanelPickEdit->setSaveCallback(boost::bind(&LLPanelPicks::onPanelPickSave, this, mPanelPickEdit));
 		mPanelPickEdit->setCancelCallback(boost::bind(&LLPanelPicks::onPanelPickClose, this, mPanelPickEdit));
 		mPanelPickEdit->setVisible(FALSE);
 	}
