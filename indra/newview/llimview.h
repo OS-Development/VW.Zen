@@ -110,7 +110,7 @@ public:
 	std::list<LLSD> getMessages(LLUUID session_id, int start_index = 0);
 
 	bool addMessage(LLUUID session_id, std::string from, LLUUID other_participant_id, std::string utf8_text, bool log2file = true);
-	bool addToHistory(LLUUID session_id, std::string from, std::string utf8_text); 
+	bool addToHistory(LLUUID session_id, std::string from, LLUUID from_id, std::string utf8_text); 
 
 	bool logToFile(const LLUUID& session_id, const std::string& from, const std::string& utf8_text);
 
@@ -199,11 +199,6 @@ public:
 					bool link_name = false);
 
 	void addSystemMessage(const LLUUID& session_id, const std::string& message_name, const LLSD& args);
-
-	// This method returns TRUE if the local viewer has a session
-	// currently open keyed to the uuid. The uuid can be keyed by
-	// either session id or agent id.
-	BOOL isIMSessionOpen(const LLUUID& uuid);
 
 	// This adds a session to the talk view. The name is the local
 	// name of the session, dialog specifies the type of
