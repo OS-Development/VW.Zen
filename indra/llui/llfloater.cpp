@@ -189,6 +189,7 @@ LLFloater::Params::Params()
 	can_close("can_close", true),
 	can_drag_on_left("can_drag_on_left", false),
 	can_tear_off("can_tear_off", true),
+	save_dock_state("save_dock_state", false),
 	save_rect("save_rect", false),
 	save_visibility("save_visibility", false),
 	can_dock("can_dock", false),
@@ -501,6 +502,7 @@ LLFloater::~LLFloater()
 	storeRectControl();
 	setVisible(false); // We're not visible if we're destroyed
 	storeVisibilityControl();
+	storeDockStateControl();
 }
 
 void LLFloater::storeRectControl()
@@ -518,6 +520,15 @@ void LLFloater::storeVisibilityControl()
 		LLUI::sSettingGroups["floater"]->setBOOL( mVisibilityControl, getVisible() );
 	}
 }
+
+void LLFloater::storeDockStateControl()
+{
+	if( !sQuitting && mDocStateControl.size() > 1 )
+	{
+		LLUI::sSettingGroups["floater"]->setBOOL( mDocStateControl, isDocked() );
+	}
+}
+
 
 void LLFloater::setVisible( BOOL visible )
 {
@@ -775,6 +786,16 @@ void LLFloater::applyRectControl()
 			}
 		}
 	}
+}
+
+void LLFloater::applyDockState()
+{
+	if (mDocStateControl.size() > 1)
+	{
+		bool dockState = LLUI::sSettingGroups["floater"]->getBOOL(mDocStateControl);
+		setDocked(dockState);
+	}
+
 }
 
 void LLFloater::applyTitle()
@@ -1396,7 +1417,10 @@ void LLFloater::setDocked(bool docked, bool pop_on_undock)
 		mButtonsEnabled[BUTTON_DOCK] = !mDocked;
 		mButtonsEnabled[BUTTON_UNDOCK] = mDocked;
 		updateButtons();
+
+		storeDockStateControl();
 	}
+	
 }
 
 // static
@@ -2513,6 +2537,11 @@ void LLFloater::setInstanceName(const std::string& name)
 		{
 			mVisibilityControl = LLFloaterReg::declareVisibilityControl(mInstanceName);
 		}
+		if(!mDocStateControl.empty())
+		{
+			mDocStateControl = LLFloaterReg::declareDockStateControl(mInstanceName);
+		}
+
 	}
 }
 
@@ -2583,6 +2612,11 @@ void LLFloater::initFromParams(const LLFloater::Params& p)
 	if (p.save_visibility)
 	{
 		mVisibilityControl = "t"; // flag to build mVisibilityControl name once mInstanceName is set
+	}
+
+	if(p.save_dock_state)
+	{
+		mDocStateControl = "t"; // flag to build mDocStateControl name once mInstanceName is set
 	}
 	
 	// open callback 
@@ -2661,6 +2695,8 @@ bool LLFloater::initFloaterXML(LLXMLNodePtr node, LLView *parent, LLXMLNodePtr o
 	gFloaterView->adjustToFitScreen(this, FALSE); // Floaters loaded from XML should all fit on screen	
 
 	moveResizeHandlesToFront();
+
+	applyDockState();
 
 	return true; // *TODO: Error checking
 }
