@@ -189,6 +189,7 @@ LLFloater::Params::Params()
 	can_close("can_close", true),
 	can_drag_on_left("can_drag_on_left", false),
 	can_tear_off("can_tear_off", true),
+	save_dock_state("save_dock_state", false),
 	save_rect("save_rect", false),
 	save_visibility("save_visibility", false),
 	can_dock("can_dock", false),
@@ -267,20 +268,13 @@ LLFloater::LLFloater(const LLSD& key, const LLFloater::Params& p)
 		mButtonsEnabled[i] = FALSE;
 		mButtons[i] = NULL;
 	}
-	for (S32 i = 0; i < 4; i++) 
-	{
-		mResizeBar[i] = NULL; 
-		mResizeHandle[i] = NULL;
-	}
+	addDragHandle();
+	addResizeCtrls();
 	
 	initFromParams(p);
 	
 	// chrome floaters don't take focus at all
 	setFocusRoot(!getIsChrome());
-
-	addDragHandle();
-	addResizeCtrls();
-	enableResizeCtrls(mResizable);
 
 	initFloater();
 }
@@ -508,6 +502,7 @@ LLFloater::~LLFloater()
 	storeRectControl();
 	setVisible(false); // We're not visible if we're destroyed
 	storeVisibilityControl();
+	storeDockStateControl();
 }
 
 void LLFloater::storeRectControl()
@@ -525,6 +520,15 @@ void LLFloater::storeVisibilityControl()
 		LLUI::sSettingGroups["floater"]->setBOOL( mVisibilityControl, getVisible() );
 	}
 }
+
+void LLFloater::storeDockStateControl()
+{
+	if( !sQuitting && mDocStateControl.size() > 1 )
+	{
+		LLUI::sSettingGroups["floater"]->setBOOL( mDocStateControl, isDocked() );
+	}
+}
+
 
 void LLFloater::setVisible( BOOL visible )
 {
@@ -782,6 +786,16 @@ void LLFloater::applyRectControl()
 			}
 		}
 	}
+}
+
+void LLFloater::applyDockState()
+{
+	if (mDocStateControl.size() > 1)
+	{
+		bool dockState = LLUI::sSettingGroups["floater"]->getBOOL(mDocStateControl);
+		setDocked(dockState);
+	}
+
 }
 
 void LLFloater::applyTitle()
@@ -1403,7 +1417,10 @@ void LLFloater::setDocked(bool docked, bool pop_on_undock)
 		mButtonsEnabled[BUTTON_DOCK] = !mDocked;
 		mButtonsEnabled[BUTTON_UNDOCK] = mDocked;
 		updateButtons();
+
+		storeDockStateControl();
 	}
+	
 }
 
 // static
@@ -2520,6 +2537,11 @@ void LLFloater::setInstanceName(const std::string& name)
 		{
 			mVisibilityControl = LLFloaterReg::declareVisibilityControl(mInstanceName);
 		}
+		if(!mDocStateControl.empty())
+		{
+			mDocStateControl = LLFloaterReg::declareDockStateControl(mInstanceName);
+		}
+
 	}
 }
 
@@ -2560,7 +2582,7 @@ void LLFloater::setupParamsForExport(Params& p, LLView* parent)
 
 void LLFloater::initFromParams(const LLFloater::Params& p)
 {
-	// *NOTE: We have too many classes derived from LLPanel to retrofit them 
+	// *NOTE: We have too many classes derived from LLFloater to retrofit them 
 	// all to pass in params via constructors.  So we use this method.
 
 	 // control_name, tab_stop, focus_lost_callback, initial_value, rect, enabled, visible
@@ -2574,11 +2596,10 @@ void LLFloater::initFromParams(const LLFloater::Params& p)
 	setCanMinimize(p.can_minimize);
 	setCanClose(p.can_close);
 	setCanDock(p.can_dock);
+	setCanResize(p.can_resize);
+	setResizeLimits(p.min_width, p.min_height);
 	
 	mDragOnLeft = p.can_drag_on_left;
-	mResizable = p.can_resize;
-	mMinWidth = p.min_width;
-	mMinHeight = p.min_height;
 	mHeaderHeight = p.header_height;
 	mLegacyHeaderHeight = p.legacy_header_height;
 	mSingleInstance = p.single_instance;
@@ -2591,6 +2612,11 @@ void LLFloater::initFromParams(const LLFloater::Params& p)
 	if (p.save_visibility)
 	{
 		mVisibilityControl = "t"; // flag to build mVisibilityControl name once mInstanceName is set
+	}
+
+	if(p.save_dock_state)
+	{
+		mDocStateControl = "t"; // flag to build mDocStateControl name once mInstanceName is set
 	}
 	
 	// open callback 
@@ -2669,6 +2695,8 @@ bool LLFloater::initFloaterXML(LLXMLNodePtr node, LLView *parent, LLXMLNodePtr o
 	gFloaterView->adjustToFitScreen(this, FALSE); // Floaters loaded from XML should all fit on screen	
 
 	moveResizeHandlesToFront();
+
+	applyDockState();
 
 	return true; // *TODO: Error checking
 }

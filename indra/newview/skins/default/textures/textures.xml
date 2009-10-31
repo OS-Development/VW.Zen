@@ -93,11 +93,15 @@
   <texture name="FileMenu_BarSelect" file_name="navbar/FileMenu_BarSelect.png" preload="false" scale.left="2" scale.top="0" scale.right="2" scale.bottom="0" />
   <texture name="FileMenu_BG" file_name="navbar/FileMenu_BG.png" preload="false" />
 
+  <texture name="ForSale_Badge" file_name="icons/ForSale_Badge.png" preload="false" />
   <texture name="ForwardArrow_Off" file_name="icons/ForwardArrow_Off.png" preload="false" />
   <texture name="ForwardArrow_Press" file_name="icons/ForwardArrow_Press.png" preload="false" />
 
   <texture name="Generic_Group" file_name="icons/Generic_Group.png" preload="false" />
   <texture name="Generic_Group_Large" file_name="icons/Generic_Group_Large.png" preload="false" />
+  <texture name="Generic_Object_Medium" file_name="icons/Generic_Object_Medium.png" preload="false" />
+  <texture name="Generic_Object_Small" file_name="icons/ Generic_Object_Small.png" preload="false" />
+  <texture name="Generic_Object_Large" file_name="icons/Generic_Object_Large.png" preload="false" />
   <texture name="Generic_Person" file_name="icons/Generic_Person.png" preload="false" />
   <texture name="Generic_Person_Large" file_name="icons/Generic_Person_Large.png" preload="false" />
 
@@ -161,6 +165,8 @@
   <texture name="Inv_Gloves" file_name="icons/Inv_Gloves.png" preload="false" />
   <texture name="Inv_Hair" file_name="icons/Inv_Hair.png" preload="false" />
   <texture name="Inv_Jacket" file_name="icons/Inv_Jacket.png" preload="false" />
+  <texture name="Inv_LookFolderOpen" file_name="icons/Inv_LookFolderOpen.png" preload="false" />
+  <texture name="Inv_LookFolderClosed" file_name="icons/Inv_LookFolderClosed.png" preload="false" />
   <texture name="Inv_Landmark" file_name="icons/Inv_Landmark.png" preload="false" />
   <texture name="Inv_Notecard" file_name="icons/Inv_Notecard.png" preload="false" />
   <texture name="Inv_Object" file_name="icons/Inv_Object.png" preload="false" />
@@ -433,14 +439,16 @@
   <texture name="Widget_DownArrow" file_name="icons/Widget_DownArrow.png" preload="true" />
   <texture name="Widget_UpArrow" file_name="icons/Widget_UpArrow.png" preload="true" />
 
-  <texture name="Window_Background" file_name="windows/Window_Background.png" preload="true" 
+  <texture name="Window_Background" file_name="windows/Window_Background.png" preload="true"
            scale.left="4" scale.top="24" scale.right="26" scale.bottom="4" />
-  <texture name="Window_Foreground" file_name="windows/Window_Foreground.png" preload="true" 
+  <texture name="Window_Foreground" file_name="windows/Window_Foreground.png" preload="true"
            scale.left="4" scale.top="24" scale.right="26" scale.bottom="4" />
   <texture name="Window_NoTitle_Background" file_name="windows/Window_NoTitle_Background.png" preload="true"
            scale.left="4" scale.top="24" scale.right="26" scale.bottom="4" />
   <texture name="Window_NoTitle_Foreground" file_name="windows/Window_NoTitle_Foreground.png" preload="true"
            scale.left="4" scale.top="24" scale.right="26" scale.bottom="4" />
+
+  <texture name="YouAreHere_Badge" file_name="icons/YouAreHere_Badge.png" preload="false" />
 
   <!--WARNING OLD ART *do not use*-->
 
