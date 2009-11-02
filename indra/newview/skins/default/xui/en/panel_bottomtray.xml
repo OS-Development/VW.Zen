@@ -200,18 +200,17 @@
          name="snapshot_panel"
          width="40">
             <button
-             arrow_position="right"
          follows="left|right"
              height="23"
              left="0"
              label=""
              layout="topleft"
+             name="snapshots"
              width="36"
              top="3"
-                 image_overlay="Snapshot_Off"
-                 name="snapshot"
-             tool_tip="Take a snapshot"
-            />
+             image_overlay="Snapshot_Off"
+            tool_tip="Take snapshot"
+                 />
         </layout_panel>
         <layout_panel
          mouse_opaque="false"
