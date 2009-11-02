@@ -6,6 +6,8 @@
   <texture name="Accordion_ArrowOpened_Press" file_name="containers/Accordion_ArrowOpened_Press.png" preload="false" />
   <texture name="Accordion_Off" file_name="containers/Accordion_Off.png" preload="false" />
   <texture name="Accordion_Press" file_name="containers/Accordion_Press.png" preload="false" />
+  <texture name="Accordion_Over" file_name="containers/Accordion_Over.png" preload="false" />
+  <texture name="Accordion_Selected" file_name="containers/Accordion_Selected.png" preload="false" />
 
 <texture name="Activate_Checkmark" file_name="taskpanel/Activate_Checkmark.png" preload="false" />
 
@@ -441,6 +443,9 @@
            scale.left="4" scale.top="24" scale.right="26" scale.bottom="4" />
 
   <!--WARNING OLD ART *do not use*-->
+
+ <texture name="Banner_ForSale" file_name="Banner_ForSale.png" preload="false" />
+  <texture name="Banner_YouAreHere" file_name="Banner_YouAreHere.png" preload="false" />
 
   <texture name="btn_chatbar.tga" scale.left="20" scale.top="24" scale.right="44" scale.bottom="0" />
   <texture name="btn_chatbar_selected.tga" scale.left="20" scale.top="24" scale.right="44" scale.bottom="0" />
