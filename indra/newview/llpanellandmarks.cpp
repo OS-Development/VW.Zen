@@ -131,6 +131,9 @@ void LLLandmarksPanel::onSearchEdit(const std::string& string)
 	{
 		LLAccordionCtrlTab* tab = *iter;
 		tab->setVisible(true);
+
+		// expand accordion to see matched items in all ones. See EXT-2014.
+		tab->changeOpenClose(false);
 	}
 }
 
@@ -181,9 +184,9 @@ void LLLandmarksPanel::updateVerbs()
 	if (!isTabVisible()) 
 		return;
 
-	BOOL enabled = isLandmarkSelected();
-	mTeleportBtn->setEnabled(enabled);
-	mShowOnMapBtn->setEnabled(enabled);
+	bool landmark_selected = isLandmarkSelected();
+	mTeleportBtn->setEnabled(landmark_selected && isActionEnabled("teleport"));
+	mShowOnMapBtn->setEnabled(landmark_selected && isActionEnabled("show_on_map"));
 
 	// TODO: mantipov: Uncomment when mShareBtn is supported
 	// Share button should be enabled when neither a folder nor a landmark is selected
@@ -883,7 +886,7 @@ bool LLLandmarksPanel::handleDragAndDropToTrash(BOOL drop, EDragAndDropType carg
 	return true;
 }
 
-
+// static
 void LLLandmarksPanel::doIdle(void* landmarks_panel)
 {
 	LLLandmarksPanel* panel = (LLLandmarksPanel* ) landmarks_panel;
