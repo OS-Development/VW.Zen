@@ -8,6 +8,7 @@
 (WK) Canvas Paint (DHTML version of MS Paint),http://www.canvaspaint.org
 (WK) DHTML Lemmings!,http://www.elizium.nu/scripts/lemmings/
 (WK) DHTML graphics demos,http://www.dhteumeuleu.com/
+(WK) Shared paint app,http://colorillo.com/ac79?1l0q6cp
 (Flash) YouTube,http://youtube.com
 (Flash) Vimeo,http://www.vimeo.com/1778399
 (Flash) Simple whiteboard,http://www.imaginationcubed.com/
@@ -33,3 +34,4 @@
 (QT) Movie - The Informers,http://movies.apple.com/movies/independent/theinformers/theinformers_h.320.mov
 (QT) Animated GIF,http://upload.wikimedia.org/wikipedia/commons/4/44/Optical.greysquares.arp-animated.gif
 (QT) Apple Text Descriptors,http://ubrowser.com/tmp/apple_text.txt
+(EX) Example Plugin,example://blah

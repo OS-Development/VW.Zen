@@ -112,6 +112,8 @@ void LLPluginClassMedia::reset()
 	mLowPrioritySizeLimit = LOW_PRIORITY_TEXTURE_SIZE_DEFAULT;
 	mAllowDownsample = false;
 	mPadding = 0;
+	mLastMouseX = 0;
+	mLastMouseY = 0;
 	mStatus = LLPluginClassMediaOwner::MEDIA_NONE;
 	mSleepTime = 1.0f / 100.0f;
 	mCanCut = false;
@@ -412,8 +414,20 @@ std::string LLPluginClassMedia::translateModifiers(MASK modifiers)
 	return result;
 }
 
-void LLPluginClassMedia::mouseEvent(EMouseEventType type, int x, int y, MASK modifiers)
+void LLPluginClassMedia::mouseEvent(EMouseEventType type, int button, int x, int y, MASK modifiers)
 {
+	if(type == MOUSE_EVENT_MOVE)
+	{
+		if((x == mLastMouseX) && (y == mLastMouseY))
+		{
+			// Don't spam unnecessary mouse move events.
+			return;
+		}
+		
+		mLastMouseX = x;
+		mLastMouseY = y;
+	}
+	
 	LLPluginMessage message(LLPLUGIN_MESSAGE_CLASS_MEDIA, "mouse_event");
 	std::string temp;
 	switch(type)
@@ -424,6 +438,8 @@ void LLPluginClassMedia::mouseEvent(EMouseEventType type, int x, int y, MASK mod
 		case MOUSE_EVENT_DOUBLE_CLICK:	temp = "double_click";	break;
 	}
 	message.setValue("event", temp);
+
+	message.setValueS32("button", button);
 
 	message.setValueS32("x", x);
 	
@@ -515,11 +531,12 @@ void LLPluginClassMedia::scrollEvent(int x, int y, MASK modifiers)
 	sendMessage(message);
 }
 	
-bool LLPluginClassMedia::textInput(const std::string &text)
+bool LLPluginClassMedia::textInput(const std::string &text, MASK modifiers)
 {
 	LLPluginMessage message(LLPLUGIN_MESSAGE_CLASS_MEDIA, "text_event");
 
 	message.setValue("text", text);
+	message.setValue("modifiers", translateModifiers(modifiers));
 	
 	sendMessage(message);
 	
@@ -535,6 +552,23 @@ void LLPluginClassMedia::loadURI(const std::string &uri)
 	sendMessage(message);
 }
 
+const char* LLPluginClassMedia::priorityToString(EPriority priority)
+{
+	const char* result = "UNKNOWN";
+	switch(priority)
+	{
+		case PRIORITY_UNLOADED:		result = "unloaded";	break;
+		case PRIORITY_STOPPED:		result = "stopped";		break;
+		case PRIORITY_HIDDEN:		result = "hidden";		break;
+		case PRIORITY_SLIDESHOW:	result = "slideshow";	break;
+		case PRIORITY_LOW:			result = "low";			break;
+		case PRIORITY_NORMAL:		result = "normal";		break;
+		case PRIORITY_HIGH:			result = "high";		break;
+	}
+	
+	return result;
+}
+
 void LLPluginClassMedia::setPriority(EPriority priority)
 {
 	if(mPriority != priority)
@@ -543,35 +577,28 @@ void LLPluginClassMedia::setPriority(EPriority priority)
 
 		LLPluginMessage message(LLPLUGIN_MESSAGE_CLASS_MEDIA, "set_priority");
 		
-		std::string priority_string;
+		std::string priority_string = priorityToString(priority);
 		switch(priority)
 		{
 			case PRIORITY_UNLOADED:	
-				priority_string = "unloaded";	
 				mSleepTime = 1.0f;
 			break;
 			case PRIORITY_STOPPED:	
-				priority_string = "stopped";	
 				mSleepTime = 1.0f;
 			break;
 			case PRIORITY_HIDDEN:	
-				priority_string = "hidden";	
 				mSleepTime = 1.0f;
 			break;
 			case PRIORITY_SLIDESHOW:
-				priority_string = "slideshow";		
 				mSleepTime = 1.0f;
 			break;
 			case PRIORITY_LOW:		
-				priority_string = "low";		
 				mSleepTime = 1.0f / 50.0f;
 			break;
 			case PRIORITY_NORMAL:	
-				priority_string = "normal";	
 				mSleepTime = 1.0f / 100.0f;
 			break;
 			case PRIORITY_HIGH:		
-				priority_string = "high";		
 				mSleepTime = 1.0f / 100.0f;
 			break;
 		}
@@ -776,6 +803,10 @@ void LLPluginClassMedia::receivePluginMessage(const LLPluginMessage &message)
 			else if(status == "paused")
 			{
 				mStatus = LLPluginClassMediaOwner::MEDIA_PAUSED;
+			}
+			else if(status == "done")
+			{
+				mStatus = LLPluginClassMediaOwner::MEDIA_DONE;
 			}
 			else
 			{
@@ -1110,6 +1141,11 @@ void LLPluginClassMedia::setVolume(float volume)
 		
 		sendMessage(message);
 	}
+}
+
+float LLPluginClassMedia::getVolume()
+{
+	return mRequestedVolume;
 }
 
 void LLPluginClassMedia::initializeUrlHistory(const LLSD& url_history)

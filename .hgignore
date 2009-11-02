@@ -1,6 +1,10 @@
 syntax: glob
 
+# WinMerge temp files
+*.bak
+# Compiled python bytecode
 *.pyc
+# Emacs temp files
 *~
 .*.swp
 LICENSES
@@ -43,3 +47,4 @@ tarfile_tmp
 ^indra/web/dataservice/locale.*
 ^indra/web/dataservice/lib/shared/vault.*
 ^indra/web/dataservice/vendor.*
+glob:indra/newview/dbghelp.dll

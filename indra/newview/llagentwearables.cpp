@@ -649,6 +649,7 @@ void LLAgentWearables::setWearable(const EWearableType type, U32 index, LLWearab
 	else
 	{
 		wearable_vec[index] = wearable;
+		mAvatarObject->wearableUpdated(wearable->getType());
 	}
 }
 
@@ -663,6 +664,7 @@ U32 LLAgentWearables::pushWearable(const EWearableType type, LLWearable *wearabl
 	if (type < WT_COUNT || mWearableDatas[type].size() < MAX_WEARABLES_PER_TYPE)
 	{
 		mWearableDatas[type].push_back(wearable);
+		mAvatarObject->wearableUpdated(wearable->getType());
 		return mWearableDatas[type].size()-1;
 	}
 	return MAX_WEARABLES_PER_TYPE;
@@ -687,9 +689,11 @@ void LLAgentWearables::popWearable(LLWearable *wearable)
 
 void LLAgentWearables::popWearable(const EWearableType type, U32 index)
 {
-	if (getWearable(type, index))
+	LLWearable *wearable = getWearable(type, index);
+	if (wearable)
 	{
 		mWearableDatas[type].erase(mWearableDatas[type].begin() + index);
+		mAvatarObject->wearableUpdated(wearable->getType());
 	}
 }
 
@@ -1980,6 +1984,17 @@ bool LLAgentWearables::canWearableBeRemoved(const LLWearable* wearable) const
 	// Make sure the user always has at least one shape, skin, eyes, and hair type currently worn.
 	return !(((type == WT_SHAPE) || (type == WT_SKIN) || (type == WT_HAIR) || (type == WT_EYES))
 			 && (getWearableCount(type) <= 1) );		  
+}
+void LLAgentWearables::animateAllWearableParams(F32 delta, BOOL set_by_user)
+{
+	for( S32 type = 0; type < WT_COUNT; ++type )
+	{
+		for (S32 count = 0; count < (S32)getWearableCount((EWearableType)type); ++count)
+		{
+			LLWearable *wearable = getWearable((EWearableType)type,count);
+			wearable->animateParams(delta, set_by_user);
+		}
+	}
 }
 
 void LLAgentWearables::updateServer()
