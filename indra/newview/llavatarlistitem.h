@@ -48,7 +48,7 @@ public:
 	class ContextMenu
 	{
 	public:
-		virtual void show(LLView* spawning_view, const LLUUID& id, S32 x, S32 y) = 0;
+		virtual void show(LLView* spawning_view, const std::vector<LLUUID>& selected_uuids, S32 x, S32 y) = 0;
 	};
 
 	LLAvatarListItem();
@@ -57,14 +57,14 @@ public:
 	virtual BOOL postBuild();
 	virtual void onMouseLeave(S32 x, S32 y, MASK mask);
 	virtual void onMouseEnter(S32 x, S32 y, MASK mask);
-	virtual BOOL handleRightMouseDown(S32 x, S32 y, MASK mask);
 	virtual void setValue(const LLSD& value);
 	virtual void changed(U32 mask); // from LLFriendObserver
 
-	void setStatus(const std::string& status);
 	void setOnline(bool online);
 	void setName(const std::string& name);
 	void setAvatarId(const LLUUID& id, bool ignore_status_changes = false);
+	void setLastInteractionTime(const std::string& val);
+	void setAvatarIconVisible(bool visible);
 	
 	const LLUUID& getAvatarId() const;
 	const std::string getAvatarName() const;
@@ -74,7 +74,7 @@ public:
 
 	void showSpeakingIndicator(bool show) { mSpeakingIndicator->setVisible(show); }
 	void showInfoBtn(bool show_info_btn) {mInfoBtn->setVisible(show_info_btn); }
-	void showStatus(bool show_status);
+	void showLastInteractionTime(bool show);
 
 	void setContextMenu(ContextMenu* menu) { mContextMenu = menu; }
 
@@ -88,9 +88,9 @@ private:
 
 	void onNameCache(const std::string& first_name, const std::string& last_name);
 
-	LLAvatarIconCtrl*mAvatarIcon;
+	LLAvatarIconCtrl* mAvatarIcon;
 	LLTextBox* mAvatarName;
-	LLTextBox* mStatus;
+	LLTextBox* mLastInteractionTime;
 	
 	LLOutputMonitorCtrl* mSpeakingIndicator;
 	LLButton* mInfoBtn;
@@ -99,6 +99,7 @@ private:
 
 	LLUUID mAvatarId;
 	EOnlineStatus mOnlineStatus;
+	static S32	sIconWidth; // icon width + padding
 };
 
 #endif //LL_LLAVATARLISTITEM_H

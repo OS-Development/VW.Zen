@@ -49,7 +49,6 @@
 #include "llviewerstats.h"
 #include "llmd5.h"
 #include "llpumpio.h"
-#include "llimpanel.h"
 #include "llmimetypes.h"
 #include "llslurl.h"
 #include "llstartup.h"
@@ -76,6 +75,7 @@
 #include "llteleporthistory.h"
 #include "lllocationhistory.h"
 #include "llfasttimerview.h"
+#include "llvoicechannel.h"
 
 #include "llweb.h"
 #include "llsecondlifeurls.h"
@@ -227,7 +227,6 @@ const F32 DEFAULT_AFK_TIMEOUT = 5.f * 60.f; // time with no input before user fl
 F32 gSimLastTime; // Used in LLAppViewer::init and send_stats()
 F32 gSimFrames;
 
-BOOL gAllowTapTapHoldRun = TRUE;
 BOOL gShowObjectUpdates = FALSE;
 BOOL gUseQuickTime = TRUE;
 
@@ -238,8 +237,6 @@ LLSD gDebugInfo;
 U32	gFrameCount = 0;
 U32 gForegroundFrameCount = 0; // number of frames that app window was in foreground
 LLPumpIO* gServicePump = NULL;
-
-BOOL gPacificDaylightTime = FALSE;
 
 U64 gFrameTime = 0;
 F32 gFrameTimeSeconds = 0.f;
@@ -421,7 +418,6 @@ static void settings_to_globals()
 	gAgent.setHideGroupTitle(gSavedSettings.getBOOL("RenderHideGroupTitle"));
 
 	gDebugWindowProc = gSavedSettings.getBOOL("DebugWindowProc");
-	gAllowTapTapHoldRun = gSavedSettings.getBOOL("AllowTapTapHoldRun");
 	gShowObjectUpdates = gSavedSettings.getBOOL("ShowObjectUpdates");
 	gMapScale = gSavedSettings.getF32("MapScale");
 
@@ -1350,7 +1346,11 @@ bool LLAppViewer::cleanup()
 	// Destroy the UI
 	if( gViewerWindow)
 		gViewerWindow->shutdownViews();
-
+	
+	// Cleanup Inventory after the UI since it will delete any remaining observers
+	// (Deleted observers should have already removed themselves)
+	gInventory.cleanupInventory();
+	
 	// Clean up selection managers after UI is destroyed, as UI may be observing them.
 	// Clean up before GL is shut down because we might be holding on to objects with texture references
 	LLSelectMgr::cleanupGlobals();
@@ -2400,7 +2400,6 @@ void LLAppViewer::cleanupSavedSettings()
 
 	gSavedSettings.setBOOL("DebugWindowProc", gDebugWindowProc);
 		
-	gSavedSettings.setBOOL("AllowTapTapHoldRun", gAllowTapTapHoldRun);
 	gSavedSettings.setBOOL("ShowObjectUpdates", gShowObjectUpdates);
 	
 	if (!gNoRender)

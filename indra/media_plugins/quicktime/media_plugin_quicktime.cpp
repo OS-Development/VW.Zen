@@ -79,6 +79,7 @@ private:
 	const int mMinHeight;
 	const int mMaxHeight;
 	F64 mPlayRate;
+	std::string mNavigateURL;
 
 	enum ECommand {
 		COMMAND_NONE,
@@ -179,6 +180,11 @@ private:
 			setStatus(STATUS_ERROR);
 			return;
 		};
+		
+		mNavigateURL = url;
+		LLPluginMessage message(LLPLUGIN_MESSAGE_CLASS_MEDIA_BROWSER, "navigate_begin");
+		message.setValue("uri", mNavigateURL);
+		sendMessage(message);
 
 		// do pre-roll actions (typically fired for streaming movies but not always)
 		PrePrerollMovie( mMovieHandle, 0, getPlayRate(), moviePrePrerollCompleteCallback, ( void * )this );
@@ -389,11 +395,18 @@ private:
 
 	static void moviePrePrerollCompleteCallback( Movie movie, OSErr preroll_err, void *ref )
 	{
-		//MediaPluginQuickTime* self = ( MediaPluginQuickTime* )ref;
+		MediaPluginQuickTime* self = ( MediaPluginQuickTime* )ref;
 
 		// TODO:
 		//LLMediaEvent event( self );
 		//self->mEventEmitter.update( &LLMediaObserver::onMediaPreroll, event );
+		
+		// Send a "navigate complete" event.
+		LLPluginMessage message(LLPLUGIN_MESSAGE_CLASS_MEDIA_BROWSER, "navigate_complete");
+		message.setValue("uri", self->mNavigateURL);
+		message.setValueS32("result_code", 200);
+		message.setValue("result_string", "OK");
+		self->sendMessage(message);
 	};
 
 
@@ -407,7 +420,7 @@ private:
 	{
 		if ( mCommand == COMMAND_PLAY )
 		{
-			if ( mStatus == STATUS_LOADED || mStatus == STATUS_PAUSED || mStatus == STATUS_PLAYING )
+			if ( mStatus == STATUS_LOADED || mStatus == STATUS_PAUSED || mStatus == STATUS_PLAYING || mStatus == STATUS_DONE )
 			{
 				long state = GetMovieLoadState( mMovieHandle );
 
@@ -433,7 +446,7 @@ private:
 		else
 		if ( mCommand == COMMAND_STOP )
 		{
-			if ( mStatus == STATUS_PLAYING || mStatus == STATUS_PAUSED )
+			if ( mStatus == STATUS_PLAYING || mStatus == STATUS_PAUSED || mStatus == STATUS_DONE )
 			{
 				if ( GetMovieLoadState( mMovieHandle ) >= kMovieLoadStatePlaythroughOK )
 				{
@@ -534,12 +547,12 @@ private:
 
 		// see if title arrived and if so, update member variable with contents
 		checkTitle();
-
-		// special code for looping - need to rewind at the end of the movie
-		if ( mIsLooping )
+		
+		// QT call to see if we are at the end - can't do with controller
+		if ( IsMovieDone( mMovieHandle ) )
 		{
-			// QT call to see if we are at the end - can't do with controller
-			if ( IsMovieDone( mMovieHandle ) )
+			// special code for looping - need to rewind at the end of the movie
+			if ( mIsLooping )
 			{
 				// go back to start
 				rewind();
@@ -552,8 +565,16 @@ private:
 					// set the volume
 					MCDoAction( mMovieController, mcActionSetVolume, (void*)mCurVolume );
 				};
-			};
-		};
+			}
+			else
+			{
+				if(mStatus == STATUS_PLAYING)
+				{
+					setStatus(STATUS_DONE);
+				}
+			}
+		}
+
 	};
 
 	int getDataWidth() const

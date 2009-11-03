@@ -195,7 +195,6 @@ public:
 public:
 	virtual bool 	isSelf() const { return false; } // True if this avatar is for this viewer's agent
 	bool isBuilt() const { return mIsBuilt; }
-	
 private:
 	BOOL			mSupportsAlphaLayers; // For backwards compatibility, TRUE for 1.23+ clients
 
@@ -206,7 +205,7 @@ public:
 	virtual BOOL 	updateCharacter(LLAgent &agent);
 	void 			idleUpdateVoiceVisualizer(bool voice_enabled);
 	void 			idleUpdateMisc(bool detailed_update);
-	void 			idleUpdateAppearanceAnimation();
+	virtual void	idleUpdateAppearanceAnimation();
 	void 			idleUpdateLipSync(bool voice_enabled);
 	void 			idleUpdateLoadingEffect();
 	void 			idleUpdateWindEffect();
@@ -247,15 +246,19 @@ public:
 	//--------------------------------------------------------------------
 public:
 	BOOL			isFullyLoaded() const;
+protected:
 	virtual BOOL	updateIsFullyLoaded();
 	BOOL			processFullyLoadedChange(bool loading);
+	void			updateRuthTimer(bool loading);
+	F32 			calcMorphAmount();
 private:
 	BOOL			mFullyLoaded;
 	BOOL			mPreviousFullyLoaded;
 	BOOL			mFullyLoadedInitialized;
 	S32				mFullyLoadedFrameCounter;
 	LLFrameTimer	mFullyLoadedTimer;
-
+	LLFrameTimer	mRuthTimer;
+	
 /**                    State
  **                                                                            **
  *******************************************************************************/
@@ -274,7 +277,7 @@ public:
 protected:
 	static BOOL			parseSkeletonFile(const std::string& filename);
 	void				buildCharacter();
-	BOOL				loadAvatar();
+	virtual BOOL		loadAvatar();
 
 	BOOL				setupBone(const LLVOAvatarBoneInfo* info, LLViewerJoint* parent, S32 &current_volume_num, S32 &current_joint_num);
 	BOOL				buildSkeleton(const LLVOAvatarSkeletonInfo *info);
@@ -800,7 +803,6 @@ public:
 	BOOL			isSitting(){return mIsSitting;}
 	void 			sitOnObject(LLViewerObject *sit_object);
 	void 			getOffObject();
-	
 private:
 	// set this property only with LLVOAvatar::sitDown method
 	BOOL 			mIsSitting;

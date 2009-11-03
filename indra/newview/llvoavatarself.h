@@ -57,6 +57,7 @@ public:
 	virtual void			markDead();
 	virtual void 		initInstance(); // Called after construction to initialize the class.
 protected:
+	/*virtual*/ BOOL		loadAvatar();
 	BOOL					loadAvatarSelf();
 	BOOL					buildSkeletonSelf(const LLVOAvatarSkeletonInfo *info);
 	BOOL					buildMenus();
@@ -89,6 +90,7 @@ public:
 	/*virtual*/ BOOL setVisualParamWeight(const char* param_name, F32 weight, BOOL set_by_user = FALSE );
 	/*virtual*/ BOOL setVisualParamWeight(S32 index, F32 weight, BOOL set_by_user = FALSE );
 	/*virtual*/ void updateVisualParams();
+	/*virtual*/ void idleUpdateAppearanceAnimation();
 
 private:
 	// helper function. Passed in param is assumed to be in avatar's parameter list.
@@ -187,8 +189,8 @@ public:
 	void				setLocalTextureTE(U8 te, LLViewerTexture* image, BOOL set_by_user, U32 index);
 	const LLUUID&		grabLocalTexture(LLVOAvatarDefines::ETextureIndex type, U32 index) const;
 	BOOL				canGrabLocalTexture(LLVOAvatarDefines::ETextureIndex type, U32 index) const;
-protected:
 	/*virtual*/ void	setLocalTexture(LLVOAvatarDefines::ETextureIndex type, LLViewerTexture* tex, BOOL baked_version_exits, U32 index);
+protected:
 	/*virtual*/ void	setBakedReady(LLVOAvatarDefines::ETextureIndex type, BOOL baked_version_exists, U32 index);
 	void				localTextureLoaded(BOOL succcess, LLViewerFetchedTexture *src_vi, LLImageRaw* src, LLImageRaw* aux_src, S32 discard_level, BOOL final, void* userdata);
 	void				getLocalTextureByteCount(S32* gl_byte_count) const;
@@ -276,14 +278,12 @@ protected:
 	//--------------------------------------------------------------------
 public:
 	void 				updateAttachmentVisibility(U32 camera_mode);
-	BOOL 				isWearingAttachment(const LLUUID& inv_item_id, BOOL include_linked_items = FALSE) const;
+	BOOL 				isWearingAttachment(const LLUUID& inv_item_id) const;
 	LLViewerObject* 	getWornAttachment(const LLUUID& inv_item_id);
 	const std::string   getAttachedPointName(const LLUUID& inv_item_id) const;
 	/*virtual*/ const LLViewerJointAttachment *attachObject(LLViewerObject *viewer_object);
 	/*virtual*/ BOOL 	detachObject(LLViewerObject *viewer_object);
 	void				getAllAttachmentsArray(LLDynamicArray<S32>& attachments);
-protected:
-	const LLUUID&		getBaseAttachmentObject(const LLUUID &object_id) const;
 
 	//--------------------------------------------------------------------
 	// HUDs

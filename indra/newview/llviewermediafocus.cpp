@@ -35,7 +35,7 @@
 
 //LLViewerMediaFocus
 #include "llviewerobjectlist.h"
-#include "llpanelmediahud.h"
+#include "llpanelprimmediacontrols.h"
 #include "llpluginclassmedia.h"
 #include "llagent.h"
 #include "lltoolpie.h"
@@ -48,6 +48,10 @@
 #include "llviewerparcelmgr.h"
 #include "llweb.h"
 #include "llmediaentry.h"
+#include "llkeyboard.h"
+#include "lltoolmgr.h"
+#include "llvovolume.h"
+
 //
 // LLViewerMediaFocus
 //
@@ -77,7 +81,6 @@ void LLViewerMediaFocus::setFocusFace(LLPointer<LLViewerObject> objectp, S32 fac
 	if (media_impl.notNull() && objectp.notNull())
 	{
 		bool face_auto_zoom = false;
-		media_impl->focus(true);
 
 		mFocusedImplID = media_impl->getMediaTextureID();
 		mFocusedObjectID = objectp->getID();
@@ -101,26 +104,30 @@ void LLViewerMediaFocus::setFocusFace(LLPointer<LLViewerObject> objectp, S32 fac
 			llwarns << "Can't find media entry for focused face" << llendl;
 		}
 
+		media_impl->focus(true);
 		gFocusMgr.setKeyboardFocus(this);
 		
 		// We must do this before  processing the media HUD zoom, or it may zoom to the wrong face. 
 		update();
 
-		if(mMediaHUD.get() && face_auto_zoom && ! parcel->getMediaPreventCameraZoom())
+		if(mMediaControls.get() && face_auto_zoom && ! parcel->getMediaPreventCameraZoom())
 		{
-			mMediaHUD.get()->resetZoomLevel();
-			mMediaHUD.get()->nextZoomLevel();
+			mMediaControls.get()->resetZoomLevel();
+			mMediaControls.get()->nextZoomLevel();
 		}
 	}
 	else
 	{
+		if(mFocusedImplID.notNull())
+		{
+			if(mMediaControls.get())
+			{
+				mMediaControls.get()->resetZoomLevel();
+			}
+		}
+
 		if(hasFocus())
 		{
-			if(mMediaHUD.get())
-			{
-				mMediaHUD.get()->resetZoomLevel();
-			}
-
 			gFocusMgr.setKeyboardFocus(NULL);
 		}
 		
@@ -249,20 +256,18 @@ void LLViewerMediaFocus::setCameraZoom(LLViewerObject* object, LLVector3 normal,
 }
 void LLViewerMediaFocus::onFocusReceived()
 {
-	// Don't do this here -- this doesn't change "inworld media focus", it just changes whether the viewer's input is focused on the media.
-//	LLViewerMediaImpl* media_impl = getFocusedMediaImpl();
-//	if(media_impl.notNull())
-//		media_impl->focus(true);
+	LLViewerMediaImpl* media_impl = getFocusedMediaImpl();
+	if(media_impl)
+		media_impl->focus(true);
 
 	LLFocusableElement::onFocusReceived();
 }
 
 void LLViewerMediaFocus::onFocusLost()
 {
-	// Don't do this here -- this doesn't change "inworld media focus", it just changes whether the viewer's input is focused on the media.
-//	LLViewerMediaImpl* media_impl = getFocusedMediaImpl();
-//	if(media_impl.notNull())
-//		media_impl->focus(false);
+	LLViewerMediaImpl* media_impl = getFocusedMediaImpl();
+	if(media_impl)
+		media_impl->focus(false);
 
 	gViewerWindow->focusClient();
 	LLFocusableElement::onFocusLost();
@@ -300,8 +305,9 @@ BOOL LLViewerMediaFocus::handleScrollWheel(S32 x, S32 y, S32 clicks)
         // the scrollEvent() API's x and y are not the same as handleScrollWheel's x and y.
         // The latter is the position of the mouse at the time of the event
         // The former is the 'scroll amount' in x and y, respectively.
-        // All we have for 'scroll amount' here is 'clicks', and no mask.
-		media_impl->getMediaPlugin()->scrollEvent(0, clicks, /*mask*/0);
+        // All we have for 'scroll amount' here is 'clicks'.
+		// We're also not passed the keyboard modifier mask, but we can get that from gKeyboard.
+		media_impl->getMediaPlugin()->scrollEvent(0, clicks, gKeyboard->currentMask(TRUE));
 		retval = TRUE;
 	}
 	return retval;
@@ -309,6 +315,30 @@ BOOL LLViewerMediaFocus::handleScrollWheel(S32 x, S32 y, S32 clicks)
 
 void LLViewerMediaFocus::update()
 {
+	if(mFocusedImplID.notNull() || mFocusedObjectID.notNull())
+	{
+		// We have a focused impl/face.
+		if(!getFocus())
+		{
+			// We've lost keyboard focus -- check to see whether the media controls have it
+			if(mMediaControls.get() && mMediaControls.get()->hasFocus())
+			{
+				// the media controls have focus -- don't clear.
+			}
+			else
+			{
+				// Someone else has focus -- back off.
+				clearFocus();
+			}
+		}
+		else if(LLToolMgr::getInstance()->inBuildMode())
+		{
+			// Build tools are selected -- clear focus.
+			clearFocus();
+		}
+	}
+	
+	
 	LLViewerMediaImpl *media_impl = getFocusedMediaImpl();
 	LLViewerObject *viewer_object = getFocusedObject();
 	S32 face = mFocusedObjectFace;
@@ -329,20 +359,20 @@ void LLViewerMediaFocus::update()
 		// We have an object and impl to point at.
 		
 		// Make sure the media HUD object exists.
-		if(! mMediaHUD.get())
+		if(! mMediaControls.get())
 		{
-			LLPanelMediaHUD* media_hud = new LLPanelMediaHUD();
-			mMediaHUD = media_hud->getHandle();
-			gHUDView->addChild(media_hud);	
+			LLPanelPrimMediaControls* media_controls = new LLPanelPrimMediaControls();
+			mMediaControls = media_controls->getHandle();
+			gHUDView->addChild(media_controls);	
 		}
-		mMediaHUD.get()->setMediaFace(viewer_object, face, media_impl, normal);
+		mMediaControls.get()->setMediaFace(viewer_object, face, media_impl, normal);
 	}
 	else
 	{
 		// The media HUD is no longer needed.
-		if(mMediaHUD.get())
+		if(mMediaControls.get())
 		{
-			mMediaHUD.get()->setMediaFace(NULL, 0, NULL);
+			mMediaControls.get()->setMediaFace(NULL, 0, NULL);
 		}
 	}
 }
@@ -443,4 +473,47 @@ LLViewerMediaImpl* LLViewerMediaFocus::getHoverMediaImpl()
 LLViewerObject* LLViewerMediaFocus::getHoverObject()
 {
 	return gObjectList.findObject(mHoverObjectID);
+}
+
+void LLViewerMediaFocus::focusZoomOnMedia(LLUUID media_id)
+{
+	LLViewerMediaImpl* impl = LLViewerMedia::getMediaImplFromTextureID(media_id);
+	
+	if(impl)
+	{	
+		// Get the first object from the media impl's object list.  This is completely arbitrary, but should suffice.
+		LLVOVolume *obj = impl->getSomeObject();
+		if(obj)
+		{
+			// This media is attached to at least one object.  Figure out which face it's on.
+			S32 face = obj->getFaceIndexWithMediaImpl(impl, -1);
+			
+			// We don't have a proper pick normal here, and finding a face's real normal is... complicated.
+			// For now, use +z to look at the top of the object.
+			LLVector3 normal(0.0f, 0.0f, 1.0f);
+			
+			// Attempt to focus/zoom on that face.
+			setFocusFace(obj, face, impl, normal);
+			
+			if(mMediaControls.get())
+			{
+				mMediaControls.get()->resetZoomLevel();
+				mMediaControls.get()->nextZoomLevel();
+			}
+		}
+	}
+}
+
+LLUUID LLViewerMediaFocus::getControlsMediaID()
+{
+	if(getFocusedMediaImpl())
+	{
+		return mFocusedImplID;
+	}
+	else if(getHoverMediaImpl())
+	{
+		return mHoverImplID;
+	}
+	
+	return LLUUID::null;
 }

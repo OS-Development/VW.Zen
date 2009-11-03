@@ -282,8 +282,6 @@ const S32 AGENT_UPDATES_PER_SECOND  = 10;
 // "// llstartup" indicates that llstartup is the only client for this global.
 
 extern LLSD gDebugInfo;
-
-extern BOOL	gAllowTapTapHoldRun;
 extern BOOL	gShowObjectUpdates;
 
 typedef enum 
@@ -302,10 +300,6 @@ extern U32 gFrameCount;
 extern U32 gForegroundFrameCount;
 
 extern LLPumpIO* gServicePump;
-
-// Is the Pacific time zone (aka server time zone)
-// currently in daylight savings time?
-extern BOOL gPacificDaylightTime;
 
 extern U64      gFrameTime;					// The timestamp of the most-recently-processed frame
 extern F32		gFrameTimeSeconds;			// Loses msec precision after ~4.5 hours...

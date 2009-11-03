@@ -176,6 +176,7 @@ public:
 	BOOL			getToggleState() const;
 	void			setToggleState(BOOL b);
 
+	void			setHighlight(bool b);
 	void			setFlashing( BOOL b );
 	BOOL			getFlashing() const		{ return mFlashing; }
 
@@ -210,6 +211,9 @@ public:
 	
 	void			setFont(const LLFontGL *font)		
 		{ mGLFont = ( font ? font : LLFontGL::getFontSansSerif()); }
+
+	S32				getLastDrawCharsCount() const { return mLastDrawCharsCount; }
+
 	void			setScaleImage(BOOL scale)			{ mScaleImage = scale; }
 	BOOL			getScaleImage() const				{ return mScaleImage; }
 
@@ -238,8 +242,8 @@ public:
 	void		setForcePressedState(BOOL b) { mForcePressedState = b; }
 	
 protected:
-	const LLPointer<LLUIImage>&	getImageUnselected() const	{ return mImageUnselected; }
-	const LLPointer<LLUIImage>& getImageSelected() const	{ return mImageSelected; }
+	LLPointer<LLUIImage> getImageUnselected() const	{ return mImageUnselected; }
+	LLPointer<LLUIImage> getImageSelected() const	{ return mImageSelected; }
 
 	LLFrameTimer	mMouseDownTimer;
 
@@ -260,6 +264,7 @@ private:
 	S32 						mMouseHeldDownCount; 	// Counter for parameter passed to held-down callback
 	F32							mHeldDownDelay;			// seconds, after which held-down callbacks get called
 	S32							mHeldDownFrameDelay;	// frames, after which held-down callbacks get called
+	S32							mLastDrawCharsCount;
 
 	LLPointer<LLUIImage>		mImageOverlay;
 	LLFontGL::HAlign			mImageOverlayAlignment;

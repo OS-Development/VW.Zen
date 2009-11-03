@@ -40,7 +40,7 @@
 #include "llchiclet.h"
 #include "llvoiceclient.h"
 #include "lloutputmonitorctrl.h"
-#include "llfloateractivespeakers.h"
+#include "llspeakers.h"
 
 class LLGestureComboBox
 	: public LLComboBox
@@ -62,6 +62,9 @@ public:
 	virtual void changed() { refreshGestures(); }
 
 protected:
+
+	virtual void showList();
+
 	LLFrameTimer mGestureLabelTimer;
 	std::vector<LLMultiGesture*> mGestures;
 	std::string mLabel;
@@ -96,6 +99,9 @@ public:
 
 	static void sendChatFromViewer(const std::string &utf8text, EChatType type, BOOL animate);
 	static void sendChatFromViewer(const LLWString &wtext, EChatType type, BOOL animate);
+
+	S32 getMinWidth() const;
+	S32 getMaxWidth() const;
 
 	/**
 	 * Implements LLVoiceClientStatusObserver::onChange()

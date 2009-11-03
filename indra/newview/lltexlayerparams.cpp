@@ -175,22 +175,28 @@ void LLTexLayerParamAlpha::setWeight(F32 weight, BOOL set_by_user)
 	{
 		mCurWeight = new_weight;
 
-		LLVOAvatar* avatar = mTexLayer->getTexLayerSet()->getAvatar();
-		if (avatar->getSex() & getSex())
+		if ((mAvatar->getSex() & getSex()) && (mAvatar->isSelf() && !mIsDummy)) // only trigger a baked texture update if we're changing a wearable's visual param.
 		{
 			if (gAgent.cameraCustomizeAvatar())
 			{
 				set_by_user = FALSE;
 			}
-			avatar->invalidateComposite(mTexLayer->getTexLayerSet(), set_by_user);
+			mAvatar->invalidateComposite(mTexLayer->getTexLayerSet(), set_by_user);
 			mTexLayer->invalidateMorphMasks();
-			avatar->updateMeshTextures();
+			mAvatar->updateMeshTextures();
 		}
 	}
 }
 
 void LLTexLayerParamAlpha::setAnimationTarget(F32 target_value, BOOL set_by_user)
 { 
+	// do not animate dummy parameters
+	if (mIsDummy)
+	{
+		setWeight(target_value, set_by_user);
+		return;
+	}
+
 	mTargetWeight = target_value; 
 	setWeight(target_value, set_by_user); 
 	mIsAnimating = TRUE;
@@ -467,14 +473,16 @@ void LLTexLayerParamColor::setWeight(F32 weight, BOOL set_by_user)
 			return;
 		}
 
-		if (mAvatar->getSex() & getSex())
+		if ((mAvatar->getSex() & getSex()) && (mAvatar->isSelf() && !mIsDummy)) // only trigger a baked texture update if we're changing a wearable's visual param.
 		{
 			onGlobalColorChanged(set_by_user);
 			if (mTexLayer)
 			{
 				mAvatar->invalidateComposite(mTexLayer->getTexLayerSet(), set_by_user);
+				mAvatar->updateMeshTextures();
 			}
 		}
+
 //		llinfos << "param " << mName << " = " << new_weight << llendl;
 	}
 }

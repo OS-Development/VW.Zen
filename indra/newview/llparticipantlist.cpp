@@ -1,10 +1,10 @@
 /** 
  * @file llparticipantlist.cpp
- * @brief LLParticipantList implementing LLSimpleListener listener
+ * @brief LLParticipantList intended to update view(LLAvatarList) according to incoming messages
  *
- * $LicenseInfo:firstyear=2005&license=viewergpl$
+ * $LicenseInfo:firstyear=2009&license=viewergpl$
  * 
- * Copyright (c) 2005-2009, Linden Research, Inc.
+ * Copyright (c) 2009, Linden Research, Inc.
  * 
  * Second Life Viewer Source Code
  * The source code in this file ("Source Code") is provided by Linden Lab
@@ -34,23 +34,88 @@
 
 #include "llparticipantlist.h"
 #include "llavatarlist.h"
-#include "llfloateractivespeakers.h"
+#include "llspeakers.h"
 
-
+//LLParticipantList retrieves add, clear and remove events and updates view accordingly 
 LLParticipantList::LLParticipantList(LLSpeakerMgr* data_source, LLAvatarList* avatar_list):
 	mSpeakerMgr(data_source),
 	mAvatarList(avatar_list)
 {
-	mSpeakerMgr->addListener(this, "add");
-	mSpeakerMgr->addListener(this, "remove");
-	mSpeakerMgr->addListener(this, "clear");
-	std::string str = "test";
-	mAvatarList->setNoItemsCommentText(str);
+	mSpeakerAddListener = new SpeakerAddListener(mAvatarList);
+	mSpeakerRemoveListener = new SpeakerRemoveListener(mAvatarList);
+	mSpeakerClearListener = new SpeakerClearListener(mAvatarList);
 
-	//LLAvatarList::uuid_vector_t& group_members = mAvatarList->getIDs();
+	mSpeakerMgr->addListener(mSpeakerAddListener, "add");
+	mSpeakerMgr->addListener(mSpeakerRemoveListener, "remove");
+	mSpeakerMgr->addListener(mSpeakerClearListener, "clear");
+
+	//Lets fill avatarList with existing speakers
+	LLAvatarList::uuid_vector_t& group_members = mAvatarList->getIDs();
+
+	LLSpeakerMgr::speaker_list_t speaker_list;
+	mSpeakerMgr->getSpeakerList(&speaker_list, true);
+	for(LLSpeakerMgr::speaker_list_t::iterator it = speaker_list.begin(); it != speaker_list.end(); it++)
+	{
+		group_members.push_back((*it)->mID);
+	}
+	mAvatarList->setDirty();
+	mAvatarList->sortByName();
 }
 
-bool LLParticipantList::handleEvent(LLPointer<LLOldEvents::LLEvent> event, const LLSD& userdata)
+LLParticipantList::~LLParticipantList()
 {
+	delete mSpeakerAddListener;
+	delete mSpeakerRemoveListener;
+	delete mSpeakerClearListener;
+	mSpeakerAddListener = NULL;
+	mSpeakerRemoveListener = NULL;
+	mSpeakerClearListener = NULL;
+}
+
+//
+// LLParticipantList::SpeakerAddListener
+//
+bool LLParticipantList::SpeakerAddListener::handleEvent(LLPointer<LLOldEvents::LLEvent> event, const LLSD& userdata)
+{
+	LLAvatarList::uuid_vector_t& group_members = mAvatarList->getIDs();
+	LLUUID uu_id = event->getValue().asUUID();
+
+	LLAvatarList::uuid_vector_t::iterator found = std::find(group_members.begin(), group_members.end(), uu_id);
+	if(found != group_members.end())
+	{
+		llinfos << "Already got a buddy" << llendl;
+		return true;
+	}
+
+	group_members.push_back(uu_id);
+	mAvatarList->setDirty();
+	mAvatarList->sortByName();
 	return true;
 }
+
+//
+// LLParticipantList::SpeakerRemoveListener
+//
+bool LLParticipantList::SpeakerRemoveListener::handleEvent(LLPointer<LLOldEvents::LLEvent> event, const LLSD& userdata)
+{
+	LLAvatarList::uuid_vector_t& group_members = mAvatarList->getIDs();
+	LLAvatarList::uuid_vector_t::iterator pos = std::find(group_members.begin(), group_members.end(), event->getValue().asUUID());
+	if(pos != group_members.end())
+	{
+		group_members.erase(pos);
+		mAvatarList->setDirty();
+	}
+	return true;
+}
+
+//
+// LLParticipantList::SpeakerClearListener
+//
+bool LLParticipantList::SpeakerClearListener::handleEvent(LLPointer<LLOldEvents::LLEvent> event, const LLSD& userdata)
+{
+	LLAvatarList::uuid_vector_t& group_members = mAvatarList->getIDs();
+	group_members.clear();
+	mAvatarList->setDirty();
+	return true;
+}
+
