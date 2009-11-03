@@ -31,18 +31,9 @@
  * $/LicenseInfo$
  */
 
-// 1
-
-
-
-
 #if LL_SDL
 
-// 2
-
 #include "linden_common.h"
-
-// 3
 
 #include "llwindowsdl.h"
 
@@ -68,7 +59,7 @@ extern "C" {
 
 #if LL_LINUX || LL_SOLARIS
 // not necessarily available on random SDL platforms, so #if LL_LINUX
-// for execv(), waitpid(), fork() 
+// for execv(), waitpid(), fork()
 # include <unistd.h>
 # include <sys/types.h>
 # include <sys/wait.h>
