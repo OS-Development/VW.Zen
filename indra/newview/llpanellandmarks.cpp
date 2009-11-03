@@ -38,10 +38,12 @@
 #include "llsdutil.h"
 #include "llsdutil_math.h"
 
+#include "llaccordionctrl.h"
 #include "llaccordionctrltab.h"
 #include "llagent.h"
 #include "llagentpicksinfo.h"
 #include "llagentui.h"
+#include "llcallbacklist.h"
 #include "lldndbutton.h"
 #include "llfloaterworldmap.h"
 #include "llfolderviewitem.h"
@@ -56,7 +58,7 @@
 //static LLRegisterPanelClassWrapper<LLLandmarksPanel> t_landmarks("panel_landmarks");
 
 static const std::string OPTIONS_BUTTON_NAME = "options_gear_btn";
-static const std::string ADD_LANDMARK_BUTTON_NAME = "add_landmark_btn";
+static const std::string ADD_BUTTON_NAME = "add_btn";
 static const std::string ADD_FOLDER_BUTTON_NAME = "add_folder_btn";
 static const std::string TRASH_BUTTON_NAME = "trash_btn";
 
@@ -75,6 +77,7 @@ LLLandmarksPanel::LLLandmarksPanel()
 	,	mListCommands(NULL)
 	,	mGearFolderMenu(NULL)
 	,	mGearLandmarkMenu(NULL)
+	,	mDirtyFilter(false)
 {
 	LLUICtrlFactory::getInstance()->buildPanel(this, "panel_landmarks.xml");
 }
@@ -98,16 +101,40 @@ BOOL LLLandmarksPanel::postBuild()
 	initMyInventroyPanel();
 	initLibraryInventroyPanel();
 
+	gIdleCallbacks.addFunction(LLLandmarksPanel::doIdle, this);
 	return TRUE;
 }
 
 // virtual
 void LLLandmarksPanel::onSearchEdit(const std::string& string)
 {
+	static std::string prev_string("");
+
+	if (prev_string == string) return;
+
+	// show all folders in Landmarks Accordion for empty filter
+	mLandmarksInventoryPanel->setShowFolderState(string.empty() ?
+		LLInventoryFilter::SHOW_ALL_FOLDERS :
+		LLInventoryFilter::SHOW_NON_EMPTY_FOLDERS
+		);
+
 	filter_list(mFavoritesInventoryPanel, string);
 	filter_list(mLandmarksInventoryPanel, string);
 	filter_list(mMyInventoryPanel, string);
 	filter_list(mLibraryInventoryPanel, string);
+
+	prev_string = string;
+	mDirtyFilter = true;
+
+	// give FolderView a chance to be refreshed. So, made all accordions visible
+	for (accordion_tabs_t::const_iterator iter = mAccordionTabs.begin(); iter != mAccordionTabs.end(); ++iter)
+	{
+		LLAccordionCtrlTab* tab = *iter;
+		tab->setVisible(true);
+
+		// expand accordion to see matched items in all ones. See EXT-2014.
+		tab->changeOpenClose(false);
+	}
 }
 
 // virtual
@@ -300,6 +327,8 @@ void LLLandmarksPanel::processParcelInfo(const LLParcelData& parcel_data)
 					panel_pick, panel_places,params));
 			panel_pick->setSaveCallback(boost::bind(&LLLandmarksPanel::onPickPanelExit,this,
 				panel_pick, panel_places,params));
+			panel_pick->setCancelCallback(boost::bind(&LLLandmarksPanel::onPickPanelExit,this,
+							panel_pick, panel_places,params));
 		}
 	}
 }
@@ -389,6 +418,7 @@ void LLLandmarksPanel::initLandmarksPanel(LLInventorySubTreePanel* inventory_lis
 void LLLandmarksPanel::initAccordion(const std::string& accordion_tab_name, LLInventorySubTreePanel* inventory_list)
 {
 	LLAccordionCtrlTab* accordion_tab = getChild<LLAccordionCtrlTab>(accordion_tab_name);
+	mAccordionTabs.push_back(accordion_tab);
 	accordion_tab->setDropDownStateChangedCallback(
 		boost::bind(&LLLandmarksPanel::onAccordionExpandedCollapsed, this, _2, inventory_list));
 }
@@ -433,11 +463,11 @@ void LLLandmarksPanel::initListCommandsHandlers()
 	mListCommands = getChild<LLPanel>("bottom_panel");
 
 	mListCommands->childSetAction(OPTIONS_BUTTON_NAME, boost::bind(&LLLandmarksPanel::onActionsButtonClick, this));
-	mListCommands->childSetAction(ADD_LANDMARK_BUTTON_NAME, boost::bind(&LLLandmarksPanel::onAddLandmarkButtonClick, this));
-	mListCommands->childSetAction(ADD_FOLDER_BUTTON_NAME, boost::bind(&LLLandmarksPanel::onAddFolderButtonClick, this));
 	mListCommands->childSetAction(TRASH_BUTTON_NAME, boost::bind(&LLLandmarksPanel::onTrashButtonClick, this));
+	mListCommands->getChild<LLButton>(ADD_BUTTON_NAME)->setHeldDownCallback(boost::bind(&LLLandmarksPanel::onAddButtonHeldDown, this));
+	static const LLSD add_landmark_command("add_landmark");
+	mListCommands->childSetAction(ADD_BUTTON_NAME, boost::bind(&LLLandmarksPanel::onAddAction, this, add_landmark_command));
 
-	
 	LLDragAndDropButton* trash_btn = mListCommands->getChild<LLDragAndDropButton>(TRASH_BUTTON_NAME);
 	trash_btn->setDragAndDropHandler(boost::bind(&LLLandmarksPanel::handleDragAndDropToTrash, this
 			,	_4 // BOOL drop
@@ -449,9 +479,11 @@ void LLLandmarksPanel::initListCommandsHandlers()
 	mCommitCallbackRegistrar.add("Places.LandmarksGear.CopyPaste.Action", boost::bind(&LLLandmarksPanel::onClipboardAction, this, _2));
 	mCommitCallbackRegistrar.add("Places.LandmarksGear.Custom.Action", boost::bind(&LLLandmarksPanel::onCustomAction, this, _2));
 	mCommitCallbackRegistrar.add("Places.LandmarksGear.Folding.Action", boost::bind(&LLLandmarksPanel::onFoldingAction, this, _2));
+	mEnableCallbackRegistrar.add("Places.LandmarksGear.Check", boost::bind(&LLLandmarksPanel::isActionChecked, this, _2));
 	mEnableCallbackRegistrar.add("Places.LandmarksGear.Enable", boost::bind(&LLLandmarksPanel::isActionEnabled, this, _2));
 	mGearLandmarkMenu = LLUICtrlFactory::getInstance()->createFromFile<LLMenuGL>("menu_places_gear_landmark.xml", gMenuHolder, LLViewerMenuHolderGL::child_registry_t::instance());
 	mGearFolderMenu = LLUICtrlFactory::getInstance()->createFromFile<LLMenuGL>("menu_places_gear_folder.xml", gMenuHolder, LLViewerMenuHolderGL::child_registry_t::instance());
+	mMenuAdd = LLUICtrlFactory::getInstance()->createFromFile<LLMenuGL>("menu_place_add_button.xml", gMenuHolder, LLViewerMenuHolderGL::child_registry_t::instance());
 }
 
 
@@ -487,52 +519,26 @@ void LLLandmarksPanel::onActionsButtonClick()
 		mGearFolderMenu->getChild<LLMenuItemCallGL>("collapse")->setVisible(cur_item->isOpen());
 		menu = mGearFolderMenu;
 	}
-	if(menu)
+	showActionMenu(menu,OPTIONS_BUTTON_NAME);
+}
+
+void LLLandmarksPanel::onAddButtonHeldDown()
+{
+	showActionMenu(mMenuAdd,ADD_BUTTON_NAME);
+}
+
+void LLLandmarksPanel::showActionMenu(LLMenuGL* menu, std::string spawning_view_name)
+{
+	if (menu)
 	{
 		menu->buildDrawLabels();
 		menu->updateParent(LLMenuGL::sMenuContainer);
-		LLView* actions_btn  = getChild<LLView>(OPTIONS_BUTTON_NAME);
+		LLView* spawning_view = getChild<LLView> (spawning_view_name);
 		S32 menu_x, menu_y;
-		actions_btn->localPointToOtherView(0,actions_btn->getRect().getHeight(),&menu_x,&menu_y, this);
+		//show menu in co-ordinates of panel
+		spawning_view->localPointToOtherView(0, spawning_view->getRect().getHeight(), &menu_x, &menu_y, this);
 		menu_y += menu->getRect().getHeight();
-		LLMenuGL::showPopup(this, menu, menu_x,menu_y);
-	}
-}
-
-void LLLandmarksPanel::onAddLandmarkButtonClick() const
-{
-	if(LLLandmarkActions::landmarkAlreadyExists())
-	{
-		std::string location;
-		LLAgentUI::buildLocationString(location, LLAgentUI::LOCATION_FORMAT_FULL);
-		llwarns<<" Landmark already exists at location:  "<< location<<llendl;
-		return;
-	}
-	LLSideTray::getInstance()->showPanel("panel_places", LLSD().insert("type", "create_landmark"));
-}
-
-void LLLandmarksPanel::onAddFolderButtonClick() const
-{
-	LLFolderViewItem*  item = getCurSelectedItem();
-	if(item &&  mCurrentSelectedList == mLandmarksInventoryPanel)
-	{
-		LLFolderViewEventListener* folder_bridge = NULL;
-		if(item-> getListener()->getInventoryType() == LLInventoryType::IT_LANDMARK)
-		{
-			// for a landmark get parent folder bridge
-			folder_bridge = item->getParentFolder()->getListener();
-		}
-		else if (item-> getListener()->getInventoryType() == LLInventoryType::IT_CATEGORY) 
-		{
-			// for a folder get its own bridge
-			folder_bridge = item->getListener();
-		}
-
-		menu_create_inventory_item(mCurrentSelectedList->getRootFolder()
-			, dynamic_cast<LLFolderBridge*>(folder_bridge)
-			, LLSD("category")
-			, gInventory.findCategoryUUIDForType(LLAssetType::AT_LANDMARK)
-			);
+		LLMenuGL::showPopup(this, menu, menu_x, menu_y);
 	}
 }
 
@@ -546,11 +552,39 @@ void LLLandmarksPanel::onAddAction(const LLSD& userdata) const
 	std::string command_name = userdata.asString();
 	if("add_landmark" == command_name)
 	{
-		onAddLandmarkButtonClick();
+		if(LLLandmarkActions::landmarkAlreadyExists())
+		{
+			std::string location;
+			LLAgentUI::buildLocationString(location, LLAgentUI::LOCATION_FORMAT_FULL);
+			llwarns<<" Landmark already exists at location:  "<< location<<llendl;
+			return;
+		}
+		LLSideTray::getInstance()->showPanel("panel_places", LLSD().insert("type", "create_landmark"));
 	} 
 	else if ("category" == command_name)
 	{
-		onAddFolderButtonClick();
+		LLFolderViewItem* item = getCurSelectedItem();
+		if (item && mCurrentSelectedList == mLandmarksInventoryPanel)
+		{
+			LLFolderViewEventListener* folder_bridge = NULL;
+			if (item-> getListener()->getInventoryType()
+					== LLInventoryType::IT_LANDMARK)
+			{
+				// for a landmark get parent folder bridge
+				folder_bridge = item->getParentFolder()->getListener();
+			}
+			else if (item-> getListener()->getInventoryType()
+					== LLInventoryType::IT_CATEGORY)
+			{
+				// for a folder get its own bridge
+				folder_bridge = item->getListener();
+			}
+
+			menu_create_inventory_item(mCurrentSelectedList->getRootFolder(),
+					dynamic_cast<LLFolderBridge*> (folder_bridge), LLSD(
+							"category"), gInventory.findCategoryUUIDForType(
+							LLAssetType::AT_LANDMARK));
+		}
 	}
 }
 
@@ -598,7 +632,6 @@ void LLLandmarksPanel::onFoldingAction(const LLSD& userdata)
 	else if ( "sort_by_date" == command_name)
 	{
 		mSortByDate = !mSortByDate;
-		updateSortOrder(mFavoritesInventoryPanel, mSortByDate);
 		updateSortOrder(mLandmarksInventoryPanel, mSortByDate);
 		updateSortOrder(mMyInventoryPanel, mSortByDate);
 		updateSortOrder(mLibraryInventoryPanel, mSortByDate);
@@ -609,14 +642,53 @@ void LLLandmarksPanel::onFoldingAction(const LLSD& userdata)
 	}
 }
 
+bool LLLandmarksPanel::isActionChecked(const LLSD& userdata) const
+{
+	const std::string command_name = userdata.asString();
+
+	if ( "sort_by_date" == command_name)
+	{
+		return  mSortByDate;
+	}
+
+	return false;
+}
+
 bool LLLandmarksPanel::isActionEnabled(const LLSD& userdata) const
 {
 	std::string command_name = userdata.asString();
+
 
 	LLPlacesFolderView* rootFolderView = mCurrentSelectedList ?
 		static_cast<LLPlacesFolderView*>(mCurrentSelectedList->getRootFolder()) : NULL;
 
 	if (NULL == rootFolderView) return false;
+
+	// disable some commands for multi-selection. EXT-1757
+	if (rootFolderView->getSelectedCount() > 1)
+	{
+		if (   "teleport"		== command_name 
+			|| "more_info"		== command_name
+			|| "rename"			== command_name
+			|| "show_on_map"	== command_name
+			|| "copy_slurl"		== command_name
+			)
+		{
+			return false;
+		}
+
+	}
+
+	// disable some commands for Favorites accordion. EXT-1758
+	if (mCurrentSelectedList == mFavoritesInventoryPanel)
+	{
+		if (   "expand_all"		== command_name
+			|| "collapse_all"	== command_name
+			|| "sort_by_date"	== command_name
+			)
+			return false;
+	}
+
 
 	if("category" == command_name)
 	{
@@ -635,11 +707,6 @@ bool LLLandmarksPanel::isActionEnabled(const LLSD& userdata) const
 	else if ( "sort_by_date" == command_name)
 	{
 		return  mSortByDate;
-	}
-	// do not allow teleport and more info for multi-selections
-	else if ("teleport" == command_name || "more_info" == command_name)
-	{
-		return rootFolderView->getSelectedCount() == 1;
 	}
 	else if("create_pick" == command_name)
 	{
@@ -817,6 +884,43 @@ bool LLLandmarksPanel::handleDragAndDropToTrash(BOOL drop, EDragAndDropType carg
 	}
 
 	return true;
+}
+
+// static
+void LLLandmarksPanel::doIdle(void* landmarks_panel)
+{
+	LLLandmarksPanel* panel = (LLLandmarksPanel* ) landmarks_panel;
+
+	if (panel->mDirtyFilter)
+	{
+		panel->updateFilteredAccordions();
+	}
+
+}
+
+void LLLandmarksPanel::updateFilteredAccordions()
+{
+	LLInventoryPanel* inventory_list = NULL;
+	LLAccordionCtrlTab* accordion_tab = NULL;
+	for (accordion_tabs_t::const_iterator iter = mAccordionTabs.begin(); iter != mAccordionTabs.end(); ++iter)
+	{
+		accordion_tab = *iter;
+		inventory_list = dynamic_cast<LLInventorySubTreePanel*> (accordion_tab->getAccordionView());
+		if (NULL == inventory_list) continue;
+		LLFolderView* fv = inventory_list->getRootFolder();
+
+		bool has_visible_children = fv->hasVisibleChildren();
+
+		accordion_tab->setVisible(has_visible_children);
+	}
+
+	// we have to arrange accordion tabs for cases when filter string is less restrictive but 
+	// all items are still filtered.
+	static LLAccordionCtrl* accordion = getChild<LLAccordionCtrl>("landmarks_accordion");
+	accordion->arrange();
+
+	// now filter state is applied to accordion tabs
+	mDirtyFilter = false;
 }
 
 

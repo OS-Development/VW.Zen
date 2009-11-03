@@ -49,6 +49,7 @@
 #include "llagent.h" //  Get state values from here
 #include "llagentwearables.h"
 #include "llanimationstates.h"
+#include "llavatarpropertiesprocessor.h"
 #include "llviewercontrol.h"
 #include "lldrawpoolavatar.h"
 #include "lldriverparam.h"
@@ -2447,28 +2448,20 @@ void LLVOAvatar::idleUpdateAppearanceAnimation()
 		}
 		else
 		{
-			F32 blend_frac = calc_bouncy_animation(appearance_anim_time / APPEARANCE_MORPH_TIME);
-			F32 last_blend_frac = calc_bouncy_animation(mLastAppearanceBlendTime / APPEARANCE_MORPH_TIME);
-			F32 morph_amt;
-			if (last_blend_frac == 1.f)
-			{
-				morph_amt = 1.f;
-			}
-			else
-			{
-				morph_amt = (blend_frac - last_blend_frac) / (1.f - last_blend_frac);
-			}
-
+			F32 morph_amt = calcMorphAmount();
 			LLVisualParam *param;
 
-			// animate only top level params
-			for (param = getFirstVisualParam();
-				 param;
-				 param = getNextVisualParam())
+			if (!isSelf())
 			{
-				if (param->getGroup() == VISUAL_PARAM_GROUP_TWEAKABLE)
+				// animate only top level params for non-self avatars
+				for (param = getFirstVisualParam();
+					 param;
+					 param = getNextVisualParam())
 				{
-					param->animate(morph_amt, mAppearanceAnimSetByUser);
+					if (param->getGroup() == VISUAL_PARAM_GROUP_TWEAKABLE)
+					{
+						param->animate(morph_amt, mAppearanceAnimSetByUser);
+					}
 				}
 			}
 
@@ -2484,6 +2477,25 @@ void LLVOAvatar::idleUpdateAppearanceAnimation()
 		}
 		dirtyMesh();
 	}
+}
+
+F32 LLVOAvatar::calcMorphAmount()
+{
+	F32 appearance_anim_time = mAppearanceMorphTimer.getElapsedTimeF32();
+	F32 blend_frac = calc_bouncy_animation(appearance_anim_time / APPEARANCE_MORPH_TIME);
+	F32 last_blend_frac = calc_bouncy_animation(mLastAppearanceBlendTime / APPEARANCE_MORPH_TIME);
+
+	F32 morph_amt;
+	if (last_blend_frac == 1.f)
+	{
+		morph_amt = 1.f;
+	}
+	else
+	{
+		morph_amt = (blend_frac - last_blend_frac) / (1.f - last_blend_frac);
+	}
+
+	return morph_amt;
 }
 
 void LLVOAvatar::idleUpdateLipSync(bool voice_enabled)
@@ -5803,7 +5815,36 @@ BOOL LLVOAvatar::updateIsFullyLoaded()
 		loading = TRUE;
 	}
 	
+	updateRuthTimer(loading);
 	return processFullyLoadedChange(loading);
+}
+
+void LLVOAvatar::updateRuthTimer(bool loading)
+{
+	if (isSelf() || !loading) 
+	{
+		return;
+	}
+
+	if (mPreviousFullyLoaded)
+	{
+		mRuthTimer.reset();
+	}
+	
+	const F32 LOADING_TIMEOUT = 120.f;
+	if (mRuthTimer.getElapsedTimeF32() > LOADING_TIMEOUT)
+	{
+		/*
+		llinfos << "Ruth Timer timeout: Missing texture data for '" << getFullname() << "' "
+				<< "( Params loaded : " << !visualParamWeightsAreDefault() << " ) "
+				<< "( Lower : " << isTextureDefined(TEX_LOWER_BAKED) << " ) "
+				<< "( Upper : " << isTextureDefined(TEX_UPPER_BAKED) << " ) "
+				<< "( Head : " << isTextureDefined(TEX_HEAD_BAKED) << " )."
+				<< llendl;
+		*/
+		LLAvatarPropertiesProcessor::getInstance()->sendAvatarTexturesRequest(getID());
+		mRuthTimer.reset();
+	}
 }
 
 BOOL LLVOAvatar::processFullyLoadedChange(bool loading)
@@ -6370,6 +6411,11 @@ LLBBox LLVOAvatar::getHUDBBox() const
 				 ++attachment_iter)
 			{
 				const LLViewerObject* attached_object = (*attachment_iter);
+				if (attached_object == NULL)
+				{
+					llwarns << "HUD attached object is NULL!" << llendl;
+					continue;
+				}
 				// initialize bounding box to contain identity orientation and center point for attached object
 				bbox.addPointLocal(attached_object->getPosition());
 				// add rotated bounding box for attached object

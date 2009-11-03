@@ -143,7 +143,6 @@
 #include "llstatview.h"
 #include "llsurface.h"
 #include "llsurfacepatch.h"
-#include "llimview.h"
 #include "lltexlayer.h"
 #include "lltextbox.h"
 #include "lltexturecache.h"
@@ -1547,11 +1546,12 @@ void LLViewerWindow::initWorldUI()
 	getRootView()->addChild(gMorphView);
 
 	// Make space for nav bar.
+	LLNavigationBar* navbar = LLNavigationBar::getInstance();
 	LLRect floater_view_rect = gFloaterView->getRect();
 	LLRect notify_view_rect = gNotifyBoxView->getRect();
-	floater_view_rect.mTop -= NAVIGATION_BAR_HEIGHT;
+	floater_view_rect.mTop -= navbar->getDefNavBarHeight();
 	floater_view_rect.mBottom += LLBottomTray::getInstance()->getRect().getHeight();
-	notify_view_rect.mTop -= NAVIGATION_BAR_HEIGHT;
+	notify_view_rect.mTop -= navbar->getDefNavBarHeight();
 	notify_view_rect.mBottom += LLBottomTray::getInstance()->getRect().getHeight();
 	gFloaterView->setRect(floater_view_rect);
 	gNotifyBoxView->setRect(notify_view_rect);
@@ -1578,20 +1578,19 @@ void LLViewerWindow::initWorldUI()
 	gStatusBar->setBackgroundColor( gMenuBarView->getBackgroundColor().get() );
 
 	// Navigation bar
-
-	LLNavigationBar* navbar = LLNavigationBar::getInstance();
 	navbar->reshape(root_rect.getWidth(), navbar->getRect().getHeight(), TRUE); // *TODO: redundant?
 	navbar->translate(0, root_rect.getHeight() - menu_bar_height - navbar->getRect().getHeight()); // FIXME
 	navbar->setBackgroundColor(gMenuBarView->getBackgroundColor().get());
+
 	
 	if (!gSavedSettings.getBOOL("ShowNavbarNavigationPanel"))
 	{
-		navbar->showNavigationPanel(FALSE);
+		toggle_show_navigation_panel(LLSD(0));
 	}
 
 	if (!gSavedSettings.getBOOL("ShowNavbarFavoritesPanel"))
 	{
-		navbar->showFavoritesPanel(FALSE);
+		toggle_show_favorites_panel(LLSD(0));
 	}
 
 	if (!gSavedSettings.getBOOL("ShowCameraButton"))
@@ -1665,7 +1664,11 @@ void LLViewerWindow::shutdownViews()
 	// DEV-40930: Clear sModalStack. Otherwise, any LLModalDialog left open
 	// will crump with LL_ERRS.
 	LLModalDialog::shutdownModals();
-
+	
+	// destroy the nav bar, not currently part of gViewerWindow
+	// *TODO: Make LLNavigationBar part of gViewerWindow
+	delete LLNavigationBar::getInstance();
+	
 	// Delete all child views.
 	delete mRootView;
 	mRootView = NULL;
@@ -2449,17 +2452,33 @@ void LLViewerWindow::updateUI()
 	BOOL handled_by_top_ctrl = FALSE;
 	LLUICtrl* top_ctrl = gFocusMgr.getTopCtrl();
 	LLMouseHandler* mouse_captor = gFocusMgr.getMouseCapture();
+	LLView* captor_view = dynamic_cast<LLView*>(mouse_captor);
+
+	//FIXME: only include captor and captor's ancestors if mouse is truly over them --RN
 
 	//build set of views containing mouse cursor by traversing UI hierarchy and testing 
 	//screen rect against mouse cursor
 	view_handle_set_t mouse_hover_set;
 
-	// start at current mouse captor (if is a view) or UI root
-	LLView* root_view = NULL;
-	root_view = dynamic_cast<LLView*>(mouse_captor);
+	// constraint mouse enter events to children of mouse captor
+	LLView* root_view = captor_view;
+
+	// if mouse captor doesn't exist or isn't a LLView
+	// then allow mouse enter events on entire UI hierarchy
 	if (!root_view)
 	{
 		root_view = mRootView;
+	}
+
+	// include all ancestors of captor_view as automatically having mouse
+	if (captor_view)
+	{
+		LLView* captor_parent_view = captor_view->getParent();
+		while(captor_parent_view)
+		{
+			mouse_hover_set.insert(captor_parent_view->getHandle());
+			captor_parent_view = captor_parent_view->getParent();
+		}
 	}
 
 	// aggregate visible views that contain mouse cursor in display order

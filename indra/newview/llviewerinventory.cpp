@@ -42,7 +42,6 @@
 #include "llconsole.h"
 #include "llinventorymodel.h"
 #include "llnotify.h"
-#include "llimview.h"
 #include "llgesturemgr.h"
 
 #include "llinventorybridge.h"
@@ -657,7 +656,6 @@ void LLViewerInventoryCategory::changeType(LLAssetType::EType new_folder_type)
 
 	setPreferredType(new_folder_type);
 	gInventory.addChangedMask(LLInventoryObserver::LABEL, folder_id);
-	gInventory.updateLinkedObjects(folder_id);	
 }
 
 ///----------------------------------------------------------------------------
