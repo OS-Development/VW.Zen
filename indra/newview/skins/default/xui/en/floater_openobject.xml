@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  can_resize="true"
  default_tab_group="1"
  height="350"
@@ -25,7 +26,7 @@
      width="284">
         [DESC]:
     </text>
-    <panel_inventory
+    <panel_inventory_object
      background_visible="false"
      draw_border="false"
      follows="all"

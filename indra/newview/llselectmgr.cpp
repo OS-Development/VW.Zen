@@ -801,6 +801,8 @@ LLObjectSelectionHandle LLSelectMgr::setHoverObject(LLViewerObject *objectp, S32
 		return NULL;
 	}
 
+	mHoverObjects->mPrimaryObject = objectp; 
+
 	objectp = objectp->getRootEdit();
 
 	// is the requested object the same as the existing hover object root?
@@ -832,6 +834,11 @@ LLObjectSelectionHandle LLSelectMgr::setHoverObject(LLViewerObject *objectp, S32
 LLSelectNode *LLSelectMgr::getHoverNode()
 {
 	return mHoverObjects->getFirstRootNode();
+}
+
+LLSelectNode *LLSelectMgr::getPrimaryHoverNode()
+{
+	return mHoverObjects->mSelectNodeMap[mHoverObjects->mPrimaryObject];
 }
 
 void LLSelectMgr::highlightObjectOnly(LLViewerObject* objectp)
@@ -4905,7 +4912,6 @@ void LLSelectMgr::renderSilhouettes(BOOL for_hud)
 		{
 			inspect_item_id = inspect_instance->getSelectedUUID();
 		}
-		LLUUID focus_item_id = LLViewerMediaFocus::getInstance()->getSelectedUUID();
 		for (S32 pass = 0; pass < 2; pass++)
 		{
 			for (LLObjectSelection::iterator iter = mSelectedObjects->begin();
@@ -4919,11 +4925,7 @@ void LLSelectMgr::renderSilhouettes(BOOL for_hud)
 				{
 					continue;
 				}
-				if (objectp->getID() == focus_item_id)
-				{
-					node->renderOneSilhouette(gFocusMgr.getFocusColor());
-				}
-				else if(objectp->getID() == inspect_item_id)
+				if(objectp->getID() == inspect_item_id)
 				{
 					node->renderOneSilhouette(sHighlightInspectColor);
 				}
@@ -4976,6 +4978,19 @@ void LLSelectMgr::renderSilhouettes(BOOL for_hud)
 			}
 		}
 	}
+
+#if 0	
+	// Hilight focused media object
+	{
+		LLViewerObject* objectp = LLViewerMediaFocus::getInstance()->getFocusedObject();
+		if(objectp)
+		{
+			// FIXME: how do I construct a silhouette for an object that's not selected?
+			// Would we need to add another LLObjectSelectionHandle for this purpose?
+			node->renderOneSilhouette(gFocusMgr.getFocusColor());
+		}
+	}
+#endif
 
 	if (for_hud && avatar)
 	{

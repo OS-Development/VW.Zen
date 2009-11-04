@@ -38,11 +38,11 @@
 
 #include "llagent.h"
 #include "llviewerfoldertype.h"
+#include "llfolderview.h"
 #include "llviewercontrol.h"
 #include "llconsole.h"
 #include "llinventorymodel.h"
 #include "llnotify.h"
-#include "llimview.h"
 #include "llgesturemgr.h"
 
 #include "llinventorybridge.h"

@@ -37,7 +37,7 @@
 
 #include "stdenums.h" 	// for EDragAndDropType
 
-class LLAssetType
+class LL_COMMON_API LLAssetType
 {
 public:
 	enum EType
@@ -121,6 +121,7 @@ public:
 			// Inventory folder link
 		
 		AT_COUNT = 26,
+
 			// +*********************************************************+
 			// |  TO ADD AN ELEMENT TO THIS ENUM:                        |
 			// +*********************************************************+

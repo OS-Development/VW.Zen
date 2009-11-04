@@ -30,6 +30,12 @@
  * $/LicenseInfo$
  */
 
+#if LL_MSVC
+// disable warning about boost::lexical_cast returning uninitialized data
+// when it fails to parse the string
+#pragma warning (disable:4701)
+#endif
+
 #include "llviewerprecompiledheaders.h"
 
 #include "llvoavatarself.h"
@@ -53,7 +59,12 @@
 #include "llviewerregion.h"
 #include "llappearancemgr.h"
 
-#include "boost/lexical_cast.hpp"
+#if LL_MSVC
+// disable boost::lexical_cast warning
+#pragma warning (disable:4702)
+#endif
+
+#include <boost/lexical_cast.hpp>
 
 using namespace LLVOAvatarDefines;
 
@@ -150,6 +161,25 @@ void LLVOAvatarSelf::markDead()
 	mBeam = NULL;
 	LLVOAvatar::markDead();
 }
+
+/*virtual*/ BOOL LLVOAvatarSelf::loadAvatar()
+{
+	BOOL success = LLVOAvatar::loadAvatar();
+
+	// set all parameters sotred directly in the avatar to have
+	// the isSelfParam to be TRUE - this is used to prevent
+	// them from being animated or trigger accidental rebakes
+	// when we copy params from the wearable to the base avatar.
+	for (LLViewerVisualParam* param = (LLViewerVisualParam*) getFirstVisualParam(); 
+		 param;
+		 param = (LLViewerVisualParam*) getNextVisualParam())
+	{
+		param->setIsDummy(TRUE);
+	}
+
+	return success;
+}
+
 
 BOOL LLVOAvatarSelf::loadAvatarSelf()
 {
@@ -662,14 +692,21 @@ void LLVOAvatarSelf::updateVisualParams()
 		}
 	}
 
-	LLWearable *shape = gAgentWearables.getWearable(WT_SHAPE,0);
-	if (shape)
-	{
-		F32 gender = shape->getVisualParamWeight(80); // param 80 == gender
-		setVisualParamWeight("male",gender ,TRUE);
-	}
-
 	LLVOAvatar::updateVisualParams();
+}
+
+/*virtual*/
+void LLVOAvatarSelf::idleUpdateAppearanceAnimation()
+{
+	// Animate all top-level wearable visual parameters
+	gAgentWearables.animateAllWearableParams(calcMorphAmount(), mAppearanceAnimSetByUser);
+
+	// apply wearable visual params to avatar
+	updateVisualParams();
+
+	//allow avatar to process updates
+	LLVOAvatar::idleUpdateAppearanceAnimation();
+
 }
 
 // virtual
@@ -1012,15 +1049,8 @@ const LLViewerJointAttachment *LLVOAvatarSelf::attachObject(LLViewerObject *view
 	if (attachment->isObjectAttached(viewer_object))
 	{
 		const LLUUID& attachment_id = viewer_object->getItemID();
-		LLViewerInventoryItem *item = gInventory.getItem(attachment_id);
-		if (item)
-		{
-			LLAppearanceManager::dumpCat(LLAppearanceManager::getCOF(),"Adding attachment link:");
-			LLAppearanceManager::wearItem(item,false);  // Add COF link for item.
-			gInventory.addChangedMask(LLInventoryObserver::LABEL, attachment_id);
-		}
+		LLAppearanceManager::registerAttachment(attachment_id);
 	}
-	gInventory.notifyObservers();
 
 	return attachment;
 }
@@ -1028,12 +1058,12 @@ const LLViewerJointAttachment *LLVOAvatarSelf::attachObject(LLViewerObject *view
 //virtual
 BOOL LLVOAvatarSelf::detachObject(LLViewerObject *viewer_object)
 {
-	const LLUUID item_id = viewer_object->getItemID();
+	const LLUUID attachment_id = viewer_object->getItemID();
 	if (LLVOAvatar::detachObject(viewer_object))
 	{
 		// the simulator should automatically handle permission revocation
 		
-		stopMotionFromSource(item_id);
+		stopMotionFromSource(attachment_id);
 		LLFollowCamMgr::setCameraActive(viewer_object->getID(), FALSE);
 		
 		LLViewerObject::const_child_list_t& child_list = viewer_object->getChildren();
@@ -1058,13 +1088,9 @@ BOOL LLVOAvatarSelf::detachObject(LLViewerObject *viewer_object)
 		}
 		else
 		{
-			LLAppearanceManager::dumpCat(LLAppearanceManager::getCOF(),"Removing attachment link:");
-			LLAppearanceManager::removeItemLinks(item_id, false);
+			LLAppearanceManager::unregisterAttachment(attachment_id);
 		}
 		
-		// BAP - needs to change for label to track link.
-		gInventory.addChangedMask(LLInventoryObserver::LABEL, item_id);
-		gInventory.notifyObservers();
 		return TRUE;
 	}
 	return FALSE;

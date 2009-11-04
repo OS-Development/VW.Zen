@@ -47,7 +47,9 @@
 #include "llfolderview.h"
 #include "llfoldervieweventlistener.h"
 #include "llinventory.h"
+#include "llinventoryfunctions.h"
 #include "llinventorymodel.h"
+#include "llinventorypanel.h"
 #include "llfloaterinventory.h"
 #include "lllineeditor.h"
 #include "llui.h"
@@ -458,7 +460,7 @@ BOOL LLFloaterTexturePicker::postBuild()
 // virtual
 void LLFloaterTexturePicker::draw()
 {
-	static LLUICachedControl<S32> floater_header_size ("UIFloaterHeaderSize", 0);
+	S32 floater_header_size = getHeaderHeight();
 	if (mOwner)
 	{
 		// draw cone of context pointing back to texture swatch	

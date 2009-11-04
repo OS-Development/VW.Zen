@@ -39,6 +39,7 @@
 #include "llfloaterinventory.h"
 #include "llinventorybridge.h"
 #include "llinventorymodel.h"
+#include "llinventorypanel.h"
 #include "llnotify.h"
 #include "llviewerregion.h"
 #include "llvoavatarself.h"
@@ -1984,6 +1985,17 @@ bool LLAgentWearables::canWearableBeRemoved(const LLWearable* wearable) const
 	return !(((type == WT_SHAPE) || (type == WT_SKIN) || (type == WT_HAIR) || (type == WT_EYES))
 			 && (getWearableCount(type) <= 1) );		  
 }
+void LLAgentWearables::animateAllWearableParams(F32 delta, BOOL set_by_user)
+{
+	for( S32 type = 0; type < WT_COUNT; ++type )
+	{
+		for (S32 count = 0; count < (S32)getWearableCount((EWearableType)type); ++count)
+		{
+			LLWearable *wearable = getWearable((EWearableType)type,count);
+			wearable->animateParams(delta, set_by_user);
+		}
+	}
+}
 
 void LLAgentWearables::updateServer()
 {
@@ -2002,7 +2014,8 @@ void LLInitialWearablesFetch::done()
 	LLFindWearables is_wearable;
 	gInventory.collectDescendentsIf(mCompleteFolders.front(), cat_array, wearable_array, 
 									LLInventoryModel::EXCLUDE_TRASH, is_wearable);
-	
+
+	LLAppearanceManager::setAttachmentInvLinkEnable(true);
 	if (wearable_array.count() > 0)
 	{
 		LLAppearanceManager::instance().updateAppearanceFromCOF();

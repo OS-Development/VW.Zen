@@ -339,7 +339,6 @@ LLFloaterPreference::LLFloaterPreference(const LLSD& key)
 	mCommitCallbackRegistrar.add("Pref.ClickDisablePopup",		boost::bind(&LLFloaterPreference::onClickDisablePopup, this));	
 	mCommitCallbackRegistrar.add("Pref.LogPath",				boost::bind(&LLFloaterPreference::onClickLogPath, this));
 	mCommitCallbackRegistrar.add("Pref.Logging",				boost::bind(&LLFloaterPreference::onCommitLogging, this));
-	mCommitCallbackRegistrar.add("Pref.OpenHelp",				boost::bind(&LLFloaterPreference::onOpenHelp, this));	
 	mCommitCallbackRegistrar.add("Pref.UpdateMeterText",		boost::bind(&LLFloaterPreference::updateMeterText, this, _1));	
 	mCommitCallbackRegistrar.add("Pref.HardwareSettings",       boost::bind(&LLFloaterPreference::onOpenHardwareSettings, this));	
 	mCommitCallbackRegistrar.add("Pref.HardwareDefaults",       boost::bind(&LLFloaterPreference::setHardwareDefaults, this));	
@@ -608,12 +607,6 @@ void LLFloaterPreference::onBtnOK()
 	LLPanelLogin::refreshLocation( false );
 }
 
-void LLFloaterPreference::onOpenHelp()
-{
-	const char* xml_alert = "GraphicsPreferencesHelp";
-	LLNotifications::instance().add(this->contextualNotification(xml_alert));
-}
-
 // static 
 void LLFloaterPreference::onBtnApply( )
 {
@@ -843,10 +836,7 @@ void LLFloaterPreference::refreshEnabledState()
 	bool bumpshiny = gGLManager.mHasCubeMap && LLCubeMap::sUseCubeMaps && LLFeatureManager::getInstance()->isFeatureAvailable("RenderObjectBump");
 	getChild<LLCheckBoxCtrl>("BumpShiny")->setEnabled(bumpshiny ? TRUE : FALSE);
 	
-	for (S32 i = 0; i < radio_reflection_detail->getItemCount(); ++i)
-	{
-		radio_reflection_detail->setIndexEnabled(i, ctrl_reflections->get() && reflections);
-	}
+	radio_reflection_detail->setEnabled(ctrl_reflections->get() && reflections);
 	
 	// Avatar Mode
 	// Enable Avatar Shaders
@@ -880,20 +870,10 @@ void LLFloaterPreference::refreshEnabledState()
 	{
 		mRadioTerrainDetail->setValue(1);
 		mRadioTerrainDetail->setEnabled(FALSE);
-		for (S32 i = 0; i < mRadioTerrainDetail->getItemCount(); ++i)
-		{
-			mRadioTerrainDetail->setIndexEnabled(i, FALSE);
-		}
 	}
 	else
 	{
-		mRadioTerrainDetail->setEnabled(TRUE);
-		
-		for (S32 i = 0; i < mRadioTerrainDetail->getItemCount(); ++i)
-		{
-			mRadioTerrainDetail->setIndexEnabled(i, TRUE);
-		}
-		
+		mRadioTerrainDetail->setEnabled(TRUE);		
 	}
 	
 	// WindLight
@@ -1056,11 +1036,15 @@ void LLFloaterPreference::onClickSetKey()
 void LLFloaterPreference::setKey(KEY key)
 {
 	childSetValue("modifier_combo", LLKeyboard::stringFromKey(key));
+	// update the control right away since we no longer wait for apply
+	getChild<LLUICtrl>("modifier_combo")->onCommit();
 }
 
 void LLFloaterPreference::onClickSetMiddleMouse()
 {
 	childSetValue("modifier_combo", "MiddleMouse");
+	// update the control right away since we no longer wait for apply
+	getChild<LLUICtrl>("modifier_combo")->onCommit();
 }
 
 void LLFloaterPreference::onClickSkipDialogs()

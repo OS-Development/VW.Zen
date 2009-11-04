@@ -223,4 +223,5 @@ const std::string &LLAssetType::badLookup()
 {
 	static const std::string sBadLookup = "llassettype_bad_lookup";
 	return sBadLookup;
+
 }
