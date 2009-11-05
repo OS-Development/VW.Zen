@@ -45,6 +45,7 @@ class LLOutputMonitorCtrl;
  * clicked.
 */
 class LLSpeakButton : public LLUICtrl
+
 {
 public:
 

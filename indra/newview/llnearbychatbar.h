@@ -130,7 +130,7 @@ protected:
 	LLLineEditor*		mChatBox;
 	LLSpeakButton*		mSpeakBtn;
 	LLOutputMonitorCtrl* mOutputMonitor;
-	LLActiveSpeakerMgr  mSpeakerMgr;
+	LLLocalSpeakerMgr*  mSpeakerMgr;
 };
 
 #endif

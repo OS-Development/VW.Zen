@@ -48,7 +48,7 @@
 
 #include "llspeakbutton.h"
 
-static LLDefaultChildRegistry::Register<LLSpeakButton> t1("chiclet_talk");
+static LLDefaultChildRegistry::Register<LLSpeakButton> t1("talk_button");
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
@@ -59,30 +59,7 @@ LLSpeakButton::Params::Params()
  , show_button("show_button")
  , monitor("monitor")
 {
-	// *TODO Vadim: move hardcoded labels (!) and other params to XUI.
-	speak_button.name("left");
-	speak_button.label("Speak");
-	speak_button.label_selected("Speak");
-	speak_button.font(LLFontGL::getFontSansSerifSmall());
-	speak_button.tab_stop(false);
-	speak_button.is_toggle(true);
-	speak_button.picture_style(true);
-	// Use default button art. JC
-	//speak_button.image_selected(LLUI::getUIImage("SegmentedBtn_Left_Selected"));
-	//speak_button.image_unselected(LLUI::getUIImage("SegmentedBtn_Left_Off"));
-
-	show_button.name("right");
-	show_button.label(LLStringUtil::null);
-	show_button.rect(LLRect(0, 0, 20, 0));
-	show_button.tab_stop(false);
-	show_button.is_toggle(true);
-	show_button.picture_style(true);
-	show_button.image_selected(LLUI::getUIImage("ComboButton_Selected"));
-	show_button.image_unselected(LLUI::getUIImage("ComboButton_Off"));
-
-	monitor.name("monitor");
-	// *TODO: Make this data driven.
-	monitor.rect(LLRect(0, 18, 18, 0));
+	// See widgets/talk_button.xml
 }
 
 LLSpeakButton::LLSpeakButton(const Params& p)
@@ -138,6 +115,7 @@ LLSpeakButton::LLSpeakButton(const Params& p)
 
 	// never show "muted" because you can't mute yourself
 	mOutputMonitor->setIsMuted(false);
+	mOutputMonitor->setIsAgentControl(true);
 }
 
 LLSpeakButton::~LLSpeakButton()
