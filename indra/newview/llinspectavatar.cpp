@@ -39,21 +39,23 @@
 #include "llavataractions.h"
 #include "llavatarpropertiesprocessor.h"
 #include "llcallingcard.h"
-#include "lldateutil.h"		// ageFromDate()
 #include "llfloaterreporter.h"
 #include "llfloaterworldmap.h"
+#include "llinspect.h"
 #include "llmutelist.h"
 #include "llpanelblockedlist.h"
+#include "llstartup.h"
 #include "llviewermenu.h"
 #include "llvoiceclient.h"
 
 // Linden libraries
-#include "llcontrol.h"	// LLCachedControl
 #include "llfloater.h"
 #include "llfloaterreg.h"
 #include "llmenubutton.h"
 #include "lltooltip.h"	// positionViewNearMouse()
 #include "lluictrl.h"
+
+#include "llavatariconctrl.h"
 
 class LLFetchAvatarData;
 
@@ -65,7 +67,7 @@ class LLFetchAvatarData;
 // Avatar Inspector, a small information window used when clicking
 // on avatar names in the 2D UI and in the ambient inspector widget for
 // the 3D world.
-class LLInspectAvatar : public LLFloater
+class LLInspectAvatar : public LLInspect
 {
 	friend class LLFloaterReg;
 	
@@ -76,7 +78,6 @@ public:
 	virtual ~LLInspectAvatar();
 	
 	/*virtual*/ BOOL postBuild(void);
-	/*virtual*/ void draw();
 	
 	// Because floater is single instance, need to re-parse data on each spawn
 	// (for example, inspector about same avatar but in different position)
@@ -84,9 +85,6 @@ public:
 
 	// When closing they should close their gear menu 
 	/*virtual*/ void onClose(bool app_quitting);
-	
-	// Inspectors close themselves when they lose focus
-	/*virtual*/ void onFocusLost();
 	
 	// Update view based on information from avatar properties processor
 	void processAvatarData(LLAvatarData* data);
@@ -109,10 +107,12 @@ private:
 	void onClickPay();
 	void onClickBlock();
 	void onClickReport();
+	void onClickFreeze();
+	void onClickEject();
 	void onClickZoomIn();  
 	void onClickFindOnMap();
 	bool onVisibleFindOnMap();
-	bool onVisibleGodMode();
+	bool onVisibleFreezeEject();
 	void onClickMuteVolume();
 	void onVolumeChange(const LLSD& data);
 	
@@ -131,8 +131,6 @@ private:
 	// an in-flight request for avatar properties from LLAvatarPropertiesProcessor
 	// is represented by this object
 	LLFetchAvatarData*	mPropertiesRequest;
-	LLFrameTimer		mCloseTimer;
-	LLFrameTimer		mOpenTimer;
 };
 
 //////////////////////////////////////////////////////////////////////////////
@@ -182,26 +180,30 @@ public:
 };
 
 LLInspectAvatar::LLInspectAvatar(const LLSD& sd)
-:	LLFloater( LLSD() ),	// single_instance, doesn't really need key
+:	LLInspect( LLSD() ),	// single_instance, doesn't really need key
 	mAvatarID(),			// set in onOpen()
 	mPartnerID(),
 	mAvatarName(),
-	mPropertiesRequest(NULL),
-	mCloseTimer()
+	mPropertiesRequest(NULL)
 {
 	mCommitCallbackRegistrar.add("InspectAvatar.ViewProfile",	boost::bind(&LLInspectAvatar::onClickViewProfile, this));	
 	mCommitCallbackRegistrar.add("InspectAvatar.AddFriend",	boost::bind(&LLInspectAvatar::onClickAddFriend, this));	
-	mCommitCallbackRegistrar.add("InspectAvatar.IM",	boost::bind(&LLInspectAvatar::onClickIM, this));	
+	mCommitCallbackRegistrar.add("InspectAvatar.IM",
+		boost::bind(&LLInspectAvatar::onClickIM, this));	
 	mCommitCallbackRegistrar.add("InspectAvatar.Teleport",	boost::bind(&LLInspectAvatar::onClickTeleport, this));	
 	mCommitCallbackRegistrar.add("InspectAvatar.InviteToGroup",	boost::bind(&LLInspectAvatar::onClickInviteToGroup, this));	
 	mCommitCallbackRegistrar.add("InspectAvatar.Pay",	boost::bind(&LLInspectAvatar::onClickPay, this));	
 	mCommitCallbackRegistrar.add("InspectAvatar.Block",	boost::bind(&LLInspectAvatar::onClickBlock, this));	
+	mCommitCallbackRegistrar.add("InspectAvatar.Freeze",
+		boost::bind(&LLInspectAvatar::onClickFreeze, this));	
+	mCommitCallbackRegistrar.add("InspectAvatar.Eject",
+		boost::bind(&LLInspectAvatar::onClickEject, this));	
 	mCommitCallbackRegistrar.add("InspectAvatar.Report",	boost::bind(&LLInspectAvatar::onClickReport, this));	
 	mCommitCallbackRegistrar.add("InspectAvatar.FindOnMap",	boost::bind(&LLInspectAvatar::onClickFindOnMap, this));	
 	mCommitCallbackRegistrar.add("InspectAvatar.ZoomIn", boost::bind(&LLInspectAvatar::onClickZoomIn, this));
 	mVisibleCallbackRegistrar.add("InspectAvatar.VisibleFindOnMap",	boost::bind(&LLInspectAvatar::onVisibleFindOnMap, this));	
-	mVisibleCallbackRegistrar.add("InspectAvatar.VisibleGodMode",	boost::bind(&LLInspectAvatar::onVisibleGodMode, this));	
-
+	mVisibleCallbackRegistrar.add("InspectAvatar.VisibleFreezeEject",	
+		boost::bind(&LLInspectAvatar::onVisibleFreezeEject, this));	
 
 	// can't make the properties request until the widgets are constructed
 	// as it might return immediately, so do it in postBuild.
@@ -233,35 +235,7 @@ BOOL LLInspectAvatar::postBuild(void)
 	return TRUE;
 }
 
-void LLInspectAvatar::draw()
-{
-	static LLCachedControl<F32> FADE_TIME(*LLUI::sSettingGroups["config"], "InspectorFadeTime", 1.f);
-	if (mOpenTimer.getStarted())
-	{
-		F32 alpha = clamp_rescale(mOpenTimer.getElapsedTimeF32(), 0.f, FADE_TIME, 0.f, 1.f);
-		LLViewDrawContext context(alpha);
-		LLFloater::draw();
-		if (alpha == 1.f)
-		{
-			mOpenTimer.stop();
-		}
 
-	}
-	else if (mCloseTimer.getStarted())
-	{
-		F32 alpha = clamp_rescale(mCloseTimer.getElapsedTimeF32(), 0.f, FADE_TIME, 1.f, 0.f);
-		LLViewDrawContext context(alpha);
-		LLFloater::draw();
-		if (mCloseTimer.getElapsedTimeF32() > FADE_TIME)
-		{
-			closeFloater(false);
-		}
-	}
-	else
-	{
-		LLFloater::draw();
-	}
-}
 
 
 // Multiple calls to showInstance("inspect_avatar", foo) will provide different
@@ -269,8 +243,8 @@ void LLInspectAvatar::draw()
 //virtual
 void LLInspectAvatar::onOpen(const LLSD& data)
 {
-	mCloseTimer.stop();
-	mOpenTimer.start();
+	// Start open animation
+	LLInspect::onOpen(data);
 
 	// Extract appropriate avatar id
 	mAvatarID = data["avatar_id"];
@@ -305,26 +279,18 @@ void LLInspectAvatar::onClose(bool app_quitting)
   getChild<LLMenuButton>("gear_btn")->hideMenu();
 }	
 
-//virtual
-void LLInspectAvatar::onFocusLost()
-{
-	// Start closing when we lose focus
-	mCloseTimer.start();
-	mOpenTimer.stop();
-}
-
 void LLInspectAvatar::requestUpdate()
 {
 	// Don't make network requests when spawning from the debug menu at the
 	// login screen (which is useful to work on the layout).
 	if (mAvatarID.isNull())
 	{
-		getChild<LLUICtrl>("user_subtitle")->
-			setValue("Test subtitle");
-		getChild<LLUICtrl>("user_details")->
-			setValue("Test details");
-		getChild<LLUICtrl>("user_partner")->
-			setValue("Test partner");
+		if (LLStartUp::getStartupState() >= STATE_STARTED)
+		{
+			// once we're running we don't want to show the test floater
+			// for bogus LLUUID::null links
+			closeFloater();
+		}
 		return;
 	}
 
@@ -341,13 +307,31 @@ void LLInspectAvatar::requestUpdate()
 	// You can't re-add someone as a friend if they are already your friend
 	bool is_friend = LLAvatarTracker::instance().getBuddyInfo(mAvatarID) != NULL;
 	bool is_self = (mAvatarID == gAgentID);
-	childSetEnabled("add_friend_btn", !is_friend && !is_self);
+	if (is_self)
+	{
+		getChild<LLUICtrl>("add_friend_btn")->setVisible(false);
+		getChild<LLUICtrl>("im_btn")->setVisible(false);
+	}
+	else if (is_friend)
+	{
+		getChild<LLUICtrl>("add_friend_btn")->setVisible(false);
+		getChild<LLUICtrl>("im_btn")->setVisible(true);
+	}
+	else
+	{
+		getChild<LLUICtrl>("add_friend_btn")->setVisible(true);
+		getChild<LLUICtrl>("im_btn")->setVisible(false);
+	}
 
 	// Use an avatar_icon even though the image id will come down with the
 	// avatar properties because the avatar_icon code maintains a cache of icons
 	// and this may result in the image being visible sooner.
 	// *NOTE: This may generate a duplicate avatar properties request, but that
 	// will be suppressed internally in the avatar properties processor.
+	
+	//remove avatar id from cache to get fresh info
+	LLAvatarIconIDCache::getInstance()->remove(mAvatarID);
+
 	childSetValue("avatar_icon", LLSD(mAvatarID) );
 
 	gCacheName->get(mAvatarID, FALSE,
@@ -359,7 +343,7 @@ void LLInspectAvatar::processAvatarData(LLAvatarData* data)
 {
 	LLStringUtil::format_map_t args;
 	args["[BORN_ON]"] = data->born_on;
-	args["[AGE]"] = LLDateUtil::ageFromDate(data->born_on);
+	args["[AGE]"] = data->born_on;
 	args["[SL_PROFILE]"] = data->about_text;
 	args["[RW_PROFILE"] = data->fl_about_text;
 	args["[ACCTTYPE]"] = LLAvatarPropertiesProcessor::accountType(data);
@@ -476,13 +460,13 @@ void LLInspectAvatar::nameUpdatedCallback(
 void LLInspectAvatar::onClickAddFriend()
 {
 	LLAvatarActions::requestFriendshipDialog(mAvatarID, mAvatarName);
+	closeFloater();
 }
 
 void LLInspectAvatar::onClickViewProfile()
 {
-	// hide inspector when showing profile
-	setFocus(FALSE);
 	LLAvatarActions::showProfile(mAvatarID);
+	closeFloater();
 }
 
 bool LLInspectAvatar::onVisibleFindOnMap()
@@ -490,29 +474,33 @@ bool LLInspectAvatar::onVisibleFindOnMap()
 	return gAgent.isGodlike() || is_agent_mappable(mAvatarID);
 }
 
-bool LLInspectAvatar::onVisibleGodMode()
+bool LLInspectAvatar::onVisibleFreezeEject()
 {
-	return gAgent.isGodlike();
+	return enable_freeze_eject( LLSD(mAvatarID) );
 }
 
 void LLInspectAvatar::onClickIM()
 { 
 	LLAvatarActions::startIM(mAvatarID);
+	closeFloater();
 }
 
 void LLInspectAvatar::onClickTeleport()
 {
 	LLAvatarActions::offerTeleport(mAvatarID);
+	closeFloater();
 }
 
 void LLInspectAvatar::onClickInviteToGroup()
 {
 	LLAvatarActions::inviteToGroup(mAvatarID);
+	closeFloater();
 }
 
 void LLInspectAvatar::onClickPay()
 {
 	LLAvatarActions::pay(mAvatarID);
+	closeFloater();
 }
 
 void LLInspectAvatar::onClickBlock()
@@ -520,11 +508,25 @@ void LLInspectAvatar::onClickBlock()
 	LLMute mute(mAvatarID, mAvatarName, LLMute::AGENT);
 	LLMuteList::getInstance()->add(mute);
 	LLPanelBlockedList::showPanelAndSelect(mute.mID);
+	closeFloater();
 }
 
 void LLInspectAvatar::onClickReport()
 {
 	LLFloaterReporter::showFromObject(mAvatarID);
+	closeFloater();
+}
+
+void LLInspectAvatar::onClickFreeze()
+{
+	handle_avatar_freeze( LLSD(mAvatarID) );
+	closeFloater();
+}
+
+void LLInspectAvatar::onClickEject()
+{
+	handle_avatar_eject( LLSD(mAvatarID) );
+	closeFloater();
 }
 
 void LLInspectAvatar::onClickZoomIn() 

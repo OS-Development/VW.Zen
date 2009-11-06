@@ -43,6 +43,7 @@
 // newview
 #include "llagent.h"
 #include "llgroupactions.h"
+#include "llfloaterreg.h"
 #include "llviewercontrol.h"	// for gSavedSettings
 
 static LLDefaultChildRegistry::Register<LLGroupList> r("group_list");
@@ -231,6 +232,8 @@ BOOL  LLGroupListItem::postBuild()
 	mInfoBtn = getChild<LLButton>("info_btn");
 	mInfoBtn->setClickedCallback(boost::bind(&LLGroupListItem::onInfoBtnClick, this));
 
+	childSetAction("profile_btn", boost::bind(&LLGroupListItem::onProfileBtnClick, this));
+
 	return TRUE;
 }
 
@@ -315,12 +318,18 @@ void LLGroupListItem::setActive(bool active)
 	// rebuild the text.  This will cause problems if the text contains
 	// hyperlinks, as their styles will be wrong.
 	std::string text = mGroupNameBox->getText();
-	mGroupNameBox->clear();
+	mGroupNameBox->setText(LLStringUtil::null);
 	mGroupNameBox->appendText(text, false, style_params);
 }
 
 void LLGroupListItem::onInfoBtnClick()
 {
+	LLFloaterReg::showInstance("inspect_group", LLSD().insert("group_id", mGroupID));
+}
+
+void LLGroupListItem::onProfileBtnClick()
+{
 	LLGroupActions::show(mGroupID);
 }
+
 //EOF

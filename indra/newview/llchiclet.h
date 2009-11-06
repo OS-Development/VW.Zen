@@ -278,6 +278,14 @@ public:
 		TYPE_GROUP,
 		TYPE_AD_HOC
 	};
+	struct Params : public LLInitParam::Block<Params, LLChiclet::Params>
+	{
+		Optional<std::string> new_messages_icon_name;
+
+		Params() : new_messages_icon_name("new_messages_icon_name", "icn_voice-localchat.tga")
+		{}
+	};
+
 	
 	/*virtual*/ ~LLIMChiclet() {};
 
@@ -308,6 +316,16 @@ public:
 	virtual bool getShowSpeaker() {return mShowSpeaker;};
 
 	/*
+	* Shows/hides overlay icon concerning new unread messages.
+	*/
+	virtual void setShowNewMessagesIcon(bool show);
+
+	/*
+	* Returns visibility of overlay icon concerning new unread messages.
+	*/
+	virtual bool getShowNewMessagesIcon();
+
+	/*
 	 * Draws border around chiclet.
 	*/
 	/*virtual*/ void draw();
@@ -335,13 +353,16 @@ public:
 
 protected:
 
-	LLIMChiclet(const LLChiclet::Params& p);
+	LLIMChiclet(const LLIMChiclet::Params& p);
 
 	/*virtual*/ BOOL handleMouseDown(S32 x, S32 y, MASK mask);
 
 protected:
 
 	bool mShowSpeaker;
+
+	LLIconCtrl* mNewMessagesIcon;
+	LLChicletNotificationCounterCtrl* mCounterCtrl;
 
 	/** the id of another participant, either an avatar id or a group id*/
 	LLUUID mOtherParticipantId;
@@ -374,7 +395,7 @@ public:
 class LLIMP2PChiclet : public LLIMChiclet
 {
 public:
-	struct Params : public LLInitParam::Block<Params, LLChiclet::Params>
+	struct Params : public LLInitParam::Block<Params, LLIMChiclet::Params>
 	{
 		Optional<LLChicletAvatarIconCtrl::Params> avatar_icon;
 
@@ -436,7 +457,66 @@ protected:
 private:
 
 	LLChicletAvatarIconCtrl* mChicletIconCtrl;
-	LLChicletNotificationCounterCtrl* mCounterCtrl;
+	LLChicletSpeakerCtrl* mSpeakerCtrl;
+	LLMenuGL* mPopupMenu;
+};
+
+/**
+ * Implements AD-HOC chiclet.
+ */
+class LLAdHocChiclet : public LLIMChiclet
+{
+public:
+	struct Params : public LLInitParam::Block<Params, LLIMChiclet::Params>
+	{
+		Optional<LLChicletAvatarIconCtrl::Params> avatar_icon;
+
+		Optional<LLChicletNotificationCounterCtrl::Params> unread_notifications;
+
+		Optional<LLChicletSpeakerCtrl::Params> speaker;
+
+		Optional<bool>	show_speaker;
+
+		Optional<LLColor4>	avatar_icon_color;
+
+		Params();
+	};
+
+	/**
+	 * Sets session id.
+	 * Session ID for group chat is actually Group ID.
+	 */
+	/*virtual*/ void setSessionId(const LLUUID& session_id);
+
+	/*
+	* Sets number of unread messages. Will update chiclet's width if number text 
+	* exceeds size of counter and notify it's parent about size change.
+	*/
+	/*virtual*/ void setCounter(S32);
+
+	/*
+	* Returns number of unread messages.
+	*/
+	/*virtual*/ S32 getCounter() { return mCounterCtrl->getCounter(); }
+
+	/*
+	* Returns rect, required to display chiclet.
+	* Width is the only valid value.
+	*/
+	/*virtual*/ LLRect getRequiredRect();
+
+protected:
+	LLAdHocChiclet(const Params& p);
+	friend class LLUICtrlFactory;
+
+	/*
+	* Displays popup menu.
+	*/
+	virtual BOOL handleRightMouseDown(S32 x, S32 y, MASK mask);
+
+private:
+
+	LLChicletAvatarIconCtrl* mChicletIconCtrl;
 	LLChicletSpeakerCtrl* mSpeakerCtrl;
 	LLMenuGL* mPopupMenu;
 };
@@ -448,7 +528,7 @@ class LLIMGroupChiclet : public LLIMChiclet, public LLGroupMgrObserver
 {
 public:
 
-	struct Params : public LLInitParam::Block<Params, LLChiclet::Params>
+	struct Params : public LLInitParam::Block<Params, LLIMChiclet::Params>
 	{
 		Optional<LLChicletGroupIconCtrl::Params> group_icon;
 
@@ -517,7 +597,6 @@ protected:
 private:
 
 	LLChicletGroupIconCtrl* mChicletIconCtrl;
-	LLChicletNotificationCounterCtrl* mCounterCtrl;
 	LLChicletSpeakerCtrl* mSpeakerCtrl;
 	LLMenuGL* mPopupMenu;
 };
@@ -549,10 +628,9 @@ public:
 
 	/*virtual*/ ~ LLNotificationChiclet();
 
-	// methods for updating a number of unread System or IM notifications
-	void incUreadSystemNotifications() { setCounter(++mUreadSystemNotifications + mUreadIMNotifications); }
-	void decUreadSystemNotifications() { setCounter(--mUreadSystemNotifications + mUreadIMNotifications); }
-	void updateUreadIMNotifications();
+	// methods for updating a number of unread System notifications
+	void incUreadSystemNotifications() { setCounter(++mUreadSystemNotifications); }
+	void decUreadSystemNotifications() { setCounter(--mUreadSystemNotifications); }
 	void setToggleState(BOOL toggled);
 
 protected:
@@ -563,7 +641,6 @@ protected:
 	friend class LLUICtrlFactory;
 
 	static S32 mUreadSystemNotifications;
-	static S32 mUreadIMNotifications;
 
 protected:
 	LLButton* mButton;
@@ -594,9 +671,14 @@ public:
 	virtual ~LLChicletPanel();
 
 	/*
-	 * Creates chiclet and adds it to chiclet list.
+	 * Creates chiclet and adds it to chiclet list at specified index.
 	*/
-	template<class T> T* createChiclet(const LLUUID& session_id = LLUUID::null, S32 index = 0);
+	template<class T> T* createChiclet(const LLUUID& session_id, S32 index);
+
+	/*
+	 * Creates chiclet and adds it to chiclet list at right.
+	*/
+	template<class T> T* createChiclet(const LLUUID& session_id);
 
 	/*
 	 * Returns pointer to chiclet of specified type at specified index.
@@ -660,9 +742,13 @@ public:
 
 	/*virtual*/ void draw();
 
+	S32 getMinWidth() const { return mMinWidth; }
+
 protected:
 	LLChicletPanel(const Params&p);
 	friend class LLUICtrlFactory;
+
+	S32 calcChickletPanleWidth();
 
 	/*
 	 * Adds chiclet to list and rearranges all chiclets.
@@ -752,6 +838,8 @@ protected:
 
 	S32 getScrollingOffset() { return mScrollingOffset; }
 
+	bool isAnyIMFloaterDoked();
+
 protected:
 
 	chiclet_list_t mChicletList;
@@ -765,44 +853,8 @@ protected:
 	bool mShowControls;
 };
 
-/*
- * Button displaying voice chat status. Displays voice chat options When clicked.
-*/
-class LLTalkButton : public LLUICtrl
-{
-public:
-
-	struct Params :	public LLInitParam::Block<Params, LLUICtrl::Params>
-	{
-		Optional<LLButton::Params>	speak_button,
-									show_button;
-
-		Optional<LLOutputMonitorCtrl::Params> monitor;
-
-		Params();
-	};
-
-	/*virtual*/ ~LLTalkButton();
-
-	void setSpeakBtnToggleState(bool state);
-
-protected:
-	friend class LLUICtrlFactory;
-	LLTalkButton(const Params& p);
-
-	void onClick_SpeakBtn();
-
-	void onClick_ShowBtn();
-
-private:
-	LLButton*	mSpeakBtn;
-	LLButton*	mShowBtn;
-	LLVoiceControlPanel* mPrivateCallPanel;
-	LLOutputMonitorCtrl* mOutputMonitor;
-};
-
 template<class T> 
-T* LLChicletPanel::createChiclet(const LLUUID& session_id /*= LLUUID::null*/, S32 index /*= 0*/)
+T* LLChicletPanel::createChiclet(const LLUUID& session_id, S32 index)
 {
 	typename T::Params params;
 	T* chiclet = LLUICtrlFactory::create<T>(params);
@@ -818,11 +870,20 @@ T* LLChicletPanel::createChiclet(const LLUUID& session_id /*= LLUUID::null*/, S3
 		return NULL;
 	}
 
-	scrollToChiclet(chiclet);
+	if (!isAnyIMFloaterDoked())
+	{
+		scrollToChiclet(chiclet);
+	}
 
 	chiclet->setSessionId(session_id);
 
 	return chiclet;
+}
+
+template<class T>
+T* LLChicletPanel::createChiclet(const LLUUID& session_id)
+{
+	return createChiclet<T>(session_id, mChicletList.size());
 }
 
 template<class T>

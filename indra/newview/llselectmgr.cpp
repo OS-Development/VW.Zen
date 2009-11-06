@@ -545,7 +545,7 @@ BOOL LLSelectMgr::removeObjectFromSelections(const LLUUID &id)
 				object_found = TRUE;
 				break; // must break here, may have removed multiple objects from list
 			}
-			else if (object->isAvatar())
+			else if (object->isAvatar() && object->getParent() && ((LLViewerObject*)object->getParent())->mID == id)
 			{
 				// It's possible the item being removed has an avatar sitting on it
 				// So remove the avatar that is sitting on the object.
@@ -801,6 +801,8 @@ LLObjectSelectionHandle LLSelectMgr::setHoverObject(LLViewerObject *objectp, S32
 		return NULL;
 	}
 
+	mHoverObjects->mPrimaryObject = objectp; 
+
 	objectp = objectp->getRootEdit();
 
 	// is the requested object the same as the existing hover object root?
@@ -832,6 +834,11 @@ LLObjectSelectionHandle LLSelectMgr::setHoverObject(LLViewerObject *objectp, S32
 LLSelectNode *LLSelectMgr::getHoverNode()
 {
 	return mHoverObjects->getFirstRootNode();
+}
+
+LLSelectNode *LLSelectMgr::getPrimaryHoverNode()
+{
+	return mHoverObjects->mSelectNodeMap[mHoverObjects->mPrimaryObject];
 }
 
 void LLSelectMgr::highlightObjectOnly(LLViewerObject* objectp)
@@ -1441,7 +1448,7 @@ void LLSelectMgr::selectionSetImage(const LLUUID& imageid)
 				// Texture picker defaults aren't inventory items
 				// * Don't need to worry about permissions for them
 				// * Can just apply the texture and be done with it.
-				objectp->setTEImage(te, LLViewerTextureManager::getFetchedTexture(mImageID, TRUE, FALSE, LLViewerTexture::LOD_TEXTURE));
+				objectp->setTEImage(te, LLViewerTextureManager::getFetchedTexture(mImageID, TRUE, LLViewerTexture::BOOST_NONE, LLViewerTexture::LOD_TEXTURE));
 			}
 			return true;
 		}
@@ -1597,7 +1604,7 @@ BOOL LLSelectMgr::selectionRevertTextures()
 					}
 					else
 					{
-						object->setTEImage(te, LLViewerTextureManager::getFetchedTexture(id, TRUE, FALSE, LLViewerTexture::LOD_TEXTURE));
+						object->setTEImage(te, LLViewerTextureManager::getFetchedTexture(id, TRUE, LLViewerTexture::BOOST_NONE, LLViewerTexture::LOD_TEXTURE));
 					}
 				}
 			}
@@ -2460,8 +2467,7 @@ BOOL LLSelectMgr::selectGetOwner(LLUUID& result_id, std::string& name)
 		BOOL public_owner = (first_id.isNull() && !first_group_owned);
 		if (first_group_owned)
 		{
-			// *TODO: We don't have group inspectors yet
-			name = LLSLURL::buildCommand("group", first_id, "about");
+			name = LLSLURL::buildCommand("group", first_id, "inspect");
 		}
 		else if(!public_owner)
 		{
@@ -2821,7 +2827,7 @@ bool LLSelectMgr::confirmDelete(const LLSD& notification, const LLSD& response, 
 	case 0:
 		{
 			// TODO: Make sure you have delete permissions on all of them.
-			LLUUID trash_id = gInventory.findCategoryUUIDForType(LLAssetType::AT_TRASH);
+			const LLUUID trash_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_TRASH);
 			// attempt to derez into the trash.
 			LLDeRezInfo* info = new LLDeRezInfo(DRD_TRASH, trash_id);
 			LLSelectMgr::getInstance()->sendListToRegions("DeRezObject",
@@ -3400,7 +3406,7 @@ void LLSelectMgr::deselectAll()
 	{
 		return;
 	}
-
+		
 	// Zap the angular velocity, as the sim will set it to zero
 	for (LLObjectSelection::iterator iter = mSelectedObjects->begin();
 		 iter != mSelectedObjects->end(); iter++ )
@@ -3490,6 +3496,7 @@ void LLSelectMgr::deselectAllIfTooFar()
 	LLVector3d selectionCenter = getSelectionCenterGlobal();
 	if (gSavedSettings.getBOOL("LimitSelectDistance")
 		&& (!mSelectedObjects->getPrimaryObject() || !mSelectedObjects->getPrimaryObject()->isAvatar())
+		&& (mSelectedObjects->getPrimaryObject() != LLViewerMediaFocus::getInstance()->getFocusedObject())
 		&& !mSelectedObjects->isAttachment()
 		&& !selectionCenter.isExactlyZero())
 	{
@@ -3590,6 +3597,9 @@ void LLSelectMgr::sendAttach(U8 attachment_point)
 		return;
 	}
 
+#if ENABLE_MULTIATTACHMENTS
+	attachment_point |= ATTACHMENT_ADD;
+#endif
 	BOOL build_mode = LLToolMgr::getInstance()->inEdit();
 	// Special case: Attach to default location for this object.
 	if (0 == attachment_point ||
@@ -4595,7 +4605,7 @@ void LLSelectMgr::updateSilhouettes()
 
 	if (!mSilhouetteImagep)
 	{
-		mSilhouetteImagep = LLViewerTextureManager::getFetchedTextureFromFile("silhouette.j2c", TRUE, TRUE);
+		mSilhouetteImagep = LLViewerTextureManager::getFetchedTextureFromFile("silhouette.j2c", TRUE, LLViewerTexture::BOOST_UI);
 	}
 
 	mHighlightedObjects->cleanupNodes();
@@ -4903,7 +4913,7 @@ void LLSelectMgr::renderSilhouettes(BOOL for_hud)
 		{
 			inspect_item_id = inspect_instance->getSelectedUUID();
 		}
-		LLUUID focus_item_id = LLViewerMediaFocus::getInstance()->getSelectedUUID();
+		LLUUID focus_item_id = LLViewerMediaFocus::getInstance()->getFocusedObjectID();
 		for (S32 pass = 0; pass < 2; pass++)
 		{
 			for (LLObjectSelection::iterator iter = mSelectedObjects->begin();

@@ -45,10 +45,12 @@
 #include "llcallingcard.h"
 #include "llcombobox.h"
 #include "llviewercontrol.h"
+#include "llcommandhandler.h"
 #include "lldraghandle.h"
 #include "llfirstuse.h"
 #include "llfloaterreg.h"		// getTypedInstance()
 #include "llfocusmgr.h"
+#include "llinventorymodel.h"
 #include "lllandmarklist.h"
 #include "lllineeditor.h"
 #include "llregionhandle.h"
@@ -57,7 +59,7 @@
 #include "lltabcontainer.h"
 #include "lltextbox.h"
 #include "lltracker.h"
-#include "llinventorymodel.h"
+#include "lltrans.h"
 #include "llviewerinventory.h"	// LLViewerInventoryItem
 #include "llviewermenu.h"
 #include "llviewerregion.h"
@@ -94,6 +96,35 @@ static const F32 SIM_COORD_DEFAULT = 128.f;
 //---------------------------------------------------------------------------
 // Globals
 //---------------------------------------------------------------------------
+
+// handle secondlife:///app/worldmap/{NAME}/{COORDS} URLs
+class LLWorldMapHandler : public LLCommandHandler
+{
+public:
+	// requires trusted browser to trigger
+	LLWorldMapHandler() : LLCommandHandler("worldmap", UNTRUSTED_THROTTLE) { }
+
+	bool handle(const LLSD& params, const LLSD& query_map,
+				LLMediaCtrl* web)
+	{
+		if (params.size() == 0)
+		{
+			return false;
+		}
+
+		const std::string region_name = params[0].asString();
+		S32 x = (params.size() > 1) ? params[1].asInteger() : 128;
+		S32 y = (params.size() > 2) ? params[2].asInteger() : 128;
+		S32 z = (params.size() > 3) ? params[3].asInteger() : 0;
+
+		LLFloaterWorldMap::getInstance()->trackURL(region_name, x, y, z);
+		LLFloaterReg::showInstance("world_map", "center");
+
+		return true;
+	}
+};
+LLWorldMapHandler gWorldMapHandler;
+
 
 LLFloaterWorldMap* gFloaterWorldMap = NULL;
 
@@ -151,7 +182,6 @@ LLFloaterWorldMap::LLFloaterWorldMap(const LLSD& key)
 	mFriendObserver(NULL),
 	mCompletingRegionName(""),
 	mWaitingForTracker(FALSE),
-	mExactMatch(FALSE),
 	mIsClosing(FALSE),
 	mSetToUserPosition(TRUE),
 	mTrackedLocation(0,0,0),
@@ -297,7 +327,7 @@ void LLFloaterWorldMap::onOpen(const LLSD& key)
 		LLFirstUse::useMap();
 
 		// Start speculative download of landmarks
-		LLUUID landmark_folder_id = gInventory.findCategoryUUIDForType(LLAssetType::AT_LANDMARK);
+		const LLUUID landmark_folder_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_LANDMARK);
 		gInventory.startBackgroundFetch(landmark_folder_id);
 
 		childSetFocus("location", TRUE);
@@ -427,7 +457,7 @@ void LLFloaterWorldMap::draw()
 		{
 			F64 seconds = LLTimer::getElapsedSeconds();
 			double value = fmod(seconds, 2);
-			value = 0.5 + 0.5*cos(value * 3.14159f);
+			value = 0.5 + 0.5*cos(value * F_PI);
 			LLColor4 loading_color(0.0, F32(value/2), F32(value), 1.0);
 			childSetColor("location_icon", loading_color);
 		}
@@ -903,7 +933,6 @@ void LLFloaterWorldMap::clearLocationSelection(BOOL clear_ui)
 	}
 	LLWorldMap::getInstance()->mIsTrackingCommit = FALSE;
 	mCompletingRegionName = "";
-	mExactMatch = FALSE;
 }
 
 
@@ -1163,7 +1192,6 @@ void LLFloaterWorldMap::onLocationCommit()
 	LLStringUtil::toLower(str);
 	mCompletingRegionName = str;
 	LLWorldMap::getInstance()->mIsTrackingCommit = TRUE;
-	mExactMatch = FALSE;
 	if (str.length() >= 3)
 	{
 		LLWorldMap::getInstance()->sendNamedRegionRequest(str);
@@ -1418,11 +1446,10 @@ void LLFloaterWorldMap::updateSims(bool found_null_sim)
 	LLScrollListCtrl *list = getChild<LLScrollListCtrl>("search_results");
 	list->operateOnAll(LLCtrlListInterface::OP_DELETE);
 
-	LLSD selected_value = list->getSelectedValue();
-
 	S32 name_length = mCompletingRegionName.length();
 
-	BOOL match_found = FALSE;
+	LLSD match;
+	
 	S32 num_results = 0;
 	std::map<U64, LLSimInfo*>::const_iterator it;
 	for (it = LLWorldMap::getInstance()->mSimInfoMap.begin(); it != LLWorldMap::getInstance()->mSimInfoMap.end(); ++it)
@@ -1434,15 +1461,11 @@ void LLFloaterWorldMap::updateSims(bool found_null_sim)
 
 		if (sim_name_lower.substr(0, name_length) == mCompletingRegionName)
 		{
-			if (LLWorldMap::getInstance()->mIsTrackingCommit)
+			if (sim_name_lower == mCompletingRegionName)
 			{
-				if (sim_name_lower == mCompletingRegionName)
-				{
-					selected_value = sim_name;
-					match_found = TRUE;
-				}
+				match = sim_name;
 			}
-
+			
 			LLSD value;
 			value["id"] = sim_name;
 			value["columns"][0]["column"] = "sim_name";
@@ -1451,29 +1474,24 @@ void LLFloaterWorldMap::updateSims(bool found_null_sim)
 			num_results++;
 		}
 	}
-	
-	list->selectByValue(selected_value);
 
 	if (found_null_sim)
 	{
 		mCompletingRegionName = "";
 	}
 
-	if (match_found)
+	// if match found, highlight it and go
+	if (!match.isUndefined())
 	{
-		mExactMatch = TRUE;
+		list->selectByValue(match);
 		childSetFocus("search_results");
 		onCommitSearchResult();
 	}
-	else if (!mExactMatch && num_results > 0)
+
+	// if we found nothing, say "none"
+	if (num_results == 0)
 	{
-		list->selectFirstItem(); // select first item by default
-		childSetFocus("search_results");
-		onCommitSearchResult();
-	}
-	else if (num_results == 0)
-	{
-		list->setCommentText(std::string("None found."));
+		list->setCommentText(LLTrans::getString("worldmap_results_none_found"));
 		list->operateOnAll(LLCtrlListInterface::OP_DESELECT);
 	}
 }

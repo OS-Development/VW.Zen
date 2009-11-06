@@ -41,17 +41,32 @@
 using namespace LLNotificationsUI;
 
 //--------------------------------------------------------------------------
-LLToast::LLToast(LLToast::Params p) :	LLModalDialog(LLSD(), p.is_modal),
-										mPanel(p.panel), 
-										mTimerValue(p.timer_period),  
-										mNotificationID(p.notif_id),  
-										mSessionID(p.session_id),
-										mCanFade(p.can_fade),
-										mCanBeStored(p.can_be_stored),
-										mHideBtnEnabled(p.enable_hide_btn),
-										mHideBtn(NULL),
-										mNotification(p.notification),
-										mHideBtnPressed(false)
+LLToast::Params::Params() 
+:	can_fade("can_fade", true),
+	can_be_stored("can_be_stored", true),
+	is_modal("is_modal", false),
+	is_tip("is_tip", false),
+	enable_hide_btn("enable_hide_btn", true),
+	force_show("force_show", false),
+	force_store("force_store", false),
+	fading_time_secs("fading_time_secs", gSavedSettings.getS32("ToastFadingTime")),
+	lifetime_secs("lifetime_secs", gSavedSettings.getS32("NotificationToastLifeTime"))
+{};
+
+LLToast::LLToast(const LLToast::Params& p) 
+:	LLModalDialog(LLSD(), p.is_modal),
+	mPanel(p.panel), 
+	mToastLifetime(p.lifetime_secs),
+	mToastFadingTime(p.fading_time_secs),
+	mNotificationID(p.notif_id),  
+	mSessionID(p.session_id),
+	mCanFade(p.can_fade),
+	mCanBeStored(p.can_be_stored),
+	mHideBtnEnabled(p.enable_hide_btn),
+	mHideBtn(NULL),
+	mNotification(p.notification),
+	mIsHidden(false),
+	mHideBtnPressed(false)
 {
 	LLUICtrlFactory::getInstance()->buildFloater(this, "panel_toast.xml", NULL);
 
@@ -67,11 +82,11 @@ LLToast::LLToast(LLToast::Params p) :	LLModalDialog(LLSD(), p.is_modal),
 	}
 
 	// init callbacks if present
-	if(!p.on_delete_toast.empty())
-		mOnDeleteToastSignal.connect(p.on_delete_toast);
+	if(!p.on_delete_toast().empty())
+		mOnDeleteToastSignal.connect(p.on_delete_toast());
 
-	if(!p.on_mouse_enter.empty())
-		mOnMouseEnterSignal.connect(p.on_mouse_enter);
+	if(!p.on_mouse_enter().empty())
+		mOnMouseEnterSignal.connect(p.on_mouse_enter());
 }
 
 //--------------------------------------------------------------------------
@@ -103,22 +118,22 @@ void LLToast::setAndStartTimer(F32 period)
 {
 	if(mCanFade)
 	{
-		mTimerValue = period;
+		mToastLifetime = period;
 		mTimer.start();
 	}
 }
 
 //--------------------------------------------------------------------------
-bool LLToast::timerHasExpired()
+bool LLToast::lifetimeHasExpired()
 {
 	if (mTimer.getStarted())
 	{
 		F32 elapsed_time = mTimer.getElapsedTimeF32();
-		if (elapsed_time > gSavedSettings.getS32("ToastOpaqueTime")) 
+		if ((mToastLifetime - elapsed_time) <= mToastFadingTime) 
 		{
 			setBackgroundOpaque(FALSE);
 		}
-		if (elapsed_time > mTimerValue) 
+		if (elapsed_time > mToastLifetime) 
 		{
 			return true;
 		}
@@ -131,7 +146,8 @@ void LLToast::hide()
 {
 	setVisible(FALSE);
 	mTimer.stop();
-	mOnFadeSignal(this);
+	mIsHidden = true;
+	mOnFadeSignal(this); 
 }
 
 //--------------------------------------------------------------------------
@@ -147,9 +163,7 @@ void LLToast::tick()
 {
 	if(mCanFade)
 	{
-		setVisible(FALSE);
-		mTimer.stop();
-		mOnFadeSignal(this); 
+		hide();
 	}
 }
 
@@ -183,7 +197,7 @@ void LLToast::insertPanel(LLPanel* panel)
 //--------------------------------------------------------------------------
 void LLToast::draw()
 {
-	if(timerHasExpired())
+	if(lifetimeHasExpired())
 	{
 		tick();
 	}
@@ -194,6 +208,16 @@ void LLToast::draw()
 //--------------------------------------------------------------------------
 void LLToast::setVisible(BOOL show)
 {
+	if(mIsHidden)
+	{
+		// this toast is invisible after fade until its ScreenChannel will allow it
+		//
+		// (EXT-1849) according to this bug a toast can be resurrected from
+		// invisible state if it faded during a teleportation
+		// then it fades a second time and causes a crash
+		return;
+	}
+
 	if(show)
 	{
 		setBackgroundOpaque(TRUE);

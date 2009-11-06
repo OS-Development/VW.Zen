@@ -34,6 +34,7 @@
 #define LL_LLINVENTORYMODEL_H
 
 #include "llassettype.h"
+#include "llfoldertype.h"
 #include "lldarray.h"
 #include "llframetimer.h"
 #include "llhttpclient.h"
@@ -112,7 +113,9 @@ public:
 	// construction & destruction
 	LLInventoryModel();
 	~LLInventoryModel();
-
+	
+	void cleanupInventory();
+	
 	class fetchInventoryResponder : public LLHTTPClient::Responder
 	{
 	public:
@@ -190,10 +193,13 @@ public:
 
 	// Collect all items in inventory that are linked to item_id.
 	// Assumes item_id is itself not a linked item.
-	void collectLinkedItems(const LLUUID& item_id,
-							item_array_t& items);
-	// Updates all linked objects pointing to this id.
-	void updateLinkedObjects(const LLUUID& object_id);
+	item_array_t collectLinkedItems(const LLUUID& item_id,
+									const LLUUID& start_folder_id = LLUUID::null);
+	// Updates all linked items pointing to this id.
+	void updateLinkedItems(const LLUUID& object_id);
+
+	// Get the inventoryID that this item points to, else just return item_id
+	const LLUUID& getLinkedItemID(const LLUUID& object_id) const;
 
 	// The inventory model usage is sensitive to the initial construction of the 
 	// model. 
@@ -275,7 +281,7 @@ public:
 
 	// SDK: Added flag to specify whether the folder should be created if not found.  This fixes the horrible
 	// multiple trash can bug.
-	LLUUID findCategoryUUIDForType(LLAssetType::EType preferred_type, bool create_folder = true);
+	const LLUUID findCategoryUUIDForType(LLFolderType::EType preferred_type, bool create_folder = true);
 
 	// Call this method when it's time to update everyone on a new
 	// state, by default, the inventory model will not update
@@ -324,15 +330,13 @@ public:
 	// category. If you want to use the default name based on type,
 	// pass in a NULL to the 'name parameter.
 	LLUUID createNewCategory(const LLUUID& parent_id,
-							 LLAssetType::EType preferred_type,
+							 LLFolderType::EType preferred_type,
 							 const std::string& name);
 
 	// methods to load up inventory skeleton & meat. These are used
 	// during authentication. return true if everything parsed.
-	typedef std::map<std::string, std::string> response_t;
-	typedef std::vector<response_t> options_t;
-	bool loadSkeleton(const options_t& options, const LLUUID& owner_id);
-	bool loadMeat(const options_t& options, const LLUUID& owner_id);
+	bool loadSkeleton(const LLSD& options, const LLUUID& owner_id);
+	bool loadMeat(const LLSD& options, const LLUUID& owner_id);
 
 	// This is a brute force method to rebuild the entire parent-child
 	// relations.
@@ -382,9 +386,9 @@ public:
 	bool isCategoryComplete(const LLUUID& cat_id) const;
 	
 	// callbacks
-	// Trigger a notification and empty the folder type (AT_TRASH or AT_LOST_AND_FOUND) if confirmed
-	void emptyFolderType(const std::string notification, LLAssetType::EType folder_type);
-	bool callbackEmptyFolderType(const LLSD& notification, const LLSD& response, LLAssetType::EType folder_type);
+	// Trigger a notification and empty the folder type (FT_TRASH or FT_LOST_AND_FOUND) if confirmed
+	void emptyFolderType(const std::string notification, LLFolderType::EType folder_type);
+	bool callbackEmptyFolderType(const LLSD& notification, const LLSD& response, LLFolderType::EType preferred_type);
 
 	// Utility Functions
 	void removeItem(const LLUUID& item_id);
@@ -428,7 +432,7 @@ protected:
 	// 
 	// Internal method which looks for a category with the specified
 	// preferred type. Returns LLUUID::null if not found
- 	const LLUUID &findCatUUID(LLAssetType::EType preferred_type) const;
+ 	const LLUUID &findCatUUID(LLFolderType::EType preferred_type) const;
 
 	// Empty the entire contents
 	void empty();

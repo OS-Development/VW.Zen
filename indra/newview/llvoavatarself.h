@@ -57,6 +57,7 @@ public:
 	virtual void			markDead();
 	virtual void 		initInstance(); // Called after construction to initialize the class.
 protected:
+	/*virtual*/ BOOL		loadAvatar();
 	BOOL					loadAvatarSelf();
 	BOOL					buildSkeletonSelf(const LLVOAvatarSkeletonInfo *info);
 	BOOL					buildMenus();
@@ -84,6 +85,17 @@ public:
 	/*virtual*/ void 		stopMotionFromSource(const LLUUID& source_id);
 	/*virtual*/ void 		requestStopMotion(LLMotion* motion);
 	/*virtual*/ LLJoint*	getJoint(const std::string &name);
+
+	/*virtual*/ BOOL setVisualParamWeight(LLVisualParam *which_param, F32 weight, BOOL set_by_user = FALSE );
+	/*virtual*/ BOOL setVisualParamWeight(const char* param_name, F32 weight, BOOL set_by_user = FALSE );
+	/*virtual*/ BOOL setVisualParamWeight(S32 index, F32 weight, BOOL set_by_user = FALSE );
+	/*virtual*/ void updateVisualParams();
+	/*virtual*/ void idleUpdateAppearanceAnimation();
+
+private:
+	// helper function. Passed in param is assumed to be in avatar's parameter list.
+	BOOL setParamWeight(LLViewerVisualParam *param, F32 weight, BOOL set_by_user = FALSE );
+
 
 /**                    Initialization
  **                                                                            **
@@ -160,30 +172,37 @@ public:
 	//--------------------------------------------------------------------
 public:
 	/*virtual*/ bool	hasPendingBakedUploads() const;
-	S32					getLocalDiscardLevel(LLVOAvatarDefines::ETextureIndex type, U32 index = 0) const;
+	S32					getLocalDiscardLevel(LLVOAvatarDefines::ETextureIndex type, U32 index) const;
 	bool				areTexturesCurrent() const;
 	BOOL				isLocalTextureDataAvailable(const LLTexLayerSet* layerset) const;
 	BOOL				isLocalTextureDataFinal(const LLTexLayerSet* layerset) const;
-	/*virtual*/ BOOL    isTextureDefined(LLVOAvatarDefines::ETextureIndex type, U32 index = 0) const;
+	// If you want to check all textures of a given type, pass gAgentWearables.getWearableCount() for index
+	/*virtual*/ BOOL    isTextureDefined(LLVOAvatarDefines::ETextureIndex type, U32 index) const;
 
 	//--------------------------------------------------------------------
 	// Local Textures
 	//--------------------------------------------------------------------
 public:
-	BOOL				getLocalTextureGL(LLVOAvatarDefines::ETextureIndex type, LLViewerTexture** image_gl_pp, U32 index = 0) const;
-	const LLUUID&		getLocalTextureID(LLVOAvatarDefines::ETextureIndex type, U32 index = 0) const;
-	void				setLocalTextureTE(U8 te, LLViewerTexture* image, BOOL set_by_user, U32 index = 0);
-	const LLUUID&		grabLocalTexture(LLVOAvatarDefines::ETextureIndex type, U32 index = 0) const;
-	BOOL				canGrabLocalTexture(LLVOAvatarDefines::ETextureIndex type, U32 index = 0) const;
+	BOOL				getLocalTextureGL(LLVOAvatarDefines::ETextureIndex type, LLViewerTexture** image_gl_pp, U32 index) const;
+	LLViewerFetchedTexture*	getLocalTextureGL(LLVOAvatarDefines::ETextureIndex type, U32 index) const;
+	const LLUUID&		getLocalTextureID(LLVOAvatarDefines::ETextureIndex type, U32 index) const;
+	void				setLocalTextureTE(U8 te, LLViewerTexture* image, BOOL set_by_user, U32 index);
+	const LLUUID&		grabLocalTexture(LLVOAvatarDefines::ETextureIndex type, U32 index) const;
+	BOOL				canGrabLocalTexture(LLVOAvatarDefines::ETextureIndex type, U32 index) const;
+	/*virtual*/ void	setLocalTexture(LLVOAvatarDefines::ETextureIndex type, LLViewerTexture* tex, BOOL baked_version_exits, U32 index);
 protected:
-	/*virtual*/ void	setLocalTexture(LLVOAvatarDefines::ETextureIndex type, LLViewerTexture* tex, BOOL baked_version_exits, U32 index = 0);
+	/*virtual*/ void	setBakedReady(LLVOAvatarDefines::ETextureIndex type, BOOL baked_version_exists, U32 index);
 	void				localTextureLoaded(BOOL succcess, LLViewerFetchedTexture *src_vi, LLImageRaw* src, LLImageRaw* aux_src, S32 discard_level, BOOL final, void* userdata);
 	void				getLocalTextureByteCount(S32* gl_byte_count) const;
-	/*virtual*/ void	addLocalTextureStats(LLVOAvatarDefines::ETextureIndex i, LLViewerFetchedTexture* imagep, F32 texel_area_ratio, BOOL rendered, BOOL covered_by_baked, U32 index = 0);
-	LLLocalTextureObject* getLocalTextureObject(LLVOAvatarDefines::ETextureIndex i, U32 index = 0) const;
+	/*virtual*/ void	addLocalTextureStats(LLVOAvatarDefines::ETextureIndex i, LLViewerFetchedTexture* imagep, F32 texel_area_ratio, BOOL rendered, BOOL covered_by_baked, U32 index);
+	LLLocalTextureObject* getLocalTextureObject(LLVOAvatarDefines::ETextureIndex i, U32 index) const;
 
 private:
 	static void			onLocalTextureLoaded(BOOL succcess, LLViewerFetchedTexture *src_vi, LLImageRaw* src, LLImageRaw* aux_src, S32 discard_level, BOOL final, void* userdata);
+
+	/*virtual*/	void	setImage(const U8 te, LLViewerTexture *imagep, const U32 index); 
+	/*virtual*/ LLViewerTexture* getImage(const U8 te, const U32 index) const;
+
 
 	//--------------------------------------------------------------------
 	// Baked textures
@@ -203,7 +222,6 @@ protected:
 public:
 	void 				requestLayerSetUploads();
 	void				requestLayerSetUpdate(LLVOAvatarDefines::ETextureIndex i);
-protected:
 	LLTexLayerSet*		getLayerSet(LLVOAvatarDefines::ETextureIndex index) const;
 	
 	//--------------------------------------------------------------------
@@ -250,25 +268,27 @@ protected:
  **/
 
 public:
-	void			wearableUpdated(EWearableType type);
+	/*virtual*/ BOOL	isWearingWearableType(EWearableType type) const;
+	void				wearableUpdated(EWearableType type);
+protected:
+	U32 getNumWearables(LLVOAvatarDefines::ETextureIndex i) const;
 
 	//--------------------------------------------------------------------
 	// Attachments
 	//--------------------------------------------------------------------
 public:
 	void 				updateAttachmentVisibility(U32 camera_mode);
-	BOOL 				isWearingAttachment(const LLUUID& inv_item_id, BOOL include_linked_items = FALSE) const;
-	LLViewerObject* 	getWornAttachment(const LLUUID& inv_item_id ) const;
+	BOOL 				isWearingAttachment(const LLUUID& inv_item_id) const;
+	LLViewerObject* 	getWornAttachment(const LLUUID& inv_item_id);
 	const std::string   getAttachedPointName(const LLUUID& inv_item_id) const;
-	/*virtual*/ LLViewerJointAttachment *attachObject(LLViewerObject *viewer_object);
+	/*virtual*/ const LLViewerJointAttachment *attachObject(LLViewerObject *viewer_object);
+	/*virtual*/ BOOL 	detachObject(LLViewerObject *viewer_object);
 	void				getAllAttachmentsArray(LLDynamicArray<S32>& attachments);
 
 	//--------------------------------------------------------------------
 	// HUDs
 	//--------------------------------------------------------------------
 private:
-	U32 getNumWearables(LLVOAvatarDefines::ETextureIndex i) const;
-
 	LLViewerJoint* 		mScreenp; // special purpose joint for HUD attachments
 	
 /**                    Attachments

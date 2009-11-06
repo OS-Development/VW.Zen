@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  can_resize="true"
  follows="top|right"
  height="400"
@@ -8,7 +9,7 @@
  help_topic="statistics"
  save_rect="true"
  save_visibility="true"
- title="Statistics"
+ title="STATISTICS"
  width="250">
     <scroll_container
      follows="top|left|bottom|right"

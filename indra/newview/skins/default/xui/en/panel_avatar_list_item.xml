@@ -8,7 +8,7 @@
  top="0"
  width="320">
     <icon
-     follows="top|right|left" 
+     follows="top|right|left"
      height="24"
      image_name="ListItem_Over"
      layout="topleft"
@@ -38,51 +38,54 @@
      width="20" />
     <text
      follows="left|right"
-     font="SansSerifSmallBold"
-     height="20"
+     font="SansSerifSmall"
+     height="15"
      layout="topleft"
      left_pad="5"
      name="avatar_name"
-     text_color="white"
-     top="4"
-     use_ellipses="true" 
+     top="6"
+     use_ellipses="true"
      value="Unknown"
-     width="180" />
+     width="182" />
     <text
      follows="right"
-     font="SansSerif"
-     height="20"
+     font="SansSerifSmall"
+     height="15"
      layout="topleft"
-     left_pad="10"
-     name="avatar_status"
-     text_color="0.5 0.5 0.5 1"
-     value="Away"
-     width="50" />
+     left_pad="8"
+     name="last_interaction"
+     text_color="LtGray_50"
+     value="0s"
+     width="24" />
     <output_monitor
      auto_update="true"
      follows="right"
      draw_border="false"
      height="16"
      layout="topleft"
-     left_pad="3"
+     left_pad="0"
      mouse_opaque="true"
      name="speaking_indicator"
-     top="4"
      visible="true"
      width="20" />
     <button
      follows="right"
-     font="SansSerifBigBold"
-     height="18"
-     image_disabled="Info"
-     image_disabled_selected="Info"
-     image_hover_selected="Info"
-     image_selected="Info"
-     image_unselected="Info"
-     layout="topleft"
-     left_pad="2"
+     height="16"
+     image_pressed="Info_Press"
+     image_unselected="Info_Over"
+     left_pad="3"
+     right="-31"
      name="info_btn"
-     picture_style="true"
-     top="2"
-     width="18" />
+     top_delta="-2"
+     width="16" />
+    <button
+     follows="right"
+     height="20"
+     image_overlay="ForwardArrow_Off"
+     layout="topleft"
+     left_pad="5"
+     right="-3"
+     name="profile_btn"
+     top_delta="-2"
+     width="20" />
 </panel>

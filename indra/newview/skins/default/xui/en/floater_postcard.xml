@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  auto_tile="true"
  can_minimize="false"
  can_resize="true"
@@ -9,7 +10,7 @@
  min_width="450"
  name="Postcard"
  help_topic="postcard"
- title="Email Snapshot"
+ title="EMAIL SNAPSHOT"
  width="450">
     <floater.string
      name="default_subject">

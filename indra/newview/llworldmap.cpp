@@ -37,7 +37,6 @@
 #include "llregionhandle.h"
 #include "message.h"
 
-#include "llappviewer.h"	// for gPacificDaylightTime
 #include "llagent.h"
 #include "llmapresponders.h"
 #include "llviewercontrol.h"
@@ -93,6 +92,13 @@ LLVector3d LLSimInfo::getGlobalPos(LLVector3 local_pos) const
 	pos.mdV[VZ] += local_pos.mV[VZ];
 	return pos;
 }
+
+LLVector3 LLSimInfo::getLocalPos(LLVector3d global_pos) const
+{
+	LLVector3d sim_origin = from_region_handle(mHandle);
+	return LLVector3(global_pos - sim_origin);
+}
+
 
 
 //---------------------------------------------------------------------------
@@ -519,7 +525,7 @@ void LLWorldMap::processMapLayerReply(LLMessageSystem* msg, void**)
 		LLWorldMapLayer new_layer;
 		new_layer.LayerDefined = TRUE;
 		msg->getUUIDFast(_PREHASH_LayerData, _PREHASH_ImageID, new_layer.LayerImageID, block);
-		new_layer.LayerImage = LLViewerTextureManager::getFetchedTexture(new_layer.LayerImageID, MIPMAP_TRUE, FALSE, LLViewerTexture::LOD_TEXTURE);
+		new_layer.LayerImage = LLViewerTextureManager::getFetchedTexture(new_layer.LayerImageID, MIPMAP_TRUE, LLViewerTexture::BOOST_NONE, LLViewerTexture::LOD_TEXTURE);
 
 		gGL.getTexUnit(0)->bind(new_layer.LayerImage);
 		new_layer.LayerImage->setAddressMode(LLTexUnit::TAM_CLAMP);
@@ -634,14 +640,15 @@ void LLWorldMap::processMapBlockReply(LLMessageSystem* msg, void**)
 			siminfo->mMapImageID[agent_flags] = image_id;
 
 #ifdef IMMEDIATE_IMAGE_LOAD
-			siminfo->mCurrentImage = LLViewerTextureManager::getFetchedTexture(siminfo->mMapImageID[LLWorldMap::getInstance()->mCurrentMap], MIPMAP_TRUE, FALSE, LLViewerTexture::LOD_TEXTURE);
+			siminfo->mCurrentImage = LLViewerTextureManager::getFetchedTexture(siminfo->mMapImageID[LLWorldMap::getInstance()->mCurrentMap], 
+				MIPMAP_TRUE, LLViewerTexture::BOOST_NONE, LLViewerTexture::LOD_TEXTURE);
 			siminfo->mCurrentImage->setAddressMode(LLTexUnit::TAM_CLAMP);
 #endif
 			
 			if (siminfo->mMapImageID[2].notNull())
 			{
 #ifdef IMMEDIATE_IMAGE_LOAD
-				siminfo->mOverlayImage = LLViewerTextureManager::getFetchedTexture(siminfo->mMapImageID[2], MIPMAP_TRUE, FALSE, LLViewerTexture::LOD_TEXTURE);
+				siminfo->mOverlayImage = LLViewerTextureManager::getFetchedTexture(siminfo->mMapImageID[2], MIPMAP_TRUE, LLViewerTexture::BOOST_NONE, LLViewerTexture::LOD_TEXTURE);
 #endif
 			}
 			else

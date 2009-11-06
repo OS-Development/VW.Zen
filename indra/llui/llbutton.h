@@ -115,8 +115,7 @@ public:
 		// misc
 		Optional<bool>			is_toggle,
 								scale_image,
-								commit_on_return,
-								picture_style;      //if true, don't display label
+								commit_on_return;
 		
 		Optional<F32>				hover_glow_amount;
 		Optional<TimeIntervalParam>	held_down_delay;
@@ -176,6 +175,7 @@ public:
 	BOOL			getToggleState() const;
 	void			setToggleState(BOOL b);
 
+	void			setHighlight(bool b);
 	void			setFlashing( BOOL b );
 	BOOL			getFlashing() const		{ return mFlashing; }
 
@@ -210,6 +210,9 @@ public:
 	
 	void			setFont(const LLFontGL *font)		
 		{ mGLFont = ( font ? font : LLFontGL::getFontSansSerif()); }
+
+	S32				getLastDrawCharsCount() const { return mLastDrawCharsCount; }
+
 	void			setScaleImage(BOOL scale)			{ mScaleImage = scale; }
 	BOOL			getScaleImage() const				{ return mScaleImage; }
 
@@ -238,13 +241,11 @@ public:
 	void		setForcePressedState(BOOL b) { mForcePressedState = b; }
 	
 protected:
-	const LLPointer<LLUIImage>&	getImageUnselected() const	{ return mImageUnselected; }
-	const LLPointer<LLUIImage>& getImageSelected() const	{ return mImageSelected; }
+	LLPointer<LLUIImage> getImageUnselected() const	{ return mImageUnselected; }
+	LLPointer<LLUIImage> getImageSelected() const	{ return mImageSelected; }
 
 	LLFrameTimer	mMouseDownTimer;
 
-	// If the label is empty, set the picture_style attribute
-	static void setupParamsForExport(Params& p, LLView* parent);
 private:
 	void			drawBorder(LLUIImage* imagep, const LLColor4& color, S32 size);
 	void			resetMouseDownTimer();
@@ -260,6 +261,7 @@ private:
 	S32 						mMouseHeldDownCount; 	// Counter for parameter passed to held-down callback
 	F32							mHeldDownDelay;			// seconds, after which held-down callbacks get called
 	S32							mHeldDownFrameDelay;	// frames, after which held-down callbacks get called
+	S32							mLastDrawCharsCount;
 
 	LLPointer<LLUIImage>		mImageOverlay;
 	LLFontGL::HAlign			mImageOverlayAlignment;

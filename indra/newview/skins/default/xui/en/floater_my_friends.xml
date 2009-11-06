@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  can_close="false"
  can_resize="true"
  height="390"
@@ -10,7 +11,7 @@
  help_topic="floater_my_friends"
  save_rect="true"
  single_instance="true"
- title="Contacts"
+ title="CONTACTS"
  width="395">
     <tab_container
      follows="all"
@@ -28,6 +29,7 @@
          label="Friends"
          layout="topleft"
          left="0"
+         help_topic="my_friends_friends_tab"
          name="friends_panel"
          width="370" />
         <panel
@@ -36,6 +38,7 @@
          label="Groups"
          layout="topleft"
          left="0"
+         help_topic="my_friends_groups_tab"
          name="groups_panel"
          width="370" />
     </tab_container>

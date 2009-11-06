@@ -32,10 +32,12 @@
 
 #include "llviewerprecompiledheaders.h"
 
+#include "llavatarconstants.h"
 #include "lluserrelations.h"
 
 #include "llpanelprofileview.h"
 
+#include "llavatarpropertiesprocessor.h"
 #include "llcallingcard.h"
 #include "llpanelavatar.h"
 #include "llpanelpicks.h"
@@ -46,15 +48,48 @@ static LLRegisterPanelClassWrapper<LLPanelProfileView> t_panel_target_profile("p
 
 static std::string PANEL_NOTES = "panel_notes";
 static const std::string PANEL_PROFILE = "panel_profile";
+static const std::string PANEL_PICKS = "panel_picks";
+
+
+class AvatarStatusObserver : public LLAvatarPropertiesObserver
+{
+public:
+	AvatarStatusObserver(LLPanelProfileView* profile_view)
+	{
+		mProfileView = profile_view;
+	}
+
+	void processProperties(void* data, EAvatarProcessorType type)
+	{
+		if(APT_PROPERTIES != type) return;
+		const LLAvatarData* avatar_data = static_cast<const LLAvatarData*>(data);
+		if(avatar_data && mProfileView->getAvatarId() == avatar_data->avatar_id)
+		{
+			mProfileView->processOnlineStatus(avatar_data->flags & AVATAR_ONLINE);
+			LLAvatarPropertiesProcessor::instance().removeObserver(mProfileView->getAvatarId(), this);
+		}
+	}
+
+	void subscribe()
+	{
+		LLAvatarPropertiesProcessor::instance().addObserver(mProfileView->getAvatarId(), this);
+	}
+
+private:
+	LLPanelProfileView* mProfileView;
+};
 
 LLPanelProfileView::LLPanelProfileView()
 :	LLPanelProfile()
 ,	mStatusText(NULL)
+,	mAvatarStatusObserver(NULL)
 {
+	mAvatarStatusObserver = new AvatarStatusObserver(this);
 }
 
 LLPanelProfileView::~LLPanelProfileView(void)
 {
+	delete mAvatarStatusObserver;
 }
 
 /*virtual*/ 
@@ -65,6 +100,9 @@ void LLPanelProfileView::onOpen(const LLSD& key)
 	{
 		id = key["id"];
 	}
+
+	// subscribe observer to get online status. Request will be sent by LLPanelAvatarProfile itself
+	mAvatarStatusObserver->subscribe();
 	if(id.notNull() && getAvatarId() != id)
 	{
 		setAvatarId(id);
@@ -73,10 +111,12 @@ void LLPanelProfileView::onOpen(const LLSD& key)
 	// Update the avatar name.
 	gCacheName->get(getAvatarId(), FALSE,
 		boost::bind(&LLPanelProfileView::onAvatarNameCached, this, _1, _2, _3, _4));
-
+/*
+// disable this part of code according to EXT-2022. See processOnlineStatus
 	// status should only show if viewer has permission to view online/offline. EXT-453 
 	mStatusText->setVisible(isGrantedToSeeOnlineStatus());
 	updateOnlineStatus();
+*/
 
 	LLPanelProfile::onOpen(key);
 }
@@ -92,6 +132,7 @@ BOOL LLPanelProfileView::postBuild()
 	getTabContainer()[PANEL_PROFILE]->childSetVisible("status_combo", FALSE);
 
 	mStatusText = getChild<LLTextBox>("status");
+	mStatusText->setVisible(false);
 
 	childSetCommitCallback("back",boost::bind(&LLPanelProfileView::onBackBtnClick,this),NULL);
 	
@@ -103,6 +144,10 @@ BOOL LLPanelProfileView::postBuild()
 
 void LLPanelProfileView::onBackBtnClick()
 {
+	// Set dummy value to make picks panel dirty, 
+	// This will make Picks reload on next open.
+	getTabContainer()[PANEL_PICKS]->setValue(LLSD());
+
 	LLSideTrayPanelContainer* parent = dynamic_cast<LLSideTrayPanelContainer*>(getParent());
 	if(parent)
 	{
@@ -130,11 +175,16 @@ void LLPanelProfileView::updateOnlineStatus()
 		return;
 
 	bool online = relationship->isOnline();
-//	std::string statusName();
 
 	std::string status = getString(online ? "status_online" : "status_offline");
 
 	mStatusText->setValue(status);
+}
+
+void LLPanelProfileView::processOnlineStatus(bool online)
+{
+	mAvatarIsOnline = online;
+	mStatusText->setVisible(online);
 }
 
 void LLPanelProfileView::onAvatarNameCached(const LLUUID& id, const std::string& first_name, const std::string& last_name, BOOL is_group)
@@ -150,7 +200,7 @@ void LLPanelProfileView::togglePanel(LLPanel* panel)
 	{
 		// LLPanelProfile::togglePanel shows/hides all children,
 		// we don't want to display online status for non friends, so re-hide it here
-		mStatusText->setVisible(isGrantedToSeeOnlineStatus());
+		mStatusText->setVisible(mAvatarIsOnline);
 	}
 }
 

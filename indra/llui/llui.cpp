@@ -1807,11 +1807,11 @@ void LLUI::glRectToScreen(const LLRect& gl, LLRect *screen)
 }
 
 //static
-LLPointer<LLUIImage> LLUI::getUIImageByID(const LLUUID& image_id)
+LLPointer<LLUIImage> LLUI::getUIImageByID(const LLUUID& image_id, S32 priority)
 {
 	if (sImageProvider)
 	{
-		return sImageProvider->getUIImageByID(image_id);
+		return sImageProvider->getUIImageByID(image_id, priority);
 	}
 	else
 	{
@@ -1820,10 +1820,10 @@ LLPointer<LLUIImage> LLUI::getUIImageByID(const LLUUID& image_id)
 }
 
 //static 
-LLPointer<LLUIImage> LLUI::getUIImage(const std::string& name)
+LLPointer<LLUIImage> LLUI::getUIImage(const std::string& name, S32 priority)
 {
 	if (!name.empty() && sImageProvider)
-		return sImageProvider->getUIImage(name);
+		return sImageProvider->getUIImage(name, priority);
 	else
 		return NULL;
 }
@@ -1918,16 +1918,11 @@ namespace LLInitParam
 		declare("blue", LLColor4::blue);
 	}
 
-	template<>
-	class ParamCompare<const LLFontGL*>
+	bool ParamCompare<const LLFontGL*, false>::equals(const LLFontGL* a, const LLFontGL* b)
 	{
-	public:
-		static bool equals(const LLFontGL* a, const LLFontGL* b)
-		{
-			return !(a->getFontDesc() < b->getFontDesc())
-				&& !(b->getFontDesc() < a->getFontDesc());
-		}
-	};
+		return !(a->getFontDesc() < b->getFontDesc())
+			&& !(b->getFontDesc() < a->getFontDesc());
+	}
 
 	TypedParam<const LLFontGL*>::TypedParam(BlockDescriptor& descriptor, const char* _name, const LLFontGL*const value, ParamDescriptor::validation_func_t func, S32 min_count, S32 max_count)
 	:	super_t(descriptor, _name, value, func, min_count, max_count),
@@ -1957,7 +1952,7 @@ namespace LLInitParam
 				return fontp;
 			}
 		}
-
+		
 		// default to current value
 		return mData.mValue;
 	}

@@ -57,13 +57,13 @@
 #include "llagent.h"
 #include "llcachename.h"
 #include "llimview.h" // for LLIMMgr
-#include "llimpanel.h" // for LLVoiceChannel
 #include "llparcel.h"
 #include "llviewerparcelmgr.h"
 #include "llfirstuse.h"
 #include "llviewerwindow.h"
 #include "llviewercamera.h"
 #include "llvoavatarself.h"
+#include "llvoicechannel.h"
 
 #include "llfloaterfriends.h"  //VIVOX, inorder to refresh communicate panel
 #include "llfloaterchat.h"		// for LLFloaterChat::addChat()
@@ -254,6 +254,7 @@ protected:
 	std::string		nameString;
 	std::string		audioMediaString;
 	std::string		displayNameString;
+	std::string		deviceString;
 	int				participantType;
 	bool			isLocallyMuted;
 	bool			isModeratorMuted;
@@ -485,6 +486,14 @@ void LLVivoxProtocolParser::StartTag(const char *tag, const char **attr)
 			{
 				gVoiceClient->clearRenderDevices();
 			}
+			else if (!stricmp("CaptureDevice", tag))
+			{
+				deviceString.clear();
+			}
+			else if (!stricmp("RenderDevice", tag))
+			{
+				deviceString.clear();
+			}
 			else if (!stricmp("Buddies", tag))
 			{
 				gVoiceClient->deleteAllBuddies();
@@ -508,7 +517,6 @@ void LLVivoxProtocolParser::StartTag(const char *tag, const char **attr)
 void LLVivoxProtocolParser::EndTag(const char *tag)
 {
 	const std::string& string = textBuffer;
-	bool clearbuffer = true;
 
 	responseDepth--;
 
@@ -580,6 +588,8 @@ void LLVivoxProtocolParser::EndTag(const char *tag)
 			nameString = string;
 		else if (!stricmp("DisplayName", tag))
 			displayNameString = string;
+		else if (!stricmp("Device", tag))
+			deviceString = string;
 		else if (!stricmp("AccountName", tag))
 			nameString = string;
 		else if (!stricmp("ParticipantType", tag))
@@ -596,18 +606,13 @@ void LLVivoxProtocolParser::EndTag(const char *tag)
 			uriString = string;
 		else if (!stricmp("Presence", tag))
 			statusString = string;
-		else if (!stricmp("Device", tag))
-		{
-			// This closing tag shouldn't clear the accumulated text.
-			clearbuffer = false;
-		}
 		else if (!stricmp("CaptureDevice", tag))
 		{
-			gVoiceClient->addCaptureDevice(textBuffer);
+			gVoiceClient->addCaptureDevice(deviceString);
 		}
 		else if (!stricmp("RenderDevice", tag))
 		{
-			gVoiceClient->addRenderDevice(textBuffer);
+			gVoiceClient->addRenderDevice(deviceString);
 		}
 		else if (!stricmp("Buddy", tag))
 		{
@@ -648,12 +653,8 @@ void LLVivoxProtocolParser::EndTag(const char *tag)
 		else if (!stricmp("SubscriptionType", tag))
 			subscriptionType = string;
 		
-
-		if(clearbuffer)
-		{
-			textBuffer.clear();
-			accumulateText= false;
-		}
+		textBuffer.clear();
+		accumulateText= false;
 		
 		if (responseDepth == 0)
 		{
@@ -1160,7 +1161,8 @@ LLVoiceClient::LLVoiceClient() :
 	mVoiceEnabled(false),
 	mWriteInProgress(false),
 	
-	mLipSyncEnabled(false)
+	mLipSyncEnabled(false),
+	mAPIVersion("Unknown")
 {	
 	gVoiceClient = this;
 	
@@ -1664,7 +1666,6 @@ void LLVoiceClient::stateMachine()
 						// SLIM SDK: these arguments are no longer necessary.
 //						std::string args = " -p tcp -h -c";
 						std::string args;
-						std::string cmd;
 						std::string loglevel = gSavedSettings.getString("VivoxDebugLevel");
 						
 						if(loglevel.empty())
@@ -1679,17 +1680,18 @@ void LLVoiceClient::stateMachine()
 
 #if LL_WINDOWS
 						PROCESS_INFORMATION pinfo;
-						STARTUPINFOA sinfo;
+						STARTUPINFOW sinfo;
 						memset(&sinfo, 0, sizeof(sinfo));
-						std::string exe_dir = gDirUtilp->getAppRODataDir();
-						cmd = "SLVoice.exe";
-						cmd += args;
-						
-						// So retarded.  Windows requires that the second parameter to CreateProcessA be a writable (non-const) string...
-						char *args2 = new char[args.size() + 1];
-						strcpy(args2, args.c_str());
 
-						if(!CreateProcessA(exe_path.c_str(), args2, NULL, NULL, FALSE, 0, NULL, exe_dir.c_str(), &sinfo, &pinfo))
+						std::string exe_dir = gDirUtilp->getExecutableDir();
+
+						llutf16string exe_path16 = utf8str_to_utf16str(exe_path);
+						llutf16string exe_dir16 = utf8str_to_utf16str(exe_dir);
+						llutf16string args16 = utf8str_to_utf16str(args);
+						// Create a writeable copy to keep Windows happy.
+						U16 *argscpy_16 = new U16[args16.size() + 1];
+						wcscpy_s(argscpy_16,args16.size()+1,args16.c_str());
+						if(!CreateProcessW(exe_path16.c_str(), argscpy_16, NULL, NULL, FALSE, 0, NULL, exe_dir16.c_str(), &sinfo, &pinfo))
 						{
 //							DWORD dwErr = GetLastError();
 						}
@@ -1701,7 +1703,7 @@ void LLVoiceClient::stateMachine()
 							CloseHandle(pinfo.hThread); // stops leaks - nothing else
 						}		
 						
-						delete[] args2;
+						delete[] argscpy_16;
 #else	// LL_WINDOWS
 						// This should be the same for mac and linux
 						{
@@ -3749,6 +3751,7 @@ void LLVoiceClient::connectorCreateResponse(int statusCode, std::string &statusS
 	{
 		// Connector created, move forward.
 		LL_INFOS("Voice") << "Connector.Create succeeded, Vivox SDK version is " << versionID << LL_ENDL;
+		mAPIVersion = versionID;
 		mConnectorHandle = connectorHandle;
 		if(getState() == stateConnectorStarting)
 		{
@@ -4972,7 +4975,7 @@ void LLVoiceClient::sessionState::removeAllParticipants()
 	
 	if(!mParticipantsByUUID.empty())
 	{
-		LL_ERRS("Voice") << "Internal error: empty URI map, non-empty UUID map" << LL_ENDL
+		LL_ERRS("Voice") << "Internal error: empty URI map, non-empty UUID map" << LL_ENDL;
 	}
 }
 
@@ -6488,7 +6491,7 @@ void LLVoiceClient::deleteSession(sessionState *session)
 		{
 			if(iter->second != session)
 			{
-				LL_ERRS("Voice") << "Internal error: session mismatch" << LL_ENDL
+				LL_ERRS("Voice") << "Internal error: session mismatch" << LL_ENDL;
 			}
 			mSessionsByHandle.erase(iter);
 		}
@@ -6528,7 +6531,7 @@ void LLVoiceClient::deleteAllSessions()
 	
 	if(!mSessionsByHandle.empty())
 	{
-		LL_ERRS("Voice") << "Internal error: empty session map, non-empty handle map" << LL_ENDL
+		LL_ERRS("Voice") << "Internal error: empty session map, non-empty handle map" << LL_ENDL;
 	}
 }
 
@@ -6921,7 +6924,8 @@ void LLVoiceClient::notifyFriendObservers()
 
 void LLVoiceClient::lookupName(const LLUUID &id)
 {
-	gCacheName->get(id, FALSE, &LLVoiceClient::onAvatarNameLookup);
+	BOOL is_group = FALSE;
+	gCacheName->get(id, is_group, &LLVoiceClient::onAvatarNameLookup);
 }
 
 //static

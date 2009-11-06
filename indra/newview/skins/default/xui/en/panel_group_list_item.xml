@@ -8,7 +8,7 @@
  top="0"
  width="320">
     <icon
-     follows="top|right|left" 
+     follows="top|right|left"
      height="24"
      image_name="ListItem_Over"
      layout="topleft"
@@ -28,39 +28,43 @@
      visible="false"
      width="320" />
     <icon
-     follows="top|left"
-     height="18"
-     image_name="icon_group.tga"
-     layout="topleft"
-     left="5"
+     height="20"
+     image_name="Generic_Group"
+     name="group_icon"
      mouse_opaque="true"
-     name="group_icon" 
-     top="4"
-     width="18" />
-    <text
+     left="5"
+     top="2"
+     width="20" />
+   <text
      follows="left|right"
      font="SansSerifSmall"
-     height="17"
+     height="15"
      layout="topleft"
      left_pad="5"
      name="group_name"
-     text_color="white"
-     top="7"
-     use_ellipses="true" 
+     top="6"
+     use_ellipses="true"
      value="Unknown"
-     width="263" />
+     width="242" />
     <button
      follows="right"
-     height="18"
-     image_disabled="Info"
-     image_disabled_selected="Info"
-     image_hover_selected="Info"
-     image_selected="Info"
-     image_unselected="Info"
-     layout="topleft"
+     height="16"
+     image_pressed="Info_Press"
+     image_unselected="Info_Over"
+     left_pad="3"
+     right="-31"
      name="info_btn"
-     picture_style="true"
-     right="-5"
-     top="4" 
-     width="18" />
+     top_delta="-2"
+     width="16" />
+   <!--*TODO: Should only appear on rollover-->
+    <button
+     follows="right"
+     height="20"
+     image_overlay="ForwardArrow_Off"
+     layout="topleft"
+     left_pad="5"
+     right="-3"
+     name="profile_btn"
+     top_delta="-2"
+     width="20" />
 </panel>

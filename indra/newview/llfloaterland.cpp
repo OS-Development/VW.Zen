@@ -105,7 +105,7 @@ public:
 // LLFloaterLand
 //---------------------------------------------------------------------------
 
-void send_parcel_select_objects(S32 parcel_local_id, S32 return_type,
+void send_parcel_select_objects(S32 parcel_local_id, U32 return_type,
 								uuid_list_t* return_ids = NULL)
 {
 	LLMessageSystem *msg = gMessageSystem;
@@ -123,7 +123,7 @@ void send_parcel_select_objects(S32 parcel_local_id, S32 return_type,
 	msg->addUUIDFast(_PREHASH_SessionID,gAgent.getSessionID());
 	msg->nextBlockFast(_PREHASH_ParcelData);
 	msg->addS32Fast(_PREHASH_LocalID, parcel_local_id);
-	msg->addS32Fast(_PREHASH_ReturnType, return_type);
+	msg->addU32Fast(_PREHASH_ReturnType, return_type);
 
 	// Throw all return ids into the packet.
 	// TODO: Check for too many ids.
@@ -744,6 +744,7 @@ void LLPanelLandGeneral::refreshNames()
 	if (!parcel)
 	{
 		mTextOwner->setText(LLStringUtil::null);
+		mTextGroup->setText(LLStringUtil::null);
 		return;
 	}
 
@@ -764,6 +765,13 @@ void LLPanelLandGeneral::refreshNames()
 	}
 	mTextOwner->setText(owner);
 
+	std::string group;
+	if (!parcel->getGroupID().isNull())
+	{
+		group = LLSLURL::buildCommand("group", parcel->getGroupID(), "inspect");
+	}
+	mTextGroup->setText(group);
+
 	const LLUUID& auth_buyer_id = parcel->getAuthorizedBuyerID();
 	if(auth_buyer_id.notNull())
 	{
@@ -781,20 +789,6 @@ void LLPanelLandGeneral::refreshNames()
 // virtual
 void LLPanelLandGeneral::draw()
 {
-	LLParcel *parcel = mParcel->getParcel();
-	if (parcel)
-	{
-		std::string group;
-		if (!parcel->getGroupID().isNull())
-		{
-			// *TODO: Change to "inspect" when we have group inspectors and
-			// move into refreshNames() above
-			// group = LLSLURL::buildCommand("group", parcel->getGroupID(), "inspect");
-			gCacheName->getGroupName(parcel->getGroupID(), group);
-		}
-		mTextGroup->setText(group);
-	}
-
 	LLPanel::draw();
 }
 
@@ -1060,9 +1054,9 @@ BOOL LLPanelLandObjects::postBuild()
 	mBtnReturnOwnerList = getChild<LLButton>("Return objects...");
 	mBtnReturnOwnerList->setClickedCallback(onClickReturnOwnerList, this);
 
-	mIconAvatarOnline = LLUIImageList::getInstance()->getUIImage("icon_avatar_online.tga");
-	mIconAvatarOffline = LLUIImageList::getInstance()->getUIImage("icon_avatar_offline.tga");
-	mIconGroup = LLUIImageList::getInstance()->getUIImage("icon_group.tga");
+	mIconAvatarOnline = LLUIImageList::getInstance()->getUIImage("icon_avatar_online.tga", 0);
+	mIconAvatarOffline = LLUIImageList::getInstance()->getUIImage("icon_avatar_offline.tga", 0);
+	mIconGroup = LLUIImageList::getInstance()->getUIImage("icon_group.tga", 0);
 
 	mOwnerList = getChild<LLNameListCtrl>("owner list");
 	mOwnerList->sortByColumnIndex(3, FALSE);
@@ -1525,7 +1519,9 @@ void LLPanelLandObjects::processParcelObjectOwnersReply(LLMessageSystem *msg, vo
 		}
 
 		// Placeholder for name.
-		item_params.columns.add().font(FONT).column("name");
+		std::string name;
+		gCacheName->getFullName(owner_id, name);		
+		item_params.columns.add().value(name).font(FONT).column("name");
 
 		object_count_str = llformat("%d", object_count);
 		item_params.columns.add().value(object_count_str).font(FONT).column("count");
@@ -1749,7 +1745,6 @@ LLPanelLandOptions::LLPanelLandOptions(LLParcelSelectionHandle& parcel)
 	mClearBtn(NULL),
 	mMatureCtrl(NULL),
 	mPushRestrictionCtrl(NULL),
-	mPublishHelpButton(NULL),
 	mParcel(parcel)
 {
 }
@@ -1818,14 +1813,9 @@ BOOL LLPanelLandOptions::postBuild()
 	mMatureCtrl = getChild<LLCheckBoxCtrl>( "MatureCheck");
 	childSetCommitCallback("MatureCheck", onCommitAny, this);
 	
-	mPublishHelpButton = getChild<LLButton>("?");
-	mPublishHelpButton->setClickedCallback(onClickPublishHelp, this);
-
 	if (gAgent.wantsPGOnly())
 	{
 		// Disable these buttons if they are PG (Teen) users
-		mPublishHelpButton->setVisible(FALSE);
-		mPublishHelpButton->setEnabled(FALSE);
 		mMatureCtrl->setVisible(FALSE);
 		mMatureCtrl->setEnabled(FALSE);
 	}
@@ -1918,7 +1908,6 @@ void LLPanelLandOptions::refresh()
 		mClearBtn->setEnabled(FALSE);
 
 		mMatureCtrl->setEnabled(FALSE);
-		mPublishHelpButton->setEnabled(FALSE);
 	}
 	else
 	{
@@ -1994,13 +1983,9 @@ void LLPanelLandOptions::refresh()
 		mSetBtn->setEnabled( can_change_landing_point );
 		mClearBtn->setEnabled( can_change_landing_point );
 
-		mPublishHelpButton->setEnabled( can_change_identity );
-
 		if (gAgent.wantsPGOnly())
 		{
 			// Disable these buttons if they are PG (Teen) users
-			mPublishHelpButton->setVisible(FALSE);
-			mPublishHelpButton->setEnabled(FALSE);
 			mMatureCtrl->setVisible(FALSE);
 			mMatureCtrl->setEnabled(FALSE);
 		}
@@ -2252,28 +2237,6 @@ void LLPanelLandOptions::onClickClear(void* userdata)
 
 	self->refresh();
 }
-
-// static
-void LLPanelLandOptions::onClickPublishHelp(void*)
-{
-	LLViewerRegion* region = LLViewerParcelMgr::getInstance()->getSelectionRegion();
-	LLParcel *parcel = LLViewerParcelMgr::getInstance()->getFloatingParcelSelection()->getParcel();
-	llassert(region); // Region should never be null.
-
-	bool can_change_identity = region && parcel ? 
-		LLViewerParcelMgr::isParcelModifiableByAgent(parcel, GP_LAND_CHANGE_IDENTITY) &&
-		! (region->getRegionFlags() & REGION_FLAGS_BLOCK_PARCEL_SEARCH) : false;
-
-	if(! can_change_identity)
-	{
-		LLNotifications::instance().add("ClickPublishHelpLandDisabled");
-	}
-	else
-	{
-		LLNotifications::instance().add("ClickPublishHelpLand");
-	}
-}
-
 
 
 //---------------------------------------------------------------------------

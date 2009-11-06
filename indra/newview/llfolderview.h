@@ -104,8 +104,6 @@ public:
 		Mandatory<LLPanel*> parent_panel;
 		Optional<LLUUID>	task_id;
 	};
-	LLFolderView( const std::string& name, LLUIImagePtr root_folder_icon, const LLRect& rect, 
-					const LLUUID& source_id, LLPanel *parent_view );
 	LLFolderView(const Params&);
 	virtual ~LLFolderView( void );
 
@@ -182,6 +180,9 @@ public:
 
 	BOOL startDrag(LLToolDragAndDrop::ESource source);
 	void setDragAndDropThisFrame() { mDragAndDropThisFrame = TRUE; }
+	void setDraggingOverItem(LLFolderViewItem* item) { mDraggingOverItem = item; }
+	LLFolderViewItem* getDraggingOverItem() { return mDraggingOverItem; }
+
 
 	// deletion functionality
  	void removeSelectedItems();
@@ -191,7 +192,7 @@ public:
 	void propertiesSelectedItems( void );
 
 	// change the folder type
-	void changeType(LLInventoryModel *model, LLAssetType::EType new_folder_type);
+	void changeType(LLInventoryModel *model, LLFolderType::EType new_folder_type);
 
 	void autoOpenItem(LLFolderViewFolder* item);
 	void closeAutoOpenedFolders();
@@ -250,6 +251,8 @@ public:
 	void setShowSingleSelection(BOOL show);
 	BOOL getShowSingleSelection() { return mShowSingleSelection; }
 	F32  getSelectionFadeElapsedTime() { return mMultiSelectionFadeTimer.getElapsedTimeF32(); }
+	void setUseEllipses(bool use_ellipses) { mUseEllipses = use_ellipses; }
+	bool getUseEllipses() { return mUseEllipses; }
 
 	void addItemID(const LLUUID& id, LLFolderViewItem* itemp);
 	void removeItemID(const LLUUID& id);
@@ -328,6 +331,17 @@ protected:
 	LLUUID							mSelectThisID; // if non null, select this item
 	
 	LLPanel*						mParentPanel;
+
+	/**
+	 * Is used to determine if we need to cut text In LLFolderViewItem to avoid horizontal scroll.
+	 * NOTE: For now it uses only to cut LLFolderViewItem::mLabel text to be used for Landmarks in Places Panel.
+	 */
+	bool							mUseEllipses; // See EXT-719
+
+	/**
+	 * Contains item under mouse pointer while dragging
+	 */
+	LLFolderViewItem*				mDraggingOverItem; // See EXT-719
 
 	LLUICtrl::CommitCallbackRegistry::ScopedRegistrar* mCallbackRegistrar;
 	

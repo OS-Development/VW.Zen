@@ -143,6 +143,7 @@ BOOL LLFloaterReporter::postBuild()
 	LLViewerRegion *regionp = gAgent.getRegion();
 	if (regionp)
 	{
+		childSetText("sim_field", regionp->getName());
 		pos -= regionp->getOriginGlobal();
 	}
 	setPosBox(pos);
@@ -769,7 +770,7 @@ void LLFloaterReporter::takeScreenshot()
 	if (COMPLAINT_REPORT == mReportType)
 	{
 		mResourceDatap->mAssetInfo.mType = LLAssetType::AT_TEXTURE;
-		mResourceDatap->mPreferredLocation = LLAssetType::EType(-2);
+		mResourceDatap->mPreferredLocation = LLFolderType::EType(LLResourceData::INVALID_LOCATION);
 	}
 	else
 	{
@@ -788,7 +789,7 @@ void LLFloaterReporter::takeScreenshot()
 
 	// store in the image list so it doesn't try to fetch from the server
 	LLPointer<LLViewerFetchedTexture> image_in_list = 
-		LLViewerTextureManager::getFetchedTexture(mResourceDatap->mAssetInfo.mUuid, TRUE, FALSE, LLViewerTexture::FETCHED_TEXTURE);
+		LLViewerTextureManager::getFetchedTexture(mResourceDatap->mAssetInfo.mUuid, TRUE, LLViewerTexture::BOOST_NONE, LLViewerTexture::FETCHED_TEXTURE);
 	image_in_list->createGLTexture(0, raw);
 	
 	// the texture picker then uses that texture
@@ -837,7 +838,7 @@ void LLFloaterReporter::uploadDoneCallback(const LLUUID &uuid, void *user_data, 
 	}
 
 	EReportType report_type = UNKNOWN_REPORT;
-	if (data->mPreferredLocation == -2)
+	if (data->mPreferredLocation == LLResourceData::INVALID_LOCATION)
 	{
 		report_type = COMPLAINT_REPORT;
 	}

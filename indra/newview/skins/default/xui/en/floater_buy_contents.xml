@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  can_resize="true"
  height="290"
  layout="topleft"
@@ -8,7 +9,7 @@
  name="floater_buy_contents"
  help_topic="floater_buy_contents"
  save_rect="true"
- title="Buy Contents"
+ title="BUY CONTENTS"
  width="280">
     <floater.string
      name="no_copy_text">

@@ -5,7 +5,7 @@
  *
  * $LicenseInfo:firstyear=2009&license=viewergpl$
  *
- * Copyright (c) 2001-2009, Linden Research, Inc.
+ * Copyright (c) 2009, Linden Research, Inc.
  *
  * Second Life Viewer Source Code
  * The source code in this file ("Source Code") is provided by Linden Lab
@@ -33,14 +33,21 @@
 #ifndef LL_LLPANELLANDMARKS_H
 #define LL_LLPANELLANDMARKS_H
 
+#include "lllandmark.h"
+
+// newview
 #include "llinventorymodel.h"
 #include "llpanelplacestab.h"
+#include "llpanelpick.h"
+#include "llremoteparcelrequest.h"
 
+class LLAccordionCtrlTab;
 class LLFolderViewItem;
+class LLMenuGL;
 class LLInventoryPanel;
-class LLSaveFolderState;
+class LLInventorySubTreePanel;
 
-class LLLandmarksPanel : public LLPanelPlacesTab
+class LLLandmarksPanel : public LLPanelPlacesTab, LLRemoteParcelInfoObserver
 {
 public:
 	LLLandmarksPanel();
@@ -50,17 +57,92 @@ public:
 	/*virtual*/ void onSearchEdit(const std::string& string);
 	/*virtual*/ void onShowOnMap();
 	/*virtual*/ void onTeleport();
-	///*virtual*/ void onCopySLURL();
 	/*virtual*/ void updateVerbs();
 
-	void onSelectionChange(const std::deque<LLFolderViewItem*> &items, BOOL user_action);
+	void onSelectionChange(LLInventorySubTreePanel* inventory_list, const std::deque<LLFolderViewItem*> &items, BOOL user_action);
 	void onSelectorButtonClicked();
-	void setSelectedItem(const LLUUID& obj_id);
+	
+protected:
+	/**
+	 * @return true - if current selected panel is not null and selected item is a landmark
+	 */
+	bool isLandmarkSelected() const;
+	bool isReceivedFolderSelected() const;
+	LLLandmark* getCurSelectedLandmark() const;
+	LLFolderViewItem* getCurSelectedItem () const;
+	void updateSortOrder(LLInventoryPanel* panel, bool byDate);
+
+	//LLRemoteParcelInfoObserver interface
+	/*virtual*/ void processParcelInfo(const LLParcelData& parcel_data);
+	/*virtual*/ void setParcelID(const LLUUID& parcel_id);
+	/*virtual*/ void setErrorStatus(U32 status, const std::string& reason);
+	
+private:
+	void initFavoritesInventroyPanel();
+	void initLandmarksInventroyPanel();
+	void initMyInventroyPanel();
+	void initLibraryInventroyPanel();
+	void initLandmarksPanel(LLInventorySubTreePanel* inventory_list);
+	void initAccordion(const std::string& accordion_tab_name, LLInventorySubTreePanel* inventory_list);
+	void onAccordionExpandedCollapsed(const LLSD& param, LLInventorySubTreePanel* inventory_list);
+	void deselectOtherThan(const LLInventorySubTreePanel* inventory_list);
+
+	// List Commands Handlers
+	void initListCommandsHandlers();
+	void updateListCommands();
+	void onActionsButtonClick();
+	void showActionMenu(LLMenuGL* menu, std::string spawning_view_name);
+	void onAddButtonHeldDown();
+	void onTrashButtonClick() const;
+	void onAddAction(const LLSD& command_name) const;
+	void onClipboardAction(const LLSD& command_name) const;
+	void onFoldingAction(const LLSD& command_name);
+	bool isActionChecked(const LLSD& userdata) const;
+	bool isActionEnabled(const LLSD& command_name) const;
+	void onCustomAction(const LLSD& command_name);
+
+	/**
+	 * Determines if selected item can be modified via context/gear menu.
+	 *
+	 * It validates Places Landmarks rules first. And then LLFolderView permissions.
+	 * For now it checks cut/rename/delete/paste actions.
+	 */
+	bool canSelectedBeModified(const std::string& command_name) const;
+	void onPickPanelExit( LLPanelPickEdit* pick_panel, LLView* owner, const LLSD& params);
+
+	/**
+	 * Processes drag-n-drop of the Landmarks and folders into trash button.
+	 */
+	bool handleDragAndDropToTrash(BOOL drop, EDragAndDropType cargo_type, EAcceptance* accept);
+
+	/**
+	 * Static callback for gIdleCallbacks to perform actions out of drawing
+	 */
+	static void doIdle(void* landmarks_panel);
+
+	/**
+	 * Updates accordions according to filtered items in lists.
+	 *
+	 * It hides accordion for empty lists
+	 */
+	void updateFilteredAccordions();
 
 private:
-	LLInventoryPanel*			mInventoryPanel;
-	LLSaveFolderState*			mSavedFolderState;
-	LLButton*					mActionBtn;
+	LLInventorySubTreePanel*	mFavoritesInventoryPanel;
+	LLInventorySubTreePanel*	mLandmarksInventoryPanel;
+	LLInventorySubTreePanel*	mMyInventoryPanel;
+	LLInventorySubTreePanel*	mLibraryInventoryPanel;
+	LLMenuGL*					mGearLandmarkMenu;
+	LLMenuGL*					mGearFolderMenu;
+	LLMenuGL*					mMenuAdd;
+	LLInventorySubTreePanel*	mCurrentSelectedList;
+
+	LLPanel*					mListCommands;
+	bool 						mSortByDate;
+	bool						mDirtyFilter;
+	
+	typedef	std::vector<LLAccordionCtrlTab*> accordion_tabs_t;
+	accordion_tabs_t			mAccordionTabs;
 };
 
 #endif //LL_LLPANELLANDMARKS_H

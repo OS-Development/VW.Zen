@@ -45,6 +45,7 @@
 #include "lltooldraganddrop.h"
 #include "llradiogroup.h"
 #include "llassetstorage.h"
+#include "llviewerassettype.h"
 #include "llviewerobject.h"
 #include "llviewerobjectlist.h"
 #include "lldbstrings.h"
@@ -317,7 +318,7 @@ BOOL LLPreview::handleHover(S32 x, S32 y, MASK mask)
 		   && LLToolDragAndDrop::getInstance()->isOverThreshold(screen_x, screen_y))
 		{
 			EDragAndDropType type;
-			type = LLAssetType::lookupDragAndDropType(item->getType());
+			type = LLViewerAssetType::lookupDragAndDropType(item->getType());
 			LLToolDragAndDrop::ESource src = LLToolDragAndDrop::SOURCE_LIBRARY;
 			if(!mObjectUUID.isNull())
 			{
@@ -406,7 +407,7 @@ void LLPreview::onDiscardBtn(void* data)
 	*/
 
 	// Move the item to the trash
-	LLUUID trash_id = gInventory.findCategoryUUIDForType(LLAssetType::AT_TRASH);
+	const LLUUID trash_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_TRASH);
 	if (item->getParentUUID() != trash_id)
 	{
 		LLInventoryModel::update_list_t update;
@@ -492,3 +493,31 @@ void LLMultiPreview::tabOpen(LLFloater* opened_floater, bool from_click)
 	}
 }
 
+
+void LLPreview::setAssetId(const LLUUID& asset_id)
+{
+	const LLViewerInventoryItem* item = dynamic_cast<const LLViewerInventoryItem*>(getItem());
+	if(NULL == item)
+	{
+		return;
+	}
+	
+	if(mObjectUUID.isNull())
+	{
+		// Update avatar inventory asset_id.
+		LLPointer<LLViewerInventoryItem> new_item = new LLViewerInventoryItem(item);
+		new_item->setAssetUUID(asset_id);
+		gInventory.updateItem(new_item);
+		gInventory.notifyObservers();
+	}
+	else
+	{
+		// Update object inventory asset_id.
+		LLViewerObject* object = gObjectList.findObject(mObjectUUID);
+		if(NULL == object)
+		{
+			return;
+		}
+		object->updateViewerInventoryAsset(item, asset_id);
+	}
+}

@@ -34,11 +34,13 @@
 
 #include "llnotifications.h"
 
+#include "llxmlnode.h"
 #include "lluictrl.h"
 #include "lluictrlfactory.h"
 #include "lldir.h"
 #include "llsdserialize.h"
 #include "lltrans.h"
+#include "llnotificationslistener.h"
 
 #include <algorithm>
 #include <boost/regex.hpp>
@@ -944,6 +946,8 @@ LLNotifications::LLNotifications() : LLNotificationChannelBase(LLNotificationFil
 									mIgnoreAllNotifications(false)
 {
 	LLUICtrl::CommitCallbackRegistry::currentRegistrar().add("Notification.Show", boost::bind(&LLNotifications::addFromCallback, this, _2));
+
+    mListener.reset(new LLNotificationsListener(*this));
 }
 
 

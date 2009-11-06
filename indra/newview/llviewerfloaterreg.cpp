@@ -57,7 +57,7 @@
 #include "llfloaterchat.h"
 #include "llfloaterchatterbox.h"
 #include "llfloaterdaycycle.h"
-#include "llfloaterdirectory.h"
+#include "llfloatersearch.h"
 #include "llfloaterenvsettings.h"
 #include "llfloaterfonttest.h"
 #include "llfloatergesture.h"
@@ -80,6 +80,7 @@
 #include "llfloatermap.h"
 #include "llfloatermemleak.h"
 #include "llfloaternamedesc.h"
+#include "llfloaternearbymedia.h"
 #include "llfloaternotificationsconsole.h"
 #include "llfloateropenobject.h"
 #include "llfloaterpay.h"
@@ -109,6 +110,7 @@
 #include "llfloaterwindlight.h"
 #include "llfloaterworldmap.h"
 #include "llinspectavatar.h"
+#include "llinspectgroup.h"
 #include "llinspectobject.h"
 #include "llmediaremotectrl.h"
 #include "llmoveview.h"
@@ -146,7 +148,6 @@ void LLViewerFloaterReg::registerFloaters()
 	LLFloaterReg::add("bumps", "floater_bumps.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterBump>);
 
 	LLFloaterReg::add("camera", "floater_camera.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterCamera>);
-	LLFloaterReg::add("camera_presets", "floater_camera_presets.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterCameraPresets>);
 	LLFloaterReg::add("chat", "floater_chat_history.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterChat>);
 	LLFloaterReg::add("nearby_chat", "floater_nearby_chat.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLNearbyChat>);
 	LLFloaterReg::add("communicate", "floater_chatterbox.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterChatterBox>);
@@ -172,6 +173,7 @@ void LLViewerFloaterReg::registerFloaters()
 	LLFloaterReg::add("inventory", "floater_inventory.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterInventory>);
 	LLFloaterReg::add("inspect", "floater_inspect.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterInspect>);
 	LLInspectAvatarUtil::registerFloater();
+	LLInspectGroupUtil::registerFloater();
 	LLInspectObjectUtil::registerFloater();
 	
 	LLFloaterReg::add("lagmeter", "floater_lagmeter.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterLagMeter>);
@@ -186,9 +188,10 @@ void LLViewerFloaterReg::registerFloaters()
 	LLFloaterReg::add("mute_object_by_name", "floater_mute_object.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterGetBlockedObjectName>);
 	LLFloaterReg::add("mini_map", "floater_map.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterMap>);
 	LLFloaterReg::add("syswell_window", "floater_sys_well.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLSysWellWindow>);
+
+	LLFloaterReg::add("nearby_media", "floater_nearby_media.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterNearbyMedia>);
 	
 	LLFloaterReg::add("notifications_console", "floater_notifications_console.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterNotificationConsole>);
-	LLFloaterReg::add("nearby_chat", "floater_nearby_chat.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLNearbyChat>);
 
 	LLFloaterReg::add("openobject", "floater_openobject.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterOpenObject>);
 	
@@ -230,9 +233,9 @@ void LLViewerFloaterReg::registerFloaters()
 	LLFloaterReg::add("start_queue", "floater_script_queue.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterRunQueue>);
 	LLFloaterReg::add("stop_queue", "floater_script_queue.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterNotRunQueue>);
 	LLFloaterReg::add("snapshot", "floater_snapshot.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterSnapshot>);
-	LLFloaterReg::add("search", "floater_directory.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterDirectory>);
+	LLFloaterReg::add("search", "floater_search.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterSearch>);	
 	
-	LLFloaterReg::add("ui_preview", "floater_ui_preview.xml", &LLFloaterReg::build<LLFloaterUIPreview>);
+	LLFloaterUIPreviewUtil::registerFloater();
 	LLFloaterReg::add("upload_anim", "floater_animation_preview.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterAnimPreview>, "upload");
 	LLFloaterReg::add("upload_image", "floater_image_preview.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterImagePreview>, "upload");
 	LLFloaterReg::add("upload_sound", "floater_sound_preview.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterSoundPreview>, "upload");

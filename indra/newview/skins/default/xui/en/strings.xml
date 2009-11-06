@@ -14,7 +14,10 @@
 	<!-- starting up -->
 	<string name="StartupDetectingHardware">Detecting hardware...</string>
 	<string name="StartupLoading">Loading</string>
-	<string name="Fullbright">Fullbright (Legacy)</string>	
+
+	<!-- Legacy strings, almost never used -->
+	<string name="Fullbright">Fullbright (Legacy)</string>	<!-- used in the Build > materials dropdown-->
+
 	<!-- Login -->
 	<string name="LoginInProgress">Logging in. [APP_NAME] may appear frozen.  Please wait.</string>
 	<string name="LoginInProgressNoFrozen">Logging in...</string>
@@ -58,9 +61,7 @@
 	<string name="TooltipFlagGroupScripts">Group Scripts</string>
 	<string name="TooltipFlagNoScripts">No Scripts</string>
 	<string name="TooltipLand">Land:</string>
-	<string name="TooltipMustSingleDrop">Only a single item can be dragged here</string>	
-	<string name="TooltipAltLeft">Alt-Left arrow for previous tab</string>	
-	<string name="TooltipAltRight">Alt-Right arrow for next tab</string>	
+	<string name="TooltipMustSingleDrop">Only a single item can be dragged here</string>
 
 	<!-- tooltips for Urls -->
 	<string name="TooltipHttpUrl">Click to view this web page</string>
@@ -72,11 +73,17 @@
 	<string name="TooltipParcelUrl">Click to view this parcel's description</string>
 	<string name="TooltipTeleportUrl">Click to teleport to this location</string>
 	<string name="TooltipObjectIMUrl">Click to view this object's description</string>
+	<string name="TooltipMapUrl">Click to view this location on a map</string>
 	<string name="TooltipSLAPP">Click to run the secondlife:// command</string>
+	<string name="CurrentURL" value=" CurrentURL: [CurrentURL]" />
+
+	<!-- text for SLURL labels -->
+	<string name="SLurlLabelTeleport">Teleport to</string>
+	<string name="SLurlLabelShowOnMap">Show Map for</string>
 	
 	<!-- ButtonToolTips, llfloater.cpp -->
-	<string name="BUTTON_CLOSE_DARWIN">Close (&#8984;-W)</string>
-	<string name="BUTTON_CLOSE_WIN">Close (Ctrl-W)</string>
+	<string name="BUTTON_CLOSE_DARWIN">Close (&#8984;W)</string>
+	<string name="BUTTON_CLOSE_WIN">Close (Ctrl+W)</string>
 	<string name="BUTTON_RESTORE">Restore</string>			
 	<string name="BUTTON_MINIMIZE">Minimize</string>
 	<string name="BUTTON_TEAR_OFF">Tear Off</string>
@@ -127,7 +134,7 @@
 	<string name="AssetErrorPriceMismatch">Viewer and server do not agree on price</string>
 	<string name="AssetErrorUnknownStatus">Unknown status</string>
 	
-	<!-- Asset Type Human Names -->
+	<!-- Asset Type human readable names:  these will replace variable [TYPE] in notification FailedToFindWearable* -->
 	<string name="texture">texture</string>
 	<string name="sound">sound</string>
 	<string name="calling card">calling card</string>
@@ -135,23 +142,23 @@
 	<string name="legacy script">legacy script</string>
 	<string name="clothing">clothing</string>
 	<string name="object">object</string>
-	<string name="note card">note card</string>
+	<string name="note card">notecard</string>
 	<string name="folder">folder</string>
 	<string name="root">root</string>
-	<string name="lsl2 script">lsl2 script</string>
-	<string name="lsl bytecode">lsl bytecode</string>
+	<string name="lsl2 script">LSL2 script</string>
+	<string name="lsl bytecode">LSL bytecode</string>
 	<string name="tga texture">tga texture</string>
-	<string name="body part">body part</string>												
-	<string name="snapshot">snapshot</string>															
-	<string name="lost and found">lost and found</string>																												
-	<string name="targa image">targa image</string>															
-	<string name="trash">trash</string>															
-	<string name="jpeg image">jpeg image</string>															
-	<string name="animation">animation</string>															
-	<string name="gesture">gesture</string>															
-	<string name="simstate">simstate</string>																
-	<string name="favorite">favorite</string>															
-	<string name="symbolic link">link</string>															
+	<string name="body part">body part</string>
+	<string name="snapshot">snapshot</string>
+	<string name="lost and found">Lost and Found</string>
+	<string name="targa image">targa image</string>
+	<string name="trash">Trash</string>
+	<string name="jpeg image">jpeg image</string>
+	<string name="animation">animation</string>
+	<string name="gesture">gesture</string>
+	<string name="simstate">simstate</string>
+	<string name="favorite">favorite</string>
+	<string name="symbolic link">link</string>
 	
 	<!-- llvoavatar. Displayed in the avatar chat bubble -->
 	<string name="AvatarEditingAppearance">(Editing Appearance)</string>
@@ -230,8 +237,10 @@
 	<string name="anim_yes_happy">Yes (Happy)</string>
 	<string name="anim_yes_head">Yes</string>
 	
+	<!-- world map -->
 	<string name="texture_loading">Loading...</string>
 	<string name="worldmap_offline">Offline</string>
+	<string name="worldmap_results_none_found">None found.</string>
 	
 	<!-- animations uploading status codes -->
 	<string name="Ok">OK</string>
@@ -259,10 +268,6 @@
 	<string name="TrackYourCamera">Track your camera</string>
 	<string name="ControlYourCamera">Control your camera</string>
 
-	<!-- IM -->
-	<string name="IM_logging_string">-- Instant message logging enabled --</string>
-	<string name="Unnamed">(Unnamed)</string>
-	
 	<!-- Sim Access labels -->
 	<string name="SIM_ACCESS_PG">PG</string>
 	<string name="SIM_ACCESS_MATURE">Mature</string>
@@ -637,7 +642,7 @@ Sets the script timer to zero
 float llGetAndResetTime()
 Returns the script time in seconds and then resets the script timer to zero
 	</string>
-	<string name="LSLTipText_llSound" translate="false">
+	<string name="LSLTipText_llSoplayund" translate="false">
 llSound(string sound, float volume, integer queue, integer loop)
 Plays sound at volume and whether it should loop or not
 	</string>
@@ -1814,6 +1819,7 @@ this texture in your inventory
 	<string name="broken_link" value=" (broken_link)" />
 	<string name="LoadingContents">Loading contents...</string>
 	<string name="NoContents">No contents</string>
+	<string name="WornOnAttachmentPoint" value=" (worn on [ATTACHMENT_POINT])" />
 
 	<!-- Gestures labels -->
     <!-- use value="" because they have preceding spaces -->
@@ -1946,6 +1952,10 @@ this texture in your inventory
   <string name="AgeDaysA">[COUNT] day</string>
   <string name="AgeDaysB">[COUNT] days</string>
   <string name="AgeDaysC">[COUNT] days</string>
+  <!-- Group member counts -->
+  <string name="GroupMembersA">[COUNT] member</string>
+  <string name="GroupMembersB">[COUNT] members</string>
+  <string name="GroupMembersC">[COUNT] members</string>
 
   <!-- Account types, see LLAvatarPropertiesProcessor -->
   <string name="AcctTypeResident">Resident</string>
@@ -2012,15 +2022,14 @@ this texture in your inventory
 	<string name="IMTeen">teen</string>
 	
 	<!-- floater region info -->
+	<!-- The following will replace variable [ALL_ESTATES] in notifications EstateAllowed*, EstateBanned*, EstateManager* -->
 	<string name="RegionInfoError">error</string>
 	<string name="RegionInfoAllEstatesOwnedBy">
-		all estates
-owned by [OWNER]
+		all estates owned by [OWNER]
 	</string>
-	<string name="RegionInfoAllEstatesYouOwn">all estates you owned</string>
+	<string name="RegionInfoAllEstatesYouOwn">all estates that you own</string>
 	<string name="RegionInfoAllEstatesYouManage">
-		all estates that
-you managed for [OWNER]
+		all estates that you manage for [OWNER]
 	</string>
 	<string name="RegionInfoAllowedResidents">Allowed residents: ([ALLOWEDAGENTS], max [MAXACCESS])</string>
 	<string name="RegionInfoAllowedGroups">Allowed groups: ([ALLOWEDGROUPS], max [MAXACCESS])</string>
@@ -2037,9 +2046,6 @@ you managed for [OWNER]
 	
 	<!-- panel contents -->
 	<string name="PanelContentsNewScript">New Script</string>
-	
-	<!-- panel avatar -->
-	<!-- <string name="None">None</string>	Duplicate-->
 	
 	<!-- Mute -->
 	<string name="MuteByName">(by name)</string>
@@ -2110,6 +2116,15 @@ Expected .wav, .tga, .bmp, .jpg, .jpeg, or .bvh
 	<string name="AddLandmarkNavBarMenu">Add Landmark...</string>	 
 	<string name="EditLandmarkNavBarMenu">Edit Landmark...</string>
 	
+	<!-- menu accelerators -->
+	<string name="accel-mac-control">&#8963;</string>
+	<string name="accel-mac-command">&#8984;</string>
+	<string name="accel-mac-option">&#8997;</string>
+	<string name="accel-mac-shift">&#8679;</string>
+	<string name="accel-win-control">Ctrl+</string>
+	<string name="accel-win-alt">Alt+</string>
+	<string name="accel-win-shift">Shift+</string>
+
 	<!-- Previews -->
 	<string name="FileSaved">File Saved</string>	
 	<string name="Receiving">Receiving</string>	
@@ -2175,6 +2190,7 @@ Expected .wav, .tga, .bmp, .jpg, .jpeg, or .bvh
 
 	<!-- media -->
 	<string name="Multiple Media">Multiple Media</string>
+	<string name="Play Media">Play/Pause Media</string>
 	
 	<!-- OSMessageBox messages -->
 	<string name="MBCmdLineError">
@@ -2225,9 +2241,8 @@ Running in window.
 	<string name="MBPixelFmtErr">Can't find suitable pixel format</string>
 	<string name="MBPixelFmtDescErr">Can't get pixel format description</string>
 	<string name="MBTrueColorWindow">
-		[APP_NAME] requires True Color (32-bit) to run in a window.
-Please go to Control Panels &gt; Display &gt; Settings and set the screen to 32-bit color.
-Alternately, if you choose to run fullscreen, [APP_NAME] will automatically adjust the screen each time it runs.
+		[APP_NAME] requires True Color (32-bit) to run.
+Please go to your computer's display settings and set the color mode to 32-bit.
 	</string>
 	<string name="MBAlpha">
 		[APP_NAME] is unable to run because it can't get an 8 bit alpha channel.  Usually this is due to video card driver issues.
@@ -2246,14 +2261,14 @@ If you continue to receive this message, contact the [SUPPORT_SITE].
 
 	<!-- Avatar Shape Information -->
 <string name="5 O'Clock Shadow">5 O'Clock Shadow</string>
-<string name="5 O'Clock Shadow bump">5 O'Clock Shadow bump</string>
+
 <string name="All White">All White</string>
 <string name="Anime Eyes">Anime Eyes</string>
 <string name="Arced">Arced</string>
 <string name="Arm Length">Arm Length</string>
 <string name="Attached">Attached</string>
 <string name="Attached Earlobes">Attached Earlobes</string>
-<string name="BELLY">BELLY</string>
+
 <string name="Back Bangs">Back Bangs</string>
 <string name="Back Bangs Down">Back Bangs Down</string>
 <string name="Back Bangs Up">Back Bangs Up</string>
@@ -2270,9 +2285,9 @@ If you continue to receive this message, contact the [SUPPORT_SITE].
 <string name="Big">Big</string>
 <string name="Big Butt">Big Butt</string>
 <string name="Big Eyeball">Big Eyeball</string>
-<string name="Big Hair Back">Big Hair Back</string>
-<string name="Big Hair Front">Big Hair Front</string>
-<string name="Big Hair Top">Big Hair Top</string>
+<string name="Big Hair Back">Big Hair: Back</string>
+<string name="Big Hair Front">Big Hair: Front</string>
+<string name="Big Hair Top">Big Hair: Top</string>
 <string name="Big Head">Big Head</string>
 <string name="Big Pectorals">Big Pectorals</string>
 <string name="Big Spikes">Big Spikes</string>
@@ -2288,10 +2303,7 @@ If you continue to receive this message, contact the [SUPPORT_SITE].
 <string name="Body Thick">Body Thick</string>
 <string name="Body Thickness">Body Thickness</string>
 <string name="Body Thin">Body Thin</string>
-<string name="Bottom">Bottom</string>
-<string name="Bottom Left">Bottom Left</string>
-<string name="Bottom Right">Bottom Right</string>
-<string name="Bottom bump">Bottom bump</string>
+
 <string name="Bow Legged">Bow Legged</string>
 <string name="Breast Buoyancy">Breast Buoyancy</string>
 <string name="Breast Cleavage">Breast Cleavage</string>
@@ -2303,23 +2315,22 @@ If you continue to receive this message, contact the [SUPPORT_SITE].
 <string name="Bugged Eyes">Bugged Eyes</string>
 <string name="Bulbous">Bulbous</string>
 <string name="Bulbous Nose">Bulbous Nose</string>
-<string name="Bump base">Bump base</string>
-<string name="Bump upperdef">Bump upperdef</string>
+
+
 <string name="Bushy Eyebrows">Bushy Eyebrows</string>
 <string name="Bushy Hair">Bushy Hair</string>
 <string name="Butt Size">Butt Size</string>
-<string name="CHEST">CHEST</string>
-<string name="Center">Center</string>
-<string name="Center 2">Center 2</string>
+<string name="bustle skirt">Bustle Skirt</string>
+<string name="no bustle">No Bustle</string>
+<string name="more bustle">More Bustle</string>
+
 <string name="Chaplin">Chaplin</string>
 <string name="Cheek Bones">Cheek Bones</string>
-<string name="Chest">Chest</string>
 <string name="Chest Size">Chest Size</string>
-<string name="Chin">Chin</string>
 <string name="Chin Angle">Chin Angle</string>
 <string name="Chin Cleft">Chin Cleft</string>
 <string name="Chin Curtains">Chin Curtains</string>
-<string name="Chin Curtains bump">Chin Curtains bump</string>
+
 <string name="Chin Depth">Chin Depth</string>
 <string name="Chin Heavy">Chin Heavy</string>
 <string name="Chin In">Chin In</string>
@@ -2335,13 +2346,13 @@ If you continue to receive this message, contact the [SUPPORT_SITE].
 <string name="Closed Right">Closed Right</string>
 <string name="Coin Purse">Coin Purse</string>
 <string name="Collar Back">Collar Back</string>
-<string name="Collar Back Height Cloth">Collar Back Height Cloth</string>
-<string name="Collar Back Shadow Height">Collar Back Shadow Height</string>
-<string name="Collar Back bump">Collar Back bump</string>
+
+
+
 <string name="Collar Front">Collar Front</string>
-<string name="Collar Front Height Cloth">Collar Front Height Cloth</string>
-<string name="Collar Front Shadow Height">Collar Front Shadow Height</string>
-<string name="Collar Front bump">Collar Front bump</string>
+
+
+
 <string name="Corner Down">Corner Down</string>
 <string name="Corner Normal">Corner Normal</string>
 <string name="Corner Up">Corner Up</string>
@@ -2375,11 +2386,11 @@ If you continue to receive this message, contact the [SUPPORT_SITE].
 <string name="Eyeball Size">Eyeball Size</string>
 <string name="Eyebrow Arc">Eyebrow Arc</string>
 <string name="Eyebrow Density">Eyebrow Density</string>
-<string name="Eyebrow Density Bump">Eyebrow Density Bump</string>
+
 <string name="Eyebrow Height">Eyebrow Height</string>
 <string name="Eyebrow Points">Eyebrow Points</string>
 <string name="Eyebrow Size">Eyebrow Size</string>
-<string name="Eyebrow Size Bump">Eyebrow Size Bump</string>
+
 <string name="Eyelash Length">Eyelash Length</string>
 <string name="Eyeliner">Eyeliner</string>
 <string name="Eyeliner Color">Eyeliner Color</string>
@@ -2429,21 +2440,21 @@ If you continue to receive this message, contact the [SUPPORT_SITE].
 <string name="Full Sides">Full Sides</string>
 <string name="Glossy">Glossy</string>
 <string name="Glove Fingers">Glove Fingers</string>
-<string name="Glove Fingers bump">Glove Fingers bump</string>
+
 <string name="Glove Length">Glove Length</string>
-<string name="Glove Length bump">Glove Length bump</string>
-<string name="HEAD">HEAD</string>
+
+
 <string name="Hair">Hair</string>
-<string name="Hair Back">Hair Back</string>
-<string name="Hair Front">Hair Front</string>
-<string name="Hair Sides">Hair Sides</string>
+<string name="Hair Back">Hair: Back</string>
+<string name="Hair Front">Hair: Front</string>
+<string name="Hair Sides">Hair: Sides</string>
 <string name="Hair Sweep">Hair Sweep</string>
-<string name="Hair Thickess">Hair Thickess</string>
+<string name="Hair Thickess">Hair Thickness</string>
 <string name="Hair Thickness">Hair Thickness</string>
 <string name="Hair Tilt">Hair Tilt</string>
 <string name="Hair Tilted Left">Hair Tilted Left</string>
 <string name="Hair Tilted Right">Hair Tilted Right</string>
-<string name="Hair Volume">Hair Volume</string>
+<string name="Hair Volume">Hair: Volume</string>
 <string name="Hand Size">Hand Size</string>
 <string name="Handlebars">Handlebars</string>
 <string name="Head Length">Head Length</string>
@@ -2462,15 +2473,15 @@ If you continue to receive this message, contact the [SUPPORT_SITE].
 <string name="Hip Length">Hip Length</string>
 <string name="Hip Width">Hip Width</string>
 <string name="In">In</string>
-<string name="In Shdw Color">In Shdw Color</string>
-<string name="In Shdw Opacity">In Shdw Opacity</string>
+<string name="In Shdw Color">Inner Shadow Color</string>
+<string name="In Shdw Opacity">Inner Shadow Opacity</string>
 <string name="Inner Eye Corner">Inner Eye Corner</string>
 <string name="Inner Eye Shadow">Inner Eye Shadow</string>
 <string name="Inner Shadow">Inner Shadow</string>
-<string name="Jacket Collar Back bump">Jacket Collar Back bump</string>
-<string name="Jacket Collar Front bump">Jacket Collar Front bump</string>
+
+
 <string name="Jacket Length">Jacket Length</string>
-<string name="Jacket Sleeve Length bump">Jacket Sleeve Length bump</string>
+
 <string name="Jacket Wrinkles">Jacket Wrinkles</string>
 <string name="Jaw Angle">Jaw Angle</string>
 <string name="Jaw Jut">Jaw Jut</string>
@@ -2479,22 +2490,10 @@ If you continue to receive this message, contact the [SUPPORT_SITE].
 <string name="Jowls">Jowls</string>
 <string name="Knee Angle">Knee Angle</string>
 <string name="Knock Kneed">Knock Kneed</string>
-<string name="L Forearm">L Forearm</string>
-<string name="L Lower Leg">L Lower Leg</string>
-<string name="L Upper Arm">L Upper Arm</string>
-<string name="L Upper Leg">L Upper Leg</string>
 
 <string name="Large">Large</string>
 <string name="Large Hands">Large Hands</string>
-<string name="Left">Left</string>
-<string name="Left Ear">Left Ear</string>
-<string name="Left Eyeball">Left Eyeball</string>
-<string name="Left Foot">Left Foot</string>
-<string name="Left Hand">Left Hand</string>
-<string name="Left Hip">Left Hip</string>
 <string name="Left Part">Left Part</string>
-<string name="Left Pec">Left Pec</string>
-<string name="Left Shoulder">Left Shoulder</string>
 <string name="Leg Length">Leg Length</string>
 <string name="Leg Muscles">Leg Muscles</string>
 <string name="Less">Less</string>
@@ -2512,7 +2511,6 @@ If you continue to receive this message, contact the [SUPPORT_SITE].
 <string name="Less Square">Less Square</string>
 <string name="Less Volume">Less Volume</string>
 <string name="Less soul">Less soul</string>
-<string name="Light">Light</string>
 <string name="Lighter">Lighter</string>
 <string name="Lip Cleft">Lip Cleft</string>
 <string name="Lip Cleft Depth">Lip Cleft Depth</string>
@@ -2534,11 +2532,11 @@ If you continue to receive this message, contact the [SUPPORT_SITE].
 <string name="Long Torso">Long Torso</string>
 <string name="Long arms">Long arms</string>
 <string name="Longcuffs">Longcuffs</string>
-<string name="Loose Lower Clothing">Loose Lower Clothing</string>
+
 <string name="Loose Pants">Loose Pants</string>
 <string name="Loose Shirt">Loose Shirt</string>
 <string name="Loose Sleeves">Loose Sleeves</string>
-<string name="Loose Upper Clothing">Loose Upper Clothing</string>
+
 <string name="Love Handles">Love Handles</string>
 <string name="Low">Low</string>
 <string name="Low Heels">Low Heels</string>
@@ -2548,7 +2546,7 @@ If you continue to receive this message, contact the [SUPPORT_SITE].
 <string name="Lower">Lower</string>
 <string name="Lower Bridge">Lower Bridge</string>
 <string name="Lower Cheeks">Lower Cheeks</string>
-<string name="Lower Clothes Shading">Lower Clothes Shading</string>
+
 <string name="Male">Male</string>
 <string name="Middle Part">Middle Part</string>
 <string name="More">More</string>
@@ -2574,14 +2572,13 @@ If you continue to receive this message, contact the [SUPPORT_SITE].
 <string name="More Volume">More Volume</string>
 <string name="More soul">More soul</string>
 <string name="Moustache">Moustache</string>
-<string name="Moustache bump">Moustache bump</string>
-<string name="Mouth">Mouth</string>
+
 <string name="Mouth Corner">Mouth Corner</string>
 <string name="Mouth Position">Mouth Position</string>
 <string name="Mowhawk">Mowhawk</string>
 <string name="Muscular">Muscular</string>
 <string name="Mutton Chops">Mutton Chops</string>
-<string name="NECK">NECK</string>
+
 <string name="Nail Polish">Nail Polish</string>
 <string name="Nail Polish Color">Nail Polish Color</string>
 <string name="Narrow">Narrow</string>
@@ -2603,10 +2600,8 @@ If you continue to receive this message, contact the [SUPPORT_SITE].
 <string name="No Spikes">No Spikes</string>
 <string name="No White">No White</string>
 <string name="No Wrinkles">No Wrinkles</string>
-<string name="None">None</string>
 <string name="Normal Lower">Normal Lower</string>
 <string name="Normal Upper">Normal Upper</string>
-<string name="Nose">Nose</string>
 <string name="Nose Left">Nose Left</string>
 <string name="Nose Right">Nose Right</string>
 <string name="Nose Size">Nose Size</string>
@@ -2616,7 +2611,7 @@ If you continue to receive this message, contact the [SUPPORT_SITE].
 <string name="Nose Width">Nose Width</string>
 <string name="Nostril Division">Nostril Division</string>
 <string name="Nostril Width">Nostril Width</string>
-<string name="NotHair">NotHair</string>
+
 <string name="Old">Old</string>
 <string name="Opaque">Opaque</string>
 <string name="Open">Open</string>
@@ -2626,27 +2621,26 @@ If you continue to receive this message, contact the [SUPPORT_SITE].
 <string name="Open Right">Open Right</string>
 <string name="Orange">Orange</string>
 <string name="Out">Out</string>
-<string name="Out Shdw Color">Out Shdw Color</string>
-<string name="Out Shdw Opacity">Out Shdw Opacity</string>
+<string name="Out Shdw Color">Outer Shadow Color</string>
+<string name="Out Shdw Opacity">Outer Shadow Opacity</string>
 <string name="Outer Eye Corner">Outer Eye Corner</string>
 <string name="Outer Eye Shadow">Outer Eye Shadow</string>
 <string name="Outer Shadow">Outer Shadow</string>
 <string name="Overbite">Overbite</string>
-<string name="PELVIS">PELVIS</string>
+
 <string name="Package">Package</string>
 <string name="Painted Nails">Painted Nails</string>
 <string name="Pale">Pale</string>
 <string name="Pants Crotch">Pants Crotch</string>
 <string name="Pants Fit">Pants Fit</string>
 <string name="Pants Length">Pants Length</string>
-<string name="Pants Length Cloth">Pants Length Cloth</string>
-<string name="Pants Length Shadow">Pants Length Shadow</string>
+
+
 <string name="Pants Waist">Pants Waist</string>
 <string name="Pants Wrinkles">Pants Wrinkles</string>
 <string name="Part">Part</string>
 <string name="Part Bangs">Part Bangs</string>
 <string name="Pectorals">Pectorals</string>
-<string name="Pelvis">Pelvis</string>
 <string name="Pigment">Pigment</string>
 <string name="Pigtails">Pigtails</string>
 <string name="Pink">Pink</string>
@@ -2662,24 +2656,12 @@ If you continue to receive this message, contact the [SUPPORT_SITE].
 <string name="Pop Right Eye">Pop Right Eye</string>
 <string name="Puffy">Puffy</string>
 <string name="Puffy Eyelids">Puffy Eyelids</string>
-<string name="R Forearm">R Forearm</string>
-<string name="R Lower Leg">R Lower Leg</string>
-<string name="R Upper Arm">R Upper Arm</string>
-<string name="R Upper Leg">R Upper Leg</string>
 <string name="Rainbow Color">Rainbow Color</string>
 <string name="Red Hair">Red Hair</string>
 <string name="Red Skin">Red Skin</string>
 <string name="Regular">Regular</string>
 <string name="Regular Muscles">Regular Muscles</string>
-<string name="Right">Right</string>
-<string name="Right Ear">Right Ear</string>
-<string name="Right Eyeball">Right Eyeball</string>
-<string name="Right Foot">Right Foot</string>
-<string name="Right Hand">Right Hand</string>
-<string name="Right Hip">Right Hip</string>
 <string name="Right Part">Right Part</string>
-<string name="Right Pec">Right Pec</string>
-<string name="Right Shoulder">Right Shoulder</string>
 <string name="Rosy Complexion">Rosy Complexion</string>
 <string name="Round">Round</string>
 <string name="Round Forehead">Round Forehead</string>
@@ -2707,12 +2689,12 @@ If you continue to receive this message, contact the [SUPPORT_SITE].
 <string name="Shift Mouth">Shift Mouth</string>
 <string name="Shift Right">Shift Right</string>
 <string name="Shirt Bottom">Shirt Bottom</string>
-<string name="Shirt Bottom Cloth">Shirt Bottom Cloth</string>
+
 <string name="Shirt Fit">Shirt Fit</string>
-<string name="Shirt Shadow Bottom">Shirt Shadow Bottom</string>
+
 <string name="Shirt Wrinkles">Shirt Wrinkles</string>
 <string name="Shoe Height">Shoe Height</string>
-<string name="Shoe Height bump">Shoe Height bump</string>
+
 <string name="Short">Short</string>
 <string name="Short Arms">Short Arms</string>
 <string name="Short Legs">Short Legs</string>
@@ -2728,7 +2710,7 @@ If you continue to receive this message, contact the [SUPPORT_SITE].
 <string name="Side Bangs Up">Side Bangs Up</string>
 <string name="Side Fringe">Side Fringe</string>
 <string name="Sideburns">Sideburns</string>
-<string name="Sideburns bump">Sideburns bump</string>
+
 <string name="Sides Hair">Sides Hair</string>
 <string name="Sides Hair Down">Sides Hair Down</string>
 <string name="Sides Hair Up">Sides Hair Up</string>
@@ -2736,35 +2718,32 @@ If you continue to receive this message, contact the [SUPPORT_SITE].
 <string name="Skinny Neck">Skinny Neck</string>
 <string name="Skirt Fit">Skirt Fit</string>
 <string name="Skirt Length">Skirt Length</string>
-<string name="Skull">Skull</string>
 <string name="Slanted Forehead">Slanted Forehead</string>
 <string name="Sleeve Length">Sleeve Length</string>
-<string name="Sleeve Length Cloth">Sleeve Length Cloth</string>
-<string name="Sleeve Length Shadow">Sleeve Length Shadow</string>
-<string name="Sleeve Length bump">Sleeve Length bump</string>
+
+
+
 <string name="Sleeve Looseness">Sleeve Looseness</string>
-<string name="Slit Back">Slit Back</string>
-<string name="Slit Front">Slit Front</string>
-<string name="Slit Left">Slit Left</string>
-<string name="Slit Right">Slit Right</string>
+<string name="Slit Back">Slit: Back</string>
+<string name="Slit Front">Slit: Front</string>
+<string name="Slit Left">Slit: Left</string>
+<string name="Slit Right">Slit: Right</string>
 <string name="Small">Small</string>
 <string name="Small Hands">Small Hands</string>
 <string name="Small Head">Small Head</string>
 <string name="Smooth">Smooth</string>
 <string name="Smooth Hair">Smooth Hair</string>
 <string name="Socks Length">Socks Length</string>
-<string name="Socks Length bump">Socks Length bump</string>
+
 <string name="Some">Some</string>
 <string name="Soulpatch">Soulpatch</string>
-<string name="Soulpatch bump">Soulpatch bump</string>
+
 <string name="Sparse">Sparse</string>
 <string name="Spiked Hair">Spiked Hair</string>
-<string name="Spine">Spine</string>
 <string name="Square">Square</string>
 <string name="Square Toe">Square Toe</string>
 <string name="Squash Head">Squash Head</string>
 <string name="Squash/Stretch Head">Squash/Stretch Head</string>
-<string name="Stomach">Stomach</string>
 <string name="Stretch Head">Stretch Head</string>
 <string name="Sunken">Sunken</string>
 <string name="Sunken Chest">Sunken Chest</string>
@@ -2796,9 +2775,6 @@ If you continue to receive this message, contact the [SUPPORT_SITE].
 <string name="Tilt Right">Tilt Right</string>
 <string name="Toe Shape">Toe Shape</string>
 <string name="Toe Thickness">Toe Thickness</string>
-<string name="Top">Top</string>
-<string name="Top Left">Top Left</string>
-<string name="Top Right">Top Right</string>
 <string name="Torso Length">Torso Length</string>
 <string name="Torso Muscles">Torso Muscles</string>
 <string name="Torso Scrawny">Torso Scrawny</string>
@@ -2809,13 +2785,13 @@ If you continue to receive this message, contact the [SUPPORT_SITE].
 <string name="Upper Bridge">Upper Bridge</string>
 <string name="Upper Cheeks">Upper Cheeks</string>
 <string name="Upper Chin Cleft">Upper Chin Cleft</string>
-<string name="Upper Clothes Shading">Upper Clothes Shading</string>
+
 <string name="Upper Eyelid Fold">Upper Eyelid Fold</string>
 <string name="Upturned">Upturned</string>
 <string name="Very Red">Very Red</string>
 <string name="Waist Height">Waist Height</string>
-<string name="Waist Height Cloth">Waist Height Cloth</string>
-<string name="Waist Height Shadow">Waist Height Shadow</string>
+
+
 <string name="Well-Fed">Well-Fed</string>
 <string name="White Hair">White Hair</string>
 <string name="Wide">Wide</string>
@@ -2824,13 +2800,14 @@ If you continue to receive this message, contact the [SUPPORT_SITE].
 <string name="Wide Lips">Wide Lips</string>
 <string name="Wild">Wild</string>
 <string name="Wrinkles">Wrinkles</string>
-	
-    <!-- Favorites Bar -->
-    <string name="location_ctrl_add_landmark">Add to My Landmarks</string>
-    <string name="location_ctrl_edit_landmark">Edit My Landmark</string>
-    <string name="favorite_landmark_loading_tooltip">(Loading...)</string>
-	
-	<!-- Strings used by the (currently Linux) auto-updater app -->
+  
+  <!-- Favorites Bar -->
+  <string name="LocationCtrlAddLandmarkTooltip">Add to My Landmarks</string>
+  <string name="LocationCtrlEditLandmarkTooltip">Edit My Landmark</string>
+  <string name="LocationCtrlInfoBtnTooltip">See more info about the current location</string>
+  <string name="LocationCtrlComboBtnTooltip">My location history</string>
+  
+  <!-- Strings used by the (currently Linux) auto-updater app -->
 	<string name="UpdaterWindowTitle">
 	  [APP_NAME] Update
 	</string>
@@ -2862,7 +2839,30 @@ If you continue to receive this message, contact the [SUPPORT_SITE].
 	  Failed to start viewer
 	</string>
 
-  <!-- IM system messages -->
+	<!-- IM system messages -->
+	<string name="IM_logging_string">-- Instant message logging enabled --</string>
+	<string name="IM_typing_start_string">[NAME] is typing...</string>
+	<string name="Unnamed">(Unnamed)</string>
+	<string name="IM_moderated_chat_label">(Moderated: Voices off by default)</string>
+	<string name="IM_unavailable_text_label">Text chat is not available for this call.</string>
+
+
+  <string name="ringing-im">
+    Joining Voice Chat...
+  </string>
+  <string name="connected-im">
+    Connected, click End Call to hang up
+  </string>
+  <string name="hang_up-im">
+    Left Voice Chat
+  </string>
+  <string name="answering-im">
+    Connecting...
+  </string>
+  <string name="inventory_item_offered-im">
+    Inventory item offered
+  </string>
+
   <string name="only_user_message">
     You are the only user in this session.
   </string>

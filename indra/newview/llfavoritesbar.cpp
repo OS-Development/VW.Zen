@@ -66,29 +66,46 @@ const S32 DROP_DOWN_MENU_WIDTH = 250;
  * Helper for LLFavoriteLandmarkButton and LLFavoriteLandmarkMenuItem.
  * Performing requests for SLURL for given Landmark ID
  */
-class LLSLURLGetter
+class LLLandmarkInfoGetter
 {
 public:
-	LLSLURLGetter()
-		: mLandmarkID(LLUUID::null)
-		, mSLURL("(Loading...)")
-		, mLoaded(false) {}
+	LLLandmarkInfoGetter()
+	:	mLandmarkID(LLUUID::null),
+		mName("(Loading...)"),
+		mPosX(0),
+		mPosY(0),
+		mLoaded(false) 
+	{}
 
 	void setLandmarkID(const LLUUID& id) { mLandmarkID = id; }
 	const LLUUID& getLandmarkId() const { return mLandmarkID; }
 
-	const std::string& getSLURL()
+	const std::string& getName()
 	{
 		if(!mLoaded)
-			requestSLURL();
+			requestNameAndPos();
 
-		return mSLURL;
+		return mName;
+	}
+
+	S32 getPosX()
+	{
+		if (!mLoaded)
+			requestNameAndPos();
+		return mPosX;
+	}
+
+	S32 getPosY()
+	{
+		if (!mLoaded)
+			requestNameAndPos();
+		return mPosY;
 	}
 private:
 	/**
 	 * Requests landmark data from server.
 	 */
-	void requestSLURL()
+	void requestNameAndPos()
 	{
 		if (mLandmarkID.isNull())
 			return;
@@ -96,19 +113,23 @@ private:
 		LLVector3d g_pos;
 		if(LLLandmarkActions::getLandmarkGlobalPos(mLandmarkID, g_pos))
 		{
-			LLLandmarkActions::getSLURLfromPosGlobal(g_pos,
-				boost::bind(&LLSLURLGetter::landmarkNameCallback, this, _1), false);
+			LLLandmarkActions::getRegionNameAndCoordsFromPosGlobal(g_pos,
+				boost::bind(&LLLandmarkInfoGetter::landmarkNameCallback, this, _1, _2, _3));
 		}
 	}
 
-	void landmarkNameCallback(const std::string& name)
+	void landmarkNameCallback(const std::string& name, S32 x, S32 y)
 	{
-		mSLURL = name;
+		mPosX = x;
+		mPosY = y;
+		mName = name;
 		mLoaded = true;
 	}
 
 	LLUUID mLandmarkID;
-	std::string mSLURL;
+	std::string mName;
+	S32 mPosX;
+	S32 mPosY;
 	bool mLoaded;
 };
 
@@ -125,7 +146,15 @@ public:
 
 	BOOL handleToolTip(S32 x, S32 y, MASK mask)
 	{
-		LLToolTipMgr::instance().show(mUrlGetter.getSLURL());
+		std::string region_name = mLandmarkInfoGetter.getName();
+		
+		if (!region_name.empty())
+		{
+			LLToolTip::Params params;
+			params.message = llformat("%s\n%s (%d, %d)", getLabelSelected().c_str(), region_name.c_str(), mLandmarkInfoGetter.getPosX(), mLandmarkInfoGetter.getPosY());
+			params.sticky_rect = calcScreenRect();
+			LLToolTipMgr::instance().show(params);
+		}
 		return TRUE;
 	}
 
@@ -141,8 +170,8 @@ public:
 		return LLButton::handleHover(x, y, mask);
 	}
 	
-	void setLandmarkID(const LLUUID& id){ mUrlGetter.setLandmarkID(id); }
-	const LLUUID& getLandmarkId() const { return mUrlGetter.getLandmarkId(); }
+	void setLandmarkID(const LLUUID& id){ mLandmarkInfoGetter.setLandmarkID(id); }
+	const LLUUID& getLandmarkId() const { return mLandmarkInfoGetter.getLandmarkId(); }
 
 	void onMouseEnter(S32 x, S32 y, MASK mask)
 	{
@@ -161,7 +190,7 @@ protected:
 	friend class LLUICtrlFactory;
 
 private:
-	LLSLURLGetter mUrlGetter;
+	LLLandmarkInfoGetter mLandmarkInfoGetter;
 };
 
 /**
@@ -176,11 +205,18 @@ class LLFavoriteLandmarkMenuItem : public LLMenuItemCallGL
 public:
 	BOOL handleToolTip(S32 x, S32 y, MASK mask)
 	{
-		LLToolTipMgr::instance().show(mUrlGetter.getSLURL());
+		std::string region_name = mLandmarkInfoGetter.getName();
+		if (!region_name.empty())
+		{
+			LLToolTip::Params params;
+			params.message = llformat("%s\n%s (%d, %d)", getLabel().c_str(), region_name.c_str(), mLandmarkInfoGetter.getPosX(), mLandmarkInfoGetter.getPosY());
+			params.sticky_rect = calcScreenRect();
+			LLToolTipMgr::instance().show(params);
+		}
 		return TRUE;
 	}
 	
-	void setLandmarkID(const LLUUID& id){ mUrlGetter.setLandmarkID(id); }
+	void setLandmarkID(const LLUUID& id){ mLandmarkInfoGetter.setLandmarkID(id); }
 
 	virtual BOOL handleMouseDown(S32 x, S32 y, MASK mask)
 	{
@@ -212,7 +248,7 @@ protected:
 	friend class LLUICtrlFactory;
 
 private:
-	LLSLURLGetter mUrlGetter;
+	LLLandmarkInfoGetter mLandmarkInfoGetter;
 	LLFavoritesBarCtrl* fb;
 };
 
@@ -401,7 +437,7 @@ BOOL LLFavoritesBarCtrl::handleDragAndDrop(S32 x, S32 y, MASK mask, BOOL drop,
 			}
 			else
 			{
-				LLUUID favorites_id = gInventory.findCategoryUUIDForType(LLAssetType::AT_FAVORITE);
+				const LLUUID favorites_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_FAVORITE);
 				if (item->getParentUUID() == favorites_id)
 				{
 					llwarns << "Attemt to copy a favorite item into the same folder." << llendl;
@@ -467,13 +503,15 @@ void LLFavoritesBarCtrl::handleNewFavoriteDragAndDrop(LLInventoryItem *item, con
 		return;
 	}
 
+	LLPointer<LLViewerInventoryItem> viewer_item = new LLViewerInventoryItem(item);
+
 	if (dest)
 	{
-		insertBeforeItem(mItems, dest->getLandmarkId(), item->getUUID());
+		insertBeforeItem(mItems, dest->getLandmarkId(), viewer_item);
 	}
 	else
 	{
-		mItems.push_back(gInventory.getItem(item->getUUID()));
+		mItems.push_back(viewer_item);
 	}
 
 	int sortField = 0;
@@ -498,13 +536,22 @@ void LLFavoritesBarCtrl::handleNewFavoriteDragAndDrop(LLInventoryItem *item, con
 		}
 	}
 
-	copy_inventory_item(
-			gAgent.getID(),
-			item->getPermissions().getOwner(),
-			item->getUUID(),
-			favorites_id,
-			std::string(),
-			cb);
+	LLToolDragAndDrop* tool_dad = LLToolDragAndDrop::getInstance();
+	if (tool_dad->getSource() == LLToolDragAndDrop::SOURCE_NOTECARD)
+	{
+		viewer_item->setType(LLAssetType::AT_LANDMARK);
+		copy_inventory_from_notecard(tool_dad->getObjectID(), tool_dad->getSourceID(), viewer_item.get(), gInventoryCallbacks.registerCB(cb));
+	}
+	else
+	{
+		copy_inventory_item(
+				gAgent.getID(),
+				item->getPermissions().getOwner(),
+				item->getUUID(),
+				favorites_id,
+				std::string(),
+				cb);
+	}
 
 	llinfos << "Copied inventory item #" << item->getUUID() << " to favorites." << llendl;
 }
@@ -514,7 +561,7 @@ void LLFavoritesBarCtrl::changed(U32 mask)
 {
 	if (mFavoriteFolderId.isNull())
 	{
-		mFavoriteFolderId = gInventory.findCategoryUUIDForType(LLAssetType::AT_FAVORITE);
+		mFavoriteFolderId = gInventory.findCategoryUUIDForType(LLFolderType::FT_FAVORITE);
 		
 		if (mFavoriteFolderId.notNull())
 		{
@@ -590,8 +637,6 @@ void LLFavoritesBarCtrl::updateButtons(U32 bar_width)
 	buttonXMLNode->getAttributeS32("width", buttonWidth);
 	S32 buttonHGap = 2; // default value
 	buttonXMLNode->getAttributeS32("left", buttonHGap);
-
-	const S32 buttonVGap = 2;
 	
 	S32 count = mItems.count();
 
@@ -677,7 +722,7 @@ void LLFavoritesBarCtrl::updateButtons(U32 bar_width)
 		if (chevron_button)
 		{
 			LLRect rect;
-			rect.setOriginAndSize(bar_width - chevron_button_width - buttonHGap, buttonVGap, chevron_button_width, getRect().getHeight()-buttonVGap);
+			rect.setOriginAndSize(bar_width - chevron_button_width - buttonHGap, 0, chevron_button_width, getRect().getHeight());
 			chevron_button->setRect(rect);
 			chevron_button->setVisible(TRUE);
 			mChevronRect = rect;
@@ -692,7 +737,7 @@ void LLFavoritesBarCtrl::updateButtons(U32 bar_width)
 			LLButton::Params bparams;
 
 			LLRect rect;
-			rect.setOriginAndSize(bar_width - chevron_button_width - buttonHGap, buttonVGap, chevron_button_width, getRect().getHeight()-buttonVGap);
+			rect.setOriginAndSize(bar_width - chevron_button_width - buttonHGap, 0, chevron_button_width, getRect().getHeight());
 
 			bparams.follows.flags (FOLLOWS_LEFT | FOLLOWS_BOTTOM);
 			bparams.image_unselected.name(flat_icon);
@@ -705,6 +750,7 @@ void LLFavoritesBarCtrl::updateButtons(U32 bar_width)
 			bparams.tab_stop(false);
 			bparams.font(mFont);
 			bparams.name(">>");
+			bparams.label(">>");
 			bparams.tool_tip(mChevronButtonToolTip);
 			bparams.click_callback.function(boost::bind(&LLFavoritesBarCtrl::showDropDownMenu, this));
 
@@ -1229,10 +1275,9 @@ void LLFavoritesBarCtrl::updateItemsOrder(LLInventoryModel::item_array_t& items,
 	items.insert(findItemByUUID(items, destItem->getUUID()), srcItem);
 }
 
-void LLFavoritesBarCtrl::insertBeforeItem(LLInventoryModel::item_array_t& items, const LLUUID& beforeItemId, const LLUUID& insertedItemId)
+void LLFavoritesBarCtrl::insertBeforeItem(LLInventoryModel::item_array_t& items, const LLUUID& beforeItemId, LLViewerInventoryItem* insertedItem)
 {
 	LLViewerInventoryItem* beforeItem = gInventory.getItem(beforeItemId);
-	LLViewerInventoryItem* insertedItem = gInventory.getItem(insertedItemId);
 
 	items.insert(findItemByUUID(items, beforeItem->getUUID()), insertedItem);
 }

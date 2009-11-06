@@ -74,6 +74,8 @@ public:
 	virtual const std::string& getDescription() const;
 	virtual const LLSaleInfo& getSaleInfo() const;
 	virtual LLInventoryType::EType getInventoryType() const;
+	virtual bool isWearableType() const;
+	virtual EWearableType getWearableType() const;
 	virtual U32 getFlags() const;
 	virtual time_t getCreationDate() const;
 	virtual U32 getCRC32() const; // really more of a checksum.
@@ -183,7 +185,7 @@ protected:
 	
 public:
 	LLViewerInventoryCategory(const LLUUID& uuid, const LLUUID& parent_uuid,
-							  LLAssetType::EType preferred_type,
+							  LLFolderType::EType preferred_type,
 							  const std::string& name,
 							  const LLUUID& owner_id);
 	LLViewerInventoryCategory(const LLUUID& owner_id);
@@ -219,7 +221,7 @@ public:
 	bool exportFileLocal(LLFILE* fp) const;
 	bool importFileLocal(LLFILE* fp);
 	void determineFolderType();
-	void changeType(LLAssetType::EType new_folder_type);
+	void changeType(LLFolderType::EType new_folder_type);
 protected:
 	LLUUID mOwnerID;
 	S32 mVersion;
@@ -339,6 +341,7 @@ void copy_inventory_from_notecard(const LLUUID& object_id,
 
 void menu_create_inventory_item(LLFolderView* folder,
 								LLFolderBridge* bridge,
-								const LLSD& userdata);
+								const LLSD& userdata,
+								const LLUUID& default_parent_uuid = LLUUID::null);
 
 #endif // LL_LLVIEWERINVENTORY_H

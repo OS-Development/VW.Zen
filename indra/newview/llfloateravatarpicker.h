@@ -67,6 +67,7 @@ private:
 		   void onTabChanged();
 	
 	void populateNearMe();
+	void populateFriend();
 	BOOL visibleItemsSelected() const; // Returns true if any items in the current tab are selected.
 
 	void find();
@@ -76,7 +77,7 @@ private:
 	virtual BOOL handleKeyHere(KEY key, MASK mask);
 
 	LLUUID				mQueryID;
-	BOOL				mResultsReturned;
+	int				mNumResultsReturned;
 	BOOL				mNearMeListComplete;
 	BOOL				mCloseOnSelect;
 

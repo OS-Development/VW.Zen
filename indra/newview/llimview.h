@@ -34,12 +34,13 @@
 #define LL_LLIMVIEW_H
 
 #include "lldarray.h"
-#include "llfloateractivespeakers.h" //for LLIMSpeakerMgr
+#include "llspeakers.h" //for LLIMSpeakerMgr
 #include "llimpanel.h" //for voice channels
 #include "llmodaldialog.h"
 #include "llinstantmessage.h"
 #include "lluuid.h"
 #include "llmultifloater.h"
+#include "lllogchat.h"
 
 class LLFloaterChatterBox;
 class LLUUID;
@@ -53,27 +54,51 @@ public:
 	struct LLIMSession
 	{
 		LLIMSession(const LLUUID& session_id, const std::string& name, 
-			const EInstantMessage& type, const LLUUID& other_participant_id);
+			const EInstantMessage& type, const LLUUID& other_participant_id, const std::vector<LLUUID>& ids);
 		virtual ~LLIMSession();
+
+		void sessionInitReplyReceived(const LLUUID& new_session_id);
+		void addMessage(const std::string& from, const LLUUID& from_id, const std::string& utf8_text, const std::string& time);
+		static void chatFromLogFile(LLLogChat::ELogLineType type, const LLSD& msg, void* userdata);
 
 		LLUUID mSessionID;
 		std::string mName;
 		EInstantMessage mType;
 		LLUUID mOtherParticipantID;
+		std::vector<LLUUID> mInitialTargetIDs;
 		S32 mNumUnread;
 		std::list<LLSD> mMsgs;
 
 		LLVoiceChannel* mVoiceChannel;
 		LLIMSpeakerMgr* mSpeakers;
+
+		bool mSessionInitialized;
+
+		//true if calling back the session URI after the session has closed is possible.
+		//Currently this will be false only for PSTN P2P calls.
+		bool mCallBackEnabled;
+
+		bool mTextIMPossible;
+		bool mOtherParticipantIsAvatar;
 	};
 	
 
 	LLIMModel();
 
-	//*TODO make it non-static as LLIMMOdel is a singleton (IB)
-	static std::map<LLUUID, LLIMSession*> sSessionsMap;  //mapping session_id to session
 
-	boost::signals2::signal<void(const LLSD&)> mChangedSignal;
+	//we should control the currently active session
+	LLUUID	mActiveSessionID;
+	void	setActiveSessionID(const LLUUID& session_id);
+	void	resetActiveSessionID() { mActiveSessionID.setNull(); }
+	LLUUID	getActiveSessionID() { return mActiveSessionID; }
+
+	/** Session id to session object */
+	std::map<LLUUID, LLIMSession*> mId2SessionMap;
+
+	typedef boost::signals2::signal<void(const LLSD&)> session_signal_t;
+	typedef boost::function<void(const LLSD&)> session_callback_t;
+	session_signal_t mNewMsgSignal;
+	session_signal_t mNoUnreadMsgsSignal;
 	
 	/** 
 	 * Find an IM Session corresponding to session_id
@@ -84,17 +109,45 @@ public:
 	/**
 	 * Rebind session data to a new session id.
 	 */
-	void updateSessionID(const LLUUID& old_session_id, const LLUUID& new_session_id);
+	void processSessionInitializedReply(const LLUUID& old_session_id, const LLUUID& new_session_id);
 
-	boost::signals2::connection addChangedCallback( boost::function<void (const LLSD& data)> cb );
+	boost::signals2::connection addNewMsgCallback( session_callback_t cb ) { return mNewMsgSignal.connect(cb); }
+	boost::signals2::connection addNoUnreadMsgsCallback( session_callback_t cb ) { return mNoUnreadMsgsSignal.connect(cb); }
 
-	bool newSession(LLUUID session_id, std::string name, EInstantMessage type, LLUUID other_participant_id);
-	bool clearSession(LLUUID session_id);
-	std::list<LLSD> getMessages(LLUUID session_id, int start_index = 0);
-	bool addMessage(LLUUID session_id, std::string from, LLUUID other_participant_id, std::string utf8_text);
-	bool addToHistory(LLUUID session_id, std::string from, std::string utf8_text); 
-	//used to get the name of the session, for use as the title
-	//currently just the other avatar name
+	/**
+	 * Create new session object in a model
+	 */
+	bool newSession(const LLUUID& session_id, const std::string& name, const EInstantMessage& type, const LLUUID& other_participant_id, 
+		const std::vector<LLUUID>& ids = std::vector<LLUUID>());
+
+	/**
+	 * Remove all session data associated with a session specified by session_id
+	 */
+	bool clearSession(const LLUUID& session_id);
+
+	/**
+	 * Populate supplied std::list with messages starting from index specified by start_index
+	 */
+	void getMessages(const LLUUID& session_id, std::list<LLSD>& messages, int start_index = 0);
+
+	/**
+	 * Add a message to an IM Model - the message is saved in a message store associated with a session specified by session_id
+	 * and also saved into a file if log2file is specified.
+	 * It sends new message signal for each added message.
+	 */
+	bool addMessage(const LLUUID& session_id, const std::string& from, const LLUUID& other_participant_id, const std::string& utf8_text, bool log2file = true);
+
+	/**
+	 * Add a system message to an IM Model
+	 */
+	bool proccessOnlineOfflineNotification(const LLUUID& session_id, const std::string& utf8_text);
+
+	/**
+	 * Get a session's name. 
+	 * For a P2P chat - it's an avatar's name, 
+	 * For a group chat - it's a group's name
+	 * For an ad-hoc chat - is received from the server and is in a from of "<Avatar's name> conference"
+	 */
 	const std::string& getName(const LLUUID& session_id) const;
 
 	/** 
@@ -129,7 +182,7 @@ public:
 	*/
 	LLIMSpeakerMgr* getSpeakerManager(const LLUUID& session_id) const;
 
-	static void sendLeaveSession(LLUUID session_id, LLUUID other_participant_id);
+	static void sendLeaveSession(const LLUUID& session_id, const LLUUID& other_participant_id);
 	static bool sendStartSession(const LLUUID& temp_session_id, const LLUUID& other_participant_id,
 						  const std::vector<LLUUID>& ids, EInstantMessage dialog);
 	static void sendTypingState(LLUUID session_id, LLUUID other_participant_id, BOOL typing);
@@ -137,6 +190,18 @@ public:
 								const LLUUID& other_participant_id, EInstantMessage dialog);
 
 	void testMessages();
+
+private:
+	
+	/**
+	 * Add message to a list of message associated with session specified by session_id
+	 */
+	bool addToHistory(const LLUUID& session_id, const std::string& from, const LLUUID& from_id, const std::string& utf8_text); 
+
+	/**
+	 * Save an IM message into a file
+	 */
+	bool logToFile(const LLUUID& session_id, const std::string& from, const LLUUID& from_id, const std::string& utf8_text);
 };
 
 class LLIMSessionObserver
@@ -145,6 +210,7 @@ public:
 	virtual ~LLIMSessionObserver() {}
 	virtual void sessionAdded(const LLUUID& session_id, const std::string& name, const LLUUID& other_participant_id) = 0;
 	virtual void sessionRemoved(const LLUUID& session_id) = 0;
+	virtual void sessionIDUpdated(const LLUUID& old_session_id, const LLUUID& new_session_id) = 0;
 };
 
 
@@ -161,7 +227,7 @@ public:
 	};
 
 	LLIMMgr();
-	virtual ~LLIMMgr();
+	virtual ~LLIMMgr() {};
 
 	// Add a message to a session. The session can keyed to sesion id
 	// or agent id.
@@ -177,11 +243,6 @@ public:
 					bool link_name = false);
 
 	void addSystemMessage(const LLUUID& session_id, const std::string& message_name, const LLSD& args);
-
-	// This method returns TRUE if the local viewer has a session
-	// currently open keyed to the uuid. The uuid can be keyed by
-	// either session id or agent id.
-	BOOL isIMSessionOpen(const LLUUID& uuid);
 
 	// This adds a session to the talk view. The name is the local
 	// name of the session, dialog specifies the type of
@@ -208,10 +269,12 @@ public:
 					  const std::string& voice_session_handle,
 					  const std::string& caller_uri = LLStringUtil::null);
 
-	// This removes the panel referenced by the uuid, and then
-	// restores internal consistency. The internal pointer is not
-	// deleted.
-	void removeSession(LLUUID session_id);
+	/**
+	 * Leave the session with session id. Send leave session notification
+	 * to the server and removes all associated session data
+	 * @return false if the session with specified id was not exist
+	 */
+	bool leaveSession(const LLUUID& session_id);
 
 	void inviteToSession(
 		const LLUUID& session_id, 
@@ -223,17 +286,8 @@ public:
 		const std::string& session_handle = LLStringUtil::null,
 		const std::string& session_uri = LLStringUtil::null);
 
-	//Updates a given session's session IDs.  Does not open,
-	//create or do anything new.  If the old session doesn't
-	//exist, then nothing happens.
-	void updateFloaterSessionID(const LLUUID& old_session_id,
-								const LLUUID& new_session_id);
-
 	void processIMTypingStart(const LLIMInfo* im_info);
 	void processIMTypingStop(const LLIMInfo* im_info);
-
-	// Rebuild stuff
-	void refresh();
 
 	void notifyNewIM();
 	void clearNewIMNotification();
@@ -249,10 +303,6 @@ public:
 	// forced to log out or similar situations where you do not have a
 	// good connection.
 	void disconnectAllSessions();
-
-	// This is a helper function to determine what kind of im session
-	// should be used for the given agent.
-	static EInstantMessage defaultIMTypeForAgent(const LLUUID& agent_id);
 
 	BOOL hasSession(const LLUUID& session_id);
 
@@ -272,12 +322,37 @@ public:
 	void clearPendingAgentListUpdates(const LLUUID& session_id);
 
 	//HACK: need a better way of enumerating existing session, or listening to session create/destroy events
+	//@deprecated, is used only by LLToolBox, which is not used anywhere, right? (IB)
 	const std::set<LLHandle<LLFloater> >& getIMFloaterHandles() { return mFloaters; }
 
 	void addSessionObserver(LLIMSessionObserver *);
 	void removeSessionObserver(LLIMSessionObserver *);
 
+	//show error statuses to the user
+	void showSessionStartError(const std::string& error_string, const LLUUID session_id);
+	void showSessionEventError(const std::string& event_string, const std::string& error_string, const LLUUID session_id);
+	void showSessionForceClose(const std::string& reason, const LLUUID session_id);
+	static bool onConfirmForceCloseError(const LLSD& notification, const LLSD& response);
+
+	/**
+	 * Start call in a session
+	 * @return false if voice channel doesn't exist
+	 **/
+	bool startCall(const LLUUID& session_id);
+
+	/**
+	 * End call in a session
+	 * @return false if voice channel doesn't exist
+	 **/
+	bool endCall(const LLUUID& session_id);
+
 private:
+
+	/**
+	 * Remove data associated with a particular session specified by session_id
+	 */
+	void removeSession(const LLUUID& session_id);
+
 	// create a panel and update internal representation for
 	// consistency. Returns the pointer, caller (the class instance
 	// since it is a private method) is not responsible for deleting
@@ -293,8 +368,8 @@ private:
 	// prints a simple message if they are not online. Used to help
 	// reduce 'hello' messages to the linden employees unlucky enough
 	// to have their calling card in the default inventory.
-	void noteOfflineUsers(LLFloaterIMPanel* panel, const LLDynamicArray<LLUUID>& ids);
-	void noteMutedUsers(LLFloaterIMPanel* panel, const LLDynamicArray<LLUUID>& ids);
+	void noteOfflineUsers(const LLUUID& session_id, LLFloaterIMPanel* panel, const LLDynamicArray<LLUUID>& ids);
+	void noteMutedUsers(const LLUUID& session_id, LLFloaterIMPanel* panel, const LLDynamicArray<LLUUID>& ids);
 
 	void processIMTypingCore(const LLIMInfo* im_info, BOOL typing);
 
@@ -302,10 +377,12 @@ private:
 
 	void notifyObserverSessionAdded(const LLUUID& session_id, const std::string& name, const LLUUID& other_participant_id);
 	void notifyObserverSessionRemoved(const LLUUID& session_id);
+	void notifyObserverSessionIDUpdated(const LLUUID& old_session_id, const LLUUID& new_session_id);
 
 private:
+	
+	//*TODO should be deleted when Communicate Floater is being deleted
 	std::set<LLHandle<LLFloater> > mFloaters;
-	LLFriendObserver* mFriendObserver;
 
 	typedef std::list <LLIMSessionObserver *> session_observers_list_t;
 	session_observers_list_t mSessionObservers;
@@ -315,9 +392,6 @@ private:
 
 	LLSD mPendingInvitations;
 	LLSD mPendingAgentListUpdates;
-	// ID of a session that is being removed: observers are already told
-	// that this session is being removed, but it is still present in the sessions' map
-	LLUUID	mBeingRemovedSessionID;
 };
 
 class LLIncomingCallDialog : public LLModalDialog

@@ -33,6 +33,7 @@
 
 #include "llviewerprecompiledheaders.h"
 
+#include "llavataractions.h"
 #include "llavatarlistitem.h"
 
 #include "llfloaterreg.h"
@@ -41,31 +42,50 @@
 #include "llavatariconctrl.h"
 #include "llbutton.h"
 
-
 LLAvatarListItem::LLAvatarListItem()
 :	LLPanel(),
 	mAvatarIcon(NULL),
 	mAvatarName(NULL),
-	mStatus(NULL),
+	mLastInteractionTime(NULL),
 	mSpeakingIndicator(NULL),
 	mInfoBtn(NULL),
+	mProfileBtn(NULL),
 	mContextMenu(NULL),
-	mAvatarId(LLUUID::null)
+	mOnlineStatus(E_UNKNOWN),
+	mShowInfoBtn(true),
+	mShowProfileBtn(true)
 {
 	LLUICtrlFactory::getInstance()->buildPanel(this, "panel_avatar_list_item.xml");
+	// Remember avatar icon width including its padding from the name text box,
+	// so that we can hide and show the icon again later.
+
+	mIconWidth = mAvatarName->getRect().mLeft - mAvatarIcon->getRect().mLeft;
+	mInfoBtnWidth = mInfoBtn->getRect().mRight - mSpeakingIndicator->getRect().mRight;
+	mProfileBtnWidth = mProfileBtn->getRect().mRight - mInfoBtn->getRect().mRight;
+	mSpeakingIndicatorWidth = mSpeakingIndicator->getRect().mRight - mAvatarName->getRect().mRight; 
+}
+
+LLAvatarListItem::~LLAvatarListItem()
+{
+	if (mAvatarId.notNull())
+		LLAvatarTracker::instance().removeParticularFriendObserver(mAvatarId, this);
 }
 
 BOOL  LLAvatarListItem::postBuild()
 {
 	mAvatarIcon = getChild<LLAvatarIconCtrl>("avatar_icon");
 	mAvatarName = getChild<LLTextBox>("avatar_name");
-	mStatus = getChild<LLTextBox>("avatar_status");
-
+	mLastInteractionTime = getChild<LLTextBox>("last_interaction");
+	
 	mSpeakingIndicator = getChild<LLOutputMonitorCtrl>("speaking_indicator");
 	mInfoBtn = getChild<LLButton>("info_btn");
+	mProfileBtn = getChild<LLButton>("profile_btn");
 
 	mInfoBtn->setVisible(false);
 	mInfoBtn->setClickedCallback(boost::bind(&LLAvatarListItem::onInfoBtnClick, this));
+
+	mProfileBtn->setVisible(false);
+	mProfileBtn->setClickedCallback(boost::bind(&LLAvatarListItem::onProfileBtnClick, this));
 
 /*
 	if(!p.buttons.profile)
@@ -77,12 +97,6 @@ BOOL  LLAvatarListItem::postBuild()
 
 		rect.setLeftTopAndSize(mName->getRect().mLeft, mName->getRect().mTop, mName->getRect().getWidth() + 30, mName->getRect().getHeight());
 		mName->setRect(rect);
-
-		if(mStatus)
-		{
-			rect.setLeftTopAndSize(mStatus->getRect().mLeft + 30, mStatus->getRect().mTop, mStatus->getRect().getWidth(), mStatus->getRect().getHeight());
-			mStatus->setRect(rect);
-		}
 
 		if(mLocator)
 		{
@@ -103,7 +117,8 @@ BOOL  LLAvatarListItem::postBuild()
 void LLAvatarListItem::onMouseEnter(S32 x, S32 y, MASK mask)
 {
 	childSetVisible("hovered_icon", true);
-	mInfoBtn->setVisible(true);
+	mInfoBtn->setVisible(mShowInfoBtn);
+	mProfileBtn->setVisible(mShowProfileBtn);
 
 	LLPanel::onMouseEnter(x, y, mask);
 }
@@ -112,22 +127,39 @@ void LLAvatarListItem::onMouseLeave(S32 x, S32 y, MASK mask)
 {
 	childSetVisible("hovered_icon", false);
 	mInfoBtn->setVisible(false);
+	mProfileBtn->setVisible(false);
 
 	LLPanel::onMouseLeave(x, y, mask);
 }
 
-// virtual
-BOOL LLAvatarListItem::handleRightMouseDown(S32 x, S32 y, MASK mask)
+// virtual, called by LLAvatarTracker
+void LLAvatarListItem::changed(U32 mask)
 {
-	if (mContextMenu)
-		mContextMenu->show(this, const_cast<const LLUUID&>(mAvatarId), x, y);
-
-	return LLPanel::handleRightMouseDown(x, y, mask);
+	// no need to check mAvatarId for null in this case
+	setOnline(LLAvatarTracker::instance().isBuddyOnline(mAvatarId));
 }
 
-void LLAvatarListItem::setStatus(const std::string& status)
+void LLAvatarListItem::setOnline(bool online)
 {
-	mStatus->setValue(status);
+	// *FIX: setName() overrides font style set by setOnline(). Not an issue ATM.
+	// *TODO: Make the colors configurable via XUI.
+
+	if (mOnlineStatus != E_UNKNOWN && (bool) mOnlineStatus == online)
+		return;
+
+	mOnlineStatus = (EOnlineStatus) online;
+
+	// Change avatar name font style depending on the new online status.
+	LLStyle::Params style_params;
+	style_params.color = online ? LLColor4::white : LLColor4::grey;
+
+	// Rebuild the text to change its style.
+	std::string text = mAvatarName->getText();
+	mAvatarName->setText(LLStringUtil::null);
+	mAvatarName->appendText(text, false, style_params);
+
+	// Make the icon fade if the avatar goes offline.
+	mAvatarIcon->setColor(online ? LLColor4::white : LLColor4::smoke);
 }
 
 void LLAvatarListItem::setName(const std::string& name)
@@ -136,14 +168,94 @@ void LLAvatarListItem::setName(const std::string& name)
 	mAvatarName->setToolTip(name);
 }
 
-void LLAvatarListItem::setAvatarId(const LLUUID& id)
+void LLAvatarListItem::setAvatarId(const LLUUID& id, bool ignore_status_changes)
 {
+	if (mAvatarId.notNull())
+		LLAvatarTracker::instance().removeParticularFriendObserver(mAvatarId, this);
+
 	mAvatarId = id;
 	mAvatarIcon->setValue(id);
 	mSpeakingIndicator->setSpeakerId(id);
 
+	// We'll be notified on avatar online status changes
+	if (!ignore_status_changes && mAvatarId.notNull())
+		LLAvatarTracker::instance().addParticularFriendObserver(mAvatarId, this);
+
 	// Set avatar name.
 	gCacheName->get(id, FALSE, boost::bind(&LLAvatarListItem::onNameCache, this, _2, _3));
+}
+
+void LLAvatarListItem::showLastInteractionTime(bool show)
+{
+	if (show)
+		return;
+
+	LLRect	name_rect	= mAvatarName->getRect();
+	LLRect	time_rect	= mLastInteractionTime->getRect();
+
+	mLastInteractionTime->setVisible(false);
+	name_rect.mRight += (time_rect.mRight - name_rect.mRight);
+	mAvatarName->setRect(name_rect);
+}
+
+void LLAvatarListItem::setLastInteractionTime(const std::string& val)
+{
+	mLastInteractionTime->setValue(val);
+}
+
+void LLAvatarListItem::setShowInfoBtn(bool show)
+{
+	// Already done? Then do nothing.
+	if(mShowInfoBtn == show)
+		return;
+	mShowInfoBtn = show;
+	S32 width_delta = show ? - mInfoBtnWidth : mInfoBtnWidth;
+
+	//Translating speaking indicator
+	mSpeakingIndicator->translate(width_delta, 0);
+	//Reshaping avatar name
+	mAvatarName->reshape(mAvatarName->getRect().getWidth() + width_delta, mAvatarName->getRect().getHeight());
+}
+
+void LLAvatarListItem::setShowProfileBtn(bool show)
+{
+	// Already done? Then do nothing.
+	if(mShowProfileBtn == show)
+			return;
+	mShowProfileBtn = show;
+	S32 width_delta = show ? - mProfileBtnWidth : mProfileBtnWidth;
+
+	//Translating speaking indicator
+	mSpeakingIndicator->translate(width_delta, 0);
+	//Reshaping avatar name
+	mAvatarName->reshape(mAvatarName->getRect().getWidth() + width_delta, mAvatarName->getRect().getHeight());
+}
+
+void LLAvatarListItem::setSpeakingIndicatorVisible(bool visible)
+{
+	// Already done? Then do nothing.
+	if (mSpeakingIndicator->getVisible() == (BOOL)visible)
+		return;
+	mSpeakingIndicator->setVisible(visible);
+	S32 width_delta = visible ? - mSpeakingIndicatorWidth : mSpeakingIndicatorWidth;
+
+	//Reshaping avatar name
+	mAvatarName->reshape(mAvatarName->getRect().getWidth() + width_delta, mAvatarName->getRect().getHeight());
+}
+
+void LLAvatarListItem::setAvatarIconVisible(bool visible)
+{
+	// Already done? Then do nothing.
+	if (mAvatarIcon->getVisible() == (BOOL)visible)
+		return;
+
+	// Show/hide avatar icon.
+	mAvatarIcon->setVisible(visible);
+
+	// Move the avatar name horizontally by icon size + its distance from the avatar name.
+	LLRect name_rect = mAvatarName->getRect();
+	name_rect.mLeft += visible ? mIconWidth : -mIconWidth;
+	mAvatarName->setRect(name_rect);
 }
 
 void LLAvatarListItem::onInfoBtnClick()
@@ -171,19 +283,9 @@ void LLAvatarListItem::onInfoBtnClick()
 	*/
 }
 
-void LLAvatarListItem::showStatus(bool show_status)
+void LLAvatarListItem::onProfileBtnClick()
 {
-	// *HACK: dirty hack until we can determine correct avatar status (EXT-1076).
-
-	if (show_status)
-		return;
-
-	LLRect	name_rect	= mAvatarName->getRect();
-	LLRect	status_rect	= mStatus->getRect();
-
-	mStatus->setVisible(show_status);
-	name_rect.mRight += (status_rect.mRight - name_rect.mRight);
-	mAvatarName->setRect(name_rect);
+	LLAvatarActions::showProfile(mAvatarId);
 }
 
 void LLAvatarListItem::setValue( const LLSD& value )

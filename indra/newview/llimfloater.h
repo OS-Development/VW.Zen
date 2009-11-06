@@ -33,19 +33,21 @@
 #ifndef LL_IMFLOATER_H
 #define LL_IMFLOATER_H
 
-#include "lldockablefloater.h"
+#include "lltransientdockablefloater.h"
 #include "lllogchat.h"
+#include "lltooldraganddrop.h"
 
 class LLLineEditor;
 class LLPanelChatControlPanel;
-class LLViewerTextEditor;
-
+class LLChatHistory;
+class LLInventoryItem;
+class LLInventoryCategory;
 
 /**
  * Individual IM window that appears at the bottom of the screen,
  * optionally "docked" to the bottom tray.
  */
-class LLIMFloater : public LLDockableFloater
+class LLIMFloater : public LLTransientDockableFloater
 {
 public:
 	LLIMFloater(const LLUUID& session_id);
@@ -55,6 +57,8 @@ public:
 	// LLView overrides
 	/*virtual*/ BOOL postBuild();
 	/*virtual*/ void setVisible(BOOL visible);
+	// Check typing timeout timer.
+	/*virtual*/ void draw();
 
 	// LLFloater overrides
 	/*virtual*/ void onClose(bool app_quitting);
@@ -68,6 +72,10 @@ public:
 	// Returns true iff panel became visible
 	static bool toggle(const LLUUID& session_id);
 
+	static LLIMFloater* findInstance(const LLUUID& session_id);
+
+	void sessionInitReplyReceived(const LLUUID& im_session_id);
+
 	// get new messages from LLIMModel
 	void updateMessages();
 	static void onSendMsg( LLUICtrl*, void*);
@@ -80,34 +88,63 @@ public:
 	// called when docked floater's position has been set by chiclet
 	void setPositioned(bool b) { mPositioned = b; };
 
+	void onVisibilityChange(const LLSD& new_visibility);
+	void processIMTyping(const LLIMInfo* im_info, BOOL typing);
+	void processSessionUpdate(const LLSD& session_update);
+
+	BOOL handleDragAndDrop(S32 x, S32 y, MASK mask,
+							   BOOL drop, EDragAndDropType cargo_type,
+							   void *cargo_data, EAcceptance *accept,
+							   std::string& tooltip_msg);
+
 private:
+	// process focus events to set a currently active session
+	/* virtual */ void onFocusLost();
+	/* virtual */ void onFocusReceived();
+
+	BOOL dropCallingCard(LLInventoryItem* item, BOOL drop);
+	BOOL dropCategory(LLInventoryCategory* category, BOOL drop);
+
+	BOOL isInviteAllowed() const;
+	BOOL inviteToSession(const std::vector<LLUUID>& agent_ids);
 	
 	static void		onInputEditorFocusReceived( LLFocusableElement* caller, void* userdata );
 	static void		onInputEditorFocusLost(LLFocusableElement* caller, void* userdata);
 	static void		onInputEditorKeystroke(LLLineEditor* caller, void* userdata);
-	void			setTyping(BOOL typing);
+	void			setTyping(bool typing);
 	void			onSlide();
 	static void*	createPanelIMControl(void* userdata);
 	static void*	createPanelGroupControl(void* userdata);
+	static void* 	createPanelAdHocControl(void* userdata);
 	// gets a rect that bounds possible positions for the LLIMFloater on a screen (EXT-1111)
 	void getAllowedRect(LLRect& rect);
 
-	static void chatFromLogFile(LLLogChat::ELogLineType type, std::string line, void* userdata);
+	// Add the "User is typing..." indicator.
+	void addTypingIndicator(const LLIMInfo* im_info);
 
+	// Remove the "User is typing..." indicator.
+	void removeTypingIndicator(const LLIMInfo* im_info = NULL);
 
 	LLPanelChatControlPanel* mControlPanel;
 	LLUUID mSessionID;
 	S32 mLastMessageIndex;
 
-	// username of last user who added text to this conversation, used to
-	// suppress duplicate username divider bars
-	std::string mLastFromName;
-
 	EInstantMessage mDialog;
 	LLUUID mOtherParticipantUUID;
-	LLViewerTextEditor* mHistoryEditor;
+	LLChatHistory* mChatHistory;
 	LLLineEditor* mInputEditor;
 	bool mPositioned;
+
+	std::string mSavedTitle;
+	LLUIString mTypingStart;
+	bool mMeTyping;
+	bool mOtherTyping;
+	bool mShouldSendTypingState;
+	LLFrameTimer mTypingTimer;
+	LLFrameTimer mTypingTimeoutTimer;
+
+	bool mSessionInitialized;
+	LLSD mQueuedMsgsForInit;
 };
 
 

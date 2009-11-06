@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  can_tear_off="false"
  height="310"
  layout="topleft"
  name="floaterbulkperms"
  help_topic="floaterbulkperms"
- title="Edit Content Permissions"
+ title="EDIT CONTENT PERMISSIONS"
  width="270">
     <floater.string
      name="nothing_to_modify_text">

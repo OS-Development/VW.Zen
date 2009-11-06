@@ -131,8 +131,6 @@ public:
 	// Returns the index of the character closest to pixel position x (ignoring text to the right of max_pixels and max_chars)
 	S32 charFromPixelOffset(const llwchar* wchars, S32 char_offset, F32 x, F32 max_pixels=F32_MAX, S32 max_chars = S32_MAX, BOOL round = TRUE) const;
 
-	BOOL addChar(const llwchar wch) const;
-
 	const LLFontDescriptor& getFontDesc() const;
 
 
@@ -167,6 +165,7 @@ public:
 	static LLFontGL* getFont(const LLFontDescriptor& desc);
 	// Use with legacy names like "SANSSERIF_SMALL" or "OCRA"
 	static LLFontGL* getFontByName(const std::string& name);
+	static LLFontGL* getFontDefault(); // default fallback font
 
 	static std::string getFontPathLocal();
 	static std::string getFontPathSystem();

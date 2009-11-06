@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  follows="right"
  height="170"
  layout="topleft"
  name="build options floater"
  help_topic="build_options_floater"
  save_rect="true"
- title="Grid Options"
+ title="GRID OPTIONS"
  width="264">
     <spinner
      control_name="GridResolution"
@@ -61,7 +62,7 @@
          height="16"
          layout="topleft"
          left="10"
-         tool_tip="Grid Opacity"
+         tool_tip="Grid opacity"
          name="grid_opacity_label"
          top_pad="5"
          width="128">

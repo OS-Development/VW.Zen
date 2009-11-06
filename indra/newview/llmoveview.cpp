@@ -70,7 +70,7 @@ const std::string BOTTOM_TRAY_BUTTON_NAME = "movement_btn";
 
 // protected
 LLFloaterMove::LLFloaterMove(const LLSD& key)
-:	LLDockableFloater(NULL, key),
+:	LLTransientDockableFloater(NULL, true, key),
 	mForwardButton(NULL),
 	mBackwardButton(NULL),
 	mTurnLeftButton(NULL), 
@@ -279,6 +279,14 @@ void LLFloaterMove::setMovementMode(const EMovementMode mode)
 {
 	mCurrentMode = mode;
 	gAgent.setFlying(MM_FLY == mode);
+
+	// attempts to set avatar flying can not set it real flying in some cases.
+	// For ex. when avatar fell down & is standing up.
+	// So, no need to continue processing FLY mode. See EXT-1079
+	if (MM_FLY == mode && !gAgent.getFlying())
+	{
+		return;
+	}
 
 	switch (mode)
 	{
@@ -498,7 +506,13 @@ void LLFloaterMove::setDocked(bool docked, bool pop_on_undock/* = true*/)
 {
 	LLDockableFloater::setDocked(docked, pop_on_undock);
 	bool show_mode_buttons = isDocked() || !gAgent.getFlying();
-	updateHeight(show_mode_buttons);
+
+	if (!isMinimized())
+	{
+		updateHeight(show_mode_buttons);
+	}
+
+	LLTransientDockableFloater::setDocked(docked, pop_on_undock);
 }
 
 void LLFloaterMove::setModeButtonToggleState(const EMovementMode mode)

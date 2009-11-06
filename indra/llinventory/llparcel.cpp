@@ -43,7 +43,7 @@
 #include "llsdutil.h"
 #include "lltransactiontypes.h"
 #include "lltransactionflags.h"
-#include "llsdutil.h"
+#include "llsdutil_math.h"
 #include "message.h"
 #include "u64.h"
 
@@ -705,7 +705,6 @@ void LLParcel::packMessage(LLSD& msg)
 	msg["pass_hours"] = mPassHours;
 	msg["category"] = (U8)mCategory;
 	msg["auth_buyer_id"] = mAuthBuyerID;
-	msg["snapshot_id"] = mSnapshotID;
 	msg["snapshot_id"] = mSnapshotID;
 	msg["user_location"] = ll_sd_from_vector3(mUserLocation);
 	msg["user_look_at"] = ll_sd_from_vector3(mUserLookAt);

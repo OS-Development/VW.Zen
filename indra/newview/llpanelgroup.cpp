@@ -33,19 +33,22 @@
 
 #include "llpanelgroup.h"
 
+// Library includes
 #include "llbutton.h"
 #include "lltabcontainer.h"
 #include "lltextbox.h"
-#include "llviewermessage.h"
 #include "lluictrlfactory.h"
+
+// Viewer includes
+#include "llviewermessage.h"
 #include "llviewerwindow.h"
 #include "llappviewer.h"
 #include "llnotifications.h"
 #include "llfloaterreg.h"
 #include "llfloater.h"
+#include "llgroupactions.h"
 
 #include "llagent.h" 
-#include "llstatusbar.h"	// can_afford_transaction()
 
 #include "llsidetraypanelcontainer.h"
 
@@ -83,32 +86,14 @@ BOOL LLPanelGroupTab::postBuild()
 	return TRUE;
 }
 
-
-
-void LLPanelGroupTab::handleClickHelp()
-{
-	// Display the help text.
-	std::string help_text( getHelpText() );
-	if ( !help_text.empty() )
-	{
-		LLSD args;
-		args["MESSAGE"] = help_text;
-		LLFloater* parent_floater = gFloaterView->getParentFloater(this);
-		LLNotification::Params params(parent_floater->contextualNotification("GenericAlert"));
-		params.substitutions(args);
-		LLNotifications::instance().add(params);
-	}
-}
-
 LLPanelGroup::LLPanelGroup()
-:	LLPanel()
-	,LLGroupMgrObserver( LLUUID() )
-	,mAllowEdit(TRUE)
+:	LLPanel(),
+	LLGroupMgrObserver( LLUUID() ),
+	mAllowEdit( TRUE )
 {
 	// Set up the factory callbacks.
 	// Roles sub tabs
 	LLGroupMgr::getInstance()->addObserver(this);
-
 }
 
 
@@ -247,6 +232,7 @@ void LLPanelGroup::onBackBtnClick()
 	}
 }
 
+
 void LLPanelGroup::onBtnCreate()
 {
 	LLPanelGroupGeneral* panel_general = findChild<LLPanelGroupGeneral>("group_general_tab_panel");
@@ -274,46 +260,11 @@ void LLPanelGroup::onBtnApply(void* user_data)
 	LLPanelGroup* self = static_cast<LLPanelGroup*>(user_data);
 	self->apply();
 }
+
 void LLPanelGroup::onBtnJoin()
 {
 	lldebugs << "joining group: " << mID << llendl;
-
-	LLGroupMgrGroupData* gdatap = LLGroupMgr::getInstance()->getGroupData(mID);
-
-	if (gdatap)
-	{
-		S32 cost = gdatap->mMembershipFee;
-		LLSD args;
-		args["COST"] = llformat("%d", cost);
-		LLSD payload;
-		payload["group_id"] = mID;
-
-		if (can_afford_transaction(cost))
-		{
-			LLNotifications::instance().add("JoinGroupCanAfford", args, payload, LLPanelGroup::joinDlgCB);
-		}
-		else
-		{
-			LLNotifications::instance().add("JoinGroupCannotAfford", args, payload);
-		}
-	}
-	else
-	{
-		llwarns << "LLGroupMgr::getInstance()->getGroupData(" << mID	<< ") was NULL" << llendl;
-	}
-}
-bool LLPanelGroup::joinDlgCB(const LLSD& notification, const LLSD& response)
-{
-	S32 option = LLNotification::getSelectedOption(notification, response);
-
-	if (option == 1)
-	{
-		// user clicked cancel
-		return false;
-	}
-
-	LLGroupMgr::getInstance()->sendGroupMemberJoin(notification["payload"]["group_id"].asUUID());
-	return false;
+	LLGroupActions::join(mID);
 }
 
 void LLPanelGroup::onBtnCancel()
@@ -340,19 +291,33 @@ void LLPanelGroup::update(LLGroupChange gc)
 	if(gdatap)
 	{
 		childSetValue("group_name", gdatap->mName);
+		childSetToolTip("group_name",gdatap->mName);
+
+		LLButton* btn_join = getChild<LLButton>("btn_join");
+		LLUICtrl* join_text = getChild<LLUICtrl>("join_cost_text");
 
 		LLGroupData agent_gdatap;
 		bool is_member = gAgent.getGroupData(mID,agent_gdatap);
-		LLButton* btn_join = getChild<LLButton>("btn_join");
 		bool join_btn_visible = !is_member && gdatap->mOpenEnrollment;
+		
 		btn_join->setVisible(join_btn_visible);
+		join_text->setVisible(join_btn_visible);
+
 		if(join_btn_visible)
 		{
 			LLStringUtil::format_map_t string_args;
-			string_args["[AMOUNT]"] = llformat("%d", gdatap->mMembershipFee);
-			std::string fee_buff = getString("group_join_btn", string_args);
-			btn_join->setLabelSelected(fee_buff);
-			btn_join->setLabelUnselected(fee_buff);
+			std::string fee_buff;
+			if(gdatap->mMembershipFee)
+			{
+				string_args["[AMOUNT]"] = llformat("%d", gdatap->mMembershipFee);
+				fee_buff = getString("group_join_btn", string_args);
+				
+			}
+			else
+			{
+				fee_buff = getString("group_join_free", string_args);
+			}
+			childSetValue("join_cost_text",fee_buff);
 		}
 	}
 }
@@ -361,6 +326,8 @@ void LLPanelGroup::setGroupID(const LLUUID& group_id)
 {
 	std::string str_group_id;
 	group_id.toString(str_group_id);
+
+	bool is_same_id = group_id == mID;
 	
 	LLGroupMgr::getInstance()->removeObserver(this);
 	mID = group_id;
@@ -371,7 +338,10 @@ void LLPanelGroup::setGroupID(const LLUUID& group_id)
 
 	LLGroupMgrGroupData* gdatap = LLGroupMgr::getInstance()->getGroupData(mID);
 	if(gdatap)
+	{
 		childSetValue("group_name", gdatap->mName);
+		childSetToolTip("group_name",gdatap->mName);
+	}
 
 	LLButton* button_apply = findChild<LLButton>("btn_apply");
 	LLButton* button_refresh = findChild<LLButton>("btn_refresh");
@@ -429,16 +399,19 @@ void LLPanelGroup::setGroupID(const LLUUID& group_id)
 		getChild<LLUICtrl>("group_name")->setVisible(false);
 		getChild<LLUICtrl>("group_name_editor")->setVisible(true);
 	}
-	else
+	else 
 	{
-		if(!tab_general->getDisplayChildren())
-			tab_general->changeOpenClose(tab_general->getDisplayChildren());
-		if(!tab_roles->getDisplayChildren())
-			tab_roles->changeOpenClose(tab_roles->getDisplayChildren());
-		if(!tab_notices->getDisplayChildren())
-			tab_notices->changeOpenClose(tab_notices->getDisplayChildren());
-		if(!tab_land->getDisplayChildren())
-			tab_land->changeOpenClose(tab_land->getDisplayChildren());
+		if(!is_same_id)
+		{
+			if(!tab_general->getDisplayChildren())
+				tab_general->changeOpenClose(tab_general->getDisplayChildren());
+			if(tab_roles->getDisplayChildren())
+				tab_roles->changeOpenClose(tab_roles->getDisplayChildren());
+			if(tab_notices->getDisplayChildren())
+				tab_notices->changeOpenClose(tab_notices->getDisplayChildren());
+			if(tab_land->getDisplayChildren())
+				tab_land->changeOpenClose(tab_land->getDisplayChildren());
+		}
 		
 		tab_roles->canOpenClose(true);
 		tab_notices->canOpenClose(true);

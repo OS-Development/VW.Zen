@@ -41,6 +41,7 @@
 #include "llfoldervieweventlistener.h"
 
 class LLInventoryPanel;
+class LLMenuGL;
 
 enum EInventoryIcon
 {
@@ -120,6 +121,11 @@ protected:
 	LLInventoryPanel* mIP;
 };
 
+const std::string safe_inv_type_lookup(LLInventoryType::EType inv_type);
+void hide_context_entries(LLMenuGL& menu, 
+						const std::vector<std::string> &entries_to_show,
+						const std::vector<std::string> &disabled_entries);
+
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Class LLInvFVBridge (& it's derived classes)
 //
@@ -153,7 +159,7 @@ public:
 	virtual const std::string& getName() const;
 	virtual const std::string& getDisplayName() const;
 	virtual PermissionMask getPermissionMask() const;
-	virtual LLAssetType::EType getPreferredType() const;
+	virtual LLFolderType::EType getPreferredType() const;
 	virtual time_t getCreationDate() const;
 	virtual LLFontGL::StyleFlags getLabelStyle() const
 	{
@@ -168,13 +174,13 @@ public:
 	virtual BOOL isItemRenameable() const { return TRUE; }
 	//virtual BOOL renameItem(const std::string& new_name) {}
 	virtual BOOL isItemRemovable();
-	virtual BOOL isItemMovable();
+	virtual BOOL isItemMovable() const;
 	//virtual BOOL removeItem() = 0;
 	virtual void removeBatch(LLDynamicArray<LLFolderViewEventListener*>& batch);
 	virtual void move(LLFolderViewEventListener* new_parent_bridge) {}
 	virtual BOOL isItemCopyable() const { return FALSE; }
 	virtual BOOL copyToClipboard() const { return FALSE; }
-	virtual void cutToClipboard() {}
+	virtual void cutToClipboard();
 	virtual BOOL isClipboardPasteable() const;
 	virtual BOOL isClipboardPasteableAsLink() const;
 	virtual void pasteFromClipboard() {}
@@ -219,6 +225,22 @@ protected:
 	const LLUUID mUUID;	// item id
 	LLInventoryType::EType mInvType;
 	void purgeItem(LLInventoryModel *model, const LLUUID &uuid);
+};
+
+/**
+ * This class intended to build Folder View Bridge via LLInvFVBridge::createBridge.
+ * It can be overridden with another way of creation necessary Inventory-Folder-View-Bridge.
+ */
+class LLInventoryFVBridgeBuilder
+{
+public:
+ 	virtual ~LLInventoryFVBridgeBuilder(){}
+	virtual LLInvFVBridge* createBridge(LLAssetType::EType asset_type,
+										LLAssetType::EType actual_asset_type,
+										LLInventoryType::EType inv_type,
+										LLInventoryPanel* inventory,
+										const LLUUID& uuid,
+										U32 flags = 0x00) const;
 };
 
 
@@ -276,9 +298,9 @@ public:
 	virtual void selectItem();
 	virtual void restoreItem();
 
-	virtual LLAssetType::EType getPreferredType() const;
+	virtual LLFolderType::EType getPreferredType() const;
 	virtual LLUIImagePtr getIcon() const;
-	static LLUIImagePtr getIcon(LLAssetType::EType asset_type);
+	static LLUIImagePtr getIcon(LLFolderType::EType preferred_type);
 
 	virtual BOOL renameItem(const std::string& new_name);
 	virtual BOOL removeItem();
@@ -291,14 +313,15 @@ public:
 							void* cargo_data);
 
 	virtual BOOL isItemRemovable();
-	virtual BOOL isItemMovable();
+	virtual BOOL isItemMovable() const ;
 	virtual BOOL isUpToDate() const;
 	virtual BOOL isItemCopyable() const;
+	virtual BOOL isClipboardPasteable() const;
 	virtual BOOL isClipboardPasteableAsLink() const;
 	virtual BOOL copyToClipboard() const;
 	
 	static void createWearable(LLFolderBridge* bridge, EWearableType type);
-	static void createWearable(LLUUID parent_folder_id, EWearableType type);
+	static void createWearable(const LLUUID &parent_folder_id, EWearableType type);
 
 	LLViewerInventoryCategory* getCategory() const;
 
@@ -785,5 +808,9 @@ BOOL move_inv_category_world_to_agent(const LLUUID& object_id,
 
 void teleport_via_landmark(const LLUUID& asset_id);
 
+// Utility function to hide all entries except those in the list
+void hide_context_entries(LLMenuGL& menu, 
+		const std::vector<std::string> &entries_to_show, 
+		const std::vector<std::string> &disabled_entries);
 
 #endif // LL_LLINVENTORYBRIDGE_H

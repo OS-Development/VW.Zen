@@ -61,22 +61,32 @@ public:
 		static void declareValues();
 	};
 
+	struct TabParams : public LLInitParam::Block<TabParams>
+	{
+		Optional<LLUIImage*>				tab_top_image_unselected,
+											tab_top_image_selected,
+											tab_bottom_image_unselected,
+											tab_bottom_image_selected,
+											tab_left_image_unselected,
+											tab_left_image_selected;		
+		TabParams();
+	};
+
 	struct Params
 	:	public LLInitParam::Block<Params, LLPanel::Params>
 	{
 		Optional<TabPosition, TabPositions>	tab_position;
 		Optional<S32>						tab_width,
 											tab_min_width,
-											tab_max_width;
+											tab_max_width,
+											tab_height;
+
 		Optional<bool>						hide_tabs;
 		Optional<S32>						tab_padding_right;
 
-		Optional<LLUIImage*>				tab_top_image_unselected,
-											tab_top_image_selected,
-											tab_bottom_image_unselected,
-											tab_bottom_image_selected,
-											tab_left_image_unselected,
-											tab_left_image_selected;
+		Optional<TabParams>					first_tab,
+											middle_tab,
+											last_tab;
 
 		Params();
 	};
@@ -213,6 +223,9 @@ private:
 	void updateMaxScrollPos();
 	void commitHoveredButton(S32 x, S32 y);
 
+	// updates tab button images given the tuple, tab position and the corresponding params
+	void update_images(LLTabTuple* tuple, TabParams params, LLTabContainer::TabPosition pos);
+
 	// Variables
 	
 	typedef std::vector<LLTabTuple*> tuple_list_t;
@@ -246,15 +259,16 @@ private:
 
 	S32								mMaxTabWidth;
 	S32								mTotalTabWidth;
+	S32								mTabHeight;
 
 	LLFrameTimer					mDragAndDropDelayTimer;
+	
+	LLFontGL::HAlign                mFontHalign;
+	const LLFontGL*					mFont;
 
-	LLPointer<LLUIImage>			mImageTopUnselected;
-	LLPointer<LLUIImage>			mImageTopSelected;
-	LLPointer<LLUIImage>			mImageBottomUnselected;
-	LLPointer<LLUIImage>			mImageBottomSelected;
-	LLPointer<LLUIImage>			mImageLeftUnselected;
-	LLPointer<LLUIImage>			mImageLeftSelected;
+	TabParams						mFirstTabParams;
+	TabParams						mMiddleTabParams;
+	TabParams						mLastTabParams;
 };
 
 #endif  // LL_TABCONTAINER_H

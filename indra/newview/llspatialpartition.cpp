@@ -659,8 +659,11 @@ void LLSpatialPartition::rebuildGeom(LLSpatialGroup* group)
 		return;
 	}
 
-	group->mLastUpdateDistance = group->mDistance;
-	group->mLastUpdateViewAngle = group->mViewAngle;
+	if (group->changeLOD())
+	{
+		group->mLastUpdateDistance = group->mDistance;
+		group->mLastUpdateViewAngle = group->mViewAngle;
+	}
 	
 	LLFastTimer ftm(FTM_REBUILD_VBO);	
 
@@ -2701,7 +2704,7 @@ void renderTexturePriority(LLDrawable* drawable)
 		drawBox(center, size);
 		
 		/*S32 boost = imagep->getBoostLevel();
-		if (boost)
+		if (boost>LLViewerTexture::BOOST_NONE)
 		{
 			F32 t = (F32) boost / (F32) (LLViewerTexture::BOOST_MAX_LEVEL-1);
 			LLVector4 col = lerp(boost_cold, boost_hot, t);

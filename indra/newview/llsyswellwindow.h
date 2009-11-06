@@ -76,6 +76,7 @@ public:
 	void onItemClose(LLSysWellItem* item);
 	void onStoreToast(LLPanel* info_panel, LLUUID id);
 	void onChicletClick();
+	void onStartUpToastClick(S32 x, S32 y, MASK mask);
 
 	// size constants for the window and for its elements
 	static const S32 MAX_WINDOW_HEIGHT		= 200;
@@ -108,6 +109,7 @@ private:
 	// LLIMSessionObserver observe triggers
 	virtual void sessionAdded(const LLUUID& session_id, const std::string& name, const LLUUID& other_participant_id);
 	virtual void sessionRemoved(const LLUUID& session_id);
+	void sessionIDUpdated(const LLUUID& old_session_id, const LLUUID& new_session_id);
 
 	// pointer to a corresponding channel's instance
 	LLNotificationsUI::LLScreenChannel*	mChannel;

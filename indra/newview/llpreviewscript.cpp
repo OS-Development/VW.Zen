@@ -89,7 +89,6 @@
 #include "lltrans.h"
 #include "llviewercontrol.h"
 #include "llappviewer.h"
-#include "llpanelinventory.h"
 
 const std::string HELLO_LSL =
 	"default\n"
@@ -452,7 +451,7 @@ bool LLScriptEdCore::hasChanged()
 {
 	if (!mEditor) return false;
 
-	return !mEditor->isPristine();
+	return ((!mEditor->isPristine() || mEnableSave) && mHasScriptData);
 }
 
 void LLScriptEdCore::draw()
@@ -1260,7 +1259,7 @@ void LLPreviewLSL::onSaveComplete(const LLUUID& asset_uuid, void* user_data, S32
 			else
 			{
 				llwarns << "Inventory item for script " << info->mItemUUID
-					<< " is no longer in agent inventory." << llendl
+					<< " is no longer in agent inventory." << llendl;
 			}
 
 			// Find our window and close it if requested.
@@ -1382,6 +1381,7 @@ void LLPreviewLSL::onLoadComplete( LLVFS *vfs, const LLUUID& asset_uuid, LLAsset
 	}
 	delete item_uuid;
 }
+
 
 /// ---------------------------------------------------------------------------
 /// LLLiveLSLEditor
@@ -2144,6 +2144,7 @@ void LLLiveLSLEditor::processScriptRunningReply(LLMessageSystem* msg, void**)
 		monoCheckbox->set(mono);
 	}
 }
+
 
 void LLLiveLSLEditor::onMonoCheckboxClicked(LLUICtrl*, void* userdata)
 {

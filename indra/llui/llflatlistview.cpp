@@ -44,6 +44,9 @@ const LLSD UNSELECTED_EVENT	= LLSD().insert("selected", false);
 
 static const std::string COMMENT_TEXTBOX = "comment_text";
 
+//forward declaration
+bool llsds_are_equal(const LLSD& llsd_1, const LLSD& llsd_2);
+
 LLFlatListView::Params::Params()
 :	item_pad("item_pad"),
 	allow_select("allow_select"),
@@ -89,7 +92,7 @@ bool LLFlatListView::addItem(LLPanel * item, const LLSD& value /*= LLUUID::null*
 	
 	//_4 is for MASK
 	item->setMouseDownCallback(boost::bind(&LLFlatListView::onItemMouseClick, this, new_pair, _4));
-	item->setRightMouseDownCallback(boost::bind(&LLFlatListView::onItemMouseClick, this, new_pair, _4));
+	item->setRightMouseDownCallback(boost::bind(&LLFlatListView::onItemRightMouseClick, this, new_pair, _4));
 
 	rearrangeItems();
 	notifyParentItemsRectChanged();
@@ -134,7 +137,7 @@ bool LLFlatListView::insertItemAfter(LLPanel* after_item, LLPanel* item_to_add, 
 
 	//_4 is for MASK
 	item_to_add->setMouseDownCallback(boost::bind(&LLFlatListView::onItemMouseClick, this, new_pair, _4));
-	item_to_add->setRightMouseDownCallback(boost::bind(&LLFlatListView::onItemMouseClick, this, new_pair, _4));
+	item_to_add->setRightMouseDownCallback(boost::bind(&LLFlatListView::onItemRightMouseClick, this, new_pair, _4));
 
 	rearrangeItems();
 	notifyParentItemsRectChanged();
@@ -333,6 +336,17 @@ void LLFlatListView::sort()
 	rearrangeItems();
 }
 
+bool LLFlatListView::updateValue(const LLSD& old_value, const LLSD& new_value)
+{
+	if (old_value.isUndefined() || new_value.isUndefined()) return false;
+	if (llsds_are_equal(old_value, new_value)) return false;
+
+	item_pair_t* item_pair = getItemPair(old_value);
+	if (!item_pair) return false;
+
+	item_pair->second = new_value;
+	return true;
+}
 
 //////////////////////////////////////////////////////////////////////////
 // PROTECTED STUFF
@@ -443,6 +457,20 @@ void LLFlatListView::onItemMouseClick(item_pair_t* item_pair, MASK mask)
 	
 	if (!(mask & MASK_CONTROL) || !mMultipleSelection) resetSelection();
 	selectItemPair(item_pair, select_item);
+}
+
+void LLFlatListView::onItemRightMouseClick(item_pair_t* item_pair, MASK mask)
+{
+	if (!item_pair)
+		return;
+
+	// Forbid deselecting of items on right mouse button click if mMultipleSelection flag is set on,
+	// because some of derived classes may have context menu and selected items must be kept.
+	if ( !(mask & MASK_CONTROL) && mMultipleSelection && isSelected(item_pair) )
+		return;
+
+	// else got same behavior as at onItemMouseClick
+	onItemMouseClick(item_pair, mask);
 }
 
 LLFlatListView::item_pair_t* LLFlatListView::getItemPair(LLPanel* item) const

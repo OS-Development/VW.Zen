@@ -35,6 +35,7 @@
 
 #include "llinventorymodel.h"
 
+class LLLandmark;
 /**
  * @brief Provides helper functions to manage landmarks
  */
@@ -42,15 +43,21 @@ class LLLandmarkActions
 {
 public:
 	typedef boost::function<void(std::string& slurl)> slurl_callback_t;
+	typedef boost::function<void(std::string& slurl, S32 x, S32 y)> region_name_and_coords_callback_t;
 
 	/**
 	 * @brief Fetches landmark LLViewerInventoryItems for the given landmark name. 
 	 */
 	static LLInventoryModel::item_array_t fetchLandmarksByName(std::string& name, BOOL if_use_substring);
 	/**
-	 * @brief Checks whether landmark exists for current parcel.
+	 * @brief Checks whether landmark exists for current agent position.
 	 */
 	static bool landmarkAlreadyExists();
+	
+	/**
+	 * @brief Checks whether landmark exists for current agent parcel.
+	 */
+	static bool hasParcelLandmark();
 
 	/**
 	 * @brief Searches landmark for global position.
@@ -91,6 +98,8 @@ public:
 	 */
 	static void getSLURLfromPosGlobal(const LLVector3d& global_pos, slurl_callback_t cb, bool escaped = true);
 
+	static void getRegionNameAndCoordsFromPosGlobal(const LLVector3d& global_pos, region_name_and_coords_callback_t cb);
+
     /**
      * @brief Gets landmark global position specified by inventory LLUUID.
      * Found position is placed into "posGlobal" variable.
@@ -101,17 +110,31 @@ public:
     // *TODO: mantipov: profide callback for cases, when Landmark is not loaded yet.
     static bool getLandmarkGlobalPos(const LLUUID& landmarkInventoryItemID, LLVector3d& posGlobal);
 
+    /**
+     * @brief Retrieve a landmark from gLandmarkList by inventory item's id
+     * 
+     * @return pointer to loaded landmark from gLandmarkList or NULL if landmark does not exist or wasn't loaded.
+     */
+    static LLLandmark* getLandmark(const LLUUID& landmarkInventoryItemID);
+
+    /**
+     * @brief  Performs standard action of copying of SLURL from landmark to user's clipboard.
+     * 	This action requires additional server request. The user will be notified  by info message, 
+     *  when URL is copied .
+     */
+    static void copySLURLtoClipboard(const LLUUID& landmarkInventoryItemID);
+
 private:
     LLLandmarkActions();
     LLLandmarkActions(const LLLandmarkActions&);
 
-	static void onRegionResponse(slurl_callback_t cb,
+	static void onRegionResponseSLURL(slurl_callback_t cb,
 								 const LLVector3d& global_pos,
 								 bool escaped,
-								 U64 region_handle,
-								 const std::string& url,
-								 const LLUUID& snapshot_id,
-								 bool teleport);
+								 const std::string& url);
+	static void onRegionResponseNameAndCoords(region_name_and_coords_callback_t cb,
+								 const LLVector3d& global_pos,
+								 U64 region_handle);
 };
 
 #endif //LL_LLLANDMARKACTIONS_H

@@ -38,6 +38,7 @@
 #include "llinventorybridge.h"
 #include "llinventoryclipboard.h" // *TODO: remove this once hack below gone.
 #include "llinventoryfilter.h"
+#include "llinventoryfunctions.h"
 #include "llfoldertype.h"
 #include "llfloaterinventory.h"// hacked in for the bonus context menu items.
 #include "llkeyboard.h"
@@ -54,6 +55,7 @@
 #include "llviewermenu.h"
 #include "lluictrlfactory.h"
 #include "llviewercontrol.h"
+#include "llviewerfoldertype.h"
 #include "llviewerwindow.h"
 #include "llvoavatar.h"
 #include "llfloaterproperties.h"
@@ -189,7 +191,9 @@ LLFolderView::LLFolderView(const Params& p)
 	mMinWidth(0),
 	mDragAndDropThisFrame(FALSE),
 	mCallbackRegistrar(NULL),
-	mParentPanel(p.parent_panel)
+	mParentPanel(p.parent_panel),
+	mUseEllipses(false),
+	mDraggingOverItem(NULL)
 {
 	LLRect rect = p.rect;
 	LLRect new_rect(rect.mLeft, rect.mBottom + getRect().getHeight(), rect.mLeft + getRect().getWidth(), rect.mBottom);
@@ -481,6 +485,11 @@ void LLFolderView::reshape(S32 width, S32 height, BOOL called_from_parent)
 		scroll_rect = mScrollContainer->getContentWindowRect();
 	}
 	width = llmax(mMinWidth, scroll_rect.getWidth());
+
+	// restrict width with scroll container's width
+	if (mUseEllipses)
+		width = scroll_rect.getWidth();
+
 	LLView::reshape(width, height, called_from_parent);
 
 	mReshapeSignal(mSelectedItems, FALSE);
@@ -1100,7 +1109,7 @@ void LLFolderView::propertiesSelectedItems( void )
 	}
 }
 
-void LLFolderView::changeType(LLInventoryModel *model, LLAssetType::EType new_folder_type)
+void LLFolderView::changeType(LLInventoryModel *model, LLFolderType::EType new_folder_type)
 {
 	LLFolderBridge *folder_bridge = LLFolderBridge::sSelf;
 
@@ -1224,12 +1233,44 @@ void LLFolderView::copy()
 
 BOOL LLFolderView::canCut() const
 {
-	return FALSE;
+	if (!(getVisible() && getEnabled() && (mSelectedItems.size() > 0)))
+	{
+		return FALSE;
+	}
+	
+	for (selected_items_t::const_iterator selected_it = mSelectedItems.begin(); selected_it != mSelectedItems.end(); ++selected_it)
+	{
+		const LLFolderViewItem* item = *selected_it;
+		const LLFolderViewEventListener* listener = item->getListener();
+
+		// *WARKAROUND: it is too many places where the "isItemRemovable" method should be changed with "const" modifier
+		if (!listener || !(const_cast<LLFolderViewEventListener*>(listener))->isItemRemovable())
+		{
+			return FALSE;
+		}
+	}
+	return TRUE;
 }
 
 void LLFolderView::cut()
 {
-	// implement Windows-style cut-and-leave
+	// clear the inventory clipboard
+	LLInventoryClipboard::instance().reset();
+	S32 count = mSelectedItems.size();
+	if(getVisible() && getEnabled() && (count > 0))
+	{
+		LLFolderViewEventListener* listener = NULL;
+		selected_items_t::iterator item_it;
+		for (item_it = mSelectedItems.begin(); item_it != mSelectedItems.end(); ++item_it)
+		{
+			listener = (*item_it)->getListener();
+			if(listener)
+			{
+				listener->cutToClipboard();
+			}
+		}
+	}
+	mSearchString.clear();
 }
 
 BOOL LLFolderView::canPaste() const
@@ -1918,7 +1959,7 @@ bool LLFolderView::doToSelected(LLInventoryModel* model, const LLSD& userdata)
 	if (action.length() > change_folder_string.length() && 
 		(action.compare(0,change_folder_string.length(),"change_folder_type_") == 0))
 	{
-		LLAssetType::EType new_folder_type = LLFolderType::lookupTypeFromXUIName(action.substr(change_folder_string.length()));
+		LLFolderType::EType new_folder_type = LLViewerFolderType::lookupTypeFromXUIName(action.substr(change_folder_string.length()));
 		changeType(model, new_folder_type);
 		return true;
 	}

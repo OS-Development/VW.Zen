@@ -26,7 +26,7 @@
      height="16"
      label="Use fullscreen"
      layout="topleft"
-     left_delta="30"
+     left_delta="50"
      name="windowed mode"
      top_pad="4"
      width="175">
@@ -48,41 +48,36 @@
 	     length="1"
 	     enabled="true"
 	     name="640x480"
-	     value="640 x 480">
-		 640x480
-	    </combo_box.item>
+	     value="640 x 480"
+	     label="640x480"/>
 	    <combo_box.item
 	     type="string"
 	     length="1"
 	     enabled="true"
 	     name="800x600"
-	     value="800 x 600">
-		 800x600 
-	    </combo_box.item>
+	     value="800 x 600"
+	     label="800x600"/>
 	    <combo_box.item
 	     type="string"
 	     length="1"
 	     enabled="true"
 	     name="720x480"
-	     value="720 x 480">
-		 720x480 (NTSC)
-	    </combo_box.item>
+	     value="720 x 480"
+	     label="720x480 (NTSC)"/>
 	    <combo_box.item
 	     type="string"
 	     length="1"
 	     enabled="true"
 	     name="768x576"
-	     value="768 x 576">
-		  768x576 (PAL)
-	    </combo_box.item>
+	     value="768 x 576"
+	     label="768x576 (PAL)"/>
 	    <combo_box.item
 	     type="string"
 	     length="1"
 	     enabled="true"
 	     name="1024x768"
-	     value="1024 x 768">
-		  1024x768
-	    </combo_box.item>
+	     value="1024 x 768"
+	     label="1024x768"/>
 	    <combo_box.commit_callback
 	     function="Pref.setControlFalse"
 	     parameter="FullScreenAutoDetectAspectRatio" />
@@ -97,7 +92,7 @@
      name="UI Size:"
      top_pad="4"
      width="300">
-        UI Size:
+        UI size:
     </text>
     <slider
      can_edit_text="true"
@@ -108,7 +103,7 @@
      increment="0.025"
      initial_value="1"
      layout="topleft"
-     left_delta="32"
+     left_delta="52"
      max_val="1.4"
      min_val="0.75"
      name="ui_scale_slider"
@@ -295,7 +290,7 @@
 		control_name="RenderObjectBump"
 		height="16"
 		initial_value="true"
-		label="Bump Mapping and Shiny"
+		label="Bump mapping and shiny"
 		layout="topleft"
 		left_delta="0"
 		name="BumpShiny"
@@ -305,11 +300,11 @@
 		control_name="VertexShaderEnable"
 		height="16"
 		initial_value="true"
-		label="Basic Shaders"
+		label="Basic shaders"
 		layout="topleft"
 		left_delta="0"
 		name="BasicShaders"
-		tool_tip="Disabling this option may prevent some graphics card drivers from crashing."
+		tool_tip="Disabling this option may prevent some graphics card drivers from crashing"
 		top_pad="1"
 		width="315">
 			<check_box.commit_callback
@@ -319,7 +314,7 @@
 		control_name="WindLightUseAtmosShaders"
 		height="16"
 		initial_value="true"
-		label="Atmospheric Shaders"
+		label="Atmospheric shaders"
 		layout="topleft"
 		left_delta="0"
 		name="WindLightUseAtmosShaders"
@@ -332,7 +327,7 @@
 		control_name="RenderWaterReflections"
 		height="16"
 		initial_value="true"
-		label="Water Reflections"
+		label="Water reflections"
 		layout="topleft"
 		left_delta="0"
 		name="Reflections"
@@ -351,7 +346,7 @@
 		name="ReflectionDetailText"
 		top_pad="7"
 		width="128">
-			Reflection Detail:
+			Reflection detail:
 		</text>
 		<radio_group
 		control_name="RenderReflectionDetail"
@@ -364,7 +359,7 @@
 		width="321">
 			<radio_item
 			height="16"
-			label="Terrain and Trees"
+			label="Terrain and trees"
 			layout="topleft"
 			left="3"
 			name="0"
@@ -372,7 +367,7 @@
 			width="315" />
 			<radio_item
 			height="16"
-			label="All Static Objects"
+			label="All static objects"
 			layout="topleft"
 			left_delta="0"
 			name="1"
@@ -380,7 +375,7 @@
 			width="315" />
 			<radio_item
 			height="16"
-			label="All Avatars and Objects"
+			label="All avatars and objects"
 			layout="topleft"
 			left_delta="0"
 			name="2"
@@ -405,13 +400,13 @@
 		name="AvatarRenderingText"
 		top_pad="5"
 		width="128">
-			Avatar Rendering:
+			Avatar rendering:
 		</text>
 		<check_box
 		control_name="RenderUseImpostors"
 		height="16"
 		initial_value="true"
-		label="Avatar Impostors"
+		label="Avatar impostors"
 		layout="topleft"
 		left_delta="0"
 		name="AvatarImpostors"
@@ -421,7 +416,7 @@
 		control_name="RenderAvatarVP"
 		height="16"
 		initial_value="true"
-		label="Hardware Skinning"
+		label="Hardware skinning"
 		layout="topleft"
 		left_delta="0"
 		name="AvatarVertexProgram"
@@ -434,7 +429,7 @@
 		control_name="RenderAvatarCloth"
 		height="16"
 		initial_value="true"
-		label="Avatar Cloth"
+		label="Avatar cloth"
 		layout="topleft"
 		left_delta="0"
 		name="AvatarCloth"
@@ -448,7 +443,7 @@
 		height="16"
 		increment="8"
 		initial_value="160"
-		label="Draw Distance:"
+		label="Draw distance:"
 		label_width="140"
 		layout="topleft"
 		left="216"
@@ -479,7 +474,7 @@
 		height="16"
 		increment="256"
 		initial_value="4096"
-		label="Max. Particle Count:"
+		label="Max. particle count:"
 		label_width="140"
 		layout="topleft"
 		left="216"
@@ -494,7 +489,7 @@
 		height="16"
 		increment="1"
 		initial_value="8"
-		label="Post Process Quality:"
+		label="Post process quality:"
 		label_width="140"
 		layout="topleft"
 		left_delta="0"
@@ -518,7 +513,7 @@
 		name="MeshDetailText"
 		top_pad="5"
 		width="128">
-			Mesh Detail:
+			Mesh detail:
 		</text>
 		<slider
 		control_name="RenderVolumeLODFactor"
@@ -729,7 +724,7 @@
         name="LightingDetailText"
         top_pad="8"
         width="128">
-           Lighting Detail:
+           Lighting detail:
         </text>
         <radio_group
         control_name="RenderLightingDetail"
@@ -767,7 +762,7 @@
         name="TerrainDetailText"
         top="465"
         width="128">
-           Terrain Detail:
+           Terrain detail:
         </text>
         <radio_group
         control_name="RenderTerrainDetail"

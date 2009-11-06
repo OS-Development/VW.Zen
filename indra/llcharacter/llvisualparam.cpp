@@ -147,6 +147,21 @@ BOOL LLVisualParamInfo::parseXml(LLXmlTreeNode *node)
 	return TRUE;
 }
 
+//virtual
+void LLVisualParamInfo::toStream(std::ostream &out)
+{
+	out <<  mID << "\t";
+	out << mName << "\t";
+	out <<  mDisplayName << "\t";
+	out <<  mMinName << "\t";
+	out <<  mMaxName << "\t";
+	out <<  mGroup << "\t";
+	out <<  mMinWeight << "\t";
+	out <<  mMaxWeight << "\t";
+	out <<  mDefaultWeight << "\t";
+	out <<  mSex << "\t";
+}
+
 //-----------------------------------------------------------------------------
 // LLVisualParam()
 //-----------------------------------------------------------------------------
@@ -158,7 +173,8 @@ LLVisualParam::LLVisualParam()
 	mTargetWeight( 0.f ),
 	mIsAnimating( FALSE ),
 	mID( -1 ),
-	mInfo( 0 )
+	mInfo( 0 ),
+	mIsDummy(FALSE)
 {
 }
 
@@ -236,6 +252,13 @@ void LLVisualParam::setWeight(F32 weight, BOOL set_by_user)
 //-----------------------------------------------------------------------------
 void LLVisualParam::setAnimationTarget(F32 target_value, BOOL set_by_user)
 {
+	// don't animate dummy parameters
+	if (mIsDummy)
+	{
+		setWeight(target_value, set_by_user);
+		return;
+	}
+
 	if (mInfo)
 	{
 		if (getGroup() == VISUAL_PARAM_GROUP_TWEAKABLE)
@@ -287,4 +310,18 @@ void LLVisualParam::stopAnimating(BOOL set_by_user)
 		mIsAnimating = FALSE; 
 		setWeight(mTargetWeight, set_by_user);
 	}
+}
+
+//virtual
+BOOL LLVisualParam::linkDrivenParams(visual_param_mapper mapper, BOOL only_cross_params)
+{
+	// nothing to do for non-driver parameters
+	return TRUE;
+}
+
+//virtual 
+void LLVisualParam::resetDrivenParams()
+{
+	// nothing to do for non-driver parameters
+	return;
 }

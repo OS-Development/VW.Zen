@@ -43,7 +43,7 @@ class LLChicletPanel;
 class LLLineEditor;
 class LLLayoutStack;
 class LLNotificationChiclet;
-class LLTalkButton;
+class LLSpeakButton;
 class LLNearbyChatBar;
 class LLIMChiclet;
 
@@ -67,6 +67,9 @@ public:
 	// LLIMSessionObserver observe triggers
 	virtual void sessionAdded(const LLUUID& session_id, const std::string& name, const LLUUID& other_participant_id);
 	virtual void sessionRemoved(const LLUUID& session_id);
+	void sessionIDUpdated(const LLUUID& old_session_id, const LLUUID& new_session_id);
+
+	virtual void reshape(S32 width, S32 height, BOOL called_from_parent);
 
 	virtual void onFocusLost();
 	virtual void setVisible(BOOL visible);
@@ -79,6 +82,18 @@ public:
 	void showSnapshotButton(BOOL visible);
 
 private:
+
+	enum EResizeState
+	{
+		STATE_CHICLET_PANEL = 1,
+		STATE_CHATBAR_INPUT,
+		STATE_BUTTONS
+	};
+
+	void updateResizeState(S32 width, S32 height);
+	void verifyChildControlsSizes();
+
+	EResizeState mResizeState;
 
 protected:
 
@@ -95,14 +110,16 @@ protected:
 
 	LLChicletPanel* 	mChicletPanel;
 	LLNotificationChiclet* 	mSysWell;
-	LLTalkButton* 		mTalkBtn;
+	LLSpeakButton* 		mSpeakBtn;
 	LLNearbyChatBar*	mNearbyChatBar;
 	LLLayoutStack*		mToolbarStack;
 	LLMenuGL*			mBottomTrayContextMenu;
 	LLPanel*			mMovementPanel;
 	LLPanel*			mCamPanel;
 	LLPanel*			mSnapshotPanel;
-	LLComboBox*			mGestureCombo;
+	LLPanel*			mGesturePanel;
+	LLButton*			mCamButton;
+	LLButton*			mMovementButton;
 };
 
 #endif // LL_LLBOTTOMPANEL_H

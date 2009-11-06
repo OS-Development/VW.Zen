@@ -45,6 +45,7 @@ class LLVOAvatarSelf;
 class LLWearable;
 class LLInitialWearablesFetch;
 class LLViewerObject;
+class LLTexLayerTemplate;
 
 class LLAgentWearables
 {
@@ -69,7 +70,7 @@ protected:
 	// Queries
 	//--------------------------------------------------------------------
 public:
-	BOOL			isWearingItem(const LLUUID& item_id, const BOOL include_linked_items = FALSE) const;
+	BOOL			isWearingItem(const LLUUID& item_id) const;
 	BOOL			isWearableModifiable(EWearableType type, U32 index /*= 0*/) const;
 	BOOL			isWearableCopyable(EWearableType type, U32 index /*= 0*/) const;
 	BOOL			areWearablesLoaded() const;
@@ -79,6 +80,7 @@ public:
 	// Note: False for shape, skin, eyes, and hair, unless you have MORE than 1.
 	bool			canWearableBeRemoved(const LLWearable* wearable) const;
 
+	void			animateAllWearableParams(F32 delta, BOOL set_by_user);
 	
 	//--------------------------------------------------------------------
 	// Accessors
@@ -93,8 +95,9 @@ public:
 	static BOOL			selfHasWearable(EWearableType type);
 	LLWearable*			getWearable(const EWearableType type, U32 index /*= 0*/); 
 	const LLWearable* 	getWearable(const EWearableType type, U32 index /*= 0*/) const;
-	U32					getWearableCount(const EWearableType type) const;
-
+	LLWearable*		getTopWearable(const EWearableType type);
+	U32				getWearableCount(const EWearableType type) const;
+	U32				getWearableCount(const U32 tex_index) const;
 
 	//--------------------------------------------------------------------
 	// Setters
@@ -103,12 +106,17 @@ public:
 private:
 	// Low-level data structure setter - public access is via setWearableItem, etc.
 	void 			setWearable(const EWearableType type, U32 index, LLWearable *wearable);
+	U32 			pushWearable(const EWearableType type, LLWearable *wearable);
+	void 			popWearable(LLWearable *wearable);
+	void			popWearable(const EWearableType type, U32 index);
 	
 public:
 	void			setWearableItem(LLInventoryItem* new_item, LLWearable* wearable, bool do_append = false);
 	void			setWearableOutfit(const LLInventoryItem::item_array_t& items, const LLDynamicArray< LLWearable* >& wearables, BOOL remove);
 	void			setWearableName(const LLUUID& item_id, const std::string& new_name);
 	void			addLocalTextureObject(const EWearableType wearable_type, const LLVOAvatarDefines::ETextureIndex texture_type, U32 wearable_index);
+	U32				getWearableIndex(LLWearable *wearable);
+
 protected:
 	void			setWearableFinal(LLInventoryItem* new_item, LLWearable* new_wearable, bool do_append = false);
 	static bool		onSetWearableDialog(const LLSD& notification, const LLSD& response, LLWearable* wearable);
@@ -183,9 +191,9 @@ public:
 	//--------------------------------------------------------------------
 public:
 	// MULTI-WEARABLE: assuming one wearable per type.  Need upstream changes.
-	static void		userRemoveWearable(void* userdata);	// userdata is EWearableType
-	static void		userRemoveAllClothes(void* userdata);	// userdata is NULL
-
+	static void		userRemoveWearable(EWearableType& type);
+	static void		userRemoveAllClothes();	
+	
 	typedef std::vector<LLViewerObject*> llvo_vec_t;
 
 	static void 	userUpdateAttachments(LLInventoryModel::item_array_t& obj_item_array);
@@ -251,6 +259,8 @@ private:
 		U32 mTodo;
 		LLPointer<LLRefCount> mCB;
 	};
+
+	static const U32 MAX_WEARABLES_PER_TYPE = 1; 
 
 }; // LLAgentWearables
 

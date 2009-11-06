@@ -3,6 +3,7 @@
 project(llmessage)
 
 include(00-Common)
+include(GoogleMock)
 include(LLAddBuildTest)
 include(LLCommon)
 include(LLMath)
@@ -22,6 +23,7 @@ include_directories(
 
 set(llmessage_SOURCE_FILES
     llares.cpp
+    llareslistener.cpp
     llassetstorage.cpp
     llblowfishcipher.cpp
     llbuffer.cpp
@@ -104,6 +106,7 @@ set(llmessage_HEADER_FILES
     CMakeLists.txt
 
     llares.h
+    llareslistener.h
     llassetstorage.h
     llblowfishcipher.h
     llbuffer.h
@@ -213,12 +216,18 @@ target_link_libraries(
   ${XMLRPCEPI_LIBRARIES}
   )
 
+# tests
+
 SET(llmessage_TEST_SOURCE_FILES
   # llhttpclientadapter.cpp
+  llmime.cpp
   llnamevalue.cpp
   lltrustedmessageservice.cpp
   lltemplatemessagedispatcher.cpp
+      llregionpresenceverifier.cpp
   )
+LL_ADD_PROJECT_UNIT_TESTS(llmessage "${llmessage_TEST_SOURCE_FILES}")
+
 #    set(TEST_DEBUG on)
 set(test_libs
   ${LLMESSAGE_LIBRARIES}
@@ -226,6 +235,7 @@ set(test_libs
   ${LLVFS_LIBRARIES}
   ${LLMATH_LIBRARIES}
   ${LLCOMMON_LIBRARIES}
+      ${GOOGLEMOCK_LIBRARIES}
   )
 
 LL_ADD_INTEGRATION_TEST(
@@ -236,4 +246,7 @@ LL_ADD_INTEGRATION_TEST(
   "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_llsdmessage_peer.py"
   )
 
-LL_ADD_PROJECT_UNIT_TESTS(llmessage "${llmessage_TEST_SOURCE_FILES}")
+LL_ADD_INTEGRATION_TEST(llhost "" "${test_libs}")
+LL_ADD_INTEGRATION_TEST(llpartdata "" "${test_libs}")
+LL_ADD_INTEGRATION_TEST(llxfer_file "" "${test_libs}")
+

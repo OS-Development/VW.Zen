@@ -131,7 +131,7 @@ private:
 
 	LLViewerFetchedTexture * getImage(const LLUUID &image_id,									 
 									 BOOL usemipmap = TRUE,
-									 BOOL level_immediate = FALSE,		// Get the requested level immediately upon creation.
+									 S32 boost_priority = LLViewerTexture::BOOST_NONE,		// Get the requested level immediately upon creation.
 									 S8 texture_type = LLViewerTexture::FETCHED_TEXTURE,
 									 LLGLint internal_format = 0,
 									 LLGLenum primary_format = 0,
@@ -140,7 +140,7 @@ private:
 	
 	LLViewerFetchedTexture * getImageFromFile(const std::string& filename,									 
 									 BOOL usemipmap = TRUE,
-									 BOOL level_immediate = FALSE,		// Get the requested level immediately upon creation.
+									 S32 boost_priority = LLViewerTexture::BOOST_NONE,		// Get the requested level immediately upon creation.
 									 S8 texture_type = LLViewerTexture::FETCHED_TEXTURE,
 									 LLGLint internal_format = 0,
 									 LLGLenum primary_format = 0,
@@ -149,7 +149,7 @@ private:
 
 	LLViewerFetchedTexture* createImage(const LLUUID &image_id,
 									 BOOL usemipmap = TRUE,
-									 BOOL level_immediate = FALSE,		// Get the requested level immediately upon creation.
+									 S32 boost_priority = LLViewerTexture::BOOST_NONE,		// Get the requested level immediately upon creation.
 									 S8 texture_type = LLViewerTexture::FETCHED_TEXTURE,
 									 LLGLint internal_format = 0,
 									 LLGLenum primary_format = 0,
@@ -159,7 +159,7 @@ private:
 	// Request image from a specific host, used for baked avatar textures.
 	// Implemented in header in case someone changes default params above. JC
 	LLViewerFetchedTexture* getImageFromHost(const LLUUID& image_id, LLHost host)
-	{ return getImage(image_id, TRUE, FALSE, LLViewerTexture::LOD_TEXTURE, 0, 0, host); }
+	{ return getImage(image_id, TRUE, LLViewerTexture::BOOST_NONE, LLViewerTexture::LOD_TEXTURE, 0, 0, host); }
 
 public:
 	typedef std::set<LLPointer<LLViewerFetchedTexture> > image_list_t;	
@@ -202,8 +202,8 @@ class LLUIImageList : public LLImageProviderInterface, public LLSingleton<LLUIIm
 {
 public:
 	// LLImageProviderInterface
-	LLUIImagePtr getUIImageByID(const LLUUID& id);
-	LLUIImagePtr getUIImage(const std::string& name);
+	/*virtual*/ LLUIImagePtr getUIImageByID(const LLUUID& id, S32 priority);
+	/*virtual*/ LLUIImagePtr getUIImage(const std::string& name, S32 priority);
 	void cleanUp();
 
 	bool initFromFile();
@@ -212,8 +212,10 @@ public:
 	
 	static void onUIImageLoaded( BOOL success, LLViewerFetchedTexture *src_vi, LLImageRaw* src, LLImageRaw* src_aux, S32 discard_level, BOOL final, void* userdata );
 private:
-	LLUIImagePtr loadUIImageByName(const std::string& name, const std::string& filename, BOOL use_mips = FALSE, const LLRect& scale_rect = LLRect::null);
-	LLUIImagePtr loadUIImageByID(const LLUUID& id, BOOL use_mips = FALSE, const LLRect& scale_rect = LLRect::null);
+	LLUIImagePtr loadUIImageByName(const std::string& name, const std::string& filename,
+								   BOOL use_mips = FALSE, const LLRect& scale_rect = LLRect::null, S32 boost_priority = 0);
+	LLUIImagePtr loadUIImageByID(const LLUUID& id,
+								 BOOL use_mips = FALSE, const LLRect& scale_rect = LLRect::null, S32 boost_priority = 0);
 
 	LLUIImagePtr loadUIImage(LLViewerFetchedTexture* imagep, const std::string& name, BOOL use_mips = FALSE, const LLRect& scale_rect = LLRect::null);
 

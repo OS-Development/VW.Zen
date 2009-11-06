@@ -404,6 +404,7 @@ public:
 
 	LLObjectSelectionHandle setHoverObject(LLViewerObject *objectp, S32 face = -1);
 	LLSelectNode *getHoverNode();
+	LLSelectNode *getPrimaryHoverNode();
 
 	void highlightObjectOnly(LLViewerObject *objectp);
 	void highlightObjectAndFamily(LLViewerObject *objectp);
@@ -660,7 +661,7 @@ private:
 	static void packDeRezHeader(void* user_data);
 	static void packObjectID(	LLSelectNode* node, void *);
 	static void packObjectIDAsParam(LLSelectNode* node, void *);
-	static void packObjectIDAndRotation(	LLSelectNode* node, void *);
+	static void packObjectIDAndRotation(LLSelectNode* node, void *);
 	static void packObjectLocalID(LLSelectNode* node, void *);
 	static void packObjectClickAction(LLSelectNode* node, void* data);
 	static void packObjectIncludeInSearch(LLSelectNode* node, void* data);

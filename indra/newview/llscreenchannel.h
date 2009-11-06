@@ -158,7 +158,7 @@ public:
 	
 	// Operating with toasts
 	// add a toast to a channel
-	void		addToast(LLToast::Params p);
+	void		addToast(const LLToast::Params& p);
 	// kill or modify a toast by its ID
 	void		killToastByNotificationID(LLUUID id);
 	void		modifyToastByNotificationID(LLUUID id, LLPanel* panel);
@@ -204,8 +204,7 @@ public:
 	// signal on rejecting of a toast event
 	typedef boost::function<void (LLUUID id)> reject_tost_callback_t;
 	typedef boost::signals2::signal<void (LLUUID id)> reject_tost_signal_t;
-	reject_tost_signal_t mRejectToastSignal;	
-	boost::signals2::connection setOnRejectToastCallback(reject_tost_callback_t cb) { return mRejectToastSignal.connect(cb); }
+	reject_tost_signal_t mRejectToastSignal; boost::signals2::connection setOnRejectToastCallback(reject_tost_callback_t cb) { return mRejectToastSignal.connect(cb); }
 
 private:
 	struct ToastElem
@@ -256,7 +255,7 @@ private:
 	void	createOverflowToast(S32 bottom, F32 timer);
 
 	// create the StartUp Toast
-	void	createStartUpToast(S32 notif_num, S32 bottom, F32 timer);
+	void	createStartUpToast(S32 notif_num, F32 timer);
 
 	// Channel's flags
 	static bool	mWasStartUpToastShown;

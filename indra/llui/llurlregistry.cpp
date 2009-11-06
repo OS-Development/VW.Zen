@@ -51,6 +51,7 @@ LLUrlRegistry::LLUrlRegistry()
 	registerUrl(new LLUrlEntryGroup());
 	registerUrl(new LLUrlEntryParcel());
 	registerUrl(new LLUrlEntryTeleport());
+	registerUrl(new LLUrlEntryWorldMap());
 	registerUrl(new LLUrlEntryObjectIM());
 	registerUrl(new LLUrlEntryPlace());
 	registerUrl(new LLUrlEntrySL());
@@ -191,4 +192,16 @@ bool LLUrlRegistry::findUrl(const LLWString &text, LLUrlMatch &match, const LLUr
 		return true;
 	}
 	return false;
+}
+
+bool LLUrlRegistry::hasUrl(const std::string &text)
+{
+	LLUrlMatch match;
+	return findUrl(text, match);
+}
+
+bool LLUrlRegistry::hasUrl(const LLWString &text)
+{
+	LLUrlMatch match;
+	return findUrl(text, match);
 }

@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  can_minimize="false"
  height="408"
  layout="topleft"
  name="Inventory Finder"
  help_topic="inventory_finder"
- title="inventory_recent_items"
+ title="INVENTORY_RECENT_ITEMS"
  width="280">
     <icon
      height="16"

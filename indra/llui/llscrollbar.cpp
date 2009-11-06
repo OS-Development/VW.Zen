@@ -149,7 +149,8 @@ void LLScrollbar::setDocParams( S32 size, S32 pos )
 	updateThumbRect();
 }
 
-void LLScrollbar::setDocPos(S32 pos, BOOL update_thumb)
+// returns true if document position really changed
+bool LLScrollbar::setDocPos(S32 pos, BOOL update_thumb)
 {
 	pos = llclamp(pos, 0, getDocPosMax());
 	if (pos != mDocPos)
@@ -166,7 +167,9 @@ void LLScrollbar::setDocPos(S32 pos, BOOL update_thumb)
 		{
 			updateThumbRect();
 		}
+		return true;
 	}
+	return false;
 }
 
 void LLScrollbar::setDocSize(S32 size)
@@ -409,8 +412,8 @@ BOOL LLScrollbar::handleHover(S32 x, S32 y, MASK mask)
 
 BOOL LLScrollbar::handleScrollWheel(S32 x, S32 y, S32 clicks)
 {
-	changeLine( clicks * mStepSize, TRUE );
-	return TRUE;
+	BOOL handled = changeLine( clicks * mStepSize, TRUE );
+	return handled;
 }
 
 BOOL LLScrollbar::handleDragAndDrop(S32 x, S32 y, MASK mask, BOOL drop,
@@ -451,6 +454,13 @@ BOOL LLScrollbar::handleMouseUp(S32 x, S32 y, MASK mask)
 
 	return handled;
 }
+
+BOOL LLScrollbar::handleDoubleClick(S32 x, S32 y, MASK mask)
+{
+	// just treat a double click as a second click
+	return handleMouseDown(x, y, mask);
+}
+
 
 void LLScrollbar::reshape(S32 width, S32 height, BOOL called_from_parent)
 {
@@ -566,9 +576,9 @@ void LLScrollbar::draw()
 } // end draw
 
 
-void LLScrollbar::changeLine( S32 delta, BOOL update_thumb )
+bool LLScrollbar::changeLine( S32 delta, BOOL update_thumb )
 {
-	setDocPos(mDocPos + delta, update_thumb);
+	return setDocPos(mDocPos + delta, update_thumb);
 }
 
 void LLScrollbar::setValue(const LLSD& value) 
@@ -639,16 +649,4 @@ void LLScrollbar::onLineUpBtnPressed( const LLSD& data )
 void LLScrollbar::onLineDownBtnPressed( const LLSD& data )
 {
 	changeLine( mStepSize, TRUE );
-}
-
-
-namespace LLInitParam
-{
-    template<>
-	bool ParamCompare<boost::function<void (S32, LLScrollbar*)> >::equals(
-		const boost::function<void (S32, LLScrollbar*)> &a,
-		const boost::function<void (S32, LLScrollbar*)> &b) 
-	{
-		return false;
-	}
 }

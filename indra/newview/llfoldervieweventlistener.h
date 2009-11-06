@@ -32,6 +32,7 @@
 #define LLFOLDERVIEWEVENTLISTENER_H
 
 #include "lldarray.h"	// JAMESDEBUG convert to std::vector
+#include "llfoldertype.h"
 #include "llfontgl.h"	// just for StyleFlags enum
 #include "llpointer.h"
 
@@ -57,7 +58,7 @@ public:
 	virtual const LLUUID& getUUID() const = 0;
 	virtual time_t getCreationDate() const = 0;	// UTC seconds
 	virtual PermissionMask getPermissionMask() const = 0;
-	virtual LLAssetType::EType getPreferredType() const = 0;
+	virtual LLFolderType::EType getPreferredType() const = 0;
 	virtual LLPointer<LLUIImage> getIcon() const = 0;
 	virtual LLFontGL::StyleFlags getLabelStyle() const = 0;
 	virtual std::string getLabelSuffix() const = 0;
@@ -68,7 +69,7 @@ public:
 	virtual void showProperties(void) = 0;
 	virtual BOOL isItemRenameable() const = 0;
 	virtual BOOL renameItem(const std::string& new_name) = 0;
-	virtual BOOL isItemMovable( void ) = 0;		// Can be moved to another folder
+	virtual BOOL isItemMovable( void ) const = 0;		// Can be moved to another folder
 	virtual BOOL isItemRemovable( void ) = 0;	// Can be destroyed
 	virtual BOOL removeItem() = 0;
 	virtual void removeBatch(LLDynamicArray<LLFolderViewEventListener*>& batch) = 0;

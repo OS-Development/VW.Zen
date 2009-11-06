@@ -57,14 +57,13 @@
 #include "lltexteditor.h"
 #include "lltextbox.h"
 
-BOOL	LLView::sDebugRects = FALSE;
-BOOL	LLView::sDebugKeys = FALSE;
 S32		LLView::sDepth = 0;
-BOOL	LLView::sDebugMouseHandling = FALSE;
+bool	LLView::sDebugRects = false;
+bool	LLView::sDebugRectsShowNames = true;
+bool	LLView::sDebugKeys = false;
+bool	LLView::sDebugMouseHandling = false;
 std::string LLView::sMouseHandlerMessage;
-//BOOL	LLView::sEditingUI = FALSE;
 BOOL	LLView::sForceReshape = FALSE;
-//LLView*	LLView::sEditingUIView = NULL;
 std::set<LLView*> LLView::sPreviewHighlightedElements;
 BOOL LLView::sHighlightingDiffs = FALSE;
 LLView* LLView::sPreviewClickedElement = NULL;
@@ -439,6 +438,18 @@ void LLView::setEnabled(BOOL enabled)
 }
 
 //virtual
+bool LLView::isAvailable() const
+{
+    return isInEnabledChain() && isInVisibleChain();
+}
+
+//static
+bool LLView::isAvailable(const LLView* view)
+{
+    return view && view->isAvailable();
+}
+
+//virtual
 BOOL LLView::setLabelArg( const std::string& key, const LLStringExplicit& text )
 {
 	return FALSE;
@@ -656,7 +667,7 @@ LLView* LLView::childrenHandleToolTip(S32 x, S32 y, MASK mask)
 		{
 			if (sDebugMouseHandling)
 			{
-				sMouseHandlerMessage = std::string("->") + viewp->mName + sMouseHandlerMessage;
+				sMouseHandlerMessage = std::string("/") + viewp->mName + sMouseHandlerMessage;
 			}
 
 			handled_view = viewp;
@@ -672,6 +683,26 @@ LLView* LLView::childrenHandleToolTip(S32 x, S32 y, MASK mask)
 	return handled_view;
 }
 
+
+LLView*	LLView::childFromPoint(S32 x, S32 y)
+{
+	if (!getVisible()  )
+		return false;
+	for ( child_list_iter_t child_it = mChildList.begin(); child_it != mChildList.end(); ++child_it)
+	{
+		LLView* viewp = *child_it;
+		S32 local_x = x - viewp->getRect().mLeft;
+		S32 local_y = y - viewp->getRect().mBottom;
+		if (!viewp->pointInView(local_x, local_y) 
+			|| !viewp->getVisible() )
+		{
+			continue;
+		}
+		return viewp;
+
+	}
+	return 0;
+}
 
 BOOL LLView::handleToolTip(S32 x, S32 y, MASK mask)
 {
@@ -896,15 +927,9 @@ LLView* LLView::childrenHandleScrollWheel(S32 x, S32 y, S32 clicks)
 			{
 				if (sDebugMouseHandling)
 				{
-					sMouseHandlerMessage = std::string("->") + viewp->mName + sMouseHandlerMessage;
+					sMouseHandlerMessage = std::string("/") + viewp->mName + sMouseHandlerMessage;
 				}
 
-				handled_view = viewp;
-				break;
-			}
-
-			if (viewp->blockMouseEvent(local_x, local_y))
-			{
 				handled_view = viewp;
 				break;
 			}
@@ -934,7 +959,7 @@ LLView* LLView::childrenHandleHover(S32 x, S32 y, MASK mask)
 			{
 				if (sDebugMouseHandling)
 				{
-					sMouseHandlerMessage = std::string("->") + viewp->mName + sMouseHandlerMessage;
+					sMouseHandlerMessage = std::string("/") + viewp->mName + sMouseHandlerMessage;
 				}
 
 				handled_view = viewp;
@@ -1024,7 +1049,7 @@ LLView* LLView::childrenHandleMouseDown(S32 x, S32 y, MASK mask)
 		{
 			if (sDebugMouseHandling)
 			{
-				sMouseHandlerMessage = std::string("->") + viewp->mName + sMouseHandlerMessage;
+				sMouseHandlerMessage = std::string("/") + viewp->mName + sMouseHandlerMessage;
 			}
 			handled_view = viewp;
 			break;
@@ -1062,7 +1087,7 @@ LLView* LLView::childrenHandleRightMouseDown(S32 x, S32 y, MASK mask)
 			{
 				if (sDebugMouseHandling)
 				{
-					sMouseHandlerMessage = std::string("->") + viewp->mName + sMouseHandlerMessage;
+					sMouseHandlerMessage = std::string("/") + viewp->mName + sMouseHandlerMessage;
 				}
 
 				handled_view = viewp;
@@ -1101,7 +1126,7 @@ LLView* LLView::childrenHandleMiddleMouseDown(S32 x, S32 y, MASK mask)
 			{
 				if (sDebugMouseHandling)
 				{
-					sMouseHandlerMessage = std::string("->") + viewp->mName + sMouseHandlerMessage;
+					sMouseHandlerMessage = std::string("/") + viewp->mName + sMouseHandlerMessage;
 				}
 				handled_view = viewp;
 				break;
@@ -1140,7 +1165,7 @@ LLView* LLView::childrenHandleDoubleClick(S32 x, S32 y, MASK mask)
 			{
 				if (sDebugMouseHandling)
 				{
-					sMouseHandlerMessage = std::string("->") + viewp->mName + sMouseHandlerMessage;
+					sMouseHandlerMessage = std::string("/") + viewp->mName + sMouseHandlerMessage;
 				}
 				handled_view = viewp;
 				break;
@@ -1177,7 +1202,7 @@ LLView* LLView::childrenHandleMouseUp(S32 x, S32 y, MASK mask)
 			{
 				if (sDebugMouseHandling)
 				{
-					sMouseHandlerMessage = std::string("->") + viewp->mName + sMouseHandlerMessage;
+					sMouseHandlerMessage = std::string("/") + viewp->mName + sMouseHandlerMessage;
 				}
 				handled_view = viewp;
 				break;
@@ -1214,7 +1239,7 @@ LLView* LLView::childrenHandleRightMouseUp(S32 x, S32 y, MASK mask)
 			{
 				if (sDebugMouseHandling)
 				{
-					sMouseHandlerMessage = std::string("->") + viewp->mName + sMouseHandlerMessage;
+					sMouseHandlerMessage = std::string("/") + viewp->mName + sMouseHandlerMessage;
 				}
 				handled_view = viewp;
 				break;
@@ -1251,7 +1276,7 @@ LLView* LLView::childrenHandleMiddleMouseUp(S32 x, S32 y, MASK mask)
 			{
 				if (sDebugMouseHandling)
 				{
-					sMouseHandlerMessage = std::string("->") + viewp->mName + sMouseHandlerMessage;
+					sMouseHandlerMessage = std::string("/") + viewp->mName + sMouseHandlerMessage;
 				}
 				handled_view = viewp;
 				break;
@@ -1353,7 +1378,7 @@ void LLView::drawDebugRect()
 		LLRect debug_rect = mUseBoundingRect ? mBoundingRect : mRect;
 
 		// draw red rectangle for the border
-		LLColor4 border_color(0.f, 0.f, 0.f, 1.f);
+		LLColor4 border_color(0.25f, 0.25f, 0.25f, 1.f);
 		if(preview_iter != sPreviewHighlightedElements.end())
 		{
 			if(LLView::sPreviewClickedElement && this == sPreviewClickedElement)
@@ -1388,7 +1413,9 @@ void LLView::drawDebugRect()
 		gGL.end();
 
 		// Draw the name if it's not a leaf node or not in editing or preview mode
-		if (mChildList.size() && preview_iter == sPreviewHighlightedElements.end())
+		if (mChildList.size()
+			&& preview_iter == sPreviewHighlightedElements.end()
+			&& sDebugRectsShowNames)
 		{
 			//char temp[256];
 			S32 x, y;

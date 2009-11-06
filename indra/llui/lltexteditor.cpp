@@ -63,6 +63,7 @@
 #include "llpanel.h"
 #include "llurlregistry.h"
 #include "lltooltip.h"
+#include "llmenugl.h"
 
 #include <queue>
 #include "llcombobox.h"
@@ -252,7 +253,8 @@ LLTextEditor::LLTextEditor(const LLTextEditor::Params& p) :
 	mHandleEditKeysDirectly( p.handle_edit_keys_directly ),
 	mMouseDownX(0),
 	mMouseDownY(0),
-	mTabsToNextField(p.ignore_tab)
+	mTabsToNextField(p.ignore_tab),
+	mContextMenu(NULL)
 {
 	mDefaultFont = p.font;
 
@@ -273,7 +275,7 @@ LLTextEditor::LLTextEditor(const LLTextEditor::Params& p) :
 	if (mShowLineNumbers)
 	{
 		mHPad += UI_TEXTEDITOR_LINE_NUMBER_MARGIN;
-		updateTextRect();
+		updateRects();
 	}
 }
 
@@ -301,6 +303,8 @@ LLTextEditor::~LLTextEditor()
 
 	// Scrollbar is deleted by LLView
 	std::for_each(mUndoStack.begin(), mUndoStack.end(), DeletePointer());
+
+	delete mContextMenu;
 }
 
 ////////////////////////////////////////////////////////////
@@ -648,6 +652,13 @@ BOOL LLTextEditor::handleMouseDown(S32 x, S32 y, MASK mask)
 {
 	BOOL	handled = FALSE;
 
+	// set focus first, in case click callbacks want to change it
+	// RN: do we really need to have a tab stop?
+	if (hasTabStop())
+	{
+		setFocus( TRUE );
+	}
+
 	// Let scrollbar have first dibs
 	handled = LLTextBase::handleMouseDown(x, y, mask);
 
@@ -690,30 +701,40 @@ BOOL LLTextEditor::handleMouseDown(S32 x, S32 y, MASK mask)
 		handled = TRUE;
 	}
 
-	if (hasTabStop())
-	{
-		setFocus( TRUE );
-		handled = TRUE;
-	}
-
 	// Delay cursor flashing
 	resetCursorBlink();
 
 	return handled;
 }
 
+BOOL LLTextEditor::handleRightMouseDown(S32 x, S32 y, MASK mask)
+{
+	if (hasTabStop())
+	{
+		setFocus(TRUE);
+	}
+	if (!LLTextBase::handleRightMouseDown(x, y, mask))
+	{
+		showContextMenu(x, y);
+	}
+	return TRUE;
+}
+
+
 
 BOOL LLTextEditor::handleMiddleMouseDown(S32 x, S32 y, MASK mask)
 {
-	BOOL	handled = FALSE;
-	handled = LLTextBase::handleMouseDown(x, y, mask);
-
-	if (!handled)
+	if (hasTabStop())
 	{
-		setFocus( TRUE );
+		setFocus(TRUE);
+	}
+
+	if (!LLTextBase::handleMouseDown(x, y, mask))
+	{
 		if( canPastePrimary() )
 		{
 			setCursorAtLocalPos( x, y, true );
+			// does not rely on focus being set
 			pastePrimary();
 		}
 	}
@@ -736,7 +757,6 @@ BOOL LLTextEditor::handleHover(S32 x, S32 y, MASK mask)
 			setCursorAtLocalPos( clamped_x, clamped_y, true );
 			mSelectionEnd = mCursorPos;
 		}
-
 		lldebugst(LLERR_USER_INPUT) << "hover handled by " << getName() << " (active)" << llendl;		
 		getWindow()->setCursor(UI_CURSOR_IBEAM);
 		handled = TRUE;
@@ -990,7 +1010,7 @@ void LLTextEditor::removeChar()
 // Add a single character to the text
 S32 LLTextEditor::addChar(S32 pos, llwchar wc)
 {
-	if ( (wstring_utf8_length( getWText() ) + wchar_utf8_length( wc ))  >= mMaxTextByteLength)
+	if ( (wstring_utf8_length( getWText() ) + wchar_utf8_length( wc ))  > mMaxTextByteLength)
 	{
 		make_ui_sound("UISndBadKeystroke");
 		return 0;
@@ -1991,6 +2011,21 @@ void LLTextEditor::setEnabled(BOOL enabled)
 	}
 }
 
+void LLTextEditor::showContextMenu(S32 x, S32 y)
+{
+	if (!mContextMenu)
+	{
+		mContextMenu = LLUICtrlFactory::instance().createFromFile<LLContextMenu>("menu_text_editor.xml", 
+																				LLMenuGL::sMenuContainer, 
+																				LLMenuHolderGL::child_registry_t::instance());
+	}
+
+	S32 screen_x, screen_y;
+	localPointToScreen(x, y, &screen_x, &screen_y);
+	mContextMenu->show(screen_x, screen_y);
+}
+
+
 void LLTextEditor::drawPreeditMarker()
 {
 	static LLUICachedControl<F32> preedit_marker_brightness ("UIPreeditMarkerBrightness", 0);
@@ -2276,7 +2311,7 @@ void LLTextEditor::insertText(const std::string &new_text)
 	setEnabled( enabled );
 }
 
-void LLTextEditor::appendWidget(LLView* widget, const std::string &widget_text, bool allow_undo, bool prepend_newline)
+void LLTextEditor::appendWidget(const LLInlineViewSegment::Params& params, const std::string& text, bool allow_undo)
 {
 	// Save old state
 	S32 selection_start = mSelectionStart;
@@ -2290,20 +2325,9 @@ void LLTextEditor::appendWidget(LLView* widget, const std::string &widget_text, 
 
 	setCursorPos(old_length);
 
-	LLWString widget_wide_text;
+	LLWString widget_wide_text = utf8str_to_wstring(text);
 
-	// Add carriage return if not first line
-	if (getLength() != 0
-		&& prepend_newline)
-	{
-		widget_wide_text = utf8str_to_wstring(std::string("\n") + widget_text);
-	}
-	else
-	{
-		widget_wide_text = utf8str_to_wstring(widget_text);
-	}
-
-	LLTextSegmentPtr segment = new LLInlineViewSegment(widget, old_length, old_length + widget_text.size());
+	LLTextSegmentPtr segment = new LLInlineViewSegment(params, old_length, old_length + widget_wide_text.size());
 	insert(getLength(), widget_wide_text, FALSE, segment);
 
 	needsReflow();
@@ -2326,7 +2350,7 @@ void LLTextEditor::appendWidget(LLView* widget, const std::string &widget_text, 
 		setCursorPos(cursor_pos);
 	}
 
-	if( !allow_undo )
+	if (!allow_undo)
 	{
 		blockUndo();
 	}
@@ -2505,6 +2529,8 @@ void LLTextEditor::updateSegments()
 
 void LLTextEditor::updateLinkSegments()
 {
+	LLWString wtext = getWText();
+
 	// update any segments that contain a link
 	for (segment_set_t::iterator it = mSegments.begin(); it != mSegments.end(); ++it)
 	{
@@ -2514,13 +2540,13 @@ void LLTextEditor::updateLinkSegments()
 			// if the link's label (what the user can edit) is a valid Url,
 			// then update the link's HREF to be the same as the label text.
 			// This lets users edit Urls in-place.
-			LLUrlMatch match;
 			LLStyleSP style = static_cast<LLStyleSP>(segment->getStyle());
-			std::string url_label = getText().substr(segment->getStart(), segment->getEnd()-segment->getStart());
-			if (LLUrlRegistry::instance().findUrl(url_label, match))
+			LLWString url_label = wtext.substr(segment->getStart(), segment->getEnd()-segment->getStart());
+			if (LLUrlRegistry::instance().hasUrl(url_label))
 			{
-				LLStringUtil::trim(url_label);
-				style->setLinkHREF(url_label);
+				std::string new_url = wstring_to_utf8str(url_label);
+				LLStringUtil::trim(new_url);
+				style->setLinkHREF(new_url);
 			}
 		}
 	}

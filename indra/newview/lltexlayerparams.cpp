@@ -33,19 +33,24 @@
 #include "llagent.h"
 #include "lltexlayer.h"
 #include "llvoavatarself.h"
+#include "llwearable.h"
 #include "lltexlayerparams.h"
 #include "llui.h"
 
 //-----------------------------------------------------------------------------
 // LLTexLayerParam
 //-----------------------------------------------------------------------------
-LLTexLayerParam::LLTexLayerParam(LLTexLayer *layer) :
+LLTexLayerParam::LLTexLayerParam(LLTexLayerInterface *layer) :
 	mTexLayer(layer),
 	mAvatar(NULL)
 {
 	if (mTexLayer != NULL)
 	{
 		mAvatar = mTexLayer->getTexLayerSet()->getAvatar();
+	}
+	else
+	{
+		llerrs << "LLTexLayerParam constructor passed with NULL reference for layer!" << llendl;
 	}
 }
 
@@ -56,13 +61,17 @@ LLTexLayerParam::LLTexLayerParam(LLVOAvatar *avatar) :
 }
 
 
-BOOL LLTexLayerParam::setInfo(LLViewerVisualParamInfo *info)
+BOOL LLTexLayerParam::setInfo(LLViewerVisualParamInfo *info, BOOL add_to_avatar  )
 {	
 	LLViewerVisualParam::setInfo(info);
-	mAvatar->addVisualParam( this);
+
+	if (add_to_avatar)
+	{
+		mAvatar->addVisualParam( this);
+	}
+
 	return TRUE;
 }
-
 
 
 //-----------------------------------------------------------------------------
@@ -102,7 +111,7 @@ void LLTexLayerParamAlpha::getCacheByteCount(S32* gl_bytes)
 	}
 }
 
-LLTexLayerParamAlpha::LLTexLayerParamAlpha(LLTexLayer* layer) :
+LLTexLayerParamAlpha::LLTexLayerParamAlpha(LLTexLayerInterface* layer) :
 	LLTexLayerParam(layer),
 	mCachedProcessedTexture(NULL),
 	mNeedsCreateTexture(FALSE),
@@ -129,6 +138,13 @@ LLTexLayerParamAlpha::~LLTexLayerParamAlpha()
 {
 	deleteCaches();
 	sInstances.remove(this);
+}
+
+/*virtual*/ LLViewerVisualParam* LLTexLayerParamAlpha::cloneParam(LLWearable* wearable) const
+{
+	LLTexLayerParamAlpha *new_param = new LLTexLayerParamAlpha(mTexLayer);
+	*new_param = *this;
+	return new_param;
 }
 
 void LLTexLayerParamAlpha::deleteCaches()
@@ -159,22 +175,28 @@ void LLTexLayerParamAlpha::setWeight(F32 weight, BOOL set_by_user)
 	{
 		mCurWeight = new_weight;
 
-		LLVOAvatar* avatar = mTexLayer->getTexLayerSet()->getAvatar();
-		if (avatar->getSex() & getSex())
+		if ((mAvatar->getSex() & getSex()) && (mAvatar->isSelf() && !mIsDummy)) // only trigger a baked texture update if we're changing a wearable's visual param.
 		{
 			if (gAgent.cameraCustomizeAvatar())
 			{
 				set_by_user = FALSE;
 			}
-			avatar->invalidateComposite(mTexLayer->getTexLayerSet(), set_by_user);
+			mAvatar->invalidateComposite(mTexLayer->getTexLayerSet(), set_by_user);
 			mTexLayer->invalidateMorphMasks();
-			avatar->updateMeshTextures();
+			mAvatar->updateMeshTextures();
 		}
 	}
 }
 
 void LLTexLayerParamAlpha::setAnimationTarget(F32 target_value, BOOL set_by_user)
 { 
+	// do not animate dummy parameters
+	if (mIsDummy)
+	{
+		setWeight(target_value, set_by_user);
+		return;
+	}
+
 	mTargetWeight = target_value; 
 	setWeight(target_value, set_by_user); 
 	mIsAnimating = TRUE;
@@ -313,7 +335,7 @@ BOOL LLTexLayerParamAlpha::render(S32 x, S32 y, S32 width, S32 height)
 
 		// Don't keep the cache for other people's avatars
 		// (It's not really a "cache" in that case, but the logic is the same)
-		if (mAvatar->isSelf())
+		if (!mAvatar->isSelf())
 		{
 			mCachedProcessedTexture = NULL;
 		}
@@ -377,7 +399,7 @@ BOOL LLTexLayerParamAlphaInfo::parseXml(LLXmlTreeNode* node)
 
 
 
-LLTexLayerParamColor::LLTexLayerParamColor(LLTexLayer* layer) :
+LLTexLayerParamColor::LLTexLayerParamColor(LLTexLayerInterface* layer) :
 	LLTexLayerParam(layer),
 	mAvgDistortionVec(1.f, 1.f, 1.f)
 {
@@ -391,6 +413,13 @@ LLTexLayerParamColor::LLTexLayerParamColor(LLVOAvatar *avatar) :
 
 LLTexLayerParamColor::~LLTexLayerParamColor()
 {
+}
+
+/*virtual*/ LLViewerVisualParam* LLTexLayerParamColor::cloneParam(LLWearable* wearable) const
+{
+	LLTexLayerParamColor *new_param = new LLTexLayerParamColor(mTexLayer);
+	*new_param = *this;
+	return new_param;
 }
 
 LLColor4 LLTexLayerParamColor::getNetColor() const
@@ -444,14 +473,16 @@ void LLTexLayerParamColor::setWeight(F32 weight, BOOL set_by_user)
 			return;
 		}
 
-		if (mAvatar->getSex() & getSex())
+		if ((mAvatar->getSex() & getSex()) && (mAvatar->isSelf() && !mIsDummy)) // only trigger a baked texture update if we're changing a wearable's visual param.
 		{
 			onGlobalColorChanged(set_by_user);
 			if (mTexLayer)
 			{
 				mAvatar->invalidateComposite(mTexLayer->getTexLayerSet(), set_by_user);
+				mAvatar->updateMeshTextures();
 			}
 		}
+
 //		llinfos << "param " << mName << " = " << new_weight << llendl;
 	}
 }

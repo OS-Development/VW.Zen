@@ -34,7 +34,11 @@
 #define LL_LLPANELIMCONTROLPANEL_H
 
 #include "llpanel.h"
+#include "llvoicechannel.h"
 
+class LLSpeakerMgr;
+class LLAvatarList;
+class LLParticipantList;
 
 class LLPanelChatControlPanel : public LLPanel
 {
@@ -42,8 +46,19 @@ public:
 	LLPanelChatControlPanel() {};
 	~LLPanelChatControlPanel() {};
 
-	// sets the group or avatar UUID
-	virtual void setID(const LLUUID& avatar_id)= 0;
+	virtual BOOL postBuild();
+	virtual void draw();
+
+	void onCallButtonClicked();
+	void onEndCallButtonClicked();
+	void onOpenVoiceControlsClicked();
+
+	virtual void onVoiceChannelStateChanged(const LLVoiceChannel::EState& old_state, const LLVoiceChannel::EState& new_state);
+
+	virtual void setSessionId(const LLUUID& session_id);
+
+private:
+	LLUUID mSessionId;
 };
 
 
@@ -55,33 +70,52 @@ public:
 
 	BOOL postBuild();
 
-	void setID(const LLUUID& avatar_id);
+	void setSessionId(const LLUUID& session_id);
+
+protected:
+	void nameUpdatedCallback(const LLUUID& id, const std::string& first, const std::string& last, BOOL is_group);
 
 private:
 	void onViewProfileButtonClicked();
 	void onAddFriendButtonClicked();
-	void onCallButtonClicked();
 	void onShareButtonClicked();
+	void onTeleportButtonClicked();
+	void onPayButtonClicked();
+
+	LLUUID mAvatarID;
 };
 
 
 class LLPanelGroupControlPanel : public LLPanelChatControlPanel
 {
 public:
-	LLPanelGroupControlPanel() {};
-	~LLPanelGroupControlPanel() {};
+	LLPanelGroupControlPanel(const LLUUID& session_id);
+	~LLPanelGroupControlPanel();
 
 	BOOL postBuild();
 
-	void setID(const LLUUID& id);
+	void setSessionId(const LLUUID& session_id);
+	/*virtual*/ void draw();
+
+protected:
+	LLUUID mGroupID;
+	LLSpeakerMgr* mSpeakerManager;
+	LLAvatarList* mAvatarList;
+	LLParticipantList* mParticipantList;
 
 private:
 	void onGroupInfoButtonClicked();
-	void onCallButtonClicked();
-
-	LLUUID mGroupID;
+	void onSortMenuItemClicked(const LLSD& userdata);
+	/*virtual*/ void onVoiceChannelStateChanged(const LLVoiceChannel::EState& old_state, const LLVoiceChannel::EState& new_state);
 };
 
+class LLPanelAdHocControlPanel : public LLPanelGroupControlPanel
+{
+public:
+	LLPanelAdHocControlPanel(const LLUUID& session_id);
 
+	BOOL postBuild();
+
+};
 
 #endif // LL_LLPANELIMCONTROLPANEL_H

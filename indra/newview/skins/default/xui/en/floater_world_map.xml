@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  can_resize="true"
  center_horiz="true"
  center_vert="true"
@@ -12,7 +13,7 @@
  save_rect="true"
  save_visibility="true"
  single_instance="true"
- title="World Map"
+ title="WORLD MAP"
  width="800">
     <tab_container
      follows="left|top|right|bottom"
@@ -30,6 +31,7 @@
          label="Objects"
          layout="topleft"
          left="1"
+         help_topic="worldmap_objects_tab"
          name="objects_mapview"
          top="19"
          width="540" />
@@ -40,6 +42,7 @@
          label="Terrain"
          layout="topleft"
          left_delta="0"
+         help_topic="worldmap_terrain_tab"
          name="terrain_mapview"
          top_delta="3"
          width="540" />
@@ -323,7 +326,7 @@
      left_pad="4"
      max_chars="60"
      name="friend combo"
-     tool_tip="Friend to Show on Map"
+     tool_tip="Friend to show on map"
      top_delta="-4"
      width="202">
         <combo_box.item
@@ -353,7 +356,7 @@
      left_pad="4"
      max_chars="64"
      name="landmark combo"
-     tool_tip="Landmark to Show on Map"
+     tool_tip="Landmark to show on map"
      top_delta="-4"
      width="202">
         <combo_box.item
@@ -417,7 +420,8 @@
      left_delta="0"
      name="search_results"
      top_pad="10"
-     width="222">
+     width="222"
+     sort_column="1">
         <scroll_list.columns
          label=""
          name="icon"

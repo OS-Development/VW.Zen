@@ -37,13 +37,47 @@
 // newview
 #include "llcallingcard.h" // for LLAvatarTracker
 #include "llcachename.h"
+#include "llrecentpeople.h"
 #include "llvoiceclient.h"
+#include "llviewercontrol.h"	// for gSavedSettings
 
 static LLDefaultChildRegistry::Register<LLAvatarList> r("avatar_list");
+
+// Last interaction time update period.
+static const F32 LIT_UPDATE_PERIOD = 5;
 
 // Maximum number of avatars that can be added to a list in one pass.
 // Used to limit time spent for avatar list update per frame.
 static const unsigned ADD_LIMIT = 50;
+
+void LLAvatarList::toggleIcons()
+{
+	// Save the new value for new items to use.
+	mShowIcons = !mShowIcons;
+	gSavedSettings.setBOOL(mIconParamName, mShowIcons);
+	
+	// Show/hide icons for all existing items.
+	std::vector<LLPanel*> items;
+	getItems(items);
+	for( std::vector<LLPanel*>::const_iterator it = items.begin(); it != items.end(); it++)
+	{
+		static_cast<LLAvatarListItem*>(*it)->setAvatarIconVisible(mShowIcons);
+	}
+}
+
+void LLAvatarList::setSpeakingIndicatorsVisible(bool visible)
+{
+	// Save the new value for new items to use.
+	mShowSpeakingIndicator = visible;
+	
+	// Show/hide icons for all existing items.
+	std::vector<LLPanel*> items;
+	getItems(items);
+	for( std::vector<LLPanel*>::const_iterator it = items.begin(); it != items.end(); it++)
+	{
+		static_cast<LLAvatarListItem*>(*it)->setSpeakingIndicatorVisible(mShowSpeakingIndicator);
+	}
+}
 
 static bool findInsensitive(std::string haystack, const std::string& needle_upper)
 {
@@ -57,33 +91,66 @@ static const LLAvatarItemNameComparator NAME_COMPARATOR;
 static const LLFlatListView::ItemReverseComparator REVERSE_NAME_COMPARATOR(NAME_COMPARATOR);
 
 LLAvatarList::Params::Params()
-:
-volume_column_width("volume_column_width", 0)
-, online_go_first("online_go_first", true)
+: ignore_online_status("ignore_online_status", false)
+, show_last_interaction_time("show_last_interaction_time", false)
+, show_info_btn("show_info_btn", true)
+, show_profile_btn("show_profile_btn", true)
+, show_speaking_indicator("show_speaking_indicator", true)
 {
 }
 
-
-
 LLAvatarList::LLAvatarList(const Params& p)
 :	LLFlatListView(p)
-, mOnlineGoFirst(p.online_go_first)
+, mIgnoreOnlineStatus(p.ignore_online_status)
+, mShowLastInteractionTime(p.show_last_interaction_time)
 , mContextMenu(NULL)
 , mDirty(true) // to force initial update
+, mLITUpdateTimer(NULL)
+, mShowIcons(true)
+, mShowInfoBtn(p.show_info_btn)
+, mShowProfileBtn(p.show_profile_btn)
+, mShowSpeakingIndicator(p.show_speaking_indicator)
 {
 	setCommitOnSelectionChange(true);
 
 	// Set default sort order.
 	setComparator(&NAME_COMPARATOR);
+
+	if (mShowLastInteractionTime)
+	{
+		mLITUpdateTimer = new LLTimer();
+		mLITUpdateTimer->setTimerExpirySec(0); // zero to force initial update
+		mLITUpdateTimer->start();
+	}
+}
+
+LLAvatarList::~LLAvatarList()
+{
+	delete mLITUpdateTimer;
+}
+
+void LLAvatarList::setShowIcons(std::string param_name)
+{
+	mIconParamName= param_name;
+	mShowIcons = gSavedSettings.getBOOL(mIconParamName);
 }
 
 // virtual
 void LLAvatarList::draw()
 {
+	// *NOTE dzaporozhan
+	// Call refresh() after draw() to avoid flickering of avatar list items.
+
+	LLFlatListView::draw();
+
 	if (mDirty)
 		refresh();
 
-	LLFlatListView::draw();
+	if (mShowLastInteractionTime && mLITUpdateTimer->hasExpired())
+	{
+		updateLastInteractionTimes();
+		mLITUpdateTimer->setTimerExpirySec(LIT_UPDATE_PERIOD); // restart the timer
+	}
 }
 
 void LLAvatarList::setNameFilter(const std::string& filter)
@@ -188,25 +255,78 @@ void LLAvatarList::refresh()
 	bool dirty = add_limit_exceeded || (have_filter && !have_names);
 	setDirty(dirty);
 
+	// Refreshed all items, lets send refresh_complete signal.
+	if(!dirty)
+	{
+		std::vector<LLSD> cur_values;
+		getValues(cur_values);
+		mRefreshCompleteSignal(this, LLSD((S32)cur_values.size()));
+	}
+
 	// Commit if we've added/removed items.
 	if (modified)
 		onCommit();
 }
 
+bool LLAvatarList::filterHasMatches()
+{
+	uuid_vector_t values = getIDs();
 
-void LLAvatarList::addNewItem(const LLUUID& id, const std::string& name, BOOL is_bold, EAddPosition pos)
+	for (uuid_vector_t::const_iterator it=values.begin(); it != values.end(); it++)
+	{
+		std::string name;
+		const LLUUID& buddy_id = *it;
+		BOOL have_name = gCacheName->getFullName(buddy_id, name);
+
+		// If name has not been loaded yet we consider it as a match.
+		// When the name will be loaded the filter will be applied again(in refresh()).
+
+		if (have_name && !findInsensitive(name, mNameFilter))
+		{
+			continue;
+		}
+
+		return true;
+	}
+	return false;
+}
+
+boost::signals2::connection LLAvatarList::setRefreshCompleteCallback(const commit_signal_t::slot_type& cb)
+{
+	return mRefreshCompleteSignal.connect(cb);
+}
+
+void LLAvatarList::addNewItem(const LLUUID& id, const std::string& name, BOOL is_online, EAddPosition pos)
 {
 	LLAvatarListItem* item = new LLAvatarListItem();
-	item->showStatus(false);
 	item->showInfoBtn(true);
 	item->showSpeakingIndicator(true);
 	item->setName(name);
-	item->setAvatarId(id);
+	item->setAvatarId(id, mIgnoreOnlineStatus);
+	item->setOnline(mIgnoreOnlineStatus ? true : is_online);
+	item->showLastInteractionTime(mShowLastInteractionTime);
 	item->setContextMenu(mContextMenu);
 
 	item->childSetVisible("info_btn", false);
+	item->setAvatarIconVisible(mShowIcons);
+	item->setShowInfoBtn(mShowInfoBtn);
+	item->setShowProfileBtn(mShowProfileBtn);
+	item->setSpeakingIndicatorVisible(mShowSpeakingIndicator);
 
 	addItem(item, id, pos);
+}
+
+// virtual
+BOOL LLAvatarList::handleRightMouseDown(S32 x, S32 y, MASK mask)
+{
+	BOOL handled = LLUICtrl::handleRightMouseDown(x, y, mask);
+	if ( mContextMenu )
+	{
+		std::vector<LLUUID> selected_uuids;
+		getSelectedUUIDs(selected_uuids);
+		mContextMenu->show(this, selected_uuids, x, y);
+	}
+	return handled;
 }
 
 void LLAvatarList::computeDifference(
@@ -241,6 +361,54 @@ void LLAvatarList::computeDifference(
 	// what to add
 	it = set_difference(vnew.begin(), vnew.end(), vcur.begin(), vcur.end(), vadded.begin());
 	vadded.erase(it, vadded.end());
+}
+
+static std::string format_secs(S32 secs)
+{
+	// *TODO: reinventing the wheel?
+	// *TODO: i18n
+	static const int LL_AL_MIN		= 60;
+	static const int LL_AL_HOUR		= LL_AL_MIN * 60;
+	static const int LL_AL_DAY		= LL_AL_HOUR * 24;
+	static const int LL_AL_WEEK		= LL_AL_DAY * 7;
+	static const int LL_AL_MONTH	= LL_AL_DAY * 31;
+	static const int LL_AL_YEAR		= LL_AL_DAY * 365;
+
+    std::string s;
+
+    if (secs >= LL_AL_YEAR)
+        s = llformat("%dy", secs / LL_AL_YEAR);
+    else if (secs >= LL_AL_MONTH)
+        s = llformat("%dmon", secs / LL_AL_MONTH);
+    else if (secs >= LL_AL_WEEK)
+        s = llformat("%dw", secs / LL_AL_WEEK);
+    else if (secs >= LL_AL_DAY)
+        s = llformat("%dd", secs / LL_AL_DAY);
+    else if (secs >= LL_AL_HOUR)
+        s = llformat("%dh", secs / LL_AL_HOUR);
+    else if (secs >= LL_AL_MIN)
+        s = llformat("%dm", secs / LL_AL_MIN);
+    else
+        s = llformat("%ds", secs);
+
+    return s;
+}
+
+// Refresh shown time of our last interaction with all listed avatars.
+void LLAvatarList::updateLastInteractionTimes()
+{
+	S32 now = (S32) LLDate::now().secondsSinceEpoch();
+	std::vector<LLPanel*> items;
+	getItems(items);
+
+	for( std::vector<LLPanel*>::const_iterator it = items.begin(); it != items.end(); it++)
+	{
+		// *TODO: error handling
+		LLAvatarListItem* item = static_cast<LLAvatarListItem*>(*it);
+		S32 secs_since = now - (S32) LLRecentPeople::instance().getDate(item->getAvatarId()).secondsSinceEpoch();
+		if (secs_since >= 0)
+			item->setLastInteractionTime(format_secs(secs_since));
+	}
 }
 
 bool LLAvatarItemComparator::compare(const LLPanel* item1, const LLPanel* item2) const

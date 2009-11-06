@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  auto_tile="true"
  height="85"
  layout="topleft"
@@ -44,7 +45,7 @@
      sound_flags="0"
      top="55"
      left="10"
-     tool_tip="Play this sound so that others can hear it."
+     tool_tip="Play this sound so that others can hear it"
      width="125" />
     <button
      follows="left|top"
@@ -55,7 +56,7 @@
      layout="topleft"
      name="Sound audition btn"
      sound_flags="0"
-     tool_tip="Play this sound so that only you can hear it."
+     tool_tip="Play this sound so that only you can hear it"
      left_pad="10"
      width="125" />
 

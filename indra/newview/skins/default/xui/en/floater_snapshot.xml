@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  can_minimize="false"
  follows="left|top"
  height="526"
@@ -7,7 +8,7 @@
  name="Snapshot"
  help_topic="snapshot"
  save_rect="true"
- title="Snapshot Preview"
+ title="SNAPSHOT PREVIEW"
  width="215">
     <floater.string
      name="unknown">
@@ -125,7 +126,7 @@
      layout="topleft"
      left="10"
      name="more_btn"
-     tool_tip="Advanced Options"
+     tool_tip="Advanced options"
      top="270"
      width="80" />
     <button
@@ -136,7 +137,7 @@
      layout="topleft"
      left_delta="0"
      name="less_btn"
-     tool_tip="Advanced Options"
+     tool_tip="Advanced options"
      top_delta="0"
      width="80" />
     <text

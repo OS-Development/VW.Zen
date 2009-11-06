@@ -5,7 +5,7 @@
  *
  * $LicenseInfo:firstyear=2009&license=viewergpl$
  * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
+ * Copyright (c) 2009, Linden Research, Inc.
  * 
  * Second Life Viewer Source Code
  * The source code in this file ("Source Code") is provided by Linden Lab
@@ -57,7 +57,7 @@ public:
 		LLContextMenu* createMenu();
 		void onTeleport();
 		void onInfo();
-		void onCopy();
+		void onCopyToClipboard();
 
 		static void gotSLURLCallback(const std::string& slurl);
 
@@ -69,6 +69,8 @@ public:
 	virtual ~LLTeleportHistoryPanel();
 
 	/*virtual*/ BOOL postBuild();
+	/*virtual*/ void draw();
+
 	/*virtual*/ void onSearchEdit(const std::string& string);
 	/*virtual*/ void onShowOnMap();
 	/*virtual*/ void onTeleport();
@@ -86,17 +88,22 @@ private:
 	void onClearTeleportHistory();
 	bool onClearTeleportHistoryDialog(const LLSD& notification, const LLSD& response);
 
+	void refresh();
+	void getNextTab(const LLDate& item_date, S32& curr_tab, LLDate& tab_date);
+	void onTeleportHistoryChange(S32 removed_index);
+	void replaceItem(S32 removed_index);
 	void showTeleportHistory();
 	void handleItemSelect(LLFlatListView* );
 	LLFlatListView* getFlatListViewFromTab(LLAccordionCtrlTab *);
 	void onGearButtonClicked();
-	void onStarButtonCommit();
 
 	LLTeleportHistoryStorage*	mTeleportHistory;
 	LLAccordionCtrl*		mHistoryAccordion;
-	LLButton *			mStarButton;
 
-	LLFlatListView*			mLastSelectedScrollList;
+	LLFlatListView*			mLastSelectedFlatlList;
+	S32				mLastSelectedItemIndex;
+	bool				mDirty;
+	S32				mCurrentItem;
 	std::string				mFilterSubString;
 
 	typedef LLDynamicArray<LLAccordionCtrlTab*> item_containers_t;

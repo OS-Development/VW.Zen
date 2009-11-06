@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <panel
- follows="left|top|right|bottom"
- height="555"
+ follows="all"
+ height="535"
  label="Picks"
  layout="topleft"
  left="0"
  name="panel_picks"
  top="0"
  width="313">
-        <flat_list_view
+ <flat_list_view
          color="DkGray2"
-         follows="left|top|right|bottom"
+         follows="all"
          height="465"
          layout="topleft"
          left="0"
@@ -18,14 +18,14 @@
          opaque="true"
          top="0"
          width="313" />
-        <panel
+   <panel
          background_visible="true"
          bevel_style="none"
          enabled="false"
          auto_resize="false"
          follows="bottom"
          left="0"
-         height="23"
+         height="18"
          label="bottom_panel"
          layout="topleft"
          name="edit_panel"
@@ -34,60 +34,94 @@
             <button
              enabled="false"
              follows="bottom|left"
-             font="SansSerifBigBold"
              height="18"
              image_selected="OptionsMenu_Press"
              image_unselected="OptionsMenu_Off"
               image_disabled="OptionsMenu_Disabled"
              layout="topleft"
-             left="10"
+             left="0"
              name="gear_menu_btn"
-             picture_style="true"
              top="5"
              width="18" />
             <button
              follows="bottom|left"
-             font="SansSerifBigBold"
              height="18"
              image_disabled="AddItem_Disabled"
              image_selected="AddItem_Press"
              image_unselected="AddItem_Off"
              layout="topleft"
-             left="35"
+             left_pad="15"
              name="new_btn"
-             picture_style="true"
-             tool_tip="Create New Pick at Current Location"
+             tool_tip="Create new pick at current location"
              top="5"
              width="18" />
             <button
              follows="bottom|right"
-             font="SansSerifBigBold"
              height="18"
              image_disabled="TrashItem_Disabled"
              image_selected="TrashItem_Press"
              image_unselected="TrashItem_Off"
              layout="topleft"
              name="trash_btn"
-             picture_style="true"
              right="-10"
              top="5"
              width="18" />
         </panel>
         <panel
-         follows="bottom"
-         auto_resize="false"
          layout="topleft"
-         height="30"
+         left="0"
+         height="25"
+         top_pad="10"
          name="buttons_cucks"
+         help_topic="picks_button_tab"
          width="313">
-            <button
-             enabled="false"
-             follows="bottom|left"
-             font="SansSerifSmallBold"
-             height="25"
-             label="Map"
-             layout="topleft"
-             name="show_on_map_btn"
-             width="85" />
+       <button
+         enabled="false"
+         follows="bottom|left"
+         font="SansSerifSmallBold"
+         height="25"
+         label="Info"
+         layout="topleft"
+         left="5"
+         name="info_btn"
+         tab_stop="false"
+         top="0"
+         width="55" />
+        <button
+         enabled="false"
+         follows="bottom|left"
+         font="SansSerifSmallBold"
+         height="25"
+         label="Teleport"
+         layout="topleft"
+         left_pad="5"
+         name="teleport_btn"
+         tab_stop="false"
+         top="0"
+         width="77" />
+        <button
+         enabled="false"
+         follows="bottom|left"
+         font="SansSerifSmallBold"
+         height="25"
+         label="Map"
+         layout="topleft"
+         left_pad="5"
+         name="show_on_map_btn"
+         tab_stop="false"
+         top="0"
+         width="50" />
+        <button
+         enabled="false"
+         follows="bottom|right"
+         font="SansSerifSmallBold"
+         height="25"
+         label="▼"
+         layout="topleft"
+         name="overflow_btn"
+         right="-10"
+         tab_stop="false"
+         top="0"
+         width="30" />
         </panel>
 </panel>

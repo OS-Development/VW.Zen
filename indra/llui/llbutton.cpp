@@ -95,8 +95,7 @@ LLButton::Params::Params()
 	is_toggle("is_toggle", false),
 	scale_image("scale_image", true),
 	hover_glow_amount("hover_glow_amount"),
-	commit_on_return("commit_on_return", true),
-	picture_style("picture_style", false)
+	commit_on_return("commit_on_return", true)
 {
 	addSynonym(is_toggle, "toggle");
 	held_down_delay.seconds = 0.5f;
@@ -147,22 +146,15 @@ LLButton::LLButton(const LLButton::Params& p)
 	mHoverGlowStrength(p.hover_glow_amount),
 	mCommitOnReturn(p.commit_on_return),
 	mFadeWhenDisabled(FALSE),
-	mForcePressedState(FALSE)
+	mForcePressedState(FALSE),
+	mLastDrawCharsCount(0)
 {
 	static LLUICachedControl<S32> llbutton_orig_h_pad ("UIButtonOrigHPad", 0);
 	static Params default_params(LLUICtrlFactory::getDefaultParams<LLButton>());
 
-	//if we aren't a picture_style button set label as name if not provided
-	if (!p.picture_style.isProvided() || !p.picture_style)
+	if (!p.label_selected.isProvided())
 	{
-		if (!p.label.isProvided()) 
-		{
-			mUnselectedLabel = p.name();
-		}
-		if (!p.label_selected.isProvided())	
-		{
-			mSelectedLabel = mUnselectedLabel.getString();
-		}
+		mSelectedLabel = mUnselectedLabel;
 	}
 
 	// Hack to make sure there is space for at least one character
@@ -483,6 +475,11 @@ void LLButton::onMouseLeave(S32 x, S32 y, MASK mask)
 	LLUICtrl::onMouseLeave(x, y, mask);
 
 	mNeedsHighlight = FALSE;
+}
+
+void LLButton::setHighlight(bool b)
+{
+	mNeedsHighlight = b;
 }
 
 BOOL LLButton::handleHover(S32 x, S32 y, MASK mask)
@@ -814,7 +811,7 @@ void LLButton::draw()
 		// LLFontGL::render expects S32 max_chars variable but process in a separate way -1 value.
 		// Due to U32_MAX is equal to S32 -1 value I have rest this value for non-ellipses mode.
 		// Not sure if it is really needed. Probably S32_MAX should be always passed as max_chars.
-		mGLFont->render(label, 0, (F32)x, (F32)(LLBUTTON_V_PAD + y_offset), 
+		mLastDrawCharsCount = mGLFont->render(label, 0, (F32)x, (F32)(LLBUTTON_V_PAD + y_offset),
 			label_color % alpha,
 			mHAlign, LLFontGL::BOTTOM,
 			LLFontGL::NORMAL,
@@ -1093,19 +1090,4 @@ void LLButton::resetMouseDownTimer()
 {
 	mMouseDownTimer.stop();
 	mMouseDownTimer.reset();
-}
-
-
-// *TODO: Remove this function after the initial XUI XML re-export pass.
-// static
-void LLButton::setupParamsForExport(Params& p, LLView* parent)
-{
-	std::string label = p.label;
-	if (label.empty())
-	{
-		//if our label is empty this is a picture style button
-		p.picture_style = true;
-	}
-
-	LLUICtrl::setupParamsForExport(p, parent);
 }

@@ -47,7 +47,6 @@
 #include "llcallingcard.h"
 #include "llviewercontrol.h"
 #include "llcylinder.h"
-#include "llfloaterdirectory.h"
 #include "llfloatermap.h"
 #include "llfloaterworldmap.h"
 #include "llfocusmgr.h"
@@ -369,7 +368,7 @@ void LLWorldMapView::draw()
 			continue;
 		}
 		
-		current_image->setBoostLevel(LLViewerTexture::BOOST_MAP_LAYER);
+		current_image->setBoostLevel(LLViewerTexture::BOOST_MAP);
 		current_image->setKnownDrawSize(llround(pix_width * LLUI::sGLScaleFactor.mV[VX]), llround(pix_height * LLUI::sGLScaleFactor.mV[VY]));
 		
 		if (!current_image->hasGLTexture())
@@ -512,7 +511,8 @@ void LLWorldMapView::draw()
 				 (textures_requested_this_tick < MAX_REQUEST_PER_TICK)))
 			{
 				textures_requested_this_tick++;
-				info->mCurrentImage = LLViewerTextureManager::getFetchedTexture(info->mMapImageID[LLWorldMap::getInstance()->mCurrentMap], MIPMAP_TRUE, FALSE, LLViewerTexture::LOD_TEXTURE);
+				info->mCurrentImage = LLViewerTextureManager::getFetchedTexture(info->mMapImageID[LLWorldMap::getInstance()->mCurrentMap], 
+					MIPMAP_TRUE, LLViewerTexture::BOOST_NONE, LLViewerTexture::LOD_TEXTURE);
                 info->mCurrentImage->setAddressMode(LLTexUnit::TAM_CLAMP);
 				simimage = info->mCurrentImage;
 				gGL.getTexUnit(0)->bind(simimage);
@@ -525,7 +525,7 @@ void LLWorldMapView::draw()
 				 (textures_requested_this_tick < MAX_REQUEST_PER_TICK)))
 			{
 				textures_requested_this_tick++;
-				info->mOverlayImage = LLViewerTextureManager::getFetchedTexture(info->mMapImageID[2], MIPMAP_TRUE, FALSE, LLViewerTexture::LOD_TEXTURE);
+				info->mOverlayImage = LLViewerTextureManager::getFetchedTexture(info->mMapImageID[2], MIPMAP_TRUE, LLViewerTexture::BOOST_NONE, LLViewerTexture::LOD_TEXTURE);
 				info->mOverlayImage->setAddressMode(LLTexUnit::TAM_CLAMP);
 				overlayimage = info->mOverlayImage;
 				gGL.getTexUnit(0)->bind(overlayimage);
@@ -822,7 +822,7 @@ void LLWorldMapView::draw()
 		else
 		{
 			double value = fmod(current_time, 2);
-			value = 0.5 + 0.5*cos(value * 3.14159f);
+			value = 0.5 + 0.5*cos(value * F_PI);
 			LLColor4 loading_color(0.0, F32(value/2), F32(value), 1.0);
 			drawTracking( LLWorldMap::getInstance()->mUnknownLocation, loading_color, TRUE, getString("Loading"), "");
 		}
@@ -1898,20 +1898,20 @@ BOOL LLWorldMapView::handleDoubleClick( S32 x, S32 y, MASK mask )
 				id.toString(uuid_str);
 				uuid_str = uuid_str.substr(28);
 				sscanf(uuid_str.c_str(), "%X", &event_id);
-				LLFloaterReg::showInstance("search", LLSD().insert("panel", "event").insert("id", event_id));
+				LLFloaterReg::showInstance("search", LLSD().insert("category", "events").insert("id", event_id));
 				break;
 			}
 		case MAP_ITEM_LAND_FOR_SALE:
 		case MAP_ITEM_LAND_FOR_SALE_ADULT:
 			{
 				LLFloaterReg::hideInstance("world_map");
-				LLFloaterReg::showInstance("search", LLSD().insert("panel", "land").insert("id", id));
+				LLFloaterReg::showInstance("search", LLSD().insert("category", "destinations").insert("id", id));
 				break;
 			}
 		case MAP_ITEM_CLASSIFIED:
 			{
 				LLFloaterReg::hideInstance("world_map");
-				LLFloaterReg::showInstance("search", LLSD().insert("panel", "classified").insert("id", id));
+				LLFloaterReg::showInstance("search", LLSD().insert("category", "classifieds").insert("id", id));
 				break;
 			}
 		default:

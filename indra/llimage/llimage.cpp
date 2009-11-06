@@ -159,7 +159,7 @@ U8* LLImageBase::allocateData(S32 size)
 		size = mWidth * mHeight * mComponents;
 		if (size <= 0)
 		{
-			llerrs << llformat("LLImageBase::allocateData called with bad dimentions: %dx%dx%d",mWidth,mHeight,mComponents) << llendl;
+			llerrs << llformat("LLImageBase::allocateData called with bad dimensions: %dx%dx%d",mWidth,mHeight,mComponents) << llendl;
 		}
 	}
 	else if (size <= 0 || (size > 4096*4096*16 && sSizeOverride == FALSE))
@@ -1223,25 +1223,28 @@ bool LLImageRaw::createFromFile(const std::string &filename, bool j2c_lowest_mip
 	ifs.read ((char*)buffer, length);
 	ifs.close();
 	
-	image->updateData();
-	
-	if (j2c_lowest_mip_only && codec == IMG_CODEC_J2C)
-	{
-		S32 width = image->getWidth();
-		S32 height = image->getHeight();
-		S32 discard_level = 0;
-		while (width > 1 && height > 1 && discard_level < MAX_DISCARD_LEVEL)
-		{
-			width >>= 1;
-			height >>= 1;
-			discard_level++;
-		}
-		((LLImageJ2C *)((LLImageFormatted*)image))->setDiscardLevel(discard_level);
-	}
-	
-	BOOL success = image->decode(this, 100000.0f);
-	image = NULL; // deletes image
+	BOOL success;
 
+	success = image->updateData();
+	if (success)
+	{
+		if (j2c_lowest_mip_only && codec == IMG_CODEC_J2C)
+		{
+			S32 width = image->getWidth();
+			S32 height = image->getHeight();
+			S32 discard_level = 0;
+			while (width > 1 && height > 1 && discard_level < MAX_DISCARD_LEVEL)
+			{
+				width >>= 1;
+				height >>= 1;
+				discard_level++;
+			}
+			((LLImageJ2C *)((LLImageFormatted*)image))->setDiscardLevel(discard_level);
+		}
+		success = image->decode(this, 100000.0f);
+	}
+
+	image = NULL; // deletes image
 	if (!success)
 	{
 		deleteData();

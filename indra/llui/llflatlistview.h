@@ -273,6 +273,8 @@ public:
 	void setComparator(const ItemComparator* comp) { mItemComparator = comp; }
 	void sort();
 
+	bool updateValue(const LLSD& old_value, const LLSD& new_value);
+
 protected:
 
 	/** Pairs LLpanel representing a single item LLPanel and LLSD associated with it */
@@ -301,6 +303,8 @@ protected:
 
 	/** Manage selection on mouse events */
 	void onItemMouseClick(item_pair_t* item_pair, MASK mask);
+
+	void onItemRightMouseClick(item_pair_t* item_pair, MASK mask);
 
 	/**
 	 *	Updates position of items.

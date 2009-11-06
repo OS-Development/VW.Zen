@@ -5,7 +5,30 @@
  * @brief  Test for llcapabilitylistener.cpp.
  * 
  * $LicenseInfo:firstyear=2008&license=viewergpl$
- * Copyright (c) 2008, Linden Research, Inc.
+ * 
+ * Copyright (c) 2008-2009, Linden Research, Inc.
+ * 
+ * Second Life Viewer Source Code
+ * The source code in this file ("Source Code") is provided by Linden Lab
+ * to you under the terms of the GNU General Public License, version 2.0
+ * ("GPL"), unless you have obtained a separate licensing agreement
+ * ("Other License"), formally executed by you and Linden Lab.  Terms of
+ * the GPL can be found in doc/GPL-license.txt in this distribution, or
+ * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * 
+ * There are special exceptions to the terms and conditions of the GPL as
+ * it is applied to this Source Code. View the full text of the exception
+ * in the file doc/FLOSS-exception.txt in this software distribution, or
+ * online at
+ * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * 
+ * By copying, modifying or distributing this software, you acknowledge
+ * that you have read and understood your obligations described above,
+ * and agree to abide by those obligations.
+ * 
+ * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
+ * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
+ * COMPLETENESS OR PERFORMANCE.
  * $/LicenseInfo$
  */
 
@@ -24,9 +47,9 @@
 #include "../test/lltut.h"
 #include "../llcapabilityprovider.h"
 #include "lluuid.h"
-#include "llerrorcontrol.h"
 #include "tests/networkio.h"
 #include "tests/commtest.h"
+#include "tests/wrapllerrs.h"
 #include "stringize.h"
 
 #if defined(LL_WINDOWS)
@@ -104,28 +127,6 @@ namespace tut
     typedef llcapears_group::object llcapears_object;
     llcapears_group llsdmgr("llcapabilitylistener");
 
-    struct CaptureError: public LLError::OverrideFatalFunction
-    {
-        CaptureError():
-            LLError::OverrideFatalFunction(boost::bind(&CaptureError::operator(), this, _1))
-        {
-            LLError::setPrintLocation(false);
-        }
-
-        struct FatalException: public std::runtime_error
-        {
-            FatalException(const std::string& what): std::runtime_error(what) {}
-        };
-
-        void operator()(const std::string& message)
-        {
-            error = message;
-            throw FatalException(message);
-        }
-
-        std::string error;
-    };
-
     template<> template<>
     void llcapears_object::test<1>()
     {
@@ -137,10 +138,10 @@ namespace tut
         std::string threw;
         try
         {
-            CaptureError capture;
+            WrapLL_ERRS capture;
             regionPump.post(request);
         }
-        catch (const CaptureError::FatalException& e)
+        catch (const WrapLL_ERRS::FatalException& e)
         {
             threw = e.what();
         }
@@ -184,10 +185,10 @@ namespace tut
         std::string threw;
         try
         {
-            CaptureError capture;
+            WrapLL_ERRS capture;
             regionPump.post(request);
         }
-        catch (const CaptureError::FatalException& e)
+        catch (const WrapLL_ERRS::FatalException& e)
         {
             threw = e.what();
         }
@@ -246,10 +247,10 @@ namespace tut
         std::string threw;
         try
         {
-            CaptureError capture;
+            WrapLL_ERRS capture;
             regionPump.post(request);
         }
-        catch (const CaptureError::FatalException& e)
+        catch (const WrapLL_ERRS::FatalException& e)
         {
             threw = e.what();
         }

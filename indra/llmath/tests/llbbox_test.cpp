@@ -1,5 +1,5 @@
 /**
- * @file   llbbox_tut.cpp
+ * @file   llbbox_test.cpp
  * @author Martin Reddy
  * @date   2009-06-25
  * @brief  Test for llbbox.cpp.
@@ -31,6 +31,8 @@
  * COMPLETENESS OR PERFORMANCE.
  * $/LicenseInfo$
  */
+
+#include "linden_common.h"
 
 #include "../test/lltut.h"
 

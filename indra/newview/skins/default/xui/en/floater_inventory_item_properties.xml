@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  auto_tile="true"
  height="340"
  layout="topleft"
  name="item properties"
  help_topic="item_properties"
  save_rect="true"
- title="Inventory Item Properties"
+ title="INVENTORY ITEM PROPERTIES"
  width="350">
     <floater.string
      name="unknown">
@@ -33,10 +34,10 @@
      height="18"
      image_name="Lock"
      layout="topleft"
-     left="294"
+     left="276"
      mouse_opaque="true"
      name="IconLocked"
-     top="5"
+     top="4"
      width="18" />
     <text
      type="string"

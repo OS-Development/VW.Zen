@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  background_visible="true"
  follows="left|top|right|bottom"
- height="250"
+ height="369"
  layout="topleft"
  left="0"
  name="panel_im"
@@ -11,10 +12,13 @@
  can_dock="true"
  can_minimize="true"
  visible="true" 
- width="315">
+ width="520"
+ can_resize="true"
+ min_width="350"
+ min_height="350">
   <layout_stack follows="left|top|right|bottom"
-                height="235"
-                width="315"
+                height="354"
+                width="520"
                 layout="topleft"
                 orientation="horizontal"
                 name="im_panels"
@@ -24,45 +28,48 @@
       name="panel_im_control_panel"
       layout="topleft"
       top_delta="-3"
-      min_width="96" 
-      width="96"
-      height="225"
+      height="354"
+      follows="left"
       label="IM Control Panel"
+      auto_resize="false"
       user_resize="false" />
-    <layout_panel height="235"
-                  width="200"
-                  left_delta="96" 
+    <layout_panel height="354"
+                  width="355"
+                  left_delta="146" 
                   top="0"
                   user_resize="false">
       <button height="12"
+      		  follows="left|top"
               top="8" 
               label="&lt;&lt;"
               layout="topleft"
               width="35"
               name="slide_left_btn" />
       <button height="12"
+      		  follows="left|top"
               top="8"
               label="&gt;&gt;"
               layout="topleft"
               width="35"
               name="slide_right_btn" />
-      <text_editor
-       enabled="false"
-       type="string"
+      <chat_history
        length="1"
-       follows="left|top|right"
+       follows="left|top|right|bottom"
        font="SansSerif"
-       height="185"
+       height="300"
        layout="topleft"
-       max_length="2147483647"
-       name="im_text"
+       name="chat_history"
        parse_highlights="true"
        allow_html="true" 
-       track_bottom="true" 
-       width="195"
-       word_wrap="true">
-      </text_editor>
-      <line_editor follows="left|right" name="chat_editor" height="20" layout="topleft" width="190">
+       width="350">
+      </chat_history>
+      <line_editor
+       follows="left|right"
+       height="20"
+       label="To"
+       layout="topleft"
+       name="chat_editor"
+       width="345">
       </line_editor>
     </layout_panel>
   </layout_stack>

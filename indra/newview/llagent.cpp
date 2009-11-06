@@ -35,16 +35,16 @@
 #include "llagent.h" 
 #include "llagentwearables.h"
 
+#include "llagentlistener.h"
 #include "llanimationstates.h"
 #include "llcallingcard.h"
 #include "llconsole.h"
 #include "lldrawable.h"
 #include "llfirstuse.h"
 #include "llfloaterreg.h"
-#include "llfloateractivespeakers.h"
+#include "llspeakers.h"
 #include "llfloatercamera.h"
 #include "llfloatercustomize.h"
-#include "llfloaterdirectory.h"
 
 #include "llfloaterland.h"
 #include "llfloatersnapshot.h"
@@ -256,6 +256,7 @@ LLAgent::LLAgent() :
 	mHUDTargetZoom(1.f),
 	mHUDCurZoom(1.f),
 	mInitialized(FALSE),
+	mListener(),
 	mForceMouselook(FALSE),
 
 	mDoubleTapRunTimer(),
@@ -330,7 +331,7 @@ LLAgent::LLAgent() :
 	mLeftKey(0),
 	mUpKey(0),
 	mYawKey(0.f),
-	mPitchKey(0),
+	mPitchKey(0.f),
 
 	mOrbitLeftKey(0.f),
 	mOrbitRightKey(0.f),
@@ -384,6 +385,8 @@ LLAgent::LLAgent() :
 	}
 
 	mFollowCam.setMaxCameraDistantFromSubject( MAX_CAMERA_DISTANCE_FROM_AGENT );
+
+	mListener.reset(new LLAgentListener(*this));
 }
 
 // Requires gSavedSettings to be initialized.
@@ -723,15 +726,15 @@ void LLAgent::moveYaw(F32 mag, bool reset_view)
 //-----------------------------------------------------------------------------
 // movePitch()
 //-----------------------------------------------------------------------------
-void LLAgent::movePitch(S32 direction)
+void LLAgent::movePitch(F32 mag)
 {
-	setKey(direction, mPitchKey);
+	mPitchKey = mag;
 
-	if (direction > 0)
+	if (mag > 0)
 	{
-		setControlFlags(AGENT_CONTROL_PITCH_POS );
+		setControlFlags(AGENT_CONTROL_PITCH_POS);
 	}
-	else if (direction < 0)
+	else if (mag < 0)
 	{
 		setControlFlags(AGENT_CONTROL_PITCH_NEG);
 	}
@@ -2509,10 +2512,10 @@ void LLAgent::propagate(const F32 dt)
 
 	// handle rotation based on keyboard levels
 	const F32 YAW_RATE = 90.f * DEG_TO_RAD;				// radians per second
-	yaw( YAW_RATE * mYawKey * dt );
+	yaw(YAW_RATE * mYawKey * dt);
 
 	const F32 PITCH_RATE = 90.f * DEG_TO_RAD;			// radians per second
-	pitch(PITCH_RATE * (F32) mPitchKey * dt);
+	pitch(PITCH_RATE * mPitchKey * dt);
 	
 	// handle auto-land behavior
 	if (mAvatarObject.notNull())
@@ -2537,7 +2540,7 @@ void LLAgent::propagate(const F32 dt)
 	mLeftKey = 0;
 	mUpKey = 0;
 	mYawKey = 0.f;
-	mPitchKey = 0;
+	mPitchKey = 0.f;
 }
 
 //-----------------------------------------------------------------------------
@@ -3168,6 +3171,7 @@ void LLAgent::updateCamera()
 				mFollowCam.copyParams(*current_cam);
 				mFollowCam.setSubjectPositionAndRotation( mAvatarObject->getRenderPosition(), avatarRotationForFollowCam );
 				mFollowCam.update();
+				LLViewerJoystick::getInstance()->setCameraNeedsUpdate(true);
 			}
 			else
 			{
@@ -3377,13 +3381,18 @@ void LLAgent::updateCamera()
 		{
 			LLVOAvatar::attachment_map_t::iterator curiter = iter++;
 			LLViewerJointAttachment* attachment = curiter->second;
-			LLViewerObject *attached_object = attachment->getObject();
-			if (attached_object && !attached_object->isDead() && attached_object->mDrawable.notNull())
+			for (LLViewerJointAttachment::attachedobjs_vec_t::iterator attachment_iter = attachment->mAttachedObjects.begin();
+				 attachment_iter != attachment->mAttachedObjects.end();
+				 ++attachment_iter)
 			{
-				// clear any existing "early" movements of attachment
-				attached_object->mDrawable->clearState(LLDrawable::EARLY_MOVE);
-				gPipeline.updateMoveNormalAsync(attached_object->mDrawable);
-				attached_object->updateText();
+				LLViewerObject *attached_object = (*attachment_iter);
+				if (attached_object && !attached_object->isDead() && attached_object->mDrawable.notNull())
+				{
+					// clear any existing "early" movements of attachment
+					attached_object->mDrawable->clearState(LLDrawable::EARLY_MOVE);
+					gPipeline.updateMoveNormalAsync(attached_object->mDrawable);
+					attached_object->updateText();
+				}
 			}
 		}
 
@@ -4245,7 +4254,7 @@ void LLAgent::changeCameraToCustomizeAvatar(BOOL avatar_animate, BOOL camera_ani
 	{
 		if(avatar_animate)
 		{
-				// Remove any pitch from the avatar
+			// Remove any pitch from the avatar
 			LLVector3 at = mFrameAgent.getAtAxis();
 			at.mV[VZ] = 0.f;
 			at.normalize();
@@ -5382,12 +5391,6 @@ void update_group_floaters(const LLUUID& group_id)
 	//*TODO Implement group update for Profile View 
 	// still actual as of July 31, 2009 (DZ)
 
-	if (gIMMgr)
-	{
-		// update the talk view
-		gIMMgr->refresh();
-	}
-
 	gAgent.fireEvent(new LLOldEvents::LLEvent(&gAgent, "new group"), "");
 }
 
@@ -5427,8 +5430,6 @@ void LLAgent::processAgentDropGroup(LLMessageSystem *msg, void **)
 		LLGroupMgr::getInstance()->clearGroupData(group_id);
 		// close the floater for this group, if any.
 		LLGroupActions::closeGroup(group_id);
-		// refresh the group panel of the search window, if necessary.
-		LLFloaterDirectory::refreshGroup(group_id);
 	}
 	else
 	{
@@ -5506,9 +5507,6 @@ class LLAgentDropGroupViewerNode : public LLHTTPNode
 				LLGroupMgr::getInstance()->clearGroupData(group_id);
 				// close the floater for this group, if any.
 				LLGroupActions::closeGroup(group_id);
-				// refresh the group panel of the search window,
-				//if necessary.
-				LLFloaterDirectory::refreshGroup(group_id);
 			}
 			else
 			{
@@ -5971,7 +5969,7 @@ bool LLAgent::teleportCore(bool is_local)
 	LLFloaterReg::hideInstance("about_land");
 
 	LLViewerParcelMgr::getInstance()->deselectLand();
-	LLViewerMediaFocus::getInstance()->setFocusFace(false, NULL, 0, NULL);
+	LLViewerMediaFocus::getInstance()->clearFocus();
 
 	// Close all pie menus, deselect land, etc.
 	// Don't change the camera until we know teleport succeeded. JC
@@ -6319,8 +6317,8 @@ void LLAgent::sendAgentSetAppearance()
 			continue;
 		}
 
-		// IMG_DEFAULT_AVATAR means not baked
-		if (!mAvatarObject->isTextureDefined(texture_index))
+		// IMG_DEFAULT_AVATAR means not baked. 0 index should be ignored for baked textures
+		if (!mAvatarObject->isTextureDefined(texture_index, 0))
 		{
 			textures_current = FALSE;
 			break;

@@ -496,7 +496,7 @@ void LLFastTimerView::draw()
 	// Draw the history bars
 	if (LLFastTimer::getLastFrameIndex() >= 0)
 	{	
-		LLLocalClipRect clip(LLRect(xleft, ytop - margin, getRect().getWidth() - margin, margin));
+		LLLocalClipRect clip(LLRect(xleft, ytop, getRect().getWidth() - margin, margin));
 
 		U64 totalticks;
 		if (!LLFastTimer::sPauseHistory)
@@ -996,8 +996,12 @@ LLSD LLFastTimerView::analyzePerformanceLogDefault(std::istream& is)
 			std::string label = iter->first;
 
 			F64 time = iter->second["Time"].asReal();
-			
-			total_time += time;
+
+			// Skip the total figure
+			if(label.compare("Total") != 0)
+			{
+				total_time += time;
+			}			
 
 			if (time > 0.0)
 			{

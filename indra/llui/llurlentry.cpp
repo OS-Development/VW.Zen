@@ -145,6 +145,18 @@ void LLUrlEntryBase::callObservers(const std::string &id, const std::string &lab
 	}
 }
 
+static std::string getStringAfterToken(const std::string str, const std::string token)
+{
+	size_t pos = str.find(token);
+	if (pos == std::string::npos)
+	{
+		return "";
+	}
+
+	pos += token.size();
+	return str.substr(pos, str.size() - pos);
+}
+
 //
 // LLUrlEntryHTTP Describes generic http: and https: Urls
 //
@@ -154,7 +166,6 @@ LLUrlEntryHTTP::LLUrlEntryHTTP()
 							boost::regex::perl|boost::regex::icase);
 	mMenuName = "menu_url_http.xml";
 	mTooltip = LLTrans::getString("TooltipHttpUrl");
-	//mIcon = "gear.tga";
 }
 
 std::string LLUrlEntryHTTP::getLabel(const std::string &url, const LLUrlLabelCallback &cb)
@@ -280,36 +291,52 @@ void LLUrlEntryAgent::onAgentNameReceived(const LLUUID& id,
 
 std::string LLUrlEntryAgent::getLabel(const std::string &url, const LLUrlLabelCallback &cb)
 {
-	std::string id = getIDStringFromUrl(url);
-	if (gCacheName && ! id.empty())
+	if (!gCacheName)
 	{
-		LLUUID uuid(id);
-		std::string full_name;
-		if (gCacheName->getFullName(uuid, full_name))
-		{
-			return full_name;
-		}
-		else
-		{
-			gCacheName->get(uuid, FALSE, boost::bind(&LLUrlEntryAgent::onAgentNameReceived, this, _1, _2, _3, _4));
-			addObserver(id, url, cb);
-		}
+		// probably at the login screen, use short string for layout
+		return LLTrans::getString("LoadingData");
 	}
 
-	return LLTrans::getString("LoadingData");//unescapeUrl(url);
+	std::string agent_id_string = getIDStringFromUrl(url);
+	if (agent_id_string.empty())
+	{
+		// something went wrong, just give raw url
+		return unescapeUrl(url);
+	}
+
+	LLUUID agent_id(agent_id_string);
+	std::string full_name;
+	if (agent_id.isNull())
+	{
+		return LLTrans::getString("AvatarNameNobody");
+	}
+	else if (gCacheName->getFullName(agent_id, full_name))
+	{
+		return full_name;
+	}
+	else
+	{
+		gCacheName->get(agent_id, FALSE,
+			boost::bind(&LLUrlEntryAgent::onAgentNameReceived,
+				this, _1, _2, _3, _4));
+		addObserver(agent_id_string, url, cb);
+		return LLTrans::getString("LoadingData");
+	}
 }
 
 //
 // LLUrlEntryGroup Describes a Second Life group Url, e.g.,
 // secondlife:///app/group/00005ff3-4044-c79f-9de8-fb28ae0df991/about
+// secondlife:///app/group/00005ff3-4044-c79f-9de8-fb28ae0df991/inspect
 //
 LLUrlEntryGroup::LLUrlEntryGroup()
 {
-	mPattern = boost::regex("secondlife:///app/group/[\\da-f-]+/about",
+	mPattern = boost::regex("secondlife:///app/group/[\\da-f-]+/\\w+",
 							boost::regex::perl|boost::regex::icase);
 	mMenuName = "menu_url_group.xml";
 	mIcon = "Generic_Group";
 	mTooltip = LLTrans::getString("TooltipGroupUrl");
+	mColor = LLUIColorTable::instance().getColor("GroupLinkColor");
 }
 
 void LLUrlEntryGroup::onGroupNameReceived(const LLUUID& id,
@@ -323,23 +350,37 @@ void LLUrlEntryGroup::onGroupNameReceived(const LLUUID& id,
 
 std::string LLUrlEntryGroup::getLabel(const std::string &url, const LLUrlLabelCallback &cb)
 {
-	std::string id = getIDStringFromUrl(url);
-	if (gCacheName && ! id.empty())
+	if (!gCacheName)
 	{
-		LLUUID uuid(id);
-		std::string group_name;
-		if (gCacheName->getGroupName(uuid, group_name))
-		{
-			return group_name;
-		}
-		else
-		{
-			gCacheName->get(uuid, TRUE, boost::bind(&LLUrlEntryGroup::onGroupNameReceived, this, _1, _2, _3, _4));
-			addObserver(id, url, cb);
-		}
+		// probably at login screen, give something short for layout
+		return LLTrans::getString("LoadingData");
 	}
 
-	return unescapeUrl(url);
+	std::string group_id_string = getIDStringFromUrl(url);
+	if (group_id_string.empty())
+	{
+		// something went wrong, give raw url
+		return unescapeUrl(url);
+	}
+
+	LLUUID group_id(group_id_string);
+	std::string group_name;
+	if (group_id.isNull())
+	{
+		return LLTrans::getString("GroupNameNone");
+	}
+	else if (gCacheName->getGroupName(group_id, group_name))
+	{
+		return group_name;
+	}
+	else
+	{
+		gCacheName->get(group_id, TRUE,
+			boost::bind(&LLUrlEntryGroup::onGroupNameReceived,
+				this, _1, _2, _3, _4));
+		addObserver(group_id_string, url, cb);
+		return LLTrans::getString("LoadingData");
+	}
 }
 
 ///
@@ -360,7 +401,7 @@ std::string LLUrlEntryParcel::getLabel(const std::string &url, const LLUrlLabelC
 }
 
 //
-// LLUrlEntryPlace Describes secondlife:///<location> URLs
+// LLUrlEntryPlace Describes secondlife://<location> URLs
 //
 LLUrlEntryPlace::LLUrlEntryPlace()
 {
@@ -403,15 +444,7 @@ std::string LLUrlEntryPlace::getLabel(const std::string &url, const LLUrlLabelCa
 std::string LLUrlEntryPlace::getLocation(const std::string &url) const
 {
 	// return the part of the Url after secondlife:// part
-	const std::string search_string = "://";
-	size_t pos = url.find(search_string);
-	if (pos == std::string::npos)
-	{
-		return "";
-	}
-
-	pos += search_string.size();
-	return url.substr(pos, url.size() - pos);
+	return ::getStringAfterToken(url, "://");
 }
 
 //
@@ -438,6 +471,7 @@ std::string LLUrlEntryTeleport::getLabel(const std::string &url, const LLUrlLabe
 	LLURI uri(url);
 	LLSD path_array = uri.pathArray();
 	S32 path_parts = path_array.size();
+	const std::string label = LLTrans::getString("SLurlLabelTeleport");
 	if (path_parts == 6)
 	{
 		// handle teleport url with (X,Y,Z) coordinates
@@ -445,7 +479,7 @@ std::string LLUrlEntryTeleport::getLabel(const std::string &url, const LLUrlLabe
 		std::string x = path_array[path_parts-3];
 		std::string y = path_array[path_parts-2];
 		std::string z = path_array[path_parts-1];
-		return "Teleport to " + location + " (" + x + "," + y + "," + z + ")";
+		return label + " " + location + " (" + x + "," + y + "," + z + ")";
 	}
 	else if (path_parts == 5)
 	{
@@ -453,20 +487,20 @@ std::string LLUrlEntryTeleport::getLabel(const std::string &url, const LLUrlLabe
 		std::string location = unescapeUrl(path_array[path_parts-3]);
 		std::string x = path_array[path_parts-2];
 		std::string y = path_array[path_parts-1];
-		return "Teleport to " + location + " (" + x + "," + y + ")";
+		return label + " " + location + " (" + x + "," + y + ")";
 	}
 	else if (path_parts == 4)
 	{
 		// handle teleport url with (X) coordinate only
 		std::string location = unescapeUrl(path_array[path_parts-2]);
 		std::string x = path_array[path_parts-1];
-		return "Teleport to " + location + " (" + x + ")";
+		return label + " " + location + " (" + x + ")";
 	}
 	else if (path_parts == 3)
 	{
 		// handle teleport url with no coordinates
 		std::string location = unescapeUrl(path_array[path_parts-1]);
-		return "Teleport to " + location;
+		return label + " " + location;
 	}
 
 	return url;
@@ -475,15 +509,7 @@ std::string LLUrlEntryTeleport::getLabel(const std::string &url, const LLUrlLabe
 std::string LLUrlEntryTeleport::getLocation(const std::string &url) const
 {
 	// return the part of the Url after ///app/teleport
-	const std::string search_string = "teleport";
-	size_t pos = url.find(search_string);
-	if (pos == std::string::npos)
-	{
-		return "";
-	}
-
-	pos += search_string.size() + 1;
-	return url.substr(pos, url.size() - pos);
+	return ::getStringAfterToken(url, "app/teleport/");
 }
 
 ///
@@ -569,3 +595,43 @@ std::string LLUrlEntrySLLabel::getUrl(const std::string &string)
 	return getUrlFromWikiLink(string);
 }
 
+//
+// LLUrlEntryWorldMap Describes secondlife:///<location> URLs
+//
+LLUrlEntryWorldMap::LLUrlEntryWorldMap()
+{
+	mPattern = boost::regex("secondlife:///app/worldmap/\\S+/?(\\d+)?/?(\\d+)?/?(\\d+)?/?\\S*",
+							boost::regex::perl|boost::regex::icase);
+	mMenuName = "menu_url_map.xml";
+	mTooltip = LLTrans::getString("TooltipMapUrl");
+}
+
+std::string LLUrlEntryWorldMap::getLabel(const std::string &url, const LLUrlLabelCallback &cb)
+{
+	//
+	// we handle SLURLs in the following formats:
+	//   - secondlife:///app/worldmap/PLACE/X/Y/Z
+	//   - secondlife:///app/worldmap/PLACE/X/Y
+	//   - secondlife:///app/worldmap/PLACE/X
+	//
+	LLURI uri(url);
+	LLSD path_array = uri.pathArray();
+	S32 path_parts = path_array.size();
+	if (path_parts < 3)
+	{
+		return url;
+	}
+
+	const std::string label = LLTrans::getString("SLurlLabelShowOnMap");
+	std::string location = path_array[2];
+	std::string x = (path_parts > 3) ? path_array[3] : "128";
+	std::string y = (path_parts > 4) ? path_array[4] : "128";
+	std::string z = (path_parts > 5) ? path_array[5] : "0";
+	return label + " " + location + " (" + x + "," + y + "," + z + ")";
+}
+
+std::string LLUrlEntryWorldMap::getLocation(const std::string &url) const
+{
+	// return the part of the Url after secondlife:///app/worldmap/ part
+	return ::getStringAfterToken(url, "app/worldmap/");
+}

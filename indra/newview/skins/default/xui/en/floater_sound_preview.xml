@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  height="190"
  layout="topleft"
  name="Sound Preview"
  help_topic="sound_preview"
- title="sound.wav"
+ title="SOUND.WAV"
  width="300">
     <text
      type="string"

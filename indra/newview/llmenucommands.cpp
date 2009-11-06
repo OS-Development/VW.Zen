@@ -47,7 +47,6 @@
 #include "llviewercontrol.h"
 #include "llfirstuse.h"
 #include "llfloaterchat.h"
-#include "llfloaterdirectory.h"
 #include "llfloaterworldmap.h"
 #include "lllineeditor.h"
 #include "llnotify.h"
@@ -66,7 +65,6 @@
 #include "llworldmap.h"
 #include "llfocusmgr.h"
 #include "llnearbychatbar.h"
-
 
 void handle_mouselook(void*)
 {

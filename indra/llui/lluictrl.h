@@ -126,7 +126,8 @@ public:
 	struct Params : public LLInitParam::Block<Params, LLView::Params>
 	{
 		Optional<std::string>			label;
-		Optional<bool>					tab_stop;
+		Optional<bool>					tab_stop,
+										chrome;
 		Optional<LLSD>					initial_value;
 
 		Optional<CommitCallbackParam>	init_callback,
@@ -228,7 +229,11 @@ public:
 	
 	// Default to no-op:
 	virtual void	onTabInto();
+
+	// Clear any user-provided input (text in a text editor, checked checkbox,
+	// selected radio button, etc.).  Defaults to no-op.
 	virtual void	clear();
+
 	virtual void	setColor(const LLColor4& color);
 
 	BOOL	focusNextItem(BOOL text_entry_only);
@@ -322,22 +327,5 @@ private:
 
 	class DefaultTabGroupFirstSorter;
 };
-
-namespace LLInitParam
-{   
-    template<> 
-	bool ParamCompare<LLUICtrl::commit_callback_t>::equals(
-		const LLUICtrl::commit_callback_t &a, 
-		const LLUICtrl::commit_callback_t &b); 
-		
-    template<> 
-	bool ParamCompare<LLUICtrl::enable_callback_t>::equals(
-		const LLUICtrl::enable_callback_t &a, 
-		const LLUICtrl::enable_callback_t &b); 
-    
-    template<>
-	bool ParamCompare<LLLazyValue<LLColor4> >::equals(
-		const LLLazyValue<LLColor4> &a, const LLLazyValue<LLColor4> &b); 
-}
 
 #endif  // LL_LLUICTRL_H

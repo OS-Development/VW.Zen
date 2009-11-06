@@ -261,9 +261,11 @@ LLLocationInputCtrl::LLLocationInputCtrl(const LLLocationInputCtrl::Params& p)
 	mAddLandmarkObserver	= new LLAddLandmarkObserver(this);
 	gInventory.addObserver(mRemoveLandmarkObserver);
 	gInventory.addObserver(mAddLandmarkObserver);
-
-	mAddLandmarkTooltip = LLTrans::getString("location_ctrl_add_landmark");
-	mEditLandmarkTooltip = LLTrans::getString("location_ctrl_edit_landmark");
+	
+	mAddLandmarkTooltip = LLTrans::getString("LocationCtrlAddLandmarkTooltip");
+	mEditLandmarkTooltip = LLTrans::getString("LocationCtrlEditLandmarkTooltip");
+	getChild<LLView>("Location History")->setToolTip(LLTrans::getString("LocationCtrlComboBtnTooltip"));
+	getChild<LLView>("Place Information")->setToolTip(LLTrans::getString("LocationCtrlInfoBtnTooltip"));
 }
 
 LLLocationInputCtrl::~LLLocationInputCtrl()
@@ -292,6 +294,11 @@ void LLLocationInputCtrl::hideList()
 
 BOOL LLLocationInputCtrl::handleToolTip(S32 x, S32 y, MASK mask)
 {
+
+	if(mAddLandmarkBtn->parentPointInView(x,y))
+	{
+		updateAddLandmarkTooltip();
+	}
 	// Let the buttons show their tooltips.
 	if (LLUICtrl::handleToolTip(x, y, mask))
 	{
@@ -600,11 +607,12 @@ void LLLocationInputCtrl::enableAddLandmarkButton(bool val)
 // depending on whether current parcel has been landmarked.
 void LLLocationInputCtrl::updateAddLandmarkButton()
 {
-	bool landmark_exists = LLLandmarkActions::landmarkAlreadyExists();
-	enableAddLandmarkButton(!landmark_exists);
-
+	enableAddLandmarkButton(LLLandmarkActions::hasParcelLandmark());
+}
+void LLLocationInputCtrl::updateAddLandmarkTooltip()
+{
 	std::string tooltip;
-	if(landmark_exists)
+	if(LLLandmarkActions::landmarkAlreadyExists())
 	{
 		tooltip = mEditLandmarkTooltip;
 	}

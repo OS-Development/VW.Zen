@@ -148,6 +148,7 @@ LLLineEditor::LLLineEditor(const LLLineEditor::Params& p)
 	mBgImage( p.background_image ),
 	mBgImageDisabled( p.background_image_disabled ),
 	mBgImageFocused( p.background_image_focused ),
+	mHaveHistory(FALSE),
 	mReplaceNewlinesWithSpaces( TRUE ),
 	mLabel(p.label),
 	mCursorColor(p.cursor_color()),
@@ -164,13 +165,8 @@ LLLineEditor::LLLineEditor(const LLLineEditor::Params& p)
 	mTripleClickTimer.reset();
 	setText(p.default_text());
 
-	// line history support:
-	// - initialize line history list
-	mLineHistory.insert( mLineHistory.end(), "" );
-	// - disable line history by default
-	mHaveHistory = FALSE;
-	// - reset current history line pointer
-	mCurrentHistoryLine = 0;
+	// Initialize current history line iterator
+	mCurrentHistoryLine = mLineHistory.begin();
 
 	LLRect border_rect(getLocalRect());
 	// adjust for gl line drawing glitch
@@ -278,16 +274,31 @@ void LLLineEditor::updateHistory()
 	// reset current history line number.
 	// Be sure only to remember lines that are not empty and that are
 	// different from the last on the list.
-	if( mHaveHistory && mText.length() && ( mLineHistory.empty() || getText() != mLineHistory.back() ) )
+	if( mHaveHistory && getLength() )
 	{
-		// discard possible empty line at the end of the history
-		// inserted by setText()
-		if( !mLineHistory.back().length() )
+		if( !mLineHistory.empty() )
 		{
-			mLineHistory.pop_back();
+			// When not empty, last line of history should always be blank.
+			if( mLineHistory.back().empty() )
+			{
+				// discard the empty line
+				mLineHistory.pop_back();
+			}
+			else
+			{
+				LL_WARNS("") << "Last line of history was not blank." << LL_ENDL;
+			}
 		}
-		mLineHistory.insert( mLineHistory.end(), getText() );
-		mCurrentHistoryLine = mLineHistory.size() - 1;
+
+		// Add text to history, ignoring duplicates
+		if( mLineHistory.empty() || getText() != mLineHistory.back() )
+		{
+			mLineHistory.push_back( getText() );
+		}
+
+		// Restore the blank line and set mCurrentHistoryLine to point at it
+		mLineHistory.push_back( "" );
+		mCurrentHistoryLine = mLineHistory.end() - 1;
 	}
 }
 
@@ -357,11 +368,8 @@ void LLLineEditor::setText(const LLStringExplicit &new_text)
 	}
 	setCursor(llmin((S32)mText.length(), getCursor()));
 
-	// Newly set text goes always in the last line of history.
-	// Possible empty strings (as with chat line) will be deleted later.
-	mLineHistory.insert( mLineHistory.end(), new_text );
 	// Set current history line to end of history.
-	mCurrentHistoryLine = mLineHistory.size() - 1;
+	mCurrentHistoryLine = mLineHistory.end() - 1;
 
 	mPrevText = mText;
 }
@@ -1254,9 +1262,9 @@ BOOL LLLineEditor::handleSpecialKey(KEY key, MASK mask)
 	case KEY_UP:
 		if( mHaveHistory && ( MASK_CONTROL == mask ) )
 		{
-			if( mCurrentHistoryLine > 0 )
+			if( mCurrentHistoryLine > mLineHistory.begin() )
 			{
-				mText.assign( mLineHistory[ --mCurrentHistoryLine ] );
+				mText.assign( *(--mCurrentHistoryLine) );
 				setCursor(llmin((S32)mText.length(), getCursor()));
 			}
 			else
@@ -1271,9 +1279,9 @@ BOOL LLLineEditor::handleSpecialKey(KEY key, MASK mask)
 	case KEY_DOWN:
 		if( mHaveHistory  && ( MASK_CONTROL == mask ) )
 		{
-			if( !mLineHistory.empty() && mCurrentHistoryLine < mLineHistory.size() - 1 )
+			if( !mLineHistory.empty() && mCurrentHistoryLine < mLineHistory.end() - 1 )
 			{
-				mText.assign( mLineHistory[ ++mCurrentHistoryLine ] );
+				mText.assign( *(++mCurrentHistoryLine) );
 				setCursor(llmin((S32)mText.length(), getCursor()));
 			}
 			else
@@ -1536,18 +1544,24 @@ void LLLineEditor::drawBackground()
 		image = mBgImage;
 	}
 	
+	F32 alpha = getDrawContext().mAlpha;
 	// optionally draw programmatic border
 	if (has_focus)
 	{
+		LLColor4 tmp_color = gFocusMgr.getFocusColor();
+		tmp_color.setAlpha(alpha);
 		image->drawBorder(0, 0, getRect().getWidth(), getRect().getHeight(),
-						  gFocusMgr.getFocusColor(),
+						  tmp_color,
 						  gFocusMgr.getFocusFlashWidth());
 	}
-	image->draw(getLocalRect());
+	LLColor4 tmp_color = UI_VERTEX_COLOR;
+	tmp_color.setAlpha(alpha);
+	image->draw(getLocalRect(), tmp_color);
 }
 
 void LLLineEditor::draw()
 {
+	F32 alpha = getDrawContext().mAlpha;
 	S32 text_len = mText.length();
 	static LLUICachedControl<S32> lineeditor_cursor_thickness ("UILineEditorCursorThickness", 0);
 	static LLUICachedControl<S32> lineeditor_v_pad ("UILineEditorVPad", 0);
@@ -1600,8 +1614,10 @@ void LLLineEditor::draw()
 	{
 		text_color = mReadOnlyFgColor.get();
 	}
+	text_color.setAlpha(alpha);
 	LLColor4 label_color = mTentativeFgColor.get();
-
+	label_color.setAlpha(alpha);
+	
 	if (hasPreeditString())
 	{
 		// Draw preedit markers.  This needs to be before drawing letters.
@@ -1624,7 +1640,7 @@ void LLLineEditor::draw()
 						preedit_pixels_right - preedit_standout_gap - 1,
 						background.mBottom + preedit_standout_position - preedit_standout_thickness,
 						(text_color * preedit_standout_brightness 
-						 + mPreeditBgColor * (1 - preedit_standout_brightness)).setAlpha(1.0f));
+						 + mPreeditBgColor * (1 - preedit_standout_brightness)).setAlpha(alpha/*1.0f*/));
 				}
 				else
 				{
@@ -1633,7 +1649,7 @@ void LLLineEditor::draw()
 						preedit_pixels_right - preedit_marker_gap - 1,
 						background.mBottom + preedit_marker_position - preedit_marker_thickness,
 						(text_color * preedit_marker_brightness
-						 + mPreeditBgColor * (1 - preedit_marker_brightness)).setAlpha(1.0f));
+						 + mPreeditBgColor * (1 - preedit_marker_brightness)).setAlpha(alpha/*1.0f*/));
 				}
 			}
 		}
@@ -1676,15 +1692,17 @@ void LLLineEditor::draw()
 		if( (rendered_pixels_right < (F32)mMaxHPixels) && (rendered_text < text_len) )
 		{
 			LLColor4 color = mHighlightColor;
+			color.setAlpha(alpha);
 			// selected middle
 			S32 width = mGLFont->getWidth(mText.getWString().c_str(), mScrollHPos + rendered_text, select_right - mScrollHPos - rendered_text);
 			width = llmin(width, mMaxHPixels - llround(rendered_pixels_right));
 			gl_rect_2d(llround(rendered_pixels_right), cursor_top, llround(rendered_pixels_right)+width, cursor_bottom, color);
 
+			LLColor4 tmp_color( 1.f - text_color.mV[0], 1.f - text_color.mV[1], 1.f - text_color.mV[2], alpha );
 			rendered_text += mGLFont->render( 
 				mText, mScrollHPos + rendered_text,
 				rendered_pixels_right, text_bottom,
-				LLColor4( 1.f - text_color.mV[0], 1.f - text_color.mV[1], 1.f - text_color.mV[2], 1 ),
+				tmp_color,
 				LLFontGL::LEFT, LLFontGL::BOTTOM,
 				0,
 				LLFontGL::NO_SHADOW,
@@ -1750,8 +1768,9 @@ void LLLineEditor::draw()
 					cursor_right, cursor_bottom, text_color);
 				if (LL_KIM_OVERWRITE == gKeyboard->getInsertMode() && !hasSelection())
 				{
+					LLColor4 tmp_color( 1.f - text_color.mV[0], 1.f - text_color.mV[1], 1.f - text_color.mV[2], alpha );
 					mGLFont->render(mText, getCursor(), (F32)(cursor_left + lineeditor_cursor_thickness / 2), text_bottom, 
-						LLColor4( 1.f - text_color.mV[0], 1.f - text_color.mV[1], 1.f - text_color.mV[2], 1 ),
+						tmp_color,
 						LLFontGL::LEFT, LLFontGL::BOTTOM,
 						0,
 						LLFontGL::NO_SHADOW,
@@ -2291,14 +2310,20 @@ BOOL LLLineEditor::hasPreeditString() const
 
 void LLLineEditor::resetPreedit()
 {
-	if (hasPreeditString())
+	if (hasSelection())
 	{
-		if (hasSelection())
+		if (hasPreeditString())
 		{
 			llwarns << "Preedit and selection!" << llendl;
 			deselect();
 		}
-
+		else
+		{
+			deleteSelection();
+		}
+	}
+	if (hasPreeditString())
+	{
 		const S32 preedit_pos = mPreeditPositions.front();
 		mText.erase(preedit_pos, mPreeditPositions.back() - preedit_pos);
 		mText.insert(preedit_pos, mPreeditOverwrittenWString);
@@ -2499,21 +2524,4 @@ LLWString LLLineEditor::getConvertedText() const
 		LLWStringUtil::replaceChar(text,182,'\n'); // Convert paragraph symbols back into newlines.
 	}
 	return text;
-}
-
-namespace LLInitParam
-{
-	template<>
-	bool ParamCompare<LLLinePrevalidateFunc>::equals(const LLLinePrevalidateFunc &a, const LLLinePrevalidateFunc &b)
-	{
-		return false;
-	}
-
-	template<>
-	bool ParamCompare<boost::function<void (LLLineEditor *)> >::equals(
-		const boost::function<void (LLLineEditor *)> &a,
-		const boost::function<void (LLLineEditor *)> &b)
-	{
-		return false;
-	}
 }

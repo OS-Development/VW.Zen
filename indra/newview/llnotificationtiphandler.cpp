@@ -33,6 +33,8 @@
 
 #include "llviewerprecompiledheaders.h" // must be first include
 
+#include "llfloaterreg.h"
+#include "llnearbychat.h"
 #include "llnotificationhandler.h"
 #include "lltoastnotifypanel.h"
 #include "llviewercontrol.h"
@@ -84,11 +86,26 @@ bool LLTipHandler::processNotification(const LLSD& notify)
 
 	if(notify["sigtype"].asString() == "add" || notify["sigtype"].asString() == "change")
 	{
+		// archive message in nearby chat
+		LLNearbyChat* nearby_chat = LLFloaterReg::getTypedInstance<LLNearbyChat>("nearby_chat", LLSD());
+		if(nearby_chat)
+		{
+			LLChat chat_msg(notification->getMessage());
+			nearby_chat->addMessage(chat_msg);
+
+			// don't show toast if Nearby Chat is opened
+			if (nearby_chat->getVisible())
+			{
+				return true;
+			}			
+		}
+
 		LLToastNotifyPanel* notify_box = new LLToastNotifyPanel(notification);
 
 		LLToast::Params p;
 		p.notif_id = notification->getID();
 		p.notification = notification;
+		p.lifetime_secs = gSavedSettings.getS32("NotificationTipToastLifeTime");
 		p.panel = notify_box;
 		p.is_tip = true;
 		p.can_be_stored = false;

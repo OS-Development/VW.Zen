@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  can_minimize="false"
  height="215"
  layout="topleft"
  name="settings_debug"
  help_topic="settings_debug"
- title="Debug Settings"
+ title="DEBUG SETTINGS"
  width="350">
     <combo_box
      allow_text_entry="true"

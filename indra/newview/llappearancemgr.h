@@ -46,6 +46,7 @@ public:
 	static void updateAppearanceFromCOF();
 	static bool needToSaveCOF();
 	static void changeOutfit(bool proceed, const LLUUID& category, bool append);
+	static void updateCOF(const LLUUID& category, bool append = false);
 	static void updateCOFFromCategory(const LLUUID& category, bool append);
 	static void rebuildCOFFromOutfit(const LLUUID& category);
 	static void wearInventoryCategory(LLInventoryCategory* category, bool copy, bool append);
@@ -62,12 +63,26 @@ public:
 	static LLUUID getCOF();
 
 	// Remove COF entries
-	static void removeItemLinks(LLUUID& item_id, bool do_update = true);
+	static void removeItemLinks(const LLUUID& item_id, bool do_update = true);
 
 	// For debugging - could be moved elsewhere.
-	static void dumpCat(const LLUUID& cat_id, std::string str);
+	static void dumpCat(const LLUUID& cat_id, const std::string& msg);
+	static void dumpItemArray(const LLInventoryModel::item_array_t& items, const std::string& msg);
+	static void unregisterAttachment(const LLUUID& item_id);
+	static void registerAttachment(const LLUUID& item_id);
+	static void setAttachmentInvLinkEnable(bool val);
 
 private:
+	static void filterWearableItems(LLInventoryModel::item_array_t& items, S32 max_per_type);
+	static void linkAll(const LLUUID& category,
+						LLInventoryModel::item_array_t& items,
+						LLPointer<LLInventoryCallback> cb);
+	
+	static void getDescendentsOfAssetType(const LLUUID& category, 
+										  LLInventoryModel::item_array_t& items,
+										  LLAssetType::EType type,
+										  bool follow_folder_links);
+
 	static void getCOFValidDescendents(const LLUUID& category, 
 									   LLInventoryModel::item_array_t& items);
 									   
@@ -78,6 +93,16 @@ private:
 								   bool follow_folder_links);
 	static void onWearableAssetFetch(LLWearable* wearable, void* data);
 	static void updateAgentWearables(LLWearableHoldingPattern* holder, bool append);
+	static bool isMandatoryWearableType(EWearableType type);
+	static void checkMandatoryWearableTypes(const LLUUID& category, std::set<EWearableType>& types_found);
+	static void purgeCOFBeforeRebuild(const LLUUID& category);
+	static void purgeCategory(const LLUUID& category, bool keep_outfit_links);
+
+	static std::set<LLUUID> sRegisteredAttachments;
+	static bool sAttachmentInvLinkEnabled;
+
 };
+
+#define SUPPORT_ENSEMBLES 0
 
 #endif

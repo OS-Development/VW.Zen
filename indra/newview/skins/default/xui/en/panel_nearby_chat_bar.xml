@@ -6,26 +6,32 @@
  layout="topleft"
  left="0"
  name="chat_bar"
- top="24"
- width="510">
+ top="21"
+ width="310">
+    <string name="min_width">
+        310
+    </string>
+    <string name="max_width">
+        320
+    </string>
     <line_editor
      border_style="line"
      border_thickness="1"
      follows="left|right"
-     height="20"
+     height="23"
      label="Click here to chat."
      layout="topleft"
      left_delta="7"
      left="0"
+     max_length="254"
      name="chat_box"
-     tool_tip="Press Enter to say, Ctrl-Enter to shout."
-     top="3"
+     tool_tip="Press Enter to say, Ctrl+Enter to shout"
+     top="0"
      width="250" />
     <output_monitor
      auto_update="true"
      follows="right"
      draw_border="false"
-     halign="left"
      height="16"
      layout="topleft"
      left_pad="-24"
@@ -34,34 +40,19 @@
      top="4"
      visible="true"
      width="20" />
-    <button 
-     follows="right" 
-     width="45"
-     top="3" 
-     layout="topleft" 
-     left_pad="5"
-     label="Log" 
-     height="20">
-    <button.commit_callback function="Floater.Toggle" parameter="nearby_chat"/>
-    </button>
-    <chiclet_talk
+    <button
      follows="right"
-     height="20"
-     speak_button.font="SansSerifMedium"
-     speak_button.tab_stop="true"
-     show_button.tab_stop="true"
+     is_toggle="true"
+     width="45"
+     top="0"
      layout="topleft"
-     left_pad="5"
-     name="talk"
-     top="3"
-     width="100" />
-    <gesture_combo_box
-      follows="right"
-     height="20"
-     label="Gestures"
-     layout="topleft"
-     name="Gesture"
-     left_pad="5"
-     top="3"
-     width="90" />
+     left_pad="8"
+     label="Log"
+     height="23"
+     name="show_nearby_chat"
+     tool_tip="Show/hide nearby chat log">
+        <button.init_callback
+           function="Button.SetDockableFloaterToggle"
+           parameter="nearby_chat" />
+    </button>
 </panel>

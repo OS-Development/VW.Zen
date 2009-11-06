@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  can_minimize="false"
  follows="left|top"
  height="540"
@@ -8,7 +9,7 @@
  name="floater customize"
  help_topic="floater_customize"
  save_rect="true"
- title="Appearance"
+ title="APPEARANCE"
  top_delta="-185"
  width="494">
     <tab_container
@@ -39,10 +40,10 @@
              height="18"
              image_name="Lock"
              layout="topleft"
-             left="333"
+             left="315"
              mouse_opaque="true"
              name="square"
-             top="5"
+             top="4"
              width="18" />
             <icon
              height="16"
@@ -192,7 +193,7 @@
              font="SansSerif"
              height="16"
              layout="topleft"
-             left="26"
+             left="8"
              name="title"
              top="8"
              width="355">
@@ -298,7 +299,7 @@ scratch and wear it.
              left="8"
              name="Create New"
              top="104"
-             width="120" />
+             width="140" />
             <button
              follows="right|bottom"
              height="20"
@@ -335,15 +336,16 @@ scratch and wear it.
              height="18"
              image_name="Lock"
              layout="topleft"
-             left="333"
+             left="315"
              mouse_opaque="true"
              name="square"
-             top="5"
+             top="4"
              width="18" />
             <icon
+             follows="left|top"
              height="16"
              layout="topleft"
-             left_delta="-325"
+             left="8"
              mouse_opaque="true"
              top_delta="3"
              width="16" />
@@ -398,7 +400,7 @@ scratch and wear it.
              font="SansSerif"
              height="16"
              layout="topleft"
-             left="26"
+             left="8"
              name="title"
              top="8"
              width="355">
@@ -590,15 +592,15 @@ scratch and wear it.
              height="18"
              image_name="Lock"
              layout="topleft"
-             left="333"
+             left="315"
              mouse_opaque="true"
              name="square"
-             top="5"
+             top="4"
              width="18" />
             <icon
              height="16"
              layout="topleft"
-             left_delta="-325"
+             left="8"
              mouse_opaque="true"
              top_delta="3"
              width="16" />
@@ -653,7 +655,7 @@ scratch and wear it.
              font="SansSerif"
              height="16"
              layout="topleft"
-             left="26"
+             left="8"
              name="title"
              top="8"
              width="355">
@@ -818,10 +820,10 @@ scratch and wear it.
              height="18"
              image_name="Lock"
              layout="topleft"
-             left="333"
+             left="315"
              mouse_opaque="true"
              name="square"
-             top="5"
+             top="4"
              width="18" />
             <icon
              height="16"
@@ -1006,15 +1008,15 @@ scratch and wear it.
              height="18"
              image_name="Lock"
              layout="topleft"
-             left="333"
+             left="315"
              mouse_opaque="true"
              name="square"
-             top="5"
+             top="4"
              width="18" />
             <icon
              height="16"
              layout="topleft"
-             left_delta="-325"
+             left="8"
              mouse_opaque="true"
              top_delta="3"
              width="16" />
@@ -1039,7 +1041,7 @@ scratch and wear it.
              layout="topleft"
              left_delta="0"
              name="Color/Tint"
-             tool_tip="Click to open Color Picker"
+             tool_tip="Click to open color picker"
              top_delta="80"
              width="64" />
             <button
@@ -1099,7 +1101,7 @@ scratch and wear it.
              font="SansSerif"
              height="16"
              layout="topleft"
-             left="26"
+             left="8"
              name="title"
              top="8"
              width="355">
@@ -1156,21 +1158,6 @@ scratch and wear it.
              width="373">
                 Located in [PATH]
             </text>
-            <spinner
-             decimal_digits="0"
-             follows="left|top|right"
-             height="16"
-             increment="1"
-             initial_value="0"
-             label="Item"
-             label_width="30"
-             layout="topleft"
-             left_delta="2"
-             max_val="5"
-             name="index"
-             text_enabled_color="110, 15, 15, 255"
-             top_pad="6"
-             width="87" />
             <text
              type="string"
              length="1"
@@ -1227,15 +1214,15 @@ scratch and wear it.
              height="18"
              image_name="Lock"
              layout="topleft"
-             left="333"
+             left="315"
              mouse_opaque="true"
              name="square"
-             top="5"
+             top="4"
              width="18" />
             <icon
              height="16"
              layout="topleft"
-             left_delta="-325"
+             left="8"
              mouse_opaque="true"
              top_delta="3"
              width="16" />
@@ -1260,7 +1247,7 @@ scratch and wear it.
              layout="topleft"
              left_delta="0"
              name="Color/Tint"
-             tool_tip="Click to open Color Picker"
+             tool_tip="Click to open color picker"
              top_delta="80"
              width="64" />
             <button
@@ -1320,7 +1307,7 @@ scratch and wear it.
              font="SansSerif"
              height="16"
              layout="topleft"
-             left="26"
+             left="8"
              name="title"
              top="8"
              width="355">
@@ -1377,21 +1364,6 @@ scratch and wear it.
              width="373">
                 Located in [PATH]
             </text>
-            <spinner
-             decimal_digits="0"
-             follows="left|top|right"
-             height="16"
-             increment="1"
-             initial_value="0"
-             label="Item"
-             label_width="30"
-             layout="topleft"
-             left_delta="2"
-             max_val="5"
-             name="index"
-             text_enabled_color="110, 15, 15, 255"
-             top_pad="6"
-             width="87" />
             <text
              type="string"
              length="1"
@@ -1448,10 +1420,10 @@ scratch and wear it.
              height="18"
              image_name="Lock"
              layout="topleft"
-             left="333"
+             left="315"
              mouse_opaque="true"
              name="square"
-             top="5"
+             top="4"
              width="18" />
             <icon
              height="16"
@@ -1524,21 +1496,6 @@ scratch and wear it.
              width="373">
                 Located in [PATH]
             </text>
-            <spinner
-             decimal_digits="0"
-             follows="left|top|right"
-             height="16"
-             increment="1"
-             initial_value="0"
-             label="Item"
-             label_width="30"
-             layout="topleft"
-             left_delta="2"
-             max_val="5"
-             name="index"
-             text_enabled_color="110, 15, 15, 255"
-             top_pad="6"
-             width="87" />
             <text
              type="string"
              length="1"
@@ -1600,7 +1557,7 @@ scratch and wear it.
              layout="topleft"
              left_delta="0"
              name="Color/Tint"
-             tool_tip="Click to open Color Picker"
+             tool_tip="Click to open color picker"
              top_delta="80"
              width="64" />
             <button
@@ -1669,10 +1626,10 @@ scratch and wear it.
              height="18"
              image_name="Lock"
              layout="topleft"
-             left="333"
+             left="315"
              mouse_opaque="true"
              name="square"
-             top="5"
+             top="4"
              width="18" />
             <icon
              height="16"
@@ -1745,21 +1702,6 @@ scratch and wear it.
              width="373">
                 Located in [PATH]
             </text>
-            <spinner
-             decimal_digits="0"
-             follows="left|top|right"
-             height="16"
-             increment="1"
-             initial_value="0"
-             label="Item"
-             label_width="30"
-             layout="topleft"
-             left_delta="2"
-             max_val="5"
-             name="index"
-             text_enabled_color="110, 15, 15, 255"
-             top_pad="6"
-             width="87" />
             <text
              type="string"
              length="1"
@@ -1821,7 +1763,7 @@ scratch and wear it.
              layout="topleft"
              left_delta="0"
              name="Color/Tint"
-             tool_tip="Click to open Color Picker"
+             tool_tip="Click to open color picker"
              top_delta="80"
              width="64" />
             <button
@@ -1890,10 +1832,10 @@ scratch and wear it.
              height="18"
              image_name="Lock"
              layout="topleft"
-             left="333"
+             left="315"
              mouse_opaque="true"
              name="square"
-             top="5"
+             top="4"
              width="18" />
             <icon
              height="16"
@@ -1966,21 +1908,6 @@ scratch and wear it.
              width="373">
                 Located in [PATH]
             </text>
-            <spinner
-             decimal_digits="0"
-             follows="left|top|right"
-             height="16"
-             increment="1"
-             initial_value="0"
-             label="Item"
-             label_width="30"
-             layout="topleft"
-             left_delta="2"
-             max_val="5"
-             name="index"
-             text_enabled_color="110, 15, 15, 255"
-             top_pad="6"
-             width="87" />
             <text
              type="string"
              length="1"
@@ -2054,7 +1981,7 @@ scratch and wear it.
              layout="topleft"
              left_delta="0"
              name="Color/Tint"
-             tool_tip="Click to open Color Picker"
+             tool_tip="Click to open color picker"
              top_delta="80"
              width="64" />
             <button
@@ -2123,10 +2050,10 @@ scratch and wear it.
              height="18"
              image_name="Lock"
              layout="topleft"
-             left="333"
+             left="315"
              mouse_opaque="true"
              name="square"
-             top="5"
+             top="4"
              width="18" />
             <icon
              height="16"
@@ -2199,21 +2126,6 @@ scratch and wear it.
              width="373">
                 Located in [PATH]
             </text>
-            <spinner
-             decimal_digits="0"
-             follows="left|top|right"
-             height="16"
-             increment="1"
-             initial_value="0"
-             label="Item"
-             label_width="30"
-             layout="topleft"
-             left_delta="2"
-             max_val="5"
-             name="index"
-             text_enabled_color="110, 15, 15, 255"
-             top_pad="6"
-             width="87" />
             <text
              type="string"
              length="1"
@@ -2275,7 +2187,7 @@ scratch and wear it.
              layout="topleft"
              left_delta="0"
              name="Color/Tint"
-             tool_tip="Click to open Color Picker"
+             tool_tip="Click to open color picker"
              top_delta="80"
              width="64" />
             <button
@@ -2344,10 +2256,10 @@ scratch and wear it.
              height="18"
              image_name="Lock"
              layout="topleft"
-             left="333"
+             left="315"
              mouse_opaque="true"
              name="square"
-             top="5"
+             top="4"
              width="18" />
             <icon
              height="16"
@@ -2420,21 +2332,6 @@ scratch and wear it.
              width="373">
                 Located in [PATH]
             </text>
-            <spinner
-             decimal_digits="0"
-             follows="left|top|right"
-             height="16"
-             increment="1"
-             initial_value="0"
-             label="Item"
-             label_width="30"
-             layout="topleft"
-             left_delta="2"
-             max_val="5"
-             name="index"
-             text_enabled_color="110, 15, 15, 255"
-             top_pad="6"
-             width="87" />
             <text
              type="string"
              length="1"
@@ -2496,7 +2393,7 @@ scratch and wear it.
              layout="topleft"
              left_delta="0"
              name="Color/Tint"
-             tool_tip="Click to open Color Picker"
+             tool_tip="Click to open color picker"
              top_delta="80"
              width="64" />
             <button
@@ -2565,10 +2462,10 @@ scratch and wear it.
              height="18"
              image_name="Lock"
              layout="topleft"
-             left="333"
+             left="315"
              mouse_opaque="true"
              name="square"
-             top="5"
+             top="4"
              width="18" />
             <icon
              height="16"
@@ -2641,21 +2538,6 @@ scratch and wear it.
              width="373">
                 Located in [PATH]
             </text>
-            <spinner
-             decimal_digits="0"
-             follows="left|top|right"
-             height="16"
-             increment="1"
-             initial_value="0"
-             label="Item"
-             label_width="30"
-             layout="topleft"
-             left_delta="2"
-             max_val="5"
-             name="index"
-             text_enabled_color="110, 15, 15, 255"
-             top_pad="6"
-             width="87" />
             <text
              type="string"
              length="1"
@@ -2717,7 +2599,7 @@ scratch and wear it.
              layout="topleft"
              left_delta="0"
              name="Color/Tint"
-             tool_tip="Click to open Color Picker"
+             tool_tip="Click to open color picker"
              top_delta="80"
              width="64" />
             <button
@@ -2786,10 +2668,10 @@ scratch and wear it.
              height="18"
              image_name="Lock"
              layout="topleft"
-             left="333"
+             left="315"
              mouse_opaque="true"
              name="square"
-             top="5"
+             top="4"
              width="18" />
             <icon
              height="16"
@@ -2862,21 +2744,6 @@ scratch and wear it.
              width="373">
                 Located in [PATH]
             </text>
-            <spinner
-             decimal_digits="0"
-             follows="left|top|right"
-             height="16"
-             increment="1"
-             initial_value="0"
-             label="Item"
-             label_width="30"
-             layout="topleft"
-             left_delta="2"
-             max_val="5"
-             name="index"
-             text_enabled_color="110, 15, 15, 255"
-             top_pad="6"
-             width="87" />
             <text
              type="string"
              length="1"
@@ -2938,7 +2805,7 @@ scratch and wear it.
              layout="topleft"
              left_delta="0"
              name="Color/Tint"
-             tool_tip="Click to open Color Picker"
+             tool_tip="Click to open color picker"
              top_delta="80"
              width="64" />
             <button
@@ -3007,10 +2874,10 @@ scratch and wear it.
              height="18"
              image_name="Lock"
              layout="topleft"
-             left="333"
+             left="315"
              mouse_opaque="true"
              name="square"
-             top="5"
+             top="4"
              width="18" />
             <icon
              height="16"
@@ -3083,21 +2950,6 @@ scratch and wear it.
              width="373">
                 Located in [PATH]
             </text>
-            <spinner
-             decimal_digits="0"
-             follows="left|top|right"
-             height="16"
-             increment="1"
-             initial_value="0"
-             label="Item"
-             label_width="30"
-             layout="topleft"
-             left_delta="2"
-             max_val="5"
-             name="index"
-             text_enabled_color="110, 15, 15, 255"
-             top_pad="6"
-             width="87" />
             <text
              type="string"
              length="1"
@@ -3309,10 +3161,10 @@ scratch and wear it.
              height="18"
              image_name="Lock"
              layout="topleft"
-             left="333"
+             left="315"
              mouse_opaque="true"
              name="square"
-             top="5"
+             top="4"
              width="18" />
             <icon
              height="16"
@@ -3385,21 +3237,6 @@ scratch and wear it.
              width="373">
                 Located in [PATH]
             </text>
-            <spinner
-             decimal_digits="0"
-             follows="left|top|right"
-             height="16"
-             increment="1"
-             initial_value="0"
-             label="Item"
-             label_width="30"
-             layout="topleft"
-             left_delta="2"
-             max_val="5"
-             name="index"
-             text_enabled_color="110, 15, 15, 255"
-             top_pad="6"
-             width="87" />
             <text
              type="string"
              length="1"

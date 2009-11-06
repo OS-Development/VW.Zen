@@ -69,11 +69,11 @@ LLVector3 LLDrawPoolWater::sLightDir;
 LLDrawPoolWater::LLDrawPoolWater() :
 	LLFacePool(POOL_WATER)
 {
-	mHBTex[0] = LLViewerTextureManager::getFetchedTexture(gSunTextureID, TRUE, TRUE);
+	mHBTex[0] = LLViewerTextureManager::getFetchedTexture(gSunTextureID, TRUE, LLViewerTexture::BOOST_UI);
 	gGL.getTexUnit(0)->bind(mHBTex[0]) ;
 	mHBTex[0]->setAddressMode(LLTexUnit::TAM_CLAMP);
 
-	mHBTex[1] = LLViewerTextureManager::getFetchedTexture(gMoonTextureID, TRUE, TRUE);
+	mHBTex[1] = LLViewerTextureManager::getFetchedTexture(gMoonTextureID, TRUE, LLViewerTexture::BOOST_UI);
 	gGL.getTexUnit(0)->bind(mHBTex[1]);
 	mHBTex[1]->setAddressMode(LLTexUnit::TAM_CLAMP);
 
@@ -369,7 +369,7 @@ void LLDrawPoolWater::shade()
 	LLVector3 light_dir;
 	LLColor3 light_color;
 
-	if (gSky.getSunDirection().mV[2] > NIGHTTIME_ELEVATION_COS) 	 
+	if (gSky.getSunDirection().mV[2] > LLSky::NIGHTTIME_ELEVATION_COS) 	 
     { 	 
         light_dir  = gSky.getSunDirection(); 	 
         light_dir.normVec(); 	

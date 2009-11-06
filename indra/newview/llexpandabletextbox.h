@@ -60,23 +60,13 @@ protected:
 
 		// adds or removes "More" link as needed
 		/*virtual*/ void reshape(S32 width, S32 height, BOOL called_from_parent = TRUE);
-		/*virtual*/ void setValue(const LLSD& value);
+		/*virtual*/ void setText(const LLStringExplicit& text);
 
 		/**
 		 * Returns difference between text box height and text height.
 		 * Value is positive if text height is greater than text box height.
 		 */
 		virtual S32 getVerticalTextDelta();
-
-		/**
-		 * Returns text vertical padding
-		 */
-		virtual S32 getVPad() { return mVPad; }
-
-		/**
-		 * Returns text horizontal padding
-		 */
-		virtual S32 getHPad() { return mHPad; }
 
 		/**
 		 * Shows "More" link

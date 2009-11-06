@@ -38,53 +38,79 @@
 #include "llbutton.h"
 #include "lltextbox.h"
 
+#include "llcallingcard.h" // for LLFriendObserver
+
 class LLAvatarIconCtrl;
 
-class LLAvatarListItem : public LLPanel
+class LLAvatarListItem : public LLPanel, public LLFriendObserver
 {
 public:
 	class ContextMenu
 	{
 	public:
-		virtual void show(LLView* spawning_view, const LLUUID& id, S32 x, S32 y) = 0;
+		virtual void show(LLView* spawning_view, const std::vector<LLUUID>& selected_uuids, S32 x, S32 y) = 0;
 	};
 
 	LLAvatarListItem();
-	virtual ~LLAvatarListItem() {};
+	virtual ~LLAvatarListItem();
 
 	virtual BOOL postBuild();
 	virtual void onMouseLeave(S32 x, S32 y, MASK mask);
 	virtual void onMouseEnter(S32 x, S32 y, MASK mask);
-	virtual BOOL handleRightMouseDown(S32 x, S32 y, MASK mask);
 	virtual void setValue(const LLSD& value);
+	virtual void changed(U32 mask); // from LLFriendObserver
 
-	void setStatus(const std::string& status);
+	void setOnline(bool online);
 	void setName(const std::string& name);
-	void setAvatarId(const LLUUID& id);
+	void setAvatarId(const LLUUID& id, bool ignore_status_changes = false);
+	void setLastInteractionTime(const std::string& val);
+	//Show/hide profile/info btn, translating speaker indicator and avatar name coordinates accordingly
+	void setShowProfileBtn(bool show);
+	void setShowInfoBtn(bool show);
+	void setSpeakingIndicatorVisible(bool visible);
+	void setAvatarIconVisible(bool visible);
 	
 	const LLUUID& getAvatarId() const;
 	const std::string getAvatarName() const;
 
 	void onInfoBtnClick();
+	void onProfileBtnClick();
 
 	void showSpeakingIndicator(bool show) { mSpeakingIndicator->setVisible(show); }
 	void showInfoBtn(bool show_info_btn) {mInfoBtn->setVisible(show_info_btn); }
-	void showStatus(bool show_status);
+	void showLastInteractionTime(bool show);
 
 	void setContextMenu(ContextMenu* menu) { mContextMenu = menu; }
 
 private:
+
+	typedef enum e_online_status {
+		E_OFFLINE,
+		E_ONLINE,
+		E_UNKNOWN,
+	} EOnlineStatus;
+
 	void onNameCache(const std::string& first_name, const std::string& last_name);
 
-	LLAvatarIconCtrl*mAvatarIcon;
+	LLAvatarIconCtrl* mAvatarIcon;
 	LLTextBox* mAvatarName;
-	LLTextBox* mStatus;
+	LLTextBox* mLastInteractionTime;
 	
 	LLOutputMonitorCtrl* mSpeakingIndicator;
 	LLButton* mInfoBtn;
+	LLButton* mProfileBtn;
 	ContextMenu* mContextMenu;
 
 	LLUUID mAvatarId;
+	EOnlineStatus mOnlineStatus;
+	//Flag indicating that info/profile button shouldn't be shown at all.
+	//Speaker indicator and avatar name coords are translated accordingly
+	bool mShowInfoBtn;
+	bool mShowProfileBtn;
+	S32	 mIconWidth; // icon width + padding
+	S32  mInfoBtnWidth; //info btn width + padding
+	S32  mProfileBtnWidth; //profile btn width + padding
+	S32  mSpeakingIndicatorWidth; //speaking indicator width + padding
 };
 
 #endif //LL_LLAVATARLISTITEM_H

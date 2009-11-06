@@ -93,6 +93,7 @@ public:
 	virtual BOOL	handleKeyHere(KEY key, MASK mask);
 	virtual BOOL	handleMouseDown(S32 x, S32 y, MASK mask);
 	virtual BOOL	handleMouseUp(S32 x, S32 y, MASK mask);
+	virtual BOOL	handleDoubleClick(S32 x, S32 y, MASK mask);
 	virtual BOOL	handleHover(S32 x, S32 y, MASK mask);
 	virtual BOOL	handleScrollWheel(S32 x, S32 y, S32 clicks);
 	virtual BOOL	handleDragAndDrop(S32 x, S32 y, MASK mask, BOOL drop, 
@@ -108,7 +109,7 @@ public:
 
 	// How many "lines" the "document" has scrolled.
 	// 0 <= DocPos <= DocSize - DocVisibile
-	void				setDocPos( S32 pos, BOOL update_thumb = TRUE );
+	bool				setDocPos( S32 pos, BOOL update_thumb = TRUE );
 	S32					getDocPos() const		{ return mDocPos; }
 
 	BOOL				isAtBeginning();
@@ -132,7 +133,7 @@ public:
 
 private:
 	void				updateThumbRect();
-	void				changeLine(S32 delta, BOOL update_thumb );
+	bool				changeLine(S32 delta, BOOL update_thumb );
 
 	callback_t			mChangeCallback;
 
@@ -166,12 +167,5 @@ private:
 	S32					mThickness;
 };
 
-
-namespace LLInitParam
-{
-    template<>
-	bool ParamCompare<boost::function<void (S32, LLScrollbar*)> >::equals(
-		const boost::function<void (S32, LLScrollbar*)> &a, const boost::function<void (S32, LLScrollbar*)> &b); 
-}
 
 #endif  // LL_SCROLLBAR_H

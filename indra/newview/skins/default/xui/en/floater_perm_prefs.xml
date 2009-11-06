@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  height="180"
  layout="topleft"
  name="perm prefs"
  help_topic="perm_prefs"
  save_rect="true"
- title="Default Upload Permissions"
+ title="DEFAULT UPLOAD PERMISSIONS"
  width="315">
     <panel
      follows="left|top|right|bottom"
@@ -16,20 +17,6 @@
      name="permissions"
      top="20"
      width="315">
-        <button
-         follows="left"
-         height="18"
-         label="?"
-         label_selected="?"
-         layout="topleft"
-         left="260"
-         name="help"
-         top="7"
-         width="22">
-            <button.commit_callback
-            function="Notification.Show" 
-			parameter="ClickUploadHelpPermissions" />
-        </button>
         <check_box
          control_name="ShareWithGroup"
          height="16"

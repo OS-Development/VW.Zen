@@ -72,7 +72,6 @@
 #include "llviewercontrol.h"
 #include "lldrawpool.h"
 #include "llfirstuse.h"
-#include "llfloateractivespeakers.h"
 #include "llfloateranimpreview.h"
 #include "llfloaterbuycurrency.h"
 #include "llfloaterbuyland.h"
@@ -89,12 +88,13 @@
 #include "llhudeffect.h"
 #include "llhudeffecttrail.h"
 #include "llhudmanager.h"
-#include "llimpanel.h"
 #include "llinventorymodel.h"
+#include "llinventorypanel.h"
 #include "llfloaterinventory.h"
 #include "llmenugl.h"
 #include "llmoveview.h"
 #include "llmutelist.h"
+#include "llnearbychat.h"
 #include "llnotifications.h"
 #include "llnotify.h"
 #include "llpanelgrouplandmoney.h"
@@ -140,7 +140,7 @@
 #include "llgroupactions.h"
 #include "llagentui.h"
 #include "llpanelblockedlist.h"
-#include "llpanelplaceinfo.h"
+#include "llpanelplaceprofile.h"
 
 #include <boost/tokenizer.hpp>
 #include <boost/algorithm/string/split.hpp>
@@ -209,7 +209,6 @@ const BOOL SCRIPT_QUESTION_IS_CAUTION[SCRIPT_PERMISSION_EOF] =
 bool friendship_offer_callback(const LLSD& notification, const LLSD& response)
 {
 	S32 option = LLNotification::getSelectedOption(notification, response);
-	LLUUID fid;
 	LLMessageSystem* msg = gMessageSystem;
 	const LLSD& payload = notification["payload"];
 
@@ -219,10 +218,11 @@ bool friendship_offer_callback(const LLSD& notification, const LLSD& response)
 	switch(option)
 	{
 	case 0:
+	{
 		// accept
 		LLAvatarTracker::formFriendship(payload["from_id"]);
 
-		fid = gInventory.findCategoryUUIDForType(LLAssetType::AT_CALLINGCARD);
+		const LLUUID fid = gInventory.findCategoryUUIDForType(LLFolderType::FT_CALLINGCARD);
 
 		// This will also trigger an onlinenotification if the user is online
 		msg->newMessageFast(_PREHASH_AcceptFriendship);
@@ -235,7 +235,9 @@ bool friendship_offer_callback(const LLSD& notification, const LLSD& response)
 		msg->addUUIDFast(_PREHASH_FolderID, fid);
 		msg->sendReliable(LLHost(payload["sender"].asString()));
 		break;
+	}
 	case 1:
+	{
 		// decline
 		// We no longer notify other viewers, but we DO still send
 		// the rejection to the simulator to delete the pending userop.
@@ -247,6 +249,7 @@ bool friendship_offer_callback(const LLSD& notification, const LLSD& response)
 		msg->addUUIDFast(_PREHASH_TransactionID, payload["session_id"]);
 		msg->sendReliable(LLHost(payload["sender"].asString()));
 		break;
+	}
 	default:
 		// close button probably, possibly timed out
 		break;
@@ -767,8 +770,7 @@ public:
 	virtual void done()
 	{
 		LL_DEBUGS("Messaging") << "LLDiscardAgentOffer::done()" << LL_ENDL;
-		LLUUID trash_id;
-		trash_id = gInventory.findCategoryUUIDForType(LLAssetType::AT_TRASH);
+		const LLUUID trash_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_TRASH);
 		bool notify = false;
 		if(trash_id.notNull() && mObjectID.notNull())
 		{
@@ -875,7 +877,7 @@ void open_offer(const std::vector<LLUUID>& items, const std::string& from_name)
 {
 	std::vector<LLUUID>::const_iterator it = items.begin();
 	std::vector<LLUUID>::const_iterator end = items.end();
-	LLUUID trash_id(gInventory.findCategoryUUIDForType(LLAssetType::AT_TRASH));
+	const LLUUID trash_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_TRASH);
 	LLInventoryItem* item;
 	for(; it != end; ++it)
 	{
@@ -946,13 +948,12 @@ void open_offer(const std::vector<LLUUID>& items, const std::string& from_name)
 		}
 
 		//Trash Check
-		LLUUID trash_id;
-		trash_id = gInventory.findCategoryUUIDForType(LLAssetType::AT_TRASH);
+		const LLUUID trash_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_TRASH);
 		if(gInventory.isObjectDescendentOf(item->getUUID(), trash_id))
 		{
 			return;
 		}
-		LLUUID lost_and_found_id = gInventory.findCategoryUUIDForType(LLAssetType::AT_LOST_AND_FOUND);
+		const LLUUID lost_and_found_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_LOST_AND_FOUND);
 		//BOOL inventory_has_focus = gFocusMgr.childHasKeyboardFocus(view);
 		BOOL user_is_away = gAwayTimer.getStarted();
 
@@ -1596,8 +1597,12 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 			// Claim to be from a local agent so it doesn't go into
 			// console.
 			chat.mText = name + separator_string + message.substr(message_offset);
-			BOOL local_agent = TRUE;
-			LLFloaterChat::addChat(chat, FALSE, local_agent);
+
+			LLNearbyChat* nearby_chat = LLFloaterReg::getTypedInstance<LLNearbyChat>("nearby_chat", LLSD());
+			if(nearby_chat)
+			{
+				nearby_chat->addMessage(chat);
+			}
 		}
 		else
 		{
@@ -1712,7 +1717,7 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 				info->mFromGroup = from_group;
 				info->mTransactionID = session_id;
 				info->mType = (LLAssetType::EType) asset_type;
-				info->mFolderID = gInventory.findCategoryUUIDForType(info->mType);
+				info->mFolderID = gInventory.findCategoryUUIDForType(LLFolderType::assetTypeToFolderType(info->mType));
 				std::string from_name;
 
 				from_name += "A group member named ";
@@ -1846,7 +1851,7 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 			info->mFromID = from_id;
 			info->mFromGroup = from_group;
 			info->mTransactionID = session_id;
-			info->mFolderID = gInventory.findCategoryUUIDForType(info->mType);
+			info->mFolderID = gInventory.findCategoryUUIDForType(LLFolderType::assetTypeToFolderType(info->mType));
 
 			if (dialog == IM_TASK_INVENTORY_OFFERED)
 			{
@@ -1946,46 +1951,10 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 			{
 				return;
 			}
-			chat.mText = name + separator_string + message.substr(message_offset);
-			chat.mFromName = name;
 
-			// Build a link to open the object IM info window.
-			std::string location = ll_safe_string((char*)binary_bucket,binary_bucket_size);
-			
-			LLSD query_string;
-			query_string["owner"] = from_id;
-			query_string["slurl"] = location.c_str();
-			query_string["name"] = name;
-			if (from_group)
-			{
-				query_string["groupowned"] = "true";
-			}	
-
-			if (session_id.notNull())
-			{
-				chat.mFromID = session_id;
-			}
-			else
-			{
-				// This message originated on a region without the updated code for task id and slurl information.
-				// We just need a unique ID for this object that isn't the owner ID.
-				// If it is the owner ID it will overwrite the style that contains the link to that owner's profile.
-				// This isn't ideal - it will make 1 style for all objects owned by the the same person/group.
-				// This works because the only thing we can really do in this case is show the owner name and link to their profile.
-				chat.mFromID = from_id ^ gAgent.getSessionID();
-			}
-
-			std::ostringstream link;
-			link << "secondlife:///app/objectim/" << session_id
-					<< LLURI::mapToQueryString(query_string);
-
-			chat.mURL = link.str();
-			chat.mText = name + separator_string + message.substr(message_offset);
-
-			// Note: lie to LLFloaterChat::addChat(), pretending that this is NOT an IM, because
-			// IMs from objcts don't open IM sessions.
-			chat.mSourceType = CHAT_SOURCE_OBJECT;
-			LLFloaterChat::addChat(chat, FALSE, FALSE);
+			LLSD substitutions;
+			substitutions["MSG"] = message.substr(message_offset);
+			LLNotifications::instance().add("ServerObjectMessage", substitutions);
 		}
 		break;
 	case IM_FROM_TASK_AS_ALERT:
@@ -2176,7 +2145,7 @@ bool callingcard_offer_callback(const LLSD& notification, const LLSD& response)
 		msg->addUUIDFast(_PREHASH_SessionID, gAgent.getSessionID());
 		msg->nextBlockFast(_PREHASH_TransactionBlock);
 		msg->addUUIDFast(_PREHASH_TransactionID, notification["payload"]["transaction_id"].asUUID());
-		fid = gInventory.findCategoryUUIDForType(LLAssetType::AT_CALLINGCARD);
+		fid = gInventory.findCategoryUUIDForType(LLFolderType::FT_CALLINGCARD);
 		msg->nextBlockFast(_PREHASH_FolderData);
 		msg->addUUIDFast(_PREHASH_FolderID, fid);
 		msg->sendReliable(LLHost(notification["payload"]["sender"].asString()));
@@ -2413,7 +2382,7 @@ void process_chat_from_simulator(LLMessageSystem *msg, void **user_data)
 			switch(chat.mChatType)
 			{
 			case CHAT_TYPE_WHISPER:
-				verb = "(" + LLTrans::getString("whisper") + ")";
+				verb = LLTrans::getString("whisper") + " ";
 				break;
 			case CHAT_TYPE_DEBUG_MSG:
 			case CHAT_TYPE_OWNER:
@@ -2421,7 +2390,7 @@ void process_chat_from_simulator(LLMessageSystem *msg, void **user_data)
 				verb = "";
 				break;
 			case CHAT_TYPE_SHOUT:
-				verb = "(" + LLTrans::getString("shout") + ")";
+				verb = LLTrans::getString("shout") + " ";
 				break;
 			case CHAT_TYPE_START:
 			case CHAT_TYPE_STOP:
@@ -2629,11 +2598,10 @@ BOOL LLPostTeleportNotifiers::tick()
 	{
 		// get callingcards and landmarks available to the user arriving.
 		LLInventoryFetchDescendentsObserver::folder_ref_t folders;
-		LLUUID folder_id;
-		folder_id = gInventory.findCategoryUUIDForType(LLAssetType::AT_CALLINGCARD);
-		if(folder_id.notNull()) 
-			folders.push_back(folder_id);
-		folder_id = gInventory.findCategoryUUIDForType(LLAssetType::AT_LANDMARK);
+		const LLUUID callingcard_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_CALLINGCARD);
+		if(callingcard_id.notNull()) 
+			folders.push_back(callingcard_id);
+		const LLUUID folder_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_LANDMARK);
 		if(folder_id.notNull()) 
 			folders.push_back(folder_id);
 		if(!folders.empty())
@@ -2946,46 +2914,37 @@ void process_agent_movement_complete(LLMessageSystem* msg, void**)
 
 	if (!gLastVersionChannel.empty())
 	{
-		LLSD payload;
-		payload["message"] = version_channel;
-		LLNotifications::instance().add("ServerVersionChanged", LLSD(), payload, server_version_changed_callback);
+		// work out the URL for this server's Release Notes
+		std::string url ="http://wiki.secondlife.com/wiki/Release_Notes/";
+		std::string server_version = version_channel;
+		std::vector<std::string> s_vect;
+		boost::algorithm::split(s_vect, server_version, isspace);
+		for(U32 i = 0; i < s_vect.size(); i++)
+		{
+			if (i != (s_vect.size() - 1))
+			{
+				if(i != (s_vect.size() - 2))
+				{
+				   url += s_vect[i] + "_";
+				}
+				else
+				{
+					url += s_vect[i] + "/";
+				}
+			}
+			else
+			{
+				url += s_vect[i].substr(0,4);
+			}
+		}
+
+		LLSD args;
+		args["URL"] = url;
+		LLNotifications::instance().add("ServerVersionChanged", args);
 	}
 
 	gLastVersionChannel = version_channel;
 }
-
-bool server_version_changed_callback(const LLSD& notification, const LLSD& response)
-{
-	if(notification["payload"]["message"].asString() =="")
-		return false;
-	std::string url ="http://wiki.secondlife.com/wiki/Release_Notes/";
-	//parse the msg string
-	std::string server_version = notification["payload"]["message"].asString();
-	std::vector<std::string> s_vect;
-	boost::algorithm::split(s_vect, server_version, isspace);
-	for(U32 i = 0; i < s_vect.size(); i++)
-	{
-    	if (i != (s_vect.size() - 1))
-		{
-			if(i != (s_vect.size() - 2))
-			{
-			   url += s_vect[i] + "_";
-			}
-			else
-			{
-				url += s_vect[i] + "/";
-			}
-		}
-		else
-		{
-			url += s_vect[i].substr(0,4);
-		}
-	}
-	
-	LLWeb::loadURL(url);
-	return false;
-}
-
 
 void process_crossed_region(LLMessageSystem* msg, void**)
 {
@@ -4851,7 +4810,7 @@ void container_inventory_arrived(LLViewerObject* object,
 		// create a new inventory category to put this in
 		LLUUID cat_id;
 		cat_id = gInventory.createNewCategory(gInventory.getRootFolderID(),
-											  LLAssetType::AT_NONE,
+											  LLFolderType::FT_NONE,
 											  LLTrans::getString("AcquiredItems"));
 
 		InventoryObjectList::const_iterator it = inventory->begin();
@@ -4901,7 +4860,7 @@ void container_inventory_arrived(LLViewerObject* object,
 		}
 
 		LLInventoryItem* item = (LLInventoryItem*)((LLInventoryObject*)(*it));
-		LLUUID category = gInventory.findCategoryUUIDForType(item->getType());
+		const LLUUID category = gInventory.findCategoryUUIDForType(LLFolderType::assetTypeToFolderType(item->getType()));
 
 		LLUUID item_id;
 		item_id.generate();
@@ -5581,7 +5540,7 @@ void process_covenant_reply(LLMessageSystem* msg, void**)
 	LLPanelLandCovenant::updateEstateOwnerName(owner_name);
 	LLFloaterBuyLand::updateEstateOwnerName(owner_name);
 
-	LLPanelPlaceInfo* panel = LLSideTray::getInstance()->findChild<LLPanelPlaceInfo>("panel_place_info");
+	LLPanelPlaceProfile* panel = LLSideTray::getInstance()->findChild<LLPanelPlaceProfile>("panel_place_profile");
 	if (panel)
 	{
 		panel->updateEstateName(estate_name);
@@ -5715,7 +5674,7 @@ void onCovenantLoadComplete(LLVFS *vfs,
 	LLPanelLandCovenant::updateCovenantText(covenant_text);
 	LLFloaterBuyLand::updateCovenantText(covenant_text, asset_uuid);
 
-	LLPanelPlaceInfo* panel = dynamic_cast<LLPanelPlaceInfo*>(LLSideTray::getInstance()->showPanel("panel_place_info", LLSD()));
+	LLPanelPlaceProfile* panel = LLSideTray::getInstance()->findChild<LLPanelPlaceProfile>("panel_place_profile");
 	if (panel)
 	{
 		panel->updateCovenantText(covenant_text);

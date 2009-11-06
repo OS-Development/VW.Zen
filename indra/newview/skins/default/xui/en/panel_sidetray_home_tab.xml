@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<!-- Part of side tray, see that XML file for panel config -->
 <panel
- background_visible="true"
- bevel_style="in"
- follows="left|top|right|bottom"
- height="420"
+ follows="all"
+ height="560"
  label="home_tab"
  layout="topleft"
  name="home_tab"
@@ -13,38 +12,37 @@
      bg_alpha_color="DkGray2"
      class="panel_sidetray_home_info"
      follows="left|top|right"
-     height="130"
+     height="90"
      layout="topleft"
-     left="10"
+     left="15"
+     top="17"
      name="sidebar_people"
-     width="313">
+     width="303">
         <text
          follows="left|right|top"
          font="SansSerifBigBold"
          height="30"
          layout="topleft"
-         left="5"
+         left="10"
          mouse_opaque="false"
          name="tab_name"
-         text_color="white"
+         text_color="EmphasisColor"
          top="10"
          value="People"
          width="200"
          word_wrap="true" />
         <icon
-         color="DkGray"
          follows="top|right"
          height="20"
          layout="topleft"
          name="tab_icon"
          right="-10"
          top="10"
-         image_name="TabIcon_People_Off"
+         image_name="TabIcon_People_Selected"
          width="20" />
         <text
          follows="left|right|bottom"
-         font="SansSerifBold"
-         height="120"
+         height="90"
          layout="topleft"
          left="10"
          mouse_opaque="false"
@@ -61,38 +59,37 @@
      bg_alpha_color="DkGray2"
      class="panel_sidetray_home_info"
      follows="left|top|right"
-     height="130"
+     height="90"
      layout="topleft"
-     left="10"
+     left="15"
+     top_pad="15"
      name="sidebar_places"
-     width="313">
+     width="303">
         <text
          follows="left|right|top"
          font="SansSerifBigBold"
          height="30"
          layout="topleft"
-         left="5"
+         left="10"
          mouse_opaque="false"
          name="tab_name"
-         text_color="white"
+         text_color="EmphasisColor"
          top="10"
          value="Places"
          width="200"
          word_wrap="true" />
         <icon
-         color="DkGray"
          follows="top|right"
          height="20"
          layout="topleft"
          name="tab_icon"
          right="-10"
          top="10"
-         width="20" 
+         width="20"
          image_name="TabIcon_Places_Selected"/>
         <text
-         follows="left|right|bottom|top"
-         font="SansSerifBold"
-         height="120"
+         follows="all"
+         height="90"
          layout="topleft"
          left="10"
          mouse_opaque="false"
@@ -109,38 +106,37 @@
      bg_alpha_color="DkGray2"
      class="panel_sidetray_home_info"
      follows="left|top|right"
-     height="130"
+     height="90"
      layout="topleft"
-     left="10"
+     left="15"
+     top_pad="15"
      name="sidebar_me"
-     width="313">
+     width="303">
         <text
          follows="left|right|top"
          font="SansSerifBigBold"
          height="30"
          layout="topleft"
-         left="5"
+         left="10"
          mouse_opaque="false"
          name="tab_name"
-         text_color="white"
+         text_color="EmphasisColor"
          top="10"
          value="My Profile"
          width="200"
          word_wrap="true" />
         <icon
-         color="DkGray"
          follows="top|right"
          height="20"
          layout="topleft"
          name="tab_icon"
          right="-10"
          top="10"
-         width="20" 
+         width="20"
          image_name="TabIcon_Me_Selected"/>
         <text
-         follows="left|right|bottom|top"
-         font="SansSerifBold"
-         height="120"
+         follows="all"
+         height="90"
          layout="topleft"
          left="10"
          mouse_opaque="false"
@@ -157,38 +153,37 @@
      bg_alpha_color="DkGray2"
      class="panel_sidetray_home_info"
      follows="left|top|right"
-     height="130"
+     height="90"
      layout="topleft"
-     left="10"
+     left="15"
+     top_pad="15"
      name="sidebar_appearance"
-     width="313">
+     width="303">
         <text
          follows="left|right|top"
          font="SansSerifBigBold"
          height="30"
          layout="topleft"
-         left="5"
+         left="10"
          mouse_opaque="false"
          name="tab_name"
-         text_color="white"
+         text_color="EmphasisColor"
          top="10"
          value="My Appearance"
          width="200"
          word_wrap="true" />
         <icon
-         color="DkGray"
          follows="top|right"
          height="20"
          layout="topleft"
          name="tab_icon"
          right="-10"
          top="10"
-         width="20" 
-         image_name="TabIcon_Appearance_Off"/>
+         width="20"
+         image_name="TabIcon_Appearance_Selected"/>
         <text
-         follows="left|right|bottom|top"
-         font="SansSerifBold"
-         height="120"
+         follows="all"
+         height="90"
          layout="topleft"
          left="10"
          mouse_opaque="false"
@@ -198,6 +193,53 @@
          top="40"
          word_wrap="true">
             Change your appearance and current look.
+        </text>
+    </panel>
+    <panel
+     background_visible="true"
+     bg_alpha_color="DkGray2"
+     class="panel_sidetray_home_info"
+     follows="left|top|right"
+     height="90"
+     layout="topleft"
+     left="15"
+     top_pad="15"
+     name="sidebar_inventory"
+     width="303">
+        <text
+         follows="left|right|top"
+         font="SansSerifBigBold"
+         height="30"
+         layout="topleft"
+         left="10"
+         mouse_opaque="false"
+         name="tab_name"
+         text_color="EmphasisColor"
+         top="10"
+         value="My Inventory"
+         width="200"
+         word_wrap="true" />
+        <icon
+         follows="top|right"
+         height="20"
+         layout="topleft"
+         name="tab_icon"
+         right="-10"
+         top="10"
+         width="20"
+         image_name="TabIcon_Inventory_Selected"/>
+        <text
+         follows="all"
+         height="90"
+         layout="topleft"
+         left="10"
+         mouse_opaque="false"
+         name="tab_description"
+         right="-10"
+         text_color="white"
+         top="40"
+         word_wrap="true">
+            Browse your inventory.
         </text>
     </panel>
 </panel>

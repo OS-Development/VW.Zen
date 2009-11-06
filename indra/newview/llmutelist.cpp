@@ -65,7 +65,6 @@
 #include "llworld.h" //for particle system banning
 #include "llchat.h"
 #include "llfloaterchat.h"
-#include "llimpanel.h"
 #include "llimview.h"
 #include "llnotifications.h"
 #include "lluistring.h"
@@ -530,6 +529,8 @@ void notify_automute_callback(const LLUUID& agent_id, const std::string& first_n
 			{
 				timp->addHistoryLine(message);
 			}
+
+			LLIMModel::getInstance()->addMessage(agent_id, SYSTEM_FROM, LLUUID::null, message);
 		}
 
 		LLChat auto_chat(message);

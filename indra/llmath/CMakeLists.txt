@@ -15,6 +15,7 @@ set(llmath_SOURCE_FILES
     llcamera.cpp
     llcoordframe.cpp
     llline.cpp
+    llmodularmath.cpp
     llperlin.cpp
     llquaternion.cpp
     llrect.cpp
@@ -48,6 +49,7 @@ set(llmath_HEADER_FILES
     llinterp.h
     llline.h
     llmath.h
+    llmodularmath.h
     lloctree.h
     llperlin.h
     llplane.h
@@ -62,6 +64,7 @@ set(llmath_HEADER_FILES
     llv4vector3.h
     llvolume.h
     llvolumemgr.h
+    llsdutil_math.h
     m3math.h
     m4math.h
     raytrace.h
@@ -87,6 +90,7 @@ include(LLAddBuildTest)
 # UNIT TESTS
 SET(llmath_TEST_SOURCE_FILES
   llbboxlocal.cpp
+  llmodularmath.cpp
   llrect.cpp
   v2math.cpp
   v3color.cpp
@@ -99,8 +103,9 @@ LL_ADD_PROJECT_UNIT_TESTS(llmath "${llmath_TEST_SOURCE_FILES}")
 set(test_libs llmath llcommon ${LLCOMMON_LIBRARIES} ${WINDOWS_LIBRARIES})
 # TODO: Some of these need refactoring to be proper Unit tests rather than Integration tests.
 LL_ADD_INTEGRATION_TEST(llbbox llbbox.cpp "${test_libs}")
-LL_ADD_INTEGRATION_TEST(mathmisc "" "${test_libs}")
 LL_ADD_INTEGRATION_TEST(llquaternion llquaternion.cpp "${test_libs}")
+LL_ADD_INTEGRATION_TEST(mathmisc "" "${test_libs}")
+LL_ADD_INTEGRATION_TEST(m3math "" "${test_libs}")
 LL_ADD_INTEGRATION_TEST(v3dmath v3dmath.cpp "${test_libs}")
 LL_ADD_INTEGRATION_TEST(v3math v3math.cpp "${test_libs}")
 LL_ADD_INTEGRATION_TEST(v4math v4math.cpp "${test_libs}")

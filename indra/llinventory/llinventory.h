@@ -37,6 +37,7 @@
 
 #include "llassetstorage.h"
 #include "lldarray.h"
+#include "llfoldertype.h"
 #include "llinventorytype.h"
 #include "llmemtype.h"
 #include "llpermissions.h"
@@ -93,7 +94,6 @@ public:
 	virtual const LLUUID& getUUID() const;
 	const LLUUID& getParentUUID() const;
 	virtual const LLUUID& getLinkedUUID() const; // get the inventoryID that this item points to, else this item's inventoryID
-
 	virtual const std::string& getName() const;
 	virtual LLAssetType::EType getType() const;
 	LLAssetType::EType getActualType() const; // bypasses indirection for linked items
@@ -263,6 +263,10 @@ public:
 	void setInventoryType(LLInventoryType::EType inv_type);
 	void setFlags(U32 flags);
 	void setCreationDate(time_t creation_date_utc);
+
+	// Check for changes in permissions masks and sale info
+	// and set the corresponding bits in mFlags
+	void accumulatePermissionSlamBits(const LLInventoryItem& old_item);
 	
 	// This is currently only used in the Viewer to handle calling cards
 	// where the creator is actually used to store the target.
@@ -318,15 +322,15 @@ protected:
 public:
 	MEM_TYPE_NEW(LLMemType::MTYPE_INVENTORY);
 	LLInventoryCategory(const LLUUID& uuid, const LLUUID& parent_uuid,
-						LLAssetType::EType preferred_type,
+						LLFolderType::EType preferred_type,
 						const std::string& name);
 	LLInventoryCategory();
 	LLInventoryCategory(const LLInventoryCategory* other);
 	void copyCategory(const LLInventoryCategory* other); // LLRefCount requires custom copy
 
 	// accessors and mutators
-	LLAssetType::EType getPreferredType() const;
-	void setPreferredType(LLAssetType::EType type);
+	LLFolderType::EType getPreferredType() const;
+	void setPreferredType(LLFolderType::EType type);
 	// For messaging system support
 	virtual void packMessage(LLMessageSystem* msg) const;
 	virtual void unpackMessage(LLMessageSystem* msg, const char* block, S32 block_num = 0);
@@ -342,10 +346,8 @@ public:
 	virtual BOOL exportLegacyStream(std::ostream& output_stream, BOOL include_asset_key = TRUE) const;
 
 protected:
-	// The type of asset that this category was "meant" to hold
-	// (although it may in fact hold any type).
-	LLAssetType::EType	mPreferredType;		
-
+	// May be the type that this category was "meant" to hold (although it may hold any type).	
+	LLFolderType::EType	mPreferredType;		
 };
 
 

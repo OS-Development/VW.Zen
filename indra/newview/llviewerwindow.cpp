@@ -32,6 +32,10 @@
 
 #include "llviewerprecompiledheaders.h"
 
+#if LL_WINDOWS
+#pragma warning (disable : 4355) // 'this' used in initializer list: yes, intentionally
+#endif
+
 // system library includes
 #include <stdio.h>
 #include <iostream>
@@ -138,7 +142,6 @@
 #include "llstatview.h"
 #include "llsurface.h"
 #include "llsurfacepatch.h"
-#include "llimview.h"
 #include "lltexlayer.h"
 #include "lltextbox.h"
 #include "lltexturecache.h"
@@ -195,6 +198,7 @@
 #include "llfloaternotificationsconsole.h"
 
 #include "llnearbychat.h"
+#include "llviewerwindowlistener.h"
 
 #if LL_WINDOWS
 #include <tchar.h> // For Unicode conversion methods
@@ -1204,7 +1208,8 @@ LLViewerWindow::LLViewerWindow(
 	mResDirty(false),
 	mStatesDirty(false),
 	mIsFullscreenChecked(false),
-	mCurrResolutionIndex(0)
+	mCurrResolutionIndex(0),
+    mViewerWindowListener(new LLViewerWindowListener("LLViewerWindow", this))
 {
 	LLNotificationChannel::buildChannel("VW_alerts", "Visible", LLNotificationFilters::filterBy<std::string>(&LLNotification::getType, "alert"));
 	LLNotificationChannel::buildChannel("VW_alertmodal", "Visible", LLNotificationFilters::filterBy<std::string>(&LLNotification::getType, "alertmodal"));
@@ -1502,11 +1507,6 @@ void LLViewerWindow::initWorldUI()
 	//  currently needs to happen before initializing chat or IM
 	LLFloaterReg::getInstance("communicate");
 
-	if ( gSavedPerAccountSettings.getBOOL("LogShowHistory") )
-	{
-		LLFloaterChat::loadHistory();
-	}
-
 	LLRect morph_view_rect = full_window;
 	morph_view_rect.stretch( -STATUS_BAR_HEIGHT );
 	morph_view_rect.mTop = full_window.mTop - 32;
@@ -1518,11 +1518,12 @@ void LLViewerWindow::initWorldUI()
 	getRootView()->addChild(gMorphView);
 
 	// Make space for nav bar.
+	LLNavigationBar* navbar = LLNavigationBar::getInstance();
 	LLRect floater_view_rect = gFloaterView->getRect();
 	LLRect notify_view_rect = gNotifyBoxView->getRect();
-	floater_view_rect.mTop -= NAVIGATION_BAR_HEIGHT;
+	floater_view_rect.mTop -= navbar->getDefNavBarHeight();
 	floater_view_rect.mBottom += LLBottomTray::getInstance()->getRect().getHeight();
-	notify_view_rect.mTop -= NAVIGATION_BAR_HEIGHT;
+	notify_view_rect.mTop -= navbar->getDefNavBarHeight();
 	notify_view_rect.mBottom += LLBottomTray::getInstance()->getRect().getHeight();
 	gFloaterView->setRect(floater_view_rect);
 	gNotifyBoxView->setRect(notify_view_rect);
@@ -1549,20 +1550,19 @@ void LLViewerWindow::initWorldUI()
 	gStatusBar->setBackgroundColor( gMenuBarView->getBackgroundColor().get() );
 
 	// Navigation bar
-
-	LLNavigationBar* navbar = LLNavigationBar::getInstance();
 	navbar->reshape(root_rect.getWidth(), navbar->getRect().getHeight(), TRUE); // *TODO: redundant?
 	navbar->translate(0, root_rect.getHeight() - menu_bar_height - navbar->getRect().getHeight()); // FIXME
 	navbar->setBackgroundColor(gMenuBarView->getBackgroundColor().get());
+
 	
 	if (!gSavedSettings.getBOOL("ShowNavbarNavigationPanel"))
 	{
-		navbar->showNavigationPanel(FALSE);
+		toggle_show_navigation_panel(LLSD(0));
 	}
 
 	if (!gSavedSettings.getBOOL("ShowNavbarFavoritesPanel"))
 	{
-		navbar->showFavoritesPanel(FALSE);
+		toggle_show_favorites_panel(LLSD(0));
 	}
 
 	if (!gSavedSettings.getBOOL("ShowCameraButton"))
@@ -1632,6 +1632,14 @@ void LLViewerWindow::shutdownViews()
 	{
 		gMorphView->setVisible(FALSE);
 	}
+
+	// DEV-40930: Clear sModalStack. Otherwise, any LLModalDialog left open
+	// will crump with LL_ERRS.
+	LLModalDialog::shutdownModals();
+	
+	// destroy the nav bar, not currently part of gViewerWindow
+	// *TODO: Make LLNavigationBar part of gViewerWindow
+	delete LLNavigationBar::getInstance();
 	
 	// Delete all child views.
 	delete mRootView;
@@ -2105,31 +2113,30 @@ BOOL LLViewerWindow::handleKey(KEY key, MASK mask)
 		// arrow keys move avatar while chatting hack
 		if (chat_editor && chat_editor->hasFocus())
 		{
-			if (chat_editor->getText().empty() || gSavedSettings.getBOOL("ArrowKeysMoveAvatar"))
+			// If text field is empty, there's no point in trying to move
+			// cursor with arrow keys, so allow movement
+			if (chat_editor->getText().empty() 
+				|| gSavedSettings.getBOOL("ArrowKeysAlwaysMove"))
 			{
-				switch(key)
+				// let Control-Up and Control-Down through for chat line history,
+				if (!(key == KEY_UP && mask == MASK_CONTROL)
+					&& !(key == KEY_DOWN && mask == MASK_CONTROL))
 				{
-				case KEY_LEFT:
-				case KEY_RIGHT:
-				case KEY_UP:
-					// let CTRL UP through for chat line history
-					if( MASK_CONTROL == mask )
+					switch(key)
 					{
+					case KEY_LEFT:
+					case KEY_RIGHT:
+					case KEY_UP:
+					case KEY_DOWN:
+					case KEY_PAGE_UP:
+					case KEY_PAGE_DOWN:
+					case KEY_HOME:
+						// when chatbar is empty or ArrowKeysAlwaysMove set,
+						// pass arrow keys on to avatar...
+						return FALSE;
+					default:
 						break;
 					}
-				case KEY_DOWN:
-					// let CTRL DOWN through for chat line history
-					if( MASK_CONTROL == mask )
-					{
-						break;
-					}
-				case KEY_PAGE_UP:
-				case KEY_PAGE_DOWN:
-				case KEY_HOME:
-					// when chatbar is empty or ArrowKeysMoveAvatar set, pass arrow keys on to avatar...
-					return FALSE;
-				default:
-					break;
 				}
 			}
 		}
@@ -2298,7 +2305,9 @@ void LLViewerWindow::handleScrollWheel(S32 clicks)
 	}
 
 	// Zoom the camera in and out behavior
-	gAgent.handleScrollWheel(clicks);
+
+	if(top_ctrl == 0 && mWorldViewRect.pointInRect(mCurrentMousePoint.mX, mCurrentMousePoint.mY) )
+		gAgent.handleScrollWheel(clicks);
 
 	return;
 }
@@ -2414,17 +2423,33 @@ void LLViewerWindow::updateUI()
 	BOOL handled_by_top_ctrl = FALSE;
 	LLUICtrl* top_ctrl = gFocusMgr.getTopCtrl();
 	LLMouseHandler* mouse_captor = gFocusMgr.getMouseCapture();
+	LLView* captor_view = dynamic_cast<LLView*>(mouse_captor);
+
+	//FIXME: only include captor and captor's ancestors if mouse is truly over them --RN
 
 	//build set of views containing mouse cursor by traversing UI hierarchy and testing 
 	//screen rect against mouse cursor
 	view_handle_set_t mouse_hover_set;
 
-	// start at current mouse captor (if is a view) or UI root
-	LLView* root_view = NULL;
-	root_view = dynamic_cast<LLView*>(mouse_captor);
+	// constraint mouse enter events to children of mouse captor
+	LLView* root_view = captor_view;
+
+	// if mouse captor doesn't exist or isn't a LLView
+	// then allow mouse enter events on entire UI hierarchy
 	if (!root_view)
 	{
 		root_view = mRootView;
+	}
+
+	// include all ancestors of captor_view as automatically having mouse
+	if (captor_view)
+	{
+		LLView* captor_parent_view = captor_view->getParent();
+		while(captor_parent_view)
+		{
+			mouse_hover_set.insert(captor_parent_view->getHandle());
+			captor_parent_view = captor_parent_view->getParent();
+		}
 	}
 
 	// aggregate visible views that contain mouse cursor in display order
@@ -2605,8 +2630,24 @@ void LLViewerWindow::updateUI()
 				{
 					it.skipDescendants();
 				}
-				else if (viewp->getMouseOpaque())
+				// only report xui names for LLUICtrls, 
+				// and blacklist the various containers we don't care about
+				else if (dynamic_cast<LLUICtrl*>(viewp) 
+						&& viewp != gMenuHolder
+						&& viewp != gFloaterView
+						&& viewp != gNotifyBoxView
+						&& viewp != gConsole) 
 				{
+					if (dynamic_cast<LLFloater*>(viewp))
+					{
+						// constrain search to descendants of this (frontmost) floater
+						// by resetting iterator
+						it = viewp->beginTreeDFS();
+					}
+
+					// if we are in a new part of the tree (not a descendent of current tooltip_view)
+					// then push the results for tooltip_view and start with a new potential view
+					// NOTE: this emulates visiting only the leaf nodes that meet our criteria
 					if (!viewp->hasAncestor(tooltip_view))
 					{
 						append_xui_tooltip(tooltip_view, tool_tip_msg);
@@ -4157,8 +4198,9 @@ void LLViewerWindow::drawMouselookInstructions()
 		instructions, 0,
 		getVirtualWorldViewRect().getCenterX(),
 		getVirtualWorldViewRect().mBottom + INSTRUCTIONS_PAD,
-		LLColor4( 0.0f, 0.0f, 0.0f, 0.6f ),
-		LLFontGL::HCENTER, LLFontGL::TOP);
+		LLColor4( 1.0f, 1.0f, 1.0f, 0.5f ),
+		LLFontGL::HCENTER, LLFontGL::TOP,
+		LLFontGL::NORMAL,LLFontGL::DROP_SHADOW);
 }
 
 S32	LLViewerWindow::getWindowHeight()	const 	

@@ -36,6 +36,7 @@
 // viewer includes
 #include "llfolderview.h"		// Items depend extensively on LLFolderViews
 #include "llfoldervieweventlistener.h"
+#include "llinventorybridge.h"	// for LLItemBridge in LLInventorySort::operator()
 #include "llinventoryfilter.h"
 #include "llinventorymodel.h"	// *TODO: make it take a pointer to an inventory-model interface
 #include "llviewercontrol.h"	// gSavedSettings
@@ -70,6 +71,10 @@ LLFontGL* LLFolderViewItem::getLabelFontForStyle(U8 style)
 	{
 		LLFontDescriptor labelfontdesc("SansSerif", "Small", style);
 		rtn = LLFontGL::getFont(labelfontdesc);
+		if (!rtn)
+		{
+			rtn = LLFontGL::getFontDefault();
+		}
 		sFonts[style] = rtn;
 	}
 	return rtn;
@@ -130,6 +135,7 @@ LLFolderViewItem::LLFolderViewItem(LLFolderViewItem::Params p)
 	mListener(p.listener),
 	mArrowImage(p.folder_arrow_image),
 	mBoxImage(p.selection_image)
+,	mDontShowInHierarhy(false)
 {
 	refresh();
 }
@@ -242,13 +248,13 @@ void LLFolderViewItem::refreshFromListener()
 	if(mListener)
 	{
 		mLabel = mListener->getDisplayName();
-		LLAssetType::EType preferred_type = mListener->getPreferredType();
+		LLFolderType::EType preferred_type = mListener->getPreferredType();
 
 		// *TODO: to be removed when database supports multi language. This is a
 		// temporary attempt to display the inventory folder in the user locale.
 		// mantipov: *NOTE: be sure this code is synchronized with LLFriendCardsManager::findChildFolderUUID
 		//		it uses the same way to find localized string
-		if (LLAssetType::lookupIsProtectedCategoryType(preferred_type))
+		if (LLFolderType::lookupIsProtectedType(preferred_type))
 		{
 			LLTrans::findString(mLabel, "InvFolder " + mLabel);
 		};
@@ -312,7 +318,12 @@ void LLFolderViewItem::arrangeFromRoot()
 
 	S32 height = 0;
 	S32 width = 0;
-	root->arrange( &width, &height, 0 );
+	S32 total_height = root->arrange( &width, &height, 0 );
+
+	LLSD params;
+	params["action"] = "size_changes";
+	params["height"] = total_height;
+	getParent()->notifyParent(params);
 }
 
 // Utility function for LLFolderView
@@ -385,12 +396,22 @@ S32 LLFolderViewItem::arrange( S32* width, S32* height, S32 filter_generation)
 	}
 
 	*width = llmax(*width, mLabelWidth + mIndentation); 
+
+	// determine if we need to use ellipses to avoid horizontal scroll. EXT-719
+	bool use_ellipses = getRoot()->getUseEllipses();
+	if (use_ellipses)
+	{
+		// limit to set rect to avoid horizontal scrollbar
+		*width = llmin(*width, getRoot()->getRect().getWidth());
+	}
 	*height = getItemHeight();
 	return *height;
 }
 
 S32 LLFolderViewItem::getItemHeight()
 {
+	if (mDontShowInHierarhy) return 0;
+
 	S32 icon_height = mIcon->getHeight();
 	S32 label_height = llround(getLabelFontForStyle(mLabelStyle)->getLineHeight());
 	return llmax( icon_height, label_height ) + ICON_PAD;
@@ -781,7 +802,10 @@ BOOL LLFolderViewItem::handleDragAndDrop(S32 x, S32 y, MASK mask, BOOL drop,
 	}
 	if(mParentFolder && !handled)
 	{
+		// store this item to get it in LLFolderBridge::dragItemIntoFolder on drop event.
+		mRoot->setDraggingOverItem(this);
 		handled = mParentFolder->handleDragAndDropFromChild(mask,drop,cargo_type,cargo_data,accept,tooltip_msg);
+		mRoot->setDraggingOverItem(NULL);
 	}
 	if (handled)
 	{
@@ -794,6 +818,8 @@ BOOL LLFolderViewItem::handleDragAndDrop(S32 x, S32 y, MASK mask, BOOL drop,
 
 void LLFolderViewItem::draw()
 {
+	if (mDontShowInHierarhy) return;
+
 	static LLUIColor sFgColor = LLUIColorTable::instance().getColor("MenuItemEnabledColor", DEFAULT_WHITE);
 	static LLUIColor sHighlightBgColor = LLUIColorTable::instance().getColor("MenuItemHighlightBgColor", DEFAULT_WHITE);
 	static LLUIColor sHighlightFgColor = LLUIColorTable::instance().getColor("MenuItemHighlightFgColor", DEFAULT_WHITE);
@@ -864,11 +890,11 @@ void LLFolderViewItem::draw()
 				llfloor(getRect().getHeight() - font->getLineHeight() - ICON_PAD),
 				sHighlightFgColor, FALSE);
 		}
-		if (getRect().getHeight() > llround(font->getLineHeight()) + ICON_PAD + 2)
+		if (getRect().getHeight() > llround(font->getLineHeight()) + ICON_PAD + 4)
 		{
 			gl_rect_2d(
 				0, 
-				llfloor(getRect().getHeight() - font->getLineHeight() - ICON_PAD) - 2, 
+				llfloor(getRect().getHeight() - font->getLineHeight() - ICON_PAD) - 4, 
 				getRect().getWidth() - 2,
 				2,
 				sHighlightFgColor, FALSE);
@@ -876,7 +902,7 @@ void LLFolderViewItem::draw()
 			{
 				gl_rect_2d(
 					0, 
-					llfloor(getRect().getHeight() - font->getLineHeight() - ICON_PAD) - 2, 
+					llfloor(getRect().getHeight() - font->getLineHeight() - ICON_PAD) - 4, 
 					getRect().getWidth() - 2,
 					2,
 					sHighlightBgColor, TRUE);
@@ -948,7 +974,8 @@ void LLFolderViewItem::draw()
 
 		font->renderUTF8( mLabel, 0, text_left, y, color,
 				   LLFontGL::LEFT, LLFontGL::BOTTOM, LLFontGL::NORMAL, LLFontGL::NO_SHADOW,
-			S32_MAX, S32_MAX, &right_x, FALSE );
+			S32_MAX, getRect().getWidth() - (S32) text_left, &right_x, TRUE);
+
 		if (!mLabelSuffix.empty())
 		{
 			font->renderUTF8( mLabelSuffix, 0, right_x, y, sSuffixColor,
@@ -1726,7 +1753,7 @@ bool LLFolderViewFolder::isTrash() const
 {
 	if (mAmTrash == LLFolderViewFolder::UNKNOWN)
 	{
-		mAmTrash = mListener->getUUID() == gInventory.findCategoryUUIDForType(LLAssetType::AT_TRASH, false) ? LLFolderViewFolder::TRASH : LLFolderViewFolder::NOT_TRASH;
+		mAmTrash = mListener->getUUID() == gInventory.findCategoryUUIDForType(LLFolderType::FT_TRASH, false) ? LLFolderViewFolder::TRASH : LLFolderViewFolder::NOT_TRASH;
 	}
 	return mAmTrash == LLFolderViewFolder::TRASH;
 }
@@ -2140,7 +2167,7 @@ BOOL LLFolderViewFolder::handleDoubleClick( S32 x, S32 y, MASK mask )
 {
 	const LLUUID &cat_uuid = getListener()->getUUID();
 	const LLViewerInventoryCategory *cat = gInventory.getCategory(cat_uuid);
-	if (cat && cat->getPreferredType() == LLAssetType::AT_OUTFIT)
+	if (cat && cat->getPreferredType() == LLFolderType::FT_OUTFIT)
 	{
 		getListener()->performAction(NULL, NULL,"replaceoutfit");
 		return TRUE;
@@ -2456,6 +2483,28 @@ bool LLInventorySort::updateSort(U32 order)
 
 bool LLInventorySort::operator()(const LLFolderViewItem* const& a, const LLFolderViewItem* const& b)
 {
+	// ignore sort order for landmarks in the Favorites folder.
+	// they should be always sorted as in Favorites bar. See EXT-719
+	if (a->getSortGroup() == SG_ITEM && b->getSortGroup() == SG_ITEM
+		&& a->getListener()->getInventoryType() == LLInventoryType::IT_LANDMARK
+		&& b->getListener()->getInventoryType() == LLInventoryType::IT_LANDMARK)
+	{
+
+		static const LLUUID& favorites_folder_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_FAVORITE);
+
+		LLUUID a_uuid = a->getParentFolder()->getListener()->getUUID();
+		LLUUID b_uuid = b->getParentFolder()->getListener()->getUUID();
+
+		if (a_uuid == favorites_folder_id && b_uuid == favorites_folder_id)
+		{
+			// *TODO: mantipov: probably it is better to add an appropriate method to LLFolderViewItem
+			// or to LLInvFVBridge
+			S32 a_sort = (static_cast<const LLItemBridge*>(a->getListener()))->getItem()->getSortField();
+			S32 b_sort = (static_cast<const LLItemBridge*>(b->getListener()))->getItem()->getSortField();
+			return a_sort < b_sort;
+		}
+	}
+
 	// We sort by name if we aren't sorting by date
 	// OR if these are folders and we are sorting folders by name.
 	bool by_name = (!mByDate 

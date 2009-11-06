@@ -154,9 +154,13 @@ public:
 	LLRect					getContentsRect();
 	LLRect					getVisibleDocumentRect() const;
 
+	S32						getVPad() { return mVPad; }
+	S32						getHPad() { return mHPad; }
+
 
 	S32						getDocIndexFromLocalCoord( S32 local_x, S32 local_y, BOOL round ) const;
 	LLRect					getLocalRectFromDocIndex(S32 pos) const;
+	LLRect					getDocRectFromDocIndex(S32 pos) const;
 
 	void					setReadOnly(bool read_only) { mReadOnly = read_only; }
 	bool					getReadOnly() { return mReadOnly; }
@@ -293,7 +297,7 @@ protected:
 	void 							endSelection();
 
 	// misc
-	void							updateTextRect();
+	void							updateRects();
 	void							needsReflow() { mReflowNeeded = TRUE; }
 	void							needsScroll() { mScrollNeeded = TRUE; }
 	void							replaceUrlLabel(const std::string &url, const std::string &label);
@@ -366,12 +370,11 @@ public:
 	LLTextSegment(S32 start, S32 end) : mStart(start), mEnd(end){};
 	virtual ~LLTextSegment();
 
-	virtual S32					getWidth(S32 first_char, S32 num_chars) const;
+	virtual bool				getDimensions(S32 first_char, S32 num_chars, S32& width, S32& height) const;
 	virtual S32					getOffset(S32 segment_local_x_coord, S32 start_offset, S32 num_chars, bool round) const;
 	virtual S32					getNumChars(S32 num_pixels, S32 segment_offset, S32 line_offset, S32 max_chars) const;
 	virtual void				updateLayout(const class LLTextBase& editor);
 	virtual F32					draw(S32 start, S32 end, S32 selection_start, S32 selection_end, const LLRect& draw_rect);
-	virtual S32					getMaxHeight() const;
 	virtual bool				canEdit() const;
 	virtual void				unlinkFromDocument(class LLTextBase* editor);
 	virtual void				linkToDocument(class LLTextBase* editor);
@@ -418,11 +421,10 @@ public:
 	LLNormalTextSegment( const LLStyleSP& style, S32 start, S32 end, LLTextBase& editor );
 	LLNormalTextSegment( const LLColor4& color, S32 start, S32 end, LLTextBase& editor, BOOL is_visible = TRUE);
 
-	/*virtual*/ S32					getWidth(S32 first_char, S32 num_chars) const;
+	/*virtual*/ bool				getDimensions(S32 first_char, S32 num_chars, S32& width, S32& height) const;
 	/*virtual*/ S32					getOffset(S32 segment_local_x_coord, S32 start_offset, S32 num_chars, bool round) const;
 	/*virtual*/ S32					getNumChars(S32 num_pixels, S32 segment_offset, S32 line_offset, S32 max_chars) const;
 	/*virtual*/ F32					draw(S32 start, S32 end, S32 selection_start, S32 selection_end, const LLRect& draw_rect);
-	/*virtual*/ S32					getMaxHeight() const;
 	/*virtual*/ bool				canEdit() const { return true; }
 	/*virtual*/ const LLColor4&		getColor() const					{ return mStyle->getColor(); }
 	/*virtual*/ void 				setColor(const LLColor4 &color)		{ mStyle->setColor(color); }
@@ -436,6 +438,7 @@ public:
 
 	/*virtual*/ BOOL				handleHover(S32 x, S32 y, MASK mask);
 	/*virtual*/ BOOL				handleRightMouseDown(S32 x, S32 y, MASK mask);
+	/*virtual*/ BOOL				handleMouseDown(S32 x, S32 y, MASK mask);
 	/*virtual*/ BOOL				handleMouseUp(S32 x, S32 y, MASK mask);
 	/*virtual*/ BOOL				handleToolTip(S32 x, S32 y, MASK mask);
 
@@ -445,7 +448,7 @@ protected:
 protected:
 	class LLTextBase&	mEditor;
 	LLStyleSP			mStyle;
-	S32					mMaxHeight;
+	S32					mFontHeight;
 	LLKeywordToken* 	mToken;
 	std::string     	mTooltip;
 };
@@ -459,19 +462,33 @@ public:
 class LLInlineViewSegment : public LLTextSegment
 {
 public:
-	LLInlineViewSegment(LLView* widget, S32 start, S32 end);
+	struct Params : public LLInitParam::Block<Params>
+	{
+		Mandatory<LLView*>		view;
+		Optional<bool>			force_newline;
+		Optional<S32>			left_pad,
+								right_pad,
+								bottom_pad,
+								top_pad;
+	};
+
+	LLInlineViewSegment(const Params& p, S32 start, S32 end);
 	~LLInlineViewSegment();
-	/*virtual*/ S32			getWidth(S32 first_char, S32 num_chars) const;
+	/*virtual*/ bool		getDimensions(S32 first_char, S32 num_chars, S32& width, S32& height) const;
 	/*virtual*/ S32			getNumChars(S32 num_pixels, S32 segment_offset, S32 line_offset, S32 max_chars) const;
 	/*virtual*/ void		updateLayout(const class LLTextBase& editor);
 	/*virtual*/ F32			draw(S32 start, S32 end, S32 selection_start, S32 selection_end, const LLRect& draw_rect);
-	/*virtuaL*/ S32			getMaxHeight() const;
 	/*virtual*/ bool		canEdit() const { return false; }
 	/*virtual*/ void		unlinkFromDocument(class LLTextBase* editor);
 	/*virtual*/ void		linkToDocument(class LLTextBase* editor);
 
 private:
+	S32 mLeftPad;
+	S32 mRightPad;
+	S32 mTopPad;
+	S32 mBottomPad;
 	LLView* mView;
+	bool	mForceNewLine;
 };
 
 

@@ -196,7 +196,7 @@ void LLWLParamManager::loadPreset(const std::string & name,bool propagate)
 	escaped_filename += ".xml";
 
 	std::string pathName(gDirUtilp->getExpandedFilename(LL_PATH_APP_SETTINGS, "windlight/skies", escaped_filename));
-	llinfos << "Loading WindLight sky setting from " << pathName << llendl;
+	//llinfos << "Loading WindLight sky setting from " << pathName << llendl;
 
 	llifstream presetsXML;
 	presetsXML.open(pathName.c_str());
@@ -317,7 +317,7 @@ void LLWLParamManager::propagateParameters(void)
 	{
 		mLightDir = sunDir;
 	}
-	else if(sunDir.mV[1] < 0 && sunDir.mV[1] > NIGHTTIME_ELEVATION_COS)
+	else if(sunDir.mV[1] < 0 && sunDir.mV[1] > LLSky::NIGHTTIME_ELEVATION_COS)
 	{
 		// clamp v1 to 0 so sun never points up and causes weirdness on some machines
 		LLVector3 vec(sunDir.mV[0], sunDir.mV[1], sunDir.mV[2]);

@@ -1,12 +1,15 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  follows="left|top|right"
  height="570"
  layout="topleft"
+ bg_opaque_image="Window_NoTitle_Foreground"
+ bg_alpha_image="Window_NoTitle_Background"
  name="toolbox floater"
  help_topic="toolbox_floater"
  save_rect="true"
- short_title="Build Tools"
+ short_title="BUILD TOOLS"
  single_instance="true"
  sound_flags="0"
  width="280">
@@ -32,7 +35,7 @@
     </floater.string>
     <floater.string
      name="status_grab">
-        Drag to move, Ctrl to lift, Ctrl-Shift to rotate
+        Drag to move, Ctrl to lift, Ctrl+Shift to rotate
     </floater.string>
     <floater.string
      name="status_place">
@@ -72,7 +75,6 @@
      layout="topleft"
      left="10"
      name="button focus"
-     picture_style="true"
      tool_tip="Focus"
      width="20">
 	  <button.commit_callback
@@ -87,9 +89,8 @@
      image_selected="Tool_Grab"
      image_unselected="Tool_Grab"
      layout="topleft"
-     left_pad="8"
+     left_pad="20"
      name="button move"
-     picture_style="true"
      tool_tip="Move"
      width="20">
 	  <button.commit_callback
@@ -104,9 +105,8 @@
      image_selected="Tool_Face"
      image_unselected="Tool_Face"
      layout="topleft"
-     left_pad="8"
+     left_pad="20"
      name="button edit"
-     picture_style="true"
      tool_tip="Edit"
      width="20">
 	  <button.commit_callback
@@ -121,9 +121,8 @@
      image_selected="Tool_Create"
      image_unselected="Tool_Create"
      layout="topleft"
-     left_pad="8"
+     left_pad="20"
      name="button create"
-     picture_style="true"
      tool_tip="Create"
      width="20">
 	  <button.commit_callback
@@ -138,9 +137,8 @@
      image_selected="Tool_Dozer"
      image_unselected="Tool_Dozer"
      layout="topleft"
-     left_pad="8"
+     left_pad="20"
      name="button land"
-     picture_style="true"
      tool_tip="Land"
      width="20">
 	  <button.commit_callback
@@ -180,7 +178,7 @@
          name="radio orbit" />
         <radio_item
          top_pad="6"
-         label="Pan (Ctrl-Shift)"
+         label="Pan (Ctrl+Shift)"
          layout="topleft"
          name="radio pan" />
 		 <radio_group.commit_callback
@@ -207,71 +205,71 @@
      layout="topleft"
      name="move_radio_group">
         <radio_item
-      top_pad="6"
+         top_pad="6"
          label="Move"
          layout="topleft"
          name="radio move" />
         <radio_item
-      top_pad="6"
+		 top_pad="6"
          label="Lift (Ctrl)"
          layout="topleft"
          name="radio lift" />
         <radio_item
-      top_pad="6"
-         label="Spin (Ctrl-Shift)"
+         top_pad="6"
+         label="Spin (Ctrl+Shift)"
          layout="topleft"
          name="radio spin" />
 		 <radio_group.commit_callback
-	     function="BuildTool.commitRadioMove"/>
-   </radio_group>
-    <radio_group
+			function="BuildTool.commitRadioMove"/>
+	</radio_group>
+	<radio_group
      follows="left|top"
-      left="10"
-      top="54"
-      height="70"
+	 left="10"
+	 top="54"
+	 height="70"
      layout="topleft"
-     name="edit_radio_group">
+	 name="edit_radio_group">
         <radio_item
-         label="Move"
-         layout="topleft"
-         name="radio position" />
+		 label="Move"
+		 layout="topleft"
+		 name="radio position" />
         <radio_item
-      top_pad="6"
+		 top_pad="6"
          label="Rotate (Ctrl)"
          layout="topleft"
          name="radio rotate" />
         <radio_item
-      top_pad="6"
-         label="Stretch (Ctrl-Shift)"
+		 top_pad="6"
+         label="Stretch (Ctrl+Shift)"
          layout="topleft"
          name="radio stretch" />
         <radio_item
-      top_pad="6"
-         label="Select Texture"
+		 top_pad="6"
+         label="Select Face"
          layout="topleft"
          name="radio select face" />
-		  <radio_group.commit_callback
-	     function="BuildTool.commitRadioEdit"/>
+			<radio_group.commit_callback
+			function="BuildTool.commitRadioEdit"/>
     </radio_group>
     <check_box
      left="10"
      follows="left|top"
      height="16"
-      control_name="EditLinkedParts"
+	 control_name="EditLinkedParts"
      label="Edit linked"
      layout="topleft"
      name="checkbox edit linked parts" >
 		  <check_box.commit_callback
-	     function="BuildTool.selectComponent"/>
+			function="BuildTool.selectComponent"/>
 	</check_box>
-        <check_box
+	<check_box
      control_name="ScaleUniform"
      height="19"
      label="Stretch Both Sides"
      layout="topleft"
      left="143"
      name="checkbox uniform"
-      top="50"
+	 top="50"
      width="134" />
     <check_box
      control_name="ScaleStretchTextures"
@@ -292,10 +290,9 @@
      name="checkbox snap to grid"
      width="134" />
     <combo_box
-     height="20"
+     height="19"
      layout="topleft"
      follows="left|top"
-     top_pad="4"
      name="combobox grid mode"
      width="108">
         <combo_box.item
@@ -313,20 +310,18 @@
 		 <combo_box.commit_callback
 	     function="BuildTool.gridMode"/>
     </combo_box>
-   <button
+    <button
      left_pad="0"
-     right="-12"
      image_disabled="ForwardArrow_Disabled"
      image_selected="ForwardArrow_Press"
      image_unselected="ForwardArrow_Off"
-     picture_style="true"
-     label_selected="Options"
      layout="topleft"
      name="Options..."
-     tool_tip="Grid Options"
+     tool_tip="Grid options"
      top_delta="0"
+     right="-10"
      width="18"
-     height="18" >
+     height="19" >
 	 <button.commit_callback
 	     function="BuildTool.gridOptions"/>
 	</button>
@@ -340,7 +335,6 @@
      layout="topleft"
      left="4"
      name="ToolCube"
-     picture_style="true"
      tool_tip="Cube"
      top="51"
      width="20" />
@@ -354,7 +348,6 @@
      layout="topleft"
      left_delta="26"
      name="ToolPrism"
-     picture_style="true"
      tool_tip="Prism"
      top_delta="0"
      width="20" />
@@ -362,13 +355,12 @@
      follows="left|top"
      height="20"
      image_disabled="Object_Pyramid"
-     image_disabled_selected="object_pyramid_active.tga"
-     image_selected="object_pyramid_active.tga"
+     image_disabled_selected="Object_Pyramid"
+     image_selected="Object_Pyramid"
      image_unselected="Object_Pyramid"
      layout="topleft"
      left_delta="26"
      name="ToolPyramid"
-     picture_style="true"
      tool_tip="Pyramid"
      top_delta="0"
      width="20" />
@@ -376,13 +368,12 @@
      follows="left|top"
      height="20"
      image_disabled="Object_Tetrahedron"
-     image_disabled_selected="object_tetrahedron_active.tga"
-     image_selected="object_tetrahedron_active.tga"
+     image_disabled_selected="Object_Tetrahedron"
+     image_selected="Object_Tetrahedron"
      image_unselected="Object_Tetrahedron"
      layout="topleft"
      left_delta="26"
      name="ToolTetrahedron"
-     picture_style="true"
      tool_tip="Tetrahedron"
      top_delta="0"
      width="20" />
@@ -396,7 +387,6 @@
      layout="topleft"
      left_delta="26"
      name="ToolCylinder"
-     picture_style="true"
      tool_tip="Cylinder"
      top_delta="0"
      width="20" />
@@ -410,7 +400,6 @@
      layout="topleft"
      left_delta="26"
      name="ToolHemiCylinder"
-     picture_style="true"
      tool_tip="Hemicylinder"
      top_delta="0"
      width="20" />
@@ -424,7 +413,6 @@
      layout="topleft"
      left_delta="26"
      name="ToolCone"
-     picture_style="true"
      tool_tip="Cone"
      top_delta="0"
      width="20" />
@@ -438,7 +426,6 @@
      layout="topleft"
      left_delta="26"
      name="ToolHemiCone"
-     picture_style="true"
      tool_tip="Hemicone"
      top_delta="0"
      width="20" />
@@ -452,7 +439,6 @@
      layout="topleft"
      left_delta="26"
      name="ToolSphere"
-     picture_style="true"
      tool_tip="Sphere"
      top_delta="0"
      width="20" />
@@ -466,7 +452,6 @@
      layout="topleft"
      left_delta="26"
      name="ToolHemiSphere"
-     picture_style="true"
      tool_tip="Hemisphere"
      top_delta="0"
      width="20" />
@@ -480,7 +465,6 @@
      layout="topleft"
      left="4"
      name="ToolTorus"
-     picture_style="true"
      tool_tip="Torus"
      top="77"
      width="20" />
@@ -494,7 +478,6 @@
      layout="topleft"
      left_delta="26"
      name="ToolTube"
-     picture_style="true"
      tool_tip="Tube"
      top_delta="0"
      width="20" />
@@ -508,7 +491,6 @@
      layout="topleft"
      left_delta="26"
      name="ToolRing"
-     picture_style="true"
      tool_tip="Ring"
      top_delta="0"
      width="20" />
@@ -522,7 +504,6 @@
      layout="topleft"
      left_delta="26"
      name="ToolTree"
-     picture_style="true"
      tool_tip="Tree"
      top_delta="0"
      width="20" />
@@ -536,7 +517,6 @@
      layout="topleft"
      left_delta="26"
      name="ToolGrass"
-     picture_style="true"
      tool_tip="Grass"
      top_delta="0"
      width="20" />
@@ -715,33 +695,31 @@
      layout="topleft"
      left="135"
      name="button apply to selection"
-     tool_tip="Modify Selected Land"
+     tool_tip="Modify selected land"
      width="78">
 	  <button.commit_callback
 	     function="BuildTool.applyToSelection"/>
     </button>
     <text
      type="string"
-     text_color="LabelSelectedDisabledColor"
      length="1"
      height="12"
      follows="left|top"
      halign="right"
      layout="topleft"
-     right="-13"
+     right="-10"
      name="obj_count"
-     top_pad="8"
+     top_pad="6"
      width="143">
         Objects: [COUNT]
     </text>
     <text
      type="string"
-     text_color="LabelSelectedDisabledColor"
      length="1"
      follows="left|top"
      halign="right"
      layout="topleft"
-     right="-13"
+     right="-10"
      name="prim_count"
      width="143">
         Prims: [COUNT]
@@ -749,30 +727,33 @@
     <tab_container
      follows="left|top"
      height="400"
-     layout="topleft"
+     halign="center"
      left="0"
      name="Object Info Tabs"
      tab_max_width="55"
      tab_min_width="40"
      tab_position="top"
-     top="180"
+     tab_height="25"
+     top="170"
      width="280">
-        <panel
-         border="false"
-         follows="left|top|right|bottom"
-         label="General"
-         layout="topleft"
-         mouse_opaque="false"
-         name="General"
-         top="16">
-            <panel.string
-             name="text deed continued">
-                Deed
-            </panel.string>
-            <panel.string
-             name="text deed">
-                Deed
-            </panel.string>
+	<panel
+	 border="false"
+	 follows="all"
+	 label="General"
+	 layout="topleft"
+	 mouse_opaque="false"
+	 help_topic="toolbox_general_tab"
+	 name="General"
+	 top="16"
+	 width="280">
+	 <panel.string
+	  name="text deed continued">
+		Deed
+	 </panel.string>
+	<panel.string
+	 name="text deed">
+		Deed
+	</panel.string>
             <panel.string
              name="text modify info 1">
                 You can modify this object
@@ -868,7 +849,6 @@
              width="90">
                 Creator:
             </text>
-<!-- TODO: add person inspector to creator name -->
             <text
              type="string"
              length="1"
@@ -891,7 +871,6 @@
              width="90">
                 Owner:
             </text>
-<!--TODO: add person inspector to owner name-->
             <text
              type="string"
              length="1"
@@ -911,31 +890,30 @@
              left="10"
              height="18"
              name="Group:"
-             top_pad="5"
+             top_pad="4"
              width="75">
                 Group:
             </text>
-           <button
-     follows="top|left"
-     height="10"
-     image_disabled="Activate_Checkmark"
-     image_selected="Activate_Checkmark"
-     image_unselected="Activate_Checkmark"
-     image_color="White_50"
-     layout="topleft"
-             left_pad="0"
-             top_delta="2"
-     name="button set group"
-     picture_style="true"
-     tab_stop="false"
-     tool_tip="Choose a group to share this object's permissions"
-     width="10" />
+            <button
+			 follows="top|left"
+			 height="10"
+			 image_disabled="Activate_Checkmark"
+			 image_selected="Activate_Checkmark"
+			 image_unselected="Activate_Checkmark"
+			 image_color="White_50"
+			 layout="topleft"
+			 left_pad="0"
+			 top_delta="0"
+			 name="button set group"
+			 tab_stop="false"
+			 tool_tip="Choose a group to share this object's permissions"
+			 width="10" />
             <name_box
              follows="left|top"
              height="18"
              initial_value="Loading..."
              layout="topleft"
-             left_pad="4"
+             left_pad="5"
              top_delta="-1"
              name="Group Name Proxy"
              width="150" />
@@ -948,9 +926,9 @@
              layout="topleft"
              name="button deed"
              top_pad="0"
-             left="83"
-             tool_tip="Deeding gives this item away with Next Owner permissions. Group shared objects can be deeded by a group officer."
-             width="100" />
+             left="100"
+             tool_tip="Deeding gives this item away with next owner permissions. Group shared objects can be deeded by a group officer."
+             width="80" />
             <check_box
              height="19"
              follows="left|top"
@@ -969,7 +947,7 @@
              top_pad="15"
              left="10"
              name="label click action"
-             width="100">
+             width="90">
                 Click to:
             </text>
             <combo_box
@@ -977,7 +955,7 @@
              height="20"
              layout="topleft"
              name="clickaction"
-             width="158"
+             width="168"
              left_pad="0">
                 <combo_box.item
                  label="Touch  (default)"
@@ -1007,7 +985,7 @@
              layout="topleft"
              name="checkbox for sale"
              left="10"
-             width="100" />
+             width="90" />
 <!-- NEW SALE TYPE COMBO BOX -->
       <combo_box
             left_pad="0"
@@ -1033,8 +1011,11 @@
            label="Original"
            value="1" />
       </combo_box>
-<!-- NEW PRICE SPINNER -->
-      <spinner
+<!-- NEW PRICE SPINNER
+Objects are allowed to be for sale for L$0 to invoke buy UI behavior
+even though the user gets a free copy.
+-->
+    <spinner
         follows="left|top"
         decimal_digits="0"
         increment="1"
@@ -1043,38 +1024,37 @@
         control_name="Edit Cost"
         name="Edit Cost"
         label="Price: L$"
-        label_width="70"
-        width="168"
-        min_val="1"
+        label_width="65"
+        width="150"
+        min_val="0"
         height="20"
         max_val="999999999" />
       <check_box
-             height="15"
-             width="100"
-             top_pad="3"
-             label="Show in search"
-             layout="topleft"
-        left="100"
-             name="search_check"
-             tool_tip="Let people see this object in search results"
-              />
-<panel
+	   height="15"
+	   width="110"
+	   top_pad="3"
+	   label="Show in search"
+       layout="topleft"
+	   left="100"
+       name="search_check"
+       tool_tip="Let people see this object in search results" />
+		<panel
          border="false"
          follows="left|top"
          layout="topleft"
          mouse_opaque="false"
          background_visible="true"
-         bg_alpha_color="FloaterUnfocusBorderColor"
+         bg_alpha_color="DkGray"
          name="perms_build"
          left="0"
-         top="240"
+         top="241"
          height="120"
-         width="280">
+         width="278">
             <text
              type="string"
              length="1"
              left="10"
-             top_pad="10"
+             top_pad="9"
              text_color="EmphasisColor"
              height="16"
              follows="left|top|right"
@@ -1088,7 +1068,6 @@
                follows="left|top"
                name="Anyone can:"
                width="250"
-               top_pad="5"
                left="10">
                  Anyone:
             </text>
@@ -1213,16 +1192,17 @@
              width="50">
                 F:
             </text>
-   </panel>
+        </panel>
       </panel>
       <panel
          border="false"
-         follows="left|top|right|bottom"
+         follows="all"
          height="367"
          label="Object"
          layout="topleft"
          left_delta="0"
          mouse_opaque="false"
+         help_topic="toolbox_object_tab"
          name="Object"
          top="16"
          width="280">
@@ -1248,7 +1228,7 @@
              label="Temporary"
              layout="topleft"
              name="Temporary Checkbox Ctrl"
-             tool_tip="Causes object to be deleted 1 minute after creation."
+             tool_tip="Causes object to be deleted 1 minute after creation"
              top_pad="0"
              width="123" />
             <check_box
@@ -1380,7 +1360,7 @@
              layout="topleft"
              left_delta="0"
              name="label rotation"
-             top_pad="6"
+             top_pad="10"
              width="121">
                 Rotation (degrees)
             </text>
@@ -1449,7 +1429,7 @@
              height="19"
              layout="topleft"
              name="comboBaseType"
-             top="5"
+             top="6"
              left="125"
              width="150">
                 <combo_box.item
@@ -1489,7 +1469,7 @@
              height="19"
              layout="topleft"
              name="material"
-             top_pad="0"
+             top_pad="5"
              width="150">
                 <combo_box.item
                  label="Stone"
@@ -1528,7 +1508,7 @@
              layout="topleft"
              left_delta="0"
              name="text cut"
-             top_pad="6"
+             top_pad="5"
              width="150">
                 Path Cut (begin/end)
             </text>
@@ -1610,7 +1590,7 @@
              type="string"
              length="1"
              follows="left|top"
-             height="10"
+             height="15"
              layout="topleft"
              left="125"
              name="Hollow Shape"
@@ -1623,7 +1603,7 @@
              layout="topleft"
              left_delta="0"
              name="hole"
-             top_pad="4"
+             top_pad="3"
              width="150">
                 <combo_box.item
                  label="Default"
@@ -1650,7 +1630,7 @@
              layout="topleft"
              left_delta="0"
              name="text twist"
-             top_pad="8"
+             top_pad="5"
              width="150">
                 Twist (begin/end)
             </text>
@@ -1692,7 +1672,7 @@
              layout="topleft"
              left="125"
              name="scale_taper"
-             top_pad="6"
+             top_pad="3"
              width="150">
                 Taper
             </text>
@@ -1945,7 +1925,7 @@
              layout="topleft"
              left_delta="0"
              name="sculpt mirror control"
-             tool_tip="Flips sculpted prim along the X axis."
+             tool_tip="Flips sculpted prim along the X axis"
              top_pad="8"
              visible="false"
              width="130" />
@@ -1955,7 +1935,7 @@
              layout="topleft"
              left_delta="0"
              name="sculpt invert control"
-             tool_tip="Inverts the sculpted prims normals, making it appear inside-out."
+             tool_tip="Inverts the sculpted prims normals, making it appear inside-out"
              top_pad="4"
              visible="false"
              width="121" />
@@ -2005,12 +1985,13 @@
 
         <panel
          border="false"
-         follows="left|top|right|bottom"
+         follows="all"
          height="367"
          label="Features"
          layout="topleft"
          left_delta="0"
          mouse_opaque="false"
+         help_topic="toolbox_features_tab"
          name="Features"
          top_delta="0"
          width="280">
@@ -2044,7 +2025,7 @@
              layout="topleft"
              left="10"
              name="Flexible1D Checkbox Ctrl"
-             tool_tip="Allows object to flex about the Z axis. (Client-side only)"
+             tool_tip="Allows object to flex about the Z axis (Client-side only)"
              top_pad="10"
              width="121" />
             <spinner
@@ -2176,7 +2157,7 @@
              left_pad="10"
              top_pad="-17"
              name="colorswatch"
-             tool_tip="Click to open Color Picker"
+             tool_tip="Click to open color picker"
              width="40" />
          <texture_picker
             allow_no_texture="true"
@@ -2242,12 +2223,13 @@
         </panel>
          <panel
          border="false"
-         follows="left|top|right|bottom"
+         follows="all"
          height="367"
          label="Texture"
          layout="topleft"
          left_delta="0"
          mouse_opaque="false"
+         help_topic="toolbox_texture_tab"
          name="Texture"
          top_delta="0"
          width="280">
@@ -2278,9 +2260,9 @@
              height="80"
              label="Color"
              layout="topleft"
-             left_pad="25"
+             left_pad="15"
              name="colorswatch"
-             tool_tip="Click to open Color Picker"
+             tool_tip="Click to open color picker"
              top_delta="0"
              width="64" />
             <text
@@ -2289,10 +2271,10 @@
              follows="left|top"
              height="10"
              layout="topleft"
-             left_pad="20"
+             left_pad="15"
              name="color trans"
              top="6"
-             width="100">
+             width="110">
                 Transparency %
             </text>
             <spinner
@@ -2355,7 +2337,7 @@
              left_delta="0"
              name="combobox texgen"
              top_pad="4"
-             width="87">
+             width="60">
                 <combo_box.item
                  label="Default"
                  name="Default"
@@ -2374,7 +2356,7 @@
              name="label shininess"
              left_pad="5"
              top_pad="-36"
-             width="80">
+             width="60">
                 Shininess
             </text>
             <combo_box
@@ -2383,7 +2365,7 @@
              left_delta="0"
              name="combobox shininess"
              top_pad="4"
-             width="80">
+             width="60">
                 <combo_box.item
                  label="None"
                  name="None"
@@ -2537,7 +2519,7 @@
              name="tex scale"
              top_pad="5"
              width="200">
-                Repeats per Face
+                Repeats / Face
             </text>
             <spinner
              follows="left|top"
@@ -2586,9 +2568,9 @@
              height="19"
              increment="1"
              initial_value="0"
-	    label="Rotation (degrees)"
+			 label="Rotation˚"
              layout="topleft"
-	    label_width="100"
+			 label_width="100"
              left="10"
              max_val="9999"
              min_val="-9999"
@@ -2601,7 +2583,7 @@
              follows="left|top"
              height="19"
              initial_value="1"
-			 label="Repeats Per Meter"
+			 label="Repeats / Meter"
              layout="topleft"
 			 label_width="100"
              left="10"
@@ -2613,7 +2595,7 @@
             <button
              follows="left|top"
              font="SansSerifSmall"
-             height="18"
+             height="19"
              label="Apply"
              label_selected="Apply"
              layout="topleft"
@@ -2642,7 +2624,7 @@
              left="20"
              min_val="-1"
              name="TexOffsetU"
-             top_pad="5"
+             top_pad="6"
              width="160" />
             <spinner
              follows="left|top"
@@ -2656,109 +2638,123 @@
              name="TexOffsetV"
              top_pad="1"
              width="160" />
+        <panel
+         border="false"
+         follows="left|top"
+         layout="topleft"
+         mouse_opaque="false"
+         background_visible="true"
+         bg_alpha_color="DkGray"
+         name="Add_Media"
+         left="0"
+         top_pad="0"
+         height="75"
+         width="278">
             <text
              type="string"
              length="1"
              follows="left|top"
-             height="19"
+             height="12"
              layout="topleft"
              left="10"
-             name="textbox autofix"
-             top_pad="4"
-             width="160">
-                Align media texture
-(must load first)
-            </text>
-            <button
-             follows="left|top"
-             font="SansSerifSmall"
-             height="19"
-             label="Align"
-             label_selected="Align"
-             layout="topleft"
-             left="122"
-             name="button align"
-             top_pad="-19"
-             width="68" />
-    		<text
-			 type="string"
-			 length="1"
-			 follows="left|top"
-			 height="12"
-			 layout="topleft"
-			 left="10"
-			 top_pad="0"
-			 name="media_tex"
-			 width="100">
-				Media:
+             top_pad="5"
+             name="media_tex"
+             width="260">
+              Media URL
 			</text>
 			<line_editor
-             follows="left|top|right"
-             height="18"
-             layout="topleft"
-             left="20"
+			 follows="left|top|right"
+			 height="18"
+			 layout="topleft"
+			 left="10"
 			 read_only="true"
-             name="media_info"
-             select_on_focus="true"
-             top_delta="12"
-             width="230" />
-            <button
-             follows="left|top"
-             font="SansSerifSmall"
-             height="13"
-			 width="13"
-			 image_unselected="add_btn.tga"
-			 label=""
-             layout="topleft"
-             left="20"
-             name="add_media"
-             top_pad="3">
+			 name="media_info"
+			 select_on_focus="true"
+			 width="180" />
+			<button
+			 follows="top|left"
+			 height="18"
+			 image_selected="AddItem_Press"
+			 image_unselected="AddItem_Off"
+			 image_disabled="AddItem_Disabled"
+			 layout="topleft"
+			 left_pad="0"
+			 name="add_media"
+			 tab_stop="false"
+			 top_delta="0"
+			 tool_tip="Add Media"
+			 width="18">
 				<button.commit_callback
 				function="BuildTool.AddMedia"/>
 			</button>
 			<button
-             follows="left|top"
-             font="SansSerifSmall"
-             height="13"
-			 width="13"
-			 image_unselected="del_btn.tga"
-			 label=""
-             layout="topleft"
-             left_pad="10"
-             name="delete_media"
-             top_delta="0"
-             left_delta="10" >
+			 follows="top|left"
+			 height="18"
+			 image_selected="TrashItem_Press"
+			 image_unselected="TrashItem_Off"
+			 layout="topleft"
+			 left_pad="5"
+			 name="delete_media"
+			 tool_tip="Delete this media texture"
+			 top_delta="0"
+			 width="18">
 				<button.commit_callback
 				function="BuildTool.DeleteMedia"/>
 			</button>
-            <button
-             follows="left|top"
-             font="SansSerifSmall"
-             height="15"
-			 width="15"
-			 image_unselected="gear.tga"
-			 label=""
-             layout="topleft"
+			<button
+			 follows="top|left"
+			 tool_tip="Edit this Media"
+			 height="18"
+			 image_disabled="OptionsMenu_Disabled"
+			 image_selected="OptionsMenu_Press"
+			 image_unselected="OptionsMenu_Off"
+			 layout="topleft"
+			 left_pad="10"
 			 name="edit_media"
-             top_delta="0"
-             left_delta="190">
+			 top_delta="0"
+			 width="18">
 				<button.commit_callback
 				function="BuildTool.EditMedia"/>
 			</button>
-        </panel>
+      <web_browser
+        visible="false"
+        enabled="false"
+        border_visible="true"
+        bottom_delta="0"
+        follows="top|left"
+        left="0"
+        name="title_media"
+        width="4"
+        height="4"
+        start_url="about:blank"
+        decouple_texture_size="true" />
+     <button
+			 follows="left|top"
+			 font="SansSerifSmall"
+			 height="19"
+			 label="Align"
+			 label_selected="Align Media"
+			 layout="topleft"
+			 left="10"
+			 name="button align"
+			 top_pad="5"
+			 width="100" />
+		</panel>
+	   </panel>
        <panel
          border="false"
-         follows="left|top|right|bottom"
+         follows="all"
          label="Content"
          layout="topleft"
          left_delta="0"
          mouse_opaque="false"
+         help_topic="toolbox_contents_tab"
          name="Contents"
          top_delta="0"
          width="280">
             <button
              follows="left|top"
-             height="22"
+             height="19"
              label="New Script"
              label_selected="New Script"
              layout="topleft"
@@ -2768,13 +2764,13 @@
              width="120" />
             <button
              follows="left|top"
-             height="22"
+             height="19"
              label="Permissions"
              layout="topleft"
              left_pad="8"
              name="button permissions"
              width="130" />
-            <panel_inventory
+            <panel_inventory_object
              follows="left|top"
              height="210"
              layout="topleft"
@@ -2782,10 +2778,10 @@
              name="contents_inventory"
              top="50"
              width="260" />
-			</panel>
+		</panel>
         </tab_container>
- <panel
-      follows="left|top"
+	<panel
+	 follows="left|top"
      height="384"
      layout="topleft"
      left_delta="0"
@@ -2832,8 +2828,8 @@
         <button
          follows="left|top"
          height="20"
-         label="Land profile"
-         label_selected="Land profile"
+         label="About Land"
+         label_selected="About Land"
          layout="topleft"
          left_delta="0"
          name="button about land"
@@ -2846,18 +2842,9 @@
          layout="topleft"
          left_delta="0"
          name="checkbox show owners"
-         tool_tip="Colorize the parcels according to the type of owner"
+         tool_tip="Colorize the parcels according to the type of owner: &#10;&#10;Green = Your land &#10;Aqua = Your group&apos;s land &#10;Red = Owned by others &#10;Yellow = For sale &#10;Purple = For auction &#10;Grey = Public"
          top_pad="8"
          width="205" />
-        <!--TODO: HOOK UP TO HELP VIEWER-->
-       <!-- <button
-         image_overlay="Arrow_Right_Off"
-         picture_style="true"
-         left_pad="5"
-         name="button show owners help"
-         tool_tip="See an explanation of colors"
-         width="26"
-         height="22" />-->
         <text
          type="string"
          length="1"

@@ -195,7 +195,6 @@ public:
 public:
 	virtual bool 	isSelf() const { return false; } // True if this avatar is for this viewer's agent
 	bool isBuilt() const { return mIsBuilt; }
-	
 private:
 	BOOL			mSupportsAlphaLayers; // For backwards compatibility, TRUE for 1.23+ clients
 
@@ -206,7 +205,7 @@ public:
 	virtual BOOL 	updateCharacter(LLAgent &agent);
 	void 			idleUpdateVoiceVisualizer(bool voice_enabled);
 	void 			idleUpdateMisc(bool detailed_update);
-	void 			idleUpdateAppearanceAnimation();
+	virtual void	idleUpdateAppearanceAnimation();
 	void 			idleUpdateLipSync(bool voice_enabled);
 	void 			idleUpdateLoadingEffect();
 	void 			idleUpdateWindEffect();
@@ -247,15 +246,19 @@ public:
 	//--------------------------------------------------------------------
 public:
 	BOOL			isFullyLoaded() const;
+protected:
 	virtual BOOL	updateIsFullyLoaded();
 	BOOL			processFullyLoadedChange(bool loading);
+	void			updateRuthTimer(bool loading);
+	F32 			calcMorphAmount();
 private:
 	BOOL			mFullyLoaded;
 	BOOL			mPreviousFullyLoaded;
 	BOOL			mFullyLoadedInitialized;
 	S32				mFullyLoadedFrameCounter;
 	LLFrameTimer	mFullyLoadedTimer;
-
+	LLFrameTimer	mRuthTimer;
+	
 /**                    State
  **                                                                            **
  *******************************************************************************/
@@ -268,12 +271,14 @@ private:
 public:
 	void				updateHeadOffset();
 	F32					getPelvisToFoot() const { return mPelvisToFoot; }
+
 	LLVector3			mHeadOffset; // current head position
 	LLViewerJoint		mRoot;
 protected:
 	static BOOL			parseSkeletonFile(const std::string& filename);
 	void				buildCharacter();
-	BOOL				loadAvatar();
+	virtual BOOL		loadAvatar();
+
 	BOOL				setupBone(const LLVOAvatarBoneInfo* info, LLViewerJoint* parent, S32 &current_volume_num, S32 &current_joint_num);
 	BOOL				buildSkeleton(const LLVOAvatarSkeletonInfo *info);
 private:
@@ -350,10 +355,8 @@ private:
 	// Morph masks
 	//--------------------------------------------------------------------
 public:
-	void 		invalidateMorphMasks(LLVOAvatarDefines::EBakedTextureIndex index = LLVOAvatarDefines::BAKED_NUM_INDICES);
 	BOOL 		morphMaskNeedsUpdate(LLVOAvatarDefines::EBakedTextureIndex index = LLVOAvatarDefines::BAKED_NUM_INDICES);
 	void 		addMaskedMorph(LLVOAvatarDefines::EBakedTextureIndex index, LLPolyMorphTarget* morph_target, BOOL invert, std::string layer);
-	void 		setMorphMasksValid(BOOL new_status, LLVOAvatarDefines::EBakedTextureIndex index = LLVOAvatarDefines::BAKED_NUM_INDICES);
 	void 		applyMorphMask(U8* tex_data, S32 width, S32 height, S32 num_components, LLVOAvatarDefines::EBakedTextureIndex index = LLVOAvatarDefines::BAKED_NUM_INDICES);
 
 	//--------------------------------------------------------------------
@@ -484,7 +487,6 @@ protected:
 		// Stores pointers to the joint meshes that this baked texture deals with
 		std::vector< LLViewerJointMesh * > 	mMeshes;  // std::vector<LLViewerJointMesh> mJoints[i]->mMeshParts
 		morph_list_t						mMaskedMorphs;
-		BOOL								mMorphMasksValid;
 	};
 	typedef std::vector<BakedTextureData> 	bakedtexturedata_vec_t;
 	bakedtexturedata_vec_t 					mBakedTextureDatas;
@@ -495,13 +497,15 @@ protected:
 protected:
 	virtual void	setLocalTexture(LLVOAvatarDefines::ETextureIndex type, LLViewerTexture* tex, BOOL baked_version_exits, U32 index = 0);
 	virtual void	addLocalTextureStats(LLVOAvatarDefines::ETextureIndex type, LLViewerFetchedTexture* imagep, F32 texel_area_ratio, BOOL rendered, BOOL covered_by_baked, U32 index = 0);
+	// MULTI-WEARABLE: make self-only?
+	virtual void	setBakedReady(LLVOAvatarDefines::ETextureIndex type, BOOL baked_version_exists, U32 index = 0);
 
 	//--------------------------------------------------------------------
 	// Texture accessors
 	//--------------------------------------------------------------------
 private:
-	virtual	void				setImage(const U8 te, LLViewerTexture *imagep); 
-	virtual LLViewerTexture*	getImage(const U8 te) const;
+	virtual	void				setImage(const U8 te, LLViewerTexture *imagep, const U32 index); 
+	virtual LLViewerTexture*	getImage(const U8 te, const U32 index) const;
 
 	virtual const LLTextureEntry* getTexEntry(const U8 te_num) const;
 	virtual void setTexEntry(const U8 index, const LLTextureEntry &te);
@@ -605,7 +609,7 @@ private:
 public:
 	void			setClothesColor(LLVOAvatarDefines::ETextureIndex te, const LLColor4& new_color, BOOL set_by_user);
 	LLColor4		getClothesColor(LLVOAvatarDefines::ETextureIndex te);
-	BOOL			teToColorParams(LLVOAvatarDefines::ETextureIndex te, const char* param_name[3]);
+	static BOOL			teToColorParams(LLVOAvatarDefines::ETextureIndex te, U32 *param_name);
 
 	//--------------------------------------------------------------------
 	// Global colors
@@ -637,15 +641,15 @@ public:
  **/
 
 public:
-	BOOL			isWearingWearableType(EWearableType type ) const;
+	virtual BOOL			isWearingWearableType(EWearableType type ) const;
 	
 	//--------------------------------------------------------------------
 	// Attachments
 	//--------------------------------------------------------------------
 public:
 	void 				clampAttachmentPositions();
-	virtual LLViewerJointAttachment* attachObject(LLViewerObject *viewer_object);
-	BOOL 				detachObject(LLViewerObject *viewer_object);
+	virtual const LLViewerJointAttachment* attachObject(LLViewerObject *viewer_object);
+	virtual BOOL 		detachObject(LLViewerObject *viewer_object);
 	static LLVOAvatar*  findAvatarFromAttachment(LLViewerObject* obj);
 protected:
 	LLViewerJointAttachment* getTargetAttachmentPoint(LLViewerObject* viewer_object);
@@ -668,6 +672,9 @@ public:
 	LLBBox 				getHUDBBox() const;
 	void 				rebuildHUD();
 	void 				resetHUDAttachments();
+	BOOL				canAttachMoreObjects() const;
+protected:
+	U32					getNumAttachments() const; // O(N), not O(1)
 
 /**                    Wearables
  **                                                                            **
@@ -793,7 +800,6 @@ public:
 	BOOL			isSitting(){return mIsSitting;}
 	void 			sitOnObject(LLViewerObject *sit_object);
 	void 			getOffObject();
-	
 private:
 	// set this property only with LLVOAvatar::sitDown method
 	BOOL 			mIsSitting;

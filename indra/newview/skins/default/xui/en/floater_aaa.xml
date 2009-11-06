@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  height="440"
  layout="topleft"
  name="floater_aaa"
  help_topic="floater_aaa"
  save_rect="true"
  can_resize="true" 
- title="About [APP_NAME]"
+ title="ABOUT [APP_NAME]"
  width="470">
     <text_editor
      follows="left|top|right|bottom"

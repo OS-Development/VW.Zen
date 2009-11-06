@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  height="225"
  layout="topleft"
  name="beacons"
@@ -7,7 +8,7 @@
  save_rect="true"
  save_visibility="true"
  single_instance="true"
- title="Beacons"
+ title="BEACONS"
  width="240">
     <panel
      follows="left|top|right|bottom"
@@ -53,7 +54,7 @@
          height="16"
          layout="topleft"
          left="20"
-         tool_tip="Beacon Width"
+         tool_tip="Beacon width"
          name="beacon_width_label"
          top_pad="3"
          width="128">

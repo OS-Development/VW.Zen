@@ -42,16 +42,18 @@
 #include "llnotifications.h"
 
 #include "llagent.h"
+#include "llagentui.h"
 #include "llinventorymodel.h"
 #include "lllandmarklist.h"
 #include "llslurl.h"
+#include "llstring.h"
 #include "llviewerinventory.h"
 #include "llviewerparcelmgr.h"
+#include "llviewerwindow.h"
+#include "llwindow.h"
 #include "llworldmap.h"
-#include "lllandmark.h"
-#include "llinventorymodel.h"
-#include "llagentui.h"
 
+void copy_slurl_to_clipboard_callback(const std::string& slurl);
 
 class LLFetchlLandmarkByPos : public LLInventoryCollectFunctor
 {
@@ -131,13 +133,39 @@ public:
 	}
 };
 
+// Returns true if the given inventory item is a landmark pointing to the current parcel.
+// Used to find out if there is at least one landmark from current parcel.
+class LLFirstAgentParcelLandmark : public LLInventoryCollectFunctor
+{
+private:	
+	bool mFounded;// to avoid unnecessary  check
+	
+public:
+	LLFirstAgentParcelLandmark(): mFounded(false){}
+	
+	/*virtual*/ bool operator()(LLInventoryCategory* cat, LLInventoryItem* item)
+	{
+		if (mFounded || !item || item->getType() != LLAssetType::AT_LANDMARK)
+			return false;
+
+		LLLandmark* landmark = gLandmarkList.getAsset(item->getAssetUUID());
+		if (!landmark) // the landmark not been loaded yet
+			return false;
+
+		LLVector3d landmark_global_pos;
+		if (!landmark->getGlobalPos(landmark_global_pos))
+			return false;
+		mFounded = LLViewerParcelMgr::getInstance()->inAgentParcel(landmark_global_pos);
+		return mFounded;
+	}
+};
+
 static void fetch_landmarks(LLInventoryModel::cat_array_t& cats,
 							LLInventoryModel::item_array_t& items,
 							LLInventoryCollectFunctor& add)
 {
 	// Look in "My Favorites"
-	LLUUID favorites_folder_id =
-		gInventory.findCategoryUUIDForType(LLAssetType::AT_FAVORITE);
+	const LLUUID favorites_folder_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_FAVORITE);
 	gInventory.collectDescendentsIf(favorites_folder_id,
 		cats,
 		items,
@@ -145,8 +173,7 @@ static void fetch_landmarks(LLInventoryModel::cat_array_t& cats,
 		add);
 
 	// Look in "Landmarks"
-	LLUUID landmarks_folder_id = 
-		gInventory.findCategoryUUIDForType(LLAssetType::AT_LANDMARK);
+	const LLUUID landmarks_folder_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_LANDMARK);
 	gInventory.collectDescendentsIf(landmarks_folder_id,
 		cats,
 		items,
@@ -170,6 +197,16 @@ bool LLLandmarkActions::landmarkAlreadyExists()
 	return findLandmarkForAgentPos() != NULL;
 }
 
+//static
+bool LLLandmarkActions::hasParcelLandmark()
+{
+	LLFirstAgentParcelLandmark get_first_agent_landmark;
+	LLInventoryModel::cat_array_t cats;
+	LLInventoryModel::item_array_t items;
+	fetch_landmarks(cats, items, get_first_agent_landmark);
+	return !items.empty();
+	
+}
 
 // *TODO: This could be made more efficient by only fetching the FIRST
 // landmark that meets the criteria
@@ -248,7 +285,7 @@ void LLLandmarkActions::createLandmarkHere()
 
 	LLAgentUI::buildLocationString(landmark_name, LLAgentUI::LOCATION_FORMAT_LANDMARK);
 	LLAgentUI::buildLocationString(landmark_desc, LLAgentUI::LOCATION_FORMAT_FULL);
-	LLUUID folder_id = gInventory.findCategoryUUIDForType(LLAssetType::AT_LANDMARK);
+	const LLUUID folder_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_LANDMARK);
 
 	createLandmarkHere(landmark_name, landmark_desc, folder_id);
 }
@@ -268,23 +305,42 @@ void LLLandmarkActions::getSLURLfromPosGlobal(const LLVector3d& global_pos, slur
 	{
 		U64 new_region_handle = to_region_handle(global_pos);
 
-		LLWorldMap::url_callback_t url_cb = boost::bind(&LLLandmarkActions::onRegionResponse,
+		LLWorldMap::url_callback_t url_cb = boost::bind(&LLLandmarkActions::onRegionResponseSLURL,
 														cb,
 														global_pos,
 														escaped,
-														_1, _2, _3, _4);
+														_2);
 
 		LLWorldMap::getInstance()->sendHandleRegionRequest(new_region_handle, url_cb, std::string("unused"), false);
 	}
 }
 
-void LLLandmarkActions::onRegionResponse(slurl_callback_t cb,
+void LLLandmarkActions::getRegionNameAndCoordsFromPosGlobal(const LLVector3d& global_pos, region_name_and_coords_callback_t cb)
+{
+	std::string sim_name;
+	LLSimInfo* sim_infop = LLWorldMap::getInstance()->simInfoFromPosGlobal(global_pos);
+	if (sim_infop)
+	{
+		LLVector3 pos = sim_infop->getLocalPos(global_pos);
+		cb(sim_infop->mName, llround(pos.mV[VX]), llround(pos.mV[VY]));
+	}
+	else
+	{
+		U64 new_region_handle = to_region_handle(global_pos);
+
+		LLWorldMap::url_callback_t url_cb = boost::bind(&LLLandmarkActions::onRegionResponseNameAndCoords,
+														cb,
+														global_pos,
+														_1);
+
+		LLWorldMap::getInstance()->sendHandleRegionRequest(new_region_handle, url_cb, std::string("unused"), false);
+	}
+}
+
+void LLLandmarkActions::onRegionResponseSLURL(slurl_callback_t cb,
 										 const LLVector3d& global_pos,
 										 bool escaped,
-										 U64 region_handle,
-										 const std::string& url,
-										 const LLUUID& snapshot_id,
-										 bool teleport)
+										 const std::string& url)
 {
 	std::string sim_name;
 	std::string slurl;
@@ -301,17 +357,53 @@ void LLLandmarkActions::onRegionResponse(slurl_callback_t cb,
 	cb(slurl);
 }
 
+void LLLandmarkActions::onRegionResponseNameAndCoords(region_name_and_coords_callback_t cb,
+										 const LLVector3d& global_pos,
+										 U64 region_handle)
+{
+	LLSimInfo* sim_infop = LLWorldMap::getInstance()->simInfoFromHandle(region_handle);
+	if (sim_infop)
+	{
+		LLVector3 local_pos = sim_infop->getLocalPos(global_pos);
+		cb(sim_infop->mName, llround(local_pos.mV[VX]), llround(local_pos.mV[VY]));
+	}
+}
+
 bool LLLandmarkActions::getLandmarkGlobalPos(const LLUUID& landmarkInventoryItemID, LLVector3d& posGlobal)
 {
-	LLViewerInventoryItem* item = gInventory.getItem(landmarkInventoryItemID);
-	if (NULL == item)
-		return false;
-
-	const LLUUID& asset_id = item->getAssetUUID();
-	LLLandmark* landmark = gLandmarkList.getAsset(asset_id, NULL);
+	LLLandmark* landmark = LLLandmarkActions::getLandmark(landmarkInventoryItemID);
 
 	if (NULL == landmark)
 		return false;
 
 	return landmark->getGlobalPos(posGlobal);
+}
+
+LLLandmark* LLLandmarkActions::getLandmark(const LLUUID& landmarkInventoryItemID)
+{
+	LLViewerInventoryItem* item = gInventory.getItem(landmarkInventoryItemID);
+	if (NULL == item)
+		return NULL;
+
+	const LLUUID& asset_id = item->getAssetUUID();
+	return gLandmarkList.getAsset(asset_id, NULL);
+}
+
+void LLLandmarkActions::copySLURLtoClipboard(const LLUUID& landmarkInventoryItemID)
+{
+	LLLandmark* landmark = LLLandmarkActions::getLandmark(landmarkInventoryItemID);
+	if(landmark)
+	{
+		LLVector3d global_pos;
+		landmark->getGlobalPos(global_pos);
+		LLLandmarkActions::getSLURLfromPosGlobal(global_pos,&copy_slurl_to_clipboard_callback,true);
+	}
+}
+
+void copy_slurl_to_clipboard_callback(const std::string& slurl)
+{
+	gViewerWindow->mWindow->copyTextToClipboard(utf8str_to_wstring(slurl));
+	LLSD args;
+	args["SLURL"] = slurl;
+	LLNotifications::instance().add("CopySLURL", args);
 }

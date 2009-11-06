@@ -4,7 +4,7 @@
  *
  * $LicenseInfo:firstyear=2009&license=viewergpl$
  * 
- * Copyright (c) 2004-2009, Linden Research, Inc.
+ * Copyright (c) 2009, Linden Research, Inc.
  * 
  * Second Life Viewer Source Code
  * The source code in this file ("Source Code") is provided by Linden Lab
@@ -44,11 +44,13 @@ class LLPanelProfile;
 class LLMessageSystem;
 class LLVector3d;
 class LLPanelProfileTab;
-class LLPanelPick;
 class LLAgent;
 class LLMenuGL;
 class LLPickItem;
 class LLFlatListView;
+class LLPanelPickInfo;
+class LLPanelPickEdit;
+class LLToggleableMenu;
 
 class LLPanelPicks 
 	: public LLPanelProfileTab
@@ -74,22 +76,22 @@ public:
 	// parent panels failed to work (picks related code was in me profile panel)
 	void setProfilePanel(LLPanelProfile* profile_panel);
 
-	/**
-	 * Closes LLPanelPick if it is visible.
-	 */
-	/*virtual*/ void onClosePanel();
-
 private:
 	void onClickDelete();
 	void onClickTeleport();
 	void onClickMap();
+
+	void onOverflowMenuItemClicked(const LLSD& param);
+	void onOverflowButtonClicked();
 
 	//------------------------------------------------
 	// Callbacks which require panel toggling
 	//------------------------------------------------
 	void onClickNew();
 	void onClickInfo();
-	void onClickBack();
+	void onPanelPickClose(LLPanel* panel);
+	void onPanelPickSave(LLPanel* panel);
+	void onPanelPickEdit();
 	void onClickMenuEdit();
 
 	void buildPickPanel();
@@ -104,10 +106,18 @@ private:
 
 	LLPanelProfile* getProfilePanel();
 
+	void createPickInfoPanel();
+	void createPickEditPanel();
+// 	void openPickEditPanel(LLPickItem* pick);
+// 	void openPickInfoPanel(LLPickItem* pick);
+
 	LLMenuGL* mPopupMenu;
 	LLPanelProfile* mProfilePanel;
-	LLPanelPick* mPickPanel;
+	LLPanelPickInfo* mPickPanel;
 	LLFlatListView* mPicksList;
+	LLPanelPickInfo* mPanelPickInfo;
+	LLPanelPickEdit* mPanelPickEdit;
+	LLToggleableMenu* mOverflowMenu;
 };
 
 class LLPickItem : public LLPanel, public LLAvatarPropertiesObserver
@@ -144,6 +154,14 @@ public:
 
 	const std::string getDescription();
 
+	const std::string& getSimName() { return mSimName; }
+
+	const std::string& getUserName() { return mUserName; }
+
+	const std::string& getOriginalName() { return mOriginalName; }
+
+	const std::string& getPickDesc() { return mPickDescription; }
+
 	/*virtual*/ void processProperties(void* data, EAvatarProcessorType type);
 
 	void update();
@@ -165,6 +183,10 @@ protected:
 	bool mNeedData;
 
 	std::string mPickName;
+	std::string mUserName;
+	std::string mOriginalName;
+	std::string mPickDescription;
+	std::string mSimName;
 };
 
 #endif // LL_LLPANELPICKS_H

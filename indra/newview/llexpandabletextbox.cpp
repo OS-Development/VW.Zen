@@ -48,16 +48,31 @@ public:
 		mExpanderLabel(more_text)
 	{}
 
-	/*virtual*/ S32		getWidth(S32 first_char, S32 num_chars) const 
+	/*virtual*/ bool	getDimensions(S32 first_char, S32 num_chars, S32& width, S32& height) const 
 	{
 		// more label always spans width of text box
-		return mEditor.getTextRect().getWidth(); 
+		width = mEditor.getTextRect().getWidth() - mEditor.getHPad(); 
+		height = llceil(mStyle->getFont()->getLineHeight());
+		return true;
 	}
 	/*virtual*/ S32		getOffset(S32 segment_local_x_coord, S32 start_offset, S32 num_chars, bool round) const 
 	{ 
 		return start_offset;
 	}
-	/*virtual*/ S32		getNumChars(S32 num_pixels, S32 segment_offset, S32 line_offset, S32 max_chars) const { return getEnd() - getStart(); }
+	/*virtual*/ S32		getNumChars(S32 num_pixels, S32 segment_offset, S32 line_offset, S32 max_chars) const 
+	{ 
+		// require full line to ourselves
+		if (line_offset == 0) 
+		{
+			// print all our text
+			return getEnd() - getStart(); 
+		}
+		else
+		{
+			// wait for next line
+			return 0;
+		}
+	}
 	/*virtual*/ F32		draw(S32 start, S32 end, S32 selection_start, S32 selection_end, const LLRect& draw_rect)
 	{
 		F32 right_x;
@@ -72,8 +87,9 @@ public:
 									mEditor.getUseEllipses());
 		return right_x;
 	}
-	/*virtual*/ S32		getMaxHeight() const { return llceil(mStyle->getFont()->getLineHeight()); }
 	/*virtual*/ bool	canEdit() const { return false; }
+	// eat handleMouseDown event so we get the mouseup event
+	/*virtual*/ BOOL	handleMouseDown(S32 x, S32 y, MASK mask) { return TRUE; }
 	/*virtual*/ BOOL	handleMouseUp(S32 x, S32 y, MASK mask) { mEditor.onCommit(); return TRUE; }
 	/*virtual*/ BOOL	handleHover(S32 x, S32 y, MASK mask) 
 	{
@@ -113,9 +129,12 @@ void LLExpandableTextBox::LLTextBoxEx::reshape(S32 width, S32 height, BOOL calle
 	}
 }
 
-void LLExpandableTextBox::LLTextBoxEx::setValue(const LLSD& value)
+void LLExpandableTextBox::LLTextBoxEx::setText(const LLStringExplicit& text)
 {
-	LLTextBox::setValue(value);
+	// LLTextBox::setText will obliterate the expander segment, so make sure
+	// we generate it again by clearing mExpanderVisible
+	mExpanderVisible = false;
+	LLTextBox::setText(text);
 
 	// text contents have changed, segments are cleared out
 	// so hide the expander and determine if we need it
@@ -135,6 +154,11 @@ void LLExpandableTextBox::LLTextBoxEx::showExpandText()
 {
 	if (!mExpanderVisible)
 	{
+		// make sure we're scrolled to top when collapsing
+		if (mScroller)
+		{
+			mScroller->goToTop();
+		}
 		// get fully visible lines
 		std::pair<S32, S32> visible_lines = getVisibleLines(true);
 		S32 last_line = visible_lines.second - 1;
@@ -382,7 +406,6 @@ void LLExpandableTextBox::onTopLost()
 void LLExpandableTextBox::setValue(const LLSD& value)
 {
 	collapseTextBox();
-
 	mText = value.asString();
 	mTextBox->setValue(value);
 }
@@ -390,7 +413,6 @@ void LLExpandableTextBox::setValue(const LLSD& value)
 void LLExpandableTextBox::setText(const std::string& str)
 {
 	collapseTextBox();
-
 	mText = str;
 	mTextBox->setText(str);
 }

@@ -71,10 +71,12 @@ const LLPanel::Params& LLPanel::getDefaultParams()
 LLPanel::Params::Params()
 :	has_border("border", false),
 	border(""),
-	bg_opaque_color("bg_opaque_color"),
-	bg_alpha_color("bg_alpha_color"),
 	background_visible("background_visible", false),
 	background_opaque("background_opaque", false),
+	bg_opaque_color("bg_opaque_color"),
+	bg_alpha_color("bg_alpha_color"),
+	bg_opaque_image("bg_opaque_image"),
+	bg_alpha_image("bg_alpha_image"),
 	min_width("min_width", 100),
 	min_height("min_height", 100),
 	strings("string"),
@@ -92,10 +94,12 @@ LLPanel::Params::Params()
 
 LLPanel::LLPanel(const LLPanel::Params& p)
 :	LLUICtrl(p),
-	mBgColorAlpha(p.bg_alpha_color()),
-	mBgColorOpaque(p.bg_opaque_color()),
 	mBgVisible(p.background_visible),
 	mBgOpaque(p.background_opaque),
+	mBgOpaqueColor(p.bg_opaque_color()),
+	mBgAlphaColor(p.bg_alpha_color()),
+	mBgOpaqueImage(p.bg_opaque_image()),
+	mBgAlphaImage(p.bg_alpha_image()),
 	mDefaultBtn(NULL),
 	mBorder(NULL),
 	mLabel(p.label),
@@ -103,9 +107,9 @@ LLPanel::LLPanel(const LLPanel::Params& p)
 	mCommitCallbackRegistrar(false),
 	mEnableCallbackRegistrar(false),
 	mXMLFilename(p.filename)
+	// *NOTE: Be sure to also change LLPanel::initFromParams().  We have too
+	// many classes derived from LLPanel to retrofit them all to pass in params.
 {
-	setIsChrome(FALSE);
-
 	if (p.has_border)
 	{
 		addBorder(p.border);
@@ -178,19 +182,31 @@ void LLPanel::draw()
 	// draw background
 	if( mBgVisible )
 	{
-		//RN: I don't see the point of this
-		S32 left = 0;//LLPANEL_BORDER_WIDTH;
-		S32 top = getRect().getHeight();// - LLPANEL_BORDER_WIDTH;
-		S32 right = getRect().getWidth();// - LLPANEL_BORDER_WIDTH;
-		S32 bottom = 0;//LLPANEL_BORDER_WIDTH;
-
+		LLRect local_rect = getLocalRect();
 		if (mBgOpaque )
 		{
-			gl_rect_2d( left, top, right, bottom, mBgColorOpaque.get() % alpha);
+			// opaque, in-front look
+			if (mBgOpaqueImage.notNull())
+			{
+				mBgOpaqueImage->draw( local_rect, UI_VERTEX_COLOR % alpha );
+			}
+			else
+			{
+				// fallback to flat colors when there are no images
+				gl_rect_2d( local_rect, mBgOpaqueColor.get() % alpha);
+			}
 		}
 		else
 		{
-			gl_rect_2d( left, top, right, bottom, mBgColorAlpha.get() % alpha);
+			// transparent, in-back look
+			if (mBgAlphaImage.notNull())
+			{
+				mBgAlphaImage->draw( local_rect, UI_VERTEX_COLOR % alpha );
+			}
+			else
+			{
+				gl_rect_2d( local_rect, mBgAlphaColor.get() % alpha );
+			}
 		}
 	}
 
@@ -443,7 +459,8 @@ void LLPanel::initFromParams(const LLPanel::Params& p)
 	setBackgroundOpaque(p.background_opaque);
 	setBackgroundColor(p.bg_opaque_color().get());
 	setTransparentColor(p.bg_alpha_color().get());
-	
+	mBgOpaqueImage = p.bg_opaque_image();
+	mBgAlphaImage = p.bg_alpha_image();
 }
 
 static LLFastTimer::DeclareTimer FTM_PANEL_SETUP("Panel Setup");
@@ -474,7 +491,7 @@ BOOL LLPanel::initPanelXML(LLXMLNodePtr node, LLView *parent, LLXMLNodePtr outpu
 			{
 				//if we are exporting, we want to export the current xml
 				//not the referenced xml
-				LLXUIParser::instance().readXUI(node, params);
+				LLXUIParser::instance().readXUI(node, params, xml_filename);
 				Params output_params(params);
 				setupParamsForExport(output_params, parent);
 				output_node->setName(node->getName()->mString);
@@ -490,14 +507,15 @@ BOOL LLPanel::initPanelXML(LLXMLNodePtr node, LLView *parent, LLXMLNodePtr outpu
 				return FALSE;
 			}
 
-			LLXUIParser::instance().readXUI(referenced_xml, params);
+			LLXUIParser::instance().readXUI(referenced_xml, params, xml_filename);
 
 			// add children using dimensions from referenced xml for consistent layout
 			setShape(params.rect);
 			LLUICtrlFactory::createChildren(this, referenced_xml, child_registry_t::instance());
 		}
 
-		LLXUIParser::instance().readXUI(node, params);
+		// ask LLUICtrlFactory for filename, since xml_filename might be empty
+		LLXUIParser::instance().readXUI(node, params, LLUICtrlFactory::getInstance()->getCurFileName());
 
 		if (output_node)
 		{
@@ -808,6 +826,47 @@ LLPanel *LLPanel::childGetVisibleTab(const std::string& id) const
 		return child->getCurrentPanel();
 	}
 	return NULL;
+}
+
+static LLPanel *childGetVisibleTabWithHelp(LLView *parent)
+{
+	LLView *child;
+
+	// look through immediate children first for an active tab with help
+	for (child = parent->getFirstChild(); child; child = parent->findNextSibling(child))
+	{
+		LLTabContainer *tab = dynamic_cast<LLTabContainer *>(child);
+		if (tab && tab->getVisible())
+		{
+			LLPanel *curTabPanel = tab->getCurrentPanel();
+			if (curTabPanel && !curTabPanel->getHelpTopic().empty())
+			{
+				return curTabPanel;
+			}
+		}
+	}
+
+	// then try a bit harder and recurse through all children
+	for (child = parent->getFirstChild(); child; child = parent->findNextSibling(child))
+	{
+		if (child->getVisible())
+		{
+			LLPanel* tab = ::childGetVisibleTabWithHelp(child);
+			if (tab)
+			{
+				return tab;
+			}
+		}
+	}
+
+	// couldn't find any active tabs with a help topic string
+	return NULL;
+}
+
+LLPanel *LLPanel::childGetVisibleTabWithHelp()
+{
+	// find a visible tab with a help topic (to determine help context)
+	return ::childGetVisibleTabWithHelp(this);
 }
 
 void LLPanel::childSetPrevalidate(const std::string& id, BOOL (*func)(const LLWString &) )

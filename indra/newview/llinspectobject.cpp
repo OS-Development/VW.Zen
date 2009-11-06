@@ -34,17 +34,18 @@
 #include "llinspectobject.h"
 
 // Viewer
+#include "llinspect.h"
+#include "llmediaentry.h"
 #include "llnotifications.h"	// *TODO: Eliminate, add LLNotificationsUtil wrapper
 #include "llselectmgr.h"
 #include "llslurl.h"
 #include "llviewermenu.h"		// handle_object_touch(), handle_buy()
+#include "llviewermedia.h"
 #include "llviewerobjectlist.h"	// to select the requested object
 
 // Linden libraries
 #include "llbutton.h"			// setLabel(), not virtual!
 #include "llclickaction.h"
-#include "llcontrol.h"			// LLCachedControl
-#include "llfloater.h"
 #include "llfloaterreg.h"
 #include "llmenubutton.h"
 #include "llresmgr.h"			// getMonetaryString
@@ -56,15 +57,13 @@
 
 class LLViewerObject;
 
-// *TODO: Abstract out base class for LLInspectObject and LLInspectObject
-
 //////////////////////////////////////////////////////////////////////////////
 // LLInspectObject
 //////////////////////////////////////////////////////////////////////////////
 
 // Object Inspector, a small information window used when clicking
 // in the ambient inspector widget for objects in the 3D world.
-class LLInspectObject : public LLFloater
+class LLInspectObject : public LLInspect
 {
 	friend class LLFloaterReg;
 	
@@ -75,7 +74,6 @@ public:
 	virtual ~LLInspectObject();
 	
 	/*virtual*/ BOOL postBuild(void);
-	/*virtual*/ void draw();
 	
 	// Because floater is single instance, need to re-parse data on each spawn
 	// (for example, inspector about same avatar but in different position)
@@ -83,9 +81,6 @@ public:
 	
 	// Release the selection and do other cleanup
 	/*virtual*/ void onClose(bool app_quitting);
-	
-	// Inspectors close themselves when they lose focus
-	/*virtual*/ void onFocusLost();
 	
 private:
 	// Refresh displayed data with information from selection manager
@@ -99,8 +94,10 @@ private:
 	void updateName(LLSelectNode* nodep);
 	void updateDescription(LLSelectNode* nodep);
 	void updatePrice(LLSelectNode* nodep);
-	
 	void updateCreator(LLSelectNode* nodep);
+	
+	void updateMediaCurrentURL();	
+	void updateSecureBrowsing();
 		
 	void onClickBuy();
 	void onClickPay();
@@ -113,16 +110,19 @@ private:
 	
 private:
 	LLUUID				mObjectID;
-	LLFrameTimer		mOpenTimer;
-	LLFrameTimer		mCloseTimer;
+	S32					mObjectFace;
+	viewer_media_t		mMediaImpl;
+	LLMediaEntry*       mMediaEntry;
 	LLSafeHandle<LLObjectSelection> mObjectSelection;
 };
 
 LLInspectObject::LLInspectObject(const LLSD& sd)
-:	LLFloater( LLSD() ),	// single_instance, doesn't really need key
-	mObjectID(),			// set in onOpen()
-	mCloseTimer(),
-	mOpenTimer()
+:	LLInspect( LLSD() ),	// single_instance, doesn't really need key
+	mObjectID(NULL),			// set in onOpen()
+	mObjectFace(0),
+	mObjectSelection(NULL),
+	mMediaImpl(NULL),
+	mMediaEntry(NULL)
 {
 	// can't make the properties request until the widgets are constructed
 	// as it might return immediately, so do it in postBuild.
@@ -149,7 +149,7 @@ BOOL LLInspectObject::postBuild(void)
 	getChild<LLUICtrl>("object_name")->setValue("");
 	getChild<LLUICtrl>("object_creator")->setValue("");
 	getChild<LLUICtrl>("object_description")->setValue("");
-
+	getChild<LLUICtrl>("object_media_url")->setValue("");
 	// Set buttons invisible until we know what this object can do
 	hideButtons();
 
@@ -181,43 +181,22 @@ BOOL LLInspectObject::postBuild(void)
 	return TRUE;
 }
 
-void LLInspectObject::draw()
-{
-	static LLCachedControl<F32> FADE_OUT_TIME(*LLUI::sSettingGroups["config"], "InspectorFadeTime", 1.f);
-	if (mOpenTimer.getStarted())
-	{
-		F32 alpha = clamp_rescale(mOpenTimer.getElapsedTimeF32(), 0.f, FADE_OUT_TIME, 0.f, 1.f);
-		LLViewDrawContext context(alpha);
-		LLFloater::draw();
-	}
-	else if (mCloseTimer.getStarted())
-	{
-		F32 alpha = clamp_rescale(mCloseTimer.getElapsedTimeF32(), 0.f, FADE_OUT_TIME, 1.f, 0.f);
-		LLViewDrawContext context(alpha);
-		LLFloater::draw();
-		if (mCloseTimer.getElapsedTimeF32() > FADE_OUT_TIME)
-		{
-			closeFloater(false);
-		}
-	}
-	else
-	{
-		LLFloater::draw();
-	}
-}
-
 
 // Multiple calls to showInstance("inspect_avatar", foo) will provide different
 // LLSD for foo, which we will catch here.
 //virtual
 void LLInspectObject::onOpen(const LLSD& data)
 {
-	mCloseTimer.stop();
-	mOpenTimer.start();
+	// Start animation
+	LLInspect::onOpen(data);
 
 	// Extract appropriate avatar id
 	mObjectID = data["object_id"];
-
+	
+	if(data.has("object_face"))
+	{
+		mObjectFace = data["object_face"];
+	}
 	// Position the inspector relative to the mouse cursor
 	// Similar to how tooltips are positioned
 	// See LLToolTipMgr::createToolTip
@@ -248,6 +227,17 @@ void LLInspectObject::onOpen(const LLSD& data)
 			}
 		} functor;
 		mObjectSelection->applyToNodes(&functor);
+		
+		// Does this face have media?
+		const LLTextureEntry* tep = obj->getTE(mObjectFace);
+		if (!tep)
+			return;
+		
+		mMediaEntry = tep->hasMedia() ? tep->getMediaData() : NULL;
+		if(!mMediaEntry)
+			return;
+		
+		mMediaImpl = LLViewerMedia::getMediaImplFromTextureID(mMediaEntry->getMediaID());
 	}
 }
 
@@ -258,14 +248,6 @@ void LLInspectObject::onClose(bool app_quitting)
 	mObjectSelection = NULL;
 
 	getChild<LLMenuButton>("gear_btn")->hideMenu();
-}
-
-//virtual
-void LLInspectObject::onFocusLost()
-{
-	// Start closing when we lose focus
-	mCloseTimer.start();
-	mOpenTimer.stop();
 }
 
 
@@ -286,6 +268,30 @@ void LLInspectObject::update()
 	updateDescription(nodep);
 	updateCreator(nodep);
 	updatePrice(nodep);
+	
+	LLViewerObject* obj = nodep->getObject();
+	if(!obj)
+		return;
+	
+	if ( mObjectFace < 0 
+		||  mObjectFace >= obj->getNumTEs() )
+	{
+		return;
+	}
+	
+	// Does this face have media?
+	const LLTextureEntry* tep = obj->getTE(mObjectFace);
+	if (!tep)
+		return;
+	
+	mMediaEntry = tep->hasMedia() ? tep->getMediaData() : NULL;
+	if(!mMediaEntry)
+		return;
+	
+	mMediaImpl = LLViewerMedia::getMediaImplFromTextureID(mMediaEntry->getMediaID());
+	
+	updateMediaCurrentURL();
+	updateSecureBrowsing();
 }
 
 void LLInspectObject::hideButtons()
@@ -424,6 +430,45 @@ void LLInspectObject::updateDescription(LLSelectNode* nodep)
 	}
 }
 
+void LLInspectObject::updateMediaCurrentURL()
+{	
+	if(!mMediaEntry)
+		return;
+	LLTextBox* textbox = getChild<LLTextBox>("object_media_url");
+	std::string media_url = "";
+	textbox->setValue(media_url);
+	textbox->setToolTip(media_url);
+	LLStringUtil::format_map_t args;
+	
+	if(mMediaImpl.notNull() && mMediaImpl->hasMedia())
+	{
+		
+		LLPluginClassMedia* media_plugin = NULL;
+		media_plugin = mMediaImpl->getMediaPlugin();
+		if(media_plugin)
+		{
+			if(media_plugin->pluginSupportsMediaTime())
+			{
+				args["[CurrentURL]"] =  mMediaImpl->getMediaURL();
+			}
+			else
+			{
+				args["[CurrentURL]"] =  media_plugin->getLocation();
+			}
+			media_url = LLTrans::getString("CurrentURL", args);
+
+		}
+	}
+	else if(mMediaEntry->getCurrentURL() != "")
+	{
+		args["[CurrentURL]"] = mMediaEntry->getCurrentURL();
+		media_url = LLTrans::getString("CurrentURL", args);
+	}
+
+	textbox->setText(media_url);
+	textbox->setToolTip(media_url);
+}
+
 void LLInspectObject::updateCreator(LLSelectNode* nodep)
 {
 	// final information for display
@@ -495,6 +540,40 @@ void LLInspectObject::updatePrice(LLSelectNode* nodep)
 	getChild<LLUICtrl>("price_text")->setValue(line);
 	getChild<LLUICtrl>("price_icon")->setVisible(show_price_icon);
 }
+
+void LLInspectObject::updateSecureBrowsing()
+{
+	bool is_secure_browsing = false;
+	
+	if(mMediaImpl.notNull() 
+	   && mMediaImpl->hasMedia())
+	{
+		LLPluginClassMedia* media_plugin = NULL;
+		std::string current_url = "";
+		media_plugin = mMediaImpl->getMediaPlugin();
+		if(media_plugin)
+		{
+			if(media_plugin->pluginSupportsMediaTime())
+			{
+				current_url = mMediaImpl->getMediaURL();
+			}
+			else
+			{
+				current_url =  media_plugin->getLocation();
+			}
+		}
+		
+		std::string prefix =  std::string("https://");
+		std::string test_prefix = current_url.substr(0, prefix.length());
+		LLStringUtil::toLower(test_prefix);	
+		if(test_prefix == prefix)
+		{
+			is_secure_browsing = true;
+		}
+	}
+	getChild<LLUICtrl>("secure_browsing")->setVisible(is_secure_browsing);
+}
+
 
 void LLInspectObject::onClickBuy()
 {

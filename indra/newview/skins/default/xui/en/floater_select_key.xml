@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  border="true"
  can_close="false"
  can_minimize="false"
  height="100"
  layout="topleft"
  name="modal container"
- help_topic="modal_container"
  width="240">
     <button
      height="20"

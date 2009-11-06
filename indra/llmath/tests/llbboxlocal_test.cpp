@@ -1,5 +1,5 @@
 /**
- * @file   llbboxlocal_tut.cpp
+ * @file   llbboxlocal_test.cpp
  * @author Martin Reddy
  * @date   2009-06-25
  * @brief  Test for llbboxlocal.cpp.
@@ -32,10 +32,9 @@
  * $/LicenseInfo$
  */
 
+#include "linden_common.h"
 #include "../test/lltut.h"
-
 #include "../llbboxlocal.h"
-
 
 namespace tut
 {

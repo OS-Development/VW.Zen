@@ -279,47 +279,7 @@ BOOL LLMenuItemGL::addToAcceleratorList(std::list <LLKeyBinding*> *listp)
 // the current accelerator key and mask to the provided string.
 void LLMenuItemGL::appendAcceleratorString( std::string& st ) const
 {
-	// break early if this is a silly thing to do.
-	if( KEY_NONE == mAcceleratorKey )
-	{
-		return;
-	}
-
-	// Append any masks
-#ifdef LL_DARWIN
-	// Standard Mac names for modifier keys in menu equivalents
-	// We could use the symbol characters, but they only exist in certain fonts.
-	if( mAcceleratorMask & MASK_CONTROL )
-	{
-		if ( mAcceleratorMask & MASK_MAC_CONTROL )
-		{
-			st.append( "Ctrl-" );
-		}
-		else
-		{
-			st.append( "Cmd-" );		// Symbol would be "\xE2\x8C\x98"
-		}
-	}
-	if( mAcceleratorMask & MASK_ALT )
-		st.append( "Opt-" );		// Symbol would be "\xE2\x8C\xA5"
-	if( mAcceleratorMask & MASK_SHIFT )
-		st.append( "Shift-" );		// Symbol would be "\xE2\x8C\xA7"
-#else
-	if( mAcceleratorMask & MASK_CONTROL )
-		st.append( "Ctrl-" );
-	if( mAcceleratorMask & MASK_ALT )
-		st.append( "Alt-" );
-	if( mAcceleratorMask & MASK_SHIFT )
-		st.append( "Shift-" );
-#endif
-
-	std::string keystr = LLKeyboard::stringFromKey( mAcceleratorKey );
-	if ((mAcceleratorMask & MASK_NORMALKEYS) &&
-		(keystr[0] == '-' || keystr[0] == '='))
-	{
-		st.append( " " );
-	}
-	st.append( keystr );
+	st = LLKeyboard::stringFromAccelerator( mAcceleratorMask, mAcceleratorKey );
 	LL_DEBUGS("HotKeys") << "appendAcceleratorString: " << st << LL_ENDL;
 }
 
@@ -499,12 +459,6 @@ void LLMenuItemGL::draw( void )
 
 	LLColor4 color;
 
-	LLFontGL::ShadowType shadow_style = LLFontGL::NO_SHADOW;
-	if (getEnabled() && !mDrawTextDisabled )
-	{
-		shadow_style = LLFontGL::DROP_SHADOW_SOFT;
-	}
-
 	if ( getEnabled() && getHighlight() )
 	{
 		color = mHighlightForeground.get();
@@ -522,26 +476,26 @@ void LLMenuItemGL::draw( void )
 	if (mBriefItem)
 	{
 		mFont->render( mLabel, 0, BRIEF_PAD_PIXELS / 2, 0, color,
-					   LLFontGL::LEFT, LLFontGL::BOTTOM, LLFontGL::NORMAL, shadow_style );
+					   LLFontGL::LEFT, LLFontGL::BOTTOM, LLFontGL::NORMAL);
 	}
 	else
 	{
 		if( !mDrawBoolLabel.empty() )
 		{
 			mFont->render( mDrawBoolLabel.getWString(), 0, (F32)LEFT_PAD_PIXELS, ((F32)MENU_ITEM_PADDING / 2.f) + 1.f, color,
-						   LLFontGL::LEFT, LLFontGL::BOTTOM, LLFontGL::NORMAL, shadow_style, S32_MAX, S32_MAX, NULL, FALSE );
+						   LLFontGL::LEFT, LLFontGL::BOTTOM, LLFontGL::NORMAL, LLFontGL::NO_SHADOW, S32_MAX, S32_MAX, NULL, FALSE );
 		}
 		mFont->render( mLabel.getWString(), 0, (F32)LEFT_PLAIN_PIXELS, ((F32)MENU_ITEM_PADDING / 2.f) + 1.f, color,
-					   LLFontGL::LEFT, LLFontGL::BOTTOM, LLFontGL::NORMAL, shadow_style, S32_MAX, S32_MAX, NULL, FALSE );
+					   LLFontGL::LEFT, LLFontGL::BOTTOM, LLFontGL::NORMAL, LLFontGL::NO_SHADOW, S32_MAX, S32_MAX, NULL, FALSE );
 		if( !mDrawAccelLabel.empty() )
 		{
 			mFont->render( mDrawAccelLabel.getWString(), 0, (F32)getRect().mRight - (F32)RIGHT_PLAIN_PIXELS, ((F32)MENU_ITEM_PADDING / 2.f) + 1.f, color,
-						   LLFontGL::RIGHT, LLFontGL::BOTTOM, LLFontGL::NORMAL, shadow_style, S32_MAX, S32_MAX, NULL, FALSE );
+						   LLFontGL::RIGHT, LLFontGL::BOTTOM, LLFontGL::NORMAL, LLFontGL::NO_SHADOW, S32_MAX, S32_MAX, NULL, FALSE );
 		}
 		if( !mDrawBranchLabel.empty() )
 		{
 			mFont->render( mDrawBranchLabel.getWString(), 0, (F32)getRect().mRight - (F32)RIGHT_PAD_PIXELS, ((F32)MENU_ITEM_PADDING / 2.f) + 1.f, color,
-						   LLFontGL::RIGHT, LLFontGL::BOTTOM, LLFontGL::NORMAL, shadow_style, S32_MAX, S32_MAX, NULL, FALSE );
+						   LLFontGL::RIGHT, LLFontGL::BOTTOM, LLFontGL::NORMAL, LLFontGL::NO_SHADOW, S32_MAX, S32_MAX, NULL, FALSE );
 		}
 	}
 
@@ -1500,12 +1454,6 @@ void LLMenuItemBranchDownGL::draw( void )
 		gl_rect_2d( 0, getRect().getHeight(), getRect().getWidth(), 0 );
 	}
 
-	LLFontGL::ShadowType shadow_style = LLFontGL::NO_SHADOW;
-	if (getEnabled() && !getDrawTextDisabled() )
-	{
-		shadow_style = LLFontGL::DROP_SHADOW_SOFT;
-	}
-
 	LLColor4 color;
 	if (getHighlight())
 	{
@@ -1520,7 +1468,7 @@ void LLMenuItemBranchDownGL::draw( void )
 		color = mDisabledColor.get();
 	}
 	getFont()->render( mLabel.getWString(), 0, (F32)getRect().getWidth() / 2.f, (F32)LABEL_BOTTOM_PAD_PIXELS, color,
-				   LLFontGL::HCENTER, LLFontGL::BOTTOM, LLFontGL::NORMAL, shadow_style );
+				   LLFontGL::HCENTER, LLFontGL::BOTTOM, LLFontGL::NORMAL);
 
 
 	// underline navigation key only when keyboard navigation has been initiated
@@ -1595,8 +1543,6 @@ LLMenuScrollItem::LLMenuScrollItem(const Params& p)
 	}
 
 	LLButton::Params bparams;
-	bparams.label("");
-	bparams.label_selected("");
 	bparams.mouse_opaque(true);
 	bparams.scale_image(false);
 	bparams.click_callback(p.scroll_callback);
@@ -2934,8 +2880,8 @@ void hide_top_view( LLView* view )
 }
 
 
-// x and y are the desired location for the popup, NOT necessarily the
-// mouse location
+// x and y are the desired location for the popup, in the spawning_view's
+// coordinate frame, NOT necessarily the mouse location
 // static
 void LLMenuGL::showPopup(LLView* spawning_view, LLMenuGL* menu, S32 x, S32 y)
 {
@@ -3475,7 +3421,7 @@ void LLMenuHolderGL::setActivatedItem(LLMenuItemGL* item)
 LLTearOffMenu::LLTearOffMenu(LLMenuGL* menup) : 
 	LLFloater(LLSD())
 {
-	static LLUICachedControl<S32> floater_header_size ("UIFloaterHeaderSize", 0);
+	S32 floater_header_size = getHeaderHeight();
 
 	setName(menup->getName());
 	setTitle(menup->getLabel());
@@ -3519,7 +3465,6 @@ LLTearOffMenu::~LLTearOffMenu()
 
 void LLTearOffMenu::draw()
 {
-	static LLUICachedControl<S32> floater_header_size ("UIFloaterHeaderSize", 0);
 	mMenu->setBackgroundVisible(isBackgroundOpaque());
 	mMenu->needsArrange();
 

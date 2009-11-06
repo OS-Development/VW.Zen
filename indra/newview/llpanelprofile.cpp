@@ -59,17 +59,61 @@ public:
 			return false;
 		}
 
-		if (params[1].asString() == "about")
+		const std::string verb = params[1].asString();
+		if (verb == "about")
 		{
 			LLAvatarActions::showProfile(avatar_id);
 			return true;
 		}
 
-		if (params[1].asString() == "inspect")
+		if (verb == "inspect")
 		{
 			LLFloaterReg::showInstance("inspect_avatar", LLSD().insert("avatar_id", avatar_id));
 			return true;
 		}
+
+		if (verb == "im")
+		{
+			LLAvatarActions::startIM(avatar_id);
+			return true;
+		}
+
+		if (verb == "pay")
+		{
+			LLAvatarActions::pay(avatar_id);
+			return true;
+		}
+
+		if (verb == "offerteleport")
+		{
+			LLAvatarActions::offerTeleport(avatar_id);
+			return true;
+		}
+
+		if (verb == "requestfriend")
+		{
+			LLAvatarActions::requestFriendshipDialog(avatar_id);
+			return true;
+		}
+
+		if (verb == "mute")
+		{
+			if (! LLAvatarActions::isBlocked(avatar_id))
+			{
+				LLAvatarActions::toggleBlock(avatar_id);
+			}
+			return true;
+		}
+
+		if (verb == "unmute")
+		{
+			if (LLAvatarActions::isBlocked(avatar_id))
+			{
+				LLAvatarActions::toggleBlock(avatar_id);
+			}
+			return true;
+		}
+
 		return false;
 	}
 };
@@ -117,24 +161,20 @@ void LLPanelProfile::onOpen(const LLSD& key)
 void LLPanelProfile::togglePanel(LLPanel* panel)
 {
 	// TRUE - we need to open/expand "panel"
-	bool expand = getChildList()->back() != panel;  // mTabCtrl->getVisible();
+	bool expand = getChildList()->front() != panel;  // mTabCtrl->getVisible();
 
 	if (expand)
 	{
-		//*NOTE on view profile panel along with tabcontainer there is 
-		// a backbutton that will be shown when there will be a panel over it even 
-		//if that panel has visible backgroud
-		setAllChildrenVisible(FALSE);
-		
-		panel->setVisible(TRUE);
 		if (panel->getParent() != this)
 		{
-			addChildInBack(panel);
+			addChild(panel);
 		}
 		else
 		{
-			sendChildToBack(panel);
+			sendChildToFront(panel);
 		}
+
+		panel->setVisible(TRUE);
 
 		LLRect new_rect = getRect();
 		panel->reshape(new_rect.getWidth(), new_rect.getHeight());
@@ -143,13 +183,12 @@ void LLPanelProfile::togglePanel(LLPanel* panel)
 	}
 	else 
 	{
-		this->setAllChildrenVisible(TRUE);
 		panel->setVisible(FALSE);
 		if (panel->getParent() == this) 
 		{
 			removeChild(panel);
 		}
-		sendChildToBack(getTabCtrl());
+
 		getTabCtrl()->getCurrentPanel()->onOpen(getAvatarId());
 	}
 }
@@ -174,3 +213,35 @@ void LLPanelProfile::setAllChildrenVisible(BOOL visible)
 	}
 }
 
+void LLPanelProfile::openPanel(LLPanel* panel, const LLSD& params)
+{
+	if (panel->getParent() != this)
+	{
+		addChild(panel);
+	}
+	else
+	{
+		sendChildToFront(panel);
+	}
+
+	panel->setVisible(TRUE);
+
+	panel->onOpen(params);
+
+	LLRect new_rect = getRect();
+	panel->reshape(new_rect.getWidth(), new_rect.getHeight());
+	new_rect.setLeftTopAndSize(0, new_rect.getHeight(), new_rect.getWidth(), new_rect.getHeight());
+	panel->setRect(new_rect);
+}
+
+void LLPanelProfile::notifyParent(const LLSD& info)
+{
+	std::string action = info["action"];
+	// lets update Picks list after Pick was saved
+	if("save_new_pick" == action)
+	{
+		onOpen(info);
+		return;
+	}
+	LLPanel::notifyParent(info);
+}
