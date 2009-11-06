@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  auto_tile="true"
  can_resize="true"
  height="550"
@@ -10,7 +11,7 @@
  name="preview lsl text"
  help_topic="preview_lsl_text"
  save_rect="true"
- title="Script: Rotation Script"
+ title="SCRIPT: ROTATION SCRIPT"
  top_delta="0"
  width="500">
     <floater.string

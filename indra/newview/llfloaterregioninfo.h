@@ -109,9 +109,9 @@ class LLPanelRegionInfo : public LLPanel
 public:
 	LLPanelRegionInfo();
 	
-	static void onBtnSet(void* user_data);
-	static void onChangeChildCtrl(LLUICtrl* ctrl, void* user_data);
-	static void onChangeAnything(LLUICtrl* ctrl, void* user_data);
+	void onBtnSet();
+	void onChangeChildCtrl(LLUICtrl* ctrl);
+	void onChangeAnything();
 	static void onChangeText(LLLineEditor* caller, void* user_data);
 	
 	virtual bool refreshFromRegion(LLViewerRegion* region);
@@ -123,12 +123,10 @@ public:
 	void enableButton(const std::string& btn_name, BOOL enable = TRUE);
 	void disableButton(const std::string& btn_name);
 	
+	void onClickManageTelehub();
+	
 protected:
 	void initCtrl(const std::string& name);
-	void initHelpBtn(const std::string& name, const std::string& xml_alert);
-
-	// Callback for all help buttons, data is name of XML alert to show.
-	static void onClickHelp(void* data);
 	
 	// Returns TRUE if update sent and apply button should be
 	// disabled.
@@ -152,6 +150,7 @@ protected:
 
 class LLPanelRegionGeneralInfo : public LLPanelRegionInfo
 {
+	
 public:
 	LLPanelRegionGeneralInfo()
 		:	LLPanelRegionInfo()	{}
@@ -161,16 +160,16 @@ public:
 	
 	// LLPanel
 	virtual BOOL postBuild();
+	
 protected:
 	virtual BOOL sendUpdate();
-	
 	static void onClickKick(void* userdata);
 	static void onKickCommit(const std::vector<std::string>& names, const std::vector<LLUUID>& ids, void* userdata);
 	static void onClickKickAll(void* userdata);
 	bool onKickAllCommit(const LLSD& notification, const LLSD& response);
 	static void onClickMessage(void* userdata);
 	bool onMessageCommit(const LLSD& notification, const LLSD& response);
-	void onClickManageTelehub();
+
 };
 
 /////////////////////////////////////////////////////////////////////////////
@@ -239,9 +238,9 @@ public:
 protected:
 	virtual BOOL sendUpdate();
 
-	static void onChangeUseEstateTime(LLUICtrl* ctrl, void* user_data);
-	static void onChangeFixedSun(LLUICtrl* ctrl, void* user_data);
-	static void onChangeSunHour(LLUICtrl* ctrl, void*);
+	void onChangeUseEstateTime();
+	void onChangeFixedSun();
+	void onChangeSunHour();
 
 	static void onClickDownloadRaw(void*);
 	static void onClickUploadRaw(void*);
@@ -256,8 +255,8 @@ class LLPanelEstateInfo : public LLPanelRegionInfo
 public:
 	static void initDispatch(LLDispatcher& dispatch);
 	
-	static void onChangeFixedSun(LLUICtrl* ctrl, void* user_data);
-	static void onChangeUseGlobalTime(LLUICtrl* ctrl, void* user_data);
+	void onChangeFixedSun();
+	void onChangeUseGlobalTime();
 	
 	static void onClickEditSky(void* userdata);
 	static void onClickEditSkyHelp(void* userdata);	

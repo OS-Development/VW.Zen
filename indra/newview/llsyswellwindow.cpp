@@ -66,6 +66,7 @@ BOOL LLSysWellWindow::postBuild()
 	// init connections to the list's update events
 	connectListUpdaterToSignal("notify");
 	connectListUpdaterToSignal("groupnotify");
+	connectListUpdaterToSignal("offer");
 
 	// get a corresponding channel
 	initChannel();
@@ -110,6 +111,12 @@ void LLSysWellWindow::connectListUpdaterToSignal(std::string notification_type)
 	{
 		llwarns << "LLSysWellWindow::connectListUpdaterToSignal() - could not get a handler for '" << notification_type <<"' type of notifications" << llendl;
 	}
+}
+
+//---------------------------------------------------------------------------------
+void LLSysWellWindow::onStartUpToastClick(S32 x, S32 y, MASK mask)
+{
+	onChicletClick();
 }
 
 //---------------------------------------------------------------------------------
@@ -403,7 +410,6 @@ bool LLSysWellWindow::isWindowEmpty()
 void LLSysWellWindow::sessionAdded(const LLUUID& session_id,
 		const std::string& name, const LLUUID& other_participant_id)
 {
-	//*TODO get rid of get_session_value, session_id's are unique, cause performance degradation with lots chiclets (IB)
 	if (mMessageList->getItemByValue(session_id) == NULL)
 	{
 		S32 chicletCounter = LLIMModel::getInstance()->getNumUnread(session_id);
@@ -421,7 +427,6 @@ void LLSysWellWindow::sessionRemoved(const LLUUID& sessionId)
 {
 	delIMRow(sessionId);
 	reshapeWindow();
-	LLBottomTray::getInstance()->getSysWell()->updateUreadIMNotifications();
 }
 
 void LLSysWellWindow::sessionIDUpdated(const LLUUID& old_session_id, const LLUUID& new_session_id)

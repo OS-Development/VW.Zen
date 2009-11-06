@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  can_minimize="false"
  height="292"
  layout="topleft"
@@ -7,7 +8,7 @@
  help_topic="floater_hud"
  save_rect="true"
  save_visibility="true"
- title="Tutorial"
+ title="TUTORIAL"
  width="362">
     <web_browser
      border_visible="false"

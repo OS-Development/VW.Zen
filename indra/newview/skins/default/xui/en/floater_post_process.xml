@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  height="400"
  layout="topleft"
  name="Post-Process Floater"
  help_topic="post_process_floater"
- title="Post-Process Settings"
+ title="POST-PROCESS SETTINGS"
  width="400">
     <tab_container
      follows="left|top"

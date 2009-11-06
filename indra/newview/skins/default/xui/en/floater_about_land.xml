@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
  can_tear_off="false"
  height="420"
@@ -6,7 +6,7 @@
  name="floaterland"
  help_topic="floaterland"
  save_rect="true"
- title="About Land"
+ title="ABOUT LAND"
  width="460">
     <floater.string
      name="Minutes">
@@ -849,7 +849,7 @@ Go to World menu &gt; About Land or select another parcel to show its details.
              left_delta="152"
              name="objects_available"
              top_delta="0"
-             width="212">
+             width="260">
                 [COUNT] out of [MAX] ([AVAILABLE] available)
             </text>
             <text
@@ -870,7 +870,7 @@ Go to World menu &gt; About Land or select another parcel to show its details.
              follows="left|top"
              height="16"
              layout="topleft"
-             left_delta="152"
+             left_delta="200"
              name="object_contrib_text"
              top_delta="0"
              width="212">
@@ -894,7 +894,7 @@ Go to World menu &gt; About Land or select another parcel to show its details.
              follows="left|top"
              height="16"
              layout="topleft"
-             left_delta="152"
+             left_delta="200"
              name="total_objects_text"
              top_delta="0"
              width="48">
@@ -909,7 +909,7 @@ Go to World menu &gt; About Land or select another parcel to show its details.
              left="28"
              name="Owned by parcel owner:"
              top="84"
-             width="128">
+             width="176">
                 Owned by parcel owner:
             </text>
             <text
@@ -918,7 +918,7 @@ Go to World menu &gt; About Land or select another parcel to show its details.
              follows="left|top"
              height="16"
              layout="topleft"
-             left_delta="128"
+             left_delta="176"
              name="owner_objects_text"
              top_delta="0"
              width="48">
@@ -934,7 +934,7 @@ Go to World menu &gt; About Land or select another parcel to show its details.
              label_selected="Show"
              layout="topleft"
              name="ShowOwner"
-             right="-190"
+             right="-140"
              width="60" />
             <button
              bottom="100"
@@ -946,7 +946,7 @@ Go to World menu &gt; About Land or select another parcel to show its details.
              label_selected="Return..."
              layout="topleft"
              name="ReturnOwner..."
-             right="-60"
+             right="-10"
              tool_tip="Return objects to their owners."
              width="119" />
             <text
@@ -958,7 +958,7 @@ Go to World menu &gt; About Land or select another parcel to show its details.
              left="28"
              name="Set to group:"
              top="104"
-             width="128">
+             width="176">
                 Set to group:
             </text>
             <text
@@ -967,7 +967,7 @@ Go to World menu &gt; About Land or select another parcel to show its details.
              follows="left|top"
              height="16"
              layout="topleft"
-             left_delta="128"
+             left_delta="176"
              name="group_objects_text"
              top_delta="0"
              width="48">
@@ -983,7 +983,7 @@ Go to World menu &gt; About Land or select another parcel to show its details.
              label_selected="Show"
              layout="topleft"
              name="ShowGroup"
-             right="-190"
+             right="-140"
              width="60" />
             <button
              bottom="120"
@@ -995,7 +995,7 @@ Go to World menu &gt; About Land or select another parcel to show its details.
              label_selected="Return..."
              layout="topleft"
              name="ReturnGroup..."
-             right="-60"
+             right="-10"
              tool_tip="Return objects to their owners."
              width="119" />
             <text
@@ -1007,7 +1007,7 @@ Go to World menu &gt; About Land or select another parcel to show its details.
              left="28"
              name="Owned by others:"
              top="124"
-             width="128">
+             width="176">
                 Owned by others:
             </text>
             <text
@@ -1016,7 +1016,7 @@ Go to World menu &gt; About Land or select another parcel to show its details.
              follows="left|top"
              height="16"
              layout="topleft"
-             left_delta="128"
+             left_delta="176"
              name="other_objects_text"
              top_delta="0"
              width="48">
@@ -1032,7 +1032,7 @@ Go to World menu &gt; About Land or select another parcel to show its details.
              label_selected="Show"
              layout="topleft"
              name="ShowOther"
-             right="-190"
+             right="-140"
              width="60" />
             <button
              bottom="140"
@@ -1044,7 +1044,7 @@ Go to World menu &gt; About Land or select another parcel to show its details.
              label_selected="Return..."
              layout="topleft"
              name="ReturnOther..."
-             right="-60"
+             right="-10"
              tool_tip="Return objects to their owners."
              width="119" />
             <text
@@ -1056,7 +1056,7 @@ Go to World menu &gt; About Land or select another parcel to show its details.
              left="28"
              name="Selected / sat upon:"
              top="144"
-             width="128">
+             width="176">
                 Selected / sat upon:
             </text>
             <text
@@ -1065,7 +1065,7 @@ Go to World menu &gt; About Land or select another parcel to show its details.
              follows="left|top"
              height="16"
              layout="topleft"
-             left_delta="128"
+             left_delta="176"
              name="selected_objects_text"
              top_delta="0"
              width="48">
@@ -1092,7 +1092,7 @@ Go to World menu &gt; About Land or select another parcel to show its details.
              layout="topleft"
              max_length="6"
              name="clean other time"
-             right="-100"
+             right="-50"
              width="56" />
             <text
              type="string"
@@ -1487,16 +1487,6 @@ Only large parcels can be listed in search.
                  name="item12"
                  value="other" />
             </combo_box>
-            <button
-             follows="left|top"
-             height="18"
-             label="?"
-             label_selected="?"
-             layout="topleft"
-             left_pad="15"
-             name="?"
-             top_delta="0"
-             width="18" />
             <check_box
              height="16"
              label="Mature Content"
@@ -1918,16 +1908,6 @@ Texture:
              name="check sound local"
              top_delta="0"
              width="292" />
-            <button
-             follows="left|top"
-             height="18"
-             label="?"
-             label_selected="?"
-             layout="topleft"
-             left_delta="292"
-             name="?"
-             top_delta="-2"
-             width="18" />
             <text
              type="string"
              length="1"

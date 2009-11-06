@@ -72,7 +72,6 @@
 #include "llviewercontrol.h"
 #include "lldrawpool.h"
 #include "llfirstuse.h"
-#include "llfloateractivespeakers.h"
 #include "llfloateranimpreview.h"
 #include "llfloaterbuycurrency.h"
 #include "llfloaterbuyland.h"
@@ -89,8 +88,8 @@
 #include "llhudeffect.h"
 #include "llhudeffecttrail.h"
 #include "llhudmanager.h"
-#include "llimpanel.h"
 #include "llinventorymodel.h"
+#include "llinventorypanel.h"
 #include "llfloaterinventory.h"
 #include "llmenugl.h"
 #include "llmoveview.h"
@@ -141,7 +140,7 @@
 #include "llgroupactions.h"
 #include "llagentui.h"
 #include "llpanelblockedlist.h"
-#include "llpanelplaceinfo.h"
+#include "llpanelplaceprofile.h"
 
 #include <boost/tokenizer.hpp>
 #include <boost/algorithm/string/split.hpp>
@@ -1598,8 +1597,12 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 			// Claim to be from a local agent so it doesn't go into
 			// console.
 			chat.mText = name + separator_string + message.substr(message_offset);
-			BOOL local_agent = TRUE;
-			LLFloaterChat::addChat(chat, FALSE, local_agent);
+
+			LLNearbyChat* nearby_chat = LLFloaterReg::getTypedInstance<LLNearbyChat>("nearby_chat", LLSD());
+			if(nearby_chat)
+			{
+				nearby_chat->addMessage(chat);
+			}
 		}
 		else
 		{
@@ -2379,7 +2382,7 @@ void process_chat_from_simulator(LLMessageSystem *msg, void **user_data)
 			switch(chat.mChatType)
 			{
 			case CHAT_TYPE_WHISPER:
-				verb = "(" + LLTrans::getString("whisper") + ")";
+				verb = LLTrans::getString("whisper") + " ";
 				break;
 			case CHAT_TYPE_DEBUG_MSG:
 			case CHAT_TYPE_OWNER:
@@ -2387,7 +2390,7 @@ void process_chat_from_simulator(LLMessageSystem *msg, void **user_data)
 				verb = "";
 				break;
 			case CHAT_TYPE_SHOUT:
-				verb = "(" + LLTrans::getString("shout") + ")";
+				verb = LLTrans::getString("shout") + " ";
 				break;
 			case CHAT_TYPE_START:
 			case CHAT_TYPE_STOP:
@@ -5546,7 +5549,7 @@ void process_covenant_reply(LLMessageSystem* msg, void**)
 	LLPanelLandCovenant::updateEstateOwnerName(owner_name);
 	LLFloaterBuyLand::updateEstateOwnerName(owner_name);
 
-	LLPanelPlaceInfo* panel = LLSideTray::getInstance()->findChild<LLPanelPlaceInfo>("panel_place_info");
+	LLPanelPlaceProfile* panel = LLSideTray::getInstance()->findChild<LLPanelPlaceProfile>("panel_place_profile");
 	if (panel)
 	{
 		panel->updateEstateName(estate_name);
@@ -5680,7 +5683,7 @@ void onCovenantLoadComplete(LLVFS *vfs,
 	LLPanelLandCovenant::updateCovenantText(covenant_text);
 	LLFloaterBuyLand::updateCovenantText(covenant_text, asset_uuid);
 
-	LLPanelPlaceInfo* panel = dynamic_cast<LLPanelPlaceInfo*>(LLSideTray::getInstance()->showPanel("panel_place_info", LLSD()));
+	LLPanelPlaceProfile* panel = LLSideTray::getInstance()->findChild<LLPanelPlaceProfile>("panel_place_profile");
 	if (panel)
 	{
 		panel->updateCovenantText(covenant_text);

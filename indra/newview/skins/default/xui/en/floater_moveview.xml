@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  can_dock="true"
  can_close="true"
- can_minimize="true"
+ can_minimize="false"
  center_horiz="true"
  follows="bottom"
  height="110"
@@ -37,7 +38,7 @@
         Fly Backwards (press Down Arrow or S)
     </string>
     <panel
-     border="true" 
+     border="false" 
      height="83"
      follows="left|top" 
      layout="topleft"
@@ -55,7 +56,6 @@
          layout="topleft"
          left="17"
          name="turn left btn"
-         picture_style="true"
          scale_image="false"
          tool_tip="Turn left (press Left Arrow or A)"
          top="45"
@@ -69,7 +69,6 @@
          layout="topleft"
          left_pad="34"
          name="turn right btn"
-         picture_style="true"
          scale_image="false"
          tool_tip="Turn right (press Right Arrow or D)"
          top_delta="0"
@@ -83,7 +82,6 @@
          layout="topleft"
          left="10"
          name="move up btn"
-         picture_style="true"
          scale_image="false"
          tool_tip="Fly up, press &quot;E&quot;"
          top="14"
@@ -97,7 +95,6 @@
          layout="topleft"
          left_pad="45"
          name="move down btn"
-         picture_style="true"
          scale_image="false"
          tool_tip="Fly down, press &quot;C&quot;"
          top_delta="0"
@@ -111,7 +108,6 @@
          layout="topleft"
          left="46"
          name="forward btn"
-         picture_style="true"
          quadrant="up"
          scale_image="false"
          tool_tip="Walk forward (press up arrow or W)"
@@ -126,7 +122,6 @@
          layout="topleft"
          left_delta="0"
          name="backward btn"
-         picture_style="true"
          quadrant="down"
          scale_image="false"
          tool_tip="Walk backward (press down arrow or S)"
@@ -135,7 +130,7 @@
     </panel>
 <!-- Width and height of this panel should be synchronized with panel_stand_stop_flying.xml -->
     <panel
-     border="true" 
+     border="false" 
      height="27"
      layout="topleft"
      left="0"

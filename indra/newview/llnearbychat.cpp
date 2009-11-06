@@ -61,7 +61,7 @@
 static const S32 RESIZE_BAR_THICKNESS = 3;
 
 LLNearbyChat::LLNearbyChat(const LLSD& key) 
-	: LLDockableFloater(NULL, key)
+	: LLDockableFloater(NULL, false, key)
 	,mChatHistory(NULL)
 {
 	
@@ -97,13 +97,40 @@ BOOL LLNearbyChat::postBuild()
 	if (getDockControl() == NULL)
 	{
 		setDockControl(new LLDockControl(
-				LLBottomTray::getInstance()->getNearbyChatBar(), this,
-				getDockTongue(), LLDockControl::LEFT, boost::bind(&LLNearbyChat::getAllowedRect, this, _1)));
+			LLBottomTray::getInstance()->getNearbyChatBar(), this,
+			getDockTongue(), LLDockControl::LEFT, boost::bind(&LLNearbyChat::getAllowedRect, this, _1)));
 	}
 
 	return true;
 }
 
+
+void    LLNearbyChat::applySavedVariables()
+{
+	if (mRectControl.size() > 1)
+	{
+		const LLRect& rect = LLUI::sSettingGroups["floater"]->getRect(mRectControl);
+		if(!rect.isEmpty() && rect.isValid())
+		{
+			reshape(rect.getWidth(), rect.getHeight());
+			setRect(rect);
+		}
+	}
+
+
+	if(!LLUI::sSettingGroups["floater"]->controlExists(mDocStateControl))
+	{
+		setDocked(true);
+	}
+	else
+	{
+		if (mDocStateControl.size() > 1)
+		{
+			bool dockState = LLUI::sSettingGroups["floater"]->getBOOL(mDocStateControl);
+			setDocked(dockState);
+		}
+	}
+}
 
 LLColor4 nearbychat_get_text_color(const LLChat& chat)
 {
@@ -170,22 +197,6 @@ LLColor4 nearbychat_get_text_color(const LLChat& chat)
 	return text_color;
 }
 
-std::string formatCurrentTime()
-{
-	time_t utc_time;
-	utc_time = time_corrected();
-	std::string timeStr ="["+ LLTrans::getString("TimeHour")+"]:["
-		+LLTrans::getString("TimeMin")+"] ";
-
-	LLSD substitution;
-
-	substitution["datetime"] = (S32) utc_time;
-	LLStringUtil::format (timeStr, substitution);
-
-	return timeStr;
-}
-
-
 void LLNearbyChat::add_timestamped_line(const LLChat& chat, const LLColor4& color)
 {
 	S32 font_size = gSavedSettings.getS32("ChatFontSize");
@@ -210,24 +221,24 @@ void LLNearbyChat::add_timestamped_line(const LLChat& chat, const LLColor4& colo
 	style_params.font(fontp);
 	LLUUID uuid = chat.mFromID;
 	std::string from = chat.mFromName;
-	std::string time = formatCurrentTime();
 	std::string message = chat.mText;
-	mChatHistory->appendWidgetMessage(uuid, from, time, message, style_params);
+	mChatHistory->appendWidgetMessage(chat, style_params);
 }
 
 void	LLNearbyChat::addMessage(const LLChat& chat)
 {
 	LLColor4 color = nearbychat_get_text_color(chat);
 	
-
 	if (chat.mChatType == CHAT_TYPE_DEBUG_MSG)
 	{
-		LLFloaterScriptDebug::addScriptLine(chat.mText,
-											chat.mFromName, 
-											color, 
-											chat.mFromID);
-		if (!gSavedSettings.getBOOL("ScriptErrorsAsChat"))
+		if(gSavedSettings.getBOOL("ShowScriptErrors") == FALSE)
+			return;
+		if (gSavedSettings.getS32("ShowScriptErrorsLocation")== 1)// show error in window //("ScriptErrorsAsChat"))
 		{
+			LLFloaterScriptDebug::addScriptLine(chat.mText,
+												chat.mFromName, 
+												color, 
+												chat.mFromID);
 			return;
 		}
 	}
@@ -281,11 +292,5 @@ void LLNearbyChat::getAllowedRect(LLRect& rect)
 {
 	rect = gViewerWindow->getWorldViewRect();
 }
-void LLNearbyChat::setVisible	(BOOL visible)
-{
-	LLDockableFloater::setVisible(visible);
-}
-void LLNearbyChat::toggleWindow()
-{
-}
+
 

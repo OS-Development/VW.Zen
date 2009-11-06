@@ -36,6 +36,7 @@
 #include "lltrans.h"
 
 #include "llnearbychatbar.h"
+#include "llspeakbutton.h"
 #include "llbottomtray.h"
 #include "llagent.h"
 #include "llgesturemgr.h"
@@ -45,6 +46,7 @@
 #include "llviewerstats.h"
 #include "llcommandhandler.h"
 #include "llviewercontrol.h"
+#include "llnavigationbar.h"
 
 S32 LLNearbyChatBar::sLastSpecialChatChannel = 0;
 
@@ -76,6 +78,10 @@ LLGestureComboBox::LLGestureComboBox(const LLGestureComboBox::Params& p)
 
 	// refresh list from current active gestures
 	refreshGestures();
+
+	// This forces using of halign from xml, since LLComboBox
+	// sets it to LLFontGL::LEFT, if text entry is disabled
+	mButton->setHAlign(p.drop_down_button.font_halign);
 }
 
 LLGestureComboBox::~LLGestureComboBox()
@@ -177,10 +183,36 @@ void LLGestureComboBox::draw()
 	LLComboBox::draw();
 }
 
+//virtual
+void LLGestureComboBox::showList()
+{
+	LLComboBox::showList();
+
+	// Calculating amount of space between the navigation bar and gestures combo
+	LLNavigationBar* nb = LLNavigationBar::getInstance();
+	S32 x, nb_bottom;
+	nb->localPointToScreen(0, 0, &x, &nb_bottom);
+	
+	S32 list_bottom;
+	mList->localPointToScreen(0, 0, &x, &list_bottom);
+
+	S32 max_height = nb_bottom - list_bottom;
+
+	LLRect rect = mList->getRect();
+	// List overlapped navigation bar, downsize it
+	if (rect.getHeight() > max_height) 
+	{
+		rect.setOriginAndSize(rect.mLeft, rect.mBottom, rect.getWidth(), max_height);
+		mList->setRect(rect);
+		mList->reshape(rect.getWidth(), rect.getHeight());
+	}
+}
+
 LLNearbyChatBar::LLNearbyChatBar() 
 	: LLPanel()
 	, mChatBox(NULL)
 {
+	mSpeakerMgr = LLLocalSpeakerMgr::getInstance();
 }
 
 //virtual
@@ -198,16 +230,15 @@ BOOL LLNearbyChatBar::postBuild()
 	mChatBox->setIgnoreTab(TRUE);
 	mChatBox->setPassDelete(TRUE);
 	mChatBox->setReplaceNewlinesWithSpaces(FALSE);
-	mChatBox->setMaxTextLength(1023);
 	mChatBox->setEnableLineHistory(TRUE);
 
 	mOutputMonitor = getChild<LLOutputMonitorCtrl>("chat_zone_indicator");
 	mOutputMonitor->setVisible(FALSE);
-	mTalkBtn = getParent()->getChild<LLTalkButton>("talk");
+	mSpeakBtn = getParent()->getChild<LLSpeakButton>("talk");
 
 	// Speak button should be initially disabled because
 	// it takes some time between logging in to world and connecting to voice channel.
-	mTalkBtn->setEnabled(FALSE);
+	mSpeakBtn->setEnabled(FALSE);
 
 	// Registering Chat Bar to receive Voice client status change notifications.
 	gVoiceClient->addObserver(this);
@@ -491,8 +522,8 @@ void LLNearbyChatBar::displaySpeakingIndicator()
 	LLUUID id;
 
 	id.setNull();
-	mSpeakerMgr.update(TRUE);
-	mSpeakerMgr.getSpeakerList(&speaker_list, FALSE);
+	mSpeakerMgr->update(TRUE);
+	mSpeakerMgr->getSpeakerList(&speaker_list, FALSE);
 
 	for (LLSpeakerMgr::speaker_list_t::iterator i = speaker_list.begin(); i != speaker_list.end(); ++i)
 	{
@@ -666,7 +697,7 @@ LLWString LLNearbyChatBar::stripChannelNumber(const LLWString &mesg, S32* channe
 
 void LLNearbyChatBar::setPTTState(bool state)
 {
-	mTalkBtn->setSpeakBtnToggleState(state);
+	mSpeakBtn->setSpeakBtnToggleState(state);
 }
 
 void send_chat_from_viewer(const std::string& utf8_out_text, EChatType type, S32 channel)
@@ -722,7 +753,7 @@ void LLNearbyChatBar::onChange(EStatusType status, const std::string &channelURI
 		break;
 	}
 
-	mTalkBtn->setEnabled(enable);
+	mSpeakBtn->setEnabled(enable);
 }
 
 // Creating the object registers with the dispatcher.

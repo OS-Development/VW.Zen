@@ -37,10 +37,13 @@
 #include "llcombobox.h"
 #include "llgesturemgr.h"
 #include "llchat.h"
-#include "llchiclet.h"
 #include "llvoiceclient.h"
 #include "lloutputmonitorctrl.h"
-#include "llfloateractivespeakers.h"
+#include "llspeakers.h"
+
+
+class LLSpeakButton;
+
 
 class LLGestureComboBox
 	: public LLComboBox
@@ -62,6 +65,9 @@ public:
 	virtual void changed() { refreshGestures(); }
 
 protected:
+
+	virtual void showList();
+
 	LLFrameTimer mGestureLabelTimer;
 	std::vector<LLMultiGesture*> mGestures;
 	std::string mLabel;
@@ -122,9 +128,9 @@ protected:
 	static S32 sLastSpecialChatChannel;
 
 	LLLineEditor*		mChatBox;
-	LLTalkButton*		mTalkBtn;
+	LLSpeakButton*		mSpeakBtn;
 	LLOutputMonitorCtrl* mOutputMonitor;
-	LLActiveSpeakerMgr  mSpeakerMgr;
+	LLLocalSpeakerMgr*  mSpeakerMgr;
 };
 
 #endif

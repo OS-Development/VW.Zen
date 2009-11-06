@@ -373,6 +373,7 @@ void LLWorldMapView::draw()
 		}
 
 		// This list is used by other methods to know which regions are indeed displayed on screen
+
 		mVisibleRegions.push_back(handle);
 
 		// Update the agent count for that region if we're not too zoomed out already

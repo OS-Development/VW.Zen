@@ -44,6 +44,9 @@
 #include "llinventory.h"
 #include "llinventorybridge.h"
 #include "llinventorymodel.h"
+#include "lllandmark.h"
+#include "lllandmarkactions.h"
+#include "lllandmarklist.h"
 #include "llmemorystream.h"
 #include "llmenugl.h"
 #include "llnotecard.h"
@@ -65,10 +68,47 @@
 #include "llviewertexturelist.h"
 #include "llviewerwindow.h"
 
-#include "llappviewer.h" // for gPacificDaylightTime
-
 static LLDefaultChildRegistry::Register<LLViewerTextEditor> r("text_editor");
 
+///-----------------------------------------------------------------------
+///  Class LLEmbeddedLandmarkCopied
+///-----------------------------------------------------------------------
+class LLEmbeddedLandmarkCopied: public LLInventoryCallback
+{
+public:
+
+	LLEmbeddedLandmarkCopied(){}
+	void fire(const LLUUID& inv_item)
+	{
+		showInfo(inv_item);
+	}
+	static void showInfo(const LLUUID& landmark_inv_id)
+	{
+		LLSD key;
+		key["type"] = "landmark";
+		key["id"] = landmark_inv_id;
+		LLSideTray::getInstance()->showPanel("panel_places", key);
+	}
+	static void processForeignLandmark(LLLandmark* landmark,
+			const LLUUID& object_id, const LLUUID& notecard_inventory_id,
+			LLInventoryItem* item)
+	{
+		LLVector3d global_pos;
+		landmark->getGlobalPos(global_pos);
+		LLViewerInventoryItem* agent_lanmark =
+				LLLandmarkActions::findLandmarkForGlobalPos(global_pos);
+
+		if (agent_lanmark)
+		{
+			showInfo(agent_lanmark->getUUID());
+		}
+		else
+		{
+			LLPointer<LLEmbeddedLandmarkCopied> cb = new LLEmbeddedLandmarkCopied();
+			copy_inventory_from_notecard(object_id, notecard_inventory_id, item, gInventoryCallbacks.registerCB(cb));
+		}
+	}
+};
 ///----------------------------------------------------------------------------
 /// Class LLEmbeddedNotecardOpener
 ///----------------------------------------------------------------------------
@@ -131,7 +171,7 @@ public:
 		mToolTip = inv_item->getName() + '\n' + inv_item->getDescription();
 	}
 
-	/*virtual*/ void getDimensions(S32 first_char, S32 num_chars, S32& width, S32& height) const
+	/*virtual*/ bool getDimensions(S32 first_char, S32 num_chars, S32& width, S32& height) const
 	{
 		if (num_chars == 0)
 		{
@@ -143,12 +183,29 @@ public:
 			width = EMBEDDED_ITEM_LABEL_PADDING + mImage->getWidth() + mStyle->getFont()->getWidth(mLabel.c_str());
 			height = llmax(mImage->getHeight(), llceil(mStyle->getFont()->getLineHeight()));
 		}
-
+		return false;
 	}
 
 	/*virtual*/ S32				getNumChars(S32 num_pixels, S32 segment_offset, S32 line_offset, S32 max_chars) const 
 	{
-		return 1;
+		// always draw at beginning of line
+		if (line_offset == 0)
+		{
+			return 1;
+		}
+		else
+		{
+			S32 width, height;
+			getDimensions(mStart, 1, width, height);
+			if (width > num_pixels) 
+			{
+				return 0;
+			}
+			else
+			{
+				return 1;
+			}
+		}
 	}
 	/*virtual*/ F32				draw(S32 start, S32 end, S32 selection_start, S32 selection_end, const LLRect& draw_rect)
 	{
@@ -168,7 +225,7 @@ public:
 		}
 
 		F32 right_x;
-		mStyle->getFont()->render(mLabel, 0, image_rect.mRight + EMBEDDED_ITEM_LABEL_PADDING, draw_rect.mBottom, color, LLFontGL::LEFT, LLFontGL::BOTTOM, LLFontGL::UNDERLINE, LLFontGL::NO_SHADOW, mLabel.length(), S32_MAX, &right_x);
+		mStyle->getFont()->render(mLabel, 0, image_rect.mRight + EMBEDDED_ITEM_LABEL_PADDING, draw_rect.mTop, color, LLFontGL::LEFT, LLFontGL::TOP, LLFontGL::UNDERLINE, LLFontGL::NO_SHADOW, mLabel.length(), S32_MAX, &right_x);
 		return right_x;
 	}
 	
@@ -1097,14 +1154,12 @@ void LLViewerTextEditor::openEmbeddedLandmark( LLInventoryItem* item, llwchar wc
 	if (!item)
 		return;
 
-	LLSD key;
-	key["type"] = "landmark";
-	key["id"] = item->getUUID();
-
-	LLPanelPlaces *panel = dynamic_cast<LLPanelPlaces*>(LLSideTray::getInstance()->showPanel("panel_places", key));
-	if (panel)
+	LLLandmark* landmark = gLandmarkList.getAsset(item->getAssetUUID(),
+			boost::bind(&LLEmbeddedLandmarkCopied::processForeignLandmark, _1, mObjectID, mNotecardInventoryID, item));
+	if (landmark)
 	{
-		panel->setItem(item);
+		LLEmbeddedLandmarkCopied::processForeignLandmark(landmark, mObjectID,
+				mNotecardInventoryID, item);
 	}
 }
 

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  can_resize="true"
  height="500"
  layout="topleft"
@@ -7,7 +8,7 @@
  name="notifications_console"
  help_topic="notifications_console"
  single_instance="true"
- title="Notifications Console"
+ title="NOTIFICATIONS CONSOLE"
  width="500">
     <combo_box
      follows="left|right|top"

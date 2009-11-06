@@ -22,7 +22,8 @@
 #include "linden_common.h"
 #include "llcurl.h"
 
-LLCurl::Responder::Responder() : mReferenceCount(0)
+LLCurl::Responder::Responder()
+	: mReferenceCount(0)
 {
 }
 

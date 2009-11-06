@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  height="500"
  layout="topleft"
  name="Joystick"
  help_topic="joystick"
- title="Joystick Configuration"
+ title="JOYSTICK CONFIGURATION"
  width="550">
     <floater.string
      name="NoDevice">

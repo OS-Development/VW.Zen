@@ -57,7 +57,7 @@
      use_ellipses="false"
      width="197"
      word_wrap="false" />
-    <text
+    <expandable_text
      follows="top|left|right"
      font="SansSerifSmall"
      height="40"
@@ -75,7 +75,6 @@
      image_unselected="BuyArrow_Press"
      layout="topleft"
      name="info_chevron"
-     picture_style="true"
      right="-7"
      tab_stop="false"
      top="27"

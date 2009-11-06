@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  height="150"
  layout="topleft"
  name="floater_lagmeter"
  help_topic="floater_lagmeter"
  save_rect="true"
- title="Lag Meter"
+ title="LAG METER"
  width="350">
     <floater.string
      name="max_title_msg">
@@ -183,7 +184,6 @@
      layout="topleft"
      left="8"
      name="client_lagmeter"
-     picture_style="true"
      tab_stop="false"
      tool_tip="Client lag status"
      top="24"
@@ -232,7 +232,6 @@
      layout="topleft"
      left="8"
      name="network_lagmeter"
-     picture_style="true"
      tab_stop="false"
      tool_tip="Network lag status"
      top="64"
@@ -281,7 +280,6 @@
      layout="topleft"
      left="8"
      name="server_lagmeter"
-     picture_style="true"
      tab_stop="false"
      tool_tip="Server lag status"
      top="104"
@@ -322,15 +320,6 @@
      left="40"
      name="server_lag_cause"
      right="-32" />
-    <!--button
-     bottom="145"
-     follows="left|top"
-     height="18"
-     label="?"
-     layout="topleft"
-     name="server_help"
-     right="-10"
-     width="18" /-->
     <button
      follows="left|top"
      height="20"

@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  can_minimize="false"
  height="484"
  layout="topleft"
  name="buy land"
  help_topic="buy_land"
  single_instance="true"
- title="Buy Land"
+ title="BUY LAND"
  width="740">
     <floater.string
      name="can_resell">

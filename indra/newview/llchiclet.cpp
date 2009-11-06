@@ -37,7 +37,6 @@
 #include "llbottomtray.h"
 #include "llgroupactions.h"
 #include "lliconctrl.h"
-#include "llimpanel.h"				// LLFloaterIMPanel
 #include "llimfloater.h"
 #include "llimview.h"
 #include "llfloaterreg.h"
@@ -52,14 +51,11 @@
 #include "lltransientfloatermgr.h"
 
 static LLDefaultChildRegistry::Register<LLChicletPanel> t1("chiclet_panel");
-static LLDefaultChildRegistry::Register<LLTalkButton> t2("chiclet_talk");
-static LLDefaultChildRegistry::Register<LLNotificationChiclet> t3("chiclet_notification");
-static LLDefaultChildRegistry::Register<LLIMP2PChiclet> t4("chiclet_im_p2p");
-static LLDefaultChildRegistry::Register<LLIMGroupChiclet> t5("chiclet_im_group");
+static LLDefaultChildRegistry::Register<LLNotificationChiclet> t2("chiclet_notification");
+static LLDefaultChildRegistry::Register<LLIMP2PChiclet> t3("chiclet_im_p2p");
+static LLDefaultChildRegistry::Register<LLIMGroupChiclet> t4("chiclet_im_group");
 
 S32 LLNotificationChiclet::mUreadSystemNotifications = 0;
-S32 LLNotificationChiclet::mUreadIMNotifications = 0;
-
 
 boost::signals2::signal<LLChiclet* (const LLUUID&),
 		LLIMChiclet::CollectChicletCombiner<std::list<LLChiclet*> > >
@@ -100,7 +96,6 @@ LLNotificationChiclet::LLNotificationChiclet(const Params& p)
 	// connect counter handlers to the signals
 	connectCounterUpdatersToSignal("notify");
 	connectCounterUpdatersToSignal("groupnotify");
-	connectCounterUpdatersToSignal("notifytoast");
 }
 
 LLNotificationChiclet::~LLNotificationChiclet()
@@ -114,16 +109,8 @@ void LLNotificationChiclet::connectCounterUpdatersToSignal(std::string notificat
 	LLNotificationsUI::LLEventHandler* n_handler = manager->getHandlerForNotification(notification_type);
 	if(n_handler)
 	{
-		if(notification_type == "notifytoast")
-		{
-			n_handler->setNewNotificationCallback(boost::bind(&LLNotificationChiclet::updateUreadIMNotifications, this));
-			n_handler->setDelNotification(boost::bind(&LLNotificationChiclet::updateUreadIMNotifications, this));
-		}
-		else
-		{
-			n_handler->setNewNotificationCallback(boost::bind(&LLNotificationChiclet::incUreadSystemNotifications, this));
-			n_handler->setDelNotification(boost::bind(&LLNotificationChiclet::decUreadSystemNotifications, this));
-		}
+		n_handler->setNewNotificationCallback(boost::bind(&LLNotificationChiclet::incUreadSystemNotifications, this));
+		n_handler->setDelNotification(boost::bind(&LLNotificationChiclet::decUreadSystemNotifications, this));
 	}
 }
 
@@ -146,12 +133,6 @@ boost::signals2::connection LLNotificationChiclet::setClickCallback(
 
 void LLNotificationChiclet::setToggleState(BOOL toggled) {
 	mButton->setToggleState(toggled);
-}
-
-void LLNotificationChiclet::updateUreadIMNotifications()
-{
-	mUreadIMNotifications = gIMMgr->getNumberOfUnreadIM();
-	setCounter(mUreadSystemNotifications + mUreadIMNotifications);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -216,9 +197,38 @@ void LLChiclet::setValue(const LLSD& value)
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
-LLIMChiclet::LLIMChiclet(const LLChiclet::Params& p)
+LLIMChiclet::LLIMChiclet(const LLIMChiclet::Params& p)
 : LLChiclet(p)
+, mNewMessagesIcon(NULL)
+, mCounterCtrl(NULL)
 {
+	// initialize an overlay icon for new messages
+	LLIconCtrl::Params icon_params;
+	icon_params.visible = false;
+	icon_params.image = LLUI::getUIImage(p.new_messages_icon_name);
+	mNewMessagesIcon = LLUICtrlFactory::create<LLIconCtrl>(icon_params);
+	// adjust size and position of an icon
+	LLRect chiclet_rect = p.rect;
+	LLRect overlay_icon_rect = LLRect(chiclet_rect.getWidth()/2, chiclet_rect.mTop, chiclet_rect.mRight, chiclet_rect.getHeight()/2); 
+	// shift an icon a little bit to the right and up corner of a chiclet
+	overlay_icon_rect.translate(overlay_icon_rect.getWidth()/5, overlay_icon_rect.getHeight()/5);
+	mNewMessagesIcon->setRect(overlay_icon_rect);
+	addChild(mNewMessagesIcon);
+
+	setShowCounter(false);
+}
+
+void LLIMChiclet::setShowNewMessagesIcon(bool show)
+{
+	if(mNewMessagesIcon)
+	{
+		mNewMessagesIcon->setVisible(show);
+	}
+}
+
+bool LLIMChiclet::getShowNewMessagesIcon()
+{
+	return mNewMessagesIcon->getVisible();
 }
 
 void LLIMChiclet::onMouseDown()
@@ -236,8 +246,6 @@ BOOL LLIMChiclet::handleMouseDown(S32 x, S32 y, MASK mask)
 void LLIMChiclet::draw()
 {
 	LLUICtrl::draw();
-
-	gl_rect_2d(0, getRect().getHeight(), getRect().getWidth(), 0, LLColor4(0.0f,0.0f,0.0f,1.f), FALSE);
 }
 
 // static
@@ -292,7 +300,7 @@ LLIMP2PChiclet::Params::Params()
 , show_speaker("show_speaker")
 {
 	// *TODO Vadim: Get rid of hardcoded values.
-	rect(LLRect(0, 25, 45, 0));
+	rect(LLRect(0, 25, 25, 0));
 
 	avatar_icon.name("avatar_icon");
 	avatar_icon.follows.flags(FOLLOWS_LEFT | FOLLOWS_TOP | FOLLOWS_BOTTOM);
@@ -311,6 +319,7 @@ LLIMP2PChiclet::Params::Params()
 	unread_notifications.v_pad(5);
 	unread_notifications.text_color(LLColor4::white);
 	unread_notifications.mouse_opaque(false);
+	unread_notifications.visible(false);
 
 	speaker.name("speaker");
 	speaker.rect(LLRect(45, 25, 65, 0));
@@ -321,7 +330,6 @@ LLIMP2PChiclet::Params::Params()
 LLIMP2PChiclet::LLIMP2PChiclet(const Params& p)
 : LLIMChiclet(p)
 , mChicletIconCtrl(NULL)
-, mCounterCtrl(NULL)
 , mSpeakerCtrl(NULL)
 , mPopupMenu(NULL)
 {
@@ -340,28 +348,14 @@ LLIMP2PChiclet::LLIMP2PChiclet(const Params& p)
 	mSpeakerCtrl = LLUICtrlFactory::create<LLChicletSpeakerCtrl>(speaker_params);
 	addChild(mSpeakerCtrl);
 
+	sendChildToFront(mNewMessagesIcon);
 	setShowSpeaker(p.show_speaker);
 }
 
 void LLIMP2PChiclet::setCounter(S32 counter)
 {
 	mCounterCtrl->setCounter(counter);
-
-	if(getShowCounter())
-	{
-		LLRect counter_rect = mCounterCtrl->getRect();
-		LLRect required_rect = mCounterCtrl->getRequiredRect();
-		bool needs_resize = required_rect.getWidth() != counter_rect.getWidth();
-
-		if(needs_resize)
-		{
-			counter_rect.mRight = counter_rect.mLeft + required_rect.getWidth();
-			mCounterCtrl->reshape(counter_rect.getWidth(), counter_rect.getHeight());
-			mCounterCtrl->setRect(counter_rect);
-
-			onChicletSizeChanged();
-		}
-	}
+	setShowNewMessagesIcon(counter);
 }
 
 LLRect LLIMP2PChiclet::getRequiredRect()
@@ -473,9 +467,10 @@ LLAdHocChiclet::Params::Params()
 , unread_notifications("unread_notifications")
 , speaker("speaker")
 , show_speaker("show_speaker")
+, avatar_icon_color("avatar_icon_color", LLColor4::green)
 {
 	// *TODO Vadim: Get rid of hardcoded values.
-	rect(LLRect(0, 25, 45, 0));
+	rect(LLRect(0, 25, 25, 0));
 
 	avatar_icon.name("avatar_icon");
 	avatar_icon.follows.flags(FOLLOWS_LEFT | FOLLOWS_TOP | FOLLOWS_BOTTOM);
@@ -494,6 +489,8 @@ LLAdHocChiclet::Params::Params()
 	unread_notifications.v_pad(5);
 	unread_notifications.text_color(LLColor4::white);
 	unread_notifications.mouse_opaque(false);
+	unread_notifications.visible(false);
+
 
 	speaker.name("speaker");
 	speaker.rect(LLRect(45, 25, 65, 0));
@@ -504,12 +501,13 @@ LLAdHocChiclet::Params::Params()
 LLAdHocChiclet::LLAdHocChiclet(const Params& p)
 : LLIMChiclet(p)
 , mChicletIconCtrl(NULL)
-, mCounterCtrl(NULL)
 , mSpeakerCtrl(NULL)
 , mPopupMenu(NULL)
 {
 	LLChicletAvatarIconCtrl::Params avatar_params = p.avatar_icon;
 	mChicletIconCtrl = LLUICtrlFactory::create<LLChicletAvatarIconCtrl>(avatar_params);
+	//Make the avatar modified
+	mChicletIconCtrl->setColor(p.avatar_icon_color);
 	addChild(mChicletIconCtrl);
 
 	LLChicletNotificationCounterCtrl::Params unread_params = p.unread_notifications;
@@ -523,6 +521,7 @@ LLAdHocChiclet::LLAdHocChiclet(const Params& p)
 	mSpeakerCtrl = LLUICtrlFactory::create<LLChicletSpeakerCtrl>(speaker_params);
 	addChild(mSpeakerCtrl);
 
+	sendChildToFront(mNewMessagesIcon);
 	setShowSpeaker(p.show_speaker);
 }
 
@@ -536,22 +535,7 @@ void LLAdHocChiclet::setSessionId(const LLUUID& session_id)
 void LLAdHocChiclet::setCounter(S32 counter)
 {
 	mCounterCtrl->setCounter(counter);
-
-	if(getShowCounter())
-	{
-		LLRect counter_rect = mCounterCtrl->getRect();
-		LLRect required_rect = mCounterCtrl->getRequiredRect();
-		bool needs_resize = required_rect.getWidth() != counter_rect.getWidth();
-
-		if(needs_resize)
-		{
-			counter_rect.mRight = counter_rect.mLeft + required_rect.getWidth();
-			mCounterCtrl->reshape(counter_rect.getWidth(), counter_rect.getHeight());
-			mCounterCtrl->setRect(counter_rect);
-
-			onChicletSizeChanged();
-		}
-	}
+	setShowNewMessagesIcon(counter);
 }
 
 LLRect LLAdHocChiclet::getRequiredRect()
@@ -580,7 +564,7 @@ BOOL LLAdHocChiclet::handleRightMouseDown(S32 x, S32 y, MASK mask)
 LLIMGroupChiclet::Params::Params()
 : group_icon("group_icon")
 {
-	rect(LLRect(0, 25, 45, 0));
+	rect(LLRect(0, 25, 25, 0));
 
 	group_icon.name("group_icon");
 	
@@ -596,6 +580,7 @@ LLIMGroupChiclet::Params::Params()
 	unread_notifications.font_halign(LLFontGL::HCENTER);
 	unread_notifications.v_pad(5);
 	unread_notifications.text_color(LLColor4::white);
+	unread_notifications.visible(false);
 
 	speaker.name("speaker");
 	speaker.rect(LLRect(45, 25, 65, 0));
@@ -607,7 +592,6 @@ LLIMGroupChiclet::LLIMGroupChiclet(const Params& p)
 : LLIMChiclet(p)
 , LLGroupMgrObserver(LLUUID::null)
 , mChicletIconCtrl(NULL)
-, mCounterCtrl(NULL)
 , mSpeakerCtrl(NULL)
 , mPopupMenu(NULL)
 {
@@ -626,6 +610,7 @@ LLIMGroupChiclet::LLIMGroupChiclet(const Params& p)
 	mSpeakerCtrl = LLUICtrlFactory::create<LLChicletSpeakerCtrl>(speaker_params);
 	addChild(mSpeakerCtrl);
 
+	sendChildToFront(mNewMessagesIcon);
 	setShowSpeaker(p.show_speaker);
 }
 
@@ -637,22 +622,7 @@ LLIMGroupChiclet::~LLIMGroupChiclet()
 void LLIMGroupChiclet::setCounter(S32 counter)
 {
 	mCounterCtrl->setCounter(counter);
-
-	if(getShowCounter())
-	{
-		LLRect counter_rect = mCounterCtrl->getRect();
-		LLRect required_rect = mCounterCtrl->getRequiredRect();
-		bool needs_resize = required_rect.getWidth() != counter_rect.getWidth();
-
-		if(needs_resize)
-		{
-			counter_rect.mRight = counter_rect.mLeft + required_rect.getWidth();
-			mCounterCtrl->reshape(counter_rect.getWidth(), counter_rect.getHeight());
-			mCounterCtrl->setRect(counter_rect);
-
-			onChicletSizeChanged();
-		}
-	}
+	setShowNewMessagesIcon(counter);
 }
 
 LLRect LLIMGroupChiclet::getRequiredRect()
@@ -848,13 +818,21 @@ LLChicletPanel::~LLChicletPanel()
 void im_chiclet_callback(LLChicletPanel* panel, const LLSD& data){
 	
 	LLUUID session_id = data["session_id"].asUUID();
+	S32 unread = data["num_unread"].asInteger();
+
+	LLIMFloater* im_floater = LLIMFloater::findInstance(session_id);
+	if (im_floater && im_floater->getVisible())
+	{
+		unread = 0;
+	}
+
 	std::list<LLChiclet*> chiclets = LLIMChiclet::sFindChicletsSignal(session_id);
 	std::list<LLChiclet *>::iterator iter;
 	for (iter = chiclets.begin(); iter != chiclets.end(); iter++) {
 		LLChiclet* chiclet = *iter;
 		if (chiclet != NULL)
 		{
-			chiclet->setCounter(data["num_unread"].asInteger());
+			chiclet->setCounter(unread);
 		}
 	    else
 	    {
@@ -1262,152 +1240,6 @@ bool LLChicletPanel::isAnyIMFloaterDoked()
 	}
 
 	return res;
-}
-
-//////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////
-
-// *TODO Vadim: Move this out of llchiclet.cpp.
-
-LLTalkButton::Params::Params()
- : speak_button("speak_button")
- , show_button("show_button")
- , monitor("monitor")
-{
-	// *TODO Vadim: move hardcoded labels (!) and other params to XUI.
-	speak_button.name("left");
-	speak_button.label("Speak");
-	speak_button.label_selected("Speak");
-	speak_button.font(LLFontGL::getFontSansSerifSmall());
-	speak_button.tab_stop(false);
-	speak_button.is_toggle(true);
-	speak_button.picture_style(true);
-	// Use default button art. JC
-	//speak_button.image_selected(LLUI::getUIImage("SegmentedBtn_Left_Selected"));
-	//speak_button.image_unselected(LLUI::getUIImage("SegmentedBtn_Left_Off"));
-
-	show_button.name("right");
-	show_button.label(LLStringUtil::null);
-	show_button.rect(LLRect(0, 0, 20, 0));
-	show_button.tab_stop(false);
-	show_button.is_toggle(true);
-	show_button.picture_style(true);
-	show_button.image_selected(LLUI::getUIImage("ComboButton_Selected"));
-	show_button.image_unselected(LLUI::getUIImage("ComboButton_Off"));
-
-	monitor.name("monitor");
-	// *TODO: Make this data driven.
-	monitor.rect(LLRect(0, 18, 18, 0));
-}
-
-LLTalkButton::LLTalkButton(const Params& p)
-: LLUICtrl(p)
-, mPrivateCallPanel(NULL)
-, mOutputMonitor(NULL)
-, mSpeakBtn(NULL)
-, mShowBtn(NULL)
-{
-	LLRect rect = p.rect();
-	LLRect speak_rect(0, rect.getHeight(), rect.getWidth(), 0);
-	LLRect show_rect = p.show_button.rect();
-	show_rect.set(0, rect.getHeight(), show_rect.getWidth(), 0);
-
-	speak_rect.mRight -= show_rect.getWidth();
-	show_rect.mLeft = speak_rect.getWidth();
-	show_rect.mRight = rect.getWidth();
-
-	LLButton::Params speak_params = p.speak_button;
-	speak_params.rect(speak_rect);
-	mSpeakBtn = LLUICtrlFactory::create<LLButton>(speak_params);
-	addChild(mSpeakBtn);
-	LLTransientFloaterMgr::getInstance()->addControlView(mSpeakBtn);
-
-	mSpeakBtn->setClickedCallback(boost::bind(&LLTalkButton::onClick_SpeakBtn, this));
-	mSpeakBtn->setToggleState(FALSE);
-
-	LLButton::Params show_params = p.show_button;
-	show_params.rect(show_rect);
-	mShowBtn = LLUICtrlFactory::create<LLButton>(show_params);
-	addChild(mShowBtn);
-	LLTransientFloaterMgr::getInstance()->addControlView(mShowBtn);
-
-	mShowBtn->setClickedCallback(boost::bind(&LLTalkButton::onClick_ShowBtn, this));
-	mShowBtn->setToggleState(FALSE);
-
-	static const S32 MONITOR_RIGHT_PAD = 2;
-
-	LLRect monitor_rect = p.monitor.rect();
-	S32 monitor_height = monitor_rect.getHeight();
-	monitor_rect.mLeft = speak_rect.getWidth() - monitor_rect.getWidth() - MONITOR_RIGHT_PAD;
-	monitor_rect.mRight = speak_rect.getWidth() - MONITOR_RIGHT_PAD;
-	monitor_rect.mBottom = (rect.getHeight() / 2) - (monitor_height / 2);
-	monitor_rect.mTop = monitor_rect.mBottom + monitor_height;
-
-	LLOutputMonitorCtrl::Params monitor_params = p.monitor;
-	monitor_params.draw_border(false);
-	monitor_params.rect(monitor_rect);
-	monitor_params.auto_update(true);
-	monitor_params.speaker_id(gAgentID);
-	mOutputMonitor = LLUICtrlFactory::create<LLOutputMonitorCtrl>(monitor_params);
-	mSpeakBtn->addChild(mOutputMonitor);
-
-	// never show "muted" because you can't mute yourself
-	mOutputMonitor->setIsMuted(false);
-}
-
-LLTalkButton::~LLTalkButton()
-{
-}
-
-void LLTalkButton::setSpeakBtnToggleState(bool state)
-{
-	mSpeakBtn->setToggleState(state);
-}
-
-void LLTalkButton::onClick_SpeakBtn()
-{
-	bool speaking = mSpeakBtn->getToggleState();
-	gVoiceClient->setUserPTTState(speaking);
-}
-
-void LLTalkButton::onClick_ShowBtn()
-{
-	if(!mShowBtn->getToggleState())
-	{
-		mPrivateCallPanel->onClickClose(mPrivateCallPanel);
-		delete mPrivateCallPanel;
-		mPrivateCallPanel = NULL;
-		mShowBtn->setToggleState(FALSE);
-		return;
-	}
-
-	S32 x = mSpeakBtn->getRect().mLeft;
-	S32 y = 0;
-
-	localPointToScreen(x, y, &x, &y);
-
-	mPrivateCallPanel = new LLVoiceControlPanel;
-	getRootView()->addChild(mPrivateCallPanel);
-
-	y = LLBottomTray::getInstance()->getRect().getHeight() + mPrivateCallPanel->getRect().getHeight();
-
-	LLRect rect;
-	rect.setLeftTopAndSize(x, y, mPrivateCallPanel->getRect().getWidth(), mPrivateCallPanel->getRect().getHeight());
-	mPrivateCallPanel->setRect(rect);
-
-
-	LLAvatarListItem* item = new LLAvatarListItem();
-	item->showStatus(true);
-	item->showInfoBtn(true);
-	item->showSpeakingIndicator(true);
-	item->reshape(mPrivateCallPanel->getRect().getWidth(), item->getRect().getHeight(), FALSE);
-
-	mPrivateCallPanel->addItem(item);
-	mPrivateCallPanel->setVisible(TRUE);
-	mPrivateCallPanel->setFrontmost(TRUE);
-
-	mShowBtn->setToggleState(TRUE);
 }
 
 //////////////////////////////////////////////////////////////////////////

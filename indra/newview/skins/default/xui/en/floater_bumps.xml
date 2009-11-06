@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  height="180"
  layout="topleft"
  name="floater_bumps"
  help_topic="floater_bumps"
  save_rect="true"
- title="Bumps, Pushes &amp; Hits"
+ title="BUMPS, PUSHES &amp; HITS"
  width="400">
     <floater.string
      name="none_detected">

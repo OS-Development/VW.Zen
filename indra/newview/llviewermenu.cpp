@@ -50,6 +50,7 @@
 #include "llfocusmgr.h"
 #include "llfontgl.h"
 #include "llinstantmessage.h"
+#include "llinventorypanel.h"
 #include "llpermissionsflags.h"
 #include "llrect.h"
 #include "llsecondlifeurls.h"
@@ -145,7 +146,6 @@
 #include "llmenucommands.h"
 #include "llmenugl.h"
 #include "llmimetypes.h"
-#include "llmorphview.h"
 #include "llmoveview.h"
 #include "llmutelist.h"
 #include "llnotify.h"
@@ -206,6 +206,7 @@
 #include "llwaterparammanager.h"
 #include "llfloaternotificationsconsole.h"
 #include "llfloatercamera.h"
+#include "lluilistener.h"
 
 #include "lltexlayer.h"
 #include "llappearancemgr.h"
@@ -412,6 +413,8 @@ public:
 };
 
 static LLMenuParcelObserver* gMenuParcelObserver = NULL;
+
+static LLUIListener sUIListener("UI");
 
 LLMenuParcelObserver::LLMenuParcelObserver()
 {
@@ -1667,34 +1670,6 @@ class LLAdvancedTogglePG : public view_listener_t
 		return true;
 	}
 };
-
-
-
-////////////////////////////
-// ALLOW TAP-TAP-HOLD RUN //
-////////////////////////////
-
-
-class LLAdvancedToggleAllowTapTapHoldRun : public view_listener_t
-{
-	bool handleEvent(const LLSD& userdata)
-	{
-		gAllowTapTapHoldRun = !(gAllowTapTapHoldRun);
-		return true;
-	}
-};
-
-class LLAdvancedCheckAllowTapTapHoldRun : public view_listener_t
-{
-	bool handleEvent(const LLSD& userdata)
-	{
-		bool new_value = gAllowTapTapHoldRun;
-		return new_value;
-	}
-};
-
-
-
 
 
 class LLAdvancedForceParamsToDefault : public view_listener_t
@@ -2982,11 +2957,20 @@ bool callback_freeze(const LLSD& notification, const LLSD& response)
 }
 
 
-class LLAvatarFreeze : public view_listener_t
+void handle_avatar_freeze(const LLSD& avatar_id)
 {
-	bool handleEvent(const LLSD& userdata)
-	{
-		LLVOAvatar* avatar = find_avatar_from_object( LLSelectMgr::getInstance()->getSelection()->getPrimaryObject() );
+		// Use avatar_id if available, otherwise default to right-click avatar
+		LLVOAvatar* avatar = NULL;
+		if (avatar_id.asUUID().notNull())
+		{
+			avatar = find_avatar_from_object(avatar_id.asUUID());
+		}
+		else
+		{
+			avatar = find_avatar_from_object(
+				LLSelectMgr::getInstance()->getSelection()->getPrimaryObject());
+		}
+
 		if( avatar )
 		{
 			std::string fullname = avatar->getFullname();
@@ -3010,19 +2994,9 @@ class LLAvatarFreeze : public view_listener_t
 							callback_freeze);
 			}
 		}
-		return true;
-	}
-};
+}
 
 class LLAvatarVisibleDebug : public view_listener_t
-{
-	bool handleEvent(const LLSD& userdata)
-	{
-		return gAgent.isGodlike();
-	}
-};
-
-class LLAvatarEnableDebug : public view_listener_t
 {
 	bool handleEvent(const LLSD& userdata)
 	{
@@ -3106,11 +3080,20 @@ bool callback_eject(const LLSD& notification, const LLSD& response)
 	return false;
 }
 
-class LLAvatarEject : public view_listener_t
+void handle_avatar_eject(const LLSD& avatar_id)
 {
-	bool handleEvent(const LLSD& userdata)
-	{
-		LLVOAvatar* avatar = find_avatar_from_object( LLSelectMgr::getInstance()->getSelection()->getPrimaryObject() );
+		// Use avatar_id if available, otherwise default to right-click avatar
+		LLVOAvatar* avatar = NULL;
+		if (avatar_id.asUUID().notNull())
+		{
+			avatar = find_avatar_from_object(avatar_id.asUUID());
+		}
+		else
+		{
+			avatar = find_avatar_from_object(
+				LLSelectMgr::getInstance()->getSelection()->getPrimaryObject());
+		}
+
 		if( avatar )
 		{
 			LLSD payload;
@@ -3161,38 +3144,41 @@ class LLAvatarEject : public view_listener_t
 				}
 			}
 		}
-		return true;
-	}
-};
+}
 
-class LLAvatarEnableFreezeEject : public view_listener_t
+bool enable_freeze_eject(const LLSD& avatar_id)
 {
-	bool handleEvent(const LLSD& userdata)
+	// Use avatar_id if available, otherwise default to right-click avatar
+	LLVOAvatar* avatar = NULL;
+	if (avatar_id.asUUID().notNull())
 	{
-		LLVOAvatar* avatar = find_avatar_from_object( LLSelectMgr::getInstance()->getSelection()->getPrimaryObject() );
-		bool new_value = (avatar != NULL);
-
-		if (new_value)
-		{
-			const LLVector3& pos = avatar->getPositionRegion();
-			const LLVector3d& pos_global = avatar->getPositionGlobal();
-			LLParcel* parcel = LLViewerParcelMgr::getInstance()->selectParcelAt(pos_global)->getParcel();
-			LLViewerRegion* region = avatar->getRegion();
-			new_value = (region != NULL);
-						
-			if (new_value)
-			{
-				new_value = region->isOwnedSelf(pos);
-				if (!new_value || region->isOwnedGroup(pos))
-				{
-					new_value = LLViewerParcelMgr::getInstance()->isParcelOwnedByAgent(parcel,GP_LAND_ADMIN);
-				}
-			}
-		}
-
-		return new_value;
+		avatar = find_avatar_from_object(avatar_id.asUUID());
 	}
-};
+	else
+	{
+		avatar = find_avatar_from_object(
+			LLSelectMgr::getInstance()->getSelection()->getPrimaryObject());
+	}
+	if (!avatar) return false;
+
+	// Gods can always freeze
+	if (gAgent.isGodlike()) return true;
+
+	// Estate owners / managers can freeze
+	// Parcel owners can also freeze
+	const LLVector3& pos = avatar->getPositionRegion();
+	const LLVector3d& pos_global = avatar->getPositionGlobal();
+	LLParcel* parcel = LLViewerParcelMgr::getInstance()->selectParcelAt(pos_global)->getParcel();
+	LLViewerRegion* region = avatar->getRegion();
+	if (!region) return false;
+				
+	bool new_value = region->isOwnedSelf(pos);
+	if (!new_value || region->isOwnedGroup(pos))
+	{
+		new_value = LLViewerParcelMgr::getInstance()->isParcelOwnedByAgent(parcel,GP_LAND_ADMIN);
+	}
+	return new_value;
+}
 
 class LLAvatarGiveCard : public view_listener_t
 {
@@ -3450,26 +3436,13 @@ void handle_show_side_tray()
 	root->addChild(side_tray);
 }
 
-class LLSelfFriends : public view_listener_t
+class LLShowPanelPeopleTab : public view_listener_t
 {
 	bool handleEvent(const LLSD& userdata)
 	{
-		// Open "Friends" tab of the "People" panel in side tray.
+		// Open tab of the "People" panel in side tray.
 		LLSD param;
-		param["people_panel_tab_name"] = "friends_panel";
-
-		LLSideTray::getInstance()->showPanel("panel_people", param);
-		return true;
-	}
-};
-
-class LLSelfGroups : public view_listener_t
-{
-	bool handleEvent(const LLSD& userdata)
-	{
-		// Open "Groups" tab of the "People" panel in side tray.
-		LLSD param;
-		param["people_panel_tab_name"] = "groups_panel";
+		param["people_panel_tab_name"] = userdata.asString();
 		LLSideTray::getInstance()->showPanel("panel_people", param);
 		return true;
 	}
@@ -3502,7 +3475,6 @@ void set_god_level(U8 god_level)
 {
 	U8 old_god_level = gAgent.getGodLevel();
 	gAgent.setGodLevel( god_level );
-	gIMMgr->refresh();
 	LLViewerParcelMgr::getInstance()->notifyObservers();
 
 	// God mode changes region visibility
@@ -7054,7 +7026,7 @@ void force_error_bad_memory_access(void *)
 
 void force_error_infinite_loop(void *)
 {
-    LLAppViewer::instance()->forceErrorInifiniteLoop();
+    LLAppViewer::instance()->forceErrorInfiniteLoop();
 }
 
 void force_error_software_exception(void *)
@@ -7465,52 +7437,10 @@ class LLEditEnableTakeOff : public view_listener_t
 	bool handleEvent(const LLSD& userdata)
 	{
 		std::string clothing = userdata.asString();
-		bool new_value = false;
-		if (clothing == "shirt")
-		{
-			new_value = LLAgentWearables::selfHasWearable(WT_SHIRT);
-		}
-		if (clothing == "pants")
-		{
-			new_value = LLAgentWearables::selfHasWearable(WT_PANTS);
-		}
-		if (clothing == "shoes")
-		{
-			new_value = LLAgentWearables::selfHasWearable(WT_SHOES);
-		}
-		if (clothing == "socks")
-		{
-			new_value = LLAgentWearables::selfHasWearable(WT_SOCKS);
-		}
-		if (clothing == "jacket")
-		{
-			new_value = LLAgentWearables::selfHasWearable(WT_JACKET);
-		}
-		if (clothing == "gloves")
-		{
-			new_value = LLAgentWearables::selfHasWearable(WT_GLOVES);
-		}
-		if (clothing == "undershirt")
-		{
-			new_value = LLAgentWearables::selfHasWearable(WT_UNDERSHIRT);
-		}
-		if (clothing == "underpants")
-		{
-			new_value = LLAgentWearables::selfHasWearable(WT_UNDERPANTS);
-		}
-		if (clothing == "skirt")
-		{
-			new_value = LLAgentWearables::selfHasWearable(WT_SKIRT);
-		}
-		if (clothing == "alpha")
-		{
-			new_value = LLAgentWearables::selfHasWearable(WT_ALPHA);
-		}
-		if (clothing == "tattoo")
-		{
-			new_value = LLAgentWearables::selfHasWearable(WT_TATTOO);
-		}
-		return new_value;
+		EWearableType type = LLWearableDictionary::typeNameToType(clothing);
+		if (type >= WT_SHAPE && type < WT_COUNT)
+			return LLAgentWearables::selfHasWearable(type);
+		return false;
 	}
 };
 
@@ -7519,53 +7449,13 @@ class LLEditTakeOff : public view_listener_t
 	bool handleEvent(const LLSD& userdata)
 	{
 		std::string clothing = userdata.asString();
-		if (clothing == "shirt")
+		if (clothing == "all")
+			LLAgentWearables::userRemoveAllClothes();
+		else
 		{
-			LLAgentWearables::userRemoveWearable((void*)WT_SHIRT);
-		}
-		else if (clothing == "pants")
-		{
-			LLAgentWearables::userRemoveWearable((void*)WT_PANTS);
-		}
-		else if (clothing == "shoes")
-		{
-			LLAgentWearables::userRemoveWearable((void*)WT_SHOES);
-		}
-		else if (clothing == "socks")
-		{
-			LLAgentWearables::userRemoveWearable((void*)WT_SOCKS);
-		}
-		else if (clothing == "jacket")
-		{
-			LLAgentWearables::userRemoveWearable((void*)WT_JACKET);
-		}
-		else if (clothing == "gloves")
-		{
-			LLAgentWearables::userRemoveWearable((void*)WT_GLOVES);
-		}
-		else if (clothing == "undershirt")
-		{
-			LLAgentWearables::userRemoveWearable((void*)WT_UNDERSHIRT);
-		}
-		else if (clothing == "underpants")
-		{
-			LLAgentWearables::userRemoveWearable((void*)WT_UNDERPANTS);
-		}
-		else if (clothing == "skirt")
-		{
-			LLAgentWearables::userRemoveWearable((void*)WT_SKIRT);
-		}
-		else if (clothing == "alpha")
-		{
-			LLAgentWearables::userRemoveWearable((void*)WT_ALPHA);
-		}
-		else if (clothing == "tattoo")
-		{
-			LLAgentWearables::userRemoveWearable((void*)WT_TATTOO);
-		}
-		else if (clothing == "all")
-		{
-			LLAgentWearables::userRemoveAllClothes(NULL);
+			EWearableType type = LLWearableDictionary::typeNameToType(clothing);
+			if (type >= WT_SHAPE && type < WT_COUNT)
+				LLAgentWearables::userRemoveWearable(type);
 		}
 		return true;
 	}
@@ -7951,8 +7841,6 @@ void initialize_menus()
 	view_listener_t::addMenu(new LLAdvancedTogglePG(), "Advanced.TogglePG");
 	
 	// Advanced > Character (toplevel)
-	view_listener_t::addMenu(new LLAdvancedToggleAllowTapTapHoldRun(), "Advanced.ToggleAllowTapTapHoldRun");
-	view_listener_t::addMenu(new LLAdvancedCheckAllowTapTapHoldRun(), "Advanced.CheckAllowTapTapHoldRun");
 	view_listener_t::addMenu(new LLAdvancedForceParamsToDefault(), "Advanced.ForceParamsToDefault");
 	view_listener_t::addMenu(new LLAdvancedReloadVertexShader(), "Advanced.ReloadVertexShader");
 	view_listener_t::addMenu(new LLAdvancedToggleAnimationInfo(), "Advanced.ToggleAnimationInfo");
@@ -8030,25 +7918,24 @@ void initialize_menus()
 	view_listener_t::addMenu(new LLSelfEnableRemoveAllAttachments(), "Self.EnableRemoveAllAttachments");
 
 	// we don't use boost::bind directly to delay side tray construction
-	view_listener_t::addMenu(new LLSelfFriends(), "Self.Friends");
-	view_listener_t::addMenu(new LLSelfGroups(), "Self.Groups");
+	view_listener_t::addMenu( new LLShowPanelPeopleTab(), "SideTray.PanelPeopleTab");
 
 	 // Avatar pie menu
 	view_listener_t::addMenu(new LLObjectMute(), "Avatar.Mute");
 	view_listener_t::addMenu(new LLAvatarAddFriend(), "Avatar.AddFriend");
 	view_listener_t::addMenu(new LLAvatarAddContact(), "Avatar.AddContact");
-	view_listener_t::addMenu(new LLAvatarFreeze(), "Avatar.Freeze");
+	commit.add("Avatar.Freeze", boost::bind(&handle_avatar_freeze, LLSD()));
 	view_listener_t::addMenu(new LLAvatarDebug(), "Avatar.Debug");
 	view_listener_t::addMenu(new LLAvatarVisibleDebug(), "Avatar.VisibleDebug");
-	view_listener_t::addMenu(new LLAvatarEnableDebug(), "Avatar.EnableDebug");
 	view_listener_t::addMenu(new LLAvatarInviteToGroup(), "Avatar.InviteToGroup");
 	view_listener_t::addMenu(new LLAvatarGiveCard(), "Avatar.GiveCard");
-	view_listener_t::addMenu(new LLAvatarEject(), "Avatar.Eject");
+	commit.add("Avatar.Eject", boost::bind(&handle_avatar_eject, LLSD()));
 	view_listener_t::addMenu(new LLAvatarSendIM(), "Avatar.SendIM");
 	view_listener_t::addMenu(new LLAvatarReportAbuse(), "Avatar.ReportAbuse");
 	
 	view_listener_t::addMenu(new LLAvatarEnableAddFriend(), "Avatar.EnableAddFriend");
-	view_listener_t::addMenu(new LLAvatarEnableFreezeEject(), "Avatar.EnableFreezeEject");
+	enable.add("Avatar.EnableFreezeEject", boost::bind(&enable_freeze_eject, _2));
+	visible.add("Avatar.EnableFreezeEject", boost::bind(&enable_freeze_eject, _2));
 
 	// Object pie menu
 	view_listener_t::addMenu(new LLObjectBuild(), "Object.Build");

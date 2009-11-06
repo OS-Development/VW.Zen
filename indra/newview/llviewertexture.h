@@ -107,22 +107,24 @@ public:
 
 	enum EBoostLevel
 	{
-		BOOST_NONE 			= 0,
-		BOOST_AVATAR_BAKED	= 1,
-		BOOST_AVATAR		= 2,
-		BOOST_CLOUDS		= 3,
-		BOOST_SCULPTED      = 4,
+		//skip 0 and 1 to avoid mistakenly mixing boost level with boolean numbers.
+		BOOST_NONE 			= 2,
+		BOOST_AVATAR_BAKED	= 3,
+		BOOST_AVATAR		= 4,
+		BOOST_CLOUDS		= 5,
+		BOOST_SCULPTED      = 6,
 		
 		BOOST_HIGH 			= 10,
 		BOOST_TERRAIN		= 11, // has to be high priority for minimap / low detail
 		BOOST_SELECTED		= 12,
 		BOOST_HUD			= 13,
 		BOOST_AVATAR_BAKED_SELF	= 14,
-		BOOST_UI			= 15,
-		BOOST_PREVIEW		= 16,
-		BOOST_MAP			= 17,
-		BOOST_MAP_VISIBLE	= 18,
-		BOOST_AVATAR_SELF	= 19, // needed for baking avatar
+		BOOST_ICON			= 15,
+		BOOST_UI			= 16,
+		BOOST_PREVIEW		= 17,
+		BOOST_MAP			= 18,
+		BOOST_MAP_VISIBLE	= 19,
+		BOOST_AVATAR_SELF	= 20, // needed for baking avatar
 		BOOST_MAX_LEVEL,
 
 		//other texture Categories
@@ -175,6 +177,7 @@ public:
 	
 	S32 getFullWidth() const { return mFullWidth; }
 	S32 getFullHeight() const { return mFullHeight; }	
+	/*virtual*/ void setKnownDrawSize(S32 width, S32 height);
 
 	virtual void addFace(LLFace* facep) ;
 	virtual void removeFace(LLFace* facep) ; 
@@ -234,6 +237,11 @@ public:
 	//-----------------	
 	
 	BOOL isLargeImage() ;	
+	
+	void setParcelMedia(LLViewerMediaTexture* media) {mParcelMedia = media;}
+	BOOL hasParcelMedia() const { return mParcelMedia != NULL;}
+	LLViewerMediaTexture* getParcelMedia() const { return mParcelMedia;}
+
 	/*virtual*/ void updateBindStatsForTester() ;
 protected:
 	void cleanup() ;
@@ -262,6 +270,9 @@ protected:
 	//GL texture
 	LLPointer<LLImageGL> mGLTexturep ;
 	S8 mDontDiscard;			// Keep full res version of this image (for UI, etc)
+
+	//do not use LLPointer here.
+	LLViewerMediaTexture* mParcelMedia ;
 
 protected:
 	typedef enum 
@@ -386,7 +397,7 @@ public:
 	// Override the computation of discard levels if we know the exact output
 	// size of the image.  Used for UI textures to not decode, even if we have
 	// more data.
-	void setKnownDrawSize(S32 width, S32 height);
+	/*virtual*/ void setKnownDrawSize(S32 width, S32 height);
 
 	void setIsMissingAsset();
 	/*virtual*/ BOOL isMissingAsset()	const		{ return mIsMissingAsset; }
@@ -458,6 +469,8 @@ private:
 	BOOL  mFullyLoaded;
 
 protected:		
+	std::string mLocalFileName;
+
 	S32 mOrigWidth;
 	S32 mOrigHeight;
 
@@ -465,7 +478,7 @@ protected:
 	// Used for UI textures to not decode, even if we have more data.
 	S32 mKnownDrawWidth;
 	S32	mKnownDrawHeight;
-
+	BOOL mKnownDrawSizeChanged ;
 	std::string mUrl;
 	
 	S32 mRequestedDiscardLevel;
@@ -637,7 +650,7 @@ public:
 	static LLTexturePipelineTester* sTesterp ;
 
 	//returns NULL if tex is not a LLViewerFetchedTexture nor derived from LLViewerFetchedTexture.
-	static LLViewerFetchedTexture*    staticCastToFetchedTexture(LLViewerTexture* tex, BOOL report_error = FALSE) ;
+	static LLViewerFetchedTexture*    staticCastToFetchedTexture(LLTexture* tex, BOOL report_error = FALSE) ;
 
 	//
 	//"find-texture" just check if the texture exists, if yes, return it, otherwise return null.
@@ -659,7 +672,7 @@ public:
 
 	static LLViewerFetchedTexture* getFetchedTexture(const LLUUID &image_id,									 
 									 BOOL usemipmap = TRUE,
-									 BOOL level_immediate = FALSE,		// Get the requested level immediately upon creation.
+									 S32 boost_priority = LLViewerTexture::BOOST_NONE,		// Get the requested level immediately upon creation.
 									 S8 texture_type = LLViewerTexture::FETCHED_TEXTURE,
 									 LLGLint internal_format = 0,
 									 LLGLenum primary_format = 0,
@@ -668,7 +681,7 @@ public:
 	
 	static LLViewerFetchedTexture* getFetchedTextureFromFile(const std::string& filename,									 
 									 BOOL usemipmap = TRUE,
-									 BOOL level_immediate = FALSE,		// Get the requested level immediately upon creation.
+									 S32 boost_priority = LLViewerTexture::BOOST_NONE,
 									 S8 texture_type = LLViewerTexture::FETCHED_TEXTURE,
 									 LLGLint internal_format = 0,
 									 LLGLenum primary_format = 0,
@@ -677,7 +690,7 @@ public:
 
 	static LLViewerFetchedTexture* getFetchedTextureFromUrl(const std::string& url,									 
 									 BOOL usemipmap = TRUE,
-									 BOOL level_immediate = FALSE,		// Get the requested level immediately upon creation.
+									 S32 boost_priority = LLViewerTexture::BOOST_NONE,
 									 S8 texture_type = LLViewerTexture::FETCHED_TEXTURE,
 									 LLGLint internal_format = 0,
 									 LLGLenum primary_format = 0,

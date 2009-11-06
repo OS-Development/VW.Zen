@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  height="150"
  layout="topleft"
  name="Environment Editor Floater"
  help_topic="environment_editor_floater"
  save_rect="true"
- title="Environment Editor"
+ title="ENVIRONMENT EDITOR"
  width="600">
     <floater.string
      name="timeStr">

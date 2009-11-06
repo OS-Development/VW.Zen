@@ -49,7 +49,6 @@
 #include "llviewerstats.h"
 #include "llmd5.h"
 #include "llpumpio.h"
-#include "llimpanel.h"
 #include "llmimetypes.h"
 #include "llslurl.h"
 #include "llstartup.h"
@@ -75,8 +74,10 @@
 #include "llurlhistory.h"
 #include "llfirstuse.h"
 #include "llrender.h"
+#include "llteleporthistory.h"
 #include "lllocationhistory.h"
 #include "llfasttimerview.h"
+#include "llvoicechannel.h"
 
 #include "llweb.h"
 #include "llsecondlifeurls.h"
@@ -93,13 +94,14 @@
 
 #if LL_WINDOWS
 	#include "llwindebug.h"
-#endif
-
-#if LL_WINDOWS
 #	include <share.h> // For _SH_DENYWR in initMarkerFile
 #else
 #   include <sys/file.h> // For initMarkerFile support
 #endif
+
+#include "llapr.h"
+#include "apr_dso.h"
+#include <boost/lexical_cast.hpp>
 
 #include "llnotify.h"
 #include "llviewerkeyboard.h"
@@ -156,7 +158,6 @@
 #include "llfolderview.h"
 #include "lltoolbar.h"
 #include "llagentpilot.h"
-#include "llsrv.h"
 #include "llvovolume.h"
 #include "llflexibleobject.h" 
 #include "llvosurfacepatch.h"
@@ -194,7 +195,19 @@
 //----------------------------------------------------------------------------
 // llviewernetwork.h
 #include "llviewernetwork.h"
+// define a self-registering event API object
+#include "llappviewerlistener.h"
 
+#if (LL_LINUX || LL_SOLARIS) && LL_GTK
+#include "glib.h"
+#endif // (LL_LINUX || LL_SOLARIS) && LL_GTK
+
+#if LL_MSVC
+// disable boost::lexical_cast warning
+#pragma warning (disable:4702)
+#endif
+
+static LLAppViewerListener sAppViewerListener("LLAppViewer", LLAppViewer::instance);
 
 ////// Windows-specific includes to the bottom - nasty defines in these pollute the preprocessor
 //
@@ -216,12 +229,8 @@ const F32 DEFAULT_AFK_TIMEOUT = 5.f * 60.f; // time with no input before user fl
 F32 gSimLastTime; // Used in LLAppViewer::init and send_stats()
 F32 gSimFrames;
 
-BOOL gAllowTapTapHoldRun = TRUE;
 BOOL gShowObjectUpdates = FALSE;
 BOOL gUseQuickTime = TRUE;
-
-BOOL gAcceptTOS = FALSE;
-BOOL gAcceptCriticalMessage = FALSE;
 
 eLastExecEvent gLastExecEvent = LAST_EXEC_NORMAL;
 
@@ -230,8 +239,6 @@ LLSD gDebugInfo;
 U32	gFrameCount = 0;
 U32 gForegroundFrameCount = 0; // number of frames that app window was in foreground
 LLPumpIO* gServicePump = NULL;
-
-BOOL gPacificDaylightTime = FALSE;
 
 U64 gFrameTime = 0;
 F32 gFrameTimeSeconds = 0.f;
@@ -410,7 +417,6 @@ static void settings_to_globals()
 	gAgent.setHideGroupTitle(gSavedSettings.getBOOL("RenderHideGroupTitle"));
 
 	gDebugWindowProc = gSavedSettings.getBOOL("DebugWindowProc");
-	gAllowTapTapHoldRun = gSavedSettings.getBOOL("AllowTapTapHoldRun");
 	gShowObjectUpdates = gSavedSettings.getBOOL("ShowObjectUpdates");
 	LLWorldMapView::sMapScale = gSavedSettings.getF32("MapScale");
 
@@ -564,9 +570,9 @@ LLAppViewer::LLAppViewer() :
 	mYieldTime(-1),
 	mMainloopTimeout(NULL),
 	mAgentRegionLastAlive(false),
-	mFastTimerLogThread(NULL),
 	mRandomizeFramerate(LLCachedControl<bool>(gSavedSettings,"Randomize Framerate", FALSE)),
-	mPeriodicSlowFrame(LLCachedControl<bool>(gSavedSettings,"Periodic Slow Frame", FALSE))
+	mPeriodicSlowFrame(LLCachedControl<bool>(gSavedSettings,"Periodic Slow Frame", FALSE)),
+	mFastTimerLogThread(NULL)
 {
 	if(NULL != sInstance)
 	{
@@ -613,7 +619,19 @@ bool LLAppViewer::init()
 	
 	if (!initConfiguration())
 		return false;
-	
+
+	// Although initLogging() is the right place to mess with
+	// setFatalFunction(), we can't query gSavedSettings until after
+	// initConfiguration().
+	S32 rc(gSavedSettings.getS32("QAModeTermCode"));
+	if (rc >= 0)
+	{
+		// QAModeTermCode set, terminate with that rc on LL_ERRS. Use _exit()
+		// rather than exit() because normal cleanup depends too much on
+		// successful startup!
+		LLError::setFatalFunction(boost::bind(_exit, rc));
+	}
+
     mAlloc.setProfilingEnabled(gSavedSettings.getBOOL("MemProfiling"));
 
     // *NOTE:Mani - LLCurl::initClass is not thread safe. 
@@ -879,6 +897,11 @@ bool LLAppViewer::init()
 
 	LLViewerJoystick::getInstance()->init(false);
 	gGLActive = FALSE;
+	if (gSavedSettings.getBOOL("QAMode") && gSavedSettings.getS32("QAModeEventHostPort") > 0)
+	{
+		loadEventHostModule(gSavedSettings.getS32("QAModeEventHostPort"));
+	}
+	
 	return true;
 }
 
@@ -1193,6 +1216,21 @@ bool LLAppViewer::mainLoop()
 
 bool LLAppViewer::cleanup()
 {
+	// workaround for DEV-35406 crash on shutdown
+	LLEventPumps::instance().reset();
+
+	// *TODO - generalize this and move DSO wrangling to a helper class -brad
+	std::set<struct apr_dso_handle_t *>::const_iterator i;
+	for(i = mPlugins.begin(); i != mPlugins.end(); ++i)
+	{
+		int (*ll_plugin_stop_func)(void) = NULL;
+		apr_status_t rv = apr_dso_sym((apr_dso_handle_sym_t*)&ll_plugin_stop_func, *i, "ll_plugin_stop");
+		ll_plugin_stop_func();
+
+		rv = apr_dso_unload(*i);
+	}
+	mPlugins.clear();
+
 	//----------------------------------------------
 	//this test code will be removed after the test
 	//test manual call stack tracer
@@ -1322,7 +1360,11 @@ bool LLAppViewer::cleanup()
 	// Destroy the UI
 	if( gViewerWindow)
 		gViewerWindow->shutdownViews();
-
+	
+	// Cleanup Inventory after the UI since it will delete any remaining observers
+	// (Deleted observers should have already removed themselves)
+	gInventory.cleanupInventory();
+	
 	// Clean up selection managers after UI is destroyed, as UI may be observing them.
 	// Clean up before GL is shut down because we might be holding on to objects with texture references
 	LLSelectMgr::cleanupGlobals();
@@ -1500,7 +1542,6 @@ bool LLAppViewer::cleanup()
 	//Note:
 	//LLViewerMedia::cleanupClass() has to be put before gTextureList.shutdown()
 	//because some new image might be generated during cleaning up media. --bao
-	LLViewerMediaFocus::cleanupClass();
 	LLViewerMedia::cleanupClass();
 	LLViewerParcelMedia::cleanupClass();
 	gTextureList.shutdown(); // shutdown again in case a callback added something
@@ -1638,7 +1679,7 @@ bool LLAppViewer::initLogging()
 	LLError::initForApplication(
 				gDirUtilp->getExpandedFilename(LL_PATH_APP_SETTINGS, ""));
 	LLError::setFatalFunction(errorCallback);
-	
+
 	// Remove the last ".old" log file.
 	std::string old_log_file = gDirUtilp->getExpandedFilename(LL_PATH_LOGS,
 							     "SecondLife.old");
@@ -2373,7 +2414,6 @@ void LLAppViewer::cleanupSavedSettings()
 
 	gSavedSettings.setBOOL("DebugWindowProc", gDebugWindowProc);
 		
-	gSavedSettings.setBOOL("AllowTapTapHoldRun", gAllowTapTapHoldRun);
 	gSavedSettings.setBOOL("ShowObjectUpdates", gShowObjectUpdates);
 	
 	if (!gNoRender)
@@ -3696,6 +3736,17 @@ void LLAppViewer::idleShutdown()
 	{
 		return;
 	}
+	
+	// ProductEngine: Try moving this code to where we shut down sTextureCache in cleanup()
+	// *TODO: ugly
+	static bool saved_teleport_history = false;
+	if (!saved_teleport_history)
+	{
+		saved_teleport_history = true;
+		LLTeleportHistory::getInstance()->dump();
+		LLLocationHistory::getInstance()->save(); // *TODO: find a better place for doing this
+		return;
+	}
 
 	static bool saved_snapshot = false;
 	if (!saved_snapshot)
@@ -3990,7 +4041,7 @@ void LLAppViewer::forceErrorBadMemoryAccess()
     return;
 }
 
-void LLAppViewer::forceErrorInifiniteLoop()
+void LLAppViewer::forceErrorInfiniteLoop()
 {
     while(true)
     {
@@ -4110,5 +4161,199 @@ void LLAppViewer::handleLoginComplete()
 	mOnLoginCompleted();
 
 	writeDebugInfo();
+}
+
+// *TODO - generalize this and move DSO wrangling to a helper class -brad
+void LLAppViewer::loadEventHostModule(S32 listen_port)
+{
+	std::string dso_name =
+#if LL_WINDOWS
+	    "lleventhost.dll";
+#elif LL_DARWIN
+	    "liblleventhost.dylib";
+#else
+	    "liblleventhost.so";
+#endif
+
+	std::string dso_path = gDirUtilp->findFile(dso_name,
+		gDirUtilp->getAppRODataDir(),
+		gDirUtilp->getExecutableDir());
+
+	if(dso_path == "")
+	{
+		llwarns << "QAModeEventHost requested but module \"" << dso_name << "\" not found!" << llendl;
+		return;
+	}
+
+	apr_dso_handle_t * eventhost_dso_handle = NULL;
+	apr_pool_t * eventhost_dso_memory_pool = NULL;
+
+	//attempt to load the shared library
+	apr_pool_create(&eventhost_dso_memory_pool, NULL);
+	apr_status_t rv = apr_dso_load(&eventhost_dso_handle,
+		dso_path.c_str(),
+		eventhost_dso_memory_pool);
+	ll_apr_assert_status(rv);
+	llassert_always(eventhost_dso_handle != NULL);
+
+	int (*ll_plugin_start_func)(LLSD const &) = NULL;
+	rv = apr_dso_sym((apr_dso_handle_sym_t*)&ll_plugin_start_func, eventhost_dso_handle, "ll_plugin_start");
+
+	ll_apr_assert_status(rv);
+	llassert_always(ll_plugin_start_func != NULL);
+
+	LLSD args;
+	args["listen_port"] = listen_port;
+
+	int status = ll_plugin_start_func(args);
+
+	if(status != 0)
+	{
+		llwarns << "problem loading eventhost plugin, status: " << status << llendl;
+	}
+
+	mPlugins.insert(eventhost_dso_handle);
+}
+
+void LLAppViewer::launchUpdater()
+{
+		LLSD query_map = LLSD::emptyMap();
+	// *TODO place os string in a global constant
+#if LL_WINDOWS  
+	query_map["os"] = "win";
+#elif LL_DARWIN
+	query_map["os"] = "mac";
+#elif LL_LINUX
+	query_map["os"] = "lnx";
+#elif LL_SOLARIS
+	query_map["os"] = "sol";
+#endif
+	// *TODO change userserver to be grid on both viewer and sim, since
+	// userserver no longer exists.
+	query_map["userserver"] = LLViewerLogin::getInstance()->getGridLabel();
+	query_map["channel"] = gSavedSettings.getString("VersionChannelName");
+	// *TODO constantize this guy
+	// *NOTE: This URL is also used in win_setup/lldownloader.cpp
+	LLURI update_url = LLURI::buildHTTP("secondlife.com", 80, "update.php", query_map);
+	
+	if(LLAppViewer::sUpdaterInfo)
+	{
+		delete LLAppViewer::sUpdaterInfo;
+	}
+	LLAppViewer::sUpdaterInfo = new LLAppViewer::LLUpdaterInfo() ;
+
+	// if a sim name was passed in via command line parameter (typically through a SLURL)
+	if ( LLURLSimString::sInstance.mSimString.length() )
+	{
+		// record the location to start at next time
+		gSavedSettings.setString( "NextLoginLocation", LLURLSimString::sInstance.mSimString ); 
+	};
+
+#if LL_WINDOWS
+	LLAppViewer::sUpdaterInfo->mUpdateExePath = gDirUtilp->getTempFilename();
+	if (LLAppViewer::sUpdaterInfo->mUpdateExePath.empty())
+	{
+		delete LLAppViewer::sUpdaterInfo ;
+		LLAppViewer::sUpdaterInfo = NULL ;
+
+		// We're hosed, bail
+		LL_WARNS("AppInit") << "LLDir::getTempFilename() failed" << LL_ENDL;
+		return;
+	}
+
+	LLAppViewer::sUpdaterInfo->mUpdateExePath += ".exe";
+
+	std::string updater_source = gDirUtilp->getAppRODataDir();
+	updater_source += gDirUtilp->getDirDelimiter();
+	updater_source += "updater.exe";
+
+	LL_DEBUGS("AppInit") << "Calling CopyFile source: " << updater_source
+			<< " dest: " << LLAppViewer::sUpdaterInfo->mUpdateExePath
+			<< LL_ENDL;
+
+
+	if (!CopyFileA(updater_source.c_str(), LLAppViewer::sUpdaterInfo->mUpdateExePath.c_str(), FALSE))
+	{
+		delete LLAppViewer::sUpdaterInfo ;
+		LLAppViewer::sUpdaterInfo = NULL ;
+
+		LL_WARNS("AppInit") << "Unable to copy the updater!" << LL_ENDL;
+
+		return;
+	}
+
+	LLAppViewer::sUpdaterInfo->mParams << "-url \"" << update_url.asString() << "\"";
+
+	LL_DEBUGS("AppInit") << "Calling updater: " << LLAppViewer::sUpdaterInfo->mUpdateExePath << " " << LLAppViewer::sUpdaterInfo->mParams.str() << LL_ENDL;
+
+	//Explicitly remove the marker file, otherwise we pass the lock onto the child process and things get weird.
+	LLAppViewer::instance()->removeMarkerFile(); // In case updater fails
+
+	// *NOTE:Mani The updater is spawned as the last thing before the WinMain exit.
+	// see LLAppViewerWin32.cpp
+	
+#elif LL_DARWIN
+	LLAppViewer::sUpdaterInfo->mUpdateExePath = "'";
+	LLAppViewer::sUpdaterInfo->mUpdateExePath += gDirUtilp->getAppRODataDir();
+	LLAppViewer::sUpdaterInfo->mUpdateExePath += "/mac-updater.app/Contents/MacOS/mac-updater' -url \"";
+	LLAppViewer::sUpdaterInfo->mUpdateExePath += update_url.asString();
+	LLAppViewer::sUpdaterInfo->mUpdateExePath += "\" -name \"";
+	LLAppViewer::sUpdaterInfo->mUpdateExePath += LLAppViewer::instance()->getSecondLifeTitle();
+	LLAppViewer::sUpdaterInfo->mUpdateExePath += "\" &";
+
+	LL_DEBUGS("AppInit") << "Calling updater: " << LLAppViewer::sUpdaterInfo->mUpdateExePath << LL_ENDL;
+
+	// Run the auto-updater.
+	system(LLAppViewer::sUpdaterInfo->mUpdateExePath.c_str()); /* Flawfinder: ignore */
+
+#elif (LL_LINUX || LL_SOLARIS) && LL_GTK
+	// we tell the updater where to find the xml containing string
+	// translations which it can use for its own UI
+	std::string xml_strings_file = "strings.xml";
+	std::vector<std::string> xui_path_vec = LLUI::getXUIPaths();
+	std::string xml_search_paths;
+	std::vector<std::string>::const_iterator iter;
+	// build comma-delimited list of xml paths to pass to updater
+	for (iter = xui_path_vec.begin(); iter != xui_path_vec.end(); )
+	{
+		std::string this_skin_dir = gDirUtilp->getDefaultSkinDir()
+			+ gDirUtilp->getDirDelimiter()
+			+ (*iter);
+		llinfos << "Got a XUI path: " << this_skin_dir << llendl;
+		xml_search_paths.append(this_skin_dir);
+		++iter;
+		if (iter != xui_path_vec.end())
+			xml_search_paths.append(","); // comma-delimit
+	}
+	// build the overall command-line to run the updater correctly
+	LLAppViewer::sUpdaterInfo->mUpdateExePath = 
+		gDirUtilp->getExecutableDir() + "/" + "linux-updater.bin" + 
+		" --url \"" + update_url.asString() + "\"" +
+		" --name \"" + LLAppViewer::instance()->getSecondLifeTitle() + "\"" +
+		" --dest \"" + gDirUtilp->getAppRODataDir() + "\"" +
+		" --stringsdir \"" + xml_search_paths + "\"" +
+		" --stringsfile \"" + xml_strings_file + "\"";
+
+	LL_INFOS("AppInit") << "Calling updater: " 
+			    << LLAppViewer::sUpdaterInfo->mUpdateExePath << LL_ENDL;
+
+	// *TODO: we could use the gdk equivalent to ensure the updater
+	// gets started on the same screen.
+	GError *error = NULL;
+	if (!g_spawn_command_line_async(LLAppViewer::sUpdaterInfo->mUpdateExePath.c_str(), &error))
+	{
+		llerrs << "Failed to launch updater: "
+		       << error->message
+		       << llendl;
+	}
+	if (error) {
+		g_error_free(error);
+	}
+#else
+	OSMessageBox(LLTrans::getString("MBNoAutoUpdate"), LLStringUtil::null, OSMB_OK);
+#endif
+
+	// *REMOVE:Mani - Saving for reference...
+	// LLAppViewer::instance()->forceQuit();
 }
 

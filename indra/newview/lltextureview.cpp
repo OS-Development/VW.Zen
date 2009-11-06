@@ -170,7 +170,7 @@ void LLTextureBar::draw()
 	{
 		color = LLColor4::green4;
 	}
-	else if (mImagep->getBoostLevel())
+	else if (mImagep->getBoostLevel() > LLViewerTexture::BOOST_NONE)
 	{
 		color = LLColor4::magenta;
 	}
