@@ -261,9 +261,18 @@ viewer_media_t LLViewerMedia::updateMediaImpl(LLMediaEntry* media_entry, const s
 			media_impl->mMediaSource->setSize(media_entry->getWidthPixels(), media_entry->getHeightPixels());
 		}
 		
-		if((was_loaded || (media_entry->getAutoPlay() && gSavedSettings.getBOOL("AutoPlayMedia"))) && !update_from_self)
+		if(media_entry->getCurrentURL().empty())
 		{
-			if(!media_entry->getCurrentURL().empty())
+			// The current media URL is now empty.  Unload the media source.
+			media_impl->unload();
+		}
+		else
+		{
+			// The current media URL is not empty.
+			// If (the media was already loaded OR the media was set to autoplay) AND this update didn't come from this agent,
+			// do a navigate.
+			
+			if((was_loaded || (media_entry->getAutoPlay() && gSavedSettings.getBOOL("AutoPlayMedia"))) && !update_from_self)
 			{
 				needs_navigate = (media_entry->getCurrentURL() != previous_url);
 			}
@@ -1258,6 +1267,17 @@ void LLViewerMediaImpl::navigateReload()
 void LLViewerMediaImpl::navigateHome()
 {
 	navigateTo(mHomeURL, "", true, false);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+void LLViewerMediaImpl::unload()
+{
+	// Unload the media impl and clear its state.
+	destroyMediaSource();
+	resetPreviousMediaState();
+	mMediaURL.clear();
+	mMimeType.clear();
+	mCurrentMediaURL.clear();
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
