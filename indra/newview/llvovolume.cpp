@@ -1638,6 +1638,26 @@ bool LLVOVolume::hasMedia() const
 	return result;
 }
 
+LLVector3 LLVOVolume::getApproximateFaceNormal(U8 face_id)
+{
+	LLVolume* volume = getVolume();
+	LLVector3 result;
+
+	if (volume && face_id < volume->getNumVolumeFaces())
+	{
+		const LLVolumeFace& face = volume->getVolumeFace(face_id);
+		for (S32 i = 0; i < (S32)face.mVertices.size(); ++i)
+		{
+			result += face.mVertices[i].mNormal;
+		}
+
+		result = volumeDirectionToAgent(result);
+		result.normVec();
+	}
+	
+	return result;
+}
+
 void LLVOVolume::requestMediaDataUpdate()
 {
     sObjectMediaClient->fetchMedia(new LLMediaDataClientObjectImpl(this));
