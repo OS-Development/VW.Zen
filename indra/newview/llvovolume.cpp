@@ -108,6 +108,11 @@ public:
 				if (te->getMediaData() != NULL)
 				{
 					result = te->getMediaData()->asLLSD();
+					// XXX HACK: workaround bug in asLLSD() where whitelist is not set properly
+					if (!result.has(LLMediaEntry::WHITELIST_KEY))
+					{
+						result[LLMediaEntry::WHITELIST_KEY] = LLSD::emptyArray();
+					}
 				}
 			}
 			return result;
@@ -1732,6 +1737,10 @@ void LLVOVolume::syncMediaData(S32 texture_index, const LLSD &media_data, bool m
 		viewer_media_t media_impl = LLViewerMedia::updateMediaImpl(mep, previous_url, update_from_self);
 			
 		addMediaImpl(media_impl, texture_index) ;
+	}
+	else
+	{
+		removeMediaImpl(texture_index);
 	}
 
 	//llinfos << "AFTER: texture_index = " << texture_index
