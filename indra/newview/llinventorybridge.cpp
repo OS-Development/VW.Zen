@@ -284,7 +284,10 @@ void LLInvFVBridge::showProperties()
 	key["id"] = mUUID;
 	LLSideTray::getInstance()->showPanel("sidepanel_inventory", key);
 
+	// Disable old properties floater; this is replaced by the sidepanel.
+	/*
 	LLFloaterReg::showInstance("properties", mUUID);
+	*/
 }
 
 void LLInvFVBridge::removeBatch(LLDynamicArray<LLFolderViewEventListener*>& batch)
@@ -3913,6 +3916,7 @@ void LLObjectBridge::openItem()
 	key["id"] = mUUID;
 	LLSideTray::getInstance()->showPanel("sidepanel_inventory", key);
 
+	// Disable old properties floater; this is replaced by the sidepanel.
 	/*
 	LLFloaterReg::showInstance("properties", mUUID);
 	*/
