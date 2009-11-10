@@ -296,7 +296,6 @@ public:
 	void				updateKeyboardFocus();		
 
 	void			updateWorldViewRect(bool use_full_window=false);
-	void			updateBottomTrayRect();
 
 	BOOL			handleKey(KEY key, MASK mask);
 	void			handleScrollWheel	(S32 clicks);
@@ -454,6 +453,8 @@ protected:
 	BOOL			mIgnoreActivate;
 
 	std::string		mInitAlert;			// Window / GL initialization requires an alert
+
+	LLHandle<LLView> mWorldViewPlaceholder;	// widget that spans the portion of screen dedicated to rendering the 3d world
 	
 	class LLDebugText* mDebugText; // Internal class for debug text
 	
