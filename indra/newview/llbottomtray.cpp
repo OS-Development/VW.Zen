@@ -52,7 +52,6 @@ LLBottomTray::LLBottomTray(const LLSD&)
 	mToolbarStack(NULL)
 ,	mMovementButton(NULL)
 // Add more members
-
 {
 	mFactoryMap["chat_bar"] = LLCallbackMap(LLBottomTray::createNearbyChatBar, NULL);
 
