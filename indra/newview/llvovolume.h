@@ -182,6 +182,11 @@ public:
 
 	/*virtual*/ BOOL	setVolume(const LLVolumeParams &volume_params, const S32 detail, bool unique_volume = false);
 				void	sculpt();
+	 static     void    rebuildMeshAssetCallback(LLVFS *vfs,
+														  const LLUUID& asset_uuid,
+														  LLAssetType::EType type,
+														  void* user_data, S32 status, LLExtStat ext_status);
+					
 				void	updateRelativeXform();
 	/*virtual*/ BOOL	updateGeometry(LLDrawable *drawable);
 	/*virtual*/ void	updateFaceSize(S32 idx);
@@ -227,6 +232,7 @@ public:
 	U32 getVolumeInterfaceID() const;
 	virtual BOOL isFlexible() const;
 	virtual BOOL isSculpted() const;
+	virtual BOOL isMesh() const;
 	virtual BOOL hasLightTexture() const;
 
 	BOOL isVolumeGlobal() const;
@@ -251,6 +257,7 @@ public:
     
 	void mediaNavigated(LLViewerMediaImpl *impl, LLPluginClassMedia* plugin, std::string new_location);
 	void mediaEvent(LLViewerMediaImpl *impl, LLPluginClassMedia* plugin, LLViewerMediaObserver::EMediaEvent event);
+			
 
 	// Sync the given media data with the impl and the given te
 	void syncMediaData(S32 te, const LLSD &media_data, bool merge, bool ignore_agent);
@@ -265,6 +272,8 @@ public:
 	bool hasMedia() const;
 	
 	LLVector3 getApproximateFaceNormal(U8 face_id);
+
+	void notifyMeshLoaded();
 
 protected:
 	S32	computeLODDetail(F32	distance, F32 radius);
@@ -286,6 +295,7 @@ private:
 	LLFrameTimer mTextureUpdateTimer;
 	S32			mLOD;
 	BOOL		mLODChanged;
+	S32         mMeshSculptLevel;
 	BOOL		mSculptChanged;
 	F32			mSpotLightPriority;
 	LLMatrix4	mRelativeXform;
