@@ -818,6 +818,8 @@ LLChicletPanel::LLChicletPanel(const Params&p)
 
 LLChicletPanel::~LLChicletPanel()
 {
+	LLTransientFloaterMgr::getInstance()->removeControlView(mLeftScrollButton);
+	LLTransientFloaterMgr::getInstance()->removeControlView(mRightScrollButton);
 
 }
 
