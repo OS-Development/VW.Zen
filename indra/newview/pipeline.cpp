@@ -512,8 +512,8 @@ void LLPipeline::resizeScreenTexture()
 	LLFastTimer ft(FTM_RESIZE_SCREEN_TEXTURE);
 	if (gPipeline.canUseVertexShaders() && assertInitialized())
 	{
-		GLuint resX = gViewerWindow->getWindowDisplayWidth();
-		GLuint resY = gViewerWindow->getWindowDisplayHeight();
+		GLuint resX = gViewerWindow->getWorldViewWidthRaw();
+		GLuint resY = gViewerWindow->getWorldViewHeightRaw();
 		GLuint view_width = gViewerWindow->getWorldViewWidth();
 		GLuint view_height = gViewerWindow->getWorldViewHeight();
 	
@@ -711,8 +711,8 @@ void LLPipeline::createGLBuffers()
 
 	stop_glerror();
 
-	GLuint resX = gViewerWindow->getWindowDisplayWidth();
-	GLuint resY = gViewerWindow->getWindowDisplayHeight();
+	GLuint resX = gViewerWindow->getWorldViewWidthRaw();
+	GLuint resY = gViewerWindow->getWorldViewHeightRaw();
 	GLuint viewport_width = gViewerWindow->getWorldViewWidth();
 	GLuint viewport_height = gViewerWindow->getWorldViewHeight();
 	
@@ -3066,7 +3066,7 @@ void LLPipeline::renderGeom(LLCamera& camera, BOOL forceVBOUpdate)
 	if (gPipeline.hasRenderDebugMask(LLPipeline::RENDER_DEBUG_PICKING))
 	{
 		LLAppViewer::instance()->pingMainloopTimeout("Pipeline:RenderForSelect");
-		gObjectList.renderObjectsForSelect(camera, gViewerWindow->getVirtualWindowRect());
+		gObjectList.renderObjectsForSelect(camera, gViewerWindow->getWindowRectScaled());
 	}
 	else
 	{
@@ -5547,8 +5547,8 @@ void LLPipeline::renderBloom(BOOL for_snapshot, F32 zoom_factor, int subfield)
 	U32 res_mod = gSavedSettings.getU32("RenderResolutionDivisor");
 
 	LLVector2 tc1(0,0);
-	LLVector2 tc2((F32) gViewerWindow->getWorldViewWidth()*2,
-				  (F32) gViewerWindow->getWorldViewHeight()*2);
+	LLVector2 tc2((F32) gViewerWindow->getWorldViewWidthRaw()*2,
+				  (F32) gViewerWindow->getWorldViewHeightRaw()*2);
 
 	if (res_mod > 1)
 	{
@@ -5748,14 +5748,14 @@ void LLPipeline::renderBloom(BOOL for_snapshot, F32 zoom_factor, int subfield)
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
 	}
 
-	gGLViewport[0] = gViewerWindow->getWorldViewRect().mLeft;
-	gGLViewport[1] = gViewerWindow->getWorldViewRect().mBottom;
-	gGLViewport[2] = gViewerWindow->getWorldViewRect().getWidth();
-	gGLViewport[3] = gViewerWindow->getWorldViewRect().getHeight();
+	gGLViewport[0] = gViewerWindow->getWorldViewRectRaw().mLeft;
+	gGLViewport[1] = gViewerWindow->getWorldViewRectRaw().mBottom;
+	gGLViewport[2] = gViewerWindow->getWorldViewRectRaw().getWidth();
+	gGLViewport[3] = gViewerWindow->getWorldViewRectRaw().getHeight();
 	glViewport(gGLViewport[0], gGLViewport[1], gGLViewport[2], gGLViewport[3]);
 
-	tc2.setVec((F32) gViewerWindow->getWorldViewWidth(),
-			(F32) gViewerWindow->getWorldViewHeight());
+	tc2.setVec((F32) gViewerWindow->getWorldViewWidthRaw(),
+			(F32) gViewerWindow->getWorldViewHeightRaw());
 
 	gGL.flush();
 	
@@ -8759,7 +8759,7 @@ void LLPipeline::generateImpostor(LLVOAvatar* avatar)
 	glClearStencil(0);
 
 	// get the number of pixels per angle
-	F32 pa = gViewerWindow->getWindowDisplayHeight() / (RAD_TO_DEG * LLViewerCamera::getInstance()->getView());
+	F32 pa = gViewerWindow->getWindowHeightRaw() / (RAD_TO_DEG * LLViewerCamera::getInstance()->getView());
 
 	//get resolution based on angle width and height of impostor (double desired resolution to prevent aliasing)
 	U32 resY = llmin(nhpo2((U32) (fov*pa)), (U32) 512);
