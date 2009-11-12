@@ -47,7 +47,6 @@
 #include "llmutelist.h"
 
 static LLDefaultChildRegistry::Register<LLChatHistory> r("chat_history");
-static const std::string MESSAGE_USERNAME_DATE_SEPARATOR(" ----- ");
 
 std::string formatCurrentTime()
 {
@@ -175,7 +174,7 @@ public:
 	const std::string&	getFirstName() const { return mFirstName; }
 	const std::string&	getLastName	() const { return mLastName; }
 
-	void setup(const LLChat& chat) 
+	void setup(const LLChat& chat,const LLStyle::Params& style_params) 
 	{
 		mAvatarID = chat.mFromID;
 		mSourceType = chat.mSourceType;
@@ -185,8 +184,11 @@ public:
 			mSourceType = CHAT_SOURCE_SYSTEM;
 		}
 
-
 		LLTextBox* userName = getChild<LLTextBox>("user_name");
+
+		LLUIColor color = style_params.color;
+		userName->setReadOnlyColor(color);
+		userName->setColor(color);
 		
 		if(!chat.mFromName.empty())
 		{
@@ -198,6 +200,7 @@ public:
 			std::string SL = LLTrans::getString("SECOND_LIFE");
 			userName->setValue(SL);
 		}
+
 		
 		LLTextBox* timeBox = getChild<LLTextBox>("time_box");
 		timeBox->setValue(formatCurrentTime());
@@ -323,17 +326,17 @@ LLView* LLChatHistory::getSeparator()
 	return separator;
 }
 
-LLView* LLChatHistory::getHeader(const LLChat& chat)
+LLView* LLChatHistory::getHeader(const LLChat& chat,const LLStyle::Params& style_params)
 {
 	LLChatHistoryHeader* header = LLChatHistoryHeader::createInstance(mMessageHeaderFilename);
-	header->setup(chat);
+	header->setup(chat,style_params);
 	return header;
 }
 
 void LLChatHistory::appendWidgetMessage(const LLChat& chat)
 {
 	LLView* view = NULL;
-	std::string view_text;
+	std::string view_text = "\n[" + formatCurrentTime() + "] " + chat.mFromName + ": ";
 
 	LLInlineViewSegment::Params p;
 	p.force_newline = true;
@@ -343,14 +346,12 @@ void LLChatHistory::appendWidgetMessage(const LLChat& chat)
 	if (mLastFromName == chat.mFromName)
 	{
 		view = getSeparator();
-		view_text = "\n";
 		p.top_pad = mTopSeparatorPad;
 		p.bottom_pad = mBottomSeparatorPad;
 	}
 	else
 	{
-		view = getHeader(chat);
-		view_text = chat.mFromName + MESSAGE_USERNAME_DATE_SEPARATOR + formatCurrentTime() + '\n';
+		view = getHeader(chat,style_params);
 		if (getText().size() == 0)
 			p.top_pad = 0;
 		else
@@ -370,7 +371,7 @@ void LLChatHistory::appendWidgetMessage(const LLChat& chat)
 	appendWidget(p, view_text, false);
 
 	//Append the text message
-	
+
 	LLColor4 txt_color = LLUIColorTable::instance().getColor("White");
 	LLViewerChat::getChatColor(chat,txt_color);
 	LLFontGL* fontp = LLViewerChat::getChatFont();
@@ -385,5 +386,4 @@ void LLChatHistory::appendWidgetMessage(const LLChat& chat)
 
 	mLastFromName = chat.mFromName;
 	blockUndo();
-	setCursorAndScrollToEnd();
 }

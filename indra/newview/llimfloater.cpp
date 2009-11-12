@@ -477,9 +477,10 @@ void LLIMFloater::updateMessages()
 			std::string from = from_id != gAgentID ? msg["from"].asString() : LLTrans::getString("You");
 			std::string message = msg["message"].asString();
 
-			LLChat chat(message);
+			LLChat chat;
 			chat.mFromID = from_id;
 			chat.mFromName = from;
+
 			mChatHistory->appendWidgetMessage(chat);
 
 			mLastMessageIndex = msg["index"].asInteger();
@@ -496,7 +497,7 @@ void LLIMFloater::onInputEditorFocusReceived( LLFocusableElement* caller, void* 
 	LLIMModel::LLIMSession* im_session =
 		LLIMModel::instance().findIMSession(self->mSessionID);
 	//TODO: While disabled lllineeditor can receive focus we need to check if it is enabled (EK)
-	if( im_session && im_session->mTextIMPossible && !self->mInputEditor->getEnabled())
+	if( im_session && im_session->mTextIMPossible && self->mInputEditor->getEnabled())
 	{
 		//in disconnected state IM input editor should be disabled
 		self->mInputEditor->setEnabled(!gDisconnected);
