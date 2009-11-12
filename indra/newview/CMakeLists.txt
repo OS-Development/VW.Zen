@@ -246,6 +246,7 @@ set(viewer_SOURCE_FILES
     llinspectavatar.cpp
     llinspectgroup.cpp
     llinspectobject.cpp
+    llinspectremoteobject.cpp
     llinventorybridge.cpp
     llinventoryclipboard.cpp
     llinventoryfilter.cpp
@@ -742,6 +743,7 @@ set(viewer_HEADER_FILES
     llinspectavatar.h
     llinspectgroup.h
     llinspectobject.h
+    llinspectremoteobject.h
     llinventorybridge.h
     llinventoryclipboard.h
     llinventoryfilter.h
