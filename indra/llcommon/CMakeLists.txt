@@ -41,6 +41,7 @@ set(llcommon_SOURCE_FILES
     llerror.cpp
     llerrorthread.cpp
     llevent.cpp
+    lleventapi.cpp
     lleventcoro.cpp
     lleventdispatcher.cpp
     lleventfilter.cpp
@@ -140,6 +141,7 @@ set(llcommon_HEADER_FILES
     llerrorlegacy.h
     llerrorthread.h
     llevent.h
+    lleventapi.h
     lleventcoro.h
     lleventdispatcher.h
     lleventfilter.h
@@ -276,6 +278,7 @@ LL_ADD_INTEGRATION_TEST(lldate "" "${test_libs}")
 LL_ADD_INTEGRATION_TEST(lldependencies "" "${test_libs}")
 LL_ADD_INTEGRATION_TEST(llerror "" "${test_libs}")
 LL_ADD_INTEGRATION_TEST(llframetimer "" "${test_libs}")
+LL_ADD_INTEGRATION_TEST(llinstancetracker "" "${test_libs}")
 LL_ADD_INTEGRATION_TEST(lllazy "" "${test_libs}")
 LL_ADD_INTEGRATION_TEST(llrand "" "${test_libs}")
 LL_ADD_INTEGRATION_TEST(llsdserialize "" "${test_libs}")
