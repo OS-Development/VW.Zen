@@ -101,6 +101,7 @@ LLSideTray* LLSideTray::getInstance()
 	if (!sInstance)
 	{
 		sInstance = LLUICtrlFactory::createFromFile<LLSideTray>("panel_side_tray.xml",NULL, LLRootView::child_registry_t::instance());
+		sInstance->setXMLFilename("panel_side_tray.xml");
 	}
 
 	return sInstance;
@@ -353,7 +354,8 @@ bool LLSideTray::selectTabByName	(const std::string& name)
 	return true;
 }
 
-LLButton* LLSideTray::createButton	(const std::string& name,const std::string& image,LLUICtrl::commit_callback_t callback)
+LLButton* LLSideTray::createButton	(const std::string& name,const std::string& image,const std::string& tooltip,
+									 LLUICtrl::commit_callback_t callback)
 {
 	static LLSideTray::Params sidetray_params(LLUICtrlFactory::getDefaultParams<LLSideTray>());	
 	
@@ -374,6 +376,9 @@ LLButton* LLSideTray::createButton	(const std::string& name,const std::string& i
 	LLButton* button = LLUICtrlFactory::create<LLButton> (bparams);
 	button->setLabel(name);
 	button->setClickedCallback(callback);
+
+	if(tooltip!="Home")
+		button->setToolTip(tooltip);
 	
 	if(image.length())
 	{
@@ -412,15 +417,53 @@ void	LLSideTray::createButtons	()
 		// change if the home screen becomes its own tab.
 		if (name == "sidebar_home")
 		{
-			mCollapseButton = createButton("",sidebar_tab->mImage,
+			mCollapseButton = createButton("",sidebar_tab->mImage,sidebar_tab->getTabTitle(),
 				boost::bind(&LLSideTray::onToggleCollapse, this));
 		}
 		else
 		{
-			LLButton* button = createButton("",sidebar_tab->mImage,
+			LLButton* button = createButton("",sidebar_tab->mImage,sidebar_tab->getTabTitle(),
 				boost::bind(&LLSideTray::onTabButtonClick, this, name));
 			mTabButtons[name] = button;
 		}
+	}
+}
+
+void		LLSideTray::processTriState ()
+{
+	if(mCollapsed)
+		expandSideBar();
+	else
+	{
+		//!!!!!!!!!!!!!!!!!
+		//** HARDCODED!!!!!
+		//!!!!!!!!!!!!!!!!!
+
+		//there is no common way to determine "default" panel for tab
+		//so default panels for now will be hardcoded
+
+		//hardcoded for people tab and profile tab
+
+		/*if(mActiveTab == getTab("sidebar_people"))
+		{
+			LLSideTrayPanelContainer* container = findChild<LLSideTrayPanelContainer>("panel_container");
+			if(container && container->getCurrentPanelIndex()>0)
+			{
+				container->onOpen(LLSD().insert("sub_panel_name","panel_people"));
+			}
+			else
+				collapseSideBar();
+		}
+		else if(mActiveTab == getTab("sidebar_me"))
+		{
+			LLTabContainer* tab_container = findChild<LLTabContainer>("tabs");
+			if(tab_container && tab_container->getCurrentPanelIndex()>0)
+				tab_container->selectFirstTab();
+			else
+				collapseSideBar();
+		}
+		else*/
+			collapseSideBar();
 	}
 }
 
@@ -430,10 +473,7 @@ void		LLSideTray::onTabButtonClick(string name)
 
 	if(side_bar == mActiveTab)
 	{
-		if(mCollapsed)
-			expandSideBar();
-		else
-			collapseSideBar();
+		processTriState ();
 		return;
 	}
 	selectTabByName	(name);
