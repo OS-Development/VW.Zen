@@ -47,7 +47,6 @@
 #include "llmutelist.h"
 
 static LLDefaultChildRegistry::Register<LLChatHistory> r("chat_history");
-static const std::string MESSAGE_USERNAME_DATE_SEPARATOR(" ----- ");
 
 std::string formatCurrentTime()
 {
@@ -132,7 +131,7 @@ public:
 		menu = LLUICtrlFactory::getInstance()->createFromFile<LLMenuGL>("menu_object_icon.xml", gMenuHolder, LLViewerMenuHolderGL::child_registry_t::instance());
 		mPopupMenuHandleObject = menu->getHandle();
 
-		setMouseDownCallback(boost::bind(&LLChatHistoryHeader::onHeaderPanelClick, this, _2, _3, _4));
+		setDoubleClickCallback(boost::bind(&LLChatHistoryHeader::onHeaderPanelClick, this, _2, _3, _4));
 
 		return LLPanel::postBuild();
 	}
@@ -168,14 +167,22 @@ public:
 
 	void onHeaderPanelClick(S32 x, S32 y, MASK mask)
 	{
-		LLFloaterReg::showInstance("inspect_avatar", LLSD().insert("avatar_id", mAvatarID));
+		if (mSourceType == CHAT_SOURCE_OBJECT)
+		{
+			LLFloaterReg::showInstance("inspect_object", LLSD().insert("object_id", mAvatarID));
+		}
+		else if (mSourceType == CHAT_SOURCE_AGENT)
+		{
+			LLFloaterReg::showInstance("inspect_avatar", LLSD().insert("avatar_id", mAvatarID));
+		}
+		//if chat source is system, you may add "else" here to define behaviour.
 	}
 
 	const LLUUID&		getAvatarId () const { return mAvatarID;}
 	const std::string&	getFirstName() const { return mFirstName; }
 	const std::string&	getLastName	() const { return mLastName; }
 
-	void setup(const LLChat& chat) 
+	void setup(const LLChat& chat,const LLStyle::Params& style_params) 
 	{
 		mAvatarID = chat.mFromID;
 		mSourceType = chat.mSourceType;
@@ -185,8 +192,11 @@ public:
 			mSourceType = CHAT_SOURCE_SYSTEM;
 		}
 
-
 		LLTextBox* userName = getChild<LLTextBox>("user_name");
+
+		LLUIColor color = style_params.color;
+		userName->setReadOnlyColor(color);
+		userName->setColor(color);
 		
 		if(!chat.mFromName.empty())
 		{
@@ -198,6 +208,7 @@ public:
 			std::string SL = LLTrans::getString("SECOND_LIFE");
 			userName->setValue(SL);
 		}
+
 		
 		LLTextBox* timeBox = getChild<LLTextBox>("time_box");
 		timeBox->setValue(formatCurrentTime());
@@ -323,39 +334,50 @@ LLView* LLChatHistory::getSeparator()
 	return separator;
 }
 
-LLView* LLChatHistory::getHeader(const LLChat& chat)
+LLView* LLChatHistory::getHeader(const LLChat& chat,const LLStyle::Params& style_params)
 {
 	LLChatHistoryHeader* header = LLChatHistoryHeader::createInstance(mMessageHeaderFilename);
-	header->setup(chat);
+	header->setup(chat,style_params);
 	return header;
 }
 
-void LLChatHistory::appendWidgetMessage(const LLChat& chat, LLStyle::Params& style_params)
+void LLChatHistory::appendWidgetMessage(const LLChat& chat)
 {
 	LLView* view = NULL;
-	std::string view_text;
+	std::string view_text = "\n[" + formatCurrentTime() + "] " + chat.mFromName + ": ";
+
 
 	LLInlineViewSegment::Params p;
 	p.force_newline = true;
 	p.left_pad = mLeftWidgetPad;
 	p.right_pad = mRightWidgetPad;
 
+	
+	LLColor4 txt_color = LLUIColorTable::instance().getColor("White");
+	LLViewerChat::getChatColor(chat,txt_color);
+	LLFontGL* fontp = LLViewerChat::getChatFont();
+	
+	LLStyle::Params style_params;
+	style_params.color(txt_color);
+	style_params.readonly_color(txt_color);
+	style_params.font(fontp);
+
+	
 	if (mLastFromName == chat.mFromName)
 	{
 		view = getSeparator();
-		view_text = "\n";
 		p.top_pad = mTopSeparatorPad;
 		p.bottom_pad = mBottomSeparatorPad;
 	}
 	else
 	{
-		view = getHeader(chat);
-		view_text = chat.mFromName + MESSAGE_USERNAME_DATE_SEPARATOR + formatCurrentTime() + '\n';
+		view = getHeader(chat,style_params);
 		if (getText().size() == 0)
 			p.top_pad = 0;
 		else
 			p.top_pad = mTopHeaderPad;
 		p.bottom_pad = mBottomHeaderPad;
+		
 	}
 	p.view = view;
 
@@ -370,10 +392,8 @@ void LLChatHistory::appendWidgetMessage(const LLChat& chat, LLStyle::Params& sty
 	appendWidget(p, view_text, false);
 
 	//Append the text message
-	std::string message = chat.mText + '\n';
-	appendText(message, FALSE, style_params);
+	appendText(chat.mText, FALSE, style_params);
 
 	mLastFromName = chat.mFromName;
 	blockUndo();
-	setCursorAndScrollToEnd();
 }
