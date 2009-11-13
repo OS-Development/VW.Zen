@@ -33,7 +33,7 @@
 #ifndef LL_LLBOTTOMPANEL_H
 #define LL_LLBOTTOMPANEL_H
 
-#include <llmenugl.h>
+#include "llmenugl.h"
 
 #include "llpanel.h"
 #include "llimview.h"
@@ -51,6 +51,7 @@ class LLBottomTray
 	: public LLSingleton<LLBottomTray>
 	, public LLPanel
 	, public LLIMSessionObserver
+	, public LLVoiceClientStatusObserver
 {
 	LOG_CLASS(LLBottomTray);
 	friend class LLSingleton<LLBottomTray>;
@@ -74,6 +75,10 @@ public:
 
 	virtual void onFocusLost();
 	virtual void setVisible(BOOL visible);
+
+	// Implements LLVoiceClientStatusObserver::onChange() to enable the speak
+	// button when voice is available
+	/*virtual*/ void onChange(EStatusType status, const std::string &channelURI, bool proximal);
 
 	void showBottomTrayContextMenu(S32 x, S32 y, MASK mask);
 
@@ -102,8 +107,10 @@ private:
 	void processWidthIncreased(S32 delta_width);
 	void log(LLView* panel, const std::string& descr);
 	bool processShowButton(EResizeState shown_object_type, S32* available_width, S32* buttons_required_width);
+	void processHideButton(EResizeState shown_object_type, S32* required_width, S32* buttons_freed_width);
 	bool canButtonBeShown(LLPanel* panel) const;
 	void initStateProcessedObjectMap();
+	void showTrayButton(EResizeState shown_object_type, bool visible);
 
 	MASK mResizeState;
 
