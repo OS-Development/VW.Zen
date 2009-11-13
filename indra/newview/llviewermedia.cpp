@@ -161,12 +161,21 @@ public:
 
 	virtual void error( U32 status, const std::string& reason )
 	{
-		llwarns << "responder failed with status " << status << ", reason " << reason << llendl;
-		if(mMediaImpl)
+		if(status == 401)
 		{
-			mMediaImpl->mMediaSourceFailed = true;
+			// This is the "you need to authenticate" status.  
+			// Treat this like an html page.
+			completeAny(status, "text/html");
 		}
-		// completeAny(status, "none/none");
+		else
+		{
+			llwarns << "responder failed with status " << status << ", reason " << reason << llendl;
+		
+			if(mMediaImpl)
+			{
+				mMediaImpl->mMediaSourceFailed = true;
+			}
+		}
 	}
 
 	void completeAny(U32 status, const std::string& mime_type)
@@ -1706,7 +1715,7 @@ LLViewerMediaTexture* LLViewerMediaImpl::updatePlaceholderImage()
 		// MEDIAOPT: seems insane that we actually have to make an imageraw then
 		// immediately discard it
 		LLPointer<LLImageRaw> raw = new LLImageRaw(texture_width, texture_height, texture_depth);
-		raw->clear(0x0f, 0x0f, 0x0f, 0xff);
+		raw->clear(0x00, 0x00, 0x00, 0xff);
 		int discard_level = 0;
 
 		// ask media source for correct GL image format constants
