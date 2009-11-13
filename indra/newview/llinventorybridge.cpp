@@ -892,7 +892,6 @@ LLInvFVBridge* LLInvFVBridge::createBridge(LLAssetType::EType asset_type,
 			new_listener = new LLWearableBridge(inventory, uuid, asset_type, inv_type, (EWearableType)flags);
 			break;
 		case LLAssetType::AT_CATEGORY:
-		case LLAssetType::AT_ROOT_CATEGORY:
 			if (actual_asset_type == LLAssetType::AT_LINK_FOLDER)
 			{
 				// Create a link folder handler instead.
@@ -2847,10 +2846,6 @@ BOOL LLFolderBridge::dragItemIntoFolder(LLInventoryItem* inv_item,
 		BOOL is_movable = TRUE;
 		switch( inv_item->getActualType() )
 		{
-		case LLAssetType::AT_ROOT_CATEGORY:
-			is_movable = FALSE;
-			break;
-
 		case LLAssetType::AT_CATEGORY:
 			is_movable = !LLFolderType::lookupIsProtectedType(((LLInventoryCategory*)inv_item)->getPreferredType());
 			break;
@@ -3889,15 +3884,10 @@ void LLObjectBridge::performAction(LLFolderView* folder, LLInventoryModel* model
 			gMessageSystem->sendReliable( gAgent.getRegion()->getHost());
 		}
 		// this object might have been selected, so let the selection manager know it's gone now
-		LLViewerObject *found_obj =
-			gObjectList.findObject(item->getUUID());
+		LLViewerObject *found_obj = gObjectList.findObject(item->getLinkedUUID());
 		if (found_obj)
 		{
 			LLSelectMgr::getInstance()->remove(found_obj);
-		}
-		else
-		{
-			llwarns << "object not found - ignoring" << llendl;
 		}
 	}
 	else LLItemBridge::performAction(folder, model, action);
@@ -4324,10 +4314,6 @@ void remove_inventory_category_from_avatar_step2( BOOL proceed, LLUUID category_
 				if (found_obj)
 				{
 					LLSelectMgr::getInstance()->remove(found_obj);
-				}
-				else
-				{
-					llwarns << "object not found, ignoring" << llendl;
 				}
 			}
 		}
