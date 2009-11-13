@@ -886,7 +886,8 @@ void LLInventoryModel::moveObject(const LLUUID& object_id, const LLUUID& cat_id)
 // Delete a particular inventory object by ID.
 void LLInventoryModel::deleteObject(const LLUUID& id)
 {
-	purgeLinkedObjects(id);
+	// Disabling this; let users manually purge linked objects.
+	// purgeLinkedObjects(id);
 	lldebugs << "LLInventoryModel::deleteObject()" << llendl;
 	LLPointer<LLInventoryObject> obj = getObject(id);
 	if(obj)
@@ -923,13 +924,14 @@ void LLInventoryModel::deleteObject(const LLUUID& id)
 		}
 		addChangedMask(LLInventoryObserver::REMOVE, id);
 		obj = NULL; // delete obj
+		gInventory.notifyObservers();
 	}
 }
 
 // Delete a particular inventory item by ID, and remove it from the server.
 void LLInventoryModel::purgeObject(const LLUUID &id)
 {
-	lldebugs << "LLInventoryModel::purgeObject()" << llendl;
+	lldebugs << "LLInventoryModel::purgeObject() [ id: " << id << " ] " << llendl;
 	LLPointer<LLInventoryObject> obj = getObject(id);
 	if(obj)
 	{
@@ -3343,7 +3345,7 @@ void LLInventoryModel::processInventoryDescendents(LLMessageSystem* msg,void**)
 		// If the item has already been added (e.g. from link prefetch), then it doesn't need to be re-added.
 		if (gInventory.getItem(titem->getUUID()))
 		{
-			llinfos << "Skipping prefetched item [ Name: " << titem->getName() << " | Type: " << titem->getActualType() << " | ItemUUID: " << titem->getUUID() << " ] " << llendl;
+			lldebugs << "Skipping prefetched item [ Name: " << titem->getName() << " | Type: " << titem->getActualType() << " | ItemUUID: " << titem->getUUID() << " ] " << llendl;
 			continue;
 		}
 		gInventory.updateItem(titem);
