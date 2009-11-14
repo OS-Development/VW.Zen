@@ -54,6 +54,7 @@
 #include "llmutelist.h"
 #include "llrecentpeople.h"
 #include "llsidetray.h"
+#include "lltrans.h"
 #include "llviewerobjectlist.h"
 #include "llviewermessage.h"	// for handle_lure
 #include "llviewerregion.h"
@@ -191,7 +192,7 @@ void LLAvatarActions::startIM(const LLUUID& id)
 // static
 void LLAvatarActions::startCall(const LLUUID& id)
 {
-	if (id.isNull() || isCalling(id))
+	if (id.isNull())
 	{
 		return;
 	}

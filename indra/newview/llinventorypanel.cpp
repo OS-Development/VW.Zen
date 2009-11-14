@@ -139,6 +139,7 @@ BOOL LLInventoryPanel::postBuild()
 		p.name = getName();
 		p.rect = folder_rect;
 		p.parent_panel = this;
+		p.tool_tip = p.name;
 		mFolders = LLUICtrlFactory::create<LLFolderView>(p);
 		mFolders->setAllowMultiSelect(mAllowMultiSelect);
 	}
@@ -191,10 +192,8 @@ BOOL LLInventoryPanel::postBuild()
 	{
 		rebuildViewsFor(mStartFolderID);
 		mHasInventoryConnection = true;
+		defaultOpenInventory();
 	}
-
-	// bit of a hack to make sure the inventory is open.
-	mFolders->openFolder(preferred_type != LLFolderType::FT_NONE ? LLViewerFolderType::lookupNewCategoryName(preferred_type) : "My Inventory");
 
 	if (mSortOrderSetting != INHERIT_SORT_ORDER)
 	{
@@ -300,6 +299,7 @@ void LLInventoryPanel::modelChanged(U32 mask)
 	{
 		rebuildViewsFor(mStartFolderID);
 		mHasInventoryConnection = true;
+		defaultOpenInventory();
 		return;
 	}
 
@@ -493,6 +493,7 @@ void LLInventoryPanel::buildNewViews(const LLUUID& id)
 					p.icon = new_listener->getIcon();
 					p.root = mFolders;
 					p.listener = new_listener;
+					p.tool_tip = p.name;
 					LLFolderViewFolder* folderp = LLUICtrlFactory::create<LLFolderViewFolder>(p);
 				
 					folderp->setItemSortOrder(mFolders->getSortOrder());
@@ -519,6 +520,7 @@ void LLInventoryPanel::buildNewViews(const LLUUID& id)
 					params.root(mFolders);
 					params.listener(new_listener);
 					params.rect(LLRect (0, 0, 0, 0));
+					params.tool_tip = params.name;
 					itemp = LLUICtrlFactory::create<LLFolderViewItem> (params);
 				}
 			}
@@ -558,6 +560,25 @@ void LLInventoryPanel::buildNewViews(const LLUUID& id)
 			}
 		}
 		mInventory->unlockDirectDescendentArrays(id);
+	}
+}
+
+// bit of a hack to make sure the inventory is open.
+void LLInventoryPanel::defaultOpenInventory()
+{
+	const LLFolderType::EType preferred_type = LLViewerFolderType::lookupTypeFromNewCategoryName(mStartFolderString);
+	if (preferred_type != LLFolderType::FT_NONE)
+	{
+		const std::string& top_level_folder_name = LLViewerFolderType::lookupNewCategoryName(preferred_type);
+		mFolders->openFolder(top_level_folder_name);
+	}
+	else
+	{
+		// Get the first child (it should be "My Inventory") and
+		// open it up by name (just to make sure the first child is actually a folder).
+		LLView* first_child = mFolders->getFirstChild();
+		const std::string& first_child_name = first_child->getName();
+		mFolders->openFolder(first_child_name);
 	}
 }
 
