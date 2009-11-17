@@ -35,7 +35,7 @@
 
 #include "lldockablefloater.h"
 #include "llscrollbar.h"
-#include "llchat.h"
+#include "llviewerchat.h"
 
 class LLResizeBar;
 class LLChatHistory;
@@ -47,8 +47,7 @@ public:
 	~LLNearbyChat();
 
 	BOOL	postBuild			();
-	void	addMessage			(const LLChat& message);
-	
+	void	addMessage			(const LLChat& message);	
 	void	onNearbyChatContextMenuItemClicked(const LLSD& userdata);
 	bool	onNearbyChatCheckContextMenuItem(const LLSD& userdata);
 
@@ -57,6 +56,7 @@ public:
 	/*virtual*/ void	onOpen	(const LLSD& key);
 
 	virtual void setRect		(const LLRect &rect);
+	virtual void setMinimized	(BOOL minimize);
 
 private:
 	virtual void    applySavedVariables();
@@ -64,7 +64,6 @@ private:
 	void	getAllowedRect		(LLRect& rect);
 
 	void	onNearbySpeakers	();
-	void	add_timestamped_line(const LLChat& chat, const LLColor4& color);
 	
 
 private:

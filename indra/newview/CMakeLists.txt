@@ -246,11 +246,13 @@ set(viewer_SOURCE_FILES
     llinspectavatar.cpp
     llinspectgroup.cpp
     llinspectobject.cpp
+    llinspectremoteobject.cpp
     llinventorybridge.cpp
     llinventoryclipboard.cpp
     llinventoryfilter.cpp
     llinventoryfunctions.cpp
     llinventorymodel.cpp
+    llinventoryobserver.cpp
     llinventorypanel.cpp
     llinventorysubtreepanel.cpp
     lljoystickbutton.cpp
@@ -445,6 +447,7 @@ set(viewer_SOURCE_FILES
     llviewerassettype.cpp
     llvieweraudio.cpp
     llviewercamera.cpp
+	llviewerchat.cpp
     llviewercontrol.cpp
     llviewercontrollistener.cpp
     llviewerdisplay.cpp
@@ -741,11 +744,13 @@ set(viewer_HEADER_FILES
     llinspectavatar.h
     llinspectgroup.h
     llinspectobject.h
+    llinspectremoteobject.h
     llinventorybridge.h
     llinventoryclipboard.h
     llinventoryfilter.h
     llinventoryfunctions.h
     llinventorymodel.h
+    llinventoryobserver.h
     llinventorypanel.h
     llinventorysubtreepanel.h
     lljoystickbutton.h
@@ -942,6 +947,7 @@ set(viewer_HEADER_FILES
     llvieweraudio.h
     llviewerbuild.h
     llviewercamera.h
+	llviewerchat.h
     llviewercontrol.h
     llviewercontrollistener.h
     llviewerdisplay.h
@@ -1379,7 +1385,7 @@ if (WINDOWS)
               ${CMAKE_BINARY_DIR}/${CMAKE_PROJECT_NAME}.sln
               --workingdir
               ${VIEWER_BINARY_NAME}
-              "./${CMAKE_CFG_INTDIR}"
+              "${CMAKE_CURRENT_SOURCE_DIR}"
             COMMENT "Setting the ${VIEWER_BINARY_NAME} working directory for debugging."
             )
     endif (NOT UNATTENDED)

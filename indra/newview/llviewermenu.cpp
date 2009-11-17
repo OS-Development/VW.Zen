@@ -1879,7 +1879,9 @@ class LLAdvancedDebugAvatarTextures : public view_listener_t
 {
 	bool handleEvent(const LLSD& userdata)
 	{
+#ifndef LL_RELEASE_FOR_DOWNLOAD
 		handle_debug_avatar_textures(NULL);
+#endif
 		return true;
 	}
 };
@@ -1893,7 +1895,9 @@ class LLAdvancedDumpAvatarLocalTextures : public view_listener_t
 {
 	bool handleEvent(const LLSD& userdata)
 	{
+#ifndef LL_RELEASE_FOR_DOWNLOAD
 		handle_dump_avatar_local_textures(NULL);
+#endif
 		return true;
 	}
 };
@@ -3875,8 +3879,7 @@ void god_force_inv_owner_permissive(LLViewerObject* object,
 	InventoryObjectList::const_iterator inv_end = inventory->end();
 	for ( ; inv_it != inv_end; ++inv_it)
 	{
-		if(((*inv_it)->getType() != LLAssetType::AT_CATEGORY)
-		   && ((*inv_it)->getType() != LLAssetType::AT_ROOT_CATEGORY))
+		if(((*inv_it)->getType() != LLAssetType::AT_CATEGORY))
 		{
 			LLInventoryObject* obj = *inv_it;
 			LLPointer<LLViewerInventoryItem> new_item = new LLViewerInventoryItem((LLViewerInventoryItem*)obj);
@@ -6420,13 +6423,13 @@ void handle_selected_texture_info(void*)
 
 void handle_test_male(void*)
 {
-	LLAppearanceManager::wearOutfitByName("Male Shape & Outfit");
+	LLAppearanceManager::instance().wearOutfitByName("Male Shape & Outfit");
 	//gGestureList.requestResetFromServer( TRUE );
 }
 
 void handle_test_female(void*)
 {
-	LLAppearanceManager::wearOutfitByName("Female Shape & Outfit");
+	LLAppearanceManager::instance().wearOutfitByName("Female Shape & Outfit");
 	//gGestureList.requestResetFromServer( FALSE );
 }
 
@@ -7860,10 +7863,8 @@ void initialize_menus()
 	view_listener_t::addMenu(new LLAdvancedCheckDebugCharacterVis(), "Advanced.CheckDebugCharacterVis");
 	view_listener_t::addMenu(new LLAdvancedDumpAttachments(), "Advanced.DumpAttachments");
 	view_listener_t::addMenu(new LLAdvancedRebakeTextures(), "Advanced.RebakeTextures");
-	#ifndef LL_RELEASE_FOR_DOWNLOAD
 	view_listener_t::addMenu(new LLAdvancedDebugAvatarTextures(), "Advanced.DebugAvatarTextures");
 	view_listener_t::addMenu(new LLAdvancedDumpAvatarLocalTextures(), "Advanced.DumpAvatarLocalTextures");
-	#endif
 	// Advanced > Network
 	view_listener_t::addMenu(new LLAdvancedEnableMessageLog(), "Advanced.EnableMessageLog");
 	view_listener_t::addMenu(new LLAdvancedDisableMessageLog(), "Advanced.DisableMessageLog");

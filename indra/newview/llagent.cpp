@@ -107,6 +107,7 @@
 
 #include "llnavigationbar.h" //to show/hide navigation bar when changing mouse look state
 #include "llagentui.h"
+#include "llchannelmanager.h"
 
 using namespace LLVOAvatarDefines;
 
@@ -2166,6 +2167,7 @@ void LLAgent::setBusy()
 	{
 		gBusyMenu->setLabel(LLTrans::getString("AvatarSetNotBusy"));
 	}
+	LLNotificationsUI::LLChannelManager::getInstance()->muteAllChannels(true);
 }
 
 //-----------------------------------------------------------------------------
@@ -2179,6 +2181,7 @@ void LLAgent::clearBusy()
 	{
 		gBusyMenu->setLabel(LLTrans::getString("AvatarSetBusy"));
 	}
+	LLNotificationsUI::LLChannelManager::getInstance()->muteAllChannels(false);
 }
 
 //-----------------------------------------------------------------------------
@@ -3079,10 +3082,6 @@ void LLAgent::updateCamera()
 		mOrbitUpKey > 0.f,		// top
 		mOrbitLeftKey > 0.f,	// right
 		mOrbitDownKey > 0.f);	// bottom
-
-		camera_floater->mZoom->setToggleState( 
-		mOrbitInKey > 0.f,		// top
-		mOrbitOutKey > 0.f);	// bottom
 
 		camera_floater->mTrack->setToggleState(
 		mPanLeftKey > 0.f,		// left
