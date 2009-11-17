@@ -89,6 +89,7 @@
 #include "llhudeffecttrail.h"
 #include "llhudmanager.h"
 #include "llinventorymodel.h"
+#include "llinventoryobserver.h"
 #include "llinventorypanel.h"
 #include "llfloaterinventory.h"
 #include "llmenugl.h"
@@ -2342,14 +2343,14 @@ void process_chat_from_simulator(LLMessageSystem *msg, void **user_data)
 		std::string prefix = mesg.substr(0, 4);
 		if (prefix == "/me " || prefix == "/me'")
 		{
-			chat.mText = from_name;
-			chat.mText += mesg.substr(3);
+//			chat.mText = from_name;
+//			chat.mText += mesg.substr(3);
 			ircstyle = TRUE;
 		}
-		else
-		{
+//		else
+//		{
 			chat.mText = mesg;
-		}
+//		}
 
 		// Look for the start of typing so we can put "..." in the bubbles.
 		if (CHAT_TYPE_START == chat.mChatType)
@@ -2373,19 +2374,6 @@ void process_chat_from_simulator(LLMessageSystem *msg, void **user_data)
 				((LLVOAvatar*)chatter)->stopTyping();
 			}
 			return;
-		}
-
-		// We have a real utterance now, so can stop showing "..." and proceed.
-		if (chatter && chatter->isAvatar())
-		{
-			LLLocalSpeakerMgr::getInstance()->setSpeakerTyping(from_id, FALSE);
-			((LLVOAvatar*)chatter)->stopTyping();
-
-			if (!is_muted && !is_busy)
-			{
-				visible_in_chat_bubble = gSavedSettings.getBOOL("UseChatBubbles");
-				((LLVOAvatar*)chatter)->addChat(chat);
-			}
 		}
 
 		// Look for IRC-style emotes
@@ -2425,6 +2413,23 @@ void process_chat_from_simulator(LLMessageSystem *msg, void **user_data)
 			chat.mText = "";
 			chat.mText += verb;
 			chat.mText += mesg;
+		}
+		
+		// We have a real utterance now, so can stop showing "..." and proceed.
+		if (chatter && chatter->isAvatar())
+		{
+			LLLocalSpeakerMgr::getInstance()->setSpeakerTyping(from_id, FALSE);
+			((LLVOAvatar*)chatter)->stopTyping();
+			
+			if (!is_muted && !is_busy)
+			{
+				visible_in_chat_bubble = gSavedSettings.getBOOL("UseChatBubbles");
+				std::string formated_msg = "";
+				LLViewerChat::formatChatMsg(chat, formated_msg);
+				LLChat chat_bubble = chat;
+				chat_bubble.mText = formated_msg;
+				((LLVOAvatar*)chatter)->addChat(chat_bubble);
+			}
 		}
 		
 		if (chatter)
@@ -4836,8 +4841,7 @@ void container_inventory_arrived(LLViewerObject* object,
 		InventoryObjectList::const_iterator end = inventory->end();
 		for ( ; it != end; ++it)
 		{
-			if ((*it)->getType() != LLAssetType::AT_CATEGORY &&
-				(*it)->getType() != LLAssetType::AT_ROOT_CATEGORY)
+			if ((*it)->getType() != LLAssetType::AT_CATEGORY)
 			{
 				LLInventoryObject* obj = (LLInventoryObject*)(*it);
 				LLInventoryItem* item = (LLInventoryItem*)(obj);
@@ -4872,8 +4876,7 @@ void container_inventory_arrived(LLViewerObject* object,
 		// one actual object
 		InventoryObjectList::iterator it = inventory->begin();
 
-		if ((*it)->getType() == LLAssetType::AT_CATEGORY ||
-			(*it)->getType() == LLAssetType::AT_ROOT_CATEGORY)
+		if ((*it)->getType() == LLAssetType::AT_CATEGORY)
 		{
 			++it;
 		}
