@@ -162,16 +162,6 @@ std::string ICON_NAME[ICON_NAME_COUNT] =
 	"inv_item_linkfolder.tga"
 };
 
-
-// +=================================================+
-// |        LLInventoryPanelObserver                 |
-// +=================================================+
-void LLInventoryPanelObserver::changed(U32 mask)
-{
-	mIP->modelChanged(mask);
-}
-
-
 // +=================================================+
 // |        LLInvFVBridge                            |
 // +=================================================+
@@ -1682,6 +1672,25 @@ BOOL LLFolderBridge::dragCategoryIntoFolder(LLInventoryCategory* inv_cat,
 			// if target is an outfit or current outfit folder we use link
 			if (move_is_into_current_outfit || move_is_into_outfit)
 			{
+				if (inv_cat->getPreferredType() == LLFolderType::FT_NONE)
+				{
+					if (move_is_into_current_outfit)
+					{
+						// traverse category and add all contents to currently worn.
+						BOOL append = true;
+						LLAppearanceManager::instance().wearInventoryCategory(inv_cat, false, append);
+					}
+					else
+					{
+						// Recursively create links in target outfit.
+						LLInventoryModel::cat_array_t cats;
+						LLInventoryModel::item_array_t items;
+						gInventory.collectDescendents(inv_cat->getUUID(), cats, items, LLInventoryModel::EXCLUDE_TRASH);
+						LLAppearanceManager::instance().linkAll(mUUID,items,NULL);
+					}
+				}
+				else
+				{
 #if SUPPORT_ENSEMBLES
 				// BAP - should skip if dup.
 				if (move_is_into_current_outfit)
@@ -1700,6 +1709,7 @@ BOOL LLFolderBridge::dragCategoryIntoFolder(LLInventoryCategory* inv_cat,
 						cb);
 				}
 #endif
+				}
 			}
 			else
 			{
@@ -3937,7 +3947,6 @@ std::string LLObjectBridge::getLabelSuffix() const
 	if( avatar && avatar->isWearingAttachment( mUUID ) )
 	{
 		std::string attachment_point_name = avatar->getAttachedPointName(mUUID);
-		LLStringUtil::toLower(attachment_point_name);
 
 		LLStringUtil::format_map_t args;
 		args["[ATTACHMENT_POINT]"] =  attachment_point_name.c_str();

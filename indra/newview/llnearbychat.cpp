@@ -89,8 +89,6 @@ BOOL LLNearbyChat::postBuild()
 
 	mChatHistory = getChild<LLChatHistory>("chat_history");
 
-	setCanResize(true);
-
 	if(!LLDockableFloater::postBuild())
 		return false;
 
@@ -98,7 +96,7 @@ BOOL LLNearbyChat::postBuild()
 	{
 		setDockControl(new LLDockControl(
 			LLBottomTray::getInstance()->getNearbyChatBar(), this,
-			getDockTongue(), LLDockControl::LEFT, boost::bind(&LLNearbyChat::getAllowedRect, this, _1)));
+			getDockTongue(), LLDockControl::TOP, boost::bind(&LLNearbyChat::getAllowedRect, this, _1)));
 	}
 
 	return true;
@@ -155,7 +153,37 @@ void	LLNearbyChat::addMessage(const LLChat& chat)
 	
 	if (!chat.mMuted)
 	{
-		mChatHistory->appendWidgetMessage(chat);
+		std::string message = chat.mText;
+		std::string prefix = message.substr(0, 4);
+		
+		if (chat.mChatStyle == CHAT_STYLE_IRC)
+		{
+			LLColor4 txt_color = LLUIColorTable::instance().getColor("White");
+			LLViewerChat::getChatColor(chat,txt_color);
+			LLFontGL* fontp = LLViewerChat::getChatFont();
+			std::string font_name = LLFontGL::nameFromFont(fontp);
+			std::string font_size = LLFontGL::sizeFromFont(fontp);
+			LLStyle::Params append_style_params;
+			append_style_params.color(txt_color);
+			append_style_params.readonly_color(txt_color);
+			append_style_params.font.name(font_name);
+			append_style_params.font.size(font_size);
+			if (chat.mFromName.size() > 0)
+			{
+				append_style_params.font.style = "ITALIC";
+				LLChat add_chat=chat;
+				add_chat.mText = chat.mFromName + " ";
+				mChatHistory->appendWidgetMessage(add_chat, append_style_params);
+			}
+			
+			message = message.substr(3);
+			append_style_params.font.style = "UNDERLINE";
+			mChatHistory->appendText(message, FALSE, append_style_params);
+		}
+		else
+		{
+			mChatHistory->appendWidgetMessage(chat);
+		}
 	}
 }
 
@@ -187,13 +215,6 @@ void	LLNearbyChat::onOpen(const LLSD& key )
 	}
 }
 
-void	LLNearbyChat::setDocked			(bool docked, bool pop_on_undock)
-{
-	LLDockableFloater::setDocked(docked, pop_on_undock);
-
-	setCanResize(!docked);
-}
-
 void LLNearbyChat::setRect	(const LLRect &rect)
 {
 	LLDockableFloater::setRect(rect);
@@ -203,12 +224,3 @@ void LLNearbyChat::getAllowedRect(LLRect& rect)
 {
 	rect = gViewerWindow->getWorldViewRectRaw();
 }
-void LLNearbyChat::setMinimized	(BOOL minimize)
-{
-	if(minimize && !isDocked())
-	{
-		setVisible(FALSE);
-	}
-	LLDockableFloater::setMinimized(minimize);
-}
-
