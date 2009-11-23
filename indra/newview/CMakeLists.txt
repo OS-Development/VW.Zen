@@ -365,6 +365,7 @@ set(viewer_SOURCE_FILES
     llremoteparcelrequest.cpp
     llsavedsettingsglue.cpp
     llscreenchannel.cpp
+    llscriptfloater.cpp
     llscrollingpanelparam.cpp
     llsearchcombobox.cpp
     llsearchhistory.cpp
@@ -862,6 +863,7 @@ set(viewer_HEADER_FILES
     llrootview.h
     llsavedsettingsglue.h
     llscreenchannel.h
+    llscriptfloater.h
     llscrollingpanelparam.h
     llsearchcombobox.h
     llsearchhistory.h
@@ -1378,7 +1380,7 @@ if (WINDOWS)
     # sets the 'working directory' for debugging from visual studio.
     if (NOT UNATTENDED)
         add_custom_command(
-            TARGET ${VIEWER_BINARY_NAME} PRE_BUILD
+            TARGET ${VIEWER_BINARY_NAME} POST_BUILD
             COMMAND ${CMAKE_SOURCE_DIR}/tools/vstool/vstool.exe
             ARGS
               --solution 
