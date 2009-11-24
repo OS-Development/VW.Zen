@@ -226,6 +226,9 @@ public:
 	void			setKeystrokeCallback(callback_t callback, void* user_data);
 
 	void			setMaxTextLength(S32 max_text_length);
+	// Manipulate left and right padding for text
+	void getTextPadding(S32 *left, S32 *right);
+	void setTextPadding(S32 left, S32 right);
 
 	// Prevalidation controls which keystrokes can affect the editor
 	void			setPrevalidate( LLLinePrevalidateFunc func );
@@ -300,8 +303,8 @@ protected:
 	LLFrameTimer mScrollTimer;
 	S32			mTextPadLeft;				// Used to reserve space before the beginning of the text for children.
 	S32			mTextPadRight;				// Used to reserve space after the end of the text for children.
-	S32			mMinHPixels;
-	S32			mMaxHPixels;
+	S32			mTextLeftEdge;				// Pixels, cached left edge of text based on left padding and width
+	S32			mTextRightEdge;				// Pixels, cached right edge of text based on right padding and width
 
 	BOOL		mCommitOnFocusLost;
 	BOOL		mRevertOnEsc;

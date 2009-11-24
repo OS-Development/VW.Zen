@@ -11,6 +11,7 @@
                 add_landmark_image_disabled="Favorite_Star_Off"
                 add_landmark_image_hover="Favorite_Star_Over"
                 add_landmark_image_selected="Favorite_Star_Press"
+				add_landmark_hpad="8"
                 icon_hpad="2"
                 allow_text_entry="true"
                 list_position="below"
@@ -81,14 +82,24 @@
 	top="21"
     image_name="parcel_lght_Damage"
     />
+  <!-- Default text color is invisible on top of nav bar background -->
+  <damage_text
+    name="damage_text"
+	width="35"
+	height="18"
+	top="16"
+	halign="right"
+	font="SansSerifSmall"
+	text_color="TextFgColor"
+	/>
 
-    <combo_button name="Location History"
+  <combo_button name="Location History"
                           label=""
                           pad_right="0"/>
   <combo_list bg_writeable_color="MenuDefaultBgColor" page_lines="10"
               scroll_bar_bg_visible="true" />
   <combo_editor name="Combo Text Entry"
-                text_pad_left="20"
+                text_pad_left="22"
                 select_on_focus="false"
                 font="SansSerifSmall"
                 bevel_style="none"
