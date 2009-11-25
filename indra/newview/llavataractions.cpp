@@ -297,7 +297,7 @@ void LLAvatarActions::showProfile(const LLUUID& id)
 		//Show own profile
 		if(gAgent.getID() == id)
 		{
-			LLSideTray::getInstance()->showPanel("panel_me_profile", params);
+			LLSideTray::getInstance()->showPanel("panel_me", params);
 		}
 		//Show other user profile
 		else
@@ -347,9 +347,9 @@ void LLAvatarActions::inviteToGroup(const LLUUID& id)
 	LLFloaterGroupPicker* widget = LLFloaterReg::showTypedInstance<LLFloaterGroupPicker>("group_picker", LLSD(id));
 	if (widget)
 	{
-		widget->removeNoneOption();
 		widget->center();
 		widget->setPowersMask(GP_MEMBER_INVITE);
+		widget->removeNoneOption();
 		widget->setSelectGroupCallback(boost::bind(callback_invite_to_group, _1, id));
 	}
 }
