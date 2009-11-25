@@ -42,6 +42,7 @@
 #include "llfloaterbuycurrency.h"
 #include "llfloaterchat.h"
 #include "llfloaterlagmeter.h"
+#include "llfloatervolumepulldown.h"
 #include "llfloaterregioninfo.h"
 #include "llfloaterscriptdebug.h"
 #include "llhudicon.h"
@@ -123,6 +124,7 @@ LLStatusBar::LLStatusBar(const LLRect& rect)
 	mSGPacketLoss(NULL),
 	mBtnBuyCurrency(NULL),
 	mBtnVolume(NULL),
+	mPanelVolume(NULL),
 	mBalance(0),
 	mHealth(100),
 	mSquareMetersCredit(0),
@@ -157,6 +159,8 @@ LLStatusBar::LLStatusBar(const LLRect& rect)
 
 	mBtnVolume = getChild<LLButton>( "volume_btn" );
 	mBtnVolume->setClickedCallback( onClickVolume, this );
+
+	mPanelVolume = getChild<LLPanel>( "volume_pulldown" );
 
 	gSavedSettings.getControl("MuteAudio")->getSignal()->connect(boost::bind(&LLStatusBar::onVolumeChanged, this, _2));
 
@@ -201,7 +205,6 @@ LLStatusBar::LLStatusBar(const LLRect& rect)
 	addChild(mSGPacketLoss);
 
 	childSetActionTextbox("stat_btn", onClickStatGraph);
-
 }
 
 LLStatusBar::~LLStatusBar()
@@ -509,6 +512,21 @@ static void onClickVolume(void* data)
 	// toggle the master mute setting
 	BOOL mute_audio = gSavedSettings.getBOOL("MuteAudio");
 	gSavedSettings.setBOOL("MuteAudio", !mute_audio);
+	
+	// toggle the master volume pull-down
+
+	//LLFloaterReg::showInstance("volume_pulldown"); //tmp
+	//LLPanelVolumePulldown *foo=
+		//new LLPanelVolumePulldown();
+	//LLPanel* container = getRootView();//->getChild<LLPanel>("nav_bar_container");
+	//container->addChild(foo);
+	LLStatusBar *sb = (LLStatusBar*)(data);
+	llassert_always(sb);
+	sb->mPanelVolume->setRect(LLRect(1,1,100,100));
+	sb->mPanelVolume->setShape(LLRect(1,1,100,100));
+	sb->mPanelVolume->setBackgroundColor(LLColor3(1.0, 0.0, 0.0));
+	sb->mPanelVolume->setVisible(TRUE);
+	sb->mPanelVolume->setEnabled(TRUE);
 }
 
 // sets the static variables necessary for the date
