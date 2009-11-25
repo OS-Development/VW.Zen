@@ -517,16 +517,14 @@ void LLPipeline::resizeScreenTexture()
 	LLFastTimer ft(FTM_RESIZE_SCREEN_TEXTURE);
 	if (gPipeline.canUseVertexShaders() && assertInitialized())
 	{
-		GLuint resX = gViewerWindow->getWindowWidthRaw();
-		GLuint resY = gViewerWindow->getWindowHeightRaw();
-		GLuint view_width = gViewerWindow->getWorldViewWidthRaw();
-		GLuint view_height = gViewerWindow->getWorldViewHeightRaw();
+		GLuint resX = gViewerWindow->getWorldViewWidth();
+		GLuint resY = gViewerWindow->getWorldViewHeight();
 	
-		allocateScreenBuffer(resX, resY, view_width, view_height);
+		allocateScreenBuffer(resX,resY);
 	}
 }
 
-void LLPipeline::allocateScreenBuffer(U32 resX, U32 resY, U32 viewport_width, U32 viewport_height)
+void LLPipeline::allocateScreenBuffer(U32 resX, U32 resY)
 {
 	bool screen_size_changed = resX != mScreenWidth || resY != mScreenHeight;
 	bool viewport_size_changed = viewport_width != mViewportWidth || viewport_height != mViewportHeight;
@@ -571,16 +569,12 @@ void LLPipeline::allocateScreenBuffer(U32 resX, U32 resY, U32 viewport_width, U3
 			addDeferredAttachments(mDeferredScreen);
 		}
 		// always set viewport to desired size, since allocate resets the viewport
-		mDeferredScreen.setViewport(viewport_width, viewport_height);
-		mDeferredDepth.setViewport(viewport_width, viewport_height);
 
 		if (screen_size_changed)
 		{
 			mScreen.allocate(resX, resY, GL_RGBA, FALSE, FALSE, LLTexUnit::TT_RECT_TEXTURE, FALSE);		
 			mEdgeMap.allocate(resX, resY, GL_ALPHA, FALSE, FALSE, LLTexUnit::TT_RECT_TEXTURE, FALSE);
 		}
-		mScreen.setViewport(viewport_width, viewport_height);
-		mEdgeMap.setViewport(viewport_width, viewport_height);
 
 		for (U32 i = 0; i < 3; i++)
 		{
@@ -588,7 +582,6 @@ void LLPipeline::allocateScreenBuffer(U32 resX, U32 resY, U32 viewport_width, U3
 			{
 				mDeferredLight[i].allocate(resX, resY, GL_RGBA, FALSE, FALSE, LLTexUnit::TT_RECT_TEXTURE);
 			}
-			mDeferredLight[i].setViewport(viewport_width, viewport_height);
 		}
 
 		for (U32 i = 0; i < 2; i++)
@@ -597,7 +590,6 @@ void LLPipeline::allocateScreenBuffer(U32 resX, U32 resY, U32 viewport_width, U3
 			{
 				mGIMapPost[i].allocate(resX,resY, GL_RGB, FALSE, FALSE, LLTexUnit::TT_RECT_TEXTURE);
 			}
-			mGIMapPost[i].setViewport(viewport_width, viewport_height);
 		}
 
 		F32 scale = gSavedSettings.getF32("RenderShadowResolutionScale");
@@ -608,7 +600,6 @@ void LLPipeline::allocateScreenBuffer(U32 resX, U32 resY, U32 viewport_width, U3
 			{
 				mShadow[i].allocate(U32(resX*scale),U32(resY*scale), 0, TRUE, FALSE, LLTexUnit::TT_RECT_TEXTURE);
 			}
-			mShadow[i].setViewport(viewport_width, viewport_height);
 		}
 
 
@@ -621,7 +612,6 @@ void LLPipeline::allocateScreenBuffer(U32 resX, U32 resY, U32 viewport_width, U3
 			{
 				mShadow[i].allocate(width, height, 0, TRUE, FALSE);
 			}
-			mShadow[i].setViewport(viewport_width, viewport_height);
 		}
 
 
@@ -632,7 +622,6 @@ void LLPipeline::allocateScreenBuffer(U32 resX, U32 resY, U32 viewport_width, U3
 		{
 			mLuminanceMap.allocate(width,height, GL_RGBA, FALSE, FALSE);
 		}
-		mLuminanceMap.setViewport(viewport_width, viewport_height);
 	}
 	else
 	{
@@ -640,7 +629,6 @@ void LLPipeline::allocateScreenBuffer(U32 resX, U32 resY, U32 viewport_width, U3
 		{
 			mScreen.allocate(resX, resY, GL_RGBA, TRUE, TRUE, LLTexUnit::TT_RECT_TEXTURE, FALSE);		
 		}
-		mScreen.setViewport(viewport_width, viewport_height);
 	}
 	
 
@@ -762,10 +750,8 @@ void LLPipeline::createGLBuffers()
 
 	stop_glerror();
 
-	GLuint resX = gViewerWindow->getWindowWidthRaw();
-	GLuint resY = gViewerWindow->getWindowHeightRaw();
-	GLuint viewport_width = gViewerWindow->getWorldViewWidthRaw();
-	GLuint viewport_height = gViewerWindow->getWorldViewHeightRaw();
+	GLuint resX = gViewerWindow->getWorldViewWidth();
+	GLuint resY = gViewerWindow->getWorldViewHeight();
 	
 	if (LLPipeline::sRenderGlow)
 	{ //screen space glow buffers
@@ -777,11 +763,10 @@ void LLPipeline::createGLBuffers()
 			mGlow[i].allocate(512,glow_res,GL_RGBA,FALSE,FALSE);
 		}
 
-		// force reallocation of buffers by clearing known dimensions
+		allocateScreenBuffer(resX,resY);
 		mScreenWidth = 0;
 		mScreenHeight = 0;
 
-		allocateScreenBuffer(resX,resY, viewport_width, viewport_height);
 	}
 	
 	if (sRenderDeferred)
