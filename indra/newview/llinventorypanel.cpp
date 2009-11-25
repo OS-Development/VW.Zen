@@ -156,6 +156,8 @@ BOOL LLInventoryPanel::postBuild()
 		initializeViews();
 	}
 
+	gIdleCallbacks.addFunction(onIdle, (void*)this);
+
 	if (mSortOrderSetting != INHERIT_SORT_ORDER)
 	{
 		setSortOrder(gSavedSettings.getU32(mSortOrderSetting));
@@ -255,13 +257,11 @@ void LLInventoryPanel::modelChanged(U32 mask)
 
 	bool handled = false;
 
-	// inventory just initialized, do complete build
-	if ((mask & LLInventoryObserver::ADD) && mInventory->isInventoryUsable() && gInventory.getChangedIDs().empty() && !mViewsInitialized)
+	if (!mViewsInitialized)
 	{
-		initializeViews();
 		return;
 	}
-
+	
 	if (mask & LLInventoryObserver::LABEL)
 	{
 		handled = true;
@@ -328,22 +328,26 @@ void LLInventoryPanel::modelChanged(U32 mask)
 				// around in the panel's directory structure (i.e. reparented).
 				if (model_item && view_item)
 				{
-					LLFolderViewFolder* new_parent = (LLFolderViewFolder*)mFolders->getItemByID(model_item->getParentUUID());
-
-					// Item has been moved.
-					if (view_item->getParentFolder() != new_parent)
+					// Don't process the item if it's hanging from the root, since its
+					// model_item's parent will be NULL.
+					if (view_item->getRoot() != view_item->getParent())
 					{
-						if (new_parent != NULL)
+						LLFolderViewFolder* new_parent = (LLFolderViewFolder*)mFolders->getItemByID(model_item->getParentUUID());
+						// Item has been moved.
+						if (view_item->getParentFolder() != new_parent)
 						{
-							// Item is to be moved and we found its new parent in the panel's directory, so move the item's UI.
-							view_item->getParentFolder()->extractItem(view_item);
-							view_item->addToFolder(new_parent, mFolders);
-						}
-						else 
-						{
-							// Item is to be moved outside the panel's directory (e.g. moved to trash for a panel that 
-							// doesn't include trash).  Just remove the item's UI.
-							view_item->destroyView();
+							if (new_parent != NULL)
+							{
+								// Item is to be moved and we found its new parent in the panel's directory, so move the item's UI.
+								view_item->getParentFolder()->extractItem(view_item);
+								view_item->addToFolder(new_parent, mFolders);
+							}
+							else 
+							{
+								// Item is to be moved outside the panel's directory (e.g. moved to trash for a panel that 
+								// doesn't include trash).  Just remove the item's UI.
+								view_item->destroyView();
+							}
 						}
 					}
 				}
@@ -367,6 +371,20 @@ void LLInventoryPanel::modelChanged(U32 mask)
 	}
 }
 
+// static
+void LLInventoryPanel::onIdle(void *userdata)
+{
+	LLInventoryPanel *self = (LLInventoryPanel*)userdata;
+	// inventory just initialized, do complete build
+	if (!self->mViewsInitialized && gInventory.isInventoryUsable())
+	{
+		self->initializeViews();
+	}
+	if (self->mViewsInitialized)
+	{
+		gIdleCallbacks.deleteFunction(onIdle, (void*)self);
+	}
+}
 
 void LLInventoryPanel::initializeViews()
 {
