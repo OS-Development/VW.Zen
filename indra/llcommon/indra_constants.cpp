@@ -1,6 +1,6 @@
 /** 
- * @file imageids.h
- * @brief Temporary holder for image IDs
+ * @file indra_constants.cpp
+ * @brief some useful short term constants for Indra
  *
  * $LicenseInfo:firstyear=2001&license=viewergpl$
  * 
@@ -29,47 +29,18 @@
  * COMPLETENESS OR PERFORMANCE.
  * $/LicenseInfo$
  */
+#include "linden_common.h"
 
-#ifndef LL_IMAGEIDS_H
-#define LL_IMAGEIDS_H
+#include "indra_constants.h"
 
-//
-// USE OF THIS FILE IS DEPRECATED
-//
-// Please use viewerart.ini and the standard
-// art import path.
+#include "lluuid.h"
 
-class LLUUID;
+// "agent id" for things that should be done to ALL agents
+const LLUUID LL_UUID_ALL_AGENTS("44e87126-e794-4ded-05b3-7c42da3d5cdb");
 
-extern const LLUUID IMG_SMOKE;
-
-extern const LLUUID IMG_DEFAULT;
-
-extern const LLUUID IMG_SUN;
-extern const LLUUID IMG_MOON;
-extern const LLUUID IMG_CLOUD_POOF;
-extern const LLUUID IMG_SHOT;
-extern const LLUUID IMG_SPARK;
-extern const LLUUID IMG_FIRE;
-extern const LLUUID IMG_FACE_SELECT;
-extern const LLUUID IMG_DEFAULT_AVATAR;
-extern const LLUUID IMG_INVISIBLE;
-
-extern const LLUUID IMG_EXPLOSION;
-extern const LLUUID IMG_EXPLOSION_2;
-extern const LLUUID IMG_EXPLOSION_3;
-extern const LLUUID IMG_EXPLOSION_4;
-extern const LLUUID IMG_SMOKE_POOF;
-
-extern const LLUUID IMG_BIG_EXPLOSION_1;
-extern const LLUUID IMG_BIG_EXPLOSION_2;
-
-extern const LLUUID IMG_BLOOM1;
-extern const LLUUID TERRAIN_DIRT_DETAIL;
-extern const LLUUID TERRAIN_GRASS_DETAIL;
-extern const LLUUID TERRAIN_MOUNTAIN_DETAIL;
-extern const LLUUID TERRAIN_ROCK_DETAIL;
-
-extern const LLUUID DEFAULT_WATER_NORMAL;
-
-#endif
+// Governor Linden's agent id.
+const LLUUID ALEXANDRIA_LINDEN_ID("ba2a564a-f0f1-4b82-9c61-b7520bfcd09f");
+const LLUUID GOVERNOR_LINDEN_ID("3d6181b0-6a4b-97ef-18d8-722652995cf1");
+const LLUUID REALESTATE_LINDEN_ID("3d6181b0-6a4b-97ef-18d8-722652995cf1");
+// Maintenance's group id.
+const LLUUID MAINTENANCE_GROUP_ID("dc7b21cd-3c89-fcaa-31c8-25f9ffd224cd");

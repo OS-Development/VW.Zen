@@ -1,6 +1,6 @@
 /** 
- * @file imageids.h
- * @brief Temporary holder for image IDs
+ * @file machine.cpp
+ * @brief LLMachine class header file
  *
  * $LicenseInfo:firstyear=2001&license=viewergpl$
  * 
@@ -29,47 +29,34 @@
  * COMPLETENESS OR PERFORMANCE.
  * $/LicenseInfo$
  */
+#include "linden_common.h"
 
-#ifndef LL_IMAGEIDS_H
-#define LL_IMAGEIDS_H
+#include "machine.h"
 
-//
-// USE OF THIS FILE IS DEPRECATED
-//
-// Please use viewerart.ini and the standard
-// art import path.
+#include "llerror.h"
 
-class LLUUID;
+void LLMachine::setMachinePort(S32 port)
+{ 
+	if (port < 0) 
+	{
+		llinfos << "Can't assign a negative number to LLMachine::mPort" << llendl;
+		mHost.setPort(0);
+	}
+	else 
+	{
+		mHost.setPort(port); 
+	}
+}
 
-extern const LLUUID IMG_SMOKE;
-
-extern const LLUUID IMG_DEFAULT;
-
-extern const LLUUID IMG_SUN;
-extern const LLUUID IMG_MOON;
-extern const LLUUID IMG_CLOUD_POOF;
-extern const LLUUID IMG_SHOT;
-extern const LLUUID IMG_SPARK;
-extern const LLUUID IMG_FIRE;
-extern const LLUUID IMG_FACE_SELECT;
-extern const LLUUID IMG_DEFAULT_AVATAR;
-extern const LLUUID IMG_INVISIBLE;
-
-extern const LLUUID IMG_EXPLOSION;
-extern const LLUUID IMG_EXPLOSION_2;
-extern const LLUUID IMG_EXPLOSION_3;
-extern const LLUUID IMG_EXPLOSION_4;
-extern const LLUUID IMG_SMOKE_POOF;
-
-extern const LLUUID IMG_BIG_EXPLOSION_1;
-extern const LLUUID IMG_BIG_EXPLOSION_2;
-
-extern const LLUUID IMG_BLOOM1;
-extern const LLUUID TERRAIN_DIRT_DETAIL;
-extern const LLUUID TERRAIN_GRASS_DETAIL;
-extern const LLUUID TERRAIN_MOUNTAIN_DETAIL;
-extern const LLUUID TERRAIN_ROCK_DETAIL;
-
-extern const LLUUID DEFAULT_WATER_NORMAL;
-
-#endif
+void LLMachine::setControlPort( S32 port ) 
+{
+	if (port < 0) 
+	{
+		llinfos << "Can't assign a negative number to LLMachine::mControlPort" << llendl;
+		mControlPort = 0;
+	}
+	else 
+	{
+		mControlPort = port; 
+	}
+}

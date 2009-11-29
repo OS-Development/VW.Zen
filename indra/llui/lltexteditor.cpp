@@ -73,6 +73,10 @@
 //
 static LLDefaultChildRegistry::Register<LLTextEditor> r("simple_text_editor");
 
+// Compiler optimization, generate extern template
+template class LLTextEditor* LLView::getChild<class LLTextEditor>(
+	const std::string& name, BOOL recurse) const;
+
 //
 // Constants
 //
@@ -2158,7 +2162,7 @@ void LLTextEditor::drawLineNumbers()
 		return;
 	}
 	
-	S32 cursor_line = mLineInfoList[getLineNumFromDocIndex(mCursorPos)].mLineNum;
+	S32 cursor_line = getLineNumFromDocIndex(mCursorPos);
 
 	if (mShowLineNumbers)
 	{
