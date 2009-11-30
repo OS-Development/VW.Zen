@@ -89,6 +89,10 @@
 #include "llvfsthread.h"
 #include "llvolumemgr.h"
 
+#include "llnotificationmanager.h"
+#include "llnotifications.h"
+#include "llnotificationsutil.h"
+
 // Third party library includes
 #include <boost/bind.hpp>
 
@@ -797,13 +801,6 @@ bool LLAppViewer::init()
 	// call all self-registered classes
 	LLInitClassList::instance().fireCallbacks();
 
-	#if LL_LCD_COMPILE
-		// start up an LCD window on a logitech keyboard, if there is one
-		HINSTANCE hInstance = GetModuleHandle(NULL);
-		gLcdScreen = new LLLCD(hInstance);
-		CreateLCDDebugWindows();
-#endif
-
 	LLFolderViewItem::initClass(); // SJB: Needs to happen after initWindow(), not sure why but related to fonts
 		
 	gGLManager.getGLInfo(gDebugInfo);
@@ -871,7 +868,7 @@ bool LLAppViewer::init()
 
 		if (LLFeatureManager::getInstance()->getGPUClass() == GPU_CLASS_UNKNOWN)
 		{
-			LLNotifications::instance().add("UnknownGPU");
+			LLNotificationsUtil::add("UnknownGPU");
 		} 
 			
 		if(unsupported)
@@ -880,7 +877,7 @@ bool LLAppViewer::init()
 				|| gSavedSettings.getBOOL("WarnUnsupportedHardware"))
 			{
 				args["MINSPECS"] = minSpecs;
-				LLNotifications::instance().add("UnsupportedHardware", args );
+				LLNotificationsUtil::add("UnsupportedHardware", args );
 			}
 
 		}
@@ -910,6 +907,7 @@ static LLFastTimer::DeclareTimer FTM_SLEEP("Sleep");
 static LLFastTimer::DeclareTimer FTM_TEXTURE_CACHE("Texture Cache");
 static LLFastTimer::DeclareTimer FTM_DECODE("Image Decode");
 static LLFastTimer::DeclareTimer FTM_VFS("VFS Thread");
+static LLFastTimer::DeclareTimer FTM_LFS("LFS Thread");
 static LLFastTimer::DeclareTimer FTM_PAUSE_THREADS("Pause Threads");
 static LLFastTimer::DeclareTimer FTM_IDLE("Idle");
 static LLFastTimer::DeclareTimer FTM_PUMP("Pump");
@@ -983,7 +981,8 @@ bool LLAppViewer::mainLoop()
 			
 #endif
 			//memory leaking simulation
-			LLFloaterMemLeak* mem_leak_instance = LLFloaterReg::getTypedInstance<LLFloaterMemLeak>("mem_leaking");
+			LLFloaterMemLeak* mem_leak_instance =
+				LLFloaterReg::findTypedInstance<LLFloaterMemLeak>("mem_leaking");
 			if(mem_leak_instance)
 			{
 				mem_leak_instance->idle() ;				
@@ -1125,6 +1124,10 @@ bool LLAppViewer::mainLoop()
 						LLFastTimer ftm(FTM_VFS);
 	 					io_pending += LLVFSThread::updateClass(1);
 					}
+					{
+						LLFastTimer ftm(FTM_LFS);
+	 					io_pending += LLLFSThread::updateClass(1);
+					}
 
 					if (io_pending > 1000)
 					{
@@ -1169,7 +1172,8 @@ bool LLAppViewer::mainLoop()
 		catch(std::bad_alloc)
 		{			
 			//stop memory leaking simulation
-			LLFloaterMemLeak* mem_leak_instance = LLFloaterReg::getTypedInstance<LLFloaterMemLeak>("mem_leaking");
+			LLFloaterMemLeak* mem_leak_instance =
+				LLFloaterReg::findTypedInstance<LLFloaterMemLeak>("mem_leaking");
 			if(mem_leak_instance)
 			{
 				mem_leak_instance->stop() ;				
@@ -1197,7 +1201,8 @@ bool LLAppViewer::mainLoop()
 			llwarns << "Bad memory allocation when saveFinalSnapshot() is called!" << llendl ;
 
 			//stop memory leaking simulation
-			LLFloaterMemLeak* mem_leak_instance = LLFloaterReg::getTypedInstance<LLFloaterMemLeak>("mem_leaking");
+			LLFloaterMemLeak* mem_leak_instance =
+				LLFloaterReg::findTypedInstance<LLFloaterMemLeak>("mem_leaking");
 			if(mem_leak_instance)
 			{
 				mem_leak_instance->stop() ;				
@@ -1355,19 +1360,25 @@ bool LLAppViewer::cleanup()
 		llinfos << "Waiting for pending IO to finish: " << pending << llendflush;
 		ms_sleep(100);
 	}
-	llinfos << "Shutting down." << llendflush;
+	llinfos << "Shutting down Views" << llendflush;
 
 	// Destroy the UI
 	if( gViewerWindow)
 		gViewerWindow->shutdownViews();
+
+	llinfos << "Cleaning up Inevntory" << llendflush;
 	
 	// Cleanup Inventory after the UI since it will delete any remaining observers
 	// (Deleted observers should have already removed themselves)
 	gInventory.cleanupInventory();
+
+	llinfos << "Cleaning up Selections" << llendflush;
 	
 	// Clean up selection managers after UI is destroyed, as UI may be observing them.
 	// Clean up before GL is shut down because we might be holding on to objects with texture references
 	LLSelectMgr::cleanupGlobals();
+	
+	llinfos << "Shutting down OpenGL" << llendflush;
 
 	// Shut down OpenGL
 	if( gViewerWindow)
@@ -1381,11 +1392,18 @@ bool LLAppViewer::cleanup()
 		gViewerWindow = NULL;
 		llinfos << "ViewerWindow deleted" << llendflush;
 	}
+
+	llinfos << "Cleaning up Keyboard & Joystick" << llendflush;
 	
 	// viewer UI relies on keyboard so keep it aound until viewer UI isa gone
 	delete gKeyboard;
 	gKeyboard = NULL;
 
+	// Turn off Space Navigator and similar devices
+	LLViewerJoystick::getInstance()->terminate();
+	
+	llinfos << "Cleaning up Objects" << llendflush;
+	
 	LLViewerObject::cleanupVOClasses();
 
 	LLWaterParamManager::cleanupClass();
@@ -1408,6 +1426,8 @@ bool LLAppViewer::cleanup()
 	}
 	LLPrimitive::cleanupVolumeManager();
 
+	llinfos << "Additional Cleanup..." << llendflush;	
+	
 	LLViewerParcelMgr::cleanupGlobals();
 
 	// *Note: this is where gViewerStats used to be deleted.
@@ -1427,9 +1447,11 @@ bool LLAppViewer::cleanup()
 	// Also after shutting down the messaging system since it has VFS dependencies
 
 	//
+	llinfos << "Cleaning up VFS" << llendflush;
 	LLVFile::cleanupClass();
-	llinfos << "VFS cleaned up" << llendflush;
 
+	llinfos << "Saving Data" << llendflush;
+	
 	// Quitting with "Remember Password" turned off should always stomp your
 	// saved password, whether or not you successfully logged in.  JC
 	if (!gSavedSettings.getBOOL("RememberPassword"))
@@ -1471,13 +1493,16 @@ bool LLAppViewer::cleanup()
 		gDirUtilp->deleteFilesInDir(gDirUtilp->getExpandedFilename(LL_PATH_CACHE,""),mask);
 	}
 
-	// Turn off Space Navigator and similar devices
-	LLViewerJoystick::getInstance()->terminate();
-
 	removeMarkerFile(); // Any crashes from here on we'll just have to ignore
 	
 	writeDebugInfo();
 
+	LLLocationHistory::getInstance()->save();
+
+	LLAvatarIconIDCache::getInstance()->save();
+
+	llinfos << "Shutting down Threads" << llendflush;
+	
 	// Let threads finish
 	LLTimer idleTimer;
 	idleTimer.reset();
@@ -1510,14 +1535,9 @@ bool LLAppViewer::cleanup()
     sTextureFetch = NULL;
 	delete sImageDecodeThread;
     sImageDecodeThread = NULL;
-
-	LLLocationHistory::getInstance()->save();
-
-	LLAvatarIconIDCache::getInstance()->save();
-
 	delete mFastTimerLogThread;
 	mFastTimerLogThread = NULL;
-
+	
 	if (LLFastTimerView::sAnalyzePerformance)
 	{
 		llinfos << "Analyzing performance" << llendl;
@@ -1539,6 +1559,8 @@ bool LLAppViewer::cleanup()
 	}
 	LLMetricPerformanceTester::cleanClass() ;
 
+	llinfos << "Cleaning up Media and Textures" << llendflush;
+
 	//Note:
 	//LLViewerMedia::cleanupClass() has to be put before gTextureList.shutdown()
 	//because some new image might be generated during cleaning up media. --bao
@@ -1552,13 +1574,13 @@ bool LLAppViewer::cleanup()
 	LLVFSThread::cleanupClass();
 	LLLFSThread::cleanupClass();
 
-	llinfos << "VFS Thread finished" << llendflush;
-
 #ifndef LL_RELEASE_FOR_DOWNLOAD
 	llinfos << "Auditing VFS" << llendl;
 	gVFS->audit();
 #endif
 
+	llinfos << "Misc Cleanup" << llendflush;
+	
 	// For safety, the LLVFS has to be deleted *after* LLVFSThread. This should be cleaned up.
 	// (LLVFS doesn't know about LLVFSThread so can't kill pending requests) -Steve
 	delete gStaticVFS;
@@ -1572,12 +1594,11 @@ bool LLAppViewer::cleanup()
 
 	LLWatchdog::getInstance()->cleanup();
 
+	llinfos << "Shutting down message system" << llendflush;
 	end_messaging_system();
-	llinfos << "Message system deleted." << llendflush;
 
 	// *NOTE:Mani - The following call is not thread safe. 
 	LLCurl::cleanupClass();
-	llinfos << "LLCurl cleaned up." << llendflush;
 
 	// If we're exiting to launch an URL, do that here so the screen
 	// is at the right resolution before we launch IE.
@@ -1598,7 +1619,7 @@ bool LLAppViewer::cleanup()
 
 	ll_close_fail_log();
 
-    llinfos << "Goodbye" << llendflush;
+    llinfos << "Goodbye!" << llendflush;
 
 	// return 0;
 	return true;
@@ -2340,6 +2361,8 @@ bool LLAppViewer::initWindow()
 		gSavedSettings.getS32("WindowX"), gSavedSettings.getS32("WindowY"),
 		gSavedSettings.getS32("WindowWidth"), gSavedSettings.getS32("WindowHeight"),
 		FALSE, ignorePixelDepth);
+
+	LLNotificationsUI::LLNotificationManager::getInstance();
 		
 	if (gSavedSettings.getBOOL("WindowFullScreen"))
 	{
@@ -2841,7 +2864,7 @@ void LLAppViewer::requestQuit()
 
 static bool finish_quit(const LLSD& notification, const LLSD& response)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 
 	if (option == 0)
 	{
@@ -2853,7 +2876,7 @@ static LLNotificationFunctorRegistration finish_quit_reg("ConfirmQuit", finish_q
 
 void LLAppViewer::userQuit()
 {
-	LLNotifications::instance().add("ConfirmQuit");
+	LLNotificationsUtil::add("ConfirmQuit");
 }
 
 static bool finish_early_exit(const LLSD& notification, const LLSD& response)
@@ -2866,7 +2889,7 @@ void LLAppViewer::earlyExit(const std::string& name, const LLSD& substitutions)
 {
    	llwarns << "app_early_exit: " << name << llendl;
 	gDoDisconnect = TRUE;
-	LLNotifications::instance().add(name, substitutions, LLSD(), finish_early_exit);
+	LLNotificationsUtil::add(name, substitutions, LLSD(), finish_early_exit);
 }
 
 void LLAppViewer::forceExit(S32 arg)
@@ -3184,7 +3207,7 @@ std::string LLAppViewer::getWindowTitle() const
 // Callback from a dialog indicating user was logged out.  
 bool finish_disconnect(const LLSD& notification, const LLSD& response)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 
 	if (1 == option)
 	{
@@ -3224,12 +3247,12 @@ void LLAppViewer::forceDisconnect(const std::string& mesg)
 	{
 		// Tell users what happened
 		args["ERROR_MESSAGE"] = big_reason;
-		LLNotifications::instance().add("ErrorMessage", args, LLSD(), &finish_forced_disconnect);
+		LLNotificationsUtil::add("ErrorMessage", args, LLSD(), &finish_forced_disconnect);
 	}
 	else
 	{
 		args["MESSAGE"] = big_reason;
-		LLNotifications::instance().add("YouHaveBeenLoggedOut", args, LLSD(), &finish_disconnect );
+		LLNotificationsUtil::add("YouHaveBeenLoggedOut", args, LLSD(), &finish_disconnect );
 	}
 }
 
@@ -3530,6 +3553,7 @@ void LLAppViewer::idle()
 		gEventNotifier.update();
 		
 		gIdleCallbacks.callFunctions();
+		gInventory.idleNotifyObservers();
 	}
 	
 	if (gDisconnected)
@@ -4181,7 +4205,7 @@ void LLAppViewer::loadEventHostModule(S32 listen_port)
 
 	if(dso_path == "")
 	{
-		llwarns << "QAModeEventHost requested but module \"" << dso_name << "\" not found!" << llendl;
+		llerrs << "QAModeEventHost requested but module \"" << dso_name << "\" not found!" << llendl;
 		return;
 	}
 
@@ -4209,7 +4233,7 @@ void LLAppViewer::loadEventHostModule(S32 listen_port)
 
 	if(status != 0)
 	{
-		llwarns << "problem loading eventhost plugin, status: " << status << llendl;
+		llerrs << "problem loading eventhost plugin, status: " << status << llendl;
 	}
 
 	mPlugins.insert(eventhost_dso_handle);

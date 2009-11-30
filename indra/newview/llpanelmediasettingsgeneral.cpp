@@ -32,12 +32,17 @@
 
 #include "llviewerprecompiledheaders.h"
 
-#include "llagent.h"
 #include "llpanelmediasettingsgeneral.h"
+
+// library includes
 #include "llcombobox.h"
 #include "llcheckboxctrl.h"
+#include "llnotificationsutil.h"
 #include "llspinctrl.h"
 #include "lluictrlfactory.h"
+
+// project includes
+#include "llagent.h"
 #include "llviewerwindow.h"
 #include "llviewermedia.h"
 #include "llsdutil.h"
@@ -322,13 +327,19 @@ void LLPanelMediaSettingsGeneral::updateMediaPreview()
 {
 	if ( mHomeURL->getValue().asString().length() > 0 )
 	{
-		mPreviewMedia->navigateTo( mHomeURL->getValue().asString() );
+		if(mPreviewMedia->getCurrentNavUrl() != mHomeURL->getValue().asString())
+		{
+			mPreviewMedia->navigateTo( mHomeURL->getValue().asString() );
+		}
 	}
 	else
 	// new home URL will be empty if media is deleted so display a 
 	// "preview goes here" data url page
 	{
-		mPreviewMedia->navigateTo( CHECKERBOARD_DATA_URL );
+		if(mPreviewMedia->getCurrentNavUrl() != CHECKERBOARD_DATA_URL)
+		{
+			mPreviewMedia->navigateTo( CHECKERBOARD_DATA_URL );
+		}
 	};
 }
 
@@ -354,7 +365,7 @@ void LLPanelMediaSettingsGeneral::onCommitHomeURL( LLUICtrl* ctrl, void *userdat
 	std::string home_url = self->mHomeURL->getValue().asString();
 	if ( ! self->mParent->passesWhiteList( home_url ) )
 	{
-		LLNotifications::instance().add("WhiteListInvalidatesHomeUrl");		
+		LLNotificationsUtil::add("WhiteListInvalidatesHomeUrl");		
 		return;
 	};
 	
@@ -381,17 +392,19 @@ void LLPanelMediaSettingsGeneral::preApply()
 //
 void LLPanelMediaSettingsGeneral::getValues( LLSD &fill_me_in )
 {
-    fill_me_in[LLMediaEntry::AUTO_LOOP_KEY] = mAutoLoop->getValue();
-    fill_me_in[LLMediaEntry::AUTO_PLAY_KEY] = mAutoPlay->getValue();
-    fill_me_in[LLMediaEntry::AUTO_SCALE_KEY] = mAutoScale->getValue();
-    fill_me_in[LLMediaEntry::AUTO_ZOOM_KEY] = mAutoZoom->getValue();
-    fill_me_in[LLMediaEntry::CONTROLS_KEY] = mControls->getCurrentIndex();
-    //Don't fill in current URL: this is only supposed to get changed via navigate
+	fill_me_in[LLMediaEntry::AUTO_LOOP_KEY] = mAutoLoop->getValue();
+	fill_me_in[LLMediaEntry::AUTO_PLAY_KEY] = mAutoPlay->getValue();
+	fill_me_in[LLMediaEntry::AUTO_SCALE_KEY] = mAutoScale->getValue();
+	fill_me_in[LLMediaEntry::AUTO_ZOOM_KEY] = mAutoZoom->getValue();
+	fill_me_in[LLMediaEntry::CONTROLS_KEY] = mControls->getCurrentIndex();
+	//Don't fill in current URL: this is only supposed to get changed via navigate
 	// fill_me_in[LLMediaEntry::CURRENT_URL_KEY] = mCurrentURL->getValue();
-    fill_me_in[LLMediaEntry::HEIGHT_PIXELS_KEY] = mHeightPixels->getValue();
-    fill_me_in[LLMediaEntry::HOME_URL_KEY] = mHomeURL->getValue();
-    fill_me_in[LLMediaEntry::FIRST_CLICK_INTERACT_KEY] = mFirstClick->getValue();
-    fill_me_in[LLMediaEntry::WIDTH_PIXELS_KEY] = mWidthPixels->getValue();
+	fill_me_in[LLMediaEntry::HEIGHT_PIXELS_KEY] = mHeightPixels->getValue();
+	// Don't fill in the home URL if it is the special "Multiple Media" string!
+	if (LLTrans::getString("Multiple Media") != mHomeURL->getValue())
+		fill_me_in[LLMediaEntry::HOME_URL_KEY] = mHomeURL->getValue();
+	fill_me_in[LLMediaEntry::FIRST_CLICK_INTERACT_KEY] = mFirstClick->getValue();
+	fill_me_in[LLMediaEntry::WIDTH_PIXELS_KEY] = mWidthPixels->getValue();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

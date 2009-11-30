@@ -35,8 +35,11 @@
 
 #include <boost/tokenizer.hpp>
 
+// library includes
+#include "llnotificationsutil.h"
 #include "llsdutil.h"
 
+// project includes
 #include "llvoavatar.h"
 #include "llbufferstream.h"
 #include "llfile.h"
@@ -1867,7 +1870,7 @@ void LLVoiceClient::stateMachine()
 					}
 					else
 					{
-						LL_WARNS("Voice") << "region doesn't have ProvisionVoiceAccountRequest capability!" << LL_ENDL;
+						LL_WARNS_ONCE("Voice") << "region doesn't have ProvisionVoiceAccountRequest capability!" << LL_ENDL;
 					}
 				}
 			}
@@ -7051,7 +7054,7 @@ class LLViewerRequiredVoiceVersion : public LLHTTPNode
 				if (!sAlertedUser)
 				{
 					//sAlertedUser = TRUE;
-					LLNotifications::instance().add("VoiceVersionMismatch");
+					LLNotificationsUtil::add("VoiceVersionMismatch");
 					gSavedSettings.setBOOL("EnableVoiceChat", FALSE); // toggles listener
 				}
 			}

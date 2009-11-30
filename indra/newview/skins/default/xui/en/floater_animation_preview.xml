@@ -163,7 +163,7 @@ Maximum animation length is [MAX_LENGTH] seconds.
      follows="top|left|right"
      height="23"
      layout="topleft"
-     left="85"
+     left="100"
      name="name_form"
      right="-10" />
     <text
@@ -182,7 +182,7 @@ Maximum animation length is [MAX_LENGTH] seconds.
      follows="top|left|right"
      height="23"
      layout="topleft"
-     left="85"
+     left="100"
      name="description_form"
      right="-10" />
     <spinner
@@ -192,7 +192,7 @@ Maximum animation length is [MAX_LENGTH] seconds.
      increment="1"
      initial_value="0"
      label="Priority"
-     label_width="90"
+     label_width="88"
      layout="topleft"
      left="10"
      max_val="4"
@@ -214,14 +214,14 @@ Maximum animation length is [MAX_LENGTH] seconds.
      increment="1"
      initial_value="0"
      label="In(%)"
-     label_width="35"
+     label_width="49"
      layout="topleft"
      top_pad="5"
      left="30"
      max_val="100"
      name="loop_in_point"
      tool_tip="Sets point in animation that looping returns to"
-     width="110" />
+     width="115" />
     <spinner
      bottom_delta="0"
      follows="left|top"
@@ -234,8 +234,8 @@ Maximum animation length is [MAX_LENGTH] seconds.
      max_val="100"
      name="loop_out_point"
      tool_tip="Sets point in animation that ends a loop"
-     label_width="45"
-     width="120" />
+     label_width="49"
+     width="115" />
     <text
      type="string"
      length="1"
@@ -243,6 +243,7 @@ Maximum animation length is [MAX_LENGTH] seconds.
      follows="top|left"
      height="23"
      width="110"
+     word_wrap="true"
      layout="topleft"
      left="10"
      name="hand_label">
@@ -315,6 +316,7 @@ Maximum animation length is [MAX_LENGTH] seconds.
      follows="top|left"
      height="23"
      width="110"
+     word_wrap="true"
      layout="topleft"
      left="10"
      name="emote_label">
@@ -395,6 +397,7 @@ Maximum animation length is [MAX_LENGTH] seconds.
      follows="top|left"
      height="23"
      width="110"
+     word_wrap="true"
      layout="topleft"
      left="10"
      name="preview_label">
@@ -449,28 +452,38 @@ Maximum animation length is [MAX_LENGTH] seconds.
      width="200" />
     <button
      follows="top|right"
-     height="28"
-     image_selected="button_anim_play_selected.tga"
-     image_unselected="button_anim_play.tga"
+     height="23"
+     image_overlay="Play_Over"
+     image_unselected="SegmentedBtn_Left_Off"
+     image_selected="SegmentedBtn_Left_On_Selected"
+        image_disabled_selected="SegmentedBtn_Left_Selected_Disabled"
+        image_disabled="SegmentedBtn_Left_Disabled"
+	image_pressed="SegmentedBtn_Left_Press"
+	image_pressed_selected="SegmentedBtn_Left_Selected_Press"
      layout="topleft"
      left="10"
      name="play_btn"
      tool_tip="Play/pause your animation"
      top_pad="0"
-     width="28" />
+     width="23" />
     <button
      follows="top|right"
-     height="28"
-     image_selected="button_anim_stop_selected.tga"
-     image_unselected="button_anim_stop.tga"
+     height="23"
+     image_overlay="StopReload_Over"
+     image_unselected="SegmentedBtn_Right_Off"
+     image_selected="SegmentedBtn_Right_On_Selected"
+        image_disabled_selected="SegmentedBtn_Right_Selected_Disabled"
+        image_disabled="SegmentedBtn_Right_Disabled"
+	image_pressed="SegmentedBtn_Right_Press"
+	image_pressed_selected="SegmentedBtn_Right_Selected_Press"
      layout="topleft"
-     left_pad="4"
      name="stop_btn"
      tool_tip="Stop animation playback"
      top_delta="0"
-     width="28" />
+     left_delta="23"
+     width="23" />
     <slider
-     left_pad="0"
+     left_pad="10"
      follows="top|right"
      height="23"
      width="200"
@@ -482,6 +495,8 @@ Maximum animation length is [MAX_LENGTH] seconds.
     <text
      type="string"
      length="1"
+     height="72"
+     word_wrap="true"
      top_pad="5"
      text_color="EmphasisColor"
      follows="top|left"

@@ -52,8 +52,6 @@ using namespace LLNotificationsUI;
 LLToastPanelBase* createToastPanel()
 {
 	LLNearbyChatToastPanel* item = LLNearbyChatToastPanel::createInstance();
-	static S32 chat_item_width = 304;
-	item->setWidth(chat_item_width);
 	return item;
 }
 
@@ -62,8 +60,6 @@ class LLNearbyChatScreenChannel: public LLScreenChannelBase
 {
 public:
 	LLNearbyChatScreenChannel(const LLUUID& id):LLScreenChannelBase(id) { mStopProcessing = false;};
-
-	void init				(S32 channel_left, S32 channel_right);
 
 	void addNotification	(LLSD& notification);
 	void arrangeToasts		();
@@ -120,15 +116,6 @@ protected:
 	bool	mStopProcessing;
 };
 
-void LLNearbyChatScreenChannel::init(S32 channel_left, S32 channel_right)
-{
-	S32 channel_top = gViewerWindow->getWorldViewRectRaw().getHeight();
-	S32 channel_bottom = gViewerWindow->getWorldViewRectRaw().mBottom;
-	setRect(LLRect(channel_left, channel_top, channel_right, channel_bottom));
-	setVisible(TRUE);
-}
-
-
 void	LLNearbyChatScreenChannel::createOverflowToast(S32 bottom, F32 timer)
 {
 	//we don't need overflow toast in nearby chat
@@ -180,6 +167,29 @@ void LLNearbyChatScreenChannel::addNotification(LLSD& notification)
 	//look in pool. if there is any message
 	if(mStopProcessing)
 		return;
+
+	/*
+    find last toast and check ID
+	*/
+
+	if(m_active_toasts.size())
+	{
+		LLUUID fromID = notification["from_id"].asUUID();		// agent id or object id
+		LLToast* toast = m_active_toasts[0];
+		LLNearbyChatToastPanel* panel = dynamic_cast<LLNearbyChatToastPanel*>(toast->getPanel());
+
+		if(panel && panel->messageID() == fromID && panel->canAddText())
+		{
+			panel->addMessage(notification);
+			toast->reshapeToPanel();
+			toast->resetTimer();
+	
+			arrangeToasts();
+			return;
+		}
+	}
+	
+
 	
 	if(m_toast_pool.empty())
 	{
@@ -332,7 +342,8 @@ void LLNearbyChatHandler::processChat(const LLChat& chat_msg)
 	//only messages from AGENTS
 	if(CHAT_SOURCE_OBJECT == chat_msg.mSourceType)
 	{
-		return;//dn't show toast for messages from objects
+		if(chat_msg.mChatType == CHAT_TYPE_DEBUG_MSG)
+			return;//ok for now we don't skip messeges from object, so skip only debug messages
 	}
 
 	LLUUID id;
@@ -351,6 +362,7 @@ void LLNearbyChatHandler::processChat(const LLChat& chat_msg)
 		notification["time"] = chat_msg.mTime;
 		notification["source"] = (S32)chat_msg.mSourceType;
 		notification["chat_type"] = (S32)chat_msg.mChatType;
+		notification["chat_style"] = (S32)chat_msg.mChatStyle;
 		
 		std::string r_color_name = "White";
 		F32 r_color_alpha = 1.0f; 

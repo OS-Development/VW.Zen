@@ -45,11 +45,11 @@
 #include "llsdutil.h"
 #include "llxmltree.h"
 #include "llviewerwindow.h"
-#include "lllivefile.h"
 
 // XUI
 #include "lluictrlfactory.h"
 #include "llcombobox.h"
+#include "llnotificationsutil.h"
 #include "llresizebar.h"
 #include "llscrolllistitem.h"
 #include "llscrolllistctrl.h"
@@ -431,9 +431,9 @@ BOOL LLFloaterUIPreview::postBuild()
 
 	// get pointers to buttons and link to callbacks
 	mLanguageSelection = main_panel_tmp->getChild<LLComboBox>("language_select_combo");
-	mLanguageSelection->setSelectionCallback(boost::bind(&LLFloaterUIPreview::onLanguageComboSelect, this, mLanguageSelection));
+	mLanguageSelection->setCommitCallback(boost::bind(&LLFloaterUIPreview::onLanguageComboSelect, this, mLanguageSelection));
 	mLanguageSelection_2 = main_panel_tmp->getChild<LLComboBox>("language_select_combo_2");
-	mLanguageSelection_2->setSelectionCallback(boost::bind(&LLFloaterUIPreview::onLanguageComboSelect, this, mLanguageSelection));
+	mLanguageSelection_2->setCommitCallback(boost::bind(&LLFloaterUIPreview::onLanguageComboSelect, this, mLanguageSelection));
 	LLPanel* editor_panel_tmp = main_panel_tmp->getChild<LLPanel>("editor_panel");
 	mDisplayFloaterBtn = main_panel_tmp->getChild<LLButton>("display_floater");
 	mDisplayFloaterBtn->setClickedCallback(boost::bind(&LLFloaterUIPreview::onClickDisplayFloater, this, PRIMARY_FLOATER));
@@ -608,7 +608,7 @@ void LLFloaterUIPreview::popupAndPrintWarning(std::string& warning)
 	llwarns << warning << llendl;
 	LLSD args;
 	args["MESSAGE"] = warning;
-	LLNotifications::instance().add("GenericAlert", args);
+	LLNotificationsUtil::add("GenericAlert", args);
 }
 
 // Get localization string from drop-down menu

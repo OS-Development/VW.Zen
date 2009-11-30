@@ -90,9 +90,9 @@ BOOL LLSysWellWindow::postBuild()
 void LLSysWellWindow::setMinimized(BOOL minimize)
 {
 	// we don't show empty Message Well window
-	if (!minimize)
+	if (!minimize && isWindowEmpty())
 	{
-		setVisible(!isWindowEmpty());
+		return;
 	}
 
 	LLDockableFloater::setMinimized(minimize);
@@ -238,7 +238,7 @@ void LLSysWellWindow::initChannel()
 //---------------------------------------------------------------------------------
 void LLSysWellWindow::getAllowedRect(LLRect& rect)
 {
-	rect = gViewerWindow->getWorldViewRectRaw();
+	rect = gViewerWindow->getWorldViewRectScaled();
 }
 
 //---------------------------------------------------------------------------------
@@ -268,8 +268,11 @@ void LLSysWellWindow::toggleWindow()
 	{
 		setVisible(FALSE);
 	}
-	//set window in foreground
-	setFocus(getVisible());
+	else if(!isDocked())
+	{
+		// bring to front undocked floater
+		setVisible(TRUE);
+	}
 }
 
 //---------------------------------------------------------------------------------
@@ -329,7 +332,9 @@ void LLSysWellWindow::reshapeWindow()
 		new_window_height = MAX_WINDOW_HEIGHT;
 	}
 	S32 newY = curRect.mTop + new_window_height - curRect.getHeight();
-	curRect.setLeftTopAndSize(curRect.mLeft, newY, MIN_WINDOW_WIDTH, new_window_height);
+	S32 newWidth = curRect.getWidth() < MIN_WINDOW_WIDTH ? MIN_WINDOW_WIDTH
+			: curRect.getWidth();
+	curRect.setLeftTopAndSize(curRect.mLeft, newY, newWidth, new_window_height);
 	reshape(curRect.getWidth(), curRect.getHeight(), TRUE);
 	setRect(curRect);
 

@@ -36,6 +36,7 @@
 
 #include "llbutton.h"
 #include "llfocusmgr.h"
+#include "llnotifications.h"
 #include "llviewercontrol.h"
 
 using namespace LLNotificationsUI;
@@ -225,8 +226,9 @@ void LLToast::setVisible(BOOL show)
 		{
 			mTimer.start();
 		}
+		LLModalDialog::setFrontmost(FALSE);
 	}
-	LLPanel::setVisible(show);
+	LLFloater::setVisible(show);
 	if(mPanel)
 	{
 		if(!mPanel->isDead())

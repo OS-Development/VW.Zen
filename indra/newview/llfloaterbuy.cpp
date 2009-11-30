@@ -46,6 +46,7 @@
 #include "llfloaterreg.h"
 #include "llfloaterinventory.h"	// for get_item_icon
 #include "llinventoryfunctions.h"
+#include "llnotificationsutil.h"
 #include "llselectmgr.h"
 #include "llscrolllistctrl.h"
 #include "llviewerobject.h"
@@ -99,7 +100,7 @@ void LLFloaterBuy::show(const LLSaleInfo& sale_info)
 
 	if (selection->getRootObjectCount() != 1)
 	{
-		LLNotifications::instance().add("BuyOneObjectOnly");
+		LLNotificationsUtil::add("BuyOneObjectOnly");
 		return;
 	}
 	
@@ -136,7 +137,7 @@ void LLFloaterBuy::show(const LLSaleInfo& sale_info)
 	BOOL owners_identical = LLSelectMgr::getInstance()->selectGetOwner(owner_id, owner_name);
 	if (!owners_identical)
 	{
-		LLNotifications::instance().add("BuyObjectOneOwner");
+		LLNotificationsUtil::add("BuyObjectOneOwner");
 		return;
 	}
 
@@ -228,10 +229,6 @@ void LLFloaterBuy::inventoryChanged(LLViewerObject* obj,
 			
 		// Skip folders, so we know we have inventory items only
 		if (obj->getType() == LLAssetType::AT_CATEGORY)
-			continue;
-
-		// Skip root folders, so we know we have inventory items only
-		if (obj->getType() == LLAssetType::AT_ROOT_CATEGORY) 
 			continue;
 
 		// Skip the mysterious blank InventoryObject 

@@ -38,13 +38,19 @@
 #include "llavatarconstants.h"	// AVATAR_ONLINE
 #include "llcallingcard.h"
 #include "llcombobox.h"
+#include "lldateutil.h"			// ageFromDate()
 #include "llimview.h"
+#include "llnotificationsutil.h"
 #include "lltexteditor.h"
 #include "lltexturectrl.h"
+#include "lltoggleablemenu.h"
 #include "lltooldraganddrop.h"
 #include "llscrollcontainer.h"
 #include "llavatariconctrl.h"
 #include "llweb.h"
+#include "llfloaterworldmap.h"
+#include "llfloaterreg.h"
+#include "llnotificationsutil.h"
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Class LLDropTarget
@@ -118,7 +124,7 @@ BOOL LLDropTarget::handleDragAndDrop(S32 x, S32 y, MASK mask, BOOL drop,
 static LLDefaultChildRegistry::Register<LLDropTarget> r("drop_target");
 
 static LLRegisterPanelClassWrapper<LLPanelAvatarProfile> t_panel_profile("panel_profile");
-static LLRegisterPanelClassWrapper<LLPanelAvatarMeProfile> t_panel_me_profile("panel_me_profile");
+static LLRegisterPanelClassWrapper<LLPanelMyProfile> t_panel_my_profile("panel_my_profile");
 static LLRegisterPanelClassWrapper<LLPanelAvatarNotes> t_panel_notes("panel_notes");
 
 //-----------------------------------------------------------------------------
@@ -147,6 +153,8 @@ BOOL LLPanelAvatarNotes::postBuild()
 	childSetCommitCallback("call", boost::bind(&LLPanelAvatarNotes::onCallButtonClick, this), NULL);
 	childSetCommitCallback("teleport", boost::bind(&LLPanelAvatarNotes::onTeleportButtonClick, this), NULL);
 	childSetCommitCallback("share", boost::bind(&LLPanelAvatarNotes::onShareButtonClick, this), NULL);
+	childSetCommitCallback("show_on_map_btn", (boost::bind(
+				&LLPanelAvatarNotes::onMapButtonClick, this)), NULL);
 
 	LLTextEditor* te = getChild<LLTextEditor>("notes_edit");
 	te->setCommitCallback(boost::bind(&LLPanelAvatarNotes::onCommitNotes,this));
@@ -192,6 +200,46 @@ void LLPanelAvatarNotes::onCommitNotes()
 	LLAvatarPropertiesProcessor::getInstance()-> sendNotes(getAvatarId(),notes);
 }
 
+void LLPanelAvatarNotes::rightsConfirmationCallback(const LLSD& notification,
+		const LLSD& response, S32 rights)
+{
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
+	if (option == 0)
+	{
+		LLAvatarPropertiesProcessor::getInstance()->sendFriendRights(
+				getAvatarId(), rights);
+	}
+	else
+	{
+		childSetValue("objects_check",
+				childGetValue("objects_check").asBoolean() ? FALSE : TRUE);
+	}
+}
+
+void LLPanelAvatarNotes::confirmModifyRights(bool grant, S32 rights)
+{
+	std::string first, last;
+	LLSD args;
+	if (gCacheName->getName(getAvatarId(), first, last))
+	{
+		args["FIRST_NAME"] = first;
+		args["LAST_NAME"] = last;
+	}
+
+	if (grant)
+	{
+		LLNotificationsUtil::add("GrantModifyRights", args, LLSD(),
+				boost::bind(&LLPanelAvatarNotes::rightsConfirmationCallback, this,
+						_1, _2, rights));
+	}
+	else
+	{
+		LLNotificationsUtil::add("RevokeModifyRights", args, LLSD(),
+				boost::bind(&LLPanelAvatarNotes::rightsConfirmationCallback, this,
+						_1, _2, rights));
+	}
+}
+
 void LLPanelAvatarNotes::onCommitRights()
 {
 	S32 rights = 0;
@@ -203,7 +251,14 @@ void LLPanelAvatarNotes::onCommitRights()
 	if(childGetValue("objects_check").asBoolean())
 		rights |= LLRelationship::GRANT_MODIFY_OBJECTS;
 
-	LLAvatarPropertiesProcessor::getInstance()->sendFriendRights(getAvatarId(),rights);
+	const LLRelationship* buddy_relationship =
+			LLAvatarTracker::instance().getBuddyInfo(getAvatarId());
+	bool allow_modify_objects = childGetValue("objects_check").asBoolean();
+	if (buddy_relationship->isRightGrantedTo(
+			LLRelationship::GRANT_MODIFY_OBJECTS) != allow_modify_objects)
+	{
+		confirmModifyRights(allow_modify_objects, rights);
+	}
 }
 
 void LLPanelAvatarNotes::processProperties(void* data, EAvatarProcessorType type)
@@ -308,6 +363,7 @@ void LLPanelProfileTab::onOpen(const LLSD& key)
 	// Update data even if we are viewing same avatar profile as some data might been changed.
 	setAvatarId(key.asUUID());
 	updateData();
+	updateButtons();
 }
 
 void LLPanelProfileTab::scrollToTop()
@@ -315,6 +371,22 @@ void LLPanelProfileTab::scrollToTop()
 	LLScrollContainer* scrollContainer = findChild<LLScrollContainer>("profile_scroll");
 	if (scrollContainer)
 		scrollContainer->goToTop();
+}
+
+void LLPanelProfileTab::onMapButtonClick()
+{
+	std::string name;
+	gCacheName->getFullName(getAvatarId(), name);
+	gFloaterWorldMap->trackAvatar(getAvatarId(), name);
+	LLFloaterReg::showInstance("world_map");
+}
+
+void LLPanelProfileTab::updateButtons()
+{
+	bool enable_map_btn = LLAvatarTracker::instance().isBuddyOnline(getAvatarId())
+					&& gAgent.isGodlike() || is_agent_mappable(getAvatarId());
+
+	childSetEnabled("show_on_map_btn", enable_map_btn);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -333,7 +405,16 @@ BOOL LLPanelAvatarProfile::postBuild()
 	childSetCommitCallback("im",(boost::bind(&LLPanelAvatarProfile::onIMButtonClick,this)),NULL);
 	childSetCommitCallback("call",(boost::bind(&LLPanelAvatarProfile::onCallButtonClick,this)),NULL);
 	childSetCommitCallback("teleport",(boost::bind(&LLPanelAvatarProfile::onTeleportButtonClick,this)),NULL);
+	childSetCommitCallback("overflow_btn", boost::bind(&LLPanelAvatarProfile::onOverflowButtonClicked, this), NULL);
 	childSetCommitCallback("share",(boost::bind(&LLPanelAvatarProfile::onShareButtonClick,this)),NULL);
+	childSetCommitCallback("show_on_map_btn", (boost::bind(
+			&LLPanelAvatarProfile::onMapButtonClick, this)), NULL);
+
+	LLUICtrl::CommitCallbackRegistry::ScopedRegistrar registrar;
+	registrar.add("Profile.Pay",  boost::bind(&LLPanelAvatarProfile::pay, this));
+	registrar.add("Profile.Share", boost::bind(&LLPanelAvatarProfile::share, this));
+
+	mProfileMenu = LLUICtrlFactory::getInstance()->createFromFile<LLToggleableMenu>("menu_profile_overflow.xml", gMenuHolder, LLViewerMenuHolderGL::child_registry_t::instance());
 
 	LLTextureCtrl* pic = getChild<LLTextureCtrl>("2nd_life_pic");
 	pic->setFallbackImageName("default_profile_picture.j2c");
@@ -351,7 +432,7 @@ void LLPanelAvatarProfile::onOpen(const LLSD& key)
 {
 	LLPanelProfileTab::onOpen(key);
 
-	mGroups.erase();
+	mGroups.clear();
 
 	//Disable "Add Friend" button for friends.
 	childSetEnabled("add_friend", !LLAvatarActions::isFriend(getAvatarId()));
@@ -383,7 +464,7 @@ void LLPanelAvatarProfile::resetControls()
 
 void LLPanelAvatarProfile::resetData()
 {
-	mGroups.erase();
+	mGroups.clear();
 	childSetValue("2nd_life_pic",LLUUID::null);
 	childSetValue("real_world_pic",LLUUID::null);
 	childSetValue("online_status",LLStringUtil::null);
@@ -435,23 +516,29 @@ void LLPanelAvatarProfile::processGroupProperties(const LLAvatarGroups* avatar_g
 	// Group properties may arrive in two callbacks, we need to save them across
 	// different calls. We can't do that in textbox as textbox may change the text.
 
-	std::string groups = mGroups;
 	LLAvatarGroups::group_list_t::const_iterator it = avatar_groups->group_list.begin();
 	const LLAvatarGroups::group_list_t::const_iterator it_end = avatar_groups->group_list.end();
 
-	if(groups.empty() && it_end != it)
-	{
-		groups = (*it).group_name;
-		++it;
-	}
 	for(; it_end != it; ++it)
 	{
 		LLAvatarGroups::LLGroupData group_data = *it;
-		groups += ", ";
-		groups += group_data.group_name;
+
+		// Check if there is no duplicates for this group
+		if (std::find(mGroups.begin(), mGroups.end(), group_data.group_name) == mGroups.end())
+			mGroups.push_back(group_data.group_name);
 	}
-	mGroups = groups;
-	childSetValue("sl_groups",mGroups);
+
+	// Creating string, containing group list
+	std::string groups = "";
+	for (group_list_t::const_iterator it = mGroups.begin(); it != mGroups.end(); ++it)
+	{
+		if (it != mGroups.begin())
+			groups += ", ";
+
+		groups += *it;
+	}
+
+	childSetValue("sl_groups", groups);
 }
 
 void LLPanelAvatarProfile::fillCommonData(const LLAvatarData* avatar_data)
@@ -459,8 +546,11 @@ void LLPanelAvatarProfile::fillCommonData(const LLAvatarData* avatar_data)
 	//remove avatar id from cache to get fresh info
 	LLAvatarIconIDCache::getInstance()->remove(avatar_data->avatar_id);
 
-
-	childSetValue("register_date", avatar_data->born_on );
+	LLStringUtil::format_map_t args;
+	args["[REG_DATE]"] = avatar_data->born_on;
+	args["[AGE]"] = LLDateUtil::ageFromDate( avatar_data->born_on, LLDate::now());
+	std::string register_date = getString("RegisterDateFormat", args);
+	childSetValue("register_date", register_date );
 	childSetValue("sl_description_edit", avatar_data->about_text);
 	childSetValue("fl_description_edit",avatar_data->fl_about_text);
 	childSetValue("2nd_life_pic", avatar_data->image_id);
@@ -513,6 +603,16 @@ void LLPanelAvatarProfile::fillAccountStatus(const LLAvatarData* avatar_data)
 	childSetValue("acc_status_text", caption_text);
 }
 
+void LLPanelAvatarProfile::pay()
+{
+	LLAvatarActions::pay(getAvatarId());
+}
+
+void LLPanelAvatarProfile::share()
+{
+	LLAvatarActions::share(getAvatarId());
+}
+
 void LLPanelAvatarProfile::onUrlTextboxClicked(const std::string& url)
 {
 	LLWeb::loadURL(url);
@@ -552,23 +652,40 @@ void LLPanelAvatarProfile::onShareButtonClick()
 	//*TODO not implemented
 }
 
+void LLPanelAvatarProfile::onOverflowButtonClicked()
+{
+	if (!mProfileMenu->toggleVisibility())
+		return;
+
+	LLView* btn = getChild<LLView>("overflow_btn");
+
+	if (mProfileMenu->getButtonRect().isEmpty())
+	{
+		mProfileMenu->setButtonRect(btn);
+	}
+	mProfileMenu->updateParent(LLMenuGL::sMenuContainer);
+
+	LLRect rect = btn->getRect();
+	LLMenuGL::showPopup(this, mProfileMenu, rect.mRight, rect.mTop);
+}
+
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
-LLPanelAvatarMeProfile::LLPanelAvatarMeProfile()
+LLPanelMyProfile::LLPanelMyProfile()
 : LLPanelAvatarProfile()
 {
 }
 
-BOOL LLPanelAvatarMeProfile::postBuild()
+BOOL LLPanelMyProfile::postBuild()
 {
 	LLPanelAvatarProfile::postBuild();
 
 	mStatusCombobox = getChild<LLComboBox>("status_combo");
 
-	childSetCommitCallback("status_combo", boost::bind(&LLPanelAvatarMeProfile::onStatusChanged, this), NULL);
-	childSetCommitCallback("status_me_message_text", boost::bind(&LLPanelAvatarMeProfile::onStatusMessageChanged, this), NULL);
+	childSetCommitCallback("status_combo", boost::bind(&LLPanelMyProfile::onStatusChanged, this), NULL);
+	childSetCommitCallback("status_me_message_text", boost::bind(&LLPanelMyProfile::onStatusMessageChanged, this), NULL);
 
 	resetControls();
 	resetData();
@@ -576,12 +693,12 @@ BOOL LLPanelAvatarMeProfile::postBuild()
 	return TRUE;
 }
 
-void LLPanelAvatarMeProfile::onOpen(const LLSD& key)
+void LLPanelMyProfile::onOpen(const LLSD& key)
 {
 	LLPanelProfileTab::onOpen(key);
 }
 
-void LLPanelAvatarMeProfile::processProfileProperties(const LLAvatarData* avatar_data)
+void LLPanelMyProfile::processProfileProperties(const LLAvatarData* avatar_data)
 {
 	fillCommonData(avatar_data);
 
@@ -592,7 +709,7 @@ void LLPanelAvatarMeProfile::processProfileProperties(const LLAvatarData* avatar
 	fillAccountStatus(avatar_data);
 }
 
-void LLPanelAvatarMeProfile::fillStatusData(const LLAvatarData* avatar_data)
+void LLPanelMyProfile::fillStatusData(const LLAvatarData* avatar_data)
 {
 	std::string status;
 	if (gAgent.getAFK())
@@ -611,7 +728,7 @@ void LLPanelAvatarMeProfile::fillStatusData(const LLAvatarData* avatar_data)
 	mStatusCombobox->setValue(status);
 }
 
-void LLPanelAvatarMeProfile::resetControls()
+void LLPanelMyProfile::resetControls()
 {
 	childSetVisible("status_panel", false);
 	childSetVisible("profile_buttons_panel", false);
@@ -621,7 +738,7 @@ void LLPanelAvatarMeProfile::resetControls()
 	childSetVisible("profile_me_buttons_panel", true);
 }
 
-void LLPanelAvatarMeProfile::onStatusChanged()
+void LLPanelMyProfile::onStatusChanged()
 {
 	LLSD::String status = mStatusCombobox->getValue().asString();
 
@@ -639,11 +756,11 @@ void LLPanelAvatarMeProfile::onStatusChanged()
 	{
 		gAgent.clearAFK();
 		gAgent.setBusy();
-		LLNotifications::instance().add("BusyModeSet");
+		LLNotificationsUtil::add("BusyModeSet");
 	}
 }
 
-void LLPanelAvatarMeProfile::onStatusMessageChanged()
+void LLPanelMyProfile::onStatusMessageChanged()
 {
 	updateData();
 }

@@ -90,6 +90,7 @@ set(viewer_SOURCE_FILES
     llbox.cpp
     llbreadcrumbview.cpp
     llcallbacklist.cpp
+    llcallfloater.cpp
     llcallingcard.cpp
     llcapabilitylistener.cpp
     llcaphttpsender.cpp
@@ -185,7 +186,7 @@ set(viewer_SOURCE_FILES
     llfloatermediasettings.cpp
     llfloatermemleak.cpp
     llfloaternamedesc.cpp
-        llfloaternearbymedia.cpp
+    llfloaternearbymedia.cpp
     llfloaternotificationsconsole.cpp
     llfloateropenobject.cpp
     llfloaterparcel.cpp
@@ -212,6 +213,7 @@ set(viewer_SOURCE_FILES
     llfloaterurldisplay.cpp
     llfloaterurlentry.cpp
     llfloatervoicedevicesettings.cpp
+    llfloatervolumepulldown.cpp
     llfloaterwater.cpp
     llfloaterwhitelistentry.cpp
     llfloaterwindlight.cpp
@@ -239,6 +241,7 @@ set(viewer_SOURCE_FILES
     llhudtext.cpp
     llhudview.cpp
     llimfloater.cpp
+    llimfloatercontainer.cpp
     llimhandler.cpp
     llimpanel.cpp
     llimview.cpp
@@ -290,6 +293,7 @@ set(viewer_SOURCE_FILES
     llnetmap.cpp
     llnotificationalerthandler.cpp
     llnotificationgrouphandler.cpp
+    llnotificationhandlerutil.cpp
     llnotificationmanager.cpp
     llnotificationofferhandler.cpp
     llnotificationscripthandler.cpp
@@ -297,8 +301,6 @@ set(viewer_SOURCE_FILES
     llnotify.cpp
     lloutputmonitorctrl.cpp
     lloverlaybar.cpp
-    llpanelappearance.cpp
-    llpanelappearancetab.cpp
     llpanelavatar.cpp
     llpanelavatarrow.cpp
     llpanelavatartag.cpp
@@ -322,14 +324,14 @@ set(viewer_SOURCE_FILES
     llpanellandmedia.cpp
     llpanellogin.cpp
     llpanellookinfo.cpp
-    llpanellooks.cpp
     llpanelmaininventory.cpp
     llpanelmediasettingsgeneral.cpp
     llpanelmediasettingspermissions.cpp
     llpanelmediasettingssecurity.cpp
-    llpanelmeprofile.cpp
+    llpanelme.cpp
     llpanelobject.cpp
     llpanelobjectinventory.cpp
+    llpaneloutfitsinventory.cpp
     llpanelpeople.cpp
     llpanelpeoplemenus.cpp
     llpanelpermissions.cpp
@@ -366,10 +368,12 @@ set(viewer_SOURCE_FILES
     llremoteparcelrequest.cpp
     llsavedsettingsglue.cpp
     llscreenchannel.cpp
+    llscriptfloater.cpp
     llscrollingpanelparam.cpp
     llsearchcombobox.cpp
     llsearchhistory.cpp
     llselectmgr.cpp
+    llsidepanelappearance.cpp
     llsidepanelinventory.cpp
     llsidepanelinventorysubpanel.cpp
     llsidepaneliteminfo.cpp
@@ -587,6 +591,7 @@ set(viewer_HEADER_FILES
     llbox.h
     llbreadcrumbview.h
     llcallbacklist.h
+    llcallfloater.h
     llcallingcard.h
     llcapabilitylistener.h
     llcapabilityprovider.h
@@ -738,6 +743,7 @@ set(viewer_HEADER_FILES
     llhudtext.h
     llhudview.h
     llimfloater.h
+    llimfloatercontainer.h
     llimpanel.h
     llimview.h
     llinspect.h
@@ -792,8 +798,6 @@ set(viewer_HEADER_FILES
     llnotify.h
     lloutputmonitorctrl.h
     lloverlaybar.h
-    llpanelappearance.h
-    llpanelappearancetab.h
     llpanelavatar.h
     llpanelavatarrow.h
     llpanelavatartag.h
@@ -817,14 +821,14 @@ set(viewer_HEADER_FILES
     llpanellandmedia.h
     llpanellogin.h
     llpanellookinfo.h
-    llpanellooks.h
     llpanelmaininventory.h
     llpanelmediasettingsgeneral.h
     llpanelmediasettingspermissions.h
     llpanelmediasettingssecurity.h
-    llpanelmeprofile.h
+    llpanelme.h
     llpanelobject.h
     llpanelobjectinventory.h
+    llpaneloutfitsinventory.h
     llpanelpeople.h
     llpanelpeoplemenus.h
     llpanelpermissions.h
@@ -863,10 +867,12 @@ set(viewer_HEADER_FILES
     llrootview.h
     llsavedsettingsglue.h
     llscreenchannel.h
+    llscriptfloater.h
     llscrollingpanelparam.h
     llsearchcombobox.h
     llsearchhistory.h
     llselectmgr.h
+    llsidepanelappearance.h
     llsidepanelinventory.h
     llsidepanelinventorysubpanel.h
     llsidepaneliteminfo.h
@@ -1378,7 +1384,7 @@ if (WINDOWS)
     # sets the 'working directory' for debugging from visual studio.
     if (NOT UNATTENDED)
         add_custom_command(
-            TARGET ${VIEWER_BINARY_NAME} PRE_BUILD
+            TARGET ${VIEWER_BINARY_NAME} POST_BUILD
             COMMAND ${CMAKE_SOURCE_DIR}/tools/vstool/vstool.exe
             ARGS
               --solution 

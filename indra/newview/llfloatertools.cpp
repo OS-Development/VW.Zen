@@ -43,6 +43,7 @@
 #include "llcheckboxctrl.h"
 #include "llcombobox.h"
 #include "lldraghandle.h"
+#include "llerror.h"
 #include "llfloaterbuildoptions.h"
 #include "llfloatermediasettings.h"
 #include "llfloateropenobject.h"
@@ -51,6 +52,7 @@
 #include "llmediaentry.h"
 #include "llmediactrl.h"
 #include "llmenugl.h"
+#include "llnotificationsutil.h"
 #include "llpanelcontents.h"
 #include "llpanelface.h"
 #include "llpanelland.h"
@@ -422,10 +424,17 @@ void LLFloaterTools::refresh()
 	LLResMgr::getInstance()->getIntegerString(prim_count_string, LLSelectMgr::getInstance()->getSelection()->getObjectCount());
 	childSetTextArg("prim_count", "[COUNT]", prim_count_string);
 
+	// calculate selection rendering cost
+	std::string prim_cost_string;
+	LLResMgr::getInstance()->getIntegerString(prim_cost_string, calcRenderCost());
+	childSetTextArg("RenderingCost", "[COUNT]", prim_cost_string);
+
+
 	// disable the object and prim counts if nothing selected
 	bool have_selection = ! LLSelectMgr::getInstance()->getSelection()->isEmpty();
 	childSetEnabled("obj_count", have_selection);
 	childSetEnabled("prim_count", have_selection);
+	childSetEnabled("RenderingCost", have_selection);
 
 	// Refresh child tabs
 	mPanelPermissions->refresh();
@@ -556,6 +565,8 @@ void LLFloaterTools::updatePopup(LLCoordGL center, MASK mask)
 
 	mBtnEdit	->setToggleState( edit_visible );
 	mRadioGroupEdit->setVisible( edit_visible );
+	bool linked_parts = gSavedSettings.getBOOL("EditLinkedParts");
+	childSetVisible("RenderingCost", !linked_parts && (edit_visible || focus_visible || move_visible));
 
 	if (mCheckSelectIndividual)
 	{
@@ -964,6 +975,32 @@ void LLFloaterTools::onClickGridOptions()
 	//floaterp->addDependentFloater(LLFloaterBuildOptions::getInstance(), FALSE);
 }
 
+S32 LLFloaterTools::calcRenderCost()
+{
+	S32 cost = 0;
+	std::set<LLUUID> textures;
+
+	for (LLObjectSelection::iterator selection_iter = LLSelectMgr::getInstance()->getSelection()->begin();
+		  selection_iter != LLSelectMgr::getInstance()->getSelection()->end();
+		  ++selection_iter)
+	{
+		LLSelectNode *select_node = *selection_iter;
+		if (select_node)
+		{
+			LLVOVolume *viewer_volume = (LLVOVolume*)select_node->getObject();
+			if (viewer_volume)
+			{
+				cost += viewer_volume->getRenderCost(textures);
+				cost += textures.size() * 5;
+				textures.clear();
+			}
+		}
+	}
+
+
+	return cost;
+}
+
 // static
 void LLFloaterTools::setEditTool(void* tool_pointer)
 {
@@ -1074,7 +1111,8 @@ void LLFloaterTools::getMediaState()
 		childSetEnabled("edit_media", FALSE);
 		childSetEnabled("media_info", FALSE);
 		media_info->setEnabled(FALSE);
-		media_info->clear();*/	
+		media_info->clear();*/
+		LL_WARNS("LLFloaterTools: media") << "Media not enabled (no capability) in this region!" << LL_ENDL;
 		clearMediaSettings();
 		return;
 	}
@@ -1093,11 +1131,27 @@ void LLFloaterTools::getMediaState()
 			LLVOVolume* object = dynamic_cast<LLVOVolume*>(node->getObject());
 			if (NULL != object)
 			{
-				if (!object->permModify() || object->isMediaDataBeingFetched())
+				if (!object->permModify())
 				{
+					LL_INFOS("LLFloaterTools: media")
+						<< "Selection not editable due to lack of modify permissions on object id "
+						<< object->getID() << LL_ENDL;
+					
 					editable = false;
 					break;
 				}
+				// XXX DISABLE this for now, because when the fetch finally 
+				// does come in, the state of this floater doesn't properly
+				// update.  This needs more thought.
+//				if (object->isMediaDataBeingFetched())
+//				{
+//					LL_INFOS("LLFloaterTools: media")
+//						<< "Selection not editable due to media data being fetched for object id "
+//						<< object->getID() << LL_ENDL;
+//						
+//					editable = false;
+//					break;
+//				}
 			}
 		}
 	}
@@ -1230,7 +1284,7 @@ void LLFloaterTools::onClickBtnAddMedia()
 	LLTool *tool = LLToolMgr::getInstance()->getCurrentTool();
 	if((tool != LLToolFace::getInstance()) || LLSelectMgr::getInstance()->getSelection()->isMultipleTESelected())
 	{
-		LLNotifications::instance().add("MultipleFacesSelected",LLSD(), LLSD(), multipleFacesSelectedConfirm);
+		LLNotificationsUtil::add("MultipleFacesSelected",LLSD(), LLSD(), multipleFacesSelectedConfirm);
 		
 	}
 	else
@@ -1243,7 +1297,7 @@ void LLFloaterTools::onClickBtnAddMedia()
 // static
 bool LLFloaterTools::multipleFacesSelectedConfirm(const LLSD& notification, const LLSD& response)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	switch( option )
 	{
 		case 0:  // "Yes"
@@ -1269,14 +1323,14 @@ void LLFloaterTools::onClickBtnEditMedia()
 // called when a user wants to delete media from a prim or prim face
 void LLFloaterTools::onClickBtnDeleteMedia()
 {
-	LLNotifications::instance().add("DeleteMedia", LLSD(), LLSD(), deleteMediaConfirm);
+	LLNotificationsUtil::add("DeleteMedia", LLSD(), LLSD(), deleteMediaConfirm);
 }
 
 
 // static
 bool LLFloaterTools::deleteMediaConfirm(const LLSD& notification, const LLSD& response)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	switch( option )
 	{
 		case 0:  // "Yes"

@@ -106,13 +106,15 @@ class LLChatHistory : public LLTextEditor
 		 * If last user appended message, concurs with current user,
 		 * separator is added before the message, otherwise header is added.
 		 * @param chat - base chat message.
-		 * @param time time of a message.
-		 * @param message message itself.
+		 * @param use_plain_text_chat_history  - whether to add message as plain text.
+		 * @param input_append_params - font style.
 		 */
-		void appendWidgetMessage(const LLChat& chat);
+		void appendMessage(const LLChat& chat, const bool use_plain_text_chat_history = false, const LLStyle::Params& input_append_params = LLStyle::Params());
+		/*virtual*/ void clear();
 
 	private:
 		std::string mLastFromName;
+		LLDate mLastMessageTime;
 		std::string mMessageHeaderFilename;
 		std::string mMessageSeparatorFilename;
 

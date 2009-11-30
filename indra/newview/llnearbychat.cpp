@@ -89,8 +89,6 @@ BOOL LLNearbyChat::postBuild()
 
 	mChatHistory = getChild<LLChatHistory>("chat_history");
 
-	setCanResize(true);
-
 	if(!LLDockableFloater::postBuild())
 		return false;
 
@@ -98,7 +96,7 @@ BOOL LLNearbyChat::postBuild()
 	{
 		setDockControl(new LLDockControl(
 			LLBottomTray::getInstance()->getNearbyChatBar(), this,
-			getDockTongue(), LLDockControl::LEFT, boost::bind(&LLNearbyChat::getAllowedRect, this, _1)));
+			getDockTongue(), LLDockControl::TOP, boost::bind(&LLNearbyChat::getAllowedRect, this, _1)));
 	}
 
 	return true;
@@ -132,6 +130,21 @@ void    LLNearbyChat::applySavedVariables()
 	}
 }
 
+std::string appendTime()
+{
+	time_t utc_time;
+	utc_time = time_corrected();
+	std::string timeStr ="["+ LLTrans::getString("TimeHour")+"]:["
+		+LLTrans::getString("TimeMin")+"] ";
+
+	LLSD substitution;
+
+	substitution["datetime"] = (S32) utc_time;
+	LLStringUtil::format (timeStr, substitution);
+
+	return timeStr;
+}
+
 void	LLNearbyChat::addMessage(const LLChat& chat)
 {
 	if (chat.mChatType == CHAT_TYPE_DEBUG_MSG)
@@ -152,10 +165,47 @@ void	LLNearbyChat::addMessage(const LLChat& chat)
 			return;
 		}
 	}
+
+	bool use_plain_text_chat_history = gSavedSettings.getBOOL("PlainTextChatHistory");
 	
 	if (!chat.mMuted)
 	{
-		mChatHistory->appendWidgetMessage(chat);
+		std::string message = chat.mText;
+
+
+		LLChat& tmp_chat = const_cast<LLChat&>(chat);
+
+		if(tmp_chat.mTimeStr.empty())
+			tmp_chat.mTimeStr = appendTime();
+		
+		if (chat.mChatStyle == CHAT_STYLE_IRC)
+		{
+			LLColor4 txt_color = LLUIColorTable::instance().getColor("White");
+			LLViewerChat::getChatColor(chat,txt_color);
+			LLFontGL* fontp = LLViewerChat::getChatFont();
+			std::string font_name = LLFontGL::nameFromFont(fontp);
+			std::string font_size = LLFontGL::sizeFromFont(fontp);
+			LLStyle::Params append_style_params;
+			append_style_params.color(txt_color);
+			append_style_params.readonly_color(txt_color);
+			append_style_params.font.name(font_name);
+			append_style_params.font.size(font_size);
+			if (chat.mFromName.size() > 0)
+			{
+				append_style_params.font.style = "ITALIC";
+				LLChat add_chat=chat;
+				add_chat.mText = chat.mFromName + " ";
+				mChatHistory->appendMessage(add_chat, use_plain_text_chat_history, append_style_params);
+			}
+			
+			message = message.substr(3);
+			append_style_params.font.style = "ITALIC";
+			mChatHistory->appendText(message, FALSE, append_style_params);
+		}
+		else
+		{
+			mChatHistory->appendMessage(chat,use_plain_text_chat_history);
+		}
 	}
 }
 
@@ -178,20 +228,23 @@ bool	LLNearbyChat::onNearbyChatCheckContextMenuItem(const LLSD& userdata)
 	return false;
 }
 
-void	LLNearbyChat::onOpen(const LLSD& key )
+void	LLNearbyChat::setVisible(BOOL visible)
 {
-	LLNotificationsUI::LLScreenChannelBase* chat_channel = LLNotificationsUI::LLChannelManager::getInstance()->findChannelByID(LLUUID(gSavedSettings.getString("NearByChatChannelUUID")));
-	if(chat_channel)
+	if(visible)
 	{
-		chat_channel->removeToastsFromChannel();
+		LLNotificationsUI::LLScreenChannelBase* chat_channel = LLNotificationsUI::LLChannelManager::getInstance()->findChannelByID(LLUUID(gSavedSettings.getString("NearByChatChannelUUID")));
+		if(chat_channel)
+		{
+			chat_channel->removeToastsFromChannel();
+		}
 	}
+
+	LLDockableFloater::setVisible(visible);
 }
 
-void	LLNearbyChat::setDocked			(bool docked, bool pop_on_undock)
+void	LLNearbyChat::onOpen(const LLSD& key )
 {
-	LLDockableFloater::setDocked(docked, pop_on_undock);
-
-	setCanResize(!docked);
+	LLDockableFloater::onOpen(key);
 }
 
 void LLNearbyChat::setRect	(const LLRect &rect)
@@ -201,7 +254,5 @@ void LLNearbyChat::setRect	(const LLRect &rect)
 
 void LLNearbyChat::getAllowedRect(LLRect& rect)
 {
-	rect = gViewerWindow->getWorldViewRectRaw();
+	rect = gViewerWindow->getWorldViewRectScaled();
 }
-
-
