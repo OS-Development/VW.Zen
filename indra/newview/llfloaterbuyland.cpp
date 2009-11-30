@@ -48,6 +48,7 @@
 #include "llframetimer.h"
 #include "lliconctrl.h"
 #include "lllineeditor.h"
+#include "llnotificationsutil.h"
 #include "llnotify.h"
 #include "llparcel.h"
 #include "llslurl.h"
@@ -215,7 +216,7 @@ void LLFloaterBuyLand::buyLand(
 {
 	if(is_for_group && !gAgent.hasPowerInActiveGroup(GP_LAND_DEED))
 	{
-		LLNotifications::instance().add("OnlyOfficerCanBuyLand");
+		LLNotificationsUtil::add("OnlyOfficerCanBuyLand");
 		return;
 	}
 
@@ -903,7 +904,7 @@ void LLFloaterBuyLandUI::tellUserError(
 // virtual
 BOOL LLFloaterBuyLandUI::postBuild()
 {
-	mVisibleSignal.connect(boost::bind(&LLFloaterBuyLandUI::onVisibilityChange, this, _2));
+	setVisibleCallback(boost::bind(&LLFloaterBuyLandUI::onVisibilityChange, this, _2));
 	
 	mCurrency.prepare();
 	
@@ -972,7 +973,7 @@ BOOL LLFloaterBuyLandUI::canClose()
 	if (!can_close)
 	{
 		// explain to user why they can't do this, see DEV-9605
-		LLNotifications::instance().add("CannotCloseFloaterBuyLand");
+		LLNotificationsUtil::add("CannotCloseFloaterBuyLand");
 	}
 	return can_close;
 }

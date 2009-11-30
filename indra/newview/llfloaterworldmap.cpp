@@ -51,8 +51,10 @@
 #include "llfloaterreg.h"		// getTypedInstance()
 #include "llfocusmgr.h"
 #include "llinventorymodel.h"
+#include "llinventoryobserver.h"
 #include "lllandmarklist.h"
 #include "lllineeditor.h"
+#include "llnotificationsutil.h"
 #include "llregionhandle.h"
 #include "llscrolllistctrl.h"
 #include "llslurl.h"
@@ -1212,7 +1214,7 @@ void LLFloaterWorldMap::onCopySLURL()
 	LLSD args;
 	args["SLURL"] = mSLURL;
 
-	LLNotifications::instance().add("CopySLURL", args);
+	LLNotificationsUtil::add("CopySLURL", args);
 }
 
 // protected

@@ -132,9 +132,9 @@
           <key>windows</key>
           <map>
             <key>md5sum</key>
-            <string>70b51d0cc93c305026e4e2778cde6d19</string>
+            <string>f5cf8d121b26f2e7944f7e63cdbff04d</string>
             <key>url</key>
-            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/ares-1.6.0-windows-20090722.tar.bz2</uri>
+            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/ares-1.6.0-windows-20091105.tar.bz2</uri>
           </map>
         </map>
       </map>
@@ -254,9 +254,9 @@
           <key>windows</key>
           <map>
             <key>md5sum</key>
-            <string>8dc4e818c2d6fbde76e9a5e34f4ffa72</string>
+            <string>53e5ab7affff7121a5af2f82b4d58b54</string>
             <key>url</key>
-            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/curl-7.19.6-windows-20090917b.tar.bz2</uri>
+            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/curl-7.19.6-windows-20091016.tar.bz2</uri>
           </map>
         </map>
       </map>
@@ -948,23 +948,23 @@ anguage Infrstructure (CLI) international standard</string>
           <key>darwin</key>
           <map>
             <key>md5sum</key>
-            <string>b40a13847ee773c9ee06f641fe0dd1c2</string>
+            <string>7f818f13faf7c02838fe66f7d27e1913</string>
             <key>url</key>
-            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/llqtwebkit-darwin-20091023.tar.bz2</uri>
+            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/llqtwebkit-darwin-20091124.tar.bz2</uri>
           </map>
           <key>linux</key>
           <map>
             <key>md5sum</key>
-            <string>0d8aab394b4dc00aae44b4ada50c2d9f</string>
+            <string>ffede2775355676096b1085cbb9d0da7</string>
             <key>url</key>
-            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/llqtwebkit-linux-20091027.tar.bz2</uri>
+            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/llqtwebkit-linux-20091117.tar.bz2</uri>
           </map>
           <key>windows</key>
           <map>
             <key>md5sum</key>
-            <string>6f2f911545e5906edc87f4f3cda423a1</string>
+            <string>92cff05661b5547caae7cc6c66d09870</string>
             <key>url</key>
-            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/llqtwebkit-windows-20091023.tar.bz2</uri>
+            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/llqtwebkit-windows-20091123.tar.bz2</uri>
           </map>
         </map>
       </map>

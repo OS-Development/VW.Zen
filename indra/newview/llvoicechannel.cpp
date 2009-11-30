@@ -33,9 +33,11 @@
 #include "llviewerprecompiledheaders.h"
 
 #include "llagent.h"
+#include "llfloatercall.h"
 #include "llfloaterreg.h"
 #include "llimview.h"
 #include "llnotifications.h"
+#include "llnotificationsutil.h"
 #include "llpanel.h"
 #include "llrecentpeople.h"
 #include "llviewercontrol.h"
@@ -80,13 +82,13 @@ void LLVoiceCallCapResponder::error(U32 status, const std::string& reason)
 		if ( 403 == status )
 		{
 			//403 == no ability
-			LLNotifications::instance().add(
+			LLNotificationsUtil::add(
 				"VoiceNotAllowed",
 				channelp->getNotifyArgs());
 		}
 		else
 		{
-			LLNotifications::instance().add(
+			LLNotificationsUtil::add(
 				"VoiceCallGenericError",
 				channelp->getNotifyArgs());
 		}
@@ -158,13 +160,13 @@ void LLVoiceChannel::setChannelInfo(
 	{
 		if (mURI.empty())
 		{
-			LLNotifications::instance().add("VoiceChannelJoinFailed", mNotifyArgs);
+			LLNotificationsUtil::add("VoiceChannelJoinFailed", mNotifyArgs);
 			llwarns << "Received empty URI for channel " << mSessionName << llendl;
 			deactivate();
 		}
 		else if (mCredentials.empty())
 		{
-			LLNotifications::instance().add("VoiceChannelJoinFailed", mNotifyArgs);
+			LLNotificationsUtil::add("VoiceChannelJoinFailed", mNotifyArgs);
 			llwarns << "Received empty credentials for channel " << mSessionName << llendl;
 			deactivate();
 		}
@@ -208,7 +210,7 @@ void LLVoiceChannel::handleStatusChange(EStatusType type)
 	{
 	case STATUS_LOGIN_RETRY:
 		//mLoginNotificationHandle = LLNotifyBox::showXml("VoiceLoginRetry")->getHandle();
-		LLNotifications::instance().add("VoiceLoginRetry");
+		LLNotificationsUtil::add("VoiceLoginRetry");
 		break;
 	case STATUS_LOGGED_IN:
 		//if (!mLoginNotificationHandle.isDead())
@@ -226,7 +228,7 @@ void LLVoiceChannel::handleStatusChange(EStatusType type)
 		{
 			// if forceably removed from channel
 			// update the UI and revert to default channel
-			LLNotifications::instance().add("VoiceChannelDisconnected", mNotifyArgs);
+			LLNotificationsUtil::add("VoiceChannelDisconnected", mNotifyArgs);
 			deactivate();
 		}
 		mIgnoreNextSessionLeave = FALSE;
@@ -408,9 +410,14 @@ void LLVoiceChannel::doSetState(const EState& new_state)
 
 void LLVoiceChannel::toggleCallWindowIfNeeded(EState state)
 {
+	LLFloaterCall* floater = dynamic_cast<LLFloaterCall*>(LLFloaterReg::getInstance("voice_call", mSessionID));
+	if (!floater)
+		return;
+
 	if (state == STATE_CONNECTED)
 	{
-		LLFloaterReg::showInstance("voice_call", mSessionID);
+		floater->init(mSessionID);
+		floater->openFloater(mSessionID);
 	}
 	// By checking that current state is CONNECTED we make sure that the call window
 	// has been shown, hence there's something to hide. This helps when user presses
@@ -418,7 +425,8 @@ void LLVoiceChannel::toggleCallWindowIfNeeded(EState state)
 	// *TODO: move this check to LLFloaterCall?
 	else if (state == STATE_HUNG_UP && mState == STATE_CONNECTED)
 	{
-		LLFloaterReg::hideInstance("voice_call", mSessionID);
+		floater->reset();
+		floater->closeFloater();
 	}
 }
 
@@ -612,7 +620,7 @@ void LLVoiceChannelGroup::handleError(EStatusType status)
 	// notification
 	if (!notify.empty())
 	{
-		LLNotificationPtr notification = LLNotifications::instance().add(notify, mNotifyArgs);
+		LLNotificationPtr notification = LLNotificationsUtil::add(notify, mNotifyArgs);
 		// echo to im window
 		gIMMgr->addMessage(mSessionID, LLUUID::null, SYSTEM_FROM, notification->getMessage());
 	}
@@ -718,7 +726,7 @@ void LLVoiceChannelProximal::handleError(EStatusType status)
 	// notification
 	if (!notify.empty())
 	{
-		LLNotifications::instance().add(notify, mNotifyArgs);
+		LLNotificationsUtil::add(notify, mNotifyArgs);
 	}
 
 	LLVoiceChannel::handleError(status);
@@ -747,6 +755,8 @@ LLVoiceChannelP2P::LLVoiceChannelP2P(const LLUUID& session_id, const std::string
 
 void LLVoiceChannelP2P::handleStatusChange(EStatusType type)
 {
+	llinfos << "P2P CALL CHANNEL STATUS CHANGE: incoming=" << int(mReceivedCall) << " newstatus=" << LLVoiceClientStatusObserver::status2string(type) << " (mState=" << mState << ")" << llendl;
+
 	// status updates
 	switch(type)
 	{
@@ -756,12 +766,12 @@ void LLVoiceChannelP2P::handleStatusChange(EStatusType type)
 			if (mState == STATE_RINGING)
 			{
 				// other user declined call
-				LLNotifications::instance().add("P2PCallDeclined", mNotifyArgs);
+				LLNotificationsUtil::add("P2PCallDeclined", mNotifyArgs);
 			}
 			else
 			{
 				// other user hung up
-				LLNotifications::instance().add("VoiceChannelDisconnectedP2P", mNotifyArgs);
+				LLNotificationsUtil::add("VoiceChannelDisconnectedP2P", mNotifyArgs);
 			}
 			deactivate();
 		}
@@ -779,7 +789,7 @@ void LLVoiceChannelP2P::handleError(EStatusType type)
 	switch(type)
 	{
 	case ERROR_NOT_AVAILABLE:
-		LLNotifications::instance().add("P2PCallNoAnswer", mNotifyArgs);
+		LLNotificationsUtil::add("P2PCallNoAnswer", mNotifyArgs);
 		break;
 	default:
 		break;
@@ -873,6 +883,8 @@ void LLVoiceChannelP2P::setState(EState state)
 	// *HACK: Open/close the call window if needed.
 	toggleCallWindowIfNeeded(state);
 	
+	llinfos << "P2P CALL STATE CHANGE: incoming=" << int(mReceivedCall) << " oldstate=" << mState << " newstate=" << state << llendl;
+
 	if (mReceivedCall) // incoming call
 	{
 		// you only "answer" voice invites in p2p mode
@@ -889,7 +901,8 @@ void LLVoiceChannelP2P::setState(EState state)
 		mCallDialogPayload["session_id"] = mSessionID;
 		mCallDialogPayload["session_name"] = mSessionName;
 		mCallDialogPayload["other_user_id"] = mOtherUserID;
-		if (state == STATE_RINGING)
+		if (state == STATE_RINGING ||
+		    state == STATE_CALL_STARTED)
 		{
 			// *HACK: open outgoing call floater if needed, might be better done elsewhere.
 			// *TODO: should move this squirrelly ui-fudging crap into LLOutgoingCallDialog itself
@@ -901,6 +914,7 @@ void LLVoiceChannelP2P::setState(EState state)
 					ocd->getChild<LLTextBox>("calling")->setVisible(true);
 					ocd->getChild<LLTextBox>("leaving")->setVisible(true);
 					ocd->getChild<LLTextBox>("connecting")->setVisible(false);
+					ocd->getChild<LLTextBox>("noanswer")->setVisible(false);
 				}
 			}
 		}
@@ -912,16 +926,29 @@ void LLVoiceChannelP2P::setState(EState state)
 					ocd->getChild<LLTextBox>("calling")->setVisible(false);
 					ocd->getChild<LLTextBox>("leaving")->setVisible(false);
 					ocd->getChild<LLTextBox>("connecting")->setVisible(true);
+					ocd->getChild<LLTextBox>("noanswer")->setVisible(false);
 				}			
 				}*/
+		else if (state == STATE_ERROR)
+		{
+			LLOutgoingCallDialog *ocd = dynamic_cast<LLOutgoingCallDialog*>(LLFloaterReg::showInstance("outgoing_call", mCallDialogPayload, TRUE));
+			if (ocd)
+			{
+				ocd->getChild<LLTextBox>("calling")->setVisible(false);
+				ocd->getChild<LLTextBox>("leaving")->setVisible(false);
+				ocd->getChild<LLTextBox>("connecting")->setVisible(false);
+				ocd->getChild<LLTextBox>("noanswer")->setVisible(true);
+			}			
+		}
 		else if (state == STATE_HUNG_UP ||
 			 state == STATE_CONNECTED)
 		{
-				LLOutgoingCallDialog *ocd = dynamic_cast<LLOutgoingCallDialog*>(LLFloaterReg::showInstance("outgoing_call", mCallDialogPayload, TRUE));
-				if (ocd)
-				{
-					ocd->closeFloater();
-				}			
+			// hide popup
+			LLOutgoingCallDialog *ocd = dynamic_cast<LLOutgoingCallDialog*>(LLFloaterReg::showInstance("outgoing_call", mCallDialogPayload, TRUE));
+			if (ocd)
+			{
+				ocd->closeFloater();
+			}			
 		}
 	}
 

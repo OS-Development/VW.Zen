@@ -46,11 +46,6 @@
 #include <string>
 #include <vector>
 
-// ! REFACTOR ! Remove llinventoryobservers.h and have other files that need it explicitly 
-// include llinventoryobservers.h instead of llinventorymodel.h .  This will reduce dependency on
-// llinventorymodel.h.
-#include "llinventoryobserver.h" 
-
 class LLInventoryObserver;
 class LLInventoryObject;
 class LLInventoryItem;
@@ -172,8 +167,6 @@ public:
 	// Assumes item_id is itself not a linked item.
 	item_array_t collectLinkedItems(const LLUUID& item_id,
 									const LLUUID& start_folder_id = LLUUID::null);
-	// Updates all linked items pointing to this id.
-	void updateLinkedItems(const LLUUID& object_id);
 
 	// Get the inventoryID that this item points to, else just return item_id
 	const LLUUID& getLinkedItemID(const LLUUID& object_id) const;
@@ -252,17 +245,19 @@ public:
 
 	// findCategoryUUIDForType() returns the uuid of the category that
 	// specifies 'type' as what it defaults to containing. The
-	// category is not necessarily only for that type. *NOTE: This
-	// will create a new inventory category on the fly if one does not
-	// exist.
-
+	// category is not necessarily only for that type. *NOTE: If create_folder is true, this
+	// will create a new inventory category on the fly if one does not exist. *NOTE: if find_in_library is
+	// true it will search in the user's library folder instead of "My Inventory"
 	// SDK: Added flag to specify whether the folder should be created if not found.  This fixes the horrible
 	// multiple trash can bug.
-	const LLUUID findCategoryUUIDForType(LLFolderType::EType preferred_type, bool create_folder = true);
+	const LLUUID findCategoryUUIDForType(LLFolderType::EType preferred_type, bool create_folder = true, bool find_in_library = false);
 
-	// Call this method when it's time to update everyone on a new
-	// state, by default, the inventory model will not update
-	// observers automatically.
+	// This gets called by the idle loop.  It only updates if new
+	// state is detected.  Call notifyObservers() manually to update
+	// regardless of whether state change has been indicated.
+	void idleNotifyObservers();
+
+	// Call this method to explicitly update everyone on a new state.
 	// The optional argument 'service_name' is used by Agent Inventory Service [DEV-20328]
 	void notifyObservers(const std::string service_name="");
 
@@ -409,7 +404,7 @@ protected:
 	// 
 	// Internal method which looks for a category with the specified
 	// preferred type. Returns LLUUID::null if not found
- 	const LLUUID &findCatUUID(LLFolderType::EType preferred_type) const;
+ 	const LLUUID &findCatUUID(LLFolderType::EType preferred_type, bool find_in_library = false) const;
 
 	// Empty the entire contents
 	void empty();
@@ -445,6 +440,9 @@ protected:
 	static void processFetchInventoryReply(LLMessageSystem* msg, void**);
 	
 	bool messageUpdateCore(LLMessageSystem* msg, bool do_accounting);
+
+	// Updates all linked items pointing to this id.
+	void addChangedMaskForLinks(const LLUUID& object_id, U32 mask);
 
 protected:
 	cat_array_t* getUnlockedCatArray(const LLUUID& id);

@@ -34,7 +34,6 @@
 #define LL_LLSTATUSBAR_H
 
 #include "llpanel.h"
-#include <llmenugl.h>
 
 // "Constants" loaded from settings.xml at start time
 extern S32 STATUS_BAR_HEIGHT;
@@ -48,6 +47,7 @@ class LLUICtrl;
 class LLUUID;
 class LLFrameTimer;
 class LLStatGraph;
+class LLPanelVolumePulldown;
 
 class LLStatusBar
 :	public LLPanel
@@ -93,8 +93,8 @@ private:
 
 	void onVolumeChanged(const LLSD& newvalue);
 
+	static void onMouseEnterVolume(LLUICtrl* ctrl);
 	static void onClickStatGraph(void* data);
-	
 
 private:
 	LLTextBox	*mTextHealth;

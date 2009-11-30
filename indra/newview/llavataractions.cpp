@@ -38,6 +38,7 @@
 #include "llsd.h"
 #include "lldarray.h"
 #include "llnotifications.h"
+#include "llnotificationsutil.h"
 
 #include "roles_constants.h"    // for GP_MEMBER_INVITE
 
@@ -69,7 +70,7 @@ void LLAvatarActions::requestFriendshipDialog(const LLUUID& id, const std::strin
 {
 	if(id == gAgentID)
 	{
-		LLNotifications::instance().add("AddSelfFriend");
+		LLNotificationsUtil::add("AddSelfFriend");
 		return;
 	}
 
@@ -83,11 +84,11 @@ void LLAvatarActions::requestFriendshipDialog(const LLUUID& id, const std::strin
 	{
 		// Old and busted server version, doesn't support friend
 		// requests with messages.
-    	LLNotifications::instance().add("AddFriend", args, payload, &callbackAddFriend);
+    	LLNotificationsUtil::add("AddFriend", args, payload, &callbackAddFriend);
 	}
 	else
 	{
-    	LLNotifications::instance().add("AddFriendWithMessage", args, payload, &callbackAddFriendWithMessage);
+    	LLNotificationsUtil::add("AddFriendWithMessage", args, payload, &callbackAddFriendWithMessage);
 	}
 
 	// add friend to recent people list
@@ -149,7 +150,7 @@ void LLAvatarActions::removeFriendsDialog(const std::vector<LLUUID>& ids)
 		payload["ids"].append(*it);
 	}
 
-	LLNotifications::instance().add(msgType,
+	LLNotificationsUtil::add(msgType,
 		args,
 		payload,
 		&handleRemove);
@@ -187,6 +188,19 @@ void LLAvatarActions::startIM(const LLUUID& id)
 		LLIMFloater::show(session_id);
 	}
 	make_ui_sound("UISndStartIM");
+}
+
+// static
+void LLAvatarActions::endIM(const LLUUID& id)
+{
+	if (id.isNull())
+		return;
+	
+	LLUUID session_id = gIMMgr->computeSessionID(IM_NOTHING_SPECIAL, id);
+	if (session_id != LLUUID::null)
+	{
+		gIMMgr->leaveSession(session_id);
+	}
 }
 
 // static
@@ -284,7 +298,7 @@ void LLAvatarActions::showProfile(const LLUUID& id)
 		//Show own profile
 		if(gAgent.getID() == id)
 		{
-			LLSideTray::getInstance()->showPanel("panel_me_profile", params);
+			LLSideTray::getInstance()->showPanel("panel_me", params);
 		}
 		//Show other user profile
 		else
@@ -311,6 +325,27 @@ void LLAvatarActions::pay(const LLUUID& id)
 	}
 }
 
+//static 
+void LLAvatarActions::share(const LLUUID& id)
+{
+	LLSD key;
+	LLSideTray::getInstance()->showPanel("sidepanel_inventory", key);
+
+
+	LLUUID session_id = gIMMgr->computeSessionID(IM_NOTHING_SPECIAL,id);
+
+	if (!gIMMgr->hasSession(session_id))
+	{
+		startIM(id);
+	}
+
+	if (gIMMgr->hasSession(session_id))
+	{
+		// we should always get here, but check to verify anyways
+		LLIMModel::getInstance()->addMessage(session_id, SYSTEM_FROM, LLUUID::null, LLTrans::getString("share_alert"), false);
+	}
+}
+
 // static
 void LLAvatarActions::toggleBlock(const LLUUID& id)
 {
@@ -334,9 +369,9 @@ void LLAvatarActions::inviteToGroup(const LLUUID& id)
 	LLFloaterGroupPicker* widget = LLFloaterReg::showTypedInstance<LLFloaterGroupPicker>("group_picker", LLSD(id));
 	if (widget)
 	{
-		widget->removeNoneOption();
 		widget->center();
 		widget->setPowersMask(GP_MEMBER_INVITE);
+		widget->removeNoneOption();
 		widget->setSelectGroupCallback(boost::bind(callback_invite_to_group, _1, id));
 	}
 }
@@ -346,7 +381,7 @@ void LLAvatarActions::inviteToGroup(const LLUUID& id)
 // static
 bool LLAvatarActions::handleRemove(const LLSD& notification, const LLSD& response)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 
 	const LLSD& ids = notification["payload"]["ids"];
 	for (LLSD::array_const_iterator itr = ids.beginArray(); itr != ids.endArray(); ++itr)
@@ -380,7 +415,7 @@ bool LLAvatarActions::handleRemove(const LLSD& notification, const LLSD& respons
 // static
 bool LLAvatarActions::handlePay(const LLSD& notification, const LLSD& response, LLUUID avatar_id)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	if (option == 0)
 	{
 		gAgent.clearBusy();
@@ -403,7 +438,7 @@ void LLAvatarActions::callback_invite_to_group(LLUUID group_id, LLUUID id)
 // static
 bool LLAvatarActions::callbackAddFriendWithMessage(const LLSD& notification, const LLSD& response)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	if (option == 0)
 	{
 		requestFriendship(notification["payload"]["id"].asUUID(), 
@@ -416,7 +451,7 @@ bool LLAvatarActions::callbackAddFriendWithMessage(const LLSD& notification, con
 // static
 bool LLAvatarActions::callbackAddFriend(const LLSD& notification, const LLSD& response)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	if (option == 0)
 	{
 		// Servers older than 1.25 require the text of the message to be the

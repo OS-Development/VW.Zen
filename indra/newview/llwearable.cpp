@@ -36,8 +36,10 @@
 #include "llagentwearables.h"
 #include "llfloatercustomize.h"
 #include "lllocaltextureobject.h"
+#include "llnotificationsutil.h"
 #include "llviewertexturelist.h"
 #include "llinventorymodel.h"
+#include "llinventoryobserver.h"
 #include "llviewerregion.h"
 #include "llvoavatar.h"
 #include "llvoavatarself.h"
@@ -225,7 +227,13 @@ BOOL LLWearable::importFile( LLFILE* file )
 		return FALSE;
 	}
 
-	if( mDefinitionVersion > LLWearable::sCurrentDefinitionVersion )
+
+	// Temoprary hack to allow wearables with definition version 24 to still load.
+	// This should only affect lindens and NDA'd testers who have saved wearables in 2.0
+	// the extra check for version == 24 can be removed before release, once internal testers
+	// have loaded these wearables again. See hack pt 2 at bottom of function to ensure that
+	// these wearables get re-saved with version definition 22.
+	if( mDefinitionVersion > LLWearable::sCurrentDefinitionVersion && mDefinitionVersion != 24 )
 	{
 		llwarns << "Wearable asset has newer version (" << mDefinitionVersion << ") than XML (" << LLWearable::sCurrentDefinitionVersion << ")" << llendl;
 		return FALSE;
@@ -831,6 +839,7 @@ void LLWearable::addVisualParam(LLVisualParam *param)
 	}
 	param->setIsDummy(FALSE);
 	mVisualParamIndexMap[param->getID()] = param;
+	mSavedVisualParamMap[param->getID()] = param->getDefaultWeight();
 }
 
 void LLWearable::setVisualParams()
@@ -933,11 +942,39 @@ void LLWearable::setClothesColor( S32 te, const LLColor4& new_color, BOOL upload
 void LLWearable::revertValues()
 {
 	//update saved settings so wearable is no longer dirty
+	// non-driver params first
 	for (param_map_t::const_iterator iter = mSavedVisualParamMap.begin(); iter != mSavedVisualParamMap.end(); iter++)
 	{
 		S32 id = iter->first;
 		F32 value = iter->second;
-		setVisualParamWeight(id, value, TRUE);
+		LLVisualParam *param = getVisualParam(id);
+		if(param &&  !dynamic_cast<LLDriverParam*>(param) )
+		{
+			setVisualParamWeight(id, value, TRUE);
+		}
+	}
+
+	//then driver params
+	for (param_map_t::const_iterator iter = mSavedVisualParamMap.begin(); iter != mSavedVisualParamMap.end(); iter++)
+	{
+		S32 id = iter->first;
+		F32 value = iter->second;
+		LLVisualParam *param = getVisualParam(id);
+		if(param &&  dynamic_cast<LLDriverParam*>(param) )
+		{
+			setVisualParamWeight(id, value, TRUE);
+		}
+	}
+
+	// make sure that saved values are sane
+	for (param_map_t::const_iterator iter = mSavedVisualParamMap.begin(); iter != mSavedVisualParamMap.end(); iter++)
+	{
+		S32 id = iter->first;
+		LLVisualParam *param = getVisualParam(id);
+		if( param )
+		{
+			mSavedVisualParamMap[id] = param->getWeight();
+		}
 	}
 
 	syncImages(mSavedTEMap, mTEMap);
@@ -1051,6 +1088,12 @@ void LLWearable::destroyTextures()
 	mSavedTEMap.clear();
 }
 
+
+void LLWearable::setLabelUpdated() const
+{ 
+	gInventory.addChangedMask(LLInventoryObserver::LABEL, getItemID());
+}
+
 struct LLWearableSaveData
 {
 	EWearableType mType;
@@ -1080,7 +1123,7 @@ void LLWearable::saveNewAsset() const
 		
 		LLSD args;
 		args["NAME"] = mName;
-		LLNotifications::instance().add("CannotSaveWearableOutOfSpace", args);
+		LLNotificationsUtil::add("CannotSaveWearableOutOfSpace", args);
 		return;
 	}
 
@@ -1128,7 +1171,7 @@ void LLWearable::onSaveNewAssetComplete(const LLUUID& new_asset_id, void* userda
 		llwarns << buffer << " Status: " << status << llendl;
 		LLSD args;
 		args["NAME"] = type_name;
-		LLNotifications::instance().add("CannotSaveToAssetStore", args);
+		LLNotificationsUtil::add("CannotSaveToAssetStore", args);
 	}
 
 	// Delete temp file

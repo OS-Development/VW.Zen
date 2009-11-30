@@ -41,7 +41,6 @@
 	 width="600">
 	     <button
 	     follows="left|top"
-	     font="SansSerifSmall"
 	     height="23"
 	     image_disabled="PushButton_Disabled"
 	     image_disabled_selected="PushButton_Disabled"
@@ -58,7 +57,6 @@
 
 	    <button
 	     follows="left|top"
-	     font="SansSerifSmall"
 	     height="23"
 	     image_disabled="PushButton_Disabled"
 	     image_disabled_selected="PushButton_Disabled"
@@ -74,7 +72,6 @@
 	     width="31" />
 	    <button
 	     follows="left|top"
-	     font="SansSerifSmall"
 	     height="23"
 	     image_disabled="PushButton_Disabled"
 	     image_disabled_selected="PushButton_Disabled"
@@ -156,7 +153,7 @@
      layout="topleft"
      left="0"
      name="favorite"
-     image_drag_indication="Arrow_Down"
+     image_drag_indication="arrow_down.tga"
      chevron_button_tool_tip="Show more of My Favorites"
      bottom="62"
      width="590" />

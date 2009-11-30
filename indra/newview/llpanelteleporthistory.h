@@ -80,6 +80,7 @@ public:
 private:
 
 	void onDoubleClickItem();
+	void onReturnKeyPressed();
 	void onAccordionTabRightClick(LLView *view, S32 x, S32 y, MASK mask);
 	void onAccordionTabOpen(LLAccordionCtrlTab *tab);
 	void onAccordionTabClose(LLAccordionCtrlTab *tab);
@@ -96,6 +97,10 @@ private:
 	void handleItemSelect(LLFlatListView* );
 	LLFlatListView* getFlatListViewFromTab(LLAccordionCtrlTab *);
 	void onGearButtonClicked();
+
+	void setAccordionCollapsedByUser(LLUICtrl* acc_tab, bool collapsed);
+	bool isAccordionCollapsedByUser(LLUICtrl* acc_tab);
+	void onAccordionExpand(LLUICtrl* ctrl, const LLSD& param);
 
 	LLTeleportHistoryStorage*	mTeleportHistory;
 	LLAccordionCtrl*		mHistoryAccordion;

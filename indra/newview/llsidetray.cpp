@@ -34,6 +34,7 @@
 
 #include "lltextbox.h"
 
+#include "llagent.h"
 #include "llbottomtray.h"
 #include "llsidetray.h"
 #include "llviewerwindow.h"
@@ -435,35 +436,16 @@ void		LLSideTray::processTriState ()
 		expandSideBar();
 	else
 	{
-		//!!!!!!!!!!!!!!!!!
-		//** HARDCODED!!!!!
-		//!!!!!!!!!!!!!!!!!
-
-		//there is no common way to determine "default" panel for tab
-		//so default panels for now will be hardcoded
-
-		//hardcoded for people tab and profile tab
-
-		/*if(mActiveTab == getTab("sidebar_people"))
-		{
-			LLSideTrayPanelContainer* container = findChild<LLSideTrayPanelContainer>("panel_container");
-			if(container && container->getCurrentPanelIndex()>0)
-			{
-				container->onOpen(LLSD().insert("sub_panel_name","panel_people"));
-			}
-			else
-				collapseSideBar();
-		}
-		else if(mActiveTab == getTab("sidebar_me"))
-		{
-			LLTabContainer* tab_container = findChild<LLTabContainer>("tabs");
-			if(tab_container && tab_container->getCurrentPanelIndex()>0)
-				tab_container->selectFirstTab();
-			else
-				collapseSideBar();
-		}
-		else*/
-			collapseSideBar();
+#if 0 // *TODO: EXT-2092
+		
+		// Tell the active task panel to switch to its default view
+		// or collapse side tray if already on the default view.
+		LLSD info;
+		info["task-panel-action"] = "handle-tri-state";
+		mActiveTab->notifyChildren(info);
+#else
+		collapseSideBar();
+#endif
 	}
 }
 
@@ -601,6 +583,17 @@ void LLSideTray::expandSideBar()
 	mActiveTab->onOpen(key);
 
 	reflectCollapseChange();
+
+
+	std::string name = mActiveTab->getName();
+	std::map<std::string,LLButton*>::const_iterator btn_it =
+		mTabButtons.find(name);
+	if (btn_it != mTabButtons.end())
+	{
+		LLButton* btn = btn_it->second;
+		btn->setImageOverlay( mActiveTab->mImageSelected  );
+	}
+
 }
 
 void LLSideTray::highlightFocused()
@@ -673,6 +666,24 @@ LLPanel*	LLSideTray::showPanel		(const std::string& panel_name, const LLSD& para
 	return NULL;
 }
 
+LLPanel*	LLSideTray::getPanel		(const std::string& panel_name)
+{
+	child_vector_const_iter_t child_it;
+	for ( child_it = mTabs.begin(); child_it != mTabs.end(); ++child_it)
+	{
+		LLView* view = (*child_it)->findChildView(panel_name,true);
+		if(view)
+		{
+			LLPanel* panel = dynamic_cast<LLPanel*>(view);
+			if(panel)
+			{
+				return panel;
+			}
+		}
+	}
+	return NULL;
+}
+
 // *TODO: Eliminate magic constants.
 static const S32	fake_offset = 132;
 static const S32	fake_top_offset = 18;
@@ -682,7 +693,7 @@ void	LLSideTray::updateSidetrayVisibility()
 	// set visibility of parent container based on collapsed state
 	if (getParent())
 	{
-		getParent()->setVisible(!mCollapsed);
+		getParent()->setVisible(!mCollapsed && !gAgent.cameraMouselook());
 	}
 }
 

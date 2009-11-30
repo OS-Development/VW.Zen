@@ -36,6 +36,7 @@
 #include "llnotificationhandler.h"
 
 #include "llagentdata.h"
+#include "llnotifications.h"
 #include "lltoastimpanel.h"
 #include "llviewerwindow.h"
 
@@ -58,7 +59,7 @@ LLIMHandler::~LLIMHandler()
 //--------------------------------------------------------------------------
 void LLIMHandler::initChannel()
 {
-	S32 channel_right_bound = gViewerWindow->getWorldViewRectRaw().mRight - gSavedSettings.getS32("NotificationChannelRightMargin"); 
+	S32 channel_right_bound = gViewerWindow->getWorldViewRectScaled().mRight - gSavedSettings.getS32("NotificationChannelRightMargin"); 
 	S32 channel_width = gSavedSettings.getS32("NotifyBoxWidth");
 	mChannel->init(channel_right_bound - channel_width, channel_right_bound);
 }

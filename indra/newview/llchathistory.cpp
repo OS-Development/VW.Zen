@@ -33,11 +33,9 @@
 #include "llviewerprecompiledheaders.h"
 #include "llchathistory.h"
 #include "llpanel.h"
-#include "lltextbox.h"
 #include "lluictrlfactory.h"
 #include "llscrollcontainer.h"
 #include "llavatariconctrl.h"
-
 #include "llimview.h"
 #include "llcallingcard.h" //for LLAvatarTracker
 #include "llagentdata.h"
@@ -46,22 +44,9 @@
 #include "llfloaterreg.h"
 #include "llmutelist.h"
 
+#include "llsidetray.h"//for blocked objects panel
+
 static LLDefaultChildRegistry::Register<LLChatHistory> r("chat_history");
-
-std::string formatCurrentTime()
-{
-	time_t utc_time;
-	utc_time = time_corrected();
-	std::string timeStr ="["+ LLTrans::getString("TimeHour")+"]:["
-		+LLTrans::getString("TimeMin")+"] ";
-
-	LLSD substitution;
-
-	substitution["datetime"] = (S32) utc_time;
-	LLStringUtil::format (timeStr, substitution);
-
-	return timeStr;
-}
 
 class LLChatHistoryHeader: public LLPanel
 {
@@ -84,10 +69,16 @@ public:
 
 		if (level == "profile")
 		{
+			LLSD params;
+			params["object_id"] = getAvatarId();
+
+			LLFloaterReg::showInstance("inspect_object", params);
 		}
 		else if (level == "block")
 		{
 			LLMuteList::getInstance()->add(LLMute(getAvatarId(), mFrom, LLMute::OBJECT));
+
+			LLSideTray::getInstance()->showPanel("panel_block_list_sidetray", LLSD().insert("blocked_to_select", getAvatarId()));
 		}
 	}
 
@@ -192,11 +183,10 @@ public:
 			mSourceType = CHAT_SOURCE_SYSTEM;
 		}
 
-		LLTextBox* userName = getChild<LLTextBox>("user_name");
+		LLTextEditor* userName = getChild<LLTextEditor>("user_name");
 
-		LLUIColor color = style_params.color;
-		userName->setReadOnlyColor(color);
-		userName->setColor(color);
+		userName->setReadOnlyColor(style_params.readonly_color());
+		userName->setColor(style_params.color());
 		
 		if(!chat.mFromName.empty())
 		{
@@ -209,10 +199,8 @@ public:
 			userName->setValue(SL);
 		}
 
+		setTimeField(chat);
 		
-		LLTextBox* timeBox = getChild<LLTextBox>("time_box");
-		timeBox->setValue(formatCurrentTime());
-
 		LLAvatarIconCtrl* icon = getChild<LLAvatarIconCtrl>("avatar_icon");
 
 		if(mSourceType != CHAT_SOURCE_AGENT)
@@ -278,7 +266,46 @@ protected:
 		}
 	}
 
-	
+private:
+	std::string appendTime(const LLChat& chat)
+	{
+		time_t utc_time;
+		utc_time = time_corrected();
+		std::string timeStr ="["+ LLTrans::getString("TimeHour")+"]:["
+			+LLTrans::getString("TimeMin")+"] ";
+
+		LLSD substitution;
+
+		substitution["datetime"] = (S32) utc_time;
+		LLStringUtil::format (timeStr, substitution);
+
+		return timeStr;
+	}
+
+	void setTimeField(const LLChat& chat)
+	{
+		LLTextBox* time_box = getChild<LLTextBox>("time_box");
+
+		LLRect rect_before = time_box->getRect();
+
+		std::string time_value = appendTime(chat);
+
+		time_box->setValue(time_value);
+
+		// set necessary textbox width to fit all text
+		time_box->reshapeToFitText();
+		LLRect rect_after = time_box->getRect();
+
+		// move rect to the left to correct position...
+		S32 delta_pos_x = rect_before.getWidth() - rect_after.getWidth();
+		S32 delta_pos_y = rect_before.getHeight() - rect_after.getHeight();
+		time_box->translate(delta_pos_x, delta_pos_y);
+
+		//... & change width of the name control
+		LLTextBox* user_name = getChild<LLTextBox>("user_name");
+		const LLRect& user_rect = user_name->getRect();
+		user_name->reshape(user_rect.getWidth() + delta_pos_x, user_rect.getHeight());
+	}
 
 protected:
 	LLHandle<LLView>	mPopupMenuHandleAvatar;
@@ -341,59 +368,88 @@ LLView* LLChatHistory::getHeader(const LLChat& chat,const LLStyle::Params& style
 	return header;
 }
 
-void LLChatHistory::appendWidgetMessage(const LLChat& chat)
+void LLChatHistory::clear()
 {
-	LLView* view = NULL;
-	std::string view_text = "\n[" + formatCurrentTime() + "] " + chat.mFromName + ": ";
+	mLastFromName.clear();
+	LLTextEditor::clear();
+}
 
-
-	LLInlineViewSegment::Params p;
-	p.force_newline = true;
-	p.left_pad = mLeftWidgetPad;
-	p.right_pad = mRightWidgetPad;
-
-	
+void LLChatHistory::appendMessage(const LLChat& chat, const bool use_plain_text_chat_history, const LLStyle::Params& input_append_params)
+{
 	LLColor4 txt_color = LLUIColorTable::instance().getColor("White");
 	LLViewerChat::getChatColor(chat,txt_color);
-	LLFontGL* fontp = LLViewerChat::getChatFont();
-	
+	LLFontGL* fontp = LLViewerChat::getChatFont();	
+	std::string font_name = LLFontGL::nameFromFont(fontp);
+	std::string font_size = LLFontGL::sizeFromFont(fontp);	
 	LLStyle::Params style_params;
 	style_params.color(txt_color);
 	style_params.readonly_color(txt_color);
-	style_params.font(fontp);
-
+	style_params.font.name(font_name);
+	style_params.font.size(font_size);	
+	style_params.font.style(input_append_params.font.style);
 	
-	if (mLastFromName == chat.mFromName)
+	std::string header_text = "[" + chat.mTimeStr + "] ";
+	if (utf8str_trim(chat.mFromName).size() != 0 && chat.mFromName != SYSTEM_FROM)
+		header_text += chat.mFromName + ": ";
+	
+	if (use_plain_text_chat_history)
 	{
-		view = getSeparator();
-		p.top_pad = mTopSeparatorPad;
-		p.bottom_pad = mBottomSeparatorPad;
+		appendText(header_text, getText().size() != 0, style_params);
 	}
 	else
 	{
-		view = getHeader(chat,style_params);
-		if (getText().size() == 0)
-			p.top_pad = 0;
+		LLView* view = NULL;
+		LLInlineViewSegment::Params p;
+		p.force_newline = true;
+		p.left_pad = mLeftWidgetPad;
+		p.right_pad = mRightWidgetPad;
+
+		LLDate new_message_time = LLDate::now();
+
+		if (mLastFromName == chat.mFromName && 
+			mLastMessageTime.notNull() &&
+			(new_message_time.secondsSinceEpoch() - mLastMessageTime.secondsSinceEpoch()) < 60.0 )
+		{
+			view = getSeparator();
+			p.top_pad = mTopSeparatorPad;
+			p.bottom_pad = mBottomSeparatorPad;
+		}
 		else
-			p.top_pad = mTopHeaderPad;
-		p.bottom_pad = mBottomHeaderPad;
-		
+		{
+			view = getHeader(chat, style_params);
+			if (getText().size() == 0)
+				p.top_pad = 0;
+			else
+				p.top_pad = mTopHeaderPad;
+			p.bottom_pad = mBottomHeaderPad;
+			
+		}
+		p.view = view;
+
+		//Prepare the rect for the view
+		LLRect target_rect = getDocumentView()->getRect();
+		// squeeze down the widget by subtracting padding off left and right
+		target_rect.mLeft += mLeftWidgetPad + mHPad;
+		target_rect.mRight -= mRightWidgetPad;
+		view->reshape(target_rect.getWidth(), view->getRect().getHeight());
+		view->setOrigin(target_rect.mLeft, view->getRect().mBottom);
+
+		appendWidget(p, header_text, false);
+		mLastFromName = chat.mFromName;
+		mLastMessageTime = new_message_time;
 	}
-	p.view = view;
+	//Handle IRC styled /me messages.
+	std::string prefix = chat.mText.substr(0, 4);
+	if (prefix == "/me " || prefix == "/me'")
+	{
+		style_params.font.style = "ITALIC";
 
-	//Prepare the rect for the view
-	LLRect target_rect = getDocumentView()->getRect();
-	// squeeze down the widget by subtracting padding off left and right
-	target_rect.mLeft += mLeftWidgetPad + mHPad;
-	target_rect.mRight -= mRightWidgetPad;
-	view->reshape(target_rect.getWidth(), view->getRect().getHeight());
-	view->setOrigin(target_rect.mLeft, view->getRect().mBottom);
-
-	appendWidget(p, view_text, false);
-
-	//Append the text message
-	appendText(chat.mText, FALSE, style_params);
-
-	mLastFromName = chat.mFromName;
+		if (chat.mFromName.size() > 0)
+			appendText(chat.mFromName + " ", TRUE, style_params);
+		appendText(chat.mText.substr(4), FALSE, style_params);
+	}
+	else
+		appendText(chat.mText, FALSE, style_params);
 	blockUndo();
 }
+

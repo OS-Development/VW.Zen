@@ -43,7 +43,7 @@
 #include "llcombobox.h"
 #include "llfiltereditor.h"
 #include "llfloaterreg.h"
-#include "llnotifications.h"
+#include "llnotificationsutil.h"
 #include "lltabcontainer.h"
 #include "lltexteditor.h"
 #include "lltrans.h"
@@ -80,7 +80,6 @@ static const std::string TELEPORT_HISTORY_INFO_TYPE	= "teleport_history";
 // Helper functions
 static bool is_agent_in_selected_parcel(LLParcel* parcel);
 static void onSLURLBuilt(std::string& slurl);
-static void setAllChildrenVisible(LLView* view, BOOL visible);
 
 //Observer classes
 class LLPlacesParcelObserver : public LLParcelObserver
@@ -223,7 +222,7 @@ BOOL LLPanelPlaces::postBuild()
 	notes_editor->setKeystrokeCallback(boost::bind(&LLPanelPlaces::onEditButtonClicked, this));
 
 	LLComboBox* folder_combo = mLandmarkInfo->getChild<LLComboBox>("folder_combo");
-	folder_combo->setSelectionCallback(boost::bind(&LLPanelPlaces::onEditButtonClicked, this));
+	folder_combo->setCommitCallback(boost::bind(&LLPanelPlaces::onEditButtonClicked, this));
 
 	return TRUE;
 }
@@ -418,7 +417,7 @@ void LLPanelPlaces::onTeleportButtonClicked()
 		{
 			LLSD payload;
 			payload["asset_id"] = mItem->getAssetUUID();
-			LLNotifications::instance().add("TeleportFromLandmark", LLSD(), payload);
+			LLNotificationsUtil::add("TeleportFromLandmark", LLSD(), payload);
 		}
 		else if (mPlaceInfoType == AGENT_INFO_TYPE ||
 				 mPlaceInfoType == REMOTE_PLACE_INFO_TYPE ||
@@ -601,9 +600,12 @@ void LLPanelPlaces::onOverflowButtonClicked()
 	if (!menu->toggleVisibility())
 		return;
 
+	if (menu->getButtonRect().isEmpty())
+	{
+		menu->setButtonRect(mOverflowBtn);
+	}
 	menu->updateParent(LLMenuGL::sMenuContainer);
 	LLRect rect = mOverflowBtn->getRect();
-	menu->setButtonRect(rect, this);
 	LLMenuGL::showPopup(this, menu, rect.mRight, rect.mTop);
 }
 
@@ -697,8 +699,6 @@ void LLPanelPlaces::onBackButtonClicked()
 
 void LLPanelPlaces::togglePickPanel(BOOL visible)
 {
-	setAllChildrenVisible(this, !visible);
-
 	if (mPickPanel)
 		mPickPanel->setVisible(visible);
 }
@@ -906,18 +906,5 @@ static void onSLURLBuilt(std::string& slurl)
 	LLSD args;
 	args["SLURL"] = slurl;
 
-	LLNotifications::instance().add("CopySLURL", args);
-}
-
-static void setAllChildrenVisible(LLView* view, BOOL visible)
-{
-	const LLView::child_list_t* children = view->getChildList();
-	for (LLView::child_list_const_iter_t child_it = children->begin(); child_it != children->end(); ++child_it)
-	{
-		LLView* child = *child_it;
-		if (child->getParent() == view)
-		{
-			child->setVisible(visible);
-		}
-	}
+	LLNotificationsUtil::add("CopySLURL", args);
 }

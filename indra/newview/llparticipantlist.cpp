@@ -47,10 +47,11 @@
 #if LL_MSVC
 #pragma warning (disable : 4355) // 'this' used in initializer list: yes, intentionally
 #endif
-LLParticipantList::LLParticipantList(LLSpeakerMgr* data_source, LLAvatarList* avatar_list):
+LLParticipantList::LLParticipantList(LLSpeakerMgr* data_source, LLAvatarList* avatar_list,  bool use_context_menu/* = true*/):
 	mSpeakerMgr(data_source),
 	mAvatarList(avatar_list),
 	mSortOrder(E_SORT_BY_NAME)
+,	mParticipantListMenu(NULL)
 {
 	mSpeakerAddListener = new SpeakerAddListener(*this);
 	mSpeakerRemoveListener = new SpeakerRemoveListener(*this);
@@ -65,9 +66,18 @@ LLParticipantList::LLParticipantList(LLSpeakerMgr* data_source, LLAvatarList* av
 	mAvatarList->setNoItemsCommentText(LLTrans::getString("LoadingData"));
 	mAvatarList->setDoubleClickCallback(boost::bind(&LLParticipantList::onAvatarListDoubleClicked, this, mAvatarList));
 	mAvatarList->setRefreshCompleteCallback(boost::bind(&LLParticipantList::onAvatarListRefreshed, this, _1, _2));
+    // Set onAvatarListDoubleClicked as default on_return action.
+	mAvatarList->setReturnCallback(boost::bind(&LLParticipantList::onAvatarListDoubleClicked, this, mAvatarList));
 
-	mParticipantListMenu = new LLParticipantListMenu(*this);
-	mAvatarList->setContextMenu(mParticipantListMenu);
+	if (use_context_menu)
+	{
+		mParticipantListMenu = new LLParticipantListMenu(*this);
+		mAvatarList->setContextMenu(mParticipantListMenu);
+	}
+	else
+	{
+		mAvatarList->setContextMenu(NULL);
+	}
 
 	//Lets fill avatarList with existing speakers
 	LLAvatarList::uuid_vector_t& group_members = mAvatarList->getIDs();
@@ -83,6 +93,7 @@ LLParticipantList::LLParticipantList(LLSpeakerMgr* data_source, LLAvatarList* av
 			mModeratorList.insert(speakerp->mID);
 		}
 	}
+	mAvatarList->setDirty(true);
 	sort();
 }
 
@@ -99,6 +110,7 @@ void LLParticipantList::setSpeakingIndicatorsVisible(BOOL visible)
 
 void LLParticipantList::onAvatarListDoubleClicked(LLAvatarList* list)
 {
+	// NOTE(EM): Should we check if there is multiple selection and start conference if it is so?
 	LLUUID clicked_id = list->getSelectedUUID();
 
 	if (clicked_id.isNull() || clicked_id == gAgent.getID())

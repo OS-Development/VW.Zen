@@ -32,6 +32,8 @@
 
 #include "llviewerprecompiledheaders.h"
 
+#include "llfloaterreg.h"
+
 #include "llpanelimcontrolpanel.h"
 
 #include "llagent.h"
@@ -43,6 +45,8 @@
 #include "llparticipantlist.h"
 #include "llimview.h"
 #include "llvoicechannel.h"
+#include "llsidetray.h"
+#include "lltrans.h"
 
 void LLPanelChatControlPanel::onCallButtonClicked()
 {
@@ -56,7 +60,7 @@ void LLPanelChatControlPanel::onEndCallButtonClicked()
 
 void LLPanelChatControlPanel::onOpenVoiceControlsClicked()
 {
-	// TODO: implement Voice Control Panel opening
+	LLFloaterReg::showInstance("voice_controls");
 }
 
 void LLPanelChatControlPanel::onVoiceChannelStateChanged(const LLVoiceChannel::EState& old_state, const LLVoiceChannel::EState& new_state)
@@ -118,6 +122,7 @@ LLPanelIMControlPanel::LLPanelIMControlPanel()
 
 LLPanelIMControlPanel::~LLPanelIMControlPanel()
 {
+	LLAvatarTracker::instance().removeParticularFriendObserver(mAvatarID, this);
 }
 
 BOOL LLPanelIMControlPanel::postBuild()
@@ -158,7 +163,7 @@ void LLPanelIMControlPanel::onAddFriendButtonClicked()
 
 void LLPanelIMControlPanel::onShareButtonClicked()
 {
-	// *TODO: Implement
+	LLAvatarActions::share(mAvatarID);
 }
 
 void LLPanelIMControlPanel::setSessionId(const LLUUID& session_id)
@@ -167,7 +172,9 @@ void LLPanelIMControlPanel::setSessionId(const LLUUID& session_id)
 
 	LLIMModel& im_model = LLIMModel::instance();
 
+	LLAvatarTracker::instance().removeParticularFriendObserver(mAvatarID, this);
 	mAvatarID = im_model.getOtherParticipantID(session_id);
+	LLAvatarTracker::instance().addParticularFriendObserver(mAvatarID, this);
 
 	// Disable "Add friend" button for friends.
 	childSetEnabled("add_friend_btn", !LLAvatarActions::isFriend(mAvatarID));
@@ -194,6 +201,12 @@ void LLPanelIMControlPanel::setSessionId(const LLUUID& session_id)
 		// If the participant is an avatar, fetch the currect name
 		gCacheName->get(mAvatarID, FALSE, boost::bind(&LLPanelIMControlPanel::nameUpdatedCallback, this, _1, _2, _3, _4));
 	}
+}
+
+//virtual
+void LLPanelIMControlPanel::changed(U32 mask)
+{
+	childSetEnabled("add_friend_btn", !LLAvatarActions::isFriend(mAvatarID));
 }
 
 void LLPanelIMControlPanel::nameUpdatedCallback(const LLUUID& id, const std::string& first, const std::string& last, BOOL is_group)

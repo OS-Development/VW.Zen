@@ -35,12 +35,12 @@
 
 #include "llgroupactions.h"
 
-// Viewer includes
 #include "llagent.h"
 #include "llcommandhandler.h"
 #include "llfloaterreg.h"
 #include "llgroupmgr.h"
 #include "llimview.h" // for gIMMgr
+#include "llnotificationsutil.h"
 #include "llsidetray.h"
 #include "llstatusbar.h"	// can_afford_transaction()
 #include "llimfloater.h"
@@ -132,11 +132,11 @@ void LLGroupActions::join(const LLUUID& group_id)
 
 		if (can_afford_transaction(cost))
 		{
-			LLNotifications::instance().add("JoinGroupCanAfford", args, payload, onJoinGroup);
+			LLNotificationsUtil::add("JoinGroupCanAfford", args, payload, onJoinGroup);
 		}
 		else
 		{
-			LLNotifications::instance().add("JoinGroupCannotAfford", args, payload);
+			LLNotificationsUtil::add("JoinGroupCannotAfford", args, payload);
 		}
 	}
 	else
@@ -149,7 +149,7 @@ void LLGroupActions::join(const LLUUID& group_id)
 // static
 bool LLGroupActions::onJoinGroup(const LLSD& notification, const LLSD& response)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 
 	if (option == 1)
 	{
@@ -181,7 +181,7 @@ void LLGroupActions::leave(const LLUUID& group_id)
 		args["GROUP"] = gAgent.mGroups.get(i).mName;
 		LLSD payload;
 		payload["group_id"] = group_id;
-		LLNotifications::instance().add("GroupLeaveConfirmMember", args, payload, onLeaveGroup);
+		LLNotificationsUtil::add("GroupLeaveConfirmMember", args, payload, onLeaveGroup);
 	}
 }
 
@@ -272,7 +272,7 @@ void LLGroupActions::closeGroup(const LLUUID& group_id)
 
 
 // static
-void LLGroupActions::startChat(const LLUUID& group_id)
+void LLGroupActions::startIM(const LLUUID& group_id)
 {
 	if (group_id.isNull())
 		return;
@@ -295,6 +295,19 @@ void LLGroupActions::startChat(const LLUUID& group_id)
 		// this should never happen, as starting a group IM session
 		// relies on you belonging to the group and hence having the group data
 		make_ui_sound("UISndInvalidOp");
+	}
+}
+
+// static
+void LLGroupActions::endIM(const LLUUID& group_id)
+{
+	if (group_id.isNull())
+		return;
+	
+	LLUUID session_id = gIMMgr->computeSessionID(IM_SESSION_GROUP_START, group_id);
+	if (session_id != LLUUID::null)
+	{
+		gIMMgr->leaveSession(session_id);
 	}
 }
 
@@ -333,7 +346,7 @@ bool LLGroupActions::isAvatarMemberOfGroup(const LLUUID& group_id, const LLUUID&
 // static
 bool LLGroupActions::onLeaveGroup(const LLSD& notification, const LLSD& response)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	LLUUID group_id = notification["payload"]["group_id"].asUUID();
 	if(option == 0)
 	{

@@ -624,7 +624,6 @@ F32 LLVOAvatar::sGreyUpdateTime = 0.f;
 // Helper functions
 //-----------------------------------------------------------------------------
 static F32 calc_bouncy_animation(F32 x);
-static U32 calc_shame(const LLVOVolume* volume, std::set<LLUUID> &textures);
 
 //-----------------------------------------------------------------------------
 // LLVOAvatar()
@@ -3869,7 +3868,7 @@ U32 LLVOAvatar::renderRigid()
 		return 0;
 	}
 
-	if (isTextureVisible(TEX_EYES_BAKED) || mIsDummy)
+	if (isTextureVisible(TEX_EYES_BAKED)  || mIsDummy)
 	{
 		num_indices += mMeshLOD[MESH_ID_EYEBALL_LEFT]->render(mAdjustedPixelArea, TRUE, mIsDummy);
 		num_indices += mMeshLOD[MESH_ID_EYEBALL_RIGHT]->render(mAdjustedPixelArea, TRUE, mIsDummy);
@@ -6268,7 +6267,7 @@ LLColor4 LLVOAvatar::getDummyColor()
 	return DUMMY_COLOR;
 }
 
-void LLVOAvatar::dumpAvatarTEs( const std::string& context )
+void LLVOAvatar::dumpAvatarTEs( const std::string& context ) const
 {	
 	/* const char* te_name[] = {
 			"TEX_HEAD_BODYPAINT   ",
@@ -7637,9 +7636,21 @@ void LLVOAvatar::idleUpdateRenderCost()
 		return;
 	}
 
-	U32 shame = 1;
-
+	U32 cost = 0;
 	std::set<LLUUID> textures;
+
+	for (U8 baked_index = 0; baked_index < BAKED_NUM_INDICES; baked_index++)
+	{
+		const LLVOAvatarDictionary::BakedEntry *baked_dict = LLVOAvatarDictionary::getInstance()->getBakedTexture((EBakedTextureIndex)baked_index);
+		ETextureIndex tex_index = baked_dict->mTextureIndex;
+		if ((tex_index != TEX_SKIRT_BAKED) || (isWearingWearableType(WT_SKIRT)))
+		{
+			if (isTextureVisible(tex_index))
+			{
+				cost +=20;
+			}
+		}
+	}
 
 	for (attachment_map_t::const_iterator iter = mAttachmentPoints.begin(); 
 		 iter != mAttachmentPoints.end();
@@ -7656,22 +7667,22 @@ void LLVOAvatar::idleUpdateRenderCost()
 				const LLDrawable* drawable = attached_object->mDrawable;
 				if (drawable)
 				{
-					shame += 10;
+					cost += 10;
 					const LLVOVolume* volume = drawable->getVOVolume();
 					if (volume)
 					{
-						shame += calc_shame(volume, textures);
+						cost += volume->getRenderCost(textures);
 					}
 				}
 			}
 		}
 	}
 
-	shame += textures.size() * 5;
+	cost += textures.size() * 5;
 
-	setDebugText(llformat("%d", shame));
-	F32 green = 1.f-llclamp(((F32) shame-1024.f)/1024.f, 0.f, 1.f);
-	F32 red = llmin((F32) shame/1024.f, 1.f);
+	setDebugText(llformat("%d", cost));
+	F32 green = 1.f-llclamp(((F32) cost-1024.f)/1024.f, 0.f, 1.f);
+	F32 red = llmin((F32) cost/1024.f, 1.f);
 	mText->setColor(LLColor4(red,green,0,1));
 }
 
@@ -7713,110 +7724,6 @@ const std::string LLVOAvatar::getBakedStatusForPrintout() const
 }
 
 
-U32 calc_shame(const LLVOVolume* volume, std::set<LLUUID> &textures)
-{
-	if (!volume)
-	{
-		return 0;
-	}
-
-	U32 shame = 0;
-
-	U32 invisi = 0;
-	U32 shiny = 0;
-	U32 glow = 0;
-	U32 alpha = 0;
-	U32 flexi = 0;
-	U32 animtex = 0;
-	U32 particles = 0;
-	U32 scale = 0;
-	U32 bump = 0;
-	U32 planar = 0;
-	
-	if (volume->isFlexible())
-	{
-		flexi = 1;
-	}
-	if (volume->isParticleSource())
-	{
-		particles = 1;
-	}
-
-	const LLVector3& sc = volume->getScale();
-	scale += (U32) sc.mV[0] + (U32) sc.mV[1] + (U32) sc.mV[2];
-
-	const LLDrawable* drawablep = volume->mDrawable;
-
-	if (volume->isSculpted())
-	{
-		const LLSculptParams *sculpt_params = (LLSculptParams *) volume->getParameterEntry(LLNetworkData::PARAMS_SCULPT);
-		LLUUID sculpt_id = sculpt_params->getSculptTexture();
-		textures.insert(sculpt_id);
-	}
-
-	for (S32 i = 0; i < drawablep->getNumFaces(); ++i)
-	{
-		const LLFace* face = drawablep->getFace(i);
-		const LLTextureEntry* te = face->getTextureEntry();
-		const LLViewerTexture* img = face->getTexture();
-
-		textures.insert(img->getID());
-
-		if (face->getPoolType() == LLDrawPool::POOL_ALPHA)
-		{
-			alpha++;
-		}
-		else if (img->getPrimaryFormat() == GL_ALPHA)
-		{
-			invisi = 1;
-		}
-
-		if (te)
-		{
-			if (te->getBumpmap())
-			{
-				bump = 1;
-			}
-			if (te->getShiny())
-			{
-				shiny = 1;
-			}
-			if (te->getGlow() > 0.f)
-			{
-				glow = 1;
-			}
-			if (face->mTextureMatrix != NULL)
-			{
-				animtex++;
-			}
-			if (te->getTexGen())
-			{
-				planar++;
-			}
-		}
-	}
-
-	shame += invisi + shiny + glow + alpha*4 + flexi*8 + animtex*4 + particles*16+bump*4+scale+planar;
-
-	LLViewerObject::const_child_list_t& child_list = volume->getChildren();
-	for (LLViewerObject::child_list_t::const_iterator iter = child_list.begin();
-		 iter != child_list.end(); 
-		 ++iter)
-	{
-		const LLViewerObject* child_objectp = *iter;
-		const LLDrawable* child_drawablep = child_objectp->mDrawable;
-		if (child_drawablep)
-		{
-			const LLVOVolume* child_volumep = child_drawablep->getVOVolume();
-			if (child_volumep)
-			{
-				shame += calc_shame(child_volumep, textures);
-			}
-		}
-	}
-
-	return shame;
-}
 
 //virtual
 S32 LLVOAvatar::getTexImageSize() const

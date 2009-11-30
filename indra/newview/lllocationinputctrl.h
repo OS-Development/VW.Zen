@@ -33,7 +33,9 @@
 #ifndef LL_LLLOCATIONINPUTCTRL_H
 #define LL_LLLOCATIONINPUTCTRL_H
 
-#include <llcombobox.h>
+#include "llcombobox.h"
+#include "lliconctrl.h"		// Params
+#include "lltextbox.h"		// Params
 
 class LLLandmark;
 
@@ -63,9 +65,18 @@ public:
 											add_landmark_image_disabled,
 											add_landmark_image_hover,
 											add_landmark_image_selected;
-		Optional<S32>						add_landmark_hpad;
+		Optional<S32>						icon_hpad,
+											add_landmark_hpad;
 		Optional<LLButton::Params>			add_landmark_button,
+											for_sale_button,
 											info_button;
+		Optional<LLIconCtrl::Params>		voice_icon,
+											fly_icon,
+											push_icon,
+											build_icon,
+											scripts_icon,
+											damage_icon;
+		Optional<LLTextBox::Params>			damage_text;
 		Params();
 	};
 
@@ -103,6 +114,10 @@ private:
 	void					enableAddLandmarkButton(bool val);
 	void					refresh();
 	void					refreshLocation();
+	void					refreshParcelIcons();
+	// Refresh the value in the health percentage text field
+	void					refreshHealth();
+	
 	void					rebuildLocationHistory(std::string filter = "");
 	bool 					findTeleportItemsByTitle(const LLTeleportHistoryItem& item, const std::string& filter);
 	void					setText(const LLStringExplicit& text);
@@ -117,6 +132,7 @@ private:
 	void					onLocationPrearrange(const LLSD& data);
 	void 					onTextEditorRightClicked(S32 x, S32 y, MASK mask);
 	void					onLandmarkLoaded(LLLandmark* lm);
+	void					onForSaleButtonClicked();
 	void					onAddLandmarkButtonClicked();
 	void					onAgentParcelChange();
 	// callbacks
@@ -125,8 +141,23 @@ private:
 
 	LLMenuGL*				mLocationContextMenu;
 	LLButton*				mAddLandmarkBtn;
+	LLButton*				mForSaleBtn;
 	LLButton*				mInfoBtn;
-	S32						mAddLandmarkHPad;
+	S32						mIconHPad;			// pad between all icons
+	S32						mAddLandmarkHPad;	// pad to left of landmark star
+	
+	enum EParcelIcon
+	{
+		VOICE_ICON = 0,
+		FLY_ICON,
+		PUSH_ICON,
+		BUILD_ICON,
+		SCRIPTS_ICON,
+		DAMAGE_ICON,
+		ICON_COUNT
+	};
+	LLIconCtrl*	mParcelIcon[ICON_COUNT];
+	LLTextBox* mDamageText;
 
 	LLAddLandmarkObserver*		mAddLandmarkObserver;
 	LLRemoveLandmarkObserver*	mRemoveLandmarkObserver;

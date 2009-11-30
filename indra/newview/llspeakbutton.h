@@ -36,7 +36,7 @@
 #include "llinitparam.h"
 #include "lluictrl.h"
 
-class LLVoiceControlPanel;
+class LLCallFloater;
 class LLButton;
 class LLOutputMonitorCtrl;
 
@@ -67,6 +67,18 @@ public:
 	void setSpeakToolTip(const std::string& msg);
 	void setShowToolTip(const std::string& msg);
 
+	/**
+	 * Sets visibility of speak button's label according to passed parameter.
+	 *
+	 * It removes label/selected label if "visible" is false and restores otherwise.
+	 *
+	 * @param visible if true - show label and selected label.
+	 * 
+	 * @see mSpeakBtn
+	 * @see LLBottomTray::processShrinkButtons()
+	 */
+	void setLabelVisible(bool visible);
+
 protected:
 	friend class LLUICtrlFactory;
 	LLSpeakButton(const Params& p);
@@ -74,12 +86,10 @@ protected:
 	void onMouseDown_SpeakBtn();
 	void onMouseUp_SpeakBtn();
 
-	void onClick_ShowBtn();
-
 private:
 	LLButton*	mSpeakBtn;
 	LLButton*	mShowBtn;
-	LLVoiceControlPanel* mPrivateCallPanel;
+	LLHandle<LLFloater> mPrivateCallPanel;
 	LLOutputMonitorCtrl* mOutputMonitor;
 };
 

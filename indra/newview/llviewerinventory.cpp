@@ -33,6 +33,7 @@
 #include "llviewerprecompiledheaders.h"
 #include "llviewerinventory.h"
 
+#include "llnotificationsutil.h"
 #include "message.h"
 #include "indra_constants.h"
 
@@ -56,10 +57,42 @@
 #include "lltrans.h"
 #include "llappearancemgr.h"
 #include "llfloatercustomize.h"
+#include "llcommandhandler.h"
+#include "llviewermessage.h"
 
 ///----------------------------------------------------------------------------
 /// Local function declarations, constants, enums, and typedefs
 ///----------------------------------------------------------------------------
+
+class LLInventoryHandler : public LLCommandHandler
+{
+public:
+	// requires trusted browser to trigger
+	LLInventoryHandler() : LLCommandHandler("inventory", UNTRUSTED_THROTTLE) { }
+	
+	bool handle(const LLSD& params, const LLSD& query_map,
+				LLMediaCtrl* web)
+	{
+		if (params.size() < 2) return false;
+		LLUUID inventory_id;
+		if (!inventory_id.set(params[0], FALSE))
+		{
+			return false;
+		}
+		
+		const std::string verb = params[1].asString();
+		if (verb == "select")
+		{
+			std::vector<LLUUID> items_to_open;
+			items_to_open.push_back(inventory_id);
+			open_inventory_offer(items_to_open, "");
+			return true;
+		}
+		
+		return false;
+	}
+};
+LLInventoryHandler gInventoryHandler;
 
 ///----------------------------------------------------------------------------
 /// Class LLViewerInventoryItem
@@ -419,7 +452,7 @@ void LLViewerInventoryCategory::updateServer(BOOL is_new) const
 
 	if (LLFolderType::lookupIsProtectedType(mPreferredType))
 	{
-		LLNotifications::instance().add("CannotModifyProtectedCategories");
+		LLNotificationsUtil::add("CannotModifyProtectedCategories");
 		return;
 	}
 
@@ -443,7 +476,7 @@ void LLViewerInventoryCategory::removeFromServer( void )
 	// communicate that change with the server.
 	if(LLFolderType::lookupIsProtectedType(mPreferredType))
 	{
-		LLNotifications::instance().add("CannotRemoveProtectedCategories");
+		LLNotificationsUtil::add("CannotRemoveProtectedCategories");
 		return;
 	}
 
@@ -1215,11 +1248,6 @@ void LLViewerInventoryItem::rename(const std::string& n)
 
 const LLPermissions& LLViewerInventoryItem::getPermissions() const
 {
-	if (const LLViewerInventoryItem *linked_item = getLinkedItem())
-	{
-		return linked_item->getPermissions();
-	}
-
 	// Use the actual permissions of the symlink, not its parent.
 	return LLInventoryItem::getPermissions();	
 }
@@ -1340,6 +1368,12 @@ BOOL LLViewerInventoryItem::extractSortFieldAndDisplayName(const std::string& na
 
 	return result;
 }
+
+void LLViewerInventoryItem::insertDefaultSortField(std::string& name)
+{
+	name.insert(0, std::string("1") + getSeparator());
+}
+
 
 // This returns true if the item that this item points to 
 // doesn't exist in memory (i.e. LLInventoryModel).  The baseitem

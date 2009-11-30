@@ -38,8 +38,14 @@
 #include "llviewercontrol.h"
 #include "llviewerwindow.h"
 #include "llnotificationmanager.h"
+#include "llnotifications.h"
+#include "llscriptfloater.h"
 
 using namespace LLNotificationsUI;
+
+static const std::string SCRIPT_DIALOG				("ScriptDialog");
+static const std::string SCRIPT_DIALOG_GROUP		("ScriptDialogGroup");
+static const std::string SCRIPT_LOAD_URL			("LoadWebPage");
 
 //--------------------------------------------------------------------------
 LLScriptHandler::LLScriptHandler(e_notification_type type, const LLSD& id)
@@ -64,7 +70,7 @@ LLScriptHandler::~LLScriptHandler()
 //--------------------------------------------------------------------------
 void LLScriptHandler::initChannel()
 {
-	S32 channel_right_bound = gViewerWindow->getWorldViewRectRaw().mRight - gSavedSettings.getS32("NotificationChannelRightMargin"); 
+	S32 channel_right_bound = gViewerWindow->getWorldViewRectScaled().mRight - gSavedSettings.getS32("NotificationChannelRightMargin"); 
 	S32 channel_width = gSavedSettings.getS32("NotifyBoxWidth");
 	mChannel->init(channel_right_bound - channel_width, channel_right_bound);
 }
@@ -90,25 +96,45 @@ bool LLScriptHandler::processNotification(const LLSD& notify)
 	
 	if(notify["sigtype"].asString() == "add" || notify["sigtype"].asString() == "change")
 	{
-		LLToastNotifyPanel* notify_box = new LLToastNotifyPanel(notification);
+		if (LLHandlerUtil::canLogToIM(notification))
+		{
+			LLHandlerUtil::logToIM(notification);
+		}
 
-		LLToast::Params p;
-		p.notif_id = notification->getID();
-		p.notification = notification;
-		p.panel = notify_box;	
-		p.on_delete_toast = boost::bind(&LLScriptHandler::onDeleteToast, this, _1);
+		if(SCRIPT_DIALOG == notification->getName() || SCRIPT_DIALOG_GROUP == notification->getName() || SCRIPT_LOAD_URL == notification->getName())
+		{
+			LLScriptFloaterManager::getInstance()->onAddNotification(notification->getID());
+		}
+		else
+		{
+			LLToastNotifyPanel* notify_box = new LLToastNotifyPanel(notification);
 
-		LLScreenChannel* channel = dynamic_cast<LLScreenChannel*>(mChannel);
-		if(channel)
-			channel->addToast(p);
+			LLToast::Params p;
+			p.notif_id = notification->getID();
+			p.notification = notification;
+			p.panel = notify_box;	
+			p.on_delete_toast = boost::bind(&LLScriptHandler::onDeleteToast, this, _1);
 
-		// send a signal to the counter manager
-		mNewNotificationSignal();
+			LLScreenChannel* channel = dynamic_cast<LLScreenChannel*>(mChannel);
+			if(channel)
+			{
+				channel->addToast(p);
+			}
 
+			// send a signal to the counter manager
+			mNewNotificationSignal();
+		}
 	}
 	else if (notify["sigtype"].asString() == "delete")
 	{
-		mChannel->killToastByNotificationID(notification->getID());
+		if(SCRIPT_DIALOG == notification->getName() || SCRIPT_DIALOG_GROUP == notification->getName() || SCRIPT_LOAD_URL == notification->getName())
+		{
+			LLScriptFloaterManager::getInstance()->onRemoveNotification(notification->getID());
+		}
+		else
+		{
+			mChannel->killToastByNotificationID(notification->getID());
+		}
 	}
 	return true;
 }
@@ -123,6 +149,14 @@ void LLScriptHandler::onDeleteToast(LLToast* toast)
 	// send a signal to a listener to let him perform some action
 	// in this case listener is a SysWellWindow and it will remove a corresponding item from its list
 	mNotificationIDSignal(toast->getNotificationID());
+
+	LLNotificationPtr notification = LLNotifications::getInstance()->find(toast->getNotificationID());
+	
+	if( notification && 
+		(SCRIPT_DIALOG == notification->getName() || SCRIPT_DIALOG_GROUP == notification->getName()) )
+	{
+		LLScriptFloaterManager::getInstance()->onRemoveNotification(notification->getID());
+	}
 }
 
 //--------------------------------------------------------------------------

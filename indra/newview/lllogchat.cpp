@@ -77,12 +77,12 @@ std::string LLLogChat::timestamp(bool withdate)
 		          +LLTrans::getString ("TimeMonth")+"]/["
 				  +LLTrans::getString ("TimeDay")+"] ["
 				  +LLTrans::getString ("TimeHour")+"]:["
-				  +LLTrans::getString ("TimeMin")+"] ";
+				  +LLTrans::getString ("TimeMin")+"]";
 	}
 	else
 	{
 		timeStr = "[" + LLTrans::getString("TimeHour") + "]:["
-			      + LLTrans::getString ("TimeMin")+"] "; 
+			      + LLTrans::getString ("TimeMin")+"]";
 	}
 
 	LLStringUtil::format (timeStr, substitution);
@@ -96,9 +96,6 @@ void LLLogChat::saveHistory(const std::string& filename,
 			    const LLUUID& from_id,
 			    const std::string& line)
 {
-	if (!gSavedPerAccountSettings.getBOOL("LogInstantMessages"))
-		return;
-
 	if(!filename.size())
 	{
 		llinfos << "Filename is Empty!" << llendl;

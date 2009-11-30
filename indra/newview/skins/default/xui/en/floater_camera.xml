@@ -12,6 +12,7 @@
  help_topic="camera_floater"
  save_rect="true"
  save_visibility="true"
+ single_instance="true"
  width="150">
     <floater.string
      name="rotate_tooltip">
@@ -87,9 +88,9 @@
            <button
               follows="top|left"
               height="18"
-              image_disabled="AddItem_Disabled"
-              image_selected="AddItem_Press"
-              image_unselected="AddItem_Off"
+              image_disabled="MinusItem_Disabled"
+              image_selected="MinusItem_Press"
+              image_unselected="MinusItem_Off"
               layout="topleft"
               name="zoom_minus_btn"
               top_pad="0"
@@ -107,6 +108,7 @@
          image_unselected="Cam_Rotate_Out"
          layout="topleft"
          left="45"
+         mouse_opaque="false" 
          name="cam_rotate_stick"
          quadrant="left"
          scale_image="false"
