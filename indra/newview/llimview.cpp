@@ -165,6 +165,11 @@ LLIMModel::LLIMSession::LLIMSession(const LLUUID& session_id, const std::string&
 	{
 		mVoiceChannel = new LLVoiceChannelGroup(session_id, name);
 	}
+
+	if(mVoiceChannel)
+	{
+		mVoiceChannel->setStateChangedCallback(boost::bind(&LLIMSession::onVoiceChannelStateChanged, this, _1, _2));
+	}
 	mSpeakers = new LLIMSpeakerMgr(mVoiceChannel);
 
 	// All participants will be added to the list of people we've recently interacted with.
@@ -189,6 +194,56 @@ LLIMModel::LLIMSession::LLIMSession(const LLUUID& session_id, const std::string&
 
 	if ( gSavedPerAccountSettings.getBOOL("LogShowHistory") )
 		LLLogChat::loadHistory(mName, &chatFromLogFile, (void *)this);
+}
+
+void LLIMModel::LLIMSession::onVoiceChannelStateChanged(const LLVoiceChannel::EState& old_state, const LLVoiceChannel::EState& new_state)
+{
+	bool is_p2p_session = dynamic_cast<LLVoiceChannelP2P*>(mVoiceChannel);
+	bool is_incoming_call = false;
+	std::string other_avatar_name;
+
+	if(is_p2p_session)
+	{
+		is_incoming_call = static_cast<LLVoiceChannelP2P*>(mVoiceChannel)->isIncomingCall();
+		gCacheName->getFullName(mOtherParticipantID, other_avatar_name);
+
+		if(is_incoming_call)
+		{
+			switch(new_state)
+			{
+			case LLVoiceChannel::STATE_CALL_STARTED :
+				LLIMModel::getInstance()->addMessage(mSessionID, other_avatar_name, mOtherParticipantID, "Started a voice call");
+				break;
+			case LLVoiceChannel::STATE_CONNECTED :
+				LLIMModel::getInstance()->addMessage(mSessionID, "You", gAgent.getID(), "Joined the voice call");
+			default:
+				break;
+			}
+		}
+		else // outgoing call
+		{
+			switch(new_state)
+			{
+			case LLVoiceChannel::STATE_CALL_STARTED :
+				LLIMModel::getInstance()->addMessage(mSessionID, "You", gAgent.getID(), "Started a voice call");
+				break;
+			case LLVoiceChannel::STATE_CONNECTED :
+				LLIMModel::getInstance()->addMessage(mSessionID, other_avatar_name, mOtherParticipantID, "Joined the voice call");
+			default:
+				break;
+			}
+		}
+
+		// Update speakers list when connected
+		if (LLVoiceChannel::STATE_CONNECTED == new_state)
+		{
+			mSpeakers->update(true);
+		}
+	}
+	else  // group || ad-hoc calls
+	{
+
+	}
 }
 
 LLIMModel::LLIMSession::~LLIMSession()
@@ -396,6 +451,19 @@ bool LLIMModel::addToHistory(const LLUUID& session_id, const std::string& from, 
 	return true;
 }
 
+bool LLIMModel::logToFile(const std::string& session_name, const std::string& from, const LLUUID& from_id, const std::string& utf8_text)
+{
+	if (gSavedPerAccountSettings.getBOOL("LogInstantMessages"))
+	{
+		LLLogChat::saveHistory(session_name, from, from_id, utf8_text);
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
 bool LLIMModel::logToFile(const LLUUID& session_id, const std::string& from, const LLUUID& from_id, const std::string& utf8_text)
 {
 	if (gSavedPerAccountSettings.getBOOL("LogInstantMessages"))
@@ -430,7 +498,7 @@ bool LLIMModel::addMessage(const LLUUID& session_id, const std::string& from, co
 						   const std::string& utf8_text, bool log2file /* = true */) { 
 	LLIMSession* session = findIMSession(session_id);
 
-	if (!session) 
+	if (!session)
 	{
 		llwarns << "session " << session_id << "does not exist " << llendl;
 		return false;
@@ -1150,7 +1218,7 @@ BOOL LLOutgoingCallDialog::postBuild()
 	childSetAction("Cancel", onCancel, this);
 
 	// dock the dialog to the sys well, where other sys messages appear
-	setDockControl(new LLDockControl(LLBottomTray::getInstance()->getSysWell(),
+	setDockControl(new LLDockControl(LLBottomTray::getInstance()->getChild<LLPanel>("speak_panel"),
 					 this, getDockTongue(), LLDockControl::TOP,
 					 boost::bind(&LLOutgoingCallDialog::getAllowedRect, this, _1)));
 
@@ -1227,7 +1295,7 @@ void LLIncomingCallDialog::onOpen(const LLSD& key)
 	}
 
 	// dock the dialog to the sys well, where other sys messages appear
-	setDockControl(new LLDockControl(LLBottomTray::getInstance()->getSysWell(),
+	setDockControl(new LLDockControl(LLBottomTray::getInstance()->getChild<LLPanel>("speak_panel"),
 									 this, getDockTongue(), LLDockControl::TOP,
 									 boost::bind(&LLIncomingCallDialog::getAllowedRect, this, _1)));
 }
