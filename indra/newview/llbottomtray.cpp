@@ -31,6 +31,8 @@
  */
 
 #include "llviewerprecompiledheaders.h" // must be first include
+
+#define LLBOTTOMTRAY_CPP
 #include "llbottomtray.h"
 
 #include "llagent.h"
@@ -40,10 +42,14 @@
 #include "llimfloater.h" // for LLIMFloater
 #include "lllayoutstack.h"
 #include "llnearbychatbar.h"
+#include "llnotificationsutil.h"
 #include "llspeakbutton.h"
 #include "llsplitbutton.h"
 #include "llsyswellwindow.h"
 #include "llfloatercamera.h"
+
+// Build time optimization, generate extern template once in .cpp file
+template class LLBottomTray* LLSingleton<class LLBottomTray>::getInstance();
 
 LLBottomTray::LLBottomTray(const LLSD&)
 :	mChicletPanel(NULL),
@@ -941,7 +947,7 @@ void LLBottomTray::setTrayButtonVisibleIfPossible(EResizeState shown_object_type
 	{
 		// mark this button to show it while future bottom tray extending
 		mResizeState |= shown_object_type;
-		LLNotifications::instance().add("BottomTrayButtonCanNotBeShown");
+		LLNotificationsUtil::add("BottomTrayButtonCanNotBeShown");
 	}
 }
 

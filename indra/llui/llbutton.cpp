@@ -32,6 +32,7 @@
 
 #include "linden_common.h"
 
+#define LLBUTTON_CPP
 #include "llbutton.h"
 
 // Linden library includes
@@ -48,13 +49,17 @@
 #include "llfloaterreg.h"
 #include "llfocusmgr.h"
 #include "llwindow.h"
-#include "llnotifications.h"
+#include "llnotificationsutil.h"
 #include "llrender.h"
 #include "lluictrlfactory.h"
 #include "llhelp.h"
 #include "lldockablefloater.h"
 
 static LLDefaultChildRegistry::Register<LLButton> r("button");
+
+// Compiler optimization, generate extern template
+template class LLButton* LLView::getChild<class LLButton>(
+	const std::string& name, BOOL recurse) const;
 
 // globals loaded from settings.xml
 S32	LLBUTTON_H_PAD	= 0;
@@ -1106,7 +1111,7 @@ void LLButton::showHelp(LLUICtrl* ctrl, const LLSD& sdname)
 
 	// display an error if we can't find a help_topic string.
 	// fix this by adding a help_topic attribute to the xui file
-	LLNotifications::instance().add("UnableToFindHelpTopic");
+	LLNotificationsUtil::add("UnableToFindHelpTopic");
 }
 
 void LLButton::resetMouseDownTimer()

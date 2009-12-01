@@ -36,6 +36,7 @@
 #include "llagentwearables.h"
 #include "llfloatercustomize.h"
 #include "lllocaltextureobject.h"
+#include "llnotificationsutil.h"
 #include "llviewertexturelist.h"
 #include "llinventorymodel.h"
 #include "llinventoryobserver.h"
@@ -703,7 +704,7 @@ void LLWearable::removeFromAvatar( EWearableType type, BOOL upload_bake )
 	}
 
 	avatar->updateVisualParams();
-	avatar->wearableUpdated(type);
+	avatar->wearableUpdated(type, TRUE);
 
 //	if( upload_bake )
 //	{
@@ -1122,7 +1123,7 @@ void LLWearable::saveNewAsset() const
 		
 		LLSD args;
 		args["NAME"] = mName;
-		LLNotifications::instance().add("CannotSaveWearableOutOfSpace", args);
+		LLNotificationsUtil::add("CannotSaveWearableOutOfSpace", args);
 		return;
 	}
 
@@ -1170,7 +1171,7 @@ void LLWearable::onSaveNewAssetComplete(const LLUUID& new_asset_id, void* userda
 		llwarns << buffer << " Status: " << status << llendl;
 		LLSD args;
 		args["NAME"] = type_name;
-		LLNotifications::instance().add("CannotSaveToAssetStore", args);
+		LLNotificationsUtil::add("CannotSaveToAssetStore", args);
 	}
 
 	// Delete temp file

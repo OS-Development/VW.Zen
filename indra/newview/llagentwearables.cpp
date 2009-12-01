@@ -41,6 +41,7 @@
 #include "llinventorybridge.h"
 #include "llinventoryobserver.h"
 #include "llinventorypanel.h"
+#include "llnotificationsutil.h"
 #include "llnotify.h"
 #include "llviewerregion.h"
 #include "llvoavatarself.h"
@@ -49,6 +50,10 @@
 #include "llgesturemgr.h"
 #include "llappearancemgr.h"
 #include "lltexlayer.h"
+#include "llsidetray.h"
+#include "llpaneloutfitsinventory.h"
+#include "llfolderview.h"
+#include "llaccordionctrltab.h"
 
 #include <boost/scoped_ptr.hpp>
 
@@ -408,7 +413,7 @@ void LLAgentWearables::saveWearable(const EWearableType type, const U32 index, B
 			return;
 		}
 
-		gAgent.getAvatarObject()->wearableUpdated( type );
+		gAgent.getAvatarObject()->wearableUpdated( type, TRUE );
 
 		if (send_update)
 		{
@@ -698,7 +703,7 @@ U32 LLAgentWearables::pushWearable(const EWearableType type, LLWearable *wearabl
 
 void LLAgentWearables::wearableUpdated(LLWearable *wearable)
 {
-	mAvatarObject->wearableUpdated(wearable->getType());
+	mAvatarObject->wearableUpdated(wearable->getType(), TRUE);
 	wearable->setLabelUpdated();
 
 	// Hack pt 2. If the wearable we just loaded has definition version 24,
@@ -739,7 +744,7 @@ void LLAgentWearables::popWearable(const EWearableType type, U32 index)
 	if (wearable)
 	{
 		mWearableDatas[type].erase(mWearableDatas[type].begin() + index);
-		mAvatarObject->wearableUpdated(wearable->getType());
+		mAvatarObject->wearableUpdated(wearable->getType(), TRUE);
 		wearable->setLabelUpdated();
 	}
 }
@@ -1017,7 +1022,7 @@ void LLAgentWearables::onInitialWearableAssetArrived(LLWearable* wearable, void*
 void LLAgentWearables::recoverMissingWearable(const EWearableType type, U32 index)
 {
 	// Try to recover by replacing missing wearable with a new one.
-	LLNotifications::instance().add("ReplacedMissingWearable");
+	LLNotificationsUtil::add("ReplacedMissingWearable");
 	lldebugs << "Wearable " << LLWearableDictionary::getTypeLabel(type) << " could not be downloaded.  Replaced inventory item with default wearable." << llendl;
 	LLWearable* new_wearable = LLWearableList::instance().createNewWearable(type);
 
@@ -1295,6 +1300,41 @@ void LLAgentWearables::makeNewOutfit(const std::string& new_folder_name,
 	} 
 }
 
+class LLAutoRenameFolder: public LLInventoryCallback
+{
+public:
+	LLAutoRenameFolder(LLUUID& folder_id):
+		mFolderID(folder_id)
+	{
+	}
+
+	virtual ~LLAutoRenameFolder()
+	{
+		LLSD key;
+		LLSideTray::getInstance()->showPanel("panel_outfits_inventory", key);
+		LLPanelOutfitsInventory *outfit_panel =
+			dynamic_cast<LLPanelOutfitsInventory*>(LLSideTray::getInstance()->getPanel("panel_outfits_inventory"));
+		if (outfit_panel)
+		{
+			outfit_panel->getRootFolder()->clearSelection();
+			outfit_panel->getRootFolder()->setSelectionByID(mFolderID, TRUE);
+			outfit_panel->getRootFolder()->setNeedsAutoRename(TRUE);
+		}
+		LLAccordionCtrlTab* tab_outfits = outfit_panel ? outfit_panel->findChild<LLAccordionCtrlTab>("tab_outfits") : 0;
+		if (tab_outfits && !tab_outfits->getDisplayChildren())
+		{
+			tab_outfits->changeOpenClose(tab_outfits->getDisplayChildren());
+		}
+	}
+	
+	virtual void fire(const LLUUID&)
+	{
+	}
+	
+private:
+	LLUUID mFolderID;
+};
+
 LLUUID LLAgentWearables::makeNewOutfitLinks(const std::string& new_folder_name)
 {
 	if (mAvatarObject.isNull())
@@ -1309,17 +1349,9 @@ LLUUID LLAgentWearables::makeNewOutfitLinks(const std::string& new_folder_name)
 		LLFolderType::FT_OUTFIT,
 		new_folder_name);
 
-	LLAppearanceManager::instance().shallowCopyCategory(LLAppearanceManager::instance().getCOF(),folder_id, NULL);
+	LLPointer<LLInventoryCallback> cb = new LLAutoRenameFolder(folder_id);
+	LLAppearanceManager::instance().shallowCopyCategory(LLAppearanceManager::instance().getCOF(),folder_id, cb);
 	
-#if 0  // BAP - fix to go into rename state automatically after outfit is created.
-	LLViewerInventoryCategory *parent_category = gInventory.getCategory(parent_id);
-	if (parent_category)
-	{
-		parent_category->setSelectionByID(folder_id,TRUE);
-		parent_category->setNeedsAutoRename(TRUE);
-	}
-#endif
-
 	return folder_id;
 }
 
@@ -1386,7 +1418,7 @@ void LLAgentWearables::removeWearable(const EWearableType type, bool do_remove_a
 				LLSD payload;
 				payload["wearable_type"] = (S32)type;
 				// Bring up view-modal dialog: Save changes? Yes, No, Cancel
-				LLNotifications::instance().add("WearableSave", LLSD(), payload, &LLAgentWearables::onRemoveWearableDialog);
+				LLNotificationsUtil::add("WearableSave", LLSD(), payload, &LLAgentWearables::onRemoveWearableDialog);
 				return;
 			}
 			else
@@ -1403,7 +1435,7 @@ void LLAgentWearables::removeWearable(const EWearableType type, bool do_remove_a
 // static 
 bool LLAgentWearables::onRemoveWearableDialog(const LLSD& notification, const LLSD& response)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	EWearableType type = (EWearableType)notification["payload"]["wearable_type"].asInteger();
 	switch(option)
 	{
@@ -1608,7 +1640,7 @@ void LLAgentWearables::setWearableItem(LLInventoryItem* new_item, LLWearable* ne
 				// Bring up modal dialog: Save changes? Yes, No, Cancel
 				LLSD payload;
 				payload["item_id"] = new_item->getUUID();
-				LLNotifications::instance().add("WearableSave", LLSD(), payload, boost::bind(onSetWearableDialog, _1, _2, new_wearable));
+				LLNotificationsUtil::add("WearableSave", LLSD(), payload, boost::bind(onSetWearableDialog, _1, _2, new_wearable));
 				return;
 			}
 		}
@@ -1620,7 +1652,7 @@ void LLAgentWearables::setWearableItem(LLInventoryItem* new_item, LLWearable* ne
 // static 
 bool LLAgentWearables::onSetWearableDialog(const LLSD& notification, const LLSD& response, LLWearable* wearable)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	LLInventoryItem* new_item = gInventory.getItem(notification["payload"]["item_id"].asUUID());
 	if (!new_item)
 	{
