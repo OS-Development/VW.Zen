@@ -38,7 +38,6 @@
 #include "llappearancemgr.h"
 #include "llavataractions.h"
 #include "llfloatercustomize.h"
-#include "llfloaterinventory.h"
 #include "llfloateropenobject.h"
 #include "llfloaterreg.h"
 #include "llfloaterworldmap.h"
@@ -125,8 +124,8 @@ std::string ICON_NAME[ICON_NAME_COUNT] =
 	"Inv_Animation",
 	"Inv_Gesture",
 
-	"inv_item_linkitem.tga",
-	"inv_item_linkfolder.tga"
+	"Inv_LinkItem",
+	"Inv_LinkFolder"
 };
 
 // +=================================================+
@@ -856,9 +855,6 @@ LLInvFVBridge* LLInvFVBridge::createBridge(LLAssetType::EType asset_type,
 			new_listener = new LLFolderBridge(inventory, uuid);
 			break;
 		case LLAssetType::AT_LINK:
-			// Only should happen for broken links.
-			new_listener = new LLLinkItemBridge(inventory, uuid);
-			break;
 		case LLAssetType::AT_LINK_FOLDER:
 			// Only should happen for broken links.
 			new_listener = new LLLinkItemBridge(inventory, uuid);
@@ -1055,7 +1051,7 @@ void LLItemBridge::gotoItem(LLFolderView *folder)
 	LLInventoryObject *obj = getInventoryObject();
 	if (obj && obj->getIsLinkType())
 	{
-		LLInventoryPanel* active_panel = LLFloaterInventory::getActiveInventory()->getPanel();
+		LLInventoryPanel *active_panel = LLInventoryPanel::getActiveInventoryPanel();
 		if (active_panel)
 		{
 			active_panel->setSelection(obj->getLinkedUUID(), TAKE_FOCUS_NO);
@@ -2931,9 +2927,9 @@ BOOL LLFolderBridge::dragItemIntoFolder(LLInventoryItem* inv_item,
 			// everything in the active window so that we don't follow
 			// the selection to its new location (which is very
 			// annoying).
-			if (LLFloaterInventory::getActiveInventory())
+			LLInventoryPanel *active_panel = LLInventoryPanel::getActiveInventoryPanel();
+			if (active_panel)
 			{
-				LLInventoryPanel* active_panel = LLFloaterInventory::getActiveInventory()->getPanel();
 				LLInventoryPanel* panel = dynamic_cast<LLInventoryPanel*>(mInventoryPanel.get());
 				if (active_panel && (panel != active_panel))
 				{
@@ -5081,7 +5077,7 @@ LLUIImagePtr LLLinkItemBridge::getIcon() const
 {
 	if (LLViewerInventoryItem *item = getItem())
 	{
-		return get_item_icon(item->getActualType(), LLInventoryType::IT_NONE, 0, FALSE);
+		return get_item_icon(item->getActualType(), item->getInventoryType(), 0, FALSE);
 	}
 	return get_item_icon(LLAssetType::AT_LINK, LLInventoryType::IT_NONE, 0, FALSE);
 }
