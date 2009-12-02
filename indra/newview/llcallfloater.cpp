@@ -54,6 +54,7 @@ LLCallFloater::LLCallFloater(const LLSD& key)
 
 LLCallFloater::~LLCallFloater()
 {
+	mChannelChangedConnection.disconnect();
 	delete mPaticipants;
 	mPaticipants = NULL;
 }
@@ -63,6 +64,7 @@ BOOL LLCallFloater::postBuild()
 {
 	LLDockableFloater::postBuild();
 	mAvatarList = getChild<LLAvatarList>("speakers_list");
+	childSetAction("leave_call_btn", boost::bind(&LLCallFloater::leaveCall, this));
 
 
 	LLView *anchor_panel = LLBottomTray::getInstance()->getChild<LLView>("speak_panel");
@@ -77,7 +79,7 @@ BOOL LLCallFloater::postBuild()
 	updateSession();
 
 	// subscribe to to be notified Voice Channel is changed
-	LLVoiceChannel::setCurrentVoiceChannelChangedCallback(boost::bind(&LLCallFloater::onCurrentChannelChanged, this, _1));
+	mChannelChangedConnection = LLVoiceChannel::setCurrentVoiceChannelChangedCallback(boost::bind(&LLCallFloater::onCurrentChannelChanged, this, _1));
 	return TRUE;
 }
 
@@ -89,6 +91,16 @@ void LLCallFloater::onOpen(const LLSD& /*key*/)
 //////////////////////////////////////////////////////////////////////////
 /// PRIVATE SECTION
 //////////////////////////////////////////////////////////////////////////
+
+void LLCallFloater::leaveCall()
+{
+	LLVoiceChannel* voice_channel = LLVoiceChannel::getCurrentVoiceChannel();
+	if (voice_channel && voice_channel->isActive())
+	{
+		voice_channel->deactivate();
+	}
+}
+
 void LLCallFloater::updateSession()
 {
 	LLVoiceChannel* voice_channel = LLVoiceChannel::getCurrentVoiceChannel();
@@ -138,6 +150,11 @@ void LLCallFloater::updateSession()
 	}
 
 	updateTitle();
+	
+	//hide "Leave Call" button for nearby chat
+	bool is_local_chat = mVoiceType == VC_LOCAL_CHAT;
+	childSetVisible("leave_btn_panel", !is_local_chat);
+	
 	refreshPartisipantList();
 }
 
@@ -157,6 +174,8 @@ void LLCallFloater::refreshPartisipantList()
 
 void LLCallFloater::onCurrentChannelChanged(const LLUUID& /*session_id*/)
 {
+	// Forget speaker manager from the previous session to avoid using it after session was destroyed.
+	mSpeakerManager = NULL;
 	updateSession();
 }
 
