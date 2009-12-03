@@ -856,14 +856,31 @@ void LLInventoryPanel::dumpSelectionInformation(void* user_data)
 	iv->mFolders->dumpSelectionInformation();
 }
 
-// static
-LLInventoryPanel* LLInventoryPanel::getActiveInventoryPanel()
+BOOL is_inventorysp_active()
 {
-	LLInventoryPanel* res = NULL;
+	if (!LLSideTray::getInstance()->isPanelActive("sidepanel_inventory")) return FALSE;
+	LLSidepanelInventory *inventorySP = dynamic_cast<LLSidepanelInventory *>(LLSideTray::getInstance()->getPanel("sidepanel_inventory"));
+	if (!inventorySP) return FALSE; 
+	return inventorySP->isMainInventoryPanelActive();
+}
 
-	// Iterate through the inventory floaters and return whichever is on top.
+// static
+LLInventoryPanel* LLInventoryPanel::getActiveInventoryPanel(BOOL auto_open)
+{
+	// A. If the inventory side panel is open, use that preferably.
+	if (is_inventorysp_active())
+	{
+		LLSidepanelInventory *inventorySP = dynamic_cast<LLSidepanelInventory *>(LLSideTray::getInstance()->getPanel("sidepanel_inventory"));
+		if (inventorySP)
+		{
+			return inventorySP->getActivePanel();
+		}
+	}
+	
+	// B. Iterate through the inventory floaters and return whichever is on top.
 	LLFloaterReg::const_instance_list_t& inst_list = LLFloaterReg::getFloaterList("inventory");
 	S32 z_min = S32_MAX;
+	LLInventoryPanel* res = NULL;
 	for (LLFloaterReg::const_instance_list_t::const_iterator iter = inst_list.begin(); iter != inst_list.end(); ++iter)
 	{
 		LLFloaterInventory* iv = dynamic_cast<LLFloaterInventory*>(*iter);
@@ -877,22 +894,19 @@ LLInventoryPanel* LLInventoryPanel::getActiveInventoryPanel()
 			}
 		}
 	}
-
-	// Otherwise, open the inventorySP and use that.
-	if (!res)
+	if (res) return res;
+		
+	// C. If no panels are open and we don't want to force open a panel, then just abort out.
+	if (!auto_open) return NULL;
+	
+	// D. Open the inventory side panel and use that.
+	LLSD key;
+	LLSidepanelInventory *sidepanel_inventory =
+		dynamic_cast<LLSidepanelInventory *>(LLSideTray::getInstance()->showPanel("sidepanel_inventory", key));
+	if (sidepanel_inventory)
 	{
-		LLSD key;
-		LLSidepanelInventory *sidepanel_inventory =
-			dynamic_cast<LLSidepanelInventory *>(LLSideTray::getInstance()->showPanel("sidepanel_inventory", key));
-		if (sidepanel_inventory)
-		{
-			res = sidepanel_inventory->getActivePanel();
-			if (res)
-			{
-				return res;
-			}
-		}
+		return sidepanel_inventory->getActivePanel();
 	}
 
-	return res;
+	return NULL;
 }
