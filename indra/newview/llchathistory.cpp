@@ -78,7 +78,7 @@ public:
 		{
 			LLMuteList::getInstance()->add(LLMute(getAvatarId(), mFrom, LLMute::OBJECT));
 
-			LLSideTray::getInstance()->showPanel("panel_block_list_sidetray", LLSD().insert("blocked_to_select", getAvatarId()));
+			LLSideTray::getInstance()->showPanel("panel_block_list_sidetray", LLSD().with("blocked_to_select", getAvatarId()));
 		}
 	}
 
@@ -160,11 +160,11 @@ public:
 	{
 		if (mSourceType == CHAT_SOURCE_OBJECT)
 		{
-			LLFloaterReg::showInstance("inspect_object", LLSD().insert("object_id", mAvatarID));
+			LLFloaterReg::showInstance("inspect_object", LLSD().with("object_id", mAvatarID));
 		}
 		else if (mSourceType == CHAT_SOURCE_AGENT)
 		{
-			LLFloaterReg::showInstance("inspect_avatar", LLSD().insert("avatar_id", mAvatarID));
+			LLFloaterReg::showInstance("inspect_avatar", LLSD().with("avatar_id", mAvatarID));
 		}
 		//if chat source is system, you may add "else" here to define behaviour.
 	}
@@ -267,30 +267,13 @@ protected:
 	}
 
 private:
-	std::string appendTime(const LLChat& chat)
-	{
-		time_t utc_time;
-		utc_time = time_corrected();
-		std::string timeStr ="["+ LLTrans::getString("TimeHour")+"]:["
-			+LLTrans::getString("TimeMin")+"] ";
-
-		LLSD substitution;
-
-		substitution["datetime"] = (S32) utc_time;
-		LLStringUtil::format (timeStr, substitution);
-
-		return timeStr;
-	}
-
 	void setTimeField(const LLChat& chat)
 	{
 		LLTextBox* time_box = getChild<LLTextBox>("time_box");
 
 		LLRect rect_before = time_box->getRect();
 
-		std::string time_value = appendTime(chat);
-
-		time_box->setValue(time_value);
+		time_box->setValue(chat.mTimeStr);
 
 		// set necessary textbox width to fit all text
 		time_box->reshapeToFitText();
