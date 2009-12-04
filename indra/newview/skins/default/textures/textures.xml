@@ -230,6 +230,8 @@ with the same filename but different name
   <texture name="Inv_Gesture" file_name="icons/Inv_Gesture.png" preload="false" />
   <texture name="Inv_Gloves" file_name="icons/Inv_Gloves.png" preload="false" />
   <texture name="Inv_Hair" file_name="icons/Inv_Hair.png" preload="false" />
+  <texture name="Inv_LinkItem" file_name="icons/Inv_LinkItem.png" preload="false" />
+  <texture name="Inv_LinkFolder" file_name="icons/Inv_LinkFolder.png" preload="false" />
   <texture name="Inv_Jacket" file_name="icons/Inv_Jacket.png" preload="false" />
   <texture name="Inv_LookFolderOpen" file_name="icons/Inv_LookFolderOpen.png" preload="false" />
   <texture name="Inv_LookFolderClosed" file_name="icons/Inv_LookFolderClosed.png" preload="false" />
@@ -481,6 +483,7 @@ with the same filename but different name
   <texture name="SliderThumb_Off" file_name="widgets/SliderThumb_Off.png" />
   <texture name="SliderThumb_Disabled" file_name="widgets/SliderThumb_Disabled.png" />
   <texture name="SliderThumb_Press" file_name="widgets/SliderThumb_Press.png" />
+  <texture name="SL_Logo" file_name="map_infohub.tga" />
 
   <texture name="Snapshot_Off" file_name="bottomtray/Snapshot_Off.png" preload="true" scale.left="4" scale.top="19" scale.right="22" scale.bottom="4" />
   <texture name="Snapshot_Over" file_name="bottomtray/Snapshot_Over.png" preload="false" />
