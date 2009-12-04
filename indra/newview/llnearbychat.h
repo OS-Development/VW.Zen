@@ -47,7 +47,7 @@ public:
 	~LLNearbyChat();
 
 	BOOL	postBuild			();
-	void	addMessage			(const LLChat& message);	
+	void	addMessage			(const LLChat& message,bool archive = true);	
 	void	onNearbyChatContextMenuItemClicked(const LLSD& userdata);
 	bool	onNearbyChatCheckContextMenuItem(const LLSD& userdata);
 
@@ -61,6 +61,10 @@ public:
 
 	virtual void setRect		(const LLRect &rect);
 
+	virtual void updateChatHistoryStyle();
+
+	static void processChatHistoryStyleUpdate(const LLSD& newvalue);
+
 private:
 	virtual void    applySavedVariables();
 
@@ -72,6 +76,8 @@ private:
 private:
 	LLHandle<LLView>	mPopupMenuHandle;
 	LLChatHistory*		mChatHistory;
+
+	std::vector<LLChat> mMessageArchive;
 };
 
 #endif

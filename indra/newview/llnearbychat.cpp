@@ -57,6 +57,7 @@
 #include "lltrans.h"
 #include "llbottomtray.h"
 #include "llnearbychatbar.h"
+#include "llfloaterreg.h"
 
 static const S32 RESIZE_BAR_THICKNESS = 3;
 
@@ -145,7 +146,7 @@ std::string appendTime()
 	return timeStr;
 }
 
-void	LLNearbyChat::addMessage(const LLChat& chat)
+void	LLNearbyChat::addMessage(const LLChat& chat,bool archive)
 {
 	if (chat.mChatType == CHAT_TYPE_DEBUG_MSG)
 	{
@@ -207,6 +208,13 @@ void	LLNearbyChat::addMessage(const LLChat& chat)
 			mChatHistory->appendMessage(chat,use_plain_text_chat_history);
 		}
 	}
+
+	if(archive)
+	{
+		mMessageArchive.push_back(chat);
+		if(mMessageArchive.size()>200)
+			mMessageArchive.erase(mMessageArchive.begin());
+	}
 }
 
 void LLNearbyChat::onNearbySpeakers()
@@ -257,6 +265,23 @@ void LLNearbyChat::getAllowedRect(LLRect& rect)
 	rect = gViewerWindow->getWorldViewRectScaled();
 }
 
+void LLNearbyChat::updateChatHistoryStyle()
+{
+	mChatHistory->clear();
+	for(std::vector<LLChat>::iterator it = mMessageArchive.begin();it!=mMessageArchive.end();++it)
+	{
+		addMessage(*it,false);
+	}
+}
+
+//static 
+void LLNearbyChat::processChatHistoryStyleUpdate(const LLSD& newvalue)
+{
+	LLNearbyChat* nearby_chat = LLFloaterReg::getTypedInstance<LLNearbyChat>("nearby_chat", LLSD());
+	if(nearby_chat)
+		nearby_chat->updateChatHistoryStyle();
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -273,4 +298,3 @@ void LLNearbyChat::onFocusLost()
 	setBackgroundOpaque(false);
 	LLPanel::onFocusLost();
 }
-

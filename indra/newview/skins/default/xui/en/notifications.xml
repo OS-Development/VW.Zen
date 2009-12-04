@@ -4598,6 +4598,13 @@ Please select at least one type of content to search (General, Moderate, or Adul
 
   <notification
    icon="notify.tga"
+   name="PaymentRecived"
+   type="notify">
+[MESSAGE]
+  </notification>
+  
+  <notification
+   icon="notify.tga"
    name="EventNotification"
    type="notify">
 Event Notification:

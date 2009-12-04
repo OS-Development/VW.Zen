@@ -60,6 +60,7 @@
 #include "llkeyboard.h"
 #include "llmodaldialog.h"
 #include "llnavigationbar.h"
+#include "llnearbychat.h"
 #include "llnotifications.h"
 #include "llnotificationsutil.h"
 #include "llpanellogin.h"
@@ -361,6 +362,8 @@ LLFloaterPreference::LLFloaterPreference(const LLSD& key)
 BOOL LLFloaterPreference::postBuild()
 {
 	gSavedSettings.getControl("PlainTextChatHistory")->getSignal()->connect(boost::bind(&LLIMFloater::processChatHistoryStyleUpdate, _2));
+
+	gSavedSettings.getControl("PlainTextChatHistory")->getSignal()->connect(boost::bind(&LLNearbyChat::processChatHistoryStyleUpdate, _2));
 
 	LLTabContainer* tabcontainer = getChild<LLTabContainer>("pref core");
 	if (!tabcontainer->selectTab(gSavedSettings.getS32("LastPrefTab")))
@@ -764,9 +767,8 @@ void LLFloaterPreference::onClickResetCache()
 	{
 		gSavedSettings.setString("NewCacheLocation", "");
 		gSavedSettings.setString("NewCacheLocationTopFolder", "");
+		LLNotificationsUtil::add("CacheWillBeMoved");
 	}
-
-	LLNotificationsUtil::add("CacheWillBeMoved");
 	std::string cache_location = gDirUtilp->getCacheDir(true);
 	gSavedSettings.setString("CacheLocation", cache_location);
 	std::string top_folder(gDirUtilp->getBaseFileName(cache_location));
