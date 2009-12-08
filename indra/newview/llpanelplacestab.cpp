@@ -33,13 +33,16 @@
 
 #include "llpanelplacestab.h"
 
+#include "llbutton.h"
+#include "llnotificationsutil.h"
+
 #include "llwindow.h"
 
-#include "llnotifications.h"
-
-#include "llbutton.h"
+#include "llpanelplaces.h"
 #include "llslurl.h"
 #include "llworldmap.h"
+
+std::string LLPanelPlacesTab::sFilterSubString = LLStringUtil::null;
 
 bool LLPanelPlacesTab::isTabVisible()
 {
@@ -82,5 +85,5 @@ void LLPanelPlacesTab::onRegionResponse(const LLVector3d& landmark_global_pos,
 	LLSD args;
 	args["SLURL"] = sl_url;
 
-	LLNotifications::instance().add("CopySLURL", args);
+	LLNotificationsUtil::add("CopySLURL", args);
 }

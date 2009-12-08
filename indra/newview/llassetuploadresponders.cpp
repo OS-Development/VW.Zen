@@ -42,7 +42,6 @@
 #include "llnotify.h"
 #include "llinventoryobserver.h"
 #include "llinventorypanel.h"
-#include "llfloaterinventory.h"
 #include "llfloaterimportcollada.h"
 #include "llpermissionsflags.h"
 #include "llpreviewnotecard.h"
@@ -64,6 +63,7 @@
 #include "lleconomy.h"
 #include "llfloaterreg.h"
 #include "llfocusmgr.h"
+#include "llnotificationsutil.h"
 #include "llscrolllistctrl.h"
 #include "llsdserialize.h"
 #include "llsdutil.h"
@@ -237,14 +237,14 @@ void LLAssetUploadResponder::error(U32 statusNum, const std::string& reason)
 			args["FILE"] = (mFileName.empty() ? mVFileID.asString() : mFileName);
 			args["REASON"] = "Error in upload request.  Please visit "
 				"http://secondlife.com/support for help fixing this problem.";
-			LLNotifications::instance().add("CannotUploadReason", args);
+			LLNotificationsUtil::add("CannotUploadReason", args);
 			break;
 		case 500:
 		default:
 			args["FILE"] = (mFileName.empty() ? mVFileID.asString() : mFileName);
 			args["REASON"] = "The server is experiencing unexpected "
 				"difficulties.";
-			LLNotifications::instance().add("CannotUploadReason", args);
+			LLNotificationsUtil::add("CannotUploadReason", args);
 			break;
 	}
 	LLUploadDialog::modalUploadFinished();
@@ -307,7 +307,7 @@ void LLAssetUploadResponder::uploadFailure(const LLSD& content)
 		LLSD args;
 		args["FILE"] = (mFileName.empty() ? mVFileID.asString() : mFileName);
 		args["REASON"] = content["message"].asString();
-		LLNotifications::instance().add("CannotUploadReason", args);
+		LLNotificationsUtil::add("CannotUploadReason", args);
 	}
 }
 
@@ -380,6 +380,7 @@ void LLNewAgentInventoryResponder::uploadComplete(const LLSD& content)
 		mPostData["description"],
 		content,
 		expected_upload_cost);
+			LLFocusableElement* focus = gFocusMgr.getKeyboardFocus();
 
 	// continue uploading for bulk uploads
 

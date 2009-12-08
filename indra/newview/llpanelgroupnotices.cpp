@@ -58,7 +58,7 @@
 #include "roles_constants.h"
 #include "llviewerwindow.h"
 #include "llviewermessage.h"
-#include "llnotifications.h"
+#include "llnotificationsutil.h"
 
 static LLRegisterPanelClassWrapper<LLPanelGroupNotices> t_panel_group_notices("panel_group_notices");
 
@@ -305,6 +305,9 @@ BOOL LLPanelGroupNotices::postBuild()
 
 void LLPanelGroupNotices::activate()
 {
+	if(mNoticesList)
+		mNoticesList->deleteAllItems();
+	
 	BOOL can_send = gAgent.hasPowerInGroup(mGroupID,GP_NOTICES_SEND);
 	BOOL can_receive = gAgent.hasPowerInGroup(mGroupID,GP_NOTICES_RECEIVE);
 
@@ -373,7 +376,7 @@ void LLPanelGroupNotices::onClickSendMessage(void* data)
 	if (self->mCreateSubject->getText().empty())
 	{
 		// Must supply a subject
-		LLNotifications::instance().add("MustSpecifyGroupNoticeSubject");
+		LLNotificationsUtil::add("MustSpecifyGroupNoticeSubject");
 		return;
 	}
 	send_group_notice(
@@ -511,6 +514,9 @@ void LLPanelGroupNotices::processNotices(LLMessageSystem* msg)
 
 	S32 i=0;
 	S32 count = msg->getNumberOfBlocks("Data");
+
+	mNoticesList->setEnabled(TRUE);
+
 	for (;i<count;++i)
 	{
 		msg->getUUID("Data","NoticeID",id,i);

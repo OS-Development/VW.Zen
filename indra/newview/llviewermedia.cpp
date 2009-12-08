@@ -45,9 +45,12 @@
 #include "llviewertexturelist.h"
 #include "llvovolume.h"
 #include "llpluginclassmedia.h"
+#include "llviewerwindow.h"
+#include "llfocusmgr.h"
+#include "llcallbacklist.h"
 
 #include "llevent.h"		// LLSimpleListener
-#include "llnotifications.h"
+#include "llnotificationsutil.h"
 #include "lluuid.h"
 #include "llkeyboard.h"
 #include "llmutelist.h"
@@ -55,7 +58,7 @@
 #include <boost/bind.hpp>	// for SkinFolder listener
 #include <boost/signals2.hpp>
 
-/*static*/ const char* LLViewerMedia::AUTO_PLAY_MEDIA_SETTING = "AutoPlayMedia";
+/*static*/ const char* LLViewerMedia::AUTO_PLAY_MEDIA_SETTING = "ParcelMediaAutoPlayEnable";
 
 // Move this to its own file.
 
@@ -171,7 +174,16 @@ public:
 		else
 		if(status == 404)
 		{
-			// Treat 404s like an html page.
+			// 404 is content not found - sites often have bespoke 404 pages so
+			// treat them like an html page.
+			completeAny(status, "text/html");
+		}
+		else
+		if(status == 406)
+		{
+			// 406 means the server sent something that we didn't indicate was acceptable
+			// Eventually we should send what we accept in the headers but for now,
+			// treat 406s like an html page.
 			completeAny(status, "text/html");
 		}
 		else
@@ -318,6 +330,8 @@ viewer_media_t LLViewerMedia::updateMediaImpl(LLMediaEntry* media_entry, const s
 		media_impl->mMediaLoop = media_entry->getAutoLoop();
 		media_impl->mMediaWidth = media_entry->getWidthPixels();
 		media_impl->mMediaHeight = media_entry->getHeightPixels();
+		media_impl->mMediaAutoPlay = media_entry->getAutoPlay();
+		media_impl->mMediaEntryURL = media_entry->getCurrentURL();
 		if (media_impl->mMediaSource)
 		{
 			media_impl->mMediaSource->setAutoScale(media_impl->mMediaAutoScale);
@@ -325,8 +339,8 @@ viewer_media_t LLViewerMedia::updateMediaImpl(LLMediaEntry* media_entry, const s
 			media_impl->mMediaSource->setSize(media_entry->getWidthPixels(), media_entry->getHeightPixels());
 		}
 		
-		bool url_changed = (media_entry->getCurrentURL() != previous_url);
-		if(media_entry->getCurrentURL().empty())
+		bool url_changed = (media_impl->mMediaEntryURL != previous_url);
+		if(media_impl->mMediaEntryURL.empty())
 		{
 			if(url_changed)
 			{
@@ -341,7 +355,7 @@ viewer_media_t LLViewerMedia::updateMediaImpl(LLMediaEntry* media_entry, const s
 			// The current media URL is not empty.
 			// If (the media was already loaded OR the media was set to autoplay) AND this update didn't come from this agent,
 			// do a navigate.
-			bool auto_play = (media_entry->getAutoPlay() && gSavedSettings.getBOOL(AUTO_PLAY_MEDIA_SETTING));
+			bool auto_play = (media_impl->mMediaAutoPlay && gSavedSettings.getBOOL(AUTO_PLAY_MEDIA_SETTING));
 			
 			if((was_loaded || auto_play) && !update_from_self)
 			{
@@ -363,8 +377,10 @@ viewer_media_t LLViewerMedia::updateMediaImpl(LLMediaEntry* media_entry, const s
 			media_entry->getAutoLoop());
 		
 		media_impl->setHomeURL(media_entry->getHomeURL());
+		media_impl->mMediaAutoPlay = media_entry->getAutoPlay();
+		media_impl->mMediaEntryURL = media_entry->getCurrentURL();
 		
-		if(media_entry->getAutoPlay() && gSavedSettings.getBOOL(AUTO_PLAY_MEDIA_SETTING))
+		if(media_impl->mMediaAutoPlay && gSavedSettings.getBOOL(AUTO_PLAY_MEDIA_SETTING))
 		{
 			needs_navigate = true;
 		}
@@ -372,21 +388,20 @@ viewer_media_t LLViewerMedia::updateMediaImpl(LLMediaEntry* media_entry, const s
 	
 	if(media_impl)
 	{
-		std::string url = media_entry->getCurrentURL();
 		if(needs_navigate)
 		{
-			media_impl->navigateTo(url, "", true, true);
-			lldebugs << "navigating to URL " << url << llendl;
+			media_impl->navigateTo(media_impl->mMediaEntryURL, "", true, true);
+			lldebugs << "navigating to URL " << media_impl->mMediaEntryURL << llendl;
 		}
-		else if(!media_impl->mMediaURL.empty() && (media_impl->mMediaURL != url))
+		else if(!media_impl->mMediaURL.empty() && (media_impl->mMediaURL != media_impl->mMediaEntryURL))
 		{
 			// If we already have a non-empty media URL set and we aren't doing a navigate, update the media URL to match the media entry.
-			media_impl->mMediaURL = url;
+			media_impl->mMediaURL = media_impl->mMediaEntryURL;
 
 			// If this causes a navigate at some point (such as after a reload), it should be considered server-driven so it isn't broadcast.
 			media_impl->mNavigateServerRequest = true;
 
-			lldebugs << "updating URL in the media impl to " << url << llendl;
+			lldebugs << "updating URL in the media impl to " << media_impl->mMediaEntryURL << llendl;
 		}
 	}
 	
@@ -616,7 +631,7 @@ static bool proximity_comparitor(const LLViewerMediaImpl* i1, const LLViewerMedi
 
 //////////////////////////////////////////////////////////////////////////////////////////
 // static
-void LLViewerMedia::updateMedia()
+void LLViewerMedia::updateMedia(void *dummy_arg)
 {
 	impl_list::iterator iter = sViewerMediaImplList.begin();
 	impl_list::iterator end = sViewerMediaImplList.end();
@@ -659,7 +674,7 @@ void LLViewerMedia::updateMedia()
 		
 		LLPluginClassMedia::EPriority new_priority = LLPluginClassMedia::PRIORITY_NORMAL;
 
-		if(pimpl->isForcedUnloaded() || (impl_count_total > (int)max_instances))
+		if(pimpl->isForcedUnloaded() || (impl_count_total >= (int)max_instances))
 		{
 			// Never load muted or failed impls.
 			// Hard limit on the number of instances that will be loaded at one time
@@ -738,6 +753,19 @@ void LLViewerMedia::updateMedia()
 			impl_count_total++;
 		}
 		
+		// Overrides if the window is minimized or we lost focus (taking care
+		// not to accidentally "raise" the priority either)
+		if (!gViewerWindow->getActive() /* viewer window minimized? */ 
+			&& new_priority > LLPluginClassMedia::PRIORITY_HIDDEN)
+		{
+			new_priority = LLPluginClassMedia::PRIORITY_HIDDEN;
+		}
+		else if (!gFocusMgr.getAppHasFocus() /* viewer window lost focus? */
+				 && new_priority > LLPluginClassMedia::PRIORITY_LOW)
+		{
+			new_priority = LLPluginClassMedia::PRIORITY_LOW;
+		}
+		
 		pimpl->setPriority(new_priority);
 		
 		if(pimpl->getUsedInUI())
@@ -776,9 +804,16 @@ void LLViewerMedia::updateMedia()
 
 //////////////////////////////////////////////////////////////////////////////////////////
 // static
+void LLViewerMedia::initClass()
+{
+	gIdleCallbacks.addFunction(LLViewerMedia::updateMedia, NULL);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+// static
 void LLViewerMedia::cleanupClass()
 {
-	// This is no longer necessary, since sViewerMediaImplList is no longer smart pointers.
+	gIdleCallbacks.deleteFunction(LLViewerMedia::updateMedia, NULL);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -821,6 +856,7 @@ LLViewerMediaImpl::LLViewerMediaImpl(	  const LLUUID& texture_id,
 	mProximity(-1),
 	mProximityDistance(0.0f),
 	mMimeTypeProbe(NULL),
+	mMediaAutoPlay(false),
 	mIsUpdated(false)
 { 
 
@@ -987,7 +1023,7 @@ LLPluginClassMedia* LLViewerMediaImpl::newSourceFromMediaType(std::string media_
 	LL_WARNS("Plugin") << "plugin intialization failed for mime type: " << media_type << LL_ENDL;
 	LLSD args;
 	args["MIME_TYPE"] = media_type;
-	LLNotifications::instance().add("NoPlugin", args);
+	LLNotificationsUtil::add("NoPlugin", args);
 
 	return NULL;
 }							
@@ -1281,16 +1317,36 @@ void LLViewerMediaImpl::mouseMove(S32 x, S32 y, MASK mask)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
+//static 
+void LLViewerMediaImpl::scaleTextureCoords(const LLVector2& texture_coords, S32 *x, S32 *y)
+{
+	F32 texture_x = texture_coords.mV[VX];
+	F32 texture_y = texture_coords.mV[VY];
+	
+	// Deal with repeating textures by wrapping the coordinates into the range [0, 1.0)
+	texture_x = fmodf(texture_x, 1.0f);
+	if(texture_x < 0.0f)
+		texture_x = 1.0 + texture_x;
+		
+	texture_y = fmodf(texture_y, 1.0f);
+	if(texture_y < 0.0f)
+		texture_y = 1.0 + texture_y;
+
+	// scale x and y to texel units.
+	*x = llround(texture_x * mMediaSource->getTextureWidth());
+	*y = llround((1.0f - texture_y) * mMediaSource->getTextureHeight());
+
+	// Adjust for the difference between the actual texture height and the amount of the texture in use.
+	*y -= (mMediaSource->getTextureHeight() - mMediaSource->getHeight());
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
 void LLViewerMediaImpl::mouseDown(const LLVector2& texture_coords, MASK mask, S32 button)
 {
 	if(mMediaSource)
 	{
-		// scale x and y to texel units.
-		S32 x = llround(texture_coords.mV[VX] * mMediaSource->getTextureWidth());
-		S32 y = llround((1.0f - texture_coords.mV[VY]) * mMediaSource->getTextureHeight());
-
-		// Adjust for the difference between the actual texture height and the amount of the texture in use.
-		y -= (mMediaSource->getTextureHeight() - mMediaSource->getHeight());
+		S32 x, y;
+		scaleTextureCoords(texture_coords, &x, &y);
 
 		mouseDown(x, y, mask, button);
 	}
@@ -1300,12 +1356,8 @@ void LLViewerMediaImpl::mouseUp(const LLVector2& texture_coords, MASK mask, S32 
 {
 	if(mMediaSource)
 	{		
-		// scale x and y to texel units.
-		S32 x = llround(texture_coords.mV[VX] * mMediaSource->getTextureWidth());
-		S32 y = llround((1.0f - texture_coords.mV[VY]) * mMediaSource->getTextureHeight());
-
-		// Adjust for the difference between the actual texture height and the amount of the texture in use.
-		y -= (mMediaSource->getTextureHeight() - mMediaSource->getHeight());
+		S32 x, y;
+		scaleTextureCoords(texture_coords, &x, &y);
 
 		mouseUp(x, y, mask, button);
 	}
@@ -1315,12 +1367,8 @@ void LLViewerMediaImpl::mouseMove(const LLVector2& texture_coords, MASK mask)
 {
 	if(mMediaSource)
 	{		
-		// scale x and y to texel units.
-		S32 x = llround(texture_coords.mV[VX] * mMediaSource->getTextureWidth());
-		S32 y = llround((1.0f - texture_coords.mV[VY]) * mMediaSource->getTextureHeight());
-
-		// Adjust for the difference between the actual texture height and the amount of the texture in use.
-		y -= (mMediaSource->getTextureHeight() - mMediaSource->getHeight());
+		S32 x, y;
+		scaleTextureCoords(texture_coords, &x, &y);
 
 		mouseMove(x, y, mask);
 	}
@@ -1890,6 +1938,33 @@ void LLViewerMediaImpl::resetPreviousMediaState()
 	mPreviousMediaTime = 0.0f;
 }
 
+
+//////////////////////////////////////////////////////////////////////////////////////////
+//
+void LLViewerMediaImpl::setDisabled(bool disabled)
+{
+	if(mIsDisabled != disabled)
+	{
+		// Only do this on actual state transitions.
+		mIsDisabled = disabled;
+		
+		if(mIsDisabled)
+		{
+			// We just disabled this media.  Clear all state.
+			unload();
+		}
+		else
+		{
+			// We just (re)enabled this media.  Do a navigate if auto-play is in order.
+			if(mMediaAutoPlay && gSavedSettings.getBOOL(LLViewerMedia::AUTO_PLAY_MEDIA_SETTING))
+			{
+				navigateTo(mMediaEntryURL, "", true, true);
+			}
+		}
+
+	}
+};
+
 //////////////////////////////////////////////////////////////////////////////////////////
 //
 bool LLViewerMediaImpl::isForcedUnloaded() const
@@ -1953,7 +2028,7 @@ void LLViewerMediaImpl::handleMediaEvent(LLPluginClassMedia* plugin, LLPluginCla
 			// TODO: may want a different message for this case?
 			LLSD args;
 			args["PLUGIN"] = LLMIMETypes::implType(mMimeType);
-			LLNotifications::instance().add("MediaPluginFailed", args);
+			LLNotificationsUtil::add("MediaPluginFailed", args);
 		}
 		break;
 
@@ -1968,7 +2043,7 @@ void LLViewerMediaImpl::handleMediaEvent(LLPluginClassMedia* plugin, LLPluginCla
 			LLSD args;
 			args["PLUGIN"] = LLMIMETypes::implType(mMimeType);
 			// SJB: This is getting called every frame if the plugin fails to load, continuously respawining the alert!
-			//LLNotifications::instance().add("MediaPluginFailed", args);
+			//LLNotificationsUtil::add("MediaPluginFailed", args);
 		}
 		break;
 		

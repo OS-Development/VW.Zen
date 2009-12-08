@@ -35,6 +35,7 @@
 
 #include "llpanel.h"
 #include "llvoicechannel.h"
+#include "llcallingcard.h"
 
 class LLSpeakerMgr;
 class LLAvatarList;
@@ -46,7 +47,7 @@ public:
 	LLPanelChatControlPanel() :
 		mSessionId(LLUUID()),
 		mInitialized(false) {};
-	~LLPanelChatControlPanel() {};
+	~LLPanelChatControlPanel();
 
 	virtual BOOL postBuild();
 	virtual void draw();
@@ -63,10 +64,13 @@ public:
 private:
 	LLUUID mSessionId;
 	bool   mInitialized;
+
+	// connection to voice channel state change signal
+	boost::signals2::connection mVoiceChannelStateChangeConnection;
 };
 
 
-class LLPanelIMControlPanel : public LLPanelChatControlPanel
+class LLPanelIMControlPanel : public LLPanelChatControlPanel, LLFriendObserver
 {
 public:
 	LLPanelIMControlPanel();
@@ -75,6 +79,9 @@ public:
 	BOOL postBuild();
 
 	void setSessionId(const LLUUID& session_id);
+
+	// LLFriendObserver trigger
+	virtual void changed(U32 mask);
 
 protected:
 	void nameUpdatedCallback(const LLUUID& id, const std::string& first, const std::string& last, BOOL is_group);

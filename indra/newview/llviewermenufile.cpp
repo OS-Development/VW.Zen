@@ -63,6 +63,7 @@
 #include "llassetuploadresponders.h"
 #include "lleconomy.h"
 #include "llhttpclient.h"
+#include "llnotificationsutil.h"
 #include "llsdserialize.h"
 #include "llsdutil.h"
 #include "llstring.h"
@@ -181,7 +182,7 @@ const std::string upload_pick(void* data)
 		// No extension
 		LLSD args;
 		args["FILE"] = short_name;
-		LLNotifications::instance().add("NoFileExtension", args);
+		LLNotificationsUtil::add("NoFileExtension", args);
 		return std::string();
 	}
 	else
@@ -224,7 +225,7 @@ const std::string upload_pick(void* data)
 			LLSD args;
 			args["EXTENSION"] = ext;
 			args["VALIDS"] = valid_extensions;
-			LLNotifications::instance().add("InvalidFileExtension", args);
+			LLNotificationsUtil::add("InvalidFileExtension", args);
 			return std::string();
 		}
 	}//end else (non-null extension)
@@ -242,7 +243,7 @@ const std::string upload_pick(void* data)
 			llinfos << error_msg << ": " << filename << llendl;
 			LLSD args;
 			args["FILE"] = filename;
-			LLNotifications::instance().add( error_msg, args );
+			LLNotificationsUtil::add( error_msg, args );
 			return std::string();
 		}
 	}//end if a wave/sound file
@@ -382,7 +383,7 @@ class LLFileUploadBulk : public view_listener_t
 void upload_error(const std::string& error_message, const std::string& label, const std::string& filename, const LLSD& args) 
 {
 	llwarns << error_message << llendl;
-	LLNotifications::instance().add(label, args);
+	LLNotificationsUtil::add(label, args);
 	if(LLFile::remove(filename) == -1)
 	{
 		lldebugs << "unable to remove temp file" << llendl;
@@ -851,7 +852,7 @@ LLUUID upload_new_resource(
 		llwarns << error_message << llendl;
 		LLSD args;
 		args["ERROR_MESSAGE"] = error_message;
-		LLNotifications::instance().add("ErrorMessage", args);
+		LLNotificationsUtil::add("ErrorMessage", args);
 		if(LLFile::remove(filename) == -1)
 		{
 			lldebugs << "unable to remove temp file" << llendl;
@@ -946,7 +947,7 @@ void upload_done_callback(
 		LLSD args;
 		args["FILE"] = LLInventoryType::lookupHumanReadable(data->mInventoryType);
 		args["REASON"] = std::string(LLAssetStorage::getErrorString(result));
-		LLNotifications::instance().add("CannotUploadReason", args);
+		LLNotificationsUtil::add("CannotUploadReason", args);
 	}
 
 	LLUploadDialog::modalUploadFinished();

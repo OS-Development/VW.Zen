@@ -33,6 +33,7 @@
 #include "llviewerprecompiledheaders.h"
 
 // file include
+#define LLSELECTMGR_CPP
 #include "llselectmgr.h"
 
 // library includes
@@ -41,6 +42,7 @@
 #include "lleconomy.h"
 #include "llgl.h"
 #include "llrender.h"
+#include "llnotifications.h"
 #include "llpermissions.h"
 #include "llpermissionsflags.h"
 #include "lltrans.h"
@@ -174,6 +176,8 @@ LLObjectSelection *get_null_object_selection()
 	return sNullSelection;
 }
 
+// Build time optimization, generate this function once here
+template class LLSelectMgr* LLSingleton<class LLSelectMgr>::getInstance();
 //-----------------------------------------------------------------------------
 // LLSelectMgr()
 //-----------------------------------------------------------------------------

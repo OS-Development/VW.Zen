@@ -111,10 +111,7 @@ public:
 		Alternative<std::string>	string;
 		Alternative<U32>			flags;
 
-        Follows()
-		:   string(""),
-			flags("flags", FOLLOWS_LEFT | FOLLOWS_TOP)
-        {}
+        Follows();
 	};
 
 	struct Params : public LLInitParam::Block<Params>
@@ -517,6 +514,8 @@ public:
 	virtual void	notifyParent(const LLSD& info);
 	virtual void	notifyChildren(const LLSD& info);
 
+	virtual void	notify(const LLSD& info) {};
+
 	static const LLViewDrawContext& getDrawContext();
 
 protected:
@@ -658,5 +657,12 @@ template <class T> T* LLView::getChild(const std::string& name, BOOL recurse) co
 	}
 	return result;
 }
+
+// Compiler optimization - don't generate these specializations inline,
+// require explicit specialization.  See llbutton.cpp for an example.
+#ifndef LLVIEW_CPP
+extern template class LLView* LLView::getChild<class LLView>(
+	const std::string& name, BOOL recurse) const;
+#endif
 
 #endif //LL_LLVIEW_H

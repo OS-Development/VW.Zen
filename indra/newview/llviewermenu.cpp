@@ -31,186 +31,75 @@
  */
 
 #include "llviewerprecompiledheaders.h"
-
 #include "llviewermenu.h" 
 
-// system library includes
-#include <iostream>
-#include <fstream>
-#include <sstream>
-
 // linden library includes
-#include "llaudioengine.h"
 #include "llfloaterreg.h"
-#include "indra_constants.h"
-#include "llassetstorage.h"
-#include "llchat.h"
 #include "llcombobox.h"
-#include "llfeaturemanager.h"
-#include "llfocusmgr.h"
-#include "llfontgl.h"
-#include "llinstantmessage.h"
 #include "llinventorypanel.h"
-#include "llpermissionsflags.h"
-#include "llrect.h"
-#include "llsecondlifeurls.h"
-#include "lltransactiontypes.h"
-#include "llui.h"
-#include "llview.h"
-#include "llxfermanager.h"
-#include "message.h"
-#include "raytrace.h"
-#include "llsdserialize.h"
-#include "lltimer.h"
-#include "llvfile.h"
-#include "llvolumemgr.h"
+#include "llnotifications.h"
+#include "llnotificationsutil.h"
 
 // newview includes
 #include "llagent.h"
 #include "llagentwearables.h"
 #include "llagentpilot.h"
-#include "llbox.h"
-#include "llcallingcard.h"
-#include "llclipboard.h"
 #include "llcompilequeue.h"
-#include "llconsole.h"
-#include "llviewercontrol.h"
 #include "lldebugview.h"
-#include "lldir.h"
-#include "lldrawable.h"
-#include "lldrawpoolalpha.h"
-#include "lldrawpooltree.h"
-#include "llface.h"
 #include "llfilepicker.h"
 #include "llfirstuse.h"
-#include "llfloater.h"
-#include "llfloaterabout.h"
-#include "llfloaterbuycurrency.h"
-#include "llfloateractivespeakers.h"
-#include "llfloateranimpreview.h"
-#include "llfloateravatartextures.h"
-#include "llfloaterbuildoptions.h"
-#include "llfloaterbump.h"
 #include "llfloaterbuy.h"
 #include "llfloaterbuycontents.h"
 #include "llfloaterbuycurrency.h"
-#include "llfloaterbuyland.h"
 #include "llfloaterchat.h"
 #include "llfloatercustomize.h"
-#include "llfloaterdaycycle.h"
 #include "llfloaterchatterbox.h"
-#include "llfloaterfonttest.h"
 #include "llfloatergodtools.h"
-#include "llfloatergroupinvite.h"
-#include "llfloatergroups.h"
-#include "llfloaterhud.h"
-#include "llfloaterinspect.h"
-#include "llfloaterlagmeter.h"
 #include "llfloaterland.h"
-#include "llfloaterlandholdings.h"
-#include "llfloatermap.h"
-#include "llfloateropenobject.h"
 #include "llfloaterpay.h"
-#include "llfloaterperms.h"
-#include "llfloaterpostprocess.h"
-#include "llfloaterpreference.h"
-#include "llfloaterreg.h"
-#include "llfloaterregioninfo.h"
 #include "llfloaterreporter.h"
 #include "llfloaterscriptdebug.h"
-#include "llfloatersettingsdebug.h"
-#include "llfloaterenvsettings.h"
 #include "llfloatertools.h"
-#include "llfloaterwater.h"
-#include "llfloaterwindlight.h"
 #include "llfloaterworldmap.h"
-#include "llfloatermemleak.h"
-#include "llfasttimerview.h"
 #include "llavataractions.h"
 #include "lllandmarkactions.h"
-#include "llmemoryview.h"
 #include "llgroupmgr.h"
 #include "lltooltip.h"
 #include "llhudeffecttrail.h"
 #include "llhudmanager.h"
-#include "llimage.h"
-#include "llimagebmp.h"
-#include "llimagej2c.h"
-#include "llimagetga.h"
 #include "llinventorybridge.h"
-#include "llinventorymodel.h"
-#include "llfloaterinventory.h"
-#include "llkeyboard.h"
 #include "llpanellogin.h"
 #include "llpanelblockedlist.h"
 #include "llmenucommands.h"
-#include "llmenugl.h"
-#include "llmimetypes.h"
 #include "llmoveview.h"
-#include "llmutelist.h"
-#include "llnotify.h"
-#include "llpanelobject.h"
 #include "llparcel.h"
-#include "llprimitive.h"
-#include "llresmgr.h"
 #include "llrootview.h"
 #include "llselectmgr.h"
 #include "llsidetray.h"
-#include "llsky.h"
 #include "llstatusbar.h"
-#include "llstatview.h"
-#include "llstring.h"
-#include "llsurfacepatch.h"
-#include "llimview.h"
 #include "lltextureview.h"
-#include "lltool.h"
 #include "lltoolbar.h"
 #include "lltoolcomp.h"
-#include "lltoolfocus.h"
-#include "lltoolgrab.h"
 #include "lltoolmgr.h"
 #include "lltoolpie.h"
 #include "lltoolselectland.h"
-#include "lltrans.h"
-#include "lluictrlfactory.h"
-#include "lluploaddialog.h"
-#include "lluserauth.h"
-#include "lluuid.h"
-#include "llviewercamera.h"
 #include "llviewergenericmessage.h"
 #include "llviewerhelp.h"
-#include "llviewertexturelist.h"	// gTextureList
-#include "llviewerinventory.h"
 #include "llviewermenufile.h"	// init_menu_file()
 #include "llviewermessage.h"
 #include "llviewernetwork.h"
 #include "llviewerobjectlist.h"
 #include "llviewerparcelmgr.h"
-#include "llviewerparceloverlay.h"
-#include "llviewerregion.h"
 #include "llviewerstats.h"
-#include "llviewerwindow.h"
-#include "llvoavatar.h"
 #include "llvoavatarself.h"
-#include "llvolume.h"
-#include "llweb.h"
-#include "llworld.h"
 #include "llworldmap.h"
-#include "object_flags.h"
 #include "pipeline.h"
-#include "llappviewer.h"
-#include "roles_constants.h"
 #include "llviewerjoystick.h"
 #include "llwlanimator.h"
 #include "llwlparammanager.h"
-#include "llwaterparammanager.h"
-#include "llfloaternotificationsconsole.h"
 #include "llfloatercamera.h"
 #include "lluilistener.h"
-
-#include "lltexlayer.h"
 #include "llappearancemgr.h"
-#include "llimfloater.h"
 
 using namespace LLVOAvatarDefines;
 
@@ -2938,7 +2827,7 @@ class LLAvatarReportAbuse : public view_listener_t
 bool callback_freeze(const LLSD& notification, const LLSD& response)
 {
 	LLUUID avatar_id = notification["payload"]["avatar_id"].asUUID();
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 
 	if (0 == option || 1 == option)
 	{
@@ -2992,14 +2881,14 @@ void handle_avatar_freeze(const LLSD& avatar_id)
 			{
 				LLSD args;
 				args["AVATAR_NAME"] = fullname;
-				LLNotifications::instance().add("FreezeAvatarFullname",
+				LLNotificationsUtil::add("FreezeAvatarFullname",
 							args,
 							payload,
 							callback_freeze);
 			}
 			else
 			{
-				LLNotifications::instance().add("FreezeAvatar",
+				LLNotificationsUtil::add("FreezeAvatar",
 							LLSD(),
 							payload,
 							callback_freeze);
@@ -3039,7 +2928,7 @@ class LLAvatarDebug : public view_listener_t
 
 bool callback_eject(const LLSD& notification, const LLSD& response)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	if (2 == option)
 	{
 		// Cancel button.
@@ -3121,14 +3010,14 @@ void handle_avatar_eject(const LLSD& avatar_id)
 				{
     				LLSD args;
     				args["AVATAR_NAME"] = fullname;
-    				LLNotifications::instance().add("EjectAvatarFullname",
+    				LLNotificationsUtil::add("EjectAvatarFullname",
     							args,
     							payload,
     							callback_eject);
 				}
 				else
 				{
-    				LLNotifications::instance().add("EjectAvatarFullname",
+    				LLNotificationsUtil::add("EjectAvatarFullname",
     							LLSD(),
     							payload,
     							callback_eject);
@@ -3141,14 +3030,14 @@ void handle_avatar_eject(const LLSD& avatar_id)
 				{
     				LLSD args;
     				args["AVATAR_NAME"] = fullname;
-    				LLNotifications::instance().add("EjectAvatarFullnameNoBan",
+    				LLNotificationsUtil::add("EjectAvatarFullnameNoBan",
     							args,
     							payload,
     							callback_eject);
 				}
 				else
 				{
-    				LLNotifications::instance().add("EjectAvatarNoBan",
+    				LLNotificationsUtil::add("EjectAvatarNoBan",
     							LLSD(),
     							payload,
     							callback_eject);
@@ -3231,11 +3120,11 @@ class LLAvatarGiveCard : public view_listener_t
 				transaction_id.generate();
 				msg->addUUIDFast(_PREHASH_TransactionID, transaction_id);
 				msg->sendReliable(dest_host);
-				LLNotifications::instance().add("OfferedCard", args);
+				LLNotificationsUtil::add("OfferedCard", args);
 			}
 			else
 			{
-				LLNotifications::instance().add("CantOfferCallingCard", old_args);
+				LLNotificationsUtil::add("CantOfferCallingCard", old_args);
 			}
 		}
 		return true;
@@ -3254,7 +3143,7 @@ void login_done(S32 which, void *user)
 
 bool callback_leave_group(const LLSD& notification, const LLSD& response)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	if (option == 0)
 	{
 		LLMessageSystem *msg = gMessageSystem;
@@ -3321,7 +3210,7 @@ void handle_buy_object(LLSaleInfo sale_info)
 {
 	if(!LLSelectMgr::getInstance()->selectGetAllRootsValid())
 	{
-		LLNotifications::instance().add("UnableToBuyWhileDownloading");
+		LLNotificationsUtil::add("UnableToBuyWhileDownloading");
 		return;
 	}
 
@@ -3330,7 +3219,7 @@ void handle_buy_object(LLSaleInfo sale_info)
 	BOOL owners_identical = LLSelectMgr::getInstance()->selectGetOwner(owner_id, owner_name);
 	if (!owners_identical)
 	{
-		LLNotifications::instance().add("CannotBuyObjectsFromDifferentOwners");
+		LLNotificationsUtil::add("CannotBuyObjectsFromDifferentOwners");
 		return;
 	}
 
@@ -3340,7 +3229,7 @@ void handle_buy_object(LLSaleInfo sale_info)
 	valid &= LLSelectMgr::getInstance()->selectGetAggregatePermissions(ag_perm);
 	if(!valid || !sale_info.isForSale() || !perm.allowTransferTo(gAgent.getID()))
 	{
-		LLNotifications::instance().add("ObjectNotForSale");
+		LLNotificationsUtil::add("ObjectNotForSale");
 		return;
 	}
 
@@ -3504,12 +3393,12 @@ void set_god_level(U8 god_level)
 	if(god_level > GOD_NOT)
 	{
 		args["LEVEL"] = llformat("%d",(S32)god_level);
-		LLNotifications::instance().add("EnteringGodMode", args);
+		LLNotificationsUtil::add("EnteringGodMode", args);
 	}
 	else
 	{
 		args["LEVEL"] = llformat("%d",(S32)old_god_level);
-		LLNotifications::instance().add("LeavingGodMode", args);
+		LLNotificationsUtil::add("LeavingGodMode", args);
 	}
 
 	// changing god-level can affect which menus we see
@@ -3630,7 +3519,7 @@ void request_friendship(const LLUUID& dest_id)
 		}
 		else
 		{
-			LLNotifications::instance().add("CantOfferFriendship");
+			LLNotificationsUtil::add("CantOfferFriendship");
 		}
 	}
 }
@@ -3961,7 +3850,7 @@ void handle_claim_public_land(void*)
 {
 	if (LLViewerParcelMgr::getInstance()->getSelectionRegion() != gAgent.getRegion())
 	{
-		LLNotifications::instance().add("ClaimPublicLand");
+		LLNotificationsUtil::add("ClaimPublicLand");
 		return;
 	}
 
@@ -4157,7 +4046,7 @@ void derez_objects(EDeRezDestination dest, const LLUUID& dest_id)
 	}
 	else if(!error.empty())
 	{
-		LLNotifications::instance().add(error);
+		LLNotificationsUtil::add(error);
 	}
 }
 
@@ -4178,13 +4067,13 @@ class LLObjectReturn : public view_listener_t
 		
 		mObjectSelection = LLSelectMgr::getInstance()->getEditSelection();
 
-		LLNotifications::instance().add("ReturnToOwner", LLSD(), LLSD(), boost::bind(&LLObjectReturn::onReturnToOwner, this, _1, _2));
+		LLNotificationsUtil::add("ReturnToOwner", LLSD(), LLSD(), boost::bind(&LLObjectReturn::onReturnToOwner, this, _1, _2));
 		return true;
 	}
 
 	bool onReturnToOwner(const LLSD& notification, const LLSD& response)
 	{
-		S32 option = LLNotification::getSelectedOption(notification, response);
+		S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 		if (0 == option)
 		{
 			// Ignore category ID for this derez destination.
@@ -4361,7 +4250,7 @@ void handle_take()
 
 bool confirm_take(const LLSD& notification, const LLSD& response)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	if(enable_take() && (option == 0))
 	{
 		derez_objects(DRD_TAKE_INTO_AGENT_INVENTORY, notification["payload"]["folder_id"].asUUID());
@@ -4536,7 +4425,7 @@ S32 selection_price()
 /*
 bool callback_show_buy_currency(const LLSD& notification, const LLSD& response)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	if (0 == option)
 	{
 		llinfos << "Loading page " << LLNotifications::instance().getGlobalString("BUY_CURRENCY_URL") << llendl;
@@ -4562,7 +4451,7 @@ void show_buy_currency(const char* extra)
 	{
 		args["EXTRA"] = extra;
 	}
-	LLNotifications::instance().add("PromptGoToCurrencyPage", args);//, LLSD(), callback_show_buy_currency);
+	LLNotificationsUtil::add("PromptGoToCurrencyPage", args);//, LLSD(), callback_show_buy_currency);
 }
 
 void handle_buy()
@@ -4832,7 +4721,7 @@ class LLToolsLink : public view_listener_t
 	{
 		if(!LLSelectMgr::getInstance()->selectGetAllRootsValid())
 		{
-			LLNotifications::instance().add("UnableToLinkWhileDownloading");
+			LLNotificationsUtil::add("UnableToLinkWhileDownloading");
 			return true;
 		}
 
@@ -4843,18 +4732,18 @@ class LLToolsLink : public view_listener_t
 			args["COUNT"] = llformat("%d", object_count);
 			int max = MAX_CHILDREN_PER_TASK+1;
 			args["MAX"] = llformat("%d", max);
-			LLNotifications::instance().add("UnableToLinkObjects", args);
+			LLNotificationsUtil::add("UnableToLinkObjects", args);
 			return true;
 		}
 
 		if(LLSelectMgr::getInstance()->getSelection()->getRootObjectCount() < 2)
 		{
-			LLNotifications::instance().add("CannotLinkIncompleteSet");
+			LLNotificationsUtil::add("CannotLinkIncompleteSet");
 			return true;
 		}
 		if(!LLSelectMgr::getInstance()->selectGetRootsModify())
 		{
-			LLNotifications::instance().add("CannotLinkModify");
+			LLNotificationsUtil::add("CannotLinkModify");
 			return true;
 		}
 		LLUUID owner_id;
@@ -4864,7 +4753,7 @@ class LLToolsLink : public view_listener_t
 			// we don't actually care if you're the owner, but novices are
 			// the most likely to be stumped by this one, so offer the
 			// easiest and most likely solution.
-			LLNotifications::instance().add("CannotLinkDifferentOwners");
+			LLNotificationsUtil::add("CannotLinkDifferentOwners");
 			return true;
 		}
 		LLSelectMgr::getInstance()->sendLink();
@@ -5348,7 +5237,7 @@ class LLWorldSetBusy : public view_listener_t
 		else
 		{
 			gAgent.setBusy();
-			LLNotifications::instance().add("BusyModeSet");
+			LLNotificationsUtil::add("BusyModeSet");
 		}
 		return true;
 	}
@@ -5358,7 +5247,7 @@ class LLWorldCreateLandmark : public view_listener_t
 {
 	bool handleEvent(const LLSD& userdata)
 	{
-		LLSideTray::getInstance()->showPanel("panel_places", LLSD().insert("type", "create_landmark"));
+		LLSideTray::getInstance()->showPanel("panel_places", LLSD().with("type", "create_landmark"));
 
 		return true;
 	}
@@ -5464,7 +5353,7 @@ class LLAvatarAddContact : public view_listener_t
 
 bool complete_give_money(const LLSD& notification, const LLSD& response, LLObjectSelectionHandle selection)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	if (option == 0)
 	{
 		gAgent.clearBusy();
@@ -5626,12 +5515,7 @@ class LLShowFloater : public view_listener_t
 		}
 		else if (floater_name == "buy land")
 		{
-			if (LLViewerParcelMgr::getInstance()->selectionEmpty())
-			{
-				LLViewerParcelMgr::getInstance()->selectParcelAt(gAgent.getPositionGlobal());
-			}
-			
-			LLViewerParcelMgr::getInstance()->startBuyLand();
+			handle_buy_land();
 		}
 		else if (floater_name == "script errors")
 		{
@@ -5690,7 +5574,7 @@ class LLShowSidetrayPanel : public view_listener_t
 
 bool callback_show_url(const LLSD& notification, const LLSD& response)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	if (0 == option)
 	{
 		LLWeb::loadURL(notification["payload"]["url"].asString());
@@ -5713,7 +5597,7 @@ class LLPromptShowURL : public view_listener_t
 			{ 
     			LLSD payload;
     			payload["url"] = url;
-    			LLNotifications::instance().add(alert, LLSD(), payload, callback_show_url);
+    			LLNotificationsUtil::add(alert, LLSD(), payload, callback_show_url);
 			}
 			else
 			{
@@ -5730,7 +5614,7 @@ class LLPromptShowURL : public view_listener_t
 
 bool callback_show_file(const LLSD& notification, const LLSD& response)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	if (0 == option)
 	{
 		LLWeb::loadURL(notification["payload"]["url"]);
@@ -5751,7 +5635,7 @@ class LLPromptShowFile : public view_listener_t
 
 			LLSD payload;
 			payload["url"] = file;
-			LLNotifications::instance().add(alert, LLSD(), payload, callback_show_file);
+			LLNotificationsUtil::add(alert, LLSD(), payload, callback_show_file);
 		}
 		else
 		{
@@ -5841,7 +5725,15 @@ BOOL enable_buy_land(void*)
 				LLViewerParcelMgr::getInstance()->getParcelSelection()->getParcel(), false);
 }
 
-
+void handle_buy_land()
+{
+	LLViewerParcelMgr* vpm = LLViewerParcelMgr::getInstance();
+	if (vpm->selectionEmpty())
+	{
+		vpm->selectParcelAt(gAgent.getPositionGlobal());
+	}
+	vpm->startBuyLand();
+}
 
 class LLObjectAttachToAvatar : public view_listener_t
 {
@@ -6216,6 +6108,7 @@ BOOL object_selected_and_point_valid()
 	return (selection->getRootObjectCount() == 1) && 
 		(selection->getFirstRootObject()->getPCode() == LL_PCODE_VOLUME) && 
 		selection->getFirstRootObject()->permYouOwner() &&
+		selection->getFirstRootObject()->flagObjectMove() &&
 		!((LLViewerObject*)selection->getFirstRootObject()->getRoot())->isAvatar() && 
 		(selection->getFirstRootObject()->getNVPair("AssetContainer") == NULL);
 }
@@ -6322,12 +6215,12 @@ void queue_actions(LLFloaterScriptQueue* q, const std::string& msg)
 		if ( !func.scripted )
 		{
 			std::string noscriptmsg = std::string("Cannot") + msg + "SelectObjectsNoScripts";
-			LLNotifications::instance().add(noscriptmsg);
+			LLNotificationsUtil::add(noscriptmsg);
 		}
 		else if ( !func.modifiable )
 		{
 			std::string nomodmsg = std::string("Cannot") + msg + "SelectObjectsNoPermission";
-			LLNotifications::instance().add(nomodmsg);
+			LLNotificationsUtil::add(nomodmsg);
 		}
 		else
 		{
@@ -6957,16 +6850,15 @@ void handle_grab_texture(void* data)
 			gInventory.updateItem(item);
 			gInventory.notifyObservers();
 
-			LLFloaterInventory* view = LLFloaterInventory::getActiveInventory();
-
 			// Show the preview panel for textures to let
 			// user know that the image is now in inventory.
-			if(view)
+			LLInventoryPanel *active_panel = LLInventoryPanel::getActiveInventoryPanel();
+			if(active_panel)
 			{
 				LLFocusableElement* focus_ctrl = gFocusMgr.getKeyboardFocus();
 
-				view->getPanel()->setSelection(item_id, TAKE_FOCUS_NO);
-				view->getPanel()->openSelected();
+				active_panel->setSelection(item_id, TAKE_FOCUS_NO);
+				active_panel->openSelected();
 				//LLFloaterInventory::dumpSelectionInformation((void*)view);
 				// restore keyboard focus
 				gFocusMgr.setKeyboardFocus(focus_ctrl);
@@ -7136,7 +7028,7 @@ void handle_save_to_xml(void*)
 	LLFloater* frontmost = gFloaterView->getFrontmost();
 	if (!frontmost)
 	{
-        LLNotifications::instance().add("NoFrontmostFloater");
+        LLNotificationsUtil::add("NoFrontmostFloater");
 		return;
 	}
 

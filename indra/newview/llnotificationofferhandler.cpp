@@ -37,9 +37,9 @@
 #include "lltoastnotifypanel.h"
 #include "llviewercontrol.h"
 #include "llviewerwindow.h"
-#include "llimview.h"
-#include "llimfloater.h"
 #include "llnotificationmanager.h"
+#include "llnotifications.h"
+#include "llscriptfloater.h"
 
 using namespace LLNotificationsUI;
 
@@ -91,46 +91,44 @@ bool LLOfferHandler::processNotification(const LLSD& notify)
 
 	if(notify["sigtype"].asString() == "add" || notify["sigtype"].asString() == "change")
 	{
-		// add message to IM
-		const std::string
-				name =
-						notification->getSubstitutions().has("NAME") ? notification->getSubstitutions()["NAME"]
-								: notification->getSubstitutions()["[NAME]"];
+		LLHandlerUtil::logToIMP2P(notification);
 
-		// don't create IM session with objects
-		if (notification->getName() != "ObjectGiveItem"
-				&& notification->getName() != "ObjectGiveItemUnknownUser")
+		if( notification->getPayload().has("give_inventory_notification")
+			&& !notification->getPayload()["give_inventory_notification"] )
 		{
-			LLUUID from_id = notification->getPayload()["from_id"];
-			LLUUID session_id = LLIMMgr::computeSessionID(IM_NOTHING_SPECIAL,
-					from_id);
-			if (!LLIMMgr::instance().hasSession(session_id))
-			{
-				session_id = LLIMMgr::instance().addSession(name,
-						IM_NOTHING_SPECIAL, from_id);
-			}
-			LLIMMgr::instance().addMessage(session_id, LLUUID(), name,
-					notification->getMessage());
+			// This is an original inventory offer, so add a script floater
+			LLScriptFloaterManager::instance().onAddNotification(notification->getID());
 		}
+		else
+		{
+			LLToastNotifyPanel* notify_box = new LLToastNotifyPanel(notification);
 
-		LLToastNotifyPanel* notify_box = new LLToastNotifyPanel(notification);
+			LLToast::Params p;
+			p.notif_id = notification->getID();
+			p.notification = notification;
+			p.panel = notify_box;
+			p.on_delete_toast = boost::bind(&LLOfferHandler::onDeleteToast, this, _1);
+			
+			LLScreenChannel* channel = dynamic_cast<LLScreenChannel*>(mChannel);
+			if(channel)
+				channel->addToast(p);
 
-		LLToast::Params p;
-		p.notif_id = notification->getID();
-		p.notification = notification;
-		p.panel = notify_box;
-		p.on_delete_toast = boost::bind(&LLOfferHandler::onDeleteToast, this, _1);
-
-		LLScreenChannel* channel = dynamic_cast<LLScreenChannel*>(mChannel);
-		if(channel)
-			channel->addToast(p);
-
-		// send a signal to the counter manager
-		mNewNotificationSignal();
+			// send a signal to the counter manager
+			mNewNotificationSignal();
+		}
 	}
 	else if (notify["sigtype"].asString() == "delete")
 	{
-		mChannel->killToastByNotificationID(notification->getID());
+		if( notification->getPayload().has("give_inventory_notification")
+			&& !notification->getPayload()["give_inventory_notification"] )
+		{
+			// Remove original inventory offer script floater
+			LLScriptFloaterManager::instance().onRemoveNotification(notification->getID());
+		}
+		else
+		{
+			mChannel->killToastByNotificationID(notification->getID());
+		}
 	}
 
 	return true;

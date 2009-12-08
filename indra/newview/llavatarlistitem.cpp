@@ -42,7 +42,7 @@
 #include "llavatariconctrl.h"
 #include "llbutton.h"
 
-LLAvatarListItem::LLAvatarListItem()
+LLAvatarListItem::LLAvatarListItem(bool not_from_ui_factory/* = true*/)
 :	LLPanel(),
 	mAvatarIcon(NULL),
 	mAvatarName(NULL),
@@ -55,14 +55,12 @@ LLAvatarListItem::LLAvatarListItem()
 	mShowInfoBtn(true),
 	mShowProfileBtn(true)
 {
-	LLUICtrlFactory::getInstance()->buildPanel(this, "panel_avatar_list_item.xml");
-	// Remember avatar icon width including its padding from the name text box,
-	// so that we can hide and show the icon again later.
-
-	mIconWidth = mAvatarName->getRect().mLeft - mAvatarIcon->getRect().mLeft;
-	mInfoBtnWidth = mInfoBtn->getRect().mRight - mSpeakingIndicator->getRect().mRight;
-	mProfileBtnWidth = mProfileBtn->getRect().mRight - mInfoBtn->getRect().mRight;
-	mSpeakingIndicatorWidth = mSpeakingIndicator->getRect().mRight - mAvatarName->getRect().mRight; 
+	if (not_from_ui_factory)
+	{
+		LLUICtrlFactory::getInstance()->buildPanel(this, "panel_avatar_list_item.xml");
+	}
+	// *NOTE: mantipov: do not use any member here. They can be uninitialized here in case instance
+	// is created from the UICtrlFactory
 }
 
 LLAvatarListItem::~LLAvatarListItem()
@@ -86,6 +84,13 @@ BOOL  LLAvatarListItem::postBuild()
 
 	mProfileBtn->setVisible(false);
 	mProfileBtn->setClickedCallback(boost::bind(&LLAvatarListItem::onProfileBtnClick, this));
+
+	// Remember avatar icon width including its padding from the name text box,
+	// so that we can hide and show the icon again later.
+	mIconWidth = mAvatarName->getRect().mLeft - mAvatarIcon->getRect().mLeft;
+	mInfoBtnWidth = mInfoBtn->getRect().mRight - mSpeakingIndicator->getRect().mRight;
+	mProfileBtnWidth = mProfileBtn->getRect().mRight - mInfoBtn->getRect().mRight;
+	mSpeakingIndicatorWidth = mSpeakingIndicator->getRect().mRight - mAvatarName->getRect().mRight; 
 
 /*
 	if(!p.buttons.profile)
@@ -198,9 +203,9 @@ void LLAvatarListItem::showLastInteractionTime(bool show)
 	mAvatarName->setRect(name_rect);
 }
 
-void LLAvatarListItem::setLastInteractionTime(const std::string& val)
+void LLAvatarListItem::setLastInteractionTime(U32 secs_since)
 {
-	mLastInteractionTime->setValue(val);
+	mLastInteractionTime->setValue(formatSeconds(secs_since));
 }
 
 void LLAvatarListItem::setShowInfoBtn(bool show)
@@ -260,7 +265,7 @@ void LLAvatarListItem::setAvatarIconVisible(bool visible)
 
 void LLAvatarListItem::onInfoBtnClick()
 {
-	LLFloaterReg::showInstance("inspect_avatar", LLSD().insert("avatar_id", mAvatarId));
+	LLFloaterReg::showInstance("inspect_avatar", LLSD().with("avatar_id", mAvatarId));
 
 	/* TODO fix positioning of inspector
 	localPointToScreen(mXPos, mYPos, &mXPos, &mYPos);
@@ -325,4 +330,52 @@ void LLAvatarListItem::reshapeAvatarName()
 	S32 width  = getRect().getWidth() - width_delta;
 
 	mAvatarName->reshape(width, height);
+}
+
+// Convert given number of seconds to a string like "23 minutes", "15 hours" or "3 years",
+// taking i18n into account. The format string to use is taken from the panel XML.
+std::string LLAvatarListItem::formatSeconds(U32 secs)
+{
+	static const U32 LL_ALI_MIN		= 60;
+	static const U32 LL_ALI_HOUR	= LL_ALI_MIN	* 60;
+	static const U32 LL_ALI_DAY		= LL_ALI_HOUR	* 24;
+	static const U32 LL_ALI_WEEK	= LL_ALI_DAY	* 7;
+	static const U32 LL_ALI_MONTH	= LL_ALI_DAY	* 30;
+	static const U32 LL_ALI_YEAR	= LL_ALI_DAY	* 365;
+
+	std::string fmt; 
+	U32 count = 0;
+
+	if (secs >= LL_ALI_YEAR)
+	{
+		fmt = "FormatYears"; count = secs / LL_ALI_YEAR;
+	}
+	else if (secs >= LL_ALI_MONTH)
+	{
+		fmt = "FormatMonths"; count = secs / LL_ALI_MONTH;
+	}
+	else if (secs >= LL_ALI_WEEK)
+	{
+		fmt = "FormatWeeks"; count = secs / LL_ALI_WEEK;
+	}
+	else if (secs >= LL_ALI_DAY)
+	{
+		fmt = "FormatDays"; count = secs / LL_ALI_DAY;
+	}
+	else if (secs >= LL_ALI_HOUR)
+	{
+		fmt = "FormatHours"; count = secs / LL_ALI_HOUR;
+	}
+	else if (secs >= LL_ALI_MIN)
+	{
+		fmt = "FormatMinutes"; count = secs / LL_ALI_MIN;
+	}
+	else
+	{
+		fmt = "FormatSeconds"; count = secs;
+	}
+
+	LLStringUtil::format_map_t args;
+	args["[COUNT]"] = llformat("%u", count);
+	return getString(fmt, args);
 }

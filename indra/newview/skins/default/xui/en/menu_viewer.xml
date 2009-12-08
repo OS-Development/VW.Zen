@@ -373,17 +373,17 @@
                 <menu_item_call.on_enable
                  function="World.EnableSetHomeLocation" />
             </menu_item_call>
-            <menu_item_call
-             label="Teleport Home"
-             layout="topleft"
-             name="Teleport Home"
-             shortcut="control|shift|H">
-                <menu_item_call.on_click
-                 function="World.TeleportHome" />
-                <menu_item_call.on_enable
-                 function="World.EnableTeleportHome" />
-            </menu_item_call>
         </menu>
+	    <menu_item_call
+	     label="Home"
+	     layout="topleft"
+	     name="Teleport Home"
+	     shortcut="control|shift|H">
+		<menu_item_call.on_click
+		 function="World.TeleportHome" />
+		<menu_item_call.on_enable
+		 function="World.EnableTeleportHome" />
+	    </menu_item_call>
       <menu_item_check
          label="Mini-Map"
          layout="topleft"
@@ -3268,6 +3268,17 @@
         </menu>
         <menu_item_separator
          layout="topleft" />
+        <menu_item_check
+         label="HTTP Textures"
+         layout="topleft"
+         name="HTTP Textures">
+            <menu_item_check.on_check
+             function="CheckControl"
+             parameter="ImagePipelineUseHTTP" />
+            <menu_item_check.on_click
+             function="ToggleControl"
+             parameter="ImagePipelineUseHTTP" />
+        </menu_item_check>
         <menu_item_call
          label="Compress Images"
          layout="topleft"

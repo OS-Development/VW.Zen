@@ -2,6 +2,7 @@
  * @file llplugininstance.cpp
  * @brief LLPluginInstance handles loading the dynamic library of a plugin and setting up its entry points for message passing.
  *
+ * @cond
  * $LicenseInfo:firstyear=2008&license=viewergpl$
  *
  * Copyright (c) 2008, Linden Research, Inc.
@@ -27,6 +28,7 @@
  * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
  * COMPLETENESS OR PERFORMANCE.
  * $/LicenseInfo$
+ * @endcond
  */
 
 #include "linden_common.h"
@@ -35,13 +37,21 @@
 
 #include "llapr.h"
 
-//virtual 
+/** Virtual destructor. */
 LLPluginInstanceMessageListener::~LLPluginInstanceMessageListener()
 {
 }
 
+/** 
+ * TODO:DOC describe how it's used
+ */
 const char *LLPluginInstance::PLUGIN_INIT_FUNCTION_NAME = "LLPluginInitEntryPoint";
 
+/** 
+ * Constructor.
+ *
+ * @param[in] owner Plugin instance. TODO:DOC is this a good description of what "owner" is?
+ */
 LLPluginInstance::LLPluginInstance(LLPluginInstanceMessageListener *owner) :
 	mDSOHandle(NULL),
 	mPluginUserData(NULL),
@@ -50,6 +60,9 @@ LLPluginInstance::LLPluginInstance(LLPluginInstanceMessageListener *owner) :
 	mOwner = owner;
 }
 
+/** 
+ * Destructor.
+ */
 LLPluginInstance::~LLPluginInstance()
 {
 	if(mDSOHandle != NULL)
@@ -59,6 +72,12 @@ LLPluginInstance::~LLPluginInstance()
 	}
 }
 
+/** 
+ * Dynamically loads the plugin and runs the plugin's init function.
+ *
+ * @param[in] plugin_file Name of plugin dll/dylib/so. TODO:DOC is this correct? see .h
+ * @return 0 if successful, APR error code or error code from the plugin's init function on failure.
+ */
 int LLPluginInstance::load(std::string &plugin_file)
 {
 	pluginInitFunction init_function = NULL;
@@ -100,6 +119,11 @@ int LLPluginInstance::load(std::string &plugin_file)
 	return (int)result;
 }
 
+/** 
+ * Sends a message to the plugin.
+ *
+ * @param[in] message Message
+ */
 void LLPluginInstance::sendMessage(const std::string &message)
 {
 	if(mPluginSendMessageFunction)
@@ -113,6 +137,10 @@ void LLPluginInstance::sendMessage(const std::string &message)
 	}
 }
 
+/**
+ * Idle. TODO:DOC what's the purpose of this?
+ *
+ */
 void LLPluginInstance::idle(void)
 {
 }
@@ -126,6 +154,11 @@ void LLPluginInstance::staticReceiveMessage(const char *message_string, void **u
 	self->receiveMessage(message_string);
 }
 
+/**
+ * Plugin receives message from plugin loader shell.
+ *
+ * @param[in] message_string Message
+ */
 void LLPluginInstance::receiveMessage(const char *message_string)
 {
 	if(mOwner)

@@ -106,6 +106,10 @@ protected:
 	 */
 	void scrollToTop();
 
+	virtual void onMapButtonClick();
+
+	virtual void updateButtons();
+
 private:
 
 	LLUUID mAvatarId;
@@ -188,8 +192,8 @@ protected:
 
 private:
 
-	typedef std::list<std::string>	group_list_t;
-	group_list_t 			mGroups;
+	typedef std::map< std::string,LLUUID>	group_map_t;
+	group_map_t 			mGroups;
 
 	LLToggleableMenu*		mProfileMenu;
 };
@@ -256,6 +260,9 @@ protected:
 	 */
 	void fillRightsData();
 
+	void rightsConfirmationCallback(const LLSD& notification,
+			const LLSD& response, S32 rights);
+	void confirmModifyRights(bool grant, S32 rights);
 	void onCommitRights();
 	void onCommitNotes();
 

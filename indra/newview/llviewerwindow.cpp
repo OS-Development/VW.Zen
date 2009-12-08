@@ -194,6 +194,8 @@
 #include "llagentui.h"
 #include "llwearablelist.h"
 
+#include "llnotifications.h"
+#include "llnotificationsutil.h"
 #include "llnotificationmanager.h"
 
 #include "llfloaternotificationsconsole.h"
@@ -1009,6 +1011,7 @@ BOOL LLViewerWindow::handleActivate(LLWindow *window, BOOL activated)
 	else
 	{
 		mActive = FALSE;
+				
 		if (gSavedSettings.getBOOL("AllowIdleAFK"))
 		{
 			gAgent.setAFK();
@@ -1415,10 +1418,12 @@ void LLViewerWindow::initBase()
 
 	// placeholder widget that controls where "world" is rendered
 	mWorldViewPlaceholder = main_view->getChildView("world_view_rect")->getHandle();
+	mNonSideTrayView = main_view->getChildView("non_side_tray_view")->getHandle();
+	mFloaterViewHolder = main_view->getChildView("floater_view_holder")->getHandle();
 
 	// Constrain floaters to inside the menu and status bar regions.
-	gFloaterView = getRootView()->getChild<LLFloaterView>("Floater View");
-	gSnapshotFloaterView = getRootView()->getChild<LLSnapshotFloaterView>("Snapshot Floater View");
+	gFloaterView = main_view->getChild<LLFloaterView>("Floater View");
+	gSnapshotFloaterView = main_view->getChild<LLSnapshotFloaterView>("Snapshot Floater View");
 	
 	// Console
 	llassert( !gConsole );
@@ -3240,8 +3245,7 @@ LLPickInfo LLViewerWindow::pickImmediate(S32 x, S32 y_from_bot,  BOOL pick_trans
 	}
 	else
 	{
-		llwarns << "List of last picks is empty" << llendl;
-		llwarns << "Using stub pick" << llendl;
+		lldebugs << "List of last picks is empty: Using stub pick" << llendl;
 		mLastPick = LLPickInfo();
 	}
 
@@ -4546,7 +4550,7 @@ BOOL LLViewerWindow::changeDisplaySettings(BOOL fullscreen, LLCoordScreen size, 
 		LLSD args;
 		args["RESX"] = llformat("%d",size.mX);
 		args["RESY"] = llformat("%d",size.mY);
-		LLNotifications::instance().add("ResolutionSwitchFail", args);
+		LLNotificationsUtil::add("ResolutionSwitchFail", args);
 		size = old_size; // for reshape below
 	}
 

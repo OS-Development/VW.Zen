@@ -39,7 +39,7 @@
 #include "llgesturemgr.h"
 #include "llinventorybridge.h"
 #include "llinventoryobserver.h"
-#include "llnotifications.h"
+#include "llnotificationsutil.h"
 #include "llsidepanelappearance.h"
 #include "llsidetray.h"
 #include "llvoavatar.h"
@@ -512,6 +512,21 @@ void LLAppearanceManager::updateCOF(const LLUUID& category, bool append)
 {
 	const LLUUID cof = getCOF();
 
+	// Deactivate currently active gestures in the COF, if replacing outfit
+	if (!append)
+	{
+		LLInventoryModel::item_array_t gest_items;
+		getDescendentsOfAssetType(cof, gest_items, LLAssetType::AT_GESTURE, false);
+		for(S32 i = 0; i  < gest_items.count(); ++i)
+		{
+			LLViewerInventoryItem *gest_item = gest_items.get(i);
+			if ( LLGestureManager::instance().isGestureActive( gest_item->getLinkedUUID()) )
+			{
+				LLGestureManager::instance().deactivateGesture( gest_item->getLinkedUUID() );
+			}
+		}
+	}
+	
 	// Collect and filter descendents to determine new COF contents.
 
 	// - Body parts: always include COF contents as a fallback in case any
@@ -637,7 +652,7 @@ void LLAppearanceManager::updateAppearanceFromCOF()
 	
 	if( !wear_items.count() && !obj_items.count() && !gest_items.count())
 	{
-		LLNotifications::instance().add("CouldNotPutOnOutfit");
+		LLNotificationsUtil::add("CouldNotPutOnOutfit");
 		return;
 	}
 		

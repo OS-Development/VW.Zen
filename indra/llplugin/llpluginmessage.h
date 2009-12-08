@@ -1,7 +1,7 @@
 /** 
  * @file llpluginmessage.h
- * @brief LLPluginMessage encapsulates the serialization/deserialization of messages passed to and from plugins.
  *
+ * @cond
  * $LicenseInfo:firstyear=2008&license=viewergpl$
  *
  * Copyright (c) 2008, Linden Research, Inc.
@@ -27,6 +27,7 @@
  * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
  * COMPLETENESS OR PERFORMANCE.
  * $/LicenseInfo$
+ * @endcond
  */
 
 #ifndef LL_LLPLUGINMESSAGE_H
@@ -34,7 +35,9 @@
 
 #include "llsd.h"
 
-
+/**
+ * @brief LLPluginMessage encapsulates the serialization/deserialization of messages passed to and from plugins.
+ */
 class LLPluginMessage
 {
 	LOG_CLASS(LLPluginMessage);
@@ -102,14 +105,23 @@ private:
 
 };
 
+/**
+ * @brief Listener for plugin messages.
+ */
 class LLPluginMessageListener
 {
 public:
 	virtual ~LLPluginMessageListener();
+   /** Plugin receives message from plugin loader shell. */
 	virtual void receivePluginMessage(const LLPluginMessage &message) = 0;
 	
 };
 
+/**
+ * @brief Dispatcher for plugin messages.
+ *
+ * Manages the set of plugin message listeners and distributes messages to plugin message listeners.
+ */
 class LLPluginMessageDispatcher
 {
 public:
@@ -120,7 +132,9 @@ public:
 protected:
 	void dispatchPluginMessage(const LLPluginMessage &message);
 
+   /** A set of message listeners. */
 	typedef std::set<LLPluginMessageListener*> listener_set_t;
+   /** The set of message listeners. */
 	listener_set_t mListeners;
 };
 

@@ -35,12 +35,12 @@
 
 #include "llgroupactions.h"
 
-// Viewer includes
 #include "llagent.h"
 #include "llcommandhandler.h"
 #include "llfloaterreg.h"
 #include "llgroupmgr.h"
 #include "llimview.h" // for gIMMgr
+#include "llnotificationsutil.h"
 #include "llsidetray.h"
 #include "llstatusbar.h"	// can_afford_transaction()
 #include "llimfloater.h"
@@ -100,9 +100,9 @@ public:
 		}
 		if (tokens[1].asString() == "inspect")
 		{
-			LLSD key;
-			key["group_id"] = group_id;
-			LLFloaterReg::showInstance("inspect_group", key);
+			if (group_id.isNull())
+				return true;
+			LLGroupActions::show(group_id);
 			return true;
 		}
 		return false;
@@ -113,7 +113,7 @@ LLGroupHandler gGroupHandler;
 // static
 void LLGroupActions::search()
 {
-	LLFloaterReg::showInstance("search", LLSD().insert("category", "groups"));
+	LLFloaterReg::showInstance("search", LLSD().with("category", "groups"));
 }
 
 // static
@@ -132,11 +132,11 @@ void LLGroupActions::join(const LLUUID& group_id)
 
 		if (can_afford_transaction(cost))
 		{
-			LLNotifications::instance().add("JoinGroupCanAfford", args, payload, onJoinGroup);
+			LLNotificationsUtil::add("JoinGroupCanAfford", args, payload, onJoinGroup);
 		}
 		else
 		{
-			LLNotifications::instance().add("JoinGroupCannotAfford", args, payload);
+			LLNotificationsUtil::add("JoinGroupCannotAfford", args, payload);
 		}
 	}
 	else
@@ -149,7 +149,7 @@ void LLGroupActions::join(const LLUUID& group_id)
 // static
 bool LLGroupActions::onJoinGroup(const LLSD& notification, const LLSD& response)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 
 	if (option == 1)
 	{
@@ -181,7 +181,7 @@ void LLGroupActions::leave(const LLUUID& group_id)
 		args["GROUP"] = gAgent.mGroups.get(i).mName;
 		LLSD payload;
 		payload["group_id"] = group_id;
-		LLNotifications::instance().add("GroupLeaveConfirmMember", args, payload, onLeaveGroup);
+		LLNotificationsUtil::add("GroupLeaveConfirmMember", args, payload, onLeaveGroup);
 	}
 }
 
@@ -346,7 +346,7 @@ bool LLGroupActions::isAvatarMemberOfGroup(const LLUUID& group_id, const LLUUID&
 // static
 bool LLGroupActions::onLeaveGroup(const LLSD& notification, const LLSD& response)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	LLUUID group_id = notification["payload"]["group_id"].asUUID();
 	if(option == 0)
 	{

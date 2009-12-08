@@ -32,6 +32,8 @@
 
 #include "llviewerprecompiledheaders.h"
 
+#include "llfloaterreg.h"
+
 #include "llpanelimcontrolpanel.h"
 
 #include "llagent.h"
@@ -58,7 +60,7 @@ void LLPanelChatControlPanel::onEndCallButtonClicked()
 
 void LLPanelChatControlPanel::onOpenVoiceControlsClicked()
 {
-	// TODO: implement Voice Control Panel opening
+	LLFloaterReg::showInstance("voice_controls");
 }
 
 void LLPanelChatControlPanel::onVoiceChannelStateChanged(const LLVoiceChannel::EState& old_state, const LLVoiceChannel::EState& new_state)
@@ -67,6 +69,11 @@ void LLPanelChatControlPanel::onVoiceChannelStateChanged(const LLVoiceChannel::E
 	childSetVisible("end_call_btn", is_call_started);
 	childSetVisible("voice_ctrls_btn", is_call_started);
 	childSetVisible("call_btn", ! is_call_started);
+}
+
+LLPanelChatControlPanel::~LLPanelChatControlPanel()
+{
+	mVoiceChannelStateChangeConnection.disconnect();
 }
 
 BOOL LLPanelChatControlPanel::postBuild()
@@ -111,7 +118,9 @@ void LLPanelChatControlPanel::setSessionId(const LLUUID& session_id)
 	mSessionId = session_id;
 	LLVoiceChannel* voice_channel = LLIMModel::getInstance()->getVoiceChannel(mSessionId);
 	if(voice_channel)
-		voice_channel->setStateChangedCallback(boost::bind(&LLPanelChatControlPanel::onVoiceChannelStateChanged, this, _1, _2));
+	{
+		mVoiceChannelStateChangeConnection = voice_channel->setStateChangedCallback(boost::bind(&LLPanelChatControlPanel::onVoiceChannelStateChanged, this, _1, _2));
+	}
 }
 
 LLPanelIMControlPanel::LLPanelIMControlPanel()
@@ -120,6 +129,7 @@ LLPanelIMControlPanel::LLPanelIMControlPanel()
 
 LLPanelIMControlPanel::~LLPanelIMControlPanel()
 {
+	LLAvatarTracker::instance().removeParticularFriendObserver(mAvatarID, this);
 }
 
 BOOL LLPanelIMControlPanel::postBuild()
@@ -169,7 +179,9 @@ void LLPanelIMControlPanel::setSessionId(const LLUUID& session_id)
 
 	LLIMModel& im_model = LLIMModel::instance();
 
+	LLAvatarTracker::instance().removeParticularFriendObserver(mAvatarID, this);
 	mAvatarID = im_model.getOtherParticipantID(session_id);
+	LLAvatarTracker::instance().addParticularFriendObserver(mAvatarID, this);
 
 	// Disable "Add friend" button for friends.
 	childSetEnabled("add_friend_btn", !LLAvatarActions::isFriend(mAvatarID));
@@ -196,6 +208,12 @@ void LLPanelIMControlPanel::setSessionId(const LLUUID& session_id)
 		// If the participant is an avatar, fetch the currect name
 		gCacheName->get(mAvatarID, FALSE, boost::bind(&LLPanelIMControlPanel::nameUpdatedCallback, this, _1, _2, _3, _4));
 	}
+}
+
+//virtual
+void LLPanelIMControlPanel::changed(U32 mask)
+{
+	childSetEnabled("add_friend_btn", !LLAvatarActions::isFriend(mAvatarID));
 }
 
 void LLPanelIMControlPanel::nameUpdatedCallback(const LLUUID& id, const std::string& first, const std::string& last, BOOL is_group)

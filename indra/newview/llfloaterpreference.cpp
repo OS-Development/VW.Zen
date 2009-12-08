@@ -60,6 +60,9 @@
 #include "llkeyboard.h"
 #include "llmodaldialog.h"
 #include "llnavigationbar.h"
+#include "llnearbychat.h"
+#include "llnotifications.h"
+#include "llnotificationsutil.h"
 #include "llpanellogin.h"
 #include "llradiogroup.h"
 #include "llsearchcombobox.h"
@@ -203,7 +206,7 @@ viewer_media_t get_web_media()
 
 bool callback_clear_browser_cache(const LLSD& notification, const LLSD& response)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	if ( option == 0 ) // YES
 	{
 		// clean web
@@ -216,7 +219,7 @@ bool callback_clear_browser_cache(const LLSD& notification, const LLSD& response
 		
 		// flag client texture cache for clearing next time the client runs
 		gSavedSettings.setBOOL("PurgeCacheOnNextStartup", TRUE);
-		LLNotifications::instance().add("CacheWillClear");
+		LLNotificationsUtil::add("CacheWillClear");
 
 		LLSearchHistory::getInstance()->clearHistory();
 		LLSearchHistory::getInstance()->save();
@@ -241,7 +244,7 @@ void handleNameTagOptionChanged(const LLSD& newvalue)
 
 bool callback_skip_dialogs(const LLSD& notification, const LLSD& response, LLFloaterPreference* floater)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	if (0 == option && floater )
 	{
 		if ( floater )
@@ -256,7 +259,7 @@ bool callback_skip_dialogs(const LLSD& notification, const LLSD& response, LLFlo
 
 bool callback_reset_dialogs(const LLSD& notification, const LLSD& response, LLFloaterPreference* floater)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	if ( 0 == option && floater )
 	{
 		if ( floater )
@@ -360,11 +363,17 @@ BOOL LLFloaterPreference::postBuild()
 {
 	gSavedSettings.getControl("PlainTextChatHistory")->getSignal()->connect(boost::bind(&LLIMFloater::processChatHistoryStyleUpdate, _2));
 
+	gSavedSettings.getControl("PlainTextChatHistory")->getSignal()->connect(boost::bind(&LLNearbyChat::processChatHistoryStyleUpdate, _2));
+
 	LLTabContainer* tabcontainer = getChild<LLTabContainer>("pref core");
 	if (!tabcontainer->selectTab(gSavedSettings.getS32("LastPrefTab")))
 		tabcontainer->selectFirstTab();
 	S32 show_avatar_nametag_options = gSavedSettings.getS32("AvatarNameTagMode");
 	handleNameTagOptionChanged(LLSD(show_avatar_nametag_options));
+
+	std::string cache_location = gDirUtilp->getExpandedFilename(LL_PATH_CACHE, "");
+	childSetText("cache_location", cache_location);
+
 	return TRUE;
 }
 
@@ -412,7 +421,7 @@ void LLFloaterPreference::apply()
 	LLTabContainer* tabcontainer = getChild<LLTabContainer>("pref core");
 	if (sSkin != gSavedSettings.getString("SkinCurrent"))
 	{
-		LLNotifications::instance().add("ChangeSkin");
+		LLNotificationsUtil::add("ChangeSkin");
 		refreshSkin(this);
 	}
 	// Call apply() on all panels that derive from LLPanelPreference
@@ -713,13 +722,13 @@ void LLFloaterPreference::onClickClearCache()
 {
 	// flag client cache for clearing next time the client runs
 	gSavedSettings.setBOOL("PurgeCacheOnNextStartup", TRUE);
-	LLNotifications::instance().add("CacheWillClear");
+	LLNotificationsUtil::add("CacheWillClear");
 }
 */
 
 void LLFloaterPreference::onClickBrowserClearCache()
 {
-	LLNotifications::instance().add("ConfirmClearBrowserCache", LLSD(), LLSD(), callback_clear_browser_cache);
+	LLNotificationsUtil::add("ConfirmClearBrowserCache", LLSD(), LLSD(), callback_clear_browser_cache);
 }
 
 void LLFloaterPreference::onClickSetCache()
@@ -739,7 +748,7 @@ void LLFloaterPreference::onClickSetCache()
 	if (!dir_name.empty() && dir_name != cur_name)
 	{
 		std::string new_top_folder(gDirUtilp->getBaseFileName(dir_name));	
-		LLNotifications::instance().add("CacheWillBeMoved");
+		LLNotificationsUtil::add("CacheWillBeMoved");
 		gSavedSettings.setString("NewCacheLocation", dir_name);
 		gSavedSettings.setString("NewCacheLocationTopFolder", new_top_folder);
 	}
@@ -758,7 +767,7 @@ void LLFloaterPreference::onClickResetCache()
 	{
 		gSavedSettings.setString("NewCacheLocation", "");
 		gSavedSettings.setString("NewCacheLocationTopFolder", "");
-		LLNotifications::instance().add("CacheWillBeMoved");
+		LLNotificationsUtil::add("CacheWillBeMoved");
 	}
 	std::string cache_location = gDirUtilp->getCacheDir(true);
 	gSavedSettings.setString("CacheLocation", cache_location);
@@ -1080,12 +1089,12 @@ void LLFloaterPreference::onClickSetMiddleMouse()
 
 void LLFloaterPreference::onClickSkipDialogs()
 {
-	LLNotifications::instance().add("SkipShowNextTimeDialogs", LLSD(), LLSD(), boost::bind(&callback_skip_dialogs, _1, _2, this));
+	LLNotificationsUtil::add("SkipShowNextTimeDialogs", LLSD(), LLSD(), boost::bind(&callback_skip_dialogs, _1, _2, this));
 }
 
 void LLFloaterPreference::onClickResetDialogs()
 {
-	LLNotifications::instance().add("ResetShowNextTimeDialogs", LLSD(), LLSD(), boost::bind(&callback_reset_dialogs, _1, _2, this));
+	LLNotificationsUtil::add("ResetShowNextTimeDialogs", LLSD(), LLSD(), boost::bind(&callback_reset_dialogs, _1, _2, this));
 }
 
 void LLFloaterPreference::onClickEnablePopup()

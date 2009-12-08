@@ -94,6 +94,7 @@ set(viewer_SOURCE_FILES
     llbox.cpp
     llbreadcrumbview.cpp
     llcallbacklist.cpp
+    llcallfloater.cpp
     llcallingcard.cpp
     llcapabilitylistener.cpp
     llcaphttpsender.cpp
@@ -191,7 +192,7 @@ set(viewer_SOURCE_FILES
     llfloatermemleak.cpp
     llfloatermodelpreview.cpp
     llfloaternamedesc.cpp
-        llfloaternearbymedia.cpp
+    llfloaternearbymedia.cpp
     llfloaternotificationsconsole.cpp
     llfloateropenobject.cpp
     llfloaterparcel.cpp
@@ -218,6 +219,7 @@ set(viewer_SOURCE_FILES
     llfloaterurldisplay.cpp
     llfloaterurlentry.cpp
     llfloatervoicedevicesettings.cpp
+    llfloatervolumepulldown.cpp
     llfloaterwater.cpp
     llfloaterwhitelistentry.cpp
     llfloaterwindlight.cpp
@@ -297,6 +299,7 @@ set(viewer_SOURCE_FILES
     llnetmap.cpp
     llnotificationalerthandler.cpp
     llnotificationgrouphandler.cpp
+    llnotificationhandlerutil.cpp
     llnotificationmanager.cpp
     llnotificationofferhandler.cpp
     llnotificationscripthandler.cpp
@@ -319,6 +322,7 @@ set(viewer_SOURCE_FILES
     llpanelgrouplandmoney.cpp
     llpanelgroupnotices.cpp
     llpanelgrouproles.cpp
+    llpanelhome.cpp
     llpanelimcontrolpanel.cpp
     llpanelland.cpp
     llpanellandaudio.cpp
@@ -594,6 +598,7 @@ set(viewer_HEADER_FILES
     llbox.h
     llbreadcrumbview.h
     llcallbacklist.h
+    llcallfloater.h
     llcallingcard.h
     llcapabilitylistener.h
     llcapabilityprovider.h
@@ -817,6 +822,7 @@ set(viewer_HEADER_FILES
     llpanelgrouplandmoney.h
     llpanelgroupnotices.h
     llpanelgrouproles.h
+    llpanelhome.h
     llpanelimcontrolpanel.h
     llpanelland.h
     llpanellandaudio.h
@@ -1117,22 +1123,13 @@ if (WINDOWS)
     # the .pch file.
     # All sources added to viewer_SOURCE_FILES 
     # at this point use it.
-    set_source_files_properties(llviewerprecompiledheaders.cpp
-        PROPERTIES
-        COMPILE_FLAGS "/Ycllviewerprecompiledheaders.h"
-        )        
-    foreach( src_file ${viewer_SOURCE_FILES} )
-        set_source_files_properties(
-            ${src_file}
+    if(USE_PRECOMPILED_HEADERS)
+        set_source_files_properties(llviewerprecompiledheaders.cpp
             PROPERTIES
-            COMPILE_FLAGS "/Yullviewerprecompiledheaders.h"
-            )        
-    endforeach( src_file ${viewer_SOURCE_FILES} )
-    list(APPEND viewer_SOURCE_FILES llviewerprecompiledheaders.cpp)
-    # llstartup.cpp needs special symbols for audio libraries, so it resets
-    # COMPILE_FLAGS below.  Make sure it maintains precompiled header settings.
-    set(LLSTARTUP_COMPILE_FLAGS 
-        "${LLSTARTUP_COMPILE_FLAGS} /Yullviewerprecompiledheaders.h")
+            COMPILE_FLAGS "/Ycllviewerprecompiledheaders.h"
+            )
+        set(viewer_SOURCE_FILES "${viewer_SOURCE_FILES}" llviewerprecompiledheaders.cpp)
+    endif(USE_PRECOMPILED_HEADERS)
     
     # Add resource files to the project.
     # viewerRes.rc is the only buildable file, but
@@ -1385,6 +1382,13 @@ if (WINDOWS)
         LINK_FLAGS_DEBUG "/NODEFAULTLIB:\"LIBCMT;LIBCMTD;MSVCRT\" /INCREMENTAL:NO"
         LINK_FLAGS_RELEASE ${release_flags}
         )
+    if(USE_PRECOMPILED_HEADERS)
+        set_target_properties(
+            ${VIEWER_BINARY_NAME}
+            PROPERTIES
+            COMPILE_FLAGS "/Yullviewerprecompiledheaders.h"
+            )
+    endif(USE_PRECOMPILED_HEADERS)
 
     # sets the 'working directory' for debugging from visual studio.
     if (NOT UNATTENDED)
@@ -1661,48 +1665,61 @@ if (INSTALL)
   include(${CMAKE_CURRENT_SOURCE_DIR}/ViewerInstall.cmake)
 endif (INSTALL)
 
-# To add a viewer unit test, just add the test .cpp file below
-# This creates a separate test project per file listed.
-include(LLAddBuildTest)
-SET(viewer_TEST_SOURCE_FILES
-  llagentaccess.cpp
-  lldateutil.cpp
-  llmediadataclient.cpp
-  llviewerhelputil.cpp
-  lllogininstance.cpp
+if (LL_TESTS)
+  # To add a viewer unit test, just add the test .cpp file below
+  # This creates a separate test project per file listed.
+  include(LLAddBuildTest)
+  SET(viewer_TEST_SOURCE_FILES
+    llagentaccess.cpp
+    lldateutil.cpp
+    llmediadataclient.cpp
+    llviewerhelputil.cpp
+    lllogininstance.cpp
   )
-set_source_files_properties(
-  ${viewer_TEST_SOURCE_FILES}
-  PROPERTIES
-    LL_TEST_ADDITIONAL_SOURCE_FILES llviewerprecompiledheaders.cpp
-  )
-LL_ADD_PROJECT_UNIT_TESTS(${VIEWER_BINARY_NAME} "${viewer_TEST_SOURCE_FILES}")
+  ##################################################
+  # DISABLING PRECOMPILED HEADERS USAGE FOR TESTS 
+  ##################################################
+  # if(USE_PRECOMPILED_HEADERS)
+  #     set_source_files_properties(
+  #       ${viewer_TEST_SOURCE_FILES}
+  #       PROPERTIES
+  #         LL_TEST_ADDITIONAL_SOURCE_FILES llviewerprecompiledheaders.cpp
+  #       )
+  # endif(USE_PRECOMPILED_HEADERS)
+  LL_ADD_PROJECT_UNIT_TESTS(${VIEWER_BINARY_NAME} "${viewer_TEST_SOURCE_FILES}")
 
-#set(TEST_DEBUG on)
-set(test_sources llcapabilitylistener.cpp llviewerprecompiledheaders.cpp)
-set(test_libs 
-  ${LLMESSAGE_LIBRARIES} 
-  ${WINDOWS_LIBRARIES} 
-  ${LLVFS_LIBRARIES}
-  ${LLMATH_LIBRARIES}
-  ${LLCOMMON_LIBRARIES} 
-  ${GOOGLEMOCK_LIBRARIES}
-  )
+  #set(TEST_DEBUG on)
+  set(test_sources llcapabilitylistener.cpp)
+  ##################################################
+  # DISABLING PRECOMPILED HEADERS USAGE FOR TESTS 
+  ##################################################
+  # if(USE_PRECOMPILED_HEADERS)
+  #     set(test_sources "${test_sources}" llviewerprecompiledheaders.cpp)
+  # endif(USE_PRECOMPILED_HEADERS)
+  set(test_libs 
+    ${LLMESSAGE_LIBRARIES} 
+    ${WINDOWS_LIBRARIES} 
+    ${LLVFS_LIBRARIES}
+    ${LLMATH_LIBRARIES}
+    ${LLCOMMON_LIBRARIES} 
+    ${GOOGLEMOCK_LIBRARIES}
+    )
 
-LL_ADD_INTEGRATION_TEST(llcapabilitylistener 
-  "${test_sources}" 
-  "${test_libs}"
-  ${PYTHON_EXECUTABLE}
-  "${CMAKE_SOURCE_DIR}/llmessage/tests/test_llsdmessage_peer.py"
-  )
+  LL_ADD_INTEGRATION_TEST(llcapabilitylistener 
+    "${test_sources}" 
+    "${test_libs}"
+    ${PYTHON_EXECUTABLE}
+    "${CMAKE_SOURCE_DIR}/llmessage/tests/test_llsdmessage_peer.py"
+    )
 
-#ADD_VIEWER_BUILD_TEST(llmemoryview viewer)
-#ADD_VIEWER_BUILD_TEST(llagentaccess viewer)
-#ADD_VIEWER_BUILD_TEST(llworldmap viewer)
-#ADD_VIEWER_BUILD_TEST(llworldmipmap viewer)
-#ADD_VIEWER_BUILD_TEST(lltextureinfo viewer)
-#ADD_VIEWER_BUILD_TEST(lltextureinfodetails viewer)
-#ADD_VIEWER_BUILD_TEST(lltexturestatsuploader viewer)
+  #ADD_VIEWER_BUILD_TEST(llmemoryview viewer)
+  #ADD_VIEWER_BUILD_TEST(llagentaccess viewer)
+  #ADD_VIEWER_BUILD_TEST(llworldmap viewer)
+  #ADD_VIEWER_BUILD_TEST(llworldmipmap viewer)
+  #ADD_VIEWER_BUILD_TEST(lltextureinfo viewer)
+  #ADD_VIEWER_BUILD_TEST(lltextureinfodetails viewer)
+  #ADD_VIEWER_BUILD_TEST(lltexturestatsuploader viewer)
+endif (LL_TESTS)
 
 
 # Don't do these for DARWIN or LINUX here -- they're taken care of by viewer_manifest.py

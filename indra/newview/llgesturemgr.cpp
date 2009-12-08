@@ -42,6 +42,7 @@
 #include "lldatapacker.h"
 #include "llinventory.h"
 #include "llmultigesture.h"
+#include "llnotificationsutil.h"
 #include "llstl.h"
 #include "llstring.h"	// todo: remove
 #include "llvfile.h"
@@ -56,6 +57,7 @@
 #include "llvoavatarself.h"
 #include "llviewerstats.h"
 #include "llnearbychatbar.h"
+#include "llappearancemgr.h"
 
 // Longest time, in seconds, to wait for all animations to stop playing
 const F32 MAX_WAIT_ANIM_SECS = 30.f;
@@ -72,6 +74,7 @@ LLGestureManager::LLGestureManager()
 	mActive(),
 	mLoadingCount(0)
 {
+	mRetryIfMissing = true;
 	gInventory.addObserver(this);
 }
 
@@ -300,6 +303,8 @@ void LLGestureManager::deactivateGesture(const LLUUID& item_id)
 	msg->addU32("GestureFlags", 0x0);
 
 	gAgent.sendReliableMessage();
+
+	LLAppearanceManager::instance().removeCOFItemLinks(base_item_id, false);
 
 	notifyObservers();
 }
@@ -971,7 +976,7 @@ void LLGestureManager::onLoadComplete(LLVFS *vfs,
 					// we're done with this set of deactivations
 					LLSD args;
 					args["NAMES"] = self.mDeactivateSimilarNames;
-					LLNotifications::instance().add("DeactivatedGesturesTrigger", args);
+					LLNotificationsUtil::add("DeactivatedGesturesTrigger", args);
 				}
 			}
 
@@ -983,7 +988,9 @@ void LLGestureManager::onLoadComplete(LLVFS *vfs,
 			else
 			{
 				// Watch this item and set gesture name when item exists in inventory
-				self.watchItem(item_id);
+				item_ref_t ids;
+				ids.push_back(item_id);
+				self.fetchItems(ids);
 			}
 			self.mActive[item_id] = gesture;
 
@@ -1176,6 +1183,7 @@ void LLGestureManager::getItemIDs(std::vector<LLUUID>* ids)
 
 void LLGestureManager::done()
 {
+	bool notify = false;
 	for(item_map_t::iterator it = mActive.begin(); it != mActive.end(); ++it)
 	{
 		if(it->second && it->second->mName.empty())
@@ -1184,10 +1192,14 @@ void LLGestureManager::done()
 			if(item)
 			{
 				it->second->mName = item->getName();
+				notify = true;
 			}
 		}
 	}
-	notifyObservers();
+	if(notify)
+	{
+		notifyObservers();
+	}
 }
 
 // static

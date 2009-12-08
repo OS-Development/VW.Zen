@@ -43,6 +43,7 @@
 #include "lltrans.h"
 #include "llfloaterreg.h"
 #include "llmutelist.h"
+#include "llstylemap.h"
 
 #include "llsidetray.h"//for blocked objects panel
 
@@ -78,7 +79,7 @@ public:
 		{
 			LLMuteList::getInstance()->add(LLMute(getAvatarId(), mFrom, LLMute::OBJECT));
 
-			LLSideTray::getInstance()->showPanel("panel_block_list_sidetray", LLSD().insert("blocked_to_select", getAvatarId()));
+			LLSideTray::getInstance()->showPanel("panel_block_list_sidetray", LLSD().with("blocked_to_select", getAvatarId()));
 		}
 	}
 
@@ -160,11 +161,11 @@ public:
 	{
 		if (mSourceType == CHAT_SOURCE_OBJECT)
 		{
-			LLFloaterReg::showInstance("inspect_object", LLSD().insert("object_id", mAvatarID));
+			LLFloaterReg::showInstance("inspect_object", LLSD().with("object_id", mAvatarID));
 		}
 		else if (mSourceType == CHAT_SOURCE_AGENT)
 		{
-			LLFloaterReg::showInstance("inspect_avatar", LLSD().insert("avatar_id", mAvatarID));
+			LLFloaterReg::showInstance("inspect_avatar", LLSD().with("avatar_id", mAvatarID));
 		}
 		//if chat source is system, you may add "else" here to define behaviour.
 	}
@@ -199,7 +200,7 @@ public:
 			userName->setValue(SL);
 		}
 
-		setTimeField(chat.mTimeStr);
+		setTimeField(chat);
 		
 		LLAvatarIconCtrl* icon = getChild<LLAvatarIconCtrl>("avatar_icon");
 
@@ -267,12 +268,13 @@ protected:
 	}
 
 private:
-	void setTimeField(const std::string& time_value)
+	void setTimeField(const LLChat& chat)
 	{
 		LLTextBox* time_box = getChild<LLTextBox>("time_box");
 
 		LLRect rect_before = time_box->getRect();
-		time_box->setValue(time_value);
+
+		time_box->setValue(chat.mTimeStr);
 
 		// set necessary textbox width to fit all text
 		time_box->reshapeToFitText();
@@ -284,7 +286,7 @@ private:
 		time_box->translate(delta_pos_x, delta_pos_y);
 
 		//... & change width of the name control
-		LLTextBox* user_name = getChild<LLTextBox>("user_name");
+		LLView* user_name = getChild<LLView>("user_name");
 		const LLRect& user_rect = user_name->getRect();
 		user_name->reshape(user_rect.getWidth() + delta_pos_x, user_rect.getHeight());
 	}
@@ -354,6 +356,7 @@ void LLChatHistory::clear()
 {
 	mLastFromName.clear();
 	LLTextEditor::clear();
+	mLastFromID = LLUUID::null;
 }
 
 void LLChatHistory::appendMessage(const LLChat& chat, const bool use_plain_text_chat_history, const LLStyle::Params& input_append_params)
@@ -370,13 +373,25 @@ void LLChatHistory::appendMessage(const LLChat& chat, const bool use_plain_text_
 	style_params.font.size(font_size);	
 	style_params.font.style(input_append_params.font.style);
 	
-	std::string header_text = "[" + chat.mTimeStr + "] ";
-	if (utf8str_trim(chat.mFromName).size() != 0 && chat.mFromName != SYSTEM_FROM)
-		header_text += chat.mFromName + ": ";
-	
 	if (use_plain_text_chat_history)
 	{
-		appendText(header_text, getText().size() != 0, style_params);
+		appendText("[" + chat.mTimeStr + "] ", getText().size() != 0, style_params);
+
+		if (utf8str_trim(chat.mFromName).size() != 0)
+		{
+			// Don't hotlink any messages from the system (e.g. "Second Life:"), so just add those in plain text.
+			if ( chat.mFromName != SYSTEM_FROM && chat.mFromID.notNull() )
+			{
+				LLStyle::Params link_params(style_params);
+				link_params.fillFrom(LLStyleMap::instance().lookupAgent(chat.mFromID));
+				// Convert the name to a hotlink and add to message.
+				appendText(chat.mFromName + ": ", false, link_params);
+			}
+			else
+			{
+				appendText(chat.mFromName + ": ", false, style_params);
+			}
+		}
 	}
 	else
 	{
@@ -386,7 +401,13 @@ void LLChatHistory::appendMessage(const LLChat& chat, const bool use_plain_text_
 		p.left_pad = mLeftWidgetPad;
 		p.right_pad = mRightWidgetPad;
 
-		if (mLastFromName == chat.mFromName)
+		LLDate new_message_time = LLDate::now();
+
+		if (mLastFromName == chat.mFromName 
+			&& mLastFromID == chat.mFromID
+			&& mLastMessageTime.notNull() 
+			&& (new_message_time.secondsSinceEpoch() - mLastMessageTime.secondsSinceEpoch()) < 60.0 
+			)
 		{
 			view = getSeparator();
 			p.top_pad = mTopSeparatorPad;
@@ -412,8 +433,14 @@ void LLChatHistory::appendMessage(const LLChat& chat, const bool use_plain_text_
 		view->reshape(target_rect.getWidth(), view->getRect().getHeight());
 		view->setOrigin(target_rect.mLeft, view->getRect().mBottom);
 
+		std::string header_text = "[" + chat.mTimeStr + "] ";
+		if (utf8str_trim(chat.mFromName).size() != 0 && chat.mFromName != SYSTEM_FROM)
+			header_text += chat.mFromName + ": ";
+
 		appendWidget(p, header_text, false);
 		mLastFromName = chat.mFromName;
+		mLastFromID = chat.mFromID;
+		mLastMessageTime = new_message_time;
 	}
 	//Handle IRC styled /me messages.
 	std::string prefix = chat.mText.substr(0, 4);

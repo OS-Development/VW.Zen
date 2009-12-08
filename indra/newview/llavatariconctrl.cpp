@@ -234,6 +234,7 @@ void LLAvatarIconCtrl::setValue(const LLSD& value)
 			// Check if cache already contains image_id for that avatar
 			if (!updateFromCache())
 			{
+				LLIconCtrl::setValue(mDefaultIconName);
 				app->addObserver(mAvatarId, this);
 				app->sendAvatarPropertiesRequest(mAvatarId);
 			}
@@ -301,6 +302,10 @@ void LLAvatarIconCtrl::nameUpdatedCallback(
 		if (mDrawTooltip)
 		{
 			setToolTip(mFirstName + " " + mLastName);
+		}
+		else
+		{
+			setToolTip(std::string(""));
 		}
 	}
 }

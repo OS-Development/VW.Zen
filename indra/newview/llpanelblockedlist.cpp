@@ -32,11 +32,13 @@
 
 #include "llviewerprecompiledheaders.h"
 
+#include "llpanelblockedlist.h"
+
+// library include
 #include "llfloater.h"
 #include "llfloaterreg.h"
+#include "llnotificationsutil.h"
 #include "llscrolllistctrl.h"
-
-#include "llpanelblockedlist.h"
 
 // project include
 #include "llfloateravatarpicker.h"
@@ -102,7 +104,7 @@ void LLPanelBlockedList::selectBlocked(const LLUUID& mute_id)
 
 void LLPanelBlockedList::showPanelAndSelect(const LLUUID& idToSelect)
 {
-	LLSideTray::getInstance()->showPanel("panel_block_list_sidetray", LLSD().insert(BLOCKED_PARAM_NAME, idToSelect));
+	LLSideTray::getInstance()->showPanel("panel_block_list_sidetray", LLSD().with(BLOCKED_PARAM_NAME, idToSelect));
 }
 
 
@@ -199,7 +201,7 @@ void LLPanelBlockedList::callbackBlockByName(const std::string& text)
 	BOOL success = LLMuteList::getInstance()->add(mute);
 	if (!success)
 	{
-		LLNotifications::instance().add("MuteByNameFailed");
+		LLNotificationsUtil::add("MuteByNameFailed");
 	}
 }
 

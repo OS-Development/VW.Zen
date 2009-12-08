@@ -158,8 +158,10 @@ LLLocationInputCtrl::Params::Params()
 	add_landmark_image_disabled("add_landmark_image_disabled"),
 	add_landmark_image_hover("add_landmark_image_hover"),
 	add_landmark_image_selected("add_landmark_image_selected"),
+	add_landmark_hpad("add_landmark_hpad", 0),
 	icon_hpad("icon_hpad", 0),
 	add_landmark_button("add_landmark_button"),
+	for_sale_button("for_sale_button"),
 	info_button("info_button"),
 	voice_icon("voice_icon"),
 	fly_icon("fly_icon"),
@@ -174,9 +176,11 @@ LLLocationInputCtrl::Params::Params()
 LLLocationInputCtrl::LLLocationInputCtrl(const LLLocationInputCtrl::Params& p)
 :	LLComboBox(p),
 	mIconHPad(p.icon_hpad),
-	mInfoBtn(NULL),
+	mAddLandmarkHPad(p.add_landmark_hpad),
 	mLocationContextMenu(NULL),
 	mAddLandmarkBtn(NULL),
+	mForSaleBtn(NULL),
+	mInfoBtn(NULL),
 	mLandmarkImageOn(NULL),
 	mLandmarkImageOff(NULL)
 {
@@ -237,33 +241,56 @@ LLLocationInputCtrl::LLLocationInputCtrl(const LLLocationInputCtrl::Params& p)
 	mAddLandmarkBtn = LLUICtrlFactory::create<LLButton>(al_params);
 	enableAddLandmarkButton(true);
 	addChild(mAddLandmarkBtn);
+	
+	LLButton::Params for_sale_button = p.for_sale_button;
+	for_sale_button.tool_tip = LLTrans::getString("LocationCtrlForSaleTooltip");
+	for_sale_button.click_callback.function(
+		boost::bind(&LLLocationInputCtrl::onForSaleButtonClicked, this));
+	mForSaleBtn = LLUICtrlFactory::create<LLButton>( for_sale_button );
+	addChild(mForSaleBtn);
 
 	// Parcel property icons
+	// Must be mouse-opaque so cursor stays as an arrow when hovering to
+	// see tooltip.
 	LLIconCtrl::Params voice_icon = p.voice_icon;
+	voice_icon.tool_tip = LLTrans::getString("LocationCtrlVoiceTooltip");
+	voice_icon.mouse_opaque = true;
 	mParcelIcon[VOICE_ICON] = LLUICtrlFactory::create<LLIconCtrl>(voice_icon);
 	addChild(mParcelIcon[VOICE_ICON]);
 
 	LLIconCtrl::Params fly_icon = p.fly_icon;
+	fly_icon.tool_tip = LLTrans::getString("LocationCtrlFlyTooltip");
+	fly_icon.mouse_opaque = true;
 	mParcelIcon[FLY_ICON] = LLUICtrlFactory::create<LLIconCtrl>(fly_icon);
 	addChild(mParcelIcon[FLY_ICON]);
 
 	LLIconCtrl::Params push_icon = p.push_icon;
+	push_icon.tool_tip = LLTrans::getString("LocationCtrlPushTooltip");
+	push_icon.mouse_opaque = true;
 	mParcelIcon[PUSH_ICON] = LLUICtrlFactory::create<LLIconCtrl>(push_icon);
 	addChild(mParcelIcon[PUSH_ICON]);
 
 	LLIconCtrl::Params build_icon = p.build_icon;
+	build_icon.tool_tip = LLTrans::getString("LocationCtrlBuildTooltip");
+	build_icon.mouse_opaque = true;
 	mParcelIcon[BUILD_ICON] = LLUICtrlFactory::create<LLIconCtrl>(build_icon);
 	addChild(mParcelIcon[BUILD_ICON]);
 
 	LLIconCtrl::Params scripts_icon = p.scripts_icon;
+	scripts_icon.tool_tip = LLTrans::getString("LocationCtrlScriptsTooltip");
+	scripts_icon.mouse_opaque = true;
 	mParcelIcon[SCRIPTS_ICON] = LLUICtrlFactory::create<LLIconCtrl>(scripts_icon);
 	addChild(mParcelIcon[SCRIPTS_ICON]);
 
 	LLIconCtrl::Params damage_icon = p.damage_icon;
+	damage_icon.tool_tip = LLTrans::getString("LocationCtrlDamageTooltip");
+	damage_icon.mouse_opaque = true;
 	mParcelIcon[DAMAGE_ICON] = LLUICtrlFactory::create<LLIconCtrl>(damage_icon);
 	addChild(mParcelIcon[DAMAGE_ICON]);
 	
 	LLTextBox::Params damage_text = p.damage_text;
+	damage_text.tool_tip = LLTrans::getString("LocationCtrlDamageTooltip");
+	damage_text.mouse_opaque = true;
 	mDamageText = LLUICtrlFactory::create<LLTextBox>(damage_text);
 	addChild(mDamageText);
 	
@@ -462,7 +489,12 @@ void LLLocationInputCtrl::draw()
 
 void LLLocationInputCtrl::onInfoButtonClicked()
 {
-	LLSideTray::getInstance()->showPanel("panel_places", LLSD().insert("type", "agent"));
+	LLSideTray::getInstance()->showPanel("panel_places", LLSD().with("type", "agent"));
+}
+
+void LLLocationInputCtrl::onForSaleButtonClicked()
+{
+	handle_buy_land();
 }
 
 void LLLocationInputCtrl::onAddLandmarkButtonClicked()
@@ -479,7 +511,7 @@ void LLLocationInputCtrl::onAddLandmarkButtonClicked()
 	}
 	else
 	{
-		LLSideTray::getInstance()->showPanel("panel_places", LLSD().insert("type", "create_landmark"));
+		LLSideTray::getInstance()->showPanel("panel_places", LLSD().with("type", "create_landmark"));
 	}
 }
 
@@ -605,17 +637,30 @@ void LLLocationInputCtrl::refreshLocation()
 	setText(location_name);
 }
 
+// returns new right edge
+static S32 layout_widget(LLUICtrl* widget, S32 right)
+{
+	if (widget->getVisible())
+	{
+		LLRect rect = widget->getRect();
+		rect.mLeft = right - rect.getWidth();
+		rect.mRight = right;
+		widget->setRect( rect );
+		right -= rect.getWidth();
+	}
+	return right;
+}
+
 void LLLocationInputCtrl::refreshParcelIcons()
 {
 	// Our "cursor" moving right to left
-	S32 x = mAddLandmarkBtn->getRect().mLeft - mIconHPad;
+	S32 x = mAddLandmarkBtn->getRect().mLeft;
 	
 	static LLUICachedControl<bool> show_properties("NavBarShowParcelProperties", false);
 	if (show_properties)
 	{
 		LLViewerParcelMgr* vpm = LLViewerParcelMgr::getInstance();
-		// *TODO buy
-		//bool allow_buy      = vpm->canAgentBuyParcel( vpm->getAgentParcel(), false);
+		bool allow_buy      = vpm->canAgentBuyParcel( vpm->getAgentParcel(), false);
 		bool allow_voice	= vpm->allowAgentVoice();
 		bool allow_fly		= vpm->allowAgentFly();
 		bool allow_push		= vpm->allowAgentPush();
@@ -624,6 +669,7 @@ void LLLocationInputCtrl::refreshParcelIcons()
 		bool allow_damage	= vpm->allowAgentDamage();
 		
 		// Most icons are "block this ability"
+		mForSaleBtn->setVisible(allow_buy);
 		mParcelIcon[VOICE_ICON]->setVisible(   !allow_voice );
 		mParcelIcon[FLY_ICON]->setVisible(     !allow_fly );
 		mParcelIcon[PUSH_ICON]->setVisible(    !allow_push );
@@ -632,28 +678,22 @@ void LLLocationInputCtrl::refreshParcelIcons()
 		mParcelIcon[DAMAGE_ICON]->setVisible(  allow_damage );
 		mDamageText->setVisible(allow_damage);
 		
-		// Slide the parcel icons rect from right to left, adjusting rectangles of
-		// visible icons.  Assumes all icon rects are the same.
+		x = layout_widget(mForSaleBtn, x);
+		// Padding goes to left of both landmark star and for sale btn
+		x -= mAddLandmarkHPad;
+		
+		// Slide the parcel icons rect from right to left, adjusting rectangles
 		for (S32 i = 0; i < ICON_COUNT; ++i)
 		{
-			LLIconCtrl* icon = mParcelIcon[i];
-			if (icon->getVisible())
-			{
-				LLRect r = icon->getRect();
-				r.mLeft = x - r.getWidth();
-				r.mRight = x;
-				icon->setRect( r );
-				x -= r.getWidth() + mIconHPad;
-			}
+			x = layout_widget(mParcelIcon[i], x);
+			x -= mIconHPad;
 		}
-		LLRect text_rect = mDamageText->getRect();
-		text_rect.mLeft = x - text_rect.getWidth();
-		text_rect.mRight = x;
-		mDamageText->setRect(text_rect);
-		x -= text_rect.getWidth() + mIconHPad;
+		x = layout_widget(mDamageText, x);
+		x -= mIconHPad;
 	}
 	else
 	{
+		mForSaleBtn->setVisible(false);
 		for (S32 i = 0; i < ICON_COUNT; ++i)
 		{
 			mParcelIcon[i]->setVisible(false);
@@ -664,8 +704,6 @@ void LLLocationInputCtrl::refreshParcelIcons()
 	S32 left_pad, right_pad;
 	mTextEntry->getTextPadding(&left_pad, &right_pad);
 	right_pad = mTextEntry->getRect().mRight - x;
-	llinfos << "JAMESDEBUG text entry rect " << mTextEntry->getRect()
-	<< " x " << x << " left_pad " << left_pad << " right_pad " << right_pad << llendl;
 	mTextEntry->setTextPadding(left_pad, right_pad);
 }
 
@@ -822,12 +860,12 @@ void LLLocationInputCtrl::onLocationContextMenuItemClicked(const LLSD& userdata)
 		
 		if(!landmark)
 		{
-			LLSideTray::getInstance()->showPanel("panel_places", LLSD().insert("type", "create_landmark"));
+			LLSideTray::getInstance()->showPanel("panel_places", LLSD().with("type", "create_landmark"));
 		}
 		else
 		{
 			LLSideTray::getInstance()->showPanel("panel_places", 
-					LLSD().insert("type", "landmark").insert("id",landmark->getUUID()));
+					LLSD().with("type", "landmark").with("id",landmark->getUUID()));
 		}
 	}
 	else if (item == "cut")
@@ -874,7 +912,7 @@ bool LLLocationInputCtrl::onLocationContextMenuItemEnabled(const LLSD& userdata)
 	}
 	else if (item == "can_select_all")
 	{
-		return mTextEntry->canSelectAll();
+		return mTextEntry->canSelectAll() && (mTextEntry->getLength() > 0);
 	}
 	else if(item == "show_coordinates")
 	{
