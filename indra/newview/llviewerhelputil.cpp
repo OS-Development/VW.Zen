@@ -32,23 +32,13 @@
  */
 
 #include "llviewerprecompiledheaders.h"
-
-#include "llversionviewer.h"
-#include "llviewerversion.h"
-
-//#include "llfloaterhelpbrowser.h"
-//#include "llfloaterreg.h"
-//#include "llfocusmgr.h"
-//#include "llviewercontrol.h"
-//#include "llappviewer.h"
-
-#include "llstring.h"
-#include "lluri.h"
-#include "llsys.h"
+#include "llviewerhelputil.h"
 
 #include "llcontrol.h"
-
-#include "llviewerhelputil.h"
+#include "llstring.h"
+#include "llsys.h"
+#include "lluri.h"
+#include "llversioninfo.h"
 
 
 //////////////////////////////////////////////
@@ -87,11 +77,11 @@ std::string LLViewerHelpUtil::buildHelpURL( const std::string &topic,
 	
 	substitution["CHANNEL"] = helpURLEncode(savedSettings.getString("VersionChannelName"));
 
-	substitution["VERSION"] = helpURLEncode(llGetViewerVersion());
-	substitution["VERSION_MAJOR"] = buildHelpVersion(LL_VERSION_MAJOR);
-	substitution["VERSION_MINOR"] = buildHelpVersion(LL_VERSION_MINOR);
-	substitution["VERSION_PATCH"] = buildHelpVersion(LL_VERSION_PATCH);
-	substitution["VERSION_BUILD"] = buildHelpVersion(LL_VERSION_BUILD);
+	substitution["VERSION"] = helpURLEncode(LLVersionInfo::getVersion());
+	substitution["VERSION_MAJOR"] = buildHelpVersion(LLVersionInfo::getMajor());
+	substitution["VERSION_MINOR"] = buildHelpVersion(LLVersionInfo::getMinor());
+	substitution["VERSION_PATCH"] = buildHelpVersion(LLVersionInfo::getPatch());
+	substitution["VERSION_BUILD"] = buildHelpVersion(LLVersionInfo::getBuild());
 	
 	substitution["OS"] = helpURLEncode(osinfo.getOSStringSimple());
 
