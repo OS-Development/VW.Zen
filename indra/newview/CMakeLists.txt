@@ -410,6 +410,7 @@ set(viewer_SOURCE_FILES
     lltexturestats.cpp
     lltexturestatsuploader.cpp
     lltextureview.cpp
+    lltextutil.cpp
     lltoast.cpp
     lltoastalertpanel.cpp
     lltoastgroupnotifypanel.cpp
@@ -447,12 +448,13 @@ set(viewer_SOURCE_FILES
     llurlsimstring.cpp
     llurlwhitelist.cpp
     llvectorperfoptions.cpp
+    llversioninfo.cpp
     llviewchildren.cpp
     llviewerassetstorage.cpp
     llviewerassettype.cpp
     llvieweraudio.cpp
     llviewercamera.cpp
-	llviewerchat.cpp
+    llviewerchat.cpp
     llviewercontrol.cpp
     llviewercontrollistener.cpp
     llviewerdisplay.cpp
@@ -462,6 +464,7 @@ set(viewer_SOURCE_FILES
     llviewergesture.cpp    
     llviewerhelp.cpp
     llviewerhelputil.cpp
+    llviewerhome.cpp
     llviewerinventory.cpp
     llviewerjoint.cpp
     llviewerjointattachment.cpp
@@ -911,6 +914,7 @@ set(viewer_HEADER_FILES
     lltexturestats.h
     lltexturestatsuploader.h
     lltextureview.h
+    lltextutil.h
     lltoast.h
     lltoastalertpanel.h
     lltoastgroupnotifypanel.h
@@ -949,13 +953,13 @@ set(viewer_HEADER_FILES
     llurlsimstring.h
     llurlwhitelist.h
     llvectorperfoptions.h
+    llversioninfo.h
     llviewchildren.h
     llviewerassetstorage.h
     llviewerassettype.h
     llvieweraudio.h
-    llviewerbuild.h
     llviewercamera.h
-	llviewerchat.h
+    llviewerchat.h
     llviewercontrol.h
     llviewercontrollistener.h
     llviewerdisplay.h
@@ -964,6 +968,7 @@ set(viewer_HEADER_FILES
     llviewergenericmessage.h
     llviewergesture.h    
     llviewerhelp.h
+    llviewerhome.h
     llviewerinventory.h
     llviewerjoint.h
     llviewerjointattachment.h
@@ -1115,22 +1120,13 @@ if (WINDOWS)
     # the .pch file.
     # All sources added to viewer_SOURCE_FILES 
     # at this point use it.
-    set_source_files_properties(llviewerprecompiledheaders.cpp
-        PROPERTIES
-        COMPILE_FLAGS "/Ycllviewerprecompiledheaders.h"
-        )        
-    foreach( src_file ${viewer_SOURCE_FILES} )
-        set_source_files_properties(
-            ${src_file}
+    if(USE_PRECOMPILED_HEADERS)
+        set_source_files_properties(llviewerprecompiledheaders.cpp
             PROPERTIES
-            COMPILE_FLAGS "/Yullviewerprecompiledheaders.h"
-            )        
-    endforeach( src_file ${viewer_SOURCE_FILES} )
-    list(APPEND viewer_SOURCE_FILES llviewerprecompiledheaders.cpp)
-    # llstartup.cpp needs special symbols for audio libraries, so it resets
-    # COMPILE_FLAGS below.  Make sure it maintains precompiled header settings.
-    set(LLSTARTUP_COMPILE_FLAGS 
-        "${LLSTARTUP_COMPILE_FLAGS} /Yullviewerprecompiledheaders.h")
+            COMPILE_FLAGS "/Ycllviewerprecompiledheaders.h"
+            )
+        set(viewer_SOURCE_FILES "${viewer_SOURCE_FILES}" llviewerprecompiledheaders.cpp)
+    endif(USE_PRECOMPILED_HEADERS)
     
     # Add resource files to the project.
     # viewerRes.rc is the only buildable file, but
@@ -1382,6 +1378,13 @@ if (WINDOWS)
         LINK_FLAGS_DEBUG "/NODEFAULTLIB:\"LIBCMT;LIBCMTD;MSVCRT\" /INCREMENTAL:NO"
         LINK_FLAGS_RELEASE ${release_flags}
         )
+    if(USE_PRECOMPILED_HEADERS)
+        set_target_properties(
+            ${VIEWER_BINARY_NAME}
+            PROPERTIES
+            COMPILE_FLAGS "/Yullviewerprecompiledheaders.h"
+            )
+    endif(USE_PRECOMPILED_HEADERS)
 
     # sets the 'working directory' for debugging from visual studio.
     if (NOT UNATTENDED)
@@ -1520,7 +1523,7 @@ target_link_libraries(${VIEWER_BINARY_NAME}
     ${BOOST_REGEX_LIBRARY}
     ${DBUSGLIB_LIBRARIES}
     ${OPENGL_LIBRARIES}
-    ${FMODWRAPPER_LIBRARY}
+    ${FMODWRAPPER_LIBRARY} # must come after LLAudio
     ${OPENGL_LIBRARIES}
     ${SDL_LIBRARY}
     ${SMARTHEAP_LIBRARY}
@@ -1668,15 +1671,26 @@ if (LL_TESTS)
     llviewerhelputil.cpp
     lllogininstance.cpp
   )
-  set_source_files_properties(
-    ${viewer_TEST_SOURCE_FILES}
-    PROPERTIES
-      LL_TEST_ADDITIONAL_SOURCE_FILES llviewerprecompiledheaders.cpp
-    )
+  ##################################################
+  # DISABLING PRECOMPILED HEADERS USAGE FOR TESTS 
+  ##################################################
+  # if(USE_PRECOMPILED_HEADERS)
+  #     set_source_files_properties(
+  #       ${viewer_TEST_SOURCE_FILES}
+  #       PROPERTIES
+  #         LL_TEST_ADDITIONAL_SOURCE_FILES llviewerprecompiledheaders.cpp
+  #       )
+  # endif(USE_PRECOMPILED_HEADERS)
   LL_ADD_PROJECT_UNIT_TESTS(${VIEWER_BINARY_NAME} "${viewer_TEST_SOURCE_FILES}")
 
   #set(TEST_DEBUG on)
-  set(test_sources llcapabilitylistener.cpp llviewerprecompiledheaders.cpp)
+  set(test_sources llcapabilitylistener.cpp)
+  ##################################################
+  # DISABLING PRECOMPILED HEADERS USAGE FOR TESTS 
+  ##################################################
+  # if(USE_PRECOMPILED_HEADERS)
+  #     set(test_sources "${test_sources}" llviewerprecompiledheaders.cpp)
+  # endif(USE_PRECOMPILED_HEADERS)
   set(test_libs 
     ${LLMESSAGE_LIBRARIES} 
     ${WINDOWS_LIBRARIES} 
