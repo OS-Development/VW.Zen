@@ -16,21 +16,23 @@
     <filter_editor
      text_pad_left="14"
      follows="left|top|right"
-	 height="23"
+	height="23"
      label="Filter"
      layout="topleft"
      left="15"
-     max_length="300"
+max_length="300"
      name="inventory search editor"
      top="26"
      width="303" />
     <tab_container
-     follows="all"
-     halign="center"
+follows="all"
+halign="center"
      height="300"
      layout="topleft"
      left_delta="-4"
      name="inventory filter tabs"
+     tab_min_width="70"
+     tab_height="30"
      tab_position="top"
      tab_height="30"
      tab_min_width="100"
@@ -107,7 +109,7 @@
          width="18" />
     </panel>
 
-<menu_bar
+    <menu_bar
      bg_visible="false"
      follows="left|top|right"
      height="20"
