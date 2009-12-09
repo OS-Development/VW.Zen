@@ -37,11 +37,11 @@
 #include "llviewermediafocus.h"
 #include "llmimetypes.h"
 #include "llmediaentry.h"
+#include "llversioninfo.h"
 #include "llviewercontrol.h"
 #include "llviewertexture.h"
 #include "llviewerparcelmedia.h"
 #include "llviewerparcelmgr.h"
-#include "llversionviewer.h"
 #include "llviewertexturelist.h"
 #include "llvovolume.h"
 #include "llpluginclassmedia.h"
@@ -446,7 +446,7 @@ std::string LLViewerMedia::getCurrentUserAgent()
 	// http://www.mozilla.org/build/revised-user-agent-strings.html
 	std::ostringstream codec;
 	codec << "SecondLife/";
-	codec << LL_VERSION_MAJOR << "." << LL_VERSION_MINOR << "." << LL_VERSION_PATCH << "." << LL_VERSION_BUILD;
+	codec << LLVersionInfo::getVersion();
 	codec << " (" << channel << "; " << skin_name << " skin)";
 	llinfos << codec.str() << llendl;
 	
@@ -674,7 +674,7 @@ void LLViewerMedia::updateMedia(void *dummy_arg)
 		
 		LLPluginClassMedia::EPriority new_priority = LLPluginClassMedia::PRIORITY_NORMAL;
 
-		if(pimpl->isForcedUnloaded() || (impl_count_total > (int)max_instances))
+		if(pimpl->isForcedUnloaded() || (impl_count_total >= (int)max_instances))
 		{
 			// Never load muted or failed impls.
 			// Hard limit on the number of instances that will be loaded at one time
@@ -988,11 +988,10 @@ LLPluginClassMedia* LLViewerMediaImpl::newSourceFromMediaType(std::string media_
 	}
 	else
 	{
-		std::string plugins_path = gDirUtilp->getLLPluginDir();
-		plugins_path += gDirUtilp->getDirDelimiter();
-		
 		std::string launcher_name = gDirUtilp->getLLPluginLauncher();
 		std::string plugin_name = gDirUtilp->getLLPluginFilename(plugin_basename);
+		std::string user_data_path = gDirUtilp->getOSUserAppDir();
+		user_data_path += gDirUtilp->getDirDelimiter();
 
 		// See if the plugin executable exists
 		llstat s;
@@ -1008,7 +1007,7 @@ LLPluginClassMedia* LLViewerMediaImpl::newSourceFromMediaType(std::string media_
 		{
 			LLPluginClassMedia* media_source = new LLPluginClassMedia(owner);
 			media_source->setSize(default_width, default_height);
-			if (media_source->init(launcher_name, plugin_name, gSavedSettings.getBOOL("PluginAttachDebuggerToPlugins")))
+			if (media_source->init(launcher_name, plugin_name, gSavedSettings.getBOOL("PluginAttachDebuggerToPlugins"), user_data_path))
 			{
 				return media_source;
 			}

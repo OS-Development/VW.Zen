@@ -192,6 +192,8 @@ void LLInventoryModel::cleanupInventory()
 BOOL LLInventoryModel::isObjectDescendentOf(const LLUUID& obj_id,
 											const LLUUID& cat_id) const
 {
+	if (obj_id == cat_id) return TRUE;
+
 	const LLInventoryObject* obj = getObject(obj_id);
 	while(obj)
 	{
@@ -209,6 +211,25 @@ BOOL LLInventoryModel::isObjectDescendentOf(const LLUUID& obj_id,
 		obj = getCategory(parent_id);
 	}
 	return FALSE;
+}
+
+const LLViewerInventoryCategory *LLInventoryModel::getFirstNondefaultParent(const LLUUID& obj_id) const
+{
+	const LLInventoryObject* obj = getObject(obj_id);
+	const LLUUID& parent_id = obj->getParentUUID();
+	while (!parent_id.isNull())
+	{
+		const LLViewerInventoryCategory *cat = getCategory(parent_id);
+		if (!cat) break;
+		const LLFolderType::EType folder_type = cat->getPreferredType();
+		if (folder_type != LLFolderType::FT_NONE &&
+			folder_type != LLFolderType::FT_ROOT_INVENTORY &&
+			!LLFolderType::lookupIsEnsembleType(folder_type))
+		{
+			return cat;
+		}
+	}
+	return NULL;
 }
 
 // Get the object by id. Returns NULL if not found.

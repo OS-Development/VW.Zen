@@ -194,7 +194,7 @@ LLTextBase::LLTextBase(const LLTextBase::Params &p)
 	mHAlign(p.font_halign),
 	mLineSpacingMult(p.line_spacing.multiple),
 	mLineSpacingPixels(p.line_spacing.pixels),
-	mClipPartial(p.clip_partial),
+	mClipPartial(p.clip_partial && !p.allow_scroll),
 	mTrackEnd( p.track_end ),
 	mScrollIndex(-1),
 	mSelectionStart( 0 ),
@@ -528,11 +528,6 @@ void LLTextBase::drawText()
 	{
 		S32 next_line = cur_line + 1;
 		line_info& line = mLineInfoList[cur_line];
-
-		if ((line.mRect.mTop - scrolled_view_rect.mBottom) < mTextRect.mBottom) 
-		{
-			break;
-		}
 
 		S32 next_start = -1;
 		S32 line_end = text_len;
@@ -1078,6 +1073,10 @@ void LLTextBase::reflow(S32 start_index)
 	{
 		mReflowNeeded = FALSE;
 
+		// shrink document to minimum size (visible portion of text widget)
+		// to force inlined widgets with follows set to shrink
+		mDocumentView->setShape(mTextRect);
+
 		bool scrolled_to_bottom = mScroller ? mScroller->isAtBottom() : false;
 
 		LLRect old_cursor_rect = getLocalRectFromDocIndex(mCursorPos);
@@ -1340,13 +1339,11 @@ std::pair<S32, S32>	LLTextBase::getVisibleLines(bool fully_visible)
 
 	if (fully_visible)
 	{
-		// binary search for line that starts before top of visible buffer and starts before end of visible buffer
 		first_iter = std::lower_bound(mLineInfoList.begin(), mLineInfoList.end(), visible_region.mTop, compare_top());
 		last_iter = std::lower_bound(mLineInfoList.begin(), mLineInfoList.end(), visible_region.mBottom, compare_bottom());
 	}
 	else
 	{
-		// binary search for line that starts before top of visible buffer and starts before end of visible buffer
 		first_iter = std::lower_bound(mLineInfoList.begin(), mLineInfoList.end(), visible_region.mTop, compare_bottom());
 		last_iter = std::lower_bound(mLineInfoList.begin(), mLineInfoList.end(), visible_region.mBottom, compare_top());
 	}
@@ -2083,6 +2080,8 @@ void LLTextBase::updateRects()
 		}
 
 		mContentsRect.mTop += mVPad;
+		// subtract a pixel off the bottom to deal with rounding errors in measuring font height
+		mContentsRect.mBottom -= 1;
 
 		S32 delta_pos = -mContentsRect.mBottom;
 		// move line segments to fit new document rect
@@ -2097,7 +2096,7 @@ void LLTextBase::updateRects()
 	LLRect doc_rect = mContentsRect;
 	// use old mTextRect constraint document to width of viewable region
 	doc_rect.mLeft = 0;
-	doc_rect.mRight = mTextRect.getWidth();
+	doc_rect.mRight = llmax(mTextRect.getWidth(), mContentsRect.mRight);
 
 	mDocumentView->setShape(doc_rect);
 
@@ -2117,7 +2116,7 @@ void LLTextBase::updateRects()
 	}
 
 	// update document container again, using new mTextRect
-	doc_rect.mRight = doc_rect.mLeft + mTextRect.getWidth();
+	doc_rect.mRight = llmax(mTextRect.getWidth(), mContentsRect.mRight);
 	mDocumentView->setShape(doc_rect);
 }
 
@@ -2210,6 +2209,12 @@ LLNormalTextSegment::LLNormalTextSegment( const LLStyleSP& style, S32 start, S32
 	mEditor(editor)
 {
 	mFontHeight = llceil(mStyle->getFont()->getLineHeight());
+
+	LLUIImagePtr image = mStyle->getImage();
+	if (image.notNull())
+	{
+		mImageLoadedConnection = image->addLoadedCallback(boost::bind(&LLTextBase::needsReflow, &mEditor));
+	}
 }
 
 LLNormalTextSegment::LLNormalTextSegment( const LLColor4& color, S32 start, S32 end, LLTextBase& editor, BOOL is_visible) 
@@ -2221,6 +2226,12 @@ LLNormalTextSegment::LLNormalTextSegment( const LLColor4& color, S32 start, S32 
 
 	mFontHeight = llceil(mStyle->getFont()->getLineHeight());
 }
+
+LLNormalTextSegment::~LLNormalTextSegment()
+{
+	mImageLoadedConnection.disconnect();
+}
+
 
 F32 LLNormalTextSegment::draw(S32 start, S32 end, S32 selection_start, S32 selection_end, const LLRect& draw_rect)
 {
@@ -2235,7 +2246,7 @@ F32 LLNormalTextSegment::draw(S32 start, S32 end, S32 selection_start, S32 selec
 			// Center the image vertically
 			S32 image_bottom = draw_rect.getCenterY() - (style_image_height/2);
 			image->draw(draw_rect.mLeft, image_bottom, 
-				style_image_width, style_image_height);
+				style_image_width, style_image_height, color);
 		}
 
 		return drawClippedSegment( getStart() + start, getStart() + end, selection_start, selection_end, draw_rect);
@@ -2397,12 +2408,20 @@ void LLNormalTextSegment::setToolTip(const std::string& tooltip)
 
 bool LLNormalTextSegment::getDimensions(S32 first_char, S32 num_chars, S32& width, S32& height) const
 {
-	LLWString text = mEditor.getWText();
-
 	height = mFontHeight;
-	width = mStyle->getFont()->getWidth(text.c_str(), mStart + first_char, num_chars);
-	// if last character is a newline, then return true, forcing line break
-	llwchar last_char = text[mStart + first_char + num_chars - 1];
+	bool force_newline = false;
+	if (num_chars > 0)
+	{
+		LLWString text = mEditor.getWText();
+		width = mStyle->getFont()->getWidth(text.c_str(), mStart + first_char, num_chars);
+		// if last character is a newline, then return true, forcing line break
+		llwchar last_char = text[mStart + first_char + num_chars - 1];
+		force_newline = (last_char == '\n');
+	}
+	else
+	{
+		width = 0;
+	}
 
 	LLUIImagePtr image = mStyle->getImage();
 	if( image.notNull())
@@ -2411,7 +2430,7 @@ bool LLNormalTextSegment::getDimensions(S32 first_char, S32 num_chars, S32& widt
 		height = llmax(height, image->getHeight());
 	}
 
-	return num_chars >= 1 && last_char == '\n';
+	return force_newline;
 }
 
 S32	LLNormalTextSegment::getOffset(S32 segment_local_x_coord, S32 start_offset, S32 num_chars, bool round) const

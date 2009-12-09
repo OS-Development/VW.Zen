@@ -512,6 +512,21 @@ void LLAppearanceManager::updateCOF(const LLUUID& category, bool append)
 {
 	const LLUUID cof = getCOF();
 
+	// Deactivate currently active gestures in the COF, if replacing outfit
+	if (!append)
+	{
+		LLInventoryModel::item_array_t gest_items;
+		getDescendentsOfAssetType(cof, gest_items, LLAssetType::AT_GESTURE, false);
+		for(S32 i = 0; i  < gest_items.count(); ++i)
+		{
+			LLViewerInventoryItem *gest_item = gest_items.get(i);
+			if ( LLGestureManager::instance().isGestureActive( gest_item->getLinkedUUID()) )
+			{
+				LLGestureManager::instance().deactivateGesture( gest_item->getLinkedUUID() );
+			}
+		}
+	}
+	
 	// Collect and filter descendents to determine new COF contents.
 
 	// - Body parts: always include COF contents as a fallback in case any
@@ -559,28 +574,31 @@ void LLAppearanceManager::updateCOF(const LLUUID& category, bool append)
 	linkAll(cof, obj_items, link_waiter);
 	linkAll(cof, gest_items, link_waiter);
 
-	LLSidepanelAppearance* panel_appearance = dynamic_cast<LLSidepanelAppearance *>(LLSideTray::getInstance()->getPanel("sidepanel_appearance"));
 	// Add link to outfit if category is an outfit. 
 	LLViewerInventoryCategory* catp = gInventory.getCategory(category);
-	if (!append && catp && catp->getPreferredType() == LLFolderType::FT_OUTFIT)
+	if (!append)
 	{
-		link_inventory_item(gAgent.getID(), category, cof, catp->getName(),
-							LLAssetType::AT_LINK_FOLDER, link_waiter);
-
-		// Update the current outfit name of the appearance sidepanel.
-		if (panel_appearance)
+		std::string new_outfit_name = "";
+		if (catp && catp->getPreferredType() == LLFolderType::FT_OUTFIT)
 		{
-			panel_appearance->refreshCurrentOutfitName(catp->getName());
+			link_inventory_item(gAgent.getID(), category, cof, catp->getName(),
+								LLAssetType::AT_LINK_FOLDER, link_waiter);
+			new_outfit_name = catp->getName();
 		}
-	}
-	else
-	{
-		if (panel_appearance)
-		{
-			panel_appearance->refreshCurrentOutfitName("");
-		}
+		updatePanelOutfitName(new_outfit_name);
 	}
 }
+
+void LLAppearanceManager::updatePanelOutfitName(const std::string& name)
+{
+	LLSidepanelAppearance* panel_appearance =
+		dynamic_cast<LLSidepanelAppearance *>(LLSideTray::getInstance()->getPanel("sidepanel_appearance"));
+	if (panel_appearance)
+	{
+		panel_appearance->refreshCurrentOutfitName(name);
+	}
+}
+
 
 void LLAppearanceManager::updateAgentWearables(LLWearableHoldingPattern* holder, bool append)
 {

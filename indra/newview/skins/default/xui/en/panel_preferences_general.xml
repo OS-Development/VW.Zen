@@ -24,7 +24,7 @@
     <combo_box
      control_name="Language"
      follows="left|bottom"
-     height="18"
+     height="23"
      layout="topleft"
      left_delta="50"
      max_chars="135"
@@ -136,22 +136,22 @@
     <combo_box
      control_name="PreferredMaturity"
      follows="left|bottom"
-     height="18"
+     height="23"
      layout="topleft"
      left_delta="-10"
      name="maturity_desired_combobox"
      top_pad="-10"
      width="170">
         <combo_box.item
-         label="PG, Mature and Adult"
+         label="General, Moderate, Adult"
          name="Desired_Adult"
          value="42" />
         <combo_box.item
-         label="PG and Mature"
+         label="General and Moderate"
          name="Desired_Mature"
          value="21" />
         <combo_box.item
-         label="PG"
+         label="General"
          name="Desired_PG"
          value="13" />
     </combo_box>
@@ -170,7 +170,7 @@
     <combo_box
      control_name="LoginLocation"
      follows="left|bottom"
-     height="18"
+     height="23"
      layout="topleft"
      left_delta="50"
      name="start_location_combo"

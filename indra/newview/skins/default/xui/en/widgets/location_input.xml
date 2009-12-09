@@ -20,9 +20,14 @@
                 follows="left|top"
                 allow_new_values="true"
                 >
-  <info_button name="Place Information"
-                          width="16"
-                          height="16"
+  <!-- *NOTE: Tooltips are in strings.xml so they can be localized.
+  See LocationCtrlAddLandmarkTooltip etc. -->
+  <info_button
+    name="Place Information"
+    width="16"
+    height="16"
+    left="4" 
+    top="20" 
                           follows="left|top"
                           hover_glow_amount="0.15"
                           image_unselected="Info_Off"
@@ -41,8 +46,8 @@
 			  left="-3" />
   <for_sale_button
     name="for_sale_btn"
-    image_unselected="parcel_lght_ForSale"
-    image_selected="parcel_lght_ForSale"
+    image_unselected="Parcel_ForSale_Light"
+    image_selected="Parcel_ForSale_Light"
     width="22"
     height="18"
     follows="right|top"
@@ -50,12 +55,13 @@
     top="21"
     />
   <voice_icon
+    enabled="true" 
     name="voice_icon"
     width="22"
     height="18"
     top="21"
     follows="right|top"
-    image_name="parcel_lght_VoiceNo"
+    image_name="Parcel_VoiceNo_Light"
     />
   <fly_icon
     name="fly_icon"
@@ -63,7 +69,7 @@
     height="18"
     top="21"
     follows="right|top"
-    image_name="parcel_lght_FlyNo"
+    image_name="Parcel_FlyNo_Light"
     />
   <push_icon
     name="push_icon"
@@ -71,7 +77,7 @@
     height="18"
     top="21"
     follows="right|top"
-    image_name="parcel_lght_PushNo"
+    image_name="Parcel_PushNo_Light"
     />
   <build_icon
     name="build_icon"
@@ -79,7 +85,7 @@
     height="18"
     top="21"
     follows="right|top"
-    image_name="parcel_lght_BuildNo"
+    image_name="Parcel_BuildNo_Light"
     />
   <scripts_icon
     name="scripts_icon"
@@ -87,7 +93,7 @@
     height="18"
     top="21"
     follows="right|top"
-    image_name="parcel_lght_ScriptsNo"
+    image_name="Parcel_ScriptsNo_Light"
     />
   <!-- NOTE: Placeholder icon, there is no dark grayscale version -->
   <damage_icon
@@ -96,7 +102,7 @@
     height="18"
     top="21"
     follows="right|top"
-    image_name="parcel_lght_Damage"
+    image_name="Parcel_Damage_Light"
     />
   <!-- Default text color is invisible on top of nav bar background -->
   <damage_text

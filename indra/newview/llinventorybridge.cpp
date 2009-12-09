@@ -512,37 +512,44 @@ void LLInvFVBridge::getClipboardEntries(bool show_asset_id,
 										std::vector<std::string> &disabled_items, U32 flags)
 {
 	const LLInventoryObject *obj = getInventoryObject();
-	if (obj && obj->getIsLinkType())
+	if (obj)
 	{
-		items.push_back(std::string("Find Original"));
-		if (isLinkedObjectMissing())
+		if (obj->getIsLinkType())
 		{
-			disabled_items.push_back(std::string("Find Original"));
-		}
-	}
-	else
-	{
-		items.push_back(std::string("Rename"));
-		if (!isItemRenameable() || (flags & FIRST_SELECTED_ITEM) == 0)
-		{
-			disabled_items.push_back(std::string("Rename"));
-		}
-		
-		if (show_asset_id)
-		{
-			items.push_back(std::string("Copy Asset UUID"));
-			if ( (! ( isItemPermissive() || gAgent.isGodlike() ) )
-				 || (flags & FIRST_SELECTED_ITEM) == 0)
+			items.push_back(std::string("Find Original"));
+			if (isLinkedObjectMissing())
 			{
-				disabled_items.push_back(std::string("Copy Asset UUID"));
+				disabled_items.push_back(std::string("Find Original"));
 			}
 		}
-		items.push_back(std::string("Copy Separator"));
-		
-		items.push_back(std::string("Copy"));
-		if (!isItemCopyable())
+		else
 		{
-			disabled_items.push_back(std::string("Copy"));
+			if (LLAssetType::lookupCanLink(obj->getType()))
+			{
+				items.push_back(std::string("Find Links"));
+			}
+			items.push_back(std::string("Rename"));
+			if (!isItemRenameable() || (flags & FIRST_SELECTED_ITEM) == 0)
+			{
+				disabled_items.push_back(std::string("Rename"));
+			}
+			
+			if (show_asset_id)
+			{
+				items.push_back(std::string("Copy Asset UUID"));
+				if ( (! ( isItemPermissive() || gAgent.isGodlike() ) )
+					 || (flags & FIRST_SELECTED_ITEM) == 0)
+				{
+					disabled_items.push_back(std::string("Copy Asset UUID"));
+				}
+			}
+			items.push_back(std::string("Copy Separator"));
+			
+			items.push_back(std::string("Copy"));
+			if (!isItemCopyable())
+			{
+				disabled_items.push_back(std::string("Copy"));
+			}
 		}
 	}
 
@@ -707,20 +714,20 @@ BOOL LLInvFVBridge::isItemPermissive() const
 // static
 void LLInvFVBridge::changeItemParent(LLInventoryModel* model,
 									 LLViewerInventoryItem* item,
-									 const LLUUID& new_parent,
+									 const LLUUID& new_parent_id,
 									 BOOL restamp)
 {
-	if(item->getParentUUID() != new_parent)
+	if(item->getParentUUID() != new_parent_id)
 	{
 		LLInventoryModel::update_list_t update;
 		LLInventoryModel::LLCategoryUpdate old_folder(item->getParentUUID(),-1);
 		update.push_back(old_folder);
-		LLInventoryModel::LLCategoryUpdate new_folder(new_parent, 1);
+		LLInventoryModel::LLCategoryUpdate new_folder(new_parent_id, 1);
 		update.push_back(new_folder);
 		gInventory.accountForUpdate(update);
 
 		LLPointer<LLViewerInventoryItem> new_item = new LLViewerInventoryItem(item);
-		new_item->setParent(new_parent);
+		new_item->setParent(new_parent_id);
 		new_item->updateParentOnServer(restamp);
 		model->updateItem(new_item);
 		model->notifyObservers();
@@ -730,24 +737,27 @@ void LLInvFVBridge::changeItemParent(LLInventoryModel* model,
 // static
 void LLInvFVBridge::changeCategoryParent(LLInventoryModel* model,
 										 LLViewerInventoryCategory* cat,
-										 const LLUUID& new_parent,
+										 const LLUUID& new_parent_id,
 										 BOOL restamp)
 {
-	if(cat->getParentUUID() != new_parent)
+	// Can't move a folder into a child of itself.
+	if (model->isObjectDescendentOf(new_parent_id, cat->getUUID()))
 	{
-		LLInventoryModel::update_list_t update;
-		LLInventoryModel::LLCategoryUpdate old_folder(cat->getParentUUID(), -1);
-		update.push_back(old_folder);
-		LLInventoryModel::LLCategoryUpdate new_folder(new_parent, 1);
-		update.push_back(new_folder);
-		gInventory.accountForUpdate(update);
-
-		LLPointer<LLViewerInventoryCategory> new_cat = new LLViewerInventoryCategory(cat);
-		new_cat->setParent(new_parent);
-		new_cat->updateParentOnServer(restamp);
-		model->updateCategory(new_cat);
-		model->notifyObservers();
+		return;
 	}
+
+	LLInventoryModel::update_list_t update;
+	LLInventoryModel::LLCategoryUpdate old_folder(cat->getParentUUID(), -1);
+	update.push_back(old_folder);
+	LLInventoryModel::LLCategoryUpdate new_folder(new_parent_id, 1);
+	update.push_back(new_folder);
+	model->accountForUpdate(update);
+	
+	LLPointer<LLViewerInventoryCategory> new_cat = new LLViewerInventoryCategory(cat);
+	new_cat->setParent(new_parent_id);
+	new_cat->updateParentOnServer(restamp);
+	model->updateCategory(new_cat);
+	model->notifyObservers();
 }
 
 
@@ -931,6 +941,7 @@ void LLItemBridge::performAction(LLFolderView* folder, LLInventoryModel* model, 
 	{
 		gotoItem(folder);
 	}
+
 	if ("open" == action)
 	{
 		openItem();
@@ -2235,11 +2246,6 @@ BOOL LLFolderBridge::removeItem()
 
 	LLNotification::Params params("ConfirmDeleteProtectedCategory");
 	params.payload(payload).substitutions(args).functor.function(boost::bind(&LLFolderBridge::removeItemResponse, this, _1, _2));
-	//params.functor.function(boost::bind(&LLFolderBridge::removeItemResponse, this, _1, _2));
-	/*
-	LLNotification::Params params("ChangeLindenEstate");
-	params.functor.function(boost::bind(&LLPanelEstateInfo::callbackChangeLindenEstate, this, _1, _2));
-	*/
 	if (LLFolderType::lookupIsProtectedType(cat->getPreferredType()))
 	{
 		LLNotifications::instance().add(params);
@@ -2270,14 +2276,16 @@ bool LLFolderBridge::removeItemResponse(const LLSD& notification, const LLSD& re
 		LLInventoryModel::item_array_t	descendent_items;
 		gInventory.collectDescendents( mUUID, descendent_categories, descendent_items, FALSE );
 		
-		S32 i;
-		for (i = 0; i < descendent_items.count(); i++)
+		for (LLInventoryModel::item_array_t::const_iterator iter = descendent_items.begin();
+			 iter != descendent_items.end();
+			 ++iter)
 		{
-			LLInventoryItem* item = descendent_items[i];
+			const LLViewerInventoryItem* item = (*iter);
+			const LLUUID& item_id = item->getUUID();
 			if (item->getType() == LLAssetType::AT_GESTURE
-				&& LLGestureManager::instance().isGestureActive(item->getUUID()))
+				&& LLGestureManager::instance().isGestureActive(item_id))
 			{
-				LLGestureManager::instance().deactivateGesture(item->getUUID());
+				LLGestureManager::instance().deactivateGesture(item_id);
 			}
 		}
 		
@@ -2298,14 +2306,16 @@ void LLFolderBridge::pasteFromClipboard()
 	LLInventoryModel* model = getInventoryModel();
 	if(model && isClipboardPasteable())
 	{
-		LLInventoryItem* item = NULL;
+		const LLUUID parent_id(mUUID);
+
 		LLDynamicArray<LLUUID> objects;
 		LLInventoryClipboard::instance().retrieve(objects);
-		S32 count = objects.count();
-		const LLUUID parent_id(mUUID);
-		for(S32 i = 0; i < count; i++)
+		for (LLDynamicArray<LLUUID>::const_iterator iter = objects.begin();
+			 iter != objects.end();
+			 ++iter)
 		{
-			item = model->getItem(objects.get(i));
+			const LLUUID& item_id = (*iter);
+			LLInventoryItem *item = model->getItem(item_id);
 			if (item)
 			{
 				if(LLInventoryClipboard::instance().isCutMode())
@@ -2334,13 +2344,15 @@ void LLFolderBridge::pasteLinkFromClipboard()
 	const LLInventoryModel* model = getInventoryModel();
 	if(model)
 	{
+		const LLUUID parent_id(mUUID);
+
 		LLDynamicArray<LLUUID> objects;
 		LLInventoryClipboard::instance().retrieve(objects);
-		S32 count = objects.count();
-		LLUUID parent_id(mUUID);
-		for(S32 i = 0; i < count; i++)
+		for (LLDynamicArray<LLUUID>::const_iterator iter = objects.begin();
+			 iter != objects.end();
+			 ++iter)
 		{
-			const LLUUID &object_id = objects.get(i);
+			const LLUUID &object_id = (*iter);
 #if SUPPORT_ENSEMBLES
 			if (LLInventoryCategory *cat = model->getCategory(object_id))
 			{
@@ -2447,6 +2459,8 @@ void LLFolderBridge::folderOptionsMenu()
 			mItems.push_back(std::string("Wear As Ensemble"));
 		}
 		mItems.push_back(std::string("Remove From Outfit"));
+		if (is_sidepanel)
+			mItems.push_back(std::string("Outfit Separator"));
 	}
 	hide_context_entries(*mMenu, mItems, disabled_items);
 
@@ -3768,8 +3782,14 @@ void LLGestureBridge::buildContextMenu(LLMenuGL& menu, U32 flags)
 		getClipboardEntries(true, items, disabled_items, flags);
 
 		items.push_back(std::string("Gesture Separator"));
-		items.push_back(std::string("Activate"));
-		items.push_back(std::string("Deactivate"));
+		if (LLGestureManager::instance().isGestureActive(getUUID()))
+		{
+			items.push_back(std::string("Deactivate"));
+		}
+		else
+		{
+			items.push_back(std::string("Activate"));
+		}
 	}
 	hide_context_entries(menu, items, disabled_items);
 }

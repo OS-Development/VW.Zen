@@ -122,17 +122,21 @@ void LLLandmarksPanel::onSearchEdit(const std::string& string)
 	for (accordion_tabs_t::const_iterator iter = mAccordionTabs.begin(); iter != mAccordionTabs.end(); ++iter)
 	{
 		LLAccordionCtrlTab* tab = *iter;
-		if (tab && !tab->getVisible())
-			tab->setVisible(TRUE);
+		tab->setVisible(TRUE);
 
 		// expand accordion to see matched items in each one. See EXT-2014.
-		tab->changeOpenClose(false);
+		if (string != "")
+		{
+			tab->changeOpenClose(false);
+		}
 
 		LLInventorySubTreePanel* inventory_list = dynamic_cast<LLInventorySubTreePanel*>(tab->getAccordionView());
 		if (NULL == inventory_list) continue;
 
 		if (inventory_list->getFilter())
+		{
 			filter_list(inventory_list, string);
+		}
 	}
 
 	if (sFilterSubString != string)
@@ -323,7 +327,7 @@ void LLLandmarksPanel::initFavoritesInventoryPanel()
 	mFavoritesInventoryPanel = getChild<LLInventorySubTreePanel>("favorites_list");
 
 	initLandmarksPanel(mFavoritesInventoryPanel);
-
+	mFavoritesInventoryPanel->getFilter()->setEmptyLookupMessage("FavoritesNoMatchingItems");
 	initAccordion("tab_favorites", mFavoritesInventoryPanel);
 }
 
@@ -333,8 +337,12 @@ void LLLandmarksPanel::initLandmarksInventoryPanel()
 
 	initLandmarksPanel(mLandmarksInventoryPanel);
 
+	// Check if mLandmarksInventoryPanel is properly initialized and has a Filter created.
+	// In case of a dummy widget getFilter() will return NULL.
 	if (mLandmarksInventoryPanel->getFilter())
+	{
 		mLandmarksInventoryPanel->setShowFolderState(LLInventoryFilter::SHOW_ALL_FOLDERS);
+	}
 
 	// subscribe to have auto-rename functionality while creating New Folder
 	mLandmarksInventoryPanel->setSelectCallback(boost::bind(&LLInventoryPanel::onSelectionChange, mLandmarksInventoryPanel, _1, _2));
@@ -362,6 +370,8 @@ void LLLandmarksPanel::initLibraryInventoryPanel()
 
 void LLLandmarksPanel::initLandmarksPanel(LLInventorySubTreePanel* inventory_list)
 {
+	// In case of a dummy widget further we have no Folder View widget and no Filter,
+	// so further initialization leads to crash.
 	if (!inventory_list->getFilter())
 		return;
 
@@ -379,17 +389,11 @@ void LLLandmarksPanel::initLandmarksPanel(LLInventorySubTreePanel* inventory_lis
 	}
 
 	root_folder->setParentLandmarksPanel(this);
-
-	// save initial folder state to avoid incorrect work while switching between Landmarks & Teleport History tabs
-	// See EXT-1609.
-	inventory_list->saveFolderState();
 }
 
 void LLLandmarksPanel::initAccordion(const std::string& accordion_tab_name, LLInventorySubTreePanel* inventory_list)
 {
 	LLAccordionCtrlTab* accordion_tab = getChild<LLAccordionCtrlTab>(accordion_tab_name);
-	if (!accordion_tab)
-		return;
 
 	mAccordionTabs.push_back(accordion_tab);
 	accordion_tab->setDropDownStateChangedCallback(
@@ -744,8 +748,8 @@ void LLLandmarksPanel::updateFilteredAccordions()
 	for (accordion_tabs_t::const_iterator iter = mAccordionTabs.begin(); iter != mAccordionTabs.end(); ++iter)
 	{
 		accordion_tab = *iter;
-		if (accordion_tab && !accordion_tab->getVisible())
-			accordion_tab->setVisible(TRUE);
+
+		accordion_tab->setVisible(TRUE);
 
 		inventory_list = dynamic_cast<LLInventorySubTreePanel*> (accordion_tab->getAccordionView());
 		if (NULL == inventory_list) continue;
@@ -987,15 +991,14 @@ void LLLandmarksPanel::doCreatePick(LLLandmark* landmark)
 //////////////////////////////////////////////////////////////////////////
 static void filter_list(LLInventorySubTreePanel* inventory_list, const std::string& string)
 {
+	// Open the immediate children of the root folder, since those
+	// are invisible in the UI and thus must always be open.
+	inventory_list->getRootFolder()->openTopLevelFolders();
+
 	if (string == "")
 	{
 		inventory_list->setFilterSubString(LLStringUtil::null);
-
-		// re-open folders that were initially open
-		inventory_list->restoreFolderState();
 	}
-
-	gInventory.startBackgroundFetch();
 
 	if (inventory_list->getFilterSubString().empty() && string.empty())
 	{
@@ -1003,13 +1006,8 @@ static void filter_list(LLInventorySubTreePanel* inventory_list, const std::stri
 		return;
 	}
 
-	// save current folder open state if no filter currently applied
-	if (inventory_list->getRootFolder()->getFilterSubString().empty())
-	{
-		inventory_list->saveFolderState();
-	}
-
-	// set new filter string
+	// Set new filter string
 	inventory_list->setFilterSubString(string);
+
 }
 // EOF
