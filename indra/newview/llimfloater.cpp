@@ -415,6 +415,7 @@ void LLIMFloater::setDocked(bool docked, bool pop_on_undock)
 	if(channel)
 	{
 		channel->updateShowToastsState();
+		channel->redrawToasts();
 	}
 }
 
@@ -439,6 +440,7 @@ void LLIMFloater::setVisible(BOOL visible)
 	if(channel)
 	{
 		channel->updateShowToastsState();
+		channel->redrawToasts();
 	}
 
 	if (visible && mChatHistory && mInputEditor)
