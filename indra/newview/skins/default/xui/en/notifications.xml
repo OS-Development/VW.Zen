@@ -4719,10 +4719,6 @@ The objects on the selected parcel that are NOT owned by you have been returned 
    type="notify">
 Message from [NAME]:
 [MSG]
-    <usetemplate
-     name="okcancelbuttons"
-     notext="OK"
-     yestext="Inspect"/>
   </notification>
 
   <notification
@@ -5752,6 +5748,23 @@ You just entered a region using a different server version, which may affect per
    priority="high"
    type="notifytip">
 The SLurl you clicked on is not supported.
+  </notification>
+
+  <notification
+   icon="notifytip.tga"
+   name="BlockedSLURL"
+   priority="high"
+   type="notifytip">
+A SLurl was received from an untrusted browser and has been blocked for your security.
+  </notification>
+
+  <notification
+   icon="notifytip.tga"
+   name="ThrottledSLURL"
+   priority="high"
+   type="notifytip">
+Multiple SLurls were received from an untrusted browser within a short period.
+They will be blocked for a few seconds for your security. 
   </notification>
 
   <notification name="IMToast" type="notifytoast">
