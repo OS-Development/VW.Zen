@@ -867,6 +867,7 @@ class Linux_i686Manifest(LinuxManifest):
             self.path("libopenjpeg.so.1.3.0", "libopenjpeg.so.1.3")
             self.path("libalut.so")
             self.path("libopenal.so", "libopenal.so.1")
+            self.path("libopenal.so", "libvivoxoal.so.1") # vivox's sdk expects this soname
             try:
                     self.path("libkdu_v42R.so", "libkdu.so")
                     pass
@@ -888,7 +889,7 @@ class Linux_i686Manifest(LinuxManifest):
             if self.prefix(src="vivox-runtime/i686-linux", dst="lib"):
                     self.path("libortp.so")
                     self.path("libsndfile.so.1")
-                    self.path("libvivoxoal.so.1")
+                    #self.path("libvivoxoal.so.1") # no - we'll re-use the viewer's own OAL lib
                     self.path("libvivoxsdk.so")
                     self.path("libvivoxplatform.so")
                     self.end_prefix("lib")
