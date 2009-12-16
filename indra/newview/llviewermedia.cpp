@@ -172,6 +172,11 @@ public:
 			completeAny(status, "text/html");
 		}
 		else
+		if(status == 403)
+		{
+			completeAny(status, "text/html");
+		}
+		else
 		if(status == 404)
 		{
 			// 404 is content not found - sites often have bespoke 404 pages so
@@ -240,9 +245,11 @@ public:
 		bool mInitialized;
 };
 static LLViewerMedia::impl_list sViewerMediaImplList;
+static LLViewerMedia::impl_id_map sViewerMediaTextureIDMap;
 static LLTimer sMediaCreateTimer;
 static const F32 LLVIEWERMEDIA_CREATE_DELAY = 1.0f;
 static F32 sGlobalVolume = 1.0f;
+static F64 sLowestLoadableImplInterest = 0.0f;
 
 //////////////////////////////////////////////////////////////////////////////////////////
 static void add_media_impl(LLViewerMediaImpl* media)
@@ -297,7 +304,7 @@ viewer_media_t LLViewerMedia::newMediaImpl(
 	else
 	{
 		media_impl->unload();
-		media_impl->mTextureId = texture_id;
+		media_impl->setTextureID(texture_id);
 		media_impl->mMediaWidth = media_width;
 		media_impl->mMediaHeight = media_height;
 		media_impl->mMediaAutoScale = media_auto_scale;
@@ -412,18 +419,16 @@ viewer_media_t LLViewerMedia::updateMediaImpl(LLMediaEntry* media_entry, const s
 // static
 LLViewerMediaImpl* LLViewerMedia::getMediaImplFromTextureID(const LLUUID& texture_id)
 {
-	impl_list::iterator iter = sViewerMediaImplList.begin();
-	impl_list::iterator end = sViewerMediaImplList.end();
-
-	for(; iter != end; iter++)
+	LLViewerMediaImpl* result = NULL;
+	
+	// Look up the texture ID in the texture id->impl map.
+	impl_id_map::iterator iter = sViewerMediaTextureIDMap.find(texture_id);
+	if(iter != sViewerMediaTextureIDMap.end())
 	{
-		LLViewerMediaImpl* media_impl = *iter;
-		if(media_impl->getMediaTextureID() == texture_id)
-		{
-			return media_impl;
-		}
+		result = iter->second;
 	}
-	return NULL;
+
+	return result;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -554,6 +559,37 @@ bool LLViewerMedia::getInWorldMediaDisabled()
 	return sInWorldMediaDisabled;
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////
+// static
+bool LLViewerMedia::isInterestingEnough(const LLVOVolume *object, const F64 &object_interest)
+{
+	bool result = false;
+	
+	if (NULL == object)
+	{
+		result = false;
+	}
+	// Focused?  Then it is interesting!
+	else if (LLViewerMediaFocus::getInstance()->getFocusedObjectID() == object->getID())
+	{
+		result = true;
+	}
+	// Selected?  Then it is interesting!
+	// XXX Sadly, 'contains()' doesn't take a const :(
+	else if (LLSelectMgr::getInstance()->getSelection()->contains(const_cast<LLVOVolume*>(object)))
+	{
+		result = true;
+	}
+	else 
+	{
+		llinfos << "object interest = " << object_interest << ", lowest loadable = " << sLowestLoadableImplInterest << llendl;
+		if(object_interest > sLowestLoadableImplInterest)
+			result = true;
+	}
+	
+	return result;
+}
+
 LLViewerMedia::impl_list &LLViewerMedia::getPriorityList()
 {
 	return sViewerMediaImplList;
@@ -626,7 +662,22 @@ bool LLViewerMedia::priorityComparitor(const LLViewerMediaImpl* i1, const LLView
 
 static bool proximity_comparitor(const LLViewerMediaImpl* i1, const LLViewerMediaImpl* i2)
 {
-	return (i1->getProximityDistance() < i2->getProximityDistance());
+	if(i1->getProximityDistance() < i2->getProximityDistance())
+	{
+		return true;
+	}
+	else if(i1->getProximityDistance() > i2->getProximityDistance())
+	{
+		return false;
+	}
+	else
+	{
+		// Both objects have the same distance.  This most likely means they're two faces of the same object.
+		// They may also be faces on different objects with exactly the same distance (like HUD objects).
+		// We don't actually care what the sort order is for this case, as long as it's stable and doesn't change when you enable/disable media.
+		// Comparing the impl pointers gives a completely arbitrary ordering, but it will be stable.
+		return (i1 < i2);
+	}
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -663,6 +714,8 @@ void LLViewerMedia::updateMedia(void *dummy_arg)
 	F32 max_cpu = gSavedSettings.getF32("PluginInstancesCPULimit");
 	// Setting max_cpu to 0.0 disables CPU usage checking.
 	bool check_cpu_usage = (max_cpu != 0.0f);
+	
+	LLViewerMediaImpl* lowest_interest_loadable = NULL;
 	
 	// Notes on tweakable params:
 	// max_instances must be set high enough to allow the various instances used in the UI (for the help browser, search, etc.) to be loaded.
@@ -750,6 +803,9 @@ void LLViewerMedia::updateMedia(void *dummy_arg)
 		
 		if(!pimpl->getUsedInUI() && (new_priority != LLPluginClassMedia::PRIORITY_UNLOADED))
 		{
+			// This is a loadable inworld impl -- the last one in the list in this class defines the lowest loadable interest.
+			lowest_interest_loadable = pimpl;
+			
 			impl_count_total++;
 		}
 		
@@ -779,6 +835,22 @@ void LLViewerMedia::updateMedia(void *dummy_arg)
 		}
 
 		total_cpu += pimpl->getCPUUsage();
+	}
+
+	// Re-calculate this every time.
+	sLowestLoadableImplInterest	= 0.0f;
+
+	// Only do this calculation if we've hit the impl count limit -- up until that point we always need to load media data.
+	if(lowest_interest_loadable && (impl_count_total >= (int)max_instances))
+	{
+		// Get the interest value of this impl's object for use by isInterestingEnough
+		LLVOVolume *object = lowest_interest_loadable->getSomeObject();
+		if(object)
+		{
+			// NOTE: Don't use getMediaInterest() here.  We want the pixel area, not the total media interest,
+			// 		so that we match up with the calculation done in LLMediaDataClient.
+			sLowestLoadableImplInterest = object->getPixelArea();
+		}
 	}
 	
 	if(gSavedSettings.getBOOL("MediaPerformanceManagerDebug"))
@@ -827,7 +899,6 @@ LLViewerMediaImpl::LLViewerMediaImpl(	  const LLUUID& texture_id,
 :	
 	mMediaSource( NULL ),
 	mMovieImageHasMips(false),
-	mTextureId(texture_id),
 	mMediaWidth(media_width),
 	mMediaHeight(media_height),
 	mMediaAutoScale(media_auto_scale),
@@ -857,6 +928,7 @@ LLViewerMediaImpl::LLViewerMediaImpl(	  const LLUUID& texture_id,
 	mProximityDistance(0.0f),
 	mMimeTypeProbe(NULL),
 	mMediaAutoPlay(false),
+	mInNearbyMediaList(false),
 	mIsUpdated(false)
 { 
 
@@ -868,6 +940,8 @@ LLViewerMediaImpl::LLViewerMediaImpl(	  const LLUUID& texture_id,
 	}
 	
 	add_media_impl(this);
+
+	setTextureID(texture_id);
 	
 	// connect this media_impl to the media texture, creating it if it doesn't exist.0
 	// This is necessary because we need to be able to use getMaxVirtualSize() even if the media plugin is not loaded.
@@ -891,6 +965,7 @@ LLViewerMediaImpl::~LLViewerMediaImpl()
 	
 	LLViewerMediaTexture::removeMediaImplFromTexture(mTextureId) ;
 
+	setTextureID();
 	remove_media_impl(this);
 }
 
@@ -2420,6 +2495,26 @@ LLVOVolume *LLViewerMediaImpl::getSomeObject()
 	
 	return result;
 }
+
+void LLViewerMediaImpl::setTextureID(LLUUID id)
+{
+	if(id != mTextureId)
+	{
+		if(mTextureId.notNull())
+		{
+			// Remove this item's entry from the map
+			sViewerMediaTextureIDMap.erase(mTextureId);
+		}
+		
+		if(id.notNull())
+		{
+			sViewerMediaTextureIDMap.insert(LLViewerMedia::impl_id_map::value_type(id, this));
+		}
+		
+		mTextureId = id;
+	}
+}
+
 
 //////////////////////////////////////////////////////////////////////////////////////////
 //static

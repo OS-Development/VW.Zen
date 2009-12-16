@@ -57,7 +57,6 @@ LLSidepanelInventorySubpanel::LLSidepanelInventorySubpanel()
   : LLPanel(),
 	mIsDirty(TRUE),
 	mIsEditing(FALSE),
-	mEditBtn(NULL),
 	mCancelBtn(NULL),
 	mSaveBtn(NULL)
 {
@@ -71,9 +70,6 @@ LLSidepanelInventorySubpanel::~LLSidepanelInventorySubpanel()
 // virtual
 BOOL LLSidepanelInventorySubpanel::postBuild()
 {
-	mEditBtn = getChild<LLButton>("edit_btn");
-	mEditBtn->setClickedCallback(boost::bind(&LLSidepanelInventorySubpanel::onEditButtonClicked, this));
-
 	mSaveBtn = getChild<LLButton>("save_btn");
 	mSaveBtn->setClickedCallback(boost::bind(&LLSidepanelInventorySubpanel::onSaveButtonClicked, this));
 
@@ -99,7 +95,9 @@ void LLSidepanelInventorySubpanel::setIsEditing(BOOL edit)
 
 BOOL LLSidepanelInventorySubpanel::getIsEditing() const
 {
-	return mIsEditing;
+
+	return TRUE; // Default everything to edit mode since we're not using an edit button anymore.
+	// return mIsEditing;
 }
 
 void LLSidepanelInventorySubpanel::reset()
@@ -111,9 +109,9 @@ void LLSidepanelInventorySubpanel::draw()
 {
 	if (mIsDirty)
 	{
-		mIsDirty = FALSE;
 		refresh();
 		updateVerbs();
+		mIsDirty = FALSE;
 	}
 
 	LLPanel::draw();
@@ -127,7 +125,6 @@ void LLSidepanelInventorySubpanel::dirty()
 
 void LLSidepanelInventorySubpanel::updateVerbs()
 {
-	mEditBtn->setVisible(!mIsEditing);
 	mSaveBtn->setVisible(mIsEditing);
 	mCancelBtn->setVisible(mIsEditing);
 }

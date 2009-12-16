@@ -39,7 +39,6 @@
 #include "llfeaturemanager.h"
 #include "lluictrlfactory.h"
 #include "lltexteditor.h"
-#include "llalertdialog.h"
 #include "llerrorcontrol.h"
 #include "llviewertexturelist.h"
 #include "llgroupmgr.h"
@@ -78,16 +77,21 @@
 #include "lllocationhistory.h"
 #include "llfasttimerview.h"
 #include "llvoicechannel.h"
+#include "llsidetray.h"
+
 
 #include "llweb.h"
 #include "llsecondlifeurls.h"
 
 // Linden library includes
+#include "llimagej2c.h"
 #include "llmemory.h"
 #include "llprimitive.h"
 #include "llurlaction.h"
+#include "llvfile.h"
 #include "llvfsthread.h"
 #include "llvolumemgr.h"
+#include "llxfermanager.h"
 
 #include "llnotificationmanager.h"
 #include "llnotifications.h"
@@ -107,7 +111,6 @@
 #include "apr_dso.h"
 #include <boost/lexical_cast.hpp>
 
-#include "llnotify.h"
 #include "llviewerkeyboard.h"
 #include "lllfsthread.h"
 #include "llworkerthread.h"
@@ -389,7 +392,6 @@ bool handleCrashSubmitBehaviorChanged(const LLSD& newvalue)
 static void settings_to_globals()
 {
 	LLBUTTON_H_PAD		= gSavedSettings.getS32("ButtonHPad");
-	LLBUTTON_V_PAD		= gSavedSettings.getS32("ButtonVPad");
 	BTN_HEIGHT_SMALL	= gSavedSettings.getS32("ButtonHeightSmall");
 	BTN_HEIGHT			= gSavedSettings.getS32("ButtonHeight");
 
@@ -744,7 +746,15 @@ bool LLAppViewer::init()
 	LLViewerJointMesh::updateVectorize();
 
 	// load MIME type -> media impl mappings
-	LLMIMETypes::parseMIMETypes( std::string("mime_types.xml") ); 
+	std::string mime_types_name;
+#if LL_DARWIN
+	mime_types_name = "mime_types_mac.xml";
+#elif LL_LINUX
+	mime_types_name = "mime_types_linux.xml";
+#else
+	mime_types_name = "mime_types.xml";
+#endif
+	LLMIMETypes::parseMIMETypes( mime_types_name ); 
 
 	// Copy settings to globals. *TODO: Remove or move to appropriage class initializers
 	settings_to_globals();
@@ -2854,6 +2864,8 @@ void LLAppViewer::requestQuit()
 		gFloaterView->closeAllChildren(true);
 	}
 
+	LLSideTray::getInstance()->notifyChildren(LLSD().with("request","quit"));
+
 	send_stats();
 
 	gLogoutTimer.reset();
@@ -3758,6 +3770,13 @@ void LLAppViewer::idleShutdown()
 	{
 		return;
 	}
+
+	if (LLSideTray::getInstance()->notifyChildren(LLSD().with("request","wait_quit")))
+	{
+		return;
+	}
+
+
 	
 	// ProductEngine: Try moving this code to where we shut down sTextureCache in cleanup()
 	// *TODO: ugly

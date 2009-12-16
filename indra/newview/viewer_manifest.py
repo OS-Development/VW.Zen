@@ -363,6 +363,7 @@ class WindowsManifest(ViewerManifest):
                 self.path("qtnetwork4.dll")
                 self.path("qtopengl4.dll")
                 self.path("qtwebkit4.dll")
+            self.path("qtxmlpatterns4.dll")
                 self.path("ssleay32.dll")
 
                 # For WebKit/Qt plugin runtimes (image format plugins)
@@ -846,7 +847,7 @@ class Linux_i686Manifest(LinuxManifest):
         # plugins
         if self.prefix(src="", dst="bin/llplugin"):
             self.path("../media_plugins/webkit/libmedia_plugin_webkit.so", "libmedia_plugin_webkit.so")
-            self.path("../media_plugins/gstreamer010/libmedia_plugin_gstreamer010.so", "libmedia_plugin_quicktime.so")
+            self.path("../media_plugins/gstreamer010/libmedia_plugin_gstreamer010.so", "libmedia_plugin_gstreamer.so")
             self.end_prefix("bin/llplugin")
 
         self.path("featuretable_linux.txt")

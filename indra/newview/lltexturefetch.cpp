@@ -43,8 +43,10 @@
 #include "llhttpclient.h"
 #include "llhttpstatuscodes.h"
 #include "llimage.h"
+#include "llimagej2c.h"
 #include "llimageworker.h"
 #include "llworkerthread.h"
+#include "message.h"
 
 #include "llagent.h"
 #include "lltexturecache.h"
@@ -311,10 +313,10 @@ public:
 		{
 			bool success = false;
 			bool partial = false;
-			if (200 <= status &&  status < 300)
+			if (HTTP_OK <= status &&  status < HTTP_MULTIPLE_CHOICES)
 			{
 				success = true;
-				if (203 == status) // partial information (i.e. last block)
+				if (HTTP_PARTIAL_CONTENT == status) // partial information (i.e. last block)
 				{
 					partial = true;
 				}
@@ -885,6 +887,8 @@ bool LLTextureFetchWorker::doWork(S32 param)
 				}
 				else
 				{
+					// mFormattedImage gauranteed to not be NULL since cur_size != 0
+					mLoadedDiscard = mFormattedImage->getDiscardLevel();
 					mState = DECODE_IMAGE;
 					return false; // use what we have
 				}

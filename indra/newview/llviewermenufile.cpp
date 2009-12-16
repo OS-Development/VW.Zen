@@ -40,6 +40,12 @@
 #include "llfloaterreg.h"
 #include "llfloaterbuycurrency.h"
 #include "llfloatersnapshot.h"
+#include "llimage.h"
+#include "llimagebmp.h"
+#include "llimagepng.h"
+#include "llimagej2c.h"
+#include "llimagejpeg.h"
+#include "llimagetga.h"
 #include "llinventorymodel.h"	// gInventory
 #include "llresourcedata.h"
 #include "llfloaterperms.h"
@@ -47,6 +53,8 @@
 #include "llviewercontrol.h"	// gSavedSettings
 #include "llviewertexturelist.h"
 #include "lluictrlfactory.h"
+#include "llvfile.h"
+#include "llvfs.h"
 #include "llviewerinventory.h"
 #include "llviewermenu.h"	// gMenuHolder
 #include "llviewerregion.h"
@@ -67,18 +75,10 @@
 #include "lltransactiontypes.h"
 #include "lluuid.h"
 #include "llvorbisencode.h"
+#include "message.h"
 
 // system libraries
 #include <boost/tokenizer.hpp>
-
-class LLFileEnableSaveAs : public view_listener_t
-{
-	bool handleEvent(const LLSD& userdata)
-	{
-		bool new_value = gFloaterView->getFrontmost() && gFloaterView->getFrontmost()->canSaveAs();
-		return new_value;
-	}
-};
 
 class LLFileEnableUpload : public view_listener_t
 {
@@ -382,19 +382,6 @@ class LLFileCloseAllWindows : public view_listener_t
 		bool app_quitting = false;
 		gFloaterView->closeAllChildren(app_quitting);
 
-		return true;
-	}
-};
-
-class LLFileSaveTexture : public view_listener_t
-{
-	bool handleEvent(const LLSD& userdata)
-	{
-		LLFloater* top = gFloaterView->getFrontmost();
-		if (top)
-		{
-			top->saveAs();
-		}
 		return true;
 	}
 };
@@ -1050,10 +1037,10 @@ void init_menu_file()
 	view_listener_t::addCommit(new LLFileCloseAllWindows(), "File.CloseAllWindows");
 	view_listener_t::addEnable(new LLFileEnableCloseWindow(), "File.EnableCloseWindow");
 	view_listener_t::addEnable(new LLFileEnableCloseAllWindows(), "File.EnableCloseAllWindows");
-	view_listener_t::addCommit(new LLFileSaveTexture(), "File.SaveTexture");
 	view_listener_t::addCommit(new LLFileTakeSnapshotToDisk(), "File.TakeSnapshotToDisk");
 	view_listener_t::addCommit(new LLFileQuit(), "File.Quit");
 
 	view_listener_t::addEnable(new LLFileEnableUpload(), "File.EnableUpload");
-	view_listener_t::addEnable(new LLFileEnableSaveAs(), "File.EnableSaveAs");
+	
+	// "File.SaveTexture" moved to llpanelmaininventory so that it can be properly handled.
 }

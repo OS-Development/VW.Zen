@@ -72,7 +72,6 @@
 #include "llviewerwindow.h"
 #include "llnotifications.h"
 #include "llnotificationsutil.h"
-#include "llnotify.h"
 #include "llnearbychat.h"
 #include "llviewerregion.h"
 #include "llvoicechannel.h"
@@ -87,6 +86,9 @@ const static std::string IM_TIME("time");
 const static std::string IM_TEXT("message");
 const static std::string IM_FROM("from");
 const static std::string IM_FROM_ID("from_id");
+
+const static std::string NO_SESSION("(IM Session Doesn't Exist)");
+const static std::string ADHOC_NAME_SUFFIX(" Conference");
 
 std::string LLCallDialogManager::sPreviousSessionlName = "";
 std::string LLCallDialogManager::sCurrentSessionlName = "";
@@ -112,6 +114,13 @@ void toast_callback(const LLSD& msg){
 
 	// Skip toasting for system messages
 	if (msg["from_id"].asUUID() == LLUUID::null)
+	{
+		return;
+	}
+
+	// Skip toasting if we have open window of IM with this session id
+	LLIMFloater* open_im_floater = LLIMFloater::findInstance(msg["session_id"]);
+	if (open_im_floater && open_im_floater->getVisible())
 	{
 		return;
 	}
@@ -154,29 +163,45 @@ LLIMModel::LLIMSession::LLIMSession(const LLUUID& session_id, const std::string&
 	mInitialTargetIDs(ids),
 	mVoiceChannel(NULL),
 	mSpeakers(NULL),
-	mCallDialogManager(NULL),
 	mSessionInitialized(false),
 	mCallBackEnabled(true),
 	mTextIMPossible(true),
 	mOtherParticipantIsAvatar(true),
 	mStartCallOnInitialize(false)
 {
+	// set P2P type by default
+	mSessionType = P2P_SESSION;
+
 	if (IM_NOTHING_SPECIAL == type || IM_SESSION_P2P_INVITE == type)
 	{
 		mVoiceChannel  = new LLVoiceChannelP2P(session_id, name, other_participant_id);
+
+		// check if it was AVALINE call
+		if (!mOtherParticipantIsAvatar)
+		{
+			mSessionType = AVALINE_SESSION;
+		} 
 	}
 	else
 	{
 		mVoiceChannel = new LLVoiceChannelGroup(session_id, name);
+
+		// determine whether it is group or conference session
+		if (gAgent.isInGroup(mSessionID))
+		{
+			mSessionType = GROUP_SESSION;
+		}
+		else
+		{
+			mSessionType = ADHOC_SESSION;
+		} 
 	}
 
 	if(mVoiceChannel)
 	{
-		mVoiceChannelStateChangeConnection = mVoiceChannel->setStateChangedCallback(boost::bind(&LLIMSession::onVoiceChannelStateChanged, this, _1, _2));
+		mVoiceChannelStateChangeConnection = mVoiceChannel->setStateChangedCallback(boost::bind(&LLIMSession::onVoiceChannelStateChanged, this, _1, _2, _3));
 	}
-	// define what type of session was opened
-	setSessionType();
-	
+		
 	mSpeakers = new LLIMSpeakerMgr(mVoiceChannel);
 
 	// All participants will be added to the list of people we've recently interacted with.
@@ -209,45 +234,18 @@ LLIMModel::LLIMSession::LLIMSession(const LLUUID& session_id, const std::string&
 	}
 }
 
-void LLIMModel::LLIMSession::setSessionType()
-{
-	// set P2P type by default
-	mSessionType = P2P_SESSION;
-
-	if (dynamic_cast<LLVoiceChannelP2P*>(mVoiceChannel) && !mOtherParticipantIsAvatar) // P2P AVALINE channel was opened
-	{
-		mSessionType = AVALINE_SESSION;
-		return;
-	} 
-	else if(dynamic_cast<LLVoiceChannelGroup*>(mVoiceChannel)) // GROUP channel was opened
-	{
-		if (mType == IM_SESSION_CONFERENCE_START)
-		{
-			mSessionType = ADHOC_SESSION;
-			return;
-		} 
-		else if(mType == IM_SESSION_GROUP_START)
-		{
-			mSessionType = GROUP_SESSION;
-			return;
-		}		
-	}
-}
-
-void LLIMModel::LLIMSession::onVoiceChannelStateChanged(const LLVoiceChannel::EState& old_state, const LLVoiceChannel::EState& new_state)
+void LLIMModel::LLIMSession::onVoiceChannelStateChanged(const LLVoiceChannel::EState& old_state, const LLVoiceChannel::EState& new_state, const LLVoiceChannel::EDirection& direction)
 {
 	// *TODO: remove hardcoded string!!!!!!!!!!!
 
 	bool is_p2p_session = dynamic_cast<LLVoiceChannelP2P*>(mVoiceChannel);
-	bool is_incoming_call = false;
 	std::string other_avatar_name;
 
 	if(is_p2p_session)
 	{
-		is_incoming_call = static_cast<LLVoiceChannelP2P*>(mVoiceChannel)->isIncomingCall();
 		gCacheName->getFullName(mOtherParticipantID, other_avatar_name);
 
-		if(is_incoming_call)
+		if(direction == LLVoiceChannel::INCOMING_CALL)
 		{
 			switch(new_state)
 			{
@@ -288,9 +286,6 @@ void LLIMModel::LLIMSession::onVoiceChannelStateChanged(const LLVoiceChannel::ES
 
 LLIMModel::LLIMSession::~LLIMSession()
 {
-	delete mCallDialogManager;
-	mCallDialogManager = NULL;
-
 	delete mSpeakers;
 	mSpeakers = NULL;
 
@@ -455,10 +450,16 @@ void LLIMModel::testMessages()
 	addMessage(bot2_session_id, from, bot2_id, "Test Message: OMGWTFBBQ.");
 }
 
-
+//session name should not be empty
 bool LLIMModel::newSession(const LLUUID& session_id, const std::string& name, const EInstantMessage& type, 
 						   const LLUUID& other_participant_id, const std::vector<LLUUID>& ids)
 {
+	if (name.empty())
+	{
+		llwarns << "Attempt to create a new session with empty name; id = " << session_id << llendl;
+		return false;
+	}
+
 	if (findIMSession(session_id))
 	{
 		llwarns << "IM Session " << session_id << " already exists" << llendl;
@@ -615,7 +616,7 @@ const std::string& LLIMModel::getName(const LLUUID& session_id) const
 	if (!session) 
 	{
 		llwarns << "session " << session_id << "does not exist " << llendl;
-		return LLStringUtil::null;
+		return NO_SESSION;
 	}
 
 	return session->mName;
@@ -1048,7 +1049,7 @@ public:
 
 			if (LLIMMgr::INVITATION_TYPE_VOICE == mInvitiationType)
 			{
-				gIMMgr->startCall(mSessionID);
+				gIMMgr->startCall(mSessionID, LLVoiceChannel::INCOMING_CALL);
 			}
 
 			if ((mInvitiationType == LLIMMgr::INVITATION_TYPE_VOICE 
@@ -1074,7 +1075,7 @@ public:
 			if ( 404 == statusNum )
 			{
 				std::string error_string;
-				error_string = "does not exist";
+				error_string = "session_does_not_exist_error";
 				gIMMgr->showSessionStartError(error_string, mSessionID);
 			}
 		}
@@ -1259,7 +1260,7 @@ void LLCallDialogManager::onVoiceChannelChanged(const LLUUID &session_id)
 	sCurrentSessionlName = session->mName;
 }
 
-void LLCallDialogManager::onVoiceChannelStateChanged(const LLVoiceChannel::EState& old_state, const LLVoiceChannel::EState& new_state)
+void LLCallDialogManager::onVoiceChannelStateChanged(const LLVoiceChannel::EState& old_state, const LLVoiceChannel::EState& new_state, const LLVoiceChannel::EDirection& direction)
 {
 	LLSD mCallDialogPayload;
 	LLOutgoingCallDialog* ocd;
@@ -1272,8 +1273,8 @@ void LLCallDialogManager::onVoiceChannelStateChanged(const LLVoiceChannel::EStat
 	switch(new_state)
 	{			
 	case LLVoiceChannel::STATE_CALL_STARTED :
-		// do not show "Calling to..." if it is incoming P2P call
-		if(sSession->mSessionType == LLIMModel::LLIMSession::P2P_SESSION && static_cast<LLVoiceChannelP2P*>(sSession->mVoiceChannel)->isIncomingCall())
+		// do not show "Calling to..." if it is incoming call
+		if(direction == LLVoiceChannel::INCOMING_CALL)
 		{
 			return;
 		}
@@ -1285,6 +1286,7 @@ void LLCallDialogManager::onVoiceChannelStateChanged(const LLVoiceChannel::EStat
 			ocd->getChild<LLTextBox>("leaving")->setVisible(true);
 			ocd->getChild<LLTextBox>("connecting")->setVisible(false);
 			ocd->getChild<LLTextBox>("noanswer")->setVisible(false);
+			ocd->getChild<LLButton>("Cancel")->setVisible(true);
 		}
 		return;
 
@@ -1296,10 +1298,12 @@ void LLCallDialogManager::onVoiceChannelStateChanged(const LLVoiceChannel::EStat
 			ocd->getChild<LLTextBox>("leaving")->setVisible(true);
 			ocd->getChild<LLTextBox>("connecting")->setVisible(true);
 			ocd->getChild<LLTextBox>("noanswer")->setVisible(false);
+			ocd->getChild<LLButton>("Cancel")->setVisible(true);
 		}
 		return;
 
 	case LLVoiceChannel::STATE_ERROR :
+		mCallDialogPayload["start_timer"] = true;
 		ocd = dynamic_cast<LLOutgoingCallDialog*>(LLFloaterReg::showInstance("outgoing_call", mCallDialogPayload, TRUE));
 		if (ocd)
 		{
@@ -1307,6 +1311,7 @@ void LLCallDialogManager::onVoiceChannelStateChanged(const LLVoiceChannel::EStat
 			ocd->getChild<LLTextBox>("leaving")->setVisible(false);
 			ocd->getChild<LLTextBox>("connecting")->setVisible(false);
 			ocd->getChild<LLTextBox>("noanswer")->setVisible(true);
+			ocd->getChild<LLButton>("Cancel")->setVisible(false);
 		}
 		return;
 
@@ -1358,6 +1363,33 @@ LLCallDialog(payload)
 		instance->onCancel(instance);
 	}	
 }
+void LLOutgoingCallDialog::draw()
+{
+	if (lifetimeHasExpired())
+	{
+		onLifetimeExpired();
+	}
+	LLDockableFloater::draw();
+}
+
+bool LLOutgoingCallDialog::lifetimeHasExpired()
+{
+	if (mLifetimeTimer.getStarted())
+	{
+		F32 elapsed_time = mLifetimeTimer.getElapsedTimeF32();
+		if (elapsed_time > LIFETIME) 
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+void LLOutgoingCallDialog::onLifetimeExpired()
+{
+	mLifetimeTimer.stop();
+	closeFloater();
+}
 
 void LLOutgoingCallDialog::onOpen(const LLSD& key)
 {
@@ -1386,6 +1418,13 @@ void LLOutgoingCallDialog::onOpen(const LLSD& key)
 	childSetTextArg("connecting", "[CALLEE_NAME]", callee_name);
 	LLAvatarIconCtrl* icon = getChild<LLAvatarIconCtrl>("avatar_icon");
 	icon->setValue(callee_id);
+
+	// stop timer by default
+	mLifetimeTimer.stop();
+	if(mPayload.has("start_timer"))
+	{
+		mLifetimeTimer.reset();
+	}
 }
 
 
@@ -1417,6 +1456,7 @@ BOOL LLOutgoingCallDialog::postBuild()
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Class LLIncomingCallDialog
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 LLIncomingCallDialog::LLIncomingCallDialog(const LLSD& payload) :
 LLCallDialog(payload)
 {
@@ -1426,26 +1466,34 @@ BOOL LLIncomingCallDialog::postBuild()
 {
 	LLDockableFloater::postBuild();
 
+	LLUUID session_id = mPayload["session_id"].asUUID();
 	LLSD caller_id = mPayload["caller_id"];
-	EInstantMessage type = (EInstantMessage)mPayload["type"].asInteger();
-
-	std::string call_type = getString("VoiceInviteP2P");
 	std::string caller_name = mPayload["caller_name"].asString();
+	
+	std::string call_type;
+	if (gAgent.isInGroup(session_id))
+	{
+		LLStringUtil::format_map_t args;
+		LLGroupData data;
+		if (gAgent.getGroupData(session_id, data))
+		{
+			args["[GROUP]"] = data.mName;
+			call_type = getString(mPayload["notify_box_type"], args);
+		}
+	}
+	else
+	{
+		call_type = getString(mPayload["notify_box_type"]);
+	}
+		
 	if (caller_name == "anonymous")
 	{
 		caller_name = getString("anonymous");
 	}
 	
 	setTitle(caller_name + " " + call_type);
-	
-	// If it is not a P2P invite, then it's an AdHoc invite
-	if ( type != IM_SESSION_P2P_INVITE )
-	{
-		call_type = getString("VoiceInviteAdHoc");
-	}
 
 	// check to see if this is an Avaline call
-	LLUUID session_id = mPayload["session_id"].asUUID();
 	bool is_avatar = LLVoiceClient::getInstance()->isParticipantAvatar(session_id);
 	childSetVisible("Start IM", is_avatar); // no IM for avaline
 
@@ -1509,6 +1557,8 @@ void LLIncomingCallDialog::processCallResponse(S32 response)
 		return;
 
 	LLUUID session_id = mPayload["session_id"].asUUID();
+	LLUUID caller_id = mPayload["caller_id"].asUUID();
+	std::string session_name = mPayload["session_name"].asString();
 	EInstantMessage type = (EInstantMessage)mPayload["type"].asInteger();
 	LLIMMgr::EInvitationType inv_type = (LLIMMgr::EInvitationType)mPayload["inv_type"].asInteger();
 	bool voice = true;
@@ -1525,14 +1575,14 @@ void LLIncomingCallDialog::processCallResponse(S32 response)
 		{
 			// create a normal IM session
 			session_id = gIMMgr->addP2PSession(
-				mPayload["session_name"].asString(),
-				mPayload["caller_id"].asUUID(),
+				session_name,
+				caller_id,
 				mPayload["session_handle"].asString(),
 				mPayload["session_uri"].asString());
 
 			if (voice)
 			{
-				if (gIMMgr->startCall(session_id))
+				if (gIMMgr->startCall(session_id, LLVoiceChannel::INCOMING_CALL))
 				{
 					// always open IM window when connecting to voice
 					LLIMFloater::show(session_id);
@@ -1544,10 +1594,38 @@ void LLIncomingCallDialog::processCallResponse(S32 response)
 		}
 		else
 		{
-			LLUUID new_session_id = gIMMgr->addSession(
-				mPayload["session_name"].asString(),
-				type,
-				session_id);
+			//session name should not be empty, but it can contain spaces so we don't trim
+			std::string correct_session_name = session_name;
+			if (session_name.empty())
+			{
+				llwarns << "Received an empty session name from a server" << llendl;
+				
+				switch(type){
+				case IM_SESSION_CONFERENCE_START:
+				case IM_SESSION_GROUP_START:
+				case IM_SESSION_INVITE:		
+					if (gAgent.isInGroup(session_id))
+					{
+						LLGroupData data;
+						if (!gAgent.getGroupData(session_id, data)) break;
+						correct_session_name = data.mName;
+					}
+					else
+					{
+						if (gCacheName->getFullName(caller_id, correct_session_name))
+						{
+							correct_session_name.append(ADHOC_NAME_SUFFIX); 
+						}
+					}
+					llinfos << "Corrected session name is " << correct_session_name << llendl; 
+					break;
+				default: 
+					llwarning("Received an empty session name from a server and failed to generate a new proper session name", 0);
+					break;
+				}
+			}
+			
+			LLUUID new_session_id = gIMMgr->addSession(correct_session_name, type, session_id);
 			if (new_session_id != LLUUID::null)
 			{
 				LLIMFloater::show(new_session_id);
@@ -1715,6 +1793,8 @@ LLIMMgr::LLIMMgr() :
 {
 	mPendingInvitations = LLSD::emptyMap();
 	mPendingAgentListUpdates = LLSD::emptyMap();
+
+	LLIMModel::getInstance()->addNewMsgCallback(boost::bind(&LLIMFloater::sRemoveTypingIndicator, _1));
 }
 
 // Add a message to a session. 
@@ -1980,6 +2060,12 @@ LLUUID LLIMMgr::addSession(
 {
 	if (0 == ids.getLength())
 	{
+		return LLUUID::null;
+	}
+
+	if (name.empty())
+	{
+		llwarning("Session name cannot be null!", 0);
 		return LLUUID::null;
 	}
 
@@ -2349,11 +2435,12 @@ void LLIMMgr::removeSessionObserver(LLIMSessionObserver *observer)
 	mSessionObservers.remove(observer);
 }
 
-bool LLIMMgr::startCall(const LLUUID& session_id)
+bool LLIMMgr::startCall(const LLUUID& session_id, LLVoiceChannel::EDirection direction)
 {
 	LLVoiceChannel* voice_channel = LLIMModel::getInstance()->getVoiceChannel(session_id);
 	if (!voice_channel) return false;
 	
+	voice_channel->setCallDirection(direction);
 	voice_channel->activate();
 	return true;
 }

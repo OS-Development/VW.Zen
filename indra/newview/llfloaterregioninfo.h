@@ -35,9 +35,12 @@
 #define LL_LLFLOATERREGIONINFO_H
 
 #include <vector>
+#include "llassettype.h"
 #include "llfloater.h"
+#include "llhost.h"
 #include "llpanel.h"
 
+class LLDispatcher;
 class LLLineEditor;
 class LLMessageSystem;
 class LLPanelRegionInfo;
@@ -51,6 +54,7 @@ class LLNameListCtrl;
 class LLSliderCtrl;
 class LLSpinCtrl;
 class LLTextBox;
+class LLVFS;
 
 class LLPanelRegionGeneralInfo;
 class LLPanelRegionDebugInfo;
@@ -329,9 +333,6 @@ public:
 	
 	const std::string getOwnerName() const;
 	void setOwnerName(const std::string& name);
-
-	const std::string getAbuseEmailAddress() const;
-	void setAbuseEmailAddress(const std::string& address);
 
 	// If visible from mainland, allowed agent and allowed groups
 	// are ignored, so must disable UI.

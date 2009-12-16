@@ -278,6 +278,7 @@ void LLInventoryPanel::modelChanged(U32 mask)
 		const LLUUID& item_id = (*items_iter);
 		const LLInventoryObject* model_item = model->getObject(item_id);
 		LLFolderViewItem* view_item = mFolders->getItemByID(item_id);
+		LLFolderViewFolder* view_folder = mFolders->getFolderByID(item_id);
 
 		//////////////////////////////
 		// LABEL Operation
@@ -320,7 +321,18 @@ void LLInventoryPanel::modelChanged(U32 mask)
 				view_item->refresh();
 			}
 		}
-	
+
+		//////////////////////////////
+		// SORT Operation
+		// Sort the folder.
+		if (mask & LLInventoryObserver::SORT)
+		{
+			if (view_folder)
+			{
+				view_folder->requestSort();
+			}
+		}	
+
 		// We don't typically care which of these masks the item is actually flagged with, since the masks
 		// may not be accurate (e.g. in the main inventory panel, I move an item from My Inventory into
 		// Landmarks; this is a STRUCTURE change for that panel but is an ADD change for the Landmarks
@@ -385,16 +397,6 @@ void LLInventoryPanel::modelChanged(U32 mask)
 			}
 		}
 	}
-
-	/* I don't think we need this code, but not positive -- Seraph
-	if (!handled)
-	{
-		// It's a small change that only requires a refresh.
-		// *TODO: figure out a more efficient way to do the refresh
-		// since it is expensive on large inventories
-		mFolders->refresh();
-	}
-	*/
 }
 
 // static
@@ -903,13 +905,10 @@ LLInventoryPanel* LLInventoryPanel::getActiveInventoryPanel(BOOL auto_open)
 	if (!auto_open) return NULL;
 	
 	// D. Open the inventory side panel and use that.
-	LLSideTray *side_tray = LLSideTray::getInstance();
+    LLSD key;
 	LLSidepanelInventory *sidepanel_inventory =
-		dynamic_cast<LLSidepanelInventory *>(side_tray->getPanel("sidepanel_inventory"));
-
-	// Use the inventory side panel only if it is already active.
-	// Activating it may unexpectedly switch off the currently active tab in some cases.
-	if (sidepanel_inventory && (LLPanel*)side_tray->getActiveTab() == (LLPanel*)sidepanel_inventory)
+		dynamic_cast<LLSidepanelInventory *>(LLSideTray::getInstance()->showPanel("sidepanel_inventory", key));
+	if (sidepanel_inventory)
 	{
 		return sidepanel_inventory->getActivePanel();
 	}

@@ -41,16 +41,20 @@
 #include "llfloaterurldisplay.h"
 #include "llfloaterworldmap.h"
 #include "llpanellogin.h"
+#include "llregionhandle.h"
 #include "llsidetray.h"
 #include "llslurl.h"
 #include "llstartup.h"			// gStartupState
 #include "llurlsimstring.h"
 #include "llweb.h"
 #include "llworldmapmessage.h"
+#include "llurldispatcherlistener.h"
 
 // library includes
 #include "llnotificationsutil.h"
 #include "llsd.h"
+
+static LLURLDispatcherListener sURLDispatcherListener;
 
 class LLURLDispatcherImpl
 {

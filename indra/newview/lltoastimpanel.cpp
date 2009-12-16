@@ -34,6 +34,7 @@
 #include "lltoastimpanel.h"
 
 #include "llnotifications.h"
+#include "llinstantmessage.h"
 
 const S32 LLToastIMPanel::DEFAULT_MESSAGE_MAX_LINE_COUNT	= 6;
 
@@ -85,7 +86,6 @@ LLToastIMPanel::LLToastIMPanel(LLToastIMPanel::Params &p) :	LLToastPanel(p.notif
 		sys_msg_icon->setVisible(FALSE);
 
 		mAvatar->setValue(p.avatar_id);
-		setMouseDownCallback(boost::bind(&LLToastIMPanel::onClickToastIM, this));
 	}
 
 	S32 maxLinesCount;
@@ -102,11 +102,13 @@ LLToastIMPanel::~LLToastIMPanel()
 {
 }
 
-//--------------------------------------------------------------------------
-void LLToastIMPanel::onClickToastIM()
+//virtual
+BOOL LLToastIMPanel::handleMouseDown(S32 x, S32 y, MASK mask)
 {
-	mNotification->respond(mNotification->getResponseTemplate());
+	if (LLPanel::handleMouseDown(x,y,mask) == FALSE)
+	{
+		mNotification->respond(mNotification->getResponseTemplate());
+	}
+
+	return TRUE;
 }
-
-//--------------------------------------------------------------------------
-

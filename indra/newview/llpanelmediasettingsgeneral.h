@@ -37,7 +37,6 @@
 
 class LLButton;
 class LLCheckBoxCtrl;
-class LLComboBox;
 class LLLineEditor;
 class LLSpinCtrl;
 class LLTextureCtrl;
@@ -90,7 +89,6 @@ private:
 
 	void checkHomeUrlPassesWhitelist();
 
-	LLComboBox* mControls;
 	LLCheckBoxCtrl* mAutoLoop;
 	LLCheckBoxCtrl* mFirstClick;
 	LLCheckBoxCtrl* mAutoZoom;
@@ -99,7 +97,7 @@ private:
 	LLSpinCtrl* mWidthPixels;
 	LLSpinCtrl* mHeightPixels;
 	LLLineEditor* mHomeURL;
-	LLLineEditor* mCurrentURL;
+	LLTextBox* mCurrentURL;
 	LLMediaCtrl* mPreviewMedia;
 	LLTextBox* mFailWhiteListText;
 };

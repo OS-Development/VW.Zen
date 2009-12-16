@@ -69,10 +69,9 @@ public:
 		virtual ~LLIMSession();
 
 		void sessionInitReplyReceived(const LLUUID& new_session_id);
-		void setSessionType(); //define what type of session was opened
 		void addMessagesFromHistory(const std::list<LLSD>& history);
 		void addMessage(const std::string& from, const LLUUID& from_id, const std::string& utf8_text, const std::string& time);
-		void onVoiceChannelStateChanged(const LLVoiceChannel::EState& old_state, const LLVoiceChannel::EState& new_state);
+		void onVoiceChannelStateChanged(const LLVoiceChannel::EState& old_state, const LLVoiceChannel::EState& new_state, const LLVoiceChannel::EDirection& direction);
 		static void chatFromLogFile(LLLogChat::ELogLineType type, const LLSD& msg, void* userdata);
 
 		LLUUID mSessionID;
@@ -81,7 +80,6 @@ public:
 		SType mSessionType;
 		LLUUID mOtherParticipantID;
 		std::vector<LLUUID> mInitialTargetIDs;
-		LLCallDialogManager* mCallDialogManager;
 
 		// connection to voice channel state change signal
 		boost::signals2::connection mVoiceChannelStateChangeConnection;
@@ -142,6 +140,7 @@ public:
 
 	/**
 	 * Create new session object in a model
+	 * @param name session name should not be empty, will return false if empty
 	 */
 	bool newSession(const LLUUID& session_id, const std::string& name, const EInstantMessage& type, const LLUUID& other_participant_id, 
 		const std::vector<LLUUID>& ids = std::vector<LLUUID>());
@@ -297,6 +296,7 @@ public:
 	/**
 	 * Creates a P2P session with the requisite handle for responding to voice calls.
 	 * 
+	 * @param name session name, cannot be null
 	 * @param caller_uri - sip URI of caller. It should be always be passed into the method to avoid
 	 * incorrect working of LLVoiceChannel instances. See EXT-2985.
 	 */	
@@ -383,7 +383,7 @@ public:
 	 * Start call in a session
 	 * @return false if voice channel doesn't exist
 	 **/
-	bool startCall(const LLUUID& session_id);
+	bool startCall(const LLUUID& session_id, LLVoiceChannel::EDirection direction = LLVoiceChannel::OUTGOING_CALL);
 
 	/**
 	 * End call in a session
@@ -447,7 +447,7 @@ public:
 
 	static void initClass();
 	static void onVoiceChannelChanged(const LLUUID &session_id);
-	static void onVoiceChannelStateChanged(const LLVoiceChannel::EState& old_state, const LLVoiceChannel::EState& new_state);
+	static void onVoiceChannelStateChanged(const LLVoiceChannel::EState& old_state, const LLVoiceChannel::EState& new_state, const LLVoiceChannel::EDirection& direction);
 
 protected:
 	static std::string sPreviousSessionlName;
@@ -494,7 +494,16 @@ public:
 
 	static void onCancel(void* user_data);
 
+	// check timer state
+	/*virtual*/ void draw();
+
 private:
+	// lifetime timer for NO_ANSWER notification
+	LLTimer	mLifetimeTimer;
+	// lifetime duration for NO_ANSWER notification
+	static const S32 LIFETIME = 5;
+	bool lifetimeHasExpired();
+	void onLifetimeExpired();
 };
 
 // Globals

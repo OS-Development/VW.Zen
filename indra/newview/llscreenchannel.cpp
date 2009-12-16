@@ -78,6 +78,22 @@ LLScreenChannelBase::~LLScreenChannelBase()
 {
 	mWorldViewRectConnection.disconnect();
 }
+
+bool  LLScreenChannelBase::isHovering()
+{
+	bool res = mHoveredToast != NULL;
+	if (!res)
+	{
+		return res;
+	}
+
+	S32 x, y;
+	mHoveredToast->screenPointToLocal(gViewerWindow->getCurrentMouseX(),
+			gViewerWindow->getCurrentMouseY(), &x, &y);
+	res = mHoveredToast->pointInView(x, y) == TRUE;
+	return res;
+}
+
 void LLScreenChannelBase::updatePositionAndSize(LLRect old_world_rect, LLRect new_world_rect)
 {
 	S32 top_delta = old_world_rect.mTop - new_world_rect.mTop;
@@ -125,6 +141,8 @@ LLScreenChannelBase(id)
 void LLScreenChannel::init(S32 channel_left, S32 channel_right)
 {
 	LLScreenChannelBase::init(channel_left, channel_right);
+	LLRect world_rect = gViewerWindow->getWorldViewRectScaled();
+	updatePositionAndSize(world_rect, world_rect);
 }
 
 //--------------------------------------------------------------------------
@@ -133,10 +151,54 @@ LLScreenChannel::~LLScreenChannel()
 	
 }
 
+std::list<LLToast*> LLScreenChannel::findToasts(const Matcher& matcher)
+{
+	std::list<LLToast*> res;
+
+	// collect stored toasts
+	for (std::vector<ToastElem>::iterator it = mStoredToastList.begin(); it
+			!= mStoredToastList.end(); it++)
+	{
+		if (matcher.matches(it->toast->getNotification()))
+		{
+			res.push_back(it->toast);
+		}
+	}
+
+	// collect displayed toasts
+	for (std::vector<ToastElem>::iterator it = mToastList.begin(); it
+			!= mToastList.end(); it++)
+	{
+		if (matcher.matches(it->toast->getNotification()))
+		{
+			res.push_back(it->toast);
+		}
+	}
+
+	return res;
+}
+
 //--------------------------------------------------------------------------
 void LLScreenChannel::updatePositionAndSize(LLRect old_world_rect, LLRect new_world_rect)
 {
-	LLScreenChannelBase::updatePositionAndSize(old_world_rect, new_world_rect);
+	S32 right_delta = old_world_rect.mRight - new_world_rect.mRight;
+	LLRect this_rect = getRect();
+
+	switch(mChannelAlignment)
+	{
+	case CA_LEFT :
+		this_rect.mTop = (S32) (new_world_rect.getHeight() * getHeightRatio());
+		break;
+	case CA_CENTRE :
+		LLScreenChannelBase::updatePositionAndSize(old_world_rect, new_world_rect);
+		return;
+	case CA_RIGHT :
+		this_rect.mTop = (S32) (new_world_rect.getHeight() * getHeightRatio());
+		this_rect.mLeft -= right_delta;
+		this_rect.mRight -= right_delta;
+	}
+	setRect(this_rect);
+	redrawToasts();
 }
 
 //--------------------------------------------------------------------------
@@ -169,6 +231,7 @@ void LLScreenChannel::addToast(const LLToast::Params& p)
 	if(show_toast)
 	{
 		mToastList.push_back(new_toast_elem);
+		updateShowToastsState();
 		redrawToasts();
 	}	
 	else // store_toast
@@ -224,6 +287,7 @@ void LLScreenChannel::deleteToast(LLToast* toast)
 	if(mHoveredToast == toast)
 	{
 		mHoveredToast  = NULL;
+		startFadingToasts();
 	}
 
 	// close the toast
@@ -339,6 +403,16 @@ void LLScreenChannel::killToastByNotificationID(LLUUID id)
 	}
 }
 
+void LLScreenChannel::killMatchedToasts(const Matcher& matcher)
+{
+	std::list<LLToast*> to_delete = findToasts(matcher);
+	for (std::list<LLToast*>::iterator it = to_delete.begin(); it
+			!= to_delete.end(); it++)
+	{
+		killToastByNotificationID((*it)-> getNotificationID());
+	}
+}
+
 //--------------------------------------------------------------------------
 void LLScreenChannel::modifyToastByNotificationID(LLUUID id, LLPanel* panel)
 {
@@ -405,26 +479,27 @@ void LLScreenChannel::showToastsBottom()
 		{
 			if( it != mToastList.rend()-1)
 			{
-				stop_showing_toasts = ((*it).toast->getRect().mTop + gSavedSettings.getS32("OverflowToastHeight") + gSavedSettings.getS32("ToastGap")) > getRect().mTop;
+				S32 toast_top = (*it).toast->getRect().mTop + gSavedSettings.getS32("ToastGap");
+				stop_showing_toasts = toast_top > getRect().mTop;
 			}
 		} 
+
+		// at least one toast should be visible
+		if(it == mToastList.rbegin())
+		{
+			stop_showing_toasts = false;
+		}
 
 		if(stop_showing_toasts)
 			break;
 
 		if( !(*it).toast->getVisible() )
 		{
-			if((*it).toast->isFirstLook())
-			{
-				(*it).toast->setVisible(TRUE);
-			}
-			else
-			{
-				// HACK
-				// EXT-2653: it is necessary to prevent overlapping for secondary showed toasts
-				(*it).toast->setVisible(TRUE);
-				gFloaterView->sendChildToBack((*it).toast);
-			}
+			// HACK
+			// EXT-2653: it is necessary to prevent overlapping for secondary showed toasts
+			(*it).toast->setVisible(TRUE);
+			// Show toast behind floaters. (EXT-3089)
+			gFloaterView->sendChildToBack((*it).toast);
 		}		
 	}
 
@@ -566,6 +641,21 @@ void LLScreenChannel::createStartUpToast(S32 notif_num, F32 timer)
 	mStartUpToastPanel->setVisible(TRUE);
 }
 
+// static --------------------------------------------------------------------------
+F32 LLScreenChannel::getHeightRatio()
+{
+	F32 ratio = gSavedSettings.getF32("NotificationChannelHeightRatio");
+	if(0.0f > ratio)
+	{
+		ratio = 0.0f;
+	}
+	else if(1.0f < ratio)
+	{
+		ratio = 1.0f;
+	}
+	return ratio;
+}
+
 //--------------------------------------------------------------------------
 void LLScreenChannel::updateStartUpString(S32 num)
 {
@@ -608,7 +698,7 @@ void LLNotificationsUI::LLScreenChannel::startFadingToasts()
 	if (!mToastList.size()) return;
 
 	//because onMouseLeave is processed after onMouseEnter
-	if (mHoveredToast) return;
+	if (isHovering()) return;
 
 	std::vector<ToastElem>::iterator it = mToastList.begin();
 	while (it != mToastList.end())
@@ -685,39 +775,28 @@ void LLScreenChannel::removeToastsBySessionID(LLUUID id)
 //--------------------------------------------------------------------------
 void LLScreenChannel::onToastHover(LLToast* toast, bool mouse_enter)
 {
-	// because of LLViewerWindow::updateUI() that ALWAYS calls onMouseEnter BEFORE onMouseLeave
-	// we must check this to prevent incorrect setting for hovering in a channel
-	std::map<LLToast*, bool>::iterator it_first, it_second;
-	S32 stack_size = mToastEventStack.size();
-	if(mouse_enter)
+	// because of LLViewerWindow::updateUI() that NOT ALWAYS calls onMouseEnter BEFORE onMouseLeave
+	// we must check hovering directly to prevent incorrect setting for hovering in a channel
+	S32 x,y;
+	if (mouse_enter)
 	{
-		mHoveredToast = toast;
-	}
-	else
-	{
-		mHoveredToast = NULL;
-	}
-
-	switch(stack_size)
-	{
-	case 0:
-		mToastEventStack.insert(std::pair<LLToast*, bool>(toast, mouse_enter));
-		break;
-	case 1:
-		it_first = mToastEventStack.begin();
-		if((*it_first).second && !mouse_enter && ((*it_first).first != toast) )
+		toast->screenPointToLocal(gViewerWindow->getCurrentMouseX(),
+				gViewerWindow->getCurrentMouseY(), &x, &y);
+		bool hover = toast->pointInView(x, y) == TRUE;
+		if (hover)
 		{
-			mToastEventStack.clear();
 			mHoveredToast = toast;
 		}
-		else
+	}
+	else if (mHoveredToast != NULL)
+	{
+		mHoveredToast->screenPointToLocal(gViewerWindow->getCurrentMouseX(),
+				gViewerWindow->getCurrentMouseY(), &x, &y);
+		bool hover = mHoveredToast->pointInView(x, y) == TRUE;
+		if (!hover)
 		{
-			mToastEventStack.clear();
-			mToastEventStack.insert(std::pair<LLToast*, bool>(toast, mouse_enter));
+			mHoveredToast = NULL;
 		}
-		break;
-	default:
-		LL_ERRS ("LLScreenChannel::onToastHover: stack size error " ) << stack_size << llendl;
 	}
 
 	if(!isHovering())
@@ -727,7 +806,7 @@ void LLScreenChannel::onToastHover(LLToast* toast, bool mouse_enter)
 //--------------------------------------------------------------------------
 void LLScreenChannel::updateShowToastsState()
 {
-	LLFloater* floater = LLDockableFloater::getInstanceHandle().get();
+	LLDockableFloater* floater = dynamic_cast<LLDockableFloater*>(LLDockableFloater::getInstanceHandle().get());
 
 	if(!floater)
 	{
@@ -735,27 +814,19 @@ void LLScreenChannel::updateShowToastsState()
 		return;
 	}
 
-	// for IM floaters showed in a docked state - prohibit showing of ani toast
-	if(dynamic_cast<LLIMFloater*>(floater)
-		|| dynamic_cast<LLScriptFloater*>(floater) )
-	{
-		setShowToasts(!(floater->getVisible() && floater->isDocked()));
-		if (!getShowToasts())
-		{
-			removeAndStoreAllStorableToasts();
-		}
-	}
-
-	// *TODO: mantipov: what we have to do with derived classes: LLNotificationWellWindow & LLIMWelWindow?
-	// See EXT-3081 for details
 	// for Message Well floater showed in a docked state - adjust channel's height
-	if(dynamic_cast<LLSysWellWindow*>(floater))
+	if(dynamic_cast<LLSysWellWindow*>(floater) || dynamic_cast<LLIMFloater*>(floater)
+		|| dynamic_cast<LLScriptFloater*>(floater))
 	{
 		S32 channel_bottom = gViewerWindow->getWorldViewRectScaled().mBottom + gSavedSettings.getS32("ChannelBottomPanelMargin");;
 		LLRect this_rect = getRect();
 		if(floater->getVisible() && floater->isDocked())
 		{
-			channel_bottom += (floater->getRect().getHeight() + gSavedSettings.getS32("ToastGap"));
+			channel_bottom += floater->getRect().getHeight();
+			if(floater->getDockControl())
+			{
+				channel_bottom += floater->getDockControl()->getTongueHeight();
+			}
 		}
 
 		if(channel_bottom != this_rect.mBottom)

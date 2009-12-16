@@ -95,7 +95,7 @@ public:
 	virtual void setControlHovering(bool control) { mControlHovering = control; }
 	
 
-	bool isHovering() { return mHoveredToast != NULL; }
+	bool isHovering();
 
 	void setCanStoreToasts(bool store) { mCanStoreToasts = store; }
 
@@ -151,6 +151,16 @@ public:
 	LLScreenChannel(LLUUID& id);
 	virtual ~LLScreenChannel();
 
+	class Matcher
+	{
+	public:
+		Matcher(){}
+		virtual ~Matcher() {}
+		virtual bool matches(const LLNotificationPtr) const = 0;
+	};
+
+	std::list<LLToast*> findToasts(const Matcher& matcher);
+
 	// Channel's outfit-functions
 	// update channel's size and position in the World View
 	void		updatePositionAndSize(LLRect old_world_rect, LLRect new_world_rect);
@@ -162,6 +172,7 @@ public:
 	void		addToast(const LLToast::Params& p);
 	// kill or modify a toast by its ID
 	void		killToastByNotificationID(LLUUID id);
+	void		killMatchedToasts(const Matcher& matcher);
 	void		modifyToastByNotificationID(LLUUID id, LLPanel* panel);
 	// hide all toasts from screen, but not remove them from a channel
 	void		hideToastsFromScreen();
@@ -265,6 +276,11 @@ private:
 	// create the StartUp Toast
 	void	createStartUpToast(S32 notif_num, F32 timer);
 
+	/**
+	 * Notification channel and World View ratio(0.0 - always show 1 notification, 1.0 - max ratio).
+	 */
+	static F32 getHeightRatio();
+
 	// Channel's flags
 	static bool	mWasStartUpToastShown;
 
@@ -274,7 +290,6 @@ private:
 
 	std::vector<ToastElem>		mToastList;
 	std::vector<ToastElem>		mStoredToastList;
-	std::map<LLToast*, bool>	mToastEventStack;
 };
 
 }

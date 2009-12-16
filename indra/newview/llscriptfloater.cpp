@@ -39,6 +39,7 @@
 #include "llfloaterreg.h"
 #include "llnotifications.h"
 #include "llscreenchannel.h"
+#include "llsyswellwindow.h"
 #include "lltoastnotifypanel.h"
 #include "llviewerwindow.h"
 #include "llimfloater.h"
@@ -65,6 +66,7 @@ LLScriptFloater::LLScriptFloater(const LLSD& key)
 : LLDockableFloater(NULL, true, key)
 , mScriptForm(NULL)
 {
+	setMouseDownCallback(boost::bind(&LLScriptFloater::onMouseDown, this));
 }
 
 bool LLScriptFloater::toggle(const LLUUID& object_id)
@@ -179,6 +181,23 @@ void LLScriptFloater::setVisible(BOOL visible)
 	hideToastsIfNeeded();
 }
 
+void LLScriptFloater::onMouseDown()
+{
+	if(getObjectId().notNull())
+	{
+		// Remove new message icon
+		LLIMChiclet* chiclet = LLBottomTray::getInstance()->getChicletPanel()->findChiclet<LLIMChiclet>(getObjectId());
+		if (chiclet == NULL)
+		{
+			llerror("Dock chiclet for LLScriptFloater doesn't exist", 0);
+		}
+		else
+		{
+			chiclet->setShowNewMessagesIcon(false);
+		}
+	}
+}
+
 void LLScriptFloater::hideToastsIfNeeded()
 {
 	using namespace LLNotificationsUI;
@@ -190,6 +209,7 @@ void LLScriptFloater::hideToastsIfNeeded()
 	if(channel)
 	{
 		channel->updateShowToastsState();
+		channel->redrawToasts();
 	}
 }
 
@@ -216,11 +236,18 @@ void LLScriptFloaterManager::onAddNotification(const LLUUID& notification_id)
 	script_notification_map_t::iterator it = mNotifications.find(object_id);
 	if(it != mNotifications.end())
 	{
+		LLIMChiclet* chiclet = LLBottomTray::getInstance()->getChicletPanel()->findChiclet<LLIMChiclet>(object_id);
+		if(chiclet)
+		{
+			// Pass the new_message icon state further.
+			set_new_message = chiclet->getShowNewMessagesIcon();
+		}
+
 		LLScriptFloater* floater = LLFloaterReg::findTypedInstance<LLScriptFloater>("script_floater", it->second.notification_id);
 		if(floater)
 		{
-			// Generate chiclet with a "new message" indicator if a docked window was opened. See EXT-3142.
-			set_new_message = floater->isShown();
+			// Generate chiclet with a "new message" indicator if a docked window was opened but not in focus. See EXT-3142.
+			set_new_message |= !floater->hasFocus();
 		}
 
 		onRemoveNotification(it->second.notification_id);
@@ -239,6 +266,14 @@ void LLScriptFloaterManager::onAddNotification(const LLUUID& notification_id)
 	{
 		LLBottomTray::getInstance()->getChicletPanel()->createChiclet<LLScriptChiclet>(object_id);
 	}
+
+	LLIMWellWindow::getInstance()->addObjectRow(object_id, set_new_message);
+
+	LLSD data;
+	data["object_id"] = object_id;
+	data["new_message"] = set_new_message;
+	data["unread"] = 1; // each object has got only one floater
+	mNewObjectSignal(data);
 
 	toggleScriptFloater(object_id, set_new_message);
 }
@@ -267,6 +302,8 @@ void LLScriptFloaterManager::onRemoveNotification(const LLUUID& notification_id)
 	// remove related chiclet
 	LLBottomTray::getInstance()->getChicletPanel()->removeChiclet(object_id);
 
+	LLIMWellWindow::getInstance()->removeObjectRow(object_id);
+
 	// close floater
 	LLScriptFloater* floater = LLFloaterReg::findTypedInstance<LLScriptFloater>("script_floater", notification_id);
 	if(floater)
@@ -291,13 +328,6 @@ void LLScriptFloaterManager::removeNotificationByObjectId(const LLUUID& object_i
 
 void LLScriptFloaterManager::toggleScriptFloater(const LLUUID& object_id, bool set_new_message)
 {
-	// hide "new message" icon from chiclet
-	LLIMChiclet* chiclet = LLBottomTray::getInstance()->getChicletPanel()->findChiclet<LLIMChiclet>(object_id);
-	if(chiclet)
-	{
-		chiclet->setShowNewMessagesIcon(set_new_message);
-	}
-
 	// kill toast
 	using namespace LLNotificationsUI;
 	LLScreenChannel* channel = dynamic_cast<LLScreenChannel*>(LLChannelManager::getInstance()->findChannelByID(
@@ -306,6 +336,11 @@ void LLScriptFloaterManager::toggleScriptFloater(const LLUUID& object_id, bool s
 	{
 		channel->killToastByNotificationID(findNotificationToastId(object_id));
 	}
+
+	LLSD data;
+	data["object_id"] = object_id;
+	data["new_message"] = set_new_message;
+	mToggleFloaterSignal(data);
 
 	// toggle floater
 	LLScriptFloater::toggle(object_id);

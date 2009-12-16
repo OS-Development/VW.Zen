@@ -411,7 +411,12 @@ S32 LLFolderView::arrange( S32* unused_width, S32* unused_height, S32 filter_gen
 			folderp->setVisible(show_folder_state == LLInventoryFilter::SHOW_ALL_FOLDERS || // always show folders?
 									(folderp->getFiltered(filter_generation) || folderp->hasFilteredDescendants(filter_generation))); // passed filter or has descendants that passed filter
 		}
-		if (folderp->getVisible())
+
+		// Need to call arrange regardless of visibility, since children's visibility
+		// might need to be changed too (e.g. even though a folder is invisible, its
+		// children also need to be set invisible for state-tracking purposes, e.g.
+		// llfolderviewitem::filter).
+		// if (folderp->getVisible())
 		{
 			S32 child_height = 0;
 			S32 child_width = 0;
@@ -479,13 +484,13 @@ void LLFolderView::filter( LLInventoryFilter& filter )
 
 	if (getCompletedFilterGeneration() < filter.getCurrentGeneration())
 	{
-		mFiltered = FALSE;
+		mPassedFilter = FALSE;
 		mMinWidth = 0;
 		LLFolderViewFolder::filter(filter);
 	}
 	else
 	{
-		mFiltered = TRUE;
+		mPassedFilter = TRUE;
 	}
 }
 
@@ -1931,6 +1936,26 @@ LLFolderViewItem* LLFolderView::getItemByID(const LLUUID& id)
 		return map_it->second;
 	}
 
+	return NULL;
+}
+
+LLFolderViewFolder* LLFolderView::getFolderByID(const LLUUID& id)
+{
+	if (id.isNull())
+	{
+		return this;
+	}
+
+	for (folders_t::iterator iter = mFolders.begin();
+		 iter != mFolders.end();
+		 ++iter)
+	{
+		LLFolderViewFolder *folder = (*iter);
+		if (folder->getListener()->getUUID() == id)
+		{
+			return folder;
+		}
+	}
 	return NULL;
 }
 

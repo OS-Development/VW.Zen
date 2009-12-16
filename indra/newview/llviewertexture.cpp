@@ -108,6 +108,19 @@ const F64 log_2 = log(2.0);
 //----------------------------------------------------------------------------------------------
 //namespace: LLViewerTextureAccess
 //----------------------------------------------------------------------------------------------
+
+LLLoadedCallbackEntry::LLLoadedCallbackEntry(loaded_callback_func cb,
+					  S32 discard_level,
+					  BOOL need_imageraw, // Needs image raw for the callback
+					  void* userdata ) 
+	: mCallback(cb),
+	  mLastUsedDiscard(MAX_DISCARD_LEVEL+1),
+	  mDesiredDiscard(discard_level),
+	  mNeedsImageRaw(need_imageraw),
+	  mUserData(userdata)
+{
+}
+
 LLViewerMediaTexture* LLViewerTextureManager::createMediaTexture(const LLUUID &media_id, BOOL usemipmaps, LLImageGL* gl_image)
 {
 	return new LLViewerMediaTexture(media_id, usemipmaps, gl_image) ;		
@@ -2879,7 +2892,8 @@ BOOL LLViewerMediaTexture::findFaces()
 		}
 
 		S32 face_id = -1 ;
-		while((face_id = obj->getFaceIndexWithMediaImpl(mMediaImplp, face_id)) > -1)
+		S32 num_faces = obj->mDrawable->getNumFaces() ;
+		while((face_id = obj->getFaceIndexWithMediaImpl(mMediaImplp, face_id)) > -1 && face_id < num_faces)
 		{
 			LLFace* facep = obj->mDrawable->getFace(face_id) ;
 			if(facep)
