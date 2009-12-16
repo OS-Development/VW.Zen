@@ -293,24 +293,24 @@
      tool_tip="Click to open Color Picker"
      top_pad="5"
      width="32" />
-    <text
-     type="string"
-     length="1"
-     follows="left|top"
-     height="15"
-     layout="topleft"
-     left="30"
-     name="title_afk_text"
-     text_color="white"
-     top_pad="-5"
-     width="190">
-        Away timeout:
-    </text>
+  <text
+      type="string"
+      length="1"
+      follows="left|top"
+      height="15"
+      layout="topleft"
+      left="30"
+      name="title_afk_text"
+      text_color="white"
+      top_pad="-5"
+      width="190">
+    Away timeout:
+  </text>
   <combo_box
             top_pad="-20" 
             height="20"
             layout="topleft"
-     control_name="AFKTimeout"
+            control_name="AFKTimeout"
             left="140"
             label="Away Timeout:" 
             name="afk"
