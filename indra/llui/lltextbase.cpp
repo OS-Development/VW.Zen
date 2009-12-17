@@ -1137,9 +1137,12 @@ void LLTextBase::reflow(S32 start_index)
 			// grow line height as necessary based on reported height of this segment
 			line_height = llmax(line_height, segment_height);
 			remaining_pixels -= segment_width;
+			if (remaining_pixels < 0)
+			{
+				// getNumChars() and getDimensions() should return consistent results
+				remaining_pixels = 0;
+			}
 
-			// getNumChars() and getDimensions() should return consistent results
-			llassert_always(remaining_pixels >= 0);
 			seg_offset += character_count;
 
 			S32 last_segment_char_on_line = segment->getStart() + seg_offset;

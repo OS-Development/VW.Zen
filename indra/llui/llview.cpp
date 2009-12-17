@@ -2501,6 +2501,7 @@ void LLView::setupParams(LLView::Params& p, LLView* parent)
 		p.layout = parent->getLayout();
 	}
 
+
 	if (parent)
 	{
 		LLRect parent_rect = parent->getLocalRect();
@@ -2508,7 +2509,7 @@ void LLView::setupParams(LLView::Params& p, LLView* parent)
 		LLRect last_rect = parent->getLocalRect();
 
 		bool layout_topleft = (p.layout() == "topleft");
-		if (layout_topleft)
+		if (layout_topleft && p.from_xui)
 		{
 			//invert top to bottom
 			if (p.rect.top.isProvided()) p.rect.top = parent_rect.getHeight() - p.rect.top;
@@ -2516,7 +2517,7 @@ void LLView::setupParams(LLView::Params& p, LLView* parent)
 		}
 
 		// convert negative or centered coordinates to parent relative values
-		// Note: some of this logic matches the logic in TypedParam<LLRect>::getValueFromBlock()
+		// Note: some of this logic matches the logic in TypedParam<LLRect>::setValueFromBlock()
 
 		if (p.center_horiz)
 		{
@@ -2534,7 +2535,7 @@ void LLView::setupParams(LLView::Params& p, LLView* parent)
 				p.rect.right.setProvided(false); // recalculate the right
 			}
 		}
-		else
+		else if (p.from_xui) // only do negative coordinate magic for XUI
 		{
 			if (p.rect.left < 0) p.rect.left = p.rect.left + parent_rect.getWidth();
 			if (p.rect.right < 0) p.rect.right = p.rect.right + parent_rect.getWidth();
@@ -2555,7 +2556,7 @@ void LLView::setupParams(LLView::Params& p, LLView* parent)
 				p.rect.top.setProvided(false); // recalculate the top
 			}
 		}
-		else
+		else if (p.from_xui)
 		{
 			if (p.rect.bottom < 0) p.rect.bottom = p.rect.bottom + parent_rect.getHeight();
 			if (p.rect.top < 0) p.rect.top = p.rect.top + parent_rect.getHeight();
