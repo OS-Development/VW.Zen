@@ -311,9 +311,28 @@ fail:
 
 		params.from_xui = true;
 
-		T* widget = createWidget<T>(params, parent);
+		if (!params.validateBlock())
+		{
+			llwarns << getInstance()->getCurFileName() << ": Invalid parameter block for " << typeid(T).name() << llendl;
+		}
+		T* widget;
+		{
+			LLFastTimer timer(FTM_WIDGET_CONSTRUCTION);
+			widget = new T(params);	
+		}
+		{
+			LLFastTimer timer(FTM_INIT_FROM_PARAMS);
+			widget->initFromParams(params);
+		}
+
+		if (parent)
+		{
+			S32 tab_group = params.tab_group.isProvided() ? params.tab_group() : -1;
+			setCtrlParent(widget, parent, tab_group);
+		}
 
 		typedef typename T::child_registry_t registry_t;
+
 		createChildren(widget, node, registry_t::instance(), output_node);
 
 		if (widget && !widget->postBuild())

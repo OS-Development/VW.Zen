@@ -110,7 +110,7 @@
      width="200">
         I want to access content rated:
     </text>
-    <text
+	<text
      type="string"
      length="1"
      follows="left|top"
@@ -179,7 +179,7 @@
      left_pad="5"
      name="show_location_checkbox"
      top_delta="5"
-     width="256" />
+     width="256" />        
    <text
     type="string"
     length="1"
@@ -216,7 +216,7 @@
          layout="topleft"
          left_pad="12"
          name="radio3"
-         value="2"
+         value="2" 
          width="100" />
     </radio_group>
     <check_box
@@ -260,7 +260,7 @@
      width="200">
         My effects:
     </text>
-      <text
+  <text
       type="string"
       length="1"
       follows="left|top"
@@ -344,5 +344,5 @@
      word_wrap="true">
        log_in_to_change
     </text_editor>
-
+    
 </panel>
