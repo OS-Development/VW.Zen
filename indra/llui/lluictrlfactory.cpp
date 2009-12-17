@@ -393,7 +393,7 @@ BOOL LLUICtrlFactory::getAttributeColor(LLXMLNodePtr node, const std::string& na
 //static
 void LLUICtrlFactory::setCtrlParent(LLView* view, LLView* parent, S32 tab_group)
 {
-	if (tab_group < 0) tab_group = parent->getLastTabGroup();
+	if (tab_group == S32_MAX) tab_group = parent->getLastTabGroup();
 	parent->addChild(view, tab_group);
 }
 
@@ -452,10 +452,4 @@ dummy_widget_creator_func_t* LLUICtrlFactory::getDefaultWidgetFunc(const std::ty
 const std::string* LLUICtrlFactory::getWidgetTag(const std::type_info* widget_type)
 {
 	return LLWidgetNameRegistry::instance().getValue(widget_type);
-}
-
-// static
-void LLUICtrlFactory::connect(LLView* parent, LLView* child)
-{
-	parent->addChild(child);
 }
