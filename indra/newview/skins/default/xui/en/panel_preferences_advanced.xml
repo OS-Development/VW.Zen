@@ -29,7 +29,6 @@
      name="bubble_text_chat"
      width="150" />
     <color_swatch
-     border_color="0.45098 0.517647 0.607843 1"
      can_apply_immediately="true"
      color="0 0 0 1"
      control_name="BackgroundChatColor"
@@ -284,7 +283,7 @@ Avatars:
      enabled_control="EnableVoiceChat"
      control_name="PushToTalkToggle"
      height="20"
-     label="Toggle mode for microphone when I press the speak trigger key:"
+     label="Toggle mode for microphone when I press the Speak trigger key:"
      layout="topleft"
      left="30"
      name="push_to_talk_toggle_check"

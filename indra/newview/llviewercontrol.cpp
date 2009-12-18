@@ -63,7 +63,6 @@
 #include "llviewerjoystick.h"
 #include "llviewerparcelmgr.h"
 #include "llparcel.h"
-#include "llnotify.h"
 #include "lloverlaybar.h"
 #include "llkeyboard.h"
 #include "llerrorcontrol.h"
@@ -516,15 +515,13 @@ bool toggle_show_snapshot_button(const LLSD& newvalue)
 
 bool toggle_show_navigation_panel(const LLSD& newvalue)
 {
-	LLNavigationBar* navbar = LLNavigationBar::getInstance();
-	navbar->showNavigationPanel(newvalue.asBoolean());
+	LLNavigationBar::getInstance()->showNavigationPanel(newvalue.asBoolean());
 	return true;
 }
 
 bool toggle_show_favorites_panel(const LLSD& newvalue)
 {
-	LLNavigationBar* navbar = LLNavigationBar::getInstance();
-	navbar->showFavoritesPanel(newvalue.asBoolean());
+	LLNavigationBar::getInstance()->showFavoritesPanel(newvalue.asBoolean());
 	return true;
 }
 
