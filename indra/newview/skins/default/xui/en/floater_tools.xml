@@ -2264,7 +2264,6 @@ even though the user gets a free copy.
              top="8"
              width="64" />
             <color_swatch
-             border_color="0.45098 0.517647 0.607843 1"
              can_apply_immediately="true"
              follows="left|top"
              height="80"
@@ -2676,6 +2675,7 @@ even though the user gets a free copy.
 			 height="18"
 			 layout="topleft"
 			 left="10"
+       use_ellipsis="true" 
 			 read_only="true"
 			 name="media_info"
 			 width="180" />

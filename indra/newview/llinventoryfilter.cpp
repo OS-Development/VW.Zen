@@ -40,6 +40,7 @@
 #include "llinventorymodel.h"	// gInventory.backgroundFetchActive()
 #include "llviewercontrol.h"
 #include "llviewerinventory.h"
+#include "llfolderview.h"
 
 // linden library includes
 #include "lltrans.h"
@@ -217,6 +218,7 @@ std::string::size_type LLInventoryFilter::getStringMatchOffset() const
 BOOL LLInventoryFilter::isNotDefault() const
 {
 	return mFilterOps.mFilterObjectTypes != mDefaultFilterOps.mFilterObjectTypes 
+		|| mFilterOps.mFilterTypes != FILTERTYPE_OBJECT
 		|| mFilterSubString.size() 
 		|| mFilterOps.mPermissions != mDefaultFilterOps.mPermissions
 		|| mFilterOps.mMinDate != mDefaultFilterOps.mMinDate 
@@ -226,7 +228,8 @@ BOOL LLInventoryFilter::isNotDefault() const
 
 BOOL LLInventoryFilter::isActive() const
 {
-	return mFilterOps.mFilterObjectTypes != 0xffffffffffffffffULL 
+	return mFilterOps.mFilterObjectTypes != 0xffffffffffffffffULL
+		|| mFilterOps.mFilterTypes != FILTERTYPE_OBJECT
 		|| mFilterSubString.size() 
 		|| mFilterOps.mPermissions != PERM_NONE 
 		|| mFilterOps.mMinDate != time_min()
@@ -329,7 +332,6 @@ void LLInventoryFilter::setFilterSubString(const std::string& string)
 		mFilterSubString = string;
 		LLStringUtil::toUpper(mFilterSubString);
 		LLStringUtil::trimHead(mFilterSubString);
-
 		if (less_restrictive)
 		{
 			setModified(FILTER_LESS_RESTRICTIVE);
@@ -512,21 +514,21 @@ void LLInventoryFilter::setModified(EFilterBehavior behavior)
 		// if not keeping current filter results, update last valid as well
 		switch(mFilterBehavior)
 		{
-		case FILTER_RESTART:
-			mMustPassGeneration = mFilterGeneration;
-			mMinRequiredGeneration = mFilterGeneration;
-			break;
-		case FILTER_LESS_RESTRICTIVE:
-			mMustPassGeneration = mFilterGeneration;
-			break;
-		case FILTER_MORE_RESTRICTIVE:
-			mMinRequiredGeneration = mFilterGeneration;
-			// must have passed either current filter generation (meaningless, as it hasn't been run yet)
-			// or some older generation, so keep the value
-			mMustPassGeneration = llmin(mMustPassGeneration, mFilterGeneration);
-			break;
-		default:
-			llerrs << "Bad filter behavior specified" << llendl;
+			case FILTER_RESTART:
+				mMustPassGeneration = mFilterGeneration;
+				mMinRequiredGeneration = mFilterGeneration;
+				break;
+			case FILTER_LESS_RESTRICTIVE:
+				mMustPassGeneration = mFilterGeneration;
+				break;
+			case FILTER_MORE_RESTRICTIVE:
+				mMinRequiredGeneration = mFilterGeneration;
+				// must have passed either current filter generation (meaningless, as it hasn't been run yet)
+				// or some older generation, so keep the value
+				mMustPassGeneration = llmin(mMustPassGeneration, mFilterGeneration);
+				break;
+			default:
+				llerrs << "Bad filter behavior specified" << llendl;
 		}
 	}
 	else

@@ -52,10 +52,10 @@
 #include "llfloateravatarpicker.h"
 #include "llfloaterauction.h"
 #include "llfloatergroups.h"
+#include "llfloaterscriptlimits.h"
 #include "llavataractions.h"
 #include "lllineeditor.h"
 #include "llnamelistctrl.h"
-#include "llnotify.h"
 #include "llpanellandaudio.h"
 #include "llpanellandmedia.h"
 #include "llradiogroup.h"
@@ -149,6 +149,10 @@ void send_parcel_select_objects(S32 parcel_local_id, U32 return_type,
 	msg->sendReliable(region->getHost());
 }
 
+LLParcel* LLFloaterLand::getCurrentSelectedParcel()
+{
+	return mParcel->getParcel();
+};
 
 //static
 LLPanelLandObjects* LLFloaterLand::getCurrentPanelLandObjects()
@@ -422,6 +426,9 @@ BOOL LLPanelLandGeneral::postBuild()
 	mBtnBuyLand = getChild<LLButton>("Buy Land...");
 	mBtnBuyLand->setClickedCallback(onClickBuyLand, (void*)&BUY_PERSONAL_LAND);
 	
+	mBtnScriptLimits = getChild<LLButton>("Scripts...");
+	mBtnScriptLimits->setClickedCallback(onClickScriptLimits, this);
+	
 	mBtnBuyGroupLand = getChild<LLButton>("Buy For Group...");
 	mBtnBuyGroupLand->setClickedCallback(onClickBuyLand, (void*)&BUY_GROUP_LAND);
 	
@@ -509,6 +516,7 @@ void LLPanelLandGeneral::refresh()
 		mTextDwell->setText(LLStringUtil::null);
 
 		mBtnBuyLand->setEnabled(FALSE);
+		mBtnScriptLimits->setEnabled(FALSE);
 		mBtnBuyGroupLand->setEnabled(FALSE);
 		mBtnReleaseLand->setEnabled(FALSE);
 		mBtnReclaimLand->setEnabled(FALSE);
@@ -716,6 +724,8 @@ void LLPanelLandGeneral::refresh()
 
 		mBtnBuyLand->setEnabled(
 			LLViewerParcelMgr::getInstance()->canAgentBuyParcel(parcel, false));
+		mBtnScriptLimits->setEnabled(true);
+//			LLViewerParcelMgr::getInstance()->canAgentBuyParcel(parcel, false));
 		mBtnBuyGroupLand->setEnabled(
 			LLViewerParcelMgr::getInstance()->canAgentBuyParcel(parcel, true));
 
@@ -853,6 +863,17 @@ void LLPanelLandGeneral::onClickBuyLand(void* data)
 {
 	BOOL* for_group = (BOOL*)data;
 	LLViewerParcelMgr::getInstance()->startBuyLand(*for_group);
+}
+
+// static
+void LLPanelLandGeneral::onClickScriptLimits(void* data)
+{
+	LLPanelLandGeneral* panelp = (LLPanelLandGeneral*)data;
+	LLParcel* parcel = panelp->mParcel->getParcel();
+	if(parcel != NULL)
+	{
+		LLFloaterReg::showInstance("script_limits");
+	}
 }
 
 BOOL LLPanelLandGeneral::enableDeedToGroup(void* data)
@@ -1527,7 +1548,7 @@ void LLPanelLandObjects::processParcelObjectOwnersReply(LLMessageSystem *msg, vo
 
 		object_count_str = llformat("%d", object_count);
 		item_params.columns.add().value(object_count_str).font(FONT).column("count");
-		item_params.columns.add().value(formatted_time((time_t)most_recent_time)).font(FONT).column("mostrecent");
+		item_params.columns.add().value(LLDate((time_t)most_recent_time)).font(FONT).column("mostrecent").type("date");
 
 		self->mOwnerList->addRow(item_params);
 

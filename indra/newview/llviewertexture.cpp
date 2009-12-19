@@ -108,6 +108,19 @@ const F64 log_2 = log(2.0);
 //----------------------------------------------------------------------------------------------
 //namespace: LLViewerTextureAccess
 //----------------------------------------------------------------------------------------------
+
+LLLoadedCallbackEntry::LLLoadedCallbackEntry(loaded_callback_func cb,
+					  S32 discard_level,
+					  BOOL need_imageraw, // Needs image raw for the callback
+					  void* userdata ) 
+	: mCallback(cb),
+	  mLastUsedDiscard(MAX_DISCARD_LEVEL+1),
+	  mDesiredDiscard(discard_level),
+	  mNeedsImageRaw(need_imageraw),
+	  mUserData(userdata)
+{
+}
+
 LLViewerMediaTexture* LLViewerTextureManager::createMediaTexture(const LLUUID &media_id, BOOL usemipmaps, LLImageGL* gl_image)
 {
 	return new LLViewerMediaTexture(media_id, usemipmaps, gl_image) ;		
@@ -1484,7 +1497,8 @@ F32 LLViewerFetchedTexture::calcDecodePriority()
 		{
 			priority += 10000000.f;
 		}		
-		else if(mAdditionalDecodePriority > 0.0f)
+
+		if(mAdditionalDecodePriority > 0.0f)
 		{
 			// 1-9
 			S32 additional_priority = (S32)(1.0f + mAdditionalDecodePriority*8.0f + .5f); // round

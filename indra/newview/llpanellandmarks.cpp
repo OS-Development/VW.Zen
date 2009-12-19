@@ -37,6 +37,7 @@
 #include "llfloaterreg.h"
 #include "llsdutil.h"
 #include "llsdutil_math.h"
+#include "llregionhandle.h"
 
 #include "llaccordionctrl.h"
 #include "llaccordionctrltab.h"
@@ -232,11 +233,6 @@ void LLLandmarksPanel::onSelectionChange(LLInventorySubTreePanel* inventory_list
 		deselectOtherThan(inventory_list);
 		mCurrentSelectedList = inventory_list;
 	}
-
-	LLFolderViewItem* current_item = inventory_list->getRootFolder()->getCurSelectedItem();
-	if (!current_item)
-		return;
-
 	updateVerbs();
 }
 
@@ -245,6 +241,7 @@ void LLLandmarksPanel::onSelectorButtonClicked()
 	// TODO: mantipov: update getting of selected item
 	// TODO: bind to "i" button
 	LLFolderViewItem* cur_item = mFavoritesInventoryPanel->getRootFolder()->getCurSelectedItem();
+	if (!cur_item) return;
 
 	LLFolderViewEventListener* listenerp = cur_item->getListener();
 	if (listenerp->getInventoryType() == LLInventoryType::IT_LANDMARK)
@@ -333,6 +330,7 @@ void LLLandmarksPanel::processParcelInfo(const LLParcelData& parcel_data)
 	if(isLandmarkSelected())
 	{
 		LLFolderViewItem* cur_item = getCurSelectedItem();
+		if (!cur_item) return;
 		LLUUID id = cur_item->getListener()->getUUID();
 		LLInventoryItem* inv_item = mCurrentSelectedList->getModel()->getItem(id);
 		doActionOnCurSelectedLandmark(boost::bind(
@@ -367,6 +365,7 @@ void LLLandmarksPanel::initFavoritesInventoryPanel()
 
 	initLandmarksPanel(mFavoritesInventoryPanel);
 	mFavoritesInventoryPanel->getFilter()->setEmptyLookupMessage("FavoritesNoMatchingItems");
+
 	initAccordion("tab_favorites", mFavoritesInventoryPanel);
 }
 
@@ -428,6 +427,7 @@ void LLLandmarksPanel::initLandmarksPanel(LLInventorySubTreePanel* inventory_lis
 	}
 
 	root_folder->setParentLandmarksPanel(this);
+	inventory_list->saveFolderState();
 }
 
 void LLLandmarksPanel::initAccordion(const std::string& accordion_tab_name, LLInventorySubTreePanel* inventory_list)
@@ -758,7 +758,7 @@ void LLLandmarksPanel::onCustomAction(const LLSD& userdata)
 {
 	LLFolderViewItem* cur_item = getCurSelectedItem();
 	if(!cur_item)
-		return ;
+		return;
 	std::string command_name = userdata.asString();
 	if("more_info" == command_name)
 	{
@@ -862,18 +862,18 @@ bool LLLandmarksPanel::canSelectedBeModified(const std::string& command_name) co
 	// then ask LLFolderView permissions
 	if (can_be_modified)
 	{
-		LLFolderViewItem* selected =  getCurSelectedItem();
+		LLFolderViewItem* selected = getCurSelectedItem();
 		if ("cut" == command_name)
 		{
 			can_be_modified = mCurrentSelectedList->getRootFolder()->canCut();
 		}
 		else if ("rename" == command_name)
 		{
-			can_be_modified = selected? selected->getListener()->isItemRenameable() : false;
+			can_be_modified = selected ? selected->getListener()->isItemRenameable() : false;
 		}
 		else if ("delete" == command_name)
 		{
-			can_be_modified = selected? selected->getListener()->isItemRemovable(): false;
+			can_be_modified = selected ? selected->getListener()->isItemRemovable(): false;
 		}
 		else if("paste" == command_name)
 		{
@@ -1030,19 +1030,28 @@ void LLLandmarksPanel::doCreatePick(LLLandmark* landmark)
 //////////////////////////////////////////////////////////////////////////
 static void filter_list(LLInventorySubTreePanel* inventory_list, const std::string& string)
 {
-	// Open the immediate children of the root folder, since those
-	// are invisible in the UI and thus must always be open.
-	inventory_list->getRootFolder()->openTopLevelFolders();
-
+	// When search is cleared, restore the old folder state.
 	if (string == "")
 	{
 		inventory_list->setFilterSubString(LLStringUtil::null);
+		// Re-open folders that were open before
+		inventory_list->restoreFolderState();
 	}
+
+	// Open the immediate children of the root folder, since those
+	// are invisible in the UI and thus must always be open.
+	inventory_list->getRootFolder()->openTopLevelFolders();
 
 	if (inventory_list->getFilterSubString().empty() && string.empty())
 	{
 		// current filter and new filter empty, do nothing
 		return;
+	}
+
+	// save current folder open state if no filter currently applied
+	if (inventory_list->getRootFolder()->getFilterSubString().empty())
+	{
+		inventory_list->saveFolderState();
 	}
 
 	// Set new filter string

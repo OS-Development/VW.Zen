@@ -20,12 +20,9 @@
   height="535"
   layout="topleft"
   left="6"
-  name="empty_picks_panel_text"
+  name="picks_panel_text"
   top="10"
-  visible="false" 
-  width="313">
-   There are no picks/classifieds here
- </text>
+  width="313"/>
  <accordion
   fit_parent="true" 
   follows="all"
@@ -132,7 +129,7 @@
        <button
          enabled="false"
          follows="bottom|left"
-         height="25"
+         height="23"
          label="Info"
          layout="topleft"
          left="5"
@@ -144,7 +141,7 @@
         <button
          enabled="false"
          follows="bottom|left"
-         height="25"
+         height="23"
          label="Teleport"
          layout="topleft"
          left_pad="5"
@@ -156,7 +153,7 @@
         <button
          enabled="false"
          follows="bottom|left"
-         height="25"
+         height="23"
          label="Map"
          layout="topleft"
          left_pad="5"

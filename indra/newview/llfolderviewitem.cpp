@@ -122,7 +122,7 @@ LLFolderViewItem::LLFolderViewItem(LLFolderViewItem::Params p)
 	mHasVisibleChildren(FALSE),
 	mIndentation(0),
 	mNumDescendantsSelected(0),
-	mFiltered(FALSE),
+	mPassedFilter(FALSE),
 	mLastFilterGeneration(-1),
 	mStringMatchOffset(std::string::npos),
 	mControlLabelRotation(0.f),
@@ -136,7 +136,8 @@ LLFolderViewItem::LLFolderViewItem(LLFolderViewItem::Params p)
 	mListener(p.listener),
 	mArrowImage(p.folder_arrow_image),
 	mBoxImage(p.selection_image),
-	mDontShowInHierarchy(false)
+	mDontShowInHierarchy(false),
+	mShowLoadStatus(false)
 {
 	refresh();
 }
@@ -198,7 +199,9 @@ LLFolderViewItem* LLFolderViewItem::getPreviousOpenNode(BOOL include_children)
 	}
 
 	LLFolderViewItem* itemp = mParentFolder->getPreviousFromChild( this, include_children );
-	while(itemp && !itemp->getVisible())
+
+	// Skip over items that are invisible or are hidden from the UI.
+	while(itemp && (!itemp->getVisible() || itemp->getDontShowInHierarchy()))
 	{
 		LLFolderViewItem* next_itemp = itemp->mParentFolder->getPreviousFromChild( itemp, include_children );
 		if (itemp == next_itemp) 
@@ -224,17 +227,17 @@ BOOL LLFolderViewItem::potentiallyVisible()
 
 BOOL LLFolderViewItem::getFiltered() 
 { 
-	return mFiltered && mLastFilterGeneration >= getRoot()->getFilter()->getMinRequiredGeneration(); 
+	return mPassedFilter && mLastFilterGeneration >= getRoot()->getFilter()->getMinRequiredGeneration(); 
 }
 
 BOOL LLFolderViewItem::getFiltered(S32 filter_generation) 
 {
-	return mFiltered && mLastFilterGeneration >= filter_generation;
+	return mPassedFilter && mLastFilterGeneration >= filter_generation;
 }
 
 void LLFolderViewItem::setFiltered(BOOL filtered, S32 filter_generation)
 {
-	mFiltered = filtered;
+	mPassedFilter = filtered;
 	mLastFilterGeneration = filter_generation;
 }
 
@@ -424,19 +427,20 @@ S32 LLFolderViewItem::getItemHeight()
 
 void LLFolderViewItem::filter( LLInventoryFilter& filter)
 {
-	BOOL filtered = mListener && filter.check(this);
+	const BOOL previous_passed_filter = mPassedFilter;
+	const BOOL passed_filter = mListener && filter.check(this);
 
-	// if our visibility will change as a result of this filter, then
+	// If our visibility will change as a result of this filter, then
 	// we need to be rearranged in our parent folder
-	if (getVisible() != filtered)
+	if (mParentFolder)
 	{
-		if (mParentFolder)
-		{
+		if (getVisible() != passed_filter)
 			mParentFolder->requestArrange();
-		}
+		if (passed_filter != previous_passed_filter)
+			mParentFolder->requestArrange();
 	}
 
-	setFiltered(filtered, filter.getCurrentGeneration());
+	setFiltered(passed_filter, filter.getCurrentGeneration());
 	mStringMatchOffset = filter.getStringMatchOffset();
 	filter.decrementFilterCount();
 
@@ -965,17 +969,17 @@ void LLFolderViewItem::draw()
 		}
 
 
-		if ( mIsLoading 
-			&& mTimeSinceRequestStart.getElapsedTimeF32() >= gSavedSettings.getF32("FolderLoadingMessageWaitTime") )
-		{
-			font->renderUTF8(LLTrans::getString("LoadingData"), 0, text_left, y, sSearchStatusColor,
-					  LLFontGL::LEFT, LLFontGL::BOTTOM, LLFontGL::NORMAL, LLFontGL::NO_SHADOW, S32_MAX, S32_MAX, &right_x, FALSE);
-			text_left = right_x;
-		}
-
 		font->renderUTF8( mLabel, 0, text_left, y, color,
 				   LLFontGL::LEFT, LLFontGL::BOTTOM, LLFontGL::NORMAL, LLFontGL::NO_SHADOW,
 			S32_MAX, getRect().getWidth() - (S32) text_left, &right_x, TRUE);
+
+		if ( (mIsLoading && mTimeSinceRequestStart.getElapsedTimeF32() >= gSavedSettings.getF32("FolderLoadingMessageWaitTime"))
+			|| (LLInventoryModel::backgroundFetchActive() && mShowLoadStatus) )
+		{
+			std::string load_string = " ( " + LLTrans::getString("LoadingData") + " ) ";
+			font->renderUTF8(load_string, 0, right_x, y, sSearchStatusColor,
+					  LLFontGL::LEFT, LLFontGL::BOTTOM, LLFontGL::NORMAL, LLFontGL::NO_SHADOW, S32_MAX, S32_MAX, &right_x, FALSE);
+		}
 
 		if (!mLabelSuffix.empty())
 		{
@@ -1243,7 +1247,7 @@ void LLFolderViewFolder::filter( LLInventoryFilter& filter)
 	if (getLastFilterGeneration() < filter_generation)
 	{
 		if (getLastFilterGeneration() >= must_pass_generation &&		// folder has been compared to a valid precursor filter
-			!mFiltered)													// and did not pass the filter
+			!mPassedFilter)													// and did not pass the filter
 		{
 			// go ahead and flag this folder as done
 			mLastFilterGeneration = filter_generation;			
@@ -1381,7 +1385,7 @@ void LLFolderViewFolder::setFiltered(BOOL filtered, S32 filter_generation)
 {
 	// if this folder is now filtered, but wasn't before
 	// (it just passed)
-	if (filtered && !mFiltered)
+	if (filtered && !mPassedFilter)
 	{
 		// reset current height, because last time we drew it
 		// it might have had more visible items than now

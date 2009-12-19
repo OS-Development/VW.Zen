@@ -2277,6 +2277,26 @@ BOOL LLSelectMgr::selectGetAllValid()
 	return TRUE;
 }
 
+//-----------------------------------------------------------------------------
+// selectGetAllValidAndObjectsFound() - return TRUE if selections are
+// valid and objects are found.
+//
+// For EXT-3114 - same as selectGetModify() without the modify check.
+//-----------------------------------------------------------------------------
+BOOL LLSelectMgr::selectGetAllValidAndObjectsFound()
+{
+	for (LLObjectSelection::iterator iter = getSelection()->begin();
+		 iter != getSelection()->end(); iter++ )
+	{
+		LLSelectNode* node = *iter;
+		LLViewerObject* object = node->getObject();
+		if( !object || !node->mValid )
+		{
+			return FALSE;
+		}
+	}
+	return TRUE;
+}
 
 //-----------------------------------------------------------------------------
 // selectGetModify() - return TRUE if current agent can modify all
@@ -3494,7 +3514,7 @@ void LLSelectMgr::deselectAllIfTooFar()
 
 	// HACK: Don't deselect when we're navigating to rate an object's
 	// owner or creator.  JC
-	if (gPieObject->getVisible() || gPieRate->getVisible() )
+	if (gMenuObject->getVisible())
 	{
 		return;
 	}
@@ -5493,11 +5513,15 @@ void dialog_refresh_all()
 
 	gFloaterTools->dirty();
 
-	gPieObject->needsArrange();
+	gMenuObject->needsArrange();
 
-	if( gPieAttachment->getVisible() )
+	if( gMenuAttachmentSelf->getVisible() )
 	{
-		gPieAttachment->arrange();
+		gMenuAttachmentSelf->arrange();
+	}
+	if( gMenuAttachmentOther->getVisible() )
+	{
+		gMenuAttachmentOther->arrange();
 	}
 
 	LLFloaterProperties::dirtyAll();

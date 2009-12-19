@@ -43,8 +43,10 @@
 #include "llhttpclient.h"
 #include "llhttpstatuscodes.h"
 #include "llimage.h"
+#include "llimagej2c.h"
 #include "llimageworker.h"
 #include "llworkerthread.h"
+#include "message.h"
 
 #include "llagent.h"
 #include "lltexturecache.h"
@@ -156,7 +158,7 @@ public:
 
 	void callbackHttpGet(const LLChannelDescriptors& channels,
 						 const LLIOPipe::buffer_ptr_t& buffer,
-						 bool last_block, bool success);
+						 bool partial, bool success);
 	void callbackCacheRead(bool success, LLImageFormatted* image,
 						   S32 imagesize, BOOL islocal);
 	void callbackCacheWrite(bool success);
@@ -314,7 +316,7 @@ public:
 			if (HTTP_OK <= status &&  status < HTTP_MULTIPLE_CHOICES)
 			{
 				success = true;
-				if (HTTP_PARTIAL_CONTENT == status) // partial information (i.e. last block)
+				if (HTTP_PARTIAL_CONTENT == status) // partial information
 				{
 					partial = true;
 				}
@@ -446,6 +448,7 @@ LLTextureFetchWorker::~LLTextureFetchWorker()
 	mFormattedImage = NULL;
 	clearPackets();
 	unlockWorkMutex();
+	mFetcher->removeFromHTTPQueue(mID);
 }
 
 void LLTextureFetchWorker::clearPackets()
@@ -819,6 +822,13 @@ bool LLTextureFetchWorker::doWork(S32 param)
 			if (mFormattedImage.notNull())
 			{
 				cur_size = mFormattedImage->getDataSize(); // amount of data we already have
+				if (mFormattedImage->getDiscardLevel() == 0)
+				{
+					// We already have all the data, just decode it
+					mLoadedDiscard = mFormattedImage->getDiscardLevel();
+					mState = DECODE_IMAGE;
+					return false;
+				}
 			}
 			mRequestedSize = mDesiredSize;
 			mRequestedDiscard = mDesiredDiscard;
@@ -869,24 +879,26 @@ bool LLTextureFetchWorker::doWork(S32 param)
  				llinfos << "HTTP GET failed for: " << mUrl
 						<< " Status: " << mGetStatus << " Reason: '" << mGetReason << "'"
 						<< " Attempt:" << mHTTPFailCount+1 << "/" << max_attempts << llendl;
-				if (cur_size == 0)
+				++mHTTPFailCount;
+				if (mHTTPFailCount >= max_attempts)
 				{
-					++mHTTPFailCount;
-					if (mHTTPFailCount >= max_attempts)
+					if (cur_size > 0)
+					{
+						// Use available data
+						mLoadedDiscard = mFormattedImage->getDiscardLevel();
+						mState = DECODE_IMAGE;
+						return false; 
+					}
+					else
 					{
 						resetFormattedData();
 						return true; // failed
 					}
-					else
-					{
-						mState = SEND_HTTP_REQ;
-						return false; // retry
-					}
 				}
 				else
 				{
-					mState = DECODE_IMAGE;
-					return false; // use what we have
+					mState = SEND_HTTP_REQ;
+					return false; // retry
 				}
 			}
 			
@@ -1205,7 +1217,7 @@ bool LLTextureFetchWorker::processSimulatorPackets()
 
 void LLTextureFetchWorker::callbackHttpGet(const LLChannelDescriptors& channels,
 										   const LLIOPipe::buffer_ptr_t& buffer,
-										   bool last_block, bool success)
+										   bool partial, bool success)
 {
 	LLMutexLock lock(&mWorkMutex);
 
@@ -1234,7 +1246,7 @@ void LLTextureFetchWorker::callbackHttpGet(const LLChannelDescriptors& channels,
 			mBuffer = new U8[data_size];
 			buffer->readAfter(channels.in(), NULL, mBuffer, data_size);
 			mBufferSize += data_size;
-			if (data_size < mRequestedSize || last_block == true)
+			if (data_size < mRequestedSize && mRequestedDiscard == 0)
 			{
 				mHaveAllData = TRUE;
 			}

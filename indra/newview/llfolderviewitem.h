@@ -121,6 +121,9 @@ public:
 	static const F32 FOLDER_CLOSE_TIME_CONSTANT;
 	static const F32 FOLDER_OPEN_TIME_CONSTANT;
 
+	// Mostly for debugging printout purposes.
+	const std::string& getSearchableLabel() { return mSearchableLabel; }
+
 protected:
 	friend class LLUICtrlFactory;
 	friend class LLFolderViewEventListener;
@@ -149,7 +152,7 @@ protected:
 	BOOL						mHasVisibleChildren;
 	S32							mIndentation;
 	S32							mNumDescendantsSelected;
-	BOOL						mFiltered;
+	BOOL						mPassedFilter;
 	S32							mLastFilterGeneration;
 	std::string::size_type		mStringMatchOffset;
 	F32							mControlLabelRotation;
@@ -157,9 +160,10 @@ protected:
 	BOOL						mDragAndDropTarget;
 	LLUIImagePtr				mArrowImage;
 	LLUIImagePtr				mBoxImage;
-	BOOL                            mIsLoading;
-	LLTimer                         mTimeSinceRequestStart;
+	BOOL                        mIsLoading;
+	LLTimer                     mTimeSinceRequestStart;
 	bool						mDontShowInHierarchy;
+	bool						mShowLoadStatus;
 
 	// helper function to change the selection from the root.
 	void changeSelectionFromRoot(LLFolderViewItem* selection, BOOL selected);
@@ -203,7 +207,7 @@ public:
 	virtual S32 arrange( S32* width, S32* height, S32 filter_generation );
 	virtual S32 getItemHeight();
 	void setDontShowInHierarchy(bool dont_show) { mDontShowInHierarchy = dont_show; }
-	bool getDontShowInHierarchy() { return mDontShowInHierarchy; }
+	bool getDontShowInHierarchy() const { return mDontShowInHierarchy; }
 
 	// applies filters to control visibility of inventory items
 	virtual void filter( LLInventoryFilter& filter);
@@ -251,6 +255,8 @@ public:
 	BOOL getIsCurSelection() { return mIsCurSelection; }
 
 	BOOL hasVisibleChildren() { return mHasVisibleChildren; }
+	
+	void setShowLoadStatus(bool status) { mShowLoadStatus = status; }
 
 	// Call through to the viewed object and return true if it can be
 	// removed. Returns true if it's removed.
@@ -332,7 +338,7 @@ public:
 		EAcceptance* accept,
 		std::string& tooltip_msg);
 
- private:
+private:
 	static std::map<U8, LLFontGL*> sFonts; // map of styles to fonts
 };
 

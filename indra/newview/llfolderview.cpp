@@ -331,6 +331,7 @@ BOOL LLFolderView::addFolder( LLFolderViewFolder* folder)
 	{
 		mFolders.insert(mFolders.begin(), folder);
 	}
+	folder->setShowLoadStatus(true);
 	folder->setOrigin(0, 0);
 	folder->reshape(getRect().getWidth(), 0);
 	folder->setVisible(FALSE);
@@ -411,7 +412,12 @@ S32 LLFolderView::arrange( S32* unused_width, S32* unused_height, S32 filter_gen
 			folderp->setVisible(show_folder_state == LLInventoryFilter::SHOW_ALL_FOLDERS || // always show folders?
 									(folderp->getFiltered(filter_generation) || folderp->hasFilteredDescendants(filter_generation))); // passed filter or has descendants that passed filter
 		}
-		if (folderp->getVisible())
+
+		// Need to call arrange regardless of visibility, since children's visibility
+		// might need to be changed too (e.g. even though a folder is invisible, its
+		// children also need to be set invisible for state-tracking purposes, e.g.
+		// llfolderviewitem::filter).
+		// if (folderp->getVisible())
 		{
 			S32 child_height = 0;
 			S32 child_width = 0;
@@ -479,13 +485,13 @@ void LLFolderView::filter( LLInventoryFilter& filter )
 
 	if (getCompletedFilterGeneration() < filter.getCurrentGeneration())
 	{
-		mFiltered = FALSE;
+		mPassedFilter = FALSE;
 		mMinWidth = 0;
 		LLFolderViewFolder::filter(filter);
 	}
 	else
 	{
-		mFiltered = TRUE;
+		mPassedFilter = TRUE;
 	}
 }
 
@@ -743,6 +749,12 @@ void LLFolderView::sanitizeSelection()
 				}
 			}
 		}
+
+		// Don't allow invisible items (such as root folders) to be selected.
+		if (item->getDontShowInHierarchy())
+		{
+			items_to_remove.push_back(item);
+		}
 	}
 
 	std::vector<LLFolderViewItem*>::iterator item_it;
@@ -762,7 +774,7 @@ void LLFolderView::sanitizeSelection()
 				parent_folder;
 				parent_folder = parent_folder->getParentFolder())
 			{
-				if (parent_folder->potentiallyVisible())
+				if (parent_folder->potentiallyVisible() && !parent_folder->getDontShowInHierarchy())
 				{
 					// give initial selection to first ancestor folder that potentially passes the filter
 					if (!new_selection)
@@ -783,6 +795,11 @@ void LLFolderView::sanitizeSelection()
 		{
 			// nothing selected to start with, so pick "My Inventory" as best guess
 			new_selection = getItemByID(gInventory.getRootFolderID());
+			// ... except if it's hidden from the UI.
+			if (new_selection && new_selection->getDontShowInHierarchy())
+			{
+				new_selection = NULL;
+			}
 		}
 
 		if (new_selection)
@@ -1931,6 +1948,26 @@ LLFolderViewItem* LLFolderView::getItemByID(const LLUUID& id)
 		return map_it->second;
 	}
 
+	return NULL;
+}
+
+LLFolderViewFolder* LLFolderView::getFolderByID(const LLUUID& id)
+{
+	if (id.isNull())
+	{
+		return this;
+	}
+
+	for (folders_t::iterator iter = mFolders.begin();
+		 iter != mFolders.end();
+		 ++iter)
+	{
+		LLFolderViewFolder *folder = (*iter);
+		if (folder->getListener()->getUUID() == id)
+		{
+			return folder;
+		}
+	}
 	return NULL;
 }
 

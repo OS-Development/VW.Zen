@@ -46,7 +46,6 @@ class LLPanelVolume;
 class LLPanelContents;
 class LLPanelFace;
 class LLPanelLandInfo;
-class LLRadioCtrl;
 class LLRadioGroup;
 class LLSlider;
 class LLTabContainer;
@@ -196,6 +195,9 @@ private:
 
 protected:
 	LLSD				mMediaSettings;
+
+public:
+	static bool		sShowObjectCost;
 	
 };
 

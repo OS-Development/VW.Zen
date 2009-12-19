@@ -41,7 +41,6 @@
 #include "llviewerinventory.h"
 #include "llviewerstats.h"
 #include "llnotificationsutil.h"
-#include "llnotify.h"
 #include "llinventorymodel.h"
 #include "lltrans.h"
 
@@ -250,8 +249,12 @@ LLWearable* LLWearableList::createNewWearable( EWearableType type )
 	wearable->setParamsToDefaults();
 	wearable->setTexturesToDefaults();
 
+	//mark all values (params & images) as saved
+	wearable->saveValues();
+
 	// Send to the dataserver
 	wearable->saveNewAsset();
+
 
 	return wearable;
 }

@@ -313,8 +313,7 @@ F32 LLFloaterPreference::sAspectRatio = 0.0;
 LLFloaterPreference::LLFloaterPreference(const LLSD& key)
 	: LLFloater(key),
 	mGotPersonalInfo(false),
-	mOriginalIMViaEmail(false),
-	mCancelOnClose(true)
+	mOriginalIMViaEmail(false)
 {
 	//Build Floater is now Called from 	LLFloaterReg::add("preferences", "floater_preferences.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterPreference>);
 	
@@ -606,7 +605,7 @@ void LLFloaterPreference::onClose(bool app_quitting)
 {
 	gSavedSettings.setS32("LastPrefTab", getChild<LLTabContainer>("pref core")->getCurrentPanelIndex());
 	LLPanelLogin::setAlwaysRefresh(false);
-	if (mCancelOnClose) cancel();
+	cancel();
 }
 
 void LLFloaterPreference::onOpenHardwareSettings()
@@ -628,12 +627,10 @@ void LLFloaterPreference::onBtnOK()
 
 	if (canClose())
 	{
+		saveSettings();
 		apply();
-		// Here we do not want to cancel on close, so we do this funny thing
-		// that prevents cancel from undoing our changes when we hit OK
-		mCancelOnClose = false;
 		closeFloater(false);
-		mCancelOnClose = true;
+
 		gSavedSettings.saveToFile( gSavedSettings.getString("ClientSettingsFile"), TRUE );
 		LLUIColorTable::instance().saveUserSettings();
 		std::string crash_settings_filename = gDirUtilp->getExpandedFilename(LL_PATH_USER_SETTINGS, CRASH_SETTINGS_FILE);

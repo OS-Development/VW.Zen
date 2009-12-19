@@ -37,7 +37,6 @@
 #define LLPANEL_CPP
 #include "llpanel.h"
 
-#include "llalertdialog.h"
 #include "llfocusmgr.h"
 #include "llfontgl.h"
 #include "llrect.h"
@@ -542,6 +541,7 @@ BOOL LLPanel::initPanelXML(LLXMLNodePtr node, LLView *parent, LLXMLNodePtr outpu
 				output_node, output_params, &default_params);
 		}
 		
+		params.from_xui = true;
 		setupParams(params, parent);
 		{
 			LLFastTimer timer(FTM_PANEL_CONSTRUCTION);

@@ -47,6 +47,7 @@ class LLFlatListView;
 class LLChiclet;
 class LLIMChiclet;
 class LLScriptChiclet;
+class LLSysWellChiclet;
 
 
 class LLSysWellWindow : public LLDockableFloater
@@ -78,6 +79,8 @@ public:
 
 	void onStartUpToastClick(S32 x, S32 y, MASK mask);
 
+	void setSysWellChiclet(LLSysWellChiclet* chiclet) { mSysWellChiclet = chiclet; }
+
 	// size constants for the window and for its elements
 	static const S32 MAX_WINDOW_HEIGHT		= 200;
 	static const S32 MIN_WINDOW_WIDTH		= 318;
@@ -104,10 +107,16 @@ protected:
 	virtual const std::string& getAnchorViewName() = 0;
 
 	void reshapeWindow();
+	void releaseNewMessagesState();
 
 	// pointer to a corresponding channel's instance
 	LLNotificationsUI::LLScreenChannel*	mChannel;
 	LLFlatListView*	mMessageList;
+
+	/**
+	 * Reference to an appropriate Well chiclet to release "new message" state. EXT-3147
+	 */
+	LLSysWellChiclet* mSysWellChiclet;
 
 	/**
 	 *	Special panel which is used as separator of Notifications & IM Rows.
@@ -137,6 +146,9 @@ public:
 
 	// Operating with items
 	void addItem(LLSysWellItem::Params p);
+
+	// Closes all notifications and removes them from the Notification Well
+	void closeAll();
 
 protected:
 	/*virtual*/ const std::string& getAnchorViewName() { return NOTIFICATION_WELL_ANCHOR_NAME; }
@@ -179,8 +191,15 @@ public:
 	/*virtual*/ void sessionRemoved(const LLUUID& session_id);
 	/*virtual*/ void sessionIDUpdated(const LLUUID& old_session_id, const LLUUID& new_session_id);
 
+	void onNewIM(const LLSD& data);
+
 	void addObjectRow(const LLUUID& object_id, bool new_message = false);
 	void removeObjectRow(const LLUUID& object_id);
+
+	void addIMRow(const LLUUID& session_id);
+	bool hasIMRow(const LLUUID& session_id);
+
+	void closeAll();
 
 protected:
 	/*virtual*/ const std::string& getAnchorViewName() { return IM_WELL_ANCHOR_NAME; }
@@ -191,7 +210,8 @@ private:
 
 	void addIMRow(const LLUUID& sessionId, S32 chicletCounter, const std::string& name, const LLUUID& otherParticipantId);
 	void delIMRow(const LLUUID& sessionId);
-
+	bool confirmCloseAll(const LLSD& notification, const LLSD& response);
+	void closeAllImpl();
 
 	/**
 	 * Scrolling row panel.
@@ -206,6 +226,8 @@ private:
 		void onMouseLeave(S32 x, S32 y, MASK mask);
 		BOOL handleMouseDown(S32 x, S32 y, MASK mask);
 	private:
+		static const S32 CHICLET_HPAD = 10;
+		void onChicletSizeChanged(LLChiclet* ctrl, const LLSD& param);
 		void onClosePanel();
 	public:
 		LLIMChiclet* mChiclet;

@@ -49,6 +49,8 @@
 
 static LLDefaultChildRegistry::Register<LLChatHistory> r("chat_history");
 
+const static std::string NEW_LINE(rawstr_to_utf8("\n"));
+
 class LLChatHistoryHeader: public LLPanel
 {
 public:
@@ -200,6 +202,8 @@ public:
 			userName->setValue(SL);
 		}
 
+		mMinUserNameWidth = style_params.font()->getWidth(userName->getWText().c_str()) + PADDING;
+
 		setTimeField(chat);
 		
 		LLAvatarIconCtrl* icon = getChild<LLAvatarIconCtrl>("avatar_icon");
@@ -216,7 +220,37 @@ public:
 			icon->setValue(LLSD("SL_Logo"));
 		}
 
-	} 
+	}
+
+	/*virtual*/ void draw()
+	{
+		LLTextEditor* user_name = getChild<LLTextEditor>("user_name");
+		LLTextBox* time_box = getChild<LLTextBox>("time_box");
+
+		LLRect user_name_rect = user_name->getRect();
+		S32 user_name_width = user_name_rect.getWidth();
+		S32 time_box_width = time_box->getRect().getWidth();
+
+		if (time_box->getVisible() && user_name_width <= mMinUserNameWidth)
+		{
+			time_box->setVisible(FALSE);
+
+			user_name_rect.mRight += time_box_width;
+			user_name->reshape(user_name_rect.getWidth(), user_name_rect.getHeight());
+			user_name->setRect(user_name_rect);
+		}
+
+		if (!time_box->getVisible() && user_name_width > mMinUserNameWidth + time_box_width)
+		{
+			user_name_rect.mRight -= time_box_width;
+			user_name->reshape(user_name_rect.getWidth(), user_name_rect.getHeight());
+			user_name->setRect(user_name_rect);
+
+			time_box->setVisible(TRUE);
+		}
+
+		LLPanel::draw();
+	}
 
 	void nameUpdatedCallback(const LLUUID& id,const std::string& first,const std::string& last,BOOL is_group)
 	{
@@ -226,6 +260,8 @@ public:
 		mLastName = last;
 	}
 protected:
+	static const S32 PADDING = 20;
+
 	void showContextMenu(S32 x,S32 y)
 	{
 		if(mSourceType == CHAT_SOURCE_SYSTEM)
@@ -305,6 +341,7 @@ protected:
 	std::string			mLastName;
 	std::string			mFrom;
 
+	S32					mMinUserNameWidth;
 };
 
 
@@ -332,12 +369,12 @@ LLChatHistory::~LLChatHistory()
 {
 	static LLUICachedControl<S32> texteditor_border ("UITextEditorBorder", 0);
 
-	LLRect old_text_rect = mTextRect;
-	mTextRect = mScroller->getContentWindowRect();
-	mTextRect.stretch(-texteditor_border);
-	mTextRect.mLeft += mLeftTextPad;
-	mTextRect.mRight -= mRightTextPad;
-	if (mTextRect != old_text_rect)
+	LLRect old_text_rect = mVisibleTextRect;
+	mVisibleTextRect = mScroller->getContentWindowRect();
+	mVisibleTextRect.stretch(-texteditor_border);
+	mVisibleTextRect.mLeft += mLeftTextPad;
+	mVisibleTextRect.mRight -= mRightTextPad;
+	if (mVisibleTextRect != old_text_rect)
 	{
 		needsReflow();
 	}
@@ -454,10 +491,21 @@ void LLChatHistory::appendMessage(const LLChat& chat, const bool use_plain_text_
 
 		if (chat.mFromName.size() > 0)
 			appendText(chat.mFromName + " ", TRUE, style_params);
-		appendText(chat.mText.substr(4), FALSE, style_params);
+		// Ensure that message ends with NewLine, to avoid losing of new lines
+		// while copy/paste from text chat. See EXT-3263.
+		appendText(chat.mText.substr(4) + NEW_LINE, FALSE, style_params);
 	}
 	else
-		appendText(chat.mText, FALSE, style_params);
+	{
+		std::string message(chat.mText);
+		if ( message.size() > 0 && !LLStringOps::isSpace(message[message.size() - 1]) )
+		{
+			// Ensure that message ends with NewLine, to avoid losing of new lines
+			// while copy/paste from text chat. See EXT-3263.
+			message += NEW_LINE;
+		}
+		appendText(message, FALSE, style_params);
+	}
 	blockUndo();
 }
 
