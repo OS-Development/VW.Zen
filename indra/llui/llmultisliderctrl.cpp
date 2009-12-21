@@ -330,7 +330,7 @@ void LLMultiSliderCtrl::updateText()
 // static
 void LLMultiSliderCtrl::onEditorCommit( LLUICtrl* ctrl, const LLSD& userdata)
 {
-	LLMultiSliderCtrl* self = dynamic_cast<LLMultiSliderCtrl*>(ctrl);
+	LLMultiSliderCtrl* self = dynamic_cast<LLMultiSliderCtrl*>(ctrl->getParent());
 	if (!ctrl)
 		return;
 	
@@ -371,7 +371,7 @@ void LLMultiSliderCtrl::onEditorCommit( LLUICtrl* ctrl, const LLSD& userdata)
 // static
 void LLMultiSliderCtrl::onSliderCommit(LLUICtrl* ctrl, const LLSD& userdata)
 {
-	LLMultiSliderCtrl* self = dynamic_cast<LLMultiSliderCtrl*>(ctrl);
+	LLMultiSliderCtrl* self = dynamic_cast<LLMultiSliderCtrl*>(ctrl->getParent());
 	if (!self)
 		return;
 	
