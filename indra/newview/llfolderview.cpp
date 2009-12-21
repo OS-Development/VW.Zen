@@ -330,8 +330,8 @@ BOOL LLFolderView::addFolder( LLFolderViewFolder* folder)
 	else
 	{
 		mFolders.insert(mFolders.begin(), folder);
-		folder->setShowLoadStatus(true);
 	}
+	folder->setShowLoadStatus(true);
 	folder->setOrigin(0, 0);
 	folder->reshape(getRect().getWidth(), 0);
 	folder->setVisible(FALSE);
@@ -751,7 +751,7 @@ void LLFolderView::sanitizeSelection()
 		}
 
 		// Don't allow invisible items (such as root folders) to be selected.
-		if (item->getDontShowInHierarchy())
+		if (item->getHidden())
 		{
 			items_to_remove.push_back(item);
 		}
@@ -774,7 +774,7 @@ void LLFolderView::sanitizeSelection()
 				parent_folder;
 				parent_folder = parent_folder->getParentFolder())
 			{
-				if (parent_folder->potentiallyVisible())
+				if (parent_folder->potentiallyVisible() && !parent_folder->getHidden())
 				{
 					// give initial selection to first ancestor folder that potentially passes the filter
 					if (!new_selection)
@@ -795,6 +795,11 @@ void LLFolderView::sanitizeSelection()
 		{
 			// nothing selected to start with, so pick "My Inventory" as best guess
 			new_selection = getItemByID(gInventory.getRootFolderID());
+			// ... except if it's hidden from the UI.
+			if (new_selection && new_selection->getHidden())
+			{
+				new_selection = NULL;
+			}
 		}
 
 		if (new_selection)
