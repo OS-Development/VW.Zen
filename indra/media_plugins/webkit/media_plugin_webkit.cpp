@@ -98,6 +98,12 @@ private:
 	int mLastMouseY;
 	bool mFirstFocus;
 	
+	void setInitState(int state)
+	{
+//		std::cerr << "changing init state to " << state << std::endl;
+		mInitState = state;
+	}
+	
 	////////////////////////////////////////////////////////////////////////////////
 	//
 	void update(int milliseconds)
@@ -205,18 +211,19 @@ private:
 		{
 			// create single browser window
 			mBrowserWindowId = LLQtWebKit::getInstance()->createBrowserWindow( mWidth, mHeight );
-
 #if LL_WINDOWS
 			// Enable plugins
 			LLQtWebKit::getInstance()->enablePlugins(true);
 #elif LL_DARWIN
-			// Disable plugins
+			// Enable plugins
 			LLQtWebKit::getInstance()->enablePlugins(true);
 #elif LL_LINUX
-			// Disable plugins
-			LLQtWebKit::getInstance()->enablePlugins(false);
+			// Enable plugins
+			LLQtWebKit::getInstance()->enablePlugins(true);
 #endif
-            
+			// Enable cookies
+			LLQtWebKit::getInstance()->enableCookies( true );
+
 			// tell LLQtWebKit about the size of the browser window
 			LLQtWebKit::getInstance()->setSize( mBrowserWindowId, mWidth, mHeight );
 
@@ -233,7 +240,7 @@ private:
 			LLQtWebKit::getInstance()->setBackgroundColor( mBrowserWindowId, 0x00, 0x00, 0x00 );
 
 			// Set state _before_ starting the navigate, since onNavigateBegin might get called before this call returns.
-			mInitState = INIT_STATE_NAVIGATING;
+			setInitState(INIT_STATE_NAVIGATING);
 
 			// Don't do this here -- it causes the dreaded "white flash" when loading a browser instance.
 			// FIXME: Re-added this because navigating to a "page" initializes things correctly - especially
@@ -288,7 +295,7 @@ private:
 	{
 		if(mInitState == INIT_STATE_WAIT_REDRAW)
 		{
-			mInitState = INIT_STATE_RUNNING;
+			setInitState(INIT_STATE_RUNNING);
 		}
 		
 		// flag that an update is required
@@ -310,7 +317,7 @@ private:
 
 		if(mInitState == INIT_STATE_NAVIGATE_COMPLETE)
 		{
-			mInitState = INIT_STATE_WAIT_REDRAW;
+			setInitState(INIT_STATE_WAIT_REDRAW);
 		}
 		
 	}
@@ -333,7 +340,7 @@ private:
 		}
 		else if(mInitState == INIT_STATE_NAVIGATING)
 		{
-			mInitState = INIT_STATE_NAVIGATE_COMPLETE;
+			setInitState(INIT_STATE_NAVIGATE_COMPLETE);
 		}
 
 	}
