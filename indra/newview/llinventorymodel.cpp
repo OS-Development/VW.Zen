@@ -1340,8 +1340,7 @@ bool LLInventoryModel::fetchDescendentsOf(const LLUUID& folder_id)
 //Initialize statics.
 bool LLInventoryModel::isBulkFetchProcessingComplete()
 {
-	return ( (sFetchQueue.empty() 
-			&& sBulkFetchCount<=0)  ?  TRUE : FALSE ) ;
+	return sFetchQueue.empty() && sBulkFetchCount<=0;
 }
 
 class LLInventoryModelFetchDescendentsResponder: public LLHTTPClient::Responder
@@ -1616,10 +1615,58 @@ void LLInventoryModel::bulkFetch(std::string url)
 	}	
 }
 
+bool fetchQueueContainsNoDescendentsOf(const LLUUID& cat_id)
+{
+	for (std::deque<LLUUID>::iterator it = sFetchQueue.begin();
+		 it != sFetchQueue.end(); ++it)
+	{
+		const LLUUID& fetch_id = *it;
+		if (gInventory.isObjectDescendentOf(fetch_id, cat_id))
+			return false;
+	}
+	return true;
+}
+
+/* static */
+bool LLInventoryModel::libraryFetchStarted()
+{
+	return sLibraryFetchStarted;
+}
+
+/* static */
+bool LLInventoryModel::libraryFetchCompleted()
+{
+	return libraryFetchStarted() && fetchQueueContainsNoDescendentsOf(gInventory.getLibraryRootFolderID());
+}
+
+/* static */
+bool LLInventoryModel::libraryFetchInProgress()
+{
+	return libraryFetchStarted() && !libraryFetchCompleted();
+}
+	
+/* static */
+bool LLInventoryModel::myInventoryFetchStarted()
+{
+	return sMyInventoryFetchStarted;
+}
+
+/* static */
+bool LLInventoryModel::myInventoryFetchCompleted()
+{
+	return myInventoryFetchStarted() && fetchQueueContainsNoDescendentsOf(gInventory.getRootFolderID());
+}
+
+/* static */
+bool LLInventoryModel::myInventoryFetchInProgress()
+{
+	return myInventoryFetchStarted() && !myInventoryFetchCompleted();
+}
+
 // static
 bool LLInventoryModel::isEverythingFetched()
 {
-	return (sAllFoldersFetched ? true : false);
+	return sAllFoldersFetched;
 }
 
 //static
@@ -1638,7 +1685,6 @@ void LLInventoryModel::startBackgroundFetch(const LLUUID& cat_id)
 			if (!sMyInventoryFetchStarted)
 			{
 				sMyInventoryFetchStarted = TRUE;
-				sFetchQueue.push_back(gInventory.getLibraryRootFolderID());
 				sFetchQueue.push_back(gInventory.getRootFolderID());
 				gIdleCallbacks.addFunction(&LLInventoryModel::backgroundFetch, NULL);
 			}
@@ -1646,7 +1692,6 @@ void LLInventoryModel::startBackgroundFetch(const LLUUID& cat_id)
 			{
 				sLibraryFetchStarted = TRUE;
 				sFetchQueue.push_back(gInventory.getLibraryRootFolderID());
-				sFetchQueue.push_back(gInventory.getRootFolderID());
 				gIdleCallbacks.addFunction(&LLInventoryModel::backgroundFetch, NULL);
 			}
 		}
@@ -2518,6 +2563,10 @@ void LLInventoryModel::buildParentChildMap()
 		llwarns << "Found  " << lost << " lost categories." << llendl;
 	}
 
+	const BOOL COF_exists = (findCategoryUUIDForType(LLFolderType::FT_CURRENT_OUTFIT, FALSE) != LLUUID::null);
+	sFirstTimeInViewer2 = !COF_exists || gAgent.isFirstLogin();
+
+
 	// Now the items. We allocated in the last step, so now all we
 	// have to do is iterate over the items and put them in the right
 	// place.
@@ -2615,9 +2664,6 @@ void LLInventoryModel::buildParentChildMap()
 			notifyObservers();
 		}
 	}
-
-	const BOOL COF_exists = (findCategoryUUIDForType(LLFolderType::FT_CURRENT_OUTFIT, FALSE) != LLUUID::null);
-	sFirstTimeInViewer2 = !COF_exists;
 }
 
 struct LLUUIDAndName
