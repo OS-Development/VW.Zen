@@ -173,6 +173,9 @@ LLSysWellChiclet::~LLSysWellChiclet()
 
 void LLSysWellChiclet::setCounter(S32 counter)
 {
+	// do nothing if the same counter is coming. EXT-3678.
+	if (counter == mCounter) return;
+
 	// note same code in LLChicletNotificationCounterCtrl::setCounter(S32 counter)
 	std::string s_count;
 	if(counter != 0)
@@ -1128,14 +1131,6 @@ LLChicletPanel::Params::Params()
 , scrolling_offset("scrolling_offset")
 , min_width("min_width")
 {
-	chiclet_padding = 3;
-	scrolling_offset = 40;
-
-	if (!min_width.isProvided())
-	{
-		// min_width = 4 chiclets + 3 paddings
-		min_width = 180 + 3*chiclet_padding;
-	}
 };
 
 LLChicletPanel::LLChicletPanel(const Params&p)
@@ -1148,6 +1143,9 @@ LLChicletPanel::LLChicletPanel(const Params&p)
 , mMinWidth(p.min_width)
 , mShowControls(true)
 {
+	// min_width = 4 chiclets + 3 paddings
+	mMinWidth += 3 * mChicletPadding;
+
 	LLPanel::Params panel_params;
 	panel_params.follows.flags(FOLLOWS_LEFT | FOLLOWS_RIGHT);
 	mScrollArea = LLUICtrlFactory::create<LLPanel>(panel_params,this);

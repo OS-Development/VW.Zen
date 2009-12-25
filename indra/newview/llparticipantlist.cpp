@@ -215,6 +215,8 @@ void LLParticipantList::updateRecentSpeakersOrder()
 {
 	if (E_SORT_BY_RECENT_SPEAKERS == getSortOrder())
 	{
+		// Need to update speakers to sort list correctly
+		mSpeakerMgr->update(true);
 		// Resort avatar list
 		sort();
 	}
@@ -575,33 +577,45 @@ bool LLParticipantList::LLParticipantListMenu::enableContextMenuItem(const LLSD&
 	{
 		return mUUIDs.front() != gAgentID;
 	}
-	else
-		if (item == "can_allow_text_chat" || "can_moderate_voice" == item)
+	else if (item == "can_allow_text_chat")
+	{
+		return isGroupModerator();
+	}
+	else if ("can_moderate_voice" == item)
+	{
+		if (isGroupModerator())
 		{
-			return isGroupModerator();
-		}
-	else if (item == std::string("can_add"))
-		{
-			// We can add friends if:
-			// - there are selected people
-			// - and there are no friends among selection yet.
-
-			bool result = (mUUIDs.size() > 0);
-
-			std::vector<LLUUID>::const_iterator
-				id = mUUIDs.begin(),
-				uuids_end = mUUIDs.end();
-
-			for (;id != uuids_end; ++id)
+			LLPointer<LLSpeaker> speakerp = mParent.mSpeakerMgr->findSpeaker(mUUIDs.front());
+			if (speakerp.notNull())
 			{
-				if ( LLAvatarActions::isFriend(*id) )
-				{
-					result = false;
-					break;
-				}
+				// not in voice participants can not be moderated
+				return speakerp->mStatus != LLSpeaker::STATUS_TEXT_ONLY;
 			}
-			return result;
 		}
+		return false;
+	}
+	else if (item == std::string("can_add"))
+	{
+		// We can add friends if:
+		// - there are selected people
+		// - and there are no friends among selection yet.
+
+		bool result = (mUUIDs.size() > 0);
+
+		std::vector<LLUUID>::const_iterator
+			id = mUUIDs.begin(),
+			uuids_end = mUUIDs.end();
+
+		for (;id != uuids_end; ++id)
+		{
+			if ( LLAvatarActions::isFriend(*id) )
+			{
+				result = false;
+				break;
+			}
+		}
+		return result;
+	}
 	else if (item == "can_call")
 	{
 		return LLVoiceClient::voiceEnabled();
