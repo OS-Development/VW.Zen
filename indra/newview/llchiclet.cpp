@@ -173,6 +173,9 @@ LLSysWellChiclet::~LLSysWellChiclet()
 
 void LLSysWellChiclet::setCounter(S32 counter)
 {
+	// do nothing if the same counter is coming. EXT-3678.
+	if (counter == mCounter) return;
+
 	// note same code in LLChicletNotificationCounterCtrl::setCounter(S32 counter)
 	std::string s_count;
 	if(counter != 0)
@@ -477,7 +480,6 @@ void LLIMChiclet::setShowSpeaker(bool show)
 	{		
 		mShowSpeaker = show;
 		toggleSpeakerControl();
-		onChicletSizeChanged();		
 	}
 }
 
@@ -502,7 +504,6 @@ void LLIMChiclet::setShowCounter(bool show)
 	{		
 		LLChiclet::setShowCounter(show);
 		toggleCounterControl();
-		onChicletSizeChanged();		
 	}
 }
 
@@ -527,6 +528,8 @@ void LLIMChiclet::setRequiredWidth()
 	} 
 
 	reshape(required_width, getRect().getHeight());
+
+	onChicletSizeChanged();
 }
 
 void LLIMChiclet::toggleSpeakerControl()
@@ -567,6 +570,7 @@ void LLIMChiclet::setShowNewMessagesIcon(bool show)
 	{
 		mNewMessagesIcon->setVisible(show);
 	}
+	setRequiredWidth();
 }
 
 bool LLIMChiclet::getShowNewMessagesIcon()
@@ -1127,14 +1131,6 @@ LLChicletPanel::Params::Params()
 , scrolling_offset("scrolling_offset")
 , min_width("min_width")
 {
-	chiclet_padding = 3;
-	scrolling_offset = 40;
-
-	if (!min_width.isProvided())
-	{
-		// min_width = 4 chiclets + 3 paddings
-		min_width = 180 + 3*chiclet_padding;
-	}
 };
 
 LLChicletPanel::LLChicletPanel(const Params&p)
@@ -1147,6 +1143,9 @@ LLChicletPanel::LLChicletPanel(const Params&p)
 , mMinWidth(p.min_width)
 , mShowControls(true)
 {
+	// min_width = 4 chiclets + 3 paddings
+	mMinWidth += 3 * mChicletPadding;
+
 	LLPanel::Params panel_params;
 	panel_params.follows.flags(FOLLOWS_LEFT | FOLLOWS_RIGHT);
 	mScrollArea = LLUICtrlFactory::create<LLPanel>(panel_params,this);
@@ -1460,6 +1459,20 @@ void LLChicletPanel::reshape(S32 width, S32 height, BOOL called_from_parent )
 	trimChiclets();
 	showScrollButtonsIfNeeded();
 
+}
+
+S32	LLChicletPanel::notifyParent(const LLSD& info)
+{
+	if(info.has("notification"))
+	{
+		std::string str_notification = info["notification"];
+		if(str_notification == "size_changes")
+		{
+			arrange();
+			return 1;
+		}
+	}
+	return LLPanel::notifyParent(info);
 }
 
 void LLChicletPanel::arrange()

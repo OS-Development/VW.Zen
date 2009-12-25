@@ -68,9 +68,10 @@ public:
 	}
 
 	/**
-	 * Saves folder state for all Inventory Panels if there are no applied filter.
+	 * 	Update filter ShowFolderState setting to show empty folder message
+	 *  if Landmarks inventory folder is empty.
 	 */
-	void saveFolderStateIfNoFilter();
+	void updateShowFolderState();
 
 protected:
 	/**
@@ -112,13 +113,6 @@ private:
 	void onCustomAction(const LLSD& command_name);
 
 	/**
-	 * Updates accordions according to filtered items in lists.
-	 *
-	 * It hides accordion for empty lists
-	 */
-	void updateFilteredAccordions();
-
-	/**
 	 * Determines if selected item can be modified via context/gear menu.
 	 *
 	 * It validates Places Landmarks rules first. And then LLFolderView permissions.
@@ -131,11 +125,6 @@ private:
 	 * Processes drag-n-drop of the Landmarks and folders into trash button.
 	 */
 	bool handleDragAndDropToTrash(BOOL drop, EDragAndDropType cargo_type, EAcceptance* accept);
-
-	/**
-	 * Static callback for gIdleCallbacks to perform actions out of drawing
-	 */
-	static void doIdle(void* landmarks_panel);
 
 	/**
 	 * Landmark actions callbacks. Fire when a landmark is loaded from the list.
