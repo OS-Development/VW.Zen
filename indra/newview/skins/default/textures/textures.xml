@@ -70,6 +70,8 @@ with the same filename but different name
   <texture name="Audio_Over" file_name="icons/Audio_Over.png" preload="false" />
   <texture name="Audio_Press" file_name="icons/Audio_Press.png" preload="false" />
 
+  <texture name="Avaline_Icon" file_name="icons/avaline_default_icon.jpg" preload="true" />
+  
   <texture name="BackArrow_Disabled" file_name="icons/BackArrow_Disabled.png" preload="false" />
   <texture name="BackArrow_Off" file_name="icons/BackArrow_Off.png" preload="false" />
   <texture name="BackArrow_Press" file_name="icons/BackArrow_Press.png" preload="false" />
@@ -234,6 +236,7 @@ with the same filename but different name
   <texture name="Inv_Gloves" file_name="icons/Inv_Gloves.png" preload="false" />
   <texture name="Inv_Hair" file_name="icons/Inv_Hair.png" preload="false" />
   <texture name="Inv_LinkItem" file_name="icons/Inv_LinkItem.png" preload="false" />
+  <texture name="Inv_LinkItem_Broken" file_name="icons/Inv_LinkItem_Broken.png" preload="false" />
   <texture name="Inv_LinkFolder" file_name="icons/Inv_LinkFolder.png" preload="false" />
   <texture name="Inv_Jacket" file_name="icons/Inv_Jacket.png" preload="false" />
   <texture name="Inv_LookFolderOpen" file_name="icons/Inv_LookFolderOpen.png" preload="false" />
@@ -487,7 +490,8 @@ with the same filename but different name
   <texture name="SliderThumb_Off" file_name="widgets/SliderThumb_Off.png" />
   <texture name="SliderThumb_Disabled" file_name="widgets/SliderThumb_Disabled.png" />
   <texture name="SliderThumb_Press" file_name="widgets/SliderThumb_Press.png" />
-  <texture name="SL_Logo" file_name="map_infohub.tga" />
+
+  <texture name="SL_Logo" file_name="icons/SL_Logo.png" preload="true" />
 
   <texture name="Snapshot_Off" file_name="bottomtray/Snapshot_Off.png" preload="true" scale.left="4" scale.top="19" scale.right="22" scale.bottom="4" />
   <texture name="Snapshot_Over" file_name="bottomtray/Snapshot_Over.png" preload="false" />
@@ -495,12 +499,12 @@ with the same filename but different name
 
   <texture name="startup_logo"  file_name="windows/startup_logo.png" preload="true" />
 
-  <texture name="Stepper_Down_Disabled" file_name="widgets/Stepper_Down_Disabled.png" preload="true" />
-  <texture name="Stepper_Down_Off" file_name="widgets/Stepper_Down_Off.png" preload="true" />
-  <texture name="Stepper_Down_Press" file_name="widgets/Stepper_Down_Press.png" preload="true" />
-  <texture name="Stepper_Up_Disabled" file_name="widgets/Stepper_Up_Disabled.png" preload="true" />
-  <texture name="Stepper_Up_Off" file_name="widgets/Stepper_Up_Off.png" preload="true" />
-  <texture name="Stepper_Up_Press" file_name="widgets/Stepper_Up_Press.png" preload="true" />
+  <texture name="Stepper_Down_Disabled" file_name="widgets/Stepper_Down_Disabled.png" preload="false" />
+  <texture name="Stepper_Down_Off" file_name="widgets/Stepper_Down_Off.png" preload="false" />
+  <texture name="Stepper_Down_Press" file_name="widgets/Stepper_Down_Press.png" preload="false" />
+  <texture name="Stepper_Up_Disabled" file_name="widgets/Stepper_Up_Disabled.png" preload="false" />
+  <texture name="Stepper_Up_Off" file_name="widgets/Stepper_Up_Off.png" preload="false" />
+  <texture name="Stepper_Up_Press" file_name="widgets/Stepper_Up_Press.png" preload="false" />
 
   <texture name="Stop_Off" file_name="icons/Stop_Off.png" preload="false" />
   <texture name="Stop_Over" file_name="icons/Stop_Over.png" preload="false" />

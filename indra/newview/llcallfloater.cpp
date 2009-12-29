@@ -40,6 +40,7 @@
 
 #include "llagent.h"
 #include "llagentdata.h" // for gAgentID
+#include "llavatariconctrl.h"
 #include "llavatarlist.h"
 #include "llbottomtray.h"
 #include "llimfloater.h"
@@ -48,6 +49,7 @@
 #include "llspeakers.h"
 #include "lltransientfloatermgr.h"
 
+static void get_voice_participants_uuids(std::vector<LLUUID>& speakers_uuids);
 
 class LLNonAvatarCaller : public LLAvatarListItem
 {
@@ -66,6 +68,8 @@ public:
 			showLastInteractionTime(false);
 			setShowProfileBtn(false);
 			setShowInfoBtn(false);
+			mAvatarIcon->setValue("Avaline_Icon");
+			mAvatarIcon->setToolTip(std::string(""));
 		}
 		return rv;
 	}
@@ -79,17 +83,38 @@ static void* create_non_avatar_caller(void*)
 	return new LLNonAvatarCaller;
 }
 
+LLCallFloater::LLAvatarListItemRemoveTimer::LLAvatarListItemRemoveTimer(callback_t remove_cb, F32 period, const LLUUID& speaker_id)
+: LLEventTimer(period)
+, mRemoveCallback(remove_cb)
+, mSpeakerId(speaker_id)
+{
+}
+
+BOOL LLCallFloater::LLAvatarListItemRemoveTimer::tick()
+{
+	if (mRemoveCallback)
+	{
+		mRemoveCallback(mSpeakerId);
+	}
+	return TRUE;
+}
+
 LLCallFloater::LLCallFloater(const LLSD& key)
 : LLDockableFloater(NULL, false, key)
 , mSpeakerManager(NULL)
-, mPaticipants(NULL)
+, mParticipants(NULL)
 , mAvatarList(NULL)
 , mNonAvatarCaller(NULL)
 , mVoiceType(VC_LOCAL_CHAT)
 , mAgentPanel(NULL)
 , mSpeakingIndicator(NULL)
 , mIsModeratorMutedVoice(false)
+, mInitParticipantsVoiceState(false)
+, mVoiceLeftRemoveDelay(10)
 {
+	static LLUICachedControl<S32> voice_left_remove_delay ("VoiceParticipantLeftRemoveDelay", 10);
+	mVoiceLeftRemoveDelay = voice_left_remove_delay;
+
 	mFactoryMap["non_avatar_caller"] = LLCallbackMap(create_non_avatar_caller, NULL);
 	LLVoiceClient::getInstance()->addObserver(this);
 	LLTransientFloaterMgr::getInstance()->addControlView(this);
@@ -97,8 +122,12 @@ LLCallFloater::LLCallFloater(const LLSD& key)
 
 LLCallFloater::~LLCallFloater()
 {
-	delete mPaticipants;
-	mPaticipants = NULL;
+	resetVoiceRemoveTimers();
+
+	delete mParticipants;
+	mParticipants = NULL;
+
+	mAvatarListRefreshConnection.disconnect();
 
 	// Don't use LLVoiceClient::getInstance() here 
 	// singleton MAY have already been destroyed.
@@ -114,6 +143,8 @@ BOOL LLCallFloater::postBuild()
 {
 	LLDockableFloater::postBuild();
 	mAvatarList = getChild<LLAvatarList>("speakers_list");
+	mAvatarListRefreshConnection = mAvatarList->setRefreshCompleteCallback(boost::bind(&LLCallFloater::onAvatarListRefreshed, this));
+
 	childSetAction("leave_call_btn", boost::bind(&LLCallFloater::leaveCall, this));
 
 	mNonAvatarCaller = getChild<LLNonAvatarCaller>("non_avatar_caller");
@@ -144,7 +175,11 @@ void LLCallFloater::draw()
 	// It should be done only when she joins or leaves voice chat.
 	// But seems that LLVoiceClientParticipantObserver is not enough to satisfy this requirement.
 	// *TODO: mantipov: remove from draw()
-	onChange();
+
+	// NOTE: it looks like calling onChange() here is not necessary,
+	// but sometime it is not called properly from the observable object.
+	// Seems this is a problem somewhere in Voice Client (LLVoiceClient::participantAddedEvent)
+//	onChange();
 
 	bool is_moderator_muted = gVoiceClient->getIsModeratorMuted(gAgentID);
 
@@ -153,15 +188,27 @@ void LLCallFloater::draw()
 		setModeratorMutedVoice(is_moderator_muted);
 	}
 
+	// Need to resort the participant list if it's in sort by recent speaker order.
+	if (mParticipants)
+		mParticipants->updateRecentSpeakersOrder();
+
 	LLDockableFloater::draw();
 }
 
 // virtual
 void LLCallFloater::onChange()
 {
-	if (NULL == mPaticipants) return;
+	if (NULL == mParticipants) return;
 
-	mPaticipants->refreshVoiceState();
+	updateParticipantsVoiceState();
+
+	// Add newly joined participants.
+	std::vector<LLUUID> speakers_uuids;
+	get_voice_participants_uuids(speakers_uuids);
+	for (std::vector<LLUUID>::const_iterator it = speakers_uuids.begin(); it != speakers_uuids.end(); it++)
+	{
+		mParticipants->addAvatarIDExceptAgent(*it);
+	}
 }
 
 
@@ -242,8 +289,8 @@ void LLCallFloater::updateSession()
 	bool is_local_chat = mVoiceType == VC_LOCAL_CHAT;
 	childSetVisible("leave_call_btn", !is_local_chat);
 	
-	refreshPartisipantList();
-	updateModeratorState();
+	refreshParticipantList();
+	updateAgentModeratorState();
 
 	//show floater for voice calls
 	if (!is_local_chat)
@@ -257,10 +304,17 @@ void LLCallFloater::updateSession()
 	}
 }
 
-void LLCallFloater::refreshPartisipantList()
+void LLCallFloater::refreshParticipantList()
 {
-	delete mPaticipants;
-	mPaticipants = NULL;
+	// lets forget states from the previous session
+	// for timers...
+	resetVoiceRemoveTimers();
+
+	// ...and for speaker state
+	mSpeakerStateMap.clear();
+
+	delete mParticipants;
+	mParticipants = NULL;
 	mAvatarList->clear();
 
 	bool non_avatar_caller = false;
@@ -280,13 +334,30 @@ void LLCallFloater::refreshPartisipantList()
 
 	if (!non_avatar_caller)
 	{
-		mPaticipants = new LLParticipantList(mSpeakerManager, mAvatarList);
+		mParticipants = new LLParticipantList(mSpeakerManager, mAvatarList, true, mVoiceType != VC_GROUP_CHAT && mVoiceType != VC_AD_HOC_CHAT);
+		mParticipants->setValidateSpeakerCallback(boost::bind(&LLCallFloater::validateSpeaker, this, _1));
 
 		if (LLLocalSpeakerMgr::getInstance() == mSpeakerManager)
 		{
 			mAvatarList->setNoItemsCommentText(getString("no_one_near"));
 		}
-		mPaticipants->refreshVoiceState();	
+
+		// we have to made delayed initialization of voice state of participant list.
+		// it will be performed after first LLAvatarList refreshing in the onAvatarListRefreshed().
+		mInitParticipantsVoiceState = true;
+	}
+}
+
+void LLCallFloater::onAvatarListRefreshed()
+{
+	if (mInitParticipantsVoiceState)
+	{
+		initParticipantsVoiceState();
+		mInitParticipantsVoiceState = false;
+	}
+	else
+	{
+		updateParticipantsVoiceState();
 	}
 }
 
@@ -366,7 +437,7 @@ void LLCallFloater::setModeratorMutedVoice(bool moderator_muted)
 	mSpeakingIndicator->setIsMuted(moderator_muted);
 }
 
-void LLCallFloater::updateModeratorState()
+void LLCallFloater::updateAgentModeratorState()
 {
 	std::string name;
 	gCacheName->getFullName(gAgentID, name);
@@ -388,4 +459,266 @@ void LLCallFloater::updateModeratorState()
 	}
 	mAgentPanel->childSetValue("user_text", name);
 }
+
+static void get_voice_participants_uuids(std::vector<LLUUID>& speakers_uuids)
+{
+	// Get a list of participants from VoiceClient
+	LLVoiceClient::participantMap *voice_map = gVoiceClient->getParticipantList();
+	if (voice_map)
+	{
+		for (LLVoiceClient::participantMap::const_iterator iter = voice_map->begin();
+			iter != voice_map->end(); ++iter)
+		{
+			LLUUID id = (*iter).second->mAvatarID;
+			speakers_uuids.push_back(id);
+		}
+	}
+}
+
+void LLCallFloater::initParticipantsVoiceState()
+{
+	// Set initial status for each participant in the list.
+	std::vector<LLPanel*> items;
+	mAvatarList->getItems(items);
+	std::vector<LLPanel*>::const_iterator
+		it = items.begin(),
+		it_end = items.end();
+
+
+	std::vector<LLUUID> speakers_uuids;
+	get_voice_participants_uuids(speakers_uuids);
+
+	for(; it != it_end; ++it)
+	{
+		LLAvatarListItem *item = dynamic_cast<LLAvatarListItem*>(*it);
+		
+		if (!item)	continue;
+		
+		LLUUID speaker_id = item->getAvatarId();
+
+		std::vector<LLUUID>::const_iterator speaker_iter = std::find(speakers_uuids.begin(), speakers_uuids.end(), speaker_id);
+
+		// If an avatarID assigned to a panel is found in a speakers list
+		// obtained from VoiceClient we assign the JOINED status to the owner
+		// of this avatarID.
+		if (speaker_iter != speakers_uuids.end())
+		{
+			setState(item, STATE_JOINED);
+		}
+		else
+		{
+			LLPointer<LLSpeaker> speakerp = mSpeakerManager->findSpeaker(speaker_id);
+			// If someone has already left the call before, we create his
+			// avatar row panel with HAS_LEFT status and remove it after
+			// the timeout, otherwise we create a panel with INVITED status
+			if (speakerp.notNull() && speakerp.get()->mHasLeftCurrentCall)
+			{
+				setState(item, STATE_LEFT);
+			}
+			else
+			{
+				setState(item, STATE_INVITED);
+			}
+		}
+	}
+}
+
+void LLCallFloater::updateParticipantsVoiceState()
+{
+	std::vector<LLUUID> speakers_list;
+
+	// Get a list of participants from VoiceClient
+	std::vector<LLUUID> speakers_uuids;
+	get_voice_participants_uuids(speakers_uuids);
+
+	// Updating the status for each participant already in list.
+	std::vector<LLPanel*> items;
+	mAvatarList->getItems(items);
+	std::vector<LLPanel*>::const_iterator
+		it = items.begin(),
+		it_end = items.end();
+
+	for(; it != it_end; ++it)
+	{
+		LLAvatarListItem *item = dynamic_cast<LLAvatarListItem*>(*it);
+		if (!item) continue;
+
+		const LLUUID participant_id = item->getAvatarId();
+		bool found = false;
+
+		std::vector<LLUUID>::iterator speakers_iter = std::find(speakers_uuids.begin(), speakers_uuids.end(), participant_id);
+
+		lldebugs << "processing speaker: " << item->getAvatarName() << ", " << item->getAvatarId() << llendl;
+
+		// If an avatarID assigned to a panel is found in a speakers list
+		// obtained from VoiceClient we assign the JOINED status to the owner
+		// of this avatarID.
+		if (speakers_iter != speakers_uuids.end())
+		{
+			setState(item, STATE_JOINED);
+
+			LLPointer<LLSpeaker> speaker = mSpeakerManager->findSpeaker(participant_id);
+			if (speaker.isNull())
+				continue;
+			speaker->mHasLeftCurrentCall = FALSE;
+
+			speakers_uuids.erase(speakers_iter);
+			found = true;
+		}
+
+		if (!found)
+		{
+			// If an avatarID is not found in a speakers list from VoiceClient and
+			// a panel with this ID has a JOINED status this means that this person
+			// HAS LEFT the call.
+			if ((getState(participant_id) == STATE_JOINED))
+			{
+				if (mVoiceType == VC_LOCAL_CHAT)
+				{
+					// Don't display avatars that aren't in our nearby chat range anymore as "left". Remove them immediately.
+					removeVoiceLeftParticipant(participant_id);
+				}
+				else
+				{
+					setState(item, STATE_LEFT);
+
+					LLPointer<LLSpeaker> speaker = mSpeakerManager->findSpeaker(item->getAvatarId());
+					if (speaker.isNull())
+					{
+						continue;
+					}
+
+					speaker->mHasLeftCurrentCall = TRUE;
+				}
+			}
+			// If an avatarID is not found in a speakers list from VoiceClient and
+			// a panel with this ID has a LEFT status this means that this person
+			// HAS ENTERED session but it is not in voice chat yet. So, set INVITED status
+			else if ((getState(participant_id) != STATE_LEFT))
+			{
+				setState(item, STATE_INVITED);
+			}
+			else
+			{
+				llwarns << "Unsupported (" << getState(participant_id) << ") state: " << item->getAvatarName()  << llendl;
+			}
+		}
+	}
+}
+
+void LLCallFloater::setState(LLAvatarListItem* item, ESpeakerState state)
+{
+	// *HACK: mantipov: sometimes such situation is possible while switching to voice channel:
+/*
+	- voice channel is switched to the one user is joining
+	- participant list is initialized with voice states: agent is in voice
+	- than such log messages were found (with agent UUID)
+			- LLVivoxProtocolParser::process_impl: parsing: <Response requestId="22" action="Session.MediaDisconnect.1"><ReturnCode>0</ReturnCode><Results><StatusCode>0</StatusCode><StatusString /></Results><InputXml><Request requestId="22" action="Session.MediaDisconnect.1"><SessionGroupHandle>9</SessionGroupHandle><SessionHandle>12</SessionHandle><Media>Audio</Media></Request></InputXml></Response>
+			- LLVoiceClient::sessionState::removeParticipant: participant "sip:x2pwNkMbpR_mK4rtB_awASA==@bhr.vivox.com" (da9c0d90-c6e9-47f9-8ae2-bb41fdac0048) removed.
+	- and than while updating participants voice states agent is marked as HAS LEFT
+	- next updating of LLVoiceClient state makes agent JOINED
+	So, lets skip HAS LEFT state for agent's avatar
+*/
+	if (STATE_LEFT == state && item->getAvatarId() == gAgentID) return;
+
+	setState(item->getAvatarId(), state);
+
+	switch (state)
+	{
+	case STATE_INVITED:
+		item->setStyle(LLAvatarListItem::IS_VOICE_INVITED);
+		break;
+	case STATE_JOINED:
+		removeVoiceRemoveTimer(item->getAvatarId());
+		item->setStyle(LLAvatarListItem::IS_VOICE_JOINED);
+		break;
+	case STATE_LEFT:
+		{
+			setVoiceRemoveTimer(item->getAvatarId());
+			item->setStyle(LLAvatarListItem::IS_VOICE_LEFT);
+		}
+		break;
+	default:
+		llwarns << "Unrecognized avatar panel state (" << state << ")" << llendl;
+		break;
+	}
+}
+
+void LLCallFloater::setVoiceRemoveTimer(const LLUUID& voice_speaker_id)
+{
+
+	// If there is already a started timer for the current panel don't do anything.
+	bool no_timer_for_current_panel = true;
+	if (mVoiceLeftTimersMap.size() > 0)
+	{
+		timers_map::iterator found_it = mVoiceLeftTimersMap.find(voice_speaker_id);
+		if (found_it != mVoiceLeftTimersMap.end())
+		{
+			no_timer_for_current_panel = false;
+		}
+	}
+
+	if (no_timer_for_current_panel)
+	{
+		// Starting a timer to remove an avatar row panel after timeout
+		mVoiceLeftTimersMap.insert(timer_pair(voice_speaker_id,
+			new LLAvatarListItemRemoveTimer(boost::bind(&LLCallFloater::removeVoiceLeftParticipant, this, _1), mVoiceLeftRemoveDelay, voice_speaker_id)));
+	}
+}
+
+void LLCallFloater::removeVoiceLeftParticipant(const LLUUID& voice_speaker_id)
+{
+	if (mVoiceLeftTimersMap.size() > 0)
+	{
+		mVoiceLeftTimersMap.erase(mVoiceLeftTimersMap.find(voice_speaker_id));
+	}
+
+	LLAvatarList::uuid_vector_t& speaker_uuids = mAvatarList->getIDs();
+	LLAvatarList::uuid_vector_t::iterator pos = std::find(speaker_uuids.begin(), speaker_uuids.end(), voice_speaker_id);
+	if(pos != speaker_uuids.end())
+	{
+		speaker_uuids.erase(pos);
+		mAvatarList->setDirty();
+	}
+}
+
+
+void LLCallFloater::resetVoiceRemoveTimers()
+{
+	if (mVoiceLeftTimersMap.size() > 0)
+	{
+		for (timers_map::iterator iter = mVoiceLeftTimersMap.begin();
+			iter != mVoiceLeftTimersMap.end(); ++iter)
+		{
+			delete iter->second;
+		}
+	}
+	mVoiceLeftTimersMap.clear();
+}
+
+void LLCallFloater::removeVoiceRemoveTimer(const LLUUID& voice_speaker_id)
+{
+	// Remove the timer if it has been already started
+	if (mVoiceLeftTimersMap.size() > 0)
+	{
+		timers_map::iterator found_it = mVoiceLeftTimersMap.find(voice_speaker_id);
+		if (found_it != mVoiceLeftTimersMap.end())
+		{
+			delete found_it->second;
+			mVoiceLeftTimersMap.erase(found_it);
+		}
+	}
+}
+
+bool LLCallFloater::validateSpeaker(const LLUUID& speaker_id)
+{
+	if (mVoiceType != VC_LOCAL_CHAT)
+		return true;
+
+	// A nearby chat speaker is considered valid it it's known to LLVoiceClient (i.e. has enabled voice).
+	std::vector<LLUUID> speakers;
+	get_voice_participants_uuids(speakers);
+	return std::find(speakers.begin(), speakers.end(), speaker_id) != speakers.end();
+}
+
 //EOF

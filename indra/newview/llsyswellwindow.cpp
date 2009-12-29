@@ -63,6 +63,7 @@ LLSysWellWindow::LLSysWellWindow(const LLSD& key) : LLDockableFloater(NULL, key)
 {
 	mTypedItemsCount[IT_NOTIFICATION] = 0;
 	mTypedItemsCount[IT_INSTANT_MESSAGE] = 0;
+	setOverlapsScreenChannel(true);
 }
 
 //---------------------------------------------------------------------------------
@@ -352,6 +353,7 @@ LLIMWellWindow::RowPanel::RowPanel(const LLSysWellWindow* parent, const LLUUID& 
 	}
 
 	// Initialize chiclet.
+	mChiclet->setRect(LLRect(5, 28, 30, 3)); // *HACK: workaround for (EXT-3599)
 	mChiclet->setChicletSizeChangedCallback(boost::bind(&LLIMWellWindow::RowPanel::onChicletSizeChanged, this, mChiclet, _2));
 	mChiclet->enableCounterControl(true);
 	mChiclet->setCounter(chicletCounter);
@@ -742,12 +744,13 @@ BOOL LLIMWellWindow::postBuild()
 void LLIMWellWindow::sessionAdded(const LLUUID& session_id,
 								   const std::string& name, const LLUUID& other_participant_id)
 {
+	LLIMModel::LLIMSession* session = LLIMModel::getInstance()->findIMSession(session_id);
+	if (!session) return;
+
+	// no need to spawn chiclets for participants in P2P calls called through Avaline
+	if (session->isP2P() && session->isOtherParticipantAvaline()) return;
+
 	if (mMessageList->getItemByValue(session_id)) return;
-
-	// For im sessions started as voice call chiclet gets created on the first incoming message
-	if (gIMMgr->isVoiceCall(session_id)) return;
-
-	if (!gIMMgr->hasSession(session_id)) return;
 
 	addIMRow(session_id, 0, name, other_participant_id);	
 	reshapeWindow();
@@ -904,23 +907,6 @@ bool LLIMWellWindow::hasIMRow(const LLUUID& session_id)
 {
 	return mMessageList->getItemByValue(session_id);
 }
-
-void LLIMWellWindow::onNewIM(const LLSD& data)
-{
-	LLUUID from_id = data["from_id"];
-	if (from_id.isNull() || gAgentID == from_id) return;
-
-	LLUUID session_id = data["session_id"];
-	if (session_id.isNull()) return;
-
-	if (!gIMMgr->isVoiceCall(session_id)) return;
-
-	if (hasIMRow(session_id)) return;
-
-	//first real message, time to create chiclet
-	addIMRow(session_id);
-}
-
 
 void LLIMWellWindow::closeAll()
 {
