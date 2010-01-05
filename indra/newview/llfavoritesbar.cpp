@@ -162,9 +162,22 @@ public:
 		if (!region_name.empty())
 		{
 			LLToolTip::Params params;
-			params.message = llformat("%s\n%s (%d, %d, %d)", getLabelSelected().c_str(), region_name.c_str(), 
+			std::string extra_message = llformat("%s (%d, %d, %d)", region_name.c_str(), 
 				mLandmarkInfoGetter.getPosX(), mLandmarkInfoGetter.getPosY(), mLandmarkInfoGetter.getPosZ());
-			params.sticky_rect = calcScreenRect();
+
+			params.message = llformat("%s\n%s", getLabelSelected().c_str(), extra_message.c_str());
+			
+			LLRect rect = calcScreenRect();
+			LLFontGL* standart_font = LLFontGL::getFontSansSerif();
+			if(standart_font)
+			{
+				S32 w = llmax((S32)(standart_font->getWidthF32(getLabelSelected())+0.5),(S32)(standart_font->getWidthF32(extra_message)+0.5));
+				rect.mRight = rect.mLeft + w;
+				params.max_width = w;
+			}
+			
+			params.sticky_rect = rect; 
+
 			LLToolTipMgr::instance().show(params);
 		}
 		return TRUE;
@@ -760,9 +773,9 @@ LLButton* LLFavoritesBarCtrl::createButton(const LLPointer<LLViewerInventoryItem
 	 * WORKAROUND:
 	 * there are some problem with displaying of fonts in buttons. 
 	 * Empty space (or ...) is displaying instead of last symbols, even though the width of the button is enough.
-	 * Problem will gone, if we  stretch out the button. For that reason I have to put additional  10 pixels. 
+	 * Problem will gone, if we  stretch out the button. For that reason I have to put additional  20 pixels.
 	 */
-	int requred_width = mFont->getWidth(item->getDisplayName()) + 10; 
+	int requred_width = mFont->getWidth(item->getDisplayName()) + 20;
 	int width = requred_width > def_button_width? def_button_width : requred_width;
 	LLFavoriteLandmarkButton* fav_btn = NULL;
 
@@ -984,7 +997,7 @@ void LLFavoritesBarCtrl::doToSelected(const LLSD& userdata)
 	
 	if (action == "open")
 	{
-		teleport_via_landmark(item->getAssetUUID());
+		onButtonClick(item->getUUID());
 	}
 	else if (action == "about")
 	{

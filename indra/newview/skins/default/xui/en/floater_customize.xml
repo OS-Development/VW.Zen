@@ -12,16 +12,6 @@
  title="APPEARANCE"
  top_delta="-185"
  width="524">
- <check_box
-             enabled="true"
-             height="23"
-             label="Show Attachments in Previews"
-             layout="topleft"
-             left="110"
-             name="show attachments"
-             tool_tip="Display attachments on your avatar in the preview panels below."
-             top="20"
-             width="146" />
     <tab_container
      height="517"
      layout="topleft"
@@ -55,6 +45,7 @@
          label="Shape"
          layout="topleft"
          name="Shape"
+         help_topic="customize_shape_tab"
          width="400">
             <icon
              follows="top|right"
@@ -340,6 +331,7 @@ scratch and wear it.
          label="Skin"
          layout="topleft"
          name="Skin"
+         help_topic="customize_skin_tab"
          width="400">
             <icon
              follows="top|right"
@@ -591,6 +583,7 @@ scratch and wear it.
          label="Hair"
          layout="topleft"
          name="Hair"
+         help_topic="customize_hair_tab"
          width="400">
             <icon
              follows="top|right"
@@ -812,6 +805,7 @@ scratch and wear it.
          layout="topleft"
          left_delta="0"
          name="Eyes"
+         help_topic="customize_eyes_tab"
          top_delta="0"
          width="389">
             <icon
@@ -1010,6 +1004,7 @@ scratch and wear it.
          layout="topleft"
          left_delta="0"
          name="Shirt"
+         help_topic="customize_shirt_tab"
          top_delta="0"
          width="389">
             <icon
@@ -1215,6 +1210,7 @@ scratch and wear it.
          layout="topleft"
          left_delta="0"
          name="Pants"
+         help_topic="customize_pants_tab"
          top_delta="0"
          width="389">
             <icon
@@ -1420,6 +1416,7 @@ scratch and wear it.
          layout="topleft"
          left_delta="0"
          name="Shoes"
+         help_topic="customize_shoes_tab"
          top_delta="0"
          width="389">
             <icon
@@ -1625,6 +1622,7 @@ scratch and wear it.
          layout="topleft"
          left_delta="0"
          name="Socks"
+         help_topic="customize_socks_tab"
          top_delta="0"
          width="389">
             <icon
@@ -1830,6 +1828,7 @@ scratch and wear it.
          layout="topleft"
          left_delta="0"
          name="Jacket"
+         help_topic="customize_jacket_tab"
          top_delta="0"
          width="389">
             <icon
@@ -2047,6 +2046,7 @@ scratch and wear it.
          layout="topleft"
          left_delta="0"
          name="Gloves"
+         help_topic="customize_gloves_tab"
          top_delta="0"
          width="389">
             <icon
@@ -2252,6 +2252,7 @@ scratch and wear it.
          layout="topleft"
          left_delta="0"
          name="Undershirt"
+         help_topic="customize_undershirt_tab"
          top_delta="0"
          width="389">
             <icon
@@ -2457,6 +2458,7 @@ scratch and wear it.
          layout="topleft"
          left_delta="0"
          name="Underpants"
+         help_topic="customize_underpants_tab"
          top_delta="0"
          width="389">
             <icon
@@ -2662,6 +2664,7 @@ scratch and wear it.
          layout="topleft"
          left_delta="0"
          name="Skirt"
+         help_topic="customize_skirt_tab"
          top_delta="0"
          width="389">
             <icon
@@ -2867,6 +2870,7 @@ scratch and wear it.
          layout="topleft"
          left_delta="0"
          name="Alpha"
+         help_topic="customize_alpha_tab"
          top_delta="0"
          width="389">
             <icon
@@ -3154,6 +3158,7 @@ scratch and wear it.
          layout="topleft"
          left_delta="0"
          name="Tattoo"
+         help_topic="customize_tattoo_tab"
          top_delta="0"
          width="389">
             <icon
@@ -3379,6 +3384,16 @@ scratch and wear it.
          layout="topleft"
          name="panel_list" />
     </scroll_container>
+    <button
+     bottom="598"
+     follows="right|left"
+     height="20"
+     label="Script Info"
+     label_selected="Script Info"
+     layout="topleft"
+     name="script_info"
+     left="2"
+     width="98" />
     <button
      bottom="598"
      follows="right|bottom"

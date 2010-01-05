@@ -80,7 +80,7 @@ std::string LLUrlEntryBase::escapeUrl(const std::string &url) const
 			"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 			"abcdefghijklmnopqrstuvwxyz"
 			"0123456789"
-			"-._~!$?&()*+,@:;=/%";
+			"-._~!$?&()*+,@:;=/%#";
 
 		std::sort(no_escape_chars.begin(), no_escape_chars.end());
 		initialized = true;
@@ -201,8 +201,12 @@ std::string LLUrlEntryHTTPLabel::getUrl(const std::string &string)
 //
 LLUrlEntryHTTPNoProtocol::LLUrlEntryHTTPNoProtocol()
 {
-	mPattern = boost::regex("(\\bwww\\.\\S+\\.\\S+|\\S+.com\\S*|\\S+.net\\S*|\\S+.edu\\S*|\\S+.org\\S*)",
-							boost::regex::perl|boost::regex::icase);
+	mPattern = boost::regex("("
+				"\\bwww\\.\\S+\\.\\S+" // i.e. www.FOO.BAR
+				"|" // or
+				"\\b[^ \\t\\n\\r\\f\\v:/]+\\.(?:com|net|edu|org)[^[:space:][:alnum:]]*\\>" // i.e. FOO.net
+				")",
+				boost::regex::perl|boost::regex::icase);
 	mMenuName = "menu_url_http.xml";
 	mTooltip = LLTrans::getString("TooltipHttpUrl");
 }

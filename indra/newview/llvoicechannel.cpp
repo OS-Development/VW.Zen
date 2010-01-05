@@ -33,7 +33,6 @@
 #include "llviewerprecompiledheaders.h"
 
 #include "llagent.h"
-#include "llfloatercall.h"
 #include "llfloaterreg.h"
 #include "llimview.h"
 #include "llnotifications.h"
@@ -446,6 +445,17 @@ void LLVoiceChannel::resume()
 	}
 }
 
+boost::signals2::connection LLVoiceChannel::setCurrentVoiceChannelChangedCallback(channel_changed_callback_t cb, bool at_front)
+{
+	if (at_front)
+	{
+		return sCurrentVoiceChannelChangedSignal.connect(cb,  boost::signals2::at_front);
+	}
+	else
+	{
+		return sCurrentVoiceChannelChangedSignal.connect(cb);
+	}
+}
 
 //
 // LLVoiceChannelGroup

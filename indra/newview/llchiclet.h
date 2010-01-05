@@ -41,7 +41,6 @@
 #include "llgroupmgr.h"
 #include "llimview.h"
 
-class LLVoiceControlPanel;
 class LLMenuGL;
 class LLIMFloater;
 
@@ -51,8 +50,6 @@ class LLIMFloater;
 class LLChicletNotificationCounterCtrl : public LLTextBox
 {
 public:
-
-	static const S32 MAX_DISPLAYED_COUNT;
 
 	struct Params :	public LLInitParam::Block<Params, LLTextBox::Params>
 	{
@@ -217,7 +214,8 @@ public:
 
 	struct Params : public LLInitParam::Block<Params, LLUICtrl::Params>
 	{
-		Optional<bool> show_counter;
+		Optional<bool> show_counter,
+					   enable_counter;
 
 		Params();
 	};
@@ -323,10 +321,7 @@ public:
 	};
 	struct Params : public LLInitParam::Block<Params, LLChiclet::Params>
 	{
-		Optional<std::string> new_messages_icon_name;
-
-		Params() : new_messages_icon_name("new_messages_icon_name", "Unread_IM")
-		{}
+		Params(){}
 	};
 
 	
@@ -437,6 +432,8 @@ protected:
 
 	bool mShowSpeaker;
 	bool mCounterEnabled;
+	/* initial width of chiclet, should not include counter or speaker width */
+	S32 mDefaultWidth;
 
 	LLIconCtrl* mNewMessagesIcon;
 	LLChicletNotificationCounterCtrl* mCounterCtrl;
@@ -482,6 +479,8 @@ public:
 
 		Optional<LLChicletSpeakerCtrl::Params> speaker;
 
+		Optional<LLIconCtrl::Params> new_message_icon;
+
 		Optional<bool>	show_speaker;
 
 		Params();
@@ -521,6 +520,7 @@ protected:
 
 	/** 
 	 * Enables/disables menus based on relationship with other participant.
+	 * Enables/disables "show session" menu item depending on visible IM floater existence.
 	 */
 	virtual void updateMenuItems();
 
@@ -543,6 +543,8 @@ public:
 		Optional<LLChicletNotificationCounterCtrl::Params> unread_notifications;
 
 		Optional<LLChicletSpeakerCtrl::Params> speaker;
+
+		Optional<LLIconCtrl::Params> new_message_icon;
 
 		Optional<bool>	show_speaker;
 
@@ -614,6 +616,8 @@ public:
 	{
 		Optional<LLIconCtrl::Params> icon;
 
+		Optional<LLIconCtrl::Params> new_message_icon;
+
 		Params();
 	};
 
@@ -653,6 +657,8 @@ public:
 	struct Params : public LLInitParam::Block<Params, LLIMChiclet::Params>
 	{
 		Optional<LLChicletInvOfferIconCtrl::Params> icon;
+
+		Optional<LLIconCtrl::Params> new_message_icon;
 
 		Params();
 	};
@@ -696,6 +702,8 @@ public:
 		Optional<LLChicletNotificationCounterCtrl::Params> unread_notifications;
 
 		Optional<LLChicletSpeakerCtrl::Params> speaker;
+
+		Optional<LLIconCtrl::Params> new_message_icon;
 
 		Optional<bool>	show_speaker;
 
@@ -750,6 +758,11 @@ protected:
 	 * Processes clicks on chiclet popup menu.
 	 */
 	virtual void onMenuItemClicked(const LLSD& user_data);
+
+	/**
+	 * Enables/disables "show session" menu item depending on visible IM floater existence.
+	 */
+	virtual void updateMenuItems();
 
 	/**
 	 * Displays popup menu.
@@ -811,6 +824,8 @@ public:
 	void setToggleState(BOOL toggled);
 
 	void setNewMessagesState(bool new_messages);
+	//this method should change a widget according to state of the SysWellWindow 
+	virtual void updateWidget(bool is_window_empty);
 
 protected:
 
@@ -916,7 +931,7 @@ protected:
 	// methods for updating a number of unread System notifications
 	void incUreadSystemNotifications() { setCounter(++mUreadSystemNotifications); }
 	void decUreadSystemNotifications() { setCounter(--mUreadSystemNotifications); }
-
+	/*virtual*/ void setCounter(S32 counter);
 	S32 mUreadSystemNotifications;
 };
 
@@ -931,7 +946,9 @@ public:
 	struct Params :	public LLInitParam::Block<Params, LLPanel::Params>
 	{
 		Optional<S32> chiclet_padding,
-					  scrolling_offset;
+					  scrolling_offset,
+					  scroll_button_hpad,
+					  scroll_ratio;
 
 		Optional<S32> min_width;
 
@@ -1021,6 +1038,8 @@ public:
 
 	S32 getTotalUnreadIMCount();
 
+	S32	notifyParent(const LLSD& info);
+
 protected:
 	LLChicletPanel(const Params&p);
 	friend class LLUICtrlFactory;
@@ -1048,6 +1067,11 @@ protected:
 	 * Returns true if chiclets can be scrolled right.
 	 */
 	bool canScrollRight();
+
+	/**
+	 * Returns true if we need to show scroll buttons
+	 */
+	bool needShowScroll();
 
 	/**
 	 * Returns true if chiclets can be scrolled left.
@@ -1143,6 +1167,8 @@ protected:
 
 	S32 mChicletPadding;
 	S32 mScrollingOffset;
+	S32 mScrollButtonHPad;
+	S32 mScrollRatio;
 	S32 mMinWidth;
 	bool mShowControls;
 	static const S32 s_scroll_ratio;
