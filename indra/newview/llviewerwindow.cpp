@@ -2021,7 +2021,7 @@ void LLViewerWindow::draw()
 
 	if (!gSavedSettings.getBOOL("RenderUIBuffer"))
 	{
-		LLUI::sDirtyRect = this->getWindowRectRaw();
+		LLUI::sDirtyRect = getWindowRectScaled();
 	}
 
 	// HACK for timecode debugging
