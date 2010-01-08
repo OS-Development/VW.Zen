@@ -2228,7 +2228,20 @@ LLUIImagePtr LLFolderBridge::getIcon() const
 LLUIImagePtr LLFolderBridge::getIcon(LLFolderType::EType preferred_type)
 {
 	// we only have one folder image now
+	if (preferred_type == LLFolderType::FT_OUTFIT)
+	{
+		return LLUI::getUIImage("Inv_LookFolderClosed");
+	}
 	return LLUI::getUIImage("Inv_FolderClosed");
+}
+
+LLUIImagePtr LLFolderBridge::getOpenIcon() const
+{
+	if (getPreferredType() == LLFolderType::FT_OUTFIT)
+	{
+		return LLUI::getUIImage("Inv_LookFolderOpen");
+	}
+	return LLUI::getUIImage("Inv_FolderOpen");
 }
 
 BOOL LLFolderBridge::renameItem(const std::string& new_name)
@@ -2614,6 +2627,13 @@ void LLFolderBridge::buildContextMenu(LLMenuGL& menu, U32 flags)
 			{
 				mItems.push_back(std::string("Rename"));
 				mItems.push_back(std::string("Delete"));
+
+				// EXT-4030: disallow deletion of currently worn outfit
+				const LLViewerInventoryItem *base_outfit_link = LLAppearanceManager::instance().getBaseOutfitLink();
+				if (base_outfit_link && (cat == base_outfit_link->getLinkedCategory()))
+				{
+					mDisabledItems.push_back(std::string("Delete"));
+				}
 			}
 		}
 
