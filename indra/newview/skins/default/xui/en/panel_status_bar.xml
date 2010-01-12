@@ -101,7 +101,6 @@
      tool_tip="Global Volume Control"
      width="16" />
     <text
-     enabled="true"
      follows="right|bottom"
      halign="center"
      height="12"
