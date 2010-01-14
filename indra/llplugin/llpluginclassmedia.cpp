@@ -126,7 +126,7 @@ void LLPluginClassMedia::reset()
 	mCanPaste = false;
 	mMediaName.clear();
 	mMediaDescription.clear();
-	mBackgroundColor = LLColor4::white;
+	mBackgroundColor = LLColor4(1.0f, 1.0f, 1.0f, 1.0f);
 	
 	// media_browser class
 	mNavigateURI.clear();
