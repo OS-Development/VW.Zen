@@ -550,7 +550,7 @@ void LLTeleportHistoryPanel::updateVerbs()
 
 	LLTeleportHistoryFlatItem* itemp = dynamic_cast<LLTeleportHistoryFlatItem *> (mLastSelectedFlatlList->getSelectedItem());
 
-	mTeleportBtn->setEnabled(NULL != itemp && itemp->getIndex() < (S32)mTeleportHistory->getItems().size() - 1);
+	mTeleportBtn->setEnabled(NULL != itemp);
 	mShowOnMapBtn->setEnabled(NULL != itemp);
 }
 
@@ -723,7 +723,10 @@ void LLTeleportHistoryPanel::onTeleportHistoryChange(S32 removed_index)
 	if (-1 == removed_index)
 		showTeleportHistory(); // recreate all items
 	else
+	{
 		replaceItem(removed_index); // replace removed item by most recent
+		updateVerbs();
+	}
 }
 
 void LLTeleportHistoryPanel::replaceItem(S32 removed_index)

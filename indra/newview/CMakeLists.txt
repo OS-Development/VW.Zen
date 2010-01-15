@@ -212,7 +212,6 @@ set(viewer_SOURCE_FILES
     llfloaterurldisplay.cpp
     llfloaterurlentry.cpp
     llfloatervoicedevicesettings.cpp
-    llfloatervolumepulldown.cpp
     llfloaterwater.cpp
     llfloaterwhitelistentry.cpp
     llfloaterwindlight.cpp
@@ -250,6 +249,7 @@ set(viewer_SOURCE_FILES
     llinspectgroup.cpp
     llinspectobject.cpp
     llinspectremoteobject.cpp
+    llinspecttoast.cpp
     llinventorybridge.cpp
     llinventoryclipboard.cpp
     llinventoryfilter.cpp
@@ -347,6 +347,7 @@ set(viewer_SOURCE_FILES
     llpanelshower.cpp
     llpanelteleporthistory.cpp
     llpanelvolume.cpp
+    llpanelvolumepulldown.cpp
     llparcelselection.cpp
     llparticipantlist.cpp
     llpatchvertexarray.cpp
@@ -385,6 +386,7 @@ set(viewer_SOURCE_FILES
     llspatialpartition.cpp
     llspeakbutton.cpp
     llspeakers.cpp
+    llspeakingindicatormanager.cpp
     llsplitbutton.cpp
     llsprite.cpp
     llstartup.cpp
@@ -755,6 +757,7 @@ set(viewer_HEADER_FILES
     llinspectgroup.h
     llinspectobject.h
     llinspectremoteobject.h
+    llinspecttoast.h
     llinventorybridge.h
     llinventoryclipboard.h
     llinventoryfilter.h
@@ -848,6 +851,7 @@ set(viewer_HEADER_FILES
     llpanelshower.h
     llpanelteleporthistory.h
     llpanelvolume.h
+    llpanelvolumepulldown.h
     llparcelselection.h
     llparticipantlist.h
     llpatchvertexarray.h
@@ -888,6 +892,7 @@ set(viewer_HEADER_FILES
     llspatialpartition.h
     llspeakbutton.h
     llspeakers.h
+    llspeakingindicatormanager.h
     llsplitbutton.h
     llsprite.h
     llstartup.h
@@ -1763,9 +1768,10 @@ if (LL_TESTS)
     llagentaccess.cpp
     lldateutil.cpp
     llmediadataclient.cpp
-    llviewerhelputil.cpp
     lllogininstance.cpp
+    llviewerhelputil.cpp
   )
+
   ##################################################
   # DISABLING PRECOMPILED HEADERS USAGE FOR TESTS 
   ##################################################

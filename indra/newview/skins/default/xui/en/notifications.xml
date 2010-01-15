@@ -246,7 +246,7 @@ Save all changes to clothing/body parts?
    icon="alertmodal.tga"
    name="GrantModifyRights"
    type="alertmodal">
-Granting modify rights to another resident allows them to change, delete or take ANY objects you may have in-world. Be VERY careful when handing out this permission.
+Granting modify rights to another Resident allows them to change, delete or take ANY objects you may have in-world. Be VERY careful when handing out this permission.
 Do you want to grant modify rights for [FIRST_NAME] [LAST_NAME]?
     <usetemplate
      name="okcancelbuttons"
@@ -258,7 +258,7 @@ Do you want to grant modify rights for [FIRST_NAME] [LAST_NAME]?
    icon="alertmodal.tga"
    name="GrantModifyRightsMultiple"
    type="alertmodal">
-Granting modify rights to another resident allows them to change ANY objects you may have in-world. Be VERY careful when handing out this permission.
+Granting modify rights to another Resident allows them to change ANY objects you may have in-world. Be VERY careful when handing out this permission.
 Do you want to grant modify rights for the selected Residents?
     <usetemplate
      name="okcancelbuttons"
@@ -811,6 +811,7 @@ Please select a proposal to view.
 Please select a history item to view.
   </notification>
 
+<!--   
   <notification
    icon="alertmodal.tga"
    name="ResetShowNextTimeDialogs"
@@ -832,6 +833,7 @@ Would you like to disable all popups which can be skipped?
      notext="Cancel"
      yestext="OK"/>
   </notification>
+-->
 
   <notification
    icon="alertmodal.tga"
@@ -1597,7 +1599,8 @@ Unable to force land ownership because selection spans multiple regions. Please 
    icon="alertmodal.tga"
    name="ForceOwnerAuctionWarning"
    type="alertmodal">
-This parcel is up for auction. Forcing ownership will cancel the auction and potentially make some residents unhappy if bidding has begun. Force ownership?
+This parcel is up for auction. Forcing ownership will cancel the auction and potentially make some Residents unhappy if bidding has begun.
+Force ownership?
     <usetemplate
      name="okcancelbuttons"
      notext="Cancel"
@@ -2917,6 +2920,16 @@ You have reached your maximum number of groups. Please leave another group befor
 
   <notification
    icon="alert.tga"
+   name="JoinedTooManyGroups"
+   type="alert">
+You have reached your maximum number of groups. Please leave some group before joining or creating a new one.
+    <usetemplate
+     name="okbutton"
+     yestext="OK"/>
+  </notification>
+
+  <notification
+   icon="alert.tga"
    name="KickUser"
    type="alert">
 Kick this user with what message?
@@ -3553,7 +3566,7 @@ Type a short announcement which will be sent to everyone in this region.
 The maturity rating for this region has been updated.
 It may take some time for the change to be reflected on the map.
 
-To enter Adult regions, residents must be Account Verified, either by age-verification or payment-verification.
+To enter Adult regions, Residents must be Account Verified, either by age-verification or payment-verification.
   </notification>
 
   <notification
@@ -4543,8 +4556,8 @@ Click on any landmark to select it, then click &apos;Teleport&apos; at the botto
    icon="notifytip.tga"
    name="TeleportToPerson"
    type="notifytip">
-You can contact residents like &apos;[NAME]&apos; by opening the People panel on the right side of your screen.
-Select the resident from the list, then click &apos;IM&apos; at the bottom of the panel.
+You can contact Residents like &apos;[NAME]&apos; by opening the People panel on the right side of your screen.
+Select the Resident from the list, then click &apos;IM&apos; at the bottom of the panel.
 (You can also double-click on their name in the list, or right-click and choose &apos;IM&apos;).
   </notification>
 
@@ -4693,7 +4706,7 @@ The objects on the selected parcel of land that is owned by [FIRST] [LAST] have 
    icon="notify.tga"
    name="OtherObjectsReturned2"
    type="notify">
-The objects on the selected parcel of land owned by the resident &apos;[NAME]&apos; have been returned to their owner.
+The objects on the selected parcel of land owned by the Resident &apos;[NAME]&apos; have been returned to their owner.
   </notification>
 
   <notification
@@ -4974,7 +4987,7 @@ No valid parcel could be found.
    icon="notify.tga"
    name="ObjectGiveItem"
    type="offer">
-An object named [OBJECTFROMNAME] owned by [NAME_SLURL] has given you [OBJECTTYPE]:
+An object named [OBJECTFROMNAME] owned by [NAME_SLURL] has given you this [OBJECTTYPE]:
 [ITEM_SLURL]
     <form name="form">
       <button
@@ -4996,7 +5009,7 @@ An object named [OBJECTFROMNAME] owned by [NAME_SLURL] has given you [OBJECTTYPE
    icon="notify.tga"
    name="ObjectGiveItemUnknownUser"
    type="offer">
-An object named [OBJECTFROMNAME] owned by (an unknown Resident) has given you [OBJECTTYPE]:
+An object named [OBJECTFROMNAME] owned by (an unknown Resident) has given you this [OBJECTTYPE]:
 [ITEM_SLURL]
     <form name="form">
       <button
@@ -5018,7 +5031,7 @@ An object named [OBJECTFROMNAME] owned by (an unknown Resident) has given you [O
    icon="notify.tga"
    name="UserGiveItem"
    type="offer">
-[NAME_SLURL] has given you [OBJECTTYPE]:
+[NAME_SLURL] has given you this [OBJECTTYPE]:
 [ITEM_SLURL]
     <form name="form">
       <button
@@ -5181,7 +5194,7 @@ An object named [OBJECTFROMNAME] owned by (an unknown Resident) has given you [O
    name="OfferCallingCard"
    type="notify">
 [FIRST] [LAST] is offering their calling card.
-This will add a bookmark in your inventory so you can quickly IM this resident.
+This will add a bookmark in your inventory so you can quickly IM this Resident.
     <form name="form">
       <button
        index="0"
@@ -5357,6 +5370,7 @@ Grant this request?
     </form>
   </notification>
 
+<!--
   <notification
    icon="notify.tga"
    name="FirstBalanceIncrease"
@@ -5372,6 +5386,7 @@ Your L$ balance is shown in the upper-right.
 You just paid L$[AMOUNT].
 Your L$ balance is shown in the upper-right.
   </notification>
+-->
 
   <notification
    icon="notify.tga"
@@ -5383,6 +5398,8 @@ Your L$ balance will be updated when processing completes. If processing takes m
 
 The status of your payment can be checked on your Transaction History page on your [http://secondlife.com/account/ Dashboard]
   </notification>
+  
+<!-- 
   <notification
    icon="notify.tga"
    name="FirstSit"
@@ -5407,8 +5424,9 @@ Use the controls on the right to find things and display different backgrounds.
    type="notify">
 You have opened the Build Tools. Every object you see around you was created using these tools.
   </notification>
+-->
 
-<!--
+<!--  
   <notification
    icon="notify.tga"
    name="FirstLeftClickNoHit"
@@ -5417,13 +5435,15 @@ You have opened the Build Tools. Every object you see around you was created usi
     If the mouse pointer changes to a hand, you can interact with the object.
     Right-click always shows a menu of things you can do.
   </notification>
--->
+
   <notification
    icon="notify.tga"
    name="FirstTeleport"
    type="notify">
 You can only teleport to certain areas in this region. The arrow points to your specific destination. Click the arrow to dismiss it.
   </notification>
+
+-->
 
   <notification
    icon="notify.tga"
@@ -5435,6 +5455,7 @@ Some objects (like guns) require you to go into mouselook  to use them.
 Press &apos;M&apos; to do this.
   </notification>
 
+<!--
   <notification
    icon="notify.tga"
    name="FirstAppearance"
@@ -5454,6 +5475,7 @@ This is your Inventory, which contains items you own.
 * To rez something inworld, drag it onto the ground.
 * To read a notecard, double-click it.
   </notification>
+-->
 
   <notification
    icon="notify.tga"
@@ -5464,6 +5486,7 @@ This is a sandbox area, and is meant to help Residents learn how to build.
 Things you build here will be deleted after you leave, so don&apos;t forget to right-click and choose &apos;Take&apos; to move your creation to your Inventory.
   </notification>
 
+<!--
   <notification
    icon="notify.tga"
    name="FirstFlexible"
@@ -5489,13 +5512,16 @@ To toggle this menu,
    type="notify">
 You are editing a Sculpted prim. Sculpties require a special texture to define their shape.
   </notification>
+-->  
 
-  <!--notification
+  <!--
+  <notification
    icon="notify.tga"
    name="FirstMedia"
    type="notify">
     You have begun playing media.  Media can set to play automatically in the preferences window under Audio / Video. Note that this can be a security risk for media sites you do not trust.
-  </notification-->
+  </notification>
+  -->
 
   <notification
    icon="notifytip.tga"
