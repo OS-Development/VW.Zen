@@ -840,6 +840,13 @@ void CreateGestureCallback::fire(const LLUUID& inv_item)
 	gFloaterView->adjustToFitScreen(preview, FALSE);
 }
 
+void AddFavoriteLandmarkCallback::fire(const LLUUID& inv_item_id)
+{
+	if (mTargetLandmarkId.isNull()) return;
+
+	gInventory.rearrangeFavoriteLandmarks(inv_item_id, mTargetLandmarkId);
+}
+
 LLInventoryCallbackManager gInventoryCallbacks;
 
 void create_inventory_item(const LLUUID& agent_id, const LLUUID& session_id,
@@ -1173,6 +1180,15 @@ const std::string& LLViewerInventoryItem::getDisplayName() const
 	BOOL hasSortField = extractSortFieldAndDisplayName(0, &result);
 
 	return mDisplayName = hasSortField ? result : LLInventoryItem::getName();
+}
+
+// static
+std::string LLViewerInventoryItem::getDisplayName(const std::string& name)
+{
+	std::string result;
+	BOOL hasSortField = extractSortFieldAndDisplayName(name, 0, &result);
+
+	return hasSortField ? result : name;
 }
 
 S32 LLViewerInventoryItem::getSortField() const
