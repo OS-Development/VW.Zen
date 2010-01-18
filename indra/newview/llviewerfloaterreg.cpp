@@ -106,7 +106,6 @@
 #include "llfloateruipreview.h"
 #include "llfloaterurldisplay.h"
 #include "llfloatervoicedevicesettings.h"
-#include "llfloatervolumepulldown.h"
 #include "llfloaterwater.h"
 #include "llfloaterwhitelistentry.h"
 #include "llfloaterwindlight.h"
@@ -117,6 +116,7 @@
 #include "llinspectgroup.h"
 #include "llinspectobject.h"
 #include "llinspectremoteobject.h"
+#include "llinspecttoast.h"
 #include "llmediaremotectrl.h"
 #include "llmoveview.h"
 #include "llnearbychat.h"
@@ -185,6 +185,7 @@ void LLViewerFloaterReg::registerFloaters()
 	LLInspectGroupUtil::registerFloater();
 	LLInspectObjectUtil::registerFloater();
 	LLInspectRemoteObjectUtil::registerFloater();
+	LLNotificationsUI::registerFloater();
 	
 	LLFloaterReg::add("lagmeter", "floater_lagmeter.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterLagMeter>);
 	LLFloaterReg::add("land_holdings", "floater_land_holdings.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterLandHoldings>);
@@ -256,7 +257,6 @@ void LLViewerFloaterReg::registerFloaters()
 	LLFloaterReg::add("upload_image", "floater_image_preview.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterImagePreview>, "upload");
 	LLFloaterReg::add("upload_sound", "floater_sound_preview.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterSoundPreview>, "upload");
 	
-	LLFloaterReg::add("volume_pulldown", "floater_volume_pulldown.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterVolumePulldown>);
 	LLFloaterReg::add("voice_controls", "floater_voice_controls.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLCallFloater>);
 	
 	LLFloaterReg::add("whitelist_entry", "floater_whitelist_entry.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterWhiteListEntry>);	

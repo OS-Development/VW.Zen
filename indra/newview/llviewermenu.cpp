@@ -48,7 +48,7 @@
 #include "llconsole.h"
 #include "lldebugview.h"
 #include "llfilepicker.h"
-#include "llfirstuse.h"
+//#include "llfirstuse.h"
 #include "llfloaterbuy.h"
 #include "llfloaterbuycontents.h"
 #include "llfloaterbuycurrency.h"
@@ -2491,7 +2491,7 @@ class LLObjectBuild : public view_listener_t
 		LLToolMgr::getInstance()->getCurrentToolset()->selectTool( LLToolCompCreate::getInstance() );
 
 		// Could be first use
-		LLFirstUse::useBuild();
+		//LLFirstUse::useBuild();
 		return true;
 	}
 };
@@ -2536,7 +2536,7 @@ void handle_object_edit()
 	LLViewerJoystick::getInstance()->setNeedsReset(true);
 	
 	// Could be first use
-	LLFirstUse::useBuild();
+	//LLFirstUse::useBuild();
 	return;
 }
 
@@ -2587,7 +2587,7 @@ class LLLandBuild : public view_listener_t
 		LLToolMgr::getInstance()->getCurrentToolset()->selectTool( LLToolCompCreate::getInstance() );
 
 		// Could be first use
-		LLFirstUse::useBuild();
+		//LLFirstUse::useBuild();
 		return true;
 	}
 };
@@ -2824,7 +2824,7 @@ bool handle_go_to()
 	}
 
 	// Could be first use
-	LLFirstUse::useGoTo();
+	//LLFirstUse::useGoTo();
 	return true;
 }
 
@@ -3369,10 +3369,52 @@ class LLShowPanelPeopleTab : public view_listener_t
 {
 	bool handleEvent(const LLSD& userdata)
 	{
+		std::string panel_name = userdata.asString();
+
 		// Open tab of the "People" panel in side tray.
 		LLSD param;
-		param["people_panel_tab_name"] = userdata.asString();
-		LLSideTray::getInstance()->showPanel("panel_people", param);
+		param["people_panel_tab_name"] = panel_name;
+
+		static LLPanel* friends_panel = NULL;
+		static LLPanel* groups_panel = NULL;
+		static LLPanel* nearby_panel = NULL;
+
+		if (panel_name == "friends_panel")
+		{
+			return togglePanel(friends_panel, param);
+		}
+		else if (panel_name == "groups_panel")
+		{
+			return togglePanel(groups_panel, param);
+		}
+		else if (panel_name == "nearby_panel")
+		{
+			return togglePanel(nearby_panel, param);
+		}
+		else
+		{
+			return false;
+		}
+	}
+
+	static bool togglePanel(LLPanel* &panel, const LLSD& param)
+	{
+		if(!panel)
+		{
+			panel = LLSideTray::getInstance()->findChild<LLPanel>(param["people_panel_tab_name"].asString());
+			if(!panel)
+				return false;
+		}
+
+		if (panel->isInVisibleChain())
+		{
+			LLSideTray::getInstance()->collapseSideBar();
+		}
+		else
+		{
+			LLSideTray::getInstance()->showPanel("panel_people", param);
+		}
+
 		return true;
 	}
 };
@@ -3626,7 +3668,7 @@ void near_sit_down_point(BOOL success, void *)
 		gAgent.setControlFlags(AGENT_CONTROL_SIT_ON_GROUND);
 
 		// Might be first sit
-		LLFirstUse::useSit();
+		//LLFirstUse::useSit();
 	}
 }
 
@@ -5144,7 +5186,7 @@ void toggle_debug_menus(void*)
 	gSavedSettings.setBOOL("UseDebugMenus", visible);
 	if(visible)
 	{
-		LLFirstUse::useDebugMenus();
+		//LLFirstUse::useDebugMenus();
 	}
 	show_debug_menus();
 }
