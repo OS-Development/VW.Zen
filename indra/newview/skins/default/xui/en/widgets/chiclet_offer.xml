@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <chiclet_offer
- height="25"
+ height="23"
  name="offer_chiclet"
  width="25">
  <chiclet_offer.chiclet_button

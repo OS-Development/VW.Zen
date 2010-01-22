@@ -2931,27 +2931,6 @@ bool move_task_inventory_callback(const LLSD& notification, const LLSD& response
 	return false;
 }
 
-// See also LLInventorySort where landmarks in the Favorites folder are sorted.
-class LLViewerInventoryItemSort
-{
-public:
-	bool operator()(const LLPointer<LLViewerInventoryItem>& a, const LLPointer<LLViewerInventoryItem>& b)
-	{
-		return a->getSortField() < b->getSortField();
-	}
-};
-
-/**
- * Sorts passed items by LLViewerInventoryItem sort field.
- *
- * @param[in, out] items - array of items, not sorted.
- */
-void rearrange_item_order_by_sort_field(LLInventoryModel::item_array_t& items)
-{
-	static LLViewerInventoryItemSort sort_functor;
-	std::sort(items.begin(), items.end(), sort_functor);
-}
-
 BOOL LLFolderBridge::dragItemIntoFolder(LLInventoryItem* inv_item,
 										BOOL drop)
 {
@@ -3034,36 +3013,34 @@ BOOL LLFolderBridge::dragItemIntoFolder(LLInventoryItem* inv_item,
 			// if dragging from/into favorites folder only reorder items
 			if ((mUUID == inv_item->getParentUUID()) && folder_allows_reorder)
 			{
-				LLInventoryModel::cat_array_t cats;
-				LLInventoryModel::item_array_t items;
-				LLIsType is_type(LLAssetType::AT_LANDMARK);
-				model->collectDescendentsIf(mUUID, cats, items, LLInventoryModel::EXCLUDE_TRASH, is_type);
-
 				LLInventoryPanel* panel = dynamic_cast<LLInventoryPanel*>(mInventoryPanel.get());
 				LLFolderViewItem* itemp = panel ? panel->getRootFolder()->getDraggingOverItem() : NULL;
 				if (itemp)
 				{
 					LLUUID srcItemId = inv_item->getUUID();
 					LLUUID destItemId = itemp->getListener()->getUUID();
-
-					// ensure items are sorted properly before changing order. EXT-3498
-					rearrange_item_order_by_sort_field(items);
-
-					// update order
-					LLInventoryModel::updateItemsOrder(items, srcItemId, destItemId);
-
-					gInventory.saveItemsOrder(items);
+					gInventory.rearrangeFavoriteLandmarks(srcItemId, destItemId);
 				}
 			}
 			else if (favorites_id == mUUID) // if target is the favorites folder we use copy
 			{
+				// use callback to rearrange favorite landmarks after adding
+				// to have new one placed before target (on which it was dropped). See EXT-4312.
+				LLPointer<AddFavoriteLandmarkCallback> cb = new AddFavoriteLandmarkCallback();
+				LLInventoryPanel* panel = dynamic_cast<LLInventoryPanel*>(mInventoryPanel.get());
+				LLFolderViewItem* drag_over_item = panel ? panel->getRootFolder()->getDraggingOverItem() : NULL;
+				if (drag_over_item && drag_over_item->getListener())
+				{
+					cb.get()->setTargetLandmarkId(drag_over_item->getListener()->getUUID());
+				}
+
 				copy_inventory_item(
 					gAgent.getID(),
 					inv_item->getPermissions().getOwner(),
 					inv_item->getUUID(),
 					mUUID,
 					std::string(),
-					LLPointer<LLInventoryCallback>(NULL));
+					cb);
 			}
 			else if (move_is_into_current_outfit || move_is_into_outfit)
 			{

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <chiclet_script
- height="25"
+ height="23"
  name="script_chiclet"
  width="25">
  <chiclet_script.chiclet_button
@@ -13,7 +13,7 @@
  <chiclet_script.icon
   bottom="3"
   follows="all"
-  height="20"
+  height="18"
   image_name="Generic_Object_Small"
   left="2"
   mouse_opaque="false"

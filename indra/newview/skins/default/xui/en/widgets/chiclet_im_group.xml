@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <chiclet_im_group
- height="25"
+ height="23"
  name="im_group_chiclet"
  show_speaker="false"
  width="25">
@@ -29,13 +29,13 @@
      name="group_icon"
      width="21" />
     <chiclet_im_group.unread_notifications
-     height="25"
-     font_halign="center"
+     height="23"
+     halign="center"
      left="25"
      mouse_opaque="false"
      name="unread"
      text_color="white"
-     v_pad="5"
+     v_pad="3"
      visible="false"
      width="20"/>
     <chiclet_im_group.new_message_icon
