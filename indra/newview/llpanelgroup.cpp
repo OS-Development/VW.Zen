@@ -419,12 +419,17 @@ void LLPanelGroup::setGroupID(const LLUUID& group_id)
 		if(tab_land->getDisplayChildren())
 			tab_land->changeOpenClose(tab_land->getDisplayChildren());
 
-		tab_roles->canOpenClose(false);
-		tab_notices->canOpenClose(false);
-		tab_land->canOpenClose(false);
+		tab_roles->setVisible(false);
+		tab_notices->setVisible(false);
+		tab_land->setVisible(false);
 
 		getChild<LLUICtrl>("group_name")->setVisible(false);
 		getChild<LLUICtrl>("group_name_editor")->setVisible(true);
+
+		if(button_call)
+			button_call->setVisible(false);
+		if(button_chat)
+			button_chat->setVisible(false);
 	}
 	else 
 	{
@@ -443,15 +448,19 @@ void LLPanelGroup::setGroupID(const LLUUID& group_id)
 		LLGroupData agent_gdatap;
 		bool is_member = gAgent.getGroupData(mID,agent_gdatap);
 		
-		tab_roles->canOpenClose(is_member);
-		tab_notices->canOpenClose(is_member);
-		tab_land->canOpenClose(is_member);
+		tab_roles->setVisible(is_member);
+		tab_notices->setVisible(is_member);
+		tab_land->setVisible(is_member);
 
 		getChild<LLUICtrl>("group_name")->setVisible(true);
 		getChild<LLUICtrl>("group_name_editor")->setVisible(false);
 
 		if(button_apply)
 			button_apply->setVisible(is_member);
+		if(button_call)
+			button_call->setVisible(is_member);
+		if(button_chat)
+			button_chat->setVisible(is_member);
 	}
 
 	reposButtons();

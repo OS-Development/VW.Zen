@@ -42,47 +42,30 @@
 #include "llhttpclient.h"
 #include "llsdutil_math.h"
 #include "llstring.h"
+#include "lltrans.h"
 #include "lluictrlfactory.h"
 
 #include "llagent.h"
+#include "llagentui.h"
+#include "llappviewer.h"
 #include "llavatariconctrl.h"
 #include "llbottomtray.h"
 #include "llcallingcard.h"
 #include "llchat.h"
-#include "llchiclet.h"
-#include "llresmgr.h"
-#include "llfloaterchat.h"
 #include "llfloaterchatterbox.h"
-#include "llavataractions.h"
-#include "llhttpnode.h"
 #include "llimfloater.h"
-#include "llimpanel.h"
 #include "llgroupiconctrl.h"
-#include "llresizebar.h"
-#include "lltabcontainer.h"
-#include "llviewercontrol.h"
-#include "llfloater.h"
 #include "llmutelist.h"
-#include "llresizehandle.h"
-#include "llkeyboard.h"
-#include "llui.h"
-#include "llviewermenu.h"
-#include "llcallingcard.h"
-#include "lltoolbar.h"
+#include "llrecentpeople.h"
 #include "llviewermessage.h"
 #include "llviewerwindow.h"
 #include "llnotifications.h"
 #include "llnotificationsutil.h"
 #include "llnearbychat.h"
-#include "llviewerregion.h"
-#include "llvoicechannel.h"
-#include "lltrans.h"
-#include "llrecentpeople.h"
-#include "llsyswellwindow.h"
-
-//#include "llfirstuse.h"
-#include "llagentui.h"
+#include "llspeakers.h" //for LLIMSpeakerMgr
 #include "lltextutil.h"
+#include "llviewercontrol.h"
+
 
 const static std::string IM_TIME("time");
 const static std::string IM_TEXT("message");
@@ -1856,7 +1839,7 @@ void LLIncomingCallDialog::onStartIM(void* user_data)
 
 void LLIncomingCallDialog::processCallResponse(S32 response)
 {
-	if (!gIMMgr)
+	if (!gIMMgr || gDisconnected)
 		return;
 
 	LLUUID session_id = mPayload["session_id"].asUUID();
@@ -2236,7 +2219,6 @@ void LLIMMgr::addSystemMessage(const LLUUID& session_id, const std::string& mess
 
 		LLChat chat(message);
 		chat.mSourceType = CHAT_SOURCE_SYSTEM;
-		LLFloaterChat::addChatHistory(chat);
 
 		LLNearbyChat* nearby_chat = LLFloaterReg::getTypedInstance<LLNearbyChat>("nearby_chat", LLSD());
 		if(nearby_chat)
@@ -2404,7 +2386,9 @@ LLUUID LLIMMgr::addSession(
 	//we don't need to show notes about online/offline, mute/unmute users' statuses for existing sessions
 	if (!new_session) return session_id;
 	
-	noteOfflineUsers(session_id, floater, ids);
+	//Per Plan's suggestion commented "explicit offline status warning" out to make Dessie happier (see EXT-3609)
+	//*TODO After February 2010 remove this commented out line if no one will be missing that warning
+	//noteOfflineUsers(session_id, floater, ids);
 
 	// Only warn for regular IMs - not group IMs
 	if( dialog == IM_NOTHING_SPECIAL )
@@ -3135,9 +3119,6 @@ public:
 				message_params["region_id"].asUUID(),
 				ll_vector3_from_sd(message_params["position"]),
 				true);
-
-			chat.mText = std::string("IM: ") + name + separator_string + saved + message;
-			LLFloaterChat::addChat(chat, TRUE, is_this_agent);
 
 			//K now we want to accept the invitation
 			std::string url = gAgent.getRegion()->getCapability(
