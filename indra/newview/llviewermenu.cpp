@@ -52,7 +52,6 @@
 #include "llfloaterbuy.h"
 #include "llfloaterbuycontents.h"
 #include "llfloaterbuycurrency.h"
-#include "llfloaterchat.h"
 #include "llfloatercustomize.h"
 #include "llfloaterchatterbox.h"
 #include "llfloatergodtools.h"
@@ -3365,13 +3364,13 @@ void handle_show_side_tray()
 	root->addChild(side_tray);
 }
 
-class LLShowPanelPeopleTab : public view_listener_t
+// Toggle one of "People" panel tabs in side tray.
+class LLTogglePanelPeopleTab : public view_listener_t
 {
 	bool handleEvent(const LLSD& userdata)
 	{
 		std::string panel_name = userdata.asString();
 
-		// Open tab of the "People" panel in side tray.
 		LLSD param;
 		param["people_panel_tab_name"] = panel_name;
 
@@ -3381,15 +3380,15 @@ class LLShowPanelPeopleTab : public view_listener_t
 
 		if (panel_name == "friends_panel")
 		{
-			return togglePanel(friends_panel, param);
+			return togglePeoplePanel(friends_panel, panel_name, param);
 		}
 		else if (panel_name == "groups_panel")
 		{
-			return togglePanel(groups_panel, param);
+			return togglePeoplePanel(groups_panel, panel_name, param);
 		}
 		else if (panel_name == "nearby_panel")
 		{
-			return togglePanel(nearby_panel, param);
+			return togglePeoplePanel(nearby_panel, panel_name, param);
 		}
 		else
 		{
@@ -3397,23 +3396,16 @@ class LLShowPanelPeopleTab : public view_listener_t
 		}
 	}
 
-	static bool togglePanel(LLPanel* &panel, const LLSD& param)
+	static bool togglePeoplePanel(LLPanel* &panel, const std::string& panel_name, const LLSD& param)
 	{
 		if(!panel)
 		{
-			panel = LLSideTray::getInstance()->findChild<LLPanel>(param["people_panel_tab_name"].asString());
+			panel = LLSideTray::getInstance()->getPanel(panel_name);
 			if(!panel)
 				return false;
 		}
 
-		if (panel->isInVisibleChain())
-		{
-			LLSideTray::getInstance()->collapseSideBar();
-		}
-		else
-		{
-			LLSideTray::getInstance()->showPanel("panel_people", param);
-		}
+		LLSideTray::getInstance()->togglePanel(panel, "panel_people", param);
 
 		return true;
 	}
@@ -6107,7 +6099,8 @@ class LLAttachmentEnableDrop : public view_listener_t
 		LLViewerJointAttachment*     attachment     = NULL;
 		LLInventoryItem*             item           = NULL;
 
-		if (object)
+		// Do not enable drop if all faces of object are not enabled
+		if (object && LLSelectMgr::getInstance()->getSelection()->contains(object,SELECT_ALL_TES ))
 		{
     		S32 attachmentID  = ATTACHMENT_ID_FROM_STATE(object->getState());
 			attachment = get_if_there(gAgent.getAvatarObject()->mAttachmentPoints, attachmentID, (LLViewerJointAttachment*)NULL);
@@ -6149,8 +6142,14 @@ class LLAttachmentEnableDrop : public view_listener_t
 BOOL enable_detach(const LLSD&)
 {
 	LLViewerObject* object = LLSelectMgr::getInstance()->getSelection()->getPrimaryObject();
-	if (!object) return FALSE;
-	if (!object->isAttachment()) return FALSE;
+	
+	// Only enable detach if all faces of object are selected
+	if (!object ||
+		!object->isAttachment() ||
+		!LLSelectMgr::getInstance()->getSelection()->contains(object,SELECT_ALL_TES ))
+	{
+		return FALSE;
+	}
 
 	// Find the avatar who owns this attachment
 	LLViewerObject* avatar = object;
@@ -6382,49 +6381,55 @@ class LLToolsSelectedScriptAction : public view_listener_t
 void handle_selected_texture_info(void*)
 {
 	for (LLObjectSelection::valid_iterator iter = LLSelectMgr::getInstance()->getSelection()->valid_begin();
-		 iter != LLSelectMgr::getInstance()->getSelection()->valid_end(); iter++)
+   		iter != LLSelectMgr::getInstance()->getSelection()->valid_end(); iter++)
 	{
 		LLSelectNode* node = *iter;
-		
-		std::string msg;
-		msg.assign("Texture info for: ");
-		msg.append(node->mName);
-		LLChat chat(msg);
-		LLFloaterChat::addChat(chat);
+	   	
+   		std::string msg;
+   		msg.assign("Texture info for: ");
+   		msg.append(node->mName);
 
-		U8 te_count = node->getObject()->getNumTEs();
-		// map from texture ID to list of faces using it
-		typedef std::map< LLUUID, std::vector<U8> > map_t;
-		map_t faces_per_texture;
-		for (U8 i = 0; i < te_count; i++)
-		{
-			if (!node->isTESelected(i)) continue;
+		//TODO* CHAT: how to show this?
+		//LLSD args;
+		//args["MESSAGE"] = msg;
+		//LLNotificationsUtil::add("SystemMessage", args);
+	   
+   		U8 te_count = node->getObject()->getNumTEs();
+   		// map from texture ID to list of faces using it
+   		typedef std::map< LLUUID, std::vector<U8> > map_t;
+   		map_t faces_per_texture;
+   		for (U8 i = 0; i < te_count; i++)
+   		{
+   			if (!node->isTESelected(i)) continue;
+	   
+   			LLViewerTexture* img = node->getObject()->getTEImage(i);
+   			LLUUID image_id = img->getID();
+   			faces_per_texture[image_id].push_back(i);
+   		}
+   		// Per-texture, dump which faces are using it.
+   		map_t::iterator it;
+   		for (it = faces_per_texture.begin(); it != faces_per_texture.end(); ++it)
+   		{
+   			LLUUID image_id = it->first;
+   			U8 te = it->second[0];
+   			LLViewerTexture* img = node->getObject()->getTEImage(te);
+   			S32 height = img->getHeight();
+   			S32 width = img->getWidth();
+   			S32 components = img->getComponents();
+   			msg = llformat("%dx%d %s on face ",
+   								width,
+   								height,
+   								(components == 4 ? "alpha" : "opaque"));
+   			for (U8 i = 0; i < it->second.size(); ++i)
+   			{
+   				msg.append( llformat("%d ", (S32)(it->second[i])));
+   			}
 
-			LLViewerTexture* img = node->getObject()->getTEImage(i);
-			LLUUID image_id = img->getID();
-			faces_per_texture[image_id].push_back(i);
-		}
-		// Per-texture, dump which faces are using it.
-		map_t::iterator it;
-		for (it = faces_per_texture.begin(); it != faces_per_texture.end(); ++it)
-		{
-			LLUUID image_id = it->first;
-			U8 te = it->second[0];
-			LLViewerTexture* img = node->getObject()->getTEImage(te);
-			S32 height = img->getHeight();
-			S32 width = img->getWidth();
-			S32 components = img->getComponents();
-			msg = llformat("%dx%d %s on face ",
-								width,
-								height,
-								(components == 4 ? "alpha" : "opaque"));
-			for (U8 i = 0; i < it->second.size(); ++i)
-			{
-				msg.append( llformat("%d ", (S32)(it->second[i])));
-			}
-			LLChat chat(msg);
-			LLFloaterChat::addChat(chat);
-		}
+			//TODO* CHAT: how to show this?
+			//LLSD args;
+			//args["MESSAGE"] = msg;
+			//LLNotificationsUtil::add("SystemMessage", args);
+   		}
 	}
 }
 
@@ -7940,7 +7945,7 @@ void initialize_menus()
 	view_listener_t::addMenu(new LLSelfEnableRemoveAllAttachments(), "Self.EnableRemoveAllAttachments");
 
 	// we don't use boost::bind directly to delay side tray construction
-	view_listener_t::addMenu( new LLShowPanelPeopleTab(), "SideTray.PanelPeopleTab");
+	view_listener_t::addMenu( new LLTogglePanelPeopleTab(), "SideTray.PanelPeopleTab");
 
 	 // Avatar pie menu
 	view_listener_t::addMenu(new LLObjectMute(), "Avatar.Mute");

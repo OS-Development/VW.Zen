@@ -75,6 +75,8 @@ public:
 
 	std::string getPlaceInfoType() { return mPlaceInfoType; }
 
+	/*virtual*/ S32 notifyParent(const LLSD& info);
+
 private:
 	void onLandmarkLoaded(LLLandmark* landmark);
 	void onFilterEdit(const std::string& search_string, bool force_filter);
@@ -94,6 +96,8 @@ private:
 	void toggleMediaPanel();
 	void togglePickPanel(BOOL visible);
 	void togglePlaceInfoPanel(BOOL visible);
+
+	/*virtual*/ void handleVisibilityChange(BOOL new_visibility);
 
 	void updateVerbs();
 
