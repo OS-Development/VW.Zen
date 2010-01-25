@@ -42,7 +42,6 @@
 #include "llbottomtray.h"
 #include "llchannelmanager.h"
 #include "llchiclet.h"
-#include "llfloaterchat.h"
 #include "llfloaterreg.h"
 #include "llimfloatercontainer.h" // to replace separate IM Floaters with multifloater container
 #include "lllayoutstack.h"
@@ -59,6 +58,7 @@
 #include "llinventorymodel.h"
 #include "llrootview.h"
 
+#include "llspeakers.h"
 
 
 LLIMFloater::LLIMFloater(const LLUUID& session_id)
@@ -115,6 +115,8 @@ LLIMFloater::LLIMFloater(const LLUUID& session_id)
 void LLIMFloater::onFocusLost()
 {
 	LLIMModel::getInstance()->resetActiveSessionID();
+	
+	LLBottomTray::getInstance()->getChicletPanel()->setChicletToggleState(mSessionID, false);
 }
 
 void LLIMFloater::onFocusReceived()
@@ -126,6 +128,8 @@ void LLIMFloater::onFocusReceived()
 	{
 		mInputEditor->setFocus(TRUE);
 	}
+
+	LLBottomTray::getInstance()->getChicletPanel()->setChicletToggleState(mSessionID, true);
 }
 
 // virtual
@@ -347,13 +351,15 @@ void* LLIMFloater::createPanelAdHocControl(void* userdata)
 
 void LLIMFloater::onSlide()
 {
-	LLPanel* im_control_panel = getChild<LLPanel>("panel_im_control_panel");
-	im_control_panel->setVisible(!im_control_panel->getVisible());
+	mControlPanel->setVisible(!mControlPanel->getVisible());
 
-	gSavedSettings.setBOOL("IMShowControlPanel", im_control_panel->getVisible());
+	gSavedSettings.setBOOL("IMShowControlPanel", mControlPanel->getVisible());
 
-	getChild<LLButton>("slide_left_btn")->setVisible(im_control_panel->getVisible());
-	getChild<LLButton>("slide_right_btn")->setVisible(!im_control_panel->getVisible());
+	getChild<LLButton>("slide_left_btn")->setVisible(mControlPanel->getVisible());
+	getChild<LLButton>("slide_right_btn")->setVisible(!mControlPanel->getVisible());
+
+	LLLayoutStack* stack = getChild<LLLayoutStack>("im_panels");
+	if (stack) stack->setAnimate(true);
 }
 
 //static
@@ -489,6 +495,15 @@ void LLIMFloater::setVisible(BOOL visible)
 		//only if floater was construced and initialized from xml
 		updateMessages();
 		mInputEditor->setFocus(TRUE);
+	}
+
+	if(!visible)
+	{
+		LLIMChiclet* chiclet = LLBottomTray::getInstance()->getChicletPanel()->findChiclet<LLIMChiclet>(mSessionID);
+		if(chiclet)
+		{
+			chiclet->setToggleState(false);
+		}
 	}
 }
 

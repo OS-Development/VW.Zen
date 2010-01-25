@@ -37,7 +37,6 @@
 #include "llagent.h"
 #include "llaudioengine.h"
 #include "llavataractions.h"
-#include "llfloaterchat.h"
 #include "llfloaterreg.h"
 #include "llfloaterworldmap.h"
 #include "llfocusmgr.h"
@@ -247,7 +246,7 @@ public:
 		return FALSE; 
 	}
 
-	/*virtual*/ const LLStyleSP		getStyle() const { return mStyle; }
+	/*virtual*/ LLStyleConstSP		getStyle() const { return mStyle; }
 
 private:
 	LLUIImagePtr	mImage;

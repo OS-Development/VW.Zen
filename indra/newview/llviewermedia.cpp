@@ -752,6 +752,11 @@ void LLViewerMedia::updateMedia(void *dummy_arg)
 			new_priority = LLPluginClassMedia::PRIORITY_NORMAL;
 			impl_count_interest_normal++;
 		}
+		else if(pimpl->isParcelMedia())
+		{
+			new_priority = LLPluginClassMedia::PRIORITY_NORMAL;
+			impl_count_interest_normal++;
+		}
 		else
 		{
 			// Look at interest and CPU usage for instances that aren't in any of the above states.
@@ -1246,7 +1251,24 @@ void LLViewerMediaImpl::loadURI()
 {
 	if(mMediaSource)
 	{
-		mMediaSource->loadURI( mMediaURL );
+		// *HACK: we don't know if the URI coming in is properly escaped
+		// (the contract doesn't specify whether it is escaped or not.
+		// but LLQtWebKit expects it to be, so we do our best to encode
+		// special characters)
+		// The strings below were taken right from http://www.ietf.org/rfc/rfc1738.txt
+		// Note especially that '%' and '/' are there.
+		std::string uri = LLURI::escape(mMediaURL,
+										"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+										"0123456789"
+										"$-_.+"
+										"!*'(),"
+										"{}|\\^~[]`"
+										"<>#%"
+										";/?:@&=",
+										false);
+		llinfos << "Asking media source to load URI: " << uri << llendl;
+		
+		mMediaSource->loadURI( uri );
 
 		if(mPreviousMediaState == MEDIA_PLAYING)
 		{
