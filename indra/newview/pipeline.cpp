@@ -70,6 +70,7 @@
 #include "llgldbg.h"
 #include "llhudmanager.h"
 #include "lllightconstants.h"
+#include "llmeshrepository.h"
 #include "llresmgr.h"
 #include "llselectmgr.h"
 #include "llsky.h"
@@ -103,6 +104,7 @@
 #include "llspatialpartition.h"
 #include "llmutelist.h"
 #include "lltoolpie.h"
+#include "llcurl.h"
 
 
 #ifdef _DEBUG
@@ -1141,9 +1143,15 @@ void LLPipeline::allocDrawable(LLViewerObject *vobj)
 }
 
 
+static LLFastTimer::DeclareTimer FTM_UNLINK("Unlink");
+static LLFastTimer::DeclareTimer FTM_REMOVE_FROM_MOVE_LIST("Movelist");
+static LLFastTimer::DeclareTimer FTM_REMOVE_FROM_SPATIAL_PARTITION("Spatial Partition");
+static LLFastTimer::DeclareTimer FTM_REMOVE_FROM_LIGHT_SET("Light Set");
+static LLFastTimer::DeclareTimer FTM_REMOVE_FROM_HIGHLIGHT_SET("Highlight Set");
+
 void LLPipeline::unlinkDrawable(LLDrawable *drawable)
 {
-	LLFastTimer t(FTM_PIPELINE);
+	LLFastTimer t(FTM_UNLINK);
 
 	assertInitialized();
 
@@ -1152,6 +1160,7 @@ void LLPipeline::unlinkDrawable(LLDrawable *drawable)
 	// Based on flags, remove the drawable from the queues that it's on.
 	if (drawablep->isState(LLDrawable::ON_MOVE_LIST))
 	{
+		LLFastTimer t(FTM_REMOVE_FROM_MOVE_LIST);
 		LLDrawable::drawable_vector_t::iterator iter = std::find(mMovedList.begin(), mMovedList.end(), drawablep);
 		if (iter != mMovedList.end())
 		{
@@ -1161,6 +1170,7 @@ void LLPipeline::unlinkDrawable(LLDrawable *drawable)
 
 	if (drawablep->getSpatialGroup())
 	{
+		LLFastTimer t(FTM_REMOVE_FROM_SPATIAL_PARTITION);
 		if (!drawablep->getSpatialGroup()->mSpatialPartition->remove(drawablep, drawablep->getSpatialGroup()))
 		{
 #ifdef LL_RELEASE_FOR_DOWNLOAD
@@ -1171,18 +1181,23 @@ void LLPipeline::unlinkDrawable(LLDrawable *drawable)
 		}
 	}
 
-	mLights.erase(drawablep);
-	for (light_set_t::iterator iter = mNearbyLights.begin();
-				iter != mNearbyLights.end(); iter++)
 	{
-		if (iter->drawable == drawablep)
+		LLFastTimer t(FTM_REMOVE_FROM_LIGHT_SET);
+		mLights.erase(drawablep);
+
+		for (light_set_t::iterator iter = mNearbyLights.begin();
+					iter != mNearbyLights.end(); iter++)
 		{
-			mNearbyLights.erase(iter);
-			break;
+			if (iter->drawable == drawablep)
+			{
+				mNearbyLights.erase(iter);
+				break;
+			}
 		}
 	}
 
 	{
+		LLFastTimer t(FTM_REMOVE_FROM_HIGHLIGHT_SET);
 		HighlightItem item(drawablep);
 		mHighlightSet.erase(item);
 
@@ -1796,6 +1811,8 @@ void LLPipeline::rebuildPriorityGroups()
 	
 	assertInitialized();
 
+	gMeshRepo.notifyLoadedMeshes();
+
 	// Iterate through all drawables on the priority build queue,
 	for (LLSpatialGroup::sg_list_t::iterator iter = mGroupQ1.begin();
 		 iter != mGroupQ1.end(); ++iter)
@@ -1806,6 +1823,7 @@ void LLPipeline::rebuildPriorityGroups()
 	}
 
 	mGroupQ1.clear();
+
 }
 		
 void LLPipeline::rebuildGroups()
@@ -3424,27 +3442,14 @@ void LLPipeline::renderGeomPostDeferred(LLCamera& camera)
 	gGLLastMatrix = NULL;
 	glLoadMatrixd(gGLModelView);
 
-	renderHighlights();
-	mHighlightFaces.clear();
-
-	renderDebug();
-
-	LLVertexBuffer::unbind();
-
-	if (gPipeline.hasRenderDebugFeatureMask(LLPipeline::RENDER_DEBUG_FEATURE_UI))
-	{
-		// Render debugging beacons.
-		gObjectList.renderObjectBeacons();
-		LLHUDObject::renderAll();
-		gObjectList.resetObjectBeacons();
-	}
-
 	if (occlude)
 	{
 		occlude = FALSE;
 		gGLLastMatrix = NULL;
 		glLoadMatrixd(gGLModelView);
 		doOcclusion(camera);
+		gGLLastMatrix = NULL;
+		glLoadMatrixd(gGLModelView);
 	}
 }
 
@@ -5842,6 +5847,12 @@ void LLPipeline::renderBloom(BOOL for_snapshot, F32 zoom_factor, int subfield)
 
 		gGL.getTexUnit(0)->activate();
 		gGL.getTexUnit(0)->setTextureBlendType(LLTexUnit::TB_MULT);
+
+		if (LLRenderTarget::sUseFBO)
+		{ //copy depth buffer from mScreen to framebuffer
+			LLRenderTarget::copyContentsToFramebuffer(mScreen, 0, 0, mScreen.getWidth(), mScreen.getHeight(), 
+				0, 0, mScreen.getWidth(), mScreen.getHeight(), GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+		}
 	}
 	
 
@@ -6920,6 +6931,24 @@ void LLPipeline::renderDeferredLighting()
 		mRenderTypeMask = render_mask;
 	}
 
+	{
+		//render highlights, etc.
+		renderHighlights();
+		mHighlightFaces.clear();
+
+		renderDebug();
+
+		LLVertexBuffer::unbind();
+
+		if (gPipeline.hasRenderDebugFeatureMask(LLPipeline::RENDER_DEBUG_FEATURE_UI))
+		{
+			// Render debugging beacons.
+			gObjectList.renderObjectBeacons();
+			LLHUDObject::renderAll();
+			gObjectList.resetObjectBeacons();
+		}
+	}
+
 	mScreen.flush();
 						
 }
@@ -7268,7 +7297,7 @@ void LLPipeline::generateWaterReflection(LLCamera& camera_in)
 					LLGLDisable cull(GL_CULL_FACE);
 					updateCull(camera, ref_result, 1);
 					stateSort(camera, ref_result);
-				}
+				}	
 				
 				ref_mask = mRenderTypeMask;
 				mRenderTypeMask = mask;
