@@ -906,7 +906,7 @@ void open_inventory_offer(const std::vector<LLUUID>& items, const std::string& f
 					if ("inventory_handler" == from_name)
 					{
 						//we have to filter inventory_handler messages to avoid notification displaying
-						LLSideTray::getInstance()->showPanel("panel_places", 
+						LLSideTray::getInstance()->showPanel("panel_places",
 								LLSD().with("type", "landmark").with("id", item->getUUID()));
 					}
 					else if("group_offer" == from_name)
@@ -925,8 +925,9 @@ void open_inventory_offer(const std::vector<LLUUID>& items, const std::string& f
 						args["FOLDER_NAME"] = std::string(parent_folder ? parent_folder->getName() : "unknown");
 						LLNotificationsUtil::add("LandmarkCreated", args);
 						// Created landmark is passed to Places panel to allow its editing. In fact panel should be already displayed.
+						// If the panel is closed we don't reopen it until created landmark is loaded.
 						//TODO*:: dserduk(7/12/09) remove LLPanelPlaces dependency from here
-						LLPanelPlaces *places_panel = dynamic_cast<LLPanelPlaces*>(LLSideTray::getInstance()->showPanel("panel_places", LLSD()));
+						LLPanelPlaces *places_panel = dynamic_cast<LLPanelPlaces*>(LLSideTray::getInstance()->getPanel("panel_places"));
 						if (places_panel)
 						{
 							// we are creating a landmark
@@ -1902,7 +1903,7 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 
 			if (has_inventory)
 			{
-				info = new LLOfferInfo;
+				info = new LLOfferInfo();
 				
 				info->mIM = IM_GROUP_NOTICE;
 				info->mFromID = from_id;
@@ -1955,6 +1956,10 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 			{
 				
 				LLPanelGroup::showNotice(subj,mes,group_id,has_inventory,item_name,info);
+			}
+			else
+			{
+				delete info;
 			}
 		}
 		break;
@@ -2016,6 +2021,7 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 				if (sizeof(offer_agent_bucket_t) != binary_bucket_size)
 				{
 					LL_WARNS("Messaging") << "Malformed inventory offer from agent" << LL_ENDL;
+					delete info;
 					break;
 				}
 				bucketp = (struct offer_agent_bucket_t*) &binary_bucket[0];
@@ -2027,6 +2033,7 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 				if (sizeof(S8) != binary_bucket_size)
 				{
 					LL_WARNS("Messaging") << "Malformed inventory offer from object" << LL_ENDL;
+					delete info;
 					break;
 				}
 				info->mType = (LLAssetType::EType) binary_bucket[0];
