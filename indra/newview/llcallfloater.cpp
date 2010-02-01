@@ -43,6 +43,7 @@
 #include "llavatariconctrl.h"
 #include "llavatarlist.h"
 #include "llbottomtray.h"
+#include "lldraghandle.h"
 #include "llimfloater.h"
 #include "llfloaterreg.h"
 #include "llparticipantlist.h"
@@ -93,22 +94,6 @@ static void* create_non_avatar_caller(void*)
 	return new LLNonAvatarCaller;
 }
 
-LLCallFloater::LLAvatarListItemRemoveTimer::LLAvatarListItemRemoveTimer(callback_t remove_cb, F32 period, const LLUUID& speaker_id)
-: LLEventTimer(period)
-, mRemoveCallback(remove_cb)
-, mSpeakerId(speaker_id)
-{
-}
-
-BOOL LLCallFloater::LLAvatarListItemRemoveTimer::tick()
-{
-	if (mRemoveCallback)
-	{
-		mRemoveCallback(mSpeakerId);
-	}
-	return TRUE;
-}
-
 LLVoiceChannel* LLCallFloater::sCurrentVoiceCanel = NULL;
 
 LLCallFloater::LLCallFloater(const LLSD& key)
@@ -122,10 +107,9 @@ LLCallFloater::LLCallFloater(const LLSD& key)
 , mSpeakingIndicator(NULL)
 , mIsModeratorMutedVoice(false)
 , mInitParticipantsVoiceState(false)
-, mVoiceLeftRemoveDelay(10)
 {
 	static LLUICachedControl<S32> voice_left_remove_delay ("VoiceParticipantLeftRemoveDelay", 10);
-	mVoiceLeftRemoveDelay = voice_left_remove_delay;
+	mSpeakerDelayRemover = new LLSpeakersDelayActionsStorage(boost::bind(&LLCallFloater::removeVoiceLeftParticipant, this, _1), voice_left_remove_delay);
 
 	mFactoryMap["non_avatar_caller"] = LLCallbackMap(create_non_avatar_caller, NULL);
 	LLVoiceClient::getInstance()->addObserver(this);
@@ -135,6 +119,7 @@ LLCallFloater::LLCallFloater(const LLSD& key)
 LLCallFloater::~LLCallFloater()
 {
 	resetVoiceRemoveTimers();
+	delete mSpeakerDelayRemover;
 
 	delete mParticipants;
 	mParticipants = NULL;
@@ -173,6 +158,13 @@ BOOL LLCallFloater::postBuild()
 
 
 	connectToChannel(LLVoiceChannel::getCurrentVoiceChannel());
+
+	setIsChrome(true);
+	//chrome="true" hides floater caption 
+	if (mDragHandle)
+		mDragHandle->setTitleVisible(TRUE);
+	
+	updateSession();
 
 	return TRUE;
 }
@@ -256,7 +248,7 @@ void LLCallFloater::updateSession()
 		}
 	}
 
-	const LLUUID& session_id = voice_channel->getSessionID();
+	const LLUUID& session_id = voice_channel ? voice_channel->getSessionID() : LLUUID::null;
 	lldebugs << "Set speaker manager for session: " << session_id << llendl;
 
 	LLIMModel::LLIMSession* im_session = LLIMModel::getInstance()->findIMSession(session_id);
@@ -578,33 +570,46 @@ void LLCallFloater::updateParticipantsVoiceState()
 
 		if (!found)
 		{
-			// If an avatarID is not found in a speakers list from VoiceClient and
-			// a panel with this ID has a JOINED status this means that this person
-			// HAS LEFT the call.
-			if ((getState(participant_id) == STATE_JOINED))
+			updateNotInVoiceParticipantState(item);
+		}
+	}
+}
+
+void LLCallFloater::updateNotInVoiceParticipantState(LLAvatarListItem* item)
+{
+	LLUUID participant_id = item->getAvatarId();
+	ESpeakerState current_state = getState(participant_id);
+
+	switch (current_state)
+	{
+	case STATE_JOINED:
+		// If an avatarID is not found in a speakers list from VoiceClient and
+		// a panel with this ID has a JOINED status this means that this person
+		// HAS LEFT the call.
+		setState(item, STATE_LEFT);
+
+		{
+			LLPointer<LLSpeaker> speaker = mSpeakerManager->findSpeaker(participant_id);
+			if (speaker.notNull())
 			{
-				setState(item, STATE_LEFT);
-
-				LLPointer<LLSpeaker> speaker = mSpeakerManager->findSpeaker(item->getAvatarId());
-				if (speaker.isNull())
-				{
-					continue;
-				}
-
 				speaker->mHasLeftCurrentCall = TRUE;
 			}
-			// If an avatarID is not found in a speakers list from VoiceClient and
-			// a panel with this ID has a LEFT status this means that this person
-			// HAS ENTERED session but it is not in voice chat yet. So, set INVITED status
-			else if ((getState(participant_id) != STATE_LEFT))
-			{
-				setState(item, STATE_INVITED);
-			}
-			else
-			{
-				llwarns << "Unsupported (" << getState(participant_id) << ") state: " << item->getAvatarName()  << llendl;
-			}
 		}
+		break;
+	case STATE_INVITED:
+	case STATE_LEFT:
+		// nothing to do. These states should not be changed.
+		break;
+	case STATE_UNKNOWN:
+		// If an avatarID is not found in a speakers list from VoiceClient and
+		// a panel with this ID has an UNKNOWN status this means that this person
+		// HAS ENTERED session but it is not in voice chat yet. So, set INVITED status
+		setState(item, STATE_INVITED);
+		break;
+	default:
+		// for possible new future states.
+		llwarns << "Unsupported (" << getState(participant_id) << ") state for: " << item->getAvatarName()  << llendl;
+		break;
 	}
 }
 
@@ -648,33 +653,11 @@ void LLCallFloater::setState(LLAvatarListItem* item, ESpeakerState state)
 
 void LLCallFloater::setVoiceRemoveTimer(const LLUUID& voice_speaker_id)
 {
-
-	// If there is already a started timer for the current panel don't do anything.
-	bool no_timer_for_current_panel = true;
-	if (mVoiceLeftTimersMap.size() > 0)
-	{
-		timers_map::iterator found_it = mVoiceLeftTimersMap.find(voice_speaker_id);
-		if (found_it != mVoiceLeftTimersMap.end())
-		{
-			no_timer_for_current_panel = false;
-		}
-	}
-
-	if (no_timer_for_current_panel)
-	{
-		// Starting a timer to remove an avatar row panel after timeout
-		mVoiceLeftTimersMap.insert(timer_pair(voice_speaker_id,
-			new LLAvatarListItemRemoveTimer(boost::bind(&LLCallFloater::removeVoiceLeftParticipant, this, _1), mVoiceLeftRemoveDelay, voice_speaker_id)));
-	}
+	mSpeakerDelayRemover->setActionTimer(voice_speaker_id);
 }
 
-void LLCallFloater::removeVoiceLeftParticipant(const LLUUID& voice_speaker_id)
+bool LLCallFloater::removeVoiceLeftParticipant(const LLUUID& voice_speaker_id)
 {
-	if (mVoiceLeftTimersMap.size() > 0)
-	{
-		mVoiceLeftTimersMap.erase(mVoiceLeftTimersMap.find(voice_speaker_id));
-	}
-
 	LLAvatarList::uuid_vector_t& speaker_uuids = mAvatarList->getIDs();
 	LLAvatarList::uuid_vector_t::iterator pos = std::find(speaker_uuids.begin(), speaker_uuids.end(), voice_speaker_id);
 	if(pos != speaker_uuids.end())
@@ -682,34 +665,19 @@ void LLCallFloater::removeVoiceLeftParticipant(const LLUUID& voice_speaker_id)
 		speaker_uuids.erase(pos);
 		mAvatarList->setDirty();
 	}
+
+	return false;
 }
 
 
 void LLCallFloater::resetVoiceRemoveTimers()
 {
-	if (mVoiceLeftTimersMap.size() > 0)
-	{
-		for (timers_map::iterator iter = mVoiceLeftTimersMap.begin();
-			iter != mVoiceLeftTimersMap.end(); ++iter)
-		{
-			delete iter->second;
-		}
-	}
-	mVoiceLeftTimersMap.clear();
+	mSpeakerDelayRemover->removeAllTimers();
 }
 
 void LLCallFloater::removeVoiceRemoveTimer(const LLUUID& voice_speaker_id)
 {
-	// Remove the timer if it has been already started
-	if (mVoiceLeftTimersMap.size() > 0)
-	{
-		timers_map::iterator found_it = mVoiceLeftTimersMap.find(voice_speaker_id);
-		if (found_it != mVoiceLeftTimersMap.end())
-		{
-			delete found_it->second;
-			mVoiceLeftTimersMap.erase(found_it);
-		}
-	}
+	mSpeakerDelayRemover->unsetActionTimer(voice_speaker_id);
 }
 
 bool LLCallFloater::validateSpeaker(const LLUUID& speaker_id)

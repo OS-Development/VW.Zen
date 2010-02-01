@@ -244,7 +244,8 @@ LLTextBase::LLTextBase(const LLTextBase::Params &p)
 
 LLTextBase::~LLTextBase()
 {
-	delete mPopupMenu;
+	// Menu, like any other LLUICtrl, is deleted by its parent - gMenuHolder
+
 	clearSegments();
 }
 
@@ -1016,6 +1017,16 @@ void LLTextBase::draw()
 void LLTextBase::setColor( const LLColor4& c )
 {
 	mFgColor = c;
+	//textsegments have own style property , 
+	//so we have to update it also to apply changes, EXT-4433
+	for(segment_set_t::iterator it = mSegments.begin(); it != mSegments.end(); it++)
+	{
+		LLTextSegment* segment = it->get(); 
+		if(segment)
+		{
+			segment->setColor(mFgColor);
+		}
+	}
 }
 
 //virtual 
@@ -1567,20 +1578,28 @@ void LLTextBase::appendText(const std::string &new_text, bool prepend_newline, c
 					prepend_newline = false;
 				}
 			}
-			// output the styled Url
-			appendAndHighlightText(match.getLabel(), prepend_newline, part, link_params);
-			prepend_newline = false;
 
-			// set the tooltip for the Url label
-			if (! match.getTooltip().empty())
+			// output the styled Url (unless we've been asked to suppress hyperlinking)
+			if (match.isLinkDisabled())
 			{
-				segment_set_t::iterator it = getSegIterContaining(getLength()-1);
-				if (it != mSegments.end())
+				appendAndHighlightText(match.getLabel(), prepend_newline, part, style_params);
+			}
+			else
+			{
+				appendAndHighlightText(match.getLabel(), prepend_newline, part, link_params);
+
+				// set the tooltip for the Url label
+				if (! match.getTooltip().empty())
 				{
-					LLTextSegmentPtr segment = *it;
-					segment->setToolTip(match.getTooltip());
+					segment_set_t::iterator it = getSegIterContaining(getLength()-1);
+					if (it != mSegments.end())
+						{
+							LLTextSegmentPtr segment = *it;
+							segment->setToolTip(match.getTooltip());
+						}
 				}
 			}
+			prepend_newline = false;
 
 			// move on to the rest of the text after the Url
 			if (end < (S32)text.length()) 

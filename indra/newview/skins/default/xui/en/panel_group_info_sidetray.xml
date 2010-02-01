@@ -51,9 +51,9 @@ background_visible="true"
       font="SansSerifHuge"
       height="20"
       left_pad="5"
-      text_color="white"
+     text_color="white"
       top="3"
-      use_ellipses="true"
+     use_ellipses="true"
       width="270"
       follows="top|left"
       word_wrap="true"
@@ -77,10 +77,11 @@ background_visible="true"
      layout="topleft"
      left="10"
      name="insignia"
+     no_commit_on_selection="true"
      tool_tip="Click to choose a picture"
      top_pad="5"
      width="100" />
-      <text
+    <text
       font="SansSerifSmall"
       text_color="White_50"
       width="190"
@@ -152,7 +153,7 @@ background_visible="true"
              follows="all"
              layout="topleft"
              name="groups_accordion">
-         <accordion_tab
+             <accordion_tab
             expanded="true"
             layout="topleft"
             name="group_general_tab"
@@ -230,7 +231,7 @@ background_visible="true"
      top="0"
      name="btn_refresh"
      width="23" />
-   <button
+    <button
     follows="bottom|left"
                  height="18"
                  image_selected="AddItem_Press"
@@ -255,16 +256,16 @@ background_visible="true"
       follows="bottom|left"
      label="Chat"
      name="btn_chat"
-     left_pad="2"
+     left_pad="2"     
      height="23"
      top_delta="-3"
      width="60" />
-    <button
+     <button
          follows="bottom|left"
          left_pad="2"
          height="23"
      name="btn_call"
-         label="Group Call"
+     label="Group Call"
          layout="topleft"
          tool_tip="Call this group"
          width="95" />

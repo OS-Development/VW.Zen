@@ -459,6 +459,14 @@ LLIMChiclet::LLIMChiclet(const LLIMChiclet::Params& p)
 	enableCounterControl(p.enable_counter);
 }
 
+/* virtual*/
+BOOL LLIMChiclet::postBuild()
+{
+	mChicletButton = getChild<LLButton>("chiclet_button");
+	mChicletButton->setCommitCallback(boost::bind(&LLIMChiclet::onMouseDown, this));
+	mChicletButton->setDoubleClickCallback(boost::bind(&LLIMChiclet::onMouseDown, this));
+	return TRUE;
+}
 void LLIMChiclet::setShowSpeaker(bool show)
 {
 	bool needs_resize = getShowSpeaker() != show;
@@ -581,12 +589,6 @@ void LLIMChiclet::onMouseDown()
 void LLIMChiclet::setToggleState(bool toggle)
 {
 	mChicletButton->setToggleState(toggle);
-}
-
-BOOL LLIMChiclet::handleMouseDown(S32 x, S32 y, MASK mask)
-{
-	onMouseDown();
-	return LLChiclet::handleMouseDown(x, y, mask);
 }
 
 void LLIMChiclet::draw()
@@ -1272,6 +1274,7 @@ bool LLChicletPanel::addChiclet(LLChiclet* chiclet, S32 index)
 		chiclet->setChicletSizeChangedCallback(boost::bind(&LLChicletPanel::onChicletSizeChanged, this, _1, index));
 
 		arrange();
+		LLTransientFloaterMgr::getInstance()->addControlView(LLTransientFloaterMgr::IM, chiclet);
 
 		return true;
 	}
@@ -1299,6 +1302,7 @@ void LLChicletPanel::removeChiclet(chiclet_list_t::iterator it)
 	mChicletList.erase(it);
 	
 	arrange();
+	LLTransientFloaterMgr::getInstance()->removeControlView(LLTransientFloaterMgr::IM, chiclet);
 	chiclet->die();
 }
 
@@ -1903,12 +1907,6 @@ void LLScriptChiclet::onMouseDown()
 	LLScriptFloaterManager::getInstance()->toggleScriptFloater(getSessionId());
 }
 
-BOOL LLScriptChiclet::handleMouseDown(S32 x, S32 y, MASK mask)
-{
-	onMouseDown();
-	return LLChiclet::handleMouseDown(x, y, mask);
-}
-
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
@@ -1971,12 +1969,6 @@ void LLInvOfferChiclet::setCounter(S32 counter)
 void LLInvOfferChiclet::onMouseDown()
 {
 	LLScriptFloaterManager::instance().toggleScriptFloater(getSessionId());
-}
-
-BOOL LLInvOfferChiclet::handleMouseDown(S32 x, S32 y, MASK mask)
-{
-	onMouseDown();
-	return LLChiclet::handleMouseDown(x, y, mask);
 }
 
 // EOF
