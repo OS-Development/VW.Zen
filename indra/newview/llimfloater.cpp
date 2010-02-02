@@ -110,6 +110,8 @@ LLIMFloater::LLIMFloater(const LLUUID& session_id)
 		}
 	}
 	setOverlapsScreenChannel(true);
+
+	LLTransientFloaterMgr::getInstance()->addControlView(LLTransientFloaterMgr::IM, this);
 }
 
 void LLIMFloater::onFocusLost()
@@ -228,6 +230,7 @@ void LLIMFloater::sendMsg()
 
 LLIMFloater::~LLIMFloater()
 {
+	LLTransientFloaterMgr::getInstance()->removeControlView(LLTransientFloaterMgr::IM, this);
 }
 
 //virtual
@@ -507,20 +510,34 @@ void LLIMFloater::setVisible(BOOL visible)
 	}
 }
 
+BOOL LLIMFloater::getVisible()
+{
+	if(isChatMultiTab())
+	{
+		LLIMFloaterContainer* im_container = LLIMFloaterContainer::getInstance();
+		// Tabbed IM window is "visible" when we minimize it.
+		return !im_container->isMinimized() && im_container->getVisible();
+	}
+	else
+	{
+		return LLTransientDockableFloater::getVisible();
+	}
+}
+
 //static
 bool LLIMFloater::toggle(const LLUUID& session_id)
 {
 	if(!isChatMultiTab())
 	{
 		LLIMFloater* floater = LLFloaterReg::findTypedInstance<LLIMFloater>("impanel", session_id);
-		if (floater && floater->getVisible())
+		if (floater && floater->getVisible() && floater->hasFocus())
 		{
 			// clicking on chiclet to close floater just hides it to maintain existing
 			// scroll/text entry state
 			floater->setVisible(false);
 			return false;
 		}
-		else if(floater && !floater->isDocked())
+		else if(floater && (!floater->isDocked() || floater->getVisible() && !floater->hasFocus()))
 		{
 			floater->setVisible(TRUE);
 			floater->setFocus(TRUE);
@@ -582,6 +599,9 @@ void LLIMFloater::updateMessages()
 	{
 //		LLUIColor chat_color = LLUIColorTable::instance().getColor("IMChatColor");
 
+		LLSD chat_args;
+		chat_args["use_plain_text_chat_history"] = use_plain_text_chat_history;
+
 		std::ostringstream message;
 		std::list<LLSD>::const_reverse_iterator iter = messages.rbegin();
 		std::list<LLSD>::const_reverse_iterator iter_end = messages.rend();
@@ -596,14 +616,32 @@ void LLIMFloater::updateMessages()
 
 			LLChat chat;
 			chat.mFromID = from_id;
+			chat.mSessionID = mSessionID;
 			chat.mFromName = from;
-			chat.mText = message;
 			chat.mTimeStr = time;
+
+			// process offer notification
+			if (msg.has("notification_id"))
+			{
+				chat.mNotifId = msg["notification_id"].asUUID();
+			}
+			//process text message
+			else
+			{
+				chat.mText = message;
+			}
 			
-			mChatHistory->appendMessage(chat, use_plain_text_chat_history);
+			mChatHistory->appendMessage(chat, chat_args);
 			mLastMessageIndex = msg["index"].asInteger();
 		}
 	}
+}
+
+void LLIMFloater::reloadMessages()
+{
+	mChatHistory->clear();
+	mLastMessageIndex = -1;
+	updateMessages();
 }
 
 // static

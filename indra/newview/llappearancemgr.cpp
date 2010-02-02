@@ -35,6 +35,7 @@
 #include "llagent.h"
 #include "llagentwearables.h"
 #include "llappearancemgr.h"
+#include "llcommandhandler.h"
 #include "llfloatercustomize.h"
 #include "llgesturemgr.h"
 #include "llinventorybridge.h"
@@ -46,6 +47,23 @@
 #include "llvoavatarself.h"
 #include "llviewerregion.h"
 #include "llwearablelist.h"
+
+// support for secondlife:///app/appearance SLapps
+class LLAppearanceHandler : public LLCommandHandler
+{
+public:
+	// requests will be throttled from a non-trusted browser
+	LLAppearanceHandler() : LLCommandHandler("appearance", UNTRUSTED_THROTTLE) {}
+
+	bool handle(const LLSD& params, const LLSD& query_map, LLMediaCtrl* web)
+	{
+		// support secondlife:///app/appearance/show, but for now we just
+		// make all secondlife:///app/appearance SLapps behave this way
+		LLSideTray::getInstance()->showPanel("sidepanel_appearance", LLSD());
+		return true;
+	}
+};
+LLAppearanceHandler gAppearanceHandler;
 
 class LLWearInventoryCategoryCallback : public LLInventoryCallback
 {
@@ -274,11 +292,11 @@ private:
 
 struct LLFoundData
 {
-	LLFoundData() {}
+	LLFoundData() : mAssetType(LLAssetType::AT_NONE), mWearable(NULL) {}
 	LLFoundData(const LLUUID& item_id,
-				const LLUUID& asset_id,
-				const std::string& name,
-				LLAssetType::EType asset_type) :
+		    const LLUUID& asset_id,
+		    const std::string& name,
+		    LLAssetType::EType asset_type) :
 		mItemID(item_id),
 		mAssetID(asset_id),
 		mName(name),
@@ -428,7 +446,7 @@ static void onWearableAssetFetch(LLWearable* wearable, void* data)
 	holder->mResolved += 1;
 }
 
-LLUUID LLAppearanceManager::getCOF()
+const LLUUID LLAppearanceManager::getCOF() const
 {
 	return gInventory.findCategoryUUIDForType(LLFolderType::FT_CURRENT_OUTFIT);
 }
@@ -1063,7 +1081,6 @@ void LLAppearanceManager::addCOFItemLink(const LLInventoryItem *item, bool do_up
 		// MULTI-WEARABLES: revisit if more than one per type is allowed.
 		else if (areMatchingWearables(vitem,inv_item))
 		{
-			gAgentWearables.removeWearable(inv_item->getWearableType(),true,0);
 			if (inv_item->getIsLinkType())
 			{
 				gInventory.purgeObject(inv_item->getUUID());
@@ -1310,4 +1327,24 @@ void LLAppearanceManager::linkRegisteredAttachments()
 		addCOFItemLink(item_id, false);
 	}
 	mRegisteredAttachments.clear();
+}
+
+BOOL LLAppearanceManager::getIsInCOF(const LLUUID& obj_id) const
+{
+	return gInventory.isObjectDescendentOf(obj_id, getCOF());
+}
+
+BOOL LLAppearanceManager::getIsProtectedCOFItem(const LLUUID& obj_id) const
+{
+	if (!getIsInCOF(obj_id)) return FALSE;
+	const LLInventoryObject *obj = gInventory.getObject(obj_id);
+	if (!obj) return FALSE;
+
+	// Can't delete bodyparts, since this would be equivalent to removing the item.
+	if (obj->getType() == LLAssetType::AT_BODYPART) return TRUE;
+
+	// Can't delete the folder link, since this is saved for bookkeeping.
+	if (obj->getActualType() == LLAssetType::AT_LINK_FOLDER) return TRUE;
+
+	return FALSE;
 }

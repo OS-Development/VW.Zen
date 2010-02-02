@@ -84,7 +84,8 @@ namespace LLInitParam
 	// BaseBlock
 	//
 	BaseBlock::BaseBlock()
-	:	mChangeVersion(0)
+	:	mChangeVersion(0),
+		mBlockDescriptor(NULL)
 	{}
 
 	BaseBlock::~BaseBlock()
@@ -416,8 +417,8 @@ namespace LLInitParam
 	{ 
 		if (user_provided)
 		{
-			mChangeVersion++;
-		}
+		mChangeVersion++;
+	}
 	}
 
 	const std::string& BaseBlock::getParamName(const BlockDescriptor& block_data, const Param* paramp) const

@@ -630,7 +630,6 @@ bool join_group_response(const LLSD& notification, const LLSD& response)
 			delete_context_data = FALSE;
 			LLSD args;
 			args["NAME"] = name;
-			args["INVITE"] = message;
 			LLNotificationsUtil::add("JoinedTooManyGroupsMember", args, notification["payload"]);
 		}
 	}
@@ -906,7 +905,7 @@ void open_inventory_offer(const std::vector<LLUUID>& items, const std::string& f
 					if ("inventory_handler" == from_name)
 					{
 						//we have to filter inventory_handler messages to avoid notification displaying
-						LLSideTray::getInstance()->showPanel("panel_places", 
+						LLSideTray::getInstance()->showPanel("panel_places",
 								LLSD().with("type", "landmark").with("id", item->getUUID()));
 					}
 					else if("group_offer" == from_name)
@@ -925,8 +924,9 @@ void open_inventory_offer(const std::vector<LLUUID>& items, const std::string& f
 						args["FOLDER_NAME"] = std::string(parent_folder ? parent_folder->getName() : "unknown");
 						LLNotificationsUtil::add("LandmarkCreated", args);
 						// Created landmark is passed to Places panel to allow its editing. In fact panel should be already displayed.
+						// If the panel is closed we don't reopen it until created landmark is loaded.
 						//TODO*:: dserduk(7/12/09) remove LLPanelPlaces dependency from here
-						LLPanelPlaces *places_panel = dynamic_cast<LLPanelPlaces*>(LLSideTray::getInstance()->showPanel("panel_places", LLSD()));
+						LLPanelPlaces *places_panel = dynamic_cast<LLPanelPlaces*>(LLSideTray::getInstance()->getPanel("panel_places"));
 						if (places_panel)
 						{
 							// we are creating a landmark
@@ -1365,10 +1365,9 @@ bool LLOfferInfo::inventory_task_offer_callback(const LLSD& notification, const 
 			if (check_offer_throttle(mFromName, true))
 			{
 				log_message = chatHistory_string + " " + LLTrans::getString("InvOfferGaveYou") + " " + mDesc + LLTrans::getString(".");
-				//TODO* CHAT: how to show this?
-				//LLSD args;
-				//args["MESSAGE"] = log_message;
-				//LLNotificationsUtil::add("SystemMessage", args);
+				LLSD args;
+				args["MESSAGE"] = log_message;
+				LLNotificationsUtil::add("SystemMessage", args);
 			}
 			
 			// we will want to open this item when it comes back.
@@ -1410,11 +1409,10 @@ bool LLOfferInfo::inventory_task_offer_callback(const LLSD& notification, const 
 			// send the message
 			msg->sendReliable(mHost);
 			
-			//TODO* CHAT: how to show this?
-			//log_message = LLTrans::getString("InvOfferYouDecline") + " " + mDesc + " " + LLTrans::getString("InvOfferFrom") + " " + mFromName +".";
-			//LLSD args;
-			//args["MESSAGE"] = log_message;
-			//LLNotificationsUtil::add("SystemMessage", args);
+			log_message = LLTrans::getString("InvOfferYouDecline") + " " + mDesc + " " + LLTrans::getString("InvOfferFrom") + " " + mFromName +".";
+			LLSD args;
+			args["MESSAGE"] = log_message;
+			LLNotificationsUtil::add("SystemMessage", args);
 			
 			if (busy &&	(!mFromGroup && !mFromObject))
 			{
@@ -1472,7 +1470,7 @@ void inventory_offer_handler(LLOfferInfo* info)
 	{
 		LLStringUtil::truncate(msg, indx);
 	}
-	
+
 	LLSD args;
 	args["[OBJECTNAME]"] = msg;
 
@@ -1838,11 +1836,9 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 				// history.  Pretend the chat is from a local agent,
 				// so it will go into the history but not be shown on screen.
 
-				//TODO* CHAT: how to show this?
-				//and this is not system message...
-				//LLSD args;
-				//args["MESSAGE"] = buffer;
-				//LLNotificationsUtil::add("SystemMessage", args);
+				LLSD args;
+				args["MESSAGE"] = buffer;
+				LLNotificationsUtil::add("SystemMessageTip", args);
 			}
 		}
 		break;
@@ -1906,7 +1902,7 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 
 			if (has_inventory)
 			{
-				info = new LLOfferInfo;
+				info = new LLOfferInfo();
 				
 				info->mIM = IM_GROUP_NOTICE;
 				info->mFromID = from_id;
@@ -1959,6 +1955,10 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 			{
 				
 				LLPanelGroup::showNotice(subj,mes,group_id,has_inventory,item_name,info);
+			}
+			else
+			{
+				delete info;
 			}
 		}
 		break;
@@ -2020,6 +2020,7 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 				if (sizeof(offer_agent_bucket_t) != binary_bucket_size)
 				{
 					LL_WARNS("Messaging") << "Malformed inventory offer from agent" << LL_ENDL;
+					delete info;
 					break;
 				}
 				bucketp = (struct offer_agent_bucket_t*) &binary_bucket[0];
@@ -2031,6 +2032,7 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 				if (sizeof(S8) != binary_bucket_size)
 				{
 					LL_WARNS("Messaging") << "Malformed inventory offer from object" << LL_ENDL;
+					delete info;
 					break;
 				}
 				info->mType = (LLAssetType::EType) binary_bucket[0];
@@ -2210,7 +2212,7 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 			payload["SESSION_NAME"] = session_name;
 			if (from_group)
 			{
-				payload["groupowned"] = "true";
+				payload["group_owned"] = "true";
 			}
 			LLNotificationsUtil::add("ServerObjectMessage", substitutions, payload);
 		}
@@ -2512,7 +2514,7 @@ void process_chat_from_simulator(LLMessageSystem *msg, void **user_data)
 	
 	// Object owner for objects
 	msg->getUUID("ChatData", "OwnerID", owner_id);
-	
+
 	msg->getU8Fast(_PREHASH_ChatData, _PREHASH_SourceType, source_temp);
 	chat.mSourceType = (EChatSourceType)source_temp;
 
@@ -2541,7 +2543,7 @@ void process_chat_from_simulator(LLMessageSystem *msg, void **user_data)
 	if (chatter)
 	{
 		chat.mPosAgent = chatter->getPositionAgent();
-		
+
 		// Make swirly things only for talking objects. (not script debug messages, though)
 		if (chat.mSourceType == CHAT_SOURCE_OBJECT 
 			&& chat.mChatType != CHAT_TYPE_DEBUG_MSG)
@@ -2686,8 +2688,13 @@ void process_chat_from_simulator(LLMessageSystem *msg, void **user_data)
 
 		chat.mMuted = is_muted && !is_linden;
 
-		LLNotificationsUI::LLNotificationManager::instance().onChat(
-					chat, LLNotificationsUI::NT_NEARBYCHAT);
+		// pass owner_id to chat so that we can display the remote
+		// object inspect for an object that is chatting with you
+		LLSD args;
+		args["type"] = LLNotificationsUI::NT_NEARBYCHAT;
+		args["owner_id"] = owner_id;
+
+		LLNotificationsUI::LLNotificationManager::instance().onChat(chat, args);
 	}
 }
 
@@ -3073,10 +3080,9 @@ void process_agent_movement_complete(LLMessageSystem* msg, void**)
 		{
 			// Chat the "back" SLURL. (DEV-4907)
 
-			//TODO* CHAT: how to show this?
-			//LLSD args;
-			//args["MESSAGE"] = message;
-			//LLNotificationsUtil::add("SystemMessage", args);
+			LLSD args;
+			args["MESSAGE"] = "Teleport completed from " + gAgent.getTeleportSourceSLURL();
+			LLNotificationsUtil::add("SystemMessageTip", args);
 
 			// Set the new position
 			avatarp->setPositionAgent(agent_pos);

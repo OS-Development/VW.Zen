@@ -32,6 +32,8 @@
 #ifndef LL_LLPANELPLACES_H
 #define LL_LLPANELPLACES_H
 
+#include "lltimer.h"
+
 #include "llpanel.h"
 
 class LLInventoryItem;
@@ -97,6 +99,8 @@ private:
 	void togglePickPanel(BOOL visible);
 	void togglePlaceInfoPanel(BOOL visible);
 
+	/*virtual*/ void handleVisibilityChange(BOOL new_visibility);
+
 	void updateVerbs();
 
 	LLPanelPlaceInfo* getCurrentInfoPanel();
@@ -111,6 +115,8 @@ private:
 	LLToggleableMenu*			mPlaceMenu;
 	LLToggleableMenu*			mLandmarkMenu;
 
+	LLButton*					mPlaceProfileBackBtn;
+	LLButton*					mLandmarkInfoBackBtn;
 	LLButton*					mTeleportBtn;
 	LLButton*					mShowOnMapBtn;
 	LLButton*					mEditBtn;
@@ -129,6 +135,10 @@ private:
 	// Absolute position of the location for teleport, may not
 	// be available (hence zero)
 	LLVector3d					mPosGlobal;
+
+	// Sets a period of time during which the requested place information
+	// is expected to be updated and doesn't need to be reset.
+	LLTimer						mResetInfoTimer;
 
 	// Information type currently shown in Place Information panel
 	std::string					mPlaceInfoType;
