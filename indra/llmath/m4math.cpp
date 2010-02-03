@@ -428,6 +428,17 @@ const LLMatrix4&  	LLMatrix4::initRotTrans(const LLQuaternion &q, const LLVector
 	return (*this);
 }
 
+const LLMatrix4& LLMatrix4::initScale(const LLVector3 &scale)
+{
+	setIdentity();
+
+	mMatrix[VX][VX] = scale.mV[VX];
+	mMatrix[VY][VY] = scale.mV[VY];
+	mMatrix[VZ][VZ] = scale.mV[VZ];
+	
+	return (*this);
+}
+
 const LLMatrix4& LLMatrix4::initAll(const LLVector3 &scale, const LLQuaternion &q, const LLVector3 &pos)
 {
 	F32		sx, sy, sz;
@@ -772,6 +783,23 @@ bool operator!=(const LLMatrix4 &a, const LLMatrix4 &b)
 		}
 	}
 	return FALSE;
+}
+
+bool operator<(const LLMatrix4& a, const LLMatrix4 &b)
+{
+	U32		i, j;
+	for (i = 0; i < NUM_VALUES_IN_MAT4; i++)
+	{
+		for (j = 0; j < NUM_VALUES_IN_MAT4; j++)
+		{
+			if (a.mMatrix[i][j] != b.mMatrix[i][j])
+			{
+				return a.mMatrix[i][j] < b.mMatrix[i][j];
+			}
+		}
+	}
+
+	return false;
 }
 
 const LLMatrix4& operator*=(LLMatrix4 &a, F32 k)
