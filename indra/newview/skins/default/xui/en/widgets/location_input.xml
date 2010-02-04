@@ -96,17 +96,17 @@
     name="damage_icon"
     width="14"
     height="13"
-    top="21"
+    top="19"
     left="2"
     follows="right|top"
-    image_name="Parcel_Damage_Dark"
+    image_name="Parcel_Health_Dark"
     />
   <!-- Default text color is invisible on top of nav bar background -->
   <damage_text
     name="damage_text"
 	width="35"
 	height="18"
-	top="16"
+	top="17"
     follows="right|top"
 	halign="right"
 	font="SansSerifSmall"

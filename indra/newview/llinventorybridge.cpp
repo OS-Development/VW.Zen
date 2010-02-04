@@ -174,7 +174,7 @@ time_t LLInvFVBridge::getCreationDate() const
 }
 
 // Can be destroyed (or moved to trash)
-BOOL LLInvFVBridge::isItemRemovable()
+BOOL LLInvFVBridge::isItemRemovable() const
 {
 	const LLInventoryModel* model = getInventoryModel();
 	if(!model) 
@@ -605,14 +605,14 @@ void LLInvFVBridge::buildContextMenu(LLMenuGL& menu, U32 flags)
 	lldebugs << "LLInvFVBridge::buildContextMenu()" << llendl;
 	std::vector<std::string> items;
 	std::vector<std::string> disabled_items;
-	if(isInTrash())
+	if(isItemInTrash())
 	{
-		items.push_back(std::string("PurgeItem"));
+		items.push_back(std::string("Purge Item"));
 		if (!isItemRemovable())
 		{
-			disabled_items.push_back(std::string("PurgeItem"));
+			disabled_items.push_back(std::string("Purge Item"));
 		}
-		items.push_back(std::string("RestoreItem"));
+		items.push_back(std::string("Restore Item"));
 	}
 	else
 	{
@@ -670,7 +670,7 @@ LLInventoryModel* LLInvFVBridge::getInventoryModel() const
 	return panel ? panel->getModel() : NULL;
 }
 
-BOOL LLInvFVBridge::isInTrash() const
+BOOL LLInvFVBridge::isItemInTrash() const
 {
 	LLInventoryModel* model = getInventoryModel();
 	if(!model) return FALSE;
@@ -680,7 +680,7 @@ BOOL LLInvFVBridge::isInTrash() const
 
 BOOL LLInvFVBridge::isLinkedObjectInTrash() const
 {
-	if (isInTrash()) return TRUE;
+	if (isItemInTrash()) return TRUE;
 
 	const LLInventoryObject *obj = getInventoryObject();
 	if (obj && obj->getIsLinkType())
@@ -1412,7 +1412,7 @@ public:
 };
 
 // Can be destroyed (or moved to trash)
-BOOL LLFolderBridge::isItemRemovable()
+BOOL LLFolderBridge::isItemRemovable() const
 {
 	LLInventoryModel* model = getInventoryModel();
 	if(!model)
@@ -2617,14 +2617,17 @@ void LLFolderBridge::buildContextMenu(LLMenuGL& menu, U32 flags)
 			mItems.push_back(std::string("New Gesture"));
 			mItems.push_back(std::string("New Clothes"));
 			mItems.push_back(std::string("New Body Parts"));
-			mItems.push_back(std::string("Change Type"));
 
-			LLViewerInventoryCategory *cat = getCategory();
+			// Changing folder types is just a debug feature; this is fairly unsupported
+			// and can lead to unexpected behavior if enabled.
+#if !LL_RELEASE_FOR_DOWNLOAD
+			mItems.push_back(std::string("Change Type"));
+			const LLViewerInventoryCategory *cat = getCategory();
 			if (cat && LLFolderType::lookupIsProtectedType(cat->getPreferredType()))
 			{
 				mDisabledItems.push_back(std::string("Change Type"));
 			}
-
+#endif
 			getClipboardEntries(false, mItems, mDisabledItems, flags);
 		}
 		else
@@ -3205,7 +3208,7 @@ void LLTextureBridge::buildContextMenu(LLMenuGL& menu, U32 flags)
 	lldebugs << "LLTextureBridge::buildContextMenu()" << llendl;
 	std::vector<std::string> items;
 	std::vector<std::string> disabled_items;
-	if(isInTrash())
+	if(isItemInTrash())
 	{
 		items.push_back(std::string("Purge Item"));
 		if (!isItemRemovable())
@@ -3299,7 +3302,7 @@ void LLSoundBridge::buildContextMenu(LLMenuGL& menu, U32 flags)
 	std::vector<std::string> items;
 	std::vector<std::string> disabled_items;
 
-	if(isInTrash())
+	if(isItemInTrash())
 	{
 		items.push_back(std::string("Purge Item"));
 		if (!isItemRemovable())
@@ -3348,7 +3351,7 @@ void LLLandmarkBridge::buildContextMenu(LLMenuGL& menu, U32 flags)
 	std::vector<std::string> disabled_items;
 
 	lldebugs << "LLLandmarkBridge::buildContextMenu()" << llendl;
-	if(isInTrash())
+	if(isItemInTrash())
 	{
 		items.push_back(std::string("Purge Item"));
 		if (!isItemRemovable())
@@ -3573,7 +3576,7 @@ void LLCallingCardBridge::buildContextMenu(LLMenuGL& menu, U32 flags)
 	std::vector<std::string> items;
 	std::vector<std::string> disabled_items;
 
-	if(isInTrash())
+	if(isItemInTrash())
 	{
 		items.push_back(std::string("Purge Item"));
 		if (!isItemRemovable())
@@ -3773,6 +3776,21 @@ void LLGestureBridge::performAction(LLFolderView* folder, LLInventoryModel* mode
 		gInventory.updateItem(item);
 		gInventory.notifyObservers();
 	}
+	else if("play" == action)
+	{
+		if(!LLGestureManager::instance().isGestureActive(mUUID))
+		{
+			// we need to inform server about gesture activating to be consistent with LLPreviewGesture and  LLGestureComboList.
+			BOOL inform_server = TRUE;
+			BOOL deactivate_similar = FALSE;
+			LLGestureManager::instance().setGestureLoadedCallback(mUUID, boost::bind(&LLGestureBridge::playGesture, mUUID));
+			LLGestureManager::instance().activateGestureWithAsset(mUUID, gInventory.getItem(mUUID)->getAssetUUID(), inform_server, deactivate_similar);
+		}
+		else
+		{
+			playGesture(mUUID);
+		}
+	}
 	else LLItemBridge::performAction(folder, model, action);
 }
 
@@ -3823,7 +3841,7 @@ void LLGestureBridge::buildContextMenu(LLMenuGL& menu, U32 flags)
 	lldebugs << "LLGestureBridge::buildContextMenu()" << llendl;
 	std::vector<std::string> items;
 	std::vector<std::string> disabled_items;
-	if(isInTrash())
+	if(isItemInTrash())
 	{
 		items.push_back(std::string("Purge Item"));
 		if (!isItemRemovable())
@@ -3858,6 +3876,20 @@ void LLGestureBridge::buildContextMenu(LLMenuGL& menu, U32 flags)
 	hide_context_entries(menu, items, disabled_items);
 }
 
+// static
+void LLGestureBridge::playGesture(const LLUUID& item_id)
+{
+	if (LLGestureManager::instance().isGesturePlaying(item_id))
+	{
+		LLGestureManager::instance().stopGesture(item_id);
+	}
+	else
+	{
+		LLGestureManager::instance().playGesture(item_id);
+	}
+}
+
+
 // +=================================================+
 // |        LLAnimationBridge                        |
 // +=================================================+
@@ -3873,7 +3905,7 @@ void LLAnimationBridge::buildContextMenu(LLMenuGL& menu, U32 flags)
 	std::vector<std::string> disabled_items;
 
 	lldebugs << "LLAnimationBridge::buildContextMenu()" << llendl;
-	if(isInTrash())
+	if(isItemInTrash())
 	{
 		items.push_back(std::string("Purge Item"));
 		if (!isItemRemovable())
@@ -4152,7 +4184,7 @@ void LLObjectBridge::buildContextMenu(LLMenuGL& menu, U32 flags)
 {
 	std::vector<std::string> items;
 	std::vector<std::string> disabled_items;
-	if(isInTrash())
+	if(isItemInTrash())
 	{
 		items.push_back(std::string("Purge Item"));
 		if (!isItemRemovable())
@@ -4188,7 +4220,7 @@ void LLObjectBridge::buildContextMenu(LLMenuGL& menu, U32 flags)
 			{
 				items.push_back(std::string("Detach From Yourself"));
 			}
-			else if (!isInTrash() && !isLinkedObjectInTrash() && !isLinkedObjectMissing())
+			else if (!isItemInTrash() && !isLinkedObjectInTrash() && !isLinkedObjectMissing())
 			{
 				items.push_back(std::string("Attach Separator"));
 				items.push_back(std::string("Object Wear"));
@@ -4526,7 +4558,7 @@ void LLWearableBridge::openItem()
 		LLInvFVBridgeAction::doAction(item->getType(),mUUID,getInventoryModel());
 	}
 	/*
-	if( isInTrash() )
+	if( isItemInTrash() )
 	{
 		LLNotificationsUtil::add("CannotWearTrash");
 	}
@@ -4568,7 +4600,7 @@ void LLWearableBridge::buildContextMenu(LLMenuGL& menu, U32 flags)
 	lldebugs << "LLWearableBridge::buildContextMenu()" << llendl;
 	std::vector<std::string> items;
 	std::vector<std::string> disabled_items;
-	if(isInTrash())
+	if(isItemInTrash())
 	{
 		items.push_back(std::string("Purge Item"));
 		if (!isItemRemovable())
@@ -5163,7 +5195,7 @@ void	LLLSLTextBridgeAction::doIt()
 }
 
 
-BOOL LLWearableBridgeAction::isInTrash() const
+BOOL LLWearableBridgeAction::isItemInTrash() const
 {
 	if(!mModel) return FALSE;
 	const LLUUID trash_id = mModel->findCategoryUUIDForType(LLFolderType::FT_TRASH);
@@ -5211,7 +5243,7 @@ void LLWearableBridgeAction::wearOnAvatar()
 //virtual
 void LLWearableBridgeAction::doIt()
 {
-	if(isInTrash())
+	if(isItemInTrash())
 	{
 		LLNotificationsUtil::add("CannotWearTrash");
 	}
@@ -5276,7 +5308,7 @@ void LLLinkItemBridge::buildContextMenu(LLMenuGL& menu, U32 flags)
 	items.push_back(std::string("Find Original"));
 	disabled_items.push_back(std::string("Find Original"));
 	
-	if(isInTrash())
+	if(isItemInTrash())
 	{
 		items.push_back(std::string("Purge Item"));
 		if (!isItemRemovable())
@@ -5327,7 +5359,7 @@ void LLLinkFolderBridge::buildContextMenu(LLMenuGL& menu, U32 flags)
 	std::vector<std::string> items;
 	std::vector<std::string> disabled_items;
 
-	if(isInTrash())
+	if(isItemInTrash())
 	{
 		items.push_back(std::string("Purge Item"));
 		if (!isItemRemovable())

@@ -676,7 +676,7 @@ void LLPanelLogin::refreshLocation( bool force_visible )
 		// Don't show on first run after install
 		// Otherwise ShowStartLocation defaults to true.
 		show_start = gSavedSettings.getBOOL("ShowStartLocation")
-					&& !gSavedSettings.getBOOL("FirstRunThisInstall");
+					&& gSavedSettings.getBOOL("HadFirstSuccessfulLogin");
 	}
 
 	sInstance->childSetVisible("start_location_combo", show_start);
@@ -686,6 +686,23 @@ void LLPanelLogin::refreshLocation( bool force_visible )
 	sInstance->childSetVisible("server_combo", show_server);
 
 #endif
+}
+
+// static
+void LLPanelLogin::updateLocationUI()
+{
+	if (!sInstance) return;
+	
+	std::string sim_string = LLURLSimString::sInstance.mSimString;
+	if (!sim_string.empty())
+	{
+		// Replace "<Type region name>" with this region name
+		LLComboBox* combo = sInstance->getChild<LLComboBox>("start_location_combo");
+		combo->remove(2);
+		combo->add( sim_string );
+		combo->setTextEntry(sim_string);
+		combo->setCurrentByIndex( 2 );
+	}
 }
 
 // static
@@ -830,7 +847,7 @@ void LLPanelLogin::loadLoginPage()
 		oStr << "&auto_login=TRUE";
 	}
 	if (gSavedSettings.getBOOL("ShowStartLocation")
-		&& !gSavedSettings.getBOOL("FirstRunThisInstall"))
+		&& gSavedSettings.getBOOL("HadFirstSuccessfulLogin"))
 	{
 		oStr << "&show_start_location=TRUE";
 	}	
