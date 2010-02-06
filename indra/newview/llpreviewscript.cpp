@@ -955,7 +955,7 @@ BOOL LLPreviewLSL::postBuild()
 
 	childSetCommitCallback("desc", LLPreview::onText, this);
 	childSetText("desc", item->getDescription());
-	childSetPrevalidate("desc", &LLLineEditor::prevalidateASCIIPrintableNoPipe);
+	childSetPrevalidate("desc", &LLTextValidate::validateASCIIPrintableNoPipe);
 
 	return LLPreview::postBuild();
 }
@@ -1904,7 +1904,7 @@ void LLLiveLSLEditor::uploadAssetViaCaps(const std::string& url,
 										 const LLUUID& item_id,
 										 BOOL is_running)
 {
-	llinfos << "Update Task Inventory via capability" << llendl;
+	llinfos << "Update Task Inventory via capability " << url << llendl;
 	LLSD body;
 	body["task_id"] = task_id;
 	body["item_id"] = item_id;

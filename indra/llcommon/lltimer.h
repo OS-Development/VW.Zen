@@ -188,6 +188,7 @@ public:
 protected:
 	LLTimer mEventTimer;
 	F32 mPeriod;
+	static bool sInTickLoop;
 };
 
 U64 LL_COMMON_API totalTime();					// Returns current system time in microseconds

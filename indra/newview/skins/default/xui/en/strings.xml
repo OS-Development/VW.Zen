@@ -115,9 +115,6 @@
   <!-- Avatar name: More than one avatar is selected/used here -->
   <string name="AvatarNameMultiple">(multiple)</string>
 
-  <!-- Avatar name: text shown as an alternative to AvatarNameFetching, easter egg. -->
-	<string name="AvatarNameHippos">(hippos)</string>
-
 	<!-- Group name: text shown for LLUUID::null -->
 	<string name="GroupNameNone">(none)</string>
 
@@ -254,6 +251,7 @@
 	<string name="connected">Connected</string>
 	<string name="unavailable">Voice not available at your current location</string>
 	<string name="hang_up">Disconnected from in-world Voice Chat</string>
+  <string name="reconnect_nearby">You will now be reconnected to Nearby Voice Chat</string>
 	<string name="ScriptQuestionCautionChatGranted">'[OBJECTNAME]', an object owned by '[OWNERNAME]', located in [REGIONNAME] at [REGIONPOS], has been granted permission to: [PERMISSIONS].</string>
 	<string name="ScriptQuestionCautionChatDenied">'[OBJECTNAME]', an object owned by '[OWNERNAME]', located in [REGIONNAME] at [REGIONPOS], has been denied permission to: [PERMISSIONS].</string>
 	<string name="ScriptTakeMoney">Take Linden dollars (L$) from you</string>
@@ -2051,6 +2049,7 @@ this texture in your inventory
 	<string name="ScriptLimitsURLsUsed">URLs used: [COUNT] out of [MAX]; [AVAILABLE] available</string>
 	<string name="ScriptLimitsURLsUsedSimple">URLs used: [COUNT]</string>
 	<string name="ScriptLimitsRequestError">Error requesting information</string>
+	<string name="ScriptLimitsRequestNoParcelSelected">No Parcel Selected</string>
 	<string name="ScriptLimitsRequestWrongRegion">Error: script information is only available in your current region</string>
 	<string name="ScriptLimitsRequestWaiting">Retrieving information...</string>
 	<string name="ScriptLimitsRequestDontOwnParcel">You do not have permission to examine this parcel</string>

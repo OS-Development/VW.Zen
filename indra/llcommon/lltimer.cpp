@@ -560,6 +560,7 @@ void secondsToTimecodeString(F32 current_time, std::string& tcstring)
 //		LLEventTimer Implementation
 //
 //////////////////////////////////////////////////////////////////////////////
+bool LLEventTimer::sInTickLoop = false;
 
 LLEventTimer::LLEventTimer(F32 period)
 : mEventTimer()
@@ -576,11 +577,14 @@ LLEventTimer::LLEventTimer(const LLDate& time)
 
 LLEventTimer::~LLEventTimer()
 {
+	llassert(!LLEventTimer::sInTickLoop); // this LLEventTimer was destroyed from within its own tick() function - bad.  if you want tick() to cause destruction of its own timer, make it return true.
 }
 
+//static
 void LLEventTimer::updateClass() 
 {
 	std::list<LLEventTimer*> completed_timers;
+	LLEventTimer::sInTickLoop = true;
 	for (instance_iter iter = beginInstances(); iter != endInstances(); ) 
 	{
 		LLEventTimer& timer = *iter++;
@@ -593,6 +597,7 @@ void LLEventTimer::updateClass()
 			}
 		}
 	}
+	LLEventTimer::sInTickLoop = false;
 
 	if ( completed_timers.size() > 0 )
 	{
