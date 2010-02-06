@@ -773,6 +773,8 @@ bool idle_startup()
 
 			LLPanelLogin::giveFocus();
 
+			gSavedSettings.setBOOL("FirstRunThisInstall", FALSE);
+
 			LLStartUp::setStartupState( STATE_LOGIN_WAIT );		// Wait for user input
 		}
 		else
@@ -797,6 +799,9 @@ bool idle_startup()
 		gViewerWindow->setNormalControlsVisible( FALSE );	
 		gLoginMenuBarView->setVisible( TRUE );
 		gLoginMenuBarView->setEnabled( TRUE );
+
+		// Hide the splash screen
+		LLSplashScreen::hide();
 
 		// Push our window frontmost
 		gViewerWindow->getWindow()->show();
@@ -1698,6 +1703,10 @@ bool idle_startup()
 					<< " kbps" << LL_ENDL;
 				gViewerThrottle.setMaxBandwidth(FAST_RATE_BPS / 1024.f);
 			}
+
+			// Set the show start location to true, now that the user has logged
+			// on with this install.
+			gSavedSettings.setBOOL("ShowStartLocation", TRUE);
 		}
 
 		// We're successfully logged in.
@@ -2005,9 +2014,6 @@ bool idle_startup()
 		// LLUserAuth::getInstance()->reset();
 
 		LLStartUp::setStartupState( STATE_STARTED );
-
-		// Mark that we have successfully logged in at least once
-		gSavedSettings.setBOOL("HadFirstSuccessfulLogin", TRUE);
 
 		// Unmute audio if desired and setup volumes.
 		// Unmute audio if desired and setup volumes.
