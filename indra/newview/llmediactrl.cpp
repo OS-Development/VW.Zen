@@ -724,14 +724,14 @@ void LLMediaCtrl::draw()
 		LLGLSUIDefault gls_ui;
 		LLGLDisable gls_alphaTest( GL_ALPHA_TEST );
 
-		gGL.pushMatrix();
+		gGL.pushUIMatrix();
 		{
 			if (mIgnoreUIScale)
 			{
-				glLoadIdentity();
+				gGL.loadUIIdentity();
 				// font system stores true screen origin, need to scale this by UI scale factor
 				// to get render origin for this view (with unit scale)
-				gGL.translatef(floorf(LLFontGL::sCurOrigin.mX * LLUI::sGLScaleFactor.mV[VX]), 
+				gGL.translateUI(floorf(LLFontGL::sCurOrigin.mX * LLUI::sGLScaleFactor.mV[VX]), 
 							floorf(LLFontGL::sCurOrigin.mY * LLUI::sGLScaleFactor.mV[VY]), 
 							LLFontGL::sCurOrigin.mZ);
 			}
@@ -825,7 +825,7 @@ void LLMediaCtrl::draw()
 			gGL.end();
 			gGL.setSceneBlendType(LLRender::BT_ALPHA);
 		}
-		gGL.popMatrix();
+		gGL.popUIMatrix();
 	
 	}
 	else
@@ -982,16 +982,20 @@ void LLMediaCtrl::onClickLinkHref( LLPluginClassMedia* self )
 	U32 target_type = self->getClickTargetType();
 	
 	// is there is a target specified for the link?
-	if (gSavedSettings.getBOOL("UseExternalBrowser") || target_type == LLPluginClassMedia::TARGET_EXTERNAL)
+	if (target_type == LLPluginClassMedia::TARGET_EXTERNAL ||
+		target_type == LLPluginClassMedia::TARGET_BLANK )
 	{
-		LLSD payload;
-		payload["url"] = url;
-		payload["target_type"] = LLSD::Integer(target_type);
-		LLNotificationsUtil::add( "WebLaunchExternalTarget", LLSD(), payload, onClickLinkExternalTarget);
-	}
-	else if (target_type == LLPluginClassMedia::TARGET_BLANK)
-	{
-		clickLinkWithTarget(url, target_type);
+		if (gSavedSettings.getBOOL("UseExternalBrowser"))
+		{
+			LLSD payload;
+			payload["url"] = url;
+			payload["target_type"] = LLSD::Integer(target_type);
+			LLNotificationsUtil::add( "WebLaunchExternalTarget", LLSD(), payload, onClickLinkExternalTarget);
+		}
+		else
+		{
+			clickLinkWithTarget(url, target_type);
+		}
 	}
 	else {
 		const std::string protocol1( "http://" );
@@ -1042,7 +1046,7 @@ bool LLMediaCtrl::onClickLinkExternalTarget(const LLSD& notification, const LLSD
 // static 
 void LLMediaCtrl::clickLinkWithTarget(const std::string& url, const S32& target_type )
 {
-	if (gSavedSettings.getBOOL("UseExternalBrowser") || target_type == LLPluginClassMedia::TARGET_EXTERNAL)
+	if (target_type == LLPluginClassMedia::TARGET_EXTERNAL)
 	{
 		// load target in an external browser
 		LLWeb::loadURLExternal(url);
