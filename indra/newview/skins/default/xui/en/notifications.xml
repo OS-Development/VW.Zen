@@ -407,7 +407,7 @@ Do you wish to proceed?
    icon="alertmodal.tga"
    name="JoinGroupNoCost"
    type="alertmodal">
-You are Joining group [NAME].
+You are joining group [NAME].
 Do you wish to proceed?
     <usetemplate
      name="okcancelbuttons"
@@ -1729,21 +1729,6 @@ Unable to deed land:
 Multiple parcels selected.
 
 Try selecting a single parcel.
-  </notification>
-
-  <notification
-   icon="alertmodal.tga"
-   name="ParcelCanPlayMedia"
-   type="alertmodal">
-This location can play streaming media.
-Streaming media requires a fast Internet connection.
-
-Play streaming media when available?
-(You can change this option later under Preferences &gt; Privacy.)
-    <usetemplate
-     name="okcancelbuttons"
-     notext="Disable"
-     yestext="Play Media"/>
   </notification>
 
   <notification
@@ -3851,7 +3836,7 @@ Are you sure you want to quit?
   <notification
    icon="alertmodal.tga"
    name="HelpReportAbuseEmailLL"
-   type="alertmodal">
+   type="alert">
 Use this tool to report violations of the [http://secondlife.com/corporate/tos.php Terms of Service] and [http://secondlife.com/corporate/cs.php Community Standards].
 
 All reported abuses are investigated and resolved.
@@ -4763,7 +4748,7 @@ The objects on the selected parcel that are NOT owned by you have been returned 
    name="ServerObjectMessage"
    type="notify">
 Message from [NAME]:
-[MSG]
+&lt;nolink&gt;[MSG]&lt;/nolink&gt;
   </notification>
 
   <notification
