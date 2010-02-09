@@ -43,21 +43,15 @@
 #include "llpluginmessageclasses.h"
 #include "media_plugin_base.h"
 
-#if LL_LINUX
-extern "C" {
-# include <glib.h>
-}
-#endif // LL_LINUX
-
 #if LL_WINDOWS
-# include <direct.h>
+#include <direct.h>
 #else
-# include <unistd.h>
-# include <stdlib.h>
+#include <unistd.h>
+#include <stdlib.h>
 #endif
 
 #if LL_WINDOWS
-	// *NOTE:Mani - This captures the module handle for the dll. This is used below
+	// *NOTE:Mani - This captures the module handle fo rthe dll. This is used below
 	// to get the path to this dll for webkit initialization.
 	// I don't know how/if this can be done with apr...
 	namespace {	HMODULE gModuleHandle;};
@@ -118,16 +112,6 @@ private:
 	//
 	void update(int milliseconds)
 	{
-#if LL_LINUX
-		// pump glib generously, as Linux browser plugins are on the
-		// glib main loop, even if the browser itself isn't - ugh
-		//*TODO: shouldn't this be transparent if Qt was compiled with
-		// glib mainloop integration?  investigate.
-		GMainContext *mainc = g_main_context_default();
-		while(g_main_context_iteration(mainc, FALSE));
-#endif // LL_LINUX
-
-		// pump qt
 		LLQtWebKit::getInstance()->pump( milliseconds );
 		
 		checkEditState();
@@ -526,14 +510,13 @@ private:
 		// Any special-case handling we want to do for particular keys...
 		switch((KEY)key)
 		{
-#if !LL_LINUX
 			// ASCII codes for some standard keys
 			case LLQtWebKit::KEY_BACKSPACE:		utf8_text = (char)8;		break;
 			case LLQtWebKit::KEY_TAB:			utf8_text = (char)9;		break;
 			case LLQtWebKit::KEY_RETURN:		utf8_text = (char)13;		break;
 			case LLQtWebKit::KEY_PAD_RETURN:	utf8_text = (char)13;		break;
 			case LLQtWebKit::KEY_ESCAPE:		utf8_text = (char)27;		break;
-#endif
+			
 			default:  
 			break;
 		}
@@ -545,9 +528,7 @@ private:
 		uint32_t native_modifiers = 0;
 		deserializeKeyboardData( native_key_data, native_scan_code, native_virtual_key, native_modifiers );
 		
-#if !LL_LINUX
 		LLQtWebKit::getInstance()->keyboardEvent( mBrowserWindowId, key_event, (uint32_t)key, utf8_text.c_str(), modifiers, native_scan_code, native_virtual_key, native_modifiers);
-#endif
 
 		checkEditState();
 	};
@@ -556,12 +537,8 @@ private:
 	//
 	void unicodeInput( const std::string &utf8str, LLQtWebKit::EKeyboardModifier modifiers, LLSD native_key_data = LLSD::emptyMap())
 	{		
-#if !LL_LINUX
 		uint32_t key = LLQtWebKit::KEY_NONE;
-#else
-		uint32_t key = 0;
-#endif
-
+		
 //		std::cerr << "unicode input, native_key_data = " << native_key_data << std::endl;
 		
 		if(utf8str.size() == 1)
@@ -576,10 +553,8 @@ private:
 		uint32_t native_modifiers = 0;
 		deserializeKeyboardData( native_key_data, native_scan_code, native_virtual_key, native_modifiers );
 		
-#if !LL_LINUX
 		LLQtWebKit::getInstance()->keyboardEvent( mBrowserWindowId, LLQtWebKit::KE_KEY_DOWN, (uint32_t)key, utf8str.c_str(), modifiers, native_scan_code, native_virtual_key, native_modifiers);
 		LLQtWebKit::getInstance()->keyboardEvent( mBrowserWindowId, LLQtWebKit::KE_KEY_UP, (uint32_t)key, utf8str.c_str(), modifiers, native_scan_code, native_virtual_key, native_modifiers);
-#endif
 
 		checkEditState();
 	};
