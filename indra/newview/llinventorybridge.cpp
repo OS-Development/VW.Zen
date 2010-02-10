@@ -2232,7 +2232,10 @@ void LLFolderBridge::determineFolderType()
 	{
 		LLInventoryModel* model = getInventoryModel();
 		LLViewerInventoryCategory* category = model->getCategory(mUUID);
-		category->determineFolderType();
+		if (category)
+		{
+			category->determineFolderType();
+		}
 	}
 }
 
@@ -2503,11 +2506,13 @@ void LLFolderBridge::folderOptionsMenu()
 	if(!model) return;
 
 	const LLInventoryCategory* category = model->getCategory(mUUID);
+	if(!category) return;
+
 	LLFolderType::EType type = category->getPreferredType();
-	const bool is_system_folder = category && LLFolderType::lookupIsProtectedType(type);
+	const bool is_system_folder = LLFolderType::lookupIsProtectedType(type);
 	// BAP change once we're no longer treating regular categories as ensembles.
-	const bool is_ensemble = category && (type == LLFolderType::FT_NONE ||
-										  LLFolderType::lookupIsEnsembleType(type));
+	const bool is_ensemble = (type == LLFolderType::FT_NONE ||
+				  LLFolderType::lookupIsEnsembleType(type));
 
 	// calling card related functionality for folders.
 
