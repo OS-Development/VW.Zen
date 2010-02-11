@@ -303,8 +303,8 @@ void LLCallFloater::updateSession()
 	refreshParticipantList();
 	updateAgentModeratorState();
 
-	//show floater for voice calls
-	if (!is_local_chat)
+	//show floater for voice calls & only in CONNECTED to voice channel state
+	if (!is_local_chat && LLVoiceChannel::STATE_CONNECTED == voice_channel->getState())
 	{
 		LLIMFloater* im_floater = LLIMFloater::findInstance(session_id);
 		bool show_me = !(im_floater && im_floater->getVisible());
@@ -678,8 +678,7 @@ void LLCallFloater::resetVoiceRemoveTimers()
 
 void LLCallFloater::removeVoiceRemoveTimer(const LLUUID& voice_speaker_id)
 {
-	bool delete_it = true;
-	mSpeakerDelayRemover->unsetActionTimer(voice_speaker_id, delete_it);
+	mSpeakerDelayRemover->unsetActionTimer(voice_speaker_id);
 }
 
 bool LLCallFloater::validateSpeaker(const LLUUID& speaker_id)

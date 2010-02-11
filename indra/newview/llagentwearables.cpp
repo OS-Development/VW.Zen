@@ -310,21 +310,24 @@ void LLAgentWearables::addWearabletoAgentInventoryDone(const S32 type,
 		return;
 
 	LLUUID old_item_id = getWearableItemID((EWearableType)type,index);
+
 	if (wearable)
 	{
 		wearable->setItemID(item_id);
+
+		if (old_item_id.notNull())
+		{	
+			gInventory.addChangedMask(LLInventoryObserver::LABEL, old_item_id);
+			setWearable((EWearableType)type,index,wearable);
+		}
+		else
+		{
+			pushWearable((EWearableType)type,wearable);
+		}
 	}
 
-	if (old_item_id.notNull())
-	{	
-		gInventory.addChangedMask(LLInventoryObserver::LABEL, old_item_id);
-		setWearable((EWearableType)type,index,wearable);
-	}
-	else
-	{
-		pushWearable((EWearableType)type,wearable);
-	}
 	gInventory.addChangedMask(LLInventoryObserver::LABEL, item_id);
+
 	LLViewerInventoryItem* item = gInventory.getItem(item_id);
 	if (item && wearable)
 	{
@@ -1412,7 +1415,7 @@ LLUUID LLAgentWearables::makeNewOutfitLinks(const std::string& new_folder_name)
 		new_folder_name);
 
 	LLPointer<LLInventoryCallback> cb = new LLShowCreatedOutfit(folder_id);
-	LLAppearanceManager::instance().shallowCopyCategory(LLAppearanceManager::instance().getCOF(),folder_id, cb);
+	LLAppearanceManager::instance().shallowCopyCategoryContents(LLAppearanceManager::instance().getCOF(),folder_id, cb);
 	LLAppearanceManager::instance().createBaseOutfitLink(folder_id, cb);
 
 	return folder_id;
@@ -1618,8 +1621,10 @@ void LLAgentWearables::setWearableOutfit(const LLInventoryItem::item_array_t& it
 		}
 
 		if (new_wearable)
+		{
 			new_wearable->setItemID(new_item->getUUID());
-		setWearable(type,0,new_wearable);
+			setWearable(type,0,new_wearable);
+		}
 	}
 
 	std::vector<LLWearable*> wearables_being_removed;
@@ -2329,7 +2334,7 @@ void LLLibraryOutfitsFetch::libraryDone(void)
 			LLUUID folder_id = gInventory.createNewCategory(mImportedClothingID,
 															LLFolderType::FT_NONE,
 															iter->second);
-			LLAppearanceManager::getInstance()->shallowCopyCategory(iter->first, folder_id, copy_waiter);
+			LLAppearanceManager::getInstance()->shallowCopyCategoryContents(iter->first, folder_id, copy_waiter);
 		}
 	}
 	else
