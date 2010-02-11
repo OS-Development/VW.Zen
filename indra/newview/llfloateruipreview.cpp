@@ -362,7 +362,7 @@ BOOL LLFadeEventTimer::tick()
 
 	if(NULL == mParent)	// no more need to tick, so suicide
 	{
-		return FALSE;
+		return TRUE;
 	}
 
 	// Set up colors
