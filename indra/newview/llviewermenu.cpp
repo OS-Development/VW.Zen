@@ -5332,7 +5332,7 @@ class LLWorldCreateLandmark : public view_listener_t
 
 void handle_look_at_selection(const LLSD& param)
 {
-	const F32 PADDING_FACTOR = 2.f;
+	const F32 PADDING_FACTOR = 1.75f;
 	BOOL zoom = (param.asString() == "zoom");
 	if (!LLSelectMgr::getInstance()->getSelection()->isEmpty())
 	{
@@ -5352,14 +5352,19 @@ void handle_look_at_selection(const LLSD& param)
 		}
 		if (zoom)
 		{
+			// Make sure we are not increasing the distance between the camera and object
+			LLVector3d orig_distance = gAgent.getCameraPositionGlobal() - LLSelectMgr::getInstance()->getSelectionCenterGlobal();
+			distance = llmin(distance, (F32) orig_distance.length());
+				
 			gAgent.setCameraPosAndFocusGlobal(LLSelectMgr::getInstance()->getSelectionCenterGlobal() + LLVector3d(obj_to_cam * distance), 
-											LLSelectMgr::getInstance()->getSelectionCenterGlobal(), 
-											object_id );
+										LLSelectMgr::getInstance()->getSelectionCenterGlobal(), 
+										object_id );
+			
 		}
 		else
 		{
 			gAgent.setFocusGlobal( LLSelectMgr::getInstance()->getSelectionCenterGlobal(), object_id );
-		}
+		}	
 	}
 }
 
@@ -5594,21 +5599,6 @@ void handle_buy_currency()
 	LLFloaterBuyCurrency::buyCurrency();
 }
 
-
-
-class LLFloaterVisible : public view_listener_t
-{
-	bool handleEvent(const LLSD& userdata)
-	{
-		std::string floater_name = userdata.asString();
-		bool new_value = false;
-		{
-			new_value = LLFloaterReg::instanceVisible(floater_name);
-		}
-		return new_value;
-	}
-};
-
 class LLShowHelp : public view_listener_t
 {
 	bool handleEvent(const LLSD& userdata)
@@ -5625,18 +5615,38 @@ class LLShowSidetrayPanel : public view_listener_t
 	bool handleEvent(const LLSD& userdata)
 	{
 		std::string panel_name = userdata.asString();
-		// Open up either the sidepanel or new floater.
-		if (LLSideTray::getInstance()->isPanelActive(panel_name))
+		// Toggle the panel
+		if (!LLSideTray::getInstance()->isPanelActive(panel_name))
 		{
-			LLFloaterInventory::showAgentInventory();
+			// LLFloaterInventory::showAgentInventory();
+			LLSideTray::getInstance()->showPanel(panel_name, LLSD());
 		}
 		else
 		{
-			LLSideTray::getInstance()->showPanel(panel_name, LLSD());
+			LLSideTray::getInstance()->collapseSideBar();
 		}
 		return true;
 	}
 };
+
+class LLSidetrayPanelVisible : public view_listener_t
+{
+	bool handleEvent(const LLSD& userdata)
+	{
+		std::string panel_name = userdata.asString();
+		// Toggle the panel
+		if (LLSideTray::getInstance()->isPanelActive(panel_name))
+		{
+			return true;
+		}
+		else
+		{
+			return false;
+		}
+		
+	}
+};
+
 
 bool callback_show_url(const LLSD& notification, const LLSD& response)
 {
@@ -8020,8 +8030,8 @@ void initialize_menus()
 	enable.add("EnableEdit", boost::bind(&enable_object_edit));
 	enable.add("VisibleBuild", boost::bind(&enable_object_build));
 
-	view_listener_t::addMenu(new LLFloaterVisible(), "FloaterVisible");
 	view_listener_t::addMenu(new LLShowSidetrayPanel(), "ShowSidetrayPanel");
+	view_listener_t::addMenu(new LLSidetrayPanelVisible(), "SidetrayPanelVisible");
 	view_listener_t::addMenu(new LLSomethingSelected(), "SomethingSelected");
 	view_listener_t::addMenu(new LLSomethingSelectedNoHUD(), "SomethingSelectedNoHUD");
 	view_listener_t::addMenu(new LLEditableSelected(), "EditableSelected");
