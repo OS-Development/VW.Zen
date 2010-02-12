@@ -56,6 +56,10 @@
 #include "llstatusbar.h"
 #include "llsdutil.h"
 
+#include "llfloaterreg.h"
+#include "llfloaterpreference.h" // for the gear icon
+#include "lltabcontainer.h"
+
 #include <stringize.h>
 
 extern LLControlGroup gSavedSettings;
@@ -72,25 +76,27 @@ static const int PARCEL_AUDIO_PAUSED = 2;
 
 LLPanelNearByMedia::LLPanelNearByMedia()
 :	mMediaList(NULL),
-	mEnableAllCtrl(NULL),
-	mEnableParcelMediaCtrl(NULL),	  
-	mAllMediaDisabled(false),
-	mDebugInfoVisible(false)
+	  mEnableAllCtrl(NULL),
+	  mEnableParcelMediaCtrl(NULL),	  
+	  mAllMediaDisabled(false),
+	  mDebugInfoVisible(false)
 {
 	mParcelAudioAutoStart = gSavedSettings.getBOOL(LLViewerMedia::AUTO_PLAY_MEDIA_SETTING);
 
-	mCommitCallbackRegistrar.add("MediaListCtrl.EnableAll",		boost::bind(&LLPanelNearByMedia::onClickEnableAll, this));
-	mCommitCallbackRegistrar.add("MediaListCtrl.DisableAll",		boost::bind(&LLPanelNearByMedia::onClickDisableAll, this));
-	mCommitCallbackRegistrar.add("ParcelMediaCtrl.ParcelMediaVolume",		boost::bind(&LLPanelNearByMedia::onParcelMediaVolumeSlider, this));
-	mCommitCallbackRegistrar.add("ParcelMediaCtrl.MuteParcelMedia",		boost::bind(&LLPanelNearByMedia::onClickMuteParcelMedia, this));
-	mCommitCallbackRegistrar.add("ParcelMediaCtrl.EnableParcelMedia",		boost::bind(&LLPanelNearByMedia::onClickEnableParcelMedia, this));
-	mCommitCallbackRegistrar.add("ParcelMediaCtrl.DisableParcelMedia",		boost::bind(&LLPanelNearByMedia::onClickDisableParcelMedia, this));
-	mCommitCallbackRegistrar.add("ParcelMediaCtrl.Play",		boost::bind(&LLPanelNearByMedia::onClickParcelMediaPlay, this));
-	mCommitCallbackRegistrar.add("ParcelMediaCtrl.Stop",		boost::bind(&LLPanelNearByMedia::onClickParcelMediaStop, this));
-	mCommitCallbackRegistrar.add("ParcelMediaCtrl.Pause",		boost::bind(&LLPanelNearByMedia::onClickParcelMediaPause, this));
-	mCommitCallbackRegistrar.add("ParcelAudioCtrl.Play",		boost::bind(&LLPanelNearByMedia::onClickParcelAudioPlay, this));
-	mCommitCallbackRegistrar.add("ParcelAudioCtrl.Stop",		boost::bind(&LLPanelNearByMedia::onClickParcelAudioStop, this));
-	mCommitCallbackRegistrar.add("ParcelAudioCtrl.Pause",		boost::bind(&LLPanelNearByMedia::onClickParcelAudioPause, this));
+	mCommitCallbackRegistrar.add("MediaListCtrl.EnableAll",		boost::bind(&LLFloaterNearbyMedia::onClickEnableAll, this));
+	mCommitCallbackRegistrar.add("MediaListCtrl.DisableAll",		boost::bind(&LLFloaterNearbyMedia::onClickDisableAll, this));
+	mCommitCallbackRegistrar.add("MediaListCtrl.GoMediaPrefs", boost::bind(&LLFloaterNearbyMedia::onAdvancedButtonClick, this));
+	mCommitCallbackRegistrar.add("MediaListCtrl.MoreLess", boost::bind(&LLFloaterNearbyMedia::onMoreLess, this));
+	mCommitCallbackRegistrar.add("ParcelMediaCtrl.ParcelMediaVolume",		boost::bind(&LLFloaterNearbyMedia::onParcelMediaVolumeSlider, this));
+	mCommitCallbackRegistrar.add("ParcelMediaCtrl.MuteParcelMedia",		boost::bind(&LLFloaterNearbyMedia::onClickMuteParcelMedia, this));
+	mCommitCallbackRegistrar.add("ParcelMediaCtrl.EnableParcelMedia",		boost::bind(&LLFloaterNearbyMedia::onClickEnableParcelMedia, this));
+	mCommitCallbackRegistrar.add("ParcelMediaCtrl.DisableParcelMedia",		boost::bind(&LLFloaterNearbyMedia::onClickDisableParcelMedia, this));
+	mCommitCallbackRegistrar.add("ParcelMediaCtrl.Play",		boost::bind(&LLFloaterNearbyMedia::onClickParcelMediaPlay, this));
+	mCommitCallbackRegistrar.add("ParcelMediaCtrl.Stop",		boost::bind(&LLFloaterNearbyMedia::onClickParcelMediaStop, this));
+	mCommitCallbackRegistrar.add("ParcelMediaCtrl.Pause",		boost::bind(&LLFloaterNearbyMedia::onClickParcelMediaPause, this));
+	mCommitCallbackRegistrar.add("ParcelAudioCtrl.Play",		boost::bind(&LLFloaterNearbyMedia::onClickParcelAudioPlay, this));
+	mCommitCallbackRegistrar.add("ParcelAudioCtrl.Stop",		boost::bind(&LLFloaterNearbyMedia::onClickParcelAudioStop, this));
+	mCommitCallbackRegistrar.add("ParcelAudioCtrl.Pause",		boost::bind(&LLFloaterNearbyMedia::onClickParcelAudioPause, this));
 	LLUICtrlFactory::instance().buildPanel(this, "panel_nearby_media.xml");
 }
 
@@ -102,6 +108,7 @@ BOOL LLPanelNearByMedia::postBuild()
 {
 	LLPanel::postBuild();
 
+	mNearbyMediaPanel = getChild<LLUICtrl>("nearby_media_panel");
 	mMediaList = getChild<LLScrollListCtrl>("media_list");
 	mEnableAllCtrl = getChild<LLUICtrl>("all_nearby_media_enable_btn");
 	mDisableAllCtrl = getChild<LLUICtrl>("all_nearby_media_disable_btn");
@@ -121,7 +128,7 @@ BOOL LLPanelNearByMedia::postBuild()
 	
 	mEmptyNameString = getString("empty_item_text");
 	mDefaultParcelMediaName = getString("default_parcel_media_name");
-	mDefaultParcelMediaToolTip = getString("default_parcel_media_tool_tip");
+	mPlayingString = getString("playing_suffix");
 	
 	mMediaList->setDoubleClickCallback(onZoomMedia, this);
 	mMediaList->sortByColumnIndex(PROXIMITY_COLUMN, TRUE);
@@ -136,6 +143,11 @@ BOOL LLPanelNearByMedia::postBuild()
 	}
 	refreshList();
 	updateColumns();
+	
+	mOriginalHeight = getRect().getHeight();
+	mNearbyMediaPanelHeight = mNearbyMediaPanel->getRect().getHeight();
+	getChild<LLUICtrl>("more_less_btn")->setValue(false);
+	onMoreLess();
 	
 	return TRUE;
 }
@@ -187,8 +199,8 @@ void LLPanelNearByMedia::draw()
 {
 	mItemCountText->setValue(llformat(getString("media_item_count_format").c_str(), mMediaList->getItemCount()));
 	
-	refreshParcelMediaUI();
-	refreshParcelAudioUI();
+//	refreshParcelMediaUI();
+//	refreshParcelAudioUI();
 	refreshList();
 	
 	F32 alpha = mHoverTimer.getStarted() 
@@ -257,7 +269,9 @@ void LLPanelNearByMedia::updateMediaItem(LLScrollListItem* item, LLViewerMediaIm
 	if(cell)
 	{
 		// since we are forced to sort by text, encode sort order as string
-		std::string proximity_string = STRINGIZE(/*llformat("%010d", */impl->getProximity());
+		// proximity of -1 means "closest"
+		S32 proximity = impl->isParcelMedia() ? -1 : impl->getProximity();
+		std::string proximity_string = STRINGIZE(proximity);
 		std::string old_proximity_string = cell->getValue().asString();
 		if(proximity_string != old_proximity_string)
 		{
@@ -290,16 +304,25 @@ void LLPanelNearByMedia::updateMediaItem(LLScrollListItem* item, LLViewerMediaIm
 	{
 		std::string name;
 		std::string url;
+		std::string old_name = cell->getValue().asString();
 		
 		getNameAndUrlHelper(impl, name, url, mEmptyNameString);
 		
+		if (impl->isParcelMedia())
+		{
+			cell->setToolTip(name + " : " + url);
+			name = mDefaultParcelMediaName;
+		}
+		else {
 		cell->setToolTip(url);
-		std::string old_name = cell->getValue().asString();
-		if(old_name != name)
+		}
+		if (impl->hasMedia()) name += " " + mPlayingString;
+		if (name != old_name)
 		{
 			cell->setValue(name);
 		}
 		
+		// *TODO: Make these font styles/colors configurable via XUI
 		LLColor4 cell_color = LLColor4::white;
 		U8 font_style = LLFontGL::NORMAL;
 		
@@ -327,8 +350,10 @@ void LLPanelNearByMedia::updateMediaItem(LLScrollListItem* item, LLViewerMediaIm
 		}
 		if (impl->isMediaDisabled())
 		{
-			if (mDebugInfoVisible) font_style |= LLFontGL::ITALIC;
-			if (mDebugInfoVisible) cell_color = LLColor4::black;
+			//font_style |= LLFontGL::ITALIC;
+			//cell_color = LLColor4::black;
+			// Dim it if it is disabled
+			cell_color.setAlpha(0.25);
 		}
 		// Dim it if it isn't "showing"
 		else if (!impl->hasMedia())
@@ -407,7 +432,6 @@ void LLPanelNearByMedia::refreshParcelMediaUI()
 	{	
 		style_params.font.style = "ITALIC";
 		mParcelMediaText->setText(mDefaultParcelMediaName, style_params);
-		mParcelMediaText->setToolTip(mDefaultParcelMediaToolTip);	
 		mEnableParcelMediaCtrl->setEnabled(false);
 		mDisableParcelMediaCtrl->setEnabled(false);
 	}
@@ -511,46 +535,64 @@ void LLPanelNearByMedia::refreshList()
 	LLViewerMedia::impl_list impls = LLViewerMedia::getPriorityList();
 	LLViewerMedia::impl_list::iterator priority_iter;
 	
+	U32 enabled_count = 0;
+	U32 disabled_count = 0;
+	
 	// iterate over the impl list, creating rows as necessary.
 	for(priority_iter = impls.begin(); priority_iter != impls.end(); priority_iter++)
 	{
+		LLViewerMediaImpl *impl = *priority_iter;
+		
 		// If we just emptied out the list, every flag needs to be reset.
 		if(all_items_deleted)
 		{
-			(*priority_iter)->setInNearbyMediaList(false);
+			impl->setInNearbyMediaList(false);
 		}
 		
-		if(! (*priority_iter)->isParcelMedia())
 		{
-			LLUUID media_id = (*priority_iter)->getMediaTextureID();
-			S32 proximity = (*priority_iter)->getProximity();
+			bool remove_item = false;
+			LLUUID media_id = impl->getMediaTextureID();
+			if (impl->isParcelMedia())
+			{
+				remove_item = LLViewerParcelMedia::getURL().empty();
+			}
+			else {
+				S32 proximity = impl->getProximity();
 			// This is expensive (i.e. a linear search) -- don't use it here.  We now use mInNearbyMediaList instead.
 //			S32 index = mMediaList->getItemIndex(media_id);
-
-			if(proximity < 0 || !shouldShow(*priority_iter))
+				remove_item = (proximity < 0 || !shouldShow(impl));
+			}
+			if (remove_item)
 			{
 				// This isn't inworld media -- don't show it in the list.
-				if ((*priority_iter)->getInNearbyMediaList())
+				if (impl->getInNearbyMediaList())
 				{
 					// There's a row for this impl -- remove it.
 					removeMediaItem(media_id);
-					(*priority_iter)->setInNearbyMediaList(false);
+					impl->setInNearbyMediaList(false);
 				}
 			}
 			else
 			{
-				if (!(*priority_iter)->getInNearbyMediaList())
+				if (!impl->getInNearbyMediaList())
 				{
 					// We don't have a row for this impl -- add one.
 					addMediaItem(media_id);
-					(*priority_iter)->setInNearbyMediaList(true);
+					impl->setInNearbyMediaList(true);
 				}
 			}
+			// Update counts
+			if (impl->isMediaDisabled())
+			{
+				disabled_count++;
+			}
+			else {
+				enabled_count++;
 		}
 	}
-	
-	int disabled_count = 0;
-	int enabled_count = 0;
+	}
+	mDisableAllCtrl->setEnabled(LLViewerMedia::isAnyMediaShowing());
+	mEnableAllCtrl->setEnabled(disabled_count > 0);
 
 	// Iterate over the rows in the control, updating ones whose impl exists, and deleting ones whose impl has gone away.
 	std::vector<LLScrollListItem*> items = mMediaList->getAllData();
@@ -566,10 +608,6 @@ void LLPanelNearByMedia::refreshList()
 		if(impl)
 		{
 			updateMediaItem(item, impl);
-			if(impl->isMediaDisabled())
-				disabled_count++;
-			else
-				enabled_count++;
 		}
 		else
 		{
@@ -579,8 +617,6 @@ void LLPanelNearByMedia::refreshList()
 			removeMediaItem(row_id);
 		}
 	}
-	mEnableAllCtrl->setEnabled(! LLViewerMedia::getInWorldMediaDisabled() && disabled_count > 0);
-	mDisableAllCtrl->setEnabled(! LLViewerMedia::getInWorldMediaDisabled() && enabled_count > 0);
 	
 	// Set the selection to whatever media impl the media focus/hover is on. 
 	// This is an experiment, and can be removed by ifdefing out these 4 lines.
@@ -595,60 +631,32 @@ void LLPanelNearByMedia::updateColumns()
 {
 	if (!mDebugInfoVisible)
 	{
-		mMediaList->getColumn(VISIBILITY_COLUMN)->setWidth(-1);
-		mMediaList->getColumn(PROXIMITY_COLUMN)->setWidth(-1);
-		mMediaList->getColumn(CLASS_COLUMN)->setWidth(-1);
-		mMediaList->getColumn(DEBUG_COLUMN)->setWidth(-1);
+		if (mMediaList->getColumn(VISIBILITY_COLUMN)) mMediaList->getColumn(VISIBILITY_COLUMN)->setWidth(-1);
+		if (mMediaList->getColumn(PROXIMITY_COLUMN)) mMediaList->getColumn(PROXIMITY_COLUMN)->setWidth(-1);
+		if (mMediaList->getColumn(CLASS_COLUMN)) mMediaList->getColumn(CLASS_COLUMN)->setWidth(-1);
+		if (mMediaList->getColumn(DEBUG_COLUMN)) mMediaList->getColumn(DEBUG_COLUMN)->setWidth(-1);
 	}
 	else {
-		mMediaList->getColumn(VISIBILITY_COLUMN)->setWidth(20);
-		mMediaList->getColumn(PROXIMITY_COLUMN)->setWidth(30);
-		mMediaList->getColumn(CLASS_COLUMN)->setWidth(20);
-		mMediaList->getColumn(DEBUG_COLUMN)->setWidth(200);
+		if (mMediaList->getColumn(VISIBILITY_COLUMN)) mMediaList->getColumn(VISIBILITY_COLUMN)->setWidth(20);
+		if (mMediaList->getColumn(PROXIMITY_COLUMN)) mMediaList->getColumn(PROXIMITY_COLUMN)->setWidth(30);
+		if (mMediaList->getColumn(CLASS_COLUMN)) mMediaList->getColumn(CLASS_COLUMN)->setWidth(20);
+		if (mMediaList->getColumn(DEBUG_COLUMN)) mMediaList->getColumn(DEBUG_COLUMN)->setWidth(200);
 	}
 }
 
 void LLPanelNearByMedia::onClickEnableAll()
 	{
-	enableAllHelper(true);
+	LLViewerMedia::setAllMediaEnabled(true);
+	// Parcel Audio, too
+	onClickParcelAudioPlay();
 	}
 
-void LLPanelNearByMedia::onClickDisableAll()
-{	
-	enableAllHelper(false);
-}
-
-void LLPanelNearByMedia::enableAllHelper(bool enabled)
-{	
-	bool disabled = !enabled;
-	
-	// Iterate over the rows in the control, setting the disable flag on the impl for each.
-	std::vector<LLScrollListItem*> items = mMediaList->getAllData();
-	
-	for (std::vector<LLScrollListItem*>::iterator item_it = items.begin();
-		 item_it != items.end();
-		 ++item_it)
+void LLFloaterNearbyMedia::onClickDisableAll()
 	{
-		setDisabled((*item_it)->getUUID(), disabled);
-	}
-	
-	// Now do the parcel media	
-	if (LLViewerParcelMedia::getParcelMedia())
-	{
-		LLViewerParcelMedia::getParcelMedia()->setDisabled(disabled);
-	}
-	
-	// And finally, parcel audio
-	if (disabled)
-	{
+	LLViewerMedia::setAllMediaEnabled(false);
+	// Parcel Audio, too
 		onClickParcelAudioStop();
 	}
-	else {
-		onClickParcelAudioPlay();
-	}
-	
-	// The hilight state of the control will be adjusted the next time through refreshList().
-}
 
 void LLPanelNearByMedia::onClickEnableParcelMedia()
 {	
@@ -789,6 +797,34 @@ bool LLPanelNearByMedia::shouldShow(LLViewerMediaImpl* impl)
 			break;
 	}
 	return true;
+}
+
+void LLFloaterNearbyMedia::onAdvancedButtonClick()
+{	
+	// bring up the prefs floater
+	LLFloaterPreference* prefsfloater = dynamic_cast<LLFloaterPreference*>(LLFloaterReg::showInstance("preferences"));
+	if (prefsfloater)
+	{
+		// grab the 'audio' panel from the preferences floater and
+		// bring it the front!
+		LLTabContainer* tabcontainer = prefsfloater->getChild<LLTabContainer>("pref core");
+		LLPanel* audiopanel = prefsfloater->getChild<LLPanel>("audio");
+		if (tabcontainer && audiopanel)
+		{
+			tabcontainer->selectTabPanel(audiopanel);
+		}
+	}
+}
+
+void LLFloaterNearbyMedia::onMoreLess()
+{
+	bool is_more = getChild<LLUICtrl>("more_less_btn")->getValue();
+	mNearbyMediaPanel->setVisible(is_more);
+
+//	S32 new_height = mOriginalHeight;
+//	if (!is_more) new_height -= mNearbyMediaPanelHeight;
+//
+//	reshape(getRect().getWidth(), new_height, false);
 }
 
 // static

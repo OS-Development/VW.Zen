@@ -261,6 +261,8 @@ static LLTimer sMediaCreateTimer;
 static const F32 LLVIEWERMEDIA_CREATE_DELAY = 1.0f;
 static F32 sGlobalVolume = 1.0f;
 static F64 sLowestLoadableImplInterest = 0.0f;
+static bool sAnyMediaShowing = false;
+static boost::signals2::connection sTeleportFinishConnection;
 
 //////////////////////////////////////////////////////////////////////////////////////////
 static void add_media_impl(LLViewerMediaImpl* media)
@@ -694,6 +696,7 @@ static bool proximity_comparitor(const LLViewerMediaImpl* i1, const LLViewerMedi
 // static
 void LLViewerMedia::updateMedia(void *dummy_arg)
 {
+	sAnyMediaShowing = false;
 	impl_list::iterator iter = sViewerMediaImplList.begin();
 	impl_list::iterator end = sViewerMediaImplList.end();
 
@@ -860,6 +863,29 @@ void LLViewerMedia::updateMedia(void *dummy_arg)
 		}
 
 		total_cpu += pimpl->getCPUUsage();
+		
+		// Only set sAnyMedia​Showing if it isn't used in the UI. If it isn't 
+		// parcel media, do the normal "hasMedia()" check. If it is parcel media, 
+		// hasMedia() seems to always be true, so we do some other checks to see 
+		// if there actually is parcel media  showing
+		if (!pimpl->getUsedInUI())
+		{
+			if (! pimpl->isParcelMedia())
+			{
+				if (pimpl->hasMedia())
+				{
+					sAnyMediaShowing = true;
+				}
+			}
+			else {
+				// Parcel media showing?
+				if (!LLViewerParcelMedia::getURL().empty() && LLViewerParcelMedia::getParcelMedia().notNull())
+				{
+					sAnyMediaShowing = true;
+				}
+			}
+		}
+
 	}
 
 	// Re-calculate this every time.
@@ -901,9 +927,38 @@ void LLViewerMedia::updateMedia(void *dummy_arg)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 // static
+bool LLViewerMedia::isAnyMediaShowing()
+{
+	return sAnyMediaShowing;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+// static
+void LLViewerMedia::setAllMediaEnabled(bool val)
+{
+	// Set "tentative" autoplay first.  We need to do this here or else
+	// re-enabling won't start up the media below.
+	gSavedSettings.setBOOL("MediaTentativeAutoPlay", val);
+	
+	// Then 
+	impl_list::iterator iter = sViewerMediaImplList.begin();
+	impl_list::iterator end = sViewerMediaImplList.end();
+	
+	for(; iter != end; iter++)
+	{
+		LLViewerMediaImpl* pimpl = *iter;
+		if (!pimpl->getUsedInUI()) 
+			pimpl->setDisabled(!val);
+	}
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+// static
 void LLViewerMedia::initClass()
 {
-	gIdleCallbacks.addFunction(LLViewerMedia::updateMedia, NULL);
+	gIdleCallbacks.addFunction(LLViewerMedia::updateMedia, NULL);	
+	sTeleportFinishConnection = LLViewerParcelMgr::getInstance()->
+		setTeleportFinishedCallback(boost::bind(&LLViewerMedia::onTeleportFinished));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -911,10 +966,17 @@ void LLViewerMedia::initClass()
 void LLViewerMedia::cleanupClass()
 {
 	gIdleCallbacks.deleteFunction(LLViewerMedia::updateMedia, NULL);
+	sTeleportFinishConnection.disconnect();
 }
 
-		// XXX TODO: what to do about other AUTO_PLAY settings?
-		// XXX TODO: what to do about other AUTO_PLAY settings?
+//////////////////////////////////////////////////////////////////////////////////////////
+// static
+void LLViewerMedia::onTeleportFinished()
+{
+	// On teleport, clear this setting (i.e. set it to true)
+	gSavedSettings.setBOOL("MediaTentativeAutoPlay", true);
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////
 // LLViewerMediaImpl
 //////////////////////////////////////////////////////////////////////////////////////////

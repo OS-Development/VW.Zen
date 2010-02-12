@@ -101,6 +101,8 @@ private:
 	void onMouseEnterNearbyMedia();
 	static void onClickStatGraph(void* data);
 
+	static void onClickMediaToggle(void* data);
+
 private:
 	LLTextBox	*mTextHealth;
 	LLTextBox	*mTextTime;
@@ -109,6 +111,7 @@ private:
 	LLStatGraph *mSGPacketLoss;
 
 	LLButton	*mBtnVolume;
+	LLButton	*mMediaToggle;
 
 	S32				mBalance;
 	S32				mHealth;

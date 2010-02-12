@@ -108,6 +108,8 @@ private:
 	void onClickParcelAudioStop();
 	void onClickParcelAudioPause();
 	void onCheckAutoPlay();
+	void onAdvancedButtonClick();	
+	void onMoreLess();	
 	
 	void onCheckItem(LLUICtrl* ctrl, const LLUUID &row_id);
 	
@@ -122,10 +124,9 @@ private:
 	
 	void updateColumns();
 	
-	void enableAllHelper(bool val);
-
 	bool shouldShow(LLViewerMediaImpl* impl);
 	
+	LLUICtrl*			mNearbyMediaPanel;
 	LLScrollListCtrl*	mMediaList;
 	LLUICtrl*			mEnableAllCtrl;
 	LLUICtrl*			mDisableAllCtrl;
@@ -148,8 +149,10 @@ private:
 	bool				mParcelAudioAutoStart;
 	std::string			mEmptyNameString;
 	std::string			mDefaultParcelMediaName;
-	std::string			mDefaultParcelMediaToolTip;
-
+	std::string			mPlayingString;
+	
+	S32					mOriginalHeight;
+	S32					mNearbyMediaPanelHeight;
 	LLFrameTimer		mHoverTimer;
 };
 

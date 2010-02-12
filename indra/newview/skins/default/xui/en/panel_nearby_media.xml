@@ -2,24 +2,17 @@
 <panel
 	can_resize="true"
 	can_close="false"
-	height="550"
-  background_opaque="true"
-  background_visible="true"
+  	background_opaque="true"
+  	background_visible="true"
 	layout="topleft"
+	width="270"
+	height="310"
 	name="nearby_media"
-	help_topic="nearby_media"
-	width="440">
+	help_topic="nearby_media">
   <string name="media_item_count_format">(%ld media items)</string>
   <string name="empty_item_text">&lt;empty&gt;</string>
-  <string name="default_parcel_media_name">&lt;No Media Available&gt;</string>
-  <string name="default_parcel_media_tool_tip">Turn parcel media on/off</string>
-  <panel
-	  bottom="550"
-	  follows="left|top|right|bottom"
-	  left="0"
-	  mouse_opaque="false"
-	  name="nearby_media_panel"
-	  top="0">
+  <string name="default_parcel_media_name">Parcel Media</string>
+  <string name="playing_suffix">(playing)</string>
 	<panel
 		bevel_style="in"
 		bg_alpha_color="0 0 0 0"
@@ -28,349 +21,110 @@
 		top="0"
 		height="45"
 		left="0">
-	  <text
-		  type="string"
-		  length="1"
-		  follows="top|left|right"
-		  font="SansSerifBold"
-		  left="10">
-		All Media
-	  </text>
-	  <text
-		  top_delta="0"
-		  type="string"
-		  length="1"
-		  follows="top|right"
-		  font="SansSerif"
-		  name="media_item_count"
-		  left="190">
-		(?? media items)
-	  </text> 
-	  <button
-		  name="all_nearby_media_enable_btn"
-		  top_delta="18"
-		  follows="left"
-		  tool_tip="Turn all nearby media on"
-		  left="15"
-		  width="28"
-		  height="22"
-		  label="On">
-		<button.commit_callback
-			function="MediaListCtrl.EnableAll" />
-	  </button>
 	  <button
 		  name="all_nearby_media_disable_btn"
 		  follows="left"
 		  tool_tip="Turn all nearby media off"
-		  left_pad="4"
-		  width="28"
+		left="15"
+		width="60"
 		  height="22"
-		  label="Off">
+		label="Stop All">
 		<button.commit_callback
 			function="MediaListCtrl.DisableAll" />
 	  </button>
-	  <slider
-		  height="15"
-		  top="27"
-		  left_delta="48"
-		  control_name="AudioLevelMedia"
-		  increment="0.05"
-		  initial_value="0.5"
-		  width="110"
-		  name="all_media_volume"
-		  show_text="false"
-		  volume="true">
-		<slider.commit_callback
-			function="Pref.setControlFalse"
-			parameter="MuteMedia" />
-	  </slider>
 	  <button
-		  control_name="MuteMedia"
-		  height="16"
-		  image_selected="AudioMute_Off"
-		  image_unselected="Audio_Off"
-		  is_toggle="true"
-		  left_delta="120"
-		  name="mute_all_media"
-		  tab_stop="false"
-		  top_delta="-1"
-		  width="18" />
-	</panel>
-	<!-- Parcel Media controls -->
-	<text
-		type="string"
-		length="1"
-		follows="left|top|right"
-		font="SansSerif"
-		font.size="Small"
-		top_pad="10"
-		left="40"
-		width="80">
-	  Parcel Media
-	</text>
-	<text
-		name="parcel_media_name"
-		use_ellipses="true"
-		type="string"
-		length="1"
-		follows="top|left|right"
-		font="SansSerif"
-		font.style="ITALIC"
-		font.size="Small"
-		left_pad="10"
-		right="-10">
-	  &lt;No Media Available&gt;
-	</text>
-<!--
-	<panel
-		bevel_style="in"
-		bg_alpha_color="0 0 0 0"
-		bg_opaque_color="0 0 0 0.3"
-		follows="left|top|right"
-		height="25"
-		left="25"
-		right="-10">
-	  <button
-		  name="parcel_media_enable_btn"
+		name="all_nearby_media_enable_btn"
 		  follows="left"
-		  tool_tip="Turn parcel media on"
-		  left="15"
-		  width="28"
-		  height="22"
-		  label="On">
-		<button.commit_callback
-			function="ParcelMediaCtrl.EnableParcelMedia" />
-	  </button>
-	  <button
-		  name="parcel_media_disable_btn"
-		  follows="left"
-		  tool_tip="Turn parcel media off"
+		tool_tip="Turn all nearby media on"
 		  left_pad="4"
-		  width="28"
+		width="60"
 		  height="22"
-		  label="Off">
+		label="Start All">
 		<button.commit_callback
-			function="ParcelMediaCtrl.DisableParcelMedia" />
+		  function="MediaListCtrl.EnableAll" />
+	  </button>
+	  <button
+		name="open_prefs_btn"
+		image_overlay="Icon_Gear_Foreground"
+		  image_disabled="PushButton_Disabled"
+		  image_disabled_selected="PushButton_Disabled"
+		  image_selected="PushButton_Selected"
+		  image_unselected="PushButton_Off"
+		  hover_glow_amount="0.15"
+		tool_tip = "Bring up media prefs"
+		top_delta="0"
+		left_pad="4"
+		  height="22"
+		min_width="28"
+		width="28">
+		<button.commit_callback
+		  function="MediaListCtrl.GoMediaPrefs" />
+	  </button>
+	  <button
+		name="more_less_btn"
+		follows="right"
+		tool_tip="Turn all nearby media on"
+		top_delta="0"
+		right="-10"
+		width="60"
+		  height="22"
+		toggle="true"
+		label="More &gt;&gt;"
+		label_selected="Less &lt;&lt;">
+		<button.commit_callback
+		  function="MediaListCtrl.MoreLess" />
 	  </button>
 	</panel>
--->
 	<panel
-		name="parcel_media_ctrls"
-		bevel_style="in"
-		follows="left|top|right"
-		top_pad="2"
-		height="30"
-		left="0">
-	  <button
-		  name="parcel_media_play_btn"
-		  image_overlay="Play_Off"
-		  image_disabled="PushButton_Disabled"
-		  image_disabled_selected="PushButton_Disabled"
-		  image_selected="PushButton_Selected"
-		  image_unselected="PushButton_Off"
-		  hover_glow_amount="0.15"
-		  tool_tip = "Play parcel media"
-		  left="40"
-		  height="22"
-		  min_width="22"
-		  width="22">
-		<button.commit_callback
-			function="ParcelMediaCtrl.Play" />
-	  </button>
-	  <button
-		  name="parcel_media_pause_btn"
-		  image_overlay="Pause_Off"
-		  image_disabled="PushButton_Disabled"
-		  image_disabled_selected="PushButton_Disabled"
-		  image_selected="PushButton_Selected"
-		  image_unselected="PushButton_Off"
-		  hover_glow_amount="0.15"
-		  left_delta="0"
-		  height="22"
-		  tool_tip = "Pause parcel media">
-		<button.commit_callback
-			function="ParcelMediaCtrl.Pause" />
-	  </button>
-	  <button
-		  name="parcel_media_stop_btn"
-		  image_overlay="Stop_Off"
-		  image_disabled="PushButton_Disabled"
-		  image_disabled_selected="PushButton_Disabled"
-		  image_selected="PushButton_Selected"
-		  image_unselected="PushButton_Off"
-		  hover_glow_amount="0.15"
-		  left_delta="25"
-		  height="22"
-		  tool_tip="Stop parcel media"
-		  min_width="22"
-		  width="22">
-		<button.commit_callback
-			function="ParcelMediaCtrl.Stop" />
-	  </button>
-	  <slider
-		  height="15"
-		  top="7"
-		  left="95"
-		  increment="0.05"
-		  initial_value="0.5"
-		  width="110"
-		  name="parcel_media_volume"
-		  show_text="false"
-		  volume="true">
-		<slider.commit_callback
-			function="ParcelMediaCtrl.ParcelMediaVolume"/>
-	  </slider>
-	  <button
-		  height="16"
-		  image_selected="AudioMute_Off"
-		  image_unselected="Audio_Off"
-		  is_toggle="true"
-		  left_delta="120"
-		  name="parcel_media_mute"
-		  tab_stop="false"
-		  top_delta="-1"
-		  width="18" >
-		<button.commit_callback
-			function="ParcelMediaCtrl.MuteParcelMedia" />
-	  </button>
-	</panel>
-	<!-- parcel audio -->
-	<panel
-		name="parcel_audio_ctrls"
-		bevel_style="in"
-		follows="left|top|right"
-		top_delta="30"
-		height="40"
-		left="0">
-	  <text
-		  type="string"
-		  length="1"
-		  top="0"
-		  follows="top|left|right"
-		  font="SansSerif"
-		  font.size="Small"
-		  left="40">
-		Parcel Audio
-	  </text>
-	  <button
-		  name="parcel_audio_play_btn"
-		  image_overlay="Play_Off"
-		  image_disabled="PushButton_Disabled"
-		  image_disabled_selected="PushButton_Disabled"
-		  image_selected="PushButton_Selected"
-		  image_unselected="PushButton_Off"
-		  hover_glow_amount="0.15"
-		  tool_tip = "Play parcel audio"
-		  top="15"
-		  left="40"
-		  height="22"
-		  min_width="22"
-		  width="22">
-		<button.commit_callback
-			function="ParcelAudioCtrl.Play" />
-	  </button>
-	  <button
-		  name="parcel_audio_pause_btn"
-		  image_overlay="Pause_Off"
-		  image_disabled="PushButton_Disabled"
-		  image_disabled_selected="PushButton_Disabled"
-		  image_selected="PushButton_Selected"
-		  image_unselected="PushButton_Off"
-		  hover_glow_amount="0.15"
-		  left_delta="0"
-		  height="22"
-		  tool_tip = "Pause parcel audio">
-		<button.commit_callback
-			function="ParcelAudioCtrl.Pause" />
-	  </button>
-	  <button
-		  name="parcel_audio_stop_btn"
-		  image_overlay="Stop_Off"
-		  image_disabled="PushButton_Disabled"
-		  image_disabled_selected="PushButton_Disabled"
-		  image_selected="PushButton_Selected"
-		  image_unselected="PushButton_Off"
-		  hover_glow_amount="0.15"
-		  left_delta="25"
-		  height="22"
-		  tool_tip="Stop parcel audio"
-		  min_width="22"
-		  width="22">
-		<button.commit_callback
-			function="ParcelAudioCtrl.Stop" />
-	  </button>
-	  <slider
-		  control_name="AudioLevelMusic"
-		  follows="left|top"
-		  height="15"
-		  increment="0.05"
-		  initial_value="0.5"
-		  left="95"
-		  width="110"
-		  name="Music Volume"
-		  show_text="false"
-		  top_delta="4"
-		  volume="true">
-		<slider.commit_callback
-			function="Pref.setControlFalse"
-			parameter="MuteMusic" />
-	  </slider>
-	  <button
-		  control_name="MuteMusic"
-		  height="16"
-		  image_selected="AudioMute_Off"
-		  image_unselected="Audio_Off"
-		  is_toggle="true"
-		  left_delta="120"
-		  name="mute_music"
-		  tab_stop="false"
-		  top_delta="-1"
-		  width="18" />
-	</panel>
-	<panel
+	  name="nearby_media_panel"
 		bevel_style="in"
 		border_style="line"
 		bg_alpha_color="0 0 0 0"
 		bg_opaque_color="0 0 0 0.3"
 		follows="left|right|top|bottom"
-		top_delta="45"
+	  top_delta="30"
 		right="-1"
 		left="0"
-		height="265">
+	  height="375">
 	  <text
 		  type="string"
 		  length="1"
-		  follows="top|left|right"
-		  font="SansSerifBold"
-		  left="10">
+		follows="top|left"
+		font="SansSerif"
+		left="10"
+		width="100">
 		Nearby Media
 	  </text>
+<!-- nix for now
 	  <text
+		bottom_delta="1"
 		  type="string"
-		  length="1"
 		  follows="top|left|right"
 		  font="SansSerif"
+		font.style="ITALIC"
 		  font.size="Small"
-		  font.style="ITALIC"
-		  top_pad="8"
-		  left="10">
-		Check to enable/disable media; double-click to zoom view
+		name="media_item_count"
+		left="115"
+		right="-10">
+	  (?? media items)
 	  </text>
+-->
 	  <text
 		  type="string"
 		  length="1"
-		  follows="top|left|right"
+		follows="top|left"
 		  font="SansSerif"
 		  top_pad="15"
-		  left="10">
+		left="10"
+		width="40">
 		Show:
 	  </text>
 	  <combo_box
 		  height="23"
 		  left="50"
-		  width="120"
+		width="140"
 		  top_delta="-5"
-		  follows="left|right|top"
+		follows="left|top"
 		  name="show_combo">
 		<combo_box.item
 			label="All"
@@ -392,7 +146,7 @@
 	  <scroll_list
 		  follows="left|top|bottom|right"
 		  column_padding="0"
-		  height="200"
+		height="100"
 		  draw_heading="false"
 		  draw_stripes="true"
 		  bg_stripe_color="0.25 0.25 0.25 0.25"
@@ -429,14 +183,13 @@
 			label="Debug"
 			name="media_debug" />
 	  </scroll_list>
-	</panel>
 	<panel
 		bevel_style="in"
 		background_visible="true" 
 		bg_alpha_color="0.0 0.0 0.0 1.0"
 		bg_opaque_color="0 0 0 0.3"
 		follows="left|right|bottom"
-		top_pad="10"
+	  top_pad="5"
 		height="110"
 		left="10"
 		right="-10">
@@ -449,8 +202,7 @@
 		  tool_tip="Check this to enable all media"
 		  label="All Media Enabled"
 		  top="10"
-		  left="10"
-		  width="20"/>
+		left="10"/>
 	  <check_box
 		  name="media_auto_play_btn"
 		  control_name="ParcelMediaAutoPlayEnable"
@@ -461,8 +213,7 @@
 		  tool_tip="Check this to let media auto-play if it wants"
 		  label="Allow Media to auto-play"
 		  top_pad="5"
-		  left="10"
-		  width="20"/>
+		left="10"/>
 	  <check_box
 		  name="media_show_within_parcel_btn"
 		  control_name="MediaShowWithinParcel"
@@ -472,8 +223,7 @@
 		  height="15"
 		  tool_tip="Uncheck this to hide media within the parcel you are standing in"
 		  label="Show media within current parcel"
-		  left="10"
-		  width="20"/>
+		left="10"/>
 	  <check_box
 		  name="media_show_outside_parcel_btn"
 		  control_name="MediaShowOutsideParcel"
@@ -483,8 +233,7 @@
 		  height="15"
 		  tool_tip="Uncheck this to hide media outside the parcel you are standing in"
 		  label="Show media outside current parcel"
-		  left="10"
-		  width="20"/>
+		left="10"/>
 	  <check_box
 		  name="media_show_on_others_btn"
 		  control_name="MediaShowOnOthers"
@@ -494,8 +243,7 @@
 		  height="15"
 		  tool_tip="Uncheck this to hide media attached to other avatars nearby"
 		  label="Show media attached to other avatars"
-		  left="10"
-		  width="20"/>
+		left="10"/>
 	</panel>
   </panel>
 </panel>
