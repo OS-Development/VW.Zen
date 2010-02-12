@@ -299,6 +299,10 @@ void LLAgentWearables::addWearableToAgentInventoryCallback::fire(const LLUUID& i
 	{
 		gAgentWearables.makeNewOutfitDone(mType, mIndex);
 	}
+	if (mTodo & CALL_WEARITEM)
+	{
+		LLAppearanceManager::instance().addCOFItemLink(inv_item, true);
+	}
 }
 
 void LLAgentWearables::addWearabletoAgentInventoryDone(const S32 type,
@@ -310,21 +314,24 @@ void LLAgentWearables::addWearabletoAgentInventoryDone(const S32 type,
 		return;
 
 	LLUUID old_item_id = getWearableItemID((EWearableType)type,index);
+
 	if (wearable)
 	{
 		wearable->setItemID(item_id);
+
+		if (old_item_id.notNull())
+		{	
+			gInventory.addChangedMask(LLInventoryObserver::LABEL, old_item_id);
+			setWearable((EWearableType)type,index,wearable);
+		}
+		else
+		{
+			pushWearable((EWearableType)type,wearable);
+		}
 	}
 
-	if (old_item_id.notNull())
-	{	
-		gInventory.addChangedMask(LLInventoryObserver::LABEL, old_item_id);
-		setWearable((EWearableType)type,index,wearable);
-	}
-	else
-	{
-		pushWearable((EWearableType)type,wearable);
-	}
 	gInventory.addChangedMask(LLInventoryObserver::LABEL, item_id);
+
 	LLViewerInventoryItem* item = gInventory.getItem(item_id);
 	if (item && wearable)
 	{
@@ -507,7 +514,7 @@ void LLAgentWearables::saveWearableAs(const EWearableType type,
 			type,
 			index,
 			new_wearable,
-			addWearableToAgentInventoryCallback::CALL_UPDATE);
+			addWearableToAgentInventoryCallback::CALL_WEARITEM);
 	LLUUID category_id;
 	if (save_in_lost_and_found)
 	{
@@ -1287,25 +1294,29 @@ void LLAgentWearables::makeNewOutfit(const std::string& new_folder_name,
 							j,
 							new_wearable,
 							todo);
-					if (isWearableCopyable((EWearableType)type, j))
+					llassert(item);
+					if (item)
 					{
-						copy_inventory_item(
-							gAgent.getID(),
-							item->getPermissions().getOwner(),
-							item->getUUID(),
-							folder_id,
-							new_name,
-							cb);
-					}
-					else
-					{
-						move_inventory_item(
-							gAgent.getID(),
-							gAgent.getSessionID(),
-							item->getUUID(),
-							folder_id,
-							new_name,
-							cb);
+						if (isWearableCopyable((EWearableType)type, j))
+						{
+							copy_inventory_item(
+									    gAgent.getID(),
+									    item->getPermissions().getOwner(),
+									    item->getUUID(),
+									    folder_id,
+									    new_name,
+									    cb);
+						}
+						else
+						{
+							move_inventory_item(
+									    gAgent.getID(),
+									    gAgent.getSessionID(),
+									    item->getUUID(),
+									    folder_id,
+									    new_name,
+									    cb);
+						}
 					}
 				}
 			}
@@ -1594,32 +1605,35 @@ void LLAgentWearables::setWearableOutfit(const LLInventoryItem::item_array_t& it
 		LLWearable* new_wearable = wearables[i];
 		LLPointer<LLInventoryItem> new_item = items[i];
 
-		const EWearableType type = new_wearable->getType();
-		wearables_to_remove[type] = FALSE;
-
-		// MULTI_WEARABLE: using 0th
-		LLWearable* old_wearable = getWearable(type, 0);
-		if (old_wearable)
-		{
-			const LLUUID& old_item_id = getWearableItemID(type, 0);
-			if ((old_wearable->getAssetID() == new_wearable->getAssetID()) &&
-				(old_item_id == new_item->getUUID()))
-			{
-				lldebugs << "No change to wearable asset and item: " << LLWearableDictionary::getInstance()->getWearableEntry(type) << llendl;
-				continue;
-			}
-
-			// Assumes existing wearables are not dirty.
-			if (old_wearable->isDirty())
-			{
-				llassert(0);
-				continue;
-			}
-		}
-
+		llassert(new_wearable);
 		if (new_wearable)
+		{
+			const EWearableType type = new_wearable->getType();
+			wearables_to_remove[type] = FALSE;
+
+			// MULTI_WEARABLE: using 0th
+			LLWearable* old_wearable = getWearable(type, 0);
+			if (old_wearable)
+			{
+				const LLUUID& old_item_id = getWearableItemID(type, 0);
+				if ((old_wearable->getAssetID() == new_wearable->getAssetID()) &&
+				    (old_item_id == new_item->getUUID()))
+				{
+					lldebugs << "No change to wearable asset and item: " << LLWearableDictionary::getInstance()->getWearableEntry(type) << llendl;
+					continue;
+				}
+				
+				// Assumes existing wearables are not dirty.
+				if (old_wearable->isDirty())
+				{
+					llassert(0);
+					continue;
+				}
+			}
+
 			new_wearable->setItemID(new_item->getUUID());
-		setWearable(type,0,new_wearable);
+			setWearable(type,0,new_wearable);
+		}
 	}
 
 	std::vector<LLWearable*> wearables_being_removed;
@@ -2138,6 +2152,8 @@ void LLAgentWearables::updateServer()
 
 void LLAgentWearables::populateMyOutfitsFolder(void)
 {	
+	llinfos << "starting outfit populate" << llendl;
+
 	LLLibraryOutfitsFetch* outfits = new LLLibraryOutfitsFetch();
 	
 	// Get the complete information on the items in the inventory and 
