@@ -369,7 +369,7 @@ Leyla Linden               </text>
              layout="topleft"
              left_delta="0"
              name="Sell with landowners objects in parcel."
-             top_pad="-3"
+             top_pad="-2"
              width="186">
                 Objects included in sale
             </text>
@@ -1825,6 +1825,15 @@ Only large parcels can be listed in search.
              top_delta="0"
              right="-15"
              select_on_focus="true" />
+			<check_box
+             height="16"
+             label="Hide URL"
+             layout="topleft"
+             name="hide_music_url"
+			 tool_tip="Checking this option will hide the music url to any non-authorized viewers of this parcel information."
+			 left_delta="10"
+             top_pad="5"
+             width="292" /> 
             <text
              type="string"
              length="1"

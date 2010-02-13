@@ -1354,6 +1354,7 @@ void LLPipeline::updateMoveNormalAsync(LLDrawable* drawablep)
 	if (!drawablep)
 	{
 		llerrs << "updateMove called with NULL drawablep" << llendl;
+		return;
 	}
 	if (drawablep->isState(LLDrawable::EARLY_MOVE))
 	{
@@ -1957,7 +1958,7 @@ void LLPipeline::markVisible(LLDrawable *drawablep, LLCamera& camera)
 		if (root && root->getParent() && root->getVObj() && root->getVObj()->isAttachment())
 		{
 			LLVOAvatar* av = root->getParent()->getVObj()->asAvatar();
-			if (av->isImpostor())
+			if (av && av->isImpostor())
 			{
 				return;
 			}

@@ -192,6 +192,7 @@ LLVOVolume::LLVOVolume(const LLUUID &id, const LLPCode pcode, LLViewerRegion *re
 
 	mMediaImplList.resize(getNumTEs());
 	mLastFetchedMediaVersion = -1;
+	mIndexInTex = 0;
 }
 
 LLVOVolume::~LLVOVolume()
@@ -225,6 +226,11 @@ void LLVOVolume::markDead()
 		for(U32 i = 0 ; i < mMediaImplList.size() ; i++)
 		{
 			removeMediaImpl(i);
+		}
+
+		if (mSculptTexture.notNull())
+		{
+			mSculptTexture->removeVolume(this);
 		}
 	}
 	
@@ -694,6 +700,7 @@ void LLVOVolume::updateTextureVirtualSize()
 			vsize = area;
 			imagep->setBoostLevel(LLViewerTexture::BOOST_HUD);
  			face->setPixelArea(area); // treat as full screen
+			face->setVirtualSize(vsize);
 		}
 		else
 		{
@@ -710,8 +717,7 @@ void LLVOVolume::updateTextureVirtualSize()
 				gPipeline.markRebuild(mDrawable, LLDrawable::REBUILD_TCOORD, FALSE);
 			}
 		}
-		
-		face->setVirtualSize(vsize);
+				
 		if (gPipeline.hasRenderDebugMask(LLPipeline::RENDER_DEBUG_TEXTURE_AREA))
 		{
 			if (vsize < min_vsize) min_vsize = vsize;
@@ -740,7 +746,9 @@ void LLVOVolume::updateTextureVirtualSize()
 	{
 		LLSculptParams *sculpt_params = (LLSculptParams *)getParameterEntry(LLNetworkData::PARAMS_SCULPT);
 		LLUUID id =  sculpt_params->getSculptTexture(); 
-		mSculptTexture = LLViewerTextureManager::getFetchedTexture(id, TRUE, LLViewerTexture::BOOST_NONE, LLViewerTexture::LOD_TEXTURE);
+		
+		updateSculptTexture();
+		
 		if (mSculptTexture.notNull())
 		{
 			mSculptTexture->setBoostLevel(llmax((S32)mSculptTexture->getBoostLevel(),
@@ -929,33 +937,51 @@ BOOL LLVOVolume::setVolume(const LLVolumeParams &volume_params, const S32 detail
 		{
 			mVolumeImpl->onSetVolume(volume_params, detail);
 		}
-		
+	
+		updateSculptTexture();
+
 		if (isSculpted())
 		{
-			mSculptTexture = LLViewerTextureManager::getFetchedTexture(volume_params.getSculptID(), TRUE, LLViewerTexture::BOOST_NONE, LLViewerTexture::LOD_TEXTURE);
+			updateSculptTexture();
+
 			if (mSculptTexture.notNull())
 			{
-				//ignore sculpt GL usage since bao fixed this in a separate branch
-				if (!gGLActive)
-				{
-					gGLActive = TRUE;
-					sculpt();
-					gGLActive = FALSE;
-				}
-				else
-				{
-					sculpt();
-				}
+				sculpt();
 			}
-		}
-		else
-		{
-			mSculptTexture = NULL;
 		}
 
 		return TRUE;
 	}
 	return FALSE;
+}
+
+void LLVOVolume::updateSculptTexture()
+{
+	LLPointer<LLViewerFetchedTexture> old_sculpt = mSculptTexture;
+
+	if (isSculpted())
+	{
+		LLSculptParams *sculpt_params = (LLSculptParams *)getParameterEntry(LLNetworkData::PARAMS_SCULPT);
+		LLUUID id =  sculpt_params->getSculptTexture(); 
+		mSculptTexture = LLViewerTextureManager::getFetchedTexture(id, TRUE, LLViewerTexture::BOOST_NONE, LLViewerTexture::LOD_TEXTURE);
+	}
+	else
+	{
+		mSculptTexture = NULL;
+	}
+
+	if (mSculptTexture != old_sculpt)
+	{
+		if (old_sculpt.notNull())
+		{
+			old_sculpt->removeVolume(this);
+		}
+		if (mSculptTexture.notNull())
+		{
+			mSculptTexture->addVolume(this);
+		}
+	}
+	
 }
 
 // sculpt replaces generate() for sculpted surfaces
@@ -1021,6 +1047,17 @@ void LLVOVolume::sculpt()
 			}
 		}
 		getVolume()->sculpt(sculpt_width, sculpt_height, sculpt_components, sculpt_data, discard_level);
+
+		//notify rebuild any other VOVolumes that reference this sculpty volume
+		for (S32 i = 0; i < mSculptTexture->getNumVolumes(); ++i)
+		{
+			LLVOVolume* volume = (*(mSculptTexture->getVolumeList()))[i];
+			if (volume != this && volume->getVolume() == getVolume())
+			{
+				gPipeline.markRebuild(volume->mDrawable, LLDrawable::REBUILD_GEOMETRY, FALSE);
+				volume->mSculptChanged = TRUE;
+			}
+		}
 	}
 }
 

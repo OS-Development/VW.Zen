@@ -34,6 +34,8 @@
 
 #include "llnavigationbar.h"
 
+#include "v2math.h"
+
 #include "llregionhandle.h"
 
 #include "llfloaterreg.h"
@@ -181,6 +183,84 @@ void LLTeleportHistoryMenuItem::onMouseLeave(S32 x, S32 y, MASK mask)
 	mArrowIcon->setVisible(FALSE);
 }
 
+static LLDefaultChildRegistry::Register<LLPullButton> menu_button("pull_button");
+
+LLPullButton::LLPullButton(const LLPullButton::Params& params) :
+	LLButton(params)
+{
+	setDirectionFromName(params.direction);
+}
+boost::signals2::connection LLPullButton::setClickDraggingCallback(const commit_signal_t::slot_type& cb)
+{
+	return mClickDraggingSignal.connect(cb);
+}
+
+/*virtual*/
+void LLPullButton::onMouseLeave(S32 x, S32 y, MASK mask)
+{
+	LLButton::onMouseLeave(x, y, mask);
+
+	if (mMouseDownTimer.getStarted()) //an user have done a mouse down, if the timer started. see LLButton::handleMouseDown for details
+	{
+		const LLVector2 cursor_direction = LLVector2(F32(x), F32(y)) - mLastMouseDown;
+		/* For now cursor_direction points to the direction of mouse movement
+		 * Need to decide whether should we fire a signal. 
+		 * We fire if angle between mDraggingDirection and cursor_direction is less that 45 degree
+		 * Note:
+		 * 0.5 * F_PI_BY_TWO equals to PI/4 radian that equals to angle of 45 degrees
+		 */
+		if (angle_between(mDraggingDirection, cursor_direction) < 0.5 * F_PI_BY_TWO)//call if angle < pi/4 
+		{
+			mClickDraggingSignal(this, LLSD());
+		}
+	}
+
+}
+
+/*virtual*/
+BOOL LLPullButton::handleMouseDown(S32 x, S32 y, MASK mask)
+{
+	BOOL handled = LLButton::handleMouseDown(x, y, mask);
+	if (handled)
+	{
+		//if mouse down was handled by button, 
+		//capture mouse position to calculate the direction of  mouse move  after mouseLeave event 
+		mLastMouseDown.set(F32(x), F32(y));
+	}
+	return handled;
+}
+
+/*virtual*/
+BOOL LLPullButton::handleMouseUp(S32 x, S32 y, MASK mask)
+{
+	// reset data to get ready for next circle 
+	mLastMouseDown.clear();
+	return LLButton::handleMouseUp(x, y, mask);
+}
+/**
+ * this function is setting up dragging direction vector. 
+ * Last one is just unit vector. It points to direction of mouse drag that we need to handle   
+ */
+void LLPullButton::setDirectionFromName(const std::string& name)
+{
+	if (name == "left")
+	{
+		mDraggingDirection.set(F32(-1), F32(0));
+	}
+	else if (name == "right")
+	{
+		mDraggingDirection.set(F32(0), F32(1));
+	}
+	else if (name == "down")
+	{
+		mDraggingDirection.set(F32(0), F32(-1));
+	}
+	else if (name == "up")
+	{
+		mDraggingDirection.set(F32(0), F32(1));
+	}
+}
+
 //-- LNavigationBar ----------------------------------------------------------
 
 /*
@@ -215,8 +295,8 @@ LLNavigationBar::~LLNavigationBar()
 
 BOOL LLNavigationBar::postBuild()
 {
-	mBtnBack	= getChild<LLButton>("back_btn");
-	mBtnForward	= getChild<LLButton>("forward_btn");
+	mBtnBack	= getChild<LLPullButton>("back_btn");
+	mBtnForward	= getChild<LLPullButton>("forward_btn");
 	mBtnHome	= getChild<LLButton>("home_btn");
 	
 	mCmbLocation= getChild<LLLocationInputCtrl>("location_combo"); 
@@ -224,20 +304,15 @@ BOOL LLNavigationBar::postBuild()
 
 	fillSearchComboBox();
 
-	if (!mBtnBack || !mBtnForward || !mBtnHome ||
-		!mCmbLocation || !mSearchComboBox)
-	{
-		llwarns << "Malformed navigation bar" << llendl;
-		return FALSE;
-	}
-	
 	mBtnBack->setEnabled(FALSE);
 	mBtnBack->setClickedCallback(boost::bind(&LLNavigationBar::onBackButtonClicked, this));
-	mBtnBack->setHeldDownCallback(boost::bind(&LLNavigationBar::onBackOrForwardButtonHeldDown, this, _2));
-
+	mBtnBack->setHeldDownCallback(boost::bind(&LLNavigationBar::onBackOrForwardButtonHeldDown, this,_1, _2));
+	mBtnBack->setClickDraggingCallback(boost::bind(&LLNavigationBar::showTeleportHistoryMenu, this,_1));
+	
 	mBtnForward->setEnabled(FALSE);
 	mBtnForward->setClickedCallback(boost::bind(&LLNavigationBar::onForwardButtonClicked, this));
-	mBtnForward->setHeldDownCallback(boost::bind(&LLNavigationBar::onBackOrForwardButtonHeldDown, this, _2));
+	mBtnForward->setHeldDownCallback(boost::bind(&LLNavigationBar::onBackOrForwardButtonHeldDown, this, _1, _2));
+	mBtnForward->setClickDraggingCallback(boost::bind(&LLNavigationBar::showTeleportHistoryMenu, this,_1));
 
 	mBtnHome->setClickedCallback(boost::bind(&LLNavigationBar::onHomeButtonClicked, this));
 
@@ -332,10 +407,10 @@ void LLNavigationBar::onBackButtonClicked()
 	LLTeleportHistory::getInstance()->goBack();
 }
 
-void LLNavigationBar::onBackOrForwardButtonHeldDown(const LLSD& param)
+void LLNavigationBar::onBackOrForwardButtonHeldDown(LLUICtrl* ctrl, const LLSD& param)
 {
 	if (param["count"].asInteger() == 0)
-		showTeleportHistoryMenu();
+		showTeleportHistoryMenu(ctrl);
 }
 
 void LLNavigationBar::onForwardButtonClicked()
@@ -571,7 +646,7 @@ void LLNavigationBar::onRegionNameResponse(
 	gAgent.teleportViaLocation(global_pos);
 }
 
-void	LLNavigationBar::showTeleportHistoryMenu()
+void	LLNavigationBar::showTeleportHistoryMenu(LLUICtrl* btn_ctrl)
 {
 	// Don't show the popup if teleport history is empty.
 	if (LLTeleportHistory::getInstance()->isEmpty())
@@ -585,14 +660,43 @@ void	LLNavigationBar::showTeleportHistoryMenu()
 	if (mTeleportHistoryMenu == NULL)
 		return;
 	
-	// *TODO: why to draw/update anything before showing the menu?
-	mTeleportHistoryMenu->buildDrawLabels();
 	mTeleportHistoryMenu->updateParent(LLMenuGL::sMenuContainer);
 	const S32 MENU_SPAWN_PAD = -1;
-	LLMenuGL::showPopup(mBtnBack, mTeleportHistoryMenu, 0, MENU_SPAWN_PAD);
-
+	LLMenuGL::showPopup(btn_ctrl, mTeleportHistoryMenu, 0, MENU_SPAWN_PAD);
+	LLButton* nav_button = dynamic_cast<LLButton*>(btn_ctrl);
+	if(nav_button)
+	{
+		if(mHistoryMenuConnection.connected())
+		{
+			LL_WARNS("Navgationbar")<<"mHistoryMenuConnection should be disconnected at this moment."<<LL_ENDL;
+			mHistoryMenuConnection.disconnect();
+		}
+		mHistoryMenuConnection = gMenuHolder->setMouseUpCallback(boost::bind(&LLNavigationBar::onNavigationButtonHeldUp, this, nav_button));
+		// pressed state will be update after mouseUp in  onBackOrForwardButtonHeldUp();
+		nav_button->setForcePressedState(true);
+	}
 	// *HACK pass the mouse capturing to the drop-down menu
-	gFocusMgr.setMouseCapture( NULL );
+	// it need to let menu handle mouseup event
+	gFocusMgr.setMouseCapture(gMenuHolder);
+}
+/**
+ * Taking into account the HACK above,  this callback-function is responsible for correct handling of mouseUp event in case of holding-down the navigation buttons..
+ * We need to process this case separately to update a pressed state of navigation button.
+ */
+void LLNavigationBar::onNavigationButtonHeldUp(LLButton* nav_button)
+{
+	if(nav_button)
+	{
+		nav_button->setForcePressedState(false);
+	}
+	if(gFocusMgr.getMouseCapture() == gMenuHolder)
+	{
+		// we had passed mouseCapture in  showTeleportHistoryMenu()
+		// now we MUST release mouseCapture to continue a proper mouseevent workflow. 
+		gFocusMgr.setMouseCapture(NULL);
+	}
+	//gMenuHolder is using to display bunch of menus. Disconnect signal to avoid unnecessary calls.    
+	mHistoryMenuConnection.disconnect();
 }
 
 void LLNavigationBar::handleLoginComplete()

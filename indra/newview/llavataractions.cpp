@@ -181,7 +181,12 @@ void LLAvatarActions::startIM(const LLUUID& id)
 		return;
 
 	std::string name;
-	gCacheName->getFullName(id, name);
+	if (!gCacheName->getFullName(id, name))
+	{
+		gCacheName->get(id, FALSE, boost::bind(&LLAvatarActions::startIM, id));
+		return;
+	}
+
 	LLUUID session_id = gIMMgr->addSession(name, IM_NOTHING_SPECIAL, id);
 	if (session_id != LLUUID::null)
 	{
@@ -611,4 +616,14 @@ bool LLAvatarActions::isBlocked(const LLUUID& id)
 	std::string name;
 	gCacheName->getFullName(id, name);
 	return LLMuteList::getInstance()->isMuted(id, name);
+}
+
+// static
+bool LLAvatarActions::canBlock(const LLUUID& id)
+{
+	std::string firstname, lastname;
+	gCacheName->getName(id, firstname, lastname);
+	bool is_linden = !LLStringUtil::compareStrings(lastname, "Linden");
+	bool is_self = id == gAgentID;
+	return !is_self && !is_linden;
 }
