@@ -41,6 +41,7 @@
 #include "lldbstrings.h"
 #include "lleconomy.h"
 #include "llgl.h"
+#include "llmediaentry.h"
 #include "llrender.h"
 #include "llnotifications.h"
 #include "llpermissions.h"
@@ -68,6 +69,7 @@
 #include "llhudmanager.h"
 #include "llinventorymodel.h"
 #include "llmenugl.h"
+#include "llmeshrepository.h"
 #include "llmutelist.h"
 #include "llsidepaneltaskinfo.h"
 #include "llslurl.h"
@@ -179,7 +181,6 @@ LLObjectSelection *get_null_object_selection()
 
 // Build time optimization, generate this function once here
 template class LLSelectMgr* LLSingleton<class LLSelectMgr>::getInstance();
-
 //-----------------------------------------------------------------------------
 // LLSelectMgr()
 //-----------------------------------------------------------------------------
@@ -1739,24 +1740,57 @@ void LLSelectMgr::selectionSetFullbright(U8 fullbright)
 	getSelection()->applyToObjects(&sendfunc);
 }
 
-void LLSelectMgr::selectionSetMedia(U8 media_type)
-{
-	
+// This function expects media_data to be a map containing relevant
+// media data name/value pairs (e.g. home_url, etc.)
+void LLSelectMgr::selectionSetMedia(U8 media_type, const LLSD &media_data)
+{	
 	struct f : public LLSelectedTEFunctor
 	{
 		U8 mMediaFlags;
-		f(const U8& t) : mMediaFlags(t) {}
+		const LLSD &mMediaData;
+		f(const U8& t, const LLSD& d) : mMediaFlags(t), mMediaData(d) {}
 		bool apply(LLViewerObject* object, S32 te)
 		{
 			if (object->permModify())
 			{
-				// update viewer has media
-				object->setTEMediaFlags(te, mMediaFlags);
+				// If we are adding media, then check the current state of the
+				// media data on this face.  
+				//  - If it does not have media, AND we are NOT setting the HOME URL, then do NOT add media to this
+				// face.
+				//  - If it does not have media, and we ARE setting the HOME URL, add media to this face.
+				//  - If it does already have media, add/update media to/on this face
+				// If we are removing media, just do it (ignore the passed-in LLSD).
+				if (mMediaFlags & LLTextureEntry::MF_HAS_MEDIA)
+				{
+					llassert(mMediaData.isMap());
+					const LLTextureEntry *texture_entry = object->getTE(te);
+					if (!mMediaData.isMap() ||
+						(NULL != texture_entry) && !texture_entry->hasMedia() && !mMediaData.has(LLMediaEntry::HOME_URL_KEY))
+					{
+						// skip adding/updating media
+					}
+					else {
+						// Add/update media
+						object->setTEMediaFlags(te, mMediaFlags);
+						LLVOVolume *vo = dynamic_cast<LLVOVolume*>(object);
+						llassert(NULL != vo);
+						if (NULL != vo) 
+						{
+							vo->syncMediaData(te, mMediaData, true/*merge*/, true/*ignore_agent*/);
+						}
+					}
+				}
+				else
+				{
+					// delete media (or just set the flags)
+					object->setTEMediaFlags(te, mMediaFlags);
+				}
 			}
 			return true;
 		}
-	} setfunc(media_type);
+	} setfunc(media_type, media_data);
 	getSelection()->applyToTEs(&setfunc);
+	
 	struct f2 : public LLSelectedObjectFunctor
 	{
 		virtual bool apply(LLViewerObject* object)
@@ -1764,45 +1798,12 @@ void LLSelectMgr::selectionSetMedia(U8 media_type)
 			if (object->permModify())
 			{
 				object->sendTEUpdate();
-			}
-			return true;
-		}
-	} func2;
-	mSelectedObjects->applyToObjects( &func2 );
-}
-
-// This function expects media_data to be a map containing relevant
-// media data name/value pairs (e.g. home_url, etc.)
-void LLSelectMgr::selectionSetMediaData(const LLSD &media_data)
-{
-
-	struct f : public LLSelectedTEFunctor
-	{
-		const LLSD &mMediaData;
-		f(const LLSD& t) : mMediaData(t) {}
-		bool apply(LLViewerObject* object, S32 te)
-		{
-			if (object->permModify())
-			{
-                LLVOVolume *vo = dynamic_cast<LLVOVolume*>(object);
-                if (NULL != vo) 
-                {
-                    vo->syncMediaData(te, mMediaData, true/*merge*/, true/*ignore_agent*/);
-                }                
-			}
-			return true;
-		}
-	} setfunc(media_data);
-	getSelection()->applyToTEs(&setfunc);
-
-	struct f2 : public LLSelectedObjectFunctor
-	{
-		virtual bool apply(LLViewerObject* object)
-		{
-			if (object->permModify())
-			{
-                LLVOVolume *vo = dynamic_cast<LLVOVolume*>(object);
-                if (NULL != vo) 
+				LLVOVolume *vo = dynamic_cast<LLVOVolume*>(object);
+				llassert(NULL != vo);
+				// It's okay to skip this object if hasMedia() is false...
+				// the sendTEUpdate() above would remove all media data if it were
+				// there.
+                if (NULL != vo && vo->hasMedia())
                 {
                     // Send updated media data FOR THE ENTIRE OBJECT
                     vo->sendMediaDataUpdate();
@@ -1811,10 +1812,8 @@ void LLSelectMgr::selectionSetMediaData(const LLSD &media_data)
 			return true;
 		}
 	} func2;
-	getSelection()->applyToObjects(&func2);
+	mSelectedObjects->applyToObjects( &func2 );
 }
-
-
 
 void LLSelectMgr::selectionSetGlow(F32 glow)
 {
@@ -4920,13 +4919,15 @@ void LLSelectMgr::renderSilhouettes(BOOL for_hud)
 
 		// set up transform to encompass bounding box of HUD
 		glMatrixMode(GL_PROJECTION);
-		glPushMatrix();
+		gGL.pushMatrix();
 		glLoadIdentity();
 		F32 depth = llmax(1.f, hud_bbox.getExtentLocal().mV[VX] * 1.1f);
 		glOrtho(-0.5f * LLViewerCamera::getInstance()->getAspect(), 0.5f * LLViewerCamera::getInstance()->getAspect(), -0.5f, 0.5f, 0.f, depth);
 
 		glMatrixMode(GL_MODELVIEW);
-		glPushMatrix();
+		gGL.pushMatrix();
+		gGL.pushUIMatrix();
+		gGL.loadUIIdentity();
 		glLoadIdentity();
 		glLoadMatrixf(OGL_TO_CFR_ROTATION);		// Load Cory's favorite reference frame
 		glTranslatef(-hud_bbox.getCenterLocal().mV[VX] + (depth *0.5f), 0.f, 0.f);
@@ -5023,10 +5024,11 @@ void LLSelectMgr::renderSilhouettes(BOOL for_hud)
 	if (for_hud && avatar)
 	{
 		glMatrixMode(GL_PROJECTION);
-		glPopMatrix();
+		gGL.popMatrix();
 
 		glMatrixMode(GL_MODELVIEW);
-		glPopMatrix();
+		gGL.popMatrix();
+		gGL.popUIMatrix();
 		stop_glerror();
 	}
 
@@ -5345,6 +5347,78 @@ BOOL LLSelectNode::allowOperationOnNode(PermissionBit op, U64 group_proxy_power)
 	return (mPermissions->allowOperationBy(op, proxy_agent_id, group_id));
 }
 
+void LLSelectNode::renderOneWireframe(const LLColor4& color)
+{
+	LLViewerObject* objectp = getObject();
+	if (!objectp)
+	{
+		return;
+	}
+
+	LLDrawable* drawable = objectp->mDrawable;
+	if(!drawable)
+	{
+		return;
+	}
+
+	glMatrixMode(GL_MODELVIEW);
+	gGL.pushMatrix();
+
+	BOOL is_hud_object = objectp->isHUDAttachment();
+
+	if (!is_hud_object)
+	{
+		glLoadIdentity();
+		glMultMatrixd(gGLModelView);
+	}
+	
+	if (drawable->isActive())
+	{
+		glMultMatrixf((F32*) objectp->getRenderMatrix().mMatrix);
+	}
+
+	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	
+	if (LLSelectMgr::sRenderHiddenSelections) // && gFloaterTools && gFloaterTools->getVisible())
+	{
+		gGL.blendFunc(LLRender::BF_SOURCE_COLOR, LLRender::BF_ONE);
+		LLGLEnable fog(GL_FOG);
+		glFogi(GL_FOG_MODE, GL_LINEAR);
+		float d = (LLViewerCamera::getInstance()->getPointOfInterest()-LLViewerCamera::getInstance()->getOrigin()).magVec();
+		LLColor4 fogCol = color * (F32)llclamp((LLSelectMgr::getInstance()->getSelectionCenterGlobal()-gAgent.getCameraPositionGlobal()).magVec()/(LLSelectMgr::getInstance()->getBBoxOfSelection().getExtentLocal().magVec()*4), 0.0, 1.0);
+		glFogf(GL_FOG_START, d);
+		glFogf(GL_FOG_END, d*(1 + (LLViewerCamera::getInstance()->getView() / LLViewerCamera::getInstance()->getDefaultFOV())));
+		glFogfv(GL_FOG_COLOR, fogCol.mV);
+
+		LLGLDepthTest gls_depth(GL_TRUE, GL_FALSE, GL_GEQUAL);
+		gGL.setAlphaRejectSettings(LLRender::CF_DEFAULT);
+		{
+			glColor4f(color.mV[VRED], color.mV[VGREEN], color.mV[VBLUE], 0.4f);
+			for (S32 i = 0; i < drawable->getNumFaces(); ++i)
+			{
+				LLFace* face = drawable->getFace(i);
+				pushVerts(face, LLVertexBuffer::MAP_VERTEX);
+			}
+		}
+	}
+
+	gGL.flush();
+	gGL.setSceneBlendType(LLRender::BT_ALPHA);
+
+	glColor4f(color.mV[VRED]*2, color.mV[VGREEN]*2, color.mV[VBLUE]*2, LLSelectMgr::sHighlightAlpha*2);
+	LLGLEnable offset(GL_POLYGON_OFFSET_LINE);
+	glPolygonOffset(3.f, 2.f);
+	glLineWidth(3.f);
+	for (S32 i = 0; i < drawable->getNumFaces(); ++i)
+	{
+		LLFace* face = drawable->getFace(i);
+		pushVerts(face, LLVertexBuffer::MAP_VERTEX);
+	}
+	glLineWidth(1.f);
+	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+	gGL.popMatrix();
+}
+
 //-----------------------------------------------------------------------------
 // renderOneSilhouette()
 //-----------------------------------------------------------------------------
@@ -5362,6 +5436,13 @@ void LLSelectNode::renderOneSilhouette(const LLColor4 &color)
 		return;
 	}
 
+	LLVOVolume* vobj = drawable->getVOVolume();
+	if (vobj && vobj->isMesh())
+	{
+		renderOneWireframe(color);
+		return;
+	}
+
 	if (!mSilhouetteExists)
 	{
 		return;
@@ -5375,7 +5456,10 @@ void LLSelectNode::renderOneSilhouette(const LLColor4 &color)
 	}
 
 	glMatrixMode(GL_MODELVIEW);
-	glPushMatrix();
+	gGL.pushMatrix();
+	gGL.pushUIMatrix();
+	gGL.loadUIIdentity();
+
 	if (!is_hud_object)
 	{
 		glLoadIdentity();
@@ -5494,7 +5578,8 @@ void LLSelectNode::renderOneSilhouette(const LLColor4 &color)
 		gGL.end();
 		gGL.flush();
 	}
-	glPopMatrix();
+	gGL.popMatrix();
+	gGL.popUIMatrix();
 }
 
 //
@@ -6048,10 +6133,32 @@ BOOL LLObjectSelection::isEmpty() const
 //-----------------------------------------------------------------------------
 // getObjectCount() - returns number of non null objects
 //-----------------------------------------------------------------------------
-S32 LLObjectSelection::getObjectCount()
+S32 LLObjectSelection::getObjectCount(BOOL mesh_adjust)
 {
 	cleanupNodes();
 	S32 count = mList.size();
+
+	if (mesh_adjust)
+	{
+		for (list_t::iterator iter = mList.begin(); iter != mList.end(); ++iter)
+		{
+			LLSelectNode* node = *iter;
+			LLViewerObject* object = node->getObject();
+			
+			if (object && object->getVolume())
+			{
+				LLVOVolume* vobj = (LLVOVolume*) object;
+				if (vobj->isMesh())
+				{
+					LLUUID mesh_id = vobj->getVolume()->getParams().getSculptID();
+					U32 cost = gMeshRepo.getResourceCost(mesh_id);
+					count += cost-1;
+				}
+			}
+
+		}
+	}
+
 	return count;
 }
 

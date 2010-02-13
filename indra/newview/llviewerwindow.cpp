@@ -51,6 +51,7 @@
 
 #include "llviewquery.h"
 #include "llxmltree.h"
+#include "llslurl.h"
 //#include "llviewercamera.h"
 #include "llrender.h"
 
@@ -80,6 +81,9 @@
 #include "timing.h"
 #include "llviewermenu.h"
 #include "lltooltip.h"
+#include "llmediaentry.h"
+#include "llurldispatcher.h"
+#include "llurlsimstring.h"
 
 // newview includes
 #include "llagent.h"
@@ -229,6 +233,7 @@ S32				gDebugRaycastFaceHit;
 BOOL				gDisplayWindInfo = FALSE;
 BOOL				gDisplayCameraPos = FALSE;
 BOOL				gDisplayFOV = FALSE;
+BOOL				gDisplayBadge = FALSE;
 
 S32 CHAT_BAR_HEIGHT = 28; 
 S32 OVERLAY_BAR_HEIGHT = 20;
@@ -417,6 +422,11 @@ public:
 		{
 			addText(xpos, ypos, llformat("FOV: %2.1f deg", RAD_TO_DEG * LLViewerCamera::getInstance()->getView()));
 			ypos += y_inc;
+		}
+		if (gDisplayBadge)
+		{
+			addText(xpos, ypos+(y_inc/2), llformat("Hippos!", RAD_TO_DEG * LLViewerCamera::getInstance()->getView()));
+			ypos += y_inc * 2;
 		}
 		
 		/*if (LLViewerJoystick::getInstance()->getOverrideCamera())
@@ -798,6 +808,152 @@ BOOL LLViewerWindow::handleMiddleMouseDown(LLWindow *window,  LLCoordGL pos, MAS
   
   	// Always handled as far as the OS is concerned.
 	return TRUE;
+}
+
+LLWindowCallbacks::DragNDropResult LLViewerWindow::handleDragNDrop( LLWindow *window, LLCoordGL pos, MASK mask, LLWindowCallbacks::DragNDropAction action, std::string data)
+{
+	LLWindowCallbacks::DragNDropResult result = LLWindowCallbacks::DND_NONE;
+
+	const bool prim_media_dnd_enabled = gSavedSettings.getBOOL("PrimMediaDragNDrop");
+	const bool slurl_dnd_enabled = gSavedSettings.getBOOL("SLURLDragNDrop");
+	
+	if ( prim_media_dnd_enabled || slurl_dnd_enabled )
+	{
+		switch(action)
+		{
+			// Much of the handling for these two cases is the same.
+			case LLWindowCallbacks::DNDA_TRACK:
+			case LLWindowCallbacks::DNDA_DROPPED:
+			case LLWindowCallbacks::DNDA_START_TRACKING:
+			{
+				bool drop = (LLWindowCallbacks::DNDA_DROPPED == action);
+					
+				if (slurl_dnd_enabled)
+				{
+					// special case SLURLs
+					if ( LLSLURL::isSLURL( data ) )
+					{
+						if (drop)
+						{
+							LLURLDispatcher::dispatch( data, NULL, true );
+							LLURLSimString::setStringRaw( LLSLURL::stripProtocol( data ) );
+							LLPanelLogin::refreshLocation( true );
+							LLPanelLogin::updateLocationUI();
+						}
+						return LLWindowCallbacks::DND_MOVE;
+					};
+				}
+
+				if (prim_media_dnd_enabled)
+				{
+					LLPickInfo pick_info = pickImmediate( pos.mX, pos.mY,  TRUE /*BOOL pick_transparent*/ );
+
+					LLUUID object_id = pick_info.getObjectID();
+					S32 object_face = pick_info.mObjectFace;
+					std::string url = data;
+
+					lldebugs << "Object: picked at " << pos.mX << ", " << pos.mY << " - face = " << object_face << " - URL = " << url << llendl;
+
+					LLVOVolume *obj = dynamic_cast<LLVOVolume*>(static_cast<LLViewerObject*>(pick_info.getObject()));
+				
+					if (obj && !obj->getRegion()->getCapability("ObjectMedia").empty())
+					{
+						LLTextureEntry *te = obj->getTE(object_face);
+						if (te)
+						{
+							if (drop)
+							{
+								// object does NOT have media already
+								if ( ! te->hasMedia() )
+								{
+									// we are allowed to modify the object
+									if ( obj->permModify() )
+									{
+										// Create new media entry
+										LLSD media_data;
+										// XXX Should we really do Home URL too?
+										media_data[LLMediaEntry::HOME_URL_KEY] = url;
+										media_data[LLMediaEntry::CURRENT_URL_KEY] = url;
+										media_data[LLMediaEntry::AUTO_PLAY_KEY] = true;
+										obj->syncMediaData(object_face, media_data, true, true);
+										// XXX This shouldn't be necessary, should it ?!?
+										if (obj->getMediaImpl(object_face))
+											obj->getMediaImpl(object_face)->navigateReload();
+										obj->sendMediaDataUpdate();
+
+										result = LLWindowCallbacks::DND_COPY;
+									}
+								}
+								else 
+								// object HAS media already
+								{
+									// URL passes the whitelist
+									if (te->getMediaData()->checkCandidateUrl( url ) )
+									{
+										// we are allowed to modify the object or we have navigate permissions
+										// NOTE: Design states you you can change the URL if you have media 
+										//       navigate permissions even if you do not have prim modify rights
+										if ( obj->permModify() || obj->hasMediaPermission( te->getMediaData(), LLVOVolume::MEDIA_PERM_INTERACT ) )
+										{
+											// just navigate to the URL
+											if (obj->getMediaImpl(object_face))
+											{
+												obj->getMediaImpl(object_face)->navigateTo(url);
+											}
+											else 
+											{
+												// This is very strange.  Navigation should
+												// happen via the Impl, but we don't have one.
+												// This sends it to the server, which /should/
+												// trigger us getting it.  Hopefully.
+												LLSD media_data;
+												media_data[LLMediaEntry::CURRENT_URL_KEY] = url;
+												obj->syncMediaData(object_face, media_data, true, true);
+												obj->sendMediaDataUpdate();
+											}
+											result = LLWindowCallbacks::DND_LINK;
+										}
+									}
+								}
+								LLSelectMgr::getInstance()->unhighlightObjectOnly(mDragHoveredObject);
+								mDragHoveredObject = NULL;
+							
+							}
+							else 
+							{
+								// Check the whitelist, if there's media (otherwise just show it)
+								if (te->getMediaData() == NULL || te->getMediaData()->checkCandidateUrl(url))
+								{
+									if ( obj != mDragHoveredObject)
+									{
+										// Highlight the dragged object
+										LLSelectMgr::getInstance()->unhighlightObjectOnly(mDragHoveredObject);
+										mDragHoveredObject = obj;
+										LLSelectMgr::getInstance()->highlightObjectOnly(mDragHoveredObject);
+									}
+									result = (! te->hasMedia()) ? LLWindowCallbacks::DND_COPY : LLWindowCallbacks::DND_LINK;
+								}
+							}
+						}
+					}
+				}
+			}
+			break;
+			
+			case LLWindowCallbacks::DNDA_STOP_TRACKING:
+				// The cleanup case below will make sure things are unhilighted if necessary.
+			break;
+		}
+
+		if (prim_media_dnd_enabled &&
+			result == LLWindowCallbacks::DND_NONE && !mDragHoveredObject.isNull())
+		{
+			LLSelectMgr::getInstance()->unhighlightObjectOnly(mDragHoveredObject);
+			mDragHoveredObject = NULL;
+		}
+	}
+	
+	return result;
 }
   
 BOOL LLViewerWindow::handleMiddleMouseUp(LLWindow *window,  LLCoordGL pos, MASK mask)
@@ -1589,7 +1745,11 @@ void LLViewerWindow::shutdownViews()
 	// destroy the nav bar, not currently part of gViewerWindow
 	// *TODO: Make LLNavigationBar part of gViewerWindow
 	delete LLNavigationBar::getInstance();
-	
+
+	// destroy menus after instantiating navbar above, as it needs
+	// access to gMenuHolder
+	cleanup_menus();
+
 	// Delete all child views.
 	delete mRootView;
 	mRootView = NULL;
@@ -2330,6 +2490,8 @@ void LLViewerWindow::updateUI()
 	LLFastTimer t(ftm);
 
 	static std::string last_handle_msg;
+
+	LLConsole::updateClass();
 
 	// animate layout stacks so we have up to date rect for world view
 	LLLayoutStack::updateClass();
@@ -3679,140 +3841,6 @@ void LLViewerWindow::playSnapshotAnimAndSound()
 BOOL LLViewerWindow::thumbnailSnapshot(LLImageRaw *raw, S32 preview_width, S32 preview_height, BOOL show_ui, BOOL do_rebuild, ESnapshotType type)
 {
 	return rawSnapshot(raw, preview_width, preview_height, FALSE, FALSE, show_ui, do_rebuild, type);
-	
-	// *TODO below code was broken in deferred pipeline
-	/*
-	if ((!raw) || preview_width < 10 || preview_height < 10)
-	{
-		return FALSE;
-	}
-
-	if(gResizeScreenTexture) //the window is resizing
-	{
-		return FALSE ;
-	}
-
-	setCursor(UI_CURSOR_WAIT);
-
-	// Hide all the UI widgets first and draw a frame
-	BOOL prev_draw_ui = gPipeline.hasRenderDebugFeatureMask(LLPipeline::RENDER_DEBUG_FEATURE_UI);
-
-	if ( prev_draw_ui != show_ui)
-	{
-		LLPipeline::toggleRenderDebugFeature((void*)LLPipeline::RENDER_DEBUG_FEATURE_UI);
-	}
-
-	BOOL hide_hud = !gSavedSettings.getBOOL("RenderHUDInSnapshot") && LLPipeline::sShowHUDAttachments;
-	if (hide_hud)
-	{
-		LLPipeline::sShowHUDAttachments = FALSE;
-	}
-
-	S32 render_name = gSavedSettings.getS32("RenderName");
-	gSavedSettings.setS32("RenderName", 0);
-	LLVOAvatar::updateFreezeCounter(1) ; //pause avatar updating for one frame
-	
-	S32 w = preview_width ;
-	S32 h = preview_height ;
-	LLVector2 display_scale = mDisplayScale ;
-	mDisplayScale.setVec((F32)w / mWindowRectRaw.getWidth(), (F32)h / mWindowRectRaw.getHeight()) ;
-	LLRect window_rect = mWindowRectRaw;
-	mWindowRectRaw.set(0, h, w, 0);
-	
-	gDisplaySwapBuffers = FALSE;
-	gDepthDirty = TRUE;
-	glClearColor(0.f, 0.f, 0.f, 0.f);
-	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-	setup3DRender();
-
-	LLFontGL::setFontDisplay(FALSE) ;
-	LLHUDText::setDisplayText(FALSE) ;
-	if (type == SNAPSHOT_TYPE_OBJECT_ID)
-	{
-		gObjectList.renderPickList(gViewerWindow->getWindowRectScaled(), FALSE, FALSE);
-	}
-	else
-	{
-		display(do_rebuild, 1.0f, 0, TRUE);
-		render_ui();
-	}
-
-	S32 glformat, gltype, glpixel_length ;
-	if(SNAPSHOT_TYPE_DEPTH == type)
-	{
-		glpixel_length = 4 ;
-		glformat = GL_DEPTH_COMPONENT ; 
-		gltype = GL_FLOAT ;
-	}
-	else
-	{
-		glpixel_length = 3 ;
-		glformat = GL_RGB ;
-		gltype = GL_UNSIGNED_BYTE ;
-	}
-
-	raw->resize(w, h, glpixel_length);
-	glReadPixels(0, 0, w, h, glformat, gltype, raw->getData());
-
-	if(SNAPSHOT_TYPE_DEPTH == type)
-	{
-		LLViewerCamera* camerap = LLViewerCamera::getInstance();
-		F32 depth_conversion_factor_1 = (camerap->getFar() + camerap->getNear()) / (2.f * camerap->getFar() * camerap->getNear());
-		F32 depth_conversion_factor_2 = (camerap->getFar() - camerap->getNear()) / (2.f * camerap->getFar() * camerap->getNear());
-
-		//calculate the depth 
-		for (S32 y = 0 ; y < h ; y++)
-		{
-			for(S32 x = 0 ; x < w ; x++)
-			{
-				S32 i = (w * y + x) << 2 ;
-				
-				F32 depth_float_i = *(F32*)(raw->getData() + i);
-				
-				F32 linear_depth_float = 1.f / (depth_conversion_factor_1 - (depth_float_i * depth_conversion_factor_2));
-				U8 depth_byte = F32_to_U8(linear_depth_float, camerap->getNear(), camerap->getFar());
-				*(raw->getData() + i + 0) = depth_byte;
-				*(raw->getData() + i + 1) = depth_byte;
-				*(raw->getData() + i + 2) = depth_byte;
-				*(raw->getData() + i + 3) = 255;
-			}
-		}		
-	}
-
-	LLFontGL::setFontDisplay(TRUE) ;
-	LLHUDText::setDisplayText(TRUE) ;
-	mDisplayScale.setVec(display_scale) ;
-	mWindowRectRaw = window_rect;	
-	setup3DRender();
-	gDisplaySwapBuffers = FALSE;
-	gDepthDirty = TRUE;
-
-	// POST SNAPSHOT
-	if (!gPipeline.hasRenderDebugFeatureMask(LLPipeline::RENDER_DEBUG_FEATURE_UI))
-	{
-		LLPipeline::toggleRenderDebugFeature((void*)LLPipeline::RENDER_DEBUG_FEATURE_UI);
-	}
-
-	if (hide_hud)
-	{
-		LLPipeline::sShowHUDAttachments = TRUE;
-	}
-
-	setCursor(UI_CURSOR_ARROW);
-
-	if (do_rebuild)
-	{
-		// If we had to do a rebuild, that means that the lists of drawables to be rendered
-		// was empty before we started.
-		// Need to reset these, otherwise we call state sort on it again when render gets called the next time
-		// and we stand a good chance of crashing on rebuild because the render drawable arrays have multiple copies of
-		// objects on them.
-		gPipeline.resetDrawOrders();
-	}
-	
-	gSavedSettings.setS32("RenderName", render_name);	
-	
-	return TRUE;*/
 }
 
 // Saves the image from the screen to the specified filename and path.

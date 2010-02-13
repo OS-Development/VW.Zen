@@ -179,9 +179,16 @@ public:
 	/*virtual*/ BOOL 	setMaterial(const U8 material);
 
 				void	setTexture(const S32 face);
-
+				S32     getIndexInTex() const {return mIndexInTex ;}
 	/*virtual*/ BOOL	setVolume(const LLVolumeParams &volume_params, const S32 detail, bool unique_volume = false);
+				void	updateSculptTexture();
+				void    setIndexInTex(S32 index) { mIndexInTex = index ;}
 				void	sculpt();
+	 static     void    rebuildMeshAssetCallback(LLVFS *vfs,
+														  const LLUUID& asset_uuid,
+														  LLAssetType::EType type,
+														  void* user_data, S32 status, LLExtStat ext_status);
+					
 				void	updateRelativeXform();
 	/*virtual*/ BOOL	updateGeometry(LLDrawable *drawable);
 	/*virtual*/ void	updateFaceSize(S32 idx);
@@ -213,6 +220,7 @@ public:
 	LLColor3 getLightBaseColor() const; // not scaled by intensity
 	LLColor3 getLightColor() const; // scaled by intensity
 	LLUUID	getLightTextureID() const;
+	bool isLightSpotlight() const;
 	LLVector3 getSpotLightParams() const;
 	void	updateSpotLightPriority();
 	F32		getSpotLightPriority() const;
@@ -227,6 +235,7 @@ public:
 	U32 getVolumeInterfaceID() const;
 	virtual BOOL isFlexible() const;
 	virtual BOOL isSculpted() const;
+	virtual BOOL isMesh() const;
 	virtual BOOL hasLightTexture() const;
 
 	BOOL isVolumeGlobal() const;
@@ -251,6 +260,7 @@ public:
     
 	void mediaNavigated(LLViewerMediaImpl *impl, LLPluginClassMedia* plugin, std::string new_location);
 	void mediaEvent(LLViewerMediaImpl *impl, LLPluginClassMedia* plugin, LLViewerMediaObserver::EMediaEvent event);
+			
 
 	// Sync the given media data with the impl and the given te
 	void syncMediaData(S32 te, const LLSD &media_data, bool merge, bool ignore_agent);
@@ -266,9 +276,11 @@ public:
 	
 	LLVector3 getApproximateFaceNormal(U8 face_id);
 	
+	void notifyMeshLoaded();
+	
 	// Returns 'true' iff the media data for this object is in flight
 	bool isMediaDataBeingFetched() const;
-	
+
 	// Returns the "last fetched" media version, or -1 if not fetched yet
 	S32 getLastFetchedMediaVersion() const { return mLastFetchedMediaVersion; }
 	
@@ -303,7 +315,7 @@ private:
 	LLPointer<LLViewerFetchedTexture> mLightTexture;
 	media_list_t mMediaImplList;
 	S32			mLastFetchedMediaVersion; // as fetched from the server, starts as -1
-	
+	S32 mIndexInTex;
 	// statics
 public:
 	static F32 sLODSlopDistanceFactor;// Changing this to zero, effectively disables the LOD transition slop 

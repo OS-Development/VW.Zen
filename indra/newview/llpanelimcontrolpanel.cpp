@@ -81,11 +81,15 @@ void LLPanelChatControlPanel::onVoiceChannelStateChanged(const LLVoiceChannel::E
 
 void LLPanelChatControlPanel::updateCallButton()
 {
-	// hide/show call button
 	bool voice_enabled = LLVoiceClient::voiceEnabled() && gVoiceClient->voiceWorking();
 
 	LLIMModel::LLIMSession* session = LLIMModel::getInstance()->findIMSession(mSessionId);
-	if (!session) return;
+	
+	if (!session) 
+	{
+		childSetEnabled("call_btn", false);
+		return;
+	}
 
 	bool session_initialized = session->mSessionInitialized;
 	bool callback_enabled = session->mCallBackEnabled;
@@ -220,14 +224,6 @@ void LLPanelIMControlPanel::setSessionId(const LLUUID& session_id)
 		childSetEnabled("share_btn", FALSE);
 		childSetEnabled("teleport_btn", FALSE);
 		childSetEnabled("pay_btn", FALSE);
-
-        getChild<LLTextBox>("avatar_name")->setValue(im_session->mName);
-        getChild<LLTextBox>("avatar_name")->setToolTip(im_session->mName);
-	}
-	else
-	{
-		// If the participant is an avatar, fetch the currect name
-		gCacheName->get(mAvatarID, FALSE, boost::bind(&LLPanelIMControlPanel::nameUpdatedCallback, this, _1, _2, _3, _4));
 	}
 }
 
@@ -240,19 +236,6 @@ void LLPanelIMControlPanel::changed(U32 mask)
 	if(LLAvatarActions::isFriend(mAvatarID))
 	{
 		childSetEnabled("teleport_btn", LLAvatarTracker::instance().isBuddyOnline(mAvatarID));
-	}
-}
-
-void LLPanelIMControlPanel::nameUpdatedCallback(const LLUUID& id, const std::string& first, const std::string& last, BOOL is_group)
-{
-	if ( id == mAvatarID )
-	{
-		std::string avatar_name;
-		avatar_name.assign(first);
-		avatar_name.append(" ");
-		avatar_name.append(last);
-		getChild<LLTextBox>("avatar_name")->setValue(avatar_name);
-		getChild<LLTextBox>("avatar_name")->setToolTip(avatar_name);
 	}
 }
 
@@ -280,8 +263,6 @@ void LLPanelGroupControlPanel::draw()
 	// Need to resort the participant list if it's in sort by recent speaker order.
 	if (mParticipantList)
 		mParticipantList->updateRecentSpeakersOrder();
-	//* TODO: find better way to properly enable call button for group and remove this call from draw()
-	updateCallButton();
 	LLPanelChatControlPanel::draw();
 }
 

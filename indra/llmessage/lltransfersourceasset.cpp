@@ -226,7 +226,10 @@ void LLTransferSourceAsset::responderCallback(LLVFS *vfs, const LLUUID& uuid, LL
 
 
 
-LLTransferSourceParamsAsset::LLTransferSourceParamsAsset() : LLTransferSourceParams(LLTST_ASSET)
+LLTransferSourceParamsAsset::LLTransferSourceParamsAsset()
+	: LLTransferSourceParams(LLTST_ASSET),
+
+	  mAssetType(LLAssetType::AT_NONE)
 {
 }
 
@@ -270,6 +273,7 @@ bool is_asset_fetch_by_id_allowed(LLAssetType::EType type)
 		case LLAssetType::AT_BODYPART:
 		case LLAssetType::AT_ANIMATION:
 		case LLAssetType::AT_GESTURE:
+		case LLAssetType::AT_MESH:
 			rv = true;
 			break;
 		default:
@@ -294,6 +298,7 @@ bool is_asset_id_knowable(LLAssetType::EType type)
 		case LLAssetType::AT_GESTURE:
 		case LLAssetType::AT_LINK:
 		case LLAssetType::AT_LINK_FOLDER:
+	    case LLAssetType::AT_MESH:
 			rv = true;
 			break;
 		default:

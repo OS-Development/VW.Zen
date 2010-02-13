@@ -40,6 +40,7 @@
 #include "lluictrlfactory.h"
 #include "lltexteditor.h"
 #include "llerrorcontrol.h"
+#include "lleventtimer.h"
 #include "llviewertexturelist.h"
 #include "llgroupmgr.h"
 #include "llagent.h"
@@ -47,6 +48,7 @@
 #include "llwindow.h"
 #include "llviewerstats.h"
 #include "llmd5.h"
+#include "llmeshrepository.h"
 #include "llpumpio.h"
 #include "llmimetypes.h"
 #include "llslurl.h"
@@ -919,6 +921,9 @@ static LLFastTimer::DeclareTimer FTM_LFS("LFS Thread");
 static LLFastTimer::DeclareTimer FTM_PAUSE_THREADS("Pause Threads");
 static LLFastTimer::DeclareTimer FTM_IDLE("Idle");
 static LLFastTimer::DeclareTimer FTM_PUMP("Pump");
+static LLFastTimer::DeclareTimer FTM_PUMP_ARES("Ares");
+static LLFastTimer::DeclareTimer FTM_PUMP_SERVICE("Service");
+static LLFastTimer::DeclareTimer FTM_SERVICE_CALLBACK("Callback");
 
 bool LLAppViewer::mainLoop()
 {
@@ -1030,10 +1035,20 @@ bool LLAppViewer::mainLoop()
 						LLMemType mt_ip(LLMemType::MTYPE_IDLE_PUMP);
 						pingMainloopTimeout("Main:ServicePump");				
 						LLFastTimer t4(FTM_PUMP);
-						gAres->process();
-						// this pump is necessary to make the login screen show up
-						gServicePump->pump();
-						gServicePump->callback();
+						{
+							LLFastTimer t(FTM_PUMP_ARES);
+							gAres->process();
+						}
+						{
+							LLFastTimer t(FTM_PUMP_SERVICE);
+							// this pump is necessary to make the login screen show up
+							gServicePump->pump();
+
+							{
+								LLFastTimer t(FTM_SERVICE_CALLBACK);
+								gServicePump->callback();
+							}
+						}
 					}
 					
 					resumeMainloopTimeout();
@@ -1272,6 +1287,9 @@ bool LLAppViewer::cleanup()
 
 	llinfos << "Cleaning Up" << llendflush;
 
+	// shut down mesh streamer
+	gMeshRepo.shutdown();
+
 	// Must clean up texture references before viewer window is destroyed.
 	LLHUDManager::getInstance()->updateEffects();
 	LLHUDObject::updateAll();
@@ -1352,9 +1370,6 @@ bool LLAppViewer::cleanup()
 	removeCacheFiles("*.clothing");
 
 	llinfos << "Cache files removed" << llendflush;
-
-
-	cleanup_menus();
 
 	// Wait for any pending VFS IO
 	while (1)
@@ -1681,7 +1696,7 @@ bool LLAppViewer::initThreads()
 	// Image decoding
 	LLAppViewer::sImageDecodeThread = new LLImageDecodeThread(enable_threads && true);
 	LLAppViewer::sTextureCache = new LLTextureCache(enable_threads && true);
-	LLAppViewer::sTextureFetch = new LLTextureFetch(LLAppViewer::getTextureCache(), sImageDecodeThread, enable_threads && false);
+	LLAppViewer::sTextureFetch = new LLTextureFetch(LLAppViewer::getTextureCache(), sImageDecodeThread, enable_threads && true);
 	LLImage::initClass();
 
 	if (LLFastTimer::sLog || LLFastTimer::sMetricLog)
@@ -1690,6 +1705,9 @@ bool LLAppViewer::initThreads()
 		mFastTimerLogThread = new LLFastTimerLogThread();
 		mFastTimerLogThread->start();
 	}
+
+	// Mesh streaming and caching
+	gMeshRepo.init();
 
 	// *FIX: no error handling here!
 	return true;
@@ -1935,7 +1953,6 @@ bool LLAppViewer::initConfiguration()
 //	LLFirstUse::addConfigVariable("FirstSandbox");
 //	LLFirstUse::addConfigVariable("FirstFlexible");
 //	LLFirstUse::addConfigVariable("FirstDebugMenus");
-//	LLFirstUse::addConfigVariable("FirstStreamingMedia");
 //	LLFirstUse::addConfigVariable("FirstSculptedPrim");
 //	LLFirstUse::addConfigVariable("FirstVoice");
 //	LLFirstUse::addConfigVariable("FirstMedia");
@@ -2365,9 +2382,6 @@ bool LLAppViewer::initWindow()
 	// store setting in a global for easy access and modification
 	gNoRender = gSavedSettings.getBOOL("DisableRendering");
 
-	// Hide the splash screen
-	LLSplashScreen::hide();
-
 	// always start windowed
 	BOOL ignorePixelDepth = gSavedSettings.getBOOL("IgnorePixelDepth");
 	gViewerWindow = new LLViewerWindow(gWindowTitle, 
@@ -2406,6 +2420,7 @@ bool LLAppViewer::initWindow()
 		gSavedSettings.saveToFile( gSavedSettings.getString("ClientSettingsFile"), TRUE );
 	
 		gPipeline.init();
+		
 		stop_glerror();
 		gViewerWindow->initGLDefaults();
 
@@ -3010,7 +3025,7 @@ bool LLAppViewer::initCache()
 	// Purge cache if it belongs to an old version
 	else
 	{
-		static const S32 cache_version = 5;
+		static const S32 cache_version = 6;
 		if (gSavedSettings.getS32("LocalCacheVersion") != cache_version)
 		{
 			mPurgeCache = true;
@@ -3391,6 +3406,10 @@ static LLFastTimer::DeclareTimer FTM_OBJECTLIST_UPDATE("Update Objectlist");
 static LLFastTimer::DeclareTimer FTM_REGION_UPDATE("Update Region");
 static LLFastTimer::DeclareTimer FTM_WORLD_UPDATE("Update World");
 static LLFastTimer::DeclareTimer FTM_NETWORK("Network");
+static LLFastTimer::DeclareTimer FTM_AGENT_NETWORK("Agent Network");
+static LLFastTimer::DeclareTimer FTM_AGENT_AUTOPILOT("Autopilot");
+static LLFastTimer::DeclareTimer FTM_AGENT_UPDATE("Update");
+static LLFastTimer::DeclareTimer FTM_VLMANAGER("VL Manager");
 
 ///////////////////////////////////////////////////////
 // idle()
@@ -3461,7 +3480,7 @@ void LLAppViewer::idle()
 
 	if (!gDisconnected)
 	{
-		LLFastTimer t(FTM_NETWORK);
+		LLFastTimer t(FTM_AGENT_NETWORK);
 		// Update spaceserver timeinfo
 	    LLWorld::getInstance()->setSpaceTimeUSec(LLWorld::getInstance()->getSpaceTimeUSec() + (U32)(dt_raw * SEC_TO_MICROSEC));
     
@@ -3476,9 +3495,12 @@ void LLAppViewer::idle()
 			gAgent.moveYaw(-1.f);
 		}
 
-	    // Handle automatic walking towards points
-	    gAgentPilot.updateTarget();
-	    gAgent.autoPilot(&yaw);
+		{
+			LLFastTimer t(FTM_AGENT_AUTOPILOT);
+			// Handle automatic walking towards points
+			gAgentPilot.updateTarget();
+			gAgent.autoPilot(&yaw);
+		}
     
 	    static LLFrameTimer agent_update_timer;
 	    static U32 				last_control_flags;
@@ -3489,6 +3511,7 @@ void LLAppViewer::idle()
 		    
 	    if (flags_changed || (agent_update_time > (1.0f / (F32) AGENT_UPDATES_PER_SECOND)))
 	    {
+			LLFastTimer t(FTM_AGENT_UPDATE);
 		    // Send avatar and camera info
 		    last_control_flags = gAgent.getControlFlags();
 		    send_agent_update(TRUE);
@@ -3654,7 +3677,7 @@ void LLAppViewer::idle()
 	//
 
 	{
-		LLFastTimer t(FTM_NETWORK);
+		LLFastTimer t(FTM_VLMANAGER);
 		gVLManager.unpackData();
 	}
 	
@@ -3900,6 +3923,11 @@ static F32 CheckMessagesMaxTime = CHECK_MESSAGES_DEFAULT_MAX_TIME;
 #endif
 
 static LLFastTimer::DeclareTimer FTM_IDLE_NETWORK("Idle Network");
+static LLFastTimer::DeclareTimer FTM_MESSAGE_ACKS("Message Acks");
+static LLFastTimer::DeclareTimer FTM_RETRANSMIT("Retransmit");
+static LLFastTimer::DeclareTimer FTM_TIMEOUT_CHECK("Timeout Check");
+static LLFastTimer::DeclareTimer FTM_DYNAMIC_THROTTLE("Dynamic Throttle");
+static LLFastTimer::DeclareTimer FTM_CHECK_REGION_CIRCUIT("Check Region Circuit");
 
 void LLAppViewer::idleNetwork()
 {
@@ -3953,7 +3981,10 @@ void LLAppViewer::idleNetwork()
 		}
 
 		// Handle per-frame message system processing.
-		gMessageSystem->processAcks();
+		{
+			LLFastTimer ftm(FTM_MESSAGE_ACKS);
+			gMessageSystem->processAcks();
+		}
 
 #ifdef TIME_THROTTLE_MESSAGES
 		if (total_time >= CheckMessagesMaxTime)
@@ -3991,26 +4022,41 @@ void LLAppViewer::idleNetwork()
 	LLViewerStats::getInstance()->mNumNewObjectsStat.addValue(gObjectList.mNumNewObjects);
 
 	// Retransmit unacknowledged packets.
-	gXferManager->retransmitUnackedPackets();
-	gAssetStorage->checkForTimeouts();
+	{
+		LLFastTimer ftm(FTM_RETRANSMIT);
+		gXferManager->retransmitUnackedPackets();
+	}
+
+	{
+		LLFastTimer ftm(FTM_TIMEOUT_CHECK);
+		gAssetStorage->checkForTimeouts();
+	}
+
 	llpushcallstacks ;
-	gViewerThrottle.updateDynamicThrottle();
+
+	{
+		LLFastTimer ftm(FTM_DYNAMIC_THROTTLE);
+		gViewerThrottle.updateDynamicThrottle();
+	}
 
 	llpushcallstacks ;
 	// Check that the circuit between the viewer and the agent's current
 	// region is still alive
-	LLViewerRegion *agent_region = gAgent.getRegion();
-	if (agent_region && (LLStartUp::getStartupState()==STATE_STARTED))
 	{
-		LLUUID this_region_id = agent_region->getRegionID();
-		bool this_region_alive = agent_region->isAlive();
-		if ((mAgentRegionLastAlive && !this_region_alive) // newly dead
-		    && (mAgentRegionLastID == this_region_id)) // same region
+		LLFastTimer ftm(FTM_CHECK_REGION_CIRCUIT);
+		LLViewerRegion *agent_region = gAgent.getRegion();
+		if (agent_region && (LLStartUp::getStartupState()==STATE_STARTED))
 		{
-			forceDisconnect(LLTrans::getString("AgentLostConnection"));
+			LLUUID this_region_id = agent_region->getRegionID();
+			bool this_region_alive = agent_region->isAlive();
+			if ((mAgentRegionLastAlive && !this_region_alive) // newly dead
+				&& (mAgentRegionLastID == this_region_id)) // same region
+			{
+				forceDisconnect(LLTrans::getString("AgentLostConnection"));
+			}
+			mAgentRegionLastID = this_region_id;
+			mAgentRegionLastAlive = this_region_alive;
 		}
-		mAgentRegionLastID = this_region_id;
-		mAgentRegionLastAlive = this_region_alive;
 	}
 	llpushcallstacks ;
 }

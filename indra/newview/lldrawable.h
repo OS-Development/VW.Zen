@@ -44,7 +44,6 @@
 #include "llquaternion.h"
 #include "xform.h"
 #include "llmemtype.h"
-#include "llprimitive.h"
 #include "lldarray.h"
 #include "llviewerobject.h"
 #include "llrect.h"
@@ -314,8 +313,10 @@ private:
 
 inline LLFace* LLDrawable::getFace(const S32 i) const
 {
-	llassert((U32)i < mFaces.size());
-	llassert(mFaces[i]);
+	if ((U32) i >= mFaces.size())
+	{
+		return NULL;
+	}
 	return mFaces[i];
 }
 

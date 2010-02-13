@@ -180,6 +180,7 @@ void LLDrawPoolAlpha::render(S32 pass)
 
 	if (LLPipeline::sFastAlpha && !deferred_render)
 	{
+		LLGLDisable blend_disable(GL_BLEND);
 		gGL.setAlphaRejectSettings(LLRender::CF_GREATER, 0.33f);
 		if (mVertexShaderLevel > 0)
 		{
@@ -250,8 +251,8 @@ void LLDrawPoolAlpha::renderAlphaHighlight(U32 mask)
 					params.mGroup->rebuildMesh();
 				}
 				params.mVertexBuffer->setBuffer(mask);
-				params.mVertexBuffer->drawRange(LLRender::TRIANGLES, params.mStart, params.mEnd, params.mCount, params.mOffset);
-				gPipeline.addTrianglesDrawn(params.mCount/3);
+				params.mVertexBuffer->drawRange(params.mDrawMode, params.mStart, params.mEnd, params.mCount, params.mOffset);
+				gPipeline.addTrianglesDrawn(params.mCount, params.mDrawMode);
 			}
 		}
 	}
@@ -380,8 +381,8 @@ void LLDrawPoolAlpha::renderAlpha(U32 mask)
 				}
 
 				params.mVertexBuffer->setBuffer(mask);
-				params.mVertexBuffer->drawRange(LLRender::TRIANGLES, params.mStart, params.mEnd, params.mCount, params.mOffset);
-				gPipeline.addTrianglesDrawn(params.mCount/3);
+				params.mVertexBuffer->drawRange(params.mDrawMode, params.mStart, params.mEnd, params.mCount, params.mOffset);
+				gPipeline.addTrianglesDrawn(params.mCount, params.mDrawMode);
 
 				if (params.mTextureMatrix && params.mTexture.notNull())
 				{

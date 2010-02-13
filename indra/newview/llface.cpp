@@ -182,24 +182,36 @@ void LLFace::init(LLDrawable* drawablep, LLViewerObject* objp)
 
 	mAtlasInfop = NULL ;
 	mUsingAtlas  = FALSE ;
+	mHasMedia = FALSE ;
 }
 
+static LLFastTimer::DeclareTimer FTM_DESTROY_FACE("Destroy Face");
+static LLFastTimer::DeclareTimer FTM_DESTROY_TEXTURE("Texture");
+static LLFastTimer::DeclareTimer FTM_DESTROY_DRAWPOOL("Drawpool");
+static LLFastTimer::DeclareTimer FTM_DESTROY_TEXTURE_MATRIX("Texture Matrix");
+static LLFastTimer::DeclareTimer FTM_DESTROY_DRAW_INFO("Draw Info");
+static LLFastTimer::DeclareTimer FTM_DESTROY_ATLAS("Atlas");
+static LLFastTimer::DeclareTimer FTM_FACE_DEREF("Deref");
 
 void LLFace::destroy()
 {
+	LLFastTimer t(FTM_DESTROY_FACE);
 	if(mTexture.notNull())
 	{
+		LLFastTimer t(FTM_DESTROY_TEXTURE);
 		mTexture->removeFace(this) ;
 	}
 	
 	if (mDrawPoolp)
 	{
+		LLFastTimer t(FTM_DESTROY_DRAWPOOL);
 		mDrawPoolp->removeFace(this);
 		mDrawPoolp = NULL;
 	}
 
 	if (mTextureMatrix)
 	{
+		LLFastTimer t(FTM_DESTROY_TEXTURE_MATRIX);
 		delete mTextureMatrix;
 		mTextureMatrix = NULL;
 
@@ -214,11 +226,21 @@ void LLFace::destroy()
 		}
 	}
 	
-	setDrawInfo(NULL);
+	{
+		LLFastTimer t(FTM_DESTROY_DRAW_INFO);
+		setDrawInfo(NULL);
+	}
 	
-	removeAtlas();
-	mDrawablep = NULL;
-	mVObjp = NULL;
+	{
+		LLFastTimer t(FTM_DESTROY_ATLAS);
+		removeAtlas();
+	}
+	
+	{
+		LLFastTimer t(FTM_FACE_DEREF);
+		mDrawablep = NULL;
+		mVObjp = NULL;
+	}
 }
 
 
@@ -301,7 +323,8 @@ void LLFace::switchTexture(LLViewerTexture* new_texture)
 
 	if(!new_texture)
 	{
-		llerrs << "Can not switch to a null texture." << llendl ;
+		llerrs << "Can not switch to a null texture." << llendl;
+		return;
 	}
 	new_texture->addTextureStats(mTexture->getMaxVirtualSize()) ;
 
@@ -868,7 +891,7 @@ BOOL LLFace::getGeometryVolume(const LLVolume& volume,
 	llpushcallstacks ;
 	const LLVolumeFace &vf = volume.getVolumeFace(f);
 	S32 num_vertices = (S32)vf.mVertices.size();
-	S32 num_indices = (S32)vf.mIndices.size();
+	S32 num_indices = LLPipeline::sUseTriStrips ? (S32)vf.mTriStrip.size() : (S32) vf.mIndices.size();
 	
 	if (mVertexBuffer.notNull())
 	{
@@ -1040,17 +1063,20 @@ BOOL LLFace::getGeometryVolume(const LLVolume& volume,
 
 	if (rebuild_color)
 	{
-		GLfloat alpha[4] =
+		if (tep)
 		{
-			0.00f,
-			0.25f,
-			0.5f,
-			0.75f
-		};
-
-		if (getPoolType() != LLDrawPool::POOL_ALPHA && (LLPipeline::sRenderDeferred || (LLPipeline::sRenderBump && tep->getShiny())))
-		{
-			color.mV[3] = U8 (alpha[tep->getShiny()] * 255);
+			GLfloat alpha[4] =
+			{
+				0.00f,
+				0.25f,
+				0.5f,
+				0.75f
+			};
+			
+			if (getPoolType() != LLDrawPool::POOL_ALPHA && (LLPipeline::sRenderDeferred || (LLPipeline::sRenderBump && tep->getShiny())))
+			{
+				color.mV[3] = U8 (alpha[tep->getShiny()] * 255);
+			}
 		}
 	}
 
@@ -1058,9 +1084,19 @@ BOOL LLFace::getGeometryVolume(const LLVolume& volume,
 	if (full_rebuild)
 	{
 		mVertexBuffer->getIndexStrider(indicesp, mIndicesIndex);
-		for (U16 i = 0; i < num_indices; i++)
+		if (LLPipeline::sUseTriStrips)
 		{
-			*indicesp++ = vf.mIndices[i] + index_offset;
+			for (U32 i = 0; i < num_indices; i++)
+			{
+				*indicesp++ = vf.mTriStrip[i] + index_offset;
+			}
+		}
+		else
+		{
+			for (U32 i = 0; i < num_indices; i++)
+			{
+				*indicesp++ = vf.mIndices[i] + index_offset;
+			}
 		}
 	}
 	
@@ -1323,17 +1359,33 @@ BOOL LLFace::getGeometryVolume(const LLVolume& volume,
 	return TRUE;
 }
 
+//check if the face has a media
+BOOL LLFace::hasMedia() const 
+{
+	if(mHasMedia)
+	{
+		return TRUE ;
+	}
+	if(mTexture.notNull()) 
+	{
+		return mTexture->hasParcelMedia() ;  //if has a parcel media
+	}
+
+	return FALSE ; //no media.
+}
+
 const F32 LEAST_IMPORTANCE = 0.05f ;
 const F32 LEAST_IMPORTANCE_FOR_LARGE_IMAGE = 0.3f ;
 
 F32 LLFace::getTextureVirtualSize()
 {
 	F32 radius;
-	F32 cos_angle_to_view_dir;
-	mPixelArea = calcPixelArea(cos_angle_to_view_dir, radius);
+	F32 cos_angle_to_view_dir;	
+	BOOL in_frustum = calcPixelArea(cos_angle_to_view_dir, radius);
 
-	if (mPixelArea <= 0)
+	if (mPixelArea < 0.0001f || !in_frustum)
 	{
+		setVirtualSize(0.f) ;
 		return 0.f;
 	}
 
@@ -1370,23 +1422,48 @@ F32 LLFace::getTextureVirtualSize()
 		}
 	}
 
+	setVirtualSize(face_area) ;
+
 	return face_area;
 }
 
-F32 LLFace::calcPixelArea(F32& cos_angle_to_view_dir, F32& radius)
+BOOL LLFace::calcPixelArea(F32& cos_angle_to_view_dir, F32& radius)
 {
 	//get area of circle around face
 	LLVector3 center = getPositionAgent();
-	LLVector3 size = (mExtents[1] - mExtents[0]) * 0.5f;
-	
+	LLVector3 size = (mExtents[1] - mExtents[0]) * 0.5f;	
 	LLViewerCamera* camera = LLViewerCamera::getInstance();
+
+	F32 size_squared = size.lengthSquared() ;
 	LLVector3 lookAt = center - camera->getOrigin();
-	F32 dist = lookAt.normVec() ;
+	F32 dist = lookAt.normVec() ;	
 
 	//get area of circle around node
-	F32 app_angle = atanf(size.length()/dist);
+	F32 app_angle = atanf(fsqrtf(size_squared) / dist);
 	radius = app_angle*LLDrawable::sCurPixelAngle;
-	F32 face_area = radius*radius * 3.14159f;
+	mPixelArea = radius*radius * 3.14159f;
+	cos_angle_to_view_dir = lookAt * camera->getXAxis() ;
+
+	//if has media, check if the face is out of the view frustum.	
+	if(hasMedia())
+	{
+		if(!camera->AABBInFrustum(center, size)) 
+		{
+			mImportanceToCamera = 0.f ;
+			return false ;
+		}
+		if(cos_angle_to_view_dir > camera->getCosHalfFov()) //the center is within the view frustum
+		{
+			cos_angle_to_view_dir = 1.0f ;
+		}
+		else
+		{		
+			if(dist * dist * (lookAt - camera->getXAxis()).lengthSquared() < size_squared)
+			{
+				cos_angle_to_view_dir = 1.0f ;
+			}
+		}
+	}
 
 	if(dist < mBoundingSphereRadius) //camera is very close
 	{
@@ -1394,12 +1471,11 @@ F32 LLFace::calcPixelArea(F32& cos_angle_to_view_dir, F32& radius)
 		mImportanceToCamera = 1.0f ;
 	}
 	else
-	{
-		cos_angle_to_view_dir = lookAt * camera->getXAxis() ;	
+	{		
 		mImportanceToCamera = LLFace::calcImportanceToCamera(cos_angle_to_view_dir, dist) ;
 	}
 
-	return face_area ;
+	return true ;
 }
 
 //the projection of the face partially overlaps with the screen
@@ -1572,8 +1648,13 @@ S32 LLFace::pushVertices(const U16* index_array) const
 {
 	if (mIndicesCount)
 	{
-		mVertexBuffer->drawRange(LLRender::TRIANGLES, mGeomIndex, mGeomIndex+mGeomCount-1, mIndicesCount, mIndicesIndex);
-		gPipeline.addTrianglesDrawn(mIndicesCount/3);
+		U32 render_type = LLRender::TRIANGLES;
+		if (mDrawInfo)
+		{
+			render_type = mDrawInfo->mDrawMode;
+		}
+		mVertexBuffer->drawRange(render_type, mGeomIndex, mGeomIndex+mGeomCount-1, mIndicesCount, mIndicesIndex);
+		gPipeline.addTrianglesDrawn(mIndicesCount, render_type);
 	}
 
 	return mIndicesCount;

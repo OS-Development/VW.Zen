@@ -82,6 +82,8 @@ enum EInventoryIcon
 
 	LINKITEM_ICON_NAME,
 	LINKFOLDER_ICON_NAME,
+	
+	MESH_ICON_NAME,
 
 	ICON_NAME_COUNT
 };
@@ -107,13 +109,15 @@ struct LLAttachmentRezAction
 	S32		mAttachPt;
 };
 
+typedef std::vector<std::string> menuentry_vec_t;
+
 const std::string safe_inv_type_lookup(LLInventoryType::EType inv_type);
 void hide_context_entries(LLMenuGL& menu, 
-						const std::vector<std::string> &entries_to_show,
-						const std::vector<std::string> &disabled_entries);
+						  const menuentry_vec_t &entries_to_show,
+						  const menuentry_vec_t &disabled_entries);
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// Class LLInvFVBridge (& it's derived classes)
+// Class LLInvFVBridge (& its derived classes)
 //
 // Short for Inventory-Folder-View-Bridge. This is an
 // implementation class to be able to view inventory items.
@@ -158,8 +162,10 @@ public:
 	virtual void showProperties();
 	virtual BOOL isItemRenameable() const { return TRUE; }
 	//virtual BOOL renameItem(const std::string& new_name) {}
-	virtual BOOL isItemRemovable();
+	virtual BOOL isItemRemovable() const;
 	virtual BOOL isItemMovable() const;
+	virtual BOOL isItemInTrash() const;
+
 	//virtual BOOL removeItem() = 0;
 	virtual void removeBatch(LLDynamicArray<LLFolderViewEventListener*>& batch);
 	virtual void move(LLFolderViewEventListener* new_parent_bridge) {}
@@ -170,8 +176,8 @@ public:
 	virtual BOOL isClipboardPasteableAsLink() const;
 	virtual void pasteFromClipboard() {}
 	virtual void pasteLinkFromClipboard() {}
-	void getClipboardEntries(bool show_asset_id, std::vector<std::string> &items, 
-		std::vector<std::string> &disabled_items, U32 flags);
+	void getClipboardEntries(bool show_asset_id, menuentry_vec_t &items, 
+		menuentry_vec_t &disabled_items, U32 flags);
 	virtual void buildContextMenu(LLMenuGL& menu, U32 flags);
 	virtual BOOL startDrag(EDragAndDropType* type, LLUUID* id) const;
 	virtual BOOL dragOrDrop(MASK mask, BOOL drop,
@@ -185,13 +191,21 @@ public:
 	// Allow context menus to be customized for side panel.
 	bool isInOutfitsSidePanel() const;
 
+	//--------------------------------------------------------------------
+	// Convenience functions for adding various common menu options.
+	//--------------------------------------------------------------------
+protected:
+	virtual void addTrashContextMenuOptions(menuentry_vec_t &items,
+											menuentry_vec_t &disabled_items);
+	virtual void addDeleteContextMenuOptions(menuentry_vec_t &items,
+											 menuentry_vec_t &disabled_items);
+
 protected:
 	LLInvFVBridge(LLInventoryPanel* inventory, const LLUUID& uuid);
 
 	LLInventoryObject* getInventoryObject() const;
 	LLInventoryModel* getInventoryModel() const;
 	
-	BOOL isInTrash() const;
 	BOOL isLinkedObjectInTrash() const; // Is this obj or its baseobj in the trash?
 	BOOL isLinkedObjectMissing() const; // Is this a linked obj whose baseobj is not in inventory?
 
@@ -306,7 +320,7 @@ public:
 							EDragAndDropType cargo_type,
 							void* cargo_data);
 
-	virtual BOOL isItemRemovable();
+	virtual BOOL isItemRemovable() const;
 	virtual BOOL isItemMovable() const ;
 	virtual BOOL isUpToDate() const;
 	virtual BOOL isItemCopyable() const;
@@ -359,8 +373,8 @@ private:
 	BOOL			mCallingCards;
 	BOOL			mWearables;
 	LLMenuGL*		mMenu;
-	std::vector<std::string> mItems;
-	std::vector<std::string> mDisabledItems;
+	menuentry_vec_t mItems;
+	menuentry_vec_t mDisabledItems;
 };
 
 // DEPRECATED
@@ -491,6 +505,8 @@ public:
 
 	virtual void buildContextMenu(LLMenuGL& menu, U32 flags);
 
+	static void playGesture(const LLUUID& item_id);
+
 protected:
 	LLGestureBridge(LLInventoryPanel* inventory, const LLUUID& uuid)
 	:	LLItemBridge(inventory, uuid) {}
@@ -612,7 +628,6 @@ protected:
 	static std::string sPrefix;
 };
 
-
 class LLLinkFolderBridge : public LLItemBridge
 {
 	friend class LLInvFVBridge;
@@ -632,6 +647,25 @@ protected:
 protected:
 	static std::string sPrefix;
 };
+
+
+
+class LLMeshBridge : public LLItemBridge
+{
+	friend class LLInvFVBridge;
+public:
+	virtual LLUIImagePtr getIcon() const;
+	virtual void openItem();
+	virtual void previewItem();
+	virtual void buildContextMenu(LLMenuGL& menu, U32 flags);
+
+protected:
+	LLMeshBridge(LLInventoryPanel* inventory, const LLUUID& uuid) :
+		LLItemBridge(inventory, uuid) {}
+};
+
+
+
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Class LLInvFVBridgeAction (& its derived classes)
@@ -784,7 +818,7 @@ protected:
 	LLWearableBridgeAction(const LLUUID& id,LLInventoryModel* model):LLInvFVBridgeAction(id,model){}
 
 
-	BOOL isInTrash() const;
+	BOOL isItemInTrash() const;
 	// return true if the item is in agent inventory. if false, it
 	// must be lost or in the inventory library.
 	BOOL isAgentInventory() const;
@@ -792,6 +826,19 @@ protected:
 	void wearOnAvatar();
 
 };
+
+class LLMeshBridgeAction: public LLInvFVBridgeAction
+{
+	friend class LLInvFVBridgeAction;
+public:
+	virtual void	doIt() ;
+	virtual ~LLMeshBridgeAction(){}
+protected:
+	LLMeshBridgeAction(const LLUUID& id,LLInventoryModel* model):LLInvFVBridgeAction(id,model){}
+
+};
+
+
 
 void wear_inventory_item_on_avatar(LLInventoryItem* item);
 
@@ -812,7 +859,7 @@ void teleport_via_landmark(const LLUUID& asset_id);
 
 // Utility function to hide all entries except those in the list
 void hide_context_entries(LLMenuGL& menu, 
-		const std::vector<std::string> &entries_to_show, 
-		const std::vector<std::string> &disabled_entries);
+		const menuentry_vec_t &entries_to_show, 
+		const menuentry_vec_t &disabled_entries);
 
 #endif // LL_LLINVENTORYBRIDGE_H

@@ -344,7 +344,7 @@ void LLTransferManager::processTransferInfo(LLMessageSystem *msgp, void **)
 		}
 	}
 
-	llinfos << "Receiving " << transfer_id << ", size " << size << " bytes" << llendl;
+	//llinfos << "Receiving " << transfer_id << ", size " << size << " bytes" << llendl;
 	ttp->setSize(size);
 	ttp->setGotInfo(TRUE);
 
@@ -1196,6 +1196,7 @@ LLTransferTarget::LLTransferTarget(
 	mType(type),
 	mSourceType(source_type),
 	mID(transfer_id),
+	mChannelp(NULL),
 	mGotInfo(FALSE),
 	mSize(0),
 	mLastPacketID(-1)
