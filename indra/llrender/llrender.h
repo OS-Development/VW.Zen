@@ -270,7 +270,9 @@ public:
 		BF_DEST_ALPHA,
 		BF_SOURCE_ALPHA,
 		BF_ONE_MINUS_DEST_ALPHA,
-		BF_ONE_MINUS_SOURCE_ALPHA
+		BF_ONE_MINUS_SOURCE_ALPHA,
+
+		BF_UNDEF
 	} eBlendFactor;
 
 	LLRender();
@@ -360,10 +362,10 @@ private:
 	std::vector<LLTexUnit*>		mTexUnits;
 	LLTexUnit*			mDummyTexUnit;
 
-	U32				mCurrBlendSFactor;
-	U32				mCurrBlendDFactor;
-
 	F32				mMaxAnisotropy;
+
+	eBlendFactor mCurrBlendSFactor;
+	eBlendFactor mCurrBlendDFactor;
 
 	std::list<LLVector3> mUIOffset;
 	std::list<LLVector3> mUIScale;

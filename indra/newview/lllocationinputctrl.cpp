@@ -489,7 +489,10 @@ void LLLocationInputCtrl::onTextEntry(LLLineEditor* line_editor)
  */
 void LLLocationInputCtrl::setText(const LLStringExplicit& text)
 {
-	mTextEntry->setText(text);
+	if (mTextEntry)
+	{
+		mTextEntry->setText(text);
+	}
 	mHasAutocompletedText = FALSE;
 }
 
@@ -498,7 +501,9 @@ void LLLocationInputCtrl::setFocus(BOOL b)
 	LLComboBox::setFocus(b);
 
 	if (mTextEntry && b && !mList->getVisible())
+	{
 		mTextEntry->setFocus(TRUE);
+	}
 }
 
 void LLLocationInputCtrl::handleLoginComplete()
@@ -688,8 +693,8 @@ void LLLocationInputCtrl::refreshLocation()
 {
 	// Is one of our children focused?
 	if (LLUICtrl::hasFocus() || mButton->hasFocus() || mList->hasFocus() ||
-		(mTextEntry && mTextEntry->hasFocus()) || (mAddLandmarkBtn->hasFocus()))
-
+	    (mTextEntry && mTextEntry->hasFocus()) ||
+	    (mAddLandmarkBtn->hasFocus()))
 	{
 		llwarns << "Location input should not be refreshed when having focus" << llendl;
 		return;
@@ -828,10 +833,13 @@ void LLLocationInputCtrl::refreshParcelIcons()
 		mDamageText->setVisible(false);
 	}
 
-	S32 left_pad, right_pad;
-	mTextEntry->getTextPadding(&left_pad, &right_pad);
-	right_pad = mTextEntry->getRect().mRight - x;
-	mTextEntry->setTextPadding(left_pad, right_pad);
+	if (mTextEntry)
+	{
+		S32 left_pad, right_pad;
+		mTextEntry->getTextPadding(&left_pad, &right_pad);
+		right_pad = mTextEntry->getRect().mRight - x;
+		mTextEntry->setTextPadding(left_pad, right_pad);
+	}
 }
 
 void LLLocationInputCtrl::refreshHealth()

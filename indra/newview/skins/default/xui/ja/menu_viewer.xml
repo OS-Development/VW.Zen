@@ -49,12 +49,12 @@
 			<menu_item_call label="日没" name="Sunset"/>
 			<menu_item_call label="深夜" name="Midnight"/>
 			<menu_item_call label="エステートタイム" name="Revert to Region Default"/>
-			<menu_item_call label="環境編集" name="Environment Editor"/>
+			<menu_item_call label="自然環境エディター" name="Environment Editor"/>
 		</menu>
 	</menu>
 	<menu label="制作" name="BuildTools">
 		<menu_item_check label="制作" name="Show Build Tools"/>
-		<menu label="制作ツールを選択" name="Select Tool">
+		<menu label="制作ツールを選択する" name="Select Tool">
 			<menu_item_call label="フォーカスツール" name="Focus"/>
 			<menu_item_call label="移動ツール" name="Move"/>
 			<menu_item_call label="編集ツール" name="Edit"/>
@@ -74,12 +74,13 @@
 		</menu>
 		<menu_item_call label="リンク" name="Link"/>
 		<menu_item_call label="リンクを外す" name="Unlink"/>
+		<menu_item_check label="リンクした部分を編集" name="Edit Linked Parts"/>
 		<menu_item_call label="選択したものに焦点を合わせる" name="Focus on Selection"/>
 		<menu_item_call label="選択したものをズームする" name="Zoom to Selection"/>
 		<menu label="オブジェクト" name="Object">
-			<menu_item_call label="買う" name="Menu Object Take"/>
+			<menu_item_call label="取る" name="Menu Object Take"/>
 			<menu_item_call label="コピーを取る" name="Take Copy"/>
-			<menu_item_call label="「マイ 持ち物」に保存" name="Save Object Back to My Inventory"/>
+			<menu_item_call label="「持ち物」に保存" name="Save Object Back to My Inventory"/>
 			<menu_item_call label="オブジェクトの中身に保存" name="Save Object Back to Object Contents"/>
 		</menu>
 		<menu label="スクリプト" name="Scripts">
@@ -90,25 +91,18 @@
 			<menu_item_call label="スクリプトを実行停止にする" name="Set Scripts to Not Running"/>
 		</menu>
 		<menu label="オプション" name="Options">
-			<menu_item_check label="リンク部位を編集" name="Edit Linked Parts"/>
 			<menu_item_call label="デフォルトのアップロード権限を設定" name="perm prefs"/>
 			<menu_item_check label="権限の詳細を表示" name="DebugPermissions"/>
-			<menu label="選択" name="Selection">
-				<menu_item_check label="私のオブジェクトだけを選択" name="Select Only My Objects"/>
-				<menu_item_check label="動的オブジェクトのみ選択" name="Select Only Movable Objects"/>
-				<menu_item_check label="環境で選択" name="Select By Surrounding"/>
-			</menu>
-			<menu label="表示" name="Show">
-				<menu_item_check label="非表示の選択を表示" name="Show Hidden Selection"/>
-				<menu_item_check label="選択した光の半径範囲を表示" name="Show Light Radius for Selection"/>
-				<menu_item_check label="選択ビームを表示" name="Show Selection Beam"/>
-			</menu>
-			<menu label="グリッド" name="Grid">
-				<menu_item_check label="グリッドポイントにスナップ" name="Snap to Grid"/>
-				<menu_item_call label="オブジェクトのXY軸をグリッドにスナップ" name="Snap Object XY to Grid"/>
-				<menu_item_call label="選択をグリッドに使用" name="Use Selection for Grid"/>
-				<menu_item_call label="グリッドオプション" name="Grid Options"/>
-			</menu>
+			<menu_item_check label="私のオブジェクトだけを選択" name="Select Only My Objects"/>
+			<menu_item_check label="動的オブジェクトのみ選択" name="Select Only Movable Objects"/>
+			<menu_item_check label="環境で選択" name="Select By Surrounding"/>
+			<menu_item_check label="非表示の選択を表示" name="Show Hidden Selection"/>
+			<menu_item_check label="選択した光の半径範囲を表示" name="Show Light Radius for Selection"/>
+			<menu_item_check label="選択したビームを表示" name="Show Selection Beam"/>
+			<menu_item_check label="グリッドポイントにスナップ" name="Snap to Grid"/>
+			<menu_item_call label="オブジェクトのXY軸をグリッドにスナップ" name="Snap Object XY to Grid"/>
+			<menu_item_call label="選択をグリッドに使用" name="Use Selection for Grid"/>
+			<menu_item_call label="グリッドオプション" name="Grid Options"/>
 		</menu>
 		<menu label="リンクした部分を選択" name="Select Linked Parts">
 			<menu_item_call label="次の部位を選択" name="Select Next Part"/>
@@ -119,8 +113,8 @@
 	</menu>
 	<menu label="ヘルプ" name="Help">
 		<menu_item_call label="[SECOND_LIFE] ヘルプ" name="Second Life Help"/>
-		<menu_item_call label="嫌がらせを報告" name="Report Abuse"/>
-		<menu_item_call label="バグ報告" name="Report Bug"/>
+		<menu_item_call label="嫌がらせを報告する" name="Report Abuse"/>
+		<menu_item_call label="バグを報告する" name="Report Bug"/>
 		<menu_item_call label="[APP_NAME] について" name="About Second Life"/>
 	</menu>
 	<menu label="アドバンス" name="Advanced">
@@ -175,8 +169,8 @@
 		<menu_item_check label="マルチスレッド処理" name="Run Multiple Threads"/>
 		<menu_item_call label="グループキャッシュのクリア" name="ClearGroupCache"/>
 		<menu_item_check label="マウスの平滑化" name="Mouse Smoothing"/>
-		<menu_item_check label="近くのチャットに IM を表示" name="IMInChat"/>
 		<menu label="ショートカット" name="Shortcuts">
+			<menu_item_call label="画像 （L$ [COST] ）..." name="Upload Image"/>
 			<menu_item_check label="検索" name="Search"/>
 			<menu_item_call label="キーをリリース" name="Release Keys"/>
 			<menu_item_call label="UI のサイズをデフォルトに設定" name="Set UI Size to Default"/>
@@ -219,6 +213,7 @@
 			<menu_item_check label="カメラ" name="Camera"/>
 			<menu_item_check label="風" name="Wind"/>
 			<menu_item_check label="FOV" name="FOV"/>
+			<menu_item_check label="バッジ" name="Badge"/>
 		</menu>
 		<menu label="情報を表示" name="Display Info">
 			<menu_item_check label="時間を表示" name="Show Time"/>

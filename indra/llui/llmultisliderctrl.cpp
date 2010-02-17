@@ -330,8 +330,13 @@ void LLMultiSliderCtrl::updateText()
 // static
 void LLMultiSliderCtrl::onEditorCommit( LLUICtrl* ctrl, const LLSD& userdata)
 {
-	LLMultiSliderCtrl* self = dynamic_cast<LLMultiSliderCtrl*>(ctrl->getParent());
+	llassert(ctrl);
 	if (!ctrl)
+		return;
+
+	LLMultiSliderCtrl* self = dynamic_cast<LLMultiSliderCtrl*>(ctrl->getParent());
+	llassert(self);
+	if (!self) // cast failed - wrong type! :O
 		return;
 	
 	BOOL success = FALSE;

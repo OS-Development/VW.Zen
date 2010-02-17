@@ -710,19 +710,19 @@ void gl_draw_scaled_rotated_image(S32 x, S32 y, S32 width, S32 height, F32 degre
 
 			v = LLVector3(offset_x, offset_y, 0.f) * quat;
 			gGL.texCoord2f(uv_rect.mRight, uv_rect.mTop);
-			gGL.vertex2f(v.mV[0], v.mV[1] );
+			gGL.vertex2f((GLint)v.mV[0], (GLint)v.mV[1] );
 
 			v = LLVector3(-offset_x, offset_y, 0.f) * quat;
 			gGL.texCoord2f(uv_rect.mLeft, uv_rect.mTop);
-			gGL.vertex2f(v.mV[0], v.mV[1] );
+			gGL.vertex2f((GLint)v.mV[0], (GLint)v.mV[1] );
 
 			v = LLVector3(-offset_x, -offset_y, 0.f) * quat;
 			gGL.texCoord2f(uv_rect.mLeft, uv_rect.mBottom);
-			gGL.vertex2f(v.mV[0], v.mV[1] );
+			gGL.vertex2f((GLint)v.mV[0], (GLint)v.mV[1] );
 
 			v = LLVector3(offset_x, -offset_y, 0.f) * quat;
 			gGL.texCoord2f(uv_rect.mRight, uv_rect.mBottom);
-			gGL.vertex2f(v.mV[0], v.mV[1] );
+			gGL.vertex2f((GLint)v.mV[0], (GLint)v.mV[1] );
 		}
 		gGL.end();
 		gGL.popUIMatrix();
@@ -1928,7 +1928,9 @@ namespace LLInitParam
 		blue("blue"),
 		alpha("alpha"),
 		control("")
-	{}
+	{
+		setBlockFromValue();
+	}
 
 	void TypedParam<LLUIColor>::setValueFromBlock() const
 	{
@@ -1973,6 +1975,7 @@ namespace LLInitParam
 		size("size"),
 		style("style")
 	{
+		setBlockFromValue();
 		addSynonym(name, "");
 	}
 
@@ -2013,7 +2016,9 @@ namespace LLInitParam
 		bottom("bottom"),
 		width("width"),
 		height("height")
-	{}
+	{
+		setBlockFromValue();
+	}
 
 	void TypedParam<LLRect>::setValueFromBlock() const
 	{
@@ -2098,6 +2103,7 @@ namespace LLInitParam
 		x("x"),
 		y("y")
 	{
+		setBlockFromValue();
 	}
 
 	void TypedParam<LLCoordGL>::setValueFromBlock() const

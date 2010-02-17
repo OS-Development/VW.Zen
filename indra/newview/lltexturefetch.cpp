@@ -488,8 +488,9 @@ void LLTextureFetchWorker::setupPacketData()
 
 U32 LLTextureFetchWorker::calcWorkPriority()
 {
-// 	llassert_always(mImagePriority >= 0 && mImagePriority <= LLViewerTexture::maxDecodePriority());
-	static F32 PRIORITY_SCALE = (F32)LLWorkerThread::PRIORITY_LOWBITS / LLViewerFetchedTexture::maxDecodePriority();
+ 	//llassert_always(mImagePriority >= 0 && mImagePriority <= LLViewerFetchedTexture::maxDecodePriority());
+	static const F32 PRIORITY_SCALE = (F32)LLWorkerThread::PRIORITY_LOWBITS / LLViewerFetchedTexture::maxDecodePriority();
+
 	mWorkPriority = (U32)(mImagePriority * PRIORITY_SCALE);
 	return mWorkPriority;
 }
@@ -981,7 +982,12 @@ bool LLTextureFetchWorker::doWork(S32 param)
 		}
 		if (mLoadedDiscard < 0)
 		{
-			llerrs << "Decode entered with invalid mLoadedDiscard. ID = " << mID << llendl;
+			//llerrs << "Decode entered with invalid mLoadedDiscard. ID = " << mID << llendl;
+
+			//abort, don't decode
+			mState = DONE;
+			setPriority(LLWorkerThread::PRIORITY_LOW | mWorkPriority);
+			return true;
 		}
 		setPriority(LLWorkerThread::PRIORITY_LOW | mWorkPriority); // Set priority first since Responder may change it
 		mRawImage = NULL;
@@ -1509,8 +1515,8 @@ bool LLTextureFetch::createRequest(const std::string& url, const LLUUID& id, con
 		unlockQueue() ;
 
 		worker->lockWorkMutex();
-	worker->mActiveCount++;
-	worker->mNeedsAux = needs_aux;
+		worker->mActiveCount++;
+		worker->mNeedsAux = needs_aux;
 		worker->unlockWorkMutex();
 	}
 	

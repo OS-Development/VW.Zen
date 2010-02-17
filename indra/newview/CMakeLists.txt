@@ -165,6 +165,7 @@ set(viewer_SOURCE_FILES
     llfloatercustomize.cpp
     llfloaterdaycycle.cpp
     llfloaterenvsettings.cpp
+    llfloaterevent.cpp
     llfloaterfonttest.cpp
     llfloatergesture.cpp
     llfloatergodtools.cpp
@@ -188,7 +189,6 @@ set(viewer_SOURCE_FILES
     llfloatermemleak.cpp
     llfloatermodelpreview.cpp
     llfloaternamedesc.cpp
-    llfloaternearbymedia.cpp
     llfloaternotificationsconsole.cpp
     llfloateropenobject.cpp
     llfloaterparcel.cpp
@@ -308,7 +308,6 @@ set(viewer_SOURCE_FILES
     llpanelclassified.cpp
     llpanelcontents.cpp
     llpaneleditwearable.cpp
-    llpanelevent.cpp
     llpanelface.cpp
     llpanelgroup.cpp
     llpanelgroupgeneral.cpp
@@ -331,6 +330,7 @@ set(viewer_SOURCE_FILES
     llpanelmediasettingspermissions.cpp
     llpanelmediasettingssecurity.cpp
     llpanelme.cpp
+    llpanelnearbymedia.cpp
     llpanelobject.cpp
     llpanelobjectinventory.cpp
     llpaneloutfitsinventory.cpp
@@ -669,6 +669,7 @@ set(viewer_HEADER_FILES
     llfloatercustomize.h
     llfloaterdaycycle.h
     llfloaterenvsettings.h
+    llfloaterevent.h
     llfloaterfonttest.h
     llfloatergesture.h
     llfloatergodtools.h
@@ -692,7 +693,6 @@ set(viewer_HEADER_FILES
     llfloatermemleak.h
     llfloatermodelpreview.h
     llfloaternamedesc.h
-    llfloaternearbymedia.h
     llfloaternotificationsconsole.h
     llfloateropenobject.h
     llfloaterparcel.h
@@ -807,7 +807,6 @@ set(viewer_HEADER_FILES
     llpanelclassified.h
     llpanelcontents.h
     llpaneleditwearable.h
-    llpanelevent.h
     llpanelface.h
     llpanelgroup.h
     llpanelgroupgeneral.h
@@ -830,6 +829,7 @@ set(viewer_HEADER_FILES
     llpanelmediasettingspermissions.h
     llpanelmediasettingssecurity.h
     llpanelme.h
+    llpanelnearbymedia.h
     llpanelobject.h
     llpanelobjectinventory.h
     llpaneloutfitsinventory.h
