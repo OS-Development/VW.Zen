@@ -603,11 +603,12 @@ void LLPanelNearByMedia::refreshParcelItems()
 	if (NULL != mParcelAudioItem)
 	{
 		bool is_playing = LLViewerMedia::isParcelAudioPlaying();
+	
 		updateListItem(mParcelAudioItem,
 					   mParcelAudioName,
 					   LLViewerMedia::getParcelAudioURL(),
 					   -1, // Proximity after Parcel Media, but closer than anything else
-					   !is_playing,
+					   (!is_playing),
 					   is_playing,
 					   is_playing,
 					   MEDIA_CLASS_ALL,
@@ -851,7 +852,7 @@ void LLPanelNearByMedia::onClickParcelAudioStart()
 	// User *explicitly* started the internet stream, so keep the stream
 	// playing and updated as they cross to other parcels etc.
 	mParcelAudioAutoStart = true;
-	
+		
 	if (!gAudiop)
 		return;
 	
