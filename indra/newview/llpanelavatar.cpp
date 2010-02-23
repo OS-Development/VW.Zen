@@ -48,7 +48,6 @@
 #include "llscrollcontainer.h"
 #include "llavatariconctrl.h"
 #include "llweb.h"
-#include "llfloaterworldmap.h"
 #include "llfloaterreg.h"
 #include "llnotificationsutil.h"
 #include "llvoiceclient.h"
@@ -352,8 +351,10 @@ LLPanelAvatarNotes::~LLPanelAvatarNotes()
 	if(getAvatarId().notNull())
 	{
 		LLAvatarTracker::instance().removeParticularFriendObserver(getAvatarId(), this);
-		if(LLVoiceClient::getInstance())
+		if(LLVoiceClient::instanceExists())
+		{
 			LLVoiceClient::getInstance()->removeObserver((LLVoiceClientStatusObserver*)this);
+		}
 	}
 }
 
@@ -447,10 +448,7 @@ void LLPanelProfileTab::scrollToTop()
 
 void LLPanelProfileTab::onMapButtonClick()
 {
-	std::string name;
-	gCacheName->getFullName(getAvatarId(), name);
-	gFloaterWorldMap->trackAvatar(getAvatarId(), name);
-	LLFloaterReg::showInstance("world_map");
+	LLAvatarActions::showOnMap(getAvatarId());
 }
 
 void LLPanelProfileTab::updateButtons()
@@ -795,8 +793,10 @@ LLPanelAvatarProfile::~LLPanelAvatarProfile()
 	if(getAvatarId().notNull())
 	{
 		LLAvatarTracker::instance().removeParticularFriendObserver(getAvatarId(), this);
-		if(LLVoiceClient::getInstance())
+		if(LLVoiceClient::instanceExists())
+		{
 			LLVoiceClient::getInstance()->removeObserver((LLVoiceClientStatusObserver*)this);
+		}
 	}
 }
 
