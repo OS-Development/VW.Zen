@@ -120,6 +120,13 @@ private:
 		ICON_COUNT
 	};
 
+    /**
+     * This  constant holds number of empty dropdown items, which will be displayed  instead of doing nothing when the list is empty.
+     * Added due to EXT-5194 
+     */
+    static const S32 NUMBER_OF_EMPTY_ITEMS = 3;
+    
+
 	friend class LLUICtrlFactory;
 	LLLocationInputCtrl(const Params&);
 	virtual ~LLLocationInputCtrl();
@@ -174,6 +181,8 @@ private:
 	LLRemoveLandmarkObserver*	mRemoveLandmarkObserver;
 	LLParcelChangeObserver*		mParcelChangeObserver;
 
+	boost::signals2::connection	mCoordinatesControlConnection;
+	boost::signals2::connection	mParcelPropertiesControlConnection;
 	boost::signals2::connection	mParcelMgrConnection;
 	boost::signals2::connection	mLocationHistoryConnection;
 	LLUIImage* mLandmarkImageOn;

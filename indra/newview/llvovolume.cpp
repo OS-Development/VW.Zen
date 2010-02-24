@@ -1024,6 +1024,8 @@ void LLVOVolume::sculpt()
 		
 		if(!raw_image)
 		{
+			llassert(discard_level < 0) ;
+
 			sculpt_width = 0;
 			sculpt_height = 0;
 			sculpt_data = NULL ;
@@ -1055,7 +1057,6 @@ void LLVOVolume::sculpt()
 			if (volume != this && volume->getVolume() == getVolume())
 			{
 				gPipeline.markRebuild(volume->mDrawable, LLDrawable::REBUILD_GEOMETRY, FALSE);
-				volume->mSculptChanged = TRUE;
 			}
 		}
 	}
@@ -3509,7 +3510,8 @@ static LLFastTimer::DeclareTimer FTM_VOLUME_GEOM("Volume Geometry");
 void LLVolumeGeometryManager::rebuildMesh(LLSpatialGroup* group)
 {
 	llpushcallstacks ;
-	if (group->isState(LLSpatialGroup::MESH_DIRTY) && !group->isState(LLSpatialGroup::GEOM_DIRTY))
+	llassert(group);
+	if (group && group->isState(LLSpatialGroup::MESH_DIRTY) && !group->isState(LLSpatialGroup::GEOM_DIRTY))
 	{
 		LLFastTimer tm(FTM_VOLUME_GEOM);
 		S32 num_mapped_veretx_buffer = LLVertexBuffer::sMappedCount ;
@@ -3563,9 +3565,9 @@ void LLVolumeGeometryManager::rebuildMesh(LLSpatialGroup* group)
 		}
 		
 		// don't forget alpha
-		if(	group != NULL && 
-			!group->mVertexBuffer.isNull() && 
-			group->mVertexBuffer->isLocked())
+		if(group != NULL && 
+		   !group->mVertexBuffer.isNull() && 
+		   group->mVertexBuffer->isLocked())
 		{
 			group->mVertexBuffer->setBuffer(0);
 		}
@@ -3591,7 +3593,7 @@ void LLVolumeGeometryManager::rebuildMesh(LLSpatialGroup* group)
 		group->clearState(LLSpatialGroup::MESH_DIRTY | LLSpatialGroup::NEW_DRAWINFO);
 	}
 
-	if (group->isState(LLSpatialGroup::NEW_DRAWINFO))
+	if (group && group->isState(LLSpatialGroup::NEW_DRAWINFO))
 	{
 		llerrs << "WTF?" << llendl;
 	}

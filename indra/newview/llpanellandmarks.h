@@ -78,6 +78,8 @@ public:
 	 */
 	void setItemSelected(const LLUUID& obj_id, BOOL take_keyboard_focus);
 
+	LLPlacesInventoryPanel* getLibraryInventoryPanel() { return mLibraryInventoryPanel; }
+
 protected:
 	/**
 	 * @return true - if current selected panel is not null and selected item is a landmark
@@ -153,14 +155,14 @@ private:
 	void doCreatePick(LLLandmark* landmark);
 
 private:
-	LLPlacesInventoryPanel*	mFavoritesInventoryPanel;
-	LLPlacesInventoryPanel*	mLandmarksInventoryPanel;
-	LLPlacesInventoryPanel*	mMyInventoryPanel;
-	LLPlacesInventoryPanel*	mLibraryInventoryPanel;
+	LLPlacesInventoryPanel*		mFavoritesInventoryPanel;
+	LLPlacesInventoryPanel*		mLandmarksInventoryPanel;
+	LLPlacesInventoryPanel*		mMyInventoryPanel;
+	LLPlacesInventoryPanel*		mLibraryInventoryPanel;
 	LLMenuGL*					mGearLandmarkMenu;
 	LLMenuGL*					mGearFolderMenu;
 	LLMenuGL*					mMenuAdd;
-	LLPlacesInventoryPanel*	mCurrentSelectedList;
+	LLPlacesInventoryPanel*		mCurrentSelectedList;
 	LLInventoryObserver*		mInventoryObserver;
 
 	LLPanel*					mListCommands;

@@ -66,7 +66,8 @@ static LLDefaultChildRegistry::Register<LLChatHistory> r("chat_history");
 
 const static std::string NEW_LINE(rawstr_to_utf8("\n"));
 
-const static U32 LENGTH_OF_TIME_STR = std::string("12:00").length();
+const static std::string SLURL_APP_AGENT = "secondlife:///app/agent/";
+const static std::string SLURL_ABOUT = "/about";
 
 // support for secondlife:///app/objectim/{UUID}/ SLapps
 class LLObjectIMHandler : public LLCommandHandler
@@ -115,34 +116,6 @@ public:
 		return LLPanel::handleMouseUp(x,y,mask);
 	}
 
-	//*TODO remake it using mouse enter/leave and static LLHandle<LLIconCtrl> to add/remove as a child
-	BOOL handleToolTip(S32 x, S32 y, MASK mask)
-	{
-		LLTextBase* name = getChild<LLTextBase>("user_name");
-		if (name && name->parentPointInView(x, y) && mAvatarID.notNull() && SYSTEM_FROM != mFrom)
-		{
-
-			// Spawn at right side of the name textbox.
-			LLRect sticky_rect = name->calcScreenRect();
-			S32 icon_x = llmin(sticky_rect.mLeft + name->getTextBoundingRect().getWidth() + 7, sticky_rect.mRight - 3);
-
-			LLToolTip::Params params;
-			params.background_visible(false);
-			params.click_callback(boost::bind(&LLChatHistoryHeader::onHeaderPanelClick, this, 0, 0, 0));
-			params.delay_time(0.0f);		// spawn instantly on hover
-			params.image(LLUI::getUIImage("Info_Small"));
-			params.message("");
-			params.padding(0);
-			params.pos(LLCoordGL(icon_x, sticky_rect.mTop - 2));
-			params.sticky_rect(sticky_rect);
-
-			LLToolTipMgr::getInstance()->show(params);
-			return TRUE;
-		}
-
-		return LLPanel::handleToolTip(x, y, mask);
-	}
-
 	void onObjectIconContextMenuItemClicked(const LLSD& userdata)
 	{
 		std::string level = userdata.asString();
@@ -176,12 +149,7 @@ public:
 		}
 		else if (level == "add")
 		{
-			std::string name;
-			name.assign(getFirstName());
-			name.append(" ");
-			name.append(getLastName());
-
-			LLAvatarActions::requestFriendshipDialog(getAvatarId(), name);
+			LLAvatarActions::requestFriendshipDialog(getAvatarId(), mFrom);
 		}
 		else if (level == "remove")
 		{
@@ -202,7 +170,10 @@ public:
 		menu = LLUICtrlFactory::getInstance()->createFromFile<LLMenuGL>("menu_object_icon.xml", gMenuHolder, LLViewerMenuHolderGL::child_registry_t::instance());
 		mPopupMenuHandleObject = menu->getHandle();
 
-		setDoubleClickCallback(boost::bind(&LLChatHistoryHeader::onHeaderPanelClick, this, _2, _3, _4));
+		setDoubleClickCallback(boost::bind(&LLChatHistoryHeader::showInspector, this));
+
+		setMouseEnterCallback(boost::bind(&LLChatHistoryHeader::showInfoCtrl, this));
+		setMouseLeaveCallback(boost::bind(&LLChatHistoryHeader::hideInfoCtrl, this));
 
 		return LLPanel::postBuild();
 	}
@@ -236,7 +207,7 @@ public:
 		return LLPanel::handleRightMouseDown(x,y,mask);
 	}
 
-	void onHeaderPanelClick(S32 x, S32 y, MASK mask)
+	void showInspector()
 	{
 		if (mSourceType == CHAT_SOURCE_OBJECT)
 		{
@@ -249,9 +220,18 @@ public:
 		//if chat source is system, you may add "else" here to define behaviour.
 	}
 
+	static void onClickInfoCtrl(LLUICtrl* info_ctrl)
+	{
+		if (!info_ctrl) return;
+
+		LLChatHistoryHeader* header = dynamic_cast<LLChatHistoryHeader*>(info_ctrl->getParent());	
+		if (!header) return;
+
+		header->showInspector();
+	}
+
+
 	const LLUUID&		getAvatarId () const { return mAvatarID;}
-	const std::string&	getFirstName() const { return mFirstName; }
-	const std::string&	getLastName	() const { return mLastName; }
 
 	void setup(const LLChat& chat,const LLStyle::Params& style_params) 
 	{
@@ -261,7 +241,7 @@ public:
 		gCacheName->get(mAvatarID, FALSE, boost::bind(&LLChatHistoryHeader::nameUpdatedCallback, this, _1, _2, _3, _4));
 
 		//*TODO overly defensive thing, source type should be maintained out there
-		if(chat.mFromID.isNull() || chat.mFromName == SYSTEM_FROM)
+		if((chat.mFromID.isNull() && chat.mFromName.empty()) || chat.mFromName == SYSTEM_FROM)
 		{
 			mSourceType = CHAT_SOURCE_SYSTEM;
 		}
@@ -272,9 +252,11 @@ public:
 		userName->setColor(style_params.color());
 		
 		userName->setValue(chat.mFromName);
+		mFrom = chat.mFromName;
 		if (chat.mFromName.empty() || CHAT_SOURCE_SYSTEM == mSourceType)
 		{
-			userName->setValue(LLTrans::getString("SECOND_LIFE"));
+			mFrom = LLTrans::getString("SECOND_LIFE");
+			userName->setValue(mFrom);
 		}
 
 
@@ -334,8 +316,7 @@ public:
 	{
 		if (id != mAvatarID)
 			return;
-		mFirstName = first;
-		mLastName = last;
+		mFrom = first + " " + last;
 	}
 protected:
 	static const S32 PADDING = 20;
@@ -390,6 +371,33 @@ protected:
 		}
 	}
 
+	void showInfoCtrl()
+	{
+		if (mAvatarID.isNull() || mFrom.empty() || SYSTEM_FROM == mFrom) return;
+				
+		if (!sInfoCtrl)
+		{
+			sInfoCtrl = LLUICtrlFactory::createFromFile<LLUICtrl>("inspector_info_ctrl.xml", NULL, LLPanel::child_registry_t::instance());
+			sInfoCtrl->setCommitCallback(boost::bind(&LLChatHistoryHeader::onClickInfoCtrl, sInfoCtrl));
+		}
+
+		LLTextBase* name = getChild<LLTextBase>("user_name");
+		LLRect sticky_rect = name->getRect();
+		S32 icon_x = llmin(sticky_rect.mLeft + name->getTextBoundingRect().getWidth() + 7, sticky_rect.mRight - 3);
+		sInfoCtrl->setOrigin(icon_x, sticky_rect.getCenterY() - sInfoCtrl->getRect().getHeight() / 2 ) ;
+		addChild(sInfoCtrl);
+	}
+
+	void hideInfoCtrl()
+	{
+		if (!sInfoCtrl) return;
+
+		if (sInfoCtrl->getParent() == this)
+		{
+			removeChild(sInfoCtrl);
+		}
+	}
+
 private:
 	void setTimeField(const LLChat& chat)
 	{
@@ -418,16 +426,17 @@ protected:
 	LLHandle<LLView>	mPopupMenuHandleAvatar;
 	LLHandle<LLView>	mPopupMenuHandleObject;
 
+	static LLUICtrl*	sInfoCtrl;
+
 	LLUUID			    mAvatarID;
 	EChatSourceType		mSourceType;
-	std::string			mFirstName;
-	std::string			mLastName;
 	std::string			mFrom;
 	LLUUID				mSessionID;
 
 	S32					mMinUserNameWidth;
 };
 
+LLUICtrl* LLChatHistoryHeader::sInfoCtrl = NULL;
 
 LLChatHistory::LLChatHistory(const LLChatHistory::Params& p)
 :	LLUICtrl(p),
@@ -440,7 +449,8 @@ LLChatHistory::LLChatHistory(const LLChatHistory::Params& p)
 	mTopSeparatorPad(p.top_separator_pad),
 	mBottomSeparatorPad(p.bottom_separator_pad),
 	mTopHeaderPad(p.top_header_pad),
-	mBottomHeaderPad(p.bottom_header_pad)
+	mBottomHeaderPad(p.bottom_header_pad),
+	mIsLastMessageFromLog(false)
 {
 	LLTextEditor::Params editor_params(p);
 	editor_params.rect = getLocalRect();
@@ -607,8 +617,8 @@ void LLChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
 		style_params.font.style = "ITALIC";
 	}
 
-	//*HACK we graying out chat history by graying out messages that contains full date in a time string
-	bool message_from_log = chat.mTimeStr.length() > LENGTH_OF_TIME_STR; 
+	bool message_from_log = chat.mChatStyle == CHAT_STYLE_HISTORY;
+	// We graying out chat history by graying out messages that contains full date in a time string
 	if (message_from_log)
 	{
 		style_params.color(LLColor4::grey);
@@ -677,7 +687,7 @@ void LLChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
 			&& mLastFromID == chat.mFromID
 			&& mLastMessageTime.notNull() 
 			&& (new_message_time.secondsSinceEpoch() - mLastMessageTime.secondsSinceEpoch()) < 60.0
-			&& mLastMessageTimeStr.size() == chat.mTimeStr.size())  //*HACK to distinguish between current and previous chat session's histories
+			&& mIsLastMessageFromLog == message_from_log)  //distinguish between current and previous chat session's histories
 		{
 			view = getSeparator();
 			p.top_pad = mTopSeparatorPad;
@@ -711,7 +721,7 @@ void LLChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
 		mLastFromName = chat.mFromName;
 		mLastFromID = chat.mFromID;
 		mLastMessageTime = new_message_time;
-		mLastMessageTimeStr = chat.mTimeStr;
+		mIsLastMessageFromLog = message_from_log;
 	}
 
    if (chat.mNotifId.notNull())
@@ -726,22 +736,26 @@ void LLChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
 			notify_box->setFollowsRight();
 			notify_box->setFollowsTop();
 
-			LLButton* accept_button = notify_box->getChild<LLButton> ("Accept",
-					TRUE);
-			if (accept_button != NULL)
+			ctrl_list_t ctrls = notify_box->getControlPanel()->getCtrlList();
+			S32 offset = 0;
+			for (ctrl_list_t::iterator it = ctrls.begin(); it != ctrls.end(); it++)
 			{
-				accept_button->setFollowsNone();
-				accept_button->setOrigin(2*HPAD, accept_button->getRect().mBottom);
-			}
-
-			LLButton* decline_button = notify_box->getChild<LLButton> (
-					"Decline", TRUE);
-			if (accept_button != NULL && decline_button != NULL)
-			{
-				decline_button->setFollowsNone();
-				decline_button->setOrigin(4*HPAD
-						+ accept_button->getRect().getWidth(),
-						decline_button->getRect().mBottom);
+				LLButton * button = dynamic_cast<LLButton*> (*it);
+				if (button != NULL)
+				{
+					button->setOrigin( offset,
+							button->getRect().mBottom);
+					button->setLeftHPad(2 * HPAD);
+					button->setRightHPad(2 * HPAD);
+					// set zero width before perform autoResize()
+					button->setRect(LLRect(button->getRect().mLeft,
+							button->getRect().mTop, button->getRect().mLeft,
+							button->getRect().mBottom));
+					button->setAutoResize(true);
+					button->autoResize();
+					offset += 2 * HPAD + button->getRect().getWidth();
+					button->setFollowsNone();
+				}
 			}
 
 			LLTextEditor* text_editor = notify_box->getChild<LLTextEditor>("text_editor_box", TRUE);
@@ -779,6 +793,26 @@ void LLChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
 	else
 	{
 		std::string message = irc_me ? chat.mText.substr(3) : chat.mText;
+
+
+		//MESSAGE TEXT PROCESSING
+		//*HACK getting rid of redundant sender names in system notifications sent using sender name (see EXT-5010)
+		if (use_plain_text_chat_history && gAgentID != chat.mFromID && chat.mFromID.notNull())
+		{
+			std::string slurl_about = SLURL_APP_AGENT + chat.mFromID.asString() + SLURL_ABOUT;
+			if (message.length() > slurl_about.length() && 
+				message.compare(0, slurl_about.length(), slurl_about) == 0)
+			{
+				message = message.substr(slurl_about.length(), message.length()-1);
+			}
+		}
+
+		if (irc_me && !use_plain_text_chat_history)
+		{
+			message = chat.mFromName + message;
+		}
+		
+
 		mEditor->appendText(message, FALSE, style_params);
 	}
 	mEditor->blockUndo();

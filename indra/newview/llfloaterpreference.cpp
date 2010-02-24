@@ -315,15 +315,11 @@ LLFloaterPreference::LLFloaterPreference(const LLSD& key)
 	mCommitCallbackRegistrar.add("Pref.ClickEnablePopup",		boost::bind(&LLFloaterPreference::onClickEnablePopup, this));
 	mCommitCallbackRegistrar.add("Pref.ClickDisablePopup",		boost::bind(&LLFloaterPreference::onClickDisablePopup, this));	
 	mCommitCallbackRegistrar.add("Pref.LogPath",				boost::bind(&LLFloaterPreference::onClickLogPath, this));
-	mCommitCallbackRegistrar.add("Pref.UpdateMeterText",		boost::bind(&LLFloaterPreference::updateMeterText, this, _1));	
 	mCommitCallbackRegistrar.add("Pref.HardwareSettings",       boost::bind(&LLFloaterPreference::onOpenHardwareSettings, this));	
 	mCommitCallbackRegistrar.add("Pref.HardwareDefaults",       boost::bind(&LLFloaterPreference::setHardwareDefaults, this));	
 	mCommitCallbackRegistrar.add("Pref.VertexShaderEnable",     boost::bind(&LLFloaterPreference::onVertexShaderEnable, this));	
 	mCommitCallbackRegistrar.add("Pref.WindowedMod",            boost::bind(&LLFloaterPreference::onCommitWindowedMode, this));	
 	mCommitCallbackRegistrar.add("Pref.UpdateSliderText",       boost::bind(&LLFloaterPreference::onUpdateSliderText,this, _1,_2));	
-	mCommitCallbackRegistrar.add("Pref.ParcelMediaAutoPlayEnable",       boost::bind(&LLFloaterPreference::onCommitParcelMediaAutoPlayEnable, this));	
-	mCommitCallbackRegistrar.add("Pref.MediaEnabled",           boost::bind(&LLFloaterPreference::onCommitMediaEnabled, this));	
-	mCommitCallbackRegistrar.add("Pref.MusicEnabled",           boost::bind(&LLFloaterPreference::onCommitMusicEnabled, this));	
 	mCommitCallbackRegistrar.add("Pref.QualityPerformance",     boost::bind(&LLFloaterPreference::onChangeQuality, this, _2));	
 	mCommitCallbackRegistrar.add("Pref.applyUIColor",			boost::bind(&LLFloaterPreference::applyUIColor, this ,_1, _2));
 	mCommitCallbackRegistrar.add("Pref.getUIColor",				boost::bind(&LLFloaterPreference::getUIColor, this ,_1, _2));
@@ -514,7 +510,8 @@ void LLFloaterPreference::onOpen(const LLSD& key)
 	// if we have no agent, we can't let them choose anything
 	// if we have an agent, then we only let them choose if they have a choice
 	bool can_choose_maturity =
-		gAgent.getID().notNull() &&	(gAgent.isMature() || gAgent.isGodlike());
+		gAgent.getID().notNull() &&
+		(gAgent.isMature() || gAgent.isGodlike());
 	
 	LLComboBox* maturity_combo = getChild<LLComboBox>("maturity_desired_combobox");
 	
@@ -666,28 +663,14 @@ void LLFloaterPreference::refreshEnabledGraphics()
 	LLFloaterPreference* instance = LLFloaterReg::findTypedInstance<LLFloaterPreference>("preferences");
 	if(instance)
 	{
-		instance->refreshEnabledState();
+		instance->refresh();
+		//instance->refreshEnabledState();
 	}
 	LLFloaterHardwareSettings* hardware_settings = LLFloaterReg::getTypedInstance<LLFloaterHardwareSettings>("prefs_hardware_settings");
 	if (hardware_settings)
 	{
 		hardware_settings->refreshEnabledState();
 	}
-}
-
-void LLFloaterPreference::updateMeterText(LLUICtrl* ctrl)
-{
-	// get our UI widgets
-	LLSliderCtrl* slider = (LLSliderCtrl*) ctrl;
-
-	LLTextBox* m1 = getChild<LLTextBox>("DrawDistanceMeterText1");
-	LLTextBox* m2 = getChild<LLTextBox>("DrawDistanceMeterText2");
-
-	// toggle the two text boxes based on whether we have 1 or two digits
-	F32 val = slider->getValueF32();
-	bool two_digits = val < 100;
-	m1->setVisible(two_digits);
-	m2->setVisible(!two_digits);
 }
 
 void LLFloaterPreference::onClickBrowserClearCache()
@@ -954,29 +937,6 @@ void LLFloaterPreference::disableUnavailableSettings()
 		ctrl_avatar_impostors->setEnabled(FALSE);
 		ctrl_avatar_impostors->setValue(FALSE);
 	}
-}
-
-void LLFloaterPreference::onCommitParcelMediaAutoPlayEnable()
-{
-	BOOL autoplay = getChild<LLCheckBoxCtrl>("autoplay_enabled")->get();
-		
-	gSavedSettings.setBOOL(LLViewerMedia::AUTO_PLAY_MEDIA_SETTING, autoplay);
-
-	lldebugs << "autoplay now = " << int(autoplay) << llendl;
-}
-
-void LLFloaterPreference::onCommitMediaEnabled()
-{
-	LLCheckBoxCtrl *media_enabled_ctrl = getChild<LLCheckBoxCtrl>("media_enabled");
-	bool enabled = media_enabled_ctrl->get();
-	gSavedSettings.setBOOL("AudioStreamingMedia", enabled);
-}
-
-void LLFloaterPreference::onCommitMusicEnabled()
-{
-	LLCheckBoxCtrl *music_enabled_ctrl = getChild<LLCheckBoxCtrl>("music_enabled");
-	bool enabled = music_enabled_ctrl->get();
-	gSavedSettings.setBOOL("AudioStreamingMusic", enabled);
 }
 
 void LLFloaterPreference::refresh()

@@ -172,6 +172,10 @@ public:
 		}
 	}
 
+	LLIconCtrl* getIconCtrl() const
+	{
+		return mIcon;
+	}
 
 private:
 	LLIconCtrl* mIcon;
@@ -214,7 +218,8 @@ LLTabContainer::Params::Params()
 	last_tab("last_tab"),
 	use_custom_icon_ctrl("use_custom_icon_ctrl", false),
 	tab_icon_ctrl_pad("tab_icon_ctrl_pad", 0),
-	use_ellipses("use_ellipses")
+	use_ellipses("use_ellipses"),
+	font_halign("halign")
 {
 	name(std::string("tab_container"));
 	mouse_opaque = false;
@@ -891,6 +896,10 @@ void LLTabContainer::update_images(LLTabTuple* tuple, TabParams params, LLTabCon
 void LLTabContainer::addTabPanel(const TabPanelParams& panel)
 {
 	LLPanel* child = panel.panel();
+
+	llassert(child);
+	if (!child) return;
+
 	const std::string& label = panel.label.isProvided() 
 			? panel.label() 
 			: panel.panel()->getLabel();
@@ -1624,6 +1633,7 @@ void LLTabContainer::setTabImage(LLPanel* child, LLIconCtrl* icon)
 		if(button)
 		{
 			button->setIcon(icon);
+			reshapeTuple(tuple);
 		}
 	}
 }
@@ -1634,11 +1644,21 @@ void LLTabContainer::reshapeTuple(LLTabTuple* tuple)
 
 	if (!mIsVertical)
 	{
+		S32 image_overlay_width = 0;
+
+		if(mCustomIconCtrlUsed)
+		{
+			LLCustomButtonIconCtrl* button = dynamic_cast<LLCustomButtonIconCtrl*>(tuple->mButton);
+			LLIconCtrl* icon_ctrl = button->getIconCtrl();
+			image_overlay_width = icon_ctrl ? icon_ctrl->getRect().getWidth() : 0;
+		}
+		else
+		{
+			image_overlay_width = tuple->mButton->getImageOverlay().notNull() ?
+					tuple->mButton->getImageOverlay()->getImage()->getWidth(0) : 0;
+		}
 		// remove current width from total tab strip width
 		mTotalTabWidth -= tuple->mButton->getRect().getWidth();
-
-		S32 image_overlay_width = tuple->mButton->getImageOverlay().notNull() ?
-		tuple->mButton->getImageOverlay()->getImage()->getWidth(0) : 0;
 
 		tuple->mPadding = image_overlay_width;
 

@@ -358,6 +358,20 @@ LLLocationInputCtrl::LLLocationInputCtrl(const LLLocationInputCtrl::Params& p)
 	getTextEntry()->setRightMouseUpCallback(boost::bind(&LLLocationInputCtrl::onTextEditorRightClicked,this,_2,_3,_4));
 	updateWidgetlayout();
 
+	// Connecting signal for updating location on "Show Coordinates" setting change.
+	LLControlVariable* coordinates_control = gSavedSettings.getControl("NavBarShowCoordinates").get();
+	if (coordinates_control)
+	{
+		mCoordinatesControlConnection = coordinates_control->getSignal()->connect(boost::bind(&LLLocationInputCtrl::refreshLocation, this));
+	}
+
+	// Connecting signal for updating parcel icons on "Show Parcel Properties" setting change.
+	LLControlVariable* parcel_properties_control = gSavedSettings.getControl("NavBarShowParcelProperties").get();
+	if (parcel_properties_control)
+	{
+		mParcelPropertiesControlConnection = parcel_properties_control->getSignal()->connect(boost::bind(&LLLocationInputCtrl::refreshParcelIcons, this));
+	}
+
 	// - Make the "Add landmark" button updated when either current parcel gets changed
 	//   or a landmark gets created or removed from the inventory.
 	// - Update the location string on parcel change.
@@ -391,6 +405,8 @@ LLLocationInputCtrl::~LLLocationInputCtrl()
 	LLViewerParcelMgr::getInstance()->removeObserver(mParcelChangeObserver);
 	delete mParcelChangeObserver;
 
+	mCoordinatesControlConnection.disconnect();
+	mParcelPropertiesControlConnection.disconnect();
 	mParcelMgrConnection.disconnect();
 	mLocationHistoryConnection.disconnect();
 }
@@ -648,7 +664,7 @@ void LLLocationInputCtrl::onLocationPrearrange(const LLSD& data)
 				value["item_type"] = TELEPORT_HISTORY;
 				value["global_pos"] = result->mGlobalPos.getValue();
 				std::string region_name = result->mTitle.substr(0, result->mTitle.find(','));
-				//TODO*: add Surl to teleportitem or parse region name from title
+				//TODO*: add slurl to teleportitem or parse region name from title
 				value["tooltip"] = LLSLURL::buildSLURLfromPosGlobal(region_name,
 						result->mGlobalPos,	false);
 				add(result->getTitle(), value); 
@@ -657,6 +673,15 @@ void LLLocationInputCtrl::onLocationPrearrange(const LLSD& data)
 									&LLLocationInputCtrl::findTeleportItemsByTitle, this,
 									_1, filter));
 		}
+	}
+	if(mList->isEmpty())
+	{
+		/**
+		 * Add a couple of empty items for a better view.
+		 * EXT-5194 
+		 */
+		for(int i = 0; i < NUMBER_OF_EMPTY_ITEMS; i++ )
+			add("", LLSD());
 	}
 	sortByName();
 	
@@ -763,16 +788,19 @@ void LLLocationInputCtrl::refreshParcelIcons()
 	// Our "cursor" moving right to left
 	S32 x = mAddLandmarkBtn->getRect().mLeft;
 
-	static LLUICachedControl<bool> show_properties("NavBarShowParcelProperties", false);
-	if (show_properties)
+	LLViewerParcelMgr* vpm = LLViewerParcelMgr::getInstance();
+
+	LLViewerRegion* agent_region = gAgent.getRegion();
+	LLParcel* agent_parcel = vpm->getAgentParcel();
+	if (!agent_region || !agent_parcel)
+		return;
+
+	mForSaleBtn->setVisible(vpm->canAgentBuyParcel(agent_parcel, false));
+
+	x = layout_widget(mForSaleBtn, x);
+
+	if (gSavedSettings.getBOOL("NavBarShowParcelProperties"))
 	{
-		LLViewerParcelMgr* vpm = LLViewerParcelMgr::getInstance();
-
-		LLViewerRegion* agent_region = gAgent.getRegion();
-		LLParcel* agent_parcel = vpm->getAgentParcel();
-		if (!agent_region || !agent_parcel)
-			return;
-
 		LLParcel* current_parcel;
 		LLViewerRegion* selection_region = vpm->getSelectionRegion();
 		LLParcel* selected_parcel = vpm->getParcelSelection()->getParcel();
@@ -792,7 +820,6 @@ void LLLocationInputCtrl::refreshParcelIcons()
 			current_parcel = agent_parcel;
 		}
 
-		bool allow_buy      = vpm->canAgentBuyParcel(current_parcel, false);
 		bool allow_voice	= vpm->allowAgentVoice(agent_region, current_parcel);
 		bool allow_fly		= vpm->allowAgentFly(agent_region, current_parcel);
 		bool allow_push		= vpm->allowAgentPush(agent_region, current_parcel);
@@ -801,7 +828,6 @@ void LLLocationInputCtrl::refreshParcelIcons()
 		bool allow_damage	= vpm->allowAgentDamage(agent_region, current_parcel);
 
 		// Most icons are "block this ability"
-		mForSaleBtn->setVisible(allow_buy);
 		mParcelIcon[VOICE_ICON]->setVisible(   !allow_voice );
 		mParcelIcon[FLY_ICON]->setVisible(     !allow_fly );
 		mParcelIcon[PUSH_ICON]->setVisible(    !allow_push );
@@ -809,11 +835,10 @@ void LLLocationInputCtrl::refreshParcelIcons()
 		mParcelIcon[SCRIPTS_ICON]->setVisible( !allow_scripts );
 		mParcelIcon[DAMAGE_ICON]->setVisible(  allow_damage );
 		mDamageText->setVisible(allow_damage);
-		
-		x = layout_widget(mForSaleBtn, x);
+
 		// Padding goes to left of both landmark star and for sale btn
 		x -= mAddLandmarkHPad;
-		
+
 		// Slide the parcel icons rect from right to left, adjusting rectangles
 		for (S32 i = 0; i < ICON_COUNT; ++i)
 		{
@@ -825,7 +850,6 @@ void LLLocationInputCtrl::refreshParcelIcons()
 	}
 	else
 	{
-		mForSaleBtn->setVisible(false);
 		for (S32 i = 0; i < ICON_COUNT; ++i)
 		{
 			mParcelIcon[i]->setVisible(false);
@@ -833,10 +857,13 @@ void LLLocationInputCtrl::refreshParcelIcons()
 		mDamageText->setVisible(false);
 	}
 
-	S32 left_pad, right_pad;
-	mTextEntry->getTextPadding(&left_pad, &right_pad);
-	right_pad = mTextEntry->getRect().mRight - x;
-	mTextEntry->setTextPadding(left_pad, right_pad);
+	if (mTextEntry)
+	{
+		S32 left_pad, right_pad;
+		mTextEntry->getTextPadding(&left_pad, &right_pad);
+		right_pad = mTextEntry->getRect().mRight - x;
+		mTextEntry->setTextPadding(left_pad, right_pad);
+	}
 }
 
 void LLLocationInputCtrl::refreshHealth()
@@ -896,7 +923,7 @@ void LLLocationInputCtrl::rebuildLocationHistory(std::string filter)
 		LLSD value;
 		value["tooltip"] = it->getToolTip();
 		//location history can contain only typed locations
-		value["item_type"] = TYPED_REGION_SURL;
+		value["item_type"] = TYPED_REGION_SLURL;
 		value["global_pos"] = it->mGlobalPos.getValue();
 		add(it->getLocation(), value);
 	}
@@ -1005,7 +1032,6 @@ void LLLocationInputCtrl::onLocationContextMenuItemClicked(const LLSD& userdata)
 	{
 		gSavedSettings.setBOOL("NavBarShowParcelProperties",
 			!gSavedSettings.getBOOL("NavBarShowParcelProperties"));
-		refreshParcelIcons();
 	}
 	else if (item == "landmark")
 	{
