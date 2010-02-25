@@ -378,7 +378,7 @@ BOOL LLBottomTray::postBuild()
 	mSpeakBtn->setShowToolTip( getString("VoiceControlBtnToolTip") );
 
 	// Registering Chat Bar to receive Voice client status change notifications.
-	gVoiceClient->addObserver(this);
+	LLVoiceClient::getInstance()->addObserver(this);
 
 	mObjectDefaultWidthMap[RS_BUTTON_GESTURES] = mGesturePanel->getRect().getWidth();
 	mObjectDefaultWidthMap[RS_BUTTON_MOVEMENT] = mMovementPanel->getRect().getWidth();
