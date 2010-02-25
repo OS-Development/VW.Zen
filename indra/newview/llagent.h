@@ -45,6 +45,7 @@
 #include "llpointer.h"
 #include "lluicolor.h"
 #include "llvoavatardefines.h"
+#include "llslurl.h"
 
 extern const BOOL 	ANIMATE;
 extern const U8 	AGENT_STATE_TYPING;  // Typing indication
@@ -594,13 +595,13 @@ public:
 
 public:
 	static void 	parseTeleportMessages(const std::string& xml_filename);
-	const std::string getTeleportSourceSLURL() const { return mTeleportSourceSLURL; }
+	const LLSLURL getTeleportSourceSLURL() const { return mTeleportSourceSLURL; }
 public:
 	// ! TODO ! Define ERROR and PROGRESS enums here instead of exposing the mappings.
 	static std::map<std::string, std::string> sTeleportErrorMessages;
 	static std::map<std::string, std::string> sTeleportProgressMessages;
 private:
-	std::string		mTeleportSourceSLURL; 			// SLURL where last TP began
+	LLSLURL	mTeleportSourceSLURL; 			// SLURL where last TP began
 
 	//--------------------------------------------------------------------
 	// Teleport Actions
@@ -972,6 +973,7 @@ public:
 	BOOL 			setGroupContribution(const LLUUID& group_id, S32 contribution);
 	BOOL 			setUserGroupFlags(const LLUUID& group_id, BOOL accept_notices, BOOL list_in_profile);
 	const std::string &getGroupName() const 	{ return mGroupName; }
+	BOOL			canJoinGroups() const;
 private:
 	std::string		mGroupName;
 	LLUUID			mGroupID;

@@ -5157,6 +5157,11 @@ BOOL LLAgent::setUserGroupFlags(const LLUUID& group_id, BOOL accept_notices, BOO
 	return FALSE;
 }
 
+BOOL LLAgent::canJoinGroups() const
+{
+	return mGroups.count() < MAX_AGENT_GROUPS;
+}
+
 LLQuaternion LLAgent::getHeadRotation()
 {
 	if (mAvatarObject.isNull() || !mAvatarObject->mPelvisp || !mAvatarObject->mHeadp)
@@ -5972,7 +5977,7 @@ bool LLAgent::teleportCore(bool is_local)
 	
 	// MBW -- Let the voice client know a teleport has begun so it can leave the existing channel.
 	// This was breaking the case of teleporting within a single sim.  Backing it out for now.
-//	gVoiceClient->leaveChannel();
+//	LLVoiceClient::getInstance()->leaveChannel();
 	
 	return true;
 }

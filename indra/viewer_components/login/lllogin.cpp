@@ -122,29 +122,35 @@ private:
 	LLSD mAuthResponse, mValidAuthResponse;
 };
 
-void LLLogin::Impl::connect(const std::string& uri, const LLSD& credentials)
+void LLLogin::Impl::connect(const std::string& uri, const LLSD& login_params)
 {
+    LL_DEBUGS("LLLogin") << " connect with  uri '" << uri << "', login_params " << login_params << LL_ENDL;
+	
     // Launch a coroutine with our login_() method. Run the coroutine until
     // its first wait; at that point, return here.
     std::string coroname = 
         LLCoros::instance().launch("LLLogin::Impl::login_",
-                                   boost::bind(&Impl::login_, this, _1, uri, credentials));
+                                   boost::bind(&Impl::login_, this, _1, uri, login_params));
+    LL_DEBUGS("LLLogin") << " connected with  uri '" << uri << "', login_params " << login_params << LL_ENDL;	
 }
 
-void LLLogin::Impl::login_(LLCoros::self& self, std::string uri, LLSD credentials)
+void LLLogin::Impl::login_(LLCoros::self& self, std::string uri, LLSD login_params)
 {
-	LLSD printable_credentials = credentials;
-	if(printable_credentials.has("params") 
-		&& printable_credentials["params"].has("passwd")) 
+	try
 	{
-		printable_credentials["params"]["passwd"] = "*******";
-	}
+	LLSD printable_params = login_params;
+	//if(printable_params.has("params") 
+	//	&& printable_params["params"].has("passwd")) 
+	//{
+	//	printable_params["params"]["passwd"] = "*******";
+	//}
     LL_DEBUGS("LLLogin") << "Entering coroutine " << LLCoros::instance().getName(self)
-                        << " with uri '" << uri << "', credentials " << printable_credentials << LL_ENDL;
+                        << " with uri '" << uri << "', parameters " << printable_params << LL_ENDL;
 
 	// Arriving in SRVRequest state
-    LLEventStream replyPump("reply", true);
+    LLEventStream replyPump("SRVreply", true);
     // Should be an array of one or more uri strings.
+
     LLSD rewrittenURIs;
     {
         LLEventTimeout filter(replyPump);
@@ -155,9 +161,9 @@ void LLLogin::Impl::login_(LLCoros::self& self, std::string uri, LLSD credential
 
         // *NOTE:Mani - Completely arbitrary default timeout value for SRV request.
 		F32 seconds_to_timeout = 5.0f;
-		if(credentials.has("cfg_srv_timeout"))
+		if(login_params.has("cfg_srv_timeout"))
 		{
-			seconds_to_timeout = credentials["cfg_srv_timeout"].asReal();
+			seconds_to_timeout = login_params["cfg_srv_timeout"].asReal();
 		}
 
         // If the SRV request times out (e.g. EXT-3934), simulate response: an
@@ -167,9 +173,9 @@ void LLLogin::Impl::login_(LLCoros::self& self, std::string uri, LLSD credential
 		filter.eventAfter(seconds_to_timeout, fakeResponse);
 
 		std::string srv_pump_name = "LLAres";
-		if(credentials.has("cfg_srv_pump"))
+		if(login_params.has("cfg_srv_pump"))
 		{
-			srv_pump_name = credentials["cfg_srv_pump"].asString();
+			srv_pump_name = login_params["cfg_srv_pump"].asString();
 		}
 
 		// Make request
@@ -181,6 +187,10 @@ void LLLogin::Impl::login_(LLCoros::self& self, std::string uri, LLSD credential
     } // we no longer need the filter
 
     LLEventPump& xmlrpcPump(LLEventPumps::instance().obtain("LLXMLRPCTransaction"));
+    // EXT-4193: use a DIFFERENT reply pump than for the SRV request. We used
+    // to share them -- but the EXT-3934 fix made it possible for an abandoned
+    // SRV response to arrive just as we were expecting the XMLRPC response.
+    LLEventStream loginReplyPump("loginreply", true);
 
     // Loop through the rewrittenURIs, counting attempts along the way.
     // Because of possible redirect responses, we may make more than one
@@ -190,8 +200,8 @@ void LLLogin::Impl::login_(LLCoros::self& self, std::string uri, LLSD credential
              urend(rewrittenURIs.endArray());
          urit != urend; ++urit)
     {
-        LLSD request(credentials);
-        request["reply"] = replyPump.getName();
+        LLSD request(login_params);
+        request["reply"] = loginReplyPump.getName();
         request["uri"] = *urit;
         std::string status;
 
@@ -216,11 +226,11 @@ void LLLogin::Impl::login_(LLCoros::self& self, std::string uri, LLSD credential
             // possible for the reply to arrive before the post() call
             // returns. Subsequent responses, of course, must be awaited
             // without posting again.
-            for (mAuthResponse = validateResponse(replyPump.getName(),
-                                     postAndWait(self, request, xmlrpcPump, replyPump, "reply"));
+            for (mAuthResponse = validateResponse(loginReplyPump.getName(),
+                                 postAndWait(self, request, xmlrpcPump, loginReplyPump, "reply"));
                  mAuthResponse["status"].asString() == "Downloading";
-                 mAuthResponse = validateResponse(replyPump.getName(),
-                                     waitForEventOn(self, replyPump)))
+                 mAuthResponse = validateResponse(loginReplyPump.getName(),
+                                     waitForEventOn(self, loginReplyPump)))
             {
                 // Still Downloading -- send progress update.
                 sendProgressEvent("offline", "downloading");
@@ -287,8 +297,17 @@ void LLLogin::Impl::login_(LLCoros::self& self, std::string uri, LLSD credential
 	// to success, add a data/message and data/reason fields.
 	LLSD error_response;
 	error_response["reason"] = mAuthResponse["status"];
+	error_response["errorcode"] = mAuthResponse["errorcode"];
 	error_response["message"] = mAuthResponse["error"];
+	if(mAuthResponse.has("certificate"))
+	{
+		error_response["certificate"] = mAuthResponse["certificate"];
+	}
 	sendProgressEvent("offline", "fail.login", error_response);
+	}
+	catch (...) {
+		llerrs << "login exception caught" << llendl; 
+	}
 }
 
 void LLLogin::Impl::disconnect()
