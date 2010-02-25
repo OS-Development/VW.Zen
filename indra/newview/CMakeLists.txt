@@ -7,6 +7,7 @@ include(Boost)
 include(BuildVersion)
 include(DBusGlib)
 include(DirectX)
+include(OpenSSL)
 include(ELFIO)
 include(FMOD)
 include(OPENAL)
@@ -373,6 +374,8 @@ set(viewer_SOURCE_FILES
     llscrollingpanelparam.cpp
     llsearchcombobox.cpp
     llsearchhistory.cpp
+    llsecapi.cpp
+    llsechandler_basic.cpp
     llselectmgr.cpp
     llsidepanelappearance.cpp
     llsidepanelinventory.cpp
@@ -386,6 +389,7 @@ set(viewer_SOURCE_FILES
     llspatialpartition.cpp
     llspeakbutton.cpp
     llspeakers.cpp
+    llspeakingindicatormanager.cpp
     llsplitbutton.cpp
     llsprite.cpp
     llstartup.cpp
@@ -447,7 +451,6 @@ set(viewer_SOURCE_FILES
     llurldispatcherlistener.cpp
     llurlhistory.cpp
     llurllineeditorctrl.cpp
-    llurlsimstring.cpp
     llurlwhitelist.cpp
     llvectorperfoptions.cpp
     llversioninfo.cpp
@@ -514,8 +517,10 @@ set(viewer_SOURCE_FILES
     llvoground.cpp
     llvoicechannel.cpp
     llvoiceclient.cpp
+    llvoicedw.cpp
     llvoiceremotectrl.cpp
     llvoicevisualizer.cpp
+    llvoicevivox.cpp
     llvoinventorylistener.cpp
     llvopartgroup.cpp
     llvosky.cpp
@@ -878,6 +883,8 @@ set(viewer_HEADER_FILES
     llscrollingpanelparam.h
     llsearchcombobox.h
     llsearchhistory.h
+    llsecapi.h
+    llsechandler_basic.h
     llselectmgr.h
     llsidepanelappearance.h
     llsidepanelinventory.h
@@ -891,6 +898,7 @@ set(viewer_HEADER_FILES
     llspatialpartition.h
     llspeakbutton.h
     llspeakers.h
+    llspeakingindicatormanager.h
     llsplitbutton.h
     llsprite.h
     llstartup.h
@@ -954,7 +962,6 @@ set(viewer_HEADER_FILES
     llurldispatcherlistener.h
     llurlhistory.h
     llurllineeditorctrl.h
-    llurlsimstring.h
     llurlwhitelist.h
     llvectorperfoptions.h
     llversioninfo.h
@@ -1018,8 +1025,10 @@ set(viewer_HEADER_FILES
     llvoground.h
     llvoicechannel.h
     llvoiceclient.h
+    llvoicedw.h
     llvoiceremotectrl.h
     llvoicevisualizer.h
+    llvoicevivox.h
     llvoinventorylistener.h
     llvopartgroup.h
     llvosky.h
@@ -1405,11 +1414,11 @@ if (WINDOWS)
       # Note the need to specify multiple names explicitly.
       set(GOOGLE_PERF_TOOLS_SOURCE
         ${SHARED_LIB_STAGING_DIR}/Release/libtcmalloc_minimal.dll
-	${SHARED_LIB_STAGING_DIR}/RelWithDebInfo/libtcmalloc_minimal.dll
-	${SHARED_LIB_STAGING_DIR}/Debug/libtcmalloc_minimal-debug.dll
-	)
-    endif(USE_GOOGLE_PERFTOOLS)
-	  
+        ${SHARED_LIB_STAGING_DIR}/RelWithDebInfo/libtcmalloc_minimal.dll
+        ${SHARED_LIB_STAGING_DIR}/Debug/libtcmalloc_minimal-debug.dll
+        )
+     endif(USE_GOOGLE_PERFTOOLS)
+ 
 
     set(COPY_INPUT_DEPENDECIES
       # The following commented dependencies are determined at variably at build time. Can't do this here.
@@ -1503,11 +1512,11 @@ if (WINDOWS)
         --dest=${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}
         --grid=${GRID}
         --source=${CMAKE_CURRENT_SOURCE_DIR}
-	--touch=${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/copy_touched.bat
+        --touch=${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/copy_touched.bat
       DEPENDS 
-	${CMAKE_CURRENT_SOURCE_DIR}/viewer_manifest.py
-	stage_third_party_libs
-	${COPY_INPUT_DEPENDECIES}
+        ${CMAKE_CURRENT_SOURCE_DIR}/viewer_manifest.py
+        stage_third_party_libs
+        ${COPY_INPUT_DEPENDECIES}
       COMMENT "Performing viewer_manifest copy"
       )
     
@@ -1623,6 +1632,8 @@ target_link_libraries(${VIEWER_BINARY_NAME}
     ${WINDOWS_LIBRARIES}
     ${XMLRPCEPI_LIBRARIES}
     ${ELFIO_LIBRARIES}
+    ${OPENSSL_LIBRARIES}
+    ${CRYPTO_LIBRARIES}
     ${LLLOGIN_LIBRARIES}
     ${GOOGLE_PERFTOOLS_LIBRARIES}
     )
@@ -1759,6 +1770,7 @@ if (INSTALL)
 endif (INSTALL)
 
 if (LL_TESTS)
+else (LL_TESTS)
   # To add a viewer unit test, just add the test .cpp file below
   # This creates a separate test project per file listed.
   include(LLAddBuildTest)
@@ -1805,6 +1817,40 @@ if (LL_TESTS)
     "${CMAKE_SOURCE_DIR}/llmessage/tests/test_llsdmessage_peer.py"
     )
 
+  set(test_libs 
+    ${LLMESSAGE_LIBRARIES} 
+    ${WINDOWS_LIBRARIES} 
+    ${LLVFS_LIBRARIES}
+    ${LLMATH_LIBRARIES}
+    ${LLCOMMON_LIBRARIES} 
+    ${GOOGLEMOCK_LIBRARIES}
+    ${OPENSSL_LIBRARIES}
+    ${CRYPTO_LIBRARIES}
+  )
+    LL_ADD_INTEGRATION_TEST(llsechandler_basic
+     llsechandler_basic.cpp
+    "${test_libs}"
+    )
+
+  LL_ADD_INTEGRATION_TEST(llsecapi
+     llsecapi.cpp
+    "${test_libs}"
+    )
+  set(llslurl_test_sources
+      llslurl.cpp
+      llviewernetwork.cpp
+  )
+
+  LL_ADD_INTEGRATION_TEST(llviewernetwork
+     llviewernetwork.cpp
+    "${test_libs}"
+    )
+
+  LL_ADD_INTEGRATION_TEST(llslurl
+     "${llslurl_test_sources}"
+    "${test_libs}"
+    )
+
   #ADD_VIEWER_BUILD_TEST(llmemoryview viewer)
   #ADD_VIEWER_BUILD_TEST(llagentaccess viewer)
   #ADD_VIEWER_BUILD_TEST(llworldmap viewer)
@@ -1812,6 +1858,9 @@ if (LL_TESTS)
   #ADD_VIEWER_BUILD_TEST(lltextureinfo viewer)
   #ADD_VIEWER_BUILD_TEST(lltextureinfodetails viewer)
   #ADD_VIEWER_BUILD_TEST(lltexturestatsuploader viewer)
+  #ADD_COMM_BUILD_TEST(llsecapi viewer "" llviewerprecompiledheaders.cpp llsechandler_basic.cpp)
+  #ADD_VIEWER_COMM_BUILD_TEST(llsechandler_basic viewer "")
+
 endif (LL_TESTS)
 
 
