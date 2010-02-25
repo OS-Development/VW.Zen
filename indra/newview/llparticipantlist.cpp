@@ -344,7 +344,6 @@ void LLParticipantList::addAvatarIDExceptAgent(const LLUUID& avatar_id)
 {
 	if (mExcludeAgent && gAgent.getID() == avatar_id) return;
 	if (mAvatarList->contains(avatar_id)) return;
-
 	mAvatarList->getIDs().push_back(avatar_id);
 	mAvatarList->setDirty();
 	adjustParticipant(avatar_id);
@@ -628,7 +627,7 @@ bool LLParticipantList::LLParticipantListMenu::enableContextMenuItem(const LLSD&
 	}
 	else if (item == "can_call")
 	{
-		return LLVoiceClient::voiceEnabled()&&gVoiceClient->voiceWorking();
+		return LLVoiceClient::getInstance()->voiceEnabled()&&LLVoiceClient::getInstance()->isVoiceWorking();
 	}
 
 	return true;

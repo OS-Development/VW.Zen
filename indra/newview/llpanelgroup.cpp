@@ -191,7 +191,7 @@ BOOL LLPanelGroup::postBuild()
 	if(panel_general)
 		panel_general->setupCtrls(this);
 
-	gVoiceClient->addObserver(this);
+	LLVoiceClient::getInstance()->addObserver(this);
 	
 	return TRUE;
 }
@@ -312,7 +312,7 @@ void LLPanelGroup::onChange(EStatusType status, const std::string &channelURI, b
 		return;
 	}
 
-	childSetEnabled("btn_call", LLVoiceClient::voiceEnabled() && gVoiceClient->voiceWorking());
+	childSetEnabled("btn_call", LLVoiceClient::getInstance()->voiceEnabled() && LLVoiceClient::getInstance()->isVoiceWorking());
 }
 
 void LLPanelGroup::notifyObservers()
