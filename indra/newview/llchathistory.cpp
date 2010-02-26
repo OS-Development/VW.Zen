@@ -575,16 +575,15 @@ void LLChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
 			if ( chat.mSourceType == CHAT_SOURCE_OBJECT )
 			{
 				// for object IMs, create a secondlife:///app/objectim SLapp
-				std::string url = LLSLURL::buildCommand("objectim", chat.mFromID, "");
+				std::string url = LLSLURL("objectim", chat.mFromID, "").getSLURLString();
 				url += "?name=" + chat.mFromName;
 				url += "&owner=" + args["owner_id"].asString();
 
 				LLViewerRegion *region = LLWorld::getInstance()->getRegionFromPosAgent(chat.mPosAgent);
 				if (region)
 				{
-					S32 x, y, z;
-					LLSLURL::globalPosToXYZ(LLVector3d(chat.mPosAgent), x, y, z);
-					url += "&slurl=" + region->getName() + llformat("/%d/%d/%d", x, y, z);
+					LLSLURL region_slurl(region->getName(), chat.mPosAgent);
+					url += "&slurl=" + region_slurl.getLocationString();
 				}
 
 				// set the link for the object name to be the objectim SLapp
