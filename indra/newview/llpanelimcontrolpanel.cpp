@@ -82,7 +82,7 @@ void LLPanelChatControlPanel::onVoiceChannelStateChanged(const LLVoiceChannel::E
 void LLPanelChatControlPanel::updateCallButton()
 {
 	// hide/show call button
-	bool voice_enabled = LLVoiceClient::voiceEnabled() && gVoiceClient->voiceWorking();
+	bool voice_enabled = LLVoiceClient::getInstance()->voiceEnabled() && LLVoiceClient::getInstance()->isVoiceWorking();
 
 	LLIMModel::LLIMSession* session = LLIMModel::getInstance()->findIMSession(mSessionId);
 	if (!session) return;
@@ -118,7 +118,7 @@ BOOL LLPanelChatControlPanel::postBuild()
 	childSetAction("end_call_btn", boost::bind(&LLPanelChatControlPanel::onEndCallButtonClicked, this));
 	childSetAction("voice_ctrls_btn", boost::bind(&LLPanelChatControlPanel::onOpenVoiceControlsClicked, this));
 
-	gVoiceClient->addObserver(this);
+	LLVoiceClient::getInstance()->addObserver(this);
 
 	return TRUE;
 }

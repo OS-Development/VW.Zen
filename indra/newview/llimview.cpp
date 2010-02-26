@@ -319,13 +319,13 @@ LLIMModel::LLIMSession::~LLIMSession()
 	mSpeakers = NULL;
 
 	// End the text IM session if necessary
-	if(gVoiceClient && mOtherParticipantID.notNull())
+	if(LLVoiceClient::getInstance() && mOtherParticipantID.notNull())
 	{
 		switch(mType)
 		{
 		case IM_NOTHING_SPECIAL:
 		case IM_SESSION_P2P_INVITE:
-			gVoiceClient->endUserIMSession(mOtherParticipantID);
+			LLVoiceClient::getInstance()->endUserIMSession(mOtherParticipantID);
 			break;
 
 		default:
@@ -873,7 +873,7 @@ void LLIMModel::sendMessage(const std::string& utf8_text,
 	if((offline == IM_OFFLINE) && (LLVoiceClient::getInstance()->isOnlineSIP(other_participant_id)))
 	{
 		// User is online through the OOW connector, but not with a regular viewer.  Try to send the message via SLVoice.
-		sent = gVoiceClient->sendTextMessage(other_participant_id, utf8_text);
+		sent = LLVoiceClient::getInstance()->sendTextMessage(other_participant_id, utf8_text);
 	}
 	
 	if(!sent)
@@ -1727,7 +1727,11 @@ LLCallDialog(payload)
 void LLIncomingCallDialog::onLifetimeExpired()
 {
 	// check whether a call is valid or not
-	if (LLVoiceClient::getInstance()->findSession(mPayload["caller_id"].asUUID()))
+	LLVoiceChannel* channelp = LLVoiceChannel::getChannelByID(mPayload["session_id"].asUUID());
+	if(channelp &&
+	   (channelp->getState() != LLVoiceChannel::STATE_NO_CHANNEL_INFO) &&
+	   (channelp->getState() != LLVoiceChannel::STATE_ERROR) &&
+	   (channelp->getState() != LLVoiceChannel::STATE_HUNG_UP))
 	{
 		// restart notification's timer if call is still valid
 		mLifetimeTimer.start();
@@ -1961,10 +1965,10 @@ void LLIncomingCallDialog::processCallResponse(S32 response)
 	{
 		if (type == IM_SESSION_P2P_INVITE)
 		{
-			if(gVoiceClient)
+			if(LLVoiceClient::getInstance())
 			{
 				std::string s = mPayload["session_handle"].asString();
-				gVoiceClient->declineInvite(s);
+				LLVoiceClient::getInstance()->declineInvite(s);
 			}
 		}
 		else
@@ -2052,11 +2056,8 @@ bool inviteUserResponse(const LLSD& notification, const LLSD& response)
 	{
 		if (type == IM_SESSION_P2P_INVITE)
 		{
-			if(gVoiceClient)
-			{
-				std::string s = payload["session_handle"].asString();
-				gVoiceClient->declineInvite(s);
-			}
+		  std::string s = payload["session_handle"].asString();
+		  LLVoiceClient::getInstance()->declineInvite(s);
 		}
 		else
 		{
@@ -2962,7 +2963,7 @@ public:
 				return;
 			}
 			
-			if(!LLVoiceClient::voiceEnabled())
+			if(!LLVoiceClient::getInstance()->voiceEnabled())
 			{
 				// Don't display voice invites unless the user has voice enabled.
 				return;
