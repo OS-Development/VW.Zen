@@ -1532,9 +1532,9 @@ void inventory_offer_handler(LLOfferInfo* info)
 	payload["give_inventory_notification"] = FALSE;
 	args["OBJECTFROMNAME"] = info->mFromName;
 	args["NAME"] = info->mFromName;
-	args["NAME_SLURL"] = LLSLURL::buildCommand("agent", info->mFromID, "about");
+	args["NAME_SLURL"] = LLSLURL("agent", info->mFromID, "about").getSLURLString();
 	std::string verb = "select?name=" + LLURI::escape(msg);
-	args["ITEM_SLURL"] = LLSLURL::buildCommand("inventory", info->mObjectID, verb.c_str());
+	args["ITEM_SLURL"] = LLSLURL("inventory", info->mObjectID, verb.c_str()).getSLURLString();
 
 	LLNotification::Params p("ObjectGiveItem");
 
@@ -2179,10 +2179,7 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 				query_string["groupowned"] = "true";
 			}	
 
-			std::ostringstream link;
-			link << "secondlife:///app/objectim/" << session_id << LLURI::mapToQueryString(query_string);
-
-			chat.mURL = link.str();
+			chat.mURL = LLSLURL("objectim", session_id, "").getSLURLString();
 			chat.mText = message;
 			chat.mSourceType = CHAT_SOURCE_OBJECT;
 
@@ -3082,7 +3079,7 @@ void process_agent_movement_complete(LLMessageSystem* msg, void**)
 			// Chat the "back" SLURL. (DEV-4907)
 
 			LLSD args;
-			args["MESSAGE"] = "Teleport completed from " + gAgent.getTeleportSourceSLURL();
+			args["MESSAGE"] = "Teleport completed from " + gAgent.getTeleportSourceSLURL().getSLURLString();
 			LLNotificationsUtil::add("SystemMessageTip", args);
 
 			// Set the new position
@@ -5397,7 +5394,7 @@ void send_group_notice(const LLUUID& group_id,
 bool handle_lure_callback(const LLSD& notification, const LLSD& response)
 {
 	std::string text = response["message"].asString();
-	text.append("\r\n").append(LLAgentUI::buildSLURL());
+	text.append("\r\n").append(LLAgentUI::buildSLURL().getSLURLString());
 	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 
 	if(0 == option)
@@ -5834,7 +5831,7 @@ void process_covenant_reply(LLMessageSystem* msg, void**)
 	LLFloaterBuyLand::updateEstateName(estate_name);
 
 	std::string owner_name =
-		LLSLURL::buildCommand("agent", estate_owner_id, "inspect");
+		LLSLURL("agent", estate_owner_id, "inspect").getSLURLString();
 	LLPanelEstateCovenant::updateEstateOwnerName(owner_name);
 	LLPanelLandCovenant::updateEstateOwnerName(owner_name);
 	LLFloaterBuyLand::updateEstateOwnerName(owner_name);
