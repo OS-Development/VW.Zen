@@ -44,6 +44,7 @@
 #include "llagent.h"
 #include "llagentwearables.h"
 #include "llagentpilot.h"
+#include "llbottomtray.h"
 #include "llcompilequeue.h"
 #include "llconsole.h"
 #include "lldebugview.h"
@@ -4421,35 +4422,22 @@ bool visible_take_object()
 	return !is_selection_buy_not_take() && enable_take();
 }
 
+bool tools_visible_buy_object()
+{
+	return is_selection_buy_not_take();
+}
+
+bool tools_visible_take_object()
+{
+	return !is_selection_buy_not_take();
+}
+
 class LLToolsEnableBuyOrTake : public view_listener_t
 {
 	bool handleEvent(const LLSD& userdata)
 	{
 		bool is_buy = is_selection_buy_not_take();
 		bool new_value = is_buy ? enable_buy_object() : enable_take();
-
-		// Update label
-		std::string label;
-		std::string buy_text;
-		std::string take_text;
-		std::string param = userdata.asString();
-		std::string::size_type offset = param.find(",");
-		if (offset != param.npos)
-		{
-			buy_text = param.substr(0, offset);
-			take_text = param.substr(offset+1);
-		}
-		if (is_buy)
-		{
-			label = buy_text;
-		}
-		else
-		{
-			label = take_text;
-		}
-		gMenuHolder->childSetText("Pie Object Take", label);
-		gMenuHolder->childSetText("Menu Object Take", label);
-
 		return new_value;
 	}
 };
@@ -6896,7 +6884,8 @@ class LLToolsEditLinkedParts : public view_listener_t
 {
 	bool handleEvent(const LLSD& userdata)
 	{
-		BOOL select_individuals = gSavedSettings.getBOOL("EditLinkedParts");
+		BOOL select_individuals = !gSavedSettings.getBOOL("EditLinkedParts");
+		gSavedSettings.setBOOL( "EditLinkedParts", select_individuals );
 		if (select_individuals)
 		{
 			LLSelectMgr::getInstance()->demoteSelectionToIndividuals();
@@ -7631,6 +7620,24 @@ class LLWorldDayCycle : public view_listener_t
 	}
 };
 
+class LLWorldToggleMovementControls : public view_listener_t
+{
+	bool handleEvent(const LLSD& userdata)
+	{
+		LLBottomTray::getInstance()->toggleMovementControls();
+		return true;
+	}
+};
+
+class LLWorldToggleCameraControls : public view_listener_t
+{
+	bool handleEvent(const LLSD& userdata)
+	{
+		LLBottomTray::getInstance()->toggleCameraControls();
+		return true;
+	}
+};
+
 void show_navbar_context_menu(LLView* ctrl, S32 x, S32 y)
 {
 	static LLMenuGL*	show_navbar_context_menu = LLUICtrlFactory::getInstance()->createFromFile<LLMenuGL>("menu_hide_navbar.xml",
@@ -7750,6 +7757,9 @@ void initialize_menus()
 	view_listener_t::addMenu(new LLWorldPostProcess(), "World.PostProcess");
 	view_listener_t::addMenu(new LLWorldDayCycle(), "World.DayCycle");
 
+	view_listener_t::addMenu(new LLWorldToggleMovementControls(), "World.Toggle.MovementControls");
+	view_listener_t::addMenu(new LLWorldToggleCameraControls(), "World.Toggle.CameraControls");
+
 	// Tools menu
 	view_listener_t::addMenu(new LLToolsSelectTool(), "Tools.SelectTool");
 	view_listener_t::addMenu(new LLToolsSelectOnlyMyObjects(), "Tools.SelectOnlyMyObjects");
@@ -7779,11 +7789,10 @@ void initialize_menus()
 	view_listener_t::addMenu(new LLToolsEnableUnlink(), "Tools.EnableUnlink");
 	view_listener_t::addMenu(new LLToolsEnableBuyOrTake(), "Tools.EnableBuyOrTake");
 	enable.add("Tools.EnableTakeCopy", boost::bind(&enable_object_take_copy));
+	enable.add("Tools.VisibleBuyObject", boost::bind(&tools_visible_buy_object));
+	enable.add("Tools.VisibleTakeObject", boost::bind(&tools_visible_take_object));
 	view_listener_t::addMenu(new LLToolsEnableSaveToInventory(), "Tools.EnableSaveToInventory");
 	view_listener_t::addMenu(new LLToolsEnableSaveToObjectInventory(), "Tools.EnableSaveToObjectInventory");
-
-	/*view_listener_t::addMenu(new LLToolsVisibleBuyObject(), "Tools.VisibleBuyObject");
-	view_listener_t::addMenu(new LLToolsVisibleTakeObject(), "Tools.VisibleTakeObject");*/
 
 	// Help menu
 	// most items use the ShowFloater method

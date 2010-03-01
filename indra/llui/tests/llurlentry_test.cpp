@@ -286,11 +286,11 @@ namespace tut
 				  "XXX secondlife:///App/AGENT/0E346D8B-4433-4d66-a6b0-fd37083abc4c/foobar",
 				  "secondlife:///App/AGENT/0E346D8B-4433-4d66-a6b0-fd37083abc4c/foobar");
 
-		testRegex("Nebraska Agent Url ", url,
+		testRegex("Standalone Agent Url ", url,
 				  "x-grid-location-info://lincoln.lindenlab.com/app/agent/0e346d8b-4433-4d66-a6b0-fd37083abc4c/about",
 				  "x-grid-location-info://lincoln.lindenlab.com/app/agent/0e346d8b-4433-4d66-a6b0-fd37083abc4c/about");		
 
-		testRegex("Nebraska Agent Url Multicase with Text", url,
+		testRegex("Standalone Agent Url Multicase with Text", url,
 				  "M x-grid-location-info://lincoln.lindenlab.com/app/AGENT/0e346d8b-4433-4d66-a6b0-fd37083abc4c/about M",
 				  "x-grid-location-info://lincoln.lindenlab.com/app/AGENT/0e346d8b-4433-4d66-a6b0-fd37083abc4c/about");		
 	}
@@ -323,11 +323,11 @@ namespace tut
 				  "XXX secondlife:///APP/Group/00005FF3-4044-c79f-9de8-fb28ae0df991/About XXX",
 				  "secondlife:///APP/Group/00005FF3-4044-c79f-9de8-fb28ae0df991/About");
 		
-		testRegex("Nebraska Group Url ", url,
+		testRegex("Standalone Group Url ", url,
 				  "x-grid-location-info://lincoln.lindenlab.com/app/group/0e346d8b-4433-4d66-a6b0-fd37083abc4c/about",
 				  "x-grid-location-info://lincoln.lindenlab.com/app/group/0e346d8b-4433-4d66-a6b0-fd37083abc4c/about");		
 		
-		testRegex("Nebraska Group Url Multicase ith Text", url,
+		testRegex("Standalone Group Url Multicase ith Text", url,
 				  "M x-grid-location-info://lincoln.lindenlab.com/app/GROUP/0e346d8b-4433-4d66-a6b0-fd37083abc4c/about M",
 				  "x-grid-location-info://lincoln.lindenlab.com/app/GROUP/0e346d8b-4433-4d66-a6b0-fd37083abc4c/about");		
 		
@@ -379,7 +379,7 @@ namespace tut
 				  "XXX secondlife://A'ksha%20Oasis/41/166/701 XXX",
 			          "secondlife://A%27ksha%20Oasis/41/166/701");
 		
-		testRegex("Nebraska All Hands (50,50) [2] with text", url,
+		testRegex("Standalone All Hands (50,50) [2] with text", url,
 				  "XXX x-grid-location-info://lincoln.lindenlab.com/region/All%20Hands/50/50/50 XXX",
 				  "x-grid-location-info://lincoln.lindenlab.com/region/All%20Hands/50/50/50");		
 	}
@@ -482,7 +482,7 @@ namespace tut
 				  "XXX secondlife:///app/teleport/A'ksha%20Oasis/41/166/701 XXX",
 				  "secondlife:///app/teleport/A%27ksha%20Oasis/41/166/701");
 		
-		testRegex("Nebraska All Hands", url,
+		testRegex("Standalone All Hands", url,
 				  "XXX x-grid-location-info://lincoln.lindenlab.com/app/teleport/All%20Hands/50/50/50 XXX",
 				  "x-grid-location-info://lincoln.lindenlab.com/app/teleport/All%20Hands/50/50/50");		
 	}

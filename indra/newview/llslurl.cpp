@@ -3,9 +3,9 @@
  * @brief Handles "SLURL fragments" like Ahern/123/45 for
  * startup processing, login screen, prefs, etc.
  *
- * $LicenseInfo:firstyear=2006&license=viewergpl$
+ * $LicenseInfo:firstyear=2010&license=viewergpl$
  * 
- * Copyright (c) 2006-2007, Linden Research, Inc.
+ * Copyright (c) 2006-2010, Linden Research, Inc.
  * 
  * Second Life Viewer Source Code
  * The source code in this file ("Source Code") is provided by Linden Lab
@@ -53,8 +53,8 @@ const char* LLSLURL::MAPS_SECONDLIFE_COM	 = "maps.secondlife.com";
 const char* LLSLURL::SLURL_X_GRID_LOCATION_INFO_SCHEME = "x-grid-location-info";
 const char* LLSLURL::SLURL_APP_PATH              = "app";
 const char* LLSLURL::SLURL_REGION_PATH           = "region";
-const char* LLSLURL::SIM_LOCATION_HOME           = "MyHome";
-const char* LLSLURL::SIM_LOCATION_LAST           = "MyLastLocation";
+const char* LLSLURL::SIM_LOCATION_HOME           = "home";
+const char* LLSLURL::SIM_LOCATION_LAST           = "last";
 
 // resolve a simstring from a slurl
 LLSLURL::LLSLURL(const std::string& slurl)
@@ -68,6 +68,7 @@ LLSLURL::LLSLURL(const std::string& slurl)
 	}
 	else if(slurl.empty() || (slurl == SIM_LOCATION_LAST))
 	{
+
 		mType = LAST_LOCATION;
 	}
 	else
@@ -80,14 +81,14 @@ LLSLURL::LLSLURL(const std::string& slurl)
 			// we want to normalize the slurl by putting the appropriate scheme
 			// in front of the slurl.  So, we grab the appropriate slurl base
 			// from the grid manager which may be http://slurl.com/secondlife/ for maingrid, or
-			// https://<hostname>/region/ for nebraska grid (the word region, not the region name)
+			// https://<hostname>/region/ for Standalone grid (the word region, not the region name)
 			// these slurls are typically passed in from the 'starting location' box on the login panel,
 			// where the user can type in <regionname>/<x>/<y>/<z>
-			
 			std::string fixed_slurl = LLGridManager::getInstance()->getSLURLBase();
 			// the slurl that was passed in might have a prepended /, or not.  So,
 			// we strip off the prepended '/' so we don't end up with http://slurl.com/secondlife/<region>/<x>/<y>/<z>
 			// or some such.
+			
 			if(slurl[0] == '/')
 		    {
 				fixed_slurl += slurl.substr(1);
@@ -108,7 +109,7 @@ LLSLURL::LLSLURL(const std::string& slurl)
 		
 		LLSD path_array = slurl_uri.pathArray();
 		
-		// determine whether it's a maingrid URI or an nebraska/open style URI
+		// determine whether it's a maingrid URI or an Standalone/open style URI
 		// by looking at the scheme.  If it's a 'secondlife:' slurl scheme or
 		// 'sl:' scheme, we know it's maingrid
 		
@@ -154,7 +155,7 @@ LLSLURL::LLSLURL(const std::string& slurl)
 				{
 					// for app style slurls, where no grid name is specified, assume the currently
 					// selected or logged in grid.
-					mGrid =  LLGridManager::getInstance()->getGridName();
+					mGrid =  LLGridManager::getInstance()->getGrid();
 				}
 
 				if(mGrid.empty())
@@ -186,7 +187,7 @@ LLSLURL::LLSLURL(const std::string& slurl)
 		   (slurl_uri.scheme() == LLSLURL::SLURL_HTTPS_SCHEME) || 
 		   (slurl_uri.scheme() == LLSLURL::SLURL_X_GRID_LOCATION_INFO_SCHEME))
 		{
-		    // We're dealing with either a nebraska style slurl or slurl.com slurl
+		    // We're dealing with either a Standalone style slurl or slurl.com slurl
 		  if ((slurl_uri.hostName() == LLSLURL::SLURL_COM) ||
 		      (slurl_uri.hostName() == LLSLURL::WWW_SLURL_COM) || 
 		      (slurl_uri.hostName() == LLSLURL::MAPS_SECONDLIFE_COM))
@@ -196,7 +197,7 @@ LLSLURL::LLSLURL(const std::string& slurl)
 			}
 		    else
 			{
-				// As it's a nebraska grid/open, we will always have a hostname, as nebraska/open  style
+				// As it's a Standalone grid/open, we will always have a hostname, as Standalone/open  style
 				// urls are properly formed, unlike the stinky maingrid style
 				mGrid = slurl_uri.hostName();
 			}
@@ -315,7 +316,7 @@ LLSLURL::LLSLURL(const std::string& grid,
 LLSLURL::LLSLURL(const std::string& region, 
 		 const LLVector3& position)
 {
-  *this = LLSLURL(LLGridManager::getInstance()->getGridName(),
+  *this = LLSLURL(LLGridManager::getInstance()->getGrid(),
 		  region, position);
 }
 
@@ -334,7 +335,7 @@ LLSLURL::LLSLURL(const std::string& grid,
 LLSLURL::LLSLURL(const std::string& region, 
 		 const LLVector3d& global_position)
 {
-  *this = LLSLURL(LLGridManager::getInstance()->getGridName(),
+  *this = LLSLURL(LLGridManager::getInstance()->getGrid(),
 		  region, global_position);
 }
 

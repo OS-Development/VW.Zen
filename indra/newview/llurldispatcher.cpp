@@ -170,13 +170,10 @@ bool LLURLDispatcherImpl::dispatchRegion(const LLSLURL& slurl, bool right_mouse)
 	// to tell the user where they are going.
 	if (LLStartUp::getStartupState() < STATE_LOGIN_CLEANUP)
 	{
-		// Parse it and stash in globals, it will be dispatched in
-		// STATE_CLEANUP.
-		LLStartUp::setStartSLURL(slurl);
 		// We're at the login screen, so make sure user can see
 		// the login location box to know where they are going.
 		
-		LLPanelLogin::updateLocationCombo( true );
+		LLPanelLogin::setLocation(slurl);
 		return true;
 	}
 
@@ -204,7 +201,7 @@ void LLURLDispatcherImpl::regionHandleCallback(U64 region_handle, const LLSLURL&
 
   // we can't teleport cross grid at this point
 	if((!LLGridManager::getInstance()->isSystemGrid(slurl.getGrid()) || !LLGridManager::getInstance()->isSystemGrid()) &&
-	   (slurl.getGrid() != LLGridManager::getInstance()->getGridName()))
+	   (slurl.getGrid() != LLGridManager::getInstance()->getGrid()))
 	{
 		LLSD args;
 		args["SLURL"] = slurl.getLocationString();

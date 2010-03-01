@@ -171,7 +171,6 @@ void LLAres::rewriteURI(const std::string &uri, UriRewriteResponder *resp)
 	resp->mUri = LLURI(uri);
 	search("_" + resp->mUri.scheme() + "._tcp." + resp->mUri.hostName(),
 		   RES_SRV, resp);
-	llinfos << "Rewritten " << uri << llendl;
 }
 
 LLQueryResponder::LLQueryResponder()

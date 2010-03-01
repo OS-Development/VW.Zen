@@ -159,7 +159,7 @@ namespace tut
 		LLSD grid = LLGridManager::getInstance()->getGridInfo("util.agni.lindenlab.com");
 		ensure("Grid info for agni is a map", grid.isMap());
 		ensure_equals("name is correct for agni", 
-					  grid[GRID_NAME_VALUE].asString(), std::string("util.agni.lindenlab.com"));
+					  grid[GRID_VALUE].asString(), std::string("util.agni.lindenlab.com"));
 #ifndef LL_RELEASE_FOR_DOWNLOAD		
 		ensure_equals("label is correct for agni", 
 					  grid[GRID_LABEL_VALUE].asString(), std::string("Agni"));
@@ -222,7 +222,7 @@ namespace tut
 #endif \\ LL_RELEASE_FOR_DOWNLOAD
 		
 		ensure_equals("Agni name wasn't modified by grid file",
-					  grid[GRID_NAME_VALUE].asString(), std::string("util.agni.lindenlab.com"));
+					  grid[GRID_VALUE].asString(), std::string("util.agni.lindenlab.com"));
 		ensure("Agni grid URI is still an array after grid file", 
 			   grid[GRID_LOGIN_URI_VALUE].isArray());
 		ensure_equals("Agni login uri still the same after grid file", 
@@ -243,7 +243,7 @@ namespace tut
 					  known_grids["grid1"], std::string("mylabel"));
 		grid = LLGridManager::getInstance()->getGridInfo("grid1");
 		ensure_equals("grid file grid name is set",
-					  grid[GRID_NAME_VALUE].asString(), std::string("grid1"));
+					  grid[GRID_VALUE].asString(), std::string("grid1"));
 		ensure_equals("grid file label is set", 
 					  grid[GRID_LABEL_VALUE].asString(), std::string("mylabel"));
 		ensure("grid file login uri is an array",
@@ -281,7 +281,7 @@ namespace tut
 					  known_grids["my.login.uri"], std::string("my.login.uri"));
 		LLSD grid = LLGridManager::getInstance()->getGridInfo("my.login.uri");
 		ensure_equals("Command line grid name is set",
-					  grid[GRID_NAME_VALUE].asString(), std::string("my.login.uri"));
+					  grid[GRID_VALUE].asString(), std::string("my.login.uri"));
 		ensure_equals("Command line grid label is set", 
 					  grid[GRID_LABEL_VALUE].asString(), std::string("my.login.uri"));
 		ensure("Command line grid login uri is an array",
@@ -310,7 +310,7 @@ namespace tut
 					  known_grids["mycustomgridchoice"], std::string("mycustomgridchoice"));
 		grid = LLGridManager::getInstance()->getGridInfo("mycustomgridchoice");
 		ensure_equals("Custom Command line grid name is set",
-					  grid[GRID_NAME_VALUE].asString(), std::string("mycustomgridchoice"));
+					  grid[GRID_VALUE].asString(), std::string("mycustomgridchoice"));
 		ensure_equals("Custom Command line grid label is set", 
 					  grid[GRID_LABEL_VALUE].asString(), std::string("mycustomgridchoice"));		
 		ensure("Custom Command line grid login uri is an array",
@@ -341,7 +341,7 @@ namespace tut
 		LLSD loginURI = LLSD::emptyArray();
 		LLSD grid = LLSD::emptyMap();
 		// adding a grid with simply a name will populate the values.
-		grid[GRID_NAME_VALUE] = "myaddedgrid";
+		grid[GRID_VALUE] = "myaddedgrid";
 
 		LLGridManager::getInstance()->initialize("grid_test.xml");
 		LLGridManager::getInstance()->addGrid(grid);
@@ -351,7 +351,7 @@ namespace tut
 #else // LL_RELEASE_FOR_DOWNLOAD
 		ensure_equals("getGridLabel", LLGridManager::getInstance()->getGridLabel(), std::string("Secondlife.com"));		
 #endif // LL_RELEASE_FOR_DOWNLOAD
-		ensure_equals("getGridName", LLGridManager::getInstance()->getGridName(), 
+		ensure_equals("getGrid", LLGridManager::getInstance()->getGrid(), 
 					  std::string("util.agni.lindenlab.com"));
 		ensure_equals("getHelperURI", LLGridManager::getInstance()->getHelperURI(), 
 					  std::string("https://secondlife.com/helpers/"));
@@ -381,12 +381,12 @@ namespace tut
 		LLGridManager::getInstance()->initialize("grid_test.xml");
 		LLSD grid = LLSD::emptyMap();
 		// adding a grid with simply a name will populate the values.
-		grid[GRID_NAME_VALUE] = "myaddedgrid";
+		grid[GRID_VALUE] = "myaddedgrid";
 		LLGridManager::getInstance()->addGrid(grid);
 		grid = LLGridManager::getInstance()->getGridInfo("myaddedgrid");
 		
 		ensure_equals("name based grid has name value", 
-					  grid[GRID_NAME_VALUE].asString(),
+					  grid[GRID_VALUE].asString(),
 					  std::string("myaddedgrid"));
 		ensure_equals("name based grid has label value", 
 					  grid[GRID_LABEL_VALUE].asString(),
@@ -422,7 +422,7 @@ namespace tut
 		// without setting the grid to a saveable favorite.
 		LLGridManager::getInstance()->initialize("grid_test.xml");
 		LLSD grid = LLSD::emptyMap();
-		grid[GRID_NAME_VALUE] = std::string("mynewgridname");
+		grid[GRID_VALUE] = std::string("mynewgridname");
 		LLGridManager::getInstance()->addGrid(grid);
 		LLGridManager::getInstance()->saveFavorites();
 		ensure("Grid file exists after saving", 
@@ -459,7 +459,7 @@ namespace tut
 		
 		LLGridManager::getInstance()->initialize("grid_test.xml");
 		LLSD grid = LLSD::emptyMap();
-		grid[GRID_NAME_VALUE] = std::string("mynewgridname");
+		grid[GRID_VALUE] = std::string("mynewgridname");
 		LLGridManager::getInstance()->addGrid(grid);
 		LLGridManager::getInstance()->saveFavorites();
 		// validate we didn't lose existing favorites

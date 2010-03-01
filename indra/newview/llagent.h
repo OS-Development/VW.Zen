@@ -595,7 +595,7 @@ public:
 
 public:
 	static void 	parseTeleportMessages(const std::string& xml_filename);
-	const LLSLURL getTeleportSourceSLURL() const { return mTeleportSourceSLURL; }
+	const void getTeleportSourceSLURL(LLSLURL& slurl) const { slurl = mTeleportSourceSLURL; }
 public:
 	// ! TODO ! Define ERROR and PROGRESS enums here instead of exposing the mappings.
 	static std::map<std::string, std::string> sTeleportErrorMessages;

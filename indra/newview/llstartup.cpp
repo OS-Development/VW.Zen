@@ -121,7 +121,6 @@
 #include "lllogininstance.h" // Host the login module.
 #include "llpanellogin.h"
 #include "llmutelist.h"
-#include "llpanelavatar.h"
 #include "llavatarpropertiesprocessor.h"
 #include "llfloaterevent.h"
 #include "llpanelclassified.h"
@@ -199,10 +198,6 @@
 #if LL_WINDOWS
 #include "llwindebug.h"
 #include "lldxhardware.h"
-#endif
-
-#if (LL_LINUX || LL_SOLARIS) && LL_GTK
-#include <glib/gspawn.h>
 #endif
 
 //
@@ -883,7 +878,9 @@ bool idle_startup()
 
 		if (show_connect_box)
 		{
-			LLStartUp::setStartSLURL(LLPanelLogin::getLocation());
+			LLSLURL slurl;
+			LLPanelLogin::getLocation(slurl);
+			LLStartUp::setStartSLURL(slurl);
 			LLPanelLogin::closePanel();
 		}
 
@@ -1804,9 +1801,11 @@ bool idle_startup()
 		if (!gAgent.isFirstLogin())
 		{
 			llinfos << "gAgentStartLocation : " << gAgentStartLocation << llendl;
-			bool url_ok = (LLStartUp::getStartSLURL().getType() == LLSLURL::LOCATION);
-			if ((url_ok && gAgentStartLocation == "url") ||
-				(!url_ok && ((gAgentStartLocation == gSavedSettings.getString("LoginLocation")))))
+			LLSLURL start_slurl = LLStartUp::getStartSLURL();
+			
+			if (((start_slurl.getType() == LLSLURL::LOCATION) && (gAgentStartLocation == "url")) ||
+				((start_slurl.getType() == LLSLURL::LAST_LOCATION) && (gAgentStartLocation == "last")) ||
+				((start_slurl.getType() == LLSLURL::HOME_LOCATION) && (gAgentStartLocation == "home")))
 			{
 				// Start location is OK
 				// Disabled code to restore camera location and focus if logging in to default location
@@ -1828,17 +1827,23 @@ bool idle_startup()
 			else
 			{
 				std::string msg;
-				if (url_ok)
+				switch(start_slurl.getType())
 				{
-					msg = "AvatarMovedDesired";
-				}
-				else if (gSavedSettings.getString("LoginLocation") == "home")
-				{
-					msg = "AvatarMovedHome";
-				}
-				else
-				{
-					msg = "AvatarMovedLast";
+					case LLSLURL::LOCATION:
+					{
+						
+						msg = "AvatarMovedDesired";
+						break;
+					}
+					case LLSLURL::HOME_LOCATION:
+					{
+						msg = "AvatarMovedHome";
+						break;
+					}
+					default:
+					{
+						msg = "AvatarMovedLast";
+					}
 				}
 				LLNotificationsUtil::add(msg);
 			}
@@ -2851,7 +2856,9 @@ bool process_login_success_response()
 	text = response["agent_region_access"].asString();
 	if (!text.empty())
 	{
-		int preferredMaturity = LLAgent::convertTextToMaturity(text[0]);
+		U32 preferredMaturity =
+			llmin((U32)LLAgent::convertTextToMaturity(text[0]),
+			      gSavedSettings.getU32("PreferredMaturity"));
 		gSavedSettings.setU32("PreferredMaturity", preferredMaturity);
 	}
 	// During the AO transition, this flag will be true. Then the flag will
@@ -2927,7 +2934,7 @@ bool process_login_success_response()
 		// replace the default help URL format
 		gSavedSettings.setString("HelpURLFormat",text);
 		
-		// don't fall back to Nebraska's pre-connection static help
+		// don't fall back to Standalone's pre-connection static help
 		gSavedSettings.setBOOL("HelpUseLocal", false);
 	}
 			

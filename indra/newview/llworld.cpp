@@ -658,6 +658,9 @@ void LLWorld::updateParticles()
 
 void LLWorld::updateClouds(const F32 dt)
 {
+	static LLFastTimer::DeclareTimer ftm("World Clouds");
+	LLFastTimer t(ftm);
+
 	if (gSavedSettings.getBOOL("FreezeTime") ||
 		!gSavedSettings.getBOOL("SkyUseClassicClouds"))
 	{

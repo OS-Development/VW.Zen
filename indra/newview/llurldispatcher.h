@@ -2,9 +2,9 @@
  * @file llurldispatcher.h
  * @brief Central registry for all SL URL handlers
  *
- * $LicenseInfo:firstyear=2007&license=viewergpl$
+ * $LicenseInfo:firstyear=2010&license=viewergpl$
  * 
- * Copyright (c) 2007, Linden Research, Inc.
+ * Copyright (c) 2007-2010, Linden Research, Inc.
  * 
  * Second Life Viewer Source Code
  * The source code in this file ("Source Code") is provided by Linden Lab
@@ -30,7 +30,6 @@
  */
 #ifndef LLURLDISPATCHER_H
 #define LLURLDISPATCHER_H
-#include "llslurl.h"
 class LLMediaCtrl;
 
 

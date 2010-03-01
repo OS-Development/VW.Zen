@@ -587,7 +587,7 @@ bool LLAppViewer::init()
 	gDirUtilp->initAppDirs("SecondLife");
 	// set skin search path to default, will be overridden later
 	// this allows simple skinned file lookups to work
-	gDirUtilp->setSkinFolder("base");
+	gDirUtilp->setSkinFolder("default");
 
 	initLogging();
 	
@@ -2111,7 +2111,7 @@ bool LLAppViewer::initConfiguration()
     {   
 		// hack to force the skin to default.
         //gDirUtilp->setSkinFolder(skinfolder->getValue().asString());
-		gDirUtilp->setSkinFolder("base");
+		gDirUtilp->setSkinFolder("default");
     }
 
     mYieldTime = gSavedSettings.getS32("YieldTime");
@@ -2634,7 +2634,7 @@ void LLAppViewer::handleViewerCrash()
 	if (LLWorld::instanceExists()) LLWorld::getInstance()->getInfo(gDebugInfo);
 
 	// Close the debug file
-	//pApp->writeDebugInfo();
+	pApp->writeDebugInfo();
 
 	LLError::logToFile("");
 
@@ -3547,13 +3547,15 @@ void LLAppViewer::idle()
 
 	{
 		// Handle pending gesture processing
+		static LLFastTimer::DeclareTimer ftm("Agent Position");
+		LLFastTimer t(ftm);
 		LLGestureManager::instance().update();
 
 		gAgent.updateAgentPosition(gFrameDTClamped, yaw, current_mouse.mX, current_mouse.mY);
 	}
 
 	{
-		LLFastTimer t(FTM_OBJECTLIST_UPDATE); // Actually "object update"
+		LLFastTimer t(FTM_OBJECTLIST_UPDATE); 
 		
         if (!(logoutRequestSent() && hasSavedFinalSnapshot()))
 		{
@@ -3587,6 +3589,8 @@ void LLAppViewer::idle()
 	//
 
 	{
+		static LLFastTimer::DeclareTimer ftm("HUD Effects");
+		LLFastTimer t(ftm);
 		LLSelectMgr::getInstance()->updateEffects();
 		LLHUDManager::getInstance()->cleanupEffects();
 		LLHUDManager::getInstance()->sendEffects();
@@ -3843,7 +3847,7 @@ void LLAppViewer::sendLogoutRequest()
 static F32 CheckMessagesMaxTime = CHECK_MESSAGES_DEFAULT_MAX_TIME;
 #endif
 
-static LLFastTimer::DeclareTimer FTM_IDLE_NETWORK("Network");
+static LLFastTimer::DeclareTimer FTM_IDLE_NETWORK("Idle Network");
 
 void LLAppViewer::idleNetwork()
 {

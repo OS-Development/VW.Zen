@@ -722,6 +722,7 @@ void LLViewerMedia::updateMedia(void *dummy_arg)
 	std::vector<LLViewerMediaImpl*> proximity_order;
 	
 	bool inworld_media_enabled = gSavedSettings.getBOOL("AudioStreamingMedia");
+	bool inworld_audio_enabled = gSavedSettings.getBOOL("AudioStreamingMusic");
 	U32 max_instances = gSavedSettings.getU32("PluginInstancesTotal");
 	U32 max_normal = gSavedSettings.getU32("PluginInstancesNormal");
 	U32 max_low = gSavedSettings.getU32("PluginInstancesLow");
@@ -849,7 +850,14 @@ void LLViewerMedia::updateMedia(void *dummy_arg)
 				new_priority = LLPluginClassMedia::PRIORITY_UNLOADED;
 			}
 		}
-					
+		// update the audio stream here as well
+		if(!inworld_media_enabled || !inworld_audio_enabled)
+		{
+			if(LLViewerMedia::isParcelAudioPlaying() && gAudiop && LLViewerMedia::hasParcelAudio())
+			{
+				gAudiop->stopInternetStream();
+			}
+		}
 		pimpl->setPriority(new_priority);
 		
 		if(pimpl->getUsedInUI())
@@ -944,7 +952,10 @@ void LLViewerMedia::setAllMediaEnabled(bool val)
 			LLViewerParcelMedia::play(LLViewerParcelMgr::getInstance()->getAgentParcel());
 		}
 		
-		if (!LLViewerMedia::isParcelAudioPlaying() && gAudiop && LLViewerMedia::hasParcelAudio())
+		if (gSavedSettings.getBOOL("AudioStreamingMusic") &&
+			!LLViewerMedia::isParcelAudioPlaying() &&
+			gAudiop && 
+			LLViewerMedia::hasParcelAudio())
 		{
 			gAudiop->startInternetStream(LLViewerMedia::getParcelAudioURL());
 		}
@@ -972,7 +983,6 @@ bool LLViewerMedia::isParcelAudioPlaying()
 
 bool LLViewerMedia::hasInWorldMedia()
 {
-	if (! gSavedSettings.getBOOL("AudioStreamingMedia")) return false;
 	if (sInWorldMediaDisabled) return false;
 	impl_list::iterator iter = sViewerMediaImplList.begin();
 	impl_list::iterator end = sViewerMediaImplList.end();
@@ -1318,6 +1328,9 @@ void LLViewerMediaImpl::loadURI()
 {
 	if(mMediaSource)
 	{
+		// trim whitespace from front and back of URL - fixes EXT-5363
+		LLStringUtil::trim( mMediaURL );
+
 		// *HACK: we don't know if the URI coming in is properly escaped
 		// (the contract doesn't specify whether it is escaped or not.
 		// but LLQtWebKit expects it to be, so we do our best to encode

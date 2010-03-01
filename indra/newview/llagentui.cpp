@@ -77,15 +77,15 @@ void LLAgentUI::buildFullname(std::string& name)
 }
 
 //static
-LLSLURL LLAgentUI::buildSLURL(const bool escaped /*= true*/)
+void LLAgentUI::buildSLURL(LLSLURL& slurl, const bool escaped /*= true*/)
 {
-      LLSLURL slurl;
+      LLSLURL return_slurl;
       LLViewerRegion *regionp = gAgent.getRegion();
       if (regionp)
       {
-		  slurl = LLSLURL(regionp->getName(), gAgent.getPositionGlobal());
+		  return_slurl = LLSLURL(regionp->getName(), gAgent.getPositionGlobal());
       }
-      return slurl;
+	slurl = return_slurl;
 }
 
 //static

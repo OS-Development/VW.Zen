@@ -1369,6 +1369,7 @@ void LLSecAPIBasicHandler::saveCredential(LLPointer<LLCredential> cred, bool sav
 	setProtectedData("credential", cred->getGrid(), credential);
 	//*TODO: If we're saving Agni credentials, should we write the
 	// credentials to the legacy password.dat/etc?
+	_writeProtectedData();
 }
 
 // Remove a credential from the credential store.
@@ -1377,6 +1378,7 @@ void LLSecAPIBasicHandler::deleteCredential(LLPointer<LLCredential> cred)
 	LLSD undefVal;
 	deleteProtectedData("credential", cred->getGrid());
 	cred->setCredentialData(undefVal, undefVal);
+	_writeProtectedData();
 }
 
 // load the legacy hash for agni, and decrypt it given the 

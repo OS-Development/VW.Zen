@@ -35,7 +35,7 @@
                                                                                                        
 extern const char* DEFAULT_LOGIN_PAGE;
       
-#define GRID_NAME_VALUE "name"
+#define GRID_VALUE "name"
 #define GRID_LABEL_VALUE "label"
 #define GRID_ID_VALUE "grid_login_id"
 #define GRID_LOGIN_URI_VALUE "login_uri"
@@ -58,11 +58,11 @@ extern const char* DEFAULT_LOGIN_PAGE;
 class LLInvalidGridName
 {
 public:
-	LLInvalidGridName(std::string grid_name) : mGridName(grid_name)
+	LLInvalidGridName(std::string grid) : mGrid(grid)
 	{
 	}
 protected:
-	std::string mGridName;
+	std::string mGrid;
 };
 
 
@@ -92,11 +92,11 @@ public:
 	// by default only return the user visible grids
 	std::map<std::string, std::string> getKnownGrids(bool favorites_only=FALSE);
 	
-	LLSD getGridInfo(const std::string& grid_name)
+	LLSD getGridInfo(const std::string& grid)
 	{
-		if(mGridList.has(grid_name))
+		if(mGridList.has(grid))
 		{
-			return mGridList[grid_name];
+			return mGridList[grid];
 		}
 		else
 		{
@@ -109,25 +109,25 @@ public:
 	// select a given grid as the current grid.  If the grid
 	// is not a known grid, then it's assumed to be a dns name for the
 	// grid, and the various URIs will be automatically generated.
-	void setGridChoice(const std::string& grid_name);
+	void setGridChoice(const std::string& grid);
 	
 	
-	std::string getGridLabel() { return mGridList[mGridName][GRID_LABEL_VALUE]; } 	
-	std::string getGridName() const { return mGridName; }
+	std::string getGridLabel() { return mGridList[mGrid][GRID_LABEL_VALUE]; } 	
+	std::string getGrid() const { return mGrid; }
 	void getLoginURIs(std::vector<std::string>& uris);
-	std::string getHelperURI() {return mGridList[mGridName][GRID_HELPER_URI_VALUE];}
-	std::string getLoginPage() {return mGridList[mGridName][GRID_LOGIN_PAGE_VALUE];}
-	std::string getGridID() { return mGridList[mGridName][GRID_ID_VALUE]; }	
-	std::string getLoginPage(const std::string& grid_name) { return mGridList[grid_name][GRID_LOGIN_PAGE_VALUE]; }
+	std::string getHelperURI() {return mGridList[mGrid][GRID_HELPER_URI_VALUE];}
+	std::string getLoginPage() {return mGridList[mGrid][GRID_LOGIN_PAGE_VALUE];}
+	std::string getGridLoginID() { return mGridList[mGrid][GRID_ID_VALUE]; }	
+	std::string getLoginPage(const std::string& grid) { return mGridList[grid][GRID_LOGIN_PAGE_VALUE]; }
 	
 	// build a slurl for the given region within the selected grid
-	std::string getSLURLBase(const std::string& grid_name);
-	std::string getSLURLBase() { return getSLURLBase(mGridName); }
+	std::string getSLURLBase(const std::string& grid);
+	std::string getSLURLBase() { return getSLURLBase(mGrid); }
 	
-	std::string getAppSLURLBase(const std::string& grid_name);
-	std::string getAppSLURLBase() { return getAppSLURLBase(mGridName); }	
+	std::string getAppSLURLBase(const std::string& grid);
+	std::string getAppSLURLBase() { return getAppSLURLBase(mGrid); }	
 	
-	LLSD getGridInfo() { return mGridList[mGridName]; }
+	LLSD getGridInfo() { return mGridList[mGrid]; }
 	
 	std::string getGridByLabel( const std::string &grid_label);
 	
@@ -137,10 +137,10 @@ public:
 		      mGridList[grid].has(GRID_IS_SYSTEM_GRID_VALUE) && 
 	           mGridList[grid][GRID_IS_SYSTEM_GRID_VALUE].asBoolean(); 
 	}
-	bool isSystemGrid() { return isSystemGrid(mGridName); }
+	bool isSystemGrid() { return isSystemGrid(mGrid); }
 	// Mark this grid as a favorite that should be persisited on 'save'
 	// this is currently used to persist a grid after a successful login
-	void setFavorite() { mGridList[mGridName][GRID_IS_FAVORITE_VALUE] = TRUE; }
+	void setFavorite() { mGridList[mGrid][GRID_IS_FAVORITE_VALUE] = TRUE; }
 	
 	bool isInProductionGrid();
 	void saveFavorites();
@@ -157,7 +157,7 @@ protected:
 					   const std::string& login_id = "");	
 	
 	
-	std::string mGridName;
+	std::string mGrid;
 	std::string mGridFile;
 	LLSD mGridList;
 };

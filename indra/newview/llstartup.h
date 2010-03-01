@@ -34,11 +34,11 @@
 #define LL_LLSTARTUP_H
 
 #include <boost/scoped_ptr.hpp>
-#include "llslurl.h"
 
 class LLViewerTexture ;
 class LLEventPump;
 class LLStartupListener;
+class LLSLURL;
 
 // functions
 bool idle_startup();

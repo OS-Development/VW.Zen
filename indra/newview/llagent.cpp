@@ -3018,6 +3018,9 @@ void LLAgent::endAnimationUpdateUI()
 //-----------------------------------------------------------------------------
 void LLAgent::updateCamera()
 {
+	static LLFastTimer::DeclareTimer ftm("Camera");
+	LLFastTimer t(ftm);
+
 	//Ventrella - changed camera_skyward to the new global "mCameraUpVector"
 	mCameraUpVector = LLVector3::z_axis;
 	//LLVector3	camera_skyward(0.f, 0.f, 1.f);
@@ -6126,7 +6129,7 @@ void LLAgent::setTeleportState(ETeleportState state)
 	if (mTeleportState == TELEPORT_MOVING)
 	{
 		// We're outa here. Save "back" slurl.
-		mTeleportSourceSLURL = LLAgentUI::buildSLURL();
+		LLAgentUI::buildSLURL(mTeleportSourceSLURL);
 	}
 	else if(mTeleportState == TELEPORT_ARRIVING)
 	{

@@ -124,7 +124,9 @@ void LLFloaterReporter::processRegionInfo(LLMessageSystem* msg)
 // virtual
 BOOL LLFloaterReporter::postBuild()
 {
-	childSetText("abuse_location_edit", LLAgentUI::buildSLURL().getSLURLString());
+	LLSLURL slurl;
+	LLAgentUI::buildSLURL(slurl);
+	childSetText("abuse_location_edit", slurl.getSLURLString());
 
 	enableControls(TRUE);
 

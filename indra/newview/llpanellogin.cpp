@@ -509,8 +509,8 @@ void LLPanelLogin::showLoginWidgets()
 	// *TODO: Append all the usual login parameters, like first_login=Y etc.
 	std::string splash_screen_url = sInstance->getString("real_url");
 	web_browser->navigateTo( splash_screen_url, "text/html" );
-	LLUICtrl* first_name_edit = sInstance->getChild<LLUICtrl>("first_name_edit");
-	first_name_edit->setFocus(TRUE);
+	LLUICtrl* username_edit = sInstance->getChild<LLUICtrl>("username_edit");
+	username_edit->setFocus(TRUE);
 }
 
 // static
@@ -582,7 +582,7 @@ void LLPanelLogin::setFields(LLPointer<LLCredential> credential,
 
 // static
 void LLPanelLogin::getFields(LLPointer<LLCredential>& credential,
-							 BOOL &remember)
+							 BOOL remember)
 {
 	if (!sInstance)
 	{
@@ -593,7 +593,7 @@ void LLPanelLogin::getFields(LLPointer<LLCredential>& credential,
 	// load the credential so we can pass back the stored password or hash if the user did
 	// not modify the password field.
 	
-	credential = gSecAPIHandler->loadCredential(LLGridManager::getInstance()->getGridName());
+	credential = gSecAPIHandler->loadCredential(LLGridManager::getInstance()->getGrid());
 
 	LLSD identifier = LLSD::emptyMap();
 	LLSD authenticator = LLSD::emptyMap();
@@ -644,7 +644,7 @@ void LLPanelLogin::getFields(LLPointer<LLCredential>& credential,
 			authenticator["secret"] = md5pass;
 		}
 	}
-	credential = gSecAPIHandler->createCredential(LLGridManager::getInstance()->getGridName(), identifier, authenticator);
+	credential = gSecAPIHandler->createCredential(LLGridManager::getInstance()->getGrid(), identifier, authenticator);
 	remember = sInstance->childGetValue("remember_check");
 }
 
@@ -710,10 +710,10 @@ void LLPanelLogin::updateLocationCombo( bool force_visible )
 			break;
 		}
 		case LLSLURL::HOME_LOCATION:
-			combo->setCurrentByIndex(0);
+			combo->setCurrentByIndex(1);
 			break;
 		default:
-			combo->setCurrentByIndex(1);
+			combo->setCurrentByIndex(0);
 			break;
 	}
 	
@@ -776,13 +776,12 @@ void LLPanelLogin::onSelectLocation(LLUICtrl*, void*)
 
 
 // static
-LLSLURL LLPanelLogin::getLocation()
+void LLPanelLogin::getLocation(LLSLURL& slurl)
 {
 	LLSLURL result;
 	if (!sInstance)
 	{
 		llwarns << "Attempted getLocation with no login view shown" << llendl;
-		return result;
 	}
 	
 	LLComboBox* combo = sInstance->getChild<LLComboBox>("start_location_combo");
@@ -790,13 +789,20 @@ LLSLURL LLPanelLogin::getLocation()
 	switch(combo->getCurrentIndex())
 	{
 		case 0:
-			return LLSLURL(LLSLURL::SIM_LOCATION_HOME);
+			slurl = LLSLURL(LLSLURL::SIM_LOCATION_HOME);
 		case 1:
-			return LLSLURL(LLSLURL::SIM_LOCATION_LAST);
+			slurl =  LLSLURL(LLSLURL::SIM_LOCATION_LAST);
 		default:
-			// construct a real slurl
-			return LLSLURL(LLURI::escape(combo->getValue().asString()));
+			slurl = LLSLURL(combo->getValue().asString());
 	}
+}
+
+void LLPanelLogin::setLocation(const LLSLURL& slurl)
+{
+	LLStartUp::setStartSLURL(slurl);
+	LLGridManager::getInstance()->setGridChoice(slurl.getGrid());
+	updateServer();
+	
 }
 
 // static
@@ -870,7 +876,7 @@ void LLPanelLogin::loadLoginPage()
 	curl_free(curl_version);
 
 	// Grid
-	char* curl_grid = curl_escape(LLGridManager::getInstance()->getGridID().c_str(), 0);
+	char* curl_grid = curl_escape(LLGridManager::getInstance()->getGridLoginID().c_str(), 0);
 	oStr << "&grid=" << curl_grid;
 	curl_free(curl_grid);
 	gViewerWindow->setMenuBackgroundColor(false, !LLGridManager::getInstance()->isInProductionGrid());
@@ -1092,18 +1098,17 @@ void LLPanelLogin::onPassKey(LLLineEditor* caller, void* user_data)
 }
 
 
-void LLPanelLogin::updateServer(std::string grid)
+void LLPanelLogin::updateServer()
 {
 	try 
 	{
-		LLGridManager::getInstance()->setGridChoice(grid);
 
 		updateServerCombo();	
 		// if they've selected another grid, we should load the credentials
 		// for that grid and set them to the UI.
 		if(sInstance && !sInstance->areCredentialFieldsDirty())
 		{
-			LLPointer<LLCredential> credential = gSecAPIHandler->loadCredential(grid);	
+			LLPointer<LLCredential> credential = gSecAPIHandler->loadCredential(LLGridManager::getInstance()->getGrid());	
 			bool remember = sInstance->childGetValue("remember_check");
 			sInstance->setFields(credential, remember);
 		}
@@ -1114,7 +1119,8 @@ void LLPanelLogin::updateServer(std::string grid)
 	catch (LLInvalidGridName ex)
 	{
 		// do nothing
-	}}
+	}
+}
 
 void LLPanelLogin::updateServerCombo()
 {
@@ -1143,7 +1149,7 @@ void LLPanelLogin::updateServerCombo()
 	server_choice_combo->addSeparator(ADD_TOP);
 	
 	server_choice_combo->add(LLGridManager::getInstance()->getGridLabel(), 
-		LLGridManager::getInstance()->getGridName(), ADD_TOP);	
+		LLGridManager::getInstance()->getGrid(), ADD_TOP);	
 	
 	server_choice_combo->selectFirstItem();	
 }
@@ -1169,10 +1175,10 @@ void LLPanelLogin::onSelectServer(LLUICtrl*, void*)
 	combo = sInstance->getChild<LLComboBox>("start_location_combo");	
 	combo->setCurrentByIndex(1);
 	LLStartUp::setStartSLURL(LLSLURL(LLSLURL::SIM_LOCATION_LAST));
-	
-	// This new seelction will override preset uris
+	LLGridManager::getInstance()->setGridChoice(combo_val.asString());
+	// This new selection will override preset uris
 	// from the command line.
-	updateServer(combo_val.asString());
+	updateServer();
 	updateLoginPanelLinks();
 }
 

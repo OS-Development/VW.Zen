@@ -37,12 +37,12 @@
 #include "llpointer.h"			// LLPointer<>
 #include "llmediactrl.h"	// LLMediaCtrlObserver
 #include <boost/scoped_ptr.hpp>
-#include "llsecapi.h"
-#include "llslurl.h"
 
 class LLLineEditor;
 class LLUIImage;
 class LLPanelLoginListener;
+class LLSLURL;
+class LLCredential;
 
 class LLPanelLogin:	
 	public LLPanel,
@@ -69,11 +69,12 @@ public:
 
 	static void setFields(LLPointer<LLCredential> credential, BOOL remember);
 
-	static void getFields(LLPointer<LLCredential>& credential, BOOL& remember);
+	static void getFields(LLPointer<LLCredential>& credential, BOOL remember);
 
 	static BOOL isGridComboDirty();
 	static BOOL areCredentialFieldsDirty();
-	static LLSLURL getLocation();
+	static void getLocation(LLSLURL& slurl);
+	static void setLocation(const LLSLURL& slurl);
 	
 	static void updateLocationCombo(bool force_visible);  // simply update the combo box
 	static void closePanel();
@@ -102,7 +103,7 @@ private:
 	static void updateServerCombo();
 	static void onSelectLocation(LLUICtrl*, void*);
 	
-	static void updateServer(std::string grid);  // update the combo box, change the login page to the new server, clear the combo
+	static void updateServer();  // update the combo box, change the login page to the new server, clear the combo
 	static void updateLoginPanelLinks();
 
 private:

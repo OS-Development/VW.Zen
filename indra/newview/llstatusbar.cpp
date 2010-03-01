@@ -239,25 +239,17 @@ BOOL LLStatusBar::postBuild()
 
 	childSetActionTextbox("stat_btn", onClickStatGraph);
 
+	LLView* popup_holder = gViewerWindow->getRootView()->getChildView("popup_holder");
+
 	mPanelVolumePulldown = new LLPanelVolumePulldown();
-	addChild(mPanelVolumePulldown);
+	popup_holder->addChild(mPanelVolumePulldown);
 
 	mPanelNearByMedia = new LLPanelNearByMedia();
-	LLView* popup_holder = gViewerWindow->getRootView()->getChildView("popup_holder");
 	popup_holder->addChild(mPanelNearByMedia);
 	gViewerWindow->getRootView()->addMouseDownCallback(boost::bind(&LLStatusBar::onClickScreen, this, _1, _2));
 	mPanelNearByMedia->setFollows(FOLLOWS_TOP|FOLLOWS_RIGHT);
 	mPanelNearByMedia->setVisible(FALSE);
 
-	LLRect volume_pulldown_rect = mPanelVolumePulldown->getRect();
-	LLButton* volbtn =  getChild<LLButton>( "volume_btn" );
-	volume_pulldown_rect.setLeftTopAndSize(volbtn->getRect().mLeft -
-	     (volume_pulldown_rect.getWidth() - volbtn->getRect().getWidth())/2,
-			       volbtn->calcScreenRect().mBottom,
-			       volume_pulldown_rect.getWidth(),
-			       volume_pulldown_rect.getHeight());
-
-	mPanelVolumePulldown->setShape(volume_pulldown_rect);
 	mPanelVolumePulldown->setFollows(FOLLOWS_TOP|FOLLOWS_RIGHT);
 	mPanelVolumePulldown->setVisible(FALSE);
 
@@ -366,8 +358,10 @@ void LLStatusBar::refresh()
 	bool mute_audio = LLAppViewer::instance()->getMasterSystemAudioMute();
 	mBtnVolume->setToggleState(mute_audio);
 	
-	// Don't show media toggle if there's no media, parcel media, and no parcel audio
-	mMediaToggle->setVisible(LLViewerMedia::hasInWorldMedia() || LLViewerMedia::hasParcelMedia() || LLViewerMedia::hasParcelAudio());
+	// Disable media toggle if there's no media, parcel media, and no parcel audio
+	// (or if media is disabled)
+	mMediaToggle->setEnabled(gSavedSettings.getBOOL("AudioStreamingMedia") && 
+							 (LLViewerMedia::hasInWorldMedia() || LLViewerMedia::hasParcelMedia() || LLViewerMedia::hasParcelAudio()));
 	// Note the "sense" of the toggle is opposite whether media is playing or not
 	mMediaToggle->setValue(! (LLViewerMedia::isAnyMediaShowing() || 
 							  LLViewerMedia::isParcelMediaPlaying() ||
@@ -531,8 +525,21 @@ static void onClickScriptDebug(void*)
 
 void LLStatusBar::onMouseEnterVolume()
 {
+	LLButton* volbtn =  getChild<LLButton>( "volume_btn" );
+	LLRect vol_btn_screen_rect = volbtn->calcScreenRect();
+	LLRect volume_pulldown_rect = mPanelVolumePulldown->getRect();
+	volume_pulldown_rect.setLeftTopAndSize(vol_btn_screen_rect.mLeft -
+	     (volume_pulldown_rect.getWidth() - vol_btn_screen_rect.getWidth())/2,
+			       vol_btn_screen_rect.mBottom,
+			       volume_pulldown_rect.getWidth(),
+			       volume_pulldown_rect.getHeight());
+
+	mPanelVolumePulldown->setShape(volume_pulldown_rect);
+
+
 	// show the master volume pull-down
 	mPanelVolumePulldown->setVisible(TRUE);
+	mPanelNearByMedia->setVisible(FALSE);
 }
 
 void LLStatusBar::onMouseEnterNearbyMedia()
@@ -542,16 +549,17 @@ void LLStatusBar::onMouseEnterNearbyMedia()
 	LLButton* nearby_media_btn =  getChild<LLButton>( "media_toggle_btn" );
 	LLRect nearby_media_btn_rect = nearby_media_btn->calcScreenRect();
 	nearby_media_rect.setLeftTopAndSize(nearby_media_btn_rect.mLeft - 
-		(nearby_media_rect.getWidth() - nearby_media_btn_rect.getWidth())/2,
-		nearby_media_btn_rect.mBottom,
-		nearby_media_rect.getWidth(),
-		nearby_media_rect.getHeight());
+										(nearby_media_rect.getWidth() - nearby_media_btn_rect.getWidth())/2,
+										nearby_media_btn_rect.mBottom,
+										nearby_media_rect.getWidth(),
+										nearby_media_rect.getHeight());
 	// force onscreen
 	nearby_media_rect.translate(popup_holder->getRect().getWidth() - nearby_media_rect.mRight, 0);
-
+	
 	// show the master volume pull-down
 	mPanelNearByMedia->setShape(nearby_media_rect);
 	mPanelNearByMedia->setVisible(TRUE);
+	mPanelVolumePulldown->setVisible(FALSE);
 }
 
 

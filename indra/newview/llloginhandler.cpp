@@ -77,7 +77,7 @@ void LLLoginHandler::parse(const LLSD& queryMap)
 	
 	if (startLocation == "specify")
 	{
-	  LLStartUp::setStartSLURL(LLSLURL(LLGridManager::getInstance()->getGridID(),
+	  LLStartUp::setStartSLURL(LLSLURL(LLGridManager::getInstance()->getGridLoginID(),
 					   queryMap["region"].asString()));
 	}
 	else if (startLocation == "home")
@@ -165,7 +165,7 @@ LLPointer<LLCredential> LLLoginHandler::initializeLoginInfo()
 	result = loadSavedUserLoginInfo();                                                                                   
 	if (result.isNull())                                                                                                 
 	{                                                                                                                    
-		result =  gSecAPIHandler->loadCredential(LLGridManager::getInstance()->getGridName());                       
+		result =  gSecAPIHandler->loadCredential(LLGridManager::getInstance()->getGrid());                       
 	}                                                                                                                    
 	
 	return result;                                                                                                       
@@ -194,7 +194,7 @@ LLPointer<LLCredential> LLLoginHandler::loadSavedUserLoginInfo()
 		authenticator["secret"] = md5pass;
 		// yuck, we'll fix this with mani's changes.
 		gSavedSettings.setBOOL("AutoLogin", TRUE);
-		return gSecAPIHandler->createCredential(LLGridManager::getInstance()->getGridName(), 
+		return gSecAPIHandler->createCredential(LLGridManager::getInstance()->getGrid(), 
 													   identifier, authenticator);
 	}
 	return NULL;

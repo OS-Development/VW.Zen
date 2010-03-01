@@ -76,7 +76,6 @@ public:
 	S32 mByteAccumulator;
 	bool mIsBodyLimitSet;
 	LLURLRequest::SSLCertVerifyCallback mSSLVerifyCallback;
-	void * mSSLVerifyParam;
 };
 
 LLURLRequestDetail::LLURLRequestDetail() :
@@ -103,7 +102,6 @@ LLURLRequestDetail::~LLURLRequestDetail()
 void LLURLRequest::setSSLVerifyCallback(SSLCertVerifyCallback callback, void *param)
 {
 	mDetail->mSSLVerifyCallback = callback;
-	mDetail->mSSLVerifyParam = param;
 	mDetail->mCurlRequest->setSSLCtxCallback(LLURLRequest::_sslCtxCallback, (void *)this);
 	mDetail->mCurlRequest->setopt(CURLOPT_SSL_VERIFYPEER, true);
 	mDetail->mCurlRequest->setopt(CURLOPT_SSL_VERIFYHOST, 2);	

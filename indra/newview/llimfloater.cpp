@@ -111,6 +111,8 @@ LLIMFloater::LLIMFloater(const LLUUID& session_id)
 	setOverlapsScreenChannel(true);
 
 	LLTransientFloaterMgr::getInstance()->addControlView(LLTransientFloaterMgr::IM, this);
+
+	setDocked(true);
 }
 
 void LLIMFloater::onFocusLost()
@@ -441,7 +443,7 @@ LLIMFloater* LLIMFloater::show(const LLUUID& session_id)
 
 void LLIMFloater::getAllowedRect(LLRect& rect)
 {
-	rect = gViewerWindow->getWorldViewRectRaw();
+	rect = gViewerWindow->getWorldViewRectScaled();
 	static S32 right_padding = 0;
 	if (right_padding == 0)
 	{
@@ -632,12 +634,14 @@ void LLIMFloater::updateMessages()
 			LLUUID from_id = msg["from_id"].asUUID();
 			std::string from = msg["from"].asString();
 			std::string message = msg["message"].asString();
+			bool is_history = msg["is_history"].asBoolean();
 
 			LLChat chat;
 			chat.mFromID = from_id;
 			chat.mSessionID = mSessionID;
 			chat.mFromName = from;
 			chat.mTimeStr = time;
+			chat.mChatStyle = is_history ? CHAT_STYLE_HISTORY : chat.mChatStyle;
 
 			// process offer notification
 			if (msg.has("notification_id"))

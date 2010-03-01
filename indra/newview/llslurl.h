@@ -3,9 +3,9 @@
  * @brief Handles "SLURL fragments" like Ahern/123/45 for
  * startup processing, login screen, prefs, etc.
  *
- * $LicenseInfo:firstyear=2009&license=viewergpl$
+ * $LicenseInfo:firstyear=2010&license=viewergpl$
  * 
- * Copyright (c) 2009, Linden Research, Inc.
+ * Copyright (c) 2006-2010, Linden Research, Inc.
  * 
  * Second Life Viewer Source Code
  * The source code in this file ("Source Code") is provided by Linden Lab
@@ -94,7 +94,6 @@ public:
 	bool operator!=(const LLSLURL&rhs);
 
     std::string asString() const ;
-
 
 protected:
 	SLURL_TYPE mType;

@@ -466,21 +466,30 @@ std::string construct_start_string()
 {
 	std::string start;
 	LLSLURL start_slurl = LLStartUp::getStartSLURL();
-	if (start_slurl.getType() == LLSLURL::LOCATION)
+	switch(start_slurl.getType())
 	{
-		// a startup URL was specified
-		LLVector3 position = start_slurl.getPosition();
-		std::string unescaped_start = 
+		case LLSLURL::LOCATION:
+		{
+			// a startup URL was specified
+			LLVector3 position = start_slurl.getPosition();
+			std::string unescaped_start = 
 			STRINGIZE(  "uri:" 
 					  << start_slurl.getRegion() << "&" 
 						<< position[VX] << "&" 
 						<< position[VY] << "&" 
 						<< position[VZ]);
-		start = xml_escape_string(unescaped_start);
-	}
-	else
-	{
-		start = gSavedSettings.getString("LoginLocation");
+			start = xml_escape_string(unescaped_start);
+			break;
+		}
+		case LLSLURL::HOME_LOCATION:
+		{
+			start = "home";
+			break;
+		}
+		default:
+		{
+			start = "last";
+		}
 	}
 	return start;
 }
