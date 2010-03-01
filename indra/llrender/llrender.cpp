@@ -765,6 +765,7 @@ LLRender::LLRender()
 
 	mCurrAlphaFunc = CF_DEFAULT;
 	mCurrAlphaFuncVal = 0.01f;
+
 	mCurrBlendSFactor = BF_UNDEF;
 	mCurrBlendDFactor = BF_UNDEF;
 }
