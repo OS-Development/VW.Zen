@@ -364,7 +364,6 @@ private:
 
 	eBlendFactor mCurrBlendSFactor;
 	eBlendFactor mCurrBlendDFactor;
-
 	F32				mMaxAnisotropy;
 
 	std::list<LLVector3> mUIOffset;
