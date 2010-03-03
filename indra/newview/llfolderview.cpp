@@ -179,6 +179,7 @@ LLFolderView::LLFolderView(const Params& p)
 	mSourceID(p.task_id),
 	mRenameItem( NULL ),
 	mNeedsScroll( FALSE ),
+	mEnableScroll( true ),
 	mPinningSelectedItem(FALSE),
 	mNeedsAutoSelect( FALSE ),
 	mAutoSelectOverride(FALSE),
@@ -1913,7 +1914,7 @@ void LLFolderView::deleteAllChildren()
 
 void LLFolderView::scrollToShowSelection()
 {
-	if (mSelectedItems.size())
+	if (mEnableScroll && mSelectedItems.size())
 	{
 		mNeedsScroll = TRUE;
 	}
@@ -2163,6 +2164,15 @@ void LLFolderView::doIdle()
 			LLSelectFirstFilteredItem filter;
 			applyFunctorRecursively(filter);
 		}
+
+		// Open filtered folders for folder views with mAutoSelectOverride=TRUE.
+		// Used by LLPlacesFolderView.
+		if (mAutoSelectOverride && !mFilter->getFilterSubString().empty())
+		{
+			LLOpenFilteredFolders filter;
+			applyFunctorRecursively(filter);
+		}
+
 		scrollToShowSelection();
 	}
 
