@@ -57,6 +57,8 @@ public:
 	void saveFolderState();
 	void restoreFolderState();
 
+	virtual S32	notify(const LLSD& info) ;
+
 private:
 	LLSaveFolderState*			mSavedFolderState;
 };
@@ -65,7 +67,7 @@ private:
 class LLPlacesFolderView : public LLFolderView
 {
 public:
-	LLPlacesFolderView(const LLFolderView::Params& p) : LLFolderView(p) {};
+	LLPlacesFolderView(const LLFolderView::Params& p);
 	/**
 	 *	Handles right mouse down
 	 *

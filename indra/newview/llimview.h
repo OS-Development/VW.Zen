@@ -33,22 +33,18 @@
 #ifndef LL_LLIMVIEW_H
 #define LL_LLIMVIEW_H
 
-#include "lldarray.h"
-#include "lldockablefloater.h"
-#include "llspeakers.h" //for LLIMSpeakerMgr
-#include "llimpanel.h" //for voice channels
-#include "llmodaldialog.h"
 #include "lldockablefloater.h"
 #include "llinstantmessage.h"
-#include "lluuid.h"
-#include "llmultifloater.h"
-#include "lllogchat.h"
 
-class LLFloaterChatterBox;
-class LLUUID;
-class LLFloaterIMPanel;
+#include "lllogchat.h"
+#include "llvoicechannel.h"
+
+
+
 class LLFriendObserver;
 class LLCallDialogManager;	
+class LLIMSpeakerMgr;
+
 
 class LLIMModel :  public LLSingleton<LLIMModel>
 {
@@ -70,13 +66,27 @@ public:
 
 		void sessionInitReplyReceived(const LLUUID& new_session_id);
 		void addMessagesFromHistory(const std::list<LLSD>& history);
-		void addMessage(const std::string& from, const LLUUID& from_id, const std::string& utf8_text, const std::string& time);
+		void addMessage(const std::string& from, const LLUUID& from_id, const std::string& utf8_text, const std::string& time, const bool is_history = false);
 		void onVoiceChannelStateChanged(const LLVoiceChannel::EState& old_state, const LLVoiceChannel::EState& new_state, const LLVoiceChannel::EDirection& direction);
+		
+		/** @deprecated */
 		static void chatFromLogFile(LLLogChat::ELogLineType type, const LLSD& msg, void* userdata);
 
 		bool isAdHoc();
 		bool isP2P();
 		bool isOtherParticipantAvaline();
+
+		bool isP2PSessionType() const { return mSessionType == P2P_SESSION;}
+		bool isAdHocSessionType() const { return mSessionType == ADHOC_SESSION;}
+		bool isGroupSessionType() const { return mSessionType == GROUP_SESSION;}
+		bool isAvalineSessionType() const { return mSessionType == AVALINE_SESSION;}
+
+		//*TODO make private
+		/** ad-hoc sessions involve sophisticated chat history file naming schemes */
+		void buildHistoryFileName();
+
+		//*TODO make private
+		static std::string generateHash(const std::set<LLUUID>& sorted_uuids);
 
 		LLUUID mSessionID;
 		std::string mName;
@@ -84,6 +94,7 @@ public:
 		SType mSessionType;
 		LLUUID mOtherParticipantID;
 		std::vector<LLUUID> mInitialTargetIDs;
+		std::string mHistoryFileName;
 
 		// connection to voice channel state change signal
 		boost::signals2::connection mVoiceChannelStateChangeConnection;
@@ -229,6 +240,8 @@ public:
 	*/
 	LLIMSpeakerMgr* getSpeakerManager(const LLUUID& session_id) const;
 
+	const std::string& getHistoryFileName(const LLUUID& session_id) const;
+
 	static void sendLeaveSession(const LLUUID& session_id, const LLUUID& other_participant_id);
 	static bool sendStartSession(const LLUUID& temp_session_id, const LLUUID& other_participant_id,
 						  const std::vector<LLUUID>& ids, EInstantMessage dialog);
@@ -241,7 +254,7 @@ public:
 	/**
 	 * Saves an IM message into a file
 	 */
-	bool logToFile(const std::string& session_name, const std::string& from, const LLUUID& from_id, const std::string& utf8_text);
+	bool logToFile(const std::string& file_name, const std::string& from, const LLUUID& from_id, const std::string& utf8_text);
 
 private:
 	
@@ -347,14 +360,8 @@ public:
 	void processIMTypingStart(const LLIMInfo* im_info);
 	void processIMTypingStop(const LLIMInfo* im_info);
 
-	void notifyNewIM();
-	void clearNewIMNotification();
-
 	// automatically start a call once the session has initialized
 	void autoStartCallOnStartup(const LLUUID& session_id);
-
-	// IM received that you haven't seen yet
-	BOOL getIMReceived() const;
 
 	// Calc number of all unread IMs
 	S32 getNumberOfUnreadIM();
@@ -372,11 +379,6 @@ public:
 
 	BOOL hasSession(const LLUUID& session_id);
 
-	// This method returns the im panel corresponding to the uuid
-	// provided. The uuid must be a session id. Returns NULL if there
-	// is no matching panel.
-	LLFloaterIMPanel* findFloaterBySession(const LLUUID& session_id);
-
 	static LLUUID computeSessionID(EInstantMessage dialog, const LLUUID& other_participant_id);
 
 	void clearPendingInvitation(const LLUUID& session_id);
@@ -387,10 +389,6 @@ public:
 		const LLUUID& sessioN_id,
 		const LLSD& updates);
 	void clearPendingAgentListUpdates(const LLUUID& session_id);
-
-	//HACK: need a better way of enumerating existing session, or listening to session create/destroy events
-	//@deprecated, is used only by LLToolBox, which is not used anywhere, right? (IB)
-	const std::set<LLHandle<LLFloater> >& getIMFloaterHandles() { return mFloaters; }
 
 	void addSessionObserver(LLIMSessionObserver *);
 	void removeSessionObserver(LLIMSessionObserver *);
@@ -422,23 +420,12 @@ private:
 	 */
 	void removeSession(const LLUUID& session_id);
 
-	// create a panel and update internal representation for
-	// consistency. Returns the pointer, caller (the class instance
-	// since it is a private method) is not responsible for deleting
-	// the pointer.
-	LLFloaterIMPanel* createFloater(const LLUUID& session_id,
-									const LLUUID& target_id,
-									const std::string& name,
-									EInstantMessage dialog,
-									BOOL user_initiated = FALSE, 
-									const LLDynamicArray<LLUUID>& ids = LLDynamicArray<LLUUID>());
-
 	// This simple method just iterates through all of the ids, and
 	// prints a simple message if they are not online. Used to help
 	// reduce 'hello' messages to the linden employees unlucky enough
 	// to have their calling card in the default inventory.
-	void noteOfflineUsers(const LLUUID& session_id, LLFloaterIMPanel* panel, const LLDynamicArray<LLUUID>& ids);
-	void noteMutedUsers(const LLUUID& session_id, LLFloaterIMPanel* panel, const LLDynamicArray<LLUUID>& ids);
+	void noteOfflineUsers(const LLUUID& session_id, const LLDynamicArray<LLUUID>& ids);
+	void noteMutedUsers(const LLUUID& session_id, const LLDynamicArray<LLUUID>& ids);
 
 	void processIMTypingCore(const LLIMInfo* im_info, BOOL typing);
 
@@ -450,14 +437,8 @@ private:
 
 private:
 	
-	//*TODO should be deleted when Communicate Floater is being deleted
-	std::set<LLHandle<LLFloater> > mFloaters;
-
 	typedef std::list <LLIMSessionObserver *> session_observers_list_t;
 	session_observers_list_t mSessionObservers;
-
-	// An IM has been received that you haven't seen yet.
-	BOOL mIMReceived;
 
 	LLSD mPendingInvitations;
 	LLSD mPendingAgentListUpdates;
@@ -471,10 +452,11 @@ public:
 
 	static void initClass();
 	static void onVoiceChannelChanged(const LLUUID &session_id);
-	static void onVoiceChannelStateChanged(const LLVoiceChannel::EState& old_state, const LLVoiceChannel::EState& new_state, const LLVoiceChannel::EDirection& direction);
+	static void onVoiceChannelStateChanged(const LLVoiceChannel::EState& old_state, const LLVoiceChannel::EState& new_state, const LLVoiceChannel::EDirection& direction, bool ended_by_agent);
 
 protected:
 	static std::string sPreviousSessionlName;
+	static LLIMModel::LLIMSession::SType sPreviousSessionType;
 	static std::string sCurrentSessionlName;
 	static LLIMModel::LLIMSession* sSession;
 	static LLVoiceChannel::EState sOldState;
@@ -490,6 +472,7 @@ public:
 
 	// check timer state
 	/*virtual*/ void draw();
+	/*virtual*/ void onOpen(const LLSD& key);
 
 protected:
 	// lifetime timer for a notification
@@ -497,8 +480,8 @@ protected:
 	// notification's lifetime in seconds
 	S32		mLifetime;
 	static const S32 DEFAULT_LIFETIME = 5;
-	virtual bool lifetimeHasExpired() {return false;};
-	virtual void onLifetimeExpired() {};
+	virtual bool lifetimeHasExpired();
+	virtual void onLifetimeExpired();
 
 	virtual void getAllowedRect(LLRect& rect);
 
@@ -528,7 +511,6 @@ public:
 	static void onStartIM(void* user_data);
 
 private:
-	/*virtual*/ bool lifetimeHasExpired();
 	/*virtual*/ void onLifetimeExpired();
 	void processCallResponse(S32 response);
 };
@@ -547,8 +529,6 @@ public:
 private:
 	// hide all text boxes
 	void hideAllText();
-	/*virtual*/ bool lifetimeHasExpired();
-	/*virtual*/ void onLifetimeExpired();
 };
 
 // Globals

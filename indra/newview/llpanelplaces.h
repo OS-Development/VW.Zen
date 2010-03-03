@@ -32,6 +32,8 @@
 #ifndef LL_LLPANELPLACES_H
 #define LL_LLPANELPLACES_H
 
+#include "lltimer.h"
+
 #include "llpanel.h"
 
 class LLInventoryItem;
@@ -64,12 +66,22 @@ public:
 
 	// Called on parcel selection change to update place information.
 	void changedParcelSelection();
-	// Called on agent inventory change to find out when inventory gets usable.
-	void changedInventory(U32 mask);
+	// Called once on agent inventory first change to find out when inventory gets usable
+	// and to create "My Landmarks" and "Teleport History" tabs.
+	void createTabs();
 	// Called when we receive the global 3D position of a parcel.
 	void changedGlobalPos(const LLVector3d &global_pos);
 
+	// Opens landmark info panel when agent creates or receives landmark.
+	void showAddedLandmarkInfo(const std::vector<LLUUID>& items);
+
 	void setItem(LLInventoryItem* item);
+
+	LLInventoryItem* getItem() { return mItem; }
+
+	std::string getPlaceInfoType() { return mPlaceInfoType; }
+
+	/*virtual*/ S32 notifyParent(const LLSD& info);
 
 private:
 	void onLandmarkLoaded(LLLandmark* landmark);
@@ -91,6 +103,8 @@ private:
 	void togglePickPanel(BOOL visible);
 	void togglePlaceInfoPanel(BOOL visible);
 
+	/*virtual*/ void handleVisibilityChange(BOOL new_visibility);
+
 	void updateVerbs();
 
 	LLPanelPlaceInfo* getCurrentInfoPanel();
@@ -105,6 +119,8 @@ private:
 	LLToggleableMenu*			mPlaceMenu;
 	LLToggleableMenu*			mLandmarkMenu;
 
+	LLButton*					mPlaceProfileBackBtn;
+	LLButton*					mLandmarkInfoBackBtn;
 	LLButton*					mTeleportBtn;
 	LLButton*					mShowOnMapBtn;
 	LLButton*					mEditBtn;
@@ -123,6 +139,10 @@ private:
 	// Absolute position of the location for teleport, may not
 	// be available (hence zero)
 	LLVector3d					mPosGlobal;
+
+	// Sets a period of time during which the requested place information
+	// is expected to be updated and doesn't need to be reset.
+	LLTimer						mResetInfoTimer;
 
 	// Information type currently shown in Place Information panel
 	std::string					mPlaceInfoType;

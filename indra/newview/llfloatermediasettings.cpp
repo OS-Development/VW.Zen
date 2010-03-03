@@ -149,13 +149,14 @@ void LLFloaterMediaSettings::apply()
 	{
 		LLSD settings;
 		sInstance->mPanelMediaSettingsGeneral->preApply();
-		sInstance->mPanelMediaSettingsGeneral->getValues( settings );
+		sInstance->mPanelMediaSettingsGeneral->getValues( settings, false );
 		sInstance->mPanelMediaSettingsSecurity->preApply();
-		sInstance->mPanelMediaSettingsSecurity->getValues( settings );
+		sInstance->mPanelMediaSettingsSecurity->getValues( settings, false );
 		sInstance->mPanelMediaSettingsPermissions->preApply();
-		sInstance->mPanelMediaSettingsPermissions->getValues( settings );
-		LLSelectMgr::getInstance()->selectionSetMedia( LLTextureEntry::MF_HAS_MEDIA );
-		LLSelectMgr::getInstance()->selectionSetMediaData(settings);
+		sInstance->mPanelMediaSettingsPermissions->getValues( settings, false );
+			
+		LLSelectMgr::getInstance()->selectionSetMedia( LLTextureEntry::MF_HAS_MEDIA, settings );
+
 		sInstance->mPanelMediaSettingsGeneral->postApply();
 		sInstance->mPanelMediaSettingsSecurity->postApply();
 		sInstance->mPanelMediaSettingsPermissions->postApply();
@@ -176,6 +177,8 @@ void LLFloaterMediaSettings::onClose(bool app_quitting)
 //static 
 void LLFloaterMediaSettings::initValues( const LLSD& media_settings, bool editable )
 {
+	if (sInstance->hasFocus()) return;
+	
 	sInstance->clearValues(editable);
 	// update all panels with values from simulator
 	sInstance->mPanelMediaSettingsGeneral->
@@ -192,6 +195,9 @@ void LLFloaterMediaSettings::initValues( const LLSD& media_settings, bool editab
 	sInstance->mPanelMediaSettingsGeneral->getValues( sInstance->mInitialValues );
 	sInstance->mPanelMediaSettingsSecurity->getValues( sInstance->mInitialValues );
 	sInstance->mPanelMediaSettingsPermissions->getValues( sInstance->mInitialValues );
+	
+	sInstance->mApplyBtn->setEnabled(editable);
+	sInstance->mOKBtn->setEnabled(editable);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -201,7 +207,7 @@ void LLFloaterMediaSettings::commitFields()
 	if (hasFocus())
 	{
 		LLUICtrl* cur_focus = dynamic_cast<LLUICtrl*>(gFocusMgr.getKeyboardFocus());
-		if (cur_focus->acceptsTextInput())
+		if (cur_focus && cur_focus->acceptsTextInput())
 		{
 			cur_focus->onCommit();
 		};
@@ -266,8 +272,11 @@ const std::string LLFloaterMediaSettings::getHomeUrl()
 // virtual 
 void LLFloaterMediaSettings::draw()
 {
-	// Set the enabled state of the "Apply" button if values changed
-	childSetEnabled( "Apply", haveValuesChanged() );
+	if (NULL != mApplyBtn)
+	{
+		// Set the enabled state of the "Apply" button if values changed
+		mApplyBtn->setEnabled( haveValuesChanged() );
+	}
 	
 	LLFloater::draw();
 }

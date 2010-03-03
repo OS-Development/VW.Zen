@@ -51,6 +51,7 @@
 
 #include "llviewquery.h"
 #include "llxmltree.h"
+#include "llslurl.h"
 //#include "llviewercamera.h"
 #include "llrender.h"
 
@@ -80,6 +81,9 @@
 #include "timing.h"
 #include "llviewermenu.h"
 #include "lltooltip.h"
+#include "llmediaentry.h"
+#include "llurldispatcher.h"
+#include "llurlsimstring.h"
 
 // newview includes
 #include "llagent.h"
@@ -101,8 +105,6 @@
 #include "llfloaterbuildoptions.h"
 #include "llfloaterbuyland.h"
 #include "llfloatercamera.h"
-#include "llfloaterchat.h"
-#include "llfloaterchatterbox.h"
 #include "llfloatercustomize.h"
 #include "llfloaterland.h"
 #include "llfloaterinspect.h"
@@ -129,7 +131,6 @@
 #include "llmorphview.h"
 #include "llmoveview.h"
 #include "llnavigationbar.h"
-#include "lloverlaybar.h"
 #include "llpreviewtexture.h"
 #include "llprogressview.h"
 #include "llresmgr.h"
@@ -148,7 +149,6 @@
 #include "lltexturefetch.h"
 #include "lltextureview.h"
 #include "lltool.h"
-#include "lltoolbar.h"
 #include "lltoolcomp.h"
 #include "lltooldraganddrop.h"
 #include "lltoolface.h"
@@ -182,7 +182,6 @@
 #include "llworldmapview.h"
 #include "pipeline.h"
 #include "llappviewer.h"
-#include "llurlsimstring.h"
 #include "llviewerdisplay.h"
 #include "llspatialpartition.h"
 #include "llviewerjoystick.h"
@@ -234,6 +233,7 @@ S32				gDebugRaycastFaceHit;
 BOOL				gDisplayWindInfo = FALSE;
 BOOL				gDisplayCameraPos = FALSE;
 BOOL				gDisplayFOV = FALSE;
+BOOL				gDisplayBadge = FALSE;
 
 S32 CHAT_BAR_HEIGHT = 28; 
 S32 OVERLAY_BAR_HEIGHT = 20;
@@ -423,6 +423,11 @@ public:
 			addText(xpos, ypos, llformat("FOV: %2.1f deg", RAD_TO_DEG * LLViewerCamera::getInstance()->getView()));
 			ypos += y_inc;
 		}
+		if (gDisplayBadge)
+		{
+			addText(xpos, ypos+(y_inc/2), llformat("Hippos!", RAD_TO_DEG * LLViewerCamera::getInstance()->getView()));
+			ypos += y_inc * 2;
+		}
 		
 		/*if (LLViewerJoystick::getInstance()->getOverrideCamera())
 		{
@@ -480,6 +485,10 @@ public:
 				gPipeline.mBatchCount = 0;
 			}
             ypos += y_inc;
+
+			addText(xpos, ypos, llformat("UI Verts/Calls: %d/%d", LLRender::sUIVerts, LLRender::sUICalls));
+			LLRender::sUICalls = LLRender::sUIVerts = 0;
+			ypos += y_inc;
 
 			addText(xpos,ypos, llformat("%d/%d Nodes visible", gPipeline.mNumVisibleNodes, LLSpatialGroup::sNodeCount));
 			
@@ -605,7 +614,6 @@ BOOL LLViewerWindow::handleAnyMouseClick(LLWindow *window,  LLCoordGL pos, MASK 
 {
 	const char* buttonname = "";
 	const char* buttonstatestr = "";
-	BOOL handled = FALSE;	
 	S32 x = pos.mX;
 	S32 y = pos.mY;
 	x = llround((F32)x / mDisplayScale.mV[VX]);
@@ -700,7 +708,10 @@ BOOL LLViewerWindow::handleAnyMouseClick(LLWindow *window,  LLCoordGL pos, MASK 
 		}
 		else
 		{
-			handled = top_ctrl->pointInView(local_x, local_y) && top_ctrl->handleMouseUp(local_x, local_y, mask);
+			if (top_ctrl->pointInView(local_x, local_y) && top_ctrl->handleMouseUp(local_x, local_y, mask))
+			{
+				return TRUE;
+			}
 		}
 	}
 
@@ -718,34 +729,12 @@ BOOL LLViewerWindow::handleAnyMouseClick(LLWindow *window,  LLCoordGL pos, MASK 
 		llinfos << buttonname << " Mouse " << buttonstatestr << " not handled by view" << llendl;
 	}
 
-	if (down)
+	// Do not allow tool manager to handle mouseclicks if we have disconnected	
+	if(!gDisconnected && LLToolMgr::getInstance()->getCurrentTool()->handleAnyMouseClick( x, y, mask, clicktype, down ) )
 	{
-		if (gDisconnected)
-		{
-			return FALSE;
-		}
-	
-		if(LLToolMgr::getInstance()->getCurrentTool()->handleAnyMouseClick( x, y, mask, clicktype, down ) )
-		{
-			return TRUE;
-		}
+		return TRUE;
 	}
-	else
-	{
-		if( !handled )
-		{
-			handled = mRootView->handleAnyMouseClick(x, y, mask, clicktype, down);
-		}
 	
-		if( !handled )
-		{
-			LLTool *tool = LLToolMgr::getInstance()->getCurrentTool();
-			if (tool)
-			{
-				handled = tool->handleAnyMouseClick(x, y, mask, clicktype, down);
-			}
-		}
-	}
 
 	// If we got this far on a down-click, it wasn't handled.
 	// Up-clicks, though, are always handled as far as the OS is concerned.
@@ -820,6 +809,154 @@ BOOL LLViewerWindow::handleMiddleMouseDown(LLWindow *window,  LLCoordGL pos, MAS
   	// Always handled as far as the OS is concerned.
 	return TRUE;
 }
+
+LLWindowCallbacks::DragNDropResult LLViewerWindow::handleDragNDrop( LLWindow *window, LLCoordGL pos, MASK mask, LLWindowCallbacks::DragNDropAction action, std::string data)
+{
+	LLWindowCallbacks::DragNDropResult result = LLWindowCallbacks::DND_NONE;
+
+	const bool prim_media_dnd_enabled = gSavedSettings.getBOOL("PrimMediaDragNDrop");
+	const bool slurl_dnd_enabled = gSavedSettings.getBOOL("SLURLDragNDrop");
+	
+	if ( prim_media_dnd_enabled || slurl_dnd_enabled )
+	{
+		switch(action)
+		{
+			// Much of the handling for these two cases is the same.
+			case LLWindowCallbacks::DNDA_TRACK:
+			case LLWindowCallbacks::DNDA_DROPPED:
+			case LLWindowCallbacks::DNDA_START_TRACKING:
+			{
+				bool drop = (LLWindowCallbacks::DNDA_DROPPED == action);
+					
+				if (slurl_dnd_enabled)
+				{
+					
+					// special case SLURLs
+					// isValidSLURL() call was added here to make sure that dragged SLURL is valid (EXT-4964)
+					if ( LLSLURL::isSLURL( data ) && LLSLURL::isValidSLURL( data ) )
+					{
+						if (drop)
+						{
+							LLURLDispatcher::dispatch( data, NULL, true );
+							LLURLSimString::setStringRaw( LLSLURL::stripProtocol( data ) );
+							LLPanelLogin::refreshLocation( true );
+							LLPanelLogin::updateLocationUI();
+						}
+						return LLWindowCallbacks::DND_MOVE;
+					};
+				}
+
+				if (prim_media_dnd_enabled)
+				{
+					LLPickInfo pick_info = pickImmediate( pos.mX, pos.mY,  TRUE /*BOOL pick_transparent*/ );
+
+					LLUUID object_id = pick_info.getObjectID();
+					S32 object_face = pick_info.mObjectFace;
+					std::string url = data;
+
+					lldebugs << "Object: picked at " << pos.mX << ", " << pos.mY << " - face = " << object_face << " - URL = " << url << llendl;
+
+					LLVOVolume *obj = dynamic_cast<LLVOVolume*>(static_cast<LLViewerObject*>(pick_info.getObject()));
+				
+					if (obj && !obj->getRegion()->getCapability("ObjectMedia").empty())
+					{
+						LLTextureEntry *te = obj->getTE(object_face);
+						if (te)
+						{
+							if (drop)
+							{
+								// object does NOT have media already
+								if ( ! te->hasMedia() )
+								{
+									// we are allowed to modify the object
+									if ( obj->permModify() )
+									{
+										// Create new media entry
+										LLSD media_data;
+										// XXX Should we really do Home URL too?
+										media_data[LLMediaEntry::HOME_URL_KEY] = url;
+										media_data[LLMediaEntry::CURRENT_URL_KEY] = url;
+										media_data[LLMediaEntry::AUTO_PLAY_KEY] = true;
+										obj->syncMediaData(object_face, media_data, true, true);
+										// XXX This shouldn't be necessary, should it ?!?
+										if (obj->getMediaImpl(object_face))
+											obj->getMediaImpl(object_face)->navigateReload();
+										obj->sendMediaDataUpdate();
+
+										result = LLWindowCallbacks::DND_COPY;
+									}
+								}
+								else 
+								// object HAS media already
+								{
+									// URL passes the whitelist
+									if (te->getMediaData()->checkCandidateUrl( url ) )
+									{
+										// we are allowed to modify the object or we have navigate permissions
+										// NOTE: Design states you you can change the URL if you have media 
+										//       navigate permissions even if you do not have prim modify rights
+										if ( obj->permModify() || obj->hasMediaPermission( te->getMediaData(), LLVOVolume::MEDIA_PERM_INTERACT ) )
+										{
+											// just navigate to the URL
+											if (obj->getMediaImpl(object_face))
+											{
+												obj->getMediaImpl(object_face)->navigateTo(url);
+											}
+											else 
+											{
+												// This is very strange.  Navigation should
+												// happen via the Impl, but we don't have one.
+												// This sends it to the server, which /should/
+												// trigger us getting it.  Hopefully.
+												LLSD media_data;
+												media_data[LLMediaEntry::CURRENT_URL_KEY] = url;
+												obj->syncMediaData(object_face, media_data, true, true);
+												obj->sendMediaDataUpdate();
+											}
+											result = LLWindowCallbacks::DND_LINK;
+										}
+									}
+								}
+								LLSelectMgr::getInstance()->unhighlightObjectOnly(mDragHoveredObject);
+								mDragHoveredObject = NULL;
+							
+							}
+							else 
+							{
+								// Check the whitelist, if there's media (otherwise just show it)
+								if (te->getMediaData() == NULL || te->getMediaData()->checkCandidateUrl(url))
+								{
+									if ( obj != mDragHoveredObject)
+									{
+										// Highlight the dragged object
+										LLSelectMgr::getInstance()->unhighlightObjectOnly(mDragHoveredObject);
+										mDragHoveredObject = obj;
+										LLSelectMgr::getInstance()->highlightObjectOnly(mDragHoveredObject);
+									}
+									result = (! te->hasMedia()) ? LLWindowCallbacks::DND_COPY : LLWindowCallbacks::DND_LINK;
+								}
+							}
+						}
+					}
+				}
+			}
+			break;
+			
+			case LLWindowCallbacks::DNDA_STOP_TRACKING:
+				// The cleanup case below will make sure things are unhilighted if necessary.
+			break;
+		}
+
+		if (prim_media_dnd_enabled &&
+			result == LLWindowCallbacks::DND_NONE && !mDragHoveredObject.isNull())
+		{
+			LLSelectMgr::getInstance()->unhighlightObjectOnly(mDragHoveredObject);
+			mDragHoveredObject = NULL;
+		}
+	}
+	
+	return result;
+}
   
 BOOL LLViewerWindow::handleMiddleMouseUp(LLWindow *window,  LLCoordGL pos, MASK mask)
 {
@@ -866,6 +1003,7 @@ void LLViewerWindow::handleMouseLeave(LLWindow *window)
 	// Note: we won't get this if we have captured the mouse.
 	llassert( gFocusMgr.getMouseCapture() == NULL );
 	mMouseInWindow = FALSE;
+	LLToolTipMgr::instance().blockToolTips();
 }
 
 BOOL LLViewerWindow::handleCloseRequest(LLWindow *window)
@@ -1485,10 +1623,6 @@ void LLViewerWindow::initWorldUI()
 	bottom_tray_container->addChild(bottom_tray);
 	bottom_tray_container->setVisible(TRUE);
 
-	// Pre initialize instance communicate instance;
-	//  currently needs to happen before initializing chat or IM
-	LLFloaterReg::getInstance("communicate");
-
 	LLRect morph_view_rect = full_window;
 	morph_view_rect.stretch( -STATUS_BAR_HEIGHT );
 	morph_view_rect.mTop = full_window.mTop - 32;
@@ -1614,7 +1748,11 @@ void LLViewerWindow::shutdownViews()
 	// destroy the nav bar, not currently part of gViewerWindow
 	// *TODO: Make LLNavigationBar part of gViewerWindow
 	delete LLNavigationBar::getInstance();
-	
+
+	// destroy menus after instantiating navbar above, as it needs
+	// access to gMenuHolder
+	cleanup_menus();
+
 	// Delete all child views.
 	delete mRootView;
 	mRootView = NULL;
@@ -1659,7 +1797,7 @@ void LLViewerWindow::shutdownGL()
 	LLViewerTextureManager::cleanup() ;
 	LLImageGL::cleanupClass() ;
 
-	llinfos << "All texturs and llimagegl images are destroyed!" << llendl ;
+	llinfos << "All textures and llimagegl images are destroyed!" << llendl ;
 
 	llinfos << "Cleaning up select manager" << llendl;
 	LLSelectMgr::getInstance()->cleanup();
@@ -1681,6 +1819,9 @@ LLViewerWindow::~LLViewerWindow()
 {
 	llinfos << "Destroying Window" << llendl;
 	destroyWindow();
+
+	delete mDebugText;
+	mDebugText = NULL;
 }
 
 
@@ -1869,12 +2010,15 @@ void LLViewerWindow::drawDebugText()
 {
 	gGL.color4f(1,1,1,1);
 	gGL.pushMatrix();
+	gGL.pushUIMatrix();
 	{
 		// scale view by UI global scale factor and aspect ratio correction factor
-		glScalef(mDisplayScale.mV[VX], mDisplayScale.mV[VY], 1.f);
+		gGL.scaleUI(mDisplayScale.mV[VX], mDisplayScale.mV[VY], 1.f);
 		mDebugText->draw();
 	}
+	gGL.popUIMatrix();
 	gGL.popMatrix();
+
 	gGL.flush();
 }
 
@@ -1898,7 +2042,7 @@ void LLViewerWindow::draw()
 
 	if (!gSavedSettings.getBOOL("RenderUIBuffer"))
 	{
-		LLUI::sDirtyRect = this->getWindowRectRaw();
+		LLUI::sDirtyRect = getWindowRectScaled();
 	}
 
 	// HACK for timecode debugging
@@ -1922,9 +2066,11 @@ void LLViewerWindow::draw()
 	// No translation needed, this view is glued to 0,0
 
 	gGL.pushMatrix();
+	LLUI::pushMatrix();
 	{
+		
 		// scale view by UI global scale factor and aspect ratio correction factor
-		glScalef(mDisplayScale.mV[VX], mDisplayScale.mV[VY], 1.f);
+		gGL.scaleUI(mDisplayScale.mV[VX], mDisplayScale.mV[VY], 1.f);
 
 		LLVector2 old_scale_factor = LLUI::sGLScaleFactor;
 		// apply camera zoom transform (for high res screenshots)
@@ -1990,6 +2136,7 @@ void LLViewerWindow::draw()
 
 		LLUI::sGLScaleFactor = old_scale_factor;
 	}
+	LLUI::popMatrix();
 	gGL.popMatrix();
 
 #if LL_DEBUG
@@ -2288,15 +2435,18 @@ void LLViewerWindow::handleScrollWheel(S32 clicks)
 
 void LLViewerWindow::moveCursorToCenter()
 {
-	S32 x = getWorldViewWidthScaled() / 2;
-	S32 y = getWorldViewHeightScaled() / 2;
+	if (! gSavedSettings.getBOOL("DisableMouseWarp"))
+	{
+		S32 x = getWorldViewWidthScaled() / 2;
+		S32 y = getWorldViewHeightScaled() / 2;
 	
-	//on a forced move, all deltas get zeroed out to prevent jumping
-	mCurrentMousePoint.set(x,y);
-	mLastMousePoint.set(x,y);
-	mCurrentMouseDelta.set(0,0);	
+		//on a forced move, all deltas get zeroed out to prevent jumping
+		mCurrentMousePoint.set(x,y);
+		mLastMousePoint.set(x,y);
+		mCurrentMouseDelta.set(0,0);	
 
-	LLUI::setMousePositionScreen(x, y);	
+		LLUI::setMousePositionScreen(x, y);	
+	}
 }
 
 
@@ -2339,7 +2489,12 @@ void append_xui_tooltip(LLView* viewp, LLToolTip::Params& params)
 // event processing.
 void LLViewerWindow::updateUI()
 {
+	static LLFastTimer::DeclareTimer ftm("Update UI");
+	LLFastTimer t(ftm);
+
 	static std::string last_handle_msg;
+
+	LLConsole::updateClass();
 
 	// animate layout stacks so we have up to date rect for world view
 	LLLayoutStack::updateClass();
@@ -2868,17 +3023,16 @@ void LLViewerWindow::updateWorldViewRect(bool use_full_window)
 
 	if (mWorldViewRectRaw != new_world_rect)
 	{
-		LLRect old_world_rect = mWorldViewRectRaw;
 		mWorldViewRectRaw = new_world_rect;
 		gResizeScreenTexture = TRUE;
 		LLViewerCamera::getInstance()->setViewHeightInPixels( mWorldViewRectRaw.getHeight() );
 		LLViewerCamera::getInstance()->setAspect( getWorldViewAspectRatio() );
 
+		LLRect old_world_rect_scaled = mWorldViewRectScaled;
 		mWorldViewRectScaled = calcScaledRect(mWorldViewRectRaw, mDisplayScale);
 
 		// sending a signal with a new WorldView rect
-		old_world_rect = calcScaledRect(old_world_rect, mDisplayScale);
-		mOnWorldViewRectUpdated(old_world_rect, mWorldViewRectScaled);
+		mOnWorldViewRectUpdated(old_world_rect_scaled, mWorldViewRectScaled);
 	}
 }
 
@@ -2918,7 +3072,6 @@ void LLViewerWindow::saveLastMouse(const LLCoordGL &point)
 // Must be called after displayObjects is called, which sets the mGLName parameter
 // NOTE: This function gets called 3 times:
 //  render_ui_3d: 			FALSE, FALSE, TRUE
-//  renderObjectsForSelect:	TRUE, pick_parcel_wall, FALSE
 //  render_hud_elements:	FALSE, FALSE, FALSE
 void LLViewerWindow::renderSelections( BOOL for_gl_pick, BOOL pick_parcel_walls, BOOL for_hud )
 {
@@ -4868,10 +5021,10 @@ LLPickInfo::LLPickInfo()
 }
 
 LLPickInfo::LLPickInfo(const LLCoordGL& mouse_pos, 
-						MASK keyboard_mask, 
-						BOOL pick_transparent,
-						BOOL pick_uv_coords,
-						void (*pick_callback)(const LLPickInfo& pick_info))
+		       MASK keyboard_mask, 
+		       BOOL pick_transparent,
+		       BOOL pick_uv_coords,
+		       void (*pick_callback)(const LLPickInfo& pick_info))
 	: mMousePt(mouse_pos),
 	  mKeyMask(keyboard_mask),
 	  mPickCallback(pick_callback),

@@ -332,6 +332,8 @@ LLGLManager::LLGLManager() :
 	mHasFragmentShader(FALSE),
 	mHasOcclusionQuery(FALSE),
 	mHasPointParameters(FALSE),
+	mHasDrawBuffers(FALSE),
+	mHasTextureRectangle(FALSE),
 
 	mHasAnisotropic(FALSE),
 	mHasARBEnvCombine(FALSE),
@@ -671,7 +673,7 @@ void LLGLManager::initExtensions()
 	llinfos << "initExtensions() checking shell variables to adjust features..." << llendl;
 	// Our extension support for the Linux Client is very young with some
 	// potential driver gotchas, so offer a semi-secret way to turn it off.
-	if (getenv("LL_GL_NOEXT"))	/* Flawfinder: ignore */
+	if (getenv("LL_GL_NOEXT"))
 	{
 		//mHasMultitexture = FALSE; // NEEDED!
 		mHasARBEnvCombine = FALSE;
@@ -1919,6 +1921,16 @@ LLGLDepthTest::LLGLDepthTest(GLboolean depth_enabled, GLboolean write_enabled, G
 : mPrevDepthEnabled(sDepthEnabled), mPrevDepthFunc(sDepthFunc), mPrevWriteEnabled(sWriteEnabled)
 {
 	stop_glerror();
+	
+	checkState();
+
+	if (!depth_enabled)
+	{ // always disable depth writes if depth testing is disabled
+	  // GL spec defines this as a requirement, but some implementations allow depth writes with testing disabled
+	  // The proper way to write to depth buffer with testing disabled is to enable testing and use a depth_func of GL_ALWAYS
+		write_enabled = FALSE;
+	}
+
 	if (depth_enabled != sDepthEnabled)
 	{
 		gGL.flush();
@@ -1942,6 +1954,7 @@ LLGLDepthTest::LLGLDepthTest(GLboolean depth_enabled, GLboolean write_enabled, G
 
 LLGLDepthTest::~LLGLDepthTest()
 {
+	checkState();
 	if (sDepthEnabled != mPrevDepthEnabled )
 	{
 		gGL.flush();
@@ -1960,6 +1973,32 @@ LLGLDepthTest::~LLGLDepthTest()
 		gGL.flush();
 		glDepthMask(mPrevWriteEnabled);
 		sWriteEnabled = mPrevWriteEnabled;
+	}
+}
+
+void LLGLDepthTest::checkState()
+{
+	if (gDebugGL)
+	{
+		GLint func = 0;
+		GLboolean mask = FALSE;
+
+		glGetIntegerv(GL_DEPTH_FUNC, &func);
+		glGetBooleanv(GL_DEPTH_WRITEMASK, &mask);
+
+		if (glIsEnabled(GL_DEPTH_TEST) != sDepthEnabled ||
+			sWriteEnabled != mask ||
+			sDepthFunc != func)
+		{
+			if (gDebugSession)
+			{
+				gFailLog << "Unexpected depth testing state." << std::endl;
+			}
+			else
+			{
+				LL_GL_ERRS << "Unexpected depth testing state." << LL_ENDL;
+			}
+		}
 	}
 }
 

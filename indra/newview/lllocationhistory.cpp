@@ -50,18 +50,20 @@ void LLLocationHistory::addItem(const LLLocationHistoryItem& item) {
 
 	// check if this item doesn't duplicate any existing one
 	location_list_t::iterator item_iter = std::find(mItems.begin(), mItems.end(),item);
-	if(item_iter != mItems.end()){
+	if(item_iter != mItems.end()) // if it already exists, erase the old one
+	{
 		mItems.erase(item_iter);	
 	}
 
 	mItems.push_back(item);
 	
-	// If the vector size exceeds the maximum, purge the oldest items.
-	if ((S32)mItems.size() > max_items) {
-		for(location_list_t::iterator i = mItems.begin(); i != mItems.end()-max_items; ++i) {
-				mItems.erase(i);
-		}
+	// If the vector size exceeds the maximum, purge the oldest items (at the start of the mItems vector).
+	if ((S32)mItems.size() > max_items)
+	{
+		mItems.erase(mItems.begin(), mItems.end()-max_items);
 	}
+	llassert((S32)mItems.size() <= max_items);
+	mChangedSignal(ADD);
 }
 
 /*
@@ -86,9 +88,10 @@ bool LLLocationHistory::touchItem(const LLLocationHistoryItem& item) {
 void LLLocationHistory::removeItems()
 {
 	mItems.clear();
+	mChangedSignal(CLEAR);
 }
 
-bool LLLocationHistory::getMatchingItems(std::string substring, location_list_t& result) const
+bool LLLocationHistory::getMatchingItems(const std::string& substring, location_list_t& result) const
 {
 	// *TODO: an STL algorithm would look nicer
 	result.clear();
@@ -123,6 +126,12 @@ void LLLocationHistory::save() const
 	// build filename for each user
 	std::string resolved_filename = gDirUtilp->getExpandedFilename(LL_PATH_PER_SL_ACCOUNT, mFilename);
 
+	if (resolved_filename.empty())
+	{
+		llinfos << "can't get path to location history filename - probably not logged in yet." << llendl;
+		return;
+	}
+
 	// open a file for writing
 	llofstream file (resolved_filename);
 	if (!file.is_open())
@@ -153,7 +162,7 @@ void LLLocationHistory::load()
 		return;
 	}
 	
-	removeItems();
+	mItems.clear();// need to use a direct call of clear() method to avoid signal invocation
 	
 	// add each line in the file to the list
 	std::string line;
@@ -172,5 +181,5 @@ void LLLocationHistory::load()
 
 	file.close();
 	
-	mLoadedSignal();
+	mChangedSignal(LOAD);
 }

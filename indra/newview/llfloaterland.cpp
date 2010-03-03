@@ -276,6 +276,7 @@ void LLFloaterLand::refresh()
 	mPanelAudio->refresh();
 	mPanelMedia->refresh();
 	mPanelAccess->refresh();
+	mPanelCovenant->refresh();
 }
 
 
@@ -352,7 +353,7 @@ BOOL LLPanelLandGeneral::postBuild()
 {
 	mEditName = getChild<LLLineEditor>("Name");
 	mEditName->setCommitCallback(onCommitAny, this);	
-	childSetPrevalidate("Name", LLLineEditor::prevalidateASCIIPrintableNoPipe);
+	childSetPrevalidate("Name", LLTextValidate::validateASCIIPrintableNoPipe);
 
 	mEditDesc = getChild<LLTextEditor>("Description");
 	mEditDesc->setCommitOnFocusLost(TRUE);
@@ -426,8 +427,26 @@ BOOL LLPanelLandGeneral::postBuild()
 	mBtnBuyLand = getChild<LLButton>("Buy Land...");
 	mBtnBuyLand->setClickedCallback(onClickBuyLand, (void*)&BUY_PERSONAL_LAND);
 	
-	mBtnScriptLimits = getChild<LLButton>("Scripts...");
-	mBtnScriptLimits->setClickedCallback(onClickScriptLimits, this);
+	// note: on region change this will not be re checked, should not matter on Agni as
+	// 99% of the time all regions will return the same caps. In case of an erroneous setting
+	// to enabled the floater will just throw an error when trying to get it's cap
+	std::string url = gAgent.getRegion()->getCapability("LandResources");
+	if (!url.empty())
+	{
+		mBtnScriptLimits = getChild<LLButton>("Scripts...");
+		if(mBtnScriptLimits)
+		{
+			mBtnScriptLimits->setClickedCallback(onClickScriptLimits, this);
+		}
+	}
+	else
+	{
+		mBtnScriptLimits = getChild<LLButton>("Scripts...");
+		if(mBtnScriptLimits)
+		{
+			mBtnScriptLimits->setVisible(false);
+		}
+	}
 	
 	mBtnBuyGroupLand = getChild<LLButton>("Buy For Group...");
 	mBtnBuyGroupLand->setClickedCallback(onClickBuyLand, (void*)&BUY_GROUP_LAND);
@@ -1028,7 +1047,30 @@ void LLPanelLandGeneral::onClickStopSellLand(void* data)
 //---------------------------------------------------------------------------
 LLPanelLandObjects::LLPanelLandObjects(LLParcelSelectionHandle& parcel)
 	:	LLPanel(),
-		mParcel(parcel)
+
+		mParcel(parcel),
+		mParcelObjectBonus(NULL),
+		mSWTotalObjects(NULL),
+		mObjectContribution(NULL),
+		mTotalObjects(NULL),
+		mOwnerObjects(NULL),
+		mBtnShowOwnerObjects(NULL),
+		mBtnReturnOwnerObjects(NULL),
+		mGroupObjects(NULL),
+		mBtnShowGroupObjects(NULL),
+		mBtnReturnGroupObjects(NULL),
+		mOtherObjects(NULL),
+		mBtnShowOtherObjects(NULL),
+		mBtnReturnOtherObjects(NULL),
+		mSelectedObjects(NULL),
+		mCleanOtherObjectsTime(NULL),
+		mOtherTime(0),
+		mBtnRefresh(NULL),
+		mBtnReturnOwnerList(NULL),
+		mOwnerList(NULL),
+		mFirstReply(TRUE),
+		mSelectedCount(0),
+		mSelectedIsGroup(FALSE)
 {
 }
 
@@ -1069,7 +1111,7 @@ BOOL LLPanelLandObjects::postBuild()
 
 	mCleanOtherObjectsTime->setFocusLostCallback(boost::bind(onLostFocus, _1, this));
 	mCleanOtherObjectsTime->setCommitCallback(onCommitClean, this);
-	childSetPrevalidate("clean other time", LLLineEditor::prevalidateNonNegativeS32);
+	childSetPrevalidate("clean other time", LLTextValidate::validateNonNegativeS32);
 	
 	mBtnRefresh = getChild<LLButton>("Refresh List");
 	mBtnRefresh->setClickedCallback(onClickRefresh, this);
@@ -2793,12 +2835,6 @@ LLPanelLandCovenant::LLPanelLandCovenant(LLParcelSelectionHandle& parcel)
 
 LLPanelLandCovenant::~LLPanelLandCovenant()
 {
-}
-
-BOOL LLPanelLandCovenant::postBuild()
-{
-	refresh();
-	return TRUE;
 }
 
 // virtual

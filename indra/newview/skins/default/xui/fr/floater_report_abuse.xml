@@ -5,10 +5,10 @@
 	</floater.string>
 	<check_box label="Utiliser cette capture d&apos;écran" name="screen_check"/>
 	<text name="reporter_title" width="60">
-		Déposant :
+		Témoin :
 	</text>
 	<text name="reporter_field">
-		Loremipsum Dolorsitamut
+		Loremipsum Dolorsitamut Longnamez
 	</text>
 	<text name="sim_title">
 		Région :
@@ -23,26 +23,26 @@
 		{128.1, 128.1, 15.4}
 	</text>
 	<text name="select_object_label">
-		Cliquez sur le bouton puis l&apos;objet responsable :
+		Cliquez sur le bouton puis l&apos;objet responsable :
 	</text>
 	<button label="" label_selected="" name="pick_btn" tool_tip="Le sélecteur d&apos;objet vous permet d&apos;identifier un objet comme sujet du rapport."/>
 	<text name="object_name_label">
-		Objet :
+		Objet :
 	</text>
-	<text left_delta="70" name="object_name" width="105">
+	<text left_pad="26" name="object_name" width="105">
 		Consetetur Sadipscing
 	</text>
-	<text name="owner_name_label" width="66">
+	<text name="owner_name_label" width="100">
 		Propriétaire :
 	</text>
-	<text left_delta="70" name="owner_name" width="105">
-		Hendrerit Vulputate
+	<text left_delta="120" name="owner_name" width="105">
+		Hendrerit Vulputate Kamawashi Longname
 	</text>
 	<combo_box name="category_combo" tool_tip="Choisissez la catégorie qui décrit le mieux ce rapport">
 		<combo_box.item label="Sélectionnez une catégorie" name="Select_category"/>
 		<combo_box.item label="Âge &gt; « Age play »" name="Age__Age_play"/>
 		<combo_box.item label="Âge &gt; Résident adulte sur Second Life pour adolescents" name="Age__Adult_resident_on_Teen_Second_Life"/>
-		<combo_box.item label="Âge &gt; Resident mineur en dehors de Teen Second Life" name="Age__Underage_resident_outside_of_Teen_Second_Life"/>
+		<combo_box.item label="Âge &gt; Résident mineur en dehors de Second Life pour adolescents" name="Age__Underage_resident_outside_of_Teen_Second_Life"/>
 		<combo_box.item label="Assaut &gt; Bac à sable utilisé pour des combats/zone non sécurisée" name="Assault__Combat_sandbox___unsafe_area"/>
 		<combo_box.item label="Assaut &gt; Zone sécurisée" name="Assault__Safe_area"/>
 		<combo_box.item label="Assaut &gt; Bac à sable pour tests d&apos;armes à feu" name="Assault__Weapons_testing_sandbox"/>
@@ -68,7 +68,7 @@
 		<combo_box.item label="Indécence &gt; Contenu ou comportement offensifs" name="Indecency__Broadly_offensive_content_or_conduct"/>
 		<combo_box.item label="Indécence &gt; Nom d&apos;avatar inapproprié" name="Indecency__Inappropriate_avatar_name"/>
 		<combo_box.item label="Indécence &gt; Contenu ou conduite inappropriés dans une région PG" name="Indecency__Mature_content_in_PG_region"/>
-		<combo_box.item label="Indécence &gt; Contenu ou conduite inappropriés dans une région Mature" name="Indecency__Inappropriate_content_in_Mature_region"/>
+		<combo_box.item label="Indécence &gt; Contenu ou conduite inappropriés dans une région modérée" name="Indecency__Inappropriate_content_in_Mature_region"/>
 		<combo_box.item label="Violation de droits de propriété intellectuelle &gt; Suppression de contenu" name="Intellectual_property_infringement_Content_Removal"/>
 		<combo_box.item label="Violation de droits de propriété intellectuelle &gt; CopyBot ou exploitation abusive des droits" name="Intellectual_property_infringement_CopyBot_or_Permissions_Exploit"/>
 		<combo_box.item label="Intolérance" name="Intolerance"/>
@@ -96,8 +96,7 @@
 		Soyez aussi spécifique que possible
 	</text>
 	<text bottom_delta="-16" name="incomplete_title">
-		Remarque : les rapports incomplets ne feront pas l&apos;objet d&apos;une
-enquête.
+		* Les rapports incomplets ne feront pas l&apos;objet d&apos;une enquête
 	</text>
 	<button label="Signaler une infraction" label_selected="Signaler une infraction" name="send_btn"/>
 	<button label="Annuler" label_selected="Annuler" name="cancel_btn"/>

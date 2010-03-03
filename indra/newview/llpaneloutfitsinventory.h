@@ -53,12 +53,15 @@ public:
 	virtual ~LLPanelOutfitsInventory();
 
 	/*virtual*/ BOOL postBuild();
+	/*virtual*/ void onOpen(const LLSD& key);
 	
 	void onSearchEdit(const std::string& string);
 	void onAdd();
 	void onRemove();
 	void onEdit();
-	void onNew();
+	void onSave();
+	
+	void onSaveCommit(const std::string& item_name);
 
 	void onSelectionChange(const std::deque<LLFolderViewItem*> &items, BOOL user_action);
 	void onSelectorButtonClicked();
@@ -75,24 +78,26 @@ protected:
 	bool getIsCorrectType(const LLFolderViewEventListener *listenerp) const;
 
 private:
-	LLSidepanelAppearance*      mParent;
-	LLSaveFolderState*			mSavedFolderState;
-	LLTabContainer*				mAppearanceTabs;
-	std::string 				mFilterSubString;
+	LLSidepanelAppearance*  mParent;
+	LLSaveFolderState*		mSavedFolderState;
+	LLTabContainer*			mAppearanceTabs;
+	std::string 			mFilterSubString;
 
 public:
 	//////////////////////////////////////////////////////////////////////////////////
 	// tab panels
-	LLInventoryPanel* 	getActivePanel();
-	bool isTabPanel(LLInventoryPanel *panel);
+	LLInventoryPanel* 		getActivePanel() { return mActivePanel; }
+	const LLInventoryPanel* getActivePanel() const { return mActivePanel; }
+	BOOL 					isTabPanel(LLInventoryPanel *panel) const;
 	
 protected:
-	void 				initTabPanels();
-	void 				onTabSelectionChange(LLInventoryPanel* tab_panel, const std::deque<LLFolderViewItem*> &items, BOOL user_action);
-	void 				onTabChange();
-	
+	void 					initTabPanels();
+	void 					onTabSelectionChange(LLInventoryPanel* tab_panel, const std::deque<LLFolderViewItem*> &items, BOOL user_action);
+	void 					onTabChange();
+	BOOL 					isCOFPanelActive() const;
+
 private:
-	LLInventoryPanel* 	mActivePanel;
+	LLInventoryPanel* 		mActivePanel;
 	typedef std::vector<LLInventoryPanel *> tabpanels_vec_t;
 	tabpanels_vec_t 		mTabPanels;
 
@@ -114,6 +119,7 @@ protected:
 	BOOL isActionEnabled(const LLSD& command_name);
 	void onCustomAction(const LLSD& command_name);
 	bool handleDragAndDropToTrash(BOOL drop, EDragAndDropType cargo_type, EAcceptance* accept);
+	bool hasItemsSelected();
 private:
 	LLPanel*					mListCommands;
 	LLMenuGL*					mMenuGearDefault;

@@ -46,7 +46,6 @@
 #include "llnotificationsutil.h"
 #include "lltextbox.h"
 #include "llviewermenu.h"
-#include "llviewerinventory.h"
 #include "lllandmarkactions.h"
 #include "llclipboard.h"
 
@@ -308,7 +307,7 @@ void LLTeleportHistoryFlatItemStorage::purge()
 ////////////////////////////////////////////////////////////////////////////////
 
 LLTeleportHistoryPanel::ContextMenu::ContextMenu() :
-	mMenu(NULL)
+	mMenu(NULL), mIndex(0)
 {
 }
 
@@ -452,6 +451,7 @@ BOOL LLTeleportHistoryPanel::postBuild()
 	registrar.add("TeleportHistory.ExpandAllFolders",  boost::bind(&LLTeleportHistoryPanel::onExpandAllFolders,  this));
 	registrar.add("TeleportHistory.CollapseAllFolders",  boost::bind(&LLTeleportHistoryPanel::onCollapseAllFolders,  this));
 	registrar.add("TeleportHistory.ClearTeleportHistory",  boost::bind(&LLTeleportHistoryPanel::onClearTeleportHistory,  this));
+	mEnableCallbackRegistrar.add("TeleportHistory.GearMenu.Enable", boost::bind(&LLTeleportHistoryPanel::isActionEnabled, this, _2));
 
 	LLMenuGL* gear_menu  = LLUICtrlFactory::getInstance()->createFromFile<LLMenuGL>("menu_teleport_history_gear.xml",  gMenuHolder, LLViewerMenuHolderGL::child_registry_t::instance());
 	if(gear_menu)
@@ -549,7 +549,7 @@ void LLTeleportHistoryPanel::updateVerbs()
 
 	LLTeleportHistoryFlatItem* itemp = dynamic_cast<LLTeleportHistoryFlatItem *> (mLastSelectedFlatlList->getSelectedItem());
 
-	mTeleportBtn->setEnabled(NULL != itemp && itemp->getIndex() < (S32)mTeleportHistory->getItems().size() - 1);
+	mTeleportBtn->setEnabled(NULL != itemp);
 	mShowOnMapBtn->setEnabled(NULL != itemp);
 }
 
@@ -722,7 +722,10 @@ void LLTeleportHistoryPanel::onTeleportHistoryChange(S32 removed_index)
 	if (-1 == removed_index)
 		showTeleportHistory(); // recreate all items
 	else
+	{
 		replaceItem(removed_index); // replace removed item by most recent
+		updateVerbs();
+	}
 }
 
 void LLTeleportHistoryPanel::replaceItem(S32 removed_index)
@@ -937,6 +940,9 @@ bool LLTeleportHistoryPanel::onClearTeleportHistoryDialog(const LLSD& notificati
 
 	if (0 == option)
 	{
+		// order does matter, call this first or teleport history will contain one record(current location)
+		LLTeleportHistory::getInstance()->purgeItems();
+
 		LLTeleportHistoryStorage *th = LLTeleportHistoryStorage::getInstance();
 		th->purgeItems();
 		th->save();
@@ -979,6 +985,49 @@ void LLTeleportHistoryPanel::onGearButtonClicked()
 	LLMenuGL::showPopup(this, menu, menu_x, menu_y);
 }
 
+bool LLTeleportHistoryPanel::isActionEnabled(const LLSD& userdata) const
+{
+	S32 tabs_cnt = mItemContainers.size();
+
+	bool has_expanded_tabs = false;
+	bool has_collapsed_tabs = false;
+
+	for (S32 n = 0; n < tabs_cnt; n++)
+	{
+		LLAccordionCtrlTab* tab = mItemContainers.get(n);
+		if (!tab->getVisible())
+			continue;
+
+		if (tab->getDisplayChildren())
+		{
+			has_expanded_tabs = true;
+		}
+		else
+		{
+			has_collapsed_tabs = true;
+		}
+
+		if (has_expanded_tabs && has_collapsed_tabs)
+		{
+			break;
+		}
+	}
+
+	std::string command_name = userdata.asString();
+
+	if (has_expanded_tabs && command_name == "collapse_all")
+	{
+		return true;
+	}
+
+	if (has_collapsed_tabs && command_name ==  "expand_all")
+	{
+		return true;
+	}
+
+	return false;
+}
+
 void LLTeleportHistoryPanel::setAccordionCollapsedByUser(LLUICtrl* acc_tab, bool collapsed)
 {
 	LLSD param = acc_tab->getValue();
@@ -989,7 +1038,7 @@ void LLTeleportHistoryPanel::setAccordionCollapsedByUser(LLUICtrl* acc_tab, bool
 bool LLTeleportHistoryPanel::isAccordionCollapsedByUser(LLUICtrl* acc_tab)
 {
 	LLSD param = acc_tab->getValue();
-	if(!param.has("acc_collapsed"))
+	if(!param.has(COLLAPSED_BY_USER))
 	{
 		return false;
 	}
@@ -1001,4 +1050,11 @@ void LLTeleportHistoryPanel::onAccordionExpand(LLUICtrl* ctrl, const LLSD& param
 	bool expanded = param.asBoolean();
 	// Save accordion tab state to restore it in refresh()
 	setAccordionCollapsedByUser(ctrl, !expanded);
+
+	// Reset selection upon accordion being collapsed
+	// to disable "Teleport" and "Map" buttons for hidden item.
+	if (!expanded && mLastSelectedFlatlList)
+	{
+		mLastSelectedFlatlList->resetSelection();
+	}
 }

@@ -93,7 +93,6 @@ public:
 	static void initClass();
 	static void cleanupClass();
 
-	// jamesdebug was LLUICtrl::Params
 	struct Params : public LLInitParam::Block<Params, LLView::Params>
 	{
 		Optional<LLUIImage*>					icon;
@@ -102,7 +101,10 @@ public:
 		Optional<LLFolderViewEventListener*>	listener;
 
 		Optional<LLUIImage*>					folder_arrow_image;
+		Optional<S32>							folder_indentation; // pixels
 		Optional<LLUIImage*>					selection_image;
+		Optional<S32>							item_height; // pixels
+		Optional<S32>							item_top_pad; // pixels
 
 		Optional<S32>							creation_date; //UTC seconds
 
@@ -111,7 +113,7 @@ public:
 
 	// layout constants
 	static const S32 LEFT_PAD = 5;
-	static const S32 LEFT_INDENTATION = 2;
+    // LEFT_INDENTATION is set via folder_indentation above
 	static const S32 ICON_PAD = 2;
 	static const S32 ICON_WIDTH = 16;
 	static const S32 TEXT_PAD = 1;
@@ -128,11 +130,7 @@ protected:
 	friend class LLUICtrlFactory;
 	friend class LLFolderViewEventListener;
 
-	LLFolderViewItem(Params p = LLFolderViewItem::Params());
-
-	static const LLFontGL*		sSmallFont;
-	static LLUIImagePtr			sArrowImage;
-	static LLUIImagePtr			sBoxImage;
+	LLFolderViewItem(const Params& p);
 
 	std::string					mLabel;
 	std::string					mSearchableLabel;
@@ -151,6 +149,7 @@ protected:
 	LLUIImagePtr				mIconOpen;
 	BOOL						mHasVisibleChildren;
 	S32							mIndentation;
+	S32							mItemHeight;
 	S32							mNumDescendantsSelected;
 	BOOL						mPassedFilter;
 	S32							mLastFilterGeneration;
@@ -158,8 +157,6 @@ protected:
 	F32							mControlLabelRotation;
 	LLFolderView*				mRoot;
 	BOOL						mDragAndDropTarget;
-	LLUIImagePtr				mArrowImage;
-	LLUIImagePtr				mBoxImage;
 	BOOL                        mIsLoading;
 	LLTimer                     mTimeSinceRequestStart;
 	bool						mHidden;
@@ -238,7 +235,7 @@ public:
 	virtual void recursiveDeselect(BOOL deselect_self);
 
 	// gets multiple-element selection
-	virtual BOOL getSelectionList(std::set<LLUUID> &selection){return TRUE;}
+	virtual BOOL getSelectionList(std::set<LLUUID> &selection) const {return TRUE;}
 
 	// Returns true is this object and all of its children can be removed (deleted by user)
 	virtual BOOL isRemovable();
@@ -305,7 +302,7 @@ public:
 	// Show children (unfortunate that this is called "open")
 	virtual void setOpen(BOOL open = TRUE) {};
 
-	virtual BOOL isOpen() { return FALSE; }
+	virtual BOOL isOpen() const { return FALSE; }
 
 	virtual LLFolderView*	getRoot();
 	BOOL			isDescendantOf( const LLFolderViewFolder* potential_ancestor );
@@ -500,7 +497,7 @@ public:
 	virtual void setOpenArrangeRecursively(BOOL openitem, ERecurseType recurse = RECURSE_NO);
 
 	// Get the current state of the folder.
-	virtual BOOL isOpen() { return mIsOpen; }
+	virtual BOOL isOpen() const { return mIsOpen; }
 
 	// special case if an object is dropped on the child.
 	BOOL handleDragAndDropFromChild(MASK mask,

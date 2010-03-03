@@ -42,8 +42,6 @@ static const LLDefaultChildRegistry::Register<LLFlatListView> flat_list_view("fl
 const LLSD SELECTED_EVENT	= LLSD().with("selected", true);
 const LLSD UNSELECTED_EVENT	= LLSD().with("selected", false);
 
-static const std::string COMMENT_TEXTBOX = "comment_text";
-
 //forward declaration
 bool llsds_are_equal(const LLSD& llsd_1, const LLSD& llsd_2);
 
@@ -51,7 +49,8 @@ LLFlatListView::Params::Params()
 :	item_pad("item_pad"),
 	allow_select("allow_select"),
 	multi_select("multi_select"),
-	keep_one_selected("keep_one_selected")
+	keep_one_selected("keep_one_selected"),
+	no_items_text("no_items_text")
 {};
 
 void LLFlatListView::reshape(S32 width, S32 height, BOOL called_from_parent /* = TRUE */)
@@ -289,25 +288,12 @@ void LLFlatListView::resetSelection(bool no_commit_on_deselection /*= false*/)
 		onCommit();
 	}
 
-	// Stretch selected items rect to ensure it won't be clipped
-	mSelectedItemsBorder->setRect(getSelectedItemsRect().stretch(-1));
+	// Stretch selected item rect to ensure it won't be clipped
+	mSelectedItemsBorder->setRect(getLastSelectedItemRect().stretch(-1));
 }
 
 void LLFlatListView::setNoItemsCommentText(const std::string& comment_text)
 {
-	if (NULL == mNoItemsCommentTextbox)
-	{
-		LLRect comment_rect = getRect();
-		comment_rect.setOriginAndSize(0, 0, comment_rect.getWidth(), comment_rect.getHeight());
-		comment_rect.stretch(-getBorderWidth());
-		LLTextBox::Params text_p;
-		text_p.name(COMMENT_TEXTBOX);
-		text_p.border_visible(false);
-		text_p.rect(comment_rect);
-		text_p.follows.flags(FOLLOWS_ALL);
-		mNoItemsCommentTextbox = LLUICtrlFactory::create<LLTextBox>(text_p, this);
-	}
-
 	mNoItemsCommentTextbox->setValue(comment_text);
 }
 
@@ -361,7 +347,6 @@ bool LLFlatListView::updateValue(const LLSD& old_value, const LLSD& new_value)
 // PROTECTED STUFF
 //////////////////////////////////////////////////////////////////////////
 
-
 LLFlatListView::LLFlatListView(const LLFlatListView::Params& p)
 :	LLScrollContainer(p)
   , mItemComparator(NULL)
@@ -393,11 +378,30 @@ LLFlatListView::LLFlatListView(const LLFlatListView::Params& p)
 
 	LLViewBorder::Params params;
 	params.name("scroll border");
-	params.rect(getSelectedItemsRect());
+	params.rect(getLastSelectedItemRect());
 	params.visible(false);
 	params.bevel_style(LLViewBorder::BEVEL_IN);
 	mSelectedItemsBorder = LLUICtrlFactory::create<LLViewBorder> (params);
 	mItemsPanel->addChild( mSelectedItemsBorder );
+
+	{
+		// create textbox for "No Items" comment text
+		LLTextBox::Params text_p = p.no_items_text;
+		if (!text_p.rect.isProvided())
+		{
+			LLRect comment_rect = getRect();
+			comment_rect.setOriginAndSize(0, 0, comment_rect.getWidth(), comment_rect.getHeight());
+			comment_rect.stretch(-getBorderWidth());
+			text_p.rect(comment_rect);
+		}
+		text_p.border_visible(false);
+
+		if (!text_p.follows.isProvided())
+		{
+			text_p.follows.flags(FOLLOWS_ALL);
+		}
+		mNoItemsCommentTextbox = LLUICtrlFactory::create<LLTextBox>(text_p, this);
+	}
 };
 
 // virtual
@@ -480,8 +484,8 @@ void LLFlatListView::rearrangeItems()
 		item_new_top -= (rc.getHeight() + mItemPad);
 	}
 
-	// Stretch selected items rect to ensure it won't be clipped
-	mSelectedItemsBorder->setRect(getSelectedItemsRect().stretch(-1));
+	// Stretch selected item rect to ensure it won't be clipped
+	mSelectedItemsBorder->setRect(getLastSelectedItemRect().stretch(-1));
 }
 
 void LLFlatListView::onItemMouseClick(item_pair_t* item_pair, MASK mask)
@@ -664,8 +668,8 @@ bool LLFlatListView::selectItemPair(item_pair_t* item_pair, bool select)
 		onCommit();
 	}
 
-	// Stretch selected items rect to ensure it won't be clipped
-	mSelectedItemsBorder->setRect(getSelectedItemsRect().stretch(-1));
+	// Stretch selected item rect to ensure it won't be clipped
+	mSelectedItemsBorder->setRect(getLastSelectedItemRect().stretch(-1));
 
 	return true;
 }
@@ -678,23 +682,6 @@ LLRect LLFlatListView::getLastSelectedItemRect()
 	}
 
 	return mSelectedItemPairs.back()->first->getRect();
-}
-
-LLRect LLFlatListView::getSelectedItemsRect()
-{
-	if (!mSelectedItemPairs.size())
-	{
-		return LLRect::null;
-	}
-	LLRect rc = getLastSelectedItemRect();
-	for ( pairs_const_iterator_t
-			  it = mSelectedItemPairs.begin(),
-			  it_end = mSelectedItemPairs.end();
-		  it != it_end; ++it )
-	{
-		rc.unionWith((*it)->first->getRect());
-	}
-	return rc;
 }
 
 void LLFlatListView::selectFirstItem	()
@@ -711,19 +698,12 @@ void LLFlatListView::selectLastItem		()
 
 void LLFlatListView::ensureSelectedVisible()
 {
-	LLRect visible_rc = getVisibleContentRect();
 	LLRect selected_rc = getLastSelectedItemRect();
 
-	if ( !visible_rc.contains (selected_rc) )
+	if ( selected_rc.isValid() )
 	{
-		// But scroll in Items panel coordinates
 		scrollToShowRect(selected_rc);
 	}
-
-	// In case we are in accordion tab notify parent to show selected rectangle
-	LLRect screen_rc;
-	localRectToScreen(selected_rc, &screen_rc);
-	notifyParent(LLSD().with("scrollToShowRect",screen_rc.getValue()));
 }
 
 
@@ -826,8 +806,8 @@ bool LLFlatListView::selectAll()
 		onCommit();
 	}
 
-	// Stretch selected items rect to ensure it won't be clipped
-	mSelectedItemsBorder->setRect(getSelectedItemsRect().stretch(-1));
+	// Stretch selected item rect to ensure it won't be clipped
+	mSelectedItemsBorder->setRect(getLastSelectedItemRect().stretch(-1));
 
 	return true;
 }
@@ -885,7 +865,11 @@ void LLFlatListView::notifyParentItemsRectChanged()
 	// take into account comment text height if exists
 	if (mNoItemsCommentTextbox && mNoItemsCommentTextbox->getVisible())
 	{
+		// top text padding inside the textbox is included into the height
 		comment_height = mNoItemsCommentTextbox->getTextPixelHeight();
+
+		// take into account a distance from parent's top border to textbox's top
+		comment_height += getRect().getHeight() - mNoItemsCommentTextbox->getRect().mTop;
 	}
 
 	LLRect req_rect =  getItemsRect();
@@ -906,7 +890,8 @@ void LLFlatListView::notifyParentItemsRectChanged()
 	params["width"] = req_rect.getWidth();
 	params["height"] = req_rect.getHeight();
 
-	getParent()->notifyParent(params);
+	if (getParent()) // dummy widgets don't have a parent
+		getParent()->notifyParent(params);
 }
 
 void LLFlatListView::setNoItemsCommentVisible(bool visible) const
@@ -915,6 +900,10 @@ void LLFlatListView::setNoItemsCommentVisible(bool visible) const
 	{
 		if (visible)
 		{
+/*
+// *NOTE: MA 2010-02-04
+// Deprecated after params of the comment text box were moved into widget (flat_list_view.xml)
+// can be removed later if nothing happened.
 			// We have to update child rect here because of issues with rect after reshaping while creating LLTextbox
 			// It is possible to have invalid LLRect if Flat List is in LLAccordionTab
 			LLRect comment_rect = getLocalRect();
@@ -926,6 +915,7 @@ void LLFlatListView::setNoItemsCommentVisible(bool visible) const
 			LLViewBorder* scroll_border = getChild<LLViewBorder>("scroll border");
 			comment_rect.stretch(-scroll_border->getBorderWidth());
 			mNoItemsCommentTextbox->setRect(comment_rect);
+*/
 		}
 		mNoItemsCommentTextbox->setVisible(visible);
 	}

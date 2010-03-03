@@ -58,6 +58,16 @@ public:
 	
 	void updateShape();
 	bool isMouseOver();
+	
+	enum EZoomLevel
+	{
+		ZOOM_NONE = 0,
+		ZOOM_FAR,
+		ZOOM_MEDIUM,
+		ZOOM_NEAR
+	};
+	
+	EZoomLevel getZoomLevel() const { return mCurrentZoom; }
 	void nextZoomLevel();
 	void resetZoomLevel(bool reset_camera = true);
 	void close();
@@ -66,13 +76,6 @@ public:
 	void setMediaFace(LLPointer<LLViewerObject> objectp, S32 face, viewer_media_t media_impl, LLVector3 pick_normal = LLVector3::zero);
 
 
-	enum EZoomLevel
-	{
-		ZOOM_NONE = 0,
-		ZOOM_FAR,
-		ZOOM_MEDIUM,
-		ZOOM_NEAR
-	};
 	static const EZoomLevel kZoomLevels[];
 	static const int kNumZoomLevels;
 	
@@ -111,6 +114,7 @@ private:
 	void onToggleMute();
 	void showVolumeSlider();
 	void hideVolumeSlider();
+	bool shouldVolumeSliderBeVisible();
 	
 	static void onScrollUp(void* user_data);
 	static void onScrollUpHeld(void* user_data);
@@ -155,8 +159,6 @@ private:
 	LLUICtrl *mMediaPlaySliderCtrl;
 	LLUICtrl *mVolumeCtrl;
 	LLButton *mMuteBtn;
-	LLUICtrl *mVolumeUpCtrl;
-	LLUICtrl *mVolumeDownCtrl;
 	LLSliderCtrl *mVolumeSliderCtrl;
 	LLIconCtrl *mWhitelistIcon;
 	LLIconCtrl *mSecureLockIcon;
@@ -171,6 +173,7 @@ private:
 	F32 mZoomNearPadding;
 	F32 mZoomMediumPadding;
 	F32 mZoomFarPadding;
+	S32 mTopWorldViewAvoidZone;
 	
 	LLUICtrl *mMediaPanelScroll;
 	LLButton *mScrollUpCtrl;

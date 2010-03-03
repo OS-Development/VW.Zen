@@ -50,6 +50,7 @@
 #include "llfloatergroups.h"
 #include "llfloaterreg.h"
 #include "llfloaterpay.h"
+#include "llfloaterworldmap.h"
 #include "llinventorymodel.h"	// for gInventory.findCategoryUUIDForType
 #include "llimview.h"			// for gIMMgr
 #include "llmutelist.h"
@@ -168,8 +169,10 @@ void LLAvatarActions::offerTeleport(const LLUUID& invitee)
 // static
 void LLAvatarActions::offerTeleport(const std::vector<LLUUID>& ids) 
 {
-	if (ids.size() > 0)
-		handle_lure(ids);
+	if (ids.size() == 0)
+		return;
+
+	handle_lure(ids);
 }
 
 // static
@@ -179,7 +182,12 @@ void LLAvatarActions::startIM(const LLUUID& id)
 		return;
 
 	std::string name;
-	gCacheName->getFullName(id, name);
+	if (!gCacheName->getFullName(id, name))
+	{
+		gCacheName->get(id, FALSE, boost::bind(&LLAvatarActions::startIM, id));
+		return;
+	}
+
 	LLUUID session_id = gIMMgr->addSession(name, IM_NOTHING_SPECIAL, id);
 	if (session_id != LLUUID::null)
 	{
@@ -248,31 +256,25 @@ void LLAvatarActions::startAdhocCall(const std::vector<LLUUID>& ids)
 	make_ui_sound("UISndStartIM");
 }
 
+/* AD *TODO: Is this function needed any more?
+	I fixed it a bit(added check for canCall), but it appears that it is not used
+	anywhere. Maybe it should be removed?
 // static
 bool LLAvatarActions::isCalling(const LLUUID &id)
 {
-	if (id.isNull())
+	if (id.isNull() || !canCall())
 	{
 		return false;
 	}
 
 	LLUUID session_id = gIMMgr->computeSessionID(IM_NOTHING_SPECIAL, id);
 	return (LLIMModel::getInstance()->findIMSession(session_id) != NULL);
-}
+}*/
 
 //static
-bool LLAvatarActions::canCall(const LLUUID &id)
+bool LLAvatarActions::canCall()
 {
-	// For now we do not need to check whether passed UUID is ID of agent's friend.
-	// Use common check of Voice Client state.
-	{
-		// don't need to check online/offline status because "usual resident" (resident that is not a friend)
-		// can be only ONLINE. There is no way to see "usual resident" in OFFLINE status. If we see "usual
-		// resident" it automatically means that the resident is ONLINE. So to make a call to the "usual resident"
-		// we need to check only that "our" voice is enabled.
-		return LLVoiceClient::voiceEnabled();
-	}
-
+		return LLVoiceClient::voiceEnabled() && gVoiceClient->voiceWorking();
 }
 
 // static
@@ -313,6 +315,20 @@ void LLAvatarActions::showProfile(const LLUUID& id)
 			LLSideTray::getInstance()->showPanel("panel_profile_view", params);
 		}
 	}
+}
+
+// static
+void LLAvatarActions::showOnMap(const LLUUID& id)
+{
+	std::string name;
+	if (!gCacheName->getFullName(id, name))
+	{
+		gCacheName->get(id, FALSE, boost::bind(&LLAvatarActions::showOnMap, id));
+		return;
+	}
+
+	gFloaterWorldMap->trackAvatar(id, name);
+	LLFloaterReg::showInstance("world_map");
 }
 
 // static
@@ -595,9 +611,11 @@ void LLAvatarActions::requestFriendship(const LLUUID& target_id, const std::stri
 
 	LLSD args;
 	args["TO_NAME"] = target_name;
+
 	LLSD payload;
+	payload["from_id"] = target_id;
 	payload["SESSION_NAME"] = target_name;
-	payload["SUPPRES_TOST"] = true;
+	payload["SUPPRESS_TOAST"] = true;
 	LLNotificationsUtil::add("FriendshipOffered", args, payload);
 }
 
@@ -613,4 +631,14 @@ bool LLAvatarActions::isBlocked(const LLUUID& id)
 	std::string name;
 	gCacheName->getFullName(id, name);
 	return LLMuteList::getInstance()->isMuted(id, name);
+}
+
+// static
+bool LLAvatarActions::canBlock(const LLUUID& id)
+{
+	std::string firstname, lastname;
+	gCacheName->getName(id, firstname, lastname);
+	bool is_linden = !LLStringUtil::compareStrings(lastname, "Linden");
+	bool is_self = id == gAgentID;
+	return !is_self && !is_linden;
 }

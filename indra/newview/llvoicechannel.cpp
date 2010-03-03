@@ -33,7 +33,6 @@
 #include "llviewerprecompiledheaders.h"
 
 #include "llagent.h"
-#include "llfloatercall.h"
 #include "llfloaterreg.h"
 #include "llimview.h"
 #include "llnotifications.h"
@@ -123,7 +122,8 @@ LLVoiceChannel::LLVoiceChannel(const LLUUID& session_id, const std::string& sess
 	mState(STATE_NO_CHANNEL_INFO), 
 	mSessionName(session_name),
 	mCallDirection(OUTGOING_CALL),
-	mIgnoreNextSessionLeave(FALSE)
+	mIgnoreNextSessionLeave(FALSE),
+	mCallEndedByAgent(false)
 {
 	mNotifyArgs["VOICE_CHANNEL_NAME"] = mSessionName;
 
@@ -140,7 +140,10 @@ LLVoiceChannel::LLVoiceChannel(const LLUUID& session_id, const std::string& sess
 LLVoiceChannel::~LLVoiceChannel()
 {
 	// Don't use LLVoiceClient::getInstance() here -- this can get called during atexit() time and that singleton MAY have already been destroyed.
-	if(gVoiceClient)
+	// Using call of instanceExists() instead of gVoiceClient in check to avoid crash in LLVoiceClient::removeObserver() 
+	// when quitting viewer by closing console window before login (though in case of such quit crash will occur 
+	// later in other destructors anyway). EXT-5524
+	if(LLVoiceClient::instanceExists())
 	{
 		gVoiceClient->removeObserver(this);
 	}
@@ -279,10 +282,14 @@ void LLVoiceChannel::deactivate()
 	if (callStarted())
 	{
 		setState(STATE_HUNG_UP);
-		// mute the microphone if required when returning to the proximal channel
-		if (gSavedSettings.getBOOL("AutoDisengageMic") && sCurrentVoiceChannel == this)
+		
+		//Default mic is OFF when leaving voice calls
+		if (gSavedSettings.getBOOL("AutoDisengageMic") && 
+			sCurrentVoiceChannel == this &&
+			gVoiceClient->getUserPTTState())
 		{
 			gSavedSettings.setBOOL("PTTCurrentlyEnabled", true);
+			gVoiceClient->inputUserControlState(true);
 		}
 	}
 
@@ -386,13 +393,16 @@ void LLVoiceChannel::setState(EState state)
 	switch(state)
 	{
 	case STATE_RINGING:
-		gIMMgr->addSystemMessage(mSessionID, "ringing", mNotifyArgs);
+		//TODO: remove or redirect this call status notification
+//		LLCallInfoDialog::show("ringing", mNotifyArgs);
 		break;
 	case STATE_CONNECTED:
-		gIMMgr->addSystemMessage(mSessionID, "connected", mNotifyArgs);
+		//TODO: remove or redirect this call status notification
+//		LLCallInfoDialog::show("connected", mNotifyArgs);
 		break;
 	case STATE_HUNG_UP:
-		gIMMgr->addSystemMessage(mSessionID, "hang_up", mNotifyArgs);
+		//TODO: remove or redirect this call status notification
+//		LLCallInfoDialog::show("hang_up", mNotifyArgs);
 		break;
 	default:
 		break;
@@ -406,7 +416,7 @@ void LLVoiceChannel::doSetState(const EState& new_state)
 	EState old_state = mState;
 	mState = new_state;
 	if (!mStateChangedCallback.empty())
-		mStateChangedCallback(old_state, mState, mCallDirection);
+		mStateChangedCallback(old_state, mState, mCallDirection, mCallEndedByAgent);
 }
 
 //static
@@ -499,6 +509,13 @@ void LLVoiceChannelGroup::activate()
 				LLRecentPeople::instance().add(buddy_id);
 		}
 #endif
+
+		//Mic default state is OFF on initiating/joining Ad-Hoc/Group calls
+		if (gVoiceClient->getUserPTTState() && gVoiceClient->getPTTIsToggle())
+		{
+			gVoiceClient->inputUserControlState(true);
+		}
+		
 	}
 }
 
@@ -625,7 +642,8 @@ void LLVoiceChannelGroup::setState(EState state)
 	case STATE_RINGING:
 		if ( !mIsRetrying )
 		{
-			gIMMgr->addSystemMessage(mSessionID, "ringing", mNotifyArgs);
+			//TODO: remove or redirect this call status notification
+//			LLCallInfoDialog::show("ringing", mNotifyArgs);
 		}
 
 		doSetState(state);
@@ -688,7 +706,12 @@ void LLVoiceChannelProximal::handleStatusChange(EStatusType status)
 		// do not notify user when leaving proximal channel
 		return;
 	case STATUS_VOICE_DISABLED:
-		 gIMMgr->addSystemMessage(LLUUID::null, "unavailable", mNotifyArgs);
+		//skip showing "Voice not available at your current location" when agent voice is disabled (EXT-4749)
+		if(LLVoiceClient::voiceEnabled() && gVoiceClient->voiceWorking())
+		{
+			//TODO: remove or redirect this call status notification
+//			LLCallInfoDialog::show("unavailable", mNotifyArgs);
+		}
 		return;
 	default:
 		break;
@@ -760,7 +783,8 @@ void LLVoiceChannelP2P::handleStatusChange(EStatusType type)
 			}
 			else
 			{
-				// other user hung up				
+				// other user hung up, so we didn't end the call				
+				mCallEndedByAgent = false;			
 			}
 			deactivate();
 		}
@@ -791,6 +815,9 @@ void LLVoiceChannelP2P::activate()
 {
 	if (callStarted()) return;
 
+	//call will be counted as ended by user unless this variable is changed in handleStatusChange()
+	mCallEndedByAgent = true;
+
 	LLVoiceChannel::activate();
 
 	if (callStarted())
@@ -812,6 +839,12 @@ void LLVoiceChannelP2P::activate()
 
 		// Add the party to the list of people with which we've recently interacted.
 		LLRecentPeople::instance().add(mOtherUserID);
+
+		//Default mic is ON on initiating/joining P2P calls
+		if (!gVoiceClient->getUserPTTState() && gVoiceClient->getPTTIsToggle())
+		{
+			gVoiceClient->inputUserControlState(true);
+		}
 	}
 }
 
@@ -881,7 +914,8 @@ void LLVoiceChannelP2P::setState(EState state)
 		// so provide a special purpose message here
 		if (mReceivedCall && state == STATE_RINGING)
 		{
-			gIMMgr->addSystemMessage(mSessionID, "answering", mNotifyArgs);
+			//TODO: remove or redirect this call status notification
+//			LLCallInfoDialog::show("answering", mNotifyArgs);
 			doSetState(state);
 			return;
 		}

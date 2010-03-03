@@ -110,8 +110,8 @@ public:
 	void onClickSetKey();
 	void setKey(KEY key);
 	void onClickSetMiddleMouse();
-	void onClickSkipDialogs();
-	void onClickResetDialogs();
+//	void onClickSkipDialogs();
+//	void onClickResetDialogs();
 	void onClickEnablePopup();
 	void onClickDisablePopup();	
 	void resetAllIgnored();
@@ -128,22 +128,19 @@ public:
 	
 	void updateSliderText(LLSliderCtrl* ctrl, LLTextBox* text_box);
 	void onUpdateSliderText(LLUICtrl* ctrl, const LLSD& name);
-	void onKeystrokeAspectRatio();
 //	void fractionFromDecimal(F32 decimal_val, S32& numerator, S32& denominator);
-//	bool extractWindowSizeFromString(const std::string& instr, U32 &width, U32 &height);
 
-	void onCommitAutoDetectAspect();
+	void onCommitParcelMediaAutoPlayEnable();
+	void onCommitMediaEnabled();
+	void onCommitMusicEnabled();
 	void applyResolution();
-	void applyWindowSize();
+	void onChangeMaturity();
 	void applyUIColor(LLUICtrl* ctrl, const LLSD& param);
-	void getUIColor(LLUICtrl* ctrl, const LLSD& param);	
-	
-	static void initWindowSizeControls(LLPanel* panelp);
+	void getUIColor(LLUICtrl* ctrl, const LLSD& param);
 	
 	void buildPopupLists();
 	static void refreshSkin(void* data);
 	static void cleanupBadSetting();
-	static F32 sAspectRatio;	
 private:
 	static std::string sSkin;
 	bool mGotPersonalInfo;
@@ -162,17 +159,36 @@ public:
 	virtual void apply();
 	virtual void cancel();
 	void setControlFalse(const LLSD& user_data);
+	virtual void setHardwareDefaults(){};
 
 	// This function squirrels away the current values of the controls so that
 	// cancel() can restore them.
 	virtual void saveSettings();
 	
 private:
+	//for "Only friends and groups can call or IM me"
+	static void showFriendsOnlyWarning(LLUICtrl*, const LLSD&);
+
 	typedef std::map<LLControlVariable*, LLSD> control_values_map_t;
 	control_values_map_t mSavedValues;
 
 	typedef std::map<std::string, LLColor4> string_color_map_t;
 	string_color_map_t mSavedColors;
+};
+
+class LLPanelPreferenceGraphics : public LLPanelPreference
+{
+public:
+	BOOL postBuild();
+	void draw();
+	void apply();
+	void cancel();
+	void saveSettings();
+	void setHardwareDefaults();
+protected:
+	bool hasDirtyChilds();
+	void resetDirtyChilds();
+	
 };
 
 #endif  // LL_LLPREFERENCEFLOATER_H

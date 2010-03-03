@@ -105,6 +105,9 @@ public:
 	F32				getVirtualSize() const { return mVSize; }
 	F32				getPixelArea() const { return mPixelArea; }
 
+	S32             getIndexInTex() const {return mIndexInTex ;}
+	void            setIndexInTex(S32 index) { mIndexInTex = index ;}
+
 	void			renderSetColor() const;
 	S32				renderElements(const U16 *index_array) const;
 	S32				renderIndexed ();
@@ -191,6 +194,9 @@ public:
 	F32         getTextureVirtualSize() ;
 	F32         getImportanceToCamera()const {return mImportanceToCamera ;}
 
+	void        setHasMedia(bool has_media)  { mHasMedia = has_media ;}
+	BOOL        hasMedia() const ;
+
 	//for atlas
 	LLTextureAtlasSlot*   getAtlasInfo() ;
 	void                  setAtlasInUse(BOOL flag);
@@ -205,7 +211,7 @@ public:
 
 private:	
 	F32         adjustPartialOverlapPixelArea(F32 cos_angle_to_view_dir, F32 radius );
-	F32         calcPixelArea(F32& cos_angle_to_view_dir, F32& radius) ;
+	BOOL        calcPixelArea(F32& cos_angle_to_view_dir, F32& radius) ;
 public:
 	static F32  calcImportanceToCamera(F32 to_view_dir, F32 dist);
 
@@ -236,6 +242,7 @@ private:
 	U16			mGeomIndex;			// index into draw pool
 	U32			mIndicesCount;
 	U32			mIndicesIndex;		// index into draw pool for indices (yeah, I know!)
+	S32         mIndexInTex ;
 
 	//previous rebuild's geometry info
 	U16			mLastGeomCount;
@@ -258,7 +265,7 @@ private:
 	//based on the distance from the face to the view point and the angle from the face center to the view direction.
 	F32         mImportanceToCamera ; 
 	F32         mBoundingSphereRadius ;
-
+	bool        mHasMedia ;
 
 	//atlas
 	LLPointer<LLTextureAtlasSlot> mAtlasInfop ;

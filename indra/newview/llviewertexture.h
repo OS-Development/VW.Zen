@@ -134,7 +134,9 @@ public:
 	static S32 getIndexFromCategory(S32 category) ;
 	static S32 getCategoryFromIndex(S32 index) ;
 
-	typedef std::list<LLFace*> ll_face_list_t ;
+	typedef std::vector<LLFace*> ll_face_list_t;
+	typedef std::vector<LLVOVolume*> ll_volume_list_t;
+
 
 protected:
 	virtual ~LLViewerTexture();
@@ -175,7 +177,13 @@ public:
 
 	virtual void addFace(LLFace* facep) ;
 	virtual void removeFace(LLFace* facep) ; 
-	const ll_face_list_t* getFaceList() const {return &mFaceList ;}
+	S32 getNumFaces() const;
+	const ll_face_list_t* getFaceList() const {return &mFaceList;}
+
+	virtual void addVolume(LLVOVolume* volumep);
+	virtual void removeVolume(LLVOVolume* volumep);
+	S32 getNumVolumes() const;
+	const ll_volume_list_t* getVolumeList() const { return &mVolumeList; }
 
 	void generateGLTexture() ;
 	void destroyGLTexture() ;
@@ -190,6 +198,7 @@ public:
 	LLGLuint   getTexName() const ;		
 	BOOL       createGLTexture() ;
 	BOOL       createGLTexture(S32 discard_level, const LLImageRaw* imageraw, S32 usename = 0, BOOL to_create = TRUE, S32 category = LLViewerTexture::OTHER);
+	virtual void setCachedRawImage(S32 discard_level, LLImageRaw* imageraw) ;
 
 	void       setFilteringOption(LLTexUnit::eTextureFilterOptions option);
 	void       setExplicitFormat(LLGLint internal_format, LLGLenum primary_format, LLGLenum type_format = 0, BOOL swap_bytes = FALSE);
@@ -239,13 +248,14 @@ public:
 	/*virtual*/ void updateBindStatsForTester() ;
 protected:
 	void cleanup() ;
-	void init(bool firstinit) ;		
-
+	void init(bool firstinit) ;	
+	void reorganizeFaceList() ;
+	void reorganizeVolumeList() ;
 private:
 	//note: do not make this function public.
 	/*virtual*/ LLImageGL* getGLTexture() const ;
 	virtual void switchToCachedImage();
-
+	
 protected:
 	LLUUID mID;
 	S32 mBoostLevel;				// enum describing priority level
@@ -257,13 +267,19 @@ protected:
 	mutable S8  mNeedsGLTexture;
 	mutable BOOL mNeedsResetMaxVirtualSize ;
 	mutable F32 mAdditionalDecodePriority;  // priority add to mDecodePriority.
-	LLFrameTimer mLastReferencedTimer;
-
-	ll_face_list_t mFaceList ; //reverse pointer pointing to the faces using this image as texture
+	LLFrameTimer mLastReferencedTimer;	
 
 	//GL texture
 	LLPointer<LLImageGL> mGLTexturep ;
 	S8 mDontDiscard;			// Keep full res version of this image (for UI, etc)
+
+	ll_face_list_t    mFaceList ; //reverse pointer pointing to the faces using this image as texture
+	U32               mNumFaces ;
+	LLFrameTimer      mLastFaceListUpdateTimer ;
+
+	ll_volume_list_t  mVolumeList;
+	U32					mNumVolumes;
+	LLFrameTimer	  mLastVolumeListUpdateTimer;
 
 	//do not use LLPointer here.
 	LLViewerMediaTexture* mParcelMedia ;
@@ -380,8 +396,6 @@ public:
 	
 	void updateVirtualSize() ;
 
-	// setDesiredDiscardLevel is only used by LLViewerTextureList
-	void setDesiredDiscardLevel(S32 discard) { mDesiredDiscardLevel = discard; }
 	S32  getDesiredDiscardLevel()			 { return mDesiredDiscardLevel; }
 	void setMinDiscardLevel(S32 discard) 	{ mMinDesiredDiscardLevel = llmin(mMinDesiredDiscardLevel,(S8)discard); }
 
@@ -434,6 +448,7 @@ public:
 	BOOL        isCachedRawImageReady() const {return mCachedRawImageReady ;}
 	BOOL        isRawImageValid()const { return mIsRawImageValid ; }	
 	void        forceToSaveRawImage(S32 desired_discard = 0) ;
+	/*virtual*/ void setCachedRawImage(S32 discard_level, LLImageRaw* imageraw) ;
 	void        destroySavedRawImage() ;
 	LLImageRaw* getSavedRawImage() ;
 	BOOL        hasSavedRawImage() const ;
@@ -442,15 +457,14 @@ public:
 
 protected:
 	/*virtual*/ void switchToCachedImage();
+	S32 getCurrentDiscardLevelForFetching() ;
 
 private:
 	void init(bool firstinit) ;
 	void cleanup() ;
 
 	void saveRawImage() ;
-	BOOL forceFetch() ;
 	void setCachedRawImage() ;
-	BOOL keepReuestedDiscardLevel();
 
 	//for atlas
 	void resetFaceAtlas() ;

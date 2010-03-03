@@ -180,8 +180,10 @@ LLVOVolume::LLVOVolume(const LLUUID &id, const LLPCode pcode, LLViewerRegion *re
 	mRelativeXform.setIdentity();
 	mRelativeXformInvTrans.setIdentity();
 
+	mFaceMappingChanged = FALSE;
 	mLOD = MIN_LOD;
 	mTextureAnimp = NULL;
+	mVolumeChanged = FALSE;
 	mVObjRadius = LLVector3(1,1,0.5f).length();
 	mNumFaces = 0;
 	mLODChanged = FALSE;
@@ -190,6 +192,7 @@ LLVOVolume::LLVOVolume(const LLUUID &id, const LLPCode pcode, LLViewerRegion *re
 
 	mMediaImplList.resize(getNumTEs());
 	mLastFetchedMediaVersion = -1;
+	mIndexInTex = 0;
 }
 
 LLVOVolume::~LLVOVolume()
@@ -223,6 +226,11 @@ void LLVOVolume::markDead()
 		for(U32 i = 0 ; i < mMediaImplList.size() ; i++)
 		{
 			removeMediaImpl(i);
+		}
+
+		if (mSculptTexture.notNull())
+		{
+			mSculptTexture->removeVolume(this);
 		}
 	}
 	
@@ -595,6 +603,9 @@ BOOL LLVOVolume::idleUpdate(LLAgent &agent, LLWorld &world, const F64 &time)
 {
 	LLViewerObject::idleUpdate(agent, world, time);
 
+	static LLFastTimer::DeclareTimer ftm("Volume");
+	LLFastTimer t(ftm);
+
 	if (mDead || mDrawable.isNull())
 	{
 		return TRUE;
@@ -614,6 +625,18 @@ BOOL LLVOVolume::idleUpdate(LLAgent &agent, LLWorld &world, const F64 &time)
 	if (mVolumeImpl)
 	{
 		mVolumeImpl->doIdleUpdate(agent, world, time);
+	}
+
+	const S32 MAX_ACTIVE_OBJECT_QUIET_FRAMES = 40;
+
+	if (mDrawable->isActive())
+	{
+		if (mDrawable->isRoot() && 
+			mDrawable->mQuietCount++ > MAX_ACTIVE_OBJECT_QUIET_FRAMES && 
+			(!mDrawable->getParent() || !mDrawable->getParent()->isActive()))
+		{
+			mDrawable->makeStatic();
+		}
 	}
 
 	return TRUE;
@@ -677,6 +700,7 @@ void LLVOVolume::updateTextureVirtualSize()
 			vsize = area;
 			imagep->setBoostLevel(LLViewerTexture::BOOST_HUD);
  			face->setPixelArea(area); // treat as full screen
+			face->setVirtualSize(vsize);
 		}
 		else
 		{
@@ -693,8 +717,7 @@ void LLVOVolume::updateTextureVirtualSize()
 				gPipeline.markRebuild(mDrawable, LLDrawable::REBUILD_TCOORD, FALSE);
 			}
 		}
-		
-		face->setVirtualSize(vsize);
+				
 		if (gPipeline.hasRenderDebugMask(LLPipeline::RENDER_DEBUG_TEXTURE_AREA))
 		{
 			if (vsize < min_vsize) min_vsize = vsize;
@@ -723,7 +746,9 @@ void LLVOVolume::updateTextureVirtualSize()
 	{
 		LLSculptParams *sculpt_params = (LLSculptParams *)getParameterEntry(LLNetworkData::PARAMS_SCULPT);
 		LLUUID id =  sculpt_params->getSculptTexture(); 
-		mSculptTexture = LLViewerTextureManager::getFetchedTexture(id, TRUE, LLViewerTexture::BOOST_NONE, LLViewerTexture::LOD_TEXTURE);
+		
+		updateSculptTexture();
+		
 		if (mSculptTexture.notNull())
 		{
 			mSculptTexture->setBoostLevel(llmax((S32)mSculptTexture->getBoostLevel(),
@@ -912,33 +937,51 @@ BOOL LLVOVolume::setVolume(const LLVolumeParams &volume_params, const S32 detail
 		{
 			mVolumeImpl->onSetVolume(volume_params, detail);
 		}
-		
+	
+		updateSculptTexture();
+
 		if (isSculpted())
 		{
-			mSculptTexture = LLViewerTextureManager::getFetchedTexture(volume_params.getSculptID(), TRUE, LLViewerTexture::BOOST_NONE, LLViewerTexture::LOD_TEXTURE);
+			updateSculptTexture();
+
 			if (mSculptTexture.notNull())
 			{
-				//ignore sculpt GL usage since bao fixed this in a separate branch
-				if (!gGLActive)
-				{
-					gGLActive = TRUE;
-					sculpt();
-					gGLActive = FALSE;
-				}
-				else
-				{
-					sculpt();
-				}
+				sculpt();
 			}
-		}
-		else
-		{
-			mSculptTexture = NULL;
 		}
 
 		return TRUE;
 	}
 	return FALSE;
+}
+
+void LLVOVolume::updateSculptTexture()
+{
+	LLPointer<LLViewerFetchedTexture> old_sculpt = mSculptTexture;
+
+	if (isSculpted())
+	{
+		LLSculptParams *sculpt_params = (LLSculptParams *)getParameterEntry(LLNetworkData::PARAMS_SCULPT);
+		LLUUID id =  sculpt_params->getSculptTexture(); 
+		mSculptTexture = LLViewerTextureManager::getFetchedTexture(id, TRUE, LLViewerTexture::BOOST_NONE, LLViewerTexture::LOD_TEXTURE);
+	}
+	else
+	{
+		mSculptTexture = NULL;
+	}
+
+	if (mSculptTexture != old_sculpt)
+	{
+		if (old_sculpt.notNull())
+		{
+			old_sculpt->removeVolume(this);
+		}
+		if (mSculptTexture.notNull())
+		{
+			mSculptTexture->addVolume(this);
+		}
+	}
+	
 }
 
 // sculpt replaces generate() for sculpted surfaces
@@ -981,6 +1024,8 @@ void LLVOVolume::sculpt()
 		
 		if(!raw_image)
 		{
+			llassert(discard_level < 0) ;
+
 			sculpt_width = 0;
 			sculpt_height = 0;
 			sculpt_data = NULL ;
@@ -1004,6 +1049,16 @@ void LLVOVolume::sculpt()
 			}
 		}
 		getVolume()->sculpt(sculpt_width, sculpt_height, sculpt_components, sculpt_data, discard_level);
+
+		//notify rebuild any other VOVolumes that reference this sculpty volume
+		for (S32 i = 0; i < mSculptTexture->getNumVolumes(); ++i)
+		{
+			LLVOVolume* volume = (*(mSculptTexture->getVolumeList()))[i];
+			if (volume != this && volume->getVolume() == getVolume())
+			{
+				gPipeline.markRebuild(volume->mDrawable, LLDrawable::REBUILD_GEOMETRY, FALSE);
+			}
+		}
 	}
 }
 
@@ -1033,7 +1088,7 @@ BOOL LLVOVolume::calcLOD()
 	S32 cur_detail = 0;
 	
 	F32 radius = getVolume()->mLODScaleBias.scaledVec(getScale()).length();
-	F32 distance = llmin(mDrawable->mDistanceWRTCamera, MAX_LOD_DISTANCE);
+	F32 distance = mDrawable->mDistanceWRTCamera; //llmin(mDrawable->mDistanceWRTCamera, MAX_LOD_DISTANCE);
 	distance *= sDistanceFactor;
 			
 	F32 rampDist = LLVOVolume::sLODFactor * 2;
@@ -1357,7 +1412,7 @@ BOOL LLVOVolume::updateGeometry(LLDrawable *drawable)
 		return res;
 	}
 	
-	dirtySpatialGroup();
+	dirtySpatialGroup(drawable->isState(LLDrawable::IN_REBUILD_Q1));
 
 	BOOL compiled = FALSE;
 			
@@ -1460,7 +1515,14 @@ void LLVOVolume::updateFaceSize(S32 idx)
 	else
 	{
 		const LLVolumeFace& vol_face = getVolume()->getVolumeFace(idx);
-		facep->setSize(vol_face.mVertices.size(), vol_face.mIndices.size());
+		if (LLPipeline::sUseTriStrips)
+		{
+			facep->setSize(vol_face.mVertices.size(), vol_face.mTriStrip.size());
+		}
+		else
+		{
+			facep->setSize(vol_face.mVertices.size(), vol_face.mIndices.size());
+		}
 	}
 }
 
@@ -1852,12 +1914,32 @@ void LLVOVolume::mediaNavigateBounceBack(U8 texture_index)
 	if (mep && impl)
 	{
         std::string url = mep->getCurrentURL();
-        if (url.empty())
+		// Look for a ":", if not there, assume "http://"
+		if (!url.empty() && std::string::npos == url.find(':')) 
+		{
+			url = "http://" + url;
+		}
+		// If the url we're trying to "bounce back" to is either empty or not
+		// allowed by the whitelist, try the home url.  If *that* doesn't work,
+		// set the media as failed and unload it
+        if (url.empty() || !mep->checkCandidateUrl(url))
         {
             url = mep->getHomeURL();
+			// Look for a ":", if not there, assume "http://"
+			if (!url.empty() && std::string::npos == url.find(':')) 
+			{
+				url = "http://" + url;
+			}
         }
-        if (! url.empty())
-        {
+        if (url.empty() || !mep->checkCandidateUrl(url))
+		{
+			// The url to navigate back to is not good, and we have nowhere else
+			// to go.
+			LL_WARNS("MediaOnAPrim") << "FAILED to bounce back URL \"" << url << "\" -- unloading impl" << LL_ENDL;
+			impl->setMediaFailed(true);
+		}
+		else {
+			// Okay, navigate now
             LL_INFOS("MediaOnAPrim") << "bouncing back to URL: " << url << LL_ENDL;
             impl->navigateTo(url, "", false, true);
         }
@@ -2106,11 +2188,19 @@ viewer_media_t LLVOVolume::getMediaImpl(U8 face_id) const
 
 F64 LLVOVolume::getTotalMediaInterest() const
 {
+	// If this object is currently focused, this object has "high" interest
 	if (LLViewerMediaFocus::getInstance()->getFocusedObjectID() == getID())
 		return F64_MAX;
 	
 	F64 interest = (F64)-1.0;  // means not interested;
-    int i = 0;
+    
+	// If this object is selected, this object has "high" interest, but since 
+	// there can be more than one, we still add in calculated impl interest
+	// XXX Sadly, 'contains()' doesn't take a const :(
+	if (LLSelectMgr::getInstance()->getSelection()->contains(const_cast<LLVOVolume*>(this)))
+		interest = F64_MAX / 2.0;
+	
+	int i = 0;
 	const int end = getNumTEs();
 	for ( ; i < end; ++i)
 	{
@@ -2689,13 +2779,16 @@ U32 LLVOVolume::getRenderCost(std::set<LLUUID> &textures) const
 		const LLTextureEntry* te = face->getTextureEntry();
 		const LLViewerTexture* img = face->getTexture();
 
-		textures.insert(img->getID());
+		if (img)
+		{
+			textures.insert(img->getID());
+		}
 
 		if (face->getPoolType() == LLDrawPool::POOL_ALPHA)
 		{
 			alpha++;
 		}
-		else if (img->getPrimaryFormat() == GL_ALPHA)
+		else if (img && img->getPrimaryFormat() == GL_ALPHA)
 		{
 			invisi = 1;
 		}
@@ -3179,6 +3272,11 @@ void LLVolumeGeometryManager::registerFace(LLSpatialGroup* group, LLFace* facep,
 		draw_info->mExtents[0] = facep->mExtents[0];
 		draw_info->mExtents[1] = facep->mExtents[1];
 		validate_draw_info(*draw_info);
+
+		if (LLPipeline::sUseTriStrips)
+		{
+			draw_info->mDrawMode = LLRender::TRIANGLE_STRIP;
+		}
 	}
 }
 
@@ -3263,7 +3361,7 @@ void LLVolumeGeometryManager::rebuildGeom(LLSpatialGroup* group)
 			drawablep->updateFaceSize(i);
 			LLFace* facep = drawablep->getFace(i);
 
-			if (cur_total > max_total)
+			if (cur_total > max_total || facep->getIndicesCount() <= 0 || facep->getGeomCount() <= 0)
 			{
 				facep->mVertexBuffer = NULL;
 				facep->mLastVertexBuffer = NULL;
@@ -3424,7 +3522,8 @@ static LLFastTimer::DeclareTimer FTM_VOLUME_GEOM("Volume Geometry");
 void LLVolumeGeometryManager::rebuildMesh(LLSpatialGroup* group)
 {
 	llpushcallstacks ;
-	if (group->isState(LLSpatialGroup::MESH_DIRTY) && !group->isState(LLSpatialGroup::GEOM_DIRTY))
+	llassert(group);
+	if (group && group->isState(LLSpatialGroup::MESH_DIRTY) && !group->isState(LLSpatialGroup::GEOM_DIRTY))
 	{
 		LLFastTimer tm(FTM_VOLUME_GEOM);
 		S32 num_mapped_veretx_buffer = LLVertexBuffer::sMappedCount ;
@@ -3478,9 +3577,9 @@ void LLVolumeGeometryManager::rebuildMesh(LLSpatialGroup* group)
 		}
 		
 		// don't forget alpha
-		if(	group != NULL && 
-			!group->mVertexBuffer.isNull() && 
-			group->mVertexBuffer->isLocked())
+		if(group != NULL && 
+		   !group->mVertexBuffer.isNull() && 
+		   group->mVertexBuffer->isLocked())
 		{
 			group->mVertexBuffer->setBuffer(0);
 		}
@@ -3506,7 +3605,7 @@ void LLVolumeGeometryManager::rebuildMesh(LLSpatialGroup* group)
 		group->clearState(LLSpatialGroup::MESH_DIRTY | LLSpatialGroup::NEW_DRAWINFO);
 	}
 
-	if (group->isState(LLSpatialGroup::NEW_DRAWINFO))
+	if (group && group->isState(LLSpatialGroup::NEW_DRAWINFO))
 	{
 		llerrs << "WTF?" << llendl;
 	}

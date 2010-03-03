@@ -61,7 +61,7 @@ public:
 	/* callback for camera presets changing */
 	static void onClickCameraPresets(const LLSD& param);
 
-	static void toPrevModeIfInAvatarViewMode();
+	static void onLeavingMouseLook();
 
 	/** resets current camera mode to orbit mode */
 	static void resetCameraMode();
@@ -69,8 +69,6 @@ public:
 	/* determines actual mode and updates ui */
 	void update();
 	
-	static void updateIfNotInAvatarViewMode();
-
 	virtual void onOpen(const LLSD& key);
 	virtual void onClose(bool app_quitting);
 
@@ -102,8 +100,14 @@ private:
 	/* sets a new mode preserving previous one and updates ui*/
 	void setMode(ECameraControlMode mode);
 
+	/** set title appropriate to passed mode */
+	void setModeTitle(const ECameraControlMode mode);
+
 	/* updates the state (UI) according to the current mode */
 	void updateState();
+
+	/* update camera preset buttons toggle state according to the currently selected preset */
+	void updateCameraPresetButtons();
 
 	void onClickBtn(ECameraControlMode mode);
 	void assignButton2Mode(ECameraControlMode mode, const std::string& button_name);

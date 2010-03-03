@@ -70,7 +70,9 @@ LLParticipantList::LLParticipantList(LLSpeakerMgr* data_source, LLAvatarList* av
 	mSpeakerMgr->addListener(mSpeakerModeratorListener, "update_moderator");
 
 	mAvatarList->setNoItemsCommentText(LLTrans::getString("LoadingData"));
-	mAvatarListDoubleClickConnection = mAvatarList->setDoubleClickCallback(boost::bind(&LLParticipantList::onAvatarListDoubleClicked, this, mAvatarList));
+	LL_DEBUGS("SpeakingIndicator") << "Set session for speaking indicators: " << mSpeakerMgr->getSessionID() << LL_ENDL;
+	mAvatarList->setSessionID(mSpeakerMgr->getSessionID());
+	mAvatarListDoubleClickConnection = mAvatarList->setItemDoubleClickCallback(boost::bind(&LLParticipantList::onAvatarListDoubleClicked, this, _1));
 	mAvatarListRefreshConnection = mAvatarList->setRefreshCompleteCallback(boost::bind(&LLParticipantList::onAvatarListRefreshed, this, _1, _2));
     // Set onAvatarListDoubleClicked as default on_return action.
 	mAvatarListReturnConnection = mAvatarList->setReturnCallback(boost::bind(&LLParticipantList::onAvatarListDoubleClicked, this, mAvatarList));
@@ -125,6 +127,8 @@ LLParticipantList::~LLParticipantList()
 		delete mParticipantListMenu;
 		mParticipantListMenu = NULL;
 	}
+
+	mAvatarList->setContextMenu(NULL);
 }
 
 void LLParticipantList::setSpeakingIndicatorsVisible(BOOL visible)
@@ -132,10 +136,15 @@ void LLParticipantList::setSpeakingIndicatorsVisible(BOOL visible)
 	mAvatarList->setSpeakingIndicatorsVisible(visible);
 };
 
-void LLParticipantList::onAvatarListDoubleClicked(LLAvatarList* list)
+void LLParticipantList::onAvatarListDoubleClicked(LLUICtrl* ctrl)
 {
-	// NOTE(EM): Should we check if there is multiple selection and start conference if it is so?
-	LLUUID clicked_id = list->getSelectedUUID();
+	LLAvatarListItem* item = dynamic_cast<LLAvatarListItem*>(ctrl);
+	if(!item)
+	{
+		return;
+	}
+
+	LLUUID clicked_id = item->getAvatarId();
 
 	if (clicked_id.isNull() || clicked_id == gAgent.getID())
 		return;
@@ -166,7 +175,6 @@ void LLParticipantList::onAvatarListRefreshed(LLUICtrl* ctrl, const LLSD& param)
 				{
 					name.erase(found, moderator_indicator_len);
 					item->setName(name);
-					item->reshapeAvatarName();
 				}
 			}
 		}
@@ -188,7 +196,6 @@ void LLParticipantList::onAvatarListRefreshed(LLUICtrl* ctrl, const LLSD& param)
 					name += " ";
 					name += moderator_indicator;
 					item->setName(name);
-					item->reshapeAvatarName();
 				}
 			}
 		}
@@ -229,7 +236,7 @@ bool LLParticipantList::onAddItemEvent(LLPointer<LLOldEvents::LLEvent> event, co
 {
 	LLUUID uu_id = event->getValue().asUUID();
 
-	if (mValidateSpeakerCallback && mValidateSpeakerCallback(uu_id))
+	if (mValidateSpeakerCallback && !mValidateSpeakerCallback(uu_id))
 	{
 		return true;
 	}
@@ -279,6 +286,9 @@ bool LLParticipantList::onModeratorUpdateEvent(LLPointer<LLOldEvents::LLEvent> e
 					mModeratorList.erase(id);
 				}
 			}
+
+			// apply changes immediately
+			onAvatarListRefreshed(mAvatarList, LLSD());
 		}
 	}
 	return true;
@@ -425,6 +435,10 @@ LLContextMenu* LLParticipantList::LLParticipantListMenu::createMenu()
 	LLContextMenu* main_menu = LLUICtrlFactory::getInstance()->createFromFile<LLContextMenu>(
 		"menu_participant_list.xml", LLMenuGL::sMenuContainer, LLViewerMenuHolderGL::child_registry_t::instance());
 
+	// Don't show sort options for P2P chat
+	bool is_sort_visible = (mParent.mAvatarList && mParent.mAvatarList->size() > 1);
+	main_menu->setItemVisible("SortByName", is_sort_visible);
+	main_menu->setItemVisible("SortByRecentSpeakers", is_sort_visible);
 	main_menu->setItemVisible("Moderator Options", isGroupModerator());
 	main_menu->arrangeAndClear();
 
@@ -450,11 +464,6 @@ void LLParticipantList::LLParticipantListMenu::show(LLView* spawning_view, const
 		LLMenuGL::sMenuContainer->childSetVisible("ModerateVoiceUnMuteSelected", false);
 		LLMenuGL::sMenuContainer->childSetVisible("ModerateVoiceUnMuteOthers", false);
 	}
-
-	// Don't show sort options for P2P chat
-	bool is_sort_visible = (mParent.mAvatarList && mParent.mAvatarList->size() > 1);
-	LLMenuGL::sMenuContainer->childSetVisible("SortByName", is_sort_visible);
-	LLMenuGL::sMenuContainer->childSetVisible("SortByRecentSpeakers", is_sort_visible);
 }
 
 void LLParticipantList::LLParticipantListMenu::sortParticipantList(const LLSD& userdata)
@@ -576,7 +585,8 @@ void LLParticipantList::LLParticipantListMenu::moderateVoiceOtherParticipants(co
 bool LLParticipantList::LLParticipantListMenu::enableContextMenuItem(const LLSD& userdata)
 {
 	std::string item = userdata.asString();
-	if (item == "can_mute_text" || "can_block" == item)
+	if (item == "can_mute_text" || "can_block" == item || "can_share" == item || "can_im" == item 
+		|| "can_pay" == item)
 	{
 		return mUUIDs.front() != gAgentID;
 	}
@@ -592,8 +602,7 @@ bool LLParticipantList::LLParticipantListMenu::enableContextMenuItem(const LLSD&
 			if (speakerp.notNull())
 			{
 				// not in voice participants can not be moderated
-				return speakerp->mStatus == LLSpeaker::STATUS_VOICE_ACTIVE
-					|| speakerp->mStatus == LLSpeaker::STATUS_MUTED;
+				return speakerp->isInVoiceChannel();
 			}
 		}
 		return false;
@@ -612,7 +621,7 @@ bool LLParticipantList::LLParticipantListMenu::enableContextMenuItem(const LLSD&
 
 		for (;id != uuids_end; ++id)
 		{
-			if ( LLAvatarActions::isFriend(*id) )
+			if ( *id == gAgentID || LLAvatarActions::isFriend(*id) )
 			{
 				result = false;
 				break;
@@ -622,7 +631,9 @@ bool LLParticipantList::LLParticipantListMenu::enableContextMenuItem(const LLSD&
 	}
 	else if (item == "can_call")
 	{
-		return LLVoiceClient::voiceEnabled();
+		bool not_agent = mUUIDs.front() != gAgentID;
+		bool can_call = not_agent && LLVoiceClient::voiceEnabled() && gVoiceClient->voiceWorking();
+		return can_call;
 	}
 
 	return true;

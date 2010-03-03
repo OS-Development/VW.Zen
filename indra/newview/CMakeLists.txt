@@ -7,6 +7,7 @@ include(Boost)
 include(BuildVersion)
 include(DBusGlib)
 include(DirectX)
+include(DragDrop)
 include(ELFIO)
 include(FMOD)
 include(OPENAL)
@@ -63,8 +64,6 @@ include_directories(
     )
 
 set(viewer_SOURCE_FILES
-    llaccordionctrl.cpp
-    llaccordionctrltab.cpp
     llagent.cpp
     llagentaccess.cpp
     llagentdata.cpp
@@ -157,16 +156,13 @@ set(viewer_SOURCE_FILES
     llfloaterbuycontents.cpp
     llfloaterbuycurrency.cpp
     llfloaterbuyland.cpp
-    llfloatercall.cpp
     llfloatercamera.cpp
-    llfloaterchat.cpp
-    llfloaterchatterbox.cpp
     llfloatercolorpicker.cpp
     llfloatercustomize.cpp
     llfloaterdaycycle.cpp
     llfloaterenvsettings.cpp
+    llfloaterevent.cpp
     llfloaterfonttest.cpp
-    llfloaterfriends.cpp
     llfloatergesture.cpp
     llfloatergodtools.cpp
     llfloatergroupinvite.cpp
@@ -187,7 +183,6 @@ set(viewer_SOURCE_FILES
     llfloatermediasettings.cpp
     llfloatermemleak.cpp
     llfloaternamedesc.cpp
-    llfloaternearbymedia.cpp
     llfloaternotificationsconsole.cpp
     llfloateropenobject.cpp
     llfloaterparcel.cpp
@@ -215,10 +210,10 @@ set(viewer_SOURCE_FILES
     llfloaterurldisplay.cpp
     llfloaterurlentry.cpp
     llfloatervoicedevicesettings.cpp
-    llfloatervolumepulldown.cpp
     llfloaterwater.cpp
     llfloaterwhitelistentry.cpp
     llfloaterwindlight.cpp
+    llfloaterwindowsize.cpp
     llfloaterworldmap.cpp
     llfolderview.cpp
     llfolderviewitem.cpp
@@ -245,13 +240,13 @@ set(viewer_SOURCE_FILES
     llimfloater.cpp
     llimfloatercontainer.cpp
     llimhandler.cpp
-    llimpanel.cpp
     llimview.cpp
     llinspect.cpp
     llinspectavatar.cpp
     llinspectgroup.cpp
     llinspectobject.cpp
     llinspectremoteobject.cpp
+    llinspecttoast.cpp
     llinventorybridge.cpp
     llinventoryclipboard.cpp
     llinventoryfilter.cpp
@@ -276,7 +271,6 @@ set(viewer_SOURCE_FILES
     llmaniptranslate.cpp
     llmediactrl.cpp
     llmediadataclient.cpp
-    llmediaremotectrl.cpp
     llmemoryview.cpp
     llmenucommands.cpp
     llmetricperformancetester.cpp
@@ -300,15 +294,12 @@ set(viewer_SOURCE_FILES
     llnotificationscripthandler.cpp
     llnotificationtiphandler.cpp
     lloutputmonitorctrl.cpp
-    lloverlaybar.cpp
     llpanelavatar.cpp
-    llpanelavatarrow.cpp
     llpanelavatartag.cpp
     llpanelblockedlist.cpp
     llpanelclassified.cpp
     llpanelcontents.cpp
     llpaneleditwearable.cpp
-    llpanelevent.cpp
     llpanelface.cpp
     llpanelgroup.cpp
     llpanelgroupgeneral.cpp
@@ -331,6 +322,7 @@ set(viewer_SOURCE_FILES
     llpanelmediasettingspermissions.cpp
     llpanelmediasettingssecurity.cpp
     llpanelme.cpp
+    llpanelnearbymedia.cpp
     llpanelobject.cpp
     llpanelobjectinventory.cpp
     llpaneloutfitsinventory.cpp
@@ -347,9 +339,9 @@ set(viewer_SOURCE_FILES
     llpanelprimmediacontrols.cpp
     llpanelprofile.cpp
     llpanelprofileview.cpp
-    llpanelshower.cpp
     llpanelteleporthistory.cpp
     llpanelvolume.cpp
+    llpanelvolumepulldown.cpp
     llparcelselection.cpp
     llparticipantlist.cpp
     llpatchvertexarray.cpp
@@ -388,6 +380,7 @@ set(viewer_SOURCE_FILES
     llspatialpartition.cpp
     llspeakbutton.cpp
     llspeakers.cpp
+    llspeakingindicatormanager.cpp
     llsplitbutton.cpp
     llsprite.cpp
     llstartup.cpp
@@ -421,7 +414,6 @@ set(viewer_SOURCE_FILES
     lltoastnotifypanel.cpp
     lltoastpanel.cpp
     lltool.cpp
-    lltoolbar.cpp
     lltoolbrush.cpp
     lltoolcomp.cpp
     lltooldraganddrop.cpp
@@ -516,8 +508,6 @@ set(viewer_SOURCE_FILES
     llvoground.cpp
     llvoicechannel.cpp
     llvoiceclient.cpp
-    llvoicecontrolpanel.cpp
-    llvoiceremotectrl.cpp
     llvoicevisualizer.cpp
     llvoinventorylistener.cpp
     llvopartgroup.cpp
@@ -571,8 +561,6 @@ endif (LINUX)
 set(viewer_HEADER_FILES
     CMakeLists.txt
     ViewerInstall.cmake
-    llaccordionctrl.h
-    llaccordionctrltab.h
     llagent.h
     llagentaccess.h
     llagentdata.h
@@ -668,16 +656,13 @@ set(viewer_HEADER_FILES
     llfloaterbuycontents.h
     llfloaterbuycurrency.h
     llfloaterbuyland.h
-    llfloatercall.h
     llfloatercamera.h
-    llfloaterchat.h
-    llfloaterchatterbox.h
     llfloatercolorpicker.h
     llfloatercustomize.h
     llfloaterdaycycle.h
     llfloaterenvsettings.h
+    llfloaterevent.h
     llfloaterfonttest.h
-    llfloaterfriends.h
     llfloatergesture.h
     llfloatergodtools.h
     llfloatergroupinvite.h
@@ -698,7 +683,6 @@ set(viewer_HEADER_FILES
     llfloatermediasettings.h
     llfloatermemleak.h
     llfloaternamedesc.h
-    llfloaternearbymedia.h
     llfloaternotificationsconsole.h
     llfloateropenobject.h
     llfloaterparcel.h
@@ -729,6 +713,7 @@ set(viewer_HEADER_FILES
     llfloaterwater.h
     llfloaterwhitelistentry.h
     llfloaterwindlight.h
+    llfloaterwindowsize.h
     llfloaterworldmap.h
     llfolderview.h
     llfoldervieweventlistener.h
@@ -754,13 +739,13 @@ set(viewer_HEADER_FILES
     llhudview.h
     llimfloater.h
     llimfloatercontainer.h
-    llimpanel.h
     llimview.h
     llinspect.h
     llinspectavatar.h
     llinspectgroup.h
     llinspectobject.h
     llinspectremoteobject.h
+    llinspecttoast.h
     llinventorybridge.h
     llinventoryclipboard.h
     llinventoryfilter.h
@@ -786,7 +771,6 @@ set(viewer_HEADER_FILES
     llmaniptranslate.h
     llmediactrl.h
     llmediadataclient.h
-    llmediaremotectrl.h
     llmemoryview.h
     llmenucommands.h
     llmetricperformancetester.h
@@ -805,15 +789,12 @@ set(viewer_HEADER_FILES
     llnotificationhandler.h
     llnotificationmanager.h
     lloutputmonitorctrl.h
-    lloverlaybar.h
     llpanelavatar.h
-    llpanelavatarrow.h
     llpanelavatartag.h
     llpanelblockedlist.h
     llpanelclassified.h
     llpanelcontents.h
     llpaneleditwearable.h
-    llpanelevent.h
     llpanelface.h
     llpanelgroup.h
     llpanelgroupgeneral.h
@@ -836,6 +817,7 @@ set(viewer_HEADER_FILES
     llpanelmediasettingspermissions.h
     llpanelmediasettingssecurity.h
     llpanelme.h
+    llpanelnearbymedia.h
     llpanelobject.h
     llpanelobjectinventory.h
     llpaneloutfitsinventory.h
@@ -852,9 +834,9 @@ set(viewer_HEADER_FILES
     llpanelprimmediacontrols.h
     llpanelprofile.h
     llpanelprofileview.h
-    llpanelshower.h
     llpanelteleporthistory.h
     llpanelvolume.h
+    llpanelvolumepulldown.h
     llparcelselection.h
     llparticipantlist.h
     llpatchvertexarray.h
@@ -895,6 +877,7 @@ set(viewer_HEADER_FILES
     llspatialpartition.h
     llspeakbutton.h
     llspeakers.h
+    llspeakingindicatormanager.h
     llsplitbutton.h
     llsprite.h
     llstartup.h
@@ -929,7 +912,6 @@ set(viewer_HEADER_FILES
     lltoastnotifypanel.h
     lltoastpanel.h
     lltool.h
-    lltoolbar.h
     lltoolbrush.h
     lltoolcomp.h
     lltooldraganddrop.h
@@ -1022,8 +1004,6 @@ set(viewer_HEADER_FILES
     llvoground.h
     llvoicechannel.h
     llvoiceclient.h
-    llvoicecontrolpanel.h
-    llvoiceremotectrl.h
     llvoicevisualizer.h
     llvoinventorylistener.h
     llvopartgroup.h
@@ -1071,11 +1051,13 @@ if (DARWIN)
   find_library(APPKIT_LIBRARY AppKit)
   find_library(COCOA_LIBRARY Cocoa)
   find_library(IOKIT_LIBRARY IOKit)
+  find_library(COREAUDIO_LIBRARY CoreAudio)
 
   set(viewer_LIBRARIES
     ${COCOA_LIBRARY}
     ${AGL_LIBRARY}
     ${IOKIT_LIBRARY}
+    ${COREAUDIO_LIBRARY}
     )
 
   # Add resource files to the project.
@@ -1410,11 +1392,11 @@ if (WINDOWS)
       # Note the need to specify multiple names explicitly.
       set(GOOGLE_PERF_TOOLS_SOURCE
         ${SHARED_LIB_STAGING_DIR}/Release/libtcmalloc_minimal.dll
-	${SHARED_LIB_STAGING_DIR}/RelWithDebInfo/libtcmalloc_minimal.dll
-	${SHARED_LIB_STAGING_DIR}/Debug/libtcmalloc_minimal-debug.dll
-	)
+        ${SHARED_LIB_STAGING_DIR}/RelWithDebInfo/libtcmalloc_minimal.dll
+        ${SHARED_LIB_STAGING_DIR}/Debug/libtcmalloc_minimal-debug.dll
+        )
     endif(USE_GOOGLE_PERFTOOLS)
-	  
+  
 
     set(COPY_INPUT_DEPENDECIES
       # The following commented dependencies are determined at variably at build time. Can't do this here.
@@ -1503,15 +1485,16 @@ if (WINDOWS)
         --actions=copy
         --artwork=${ARTWORK_DIR}
         --build=${CMAKE_CURRENT_BINARY_DIR}
+        --buildtype=${CMAKE_BUILD_TYPE}
         --configuration=${CMAKE_CFG_INTDIR}
         --dest=${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}
         --grid=${GRID}
         --source=${CMAKE_CURRENT_SOURCE_DIR}
-	--touch=${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/copy_touched.bat
+        --touch=${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/copy_touched.bat
       DEPENDS 
-	${CMAKE_CURRENT_SOURCE_DIR}/viewer_manifest.py
-	stage_third_party_libs
-	${COPY_INPUT_DEPENDECIES}
+        ${CMAKE_CURRENT_SOURCE_DIR}/viewer_manifest.py
+        stage_third_party_libs
+        ${COPY_INPUT_DEPENDECIES}
       COMMENT "Performing viewer_manifest copy"
       )
     
@@ -1573,6 +1556,7 @@ if (WINDOWS)
           ${CMAKE_CURRENT_SOURCE_DIR}/viewer_manifest.py
           --artwork=${ARTWORK_DIR}
           --build=${CMAKE_CURRENT_BINARY_DIR}
+          --buildtype=${CMAKE_BUILD_TYPE}
           --channel=${VIEWER_CHANNEL}
           --configuration=${CMAKE_CFG_INTDIR}
           --dest=${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}
@@ -1583,7 +1567,10 @@ if (WINDOWS)
         DEPENDS ${VIEWER_BINARY_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/viewer_manifest.py
         )
 
-      add_custom_target(package ALL DEPENDS ${CMAKE_CFG_INTDIR}/touched.bat)
+      add_custom_target(package ALL DEPENDS 
+        ${CMAKE_CFG_INTDIR}/touched.bat
+        windows-setup-build-all 
+        )
         # temporarily disable packaging of event_host until hg subrepos get
         # sorted out on the parabuild cluster...
         #${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/event_host.tar.bz2)
@@ -1637,13 +1624,6 @@ set(ARTWORK_DIR ${CMAKE_CURRENT_SOURCE_DIR} CACHE PATH
 
 
 if (LINUX)
-  add_custom_command(
-      OUTPUT secondlife-stripped
-      COMMAND strip
-      ARGS --strip-debug -o secondlife-stripped ${VIEWER_BINARY_NAME}
-      DEPENDS ${VIEWER_BINARY_NAME}
-      )
-
   set(product SecondLife-${ARCH}-${viewer_VERSION})
 
   add_custom_command(
@@ -1654,6 +1634,7 @@ if (LINUX)
         --arch=${ARCH}
         --artwork=${ARTWORK_DIR}
         --build=${CMAKE_CURRENT_BINARY_DIR}
+        --buildtype=${CMAKE_BUILD_TYPE}
         --channel=${VIEWER_CHANNEL}
         --configuration=${CMAKE_CFG_INTDIR}
         --dest=${CMAKE_CURRENT_BINARY_DIR}/packaged
@@ -1662,15 +1643,15 @@ if (LINUX)
         --login_channel=${VIEWER_LOGIN_CHANNEL}
         --source=${CMAKE_CURRENT_SOURCE_DIR}
         --touch=${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/.${product}.touched
-      DEPENDS secondlife-stripped ${CMAKE_CURRENT_SOURCE_DIR}/viewer_manifest.py
+      DEPENDS ${VIEWER_BINARY_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/viewer_manifest.py
       )
 
   add_dependencies(${VIEWER_BINARY_NAME} SLPlugin media_plugin_gstreamer010 media_plugin_webkit)
 
   if (NOT INSTALL)
     add_custom_target(package ALL DEPENDS ${product}.tar.bz2)
-    add_dependencies(package linux-crash-logger-strip-target)
-    add_dependencies(package linux-updater-strip-target)
+    add_dependencies(package linux-crash-logger-target)
+    add_dependencies(package linux-updater-target)
     check_message_template(package)
   endif (NOT INSTALL)
 endif (LINUX)
@@ -1699,6 +1680,7 @@ if (DARWIN)
       --actions=copy
       --artwork=${ARTWORK_DIR}
       --build=${CMAKE_CURRENT_BINARY_DIR}
+      --buildtype=${CMAKE_BUILD_TYPE}
       --configuration=${CMAKE_CFG_INTDIR}
       --dest=${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/${product}.app
       --grid=${GRID}
@@ -1719,6 +1701,7 @@ if (DARWIN)
         ARGS
           ${CMAKE_CURRENT_SOURCE_DIR}/viewer_manifest.py
           --grid=${GRID}
+          --buildtype=${CMAKE_BUILD_TYPE}
           --configuration=${CMAKE_CFG_INTDIR}
           --channel=${VIEWER_CHANNEL}
           --login_channel=${VIEWER_LOGIN_CHANNEL}
@@ -1738,6 +1721,7 @@ if (DARWIN)
         ARGS
           ${CMAKE_CURRENT_SOURCE_DIR}/viewer_manifest.py
           --grid=${GRID}
+          --buildtype=${CMAKE_BUILD_TYPE}
           --configuration=${CMAKE_CFG_INTDIR}
           --channel=${VIEWER_CHANNEL}
           --login_channel=${VIEWER_LOGIN_CHANNEL}
@@ -1765,9 +1749,10 @@ if (LL_TESTS)
     llagentaccess.cpp
     lldateutil.cpp
     llmediadataclient.cpp
-    llviewerhelputil.cpp
     lllogininstance.cpp
+    llviewerhelputil.cpp
   )
+
   ##################################################
   # DISABLING PRECOMPILED HEADERS USAGE FOR TESTS 
   ##################################################

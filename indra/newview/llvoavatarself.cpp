@@ -211,6 +211,8 @@ BOOL LLVOAvatarSelf::buildSkeletonSelf(const LLVOAvatarSkeletonInfo *info)
 	LLVector3 scale(1.f, aspect, 1.f);
 	mScreenp->setScale(scale);
 	mScreenp->setWorldPosition(LLVector3::zero);
+	// need to update screen agressively when sidebar opens/closes, for example
+	mScreenp->mUpdateXform = TRUE;
 	return TRUE;
 }
 
@@ -510,8 +512,12 @@ BOOL LLVOAvatarSelf::buildMenus()
 
 LLVOAvatarSelf::~LLVOAvatarSelf()
 {
-	gAgent.setAvatarObject(NULL);
-	gAgentWearables.setAvatarObject(NULL);
+	// gAgents pointer might have been set to a different Avatar Self, don't get rid of it if so.
+	if (gAgent.getAvatarObject() == this)
+	{
+		gAgent.setAvatarObject(NULL);
+		gAgentWearables.setAvatarObject(NULL);
+	}
 	delete mScreenp;
 	mScreenp = NULL;
 }
@@ -928,6 +934,13 @@ void LLVOAvatarSelf::wearableUpdated( EWearableType type, BOOL upload_result )
 	{
 		const LLVOAvatarDictionary::BakedEntry *baked_dict = baked_iter->second;
 		const LLVOAvatarDefines::EBakedTextureIndex index = baked_iter->first;
+
+		// if we're editing our appearance, ensure that we're not using baked textures
+		// The baked texture for alpha masks is set explicitly when you hit "save"
+		if (gAgent.cameraCustomizeAvatar())
+		{
+			setNewBakedTexture(index,IMG_DEFAULT_AVATAR);
+		}
 		if (baked_dict)
 		{
 			for (LLVOAvatarDefines::wearables_vec_t::const_iterator type_iter = baked_dict->mWearables.begin();
@@ -1642,8 +1655,11 @@ BOOL LLVOAvatarSelf::updateIsFullyLoaded()
 {
 	BOOL loading = FALSE;
 
-	// do we have a shape?
-	if (visualParamWeightsAreDefault())
+	// do we have our body parts?
+	if (gAgentWearables.getWearableCount(WT_SHAPE) == 0 ||
+		gAgentWearables.getWearableCount(WT_HAIR) == 0 ||
+		gAgentWearables.getWearableCount(WT_EYES) == 0 ||
+		gAgentWearables.getWearableCount(WT_SKIN) == 0)	
 	{
 		loading = TRUE;
 	}
@@ -1748,14 +1764,8 @@ BOOL LLVOAvatarSelf::canGrabLocalTexture(ETextureIndex type, U32 index) const
 				// search for full permissions version
 				for (S32 i = 0; i < items.count(); i++)
 				{
-					LLInventoryItem* itemp = items[i];
-					LLPermissions item_permissions = itemp->getPermissions();
-					if ( item_permissions.allowOperationBy(
-								PERM_MODIFY, gAgent.getID(), gAgent.getGroupID()) &&
-						 item_permissions.allowOperationBy(
-								PERM_COPY, gAgent.getID(), gAgent.getGroupID()) &&
-						 item_permissions.allowOperationBy(
-								PERM_TRANSFER, gAgent.getID(), gAgent.getGroupID()) )
+					LLViewerInventoryItem* itemp = items[i];
+                                        if (itemp->getIsFullPerm())
 					{
 						can_grab = TRUE;
 						break;
@@ -1966,6 +1976,7 @@ void LLVOAvatarSelf::forceBakeAllTextures(bool slam_for_debug)
 
 	// Don't know if this is needed
 	updateMeshTextures();
+
 }
 
 //-----------------------------------------------------------------------------

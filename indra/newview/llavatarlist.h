@@ -57,11 +57,11 @@ public:
 
 	struct Params : public LLInitParam::Block<Params, LLFlatListView::Params> 
 	{
-		Optional<bool> ignore_online_status; // show all items as online
-		Optional<bool> show_last_interaction_time; // show most recent interaction time. *HACK: move this to a derived class
-		Optional<bool> show_info_btn;
-		Optional<bool> show_profile_btn;
-		Optional<bool> show_speaking_indicator;
+		Optional<bool>	ignore_online_status, // show all items as online
+						show_last_interaction_time, // show most recent interaction time. *HACK: move this to a derived class
+						show_info_btn,
+						show_profile_btn,
+						show_speaking_indicator;
 		Params();
 	};
 
@@ -78,6 +78,8 @@ public:
 	bool contains(const LLUUID& id);
 
 	void setContextMenu(LLAvatarListItem::ContextMenu* menu) { mContextMenu = menu; }
+	void setSessionID(const LLUUID& session_id) { mSessionID = session_id; }
+	const LLUUID& getSessionID() { return mSessionID; }
 
 	void toggleIcons();
 	void setSpeakingIndicatorsVisible(bool visible);
@@ -92,6 +94,8 @@ public:
 
 	boost::signals2::connection setRefreshCompleteCallback(const commit_signal_t::slot_type& cb);
 
+	boost::signals2::connection setItemDoubleClickCallback(const mouse_signal_t::slot_type& cb);
+
 protected:
 	void refresh();
 
@@ -101,6 +105,7 @@ protected:
 		std::vector<LLUUID>& vadded,
 		std::vector<LLUUID>& vremoved);
 	void updateLastInteractionTimes();
+	void onItemDoucleClicked(LLUICtrl* ctrl, S32 x, S32 y, MASK mask);
 
 private:
 
@@ -116,10 +121,12 @@ private:
 	std::string				mIconParamName;
 	std::string				mNameFilter;
 	uuid_vector_t			mIDs;
+	LLUUID					mSessionID;
 
 	LLAvatarListItem::ContextMenu* mContextMenu;
 
 	commit_signal_t mRefreshCompleteSignal;
+	mouse_signal_t mItemDoubleClickSignal;
 };
 
 /** Abstract comparator for avatar items */

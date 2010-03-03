@@ -106,6 +106,15 @@ public:
 		Optional<S32>			pad_left;
 		Optional<S32>			pad_bottom; // under text label
 		
+		//image overlay paddings
+		Optional<S32>			image_top_pad;
+		Optional<S32>			image_bottom_pad;
+
+		/**
+		 * Space between image_overlay and label
+		 */
+		Optional<S32>			imgoverlay_label_space;
+
 		// callbacks
 		Optional<CommitCallbackParam>	click_callback, // alias -> commit_callback
 										mouse_down_callback,
@@ -186,6 +195,11 @@ public:
 	void			setLeftHPad( S32 pad )					{ mLeftHPad = pad; }
 	void			setRightHPad( S32 pad )					{ mRightHPad = pad; }
 
+	void 			setImageOverlayTopPad( S32 pad )			{ mImageOverlayTopPad = pad; }
+	S32 			getImageOverlayTopPad() const				{ return mImageOverlayTopPad; }
+	void 			setImageOverlayBottomPad( S32 pad )			{ mImageOverlayBottomPad = pad; }
+	S32 			getImageOverlayBottomPad() const			{ return mImageOverlayBottomPad; }
+
 	const std::string	getLabelUnselected() const { return wstring_to_utf8str(mUnselectedLabel); }
 	const std::string	getLabelSelected() const { return wstring_to_utf8str(mSelectedLabel); }
 
@@ -200,6 +214,7 @@ public:
 	void			setDisabledSelectedLabelColor( const LLColor4& c )	{ mDisabledSelectedLabelColor = c; }
 
 	void			setImageOverlay(const std::string& image_name, LLFontGL::HAlign alignment = LLFontGL::HCENTER, const LLColor4& color = LLColor4::white);
+	void 			setImageOverlay(const LLUUID& image_id, LLFontGL::HAlign alignment = LLFontGL::HCENTER, const LLColor4& color = LLColor4::white);
 	LLPointer<LLUIImage> getImageOverlay() { return mImageOverlay; }
 
 	void            autoResize();	// resize with label of current btn state 
@@ -242,6 +257,8 @@ public:
 
 	void		setForcePressedState(bool b) { mForcePressedState = b; }
 	
+	void 		setAutoResize(bool auto_resize) { mAutoResize = auto_resize; }
+
 protected:
 	LLPointer<LLUIImage> getImageUnselected() const	{ return mImageUnselected; }
 	LLPointer<LLUIImage> getImageSelected() const	{ return mImageSelected; }
@@ -311,6 +328,14 @@ private:
 	S32							mLeftHPad;
 	S32							mRightHPad;
 	S32							mBottomVPad;	// under text label
+
+	S32							mImageOverlayTopPad;
+	S32							mImageOverlayBottomPad;
+
+	/*
+	 * Space between image_overlay and label
+	 */
+	S32							mImgOverlayLabelSpace;
 
 	F32							mHoverGlowStrength;
 	F32							mCurGlowStrength;

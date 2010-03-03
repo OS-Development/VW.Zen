@@ -37,7 +37,11 @@
 
 LLDockControl::LLDockControl(LLView* dockWidget, LLFloater* dockableFloater,
 		const LLUIImagePtr& dockTongue, DocAt dockAt, get_allowed_rect_callback_t get_allowed_rect_callback) :
-		mDockWidget(dockWidget), mDockableFloater(dockableFloater), mDockTongue(dockTongue)
+		mDockWidget(dockWidget),
+		mDockableFloater(dockableFloater),
+		mDockTongue(dockTongue),
+		mDockTongueX(0),
+		mDockTongueY(0)
 {
 	mDockAt = dockAt;
 
@@ -158,7 +162,9 @@ bool LLDockControl::isDockVisible()
 			{
 			case LEFT: // to keep compiler happy
 				break;
+			case BOTTOM:
 			case TOP:
+			{
 				// check is dock inside parent rect
 				LLRect dockParentRect =
 						mDockWidget->getParent()->calcScreenRect();
@@ -167,6 +173,9 @@ bool LLDockControl::isDockVisible()
 				{
 					res = false;
 				}
+				break;
+			}
+			default:
 				break;
 			}
 		}
@@ -182,12 +191,12 @@ void LLDockControl::moveDockable()
 	LLRect rootRect;
 	mGetAllowedRectCallback(rootRect);
 
-	bool unique_docking = false;
+	bool use_tongue = false;
 	LLDockableFloater* dockable_floater =
 			dynamic_cast<LLDockableFloater*> (mDockableFloater);
 	if (dockable_floater != NULL)
 	{
-		unique_docking = dockable_floater->getUniqueDocking();
+		use_tongue = dockable_floater->getUseTongue();
 	}
 
 	LLRect dockableRect = mDockableFloater->calcScreenRect();
@@ -218,7 +227,7 @@ void LLDockControl::moveDockable()
 		x = dockRect.getCenterX() - dockableRect.getWidth() / 2;
 		y = dockRect.mTop + dockableRect.getHeight();
 		// unique docking used with dock tongue, so add tongue height o the Y coordinate
-		if (unique_docking)
+		if (use_tongue)
 		{
 			y += mDockTongue->getHeight();
 		}
@@ -249,6 +258,42 @@ void LLDockControl::moveDockable()
 			mDockTongueX = dockRect.getCenterX() - mDockTongue->getWidth() / 2;
 		}
 		mDockTongueY = dockRect.mTop;
+
+		break;
+	case BOTTOM:
+		x = dockRect.getCenterX() - dockableRect.getWidth() / 2;
+		y = dockRect.mBottom;
+		// unique docking used with dock tongue, so add tongue height o the Y coordinate
+		if (use_tongue)
+		{
+			y -= mDockTongue->getHeight();
+		}
+
+		// check is dockable inside root view rect
+		if (x < rootRect.mLeft)
+		{
+			x = rootRect.mLeft;
+		}
+		if (x + dockableRect.getWidth() > rootRect.mRight)
+		{
+			x = rootRect.mRight - dockableRect.getWidth();
+		}
+
+		// calculate dock tongue position
+		dockParentRect = mDockWidget->getParent()->calcScreenRect();
+		if (dockRect.getCenterX() < dockParentRect.mLeft)
+		{
+			mDockTongueX = dockParentRect.mLeft - mDockTongue->getWidth() / 2;
+		}
+		else if (dockRect.getCenterX() > dockParentRect.mRight)
+		{
+			mDockTongueX = dockParentRect.mRight - mDockTongue->getWidth() / 2;;
+		}
+		else
+		{
+			mDockTongueX = dockRect.getCenterX() - mDockTongue->getWidth() / 2;
+		}
+		mDockTongueY = dockRect.mBottom - mDockTongue->getHeight();
 
 		break;
 	}
@@ -287,15 +332,15 @@ void LLDockControl::forceRecalculatePosition()
 
 void LLDockControl::drawToungue()
 {
-	bool unique_docking = false;
+	bool use_tongue = false;
 	LLDockableFloater* dockable_floater =
 			dynamic_cast<LLDockableFloater*> (mDockableFloater);
 	if (dockable_floater != NULL)
 	{
-		unique_docking = dockable_floater->getUniqueDocking();
+		use_tongue = dockable_floater->getUseTongue();
 	}
 
-	if (mEnabled && unique_docking)
+	if (mEnabled && use_tongue)
 	{
 		mDockTongue->draw(mDockTongueX, mDockTongueY);
 	}

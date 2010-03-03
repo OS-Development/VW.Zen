@@ -39,7 +39,7 @@
 #include "llrect.h"
 #include "llpluginclassmediaowner.h"
 #include <queue>
-
+#include "v4color.h"
 
 class LLPluginClassMedia : public LLPluginProcessParentOwner
 {
@@ -86,6 +86,8 @@ public:
 	void setSize(int width, int height);
 	void setAutoScale(bool auto_scale);
 	
+	void setBackgroundColor(LLColor4 color) { mBackgroundColor = color; };
+	
 	// Returns true if all of the texture parameters (depth, format, size, and texture size) are set up and consistent.
 	// This will initially be false, and will also be false for some time after setSize while the resize is processed.
 	// Note that if this returns true, it is safe to use all the get() functions above without checking for invalid return values
@@ -112,12 +114,12 @@ public:
 		KEY_EVENT_REPEAT
 	}EKeyEventType;
 	
-	bool keyEvent(EKeyEventType type, int key_code, MASK modifiers);
+	bool keyEvent(EKeyEventType type, int key_code, MASK modifiers, LLSD native_key_data);
 
 	void scrollEvent(int x, int y, MASK modifiers);
 	
 	// Text may be unicode (utf8 encoded)
-	bool textInput(const std::string &text, MASK modifiers);
+	bool textInput(const std::string &text, MASK modifiers, LLSD native_key_data);
 	
 	void loadURI(const std::string &uri);
 	
@@ -211,6 +213,17 @@ public:
 
 	// This is valid after MEDIA_EVENT_CLICK_LINK_HREF
 	std::string getClickTarget() const { return mClickTarget; };
+
+	typedef enum 
+	{
+		TARGET_NONE,        // empty href target string
+		TARGET_BLANK,       // target to open link in user's preferred browser
+		TARGET_EXTERNAL,    // target to open link in external browser
+		TARGET_OTHER        // nonempty and unsupported target type
+	}ETargetType;
+
+	// This is valid after MEDIA_EVENT_CLICK_LINK_HREF
+	ETargetType getClickTargetType() const { return mClickTargetType; };
 
 	std::string getMediaName() const { return mMediaName; };
 	std::string getMediaDescription() const { return mMediaDescription; };
@@ -328,6 +341,8 @@ protected:
 	std::string		mMediaName;
 	std::string		mMediaDescription;
 	
+	LLColor4		mBackgroundColor;
+	
 	/////////////////////////////////////////
 	// media_browser class
 	std::string		mNavigateURI;
@@ -340,6 +355,7 @@ protected:
 	std::string		mLocation;
 	std::string		mClickURL;
 	std::string		mClickTarget;
+	ETargetType     mClickTargetType;
 	
 	/////////////////////////////////////////
 	// media_time class

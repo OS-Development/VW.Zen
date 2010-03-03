@@ -39,7 +39,6 @@
 
 #include "llagent.h"
 #include "llslurl.h"
-#include "llurlsimstring.h"
 #include "llviewercontrol.h"        // for gSavedSettings
 #include "llviewerparcelmgr.h"
 #include "llviewerregion.h"
@@ -174,6 +173,8 @@ void LLTeleportHistory::purgeItems()
 	// reset the count
 	mRequestedItem = -1;
 	mCurrentItem = 0;
+
+	onHistoryChanged();
 }
 
 // static

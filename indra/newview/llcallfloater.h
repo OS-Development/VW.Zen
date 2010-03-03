@@ -44,6 +44,8 @@ class LLNonAvatarCaller;
 class LLOutputMonitorCtrl;
 class LLParticipantList;
 class LLSpeakerMgr;
+class LLSpeakersDelayActionsStorage;
+
 /**
  * The Voice Control Panel is an ambient window summoned by clicking the flyout chevron on the Speak button.
  * It can be torn-off and freely positioned onscreen.
@@ -75,11 +77,6 @@ public:
 	 */
 	/*virtual*/ void onChange();
 
-	/**
-	* Will reshape floater when participant list size changes
-	*/
-	/*virtual*/ S32 notifyParent(const LLSD& info);
-
 	static void sOnCurrentChannelChanged(const LLUUID& session_id);
 
 private:
@@ -88,7 +85,8 @@ private:
 		VC_LOCAL_CHAT,
 		VC_GROUP_CHAT,
 		VC_AD_HOC_CHAT,
-		VC_PEER_TO_PEER
+		VC_PEER_TO_PEER,
+		VC_PEER_TO_PEER_AVALINE
 	}EVoiceControls;
 
 	typedef enum e_speaker_state
@@ -147,6 +145,10 @@ private:
 	 */
 	void updateParticipantsVoiceState();
 
+	/**
+	 * Updates voice state of participant not in current voice channel depend on its current state.
+	 */
+	void updateNotInVoiceParticipantState(LLAvatarListItem* item);
 	void setState(LLAvatarListItem* item, ESpeakerState state);
 	void setState(const LLUUID& speaker_id, ESpeakerState state)
 	{
@@ -173,7 +175,7 @@ private:
 	 *
 	 * @param voice_speaker_id LLUUID of Avatar List item to be removed from the list.
 	 */
-	void removeVoiceLeftParticipant(const LLUUID& voice_speaker_id);
+	bool removeVoiceLeftParticipant(const LLUUID& voice_speaker_id);
 
 	/**
 	 * Deletes all timers from the list to prevent started timers from ticking after destruction
@@ -218,22 +220,7 @@ private:
 	 *
 	 * Clears all data from the latest voice session.
 	 */
-	void reset();
-
-	/**
-	* Reshapes floater to fit participant list height
-	*/
-	void reshapeToFitContent();
-
-	/**
-	* Returns height of participant list item
-	*/
-	S32 getParticipantItemHeight();
-
-	/**
-	* Returns predefined max visible participants.
-	*/
-	S32 getMaxVisibleItems();
+	void reset(const LLVoiceChannel::EState& new_state);
 
 private:
 	speaker_state_map_t mSpeakerStateMap;
@@ -259,32 +246,11 @@ private:
 
 	boost::signals2::connection mAvatarListRefreshConnection;
 
+
 	/**
-	 * class LLAvatarListItemRemoveTimer
-	 * 
-	 * Implements a timer that removes avatar list item of a participant
-	 * who has left the call.
+	 * time out speakers when they are not part of current session
 	 */
-	class LLAvatarListItemRemoveTimer : public LLEventTimer
-	{
-	public:
-		typedef boost::function<void(const LLUUID&)> callback_t;
-
-		LLAvatarListItemRemoveTimer(callback_t remove_cb, F32 period, const LLUUID& speaker_id);
-		virtual ~LLAvatarListItemRemoveTimer() {};
-
-		virtual BOOL tick();
-
-	private:
-		callback_t		mRemoveCallback;
-		LLUUID			mSpeakerId;
-	};
-
-	typedef std::pair<LLUUID, LLAvatarListItemRemoveTimer*> timer_pair;
-	typedef std::map<LLUUID, LLAvatarListItemRemoveTimer*> timers_map;
-
-	timers_map		mVoiceLeftTimersMap;
-	S32				mVoiceLeftRemoveDelay;
+	LLSpeakersDelayActionsStorage* mSpeakerDelayRemover;
 
 	/**
 	 * Stores reference to current voice channel.
@@ -294,6 +260,10 @@ private:
 	 * @see sOnCurrentChannelChanged()
 	 */
 	static LLVoiceChannel* sCurrentVoiceCanel;
+
+	/* virtual */
+	LLTransientFloaterMgr::ETransientGroup getGroup() { return LLTransientFloaterMgr::IM; }
+
 	boost::signals2::connection mVoiceChannelStateChangeConnection;
 };
 

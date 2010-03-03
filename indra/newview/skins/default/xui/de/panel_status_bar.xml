@@ -12,11 +12,20 @@
 	<panel.string name="bandwidth_tooltip">
 		Bandbreite
 	</panel.string>
+	<panel.string name="time">
+		[hour12, datetime, slt]:[min, datetime, slt] [ampm, datetime, slt] [timezone,datetime, slt]
+	</panel.string>
+	<panel.string name="timeTooltip">
+		[weekday, datetime, slt], [day, datetime, slt] [month, datetime, slt] [year, datetime, slt]
+	</panel.string>
 	<panel.string name="buycurrencylabel">
 		[AMT] L$
 	</panel.string>
-	<button label="" label_selected="" name="buycurrency" tool_tip="Mein Kontostand: Hier klicken, um mehr L$ zu kaufen"/>
+	<button label="" label_selected="" name="buycurrency" tool_tip="Mein Kontostand"/>
+	<button label="L$ kaufen" name="buyL" tool_tip="Hier klicken, um mehr L$ zu kaufen"/>
 	<text name="TimeText" tool_tip="Aktuelle Zeit (Pazifik)">
-		12:00
+		24:00 H PST
 	</text>
+	<button name="media_toggle_btn" tool_tip="Klicken, um Medien ein-/auszuschalten"/>
+	<button name="volume_btn" tool_tip="Steuerung der Gesamtlautstärke"/>
 </panel>

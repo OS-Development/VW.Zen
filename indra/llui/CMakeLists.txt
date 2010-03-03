@@ -26,6 +26,8 @@ include_directories(
     )
 
 set(llui_SOURCE_FILES
+    llaccordionctrl.cpp
+    llaccordionctrltab.cpp
     llbutton.cpp
     llcheckboxctrl.cpp
     llclipboard.cpp
@@ -88,6 +90,7 @@ set(llui_SOURCE_FILES
     lltextbox.cpp
     lltexteditor.cpp
     lltextparser.cpp
+    lltextvalidate.cpp
     lltransutil.cpp
     lltoggleablemenu.cpp
     lltooltip.cpp
@@ -111,6 +114,8 @@ set(llui_SOURCE_FILES
 set(llui_HEADER_FILES
     CMakeLists.txt
 
+    llaccordionctrl.h
+    llaccordionctrltab.h
     llbutton.h
     llcallbackmap.h
     llcheckboxctrl.h
@@ -178,6 +183,7 @@ set(llui_HEADER_FILES
     lltextbox.h
     lltexteditor.h
     lltextparser.h
+    lltextvalidate.h
     lltoggleablemenu.h
     lltooltip.h
     lltransutil.h

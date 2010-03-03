@@ -77,7 +77,9 @@ public:
 								background_opaque;
 
 		Optional<LLUIColor>		bg_opaque_color,
-								bg_alpha_color;
+								bg_alpha_color,
+								bg_opaque_image_overlay,
+								bg_alpha_image_overlay;
 		// opaque image is for "panel in foreground" look
 		Optional<LLUIImage*>	bg_opaque_image,
 								bg_alpha_image;
@@ -137,6 +139,8 @@ public:
 	const LLColor4& getTransparentColor() const { return mBgAlphaColor; }
 	LLPointer<LLUIImage> getBackgroundImage() const { return mBgOpaqueImage; }
 	LLPointer<LLUIImage> getTransparentImage() const { return mBgAlphaImage; }
+	LLColor4		getBackgroundImageOverlay() { return mBgOpaqueImageOverlay; }
+	LLColor4		getTransparentImageOverlay() { return mBgAlphaImageOverlay; }
 	void			setBackgroundVisible( BOOL b )	{ mBgVisible = b; }
 	BOOL			isBackgroundVisible() const { return mBgVisible; }
 	void			setBackgroundOpaque(BOOL b)		{ mBgOpaque = b; }
@@ -214,7 +218,10 @@ public:
 	// LLTabContainer
 	void childShowTab(const std::string& id, const std::string& tabname, bool visible = true);
 	LLPanel *childGetVisibleTab(const std::string& id) const;
+
+	// Find a child with a nonempty Help topic 
 	LLPanel *childGetVisibleTabWithHelp();
+	LLPanel *childGetVisiblePanelWithHelp();
 
 	// LLTextBox/LLTextEditor/LLLineEditor
 	void childSetText(const std::string& id, const LLStringExplicit& text) { childSetValue(id, LLSD(text)); }
@@ -223,7 +230,7 @@ public:
 	std::string childGetText(const std::string& id) const { return childGetValue(id).asString(); }
 
 	// LLLineEditor
-	void childSetPrevalidate(const std::string& id, BOOL (*func)(const LLWString &) );
+	void childSetPrevalidate(const std::string& id, bool (*func)(const LLWString &) );
 
 	// LLButton
 	void childSetAction(const std::string& id, boost::function<void(void*)> function, void* value = NULL);
@@ -259,6 +266,8 @@ private:
 	BOOL			mBgOpaque;				// use opaque color or image
 	LLUIColor		mBgOpaqueColor;
 	LLUIColor		mBgAlphaColor;
+	LLUIColor		mBgOpaqueImageOverlay;
+	LLUIColor		mBgAlphaImageOverlay;
 	LLPointer<LLUIImage> mBgOpaqueImage;	// "panel in front" look
 	LLPointer<LLUIImage> mBgAlphaImage;		// "panel in back" look
 	LLViewBorder*	mBorder;

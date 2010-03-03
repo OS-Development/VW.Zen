@@ -222,6 +222,7 @@ public:
 	virtual BOOL	handleScrollWheel(S32 x, S32 y, S32 mask);
 	
 	virtual void	draw();
+	virtual void	drawShadow(LLPanel* panel);
 	
 	virtual void	onOpen(const LLSD& key) {}
 	virtual void	onClose(bool app_quitting) {}
@@ -256,7 +257,7 @@ public:
 	bool            isDocked() const { return mDocked; }
 	virtual void    setDocked(bool docked, bool pop_on_undock = true);
 
-	virtual void    setTornOff(bool torn_off) {}
+	virtual void    setTornOff(bool torn_off) { mTornOff = torn_off; }
 
 	// Return a closeable floater, if any, given the current focus.
 	static LLFloater* getClosableFloaterFromFocus(); 
@@ -301,6 +302,7 @@ protected:
 	const LLRect&	getExpandedRect() const { return mExpandedRect; }
 
 	void			setAutoFocus(BOOL focus) { mAutoFocus = focus; } // whether to automatically take focus when opened
+	BOOL			getAutoFocus() const { return mAutoFocus; }
 	LLDragHandle*	getDragHandle() const { return mDragHandle; }
 
 	void			destroy() { die(); } // Don't call this directly.  You probably want to call closeFloater()
@@ -387,6 +389,7 @@ private:
 
 	bool            mCanDock;
 	bool            mDocked;
+	bool            mTornOff;
 
 	static LLMultiFloater* sHostp;
 	static BOOL		sQuitting;
@@ -467,9 +470,6 @@ public:
 	void setSnapOffsetRight(S32 offset) { mSnapOffsetRight = offset; }
 
 private:
-	S32				mColumn;
-	S32				mNextLeft;
-	S32				mNextTop;
 	BOOL			mFocusCycleMode;
 	S32				mSnapOffsetBottom;
 	S32				mSnapOffsetRight;

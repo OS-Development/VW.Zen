@@ -62,7 +62,6 @@ public:
 	bool isWindowEmpty();
 
 	// Operating with items
-    void clear( void );
 	void removeItemByID(const LLUUID& id);
 
 	// Operating with outfit
@@ -74,7 +73,7 @@ public:
 
 	void onStartUpToastClick(S32 x, S32 y, MASK mask);
 
-	void setSysWellChiclet(LLSysWellChiclet* chiclet) { mSysWellChiclet = chiclet; }
+	void setSysWellChiclet(LLSysWellChiclet* chiclet);
 
 	// size constants for the window and for its elements
 	static const S32 MAX_WINDOW_HEIGHT		= 200;
@@ -163,6 +162,9 @@ private:
 	void onItemClick(LLSysWellItem* item);
 	void onItemClose(LLSysWellItem* item);
 
+	// ID of a toast loaded by user (by clicking notification well item)
+	LLUUID mLoadedToastId;
+
 };
 
 /**
@@ -186,8 +188,8 @@ public:
 	/*virtual*/ void sessionRemoved(const LLUUID& session_id);
 	/*virtual*/ void sessionIDUpdated(const LLUUID& old_session_id, const LLUUID& new_session_id);
 
-	void addObjectRow(const LLUUID& object_id, bool new_message = false);
-	void removeObjectRow(const LLUUID& object_id);
+	void addObjectRow(const LLUUID& notification_id, bool new_message = false);
+	void removeObjectRow(const LLUUID& notification_id);
 
 	void addIMRow(const LLUUID& session_id);
 	bool hasIMRow(const LLUUID& session_id);
@@ -199,7 +201,7 @@ protected:
 
 private:
 	LLChiclet * findIMChiclet(const LLUUID& sessionId);
-	LLChiclet* findObjectChiclet(const LLUUID& object_id);
+	LLChiclet* findObjectChiclet(const LLUUID& notification_id);
 
 	void addIMRow(const LLUUID& sessionId, S32 chicletCounter, const std::string& name, const LLUUID& otherParticipantId);
 	void delIMRow(const LLUUID& sessionId);
@@ -218,6 +220,8 @@ private:
 		void onMouseEnter(S32 x, S32 y, MASK mask);
 		void onMouseLeave(S32 x, S32 y, MASK mask);
 		BOOL handleMouseDown(S32 x, S32 y, MASK mask);
+		BOOL handleRightMouseDown(S32 x, S32 y, MASK mask);
+
 	private:
 		static const S32 CHICLET_HPAD = 10;
 		void onChicletSizeChanged(LLChiclet* ctrl, const LLSD& param);
@@ -231,29 +235,18 @@ private:
 
 	class ObjectRowPanel: public LLPanel
 	{
-		typedef enum e_object_type
-		{
-			OBJ_UNKNOWN,
-
-			OBJ_SCRIPT,
-			OBJ_GIVE_INVENTORY,
-			OBJ_LOAD_URL
-		}EObjectType;
-
 	public:
-		ObjectRowPanel(const LLUUID& object_id, bool new_message = false);
+		ObjectRowPanel(const LLUUID& notification_id, bool new_message = false);
 		virtual ~ObjectRowPanel();
 		/*virtual*/ void onMouseEnter(S32 x, S32 y, MASK mask);
 		/*virtual*/ void onMouseLeave(S32 x, S32 y, MASK mask);
 		/*virtual*/ BOOL handleMouseDown(S32 x, S32 y, MASK mask);
+		/*virtual*/ BOOL handleRightMouseDown(S32 x, S32 y, MASK mask);
+
 	private:
 		void onClosePanel();
-		static EObjectType getObjectType(const LLNotificationPtr& notification);
-		void initChiclet(const LLUUID& object_id, bool new_message = false);
-		std::string getObjectName(const LLUUID& object_id);
+		void initChiclet(const LLUUID& notification_id, bool new_message = false);
 
-		typedef std::map<std::string, EObjectType> object_type_map;
-		static object_type_map initObjectTypeMap();
 	public:
 		LLIMChiclet* mChiclet;
 	private:

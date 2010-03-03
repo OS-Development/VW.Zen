@@ -34,23 +34,31 @@
 #include "llviewerprecompiledheaders.h"
 
 #include "llimfloatercontainer.h"
+#include "llfloaterreg.h"
+#include "llimview.h"
+#include "llavatariconctrl.h"
+#include "llgroupiconctrl.h"
+#include "llagent.h"
+#include "lltransientfloatermgr.h"
 
 //
 // LLIMFloaterContainer
 //
 LLIMFloaterContainer::LLIMFloaterContainer(const LLSD& seed)
-:	LLMultiFloater(seed),
-	mActiveVoiceFloater(NULL)
+:	LLMultiFloater(seed)
 {
 	mAutoResize = FALSE;
+	LLTransientFloaterMgr::getInstance()->addControlView(LLTransientFloaterMgr::IM, this);
 }
 
 LLIMFloaterContainer::~LLIMFloaterContainer()
 {
+	LLTransientFloaterMgr::getInstance()->removeControlView(LLTransientFloaterMgr::IM, this);
 }
 
 BOOL LLIMFloaterContainer::postBuild()
 {
+	LLIMModel::instance().mNewMsgSignal.connect(boost::bind(&LLIMFloaterContainer::onNewMessageReceived, this, _1));
 	// Do not call base postBuild to not connect to mCloseSignal to not close all floaters via Close button
 	// mTabContainer will be initialized in LLMultiFloater::addChild()
 	return TRUE;
@@ -86,10 +94,52 @@ void LLIMFloaterContainer::addFloater(LLFloater* floaterp,
 
 	LLMultiFloater::addFloater(floaterp, select_added_floater, insertion_point);
 
-	// make sure active voice icon shows up for new tab
-	if (floaterp == mActiveVoiceFloater)
+	LLUUID session_id = floaterp->getKey();
+
+	floaterp->mCloseSignal.connect(boost::bind(&LLIMFloaterContainer::onCloseFloater, this, session_id));
+	mSessions[session_id] = floaterp;
+}
+
+void LLIMFloaterContainer::onCloseFloater(LLUUID& id)
+{
+	mSessions.erase(id);
+}
+
+void LLIMFloaterContainer::onNewMessageReceived(const LLSD& data)
+{
+	LLUUID session_id = data["session_id"].asUUID();
+	LLFloater* floaterp = get_ptr_in_map(mSessions, session_id);
+	LLFloater* current_floater = LLMultiFloater::getActiveFloater();
+
+	if(floaterp && current_floater && floaterp != current_floater)
 	{
-		mTabContainer->setTabImage(floaterp, "active_voice_tab.tga");	
+		if(LLMultiFloater::isFloaterFlashing(floaterp))
+			LLMultiFloater::setFloaterFlashing(floaterp, FALSE);
+		LLMultiFloater::setFloaterFlashing(floaterp, TRUE);
+	}
+}
+
+LLIMFloaterContainer* LLIMFloaterContainer::findInstance()
+{
+	return LLFloaterReg::findTypedInstance<LLIMFloaterContainer>("im_container");
+}
+
+LLIMFloaterContainer* LLIMFloaterContainer::getInstance()
+{
+	return LLFloaterReg::getTypedInstance<LLIMFloaterContainer>("im_container");
+}
+
+void LLIMFloaterContainer::setMinimized(BOOL b)
+{
+	if (isMinimized() == b) return;
+	
+	LLMultiFloater::setMinimized(b);
+
+	if (isMinimized()) return;
+
+	if (getActiveFloater())
+	{
+		getActiveFloater()->setVisible(TRUE);
 	}
 }
 

@@ -62,7 +62,6 @@
 #include "llviewermenu.h"			// for handle_preferences()
 #include "llviewernetwork.h"
 #include "llviewerwindow.h"			// to link into child list
-#include "llurlsimstring.h"
 #include "lluictrlfactory.h"
 #include "llhttpclient.h"
 #include "llweb.h"
@@ -214,8 +213,8 @@ LLPanelLogin::LLPanelLogin(const LLRect &rect,
 	}
 
 #if !USE_VIEWER_AUTH
-	childSetPrevalidate("first_name_edit", LLLineEditor::prevalidateASCIIPrintableNoSpace);
-	childSetPrevalidate("last_name_edit", LLLineEditor::prevalidateASCIIPrintableNoSpace);
+	childSetPrevalidate("first_name_edit", LLTextValidate::validateASCIIPrintableNoSpace);
+	childSetPrevalidate("last_name_edit", LLTextValidate::validateASCIIPrintableNoSpace);
 
 	childSetCommitCallback("password_edit", mungePassword, this);
 	getChild<LLLineEditor>("password_edit")->setKeystrokeCallback(onPassKey, this);
@@ -229,8 +228,13 @@ LLPanelLogin::LLPanelLogin(const LLRect &rect,
 
 	LLComboBox* combo = getChild<LLComboBox>("start_location_combo");
 
-	LLURLSimString::setString(gSavedSettings.getString("LoginLocation"));
 	std::string sim_string = LLURLSimString::sInstance.mSimString;
+	if(sim_string.empty())
+	{
+		LLURLSimString::setString(gSavedSettings.getString("LoginLocation"));
+		sim_string = LLURLSimString::sInstance.mSimString;
+	}
+
 	if (!sim_string.empty())
 	{
 		// Replace "<Type region name>" with this region name
@@ -672,8 +676,7 @@ void LLPanelLogin::refreshLocation( bool force_visible )
 	{
 		// Don't show on first run after install
 		// Otherwise ShowStartLocation defaults to true.
-		show_start = gSavedSettings.getBOOL("ShowStartLocation")
-					&& !gSavedSettings.getBOOL("FirstRunThisInstall");
+		show_start = gSavedSettings.getBOOL("ShowStartLocation");
 	}
 
 	sInstance->childSetVisible("start_location_combo", show_start);
@@ -683,6 +686,23 @@ void LLPanelLogin::refreshLocation( bool force_visible )
 	sInstance->childSetVisible("server_combo", show_server);
 
 #endif
+}
+
+// static
+void LLPanelLogin::updateLocationUI()
+{
+	if (!sInstance) return;
+	
+	std::string sim_string = LLURLSimString::sInstance.mSimString;
+	if (!sim_string.empty())
+	{
+		// Replace "<Type region name>" with this region name
+		LLComboBox* combo = sInstance->getChild<LLComboBox>("start_location_combo");
+		combo->remove(2);
+		combo->add( sim_string );
+		combo->setTextEntry(sim_string);
+		combo->setCurrentByIndex( 2 );
+	}
 }
 
 // static
@@ -826,8 +846,7 @@ void LLPanelLogin::loadLoginPage()
 	{
 		oStr << "&auto_login=TRUE";
 	}
-	if (gSavedSettings.getBOOL("ShowStartLocation")
-		&& !gSavedSettings.getBOOL("FirstRunThisInstall"))
+	if (gSavedSettings.getBOOL("ShowStartLocation"))
 	{
 		oStr << "&show_start_location=TRUE";
 	}	

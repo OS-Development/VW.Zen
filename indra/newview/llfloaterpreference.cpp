@@ -51,7 +51,7 @@
 #include "lldirpicker.h"
 #include "llfeaturemanager.h"
 #include "llfocusmgr.h"
-#include "llfirstuse.h"
+//#include "llfirstuse.h"
 #include "llfloaterreg.h"
 #include "llfloaterabout.h"
 #include "llfloaterhardwaresettings.h"
@@ -103,19 +103,12 @@
 #include "llworld.h"
 #include "pipeline.h"
 #include "lluictrlfactory.h"
-#include "llboost.h"
 #include "llviewermedia.h"
 #include "llpluginclassmedia.h"
 #include "llteleporthistorystorage.h"
 
-#include <boost/regex.hpp>
-
-//RN temporary includes for resolution switching
-#include "llglheaders.h"
 const F32 MAX_USER_FAR_CLIP = 512.f;
 const F32 MIN_USER_FAR_CLIP = 64.f;
-
-const S32 ASPECT_RATIO_STR_LEN = 100;
 
 class LLVoiceSetKeyDialog : public LLModalDialog
 {
@@ -190,10 +183,9 @@ void handleNameTagOptionChanged(const LLSD& newvalue);
 viewer_media_t get_web_media();
 bool callback_clear_browser_cache(const LLSD& notification, const LLSD& response);
 
-bool callback_skip_dialogs(const LLSD& notification, const LLSD& response, LLFloaterPreference* floater);
-bool callback_reset_dialogs(const LLSD& notification, const LLSD& response, LLFloaterPreference* floater);
+//bool callback_skip_dialogs(const LLSD& notification, const LLSD& response, LLFloaterPreference* floater);
+//bool callback_reset_dialogs(const LLSD& notification, const LLSD& response, LLFloaterPreference* floater);
 
-bool extractWindowSizeFromString(const std::string& instr, U32 &width, U32 &height);
 void fractionFromDecimal(F32 decimal_val, S32& numerator, S32& denominator);
 
 viewer_media_t get_web_media()
@@ -242,7 +234,7 @@ void handleNameTagOptionChanged(const LLSD& newvalue)
 	}
 }
 
-bool callback_skip_dialogs(const LLSD& notification, const LLSD& response, LLFloaterPreference* floater)
+/*bool callback_skip_dialogs(const LLSD& notification, const LLSD& response, LLFloaterPreference* floater)
 {
 	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	if (0 == option && floater )
@@ -250,7 +242,7 @@ bool callback_skip_dialogs(const LLSD& notification, const LLSD& response, LLFlo
 		if ( floater )
 		{
 			floater->setAllIgnored();
-			LLFirstUse::disableFirstUse();
+		//	LLFirstUse::disableFirstUse();
 			floater->buildPopupLists();
 		}
 	}
@@ -265,30 +257,13 @@ bool callback_reset_dialogs(const LLSD& notification, const LLSD& response, LLFl
 		if ( floater )
 		{
 			floater->resetAllIgnored();
-			LLFirstUse::resetFirstUse();
+			//LLFirstUse::resetFirstUse();
 			floater->buildPopupLists();
 		}
 	}
 	return false;
 }
-
-
-// Extract from strings of the form "<width> x <height>", e.g. "640 x 480".
-bool extractWindowSizeFromString(const std::string& instr, U32 &width, U32 &height)
-{
-	using namespace boost;
-	cmatch what;
-	const regex expression("([0-9]+) x ([0-9]+)");
-	if (regex_match(instr.c_str(), what, expression))
-	{
-		width = atoi(what[1].first);
-		height = atoi(what[2].first);
-		return true;
-	}
-	
-	width = height = 0;
-	return false;
-}
+*/
 
 void fractionFromDecimal(F32 decimal_val, S32& numerator, S32& denominator)
 {
@@ -306,7 +281,6 @@ void fractionFromDecimal(F32 decimal_val, S32& numerator, S32& denominator)
 }
 // static
 std::string LLFloaterPreference::sSkin = "";
-F32 LLFloaterPreference::sAspectRatio = 0.0;
 //////////////////////////////////////////////
 // LLFloaterPreference
 
@@ -336,23 +310,21 @@ LLFloaterPreference::LLFloaterPreference(const LLSD& key)
 	mCommitCallbackRegistrar.add("Pref.SelectSkin",				boost::bind(&LLFloaterPreference::onSelectSkin, this));
 	mCommitCallbackRegistrar.add("Pref.VoiceSetKey",			boost::bind(&LLFloaterPreference::onClickSetKey, this));
 	mCommitCallbackRegistrar.add("Pref.VoiceSetMiddleMouse",	boost::bind(&LLFloaterPreference::onClickSetMiddleMouse, this));
-	mCommitCallbackRegistrar.add("Pref.ClickSkipDialogs",		boost::bind(&LLFloaterPreference::onClickSkipDialogs, this));
-	mCommitCallbackRegistrar.add("Pref.ClickResetDialogs",		boost::bind(&LLFloaterPreference::onClickResetDialogs, this));
+//	mCommitCallbackRegistrar.add("Pref.ClickSkipDialogs",		boost::bind(&LLFloaterPreference::onClickSkipDialogs, this));
+//	mCommitCallbackRegistrar.add("Pref.ClickResetDialogs",		boost::bind(&LLFloaterPreference::onClickResetDialogs, this));
 	mCommitCallbackRegistrar.add("Pref.ClickEnablePopup",		boost::bind(&LLFloaterPreference::onClickEnablePopup, this));
 	mCommitCallbackRegistrar.add("Pref.ClickDisablePopup",		boost::bind(&LLFloaterPreference::onClickDisablePopup, this));	
 	mCommitCallbackRegistrar.add("Pref.LogPath",				boost::bind(&LLFloaterPreference::onClickLogPath, this));
-	mCommitCallbackRegistrar.add("Pref.UpdateMeterText",		boost::bind(&LLFloaterPreference::updateMeterText, this, _1));	
 	mCommitCallbackRegistrar.add("Pref.HardwareSettings",       boost::bind(&LLFloaterPreference::onOpenHardwareSettings, this));	
 	mCommitCallbackRegistrar.add("Pref.HardwareDefaults",       boost::bind(&LLFloaterPreference::setHardwareDefaults, this));	
 	mCommitCallbackRegistrar.add("Pref.VertexShaderEnable",     boost::bind(&LLFloaterPreference::onVertexShaderEnable, this));	
 	mCommitCallbackRegistrar.add("Pref.WindowedMod",            boost::bind(&LLFloaterPreference::onCommitWindowedMode, this));	
 	mCommitCallbackRegistrar.add("Pref.UpdateSliderText",       boost::bind(&LLFloaterPreference::onUpdateSliderText,this, _1,_2));	
-	mCommitCallbackRegistrar.add("Pref.AutoDetectAspect",       boost::bind(&LLFloaterPreference::onCommitAutoDetectAspect, this));	
-	mCommitCallbackRegistrar.add("Pref.onSelectAspectRatio",    boost::bind(&LLFloaterPreference::onKeystrokeAspectRatio, this));	
 	mCommitCallbackRegistrar.add("Pref.QualityPerformance",     boost::bind(&LLFloaterPreference::onChangeQuality, this, _2));	
 	mCommitCallbackRegistrar.add("Pref.applyUIColor",			boost::bind(&LLFloaterPreference::applyUIColor, this ,_1, _2));
 	mCommitCallbackRegistrar.add("Pref.getUIColor",				boost::bind(&LLFloaterPreference::getUIColor, this ,_1, _2));
-	
+	mCommitCallbackRegistrar.add("Pref.MaturitySettings",		boost::bind(&LLFloaterPreference::onChangeMaturity, this));
+
 	sSkin = gSavedSettings.getString("SkinCurrent");
 	
 	gSavedSettings.getControl("AvatarNameTagMode")->getCommitSignal()->connect(boost::bind(&handleNameTagOptionChanged,  _2));
@@ -363,6 +335,10 @@ BOOL LLFloaterPreference::postBuild()
 	gSavedSettings.getControl("PlainTextChatHistory")->getSignal()->connect(boost::bind(&LLIMFloater::processChatHistoryStyleUpdate, _2));
 
 	gSavedSettings.getControl("PlainTextChatHistory")->getSignal()->connect(boost::bind(&LLNearbyChat::processChatHistoryStyleUpdate, _2));
+
+	gSavedSettings.getControl("ChatFontSize")->getSignal()->connect(boost::bind(&LLIMFloater::processChatHistoryStyleUpdate, _2));
+
+	gSavedSettings.getControl("ChatFontSize")->getSignal()->connect(boost::bind(&LLNearbyChat::processChatHistoryStyleUpdate, _2));
 
 	LLTabContainer* tabcontainer = getChild<LLTabContainer>("pref core");
 	if (!tabcontainer->selectTab(gSavedSettings.getS32("LastPrefTab")))
@@ -379,12 +355,7 @@ BOOL LLFloaterPreference::postBuild()
 LLFloaterPreference::~LLFloaterPreference()
 {
 	// clean up user data
-	LLComboBox* ctrl_aspect_ratio = getChild<LLComboBox>( "aspect_ratio");
 	LLComboBox* ctrl_window_size = getChild<LLComboBox>("windowsize combo");
-	for (S32 i = 0; i < ctrl_aspect_ratio->getItemCount(); i++)
-	{
-		ctrl_aspect_ratio->setCurrentByIndex(i);
-	}
 	for (S32 i = 0; i < ctrl_window_size->getItemCount(); i++)
 	{
 		ctrl_window_size->setCurrentByIndex(i);
@@ -499,13 +470,6 @@ void LLFloaterPreference::apply()
 	}
 
 	applyResolution();
-	
-	// Only set window size if we're not in fullscreen mode
-	if(!gSavedSettings.getBOOL("WindowFullScreen"))
-	{
-		applyWindowSize();
-	}
-	
 }
 
 void LLFloaterPreference::cancel()
@@ -541,8 +505,6 @@ void LLFloaterPreference::cancel()
 	
 	LLFloaterReg::hideInstance("pref_voicedevicesettings");
 	
-	gSavedSettings.setF32("FullScreenAspectRatio", sAspectRatio);
-
 }
 
 void LLFloaterPreference::onOpen(const LLSD& key)
@@ -553,7 +515,8 @@ void LLFloaterPreference::onOpen(const LLSD& key)
 	// if we have no agent, we can't let them choose anything
 	// if we have an agent, then we only let them choose if they have a choice
 	bool can_choose_maturity =
-		gAgent.getID().notNull() &&	(gAgent.isMature() || gAgent.isGodlike());
+		gAgent.getID().notNull() &&
+		(gAgent.isMature() || gAgent.isGodlike());
 	
 	LLComboBox* maturity_combo = getChild<LLComboBox>("maturity_desired_combobox");
 	
@@ -574,6 +537,9 @@ void LLFloaterPreference::onOpen(const LLSD& key)
 	{
 		childSetText("maturity_desired_textbox",  maturity_combo->getSelectedItemLabel());
 		childSetVisible("maturity_desired_combobox", false);
+
+		// Display selected maturity icons.
+		onChangeMaturity();
 	}
 	
 	// Enabled/disabled popups, might have been changed by user actions
@@ -598,6 +564,16 @@ void LLFloaterPreference::setHardwareDefaults()
 {
 	LLFeatureManager::getInstance()->applyRecommendedSettings();
 	refreshEnabledGraphics();
+	LLTabContainer* tabcontainer = getChild<LLTabContainer>("pref core");
+	child_list_t::const_iterator iter = tabcontainer->getChildList()->begin();
+	child_list_t::const_iterator end = tabcontainer->getChildList()->end();
+	for ( ; iter != end; ++iter)
+	{
+		LLView* view = *iter;
+		LLPanelPreference* panel = dynamic_cast<LLPanelPreference*>(view);
+		if (panel)
+			panel->setHardwareDefaults();
+	}
 }
 
 //virtual
@@ -619,7 +595,7 @@ void LLFloaterPreference::onBtnOK()
 	if (hasFocus())
 	{
 		LLUICtrl* cur_focus = dynamic_cast<LLUICtrl*>(gFocusMgr.getKeyboardFocus());
-		if (cur_focus->acceptsTextInput())
+		if (cur_focus && cur_focus->acceptsTextInput())
 		{
 			cur_focus->onCommit();
 		}
@@ -631,8 +607,8 @@ void LLFloaterPreference::onBtnOK()
 		apply();
 		closeFloater(false);
 
-		gSavedSettings.saveToFile( gSavedSettings.getString("ClientSettingsFile"), TRUE );
 		LLUIColorTable::instance().saveUserSettings();
+		gSavedSettings.saveToFile( gSavedSettings.getString("ClientSettingsFile"), TRUE );
 		std::string crash_settings_filename = gDirUtilp->getExpandedFilename(LL_PATH_USER_SETTINGS, CRASH_SETTINGS_FILE);
 		// save all settings, even if equals defaults
 		gCrashSettings.saveToFile(crash_settings_filename, FALSE);
@@ -652,7 +628,7 @@ void LLFloaterPreference::onBtnApply( )
 	if (hasFocus())
 	{
 		LLUICtrl* cur_focus = dynamic_cast<LLUICtrl*>(gFocusMgr.getKeyboardFocus());
-		if (cur_focus->acceptsTextInput())
+		if (cur_focus && cur_focus->acceptsTextInput())
 		{
 			cur_focus->onCommit();
 		}
@@ -669,7 +645,7 @@ void LLFloaterPreference::onBtnCancel()
 	if (hasFocus())
 	{
 		LLUICtrl* cur_focus = dynamic_cast<LLUICtrl*>(gFocusMgr.getKeyboardFocus());
-		if (cur_focus->acceptsTextInput())
+		if (cur_focus && cur_focus->acceptsTextInput())
 		{
 			cur_focus->onCommit();
 		}
@@ -695,28 +671,14 @@ void LLFloaterPreference::refreshEnabledGraphics()
 	LLFloaterPreference* instance = LLFloaterReg::findTypedInstance<LLFloaterPreference>("preferences");
 	if(instance)
 	{
-		instance->refreshEnabledState();
+		instance->refresh();
+		//instance->refreshEnabledState();
 	}
 	LLFloaterHardwareSettings* hardware_settings = LLFloaterReg::getTypedInstance<LLFloaterHardwareSettings>("prefs_hardware_settings");
 	if (hardware_settings)
 	{
 		hardware_settings->refreshEnabledState();
 	}
-}
-
-void LLFloaterPreference::updateMeterText(LLUICtrl* ctrl)
-{
-	// get our UI widgets
-	LLSliderCtrl* slider = (LLSliderCtrl*) ctrl;
-
-	LLTextBox* m1 = getChild<LLTextBox>("DrawDistanceMeterText1");
-	LLTextBox* m2 = getChild<LLTextBox>("DrawDistanceMeterText2");
-
-	// toggle the two text boxes based on whether we have 1 or two digits
-	F32 val = slider->getValueF32();
-	bool two_digits = val < 100;
-	m1->setVisible(two_digits);
-	m2->setVisible(!two_digits);
 }
 
 void LLFloaterPreference::onClickBrowserClearCache()
@@ -985,37 +947,6 @@ void LLFloaterPreference::disableUnavailableSettings()
 	}
 }
 
-void LLFloaterPreference::onCommitAutoDetectAspect()
-{
-	BOOL auto_detect = getChild<LLCheckBoxCtrl>("aspect_auto_detect")->get();
-	F32 ratio;
-	
-	if (auto_detect)
-	{
-		S32 numerator = 0;
-		S32 denominator = 0;
-		
-		// clear any aspect ratio override
-		gViewerWindow->mWindow->setNativeAspectRatio(0.f);
-		fractionFromDecimal(gViewerWindow->mWindow->getNativeAspectRatio(), numerator, denominator);
-		
-		std::string aspect;
-		if (numerator != 0)
-		{
-			aspect = llformat("%d:%d", numerator, denominator);
-		}
-		else
-		{
-			aspect = llformat("%.3f", gViewerWindow->mWindow->getNativeAspectRatio());
-		}
-		
-		getChild<LLComboBox>( "aspect_ratio")->setLabel(aspect);
-		
-		ratio = gViewerWindow->mWindow->getNativeAspectRatio();
-		gSavedSettings.setF32("FullScreenAspectRatio", ratio);
-	}
-}
-
 void LLFloaterPreference::refresh()
 {
 	LLPanel::refresh();
@@ -1080,7 +1011,7 @@ void LLFloaterPreference::onClickSetMiddleMouse()
 	// update the control right away since we no longer wait for apply
 	getChild<LLUICtrl>("modifier_combo")->onCommit();
 }
-
+/*
 void LLFloaterPreference::onClickSkipDialogs()
 {
 	LLNotificationsUtil::add("SkipShowNextTimeDialogs", LLSD(), LLSD(), boost::bind(&callback_skip_dialogs, _1, _2, this));
@@ -1090,6 +1021,7 @@ void LLFloaterPreference::onClickResetDialogs()
 {
 	LLNotificationsUtil::add("ResetShowNextTimeDialogs", LLSD(), LLSD(), boost::bind(&callback_reset_dialogs, _1, _2, this));
 }
+ */
 
 void LLFloaterPreference::onClickEnablePopup()
 {	
@@ -1210,7 +1142,7 @@ void LLFloaterPreference::setPersonalInfo(const std::string& visibility, bool im
 	childEnable("log_nearby_chat");
 	childEnable("log_instant_messages");
 	childEnable("show_timestamps_check_im");
-	childEnable("log_path_string");
+	childDisable("log_path_string");// LineEditor becomes readonly in this case.
 	childEnable("log_path_button");
 	
 	std::string display_email(email);
@@ -1259,70 +1191,9 @@ void LLFloaterPreference::updateSliderText(LLSliderCtrl* ctrl, LLTextBox* text_b
 	}
 }
 
-void LLFloaterPreference::onKeystrokeAspectRatio()
-{
-	getChild<LLCheckBoxCtrl>("aspect_auto_detect")->set(FALSE);
-}
-
-void LLFloaterPreference::applyWindowSize()
-{
-	LLComboBox* ctrl_windowSize = getChild<LLComboBox>("windowsize combo");
-	if (ctrl_windowSize->getVisible() && (ctrl_windowSize->getCurrentIndex() != -1))
-	{
-		U32 width = 0;
-		U32 height = 0;
-		if (extractWindowSizeFromString(ctrl_windowSize->getValue().asString().c_str(), width,height))
-		{
-			LLViewerWindow::movieSize(width, height);
-		}
-	}
-}
-
 void LLFloaterPreference::applyResolution()
 {
-	LLComboBox* ctrl_aspect_ratio = getChild<LLComboBox>( "aspect_ratio");
 	gGL.flush();
-	char aspect_ratio_text[ASPECT_RATIO_STR_LEN];		/*Flawfinder: ignore*/
-	if (ctrl_aspect_ratio->getCurrentIndex() == -1)
-	{
-		// *Can't pass const char* from c_str() into strtok
-		strncpy(aspect_ratio_text, ctrl_aspect_ratio->getSimple().c_str(), sizeof(aspect_ratio_text) -1);	/*Flawfinder: ignore*/
-		aspect_ratio_text[sizeof(aspect_ratio_text) -1] = '\0';
-		char *element = strtok(aspect_ratio_text, ":/\\");
-		if (!element)
-		{
-			sAspectRatio = 0.f; // will be clamped later
-		}
-		else
-		{
-			LLLocale locale(LLLocale::USER_LOCALE);
-			sAspectRatio = (F32)atof(element);
-		}
-		
-		// look for denominator
-		element = strtok(NULL, ":/\\");
-		if (element)
-		{
-			LLLocale locale(LLLocale::USER_LOCALE);
-			
-			F32 denominator = (F32)atof(element);
-			if (denominator != 0.f)
-			{
-				sAspectRatio /= denominator;
-			}
-		}
-	}
-	else
-	{
-		sAspectRatio = (F32)ctrl_aspect_ratio->getValue().asReal();
-	}
-	
-	// presumably, user entered a non-numeric value if aspect_ratio == 0.f
-	if (sAspectRatio != 0.f)
-	{
-		sAspectRatio = llclamp(sAspectRatio, 0.2f, 5.f);
-		gSavedSettings.setF32("FullScreenAspectRatio", sAspectRatio);
-	}
 	
 	// Screen resolution
 	S32 num_resolutions;
@@ -1345,35 +1216,18 @@ void LLFloaterPreference::applyResolution()
 	refresh();
 }
 
-void LLFloaterPreference::initWindowSizeControls(LLPanel* panelp)
+void LLFloaterPreference::onChangeMaturity()
 {
-	// Window size
-	//	mWindowSizeLabel = getChild<LLTextBox>("WindowSizeLabel");
-	LLComboBox* ctrl_window_size = panelp->getChild<LLComboBox>("windowsize combo");
-	
-	// Look to see if current window size matches existing window sizes, if so then
-	// just set the selection value...
-	const U32 height = gViewerWindow->getWindowHeightRaw();
-	const U32 width = gViewerWindow->getWindowWidthRaw();
-	for (S32 i=0; i < ctrl_window_size->getItemCount(); i++)
-	{
-		U32 height_test = 0;
-		U32 width_test = 0;
-		ctrl_window_size->setCurrentByIndex(i);
-		if (extractWindowSizeFromString(ctrl_window_size->getValue().asString(), width_test, height_test))
-		{
-			if ((height_test == height) && (width_test == width))
-			{
-				return;
-			}
-		}
-	}
-	// ...otherwise, add a new entry with the current window height/width.
-	LLUIString resolution_label = panelp->getString("resolution_format");
-	resolution_label.setArg("[RES_X]", llformat("%d", width));
-	resolution_label.setArg("[RES_Y]", llformat("%d", height));
-	ctrl_window_size->add(resolution_label, ADD_TOP);
-	ctrl_window_size->setCurrentByIndex(0);
+	U8 sim_access = gSavedSettings.getU32("PreferredMaturity");
+
+	getChild<LLIconCtrl>("rating_icon_general")->setVisible(sim_access == SIM_ACCESS_PG
+															|| sim_access == SIM_ACCESS_MATURE
+															|| sim_access == SIM_ACCESS_ADULT);
+
+	getChild<LLIconCtrl>("rating_icon_moderate")->setVisible(sim_access == SIM_ACCESS_MATURE
+															|| sim_access == SIM_ACCESS_ADULT);
+
+	getChild<LLIconCtrl>("rating_icon_adult")->setVisible(sim_access == SIM_ACCESS_ADULT);
 }
 
 
@@ -1429,92 +1283,18 @@ BOOL LLPanelPreference::postBuild()
 		childSetText("email_address",getString("log_in_to_change") );
 //		childSetText("busy_response", getString("log_in_to_change"));		
 	}
-
-
-	if(hasChild("aspect_ratio"))
+	
+	//////////////////////PanelPrivacy ///////////////////
+	if (hasChild("media_enabled"))
 	{
-		//============================================================================
-		// Resolution
-/*
-		S32 num_resolutions = 0;
-		LLWindow::LLWindowResolution* supported_resolutions = gViewerWindow->getWindow()->getSupportedResolutions(num_resolutions);
-		
-		S32 fullscreen_mode = num_resolutions - 1;
-		
-		LLComboBox*ctrl_full_screen = getChild<LLComboBox>( "fullscreen combo");
-		LLUIString resolution_label = getString("resolution_format");
-		
-		for (S32 i = 0; i < num_resolutions; i++)
-		{
-			resolution_label.setArg("[RES_X]", llformat("%d", supported_resolutions[i].mWidth));
-			resolution_label.setArg("[RES_Y]", llformat("%d", supported_resolutions[i].mHeight));
-			ctrl_full_screen->add( resolution_label, ADD_BOTTOM );
-		}
-		
-		{
-			BOOL targetFullscreen;
-			S32 targetWidth;
-			S32 targetHeight;
-			
-			gViewerWindow->getTargetWindow(targetFullscreen, targetWidth, targetHeight);
-			
-			if (targetFullscreen)
-			{
-				fullscreen_mode = 0; // default to 800x600
-				for (S32 i = 0; i < num_resolutions; i++)
-				{
-					if (targetWidth == supported_resolutions[i].mWidth
-						&&  targetHeight == supported_resolutions[i].mHeight)
-					{
-						fullscreen_mode = i;
-					}
-				}
-				ctrl_full_screen->setCurrentByIndex(fullscreen_mode);
-			}
-			else
-			{
-				// set to windowed mode
-				//fullscreen_mode = mCtrlFullScreen->getItemCount() - 1;
-				ctrl_full_screen->setCurrentByIndex(0);
-			}
-		}
-	*/	
-		LLFloaterPreference::initWindowSizeControls(this);
-		
-		if (gSavedSettings.getBOOL("FullScreenAutoDetectAspectRatio"))
-		{
-			LLFloaterPreference::sAspectRatio = gViewerWindow->getDisplayAspectRatio();
-		}
-		else
-		{
-			LLFloaterPreference::sAspectRatio = gSavedSettings.getF32("FullScreenAspectRatio");
-		}
-
-		getChild<LLComboBox>("aspect_ratio")->setTextEntryCallback(boost::bind(&LLPanelPreference::setControlFalse, this, LLSD("FullScreenAutoDetectAspectRatio") ));	
-		
-
-		S32 numerator = 0;
-		S32 denominator = 0;
-		fractionFromDecimal(LLFloaterPreference::sAspectRatio, numerator, denominator);		
-		
-		LLUIString aspect_ratio_text = getString("aspect_ratio_text");
-		if (numerator != 0)
-		{
-			aspect_ratio_text.setArg("[NUM]", llformat("%d",  numerator));
-			aspect_ratio_text.setArg("[DEN]", llformat("%d",  denominator));
-		}	
-		else
-		{
-			aspect_ratio_text = llformat("%.3f", LLFloaterPreference::sAspectRatio);
-		}
-		
-		LLComboBox* ctrl_aspect_ratio = getChild<LLComboBox>( "aspect_ratio");
-		//mCtrlAspectRatio->setCommitCallback(onSelectAspectRatio, this);
-		// add default aspect ratios
-		ctrl_aspect_ratio->add(aspect_ratio_text, &LLFloaterPreference::sAspectRatio, ADD_TOP);
-		ctrl_aspect_ratio->setCurrentByIndex(0);
-		
-		refresh();
+		bool media_enabled = gSavedSettings.getBOOL("AudioStreamingMedia");
+		getChild<LLCheckBoxCtrl>("voice_call_friends_only_check")->setCommitCallback(boost::bind(&showFriendsOnlyWarning, _1, _2));
+		getChild<LLCheckBoxCtrl>("media_enabled")->set(media_enabled);
+		getChild<LLCheckBoxCtrl>("autoplay_enabled")->setEnabled(media_enabled);
+	}
+	if (hasChild("music_enabled"))
+	{
+		getChild<LLCheckBoxCtrl>("music_enabled")->set(gSavedSettings.getBOOL("AudioStreamingMusic"));
 	}
 	
 	apply();
@@ -1565,6 +1345,14 @@ void LLPanelPreference::saveSettings()
 	}	
 }
 
+void LLPanelPreference::showFriendsOnlyWarning(LLUICtrl* checkbox, const LLSD& value)
+{
+	if (checkbox && checkbox->getValue())
+	{
+		LLNotificationsUtil::add("FriendsAndGroupsOnly");
+	}
+}
+
 void LLPanelPreference::cancel()
 {
 	for (control_values_map_t::iterator iter =  mSavedValues.begin();
@@ -1594,4 +1382,94 @@ void LLPanelPreference::setControlFalse(const LLSD& user_data)
 	
 	if (control)
 		control->set(LLSD(FALSE));
+}
+
+static LLRegisterPanelClassWrapper<LLPanelPreferenceGraphics> t_pref_graph("panel_preference_graphics");
+
+BOOL LLPanelPreferenceGraphics::postBuild()
+{
+	return LLPanelPreference::postBuild();
+}
+void LLPanelPreferenceGraphics::draw()
+{
+	LLPanelPreference::draw();
+	
+	LLButton* button_apply = findChild<LLButton>("Apply");
+	
+	if(button_apply && button_apply->getVisible())
+	{
+		bool enable = hasDirtyChilds();
+
+		button_apply->setEnabled(enable);
+
+	}
+}
+bool LLPanelPreferenceGraphics::hasDirtyChilds()
+{
+	std::list<LLView*> view_stack;
+	view_stack.push_back(this);
+	while(!view_stack.empty())
+	{
+		// Process view on top of the stack
+		LLView* curview = view_stack.front();
+		view_stack.pop_front();
+
+		LLUICtrl* ctrl = dynamic_cast<LLUICtrl*>(curview);
+		if (ctrl)
+		{
+			if(ctrl->isDirty())
+				return true;
+		}
+		// Push children onto the end of the work stack
+		for (child_list_t::const_iterator iter = curview->getChildList()->begin();
+			 iter != curview->getChildList()->end(); ++iter)
+		{
+			view_stack.push_back(*iter);
+		}
+	}	
+	return false;
+}
+
+void LLPanelPreferenceGraphics::resetDirtyChilds()
+{
+	std::list<LLView*> view_stack;
+	view_stack.push_back(this);
+	while(!view_stack.empty())
+	{
+		// Process view on top of the stack
+		LLView* curview = view_stack.front();
+		view_stack.pop_front();
+
+		LLUICtrl* ctrl = dynamic_cast<LLUICtrl*>(curview);
+		if (ctrl)
+		{
+			ctrl->resetDirty();
+		}
+		// Push children onto the end of the work stack
+		for (child_list_t::const_iterator iter = curview->getChildList()->begin();
+			 iter != curview->getChildList()->end(); ++iter)
+		{
+			view_stack.push_back(*iter);
+		}
+	}	
+}
+void LLPanelPreferenceGraphics::apply()
+{
+	resetDirtyChilds();
+	LLPanelPreference::apply();
+}
+void LLPanelPreferenceGraphics::cancel()
+{
+	resetDirtyChilds();
+	LLPanelPreference::cancel();
+}
+void LLPanelPreferenceGraphics::saveSettings()
+{
+	resetDirtyChilds();
+	LLPanelPreference::saveSettings();
+}
+void LLPanelPreferenceGraphics::setHardwareDefaults()
+{
+	resetDirtyChilds();
+	LLPanelPreference::setHardwareDefaults();
 }

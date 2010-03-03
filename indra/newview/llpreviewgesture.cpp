@@ -155,6 +155,12 @@ LLPreviewGesture* LLPreviewGesture::show(const LLUUID& item_id, const LLUUID& ob
 	return preview;
 }
 
+void LLPreviewGesture::draw()
+{
+	// Skip LLPreview::draw() to avoid description update
+	LLFloater::draw();
+}
+
 // virtual
 BOOL LLPreviewGesture::handleKeyHere(KEY key, MASK mask)
 {
@@ -364,6 +370,12 @@ BOOL LLPreviewGesture::postBuild()
 	LLTextBox* text;
 	LLCheckBoxCtrl* check;
 
+	edit = getChild<LLLineEditor>("name");
+	edit->setKeystrokeCallback(onKeystrokeCommit, this);
+
+	edit = getChild<LLLineEditor>("desc");
+	edit->setKeystrokeCallback(onKeystrokeCommit, this);
+
 	edit = getChild<LLLineEditor>("trigger_editor");
 	edit->setKeystrokeCallback(onKeystrokeCommit, this);
 	edit->setCommitCallback(onCommitSetDirty, this);
@@ -460,7 +472,7 @@ BOOL LLPreviewGesture::postBuild()
 	edit = getChild<LLLineEditor>("wait_time_editor");
 	edit->setEnabled(FALSE);
 	edit->setVisible(FALSE);
-	edit->setPrevalidate(LLLineEditor::prevalidateFloat);
+	edit->setPrevalidate(LLTextValidate::validateFloat);
 //	edit->setKeystrokeCallback(onKeystrokeCommit, this);
 	edit->setCommitOnFocusLost(TRUE);
 	edit->setCommitCallback(onCommitWaitTime, this);
@@ -491,13 +503,11 @@ BOOL LLPreviewGesture::postBuild()
 
 	if (item) 
 	{
-		childSetCommitCallback("desc", LLPreview::onText, this);
 		childSetText("desc", item->getDescription());
-		childSetPrevalidate("desc", &LLLineEditor::prevalidateASCIIPrintableNoPipe);
+		childSetPrevalidate("desc", &LLTextValidate::validateASCIIPrintableNoPipe);
 		
-		childSetCommitCallback("name", LLPreview::onText, this);
 		childSetText("name", item->getName());
-		childSetPrevalidate("name", &LLLineEditor::prevalidateASCIIPrintableNoPipe);
+		childSetPrevalidate("name", &LLTextValidate::validateASCIIPrintableNoPipe);
 	}
 
 	return LLPreview::postBuild();
@@ -1071,6 +1081,8 @@ void LLPreviewGesture::saveIfNeeded()
 	}
 	else
 	{
+		LLPreview::onCommit();
+
 		// Every save gets a new UUID.  Yup.
 		LLTransactionID tid;
 		LLAssetID asset_id;

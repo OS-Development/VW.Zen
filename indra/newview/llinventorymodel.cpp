@@ -218,7 +218,10 @@ BOOL LLInventoryModel::isObjectDescendentOf(const LLUUID& obj_id,
 const LLViewerInventoryCategory *LLInventoryModel::getFirstNondefaultParent(const LLUUID& obj_id) const
 {
 	const LLInventoryObject* obj = getObject(obj_id);
-	const LLUUID& parent_id = obj->getParentUUID();
+
+	// Search up the parent chain until we get to root or an acceptable folder.
+	// This assumes there are no cycles in the tree else we'll get a hang.
+	LLUUID parent_id = obj->getParentUUID();
 	while (!parent_id.isNull())
 	{
 		const LLViewerInventoryCategory *cat = getCategory(parent_id);
@@ -230,6 +233,7 @@ const LLViewerInventoryCategory *LLInventoryModel::getFirstNondefaultParent(cons
 		{
 			return cat;
 		}
+		parent_id = cat->getParentUUID();
 	}
 	return NULL;
 }
@@ -754,6 +758,10 @@ U32 LLInventoryModel::updateItem(const LLViewerInventoryItem* item)
 			// Fetch the currect name
 			gCacheName->get(id, FALSE, boost::bind(&LLViewerInventoryItem::onCallingCardNameLookup, new_item.get(), _1, _2, _3));
 		}
+	}
+	else if (new_item->getType() == LLAssetType::AT_GESTURE)
+	{
+		mask |= LLInventoryObserver::GESTURE;
 	}
 	addChangedMask(mask, new_item->getUUID());
 	return mask;
@@ -1929,23 +1937,26 @@ void LLInventoryModel::addItem(LLViewerInventoryItem* item)
 {
 	//llinfos << "LLInventoryModel::addItem()" << llendl;
 
-	// This can happen if assettype enums from llassettype.h ever change.
-	// For example, there is a known backwards compatibility issue in some viewer prototypes prior to when 
-	// the AT_LINK enum changed from 23 to 24.
-	if ((item->getType() == LLAssetType::AT_NONE)
-		|| LLAssetType::lookup(item->getType()) == LLAssetType::badLookup())
-	{
-		llwarns << "Got bad asset type for item [ name: " << item->getName() << " type: " << item->getType() << " inv-type: " << item->getInventoryType() << " ], ignoring." << llendl;
-		return;
-	}
+	llassert(item);
 	if(item)
 	{
+		// This can happen if assettype enums from llassettype.h ever change.
+		// For example, there is a known backwards compatibility issue in some viewer prototypes prior to when 
+		// the AT_LINK enum changed from 23 to 24.
+		if ((item->getType() == LLAssetType::AT_NONE)
+		    || LLAssetType::lookup(item->getType()) == LLAssetType::badLookup())
+		{
+			llwarns << "Got bad asset type for item [ name: " << item->getName() << " type: " << item->getType() << " inv-type: " << item->getInventoryType() << " ], ignoring." << llendl;
+			return;
+		}
+
 		// This condition means that we tried to add a link without the baseobj being in memory.
 		// The item will show up as a broken link.
 		if (item->getIsBrokenLink())
 		{
 			llinfos << "Adding broken link [ name: " << item->getName() << " itemID: " << item->getUUID() << " assetID: " << item->getAssetUUID() << " )  parent: " << item->getParentUUID() << llendl;
 		}
+
 		mItemMap[item->getUUID()] = item;
 	}
 }
@@ -1994,21 +2005,23 @@ void LLInventoryModel::accountForUpdate(const LLCategoryUpdate& update) const
 				descendents_actual += update.mDescendentDelta;
 				cat->setDescendentCount(descendents_actual);
 				cat->setVersion(++version);
-				llinfos << "accounted: '" << cat->getName() << "' "
-						<< version << " with " << descendents_actual
-						<< " descendents." << llendl;
+				lldebugs << "accounted: '" << cat->getName() << "' "
+						 << version << " with " << descendents_actual
+						 << " descendents." << llendl;
 			}
 		}
 		if(!accounted)
 		{
-			lldebugs << "No accounting for: '" << cat->getName() << "' "
+			// Error condition, this means that the category did not register that
+			// it got new descendents (perhaps because it is still being loaded)
+			// which means its descendent count will be wrong.
+			llwarns << "Accounting failed for '" << cat->getName() << "' version:"
 					 << version << llendl;
 		}
 	}
 	else
 	{
-		llwarns << "No category found for update " << update.mCategoryID
-				<< llendl;
+		llwarns << "No category found for update " << update.mCategoryID << llendl;
 	}
 }
 
@@ -3618,6 +3631,98 @@ BOOL LLInventoryModel::getIsFirstTimeInViewer2()
 	}
 
 	return sFirstTimeInViewer2;
+}
+
+static LLInventoryModel::item_array_t::iterator find_item_iter_by_uuid(LLInventoryModel::item_array_t& items, const LLUUID& id)
+{
+	LLInventoryModel::item_array_t::iterator result = items.end();
+
+	for (LLInventoryModel::item_array_t::iterator i = items.begin(); i != items.end(); ++i)
+	{
+		if ((*i)->getUUID() == id)
+		{
+			result = i;
+			break;
+		}
+	}
+
+	return result;
+}
+
+// static
+void LLInventoryModel::updateItemsOrder(LLInventoryModel::item_array_t& items, const LLUUID& src_item_id, const LLUUID& dest_item_id)
+{
+	LLInventoryModel::item_array_t::iterator it_src = find_item_iter_by_uuid(items, src_item_id);
+	LLInventoryModel::item_array_t::iterator it_dest = find_item_iter_by_uuid(items, dest_item_id);
+
+	if (it_src == items.end() || it_dest == items.end()) return;
+
+	LLViewerInventoryItem* src_item = *it_src;
+	items.erase(it_src);
+	
+	// target iterator can not be valid because the container was changed, so update it.
+	it_dest = find_item_iter_by_uuid(items, dest_item_id);
+	items.insert(it_dest, src_item);
+}
+
+void LLInventoryModel::saveItemsOrder(const LLInventoryModel::item_array_t& items)
+{
+	int sortField = 0;
+
+	// current order is saved by setting incremental values (1, 2, 3, ...) for the sort field
+	for (item_array_t::const_iterator i = items.begin(); i != items.end(); ++i)
+	{
+		LLViewerInventoryItem* item = *i;
+
+		item->setSortField(++sortField);
+		item->setComplete(TRUE);
+		item->updateServer(FALSE);
+
+		updateItem(item);
+
+		// Tell the parent folder to refresh its sort order.
+		addChangedMask(LLInventoryObserver::SORT, item->getParentUUID());
+	}
+
+	notifyObservers();
+}
+
+// See also LLInventorySort where landmarks in the Favorites folder are sorted.
+class LLViewerInventoryItemSort
+{
+public:
+	bool operator()(const LLPointer<LLViewerInventoryItem>& a, const LLPointer<LLViewerInventoryItem>& b)
+	{
+		return a->getSortField() < b->getSortField();
+	}
+};
+
+/**
+ * Sorts passed items by LLViewerInventoryItem sort field.
+ *
+ * @param[in, out] items - array of items, not sorted.
+ */
+static void rearrange_item_order_by_sort_field(LLInventoryModel::item_array_t& items)
+{
+	static LLViewerInventoryItemSort sort_functor;
+	std::sort(items.begin(), items.end(), sort_functor);
+}
+
+void LLInventoryModel::rearrangeFavoriteLandmarks(const LLUUID& source_item_id, const LLUUID& target_item_id)
+{
+	LLInventoryModel::cat_array_t cats;
+	LLInventoryModel::item_array_t items;
+	LLIsType is_type(LLAssetType::AT_LANDMARK);
+	LLUUID favorites_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_FAVORITE);
+	gInventory.collectDescendentsIf(favorites_id, cats, items, LLInventoryModel::EXCLUDE_TRASH, is_type);
+
+	// ensure items are sorted properly before changing order. EXT-3498
+	rearrange_item_order_by_sort_field(items);
+
+	// update order
+	updateItemsOrder(items, source_item_id, target_item_id);
+
+	saveItemsOrder(items);
 }
 
 //----------------------------------------------------------------------------

@@ -406,6 +406,11 @@ LLPanelEstateCovenant* LLFloaterRegionInfo::getPanelCovenant()
 
 void LLFloaterRegionInfo::refreshFromRegion(LLViewerRegion* region)
 {
+	if (!region)
+	{
+		return; 
+	}
+
 	// call refresh from region on all panels
 	std::for_each(
 		mInfoPanels.begin(),
@@ -1516,11 +1521,6 @@ void LLPanelEstateInfo::onClickRemoveEstateManager(void* user_data)
 //---------------------------------------------------------------------------
 // Kick from estate methods
 //---------------------------------------------------------------------------
-struct LLKickFromEstateInfo
-{
-	LLPanelEstateInfo *mEstatePanelp;
-	LLUUID      mAgentID;
-};
 
 void LLPanelEstateInfo::onClickKickUser()
 {
@@ -1541,11 +1541,6 @@ void LLPanelEstateInfo::onKickUserCommit(const std::vector<std::string>& names, 
 	{
 		return;
 	}
-
-	//keep track of what user they want to kick and other misc info
-	LLKickFromEstateInfo *kick_info = new LLKickFromEstateInfo();
-	kick_info->mEstatePanelp = this;
-	kick_info->mAgentID     = ids[0];
 
 	//Bring up a confirmation dialog
 	LLSD args;
@@ -1598,7 +1593,7 @@ std::string all_estates_text()
 	}
 	else if (region && region->getOwner() == gAgent.getID())
 	{
-		return LLTrans::getString("AllEstatesYouOwn");
+		return LLTrans::getString("RegionInfoAllEstatesYouOwn");
 	}
 	else if (region && region->isEstateManager())
 	{
@@ -2539,7 +2534,9 @@ bool LLPanelEstateInfo::onMessageCommit(const LLSD& notification, const LLSD& re
 }
 
 LLPanelEstateCovenant::LLPanelEstateCovenant()
-: mCovenantID(LLUUID::null)
+	:
+	mCovenantID(LLUUID::null),
+	mAssetStatus(ASSET_ERROR)
 {
 }
 

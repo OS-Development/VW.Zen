@@ -41,6 +41,7 @@
 #include "llslurl.h"
 #include "llviewermenu.h"		// handle_object_touch(), handle_buy()
 #include "llviewermedia.h"
+#include "llviewermediafocus.h"
 #include "llviewerobjectlist.h"	// to select the requested object
 
 // Linden libraries
@@ -50,6 +51,7 @@
 #include "llmenubutton.h"
 #include "llresmgr.h"			// getMonetaryString
 #include "llsafehandle.h"
+#include "llsidetray.h"
 #include "lltextbox.h"			// for description truncation
 #include "lltrans.h"
 #include "llui.h"				// positionViewNearMouse()
@@ -81,6 +83,10 @@ public:
 	
 	// Release the selection and do other cleanup
 	/*virtual*/ void onClose(bool app_quitting);
+	
+	// override the inspector mouse leave so timer is only paused if 
+	// gear menu is not open
+	/* virtual */ void onMouseLeave(S32 x, S32 y, MASK mask);
 	
 private:
 	// Refresh displayed data with information from selection manager
@@ -181,7 +187,6 @@ BOOL LLInspectObject::postBuild(void)
 	return TRUE;
 }
 
-
 // Multiple calls to showInstance("inspect_avatar", foo) will provide different
 // LLSD for foo, which we will catch here.
 //virtual
@@ -214,6 +219,10 @@ void LLInspectObject::onOpen(const LLSD& data)
 	LLViewerObject* obj = gObjectList.findObject( mObjectID );
 	if (obj)
 	{
+		// Media focus and this code fight over the select manager.  
+		// Make sure any media is unfocused before changing the selection here.
+		LLViewerMediaFocus::getInstance()->clearFocus();
+		
 		LLSelectMgr::instance().deselectAll();
 		mObjectSelection = LLSelectMgr::instance().selectObjectAndFamily(obj);
 
@@ -562,6 +571,23 @@ void LLInspectObject::updateSecureBrowsing()
 	getChild<LLUICtrl>("secure_browsing")->setVisible(is_secure_browsing);
 }
 
+// For the object inspector, only unpause the fade timer 
+// if the gear menu is not open
+void LLInspectObject::onMouseLeave(S32 x, S32 y, MASK mask)
+{
+	LLMenuGL* gear_menu = getChild<LLMenuButton>("gear_btn")->getMenu();
+	if ( gear_menu && gear_menu->getVisible() )
+	{
+		return;
+	}
+
+	if(childHasVisiblePopupMenu())
+	{
+		return;
+	}
+
+	mOpenTimer.unpause();
+}
 
 void LLInspectObject::onClickBuy()
 {
@@ -618,8 +644,9 @@ void LLInspectObject::onClickOpen()
 
 void LLInspectObject::onClickMoreInfo()
 {
-	// *TODO: Show object info side panel, once that is implemented.
-	LLNotificationsUtil::add("ClickUnimplemented");
+	LLSD key;
+	key["task"] = "task";
+	LLSideTray::getInstance()->showPanel("sidepanel_inventory", key);	
 	closeFloater();
 }
 

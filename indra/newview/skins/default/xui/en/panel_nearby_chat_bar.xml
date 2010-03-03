@@ -8,12 +8,6 @@
  name="chat_bar"
  top="21"
  width="310">
-    <string name="min_width">
-        192
-    </string>
-    <string name="max_width">
-        320
-    </string>
     <line_editor
      border_style="line"
      border_thickness="1"
@@ -21,14 +15,14 @@
      height="23"
      label="Click here to chat."
      layout="topleft"
-     left_delta="7"
+     left_delta="3"
      text_pad_right="25"
      left="0"
      max_length="512"
      name="chat_box"
      tool_tip="Press Enter to say, Ctrl+Enter to shout"
-     top="1"
-     width="279" />
+     top="2"
+     width="283" />
     <output_monitor
      auto_update="true"
      follows="right"
@@ -45,7 +39,7 @@
      follows="right"
      is_toggle="true"
      width="20"
-     top="1"
+     top="2"
      layout="topleft"
      left_pad="4"
      image_disabled="ComboButton_UpOff"

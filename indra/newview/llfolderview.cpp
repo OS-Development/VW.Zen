@@ -78,7 +78,7 @@
 ///----------------------------------------------------------------------------
 
 const S32 RENAME_WIDTH_PAD = 4;
-const S32 RENAME_HEIGHT_PAD = 2;
+const S32 RENAME_HEIGHT_PAD = 1;
 const S32 AUTO_OPEN_STACK_DEPTH = 16;
 const S32 MIN_ITEM_WIDTH_VISIBLE = LLFolderViewItem::ICON_WIDTH
 			+ LLFolderViewItem::ICON_PAD 
@@ -195,7 +195,8 @@ LLFolderView::LLFolderView(const Params& p)
 	mCallbackRegistrar(NULL),
 	mParentPanel(p.parent_panel),
 	mUseEllipses(false),
-	mDraggingOverItem(NULL)
+	mDraggingOverItem(NULL),
+	mStatusTextBox(NULL)
 {
 	LLRect rect = p.rect;
 	LLRect new_rect(rect.mLeft, rect.mBottom + getRect().getHeight(), rect.mLeft + getRect().getWidth(), rect.mBottom);
@@ -206,7 +207,10 @@ LLFolderView::LLFolderView(const Params& p)
 	mAutoOpenCandidate = NULL;
 	mAutoOpenTimer.stop();
 	mKeyboardSelection = FALSE;
-	mIndentation = -LEFT_INDENTATION; // children start at indentation 0
+	const LLFolderViewItem::Params& item_params =
+		LLUICtrlFactory::getDefaultParams<LLFolderViewItem>();
+	S32 indentation = item_params.folder_indentation();
+	mIndentation = -indentation; // children start at indentation 0
 	gIdleCallbacks.addFunction(idle, this);
 
 	//clear label
@@ -218,15 +222,33 @@ LLFolderView::LLFolderView(const Params& p)
 	// Escape is handled by reverting the rename, not commiting it (default behavior)
 	LLLineEditor::Params params;
 	params.name("ren");
-	params.rect(getRect());
+	params.rect(rect);
 	params.font(getLabelFontForStyle(LLFontGL::NORMAL));
 	params.max_length_bytes(DB_INV_ITEM_NAME_STR_LEN);
 	params.commit_callback.function(boost::bind(&LLFolderView::commitRename, this, _2));
-	params.prevalidate_callback(&LLLineEditor::prevalidateASCIIPrintableNoPipe);
+	params.prevalidate_callback(&LLTextValidate::validateASCIIPrintableNoPipe);
 	params.commit_on_focus_lost(true);
 	params.visible(false);
 	mRenamer = LLUICtrlFactory::create<LLLineEditor> (params);
 	addChild(mRenamer);
+
+	// Textbox
+	LLTextBox::Params text_p;
+	LLFontGL* font = getLabelFontForStyle(mLabelStyle);
+	LLRect new_r = LLRect(rect.mLeft + ICON_PAD,
+			      rect.mTop - TEXT_PAD,
+			      rect.mRight,
+			      rect.mTop - TEXT_PAD - llfloor(font->getLineHeight()));
+	text_p.rect(new_r);
+	text_p.name(std::string(p.name));
+	text_p.font(font);
+	text_p.visible(false);
+	text_p.allow_html(true);
+	mStatusTextBox = LLUICtrlFactory::create<LLTextBox> (text_p);
+	mStatusTextBox->setFollowsLeft();
+	mStatusTextBox->setFollowsTop();
+	//addChild(mStatusTextBox);
+
 
 	// make the popup menu available
 	LLMenuGL* menu = LLUICtrlFactory::getInstance()->createFromFile<LLMenuGL>("menu_inventory.xml", gMenuHolder, LLViewerMenuHolderGL::child_registry_t::instance());
@@ -250,6 +272,7 @@ LLFolderView::~LLFolderView( void )
 	mScrollContainer = NULL;
 	mRenameItem = NULL;
 	mRenamer = NULL;
+	mStatusTextBox = NULL;
 
 	if( gEditMenuHandler == this )
 	{
@@ -394,8 +417,13 @@ S32 LLFolderView::arrange( S32* unused_width, S32* unused_height, S32 filter_gen
 		getRoot()->getFilter()->getShowFolderState();
 
 	S32 total_width = LEFT_PAD;
-	S32 running_height = mDebugFilters ? llceil(sSmallFont->getLineHeight()) : 0;
+	S32 running_height = mDebugFilters ? llceil(LLFontGL::getFontMonospace()->getLineHeight()) : 0;
 	S32 target_height = running_height;
+	if(!mHasVisibleChildren)// is there any filtered items ?		
+	{
+		//Nope. We need to display status textbox, let's reserve some place for it 
+		target_height += mStatusTextBox->getTextPixelHeight();
+	}
 	S32 parent_item_height = getRect().getHeight();
 
 	for (folders_t::iterator iter = mFolders.begin();
@@ -568,6 +596,8 @@ LLFolderViewItem* LLFolderView::getCurSelectedItem( void )
 BOOL LLFolderView::setSelection(LLFolderViewItem* selection, BOOL openitem,
 								BOOL take_keyboard_focus)
 {
+	mSignalSelectCallback = take_keyboard_focus ? SIGNAL_KEYBOARD_FOCUS : SIGNAL_NO_KEYBOARD_FOCUS;
+
 	if( selection == this )
 	{
 		return FALSE;
@@ -594,8 +624,6 @@ BOOL LLFolderView::setSelection(LLFolderViewItem* selection, BOOL openitem,
 	}
 
 	llassert(mSelectedItems.size() <= 1);
-
-	mSignalSelectCallback = take_keyboard_focus ? SIGNAL_KEYBOARD_FOCUS : SIGNAL_NO_KEYBOARD_FOCUS;
 
 	return rv;
 }
@@ -819,10 +847,11 @@ void LLFolderView::clearSelection()
 	mSelectThisID.setNull();
 }
 
-BOOL LLFolderView::getSelectionList(std::set<LLUUID> &selection)
+BOOL LLFolderView::getSelectionList(std::set<LLUUID> &selection) const
 {
-	selected_items_t::iterator item_it;
-	for (item_it = mSelectedItems.begin(); item_it != mSelectedItems.end(); ++item_it)
+	for (selected_items_t::const_iterator item_it = mSelectedItems.begin(); 
+		 item_it != mSelectedItems.end(); 
+		 ++item_it)
 	{
 		selection.insert((*item_it)->getListener()->getUUID());
 	}
@@ -865,12 +894,12 @@ void LLFolderView::draw()
 	{
 		std::string current_filter_string = llformat("Current Filter: %d, Least Filter: %d, Auto-accept Filter: %d",
 										mFilter->getCurrentGeneration(), mFilter->getMinRequiredGeneration(), mFilter->getMustPassGeneration());
-		sSmallFont->renderUTF8(current_filter_string, 0, 2, 
-			getRect().getHeight() - sSmallFont->getLineHeight(), LLColor4(0.5f, 0.5f, 0.8f, 1.f), 
+		LLFontGL::getFontMonospace()->renderUTF8(current_filter_string, 0, 2, 
+			getRect().getHeight() - LLFontGL::getFontMonospace()->getLineHeight(), LLColor4(0.5f, 0.5f, 0.8f, 1.f), 
 			LLFontGL::LEFT, LLFontGL::BOTTOM, LLFontGL::NORMAL, LLFontGL::NO_SHADOW, S32_MAX, S32_MAX, NULL, FALSE );
 	}
 
-	LLFontGL* font = getLabelFontForStyle(mLabelStyle);
+	//LLFontGL* font = getLabelFontForStyle(mLabelStyle);
 
 	// if cursor has moved off of me during drag and drop
 	// close all auto opened folders
@@ -907,19 +936,23 @@ void LLFolderView::draw()
 		|| mFilter->getShowFolderState() == LLInventoryFilter::SHOW_ALL_FOLDERS)
 	{
 		mStatusText.clear();
+		mStatusTextBox->setVisible( FALSE );
 	}
 	else
 	{
 		if (gInventory.backgroundFetchActive() || mCompletedFilterGeneration < mFilter->getMinRequiredGeneration())
 		{
 			mStatusText = LLTrans::getString("Searching");
-			font->renderUTF8(mStatusText, 0, 2, 1, sSearchStatusColor, LLFontGL::LEFT, LLFontGL::TOP, LLFontGL::NORMAL,  LLFontGL::NO_SHADOW, S32_MAX, S32_MAX, NULL, FALSE );
+			//font->renderUTF8(mStatusText, 0, 2, 1, sSearchStatusColor, LLFontGL::LEFT, LLFontGL::TOP, LLFontGL::NORMAL,  LLFontGL::NO_SHADOW, S32_MAX, S32_MAX, NULL, FALSE );
 		}
 		else
 		{
 			mStatusText = LLTrans::getString(getFilter()->getEmptyLookupMessage());
-			font->renderUTF8(mStatusText, 0, 2, 1, sSearchStatusColor, LLFontGL::LEFT, LLFontGL::TOP, LLFontGL::NORMAL,  LLFontGL::NO_SHADOW, S32_MAX, S32_MAX, NULL, FALSE );
+			//font->renderUTF8(mStatusText, 0, 2, 1, sSearchStatusColor, LLFontGL::LEFT, LLFontGL::TOP, LLFontGL::NORMAL,  LLFontGL::NO_SHADOW, S32_MAX, S32_MAX, NULL, FALSE );
 		}
+		mStatusTextBox->setValue(mStatusText);
+		mStatusTextBox->setVisible( TRUE );
+		
 	}
 
 	LLFolderViewFolder::draw();
@@ -1268,8 +1301,7 @@ BOOL LLFolderView::canCut() const
 		const LLFolderViewItem* item = *selected_it;
 		const LLFolderViewEventListener* listener = item->getListener();
 
-		// *WARKAROUND: it is too many places where the "isItemRemovable" method should be changed with "const" modifier
-		if (!listener || !(const_cast<LLFolderViewEventListener*>(listener))->isItemRemovable())
+		if (!listener || !listener->isItemRemovable())
 		{
 			return FALSE;
 		}
@@ -1387,6 +1419,7 @@ void LLFolderView::startRenamingSelectedItem( void )
 		// set focus will fail unless item is visible
 		mRenamer->setFocus( TRUE );
 		mRenamer->setTopLostCallback(boost::bind(onRenamerLost, _1));
+		mRenamer->setFocusLostCallback(boost::bind(onRenamerLost, _1));
 		gFocusMgr.setTopCtrl( mRenamer );
 	}
 }
@@ -1503,9 +1536,25 @@ BOOL LLFolderView::handleKeyHere( KEY key, MASK mask )
 				{
 					if (next == last_selected)
 					{
+						//special case for LLAccordionCtrl
+						if(notifyParent(LLSD().with("action","select_next")) > 0 )//message was processed
+						{
+							clearSelection();
+							return TRUE;
+						}
 						return FALSE;
 					}
 					setSelection( next, FALSE, TRUE );
+				}
+				else
+				{
+					//special case for LLAccordionCtrl
+					if(notifyParent(LLSD().with("action","select_next")) > 0 )//message was processed
+					{
+						clearSelection();
+						return TRUE;
+					}
+					return FALSE;
 				}
 			}
 			scrollToShowSelection();
@@ -1551,6 +1600,13 @@ BOOL LLFolderView::handleKeyHere( KEY key, MASK mask )
 				{
 					if (prev == this)
 					{
+						// If case we are in accordion tab notify parent to go to the previous accordion
+						if(notifyParent(LLSD().with("action","select_prev")) > 0 )//message was processed
+						{
+							clearSelection();
+							return TRUE;
+						}
+
 						return FALSE;
 					}
 					setSelection( prev, FALSE, TRUE );
@@ -1580,7 +1636,11 @@ BOOL LLFolderView::handleKeyHere( KEY key, MASK mask )
 			LLFolderViewItem* parent_folder = last_selected->getParentFolder();
 			if (!last_selected->isOpen() && parent_folder && parent_folder->getParentFolder())
 			{
-				setSelection(parent_folder, FALSE, TRUE);
+				// Don't change selectin to hidden folder. See EXT-5328.
+				if (!parent_folder->getHidden())
+				{
+					setSelection(parent_folder, FALSE, TRUE);
+				}
 			}
 			else
 			{
@@ -1881,8 +1941,8 @@ void LLFolderView::scrollToShowItem(LLFolderViewItem* item, const LLRect& constr
 		
 		S32 icon_height = mIcon.isNull() ? 0 : mIcon->getHeight(); 
 		S32 label_height = llround(getLabelFontForStyle(mLabelStyle)->getLineHeight()); 
-		// when navigating with keyboard, only move top of folders on screen, otherwise show whole folder
-		S32 max_height_to_show = mScrollContainer->hasFocus() ? (llmax( icon_height, label_height ) + ICON_PAD) : local_rect.getHeight(); 
+		// when navigating with keyboard, only move top of opened folder on screen, otherwise show whole folder
+		S32 max_height_to_show = item->isOpen() && mScrollContainer->hasFocus() ? (llmax( icon_height, label_height ) + ICON_PAD) : local_rect.getHeight(); 
 		
 		// get portion of item that we want to see...
 		LLRect item_local_rect = LLRect(item->getIndentation(), 
@@ -2103,6 +2163,15 @@ void LLFolderView::doIdle()
 			LLSelectFirstFilteredItem filter;
 			applyFunctorRecursively(filter);
 		}
+
+		// Open filtered folders for folder views with mAutoSelectOverride=TRUE.
+		// Used by LLPlacesFolderView.
+		if (mAutoSelectOverride && !mFilter->getFilterSubString().empty())
+		{
+			LLOpenFilteredFolders filter;
+			applyFunctorRecursively(filter);
+		}
+
 		scrollToShowSelection();
 	}
 
@@ -2217,10 +2286,9 @@ void LLFolderView::updateRenamerPosition()
 {
 	if(mRenameItem)
 	{
-		LLFontGL* font = getLabelFontForStyle(mLabelStyle);
-
-		S32 x = ARROW_SIZE + TEXT_PAD + ICON_WIDTH + ICON_PAD - 1 + mRenameItem->getIndentation();
-		S32 y = llfloor(mRenameItem->getRect().getHeight() - font->getLineHeight()-2);
+		// See also LLFolderViewItem::draw()
+		S32 x = ARROW_SIZE + TEXT_PAD + ICON_WIDTH + ICON_PAD + mRenameItem->getIndentation();
+		S32 y = mRenameItem->getRect().getHeight() - mRenameItem->getItemHeight() - RENAME_HEIGHT_PAD;
 		mRenameItem->localPointToScreen( x, y, &x, &y );
 		screenPointToLocal( x, y, &x, &y );
 		mRenamer->setOrigin( x, y );
@@ -2232,9 +2300,86 @@ void LLFolderView::updateRenamerPosition()
 		}
 
 		S32 width = llmax(llmin(mRenameItem->getRect().getWidth() - x, scroller_rect.getWidth() - x - getRect().mLeft), MINIMUM_RENAMER_WIDTH);
-		S32 height = llfloor(font->getLineHeight() + RENAME_HEIGHT_PAD);
+		S32 height = mRenameItem->getItemHeight() - RENAME_HEIGHT_PAD;
 		mRenamer->reshape( width, height, TRUE );
 	}
+}
+
+bool LLFolderView::selectFirstItem()
+{
+	for (folders_t::iterator iter = mFolders.begin();
+		 iter != mFolders.end();)
+	{
+		LLFolderViewFolder* folder = (*iter );
+		if (folder->getVisible())
+		{
+			LLFolderViewItem* itemp = folder->getNextFromChild(0,true);
+			if(itemp)
+				setSelection(itemp,FALSE,TRUE);
+			return true;	
+		}
+		
+	}
+	for(items_t::iterator iit = mItems.begin();
+		iit != mItems.end(); ++iit)
+	{
+		LLFolderViewItem* itemp = (*iit);
+		if (itemp->getVisible())
+		{
+			setSelection(itemp,FALSE,TRUE);
+			return true;	
+		}
+	}
+	return false;
+}
+bool LLFolderView::selectLastItem()
+{
+	for(items_t::reverse_iterator iit = mItems.rbegin();
+		iit != mItems.rend(); ++iit)
+	{
+		LLFolderViewItem* itemp = (*iit);
+		if (itemp->getVisible())
+		{
+			setSelection(itemp,FALSE,TRUE);
+			return true;	
+		}
+	}
+	for (folders_t::reverse_iterator iter = mFolders.rbegin();
+		 iter != mFolders.rend();)
+	{
+		LLFolderViewFolder* folder = (*iter);
+		if (folder->getVisible())
+		{
+			LLFolderViewItem* itemp = folder->getPreviousFromChild(0,true);
+			if(itemp)
+				setSelection(itemp,FALSE,TRUE);
+			return true;	
+		}
+	}
+	return false;
+}
+
+
+S32	LLFolderView::notify(const LLSD& info) 
+{
+	if(info.has("action"))
+	{
+		std::string str_action = info["action"];
+		if(str_action == "select_first")
+		{
+			setFocus(true);
+			selectFirstItem();
+			return 1;
+
+		}
+		else if(str_action == "select_last")
+		{
+			setFocus(true);
+			selectLastItem();
+			return 1;
+		}
+	}
+	return 0;
 }
 
 

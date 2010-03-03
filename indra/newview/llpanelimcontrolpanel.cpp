@@ -46,6 +46,7 @@
 #include "llimview.h"
 #include "llvoicechannel.h"
 #include "llsidetray.h"
+#include "llspeakers.h"
 #include "lltrans.h"
 
 void LLPanelChatControlPanel::onCallButtonClicked()
@@ -63,39 +64,32 @@ void LLPanelChatControlPanel::onOpenVoiceControlsClicked()
 	LLFloaterReg::showInstance("voice_controls");
 }
 
+void LLPanelChatControlPanel::onChange(EStatusType status, const std::string &channelURI, bool proximal)
+{
+	if(status == STATUS_JOINING || status == STATUS_LEFT_CHANNEL)
+	{
+		return;
+	}
+
+	updateCallButton();
+}
+
 void LLPanelChatControlPanel::onVoiceChannelStateChanged(const LLVoiceChannel::EState& old_state, const LLVoiceChannel::EState& new_state)
 {
 	updateButtons(new_state >= LLVoiceChannel::STATE_CALL_STARTED);
 }
 
-void LLPanelChatControlPanel::updateButtons(bool is_call_started)
+void LLPanelChatControlPanel::updateCallButton()
 {
-	childSetVisible("end_call_btn", is_call_started);
-	childSetVisible("voice_ctrls_btn", is_call_started);
-	childSetVisible("call_btn", ! is_call_started);
-}
-
-LLPanelChatControlPanel::~LLPanelChatControlPanel()
-{
-	mVoiceChannelStateChangeConnection.disconnect();
-}
-
-BOOL LLPanelChatControlPanel::postBuild()
-{
-	childSetAction("call_btn", boost::bind(&LLPanelChatControlPanel::onCallButtonClicked, this));
-	childSetAction("end_call_btn", boost::bind(&LLPanelChatControlPanel::onEndCallButtonClicked, this));
-	childSetAction("voice_ctrls_btn", boost::bind(&LLPanelChatControlPanel::onOpenVoiceControlsClicked, this));
-
-	return TRUE;
-}
-
-void LLPanelChatControlPanel::draw()
-{
-	// hide/show start call and end call buttons
-	bool voice_enabled = LLVoiceClient::voiceEnabled();
+	bool voice_enabled = LLVoiceClient::voiceEnabled() && gVoiceClient->voiceWorking();
 
 	LLIMModel::LLIMSession* session = LLIMModel::getInstance()->findIMSession(mSessionId);
-	if (!session) return;
+	
+	if (!session) 
+	{
+		childSetEnabled("call_btn", false);
+		return;
+	}
 
 	bool session_initialized = session->mSessionInitialized;
 	bool callback_enabled = session->mCallBackEnabled;
@@ -104,8 +98,35 @@ void LLPanelChatControlPanel::draw()
 		&& voice_enabled
 		&& callback_enabled;
 	childSetEnabled("call_btn", enable_connect);
+}
 
-	LLPanel::draw();
+void LLPanelChatControlPanel::updateButtons(bool is_call_started)
+{
+	childSetVisible("end_call_btn_panel", is_call_started);
+	childSetVisible("voice_ctrls_btn_panel", is_call_started);
+	childSetVisible("call_btn_panel", ! is_call_started);
+	updateCallButton();
+	
+}
+
+LLPanelChatControlPanel::~LLPanelChatControlPanel()
+{
+	mVoiceChannelStateChangeConnection.disconnect();
+	if(LLVoiceClient::instanceExists())
+	{
+		LLVoiceClient::getInstance()->removeObserver(this);
+	}
+}
+
+BOOL LLPanelChatControlPanel::postBuild()
+{
+	childSetAction("call_btn", boost::bind(&LLPanelChatControlPanel::onCallButtonClicked, this));
+	childSetAction("end_call_btn", boost::bind(&LLPanelChatControlPanel::onEndCallButtonClicked, this));
+	childSetAction("voice_ctrls_btn", boost::bind(&LLPanelChatControlPanel::onOpenVoiceControlsClicked, this));
+
+	gVoiceClient->addObserver(this);
+
+	return TRUE;
 }
 
 void LLPanelChatControlPanel::setSessionId(const LLUUID& session_id)
@@ -205,14 +226,6 @@ void LLPanelIMControlPanel::setSessionId(const LLUUID& session_id)
 		childSetEnabled("share_btn", FALSE);
 		childSetEnabled("teleport_btn", FALSE);
 		childSetEnabled("pay_btn", FALSE);
-
-        getChild<LLTextBox>("avatar_name")->setValue(im_session->mName);
-        getChild<LLTextBox>("avatar_name")->setToolTip(im_session->mName);
-	}
-	else
-	{
-		// If the participant is an avatar, fetch the currect name
-		gCacheName->get(mAvatarID, FALSE, boost::bind(&LLPanelIMControlPanel::nameUpdatedCallback, this, _1, _2, _3, _4));
 	}
 }
 
@@ -228,23 +241,9 @@ void LLPanelIMControlPanel::changed(U32 mask)
 	}
 }
 
-void LLPanelIMControlPanel::nameUpdatedCallback(const LLUUID& id, const std::string& first, const std::string& last, BOOL is_group)
-{
-	if ( id == mAvatarID )
-	{
-		std::string avatar_name;
-		avatar_name.assign(first);
-		avatar_name.append(" ");
-		avatar_name.append(last);
-		getChild<LLTextBox>("avatar_name")->setValue(avatar_name);
-		getChild<LLTextBox>("avatar_name")->setToolTip(avatar_name);
-	}
-}
-
 LLPanelGroupControlPanel::LLPanelGroupControlPanel(const LLUUID& session_id):
 mParticipantList(NULL)
 {
-	mSpeakerManager = LLIMModel::getInstance()->getSpeakerManager(session_id);
 }
 
 BOOL LLPanelGroupControlPanel::postBuild()
@@ -263,9 +262,6 @@ LLPanelGroupControlPanel::~LLPanelGroupControlPanel()
 // virtual
 void LLPanelGroupControlPanel::draw()
 {
-	//Remove event does not raised until speakerp->mActivityTimer.hasExpired() is false, see LLSpeakerManager::update()
-	//so we need update it to raise needed event
-	mSpeakerManager->update(true);
 	// Need to resort the participant list if it's in sort by recent speaker order.
 	if (mParticipantList)
 		mParticipantList->updateRecentSpeakersOrder();
@@ -302,11 +298,14 @@ void LLPanelGroupControlPanel::setSessionId(const LLUUID& session_id)
 {
 	LLPanelChatControlPanel::setSessionId(session_id);
 
-	mGroupID = LLIMModel::getInstance()->getOtherParticipantID(session_id);
+	mGroupID = session_id;
 
 	// for group and Ad-hoc chat we need to include agent into list 
 	if(!mParticipantList)
-		mParticipantList = new LLParticipantList(mSpeakerManager, getChild<LLAvatarList>("speakers_list"), true,false);
+	{
+		LLSpeakerMgr* speaker_manager = LLIMModel::getInstance()->getSpeakerManager(session_id);
+		mParticipantList = new LLParticipantList(speaker_manager, getChild<LLAvatarList>("speakers_list"), true,false);
+	}
 }
 
 

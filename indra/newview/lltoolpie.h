@@ -71,9 +71,6 @@ public:
 	LLObjectSelection*	getLeftClickSelection() { return (LLObjectSelection*)mLeftClickSelection; }
 	void 				resetSelection();
 	
-	static void			leftMouseCallback(const LLPickInfo& pick_info);
-	static void			rightMouseCallback(const LLPickInfo& pick_info);
-
 	static void			selectionPropertiesReceived();
 
 	static void			showAvatarInspector(const LLUUID& avatar_id);
@@ -92,7 +89,9 @@ private:
 
 	bool handleMediaClick(const LLPickInfo& info);
 	bool handleMediaHover(const LLPickInfo& info);
-	bool handleMediaMouseUp();
+	bool handleMediaMouseUp(); 
+	BOOL handleTooltipLand(std::string line, std::string tooltip_msg);
+	BOOL handleTooltipObject( LLViewerObject* hover_object, std::string line, std::string tooltip_msg);
 
 private:
 	BOOL				mGrabMouseButtonDown;

@@ -53,7 +53,7 @@ version 2.0
 
 // OpenCircuit - Tells the recipient's messaging system to open the descibed circuit
 {
-	OpenCircuit Fixed 0xFFFFFFFC NotTrusted Unencoded
+	OpenCircuit Fixed 0xFFFFFFFC NotTrusted Unencoded UDPBlackListed
 	{
 		CircuitInfo		Single
 		{	IP			IPADDR	}
@@ -1382,6 +1382,10 @@ version 2.0
 		Info		Single
 		{	AgentID			LLUUID	}
 		{	KickedFromEstateID	U32	}
+	}
+	{
+		AgentInfo	Single
+		{   AgentEffectiveMaturity U32  }
 	}
 }
 

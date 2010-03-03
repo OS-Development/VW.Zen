@@ -36,12 +36,14 @@
 #include "llcombobox.h"
 #include "lliconctrl.h"		// Params
 #include "lltextbox.h"		// Params
+#include "lllocationhistory.h"
 
 class LLLandmark;
 
 // internals
 class LLAddLandmarkObserver;
 class LLRemoveLandmarkObserver;
+class LLParcelChangeObserver;
 class LLMenuGL;
 class LLTeleportHistoryItem;
 
@@ -56,12 +58,15 @@ class LLLocationInputCtrl
 	LOG_CLASS(LLLocationInputCtrl);
 	friend class LLAddLandmarkObserver;
 	friend class LLRemoveLandmarkObserver;
+	friend class LLParcelChangeObserver;
 
 public:
 	struct Params 
 	:	public LLInitParam::Block<Params, LLComboBox::Params>
 	{
-		Optional<LLUIImage*>				add_landmark_image_enabled,
+		Optional<LLUIImage*>				icon_maturity_general,
+											icon_maturity_adult,
+											add_landmark_image_enabled,
 											add_landmark_image_disabled,
 											add_landmark_image_hover,
 											add_landmark_image_selected;
@@ -70,7 +75,8 @@ public:
 		Optional<LLButton::Params>			add_landmark_button,
 											for_sale_button,
 											info_button;
-		Optional<LLIconCtrl::Params>		voice_icon,
+		Optional<LLIconCtrl::Params>		maturity_icon,
+											voice_icon,
 											fly_icon,
 											push_icon,
 											build_icon,
@@ -87,6 +93,7 @@ public:
 	/*virtual*/ void		onFocusReceived();
 	/*virtual*/ void		onFocusLost();
 	/*virtual*/ void		draw();
+	/*virtual*/ void		reshape(S32 width, S32 height, BOOL called_from_parent = TRUE);
 	//========================================================================
 
 	// LLUICtrl interface
@@ -102,6 +109,18 @@ public:
 	void					handleLoginComplete();
 
 private:
+
+	enum EParcelIcon
+	{
+		VOICE_ICON = 0,
+		FLY_ICON,
+		PUSH_ICON,
+		BUILD_ICON,
+		SCRIPTS_ICON,
+		DAMAGE_ICON,
+		ICON_COUNT
+	};
+
 	friend class LLUICtrlFactory;
 	LLLocationInputCtrl(const Params&);
 	virtual ~LLLocationInputCtrl();
@@ -117,8 +136,10 @@ private:
 	void					refreshParcelIcons();
 	// Refresh the value in the health percentage text field
 	void					refreshHealth();
+	void					refreshMaturityIcon();
+	void					positionMaturityIcon();
 	
-	void					rebuildLocationHistory(std::string filter = "");
+	void					rebuildLocationHistory(const std::string& filter = LLStringUtil::null);
 	bool 					findTeleportItemsByTitle(const LLTeleportHistoryItem& item, const std::string& filter);
 	void					setText(const LLStringExplicit& text);
 	void					updateAddLandmarkButton();
@@ -128,7 +149,7 @@ private:
 	void					changeLocationPresentation();
 
 	void					onInfoButtonClicked();
-	void					onLocationHistoryLoaded();
+	void					onLocationHistoryChanged(LLLocationHistory::EChangeType event);
 	void					onLocationPrearrange(const LLSD& data);
 	void 					onTextEditorRightClicked(S32 x, S32 y, MASK mask);
 	void					onLandmarkLoaded(LLLandmark* lm);
@@ -138,6 +159,7 @@ private:
 	// callbacks
 	bool					onLocationContextMenuItemEnabled(const LLSD& userdata);
 	void 					onLocationContextMenuItemClicked(const LLSD& userdata);
+	void					onParcelIconClick(EParcelIcon icon);
 
 	LLMenuGL*				mLocationContextMenu;
 	LLButton*				mAddLandmarkBtn;
@@ -145,32 +167,29 @@ private:
 	LLButton*				mInfoBtn;
 	S32						mIconHPad;			// pad between all icons
 	S32						mAddLandmarkHPad;	// pad to left of landmark star
-	
-	enum EParcelIcon
-	{
-		VOICE_ICON = 0,
-		FLY_ICON,
-		PUSH_ICON,
-		BUILD_ICON,
-		SCRIPTS_ICON,
-		DAMAGE_ICON,
-		ICON_COUNT
-	};
+
+	LLIconCtrl*	mMaturityIcon;
 	LLIconCtrl*	mParcelIcon[ICON_COUNT];
 	LLTextBox* mDamageText;
 
 	LLAddLandmarkObserver*		mAddLandmarkObserver;
 	LLRemoveLandmarkObserver*	mRemoveLandmarkObserver;
+	LLParcelChangeObserver*		mParcelChangeObserver;
 
+	boost::signals2::connection	mCoordinatesControlConnection;
+	boost::signals2::connection	mParcelPropertiesControlConnection;
 	boost::signals2::connection	mParcelMgrConnection;
 	boost::signals2::connection	mLocationHistoryConnection;
 	LLUIImage* mLandmarkImageOn;
 	LLUIImage* mLandmarkImageOff;
+	LLUIImage* mIconMaturityGeneral;
+	LLUIImage* mIconMaturityAdult;
 
 	std::string mAddLandmarkTooltip;
 	std::string mEditLandmarkTooltip;
 	// this field holds a human-readable form of the location string, it is needed to be able to compare copy-pated value and real location
 	std::string mHumanReadableLocation;
+	bool isHumanReadableLocationVisible;
 };
 
 #endif

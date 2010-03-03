@@ -41,7 +41,7 @@
 #include "llagentwearables.h"
 #include "llappearancemgr.h"
 #include "lldictionary.h"
-#include "llfirstuse.h"
+//#include "llfirstuse.h"
 #include "llfloaterreg.h"
 #include "llfloatertools.h"
 #include "llgesturemgr.h"
@@ -1199,11 +1199,11 @@ void LLToolDragAndDrop::dropObject(LLViewerObject* raycast_target,
 	locateInventory(item, cat);
 	if(!item || !item->isComplete()) return;
 	
-	if (regionp
-		&& (regionp->getRegionFlags() & REGION_FLAGS_SANDBOX))
-	{
-		LLFirstUse::useSandbox();
-	}
+	//if (regionp
+	//	&& (regionp->getRegionFlags() & REGION_FLAGS_SANDBOX))
+	//{
+	//	LLFirstUse::useSandbox();
+	//}
 	// check if it cannot be copied, and mark as remove if it is -
 	// this will remove the object from inventory after rez. Only
 	// bother with this check if we would not normally remove from
@@ -1404,18 +1404,6 @@ void LLToolDragAndDrop::dropInventory(LLViewerObject* hit_obj,
 	gFloaterTools->dirty();
 }
 
-struct LLGiveInventoryInfo
-{
-	LLUUID mToAgentID;
-	LLUUID mInventoryObjectID;
-	LLUUID mIMSessionID;
-	LLGiveInventoryInfo(const LLUUID& to_agent, const LLUUID& obj_id, const LLUUID &im_session_id = LLUUID::null) :
-		mToAgentID(to_agent), 
-		mInventoryObjectID(obj_id),
-		mIMSessionID(im_session_id)
-	{}
-};
-
 void LLToolDragAndDrop::giveInventory(const LLUUID& to_agent,
 									  LLInventoryItem* item,
 									  const LLUUID& im_session_id)
@@ -1584,8 +1572,6 @@ void LLToolDragAndDrop::giveInventoryCategory(const LLUUID& to_agent,
 		}
 		else 
 		{
-			LLGiveInventoryInfo* info = NULL;
-			info = new LLGiveInventoryInfo(to_agent, cat->getUUID(), im_session_id);
 			LLSD args;
 			args["COUNT"] = llformat("%d",giveable.countNoCopy());
 			LLSD payload;

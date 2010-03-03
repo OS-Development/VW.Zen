@@ -75,7 +75,7 @@ LLFloaterGroupPicker::~LLFloaterGroupPicker()
 void LLFloaterGroupPicker::setPowersMask(U64 powers_mask)
 {
 	mPowersMask = powers_mask;
-	postBuild();
+	init_group_list(getChild<LLScrollListCtrl>("group list"), gAgent.getGroupID(), mPowersMask);
 }
 
 
@@ -247,14 +247,7 @@ void LLPanelGroups::enableButtons()
 		childDisable("IM");
 		childDisable("Leave");
 	}
-	if(gAgent.mGroups.count() < MAX_AGENT_GROUPS)
-	{
-		childEnable("Create");
-	}
-	else
-	{
-		childDisable("Create");
-	}
+	childSetEnabled("Create", gAgent.canJoinGroups());
 }
 
 

@@ -12,13 +12,27 @@
 	appearance up to tray panel header word like "Home".
 	Embedded panels are inset by a pixel and so their
 	backgrounds will not block the world fully. -->
+
+  <sidetray_tab
+    name="sidebar_openclose"
+    help_topic="sidebar_openclose"
+    tab_title="Toggle Sidebar"
+    description="Toggle Sidebar."
+    image="TabIcon_Open_Off"
+	image_selected="TabIcon_Close_Off"
+    mouse_opaque="false"
+    background_visible="true"
+  >
+    <panel /> <!-- dummy panel, never to actually be seen -->
+  </sidetray_tab>
+
   <sidetray_tab
     name="sidebar_home"
     help_topic="sidebar_home"
     tab_title="Home"
     description="Home."
-    image="TabIcon_Open_Off"
-	image_selected="TabIcon_Close_Off"
+    image="TabIcon_Home_Off"
+    image_selected="TabIcon_Home_Selected"
     mouse_opaque="false"
     background_visible="true"
   >
@@ -28,6 +42,31 @@
         filename="panel_sidetray_home_tab.xml"
         label="home"
       />
+  </sidetray_tab>
+
+  <sidetray_tab
+    name="sidebar_me"
+    help_topic="sidebar_me"
+    tab_title="My Profile"
+    description="Edit your public profile and Picks."
+    image="TabIcon_Me_Off"
+    image_selected="TabIcon_Me_Selected"
+    mouse_opaque="false"
+    background_visible="true"
+  >
+    <panel_container
+      name="panel_container"
+      default_panel_name="panel_me"
+      width="333"
+    >
+      <panel
+        class="panel_me"
+        name="panel_me"
+        filename="panel_me.xml"
+        label="Me"
+      />
+
+    </panel_container>
   </sidetray_tab>
 
   <sidetray_tab
@@ -59,7 +98,7 @@
         class="panel_group_info_sidetray"
         name="panel_group_info_sidetray"
         filename="panel_group_info_sidetray.xml"
-        label="Group Info"
+        label="Group Profile"
         font="SansSerifBold"
       />
       <panel
@@ -94,20 +133,21 @@
   </sidetray_tab>
 
   <sidetray_tab
-    name="sidebar_me"
-    help_topic="sidebar_me"
-    tab_title="My Profile"
-    description="Edit your public profile and Picks."
-    image="TabIcon_Me_Off"
-    image_selected="TabIcon_Me_Selected"
+    name="sidebar_inventory"
+    help_topic="sidebar_inventory"
+    tab_title="My Inventory"
+    description="Browse your inventory."
+    image="TabIcon_Things_Off"
+    image_selected="TabIcon_Things_Selected"
     mouse_opaque="false"
     background_visible="true"
   >
       <panel
-        class="panel_me"
-        name="panel_me"
-        filename="panel_me.xml"
-        label="Me"
+        class="sidepanel_inventory"
+        name="sidepanel_inventory"
+        filename="sidepanel_inventory.xml"
+        label="Edit Inventory"
+        font="SansSerifBold"
       />
   </sidetray_tab>
 
@@ -126,25 +166,6 @@
         name="sidepanel_appearance"
         filename="sidepanel_appearance.xml"
         label="Edit Appearance"
-        font="SansSerifBold"
-      />
-  </sidetray_tab>
-
-  <sidetray_tab
-    name="sidebar_inventory"
-    help_topic="sidebar_inventory"
-    tab_title="My Inventory"
-    description="Browse your inventory."
-    image="TabIcon_Things_Off"
-    image_selected="TabIcon_Things_Selected"
-    mouse_opaque="false"
-    background_visible="true"
-  >
-      <panel
-        class="sidepanel_inventory"
-        name="sidepanel_inventory"
-        filename="sidepanel_inventory.xml"
-        label="Edit Inventory"
         font="SansSerifBold"
       />
   </sidetray_tab>

@@ -52,6 +52,7 @@
      left_pad="5"
      name="reporter_field"
      top_delta="0"
+     translate="false"
      use_ellipses="true"
      width="200">
         Loremipsum Dolorsitamut Longnamez
@@ -153,6 +154,7 @@
      left_pad="6"
      name="object_name"
      top_delta="0"
+     translate="false"
      use_ellipses="true"
      width="185">
         Consetetur Sadipscing
@@ -180,6 +182,7 @@
      left_pad="6"
      name="owner_name"
      top_delta="0"
+     translate="false"
      use_ellipses="true"
      width="185">
         Hendrerit Vulputate Kamawashi Longname
@@ -201,11 +204,11 @@
          name="Age__Age_play"
          value="31" />
         <combo_box.item
-         label="Age &gt; Adult resident on Teen Second Life"
+         label="Age &gt; Adult Resident on Teen Second Life"
          name="Age__Adult_resident_on_Teen_Second_Life"
          value="32" />
         <combo_box.item
-         label="Age &gt; Underage resident outside of Teen Second Life"
+         label="Age &gt; Underage Resident outside of Teen Second Life"
          name="Age__Underage_resident_outside_of_Teen_Second_Life"
          value="33" />
         <combo_box.item

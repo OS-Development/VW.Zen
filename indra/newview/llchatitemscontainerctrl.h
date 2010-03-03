@@ -1,5 +1,5 @@
 /** 
- * @file llchatitemscontainer.h
+ * @file llchatitemscontainerctrl.h
  * @brief chat history scrolling panel implementation
  *
  * $LicenseInfo:firstyear=2004&license=viewergpl$
@@ -30,12 +30,12 @@
  * $/LicenseInfo$
  */
 
-#ifndef LL_LLCHATITEMSCONTAINER_H_
-#define LL_LLCHATITEMSCONTAINER_H_
+#ifndef LL_LLCHATITEMSCONTAINERCTRL_H_
+#define LL_LLCHATITEMSCONTAINERCTRL_H_
 
+#include "llchat.h"
 #include "llpanel.h"
 #include "llscrollbar.h"
-#include "string"
 #include "llviewerchat.h"
 #include "lltoastpanel.h"
 
@@ -49,15 +49,18 @@ typedef enum e_show_item_header
 class LLNearbyChatToastPanel: public LLToastPanelBase
 {
 protected:
-	LLNearbyChatToastPanel():mIsDirty(false){};
+        LLNearbyChatToastPanel()
+		: 
+	mIsDirty(false),
+	mSourceType(CHAT_SOURCE_OBJECT)
+	{};
 public:
-	
-
 	~LLNearbyChatToastPanel(){}
 	
 	static LLNearbyChatToastPanel* createInstance();
 
 	const LLUUID& getFromID() const { return mFromID;}
+	const std::string& getFromName() const { return mFromName; }
 	
 	//void	addText		(const std::string& message ,  const LLStyle::Params& input_params = LLStyle::Params());
 	//void	setMessage	(const LLChat& msg);
@@ -68,6 +71,7 @@ public:
 	void	onMouseLeave	(S32 x, S32 y, MASK mask);
 	void	onMouseEnter	(S32 x, S32 y, MASK mask);
 	BOOL	handleMouseDown	(S32 x, S32 y, MASK mask);
+	BOOL	handleMouseUp	(S32 x, S32 y, MASK mask);
 
 	virtual BOOL postBuild();
 
@@ -81,9 +85,11 @@ public:
 
 	virtual void draw();
 
+	//*TODO REMOVE, why a dup of getFromID?
 	const LLUUID&	messageID() const { return mFromID;}
 private:
 	LLUUID			mFromID;	// agent id or object id
+	std::string		mFromName;
 	EChatSourceType	mSourceType;
 	
 
