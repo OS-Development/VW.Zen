@@ -37,7 +37,9 @@
 
 // library includes
 #include "llnotificationsutil.h"
+#include "llsdserialize.h"
 #include "llsdutil.h"
+
 
 // project includes
 #include "llvoavatar.h"
@@ -62,15 +64,13 @@
 #include "llimview.h" // for LLIMMgr
 #include "llparcel.h"
 #include "llviewerparcelmgr.h"
-#include "llfirstuse.h"
+//#include "llfirstuse.h"
+#include "llspeakers.h"
 #include "lltrans.h"
 #include "llviewerwindow.h"
 #include "llviewercamera.h"
 #include "llvoavatarself.h"
 #include "llvoicechannel.h"
-
-#include "llfloaterfriends.h"  //VIVOX, inorder to refresh communicate panel
-#include "llfloaterchat.h"		// for LLFloaterChat::addChat()
 
 // for base64 decoding
 #include "apr_base64.h"
@@ -101,6 +101,13 @@ const F32 UPDATE_THROTTLE_SECONDS = 0.1f;
 
 const F32 LOGIN_RETRY_SECONDS = 10.0f;
 const int MAX_LOGIN_RETRIES = 12;
+
+// Defines the maximum number of times(in a row) "stateJoiningSession" case for spatial channel is reached in stateMachine()
+// which is treated as normal. If this number is exceeded we suspect there is a problem with connection
+// to voice server (EXT-4313). When voice works correctly, there is from 1 to 15 times. 50 was chosen 
+// to make sure we don't make mistake when slight connection problems happen- situation when connection to server is 
+// blocked is VERY rare and it's better to sacrifice response time in this situation for the sake of stability.
+const int MAX_NORMAL_JOINING_SPATIAL_NUM = 50;
 
 static void setUUIDFromStringHash(LLUUID &uuid, const std::string &str)
 {
@@ -294,8 +301,14 @@ void LLVivoxProtocolParser::reset()
 	ignoringTags = false;
 	accumulateText = false;
 	energy = 0.f;
+	hasText = false;
+	hasAudio = false;
+	hasVideo = false;
+	terminated = false;
 	ignoreDepth = 0;
 	isChannel = false;
+	incoming = false;
+	enabled = false;
 	isEvent = false;
 	isLocallyMuted = false;
 	isModeratorMuted = false;
@@ -1092,6 +1105,121 @@ static void killGateway()
 
 #endif
 
+class LLSpeakerVolumeStorage : public LLSingleton<LLSpeakerVolumeStorage>
+{
+	LOG_CLASS(LLSpeakerVolumeStorage);
+public:
+
+	/**
+	 * Sets internal voluem level for specified user.
+	 *
+	 * @param[in] speaker_id - LLUUID of user to store volume level for
+	 * @param[in] volume - external (vivox) volume level to be stored for user.
+	 */
+	void storeSpeakerVolume(const LLUUID& speaker_id, F32 volume);
+
+	/**
+	 * Gets stored external (vivox) volume level for specified speaker and
+	 * transforms it into internal (viewer) level.
+	 *
+	 * If specified user is not found -1 will be returned.
+	 * Internal level is calculated as: internal = 400 * external^2
+	 * Maps 0.0 to 1.0 to internal values 0-400
+	 *
+	 * @param[in] speaker_id - LLUUID of user to get his volume level
+	 */
+	S32 getSpeakerVolume(const LLUUID& speaker_id);
+
+private:
+	friend class LLSingleton<LLSpeakerVolumeStorage>;
+	LLSpeakerVolumeStorage();
+	~LLSpeakerVolumeStorage();
+
+	const static std::string SETTINGS_FILE_NAME;
+
+	void load();
+	void save();
+
+	typedef std::map<LLUUID, F32> speaker_data_map_t;
+	speaker_data_map_t mSpeakersData;
+};
+
+const std::string LLSpeakerVolumeStorage::SETTINGS_FILE_NAME = "volume_settings.xml";
+
+LLSpeakerVolumeStorage::LLSpeakerVolumeStorage()
+{
+	load();
+}
+
+LLSpeakerVolumeStorage::~LLSpeakerVolumeStorage()
+{
+	save();
+}
+
+void LLSpeakerVolumeStorage::storeSpeakerVolume(const LLUUID& speaker_id, F32 volume)
+{
+	mSpeakersData[speaker_id] = volume;
+}
+
+S32 LLSpeakerVolumeStorage::getSpeakerVolume(const LLUUID& speaker_id)
+{
+	// Return value of -1 indicates no level is stored for this speaker
+	S32 ret_val = -1;
+	speaker_data_map_t::const_iterator it = mSpeakersData.find(speaker_id);
+	
+	if (it != mSpeakersData.end())
+	{
+		F32 f_val = it->second;
+		// volume can amplify by as much as 4x!
+		S32 ivol = (S32)(400.f * f_val * f_val);
+		ret_val = llclamp(ivol, 0, 400);
+	}
+	return ret_val;
+}
+
+void LLSpeakerVolumeStorage::load()
+{
+	// load per-resident voice volume information
+	std::string filename = gDirUtilp->getExpandedFilename(LL_PATH_PER_SL_ACCOUNT, SETTINGS_FILE_NAME);
+
+	LLSD settings_llsd;
+	llifstream file;
+	file.open(filename);
+	if (file.is_open())
+	{
+		LLSDSerialize::fromXML(settings_llsd, file);
+	}
+
+	for (LLSD::map_const_iterator iter = settings_llsd.beginMap();
+		iter != settings_llsd.endMap(); ++iter)
+	{
+		mSpeakersData.insert(std::make_pair(LLUUID(iter->first), (F32)iter->second.asReal()));
+	}
+}
+
+void LLSpeakerVolumeStorage::save()
+{
+	// If we quit from the login screen we will not have an SL account
+	// name.  Don't try to save, otherwise we'll dump a file in
+	// C:\Program Files\SecondLife\ or similar. JC
+	std::string user_dir = gDirUtilp->getLindenUserDir();
+	if (!user_dir.empty())
+	{
+		std::string filename = gDirUtilp->getExpandedFilename(LL_PATH_PER_SL_ACCOUNT, SETTINGS_FILE_NAME);
+		LLSD settings_llsd;
+
+		for(speaker_data_map_t::const_iterator iter = mSpeakersData.begin(); iter != mSpeakersData.end(); ++iter)
+		{
+			settings_llsd[iter->first.asString()] = iter->second;
+		}
+
+		llofstream file;
+		file.open(filename);
+		LLSDSerialize::toPrettyXML(settings_llsd, file);
+	}
+}
+
+
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
 LLVoiceClient::LLVoiceClient() :
@@ -1100,6 +1228,7 @@ LLVoiceClient::LLVoiceClient() :
 	mRelogRequested(false),
 	mConnected(false),
 	mPump(NULL),
+	mSpatialJoiningNum(0),
 	
 	mTuningMode(false),
 	mTuningEnergy(0.0f),
@@ -1139,7 +1268,6 @@ LLVoiceClient::LLVoiceClient() :
 	mEarLocation(0),
 	mSpeakerVolumeDirty(true),
 	mSpeakerMuteDirty(true),
-	mSpeakerVolume(0),
 	mMicVolume(0),
 	mMicVolumeDirty(true),
 	
@@ -1152,6 +1280,8 @@ LLVoiceClient::LLVoiceClient() :
 	
 	mAPIVersion = LLTrans::getString("NotConnected");
 
+	mSpeakerVolume = scale_speaker_volume(0);
+	
 #if LL_DARWIN || LL_LINUX || LL_SOLARIS
 		// HACK: THIS DOES NOT BELONG HERE
 		// When the vivox daemon dies, the next write attempt on our socket generates a SIGPIPE, which kills us.
@@ -2101,6 +2231,8 @@ void LLVoiceClient::stateMachine()
 					
 		//MARK: stateNoChannel
 		case stateNoChannel:
+			
+			mSpatialJoiningNum = 0;
 			// Do this here as well as inside sendPositionalUpdate().  
 			// Otherwise, if you log in but don't join a proximal channel (such as when your login location has voice disabled), your friends list won't sync.
 			sendFriendsListUpdates();
@@ -2157,6 +2289,23 @@ void LLVoiceClient::stateMachine()
 
 		//MARK: stateJoiningSession
 		case stateJoiningSession:		// waiting for session handle
+
+			// If this is true we have problem with connection to voice server (EXT-4313).
+			// See descriptions of mSpatialJoiningNum and MAX_NORMAL_JOINING_SPATIAL_NUM.
+			if(mSpatialJoiningNum == MAX_NORMAL_JOINING_SPATIAL_NUM) 
+			{
+				// Notify observers to let them know there is problem with voice
+				notifyStatusObservers(LLVoiceClientStatusObserver::STATUS_VOICE_DISABLED);
+				llwarns << "There seems to be problem with connection to voice server. Disabling voice chat abilities." << llendl;
+			}
+
+			// Increase mSpatialJoiningNum only for spatial sessions- it's normal to reach this case for
+			// example for p2p many times while waiting for response, so it can't be used to detect errors
+			if(mAudioSession && mAudioSession->mIsSpatial)
+			{
+				mSpatialJoiningNum++;
+			}
+			
 			// joinedAudioSession() will transition from here to stateSessionJoined.
 			if(!mVoiceEnabled)
 			{
@@ -2180,6 +2329,8 @@ void LLVoiceClient::stateMachine()
 		
 		//MARK: stateSessionJoined
 		case stateSessionJoined:		// session handle received
+			
+			mSpatialJoiningNum = 0;
 			// It appears that I need to wait for BOTH the SessionGroup.AddSession response and the SessionStateChangeEvent with state 4
 			// before continuing from this state.  They can happen in either order, and if I don't wait for both, things can get stuck.
 			// For now, the SessionGroup.AddSession response handler sets mSessionHandle and the SessionStateChangeEvent handler transitions to stateSessionJoined.
@@ -3320,12 +3471,17 @@ void LLVoiceClient::sendPositionalUpdate(void)
 						<< "<Volume>" << volume << "</Volume>"
 						<< "</Request>\n\n\n";
 
-					// Send a "mute for me" command for the user
-					stream << "<Request requestId=\"" << mCommandCookie++ << "\" action=\"Session.SetParticipantMuteForMe.1\">"
-						<< "<SessionHandle>" << getAudioSessionHandle() << "</SessionHandle>"
-						<< "<ParticipantURI>" << p->mURI << "</ParticipantURI>"
-						<< "<Mute>" << (mute?"1":"0") << "</Mute>"
-						<< "</Request>\n\n\n";
+					if(!mAudioSession->mIsP2P)
+					{
+						// Send a "mute for me" command for the user
+						// Doesn't work in P2P sessions
+						stream << "<Request requestId=\"" << mCommandCookie++ << "\" action=\"Session.SetParticipantMuteForMe.1\">"
+							<< "<SessionHandle>" << getAudioSessionHandle() << "</SessionHandle>"
+							<< "<ParticipantURI>" << p->mURI << "</ParticipantURI>"
+							<< "<Mute>" << (mute?"1":"0") << "</Mute>"
+							<< "<Scope>Audio</Scope>"
+							<< "</Request>\n\n\n";
+					}
 				}
 				
 				p->mVolumeDirty = false;
@@ -3401,7 +3557,7 @@ void LLVoiceClient::buildLocalAudioUpdates(std::ostringstream &stream)
 
 	if(mSpeakerMuteDirty)
 	{
-		const char *muteval = ((mSpeakerVolume == 0)?"true":"false");
+		const char *muteval = ((mSpeakerVolume <= scale_speaker_volume(0))?"true":"false");
 
 		mSpeakerMuteDirty = false;
 
@@ -4709,10 +4865,6 @@ void LLVoiceClient::messageEvent(
 						LLUUID::null,			// default arg
 						LLVector3::zero,		// default arg
 						true);					// prepend name and make it a link to the user's profile
-
-				chat.mText = std::string("IM: ") + session->mName + std::string(": ") + message;
-				// If the chat should come in quietly (i.e. we're in busy mode), pretend it's from a local agent.
-				LLFloaterChat::addChat( chat, TRUE, quiet_chat );
 			}
 		}		
 	}
@@ -4918,7 +5070,14 @@ LLVoiceClient::participantState *LLVoiceClient::sessionState::addParticipant(con
 		}
 		
 		mParticipantsByUUID.insert(participantUUIDMap::value_type(&(result->mAvatarID), result));
-		
+
+		result->mUserVolume = LLSpeakerVolumeStorage::getInstance()->getSpeakerVolume(result->mAvatarID);
+		if (result->mUserVolume != -1)
+		{
+			result->mVolumeDirty = true;
+			mVolumeDirty = true;
+		}
+
 		LL_DEBUGS("Voice") << "participant \"" << result->mURI << "\" added." << LL_ENDL;
 	}
 	
@@ -5004,6 +5163,17 @@ LLVoiceClient::participantMap *LLVoiceClient::getParticipantList(void)
 	return result;
 }
 
+void LLVoiceClient::getParticipantsUUIDSet(std::set<LLUUID>& participant_uuids)
+{
+	if (NULL == mAudioSession) return;
+
+	participantUUIDMap::const_iterator it = mAudioSession->mParticipantsByUUID.begin(),
+		it_end = mAudioSession->mParticipantsByUUID.end();
+	for (; it != it_end; ++it)
+	{
+		participant_uuids.insert((*(*it).first));
+	}
+}
 
 LLVoiceClient::participantState *LLVoiceClient::sessionState::findParticipant(const std::string &uri)
 {
@@ -5239,24 +5409,25 @@ LLVoiceClient::sessionState* LLVoiceClient::startUserIMSession(const LLUUID &uui
 		// No session with user, need to start one.
 		std::string uri = sipURIFromID(uuid);
 		session = addSession(uri);
+
+		llassert(session);
+		if (!session) return NULL;
+
 		session->mIsSpatial = false;
 		session->mReconnect = false;	
 		session->mIsP2P = true;
 		session->mCallerID = uuid;
 	}
 	
-	if(session)
+	if(session->mHandle.empty())
 	{
-		if(session->mHandle.empty())
-		{
-			// Session isn't active -- start it up.
-			sessionCreateSendMessage(session, false, true);
-		}
-		else
-		{	
-			// Session is already active -- start up text.
-			sessionTextConnectSendMessage(session);
-		}
+		// Session isn't active -- start it up.
+		sessionCreateSendMessage(session, false, true);
+	}
+	else
+	{	
+		// Session is already active -- start up text.
+		sessionTextConnectSendMessage(session);
 	}
 	
 	return session;
@@ -5846,6 +6017,15 @@ bool LLVoiceClient::voiceEnabled()
 	return gSavedSettings.getBOOL("EnableVoiceChat") && !gSavedSettings.getBOOL("CmdLineDisableVoice");
 }
 
+//AD *TODO: investigate possible merge of voiceWorking() and voiceEnabled() into one non-static method
+bool LLVoiceClient::voiceWorking()
+{
+	//Added stateSessionTerminated state to avoid problems with call in parcels with disabled voice (EXT-4758)
+	// Condition with joining spatial num was added to take into account possible problems with connection to voice
+	// server(EXT-4313). See bug descriptions and comments for MAX_NORMAL_JOINING_SPATIAL_NUM for more info.
+	return (mSpatialJoiningNum < MAX_NORMAL_JOINING_SPATIAL_NUM) && (stateLoggedIn <= mState) && (mState <= stateSessionTerminated);
+}
+
 void LLVoiceClient::setLipSyncEnabled(BOOL enabled)
 {
 	mLipSyncEnabled = enabled;
@@ -5924,7 +6104,8 @@ void LLVoiceClient::setVoiceVolume(F32 volume)
 
 	if(scaled_volume != mSpeakerVolume)
 	{
-		if((scaled_volume == 0) || (mSpeakerVolume == 0))
+		int min_volume = scale_speaker_volume(0);
+		if((scaled_volume == min_volume) || (mSpeakerVolume == min_volume))
 		{
 			mSpeakerMuteDirty = true;
 		}
@@ -6146,6 +6327,9 @@ void LLVoiceClient::setUserVolume(const LLUUID& id, F32 volume)
 		participantState *participant = findParticipantByID(id);
 		if (participant)
 		{
+			// store this volume setting for future sessions
+			LLSpeakerVolumeStorage::getInstance()->storeSpeakerVolume(id, volume);
+
 			// volume can amplify by as much as 4x!
 			S32 ivol = (S32)(400.f * volume * volume);
 			participant->mUserVolume = llclamp(ivol, 0, 400);
@@ -6276,6 +6460,7 @@ void LLVoiceClient::filePlaybackSetMode(bool vox, float speed)
 }
 
 LLVoiceClient::sessionState::sessionState() :
+	mErrorStatusCode(0),
 	mMediaStreamState(streamStateUnknown),
 	mTextStreamState(streamStateUnknown),
 	mCreateInProgress(false),

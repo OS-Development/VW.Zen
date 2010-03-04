@@ -43,7 +43,7 @@
 #include "llcallingcard.h"
 #include "llchannelmanager.h"
 #include "llconsole.h"
-#include "llfirstuse.h"
+//#include "llfirstuse.h"
 #include "llfloatercamera.h"
 #include "llfloatercustomize.h"
 #include "llfloaterreg.h"
@@ -514,6 +514,8 @@ void LLAgent::resetView(BOOL reset_camera, BOOL change_camera)
 		}
 
 		setFocusOnAvatar(TRUE, ANIMATE);
+
+		mCameraFOVZoomFactor = 0.f;
 	}
 
 	mHUDTargetZoom = 1.f;
@@ -954,6 +956,7 @@ void LLAgent::sendMessage()
 	if (!mRegionp)
 	{
 		llerrs << "No region for agent yet!" << llendl;
+		return;
 	}
 	gMessageSystem->sendMessage(mRegionp->getHost());
 }
@@ -2803,7 +2806,7 @@ void LLAgent::endAnimationUpdateUI()
 		LLNavigationBar::getInstance()->setVisible(TRUE);
 		gStatusBar->setVisibleForMouselook(true);
 
-		LLBottomTray::getInstance()->setVisible(TRUE);
+		LLBottomTray::getInstance()->onMouselookModeOut();
 
 		LLSideTray::getInstance()->getButtonsPanel()->setVisible(TRUE);
 		LLSideTray::getInstance()->updateSidetrayVisibility();
@@ -2902,7 +2905,7 @@ void LLAgent::endAnimationUpdateUI()
 		LLNavigationBar::getInstance()->setVisible(FALSE);
 		gStatusBar->setVisibleForMouselook(false);
 
-		LLBottomTray::getInstance()->setVisible(FALSE);
+		LLBottomTray::getInstance()->onMouselookModeIn();
 
 		LLSideTray::getInstance()->getButtonsPanel()->setVisible(FALSE);
 		LLSideTray::getInstance()->updateSidetrayVisibility();
@@ -3015,6 +3018,9 @@ void LLAgent::endAnimationUpdateUI()
 //-----------------------------------------------------------------------------
 void LLAgent::updateCamera()
 {
+	static LLFastTimer::DeclareTimer ftm("Camera");
+	LLFastTimer t(ftm);
+
 	//Ventrella - changed camera_skyward to the new global "mCameraUpVector"
 	mCameraUpVector = LLVector3::z_axis;
 	//LLVector3	camera_skyward(0.f, 0.f, 1.f);
@@ -3584,7 +3590,7 @@ F32	LLAgent::calcCameraFOVZoomFactor()
 	{
 		return 0.f;
 	}
-	else if (mFocusObject.notNull() && !mFocusObject->isAvatar())
+	else if (mFocusObject.notNull() && !mFocusObject->isAvatar() && !mFocusOnAvatar)
 	{
 		// don't FOV zoom on mostly transparent objects
 		LLVector3 focus_offset = mFocusObjectOffset;
@@ -4480,7 +4486,9 @@ void LLAgent::setCameraPosAndFocusGlobal(const LLVector3d& camera_pos, const LLV
 	{
 		const F64 ANIM_METERS_PER_SECOND = 10.0;
 		const F64 MIN_ANIM_SECONDS = 0.5;
+		const F64 MAX_ANIM_SECONDS = 10.0;
 		F64 anim_duration = llmax( MIN_ANIM_SECONDS, sqrt(focus_delta_squared) / ANIM_METERS_PER_SECOND );
+		anim_duration = llmin( anim_duration, MAX_ANIM_SECONDS );
 		setAnimationDuration( (F32)anim_duration );
 	}
 
@@ -4831,9 +4839,14 @@ void LLAgent::onAnimStop(const LLUUID& id)
 	}
 }
 
-BOOL LLAgent::isGodlike() const
+bool LLAgent::isGodlike() const
 {
 	return mAgentAccess.isGodlike();
+}
+
+bool LLAgent::isGodlikeWithoutAdminMenuFakery() const
+{
+	return mAgentAccess.isGodlikeWithoutAdminMenuFakery();
 }
 
 U8 LLAgent::getGodLevel() const
@@ -5022,9 +5035,9 @@ void LLAgent::buildFullnameAndTitle(std::string& name) const
 	}
 }
 
-BOOL LLAgent::isInGroup(const LLUUID& group_id) const
+BOOL LLAgent::isInGroup(const LLUUID& group_id, BOOL ignore_god_mode /* FALSE */) const
 {
-	if (isGodlike())
+	if (!ignore_god_mode && isGodlike())
 		return true;
 
 	S32 count = mGroups.count();
@@ -5155,6 +5168,11 @@ BOOL LLAgent::setUserGroupFlags(const LLUUID& group_id, BOOL accept_notices, BOO
 		}
 	}
 	return FALSE;
+}
+
+BOOL LLAgent::canJoinGroups() const
+{
+	return mGroups.count() < MAX_AGENT_GROUPS;
 }
 
 LLQuaternion LLAgent::getHeadRotation()
@@ -5690,10 +5708,10 @@ void LLAgent::processScriptControlChange(LLMessageSystem *msg, void **)
 			}
 		
 			// Any control taken?  If so, might be first time.
-			if (total_count > 0)
-			{
-				LLFirstUse::useOverrideKeys();
-			}
+			//if (total_count > 0)
+			//{
+				//LLFirstUse::useOverrideKeys();
+			//}
 		}
 		else
 		{

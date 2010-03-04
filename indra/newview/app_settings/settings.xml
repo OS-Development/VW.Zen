@@ -4,13 +4,13 @@
     <key>AFKTimeout</key>
     <map>
       <key>Comment</key>
-      <string>Time before automatically setting AFK (away from keyboard) mode (seconds)</string>
+      <string>Time before automatically setting AFK (away from keyboard) mode (seconds, 0=never)</string>
       <key>Persist</key>
       <integer>1</integer>
       <key>Type</key>
       <string>S32</string>
       <key>Value</key>
-      <real>300.0</real>
+      <real>0</real>
     </map>
     <key>AdvanceSnapshot</key>
     <map>
@@ -197,7 +197,7 @@
       <key>Type</key>
       <string>F32</string>
       <key>Value</key>
-      <real>1.0</real>
+      <real>0.5</real>
     </map>
     <key>AudioLevelMic</key>
     <map>
@@ -219,7 +219,7 @@
       <key>Type</key>
       <string>F32</string>
       <key>Value</key>
-      <real>1.0</real>
+      <real>0.5</real>
     </map>
     <key>AudioLevelRolloff</key>
     <map>
@@ -241,7 +241,7 @@
       <key>Type</key>
       <string>F32</string>
       <key>Value</key>
-      <real>1.0</real>
+      <real>0.5</real>
     </map>
     <key>AudioLevelUI</key>
     <map>
@@ -276,7 +276,7 @@
       <key>Value</key>
       <real>0.5</real>
     </map>
-	<key>AudioSteamingMedia</key>
+	<key>AudioStreamingMedia</key>
     <map>
       <key>Comment</key>
       <string>Enable streaming</string>
@@ -285,7 +285,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>AudioStreamingMusic</key>
     <map>
@@ -296,18 +296,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
-    </map>
-    <key>AudioStreamingVideo</key>
-    <map>
-      <key>Comment</key>
-      <string>Enable streaming video</string>
-      <key>Persist</key>
       <integer>1</integer>
-      <key>Type</key>
-      <string>Boolean</string>
-      <key>Value</key>
-      <integer>0</integer>
     </map>
   <key>AuditTexture</key>
   <map>
@@ -1141,9 +1130,9 @@
       <key>Persist</key>
       <integer>1</integer>
       <key>Type</key>
-      <string>Boolean</string>
+      <string>S32</string>
       <key>Value</key>
-      <integer>1</integer>
+      <integer>5</integer>
     </map>
     <key>CameraAngle</key>
     <map>
@@ -2388,6 +2377,17 @@
       <key>Value</key>
       <integer>0</integer>
     </map>
+    <key>DisableMouseWarp</key>
+    <map>
+      <key>Comment</key>
+      <string>Disable warping of the mouse to the center of the screen during alt-zoom and mouse look. Useful with certain input devices, mouse sharing programs like Synergy, or running under Parallels.</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>0</integer>
+    </map>
     <key>DisableRendering</key>
     <map>
       <key>Comment</key>
@@ -3257,17 +3257,6 @@
       <key>Value</key>
       <real>0.75</real>
     </map>
-    <key>FolderIndentation</key>
-    <map>
-      <key>Comment</key>
-      <string>Number of pixels to indent subfolders in inventory</string>
-      <key>Persist</key>
-      <integer>1</integer>
-      <key>Type</key>
-      <string>S32</string>
-      <key>Value</key>
-      <integer>8</integer>
-    </map>
     <key>FolderLoadingMessageWaitTime</key>
     <map>
       <key>Comment</key>
@@ -3607,7 +3596,7 @@
       <key>Type</key>
       <string>String</string>
       <key>Value</key>
-      <string>http://viewer-help.secondlife.com/[LANGUAGE]/[CHANNEL]/[VERSION]/[TOPIC]</string>
+      <string>http://viewer-help.secondlife.com/[LANGUAGE]/[CHANNEL]/[VERSION]/[TOPIC][DEBUG_MODE]</string>
     </map>
     <key>HomeSidePanelURL</key>
     <map>
@@ -3618,7 +3607,7 @@
       <key>Type</key>
       <string>String</string>
       <key>Value</key>
-      <string>http://lecs.viewer-sidebar.secondlife.com.s3.amazonaws.com/sidebar.html</string>
+      <string>https://viewer-sidebar.secondlife.com/sidebar.html?p=[AUTH_TOKEN]&amp;lang=[LANGUAGE]&amp;channel=[CHANNEL]&amp;version=[VERSION]&amp;major=[VERSION_MAJOR]&amp;minor=[VERSION_MINOR]&amp;patch=[VERSION_PATCH]&amp;build=[VERSION_BUILD]&amp;firstlogin=[FIRST_LOGIN]</string>
     </map>
     <key>SearchURL</key>
     <map>
@@ -3629,7 +3618,7 @@
       <key>Type</key>
       <string>String</string>
       <key>Value</key>
-      <string>http://int.searchwww-phx0.damballah.lindenlab.com/viewer/[CATEGORY]?q=[QUERY]&amp;p=[AUTH_TOKEN]&amp;r=[MATURITY]&amp;lang=[LANGUAGE]&amp;g=[GODLIKE]&amp;sid=[SESSION_ID]&amp;rid=[REGION_ID]&amp;pid=[PARCEL_ID]</string>
+      <string>http://search.secondlife.com/viewer/[CATEGORY]?q=[QUERY]&amp;p=[AUTH_TOKEN]&amp;r=[MATURITY]&amp;lang=[LANGUAGE]&amp;g=[GODLIKE]&amp;sid=[SESSION_ID]&amp;rid=[REGION_ID]&amp;pid=[PARCEL_ID]&amp;channel=[CHANNEL]&amp;version=[VERSION]&amp;major=[VERSION_MAJOR]&amp;minor=[VERSION_MINOR]&amp;patch=[VERSION_PATCH]&amp;build=[VERSION_BUILD]</string>
     </map>
     <key>HighResSnapshot</key>
     <map>
@@ -3663,17 +3652,6 @@
       <string>String</string>
       <key>Value</key>
       <string />
-    </map>
-    <key>IMInChat</key>
-    <map>
-      <key>Comment</key>
-      <string>Copy IM into chat console</string>
-      <key>Persist</key>
-      <integer>1</integer>
-      <key>Type</key>
-      <string>Boolean</string>
-      <key>Value</key>
-      <integer>0</integer>
     </map>
     <key>IMShowTimestamps</key>
     <map>
@@ -4350,7 +4328,7 @@
     <key>LoginLocation</key>
     <map>
       <key>Comment</key>
-      <string>Login at same location you last logged out</string>
+      <string>Login location ('last', 'home')</string>
       <key>Persist</key>
       <integer>1</integer>
       <key>Type</key>
@@ -4600,6 +4578,50 @@
     <key>Value</key>
     <integer>0</integer>
   </map>
+  <key>MediaShowOnOthers</key>
+  <map>
+    <key>Comment</key>
+    <string>Whether or not to show media on other avatars</string>
+    <key>Persist</key>
+    <integer>1</integer>
+    <key>Type</key>
+    <string>Boolean</string>
+    <key>Value</key>
+    <integer>1</integer>
+  </map>
+  <key>MediaShowOutsideParcel</key>
+  <map>
+    <key>Comment</key>
+    <string>Whether or not to show media from outside the current parcel</string>
+    <key>Persist</key>
+    <integer>1</integer>
+    <key>Type</key>
+    <string>Boolean</string>
+    <key>Value</key>
+    <integer>1</integer>
+  </map>
+  <key>MediaShowWithinParcel</key>
+  <map>
+    <key>Comment</key>
+    <string>Whether or not to show media within the current parcel</string>
+    <key>Persist</key>
+    <integer>1</integer>
+    <key>Type</key>
+    <string>Boolean</string>
+    <key>Value</key>
+    <integer>1</integer>
+  </map>
+  <key>MediaTentativeAutoPlay</key>
+  <map>
+    <key>Comment</key>
+    <string>This is a tentative flag that may be temporarily set off by the user, until she teleports</string>
+    <key>Persist</key>
+    <integer>0</integer>
+    <key>Type</key>
+    <string>Boolean</string>
+    <key>Value</key>
+    <integer>1</integer>
+  </map>
   <key>MemoryLogFrequency</key>
         <map>
         <key>Comment</key>
@@ -4654,6 +4676,17 @@
       <string>S32</string>
       <key>Value</key>
       <integer>410</integer>
+    </map>
+    <key>MePanelOpened</key>
+    <map>
+      <key>Comment</key>
+      <string>Indicates that Me Panel was opened at least once after Viewer was installed</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <real>0</real>
     </map>
     <key>MigrateCacheDirectory</key>
     <map>
@@ -4820,6 +4853,17 @@
       <key>Value</key>
       <integer>0</integer>
     </map>
+	<key>MyOutfitsAutofill</key>
+	<map>
+		<key>Comment</key>
+		<string>Always autofill My Outfits from library when empty (else happens just once).</string>
+		<key>Persist</key>
+		<integer>1</integer>
+		<key>Type</key>
+		<string>Boolean</string>
+		<key>Value</key>
+		<integer>0</integer>
+	</map>
     <key>NearMeRange</key>
     <map>
       <key>Comment</key>
@@ -5050,6 +5094,20 @@
       <string>S32</string>
       <key>Value</key>
       <integer>5</integer>
+    </map>
+    <key>ToastButtonWidth</key>
+    <map>
+      <key>Comment</key>
+      <string>Default width of buttons in the toast. 
+      Notes:
+      If required width will be less then this one, a button will be reshaped to default size , otherwise to required
+      Change of this parameter will affect the layout of buttons in notification toast.</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>S32</string>
+      <key>Value</key>
+      <integer>90</integer>
     </map>
     <key>ChannelBottomPanelMargin</key>
     <map>
@@ -5302,7 +5360,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>PerAccountSettingsFile</key>
     <map>
@@ -5496,7 +5554,7 @@
 	<key>PreferredMaturity</key>
     <map>
       <key>Comment</key>
-      <string>Setting for the user's preferred maturity level.</string>
+      <string>Setting for the user's preferred maturity level (consts in indra_constants.h)</string>
       <key>Persist</key>
       <integer>1</integer>
       <key>Type</key>
@@ -5526,6 +5584,17 @@
       <key>Value</key>
       <integer>0</integer>
     </map>
+	<key>PrimMediaDragNDrop</key>
+	<map>
+		<key>Comment</key>
+		<string>Enable drag and drop of URLs onto prim faces</string>
+		<key>Persist</key>
+		<integer>1</integer>
+		<key>Type</key>
+		<string>Boolean</string>
+		<key>Value</key>
+		<integer>1</integer>
+	</map>
     <key>PrimMediaMaxRetries</key>
     <map>
       <key>Comment</key>
@@ -7374,6 +7443,17 @@
       <key>Value</key>
       <integer>0</integer>
     </map>
+  <key>RenderUseTriStrips</key>
+  <map>
+    <key>Comment</key>
+    <string>Use triangle strips for rendering prims.</string>
+    <key>Persist</key>
+    <integer>1</integer>
+    <key>Type</key>
+    <string>Boolean</string>
+    <key>Value</key>
+    <integer>0</integer>
+  </map>
     <key>RenderUseFarClip</key>
     <map>
       <key>Comment</key>
@@ -7790,7 +7870,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>1</integer>
+      <integer>0</integer>
     </map>
     <key>ShowCrosshairs</key>
     <map>
@@ -8387,7 +8467,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>1</integer>
+      <integer>0</integer>
     </map>
     <key>ShowTangentBasis</key>
     <map>
@@ -8426,6 +8506,17 @@
     <map>
       <key>Comment</key>
       <string>Controls visibility of the current voice channel popup above the voice tab</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>0</integer>
+    </map>
+    <key>ShowVoiceVisualizersInCalls</key>
+    <map>
+      <key>Comment</key>
+      <string>Enables in-world voice visualizers, voice gestures and lip-sync while in group or P2P calls.</string>
       <key>Persist</key>
       <integer>1</integer>
       <key>Type</key>
@@ -9331,18 +9422,7 @@
       <string>S32</string>
       <key>Value</key>
       <integer>2</integer>
-    </map>
-    <key>UILineEditorVPad</key>
-    <map>
-      <key>Comment</key>
-      <string>UI Line Editor Vertical Pad</string>
-      <key>Persist</key>
-      <integer>1</integer>
-      <key>Type</key>
-      <string>S32</string>
-      <key>Value</key>
-      <integer>5</integer>
-    </map>
+    </map> 
     <key>UIMaxComboWidth</key>
     <map>
       <key>Comment</key>
@@ -10045,7 +10125,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>UseFreezeFrame</key>
     <map>
@@ -10080,6 +10160,18 @@
       <key>Value</key>
       <integer>1</integer>
     </map>
+    <key>SpeakerParticipantRemoveDelay</key>
+    <map>
+      <key>Comment</key>
+      <string>Timeout to remove participants who is not in channel before removed from list of active speakers (text/voice chat)</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>F32</string>
+      <key>Value</key>
+      <real>10.0</real>
+    </map>
+
     <key>UseStartScreen</key>
     <map>
       <key>Comment</key>
@@ -10629,7 +10721,7 @@
       <key>Type</key>
       <string>String</string>
       <key>Value</key>
-      <real>150000.0</real>
+      <string />
     </map>
     <key>YawFromMousePosition</key>
     <map>
@@ -10763,6 +10855,17 @@
       <key>Value</key>
       <integer>0</integer>
     </map>
+	<key>SLURLDragNDrop</key>
+	<map>
+		<key>Comment</key>
+		<string>Enable drag and drop of SLURLs onto the viewer</string>
+		<key>Persist</key>
+		<integer>1</integer>
+		<key>Type</key>
+		<string>Boolean</string>
+		<key>Value</key>
+		<integer>1</integer>
+	</map>
     <key>soundsbeacon</key>
     <map>
       <key>Comment</key>

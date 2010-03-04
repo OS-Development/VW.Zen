@@ -36,6 +36,7 @@
 #include "v4color.h"
 #include "llview.h"
 #include "llmutelist.h"
+#include "llspeakingindicatormanager.h"
 
 class LLTextBox;
 class LLUICtrlFactory;
@@ -45,7 +46,7 @@ class LLUICtrlFactory;
 //
 
 class LLOutputMonitorCtrl
-: public LLView, LLMuteListObserver
+: public LLView, public LLSpeakingIndicator, LLMuteListObserver
 {
 public:
 	struct Params : public LLInitParam::Block<Params, LLView::Params>
@@ -85,12 +86,42 @@ public:
 
 	void			setIsTalking(bool val) { mIsTalking = val; }
 
-	void			setSpeakerId(const LLUUID& speaker_id);
+	/**
+	 * Sets avatar UUID to interact with voice channel.
+	 *
+	 * @param speaker_id LLUUID of an avatar whose voice level is displayed.
+	 * @param session_id session UUID for which indicator should be shown only. Passed to LLSpeakingIndicatorManager
+	 *		If this parameter is set registered indicator will be shown only in voice channel
+	 *		which has the same session id (EXT-5562).
+	 */
+	void			setSpeakerId(const LLUUID& speaker_id, const LLUUID& session_id = LLUUID::null);
 
 	//called by mute list
 	virtual void onChange();
 
+	/**
+	 * Implementation of LLSpeakingIndicator interface.
+	 * Behavior is implemented via changing visibility.
+	 *
+	 * If instance is in visible chain now (all parents are visible) it changes visibility 
+	 * and notify parent about this.
+	 *
+	 * Otherwise it marks an instance as dirty and stores necessary visibility.
+	 * It will be applied in next draw and parent will be notified.
+	 */
+	virtual void	switchIndicator(bool switch_on);
+
 private:
+
+	/**
+	 * Notifies parent about changed visibility.
+	 *
+	 * Passes LLSD with "visibility_changed" => <current visibility> value.
+	 * For now it is processed by LLAvatarListItem to update (reshape) its children.
+	 * Implemented fo complete EXT-3976
+	 */
+	void			notifyParentVisibilityChanged();
+
 	//static LLColor4	sColorMuted;
 	//static LLColor4	sColorNormal;
 	//static LLColor4	sColorOverdriven;
@@ -117,6 +148,10 @@ private:
 
 	/** uuid of a speaker being monitored */
 	LLUUID			mSpeakerId;
+
+	/** indicates if the instance is dirty and should notify parent */
+	bool			mIsSwitchDirty;
+	bool			mShouldSwitchOn;
 };
 
 #endif

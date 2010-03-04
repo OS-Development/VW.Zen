@@ -51,6 +51,8 @@
 #include "llviewermenu.h"
 #include "llviewertexturelist.h"
 
+const std::string FILTERS_FILENAME("filters.xml");
+
 static LLRegisterPanelClassWrapper<LLPanelMainInventory> t_inventory("panel_main_inventory");
 
 void on_file_loaded_for_save(BOOL success, 
@@ -160,7 +162,7 @@ BOOL LLPanelMainInventory::postBuild()
 
 	// Now load the stored settings from disk, if available.
 	std::ostringstream filterSaveName;
-	filterSaveName << gDirUtilp->getExpandedFilename(LL_PATH_PER_SL_ACCOUNT, "filters.xml");
+	filterSaveName << gDirUtilp->getExpandedFilename(LL_PATH_PER_SL_ACCOUNT, FILTERS_FILENAME);
 	llinfos << "LLPanelMainInventory::init: reading from " << filterSaveName << llendl;
 	llifstream file(filterSaveName.str());
 	LLSD savedFilterState;
@@ -230,7 +232,7 @@ LLPanelMainInventory::~LLPanelMainInventory( void )
 	}
 
 	std::ostringstream filterSaveName;
-	filterSaveName << gDirUtilp->getExpandedFilename(LL_PATH_PER_SL_ACCOUNT, "filters.xml");
+	filterSaveName << gDirUtilp->getExpandedFilename(LL_PATH_PER_SL_ACCOUNT, FILTERS_FILENAME);
 	llofstream filtersFile(filterSaveName.str());
 	if(!LLSDSerialize::toPrettyXML(filterRoot, filtersFile))
 	{
@@ -418,10 +420,8 @@ void LLPanelMainInventory::onFilterEdit(const std::string& search_string )
 
 	gInventory.startBackgroundFetch();
 
-	std::string uppercase_search_string = search_string;
-	LLStringUtil::toUpper(uppercase_search_string);
-	mFilterSubString = uppercase_search_string;
-	if (mActivePanel->getFilterSubString().empty() && uppercase_search_string.empty())
+	mFilterSubString = search_string;
+	if (mActivePanel->getFilterSubString().empty() && mFilterSubString.empty())
 	{
 			// current filter and new filter empty, do nothing
 			return;
@@ -435,7 +435,7 @@ void LLPanelMainInventory::onFilterEdit(const std::string& search_string )
 	}
 
 	// set new filter string
-	mActivePanel->setFilterSubString(mFilterSubString);
+	setFilterSubString(mFilterSubString);
 }
 
 
@@ -1001,7 +1001,10 @@ void LLPanelMainInventory::onCustomAction(const LLSD& userdata)
 		}
 		const LLUUID item_id = current_item->getListener()->getUUID();
 		LLViewerInventoryItem *item = gInventory.getItem(item_id);
-		item->regenerateLink();
+		if (item)
+		{
+			item->regenerateLink();
+		}
 		active_panel->setSelection(item_id, TAKE_FOCUS_NO);
 	}
 	if (command_name == "find_original")
@@ -1069,7 +1072,11 @@ BOOL LLPanelMainInventory::isActionEnabled(const LLSD& userdata)
 			{
 				const LLUUID &item_id = (*iter);
 				LLFolderViewItem *item = folder->getItemByID(item_id);
-				can_delete &= item->getListener()->isItemRemovable();
+				const LLFolderViewEventListener *listener = item->getListener();
+				llassert(listener);
+				if (!listener) return FALSE;
+				can_delete &= listener->isItemRemovable();
+				can_delete &= !listener->isItemInTrash();
 			}
 			return can_delete;
 		}

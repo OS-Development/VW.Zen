@@ -66,7 +66,9 @@ LLConsole::LLConsole(const LLConsole::Params& p)
 :	LLUICtrl(p),
 	LLFixedBuffer(p.max_lines),
 	mLinePersistTime(p.persist_time), // seconds
-	mFont(p.font)
+	mFont(p.font),
+	mConsoleWidth(0),
+	mConsoleHeight(0)
 {
 	if (p.font_size_index.isProvided())
 	{
@@ -180,7 +182,7 @@ void LLConsole::draw()
 	// draw remaining lines
 	F32 y_pos = 0.f;
 
-	LLUIImagePtr imagep = LLUI::getUIImage("rounded_square.tga");
+	LLUIImagePtr imagep = LLUI::getUIImage("Rounded_Square");
 
 //	F32 console_opacity = llclamp(gSavedSettings.getF32("ConsoleBackgroundOpacity"), 0.f, 1.f);
 	F32 console_opacity = llclamp(LLUI::sSettingGroups["config"]->getF32("ConsoleBackgroundOpacity"), 0.f, 1.f);
@@ -242,23 +244,6 @@ void LLConsole::draw()
 	}
 }
 
-void LLConsole::addLine(const std::string& utf8line)
-{
-	LLWString wline = utf8str_to_wstring(utf8line);
-	addLine(wline, 0.f, LLColor4(1.f, 1.f, 1.f, 1.f));
-}
-
-void LLConsole::addLine(const LLWString& wline)
-{
-	addLine(wline, 0.f, LLColor4(1.f, 1.f, 1.f, 1.f));
-}
-
-void LLConsole::addLine(const std::string& utf8line, F32 size, const LLColor4 &color)
-{
-	LLWString wline = utf8str_to_wstring(utf8line);
-	addLine(wline, size, color);
-}
-
 //Generate highlight color segments for this paragraph.  Pass in default color of paragraph.
 void LLConsole::Paragraph::makeParagraphColorSegments (const LLColor4 &color) 
 {
@@ -315,7 +300,8 @@ void LLConsole::Paragraph::updateLines(F32 screen_width, const LLFontGL* font, b
 	S32 paragraph_offset = 0;			//Offset into the paragraph text.
 
 	// Wrap lines that are longer than the view is wide.
-	while( paragraph_offset < (S32)mParagraphText.length() )
+	while( paragraph_offset < (S32)mParagraphText.length() &&
+		   mParagraphText[paragraph_offset] != 0)
 	{
 		S32 skip_chars; // skip '\n'
 		// Figure out if a word-wrapped line fits here.
@@ -330,7 +316,7 @@ void LLConsole::Paragraph::updateLines(F32 screen_width, const LLFontGL* font, b
 			skip_chars = 0;
 		}
 
-		U32 drawable = font->maxDrawableChars(mParagraphText.c_str()+paragraph_offset, screen_width, line_end - paragraph_offset, TRUE);
+		U32 drawable = font->maxDrawableChars(mParagraphText.c_str()+paragraph_offset, screen_width, line_end - paragraph_offset, LLFontGL::WORD_BOUNDARY_IF_POSSIBLE);
 
 		if (drawable != 0)
 		{
@@ -381,21 +367,45 @@ void LLConsole::Paragraph::updateLines(F32 screen_width, const LLFontGL* font, b
 
 //Pass in the string and the default color for this block of text.
 LLConsole::Paragraph::Paragraph (LLWString str, const LLColor4 &color, F32 add_time, const LLFontGL* font, F32 screen_width) 
-						: mParagraphText(str), mAddTime(add_time), mMaxWidth(-1)
+:	mParagraphText(str), mAddTime(add_time), mMaxWidth(-1)
 {
 	makeParagraphColorSegments(color);
 	updateLines( screen_width, font );
 }
 	
-void LLConsole::addLine(const LLWString& wline, F32 size, const LLColor4 &color)
+// called once per frame regardless of console visibility
+// static
+void LLConsole::updateClass()
 {	
-	Paragraph paragraph(wline, color, mTimer.getElapsedTimeF32(), mFont,  (F32)getRect().getWidth() );
-	
-	mParagraphs.push_back ( paragraph );
+	LLInstanceTrackerScopedGuard guard;
+
+	for (instance_iter it = guard.beginInstances(); it != guard.endInstances(); ++it)
+	{
+		it->update();
+	} 
+}
+
+void LLConsole::update()
+{
+	{
+		LLMutexLock lock(&mMutex);
+
+		while (!mLines.empty())
+		{
+			mParagraphs.push_back(
+				Paragraph(	mLines.front(), 
+							LLColor4::white, 
+							mTimer.getElapsedTimeF32(), 
+							mFont, 
+							(F32)getRect().getWidth()));
+			mLines.pop_front();
+		}
+	}
 
 	// remove old paragraphs which can't possibly be visible any more.  ::draw() will do something similar but more conservative - we do this here because ::draw() isn't guaranteed to ever be called!  (i.e. the console isn't visible)
-        while ((S32)mParagraphs.size() > llmax((S32)0, (S32)(mMaxLines)))
-        {
-                mParagraphs.pop_front();
-        }
+	while ((S32)mParagraphs.size() > llmax((S32)0, (S32)(mMaxLines)))
+	{
+			mParagraphs.pop_front();
+	}
 }
+

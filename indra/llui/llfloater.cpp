@@ -233,6 +233,7 @@ LLFloater::LLFloater(const LLSD& key, const LLFloater::Params& p)
 	mAutoFocus(TRUE), // automatically take focus when opened
 	mCanDock(false),
 	mDocked(false),
+	mTornOff(false),
 	mHasBeenDraggedWhileMinimized(FALSE),
 	mPreviousMinimizedBottom(0),
 	mPreviousMinimizedLeft(0)
@@ -878,9 +879,11 @@ void LLFloater::setSnappedTo(const LLView* snap_view)
 	else
 	{
 		//RN: assume it's a floater as it must be a sibling to our parent floater
-		LLFloater* floaterp = (LLFloater*)snap_view;
-		
-		setSnapTarget(floaterp->getHandle());
+		const LLFloater* floaterp = dynamic_cast<const LLFloater*>(snap_view);
+		if (floaterp)
+		{
+			setSnapTarget(floaterp->getHandle());
+		}
 	}
 }
 
@@ -1065,10 +1068,6 @@ void LLFloater::setMinimized(BOOL minimize)
 		reshape( mExpandedRect.getWidth(), mExpandedRect.getHeight(), TRUE );
 	}
 	
-	// don't show the help button while minimized - it's
-	// not very useful when minimized and uses up space
-	mButtonsEnabled[BUTTON_HELP] = !minimize;
-
 	applyTitle ();
 
 	make_ui_sound("UISndWindowClose");
@@ -1361,6 +1360,7 @@ void LLFloater::bringToFront( S32 x, S32 y )
 // virtual
 void LLFloater::setVisibleAndFrontmost(BOOL take_focus)
 {
+	gFocusMgr.setTopCtrl(NULL);
 	setVisible(TRUE);
 	setFrontmost(take_focus);
 }
@@ -1458,6 +1458,7 @@ void LLFloater::onClickTearOff(LLFloater* self)
 		}
 		self->setTornOff(false);
 	}
+	self->updateButtons();
 }
 
 // static
@@ -1553,7 +1554,12 @@ void LLFloater::onClickClose( LLFloater* self )
 {
 	if (!self)
 		return;
-	self->closeFloater(false);
+	self->onClickCloseBtn();
+}
+
+void	LLFloater::onClickCloseBtn()
+{
+	closeFloater(false);
 }
 
 
@@ -1564,43 +1570,34 @@ void LLFloater::draw()
 	// draw background
 	if( isBackgroundVisible() )
 	{
+		drawShadow(this);
+
 		S32 left = LLPANEL_BORDER_WIDTH;
 		S32 top = getRect().getHeight() - LLPANEL_BORDER_WIDTH;
 		S32 right = getRect().getWidth() - LLPANEL_BORDER_WIDTH;
 		S32 bottom = LLPANEL_BORDER_WIDTH;
 
-		static LLUICachedControl<S32> shadow_offset_S32 ("DropShadowFloater", 0);
-		static LLUIColor shadow_color_cached = LLUIColorTable::instance().getColor("ColorDropShadow");
-		LLColor4 shadow_color = shadow_color_cached;
-		F32 shadow_offset = (F32)shadow_offset_S32;
-
-		if (!isBackgroundOpaque())
-		{
-			shadow_offset *= 0.2f;
-			shadow_color.mV[VALPHA] *= 0.5f;
-		}
-		gl_drop_shadow(left, top, right, bottom, 
-			shadow_color % alpha, 
-			llround(shadow_offset));
-
 		LLUIImage* image = NULL;
 		LLColor4 color;
+		LLColor4 overlay_color;
 		if (isBackgroundOpaque())
 		{
 			// NOTE: image may not be set
 			image = getBackgroundImage();
 			color = getBackgroundColor();
+			overlay_color = getBackgroundImageOverlay();
 		}
 		else
 		{
 			image = getTransparentImage();
 			color = getTransparentColor();
+			overlay_color = getTransparentImageOverlay();
 		}
 
 		if (image)
 		{
 			// We're using images for this floater's backgrounds
-			image->draw(getLocalRect(), UI_VERTEX_COLOR % alpha);
+			image->draw(getLocalRect(), overlay_color % alpha);
 		}
 		else
 		{
@@ -1649,24 +1646,8 @@ void LLFloater::draw()
 	}
 	else
 	{
-		//FIXME: get rid of this hack
-		// draw children
-		LLView* focused_child = dynamic_cast<LLView*>(gFocusMgr.getKeyboardFocus());
-		BOOL focused_child_visible = FALSE;
-		if (focused_child && focused_child->getParent() == this)
-		{
-			focused_child_visible = focused_child->getVisible();
-			focused_child->setVisible(FALSE);
-		}
-
 		// don't call LLPanel::draw() since we've implemented custom background rendering
 		LLView::draw();
-
-		if (focused_child_visible)
-		{
-			focused_child->setVisible(TRUE);
-		}
-		drawChild(focused_child);
 	}
 
 	// update tearoff button for torn off floaters
@@ -1679,6 +1660,29 @@ void LLFloater::draw()
 			setCanTearOff(FALSE);
 		}
 	}
+}
+
+void	LLFloater::drawShadow(LLPanel* panel)
+{
+	F32 alpha = panel->getDrawContext().mAlpha;
+	S32 left = LLPANEL_BORDER_WIDTH;
+	S32 top = panel->getRect().getHeight() - LLPANEL_BORDER_WIDTH;
+	S32 right = panel->getRect().getWidth() - LLPANEL_BORDER_WIDTH;
+	S32 bottom = LLPANEL_BORDER_WIDTH;
+
+	static LLUICachedControl<S32> shadow_offset_S32 ("DropShadowFloater", 0);
+	static LLUIColor shadow_color_cached = LLUIColorTable::instance().getColor("ColorDropShadow");
+	LLColor4 shadow_color = shadow_color_cached;
+	F32 shadow_offset = (F32)shadow_offset_S32;
+
+	if (!panel->isBackgroundOpaque())
+	{
+		shadow_offset *= 0.2f;
+		shadow_color.mV[VALPHA] *= 0.5f;
+	}
+	gl_drop_shadow(left, top, right, bottom, 
+		shadow_color % alpha, 
+		llround(shadow_offset));
 }
 
 void	LLFloater::setCanMinimize(BOOL can_minimize)
@@ -1741,14 +1745,32 @@ void LLFloater::updateButtons()
 	S32 button_count = 0;
 	for (S32 i = 0; i < BUTTON_COUNT; i++)
 	{
-		if(!mButtons[i]) continue;
-		mButtons[i]->setEnabled(mButtonsEnabled[i]);
+		if (!mButtons[i])
+		{
+			continue;
+		}
 
-		if (mButtonsEnabled[i] 
-			//*HACK: always render close button for hosted floaters
-			// so that users don't accidentally hit the button when closing multiple windows
-			// in the chatterbox
-			|| (i == BUTTON_CLOSE && mButtonScale != 1.f))
+		bool enabled = mButtonsEnabled[i];
+		if (i == BUTTON_HELP)
+		{
+			// don't show the help button if the floater is minimized
+			// or if it is a docked tear-off floater
+			if (isMinimized() || (mButtonsEnabled[BUTTON_TEAR_OFF] && ! mTornOff))
+			{
+				enabled = false;
+			}
+		}
+		if (i == BUTTON_CLOSE && mButtonScale != 1.f)
+		{
+			//*HACK: always render close button for hosted floaters so
+			//that users don't accidentally hit the button when
+			//closing multiple windows in the chatterbox
+			enabled = true;
+		}
+
+		mButtons[i]->setEnabled(enabled);
+
+		if (enabled)
 		{
 			button_count++;
 
@@ -1775,7 +1797,7 @@ void LLFloater::updateButtons()
 			// the restore button should have a tab stop so that it takes action when you Ctrl-Tab to a minimized floater
 			mButtons[i]->setTabStop(i == BUTTON_RESTORE);
 		}
-		else if (mButtons[i])
+		else
 		{
 			mButtons[i]->setVisible(FALSE);
 		}
@@ -1897,9 +1919,10 @@ static LLDefaultChildRegistry::Register<LLFloaterView> r("floater_view");
 
 LLFloaterView::LLFloaterView (const Params& p)
 :	LLUICtrl (p),
+
 	mFocusCycleMode(FALSE),
-	mSnapOffsetBottom(0)
-	,mSnapOffsetRight(0)
+	mSnapOffsetBottom(0),
+	mSnapOffsetRight(0)
 {
 }
 
@@ -2344,7 +2367,7 @@ void LLFloaterView::adjustToFitScreen(LLFloater* floater, BOOL allow_partial_out
 	LLRect::tCoordType screen_width = getSnapRect().getWidth();
 	LLRect::tCoordType screen_height = getSnapRect().getHeight();
 
-
+	
 	// only automatically resize non-minimized, resizable floaters
 	if( floater->isResizable() && !floater->isMinimized() )
 	{
@@ -2369,7 +2392,11 @@ void LLFloaterView::adjustToFitScreen(LLFloater* floater, BOOL allow_partial_out
 			new_width = llmax(new_width, min_width);
 			new_height = llmax(new_height, min_height);
 
-			floater->reshape( new_width, new_height, TRUE );
+			LLRect new_rect;
+			new_rect.setLeftTopAndSize(view_rect.mLeft,view_rect.mTop,new_width, new_height);
+
+			floater->setShape(new_rect);
+
 			if (floater->followsRight())
 			{
 				floater->translate(old_width - new_width, 0);
@@ -2562,6 +2589,8 @@ void LLFloaterView::pushVisibleAll(BOOL visible, const skip_list_t& skip_list)
 			view->pushVisible(visible);
 		}
 	}
+
+	LLFloaterReg::blockShowFloaters(true);
 }
 
 void LLFloaterView::popVisibleAll(const skip_list_t& skip_list)
@@ -2579,6 +2608,8 @@ void LLFloaterView::popVisibleAll(const skip_list_t& skip_list)
 			view->popVisible();
 		}
 	}
+
+	LLFloaterReg::blockShowFloaters(false);
 }
 
 void LLFloater::setInstanceName(const std::string& name)

@@ -294,7 +294,7 @@ LLSpatialGroup::~LLSpatialGroup()
 	
 	sNodeCount--;
 
-	if (gGLManager.mHasOcclusionQuery && mOcclusionQuery)
+	if (gGLManager.mHasOcclusionQuery && mOcclusionQuery[LLViewerCamera::sCurCameraID])
 	{
 		sQueryPool.release(mOcclusionQuery[LLViewerCamera::sCurCameraID]);
 	}
@@ -2460,7 +2460,6 @@ void renderOctree(LLSpatialGroup* group)
 	gGL.color4fv(col.mV);
 	drawBox(group->mObjectBounds[0], group->mObjectBounds[1]*1.01f+LLVector3(0.001f, 0.001f, 0.001f));
 	
-	glDepthMask(GL_TRUE);
 	gGL.setSceneBlendType(LLRender::BT_ALPHA);
 
 	if (group->mBuilt <= 0.f)
@@ -2608,6 +2607,7 @@ void renderBoundingBox(LLDrawable* drawable, BOOL set_color = TRUE)
 						break;
 				case LL_PCODE_LEGACY_TREE:
 						gGL.color4f(0,0.5f,0,1);
+						break;
 				default:
 						gGL.color4f(1,0,1,1);
 						break;
@@ -3380,7 +3380,8 @@ LLDrawInfo::LLDrawInfo(U16 start, U16 end, U32 count, U32 offset,
 	mVSize(0.f),
 	mGroup(NULL),
 	mFace(NULL),
-	mDistance(0.f)
+	mDistance(0.f),
+	mDrawMode(LLRender::TRIANGLES)
 {
 	mDebugColor = (rand() << 16) + rand();
 	if (mStart >= mVertexBuffer->getRequestedVerts() ||

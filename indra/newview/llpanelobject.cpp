@@ -73,7 +73,7 @@
 #include "pipeline.h"
 #include "llviewercontrol.h"
 #include "lluictrlfactory.h"
-#include "llfirstuse.h"
+//#include "llfirstuse.h"
 
 #include "lldrawpool.h"
 
@@ -316,11 +316,14 @@ BOOL	LLPanelObject::postBuild()
 
 LLPanelObject::LLPanelObject()
 :	LLPanel(),
+	mComboMaterialItemCount(0),
 	mIsPhysical(FALSE),
 	mIsTemporary(FALSE),
 	mIsPhantom(FALSE),
 	mCastShadows(TRUE),
-	mSelectedType(MI_BOX)
+	mSelectedType(MI_BOX),
+	mSculptTextureRevert(LLUUID::null),
+	mSculptTypeRevert(0)
 {
 }
 
@@ -682,7 +685,7 @@ void LLPanelObject::getState( )
 		if (objectp->getParameterEntryInUse(LLNetworkData::PARAMS_SCULPT))
 		{
 			selected_item = MI_SCULPT;
-			LLFirstUse::useSculptedPrim();
+			//LLFirstUse::useSculptedPrim();
 		}
 
 		

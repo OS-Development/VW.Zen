@@ -167,8 +167,8 @@ void LLTexLayerSetBuffer::popProjection() const
 BOOL LLTexLayerSetBuffer::needsRender()
 {
 	const LLVOAvatarSelf* avatar = mTexLayerSet->getAvatar();
-	BOOL upload_now = mNeedsUpload && mTexLayerSet->isLocalTextureDataFinal();
-	BOOL needs_update = gAgentQueryManager.hasNoPendingQueries() && (mNeedsUpdate || upload_now) && !avatar->mAppearanceAnimating;
+	BOOL upload_now = mNeedsUpload && mTexLayerSet->isLocalTextureDataFinal() && gAgentQueryManager.hasNoPendingQueries();
+	BOOL needs_update = (mNeedsUpdate || upload_now) && !avatar->mAppearanceAnimating;
 	if (needs_update)
 	{
 		BOOL invalid_skirt = avatar->getBakedTE(mTexLayerSet) == LLVOAvatarDefines::TEX_SKIRT_BAKED && !avatar->isWearingWearableType(WT_SKIRT);
@@ -567,6 +567,7 @@ LLTexLayerSet::LLTexLayerSet(LLVOAvatarSelf* const avatar) :
 	mAvatar( avatar ),
 	mUpdatesEnabled( FALSE ),
 	mIsVisible( TRUE ),
+	mBakedTexIndex(LLVOAvatarDefines::BAKED_HEAD),
 	mInfo( NULL )
 {
 }
@@ -1129,7 +1130,8 @@ LLTexLayerInterface::LLTexLayerInterface(LLTexLayerSet* const layer_set):
 }
 
 LLTexLayerInterface::LLTexLayerInterface(const LLTexLayerInterface &layer, LLWearable *wearable):
-	mTexLayerSet( layer.mTexLayerSet )
+	mTexLayerSet( layer.mTexLayerSet ),
+	mInfo(NULL)
 {
 	// don't add visual params for cloned layers
 	setInfo(layer.getInfo(), wearable);
@@ -1139,7 +1141,12 @@ LLTexLayerInterface::LLTexLayerInterface(const LLTexLayerInterface &layer, LLWea
 
 BOOL LLTexLayerInterface::setInfo(const LLTexLayerInfo *info, LLWearable* wearable  ) // This sets mInfo and calls initialization functions
 {
-	llassert(mInfo == NULL);
+	// setInfo should only be called once. Code is not robust enough to handle redefinition of a texlayer.
+	// Not a critical warning, but could be useful for debugging later issues. -Nyx
+	if (mInfo != NULL) 
+	{
+			llwarns << "mInfo != NULL" << llendl;
+	}
 	mInfo = info;
 	//mID = info->mID; // No ID
 
@@ -1856,7 +1863,7 @@ U32 LLTexLayerTemplate::updateWearableCache()
 }
 LLTexLayer* LLTexLayerTemplate::getLayer(U32 i)
 {
-	if (mWearableCache.size() <= i || i < 0)
+	if (mWearableCache.size() <= i)
 	{
 		return NULL;
 	}

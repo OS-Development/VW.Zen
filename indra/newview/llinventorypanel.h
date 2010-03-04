@@ -61,6 +61,9 @@ class LLTabContainer;
 
 class LLInventoryPanel : public LLPanel
 {
+	//--------------------------------------------------------------------
+	// Data
+	//--------------------------------------------------------------------
 public:
 	static const std::string DEFAULT_SORT_ORDER;
 	static const std::string RECENTITEMS_SORT_ORDER;
@@ -97,13 +100,16 @@ public:
 		{}
 	};
 
+	//--------------------------------------------------------------------
+	// Initialization
+	//--------------------------------------------------------------------
 protected:
 	LLInventoryPanel(const Params&);
 	friend class LLUICtrlFactory;
-
 public:
 	virtual ~LLInventoryPanel();
 
+public:
 	LLInventoryModel* getModel() { return mInventory; }
 
 	BOOL postBuild();
@@ -116,6 +122,10 @@ public:
 								   void* cargo_data,
 								   EAcceptance* accept,
 								   std::string& tooltip_msg);
+
+	void onMouseEnter(S32 x, S32 y, MASK mask);
+	void onMouseLeave(S32 x, S32 y, MASK mask);
+
 	// LLUICtrl methods
 	 /*virtual*/ void onFocusLost();
 	 /*virtual*/ void onFocusReceived();
@@ -123,7 +133,7 @@ public:
 	// Call this method to set the selection.
 	void openAllFolders();
 	void setSelection(const LLUUID& obj_id, BOOL take_keyboard_focus);
-	void setSelectCallback(const LLFolderView::signal_t::slot_type& cb) { if (mFolders) mFolders->setSelectCallback(cb); }
+	void setSelectCallback(const LLFolderView::signal_t::slot_type& cb);
 	void clearSelection();
 	LLInventoryFilter* getFilter();
 	void setFilterTypes(U64 filter, LLInventoryFilter::EFilterType = LLInventoryFilter::FILTERTYPE_OBJECT);
@@ -167,7 +177,7 @@ public:
 	static LLInventoryPanel *getActiveInventoryPanel(BOOL auto_open = TRUE);
 
 protected:
-	void defaultOpenInventory(); // open the first level of inventory
+	void openStartFolderOrMyInventory(); // open the first level of inventory
 
 	LLInventoryModel*			mInventory;
 	LLInventoryObserver*		mInventoryObserver;
@@ -185,6 +195,16 @@ protected:
 	 * Take into account it will not be deleted by LLInventoryPanel itself.
 	 */
 	const LLInventoryFVBridgeBuilder* mInvFVBridgeBuilder;
+
+	//--------------------------------------------------------------------
+	// Hidden folders
+	//--------------------------------------------------------------------
+public:
+	void addHideFolderType(LLFolderType::EType folder_type);
+protected:
+	BOOL getIsHiddenFolderType(LLFolderType::EType folder_type) const;
+private:
+	std::vector<LLFolderType::EType> mHiddenFolderTypes;
 
 	//--------------------------------------------------------------------
 	// Initialization routines for building up the UI ("views")

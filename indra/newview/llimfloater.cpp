@@ -42,7 +42,6 @@
 #include "llbottomtray.h"
 #include "llchannelmanager.h"
 #include "llchiclet.h"
-#include "llfloaterchat.h"
 #include "llfloaterreg.h"
 #include "llimfloatercontainer.h" // to replace separate IM Floaters with multifloater container
 #include "lllayoutstack.h"
@@ -59,6 +58,7 @@
 #include "llinventorymodel.h"
 #include "llrootview.h"
 
+#include "llspeakers.h"
 
 
 LLIMFloater::LLIMFloater(const LLUUID& session_id)
@@ -110,16 +110,24 @@ LLIMFloater::LLIMFloater(const LLUUID& session_id)
 		}
 	}
 	setOverlapsScreenChannel(true);
+
+	LLTransientFloaterMgr::getInstance()->addControlView(LLTransientFloaterMgr::IM, this);
+
+	setDocked(true);
 }
 
 void LLIMFloater::onFocusLost()
 {
 	LLIMModel::getInstance()->resetActiveSessionID();
+	
+	LLBottomTray::getInstance()->getChicletPanel()->setChicletToggleState(mSessionID, false);
 }
 
 void LLIMFloater::onFocusReceived()
 {
 	LLIMModel::getInstance()->setActiveSessionID(mSessionID);
+
+	LLBottomTray::getInstance()->getChicletPanel()->setChicletToggleState(mSessionID, true);
 }
 
 // virtual
@@ -218,6 +226,7 @@ void LLIMFloater::sendMsg()
 
 LLIMFloater::~LLIMFloater()
 {
+	LLTransientFloaterMgr::getInstance()->removeControlView(LLTransientFloaterMgr::IM, this);
 }
 
 //virtual
@@ -258,6 +267,7 @@ BOOL LLIMFloater::postBuild()
 	mInputEditor->setCommitOnFocusLost( FALSE );
 	mInputEditor->setRevertOnEsc( FALSE );
 	mInputEditor->setReplaceNewlinesWithSpaces( FALSE );
+	mInputEditor->setPassDelete( TRUE );
 
 	std::string session_name(LLIMModel::instance().getName(mSessionID));
 
@@ -341,13 +351,15 @@ void* LLIMFloater::createPanelAdHocControl(void* userdata)
 
 void LLIMFloater::onSlide()
 {
-	LLPanel* im_control_panel = getChild<LLPanel>("panel_im_control_panel");
-	im_control_panel->setVisible(!im_control_panel->getVisible());
+	mControlPanel->setVisible(!mControlPanel->getVisible());
 
-	gSavedSettings.setBOOL("IMShowControlPanel", im_control_panel->getVisible());
+	gSavedSettings.setBOOL("IMShowControlPanel", mControlPanel->getVisible());
 
-	getChild<LLButton>("slide_left_btn")->setVisible(im_control_panel->getVisible());
-	getChild<LLButton>("slide_right_btn")->setVisible(!im_control_panel->getVisible());
+	getChild<LLButton>("slide_left_btn")->setVisible(mControlPanel->getVisible());
+	getChild<LLButton>("slide_right_btn")->setVisible(!mControlPanel->getVisible());
+
+	LLLayoutStack* stack = getChild<LLLayoutStack>("im_panels");
+	if (stack) stack->setAnimate(true);
 }
 
 //static
@@ -355,35 +367,7 @@ LLIMFloater* LLIMFloater::show(const LLUUID& session_id)
 {
 	if (!gIMMgr->hasSession(session_id)) return NULL;
 
-	// we should make sure all related chiclets are in place when the session is a voice call
-	// chiclets come firts, then comes IM window
-	if (gIMMgr->isVoiceCall(session_id))
-	{
-		LLIMModel* im_model = LLIMModel::getInstance();
-		LLBottomTray* b_tray = LLBottomTray::getInstance();
-		
-		//*TODO hide that into Bottom tray
-		if (!b_tray->getChicletPanel()->findChiclet<LLChiclet>(session_id))
-		{
-			LLIMChiclet* chiclet = b_tray->createIMChiclet(session_id);
-			if(chiclet)
-			{
-				chiclet->setIMSessionName(im_model->getName(session_id));
-				chiclet->setOtherParticipantId(im_model->getOtherParticipantID(session_id));
-			}
-		}
-
-		LLIMWellWindow::getInstance()->addIMRow(session_id);
-	}
-		
-	bool not_existed = true;
-
-	if(isChatMultiTab())
-	{
-		LLIMFloater* target_floater = findInstance(session_id);
-		not_existed = NULL == target_floater;
-	}
-	else
+	if(!isChatMultiTab())
 	{
 		//hide all
 		LLFloaterReg::const_instance_list_t& inst_list = LLFloaterReg::getFloaterList("impanel");
@@ -398,20 +382,29 @@ LLIMFloater* LLIMFloater::show(const LLUUID& session_id)
 		}
 	}
 
-	LLIMFloater* floater = LLFloaterReg::showTypedInstance<LLIMFloater>("impanel", session_id);
+	bool exist = findInstance(session_id);
+
+	LLIMFloater* floater = getInstance(session_id);
+	if (!floater) return NULL;
 
 	if(isChatMultiTab())
 	{
+		LLIMFloaterContainer* floater_container = LLIMFloaterContainer::getInstance();
+
 		// do not add existed floaters to avoid adding torn off instances
-		if (not_existed)
+		if (!exist)
 		{
 			//		LLTabContainer::eInsertionPoint i_pt = user_initiated ? LLTabContainer::RIGHT_OF_CURRENT : LLTabContainer::END;
 			// TODO: mantipov: use LLTabContainer::RIGHT_OF_CURRENT if it exists
 			LLTabContainer::eInsertionPoint i_pt = LLTabContainer::END;
-
-			LLIMFloaterContainer* floater_container = LLFloaterReg::showTypedInstance<LLIMFloaterContainer>("im_container");
-			floater_container->addFloater(floater, TRUE, i_pt);
+			
+			if (floater_container)
+			{
+				floater_container->addFloater(floater, TRUE, i_pt);
+			}
 		}
+
+		floater->openFloater(floater->getKey());
 	}
 	else
 	{
@@ -437,15 +430,15 @@ LLIMFloater* LLIMFloater::show(const LLUUID& session_id)
 		}
 
 		// window is positioned, now we can show it.
-		floater->setVisible(true);
 	}
+	floater->setVisible(TRUE);
 
 	return floater;
 }
 
 void LLIMFloater::getAllowedRect(LLRect& rect)
 {
-	rect = gViewerWindow->getWorldViewRectRaw();
+	rect = gViewerWindow->getWorldViewRectScaled();
 	static S32 right_padding = 0;
 	if (right_padding == 0)
 	{
@@ -478,16 +471,6 @@ void LLIMFloater::setDocked(bool docked, bool pop_on_undock)
 	}
 }
 
-void LLIMFloater::setTornOff(bool torn_off)
-{
-	// When IM Floater isn't torn off, "close" button should be hidden.
-	// This call will just disables it, since there is a hack in LLFloater::updateButton,
-	// which prevents hiding of close button in that case.
-	setCanClose(torn_off);
-
-	LLTransientDockableFloater::setTornOff(torn_off);
-}
-
 void LLIMFloater::setVisible(BOOL visible)
 {
 	LLNotificationsUI::LLScreenChannel* channel = dynamic_cast<LLNotificationsUI::LLScreenChannel*>
@@ -502,11 +485,52 @@ void LLIMFloater::setVisible(BOOL visible)
 		channel->redrawToasts();
 	}
 
-	if (visible && mChatHistory && mInputEditor)
+	BOOL is_minimized = visible && isChatMultiTab()
+		? LLIMFloaterContainer::getInstance()->isMinimized()
+		: !visible;
+
+	if (!is_minimized && mChatHistory && mInputEditor)
 	{
 		//only if floater was construced and initialized from xml
 		updateMessages();
-		mInputEditor->setFocus(TRUE);
+		//prevent steal focus when IM opened in multitab mode
+		if (!isChatMultiTab())
+		{
+			mInputEditor->setFocus(TRUE);
+		}
+	}
+
+	if(!visible)
+	{
+		LLIMChiclet* chiclet = LLBottomTray::getInstance()->getChicletPanel()->findChiclet<LLIMChiclet>(mSessionID);
+		if(chiclet)
+		{
+			chiclet->setToggleState(false);
+		}
+	}
+}
+
+BOOL LLIMFloater::getVisible()
+{
+	if(isChatMultiTab())
+	{
+		LLIMFloaterContainer* im_container = LLIMFloaterContainer::getInstance();
+		
+		// Treat inactive floater as invisible.
+		bool is_active = im_container->getActiveFloater() == this;
+	
+		//torn off floater is always inactive
+		if (!is_active && getHost() != im_container)
+		{
+			return LLTransientDockableFloater::getVisible();
+		}
+
+		// getVisible() returns TRUE when Tabbed IM window is minimized.
+		return is_active && !im_container->isMinimized() && im_container->getVisible();
+	}
+	else
+	{
+		return LLTransientDockableFloater::getVisible();
 	}
 }
 
@@ -516,14 +540,14 @@ bool LLIMFloater::toggle(const LLUUID& session_id)
 	if(!isChatMultiTab())
 	{
 		LLIMFloater* floater = LLFloaterReg::findTypedInstance<LLIMFloater>("impanel", session_id);
-		if (floater && floater->getVisible())
+		if (floater && floater->getVisible() && floater->hasFocus())
 		{
 			// clicking on chiclet to close floater just hides it to maintain existing
 			// scroll/text entry state
 			floater->setVisible(false);
 			return false;
 		}
-		else if(floater && !floater->isDocked())
+		else if(floater && (!floater->isDocked() || floater->getVisible() && !floater->hasFocus()))
 		{
 			floater->setVisible(TRUE);
 			floater->setFocus(TRUE);
@@ -542,6 +566,11 @@ LLIMFloater* LLIMFloater::findInstance(const LLUUID& session_id)
 	return LLFloaterReg::findTypedInstance<LLIMFloater>("impanel", session_id);
 }
 
+LLIMFloater* LLIMFloater::getInstance(const LLUUID& session_id)
+{
+	return LLFloaterReg::getTypedInstance<LLIMFloater>("impanel", session_id);
+}
+
 void LLIMFloater::sessionInitReplyReceived(const LLUUID& im_session_id)
 {
 	mSessionInitialized = true;
@@ -552,6 +581,12 @@ void LLIMFloater::sessionInitReplyReceived(const LLUUID& im_session_id)
 		mSessionID = im_session_id;
 		setKey(im_session_id);
 		mControlPanel->setSessionId(im_session_id);
+	}
+
+	// updating "Call" button from group control panel here to enable it without placing into draw() (EXT-4796)
+	if(gAgent.isInGroup(im_session_id))
+	{
+		mControlPanel->updateCallButton();
 	}
 	
 	//*TODO here we should remove "starting session..." warning message if we added it in postBuild() (IB)
@@ -580,6 +615,9 @@ void LLIMFloater::updateMessages()
 	{
 //		LLUIColor chat_color = LLUIColorTable::instance().getColor("IMChatColor");
 
+		LLSD chat_args;
+		chat_args["use_plain_text_chat_history"] = use_plain_text_chat_history;
+
 		std::ostringstream message;
 		std::list<LLSD>::const_reverse_iterator iter = messages.rbegin();
 		std::list<LLSD>::const_reverse_iterator iter_end = messages.rend();
@@ -589,19 +627,39 @@ void LLIMFloater::updateMessages()
 
 			std::string time = msg["time"].asString();
 			LLUUID from_id = msg["from_id"].asUUID();
-			std::string from = from_id != gAgentID ? msg["from"].asString() : LLTrans::getString("You");
+			std::string from = msg["from"].asString();
 			std::string message = msg["message"].asString();
+			bool is_history = msg["is_history"].asBoolean();
 
 			LLChat chat;
 			chat.mFromID = from_id;
+			chat.mSessionID = mSessionID;
 			chat.mFromName = from;
-			chat.mText = message;
 			chat.mTimeStr = time;
+			chat.mChatStyle = is_history ? CHAT_STYLE_HISTORY : chat.mChatStyle;
+
+			// process offer notification
+			if (msg.has("notification_id"))
+			{
+				chat.mNotifId = msg["notification_id"].asUUID();
+			}
+			//process text message
+			else
+			{
+				chat.mText = message;
+			}
 			
-			mChatHistory->appendMessage(chat, use_plain_text_chat_history);
+			mChatHistory->appendMessage(chat, chat_args);
 			mLastMessageIndex = msg["index"].asInteger();
 		}
 	}
+}
+
+void LLIMFloater::reloadMessages()
+{
+	mChatHistory->clear();
+	mLastMessageIndex = -1;
+	updateMessages();
 }
 
 // static
@@ -1010,4 +1068,21 @@ void LLIMFloater::sRemoveTypingIndicator(const LLSD& data)
 	if (IM_NOTHING_SPECIAL != floater->mDialog) return;
 
 	floater->removeTypingIndicator();
+}
+
+void LLIMFloater::onIMChicletCreated( const LLUUID& session_id )
+{
+
+	if (isChatMultiTab())
+	{
+		LLIMFloaterContainer* im_box = LLIMFloaterContainer::getInstance();
+		if (!im_box) return;
+
+		if (LLIMFloater::findInstance(session_id)) return;
+
+		LLIMFloater* new_tab = LLIMFloater::getInstance(session_id);
+
+		im_box->addFloater(new_tab, FALSE, LLTabContainer::END);
+	}
+
 }

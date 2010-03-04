@@ -34,23 +34,31 @@
 #include "llviewerprecompiledheaders.h"
 
 #include "llimfloatercontainer.h"
+#include "llfloaterreg.h"
+#include "llimview.h"
+#include "llavatariconctrl.h"
+#include "llgroupiconctrl.h"
+#include "llagent.h"
+#include "lltransientfloatermgr.h"
 
 //
 // LLIMFloaterContainer
 //
 LLIMFloaterContainer::LLIMFloaterContainer(const LLSD& seed)
-:	LLMultiFloater(seed),
-	mActiveVoiceFloater(NULL)
+:	LLMultiFloater(seed)
 {
 	mAutoResize = FALSE;
+	LLTransientFloaterMgr::getInstance()->addControlView(LLTransientFloaterMgr::IM, this);
 }
 
 LLIMFloaterContainer::~LLIMFloaterContainer()
 {
+	LLTransientFloaterMgr::getInstance()->removeControlView(LLTransientFloaterMgr::IM, this);
 }
 
 BOOL LLIMFloaterContainer::postBuild()
 {
+	LLIMModel::instance().mNewMsgSignal.connect(boost::bind(&LLIMFloaterContainer::onNewMessageReceived, this, _1));
 	// Do not call base postBuild to not connect to mCloseSignal to not close all floaters via Close button
 	// mTabContainer will be initialized in LLMultiFloater::addChild()
 	return TRUE;
@@ -86,10 +94,75 @@ void LLIMFloaterContainer::addFloater(LLFloater* floaterp,
 
 	LLMultiFloater::addFloater(floaterp, select_added_floater, insertion_point);
 
-	// make sure active voice icon shows up for new tab
-	if (floaterp == mActiveVoiceFloater)
+	LLUUID session_id = floaterp->getKey();
+
+	LLIconCtrl* icon = 0;
+
+	if(gAgent.isInGroup(session_id, TRUE))
 	{
-		mTabContainer->setTabImage(floaterp, "active_voice_tab.tga");	
+		LLGroupIconCtrl::Params icon_params = LLUICtrlFactory::instance().getDefaultParams<LLGroupIconCtrl>();
+		icon_params.group_id = session_id;
+		icon = LLUICtrlFactory::instance().createWidget<LLGroupIconCtrl>(icon_params);
+
+		mSessions[session_id] = floaterp;
+		floaterp->mCloseSignal.connect(boost::bind(&LLIMFloaterContainer::onCloseFloater, this, session_id));
+	}
+	else
+	{
+		LLUUID avatar_id = LLIMModel::getInstance()->getOtherParticipantID(session_id);
+
+		LLAvatarIconCtrl::Params icon_params = LLUICtrlFactory::instance().getDefaultParams<LLAvatarIconCtrl>();
+		icon_params.avatar_id = avatar_id;
+		icon = LLUICtrlFactory::instance().createWidget<LLAvatarIconCtrl>(icon_params);
+
+		mSessions[session_id] = floaterp;
+		floaterp->mCloseSignal.connect(boost::bind(&LLIMFloaterContainer::onCloseFloater, this, session_id));
+	}
+	mTabContainer->setTabImage(floaterp, icon);
+}
+
+void LLIMFloaterContainer::onCloseFloater(LLUUID& id)
+{
+	mSessions.erase(id);
+}
+
+void LLIMFloaterContainer::onNewMessageReceived(const LLSD& data)
+{
+	LLUUID session_id = data["session_id"].asUUID();
+	LLFloater* floaterp = get_ptr_in_map(mSessions, session_id);
+	LLFloater* current_floater = LLMultiFloater::getActiveFloater();
+
+	if(floaterp && current_floater && floaterp != current_floater)
+	{
+		if(LLMultiFloater::isFloaterFlashing(floaterp))
+			LLMultiFloater::setFloaterFlashing(floaterp, FALSE);
+		LLMultiFloater::setFloaterFlashing(floaterp, TRUE);
+	}
+}
+
+LLIMFloaterContainer* LLIMFloaterContainer::findInstance()
+{
+	return LLFloaterReg::findTypedInstance<LLIMFloaterContainer>("im_container");
+}
+
+LLIMFloaterContainer* LLIMFloaterContainer::getInstance()
+{
+	return LLFloaterReg::getTypedInstance<LLIMFloaterContainer>("im_container");
+}
+
+void LLIMFloaterContainer::setMinimized(BOOL b)
+{
+	if (isMinimized() == b) return;
+	
+	LLMultiFloater::setMinimized(b);
+	// Hide minimized floater (see EXT-5315)
+	setVisible(!b);
+
+	if (isMinimized()) return;
+
+	if (getActiveFloater())
+	{
+		getActiveFloater()->setVisible(TRUE);
 	}
 }
 

@@ -5,52 +5,50 @@
 			<text name="info_parcel_label">
 				Parzelle:
 			</text>
-			<text bottom_delta="-5" height="16" name="info_parcel">
+			<text bottom_delta="-5" height="16" name="info_parcel" left="70">
 				PARZELLENNAME
 			</text>
 			<text name="info_size_label">
 				Größe:
 			</text>
-			<text bottom_delta="-21" height="32" name="info_size">
-				[AREA] qm
+			<text bottom_delta="-21" height="32" name="info_size" left="70">
+				[AREA] m².
 			</text>
 			<text bottom_delta="-57" height="28" name="info_action">
-				Zum Verkauf
-dieser Parzelle:
+				Zum Verkauf dieser Parzelle:
 			</text>
-			<icon bottom_delta="-80" name="step_price"/>
 			<text name="price_label">
-				Preis festlegen:
+				1. Preis festlegen:
 			</text>
-			<text name="price_text">
-				Einen angemessenen Preis auswählen.
+			<text name="price_text" >
+				Preis eingeben
 			</text>
 			<text name="price_ld">
 				L$
 			</text>
+			<line_editor name="price">
+				0
+			</line_editor>
 			<text name="price_per_m">
-				([PER_METER] L$ pro Quadratmeter)
+				([PER_METER] L$ pro m²)
 			</text>
-			<icon height="64" left="0" name="step_sell_to" width="64"/>
 			<text bottom_delta="38" left="72" name="sell_to_label" right="-20">
-				Land verkaufen an:
+				2. Land verkaufen an:
 			</text>
 			<text bottom_delta="-16" height="16" left="72" name="sell_to_text" right="-10">
-				Wählen Sie, ob der Verkauf offen oder auf eine bestimmte Person
-beschränkt ist.
+				Offener Verkauf oder Verkauf an bestimmte Person?
 			</text>
 			<combo_box bottom_delta="-32" height="16" left="72" name="sell_to" width="140">
-				<combo_box.item label="select one --" name="--selectone--"/>
-				<combo_box.item label="Jeder" name="Anyone"/>
-				<combo_box.item label="Bestimmte Person:" name="Specificuser:"/>
+				<combo_box.item label="-- Auswählen --" name="--selectone--"/>
+				<combo_box.item label="An jeden" name="Anyone"/>
+				<combo_box.item label="An bestimmte Person:" name="Specificuser:"/>
 			</combo_box>
-			<button label="Auswählen..." name="sell_to_select_agent"/>
+			<button label="Auswählen" name="sell_to_select_agent"/>
 			<text name="sell_objects_label">
-				Die Objekte mit dem Land verkaufen?
+				3. Die Objekte mit dem Land verkaufen?
 			</text>
 			<text name="sell_objects_text">
-				Die transferierbaren Landeigentümer-Objekte auf der Parzelle
-wechseln den Eigentümer.
+				Die transferierbaren Landeigentümer-Objekte auf der Parzelle wechseln den Eigentümer.
 			</text>
 			<radio_group bottom_delta="-58" name="sell_objects">
 				<radio_item label="Nein, Objekte behalten" name="no"/>
@@ -60,7 +58,7 @@ wechseln den Eigentümer.
 			<text name="nag_message_label">
 				ACHTUNG: Verkäufe sind endgültig.
 			</text>
-			<button label="Land zum Verkauf freigeben" name="sell_btn" width="180"/>
+			<button label="Zum Verkauf freigeben" name="sell_btn" width="180"/>
 			<button label="Abbrechen" name="cancel_btn"/>
 		</panel>
 	</scroll_container>

@@ -822,13 +822,15 @@ class LinuxManifest(ViewerManifest):
             'dst': self.get_dst_prefix(),
             'inst': self.build_path_of(installer_name)})
         try:
-            # --numeric-owner hides the username of the builder for
-            # security etc.
-            self.run_command('tar -C %(dir)s --numeric-owner -cjf '
-                             '%(inst_path)s.tar.bz2 %(inst_name)s' % {
-                'dir': self.get_build_prefix(),
-                'inst_name': installer_name,
-                'inst_path':self.build_path_of(installer_name)})
+            # only create tarball if it's a release build.
+            if self.args['buildtype'].lower() == 'release':
+                # --numeric-owner hides the username of the builder for
+                # security etc.
+                self.run_command('tar -C %(dir)s --numeric-owner -cjf '
+                                 '%(inst_path)s.tar.bz2 %(inst_name)s' % {
+                        'dir': self.get_build_prefix(),
+                        'inst_name': installer_name,
+                        'inst_path':self.build_path_of(installer_name)})
         finally:
             self.run_command("mv %(inst)s %(dst)s" % {
                 'dst': self.get_dst_prefix(),
@@ -852,9 +854,10 @@ class Linux_i686Manifest(LinuxManifest):
                 print "Skipping %s - not found" % libfile
                 pass
 
-        self.path("secondlife-stripped","bin/do-not-directly-run-secondlife-bin")
-        self.path("../linux_crash_logger/linux-crash-logger-stripped","bin/linux-crash-logger.bin")
-        self.path("../linux_updater/linux-updater-stripped", "bin/linux-updater.bin")
+        self.path("secondlife-bin","bin/do-not-directly-run-secondlife-bin")
+
+        self.path("../linux_crash_logger/linux-crash-logger","bin/linux-crash-logger.bin")
+        self.path("../linux_updater/linux-updater", "bin/linux-updater.bin")
         self.path("../llplugin/slplugin/SLPlugin", "bin/SLPlugin")
         if self.prefix("res-sdl"):
             self.path("*")
@@ -905,23 +908,16 @@ class Linux_i686Manifest(LinuxManifest):
             if self.prefix(src="vivox-runtime/i686-linux", dst="lib"):
                     self.path("libortp.so")
                     self.path("libsndfile.so.1")
-                    #self.path("libvivoxoal.so.1") # no - we'll re-use the viewer's own OAL lib
+                    #self.path("libvivoxoal.so.1") # no - we'll re-use the viewer's own OpenAL lib
                     self.path("libvivoxsdk.so")
                     self.path("libvivoxplatform.so")
                     self.end_prefix("lib")
 
-class Linux_x86_64Manifest(LinuxManifest):
-    def construct(self):
-        super(Linux_x86_64Manifest, self).construct()
-        self.path("secondlife-stripped","bin/do-not-directly-run-secondlife-bin")
-        self.path("../linux_crash_logger/linux-crash-logger-stripped","linux-crash-logger.bin")
-        if self.prefix("res-sdl"):
-            self.path("*")
-            # recurse
-            self.end_prefix("res-sdl")
+        if self.args['buildtype'].lower() == 'release':
+            print "* Going strip-crazy on the packaged binaries, since this is a RELEASE build"
+            self.run_command("find %(d)r/bin %(d)r/lib -type f | xargs --no-run-if-empty strip -S" % {'d': self.get_dst_prefix()} ) # makes some small assumptions about our packaged dir structure
 
-        self.path("featuretable_linux.txt")
-        self.path("secondlife-i686.supp")
+################################################################
 
 if __name__ == "__main__":
     main()

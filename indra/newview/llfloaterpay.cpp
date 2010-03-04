@@ -135,7 +135,8 @@ LLFloaterPay::LLFloaterPay(const LLSD& key)
 	  mCallback(NULL),
 	  mObjectNameText(NULL),
 	  mTargetUUID(key.asUUID()),
-	  mTargetIsGroup(FALSE)
+	  mTargetIsGroup(FALSE),
+	  mHaveName(FALSE)
 {
 }
 
@@ -203,7 +204,7 @@ BOOL LLFloaterPay::postBuild()
 
 	getChild<LLLineEditor>("amount")->setKeystrokeCallback(&LLFloaterPay::onKeystroke, this);
 	childSetText("amount", last_amount);
-	childSetPrevalidate("amount", LLLineEditor::prevalidateNonNegativeS32);
+	childSetPrevalidate("amount", LLTextValidate::validateNonNegativeS32);
 
 	info = new LLGiveMoneyInfo(this, 0);
 	mCallbackData.push_back(info);

@@ -75,11 +75,12 @@ public:
 			return false;
 		}
 
+		//*TODO by what to replace showing groups floater?
 		if (tokens[0].asString() == "list")
 		{
 			if (tokens[1].asString() == "show")
 			{
-				LLFloaterReg::showInstance("contacts", "groups");
+				//LLFloaterReg::showInstance("contacts", "groups");
 				return true;
 			}
             return false;
@@ -146,6 +147,12 @@ void LLGroupActions::startCall(const LLUUID& group_id)
 // static
 void LLGroupActions::join(const LLUUID& group_id)
 {
+	if (!gAgent.canJoinGroups())
+	{
+		LLNotificationsUtil::add("JoinedTooManyGroups");
+		return;
+	}
+
 	LLGroupMgrGroupData* gdatap = 
 		LLGroupMgr::getInstance()->getGroupData(group_id);
 
@@ -154,12 +161,17 @@ void LLGroupActions::join(const LLUUID& group_id)
 		S32 cost = gdatap->mMembershipFee;
 		LLSD args;
 		args["COST"] = llformat("%d", cost);
+		args["NAME"] = gdatap->mName;
 		LLSD payload;
 		payload["group_id"] = group_id;
 
 		if (can_afford_transaction(cost))
 		{
-			LLNotificationsUtil::add("JoinGroupCanAfford", args, payload, onJoinGroup);
+			if(cost > 0)
+				LLNotificationsUtil::add("JoinGroupCanAfford", args, payload, onJoinGroup);
+			else
+				LLNotificationsUtil::add("JoinGroupNoCost", args, payload, onJoinGroup);
+				
 		}
 		else
 		{
@@ -226,7 +238,9 @@ void LLGroupActions::activate(const LLUUID& group_id)
 
 static bool isGroupUIVisible()
 {
-	LLPanel* panel = LLSideTray::getInstance()->findChild<LLPanel>("panel_group_info_sidetray");
+	static LLPanel* panel = 0;
+	if(!panel)
+		panel = LLSideTray::getInstance()->findChild<LLPanel>("panel_group_info_sidetray");
 	if(!panel)
 		return false;
 	return panel->isInVisibleChain();

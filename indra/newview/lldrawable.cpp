@@ -386,8 +386,6 @@ void LLDrawable::makeActive()
 			mParent->makeActive();
 		}
 
-		gPipeline.setActive(this, TRUE);
-
 		//all child objects must also be active
 		llassert_always(mVObjp);
 		
@@ -434,7 +432,6 @@ void LLDrawable::makeStatic(BOOL warning_enabled)
 	if (isState(ACTIVE))
 	{
 		clearState(ACTIVE);
-		gPipeline.setActive(this, FALSE);
 
 		if (mParent.notNull() && mParent->isActive() && warning_enabled)
 		{
@@ -1049,9 +1046,13 @@ LLSpatialBridge::LLSpatialBridge(LLDrawable* root, BOOL render_by_group, U32 dat
 
 	llassert(mDrawable);
 	llassert(mDrawable->getRegion());
-	llassert(mDrawable->getRegion()->getSpatialPartition(mPartitionType));
+	LLSpatialPartition *part = mDrawable->getRegion()->getSpatialPartition(mPartitionType);
+	llassert(part);
 	
-	mDrawable->getRegion()->getSpatialPartition(mPartitionType)->put(this);
+	if (part)
+	{
+		part->put(this);
+	}
 }
 
 LLSpatialBridge::~LLSpatialBridge()
@@ -1367,10 +1368,14 @@ BOOL LLSpatialBridge::updateMove()
 {
 	llassert(mDrawable);
 	llassert(mDrawable->getRegion());
-	llassert(mDrawable->getRegion()->getSpatialPartition(mPartitionType));
+	LLSpatialPartition* part = mDrawable->getRegion()->getSpatialPartition(mPartitionType);
+	llassert(part);
 
 	mOctree->balance();
-	mDrawable->getRegion()->getSpatialPartition(mPartitionType)->move(this, getSpatialGroup(), TRUE);
+	if (part)
+	{
+		part->move(this, getSpatialGroup(), TRUE);
+	}
 	return TRUE;
 }
 

@@ -81,6 +81,9 @@ LLButton::Params::Params()
 	image_pressed_selected("image_pressed_selected"),
 	image_overlay("image_overlay"),
 	image_overlay_alignment("image_overlay_alignment", std::string("center")),
+	image_top_pad("image_top_pad"),
+	image_bottom_pad("image_bottom_pad"),
+	imgoverlay_label_space("imgoverlay_label_space", 1),
 	label_color("label_color"),
 	label_color_selected("label_color_selected"),	// requires is_toggle true
 	label_color_disabled("label_color_disabled"),
@@ -140,6 +143,9 @@ LLButton::LLButton(const LLButton::Params& p)
 	mImageOverlay(p.image_overlay()),
 	mImageOverlayColor(p.image_overlay_color()),
 	mImageOverlayAlignment(LLFontGL::hAlignFromName(p.image_overlay_alignment)),
+	mImageOverlayTopPad(p.image_top_pad),
+	mImageOverlayBottomPad(p.image_bottom_pad),
+	mImgOverlayLabelSpace(p.imgoverlay_label_space),
 	mIsToggle(p.is_toggle),
 	mScaleImage(p.scale_image),
 	mDropShadowedText(p.label_shadow),
@@ -763,6 +769,7 @@ void LLButton::draw()
 			center_x++;
 		}
 
+		center_y += (mImageOverlayBottomPad - mImageOverlayTopPad);
 		// fade out overlay images on disabled buttons
 		LLColor4 overlay_color = mImageOverlayColor.get();
 		if (!enabled)
@@ -774,10 +781,9 @@ void LLButton::draw()
 		switch(mImageOverlayAlignment)
 		{
 		case LLFontGL::LEFT:
-			text_left += overlay_width + 1;
-			text_width -= overlay_width + 1;
+			text_left += overlay_width + mImgOverlayLabelSpace;
 			mImageOverlay->draw(
-				mLeftHPad, 
+				mLeftHPad,
 				center_y - (overlay_height / 2), 
 				overlay_width, 
 				overlay_height, 
@@ -792,10 +798,9 @@ void LLButton::draw()
 				overlay_color);
 			break;
 		case LLFontGL::RIGHT:
-			text_right -= overlay_width + 1;				
-			text_width -= overlay_width + 1;
+			text_right -= overlay_width + mImgOverlayLabelSpace;
 			mImageOverlay->draw(
-				getRect().getWidth() - mRightHPad - overlay_width, 
+				getRect().getWidth() - mRightHPad - overlay_width,
 				center_y - (overlay_height / 2), 
 				overlay_width, 
 				overlay_height, 
@@ -1017,6 +1022,20 @@ void LLButton::setImageOverlay(const std::string& image_name, LLFontGL::HAlign a
 	else
 	{
 		mImageOverlay = LLUI::getUIImage(image_name);
+		mImageOverlayAlignment = alignment;
+		mImageOverlayColor = color;
+	}
+}
+
+void LLButton::setImageOverlay(const LLUUID& image_id, LLFontGL::HAlign alignment, const LLColor4& color)
+{
+	if (image_id.isNull())
+	{
+		mImageOverlay = NULL;
+	}
+	else
+	{
+		mImageOverlay = LLUI::getUIImageByID(image_id);
 		mImageOverlayAlignment = alignment;
 		mImageOverlayColor = color;
 	}

@@ -53,6 +53,15 @@ class LLGroupList: public LLFlatListView, public LLOldEvents::LLSimpleListener
 public:
 	struct Params : public LLInitParam::Block<Params, LLFlatListView::Params> 
 	{
+		/**
+		 * Contains a message for empty list when user is not a member of any group
+		 */
+		Optional<std::string>	no_groups_msg;
+
+		/**
+		 * Contains a message for empty list when all groups don't match passed filter
+		 */
+		Optional<std::string>	no_filtered_groups_msg;
 		Params();
 	};
 
@@ -65,6 +74,11 @@ public:
 	void setNameFilter(const std::string& filter);
 	void toggleIcons();
 	bool getIconsVisible() const { return mShowIcons; }
+
+	// *WORKAROUND: two methods to overload appropriate Params due to localization issue:
+	// no_groups_msg & no_filtered_groups_msg attributes are not defined as translatable in VLT. See EXT-5931
+	void setNoGroupsMsg(const std::string& msg) { mNoGroupsMsg = msg; }
+	void setNoFilteredGroupsMsg(const std::string& msg) { mNoFilteredGroupsMsg = msg; }
 	
 private:
 	void setDirty(bool val = true)		{ mDirty = val; }
@@ -80,6 +94,8 @@ private:
 	bool mShowIcons;
 	bool mDirty;
 	std::string mNameFilter;
+	std::string mNoFilteredGroupsMsg;
+	std::string mNoGroupsMsg;
 };
 
 class LLButton;

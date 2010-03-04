@@ -55,6 +55,7 @@ class LLTextEditor;
 class LLTextureCtrl;
 class LLUICtrl;
 class LLMessageSystem;
+class LLScrollContainer;
 
 // *TODO deprecated, should be removed.
 // New class implemented in ticket EXT-2095
@@ -249,9 +250,20 @@ public:
 
 	void setInfoLoaded(bool loaded) { mInfoLoaded = loaded; }
 
+	static void setClickThrough(
+		const LLUUID& classified_id,
+		S32 teleport,
+		S32 map,
+		S32 profile,
+		bool from_new_table);
+
 	void setExitCallback(const commit_callback_t& cb);
 
 	void setEditClassifiedCallback(const commit_callback_t& cb);
+
+	/*virtual*/ void reshape(S32 width, S32 height, BOOL called_from_parent = TRUE);
+
+	/*virtual*/ void draw();
 
 protected:
 
@@ -266,6 +278,8 @@ protected:
 		const std::string& sim_name, 
 		const LLVector3d& pos_global);
 
+	void stretchSnapshot();
+
 	void onMapClick();
 	void onTeleportClick();
 	void onExit();
@@ -277,6 +291,26 @@ private:
 	LLVector3d mPosGlobal;
 	LLUUID mParcelId;
 	bool mInfoLoaded;
+
+	bool mSnapshotStreched;
+	LLRect mSnapshotRect;
+
+	LLScrollContainer*		mScrollContainer;
+	LLPanel*				mScrollingPanel;
+
+	S32 mScrollingPanelMinHeight;
+	S32 mScrollingPanelWidth;
+
+	// Needed for stat tracking
+	S32 mTeleportClicksOld;
+	S32 mMapClicksOld;
+	S32 mProfileClicksOld;
+	S32 mTeleportClicksNew;
+	S32 mMapClicksNew;
+	S32 mProfileClicksNew;
+
+	typedef std::list<LLPanelClassifiedInfo*> panel_list_t;
+	static panel_list_t sAllPanels;
 };
 
 class LLPanelClassifiedEdit : public LLPanelClassifiedInfo
@@ -340,6 +374,7 @@ protected:
 
 private:
 	bool mIsNew;
+	bool mCanClose;
 };
 
 #endif // LL_LLPANELCLASSIFIED_H

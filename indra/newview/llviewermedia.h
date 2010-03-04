@@ -42,12 +42,13 @@
 #include "llviewermediaobserver.h"
 
 #include "llpluginclassmedia.h"
+#include "v4color.h"
 
 class LLViewerMediaImpl;
 class LLUUID;
 class LLViewerMediaTexture;
 class LLMediaEntry;
-class LLVOVolume ;
+class LLVOVolume;
 class LLMimeDiscoveryResponder;
 
 typedef LLPointer<LLViewerMediaImpl> viewer_media_t;
@@ -72,53 +73,68 @@ class LLViewerMediaImpl;
 class LLViewerMedia
 {
 	LOG_CLASS(LLViewerMedia);
-	public:
-
-		// String to get/set media autoplay in gSavedSettings
-		static const char *AUTO_PLAY_MEDIA_SETTING;
+public:
 	
-		typedef std::vector<LLViewerMediaImpl*> impl_list;
-
-		typedef std::map<LLUUID, LLViewerMediaImpl*> impl_id_map;
-
-		// Special case early init for just web browser component
-		// so we can show login screen.  See .cpp file for details. JC
-
-		static viewer_media_t newMediaImpl(const LLUUID& texture_id,
-												S32 media_width = 0, 
-												S32 media_height = 0, 
-												U8 media_auto_scale = false,
-												U8 media_loop = false);
-
-		static viewer_media_t updateMediaImpl(LLMediaEntry* media_entry, const std::string& previous_url, bool update_from_self);
-		static LLViewerMediaImpl* getMediaImplFromTextureID(const LLUUID& texture_id);
-		static std::string getCurrentUserAgent();
-		static void updateBrowserUserAgent();
-		static bool handleSkinCurrentChanged(const LLSD& /*newvalue*/);
-		static bool textureHasMedia(const LLUUID& texture_id);
-		static void setVolume(F32 volume);
-
-		static void updateMedia(void* dummy_arg = NULL);
-		static bool isMusicPlaying();
-
-		static void initClass();
-		static void cleanupClass();
-
-		static void toggleMusicPlay(void*);
-		static void toggleMediaPlay(void*);
-		static void mediaStop(void*);
-		static F32 getVolume();	
-		static void muteListChanged();
-		static void setInWorldMediaDisabled(bool disabled);
-		static bool getInWorldMediaDisabled();
-				
-		static bool isInterestingEnough(const LLVOVolume* object, const F64 &object_interest);
+	// String to get/set media autoplay in gSavedSettings
+	static const char* AUTO_PLAY_MEDIA_SETTING;
+	static const char* SHOW_MEDIA_ON_OTHERS_SETTING;
+	static const char* SHOW_MEDIA_WITHIN_PARCEL_SETTING;
+	static const char* SHOW_MEDIA_OUTSIDE_PARCEL_SETTING;
 	
-		// Returns the priority-sorted list of all media impls.
-		static impl_list &getPriorityList();
-		
-		// This is the comparitor used to sort the list.
-		static bool priorityComparitor(const LLViewerMediaImpl* i1, const LLViewerMediaImpl* i2);
+	typedef std::vector<LLViewerMediaImpl*> impl_list;
+	
+	typedef std::map<LLUUID, LLViewerMediaImpl*> impl_id_map;
+	
+	// Special case early init for just web browser component
+	// so we can show login screen.  See .cpp file for details. JC
+	
+	static viewer_media_t newMediaImpl(const LLUUID& texture_id,
+									   S32 media_width = 0, 
+									   S32 media_height = 0, 
+									   U8 media_auto_scale = false,
+									   U8 media_loop = false);
+	
+	static viewer_media_t updateMediaImpl(LLMediaEntry* media_entry, const std::string& previous_url, bool update_from_self);
+	static LLViewerMediaImpl* getMediaImplFromTextureID(const LLUUID& texture_id);
+	static std::string getCurrentUserAgent();
+	static void updateBrowserUserAgent();
+	static bool handleSkinCurrentChanged(const LLSD& /*newvalue*/);
+	static bool textureHasMedia(const LLUUID& texture_id);
+	static void setVolume(F32 volume);
+	
+	// Is any media currently "showing"?  Includes Parcel Media.  Does not include media in the UI.
+	static bool isAnyMediaShowing();
+	// Set all media enabled or disabled, depending on val.   Does not include media in the UI.
+	static void setAllMediaEnabled(bool val);
+	
+	static void updateMedia(void* dummy_arg = NULL);
+	
+	static void initClass();
+	static void cleanupClass();
+	
+	static F32 getVolume();	
+	static void muteListChanged();
+	static void setInWorldMediaDisabled(bool disabled);
+	static bool getInWorldMediaDisabled();
+	
+	static bool isInterestingEnough(const LLVOVolume* object, const F64 &object_interest);
+	
+	// Returns the priority-sorted list of all media impls.
+	static impl_list &getPriorityList();
+	
+	// This is the comparitor used to sort the list.
+	static bool priorityComparitor(const LLViewerMediaImpl* i1, const LLViewerMediaImpl* i2);
+	
+	// These are just helper functions for the convenience of others working with media
+	static bool hasInWorldMedia();
+	static std::string getParcelAudioURL();
+	static bool hasParcelMedia();
+	static bool hasParcelAudio();
+	static bool isParcelMediaPlaying();
+	static bool isParcelAudioPlaying();
+	
+private:
+	static void onTeleportFinished();
 };
 
 // Implementation functions not exported into header file
@@ -127,7 +143,10 @@ class LLViewerMediaImpl
 {
 	LOG_CLASS(LLViewerMediaImpl);
 public:
-
+	
+	friend class LLViewerMedia;
+	friend class LLMimeDiscoveryResponder;
+	
 	LLViewerMediaImpl(
 		const LLUUID& texture_id,
 		S32 media_width, 
@@ -187,6 +206,7 @@ public:
 	std::string getMediaURL() const { return mMediaURL; }
 	std::string getCurrentMediaURL();
 	std::string getHomeURL() { return mHomeURL; }
+	std::string getMediaEntryURL() { return mMediaEntryURL; }
     void setHomeURL(const std::string& home_url) { mHomeURL = home_url; };
 	void clearCache();
 	std::string getMimeType() { return mMimeType; }
@@ -197,29 +217,35 @@ public:
 	void updateImagesMediaStreams();
 	LLUUID getMediaTextureID() const;
 	
-	void suspendUpdates(bool suspend) { mSuspendUpdates = suspend; };
+	void suspendUpdates(bool suspend) { mSuspendUpdates = suspend; }
 	void setVisible(bool visible);
-	bool getVisible() const { return mVisible; };
+	bool getVisible() const { return mVisible; }
+	bool isVisible() const { return mVisible; }
 
+	bool isMediaTimeBased();
 	bool isMediaPlaying();
 	bool isMediaPaused();
 	bool hasMedia() const;
-	bool isMediaFailed() const { return mMediaSourceFailed; };
+	bool isMediaFailed() const { return mMediaSourceFailed; }
+	void setMediaFailed(bool val) { mMediaSourceFailed = val; }
 	void resetPreviousMediaState();
 	
-	void setDisabled(bool disabled);
+	void setDisabled(bool disabled, bool forcePlayOnEnable = false);
 	bool isMediaDisabled() const { return mIsDisabled; };
-
+	
+	void setInNearbyMediaList(bool in_list) { mInNearbyMediaList = in_list; }
+	bool getInNearbyMediaList() { return mInNearbyMediaList; }
+	
 	// returns true if this instance should not be loaded (disabled, muted object, crashed, etc.)
 	bool isForcedUnloaded() const;
 	
 	// returns true if this instance could be playable based on autoplay setting, current load state, etc.
 	bool isPlayable() const;
 	
-	void setIsParcelMedia(bool is_parcel_media) { mIsParcelMedia = is_parcel_media; };
-	bool isParcelMedia() const { return mIsParcelMedia; };
+	void setIsParcelMedia(bool is_parcel_media) { mIsParcelMedia = is_parcel_media; }
+	bool isParcelMedia() const { return mIsParcelMedia; }
 
-	ECursorType getLastSetCursor() { return mLastSetCursor; };
+	ECursorType getLastSetCursor() { return mLastSetCursor; }
 	
 	// utility function to create a ready-to-use media instance from a desired media type.
 	static LLPluginClassMedia* newSourceFromMediaType(std::string media_type, LLPluginClassMediaOwner *owner /* may be NULL */, S32 default_width, S32 default_height);
@@ -285,6 +311,8 @@ public:
 	// This will be used as part of the interest sorting algorithm.
 	void setUsedInUI(bool used_in_ui);
 	bool getUsedInUI() const { return mUsedInUI; };
+
+	void setBackgroundColor(LLColor4 color);
 	
 	F64 getCPUUsage() const;
 	
@@ -313,8 +341,24 @@ public:
 	EMediaNavState getNavState() { return mMediaNavState; }
 	void setNavState(EMediaNavState state);
 	
+	void setNavigateSuspended(bool suspend);
+	bool isNavigateSuspended() { return mNavigateSuspended; };
+	
 	void cancelMimeTypeProbe();
-public:
+	
+	// Is this media attached to an avatar *not* self
+	bool isAttachedToAnotherAvatar() const;
+	
+	// Is this media in the agent's parcel?
+	bool isInAgentParcel() const;
+
+private:
+	bool isAutoPlayable() const;
+	bool shouldShowBasedOnClass() const;
+	static bool isObjectAttachedToAnotherAvatar(LLVOVolume *obj);
+	static bool isObjectInAgentParcel(LLVOVolume *obj);
+	
+private:
 	// a single media url with some data and an impl.
 	LLPluginClassMedia* mMediaSource;
 	LLUUID mTextureId;
@@ -323,6 +367,7 @@ public:
 	std::string mHomeURL;
 	std::string mMimeType;
 	std::string mCurrentMediaURL;	// The most current media url from the plugin (via the "location changed" or "navigate complete" events).
+	std::string mCurrentMimeType;	// The MIME type that caused the currently loaded plugin to be loaded.
 	S32 mLastMouseX;	// save the last mouse coord we get, so when we lose capture we can simulate a mouseup at that point.
 	S32 mLastMouseY;
 	S32 mMediaWidth;
@@ -355,8 +400,11 @@ public:
 	LLMimeDiscoveryResponder *mMimeTypeProbe;
 	bool mMediaAutoPlay;
 	std::string mMediaEntryURL;
-	bool mInNearbyMediaList;	// used by LLFloaterNearbyMedia::refreshList() for performance reasons
+	bool mInNearbyMediaList;	// used by LLPanelNearbyMedia::refreshList() for performance reasons
 	bool mClearCache;
+	LLColor4 mBackgroundColor;
+	bool mNavigateSuspended;
+	bool mNavigateSuspendedDeferred;
 	
 private:
 	BOOL mIsUpdated ;

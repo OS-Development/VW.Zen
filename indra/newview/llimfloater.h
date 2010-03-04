@@ -58,13 +58,13 @@ public:
 	// LLView overrides
 	/*virtual*/ BOOL postBuild();
 	/*virtual*/ void setVisible(BOOL visible);
+	/*virtual*/ BOOL getVisible();
 	// Check typing timeout timer.
 	/*virtual*/ void draw();
 
 	// LLFloater overrides
 	/*virtual*/ void onClose(bool app_quitting);
 	/*virtual*/ void setDocked(bool docked, bool pop_on_undock = true);
-	/*virtual*/ void setTornOff(bool torn_off);
 
 	// Make IM conversion visible and update the message history
 	static LLIMFloater* show(const LLUUID& session_id);
@@ -75,10 +75,13 @@ public:
 
 	static LLIMFloater* findInstance(const LLUUID& session_id);
 
+	static LLIMFloater* getInstance(const LLUUID& session_id);
+
 	void sessionInitReplyReceived(const LLUUID& im_session_id);
 
 	// get new messages from LLIMModel
 	void updateMessages();
+	void reloadMessages();
 	static void onSendMsg( LLUICtrl*, void*);
 	void sendMsg();
 
@@ -112,6 +115,10 @@ public:
 
 	//used as a callback on receiving new IM message
 	static void sRemoveTypingIndicator(const LLSD& data);
+
+	static void onIMChicletCreated(const LLUUID& session_id);
+
+	virtual LLTransientFloaterMgr::ETransientGroup getGroup() { return LLTransientFloaterMgr::IM; }
 
 private:
 	// process focus events to set a currently active session

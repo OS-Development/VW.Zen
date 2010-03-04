@@ -144,6 +144,7 @@ void LLNearbyChatToastPanel::init(LLSD& notification)
 	std::string		messageText = notification["message"].asString();		// UTF-8 line of text
 	std::string		fromName = notification["from"].asString();	// agent or object name
 	mFromID = notification["from_id"].asUUID();		// agent id or object id
+	mFromName = fromName;
 	
 	int sType = notification["source"].asInteger();
     mSourceType = (EChatSourceType)sType;
@@ -168,30 +169,30 @@ void LLNearbyChatToastPanel::init(LLSD& notification)
 
 	msg_text->setText(std::string(""));
 
-	std::string str_sender;
-	
-	if(gAgentID != mFromID)
-		str_sender = fromName;
-	else
-		str_sender = LLTrans::getString("You");
-
-	str_sender+=" ";
-
-	//append user name
+	if ( notification["chat_style"].asInteger() != CHAT_STYLE_IRC )
 	{
-		LLStyle::Params style_params_name;
+		std::string str_sender;
 
-		LLColor4 userNameColor = LLUIColorTable::instance().getColor("ChatToastAgentNameColor");
+		str_sender = fromName;
 
-		style_params_name.color(userNameColor);
-		
-		std::string font_name = LLFontGL::nameFromFont(messageFont);
-		std::string font_style_size = LLFontGL::sizeFromFont(messageFont);
-		style_params_name.font.name(font_name);
-		style_params_name.font.size(font_style_size);
-		
-		msg_text->appendText(str_sender, FALSE, style_params_name);
-		
+		str_sender+=" ";
+
+		//append user name
+		{
+			LLStyle::Params style_params_name;
+
+			LLColor4 userNameColor = LLUIColorTable::instance().getColor("ChatToastAgentNameColor");
+
+			style_params_name.color(userNameColor);
+
+			std::string font_name = LLFontGL::nameFromFont(messageFont);
+			std::string font_style_size = LLFontGL::sizeFromFont(messageFont);
+			style_params_name.font.name(font_name);
+			style_params_name.font.size(font_style_size);
+
+			msg_text->appendText(str_sender, FALSE, style_params_name);
+
+		}
 	}
 
 	//append text
@@ -258,8 +259,12 @@ BOOL	LLNearbyChatToastPanel::handleMouseDown	(S32 x, S32 y, MASK mask)
 
 BOOL	LLNearbyChatToastPanel::handleMouseUp	(S32 x, S32 y, MASK mask)
 {
+	/*
+	fix for request  EXT-4780
+	leaving this commented since I don't remember why ew block those messages...
 	if(mSourceType != CHAT_SOURCE_AGENT)
 		return LLPanel::handleMouseUp(x,y,mask);
+    */
 
 	LLChatMsgBox* text_box = getChild<LLChatMsgBox>("msg_text", false);
 	S32 local_x = x - text_box->getRect().mLeft;
@@ -317,7 +322,10 @@ void LLNearbyChatToastPanel::draw()
 		if(icon)
 		{
 			icon->setDrawTooltip(mSourceType == CHAT_SOURCE_AGENT);
-			icon->setValue(mFromID);
+			if(mSourceType == CHAT_SOURCE_AGENT)
+				icon->setValue(mFromID);
+			else
+				icon->setValue(LLSD("OBJECT_Icon"));
 		}
 		mIsDirty = false;
 	}

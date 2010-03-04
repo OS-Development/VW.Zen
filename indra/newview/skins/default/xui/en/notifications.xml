@@ -19,7 +19,7 @@
       <button
        default="true"
        index="0"
-       name="OK"
+       name="OK_okbutton"
        text="$yestext"/>
     </form>
   </template>
@@ -29,7 +29,7 @@
       <button
        default="true"
        index="0"
-       name="OK"
+       name="OK_okignore"
        text="$yestext"/>
       <ignore text="$ignoretext"/>
     </form>
@@ -40,11 +40,11 @@
       <button
        default="true"
        index="0"
-       name="OK"
+       name="OK_okcancelbuttons"
        text="$yestext"/>
       <button
        index="1"
-       name="Cancel"
+       name="Cancel_okcancelbuttons"
        text="$notext"/>
     </form>
   </template>
@@ -54,11 +54,11 @@
       <button
        default="true"
        index="0"
-       name="OK"
+       name="OK_okcancelignore"
        text="$yestext"/>
       <button
        index="1"
-       name="Cancel"
+       name="Cancel_okcancelignore"
        text="$notext"/>
       <ignore text="$ignoretext"/>
     </form>
@@ -69,7 +69,7 @@
       <button
        default="true"
        index="0"
-       name="OK"
+       name="OK_okhelpbuttons"
        text="$yestext"/>
       <button
        index="1"
@@ -91,7 +91,7 @@
        text="$notext"/>
       <button
        index="2"
-       name="Cancel"
+       name="Cancel_yesnocancelbuttons"
        text="$canceltext"/>
     </form>
   </template>
@@ -157,7 +157,7 @@ No tutorial is currently available.
  An error occurred while updating [APP_NAME].  Please [http://get.secondlife.com download the latest version] of the Viewer.
     <usetemplate
      name="okbutton"
-     yestext="Ok"/>
+     yestext="OK"/>
   </notification>
 
   <notification
@@ -169,7 +169,7 @@ Could not connect to the [SECOND_LIFE_GRID].
 Make sure your Internet connection is working properly.
 	<usetemplate
      name="okbutton"
-     yestext="Ok"/>
+     yestext="OK"/>
   </notification>
 
   <notification
@@ -179,7 +179,7 @@ Make sure your Internet connection is working properly.
 Message Template [PATH] not found.
 	<usetemplate
      name="okbutton"
-     yestext="Ok"/>
+     yestext="OK"/>
   </notification>
 
   <notification
@@ -244,9 +244,19 @@ Save all changes to clothing/body parts?
 
   <notification
    icon="alertmodal.tga"
+   name="FriendsAndGroupsOnly"
+   type="alertmodal">
+    Non-friends won't know that you've choosen to ignore their calls and instant messages.
+    <usetemplate
+     name="okbutton"
+     yestext="OK"/>
+  </notification>
+
+  <notification
+   icon="alertmodal.tga"
    name="GrantModifyRights"
    type="alertmodal">
-Granting modify rights to another resident allows them to change, delete or take ANY objects you may have in-world. Be VERY careful when handing out this permission.
+Granting modify rights to another Resident allows them to change, delete or take ANY objects you may have in-world. Be VERY careful when handing out this permission.
 Do you want to grant modify rights for [FIRST_NAME] [LAST_NAME]?
     <usetemplate
      name="okcancelbuttons"
@@ -258,7 +268,7 @@ Do you want to grant modify rights for [FIRST_NAME] [LAST_NAME]?
    icon="alertmodal.tga"
    name="GrantModifyRightsMultiple"
    type="alertmodal">
-Granting modify rights to another resident allows them to change ANY objects you may have in-world. Be VERY careful when handing out this permission.
+Granting modify rights to another Resident allows them to change ANY objects you may have in-world. Be VERY careful when handing out this permission.
 Do you want to grant modify rights for the selected Residents?
     <usetemplate
      name="okcancelbuttons"
@@ -381,14 +391,6 @@ Add this Ability to &apos;[ROLE_NAME]&apos;?
      notext="No"
      yestext="Yes"/>
   </notification>
-
-  <notification
-    icon="alertmodal.tga"
-    name="ClickUnimplemented"
-    type="alertmodal">
-Sorry, not implemented yet.
-  </notification>
-
   <notification
    icon="alertmodal.tga"
    name="JoinGroupCanAfford"
@@ -400,6 +402,19 @@ Do you wish to proceed?
      notext="Cancel"
      yestext="Join"/>
   </notification>
+
+  <notification
+   icon="alertmodal.tga"
+   name="JoinGroupNoCost"
+   type="alertmodal">
+You are joining group [NAME].
+Do you wish to proceed?
+    <usetemplate
+     name="okcancelbuttons"
+     notext="Cancel"
+     yestext="Join"/>
+  </notification>
+
 
   <notification
    icon="alertmodal.tga"
@@ -599,7 +614,7 @@ To place the media on only one face, choose Select Face and click on the desired
       notext="Cancel"
       yestext="OK"/>
   </notification>
-  
+
   <notification
    icon="alertmodal.tga"
    name="MustBeInParcel"
@@ -773,6 +788,16 @@ Save changes to classified [NAME]?
 
   <notification
    icon="alertmodal.tga"
+   name="ClassifiedInsufficientFunds"
+   type="alertmodal">
+Insufficient funds to create classified.
+    <usetemplate
+     name="okbutton"
+     yestext="OK"/>
+  </notification>
+
+  <notification
+   icon="alertmodal.tga"
    name="DeleteAvatarPick"
    type="alertmodal">
 Delete pick [PICK]?
@@ -811,6 +836,7 @@ Please select a proposal to view.
 Please select a history item to view.
   </notification>
 
+<!--
   <notification
    icon="alertmodal.tga"
    name="ResetShowNextTimeDialogs"
@@ -832,6 +858,7 @@ Would you like to disable all popups which can be skipped?
      notext="Cancel"
      yestext="OK"/>
   </notification>
+-->
 
   <notification
    icon="alertmodal.tga"
@@ -1007,10 +1034,9 @@ Unable to write file [[FILE]]
    icon="alertmodal.tga"
    name="UnsupportedHardware"
    type="alertmodal">
-Warning: Your system does not meet [APP_NAME]&apos;s minimum system requirements. If you continue using [APP_NAME], you may experience poor performance. Unfortunately, the [SUPPORT_SITE] cannot provide technical support for unsupported system configurations.
+Just so you know, your computer does not meet [APP_NAME]&apos;s minimum system requirements. You may experience poor performance. Unfortunately, the [SUPPORT_SITE] can't provide technical support for unsupported system configurations.
 
-MINSPECS
-Do you wish to visit [_URL] for more information?
+Visit [_URL] for more information?
     <url option="0" name="url">
 
 			http://www.secondlife.com/corporate/sysreqs.php
@@ -1026,8 +1052,8 @@ Do you wish to visit [_URL] for more information?
    icon="alertmodal.tga"
    name="UnknownGPU"
    type="alertmodal">
-Your system contains a graphics card that is unknown to [APP_NAME] at this time.
-This is often the case with new hardware that hasn&apos;t been tested yet with [APP_NAME].  [APP_NAME] will most likely run properly, but you may need to adjust your graphics settings to something more appropriate.
+Your system contains a graphics card that [APP_NAME] doesn't recognize.
+This is often the case with new hardware that hasn&apos;t been tested yet with [APP_NAME].  It will probably be ok, but you may need to adjust your graphics settings.
 (Me &gt; Preferences &gt; Graphics).
     <form name="form">
       <ignore name="ignore"
@@ -1400,6 +1426,16 @@ You have added "[LANDMARK_NAME]" to your [FOLDER_NAME] folder.
   </notification>
 
   <notification
+   icon="alert.tga"
+   name="LandmarkAlreadyExists"
+   type="alert">
+You already have a landmark for this location.
+    <usetemplate
+     name="okbutton"
+     yestext="OK"/>
+  </notification>
+
+  <notification
    icon="alertmodal.tga"
    name="CannotCreateLandmarkNotOwner"
    type="alertmodal">
@@ -1495,7 +1531,7 @@ Your search terms were too short so no search was performed.
    icon="alertmodal.tga"
    name="CouldNotTeleportReason"
    type="alertmodal">
-Could not teleport.
+Teleport failed.
 [REASON]
   </notification>
 
@@ -1597,7 +1633,8 @@ Unable to force land ownership because selection spans multiple regions. Please 
    icon="alertmodal.tga"
    name="ForceOwnerAuctionWarning"
    type="alertmodal">
-This parcel is up for auction. Forcing ownership will cancel the auction and potentially make some residents unhappy if bidding has begun. Force ownership?
+This parcel is up for auction. Forcing ownership will cancel the auction and potentially make some Residents unhappy if bidding has begun.
+Force ownership?
     <usetemplate
      name="okcancelbuttons"
      notext="Cancel"
@@ -1691,21 +1728,6 @@ Unable to deed land:
 Multiple parcels selected.
 
 Try selecting a single parcel.
-  </notification>
-
-  <notification
-   icon="alertmodal.tga"
-   name="ParcelCanPlayMedia"
-   type="alertmodal">
-This location can play streaming media.
-Streaming media requires a fast Internet connection.
-
-Play streaming media when available?
-(You can change this option later under Preferences &gt; Privacy.)
-    <usetemplate
-     name="okcancelbuttons"
-     notext="Disable"
-     yestext="Play Media"/>
   </notification>
 
   <notification
@@ -1947,9 +1969,8 @@ This is usually a temporary failure. Please customize and save the wearable agai
    icon="alertmodal.tga"
    name="YouHaveBeenLoggedOut"
    type="alertmodal">
-You have been logged out of [SECOND_LIFE]:
+Darn. You have been logged out of [SECOND_LIFE]
             [MESSAGE]
-You can still look at existing IM and chat by clicking &apos;View IM &amp; Chat&apos;. Otherwise, click &apos;Quit&apos; to exit [APP_NAME] immediately.
     <usetemplate
      name="okcancelbuttons"
      notext="Quit"
@@ -2275,6 +2296,9 @@ Display settings have been set to recommended levels based on your system config
    name="ErrorMessage"
    type="alertmodal">
 [ERROR_MESSAGE]
+    <usetemplate
+     name="okbutton"
+     yestext="OK"/>
   </notification>
 
   <notification
@@ -2908,11 +2932,20 @@ Chat and instant messages will be hidden. Instant messages will get your Busy mo
    type="alert">
 You have reached your maximum number of groups. Please leave another group before joining this one, or decline the offer.
 [NAME] has invited you to join a group as a member.
-[INVITE]
     <usetemplate
      name="okcancelbuttons"
      notext="Decline"
      yestext="Join"/>
+  </notification>
+
+  <notification
+   icon="alert.tga"
+   name="JoinedTooManyGroups"
+   type="alert">
+You have reached your maximum number of groups. Please leave some group before joining or creating a new one.
+    <usetemplate
+     name="okbutton"
+     yestext="OK"/>
   </notification>
 
   <notification
@@ -3045,7 +3078,7 @@ Join me in [REGION]
    icon="alertmodal.tga"
    name="TeleportFromLandmark"
    type="alertmodal">
-Are you sure you want to teleport?
+Are you sure you want to teleport to &lt;nolink&gt;[LOCATION]&lt;/nolink&gt;?
     <usetemplate
      ignoretext="Confirm that I want to teleport to a landmark"
      name="okcancelignore"
@@ -3553,7 +3586,7 @@ Type a short announcement which will be sent to everyone in this region.
 The maturity rating for this region has been updated.
 It may take some time for the change to be reflected on the map.
 
-To enter Adult regions, residents must be Account Verified, either by age-verification or payment-verification.
+To enter Adult regions, Residents must be Account Verified, either by age-verification or payment-verification.
   </notification>
 
   <notification
@@ -3805,10 +3838,10 @@ Are you sure you want to quit?
   <notification
    icon="alertmodal.tga"
    name="HelpReportAbuseEmailLL"
-   type="alertmodal">
+   type="alert">
 Use this tool to report violations of the [http://secondlife.com/corporate/tos.php Terms of Service] and [http://secondlife.com/corporate/cs.php Community Standards].
 
-All reported abuses are investigated and resolved. You can view the resolution by reading the [http://secondlife.com/support/incidentreport.php Incident Report].
+All reported abuses are investigated and resolved.
    <unique/>
   </notification>
 
@@ -4543,8 +4576,8 @@ Click on any landmark to select it, then click &apos;Teleport&apos; at the botto
    icon="notifytip.tga"
    name="TeleportToPerson"
    type="notifytip">
-You can contact residents like &apos;[NAME]&apos; by opening the People panel on the right side of your screen.
-Select the resident from the list, then click &apos;IM&apos; at the bottom of the panel.
+You can contact Residents like &apos;[NAME]&apos; by opening the People panel on the right side of your screen.
+Select the Resident from the list, then click &apos;IM&apos; at the bottom of the panel.
 (You can also double-click on their name in the list, or right-click and choose &apos;IM&apos;).
   </notification>
 
@@ -4601,7 +4634,7 @@ Please select at least one type of content to search (General, Moderate, or Adul
    type="notify">
 [MESSAGE]
   </notification>
-  
+
   <notification
    icon="notify.tga"
    name="EventNotification"
@@ -4693,7 +4726,7 @@ The objects on the selected parcel of land that is owned by [FIRST] [LAST] have 
    icon="notify.tga"
    name="OtherObjectsReturned2"
    type="notify">
-The objects on the selected parcel of land owned by the resident &apos;[NAME]&apos; have been returned to their owner.
+The objects on the selected parcel of land owned by the Resident &apos;[NAME]&apos; have been returned to their owner.
   </notification>
 
   <notification
@@ -4717,7 +4750,7 @@ The objects on the selected parcel that are NOT owned by you have been returned 
    name="ServerObjectMessage"
    type="notify">
 Message from [NAME]:
-[MSG]
+&lt;nolink&gt;[MSG]&lt;/nolink&gt;
   </notification>
 
   <notification
@@ -4974,7 +5007,7 @@ No valid parcel could be found.
    icon="notify.tga"
    name="ObjectGiveItem"
    type="offer">
-An object named [OBJECTFROMNAME] owned by [NAME_SLURL] has given you [OBJECTTYPE]:
+An object named [OBJECTFROMNAME] owned by [NAME_SLURL] has given you this [OBJECTTYPE]:
 [ITEM_SLURL]
     <form name="form">
       <button
@@ -4996,7 +5029,7 @@ An object named [OBJECTFROMNAME] owned by [NAME_SLURL] has given you [OBJECTTYPE
    icon="notify.tga"
    name="ObjectGiveItemUnknownUser"
    type="offer">
-An object named [OBJECTFROMNAME] owned by (an unknown Resident) has given you [OBJECTTYPE]:
+An object named [OBJECTFROMNAME] owned by (an unknown Resident) has given you this [OBJECTTYPE]:
 [ITEM_SLURL]
     <form name="form">
       <button
@@ -5018,7 +5051,7 @@ An object named [OBJECTFROMNAME] owned by (an unknown Resident) has given you [O
    icon="notify.tga"
    name="UserGiveItem"
    type="offer">
-[NAME_SLURL] has given you [OBJECTTYPE]:
+[NAME_SLURL] has given you this [OBJECTTYPE]:
 [ITEM_SLURL]
     <form name="form">
       <button
@@ -5087,6 +5120,14 @@ An object named [OBJECTFROMNAME] owned by (an unknown Resident) has given you [O
 
   <notification
    icon="notify.tga"
+   name="TeleportOfferSent"
+   type="offer">
+	Teleport offer sent to [TO_NAME]
+  </notification>
+
+
+  <notification
+   icon="notify.tga"
    name="GotoURL"
    type="notify">
 [MESSAGE]
@@ -5106,7 +5147,7 @@ An object named [OBJECTFROMNAME] owned by (an unknown Resident) has given you [O
   <notification
    icon="notify.tga"
    name="OfferFriendship"
-   type="alertmodal">
+   type="offer">
 [NAME] is offering friendship.
 
 [MESSAGE]
@@ -5121,13 +5162,9 @@ An object named [OBJECTFROMNAME] owned by (an unknown Resident) has given you [O
        index="1"
        name="Decline"
        text="Decline"/>
-      <button
-       index="2"
-       name="Send IM"
-       text="Send IM"/>
     </form>
   </notification>
-  
+
   <notification
    icon="notify.tga"
    name="FriendshipOffered"
@@ -5167,13 +5204,27 @@ An object named [OBJECTFROMNAME] owned by (an unknown Resident) has given you [O
    type="notify">
 [NAME] declined your friendship offer.
   </notification>
+  
+    <notification
+   icon="notify.tga"
+   name="FriendshipAcceptedByMe"
+   type="offer">
+Friendship offer accepted.
+  </notification>
 
+  <notification
+   icon="notify.tga"
+   name="FriendshipDeclinedByMe"
+   type="offer">
+Friendship offer declined.
+  </notification>
+  
   <notification
    icon="notify.tga"
    name="OfferCallingCard"
    type="notify">
 [FIRST] [LAST] is offering their calling card.
-This will add a bookmark in your inventory so you can quickly IM this resident.
+This will add a bookmark in your inventory so you can quickly IM this Resident.
     <form name="form">
       <button
        index="0"
@@ -5349,6 +5400,7 @@ Grant this request?
     </form>
   </notification>
 
+<!--
   <notification
    icon="notify.tga"
    name="FirstBalanceIncrease"
@@ -5364,6 +5416,7 @@ Your L$ balance is shown in the upper-right.
 You just paid L$[AMOUNT].
 Your L$ balance is shown in the upper-right.
   </notification>
+-->
 
   <notification
    icon="notify.tga"
@@ -5375,6 +5428,8 @@ Your L$ balance will be updated when processing completes. If processing takes m
 
 The status of your payment can be checked on your Transaction History page on your [http://secondlife.com/account/ Dashboard]
   </notification>
+
+<!--
   <notification
    icon="notify.tga"
    name="FirstSit"
@@ -5399,6 +5454,7 @@ Use the controls on the right to find things and display different backgrounds.
    type="notify">
 You have opened the Build Tools. Every object you see around you was created using these tools.
   </notification>
+-->
 
 <!--
   <notification
@@ -5409,13 +5465,15 @@ You have opened the Build Tools. Every object you see around you was created usi
     If the mouse pointer changes to a hand, you can interact with the object.
     Right-click always shows a menu of things you can do.
   </notification>
--->
+
   <notification
    icon="notify.tga"
    name="FirstTeleport"
    type="notify">
 You can only teleport to certain areas in this region. The arrow points to your specific destination. Click the arrow to dismiss it.
   </notification>
+
+-->
 
   <notification
    icon="notify.tga"
@@ -5427,6 +5485,7 @@ Some objects (like guns) require you to go into mouselook  to use them.
 Press &apos;M&apos; to do this.
   </notification>
 
+<!--
   <notification
    icon="notify.tga"
    name="FirstAppearance"
@@ -5446,6 +5505,7 @@ This is your Inventory, which contains items you own.
 * To rez something inworld, drag it onto the ground.
 * To read a notecard, double-click it.
   </notification>
+-->
 
   <notification
    icon="notify.tga"
@@ -5456,6 +5516,7 @@ This is a sandbox area, and is meant to help Residents learn how to build.
 Things you build here will be deleted after you leave, so don&apos;t forget to right-click and choose &apos;Take&apos; to move your creation to your Inventory.
   </notification>
 
+<!--
   <notification
    icon="notify.tga"
    name="FirstFlexible"
@@ -5481,13 +5542,16 @@ To toggle this menu,
    type="notify">
 You are editing a Sculpted prim. Sculpties require a special texture to define their shape.
   </notification>
+-->
 
-  <!--notification
+  <!--
+  <notification
    icon="notify.tga"
    name="FirstMedia"
    type="notify">
     You have begun playing media.  Media can set to play automatically in the preferences window under Audio / Video. Note that this can be a security risk for media sites you do not trust.
-  </notification-->
+  </notification>
+  -->
 
   <notification
    icon="notifytip.tga"
@@ -5767,7 +5831,7 @@ A SLurl was received from an untrusted browser and has been blocked for your sec
    priority="high"
    type="notifytip">
 Multiple SLurls were received from an untrusted browser within a short period.
-They will be blocked for a few seconds for your security. 
+They will be blocked for a few seconds for your security.
   </notification>
 
   <notification name="IMToast" type="notifytoast">
@@ -5785,7 +5849,8 @@ Are you sure you want to close all IMs?
     <usetemplate
      name="okcancelignore"
      notext="Cancel"
-     yestext="Ok"/>
+     yestext="OK"
+     ignoretext="Confirm before I close all IMs"/>
   </notification>
 
   <notification icon="notifytip.tga"

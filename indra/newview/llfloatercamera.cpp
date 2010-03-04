@@ -65,7 +65,7 @@ public:
 	LLPanelCameraZoom();
 
 	/* virtual */ BOOL	postBuild();
-	/* virtual */ void	onOpen(const LLSD& key);
+	/* virtual */ void	draw();
 
 protected:
 	void	onZoomPlusHeldDown();
@@ -73,7 +73,6 @@ protected:
 	void	onSliderValueChanged();
 
 private:
-	F32			mSavedSliderVal;
 	LLButton*	mPlusBtn;
 	LLButton*	mMinusBtn;
 	LLSlider*	mSlider;
@@ -88,8 +87,7 @@ static LLRegisterPanelClassWrapper<LLPanelCameraZoom> t_camera_zoom_panel("camer
 LLPanelCameraZoom::LLPanelCameraZoom()
 :	mPlusBtn( NULL ),
 	mMinusBtn( NULL ),
-	mSlider( NULL ),
-	mSavedSliderVal(0.f)
+	mSlider( NULL )
 {
 	mCommitCallbackRegistrar.add("Zoom.minus", boost::bind(&LLPanelCameraZoom::onZoomPlusHeldDown, this));
 	mCommitCallbackRegistrar.add("Zoom.plus", boost::bind(&LLPanelCameraZoom::onZoomMinusHeldDown, this));
@@ -101,16 +99,13 @@ BOOL LLPanelCameraZoom::postBuild()
 	mPlusBtn  = getChild <LLButton> ("zoom_plus_btn");
 	mMinusBtn = getChild <LLButton> ("zoom_minus_btn");
 	mSlider   = getChild <LLSlider> ("zoom_slider");
-	mSlider->setMinValue(.0f);
-	mSlider->setMaxValue(8.f);
 	return LLPanel::postBuild();
 }
 
-void LLPanelCameraZoom::onOpen(const LLSD& key)
+void LLPanelCameraZoom::draw()
 {
-	LLVector3d to_focus = gAgent.getPosGlobalFromAgent(LLViewerCamera::getInstance()->getOrigin()) - gAgent.calcFocusPositionTargetGlobal();
-	mSavedSliderVal = 8.f - (F32)to_focus.magVec(); // maximum minus current
-	mSlider->setValue( mSavedSliderVal );
+	mSlider->setValue(gAgent.getCameraZoomFraction());
+	LLPanel::draw();
 }
 
 void LLPanelCameraZoom::onZoomPlusHeldDown()
@@ -135,13 +130,8 @@ void LLPanelCameraZoom::onZoomMinusHeldDown()
 
 void  LLPanelCameraZoom::onSliderValueChanged()
 {
-	F32 val	 = mSlider->getValueF32();
-	F32 rate = val - mSavedSliderVal;
-
-	gAgent.unlockView();
-	gAgent.cameraOrbitIn(rate);
-
-	mSavedSliderVal = val;
+	F32 zoom_level = mSlider->getValueF32();
+	gAgent.setCameraZoomFraction(zoom_level);
 }
 
 void activate_camera_tool()
@@ -251,6 +241,7 @@ LLFloaterCamera::LLFloaterCamera(const LLSD& val)
 BOOL LLFloaterCamera::postBuild()
 {
 	setIsChrome(TRUE);
+	setTitleVisible(TRUE); // restore title visibility after chrome applying
 
 	mRotate = getChild<LLJoystickCameraRotate>(ORBIT);
 	mZoom = getChild<LLPanelCameraZoom>(ZOOM);
@@ -303,6 +294,31 @@ void LLFloaterCamera::setMode(ECameraControlMode mode)
 	}
 	
 	updateState();
+}
+
+void LLFloaterCamera::setModeTitle(const ECameraControlMode mode)
+{
+	std::string title; 
+	switch(mode)
+	{
+	case CAMERA_CTRL_MODE_ORBIT:
+		title = getString("orbit_mode_title");
+		break;
+	case CAMERA_CTRL_MODE_PAN:
+		title = getString("pan_mode_title");
+		break;
+	case CAMERA_CTRL_MODE_AVATAR_VIEW:
+		title = getString("avatar_view_mode_title");
+		break;
+	case CAMERA_CTRL_MODE_FREE_CAMERA:
+		title = getString("free_mode_title");
+		break;
+	default:
+		// title should be provided for all modes
+		llassert(false);
+		break;
+	}
+	setTitle(title);
 }
 
 void LLFloaterCamera::switchMode(ECameraControlMode mode)
@@ -364,6 +380,10 @@ void LLFloaterCamera::updateState()
 	childSetVisible(ZOOM, CAMERA_CTRL_MODE_AVATAR_VIEW != mCurrMode);
 	childSetVisible(PRESETS, CAMERA_CTRL_MODE_AVATAR_VIEW == mCurrMode);
 
+	updateCameraPresetButtons();
+	setModeTitle(mCurrMode);
+
+
 	//hiding or showing the panel with controls by reshaping the floater
 	bool showControls = CAMERA_CTRL_MODE_FREE_CAMERA != mCurrMode;
 	if (showControls == childIsVisible(CONTROLS)) return;
@@ -394,6 +414,16 @@ void LLFloaterCamera::updateState()
 	}
 }
 
+void LLFloaterCamera::updateCameraPresetButtons()
+{
+	ECameraPreset preset = (ECameraPreset) gSavedSettings.getU32("CameraPreset");
+	
+	childSetValue("rear_view",		preset == CAMERA_PRESET_REAR_VIEW);
+	childSetValue("group_view",		preset == CAMERA_PRESET_GROUP_VIEW);
+	childSetValue("front_view",		preset == CAMERA_PRESET_FRONT_VIEW);
+	childSetValue("mouselook_view",	gAgent.cameraMouselook());
+}
+
 void LLFloaterCamera::onClickCameraPresets(const LLSD& param)
 {
 	std::string name = param.asString();
@@ -415,4 +445,7 @@ void LLFloaterCamera::onClickCameraPresets(const LLSD& param)
 		gAgent.changeCameraToMouselook();
 	}
 
+	LLFloaterCamera* camera_floater = LLFloaterCamera::findInstance();
+	if (camera_floater)
+		camera_floater->updateCameraPresetButtons();
 }

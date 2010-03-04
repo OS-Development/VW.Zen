@@ -62,6 +62,7 @@ class LLLineEditor;
 class LLMenuGL;
 class LLScrollContainer;
 class LLUICtrl;
+class LLTextBox;
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Class LLFolderViewFunctor
@@ -162,7 +163,7 @@ public:
 
 	virtual S32 extendSelection(LLFolderViewItem* selection, LLFolderViewItem* last_selected, LLDynamicArray<LLFolderViewItem*>& items);
 
-	virtual BOOL getSelectionList(std::set<LLUUID> &selection);
+	virtual BOOL getSelectionList(std::set<LLUUID> &selection) const;
 
 	// make sure if ancestor is selected, descendents are not
 	void sanitizeSelection();
@@ -266,6 +267,9 @@ public:
 	LLPanel* getParentPanel() { return mParentPanel; }
 	// DEBUG only
 	void dumpSelectionInformation();
+
+	virtual S32	notify(const LLSD& info) ;
+	void setEnableScroll(bool enable_scroll) { mEnableScroll = enable_scroll; }
 	
 private:
 	void updateRenamerPosition();
@@ -278,6 +282,9 @@ protected:
 
 	void finishRenamingItem( void );
 	void closeRenamer( void );
+
+	bool selectFirstItem();
+	bool selectLastItem();
 	
 protected:
 	LLHandle<LLView>					mPopupMenuHandle;
@@ -294,6 +301,7 @@ protected:
 	LLLineEditor*					mRenamer;
 
 	BOOL							mNeedsScroll;
+	bool							mEnableScroll;
 	BOOL							mPinningSelectedItem;
 	LLRect							mScrollConstraintRect;
 	BOOL							mNeedsAutoSelect;
@@ -322,7 +330,7 @@ protected:
 	
 	LLUUID							mSelectThisID; // if non null, select this item
 	
-	LLPanel*				mParentPanel;
+	LLPanel*						mParentPanel;
 
 	/**
 	 * Is used to determine if we need to cut text In LLFolderViewItem to avoid horizontal scroll.
@@ -339,6 +347,8 @@ protected:
 	
 public:
 	static F32 sAutoOpenTime;
+	LLTextBox*						mStatusTextBox;
+
 };
 
 bool sort_item_name(LLFolderViewItem* a, LLFolderViewItem* b);

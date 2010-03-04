@@ -32,6 +32,9 @@
  */
 
 #include "llviewerprecompiledheaders.h"
+
+#include "llcommandhandler.h"
+#include "llfloaterreg.h"
 #include "llfloatersearch.h"
 #include "llmediactrl.h"
 #include "lllogininstance.h"
@@ -40,6 +43,42 @@
 #include "llui.h"
 #include "llviewercontrol.h"
 #include "llweb.h"
+
+// support secondlife:///app/search/{CATEGORY}/{QUERY} SLapps
+class LLSearchHandler : public LLCommandHandler
+{
+public:
+	// requires trusted browser to trigger
+	LLSearchHandler() : LLCommandHandler("search", UNTRUSTED_THROTTLE) { }
+	bool handle(const LLSD& tokens, const LLSD& query_map, LLMediaCtrl* web)
+	{
+		const size_t parts = tokens.size();
+
+		// get the (optional) category for the search
+		std::string category;
+		if (parts > 0)
+		{
+			category = tokens[0].asString();
+		}
+
+		// get the (optional) search string
+		std::string search_text;
+		if (parts > 1)
+		{
+			search_text = tokens[1].asString();
+		}
+
+		// create the LLSD arguments for the search floater
+		LLSD args;
+		args["category"] = category;
+		args["id"] = LLURI::unescape(search_text);
+
+		// open the search floater and perform the requested search
+		LLFloaterReg::showInstance("search", args);
+		return true;
+	}
+};
+LLSearchHandler gSearchHandler;
 
 LLFloaterSearch::LLFloaterSearch(const LLSD& key) :
 	LLFloater(key),
@@ -79,11 +118,9 @@ void LLFloaterSearch::onOpen(const LLSD& key)
 
 void LLFloaterSearch::onClose(bool app_quitting)
 {
-	if (! app_quitting)
-	{
-		// Show the blank home page ready for the next onOpen()
-		mBrowser->navigateHome();
-	}
+	// tear down the web view so we don't show the previous search
+	// result when the floater is opened next time
+	destroy();
 }
 
 void LLFloaterSearch::handleMediaEvent(LLPluginClassMedia *self, EMediaEvent event)
@@ -118,11 +155,6 @@ void LLFloaterSearch::search(const LLSD &key)
 	{
 		return;
 	}
-
-	// display the blank home page first, to clear the display of 
-	// any previous search results while the new results load.
-	// The home page is set in floater_search.xml as start_url.
-	mBrowser->navigateHome();
 
 	// reset the god level warning as we're sending the latest state
 	childHide("refresh_search");

@@ -35,12 +35,13 @@
 #include "llfloaterinventory.h"
 
 #include "llagent.h"
-#include "llfirstuse.h"
+//#include "llfirstuse.h"
 #include "llfloaterreg.h"
 #include "llinventorymodel.h"
 #include "llpanelmaininventory.h"
 #include "llresmgr.h"
 #include "llviewerfoldertype.h"
+#include "lltransientfloatermgr.h"
 
 ///----------------------------------------------------------------------------
 /// LLFloaterInventory
@@ -49,10 +50,12 @@
 LLFloaterInventory::LLFloaterInventory(const LLSD& key)
 	: LLFloater(key)
 {
+	LLTransientFloaterMgr::getInstance()->addControlView(this);
 }
 
 LLFloaterInventory::~LLFloaterInventory()
 {
+	LLTransientFloaterMgr::getInstance()->removeControlView(this);
 }
 
 BOOL LLFloaterInventory::postBuild()
@@ -135,5 +138,5 @@ void LLFloaterInventory::cleanup()
 
 void LLFloaterInventory::onOpen(const LLSD& key)
 {
-	LLFirstUse::useInventory();
+	//LLFirstUse::useInventory();
 }

@@ -151,14 +151,16 @@ S32 LLFontGL::render(const LLWString &wstr, S32 begin_offset, F32 x, F32 y, cons
 		}
 	}
 
-	gGL.pushMatrix();
-	glLoadIdentity();
-	gGL.translatef(floorf(sCurOrigin.mX*sScaleX), floorf(sCurOrigin.mY*sScaleY), sCurOrigin.mZ);
+	gGL.pushUIMatrix();
+
+	gGL.loadUIIdentity();
+	
+	gGL.translateUI(floorf(sCurOrigin.mX*sScaleX), floorf(sCurOrigin.mY*sScaleY), sCurOrigin.mZ);
 
 	// this code snaps the text origin to a pixel grid to start with
 	F32 pixel_offset_x = llround((F32)sCurOrigin.mX) - (sCurOrigin.mX);
 	F32 pixel_offset_y = llround((F32)sCurOrigin.mY) - (sCurOrigin.mY);
-	gGL.translatef(-pixel_offset_x, -pixel_offset_y, 0.f);
+	gGL.translateUI(-pixel_offset_x, -pixel_offset_y, 0.f);
 
 	LLFastTimer t(FTM_RENDER_FONTS);
 
@@ -246,14 +248,18 @@ S32 LLFontGL::render(const LLWString &wstr, S32 begin_offset, F32 x, F32 y, cons
 	}
 
 
-	// Remember last-used texture to avoid unnecesssary bind calls.
-	LLImageGL *last_bound_texture = NULL;
+	const LLFontGlyphInfo* next_glyph = NULL;
 
 	for (i = begin_offset; i < begin_offset + length; i++)
 	{
 		llwchar wch = wstr[i];
 
-		const LLFontGlyphInfo* fgi= mFontFreetype->getGlyphInfo(wch);
+		const LLFontGlyphInfo* fgi = next_glyph;
+		next_glyph = NULL;
+		if(!fgi)
+		{
+			fgi = mFontFreetype->getGlyphInfo(wch);
+		}
 		if (!fgi)
 		{
 			llerrs << "Missing Glyph Info" << llendl;
@@ -261,12 +267,8 @@ S32 LLFontGL::render(const LLWString &wstr, S32 begin_offset, F32 x, F32 y, cons
 		}
 		// Per-glyph bitmap texture.
 		LLImageGL *image_gl = mFontFreetype->getFontBitmapCache()->getImageGL(fgi->mBitmapNum);
-		if (last_bound_texture != image_gl)
-		{
-			gGL.getTexUnit(0)->bind(image_gl);
-			last_bound_texture = image_gl;
-		}
-
+		gGL.getTexUnit(0)->bind(image_gl);
+	
 		if ((start_x + scaled_max_pixels) < (cur_x + fgi->mXBearing + fgi->mWidth))
 		{
 			// Not enough room for this character.
@@ -295,7 +297,8 @@ S32 LLFontGL::render(const LLWString &wstr, S32 begin_offset, F32 x, F32 y, cons
 		if (next_char && (next_char < LAST_CHARACTER))
 		{
 			// Kern this puppy.
-			cur_x += mFontFreetype->getXKerning(wch, next_char);
+			next_glyph = mFontFreetype->getGlyphInfo(next_char);
+			cur_x += mFontFreetype->getXKerning(fgi, next_glyph);
 		}
 
 		// Round after kerning.
@@ -330,10 +333,7 @@ S32 LLFontGL::render(const LLWString &wstr, S32 begin_offset, F32 x, F32 y, cons
 		
 		// recursively render ellipses at end of string
 		// we've already reserved enough room
-		gGL.pushMatrix();
-		//glLoadIdentity();
-		//gGL.translatef(sCurOrigin.mX, sCurOrigin.mY, 0.0f);
-		//glScalef(sScaleX, sScaleY, 1.f);
+		gGL.pushUIMatrix();
 		renderUTF8(std::string("..."), 
 				0,
 				cur_x / sScaleX, (F32)y,
@@ -344,10 +344,10 @@ S32 LLFontGL::render(const LLWString &wstr, S32 begin_offset, F32 x, F32 y, cons
 				S32_MAX, max_pixels,
 				right_x,
 				FALSE); 
-		gGL.popMatrix();
+		gGL.popUIMatrix();
 	}
 
-	gGL.popMatrix();
+	gGL.popUIMatrix();
 
 	return chars_drawn;
 }
@@ -435,14 +435,21 @@ F32 LLFontGL::getWidthF32(const llwchar* wchars, S32 begin_offset, S32 max_chars
 	F32 cur_x = 0;
 	const S32 max_index = begin_offset + max_chars;
 
+	const LLFontGlyphInfo* next_glyph = NULL;
+
 	F32 width_padding = 0.f;
 	for (S32 i = begin_offset; i < max_index && wchars[i] != 0; i++)
 	{
 		llwchar wch = wchars[i];
 
-		const LLFontGlyphInfo* fgi= mFontFreetype->getGlyphInfo(wch);
+		const LLFontGlyphInfo* fgi = next_glyph;
+		next_glyph = NULL;
+		if(!fgi)
+		{
+			fgi = mFontFreetype->getGlyphInfo(wch);
+		}
 
-		F32 advance = mFontFreetype->getXAdvance(wch);
+		F32 advance = mFontFreetype->getXAdvance(fgi);
 
 		// for the last character we want to measure the greater of its width and xadvance values
 		// so keep track of the difference between these values for the each character we measure
@@ -459,7 +466,8 @@ F32 LLFontGL::getWidthF32(const llwchar* wchars, S32 begin_offset, S32 max_chars
 			&& (next_char < LAST_CHARACTER))
 		{
 			// Kern this puppy.
-			cur_x += mFontFreetype->getXKerning(wch, next_char);
+			next_glyph = mFontFreetype->getGlyphInfo(next_char);
+			cur_x += mFontFreetype->getXKerning(fgi, next_glyph);
 		}
 		// Round after kerning.
 		cur_x = (F32)llround(cur_x);
@@ -472,7 +480,7 @@ F32 LLFontGL::getWidthF32(const llwchar* wchars, S32 begin_offset, S32 max_chars
 }
 
 // Returns the max number of complete characters from text (up to max_chars) that can be drawn in max_pixels
-S32 LLFontGL::maxDrawableChars(const llwchar* wchars, F32 max_pixels, S32 max_chars, BOOL end_on_word_boundary) const
+S32 LLFontGL::maxDrawableChars(const llwchar* wchars, F32 max_pixels, S32 max_chars, EWordWrapStyle end_on_word_boundary) const
 {
 	if (!wchars || !wchars[0] || max_chars == 0)
 	{
@@ -492,6 +500,8 @@ S32 LLFontGL::maxDrawableChars(const llwchar* wchars, F32 max_pixels, S32 max_ch
 	// avoid S32 overflow when max_pixels == S32_MAX by staying in floating point
 	F32 scaled_max_pixels =	ceil(max_pixels * sScaleX);
 	F32 width_padding = 0.f;
+	
+	LLFontGlyphInfo* next_glyph = NULL;
 
 	S32 i;
 	for (i=0; (i < max_chars); i++)
@@ -534,8 +544,13 @@ S32 LLFontGL::maxDrawableChars(const llwchar* wchars, F32 max_pixels, S32 max_ch
 				in_word = TRUE;
 			}
 		}
-
-		LLFontGlyphInfo* fgi = mFontFreetype->getGlyphInfo(wch);
+		
+		LLFontGlyphInfo* fgi = next_glyph;
+		next_glyph = NULL;
+		if(!fgi)
+		{
+			fgi = mFontFreetype->getGlyphInfo(wch);
+		}
 
 		// account for glyphs that run beyond the starting point for the next glyphs
 		width_padding = llmax(	0.f,													// always use positive padding amount
@@ -554,7 +569,8 @@ S32 LLFontGL::maxDrawableChars(const llwchar* wchars, F32 max_pixels, S32 max_ch
 		if (((i+1) < max_chars) && wchars[i+1])
 		{
 			// Kern this puppy.
-			cur_x += mFontFreetype->getXKerning(wch, wchars[i+1]);
+			next_glyph = mFontFreetype->getGlyphInfo(wchars[i+1]);
+			cur_x += mFontFreetype->getXKerning(fgi, next_glyph);
 		}
 
 		// Round after kerning.
@@ -562,9 +578,24 @@ S32 LLFontGL::maxDrawableChars(const llwchar* wchars, F32 max_pixels, S32 max_ch
 		drawn_x = cur_x;
 	}
 
-	if( clip && end_on_word_boundary && (start_of_last_word != 0) )
+	if( clip )
 	{
-		i = start_of_last_word;
+		switch (end_on_word_boundary)
+		{
+		case ONLY_WORD_BOUNDARIES:
+			i = start_of_last_word;
+			break;
+		case WORD_BOUNDARY_IF_POSSIBLE:
+			if (start_of_last_word != 0)
+			{
+				i = start_of_last_word;
+			}
+			break;
+		default:
+		case ANYWHERE:
+			// do nothing
+			break;
+		}
 	}
 	return i;
 }
@@ -586,14 +617,20 @@ S32	LLFontGL::firstDrawableChar(const llwchar* wchars, F32 max_pixels, S32 text_
 	{
 		llwchar wch = wchars[i];
 
-		F32 char_width = mFontFreetype->getXAdvance(wch);
+		const LLFontGlyphInfo* fgi= mFontFreetype->getGlyphInfo(wch);
 
-		if( scaled_max_pixels < (total_width + char_width) )
+		// last character uses character width, since the whole character needs to be visible
+		// other characters just use advance
+		F32 width = (i == start) 
+			? (F32)(fgi->mWidth + fgi->mXBearing)  	// use actual width for last character
+			: fgi->mXAdvance;						// use advance for all other characters										
+
+		if( scaled_max_pixels < (total_width + width) )
 		{
 			break;
 		}
 
-		total_width += char_width;
+		total_width += width;
 		drawable_chars++;
 
 		if( max_chars >= 0 && drawable_chars >= max_chars )
@@ -611,7 +648,17 @@ S32	LLFontGL::firstDrawableChar(const llwchar* wchars, F32 max_pixels, S32 text_
 		total_width = llround(total_width);
 	}
 
-	return start_pos - drawable_chars;
+	if (drawable_chars == 0)
+	{
+		return start_pos; // just draw last character
+	}
+	else
+	{
+		// if only 1 character is drawable, we want to return start_pos as the first character to draw
+		// if 2 are drawable, return start_pos and character before start_pos, etc.
+		return start_pos + 1 - drawable_chars;
+	}
+	
 }
 
 S32 LLFontGL::charFromPixelOffset(const llwchar* wchars, S32 begin_offset, F32 target_x, F32 max_pixels, S32 max_chars, BOOL round) const
@@ -629,6 +676,8 @@ S32 LLFontGL::charFromPixelOffset(const llwchar* wchars, S32 begin_offset, F32 t
 	const S32 max_index = begin_offset + llmin(S32_MAX - begin_offset, max_chars);
 
 	F32 scaled_max_pixels =	max_pixels * sScaleX;
+	
+	const LLFontGlyphInfo* next_glyph = NULL;
 
 	S32 pos;
 	for (pos = begin_offset; pos < max_index; pos++)
@@ -638,7 +687,15 @@ S32 LLFontGL::charFromPixelOffset(const llwchar* wchars, S32 begin_offset, F32 t
 		{
 			break; // done
 		}
-		F32 char_width = mFontFreetype->getXAdvance(wch);
+		
+		const LLFontGlyphInfo* glyph = next_glyph;
+		next_glyph = NULL;
+		if(!glyph)
+		{
+			glyph = mFontFreetype->getGlyphInfo(wch);
+		}
+		
+		F32 char_width = mFontFreetype->getXAdvance(glyph);
 
 		if (round)
 		{
@@ -664,10 +721,11 @@ S32 LLFontGL::charFromPixelOffset(const llwchar* wchars, S32 begin_offset, F32 t
 		if (((pos + 1) < max_index)
 			&& (wchars[(pos + 1)]))
 		{
-			llwchar next_char = wchars[pos + 1];
 			// Kern this puppy.
-			cur_x += mFontFreetype->getXKerning(wch, next_char);
+			next_glyph = mFontFreetype->getGlyphInfo(wchars[pos + 1]);
+			cur_x += mFontFreetype->getXKerning(glyph, next_glyph);
 		}
+
 
 		// Round after kerning.
 		cur_x = llround(cur_x);

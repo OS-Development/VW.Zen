@@ -39,6 +39,7 @@
 #include "llpanelpeoplemenus.h"
 
 // newview
+#include "llagent.h"
 #include "llagentdata.h"			// for gAgentID
 #include "llavataractions.h"
 #include "llviewermenu.h"			// for gMenuHolder
@@ -53,6 +54,22 @@ NearbyMenu gNearbyMenu;
 ContextMenu::ContextMenu()
 :	mMenu(NULL)
 {
+}
+
+ContextMenu::~ContextMenu()
+{
+	// do not forget delete LLContextMenu* mMenu.
+	// It can have registered Enable callbacks which are called from the LLMenuHolderGL::draw()
+	// via selected item (menu_item_call) by calling LLMenuItemCallGL::buildDrawLabel.
+	// we can have a crash via using callbacks of deleted instance of ContextMenu. EXT-4725
+
+	// menu holder deletes its menus on viewer exit, so we have no way to determine if instance 
+	// of mMenu has already been deleted except of using LLHandle. EXT-4762.
+	if (!mMenuHandle.isDead())
+	{
+		mMenu->die();
+		mMenu = NULL;
+	}
 }
 
 void ContextMenu::show(LLView* spawning_view, const std::vector<LLUUID>& uuids, S32 x, S32 y)
@@ -77,6 +94,7 @@ void ContextMenu::show(LLView* spawning_view, const std::vector<LLUUID>& uuids, 
 	std::copy(uuids.begin(), uuids.end(), mUUIDs.begin());
 
 	mMenu = createMenu();
+	mMenuHandle = mMenu->getHandle();
 	mMenu->show(x, y);
 	LLMenuGL::showPopup(spawning_view, mMenu, x, y);
 }
@@ -104,10 +122,11 @@ LLContextMenu* NearbyMenu::createMenu()
 		const LLUUID& id = mUUIDs.front();
 		registrar.add("Avatar.Profile",			boost::bind(&LLAvatarActions::showProfile,				id));
 		registrar.add("Avatar.AddFriend",		boost::bind(&LLAvatarActions::requestFriendshipDialog,	id));
+		registrar.add("Avatar.RemoveFriend",	boost::bind(&LLAvatarActions::removeFriendDialog, 		id));
 		registrar.add("Avatar.IM",				boost::bind(&LLAvatarActions::startIM,					id));
 		registrar.add("Avatar.Call",			boost::bind(&LLAvatarActions::startCall,				id));
 		registrar.add("Avatar.OfferTeleport",	boost::bind(&NearbyMenu::offerTeleport,					this));
-		registrar.add("Avatar.ShowOnMap",		boost::bind(&LLAvatarActions::startIM,					id));	// *TODO: unimplemented
+		registrar.add("Avatar.ShowOnMap",		boost::bind(&LLAvatarActions::showOnMap,				id));
 		registrar.add("Avatar.Share",			boost::bind(&LLAvatarActions::share,					id));
 		registrar.add("Avatar.Pay",				boost::bind(&LLAvatarActions::pay,						id));
 		registrar.add("Avatar.BlockUnblock",	boost::bind(&LLAvatarActions::toggleBlock,				id));
@@ -126,6 +145,7 @@ LLContextMenu* NearbyMenu::createMenu()
 		// registrar.add("Avatar.AddFriend",	boost::bind(&LLAvatarActions::requestFriendshipDialog,	mUUIDs)); // *TODO: unimplemented
 		registrar.add("Avatar.IM",			boost::bind(&LLAvatarActions::startConference,			mUUIDs));
 		registrar.add("Avatar.Call",		boost::bind(&LLAvatarActions::startAdhocCall,			mUUIDs));
+		registrar.add("Avatar.RemoveFriend",boost::bind(&LLAvatarActions::removeFriendsDialog,		mUUIDs));
 		// registrar.add("Avatar.Share",		boost::bind(&LLAvatarActions::startIM,					mUUIDs)); // *TODO: unimplemented
 		// registrar.add("Avatar.Pay",		boost::bind(&LLAvatarActions::pay,						mUUIDs)); // *TODO: unimplemented
 		enable_registrar.add("Avatar.EnableItem",	boost::bind(&NearbyMenu::enableContextMenuItem,	this, _2));
@@ -147,11 +167,7 @@ bool NearbyMenu::enableContextMenuItem(const LLSD& userdata)
 	if (item == std::string("can_block"))
 	{
 		const LLUUID& id = mUUIDs.front();
-		std::string firstname, lastname;
-		gCacheName->getName(id, firstname, lastname);
-		bool is_linden = !LLStringUtil::compareStrings(lastname, "Linden");
-		bool is_self = id == gAgentID;
-		return !is_self && !is_linden;
+		return LLAvatarActions::canBlock(id);
 	}
 	else if (item == std::string("can_add"))
 	{
@@ -178,25 +194,37 @@ bool NearbyMenu::enableContextMenuItem(const LLSD& userdata)
 	}
 	else if (item == std::string("can_delete"))
 	{
-		const LLUUID& id = mUUIDs.front();
-		return LLAvatarActions::isFriend(id);
-	}
-	else if (item == std::string("can_call"))
-	{
-		bool result = false;
+		// We can remove friends if:
+		// - there are selected people
+		// - and there are only friends among selection.
+
+		bool result = (mUUIDs.size() > 0);
+
 		std::vector<LLUUID>::const_iterator
 			id = mUUIDs.begin(),
 			uuids_end = mUUIDs.end();
 
 		for (;id != uuids_end; ++id)
 		{
-			if (LLAvatarActions::canCall(*id))
+			if ( !LLAvatarActions::isFriend(*id) )
 			{
-				result = true;
+				result = false;
 				break;
 			}
 		}
+
 		return result;
+	}
+	else if (item == std::string("can_call"))
+	{
+		return LLAvatarActions::canCall();
+	}
+	else if (item == std::string("can_show_on_map"))
+	{
+		const LLUUID& id = mUUIDs.front();
+
+		return (LLAvatarTracker::instance().isBuddyOnline(id) && is_agent_mappable(id))
+					|| gAgent.isGodlike();
 	}
 	return false;
 }

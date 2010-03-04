@@ -625,7 +625,9 @@ void LLWearable::writeToAvatar()
 	// Pull params
 	for( LLVisualParam* param = avatar->getFirstVisualParam(); param; param = avatar->getNextVisualParam() )
 	{
-		if( (((LLViewerVisualParam*)param)->getWearableType() == mType) )
+		// cross-wearable parameters are not authoritative, as they are driven by a different wearable. So don't copy the values to the
+		// avatar object if cross wearable. Cross wearable params get their values from the avatar, they shouldn't write the other way.
+		if( (((LLViewerVisualParam*)param)->getWearableType() == mType) && (!((LLViewerVisualParam*)param)->getCrossWearable()) )
 		{
 			S32 param_id = param->getID();
 			F32 weight = getVisualParamWeight(param_id);
@@ -818,16 +820,13 @@ const LLLocalTextureObject* LLWearable::getConstLocalTextureObject(S32 index) co
 	return NULL;
 }
 
-void LLWearable::setLocalTextureObject(S32 index, LLLocalTextureObject *lto)
+void LLWearable::setLocalTextureObject(S32 index, LLLocalTextureObject &lto)
 {
 	if( mTEMap.find(index) != mTEMap.end() )
 	{
 		mTEMap.erase(index);
 	}
-	if( lto )
-	{
-		mTEMap[index] = new LLLocalTextureObject(*lto);
-	}
+	mTEMap[index] = new LLLocalTextureObject(lto);
 }
 
 
@@ -1086,6 +1085,26 @@ void LLWearable::destroyTextures()
 		delete lto;
 	}
 	mSavedTEMap.clear();
+}
+
+void LLWearable::pullCrossWearableValues()
+{
+	// scan through all of the avatar's visual parameters
+	LLVOAvatar* avatar = gAgent.getAvatarObject();
+	for (LLViewerVisualParam* param = (LLViewerVisualParam*) avatar->getFirstVisualParam(); 
+		 param;
+		 param = (LLViewerVisualParam*) avatar->getNextVisualParam())
+	{
+		if( param )
+		{
+			LLDriverParam *driver_param = dynamic_cast<LLDriverParam*>(param);
+			if(driver_param)
+			{
+				// parameter is a driver parameter, have it update its 
+				driver_param->updateCrossDrivenParams(getType());
+			}
+		}
+	}
 }
 
 

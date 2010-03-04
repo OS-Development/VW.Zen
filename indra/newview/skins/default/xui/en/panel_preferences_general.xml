@@ -89,11 +89,12 @@
     <text
  font="SansSerifSmall"
      type="string"
+     text_color="White_50"
      length="1"
      follows="left|top"
      height="18"
      layout="topleft"
-     left_pad="5"
+     left_pad="10"
      name="language_textbox2"
      width="200">
         (Requires restart)
@@ -140,7 +141,34 @@
          label="General"
          name="Desired_PG"
          value="13" />
+        <combo_box.commit_callback
+		 function="Pref.MaturitySettings"/>
     </combo_box>
+    <icon
+     follows="left|top"
+     height="16"
+     image_name="Parcel_PG_Dark"
+     layout="topleft"
+     left_pad="5"
+     name="rating_icon_general"
+     top_delta="3"
+     width="18"/>
+    <icon
+     follows="left|top"
+     height="16"
+     image_name="Parcel_M_Dark"
+     layout="topleft"
+     left_pad="2"
+     name="rating_icon_moderate"
+     width="18"/>
+    <icon
+     follows="left|top"
+     height="16"
+     image_name="Parcel_R_Dark"
+     layout="topleft"
+     left_pad="2"
+     name="rating_icon_adult"
+     width="18"/>
     <text
      type="string"
      length="1"
@@ -179,7 +207,7 @@
      left_pad="5"
      name="show_location_checkbox"
      top_delta="5"
-     width="256" />        
+     width="256" />
    <text
     type="string"
     length="1"
@@ -203,21 +231,21 @@
          layout="topleft"
          name="radio"
          value="0"
-         width="100" />
+         width="75" />
         <radio_item
          label="On"
          layout="topleft"
          left_pad="12"
          name="radio2"
          value="1"
-         width="100" />
+         width="75" />
         <radio_item
          label="Show briefly"
          layout="topleft"
          left_pad="12"
          name="radio3"
-         value="2" 
-         width="100" />
+         value="2"
+         width="160" />
     </radio_group>
     <check_box
 	 enabled_control="AvatarNameTagMode"
@@ -260,7 +288,7 @@
      width="200">
         My effects:
     </text>
-  <text
+    <text
       type="string"
       length="1"
       follows="left|top"
@@ -270,16 +298,23 @@
       name="title_afk_text"
       width="190">
     Away timeout:
-  </text>
+    </text>
     <color_swatch
-     control_name="EffectColor"
+	 can_apply_immediately="true"
      follows="left|top"
      height="50"
      layout="topleft"
      left="50"
      name="effect_color_swatch"
      tool_tip="Click to open Color Picker"
-     width="38" />
+     width="38">
+		<color_swatch.init_callback
+		 function="Pref.getUIColor"
+		 parameter="EffectColor" />
+		<color_swatch.commit_callback
+		 function="Pref.applyUIColor"
+		 parameter="EffectColor" />
+	</color_swatch>
   <combo_box
             height="23"
             layout="topleft"
@@ -316,11 +351,10 @@
      follows="left|top"
      height="13"
      layout="topleft"
-     text_color="white"
      left="30"
      mouse_opaque="false"
      name="text_box3"
-     top_pad="15"
+     top_pad="10"
      width="240">
        Busy mode response:
     </text>
@@ -329,18 +363,16 @@
       text_readonly_color="LabelDisabledColor"
       bg_writeable_color="LtGray"
       use_ellipses="false"
-      bg_visible="true"
-      border_visible="true"
       hover="false"
      commit_on_focus_lost = "true"
      follows="left|top"
-     height="50"
+     height="60"
      layout="topleft"
      left="50"
      name="busy_response"
-     width="400"
+     width="440"
      word_wrap="true">
        log_in_to_change
     </text_editor>
-    
+
 </panel>

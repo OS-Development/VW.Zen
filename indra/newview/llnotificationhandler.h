@@ -122,9 +122,17 @@ protected:
 class LLSysHandler : public LLEventHandler
 {
 public:
+	LLSysHandler();
 	virtual ~LLSysHandler() {};
 
 	virtual bool processNotification(const LLSD& notify)=0;
+
+protected :
+	static void init();
+	void removeExclusiveNotifications(const LLNotificationPtr& notif);
+
+	typedef std::list< std::set<std::string> > exclusive_notif_sets;
+	static exclusive_notif_sets sExclusiveNotificationGroups;
 };
 
 /**
@@ -135,7 +143,7 @@ class LLChatHandler : public LLEventHandler
 public:
 	virtual ~LLChatHandler() {};
 
-	virtual void processChat(const LLChat& chat_msg)=0;
+	virtual void processChat(const LLChat& chat_msg, const LLSD &args)=0;
 };
 
 /**
@@ -171,6 +179,7 @@ public:
 
 protected:
 	virtual void onDeleteToast(LLToast* toast);
+	virtual void onRejectToast(const LLUUID& id);
 	virtual void initChannel();
 };
 
@@ -277,6 +286,11 @@ public:
 	static bool canSpawnIMSession(const LLNotificationPtr& notification);
 
 	/**
+	 * Checks sufficient conditions to add notification toast panel IM floater.
+	 */
+	static bool canAddNotifPanelToIM(const LLNotificationPtr& notification);
+
+	/**
 	 * Checks if passed notification can create IM session and be written into it.
 	 *
 	 * This method uses canLogToIM() & canSpawnIMSession().
@@ -297,6 +311,11 @@ public:
 	static void logToIMP2P(const LLNotificationPtr& notification);
 
 	/**
+	 * Writes notification message to IM  p2p session.
+	 */
+	static void logToIMP2P(const LLNotificationPtr& notification, bool to_file_only);
+
+	/**
 	 * Writes group notice notification message to IM  group session.
 	 */
 	static void logGroupNoticeToIMGroup(const LLNotificationPtr& notification);
@@ -309,7 +328,7 @@ public:
 	/**
 	 * Spawns IM session.
 	 */
-	static void spawnIMSession(const std::string& name, const LLUUID& from_id);
+	static LLUUID spawnIMSession(const std::string& name, const LLUUID& from_id);
 
 	/**
 	 * Returns name from the notification's substitution.
@@ -319,6 +338,11 @@ public:
 	 * @param notification - Notification which substitution's name will be returned.
 	 */
 	static std::string getSubstitutionName(const LLNotificationPtr& notification);
+
+	/**
+	 * Adds notification panel to the IM floater.
+	 */
+	static void addNotifPanelToIM(const LLNotificationPtr& notification);
 };
 
 }

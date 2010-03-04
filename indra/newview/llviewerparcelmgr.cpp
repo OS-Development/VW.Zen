@@ -44,14 +44,16 @@
 #include "llparcel.h"
 #include "llsecondlifeurls.h"
 #include "message.h"
+#include "llfloaterreg.h"
 
 // Viewer includes
 #include "llagent.h"
 #include "llviewerwindow.h"
 #include "llviewercontrol.h"
-#include "llfirstuse.h"
+//#include "llfirstuse.h"
 #include "llfloaterbuyland.h"
 #include "llfloatergroups.h"
+#include "llpanelnearbymedia.h"
 #include "llfloatersellland.h"
 #include "llfloatertools.h"
 #include "llparcelselection.h"
@@ -67,7 +69,6 @@
 #include "llviewerparceloverlay.h"
 #include "llviewerregion.h"
 #include "llworld.h"
-#include "lloverlaybar.h"
 #include "roles_constants.h"
 #include "llweb.h"
 
@@ -665,31 +666,38 @@ bool LLViewerParcelMgr::allowAgentBuild() const
 	}
 }
 
-bool LLViewerParcelMgr::allowAgentVoice() const
+// Return whether anyone can build on the given parcel
+bool LLViewerParcelMgr::allowAgentBuild(const LLParcel* parcel) const
 {
-	LLViewerRegion* region = gAgent.getRegion();
-	return region && region->isVoiceEnabled()
-		&& mAgentParcel	&& mAgentParcel->getParcelFlagAllowVoice();
+	return parcel->getAllowModify();
 }
 
-bool LLViewerParcelMgr::allowAgentFly() const
+bool LLViewerParcelMgr::allowAgentVoice() const
 {
-	LLViewerRegion* region = gAgent.getRegion();
+	return allowAgentVoice(gAgent.getRegion(), mAgentParcel);
+}
+
+bool LLViewerParcelMgr::allowAgentVoice(const LLViewerRegion* region, const LLParcel* parcel) const
+{
+	return region && region->isVoiceEnabled()
+		&& parcel	&& parcel->getParcelFlagAllowVoice();
+}
+
+bool LLViewerParcelMgr::allowAgentFly(const LLViewerRegion* region, const LLParcel* parcel) const
+{
 	return region && !region->getBlockFly()
-		&& mAgentParcel && mAgentParcel->getAllowFly();
+		&& parcel && parcel->getAllowFly();
 }
 
 // Can the agent be pushed around by LLPushObject?
-bool LLViewerParcelMgr::allowAgentPush() const
+bool LLViewerParcelMgr::allowAgentPush(const LLViewerRegion* region, const LLParcel* parcel) const
 {
-	LLViewerRegion* region = gAgent.getRegion();
 	return region && !region->getRestrictPushObject()
-		&& mAgentParcel && !mAgentParcel->getRestrictPushObject();
+		&& parcel && !parcel->getRestrictPushObject();
 }
 
-bool LLViewerParcelMgr::allowAgentScripts() const
+bool LLViewerParcelMgr::allowAgentScripts(const LLViewerRegion* region, const LLParcel* parcel) const
 {
-	LLViewerRegion* region = gAgent.getRegion();
 	// *NOTE: This code does not take into account group-owned parcels
 	// and the flag to allow group-owned scripted objects to run.
 	// This mirrors the traditional menu bar parcel icon code, but is not
@@ -697,15 +705,14 @@ bool LLViewerParcelMgr::allowAgentScripts() const
 	return region
 		&& !(region->getRegionFlags() & REGION_FLAGS_SKIP_SCRIPTS)
 		&& !(region->getRegionFlags() & REGION_FLAGS_ESTATE_SKIP_SCRIPTS)
-		&& mAgentParcel
-		&& mAgentParcel->getAllowOtherScripts();
+		&& parcel
+		&& parcel->getAllowOtherScripts();
 }
 
-bool LLViewerParcelMgr::allowAgentDamage() const
+bool LLViewerParcelMgr::allowAgentDamage(const LLViewerRegion* region, const LLParcel* parcel) const
 {
-	LLViewerRegion* region = gAgent.getRegion();
-	return region && region->getAllowDamage()
-		&& mAgentParcel && mAgentParcel->getAllowDamage();
+	return (region && region->getAllowDamage())
+		|| (parcel && parcel->getAllowDamage());
 }
 
 BOOL LLViewerParcelMgr::isOwnedAt(const LLVector3d& pos_global) const
@@ -1318,13 +1325,36 @@ void LLViewerParcelMgr::sendParcelPropertiesUpdate(LLParcel* parcel, bool use_ag
 
 void LLViewerParcelMgr::setHoverParcel(const LLVector3d& pos)
 {
-	//FIXME: only request parcel info when tooltip is shown
-	return;
-	/*LLViewerRegion* region = LLWorld::getInstance()->getRegionFromPosGlobal( pos );
+	static U32 last_west, last_south;
+
+
+	// only request parcel info when tooltip is shown
+	if (!gSavedSettings.getBOOL("ShowLandHoverTip"))
+	{
+		return;
+	}
+
+	// only request parcel info if position has changed outside of the
+	// last parcel grid step
+	U32 west_parcel_step = (U32) floor( pos.mdV[VX] / PARCEL_GRID_STEP_METERS );
+	U32 south_parcel_step = (U32) floor( pos.mdV[VY] / PARCEL_GRID_STEP_METERS );
+	
+	if ((west_parcel_step == last_west) && (south_parcel_step == last_south))
+	{
+		return;
+	}
+	else 
+	{
+		last_west = west_parcel_step;
+		last_south = south_parcel_step;
+	}
+
+	LLViewerRegion* region = LLWorld::getInstance()->getRegionFromPosGlobal( pos );
 	if (!region)
 	{
 		return;
 	}
+
 
 	// Send a rectangle around the point.
 	// This means the parcel sent back is at least a rectangle around the point,
@@ -1352,7 +1382,7 @@ void LLViewerParcelMgr::setHoverParcel(const LLVector3d& pos)
 	msg->addBOOL("SnapSelection",			FALSE );
 	msg->sendReliable( region->getHost() );
 
-	mHoverRequestResult = PARCEL_RESULT_NO_DATA;*/
+	mHoverRequestResult = PARCEL_RESULT_NO_DATA;
 }
 
 
@@ -1732,10 +1762,16 @@ void LLViewerParcelMgr::processParcelProperties(LLMessageSystem *msg, void **use
 						{
 							optionally_start_music(music_url);
 						}
+						else
+						{
+							llinfos << "Stopping parcel music (invalid audio stream URL)" << llendl;
+							// clears the URL 
+							gAudiop->startInternetStream(LLStringUtil::null); 
+						}
 					}
 					else if (!gAudiop->getInternetStreamURL().empty())
 					{
-						llinfos << "Stopping parcel music" << llendl;
+						llinfos << "Stopping parcel music (parcel stream URL is empty)" << llendl;
 						gAudiop->startInternetStream(LLStringUtil::null);
 					}
 				}
@@ -1754,15 +1790,20 @@ void LLViewerParcelMgr::processParcelProperties(LLMessageSystem *msg, void **use
 
 void optionally_start_music(const std::string& music_url)
 {
-	if (gSavedSettings.getBOOL("AudioStreamingMusic") && gSavedSettings.getBOOL("AudioSteamingMedia"))
+	if (gSavedSettings.getBOOL("AudioStreamingMusic") &&
+	    gSavedSettings.getBOOL("AudioStreamingMedia"))
 	{
-		// Make the user click the start button on the overlay bar. JC
-		//		llinfos << "Starting parcel music " << music_url << llendl;
-
-		// now only play music when you enter a new parcel if the control is in PLAY state
-		// changed as part of SL-4878
-		if ( gOverlayBar && gOverlayBar->musicPlaying())
+		// only play music when you enter a new parcel if the UI control for this
+		// was not *explicitly* stopped by the user. (part of SL-4878)
+		LLPanelNearByMedia* nearby_media_panel = gStatusBar->getNearbyMediaPanel();;
+		if ((nearby_media_panel &&
+		     nearby_media_panel->getParcelAudioAutoStart()) ||
+		    // or they have expressed no opinion in the UI, but have autoplay on...
+		    (!nearby_media_panel &&
+		     gSavedSettings.getBOOL(LLViewerMedia::AUTO_PLAY_MEDIA_SETTING) &&
+			 gSavedSettings.getBOOL("MediaTentativeAutoPlay")))
 		{
+			llinfos << "Starting parcel music " << music_url << llendl;
 			gAudiop->startInternetStream(music_url);
 		}
 	}
@@ -1786,7 +1827,7 @@ void LLViewerParcelMgr::processParcelAccessListReply(LLMessageSystem *msg, void 
 
 	if (parcel_id != parcel->getLocalID())
 	{
-		llwarns << "processParcelAccessListReply for parcel " << parcel_id
+		LL_WARNS_ONCE("") << "processParcelAccessListReply for parcel " << parcel_id
 			<< " which isn't the selected parcel " << parcel->getLocalID()<< llendl;
 		return;
 	}

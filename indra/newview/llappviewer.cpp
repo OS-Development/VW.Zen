@@ -40,6 +40,7 @@
 #include "lluictrlfactory.h"
 #include "lltexteditor.h"
 #include "llerrorcontrol.h"
+#include "lleventtimer.h"
 #include "llviewertexturelist.h"
 #include "llgroupmgr.h"
 #include "llagent.h"
@@ -71,7 +72,7 @@
 #include "lluicolortable.h"
 #include "llurldispatcher.h"
 #include "llurlhistory.h"
-#include "llfirstuse.h"
+//#include "llfirstuse.h"
 #include "llrender.h"
 #include "llteleporthistory.h"
 #include "lllocationhistory.h"
@@ -163,7 +164,6 @@
 #include "llvotree.h"
 #include "llvoavatar.h"
 #include "llfolderview.h"
-#include "lltoolbar.h"
 #include "llagentpilot.h"
 #include "llvovolume.h"
 #include "llflexibleobject.h" 
@@ -304,7 +304,8 @@ static std::string gLaunchFileOnQuit;
 
 // Used on Win32 for other apps to identify our window (eg, win_setup)
 const char* const VIEWER_WINDOW_CLASSNAME = "Second Life";
-
+static const S32 FIRST_RUN_WINDOW_WIDTH = 1024;
+static const S32 FIRST_RUN_WINDOW_HRIGHT = 768;
 //----------------------------------------------------------------------------
 
 // List of entries from strings.xml to always replace
@@ -313,6 +314,7 @@ void init_default_trans_args()
 {
 	default_trans_args.insert("SECOND_LIFE"); // World
 	default_trans_args.insert("APP_NAME");
+	default_trans_args.insert("CAPITALIZED_APP_NAME");
 	default_trans_args.insert("SECOND_LIFE_GRID");
 	default_trans_args.insert("SUPPORT_SITE");
 }
@@ -413,7 +415,6 @@ static void settings_to_globals()
 	LLVOAvatar::sVisibleInFirstPerson	= gSavedSettings.getBOOL("FirstPersonAvatarVisible");
 	// clamp auto-open time to some minimum usable value
 	LLFolderView::sAutoOpenTime			= llmax(0.25f, gSavedSettings.getF32("FolderAutoOpenDelay"));
-	LLToolBar::sInventoryAutoOpenTime	= gSavedSettings.getF32("InventoryAutoOpenDelay");
 	LLSelectMgr::sRectSelectInclusive	= gSavedSettings.getBOOL("RectangleSelectInclusive");
 	LLSelectMgr::sRenderHiddenSelections = gSavedSettings.getBOOL("RenderHiddenSelections");
 	LLSelectMgr::sRenderLightRadius = gSavedSettings.getBOOL("RenderLightRadius");
@@ -925,7 +926,6 @@ bool LLAppViewer::mainLoop()
 {
 	LLMemType mt1(LLMemType::MTYPE_MAIN);
 	mMainloopTimeout = new LLWatchdogTimeout();
-	// *FIX:Mani - Make this a setting, once new settings exist in this branch.
 	
 	//-------------------------------------------
 	// Run main loop until time to quit
@@ -935,12 +935,13 @@ bool LLAppViewer::mainLoop()
 	gServicePump = new LLPumpIO(gAPRPoolp);
 	LLHTTPClient::setPump(*gServicePump);
 	LLCurl::setCAFile(gDirUtilp->getCAFile());
+	LLCurl::setSSLVerify(! gSavedSettings.getBOOL("NoVerifySSLCert"));
 	
 	// Note: this is where gLocalSpeakerMgr and gActiveSpeakerMgr used to be instantiated.
 
 	LLVoiceChannel::initClass();
 	LLVoiceClient::init(gServicePump);
-				
+
 	LLTimer frameTimer,idleTimer;
 	LLTimer debugTime;
 	LLViewerJoystick* joystick(LLViewerJoystick::getInstance());
@@ -1354,9 +1355,6 @@ bool LLAppViewer::cleanup()
 
 	llinfos << "Cache files removed" << llendflush;
 
-
-	cleanup_menus();
-
 	// Wait for any pending VFS IO
 	while (1)
 	{
@@ -1375,7 +1373,7 @@ bool LLAppViewer::cleanup()
 	if( gViewerWindow)
 		gViewerWindow->shutdownViews();
 
-	llinfos << "Cleaning up Inevntory" << llendflush;
+	llinfos << "Cleaning up Inventory" << llendflush;
 	
 	// Cleanup Inventory after the UI since it will delete any remaining observers
 	// (Deleted observers should have already removed themselves)
@@ -1477,10 +1475,17 @@ bool LLAppViewer::cleanup()
 	
 	LLUIColorTable::instance().saveUserSettings();
 
-	// PerAccountSettingsFile should be empty if no use has been logged on.
+	// PerAccountSettingsFile should be empty if no user has been logged on.
 	// *FIX:Mani This should get really saved in a "logoff" mode. 
-	gSavedPerAccountSettings.saveToFile(gSavedSettings.getString("PerAccountSettingsFile"), TRUE);
-	llinfos << "Saved settings" << llendflush;
+	if (gSavedSettings.getString("PerAccountSettingsFile").empty())
+	{
+		llinfos << "Not saving per-account settings; don't know the account name yet." << llendl;
+	}
+	else
+	{
+		gSavedPerAccountSettings.saveToFile(gSavedSettings.getString("PerAccountSettingsFile"), TRUE);
+		llinfos << "Saved settings" << llendflush;
+	}
 
 	std::string crash_settings_filename = gDirUtilp->getExpandedFilename(LL_PATH_USER_SETTINGS, CRASH_SETTINGS_FILE);
 	// save all settings, even if equals defaults
@@ -1675,7 +1680,7 @@ bool LLAppViewer::initThreads()
 	// Image decoding
 	LLAppViewer::sImageDecodeThread = new LLImageDecodeThread(enable_threads && true);
 	LLAppViewer::sTextureCache = new LLTextureCache(enable_threads && true);
-	LLAppViewer::sTextureFetch = new LLTextureFetch(LLAppViewer::getTextureCache(), sImageDecodeThread, enable_threads && false);
+	LLAppViewer::sTextureFetch = new LLTextureFetch(LLAppViewer::getTextureCache(), sImageDecodeThread, enable_threads && true);
 	LLImage::initClass();
 
 	if (LLFastTimer::sLog || LLFastTimer::sMetricLog)
@@ -1914,26 +1919,24 @@ bool LLAppViewer::initConfiguration()
 	// These are warnings that appear on the first experience of that condition.
 	// They are already set in the settings_default.xml file, but still need to be added to LLFirstUse
 	// for disable/reset ability
-	LLFirstUse::addConfigVariable("FirstBalanceIncrease");
-	LLFirstUse::addConfigVariable("FirstBalanceDecrease");
-	LLFirstUse::addConfigVariable("FirstSit");
-	LLFirstUse::addConfigVariable("FirstMap");
-	LLFirstUse::addConfigVariable("FirstGoTo");
-	LLFirstUse::addConfigVariable("FirstBuild");
+//	LLFirstUse::addConfigVariable("FirstBalanceIncrease");
+//	LLFirstUse::addConfigVariable("FirstBalanceDecrease");
+//	LLFirstUse::addConfigVariable("FirstSit");
+//	LLFirstUse::addConfigVariable("FirstMap");
+//	LLFirstUse::addConfigVariable("FirstGoTo");
+//	LLFirstUse::addConfigVariable("FirstBuild");
 //	LLFirstUse::addConfigVariable("FirstLeftClickNoHit");
-	LLFirstUse::addConfigVariable("FirstTeleport");
-	LLFirstUse::addConfigVariable("FirstOverrideKeys");
-	LLFirstUse::addConfigVariable("FirstAttach");
-	LLFirstUse::addConfigVariable("FirstAppearance");
-	LLFirstUse::addConfigVariable("FirstInventory");
-	LLFirstUse::addConfigVariable("FirstSandbox");
-	LLFirstUse::addConfigVariable("FirstFlexible");
-	LLFirstUse::addConfigVariable("FirstDebugMenus");
-	LLFirstUse::addConfigVariable("FirstStreamingMusic");
-	LLFirstUse::addConfigVariable("FirstStreamingVideo");
-	LLFirstUse::addConfigVariable("FirstSculptedPrim");
-	LLFirstUse::addConfigVariable("FirstVoice");
-	LLFirstUse::addConfigVariable("FirstMedia");
+//	LLFirstUse::addConfigVariable("FirstTeleport");
+//	LLFirstUse::addConfigVariable("FirstOverrideKeys");
+//	LLFirstUse::addConfigVariable("FirstAttach");
+//	LLFirstUse::addConfigVariable("FirstAppearance");
+//	LLFirstUse::addConfigVariable("FirstInventory");
+//	LLFirstUse::addConfigVariable("FirstSandbox");
+//	LLFirstUse::addConfigVariable("FirstFlexible");
+//	LLFirstUse::addConfigVariable("FirstDebugMenus");
+//	LLFirstUse::addConfigVariable("FirstSculptedPrim");
+//	LLFirstUse::addConfigVariable("FirstVoice");
+//	LLFirstUse::addConfigVariable("FirstMedia");
 		
 	// - read command line settings.
 	LLControlGroupCLP clp;
@@ -2360,15 +2363,35 @@ bool LLAppViewer::initWindow()
 	// store setting in a global for easy access and modification
 	gNoRender = gSavedSettings.getBOOL("DisableRendering");
 
-	// Hide the splash screen
-	LLSplashScreen::hide();
+	S32 window_x = gSavedSettings.getS32("WindowX");
+	S32 window_y = gSavedSettings.getS32("WindowY");
+	S32 window_width = gSavedSettings.getS32("WindowWidth");
+	S32 window_height = gSavedSettings.getS32("WindowHeight");
+
+	bool show_maximized = gSavedSettings.getBOOL("WindowMaximized");
+
+	bool first_run = gSavedSettings.getBOOL("FirstLoginThisInstall");
+
+	if (first_run)//for first login 
+	{
+		window_width = FIRST_RUN_WINDOW_WIDTH;//yep hardcoded
+		window_height = FIRST_RUN_WINDOW_HRIGHT;
+		
+		//if screen resolution is lower then 1024*768 then show maximized
+		LLDisplayInfo display_info;
+		if(display_info.getDisplayWidth() <= FIRST_RUN_WINDOW_WIDTH
+			|| display_info.getDisplayHeight()<=FIRST_RUN_WINDOW_HRIGHT)
+		{
+			show_maximized = true;
+		}
+	}
 
 	// always start windowed
 	BOOL ignorePixelDepth = gSavedSettings.getBOOL("IgnorePixelDepth");
 	gViewerWindow = new LLViewerWindow(gWindowTitle, 
 		VIEWER_WINDOW_CLASSNAME,
-		gSavedSettings.getS32("WindowX"), gSavedSettings.getS32("WindowY"),
-		gSavedSettings.getS32("WindowWidth"), gSavedSettings.getS32("WindowHeight"),
+		window_x, window_y,
+		window_width, window_height,
 		FALSE, ignorePixelDepth);
 
 	LLNotificationsUI::LLNotificationManager::getInstance();
@@ -2379,7 +2402,7 @@ bool LLAppViewer::initWindow()
 		gViewerWindow->toggleFullscreen(FALSE);
 	}
 	
-	if (gSavedSettings.getBOOL("WindowMaximized"))
+	if (show_maximized)
 	{
 		gViewerWindow->mWindow->maximize();
 		gViewerWindow->getWindow()->setNativeAspectRatio(gSavedSettings.getF32("FullScreenAspectRatio"));
@@ -2678,7 +2701,7 @@ void LLAppViewer::handleViewerCrash()
 		gMessageSystem->stopLogging();
 	}
 
-	LLWorld::getInstance()->getInfo(gDebugInfo);
+	if (LLWorld::instanceExists()) LLWorld::getInstance()->getInfo(gDebugInfo);
 
 	// Close the debug file
 	pApp->writeDebugInfo();
@@ -2886,7 +2909,14 @@ static LLNotificationFunctorRegistration finish_quit_reg("ConfirmQuit", finish_q
 
 void LLAppViewer::userQuit()
 {
-	LLNotificationsUtil::add("ConfirmQuit");
+	if (gDisconnected)
+	{
+		requestQuit();
+	}
+	else
+	{
+		LLNotificationsUtil::add("ConfirmQuit");
+	}
 }
 
 static bool finish_early_exit(const LLSD& notification, const LLSD& response)
@@ -2998,7 +3028,7 @@ bool LLAppViewer::initCache()
 	// Purge cache if it belongs to an old version
 	else
 	{
-		static const S32 cache_version = 5;
+		static const S32 cache_version = 6;
 		if (gSavedSettings.getS32("LocalCacheVersion") != cache_version)
 		{
 			mPurgeCache = true;
@@ -3587,13 +3617,15 @@ void LLAppViewer::idle()
 
 	{
 		// Handle pending gesture processing
+		static LLFastTimer::DeclareTimer ftm("Agent Position");
+		LLFastTimer t(ftm);
 		LLGestureManager::instance().update();
 
 		gAgent.updateAgentPosition(gFrameDTClamped, yaw, current_mouse.mX, current_mouse.mY);
 	}
 
 	{
-		LLFastTimer t(FTM_OBJECTLIST_UPDATE); // Actually "object update"
+		LLFastTimer t(FTM_OBJECTLIST_UPDATE); 
 		
         if (!(logoutRequestSent() && hasSavedFinalSnapshot()))
 		{
@@ -3627,6 +3659,8 @@ void LLAppViewer::idle()
 	//
 
 	{
+		static LLFastTimer::DeclareTimer ftm("HUD Effects");
+		LLFastTimer t(ftm);
 		LLSelectMgr::getInstance()->updateEffects();
 		LLHUDManager::getInstance()->cleanupEffects();
 		LLHUDManager::getInstance()->sendEffects();
@@ -3883,7 +3917,7 @@ void LLAppViewer::sendLogoutRequest()
 static F32 CheckMessagesMaxTime = CHECK_MESSAGES_DEFAULT_MAX_TIME;
 #endif
 
-static LLFastTimer::DeclareTimer FTM_IDLE_NETWORK("Network");
+static LLFastTimer::DeclareTimer FTM_IDLE_NETWORK("Idle Network");
 
 void LLAppViewer::idleNetwork()
 {
@@ -4398,3 +4432,15 @@ void LLAppViewer::launchUpdater()
 	// LLAppViewer::instance()->forceQuit();
 }
 
+
+//virtual
+void LLAppViewer::setMasterSystemAudioMute(bool mute)
+{
+	gSavedSettings.setBOOL("MuteAudio", mute);
+}
+
+//virtual
+bool LLAppViewer::getMasterSystemAudioMute()
+{
+	return gSavedSettings.getBOOL("MuteAudio");
+}

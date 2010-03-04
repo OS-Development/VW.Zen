@@ -46,7 +46,6 @@
 #include "llnotificationsutil.h"
 #include "lltextbox.h"
 #include "llviewermenu.h"
-#include "llviewerinventory.h"
 #include "lllandmarkactions.h"
 #include "llclipboard.h"
 
@@ -308,7 +307,7 @@ void LLTeleportHistoryFlatItemStorage::purge()
 ////////////////////////////////////////////////////////////////////////////////
 
 LLTeleportHistoryPanel::ContextMenu::ContextMenu() :
-	mMenu(NULL)
+	mMenu(NULL), mIndex(0)
 {
 }
 
@@ -550,7 +549,7 @@ void LLTeleportHistoryPanel::updateVerbs()
 
 	LLTeleportHistoryFlatItem* itemp = dynamic_cast<LLTeleportHistoryFlatItem *> (mLastSelectedFlatlList->getSelectedItem());
 
-	mTeleportBtn->setEnabled(NULL != itemp && itemp->getIndex() < (S32)mTeleportHistory->getItems().size() - 1);
+	mTeleportBtn->setEnabled(NULL != itemp);
 	mShowOnMapBtn->setEnabled(NULL != itemp);
 }
 
@@ -723,7 +722,10 @@ void LLTeleportHistoryPanel::onTeleportHistoryChange(S32 removed_index)
 	if (-1 == removed_index)
 		showTeleportHistory(); // recreate all items
 	else
+	{
 		replaceItem(removed_index); // replace removed item by most recent
+		updateVerbs();
+	}
 }
 
 void LLTeleportHistoryPanel::replaceItem(S32 removed_index)
@@ -938,6 +940,9 @@ bool LLTeleportHistoryPanel::onClearTeleportHistoryDialog(const LLSD& notificati
 
 	if (0 == option)
 	{
+		// order does matter, call this first or teleport history will contain one record(current location)
+		LLTeleportHistory::getInstance()->purgeItems();
+
 		LLTeleportHistoryStorage *th = LLTeleportHistoryStorage::getInstance();
 		th->purgeItems();
 		th->save();
@@ -1033,7 +1038,7 @@ void LLTeleportHistoryPanel::setAccordionCollapsedByUser(LLUICtrl* acc_tab, bool
 bool LLTeleportHistoryPanel::isAccordionCollapsedByUser(LLUICtrl* acc_tab)
 {
 	LLSD param = acc_tab->getValue();
-	if(!param.has("acc_collapsed"))
+	if(!param.has(COLLAPSED_BY_USER))
 	{
 		return false;
 	}

@@ -34,6 +34,7 @@
 #define LL_LLSPEAKERS_H
 
 #include "llevent.h"
+#include "lleventtimer.h"
 #include "llspeakers.h"
 #include "llvoicechannel.h"
 
@@ -67,11 +68,12 @@ public:
 
 	void onAvatarNameLookup(const LLUUID& id, const std::string& first, const std::string& last, BOOL is_group);
 
+	bool isInVoiceChannel();
+
 	ESpeakerStatus	mStatus;			// current activity status in speech group
 	F32				mLastSpokeTime;		// timestamp when this speaker last spoke
 	F32				mSpeechVolume;		// current speech amplitude (timea average rms amplitude?)
 	std::string		mDisplayName;		// cache user name for this speaker
-	LLFrameTimer	mActivityTimer;	// time out speakers when they are not part of current voice channel
 	BOOL			mHasSpoken;			// has this speaker said anything this session?
 	BOOL			mHasLeftCurrentCall;	// has this speaker left the current voice call?
 	LLColor4		mDotColor;
@@ -118,6 +120,98 @@ private:
 	const LLUUID& mSpeakerID;
 };
 
+/**
+ * class LLSpeakerActionTimer
+ * 
+ * Implements a timer that calls stored callback action for stored speaker after passed period.
+ *
+ * Action is called until callback returns "true".
+ * In this case the timer will be removed via LLEventTimer::updateClass().
+ * Otherwise it should be deleted manually in place where it is used.
+ * If action callback is not set timer will tick only once and deleted.
+ */
+class LLSpeakerActionTimer : public LLEventTimer
+{
+public:
+	typedef boost::function<bool(const LLUUID&)>	action_callback_t;
+	typedef std::map<LLUUID, LLSpeakerActionTimer*> action_timers_map_t;
+	typedef action_timers_map_t::value_type			action_value_t;
+	typedef action_timers_map_t::const_iterator		action_timer_const_iter_t;
+	typedef action_timers_map_t::iterator			action_timer_iter_t;
+
+	/**
+	 * Constructor.
+	 *
+	 * @param action_cb - callback which will be called each time after passed action period.
+	 * @param action_period - time in seconds timer should tick.
+	 * @param speaker_id - LLUUID of speaker which will be passed into action callback.
+	 */
+	LLSpeakerActionTimer(action_callback_t action_cb, F32 action_period, const LLUUID& speaker_id);
+	virtual ~LLSpeakerActionTimer() {};
+
+	/**
+	 * Implements timer "tick".
+	 *
+	 * If action callback is not specified returns true. Instance will be deleted by LLEventTimer::updateClass().
+	 */
+	virtual BOOL tick();
+
+	/**
+	 * Clears the callback.
+	 *
+	 * Use this instead of deleteing this object. 
+	 * The next call to tick() will return true and that will destroy this object.
+	 */
+	void unset();
+private:
+	action_callback_t	mActionCallback;
+	LLUUID				mSpeakerId;
+};
+
+/**
+ * Represents a functionality to store actions for speakers with delay.
+ * Is based on LLSpeakerActionTimer.
+ */
+class LLSpeakersDelayActionsStorage
+{
+public:
+	LLSpeakersDelayActionsStorage(LLSpeakerActionTimer::action_callback_t action_cb, F32 action_delay);
+	~LLSpeakersDelayActionsStorage();
+
+	/**
+	 * Sets new LLSpeakerActionTimer with passed speaker UUID.
+	 */
+	void setActionTimer(const LLUUID& speaker_id);
+
+	/**
+	 * Removes stored LLSpeakerActionTimer for passed speaker UUID from internal map and optionally deletes it.
+	 *
+	 * @see onTimerActionCallback()
+	 */
+	void unsetActionTimer(const LLUUID& speaker_id);
+
+	void removeAllTimers();
+private:
+	/**
+	 * Callback of the each instance of LLSpeakerActionTimer.
+	 *
+	 * Unsets an appropriate timer instance and calls action callback for specified speacker_id.
+	 *
+	 * @see unsetActionTimer()
+	 */
+	bool onTimerActionCallback(const LLUUID& speaker_id);
+
+	LLSpeakerActionTimer::action_timers_map_t	mActionTimersMap;
+	LLSpeakerActionTimer::action_callback_t		mActionCallback;
+
+	/**
+	 * Delay to call action callback for speakers after timer was set.
+	 */
+	F32	mActionDelay;
+
+};
+
+
 class LLSpeakerMgr : public LLOldEvents::LLObservable
 {
 public:
@@ -142,6 +236,8 @@ public:
 
 protected:
 	virtual void updateSpeakerList();
+	void setSpeakerNotInChannel(LLSpeaker* speackerp);
+	bool removeSpeaker(const LLUUID& speaker_id);
 
 	typedef std::map<LLUUID, LLPointer<LLSpeaker> > speaker_map_t;
 	speaker_map_t		mSpeakers;
@@ -149,6 +245,11 @@ protected:
 	speaker_list_t		mSpeakersSorted;
 	LLFrameTimer		mSpeechTimer;
 	LLVoiceChannel*		mVoiceChannel;
+
+	/**
+	 * time out speakers when they are not part of current session
+	 */
+	LLSpeakersDelayActionsStorage* mSpeakerDelayRemover;
 };
 
 class LLIMSpeakerMgr : public LLSpeakerMgr

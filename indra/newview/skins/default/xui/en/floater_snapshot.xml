@@ -43,6 +43,15 @@
          layout="topleft"
          name="local" />
     </radio_group>
+  <ui_ctrl 
+    height="90"
+    width="90"
+    layout="topleft"
+    name="thumbnail_placeholder"
+    top_pad="6"
+    follows="left|top"
+    left="10"
+    />
     <text
      type="string"
      font="SansSerifSmall"
@@ -54,7 +63,7 @@
      left_delta="0"
      halign="right"
      name="file_size_label"
-     top_pad="106"
+     top_pad="10"
      width="195">
         [SIZE] KB
     </text>
@@ -96,9 +105,11 @@
      width="100">
         <flyout_button.item
          label="Save"
+         name="save_item"
          value="save" />
         <flyout_button.item
          label="Save As..."
+         name="saveas_item"
          value="save as" />
     </flyout_button>
         <button
@@ -345,10 +356,6 @@
          label="Depth"
          name="Depth"
          value="depth" />
-        <combo_box.item
-         label="Object Mattes"
-         name="ObjectMattes"
-         value="objects" />
     </combo_box>
     <check_box
      label="Interface"

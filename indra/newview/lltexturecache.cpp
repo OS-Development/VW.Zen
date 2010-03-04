@@ -51,7 +51,8 @@
 // cache/textures/[0-F]/UUID.texture
 //  Actual texture body files
 
-const S32 TEXTURE_CACHE_ENTRY_SIZE = 1024;
+//note: there is no good to define 1024 for TEXTURE_CACHE_ENTRY_SIZE while FIRST_PACKET_SIZE is 600 on sim side.
+const S32 TEXTURE_CACHE_ENTRY_SIZE = FIRST_PACKET_SIZE;//1024;
 const F32 TEXTURE_CACHE_PURGE_AMOUNT = .20f; // % amount to reduce the cache by when it exceeds its limit
 const F32 TEXTURE_CACHE_LRU_SIZE = .10f; // % amount for LRU list (low overhead to regenerate)
 
@@ -1617,20 +1618,20 @@ bool LLTextureCache::writeComplete(handle_t handle, bool abort)
 {
 	lockWorkers();
 	handle_map_t::iterator iter = mWriters.find(handle);
-	llassert_always(iter != mWriters.end());
-	LLTextureCacheWorker* worker = iter->second;
-	if (worker->complete() || abort)
+	llassert(iter != mWriters.end());
+	if (iter != mWriters.end())
 	{
-		mWriters.erase(handle);
-		unlockWorkers();
-		worker->scheduleDelete();
-		return true;
+		LLTextureCacheWorker* worker = iter->second;
+		if (worker->complete() || abort)
+		{
+			mWriters.erase(handle);
+			unlockWorkers();
+			worker->scheduleDelete();
+			return true;
+		}
 	}
-	else
-	{
-		unlockWorkers();
-		return false;
-	}
+	unlockWorkers();
+	return false;
 }
 
 void LLTextureCache::prioritizeWrite(handle_t handle)

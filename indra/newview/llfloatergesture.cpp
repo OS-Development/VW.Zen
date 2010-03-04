@@ -110,7 +110,7 @@ LLFloaterGesture::LLFloaterGesture(const LLSD& key)
 
 	mCommitCallbackRegistrar.add("Gesture.Action.ToogleActiveState", boost::bind(&LLFloaterGesture::onActivateBtnClick, this));
 	mCommitCallbackRegistrar.add("Gesture.Action.ShowPreview", boost::bind(&LLFloaterGesture::onClickEdit, this));
-	mCommitCallbackRegistrar.add("Gesture.Action.CopyPast", boost::bind(&LLFloaterGesture::onCopyPastAction, this, _2));
+	mCommitCallbackRegistrar.add("Gesture.Action.CopyPaste", boost::bind(&LLFloaterGesture::onCopyPasteAction, this, _2));
 	mCommitCallbackRegistrar.add("Gesture.Action.SaveToCOF", boost::bind(&LLFloaterGesture::addToCurrentOutFit, this));
 
 	mEnableCallbackRegistrar.add("Gesture.EnableAction", boost::bind(&LLFloaterGesture::isActionEnabled, this, _2));
@@ -203,12 +203,12 @@ BOOL LLFloaterGesture::postBuild()
 	gInventory.addObserver(this);
 	fetchDescendents(folders);
 
-	buildGestureList();
-	
-	mGestureList->setFocus(TRUE);
-
 	if (mGestureList)
 	{
+		buildGestureList();
+	
+		mGestureList->setFocus(TRUE);
+
 		const BOOL ascending = TRUE;
 		mGestureList->sortByColumn(std::string("name"), ascending);
 		mGestureList->selectFirstItem();
@@ -223,9 +223,9 @@ BOOL LLFloaterGesture::postBuild()
 
 void LLFloaterGesture::refreshAll()
 {
-	buildGestureList();
-
 	if (!mGestureList) return;
+
+	buildGestureList();
 
 	if (mSelectedID.isNull())
 	{
@@ -245,6 +245,7 @@ void LLFloaterGesture::refreshAll()
 
 void LLFloaterGesture::buildGestureList()
 {
+	S32 scroll_pos = mGestureList->getScrollPos();
 	std::vector<LLUUID> selected_items;
 	getSelectedIds(selected_items);
 	LL_DEBUGS("Gesture")<< "Rebuilding gesture list "<< LL_ENDL;
@@ -274,13 +275,14 @@ void LLFloaterGesture::buildGestureList()
 			}
 		}
 	}
+
 	// attempt to preserve scroll position through re-builds
-	// since we do re-build any time anything dirties
+	// since we do re-build whenever something gets dirty
 	for(std::vector<LLUUID>::iterator it = selected_items.begin(); it != selected_items.end(); it++)
 	{
 		mGestureList->selectByID(*it);
 	}
-	mGestureList->scrollToShowSelected();
+	mGestureList->setScrollPos(scroll_pos);
 }
 
 void LLFloaterGesture::addGesture(const LLUUID& item_id , LLMultiGesture* gesture,LLCtrlListInterface * list )
@@ -365,7 +367,14 @@ void LLFloaterGesture::addGesture(const LLUUID& item_id , LLMultiGesture* gestur
 		element["columns"][3]["font"]["name"] = "SANSSERIF";
 		element["columns"][3]["font"]["style"] = font_style;
 	}
-	list->addElement(element, ADD_BOTTOM);
+
+	LLScrollListItem* sl_item = list->addElement(element, ADD_BOTTOM);
+	if(sl_item)
+	{
+		LLFontGL::StyleFlags style = LLGestureManager::getInstance()->isGestureActive(item_id) ? LLFontGL::BOLD : LLFontGL::NORMAL;
+		// *TODO find out why ["font"]["style"] does not affect font style
+		((LLScrollListText*)sl_item->getColumn(0))->setFontStyle(style);
+	}
 }
 
 void LLFloaterGesture::getSelectedIds(std::vector<LLUUID>& ids)
@@ -399,8 +408,7 @@ bool LLFloaterGesture::isActionEnabled(const LLSD& command)
 		}
 		return false;
 	}
-	else if("copy_uuid" == command_name || "edit_gesture" == command_name 
-			|| "inspect" == command_name)
+	else if("copy_uuid" == command_name || "edit_gesture" == command_name)
 	{
 		return	mGestureList->getAllSelected().size() == 1;
 	}
@@ -415,12 +423,17 @@ void LLFloaterGesture::onClickPlay()
 	LL_DEBUGS("Gesture")<<" Trying to play gesture id: "<< item_id <<LL_ENDL;
 	if(!LLGestureManager::instance().isGestureActive(item_id))
 	{
-		// we need to inform server about gesture activating to be consistent with LLPreviewGesture and  LLGestureComboBox.
+		// we need to inform server about gesture activating to be consistent with LLPreviewGesture and  LLGestureComboList.
 		BOOL inform_server = TRUE;
 		BOOL deactivate_similar = FALSE;
 		LLGestureManager::instance().setGestureLoadedCallback(item_id, boost::bind(&LLFloaterGesture::playGesture, this, item_id));
-		LLGestureManager::instance().activateGestureWithAsset(item_id, gInventory.getItem(item_id)->getAssetUUID(), inform_server, deactivate_similar);
-		LL_DEBUGS("Gesture")<< "Activating gesture with inventory ID: " << item_id <<LL_ENDL;
+		LLViewerInventoryItem *item = gInventory.getItem(item_id);
+		llassert(item);
+		if (item)
+		{
+			LLGestureManager::instance().activateGestureWithAsset(item_id, item->getAssetUUID(), inform_server, deactivate_similar);
+			LL_DEBUGS("Gesture")<< "Activating gesture with inventory ID: " << item_id <<LL_ENDL;
+		}
 	}
 	else
 	{
@@ -475,7 +488,7 @@ void LLFloaterGesture::onActivateBtnClick()
 	}
 }
 
-void LLFloaterGesture::onCopyPastAction(const LLSD& command)
+void LLFloaterGesture::onCopyPasteAction(const LLSD& command)
 {
 	std::string command_name  = command.asString();
 	// since we select this comman inventory item had  already arrived .
@@ -502,15 +515,16 @@ void LLFloaterGesture::onCopyPastAction(const LLSD& command)
 		if(ids.empty() || !gInventory.isCategoryComplete(mGestureFolderID))
 			return;
 		LLInventoryCategory* gesture_dir = gInventory.getCategory(mGestureFolderID);
+		llassert(gesture_dir);
 		LLPointer<GestureCopiedCallback> cb = new GestureCopiedCallback(this);
 
 		for(LLDynamicArray<LLUUID>::iterator it = ids.begin(); it != ids.end(); it++)
 		{
 			LLInventoryItem* item = gInventory.getItem(*it);
-			LLStringUtil::format_map_t string_args;
-			string_args["[COPY_NAME]"] = item->getName();
-			if(item && item->getInventoryType() == LLInventoryType::IT_GESTURE)
+			if(gesture_dir && item && item->getInventoryType() == LLInventoryType::IT_GESTURE)
 			{
+				LLStringUtil::format_map_t string_args;
+				string_args["[COPY_NAME]"] = item->getName();
 				LL_DEBUGS("Gesture")<< "Copying gesture " << item->getName() << "  "<< item->getUUID() << " into "
 										<< gesture_dir->getName() << "  "<< gesture_dir->getUUID() << LL_ENDL;
 				copy_inventory_item(gAgent.getID(), item->getPermissions().getOwner(), item->getUUID(), 

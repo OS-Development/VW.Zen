@@ -888,7 +888,8 @@ private:
 	// God
 	//--------------------------------------------------------------------
 public:
-	BOOL			isGodlike() const;
+	bool			isGodlike() const;
+	bool			isGodlikeWithoutAdminMenuFakery() const;
 	U8				getGodLevel() const;
 	void			setAdminOverride(BOOL b);
 	void			setGodLevel(U8 god_level);
@@ -972,6 +973,7 @@ public:
 	BOOL 			setGroupContribution(const LLUUID& group_id, S32 contribution);
 	BOOL 			setUserGroupFlags(const LLUUID& group_id, BOOL accept_notices, BOOL list_in_profile);
 	const std::string &getGroupName() const 	{ return mGroupName; }
+	BOOL			canJoinGroups() const;
 private:
 	std::string		mGroupName;
 	LLUUID			mGroupID;
@@ -981,7 +983,7 @@ private:
 	//--------------------------------------------------------------------
 public:
 	// Checks against all groups in the entire agent group list.
-	BOOL 			isInGroup(const LLUUID& group_id) const;
+	BOOL 			isInGroup(const LLUUID& group_id, BOOL ingnore_God_mod = FALSE) const;
 protected:
 	// Only used for building titles.
 	BOOL			isGroupMember() const 		{ return !mGroupID.isNull(); } 

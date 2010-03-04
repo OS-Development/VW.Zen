@@ -47,7 +47,9 @@ LLLocalTextureObject::LLLocalTextureObject() :
 	mImage = NULL;
 }
 
-LLLocalTextureObject::LLLocalTextureObject(LLViewerFetchedTexture* image, const LLUUID& id)
+LLLocalTextureObject::LLLocalTextureObject(LLViewerFetchedTexture* image, const LLUUID& id) :
+	mIsBakedReady(FALSE),
+	mDiscard(MAX_DISCARD_LEVEL+1)
 {
 	mImage = image;
 	gGL.getTexUnit(0)->bind(mImage);
@@ -68,6 +70,7 @@ LLLocalTextureObject::LLLocalTextureObject(const LLLocalTextureObject& lto) :
 		if (!original_layer)
 		{
 			llerrs << "could not clone Local Texture Object: unable to extract texlayer!" << llendl;
+			continue;
 		}
 
 		LLTexLayer* new_layer = new LLTexLayer(*original_layer);

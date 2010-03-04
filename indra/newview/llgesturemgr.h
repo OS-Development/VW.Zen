@@ -103,6 +103,8 @@ public:
 
 	BOOL isGesturePlaying(const LLUUID& item_id);
 
+	BOOL isGesturePlaying(LLMultiGesture* gesture);
+
 	const item_map_t& getActiveGestures() const { return mActive; }
 	// Force a gesture to be played, for example, if it is being
 	// previewed.
@@ -137,6 +139,9 @@ public:
 	void addObserver(LLGestureManagerObserver* observer);
 	void removeObserver(LLGestureManagerObserver* observer);
 	void notifyObservers();
+
+	// Overriding so we can update active gesture names and notify observers 
+	void changed(U32 mask); 
 
 	BOOL matchPrefix(const std::string& in_str, std::string* out_str);
 

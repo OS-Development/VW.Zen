@@ -8,6 +8,7 @@
 	<!-- Default Args - these arguments will be replaced in all strings -->
 	<string name="SECOND_LIFE">Second Life</string>
 	<string name="APP_NAME">Second Life</string>
+	<string name="CAPITALIZED_APP_NAME">SECOND LIFE</string>
 	<string name="SECOND_LIFE_GRID">Second Life Grid</string>
 	<string name="SUPPORT_SITE">Second Life Support Portal</string>
 
@@ -66,7 +67,7 @@
 	<!-- tooltips for Urls -->
 	<string name="TooltipHttpUrl">Click to view this web page</string>
 	<string name="TooltipSLURL">Click to view this location's information</string>
-	<string name="TooltipAgentUrl">Click to view this resident's profile</string>
+	<string name="TooltipAgentUrl">Click to view this Resident's profile</string>
 	<string name="TooltipGroupUrl">Click to view this group's description</string>
 	<string name="TooltipEventUrl">Click to view this event's description</string>
 	<string name="TooltipClassifiedUrl">Click to view this classified</string>
@@ -113,9 +114,6 @@
 
   <!-- Avatar name: More than one avatar is selected/used here -->
   <string name="AvatarNameMultiple">(multiple)</string>
-
-  <!-- Avatar name: text shown as an alternative to AvatarNameFetching, easter egg. -->
-	<string name="AvatarNameHippos">(hippos)</string>
 
 	<!-- Group name: text shown for LLUUID::null -->
 	<string name="GroupNameNone">(none)</string>
@@ -253,6 +251,7 @@
 	<string name="connected">Connected</string>
 	<string name="unavailable">Voice not available at your current location</string>
 	<string name="hang_up">Disconnected from in-world Voice Chat</string>
+  <string name="reconnect_nearby">You will now be reconnected to Nearby Voice Chat</string>
 	<string name="ScriptQuestionCautionChatGranted">'[OBJECTNAME]', an object owned by '[OWNERNAME]', located in [REGIONNAME] at [REGIONPOS], has been granted permission to: [PERMISSIONS].</string>
 	<string name="ScriptQuestionCautionChatDenied">'[OBJECTNAME]', an object owned by '[OWNERNAME]', located in [REGIONNAME] at [REGIONPOS], has been denied permission to: [PERMISSIONS].</string>
 	<string name="ScriptTakeMoney">Take Linden dollars (L$) from you</string>
@@ -1608,11 +1607,11 @@ Sends an HTTP request to the specified url with the body of the request and para
 	</string>
 	<string name="LSLTipText_llResetLandBanList" translate="false">
 llResetLandBanList()
-Removes all residents from the land ban list
+Removes all Residents from the land ban list
 	</string>
 	<string name="LSLTipText_llResetLandPassList" translate="false">
 llResetLandPassList()
-Removes all residents from the land access/pass list
+Removes all Residents from the land access/pass list
 	</string>
 	<string name="LSLTipText_llGetObjectPrimCount" translate="false">
 integer llGetObjectPrimCount(key object_id)
@@ -1620,7 +1619,7 @@ Returns the total number of prims for an object in the region
 	</string>
 	<string name="LSLTipText_llGetParcelPrimOwners" translate="false">
 list llGetParcelPrimOwners(vector pos)
-Returns a list of all residents who own objects on the parcel at pos and with individual prim counts.
+Returns a list of all Residents who own objects on the parcel at pos and with individual prim counts.
 Requires owner-like permissions for the parcel.
 	</string>
 	<string name="LSLTipText_llGetParcelPrimCount" translate="false">
@@ -1770,6 +1769,9 @@ Clears (deletes) the media and all params from the given face.
 	<string name="tattoo">Tattoo</string>
 	<string name="invalid">invalid</string>
 
+  <!-- Wearable List-->
+  <string name="NewWearable">New [WEARABLE_ITEM]</string>
+  
 	<!-- LLGroupNotify -->
 	<!-- used in the construction of a Group Notice blue dialog box, buttons, tooltip etc. Seems to be no longer utilized by code in Viewer 2.0 -->
 	<string name="next">Next</string>
@@ -1806,12 +1808,9 @@ Clears (deletes) the media and all params from the given face.
 	<string name="LeaveMouselook">Press ESC to return to World View</string>
 
 	<!-- inventory -->
-	<string name="InventoryNoMatchingItems">No matching items found in inventory.</string>
-  <string name="FavoritesNoMatchingItems">Drag and drop a landmark here to add to your favorites.</string>
-	<string name="InventoryNoTexture">
-		You do not have a copy of
-this texture in your inventory
-	</string>
+	<string name="InventoryNoMatchingItems">No matching items found in inventory.  Try [secondlife:///app/search/groups "Search"].</string>
+	<string name="FavoritesNoMatchingItems">Drag a landmark here to add it to your favorites.</string>
+	<string name="InventoryNoTexture">You do not have a copy of this texture in your inventory</string>
     <!-- use value="" because they have preceding spaces -->
 	<string name="no_transfer" value=" (no transfer)" />
 	<string name="no_modify"   value=" (no modify)" />
@@ -2038,7 +2037,7 @@ this texture in your inventory
 	<string name="RegionInfoAllEstatesYouManage">
 		all estates that you manage for [OWNER]
 	</string>
-	<string name="RegionInfoAllowedResidents">Allowed residents: ([ALLOWEDAGENTS], max [MAXACCESS])</string>
+	<string name="RegionInfoAllowedResidents">Allowed Residents: ([ALLOWEDAGENTS], max [MAXACCESS])</string>
 	<string name="RegionInfoAllowedGroups">Allowed groups: ([ALLOWEDGROUPS], max [MAXACCESS])</string>
 
 	<!-- script limits floater -->
@@ -2050,6 +2049,7 @@ this texture in your inventory
 	<string name="ScriptLimitsURLsUsed">URLs used: [COUNT] out of [MAX]; [AVAILABLE] available</string>
 	<string name="ScriptLimitsURLsUsedSimple">URLs used: [COUNT]</string>
 	<string name="ScriptLimitsRequestError">Error requesting information</string>
+	<string name="ScriptLimitsRequestNoParcelSelected">No Parcel Selected</string>
 	<string name="ScriptLimitsRequestWrongRegion">Error: script information is only available in your current region</string>
 	<string name="ScriptLimitsRequestWaiting">Retrieving information...</string>
 	<string name="ScriptLimitsRequestDontOwnParcel">You do not have permission to examine this parcel</string>
@@ -2107,9 +2107,12 @@ this texture in your inventory
 	<!-- panel contents -->
 	<string name="PanelContentsNewScript">New Script</string>
 
+  <!-- panel preferences general -->
+  <string name="BusyModeResponseDefault">The Resident you messaged is in &apos;busy mode&apos; which means they have requested not to be disturbed.  Your message will still be shown in their IM panel for later viewing.</string>
+
 	<!-- Mute -->
 	<string name="MuteByName">(by name)</string>
-	<string name="MuteAgent">(resident)</string>
+	<string name="MuteAgent">(Resident)</string>
 	<string name="MuteObject">(object)</string>
 	<string name="MuteGroup">(group)</string>
 
@@ -2129,7 +2132,8 @@ this texture in your inventory
 	<string name="ClassifiedUpdateAfterPublish">(will update after publish)</string>
   
   <!-- panel picks -->
-  <string name="NoPicksClassifiedsText">There are no picks/classifieds here</string>
+  <string name="NoPicksClassifiedsText">You haven't created any Picks or Classifieds. Click the Plus button below to create a Pick or Classified.</string>
+  <string name="NoAvatarPicksClassifiedsText">User has no picks or classfields</string>
   <string name="PicksClassifiedsLoadingText">Loading...</string>
 
 	<!-- Multi Preview Floater -->
@@ -2169,7 +2173,7 @@ this texture in your inventory
 		Unknown file extension .%s
 Expected .wav, .tga, .bmp, .jpg, .jpeg, or .bvh
 	</string>
-  <string name="MuteObject">Block</string>
+  <string name="MuteObject2">Block</string>
   <string name="MuteAvatar">Block</string>
   <string name="UnmuteObject">Unblock</string>
   <string name="UnmuteAvatar">Unblock</string>
@@ -2936,7 +2940,7 @@ If you continue to receive this message, contact the [SUPPORT_SITE].
     Click the [BUTTON NAME] button to accept/connect to this voice chat.
   </string>
   <string name="muted_message">
-    You have blocked this resident. Sending a message will automatically unblock them.
+    You have blocked this Resident. Sending a message will automatically unblock them.
   </string>
   <!--Some times string name is getting from the body of server response.
   For ex.: from gIMMgr::showSessionStartError in the LLViewerChatterBoxSessionStartReply::post. 

@@ -185,10 +185,12 @@ LLScrollListText::LLScrollListText(const LLScrollListCell::Params& p)
 {
 	sCount++;
 
+	mTextWidth = getWidth();
+
 	// initialize rounded rect image
 	if (!mRoundedRectImage)
 	{
-		mRoundedRectImage = LLUI::getUIImage("rounded_square.tga");
+		mRoundedRectImage = LLUI::getUIImage("Rounded_Square");
 	}
 }
 
@@ -340,7 +342,7 @@ void LLScrollListText::draw(const LLColor4& color, const LLColor4& highlight_col
 					0,
 					LLFontGL::NO_SHADOW,
 					string_chars, 
-					getWidth(),
+					getTextWidth(),
 					&right_x, 
 					TRUE);
 }

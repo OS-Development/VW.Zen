@@ -44,6 +44,7 @@
 #include "llfontgl.h"
 #include "llsdserialize.h"
 #include "lltooltip.h"
+#include "llbutton.h"
 
 #include "llappviewer.h"
 #include "llviewertexturelist.h"
@@ -99,6 +100,8 @@ LLFastTimerView::LLFastTimerView(const LLRect& rect)
 	FTV_NUM_TIMERS = LLFastTimer::NamedTimer::instanceCount();
 	mPrintStats = -1;	
 	mAverageCyclesPerTimer = 0;
+	setCanMinimize(false);
+	setCanClose(true);
 }
 
 
@@ -139,6 +142,18 @@ LLFastTimer::NamedTimer* LLFastTimerView::getLegendID(S32 y)
 
 BOOL LLFastTimerView::handleMouseDown(S32 x, S32 y, MASK mask)
 {
+
+	{
+		S32 local_x = x - mButtons[BUTTON_CLOSE]->getRect().mLeft;
+		S32 local_y = y - mButtons[BUTTON_CLOSE]->getRect().mBottom;
+		if(mButtons[BUTTON_CLOSE]->getVisible()
+			&&  mButtons[BUTTON_CLOSE]->pointInView(local_x, local_y)  )
+		{
+			return LLFloater::handleMouseDown(x, y, mask);;
+		}
+	}
+	
+
 	if (x < mBarRect.mLeft) 
 	{
 		LLFastTimer::NamedTimer* idp = getLegendID(y);
@@ -188,6 +203,15 @@ BOOL LLFastTimerView::handleMouseDown(S32 x, S32 y, MASK mask)
 
 BOOL LLFastTimerView::handleMouseUp(S32 x, S32 y, MASK mask)
 {
+	{
+		S32 local_x = x - mButtons[BUTTON_CLOSE]->getRect().mLeft;
+		S32 local_y = y - mButtons[BUTTON_CLOSE]->getRect().mBottom;
+		if(mButtons[BUTTON_CLOSE]->getVisible()
+			&&  mButtons[BUTTON_CLOSE]->pointInView(local_x, local_y)  )
+		{
+			return LLFloater::handleMouseUp(x, y, mask);;
+		}
+	}
 	return FALSE;
 }
 
@@ -314,7 +338,7 @@ void LLFastTimerView::draw()
 	S32 left, top, right, bottom;
 	S32 x, y, barw, barh, dx, dy;
 	S32 texth, textw;
-	LLPointer<LLUIImage> box_imagep = LLUI::getUIImage("rounded_square.tga");
+	LLPointer<LLUIImage> box_imagep = LLUI::getUIImage("Rounded_Square");
 
 	// Draw the window background
 	gGL.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
@@ -1191,5 +1215,8 @@ void LLFastTimerView::doAnalysis(std::string baseline, std::string target, std::
 		return ;
 	}
 }
-
+void	LLFastTimerView::onClickCloseBtn()
+{
+	setVisible(false);
+}
 

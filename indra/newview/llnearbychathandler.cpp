@@ -34,6 +34,7 @@
 
 #include "llnearbychathandler.h"
 
+#include "llbottomtray.h"
 #include "llchatitemscontainerctrl.h"
 #include "llnearbychat.h"
 #include "llrecentpeople.h"
@@ -175,10 +176,11 @@ void LLNearbyChatScreenChannel::addNotification(LLSD& notification)
 	if(m_active_toasts.size())
 	{
 		LLUUID fromID = notification["from_id"].asUUID();		// agent id or object id
+		std::string from = notification["from"].asString();
 		LLToast* toast = m_active_toasts[0];
 		LLNearbyChatToastPanel* panel = dynamic_cast<LLNearbyChatToastPanel*>(toast->getPanel());
 
-		if(panel && panel->messageID() == fromID && panel->canAddText())
+		if(panel && panel->messageID() == fromID && panel->getFromName() == from && panel->canAddText())
 		{
 			panel->addMessage(notification);
 			toast->reshapeToPanel();
@@ -274,8 +276,15 @@ void LLNearbyChatScreenChannel::showToastsBottom()
 			toast->setRect(toast_rect);
 			toast->setIsHidden(false);
 			toast->setVisible(TRUE);
+
+			if(!toast->hasFocus())
+			{
+				// Fixing Z-order of toasts (EXT-4862)
+				// Next toast will be positioned under this one.
+				gFloaterView->sendChildToBack(toast);
+			}
 			
-			bottom = toast->getRect().mTop;
+			bottom = toast->getRect().mTop - toast->getTopPad();
 		}		
 	}
 }
@@ -302,7 +311,6 @@ LLNearbyChatHandler::LLNearbyChatHandler(e_notification_type type, const LLSD& i
 	channel->setCreatePanelCallback(callback);
 
 	mChannel = LLChannelManager::getInstance()->addChannel(channel);
-	mChannel->setOverflowFormatString("You have %d unread nearby chat messages");
 }
 
 LLNearbyChatHandler::~LLNearbyChatHandler()
@@ -313,14 +321,14 @@ LLNearbyChatHandler::~LLNearbyChatHandler()
 void LLNearbyChatHandler::initChannel()
 {
 	LLNearbyChat* nearby_chat = LLFloaterReg::getTypedInstance<LLNearbyChat>("nearby_chat", LLSD());
+	LLView* chat_box = LLBottomTray::getInstance()->getChildView("chat_box");
 	S32 channel_right_bound = nearby_chat->getRect().mRight;
-	S32 channel_width = nearby_chat->getRect().mRight; 
-	mChannel->init(channel_right_bound - channel_width, channel_right_bound);
+	mChannel->init(chat_box->getRect().mLeft, channel_right_bound);
 }
 
 
 
-void LLNearbyChatHandler::processChat(const LLChat& chat_msg)
+void LLNearbyChatHandler::processChat(const LLChat& chat_msg, const LLSD &args)
 {
 	if(chat_msg.mMuted == TRUE)
 		return;
@@ -332,6 +340,19 @@ void LLNearbyChatHandler::processChat(const LLChat& chat_msg)
 
 	LLChat& tmp_chat = const_cast<LLChat&>(chat_msg);
 
+	LLNearbyChat* nearby_chat = LLFloaterReg::getTypedInstance<LLNearbyChat>("nearby_chat", LLSD());
+	{
+		//sometimes its usefull to have no name at all...
+		//if(tmp_chat.mFromName.empty() && tmp_chat.mFromID!= LLUUID::null)
+		//	tmp_chat.mFromName = tmp_chat.mFromID.asString();
+	}
+	nearby_chat->addMessage(chat_msg, true, args);
+	if( nearby_chat->getVisible()
+		|| ( chat_msg.mSourceType == CHAT_SOURCE_AGENT
+			&& gSavedSettings.getBOOL("UseChatBubbles") ) )
+		return;//no need in toast if chat is visible or if bubble chat is enabled
+
+	// Handle irc styled messages for toast panel
 	if (tmp_chat.mChatStyle == CHAT_STYLE_IRC)
 	{
 		if(!tmp_chat.mFromName.empty())
@@ -339,23 +360,16 @@ void LLNearbyChatHandler::processChat(const LLChat& chat_msg)
 		else
 			tmp_chat.mText = tmp_chat.mText.substr(3);
 	}
-	
-	{
-		//sometimes its usefull to have no name at all...
-		//if(tmp_chat.mFromName.empty() && tmp_chat.mFromID!= LLUUID::null)
-		//	tmp_chat.mFromName = tmp_chat.mFromID.asString();
-	}
-	
-	LLNearbyChat* nearby_chat = LLFloaterReg::getTypedInstance<LLNearbyChat>("nearby_chat", LLSD());
-	nearby_chat->addMessage(chat_msg);
-	if(nearby_chat->getVisible())
-		return;//no need in toast if chat is visible
-	
+
 	// arrange a channel on a screen
 	if(!mChannel->getVisible())
 	{
 		initChannel();
 	}
+
+	/*
+	//comment all this due to EXT-4432
+	..may clean up after some time...
 
 	//only messages from AGENTS
 	if(CHAT_SOURCE_OBJECT == chat_msg.mSourceType)
@@ -363,6 +377,7 @@ void LLNearbyChatHandler::processChat(const LLChat& chat_msg)
 		if(chat_msg.mChatType == CHAT_TYPE_DEBUG_MSG)
 			return;//ok for now we don't skip messeges from object, so skip only debug messages
 	}
+	*/
 
 	LLUUID id;
 	id.generate();
