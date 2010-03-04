@@ -700,9 +700,9 @@ void LLViewerMedia::updateMedia(void *dummy_arg)
 	impl_list::iterator iter = sViewerMediaImplList.begin();
 	impl_list::iterator end = sViewerMediaImplList.end();
 
-	for(; iter != end; iter++)
+	for(; iter != end;)
 	{
-		LLViewerMediaImpl* pimpl = *iter;
+		LLViewerMediaImpl* pimpl = *iter++;
 		pimpl->update();
 		pimpl->calculateInterest();
 	}
@@ -851,7 +851,7 @@ void LLViewerMedia::updateMedia(void *dummy_arg)
 			}
 		}
 		// update the audio stream here as well
-		if(!inworld_media_enabled || !inworld_audio_enabled)
+		if( !inworld_audio_enabled)
 		{
 			if(LLViewerMedia::isParcelAudioPlaying() && gAudiop && LLViewerMedia::hasParcelAudio())
 			{
