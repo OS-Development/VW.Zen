@@ -1292,19 +1292,23 @@ BOOL LLVOAvatarSelf::isTextureDefined(LLVOAvatarDefines::ETextureIndex type, U32
 }
 
 //-----------------------------------------------------------------------------
-// virtual
 // requestLayerSetUploads()
 //-----------------------------------------------------------------------------
 void LLVOAvatarSelf::requestLayerSetUploads()
 {
 	for (U32 i = 0; i < mBakedTextureDatas.size(); i++)
 	{
-		ETextureIndex tex_index = mBakedTextureDatas[i].mTextureIndex;
-		BOOL layer_baked = isTextureDefined(tex_index, gAgentWearables.getWearableCount(tex_index));
-		if (!layer_baked && mBakedTextureDatas[i].mTexLayerSet)
-		{
-			mBakedTextureDatas[i].mTexLayerSet->requestUpload();
-		}
+		requestLayerSetUpload((EBakedTextureIndex)i);
+	}
+}
+
+void LLVOAvatarSelf::requestLayerSetUpload(LLVOAvatarDefines::EBakedTextureIndex i)
+{
+	ETextureIndex tex_index = mBakedTextureDatas[i].mTextureIndex;
+	bool  layer_baked = isTextureDefined(tex_index, gAgentWearables.getWearableCount(tex_index));
+	if (!layer_baked && mBakedTextureDatas[i].mTexLayerSet)
+	{
+		mBakedTextureDatas[i].mTexLayerSet->requestUpload();
 	}
 }
 
@@ -1723,7 +1727,7 @@ BOOL LLVOAvatarSelf::canGrabLocalTexture(ETextureIndex type, U32 index) const
 		return FALSE;
 	}
 
-	if (gAgent.isGodlike())
+	if (gAgent.isGodlikeWithoutAdminMenuFakery())
 		return TRUE;
 
 	// Check permissions of textures that show up in the
@@ -1764,14 +1768,8 @@ BOOL LLVOAvatarSelf::canGrabLocalTexture(ETextureIndex type, U32 index) const
 				// search for full permissions version
 				for (S32 i = 0; i < items.count(); i++)
 				{
-					LLInventoryItem* itemp = items[i];
-					LLPermissions item_permissions = itemp->getPermissions();
-					if ( item_permissions.allowOperationBy(
-								PERM_MODIFY, gAgent.getID(), gAgent.getGroupID()) &&
-						 item_permissions.allowOperationBy(
-								PERM_COPY, gAgent.getID(), gAgent.getGroupID()) &&
-						 item_permissions.allowOperationBy(
-								PERM_TRANSFER, gAgent.getID(), gAgent.getGroupID()) )
+					LLViewerInventoryItem* itemp = items[i];
+                                        if (itemp->getIsFullPerm())
 					{
 						can_grab = TRUE;
 						break;

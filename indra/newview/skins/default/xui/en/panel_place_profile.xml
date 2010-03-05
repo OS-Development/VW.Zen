@@ -174,7 +174,7 @@
         <panel
          bg_alpha_color="DkGray2"
          follows="left|top|right"
-         height="532"
+         height="540"
          layout="topleft"
          left="0"
          min_height="300"
@@ -318,7 +318,7 @@
              width="268" />
             <accordion
              follows="all"
-             height="230"
+             height="223"
              layout="topleft"
              left="0"
              name="advanced_info_accordion"
@@ -333,6 +333,7 @@
                      height="160"
                      layout="topleft"
                      left="0"
+                     name="parcel_characteristics_panel"
                      top="0"
                      width="275">
                         <icon
@@ -544,6 +545,7 @@
                      height="125"
                      layout="topleft"
                      left="0"
+                     name="region_information_panel"
                      top="0"
                      width="290">
                         <text
@@ -670,6 +672,7 @@
                      height="189"
                      layout="topleft"
                      left="0"
+                     name="estate_information_panel"
                      top="0"
                      width="290">
                         <text
@@ -758,6 +761,7 @@
                      height="300"
                      layout="topleft"
                      left="0"
+                     name="sales_panel"
                      top="0"
                      width="290">
                         <text

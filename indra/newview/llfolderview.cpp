@@ -179,6 +179,7 @@ LLFolderView::LLFolderView(const Params& p)
 	mSourceID(p.task_id),
 	mRenameItem( NULL ),
 	mNeedsScroll( FALSE ),
+	mEnableScroll( true ),
 	mPinningSelectedItem(FALSE),
 	mNeedsAutoSelect( FALSE ),
 	mAutoSelectOverride(FALSE),
@@ -1910,7 +1911,7 @@ void LLFolderView::deleteAllChildren()
 
 void LLFolderView::scrollToShowSelection()
 {
-	if (mSelectedItems.size())
+	if (mEnableScroll && mSelectedItems.size())
 	{
 		mNeedsScroll = TRUE;
 	}
