@@ -16,6 +16,12 @@
   name="location_notice">
     (will update after save)
  </panel.string>
+ <string name="publish_label">
+  Publish
+ </string>
+ <string name="save_label">
+  Save
+ </string>
   <button
      follows="top|right"
      height="23"
@@ -42,16 +48,16 @@
         Edit Classified
     </text>
    <scroll_container
-     color="DkGray2"
-     follows="all"
-     height="502"
-     layout="topleft"
-     left="8"
-     top_pad="10"
-     name="profile_scroll"
-     reserve_scroll_corner="false"
-     opaque="true"
-     width="312">
+    color="DkGray2"
+    follows="all"
+    height="502"
+    layout="topleft"
+    left="8"
+    top_pad="10"
+    name="profile_scroll"
+    reserve_scroll_corner="false"
+    opaque="true"
+    width="312">
     <panel
      name="scroll_content_panel"
      follows="left|top"
@@ -62,24 +68,33 @@
      height="690"
      left="0"
      width="285">
-    <texture_picker
-     follows="left|top|right"
-     height="197"
-     width="272"
-     layout="topleft"
-     top="10"
-     left="11"
-     name="classified_snapshot" />
-          <icon
+      <panel
+         name="snapshot_panel"
+         layout="topleft"
+         follows="left|top|right"
+         height="197"
+         left="10"
+         top="10"
+         width="272">
+      <texture_picker
+       follows="left|top|right"
+       height="197"
+       width="272"
+       layout="topleft"
+       top="0"
+       left="0"
+       name="classified_snapshot" />
+       <icon
            height="197"
            image_name="spacer24.tga"
            layout="topleft"
            name="edit_icon"
            label=""
            tool_tip="Click to select an image"
-           top="10"
-           left="11"
-           width="286" />
+           top="0"
+           left="0"
+           width="272" />
+       </panel>
         <text
          type="string"
          length="1"
@@ -258,7 +273,7 @@
          name="auto_renew"
          top_pad="15"
          width="250" />
-    </panel>
+     </panel>
     </scroll_container>
     <panel
      follows="left|right|bottom"
@@ -272,7 +287,7 @@
         <button
          follows="bottom|left"
          height="23"
-         label="Save"
+         label="[LABEL]"
          layout="topleft"
          name="save_changes_btn"
          left="0"
