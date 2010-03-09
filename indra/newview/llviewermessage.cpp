@@ -207,6 +207,7 @@ bool friendship_offer_callback(const LLSD& notification, const LLSD& response)
 		LLNotificationsUtil::add("FriendshipDeclinedByMe",
 				notification["substitutions"], payload);
 	}
+	// fall-through
 	case 2: // Send IM - decline and start IM session
 		{
 			// decline
@@ -3111,10 +3112,14 @@ void process_agent_movement_complete(LLMessageSystem* msg, void**)
 		{
 			// Chat the "back" SLURL. (DEV-4907)
 
-			LLSD args;
 			LLSLURL slurl;
 			gAgent.getTeleportSourceSLURL(slurl);
-			args["MESSAGE"] = "Teleport completed from " + slurl.getSLURLString();
+			LLSD substitution = LLSD().with("[T_SLURL]", slurl.getSLURLString());
+			std::string completed_from = LLAgent::sTeleportProgressMessages["completed_from"];
+			LLStringUtil::format(completed_from, substitution);
+
+			LLSD args;
+			args["MESSAGE"] = completed_from;
 			LLNotificationsUtil::add("SystemMessageTip", args);
 
 			// Set the new position
