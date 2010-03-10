@@ -250,7 +250,7 @@ S32 LLAvatarTracker::addBuddyList(const LLAvatarTracker::buddy_map_t& buds)
 	using namespace std;
 
 	U32 new_buddy_count = 0;
-	std::string first,last;
+	std::string full_name;
 	LLUUID agent_id;
 	for(buddy_map_t::const_iterator itr = buds.begin(); itr != buds.end(); ++itr)
 	{
@@ -260,7 +260,8 @@ S32 LLAvatarTracker::addBuddyList(const LLAvatarTracker::buddy_map_t& buds)
 		{
 			++new_buddy_count;
 			mBuddyInfo[agent_id] = (*itr).second;
-			gCacheName->getName(agent_id, first, last);
+			// IDEVO JAMESDEBUG is this necessary?  name is unused?
+			gCacheName->getFullName(agent_id, full_name);
 			addChangedMask(LLFriendObserver::ADD, agent_id);
 			lldebugs << "Added buddy " << agent_id
 					<< ", " << (mBuddyInfo[agent_id]->isOnline() ? "Online" : "Offline")
@@ -693,12 +694,11 @@ void LLAvatarTracker::processNotify(LLMessageSystem* msg, bool online)
 				setBuddyOnline(agent_id,online);
 				if(chat_notify)
 				{
-					std::string first, last;
-					if(gCacheName->getName(agent_id, first, last))
+					std::string full_name;
+					if(gCacheName->getFullName(agent_id, full_name))
 					{
 						notify = TRUE;
-						args["FIRST"] = first;
-						args["LAST"] = last;
+						args["NAME"] = full_name;
 					}
 				}
 			}
@@ -867,10 +867,8 @@ bool LLCollectProxyBuddies::operator()(const LLUUID& buddy_id, LLRelationship* b
 
 bool LLCollectMappableBuddies::operator()(const LLUUID& buddy_id, LLRelationship* buddy)
 {
-	gCacheName->getName(buddy_id, mFirst, mLast);
-	std::ostringstream fullname;
-	fullname << mFirst << " " << mLast;
-	buddy_map_t::value_type value(fullname.str(), buddy_id);
+	gCacheName->getFullName(buddy_id, mFullName);
+	buddy_map_t::value_type value(mFullName, buddy_id);
 	if(buddy->isOnline() && buddy->isRightGrantedFrom(LLRelationship::GRANT_MAP_LOCATION))
 	{
 		mMappable.insert(value);
@@ -880,10 +878,8 @@ bool LLCollectMappableBuddies::operator()(const LLUUID& buddy_id, LLRelationship
 
 bool LLCollectOnlineBuddies::operator()(const LLUUID& buddy_id, LLRelationship* buddy)
 {
-	gCacheName->getName(buddy_id, mFirst, mLast);
-	std::ostringstream fullname;
-	fullname << mFirst << " " << mLast;
-	buddy_map_t::value_type value(fullname.str(), buddy_id);
+	gCacheName->getFullName(buddy_id, mFullName);
+	buddy_map_t::value_type value(mFullName, buddy_id);
 	if(buddy->isOnline())
 	{
 		mOnline.insert(value);
@@ -893,10 +889,8 @@ bool LLCollectOnlineBuddies::operator()(const LLUUID& buddy_id, LLRelationship* 
 
 bool LLCollectAllBuddies::operator()(const LLUUID& buddy_id, LLRelationship* buddy)
 {
-	gCacheName->getName(buddy_id, mFirst, mLast);
-	std::ostringstream fullname;
-	fullname << mFirst << " " << mLast;
-	buddy_map_t::value_type value(fullname.str(), buddy_id);
+	gCacheName->getFullName(buddy_id, mFullName);
+	buddy_map_t::value_type value(mFullName, buddy_id);
 	if(buddy->isOnline())
 	{
 		mOnline.insert(value);
@@ -907,5 +901,3 @@ bool LLCollectAllBuddies::operator()(const LLUUID& buddy_id, LLRelationship* bud
 	}
 	return true;
 }
-
-

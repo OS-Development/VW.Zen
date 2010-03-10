@@ -7135,7 +7135,7 @@
       <key>Value</key>
       <integer>0</integer>
     </map>
-    <key>RenderShowGroupTitleAll</key>
+    <key>NameTagShowGroupTitles</key>
     <map>
       <key>Comment</key>
       <string>Show group titles in name labels</string>
@@ -7144,7 +7144,29 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
+      <integer>0</integer>
+    </map>
+    <key>NameTagShowDisplayNames</key>
+    <map>
+      <key>Comment</key>
+      <string>Show display names in name labels</string>
+      <key>Persist</key>
       <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>1</integer>
+    </map>
+    <key>NameTagShowSLIDs</key>
+    <map>
+      <key>Comment</key>
+      <string>Show Second Life IDs in name labels</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>0</integer>
     </map>
     <key>RenderInitError</key>
     <map>
