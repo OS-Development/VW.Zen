@@ -193,9 +193,21 @@ bool friendship_offer_callback(const LLSD& notification, const LLSD& response)
 		msg->nextBlockFast(_PREHASH_FolderData);
 		msg->addUUIDFast(_PREHASH_FolderID, fid);
 		msg->sendReliable(LLHost(payload["sender"].asString()));
+
+		LLSD payload = notification["payload"];
+		payload["SUPPRESS_TOAST"] = true;
+		LLNotificationsUtil::add("FriendshipAcceptedByMe",
+				notification["substitutions"], payload);
 		break;
 	}
 	case 1: // Decline
+	{
+		LLSD payload = notification["payload"];
+		payload["SUPPRESS_TOAST"] = true;
+		LLNotificationsUtil::add("FriendshipDeclinedByMe",
+				notification["substitutions"], payload);
+	}
+	// fall-through
 	case 2: // Send IM - decline and start IM session
 		{
 			// decline
@@ -2212,7 +2224,8 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 				LLSD args;
 				args["owner_id"] = from_id;
 				args["slurl"] = location;
-				nearby_chat->addMessage(chat, true, args);
+				args["type"] = LLNotificationsUI::NT_NEARBYCHAT;
+				LLNotificationsUI::LLNotificationManager::instance().onChat(chat, args);
 			}
 
 
@@ -3102,8 +3115,12 @@ void process_agent_movement_complete(LLMessageSystem* msg, void**)
 		{
 			// Chat the "back" SLURL. (DEV-4907)
 
+			LLSD substitution = LLSD().with("[T_SLURL]", gAgent.getTeleportSourceSLURL());
+			std::string completed_from = LLAgent::sTeleportProgressMessages["completed_from"];
+			LLStringUtil::format(completed_from, substitution);
+
 			LLSD args;
-			args["MESSAGE"] = "Teleport completed from " + gAgent.getTeleportSourceSLURL();
+			args["MESSAGE"] = completed_from;
 			LLNotificationsUtil::add("SystemMessageTip", args);
 
 			// Set the new position

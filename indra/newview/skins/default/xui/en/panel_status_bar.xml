@@ -51,12 +51,12 @@
      image_unselected="spacer35.tga"
      image_pressed="spacer35.tga"
      height="16"
-     right="-210"
+     right="-230"
      label_shadow="false"
      name="buycurrency"
      tool_tip="My Balance"
      top="3"
-     width="110" />
+     width="120" />
     <button
      auto_resize="true"
      halign="right"
@@ -75,7 +75,7 @@
      pad_bottom="2"
      tool_tip="Click to buy more L$"
      top="2"
-     width="45" />
+     width="55" />
     <text
      type="string"
      font="SansSerifSmall"
@@ -85,10 +85,10 @@
      height="16"
      top="5"
      layout="topleft"
-     left_pad="5"
+     left_pad="0"
      name="TimeText"
      tool_tip="Current time (Pacific)"
-     width="80">
+     width="100">
         24:00 AM PST
     </text>
     <button
@@ -102,7 +102,7 @@
      left_pad="15"
      top="1"
      name="media_toggle_btn"
-     tool_tip="Click to toggle media"
+     tool_tip="Start/Stop All Media (Music, Video, Web pages)"
      width="16" >
     </button>
     <button

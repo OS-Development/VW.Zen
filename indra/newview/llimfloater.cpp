@@ -112,6 +112,8 @@ LLIMFloater::LLIMFloater(const LLUUID& session_id)
 	setOverlapsScreenChannel(true);
 
 	LLTransientFloaterMgr::getInstance()->addControlView(LLTransientFloaterMgr::IM, this);
+
+	setDocked(true);
 }
 
 void LLIMFloater::onFocusLost()
@@ -124,12 +126,6 @@ void LLIMFloater::onFocusLost()
 void LLIMFloater::onFocusReceived()
 {
 	LLIMModel::getInstance()->setActiveSessionID(mSessionID);
-
-	// return focus to the input field when active tab in the multitab container is clicked.
-	if (isChatMultiTab() && mInputEditor)
-	{
-		mInputEditor->setFocus(TRUE);
-	}
 
 	LLBottomTray::getInstance()->getChicletPanel()->setChicletToggleState(mSessionID, true);
 }
@@ -442,7 +438,7 @@ LLIMFloater* LLIMFloater::show(const LLUUID& session_id)
 
 void LLIMFloater::getAllowedRect(LLRect& rect)
 {
-	rect = gViewerWindow->getWorldViewRectRaw();
+	rect = gViewerWindow->getWorldViewRectScaled();
 	static S32 right_padding = 0;
 	if (right_padding == 0)
 	{
@@ -489,11 +485,19 @@ void LLIMFloater::setVisible(BOOL visible)
 		channel->redrawToasts();
 	}
 
-	if (visible && mChatHistory && mInputEditor)
+	BOOL is_minimized = visible && isChatMultiTab()
+		? LLIMFloaterContainer::getInstance()->isMinimized()
+		: !visible;
+
+	if (!is_minimized && mChatHistory && mInputEditor)
 	{
 		//only if floater was construced and initialized from xml
 		updateMessages();
-		mInputEditor->setFocus(TRUE);
+		//prevent steal focus when IM opened in multitab mode
+		if (!isChatMultiTab())
+		{
+			mInputEditor->setFocus(TRUE);
+		}
 	}
 
 	if(!visible)
@@ -514,6 +518,13 @@ BOOL LLIMFloater::getVisible()
 		
 		// Treat inactive floater as invisible.
 		bool is_active = im_container->getActiveFloater() == this;
+	
+		//torn off floater is always inactive
+		if (!is_active && getHost() != im_container)
+		{
+			return LLTransientDockableFloater::getVisible();
+		}
+
 		// getVisible() returns TRUE when Tabbed IM window is minimized.
 		return is_active && !im_container->isMinimized() && im_container->getVisible();
 	}
@@ -618,12 +629,14 @@ void LLIMFloater::updateMessages()
 			LLUUID from_id = msg["from_id"].asUUID();
 			std::string from = msg["from"].asString();
 			std::string message = msg["message"].asString();
+			bool is_history = msg["is_history"].asBoolean();
 
 			LLChat chat;
 			chat.mFromID = from_id;
 			chat.mSessionID = mSessionID;
 			chat.mFromName = from;
 			chat.mTimeStr = time;
+			chat.mChatStyle = is_history ? CHAT_STYLE_HISTORY : chat.mChatStyle;
 
 			// process offer notification
 			if (msg.has("notification_id"))
@@ -662,15 +675,6 @@ void LLIMFloater::onInputEditorFocusReceived( LLFocusableElement* caller, void* 
 	{
 		//in disconnected state IM input editor should be disabled
 		self->mInputEditor->setEnabled(!gDisconnected);
-	}
-
-	// when IM Floater is a part of the multitab container LLTabContainer set focus to the first
-	// child on tab button's mouse up. This leads input field lost focus. See EXT-3852.
-	if (isChatMultiTab())
-	{
-		// So, clear control captured mouse to prevent LLTabContainer set focus on the panel's first child.
-		// do not pass self->mInputEditor, this leads to have "Edit Text" mouse pointer wherever it is.
-		gFocusMgr.setMouseCapture(NULL);
 	}
 }
 

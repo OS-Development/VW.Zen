@@ -34,6 +34,8 @@
 #include "linden_common.h"
 #include "llurlentry.h"
 #include "lluri.h"
+#include "llurlmatch.h"
+#include "llurlregistry.h"
 
 #include "llcachename.h"
 #include "lltrans.h"
@@ -232,7 +234,7 @@ std::string LLUrlEntryHTTPNoProtocol::getUrl(const std::string &string) const
 LLUrlEntrySLURL::LLUrlEntrySLURL()
 {
 	// see http://slurl.com/about.php for details on the SLURL format
-	mPattern = boost::regex("http://(maps.secondlife.com|slurl.com)/secondlife/\\S+/?(\\d+)?/?(\\d+)?/?(\\d+)?/?\\S*",
+	mPattern = boost::regex("http://(maps.secondlife.com|slurl.com)/secondlife/[^ /]+(/\\d+){0,3}(/?(\\?title|\\?img|\\?msg)=\\S*)?/?",
 							boost::regex::perl|boost::regex::icase);
 	mMenuName = "menu_url_slurl.xml";
 	mTooltip = LLTrans::getString("TooltipSLURL");
@@ -287,7 +289,7 @@ std::string LLUrlEntrySLURL::getLabel(const std::string &url, const LLUrlLabelCa
 std::string LLUrlEntrySLURL::getLocation(const std::string &url) const
 {
 	// return the part of the Url after slurl.com/secondlife/
-	const std::string search_string = "secondlife";
+	const std::string search_string = "/secondlife";
 	size_t pos = url.find(search_string);
 	if (pos == std::string::npos)
 	{
@@ -308,6 +310,7 @@ LLUrlEntryAgent::LLUrlEntryAgent()
 							boost::regex::perl|boost::regex::icase);
 	mMenuName = "menu_url_agent.xml";
 	mIcon = "Generic_Person";
+	mTooltip = LLTrans::getString("TooltipAgentUrl");
 	mColor = LLUIColorTable::instance().getColor("AgentLinkColor");
 }
 
@@ -600,6 +603,20 @@ std::string LLUrlEntrySLLabel::getLabel(const std::string &url, const LLUrlLabel
 std::string LLUrlEntrySLLabel::getUrl(const std::string &string) const
 {
 	return getUrlFromWikiLink(string);
+}
+
+std::string LLUrlEntrySLLabel::getTooltip(const std::string &string) const
+{
+	// return a tooltip corresponding to the URL type instead of the generic one (EXT-4574)
+	std::string url = getUrl(string);
+	LLUrlMatch match;
+	if (LLUrlRegistry::instance().findUrl(url, match))
+	{
+		return match.getTooltip();
+	}
+
+	// unrecognized URL? should not happen
+	return LLUrlEntryBase::getTooltip(string);
 }
 
 //

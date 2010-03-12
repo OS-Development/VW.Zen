@@ -315,19 +315,16 @@ LLFloaterPreference::LLFloaterPreference(const LLSD& key)
 	mCommitCallbackRegistrar.add("Pref.ClickEnablePopup",		boost::bind(&LLFloaterPreference::onClickEnablePopup, this));
 	mCommitCallbackRegistrar.add("Pref.ClickDisablePopup",		boost::bind(&LLFloaterPreference::onClickDisablePopup, this));	
 	mCommitCallbackRegistrar.add("Pref.LogPath",				boost::bind(&LLFloaterPreference::onClickLogPath, this));
-	mCommitCallbackRegistrar.add("Pref.UpdateMeterText",		boost::bind(&LLFloaterPreference::updateMeterText, this, _1));	
 	mCommitCallbackRegistrar.add("Pref.HardwareSettings",       boost::bind(&LLFloaterPreference::onOpenHardwareSettings, this));	
 	mCommitCallbackRegistrar.add("Pref.HardwareDefaults",       boost::bind(&LLFloaterPreference::setHardwareDefaults, this));	
 	mCommitCallbackRegistrar.add("Pref.VertexShaderEnable",     boost::bind(&LLFloaterPreference::onVertexShaderEnable, this));	
 	mCommitCallbackRegistrar.add("Pref.WindowedMod",            boost::bind(&LLFloaterPreference::onCommitWindowedMode, this));	
 	mCommitCallbackRegistrar.add("Pref.UpdateSliderText",       boost::bind(&LLFloaterPreference::onUpdateSliderText,this, _1,_2));	
-	mCommitCallbackRegistrar.add("Pref.ParcelMediaAutoPlayEnable",       boost::bind(&LLFloaterPreference::onCommitParcelMediaAutoPlayEnable, this));	
-	mCommitCallbackRegistrar.add("Pref.MediaEnabled",           boost::bind(&LLFloaterPreference::onCommitMediaEnabled, this));	
-	mCommitCallbackRegistrar.add("Pref.MusicEnabled",           boost::bind(&LLFloaterPreference::onCommitMusicEnabled, this));	
 	mCommitCallbackRegistrar.add("Pref.QualityPerformance",     boost::bind(&LLFloaterPreference::onChangeQuality, this, _2));	
 	mCommitCallbackRegistrar.add("Pref.applyUIColor",			boost::bind(&LLFloaterPreference::applyUIColor, this ,_1, _2));
 	mCommitCallbackRegistrar.add("Pref.getUIColor",				boost::bind(&LLFloaterPreference::getUIColor, this ,_1, _2));
-	
+	mCommitCallbackRegistrar.add("Pref.MaturitySettings",		boost::bind(&LLFloaterPreference::onChangeMaturity, this));
+
 	sSkin = gSavedSettings.getString("SkinCurrent");
 	
 	gSavedSettings.getControl("AvatarNameTagMode")->getCommitSignal()->connect(boost::bind(&handleNameTagOptionChanged,  _2));
@@ -338,6 +335,10 @@ BOOL LLFloaterPreference::postBuild()
 	gSavedSettings.getControl("PlainTextChatHistory")->getSignal()->connect(boost::bind(&LLIMFloater::processChatHistoryStyleUpdate, _2));
 
 	gSavedSettings.getControl("PlainTextChatHistory")->getSignal()->connect(boost::bind(&LLNearbyChat::processChatHistoryStyleUpdate, _2));
+
+	gSavedSettings.getControl("ChatFontSize")->getSignal()->connect(boost::bind(&LLIMFloater::processChatHistoryStyleUpdate, _2));
+
+	gSavedSettings.getControl("ChatFontSize")->getSignal()->connect(boost::bind(&LLNearbyChat::processChatHistoryStyleUpdate, _2));
 
 	LLTabContainer* tabcontainer = getChild<LLTabContainer>("pref core");
 	if (!tabcontainer->selectTab(gSavedSettings.getS32("LastPrefTab")))
@@ -514,7 +515,8 @@ void LLFloaterPreference::onOpen(const LLSD& key)
 	// if we have no agent, we can't let them choose anything
 	// if we have an agent, then we only let them choose if they have a choice
 	bool can_choose_maturity =
-		gAgent.getID().notNull() &&	(gAgent.isMature() || gAgent.isGodlike());
+		gAgent.getID().notNull() &&
+		(gAgent.isMature() || gAgent.isGodlike());
 	
 	LLComboBox* maturity_combo = getChild<LLComboBox>("maturity_desired_combobox");
 	
@@ -536,6 +538,9 @@ void LLFloaterPreference::onOpen(const LLSD& key)
 		childSetText("maturity_desired_textbox",  maturity_combo->getSelectedItemLabel());
 		childSetVisible("maturity_desired_combobox", false);
 	}
+
+	// Display selected maturity icons.
+	onChangeMaturity();
 	
 	// Enabled/disabled popups, might have been changed by user actions
 	// while preferences floater was closed.
@@ -666,28 +671,14 @@ void LLFloaterPreference::refreshEnabledGraphics()
 	LLFloaterPreference* instance = LLFloaterReg::findTypedInstance<LLFloaterPreference>("preferences");
 	if(instance)
 	{
-		instance->refreshEnabledState();
+		instance->refresh();
+		//instance->refreshEnabledState();
 	}
 	LLFloaterHardwareSettings* hardware_settings = LLFloaterReg::getTypedInstance<LLFloaterHardwareSettings>("prefs_hardware_settings");
 	if (hardware_settings)
 	{
 		hardware_settings->refreshEnabledState();
 	}
-}
-
-void LLFloaterPreference::updateMeterText(LLUICtrl* ctrl)
-{
-	// get our UI widgets
-	LLSliderCtrl* slider = (LLSliderCtrl*) ctrl;
-
-	LLTextBox* m1 = getChild<LLTextBox>("DrawDistanceMeterText1");
-	LLTextBox* m2 = getChild<LLTextBox>("DrawDistanceMeterText2");
-
-	// toggle the two text boxes based on whether we have 1 or two digits
-	F32 val = slider->getValueF32();
-	bool two_digits = val < 100;
-	m1->setVisible(two_digits);
-	m2->setVisible(!two_digits);
 }
 
 void LLFloaterPreference::onClickBrowserClearCache()
@@ -956,29 +947,6 @@ void LLFloaterPreference::disableUnavailableSettings()
 	}
 }
 
-void LLFloaterPreference::onCommitParcelMediaAutoPlayEnable()
-{
-	BOOL autoplay = getChild<LLCheckBoxCtrl>("autoplay_enabled")->get();
-		
-	gSavedSettings.setBOOL(LLViewerMedia::AUTO_PLAY_MEDIA_SETTING, autoplay);
-
-	lldebugs << "autoplay now = " << int(autoplay) << llendl;
-}
-
-void LLFloaterPreference::onCommitMediaEnabled()
-{
-	LLCheckBoxCtrl *media_enabled_ctrl = getChild<LLCheckBoxCtrl>("media_enabled");
-	bool enabled = media_enabled_ctrl->get();
-	gSavedSettings.setBOOL("AudioStreamingMedia", enabled);
-}
-
-void LLFloaterPreference::onCommitMusicEnabled()
-{
-	LLCheckBoxCtrl *music_enabled_ctrl = getChild<LLCheckBoxCtrl>("music_enabled");
-	bool enabled = music_enabled_ctrl->get();
-	gSavedSettings.setBOOL("AudioStreamingMusic", enabled);
-}
-
 void LLFloaterPreference::refresh()
 {
 	LLPanel::refresh();
@@ -1017,7 +985,8 @@ void LLFloaterPreference::cleanupBadSetting()
 	if (gSavedPerAccountSettings.getString("BusyModeResponse2") == "|TOKEN COPY BusyModeResponse|")
 	{
 		llwarns << "cleaning old BusyModeResponse" << llendl;
-		gSavedPerAccountSettings.setString("BusyModeResponse2", gSavedPerAccountSettings.getText("BusyModeResponse"));
+		//LLTrans::getString("BusyModeResponseDefault") is used here for localization (EXT-5885)
+		gSavedPerAccountSettings.setString("BusyModeResponse2", LLTrans::getString("BusyModeResponseDefault"));
 	}
 }
 
@@ -1248,7 +1217,19 @@ void LLFloaterPreference::applyResolution()
 	refresh();
 }
 
+void LLFloaterPreference::onChangeMaturity()
+{
+	U8 sim_access = gSavedSettings.getU32("PreferredMaturity");
 
+	getChild<LLIconCtrl>("rating_icon_general")->setVisible(sim_access == SIM_ACCESS_PG
+															|| sim_access == SIM_ACCESS_MATURE
+															|| sim_access == SIM_ACCESS_ADULT);
+
+	getChild<LLIconCtrl>("rating_icon_moderate")->setVisible(sim_access == SIM_ACCESS_MATURE
+															|| sim_access == SIM_ACCESS_ADULT);
+
+	getChild<LLIconCtrl>("rating_icon_adult")->setVisible(sim_access == SIM_ACCESS_ADULT);
+}
 
 
 void LLFloaterPreference::applyUIColor(LLUICtrl* ctrl, const LLSD& param)
@@ -1308,7 +1289,7 @@ BOOL LLPanelPreference::postBuild()
 	if (hasChild("media_enabled"))
 	{
 		bool media_enabled = gSavedSettings.getBOOL("AudioStreamingMedia");
-		getChild<LLCheckBoxCtrl>("voice_call_friends_only_check")->setCommitCallback(boost::bind(&showFriendsOnlyWarning, _1, _2));
+		
 		getChild<LLCheckBoxCtrl>("media_enabled")->set(media_enabled);
 		getChild<LLCheckBoxCtrl>("autoplay_enabled")->setEnabled(media_enabled);
 	}
@@ -1316,7 +1297,11 @@ BOOL LLPanelPreference::postBuild()
 	{
 		getChild<LLCheckBoxCtrl>("music_enabled")->set(gSavedSettings.getBOOL("AudioStreamingMusic"));
 	}
-	
+	if (hasChild("voice_call_friends_only_check"))
+	{
+		getChild<LLCheckBoxCtrl>("voice_call_friends_only_check")->setCommitCallback(boost::bind(&showFriendsOnlyWarning, _1, _2));
+	}
+
 	apply();
 	return true;
 }

@@ -127,7 +127,7 @@ BOOL LLGroupList::handleRightMouseDown(S32 x, S32 y, MASK mask)
 	BOOL handled = LLUICtrl::handleRightMouseDown(x, y, mask);
 
 	LLMenuGL* context_menu = (LLMenuGL*)mContextMenuHandle.get();
-	if (context_menu)
+	if (context_menu && size() > 0)
 	{
 		context_menu->buildDrawLabels();
 		context_menu->updateParent(LLMenuGL::sMenuContainer);
@@ -287,7 +287,7 @@ bool LLGroupList::onContextMenuItemEnable(const LLSD& userdata)
 		return gAgent.getGroupID() != selected_group_id;
 
 	if (userdata.asString() == "call")
-		return LLVoiceClient::voiceEnabled()&&gVoiceClient->voiceWorking();
+		return real_group_selected && LLVoiceClient::voiceEnabled()&&gVoiceClient->voiceWorking();
 
 	return real_group_selected;
 }

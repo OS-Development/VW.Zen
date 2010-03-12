@@ -194,6 +194,8 @@ public:
 	/// The static isShown() can accept a NULL pointer (which of course
 	/// returns false). When non-NULL, it calls the non-static isShown().
 	static bool		isShown(const LLFloater* floater);
+	static bool     isVisible(const LLFloater* floater);
+	static bool     isMinimized(const LLFloater* floater);
 	BOOL			isFirstLook() { return mFirstLook; } // EXT-2653: This function is necessary to prevent overlapping for secondary showed toasts
 	BOOL			isFrontmost();
 	BOOL			isDependent()					{ return !mDependeeHandle.isDead(); }
@@ -222,6 +224,7 @@ public:
 	virtual BOOL	handleScrollWheel(S32 x, S32 y, S32 mask);
 	
 	virtual void	draw();
+	virtual void	drawShadow(LLPanel* panel);
 	
 	virtual void	onOpen(const LLSD& key) {}
 	virtual void	onClose(bool app_quitting) {}
@@ -306,6 +309,8 @@ protected:
 
 	void			destroy() { die(); } // Don't call this directly.  You probably want to call closeFloater()
 
+	virtual	void	onClickCloseBtn();
+
 private:
 	void			setForeground(BOOL b);	// called only by floaterview
 	void			cleanupHandles(); // remove handles to dead floaters
@@ -345,6 +350,7 @@ protected:
 	LLResizeBar*	mResizeBar[4];
 	LLResizeHandle*	mResizeHandle[4];
 
+	LLButton*		mButtons[BUTTON_COUNT];
 private:
 	LLRect			mExpandedRect;
 	
@@ -378,7 +384,6 @@ private:
 	handle_set_t	mDependents;
 
 	bool			mButtonsEnabled[BUTTON_COUNT];
-	LLButton*		mButtons[BUTTON_COUNT];
 	F32				mButtonScale;
 	BOOL			mAutoFocus;
 	LLHandle<LLFloater> mSnappedTo;

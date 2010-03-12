@@ -366,10 +366,7 @@
 		min_val="64"
 		name="DrawDistance"
 		top="3"
-		width="255">
-			<slider.commit_callback
-			function="Pref.UpdateMeterText" />
-		</slider>
+		width="255" />
 		<text
 		type="string"
 		length="1"
@@ -638,7 +635,7 @@
         left_delta="-230"
         name="LightingDetailText"
         top_pad="8"
-        width="128">
+        width="140">
            Lighting detail:
         </text>
         <radio_group
@@ -675,10 +672,10 @@
         follows="left|top"
         height="12"
         layout="topleft"
-        left="360"
+        left="358"
         name="TerrainDetailText"
         top="465"
-        width="128">
+        width="155">
            Terrain detail:
         </text>
         <radio_group

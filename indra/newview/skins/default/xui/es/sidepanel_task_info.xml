@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<panel name="object properties" title="Perfil del objeto">
+	<panel.string name="text deed continued">
+		Transfeir
+	</panel.string>
+	<panel.string name="text deed">
+		Transfeir
+	</panel.string>
+	<panel.string name="text modify info 1">
+		Puedes modificar este objeto
+	</panel.string>
+	<panel.string name="text modify info 2">
+		Puedes modificar estos objetos
+	</panel.string>
+	<panel.string name="text modify info 3">
+		No puedes modificar este objeto
+	</panel.string>
+	<panel.string name="text modify info 4">
+		No puedes modificar estos objetos
+	</panel.string>
+	<panel.string name="text modify warning">
+		Este objeto tiene partes enlazadas
+	</panel.string>
+	<panel.string name="Cost Default">
+		Precio: L$
+	</panel.string>
+	<panel.string name="Cost Total">
+		Precio total: L$
+	</panel.string>
+	<panel.string name="Cost Per Unit">
+		Price Per: L$
+	</panel.string>
+	<panel.string name="Cost Mixed">
+		Mixed Price
+	</panel.string>
+	<panel.string name="Sale Mixed">
+		Mixed Sale
+	</panel.string>
+	<text name="title" value="Perfil del objeto"/>
+	<text name="where" value="(en el mundo)"/>
+	<panel label="">
+		<text name="CreatorNameLabel">
+			Creador:
+		</text>
+		<text name="Creator Name">
+			Erica Linden
+		</text>
+		<text name="Group_label">
+			Grupo:
+		</text>
+		<panel name="perms_inv">
+			<text name="perm_modify">
+				Puedes modificar este objeto
+			</text>
+			<text name="Anyone can:">
+				Cualquiera:
+			</text>
+			<check_box label="Copiarlo" name="checkbox allow everyone copy"/>
+			<check_box label="Moverlo" name="checkbox allow everyone move"/>
+			<text name="GroupLabel">
+				Grupo:
+			</text>
+			<check_box label="Compartir" name="checkbox share with group" tool_tip="Permite que todos los miembros del grupo compartan tus permisos de modificación en este objeto. Debes transferirlo para activar las restricciones según los roles."/>
+			<text name="NextOwnerLabel">
+				Próximo propietario:
+			</text>
+			<check_box label="Modificarlo" name="checkbox next owner can modify"/>
+			<check_box label="Copiarlo" name="checkbox next owner can copy"/>
+			<check_box label="Transferirlo" name="checkbox next owner can transfer" tool_tip="El próximo propietario puede dar o revender este objeto"/>
+		</panel>
+		<check_box label="En venta" name="checkbox for sale"/>
+		<text name="B:">
+			B:
+		</text>
+		<text name="O:">
+			O:
+		</text>
+		<text name="G:">
+			G:
+		</text>
+		<text name="E:">
+			E:
+		</text>
+		<text name="N:">
+			N:
+		</text>
+		<text name="F:">
+			F:
+		</text>
+	</panel>
+	<panel name="button_panel">
+		<button label="Abrir" name="open_btn"/>
+		<button label="Pagar" name="pay_btn"/>
+		<button label="Comprar" name="buy_btn"/>
+	</panel>
+</panel>

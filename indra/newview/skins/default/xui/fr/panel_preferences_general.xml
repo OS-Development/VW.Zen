@@ -44,17 +44,17 @@
 		<radio_item label="Activé" name="radio2" value="1"/>
 		<radio_item label="Afficher brièvement" name="radio3" value="2"/>
 	</radio_group>
-	<check_box label="Afficher mon nom" name="show_my_name_checkbox1"/>
+	<check_box label="Montrer mon nom" name="show_my_name_checkbox1"/>
 	<check_box initial_value="true" label="Affichage en petit" name="small_avatar_names_checkbox"/>
 	<check_box label="Afficher les titres de groupe" name="show_all_title_checkbox1"/>
 	<text name="effects_color_textbox">
 		Mes effets :
 	</text>
 	<text name="title_afk_text">
-		Délai d&apos;absence :
+		Me montrer absent après :
 	</text>
 	<color_swatch label="" name="effect_color_swatch" tool_tip="Cliquer pour ouvrir le sélecteur de couleurs"/>
-	<combo_box label="Délai d&apos;absence :" name="afk">
+	<combo_box label="Me montrer absent après :" name="afk">
 		<combo_box.item label="2 minutes" name="item0"/>
 		<combo_box.item label="5 minutes" name="item1"/>
 		<combo_box.item label="10 minutes" name="item2"/>

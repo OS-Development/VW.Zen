@@ -17,11 +17,11 @@
 	<text name="QualitySpeed">
 		Qualité et vitesse :
 	</text>
-	<text left="35" name="FasterText">
+	<text name="FasterText">
 		Plus rapide
 	</text>
 	<text name="BetterText">
-		Meilleur
+		Meilleure
 	</text>
 	<text name="ShadersPrefText">
 		Faible

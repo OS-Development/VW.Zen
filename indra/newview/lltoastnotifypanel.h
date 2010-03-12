@@ -53,8 +53,17 @@ class LLNotificationForm;
 class LLToastNotifyPanel: public LLToastPanel 
 {
 public:
-	LLToastNotifyPanel(LLNotificationPtr&);
+	/**
+	 * Constructor for LLToastNotifyPanel.
+	 * 
+	 * @param pNotification a shared pointer to LLNotification
+	 * @param rect an initial rectangle of the toast panel. 
+	 * If it is null then a loaded from xml rectangle will be used. 
+	 * @see LLNotification
+	 */
+	LLToastNotifyPanel(LLNotificationPtr& pNotification, const LLRect& rect = LLRect::null);
 	virtual ~LLToastNotifyPanel();
+	LLPanel * getControlPanel() { return mControlPanel; }
 
 protected:
 	LLButton* createButton(const LLSD& form_element, BOOL is_option);
@@ -73,7 +82,13 @@ private:
 	void adjustPanelForScriptNotice(S32 max_width, S32 max_height);
 	void adjustPanelForTipNotice();
 	void addDefaultButton();
-	void updateButtonsLayout(const std::vector<index_button_pair_t>& buttons, S32 left_pad, S32 top);
+	/*
+	 * It lays out buttons of the notification in  mControlPanel.
+	 * Buttons will be placed from BOTTOM to TOP.
+	 * @param  h_pad horizontal space between buttons. It is depend on number of buttons.
+	 * @param buttons vector of button to be added. 
+	 */
+	void updateButtonsLayout(const std::vector<index_button_pair_t>& buttons, S32 h_pad);
 
 	// panel elements
 	LLTextBase*		mTextBox;

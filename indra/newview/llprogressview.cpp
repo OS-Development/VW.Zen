@@ -128,11 +128,13 @@ void LLProgressView::setVisible(BOOL visible)
 {
 	if (getVisible() && !visible)
 	{
+
 		mFadeTimer.start();
 	}
 	else if (!getVisible() && visible)
 	{
-		gFocusMgr.setTopCtrl(this);
+		gViewerWindow->addPopup(this);
+
 		setFocus(TRUE);
 		mFadeTimer.stop();
 		mProgressTimer.start();
@@ -187,6 +189,8 @@ void LLProgressView::draw()
 			// Fade is complete, release focus
 			gFocusMgr.releaseFocusIfNeeded( this );
 			LLPanel::setVisible(FALSE);
+			gViewerWindow->removePopup(this);
+
 			gStartTexture = NULL;
 		}
 		return;
@@ -223,7 +227,10 @@ void LLProgressView::setCancelButtonVisible(BOOL b, const std::string& label)
 // static
 void LLProgressView::onCancelButtonClicked(void*)
 {
-	if (gAgent.getTeleportState() == LLAgent::TELEPORT_NONE)
+	// Quitting viewer here should happen only when "Quit" button is pressed while starting up.
+	// Check for startup state is used here instead of teleport state to avoid quitting when
+	// cancel is pressed while teleporting inside region (EXT-4911)
+	if (LLStartUp::getStartupState() < STATE_STARTED)
 	{
 		LLAppViewer::instance()->requestQuit();
 	}
