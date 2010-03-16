@@ -54,6 +54,8 @@ S32 BUTTON_WIDTH = 90;
 const LLFontGL* LLToastNotifyPanel::sFont = NULL;
 const LLFontGL* LLToastNotifyPanel::sFontSmall = NULL;
 
+LLToastNotifyPanel::button_click_signal_t LLToastNotifyPanel::sButtonClickSignal;
+
 LLToastNotifyPanel::LLToastNotifyPanel(LLNotificationPtr& notification, const LLRect& rect) : 
 LLToastPanel(notification),
 mTextBox(NULL),
@@ -202,6 +204,18 @@ mCloseNotificationOnDestroy(true)
 	// adjust panel's height to the text size
 	mInfoPanel->setFollowsAll();
 	snapToMessageHeight(mTextBox, MAX_LENGTH);
+
+	if(notification->getPayload()["reusable"].asBoolean())
+	{
+		mButtonClickConnection = sButtonClickSignal.connect(
+			boost::bind(&LLToastNotifyPanel::onToastPanelButtonClicked, this, _1, _2));
+
+		if(notification->isRespondedTo())
+		{
+			// User selected an option in toast, now disable required buttons in IM window
+			disableRespondedOptions(notification);
+		}
+	}
 }
 void LLToastNotifyPanel::addDefaultButton()
 {
@@ -269,6 +283,8 @@ LLButton* LLToastNotifyPanel::createButton(const LLSD& form_element, BOOL is_opt
 
 LLToastNotifyPanel::~LLToastNotifyPanel() 
 {
+	mButtonClickConnection.disconnect();
+
 	std::for_each(mBtnCallbackData.begin(), mBtnCallbackData.end(), DeletePointer());
 	if (mCloseNotificationOnDestroy && LLNotificationsUtil::find(mNotification->getID()) != NULL)
 	{
@@ -368,18 +384,59 @@ disable_button_map_t initUserGiveItemDisableButtonMap()
 	return disable_map;
 }
 
+disable_button_map_t initTeleportOfferedDisableButtonMap()
+{
+	disable_button_map_t disable_map;
+	button_name_set_t buttons;
+
+	buttons.insert("Teleport");
+	buttons.insert("Cancel");
+
+	disable_map.insert(std::make_pair("Teleport", buttons));
+	disable_map.insert(std::make_pair("Cancel", buttons));
+
+	return disable_map;
+}
+
+disable_button_map_t initFriendshipOfferedDisableButtonMap()
+{
+	disable_button_map_t disable_map;
+	button_name_set_t buttons;
+
+	buttons.insert("Accept");
+	buttons.insert("Decline");
+
+	disable_map.insert(std::make_pair("Accept", buttons));
+	disable_map.insert(std::make_pair("Decline", buttons));
+
+	return disable_map;
+}
+
 button_name_set_t getButtonDisableList(const std::string& notification_name, const std::string& button_name)
 {
 	static disable_button_map_t user_give_item_disable_map = initUserGiveItemDisableButtonMap();
+	static disable_button_map_t teleport_offered_disable_map = initTeleportOfferedDisableButtonMap();
+	static disable_button_map_t friendship_offered_disable_map = initFriendshipOfferedDisableButtonMap();
 
 	disable_button_map_t::const_iterator it;
 	disable_button_map_t::const_iterator it_end;
+	disable_button_map_t search_map;
 
 	if("UserGiveItem" == notification_name)
 	{
-		it = user_give_item_disable_map.find(button_name);
-		it_end = user_give_item_disable_map.end();
+		search_map = user_give_item_disable_map;
 	}
+	else if("TeleportOffered" == notification_name)
+	{
+		search_map = teleport_offered_disable_map;
+	}
+	else if("FriendshipOffered" == notification_name)
+	{
+		search_map = friendship_offered_disable_map;
+	}
+
+	it = search_map.find(button_name);
+	it_end = search_map.end();
 
 	if(it_end != it)
 	{
@@ -431,7 +488,7 @@ void LLToastNotifyPanel::onClickButton(void* data)
 
 	if(is_reusable)
 	{
-		self->disableButtons(self->mNotification->getName(), button_name);
+		sButtonClickSignal(self->mNotification->getID(), button_name);
 
 		if(new_info)
 		{
@@ -445,3 +502,28 @@ void LLToastNotifyPanel::onClickButton(void* data)
 		self->mControlPanel->setEnabled(FALSE);
 	}
 }
+
+void LLToastNotifyPanel::onToastPanelButtonClicked(const LLUUID& notification_id, const std::string btn_name)
+{
+	if(mNotification->getID() == notification_id)
+	{
+		disableButtons(mNotification->getName(), btn_name);
+	}
+}
+
+void LLToastNotifyPanel::disableRespondedOptions(LLNotificationPtr& notification)
+{
+	LLSD response = notification->getResponse();
+	for (LLSD::map_const_iterator response_it = response.beginMap(); 
+		response_it != response.endMap(); ++response_it)
+	{
+		if (response_it->second.isBoolean() && response_it->second.asBoolean())
+		{
+			// that after multiple responses there can be many pressed buttons
+			// need to process them all
+			disableButtons(notification->getName(), response_it->first);
+		}
+	}
+}
+
+// EOF
