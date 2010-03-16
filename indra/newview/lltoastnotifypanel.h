@@ -65,6 +65,7 @@ public:
 	virtual ~LLToastNotifyPanel();
 	LLPanel * getControlPanel() { return mControlPanel; }
 
+	void setCloseNotificationOnDestroy(bool close) { mCloseNotificationOnDestroy = close; }
 protected:
 	LLButton* createButton(const LLSD& form_element, BOOL is_option);
 
@@ -75,6 +76,8 @@ protected:
 		std::string	mButtonName;
 	};
 	std::vector<InstanceAndS32*> mBtnCallbackData;
+
+	bool mCloseNotificationOnDestroy;
 
 private:
 
@@ -89,6 +92,13 @@ private:
 	 * @param buttons vector of button to be added. 
 	 */
 	void updateButtonsLayout(const std::vector<index_button_pair_t>& buttons, S32 h_pad);
+
+	/**
+	 * Disable specific button(s) based on notification name and clicked button
+	 */
+	void disableButtons(const std::string& notification_name, const std::string& selected_button);
+
+	std::vector<index_button_pair_t> mButtons;
 
 	// panel elements
 	LLTextBase*		mTextBox;
