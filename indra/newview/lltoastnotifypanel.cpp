@@ -430,7 +430,7 @@ button_name_set_t getButtonDisableList(const std::string& notification_name, con
 	{
 		search_map = teleport_offered_disable_map;
 	}
-	else if("FriendshipOffered" == notification_name)
+	else if("OfferFriendship" == notification_name)
 	{
 		search_map = friendship_offered_disable_map;
 	}
@@ -524,6 +524,29 @@ void LLToastNotifyPanel::disableRespondedOptions(LLNotificationPtr& notification
 			disableButtons(notification->getName(), response_it->first);
 		}
 	}
+}
+
+
+//////////////////////////////////////////////////////////////////////////
+
+LLIMToastNotifyPanel::LLIMToastNotifyPanel(LLNotificationPtr& pNotification, const LLRect& rect /* = LLRect::null */)
+ : LLToastNotifyPanel(pNotification, rect)
+{
+	mTextBox->setFollowsAll();
+}
+
+void LLIMToastNotifyPanel::reshape(S32 width, S32 height, BOOL called_from_parent /* = TRUE */)
+{
+	S32 text_height = mTextBox->getTextBoundingRect().getHeight();
+	S32 widget_height = mTextBox->getRect().getHeight();
+	S32 delta = text_height - widget_height;
+	LLRect rc = getRect();
+
+	rc.setLeftTopAndSize(rc.mLeft, rc.mTop, width, height + delta);
+	height = rc.getHeight();
+	width = rc.getWidth();
+
+	LLToastPanel::reshape(width, height, called_from_parent);
 }
 
 // EOF
