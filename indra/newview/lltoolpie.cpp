@@ -964,7 +964,7 @@ BOOL LLToolPie::handleTooltipObject( LLViewerObject* hover_object, std::string l
 					}
 				}
 			}
-
+			
 
 			// Avoid showing tip over media that's displaying unless it's for sale
 			// also check the primary node since sometimes it can have an action even though
@@ -972,9 +972,9 @@ BOOL LLToolPie::handleTooltipObject( LLViewerObject* hover_object, std::string l
 			
 			bool needs_tip = (!is_media_displaying || 
 				              for_sale) &&
-							 (has_media || 
-							  needs_tooltip(nodep) || 
-							  needs_tooltip(LLSelectMgr::getInstance()->getPrimaryHoverNode()));
+				(has_media || 
+				 needs_tooltip(nodep) || 
+				 needs_tooltip(LLSelectMgr::getInstance()->getPrimaryHoverNode()));
 			
 			if (show_all_object_tips || needs_tip)
 			{
