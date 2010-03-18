@@ -272,7 +272,7 @@ void give_money(const LLUUID& uuid, LLViewerRegion* region, S32 amount, BOOL is_
 	}
 	else
 	{
-		LLFloaterBuyCurrency::buyCurrency("Giving", amount);
+		LLFloaterBuyCurrency::buyCurrency(LLTrans::getString("giving"), amount);
 	}
 }
 
@@ -1500,7 +1500,9 @@ void inventory_offer_handler(LLOfferInfo* info)
 	std::string typestr = ll_safe_string(LLAssetType::lookupHumanReadable(info->mType));
 	if (!typestr.empty())
 	{
-		args["OBJECTTYPE"] = typestr;
+		// human readable matches string name from strings.xml
+		// lets get asset type localized name
+		args["OBJECTTYPE"] = LLTrans::getString(typestr);
 	}
 	else
 	{
@@ -3078,7 +3080,7 @@ void process_agent_movement_complete(LLMessageSystem* msg, void**)
 			<< x << ":" << y 
 			<< " current pos " << gAgent.getPositionGlobal()
 			<< LL_ENDL;
-		LLAppViewer::instance()->forceDisconnect("You were sent to an invalid region.");
+		LLAppViewer::instance()->forceDisconnect(LLTrans::getString("SentToInvalidRegion"));
 		return;
 
 	}
@@ -4458,20 +4460,39 @@ void process_money_balance_reply( LLMessageSystem* msg, void** )
 		// have missed something during an event.
 		// *TODO: Translate
 		LLSD args;
-		args["MESSAGE"] = desc;
+		
 
 		// this is a marker to retrieve avatar name from server message:
 		// "<avatar name> paid you L$"
 		const std::string marker = "paid you L$";
 
+		args["MESSAGE"] = desc;
+
 		// extract avatar name from system message
-		std::string name = desc.substr(0, desc.find(marker, 0));
+		S32 marker_pos = desc.find(marker, 0);
+
+		std::string base_name = desc.substr(0, marker_pos);
+		
+		std::string name = base_name;
 		LLStringUtil::trim(name);
 
 		// if name extracted and name cache contains avatar id send loggable notification
 		LLUUID from_id;
 		if(name.size() > 0 && gCacheName->getUUID(name, from_id))
 		{
+			//description always comes not localized. lets fix this
+
+			//ammount paid
+			std::string ammount = desc.substr(marker_pos + marker.length(),desc.length() - marker.length() - marker_pos);
+	
+			//reform description
+			LLStringUtil::format_map_t str_args;
+			str_args["NAME"] = base_name;
+			str_args["AMOUNT"] = ammount;
+			std::string new_description = LLTrans::getString("paid_you_ldollars", str_args);
+
+
+			args["MESSAGE"] = new_description;
 			args["NAME"] = name;
 			LLSD payload;
 			payload["from_id"] = from_id;
