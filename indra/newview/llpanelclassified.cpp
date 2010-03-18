@@ -1325,6 +1325,8 @@ void LLPanelClassifiedInfo::processProperties(void* data, EAvatarProcessorType t
 
 			bool mature = is_cf_mature(c_info->flags);
 			childSetValue("content_type", mature ? mature_str : pg_str);
+			getChild<LLIconCtrl>("content_type_moderate")->setVisible(mature);
+			getChild<LLIconCtrl>("content_type_general")->setVisible(!mature);
 
 			std::string auto_renew_str = is_cf_auto_renew(c_info->flags) ? 
 				getString("auto_renew_on") : getString("auto_renew_off");
@@ -1369,6 +1371,8 @@ void LLPanelClassifiedInfo::resetData()
 	childSetText("auto_renew", LLStringUtil::null);
 	childSetText("creation_date", LLStringUtil::null);
 	childSetText("click_through_text", LLStringUtil::null);
+	getChild<LLIconCtrl>("content_type_moderate")->setVisible(FALSE);
+	getChild<LLIconCtrl>("content_type_general")->setVisible(FALSE);
 }
 
 void LLPanelClassifiedInfo::resetControls()
@@ -1404,6 +1408,11 @@ std::string LLPanelClassifiedInfo::getDescription()
 void LLPanelClassifiedInfo::setClassifiedLocation(const std::string& location)
 {
 	childSetValue("classified_location", location);
+}
+
+std::string LLPanelClassifiedInfo::getClassifiedLocation()
+{
+	return childGetValue("classified_location").asString();
 }
 
 void LLPanelClassifiedInfo::setSnapshotId(const LLUUID& id)
@@ -1647,6 +1656,7 @@ static const S32 CB_ITEM_PG	   = 1;
 LLPanelClassifiedEdit::LLPanelClassifiedEdit()
  : LLPanelClassifiedInfo()
  , mIsNew(false)
+ , mIsNewWithErrors(false)
  , mCanClose(false)
  , mPublishFloater(NULL)
 {
@@ -1705,21 +1715,12 @@ BOOL LLPanelClassifiedEdit::postBuild()
 	return TRUE;
 }
 
-void LLPanelClassifiedEdit::onOpen(const LLSD& key)
+void LLPanelClassifiedEdit::fillIn(const LLSD& key)
 {
-	LLUUID classified_id = key["classified_id"];
+	setAvatarId(gAgent.getID());
 
-	mIsNew = classified_id.isNull();
-
-	scrollToTop();
-
-	if(mIsNew)
+	if(key.isUndefined())
 	{
-		setAvatarId(gAgent.getID());
-
-		resetData();
-		resetControls();
-
 		setPosGlobal(gAgent.getPositionGlobal());
 
 		LLUUID snapshot_id = LLUUID::null;
@@ -1742,25 +1743,55 @@ void LLPanelClassifiedEdit::onOpen(const LLSD& key)
 		childSetValue("classified_name", makeClassifiedName());
 		childSetValue("classified_desc", desc);
 		setSnapshotId(snapshot_id);
-		
 		setClassifiedLocation(createLocationText(getLocationNotice(), region_name, getPosGlobal()));
-		
 		// server will set valid parcel id
 		setParcelId(LLUUID::null);
+	}
+	else
+	{
+		setClassifiedId(key["classified_id"]);
+		setClassifiedName(key["name"]);
+		setDescription(key["desc"]);
+		setSnapshotId(key["snapshot_id"]);
+		setCategory((U32)key["category"].asInteger());
+		setContentType((U32)key["content_type"].asInteger());
+		setClassifiedLocation(key["location_text"]);
+		childSetValue("auto_renew", key["auto_renew"]);
+		childSetValue("price_for_listing", key["price_for_listing"].asInteger());
+	}
+}
 
-		enableVerbs(true);
-		enableEditing(true);
+void LLPanelClassifiedEdit::onOpen(const LLSD& key)
+{
+	mIsNew = key.isUndefined();
+	
+	scrollToTop();
+
+	// classified is not created yet
+	bool is_new = isNew() || isNewWithErrors();
+
+	if(is_new)
+	{
+		resetData();
+		resetControls();
+
+		fillIn(key);
+
+		if(isNew())
+		{
+			LLAvatarPropertiesProcessor::getInstance()->addObserver(getAvatarId(), this);
+		}
 	}
 	else
 	{
 		LLPanelClassifiedInfo::onOpen(key);
-		enableVerbs(false);
-		enableEditing(false);
 	}
 
-	std::string save_btn_label = isNew() ? getString("publish_label") : getString("save_label");
+	std::string save_btn_label = is_new ? getString("publish_label") : getString("save_label");
 	childSetLabelArg("save_changes_btn", "[LABEL]", save_btn_label);
 
+	enableVerbs(is_new);
+	enableEditing(is_new);
 	resetDirty();
 	setInfoLoaded(false);
 }
@@ -1772,6 +1803,14 @@ void LLPanelClassifiedEdit::processProperties(void* data, EAvatarProcessorType t
 		LLAvatarClassifiedInfo* c_info = static_cast<LLAvatarClassifiedInfo*>(data);
 		if(c_info && getClassifiedId() == c_info->classified_id)
 		{
+			// see LLPanelClassifiedEdit::sendUpdate() for notes
+			mIsNewWithErrors = false;
+			// for just created classified - panel will probably be closed when we get here.
+			if(!getVisible())
+			{
+				return;
+			}
+
 			enableEditing(true);
 
 			setClassifiedName(c_info->name);
@@ -1781,19 +1820,22 @@ void LLPanelClassifiedEdit::processProperties(void* data, EAvatarProcessorType t
 
 			setClassifiedLocation(createLocationText(c_info->parcel_name, c_info->sim_name, c_info->pos_global));
 			// *HACK see LLPanelClassifiedEdit::sendUpdate()
-			getChild<LLComboBox>("category")->setCurrentByIndex(c_info->category - 1);
-			getChild<LLComboBox>("category")->resetDirty();
+			setCategory(c_info->category - 1);
 
 			bool mature = is_cf_mature(c_info->flags);
 			bool auto_renew = is_cf_auto_renew(c_info->flags);
 
-			getChild<LLComboBox>("content_type")->setCurrentByIndex(mature ? CB_ITEM_MATURE : CB_ITEM_PG);
+			setContentType(mature ? CB_ITEM_MATURE : CB_ITEM_PG);
 			childSetValue("auto_renew", auto_renew);
 			childSetValue("price_for_listing", c_info->price_for_listing);
 			childSetEnabled("price_for_listing", isNew());
 
 			resetDirty();
 			setInfoLoaded(true);
+			enableVerbs(false);
+
+			// for just created classified - in case user opened edit panel before processProperties() callback 
+			childSetLabelArg("save_changes_btn", "[LABEL]", getString("save_label"));
 		}
 	}
 }
@@ -1824,7 +1866,12 @@ void LLPanelClassifiedEdit::resetDirty()
 	LLPanelClassifiedInfo::resetDirty();
 	getChild<LLUICtrl>("classified_snapshot")->resetDirty();
 	getChild<LLUICtrl>("classified_name")->resetDirty();
-	getChild<LLUICtrl>("classified_desc")->resetDirty();
+
+	LLTextEditor* desc = getChild<LLTextEditor>("classified_desc");
+	// call blockUndo() to really reset dirty(and make isDirty work as intended)
+	desc->blockUndo();
+	desc->resetDirty();
+
 	getChild<LLUICtrl>("category")->resetDirty();
 	getChild<LLUICtrl>("content_type")->resetDirty();
 	getChild<LLUICtrl>("auto_renew")->resetDirty();
@@ -1873,15 +1920,31 @@ void LLPanelClassifiedEdit::stretchSnapshot()
 	getChild<LLUICtrl>("edit_icon")->setShape(mSnapshotCtrl->getRect());
 }
 
+U32 LLPanelClassifiedEdit::getContentType()
+{
+	LLComboBox* ct_cb = getChild<LLComboBox>("content_type");
+	return ct_cb->getCurrentIndex();
+}
+
+void LLPanelClassifiedEdit::setContentType(U32 content_type)
+{
+	LLComboBox* ct_cb = getChild<LLComboBox>("content_type");
+	ct_cb->setCurrentByIndex(content_type);
+	ct_cb->resetDirty();
+}
+
+bool LLPanelClassifiedEdit::getAutoRenew()
+{
+	return childGetValue("auto_renew").asBoolean();
+}
+
 void LLPanelClassifiedEdit::sendUpdate()
 {
 	LLAvatarClassifiedInfo c_data;
 
 	if(getClassifiedId().isNull())
 	{
-		LLUUID id;
-		id.generate();
-		setClassifiedId(id);
+		setClassifiedId(LLUUID::generateNewID());
 	}
 
 	c_data.agent_id = gAgent.getID();
@@ -1898,12 +1961,27 @@ void LLPanelClassifiedEdit::sendUpdate()
 	c_data.price_for_listing = getPriceForListing();
 
 	LLAvatarPropertiesProcessor::getInstance()->sendClassifiedInfoUpdate(&c_data);
+	
+	if(isNew())
+	{
+		// Lets assume there will be some error.
+		// Successful sendClassifiedInfoUpdate will trigger processProperties and
+		// let us know there was no error.
+		mIsNewWithErrors = true;
+	}
 }
 
 U32 LLPanelClassifiedEdit::getCategory()
 {
 	LLComboBox* cat_cb = getChild<LLComboBox>("category");
 	return cat_cb->getCurrentIndex();
+}
+
+void LLPanelClassifiedEdit::setCategory(U32 category)
+{
+	LLComboBox* cat_cb = getChild<LLComboBox>("category");
+	cat_cb->setCurrentByIndex(category);
+	cat_cb->resetDirty();
 }
 
 U8 LLPanelClassifiedEdit::getFlags()
@@ -2001,17 +2079,14 @@ void LLPanelClassifiedEdit::onSaveClick()
 		notifyInvalidName();
 		return;
 	}
-	if(isNew())
+	if(isNew() || isNewWithErrors())
 	{
 		if(gStatusBar->getBalance() < getPriceForListing())
 		{
 			LLNotificationsUtil::add("ClassifiedInsufficientFunds");
 			return;
 		}
-	}
 
-	if(isNew())
-	{
 		mPublishFloater = LLFloaterReg::findTypedInstance<LLPublishClassifiedFloater>(
 			"publish_classified", LLSD());
 

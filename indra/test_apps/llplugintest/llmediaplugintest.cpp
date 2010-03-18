@@ -307,7 +307,7 @@ GLfloat LLMediaPluginTest::distanceToCamera( GLfloat point_x, GLfloat point_y, G
 
 	GLdouble modelMatrix[16];
 	GLdouble projMatrix[16];
-	int viewport[4];
+	GLint viewport[4];
 
 	glGetDoublev(GL_MODELVIEW_MATRIX, modelMatrix);
 	glGetDoublev(GL_PROJECTION_MATRIX, projMatrix);
@@ -1593,8 +1593,8 @@ void LLMediaPluginTest::addMediaPanel( std::string url )
 	}
 	std::string user_data_path = std::string( cwd ) + "/";
 #endif
-
-	media_source->init( launcher_name, plugin_name, false, user_data_path );
+	media_source->setUserDataPath(user_data_path);
+	media_source->init( launcher_name, plugin_name, false );
 	media_source->setDisableTimeout(mDisableTimeout);
 
 	// make a new panel and save parameters
@@ -1831,7 +1831,8 @@ void LLMediaPluginTest::replaceMediaPanel( mediaPanel* panel, std::string url )
 	std::string user_data_path = std::string( cwd ) + "/";
 #endif
 
-	media_source->init( launcher_name, plugin_name, false, user_data_path );
+	media_source->setUserDataPath(user_data_path);
+	media_source->init( launcher_name, plugin_name, false );
 	media_source->setDisableTimeout(mDisableTimeout);
 
 	// make a new panel and save parameters
