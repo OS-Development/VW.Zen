@@ -609,7 +609,7 @@ void LLTaskInvFVBridge::performAction(LLFolderView* folder, LLInventoryModel* mo
 		{
 			if (price > 0 && price > gStatusBar->getBalance())
 			{
-				LLFloaterBuyCurrency::buyCurrency("This costs", price);
+				LLFloaterBuyCurrency::buyCurrency(LLTrans::getString("this_costs"), price);
 			}
 			else
 			{
@@ -1578,7 +1578,7 @@ void LLPanelObjectInventory::reset()
 	p.title = "task inventory";
 	p.task_id = getTaskUUID();
 	p.parent_panel = this;
-	p.tool_tip= p.name;
+	p.tool_tip= LLTrans::getString("PanelContentsTooltip");
 	mFolders = LLUICtrlFactory::create<LLFolderView>(p);
 	// this ensures that we never say "searching..." or "no items found"
 	mFolders->getFilter()->setShowFolderState(LLInventoryFilter::SHOW_ALL_FOLDERS);
