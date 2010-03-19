@@ -1084,6 +1084,21 @@ LLOfferInfo::LLOfferInfo(const LLSD& sd)
 	mHost = LLHost(sd["sender"].asString());
 }
 
+LLOfferInfo::LLOfferInfo(const LLOfferInfo& info)
+{
+	mIM = info.mIM;
+	mFromID = info.mFromID;
+	mFromGroup = info.mFromGroup;
+	mFromObject = info.mFromObject;
+	mTransactionID = info.mTransactionID;
+	mFolderID = info.mFolderID;
+	mObjectID = info.mObjectID;
+	mType = info.mType;
+	mFromName = info.mFromName;
+	mDesc = info.mDesc;
+	mHost = info.mHost;
+}
+
 LLSD LLOfferInfo::asLLSD()
 {
 	LLSD sd;
@@ -1575,7 +1590,11 @@ void inventory_offer_handler(LLOfferInfo* info)
 	}
 	else // Agent -> Agent Inventory Offer
 	{
+		p.responder = info;
 		// Note: sets inventory_offer_callback as the callback
+		// *TODO fix memory leak
+		// inventory_offer_callback() is not invoked if user received notification and 
+		// closes viewer(without responding the notification)
 		p.substitutions(args).payload(payload).functor.function(boost::bind(&LLOfferInfo::inventory_offer_callback, info, _1, _2));
 		p.name = "UserGiveItem";
 		
@@ -4513,7 +4532,7 @@ void process_money_balance_reply( LLMessageSystem* msg, void** )
 				// Each set of parenthesis will later be used to find arguments of message we generate
 				// in the end of this if- (.*) gives us name of money receiver, (\\d+)-amount of money we pay
 				// and ([^$]*)- reason of payment
-				boost::regex expr("You paid (.*)L\\$(\\d+)\\s?([^$]*).");
+				boost::regex expr("You paid (?:.{0}|(.*) )L\\$(\\d+)\\s?([^$]*)\\.");
 				boost::match_results <std::string::const_iterator> matches;
 				if(boost::regex_match(desc, matches, expr))
 				{
@@ -5545,6 +5564,8 @@ bool handle_lure_callback(const LLSD& notification, const LLSD& response)
 				args["TO_NAME"] = target_name;
 	
 				LLSD payload;
+				
+				//*TODO please rewrite all keys to the same case, lower or upper
 				payload["from_id"] = target_id;
 				payload["SESSION_NAME"] = target_name;
 				payload["SUPPRESS_TOAST"] = true;
