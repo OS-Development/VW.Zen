@@ -5294,6 +5294,13 @@ Failed to find [TYPE] named [DESC] in database.
 
   <notification
    icon="notify.tga"
+   name="ShareToWebFailed"
+   type="notify">
+    Failed to upload image to web.
+  </notification>
+  
+  <notification
+   icon="notify.tga"
    name="InvalidWearable"
    type="notify">
 The item you are trying to wear uses a feature that your Viewer can&apos;t read. Please upgrade your version of [APP_NAME] to wear this item.
@@ -5376,27 +5383,6 @@ Grant this request?
        index="-1"
        name="Ignore"
        text="Ignore"/>
-    </form>
-  </notification>
-
-  <notification
-   icon="notify.tga"
-   name="ScriptToast"
-   type="notify">
-    [FIRST] [LAST]&apos;s &apos;[TITLE]&apos; is requesting Resident input.
-    <form name="form">
-      <button
-       index="0"
-       name="Open"
-       text="Open Dialog"/>
-      <button
-       index="1"
-       name="Ignore"
-       text="Ignore"/>
-      <button
-       index="2"
-       name="Block"
-       text="Block"/>
     </form>
   </notification>
 
