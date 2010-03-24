@@ -923,12 +923,7 @@ bool LLLandmarksPanel::isActionEnabled(const LLSD& userdata) const
 			return false;
 		}
 	}
-	else if (!root_folder_view && "category" != command_name)
-	{
-		return false;
-	}
 	else if (  "paste"		== command_name
-			|| "rename"		== command_name
 			|| "cut"		== command_name
 			|| "copy"		== command_name
 			|| "delete"		== command_name
@@ -940,17 +935,16 @@ bool LLLandmarksPanel::isActionEnabled(const LLSD& userdata) const
 	}
 	else if (  "teleport"		== command_name
 			|| "more_info"		== command_name
-			|| "rename"			== command_name
 			|| "show_on_map"	== command_name
 			|| "copy_slurl"		== command_name
 			)
 	{
 		// disable some commands for multi-selection. EXT-1757
-		if (root_folder_view &&
-		    root_folder_view->getSelectedCount() > 1)
-		{
-			return false;
-		}
+		return root_folder_view && root_folder_view->getSelectedCount() == 1;
+	}
+	else if ("rename" == command_name)
+	{
+		return root_folder_view && root_folder_view->getSelectedCount() == 1 && canSelectedBeModified(command_name);
 	}
 	else if("category" == command_name)
 	{
@@ -1079,7 +1073,7 @@ bool LLLandmarksPanel::canSelectedBeModified(const std::string& command_name) co
 		}
 		else if ("delete" == command_name)
 		{
-			can_be_modified = listenerp ? listenerp->isItemRemovable() : false;
+			can_be_modified = listenerp ? listenerp->isItemRemovable() && !listenerp->isItemInTrash() : false;
 		}
 		else if("paste" == command_name)
 		{
