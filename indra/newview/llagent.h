@@ -51,7 +51,6 @@ extern const U8 	AGENT_STATE_TYPING;  // Typing indication
 extern const U8 	AGENT_STATE_EDITING; // Set when agent has objects selected
 
 class LLChat;
-class LLVOAvatarSelf;
 class LLViewerRegion;
 class LLMotion;
 class LLToolset;
@@ -109,7 +108,6 @@ public:
 	virtual 		~LLAgent();
 	void			init();
 	void			cleanup();
-	void			setAvatarObject(LLVOAvatarSelf *avatar);
 
 	//--------------------------------------------------------------------
 	// Login
@@ -173,20 +171,6 @@ private:
 
 /********************************************************************************
  **                                                                            **
- **                    GENERAL ACCESSORS
- **/
-
-public:
- 	LLVOAvatarSelf* getAvatarObject() const		{ return mAvatarObject; }
-private:
-	LLPointer<LLVOAvatarSelf> mAvatarObject; 	// NULL until avatar object sent down from simulator
-
-/**                    General Accessors
- **                                                                            **
- *******************************************************************************/
-
-/********************************************************************************
- **                                                                            **
  **                    POSITION
  **/
 
@@ -217,7 +201,7 @@ public:
 	// Coordinate System
 	//--------------------------------------------------------------------
 public:
-	LLCoordFrame	getFrameAgent()	const	{ return mFrameAgent; }
+	const LLCoordFrame&	getFrameAgent()	const	{ return mFrameAgent; }
 	void 			initOriginGlobal(const LLVector3d &origin_global); // Only to be used in ONE place
 	void			resetAxes();
 	void			resetAxes(const LLVector3 &look_at); // Makes reasonable left and up
