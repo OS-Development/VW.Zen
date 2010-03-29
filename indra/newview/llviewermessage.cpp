@@ -51,6 +51,7 @@
 #include "mean_collision_data.h"
 
 #include "llagent.h"
+#include "llagentcamera.h"
 #include "llcallingcard.h"
 //#include "llfirstuse.h"
 #include "llfloaterbuycurrency.h"
@@ -2945,6 +2946,9 @@ void process_teleport_finish(LLMessageSystem* msg, void**)
 		LL_WARNS("Messaging") << "Got teleport notification for wrong agent!" << LL_ENDL;
 		return;
 	}
+	
+	// Teleport is finished; it can't be cancelled now.
+	gViewerWindow->setProgressCancelButtonVisible(FALSE);
 
 	// Do teleport effect for where you're leaving
 	// VEFFECT: TeleportStart
@@ -2990,10 +2994,10 @@ void process_teleport_finish(LLMessageSystem* msg, void**)
 
 /*
 	// send camera update to new region
-	gAgent.updateCamera();
+	gAgentCamera.updateCamera();
 
 	// likewise make sure the camera is behind the avatar
-	gAgent.resetView(TRUE);
+	gAgentCamera.resetView(TRUE);
 	LLVector3 shift_vector = regionp->getPosRegionFromGlobal(gAgent.getRegion()->getOriginGlobal());
 	gAgent.setRegion(regionp);
 	gObjectList.shiftObjects(shift_vector);
@@ -3001,7 +3005,7 @@ void process_teleport_finish(LLMessageSystem* msg, void**)
 	if (gAgent.getAvatarObject())
 	{
 		gAgent.getAvatarObject()->clearChatText();
-		gAgent.slamLookAt(look_at);
+		gAgentCamera.slamLookAt(look_at);
 	}
 	gAgent.setPositionAgent(pos);
 	gAssetStorage->setUpstream(sim);
@@ -3080,7 +3084,7 @@ void process_agent_movement_complete(LLMessageSystem* msg, void**)
 	std::string version_channel;
 	msg->getString("SimData", "ChannelVersion", version_channel);
 
-	LLVOAvatar* avatarp = gAgent.getAvatarObject();
+	LLVOAvatarSelf* avatarp = gAgent.getAvatarObject();
 	if (!avatarp)
 	{
 		// Could happen if you were immediately god-teleported away on login,
@@ -3125,9 +3129,9 @@ void process_agent_movement_complete(LLMessageSystem* msg, void**)
 	if( is_teleport )
 	{
 		// Force the camera back onto the agent, don't animate.
-		gAgent.setFocusOnAvatar(TRUE, FALSE);
-		gAgent.slamLookAt(look_at);
-		gAgent.updateCamera();
+		gAgentCamera.setFocusOnAvatar(TRUE, FALSE);
+		gAgentCamera.slamLookAt(look_at);
+		gAgentCamera.updateCamera();
 
 		gAgent.setTeleportState( LLAgent::TELEPORT_START_ARRIVAL );
 
@@ -3176,7 +3180,7 @@ void process_agent_movement_complete(LLMessageSystem* msg, void**)
 			global_agent_pos[1] += y;
 			look_at = (LLVector3)beacon_pos - global_agent_pos;
 			look_at.normVec();
-			gAgent.slamLookAt(look_at);
+			gAgentCamera.slamLookAt(look_at);
 		}
 	}
 
@@ -3353,7 +3357,7 @@ void send_agent_update(BOOL force_send, BOOL send_reliable)
 	LLQuaternion body_rotation = gAgent.getFrameAgent().getQuaternion();
 	LLQuaternion head_rotation = gAgent.getHeadRotation();
 
-	camera_pos_agent = gAgent.getCameraPositionAgent();
+	camera_pos_agent = gAgentCamera.getCameraPositionAgent();
 
 	render_state = gAgent.getRenderState();
 
@@ -3476,7 +3480,7 @@ void send_agent_update(BOOL force_send, BOOL send_reliable)
 		msg->addVector3Fast(_PREHASH_CameraAtAxis, LLViewerCamera::getInstance()->getAtAxis());
 		msg->addVector3Fast(_PREHASH_CameraLeftAxis, LLViewerCamera::getInstance()->getLeftAxis());
 		msg->addVector3Fast(_PREHASH_CameraUpAxis, LLViewerCamera::getInstance()->getUpAxis());
-		msg->addF32Fast(_PREHASH_Far, gAgent.mDrawDistance);
+		msg->addF32Fast(_PREHASH_Far, gAgentCamera.mDrawDistance);
 		
 		msg->addU32Fast(_PREHASH_ControlFlags, control_flags);
 
@@ -4128,7 +4132,7 @@ void process_camera_constraint(LLMessageSystem *mesgsys, void **user_data)
 	LLVector4 cameraCollidePlane;
 	mesgsys->getVector4Fast(_PREHASH_CameraCollidePlane, _PREHASH_Plane, cameraCollidePlane);
 
-	gAgent.setCameraCollidePlane(cameraCollidePlane);
+	gAgentCamera.setCameraCollidePlane(cameraCollidePlane);
 }
 
 void near_sit_object(BOOL success, void *data)
@@ -4165,10 +4169,10 @@ void process_avatar_sit_response(LLMessageSystem *mesgsys, void **user_data)
 
 	if (avatar && dist_vec_squared(camera_eye, camera_at) > 0.0001f)
 	{
-		gAgent.setSitCamera(sitObjectID, camera_eye, camera_at);
+		gAgentCamera.setSitCamera(sitObjectID, camera_eye, camera_at);
 	}
 	
-	gAgent.setForceMouselook(force_mouselook);
+	gAgentCamera.setForceMouselook(force_mouselook);
 
 	LLViewerObject* object = gObjectList.findObject(sitObjectID);
 	if (object)
@@ -5219,9 +5223,9 @@ void container_inventory_arrived(LLViewerObject* object,
 								 void* data)
 {
 	LL_DEBUGS("Messaging") << "container_inventory_arrived()" << LL_ENDL;
-	if( gAgent.cameraMouselook() )
+	if( gAgentCamera.cameraMouselook() )
 	{
-		gAgent.changeCameraToDefault();
+		gAgentCamera.changeCameraToDefault();
 	}
 
 	LLInventoryPanel *active_panel = LLInventoryPanel::getActiveInventoryPanel();
@@ -5446,13 +5450,13 @@ void process_teleport_local(LLMessageSystem *msg,void**)
 	}
 
 	gAgent.setPositionAgent(pos);
-	gAgent.slamLookAt(look_at);
+	gAgentCamera.slamLookAt(look_at);
 
 	// likewise make sure the camera is behind the avatar
-	gAgent.resetView(TRUE, TRUE);
+	gAgentCamera.resetView(TRUE, TRUE);
 
 	// send camera update to new region
-	gAgent.updateCamera();
+	gAgentCamera.updateCamera();
 
 	send_agent_update(TRUE, TRUE);
 

@@ -34,6 +34,7 @@
 
 #include "llaccordionctrltab.h"
 #include "llagent.h"
+#include "llagentcamera.h"
 #include "llagentwearables.h"
 #include "llappearancemgr.h"
 #include "llinventorypanel.h"
@@ -234,7 +235,7 @@ void LLSidepanelAppearance::onEditAppearanceButtonClicked()
 {
 	if (gAgentWearables.areWearablesLoaded())
 	{
-		gAgent.changeCameraToCustomizeAvatar();
+		gAgentCamera.changeCameraToCustomizeAvatar();
 	}
 }
 
@@ -297,6 +298,7 @@ void LLSidepanelAppearance::toggleWearableEditPanel(BOOL visible, LLWearable *we
 	}
 
 	mEditWearable->setVisible(visible);
+	mEditWearable->setWearable(wearable);
 	mFilterEditor->setVisible(!visible);
 	mPanelOutfitsInventory->setVisible(!visible);
 }
@@ -364,11 +366,11 @@ void LLSidepanelAppearance::fetchInventory()
 		}
 	}
 
-	LLVOAvatarSelf* avatar = gAgent.getAvatarObject();
-	if( avatar )
+	LLVOAvatarSelf* avatarp = gAgent.getAvatarObject();
+	if(avatarp)
 	{
-		for (LLVOAvatar::attachment_map_t::const_iterator iter = avatar->mAttachmentPoints.begin(); 
-			 iter != avatar->mAttachmentPoints.end(); ++iter)
+		for (LLVOAvatar::attachment_map_t::const_iterator iter = avatarp->mAttachmentPoints.begin(); 
+			 iter != avatarp->mAttachmentPoints.end(); ++iter)
 		{
 			LLViewerJointAttachment* attachment = iter->second;
 			if (!attachment) continue;
