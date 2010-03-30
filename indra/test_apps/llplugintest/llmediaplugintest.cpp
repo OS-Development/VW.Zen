@@ -1593,8 +1593,8 @@ void LLMediaPluginTest::addMediaPanel( std::string url )
 	}
 	std::string user_data_path = std::string( cwd ) + "/";
 #endif
-
-	media_source->init( launcher_name, plugin_name, false, user_data_path );
+	media_source->setUserDataPath(user_data_path);
+	media_source->init( launcher_name, plugin_name, false );
 	media_source->setDisableTimeout(mDisableTimeout);
 
 	// make a new panel and save parameters
@@ -1831,7 +1831,8 @@ void LLMediaPluginTest::replaceMediaPanel( mediaPanel* panel, std::string url )
 	std::string user_data_path = std::string( cwd ) + "/";
 #endif
 
-	media_source->init( launcher_name, plugin_name, false, user_data_path );
+	media_source->setUserDataPath(user_data_path);
+	media_source->init( launcher_name, plugin_name, false );
 	media_source->setDisableTimeout(mDisableTimeout);
 
 	// make a new panel and save parameters
@@ -1954,7 +1955,7 @@ void LLMediaPluginTest::updateStatusBar()
 		 cached_distance == mDistanceCameraToSelectedGeometry
 	   )
 	{
-		// nothing changed so don't spend time in this shitty function
+		// nothing changed so don't spend time here
 		return;
 	};
 

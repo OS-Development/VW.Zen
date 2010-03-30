@@ -630,9 +630,7 @@ void LLScrollListCtrl::calcColumnWidths()
 			LLScrollListCell* cellp = (*iter)->getColumn(column->mIndex);
 			if (!cellp) continue;
 
-			// get text value width only for text cells
-			column->mMaxContentWidth = cellp->isText() ?
-					llmax(LLFontGL::getFontSansSerifSmall()->getWidth(cellp->getValue().asString()) + mColumnPadding + COLUMN_TEXT_PADDING, column->mMaxContentWidth) : column->mMaxContentWidth;
+			column->mMaxContentWidth = llmax(LLFontGL::getFontSansSerifSmall()->getWidth(cellp->getValue().asString()) + mColumnPadding + COLUMN_TEXT_PADDING, column->mMaxContentWidth);
 		}
 
 		max_item_width += column->mMaxContentWidth;
@@ -959,14 +957,14 @@ void LLScrollListCtrl::mouseOverHighlightNthItem(S32 target_index)
 	}
 }
 
-S32	LLScrollListCtrl::selectMultiple( std::vector<LLUUID> ids )
+S32	LLScrollListCtrl::selectMultiple( uuid_vec_t ids )
 {
 	item_list::iterator iter;
 	S32 count = 0;
 	for (iter = mItemList.begin(); iter != mItemList.end(); iter++)
 	{
 		LLScrollListItem* item = *iter;
-		std::vector<LLUUID>::iterator iditr;
+		uuid_vec_t::iterator iditr;
 		for(iditr = ids.begin(); iditr != ids.end(); ++iditr)
 		{
 			if (item->getEnabled() && (item->getUUID() == (*iditr)))

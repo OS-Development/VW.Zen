@@ -278,6 +278,11 @@ BOOL LLPanelPlaces::postBuild()
 	mFilterEditor = getChild<LLFilterEditor>("Filter");
 	if (mFilterEditor)
 	{
+		//when list item is being clicked the filter editor looses focus
+		//committing on focus lost leads to detaching list items
+		//BUT a detached list item cannot be made selected and must not be clicked onto
+		mFilterEditor->setCommitOnFocusLost(false);
+
 		mFilterEditor->setCommitCallback(boost::bind(&LLPanelPlaces::onFilterEdit, this, _2, false));
 	}
 
@@ -546,7 +551,9 @@ void LLPanelPlaces::onTeleportButtonClicked()
 		{
 			LLSD payload;
 			payload["asset_id"] = mItem->getAssetUUID();
-			LLNotificationsUtil::add("TeleportFromLandmark", LLSD(), payload);
+			LLSD args; 
+			args["LOCATION"] = mItem->getName(); 
+			LLNotificationsUtil::add("TeleportFromLandmark", args, payload);
 		}
 		else if (mPlaceInfoType == AGENT_INFO_TYPE ||
 				 mPlaceInfoType == REMOTE_PLACE_INFO_TYPE ||
@@ -1001,9 +1008,9 @@ void LLPanelPlaces::changedGlobalPos(const LLVector3d &global_pos)
 	updateVerbs();
 }
 
-void LLPanelPlaces::showAddedLandmarkInfo(const std::vector<LLUUID>& items)
+void LLPanelPlaces::showAddedLandmarkInfo(const uuid_vec_t& items)
 {
-	for (std::vector<LLUUID>::const_iterator item_iter = items.begin();
+	for (uuid_vec_t::const_iterator item_iter = items.begin();
 		 item_iter != items.end();
 		 ++item_iter)
 	{

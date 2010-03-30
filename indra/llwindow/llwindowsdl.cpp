@@ -187,47 +187,6 @@ Display* LLWindowSDL::get_SDL_Display(void)
 }
 #endif // LL_X11
 
-// static
-S32 LLWindowSDL::getDisplayWidth()
-{
-#if LL_GTK
-	if (LLWindowSDL::ll_try_gtk_init())
-	{
-		return gdk_screen_width();
-	}
-#endif // LL_GTK
-
-#if LL_X11
-	Display *display = XOpenDisplay(NULL);
-	int screen_num = DefaultScreen(display);
-	S32 width = DisplayWidth(display, screen_num);
-	XCloseDisplay(display);
-	return width;
-#endif //LL_X11
-
-	return 1024;
-}
-
-// static
-S32 LLWindowSDL::getDisplayHeight()
-{
-#if LL_GTK
-	if (LLWindowSDL::ll_try_gtk_init())
-	{
-		return gdk_screen_height();
-	}
-#endif // LL_GTK
-
-#if LL_X11
-	Display *display = XOpenDisplay(NULL);
-	int screen_num = DefaultScreen(display);
-	S32 height = DisplayHeight(display, screen_num);
-	XCloseDisplay(display);
-	return height;
-#endif //LL_X11
-
-	return 768;
-}
 
 LLWindowSDL::LLWindowSDL(LLWindowCallbacks* callbacks,
 			 const std::string& title, S32 x, S32 y, S32 width,
@@ -950,68 +909,7 @@ BOOL LLWindowSDL::getMaximized()
 
 	if (mWindow)
 	{
-#if LL_X11
-		if (mSDL_Display)
-		{
-			maybe_lock_display();
-
-			// Return data in the specified format, XA_ATOM.
-			U8*	prop;
-			// Actual format of the property.
-			int format;
-			// Actual number of items stored in the prop return data.
-			unsigned long nitems;
-			// Number of bytes remaining to be read in the property if a partial read was performed.
-			unsigned long bytes_after;
-			// Atom identifier that defines the actual type of the property.
-			Atom type;
-
-			// Atom used to obtain list of hints describing the window state.
-			Atom wm_state = XInternAtom(mSDL_Display, "_NET_WM_STATE", False);
-
-			// Atoms indicates that the window is vertically/horizontally maximized. 
-			Atom max_vert = XInternAtom(mSDL_Display, "_NET_WM_STATE_MAXIMIZED_VERT", False);
-			Atom max_horz = XInternAtom(mSDL_Display, "_NET_WM_STATE_MAXIMIZED_HORZ", False);
-
-			// How many atoms in which we interested are present in list of hints.
-			U32 pass = 0;
-
-			do
-			{
-				nitems = 0;
-				bytes_after = 0;
-				type = None;
-				if ( (XGetWindowProperty (mSDL_Display,
-										  mSDL_XWindowID,
-										  wm_state,
-										  0, UINT_MAX,
-										  False, XA_ATOM,
-										  &type, &format,
-										  &nitems, &bytes_after,
-										  &prop) == Success)
-					 && type != None )
-				{
-					Atom *atoms = (Atom *)prop;
-					for (unsigned long i=0; i<nitems; ++i)
-					{
-						if (atoms[i] == max_horz)
-							++pass;
-						else if (atoms[i] == max_vert)
-							++pass;
-					}
-					XFree (atoms);
-				}
-				else
-				{
-					break;
-				}
-			} while (bytes_after > 0);
-
-			result = (pass == 2);
-
-			maybe_unlock_display();
-		}
-#endif // LL_X11
+		// TODO
 	}
 
 	return(result);
@@ -1019,103 +917,7 @@ BOOL LLWindowSDL::getMaximized()
 
 BOOL LLWindowSDL::maximize()
 {
-#if LL_X11
-	if (mSDL_Display && !mFullscreen)
-	{
-		maybe_lock_display();
-
-		BOOL is_maximize_allowed = FALSE;
-
-		// Check if maximize is allowed
-		{
-			// Return data in the specified format, XA_ATOM.
-			U8*	prop;
-			// Actual format of the property.
-			int format;
-			// Actual number of items stored in the prop return data.
-			unsigned long nitems;
-			// Number of bytes remaining to be read in the property if a partial read was performed.
-			unsigned long bytes_after;
-			// Atom identifier that defines the actual type of the property.
-			Atom type;
-
-			// Atom used to obtain a list of atoms indicating user operations that the Window Manager supports for this window.
-			Atom allowed_act  = XInternAtom(mSDL_Display, "_NET_WM_ALLOWED_ACTIONS", False);
-
-			// Atoms that indicates that the window may be vertically/horizontally maximized.
-			Atom max_vert_act = XInternAtom(mSDL_Display, "_NET_WM_ACTION_MAXIMIZE_HORZ", False);
-			Atom max_horz_act = XInternAtom(mSDL_Display, "_NET_WM_ACTION_MAXIMIZE_VERT", False);
-
-			// How many atoms in which we interested are present in list of hints.
-			U32 pass = 0;
-
-			do
-			{
-				nitems = 0;
-				bytes_after = 0;
-				type = None;
-				if ( (XGetWindowProperty (mSDL_Display,
-										  mSDL_XWindowID,
-										  allowed_act,
-										  0, UINT_MAX,
-										  False, XA_ATOM,
-										  &type, &format,
-										  &nitems, &bytes_after,
-										  &prop) == Success)
-					 && type != None )
-				{
-					Atom *atoms = (Atom *)prop;
-					for (unsigned long i=0; i<nitems; ++i)
-					{
-						if (atoms[i] == max_vert_act)
-							++pass;
-						else if (atoms[i] == max_horz_act)
-							++pass;
-					}
-					XFree (atoms);
-				}
-				else
-				{
-					break;
-				}
-			} while (bytes_after > 0);
-
-			is_maximize_allowed = (pass == 2);
-		}
-
-		// Send maximize event to X11 system
-		if (is_maximize_allowed)
-		{
-			XEvent xev;
-
-			// Atom describing the window state.
-			Atom wm_state = XInternAtom(mSDL_Display, "_NET_WM_STATE", False);
-
-			// Atoms indicates that the window is vertically/horizontally maximized. 
-			Atom max_vert = XInternAtom(mSDL_Display, "_NET_WM_STATE_MAXIMIZED_VERT", False);
-			Atom max_horz = XInternAtom(mSDL_Display, "_NET_WM_STATE_MAXIMIZED_HORZ", False);
-
-			memset(&xev, 0, sizeof(xev));
-			xev.type = ClientMessage;
-			xev.xclient.window = mSDL_XWindowID;
-			xev.xclient.message_type = wm_state;
-			xev.xclient.format = 32;
-			xev.xclient.data.l[0] = 1;  // add/set property
-			xev.xclient.data.l[1] = max_vert;
-			xev.xclient.data.l[2] = max_horz;
-			xev.xclient.data.l[3] = 0;
-			xev.xclient.data.l[4] = 0;
-
-			XSendEvent(mSDL_Display,
-					   DefaultRootWindow(mSDL_Display),
-					   False,
-					   SubstructureNotifyMask, &xev);
-		}
-
-		maybe_unlock_display();
-		return is_maximize_allowed;
-	}
-#endif // LL_X11
+	// TODO
 	return FALSE;
 }
 
@@ -2663,7 +2465,7 @@ void exec_cmd(const std::string& cmd, const std::string& arg)
 
 // Open a URL with the user's default web browser.
 // Must begin with protocol identifier.
-void LLWindowSDL::spawnWebBrowser(const std::string& escaped_url)
+void LLWindowSDL::spawnWebBrowser(const std::string& escaped_url, bool async)
 {
 	llinfos << "spawn_web_browser: " << escaped_url << llendl;
 	
@@ -2741,6 +2543,7 @@ std::vector<std::string> LLWindowSDL::getDynamicFallbackFontList()
 	// Use libfontconfig to find us a nice ordered list of fallback fonts
 	// specific to this system.
 	std::string final_fallback("/usr/share/fonts/truetype/kochi/kochi-gothic.ttf");
+	const int max_font_count_cutoff = 40; // fonts are expensive in the current system, don't enumerate an arbitrary number of them
 	// Our 'ideal' font properties which define the sorting results.
 	// slant=0 means Roman, index=0 means the first face in a font file
 	// (the one we actually use), weight=80 means medium weight,
@@ -2756,7 +2559,6 @@ std::vector<std::string> LLWindowSDL::getDynamicFallbackFontList()
 	std::vector<std::string> rtns;
 	FcFontSet *fs = NULL;
 	FcPattern *sortpat = NULL;
-	int font_count = 0;
 
 	llinfos << "Getting system font list from FontConfig..." << llendl;
 
@@ -2800,12 +2602,13 @@ std::vector<std::string> LLWindowSDL::getDynamicFallbackFontList()
 		FcPatternDestroy(sortpat);
 	}
 
+	int found_font_count = 0;
 	if (fs)
 	{
 		// Get the full pathnames to the fonts, where available,
 		// which is what we really want.
-		int i;
-		for (i=0; i<fs->nfont; ++i)
+		found_font_count = fs->nfont;
+		for (int i=0; i<fs->nfont; ++i)
 		{
 			FcChar8 *filename;
 			if (FcResultMatch == FcPatternGetString(fs->fonts[i],
@@ -2814,7 +2617,8 @@ std::vector<std::string> LLWindowSDL::getDynamicFallbackFontList()
 			    && filename)
 			{
 				rtns.push_back(std::string((const char*)filename));
-				++font_count;
+				if (rtns.size() >= max_font_count_cutoff)
+					break; // hit limit
 			}
 		}
 		FcFontSetDestroy (fs);
@@ -2827,7 +2631,7 @@ std::vector<std::string> LLWindowSDL::getDynamicFallbackFontList()
 	{
 		lldebugs << "  file: " << *it << llendl;
 	}
-	llinfos << "Using " << font_count << " system font(s)." << llendl;
+	llinfos << "Using " << rtns.size() << "/" << found_font_count << " system fonts." << llendl;
 
 	rtns.push_back(final_fallback);
 	return rtns;

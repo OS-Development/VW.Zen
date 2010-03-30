@@ -45,6 +45,7 @@
 #include "llhttpnode.h"
 #include "llregionhandle.h"
 #include "llsurface.h"
+#include "lltrans.h"
 #include "llviewercamera.h"
 #include "llviewertexture.h"
 #include "llviewertexturelist.h"
@@ -258,7 +259,7 @@ void LLWorld::removeRegion(const LLHost &host)
 		llwarns << "gFrameTimeSeconds " << gFrameTimeSeconds << llendl;
 
 		llwarns << "Disabling region " << regionp->getName() << " that agent is in!" << llendl;
-		LLAppViewer::instance()->forceDisconnect("You have been disconnected from the region you were in.");
+		LLAppViewer::instance()->forceDisconnect(LLTrans::getString("YouHaveBeenDisconnected"));
 		return;
 	}
 
@@ -1208,7 +1209,7 @@ static LLVector3d unpackLocalToGlobalPosition(U32 compact_local, const LLVector3
 	return pos_global;
 }
 
-void LLWorld::getAvatars(std::vector<LLUUID>* avatar_ids, std::vector<LLVector3d>* positions, const LLVector3d& relative_to, F32 radius) const
+void LLWorld::getAvatars(uuid_vec_t* avatar_ids, std::vector<LLVector3d>* positions, const LLVector3d& relative_to, F32 radius) const
 {
 	if(avatar_ids != NULL)
 	{

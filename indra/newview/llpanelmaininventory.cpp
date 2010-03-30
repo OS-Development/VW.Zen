@@ -40,10 +40,12 @@
 #include "llfloaterinventory.h"
 #include "llinventorybridge.h"
 #include "llinventoryfunctions.h"
+#include "llinventorymodelbackgroundfetch.h"
 #include "llinventorypanel.h"
 #include "llfiltereditor.h"
 #include "llfloaterreg.h"
 #include "llpreviewtexture.h"
+#include "llresmgr.h"
 #include "llscrollcontainer.h"
 #include "llsdserialize.h"
 #include "llspinctrl.h"
@@ -418,7 +420,7 @@ void LLPanelMainInventory::onFilterEdit(const std::string& search_string )
 		return;
 	}
 
-	gInventory.startBackgroundFetch();
+	LLInventoryModelBackgroundFetch::instance().start();
 
 	mFilterSubString = search_string;
 	if (mActivePanel->getFilterSubString().empty() && mFilterSubString.empty())
@@ -498,7 +500,7 @@ void LLPanelMainInventory::onFilterSelected()
 	if (filter->isActive())
 	{
 		// If our filter is active we may be the first thing requiring a fetch so we better start it here.
-		gInventory.startBackgroundFetch();
+		LLInventoryModelBackgroundFetch::instance().start();
 	}
 	setFilterTextFromFilter();
 }
@@ -538,7 +540,7 @@ BOOL LLPanelMainInventory::handleDragAndDrop(S32 x, S32 y, MASK mask, BOOL drop,
 // virtual
 void LLPanelMainInventory::changed(U32)
 {
-	// empty, but must have this defined for abstract base class.
+	updateItemcountText();
 }
 
 
@@ -550,6 +552,34 @@ void LLPanelMainInventory::draw()
 		mFilterEditor->setText(mFilterSubString);
 	}	
 	LLPanel::draw();
+	updateItemcountText();
+}
+
+void LLPanelMainInventory::updateItemcountText()
+{
+	LLLocale locale(LLLocale::USER_LOCALE);
+	std::string item_count_string;
+	LLResMgr::getInstance()->getIntegerString(item_count_string, gInventory.getItemCount());
+
+	LLStringUtil::format_map_t string_args;
+	string_args["[ITEM_COUNT]"] = item_count_string;
+	string_args["[FILTER]"] = getFilterText();
+
+	std::string text = "";
+
+	if (LLInventoryModelBackgroundFetch::instance().backgroundFetchActive())
+	{
+		text = getString("ItemcountFetching", string_args);
+	}
+	else if (LLInventoryModelBackgroundFetch::instance().isEverythingFetched())
+	{
+		text = getString("ItemcountCompleted", string_args);
+	}
+	else
+	{
+		text = getString("ItemcountUnknown");
+	}
+	childSetText("ItemcountText",text);
 }
 
 void LLPanelMainInventory::setFilterTextFromFilter() 
@@ -571,7 +601,7 @@ void LLPanelMainInventory::toggleFindOptions()
 		if (parent_floater) // Seraph: Fix this, shouldn't be null even for sidepanel
 			parent_floater->addDependentFloater(mFinderHandle);
 		// start background fetch of folders
-		gInventory.startBackgroundFetch();
+		LLInventoryModelBackgroundFetch::instance().start();
 	}
 	else
 	{

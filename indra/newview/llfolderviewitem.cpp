@@ -38,6 +38,7 @@
 #include "llfoldervieweventlistener.h"
 #include "llinventorybridge.h"	// for LLItemBridge in LLInventorySort::operator()
 #include "llinventoryfilter.h"
+#include "llinventorymodelbackgroundfetch.h"
 #include "llpanel.h"
 #include "llviewercontrol.h"	// gSavedSettings
 #include "llviewerwindow.h"		// Argh, only for setCursor()
@@ -255,11 +256,30 @@ void LLFolderViewItem::refreshFromListener()
 		// temporary attempt to display the inventory folder in the user locale.
 		// mantipov: *NOTE: be sure this code is synchronized with LLFriendCardsManager::findChildFolderUUID
 		//		it uses the same way to find localized string
-		if (LLFolderType::lookupIsProtectedType(preferred_type))
+
+		// HACK: EXT - 6028 ([HARD CODED]? Inventory > Library > "Accessories" folder)
+		// Translation of Accessories folder in Library inventory folder
+		bool accessories = false;
+		if(mLabel == std::string("Accessories"))
+		{
+			//To ensure that Accessories folder is in Library we have to check its parent folder.
+			//Due to parent LLFolderViewFloder is not set to this item yet we have to check its parent via Inventory Model
+			LLInventoryCategory* cat = gInventory.getCategory(mListener->getUUID());
+			if(cat)
+			{
+				const LLUUID& parent_folder_id = cat->getParentUUID();
+				accessories = (parent_folder_id == gInventory.getLibraryRootFolderID());
+			}
+		}
+
+		//"Accessories" inventory category has folder type FT_NONE. So, this folder
+		//can not be detected as protected with LLFolderType::lookupIsProtectedType
+		if (accessories || LLFolderType::lookupIsProtectedType(preferred_type))
 		{
 			LLTrans::findString(mLabel, "InvFolder " + mLabel);
 		};
 
+		setToolTip(mLabel);
 		setIcon(mListener->getIcon());
 		time_t creation_date = mListener->getCreationDate();
 		if (mCreationDate != creation_date)
@@ -973,16 +993,16 @@ void LLFolderViewItem::draw()
 		if (getListener() && gInventory.isObjectDescendentOf(getListener()->getUUID(),gInventory.getRootFolderID()))
 		{
 			// Descendent of my inventory.
-			root_is_loading = gInventory.myInventoryFetchInProgress();
+			root_is_loading = LLInventoryModelBackgroundFetch::instance().inventoryFetchInProgress();
 		}
 		if (getListener() && gInventory.isObjectDescendentOf(getListener()->getUUID(),gInventory.getLibraryRootFolderID()))
 		{
 			// Descendent of library
-			root_is_loading = gInventory.libraryFetchInProgress();
+			root_is_loading = LLInventoryModelBackgroundFetch::instance().libraryFetchInProgress();
 		}
 			
 		if ( (mIsLoading && mTimeSinceRequestStart.getElapsedTimeF32() >= gSavedSettings.getF32("FolderLoadingMessageWaitTime"))
-			|| (LLInventoryModel::backgroundFetchActive() && root_is_loading && mShowLoadStatus) )
+			|| (LLInventoryModelBackgroundFetch::instance().backgroundFetchActive() && root_is_loading && mShowLoadStatus) )
 		{
 			std::string load_string = " ( " + LLTrans::getString("LoadingData") + " ) ";
 			font->renderUTF8(load_string, 0, right_x, y, sSearchStatusColor,
@@ -1298,7 +1318,7 @@ void LLFolderViewFolder::filter( LLInventoryFilter& filter)
 	// when applying a filter, matching folders get their contents downloaded first
 	if (filter.isNotDefault() && getFiltered(filter.getMinRequiredGeneration()) && (mListener && !gInventory.isCategoryComplete(mListener->getUUID())))
 	{
-		gInventory.startBackgroundFetch(mListener->getUUID());
+		LLInventoryModelBackgroundFetch::instance().start(mListener->getUUID());
 	}
 
 	// now query children

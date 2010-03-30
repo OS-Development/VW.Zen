@@ -369,7 +369,7 @@ U32 LLVOVolume::processUpdateMessage(LLMessageSystem *mesgsys,
 			S32 res2 = unpackTEMessage(*dp);
 			if (TEM_INVALID == res2)
 			{
-				// Well, crap, there's something bogus in the data that we're unpacking.
+				// There's something bogus in the data that we're unpacking.
 				dp->dumpBufferToLog();
 				llwarns << "Flushing cache files" << llendl;
 				std::string mask;
@@ -962,8 +962,11 @@ void LLVOVolume::updateSculptTexture()
 	if (isSculpted())
 	{
 		LLSculptParams *sculpt_params = (LLSculptParams *)getParameterEntry(LLNetworkData::PARAMS_SCULPT);
-		LLUUID id =  sculpt_params->getSculptTexture(); 
-		mSculptTexture = LLViewerTextureManager::getFetchedTexture(id, TRUE, LLViewerTexture::BOOST_NONE, LLViewerTexture::LOD_TEXTURE);
+		LLUUID id =  sculpt_params->getSculptTexture();
+		if (id.notNull())
+		{
+			mSculptTexture = LLViewerTextureManager::getFetchedTexture(id, TRUE, LLViewerTexture::BOOST_NONE, LLViewerTexture::LOD_TEXTURE);
+		}
 	}
 	else
 	{

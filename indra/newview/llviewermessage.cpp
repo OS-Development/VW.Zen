@@ -51,6 +51,7 @@
 #include "mean_collision_data.h"
 
 #include "llagent.h"
+#include "llagentcamera.h"
 #include "llcallingcard.h"
 //#include "llfirstuse.h"
 #include "llfloaterbuycurrency.h"
@@ -105,6 +106,7 @@
 #include "llpanelplaceprofile.h"
 
 #include <boost/algorithm/string/split.hpp> //
+#include <boost/regex.hpp>
 
 #if LL_WINDOWS // For Windows specific error handler
 #include "llwindebug.h"	// For the invalid message handler
@@ -272,7 +274,9 @@ void give_money(const LLUUID& uuid, LLViewerRegion* region, S32 amount, BOOL is_
 	}
 	else
 	{
-		LLFloaterBuyCurrency::buyCurrency(LLTrans::getString("giving"), amount);
+		LLStringUtil::format_map_t args;
+		args["AMOUNT"] = llformat("%d", amount);
+		LLFloaterBuyCurrency::buyCurrency(LLTrans::getString("giving", args), amount);
 	}
 }
 
@@ -866,9 +870,9 @@ bool check_offer_throttle(const std::string& from_name, bool check_only)
 	}
 }
  
-void open_inventory_offer(const std::vector<LLUUID>& items, const std::string& from_name)
+void open_inventory_offer(const uuid_vec_t& items, const std::string& from_name)
 {
-	for (std::vector<LLUUID>::const_iterator item_iter = items.begin();
+	for (uuid_vec_t::const_iterator item_iter = items.begin();
 		 item_iter != items.end();
 		 ++item_iter)
 	{
@@ -1081,6 +1085,21 @@ LLOfferInfo::LLOfferInfo(const LLSD& sd)
 	mHost = LLHost(sd["sender"].asString());
 }
 
+LLOfferInfo::LLOfferInfo(const LLOfferInfo& info)
+{
+	mIM = info.mIM;
+	mFromID = info.mFromID;
+	mFromGroup = info.mFromGroup;
+	mFromObject = info.mFromObject;
+	mTransactionID = info.mTransactionID;
+	mFolderID = info.mFolderID;
+	mObjectID = info.mObjectID;
+	mType = info.mType;
+	mFromName = info.mFromName;
+	mDesc = info.mDesc;
+	mHost = info.mHost;
+}
+
 LLSD LLOfferInfo::asLLSD()
 {
 	LLSD sd;
@@ -1244,8 +1263,8 @@ bool LLOfferInfo::inventory_offer_callback(const LLSD& notification, const LLSD&
 			// Disabled logging to old chat floater to fix crash in group notices - EXT-4149
 			// LLFloaterChat::addChatHistory(chat);
 			
-			LLInventoryFetchComboObserver::folder_ref_t folders;
-			LLInventoryFetchComboObserver::item_ref_t items;
+			uuid_vec_t folders;
+			uuid_vec_t items;
 			items.push_back(mObjectID);
 			LLDiscardAgentOffer* discard_agent_offer;
 			discard_agent_offer = new LLDiscardAgentOffer(mFolderID, mObjectID);
@@ -1572,7 +1591,11 @@ void inventory_offer_handler(LLOfferInfo* info)
 	}
 	else // Agent -> Agent Inventory Offer
 	{
+		p.responder = info;
 		// Note: sets inventory_offer_callback as the callback
+		// *TODO fix memory leak
+		// inventory_offer_callback() is not invoked if user received notification and 
+		// closes viewer(without responding the notification)
 		p.substitutions(args).payload(payload).functor.function(boost::bind(&LLOfferInfo::inventory_offer_callback, info, _1, _2));
 		p.name = "UserGiveItem";
 		
@@ -2821,8 +2844,8 @@ public:
 		LLInventoryModel::cat_array_t	land_cats;
 		LLInventoryModel::item_array_t	land_items;
 
-		folder_ref_t::iterator it = mCompleteFolders.begin();
-		folder_ref_t::iterator end = mCompleteFolders.end();
+		uuid_vec_t::iterator it = mCompleteFolders.begin();
+		uuid_vec_t::iterator end = mCompleteFolders.end();
 		for(; it != end; ++it)
 		{
 			gInventory.collectDescendentsIf(
@@ -2883,7 +2906,7 @@ BOOL LLPostTeleportNotifiers::tick()
 	if ( gAgent.getTeleportState() == LLAgent::TELEPORT_NONE )
 	{
 		// get callingcards and landmarks available to the user arriving.
-		LLInventoryFetchDescendentsObserver::folder_ref_t folders;
+		uuid_vec_t folders;
 		const LLUUID callingcard_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_CALLINGCARD);
 		if(callingcard_id.notNull()) 
 			folders.push_back(callingcard_id);
@@ -2971,18 +2994,18 @@ void process_teleport_finish(LLMessageSystem* msg, void**)
 
 /*
 	// send camera update to new region
-	gAgent.updateCamera();
+	gAgentCamera.updateCamera();
 
 	// likewise make sure the camera is behind the avatar
-	gAgent.resetView(TRUE);
+	gAgentCamera.resetView(TRUE);
 	LLVector3 shift_vector = regionp->getPosRegionFromGlobal(gAgent.getRegion()->getOriginGlobal());
 	gAgent.setRegion(regionp);
 	gObjectList.shiftObjects(shift_vector);
 
-	if (gAgent.getAvatarObject())
+	if (isAgentAvatarValid())
 	{
-		gAgent.getAvatarObject()->clearChatText();
-		gAgent.slamLookAt(look_at);
+		gAgentAvatarp->clearChatText();
+		gAgentCamera.slamLookAt(look_at);
 	}
 	gAgent.setPositionAgent(pos);
 	gAssetStorage->setUpstream(sim);
@@ -3061,8 +3084,7 @@ void process_agent_movement_complete(LLMessageSystem* msg, void**)
 	std::string version_channel;
 	msg->getString("SimData", "ChannelVersion", version_channel);
 
-	LLVOAvatar* avatarp = gAgent.getAvatarObject();
-	if (!avatarp)
+	if (!isAgentAvatarValid())
 	{
 		// Could happen if you were immediately god-teleported away on login,
 		// maybe other cases.  Continue, but warn.
@@ -3083,7 +3105,7 @@ void process_agent_movement_complete(LLMessageSystem* msg, void**)
 			<< x << ":" << y 
 			<< " current pos " << gAgent.getPositionGlobal()
 			<< LL_ENDL;
-		LLAppViewer::instance()->forceDisconnect("You were sent to an invalid region.");
+		LLAppViewer::instance()->forceDisconnect(LLTrans::getString("SentToInvalidRegion"));
 		return;
 
 	}
@@ -3106,9 +3128,9 @@ void process_agent_movement_complete(LLMessageSystem* msg, void**)
 	if( is_teleport )
 	{
 		// Force the camera back onto the agent, don't animate.
-		gAgent.setFocusOnAvatar(TRUE, FALSE);
-		gAgent.slamLookAt(look_at);
-		gAgent.updateCamera();
+		gAgentCamera.setFocusOnAvatar(TRUE, FALSE);
+		gAgentCamera.slamLookAt(look_at);
+		gAgentCamera.updateCamera();
 
 		gAgent.setTeleportState( LLAgent::TELEPORT_START_ARRIVAL );
 
@@ -3116,7 +3138,7 @@ void process_agent_movement_complete(LLMessageSystem* msg, void**)
 		// know what you look like.
 		gAgent.sendAgentSetAppearance();
 
-		if (avatarp)
+		if (isAgentAvatarValid())
 		{
 			// Chat the "back" SLURL. (DEV-4907)
 
@@ -3129,9 +3151,9 @@ void process_agent_movement_complete(LLMessageSystem* msg, void**)
 			LLNotificationsUtil::add("SystemMessageTip", args);
 
 			// Set the new position
-			avatarp->setPositionAgent(agent_pos);
-			avatarp->clearChat();
-			avatarp->slamPosition();
+			gAgentAvatarp->setPositionAgent(agent_pos);
+			gAgentAvatarp->clearChat();
+			gAgentAvatarp->slamPosition();
 		}
 	}
 	else
@@ -3157,7 +3179,7 @@ void process_agent_movement_complete(LLMessageSystem* msg, void**)
 			global_agent_pos[1] += y;
 			look_at = (LLVector3)beacon_pos - global_agent_pos;
 			look_at.normVec();
-			gAgent.slamLookAt(look_at);
+			gAgentCamera.slamLookAt(look_at);
 		}
 	}
 
@@ -3191,9 +3213,9 @@ void process_agent_movement_complete(LLMessageSystem* msg, void**)
 		gAgent.clearBusy();
 	}
 
-	if (avatarp)
+	if (isAgentAvatarValid())
 	{
-		avatarp->mFootPlane.clearVec();
+		gAgentAvatarp->mFootPlane.clearVec();
 	}
 	
 	// send walk-vs-run status
@@ -3334,7 +3356,7 @@ void send_agent_update(BOOL force_send, BOOL send_reliable)
 	LLQuaternion body_rotation = gAgent.getFrameAgent().getQuaternion();
 	LLQuaternion head_rotation = gAgent.getHeadRotation();
 
-	camera_pos_agent = gAgent.getCameraPositionAgent();
+	camera_pos_agent = gAgentCamera.getCameraPositionAgent();
 
 	render_state = gAgent.getRenderState();
 
@@ -3457,7 +3479,7 @@ void send_agent_update(BOOL force_send, BOOL send_reliable)
 		msg->addVector3Fast(_PREHASH_CameraAtAxis, LLViewerCamera::getInstance()->getAtAxis());
 		msg->addVector3Fast(_PREHASH_CameraLeftAxis, LLViewerCamera::getInstance()->getLeftAxis());
 		msg->addVector3Fast(_PREHASH_CameraUpAxis, LLViewerCamera::getInstance()->getUpAxis());
-		msg->addF32Fast(_PREHASH_Far, gAgent.mDrawDistance);
+		msg->addF32Fast(_PREHASH_Far, gAgentCamera.mDrawDistance);
 		
 		msg->addU32Fast(_PREHASH_ControlFlags, control_flags);
 
@@ -4008,7 +4030,7 @@ void process_avatar_animation(LLMessageSystem *mesgsys, void **user_data)
 	//clear animation flags
 	avatarp = (LLVOAvatar *)gObjectList.findObject(uuid);
 
-	if (!avatarp)
+	if (!isAgentAvatarValid())
 	{
 		// no agent by this ID...error?
 		LL_WARNS("Messaging") << "Received animation state for unknown avatar" << uuid << LL_ENDL;
@@ -4094,7 +4116,7 @@ void process_avatar_appearance(LLMessageSystem *mesgsys, void **user_data)
 	mesgsys->getUUIDFast(_PREHASH_Sender, _PREHASH_ID, uuid);
 
 	LLVOAvatar* avatarp = (LLVOAvatar *)gObjectList.findObject(uuid);
-	if( avatarp )
+	if (avatarp)
 	{
 		avatarp->processAvatarAppearance( mesgsys );
 	}
@@ -4109,7 +4131,7 @@ void process_camera_constraint(LLMessageSystem *mesgsys, void **user_data)
 	LLVector4 cameraCollidePlane;
 	mesgsys->getVector4Fast(_PREHASH_CameraCollidePlane, _PREHASH_Plane, cameraCollidePlane);
 
-	gAgent.setCameraCollidePlane(cameraCollidePlane);
+	gAgentCamera.setCameraCollidePlane(cameraCollidePlane);
 }
 
 void near_sit_object(BOOL success, void *data)
@@ -4142,20 +4164,18 @@ void process_avatar_sit_response(LLMessageSystem *mesgsys, void **user_data)
 	BOOL force_mouselook;
 	mesgsys->getBOOLFast(_PREHASH_SitTransform, _PREHASH_ForceMouselook, force_mouselook);
 
-	LLVOAvatar* avatar = gAgent.getAvatarObject();
-
-	if (avatar && dist_vec_squared(camera_eye, camera_at) > 0.0001f)
+	if (isAgentAvatarValid() && dist_vec_squared(camera_eye, camera_at) > 0.0001f)
 	{
-		gAgent.setSitCamera(sitObjectID, camera_eye, camera_at);
+		gAgentCamera.setSitCamera(sitObjectID, camera_eye, camera_at);
 	}
 	
-	gAgent.setForceMouselook(force_mouselook);
+	gAgentCamera.setForceMouselook(force_mouselook);
 
 	LLViewerObject* object = gObjectList.findObject(sitObjectID);
 	if (object)
 	{
 		LLVector3 sit_spot = object->getPositionAgent() + (sitPosition * object->getRotation());
-		if (!use_autopilot || (avatar && avatar->isSitting() && avatar->getRoot() == object->getRoot()))
+		if (!use_autopilot || isAgentAvatarValid() && gAgentAvatarp->isSitting() && gAgentAvatarp->getRoot() == object->getRoot())
 		{
 			//we're already sitting on this object, so don't autopilot
 		}
@@ -4501,8 +4521,64 @@ void process_money_balance_reply( LLMessageSystem* msg, void** )
 			payload["from_id"] = from_id;
 			LLNotificationsUtil::add("PaymentRecived", args, payload);
 		}
+		//AD *HACK: Parsing incoming string to localize messages that come from server! EXT-5986
+		// It's only a temporarily and ineffective measure. It doesn't affect performance much
+		// because we get here only for specific type of messages, but anyway it is not right to do it!
+		// *TODO: Server-side changes should be made and this code removed.
 		else
 		{
+			if(desc.find("You paid")==0)
+			{
+				// Regular expression for message parsing- change it in case of server-side changes.
+				// Each set of parenthesis will later be used to find arguments of message we generate
+				// in the end of this if- (.*) gives us name of money receiver, (\\d+)-amount of money we pay
+				// and ([^$]*)- reason of payment
+				boost::regex expr("You paid (?:.{0}|(.*) )L\\$(\\d+)\\s?([^$]*)\\.");
+				boost::match_results <std::string::const_iterator> matches;
+				if(boost::regex_match(desc, matches, expr))
+				{
+					// Name of full localizable notification string
+					// there are three types of this string- with name of receiver and reason of payment,
+					// without name and without reason (but not simultaneously)
+					// example of string without name - You paid L$100 to create a group.
+					// example of string without reason - You paid Smdby Linden L$100.
+					// example of string with reason and name - You paid Smbdy Linden L$100 for a land access pass.
+					std::string line = "you_paid_ldollars_no_name";
+
+					// arguments of string which will be in notification
+					LLStringUtil::format_map_t str_args;
+
+					// extracting amount of money paid (without L$ symbols). It is always present.
+					str_args["[AMOUNT]"] = std::string(matches[2]);
+
+					// extracting name of person/group you are paying (it may be absent)
+					std::string name = std::string(matches[1]);
+					if(!name.empty())
+					{
+						str_args["[NAME]"] = name;
+						line = "you_paid_ldollars";
+					}
+
+					// extracting reason of payment (it may be absent)
+					std::string reason = std::string(matches[3]);
+					if (reason.empty())
+					{
+						line = "you_paid_ldollars_no_reason";
+					}
+					else
+					{
+						std::string localized_reason;
+						// if we haven't found localized string for reason of payment leave it as it was
+						str_args["[REASON]"] =  LLTrans::findString(localized_reason, reason) ? localized_reason : reason;
+					}
+
+					// forming final message string by retrieving localized version from xml
+					// and applying previously found arguments
+					line = LLTrans::getString(line, str_args);
+					args["MESSAGE"] = line;
+				}
+			}
+
 			LLNotificationsUtil::add("SystemMessage", args);
 		}
 
@@ -5144,9 +5220,9 @@ void container_inventory_arrived(LLViewerObject* object,
 								 void* data)
 {
 	LL_DEBUGS("Messaging") << "container_inventory_arrived()" << LL_ENDL;
-	if( gAgent.cameraMouselook() )
+	if( gAgentCamera.cameraMouselook() )
 	{
-		gAgent.changeCameraToDefault();
+		gAgentCamera.changeCameraToDefault();
 	}
 
 	LLInventoryPanel *active_panel = LLInventoryPanel::getActiveInventoryPanel();
@@ -5371,13 +5447,13 @@ void process_teleport_local(LLMessageSystem *msg,void**)
 	}
 
 	gAgent.setPositionAgent(pos);
-	gAgent.slamLookAt(look_at);
+	gAgentCamera.slamLookAt(look_at);
 
 	// likewise make sure the camera is behind the avatar
-	gAgent.resetView(TRUE, TRUE);
+	gAgentCamera.resetView(TRUE, TRUE);
 
 	// send camera update to new region
-	gAgent.updateCamera();
+	gAgentCamera.updateCamera();
 
 	send_agent_update(TRUE, TRUE);
 
@@ -5489,6 +5565,8 @@ bool handle_lure_callback(const LLSD& notification, const LLSD& response)
 				args["TO_NAME"] = target_name;
 	
 				LLSD payload;
+				
+				//*TODO please rewrite all keys to the same case, lower or upper
 				payload["from_id"] = target_id;
 				payload["SESSION_NAME"] = target_name;
 				payload["SUPPRESS_TOAST"] = true;
@@ -5509,7 +5587,7 @@ void handle_lure(const LLUUID& invitee)
 }
 
 // Prompt for a message to the invited user.
-void handle_lure(const std::vector<LLUUID>& ids)
+void handle_lure(const uuid_vec_t& ids)
 {
 	LLSD edit_args;
 	edit_args["REGION"] = gAgent.getRegion()->getName();
