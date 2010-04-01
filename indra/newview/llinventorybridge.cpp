@@ -31,10 +31,12 @@
  */
 
 #include "llviewerprecompiledheaders.h"
+#include "llinventorybridge.h"
+
 // external projects
 #include "lltransfersourceasset.h"
 
-#include "llinventorybridge.h"
+
 
 #include "llagent.h"
 #include "llagentcamera.h"
@@ -594,7 +596,7 @@ void LLInvFVBridge::getClipboardEntries(bool show_asset_id,
 				LLViewerInventoryItem* inv_item = gInventory.getItem(mUUID);
 				if (inv_item)
 				{
-					is_asset_knowable = is_asset_id_knowable(inv_item->getType());
+					is_asset_knowable = LLAssetType::lookupIsAssetIDKnowable(inv_item->getType());
 				}
 				if ( !is_asset_knowable // disable menu item for Inventory items with unknown asset. EXT-5308
 					 || (! ( isItemPermissive() || gAgent.isGodlike() ) )
@@ -1922,50 +1924,6 @@ BOOL move_inv_category_world_to_agent(const LLUUID& object_id,
 	}
 	return accept;
 }
-
-bool LLFindCOFValidItems::operator()(LLInventoryCategory* cat,
-									 LLInventoryItem* item)
-{
-	// Valid COF items are:
-	// - links to wearables (body parts or clothing)
-	// - links to attachments
-	// - links to gestures
-	// - links to ensemble folders
-	LLViewerInventoryItem *linked_item = ((LLViewerInventoryItem*)item)->getLinkedItem();
-	if (linked_item)
-	{
-		LLAssetType::EType type = linked_item->getType();
-		return (type == LLAssetType::AT_CLOTHING ||
-				type == LLAssetType::AT_BODYPART ||
-				type == LLAssetType::AT_GESTURE ||
-				type == LLAssetType::AT_OBJECT);
-	}
-	else
-	{
-		LLViewerInventoryCategory *linked_category = ((LLViewerInventoryItem*)item)->getLinkedCategory();
-		// BAP remove AT_NONE support after ensembles are fully working?
-		return (linked_category &&
-				((linked_category->getPreferredType() == LLFolderType::FT_NONE) ||
-				 (LLFolderType::lookupIsEnsembleType(linked_category->getPreferredType()))));
-	}
-}
-
-
-bool LLFindWearables::operator()(LLInventoryCategory* cat,
-								 LLInventoryItem* item)
-{
-	if(item)
-	{
-		if((item->getType() == LLAssetType::AT_CLOTHING)
-		   || (item->getType() == LLAssetType::AT_BODYPART))
-		{
-			return TRUE;
-		}
-	}
-	return FALSE;
-}
-
-
 
 //Used by LLFolderBridge as callback for directory recursion.
 class LLRightClickInventoryFetchObserver : public LLInventoryFetchObserver

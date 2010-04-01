@@ -53,17 +53,6 @@ LLFlatListView::Params::Params()
 	no_items_text("no_items_text")
 {};
 
-LLFlatListView::~LLFlatListView() 
-{ 
-	clear();
-	// Route menu back to the default
-	if( gEditMenuHandler == this )
-	{
-		gEditMenuHandler = NULL;
-	}
-};
-
-
 void LLFlatListView::reshape(S32 width, S32 height, BOOL called_from_parent /* = TRUE */)
 {
 	LLScrollContainer::reshape(width, height, called_from_parent);
@@ -795,13 +784,13 @@ bool LLFlatListView::selectNextItemPair(bool is_up_direction, bool reset_selecti
 
 BOOL LLFlatListView::canSelectAll() const
 {
-	return !mItemPairs.empty() && mAllowSelection;
+	return !mItemPairs.empty() && mAllowSelection && mMultipleSelection;
 }
 
 void LLFlatListView::selectAll()
 {
-	if (!mAllowSelection)
-		return;
+	if (!mAllowSelection || !mMultipleSelection)
+		return false;
 
 	mSelectedItemPairs.clear();
 
