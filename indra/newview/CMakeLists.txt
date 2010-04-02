@@ -67,6 +67,7 @@ include_directories(
 set(viewer_SOURCE_FILES
     llagent.cpp
     llagentaccess.cpp
+    llagentcamera.cpp
     llagentdata.cpp
     llagentlanguage.cpp
     llagentlistener.cpp
@@ -253,6 +254,7 @@ set(viewer_SOURCE_FILES
     llinventoryfilter.cpp
     llinventoryfunctions.cpp
     llinventorymodel.cpp
+    llinventorymodelbackgroundfetch.cpp
     llinventoryobserver.cpp
     llinventorypanel.cpp
     lljoystickbutton.cpp
@@ -568,6 +570,7 @@ set(viewer_HEADER_FILES
     ViewerInstall.cmake
     llagent.h
     llagentaccess.h
+    llagentcamera.h
     llagentdata.h
     llagentlanguage.h
     llagentlistener.h
@@ -756,6 +759,7 @@ set(viewer_HEADER_FILES
     llinventoryfilter.h
     llinventoryfunctions.h
     llinventorymodel.h
+    llinventorymodelbackgroundfetch.h
     llinventoryobserver.h
     llinventorypanel.h
     lljoystickbutton.h

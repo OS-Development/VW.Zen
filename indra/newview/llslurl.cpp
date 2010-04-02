@@ -270,7 +270,19 @@ LLSLURL::LLSLURL(const std::string& slurl)
 			// parse the x, y, z
 			if(path_array.size() >= 3)
 			{	
-				mPosition = LLVector3(path_array);
+			  
+			  mPosition = LLVector3(path_array);
+			  if((mPosition[VX] < 0) || 
+                             (mPosition[VX] > REGION_WIDTH_METERS) ||
+			     (mPosition[VY] < 0) || 
+                             (mPosition[VY] > REGION_WIDTH_METERS) ||
+			     (mPosition[VZ] < 0) || 
+                             (mPosition[VZ] > REGION_HEIGHT_METERS))
+			    {
+			      mType = INVALID;
+			      return;
+			    }
+ 
 			}
 			else
 			{

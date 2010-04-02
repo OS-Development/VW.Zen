@@ -444,7 +444,7 @@ LLContextMenu* LLParticipantList::LLParticipantListMenu::createMenu()
 	return main_menu;
 }
 
-void LLParticipantList::LLParticipantListMenu::show(LLView* spawning_view, const std::vector<LLUUID>& uuids, S32 x, S32 y)
+void LLParticipantList::LLParticipantListMenu::show(LLView* spawning_view, const uuid_vec_t& uuids, S32 x, S32 y)
 {
 	LLPanelPeopleMenus::ContextMenu::show(spawning_view, uuids, x, y);
 
@@ -614,7 +614,7 @@ bool LLParticipantList::LLParticipantListMenu::enableContextMenuItem(const LLSD&
 
 		bool result = (mUUIDs.size() > 0);
 
-		std::vector<LLUUID>::const_iterator
+		uuid_vec_t::const_iterator
 			id = mUUIDs.begin(),
 			uuids_end = mUUIDs.end();
 

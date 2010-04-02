@@ -56,6 +56,7 @@
 
 // newview includes
 #include "llagent.h"
+#include "llagentcamera.h"
 #include "lldrawable.h"
 #include "lldrawpoolalpha.h"
 #include "lldrawpoolavatar.h"
@@ -3855,15 +3856,14 @@ void LLPipeline::renderForSelect(std::set<LLViewerObject*>& objects, BOOL render
 	}
 
 	// pick HUD objects
-	LLVOAvatar* avatarp = gAgent.getAvatarObject();
-	if (avatarp && sShowHUDAttachments)
+	if (isAgentAvatarValid() && sShowHUDAttachments)
 	{
 		glh::matrix4f save_proj(glh_get_current_projection());
 		glh::matrix4f save_model(glh_get_current_modelview());
 
 		setup_hud_matrices(screen_rect);
-		for (LLVOAvatar::attachment_map_t::iterator iter = avatarp->mAttachmentPoints.begin(); 
-			 iter != avatarp->mAttachmentPoints.end(); )
+		for (LLVOAvatar::attachment_map_t::iterator iter = gAgentAvatarp->mAttachmentPoints.begin(); 
+			 iter != gAgentAvatarp->mAttachmentPoints.end(); )
 		{
 			LLVOAvatar::attachment_map_t::iterator curiter = iter++;
 			LLViewerJointAttachment* attachment = curiter->second;
@@ -3963,9 +3963,9 @@ void LLPipeline::rebuildPools()
 		max_count--;
 	}
 
-	if (gAgent.getAvatarObject())
+	if (isAgentAvatarValid())
 	{
-		gAgent.getAvatarObject()->rebuildHUD();
+		gAgentAvatarp->rebuildHUD();
 	}
 }
 
@@ -4361,7 +4361,7 @@ void LLPipeline::calcNearbyLights(LLCamera& camera)
 		// mNearbyLight (and all light_set_t's) are sorted such that
 		// begin() == the closest light and rbegin() == the farthest light
 		const S32 MAX_LOCAL_LIGHTS = 6;
-// 		LLVector3 cam_pos = gAgent.getCameraPositionAgent();
+// 		LLVector3 cam_pos = gAgentCamera.getCameraPositionAgent();
 		LLVector3 cam_pos = LLViewerJoystick::getInstance()->getOverrideCamera() ?
 						camera.getOrigin() : 
 						gAgent.getPositionAgent();
@@ -4597,8 +4597,8 @@ void LLPipeline::setupHWLights(LLDrawPool* pool)
 		glLightfv(gllight, GL_SPECULAR, LLColor4::black.mV);
 	}
 
-	if (gAgent.getAvatarObject() &&
-		gAgent.getAvatarObject()->mSpecialRenderMode == 3)
+	if (isAgentAvatarValid() &&
+		gAgentAvatarp->mSpecialRenderMode == 3)
 	{
 		LLColor4  light_color = LLColor4::white;
 		light_color.mV[3] = 0.0f;
@@ -4707,15 +4707,13 @@ void LLPipeline::enableLightsDynamic()
 		glColor4f(0.f, 0.f, 0.f, 1.f); // no local lighting by default
 	}
 
-	LLVOAvatar* avatarp = gAgent.getAvatarObject();
-
-	if (avatarp && getLightingDetail() <= 0)
+	if (isAgentAvatarValid() && getLightingDetail() <= 0)
 	{
-		if (avatarp->mSpecialRenderMode == 0) // normal
+		if (gAgentAvatarp->mSpecialRenderMode == 0) // normal
 		{
 			gPipeline.enableLightsAvatar();
 		}
-		else if (avatarp->mSpecialRenderMode >= 1)  // anim preview
+		else if (gAgentAvatarp->mSpecialRenderMode >= 1)  // anim preview
 		{
 			gPipeline.enableLightsAvatarEdit(LLColor4(0.7f, 0.6f, 0.3f, 1.f));
 		}
@@ -7100,15 +7098,15 @@ void LLPipeline::generateWaterReflection(LLCamera& camera_in)
 {
 	if (LLPipeline::sWaterReflections && assertInitialized() && LLDrawPoolWater::sNeedsReflectionUpdate)
 	{
-		LLVOAvatarSelf* avatar = gAgent.getAvatarObject();
-		if (gAgent.getCameraAnimating() || gAgent.getCameraMode() != CAMERA_MODE_MOUSELOOK)
+		BOOL skip_avatar_update = FALSE;
+		if (gAgentCamera.getCameraAnimating() || gAgentCamera.getCameraMode() != CAMERA_MODE_MOUSELOOK)
 		{
-			avatar = NULL;
+			skip_avatar_update = TRUE;
 		}
 
-		if (avatar)
+		if (!skip_avatar_update)
 		{
-			avatar->updateAttachmentVisibility(CAMERA_MODE_THIRD_PERSON);
+			gAgentAvatarp->updateAttachmentVisibility(CAMERA_MODE_THIRD_PERSON);
 		}
 		LLVertexBuffer::unbind();
 
@@ -7332,9 +7330,9 @@ void LLPipeline::generateWaterReflection(LLCamera& camera_in)
 		LLGLState::checkTextureChannels();
 		LLGLState::checkClientArrays();
 
-		if (avatar)
+		if (!skip_avatar_update)
 		{
-			avatar->updateAttachmentVisibility(gAgent.getCameraMode());
+			gAgentAvatarp->updateAttachmentVisibility(gAgentCamera.getCameraMode());
 		}
 	}
 }

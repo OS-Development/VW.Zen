@@ -166,6 +166,10 @@ bool LLURLDispatcherImpl::dispatchApp(const LLSLURL& slurl,
 // static
 bool LLURLDispatcherImpl::dispatchRegion(const LLSLURL& slurl, bool right_mouse)
 {
+  if(slurl.getType() != LLSLURL::LOCATION)
+    {
+      return false;
+    }
 	// Before we're logged in, need to update the startup screen
 	// to tell the user where they are going.
 	if (LLStartUp::getStartupState() < STATE_LOGIN_CLEANUP)
@@ -192,7 +196,11 @@ bool LLURLDispatcherImpl::dispatchRegion(const LLSLURL& slurl, bool right_mouse)
 /*static*/
 void LLURLDispatcherImpl::regionNameCallback(U64 region_handle, const LLSLURL& slurl, const LLUUID& snapshot_id, bool teleport)
 {
-	regionHandleCallback(region_handle, slurl, snapshot_id, teleport);
+      
+  if(slurl.getType() == LLSLURL::LOCATION)
+    {        
+      regionHandleCallback(region_handle, slurl, snapshot_id, teleport);
+    }
 }
 
 /* static */
@@ -220,7 +228,6 @@ void LLURLDispatcherImpl::regionHandleCallback(U64 region_handle, const LLSLURL&
 		return;
 	}
 	
-
 	LLVector3d global_pos = from_region_handle(region_handle);
 	global_pos += LLVector3d(slurl.getPosition());
 	
