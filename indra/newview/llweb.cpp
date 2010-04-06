@@ -103,8 +103,18 @@ void LLWeb::loadURLInternal(const std::string &url)
 // static
 void LLWeb::loadURLExternal(const std::string& url)
 {
+	loadURLExternal(url, true);
+}
+
+
+// static
+void LLWeb::loadURLExternal(const std::string& url, bool async)
+{
 	std::string escaped_url = escapeURL(url);
-	gViewerWindow->getWindow()->spawnWebBrowser(escaped_url);
+	if (gViewerWindow)
+	{
+		gViewerWindow->getWindow()->spawnWebBrowser(escaped_url, async);
+	}
 }
 
 
@@ -145,7 +155,7 @@ std::string LLWeb::expandURLSubstitutions(const std::string &url,
 	substitution["VERSION_PATCH"] = LLVersionInfo::getPatch();
 	substitution["VERSION_BUILD"] = LLVersionInfo::getBuild();
 	substitution["CHANNEL"] = LLVersionInfo::getChannel();
-	substitution["GRID"] = LLViewerLogin::getInstance()->getGridLabel();
+	substitution["GRID"] = LLGridManager::getInstance()->getGridLabel();
 	substitution["OS"] = LLAppViewer::instance()->getOSInfo().getOSStringSimple();
 	substitution["SESSION_ID"] = gAgent.getSessionID();
 	substitution["FIRST_LOGIN"] = gAgent.isFirstLogin();

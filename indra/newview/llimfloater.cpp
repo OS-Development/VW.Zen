@@ -44,6 +44,7 @@
 #include "llchiclet.h"
 #include "llfloaterreg.h"
 #include "llimfloatercontainer.h" // to replace separate IM Floaters with multifloater container
+#include "llinventoryfunctions.h"
 #include "lllayoutstack.h"
 #include "lllineeditor.h"
 #include "lllogchat.h"
@@ -57,7 +58,6 @@
 #include "lltransientfloatermgr.h"
 #include "llinventorymodel.h"
 #include "llrootview.h"
-
 #include "llspeakers.h"
 
 
@@ -922,7 +922,7 @@ BOOL LLIMFloater::dropCallingCard(LLInventoryItem* item, BOOL drop)
 	{
 		if(drop)
 		{
-			std::vector<LLUUID> ids;
+			uuid_vec_t ids;
 			ids.push_back(item->getCreatorUUID());
 			inviteToSession(ids);
 		}
@@ -955,7 +955,7 @@ BOOL LLIMFloater::dropCategory(LLInventoryCategory* category, BOOL drop)
 		}
 		else if(drop)
 		{
-			std::vector<LLUUID> ids;
+			uuid_vec_t ids;
 			ids.reserve(count);
 			for(S32 i = 0; i < count; ++i)
 			{
@@ -992,7 +992,7 @@ private:
 	LLUUID mSessionID;
 };
 
-BOOL LLIMFloater::inviteToSession(const std::vector<LLUUID>& ids)
+BOOL LLIMFloater::inviteToSession(const uuid_vec_t& ids)
 {
 	LLViewerRegion* region = gAgent.getRegion();
 	if (!region)

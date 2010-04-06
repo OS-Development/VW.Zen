@@ -60,6 +60,7 @@
 
 #include "llaudiosourcevo.h"
 #include "llagent.h"
+#include "llagentcamera.h"
 #include "llbbox.h"
 #include "llbox.h"
 #include "llcylinder.h"
@@ -133,7 +134,15 @@ LLViewerObject *LLViewerObject::createObject(const LLUUID &id, const LLPCode pco
 	{
 		if (id == gAgentID)
 		{
-			res = new LLVOAvatarSelf(id, pcode, regionp);
+			if (!gAgentAvatarp)
+			{
+				gAgentAvatarp = new LLVOAvatarSelf(id, pcode, regionp);
+			}
+			else 
+			{
+				gAgentAvatarp->updateRegion(regionp);
+			}
+			res = gAgentAvatarp;
 		}
 		else
 		{
@@ -222,7 +231,7 @@ LLViewerObject::LLViewerObject(const LLUUID &id, const LLPCode pcode, LLViewerRe
 	mClickAction(0),
 	mAttachmentItemID(LLUUID::null)
 {
-	if(!is_global)
+	if (!is_global)
 	{
 		llassert(mRegionp);
 	}
@@ -234,7 +243,7 @@ LLViewerObject::LLViewerObject(const LLUUID &id, const LLPCode pcode, LLViewerRe
 
 	mPositionRegion = LLVector3(0.f, 0.f, 0.f);
 
-	if(!is_global)
+	if (!is_global && mRegionp)
 	{
 		mPositionAgent = mRegionp->getOriginAgent();
 	}
@@ -376,11 +385,10 @@ void LLViewerObject::markDead()
 
 		if (flagAnimSource())
 		{
-			LLVOAvatar* avatarp = gAgent.getAvatarObject();
-			if (avatarp && !avatarp->isDead())
+			if (isAgentAvatarValid())
 			{
 				// stop motions associated with this object
-				avatarp->stopMotionFromSource(mID);
+				gAgentAvatarp->stopMotionFromSource(mID);
 			}
 		}
 
@@ -2757,7 +2765,7 @@ void LLViewerObject::setPixelAreaAndAngle(LLAgent &agent)
 		return;
 	}
 	
-	LLVector3 viewer_pos_agent = agent.getCameraPositionAgent();
+	LLVector3 viewer_pos_agent = gAgentCamera.getCameraPositionAgent();
 	LLVector3 pos_agent = getRenderPosition();
 
 	F32 dx = viewer_pos_agent.mV[VX] - pos_agent.mV[VX];
@@ -4718,7 +4726,7 @@ BOOL LLViewerObject::permYouOwner() const
 		return TRUE;
 #else
 # ifdef TOGGLE_HACKED_GODLIKE_VIEWER
-		if (!LLViewerLogin::getInstance()->isInProductionGrid()
+		if (!LLGridManager::getInstance()->isInProductionGrid()
             && (gAgent.getGodLevel() >= GOD_MAINTENANCE))
 		{
 			return TRUE;
@@ -4755,7 +4763,7 @@ BOOL LLViewerObject::permOwnerModify() const
 		return TRUE;
 #else
 # ifdef TOGGLE_HACKED_GODLIKE_VIEWER
-		if (!LLViewerLogin::getInstance()->isInProductionGrid()
+		if (!LLGridManager::getInstance()->isInProductionGrid()
             && (gAgent.getGodLevel() >= GOD_MAINTENANCE))
 	{
 			return TRUE;
@@ -4779,7 +4787,7 @@ BOOL LLViewerObject::permModify() const
 		return TRUE;
 #else
 # ifdef TOGGLE_HACKED_GODLIKE_VIEWER
-		if (!LLViewerLogin::getInstance()->isInProductionGrid()
+		if (!LLGridManager::getInstance()->isInProductionGrid()
             && (gAgent.getGodLevel() >= GOD_MAINTENANCE))
 	{
 			return TRUE;
@@ -4803,7 +4811,7 @@ BOOL LLViewerObject::permCopy() const
 		return TRUE;
 #else
 # ifdef TOGGLE_HACKED_GODLIKE_VIEWER
-		if (!LLViewerLogin::getInstance()->isInProductionGrid()
+		if (!LLGridManager::getInstance()->isInProductionGrid()
             && (gAgent.getGodLevel() >= GOD_MAINTENANCE))
 		{
 			return TRUE;
@@ -4827,7 +4835,7 @@ BOOL LLViewerObject::permMove() const
 		return TRUE;
 #else
 # ifdef TOGGLE_HACKED_GODLIKE_VIEWER
-		if (!LLViewerLogin::getInstance()->isInProductionGrid()
+		if (!LLGridManager::getInstance()->isInProductionGrid()
             && (gAgent.getGodLevel() >= GOD_MAINTENANCE))
 		{
 			return TRUE;
@@ -4851,7 +4859,7 @@ BOOL LLViewerObject::permTransfer() const
 		return TRUE;
 #else
 # ifdef TOGGLE_HACKED_GODLIKE_VIEWER
-		if (!LLViewerLogin::getInstance()->isInProductionGrid()
+		if (!LLGridManager::getInstance()->isInProductionGrid()
             && (gAgent.getGodLevel() >= GOD_MAINTENANCE))
 		{
 			return TRUE;
@@ -4919,7 +4927,6 @@ void LLViewerObject::setIncludeInSearch(bool include_in_search)
 
 void LLViewerObject::setRegion(LLViewerRegion *regionp)
 {
-	llassert(regionp);
 	mLatestRecvPacketID = 0;
 	mRegionp = regionp;
 

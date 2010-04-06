@@ -51,6 +51,7 @@
 #include "mean_collision_data.h"
 
 #include "llagent.h"
+#include "llagentcamera.h"
 #include "llcallingcard.h"
 //#include "llfirstuse.h"
 #include "llfloaterbuycurrency.h"
@@ -62,6 +63,7 @@
 #include "llfloaterpreference.h"
 #include "llhudeffecttrail.h"
 #include "llhudmanager.h"
+#include "llinventoryfunctions.h"
 #include "llinventoryobserver.h"
 #include "llinventorypanel.h"
 #include "llnearbychat.h"
@@ -869,9 +871,9 @@ bool check_offer_throttle(const std::string& from_name, bool check_only)
 	}
 }
  
-void open_inventory_offer(const std::vector<LLUUID>& items, const std::string& from_name)
+void open_inventory_offer(const uuid_vec_t& items, const std::string& from_name)
 {
-	for (std::vector<LLUUID>::const_iterator item_iter = items.begin();
+	for (uuid_vec_t::const_iterator item_iter = items.begin();
 		 item_iter != items.end();
 		 ++item_iter)
 	{
@@ -1201,7 +1203,7 @@ bool LLOfferInfo::inventory_offer_callback(const LLSD& notification, const LLSD&
 				// This is an offer from an agent. In this case, the back
 				// end has already copied the items into your inventory,
 				// so we can fetch it out of our inventory.
-				LLInventoryFetchObserver::item_ref_t items;
+				uuid_vec_t items;
 				items.push_back(mObjectID);
 				LLOpenAgentOffer* open_agent_offer = new LLOpenAgentOffer(from_string);
 				open_agent_offer->fetchItems(items);
@@ -1262,8 +1264,8 @@ bool LLOfferInfo::inventory_offer_callback(const LLSD& notification, const LLSD&
 			// Disabled logging to old chat floater to fix crash in group notices - EXT-4149
 			// LLFloaterChat::addChatHistory(chat);
 			
-			LLInventoryFetchComboObserver::folder_ref_t folders;
-			LLInventoryFetchComboObserver::item_ref_t items;
+			uuid_vec_t folders;
+			uuid_vec_t items;
 			items.push_back(mObjectID);
 			LLDiscardAgentOffer* discard_agent_offer;
 			discard_agent_offer = new LLDiscardAgentOffer(mFolderID, mObjectID);
@@ -1571,9 +1573,9 @@ void inventory_offer_handler(LLOfferInfo* info)
 	payload["give_inventory_notification"] = FALSE;
 	args["OBJECTFROMNAME"] = info->mFromName;
 	args["NAME"] = info->mFromName;
-	args["NAME_SLURL"] = LLSLURL::buildCommand("agent", info->mFromID, "about");
+	args["NAME_SLURL"] = LLSLURL("agent", info->mFromID, "about").getSLURLString();
 	std::string verb = "select?name=" + LLURI::escape(msg);
-	args["ITEM_SLURL"] = LLSLURL::buildCommand("inventory", info->mObjectID, verb.c_str());
+	args["ITEM_SLURL"] = LLSLURL("inventory", info->mObjectID, verb.c_str()).getSLURLString();
 
 	LLNotification::Params p("ObjectGiveItem");
 
@@ -1599,7 +1601,7 @@ void inventory_offer_handler(LLOfferInfo* info)
 		p.name = "UserGiveItem";
 		
 		// Prefetch the item into your local inventory.
-		LLInventoryFetchObserver::item_ref_t items;
+		uuid_vec_t items;
 		items.push_back(info->mObjectID);
 		LLInventoryFetchObserver* fetch_item = new LLInventoryFetchObserver();
 		fetch_item->fetchItems(items);
@@ -1683,6 +1685,18 @@ bool inspect_remote_object_callback(const LLSD& notification, const LLSD& respon
 }
 static LLNotificationFunctorRegistration inspect_remote_object_callback_reg("ServerObjectMessage", inspect_remote_object_callback);
 
+class LLPostponedServerObjectNotification: public LLPostponedNotification
+{
+protected:
+	/* virtual */
+	void modifyNotificationParams()
+	{
+		LLSD payload = mParams.payload;
+		payload["SESSION_NAME"] = mName;
+		mParams.payload = payload;
+	}
+};
+
 void process_improved_im(LLMessageSystem *msg, void **user_data)
 {
 	if (gNoRender)
@@ -1752,17 +1766,15 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 	std::string separator_string(": ");
 
 	LLSD args;
+	LLSD payload;
 	switch(dialog)
 	{
 	case IM_CONSOLE_AND_CHAT_HISTORY:
-		// These are used for system messages, hence don't need the name,
-		// as it is always "Second Life".
 	  	// *TODO: Translate
 		args["MESSAGE"] = message;
-
-		// Note: don't put the message in the IM history, even though was sent
-		// via the IM mechanism.
-		LLNotificationsUtil::add("SystemMessageTip",args);
+		payload["SESSION_NAME"] = name;
+		payload["from_id"] = from_id;
+		LLNotificationsUtil::add("IMSystemMessageTip",args, payload);
 		break;
 
 	case IM_NOTHING_SPECIAL: 
@@ -1985,7 +1997,6 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 			// For requested notices, we don't want to send the popups.
 			if (dialog != IM_GROUP_NOTICE_REQUESTED)
 			{
-				LLSD payload;
 				payload["subject"] = subj;
 				payload["message"] = mes;
 				payload["sender_name"] = name;
@@ -2109,7 +2120,7 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 			if (is_muted)
 			{
 				// Prefetch the offered item so that it can be discarded by the appropriate observer. (EXT-4331)
-				LLInventoryFetchObserver::item_ref_t items;
+				uuid_vec_t items;
 				items.push_back(info->mObjectID);
 				LLInventoryFetchObserver* fetch_item = new LLInventoryFetchObserver();
 				fetch_item->fetchItems(items);
@@ -2221,7 +2232,7 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 			if(SYSTEM_FROM == name)
 			{
 				// System's UUID is NULL (fixes EXT-4766)
-				chat.mFromID = from_id = LLUUID::null;
+				chat.mFromID = LLUUID::null;
 			}
 
 			LLSD query_string;
@@ -2233,10 +2244,7 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 				query_string["groupowned"] = "true";
 			}	
 
-			std::ostringstream link;
-			link << "secondlife:///app/objectim/" << session_id << LLURI::mapToQueryString(query_string);
-
-			chat.mURL = link.str();
+			chat.mURL = LLSLURL("objectim", session_id, "").getSLURLString();
 			chat.mText = message;
 			chat.mSourceType = CHAT_SOURCE_OBJECT;
 
@@ -2267,13 +2275,16 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 			payload["slurl"] = location;
 			payload["name"] = name;
 			std::string session_name;
-			gCacheName->getFullName(from_id, session_name);
-			payload["SESSION_NAME"] = session_name;
 			if (from_group)
 			{
 				payload["group_owned"] = "true";
 			}
-			LLNotificationsUtil::add("ServerObjectMessage", substitutions, payload);
+
+			LLNotification::Params params("ServerObjectMessage");
+			params.substitutions = substitutions;
+			params.payload = payload;
+
+			LLPostponedNotification::add<LLPostponedServerObjectNotification>(params, from_id, false);
 		}
 		break;
 	case IM_FROM_TASK_AS_ALERT:
@@ -2316,7 +2327,7 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 			{
 				LLSD args;
 				// *TODO: Translate -> [FIRST] [LAST] (maybe)
-				args["NAME"] = name;
+				args["NAME_SLURL"] = LLSLURL("agent", from_id, "about").getSLURLString();
 				args["MESSAGE"] = message;
 				LLSD payload;
 				payload["from_id"] = from_id;
@@ -2382,7 +2393,7 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 			}
 			else
 			{
-				args["[NAME]"] = name;
+				args["NAME_SLURL"] = LLSLURL("agent", from_id, "about").getSLURLString();
 				if(message.empty())
 				{
 					//support for frienship offers from clients before July 2008
@@ -2843,8 +2854,8 @@ public:
 		LLInventoryModel::cat_array_t	land_cats;
 		LLInventoryModel::item_array_t	land_items;
 
-		folder_ref_t::iterator it = mCompleteFolders.begin();
-		folder_ref_t::iterator end = mCompleteFolders.end();
+		uuid_vec_t::iterator it = mCompleteFolders.begin();
+		uuid_vec_t::iterator end = mCompleteFolders.end();
 		for(; it != end; ++it)
 		{
 			gInventory.collectDescendentsIf(
@@ -2905,7 +2916,7 @@ BOOL LLPostTeleportNotifiers::tick()
 	if ( gAgent.getTeleportState() == LLAgent::TELEPORT_NONE )
 	{
 		// get callingcards and landmarks available to the user arriving.
-		LLInventoryFetchDescendentsObserver::folder_ref_t folders;
+		uuid_vec_t folders;
 		const LLUUID callingcard_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_CALLINGCARD);
 		if(callingcard_id.notNull()) 
 			folders.push_back(callingcard_id);
@@ -2945,6 +2956,9 @@ void process_teleport_finish(LLMessageSystem* msg, void**)
 		LL_WARNS("Messaging") << "Got teleport notification for wrong agent!" << LL_ENDL;
 		return;
 	}
+	
+	// Teleport is finished; it can't be cancelled now.
+	gViewerWindow->setProgressCancelButtonVisible(FALSE);
 
 	// Do teleport effect for where you're leaving
 	// VEFFECT: TeleportStart
@@ -2990,18 +3004,18 @@ void process_teleport_finish(LLMessageSystem* msg, void**)
 
 /*
 	// send camera update to new region
-	gAgent.updateCamera();
+	gAgentCamera.updateCamera();
 
 	// likewise make sure the camera is behind the avatar
-	gAgent.resetView(TRUE);
+	gAgentCamera.resetView(TRUE);
 	LLVector3 shift_vector = regionp->getPosRegionFromGlobal(gAgent.getRegion()->getOriginGlobal());
 	gAgent.setRegion(regionp);
 	gObjectList.shiftObjects(shift_vector);
 
-	if (gAgent.getAvatarObject())
+	if (isAgentAvatarValid())
 	{
-		gAgent.getAvatarObject()->clearChatText();
-		gAgent.slamLookAt(look_at);
+		gAgentAvatarp->clearChatText();
+		gAgentCamera.slamLookAt(look_at);
 	}
 	gAgent.setPositionAgent(pos);
 	gAssetStorage->setUpstream(sim);
@@ -3080,8 +3094,7 @@ void process_agent_movement_complete(LLMessageSystem* msg, void**)
 	std::string version_channel;
 	msg->getString("SimData", "ChannelVersion", version_channel);
 
-	LLVOAvatar* avatarp = gAgent.getAvatarObject();
-	if (!avatarp)
+	if (!isAgentAvatarValid())
 	{
 		// Could happen if you were immediately god-teleported away on login,
 		// maybe other cases.  Continue, but warn.
@@ -3125,9 +3138,9 @@ void process_agent_movement_complete(LLMessageSystem* msg, void**)
 	if( is_teleport )
 	{
 		// Force the camera back onto the agent, don't animate.
-		gAgent.setFocusOnAvatar(TRUE, FALSE);
-		gAgent.slamLookAt(look_at);
-		gAgent.updateCamera();
+		gAgentCamera.setFocusOnAvatar(TRUE, FALSE);
+		gAgentCamera.slamLookAt(look_at);
+		gAgentCamera.updateCamera();
 
 		gAgent.setTeleportState( LLAgent::TELEPORT_START_ARRIVAL );
 
@@ -3135,11 +3148,13 @@ void process_agent_movement_complete(LLMessageSystem* msg, void**)
 		// know what you look like.
 		gAgent.sendAgentSetAppearance();
 
-		if (avatarp)
+		if (isAgentAvatarValid())
 		{
 			// Chat the "back" SLURL. (DEV-4907)
 
-			LLSD substitution = LLSD().with("[T_SLURL]", gAgent.getTeleportSourceSLURL());
+			LLSLURL slurl;
+			gAgent.getTeleportSourceSLURL(slurl);
+			LLSD substitution = LLSD().with("[T_SLURL]", slurl.getSLURLString());
 			std::string completed_from = LLAgent::sTeleportProgressMessages["completed_from"];
 			LLStringUtil::format(completed_from, substitution);
 
@@ -3148,9 +3163,9 @@ void process_agent_movement_complete(LLMessageSystem* msg, void**)
 			LLNotificationsUtil::add("SystemMessageTip", args);
 
 			// Set the new position
-			avatarp->setPositionAgent(agent_pos);
-			avatarp->clearChat();
-			avatarp->slamPosition();
+			gAgentAvatarp->setPositionAgent(agent_pos);
+			gAgentAvatarp->clearChat();
+			gAgentAvatarp->slamPosition();
 		}
 	}
 	else
@@ -3176,7 +3191,7 @@ void process_agent_movement_complete(LLMessageSystem* msg, void**)
 			global_agent_pos[1] += y;
 			look_at = (LLVector3)beacon_pos - global_agent_pos;
 			look_at.normVec();
-			gAgent.slamLookAt(look_at);
+			gAgentCamera.slamLookAt(look_at);
 		}
 	}
 
@@ -3210,9 +3225,9 @@ void process_agent_movement_complete(LLMessageSystem* msg, void**)
 		gAgent.clearBusy();
 	}
 
-	if (avatarp)
+	if (isAgentAvatarValid())
 	{
-		avatarp->mFootPlane.clearVec();
+		gAgentAvatarp->mFootPlane.clearVec();
 	}
 	
 	// send walk-vs-run status
@@ -3353,7 +3368,7 @@ void send_agent_update(BOOL force_send, BOOL send_reliable)
 	LLQuaternion body_rotation = gAgent.getFrameAgent().getQuaternion();
 	LLQuaternion head_rotation = gAgent.getHeadRotation();
 
-	camera_pos_agent = gAgent.getCameraPositionAgent();
+	camera_pos_agent = gAgentCamera.getCameraPositionAgent();
 
 	render_state = gAgent.getRenderState();
 
@@ -3476,7 +3491,7 @@ void send_agent_update(BOOL force_send, BOOL send_reliable)
 		msg->addVector3Fast(_PREHASH_CameraAtAxis, LLViewerCamera::getInstance()->getAtAxis());
 		msg->addVector3Fast(_PREHASH_CameraLeftAxis, LLViewerCamera::getInstance()->getLeftAxis());
 		msg->addVector3Fast(_PREHASH_CameraUpAxis, LLViewerCamera::getInstance()->getUpAxis());
-		msg->addF32Fast(_PREHASH_Far, gAgent.mDrawDistance);
+		msg->addF32Fast(_PREHASH_Far, gAgentCamera.mDrawDistance);
 		
 		msg->addU32Fast(_PREHASH_ControlFlags, control_flags);
 
@@ -4113,7 +4128,7 @@ void process_avatar_appearance(LLMessageSystem *mesgsys, void **user_data)
 	mesgsys->getUUIDFast(_PREHASH_Sender, _PREHASH_ID, uuid);
 
 	LLVOAvatar* avatarp = (LLVOAvatar *)gObjectList.findObject(uuid);
-	if( avatarp )
+	if (avatarp)
 	{
 		avatarp->processAvatarAppearance( mesgsys );
 	}
@@ -4128,7 +4143,7 @@ void process_camera_constraint(LLMessageSystem *mesgsys, void **user_data)
 	LLVector4 cameraCollidePlane;
 	mesgsys->getVector4Fast(_PREHASH_CameraCollidePlane, _PREHASH_Plane, cameraCollidePlane);
 
-	gAgent.setCameraCollidePlane(cameraCollidePlane);
+	gAgentCamera.setCameraCollidePlane(cameraCollidePlane);
 }
 
 void near_sit_object(BOOL success, void *data)
@@ -4161,20 +4176,18 @@ void process_avatar_sit_response(LLMessageSystem *mesgsys, void **user_data)
 	BOOL force_mouselook;
 	mesgsys->getBOOLFast(_PREHASH_SitTransform, _PREHASH_ForceMouselook, force_mouselook);
 
-	LLVOAvatar* avatar = gAgent.getAvatarObject();
-
-	if (avatar && dist_vec_squared(camera_eye, camera_at) > 0.0001f)
+	if (isAgentAvatarValid() && dist_vec_squared(camera_eye, camera_at) > 0.0001f)
 	{
-		gAgent.setSitCamera(sitObjectID, camera_eye, camera_at);
+		gAgentCamera.setSitCamera(sitObjectID, camera_eye, camera_at);
 	}
 	
-	gAgent.setForceMouselook(force_mouselook);
+	gAgentCamera.setForceMouselook(force_mouselook);
 
 	LLViewerObject* object = gObjectList.findObject(sitObjectID);
 	if (object)
 	{
 		LLVector3 sit_spot = object->getPositionAgent() + (sitPosition * object->getRotation());
-		if (!use_autopilot || (avatar && avatar->isSitting() && avatar->getRoot() == object->getRoot()))
+		if (!use_autopilot || isAgentAvatarValid() && gAgentAvatarp->isSitting() && gAgentAvatarp->getRoot() == object->getRoot())
 		{
 			//we're already sitting on this object, so don't autopilot
 		}
@@ -5219,9 +5232,9 @@ void container_inventory_arrived(LLViewerObject* object,
 								 void* data)
 {
 	LL_DEBUGS("Messaging") << "container_inventory_arrived()" << LL_ENDL;
-	if( gAgent.cameraMouselook() )
+	if( gAgentCamera.cameraMouselook() )
 	{
-		gAgent.changeCameraToDefault();
+		gAgentCamera.changeCameraToDefault();
 	}
 
 	LLInventoryPanel *active_panel = LLInventoryPanel::getActiveInventoryPanel();
@@ -5446,13 +5459,13 @@ void process_teleport_local(LLMessageSystem *msg,void**)
 	}
 
 	gAgent.setPositionAgent(pos);
-	gAgent.slamLookAt(look_at);
+	gAgentCamera.slamLookAt(look_at);
 
 	// likewise make sure the camera is behind the avatar
-	gAgent.resetView(TRUE, TRUE);
+	gAgentCamera.resetView(TRUE, TRUE);
 
 	// send camera update to new region
-	gAgent.updateCamera();
+	gAgentCamera.updateCamera();
 
 	send_agent_update(TRUE, TRUE);
 
@@ -5534,7 +5547,9 @@ void send_group_notice(const LLUUID& group_id,
 bool handle_lure_callback(const LLSD& notification, const LLSD& response)
 {
 	std::string text = response["message"].asString();
-	text.append("\r\n").append(LLAgentUI::buildSLURL());
+	LLSLURL slurl;
+	LLAgentUI::buildSLURL(slurl);
+	text.append("\r\n").append(slurl.getSLURLString());
 	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 
 	if(0 == option)
@@ -5586,8 +5601,12 @@ void handle_lure(const LLUUID& invitee)
 }
 
 // Prompt for a message to the invited user.
-void handle_lure(const std::vector<LLUUID>& ids)
+void handle_lure(const uuid_vec_t& ids)
 {
+	if (ids.empty()) return;
+
+	if (!gAgent.getRegion()) return;
+
 	LLSD edit_args;
 	edit_args["REGION"] = gAgent.getRegion()->getName();
 
@@ -5973,7 +5992,7 @@ void process_covenant_reply(LLMessageSystem* msg, void**)
 	LLFloaterBuyLand::updateEstateName(estate_name);
 
 	std::string owner_name =
-		LLSLURL::buildCommand("agent", estate_owner_id, "inspect");
+		LLSLURL("agent", estate_owner_id, "inspect").getSLURLString();
 	LLPanelEstateCovenant::updateEstateOwnerName(owner_name);
 	LLPanelLandCovenant::updateEstateOwnerName(owner_name);
 	LLFloaterBuyLand::updateEstateOwnerName(owner_name);

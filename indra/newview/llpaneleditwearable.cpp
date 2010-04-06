@@ -489,7 +489,6 @@ void LLPanelEditWearable::initializePanel()
 
 		updateScrollingPanelUI();
 	}
-	
 }
 
 void LLPanelEditWearable::updateScrollingPanelUI()
@@ -602,7 +601,7 @@ LLPanel* LLPanelEditWearable::getPanel(EWearableType type)
 void LLPanelEditWearable::getSortedParams(value_map_t &sorted_params, const std::string &edit_group)
 {
 	LLWearable::visual_param_vec_t param_list;
-	ESex avatar_sex = gAgent.getAvatarObject()->getSex();
+	ESex avatar_sex = gAgentAvatarp->getSex();
 
 	mWearablePtr->getVisualParams(param_list);
 
@@ -640,14 +639,9 @@ void LLPanelEditWearable::buildParamList(LLScrollingPanelList *panel_list, value
 		{
 			LLPanel::Params p;
 			p.name("LLScrollingPanelParam");
-			p.rect(LLRect(0, LLScrollingPanelParam::PARAM_PANEL_HEIGHT, LLScrollingPanelParam::PARAM_PANEL_WIDTH, 0 ));
 			LLScrollingPanelParam* panel_param = new LLScrollingPanelParam( p, NULL, (*it).second, TRUE, this->getWearable());
 			height = panel_list->addPanel( panel_param );
 		}
-	
-		S32 width = tab->getRect().getWidth();
-	
-		tab->reshape(width,height + tab->getHeaderHeight()+10,FALSE);
 	}
 }
 
