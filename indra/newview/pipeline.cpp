@@ -3404,26 +3404,14 @@ void LLPipeline::renderGeomPostDeferred(LLCamera& camera)
 	gGLLastMatrix = NULL;
 	glLoadMatrixd(gGLModelView);
 
-	renderHighlights();
-	mHighlightFaces.clear();
-
-	renderDebug();
-
-	LLVertexBuffer::unbind();
-
-	if (gPipeline.hasRenderDebugFeatureMask(LLPipeline::RENDER_DEBUG_FEATURE_UI))
-	{
-		// Render debugging beacons.
-		gObjectList.renderObjectBeacons();
-		gObjectList.resetObjectBeacons();
-	}
-
 	if (occlude)
 	{
 		occlude = FALSE;
 		gGLLastMatrix = NULL;
 		glLoadMatrixd(gGLModelView);
 		doOcclusion(camera);
+		gGLLastMatrix = NULL;
+		glLoadMatrix(gGLModelView);
 	}
 }
 
@@ -5812,6 +5800,12 @@ void LLPipeline::renderBloom(BOOL for_snapshot, F32 zoom_factor, int subfield)
 
 		gGL.getTexUnit(0)->activate();
 		gGL.getTexUnit(0)->setTextureBlendType(LLTexUnit::TB_MULT);
+
+		if (LLRenderTarget::sUseFBO)
+		{ //copy depth buffer from mScreen to framebuffer
+			LLRenderTarget::copyContentsToFramebuffer(mScreen, 0, 0, mScreen.getWidth(), mScreen.getHeight(), 
+				0, 0, mScreen.getWidth(), mScreen.getHeight(), GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+		}
 	}
 	
 
@@ -6888,6 +6882,24 @@ void LLPipeline::renderDeferredLighting()
 		
 		renderGeomPostDeferred(*LLViewerCamera::getInstance());
 		mRenderTypeMask = render_mask;
+	}
+
+	{
+		//render highlights, etc.
+		renderHighlights();
+		mHighlightFaces.clear();
+
+		renderDebug();
+
+		LLVertexBuffer::unbind();
+
+		if (gPipeline.hasRenderDebugFeatureMask(LLPipeline::RENDER_DEBUG_FEATURE_UI))
+		{
+			// Render debugging beacons.
+			gObjectList.renderObjectBeacons();
+			LLHUDObject::renderAll();
+			gObjectList.resetObjectBeacons();
+		}
 	}
 
 	mScreen.flush();

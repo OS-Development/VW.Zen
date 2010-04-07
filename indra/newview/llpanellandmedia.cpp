@@ -3,31 +3,25 @@
  * @brief Allows configuration of "media" for a land parcel,
  *   for example movies, web pages, and audio.
  *
- * $LicenseInfo:firstyear=2007&license=viewergpl$
- * 
- * Copyright (c) 2007-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2007&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -151,9 +145,9 @@ void LLPanelLandMedia::refresh()
 		mMediaDescEdit->setEnabled( can_change_media );
 
 		std::string mime_type = parcel->getMediaType();
-		if (mime_type.empty())
+		if (mime_type.empty() || mime_type == LLMIMETypes::getDefaultMimeType())
 		{
-			mime_type = "none/none";
+			mime_type = LLMIMETypes::getDefaultMimeTypeTranslation();
 		}
 		setMediaType(mime_type);
 		mMediaTypeCombo->setEnabled( can_change_media );
@@ -218,7 +212,7 @@ void LLPanelLandMedia::refresh()
 
 void LLPanelLandMedia::populateMIMECombo()
 {
-	std::string default_mime_type = "none/none";
+	std::string default_mime_type = LLMIMETypes::getDefaultMimeType();
 	std::string default_label;
 	LLMIMETypes::mime_widget_set_map_t::const_iterator it;
 	for (it = LLMIMETypes::sWidgetMap.begin(); it != LLMIMETypes::sWidgetMap.end(); ++it)
@@ -235,8 +229,7 @@ void LLPanelLandMedia::populateMIMECombo()
 			mMediaTypeCombo->add(info.mLabel, mime_type);
 		}
 	}
-	// *TODO: The sort order is based on std::map key, which is
-	// ASCII-sorted and is wrong in other languages.  TRANSLATE
+
 	mMediaTypeCombo->add( default_label, default_mime_type, ADD_BOTTOM );
 }
 
@@ -248,7 +241,15 @@ void LLPanelLandMedia::setMediaType(const std::string& mime_type)
 
 	std::string media_key = LLMIMETypes::widgetType(mime_type);
 	mMediaTypeCombo->setValue(media_key);
-	childSetText("mime_type", mime_type);
+
+	std::string mime_str = mime_type;
+	if(LLMIMETypes::getDefaultMimeType() == mime_type)
+	{
+		// Instead of showing predefined "none/none" we are going to show something 
+		// localizable - "none" for example (see EXT-6542)
+		mime_str = LLMIMETypes::getDefaultMimeTypeTranslation();
+	}
+	childSetText("mime_type", mime_str);
 }
 
 void LLPanelLandMedia::setMediaURL(const std::string& media_url)

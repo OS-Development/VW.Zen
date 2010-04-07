@@ -2,31 +2,25 @@
  * @file llviewertexturelist.cpp
  * @brief Object for managing the list of images within a region
  *
- * $LicenseInfo:firstyear=2000&license=viewergpl$
- * 
- * Copyright (c) 2000-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2000&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -478,7 +472,7 @@ LLViewerFetchedTexture* LLViewerTextureList::createImage(const LLUUID &image_id,
 	}
 	else
 	{
-		//by default, the texure can not be removed from memory even if it is not used.
+		//by default, the texture can not be removed from memory even if it is not used.
 		//here turn this off
 		//if this texture should be set to NO_DELETE, call setNoDelete() afterwards.
 		imagep->forceActive() ;
@@ -853,14 +847,14 @@ F32 LLViewerTextureList::updateImagesFetchTextures(F32 max_time)
 		}
 		min_count--;
 	}
-	if (fetch_count == 0)
-	{
-		gDebugTimers[0].pause();
-	}
-	else
-	{
-		gDebugTimers[0].unpause();
-	}
+	//if (fetch_count == 0)
+	//{
+	//	gDebugTimers[0].pause();
+	//}
+	//else
+	//{
+	//	gDebugTimers[0].unpause();
+	//}
 	return image_op_timer.getElapsedTimeF32();
 }
 
@@ -1219,7 +1213,7 @@ void LLViewerTextureList::receiveImageHeader(LLMessageSystem *msg, void **user_d
 		delete [] data;
 		return;
 	}
-	image->getLastPacketTimer()->reset();
+	//image->getLastPacketTimer()->reset();
 	bool res = LLAppViewer::getTextureFetch()->receiveImageHeader(msg->getSender(), id, codec, packets, totalbytes, data_size, data);
 	if (!res)
 	{
@@ -1283,7 +1277,7 @@ void LLViewerTextureList::receiveImagePacket(LLMessageSystem *msg, void **user_d
 		delete [] data;
 		return;
 	}
-	image->getLastPacketTimer()->reset();
+	//image->getLastPacketTimer()->reset();
 	bool res = LLAppViewer::getTextureFetch()->receiveImagePacket(msg->getSender(), id, packet_num, data_size, data);
 	if (!res)
 	{
@@ -1402,12 +1396,17 @@ LLUIImagePtr LLUIImageList::loadUIImage(LLViewerFetchedTexture* imagep, const st
 	mUIImages.insert(std::make_pair(name, new_imagep));
 	mUITextureList.push_back(imagep);
 
-	LLUIImageLoadData* datap = new LLUIImageLoadData;
-	datap->mImageName = name;
-	datap->mImageScaleRegion = scale_rect;
+	//Note:
+	//Some other textures such as ICON also through this flow to be fetched.
+	//But only UI textures need to set this callback.
+	if(imagep->getBoostLevel() == LLViewerTexture::BOOST_UI)
+	{
+		LLUIImageLoadData* datap = new LLUIImageLoadData;
+		datap->mImageName = name;
+		datap->mImageScaleRegion = scale_rect;
 
-	imagep->setLoadedCallback(onUIImageLoaded, 0, FALSE, FALSE, datap);
-
+		imagep->setLoadedCallback(onUIImageLoaded, 0, FALSE, FALSE, datap, NULL);
+	}
 	return new_imagep;
 }
 

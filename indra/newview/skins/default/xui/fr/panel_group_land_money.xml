@@ -6,6 +6,9 @@
 	<panel.string name="cant_view_group_land_text">
 		Vous n&apos;avez pas la permission de voir quel terrain possède ce groupe
 	</panel.string>
+	<panel.string name="epmty_view_group_land_text">
+		Aucune entrée
+	</panel.string>
 	<panel.string name="cant_view_group_accounting_text">
 		Vous n&apos;avez pas la permission d&apos;accéder aux informations financières de ce groupe.
 	</panel.string>
@@ -20,7 +23,7 @@
 			<scroll_list.columns label="Parcelle" name="name"/>
 			<scroll_list.columns label="Région" name="location"/>
 			<scroll_list.columns label="Type" name="type"/>
-			<scroll_list.columns label="Surface" name="area"/>
+			<scroll_list.columns label="Surf." name="area"/>
 		</scroll_list>
 		<text name="total_contributed_land_label">
 			Total des contributions :

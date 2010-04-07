@@ -2,31 +2,25 @@
  * @file llvograss.cpp
  * @brief Not a blade, but a clump of grass
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -53,6 +47,7 @@
 #include "llworld.h"
 #include "lldir.h"
 #include "llxmltree.h"
+#include "llvotree.h"
 
 const S32 GRASS_MAX_BLADES =	32;
 const F32 GRASS_BLADE_BASE =	0.25f;			//  Width of grass at base
@@ -294,6 +289,23 @@ BOOL LLVOGrass::idleUpdate(LLAgent &agent, LLWorld &world, const F64 &time)
 		return TRUE;
 	}
 
+	if(LLVOTree::isTreeRenderingStopped()) //stop rendering grass
+	{
+		if(mNumBlades)
+		{
+			mNumBlades = 0 ;
+			gPipeline.markRebuild(mDrawable, LLDrawable::REBUILD_ALL, TRUE);
+		}
+		return TRUE ;
+	}
+	else if(!mNumBlades)//restart grass rendering
+	{
+		mNumBlades = GRASS_MAX_BLADES ;
+		gPipeline.markRebuild(mDrawable, LLDrawable::REBUILD_ALL, TRUE);
+		
+		return TRUE ;
+	}
+
 	if (mPatch && (mLastPatchUpdateTime != mPatch->getLastUpdateTime()))
 	{
 		gPipeline.markRebuild(mDrawable, LLDrawable::REBUILD_VOLUME, TRUE);
@@ -340,7 +352,20 @@ BOOL LLVOGrass::updateLOD()
 	{
 		return FALSE;
 	}
-	
+	if(LLVOTree::isTreeRenderingStopped())
+	{
+		if(mNumBlades)
+		{
+			mNumBlades = 0 ;
+			gPipeline.markRebuild(mDrawable, LLDrawable::REBUILD_ALL, TRUE);
+		}
+		return TRUE ;
+	}
+	if(!mNumBlades)
+	{
+		mNumBlades = GRASS_MAX_BLADES;
+	}
+
 	LLFace* face = mDrawable->getFace(0);
 
 	F32 tan_angle = 0.f;
@@ -387,8 +412,24 @@ static LLFastTimer::DeclareTimer FTM_UPDATE_GRASS("Update Grass");
 BOOL LLVOGrass::updateGeometry(LLDrawable *drawable)
 {
 	LLFastTimer ftm(FTM_UPDATE_GRASS);
+
 	dirtySpatialGroup();
-	plantBlades();
+
+	if(!mNumBlades)//stop rendering grass
+	{
+		if (mDrawable->getNumFaces() > 0)
+		{
+			LLFace* facep = mDrawable->getFace(0);
+			if(facep)
+			{
+				facep->setSize(0, 0);			
+			}
+		}
+	}
+	else
+	{		
+		plantBlades();
+	}
 	return TRUE;
 }
 
@@ -429,6 +470,11 @@ void LLVOGrass::getGeometry(S32 idx,
 								LLStrider<LLColor4U>& colorsp, 
 								LLStrider<U16>& indicesp)
 {
+	if(!mNumBlades)//stop rendering grass
+	{
+		return ;
+	}
+
 	mPatch = mRegionp->getLand().resolvePatchRegion(getPositionRegion());
 	if (mPatch)
 		mLastPatchUpdateTime = mPatch->getLastUpdateTime();

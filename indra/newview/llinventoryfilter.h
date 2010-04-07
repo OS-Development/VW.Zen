@@ -3,31 +3,25 @@
 * @brief Support for filtering your inventory to only display a subset of the
 * available items.
 *
-* $LicenseInfo:firstyear=2005&license=viewergpl$
-* 
-* Copyright (c) 2005-2009, Linden Research, Inc.
-* 
+* $LicenseInfo:firstyear=2005&license=viewerlgpl$
 * Second Life Viewer Source Code
-* The source code in this file ("Source Code") is provided by Linden Lab
-* to you under the terms of the GNU General Public License, version 2.0
-* ("GPL"), unless you have obtained a separate licensing agreement
-* ("Other License"), formally executed by you and Linden Lab.  Terms of
-* the GPL can be found in doc/GPL-license.txt in this distribution, or
-* online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+* Copyright (C) 2010, Linden Research, Inc.
 * 
-* There are special exceptions to the terms and conditions of the GPL as
-* it is applied to this Source Code. View the full text of the exception
-* in the file doc/FLOSS-exception.txt in this software distribution, or
-* online at
-* http://secondlifegrid.net/programs/open_source/licensing/flossexception
+* This library is free software; you can redistribute it and/or
+* modify it under the terms of the GNU Lesser General Public
+* License as published by the Free Software Foundation;
+* version 2.1 of the License only.
 * 
-* By copying, modifying or distributing this software, you acknowledge
-* that you have read and understood your obligations described above,
-* and agree to abide by those obligations.
+* This library is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+* Lesser General Public License for more details.
 * 
-* ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
-* WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
-* COMPLETENESS OR PERFORMANCE.
+* You should have received a copy of the GNU Lesser General Public
+* License along with this library; if not, write to the Free Software
+* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+* 
+* Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
 * $/LicenseInfo$
 */
 #ifndef LLINVENTORYFILTER_H
@@ -56,13 +50,20 @@ public:
 		FILTER_MORE_RESTRICTIVE		// if you didn't pass the previous filter, you definitely won't pass this one
 	};
 
-	enum EFilterType
-	{
+	enum EFilterType	{
 		FILTERTYPE_NONE = 0,
-		FILTERTYPE_OBJECT = 1,		// normal default search-by-object-type
-		FILTERTYPE_CATEGORY = 2,	// search by folder type
-		FILTERTYPE_UUID	= 4,		// find the object with UUID and any links to it
-		FILTERTYPE_DATE = 8			// search by date range
+		FILTERTYPE_OBJECT = 0x1 << 0,	// normal default search-by-object-type
+		FILTERTYPE_CATEGORY = 0x1 << 1,	// search by folder type
+		FILTERTYPE_UUID	= 0x1 << 2,		// find the object with UUID and any links to it
+		FILTERTYPE_DATE = 0x1 << 3,		// search by date range
+		FILTERTYPE_WEARABLE = 0x1 << 4	// search by wearable type
+	};
+
+	enum EFilterLink
+	{
+		FILTERLINK_INCLUDE_LINKS,	// show links too
+		FILTERLINK_EXCLUDE_LINKS,	// don't show links
+		FILTERLINK_ONLY_LINKS		// only show links
 	};
 
 	// REFACTOR: Change this to an enum.
@@ -81,9 +82,11 @@ public:
 	BOOL 				isFilterObjectTypesWith(LLInventoryType::EType t) const;
 	void 				setFilterCategoryTypes(U64 types);
 	void 				setFilterUUID(const LLUUID &object_id);
+	void				setFilterWearableTypes(U64 types);
 
 	void 				setFilterSubString(const std::string& string);
 	const std::string& 	getFilterSubString(BOOL trim = FALSE) const;
+	const std::string& 	getFilterSubStringOrig() const { return mFilterSubStringOrig; } 
 	BOOL 				hasFilterString() const;
 
 	void 				setFilterPermissions(PermissionMask perms);
@@ -97,11 +100,17 @@ public:
 	void 				setHoursAgo(U32 hours);
 	U32 				getHoursAgo() const;
 
+	void 				setFilterLinks(U64 filter_link);
+	U64					getFilterLinks() const;
+
 	// +-------------------------------------------------------------------+
 	// + Execution And Results
 	// +-------------------------------------------------------------------+
 	BOOL 				check(const LLFolderViewItem* item);
-	BOOL 				checkAgainstFilterType(const LLFolderViewItem* item);
+	BOOL 				checkAgainstFilterType(const LLFolderViewItem* item) const;
+	BOOL 				checkAgainstPermissions(const LLFolderViewItem* item) const;
+	BOOL 				checkAgainstFilterLinks(const LLFolderViewItem* item) const;
+
 	std::string::size_type getStringMatchOffset() const;
 
 	// +-------------------------------------------------------------------+
@@ -163,6 +172,7 @@ private:
 		U32 			mFilterTypes;
 
 		U64				mFilterObjectTypes; // For _OBJECT
+		U64				mFilterWearableTypes;
 		U64				mFilterCategoryTypes; // For _CATEGORY
 		LLUUID      	mFilterUUID; // for UUID
 
@@ -171,6 +181,7 @@ private:
 		U32				mHoursAgo;
 		EFolderShow		mShowFolderState;
 		PermissionMask	mPermissions;
+		U64				mFilterLinks;
 	};
 
 	U32						mOrder;
@@ -181,6 +192,7 @@ private:
 
 	std::string::size_type	mSubStringMatchOffset;
 	std::string				mFilterSubString;
+	std::string				mFilterSubStringOrig;
 	const std::string		mName;
 
 	S32						mFilterGeneration;

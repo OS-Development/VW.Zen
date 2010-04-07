@@ -3,30 +3,25 @@
  * @brief GStreamer-0.10 plugin for LLMedia API plugin system
  *
  * @cond
- * $LicenseInfo:firstyear=2007&license=viewergpl$
- *
- * Copyright (c) 2007, Linden Research, Inc.
- *
+ * $LicenseInfo:firstyear=2007&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlife.com/developers/opensource/gplv2
- *
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at http://secondlife.com/developers/opensource/flossexception
- *
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
- *
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * Copyright (C) 2010, Linden Research, Inc.
+ * 
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
+ * 
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  * @endcond
  */
@@ -544,8 +539,12 @@ MediaPluginGStreamer010::pause()
 {
 	DEBUGMSG("pausing media...");
 	// todo: error-check this?
-	llgst_element_set_state(mPlaybin, GST_STATE_PAUSED);
-	return true;
+	if (mDoneInit && mPlaybin)
+	{
+		llgst_element_set_state(mPlaybin, GST_STATE_PAUSED);
+		return true;
+	}
+	return false;
 }
 
 bool
@@ -553,8 +552,12 @@ MediaPluginGStreamer010::stop()
 {
 	DEBUGMSG("stopping media...");
 	// todo: error-check this?
-	llgst_element_set_state(mPlaybin, GST_STATE_READY);
-	return true;
+	if (mDoneInit && mPlaybin)
+	{
+		llgst_element_set_state(mPlaybin, GST_STATE_READY);
+		return true;
+	}
+	return false;
 }
 
 bool
@@ -564,8 +567,12 @@ MediaPluginGStreamer010::play(double rate)
 
         DEBUGMSG("playing media... rate=%f", rate);
 	// todo: error-check this?
-	llgst_element_set_state(mPlaybin, GST_STATE_PLAYING);
-	return true;
+	if (mDoneInit && mPlaybin)
+	{
+		llgst_element_set_state(mPlaybin, GST_STATE_PLAYING);
+		return true;
+	}
+	return false;
 }
 
 bool
@@ -608,7 +615,7 @@ bool
 MediaPluginGStreamer010::getTimePos(double &sec_out)
 {
 	bool got_position = false;
-	if (mPlaybin)
+	if (mDoneInit && mPlaybin)
 	{
 		gint64 pos;
 		GstFormat timefmt = GST_FORMAT_TIME;
@@ -688,6 +695,7 @@ MediaPluginGStreamer010::load()
 					   this);
 	llgst_object_unref (bus);
 
+#if 0 // not quite stable/correct yet
 	// get a visualizer element (bonus feature!)
 	char* vis_name = getenv("LL_GST_VIS_NAME");
 	if (!vis_name ||
@@ -714,6 +722,7 @@ MediaPluginGStreamer010::load()
 			}
 		}
 	}
+#endif
 
 	if (NULL == getenv("LL_GSTREAMER_EXTERNAL")) {
 		// instantiate a custom video sink

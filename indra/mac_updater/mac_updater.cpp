@@ -2,31 +2,25 @@
  * @file mac_updater.cpp
  * @brief 
  *
- * $LicenseInfo:firstyear=2006&license=viewergpl$
- * 
- * Copyright (c) 2006-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2006&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -47,9 +41,6 @@
 #include "llstring.h"
 
 #include <Carbon/Carbon.h>
-
-#include "MoreFilesX.h"
-#include "FSCopyObject.h"
 
 #include "llerrorcontrol.h"
 
@@ -547,20 +538,6 @@ bool isDirWritable(FSRef &dir)
 	return result;
 }
 
-static void utf8str_to_HFSUniStr255(HFSUniStr255 *dest, const char* src)
-{
-	llutf16string	utf16str = utf8str_to_utf16str(src);
-
-	dest->length = utf16str.size();
-	if(dest->length > 255)
-	{
-		// There's onl room for 255 chars in a HFSUniStr25..
-		// Truncate to avoid stack smaching or other badness.
-		dest->length = 255;
-	}
-	memcpy(dest->unicode, utf16str.data(), sizeof(UniChar)* dest->length);		/* Flawfinder: ignore */
-}
-
 static std::string HFSUniStr255_to_utf8str(const HFSUniStr255* src)
 {
 	llutf16string string16((U16*)&(src->unicode), src->length);
@@ -584,19 +561,12 @@ int restoreObject(const char* aside, const char* target, const char* path, const
 
 	llinfos << "Copying " << source << " to " << dest << llendl;
 
-	err = FSCopyObject(	
+	err = FSCopyObjectSync(
 			&sourceRef,
 			&destRef,
-			0,
-			kFSCatInfoNone,
-			kDupeActionReplace,
-			NULL,
-			false,
-			false,
 			NULL,
 			NULL,
-			NULL,
-			NULL);
+			kFSFileOperationOverwrite);
 
 	if(err != noErr) return false;
 	return true;
@@ -779,21 +749,21 @@ void *updatethreadproc(void*)
 			// so we need to go up 3 levels to get the path to the main application bundle.
 			if(err == noErr)
 			{
-				err = FSGetParentRef(&myBundle, &targetRef);
+				err = FSGetCatalogInfo(&myBundle, kFSCatInfoNone, NULL, NULL, NULL, &targetRef);
 			}
 			if(err == noErr)
 			{
-				err = FSGetParentRef(&targetRef, &targetRef);
+				err = FSGetCatalogInfo(&targetRef, kFSCatInfoNone, NULL, NULL, NULL, &targetRef);
 			}
 			if(err == noErr)
 			{
-				err = FSGetParentRef(&targetRef, &targetRef);
+				err = FSGetCatalogInfo(&targetRef, kFSCatInfoNone, NULL, NULL, NULL, &targetRef);
 			}
 			
 			// And once more to get the parent of the target
 			if(err == noErr)
 			{
-				err = FSGetParentRef(&targetRef, &targetParentRef);
+				err = FSGetCatalogInfo(&targetRef, kFSCatInfoNone, NULL, NULL, NULL, &targetParentRef);
 			}
 			
 			if(err == noErr)
@@ -1077,14 +1047,16 @@ void *updatethreadproc(void*)
 		char aside[MAX_PATH];		/* Flawfinder: ignore */
 		
 		// this will hold the name of the destination target
-		HFSUniStr255 appNameUniStr;
+		CFStringRef appNameRef;
 
 		if(replacingTarget)
 		{
 			// Get the name of the target we're replacing
+			HFSUniStr255 appNameUniStr;
 			err = FSGetCatalogInfo(&targetRef, 0, NULL, &appNameUniStr, NULL, NULL);
 			if(err != noErr)
 				throw 0;
+			appNameRef = FSCreateStringFromHFSUniStr(NULL, &appNameUniStr);
 			
 			// Move aside old version (into work directory)
 			err = FSMoveObject(&targetRef, &tempDirRef, &asideRef);
@@ -1099,7 +1071,7 @@ void *updatethreadproc(void*)
 			// Construct the name of the target based on the product name
 			char appName[MAX_PATH];		/* Flawfinder: ignore */
 			snprintf(appName, sizeof(appName), "%s.app", gProductName);		
-			utf8str_to_HFSUniStr255( &appNameUniStr, appName );
+			appNameRef = CFStringCreateWithCString(NULL, appName, kCFStringEncodingUTF8);
 		}
 		
 		sendProgress(0, 0, CFSTR("Copying files..."));
@@ -1107,19 +1079,12 @@ void *updatethreadproc(void*)
 		llinfos << "Starting copy..." << llendl;
 
 		// Copy the new version from the disk image to the target location.
-		err = FSCopyObject(	
+		err = FSCopyObjectSync(
 				&sourceRef,
 				&targetParentRef,
-				0,
-				kFSCatInfoNone,
-				kDupeActionStandard,
-				&appNameUniStr,
-				false,
-				false,
-				NULL,
-				NULL,
+				appNameRef,
 				&targetRef,
-				NULL);
+				kFSFileOperationDefaultOptions);
 		
 		// Grab the path for later use.
 		err = FSRefMakePath(&targetRef, (UInt8*)target, sizeof(target));
@@ -1131,7 +1096,7 @@ void *updatethreadproc(void*)
 		if(err != noErr)
 		{
 			// Something went wrong during the copy.  Attempt to put the old version back and bail.
-			(void)FSDeleteObjects(&targetRef);
+			(void)FSDeleteObject(&targetRef);
 			if(replacingTarget)
 			{
 				(void)FSMoveObject(&asideRef, &targetParentRef, NULL);

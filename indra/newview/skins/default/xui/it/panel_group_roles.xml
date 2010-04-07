@@ -6,23 +6,26 @@
 	<panel.string name="want_apply_text">
 		Vuoi salvare le modifiche?
 	</panel.string>
-	<tab_container height="164" name="roles_tab_container">
-		<panel height="148" label="MEMBRI" name="members_sub_tab" tool_tip="Membri">
+	<tab_container name="roles_tab_container">
+		<panel label="MEMBRI" name="members_sub_tab" tool_tip="Membri">
 			<panel.string name="help_text">
 				Puoi aggiungere o rimuovere i ruoli assegnati ai membri. 
 Seleziona più membri tenendo premuto il tasto Ctrl e 
 cliccando sui loro nomi.
 			</panel.string>
+			<panel.string name="donation_area">
+				[AREA] m²
+			</panel.string>
 			<filter_editor label="Filtra Membri" name="filter_input"/>
-			<name_list bottom_delta="-105" height="104" name="member_list">
+			<name_list name="member_list">
 				<name_list.columns label="Socio" name="name"/>
 				<name_list.columns label="Donazioni" name="donated"/>
 				<name_list.columns label="Stato" name="online"/>
 			</name_list>
-			<button label="Invita" name="member_invite" width="165"/>
+			<button label="Invita" name="member_invite"/>
 			<button label="Espelli" name="member_eject"/>
 		</panel>
-		<panel height="148" label="RUOLI" name="roles_sub_tab">
+		<panel label="RUOLI" name="roles_sub_tab">
 			<panel.string name="help_text">
 				I ruoli hanno un titolo con un elenco di abilità permesse
 che i membri possono eseguire. I membri possono avere
@@ -36,7 +39,7 @@ fra cui il ruolo base o &quot;Tutti&quot; e il ruolo del Proprietario, ovvero il
 				Inv_FolderClosed
 			</panel.string>
 			<filter_editor label="Filtra i ruoli" name="filter_input"/>
-			<scroll_list bottom_delta="-104" height="104" name="role_list">
+			<scroll_list name="role_list">
 				<scroll_list.columns label="Ruolo" name="name"/>
 				<scroll_list.columns label="Titolo" name="title"/>
 				<scroll_list.columns label="#" name="members"/>
@@ -66,21 +69,15 @@ in questo gruppo. C&apos;è una vasta gamma di abilità.
 		<text name="static">
 			Nome del ruolo
 		</text>
-		<line_editor name="role_name">
-			Addetti
-		</line_editor>
+		<line_editor name="role_name"/>
 		<text name="static3">
 			Titolo del ruolo
 		</text>
-		<line_editor name="role_title">
-			(attendi)
-		</line_editor>
+		<line_editor name="role_title"/>
 		<text name="static2">
 			Descrizione
 		</text>
-		<text_editor name="role_description">
-			(attendi)
-		</text_editor>
+		<text_editor name="role_description"/>
 		<text name="static4">
 			Ruoli assegnati
 		</text>
@@ -91,9 +88,6 @@ in questo gruppo. C&apos;è una vasta gamma di abilità.
 		<scroll_list name="role_allowed_actions" tool_tip="Per i dettagli di ogni abilità consentita vedi la scheda abilità."/>
 	</panel>
 	<panel name="actions_footer">
-		<text name="static">
-			Descrizione abilità
-		</text>
 		<text_editor name="action_description">
 			Questa abilità è &apos;Espelli i membri dal gruppo&apos;. Solo un Capogruppo puo espellere un&apos;altro Capogruppo.
 		</text_editor>

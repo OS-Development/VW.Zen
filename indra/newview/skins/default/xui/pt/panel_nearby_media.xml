@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <panel name="nearby_media">
+	<string name="media_item_count_format">
+		(%ld itens de mídia)
+	</string>
 	<string name="empty_item_text">
 		&lt;vazio&gt;
 	</string>
@@ -16,13 +19,14 @@
 		<button label="Parar tudo" name="all_nearby_media_disable_btn" tool_tip="Desligar mídias por perto"/>
 		<button label="Executar tudo" name="all_nearby_media_enable_btn" tool_tip="Ligar mídias por perto"/>
 		<button name="open_prefs_btn" tool_tip="Preferências de mídia"/>
-		<button label="Mais &gt;&gt;" label_selected="Menos &lt;&lt;" name="more_less_btn" tool_tip="Controles avançados"/>
+		<button label="Mais &gt;&gt;" label_selected="Menos &lt;&lt;" name="more_btn" tool_tip="Controles avançados"/>
+		<button label="Mais &gt;&gt;" label_selected="Menos &lt;&lt;" name="less_btn" tool_tip="Controles avançados"/>
 	</panel>
 	<panel name="nearby_media_panel">
-		<text name="nearby_media">
+		<text name="nearby_media_title">
 			Mídia por perto
 		</text>
-		<text name="show">
+		<text name="show_text">
 			Mostrar:
 		</text>
 		<combo_box name="show_combo">

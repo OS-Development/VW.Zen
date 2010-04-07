@@ -1,31 +1,25 @@
 /** 
 * @file lldateutil.cpp
 *
-* $LicenseInfo:firstyear=2009&license=viewergpl$
-* 
-* Copyright (c) 2009, Linden Research, Inc.
-* 
+* $LicenseInfo:firstyear=2009&license=viewerlgpl$
 * Second Life Viewer Source Code
-* The source code in this file ("Source Code") is provided by Linden Lab
-* to you under the terms of the GNU General Public License, version 2.0
-* ("GPL"), unless you have obtained a separate licensing agreement
-* ("Other License"), formally executed by you and Linden Lab.  Terms of
-* the GPL can be found in doc/GPL-license.txt in this distribution, or
-* online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+* Copyright (C) 2010, Linden Research, Inc.
 * 
-* There are special exceptions to the terms and conditions of the GPL as
-* it is applied to this Source Code. View the full text of the exception
-* in the file doc/FLOSS-exception.txt in this software distribution, or
-* online at
-* http://secondlifegrid.net/programs/open_source/licensing/flossexception
+* This library is free software; you can redistribute it and/or
+* modify it under the terms of the GNU Lesser General Public
+* License as published by the Free Software Foundation;
+* version 2.1 of the License only.
 * 
-* By copying, modifying or distributing this software, you acknowledge
-* that you have read and understood your obligations described above,
-* and agree to abide by those obligations.
+* This library is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+* Lesser General Public License for more details.
 * 
-* ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
-* WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
-* COMPLETENESS OR PERFORMANCE.
+* You should have received a copy of the GNU Lesser General Public
+* License along with this library; if not, write to the Free Software
+* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+* 
+* Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
 * $/LicenseInfo$
 */
 
@@ -59,19 +53,22 @@ static S32 days_from_month(S32 year, S32 month)
 	}
 }
 
-std::string LLDateUtil::ageFromDate(const std::string& date_string,
-									const LLDate& now)
+bool LLDateUtil::dateFromPDTString(LLDate& date, const std::string& str)
+{
+	S32 month, day, year;
+	S32 matched = sscanf(str.c_str(), "%d/%d/%d", &month, &day, &year);
+	if (matched != 3) return false;
+	date.fromYMDHMS(year, month, day);
+	F64 secs_since_epoch = date.secondsSinceEpoch();
+	// Correct for the fact that specified date is in Pacific time, == UTC - 8
+	secs_since_epoch += 8.0 * 60.0 * 60.0;
+	date.secondsSinceEpoch(secs_since_epoch);
+	return true;
+}
+
+std::string LLDateUtil::ageFromDate(const LLDate& born_date, const LLDate& now)
 {
 	S32 born_month, born_day, born_year;
-	S32 matched = sscanf(date_string.c_str(), "%d/%d/%d", &born_month, &born_day, &born_year);
-	if (matched != 3) return "???";
-	LLDate born_date;
-	born_date.fromYMDHMS(born_year, born_month, born_day);
-	F64 born_date_secs_since_epoch = born_date.secondsSinceEpoch();
-	// Correct for the fact that account creation dates are in Pacific time,
-	// == UTC - 8
-	born_date_secs_since_epoch += 8.0 * 60.0 * 60.0;
-	born_date.secondsSinceEpoch(born_date_secs_since_epoch);
 	// explode out to month/day/year again
 	born_date.split(&born_year, &born_month, &born_day);
 
@@ -153,6 +150,16 @@ std::string LLDateUtil::ageFromDate(const std::string& date_string,
 	}
 
 	return LLTrans::getString("TodayOld");
+}
+
+std::string LLDateUtil::ageFromDate(const std::string& date_string, const LLDate& now)
+{
+	LLDate born_date;
+
+	if (!dateFromPDTString(born_date, date_string))
+		return "???";
+
+	return ageFromDate(born_date, now);
 }
 
 std::string LLDateUtil::ageFromDate(const std::string& date_string)

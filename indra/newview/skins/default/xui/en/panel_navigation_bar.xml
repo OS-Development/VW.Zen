@@ -22,14 +22,25 @@
 	 width="600"/>
 	<icon
 	 follows="all"
-	 image_name="NavBar_BG_NoFav"
+	 image_name="NavBar_BG_NoFav_Bevel"
 	 mouse_opaque="false"
-	 name="bg_icon_no_fav"
+	 name="bg_icon_no_fav_bevel"
 	 scale_image="true"
 	 visible="false"
 	 left="0"
 	 top="0"
-	 height="50"
+	 height="60"
+	 width="600"/>
+	<icon
+	 follows="all"
+	 image_name="NavBar_BG_NoNav_Bevel"
+	 mouse_opaque="false"
+	 name="bg_icon_no_nav_bevel"
+	 scale_image="true"
+	 visible="false"
+	 left="0"
+	 top="0"
+	 height="60"
 	 width="600"/>
 	<panel
 	 background_visible="false"
@@ -66,6 +77,7 @@
 	    <button
 	     follows="left|top"
 	     height="23"
+	     image_bottom_pad="1"
 	     image_overlay="Home_Off"
 	     layout="topleft"
 	     left_pad="7"
@@ -112,13 +124,9 @@
 	<!--      top_delta="0" -->
 	<!--      width="168" /> -->
         <search_combo_box
-	     bevel_style="none"
-	     border_style="line"
-	     border.border_thickness="0"
-	     commit_on_focus_lost="false"
 	     follows="right|top"
 	     halign="right"
-	     height="22"
+	     height="23"
 	     label="Search"
 	     layout="topleft"
 	     right="-10"
