@@ -413,10 +413,8 @@ bool handleHighResSnapshotChanged(const LLSD& newvalue)
 
 bool handleVoiceClientPrefsChanged(const LLSD& newvalue)
 {
-	if(gVoiceClient)
-	{
-		gVoiceClient->updateSettings();
-	}
+	if(LLVoiceClient::getInstance())
+	LLVoiceClient::getInstance()->updateSettings();
 	return true;
 }
 
