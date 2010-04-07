@@ -8,7 +8,7 @@
 	background_visible="true"
 	layout="topleft"
 	width="270"
-	height="235"
+	height="230"
 	name="nearby_media"
 	help_topic="nearby_media">
   <string name="media_item_count_format">(%ld media items)</string>
@@ -21,15 +21,15 @@
     background_visible="false" 
 	  follows="left|right|top"
 	  top="0"
-	  height="30"
+	  height="35"
 	  name="minimized_controls" 
 	  left="0">
 	<button
 		name="all_nearby_media_disable_btn"
 		follows="left"
 		tool_tip="Turn all nearby media off"
-		left="15"
-		width="60"
+		left="8"
+		width="66"
 		height="22"
 		label="Stop All">
 	  <button.commit_callback
@@ -40,7 +40,7 @@
 		follows="left"
 		tool_tip="Turn all nearby media on"
 		left_pad="4"
-		width="60"
+		width="66"
 		height="22"
 		label="Start All">
 	  <button.commit_callback
@@ -68,8 +68,8 @@
 		follows="right"
 		tool_tip="Advanced Controls"
 		top_delta="0"
-		right="-10"
-		width="60"
+		right="-8"
+		width="66"
 		height="22"
 		toggle="true"
 		label="More &gt;&gt;"
@@ -98,20 +98,6 @@
 		width="100">
 	  Nearby Media
 	</text>
-	<!-- nix for now
-		 <text
-		 bottom_delta="1"
-		 type="string"
-		 follows="top|left|right"
-		 font="SansSerif"
-		 font.style="ITALIC"
-		 font.size="Small"
-		 name="media_item_count"
-		 left="115"
-		 right="-10">
-		 (?? media items)
-		 </text>
-	-->
 	<text
 		type="string"
 		length="1"
@@ -144,7 +130,7 @@
 	  <combo_box.item
 		  label="On other Avatars"
 		  value="4"
-		  ame="OnOthers" />
+		  name="OnOthers" />
 	</combo_box>
 	<scroll_list
 		follows="left|top|bottom|right"
@@ -201,7 +187,7 @@
 		  height="26"
 		  layout="topleft"
 		  top="4"
-		  left="10"
+		  left="8"
 		  right="-10"
 		  border_size="0"
 		  mouse_opaque="false"

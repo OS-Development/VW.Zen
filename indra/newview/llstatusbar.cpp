@@ -36,6 +36,7 @@
 
 // viewer includes
 #include "llagent.h"
+#include "llagentcamera.h"
 #include "llbutton.h"
 #include "llcommandhandler.h"
 #include "llviewercontrol.h"
@@ -239,19 +240,15 @@ BOOL LLStatusBar::postBuild()
 
 	childSetActionTextbox("stat_btn", onClickStatGraph);
 
-	LLView* popup_holder = gViewerWindow->getRootView()->getChildView("popup_holder");
-
 	mPanelVolumePulldown = new LLPanelVolumePulldown();
-	popup_holder->addChild(mPanelVolumePulldown);
-
-	mPanelNearByMedia = new LLPanelNearByMedia();
-	popup_holder->addChild(mPanelNearByMedia);
-	gViewerWindow->getRootView()->addMouseDownCallback(boost::bind(&LLStatusBar::onClickScreen, this, _1, _2));
-	mPanelNearByMedia->setFollows(FOLLOWS_TOP|FOLLOWS_RIGHT);
-	mPanelNearByMedia->setVisible(FALSE);
-
+	addChild(mPanelVolumePulldown);
 	mPanelVolumePulldown->setFollows(FOLLOWS_TOP|FOLLOWS_RIGHT);
 	mPanelVolumePulldown->setVisible(FALSE);
+
+	mPanelNearByMedia = new LLPanelNearByMedia();
+	addChild(mPanelNearByMedia);
+	mPanelNearByMedia->setFollows(FOLLOWS_TOP|FOLLOWS_RIGHT);
+	mPanelNearByMedia->setVisible(FALSE);
 
 	return TRUE;
 }
@@ -317,7 +314,7 @@ void LLStatusBar::refresh()
 		childSetVisible("scriptout", false);
 	}
 
-	if (gAgent.getCameraMode() == CAMERA_MODE_MOUSELOOK &&
+	if (gAgentCamera.getCameraMode() == CAMERA_MODE_MOUSELOOK &&
 		((region && region->getAllowDamage()) || (parcel && parcel->getAllowDamage())))
 	{
 		// set visibility based on flashing
@@ -358,12 +355,16 @@ void LLStatusBar::refresh()
 	bool mute_audio = LLAppViewer::instance()->getMasterSystemAudioMute();
 	mBtnVolume->setToggleState(mute_audio);
 	
-	// Don't show media toggle if there's no media, parcel media, and no parcel audio
-	mMediaToggle->setVisible(LLViewerMedia::hasInWorldMedia() || LLViewerMedia::hasParcelMedia() || LLViewerMedia::hasParcelAudio());
+	// Disable media toggle if there's no media, parcel media, and no parcel audio
+	// (or if media is disabled)
+	bool button_enabled = (gSavedSettings.getBOOL("AudioStreamingMusic")||gSavedSettings.getBOOL("AudioStreamingMedia")) && 
+						  (LLViewerMedia::hasInWorldMedia() || LLViewerMedia::hasParcelMedia() || LLViewerMedia::hasParcelAudio());
+	mMediaToggle->setEnabled(button_enabled);
 	// Note the "sense" of the toggle is opposite whether media is playing or not
-	mMediaToggle->setValue(! (LLViewerMedia::isAnyMediaShowing() || 
+	bool any_media_playing = (LLViewerMedia::isAnyMediaShowing() || 
 							  LLViewerMedia::isParcelMediaPlaying() ||
-							  LLViewerMedia::isParcelAudioPlaying()));
+							  LLViewerMedia::isParcelAudioPlaying());
+	mMediaToggle->setValue(!any_media_playing);
 }
 
 void LLStatusBar::setVisibleForMouselook(bool visible)
@@ -371,6 +372,8 @@ void LLStatusBar::setVisibleForMouselook(bool visible)
 	mTextTime->setVisible(visible);
 	getChild<LLUICtrl>("buycurrency")->setVisible(visible);
 	getChild<LLUICtrl>("buyL")->setVisible(visible);
+	mBtnVolume->setVisible(visible);
+	mMediaToggle->setVisible(visible);
 	mSGBandwidth->setVisible(visible);
 	mSGPacketLoss->setVisible(visible);
 	setBackgroundVisible(visible);
@@ -444,11 +447,9 @@ void LLStatusBar::setHealth(S32 health)
 	{
 		if (mHealth > (health + gSavedSettings.getF32("UISndHealthReductionThreshold")))
 		{
-			LLVOAvatar *me;
-
-			if ((me = gAgent.getAvatarObject()))
+			if (isAgentAvatarValid())
 			{
-				if (me->getSex() == SEX_FEMALE)
+				if (gAgentAvatarp->getSex() == SEX_FEMALE)
 				{
 					make_ui_sound("UISndHealthReductionF");
 				}
@@ -524,11 +525,11 @@ static void onClickScriptDebug(void*)
 void LLStatusBar::onMouseEnterVolume()
 {
 	LLButton* volbtn =  getChild<LLButton>( "volume_btn" );
-	LLRect vol_btn_screen_rect = volbtn->calcScreenRect();
+	LLRect vol_btn_rect = volbtn->getRect();
 	LLRect volume_pulldown_rect = mPanelVolumePulldown->getRect();
-	volume_pulldown_rect.setLeftTopAndSize(vol_btn_screen_rect.mLeft -
-	     (volume_pulldown_rect.getWidth() - vol_btn_screen_rect.getWidth())/2,
-			       vol_btn_screen_rect.mBottom,
+	volume_pulldown_rect.setLeftTopAndSize(vol_btn_rect.mLeft -
+	     (volume_pulldown_rect.getWidth() - vol_btn_rect.getWidth())/2,
+			       vol_btn_rect.mBottom,
 			       volume_pulldown_rect.getWidth(),
 			       volume_pulldown_rect.getHeight());
 
@@ -536,8 +537,10 @@ void LLStatusBar::onMouseEnterVolume()
 
 
 	// show the master volume pull-down
-	mPanelVolumePulldown->setVisible(TRUE);
+	LLUI::clearPopups();
+	LLUI::addPopup(mPanelVolumePulldown);
 	mPanelNearByMedia->setVisible(FALSE);
+	mPanelVolumePulldown->setVisible(TRUE);
 }
 
 void LLStatusBar::onMouseEnterNearbyMedia()
@@ -545,19 +548,22 @@ void LLStatusBar::onMouseEnterNearbyMedia()
 	LLView* popup_holder = gViewerWindow->getRootView()->getChildView("popup_holder");
 	LLRect nearby_media_rect = mPanelNearByMedia->getRect();
 	LLButton* nearby_media_btn =  getChild<LLButton>( "media_toggle_btn" );
-	LLRect nearby_media_btn_rect = nearby_media_btn->calcScreenRect();
+	LLRect nearby_media_btn_rect = nearby_media_btn->getRect();
 	nearby_media_rect.setLeftTopAndSize(nearby_media_btn_rect.mLeft - 
-		(nearby_media_rect.getWidth() - nearby_media_btn_rect.getWidth())/2,
-		nearby_media_btn_rect.mBottom,
-		nearby_media_rect.getWidth(),
-		nearby_media_rect.getHeight());
+										(nearby_media_rect.getWidth() - nearby_media_btn_rect.getWidth())/2,
+										nearby_media_btn_rect.mBottom,
+										nearby_media_rect.getWidth(),
+										nearby_media_rect.getHeight());
 	// force onscreen
 	nearby_media_rect.translate(popup_holder->getRect().getWidth() - nearby_media_rect.mRight, 0);
-
+	
 	// show the master volume pull-down
 	mPanelNearByMedia->setShape(nearby_media_rect);
-	mPanelNearByMedia->setVisible(TRUE);
+	LLUI::clearPopups();
+	LLUI::addPopup(mPanelNearByMedia);
+
 	mPanelVolumePulldown->setVisible(FALSE);
+	mPanelNearByMedia->setVisible(TRUE);
 }
 
 
@@ -644,18 +650,6 @@ void LLStatusBar::setupDate()
 void LLStatusBar::onClickStatGraph(void* data)
 {
 	LLFloaterReg::showInstance("lagmeter");
-}
-
-void LLStatusBar::onClickScreen(S32 x, S32 y)
-{
-	if (mPanelNearByMedia->getVisible())
-	{
-		LLRect screen_rect = mPanelNearByMedia->calcScreenRect();
-		if (!screen_rect.pointInRect(x, y))
-		{
-			mPanelNearByMedia->setVisible(FALSE);
-		}
-	}
 }
 
 BOOL can_afford_transaction(S32 cost)

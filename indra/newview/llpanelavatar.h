@@ -202,13 +202,12 @@ protected:
 	void unfreeze();
 	void csr();
 	
+	bool enableShowOnMap();
 	bool enableBlock();
 	bool enableUnblock();
 	bool enableGod();
 
 
-	void onUrlTextboxClicked(const std::string& url);
-	void onHomepageTextboxClicked();
 	void onAddFriendButtonClick();
 	void onIMButtonClick();
 	void onCallButtonClick();

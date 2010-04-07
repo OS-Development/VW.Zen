@@ -54,8 +54,19 @@
 #include "llgroupactions.h"
 #include "llnotificationsutil.h"
 #include "lluictrlfactory.h"
+#include "lltrans.h"
 #include <boost/regex.hpp>
 
+#if LL_MSVC
+// disable boost::lexical_cast warning
+#pragma warning (disable:4702)
+#endif
+
+#include <boost/lexical_cast.hpp>
+
+#if LL_MSVC
+#pragma warning(pop)   // Restore all warnings to the previous state
+#endif
 
 const U32 MAX_CACHED_GROUPS = 10;
 
@@ -149,7 +160,7 @@ LLGroupRoleData::~LLGroupRoleData()
 {	
 }
 
-S32 LLGroupRoleData::getMembersInRole(std::vector<LLUUID> members,
+S32 LLGroupRoleData::getMembersInRole(uuid_vec_t members,
 									  BOOL needs_sort)
 {
 	if (mRoleID.isNull())
@@ -173,8 +184,8 @@ S32 LLGroupRoleData::getMembersInRole(std::vector<LLUUID> members,
 
 	// Return the number of members in the intersection.
 	S32 max_size = llmin( members.size(), mMemberIDs.size() );
-	std::vector<LLUUID> in_role( max_size );
-	std::vector<LLUUID>::iterator in_role_end;
+	uuid_vec_t in_role( max_size );
+	uuid_vec_t::iterator in_role_end;
 	in_role_end = std::set_intersection(mMemberIDs.begin(), mMemberIDs.end(),
 									members.begin(), members.end(),
 									in_role.begin());
@@ -189,7 +200,7 @@ void LLGroupRoleData::addMember(const LLUUID& member)
 
 bool LLGroupRoleData::removeMember(const LLUUID& member)
 {
-	std::vector<LLUUID>::iterator it = std::find(mMemberIDs.begin(),mMemberIDs.end(),member);
+	uuid_vec_t::iterator it = std::find(mMemberIDs.begin(),mMemberIDs.end(),member);
 
 	if (it != mMemberIDs.end())
 	{
@@ -833,12 +844,13 @@ static void formatDateString(std::string &date_string)
 	const regex expression("([0-9]{1,2})/([0-9]{1,2})/([0-9]{4})");
 	if (regex_match(date_string.c_str(), result, expression))
 	{
-		std::string year = result[3];
-		std::string month = result[1];
-		std::string day = result[2];
+		// convert matches to integers so that we can pad them with zeroes on Linux
+		S32 year	= boost::lexical_cast<S32>(result[3]);
+		S32 month	= boost::lexical_cast<S32>(result[1]);
+		S32 day		= boost::lexical_cast<S32>(result[2]);
 
 		// ISO 8601 date format
-		date_string = llformat("%02s/%02s/%04s", month.c_str(), day.c_str(), year.c_str());
+		date_string = llformat("%04d/%02d/%02d", year, month, day);
 	}
 }
 
@@ -1050,6 +1062,24 @@ void LLGroupMgr::processGroupRoleDataReply(LLMessageSystem* msg, void** data)
 		msg->getString("RoleData","Description",desc,i);
 		msg->getU64("RoleData","Powers",powers,i);
 		msg->getU32("RoleData","Members",member_count,i);
+
+		//there are 3 predifined roles - Owners, Officers, Everyone
+		//there names are defined in lldatagroups.cpp
+		//lets change names from server to localized strings
+		if(name == "Everyone")
+		{
+			name = LLTrans::getString("group_role_everyone");
+		}
+		else if(name == "Officers")
+		{
+			name = LLTrans::getString("group_role_officers");
+		}
+		else if(name == "Owners")
+		{
+			name = LLTrans::getString("group_role_owners");
+		}
+
+
 
 		lldebugs << "Adding role data: " << name << " {" << role_id << "}" << llendl;
 		LLGroupRoleData* rd = new LLGroupRoleData(role_id,name,title,desc,powers,member_count);
@@ -1706,7 +1736,7 @@ void LLGroupMgr::sendGroupMemberInvites(const LLUUID& group_id, std::map<LLUUID,
 
 //static
 void LLGroupMgr::sendGroupMemberEjects(const LLUUID& group_id,
-									   std::vector<LLUUID>& member_ids)
+									   uuid_vec_t& member_ids)
 {
 	bool start_message = true;
 	LLMessageSystem* msg = gMessageSystem;
@@ -1716,7 +1746,7 @@ void LLGroupMgr::sendGroupMemberEjects(const LLUUID& group_id,
 	LLGroupMgrGroupData* group_datap = LLGroupMgr::getInstance()->getGroupData(group_id);
 	if (!group_datap) return;
 
-	for (std::vector<LLUUID>::iterator it = member_ids.begin();
+	for (uuid_vec_t::iterator it = member_ids.begin();
 		 it != member_ids.end(); ++it)
 	{
 		LLUUID& ejected_member_id = (*it);

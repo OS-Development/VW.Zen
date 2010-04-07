@@ -52,7 +52,6 @@
 #include "llinventoryobserver.h"
 #include "lllandmarkactions.h"
 #include "lllandmarklist.h"
-#include "lllocationhistory.h"
 #include "llteleporthistory.h"
 #include "llsidetray.h"
 #include "llslurl.h"
@@ -109,7 +108,7 @@ public:
 private:
 	/*virtual*/ void done()
 	{
-		std::vector<LLUUID>::const_iterator it = mAdded.begin(), end = mAdded.end();
+		uuid_vec_t::const_iterator it = mAdded.begin(), end = mAdded.end();
 		for(; it != end; ++it)
 		{
 			LLInventoryItem* item = gInventory.getItem(*it);
@@ -228,7 +227,6 @@ LLLocationInputCtrl::LLLocationInputCtrl(const LLLocationInputCtrl::Params& p)
 	params.default_text(LLStringUtil::null);
 	params.max_length_bytes(p.max_chars);
 	params.keystroke_callback(boost::bind(&LLComboBox::onTextEntry, this, _1));
-	params.handle_edit_keys_directly(true);
 	params.commit_on_focus_lost(false);
 	params.follows.flags(FOLLOWS_ALL);
 	mTextEntry = LLUICtrlFactory::create<LLURLLineEditor>(params);
@@ -377,9 +375,10 @@ LLLocationInputCtrl::LLLocationInputCtrl(const LLLocationInputCtrl::Params& p)
 	// - Update the location string on parcel change.
 	mParcelMgrConnection = LLViewerParcelMgr::getInstance()->addAgentParcelChangedCallback(
 		boost::bind(&LLLocationInputCtrl::onAgentParcelChange, this));
-
-	mLocationHistoryConnection = LLLocationHistory::getInstance()->setLoadedCallback(
-			boost::bind(&LLLocationInputCtrl::onLocationHistoryLoaded, this));
+	// LLLocationHistory instance is being created before the location input control, so we have to update initial state of button manually.
+	mButton->setEnabled(LLLocationHistory::instance().getItemCount() > 0);
+	mLocationHistoryConnection = LLLocationHistory::getInstance()->setChangedCallback(
+			boost::bind(&LLLocationInputCtrl::onLocationHistoryChanged, this,_1));
 
 	mRemoveLandmarkObserver	= new LLRemoveLandmarkObserver(this);
 	mAddLandmarkObserver	= new LLAddLandmarkObserver(this);
@@ -391,8 +390,8 @@ LLLocationInputCtrl::LLLocationInputCtrl(const LLLocationInputCtrl::Params& p)
 
 	mAddLandmarkTooltip = LLTrans::getString("LocationCtrlAddLandmarkTooltip");
 	mEditLandmarkTooltip = LLTrans::getString("LocationCtrlEditLandmarkTooltip");
-	getChild<LLView>("Location History")->setToolTip(LLTrans::getString("LocationCtrlComboBtnTooltip"));
-	getChild<LLView>("Place Information")->setToolTip(LLTrans::getString("LocationCtrlInfoBtnTooltip"));
+	mButton->setToolTip(LLTrans::getString("LocationCtrlComboBtnTooltip"));
+	mInfoBtn->setToolTip(LLTrans::getString("LocationCtrlInfoBtnTooltip"));
 }
 
 LLLocationInputCtrl::~LLLocationInputCtrl()
@@ -473,6 +472,7 @@ BOOL LLLocationInputCtrl::handleKeyHere(KEY key, MASK mask)
 void LLLocationInputCtrl::onTextEntry(LLLineEditor* line_editor)
 {
 	KEY key = gKeyboard->currentKey();
+	MASK mask = gKeyboard->currentMask(TRUE);
 
 	if (line_editor->getText().empty())
 	{
@@ -480,7 +480,7 @@ void LLLocationInputCtrl::onTextEntry(LLLineEditor* line_editor)
 		hideList();
 	}
 	// Typing? (moving cursor should not affect showing the list)
-	else if (key != KEY_LEFT && key != KEY_RIGHT && key != KEY_HOME && key != KEY_END)
+	else if (mask != MASK_CONTROL && key != KEY_LEFT && key != KEY_RIGHT && key != KEY_HOME && key != KEY_END)
 	{
 		prearrangeList(line_editor->getText());
 		if (mList->getItemCount() != 0)
@@ -576,7 +576,7 @@ void LLLocationInputCtrl::reshape(S32 width, S32 height, BOOL called_from_parent
 
 	if (isHumanReadableLocationVisible)
 	{
-		positionMaturityIcon();
+		refreshMaturityIcon();
 	}
 }
 
@@ -619,9 +619,13 @@ void LLLocationInputCtrl::onLandmarkLoaded(LLLandmark* lm)
 	updateAddLandmarkButton();
 }
 
-void LLLocationInputCtrl::onLocationHistoryLoaded()
+void LLLocationInputCtrl::onLocationHistoryChanged(LLLocationHistory::EChangeType event)
 {
-	rebuildLocationHistory();
+	if(event == LLLocationHistory::LOAD)
+	{
+		rebuildLocationHistory();
+	}
+	mButton->setEnabled(LLLocationHistory::instance().getItemCount() > 0);
 }
 
 void LLLocationInputCtrl::onLocationPrearrange(const LLSD& data)
@@ -732,32 +736,7 @@ void LLLocationInputCtrl::refreshLocation()
 	setText(location_name);
 	isHumanReadableLocationVisible = true;
 
-	// Updating maturity rating icon.
-	LLViewerRegion* region = gAgent.getRegion();
-	if (!region)
-		return;
-
-	U8 sim_access = region->getSimAccess();
-	switch(sim_access)
-	{
-	case SIM_ACCESS_PG:
-		mMaturityIcon->setValue(mIconMaturityGeneral->getName());
-		mMaturityIcon->setVisible(TRUE);
-		break;
-
-	case SIM_ACCESS_ADULT:
-		mMaturityIcon->setValue(mIconMaturityAdult->getName());
-		mMaturityIcon->setVisible(TRUE);
-		break;
-
-	default:
-		mMaturityIcon->setVisible(FALSE);
-	}
-
-	if (mMaturityIcon->getVisible())
-	{
-		positionMaturityIcon();
-	}
+	refreshMaturityIcon();
 }
 
 // returns new right edge
@@ -779,15 +758,19 @@ void LLLocationInputCtrl::refreshParcelIcons()
 	// Our "cursor" moving right to left
 	S32 x = mAddLandmarkBtn->getRect().mLeft;
 
+	LLViewerParcelMgr* vpm = LLViewerParcelMgr::getInstance();
+
+	LLViewerRegion* agent_region = gAgent.getRegion();
+	LLParcel* agent_parcel = vpm->getAgentParcel();
+	if (!agent_region || !agent_parcel)
+		return;
+
+	mForSaleBtn->setVisible(vpm->canAgentBuyParcel(agent_parcel, false));
+
+	x = layout_widget(mForSaleBtn, x);
+
 	if (gSavedSettings.getBOOL("NavBarShowParcelProperties"))
 	{
-		LLViewerParcelMgr* vpm = LLViewerParcelMgr::getInstance();
-
-		LLViewerRegion* agent_region = gAgent.getRegion();
-		LLParcel* agent_parcel = vpm->getAgentParcel();
-		if (!agent_region || !agent_parcel)
-			return;
-
 		LLParcel* current_parcel;
 		LLViewerRegion* selection_region = vpm->getSelectionRegion();
 		LLParcel* selected_parcel = vpm->getParcelSelection()->getParcel();
@@ -807,7 +790,6 @@ void LLLocationInputCtrl::refreshParcelIcons()
 			current_parcel = agent_parcel;
 		}
 
-		bool allow_buy      = vpm->canAgentBuyParcel(current_parcel, false);
 		bool allow_voice	= vpm->allowAgentVoice(agent_region, current_parcel);
 		bool allow_fly		= vpm->allowAgentFly(agent_region, current_parcel);
 		bool allow_push		= vpm->allowAgentPush(agent_region, current_parcel);
@@ -816,7 +798,6 @@ void LLLocationInputCtrl::refreshParcelIcons()
 		bool allow_damage	= vpm->allowAgentDamage(agent_region, current_parcel);
 
 		// Most icons are "block this ability"
-		mForSaleBtn->setVisible(allow_buy);
 		mParcelIcon[VOICE_ICON]->setVisible(   !allow_voice );
 		mParcelIcon[FLY_ICON]->setVisible(     !allow_fly );
 		mParcelIcon[PUSH_ICON]->setVisible(    !allow_push );
@@ -824,11 +805,10 @@ void LLLocationInputCtrl::refreshParcelIcons()
 		mParcelIcon[SCRIPTS_ICON]->setVisible( !allow_scripts );
 		mParcelIcon[DAMAGE_ICON]->setVisible(  allow_damage );
 		mDamageText->setVisible(allow_damage);
-		
-		x = layout_widget(mForSaleBtn, x);
+
 		// Padding goes to left of both landmark star and for sale btn
 		x -= mAddLandmarkHPad;
-		
+
 		// Slide the parcel icons rect from right to left, adjusting rectangles
 		for (S32 i = 0; i < ICON_COUNT; ++i)
 		{
@@ -840,7 +820,6 @@ void LLLocationInputCtrl::refreshParcelIcons()
 	}
 	else
 	{
-		mForSaleBtn->setVisible(false);
 		for (S32 i = 0; i < ICON_COUNT; ++i)
 		{
 			mParcelIcon[i]->setVisible(false);
@@ -873,6 +852,36 @@ void LLLocationInputCtrl::refreshHealth()
 	}
 }
 
+void LLLocationInputCtrl::refreshMaturityIcon()
+{
+	// Updating maturity rating icon.
+	LLViewerRegion* region = gAgent.getRegion();
+	if (!region)
+		return;
+
+	U8 sim_access = region->getSimAccess();
+	switch(sim_access)
+	{
+	case SIM_ACCESS_PG:
+		mMaturityIcon->setValue(mIconMaturityGeneral->getName());
+		mMaturityIcon->setVisible(TRUE);
+		break;
+
+	case SIM_ACCESS_ADULT:
+		mMaturityIcon->setValue(mIconMaturityAdult->getName());
+		mMaturityIcon->setVisible(TRUE);
+		break;
+
+	default:
+		mMaturityIcon->setVisible(FALSE);
+	}
+
+	if (mMaturityIcon->getVisible())
+	{
+		positionMaturityIcon();
+	}
+}
+
 void LLLocationInputCtrl::positionMaturityIcon()
 {
 	const LLFontGL* font = mTextEntry->getFont();
@@ -892,7 +901,7 @@ void LLLocationInputCtrl::positionMaturityIcon()
 	mMaturityIcon->setVisible(rect.mRight < mTextEntry->getRect().getWidth() - right_pad);
 }
 
-void LLLocationInputCtrl::rebuildLocationHistory(std::string filter)
+void LLLocationInputCtrl::rebuildLocationHistory(const std::string& filter)
 {
 	LLLocationHistory::location_list_t filtered_items;
 	const LLLocationHistory::location_list_t* itemsp = NULL;

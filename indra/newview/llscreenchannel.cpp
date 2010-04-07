@@ -480,7 +480,9 @@ void LLScreenChannel::showToastsBottom()
 		}
 
 		toast_rect = (*it).toast->getRect();
-		toast_rect.setOriginAndSize(getRect().mLeft, bottom + toast_margin, toast_rect.getWidth() ,toast_rect.getHeight());
+		toast_rect.setOriginAndSize(getRect().mRight - toast_rect.getWidth(),
+				bottom + toast_margin, toast_rect.getWidth(),
+				toast_rect.getHeight());
 		(*it).toast->setRect(toast_rect);
 
 		if(floater && floater->overlapsScreenChannel())
@@ -687,7 +689,10 @@ void LLNotificationsUI::LLScreenChannel::startFadingToasts()
 	while (it != mToastList.end())
 	{
 		ToastElem& elem = *it;
-		elem.toast->startFading();
+		if (elem.toast->getVisible())
+		{
+			elem.toast->startFading();
+		}
 		++it;
 	}
 }
@@ -707,9 +712,7 @@ void LLScreenChannel::hideToast(const LLUUID& notification_id)
 	if(mToastList.end() != it)
 	{
 		ToastElem te = *it;
-		te.toast->setVisible(FALSE);
-		te.toast->stopTimer();
-		mToastList.erase(it);
+		te.toast->hide();
 	}
 }
 

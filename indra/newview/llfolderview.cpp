@@ -39,6 +39,7 @@
 #include "llinventoryclipboard.h" // *TODO: remove this once hack below gone.
 #include "llinventoryfilter.h"
 #include "llinventoryfunctions.h"
+#include "llinventorymodelbackgroundfetch.h"
 #include "llinventorypanel.h"
 #include "llfoldertype.h"
 #include "llfloaterinventory.h"// hacked in for the bonus context menu items.
@@ -179,13 +180,14 @@ LLFolderView::LLFolderView(const Params& p)
 	mSourceID(p.task_id),
 	mRenameItem( NULL ),
 	mNeedsScroll( FALSE ),
+	mEnableScroll( true ),
 	mPinningSelectedItem(FALSE),
 	mNeedsAutoSelect( FALSE ),
 	mAutoSelectOverride(FALSE),
 	mNeedsAutoRename(FALSE),
 	mDebugFilters(FALSE),
 	mSortOrder(LLInventoryFilter::SO_FOLDERS_BY_NAME),	// This gets overridden by a pref immediately
-	mFilter( new LLInventoryFilter(p.name) ),
+	mFilter( new LLInventoryFilter(p.title) ),
 	mShowSelectionContext(FALSE),
 	mShowSingleSelection(FALSE),
 	mArrangeGeneration(0),
@@ -274,20 +276,12 @@ LLFolderView::~LLFolderView( void )
 	mRenamer = NULL;
 	mStatusTextBox = NULL;
 
-	if( gEditMenuHandler == this )
-	{
-		gEditMenuHandler = NULL;
-	}
-
 	mAutoOpenItems.removeAllNodes();
 	gIdleCallbacks.deleteFunction(idle, this);
 
 	LLView::deleteViewByHandle(mPopupMenuHandle);
 
-	if(mRenamer == gFocusMgr.getTopCtrl())
-	{
-		gFocusMgr.setTopCtrl(NULL);
-	}
+	gViewerWindow->removePopup(mRenamer);
 
 	mAutoOpenItems.removeAllNodes();
 	clearSelection();
@@ -419,11 +413,6 @@ S32 LLFolderView::arrange( S32* unused_width, S32* unused_height, S32 filter_gen
 	S32 total_width = LEFT_PAD;
 	S32 running_height = mDebugFilters ? llceil(LLFontGL::getFontMonospace()->getLineHeight()) : 0;
 	S32 target_height = running_height;
-	if(!mHasVisibleChildren)// is there any filtered items ?		
-	{
-		//Nope. We need to display status textbox, let's reserve some place for it 
-		target_height += mStatusTextBox->getTextPixelHeight();
-	}
 	S32 parent_item_height = getRect().getHeight();
 
 	for (folders_t::iterator iter = mFolders.begin();
@@ -481,6 +470,13 @@ S32 LLFolderView::arrange( S32* unused_width, S32* unused_height, S32 filter_gen
 			running_height += child_height;
 			itemp->setOrigin( ICON_PAD, child_top - itemp->getRect().getHeight() );
 		}
+	}
+
+	if(!mHasVisibleChildren)// is there any filtered items ?
+	{
+		//Nope. We need to display status textbox, let's reserve some place for it
+		running_height = mStatusTextBox->getTextPixelHeight();
+		target_height = running_height;
 	}
 
 	LLRect scroll_rect = mScrollContainer->getContentWindowRect();
@@ -839,11 +835,14 @@ void LLFolderView::sanitizeSelection()
 
 void LLFolderView::clearSelection()
 {
-	if (mSelectedItems.size() > 0)
+	for (selected_items_t::const_iterator item_it = mSelectedItems.begin(); 
+		 item_it != mSelectedItems.end(); 
+		 ++item_it)
 	{
-		recursiveDeselect(FALSE);
-		mSelectedItems.clear();
+		(*item_it)->setUnselected();
 	}
+
+	mSelectedItems.clear();
 	mSelectThisID.setNull();
 }
 
@@ -862,7 +861,7 @@ BOOL LLFolderView::getSelectionList(std::set<LLUUID> &selection) const
 BOOL LLFolderView::startDrag(LLToolDragAndDrop::ESource source)
 {
 	std::vector<EDragAndDropType> types;
-	std::vector<LLUUID> cargo_ids;
+	uuid_vec_t cargo_ids;
 	selected_items_t::iterator item_it;
 	BOOL can_drag = TRUE;
 	if (!mSelectedItems.empty())
@@ -940,7 +939,7 @@ void LLFolderView::draw()
 	}
 	else
 	{
-		if (gInventory.backgroundFetchActive() || mCompletedFilterGeneration < mFilter->getMinRequiredGeneration())
+		if (LLInventoryModelBackgroundFetch::instance().backgroundFetchActive() || mCompletedFilterGeneration < mFilter->getMinRequiredGeneration())
 		{
 			mStatusText = LLTrans::getString("Searching");
 			//font->renderUTF8(mStatusText, 0, 2, 1, sSearchStatusColor, LLFontGL::LEFT, LLFontGL::TOP, LLFontGL::NORMAL,  LLFontGL::NO_SHADOW, S32_MAX, S32_MAX, NULL, FALSE );
@@ -971,12 +970,11 @@ void LLFolderView::finishRenamingItem( void )
 		mRenameItem->rename( mRenamer->getText() );
 	}
 
-	gFocusMgr.setTopCtrl( NULL );	
+	gViewerWindow->removePopup(mRenamer);
 
 	if( mRenameItem )
 	{
 		setSelectionFromRoot( mRenameItem, TRUE );
-		mRenameItem = NULL;
 	}
 
 	// List is re-sorted alphabeticly, so scroll to make sure the selected item is visible.
@@ -988,7 +986,7 @@ void LLFolderView::closeRenamer( void )
 	// will commit current name (which could be same as original name)
 	mRenamer->setFocus( FALSE );
 	mRenamer->setVisible( FALSE );
-	gFocusMgr.setTopCtrl( NULL );
+	gViewerWindow->removePopup(mRenamer);
 
 	if( mRenameItem )
 	{
@@ -1420,7 +1418,7 @@ void LLFolderView::startRenamingSelectedItem( void )
 		mRenamer->setFocus( TRUE );
 		mRenamer->setTopLostCallback(boost::bind(onRenamerLost, _1));
 		mRenamer->setFocusLostCallback(boost::bind(onRenamerLost, _1));
-		gFocusMgr.setTopCtrl( mRenamer );
+		gViewerWindow->addPopup(mRenamer);
 	}
 }
 
@@ -1828,7 +1826,9 @@ BOOL LLFolderView::handleRightMouseDown( S32 x, S32 y, MASK mask )
 	BOOL handled = childrenHandleRightMouseDown(x, y, mask) != NULL;
 	S32 count = mSelectedItems.size();
 	LLMenuGL* menu = (LLMenuGL*)mPopupMenuHandle.get();
-	if(handled && (count > 0) && menu)
+	if (   handled
+		&& ( count > 0 && (hasVisibleChildren() || mFilter->getShowFolderState() == LLInventoryFilter::SHOW_ALL_FOLDERS) ) // show menu only if selected items are visible
+		&& menu )
 	{
 		if (mCallbackRegistrar)
 			mCallbackRegistrar->pushScope();
@@ -1901,7 +1901,7 @@ void LLFolderView::deleteAllChildren()
 {
 	if(mRenamer == gFocusMgr.getTopCtrl())
 	{
-		gFocusMgr.setTopCtrl(NULL);
+		gViewerWindow->removePopup(mRenamer);
 	}
 	LLView::deleteViewByHandle(mPopupMenuHandle);
 	mPopupMenuHandle = LLHandle<LLView>();
@@ -1913,7 +1913,7 @@ void LLFolderView::deleteAllChildren()
 
 void LLFolderView::scrollToShowSelection()
 {
-	if (mSelectedItems.size())
+	if (mEnableScroll && mSelectedItems.size())
 	{
 		mNeedsScroll = TRUE;
 	}
@@ -2098,8 +2098,7 @@ bool LLFolderView::doToSelected(LLInventoryModel* model, const LLSD& userdata)
 		if(!folder_item) continue;
 		LLInvFVBridge* bridge = (LLInvFVBridge*)folder_item->getListener();
 		if(!bridge) continue;
-
-		bridge->performAction(this, model, action);
+		bridge->performAction(model, action);
 	}
 
 	LLFloater::setFloaterHost(NULL);
@@ -2163,6 +2162,15 @@ void LLFolderView::doIdle()
 			LLSelectFirstFilteredItem filter;
 			applyFunctorRecursively(filter);
 		}
+
+		// Open filtered folders for folder views with mAutoSelectOverride=TRUE.
+		// Used by LLPlacesFolderView.
+		if (mAutoSelectOverride && !mFilter->getFilterSubString().empty())
+		{
+			LLOpenFilteredFolders filter;
+			applyFunctorRecursively(filter);
+		}
+
 		scrollToShowSelection();
 	}
 

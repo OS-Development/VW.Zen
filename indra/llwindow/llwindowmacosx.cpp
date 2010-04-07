@@ -2781,6 +2781,9 @@ const char* cursorIDToName(int id)
 		case UI_CURSOR_TOOLPAUSE:		return "UI_CURSOR_TOOLPAUSE";
 		case UI_CURSOR_TOOLMEDIAOPEN:	return "UI_CURSOR_TOOLMEDIAOPEN";
 		case UI_CURSOR_PIPETTE:			return "UI_CURSOR_PIPETTE";		
+		case UI_CURSOR_TOOLSIT:			return "UI_CURSOR_TOOLSIT";
+		case UI_CURSOR_TOOLBUY:			return "UI_CURSOR_TOOLBUY";
+		case UI_CURSOR_TOOLOPEN:		return "UI_CURSOR_TOOLOPEN";
 	}
 
 	llerrs << "cursorIDToName: unknown cursor id" << id << llendl;
@@ -2883,6 +2886,9 @@ void LLWindowMacOSX::setCursor(ECursorType cursor)
 	case UI_CURSOR_TOOLPLAY:
 	case UI_CURSOR_TOOLPAUSE:
 	case UI_CURSOR_TOOLMEDIAOPEN:
+	case UI_CURSOR_TOOLSIT:
+	case UI_CURSOR_TOOLBUY:
+	case UI_CURSOR_TOOLOPEN:
 		result = setImageCursor(gCursors[cursor]);
 		break;
 
@@ -2924,6 +2930,9 @@ void LLWindowMacOSX::initCursors()
 	initPixmapCursor(UI_CURSOR_TOOLPLAY, 1, 1);
 	initPixmapCursor(UI_CURSOR_TOOLPAUSE, 1, 1);
 	initPixmapCursor(UI_CURSOR_TOOLMEDIAOPEN, 1, 1);
+	initPixmapCursor(UI_CURSOR_TOOLSIT, 20, 15);
+	initPixmapCursor(UI_CURSOR_TOOLBUY, 20, 15);
+	initPixmapCursor(UI_CURSOR_TOOLOPEN, 20, 15);
 
 	initPixmapCursor(UI_CURSOR_SIZENWSE, 10, 10);
 	initPixmapCursor(UI_CURSOR_SIZENESW, 10, 10);
@@ -3169,7 +3178,7 @@ S32 OSMessageBoxMacOSX(const std::string& text, const std::string& caption, U32 
 
 // Open a URL with the user's default web browser.
 // Must begin with protocol identifier.
-void LLWindowMacOSX::spawnWebBrowser(const std::string& escaped_url)
+void LLWindowMacOSX::spawnWebBrowser(const std::string& escaped_url, bool async)
 {
 	bool found = false;
 	S32 i;

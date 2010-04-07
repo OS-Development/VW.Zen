@@ -40,6 +40,7 @@
 #include "lltoastnotifypanel.h"
 #include "llviewercontrol.h"
 #include "llviewerwindow.h"
+#include "llnotificationmanager.h"
 
 using namespace LLNotificationsUI;
 
@@ -70,8 +71,8 @@ public:
 				p.notification->getResponseTemplate()));
 		}
 
-		// set line max count to 2 in case of a very long name
-		snapToMessageHeight(getChild<LLTextBox>("message"), 2);
+		// set line max count to 3 in case of a very long name
+		snapToMessageHeight(getChild<LLTextBox>("message"), 3);
 	}
 };
 
@@ -82,6 +83,10 @@ LLTipHandler::LLTipHandler(e_notification_type type, const LLSD& id)
 
 	// Getting a Channel for our notifications
 	mChannel = LLChannelManager::getInstance()->createNotificationChannel();
+
+	LLScreenChannel* channel = dynamic_cast<LLScreenChannel*>(mChannel);
+	if(channel)
+		channel->setOnRejectToastCallback(boost::bind(&LLTipHandler::onRejectToast, this, _1));
 }
 
 //--------------------------------------------------------------------------
@@ -145,6 +150,12 @@ bool LLTipHandler::processNotification(const LLSD& notify)
 			LLHandlerUtil::spawnIMSession(name, from_id);
 		}
 
+		// don't spawn toast for inventory accepted/declined offers if respective IM window is open (EXT-5909)
+		if (!LLHandlerUtil::canSpawnToast(notification))
+		{
+			return true;
+		}
+
 		LLToastPanel* notify_box = NULL;
 		if("FriendOffline" == notification->getName() || "FriendOnline" == notification->getName())
 		{
@@ -167,6 +178,8 @@ bool LLTipHandler::processNotification(const LLSD& notify)
 		p.is_tip = true;
 		p.can_be_stored = false;
 		
+		removeExclusiveNotifications(notification);
+
 		LLScreenChannel* channel = dynamic_cast<LLScreenChannel*>(mChannel);
 		if(channel)
 			channel->addToast(p);
@@ -185,4 +198,14 @@ void LLTipHandler::onDeleteToast(LLToast* toast)
 
 //--------------------------------------------------------------------------
 
+void LLTipHandler::onRejectToast(const LLUUID& id)
+{
+	LLNotificationPtr notification = LLNotifications::instance().find(id);
 
+	if (notification
+			&& LLNotificationManager::getInstance()->getHandlerForNotification(
+					notification->getType()) == this)
+	{
+		LLNotifications::instance().cancel(notification);
+	}
+}

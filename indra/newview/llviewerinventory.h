@@ -63,10 +63,12 @@ protected:
 public:
 	virtual LLAssetType::EType getType() const;
 	virtual const LLUUID& getAssetUUID() const;
+	virtual const LLUUID& getProtectedAssetUUID() const; // returns LLUUID::null if current agent does not have permission to expose this asset's UUID to the user
 	virtual const std::string& getName() const;
 	virtual S32 getSortField() const;
 	virtual void setSortField(S32 sortField);
 	virtual const LLPermissions& getPermissions() const;
+	virtual const bool getIsFullPerm() const; // 'fullperm' in the popular sense: modify-ok & copy-ok & transfer-ok, no special god rules applied
 	virtual const LLUUID& getCreatorUUID() const;
 	virtual const std::string& getDescription() const;
 	virtual const LLSaleInfo& getSaleInfo() const;
@@ -210,7 +212,7 @@ public:
 	void setVersion(S32 version) { mVersion = version; }
 
 	// Returns true if a fetch was issued.
-	bool fetchDescendents();
+	bool fetch();
 
 	// used to help make cacheing more robust - for example, if
 	// someone is getting 4 packets but logs out after 3. the viewer
@@ -354,7 +356,7 @@ void copy_inventory_from_notecard(const LLUUID& object_id,
 								  U32 callback_id = 0);
 
 
-void menu_create_inventory_item(LLFolderView* folder,
+void menu_create_inventory_item(LLFolderView* root,
 								LLFolderBridge* bridge,
 								const LLSD& userdata,
 								const LLUUID& default_parent_uuid = LLUUID::null);

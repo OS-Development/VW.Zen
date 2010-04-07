@@ -300,7 +300,7 @@ public:
 	static S32 sImageCount;
 	static S32 sRawCount;
 	static S32 sAuxCount;
-	static LLTimer sEvaluationTimer;
+	static LLFrameTimer sEvaluationTimer;
 	static F32 sDesiredDiscardBias;
 	static F32 sDesiredDiscardScale;
 	static S32 sBoundTextureMemoryInBytes;
@@ -424,7 +424,6 @@ public:
 
 	LLImageRaw* reloadRawImage(S8 discard_level) ;
 	void destroyRawImage();
-	/*virtual*/ void setCachedRawImage(S32 discard_level, LLImageRaw* imageraw) ;
 
 	const std::string& getUrl() const {return mUrl;}
 	//---------------
@@ -449,23 +448,24 @@ public:
 	BOOL        isCachedRawImageReady() const {return mCachedRawImageReady ;}
 	BOOL        isRawImageValid()const { return mIsRawImageValid ; }	
 	void        forceToSaveRawImage(S32 desired_discard = 0) ;
+	/*virtual*/ void setCachedRawImage(S32 discard_level, LLImageRaw* imageraw) ;
 	void        destroySavedRawImage() ;
 	LLImageRaw* getSavedRawImage() ;
 	BOOL        hasSavedRawImage() const ;
 	F32         getElapsedLastReferencedSavedRawImageTime() const ;
 	BOOL		isFullyLoaded() const;
 
+	BOOL        hasFetcher() const { return mHasFetcher;}
 protected:
 	/*virtual*/ void switchToCachedImage();
+	S32 getCurrentDiscardLevelForFetching() ;
 
 private:
 	void init(bool firstinit) ;
 	void cleanup() ;
 
 	void saveRawImage() ;
-	BOOL forceFetch() ;
 	void setCachedRawImage() ;
-	BOOL keepReuestedDiscardLevel();
 
 	//for atlas
 	void resetFaceAtlas() ;

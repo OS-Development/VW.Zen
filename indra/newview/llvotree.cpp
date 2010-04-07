@@ -44,7 +44,7 @@
 #include "material_codes.h"
 #include "object_flags.h"
 
-#include "llagent.h"
+#include "llagentcamera.h"
 #include "lldrawable.h"
 #include "llface.h"
 #include "llviewercamera.h"
@@ -444,7 +444,7 @@ void LLVOTree::setPixelAreaAndAngle(LLAgent &agent)
 	// Re-calculate mPixelArea accurately
 	
 	// This should be the camera's center, as soon as we move to all region-local.
-	LLVector3 relative_position = getPositionAgent() - agent.getCameraPositionAgent();
+	LLVector3 relative_position = getPositionAgent() - gAgentCamera.getCameraPositionAgent();
 	F32 range = relative_position.length();				// ugh, square root
 
 	F32 max_scale = mBillboardScale * getMaxScale();
@@ -1141,7 +1141,7 @@ U32 LLVOTree::drawBranchPipeline(LLMatrix4& matrix, U16* indicesp, S32 trunk_LOD
 
 				glLoadMatrixf((F32*) scale_mat.mMatrix);
  				glDrawElements(GL_TRIANGLES, sLODIndexCount[trunk_LOD], GL_UNSIGNED_SHORT, indicesp + sLODIndexOffset[trunk_LOD]);
-				gPipeline.addTrianglesDrawn(LEAF_INDICES/3);
+				gPipeline.addTrianglesDrawn(LEAF_INDICES);
 				stop_glerror();
 				ret += sLODIndexCount[trunk_LOD];
 			}
@@ -1191,7 +1191,7 @@ U32 LLVOTree::drawBranchPipeline(LLMatrix4& matrix, U16* indicesp, S32 trunk_LOD
 			
 				glLoadMatrixf((F32*) scale_mat.mMatrix);
 				glDrawElements(GL_TRIANGLES, LEAF_INDICES, GL_UNSIGNED_SHORT, indicesp);
-				gPipeline.addTrianglesDrawn(LEAF_INDICES/3);							
+				gPipeline.addTrianglesDrawn(LEAF_INDICES);							
 				stop_glerror();
 				ret += LEAF_INDICES;
 			}
@@ -1216,7 +1216,7 @@ U32 LLVOTree::drawBranchPipeline(LLMatrix4& matrix, U16* indicesp, S32 trunk_LOD
 					
 		glLoadMatrixf((F32*) scale_mat.mMatrix);
 		glDrawElements(GL_TRIANGLES, LEAF_INDICES, GL_UNSIGNED_SHORT, indicesp);
-		gPipeline.addTrianglesDrawn(LEAF_INDICES/3);
+		gPipeline.addTrianglesDrawn(LEAF_INDICES);
 		stop_glerror();
 		ret += LEAF_INDICES;
 

@@ -39,15 +39,20 @@
 #include "indra_constants.h"
 
 #include "llagent.h"
+#include "llagentcamera.h"
 #include "llviewerfoldertype.h"
 #include "llfolderview.h"
 #include "llviewercontrol.h"
 #include "llconsole.h"
+#include "llinventorydefines.h"
+#include "llinventoryfunctions.h"
 #include "llinventorymodel.h"
+#include "llinventorymodelbackgroundfetch.h"
 #include "llgesturemgr.h"
 #include "llsidetray.h"
 
 #include "llinventorybridge.h"
+#include "llinventorypanel.h"
 #include "llfloaterinventory.h"
 
 #include "llviewerassettype.h"
@@ -100,7 +105,7 @@ public:
 		const std::string verb = params[1].asString();
 		if (verb == "select")
 		{
-			std::vector<LLUUID> items_to_open;
+			uuid_vec_t items_to_open;
 			items_to_open.push_back(inventory_id);
 			//inventory_handler is just a stub, because we don't know from who this offer
 			open_inventory_offer(items_to_open, "inventory_handler");
@@ -511,7 +516,7 @@ void LLViewerInventoryCategory::removeFromServer( void )
 	gAgent.sendReliableMessage();
 }
 
-bool LLViewerInventoryCategory::fetchDescendents()
+bool LLViewerInventoryCategory::fetch()
 {
 	if((VERSION_UNKNOWN == mVersion)
 	   && mDescendentsRequested.hasExpired())	//Expired check prevents multiple downloads.
@@ -525,7 +530,7 @@ bool LLViewerInventoryCategory::fetchDescendents()
 		// 2 = folders by date
 		// Need to mask off anything but the first bit.
 		// This comes from LLInventoryFilter from llfolderview.h
-		U32 sort_order = gSavedSettings.getU32("InventorySortOrder") & 0x1;
+		U32 sort_order = gSavedSettings.getU32(LLInventoryPanel::DEFAULT_SORT_ORDER) & 0x1;
 
 		// *NOTE: For bug EXT-2879, originally commented out
 		// gAgent.getRegion()->getCapability in order to use the old
@@ -536,7 +541,7 @@ bool LLViewerInventoryCategory::fetchDescendents()
 		std::string url = gAgent.getRegion()->getCapability("WebFetchInventoryDescendents");
 		if (!url.empty()) //Capability found.  Build up LLSD and use it.
 		{
-			gInventory.startBackgroundFetch(mUUID);			
+			LLInventoryModelBackgroundFetch::instance().start(mUUID);			
 		}
 		else
 		{	//Deprecated, but if we don't have a capability, use the old system.
@@ -789,8 +794,8 @@ void WearOnAvatarCallback::fire(const LLUUID& inv_item)
 
 void ModifiedCOFCallback::fire(const LLUUID& inv_item)
 {
-	LLAppearanceManager::instance().updateAppearanceFromCOF();
-	if( CAMERA_MODE_CUSTOMIZE_AVATAR == gAgent.getCameraMode() )
+	LLAppearanceMgr::instance().updateAppearanceFromCOF();
+	if( CAMERA_MODE_CUSTOMIZE_AVATAR == gAgentCamera.getCameraMode() )
 	{
 		// If we're in appearance editing mode, the current tab may need to be refreshed
 		if (gFloaterCustomize)
@@ -825,7 +830,7 @@ void ActivateGestureCallback::fire(const LLUUID& inv_item)
 	if (inv_item.isNull())
 		return;
 
-	LLGestureManager::instance().activateGesture(inv_item);
+	LLGestureMgr::instance().activateGesture(inv_item);
 }
 
 void CreateGestureCallback::fire(const LLUUID& inv_item)
@@ -833,7 +838,7 @@ void CreateGestureCallback::fire(const LLUUID& inv_item)
 	if (inv_item.isNull())
 		return;
 
-	LLGestureManager::instance().activateGesture(inv_item);
+	LLGestureMgr::instance().activateGesture(inv_item);
 	
 	LLViewerInventoryItem* item = gInventory.getItem(inv_item);
 	if (!item) return;
@@ -1070,7 +1075,7 @@ const std::string NEW_NOTECARD_NAME = "New Note"; // *TODO:Translate? (probably 
 const std::string NEW_GESTURE_NAME = "New Gesture"; // *TODO:Translate? (probably not)
 
 // ! REFACTOR ! Really need to refactor this so that it's not a bunch of if-then statements...
-void menu_create_inventory_item(LLFolderView* folder, LLFolderBridge *bridge, const LLSD& userdata, const LLUUID& default_parent_uuid)
+void menu_create_inventory_item(LLFolderView* root, LLFolderBridge *bridge, const LLSD& userdata, const LLUUID& default_parent_uuid)
 {
 	std::string type_name = userdata.asString();
 	
@@ -1094,7 +1099,7 @@ void menu_create_inventory_item(LLFolderView* folder, LLFolderBridge *bridge, co
 
 		LLUUID category = gInventory.createNewCategory(parent_id, preferred_type, LLStringUtil::null);
 		gInventory.notifyObservers();
-		folder->setSelectionByID(category, TRUE);
+		root->setSelectionByID(category, TRUE);
 	}
 	else if ("lsl" == type_name)
 	{
@@ -1139,7 +1144,7 @@ void menu_create_inventory_item(LLFolderView* folder, LLFolderBridge *bridge, co
 			llwarns << "Can't create unrecognized type " << type_name << llendl;
 		}
 	}
-	folder->setNeedsAutoRename(TRUE);	
+	root->setNeedsAutoRename(TRUE);	
 }
 
 LLAssetType::EType LLViewerInventoryItem::getType() const
@@ -1163,6 +1168,40 @@ const LLUUID& LLViewerInventoryItem::getAssetUUID() const
 	}
 
 	return LLInventoryItem::getAssetUUID();
+}
+
+const LLUUID& LLViewerInventoryItem::getProtectedAssetUUID() const
+{
+	if (const LLViewerInventoryItem *linked_item = getLinkedItem())
+	{
+		return linked_item->getProtectedAssetUUID();
+	}
+
+	// check for conditions under which we may return a visible UUID to the user
+	bool item_is_fullperm = getIsFullPerm();
+	bool agent_is_godlike = gAgent.isGodlikeWithoutAdminMenuFakery();
+	if (item_is_fullperm || agent_is_godlike)
+	{
+		return LLInventoryItem::getAssetUUID();
+	}
+
+	return LLUUID::null;
+}
+
+const bool LLViewerInventoryItem::getIsFullPerm() const
+{
+	LLPermissions item_permissions = getPermissions();
+
+	// modify-ok & copy-ok & transfer-ok
+	return ( item_permissions.allowOperationBy(PERM_MODIFY,
+						   gAgent.getID(),
+						   gAgent.getGroupID()) &&
+		 item_permissions.allowOperationBy(PERM_COPY,
+						   gAgent.getID(),
+						   gAgent.getGroupID()) &&
+		 item_permissions.allowOperationBy(PERM_TRANSFER,
+						   gAgent.getID(),
+						   gAgent.getGroupID()) );
 }
 
 const std::string& LLViewerInventoryItem::getName() const
@@ -1440,7 +1479,7 @@ EWearableType LLViewerInventoryItem::getWearableType() const
 		llwarns << "item is not a wearable" << llendl;
 		return WT_INVALID;
 	}
-	return EWearableType(getFlags() & LLInventoryItem::II_FLAGS_WEARABLES_MASK);
+	return EWearableType(getFlags() & LLInventoryItemFlags::II_FLAGS_WEARABLES_MASK);
 }
 
 

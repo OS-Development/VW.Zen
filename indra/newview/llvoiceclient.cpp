@@ -60,6 +60,7 @@
 #include "llappviewer.h"	// for gDisconnected, gDisableVoice
 #include "llmutelist.h"  // to check for muted avatars
 #include "llagent.h"
+#include "llvoavatarself.h"
 #include "llcachename.h"
 #include "llimview.h" // for LLIMMgr
 #include "llparcel.h"
@@ -86,6 +87,12 @@
 static bool sConnectingToAgni = false;
 F32 LLVoiceClient::OVERDRIVEN_POWER_LEVEL = 0.7f;
 
+const F32 LLVoiceClient::VOLUME_MIN = 0.f;
+const F32 LLVoiceClient::VOLUME_DEFAULT = 0.5f;
+const F32 LLVoiceClient::VOLUME_MAX = 1.0f;
+
+const F32 VOLUME_SCALE_VIVOX = 0.01f;
+
 const F32 SPEAKING_TIMEOUT = 1.f;
 
 const int VOICE_MAJOR_VERSION = 1;
@@ -101,6 +108,13 @@ const F32 UPDATE_THROTTLE_SECONDS = 0.1f;
 
 const F32 LOGIN_RETRY_SECONDS = 10.0f;
 const int MAX_LOGIN_RETRIES = 12;
+
+// Defines the maximum number of times(in a row) "stateJoiningSession" case for spatial channel is reached in stateMachine()
+// which is treated as normal. If this number is exceeded we suspect there is a problem with connection
+// to voice server (EXT-4313). When voice works correctly, there is from 1 to 15 times. 50 was chosen 
+// to make sure we don't make mistake when slight connection problems happen- situation when connection to server is 
+// blocked is VERY rare and it's better to sacrifice response time in this situation for the sake of stability.
+const int MAX_NORMAL_JOINING_SPATIAL_NUM = 50;
 
 static void setUUIDFromStringHash(LLUUID &uuid, const std::string &str)
 {
@@ -1157,24 +1171,28 @@ class LLSpeakerVolumeStorage : public LLSingleton<LLSpeakerVolumeStorage>
 public:
 
 	/**
-	 * Sets internal voluem level for specified user.
+	 * Stores volume level for specified user.
 	 *
-	 * @param[in] speaker_id - LLUUID of user to store volume level for
-	 * @param[in] volume - external (vivox) volume level to be stored for user.
+	 * @param[in] speaker_id - LLUUID of user to store volume level for.
+	 * @param[in] volume - volume level to be stored for user.
 	 */
 	void storeSpeakerVolume(const LLUUID& speaker_id, F32 volume);
 
 	/**
-	 * Gets stored external (vivox) volume level for specified speaker and
-	 * transforms it into internal (viewer) level.
+	 * Gets stored volume level for specified speaker
 	 *
-	 * If specified user is not found -1 will be returned.
-	 * Internal level is calculated as: internal = 400 * external^2
-	 * Maps 0.0 to 1.0 to internal values 0-400
-	 *
-	 * @param[in] speaker_id - LLUUID of user to get his volume level
+	 * @param[in] speaker_id - LLUUID of user to retrieve volume level for.
+	 * @param[out] volume - set to stored volume if found, otherwise unmodified.
+	 * @return - true if a stored volume is found.
 	 */
-	S32 getSpeakerVolume(const LLUUID& speaker_id);
+	bool getSpeakerVolume(const LLUUID& speaker_id, F32& volume);
+
+	/**
+	 * Removes stored volume level for specified user.
+	 *
+	 * @param[in] speaker_id - LLUUID of user to remove.
+	 */
+	void removeSpeakerVolume(const LLUUID& speaker_id);
 
 private:
 	friend class LLSingleton<LLSpeakerVolumeStorage>;
@@ -1185,6 +1203,9 @@ private:
 
 	void load();
 	void save();
+
+	static F32 transformFromLegacyVolume(F32 volume_in);
+	static F32 transformToLegacyVolume(F32 volume_in);
 
 	typedef std::map<LLUUID, F32> speaker_data_map_t;
 	speaker_data_map_t mSpeakersData;
@@ -1204,29 +1225,93 @@ LLSpeakerVolumeStorage::~LLSpeakerVolumeStorage()
 
 void LLSpeakerVolumeStorage::storeSpeakerVolume(const LLUUID& speaker_id, F32 volume)
 {
-	mSpeakersData[speaker_id] = volume;
+	if ((volume >= LLVoiceClient::VOLUME_MIN) && (volume <= LLVoiceClient::VOLUME_MAX))
+	{
+		mSpeakersData[speaker_id] = volume;
+
+		// Enable this when debugging voice slider issues.  It's way to spammy even for debug-level logging.
+		// LL_DEBUGS("Voice") << "Stored volume = " << volume <<  " for " << id << LL_ENDL;
+	}
+	else
+	{
+		LL_WARNS("Voice") << "Attempted to store out of range volume " << volume << " for " << speaker_id << LL_ENDL;
+		llassert(0);
+	}
 }
 
-S32 LLSpeakerVolumeStorage::getSpeakerVolume(const LLUUID& speaker_id)
+bool LLSpeakerVolumeStorage::getSpeakerVolume(const LLUUID& speaker_id, F32& volume)
 {
-	// Return value of -1 indicates no level is stored for this speaker
-	S32 ret_val = -1;
 	speaker_data_map_t::const_iterator it = mSpeakersData.find(speaker_id);
 	
 	if (it != mSpeakersData.end())
 	{
-		F32 f_val = it->second;
-		// volume can amplify by as much as 4x!
-		S32 ivol = (S32)(400.f * f_val * f_val);
-		ret_val = llclamp(ivol, 0, 400);
+		volume = it->second;
+
+		// Enable this when debugging voice slider issues.  It's way to spammy even for debug-level logging.
+		// LL_DEBUGS("Voice") << "Retrieved stored volume = " << volume <<  " for " << id << LL_ENDL;
+
+		return true;
 	}
-	return ret_val;
+
+	return false;
+}
+
+void LLSpeakerVolumeStorage::removeSpeakerVolume(const LLUUID& speaker_id)
+{
+	mSpeakersData.erase(speaker_id);
+
+	// Enable this when debugging voice slider issues.  It's way to spammy even for debug-level logging.
+	// LL_DEBUGS("Voice") << "Removing stored volume for  " << id << LL_ENDL;
+}
+
+/* static */ F32 LLSpeakerVolumeStorage::transformFromLegacyVolume(F32 volume_in)
+{
+	// Convert to linear-logarithmic [0.0..1.0] with 0.5 = 0dB
+	// from legacy characteristic composed of two square-curves
+	// that intersect at volume_in = 0.5, volume_out = 0.56
+
+	F32 volume_out = 0.f;
+	volume_in = llclamp(volume_in, 0.f, 1.0f);
+
+	if (volume_in <= 0.5f)
+	{
+		volume_out = volume_in * volume_in * 4.f * 0.56f;
+	}
+	else
+	{
+		volume_out = (1.f - 0.56f) * (4.f * volume_in * volume_in - 1.f) / 3.f + 0.56f;
+	}
+
+	return volume_out;
+}
+
+/* static */ F32 LLSpeakerVolumeStorage::transformToLegacyVolume(F32 volume_in)
+{
+	// Convert from linear-logarithmic [0.0..1.0] with 0.5 = 0dB
+	// to legacy characteristic composed of two square-curves
+	// that intersect at volume_in = 0.56, volume_out = 0.5
+
+	F32 volume_out = 0.f;
+	volume_in = llclamp(volume_in, 0.f, 1.0f);
+
+	if (volume_in <= 0.56f)
+	{
+		volume_out = sqrt(volume_in / (4.f * 0.56f));
+	}
+	else
+	{
+		volume_out = sqrt((3.f * (volume_in - 0.56f) / (1.f - 0.56f) + 1.f) / 4.f);
+	}
+
+	return volume_out;
 }
 
 void LLSpeakerVolumeStorage::load()
 {
 	// load per-resident voice volume information
 	std::string filename = gDirUtilp->getExpandedFilename(LL_PATH_PER_SL_ACCOUNT, SETTINGS_FILE_NAME);
+
+	LL_INFOS("Voice") << "Loading stored speaker volumes from: " << filename << LL_ENDL;
 
 	LLSD settings_llsd;
 	llifstream file;
@@ -1239,7 +1324,10 @@ void LLSpeakerVolumeStorage::load()
 	for (LLSD::map_const_iterator iter = settings_llsd.beginMap();
 		iter != settings_llsd.endMap(); ++iter)
 	{
-		mSpeakersData.insert(std::make_pair(LLUUID(iter->first), (F32)iter->second.asReal()));
+		// Maintain compatibility with 1.23 non-linear saved volume levels
+		F32 volume = transformFromLegacyVolume((F32)iter->second.asReal());
+
+		storeSpeakerVolume(LLUUID(iter->first), volume);
 	}
 }
 
@@ -1254,9 +1342,14 @@ void LLSpeakerVolumeStorage::save()
 		std::string filename = gDirUtilp->getExpandedFilename(LL_PATH_PER_SL_ACCOUNT, SETTINGS_FILE_NAME);
 		LLSD settings_llsd;
 
+		LL_INFOS("Voice") << "Saving stored speaker volumes to: " << filename << LL_ENDL;
+
 		for(speaker_data_map_t::const_iterator iter = mSpeakersData.begin(); iter != mSpeakersData.end(); ++iter)
 		{
-			settings_llsd[iter->first.asString()] = iter->second;
+			// Maintain compatibility with 1.23 non-linear saved volume levels
+			F32 volume = transformToLegacyVolume(iter->second);
+
+			settings_llsd[iter->first.asString()] = volume;
 		}
 
 		llofstream file;
@@ -1274,6 +1367,7 @@ LLVoiceClient::LLVoiceClient() :
 	mRelogRequested(false),
 	mConnected(false),
 	mPump(NULL),
+	mSpatialJoiningNum(0),
 	
 	mTuningMode(false),
 	mTuningEnergy(0.0f),
@@ -2289,6 +2383,8 @@ void LLVoiceClient::stateMachine()
 					
 		//MARK: stateNoChannel
 		case stateNoChannel:
+			
+			mSpatialJoiningNum = 0;
 			// Do this here as well as inside sendPositionalUpdate().  
 			// Otherwise, if you log in but don't join a proximal channel (such as when your login location has voice disabled), your friends list won't sync.
 			sendFriendsListUpdates();
@@ -2345,6 +2441,23 @@ void LLVoiceClient::stateMachine()
 
 		//MARK: stateJoiningSession
 		case stateJoiningSession:		// waiting for session handle
+
+			// If this is true we have problem with connection to voice server (EXT-4313).
+			// See descriptions of mSpatialJoiningNum and MAX_NORMAL_JOINING_SPATIAL_NUM.
+			if(mSpatialJoiningNum == MAX_NORMAL_JOINING_SPATIAL_NUM) 
+			{
+				// Notify observers to let them know there is problem with voice
+				notifyStatusObservers(LLVoiceClientStatusObserver::STATUS_VOICE_DISABLED);
+				llwarns << "There seems to be problem with connection to voice server. Disabling voice chat abilities." << llendl;
+			}
+
+			// Increase mSpatialJoiningNum only for spatial sessions- it's normal to reach this case for
+			// example for p2p many times while waiting for response, so it can't be used to detect errors
+			if(mAudioSession && mAudioSession->mIsSpatial)
+			{
+				mSpatialJoiningNum++;
+			}
+			
 			// joinedAudioSession() will transition from here to stateSessionJoined.
 			if(!mVoiceEnabled)
 			{
@@ -2368,6 +2481,8 @@ void LLVoiceClient::stateMachine()
 		
 		//MARK: stateSessionJoined
 		case stateSessionJoined:		// session handle received
+			
+			mSpatialJoiningNum = 0;
 			// It appears that I need to wait for BOTH the SessionGroup.AddSession response and the SessionStateChangeEvent with state 4
 			// before continuing from this state.  They can happen in either order, and if I don't wait for both, things can get stuck.
 			// For now, the SessionGroup.AddSession response handler sets mSessionHandle and the SessionStateChangeEvent handler transitions to stateSessionJoined.
@@ -2456,9 +2571,10 @@ void LLVoiceClient::stateMachine()
 					enforceTether();
 				}
 				
-				// Send an update if the ptt state has changed (which shouldn't be able to happen that often -- the user can only click so fast)
-				// or every 10hz, whichever is sooner.
-				if((mAudioSession && mAudioSession->mVolumeDirty) || mPTTDirty || mSpeakerVolumeDirty || mUpdateTimer.hasExpired())
+				// Send an update only if the ptt or mute state has changed (which shouldn't be able to happen that often
+				// -- the user can only click so fast) or every 10hz, whichever is sooner.
+				// Sending for every volume update causes an excessive flood of messages whenever a volume slider is dragged.
+				if((mAudioSession && mAudioSession->mMuteDirty) || mPTTDirty || mUpdateTimer.hasExpired())
 				{
 					mUpdateTimer.setTimerExpirySec(UPDATE_THROTTLE_SECONDS);
 					sendPositionalUpdate();
@@ -3488,38 +3604,26 @@ void LLVoiceClient::sendPositionalUpdate(void)
 		stream << "</Request>\n\n\n";
 	}	
 	
-	if(mAudioSession && mAudioSession->mVolumeDirty)
+	if(mAudioSession && (mAudioSession->mVolumeDirty || mAudioSession->mMuteDirty))
 	{
 		participantMap::iterator iter = mAudioSession->mParticipantsByURI.begin();
 
 		mAudioSession->mVolumeDirty = false;
+		mAudioSession->mMuteDirty = false;
 		
 		for(; iter != mAudioSession->mParticipantsByURI.end(); iter++)
 		{
 			participantState *p = iter->second;
-			
+
 			if(p->mVolumeDirty)
 			{
 				// Can't set volume/mute for yourself
 				if(!p->mIsSelf)
 				{
-					int volume = 56; // nominal default value
+					// scale from the range 0.0-1.0 to vivox volume in the range 0-100
+					S32 volume = llround(p->mVolume / VOLUME_SCALE_VIVOX);
+
 					bool mute = p->mOnMuteList;
-					
-					if(p->mUserVolume != -1)
-					{
-						// scale from user volume in the range 0-400 (with 100 as "normal") to vivox volume in the range 0-100 (with 56 as "normal")
-						if(p->mUserVolume < 100)
-							volume = (p->mUserVolume * 56) / 100;
-						else
-							volume = (((p->mUserVolume - 100) * (100 - 56)) / 300) + 56;
-					}
-					else if(p->mVolume != -1)
-					{
-						// Use the previously reported internal volume (comes in with a ParticipantUpdatedEvent)
-						volume = p->mVolume;
-					}
-										
 
 					if(mute)
 					{
@@ -3527,10 +3631,16 @@ void LLVoiceClient::sendPositionalUpdate(void)
 						// If we want the user to be muted, set their volume to 0 as well.
 						// This isn't perfect, but it will at least reduce their volume to a minimum.
 						volume = 0;
+
+						// Mark the current volume level as set to prevent incoming events
+						// changing it to 0, so that we can return to it when unmuting.
+						p->mVolumeSet = true;
 					}
-					
+
 					if(volume == 0)
+					{
 						mute = true;
+					}
 
 					LL_DEBUGS("Voice") << "Setting volume/mute for avatar " << p->mAvatarID << " to " << volume << (mute?"/true":"/false") << LL_ENDL;
 					
@@ -4670,9 +4780,14 @@ void LLVoiceClient::participantUpdatedEvent(
 			{
 				participant->mPower = 0.0f;
 			}
-			participant->mVolume = volume;
 
-			
+			// Ignore incoming volume level if it has been explicitly set, or there
+			//  is a volume or mute change pending.
+			if ( !participant->mVolumeSet && !participant->mVolumeDirty)
+			{
+				participant->mVolume = (F32)volume * VOLUME_SCALE_VIVOX;
+			}
+
 			// *HACK: mantipov: added while working on EXT-3544
 			/*
 			Sometimes LLVoiceClient::participantUpdatedEvent callback is called BEFORE 
@@ -5056,7 +5171,7 @@ void LLVoiceClient::muteListChanged()
 			
 			// Check to see if this participant is on the mute list already
 			if(p->updateMuteState())
-				mAudioSession->mVolumeDirty = true;
+				mAudioSession->mMuteDirty = true;
 		}
 	}
 }
@@ -5079,10 +5194,10 @@ LLVoiceClient::participantState::participantState(const std::string &uri) :
 	 mIsModeratorMuted(false), 
 	 mLastSpokeTimestamp(0.f), 
 	 mPower(0.f), 
-	 mVolume(-1), 
-	 mOnMuteList(false), 
-	 mUserVolume(-1), 
-	 mVolumeDirty(false), 
+	 mVolume(VOLUME_DEFAULT),
+	 mOnMuteList(false),
+	 mVolumeSet(false),
+	 mVolumeDirty(false),
 	 mAvatarIDValid(false),
 	 mIsSelf(false)
 {
@@ -5131,7 +5246,7 @@ LLVoiceClient::participantState *LLVoiceClient::sessionState::addParticipant(con
 				result->mAvatarID = id;
 
 				if(result->updateMuteState())
-					mVolumeDirty = true;
+					mMuteDirty = true;
 			}
 			else
 			{
@@ -5143,8 +5258,7 @@ LLVoiceClient::participantState *LLVoiceClient::sessionState::addParticipant(con
 		
 		mParticipantsByUUID.insert(participantUUIDMap::value_type(&(result->mAvatarID), result));
 
-		result->mUserVolume = LLSpeakerVolumeStorage::getInstance()->getSpeakerVolume(result->mAvatarID);
-		if (result->mUserVolume != -1)
+		if (LLSpeakerVolumeStorage::getInstance()->getSpeakerVolume(result->mAvatarID, result->mVolume))
 		{
 			result->mVolumeDirty = true;
 			mVolumeDirty = true;
@@ -5935,12 +6049,10 @@ void LLVoiceClient::enforceTether(void)
 
 void LLVoiceClient::updatePosition(void)
 {
-	
 	if(gVoiceClient)
 	{
-		LLVOAvatar *agent = gAgent.getAvatarObject();
 		LLViewerRegion *region = gAgent.getRegion();
-		if(region && agent)
+		if(region && isAgentAvatarValid())
 		{
 			LLMatrix3 rot;
 			LLVector3d pos;
@@ -5958,9 +6070,9 @@ void LLVoiceClient::updatePosition(void)
 					rot);				// rotation matrix
 					
 			// Send the current avatar position to the voice code
-			rot = agent->getRootJoint()->getWorldRotation().getMatrix3();
+			rot = gAgentAvatarp->getRootJoint()->getWorldRotation().getMatrix3();
 	
-			pos = agent->getPositionGlobal();
+			pos = gAgentAvatarp->getPositionGlobal();
 			// TODO: Can we get the head offset from outside the LLVOAvatar?
 //			pos += LLVector3d(mHeadOffset);
 			pos += LLVector3d(0.f, 0.f, 1.f);
@@ -6093,7 +6205,9 @@ bool LLVoiceClient::voiceEnabled()
 bool LLVoiceClient::voiceWorking()
 {
 	//Added stateSessionTerminated state to avoid problems with call in parcels with disabled voice (EXT-4758)
-	return (stateLoggedIn <= mState) && (mState <= stateSessionTerminated);
+	// Condition with joining spatial num was added to take into account possible problems with connection to voice
+	// server(EXT-4313). See bug descriptions and comments for MAX_NORMAL_JOINING_SPATIAL_NUM for more info.
+	return (mSpatialJoiningNum < MAX_NORMAL_JOINING_SPATIAL_NUM) && (stateLoggedIn <= mState) && (mState <= stateSessionTerminated);
 }
 
 void LLVoiceClient::setLipSyncEnabled(BOOL enabled)
@@ -6342,50 +6456,20 @@ BOOL LLVoiceClient::getOnMuteList(const LLUUID& id)
 	return result;
 }
 
-// External accessiors. Maps 0.0 to 1.0 to internal values 0-400 with .5 == 100
-// internal = 400 * external^2
+// External accessors.
 F32 LLVoiceClient::getUserVolume(const LLUUID& id)
 {
-	F32 result = 0.0f;
+	// Minimum volume will be returned for users with voice disabled
+	F32 result = VOLUME_MIN;
 	
 	participantState *participant = findParticipantByID(id);
 	if(participant)
 	{
-		S32 ires = 100; // nominal default volume
-		
-		if(participant->mIsSelf)
-		{
-			// Always make it look like the user's own volume is set at the default.
-		}
-		else if(participant->mUserVolume != -1)
-		{
-			// Use the internal volume
-			ires = participant->mUserVolume;
-			
-			// Enable this when debugging voice slider issues.  It's way to spammy even for debug-level logging.
-//			LL_DEBUGS("Voice") << "mapping from mUserVolume " << ires << LL_ENDL;
-		}
-		else if(participant->mVolume != -1)
-		{
-			// Map backwards from vivox volume 
+		result = participant->mVolume;
 
-			// Enable this when debugging voice slider issues.  It's way to spammy even for debug-level logging.
-//			LL_DEBUGS("Voice") << "mapping from mVolume " << participant->mVolume << LL_ENDL;
-
-			if(participant->mVolume < 56)
-			{
-				ires = (participant->mVolume * 100) / 56;
-			}
-			else
-			{
-				ires = (((participant->mVolume - 56) * 300) / (100 - 56)) + 100;
-			}
-		}
-		result = sqrtf(((F32)ires) / 400.f);
+		// Enable this when debugging voice slider issues.  It's way to spammy even for debug-level logging.
+		// LL_DEBUGS("Voice") << "mVolume = " << result <<  " for " << id << LL_ENDL;
 	}
-
-	// Enable this when debugging voice slider issues.  It's way to spammy even for debug-level logging.
-//	LL_DEBUGS("Voice") << "returning " << result << LL_ENDL;
 
 	return result;
 }
@@ -6395,16 +6479,23 @@ void LLVoiceClient::setUserVolume(const LLUUID& id, F32 volume)
 	if(mAudioSession)
 	{
 		participantState *participant = findParticipantByID(id);
-		if (participant)
+		if (participant && !participant->mIsSelf)
 		{
-			// store this volume setting for future sessions
-			LLSpeakerVolumeStorage::getInstance()->storeSpeakerVolume(id, volume);
+			if (!is_approx_equal(volume, VOLUME_DEFAULT))
+			{
+				// Store this volume setting for future sessions if it has been
+				// changed from the default
+				LLSpeakerVolumeStorage::getInstance()->storeSpeakerVolume(id, volume);
+			}
+			else
+			{
+				// Remove stored volume setting if it is returned to the default
+				LLSpeakerVolumeStorage::getInstance()->removeSpeakerVolume(id);
+			}
 
-			// volume can amplify by as much as 4x!
-			S32 ivol = (S32)(400.f * volume * volume);
-			participant->mUserVolume = llclamp(ivol, 0, 400);
-			participant->mVolumeDirty = TRUE;
-			mAudioSession->mVolumeDirty = TRUE;
+			participant->mVolume = llclamp(volume, VOLUME_MIN, VOLUME_MAX);
+			participant->mVolumeDirty = true;
+			mAudioSession->mVolumeDirty = true;
 		}
 	}
 }
@@ -6545,6 +6636,7 @@ LLVoiceClient::sessionState::sessionState() :
 	mVoiceEnabled(false),
 	mReconnect(false),
 	mVolumeDirty(false),
+	mMuteDirty(false),
 	mParticipantsChanged(false)
 {
 }

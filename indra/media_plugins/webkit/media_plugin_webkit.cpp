@@ -43,11 +43,22 @@
 #include "llpluginmessageclasses.h"
 #include "media_plugin_base.h"
 
-#if LL_WINDOWS
-#include <direct.h>
+// set to 1 if you're using the version of llqtwebkit that's QPixmap-ified
+#if LL_LINUX
+# define LL_QTWEBKIT_USES_PIXMAPS 0
 #else
-#include <unistd.h>
-#include <stdlib.h>
+# define LL_QTWEBKIT_USES_PIXMAPS 0
+#endif // LL_LINUX
+
+#if LL_LINUX
+# include "linux_volume_catcher.h"
+#endif // LL_LINUX
+
+#if LL_WINDOWS
+# include <direct.h>
+#else
+# include <unistd.h>
+# include <stdlib.h>
 #endif
 
 #if LL_WINDOWS
@@ -77,10 +88,16 @@ public:
 private:
 
 	std::string mProfileDir;
+	std::string mHostLanguage;
+	std::string mUserAgent;
+	bool mCookiesEnabled;
+	bool mJavascriptEnabled;
+	bool mPluginsEnabled;
 
 	enum
 	{
-		INIT_STATE_UNINITIALIZED,		// Browser instance hasn't been set up yet
+		INIT_STATE_UNINITIALIZED,		// LLQtWebkit hasn't been set up yet
+		INIT_STATE_INITIALIZED,			// LLQtWebkit has been set up, but no browser window has been created yet.
 		INIT_STATE_NAVIGATING,			// Browser instance has been set up and initial navigate to about:blank has been issued
 		INIT_STATE_NAVIGATE_COMPLETE,	// initial navigate to about:blank has completed
 		INIT_STATE_WAIT_REDRAW,			// First real navigate begin has been received, waiting for page changed event to start handling redraws
@@ -102,6 +119,10 @@ private:
 	F32 mBackgroundG;
 	F32 mBackgroundB;
 	
+#if LL_LINUX
+	LinuxVolumeCatcher mLinuxVolumeCatcher;
+#endif // LL_LINUX
+
 	void setInitState(int state)
 	{
 //		std::cerr << "changing init state to " << state << std::endl;
@@ -114,6 +135,10 @@ private:
 	{
 		LLQtWebKit::getInstance()->pump( milliseconds );
 		
+#if LL_LINUX
+		mLinuxVolumeCatcher.pump();
+#endif // LL_LINUX
+
 		checkEditState();
 		
 		if(mInitState == INIT_STATE_NAVIGATE_COMPLETE)
@@ -130,7 +155,11 @@ private:
 		{
 			const unsigned char* browser_pixels = LLQtWebKit::getInstance()->grabBrowserWindow( mBrowserWindowId );
 
-			unsigned int buffer_size = LLQtWebKit::getInstance()->getBrowserRowSpan( mBrowserWindowId ) * LLQtWebKit::getInstance()->getBrowserHeight( mBrowserWindowId );
+			unsigned int rowspan = LLQtWebKit::getInstance()->getBrowserRowSpan( mBrowserWindowId );
+			unsigned int height = LLQtWebKit::getInstance()->getBrowserHeight( mBrowserWindowId );
+#if !LL_QTWEBKIT_USES_PIXMAPS
+			unsigned int buffer_size = rowspan * height;
+#endif // !LL_QTWEBKIT_USES_PIXMAPS
 			
 //			std::cerr << "webkit plugin: updating" << std::endl;
 			
@@ -138,7 +167,16 @@ private:
 			if ( mPixels && browser_pixels )
 			{
 //				std::cerr << "    memcopy of " << buffer_size << " bytes" << std::endl;
+
+#if LL_QTWEBKIT_USES_PIXMAPS
+				// copy the pixel data upside-down because of the co-ord system
+				for (int y=0; y<height; ++y)
+				{
+					memcpy( &mPixels[(height-y-1)*rowspan], &browser_pixels[y*rowspan], rowspan );
+				}
+#else
 				memcpy( mPixels, browser_pixels, buffer_size );
+#endif // LL_QTWEBKIT_USES_PIXMAPS
 			}
 
 			if ( mWidth > 0 && mHeight > 0 )
@@ -159,13 +197,6 @@ private:
 		if ( mInitState > INIT_STATE_UNINITIALIZED )
 			return true;
 
-		// not enough information to initialize the browser yet.
-		if ( mWidth < 0 || mHeight < 0 || mDepth < 0 || 
-				mTextureWidth < 0 || mTextureHeight < 0 )
-		{
-			return false;
-		};
-
 		// set up directories
 		char cwd[ FILENAME_MAX ];	// I *think* this is defined on all platforms we use
 		if (NULL == getcwd( cwd, FILENAME_MAX - 1 ))
@@ -176,12 +207,12 @@ private:
 		std::string application_dir = std::string( cwd );
 
 #if LL_DARWIN
-	// When running under the Xcode debugger, there's a setting called "Break on Debugger()/DebugStr()" which defaults to being turned on.
-	// This causes the environment variable USERBREAK to be set to 1, which causes these legacy calls to break into the debugger.
-	// This wouldn't cause any problems except for the fact that the current release version of the Flash plugin has a call to Debugger() in it
-	// which gets hit when the plugin is probed by webkit.
-	// Unsetting the environment variable here works around this issue.
-	unsetenv("USERBREAK");
+		// When running under the Xcode debugger, there's a setting called "Break on Debugger()/DebugStr()" which defaults to being turned on.
+		// This causes the environment variable USERBREAK to be set to 1, which causes these legacy calls to break into the debugger.
+		// This wouldn't cause any problems except for the fact that the current release version of the Flash plugin has a call to Debugger() in it
+		// which gets hit when the plugin is probed by webkit.
+		// Unsetting the environment variable here works around this issue.
+		unsetenv("USERBREAK");
 #endif
 
 #if LL_WINDOWS
@@ -222,65 +253,91 @@ private:
 		bool result = LLQtWebKit::getInstance()->init( application_dir, component_dir, mProfileDir, native_window_handle );
 		if ( result )
 		{
-			// create single browser window
-			mBrowserWindowId = LLQtWebKit::getInstance()->createBrowserWindow( mWidth, mHeight );
-#if LL_WINDOWS
-			// Enable plugins
-			LLQtWebKit::getInstance()->enablePlugins(true);
-#elif LL_DARWIN
-			// Enable plugins
-			LLQtWebKit::getInstance()->enablePlugins(true);
-#elif LL_LINUX
-			// Enable plugins
-			LLQtWebKit::getInstance()->enablePlugins(true);
-#endif
-			// Enable cookies
-			LLQtWebKit::getInstance()->enableCookies( true );
-
-			// tell LLQtWebKit about the size of the browser window
-			LLQtWebKit::getInstance()->setSize( mBrowserWindowId, mWidth, mHeight );
-
-			// observer events that LLQtWebKit emits
-			LLQtWebKit::getInstance()->addObserver( mBrowserWindowId, this );
-
-			// append details to agent string
-			LLQtWebKit::getInstance()->setBrowserAgentId( "LLPluginMedia Web Browser" );
-
-			// don't flip bitmap
-			LLQtWebKit::getInstance()->flipWindow( mBrowserWindowId, true );
+			mInitState = INIT_STATE_INITIALIZED;
 			
-			// set background color
-			// convert background color channels from [0.0, 1.0] to [0, 255];
-			LLQtWebKit::getInstance()->setBackgroundColor( mBrowserWindowId, int(mBackgroundR * 255.0f), int(mBackgroundG * 255.0f), int(mBackgroundB * 255.0f) );
-
-			// Set state _before_ starting the navigate, since onNavigateBegin might get called before this call returns.
-			setInitState(INIT_STATE_NAVIGATING);
-
-			// Don't do this here -- it causes the dreaded "white flash" when loading a browser instance.
-			// FIXME: Re-added this because navigating to a "page" initializes things correctly - especially
-			// for the HTTP AUTH dialog issues (DEV-41731). Will fix at a later date.
-			// Build a data URL like this: "data:text/html,%3Chtml%3E%3Cbody bgcolor=%22#RRGGBB%22%3E%3C/body%3E%3C/html%3E"
-			// where RRGGBB is the background color in HTML style
-			std::stringstream url;
-			
-			url << "data:text/html,%3Chtml%3E%3Cbody%20bgcolor=%22#";
-			// convert background color channels from [0.0, 1.0] to [0, 255];
-			url << std::setfill('0') << std::setw(2) << std::hex << int(mBackgroundR * 255.0f);
-			url << std::setfill('0') << std::setw(2) << std::hex << int(mBackgroundG * 255.0f);
-			url << std::setfill('0') << std::setw(2) << std::hex << int(mBackgroundB * 255.0f);
-			url << "%22%3E%3C/body%3E%3C/html%3E";
-			
-			lldebugs << "data url is: " << url.str() << llendl;
-						
-			LLQtWebKit::getInstance()->navigateTo( mBrowserWindowId, url.str() );
-//			LLQtWebKit::getInstance()->navigateTo( mBrowserWindowId, "about:blank" );
-
 			return true;
 		};
 
 		return false;
 	};
 
+	////////////////////////////////////////////////////////////////////////////////
+	//
+	bool initBrowserWindow()
+	{
+		// already initialized
+		if ( mInitState > INIT_STATE_INITIALIZED )
+			return true;
+
+		// not enough information to initialize the browser yet.
+		if ( mWidth < 0 || mHeight < 0 || mDepth < 0 || 
+				mTextureWidth < 0 || mTextureHeight < 0 )
+		{
+			return false;
+		};
+		
+		// Set up host language before creating browser window
+		if(!mHostLanguage.empty())
+		{
+			LLQtWebKit::getInstance()->setHostLanguage(mHostLanguage);
+		}
+
+		// turn on/off cookies based on what host app tells us
+		LLQtWebKit::getInstance()->enableCookies( mCookiesEnabled );
+
+		// turn on/off plugins based on what host app tells us
+		LLQtWebKit::getInstance()->enablePlugins( mPluginsEnabled );
+
+		// turn on/off Javascript based on what host app tells us
+		LLQtWebKit::getInstance()->enableJavascript( mJavascriptEnabled );
+		
+		// create single browser window
+		mBrowserWindowId = LLQtWebKit::getInstance()->createBrowserWindow( mWidth, mHeight );
+
+		// tell LLQtWebKit about the size of the browser window
+		LLQtWebKit::getInstance()->setSize( mBrowserWindowId, mWidth, mHeight );
+
+		// observer events that LLQtWebKit emits
+		LLQtWebKit::getInstance()->addObserver( mBrowserWindowId, this );
+
+		// append details to agent string
+		LLQtWebKit::getInstance()->setBrowserAgentId( mUserAgent );
+
+#if !LL_QTWEBKIT_USES_PIXMAPS
+		// don't flip bitmap
+		LLQtWebKit::getInstance()->flipWindow( mBrowserWindowId, true );
+#endif // !LL_QTWEBKIT_USES_PIXMAPS
+		
+		// set background color
+		// convert background color channels from [0.0, 1.0] to [0, 255];
+		LLQtWebKit::getInstance()->setBackgroundColor( mBrowserWindowId, int(mBackgroundR * 255.0f), int(mBackgroundG * 255.0f), int(mBackgroundB * 255.0f) );
+
+		// Set state _before_ starting the navigate, since onNavigateBegin might get called before this call returns.
+		setInitState(INIT_STATE_NAVIGATING);
+
+		// Don't do this here -- it causes the dreaded "white flash" when loading a browser instance.
+		// FIXME: Re-added this because navigating to a "page" initializes things correctly - especially
+		// for the HTTP AUTH dialog issues (DEV-41731). Will fix at a later date.
+		// Build a data URL like this: "data:text/html,%3Chtml%3E%3Cbody bgcolor=%22#RRGGBB%22%3E%3C/body%3E%3C/html%3E"
+		// where RRGGBB is the background color in HTML style
+		std::stringstream url;
+		
+		url << "data:text/html,%3Chtml%3E%3Cbody%20bgcolor=%22#";
+		// convert background color channels from [0.0, 1.0] to [0, 255];
+		url << std::setfill('0') << std::setw(2) << std::hex << int(mBackgroundR * 255.0f);
+		url << std::setfill('0') << std::setw(2) << std::hex << int(mBackgroundG * 255.0f);
+		url << std::setfill('0') << std::setw(2) << std::hex << int(mBackgroundB * 255.0f);
+		url << "%22%3E%3C/body%3E%3C/html%3E";
+		
+		lldebugs << "data url is: " << url.str() << llendl;
+					
+		LLQtWebKit::getInstance()->navigateTo( mBrowserWindowId, url.str() );
+//		LLQtWebKit::getInstance()->navigateTo( mBrowserWindowId, "about:blank" );
+
+		return true;	
+	}
+
+	void setVolume(F32 vol);
 
 	////////////////////////////////////////////////////////////////////////////////
 	// virtual
@@ -451,6 +508,19 @@ private:
 		sendMessage(message);
 	}
 	
+
+	////////////////////////////////////////////////////////////////////////////////
+	// virtual
+	void onCookieChanged(const EventType& event)
+	{
+		LLPluginMessage message(LLPLUGIN_MESSAGE_CLASS_MEDIA_BROWSER, "cookie_set");
+		message.setValue("cookie", event.getStringValue());
+		// These could be passed through as well, but aren't really needed.
+//		message.setValue("uri", event.getEventUri());
+//		message.setValueBoolean("dead", (event.getIntValue() != 0))
+		sendMessage(message);
+	}
+	
 	LLQtWebKit::EKeyboardModifier decodeModifiers(std::string &modifiers)
 	{
 		int result = 0;
@@ -615,6 +685,11 @@ MediaPluginWebKit::MediaPluginWebKit(LLPluginInstance::sendMessageFunction host_
 	mBackgroundR = 0.0f;
 	mBackgroundG = 0.0f;
 	mBackgroundB = 0.0f;
+
+	mHostLanguage = "en";		// default to english
+	mJavascriptEnabled = true;	// default to on
+	mPluginsEnabled = true;		// default to on
+	mUserAgent = "LLPluginMedia Web Browser";
 }
 
 MediaPluginWebKit::~MediaPluginWebKit()
@@ -641,9 +716,6 @@ void MediaPluginWebKit::receiveMessage(const char *message_string)
 		{
 			if(message_name == "init")
 			{
-				std::string user_data_path = message_in.getValue("user_data_path"); // n.b. always has trailing platform-specific dir-delimiter
-				mProfileDir = user_data_path + "browser_profile";
-
 				LLPluginMessage message("base", "init_response");
 				LLSD versions = LLSD::emptyMap();
 				versions[LLPLUGIN_MESSAGE_CLASS_BASE] = LLPLUGIN_MESSAGE_CLASS_BASE_VERSION;
@@ -654,19 +726,6 @@ void MediaPluginWebKit::receiveMessage(const char *message_string)
 				std::string plugin_version = "Webkit media plugin, Webkit version ";
 				plugin_version += LLQtWebKit::getInstance()->getVersion();
 				message.setValue("plugin_version", plugin_version);
-				sendMessage(message);
-				
-				// Plugin gets to decide the texture parameters to use.
-				mDepth = 4;
-
-				message.setMessage(LLPLUGIN_MESSAGE_CLASS_MEDIA, "texture_params");
-				message.setValueS32("default_width", 1024);
-				message.setValueS32("default_height", 1024);
-				message.setValueS32("depth", mDepth);
-				message.setValueU32("internalformat", GL_RGBA);
-				message.setValueU32("format", GL_RGBA);
-				message.setValueU32("type", GL_UNSIGNED_BYTE);
-				message.setValueBoolean("coords_opengl", true);
 				sendMessage(message);
 			}
 			else if(message_name == "idle")
@@ -732,9 +791,68 @@ void MediaPluginWebKit::receiveMessage(const char *message_string)
 //				std::cerr << "MediaPluginWebKit::receiveMessage: unknown base message: " << message_name << std::endl;
 			}
 		}
+		else if(message_class == LLPLUGIN_MESSAGE_CLASS_MEDIA_TIME)
+		{
+			if(message_name == "set_volume")
+			{
+				F32 volume = message_in.getValueReal("volume");
+				setVolume(volume);
+			}
+		}
 		else if(message_class == LLPLUGIN_MESSAGE_CLASS_MEDIA)
 		{
-			if(message_name == "size_change")
+			if(message_name == "init")
+			{
+				// This is the media init message -- all necessary data for initialization should have been received.
+				if(initBrowser())
+				{
+					
+					// Plugin gets to decide the texture parameters to use.
+					mDepth = 4;
+
+					LLPluginMessage message(LLPLUGIN_MESSAGE_CLASS_MEDIA, "texture_params");
+					message.setValueS32("default_width", 1024);
+					message.setValueS32("default_height", 1024);
+					message.setValueS32("depth", mDepth);
+					message.setValueU32("internalformat", GL_RGBA);
+	#if LL_QTWEBKIT_USES_PIXMAPS
+					message.setValueU32("format", GL_BGRA_EXT); // I hope this isn't system-dependant... is it?  If so, we'll have to check the root window's pixel layout or something... yuck.
+	#else
+					message.setValueU32("format", GL_RGBA);
+	#endif // LL_QTWEBKIT_USES_PIXMAPS
+					message.setValueU32("type", GL_UNSIGNED_BYTE);
+					message.setValueBoolean("coords_opengl", true);
+					sendMessage(message);
+				}
+				else
+				{
+					// if initialization failed, we're done.
+					mDeleteMe = true;
+				}
+
+			}
+			else if(message_name == "set_user_data_path")
+			{
+				std::string user_data_path = message_in.getValue("path"); // n.b. always has trailing platform-specific dir-delimiter
+				mProfileDir = user_data_path + "browser_profile";
+
+				// FIXME: Should we do anything with this if it comes in after the browser has been initialized?
+			}
+			else if(message_name == "set_language_code")
+			{
+				mHostLanguage = message_in.getValue("language");
+
+				// FIXME: Should we do anything with this if it comes in after the browser has been initialized?
+			}
+			else if(message_name == "plugins_enabled")
+			{
+				mPluginsEnabled = message_in.getValueBoolean("enable");
+			}
+			else if(message_name == "javascript_enabled")
+			{
+				mJavascriptEnabled = message_in.getValueBoolean("enable");
+			}
+			else if(message_name == "size_change")
 			{
 				std::string name = message_in.getValue("name");
 				S32 width = message_in.getValueS32("width");
@@ -756,29 +874,36 @@ void MediaPluginWebKit::receiveMessage(const char *message_string)
 						mWidth = width;
 						mHeight = height;
 
-						// initialize (only gets called once)
-						initBrowser();
-
-						// size changed so tell the browser
-						LLQtWebKit::getInstance()->setSize( mBrowserWindowId, mWidth, mHeight );
-						
-//						std::cerr << "webkit plugin: set size to " << mWidth << " x " << mHeight 
-//								<< ", rowspan is " << LLQtWebKit::getInstance()->getBrowserRowSpan(mBrowserWindowId) << std::endl;
-								
-						S32 real_width = LLQtWebKit::getInstance()->getBrowserRowSpan(mBrowserWindowId) / LLQtWebKit::getInstance()->getBrowserDepth(mBrowserWindowId); 
-						
-						// The actual width the browser will be drawing to is probably smaller... let the host know by modifying texture_width in the response.
-						if(real_width <= texture_width)
+						if(initBrowserWindow())
 						{
-							texture_width = real_width;
+
+							// size changed so tell the browser
+							LLQtWebKit::getInstance()->setSize( mBrowserWindowId, mWidth, mHeight );
+							
+	//						std::cerr << "webkit plugin: set size to " << mWidth << " x " << mHeight 
+	//								<< ", rowspan is " << LLQtWebKit::getInstance()->getBrowserRowSpan(mBrowserWindowId) << std::endl;
+									
+							S32 real_width = LLQtWebKit::getInstance()->getBrowserRowSpan(mBrowserWindowId) / LLQtWebKit::getInstance()->getBrowserDepth(mBrowserWindowId); 
+							
+							// The actual width the browser will be drawing to is probably smaller... let the host know by modifying texture_width in the response.
+							if(real_width <= texture_width)
+							{
+								texture_width = real_width;
+							}
+							else
+							{
+								// This won't work -- it'll be bigger than the allocated memory.  This is a fatal error.
+	//							std::cerr << "Fatal error: browser rowbytes greater than texture width" << std::endl;
+								mDeleteMe = true;
+								return;
+							}
 						}
 						else
 						{
-							// This won't work -- it'll be bigger than the allocated memory.  This is a fatal error.
-//							std::cerr << "Fatal error: browser rowbytes greater than texture width" << std::endl;
+							// Setting up the browser window failed.  This is a fatal error.
 							mDeleteMe = true;
-							return;
 						}
+
 						
 						mTextureWidth = texture_width;
 						mTextureHeight = texture_height;
@@ -928,8 +1053,22 @@ void MediaPluginWebKit::receiveMessage(const char *message_string)
 			}
 			else if(message_name == "enable_cookies")
 			{
-				bool val = message_in.getValueBoolean("enable");
-				LLQtWebKit::getInstance()->enableCookies( val );
+				mCookiesEnabled = message_in.getValueBoolean("enable");
+				LLQtWebKit::getInstance()->enableCookies( mCookiesEnabled );
+			}
+			else if(message_name == "enable_plugins")
+			{
+				mPluginsEnabled = message_in.getValueBoolean("enable");
+				LLQtWebKit::getInstance()->enablePlugins( mPluginsEnabled );
+			}
+			else if(message_name == "enable_javascript")
+			{
+				mJavascriptEnabled = message_in.getValueBoolean("enable");
+				//LLQtWebKit::getInstance()->enableJavascript( mJavascriptEnabled );
+			}
+			else if(message_name == "set_cookies")
+			{
+				LLQtWebKit::getInstance()->setCookies(message_in.getValue("cookies"));
 			}
 			else if(message_name == "proxy_setup")
 			{
@@ -966,8 +1105,8 @@ void MediaPluginWebKit::receiveMessage(const char *message_string)
 			}
 			else if(message_name == "set_user_agent")
 			{
-				std::string user_agent = message_in.getValue("user_agent");
-				LLQtWebKit::getInstance()->setBrowserAgentId( user_agent );
+				mUserAgent = message_in.getValue("user_agent");
+				LLQtWebKit::getInstance()->setBrowserAgentId( mUserAgent );
 			}
 			else if(message_name == "init_history")
 			{
@@ -996,6 +1135,13 @@ void MediaPluginWebKit::receiveMessage(const char *message_string)
 //			std::cerr << "MediaPluginWebKit::receiveMessage: unknown message class: " << message_class << std::endl;
 		};
 	}
+}
+
+void MediaPluginWebKit::setVolume(F32 volume)
+{
+#if LL_LINUX
+	mLinuxVolumeCatcher.setVolume(volume);
+#endif // LL_LINUX
 }
 
 int init_media_plugin(LLPluginInstance::sendMessageFunction host_send_func, void *host_user_data, LLPluginInstance::sendMessageFunction *plugin_send_func, void **plugin_user_data)

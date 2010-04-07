@@ -70,6 +70,8 @@ LLParticipantList::LLParticipantList(LLSpeakerMgr* data_source, LLAvatarList* av
 	mSpeakerMgr->addListener(mSpeakerModeratorListener, "update_moderator");
 
 	mAvatarList->setNoItemsCommentText(LLTrans::getString("LoadingData"));
+	LL_DEBUGS("SpeakingIndicator") << "Set session for speaking indicators: " << mSpeakerMgr->getSessionID() << LL_ENDL;
+	mAvatarList->setSessionID(mSpeakerMgr->getSessionID());
 	mAvatarListDoubleClickConnection = mAvatarList->setItemDoubleClickCallback(boost::bind(&LLParticipantList::onAvatarListDoubleClicked, this, _1));
 	mAvatarListRefreshConnection = mAvatarList->setRefreshCompleteCallback(boost::bind(&LLParticipantList::onAvatarListRefreshed, this, _1, _2));
     // Set onAvatarListDoubleClicked as default on_return action.
@@ -246,8 +248,8 @@ bool LLParticipantList::onAddItemEvent(LLPointer<LLOldEvents::LLEvent> event, co
 
 bool LLParticipantList::onRemoveItemEvent(LLPointer<LLOldEvents::LLEvent> event, const LLSD& userdata)
 {
-	LLAvatarList::uuid_vector_t& group_members = mAvatarList->getIDs();
-	LLAvatarList::uuid_vector_t::iterator pos = std::find(group_members.begin(), group_members.end(), event->getValue().asUUID());
+	uuid_vec_t& group_members = mAvatarList->getIDs();
+	uuid_vec_t::iterator pos = std::find(group_members.begin(), group_members.end(), event->getValue().asUUID());
 	if(pos != group_members.end())
 	{
 		group_members.erase(pos);
@@ -258,7 +260,7 @@ bool LLParticipantList::onRemoveItemEvent(LLPointer<LLOldEvents::LLEvent> event,
 
 bool LLParticipantList::onClearListEvent(LLPointer<LLOldEvents::LLEvent> event, const LLSD& userdata)
 {
-	LLAvatarList::uuid_vector_t& group_members = mAvatarList->getIDs();
+	uuid_vec_t& group_members = mAvatarList->getIDs();
 	group_members.clear();
 	mAvatarList->setDirty();
 	return true;
@@ -443,7 +445,7 @@ LLContextMenu* LLParticipantList::LLParticipantListMenu::createMenu()
 	return main_menu;
 }
 
-void LLParticipantList::LLParticipantListMenu::show(LLView* spawning_view, const std::vector<LLUUID>& uuids, S32 x, S32 y)
+void LLParticipantList::LLParticipantListMenu::show(LLView* spawning_view, const uuid_vec_t& uuids, S32 x, S32 y)
 {
 	LLPanelPeopleMenus::ContextMenu::show(spawning_view, uuids, x, y);
 
@@ -613,7 +615,7 @@ bool LLParticipantList::LLParticipantListMenu::enableContextMenuItem(const LLSD&
 
 		bool result = (mUUIDs.size() > 0);
 
-		std::vector<LLUUID>::const_iterator
+		uuid_vec_t::const_iterator
 			id = mUUIDs.begin(),
 			uuids_end = mUUIDs.end();
 

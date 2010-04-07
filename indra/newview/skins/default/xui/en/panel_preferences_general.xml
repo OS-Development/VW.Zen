@@ -141,7 +141,34 @@
          label="General"
          name="Desired_PG"
          value="13" />
+        <combo_box.commit_callback
+		 function="Pref.MaturitySettings"/>
     </combo_box>
+    <icon
+     follows="left|top"
+     height="16"
+     image_name="Parcel_PG_Dark"
+     layout="topleft"
+     left_pad="5"
+     name="rating_icon_general"
+     top_delta="3"
+     width="18"/>
+    <icon
+     follows="left|top"
+     height="16"
+     image_name="Parcel_M_Dark"
+     layout="topleft"
+     left_pad="2"
+     name="rating_icon_moderate"
+     width="18"/>
+    <icon
+     follows="left|top"
+     height="16"
+     image_name="Parcel_R_Dark"
+     layout="topleft"
+     left_pad="2"
+     name="rating_icon_adult"
+     width="18"/>
     <text
      type="string"
      length="1"
@@ -150,7 +177,7 @@
      layout="topleft"
      left="30"
      name="start_location_textbox"
-     top_pad="10"
+     top_pad="15"
      width="394">
         Start location:
     </text>
@@ -229,26 +256,15 @@
      left="50"
      name="show_my_name_checkbox1"
      width="300" />
-    <check_box
-	 enabled_control="AvatarNameTagMode"
-     control_name="SmallAvatarNames"
-     height="16"
-     initial_value="true"
-     label="Small name tags"
-     layout="topleft"
-     left_delta="175"
-     name="small_avatar_names_checkbox"
-     width="200" />
    <check_box
 	 enabled_control="AvatarNameTagMode"
      control_name="RenderShowGroupTitleAll"
      height="16"
      label="Show group titles"
      layout="topleft"
-     left_delta="-175"
+     left_delta="175"
      name="show_all_title_checkbox1"
-     top_pad="5"
-     width="300" />
+     width="200" />
     <text
      type="string"
      length="1"
@@ -327,7 +343,7 @@
      left="30"
      mouse_opaque="false"
      name="text_box3"
-     top_pad="10"
+     top_pad="15"
      width="240">
        Busy mode response:
     </text>
@@ -338,12 +354,12 @@
       use_ellipses="false"
       hover="false"
      commit_on_focus_lost = "true"
-     follows="left|top"
+     follows="left|top|right"
      height="60"
      layout="topleft"
      left="50"
      name="busy_response"
-     width="440"
+     width="450"
      word_wrap="true">
        log_in_to_change
     </text_editor>

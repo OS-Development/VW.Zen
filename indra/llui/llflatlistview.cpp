@@ -243,7 +243,7 @@ LLUUID LLFlatListView::getSelectedUUID() const
 	}
 }
 
-void LLFlatListView::getSelectedUUIDs(std::vector<LLUUID>& selected_uuids) const
+void LLFlatListView::getSelectedUUIDs(uuid_vec_t& selected_uuids) const
 {
 	if (mSelectedItemPairs.empty()) return;
 
@@ -492,6 +492,12 @@ void LLFlatListView::onItemMouseClick(item_pair_t* item_pair, MASK mask)
 {
 	if (!item_pair) return;
 
+	if (!item_pair->first) 
+	{
+		llwarning("Attempt to selet an item pair containing null panel item", 0);
+		return;
+	}
+
 	setFocus(TRUE);
 	
 	bool select_item = !isSelected(item_pair);
@@ -549,15 +555,6 @@ BOOL LLFlatListView::handleKeyHere(KEY key, MASK mask)
 				// If case we are in accordion tab notify parent to go to the next accordion
 				if( notifyParent(LLSD().with("action","select_next")) > 0 ) //message was processed
 					resetSelection();
-			}
-			break;
-		}
-		case 'A':
-		{
-			if(MASK_CONTROL & mask)
-			{
-				selectAll();
-				handled = TRUE;
 			}
 			break;
 		}
@@ -785,10 +782,15 @@ bool LLFlatListView::selectNextItemPair(bool is_up_direction, bool reset_selecti
 	return false;
 }
 
-bool LLFlatListView::selectAll()
+BOOL LLFlatListView::canSelectAll() const
 {
-	if (!mAllowSelection)
-		return false;
+	return !mItemPairs.empty() && mAllowSelection && mMultipleSelection;
+}
+
+void LLFlatListView::selectAll()
+{
+	if (!mAllowSelection || !mMultipleSelection)
+		return;
 
 	mSelectedItemPairs.clear();
 
@@ -808,8 +810,6 @@ bool LLFlatListView::selectAll()
 
 	// Stretch selected item rect to ensure it won't be clipped
 	mSelectedItemsBorder->setRect(getLastSelectedItemRect().stretch(-1));
-
-	return true;
 }
 
 bool LLFlatListView::isSelected(item_pair_t* item_pair) const
@@ -947,11 +947,17 @@ void LLFlatListView::getValues(std::vector<LLSD>& values) const
 void LLFlatListView::onFocusReceived()
 {
 	mSelectedItemsBorder->setVisible(TRUE);
+	gEditMenuHandler = this;
 }
 // virtual
 void LLFlatListView::onFocusLost()
 {
 	mSelectedItemsBorder->setVisible(FALSE);
+	// Route menu back to the default
+ 	if( gEditMenuHandler == this )
+	{
+		gEditMenuHandler = NULL;
+	}
 }
 
 //virtual 

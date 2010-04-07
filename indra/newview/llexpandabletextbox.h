@@ -54,7 +54,6 @@ protected:
 	public:
 		struct Params :	public LLInitParam::Block<Params, LLTextEditor::Params>
 		{
-			Mandatory<std::string> more_label;
 			Params();
 		};
 
@@ -143,6 +142,7 @@ public:
 	 * Collapses text box on top_lost event
 	 */
 	/*virtual*/ void onTopLost();
+
 
 	/**
 	 * Draws text box, collapses text box if its expanded and its parent's position changed

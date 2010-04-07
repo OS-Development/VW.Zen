@@ -71,8 +71,9 @@ static LLDefaultChildRegistry::Register<LLScrollListCtrl> r("scroll_list");
 // local structures & classes.
 struct SortScrollListItem
 {
-	SortScrollListItem(const std::vector<std::pair<S32, BOOL> >& sort_orders)
+	SortScrollListItem(const std::vector<std::pair<S32, BOOL> >& sort_orders,const LLScrollListCtrl::sort_signal_t*	sort_signal)
 	:	mSortOrders(sort_orders)
+	,   mSortSignal(sort_signal)
 	{}
 
 	bool operator()(const LLScrollListItem* i1, const LLScrollListItem* i2)
@@ -85,12 +86,20 @@ struct SortScrollListItem
 			S32 col_idx = it->first;
 			BOOL sort_ascending = it->second;
 
+			S32 order = sort_ascending ? 1 : -1; // ascending or descending sort for this column?
+
 			const LLScrollListCell *cell1 = i1->getColumn(col_idx);
 			const LLScrollListCell *cell2 = i2->getColumn(col_idx);
-			S32 order = sort_ascending ? 1 : -1; // ascending or descending sort for this column?
 			if (cell1 && cell2)
 			{
-				sort_result = order * LLStringUtil::compareDict(cell1->getValue().asString(), cell2->getValue().asString());
+				if(mSortSignal)
+				{
+					sort_result = order * (*mSortSignal)(col_idx,i1, i2);
+				}
+				else
+				{
+					sort_result = order * LLStringUtil::compareDict(cell1->getValue().asString(), cell2->getValue().asString());
+				}
 				if (sort_result != 0)
 				{
 					break; // we have a sort order!
@@ -100,8 +109,10 @@ struct SortScrollListItem
 
 		return sort_result < 0;
 	}
+	
 
 	typedef std::vector<std::pair<S32, BOOL> > sort_order_t;
+	const LLScrollListCtrl::sort_signal_t* mSortSignal;
 	const sort_order_t& mSortOrders;
 };
 
@@ -169,6 +180,7 @@ LLScrollListCtrl::LLScrollListCtrl(const LLScrollListCtrl::Params& p)
 	mOnSortChangedCallback( NULL ),
 	mHighlightedItem(-1),
 	mBorder(NULL),
+	mSortCallback(NULL),
 	mPopupMenu(NULL),
 	mNumDynamicWidthColumns(0),
 	mTotalStaticColumnWidth(0),
@@ -309,12 +321,9 @@ bool LLScrollListCtrl::preProcessChildNode(LLXMLNodePtr child)
 
 LLScrollListCtrl::~LLScrollListCtrl()
 {
-	std::for_each(mItemList.begin(), mItemList.end(), DeletePointer());
+	delete mSortCallback;
 
-	if( gEditMenuHandler == this )
-	{
-		gEditMenuHandler = NULL;
-	}
+	std::for_each(mItemList.begin(), mItemList.end(), DeletePointer());
 }
 
 
@@ -540,7 +549,7 @@ BOOL LLScrollListCtrl::addItem( LLScrollListItem* item, EAddPosition pos, BOOL r
 				std::stable_sort(
 					mItemList.begin(), 
 					mItemList.end(), 
-					SortScrollListItem(single_sort_column));
+					SortScrollListItem(single_sort_column,mSortCallback));
 				
 				// ADD_SORTED just sorts by first column...
 				// this might not match user sort criteria, so flag list as being in unsorted state
@@ -943,14 +952,14 @@ void LLScrollListCtrl::mouseOverHighlightNthItem(S32 target_index)
 	}
 }
 
-S32	LLScrollListCtrl::selectMultiple( std::vector<LLUUID> ids )
+S32	LLScrollListCtrl::selectMultiple( uuid_vec_t ids )
 {
 	item_list::iterator iter;
 	S32 count = 0;
 	for (iter = mItemList.begin(); iter != mItemList.end(); iter++)
 	{
 		LLScrollListItem* item = *iter;
-		std::vector<LLUUID>::iterator iditr;
+		uuid_vec_t::iterator iditr;
 		for(iditr = ids.begin(); iditr != ids.end(); ++iditr)
 		{
 			if (item->getEnabled() && (item->getUUID() == (*iditr)))
@@ -2395,7 +2404,7 @@ void LLScrollListCtrl::updateSort() const
 		std::stable_sort(
 			mItemList.begin(), 
 			mItemList.end(), 
-			SortScrollListItem(mSortColumns));
+			SortScrollListItem(mSortColumns,mSortCallback));
 
 		mSorted = true;
 	}
@@ -2411,7 +2420,7 @@ void LLScrollListCtrl::sortOnce(S32 column, BOOL ascending)
 	std::stable_sort(
 		mItemList.begin(), 
 		mItemList.end(), 
-		SortScrollListItem(sort_column));
+		SortScrollListItem(sort_column,mSortCallback));
 }
 
 void LLScrollListCtrl::dirtyColumns() 

@@ -44,12 +44,15 @@
 #include "llpluginclassmedia.h"
 #include "v4color.h"
 
+#include "llurl.h"
+
 class LLViewerMediaImpl;
 class LLUUID;
 class LLViewerMediaTexture;
 class LLMediaEntry;
 class LLVOVolume;
 class LLMimeDiscoveryResponder;
+class LLPluginCookieStore;
 
 typedef LLPointer<LLViewerMediaImpl> viewer_media_t;
 ///////////////////////////////////////////////////////////////////////////////
@@ -133,8 +136,35 @@ public:
 	static bool isParcelMediaPlaying();
 	static bool isParcelAudioPlaying();
 	
+	// Clear all cookies for all plugins
+	static void clearAllCookies();
+	
+	// Clear all plugins' caches
+	static void clearAllCaches();
+	
+	// Set the "cookies enabled" flag for all loaded plugins
+	static void setCookiesEnabled(bool enabled);
+	
+	// Set the proxy config for all loaded plugins
+	static void setProxyConfig(bool enable, const std::string &host, int port);
+	
+	static LLPluginCookieStore *getCookieStore();
+	static void loadCookieFile();
+	static void saveCookieFile();
+	static void addCookie(const std::string &name, const std::string &value, const std::string &domain, const LLDate &expires, const std::string &path = std::string("/"), bool secure = false );
+	static void addSessionCookie(const std::string &name, const std::string &value, const std::string &domain, const std::string &path = std::string("/"), bool secure = false );
+	static void removeCookie(const std::string &name, const std::string &domain, const std::string &path = std::string("/") );
+
+	static void openIDSetup(const std::string &openid_url, const std::string &openid_token);
+	static void openIDCookieResponse(const std::string &cookie);
+	
 private:
+	static void setOpenIDCookie();
 	static void onTeleportFinished();
+	
+	static LLPluginCookieStore *sCookieStore;
+	static LLURL sOpenIDURL;
+	static std::string sOpenIDCookie;
 };
 
 // Implementation functions not exported into header file
@@ -282,6 +312,7 @@ public:
 
 	// Inherited from LLPluginClassMediaOwner
 	/*virtual*/ void handleMediaEvent(LLPluginClassMedia* plugin, LLPluginClassMediaOwner::EMediaEvent);
+	/*virtual*/ void handleCookieSet(LLPluginClassMedia* self, const std::string &cookie);
 
 	// LLEditMenuHandler overrides
 	/*virtual*/ void	cut();
@@ -322,6 +353,9 @@ public:
 	void setLowPrioritySizeLimit(int size);
 
 	void setTextureID(LLUUID id = LLUUID::null);
+
+	bool isTrustedBrowser() { return mTrustedBrowser; }
+	void setTrustedBrowser(bool trusted) { mTrustedBrowser = trusted; }
 	
 	typedef enum 
 	{
@@ -405,6 +439,7 @@ private:
 	LLColor4 mBackgroundColor;
 	bool mNavigateSuspended;
 	bool mNavigateSuspendedDeferred;
+	bool mTrustedBrowser;
 	
 private:
 	BOOL mIsUpdated ;

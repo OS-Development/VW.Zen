@@ -37,7 +37,6 @@
 #include "llagent.h"
 #include "llappviewer.h"
 #include "llimview.h"
-#include "llmutelist.h"
 #include "llsdutil.h"
 #include "lluicolortable.h"
 #include "llviewerobjectlist.h"
@@ -880,7 +879,7 @@ void LLLocalSpeakerMgr::updateSpeakerList()
 	}
 
 	// pick up non-voice speakers in chat range
-	std::vector<LLUUID> avatar_ids;
+	uuid_vec_t avatar_ids;
 	std::vector<LLVector3d> positions;
 	LLWorld::getInstance()->getAvatars(&avatar_ids, &positions, gAgent.getPositionGlobal(), CHAT_NORMAL_RADIUS);
 	for(U32 i=0; i<avatar_ids.size(); i++)

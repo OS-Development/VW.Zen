@@ -111,6 +111,8 @@ BOOL LLPanelGroupGeneral::postBuild()
 	{
 		mListVisibleMembers->setDoubleClickCallback(openProfile, this);
 		mListVisibleMembers->setContextMenu(LLScrollListCtrl::MENU_AVATAR);
+		
+		mListVisibleMembers->setSortCallback(boost::bind(&LLPanelGroupGeneral::sortMembersList,this,_1,_2,_3));
 	}
 
 	// Options
@@ -818,15 +820,15 @@ void LLPanelGroupGeneral::reset()
 	
 	mCtrlListGroup->set(true);
 	
-	mCtrlReceiveNotices->setEnabled(true);
+	mCtrlReceiveNotices->setEnabled(false);
 	mCtrlReceiveNotices->setVisible(true);
 
-	mCtrlListGroup->setEnabled(true);
+	mCtrlListGroup->setEnabled(false);
 
 	mGroupNameEditor->setEnabled(TRUE);
 	mEditCharter->setEnabled(TRUE);
 
-	mCtrlShowInGroupList->setEnabled(TRUE);
+	mCtrlShowInGroupList->setEnabled(false);
 	mComboMature->setEnabled(TRUE);
 	
 	mCtrlOpenEnrollment->setEnabled(TRUE);
@@ -932,6 +934,8 @@ void LLPanelGroupGeneral::setGroupID(const LLUUID& id)
 		mCtrlListGroup->setEnabled(data.mID.notNull());
 	}
 
+	mCtrlShowInGroupList->setEnabled(data.mID.notNull());
+
 	mActiveTitleLabel = getChild<LLTextBox>("active_title_label");
 	
 	mComboActiveTitle = getChild<LLComboBox>("active_title");
@@ -944,4 +948,18 @@ void LLPanelGroupGeneral::setGroupID(const LLUUID& id)
 
 	activate();
 }
+S32 LLPanelGroupGeneral::sortMembersList(S32 col_idx,const LLScrollListItem* i1,const LLScrollListItem* i2)
+{
+	const LLScrollListCell *cell1 = i1->getColumn(col_idx);
+	const LLScrollListCell *cell2 = i2->getColumn(col_idx);
 
+	if(col_idx == 2)
+	{
+		if(LLStringUtil::compareDict(cell1->getValue().asString(),"Online") == 0 )
+			return 1;
+		if(LLStringUtil::compareDict(cell2->getValue().asString(),"Online") == 0 )
+			return -1;
+	}
+
+	return LLStringUtil::compareDict(cell1->getValue().asString(), cell2->getValue().asString());
+}

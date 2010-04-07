@@ -292,7 +292,10 @@ public:
 							  const LLChannelDescriptors& channels,
 							  const LLIOPipe::buffer_ptr_t& buffer)
 	{
-		if ((gSavedSettings.getBOOL("LogTextureDownloadsToViewerLog")) || (gSavedSettings.getBOOL("LogTextureDownloadsToSimulator")))
+		static LLCachedControl<bool> log_to_viewer_log(gSavedSettings,"LogTextureDownloadsToViewerLog");
+		static LLCachedControl<bool> log_to_sim(gSavedSettings,"LogTextureDownloadsToSimulator");
+
+		if (log_to_viewer_log || log_to_sim)
 		{
 			mFetcher->mTextureInfo.setRequestStartTime(mID, mStartTime);
 			U64 timeNow = LLTimer::getTotalTime();
@@ -431,11 +434,11 @@ LLTextureFetchWorker::~LLTextureFetchWorker()
 // 			<< " Desired=" << mDesiredDiscard << llendl;
 	llassert_always(!haveWork());
 	lockWorkMutex();
-	if (mCacheReadHandle != LLTextureCache::nullHandle())
+	if (mCacheReadHandle != LLTextureCache::nullHandle() && mFetcher->mTextureCache)
 	{
 		mFetcher->mTextureCache->readComplete(mCacheReadHandle, true);
 	}
-	if (mCacheWriteHandle != LLTextureCache::nullHandle())
+	if (mCacheWriteHandle != LLTextureCache::nullHandle() && mFetcher->mTextureCache)
 	{
 		mFetcher->mTextureCache->writeComplete(mCacheWriteHandle, true);
 	}
@@ -491,7 +494,7 @@ U32 LLTextureFetchWorker::calcWorkPriority()
  	//llassert_always(mImagePriority >= 0 && mImagePriority <= LLViewerFetchedTexture::maxDecodePriority());
 	static const F32 PRIORITY_SCALE = (F32)LLWorkerThread::PRIORITY_LOWBITS / LLViewerFetchedTexture::maxDecodePriority();
 
-	mWorkPriority = (U32)(mImagePriority * PRIORITY_SCALE);
+	mWorkPriority = llmin((U32)LLWorkerThread::PRIORITY_LOWBITS, (U32)(mImagePriority * PRIORITY_SCALE));
 	return mWorkPriority;
 }
 
@@ -571,7 +574,7 @@ bool LLTextureFetchWorker::doWork(S32 param)
 
 	if ((mFetcher->isQuitting() || mImagePriority < 1.0f || getFlags(LLWorkerClass::WCF_DELETE_REQUESTED)))
 	{
-		if (mState < WRITE_TO_CACHE)
+		if (mState < DECODE_IMAGE)
 		{
 			return true; // abort
 		}
@@ -715,10 +718,10 @@ bool LLTextureFetchWorker::doWork(S32 param)
 
 	if (mState == LOAD_FROM_NETWORK)
 	{
-		bool get_url = gSavedSettings.getBOOL("ImagePipelineUseHTTP");
-		if (!mUrl.empty()) get_url = false;
+		static LLCachedControl<bool> use_http(gSavedSettings,"ImagePipelineUseHTTP");
+
 // 		if (mHost != LLHost::invalid) get_url = false;
-		if ( get_url )
+		if ( use_http && mUrl.empty())//get http url.
 		{
 			LLViewerRegion* region = NULL;
 			if (mHost == LLHost::invalid)
@@ -1429,6 +1432,8 @@ LLTextureFetch::LLTextureFetch(LLTextureCache* cache, LLImageDecodeThread* image
 
 LLTextureFetch::~LLTextureFetch()
 {
+	clearDeleteList() ;
+
 	// ~LLQueuedThread() called here
 }
 
@@ -1715,7 +1720,8 @@ S32 LLTextureFetch::update(U32 max_time_ms)
 {
 	S32 res;
 	
-	mMaxBandwidth = gSavedSettings.getF32("ThrottleBandwidthKBPS");
+	static LLCachedControl<F32> band_width(gSavedSettings,"ThrottleBandwidthKBPS");
+	mMaxBandwidth = band_width ;
 	
 	res = LLWorkerThread::update(max_time_ms);
 	
@@ -1735,6 +1741,26 @@ S32 LLTextureFetch::update(U32 max_time_ms)
 	}
 	
 	return res;
+}
+
+//called in the MAIN thread after the TextureCacheThread shuts down.
+void LLTextureFetch::shutDownTextureCacheThread() 
+{
+	if(mTextureCache)
+	{
+		llassert_always(mTextureCache->isQuitting() || mTextureCache->isStopped()) ;
+		mTextureCache = NULL ;
+	}
+}
+	
+//called in the MAIN thread after the ImageDecodeThread shuts down.
+void LLTextureFetch::shutDownImageDecodeThread() 
+{
+	if(mImageDecodeThread)
+	{
+		llassert_always(mImageDecodeThread->isQuitting() || mImageDecodeThread->isStopped()) ;
+		mImageDecodeThread = NULL ;
+	}
 }
 
 // WORKER THREAD
@@ -1901,7 +1927,9 @@ void LLTextureFetch::sendRequestListToSimulators()
 // 				llinfos << "IMAGE REQUEST: " << req->mID << " Discard: " << req->mDesiredDiscard
 // 						<< " Packet: " << packet << " Priority: " << req->mImagePriority << llendl;
 
-				if ((gSavedSettings.getBOOL("LogTextureDownloadsToViewerLog")) || (gSavedSettings.getBOOL("LogTextureDownloadsToSimulator")))
+				static LLCachedControl<bool> log_to_viewer_log(gSavedSettings,"LogTextureDownloadsToViewerLog");
+				static LLCachedControl<bool> log_to_sim(gSavedSettings,"LogTextureDownloadsToSimulator");
+				if (log_to_viewer_log || log_to_sim)
 				{
 					mTextureInfo.setRequestStartTime(req->mID, LLTimer::getTotalTime());
 					mTextureInfo.setRequestOffset(req->mID, 0);
@@ -2122,7 +2150,10 @@ bool LLTextureFetch::receiveImagePacket(const LLHost& host, const LLUUID& id, U1
 
 	if(packet_num >= (worker->mTotalPackets - 1))
 	{
-		if ((gSavedSettings.getBOOL("LogTextureDownloadsToViewerLog")) || (gSavedSettings.getBOOL("LogTextureDownloadsToSimulator")))
+		static LLCachedControl<bool> log_to_viewer_log(gSavedSettings,"LogTextureDownloadsToViewerLog");
+		static LLCachedControl<bool> log_to_sim(gSavedSettings,"LogTextureDownloadsToSimulator");
+
+		if (log_to_viewer_log || log_to_sim)
 		{
 			U64 timeNow = LLTimer::getTotalTime();
 			mTextureInfo.setRequestSize(id, worker->mFileSize);

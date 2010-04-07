@@ -346,7 +346,7 @@ void LLFloater::layoutDragHandle()
 		rect = getLocalRect();
 	}
 	mDragHandle->setRect(rect);
-	updateButtons();
+	updateTitleButtons();
 	applyTitle();
 }
 
@@ -527,10 +527,7 @@ void LLFloater::setVisible( BOOL visible )
 
 	if( !visible )
 	{
-		if( gFocusMgr.childIsTopCtrl( this ) )
-		{
-			gFocusMgr.setTopCtrl(NULL);
-		}
+		LLUI::removePopup(this);
 
 		if( gFocusMgr.childHasMouseCapture( this ) )
 		{
@@ -704,10 +701,7 @@ void LLFloater::reshape(S32 width, S32 height, BOOL called_from_parent)
 
 void LLFloater::releaseFocus()
 {
-	if( gFocusMgr.childIsTopCtrl( this ) )
-	{
-		gFocusMgr.setTopCtrl(NULL);
-	}
+	LLUI::removePopup(this);
 
 	setFocus(FALSE);
 
@@ -1067,11 +1061,10 @@ void LLFloater::setMinimized(BOOL minimize)
 		// Reshape *after* setting mMinimized
 		reshape( mExpandedRect.getWidth(), mExpandedRect.getHeight(), TRUE );
 	}
-	
-	applyTitle ();
 
 	make_ui_sound("UISndWindowClose");
-	updateButtons();
+	updateTitleButtons();
+	applyTitle ();
 }
 
 void LLFloater::setFocus( BOOL b )
@@ -1127,6 +1120,7 @@ void LLFloater::setIsChrome(BOOL is_chrome)
 		setFocus(FALSE);
 		// can't Ctrl-Tab to "chrome" floaters
 		setFocusRoot(FALSE);
+		mButtons[BUTTON_CLOSE]->setToolTip(LLStringExplicit(getButtonTooltip(Params(), BUTTON_CLOSE, is_chrome)));
 	}
 	
 	// no titles displayed on "chrome" floaters
@@ -1196,7 +1190,7 @@ void LLFloater::setHost(LLMultiFloater* host)
 		mButtonScale = 1.f;
 		//mButtonsEnabled[BUTTON_TEAR_OFF] = FALSE;
 	}
-	updateButtons();
+	updateTitleButtons();
 	if (host)
 	{
 		mHostHandle = host->getHandle();
@@ -1360,7 +1354,6 @@ void LLFloater::bringToFront( S32 x, S32 y )
 // virtual
 void LLFloater::setVisibleAndFrontmost(BOOL take_focus)
 {
-	gFocusMgr.setTopCtrl(NULL);
 	setVisible(TRUE);
 	setFrontmost(take_focus);
 }
@@ -1396,7 +1389,7 @@ void LLFloater::setCanDock(bool b)
 			mButtonsEnabled[BUTTON_DOCK] = FALSE;
 		}
 	}
-	updateButtons();
+	updateTitleButtons();
 }
 
 void LLFloater::setDocked(bool docked, bool pop_on_undock)
@@ -1405,7 +1398,7 @@ void LLFloater::setDocked(bool docked, bool pop_on_undock)
 	{
 		mDocked = docked;
 		mButtonsEnabled[BUTTON_DOCK] = !mDocked;
-		updateButtons();
+		updateTitleButtons();
 
 		storeDockStateControl();
 	}
@@ -1458,7 +1451,7 @@ void LLFloater::onClickTearOff(LLFloater* self)
 		}
 		self->setTornOff(false);
 	}
-	self->updateButtons();
+	self->updateTitleButtons();
 }
 
 // static
@@ -1554,7 +1547,12 @@ void LLFloater::onClickClose( LLFloater* self )
 {
 	if (!self)
 		return;
-	self->closeFloater(false);
+	self->onClickCloseBtn();
+}
+
+void	LLFloater::onClickCloseBtn()
+{
+	closeFloater(false);
 }
 
 
@@ -1693,7 +1691,7 @@ void	LLFloater::setCanMinimize(BOOL can_minimize)
 	mButtonsEnabled[BUTTON_MINIMIZE] = can_minimize && !isMinimized();
 	mButtonsEnabled[BUTTON_RESTORE]  = can_minimize &&  isMinimized();
 
-	updateButtons();
+	updateTitleButtons();
 }
 
 void	LLFloater::setCanClose(BOOL can_close)
@@ -1701,7 +1699,7 @@ void	LLFloater::setCanClose(BOOL can_close)
 	mCanClose = can_close;
 	mButtonsEnabled[BUTTON_CLOSE] = can_close;
 
-	updateButtons();
+	updateTitleButtons();
 }
 
 void	LLFloater::setCanTearOff(BOOL can_tear_off)
@@ -1709,7 +1707,7 @@ void	LLFloater::setCanTearOff(BOOL can_tear_off)
 	mCanTearOff = can_tear_off;
 	mButtonsEnabled[BUTTON_TEAR_OFF] = mCanTearOff && !mHostHandle.isDead();
 
-	updateButtons();
+	updateTitleButtons();
 }
 
 
@@ -1733,10 +1731,11 @@ void LLFloater::setCanDrag(BOOL can_drag)
 	}
 }
 
-void LLFloater::updateButtons()
+void LLFloater::updateTitleButtons()
 {
 	static LLUICachedControl<S32> floater_close_box_size ("UIFloaterCloseBoxSize", 0);
 	static LLUICachedControl<S32> close_box_from_top ("UICloseBoxFromTop", 0);
+	LLRect buttons_rect;
 	S32 button_count = 0;
 	for (S32 i = 0; i < BUTTON_COUNT; i++)
 	{
@@ -1787,6 +1786,15 @@ void LLFloater::updateButtons()
 					llround((F32)floater_close_box_size * mButtonScale));
 			}
 
+			if(!buttons_rect.isValid())
+			{
+				buttons_rect = btn_rect;
+			}
+			else
+			{
+				mDragOnLeft ? buttons_rect.mRight + btn_rect.mRight : 
+					buttons_rect.mLeft = btn_rect.mLeft;
+			}
 			mButtons[i]->setRect(btn_rect);
 			mButtons[i]->setVisible(TRUE);
 			// the restore button should have a tab stop so that it takes action when you Ctrl-Tab to a minimized floater
@@ -1798,7 +1806,10 @@ void LLFloater::updateButtons()
 		}
 	}
 	if (mDragHandle)
-		mDragHandle->setMaxTitleWidth(getRect().getWidth() - (button_count * (floater_close_box_size + 1)));
+	{
+		localRectToOtherView(buttons_rect, &buttons_rect, mDragHandle);
+		mDragHandle->setButtonsRect(buttons_rect);
+	}
 }
 
 void LLFloater::buildButtons(const Params& floater_params)
@@ -1846,7 +1857,7 @@ void LLFloater::buildButtons(const Params& floater_params)
 		p.click_callback.function(boost::bind(sButtonCallbacks[i], this));
 		p.tab_stop(false);
 		p.follows.flags(FOLLOWS_TOP|FOLLOWS_RIGHT);
-		p.tool_tip = getButtonTooltip(floater_params, (EFloaterButton)i);
+		p.tool_tip = getButtonTooltip(floater_params, (EFloaterButton)i, getIsChrome());
 		p.scale_image(true);
 		p.chrome(true);
 
@@ -1855,7 +1866,7 @@ void LLFloater::buildButtons(const Params& floater_params)
 		mButtons[i] = buttonp;
 	}
 
-	updateButtons();
+	updateTitleButtons();
 }
 
 // static
@@ -1901,8 +1912,15 @@ LLUIImage* LLFloater::getButtonPressedImage(const Params& p, EFloaterButton e)
 }
 
 // static
-std::string LLFloater::getButtonTooltip(const Params& p, EFloaterButton e)
+std::string LLFloater::getButtonTooltip(const Params& p, EFloaterButton e, bool is_chrome)
 {
+	// EXT-4081 (Lag Meter: Ctrl+W does not close floater)
+	// If floater is chrome set 'Close' text for close button's tooltip
+	if(is_chrome && BUTTON_CLOSE == e)
+	{
+		static std::string close_tooltip_chrome = LLTrans::getString("BUTTON_CLOSE_CHROME");
+		return close_tooltip_chrome;
+	}
 	// TODO: per-floater localizable tooltips set in XML
 	return sButtonToolTips[e];
 }
@@ -2503,10 +2521,7 @@ void LLFloaterView::syncFloaterTabOrder()
 	if (modal_dialog)
 	{
 		// If we have a visible modal dialog, make sure that it has focus
-		if( gFocusMgr.getTopCtrl() != modal_dialog )
-		{
-			gFocusMgr.setTopCtrl( modal_dialog );
-		}
+		LLUI::addPopup(modal_dialog);
 		
 		if( !gFocusMgr.childHasKeyboardFocus( modal_dialog ) )
 		{
@@ -2814,4 +2829,16 @@ bool LLFloater::isShown() const
 bool LLFloater::isShown(const LLFloater* floater)
 {
     return floater && floater->isShown();
+}
+
+/* static */
+bool LLFloater::isMinimized(const LLFloater* floater)
+{
+    return floater && floater->isMinimized();
+}
+
+/* static */
+bool LLFloater::isVisible(const LLFloater* floater)
+{
+    return floater && floater->getVisible();
 }

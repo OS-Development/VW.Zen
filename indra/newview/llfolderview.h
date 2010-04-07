@@ -93,8 +93,9 @@ class LLFolderView : public LLFolderViewFolder, public LLEditMenuHandler
 public:
 	struct Params : public LLInitParam::Block<Params, LLFolderViewFolder::Params>
 	{
-		Mandatory<LLPanel*> parent_panel;
-		Optional<LLUUID>	task_id;
+		Mandatory<LLPanel*>	    parent_panel;
+		Optional<LLUUID>        task_id;
+		Optional<std::string>   title;
 	};
 	LLFolderView(const Params&);
 	virtual ~LLFolderView( void );
@@ -269,6 +270,7 @@ public:
 	void dumpSelectionInformation();
 
 	virtual S32	notify(const LLSD& info) ;
+	void setEnableScroll(bool enable_scroll) { mEnableScroll = enable_scroll; }
 	
 private:
 	void updateRenamerPosition();
@@ -300,6 +302,7 @@ protected:
 	LLLineEditor*					mRenamer;
 
 	BOOL							mNeedsScroll;
+	bool							mEnableScroll;
 	BOOL							mPinningSelectedItem;
 	LLRect							mScrollConstraintRect;
 	BOOL							mNeedsAutoSelect;

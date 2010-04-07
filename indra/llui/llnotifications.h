@@ -104,6 +104,7 @@
 #include "llinitparam.h"
 #include "llnotificationslistener.h"
 #include "llnotificationptr.h"
+#include "llcachename.h"
 
 	
 typedef enum e_notification_priority
@@ -296,6 +297,7 @@ public:
 		Optional<LLSD>							form_elements;
 		Optional<LLDate>						time_stamp;
 		Optional<LLNotificationContext*>		context;
+		Optional<void*>							responder;
 
 		struct Functor : public LLInitParam::Choice<Functor>
 		{
@@ -317,6 +319,7 @@ public:
 			form_elements("form_elements")
 		{
 			time_stamp = LLDate::now();
+			responder = NULL;
 		}
 
 		Params(const std::string& _name) 
@@ -329,6 +332,7 @@ public:
 			functor.name = _name;
 			name = _name;
 			time_stamp = LLDate::now();
+			responder = NULL;
 		}
 	};
 
@@ -341,9 +345,12 @@ private:
 	LLDate mExpiresAt;
 	bool mCancelled;
 	bool mRespondedTo; 	// once the notification has been responded to, this becomes true
+	LLSD mResponse;
 	bool mIgnored;
 	ENotificationPriority mPriority;
 	LLNotificationFormPtr mForm;
+	void* mResponderObj;
+	bool mIsReusable;
 	
 	// a reference to the template
 	LLNotificationTemplatePtr mTemplatep;
@@ -384,6 +391,8 @@ public:
 
 	void setResponseFunctor(std::string const &responseFunctorName);
 
+	void setResponseFunctor(const LLNotificationFunctorRegistry::ResponseFunctor& cb);
+
 	typedef enum e_response_template_type
 	{
 		WITHOUT_DEFAULT_BUTTON,
@@ -423,6 +432,10 @@ public:
 
 	void respond(const LLSD& sd);
 
+	void* getResponder() { return mResponderObj; }
+
+	void setResponder(void* responder) { mResponderObj = responder; }
+
 	void setIgnored(bool ignore);
 
 	bool isCancelled() const
@@ -434,6 +447,8 @@ public:
 	{
 		return mRespondedTo;
 	}
+
+	const LLSD& getResponse() { return mResponse; }
 
 	bool isIgnored() const
 	{
@@ -504,6 +519,10 @@ public:
 	{
 		return mId;
 	}
+
+	bool isReusable() { return mIsReusable; }
+
+	void setReusable(bool reusable) { mIsReusable = reusable; }
 	
 	// comparing two notifications normally means comparing them by UUID (so we can look them
 	// up quickly this way)
@@ -931,6 +950,62 @@ private:
     boost::scoped_ptr<LLNotificationsListener> mListener;
 };
 
+/**
+ * Abstract class for postponed notifications.
+ * Provides possibility to add notification after specified by id avatar or group will be
+ * received from cache name. The object of this type automatically well be deleted
+ * by cleanup method after respond will be received from cache name.
+ *
+ * To add custom postponed notification to the notification system client should:
+ *  1 create class derived from LLPostponedNotification;
+ *  2 call LLPostponedNotification::add method;
+ */
+class LLPostponedNotification
+{
+public:
+	/**
+	 * Performs hooking cache name callback which will add notification to notifications system.
+	 * Type of added notification should be specified by template parameter T
+	 * and non-private derived from LLPostponedNotification class,
+	 * otherwise compilation error will occur.
+	 */
+	template<class T>
+	static void add(const LLNotification::Params& params,
+			const LLUUID& id, bool is_group)
+	{
+		// upcast T to the base type to restrict T derivation from LLPostponedNotification
+		LLPostponedNotification* thiz = new T();
+
+		thiz->mParams = params;
+
+		gCacheName->get(id, is_group, boost::bind(
+				&LLPostponedNotification::onCachedNameReceived, thiz, _1, _2,
+				_3, _4));
+	}
+
+private:
+	void onCachedNameReceived(const LLUUID& id, const std::string& first,
+			const std::string& last, bool is_group);
+
+	void cleanup()
+	{
+		delete this;
+	}
+
+protected:
+	LLPostponedNotification() {}
+	virtual ~LLPostponedNotification() {}
+
+	/**
+	 * Abstract method provides possibility to modify notification parameters and
+	 * will be called after cache name retrieve information about avatar or group
+	 * and before notification will be added to the notification system.
+	 */
+	virtual void modifyNotificationParams() = 0;
+
+	LLNotification::Params mParams;
+	std::string mName;
+};
 
 #endif//LL_LLNOTIFICATIONS_H
 

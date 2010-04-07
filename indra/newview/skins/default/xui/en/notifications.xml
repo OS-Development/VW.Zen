@@ -249,7 +249,7 @@ Save all changes to clothing/body parts?
     Non-friends won't know that you've choosen to ignore their calls and instant messages.
     <usetemplate
      name="okbutton"
-     yestext="Yes"/>
+     yestext="OK"/>
   </notification>
 
   <notification
@@ -1036,7 +1036,6 @@ Unable to write file [[FILE]]
    type="alertmodal">
 Just so you know, your computer does not meet [APP_NAME]&apos;s minimum system requirements. You may experience poor performance. Unfortunately, the [SUPPORT_SITE] can't provide technical support for unsupported system configurations.
 
-MINSPECS
 Visit [_URL] for more information?
     <url option="0" name="url">
 
@@ -2025,6 +2024,28 @@ Would you be my friend?
   </notification>
 
   <notification
+ icon="alertmodal.tga"
+ label="Save Outfit"
+ name="SaveOutfitAs"
+ type="alertmodal">
+    Save what I'm wearing as a new Outfit:
+    <form name="form">
+      <input name="message" type="text">
+        [DESC] (new)
+      </input>
+      <button
+       default="true"
+       index="0"
+       name="Offer"
+       text="OK"/>
+      <button
+       index="1"
+       name="Cancel"
+       text="Cancel"/>
+    </form>
+  </notification>
+
+  <notification
    icon="alertmodal.tga"
    name="RemoveFromFriends"
    type="alertmodal">
@@ -2849,11 +2870,11 @@ Leave Group?
    icon="alert.tga"
    name="ConfirmKick"
    type="alert">
-Do you REALLY want to kick all users off the grid?
+Do you REALLY want to kick all Residents off the grid?
     <usetemplate
      name="okcancelbuttons"
      notext="Cancel"
-     yestext="Kick All Users"/>
+     yestext="Kick All Residents"/>
   </notification>
 
   <notification
@@ -2953,7 +2974,7 @@ You have reached your maximum number of groups. Please leave some group before j
    icon="alert.tga"
    name="KickUser"
    type="alert">
-Kick this user with what message?
+Kick this Resident with what message?
     <form name="form">
       <input name="message" type="text">
 An administrator has logged you off.
@@ -2995,7 +3016,7 @@ An administrator has logged you off.
    icon="alert.tga"
    name="FreezeUser"
    type="alert">
-Freeze this user with what message?
+Freeze this Resident with what message?
     <form name="form">
       <input name="message" type="text">
 You have been frozen. You cannot move or chat. An administrator will contact you via instant message (IM).
@@ -3016,7 +3037,7 @@ You have been frozen. You cannot move or chat. An administrator will contact you
    icon="alert.tga"
    name="UnFreezeUser"
    type="alert">
-Unfreeze this user with what message?
+Unfreeze this Resident with what message?
     <form name="form">
       <input name="message" type="text">
 You are no longer frozen.
@@ -3058,7 +3079,7 @@ Join me in [REGION]
    icon="alertmodal.tga"
    name="OfferTeleportFromGod"
    type="alertmodal">
-God summon user to your location?
+God summon Resident to your location?
     <form name="form">
       <input name="message" type="text">
 Join me in [REGION]
@@ -3112,6 +3133,18 @@ Teleport to [PICK]?
   </notification>
 
   <notification
+   icon="alertmodal.tga"
+   name="TeleportToHistoryEntry"
+   type="alertmodal">
+Teleport to [HISTORY_ENTRY]?
+    <usetemplate
+     ignoretext="Confirm that I want to teleport to a history location"
+     name="okcancelignore"
+     notext="Cancel"
+     yestext="Teleport"/>
+  </notification>
+
+  <notification
    icon="alert.tga"
    label="Message everyone in your Estate"
    name="MessageEstate"
@@ -3138,7 +3171,7 @@ Type a short announcement which will be sent to everyone currently in your estat
    type="alert">
 You are about to change a Linden owned estate (mainland, teen grid, orientation, etc.).
 
-This is EXTREMELY DANGEROUS because it can fundamentally affect the user experience.  On the mainland, it will change thousands of regions and make the spaceserver hiccup.
+This is EXTREMELY DANGEROUS because it can fundamentally affect the Resident experience.  On the mainland, it will change thousands of regions and make the spaceserver hiccup.
 
 Proceed?
     <usetemplate
@@ -4270,6 +4303,13 @@ The string [STRING_NAME] is missing from strings.xml
    type="notifytip">
 [MESSAGE]
   </notification>
+  
+  <notification
+   icon="notifytip.tga"
+   name="IMSystemMessageTip"
+   type="notifytip">
+[MESSAGE]
+  </notification>
 
   <notification
    icon="notifytip.tga"
@@ -5104,7 +5144,7 @@ An object named [OBJECTFROMNAME] owned by (an unknown Resident) has given you th
    icon="notify.tga"
    name="TeleportOffered"
    type="offer">
-[NAME] has offered to teleport you to their location:
+[NAME_SLURL] has offered to teleport you to their location:
 
 [MESSAGE]
     <form name="form">
@@ -5149,7 +5189,7 @@ An object named [OBJECTFROMNAME] owned by (an unknown Resident) has given you th
    icon="notify.tga"
    name="OfferFriendship"
    type="offer">
-[NAME] is offering friendship.
+[NAME_SLURL] is offering friendship.
 
 [MESSAGE]
 
@@ -5295,6 +5335,13 @@ Failed to find [TYPE] named [DESC] in database.
 
   <notification
    icon="notify.tga"
+   name="ShareToWebFailed"
+   type="notify">
+    Failed to upload image to web.
+  </notification>
+  
+  <notification
+   icon="notify.tga"
    name="InvalidWearable"
    type="notify">
 The item you are trying to wear uses a feature that your Viewer can&apos;t read. Please upgrade your version of [APP_NAME] to wear this item.
@@ -5377,27 +5424,6 @@ Grant this request?
        index="-1"
        name="Ignore"
        text="Ignore"/>
-    </form>
-  </notification>
-
-  <notification
-   icon="notify.tga"
-   name="ScriptToast"
-   type="notify">
-    [FIRST] [LAST]&apos;s &apos;[TITLE]&apos; is requesting user input.
-    <form name="form">
-      <button
-       index="0"
-       name="Open"
-       text="Open Dialog"/>
-      <button
-       index="1"
-       name="Ignore"
-       text="Ignore"/>
-      <button
-       index="2"
-       name="Block"
-       text="Block"/>
     </form>
   </notification>
 
@@ -5850,7 +5876,8 @@ Are you sure you want to close all IMs?
     <usetemplate
      name="okcancelignore"
      notext="Cancel"
-     yestext="OK"/>
+     yestext="OK"
+     ignoretext="Confirm before I close all IMs"/>
   </notification>
 
   <notification icon="notifytip.tga"

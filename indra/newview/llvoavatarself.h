@@ -55,7 +55,8 @@ public:
 	LLVOAvatarSelf(const LLUUID &id, const LLPCode pcode, LLViewerRegion *regionp);
 	virtual 				~LLVOAvatarSelf();
 	virtual void			markDead();
-	virtual void 		initInstance(); // Called after construction to initialize the class.
+	virtual void 			initInstance(); // Called after construction to initialize the class.
+	void					cleanup();
 protected:
 	/*virtual*/ BOOL		loadAvatar();
 	BOOL					loadAvatarSelf();
@@ -77,6 +78,7 @@ protected:
 	//--------------------------------------------------------------------
 public:
 	/*virtual*/ void 		updateRegion(LLViewerRegion *regionp);
+	/*virtual*/ BOOL   	 	idleUpdate(LLAgent &agent, LLWorld &world, const F64 &time);
 
 	//--------------------------------------------------------------------
 	// LLCharacter interface and related
@@ -122,12 +124,10 @@ public:
 public:
 	/*virtual*/ BOOL    updateIsFullyLoaded();
 private:
-	BOOL                mIsBaked; // are the stored baked textures up to date?
 
 	//--------------------------------------------------------------------
 	// Region state
 	//--------------------------------------------------------------------
-private:
 	U64				mLastRegionHandle;
 	LLFrameTimer	mRegionCrossingTimer;
 	S32				mRegionCrossingCount;
@@ -222,6 +222,7 @@ protected:
 	//--------------------------------------------------------------------
 public:
 	void 				requestLayerSetUploads();
+	void				requestLayerSetUpload(LLVOAvatarDefines::EBakedTextureIndex i);
 	void				requestLayerSetUpdate(LLVOAvatarDefines::ETextureIndex i);
 	LLTexLayerSet*		getLayerSet(LLVOAvatarDefines::ETextureIndex index) const;
 	
@@ -231,7 +232,9 @@ public:
 public:
 	/* virtual */ void	invalidateComposite(LLTexLayerSet* layerset, BOOL upload_result);
 	/* virtual */ void	invalidateAll();
-	/* virtual */ void	setCompositeUpdatesEnabled(BOOL b); // only works for self
+	/* virtual */ void	setCompositeUpdatesEnabled(bool b); // only works for self
+	/* virtual */ void  setCompositeUpdatesEnabled(U32 index, bool b);
+	/* virtual */ bool 	isCompositeUpdateEnabled(U32 index);
 	void				setupComposites();
 	void				updateComposites();
 
@@ -329,5 +332,9 @@ public:
  *******************************************************************************/
 
 };
+
+extern LLVOAvatarSelf *gAgentAvatarp;
+
+BOOL isAgentAvatarValid();
 
 #endif // LL_VO_AVATARSELF_H

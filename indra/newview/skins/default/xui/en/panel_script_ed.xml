@@ -143,7 +143,6 @@
      name="Script Editor"
      width="487"
      show_line_numbers="true" 
-     handle_edit_keys_directly="true" 
      word_wrap="true">
         Loading...
     </text_editor>
@@ -178,5 +177,5 @@
      top_pad="-35"
      right="487"
      name="Save_btn"
-     width="61" />
+     width="81" />
 </panel>

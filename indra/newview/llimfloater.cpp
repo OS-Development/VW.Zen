@@ -44,6 +44,7 @@
 #include "llchiclet.h"
 #include "llfloaterreg.h"
 #include "llimfloatercontainer.h" // to replace separate IM Floaters with multifloater container
+#include "llinventoryfunctions.h"
 #include "lllayoutstack.h"
 #include "lllineeditor.h"
 #include "lllogchat.h"
@@ -112,6 +113,8 @@ LLIMFloater::LLIMFloater(const LLUUID& session_id)
 	setOverlapsScreenChannel(true);
 
 	LLTransientFloaterMgr::getInstance()->addControlView(LLTransientFloaterMgr::IM, this);
+
+	setDocked(true);
 }
 
 void LLIMFloater::onFocusLost()
@@ -125,13 +128,12 @@ void LLIMFloater::onFocusReceived()
 {
 	LLIMModel::getInstance()->setActiveSessionID(mSessionID);
 
-	// return focus to the input field when active tab in the multitab container is clicked.
-	if (isChatMultiTab() && mInputEditor)
-	{
-		mInputEditor->setFocus(TRUE);
-	}
-
 	LLBottomTray::getInstance()->getChicletPanel()->setChicletToggleState(mSessionID, true);
+
+	if (getVisible())
+	{
+		LLIMModel::instance().sendNoUnreadMessages(mSessionID);
+	}
 }
 
 // virtual
@@ -442,7 +444,7 @@ LLIMFloater* LLIMFloater::show(const LLUUID& session_id)
 
 void LLIMFloater::getAllowedRect(LLRect& rect)
 {
-	rect = gViewerWindow->getWorldViewRectRaw();
+	rect = gViewerWindow->getWorldViewRectScaled();
 	static S32 right_padding = 0;
 	if (right_padding == 0)
 	{
@@ -458,7 +460,7 @@ void LLIMFloater::getAllowedRect(LLRect& rect)
 void LLIMFloater::setDocked(bool docked, bool pop_on_undock)
 {
 	// update notification channel state
-	LLNotificationsUI::LLScreenChannel* channel = dynamic_cast<LLNotificationsUI::LLScreenChannel*>
+	LLNotificationsUI::LLScreenChannel* channel = static_cast<LLNotificationsUI::LLScreenChannel*>
 		(LLNotificationsUI::LLChannelManager::getInstance()->
 											findChannelByID(LLUUID(gSavedSettings.getString("NotificationChannelUUID"))));
 	
@@ -477,7 +479,7 @@ void LLIMFloater::setDocked(bool docked, bool pop_on_undock)
 
 void LLIMFloater::setVisible(BOOL visible)
 {
-	LLNotificationsUI::LLScreenChannel* channel = dynamic_cast<LLNotificationsUI::LLScreenChannel*>
+	LLNotificationsUI::LLScreenChannel* channel = static_cast<LLNotificationsUI::LLScreenChannel*>
 		(LLNotificationsUI::LLChannelManager::getInstance()->
 											findChannelByID(LLUUID(gSavedSettings.getString("NotificationChannelUUID"))));
 	LLTransientDockableFloater::setVisible(visible);
@@ -613,7 +615,16 @@ void LLIMFloater::updateMessages()
 	bool use_plain_text_chat_history = gSavedSettings.getBOOL("PlainTextChatHistory");
 
 	std::list<LLSD> messages;
-	LLIMModel::instance().getMessages(mSessionID, messages, mLastMessageIndex+1);
+
+	// we shouldn't reset unread message counters if IM floater doesn't have focus
+	if (hasFocus())
+	{
+		LLIMModel::instance().getMessages(mSessionID, messages, mLastMessageIndex+1);
+	}
+	else
+	{
+		LLIMModel::instance().getMessagesSilently(mSessionID, messages, mLastMessageIndex+1);
+	}
 
 	if (messages.size())
 	{
@@ -646,6 +657,24 @@ void LLIMFloater::updateMessages()
 			if (msg.has("notification_id"))
 			{
 				chat.mNotifId = msg["notification_id"].asUUID();
+				// if notification exists - embed it
+				if (LLNotificationsUtil::find(chat.mNotifId) != NULL)
+				{
+					// remove embedded notification from channel
+					LLNotificationsUI::LLScreenChannel* channel = static_cast<LLNotificationsUI::LLScreenChannel*>
+							(LLNotificationsUI::LLChannelManager::getInstance()->
+																findChannelByID(LLUUID(gSavedSettings.getString("NotificationChannelUUID"))));
+					if (getVisible())
+					{
+						// toast will be automatically closed since it is not storable toast
+						channel->hideToast(chat.mNotifId);
+					}
+				}
+				// if notification doesn't exist - try to use next message which should be log entry
+				else
+				{
+					continue;
+				}
 			}
 			//process text message
 			else
@@ -655,6 +684,19 @@ void LLIMFloater::updateMessages()
 			
 			mChatHistory->appendMessage(chat, chat_args);
 			mLastMessageIndex = msg["index"].asInteger();
+
+			// if it is a notification - next message is a notification history log, so skip it
+			if (chat.mNotifId.notNull() && LLNotificationsUtil::find(chat.mNotifId) != NULL)
+			{
+				if (++iter == iter_end)
+				{
+					break;
+				}
+				else
+				{
+					mLastMessageIndex++;
+				}
+			}
 		}
 	}
 }
@@ -679,15 +721,6 @@ void LLIMFloater::onInputEditorFocusReceived( LLFocusableElement* caller, void* 
 	{
 		//in disconnected state IM input editor should be disabled
 		self->mInputEditor->setEnabled(!gDisconnected);
-	}
-
-	// when IM Floater is a part of the multitab container LLTabContainer set focus to the first
-	// child on tab button's mouse up. This leads input field lost focus. See EXT-3852.
-	if (isChatMultiTab())
-	{
-		// So, clear control captured mouse to prevent LLTabContainer set focus on the panel's first child.
-		// do not pass self->mInputEditor, this leads to have "Edit Text" mouse pointer wherever it is.
-		gFocusMgr.setMouseCapture(NULL);
 	}
 }
 
@@ -890,7 +923,7 @@ BOOL LLIMFloater::dropCallingCard(LLInventoryItem* item, BOOL drop)
 	{
 		if(drop)
 		{
-			std::vector<LLUUID> ids;
+			uuid_vec_t ids;
 			ids.push_back(item->getCreatorUUID());
 			inviteToSession(ids);
 		}
@@ -923,7 +956,7 @@ BOOL LLIMFloater::dropCategory(LLInventoryCategory* category, BOOL drop)
 		}
 		else if(drop)
 		{
-			std::vector<LLUUID> ids;
+			uuid_vec_t ids;
 			ids.reserve(count);
 			for(S32 i = 0; i < count; ++i)
 			{
@@ -960,7 +993,7 @@ private:
 	LLUUID mSessionID;
 };
 
-BOOL LLIMFloater::inviteToSession(const std::vector<LLUUID>& ids)
+BOOL LLIMFloater::inviteToSession(const uuid_vec_t& ids)
 {
 	LLViewerRegion* region = gAgent.getRegion();
 	if (!region)

@@ -3345,7 +3345,7 @@ void LLMenuHolderGL::draw()
 	LLView::draw();
 	// now draw last selected item as overlay
 	LLMenuItemGL* selecteditem = (LLMenuItemGL*)sItemLastSelectedHandle.get();
-	if (selecteditem && sItemActivationTimer.getStarted() && sItemActivationTimer.getElapsedTimeF32() < ACTIVATE_HIGHLIGHT_TIME)
+	if (selecteditem && selecteditem->getVisible() && sItemActivationTimer.getStarted() && sItemActivationTimer.getElapsedTimeF32() < ACTIVATE_HIGHLIGHT_TIME)
 	{
 		// make sure toggle items, for example, show the proper state when fading out
 		selecteditem->buildDrawLabel();
@@ -3455,7 +3455,7 @@ LLView* const LLMenuHolderGL::getVisibleMenu() const
 	for ( child_list_const_iter_t child_it = getChildList()->begin(); child_it != getChildList()->end(); ++child_it)
 	{
 		LLView* viewp = *child_it;
-		if (viewp->getVisible() && dynamic_cast<LLMenuBarGL*>(viewp) == NULL)
+		if (viewp->getVisible() && dynamic_cast<LLMenuGL*>(viewp) != NULL)
 		{
 			return viewp;
 		}
@@ -3478,8 +3478,7 @@ BOOL LLMenuHolderGL::hideMenus()
 		for ( child_list_const_iter_t child_it = getChildList()->begin(); child_it != getChildList()->end(); ++child_it)
 		{
 			LLView* viewp = *child_it;
-			// clicks off of menu do not hide menu bar
-			if (dynamic_cast<LLMenuBarGL*>(viewp) == NULL && viewp->getVisible())
+			if (dynamic_cast<LLMenuGL*>(viewp) != NULL && viewp->getVisible())
 			{
 				viewp->setVisible(FALSE);
 			}

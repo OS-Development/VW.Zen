@@ -103,13 +103,6 @@ void LLAccordionCtrl::draw()
 	LLLocalClipRect clip(local_rect);
 	
 	LLPanel::draw();
-	/*
-	S32 width = getRect().getWidth();
-	S32 height = getRect().getHeight();
-
-	gl_rect_2d(0, 0 , width - 1 ,height - 1,LLColor4::green,true);
-	gl_line_2d(0, 0 , width - 1 ,height - 1,LLColor4::black);
-	*/
 }
 
 
@@ -125,7 +118,6 @@ BOOL LLAccordionCtrl::postBuild()
 		scrollbar_size,
 		getRect().getHeight() - 1);
 	
-
 	LLScrollbar::Params sbparams;
 	sbparams.name("scrollable vertical");
 	sbparams.rect(scroll_rect);
@@ -380,11 +372,33 @@ void	LLAccordionCtrl::arrangeSinge()
 		}
 		else
 		{
-			panel_height = expanded_height;
+			if(mFitParent)
+			{
+				panel_height = expanded_height;
+			}
+			else
+			{
+				if(accordion_tab->getAccordionView())
+				{
+					panel_height = accordion_tab->getAccordionView()->getRect().getHeight() + 
+						accordion_tab->getHeaderHeight() + 2*BORDER_MARGIN;
+				}
+				else
+				{
+					panel_height = accordion_tab->getRect().getHeight();
+				}
+			}
 		}
+
+		// make sure at least header is shown
+		panel_height = llmax(panel_height, accordion_tab->getHeaderHeight());
+
 		ctrlSetLeftTopAndSize(mAccordionTabs[i], panel_left, panel_top, panel_width, panel_height);
 		panel_top-=mAccordionTabs[i]->getRect().getHeight();
 	}
+
+	show_hide_scrollbar(getRect().getWidth(), getRect().getHeight());
+	updateLayout(getRect().getWidth(), getRect().getHeight());
 }
 
 void	LLAccordionCtrl::arrangeMultiple()
