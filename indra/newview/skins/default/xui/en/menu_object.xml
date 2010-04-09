@@ -18,16 +18,16 @@
      name="Edit...">
         <menu_item_call.on_click
          function="Object.Edit" />
-        <menu_item_call.on_visible
+    <menu_item_call.on_enable
          function="EnableEdit"/>
     </menu_item_call>
     <menu_item_call
       label="Build"
       name="Build">
       <menu_item_call.on_click
-       function="Object.Edit" />
-      <menu_item_call.on_visible
-       function="VisibleBuild"/>
+        function="Object.Build" />
+        <menu_item_call.on_enable
+         function="EnableEdit"/>
     </menu_item_call>
    <menu_item_call
      enabled="false"
@@ -44,11 +44,8 @@
      name="Object Sit">
         <menu_item_call.on_click
          function="Object.SitOrStand" />
-        <menu_item_call.on_visible
-         function="Object.SitVisible" />
         <menu_item_call.on_enable
-         function="Object.EnableSitOrStand"
-         name="EnableSitOrStand" />
+         function="Object.EnableSit" />
    </menu_item_call>
    <menu_item_call
      enabled="false"
@@ -56,11 +53,8 @@
      name="Object Stand Up">
         <menu_item_call.on_click
          function="Object.SitOrStand" />
-        <menu_item_call.on_visible
-         function="Object.StandUpVisible" />
         <menu_item_call.on_enable
-         function="Object.EnableSitOrStand"
-         name="EnableSitOrStand" />
+         function="Object.EnableStandUp" />
    </menu_item_call>
    <menu_item_call
        label="Object Profile"
@@ -138,26 +132,13 @@
     </context_menu>
    <menu_item_separator layout="topleft" />
    <menu_item_call
-    label="Buy"
-    layout="topleft"
-    name="Pie Object Bye">
-      <menu_item_call.on_click
-       function="Tools.BuyOrTake"/>
-      <menu_item_call.on_visible
-       function="Tools.VisibleBuyObject"/>
-      <menu_item_call.on_enable
-       function="Tools.EnableBuyOrTake"/>
-   </menu_item_call>
-   <menu_item_call
      label="Take"
      layout="topleft"
      name="Pie Object Take">
       <menu_item_call.on_click
-       function="Tools.BuyOrTake"/>
-      <menu_item_call.on_visible
-       function="Tools.VisibleTakeObject"/>
+       function="Object.Take"/>
       <menu_item_call.on_enable
-       function="Tools.EnableBuyOrTake"/>
+       function="Object.VisibleTake"/>
    </menu_item_call>
    <menu_item_call
    enabled="false"

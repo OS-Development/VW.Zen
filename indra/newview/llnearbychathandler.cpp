@@ -2,40 +2,36 @@
  * @file LLNearbyChatHandler.cpp
  * @brief Nearby chat notification managment
  *
- * $LicenseInfo:firstyear=2009&license=viewergpl$
- * 
- * Copyright (c) 2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2009&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
 #include "llviewerprecompiledheaders.h"
 
+#include "llagentdata.h" // for gAgentID
 #include "llnearbychathandler.h"
 
 #include "llbottomtray.h"
 #include "llchatitemscontainerctrl.h"
+#include "llfloaterscriptdebug.h"
 #include "llnearbychat.h"
 #include "llrecentpeople.h"
 
@@ -55,7 +51,6 @@ LLToastPanelBase* createToastPanel()
 	LLNearbyChatToastPanel* item = LLNearbyChatToastPanel::createInstance();
 	return item;
 }
-
 
 class LLNearbyChatScreenChannel: public LLScreenChannelBase
 {
@@ -88,11 +83,7 @@ public:
 	{
 		for(std::vector<LLToast*>::iterator it = m_active_toasts.begin(); it != m_active_toasts.end(); ++it)
 		{
-			LLToast* toast = (*it);
-			toast->setVisible(FALSE);
-			toast->stopTimer();
-			m_toast_pool.push_back(toast);
-
+			addToToastPool((*it));
 		}
 		m_active_toasts.clear();
 	};
@@ -105,6 +96,14 @@ public:
 	}
 
 protected:
+	void	addToToastPool(LLToast* toast)
+	{
+		toast->setVisible(FALSE);
+		toast->stopTimer();
+		toast->setIsHidden(true);
+		m_toast_pool.push_back(toast);
+	}
+
 	void	createOverflowToast(S32 bottom, F32 timer);
 
 	create_toast_panel_callback_t m_create_toast_panel_callback_t;
@@ -132,11 +131,12 @@ void LLNearbyChatScreenChannel::onToastFade(LLToast* toast)
 	//fade mean we put toast to toast pool
 	if(!toast)
 		return;
-	m_toast_pool.push_back(toast);
 
 	std::vector<LLToast*>::iterator pos = std::find(m_active_toasts.begin(),m_active_toasts.end(),toast);
 	if(pos!=m_active_toasts.end())
 		m_active_toasts.erase(pos);
+
+	addToToastPool(toast);
 	
 	arrangeToasts();
 }
@@ -228,7 +228,7 @@ void LLNearbyChatScreenChannel::addNotification(LLSD& notification)
 	toast->reshapeToPanel();
 	toast->resetTimer();
 	
-	m_active_toasts.insert(m_active_toasts.begin(),toast);
+	m_active_toasts.push_back(toast);
 
 	arrangeToasts();
 }
@@ -240,7 +240,14 @@ void LLNearbyChatScreenChannel::arrangeToasts()
 
 	hideToastsFromScreen();
 
-	showToastsBottom();					
+	showToastsBottom();
+}
+
+int sort_toasts_predicate(LLToast* first,LLToast* second)
+{
+	F32 v1 = first->getTimer()->getEventTimer().getElapsedTimeF32();
+	F32 v2 = second->getTimer()->getEventTimer().getElapsedTimeF32();
+	return v1 < v2;
 }
 
 void LLNearbyChatScreenChannel::showToastsBottom()
@@ -252,39 +259,41 @@ void LLNearbyChatScreenChannel::showToastsBottom()
 	S32		bottom = getRect().mBottom;
 	S32		margin = gSavedSettings.getS32("ToastGap");
 
+	//sort active toasts
+	std::sort(m_active_toasts.begin(),m_active_toasts.end(),sort_toasts_predicate);
+
+	//calc max visible item and hide other toasts.
+
 	for(std::vector<LLToast*>::iterator it = m_active_toasts.begin(); it != m_active_toasts.end(); ++it)
 	{
-		LLToast* toast = (*it);
-		S32 toast_top = bottom + toast->getRect().getHeight() + margin;
+		S32 toast_top = bottom + (*it)->getRect().getHeight() + margin;
 
 		if(toast_top > gFloaterView->getRect().getHeight())
 		{
 			while(it!=m_active_toasts.end())
 			{
-				toast->setVisible(FALSE);
-				toast->stopTimer();
-				m_toast_pool.push_back(toast);
+				addToToastPool((*it));
 				it=m_active_toasts.erase(it);
 			}
 			break;
 		}
-		bottom = toast_top - toast->getTopPad();
-	}
+		LLToast* toast = (*it);
 
+		toast_rect = toast->getRect();
+		toast_rect.setLeftTopAndSize(getRect().mLeft , bottom + toast_rect.getHeight(), toast_rect.getWidth() ,toast_rect.getHeight());
+
+		toast->setRect(toast_rect);
+		bottom += toast_rect.getHeight() - toast->getTopPad() + margin;
+	}
+	
 	// use reverse order to provide correct z-order and avoid toast blinking
+	
 	for(std::vector<LLToast*>::reverse_iterator it = m_active_toasts.rbegin(); it != m_active_toasts.rend(); ++it)
 	{
 		LLToast* toast = (*it);
-		S32 toast_top = bottom + toast->getTopPad();
-
-		toast_rect = toast->getRect();
-		toast_rect.setLeftTopAndSize(getRect().mLeft , toast_top, toast_rect.getWidth() ,toast_rect.getHeight());
-
-		toast->setRect(toast_rect);
 		toast->setIsHidden(false);
 		toast->setVisible(TRUE);
 
-		bottom = toast->getRect().mBottom - margin;
 	}
 }
 
@@ -345,6 +354,36 @@ void LLNearbyChatHandler::processChat(const LLChat& chat_msg, const LLSD &args)
 		//if(tmp_chat.mFromName.empty() && tmp_chat.mFromID!= LLUUID::null)
 		//	tmp_chat.mFromName = tmp_chat.mFromID.asString();
 	}
+
+	// don't show toast and add message to chat history on receive debug message
+	// with disabled setting showing script errors or enabled setting to show script
+	// errors in separate window.
+	if (chat_msg.mChatType == CHAT_TYPE_DEBUG_MSG)
+	{
+		if(gSavedSettings.getBOOL("ShowScriptErrors") == FALSE)
+			return;
+
+		// don't process debug messages from not owned objects, see EXT-7762
+		if (gAgentID != chat_msg.mOwnerID)
+		{
+			return;
+		}
+
+		if (gSavedSettings.getS32("ShowScriptErrorsLocation")== 1)// show error in window //("ScriptErrorsAsChat"))
+		{
+
+			LLColor4 txt_color;
+
+			LLViewerChat::getChatColor(chat_msg,txt_color);
+
+			LLFloaterScriptDebug::addScriptLine(chat_msg.mText,
+												chat_msg.mFromName,
+												txt_color,
+												chat_msg.mFromID);
+			return;
+		}
+	}
+
 	nearby_chat->addMessage(chat_msg, true, args);
 	if( nearby_chat->getVisible()
 		|| ( chat_msg.mSourceType == CHAT_SOURCE_AGENT

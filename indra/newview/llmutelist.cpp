@@ -3,31 +3,25 @@
  * @author Richard Nelson, James Cook
  * @brief Management of list of muted players
  *
- * $LicenseInfo:firstyear=2003&license=viewergpl$
- * 
- * Copyright (c) 2003-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2003&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -144,6 +138,9 @@ std::string LLMute::getDisplayType() const
 			break;
 		case GROUP:
 			return LLTrans::getString("MuteGroup");
+			break;
+		case EXTERNAL:
+			return LLTrans::getString("MuteExternal");
 			break;
 	}
 }
@@ -303,6 +300,12 @@ BOOL LLMuteList::add(const LLMute& mute, U32 flags)
 
 void LLMuteList::updateAdd(const LLMute& mute)
 {
+	// External mutes (e.g. Avaline callers) are local only, don't send them to the server.
+	if (mute.mType == LLMute::EXTERNAL)
+	{
+		return;
+	}
+
 	// Update the database
 	LLMessageSystem* msg = gMessageSystem;
 	msg->newMessageFast(_PREHASH_UpdateMuteListEntry);
@@ -390,6 +393,12 @@ BOOL LLMuteList::remove(const LLMute& mute, U32 flags)
 
 void LLMuteList::updateRemove(const LLMute& mute)
 {
+	// External mutes are not sent to the server anyway, no need to remove them.
+	if (mute.mType == LLMute::EXTERNAL)
+	{
+		return;
+	}
+
 	LLMessageSystem* msg = gMessageSystem;
 	msg->newMessageFast(_PREHASH_RemoveMuteListEntry);
 	msg->nextBlockFast(_PREHASH_AgentData);
@@ -573,9 +582,14 @@ BOOL LLMuteList::saveToFile(const std::string& filename)
 		 it != mMutes.end();
 		 ++it)
 	{
-		it->mID.toString(id_string);
-		const std::string& name = it->mName;
-		fprintf(fp, "%d %s %s|%u\n", (S32)it->mType, id_string.c_str(), name.c_str(), it->mFlags);
+		// Don't save external mutes as they are not sent to the server and probably won't
+		//be valid next time anyway.
+		if (it->mType != LLMute::EXTERNAL)
+		{
+			it->mID.toString(id_string);
+			const std::string& name = it->mName;
+			fprintf(fp, "%d %s %s|%u\n", (S32)it->mType, id_string.c_str(), name.c_str(), it->mFlags);
+		}
 	}
 	fclose(fp);
 	return TRUE;

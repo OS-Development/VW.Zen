@@ -2,31 +2,25 @@
  * @file lljoystickbutton.cpp
  * @brief LLJoystick class implementation
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -53,7 +47,6 @@
 static LLDefaultChildRegistry::Register<LLJoystickAgentSlide> r1("joystick_slide");
 static LLDefaultChildRegistry::Register<LLJoystickAgentTurn> r2("joystick_turn");
 static LLDefaultChildRegistry::Register<LLJoystickCameraRotate> r3("joystick_rotate");
-static LLDefaultChildRegistry::Register<LLJoystickCameraZoom> r4("joystick_zoom");
 static LLDefaultChildRegistry::Register<LLJoystickCameraTrack> r5("joystick_track");
 
 
@@ -645,157 +638,5 @@ void LLJoystickCameraTrack::onHeldDown()
 	{
 		gAgentCamera.unlockView();
 		gAgentCamera.setPanDownKey(getOrbitRate());
-	}
-}
-
-
-
-//-------------------------------------------------------------------------------
-// LLJoystickCameraZoom
-//-------------------------------------------------------------------------------
-
-LLJoystickCameraZoom::LLJoystickCameraZoom(const LLJoystickCameraZoom::Params& p)
-:	LLJoystick(p),
-	mInTop( FALSE ),
-	mInBottom( FALSE ),
-	mPlusInImage(p.plus_image),
-	mMinusInImage(p.minus_image)
-{
-}
-
-BOOL LLJoystickCameraZoom::handleMouseDown(S32 x, S32 y, MASK mask)
-{
-	BOOL handled = LLJoystick::handleMouseDown(x, y, mask);
-
-	if( handled )
-	{
-		if (mFirstMouse.mY > getRect().getHeight() / 2)
-		{
-			mInitialQuadrant = JQ_UP;
-		}
-		else
-		{
-			mInitialQuadrant = JQ_DOWN;
-		}
-	}
-	return handled;
-}
-
-
-void LLJoystickCameraZoom::onHeldDown()
-{
-	updateSlop();
-
-	const F32 FAST_RATE = 2.5f; // two and a half times the normal rate
-
-	S32 dy = mLastMouse.mY - mFirstMouse.mY + mInitialOffset.mY;
-
-	if (dy > mVertSlopFar)
-	{
-		// Zoom in fast
-		gAgentCamera.unlockView();
-		gAgentCamera.setOrbitInKey(FAST_RATE);
-	}
-	else if (dy > mVertSlopNear)
-	{
-		// Zoom in slow
-		gAgentCamera.unlockView();
-		gAgentCamera.setOrbitInKey(getOrbitRate());
-	}
-	else if (dy < -mVertSlopFar)
-	{
-		// Zoom out fast
-		gAgentCamera.unlockView();
-		gAgentCamera.setOrbitOutKey(FAST_RATE);
-	}
-	else if (dy < -mVertSlopNear)
-	{
-		// Zoom out slow
-		gAgentCamera.unlockView();
-		gAgentCamera.setOrbitOutKey(getOrbitRate());
-	}
-}
-
-// Only used for drawing
-void LLJoystickCameraZoom::setToggleState( BOOL top, BOOL bottom )
-{
-	mInTop = top;
-	mInBottom = bottom;
-}
-
-void LLJoystickCameraZoom::draw()
-{
-	if( mInTop )
-	{
-		mPlusInImage->draw(0,0);
-	}
-	else
-	if( mInBottom )
-	{
-		mMinusInImage->draw(0,0);
-	}
-	else
-	{
-		getImageUnselected()->draw( 0, 0 );
-	}
-}
-
-void LLJoystickCameraZoom::updateSlop()
-{
-	mVertSlopNear = getRect().getHeight() / 4;
-	mVertSlopFar = getRect().getHeight() / 2;
-
-	mHorizSlopNear = getRect().getWidth() / 4;
-	mHorizSlopFar = getRect().getWidth() / 2;
-
-	// Compute initial mouse offset based on initial quadrant.
-	// Place the mouse evenly between the near and far zones.
-	switch (mInitialQuadrant)
-	{
-	case JQ_ORIGIN:
-		mInitialOffset.set(0, 0);
-		break;
-
-	case JQ_UP:
-		mInitialOffset.mX = 0;
-		mInitialOffset.mY = (mVertSlopNear + mVertSlopFar) / 2;
-		break;
-
-	case JQ_DOWN:
-		mInitialOffset.mX = 0;
-		mInitialOffset.mY = - (mVertSlopNear + mVertSlopFar) / 2;
-		break;
-
-	case JQ_LEFT:
-		mInitialOffset.mX = - (mHorizSlopNear + mHorizSlopFar) / 2;
-		mInitialOffset.mY = 0;
-		break;
-
-	case JQ_RIGHT:
-		mInitialOffset.mX = (mHorizSlopNear + mHorizSlopFar) / 2;
-		mInitialOffset.mY = 0;
-		break;
-
-	default:
-		llerrs << "LLJoystick::LLJoystick() - bad switch case" << llendl;
-		break;
-	}
-
-	return;
-}
-
-
-F32 LLJoystickCameraZoom::getOrbitRate()
-{
-	F32 time = getElapsedHeldDownTime();
-	if( time < NUDGE_TIME )
-	{
-		F32 rate = ORBIT_NUDGE_RATE + time * (1 - ORBIT_NUDGE_RATE)/ NUDGE_TIME;
-//		llinfos << "rate " << rate << " time " << time << llendl;
-		return rate;
-	}
-	else
-	{
-		return 1;
 	}
 }

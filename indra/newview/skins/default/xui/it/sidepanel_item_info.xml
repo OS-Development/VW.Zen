@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<panel name="item properties" title="Profilo dell&apos;oggetto">
+<panel name="item properties" title="Profilo articolo">
 	<panel.string name="unknown">
 		(sconosciuto)
 	</panel.string>
@@ -15,9 +15,15 @@
 	<panel.string name="acquiredDate">
 		[wkday,datetime,local] [mth,datetime,local] [day,datetime,local] [hour,datetime,local]:[min,datetime,local]:[second,datetime,local] [year,datetime,local]
 	</panel.string>
-	<text name="title" value="Profilo dell&apos;oggetto"/>
-	<text name="where" value="(Inventario)"/>
-	<panel label="">
+	<panel.string name="origin_inventory">
+		(Inventario)
+	</panel.string>
+	<panel.string name="origin_inworld">
+		(in Second Life)
+	</panel.string>
+	<text name="title" value="Profilo articolo"/>
+	<text name="origin" value="(Inventario)"/>
+	<panel label="" name="item_profile">
 		<text name="LabelItemNameTitle">
 			Nome:
 		</text>
@@ -35,9 +41,7 @@
 		<text name="LabelAcquiredTitle">
 			Acquisito:
 		</text>
-		<text name="LabelAcquiredDate">
-			mer 24 maggio 12:50:46 2006
-		</text>
+		<text name="LabelAcquiredDate"/>
 		<panel name="perms_inv">
 			<text name="perm_modify">
 				Tu puoi:

@@ -52,6 +52,7 @@ set(llui_SOURCE_FILES
     llkeywords.cpp
     lllayoutstack.cpp
     lllineeditor.cpp
+    llloadingindicator.cpp
     lllocalcliprect.cpp
     llmenubutton.cpp
     llmenugl.cpp
@@ -90,6 +91,7 @@ set(llui_SOURCE_FILES
     lltextbox.cpp
     lltexteditor.cpp
     lltextparser.cpp
+    lltextutil.cpp
     lltextvalidate.cpp
     lltransutil.cpp
     lltoggleablemenu.cpp
@@ -144,6 +146,7 @@ set(llui_HEADER_FILES
     lllayoutstack.h
     lllazyvalue.h
     lllineeditor.h
+    llloadingindicator.h
     lllocalcliprect.h
     llmenubutton.h
     llmenugl.h
@@ -183,6 +186,7 @@ set(llui_HEADER_FILES
     lltextbox.h
     lltexteditor.h
     lltextparser.h
+    lltextutil.h
     lltextvalidate.h
     lltoggleablemenu.h
     lltooltip.h
@@ -236,10 +240,12 @@ target_link_libraries(llui
     ${LLCOMMON_LIBRARIES} # must be after llimage, llwindow, llrender
     )
 
-# Add tests
-include(LLAddBuildTest)
-SET(llui_TEST_SOURCE_FILES
-    llurlmatch.cpp
-    llurlentry.cpp
-    )
-LL_ADD_PROJECT_UNIT_TESTS(llui "${llui_TEST_SOURCE_FILES}")
+if(LL_TESTS)
+  # Add tests
+  include(LLAddBuildTest)
+  SET(llui_TEST_SOURCE_FILES
+      llurlmatch.cpp
+      llurlentry.cpp
+      )
+  LL_ADD_PROJECT_UNIT_TESTS(llui "${llui_TEST_SOURCE_FILES}")
+endif(LL_TESTS)

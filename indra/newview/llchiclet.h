@@ -2,31 +2,25 @@
  * @file llchiclet.h
  * @brief LLChiclet class header file
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- *  the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -428,11 +422,30 @@ public:
 
 	virtual void setToggleState(bool toggle);
 
+	/**
+	 * Displays popup menu.
+	 */
+	virtual BOOL handleRightMouseDown(S32 x, S32 y, MASK mask);
+
 protected:
 
 	LLIMChiclet(const LLIMChiclet::Params& p);
 
 protected:
+
+	/**
+	 * Creates chiclet popup menu.
+	 */
+	virtual void createPopupMenu() = 0;
+
+	/** 
+	 * Enables/disables menus.
+	 */
+	virtual void updateMenuItems() {};
+
+	bool canCreateMenu();
+
+	LLMenuGL* mPopupMenu;
 
 	bool mShowSpeaker;
 	bool mCounterEnabled;
@@ -519,11 +532,6 @@ protected:
 	 */
 	virtual void onMenuItemClicked(const LLSD& user_data);
 
-	/**
-	 * Displays popup menu.
-	 */
-	/*virtual*/ BOOL handleRightMouseDown(S32 x, S32 y, MASK mask);
-
 	/** 
 	 * Enables/disables menus based on relationship with other participant.
 	 * Enables/disables "show session" menu item depending on visible IM floater existence.
@@ -533,7 +541,6 @@ protected:
 private:
 
 	LLChicletAvatarIconCtrl* mChicletIconCtrl;
-	LLMenuGL* mPopupMenu;
 };
 
 /**
@@ -598,11 +605,6 @@ protected:
 	virtual void onMenuItemClicked(const LLSD& user_data);
 
 	/**
-	 * Displays popup menu.
-	 */
-	virtual BOOL handleRightMouseDown(S32 x, S32 y, MASK mask);
-
-	/**
 	 * Finds a current speaker and resets the SpeakerControl with speaker's ID
 	 */
 	/*virtual*/ void switchToCurrentSpeaker();
@@ -610,7 +612,6 @@ protected:
 private:
 
 	LLChicletAvatarIconCtrl* mChicletIconCtrl;
-	LLMenuGL* mPopupMenu;
 };
 
 /**
@@ -646,6 +647,16 @@ protected:
 
 	LLScriptChiclet(const Params&);
 	friend class LLUICtrlFactory;
+
+	/**
+	 * Creates chiclet popup menu.
+	 */
+	virtual void createPopupMenu();
+
+	/**
+	 * Processes clicks on chiclet popup menu.
+	 */
+	virtual void onMenuItemClicked(const LLSD& user_data);
 
 private:
 
@@ -684,6 +695,16 @@ public:
 protected:
 	LLInvOfferChiclet(const Params&);
 	friend class LLUICtrlFactory;
+
+	/**
+	 * Creates chiclet popup menu.
+	 */
+	virtual void createPopupMenu();
+
+	/**
+	 * Processes clicks on chiclet popup menu.
+	 */
+	virtual void onMenuItemClicked(const LLSD& user_data);
 
 private:
 	LLChicletInvOfferIconCtrl* mChicletIconCtrl;
@@ -767,15 +788,9 @@ protected:
 	 */
 	virtual void updateMenuItems();
 
-	/**
-	 * Displays popup menu.
-	 */
-	/*virtual*/ BOOL handleRightMouseDown(S32 x, S32 y, MASK mask);
-
 private:
 
 	LLChicletGroupIconCtrl* mChicletIconCtrl;
-	LLMenuGL* mPopupMenu;
 };
 
 /**
@@ -799,16 +814,6 @@ public:
 		 * Otherwise 9+ will be shown (for default value).
 		 */
 		Optional<S32> max_displayed_count;
-
-		/**
-		 * How many time chiclet should flash before set "Lit" state. Default value is 3.
-		 */
-		Optional<S32> flash_to_lit_count;
-
-		/**
-		 * Period of flashing while setting "Lit" state, in seconds. Default value is 0.5.
-		 */
-		Optional<F32> flash_period;
 
 		Params();
 	};
@@ -910,6 +915,9 @@ protected:
 class LLNotificationChiclet : public LLSysWellChiclet
 {
 	friend class LLUICtrlFactory;
+public:
+	struct Params : public LLInitParam::Block<Params, LLSysWellChiclet::Params>{};
+
 protected:
 	LLNotificationChiclet(const Params& p);
 
