@@ -599,7 +599,7 @@ void LLFloaterPreference::onBtnOK()
 		llinfos << "Can't close preferences!" << llendl;
 	}
 
-	LLPanelLogin::updateLocationCombo( false );
+	LLPanelLogin::refreshLocation( false );
 }
 
 // static 
@@ -616,7 +616,7 @@ void LLFloaterPreference::onBtnApply( )
 	apply();
 	saveSettings();
 
-	LLPanelLogin::updateLocationCombo( false );
+	LLPanelLogin::refreshLocation( false );
 }
 
 // static 
@@ -1083,10 +1083,8 @@ void LLFloaterPreference::onClickLogPath()
 	{
 		return; //Canceled!
 	}
-	std::string chat_log_dir = picker.getDirName();
-	std::string chat_log_top_folder= gDirUtilp->getBaseFileName(chat_log_dir);
-	gSavedPerAccountSettings.setString("InstantMessageLogPath",chat_log_dir);
-	gSavedPerAccountSettings.setString("InstantMessageLogFolder",chat_log_top_folder);
+
+	gSavedPerAccountSettings.setString("InstantMessageLogPath", picker.getDirName());
 }
 
 void LLFloaterPreference::setPersonalInfo(const std::string& visibility, bool im_via_email, const std::string& email)

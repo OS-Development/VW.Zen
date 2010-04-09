@@ -129,7 +129,7 @@ void process_frozen_message(LLMessageSystem* msg, void**);
 
 void process_derez_container(LLMessageSystem *msg, void**);
 void container_inventory_arrived(LLViewerObject* object,
-								 std::list<LLPointer<LLInventoryObject> >* inventory, //InventoryObjectList
+								 std::list<LLPointer<LLInventoryObject> >* inventory, //LLInventoryObject::object_list_t
 								 S32 serial_num,
 								 void* data);
 
@@ -207,6 +207,8 @@ void open_inventory_offer(const uuid_vec_t& items, const std::string& from_name)
 // notification (e.g. trash, cof, lost-and-found) and agent is not AFK, false otherwise.
 // Returns false if item is not found.
 bool highlight_offered_item(const LLUUID& item_id);
+
+void set_dad_inventory_item(LLInventoryItem* inv_item, const LLUUID& into_folder_uuid);
 
 struct LLOfferInfo
 {
