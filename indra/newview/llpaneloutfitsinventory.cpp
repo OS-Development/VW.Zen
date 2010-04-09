@@ -131,7 +131,7 @@ void LLPanelOutfitsInventory::updateVerbs()
 
 	if (mListCommands)
 	{
-		mListCommands->childSetVisible("look_edit_btn",sShowDebugEditor);
+		mListCommands->childSetVisible("edit_current_outfit_btn",sShowDebugEditor);
 		updateListCommands();
 	}
 }
@@ -181,7 +181,7 @@ void LLPanelOutfitsInventory::onWearButtonClick()
 	LLFolderViewEventListener* listenerp = getCorrectListenerForAction();
 	if (listenerp)
 	{
-		listenerp->performAction(NULL, NULL,"replaceoutfit");
+		listenerp->performAction(NULL, "replaceoutfit");
 	}
 }
 
@@ -190,7 +190,7 @@ void LLPanelOutfitsInventory::onAdd()
 	LLFolderViewEventListener* listenerp = getCorrectListenerForAction();
 	if (listenerp)
 	{
-		listenerp->performAction(NULL, NULL,"addtooutfit");
+		listenerp->performAction(NULL, "addtooutfit");
 	}
 }
 
@@ -199,7 +199,7 @@ void LLPanelOutfitsInventory::onRemove()
 	LLFolderViewEventListener* listenerp = getCorrectListenerForAction();
 	if (listenerp)
 	{
-		listenerp->performAction(NULL, NULL,"removefromoutfit");
+		listenerp->performAction(NULL, "removefromoutfit");
 	}
 }
 
@@ -269,19 +269,12 @@ void LLPanelOutfitsInventory::onSelectionChange(const std::deque<LLFolderViewIte
 	}
 }
 
-void LLPanelOutfitsInventory::onSelectorButtonClicked()
+void LLPanelOutfitsInventory::showEditOutfitPanel()
 {
-	  LLFolderViewItem* cur_item = getRootFolder()->getCurSelectedItem();
-
-	  LLFolderViewEventListener* listenerp = cur_item->getListener();
-	  if (getIsCorrectType(listenerp))
-	  {
-	  LLSD key;
-	  key["type"] = "look";
-	  key["id"] = listenerp->getUUID();
-
-	  LLSideTray::getInstance()->showPanel("sidepanel_appearance", key);
-	  } 
+	LLSD key;
+	key["type"] = "edit_outfit";
+	
+	LLSideTray::getInstance()->showPanel("sidepanel_appearance", key);
 }
 
 LLFolderViewEventListener *LLPanelOutfitsInventory::getCorrectListenerForAction()
@@ -328,7 +321,7 @@ void LLPanelOutfitsInventory::initListCommandsHandlers()
 	mListCommands->childSetAction("make_outfit_btn", boost::bind(&LLPanelOutfitsInventory::onAddButtonClick, this));
 	mListCommands->childSetAction("wear_btn", boost::bind(&LLPanelOutfitsInventory::onWearButtonClick, this));
 
-	mListCommands->childSetAction("look_edit_btn", boost::bind(&LLPanelOutfitsInventory::onSelectorButtonClicked, this));
+	mListCommands->childSetAction("edit_current_outfit_btn", boost::bind(&LLPanelOutfitsInventory::showEditOutfitPanel, this));
 
 	LLDragAndDropButton* trash_btn = mListCommands->getChild<LLDragAndDropButton>("trash_btn");
 	trash_btn->setDragAndDropHandler(boost::bind(&LLPanelOutfitsInventory::handleDragAndDropToTrash, this
@@ -443,18 +436,18 @@ BOOL LLPanelOutfitsInventory::isActionEnabled(const LLSD& userdata)
 	if (command_name == "delete" || command_name == "remove")
 	{
 		BOOL can_delete = FALSE;
-		LLFolderView *folder = getActivePanel()->getRootFolder();
-		if (folder)
+		LLFolderView* root = getActivePanel()->getRootFolder();
+		if (root)
 		{
 			std::set<LLUUID> selection_set;
-			folder->getSelectionList(selection_set);
+			root->getSelectionList(selection_set);
 			can_delete = (selection_set.size() > 0);
 			for (std::set<LLUUID>::iterator iter = selection_set.begin();
 				 iter != selection_set.end();
 				 ++iter)
 			{
 				const LLUUID &item_id = (*iter);
-				LLFolderViewItem *item = folder->getItemByID(item_id);
+				LLFolderViewItem *item = root->getItemByID(item_id);
 				can_delete &= item->getListener()->isItemRemovable();
 			}
 			return can_delete;
@@ -464,11 +457,11 @@ BOOL LLPanelOutfitsInventory::isActionEnabled(const LLSD& userdata)
 	if (command_name == "remove_link")
 	{
 		BOOL can_delete = FALSE;
-		LLFolderView *folder = getActivePanel()->getRootFolder();
-		if (folder)
+		LLFolderView* root = getActivePanel()->getRootFolder();
+		if (root)
 		{
 			std::set<LLUUID> selection_set;
-			folder->getSelectionList(selection_set);
+			root->getSelectionList(selection_set);
 			can_delete = (selection_set.size() > 0);
 			for (std::set<LLUUID>::iterator iter = selection_set.begin();
 				 iter != selection_set.end();
@@ -513,11 +506,11 @@ BOOL LLPanelOutfitsInventory::isActionEnabled(const LLSD& userdata)
 bool LLPanelOutfitsInventory::hasItemsSelected()
 {
 	bool has_items_selected = false;
-	LLFolderView *folder = getActivePanel()->getRootFolder();
-	if (folder)
+	LLFolderView* root = getActivePanel()->getRootFolder();
+	if (root)
 	{
 		std::set<LLUUID> selection_set;
-		folder->getSelectionList(selection_set);
+		root->getSelectionList(selection_set);
 		has_items_selected = (selection_set.size() > 0);
 	}
 	return has_items_selected;
