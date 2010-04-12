@@ -6524,7 +6524,7 @@
     <key>Type</key>
     <string>F32</string>
     <key>Value</key>
-    <real>-0.008</real>
+    <real>-0.0005</real>
   </map>
   <key>RenderSpotShadowOffset</key>
   <map>
@@ -10690,7 +10690,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>WaterEditPresets</key>
     <map>
