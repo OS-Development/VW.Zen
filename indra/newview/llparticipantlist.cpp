@@ -39,6 +39,7 @@
 
 #include "llparticipantlist.h"
 #include "llspeakers.h"
+#include "llviewercontrol.h"
 #include "llviewermenu.h"
 #include "llvoiceclient.h"
 
@@ -50,7 +51,7 @@
 static const LLAvatarItemAgentOnTopComparator AGENT_ON_TOP_NAME_COMPARATOR;
 
 LLParticipantList::LLParticipantList(LLSpeakerMgr* data_source, LLAvatarList* avatar_list,  bool use_context_menu/* = true*/,
-		bool exclude_agent /*= true*/):
+		bool exclude_agent /*= true*/, bool can_toggle_icons /*= true*/):
 	mSpeakerMgr(data_source),
 	mAvatarList(avatar_list),
 	mSortOrder(E_SORT_BY_NAME)
@@ -87,6 +88,12 @@ LLParticipantList::LLParticipantList(LLSpeakerMgr* data_source, LLAvatarList* av
 		mAvatarList->setContextMenu(NULL);
 	}
 
+	if (use_context_menu && can_toggle_icons)
+	{
+		mAvatarList->setShowIcons("ParticipantListShowIcons");
+		mAvatarListToggleIconsConnection = gSavedSettings.getControl("ParticipantListShowIcons")->getSignal()->connect(boost::bind(&LLAvatarList::toggleIcons, mAvatarList));
+	}
+
 	//Lets fill avatarList with existing speakers
 	LLSpeakerMgr::speaker_list_t speaker_list;
 	mSpeakerMgr->getSpeakerList(&speaker_list, true);
@@ -113,6 +120,7 @@ LLParticipantList::~LLParticipantList()
 	mAvatarListDoubleClickConnection.disconnect();
 	mAvatarListRefreshConnection.disconnect();
 	mAvatarListReturnConnection.disconnect();
+	mAvatarListToggleIconsConnection.disconnect();
 
 	// It is possible Participant List will be re-created from LLCallFloater::onCurrentChannelChanged()
 	// See ticket EXT-3427
@@ -248,8 +256,8 @@ bool LLParticipantList::onAddItemEvent(LLPointer<LLOldEvents::LLEvent> event, co
 
 bool LLParticipantList::onRemoveItemEvent(LLPointer<LLOldEvents::LLEvent> event, const LLSD& userdata)
 {
-	LLAvatarList::uuid_vector_t& group_members = mAvatarList->getIDs();
-	LLAvatarList::uuid_vector_t::iterator pos = std::find(group_members.begin(), group_members.end(), event->getValue().asUUID());
+	uuid_vec_t& group_members = mAvatarList->getIDs();
+	uuid_vec_t::iterator pos = std::find(group_members.begin(), group_members.end(), event->getValue().asUUID());
 	if(pos != group_members.end())
 	{
 		group_members.erase(pos);
@@ -260,7 +268,7 @@ bool LLParticipantList::onRemoveItemEvent(LLPointer<LLOldEvents::LLEvent> event,
 
 bool LLParticipantList::onClearListEvent(LLPointer<LLOldEvents::LLEvent> event, const LLSD& userdata)
 {
-	LLAvatarList::uuid_vector_t& group_members = mAvatarList->getIDs();
+	uuid_vec_t& group_members = mAvatarList->getIDs();
 	group_members.clear();
 	mAvatarList->setDirty();
 	return true;
@@ -440,12 +448,14 @@ LLContextMenu* LLParticipantList::LLParticipantListMenu::createMenu()
 	main_menu->setItemVisible("SortByName", is_sort_visible);
 	main_menu->setItemVisible("SortByRecentSpeakers", is_sort_visible);
 	main_menu->setItemVisible("Moderator Options", isGroupModerator());
+	main_menu->setItemVisible("View Icons Separator", mParent.mAvatarListToggleIconsConnection.connected());
+	main_menu->setItemVisible("View Icons", mParent.mAvatarListToggleIconsConnection.connected());
 	main_menu->arrangeAndClear();
 
 	return main_menu;
 }
 
-void LLParticipantList::LLParticipantListMenu::show(LLView* spawning_view, const std::vector<LLUUID>& uuids, S32 x, S32 y)
+void LLParticipantList::LLParticipantListMenu::show(LLView* spawning_view, const uuid_vec_t& uuids, S32 x, S32 y)
 {
 	LLPanelPeopleMenus::ContextMenu::show(spawning_view, uuids, x, y);
 
@@ -615,7 +625,7 @@ bool LLParticipantList::LLParticipantListMenu::enableContextMenuItem(const LLSD&
 
 		bool result = (mUUIDs.size() > 0);
 
-		std::vector<LLUUID>::const_iterator
+		uuid_vec_t::const_iterator
 			id = mUUIDs.begin(),
 			uuids_end = mUUIDs.end();
 
@@ -632,7 +642,7 @@ bool LLParticipantList::LLParticipantListMenu::enableContextMenuItem(const LLSD&
 	else if (item == "can_call")
 	{
 		bool not_agent = mUUIDs.front() != gAgentID;
-		bool can_call = not_agent && LLVoiceClient::voiceEnabled() && gVoiceClient->voiceWorking();
+		bool can_call = not_agent && LLVoiceClient::voiceEnabled() && LLVoiceClient::getInstance()->voiceWorking();
 		return can_call;
 	}
 

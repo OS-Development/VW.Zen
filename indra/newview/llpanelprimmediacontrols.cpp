@@ -31,8 +31,8 @@
 
 #include "llviewerprecompiledheaders.h"
 
-//LLPanelPrimMediaControls
 #include "llagent.h"
+#include "llagentcamera.h"
 #include "llparcel.h"
 #include "llpanel.h"
 #include "llselectmgr.h"
@@ -64,8 +64,11 @@
 #include "llvovolume.h"
 #include "llweb.h"
 #include "llwindow.h"
-
 #include "llfloatertools.h"  // to enable hide if build tools are up
+
+#if defined(LL_DARWIN) || (defined(LL_WINDOW) && (! defined(LL_RELEASE_FOR_DOWNLOAD)) )
+#define PER_MEDIA_VOLUME
+#endif
 
 // Functions pulled from pipeline.cpp
 glh::matrix4f glh_get_current_modelview();
@@ -463,11 +466,18 @@ void LLPanelPrimMediaControls::updateShape()
 			mSkipBackCtrl->setVisible(FALSE);
 			mSkipBackCtrl->setEnabled(FALSE);
 			
+#ifdef PER_MEDIA_VOLUME
+			mVolumeCtrl->setVisible(has_focus);
+			mVolumeCtrl->setEnabled(has_focus);
+			mVolumeSliderCtrl->setEnabled(has_focus && shouldVolumeSliderBeVisible());
+			mVolumeSliderCtrl->setVisible(has_focus && shouldVolumeSliderBeVisible());
+#else
 			mVolumeCtrl->setVisible(FALSE);
 			mVolumeSliderCtrl->setVisible(FALSE);
 			mVolumeCtrl->setEnabled(FALSE);
 			mVolumeSliderCtrl->setEnabled(FALSE);
-			
+#endif
+
 			if (mMediaPanelScroll)
 			{
 				mMediaPanelScroll->setVisible(has_focus);
@@ -1010,7 +1020,7 @@ void LLPanelPrimMediaControls::updateZoom()
 	{
 	case ZOOM_NONE:
 		{
-			gAgent.setFocusOnAvatar(TRUE, ANIMATE);
+			gAgentCamera.setFocusOnAvatar(TRUE, ANIMATE);
 			break;
 		}
 	case ZOOM_FAR:
@@ -1030,7 +1040,7 @@ void LLPanelPrimMediaControls::updateZoom()
 		}
 	default:
 		{
-			gAgent.setFocusOnAvatar(TRUE, ANIMATE);
+			gAgentCamera.setFocusOnAvatar(TRUE, ANIMATE);
 			break;
 		}
 	}
