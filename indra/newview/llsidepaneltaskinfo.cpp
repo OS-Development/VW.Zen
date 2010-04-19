@@ -4,31 +4,25 @@
  * This class represents the panel in the build view for
  * viewing/editing object names, owners, permissions, etc.
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -80,6 +74,7 @@ static LLRegisterPanelClassWrapper<LLSidepanelTaskInfo> t_task_info("sidepanel_t
 LLSidepanelTaskInfo::LLSidepanelTaskInfo()
 {
 	setMouseOpaque(FALSE);
+	LLSelectMgr::instance().mUpdateSignal.connect(boost::bind(&LLSidepanelTaskInfo::refreshAll, this));
 }
 
 
@@ -125,10 +120,8 @@ BOOL LLSidepanelTaskInfo::postBuild()
 	return TRUE;
 }
 
-// virtual
-void LLSidepanelTaskInfo::setVisible(BOOL visible)
+/*virtual*/ void LLSidepanelTaskInfo::handleVisibilityChange ( BOOL visible )
 {
-	LLPanel::setVisible(visible);
 	if (visible)
 	{
 		sActivePanel = this;
@@ -137,8 +130,11 @@ void LLSidepanelTaskInfo::setVisible(BOOL visible)
 	else
 	{
 		sActivePanel = NULL;
+		// drop selection reference
+		mObjectSelection = NULL;
 	}
 }
+
 
 void LLSidepanelTaskInfo::disableAll()
 {
@@ -270,7 +266,6 @@ void LLSidepanelTaskInfo::refresh()
 	// BUG: fails if a root and non-root are both single-selected.
 	const BOOL is_perm_modify = (mObjectSelection->getFirstRootNode() && LLSelectMgr::getInstance()->selectGetRootsModify()) ||
 		LLSelectMgr::getInstance()->selectGetModify();
-	const LLFocusableElement* keyboard_focus_view = gFocusMgr.getKeyboardFocus();
 
 	S32 string_index = 0;
 	std::string MODIFY_INFO_STRINGS[] =
@@ -364,14 +359,14 @@ void LLSidepanelTaskInfo::refresh()
 
 	if (is_one_object)
 	{
-		if (keyboard_focus_view != LineEditorObjectName)
+		if (!LineEditorObjectName->hasFocus())
 		{
 			childSetText("Object Name",nodep->mName);
 		}
 
 		if (LineEditorObjectDesc)
 		{
-			if (keyboard_focus_view != LineEditorObjectDesc)
+			if (!LineEditorObjectDesc->hasFocus())
 			{
 				LineEditorObjectDesc->setText(nodep->mDescription);
 			}
@@ -1177,9 +1172,30 @@ void LLSidepanelTaskInfo::save()
 	onCommitIncludeInSearch(getChild<LLCheckBoxCtrl>("search_check"), this);
 }
 
+// removes keyboard focus so that all fields can be updated
+// and then restored focus
+void LLSidepanelTaskInfo::refreshAll()
+{
+	// update UI as soon as we have an object
+	// but remove keyboard focus first so fields are free to update
+	LLFocusableElement* focus = NULL;
+	if (hasFocus())
+	{
+		focus = gFocusMgr.getKeyboardFocus();
+		setFocus(FALSE);
+	}
+	refresh();
+	if (focus)
+	{
+		focus->setFocus(TRUE);
+	}
+}
+
+
 void LLSidepanelTaskInfo::setObjectSelection(LLObjectSelectionHandle selection)
 {
 	mObjectSelection = selection;
+	refreshAll();
 }
 
 LLSidepanelTaskInfo* LLSidepanelTaskInfo::getActivePanel()

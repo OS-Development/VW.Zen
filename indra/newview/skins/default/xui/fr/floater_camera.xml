@@ -9,35 +9,57 @@
 	<floater.string name="move_tooltip">
 		Déplacer la caméra vers le haut et le bas, la gauche et la droite
 	</floater.string>
-	<floater.string name="orbit_mode_title">
-		Faire tourner
+	<floater.string name="camera_modes_title">
+		Modes
 	</floater.string>
 	<floater.string name="pan_mode_title">
-		Faire un panoramique
+		Rotation - Zoom - Panoramique
 	</floater.string>
-	<floater.string name="avatar_view_mode_title">
+	<floater.string name="presets_mode_title">
 		Préréglages
 	</floater.string>
 	<floater.string name="free_mode_title">
 		Voir l&apos;objet
 	</floater.string>
 	<panel name="controls">
-		<joystick_track name="cam_track_stick" tool_tip="Déplacer la caméra vers le haut et le bas, la gauche et la droite"/>
-		<panel name="zoom" tool_tip="Zoomer en direction du point central">
-			<slider_bar name="zoom_slider" tool_tip="Zoomer en direction du point central"/>
+		<panel name="preset_views_list">
+			<panel_camera_item name="front_view">
+				<panel_camera_item.text name="front_view_text">
+					Vue frontale
+				</panel_camera_item.text>
+			</panel_camera_item>
+			<panel_camera_item name="group_view">
+				<panel_camera_item.text name="side_view_text">
+					Vue latérale
+				</panel_camera_item.text>
+			</panel_camera_item>
+			<panel_camera_item name="rear_view">
+				<panel_camera_item.text name="rear_view_text">
+					Vue arrière
+				</panel_camera_item.text>
+			</panel_camera_item>
 		</panel>
-		<joystick_rotate name="cam_rotate_stick" tool_tip="Faire tourner la caméra autour du point central"/>
-		<panel name="camera_presets">
-			<button name="rear_view" tool_tip="Vue arrière"/>
-			<button name="group_view" tool_tip="Vue Groupe"/>
-			<button name="front_view" tool_tip="Vue frontale"/>
-			<button name="mouselook_view" tool_tip="Vue subjective"/>
+		<panel name="camera_modes_list">
+			<panel_camera_item name="object_view">
+				<panel_camera_item.text name="object_view_text">
+					Vue de l&apos;objet
+				</panel_camera_item.text>
+			</panel_camera_item>
+			<panel_camera_item name="mouselook_view">
+				<panel_camera_item.text name="mouselook_view_text">
+					Vue subjective
+				</panel_camera_item.text>
+			</panel_camera_item>
+		</panel>
+		<panel name="zoom" tool_tip="Zoomer en direction du point central">
+			<joystick_rotate name="cam_rotate_stick" tool_tip="Faire tourner la caméra autour du point central"/>
+			<slider_bar name="zoom_slider" tool_tip="Zoomer en direction du point central"/>
+			<joystick_track name="cam_track_stick" tool_tip="Déplacer la caméra vers le haut et le bas, la gauche et la droite"/>
 		</panel>
 	</panel>
 	<panel name="buttons">
-		<button label="" name="orbit_btn" tool_tip="Faire tourner la caméra"/>
-		<button label="" name="pan_btn" tool_tip="Faire un panoramique"/>
-		<button label="" name="avatarview_btn" tool_tip="Préréglages"/>
-		<button label="" name="freecamera_btn" tool_tip="Voir l&apos;objet"/>
+		<button label="" name="presets_btn" tool_tip="Préréglages"/>
+		<button label="" name="pan_btn" tool_tip="Rotation - Zoom - Panoramique"/>
+		<button label="" name="avatarview_btn" tool_tip="Modes"/>
 	</panel>
 </floater>
