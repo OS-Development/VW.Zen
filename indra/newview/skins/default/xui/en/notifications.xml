@@ -3443,6 +3443,13 @@ You can click &apos;Change Preference&apos; to raise your maturity Rating prefer
   </notification>
 
   <notification
+   icon="notifytip.tga"
+   name="PreferredMaturityChanged"
+   type="notifytip">
+Your maturity rating preference is now [RATING].
+  </notification>
+
+  <notification
    icon="alertmodal.tga"
    name="LandClaimAccessBlocked"
    type="alertmodal">
@@ -4439,6 +4446,18 @@ Uploading in-world and web site snapshots...
   </notification>
 
   <notification
+   icon="alertmodal.tga"
+   name="UploadConfirmation"
+   type="alertmodal">
+Uploading costs L$[AMOUNT].
+Do you wish to proceed?
+    <usetemplate
+     name="okcancelbuttons"
+     notext="Cancel"
+     yestext="Upload"/>
+  </notification>
+
+  <notification
    icon="notify.tga"
    name="UploadPayment"
    type="notify">
@@ -5209,7 +5228,7 @@ An object named [OBJECTFROMNAME] owned by (an unknown Resident) has given you th
    type="offer">
 [NAME_SLURL] has offered to teleport you to their location:
 
-[MESSAGE]
+[MESSAGE], ([MATURITY])
     <form name="form">
       <button
        index="0"
@@ -6005,6 +6024,19 @@ Selected button can not be shown right now.
 The button will be shown when there is enough space for it.
   </notification>
 
+  <notification
+   icon="notifytip.tga"
+   name="ShareNotification"
+   type="notifytip">
+Drag items from inventory onto a person in the resident picker
+  </notification>
+
+  <notification
+   icon="notifytip.tga"
+   name="AvatarRezNotification"
+   type="notifytip">
+Avatar '[NAME]' rezzed in [TIME] seconds.
+  </notification>
 
   <global name="UnsupportedCPU">
 - Your CPU speed does not meet the minimum requirements.
