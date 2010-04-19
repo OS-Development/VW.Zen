@@ -297,7 +297,7 @@ void LLIMModel::LLIMSession::onVoiceChannelStateChanged(const LLVoiceChannel::ES
 				LLIMModel::getInstance()->addMessage(mSessionID, SYSTEM_FROM, LLUUID::null, message);
 				break;
 			case LLVoiceChannel::STATE_CONNECTED :
-				message = other_avatar_name + " " + joined_call;
+				message = LLTrans::getString("answered_call");
 				LLIMModel::getInstance()->addMessage(mSessionID, SYSTEM_FROM, LLUUID::null, message);
 			default:
 				break;
@@ -1459,7 +1459,13 @@ void LLCallDialogManager::onVoiceChannelChanged(const LLUUID &session_id)
 	}
 
 	sSession = session;
-	sSession->mVoiceChannel->setStateChangedCallback(boost::bind(LLCallDialogManager::onVoiceChannelStateChanged, _1, _2, _3, _4));
+
+	static boost::signals2::connection prev_channel_state_changed_connection;
+	// disconnect previously connected callback to avoid have invalid sSession in onVoiceChannelStateChanged()
+	prev_channel_state_changed_connection.disconnect();
+	prev_channel_state_changed_connection =
+		sSession->mVoiceChannel->setStateChangedCallback(boost::bind(LLCallDialogManager::onVoiceChannelStateChanged, _1, _2, _3, _4));
+
 	if(sCurrentSessionlName != session->mName)
 	{
 		sPreviousSessionlName = sCurrentSessionlName;
@@ -1713,7 +1719,6 @@ void LLOutgoingCallDialog::show(const LLSD& key)
 			channel_name = LLTextUtil::formatPhoneNumber(channel_name);
 		}
 		childSetTextArg("nearby", "[VOICE_CHANNEL_NAME]", channel_name);
-		childSetTextArg("nearby_P2P_by_other", "[VOICE_CHANNEL_NAME]", mPayload["disconnected_channel_name"].asString());
 
 		// skipping "You will now be reconnected to nearby" in notification when call is ended by disabling voice,
 		// so no reconnection to nearby chat happens (EXT-4397)
@@ -3078,7 +3083,7 @@ public:
 				return;
 			}
 			
-			if(!LLVoiceClient::voiceEnabled())
+			if(!LLVoiceClient::voiceEnabled() || !LLVoiceClient::getInstance()->voiceWorking())
 			{
 				// Don't display voice invites unless the user has voice enabled.
 				return;
