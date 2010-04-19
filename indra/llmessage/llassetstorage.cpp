@@ -439,6 +439,8 @@ void LLAssetStorage::getAssetData(const LLUUID uuid, LLAssetType::EType type, LL
 {
 	lldebugs << "LLAssetStorage::getAssetData() - " << uuid << "," << LLAssetType::lookup(type) << llendl;
 
+	llinfos << "ASSET_TRACE requesting " << uuid << " type " << LLAssetType::lookup(type) << llendl;
+
 	if (mShutDown)
 	{
 		return; // don't get the asset or do any callbacks, we are shutting down
@@ -513,6 +515,8 @@ void LLAssetStorage::getAssetData(const LLUUID uuid, LLAssetType::EType type, LL
 		// This can be overridden by subclasses
 		_queueDataRequest(uuid, type, callback, user_data, duplicate, is_priority);	
 	}
+		llinfos << "ASSET_TRACE asset " << uuid << " found in VFS" << llendl;
+
 }
 
 void LLAssetStorage::_queueDataRequest(const LLUUID& uuid, LLAssetType::EType atype,
@@ -565,6 +569,8 @@ void LLAssetStorage::downloadCompleteCallback(
 	LLAssetType::EType file_type,
 	void* user_data, LLExtStat ext_status)
 {
+	llinfos << "ASSET_TRACE asset " << file_id << " downloadCompleteCallback" << llendl;
+
 	lldebugs << "LLAssetStorage::downloadCompleteCallback() for " << file_id
 		 << "," << LLAssetType::lookup(file_type) << llendl;
 	LLAssetRequest* req = (LLAssetRequest*)user_data;
