@@ -123,7 +123,7 @@ void LLDrawPoolAvatar::prerender()
 	
 	if (sShaderLevel > 0)
 	{
-		sBufferUsage = GL_STATIC_DRAW_ARB;
+		sBufferUsage = GL_DYNAMIC_DRAW_ARB;
 	}
 	else
 	{
@@ -254,7 +254,6 @@ S32 LLDrawPoolAvatar::getNumShadowPasses()
 void LLDrawPoolAvatar::beginShadowPass(S32 pass)
 {
 	LLFastTimer t(FTM_SHADOW_AVATAR);
-	
 	sVertexProgram = &gDeferredAvatarShadowProgram;
 	if (sShaderLevel > 0)
 	{
@@ -276,7 +275,6 @@ void LLDrawPoolAvatar::beginShadowPass(S32 pass)
 void LLDrawPoolAvatar::endShadowPass(S32 pass)
 {
 	LLFastTimer t(FTM_SHADOW_AVATAR);
-
 	if (sShaderLevel > 0)
 	{
 		sRenderingSkinned = FALSE;
@@ -314,6 +312,11 @@ void LLDrawPoolAvatar::renderShadow(S32 pass)
 		return;
 	}
 	
+	if (sShaderLevel > 0)
+	{
+		gAvatarMatrixParam = sVertexProgram->mUniform[LLViewerShaderMgr::AVATAR_MATRIX];
+	}
+
 	avatarp->renderSkinned(AVATAR_RENDER_PASS_SINGLE);
 
 }
@@ -350,7 +353,7 @@ void LLDrawPoolAvatar::beginRenderPass(S32 pass)
 	switch (pass)
 	{
 	case 0:
-		beginFootShadow();
+		beginImpostor();
 		break;
 	case 1:
 		beginRigid();
@@ -374,7 +377,7 @@ void LLDrawPoolAvatar::endRenderPass(S32 pass)
 	switch (pass)
 	{
 	case 0:
-		endFootShadow();
+		endImpostor();
 		break;
 	case 1:
 		endRigid();
@@ -384,7 +387,7 @@ void LLDrawPoolAvatar::endRenderPass(S32 pass)
 	}
 }
 
-void LLDrawPoolAvatar::beginFootShadow()
+void LLDrawPoolAvatar::beginImpostor()
 {
 	if (!LLPipeline::sReflectionRender)
 	{
@@ -396,7 +399,7 @@ void LLDrawPoolAvatar::beginFootShadow()
 	diffuse_channel = 0;
 }
 
-void LLDrawPoolAvatar::endFootShadow()
+void LLDrawPoolAvatar::endImpostor()
 {
 	gPipeline.enableLightsDynamic();
 }
@@ -693,10 +696,6 @@ void LLDrawPoolAvatar::renderAvatars(LLVOAvatar* single_avatar, S32 pass)
 			}
 			avatarp->renderImpostor(LLColor4U(255,255,255,255), diffuse_channel);
 		}
-		else if (gPipeline.hasRenderDebugFeatureMask(LLPipeline::RENDER_DEBUG_FEATURE_FOOT_SHADOWS) && !LLPipeline::sRenderDeferred)
-		{
-			avatarp->renderFootShadows();	
-		}
 		return;
 	}
 
@@ -850,9 +849,7 @@ LLColor3 LLDrawPoolAvatar::getDebugColor() const
 
 LLVertexBufferAvatar::LLVertexBufferAvatar()
 : LLVertexBuffer(sDataMask, 
-	LLViewerShaderMgr::instance()->getVertexShaderLevel(LLViewerShaderMgr::SHADER_AVATAR) > 0 ?	
-	GL_DYNAMIC_DRAW_ARB : 
-	GL_STREAM_DRAW_ARB)
+	GL_STREAM_DRAW_ARB) //avatars are always stream draw due to morph targets
 {
 
 }
