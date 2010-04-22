@@ -82,6 +82,7 @@ public:
 		MATERIAL_COLOR = 0,
 		SPECULAR_COLOR,
 		BINORMAL,
+		OBJECT_WEIGHT,
 		END_RESERVED_ATTRIBS
 	} eGLSLReservedAttribs;
 	
@@ -313,6 +314,8 @@ extern LLGLSLShader			gObjectFullbrightShinyProgram;
 extern LLGLSLShader			gObjectShinyProgram;
 extern LLGLSLShader			gObjectShinyWaterProgram;
 
+extern LLGLSLShader			gSkinnedObjectSimpleProgram;
+
 //environment shaders
 extern LLGLSLShader			gTerrainProgram;
 extern LLGLSLShader			gTerrainWaterProgram;
@@ -343,6 +346,7 @@ extern LLGLSLShader			gDeferredImpostorProgram;
 extern LLGLSLShader			gDeferredEdgeProgram;
 extern LLGLSLShader			gDeferredWaterProgram;
 extern LLGLSLShader			gDeferredDiffuseProgram;
+extern LLGLSLShader			gDeferredSkinnedDiffuseProgram;
 extern LLGLSLShader			gDeferredBumpProgram;
 extern LLGLSLShader			gDeferredTerrainProgram;
 extern LLGLSLShader			gDeferredTreeProgram;
@@ -360,6 +364,7 @@ extern LLGLSLShader			gDeferredShadowProgram;
 extern LLGLSLShader			gDeferredPostGIProgram;
 extern LLGLSLShader			gDeferredPostProgram;
 extern LLGLSLShader			gDeferredAvatarShadowProgram;
+extern LLGLSLShader			gDeferredAttachmentShadowProgram;
 extern LLGLSLShader			gDeferredAlphaProgram;
 extern LLGLSLShader			gDeferredFullbrightProgram;
 extern LLGLSLShader			gDeferredAvatarAlphaProgram;
