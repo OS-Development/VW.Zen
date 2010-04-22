@@ -1,6 +1,6 @@
 /**
  * @file llvoavatar.h
- * @brief Declaration of LLVOAvatar class which is a derivation fo
+ * @brief Declaration of LLVOAvatar class which is a derivation of
  * LLViewerObject
  *
  * $LicenseInfo:firstyear=2001&license=viewergpl$
@@ -247,7 +247,8 @@ public:
 public:
 	BOOL			isFullyLoaded() const;
 protected:
-	virtual BOOL	updateIsFullyLoaded();
+	virtual BOOL	getIsCloud();
+	BOOL			updateIsFullyLoaded();
 	BOOL			processFullyLoadedChange(bool loading);
 	void			updateRuthTimer(bool loading);
 	F32 			calcMorphAmount();
@@ -258,6 +259,7 @@ private:
 	S32				mFullyLoadedFrameCounter;
 	LLFrameTimer	mFullyLoadedTimer;
 	LLFrameTimer	mRuthTimer;
+	LLFrameTimer	mRuthDebugTimer; // For tracking how long it takes for av to rez
 	
 /**                    State
  **                                                                            **
@@ -335,7 +337,6 @@ private:
  **/
 
 public:
-	U32 		renderFootShadows();
 	U32 		renderImpostor(LLColor4U color = LLColor4U(255,255,255,255), S32 diffuse_channel = 0);
 	U32 		renderRigid();
 	U32 		renderSkinned(EAvatarRenderPass pass);
@@ -569,7 +570,8 @@ protected:
 	void 			releaseMeshData();
 	virtual void restoreMeshData();
 private:
-	BOOL 			mDirtyMesh;
+	void 			dirtyMesh(S32 priority); // Dirty the avatar mesh, with priority
+	S32 			mDirtyMesh; // 0 -- not dirty, 1 -- morphed, 2 -- LOD
 	BOOL			mMeshTexturesDirty;
 
 	typedef std::multimap<std::string, LLPolyMesh*> polymesh_map_t;
@@ -828,6 +830,7 @@ private:
 	BOOL	  		mNameBusy;
 	BOOL	  		mNameMute;
 	BOOL      		mNameAppearance;
+	BOOL      		mNameCloud;
 	BOOL      		mRenderGroupTitles;
 
 	//--------------------------------------------------------------------
