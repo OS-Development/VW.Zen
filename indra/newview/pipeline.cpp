@@ -570,9 +570,12 @@ void LLPipeline::allocateScreenBuffer(U32 resX, U32 resY)
 
 		F32 scale = gSavedSettings.getF32("RenderShadowResolutionScale");
 
+		//HACK: make alpha masking work on ATI depth shadows (work around for ATI driver bug)
+		U32 shadow_fmt = gGLManager.mIsATI ? GL_ALPHA : 0;
+
 		for (U32 i = 0; i < 4; i++)
 		{
-			mShadow[i].allocate(U32(resX*scale),U32(resY*scale), 0, TRUE, FALSE, LLTexUnit::TT_RECT_TEXTURE);
+			mShadow[i].allocate(U32(resX*scale),U32(resY*scale), shadow_fmt, TRUE, FALSE, LLTexUnit::TT_RECT_TEXTURE);
 		}
 
 
@@ -581,10 +584,8 @@ void LLPipeline::allocateScreenBuffer(U32 resX, U32 resY)
 
 		for (U32 i = 4; i < 6; i++)
 		{
-			mShadow[i].allocate(width, height, 0, TRUE, FALSE);
+			mShadow[i].allocate(width, height, shadow_fmt, TRUE, FALSE);
 		}
-
-
 
 		width = nhpo2(resX)/2;
 		height = nhpo2(resY)/2;
@@ -1959,31 +1960,39 @@ void LLPipeline::markVisible(LLDrawable *drawablep, LLCamera& camera)
 {
 	LLMemType mt(LLMemType::MTYPE_PIPELINE_MARK_VISIBLE);
 
-	if(!drawablep || drawablep->isDead())
+	if(drawablep && !drawablep->isDead())
 	{
-		return;
-	}
-	
-	if (drawablep->isSpatialBridge())
-	{
-		LLDrawable* root = ((LLSpatialBridge*) drawablep)->mDrawable;
-
-		if (root && root->getParent() && root->getVObj() && root->getVObj()->isAttachment())
+		if (drawablep->isSpatialBridge())
 		{
-			LLVOAvatar* av = root->getParent()->getVObj()->asAvatar();
-			if (av && av->isImpostor())
+			const LLDrawable* root = ((LLSpatialBridge*) drawablep)->mDrawable;
+			llassert(root); // trying to catch a bad assumption
+			if (root && //  // this test may not be needed, see above
+			    root->getVObj()->isAttachment())
 			{
-				return;
+				LLDrawable* rootparent = root->getParent();
+				if (rootparent) // this IS sometimes NULL
+				{
+					LLViewerObject *vobj = rootparent->getVObj();
+					llassert(vobj); // trying to catch a bad assumption
+					if (vobj) // this test may not be needed, see above
+					{
+						const LLVOAvatar* av = vobj->asAvatar();
+						if (av && av->isImpostor())
+						{
+							return;
+						}
+					}
+				}
 			}
+			sCull->pushBridge((LLSpatialBridge*) drawablep);
 		}
-		sCull->pushBridge((LLSpatialBridge*) drawablep);
-	}
-	else
-	{
-		sCull->pushDrawable(drawablep);
-	}
+		else
+		{
+			sCull->pushDrawable(drawablep);
+		}
 
-	drawablep->setVisible(camera);
+		drawablep->setVisible(camera);
+	}
 }
 
 void LLPipeline::markMoved(LLDrawable *drawablep, BOOL damped_motion)
@@ -6653,6 +6662,15 @@ void LLPipeline::renderDeferredLighting()
 					{
 						continue;
 					}
+
+					if (volume->isAttachment())
+					{
+						if (!sRenderAttachedLights)
+						{
+							continue;
+						}
+					}
+
 
 					LLVector3 center = drawablep->getPositionAgent();
 					F32* c = center.mV;

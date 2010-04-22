@@ -1,10 +1,10 @@
 /** 
  * @file llflatlistview.cpp
- * @brief LLFlatListView base class
+ * @brief LLFlatListView base class and extension to support messages for several cases of an empty list.
  *
  * $LicenseInfo:firstyear=2009&license=viewergpl$
  * 
- * Copyright (c) 2009, Linden Research, Inc.
+ * Copyright (c) 2009-2010, Linden Research, Inc.
  * 
  * Second Life Viewer Source Code
  * The source code in this file ("Source Code") is provided by Linden Lab
@@ -504,7 +504,68 @@ void LLFlatListView::onItemMouseClick(item_pair_t* item_pair, MASK mask)
 
 	//*TODO find a better place for that enforcing stuff
 	if (mKeepOneItemSelected && numSelected() == 1 && !select_item) return;
-	
+
+	if ( (mask & MASK_SHIFT) && !(mask & MASK_CONTROL)
+		 && mMultipleSelection && !mSelectedItemPairs.empty() )
+	{
+		item_pair_t* last_selected_pair = mSelectedItemPairs.back();
+
+		// If item_pair is already selected - do nothing
+		if (last_selected_pair == item_pair)
+			return;
+
+		bool grab_items = false;
+		pairs_list_t pairs_to_select;
+
+		// Pick out items from list between last selected and current clicked item_pair.
+		for (pairs_iterator_t
+				 iter = mItemPairs.begin(),
+				 iter_end = mItemPairs.end();
+			 iter != iter_end; ++iter)
+		{
+			item_pair_t* cur = *iter;
+			if (cur == last_selected_pair || cur == item_pair)
+			{
+				grab_items = !grab_items;
+				// Skip last selected and current clicked item pairs.
+				continue;
+			}
+			if (!cur->first->getVisible())
+			{
+				// Skip invisible item pairs.
+				continue;
+			}
+			if (grab_items)
+			{
+				pairs_to_select.push_back(cur);
+			}
+		}
+
+		if (select_item)
+		{
+			pairs_to_select.push_back(item_pair);
+		}
+
+		for (pairs_iterator_t
+				 iter = pairs_to_select.begin(),
+				 iter_end = pairs_to_select.end();
+			 iter != iter_end; ++iter)
+		{
+			item_pair_t* pair_to_select = *iter;
+			selectItemPair(pair_to_select, true);
+		}
+
+		if (!select_item)
+		{
+			// Item was already selected but there is a need to update last selected item and its border.
+			// Do it here to prevent extra mCommitOnSelectionChange in selectItemPair().
+			mSelectedItemPairs.remove(item_pair);
+			mSelectedItemPairs.push_back(item_pair);
+			mSelectedItemsBorder->setRect(getLastSelectedItemRect().stretch(-1));
+		}
+		return;
+	}
+
 	if (!(mask & MASK_CONTROL) || !mMultipleSelection) resetSelection();
 	selectItemPair(item_pair, select_item);
 }
@@ -1059,6 +1120,40 @@ void LLFlatListView::detachItems(std::vector<LLPanel*>& detached_items)
 		}
 		notifyParentItemsRectChanged();
 	}
+}
+
+
+/************************************************************************/
+/*             LLFlatListViewEx implementation                          */
+/************************************************************************/
+LLFlatListViewEx::Params::Params()
+: no_items_msg("no_items_msg")
+, no_filtered_items_msg("no_filtered_items_msg")
+{
+
+}
+
+LLFlatListViewEx::LLFlatListViewEx(const Params& p)
+:	LLFlatListView(p)
+, mNoFilteredItemsMsg(p.no_filtered_items_msg)
+, mNoItemsMsg(p.no_items_msg)
+{
+
+}
+
+void LLFlatListViewEx::updateNoItemsMessage(bool items_filtered)
+{
+	if (items_filtered)
+	{
+		// items were filtered
+		setNoItemsCommentText(mNoFilteredItemsMsg);
+	}
+	else
+	{
+		// list does not contain any items at all
+		setNoItemsCommentText(mNoItemsMsg);
+	}
+
 }
 
 //EOF

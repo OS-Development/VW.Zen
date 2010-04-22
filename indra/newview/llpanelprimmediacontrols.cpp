@@ -66,10 +66,6 @@
 #include "llwindow.h"
 #include "llfloatertools.h"  // to enable hide if build tools are up
 
-#if defined(LL_DARWIN) || (defined(LL_WINDOW) && (! defined(LL_RELEASE_FOR_DOWNLOAD)) )
-#define PER_MEDIA_VOLUME
-#endif
-
 // Functions pulled from pipeline.cpp
 glh::matrix4f glh_get_current_modelview();
 glh::matrix4f glh_get_current_projection();
@@ -354,6 +350,11 @@ void LLPanelPrimMediaControls::updateShape()
 		mHomeCtrl->setEnabled(has_focus && can_navigate);
 		LLPluginClassMediaOwner::EMediaStatus result = ((media_impl != NULL) && media_impl->hasMedia()) ? media_plugin->getStatus() : LLPluginClassMediaOwner::MEDIA_NONE;
 		
+		mVolumeCtrl->setVisible(has_focus);
+		mVolumeCtrl->setEnabled(has_focus);
+		mVolumeSliderCtrl->setEnabled(has_focus && shouldVolumeSliderBeVisible());
+		mVolumeSliderCtrl->setVisible(has_focus && shouldVolumeSliderBeVisible());
+
 		if(media_plugin && media_plugin->pluginSupportsMediaTime())
 		{
 			mReloadCtrl->setEnabled(false);
@@ -466,17 +467,14 @@ void LLPanelPrimMediaControls::updateShape()
 			mSkipBackCtrl->setVisible(FALSE);
 			mSkipBackCtrl->setEnabled(FALSE);
 			
-#ifdef PER_MEDIA_VOLUME
-			mVolumeCtrl->setVisible(has_focus);
-			mVolumeCtrl->setEnabled(has_focus);
-			mVolumeSliderCtrl->setEnabled(has_focus && shouldVolumeSliderBeVisible());
-			mVolumeSliderCtrl->setVisible(has_focus && shouldVolumeSliderBeVisible());
-#else
-			mVolumeCtrl->setVisible(FALSE);
-			mVolumeSliderCtrl->setVisible(FALSE);
-			mVolumeCtrl->setEnabled(FALSE);
-			mVolumeSliderCtrl->setEnabled(FALSE);
-#endif
+			if(media_impl->getVolume() <= 0.0)
+			{
+				mMuteBtn->setToggleState(true);
+			}
+			else
+			{
+				mMuteBtn->setToggleState(false);
+			}
 
 			if (mMediaPanelScroll)
 			{
