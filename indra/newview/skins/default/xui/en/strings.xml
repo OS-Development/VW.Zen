@@ -148,6 +148,8 @@
 	<!-- Group name: text shown for LLUUID::null -->
 	<string name="GroupNameNone">(none)</string>
 
+	<string name="AvalineCaller">Avaline Caller [ORDER]</string>
+
 	<!-- Asset errors. Used in llassetstorage.cpp, translation from error code to error message. -->
 	<string name="AssetErrorNone">No error</string>
 	<string name="AssetErrorRequestFailed">Asset request: failed</string>
@@ -2154,7 +2156,7 @@ Clears (deletes) the media and all params from the given face.
 	<!-- Region/Estate Covenant -->
 	<string name="RegionNoCovenant">There is no Covenant provided for this Estate.</string>
 	<string name="RegionNoCovenantOtherOwner">There is no Covenant provided for this Estate. The land on this estate is being sold by the Estate owner, not Linden Lab.  Please contact the Estate Owner for sales details.</string>
-	<string name="covenant_last_modified">Last Modified:</string>
+	<string name="covenant_last_modified" value="Last Modified: " /> <!-- use value="" to keep the trailing space -->
 	<string name="none_text"  value=" (none) " />
 	<string name="never_text" value=" (never) " />
 
@@ -2940,6 +2942,7 @@ If you continue to receive this message, contact the [SUPPORT_SITE].
 	<string name="IM_moderator_label">(Moderator)</string>
 
 	<!-- voice calls -->
+	<string name="answered_call">Your call has been answered</string>
 	<string name="started_call">Started a voice call</string>
 	<string name="joined_call">Joined the voice call</string>
 
@@ -3056,6 +3059,7 @@ If you continue to receive this message, contact the [SUPPORT_SITE].
   <!-- Financial operations strings -->
   <string name="paid_you_ldollars">[NAME] paid you L$[AMOUNT]</string>
   <string name="you_paid_ldollars">You paid [NAME] L$[AMOUNT] [REASON].</string>
+  <string name="you_paid_ldollars_no_info">You paid L$[AMOUNT].</string>
   <string name="you_paid_ldollars_no_reason">You paid [NAME] L$[AMOUNT].</string>
   <string name="you_paid_ldollars_no_name">You paid L$[AMOUNT] [REASON].</string>
   <string name="for a parcel of land">for a parcel of land</string>
@@ -3099,4 +3103,11 @@ Abuse Report</string>
   <string name="New Script">New Script</string>
   <string name="New Folder">New Folder</string>
   <string name="Contents">Contents</string>
-</strings>
+
+  <!-- birth date format shared by avatar inspector and profile panels -->
+  <string name="AvatarBirthDateFormat">[mthnum,datetime,slt]/[day,datetime,slt]/[year,datetime,slt]</string>
+  
+  <string name="DefaultMimeType">none/none</string>
+  <string name="texture_load_dimensions_error">Can't load images larger than [WIDTH]*[HEIGHT]</string>
+
+  </strings>

@@ -1039,24 +1039,9 @@ void flush_glerror()
 	glGetError();
 }
 
-void assert_glerror()
+void do_assert_glerror()
 {
-	if (!gGLActive)
-	{
-		//llwarns << "GL used while not active!" << llendl;
-
-		if (gDebugSession)
-		{
-			//ll_fail("GL used while not active");
-		}
-	}
-
-	if (gNoRender || !gDebugGL) 
-	{
-		return;
-	}
-	
-	if (!gGLManager.mInited)
+	if (LL_UNLIKELY(!gGLManager.mInited))
 	{
 		LL_ERRS("RenderInit") << "GL not initialized" << LL_ENDL;
 	}
@@ -1064,10 +1049,9 @@ void assert_glerror()
 	GLenum error;
 	error = glGetError();
 	BOOL quit = FALSE;
-	while (error)
+	while (LL_UNLIKELY(error))
 	{
 		quit = TRUE;
-#ifndef LL_LINUX // *FIX: !  This should be an error for linux as well.
 		GLubyte const * gl_error_msg = gluErrorString(error);
 		if (NULL != gl_error_msg)
 		{
@@ -1091,7 +1075,6 @@ void assert_glerror()
 			}
 		}
 		error = glGetError();
-#endif
 	}
 
 	if (quit)
@@ -1106,6 +1089,25 @@ void assert_glerror()
 		}
 	}
 }
+
+void assert_glerror()
+{
+	if (!gGLActive)
+	{
+		//llwarns << "GL used while not active!" << llendl;
+
+		if (gDebugSession)
+		{
+			//ll_fail("GL used while not active");
+		}
+	}
+
+	if (!gNoRender && gDebugGL) 
+	{
+		do_assert_glerror();
+	}
+}
+	
 
 void clear_glerror()
 {

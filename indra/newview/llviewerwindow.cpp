@@ -838,7 +838,7 @@ LLWindowCallbacks::DragNDropResult LLViewerWindow::handleDragNDrop( LLWindow *wi
 							LLPanelLogin::refreshLocation( true );
 							LLPanelLogin::updateLocationUI();
 						}
-						return LLWindowCallbacks::DND_MOVE;
+						return LLWindowCallbacks::DND_COPY;
 					};
 				}
 
@@ -857,7 +857,11 @@ LLWindowCallbacks::DragNDropResult LLViewerWindow::handleDragNDrop( LLWindow *wi
 					if (obj && !obj->getRegion()->getCapability("ObjectMedia").empty())
 					{
 						LLTextureEntry *te = obj->getTE(object_face);
-						if (te)
+
+						// can modify URL if we can modify the object or we have navigate permissions
+						bool allow_modify_url = obj->permModify() || obj->hasMediaPermission( te->getMediaData(), LLVOVolume::MEDIA_PERM_INTERACT );
+
+						if (te && allow_modify_url )
 						{
 							if (drop)
 							{
@@ -888,29 +892,24 @@ LLWindowCallbacks::DragNDropResult LLViewerWindow::handleDragNDrop( LLWindow *wi
 									// URL passes the whitelist
 									if (te->getMediaData()->checkCandidateUrl( url ) )
 									{
-										// we are allowed to modify the object or we have navigate permissions
-										// NOTE: Design states you you can change the URL if you have media 
-										//       navigate permissions even if you do not have prim modify rights
-										if ( obj->permModify() || obj->hasMediaPermission( te->getMediaData(), LLVOVolume::MEDIA_PERM_INTERACT ) )
+										// just navigate to the URL
+										if (obj->getMediaImpl(object_face))
 										{
-											// just navigate to the URL
-											if (obj->getMediaImpl(object_face))
-											{
-												obj->getMediaImpl(object_face)->navigateTo(url);
-											}
-											else 
-											{
-												// This is very strange.  Navigation should
-												// happen via the Impl, but we don't have one.
-												// This sends it to the server, which /should/
-												// trigger us getting it.  Hopefully.
-												LLSD media_data;
-												media_data[LLMediaEntry::CURRENT_URL_KEY] = url;
-												obj->syncMediaData(object_face, media_data, true, true);
-												obj->sendMediaDataUpdate();
-											}
-											result = LLWindowCallbacks::DND_LINK;
+											obj->getMediaImpl(object_face)->navigateTo(url);
 										}
+										else 
+										{
+											// This is very strange.  Navigation should
+											// happen via the Impl, but we don't have one.
+											// This sends it to the server, which /should/
+											// trigger us getting it.  Hopefully.
+											LLSD media_data;
+											media_data[LLMediaEntry::CURRENT_URL_KEY] = url;
+											obj->syncMediaData(object_face, media_data, true, true);
+											obj->sendMediaDataUpdate();
+										}
+										result = LLWindowCallbacks::DND_LINK;
+										
 									}
 								}
 								LLSelectMgr::getInstance()->unhighlightObjectOnly(mDragHoveredObject);
@@ -930,6 +929,7 @@ LLWindowCallbacks::DragNDropResult LLViewerWindow::handleDragNDrop( LLWindow *wi
 										LLSelectMgr::getInstance()->highlightObjectOnly(mDragHoveredObject);
 									}
 									result = (! te->hasMedia()) ? LLWindowCallbacks::DND_COPY : LLWindowCallbacks::DND_LINK;
+
 								}
 							}
 						}
@@ -1377,7 +1377,7 @@ LLViewerWindow::LLViewerWindow(
 		gSavedSettings.getBOOL("DisableVerticalSync"),
 		!gNoRender,
 		ignore_pixel_depth,
-		gSavedSettings.getU32("RenderFSAASamples"));
+		0); //gSavedSettings.getU32("RenderFSAASamples"));
 
 	if (!LLAppViewer::instance()->restoreErrorTrap())
 	{
@@ -4594,8 +4594,9 @@ BOOL LLViewerWindow::changeDisplaySettings(BOOL fullscreen, LLCoordScreen size, 
 		return TRUE;
 	}
 
-	U32 fsaa = gSavedSettings.getU32("RenderFSAASamples");
-	U32 old_fsaa = mWindow->getFSAASamples();
+	//U32 fsaa = gSavedSettings.getU32("RenderFSAASamples");
+	//U32 old_fsaa = mWindow->getFSAASamples();
+
 	// going from windowed to windowed
 	if (!old_fullscreen && !fullscreen)
 	{
@@ -4605,7 +4606,7 @@ BOOL LLViewerWindow::changeDisplaySettings(BOOL fullscreen, LLCoordScreen size, 
 			mWindow->setSize(size);
 		}
 
-		if (fsaa == old_fsaa)
+		//if (fsaa == old_fsaa)
 		{
 			return TRUE;
 		}
@@ -4634,13 +4635,13 @@ BOOL LLViewerWindow::changeDisplaySettings(BOOL fullscreen, LLCoordScreen size, 
 		gSavedSettings.setS32("WindowY", old_pos.mY);
 	}
 	
-	mWindow->setFSAASamples(fsaa);
+	//mWindow->setFSAASamples(fsaa);
 
 	result_first_try = mWindow->switchContext(fullscreen, size, disable_vsync);
 	if (!result_first_try)
 	{
 		// try to switch back
-		mWindow->setFSAASamples(old_fsaa);
+		//mWindow->setFSAASamples(old_fsaa);
 		result_second_try = mWindow->switchContext(old_fullscreen, old_size, disable_vsync);
 
 		if (!result_second_try)
