@@ -303,6 +303,7 @@ set(viewer_SOURCE_FILES
     llpanelcontents.cpp
     llpaneleditwearable.cpp
     llpanelface.cpp
+    llpanelgenerictip.cpp
     llpanelgroup.cpp
     llpanelgroupgeneral.cpp
     llpanelgroupinvite.cpp
@@ -342,6 +343,7 @@ set(viewer_SOURCE_FILES
     llpanelprofile.cpp
     llpanelprofileview.cpp
     llpanelteleporthistory.cpp
+    llpaneltiptoast.cpp
     llpanelvolume.cpp
     llpanelvolumepulldown.cpp
     llparcelselection.cpp
@@ -437,7 +439,6 @@ set(viewer_SOURCE_FILES
     lltracker.cpp
     lltransientdockablefloater.cpp
     lltransientfloatermgr.cpp
-    llpanelgenerictip.cpp
     lluilistener.cpp
     lluploaddialog.cpp
     llurl.cpp
@@ -802,6 +803,7 @@ set(viewer_HEADER_FILES
     llpanelcontents.h
     llpaneleditwearable.h
     llpanelface.h
+    llpanelgenerictip.h
     llpanelgroup.h
     llpanelgroupgeneral.h
     llpanelgroupinvite.h
@@ -841,6 +843,7 @@ set(viewer_HEADER_FILES
     llpanelprofile.h
     llpanelprofileview.h
     llpanelteleporthistory.h
+    llpaneltiptoast.h
     llpanelvolume.h
     llpanelvolumepulldown.h
     llparcelselection.h
@@ -939,7 +942,6 @@ set(viewer_HEADER_FILES
     lltracker.h
     lltransientdockablefloater.h
     lltransientfloatermgr.h
-    llpanelgenerictip.h
     lluiconstants.h
     lluilistener.h
     lluploaddialog.h
@@ -1388,7 +1390,7 @@ if (WINDOWS)
 
     # If adding a file to viewer_manifest.py in the WindowsManifest.construct() method, be sure to add the dependency
     # here.
-    # *NOTE:Mani - This is a crappy hack to have important dependecies for the viewer_manifest copy action
+    # *NOTE:Mani - This is a crappy hack to have important dependencies for the viewer_manifest copy action
     # be met. I'm looking forward to a source-code split-up project next year that will address this kind of thing.
     # In the meantime, if you have any ideas on how to easily maintain one list, either here or in viewer_manifest.py
     # and have the build deps get tracked *please* tell me about it.
@@ -1409,7 +1411,7 @@ if (WINDOWS)
     endif(USE_GOOGLE_PERFTOOLS)
   
 
-    set(COPY_INPUT_DEPENDECIES
+    set(COPY_INPUT_DEPENDENCIES
       # The following commented dependencies are determined at variably at build time. Can't do this here.
       #${SHARED_LIB_STAGING_DIR}/${CMAKE_CFG_INTDIR}/libtcmalloc_minimal.dll => None ... Skipping libtcmalloc_minimal.dll
       ${CMAKE_SOURCE_DIR}/../etc/message.xml
@@ -1505,7 +1507,7 @@ if (WINDOWS)
       DEPENDS 
         ${CMAKE_CURRENT_SOURCE_DIR}/viewer_manifest.py
         stage_third_party_libs
-        ${COPY_INPUT_DEPENDECIES}
+        ${COPY_INPUT_DEPENDENCIES}
       COMMENT "Performing viewer_manifest copy"
       )
     
