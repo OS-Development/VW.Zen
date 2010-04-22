@@ -63,6 +63,8 @@ public:
 	void start() { mEventTimer.start(); }
 	void restart() {mEventTimer.reset(); }
 	BOOL getStarted() { return mEventTimer.getStarted(); }
+
+	LLTimer&  getEventTimer() { return mEventTimer;}
 private :
 	LLToast* mToast;
 };
@@ -132,6 +134,8 @@ public:
 	//
 	void stopTimer() { mTimer->stop(); }
 	//
+	LLToastLifeTimer* getTimer() { return mTimer.get();}
+	//
 	virtual void draw();
 	//
 	virtual void setVisible(BOOL show);
@@ -186,13 +190,13 @@ public:
 	boost::signals2::connection setMouseEnterCallback( const commit_signal_t::slot_type& cb ) { return mToastMouseEnterSignal.connect(cb); };
 	boost::signals2::connection setMouseLeaveCallback( const commit_signal_t::slot_type& cb ) { return mToastMouseLeaveSignal.connect(cb); };
 
+	virtual S32	notifyParent(const LLSD& info);
+
 private:
 
 	void onToastMouseEnter();
 
 	void onToastMouseLeave();
-
-	void handleTipToastClick(S32 x, S32 y, MASK mask);
 
 	void	expire();
 
@@ -209,7 +213,6 @@ private:
 
 	LLPanel*		mPanel;
 	LLButton*		mHideBtn;
-	LLTextEditor*	mTextEditor;
 
 	LLColor4	mBgColor;
 	bool		mCanFade;
