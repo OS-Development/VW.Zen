@@ -862,7 +862,7 @@ bool LLAppViewer::init()
 			minSpecs += "\n";
 			unsupported = true;
 		}
-		if(gSysCPU.getMhz() < minCPU)
+		if(gSysCPU.getMHz() < minCPU)
 		{
 			minSpecs += LLNotifications::instance().getGlobalString("UnsupportedCPU");
 			minSpecs += "\n";
@@ -2539,7 +2539,7 @@ void LLAppViewer::writeSystemInfo()
 
 	gDebugInfo["CPUInfo"]["CPUString"] = gSysCPU.getCPUString();
 	gDebugInfo["CPUInfo"]["CPUFamily"] = gSysCPU.getFamily();
-	gDebugInfo["CPUInfo"]["CPUMhz"] = gSysCPU.getMhz();
+	gDebugInfo["CPUInfo"]["CPUMhz"] = (S32)gSysCPU.getMHz();
 	gDebugInfo["CPUInfo"]["CPUAltivec"] = gSysCPU.hasAltivec();
 	gDebugInfo["CPUInfo"]["CPUSSE"] = gSysCPU.hasSSE();
 	gDebugInfo["CPUInfo"]["CPUSSE2"] = gSysCPU.hasSSE2();
@@ -2552,7 +2552,7 @@ void LLAppViewer::writeSystemInfo()
 	// which may have been the intended grid. This can b
 	gDebugInfo["GridName"] = LLViewerLogin::getInstance()->getGridLabel();
 
-	// *FIX:Mani - move this ddown in llappviewerwin32
+	// *FIX:Mani - move this down in llappviewerwin32
 #ifdef LL_WINDOWS
 	DWORD thread_id = GetCurrentThreadId();
 	gDebugInfo["MainloopThreadID"] = (S32)thread_id;
@@ -2595,6 +2595,8 @@ void LLAppViewer::handleSyncViewerCrash()
 void LLAppViewer::handleViewerCrash()
 {
 	llinfos << "Handle viewer crash entry." << llendl;
+
+	llinfos << "Last render pool type: " << LLPipeline::sCurRenderPoolType << llendl ;
 
 	//print out recorded call stacks if there are any.
 	LLError::LLCallStacks::print();
@@ -3031,41 +3033,59 @@ void LLAppViewer::migrateCacheDirectory()
 #endif // LL_WINDOWS || LL_DARWIN
 }
 
+//static
+S32 LLAppViewer::getCacheVersion() 
+{
+	static const S32 cache_version = 7;
+
+	return cache_version ;
+}
+
 bool LLAppViewer::initCache()
 {
 	mPurgeCache = false;
-	// Purge cache if user requested it
-	if (gSavedSettings.getBOOL("PurgeCacheOnStartup") ||
-		gSavedSettings.getBOOL("PurgeCacheOnNextStartup"))
+	BOOL disable_texture_cache = FALSE ;
+	BOOL read_only = mSecondInstance ? TRUE : FALSE;
+	LLAppViewer::getTextureCache()->setReadOnly(read_only) ;
+
+	if (gSavedSettings.getS32("LocalCacheVersion") != LLAppViewer::getCacheVersion()) 
 	{
-		gSavedSettings.setBOOL("PurgeCacheOnNextStartup", false);
-		mPurgeCache = true;
-	}
-	// Purge cache if it belongs to an old version
-	else
-	{
-		static const S32 cache_version = 6;
-		if (gSavedSettings.getS32("LocalCacheVersion") != cache_version)
+		if(read_only) 
 		{
-			mPurgeCache = true;
-			gSavedSettings.setS32("LocalCacheVersion", cache_version);
+			disable_texture_cache = TRUE ; //if the cache version of this viewer is different from the running one, this viewer can not use the texture cache.
+		}
+		else
+		{
+			mPurgeCache = true; // Purge cache if the version number is different.
+			gSavedSettings.setS32("LocalCacheVersion", LLAppViewer::getCacheVersion());
 		}
 	}
-	
-	// We have moved the location of the cache directory over time.
-	migrateCacheDirectory();
 
-	// Setup and verify the cache location
-	std::string cache_location = gSavedSettings.getString("CacheLocation");
-	std::string new_cache_location = gSavedSettings.getString("NewCacheLocation");
-	if (new_cache_location != cache_location)
+	if(!read_only)
 	{
-		gDirUtilp->setCacheDir(gSavedSettings.getString("CacheLocation"));
-		purgeCache(); // purge old cache
-		gSavedSettings.setString("CacheLocation", new_cache_location);
-		gSavedSettings.setString("CacheLocationTopFolder", gDirUtilp->getBaseFileName(new_cache_location));
-	}
+		// Purge cache if user requested it
+		if (gSavedSettings.getBOOL("PurgeCacheOnStartup") ||
+			gSavedSettings.getBOOL("PurgeCacheOnNextStartup"))
+		{
+			gSavedSettings.setBOOL("PurgeCacheOnNextStartup", false);
+		mPurgeCache = true;
+		}
 	
+		// We have moved the location of the cache directory over time.
+		migrateCacheDirectory();
+	
+		// Setup and verify the cache location
+		std::string cache_location = gSavedSettings.getString("CacheLocation");
+		std::string new_cache_location = gSavedSettings.getString("NewCacheLocation");
+		if (new_cache_location != cache_location)
+		{
+			gDirUtilp->setCacheDir(gSavedSettings.getString("CacheLocation"));
+			purgeCache(); // purge old cache
+			gSavedSettings.setString("CacheLocation", new_cache_location);
+			gSavedSettings.setString("CacheLocationTopFolder", gDirUtilp->getBaseFileName(new_cache_location));
+		}
+	}
+
 	if (!gDirUtilp->setCacheDir(gSavedSettings.getString("CacheLocation")))
 	{
 		LL_WARNS("AppCache") << "Unable to set cache location" << LL_ENDL;
@@ -3073,7 +3093,7 @@ bool LLAppViewer::initCache()
 		gSavedSettings.setString("CacheLocationTopFolder", "");
 	}
 	
-	if (mPurgeCache)
+	if (mPurgeCache && !read_only)
 	{
 		LLSplashScreen::update(LLTrans::getString("StartupClearingCache"));
 		purgeCache();
@@ -3082,14 +3102,13 @@ bool LLAppViewer::initCache()
 	LLSplashScreen::update(LLTrans::getString("StartupInitializingTextureCache"));
 	
 	// Init the texture cache
-	// Allocate 80% of the cache size for textures
-	BOOL read_only = mSecondInstance ? TRUE : FALSE;
+	// Allocate 80% of the cache size for textures	
 	const S32 MB = 1024*1024;
 	S64 cache_size = (S64)(gSavedSettings.getU32("CacheSize")) * MB;
 	const S64 MAX_CACHE_SIZE = 1024*MB;
 	cache_size = llmin(cache_size, MAX_CACHE_SIZE);
 	S64 texture_cache_size = ((cache_size * 8)/10);
-	S64 extra = LLAppViewer::getTextureCache()->initCache(LL_PATH_CACHE, texture_cache_size, read_only);
+	S64 extra = LLAppViewer::getTextureCache()->initCache(LL_PATH_CACHE, texture_cache_size, disable_texture_cache);
 	texture_cache_size -= extra;
 
 	LLSplashScreen::update(LLTrans::getString("StartupInitializingVFS"));
@@ -3238,6 +3257,13 @@ bool LLAppViewer::initCache()
 	else
 	{
 		LLVFile::initClass();
+
+		//llinfos << "Static VFS listing" << llendl;
+		//gStaticVFS->listFiles();
+
+		//llinfos << "regular VFS listing" << llendl;
+		//gVFS->listFiles();
+		
 		return true;
 	}
 }
