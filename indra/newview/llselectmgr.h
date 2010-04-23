@@ -483,7 +483,6 @@ public:
 	void selectionUpdatePhysics(BOOL use_physics);
 	void selectionUpdateTemporary(BOOL is_temporary);
 	void selectionUpdatePhantom(BOOL is_ghost);
-	void selectionUpdatePhysicsShapeType(U8 type);
 	void selectionUpdateCastShadows(BOOL cast_shadows);
 	void selectionDump();
 

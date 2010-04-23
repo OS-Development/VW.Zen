@@ -2061,10 +2061,6 @@ version 2.0
 		{	IsPhantom		BOOL	}
 		{	CastsShadows	BOOL	}
 	}
-    {
-		ExtraPhysics        Variable
-		{   PhysicsShapeType U8     }
-	}
 }
 
 
