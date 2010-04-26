@@ -222,6 +222,30 @@
                  top="1"
                  width="31" />
                 <button
+                 follows="bottom|left"
+                 height="25"
+                 image_hover_unselected="Toolbar_Middle_Over"
+                 image_overlay="Movement_Forward_On"
+                 image_selected="Toolbar_Middle_Selected"
+                 image_unselected="Toolbar_Middle_Off"
+                 layout="topleft"
+                 left_pad="1"
+                 name="move_closer_btn"
+                 top="1"
+                 width="31" />
+                <button
+                 follows="bottom|left"
+                 height="25"
+                 image_hover_unselected="Toolbar_Middle_Over"
+                 image_overlay="Movement_Backward_On"
+                 image_selected="Toolbar_Middle_Selected"
+                 image_unselected="Toolbar_Middle_Off"
+                 layout="topleft"
+                 left_pad="1"
+                 name="move_further_btn"
+                 top="1"
+                 width="31" />
+                <button
                  follows="bottom|right"
                  height="25"
                  image_hover_unselected="Toolbar_Middle_Over"
@@ -340,6 +364,30 @@
              name="inventory_items"
              top_pad="5"
              width="300"/>
+
+            <panel
+             name="filtered_wearables_panel"
+             background_opaque="true"
+             background_visible="true"
+             layout="topleft"
+             follows="left|top|right|bottom"
+             border="false"
+             height="155"
+             left="0"
+             mouse_opaque="false"
+             width="300"
+             top_delta="0"
+             visible="false">
+             <wearable_items_list
+              name="filtered_wearables_list"
+              allow_select="true"
+              layout="topleft"
+              follows="all"
+              width="300"
+              height="155"
+              left="0"
+              top="0" />
+            </panel>
 
             <panel
              background_visible="true"

@@ -1035,21 +1035,26 @@ bool check_offer_throttle(const std::string& from_name, bool check_only)
 			{
 				// Use the name of the last item giver, who is probably the person
 				// spamming you.
-				std::ostringstream message;
-				message << LLAppViewer::instance()->getSecondLifeTitle();
+
+				LLStringUtil::format_map_t arg;
+				std::string log_msg;
+				std::ostringstream time ;
+				time<<OFFER_THROTTLE_TIME;
+
+				arg["APP_NAME"] = LLAppViewer::instance()->getSecondLifeTitle();
+				arg["TIME"] = time.str();
+
 				if (!from_name.empty())
 				{
-					message << ": Items coming in too fast from " << from_name;
+					arg["FROM_NAME"] = from_name;
+					log_msg = LLTrans::getString("ItemsComingInTooFastFrom", arg);
 				}
 				else
 				{
-					message << ": Items coming in too fast";
+					log_msg = LLTrans::getString("ItemsComingInTooFast", arg);
 				}
-				message << ", automatic preview disabled for "
-					<< OFFER_THROTTLE_TIME << " seconds.";
 				
 				//this is kinda important, so actually put it on screen
-				std::string log_msg = message.str();
 				LLSD args;
 				args["MESSAGE"] = log_msg;
 				LLNotificationsUtil::add("SystemMessage", args);
@@ -1928,7 +1933,7 @@ protected:
 	}
 };
 
-static void parse_lure_bucket(const std::string& bucket,
+static bool parse_lure_bucket(const std::string& bucket,
 							  U64& region_handle,
 							  LLVector3& pos,
 							  LLVector3& look_at,
@@ -1940,15 +1945,25 @@ static void parse_lure_bucket(const std::string& bucket,
 	tokenizer tokens(bucket, sep);
 	tokenizer::iterator iter = tokens.begin();
 
-	S32 gx = boost::lexical_cast<S32>((*(iter)).c_str());
-	S32 gy = boost::lexical_cast<S32>((*(++iter)).c_str());
-	S32 rx = boost::lexical_cast<S32>((*(++iter)).c_str());
-	S32 ry = boost::lexical_cast<S32>((*(++iter)).c_str());
-	S32 rz = boost::lexical_cast<S32>((*(++iter)).c_str());
-	S32 lx = boost::lexical_cast<S32>((*(++iter)).c_str());
-	S32 ly = boost::lexical_cast<S32>((*(++iter)).c_str());
-	S32 lz = boost::lexical_cast<S32>((*(++iter)).c_str());
-
+	S32 gx,gy,rx,ry,rz,lx,ly,lz;
+	try
+	{
+		gx = boost::lexical_cast<S32>((*(iter)).c_str());
+		gy = boost::lexical_cast<S32>((*(++iter)).c_str());
+		rx = boost::lexical_cast<S32>((*(++iter)).c_str());
+		ry = boost::lexical_cast<S32>((*(++iter)).c_str());
+		rz = boost::lexical_cast<S32>((*(++iter)).c_str());
+		lx = boost::lexical_cast<S32>((*(++iter)).c_str());
+		ly = boost::lexical_cast<S32>((*(++iter)).c_str());
+		lz = boost::lexical_cast<S32>((*(++iter)).c_str());
+	}
+	catch( boost::bad_lexical_cast& )
+	{
+		LL_WARNS("parse_lure_bucket")
+			<< "Couldn't parse lure bucket."
+			<< LL_ENDL;
+		return false;
+	}
 	// Grab region access
 	region_access = SIM_ACCESS_MIN;
 	if (++iter != tokens.end())
@@ -1973,6 +1988,7 @@ static void parse_lure_bucket(const std::string& bucket,
 	look_at.setVec((F32)lx, (F32)ly, (F32)lz);
 
 	region_handle = to_region_handle(gx, gy);
+	return true;
 }
 
 void process_improved_im(LLMessageSystem *msg, void **user_data)
@@ -2532,7 +2548,7 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 			// Note: lie to Nearby Chat, pretending that this is NOT an IM, because
 			// IMs from obejcts don't open IM sessions.
 			LLNearbyChat* nearby_chat = LLFloaterReg::getTypedInstance<LLNearbyChat>("nearby_chat", LLSD());
-			if(nearby_chat)
+			if(SYSTEM_FROM != name && nearby_chat)
 			{
 				LLSD args;
 				args["owner_id"] = from_id;
@@ -2610,15 +2626,21 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 				U64 region_handle;
 				U8 region_access;
 				std::string region_info = ll_safe_string((char*)binary_bucket, binary_bucket_size);
-				parse_lure_bucket(region_info, region_handle, pos, look_at, region_access);
+				std::string region_access_str = LLStringUtil::null;
+				std::string region_access_icn = LLStringUtil::null;
 
-				std::string region_access_str = LLViewerRegion::accessToString(region_access);
+				if (parse_lure_bucket(region_info, region_handle, pos, look_at, region_access))
+				{
+					region_access_str = LLViewerRegion::accessToString(region_access);
+					region_access_icn = LLViewerRegion::getAccessIcon(region_access);
+				}
 
 				LLSD args;
 				// *TODO: Translate -> [FIRST] [LAST] (maybe)
 				args["NAME_SLURL"] = LLSLURL::buildCommand("agent", from_id, "about");
 				args["MESSAGE"] = message;
-				args["MATURITY"] = region_access_str;
+				args["MATURITY_STR"] = region_access_str;
+				args["MATURITY_ICON"] = region_access_icn;
 				LLSD payload;
 				payload["from_id"] = from_id;
 				payload["lure_id"] = session_id;

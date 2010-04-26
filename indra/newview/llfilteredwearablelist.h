@@ -1,6 +1,6 @@
 /**
- * @file lloutfitslist.h
- * @brief List of agent's outfits for My Appearance side panel.
+ * @file llfilteredwearablelist.h
+ * @brief Functionality for showing filtered wearable flat list
  *
  * $LicenseInfo:firstyear=2010&license=viewergpl$
  *
@@ -29,54 +29,42 @@
  * $/LicenseInfo$
  */
 
-#ifndef LL_LLOUTFITSLIST_H
-#define LL_LLOUTFITSLIST_H
+#ifndef LL_LLFILTEREDWEARABLELIST_H
+#define LL_LLFILTEREDWEARABLELIST_H
 
-#include "llpanel.h"
-
-// newview
 #include "llinventoryobserver.h"
 
-class LLAccordionCtrl;
-class LLAccordionCtrlTab;
-class LLWearableItemsList;
+class LLInventoryItemsList;
 
-class LLOutfitsList : public LLPanel, public LLInventoryObserver
+// Class that fills LLInventoryItemsList with filtered data.
+class LLFilteredWearableListManager : public LLInventoryObserver
 {
+	LOG_CLASS(LLFilteredWearableListManager);
 public:
-	LLOutfitsList();
-	virtual ~LLOutfitsList();
 
-	/*virtual*/ BOOL postBuild();
+	LLFilteredWearableListManager(LLInventoryItemsList* list, U64 filter_mask);
+	~LLFilteredWearableListManager();
 
+	/** LLInventoryObserver implementation
+	 *
+	 */
 	/*virtual*/ void changed(U32 mask);
 
-	void refreshList(const LLUUID& category_id);
+	/**
+	 * Sets new filter and applies it immediately
+	 */
+	void setFilterMask(U64 mask);
 
-	// Update tab displaying outfit identified by category_id.
-	void updateOutfitTab(const LLUUID& category_id);
-
-	void setFilterSubString(const std::string& string);
+	/**
+	 * Populates wearable list with filtered data.
+	 */
+	void populateList();
 
 private:
-	/**
-	 * Reads xml with accordion tab and Flat list from xml file.
-	 *
-	 * @return LLPointer to XMLNode with accordion tab and flat list.
-	 */
-	LLXMLNodePtr getAccordionTabXMLNode();
-
-
-	LLInventoryCategoriesObserver* 	mCategoriesObserver;
-
-	LLAccordionCtrl*				mAccordion;
-	LLPanel*						mListCommands;
-
-	std::string 					mFilterSubString;
-
-	typedef	std::map<LLUUID, LLAccordionCtrlTab*>		outfits_map_t;
-	typedef outfits_map_t::value_type					outfits_map_value_t;
-	outfits_map_t					mOutfitsMap;
+	LLInventoryItemsList* mWearableList;
+	U64 mFilterMask;
 };
 
-#endif //LL_LLOUTFITSLIST_H
+#endif //LL_LLFILTEREDWEARABLELIST_H
+
+// EOF

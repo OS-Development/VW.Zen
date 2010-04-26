@@ -55,6 +55,7 @@ class LLScrollListCtrl;
 class LLToggleableMenu;
 class LLLookFetchObserver;
 class LLFilterEditor;
+class LLFilteredWearableListManager;
 
 class LLPanelOutfitEdit : public LLPanel
 {
@@ -86,8 +87,11 @@ public:
 		// Sends a request for data about the given parcel, which will
 		// only update the location if there is none already available.
 
+	void moveWearable(bool closer_to_body);
+
 	void showAddWearablesPanel();
 	void showWearablesFilter();
+	void showFilteredWearablesPanel();
 	void saveOutfit(bool as_new = false);
 	void showSaveMenu();
 
@@ -108,6 +112,8 @@ public:
 
 private:
 
+	void updateVerbs();
+
 	//*TODO got rid of mCurrentOutfitID
 	LLUUID				mCurrentOutfitID;
 
@@ -122,7 +128,9 @@ private:
 	LLButton*			mUpBtn;
 	LLButton*			mEditWearableBtn;
 	LLToggleableMenu*	mSaveMenu;
-	
+
+	LLFilteredWearableListManager* mWearableListManager;
+
 	LLLookFetchObserver*		mFetchLook;
 	LLInventoryLookObserver*	mLookObserver;
 	std::vector<LLLookItemType> mLookItemTypes;

@@ -1,6 +1,6 @@
 /**
- * @file lloutfitslist.h
- * @brief List of agent's outfits for My Appearance side panel.
+ * @file llcommonutils.h
+ * @brief Commin utils
  *
  * $LicenseInfo:firstyear=2010&license=viewergpl$
  *
@@ -29,54 +29,33 @@
  * $/LicenseInfo$
  */
 
-#ifndef LL_LLOUTFITSLIST_H
-#define LL_LLOUTFITSLIST_H
+#include "linden_common.h"
+#include "llcommonutils.h"
 
-#include "llpanel.h"
-
-// newview
-#include "llinventoryobserver.h"
-
-class LLAccordionCtrl;
-class LLAccordionCtrlTab;
-class LLWearableItemsList;
-
-class LLOutfitsList : public LLPanel, public LLInventoryObserver
+void LLCommonUtils::computeDifference(
+	const uuid_vec_t& vnew,
+	const uuid_vec_t& vcur,
+	uuid_vec_t& vadded,
+	uuid_vec_t& vremoved)
 {
-public:
-	LLOutfitsList();
-	virtual ~LLOutfitsList();
+	uuid_vec_t vnew_copy(vnew);
+	uuid_vec_t vcur_copy(vcur);
 
-	/*virtual*/ BOOL postBuild();
+	std::sort(vnew_copy.begin(), vnew_copy.end());
+	std::sort(vcur_copy.begin(), vcur_copy.end());
 
-	/*virtual*/ void changed(U32 mask);
+	size_t maxsize = llmax(vnew_copy.size(), vcur_copy.size());
+	vadded.resize(maxsize);
+	vremoved.resize(maxsize);
 
-	void refreshList(const LLUUID& category_id);
+	uuid_vec_t::iterator it;
+	// what was removed
+	it = set_difference(vcur_copy.begin(), vcur_copy.end(), vnew_copy.begin(), vnew_copy.end(), vremoved.begin());
+	vremoved.erase(it, vremoved.end());
 
-	// Update tab displaying outfit identified by category_id.
-	void updateOutfitTab(const LLUUID& category_id);
+	// what was added
+	it = set_difference(vnew_copy.begin(), vnew_copy.end(), vcur_copy.begin(), vcur_copy.end(), vadded.begin());
+	vadded.erase(it, vadded.end());
+}
 
-	void setFilterSubString(const std::string& string);
-
-private:
-	/**
-	 * Reads xml with accordion tab and Flat list from xml file.
-	 *
-	 * @return LLPointer to XMLNode with accordion tab and flat list.
-	 */
-	LLXMLNodePtr getAccordionTabXMLNode();
-
-
-	LLInventoryCategoriesObserver* 	mCategoriesObserver;
-
-	LLAccordionCtrl*				mAccordion;
-	LLPanel*						mListCommands;
-
-	std::string 					mFilterSubString;
-
-	typedef	std::map<LLUUID, LLAccordionCtrlTab*>		outfits_map_t;
-	typedef outfits_map_t::value_type					outfits_map_value_t;
-	outfits_map_t					mOutfitsMap;
-};
-
-#endif //LL_LLOUTFITSLIST_H
+// EOF
