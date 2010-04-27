@@ -35,12 +35,24 @@
 #include "llpanel.h"
 
 // newview
+#include "llinventorymodel.h"
 #include "llinventoryobserver.h"
 
 class LLAccordionCtrl;
 class LLAccordionCtrlTab;
 class LLWearableItemsList;
 
+/**
+ * @class LLOutfitsList
+ *
+ * A list of agents's outfits from "My Outfits" inventory category
+ * which displays each outfit in an accordion tab with a flat list
+ * of items inside it.
+ * Uses LLInventoryCategoriesObserver to monitor changes to "My Outfits"
+ * inventory category and refresh the outfits listed in it.
+ * This class is derived from LLInventoryObserver to know when inventory
+ * becomes usable and it is safe to request data from inventory model.
+ */
 class LLOutfitsList : public LLPanel, public LLInventoryObserver
 {
 public:
@@ -56,9 +68,24 @@ public:
 	// Update tab displaying outfit identified by category_id.
 	void updateOutfitTab(const LLUUID& category_id);
 
+	void onTabExpandedCollapsed(LLWearableItemsList* list);
+
 	void setFilterSubString(const std::string& string);
 
 private:
+	/**
+	 * Reads xml with accordion tab and Flat list from xml file.
+	 *
+	 * @return LLPointer to XMLNode with accordion tab and flat list.
+	 */
+	LLXMLNodePtr getAccordionTabXMLNode();
+
+	/**
+	 * Wrapper for LLCommonUtils::computeDifference. @see LLCommonUtils::computeDifference
+	 */
+	void computeDifference(const LLInventoryModel::cat_array_t& vcats, uuid_vec_t& vadded, uuid_vec_t& vremoved);
+
+
 	LLInventoryCategoriesObserver* 	mCategoriesObserver;
 
 	LLAccordionCtrl*				mAccordion;
