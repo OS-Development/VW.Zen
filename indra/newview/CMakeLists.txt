@@ -142,6 +142,7 @@ set(viewer_SOURCE_FILES
     llfavoritesbar.cpp
     llfeaturemanager.cpp
     llfilepicker.cpp
+    llfilteredwearablelist.cpp
     llfirstuse.cpp
     llflexibleobject.cpp
     llfloaterabout.cpp
@@ -252,6 +253,7 @@ set(viewer_SOURCE_FILES
     llinventoryclipboard.cpp
     llinventoryfilter.cpp
     llinventoryfunctions.cpp
+    llinventoryitemslist.cpp
     llinventorymodel.cpp
     llinventorymodelbackgroundfetch.cpp
     llinventoryobserver.cpp
@@ -294,7 +296,9 @@ set(viewer_SOURCE_FILES
     llnotificationmanager.cpp
     llnotificationofferhandler.cpp
     llnotificationscripthandler.cpp
+    llnotificationstorage.cpp
     llnotificationtiphandler.cpp
+    lloutfitslist.cpp
     lloutputmonitorctrl.cpp
     llpanelavatar.cpp
     llpanelavatartag.cpp
@@ -303,6 +307,7 @@ set(viewer_SOURCE_FILES
     llpanelcontents.cpp
     llpaneleditwearable.cpp
     llpanelface.cpp
+    llpanelgenerictip.cpp
     llpanelgroup.cpp
     llpanelgroupgeneral.cpp
     llpanelgroupinvite.cpp
@@ -326,6 +331,7 @@ set(viewer_SOURCE_FILES
     llpanelnearbymedia.cpp
     llpanelobject.cpp
     llpanelobjectinventory.cpp
+    llpanelonlinestatus.cpp
     llpaneloutfitedit.cpp
     llpaneloutfitsinventory.cpp
     llpanelpeople.cpp
@@ -342,6 +348,7 @@ set(viewer_SOURCE_FILES
     llpanelprofile.cpp
     llpanelprofileview.cpp
     llpanelteleporthistory.cpp
+    llpaneltiptoast.cpp
     llpanelvolume.cpp
     llpanelvolumepulldown.cpp
     llparcelselection.cpp
@@ -437,7 +444,6 @@ set(viewer_SOURCE_FILES
     lltracker.cpp
     lltransientdockablefloater.cpp
     lltransientfloatermgr.cpp
-    llpanelgenerictip.cpp
     lluilistener.cpp
     lluploaddialog.cpp
     llurl.cpp
@@ -527,6 +533,7 @@ set(viewer_SOURCE_FILES
     llwaterparamset.cpp
     llwearable.cpp
     llwearabledictionary.cpp
+    llwearableitemslist.cpp
     llwearablelist.cpp
     llweb.cpp
     llwind.cpp
@@ -646,6 +653,7 @@ set(viewer_HEADER_FILES
     llfavoritesbar.h
     llfeaturemanager.h
     llfilepicker.h
+    llfilteredwearablelist.h
     llfirstuse.h
     llflexibleobject.h
     llfloaterabout.h
@@ -755,6 +763,7 @@ set(viewer_HEADER_FILES
     llinventoryclipboard.h
     llinventoryfilter.h
     llinventoryfunctions.h
+    llinventoryitemslist.h
     llinventorymodel.h
     llinventorymodelbackgroundfetch.h
     llinventoryobserver.h
@@ -794,6 +803,8 @@ set(viewer_HEADER_FILES
     llnetmap.h
     llnotificationhandler.h
     llnotificationmanager.h
+    llnotificationstorage.h
+    lloutfitslist.h
     lloutputmonitorctrl.h
     llpanelavatar.h
     llpanelavatartag.h
@@ -802,6 +813,7 @@ set(viewer_HEADER_FILES
     llpanelcontents.h
     llpaneleditwearable.h
     llpanelface.h
+    llpanelgenerictip.h
     llpanelgroup.h
     llpanelgroupgeneral.h
     llpanelgroupinvite.h
@@ -825,6 +837,7 @@ set(viewer_HEADER_FILES
     llpanelnearbymedia.h
     llpanelobject.h
     llpanelobjectinventory.h
+    llpanelonlinestatus.h
     llpaneloutfitedit.h
     llpaneloutfitsinventory.h
     llpanelpeople.h
@@ -841,6 +854,7 @@ set(viewer_HEADER_FILES
     llpanelprofile.h
     llpanelprofileview.h
     llpanelteleporthistory.h
+    llpaneltiptoast.h
     llpanelvolume.h
     llpanelvolumepulldown.h
     llparcelselection.h
@@ -939,7 +953,6 @@ set(viewer_HEADER_FILES
     lltracker.h
     lltransientdockablefloater.h
     lltransientfloatermgr.h
-    llpanelgenerictip.h
     lluiconstants.h
     lluilistener.h
     lluploaddialog.h
@@ -1028,6 +1041,7 @@ set(viewer_HEADER_FILES
     llwaterparamset.h
     llwearable.h
     llwearabledictionary.h
+    llwearableitemslist.h
     llwearablelist.h
     llweb.h
     llwind.h
@@ -1388,7 +1402,7 @@ if (WINDOWS)
 
     # If adding a file to viewer_manifest.py in the WindowsManifest.construct() method, be sure to add the dependency
     # here.
-    # *NOTE:Mani - This is a crappy hack to have important dependecies for the viewer_manifest copy action
+    # *NOTE:Mani - This is a crappy hack to have important dependencies for the viewer_manifest copy action
     # be met. I'm looking forward to a source-code split-up project next year that will address this kind of thing.
     # In the meantime, if you have any ideas on how to easily maintain one list, either here or in viewer_manifest.py
     # and have the build deps get tracked *please* tell me about it.
@@ -1409,7 +1423,7 @@ if (WINDOWS)
     endif(USE_GOOGLE_PERFTOOLS)
   
 
-    set(COPY_INPUT_DEPENDECIES
+    set(COPY_INPUT_DEPENDENCIES
       # The following commented dependencies are determined at variably at build time. Can't do this here.
       #${SHARED_LIB_STAGING_DIR}/${CMAKE_CFG_INTDIR}/libtcmalloc_minimal.dll => None ... Skipping libtcmalloc_minimal.dll
       ${CMAKE_SOURCE_DIR}/../etc/message.xml
@@ -1504,7 +1518,7 @@ if (WINDOWS)
       DEPENDS 
         ${CMAKE_CURRENT_SOURCE_DIR}/viewer_manifest.py
         stage_third_party_libs
-        ${COPY_INPUT_DEPENDECIES}
+        ${COPY_INPUT_DEPENDENCIES}
       COMMENT "Performing viewer_manifest copy"
       )
     

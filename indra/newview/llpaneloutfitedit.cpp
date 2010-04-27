@@ -38,7 +38,9 @@
 #include "llagent.h"
 #include "llagentwearables.h"
 #include "llappearancemgr.h"
+#include "llfilteredwearablelist.h"
 #include "llinventory.h"
+#include "llinventoryitemslist.h"
 #include "llviewercontrol.h"
 #include "llui.h"
 #include "llfloater.h"
@@ -164,6 +166,7 @@ BOOL LLPanelOutfitEdit::postBuild()
 
 	childSetCommitCallback("add_btn", boost::bind(&LLPanelOutfitEdit::showAddWearablesPanel, this), NULL);
 	childSetCommitCallback("filter_button", boost::bind(&LLPanelOutfitEdit::showWearablesFilter, this), NULL);
+	childSetCommitCallback("list_view_btn", boost::bind(&LLPanelOutfitEdit::showFilteredWearablesPanel, this), NULL);
 
 	mLookContents = getChild<LLScrollListCtrl>("look_items_list");
 	mLookContents->sortByColumn("look_item_sort", TRUE);
@@ -229,6 +232,9 @@ BOOL LLPanelOutfitEdit::postBuild()
 	save_registar.add("Outfit.SaveAsNew.Action", boost::bind(&LLPanelOutfitEdit::saveOutfit, this, true));
 	mSaveMenu = LLUICtrlFactory::getInstance()->createFromFile<LLToggleableMenu>("menu_save_outfit.xml", gMenuHolder, LLViewerMenuHolderGL::child_registry_t::instance());
 
+	mWearableListManager = new LLFilteredWearableListManager(
+		getChild<LLInventoryItemsList>("filtered_wearables_list"), ALL_ITEMS_MASK);
+
 	return TRUE;
 }
 
@@ -240,6 +246,11 @@ void LLPanelOutfitEdit::showAddWearablesPanel()
 void LLPanelOutfitEdit::showWearablesFilter()
 {
 	childSetVisible("filter_combobox_panel", childGetValue("filter_button"));
+}
+
+void LLPanelOutfitEdit::showFilteredWearablesPanel()
+{
+	childSetVisible("filtered_wearables_panel", !childIsVisible("filtered_wearables_panel"));
 }
 
 void LLPanelOutfitEdit::saveOutfit(bool as_new)
@@ -275,6 +286,7 @@ void LLPanelOutfitEdit::onTypeFilterChanged(LLUICtrl* ctrl)
 	{
 		U32 curr_filter_type = type_filter->getCurrentIndex();
 		mInventoryItemsPanel->setFilterTypes(mLookItemTypes[curr_filter_type].inventoryMask);
+		mWearableListManager->setFilterMask(mLookItemTypes[curr_filter_type].inventoryMask);
 	}
 	
 	mSavedFolderState->setApply(TRUE);
@@ -468,13 +480,14 @@ void LLPanelOutfitEdit::onOutfitItemSelectionChange(void)
 		return;
 
 	LLRect item_rect;
-	mLookContents->localRectToOtherView(item->getRect(), &item_rect, getChild<LLUICtrl>("outfit_wearables_panel"));
+	mLookContents->localRectToOtherView(item->getRect(), &item_rect, this);
 
 	// TODO button(and item list) should be removed (when new widget is ready)
 	LLRect btn_rect = mEditWearableBtn->getRect();
 	btn_rect.set(item_rect.mRight - btn_rect.getWidth(), item_rect.mTop, item_rect.mRight, item_rect.mBottom);
 	
 	mEditWearableBtn->setShape(btn_rect);
+	sendChildToFront(mEditWearableBtn);
 	
 	mEditWearableBtn->setEnabled(TRUE);
 	if (!mEditWearableBtn->getVisible())
@@ -576,4 +589,4 @@ void LLPanelOutfitEdit::displayCurrentOutfit()
 	updateLookInfo();
 }
 
-
+// EOF

@@ -30,6 +30,20 @@
     <string name="Filter.Clothes/Body" value="Clothes/Body"/>
     <string name="Filter.Objects" value="Objects"/>
 
+  <!-- 
+  TODO remove this button. Added it temporary for QA to be able to test new edit wearable 
+  panel (see EXT-6564)
+  -->
+				<button
+				  follows="left|top|right"
+				  height="20"
+				  label="edit"
+				  left="0"
+				  top="0"
+				  layout="topleft"
+				  name="edit_wearable_btn"
+				  width="40" /> 
+  
     <button
      follows="top|left"
      height="23"
@@ -158,18 +172,8 @@
                  sort_column="look_item_sort"
                  name="look_item_sort" />
             </scroll_list>
-			<!-- TODO remove this button. Added it temporary for QA to be able to test new edit wearable panel (see EXT-6564)-->
-				<button
-				  follows="left|top|right"
-				  height="20"
-				  label="edit"
-				  left="0"
-				  top="0"
-				  layout="topleft"
-				  name="edit_wearable_btn"
-				  width="40" />
 
-            <panel
+          <panel
              background_visible="true"
              bevel_style="none"
              follows="bottom|left|right"
@@ -336,6 +340,30 @@
              name="inventory_items"
              top_pad="5"
              width="300"/>
+
+            <panel
+             name="filtered_wearables_panel"
+             background_opaque="true"
+             background_visible="true"
+             layout="topleft"
+             follows="left|top|right|bottom"
+             border="false"
+             height="155"
+             left="0"
+             mouse_opaque="false"
+             width="300"
+             top_delta="0"
+             visible="false">
+             <wearable_items_list
+              name="filtered_wearables_list"
+              allow_select="true"
+              layout="topleft"
+              follows="all"
+              width="300"
+              height="155"
+              left="0"
+              top="0" />
+            </panel>
 
             <panel
              background_visible="true"
