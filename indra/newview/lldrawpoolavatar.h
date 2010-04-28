@@ -36,6 +36,7 @@
 #include "lldrawpool.h"
 
 class LLVOAvatar;
+class LLGLSLShader;
 
 class LLDrawPoolAvatar : public LLFacePool
 {
@@ -88,20 +89,24 @@ public:
 	/*virtual*/ void renderShadow(S32 pass);
 
 	void beginRigid();
-	void beginFootShadow();
+	void beginImpostor();
 	void beginSkinned();
+	void beginRigged();
 		
 	void endRigid();
-	void endFootShadow();
+	void endImpostor();
 	void endSkinned();
+	void endRigged();
 
 	void beginDeferredImpostor();
 	void beginDeferredRigid();
 	void beginDeferredSkinned();
+	void beginDeferredRigged();
 	
 	void endDeferredImpostor();
 	void endDeferredRigid();
 	void endDeferredSkinned();
+	void endDeferredRigged();
 		
 	/*virtual*/ LLViewerTexture *getDebugTexture();
 	/*virtual*/ LLColor3 getDebugColor() const; // For AGP debug display
@@ -110,6 +115,7 @@ public:
 
 	static BOOL sSkipOpaque;
 	static BOOL sSkipTransparent;
+	static LLGLSLShader* sVertexProgram;
 };
 
 class LLVertexBufferAvatar : public LLVertexBuffer
