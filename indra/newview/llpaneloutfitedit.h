@@ -45,6 +45,7 @@
 #include "llinventorymodel.h"
 
 class LLButton;
+class LLCOFWearables;
 class LLTextBox;
 class LLInventoryCategory;
 class LLInventoryLookObserver;
@@ -87,6 +88,8 @@ public:
 		// Sends a request for data about the given parcel, which will
 		// only update the location if there is none already available.
 
+	void moveWearable(bool closer_to_body);
+
 	void showAddWearablesPanel();
 	void showWearablesFilter();
 	void showFilteredWearablesPanel();
@@ -100,7 +103,6 @@ public:
 	void onOutfitItemSelectionChange(void);
 	void onRemoveFromOutfitClicked(void);
 	void onEditWearableClicked(void);
-	void onUpClicked(void);
 
 	void displayCurrentOutfit();
 	
@@ -110,18 +112,18 @@ public:
 
 private:
 
+	void updateVerbs();
+
 	//*TODO got rid of mCurrentOutfitID
 	LLUUID				mCurrentOutfitID;
 
 	LLTextBox*			mCurrentOutfitName;
-	LLScrollListCtrl*	mLookContents;
 	LLInventoryPanel*	mInventoryItemsPanel;
 	LLFilterEditor*		mSearchFilter;
 	LLSaveFolderState*	mSavedFolderState;
 	std::string			mSearchString;
 	LLButton*			mAddToOutfitBtn;
 	LLButton*			mRemoveFromOutfitBtn;
-	LLButton*			mUpBtn;
 	LLButton*			mEditWearableBtn;
 	LLToggleableMenu*	mSaveMenu;
 
@@ -130,6 +132,8 @@ private:
 	LLLookFetchObserver*		mFetchLook;
 	LLInventoryLookObserver*	mLookObserver;
 	std::vector<LLLookItemType> mLookItemTypes;
+
+	LLCOFWearables*		mCOFWearables;
 };
 
 #endif // LL_LLPANELOUTFITEDIT_H
