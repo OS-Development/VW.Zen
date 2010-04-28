@@ -2,31 +2,25 @@
  * @file llrendersphere.cpp
  * @brief implementation of the LLRenderSphere class.
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -67,45 +61,6 @@ void drawSolidSphere(GLdouble radius, GLint slices, GLint stacks)
 	gluSphere(gQuadObj2, radius, slices, stacks);
 }
 
-
-// lat = 0 is Z-axis
-// lon = 0, lat = 90 at X-axis
-void lat2xyz(LLVector3 * result, F32 lat, F32 lon)
-{
-	// Convert a latitude and longitude to x,y,z on a normal sphere and return it in result
-	F32 r;
-	result->mV[VX] = (F32) (cos(lon * DEG_TO_RAD) * sin(lat * DEG_TO_RAD));
-	result->mV[VY] = (F32) (sin(lon * DEG_TO_RAD) * sin(lat * DEG_TO_RAD));
-	r = (F32) pow(result->mV[VX] * result->mV[VX] + result->mV[VY] * result->mV[VY], 0.5f);
-	if (r == 1.0f) 
-	{
-		result->mV[VZ] = 0.0f;
-	}
-	else
-	{
-		result->mV[VZ] = (F32) pow(1 - r*r, 0.5f);
-		if (lat > 90.01)
-		{
-			result->mV[VZ] *= -1.0;
-		}
-	}
-}
-
-void lat2xyz_rad(LLVector3 * result, F32 lat, F32 lon)
-{
-	// Convert a latitude and longitude to x,y,z on a normal sphere and return it in result
-	F32 r;
-	result->mV[VX] = (F32) (cos(lon) * sin(lat));
-	result->mV[VY] = (F32) (sin(lon) * sin(lat));
-	r = (F32) pow(result->mV[VX] * result->mV[VX] + result->mV[VY] * result->mV[VY], 0.5f);
-	if (r == 1.0f) 
-		result->mV[VZ] = 0.0f;
-	else
-	{
-		result->mV[VZ] = (F32) pow(1 - r*r, 0.5f);
-		if (lat > F_PI_BY_TWO) result->mV[VZ] *= -1.0;
-	}
-}
 
 // A couple thoughts on sphere drawing:
 // 1) You need more slices than stacks, but little less than 2:1
@@ -180,4 +135,51 @@ void LLRenderSphere::render(F32 pixel_area)
 void LLRenderSphere::render()
 {
 	glCallList(mDList[0]);
+}
+
+inline LLVector3 polar_to_cart(F32 latitude, F32 longitude)
+{
+	return LLVector3(sin(F_TWO_PI * latitude) * cos(F_TWO_PI * longitude),
+					 sin(F_TWO_PI * latitude) * sin(F_TWO_PI * longitude),
+					 cos(F_TWO_PI * latitude));
+}
+
+
+void LLRenderSphere::renderGGL()
+{
+	S32 const LATITUDE_SLICES = 20;
+	S32 const LONGITUDE_SLICES = 30;
+
+	if (mSpherePoints.empty())
+	{
+		mSpherePoints.resize(LATITUDE_SLICES + 1);
+		for (S32 lat_i = 0; lat_i < LATITUDE_SLICES + 1; lat_i++)
+		{
+			mSpherePoints[lat_i].resize(LONGITUDE_SLICES + 1);
+			for (S32 lon_i = 0; lon_i < LONGITUDE_SLICES + 1; lon_i++)
+			{
+				F32 lat = (F32)lat_i / LATITUDE_SLICES;
+				F32 lon = (F32)lon_i / LONGITUDE_SLICES;
+
+				mSpherePoints[lat_i][lon_i] = polar_to_cart(lat, lon);
+			}
+		}
+	}
+	
+	gGL.begin(LLRender::TRIANGLES);
+
+	for (S32 lat_i = 0; lat_i < LATITUDE_SLICES; lat_i++)
+	{
+		for (S32 lon_i = 0; lon_i < LONGITUDE_SLICES; lon_i++)
+		{
+			gGL.vertex3fv(mSpherePoints[lat_i][lon_i].mV);
+			gGL.vertex3fv(mSpherePoints[lat_i][lon_i+1].mV);
+			gGL.vertex3fv(mSpherePoints[lat_i+1][lon_i].mV);
+
+			gGL.vertex3fv(mSpherePoints[lat_i+1][lon_i].mV);
+			gGL.vertex3fv(mSpherePoints[lat_i][lon_i+1].mV);
+			gGL.vertex3fv(mSpherePoints[lat_i+1][lon_i+1].mV);
+		}
+	}
+	gGL.end();
 }
