@@ -142,7 +142,6 @@
      left="5">
         <layout_panel
          layout="topleft"
-         follows="all"
          height="220"
          label="IM Control Panel"
          min_height="100"
@@ -164,6 +163,7 @@
              top="0"
              width="311" />
 
+          <!-- Button bar -->
           <panel
              background_visible="true"
              bevel_style="none"
@@ -187,40 +187,14 @@
                  name="gear_menu_btn"
                  top="1"
                  width="31" />
-                <button
-                 is_toggle="true"
-                 follows="bottom|left"
+                <icon
+                 follows="bottom|left|right"
                  height="25"
-                 image_hover_unselected="Toolbar_Middle_Over"
-                 image_overlay="AddItem_Off"
-                 image_selected="Toolbar_Middle_Selected"
-                 image_unselected="Toolbar_Middle_Off"
+                 image_name="Toolbar_Right_Off"
                  layout="topleft"
                  left_pad="1"
-                 name="add_btn"
-                 top="1"
-                 width="31" />
-		        <icon
-		         follows="bottom|left|right"
-		         height="25"
-		         image_name="Toolbar_Middle_Off"
-		         layout="topleft"
-		         left_pad="1"
-		         name="dummy_icon"
-		         width="216"
-		         />
-                <button
-                 follows="bottom|right"
-                 height="25"
-                 image_hover_unselected="Toolbar_Middle_Over"
-                 image_overlay="TrashItem_Off"
-                 image_selected="Toolbar_Middle_Selected"
-                 image_unselected="Toolbar_Right_Off"
-                 layout="topleft"
-                 name="remove_from_outfit_btn"
-                 right="-1"
-                 top="1"
-                 width="31" />
+                 name="dummy_right_icon"
+                 width="281" />
             </panel>
         </layout_panel>
 
@@ -423,12 +397,12 @@
      follows="left|right|bottom"
      height="30"
      layout="topleft"
-     left="5"
+     left="4"
      top_pad="2"
      name="save_revert_button_bar"
      width="300">
         <button
-         follows="bottom|left|right"
+         follows="bottom|left"
          height="23"
          label="Save"
          left="0"
@@ -437,7 +411,7 @@
          top="0"
          width="155" />
         <button
-         follows="bottom|right"
+         follows="bottom|left"
          height="23"
          name="save_flyout_btn"
          label=""
@@ -454,11 +428,11 @@
         <button
          follows="bottom|left|right"
          height="23"
-         left_pad="13"
+         left_pad="12"
          label="Revert"
          layout="topleft"
          name="revert_btn"
          top="0"
-         width="145" />
+         width="147" />
     </panel>
 </panel>
