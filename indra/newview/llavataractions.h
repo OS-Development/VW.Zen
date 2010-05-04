@@ -60,13 +60,13 @@ public:
 	 * Show a friend removal dialog.
 	 */
 	static void removeFriendDialog(const LLUUID& id);
-	static void removeFriendsDialog(const std::vector<LLUUID>& ids);
+	static void removeFriendsDialog(const uuid_vec_t& ids);
 	
 	/**
 	 * Show teleport offer dialog.
 	 */
 	static void offerTeleport(const LLUUID& invitee);
-	static void offerTeleport(const std::vector<LLUUID>& ids);
+	static void offerTeleport(const uuid_vec_t& ids);
 
 	/**
 	 * Start instant messaging session.
@@ -86,17 +86,22 @@ public:
 	/**
 	 * Start an ad-hoc conference voice call with multiple users
 	 */
-	static void startAdhocCall(const std::vector<LLUUID>& ids);
+	static void startAdhocCall(const uuid_vec_t& ids);
 
 	/**
 	 * Start conference chat with the given avatars.
 	 */
-	static void startConference(const std::vector<LLUUID>& ids);
+	static void startConference(const uuid_vec_t& ids);
 
 	/**
 	 * Show avatar profile.
 	 */
 	static void showProfile(const LLUUID& id);
+
+	/**
+	 * Show avatar on world map.
+	 */
+	static void showOnMap(const LLUUID& id);
 
 	/**
 	 * Give money to the avatar.
@@ -107,6 +112,11 @@ public:
 	 * Share items with the avatar.
 	 */
 	static void share(const LLUUID& id);
+
+	/**
+	 * Share items with the picked avatars.
+	 */
+	static void shareWithAvatars();
 
 	/**
 	 * Block/unblock the avatar.
@@ -124,15 +134,23 @@ public:
 	static bool isBlocked(const LLUUID& id);
 
 	/**
-	 * Return true if the avatar is in a P2P voice call with a given user
+	 * @return true if you can block the avatar
 	 */
-	static bool isCalling(const LLUUID &id);
+	static bool canBlock(const LLUUID& id);
 
 	/**
-	 * @return true if call to the resident can be made (resident is online and voice is enabled)
+	 * Return true if the avatar is in a P2P voice call with a given user
+	 */
+	/* AD *TODO: Is this function needed any more?
+		I fixed it a bit(added check for canCall), but it appears that it is not used
+		anywhere. Maybe it should be removed?
+	static bool isCalling(const LLUUID &id);*/
+
+	/**
+	 * @return true if call to the resident can be made
 	 */
 
-	static bool canCall(const LLUUID &id);
+	static bool canCall();
 	/**
 	 * Invite avatar to a group.
 	 */	
@@ -157,6 +175,12 @@ public:
 	 * Open csr page for avatar
 	 */	
 	static void csr(const LLUUID& id, std::string name);
+
+	/**
+	 * Checks whether can offer teleport to the avatar
+	 * Can't offer only for offline friends
+	 */
+	static bool canOfferTeleport(const LLUUID& id);
 
 	
 private:

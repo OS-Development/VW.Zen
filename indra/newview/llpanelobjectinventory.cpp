@@ -46,10 +46,12 @@
 #include "roles_constants.h"
 
 #include "llagent.h"
+#include "llavataractions.h"
 #include "llcallbacklist.h"
 #include "llfloaterbuycurrency.h"
 #include "llfloaterreg.h"
 #include "llinventorybridge.h"
+#include "llinventorydefines.h"
 #include "llinventoryfilter.h"
 #include "llinventoryfunctions.h"
 #include "llpreviewanim.h"
@@ -117,7 +119,7 @@ public:
 	virtual BOOL isItemRenameable() const;
 	virtual BOOL renameItem(const std::string& new_name);
 	virtual BOOL isItemMovable() const;
-	virtual BOOL isItemRemovable();
+	virtual BOOL isItemRemovable() const;
 	virtual BOOL removeItem();
 	virtual void removeBatch(LLDynamicArray<LLFolderViewEventListener*>& batch);
 	virtual void move(LLFolderViewEventListener* parent_listener);
@@ -128,7 +130,7 @@ public:
 	virtual void pasteFromClipboard();
 	virtual void pasteLinkFromClipboard();
 	virtual void buildContextMenu(LLMenuGL& menu, U32 flags);
-	virtual void performAction(LLFolderView* folder, LLInventoryModel* model, std::string action);
+	virtual void performAction(LLInventoryModel* model, std::string action);
 	virtual BOOL isUpToDate() const { return TRUE; }
 	virtual BOOL hasChildren() const { return FALSE; }
 	virtual LLInventoryType::EType getInventoryType() const { return LLInventoryType::IT_NONE; }
@@ -344,7 +346,7 @@ time_t LLTaskInvFVBridge::getCreationDate() const
 LLUIImagePtr LLTaskInvFVBridge::getIcon() const
 {
 	BOOL item_is_multi = FALSE;
-	if ( mFlags & LLInventoryItem::II_FLAGS_OBJECT_HAS_MULTIPLE_ITEMS )
+	if ( mFlags & LLInventoryItemFlags::II_FLAGS_OBJECT_HAS_MULTIPLE_ITEMS )
 	{
 		item_is_multi = TRUE;
 	}
@@ -412,9 +414,9 @@ BOOL LLTaskInvFVBridge::isItemMovable() const
 	return TRUE;
 }
 
-BOOL LLTaskInvFVBridge::isItemRemovable()
+BOOL LLTaskInvFVBridge::isItemRemovable() const
 {
-	LLViewerObject* object = gObjectList.findObject(mPanel->getTaskUUID());
+	const LLViewerObject* object = gObjectList.findObject(mPanel->getTaskUUID());
 	if(object
 	   && (object->permModify() || object->permYouOwner()))
 	{
@@ -463,10 +465,6 @@ BOOL LLTaskInvFVBridge::removeItem()
 			}
 			else
 			{
-				remove_data_t* data = new remove_data_t;
-				data->first = mPanel;
-				data->second.first = mPanel->getTaskUUID();
-				data->second.second.push_back(mUUID);
 				LLSD payload;
 				payload["task_id"] = mPanel->getTaskUUID();
 				payload["inventory_ids"].append(mUUID);
@@ -599,7 +597,7 @@ BOOL LLTaskInvFVBridge::dragOrDrop(MASK mask, BOOL drop,
 }
 
 // virtual
-void LLTaskInvFVBridge::performAction(LLFolderView* folder, LLInventoryModel* model, std::string action)
+void LLTaskInvFVBridge::performAction(LLInventoryModel* model, std::string action)
 {
 	if (action == "task_buy")
 	{
@@ -613,7 +611,9 @@ void LLTaskInvFVBridge::performAction(LLFolderView* folder, LLInventoryModel* mo
 		{
 			if (price > 0 && price > gStatusBar->getBalance())
 			{
-				LLFloaterBuyCurrency::buyCurrency("This costs", price);
+				LLStringUtil::format_map_t args;
+				args["AMOUNT"] = llformat("%d", price);
+				LLFloaterBuyCurrency::buyCurrency(LLTrans::getString("this_costs", args), price);
 			}
 			else
 			{
@@ -714,7 +714,7 @@ public:
 	virtual BOOL isItemRenameable() const;
 	// virtual BOOL isItemCopyable() const { return FALSE; }
 	virtual BOOL renameItem(const std::string& new_name);
-	virtual BOOL isItemRemovable();
+	virtual BOOL isItemRemovable() const;
 	virtual void buildContextMenu(LLMenuGL& menu, U32 flags);
 	virtual BOOL hasChildren() const;
 	virtual BOOL startDrag(EDragAndDropType* type, LLUUID* id) const;
@@ -746,7 +746,7 @@ BOOL LLTaskCategoryBridge::renameItem(const std::string& new_name)
 	return FALSE;
 }
 
-BOOL LLTaskCategoryBridge::isItemRemovable()
+BOOL LLTaskCategoryBridge::isItemRemovable() const
 {
 	return FALSE;
 }
@@ -774,8 +774,8 @@ BOOL LLTaskCategoryBridge::startDrag(EDragAndDropType* type, LLUUID* id) const
 		LLViewerObject* object = gObjectList.findObject(mPanel->getTaskUUID());
 		if(object)
 		{
-			LLInventoryItem* inv = NULL;
-			if((inv = (LLInventoryItem*)object->getInventoryObject(mUUID)))
+			const LLInventoryItem *inv = dynamic_cast<LLInventoryItem*>(object->getInventoryObject(mUUID));
+			if (inv)
 			{
 				const LLPermissions& perm = inv->getPermissions();
 				bool can_copy = gAgent.allowOperation(PERM_COPY, perm,
@@ -919,7 +919,7 @@ public:
 
 	virtual LLUIImagePtr getIcon() const;
 	virtual void openItem();
-	virtual void performAction(LLFolderView* folder, LLInventoryModel* model, std::string action);
+	virtual void performAction(LLInventoryModel* model, std::string action);
 	virtual void buildContextMenu(LLMenuGL& menu, U32 flags);
 	static void openSoundPreview(void* data);
 };
@@ -956,7 +956,7 @@ void LLTaskSoundBridge::openSoundPreview(void* data)
 }
 
 // virtual
-void LLTaskSoundBridge::performAction(LLFolderView* folder, LLInventoryModel* model, std::string action)
+void LLTaskSoundBridge::performAction(LLInventoryModel* model, std::string action)
 {
 	if (action == "task_play")
 	{
@@ -966,7 +966,7 @@ void LLTaskSoundBridge::performAction(LLFolderView* folder, LLInventoryModel* mo
 			send_sound_trigger(item->getAssetUUID(), 1.0);
 		}
 	}
-	LLTaskInvFVBridge::performAction(folder, model, action);
+	LLTaskInvFVBridge::performAction(model, action);
 }
 
 void LLTaskSoundBridge::buildContextMenu(LLMenuGL& menu, U32 flags)
@@ -1192,7 +1192,8 @@ public:
 	LLTaskObjectBridge(
 		LLPanelObjectInventory* panel,
 		const LLUUID& uuid,
-		const std::string& name);
+		const std::string& name,
+		U32 flags = 0);
 
 	virtual LLUIImagePtr getIcon() const;
 };
@@ -1200,15 +1201,16 @@ public:
 LLTaskObjectBridge::LLTaskObjectBridge(
 	LLPanelObjectInventory* panel,
 	const LLUUID& uuid,
-	const std::string& name) :
-	LLTaskInvFVBridge(panel, uuid, name)
+	const std::string& name,
+	U32 flags) :
+	LLTaskInvFVBridge(panel, uuid, name, flags)
 {
 }
 
 LLUIImagePtr LLTaskObjectBridge::getIcon() const
 {
 	BOOL item_is_multi = FALSE;
-	if ( mFlags & LLInventoryItem::II_FLAGS_OBJECT_HAS_MULTIPLE_ITEMS )
+	if ( mFlags & LLInventoryItemFlags::II_FLAGS_OBJECT_HAS_MULTIPLE_ITEMS )
 	{
 		item_is_multi = TRUE;
 	}
@@ -1446,9 +1448,15 @@ LLTaskInvFVBridge* LLTaskInvFVBridge::createObjectBridge(LLPanelObjectInventory*
 		//									   object->getName());
 		break;
 	case LLAssetType::AT_OBJECT:
+		{
+		item = dynamic_cast<LLInventoryItem*>(object);
+		U32 flags = ( NULL == item ? 0 : item->getFlags() );
+
 		new_bridge = new LLTaskObjectBridge(panel,
 											object->getUUID(),
-											object->getName());
+											object->getName(),
+											flags);
+		}
 		break;
 	case LLAssetType::AT_NOTECARD:
 		new_bridge = new LLTaskNotecardBridge(panel,
@@ -1521,6 +1529,7 @@ LLPanelObjectInventory::LLPanelObjectInventory(const LLPanelObjectInventory::Par
 	mCommitCallbackRegistrar.add("Inventory.DoCreate", boost::bind(&do_nothing));
 	mCommitCallbackRegistrar.add("Inventory.AttachObject", boost::bind(&do_nothing));
 	mCommitCallbackRegistrar.add("Inventory.BeginIMSession", boost::bind(&do_nothing));
+	mCommitCallbackRegistrar.add("Inventory.Share",  boost::bind(&LLAvatarActions::shareWithAvatars));
 }
 
 // Destroys the object
@@ -1572,25 +1581,32 @@ void LLPanelObjectInventory::reset()
 {
 	clearContents();
 
-	setBorderVisible(FALSE);
+	//setBorderVisible(FALSE);
 	
 	mCommitCallbackRegistrar.pushScope(); // push local callbacks
 	
 	LLRect dummy_rect(0, 1, 1, 0);
 	LLFolderView::Params p;
 	p.name = "task inventory";
+	p.title = "task inventory";
 	p.task_id = getTaskUUID();
 	p.parent_panel = this;
-	p.tool_tip= p.name;
+	p.tool_tip= LLTrans::getString("PanelContentsTooltip");
 	mFolders = LLUICtrlFactory::create<LLFolderView>(p);
 	// this ensures that we never say "searching..." or "no items found"
 	mFolders->getFilter()->setShowFolderState(LLInventoryFilter::SHOW_ALL_FOLDERS);
 	mFolders->setCallbackRegistrar(&mCommitCallbackRegistrar);
 
+	if (hasFocus())
+	{
+		LLEditMenuHandler::gEditMenuHandler = mFolders;
+	}
+
 	LLRect scroller_rect(0, getRect().getHeight(), getRect().getWidth(), 0);
 	LLScrollContainer::Params scroll_p;
 	scroll_p.name("task inventory scroller");
 	scroll_p.rect(scroller_rect);
+	scroll_p.tab_stop(true);
 	scroll_p.follows.flags(FOLLOWS_ALL);
 	mScroller = LLUICtrlFactory::create<LLScrollContainer>(scroll_p);
 	addChild(mScroller);
@@ -1602,7 +1618,7 @@ void LLPanelObjectInventory::reset()
 }
 
 void LLPanelObjectInventory::inventoryChanged(LLViewerObject* object,
-										InventoryObjectList* inventory,
+										LLInventoryObject::object_list_t* inventory,
 										S32 serial_num,
 										void* data)
 {
@@ -1619,7 +1635,7 @@ void LLPanelObjectInventory::inventoryChanged(LLViewerObject* object,
 	// refresh any properties floaters that are hanging around.
 	if(inventory)
 	{
-		for (InventoryObjectList::const_iterator iter = inventory->begin();
+		for (LLInventoryObject::object_list_t::const_iterator iter = inventory->begin();
 			 iter != inventory->end(); )
 		{
 			LLInventoryObject* item = *iter++;
@@ -1640,7 +1656,7 @@ void LLPanelObjectInventory::updateInventory()
 	// We're still interested in this task's inventory.
 	std::set<LLUUID> selected_items;
 	BOOL inventory_has_focus = FALSE;
-	if (mHaveInventory && mFolders->getNumSelectedDescendants())
+	if (mHaveInventory)
 	{
 		mFolders->getSelectionList(selected_items);
 		inventory_has_focus = gFocusMgr.childHasKeyboardFocus(mFolders);
@@ -1652,7 +1668,7 @@ void LLPanelObjectInventory::updateInventory()
 	if (objectp)
 	{
 		LLInventoryObject* inventory_root = objectp->getInventoryRoot();
-		InventoryObjectList contents;
+		LLInventoryObject::object_list_t contents;
 		objectp->getInventoryContents(contents);
 		if (inventory_root)
 		{
@@ -1706,7 +1722,7 @@ void LLPanelObjectInventory::updateInventory()
 // leads to an N^2 based on the category count. This could be greatly
 // speeded with an efficient multimap implementation, but we don't
 // have that in our current arsenal.
-void LLPanelObjectInventory::createFolderViews(LLInventoryObject* inventory_root, InventoryObjectList& contents)
+void LLPanelObjectInventory::createFolderViews(LLInventoryObject* inventory_root, LLInventoryObject::object_list_t& contents)
 {
 	if (!inventory_root)
 	{
@@ -1735,7 +1751,7 @@ void LLPanelObjectInventory::createFolderViews(LLInventoryObject* inventory_root
 
 typedef std::pair<LLInventoryObject*, LLFolderViewFolder*> obj_folder_pair;
 
-void LLPanelObjectInventory::createViewsForCategory(InventoryObjectList* inventory, 
+void LLPanelObjectInventory::createViewsForCategory(LLInventoryObject::object_list_t* inventory, 
 											  LLInventoryObject* parent,
 											  LLFolderViewFolder* folder)
 {
@@ -1744,8 +1760,8 @@ void LLPanelObjectInventory::createViewsForCategory(InventoryObjectList* invento
 	LLTaskInvFVBridge* bridge;
 	LLFolderViewItem* view;
 
-	InventoryObjectList::iterator it = inventory->begin();
-	InventoryObjectList::iterator end = inventory->end();
+	LLInventoryObject::object_list_t::iterator it = inventory->begin();
+	LLInventoryObject::object_list_t::iterator end = inventory->end();
 	for( ; it != end; ++it)
 	{
 		LLInventoryObject* obj = *it;

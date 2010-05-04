@@ -1,6 +1,6 @@
 /**
  * @file llvoavatar.h
- * @brief Declaration of LLVOAvatar class which is a derivation fo
+ * @brief Declaration of LLVOAvatar class which is a derivation of
  * LLViewerObject
  *
  * $LicenseInfo:firstyear=2001&license=viewergpl$
@@ -247,7 +247,8 @@ public:
 public:
 	BOOL			isFullyLoaded() const;
 protected:
-	virtual BOOL	updateIsFullyLoaded();
+	virtual BOOL	getIsCloud();
+	BOOL			updateIsFullyLoaded();
 	BOOL			processFullyLoadedChange(bool loading);
 	void			updateRuthTimer(bool loading);
 	F32 			calcMorphAmount();
@@ -258,6 +259,7 @@ private:
 	S32				mFullyLoadedFrameCounter;
 	LLFrameTimer	mFullyLoadedTimer;
 	LLFrameTimer	mRuthTimer;
+	LLFrameTimer	mRuthDebugTimer; // For tracking how long it takes for av to rez
 	
 /**                    State
  **                                                                            **
@@ -526,7 +528,9 @@ protected:
 public:
 	virtual void	invalidateComposite(LLTexLayerSet* layerset, BOOL upload_result);
 	virtual void	invalidateAll();
-	virtual void	setCompositeUpdatesEnabled(BOOL b);
+	virtual void	setCompositeUpdatesEnabled(bool b) {}
+	virtual void 	setCompositeUpdatesEnabled(U32 index, bool b) {}
+	virtual bool 	isCompositeUpdateEnabled(U32 index) { return false; }
 
 	//--------------------------------------------------------------------
 	// Static texture/mesh/baked dictionary
@@ -565,7 +569,7 @@ public:
 	void 			updateMeshData();
 protected:
 	void 			releaseMeshData();
-	/*virtual*/ void restoreMeshData();
+	virtual void restoreMeshData();
 private:
 	BOOL 			mDirtyMesh;
 	BOOL			mMeshTexturesDirty;
@@ -826,6 +830,7 @@ private:
 	BOOL	  		mNameBusy;
 	BOOL	  		mNameMute;
 	BOOL      		mNameAppearance;
+	BOOL      		mNameCloud;
 	BOOL      		mRenderGroupTitles;
 
 	//--------------------------------------------------------------------

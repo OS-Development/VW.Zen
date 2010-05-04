@@ -63,6 +63,8 @@ static LLDefaultChildRegistry::Register<LLAccordionCtrl>	t2("accordion");
 
 LLAccordionCtrl::LLAccordionCtrl(const Params& params):LLPanel(params)
  , mFitParent(params.fit_parent)
+ , mAutoScrolling( false )
+ , mAutoScrollRate( 0.f )
 {
   mSingleExpansion = params.single_expansion;
 	if(mFitParent && !mSingleExpansion)
@@ -72,6 +74,8 @@ LLAccordionCtrl::LLAccordionCtrl(const Params& params):LLPanel(params)
 }
 
 LLAccordionCtrl::LLAccordionCtrl() : LLPanel()
+ , mAutoScrolling( false )
+ , mAutoScrollRate( 0.f )
 {
 	mSingleExpansion = false;
 	mFitParent = false;
@@ -81,6 +85,19 @@ LLAccordionCtrl::LLAccordionCtrl() : LLPanel()
 //---------------------------------------------------------------------------------
 void LLAccordionCtrl::draw()
 {
+	if (mAutoScrolling)
+	{
+		// add acceleration to autoscroll
+		mAutoScrollRate = llmin(mAutoScrollRate + (LLFrameTimer::getFrameDeltaTimeF32() * AUTO_SCROLL_RATE_ACCEL), MAX_AUTO_SCROLL_RATE);
+	}
+	else
+	{
+		// reset to minimum for next time
+		mAutoScrollRate = MIN_AUTO_SCROLL_RATE;
+	}
+	// clear this flag to be set on next call to autoScroll
+	mAutoScrolling = false;
+
 	LLRect local_rect(0, getRect().getHeight(), getRect().getWidth(), 0);
 	
 	LLLocalClipRect clip(local_rect);
@@ -101,7 +118,6 @@ BOOL LLAccordionCtrl::postBuild()
 		scrollbar_size,
 		getRect().getHeight() - 1);
 	
-
 	LLScrollbar::Params sbparams;
 	sbparams.name("scrollable vertical");
 	sbparams.rect(scroll_rect);
@@ -313,44 +329,105 @@ void LLAccordionCtrl::addCollapsibleCtrl(LLView* view)
 	LLAccordionCtrlTab* accordion_tab = dynamic_cast<LLAccordionCtrlTab*>(view);
 	if(!accordion_tab)
 		return;
-	if(std::find(getChildList()->begin(),getChildList()->end(),accordion_tab) == getChildList()->end())
+	if(std::find(beginChild(), endChild(), accordion_tab) == endChild())
 		addChild(accordion_tab);
 	mAccordionTabs.push_back(accordion_tab);
-	
+
 	accordion_tab->setDropDownStateChangedCallback( boost::bind(&LLAccordionCtrl::onCollapseCtrlCloseOpen, this, mAccordionTabs.size() - 1) );
 
 }
 
-
-void LLAccordionCtrl::arrange()
+void LLAccordionCtrl::removeCollapsibleCtrl(LLView* view)
 {
-	if( mAccordionTabs.size() == 0)
-	{
-		//We do not arrange if we do not have what should be arranged
+	LLAccordionCtrlTab* accordion_tab = dynamic_cast<LLAccordionCtrlTab*>(view);
+	if(!accordion_tab)
 		return;
+
+	if(std::find(beginChild(), endChild(), accordion_tab) != endChild())
+		removeChild(accordion_tab);
+
+	for (std::vector<LLAccordionCtrlTab*>::iterator iter = mAccordionTabs.begin();
+			iter != mAccordionTabs.end(); ++iter)
+	{
+		if (accordion_tab == (*iter))
+		{
+			mAccordionTabs.erase(iter);
+			break;
+		}
+	}
+}
+
+void	LLAccordionCtrl::arrangeSinge()
+{
+	S32 panel_left = BORDER_MARGIN;	  // Margin from left side of Splitter
+	S32 panel_top = getRect().getHeight() - BORDER_MARGIN;		  // Top coordinate of the first panel
+	S32 panel_width = getRect().getWidth() - 4;		  // Top coordinate of the first panel
+	S32 panel_height;
+
+	S32 collapsed_height = 0;
+
+	for(size_t i=0;i<mAccordionTabs.size();++i)
+	{
+		LLAccordionCtrlTab* accordion_tab = dynamic_cast<LLAccordionCtrlTab*>(mAccordionTabs[i]);
+		
+		if(accordion_tab->getVisible() == false) //skip hidden accordion tabs
+			continue;
+		if(!accordion_tab->isExpanded() )
+		{
+			collapsed_height+=mAccordionTabs[i]->getRect().getHeight();
+		}
 	}
 
-	//Calculate params	
+	S32 expanded_height = getRect().getHeight() - BORDER_MARGIN - collapsed_height;
+	
+	for(size_t i=0;i<mAccordionTabs.size();++i)
+	{
+		LLAccordionCtrlTab* accordion_tab = dynamic_cast<LLAccordionCtrlTab*>(mAccordionTabs[i]);
+		
+		if(accordion_tab->getVisible() == false) //skip hidden accordion tabs
+			continue;
+		if(!accordion_tab->isExpanded() )
+		{
+			panel_height = accordion_tab->getRect().getHeight();
+		}
+		else
+		{
+			if(mFitParent)
+			{
+				panel_height = expanded_height;
+			}
+			else
+			{
+				if(accordion_tab->getAccordionView())
+				{
+					panel_height = accordion_tab->getAccordionView()->getRect().getHeight() + 
+						accordion_tab->getHeaderHeight() + 2*BORDER_MARGIN;
+				}
+				else
+				{
+					panel_height = accordion_tab->getRect().getHeight();
+				}
+			}
+		}
+
+		// make sure at least header is shown
+		panel_height = llmax(panel_height, accordion_tab->getHeaderHeight());
+
+		ctrlSetLeftTopAndSize(mAccordionTabs[i], panel_left, panel_top, panel_width, panel_height);
+		panel_top-=mAccordionTabs[i]->getRect().getHeight();
+	}
+
+	show_hide_scrollbar(getRect().getWidth(), getRect().getHeight());
+	updateLayout(getRect().getWidth(), getRect().getHeight());
+}
+
+void	LLAccordionCtrl::arrangeMultiple()
+{
 	S32 panel_left = BORDER_MARGIN;	  // Margin from left side of Splitter
 	S32 panel_top = getRect().getHeight() - BORDER_MARGIN;		  // Top coordinate of the first panel
 	S32 panel_width = getRect().getWidth() - 4;		  // Top coordinate of the first panel
 
-	
-	if(mAccordionTabs.size() == 1)
-	{
-		LLAccordionCtrlTab* accordion_tab = dynamic_cast<LLAccordionCtrlTab*>(mAccordionTabs[0]);
-		
-		LLRect panel_rect = accordion_tab->getRect();
-		
-		S32 panel_height = getRect().getHeight() - 2*BORDER_MARGIN;
-
-		ctrlSetLeftTopAndSize(accordion_tab,panel_rect.mLeft,panel_top,panel_width,panel_height);
-		
-		show_hide_scrollbar(getRect().getWidth(),getRect().getHeight());
-		return;
-
-	}
-
+	//Calculate params	
 	for(size_t i = 0; i < mAccordionTabs.size(); i++ )
 	{
 		LLAccordionCtrlTab* accordion_tab = dynamic_cast<LLAccordionCtrlTab*>(mAccordionTabs[i]);
@@ -398,7 +475,40 @@ void LLAccordionCtrl::arrange()
 	show_hide_scrollbar(getRect().getWidth(),getRect().getHeight());
 
 	updateLayout(getRect().getWidth(),getRect().getHeight());
+}
 
+
+void LLAccordionCtrl::arrange()
+{
+	if( mAccordionTabs.size() == 0)
+	{
+		//We do not arrange if we do not have what should be arranged
+		return;
+	}
+
+
+	if(mAccordionTabs.size() == 1)
+	{
+		S32 panel_top = getRect().getHeight() - BORDER_MARGIN;		  // Top coordinate of the first panel
+		S32 panel_width = getRect().getWidth() - 4;		  // Top coordinate of the first panel
+		
+		LLAccordionCtrlTab* accordion_tab = dynamic_cast<LLAccordionCtrlTab*>(mAccordionTabs[0]);
+		
+		LLRect panel_rect = accordion_tab->getRect();
+		
+		S32 panel_height = getRect().getHeight() - 2*BORDER_MARGIN;
+
+		ctrlSetLeftTopAndSize(accordion_tab,panel_rect.mLeft,panel_top,panel_width,panel_height);
+		
+		show_hide_scrollbar(getRect().getWidth(),getRect().getHeight());
+		return;
+
+	}
+
+	if(mSingleExpansion)
+		arrangeSinge ();
+	else
+		arrangeMultiple ();
 }
 
 //---------------------------------------------------------------------------------
@@ -418,6 +528,64 @@ BOOL LLAccordionCtrl::handleKeyHere			(KEY key, MASK mask)
 	if( mScrollbar->getVisible() && mScrollbar->handleKeyHere( key,mask ) )
 		return TRUE;
 	return LLPanel::handleKeyHere(key,mask);
+}
+
+BOOL LLAccordionCtrl::handleDragAndDrop		(S32 x, S32 y, MASK mask,
+											 BOOL drop,
+											 EDragAndDropType cargo_type,
+											 void* cargo_data,
+											 EAcceptance* accept,
+											 std::string& tooltip_msg)
+{
+	// Scroll folder view if needed.  Never accepts a drag or drop.
+	*accept = ACCEPT_NO;
+	BOOL handled = autoScroll(x, y);
+
+	if( !handled )
+	{
+		handled = childrenHandleDragAndDrop(x, y, mask, drop, cargo_type,
+											cargo_data, accept, tooltip_msg) != NULL;
+	}
+	return TRUE;
+}
+
+BOOL LLAccordionCtrl::autoScroll		(S32 x, S32 y)
+{
+	static LLUICachedControl<S32> scrollbar_size ("UIScrollbarSize", 0);
+
+	bool scrolling = false;
+	if( mScrollbar->getVisible() )
+	{
+		LLRect rect_local( 0, getRect().getHeight(), getRect().getWidth() - scrollbar_size, 0 );
+		LLRect screen_local_extents;
+
+		// clip rect against root view
+		screenRectToLocal(getRootView()->getLocalRect(), &screen_local_extents);
+		rect_local.intersectWith(screen_local_extents);
+
+		// autoscroll region should take up no more than one third of visible scroller area
+		S32 auto_scroll_region_height = llmin(rect_local.getHeight() / 3, 10);
+		S32 auto_scroll_speed = llround(mAutoScrollRate * LLFrameTimer::getFrameDeltaTimeF32());
+
+		LLRect bottom_scroll_rect = screen_local_extents;
+		bottom_scroll_rect.mTop = rect_local.mBottom + auto_scroll_region_height;
+		if( bottom_scroll_rect.pointInRect( x, y ) && (mScrollbar->getDocPos() < mScrollbar->getDocPosMax()) )
+		{
+			mScrollbar->setDocPos( mScrollbar->getDocPos() + auto_scroll_speed );
+			mAutoScrolling = true;
+			scrolling = true;
+		}
+
+		LLRect top_scroll_rect = screen_local_extents;
+		top_scroll_rect.mBottom = rect_local.mTop - auto_scroll_region_height;
+		if( top_scroll_rect.pointInRect( x, y ) && (mScrollbar->getDocPos() > 0) )
+		{
+			mScrollbar->setDocPos( mScrollbar->getDocPos() - auto_scroll_speed );
+			mAutoScrolling = true;
+			scrolling = true;
+		}
+	}
+	return scrolling;
 }
 
 void	LLAccordionCtrl::updateLayout	(S32 width, S32 height)
@@ -500,15 +668,23 @@ S32	LLAccordionCtrl::notifyParent(const LLSD& info)
 				LLAccordionCtrlTab* accordion_tab = dynamic_cast<LLAccordionCtrlTab*>(mAccordionTabs[i]);
 				if(accordion_tab->hasFocus() && i>0)
 				{
+					bool prev_visible_tab_found = false;
 					while(i>0)
 					{
 						if(mAccordionTabs[--i]->getVisible())
+						{
+							prev_visible_tab_found = true;
 							break;
+						}
 					}
-					
-					accordion_tab = dynamic_cast<LLAccordionCtrlTab*>(mAccordionTabs[i]);
-					accordion_tab->notify(LLSD().with("action","select_last"));
-					return 1;
+
+					if (prev_visible_tab_found)
+					{
+						accordion_tab = dynamic_cast<LLAccordionCtrlTab*>(mAccordionTabs[i]);
+						accordion_tab->notify(LLSD().with("action","select_last"));
+						return 1;
+					}
+					break;
 				}
 			}
 			return 0;

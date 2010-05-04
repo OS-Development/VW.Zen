@@ -36,6 +36,8 @@
 #include "llpanel.h"
 #include "lltextbox.h"
 #include "llframetimer.h"
+#include "lliconctrl.h"
+#include "llbutton.h"
 
 class LLTabTuple;
 
@@ -89,6 +91,26 @@ public:
 		Optional<TabParams>					first_tab,
 											middle_tab,
 											last_tab;
+
+		/**
+		 * Tab label horizontal alignment
+		 */
+		Optional<LLFontGL::HAlign>			font_halign;
+
+		/**
+		 * Tab label ellipses
+		 */
+		Optional<bool>						use_ellipses;
+
+		/**
+		 * Use LLCustomButtonIconCtrl or LLButton in LLTabTuple
+		 */
+		Optional<bool>						use_custom_icon_ctrl;
+
+		/**
+		 *  Paddings for LLIconCtrl in case of LLCustomButtonIconCtrl usage(use_custom_icon_ctrl = true)
+		 */
+		Optional<S32>						tab_icon_ctrl_pad;
 
 		Params();
 	};
@@ -172,6 +194,8 @@ public:
 	BOOL        getTabPanelFlashing(LLPanel* child);
 	void		setTabPanelFlashing(LLPanel* child, BOOL state);
 	void 		setTabImage(LLPanel* child, std::string img_name, const LLColor4& color = LLColor4::white);
+	void 		setTabImage(LLPanel* child, const LLUUID& img_id, const LLColor4& color = LLColor4::white);
+	void		setTabImage(LLPanel* child, LLIconCtrl* icon);
 	void		setTitle( const std::string& title );
 	const std::string getPanelTitle(S32 index);
 
@@ -227,6 +251,7 @@ private:
 
 	// updates tab button images given the tuple, tab position and the corresponding params
 	void update_images(LLTabTuple* tuple, TabParams params, LLTabContainer::TabPosition pos);
+	void reshapeTuple(LLTabTuple* tuple);
 
 	// Variables
 	
@@ -276,6 +301,10 @@ private:
 	TabParams						mFirstTabParams;
 	TabParams						mMiddleTabParams;
 	TabParams						mLastTabParams;
+
+	bool							mCustomIconCtrlUsed;
+	S32								mTabIconCtrlPad;
+	bool							mUseTabEllipses;
 };
 
 #endif  // LL_TABCONTAINER_H

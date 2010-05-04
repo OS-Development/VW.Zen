@@ -29,7 +29,7 @@
      text_color="white"
      top="5"
      width="250">
-        Blocked List
+        Block List
      </text>
     <scroll_list
      follows="all"
@@ -39,7 +39,13 @@
      name="blocked"
      tool_tip="List of currently blocked Residents"
      top="30"
-     width="270" />
+     width="270">
+        <scroll_list.columns
+         name="item_name" />
+        <scroll_list.columns
+         name="item_type"
+         width="96" />
+    </scroll_list>
     <button
      follows="left|bottom"
      height="23"

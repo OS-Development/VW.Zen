@@ -71,19 +71,19 @@ public:
 	boost::regex getPattern() const { return mPattern; }
 
 	/// Return the url from a string that matched the regex
-	virtual std::string getUrl(const std::string &string);
+	virtual std::string getUrl(const std::string &string) const;
 
 	/// Given a matched Url, return a label for the Url
 	virtual std::string getLabel(const std::string &url, const LLUrlLabelCallback &cb) { return url; }
 
 	/// Return an icon that can be displayed next to Urls of this type
-	std::string getIcon() const { return mIcon; }
+	virtual std::string getIcon(const std::string &url) { return mIcon; }
 
 	/// Return the color to render the displayed text
 	LLUIColor getColor() const { return mColor; }
 
 	/// Given a matched Url, return a tooltip string for the hyperlink
-	std::string getTooltip() const { return mTooltip; }
+	virtual std::string getTooltip(const std::string &string) const { return mTooltip; }
 
 	/// Return the name of a XUI file containing the context menu items
 	std::string getMenuName() const { return mMenuName; }
@@ -91,12 +91,15 @@ public:
 	/// Return the name of a SL location described by this Url, if any
 	virtual std::string getLocation(const std::string &url) const { return ""; }
 
+	/// is this a match for a URL that should not be hyperlinked?
+	bool isLinkDisabled() const { return mDisabledLink; }
+
 protected:
 	std::string getIDStringFromUrl(const std::string &url) const;
 	std::string escapeUrl(const std::string &url) const;
 	std::string unescapeUrl(const std::string &url) const;
-	std::string getLabelFromWikiLink(const std::string &url);
-	std::string getUrlFromWikiLink(const std::string &string);
+	std::string getLabelFromWikiLink(const std::string &url) const;
+	std::string getUrlFromWikiLink(const std::string &string) const;
 	void addObserver(const std::string &id, const std::string &url, const LLUrlLabelCallback &cb); 
 	void callObservers(const std::string &id, const std::string &label);
 
@@ -111,6 +114,7 @@ protected:
 	std::string                                    	mTooltip;
 	LLUIColor										mColor;
 	std::multimap<std::string, LLUrlEntryObserver>	mObservers;
+	bool                                            mDisabledLink;
 };
 
 ///
@@ -131,7 +135,7 @@ class LLUrlEntryHTTPLabel : public LLUrlEntryBase
 public:
 	LLUrlEntryHTTPLabel();
 	/*virtual*/ std::string getLabel(const std::string &url, const LLUrlLabelCallback &cb);
-	/*virtual*/ std::string getUrl(const std::string &string);
+	/*virtual*/ std::string getUrl(const std::string &string) const;
 };
 
 ///
@@ -142,7 +146,7 @@ class LLUrlEntryHTTPNoProtocol : public LLUrlEntryBase
 public:
 	LLUrlEntryHTTPNoProtocol();
 	/*virtual*/ std::string getLabel(const std::string &url, const LLUrlLabelCallback &cb);
-	/*virtual*/ std::string getUrl(const std::string &string);
+	/*virtual*/ std::string getUrl(const std::string &string) const;
 };
 
 ///
@@ -165,6 +169,7 @@ class LLUrlEntryAgent : public LLUrlEntryBase
 public:
 	LLUrlEntryAgent();
 	/*virtual*/ std::string getLabel(const std::string &url, const LLUrlLabelCallback &cb);
+	/*virtual*/ std::string getTooltip(const std::string &string) const;
 private:
 	void onAgentNameReceived(const LLUUID& id, const std::string& first,
 							 const std::string& last, BOOL is_group);
@@ -196,6 +201,18 @@ public:
 private:
 };
 
+///
+/// LLUrlEntryObjectIM Describes a Second Life inspector for the object Url, e.g.,
+/// secondlife:///app/objectim/7bcd7864-da6b-e43f-4486-91d28a28d95b?name=Object&owner=3de548e1-57be-cfea-2b78-83ae3ad95998&slurl=Danger!%20Danger!/200/200/30/&groupowned=1
+///
+class LLUrlEntryObjectIM : public LLUrlEntryBase
+{
+public:
+	LLUrlEntryObjectIM();
+	/*virtual*/ std::string getLabel(const std::string &url, const LLUrlLabelCallback &cb);
+	/*virtual*/ std::string getLocation(const std::string &url) const;
+private:
+};
 
 ///
 /// LLUrlEntryParcel Describes a Second Life parcel Url, e.g.,
@@ -252,7 +269,8 @@ class LLUrlEntrySLLabel : public LLUrlEntryBase
 public:
 	LLUrlEntrySLLabel();
 	/*virtual*/ std::string getLabel(const std::string &url, const LLUrlLabelCallback &cb);
-	/*virtual*/ std::string getUrl(const std::string &string);
+	/*virtual*/ std::string getUrl(const std::string &string) const;
+	/*virtual*/ std::string getTooltip(const std::string &string) const;
 };
 
 ///
@@ -266,5 +284,29 @@ public:
 	/*virtual*/ std::string getLabel(const std::string &url, const LLUrlLabelCallback &cb);
 	/*virtual*/ std::string getLocation(const std::string &url) const;
 };
+
+///
+/// LLUrlEntryNoLink lets us turn of URL detection with <nolink>...</nolink> tags
+///
+class LLUrlEntryNoLink : public LLUrlEntryBase
+{
+public:
+	LLUrlEntryNoLink();
+	/*virtual*/ std::string getLabel(const std::string &url, const LLUrlLabelCallback &cb);
+	/*virtual*/ std::string getUrl(const std::string &string) const;
+};
+
+///
+/// LLUrlEntryIcon describes an icon with <icon>...</icon> tags
+///
+class LLUrlEntryIcon : public LLUrlEntryBase
+{
+public:
+	LLUrlEntryIcon();
+	/*virtual*/ std::string getUrl(const std::string &string) const;
+	/*virtual*/ std::string getLabel(const std::string &url, const LLUrlLabelCallback &cb);
+	/*virtual*/ std::string getIcon(const std::string &url);
+};
+
 
 #endif

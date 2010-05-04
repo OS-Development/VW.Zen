@@ -80,8 +80,8 @@ LLMediaCtrl::LLMediaCtrl( const Params& p) :
 	mForceUpdate( false ),
 	mOpenLinksInExternalBrowser( false ),
 	mOpenLinksInInternalBrowser( false ),
-	mTrusted( false ),
 	mHomePageUrl( "" ),
+	mTrusted(false),
 	mIgnoreUIScale( true ),
 	mAlwaysRefresh( false ),
 	mMediaSource( 0 ),
@@ -183,6 +183,10 @@ void LLMediaCtrl::setOpenInInternalBrowser( bool valIn )
 ////////////////////////////////////////////////////////////////////////////////
 void LLMediaCtrl::setTrusted( bool valIn )
 {
+	if(mMediaSource)
+	{
+		mMediaSource->setTrustedBrowser(valIn);
+	}
 	mTrusted = valIn;
 }
 
@@ -542,9 +546,9 @@ void LLMediaCtrl::navigateToLocalPage( const std::string& subdir, const std::str
 
 	if (! gDirUtilp->fileExists(expanded_filename))
 	{
-		if (language != "en-us")
+		if (language != "en")
 		{
-			expanded_filename = gDirUtilp->findSkinnedFilename("html", "en-us", filename);
+			expanded_filename = gDirUtilp->findSkinnedFilename("html", "en", filename);
 			if (! gDirUtilp->fileExists(expanded_filename))
 			{
 				llwarns << "File " << subdir << delim << filename_in << "not found" << llendl;
@@ -632,6 +636,7 @@ bool LLMediaCtrl::ensureMediaSourceExists()
 			mMediaSource->setVisible( getVisible() );
 			mMediaSource->addObserver( this );
 			mMediaSource->setBackgroundColor( getBackgroundColor() );
+			mMediaSource->setTrustedBrowser(mTrusted);
 			if(mClearCache)
 			{
 				mMediaSource->clearCache();
@@ -724,14 +729,14 @@ void LLMediaCtrl::draw()
 		LLGLSUIDefault gls_ui;
 		LLGLDisable gls_alphaTest( GL_ALPHA_TEST );
 
-		gGL.pushMatrix();
+		gGL.pushUIMatrix();
 		{
 			if (mIgnoreUIScale)
 			{
-				glLoadIdentity();
+				gGL.loadUIIdentity();
 				// font system stores true screen origin, need to scale this by UI scale factor
 				// to get render origin for this view (with unit scale)
-				gGL.translatef(floorf(LLFontGL::sCurOrigin.mX * LLUI::sGLScaleFactor.mV[VX]), 
+				gGL.translateUI(floorf(LLFontGL::sCurOrigin.mX * LLUI::sGLScaleFactor.mV[VX]), 
 							floorf(LLFontGL::sCurOrigin.mY * LLUI::sGLScaleFactor.mV[VY]), 
 							LLFontGL::sCurOrigin.mZ);
 			}
@@ -825,7 +830,7 @@ void LLMediaCtrl::draw()
 			gGL.end();
 			gGL.setSceneBlendType(LLRender::BT_ALPHA);
 		}
-		gGL.popMatrix();
+		gGL.popUIMatrix();
 	
 	}
 	else
@@ -867,38 +872,6 @@ void LLMediaCtrl::convertInputCoords(S32& x, S32& y)
 	{
 		y = mIgnoreUIScale ? llround((F32)(getRect().getHeight() - y) * LLUI::sGLScaleFactor.mV[VY]) : getRect().getHeight() - y;
 	};
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// static 
-bool LLMediaCtrl::onClickLinkExternalTarget(const LLSD& notification, const LLSD& response )
-{
-	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
-	if ( 0 == option )
-	{
-		LLSD payload = notification["payload"];
-		std::string url = payload["url"].asString();
-		S32 target_type = payload["target_type"].asInteger();
-
-		switch (target_type)
-		{
-		case LLPluginClassMedia::TARGET_EXTERNAL:
-			// load target in an external browser
-			LLWeb::loadURLExternal(url);
-			break;
-
-		case LLPluginClassMedia::TARGET_BLANK:
-			// load target in the user's preferred browser
-			LLWeb::loadURL(url);
-			break;
-
-		default:
-			// unsupported link target - shouldn't happen
-			LL_WARNS("LinkTarget") << "Unsupported link target type" << LL_ENDL;
-			break;
-		}
-	}
-	return false;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -978,7 +951,6 @@ void LLMediaCtrl::handleMediaEvent(LLPluginClassMedia* self, EMediaEvent event)
 		case MEDIA_EVENT_CLICK_LINK_NOFOLLOW:
 		{
 			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_CLICK_LINK_NOFOLLOW, uri is " << self->getClickURL() << LL_ENDL;
-			onClickLinkNoFollow(self);
 		};
 		break;
 
@@ -1015,49 +987,83 @@ void LLMediaCtrl::onClickLinkHref( LLPluginClassMedia* self )
 	
 	// is there is a target specified for the link?
 	if (target_type == LLPluginClassMedia::TARGET_EXTERNAL ||
-		target_type == LLPluginClassMedia::TARGET_BLANK)
+		target_type == LLPluginClassMedia::TARGET_BLANK )
 	{
-		LLSD payload;
-		payload["url"] = url;
-		payload["target_type"] = LLSD::Integer(target_type);
-		LLNotificationsUtil::add( "WebLaunchExternalTarget", LLSD(), payload, onClickLinkExternalTarget);
-		return;
-	}
-
-	const std::string protocol1( "http://" );
-	const std::string protocol2( "https://" );
-	if( mOpenLinksInExternalBrowser )
-	{
-		if ( !url.empty() )
+		if (gSavedSettings.getBOOL("UseExternalBrowser"))
 		{
-			if ( LLStringUtil::compareInsensitive( url.substr( 0, protocol1.length() ), protocol1 ) == 0 ||
-				 LLStringUtil::compareInsensitive( url.substr( 0, protocol2.length() ), protocol2 ) == 0 )
-			{
-				LLWeb::loadURLExternal( url );
-			}
+			LLSD payload;
+			payload["url"] = url;
+			payload["target_type"] = LLSD::Integer(target_type);
+			LLNotificationsUtil::add( "WebLaunchExternalTarget", LLSD(), payload, onClickLinkExternalTarget);
+		}
+		else
+		{
+			clickLinkWithTarget(url, target_type);
 		}
 	}
-	else
-	if( mOpenLinksInInternalBrowser )
-	{
-		if ( !url.empty() )
+	else {
+		const std::string protocol1( "http://" );
+		const std::string protocol2( "https://" );
+		if( mOpenLinksInExternalBrowser )
 		{
-			if ( LLStringUtil::compareInsensitive( url.substr( 0, protocol1.length() ), protocol1 ) == 0 ||
-				 LLStringUtil::compareInsensitive( url.substr( 0, protocol2.length() ), protocol2 ) == 0 )
+			if ( !url.empty() )
 			{
-				llwarns << "Dead, unimplemented path that we used to send to the built-in browser long ago." << llendl;
+				if ( LLStringUtil::compareInsensitive( url.substr( 0, protocol1.length() ), protocol1 ) == 0 ||
+					LLStringUtil::compareInsensitive( url.substr( 0, protocol2.length() ), protocol2 ) == 0 )
+				{
+					LLWeb::loadURLExternal( url );
+				}
+			}
+		}
+		else
+		if( mOpenLinksInInternalBrowser )
+		{
+			if ( !url.empty() )
+			{
+				if ( LLStringUtil::compareInsensitive( url.substr( 0, protocol1.length() ), protocol1 ) == 0 ||
+					LLStringUtil::compareInsensitive( url.substr( 0, protocol2.length() ), protocol2 ) == 0 )
+				{
+					llwarns << "Dead, unimplemented path that we used to send to the built-in browser long ago." << llendl;
+				}
 			}
 		}
 	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// 
-void LLMediaCtrl::onClickLinkNoFollow( LLPluginClassMedia* self )
+// static 
+bool LLMediaCtrl::onClickLinkExternalTarget(const LLSD& notification, const LLSD& response )
 {
-	// let the dispatcher handle blocking/throttling of SLURLs
-	std::string url = self->getClickURL();
-	LLURLDispatcher::dispatch(url, this, mTrusted);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
+	if ( 0 == option )
+	{
+		LLSD payload = notification["payload"];
+		std::string url = payload["url"].asString();
+		S32 target_type = payload["target_type"].asInteger();
+		clickLinkWithTarget(url, target_type);
+	}
+	return false;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// static 
+void LLMediaCtrl::clickLinkWithTarget(const std::string& url, const S32& target_type )
+{
+	if (target_type == LLPluginClassMedia::TARGET_EXTERNAL)
+	{
+		// load target in an external browser
+		LLWeb::loadURLExternal(url);
+	}
+	else if (target_type == LLPluginClassMedia::TARGET_BLANK)
+	{
+		// load target in the user's preferred browser
+		LLWeb::loadURL(url);
+	}
+	else {
+		// unsupported link target - shouldn't happen
+		LL_WARNS("LinkTarget") << "Unsupported link target type" << LL_ENDL;
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////

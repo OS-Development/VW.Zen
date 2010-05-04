@@ -129,12 +129,6 @@ BOOL LLToolTipView::handleScrollWheel( S32 x, S32 y, S32 clicks )
 	return FALSE;
 }
 
-void LLToolTipView::onMouseLeave(S32 x, S32 y, MASK mask)
-{
-	LLToolTipMgr::instance().blockToolTips();
-}
-
-
 void LLToolTipView::drawStickyRect()
 {
 	gl_rect_2d(LLToolTipMgr::instance().getMouseNearRect(), LLColor4::white, false);
@@ -400,7 +394,8 @@ bool LLToolTip::hasClickCallback()
 //
 
 LLToolTipMgr::LLToolTipMgr()
-:	mToolTip(NULL),
+:       mToolTipsBlocked(false),
+	mToolTip(NULL),
 	mNeedsToolTip(false)
 {}
 

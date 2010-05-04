@@ -89,16 +89,15 @@ private:
 		STATE_ERROR,				// generic bailout state
 		STATE_DONE					// state machine will sit in this state after either error or normal termination.
 	};
-	EState mState;
 	void setState(EState state);
+
+	EState mState;
 	
 	LLHost mLauncherHost;
 	LLSocket::ptr_t mSocket;
 	
 	std::string mPluginFile;
 
-	std::string mUserDataPath;
-	
 	LLPluginInstance *mInstance;
 
 	typedef std::map<std::string, LLPluginSharedMemory*> sharedMemoryRegionsType;
@@ -107,6 +106,11 @@ private:
 	LLTimer mHeartbeat;
 	F64		mSleepTime;
 	F64		mCPUElapsed;
+	bool	mBlockingRequest;
+	bool	mBlockingResponseReceived;
+	std::queue<std::string> mMessageQueue;
+	
+	void deliverQueuedMessages();
 	
 };
 

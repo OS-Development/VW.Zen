@@ -49,7 +49,9 @@ public:
 	virtual ~LLPluginClassMedia();
 
 	// local initialization, called by the media manager when creating a source
-	virtual bool init(const std::string &launcher_filename, const std::string &plugin_filename, bool debug, const std::string &user_data_path);
+	virtual bool init(const std::string &launcher_filename, 
+					  const std::string &plugin_filename, 
+					  bool debug);
 
 	// undoes everything init() didm called by the media manager when destroying a source
 	virtual void reset();
@@ -114,12 +116,12 @@ public:
 		KEY_EVENT_REPEAT
 	}EKeyEventType;
 	
-	bool keyEvent(EKeyEventType type, int key_code, MASK modifiers);
+	bool keyEvent(EKeyEventType type, int key_code, MASK modifiers, LLSD native_key_data);
 
 	void scrollEvent(int x, int y, MASK modifiers);
 	
 	// Text may be unicode (utf8 encoded)
-	bool textInput(const std::string &text, MASK modifiers);
+	bool textInput(const std::string &text, MASK modifiers, LLSD native_key_data);
 	
 	void loadURI(const std::string &uri);
 	
@@ -173,6 +175,12 @@ public:
 
 	void	paste();
 	bool	canPaste() const { return mCanPaste; };
+	
+	// These can be called before init(), and they will be queued and sent before the media init message.
+	void	setUserDataPath(const std::string &user_data_path);
+	void	setLanguageCode(const std::string &language_code);
+	void	setPluginsEnabled(const bool enabled);
+	void	setJavascriptEnabled(const bool enabled);
 		
 	///////////////////////////////////
 	// media browser class functions
@@ -181,6 +189,7 @@ public:
 	void focus(bool focused);
 	void clear_cache();
 	void clear_cookies();
+	void set_cookies(const std::string &cookies);
 	void enable_cookies(bool enable);
 	void proxy_setup(bool enable, const std::string &host = LLStringUtil::null, int port = 0);
 	void browse_stop();

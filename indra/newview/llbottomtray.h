@@ -46,6 +46,7 @@ class LLNotificationChiclet;
 class LLSpeakButton;
 class LLNearbyChatBar;
 class LLIMChiclet;
+class LLBottomTrayLite;
 
 // Build time optimization, generate once in .cpp file
 #ifndef LLBOTTOMTRAY_CPP
@@ -60,13 +61,14 @@ class LLBottomTray
 {
 	LOG_CLASS(LLBottomTray);
 	friend class LLSingleton<LLBottomTray>;
+	friend class LLBottomTrayLite;
 public:
 	~LLBottomTray();
 
 	BOOL postBuild();
 
 	LLChicletPanel*		getChicletPanel()	{return mChicletPanel;}
-	LLNearbyChatBar*		getNearbyChatBar()	{return mNearbyChatBar;}
+	LLNearbyChatBar*		getNearbyChatBar();
 
 	void onCommitGesture(LLUICtrl* ctrl);
 
@@ -79,8 +81,9 @@ public:
 
 	virtual void reshape(S32 width, S32 height, BOOL called_from_parent);
 
-	virtual void onFocusLost();
 	virtual void setVisible(BOOL visible);
+
+	/*virtual*/ S32 notifyParent(const LLSD& info);
 
 	// Implements LLVoiceClientStatusObserver::onChange() to enable the speak
 	// button when voice is available
@@ -92,6 +95,9 @@ public:
 	void showMoveButton(BOOL visible);
 	void showCameraButton(BOOL visible);
 	void showSnapshotButton(BOOL visible);
+
+	void toggleMovementControls();
+	void toggleCameraControls();
 
 	void onMouselookModeIn();
 	void onMouselookModeOut();
@@ -112,6 +118,8 @@ private:
 		, RS_BUTTON_MOVEMENT	= 0x0010
 		, RS_BUTTON_GESTURES	= 0x0020
 		, RS_BUTTON_SPEAK		= 0x0040
+		, RS_IM_WELL			= 0x0080
+		, RS_NOTIFICATION_WELL	= 0x0100
 
 		/**
 		 * Specifies buttons which can be hidden when bottom tray is shrunk.
@@ -173,11 +181,21 @@ private:
 	void setTrayButtonVisibleIfPossible(EResizeState shown_object_type, bool visible, bool raise_notification = true);
 
 	/**
-	 * Save and restore children shapes.
-	 * Used to avoid the LLLayoutStack resizing logic between mouse look mode switching.
+	 * Sets passed visibility to required button and fit widths of shown
+	 * buttons(notice that method can shrink widths to
+	 * allocate needed room in bottom tray).
+	 * Returns true if visibility of required button was set.
 	 */
-	void savePanelsShape();
-	void restorePanelsShape();
+	bool setVisibleAndFitWidths(EResizeState object_type, bool visible);
+
+	/**
+	 * Shows/hides panel with specified well button (IM or Notification)
+	 *
+	 * @param[in] object_type - type of well button to be processed.
+	 *		Must be one of RS_IM_WELL or RS_NOTIFICATION_WELL.
+	 * @param[in] visible - flag specified whether button should be shown or hidden.
+	 */
+	void showWellButton(EResizeState object_type, bool visible);
 
 	MASK mResizeState;
 
@@ -187,14 +205,12 @@ private:
 	typedef std::map<EResizeState, S32> state_object_width_map_t;
 	state_object_width_map_t mObjectDefaultWidthMap;
 
-	typedef std::vector<LLRect> shape_list_t;
-	shape_list_t mSavedShapeList;
+	typedef std::map<EResizeState, LLUICtrl*> dummies_map_t;
+	dummies_map_t mDummiesMap;
 
 protected:
 
 	LLBottomTray(const LLSD& key = LLSD());
-
-	void onChicletClick(LLUICtrl* ctrl);
 
 	static void* createNearbyChatBar(void* userdata);
 
@@ -214,6 +230,8 @@ protected:
 	LLPanel*			mGesturePanel;
 	LLButton*			mCamButton;
 	LLButton*			mMovementButton;
+	LLBottomTrayLite*   mBottomTrayLite;
+	bool                mIsInLiteMode;
 };
 
 #endif // LL_LLBOTTOMPANEL_H

@@ -41,7 +41,7 @@
 #include "llglheaders.h"
 
 // Viewer includes
-#include "llagent.h"
+#include "llagentcamera.h"
 #include "llviewercontrol.h"
 #include "llnetmap.h"
 #include "lltracker.h"
@@ -112,6 +112,7 @@ BOOL LLFloaterMap::postBuild()
 	sendChildToBack(getDragHandle());
 
 	setIsChrome(TRUE);
+	getDragHandle()->setTitleVisible(TRUE);
 	
 	// keep onscreen
 	gFloaterView->adjustToFitScreen(this, FALSE);
@@ -141,8 +142,8 @@ void LLFloaterMap::setDirectionPos( LLTextBox* text_box, F32 rotation )
 	// Rotation is in radians.
 	// Rotation of 0 means x = 1, y = 0 on the unit circle.
 
-	F32 map_half_height = (F32)(getRect().getHeight() / 2);
-	F32 map_half_width = (F32)(getRect().getWidth() / 2);
+	F32 map_half_height = (F32)(getRect().getHeight() / 2) - getHeaderHeight()/2;
+	F32 map_half_width = (F32)(getRect().getWidth() / 2) ;
 	F32 text_half_height = (F32)(text_box->getRect().getHeight() / 2);
 	F32 text_half_width = (F32)(text_box->getRect().getWidth() / 2);
 	F32 radius = llmin( map_half_height - text_half_height, map_half_width - text_half_width );
@@ -195,7 +196,7 @@ void LLFloaterMap::draw()
 	setDirectionPos( mTextBoxSouthEast, rotation + F_PI + F_PI_BY_TWO + F_PI_BY_TWO / 2);
 
 	// Note: we can't just gAgent.check cameraMouselook() because the transition states are wrong.
-	if( gAgent.cameraMouselook())
+	if(gAgentCamera.cameraMouselook())
 	{
 		setMouseOpaque(FALSE);
 		getDragHandle()->setMouseOpaque(FALSE);
@@ -212,6 +213,20 @@ void LLFloaterMap::draw()
 	}
 	
 	LLFloater::draw();
+}
+
+// virtual
+void LLFloaterMap::onFocusReceived()
+{
+	setBackgroundOpaque(true);
+	LLPanel::onFocusReceived();
+}
+
+// virtual
+void LLFloaterMap::onFocusLost()
+{
+	setBackgroundOpaque(false);
+	LLPanel::onFocusLost();
 }
 
 void LLFloaterMap::reshape(S32 width, S32 height, BOOL called_from_parent)

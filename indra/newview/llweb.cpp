@@ -103,8 +103,18 @@ void LLWeb::loadURLInternal(const std::string &url)
 // static
 void LLWeb::loadURLExternal(const std::string& url)
 {
+	loadURLExternal(url, true);
+}
+
+
+// static
+void LLWeb::loadURLExternal(const std::string& url, bool async)
+{
 	std::string escaped_url = escapeURL(url);
-	gViewerWindow->getWindow()->spawnWebBrowser(escaped_url);
+	if (gViewerWindow)
+	{
+		gViewerWindow->getWindow()->spawnWebBrowser(escaped_url, async);
+	}
 }
 
 
@@ -145,10 +155,20 @@ std::string LLWeb::expandURLSubstitutions(const std::string &url,
 	substitution["VERSION_PATCH"] = LLVersionInfo::getPatch();
 	substitution["VERSION_BUILD"] = LLVersionInfo::getBuild();
 	substitution["CHANNEL"] = LLVersionInfo::getChannel();
-	substitution["LANGUAGE"] = LLUI::getLanguage();
 	substitution["GRID"] = LLViewerLogin::getInstance()->getGridLabel();
 	substitution["OS"] = LLAppViewer::instance()->getOSInfo().getOSStringSimple();
 	substitution["SESSION_ID"] = gAgent.getSessionID();
+	substitution["FIRST_LOGIN"] = gAgent.isFirstLogin();
+
+	// work out the current language
+	std::string lang = LLUI::getLanguage();
+	if (lang == "en-us")
+	{
+		// *HACK: the correct fix is to change English.lproj/language.txt,
+		// but we're late in the release cycle and this is a less risky fix
+		lang = "en";
+	}
+	substitution["LANGUAGE"] = lang;
 
 	// find the region ID
 	LLUUID region_id;
@@ -159,14 +179,14 @@ std::string LLWeb::expandURLSubstitutions(const std::string &url,
 	}
 	substitution["REGION_ID"] = region_id;
 
-	// find the parcel ID
-	LLUUID parcel_id;
+	// find the parcel local ID
+	S32 parcel_id = 0;
 	LLParcel* parcel = LLViewerParcelMgr::getInstance()->getAgentParcel();
 	if (parcel)
 	{
-		parcel_id = parcel->getID();
+		parcel_id = parcel->getLocalID();
 	}
-	substitution["PARCEL_ID"] = parcel_id;
+	substitution["PARCEL_ID"] = llformat("%d", parcel_id);
 
 	// expand all of the substitution strings and escape the url
 	std::string expanded_url = url;

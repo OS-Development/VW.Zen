@@ -42,6 +42,7 @@
 #include "message.h"
 #include "llviewertexturelist.h"         // for texture stats
 #include "llagent.h"
+#include "llmimetypes.h"
 
 const F32 AUTOPLAY_TIME  = 5;          // how many seconds before we autoplay
 const F32 AUTOPLAY_SIZE  = 24*24;      // how big the texture must be (pixel area) before we autoplay
@@ -86,6 +87,7 @@ BOOL LLViewerParcelMediaAutoPlay::tick()
 	LLParcel *this_parcel = NULL;
 	LLViewerRegion *this_region = NULL;
 	std::string this_media_url;
+	std::string this_media_type;
 	LLUUID this_media_texture_id;
 	S32 this_parcel_id = 0;
 	LLUUID this_region_id;
@@ -101,7 +103,9 @@ BOOL LLViewerParcelMediaAutoPlay::tick()
 
 	if (this_parcel)
 	{
-		this_media_url = std::string(this_parcel->getMediaURL());
+		this_media_url = this_parcel->getMediaURL();
+		
+		this_media_type = this_parcel->getMediaType();
 
 		this_media_texture_id = this_parcel->getMediaID();
 
@@ -118,14 +122,15 @@ BOOL LLViewerParcelMediaAutoPlay::tick()
 		mLastRegionID = this_region_id;
 	}
 
-	mTimeInParcel += mPeriod;                 // increase mTimeInParcel by the amount of time between ticks
+	mTimeInParcel += mPeriod;					// increase mTimeInParcel by the amount of time between ticks
 
-	if ((!mPlayed) &&                         // if we've never played
-		(mTimeInParcel > AUTOPLAY_TIME) &&    // and if we've been here for so many seconds
-		(this_media_url.size() != 0) &&       // and if the parcel has media
-		(LLViewerParcelMedia::sMediaImpl.isNull()))   // and if the media is not already playing
+	if ((!mPlayed) &&							// if we've never played
+		(mTimeInParcel > AUTOPLAY_TIME) &&		// and if we've been here for so many seconds
+		(!this_media_url.empty()) &&			// and if the parcel has media
+		(stricmp(this_media_type.c_str(), LLMIMETypes::getDefaultMimeType().c_str()) != 0) &&
+		(LLViewerParcelMedia::sMediaImpl.isNull()))	// and if the media is not already playing
 	{
-		if (this_media_texture_id.notNull())  // and if the media texture is good
+		if (this_media_texture_id.notNull())	// and if the media texture is good
 		{
 			LLViewerMediaTexture *image = LLViewerTextureManager::getMediaTexture(this_media_texture_id, FALSE) ;
 

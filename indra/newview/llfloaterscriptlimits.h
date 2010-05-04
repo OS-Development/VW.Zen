@@ -145,11 +145,15 @@ class LLPanelScriptLimitsRegionMemory : public LLPanelScriptLimitsInfo, LLRemote
 	
 public:
 	LLPanelScriptLimitsRegionMemory()
-		:	LLPanelScriptLimitsInfo(), LLRemoteParcelInfoObserver(), mParcelId(LLUUID()), mGotParcelMemoryUsed(FALSE), mGotParcelMemoryMax(FALSE) {};
-	~LLPanelScriptLimitsRegionMemory()
-	{
-		LLRemoteParcelInfoProcessor::getInstance()->removeObserver(mParcelId, this);
-	};
+		: LLPanelScriptLimitsInfo(), LLRemoteParcelInfoObserver(),
+
+		mParcelId(LLUUID()),
+		mGotParcelMemoryUsed(false),
+		mGotParcelMemoryMax(false),
+		mParcelMemoryMax(0),
+		mParcelMemoryUsed(0) {};
+
+	~LLPanelScriptLimitsRegionMemory();
 	
 	// LLPanel
 	virtual BOOL postBuild();
@@ -159,23 +163,33 @@ public:
 
 	BOOL StartRequestChain();
 
-	void populateParcelMemoryText();
 	BOOL getLandScriptResources();
 	void clearList();
 	void showBeacon();
+	void returnObjectsFromParcel(S32 local_id);
 	void returnObjects();
 
 private:
 
-	void onNameCache(	 const LLUUID& id,
-						 const std::string& first_name,
-						 const std::string& last_name);
+	void onNameCache(const LLUUID& id,
+			 const std::string& first_name,
+			 const std::string& last_name);
 
+	LLSD mContent;
 	LLUUID mParcelId;
-	BOOL mGotParcelMemoryUsed;
-	BOOL mGotParcelMemoryMax;
+	bool mGotParcelMemoryUsed;
+	bool mGotParcelMemoryUsedDetails;
+	bool mGotParcelMemoryMax;
 	S32 mParcelMemoryMax;
 	S32 mParcelMemoryUsed;
+	S32 mParcelMemoryUsedDetails;
+	
+	bool mGotParcelURLsUsed;
+	bool mGotParcelURLsUsedDetails;
+	bool mGotParcelURLsMax;
+	S32 mParcelURLsMax;
+	S32 mParcelURLsUsed;
+	S32 mParcelURLsUsedDetails;
 	
 	std::vector<LLSD> mObjectListItems;
 		
@@ -192,46 +206,6 @@ protected:
 };
 
 /////////////////////////////////////////////////////////////////////////////
-// URLs panel
-/////////////////////////////////////////////////////////////////////////////
-
-class LLPanelScriptLimitsRegionURLs : public LLPanelScriptLimitsInfo
-{
-	
-public:
-	LLPanelScriptLimitsRegionURLs()
-		:	LLPanelScriptLimitsInfo(), mParcelId(LLUUID()), mGotParcelURLsUsed(FALSE), mGotParcelURLsMax(FALSE) {};
-	~LLPanelScriptLimitsRegionURLs()
-	{
-	};
-	
-	// LLPanel
-	virtual BOOL postBuild();
-
-	void setRegionDetails(LLSD content);
-	void setRegionSummary(LLSD content);
-
-	void populateParcelURLsText();
-	void clearList();
-
-private:
-
-	LLUUID mParcelId;
-	BOOL mGotParcelURLsUsed;
-	BOOL mGotParcelURLsMax;
-	S32 mParcelURLsMax;
-	S32 mParcelURLsUsed;
-	
-	std::vector<LLSD> mObjectListItems;
-		
-protected:
-	
-	static void onClickRefresh(void* userdata);
-	static void onClickHighlight(void* userdata);
-	static void onClickReturn(void* userdata);
-};
-
-/////////////////////////////////////////////////////////////////////////////
 // Attachment panel
 /////////////////////////////////////////////////////////////////////////////
 
@@ -240,7 +214,21 @@ class LLPanelScriptLimitsAttachment : public LLPanelScriptLimitsInfo
 	
 public:
 	LLPanelScriptLimitsAttachment()
-		:	LLPanelScriptLimitsInfo() {};
+		:	LLPanelScriptLimitsInfo(),
+		mGotAttachmentMemoryUsed(false),
+		mGotAttachmentMemoryUsedDetails(false),
+		mGotAttachmentMemoryMax(false),
+		mAttachmentMemoryMax(0),
+		mAttachmentMemoryUsed(0),
+		mAttachmentMemoryUsedDetails(0),
+		mGotAttachmentURLsUsed(false),
+		mGotAttachmentURLsUsedDetails(false),
+		mGotAttachmentURLsMax(false),
+		mAttachmentURLsMax(0),
+		mAttachmentURLsUsed(0),
+		mAttachmentURLsUsedDetails(0)
+		{};
+
 	~LLPanelScriptLimitsAttachment()
 	{
 	};
@@ -250,10 +238,25 @@ public:
 
 	void setAttachmentDetails(LLSD content);
 
+	void setAttachmentSummary(LLSD content);
 	BOOL requestAttachmentDetails();
 	void clearList();
 
 private:
+
+	bool mGotAttachmentMemoryUsed;
+	bool mGotAttachmentMemoryUsedDetails;
+	bool mGotAttachmentMemoryMax;
+	S32 mAttachmentMemoryMax;
+	S32 mAttachmentMemoryUsed;
+	S32 mAttachmentMemoryUsedDetails;
+	
+	bool mGotAttachmentURLsUsed;
+	bool mGotAttachmentURLsUsedDetails;
+	bool mGotAttachmentURLsMax;
+	S32 mAttachmentURLsMax;
+	S32 mAttachmentURLsUsed;
+	S32 mAttachmentURLsUsedDetails;
 
 protected:
 	

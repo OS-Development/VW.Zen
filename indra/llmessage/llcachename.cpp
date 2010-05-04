@@ -81,6 +81,8 @@ public:
 };
 
 LLCacheNameEntry::LLCacheNameEntry()
+	: mIsGroup(false),
+	  mCreateTime(0)
 {
 }
 
@@ -125,7 +127,7 @@ private:
 };
 
 ReplySender::ReplySender(LLMessageSystem* msg)
-	: mMsg(msg), mPending(false)
+	: mMsg(msg), mPending(false), mCurrIsGroup(false)
 { }
 
 ReplySender::~ReplySender()
@@ -484,7 +486,7 @@ BOOL LLCacheName::getName(const LLUUID& id, std::string& first, std::string& las
 	{
 		first = sCacheName["nobody"];
 		last.clear();
-		return FALSE;
+		return TRUE;
 	}
 
 	LLCacheNameEntry* entry = get_ptr_in_map(impl.mCache, id );
@@ -528,7 +530,7 @@ BOOL LLCacheName::getGroupName(const LLUUID& id, std::string& group)
 	if(id.isNull())
 	{
 		group = sCacheName["none"];
-		return FALSE;
+		return TRUE;
 	}
 
 	LLCacheNameEntry* entry = get_ptr_in_map(impl.mCache,id);

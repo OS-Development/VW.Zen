@@ -35,6 +35,8 @@
 
 #include "llavataractions.h"
 
+#include "boost/lambda/lambda.hpp"	// for lambda::constant
+
 #include "llsd.h"
 #include "lldarray.h"
 #include "llnotifications.h"
@@ -46,13 +48,16 @@
 #include "llappviewer.h"		// for gLastVersionChannel
 #include "llcachename.h"
 #include "llcallingcard.h"		// for LLAvatarTracker
+#include "llfloateravatarpicker.h"	// for LLFloaterAvatarPicker
 #include "llfloatergroupinvite.h"
 #include "llfloatergroups.h"
 #include "llfloaterreg.h"
 #include "llfloaterpay.h"
+#include "llfloaterworldmap.h"
 #include "llinventorymodel.h"	// for gInventory.findCategoryUUIDForType
 #include "llimview.h"			// for gIMMgr
 #include "llmutelist.h"
+#include "llnotificationsutil.h"	// for LLNotificationsUtil
 #include "llrecentpeople.h"
 #include "llsidetray.h"
 #include "lltrans.h"
@@ -112,13 +117,13 @@ void LLAvatarActions::removeFriendDialog(const LLUUID& id)
 	if (id.isNull())
 		return;
 
-	std::vector<LLUUID> ids;
+	uuid_vec_t ids;
 	ids.push_back(id);
 	removeFriendsDialog(ids);
 }
 
 // static
-void LLAvatarActions::removeFriendsDialog(const std::vector<LLUUID>& ids)
+void LLAvatarActions::removeFriendsDialog(const uuid_vec_t& ids)
 {
 	if(ids.size() == 0)
 		return;
@@ -143,7 +148,7 @@ void LLAvatarActions::removeFriendsDialog(const std::vector<LLUUID>& ids)
 	}
 
 	LLSD payload;
-	for (std::vector<LLUUID>::const_iterator it = ids.begin(); it != ids.end(); ++it)
+	for (uuid_vec_t::const_iterator it = ids.begin(); it != ids.end(); ++it)
 	{
 		payload["ids"].append(*it);
 	}
@@ -160,13 +165,21 @@ void LLAvatarActions::offerTeleport(const LLUUID& invitee)
 	if (invitee.isNull())
 		return;
 
+	//waiting until Name Cache gets updated with corresponding avatar name
+	std::string just_to_request_name;
+	if (!gCacheName->getFullName(invitee, just_to_request_name))
+	{
+		gCacheName->get(invitee, FALSE, boost::bind((void (*)(const LLUUID&)) &LLAvatarActions::offerTeleport, invitee));
+		return;
+	}
+
 	LLDynamicArray<LLUUID> ids;
 	ids.push_back(invitee);
 	offerTeleport(ids);
 }
 
 // static
-void LLAvatarActions::offerTeleport(const std::vector<LLUUID>& ids) 
+void LLAvatarActions::offerTeleport(const uuid_vec_t& ids) 
 {
 	if (ids.size() == 0)
 		return;
@@ -181,7 +194,12 @@ void LLAvatarActions::startIM(const LLUUID& id)
 		return;
 
 	std::string name;
-	gCacheName->getFullName(id, name);
+	if (!gCacheName->getFullName(id, name))
+	{
+		gCacheName->get(id, FALSE, boost::bind(&LLAvatarActions::startIM, id));
+		return;
+	}
+
 	LLUUID session_id = gIMMgr->addSession(name, IM_NOTHING_SPECIAL, id);
 	if (session_id != LLUUID::null)
 	{
@@ -222,7 +240,7 @@ void LLAvatarActions::startCall(const LLUUID& id)
 }
 
 // static
-void LLAvatarActions::startAdhocCall(const std::vector<LLUUID>& ids)
+void LLAvatarActions::startAdhocCall(const uuid_vec_t& ids)
 {
 	if (ids.size() == 0)
 	{
@@ -231,7 +249,7 @@ void LLAvatarActions::startAdhocCall(const std::vector<LLUUID>& ids)
 
 	// convert vector into LLDynamicArray for addSession
 	LLDynamicArray<LLUUID> id_array;
-	for (std::vector<LLUUID>::const_iterator it = ids.begin(); it != ids.end(); ++it)
+	for (uuid_vec_t::const_iterator it = ids.begin(); it != ids.end(); ++it)
 	{
 		id_array.push_back(*it);
 	}
@@ -250,39 +268,33 @@ void LLAvatarActions::startAdhocCall(const std::vector<LLUUID>& ids)
 	make_ui_sound("UISndStartIM");
 }
 
+/* AD *TODO: Is this function needed any more?
+	I fixed it a bit(added check for canCall), but it appears that it is not used
+	anywhere. Maybe it should be removed?
 // static
 bool LLAvatarActions::isCalling(const LLUUID &id)
 {
-	if (id.isNull())
+	if (id.isNull() || !canCall())
 	{
 		return false;
 	}
 
 	LLUUID session_id = gIMMgr->computeSessionID(IM_NOTHING_SPECIAL, id);
 	return (LLIMModel::getInstance()->findIMSession(session_id) != NULL);
-}
+}*/
 
 //static
-bool LLAvatarActions::canCall(const LLUUID &id)
+bool LLAvatarActions::canCall()
 {
-	// For now we do not need to check whether passed UUID is ID of agent's friend.
-	// Use common check of Voice Client state.
-	{
-		// don't need to check online/offline status because "usual resident" (resident that is not a friend)
-		// can be only ONLINE. There is no way to see "usual resident" in OFFLINE status. If we see "usual
-		// resident" it automatically means that the resident is ONLINE. So to make a call to the "usual resident"
-		// we need to check only that "our" voice is enabled.
-		return LLVoiceClient::voiceEnabled();
-	}
-
+		return LLVoiceClient::voiceEnabled() && gVoiceClient->voiceWorking();
 }
 
 // static
-void LLAvatarActions::startConference(const std::vector<LLUUID>& ids)
+void LLAvatarActions::startConference(const uuid_vec_t& ids)
 {
 	// *HACK: Copy into dynamic array
 	LLDynamicArray<LLUUID> id_array;
-	for (std::vector<LLUUID>::const_iterator it = ids.begin(); it != ids.end(); ++it)
+	for (uuid_vec_t::const_iterator it = ids.begin(); it != ids.end(); ++it)
 	{
 		id_array.push_back(*it);
 	}
@@ -315,6 +327,20 @@ void LLAvatarActions::showProfile(const LLUUID& id)
 			LLSideTray::getInstance()->showPanel("panel_profile_view", params);
 		}
 	}
+}
+
+// static
+void LLAvatarActions::showOnMap(const LLUUID& id)
+{
+	std::string name;
+	if (!gCacheName->getFullName(id, name))
+	{
+		gCacheName->get(id, FALSE, boost::bind(&LLAvatarActions::showOnMap, id));
+		return;
+	}
+
+	gFloaterWorldMap->trackAvatar(id, name);
+	LLFloaterReg::showInstance("world_map");
 }
 
 // static
@@ -403,6 +429,16 @@ void LLAvatarActions::share(const LLUUID& id)
 	}
 }
 
+//static
+void LLAvatarActions::shareWithAvatars()
+{
+	LLFloaterAvatarPicker* picker =
+		LLFloaterAvatarPicker::show(NULL, FALSE, TRUE);
+	picker->setOkBtnEnableCb(boost::lambda::constant(false));
+
+	LLNotificationsUtil::add("ShareNotification");
+}
+
 // static
 void LLAvatarActions::toggleBlock(const LLUUID& id)
 {
@@ -419,6 +455,20 @@ void LLAvatarActions::toggleBlock(const LLUUID& id)
 	{
 		LLMuteList::getInstance()->add(mute);
 	}
+}
+// static
+bool LLAvatarActions::canOfferTeleport(const LLUUID& id)
+{
+	// First use LLAvatarTracker::isBuddy()
+	// If LLAvatarTracker::instance().isBuddyOnline function only is used
+	// then for avatars that are online and not a friend it will return false.
+	// But we should give an ability to offer a teleport for such avatars.
+	if(LLAvatarTracker::instance().isBuddy(id))
+	{
+		return LLAvatarTracker::instance().isBuddyOnline(id);
+	}
+
+	return true;
 }
 
 void LLAvatarActions::inviteToGroup(const LLUUID& id)
@@ -485,7 +535,7 @@ bool LLAvatarActions::handlePay(const LLSD& notification, const LLSD& response, 
 // static
 void LLAvatarActions::callback_invite_to_group(LLUUID group_id, LLUUID id)
 {
-	std::vector<LLUUID> agent_ids;
+	uuid_vec_t agent_ids;
 	agent_ids.push_back(id);
 	
 	LLFloaterGroupInvite::showForGroup(group_id, &agent_ids);
@@ -617,4 +667,14 @@ bool LLAvatarActions::isBlocked(const LLUUID& id)
 	std::string name;
 	gCacheName->getFullName(id, name);
 	return LLMuteList::getInstance()->isMuted(id, name);
+}
+
+// static
+bool LLAvatarActions::canBlock(const LLUUID& id)
+{
+	std::string firstname, lastname;
+	gCacheName->getName(id, firstname, lastname);
+	bool is_linden = !LLStringUtil::compareStrings(lastname, "Linden");
+	bool is_self = id == gAgentID;
+	return !is_self && !is_linden;
 }

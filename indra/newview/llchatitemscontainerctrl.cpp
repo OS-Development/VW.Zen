@@ -44,6 +44,8 @@
 #include "llviewercontrol.h"
 #include "llagentdata.h"
 
+#include "llslurl.h"
+
 static const S32 msg_left_offset = 10;
 static const S32 msg_right_offset = 10;
 static const S32 msg_height_pad = 5;
@@ -144,6 +146,7 @@ void LLNearbyChatToastPanel::init(LLSD& notification)
 	std::string		messageText = notification["message"].asString();		// UTF-8 line of text
 	std::string		fromName = notification["from"].asString();	// agent or object name
 	mFromID = notification["from_id"].asUUID();		// agent id or object id
+	mFromName = fromName;
 	
 	int sType = notification["source"].asInteger();
     mSourceType = (EChatSourceType)sType;
@@ -188,6 +191,8 @@ void LLNearbyChatToastPanel::init(LLSD& notification)
 			std::string font_style_size = LLFontGL::sizeFromFont(messageFont);
 			style_params_name.font.name(font_name);
 			style_params_name.font.size(font_style_size);
+
+			style_params_name.link_href = LLSLURL::buildCommand("agent",mFromID,"about");
 
 			msg_text->appendText(str_sender, FALSE, style_params_name);
 
@@ -258,8 +263,12 @@ BOOL	LLNearbyChatToastPanel::handleMouseDown	(S32 x, S32 y, MASK mask)
 
 BOOL	LLNearbyChatToastPanel::handleMouseUp	(S32 x, S32 y, MASK mask)
 {
+	/*
+	fix for request  EXT-4780
+	leaving this commented since I don't remember why ew block those messages...
 	if(mSourceType != CHAT_SOURCE_AGENT)
 		return LLPanel::handleMouseUp(x,y,mask);
+    */
 
 	LLChatMsgBox* text_box = getChild<LLChatMsgBox>("msg_text", false);
 	S32 local_x = x - text_box->getRect().mLeft;
@@ -317,7 +326,12 @@ void LLNearbyChatToastPanel::draw()
 		if(icon)
 		{
 			icon->setDrawTooltip(mSourceType == CHAT_SOURCE_AGENT);
-			icon->setValue(mFromID);
+			if(mSourceType == CHAT_SOURCE_AGENT)
+				icon->setValue(mFromID);
+			else if(mSourceType == CHAT_SOURCE_SYSTEM)
+				icon->setValue(LLSD("SL_Logo"));
+			else
+				icon->setValue(LLSD("OBJECT_Icon"));
 		}
 		mIsDirty = false;
 	}

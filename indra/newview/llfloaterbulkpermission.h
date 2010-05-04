@@ -44,8 +44,6 @@
 #include "llfloater.h"
 #include "llscrolllistctrl.h"
 
-#include "llviewerinventory.h"
-
 class LLFloaterBulkPermission : public LLFloater, public LLVOInventoryListener
 {
 	friend class LLFloaterReg;
@@ -65,13 +63,13 @@ private:
 	// This is the callback method for the viewer object currently
 	// being worked on.
 	/*virtual*/ void inventoryChanged(LLViewerObject* obj,
-								 InventoryObjectList* inv,
+								 LLInventoryObject::object_list_t* inv,
 								 S32 serial_num,
 								 void* queue);
 	
 	// This is called by inventoryChanged
 	void handleInventory(LLViewerObject* viewer_obj,
-								InventoryObjectList* inv);
+								LLInventoryObject::object_list_t* inv);
 
 
 	void updateInventory(LLViewerObject* object,

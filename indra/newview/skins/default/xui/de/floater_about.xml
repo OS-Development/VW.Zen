@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<floater name="floater_about" title="INFO ÜBER [APP_NAME]">
+<floater name="floater_about" title="INFO ÜBER [CAPITALIZED_APP_NAME]">
 	<floater.string name="AboutHeader">
 		[APP_NAME] [VIEWER_VERSION_0].[VIEWER_VERSION_1].[VIEWER_VERSION_2] ([VIEWER_VERSION_3]) [BUILD_DATE] [BUILD_TIME] ([CHANNEL])
 [[VIEWER_RELEASE_NOTES_URL] [ReleaseNotes]]
@@ -8,7 +8,7 @@
 		Kompiliert mit [COMPILER] version [COMPILER_VERSION]
 	</floater.string>
 	<floater.string name="AboutPosition">
-		Sie befinden sich in [POSITION_0,number,1], [POSITION_1,number,1], [POSITION_2,number,1] in [REGION] auf [HOSTNAME] ([HOSTIP])
+		Sie befinden sich in [POSITION_0,number,1], [POSITION_1,number,1], [POSITION_2,number,1] in [REGION] auf &lt;nolink&gt;[HOSTNAME]&lt;/nolink&gt; ([HOSTIP])
 [SERVER_VERSION]
 [[SERVER_RELEASE_NOTES_URL] [ReleaseNotes]]
 	</floater.string>
@@ -73,7 +73,8 @@ google-perftools Copyright (c) 2005, Google Inc.
 
 Alle Rechte vorbehalten. Details siehe licenses.txt.
 
-Voice-Chat-Audiocoding: Polycom(R) Siren14(TM) (ITU-T Empf.G.722.1 Anhang C)
+Voice-Chat-Audiocoding: Polycom(R) Siren14(TM)
+(ITU-T Empf.G.722.1 Anhang C)
 			</text_editor>
 		</panel>
 	</tab_container>

@@ -62,11 +62,13 @@
 #include "llimfloater.h"
 #include "lllocationhistory.h"
 #include "llimageworker.h"
+
 #include "llloginflags.h"
 #include "llmd5.h"
 #include "llmemorystream.h"
 #include "llmessageconfig.h"
 #include "llmoveview.h"
+#include "llnearbychat.h"
 #include "llnotifications.h"
 #include "llnotificationsutil.h"
 #include "llteleporthistory.h"
@@ -87,6 +89,7 @@
 #include "v3math.h"
 
 #include "llagent.h"
+#include "llagentcamera.h"
 #include "llagentpicksinfo.h"
 #include "llagentwearables.h"
 #include "llagentpilot.h"
@@ -114,15 +117,15 @@
 #include "llimagebmp.h"
 #include "llinventorybridge.h"
 #include "llinventorymodel.h"
+#include "llinventorymodelbackgroundfetch.h"
 #include "llfriendcard.h"
 #include "llkeyboard.h"
 #include "llloginhandler.h"			// gLoginHandler, SLURL support
 #include "lllogininstance.h" // Host the login module.
 #include "llpanellogin.h"
 #include "llmutelist.h"
-#include "llpanelavatar.h"
 #include "llavatarpropertiesprocessor.h"
-#include "llpanelevent.h"
+#include "llfloaterevent.h"
 #include "llpanelclassified.h"
 #include "llpanelpick.h"
 #include "llpanelplace.h"
@@ -134,13 +137,14 @@
 #include "llsecondlifeurls.h"
 #include "llselectmgr.h"
 #include "llsky.h"
+#include "llsidetray.h"
 #include "llstatview.h"
-#include "lltrans.h"
 #include "llstatusbar.h"		// sendMoneyBalanceRequest(), owns L$ balance
 #include "llsurface.h"
 #include "lltexturecache.h"
 #include "lltexturefetch.h"
 #include "lltoolmgr.h"
+#include "lltrans.h"
 #include "llui.h"
 #include "llurldispatcher.h"
 #include "llurlsimstring.h"
@@ -196,10 +200,6 @@
 #if LL_WINDOWS
 #include "llwindebug.h"
 #include "lldxhardware.h"
-#endif
-
-#if (LL_LINUX || LL_SOLARIS) && LL_GTK
-#include <glib/gspawn.h>
 #endif
 
 //
@@ -564,7 +564,7 @@ bool idle_startup()
 				gXferManager->setUseAckThrottling(TRUE);
 				gXferManager->setAckThrottleBPS(xfer_throttle_bps);
 			}
-			gAssetStorage = new LLViewerAssetStorage(msg, gXferManager, gVFS);
+			gAssetStorage = new LLViewerAssetStorage(msg, gXferManager, gVFS, gStaticVFS);
 
 
 			F32 dropPercent = gSavedSettings.getF32("PacketDropPercentage");
@@ -799,6 +799,9 @@ bool idle_startup()
 		gLoginMenuBarView->setVisible( TRUE );
 		gLoginMenuBarView->setEnabled( TRUE );
 
+		// Hide the splash screen
+		LLSplashScreen::hide();
+
 		// Push our window frontmost
 		gViewerWindow->getWindow()->show();
 		display_startup();
@@ -886,13 +889,12 @@ bool idle_startup()
 		}
 
 		//Default the path if one isn't set.
-		if (gSavedPerAccountSettings.getString("InstantMessageLogFolder").empty())
+		// *NOTE: unable to check variable differ from "InstantMessageLogPath" because it was
+		// provided in pre 2.0 viewer. See EXT-6661
+		if (gSavedPerAccountSettings.getString("InstantMessageLogPath").empty())
 		{
 			gDirUtilp->setChatLogsDir(gDirUtilp->getOSUserAppDir());
-			std::string chat_log_dir = gDirUtilp->getChatLogsDir();
-			std::string chat_log_top_folder=gDirUtilp->getBaseFileName(chat_log_dir);
-			gSavedPerAccountSettings.setString("InstantMessageLogPath",chat_log_dir);
-			gSavedPerAccountSettings.setString("InstantMessageLogFolder",chat_log_top_folder);
+			gSavedPerAccountSettings.setString("InstantMessageLogPath", gDirUtilp->getChatLogsDir());
 		}
 		else
 		{
@@ -904,7 +906,8 @@ bool idle_startup()
 		LLFile::mkdir(gDirUtilp->getChatLogsDir());
 		LLFile::mkdir(gDirUtilp->getPerAccountChatLogsDir());
 
-		//good as place as any to create user windlight directories
+
+		//good a place as any to create user windlight directories
 		std::string user_windlight_path_name(gDirUtilp->getExpandedFilename( LL_PATH_USER_SETTINGS , "windlight", ""));
 		LLFile::mkdir(user_windlight_path_name.c_str());		
 
@@ -936,6 +939,9 @@ bool idle_startup()
 
 		// Load Avatars icons cache
 		LLAvatarIconIDCache::getInstance()->load();
+		
+		// Load media plugin cookies
+		LLViewerMedia::loadCookieFile();
 
 		//-------------------------------------------------
 		// Handle startup progress screen
@@ -1039,7 +1045,7 @@ bool idle_startup()
 	if(STATE_LOGIN_PROCESS_RESPONSE == LLStartUp::getStartupState()) 
 	{
 		std::ostringstream emsg;
-		emsg << "Login failed.\n";
+		emsg << LLTrans::getString("LoginFailed") << "\n";
 		if(LLLoginInstance::getInstance()->authFailure())
 		{
 			LL_INFOS("LLStartup") << "Login failed, LLLoginInstance::getResponse(): "
@@ -1133,6 +1139,7 @@ bool idle_startup()
 
 		// Finish agent initialization.  (Requires gSavedSettings, builds camera)
 		gAgent.init();
+		gAgentCamera.init();
 		set_underclothes_menu_options();
 
 		// Since we connected, save off the settings so the user doesn't have to
@@ -1171,7 +1178,7 @@ bool idle_startup()
 		// World initialization must be done after above window init
 
 		// User might have overridden far clip
-		LLWorld::getInstance()->setLandFarClip( gAgent.mDrawDistance );
+		LLWorld::getInstance()->setLandFarClip(gAgentCamera.mDrawDistance);
 
 		// Before we create the first region, we need to set the agent's mOriginGlobal
 		// This is necessary because creating objects before this is set will result in a
@@ -1196,6 +1203,7 @@ bool idle_startup()
 
 		display_startup();
 		LLStartUp::setStartupState( STATE_MULTIMEDIA_INIT );
+		
 		return FALSE;
 	}
 
@@ -1284,6 +1292,14 @@ bool idle_startup()
             LLAppViewer::instance()->loadNameCache();
 		}
 
+		//gCacheName is required for nearby chat history loading
+		//so I just moved nearby history loading a few states further
+		if (!gNoRender && gSavedPerAccountSettings.getBOOL("LogShowHistory"))
+		{
+			LLNearbyChat* nearby_chat = LLNearbyChat::getInstance();
+			if (nearby_chat) nearby_chat->loadHistory();
+		}
+
 		// *Note: this is where gWorldMap used to be initialized.
 
 		// register null callbacks for audio until the audio system is initialized
@@ -1326,8 +1342,8 @@ bool idle_startup()
 
 		gAgent.setPositionAgent(agent_start_position_region);
 		gAgent.resetAxes(gAgentStartLookAt);
-		gAgent.stopCameraAnimation();
-		gAgent.resetCamera();
+		gAgentCamera.stopCameraAnimation();
+		gAgentCamera.resetCamera();
 
 		// Initialize global class data needed for surfaces (i.e. textures)
 		if (!gNoRender)
@@ -1690,6 +1706,13 @@ bool idle_startup()
 					<< " kbps" << LL_ENDL;
 				gViewerThrottle.setMaxBandwidth(FAST_RATE_BPS / 1024.f);
 			}
+
+			// Set the show start location to true, now that the user has logged
+			// on with this install.
+			gSavedSettings.setBOOL("ShowStartLocation", TRUE);
+			
+			LLSideTray::getInstance()->showPanel("panel_home", LLSD());
+
 		}
 
 		// We're successfully logged in.
@@ -1724,7 +1747,7 @@ bool idle_startup()
 			{
 				LL_DEBUGS("AppInit") << "Gesture Manager loading " << gesture_options.size()
 					<< LL_ENDL;
-				std::vector<LLUUID> item_ids;
+				uuid_vec_t item_ids;
 				for(LLSD::array_const_iterator resp_it = gesture_options.beginArray(),
 					end = gesture_options.endArray(); resp_it != end; ++resp_it)
 				{
@@ -1738,7 +1761,7 @@ bool idle_startup()
 						// Could schedule and delay these for later.
 						const BOOL no_inform_server = FALSE;
 						const BOOL no_deactivate_similar = FALSE;
-						LLGestureManager::instance().activateGestureWithAsset(item_id, asset_id,
+						LLGestureMgr::instance().activateGestureWithAsset(item_id, asset_id,
 											 no_inform_server,
 											 no_deactivate_similar);
 						// We need to fetch the inventory items for these gestures
@@ -1747,7 +1770,8 @@ bool idle_startup()
 					}
 				}
 				// no need to add gesture to inventory observer, it's already made in constructor 
-				LLGestureManager::instance().fetchItems(item_ids);
+				LLGestureMgr::instance().setFetchIDs(item_ids);
+				LLGestureMgr::instance().startFetch();
 			}
 		}
 		gDisplaySwapBuffers = TRUE;
@@ -1793,15 +1817,15 @@ bool idle_startup()
 				if (samename)
 				{
 					// restore old camera pos
-					gAgent.setFocusOnAvatar(FALSE, FALSE);
-					gAgent.setCameraPosAndFocusGlobal(gSavedSettings.getVector3d("CameraPosOnLogout"), gSavedSettings.getVector3d("FocusPosOnLogout"), LLUUID::null);
+					gAgentCamera.setFocusOnAvatar(FALSE, FALSE);
+					gAgentCamera.setCameraPosAndFocusGlobal(gSavedSettings.getVector3d("CameraPosOnLogout"), gSavedSettings.getVector3d("FocusPosOnLogout"), LLUUID::null);
 					BOOL limit_hit = FALSE;
-					gAgent.calcCameraPositionTargetGlobal(&limit_hit);
+					gAgentCamera.calcCameraPositionTargetGlobal(&limit_hit);
 					if (limit_hit)
 					{
-						gAgent.setFocusOnAvatar(TRUE, FALSE);
+						gAgentCamera.setFocusOnAvatar(TRUE, FALSE);
 					}
-					gAgent.stopCameraAnimation();
+					gAgentCamera.stopCameraAnimation();
 				}
 			}
 			else
@@ -1824,7 +1848,7 @@ bool idle_startup()
 		}
 
         //DEV-17797.  get null folder.  Any items found here moved to Lost and Found
-        LLInventoryModel::findLostItems();
+        LLInventoryModelBackgroundFetch::instance().findLostItems();
 
 		LLStartUp::setStartupState( STATE_PRECACHE );
 		timeout.reset();
@@ -1842,22 +1866,7 @@ bool idle_startup()
 		if (gAgent.isFirstLogin()
 			&& !sInitialOutfit.empty()    // registration set up an outfit
 			&& !sInitialOutfitGender.empty() // and a gender
-			&& gAgent.getAvatarObject()	  // can't wear clothes without object
-			&& !gAgent.isGenderChosen() ) // nothing already loading
-		{
-			// Start loading the wearables, textures, gestures
-			LLStartUp::loadInitialOutfit( sInitialOutfit, sInitialOutfitGender );
-		}
-
-
-		// We now have an inventory skeleton, so if this is a user's first
-		// login, we can start setting up their clothing and avatar 
-		// appearance.  This helps to avoid the generic "Ruth" avatar in
-		// the orientation island tutorial experience. JC
-		if (gAgent.isFirstLogin()
-			&& !sInitialOutfit.empty()    // registration set up an outfit
-			&& !sInitialOutfitGender.empty() // and a gender
-			&& gAgent.getAvatarObject()	  // can't wear clothes without object
+			&& isAgentAvatarValid()	  // can't wear clothes without object
 			&& !gAgent.isGenderChosen() ) // nothing already loading
 		{
 			// Start loading the wearables, textures, gestures
@@ -1865,7 +1874,7 @@ bool idle_startup()
 		}
 
 		// wait precache-delay and for agent's avatar or a lot longer.
-		if(((timeout_frac > 1.f) && gAgent.getAvatarObject())
+		if(((timeout_frac > 1.f) && isAgentAvatarValid())
 		   || (timeout_frac > 3.f))
 		{
 			LLStartUp::setStartupState( STATE_WEARABLES_WAIT );
@@ -1883,7 +1892,7 @@ bool idle_startup()
 				LLViewerShaderMgr::instance()->setShaders();
 			}
 		}
-
+		
 		return TRUE;
 	}
 
@@ -1921,8 +1930,8 @@ bool idle_startup()
 		if (gAgent.isFirstLogin())
 		{
 			// wait for avatar to be completely loaded
-			if (gAgent.getAvatarObject()
-				&& gAgent.getAvatarObject()->isFullyLoaded())
+			if (isAgentAvatarValid()
+				&& gAgentAvatarp->isFullyLoaded())
 			{
 				//llinfos << "avatar fully loaded" << llendl;
 				LLStartUp::setStartupState( STATE_CLEANUP );
@@ -2466,7 +2475,7 @@ void register_viewer_callbacks(LLMessageSystem* msg)
 	msg->setHandlerFunc("MapBlockReply", LLWorldMapMessage::processMapBlockReply);
 	msg->setHandlerFunc("MapItemReply", LLWorldMapMessage::processMapItemReply);
 
-	msg->setHandlerFunc("EventInfoReply", LLPanelEvent::processEventInfoReply);
+	msg->setHandlerFunc("EventInfoReply", LLFloaterEvent::processEventInfoReply);
 	msg->setHandlerFunc("PickInfoReply", &LLAvatarPropertiesProcessor::processPickInfoReply);
 //	msg->setHandlerFunc("ClassifiedInfoReply", LLPanelClassified::processClassifiedInfoReply);
 	msg->setHandlerFunc("ClassifiedInfoReply", LLAvatarPropertiesProcessor::processClassifiedInfoReply);
@@ -2526,6 +2535,13 @@ bool callback_choose_gender(const LLSD& notification, const LLSD& response)
 void LLStartUp::loadInitialOutfit( const std::string& outfit_folder_name,
 								   const std::string& gender_name )
 {
+	llinfos << "starting" << llendl;
+
+	// Not going through the processAgentInitialWearables path, so need to set this here.
+	LLAppearanceMgr::instance().setAttachmentInvLinkEnable(true);
+	// Initiate creation of COF, since we're also bypassing that.
+	gInventory.findCategoryUUIDForType(LLFolderType::FT_CURRENT_OUTFIT);
+	
 	S32 gender = 0;
 	std::string gestures;
 	if (gender_name == "male")
@@ -2541,24 +2557,53 @@ void LLStartUp::loadInitialOutfit( const std::string& outfit_folder_name,
 
 	// try to find the outfit - if not there, create some default
 	// wearables.
-	LLInventoryModel::cat_array_t cat_array;
-	LLInventoryModel::item_array_t item_array;
-	LLNameCategoryCollector has_name(outfit_folder_name);
-	gInventory.collectDescendentsIf(LLUUID::null,
-									cat_array,
-									item_array,
-									LLInventoryModel::EXCLUDE_TRASH,
-									has_name);
-	if (0 == cat_array.count())
+	LLUUID cat_id = findDescendentCategoryIDByName(
+		gInventory.getLibraryRootFolderID(),
+		outfit_folder_name);
+	if (cat_id.isNull())
 	{
 		gAgentWearables.createStandardWearables(gender);
 	}
 	else
 	{
-		LLAppearanceManager::instance().wearOutfitByName(outfit_folder_name);
+		bool do_copy = true;
+		bool do_append = false;
+		LLViewerInventoryCategory *cat = gInventory.getCategory(cat_id);
+		LLAppearanceMgr::instance().wearInventoryCategory(cat, do_copy, do_append);
 	}
-	LLAppearanceManager::instance().wearOutfitByName(gestures);
-	LLAppearanceManager::instance().wearOutfitByName(COMMON_GESTURES_FOLDER);
+
+	// Copy gestures
+	LLUUID dst_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_GESTURE);
+	LLPointer<LLInventoryCallback> cb(NULL);
+	LLAppearanceMgr *app_mgr = &(LLAppearanceMgr::instance());
+
+	// - Copy gender-specific gestures.
+	LLUUID gestures_cat_id = findDescendentCategoryIDByName( 
+		gInventory.getLibraryRootFolderID(),
+		gestures);
+	if (gestures_cat_id.notNull())
+	{
+		callAfterCategoryFetch(gestures_cat_id,
+							   boost::bind(&LLAppearanceMgr::shallowCopyCategory,
+										   app_mgr,
+										   gestures_cat_id,
+										   dst_id,
+										   cb));
+	}
+
+	// - Copy common gestures.
+	LLUUID common_gestures_cat_id = findDescendentCategoryIDByName( 
+		gInventory.getLibraryRootFolderID(),
+		COMMON_GESTURES_FOLDER);
+	if (common_gestures_cat_id.notNull())
+	{
+		callAfterCategoryFetch(common_gestures_cat_id,
+							   boost::bind(&LLAppearanceMgr::shallowCopyCategory,
+										   app_mgr,
+										   common_gestures_cat_id,
+										   dst_id,
+										   cb));
+	}
 
 	// This is really misnamed -- it means we have started loading
 	// an outfit/shape that will give the avatar a gender eventually. JC
@@ -2681,6 +2726,8 @@ void LLStartUp::postStartupState()
 
 void reset_login()
 {
+	gAgentWearables.cleanup();
+	gAgentCamera.cleanup();
 	gAgent.cleanup();
 	LLWorld::getInstance()->destroyClass();
 
@@ -2856,7 +2903,9 @@ bool process_login_success_response()
 	text = response["agent_region_access"].asString();
 	if (!text.empty())
 	{
-		int preferredMaturity = LLAgent::convertTextToMaturity(text[0]);
+		U32 preferredMaturity =
+			llmin((U32)LLAgent::convertTextToMaturity(text[0]),
+			      gSavedSettings.getU32("PreferredMaturity"));
 		gSavedSettings.setU32("PreferredMaturity", preferredMaturity);
 	}
 	// During the AO transition, this flag will be true. Then the flag will
@@ -3038,6 +3087,13 @@ bool process_login_success_response()
 		}
 	}
 
+	// Start the process of fetching the OpenID session cookie for this user login
+	std::string openid_url = response["openid_url"];
+	if(!openid_url.empty())
+	{
+		std::string openid_token = response["openid_token"];
+		LLViewerMedia::openIDSetup(openid_url, openid_token);
+	}
 
 	bool success = false;
 	// JC: gesture loading done below, when we have an asset system

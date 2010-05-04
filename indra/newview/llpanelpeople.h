@@ -36,13 +36,16 @@
 #include <llpanel.h>
 
 #include "llcallingcard.h" // for avatar tracker
+#include "llvoiceclient.h"
 
 class LLFilterEditor;
 class LLTabContainer;
 class LLAvatarList;
 class LLGroupList;
 
-class LLPanelPeople : public LLPanel
+class LLPanelPeople 
+	: public LLPanel
+	, public LLVoiceClientStatusObserver
 {
 	LOG_CLASS(LLPanelPeople);
 public:
@@ -52,6 +55,9 @@ public:
 	/*virtual*/ BOOL 	postBuild();
 	/*virtual*/ void	onOpen(const LLSD& key);
 	/*virtual*/ bool	notifyChildren(const LLSD& info);
+	// Implements LLVoiceClientStatusObserver::onChange() to enable call buttons
+	// when voice is available
+	/*virtual*/ void onChange(EStatusType status, const std::string &channelURI, bool proximal);
 
 	// internals
 	class Updater;
@@ -67,18 +73,18 @@ private:
 	} ESortOrder;
 
 	// methods indirectly called by the updaters
+	void					updateFriendListHelpText();
 	void					updateFriendList();
 	void					updateNearbyList();
 	void					updateRecentList();
 
 	bool					isFriendOnline(const LLUUID& id);
-	bool					isItemsFreeOfFriends(const std::vector<LLUUID>& uuids);
-	bool 					canCall();
+	bool					isItemsFreeOfFriends(const uuid_vec_t& uuids);
 
 	void					updateButtons();
 	std::string				getActiveTabName() const;
 	LLUUID					getCurrentItemID() const;
-	void					getCurrentItemIDs(std::vector<LLUUID>& selected_uuids) const;
+	void					getCurrentItemIDs(uuid_vec_t& selected_uuids) const;
 	void					buttonSetVisible(std::string btn_name, BOOL visible);
 	void					buttonSetEnabled(const std::string& btn_name, bool enabled);
 	void					buttonSetAction(const std::string& btn_name, const commit_signal_t::slot_type& cb);
@@ -129,7 +135,7 @@ private:
 	// misc callbacks
 	static void				onAvatarPicked(
 								const std::vector<std::string>& names,
-								const std::vector<LLUUID>& ids);
+								const uuid_vec_t& ids);
 
 	void					onFriendsAccordionExpandedCollapsed(LLUICtrl* ctrl, const LLSD& param, LLAvatarList* avatar_list);
 
@@ -163,6 +169,7 @@ private:
 	Updater*				mRecentListUpdater;
 
 	std::string				mFilterSubString;
+	std::string				mFilterSubStringOrig;
 };
 
 #endif //LL_LLPANELPEOPLE_H

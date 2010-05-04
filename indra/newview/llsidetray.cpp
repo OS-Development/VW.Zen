@@ -34,7 +34,7 @@
 
 #include "lltextbox.h"
 
-#include "llagent.h"
+#include "llagentcamera.h"
 #include "llbottomtray.h"
 #include "llsidetray.h"
 #include "llviewerwindow.h"
@@ -248,6 +248,11 @@ LLSideTray::LLSideTray(Params& params)
 	// panel_name should be specified via "parameter" attribute.
 	commit.add("SideTray.ShowPanel", boost::bind(&LLSideTray::showPanel, this, _2, LLUUID::null));
 	LLTransientFloaterMgr::getInstance()->addControlView(this);
+	LLView* side_bar_tabs  = gViewerWindow->getRootView()->getChildView("side_bar_tabs");
+	if (side_bar_tabs != NULL)
+	{
+		LLTransientFloaterMgr::getInstance()->addControlView(side_bar_tabs);
+	}
 
 	LLPanel::Params p;
 	p.name = "buttons_panel";
@@ -725,7 +730,7 @@ void	LLSideTray::updateSidetrayVisibility()
 	// set visibility of parent container based on collapsed state
 	if (getParent())
 	{
-		getParent()->setVisible(!mCollapsed && !gAgent.cameraMouselook());
+		getParent()->setVisible(!mCollapsed && !gAgentCamera.cameraMouselook());
 	}
 }
 

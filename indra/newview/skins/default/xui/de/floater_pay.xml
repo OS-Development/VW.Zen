@@ -7,7 +7,7 @@
 		Einwohner bezahlen
 	</string>
 	<text name="payee_label" width="130">
-		Zahlen:
+		Bezahlen:
 	</text>
 	<icon name="icon_person" tool_tip="Person"/>
 	<text left="130" name="payee_name">
@@ -18,8 +18,8 @@
 	<button label="10 L$" label_selected="10 L$" name="fastpay 10"/>
 	<button label="20 L$" label_selected="20 L$" name="fastpay 20"/>
 	<text name="amount text">
-		Oder Betrag auswählen:
+		oder Betrag auswählen:
 	</text>
-	<button label="Zahlen" label_selected="Zahlen" name="pay btn"/>
+	<button label="Bezahlen" label_selected="Bezahlen" name="pay btn"/>
 	<button label="Abbrechen" label_selected="Abbrechen" name="cancel btn"/>
 </floater>

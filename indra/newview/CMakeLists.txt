@@ -7,6 +7,7 @@ include(Boost)
 include(BuildVersion)
 include(DBusGlib)
 include(DirectX)
+include(DragDrop)
 include(ELFIO)
 include(FMOD)
 include(OPENAL)
@@ -65,6 +66,7 @@ include_directories(
 set(viewer_SOURCE_FILES
     llagent.cpp
     llagentaccess.cpp
+    llagentcamera.cpp
     llagentdata.cpp
     llagentlanguage.cpp
     llagentlistener.cpp
@@ -72,6 +74,7 @@ set(viewer_SOURCE_FILES
     llagentpilot.cpp
     llagentui.cpp
     llagentwearables.cpp
+    llagentwearablesfetch.cpp
     llanimstatelabels.cpp
     llappearancemgr.cpp
     llappviewer.cpp
@@ -101,6 +104,7 @@ set(viewer_SOURCE_FILES
     llclassifiedinfo.cpp
     llclassifiedstatsresponder.cpp
     llcloud.cpp
+    llcofwearables.cpp
     llcolorswatch.cpp
     llcommanddispatcherlistener.cpp
     llcommandhandler.cpp
@@ -139,10 +143,10 @@ set(viewer_SOURCE_FILES
     llfavoritesbar.cpp
     llfeaturemanager.cpp
     llfilepicker.cpp
+    llfilteredwearablelist.cpp
     llfirstuse.cpp
     llflexibleobject.cpp
     llfloaterabout.cpp
-    llfloateractivespeakers.cpp
     llfloateranimpreview.cpp
     llfloaterauction.cpp
     llfloateravatarpicker.cpp
@@ -156,13 +160,12 @@ set(viewer_SOURCE_FILES
     llfloaterbuycurrency.cpp
     llfloaterbuyland.cpp
     llfloatercamera.cpp
-    llfloaterchatterbox.cpp
     llfloatercolorpicker.cpp
     llfloatercustomize.cpp
     llfloaterdaycycle.cpp
     llfloaterenvsettings.cpp
+    llfloaterevent.cpp
     llfloaterfonttest.cpp
-    llfloaterfriends.cpp
     llfloatergesture.cpp
     llfloatergodtools.cpp
     llfloatergroupinvite.cpp
@@ -183,7 +186,6 @@ set(viewer_SOURCE_FILES
     llfloatermediasettings.cpp
     llfloatermemleak.cpp
     llfloaternamedesc.cpp
-    llfloaternearbymedia.cpp
     llfloaternotificationsconsole.cpp
     llfloateropenobject.cpp
     llfloaterparcel.cpp
@@ -241,7 +243,6 @@ set(viewer_SOURCE_FILES
     llimfloater.cpp
     llimfloatercontainer.cpp
     llimhandler.cpp
-    llimpanel.cpp
     llimview.cpp
     llinspect.cpp
     llinspectavatar.cpp
@@ -253,7 +254,9 @@ set(viewer_SOURCE_FILES
     llinventoryclipboard.cpp
     llinventoryfilter.cpp
     llinventoryfunctions.cpp
+    llinventoryitemslist.cpp
     llinventorymodel.cpp
+    llinventorymodelbackgroundfetch.cpp
     llinventoryobserver.cpp
     llinventorypanel.cpp
     lljoystickbutton.cpp
@@ -273,7 +276,6 @@ set(viewer_SOURCE_FILES
     llmaniptranslate.cpp
     llmediactrl.cpp
     llmediadataclient.cpp
-    llmediaremotectrl.cpp
     llmemoryview.cpp
     llmenucommands.cpp
     llmetricperformancetester.cpp
@@ -295,17 +297,18 @@ set(viewer_SOURCE_FILES
     llnotificationmanager.cpp
     llnotificationofferhandler.cpp
     llnotificationscripthandler.cpp
+    llnotificationstorage.cpp
     llnotificationtiphandler.cpp
+    lloutfitslist.cpp
     lloutputmonitorctrl.cpp
-    lloverlaybar.cpp
     llpanelavatar.cpp
     llpanelavatartag.cpp
     llpanelblockedlist.cpp
     llpanelclassified.cpp
     llpanelcontents.cpp
     llpaneleditwearable.cpp
-    llpanelevent.cpp
     llpanelface.cpp
+    llpanelgenerictip.cpp
     llpanelgroup.cpp
     llpanelgroupgeneral.cpp
     llpanelgroupinvite.cpp
@@ -321,14 +324,16 @@ set(viewer_SOURCE_FILES
     llpanellandmedia.cpp
     llpanellogin.cpp
     llpanelloginlistener.cpp
-    llpanellookinfo.cpp
     llpanelmaininventory.cpp
     llpanelmediasettingsgeneral.cpp
     llpanelmediasettingspermissions.cpp
     llpanelmediasettingssecurity.cpp
     llpanelme.cpp
+    llpanelnearbymedia.cpp
     llpanelobject.cpp
     llpanelobjectinventory.cpp
+    llpanelonlinestatus.cpp
+    llpaneloutfitedit.cpp
     llpaneloutfitsinventory.cpp
     llpanelpeople.cpp
     llpanelpeoplemenus.cpp
@@ -343,8 +348,8 @@ set(viewer_SOURCE_FILES
     llpanelprimmediacontrols.cpp
     llpanelprofile.cpp
     llpanelprofileview.cpp
-    llpanelshower.cpp
     llpanelteleporthistory.cpp
+    llpaneltiptoast.cpp
     llpanelvolume.cpp
     llpanelvolumepulldown.cpp
     llparcelselection.cpp
@@ -352,6 +357,7 @@ set(viewer_SOURCE_FILES
     llpatchvertexarray.cpp
     llplacesinventorybridge.cpp
     llplacesinventorypanel.cpp
+    llpopupview.cpp
     llpolymesh.cpp
     llpolymorph.cpp
     llpreview.cpp
@@ -419,7 +425,6 @@ set(viewer_SOURCE_FILES
     lltoastnotifypanel.cpp
     lltoastpanel.cpp
     lltool.cpp
-    lltoolbar.cpp
     lltoolbrush.cpp
     lltoolcomp.cpp
     lltooldraganddrop.cpp
@@ -514,7 +519,6 @@ set(viewer_SOURCE_FILES
     llvoground.cpp
     llvoicechannel.cpp
     llvoiceclient.cpp
-    llvoiceremotectrl.cpp
     llvoicevisualizer.cpp
     llvoinventorylistener.cpp
     llvopartgroup.cpp
@@ -530,6 +534,7 @@ set(viewer_SOURCE_FILES
     llwaterparamset.cpp
     llwearable.cpp
     llwearabledictionary.cpp
+    llwearableitemslist.cpp
     llwearablelist.cpp
     llweb.cpp
     llwind.cpp
@@ -570,6 +575,7 @@ set(viewer_HEADER_FILES
     ViewerInstall.cmake
     llagent.h
     llagentaccess.h
+    llagentcamera.h
     llagentdata.h
     llagentlanguage.h
     llagentlistener.h
@@ -577,6 +583,7 @@ set(viewer_HEADER_FILES
     llagentpilot.h
     llagentui.h
     llagentwearables.h
+    llagentwearablesfetch.h
     llanimstatelabels.h
     llappearance.h
     llappearancemgr.h
@@ -608,6 +615,7 @@ set(viewer_HEADER_FILES
     llclassifiedinfo.h
     llclassifiedstatsresponder.h
     llcloud.h
+    llcofwearables.h
     llcolorswatch.h
     llcommanddispatcherlistener.h
     llcommandhandler.h
@@ -647,10 +655,10 @@ set(viewer_HEADER_FILES
     llfavoritesbar.h
     llfeaturemanager.h
     llfilepicker.h
+    llfilteredwearablelist.h
     llfirstuse.h
     llflexibleobject.h
     llfloaterabout.h
-    llfloateractivespeakers.h
     llfloateranimpreview.h
     llfloaterauction.h
     llfloateravatarpicker.h
@@ -664,13 +672,12 @@ set(viewer_HEADER_FILES
     llfloaterbuycurrency.h
     llfloaterbuyland.h
     llfloatercamera.h
-    llfloaterchatterbox.h
     llfloatercolorpicker.h
     llfloatercustomize.h
     llfloaterdaycycle.h
     llfloaterenvsettings.h
+    llfloaterevent.h
     llfloaterfonttest.h
-    llfloaterfriends.h
     llfloatergesture.h
     llfloatergodtools.h
     llfloatergroupinvite.h
@@ -691,7 +698,6 @@ set(viewer_HEADER_FILES
     llfloatermediasettings.h
     llfloatermemleak.h
     llfloaternamedesc.h
-    llfloaternearbymedia.h
     llfloaternotificationsconsole.h
     llfloateropenobject.h
     llfloaterparcel.h
@@ -748,7 +754,6 @@ set(viewer_HEADER_FILES
     llhudview.h
     llimfloater.h
     llimfloatercontainer.h
-    llimpanel.h
     llimview.h
     llinspect.h
     llinspectavatar.h
@@ -760,7 +765,9 @@ set(viewer_HEADER_FILES
     llinventoryclipboard.h
     llinventoryfilter.h
     llinventoryfunctions.h
+    llinventoryitemslist.h
     llinventorymodel.h
+    llinventorymodelbackgroundfetch.h
     llinventoryobserver.h
     llinventorypanel.h
     lljoystickbutton.h
@@ -781,7 +788,6 @@ set(viewer_HEADER_FILES
     llmaniptranslate.h
     llmediactrl.h
     llmediadataclient.h
-    llmediaremotectrl.h
     llmemoryview.h
     llmenucommands.h
     llmetricperformancetester.h
@@ -799,16 +805,17 @@ set(viewer_HEADER_FILES
     llnetmap.h
     llnotificationhandler.h
     llnotificationmanager.h
+    llnotificationstorage.h
+    lloutfitslist.h
     lloutputmonitorctrl.h
-    lloverlaybar.h
     llpanelavatar.h
     llpanelavatartag.h
     llpanelblockedlist.h
     llpanelclassified.h
     llpanelcontents.h
     llpaneleditwearable.h
-    llpanelevent.h
     llpanelface.h
+    llpanelgenerictip.h
     llpanelgroup.h
     llpanelgroupgeneral.h
     llpanelgroupinvite.h
@@ -824,14 +831,16 @@ set(viewer_HEADER_FILES
     llpanellandmedia.h
     llpanellogin.h
     llpanelloginlistener.h
-    llpanellookinfo.h
     llpanelmaininventory.h
     llpanelmediasettingsgeneral.h
     llpanelmediasettingspermissions.h
     llpanelmediasettingssecurity.h
     llpanelme.h
+    llpanelnearbymedia.h
     llpanelobject.h
     llpanelobjectinventory.h
+    llpanelonlinestatus.h
+    llpaneloutfitedit.h
     llpaneloutfitsinventory.h
     llpanelpeople.h
     llpanelpeoplemenus.h
@@ -846,8 +855,8 @@ set(viewer_HEADER_FILES
     llpanelprimmediacontrols.h
     llpanelprofile.h
     llpanelprofileview.h
-    llpanelshower.h
     llpanelteleporthistory.h
+    llpaneltiptoast.h
     llpanelvolume.h
     llpanelvolumepulldown.h
     llparcelselection.h
@@ -857,6 +866,7 @@ set(viewer_HEADER_FILES
     llplacesinventorypanel.h
     llpolymesh.h
     llpolymorph.h
+    llpopupview.h
     llpreview.h
     llpreviewanim.h
     llpreviewgesture.h
@@ -925,7 +935,6 @@ set(viewer_HEADER_FILES
     lltoastnotifypanel.h
     lltoastpanel.h
     lltool.h
-    lltoolbar.h
     lltoolbrush.h
     lltoolcomp.h
     lltooldraganddrop.h
@@ -1018,7 +1027,6 @@ set(viewer_HEADER_FILES
     llvoground.h
     llvoicechannel.h
     llvoiceclient.h
-    llvoiceremotectrl.h
     llvoicevisualizer.h
     llvoinventorylistener.h
     llvopartgroup.h
@@ -1035,6 +1043,7 @@ set(viewer_HEADER_FILES
     llwaterparamset.h
     llwearable.h
     llwearabledictionary.h
+    llwearableitemslist.h
     llwearablelist.h
     llweb.h
     llwind.h
@@ -1066,11 +1075,13 @@ if (DARWIN)
   find_library(APPKIT_LIBRARY AppKit)
   find_library(COCOA_LIBRARY Cocoa)
   find_library(IOKIT_LIBRARY IOKit)
+  find_library(COREAUDIO_LIBRARY CoreAudio)
 
   set(viewer_LIBRARIES
     ${COCOA_LIBRARY}
     ${AGL_LIBRARY}
     ${IOKIT_LIBRARY}
+    ${COREAUDIO_LIBRARY}
     )
 
   # Add resource files to the project.
@@ -1167,6 +1178,9 @@ if (WINDOWS)
         res/toolpickobject2.cur
         res/toolpickobject3.cur
         res/toolpipette.cur
+        res/toolbuy.cur
+        res/toolopen.cur
+        res/toolsit.cur
         )
 
     set_source_files_properties(${viewer_RESOURCE_FILES}
@@ -1390,7 +1404,7 @@ if (WINDOWS)
 
     # If adding a file to viewer_manifest.py in the WindowsManifest.construct() method, be sure to add the dependency
     # here.
-    # *NOTE:Mani - This is a crappy hack to have important dependecies for the viewer_manifest copy action
+    # *NOTE:Mani - This is a crappy hack to have important dependencies for the viewer_manifest copy action
     # be met. I'm looking forward to a source-code split-up project next year that will address this kind of thing.
     # In the meantime, if you have any ideas on how to easily maintain one list, either here or in viewer_manifest.py
     # and have the build deps get tracked *please* tell me about it.
@@ -1411,7 +1425,7 @@ if (WINDOWS)
     endif(USE_GOOGLE_PERFTOOLS)
   
 
-    set(COPY_INPUT_DEPENDECIES
+    set(COPY_INPUT_DEPENDENCIES
       # The following commented dependencies are determined at variably at build time. Can't do this here.
       #${SHARED_LIB_STAGING_DIR}/${CMAKE_CFG_INTDIR}/libtcmalloc_minimal.dll => None ... Skipping libtcmalloc_minimal.dll
       ${CMAKE_SOURCE_DIR}/../etc/message.xml
@@ -1445,8 +1459,6 @@ if (WINDOWS)
       ${CMAKE_CURRENT_SOURCE_DIR}/featuretable.txt
       ${CMAKE_CURRENT_SOURCE_DIR}/dbghelp.dll
       ${CMAKE_CURRENT_SOURCE_DIR}/fmod.dll
-      ${CMAKE_BINARY_DIR}/media_plugins/quicktime/${CMAKE_CFG_INTDIR}/media_plugin_quicktime.dll
-      ${CMAKE_BINARY_DIR}/media_plugins/quicktime/${CMAKE_CFG_INTDIR}/media_plugin_webkit.dll
       ${ARCH_PREBUILT_DIRS_RELEASE}/libeay32.dll
       ${ARCH_PREBUILT_DIRS_RELEASE}/qtcore4.dll
       ${ARCH_PREBUILT_DIRS_RELEASE}/qtgui4.dll
@@ -1486,6 +1498,7 @@ if (WINDOWS)
       SLPlugin
       media_plugin_quicktime
       media_plugin_webkit
+      winmm_shim
       windows-crash-logger
       windows-updater
       )
@@ -1507,7 +1520,7 @@ if (WINDOWS)
       DEPENDS 
         ${CMAKE_CURRENT_SOURCE_DIR}/viewer_manifest.py
         stage_third_party_libs
-        ${COPY_INPUT_DEPENDECIES}
+        ${COPY_INPUT_DEPENDENCIES}
       COMMENT "Performing viewer_manifest copy"
       )
     
@@ -1526,8 +1539,6 @@ if (WINDOWS)
         
     add_dependencies(${VIEWER_BINARY_NAME} 
       SLPlugin 
-      media_plugin_quicktime 
-      media_plugin_webkit
       windows-updater 
       windows-crash-logger
       )
@@ -1580,7 +1591,10 @@ if (WINDOWS)
         DEPENDS ${VIEWER_BINARY_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/viewer_manifest.py
         )
 
-      add_custom_target(package ALL DEPENDS ${CMAKE_CFG_INTDIR}/touched.bat)
+      add_custom_target(package ALL DEPENDS 
+        ${CMAKE_CFG_INTDIR}/touched.bat
+        windows-setup-build-all 
+        )
         # temporarily disable packaging of event_host until hg subrepos get
         # sorted out on the parabuild cluster...
         #${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/event_host.tar.bz2)
@@ -1634,13 +1648,6 @@ set(ARTWORK_DIR ${CMAKE_CURRENT_SOURCE_DIR} CACHE PATH
 
 
 if (LINUX)
-  add_custom_command(
-      OUTPUT secondlife-stripped
-      COMMAND strip
-      ARGS --strip-debug -o secondlife-stripped ${VIEWER_BINARY_NAME}
-      DEPENDS ${VIEWER_BINARY_NAME}
-      )
-
   set(product SecondLife-${ARCH}-${viewer_VERSION})
 
   add_custom_command(
@@ -1660,15 +1667,15 @@ if (LINUX)
         --login_channel=${VIEWER_LOGIN_CHANNEL}
         --source=${CMAKE_CURRENT_SOURCE_DIR}
         --touch=${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/.${product}.touched
-      DEPENDS secondlife-stripped ${CMAKE_CURRENT_SOURCE_DIR}/viewer_manifest.py
+      DEPENDS ${VIEWER_BINARY_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/viewer_manifest.py
       )
 
   add_dependencies(${VIEWER_BINARY_NAME} SLPlugin media_plugin_gstreamer010 media_plugin_webkit)
 
   if (NOT INSTALL)
     add_custom_target(package ALL DEPENDS ${product}.tar.bz2)
-    add_dependencies(package linux-crash-logger-strip-target)
-    add_dependencies(package linux-updater-strip-target)
+    add_dependencies(package linux-crash-logger-target)
+    add_dependencies(package linux-updater-target)
     check_message_template(package)
   endif (NOT INSTALL)
 endif (LINUX)

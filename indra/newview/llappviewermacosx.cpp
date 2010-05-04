@@ -50,6 +50,7 @@
 #include <Carbon/Carbon.h>
 #include "lldir.h"
 #include <signal.h>
+#include <CoreAudio/CoreAudio.h>	// for systemwide mute
 class LLMediaCtrl;		// for LLURLDispatcher
 
 namespace 
@@ -290,6 +291,7 @@ static OSStatus CarbonEventHandler(EventHandlerCallRef inHandlerCallRef,
 		if(os_result >= 0 && matching_psn)
 		{
 			sCrashReporterIsRunning = false;
+			QuitApplicationEventLoop();
 		}
     }
     return noErr;
@@ -325,7 +327,7 @@ void LLAppViewerMacOSX::handleCrashReporting(bool reportFreeze)
 			// *NOTE:Mani A better way - make a copy of the data that the crash reporter will send
 			// and let SL go about its business. This way makes the mac work like windows and linux
 			// and is the smallest patch for the issue. 
-			sCrashReporterIsRunning = true;
+			sCrashReporterIsRunning = false;
 			ProcessSerialNumber o_psn;
 
 			static EventHandlerRef sCarbonEventsRef = NULL;
@@ -355,15 +357,13 @@ void LLAppViewerMacOSX::handleCrashReporting(bool reportFreeze)
 			
 			if(os_result >= 0)
 			{	
-				EventRecord evt;
-				while(sCrashReporterIsRunning)
-				{
-					while(WaitNextEvent(osMask, &evt, 0, NULL))
-					{
-						// null op!?!
-					}
-				}
-			}	
+				sCrashReporterIsRunning = true;
+			}
+
+			while(sCrashReporterIsRunning)
+			{
+				RunApplicationEventLoop();
+			}
 
 			// Re-install the apps quit handler.
 			AEInstallEventHandler(kCoreEventClass, 
@@ -391,7 +391,12 @@ void LLAppViewerMacOSX::handleCrashReporting(bool reportFreeze)
 		_exit(1);
 	}
 	
-	// TODO:palmer REMOVE THIS VERY SOON.  THIS WILL NOT BE IN VIEWER 2.0
+	// TODO from palmer: Find a better way to handle managing old crash logs
+	// when this is a separate imbedable module.  Ideally just sort crash stack
+	// logs based on date, and grab the latest one as opposed to deleting them
+	// for thoughts on what the module would look like.
+	// See: https://wiki.lindenlab.com/wiki/Viewer_Crash_Reporter_Round_4
+	
 	// Remove the crash stack log from previous executions.
 	// Since we've started logging a new instance of the app, we can assume 
 	// The old crash stack is invalid for the next crash report.
@@ -442,6 +447,68 @@ std::string LLAppViewerMacOSX::generateSerialNumber()
 	}
 
 	return serial_md5;
+}
+
+static AudioDeviceID get_default_audio_output_device(void)
+{
+	AudioDeviceID device = 0;
+	UInt32 size = sizeof(device);
+	AudioObjectPropertyAddress device_address = { kAudioHardwarePropertyDefaultOutputDevice,
+												  kAudioObjectPropertyScopeGlobal,
+												  kAudioObjectPropertyElementMaster };
+
+	OSStatus err = AudioObjectGetPropertyData(kAudioObjectSystemObject, &device_address, 0, NULL, &size, &device);
+	if(err != noErr)
+	{
+		LL_DEBUGS("SystemMute") << "Couldn't get default audio output device (0x" << std::hex << err << ")" << LL_ENDL;
+	}
+
+	return device;
+}
+
+//virtual
+void LLAppViewerMacOSX::setMasterSystemAudioMute(bool new_mute)
+{
+	AudioDeviceID device = get_default_audio_output_device();
+
+	if(device != 0)
+	{
+		UInt32 mute = new_mute;
+		AudioObjectPropertyAddress device_address = { kAudioDevicePropertyMute,
+													  kAudioDevicePropertyScopeOutput,
+													  kAudioObjectPropertyElementMaster };
+
+		OSStatus err = AudioObjectSetPropertyData(device, &device_address, 0, NULL, sizeof(mute), &mute);
+		if(err != noErr)
+		{
+			LL_INFOS("SystemMute") << "Couldn't set audio mute property (0x" << std::hex << err << ")" << LL_ENDL;
+		}
+	}
+}
+
+//virtual
+bool LLAppViewerMacOSX::getMasterSystemAudioMute()
+{
+	// Assume the system isn't muted 
+	UInt32 mute = 0;
+
+	AudioDeviceID device = get_default_audio_output_device();
+
+	if(device != 0)
+	{
+		UInt32 size = sizeof(mute);
+		AudioObjectPropertyAddress device_address = { kAudioDevicePropertyMute,
+													  kAudioDevicePropertyScopeOutput,
+													  kAudioObjectPropertyElementMaster };
+
+		OSStatus err = AudioObjectGetPropertyData(device, &device_address, 0, NULL, &size, &mute);
+		if(err != noErr)
+		{
+			LL_DEBUGS("SystemMute") << "Couldn't get audio mute property (0x" << std::hex << err << ")" << LL_ENDL;
+		}
+	}
+	
+	return (mute != 0);
 }
 
 OSErr AEGURLHandler(const AppleEvent *messagein, AppleEvent *reply, long refIn)

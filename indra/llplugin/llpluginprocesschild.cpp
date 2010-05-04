@@ -43,10 +43,13 @@ static const F32 PLUGIN_IDLE_SECONDS = 1.0f / 100.0f;  // Each call to idle will
 
 LLPluginProcessChild::LLPluginProcessChild()
 {
+	mState = STATE_UNINITIALIZED;
 	mInstance = NULL;
 	mSocket = LLSocket::create(gAPRPoolp, LLSocket::STREAM_TCP);
 	mSleepTime = PLUGIN_IDLE_SECONDS;	// default: send idle messages at 100Hz
 	mCPUElapsed = 0.0f;
+	mBlockingRequest = false;
+	mBlockingResponseReceived = false;
 }
 
 LLPluginProcessChild::~LLPluginProcessChild()
@@ -154,7 +157,6 @@ void LLPluginProcessChild::idle(void)
 				{
 					setState(STATE_PLUGIN_INITIALIZING);
 					LLPluginMessage message("base", "init");
-					message.setValue("user_data_path", mUserDataPath);
 					sendMessageToPlugin(message);
 				}
 			break;
@@ -226,6 +228,7 @@ void LLPluginProcessChild::idle(void)
 
 void LLPluginProcessChild::sleep(F64 seconds)
 {
+	deliverQueuedMessages();
 	if(mMessagePipe)
 	{
 		mMessagePipe->pump(seconds);
@@ -238,6 +241,7 @@ void LLPluginProcessChild::sleep(F64 seconds)
 
 void LLPluginProcessChild::pump(void)
 {
+	deliverQueuedMessages();
 	if(mMessagePipe)
 	{
 		mMessagePipe->pump(0.0f);
@@ -277,14 +281,21 @@ bool LLPluginProcessChild::isDone(void)
 
 void LLPluginProcessChild::sendMessageToPlugin(const LLPluginMessage &message)
 {
-	std::string buffer = message.generate();
-
-	LL_DEBUGS("Plugin") << "Sending to plugin: " << buffer << LL_ENDL;
-	LLTimer elapsed;
-	
-	mInstance->sendMessage(buffer);
-
-	mCPUElapsed += elapsed.getElapsedTimeF64();
+	if (mInstance)
+	{
+		std::string buffer = message.generate();
+		
+		LL_DEBUGS("Plugin") << "Sending to plugin: " << buffer << LL_ENDL;
+		LLTimer elapsed;
+		
+		mInstance->sendMessage(buffer);
+		
+		mCPUElapsed += elapsed.getElapsedTimeF64();
+	}
+	else
+	{
+		LL_WARNS("Plugin") << "mInstance == NULL" << LL_ENDL;
+	}
 }
 
 void LLPluginProcessChild::sendMessageToParent(const LLPluginMessage &message)
@@ -302,15 +313,32 @@ void LLPluginProcessChild::receiveMessageRaw(const std::string &message)
 
 	LL_DEBUGS("Plugin") << "Received from parent: " << message << LL_ENDL;
 
+	// Decode this message
+	LLPluginMessage parsed;
+	parsed.parse(message);
+
+	if(mBlockingRequest)
+	{
+		// We're blocking the plugin waiting for a response.
+
+		if(parsed.hasValue("blocking_response"))
+		{
+			// This is the message we've been waiting for -- fall through and send it immediately. 
+			mBlockingResponseReceived = true;
+		}
+		else
+		{
+			// Still waiting.  Queue this message and don't process it yet.
+			mMessageQueue.push(message);
+			return;
+		}
+	}
+	
 	bool passMessage = true;
 	
 	// FIXME: how should we handle queueing here?
 	
 	{
-		// Decode this message
-		LLPluginMessage parsed;
-		parsed.parse(message);
-		
 		std::string message_class = parsed.getClass();
 		if(message_class == LLPLUGIN_MESSAGE_CLASS_INTERNAL)
 		{
@@ -320,7 +348,6 @@ void LLPluginProcessChild::receiveMessageRaw(const std::string &message)
 			if(message_name == "load_plugin")
 			{
 				mPluginFile = parsed.getValue("file");
-				mUserDataPath = parsed.getValue("user_data_path");
 			}
 			else if(message_name == "shm_add")
 			{
@@ -359,6 +386,7 @@ void LLPluginProcessChild::receiveMessageRaw(const std::string &message)
 					else
 					{
 						LL_WARNS("Plugin") << "Couldn't create a shared memory segment!" << LL_ENDL;
+						delete region;
 					}
 				}
 				
@@ -418,7 +446,13 @@ void LLPluginProcessChild::receiveMessageRaw(const std::string &message)
 void LLPluginProcessChild::receivePluginMessage(const std::string &message)
 {
 	LL_DEBUGS("Plugin") << "Received from plugin: " << message << LL_ENDL;
-
+	
+	if(mBlockingRequest)
+	{
+		// 
+		LL_ERRS("Plugin") << "Can't send a message while already waiting on a blocking request -- aborting!" << LL_ENDL;
+	}
+	
 	// Incoming message from the plugin instance
 	bool passMessage = true;
 
@@ -429,6 +463,12 @@ void LLPluginProcessChild::receivePluginMessage(const std::string &message)
 		// Decode this message
 		LLPluginMessage parsed;
 		parsed.parse(message);
+		
+		if(parsed.hasValue("blocking_request"))
+		{
+			mBlockingRequest = true;
+		}
+
 		std::string message_class = parsed.getClass();
 		if(message_class == "base")
 		{
@@ -487,6 +527,19 @@ void LLPluginProcessChild::receivePluginMessage(const std::string &message)
 		LL_DEBUGS("Plugin") << "Passing through to parent: " << message << LL_ENDL;
 		writeMessageRaw(message);
 	}
+	
+	while(mBlockingRequest)
+	{
+		// The plugin wants to block and wait for a response to this message.
+		sleep(mSleepTime);	// this will pump the message pipe and process messages
+
+		if(mBlockingResponseReceived || mSocketError != APR_SUCCESS || (mMessagePipe == NULL))
+		{
+			// Response has been received, or we've hit an error state.  Stop waiting.
+			mBlockingRequest = false;
+			mBlockingResponseReceived = false;
+		}
+	}
 }
 
 
@@ -495,3 +548,15 @@ void LLPluginProcessChild::setState(EState state)
 	LL_DEBUGS("Plugin") << "setting state to " << state << LL_ENDL;
 	mState = state; 
 };
+
+void LLPluginProcessChild::deliverQueuedMessages()
+{
+	if(!mBlockingRequest)
+	{
+		while(!mMessageQueue.empty())
+		{
+			receiveMessageRaw(mMessageQueue.front());
+			mMessageQueue.pop();
+		}
+	}
+}

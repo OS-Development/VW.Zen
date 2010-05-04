@@ -502,7 +502,11 @@ void LLViewerTextureList::addImageToList(LLViewerFetchedTexture *image)
 	{
 		llerrs << "LLViewerTextureList::addImageToList - Image already in list" << llendl;
 	}
-	llverify((mImageList.insert(image)).second == true);
+	if((mImageList.insert(image)).second != true) 
+	{
+		llerrs << "Error happens when insert image to mImageList!" << llendl ;
+	}
+	
 	image->setInImageList(TRUE) ;
 }
 
@@ -519,7 +523,11 @@ void LLViewerTextureList::removeImageFromList(LLViewerFetchedTexture *image)
 		}
 		llerrs << "LLViewerTextureList::removeImageFromList - Image not in list" << llendl;
 	}
-	llverify(mImageList.erase(image) == 1);
+	if(mImageList.erase(image) != 1) 
+	{
+		llerrs << "Error happens when remove image from mImageList!" << llendl ;
+	}
+      
 	image->setInImageList(FALSE) ;
 }
 

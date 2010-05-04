@@ -46,6 +46,7 @@
 #include "llfontgl.h"
 #include "llframetimer.h"
 #include "llinventory.h"
+#include "llinventorydefines.h"
 #include "llmaterialtable.h"
 #include "llmutelist.h"
 #include "llnamevalue.h"
@@ -60,6 +61,7 @@
 
 #include "llaudiosourcevo.h"
 #include "llagent.h"
+#include "llagentcamera.h"
 #include "llbbox.h"
 #include "llbox.h"
 #include "llcylinder.h"
@@ -133,7 +135,15 @@ LLViewerObject *LLViewerObject::createObject(const LLUUID &id, const LLPCode pco
 	{
 		if (id == gAgentID)
 		{
-			res = new LLVOAvatarSelf(id, pcode, regionp);
+			if (!gAgentAvatarp)
+			{
+				gAgentAvatarp = new LLVOAvatarSelf(id, pcode, regionp);
+			}
+			else 
+			{
+				gAgentAvatarp->updateRegion(regionp);
+			}
+			res = gAgentAvatarp;
 		}
 		else
 		{
@@ -222,7 +232,7 @@ LLViewerObject::LLViewerObject(const LLUUID &id, const LLPCode pcode, LLViewerRe
 	mClickAction(0),
 	mAttachmentItemID(LLUUID::null)
 {
-	if(!is_global)
+	if (!is_global)
 	{
 		llassert(mRegionp);
 	}
@@ -234,7 +244,7 @@ LLViewerObject::LLViewerObject(const LLUUID &id, const LLPCode pcode, LLViewerRe
 
 	mPositionRegion = LLVector3(0.f, 0.f, 0.f);
 
-	if(!is_global)
+	if (!is_global && mRegionp)
 	{
 		mPositionAgent = mRegionp->getOriginAgent();
 	}
@@ -376,11 +386,10 @@ void LLViewerObject::markDead()
 
 		if (flagAnimSource())
 		{
-			LLVOAvatar* avatarp = gAgent.getAvatarObject();
-			if (avatarp && !avatarp->isDead())
+			if (isAgentAvatarValid())
 			{
 				// stop motions associated with this object
-				avatarp->stopMotionFromSource(mID);
+				gAgentAvatarp->stopMotionFromSource(mID);
 			}
 		}
 
@@ -861,6 +870,7 @@ U32 LLViewerObject::processUpdateMessage(LLMessageSystem *mesgsys,
 					htonmemcpy(collision_plane.mV, &data[count], MVT_LLVector4, sizeof(LLVector4));
 					((LLVOAvatar*)this)->setFootPlane(collision_plane);
 					count += sizeof(LLVector4);
+					// fall through
 				case 60:
 					this_update_precision = 32;
 					// this is a terse update
@@ -900,6 +910,7 @@ U32 LLViewerObject::processUpdateMessage(LLMessageSystem *mesgsys,
 					htonmemcpy(collision_plane.mV, &data[count], MVT_LLVector4, sizeof(LLVector4));
 					((LLVOAvatar*)this)->setFootPlane(collision_plane);
 					count += sizeof(LLVector4);
+					// fall through
 				case 32:
 					this_update_precision = 16;
 					test_pos_parent.quantize16(-0.5f*size, 1.5f*size, MIN_HEIGHT, MAX_HEIGHT);
@@ -1172,6 +1183,7 @@ U32 LLViewerObject::processUpdateMessage(LLMessageSystem *mesgsys,
 					htonmemcpy(collision_plane.mV, &data[count], MVT_LLVector4, sizeof(LLVector4));
 					((LLVOAvatar*)this)->setFootPlane(collision_plane);
 					count += sizeof(LLVector4);
+					// fall through
 				case 60:
 					// this is a terse 32 update
 					// pos
@@ -1211,6 +1223,7 @@ U32 LLViewerObject::processUpdateMessage(LLMessageSystem *mesgsys,
 					htonmemcpy(collision_plane.mV, &data[count], MVT_LLVector4, sizeof(LLVector4));
 					((LLVOAvatar*)this)->setFootPlane(collision_plane);
 					count += sizeof(LLVector4);
+					// fall through
 				case 32:
 					// this is a terse 16 update
 					this_update_precision = 16;
@@ -1997,6 +2010,9 @@ BOOL LLViewerObject::isActive() const
 
 BOOL LLViewerObject::idleUpdate(LLAgent &agent, LLWorld &world, const F64 &time)
 {
+	static LLFastTimer::DeclareTimer ftm("Viewer Object");
+	LLFastTimer t(ftm);
+
 	if (mDead)
 	{
 		// It's dead.  Don't update it.
@@ -2162,8 +2178,8 @@ void LLViewerObject::deleteInventoryItem(const LLUUID& item_id)
 {
 	if(mInventory)
 	{
-		InventoryObjectList::iterator it = mInventory->begin();
-		InventoryObjectList::iterator end = mInventory->end();
+		LLInventoryObject::object_list_t::iterator it = mInventory->begin();
+		LLInventoryObject::object_list_t::iterator end = mInventory->end();
 		for( ; it != end; ++it )
 		{
 			if((*it)->getUUID() == item_id)
@@ -2473,7 +2489,7 @@ void LLViewerObject::processTaskInv(LLMessageSystem* msg, void** user_data)
 		}
 		else
 		{
-			object->mInventory = new InventoryObjectList();
+			object->mInventory = new LLInventoryObject::object_list_t();
 		}
 		LLPointer<LLInventoryObject> obj;
 		obj = new LLInventoryObject(object->mID, LLUUID::null,
@@ -2529,7 +2545,7 @@ void LLViewerObject::loadTaskInvFile(const std::string& filename)
 		}
 		else
 		{
-			mInventory = new InventoryObjectList;
+			mInventory = new LLInventoryObject::object_list_t;
 		}
 		while(ifs.good())
 		{
@@ -2662,8 +2678,8 @@ LLInventoryObject* LLViewerObject::getInventoryObject(const LLUUID& item_id)
 	LLInventoryObject* rv = NULL;
 	if(mInventory)
 	{
-		InventoryObjectList::iterator it = mInventory->begin();
-		InventoryObjectList::iterator end = mInventory->end();
+		LLInventoryObject::object_list_t::iterator it = mInventory->begin();
+		LLInventoryObject::object_list_t::iterator end = mInventory->end();
 		for ( ; it != end; ++it)
 		{
 			if((*it)->getUUID() == item_id)
@@ -2676,12 +2692,12 @@ LLInventoryObject* LLViewerObject::getInventoryObject(const LLUUID& item_id)
 	return rv;
 }
 
-void LLViewerObject::getInventoryContents(InventoryObjectList& objects)
+void LLViewerObject::getInventoryContents(LLInventoryObject::object_list_t& objects)
 {
 	if(mInventory)
 	{
-		InventoryObjectList::iterator it = mInventory->begin();
-		InventoryObjectList::iterator end = mInventory->end();
+		LLInventoryObject::object_list_t::iterator it = mInventory->begin();
+		LLInventoryObject::object_list_t::iterator end = mInventory->end();
 		for( ; it != end; ++it)
 		{
 			if ((*it)->getType() != LLAssetType::AT_CATEGORY)
@@ -2711,8 +2727,8 @@ LLViewerInventoryItem* LLViewerObject::getInventoryItemByAsset(const LLUUID& ass
 	{
 		LLViewerInventoryItem* item = NULL;
 
-		InventoryObjectList::iterator it = mInventory->begin();
-		InventoryObjectList::iterator end = mInventory->end();
+		LLInventoryObject::object_list_t::iterator it = mInventory->begin();
+		LLInventoryObject::object_list_t::iterator end = mInventory->end();
 		for( ; it != end; ++it)
 		{
 			LLInventoryObject* obj = *it;
@@ -2750,7 +2766,7 @@ void LLViewerObject::setPixelAreaAndAngle(LLAgent &agent)
 		return;
 	}
 	
-	LLVector3 viewer_pos_agent = agent.getCameraPositionAgent();
+	LLVector3 viewer_pos_agent = gAgentCamera.getCameraPositionAgent();
 	LLVector3 pos_agent = getRenderPosition();
 
 	F32 dx = viewer_pos_agent.mV[VX] - pos_agent.mV[VX];
@@ -4015,9 +4031,15 @@ LLBBox LLViewerObject::getBoundingBoxAgent() const
 {
 	LLVector3 position_agent;
 	LLQuaternion rot;
+	LLViewerObject* avatar_parent = NULL;
 	LLViewerObject* root_edit = (LLViewerObject*)getRootEdit();
-	LLViewerObject* avatar_parent = (LLViewerObject*)root_edit->getParent();
-	if (avatar_parent && avatar_parent->isAvatar() && root_edit->mDrawable.notNull())
+	if (root_edit)
+	{
+		avatar_parent = (LLViewerObject*)root_edit->getParent();
+	}
+	
+	if (avatar_parent && avatar_parent->isAvatar() &&
+		root_edit && root_edit->mDrawable.notNull() && root_edit->mDrawable->getXform()->getParent())
 	{
 		LLXform* parent_xform = root_edit->mDrawable->getXform()->getParent();
 		position_agent = (getPositionEdit() * parent_xform->getWorldRotation()) + parent_xform->getWorldPosition();
@@ -4068,8 +4090,8 @@ S32 LLViewerObject::countInventoryContents(LLAssetType::EType type)
 	S32 count = 0;
 	if( mInventory )
 	{
-		InventoryObjectList::const_iterator it = mInventory->begin();
-		InventoryObjectList::const_iterator end = mInventory->end();
+		LLInventoryObject::object_list_t::const_iterator it = mInventory->begin();
+		LLInventoryObject::object_list_t::const_iterator end = mInventory->end();
 		for(  ; it != end ; ++it )
 		{
 			if( (*it)->getType() == type )
@@ -4906,7 +4928,6 @@ void LLViewerObject::setIncludeInSearch(bool include_in_search)
 
 void LLViewerObject::setRegion(LLViewerRegion *regionp)
 {
-	llassert(regionp);
 	mLatestRecvPacketID = 0;
 	mRegionp = regionp;
 

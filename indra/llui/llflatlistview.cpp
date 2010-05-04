@@ -1,10 +1,10 @@
 /** 
  * @file llflatlistview.cpp
- * @brief LLFlatListView base class
+ * @brief LLFlatListView base class and extension to support messages for several cases of an empty list.
  *
  * $LicenseInfo:firstyear=2009&license=viewergpl$
  * 
- * Copyright (c) 2009, Linden Research, Inc.
+ * Copyright (c) 2009-2010, Linden Research, Inc.
  * 
  * Second Life Viewer Source Code
  * The source code in this file ("Source Code") is provided by Linden Lab
@@ -42,8 +42,6 @@ static const LLDefaultChildRegistry::Register<LLFlatListView> flat_list_view("fl
 const LLSD SELECTED_EVENT	= LLSD().with("selected", true);
 const LLSD UNSELECTED_EVENT	= LLSD().with("selected", false);
 
-static const std::string COMMENT_TEXTBOX = "comment_text";
-
 //forward declaration
 bool llsds_are_equal(const LLSD& llsd_1, const LLSD& llsd_2);
 
@@ -51,7 +49,8 @@ LLFlatListView::Params::Params()
 :	item_pad("item_pad"),
 	allow_select("allow_select"),
 	multi_select("multi_select"),
-	keep_one_selected("keep_one_selected")
+	keep_one_selected("keep_one_selected"),
+	no_items_text("no_items_text")
 {};
 
 void LLFlatListView::reshape(S32 width, S32 height, BOOL called_from_parent /* = TRUE */)
@@ -244,7 +243,7 @@ LLUUID LLFlatListView::getSelectedUUID() const
 	}
 }
 
-void LLFlatListView::getSelectedUUIDs(std::vector<LLUUID>& selected_uuids) const
+void LLFlatListView::getSelectedUUIDs(uuid_vec_t& selected_uuids) const
 {
 	if (mSelectedItemPairs.empty()) return;
 
@@ -289,25 +288,12 @@ void LLFlatListView::resetSelection(bool no_commit_on_deselection /*= false*/)
 		onCommit();
 	}
 
-	// Stretch selected items rect to ensure it won't be clipped
-	mSelectedItemsBorder->setRect(getSelectedItemsRect().stretch(-1));
+	// Stretch selected item rect to ensure it won't be clipped
+	mSelectedItemsBorder->setRect(getLastSelectedItemRect().stretch(-1));
 }
 
 void LLFlatListView::setNoItemsCommentText(const std::string& comment_text)
 {
-	if (NULL == mNoItemsCommentTextbox)
-	{
-		LLRect comment_rect = getRect();
-		comment_rect.setOriginAndSize(0, 0, comment_rect.getWidth(), comment_rect.getHeight());
-		comment_rect.stretch(-getBorderWidth());
-		LLTextBox::Params text_p;
-		text_p.name(COMMENT_TEXTBOX);
-		text_p.border_visible(false);
-		text_p.rect(comment_rect);
-		text_p.follows.flags(FOLLOWS_ALL);
-		mNoItemsCommentTextbox = LLUICtrlFactory::create<LLTextBox>(text_p, this);
-	}
-
 	mNoItemsCommentTextbox->setValue(comment_text);
 }
 
@@ -361,7 +347,6 @@ bool LLFlatListView::updateValue(const LLSD& old_value, const LLSD& new_value)
 // PROTECTED STUFF
 //////////////////////////////////////////////////////////////////////////
 
-
 LLFlatListView::LLFlatListView(const LLFlatListView::Params& p)
 :	LLScrollContainer(p)
   , mItemComparator(NULL)
@@ -393,11 +378,30 @@ LLFlatListView::LLFlatListView(const LLFlatListView::Params& p)
 
 	LLViewBorder::Params params;
 	params.name("scroll border");
-	params.rect(getSelectedItemsRect());
+	params.rect(getLastSelectedItemRect());
 	params.visible(false);
 	params.bevel_style(LLViewBorder::BEVEL_IN);
 	mSelectedItemsBorder = LLUICtrlFactory::create<LLViewBorder> (params);
 	mItemsPanel->addChild( mSelectedItemsBorder );
+
+	{
+		// create textbox for "No Items" comment text
+		LLTextBox::Params text_p = p.no_items_text;
+		if (!text_p.rect.isProvided())
+		{
+			LLRect comment_rect = getRect();
+			comment_rect.setOriginAndSize(0, 0, comment_rect.getWidth(), comment_rect.getHeight());
+			comment_rect.stretch(-getBorderWidth());
+			text_p.rect(comment_rect);
+		}
+		text_p.border_visible(false);
+
+		if (!text_p.follows.isProvided())
+		{
+			text_p.follows.flags(FOLLOWS_ALL);
+		}
+		mNoItemsCommentTextbox = LLUICtrlFactory::create<LLTextBox>(text_p, this);
+	}
 };
 
 // virtual
@@ -480,13 +484,19 @@ void LLFlatListView::rearrangeItems()
 		item_new_top -= (rc.getHeight() + mItemPad);
 	}
 
-	// Stretch selected items rect to ensure it won't be clipped
-	mSelectedItemsBorder->setRect(getSelectedItemsRect().stretch(-1));
+	// Stretch selected item rect to ensure it won't be clipped
+	mSelectedItemsBorder->setRect(getLastSelectedItemRect().stretch(-1));
 }
 
 void LLFlatListView::onItemMouseClick(item_pair_t* item_pair, MASK mask)
 {
 	if (!item_pair) return;
+
+	if (!item_pair->first) 
+	{
+		llwarning("Attempt to selet an item pair containing null panel item", 0);
+		return;
+	}
 
 	setFocus(TRUE);
 	
@@ -494,7 +504,68 @@ void LLFlatListView::onItemMouseClick(item_pair_t* item_pair, MASK mask)
 
 	//*TODO find a better place for that enforcing stuff
 	if (mKeepOneItemSelected && numSelected() == 1 && !select_item) return;
-	
+
+	if ( (mask & MASK_SHIFT) && !(mask & MASK_CONTROL)
+		 && mMultipleSelection && !mSelectedItemPairs.empty() )
+	{
+		item_pair_t* last_selected_pair = mSelectedItemPairs.back();
+
+		// If item_pair is already selected - do nothing
+		if (last_selected_pair == item_pair)
+			return;
+
+		bool grab_items = false;
+		pairs_list_t pairs_to_select;
+
+		// Pick out items from list between last selected and current clicked item_pair.
+		for (pairs_iterator_t
+				 iter = mItemPairs.begin(),
+				 iter_end = mItemPairs.end();
+			 iter != iter_end; ++iter)
+		{
+			item_pair_t* cur = *iter;
+			if (cur == last_selected_pair || cur == item_pair)
+			{
+				grab_items = !grab_items;
+				// Skip last selected and current clicked item pairs.
+				continue;
+			}
+			if (!cur->first->getVisible())
+			{
+				// Skip invisible item pairs.
+				continue;
+			}
+			if (grab_items)
+			{
+				pairs_to_select.push_back(cur);
+			}
+		}
+
+		if (select_item)
+		{
+			pairs_to_select.push_back(item_pair);
+		}
+
+		for (pairs_iterator_t
+				 iter = pairs_to_select.begin(),
+				 iter_end = pairs_to_select.end();
+			 iter != iter_end; ++iter)
+		{
+			item_pair_t* pair_to_select = *iter;
+			selectItemPair(pair_to_select, true);
+		}
+
+		if (!select_item)
+		{
+			// Item was already selected but there is a need to update last selected item and its border.
+			// Do it here to prevent extra mCommitOnSelectionChange in selectItemPair().
+			mSelectedItemPairs.remove(item_pair);
+			mSelectedItemPairs.push_back(item_pair);
+			mSelectedItemsBorder->setRect(getLastSelectedItemRect().stretch(-1));
+		}
+		return;
+	}
+
 	if (!(mask & MASK_CONTROL) || !mMultipleSelection) resetSelection();
 	selectItemPair(item_pair, select_item);
 }
@@ -545,15 +616,6 @@ BOOL LLFlatListView::handleKeyHere(KEY key, MASK mask)
 				// If case we are in accordion tab notify parent to go to the next accordion
 				if( notifyParent(LLSD().with("action","select_next")) > 0 ) //message was processed
 					resetSelection();
-			}
-			break;
-		}
-		case 'A':
-		{
-			if(MASK_CONTROL & mask)
-			{
-				selectAll();
-				handled = TRUE;
 			}
 			break;
 		}
@@ -664,8 +726,8 @@ bool LLFlatListView::selectItemPair(item_pair_t* item_pair, bool select)
 		onCommit();
 	}
 
-	// Stretch selected items rect to ensure it won't be clipped
-	mSelectedItemsBorder->setRect(getSelectedItemsRect().stretch(-1));
+	// Stretch selected item rect to ensure it won't be clipped
+	mSelectedItemsBorder->setRect(getLastSelectedItemRect().stretch(-1));
 
 	return true;
 }
@@ -680,31 +742,20 @@ LLRect LLFlatListView::getLastSelectedItemRect()
 	return mSelectedItemPairs.back()->first->getRect();
 }
 
-LLRect LLFlatListView::getSelectedItemsRect()
-{
-	if (!mSelectedItemPairs.size())
-	{
-		return LLRect::null;
-	}
-	LLRect rc = getLastSelectedItemRect();
-	for ( pairs_const_iterator_t
-			  it = mSelectedItemPairs.begin(),
-			  it_end = mSelectedItemPairs.end();
-		  it != it_end; ++it )
-	{
-		rc.unionWith((*it)->first->getRect());
-	}
-	return rc;
-}
-
 void LLFlatListView::selectFirstItem	()
 {
+	// No items - no actions!
+	if (mItemPairs.empty()) return;
+
 	selectItemPair(mItemPairs.front(), true);
 	ensureSelectedVisible();
 }
 
 void LLFlatListView::selectLastItem		()
 {
+	// No items - no actions!
+	if (mItemPairs.empty()) return;
+
 	selectItemPair(mItemPairs.back(), true);
 	ensureSelectedVisible();
 }
@@ -798,10 +849,15 @@ bool LLFlatListView::selectNextItemPair(bool is_up_direction, bool reset_selecti
 	return false;
 }
 
-bool LLFlatListView::selectAll()
+BOOL LLFlatListView::canSelectAll() const
 {
-	if (!mAllowSelection)
-		return false;
+	return !mItemPairs.empty() && mAllowSelection && mMultipleSelection;
+}
+
+void LLFlatListView::selectAll()
+{
+	if (!mAllowSelection || !mMultipleSelection)
+		return;
 
 	mSelectedItemPairs.clear();
 
@@ -819,10 +875,8 @@ bool LLFlatListView::selectAll()
 		onCommit();
 	}
 
-	// Stretch selected items rect to ensure it won't be clipped
-	mSelectedItemsBorder->setRect(getSelectedItemsRect().stretch(-1));
-
-	return true;
+	// Stretch selected item rect to ensure it won't be clipped
+	mSelectedItemsBorder->setRect(getLastSelectedItemRect().stretch(-1));
 }
 
 bool LLFlatListView::isSelected(item_pair_t* item_pair) const
@@ -878,7 +932,11 @@ void LLFlatListView::notifyParentItemsRectChanged()
 	// take into account comment text height if exists
 	if (mNoItemsCommentTextbox && mNoItemsCommentTextbox->getVisible())
 	{
+		// top text padding inside the textbox is included into the height
 		comment_height = mNoItemsCommentTextbox->getTextPixelHeight();
+
+		// take into account a distance from parent's top border to textbox's top
+		comment_height += getRect().getHeight() - mNoItemsCommentTextbox->getRect().mTop;
 	}
 
 	LLRect req_rect =  getItemsRect();
@@ -909,6 +967,10 @@ void LLFlatListView::setNoItemsCommentVisible(bool visible) const
 	{
 		if (visible)
 		{
+/*
+// *NOTE: MA 2010-02-04
+// Deprecated after params of the comment text box were moved into widget (flat_list_view.xml)
+// can be removed later if nothing happened.
 			// We have to update child rect here because of issues with rect after reshaping while creating LLTextbox
 			// It is possible to have invalid LLRect if Flat List is in LLAccordionTab
 			LLRect comment_rect = getLocalRect();
@@ -920,6 +982,7 @@ void LLFlatListView::setNoItemsCommentVisible(bool visible) const
 			LLViewBorder* scroll_border = getChild<LLViewBorder>("scroll border");
 			comment_rect.stretch(-scroll_border->getBorderWidth());
 			mNoItemsCommentTextbox->setRect(comment_rect);
+*/
 		}
 		mNoItemsCommentTextbox->setVisible(visible);
 	}
@@ -951,11 +1014,17 @@ void LLFlatListView::getValues(std::vector<LLSD>& values) const
 void LLFlatListView::onFocusReceived()
 {
 	mSelectedItemsBorder->setVisible(TRUE);
+	gEditMenuHandler = this;
 }
 // virtual
 void LLFlatListView::onFocusLost()
 {
 	mSelectedItemsBorder->setVisible(FALSE);
+	// Route menu back to the default
+ 	if( gEditMenuHandler == this )
+	{
+		gEditMenuHandler = NULL;
+	}
 }
 
 //virtual 
@@ -1057,6 +1126,45 @@ void LLFlatListView::detachItems(std::vector<LLPanel*>& detached_items)
 		}
 		notifyParentItemsRectChanged();
 	}
+}
+
+
+/************************************************************************/
+/*             LLFlatListViewEx implementation                          */
+/************************************************************************/
+LLFlatListViewEx::Params::Params()
+: no_items_msg("no_items_msg")
+, no_filtered_items_msg("no_filtered_items_msg")
+{
+
+}
+
+LLFlatListViewEx::LLFlatListViewEx(const Params& p)
+:	LLFlatListView(p)
+, mNoFilteredItemsMsg(p.no_filtered_items_msg)
+, mNoItemsMsg(p.no_items_msg)
+{
+
+}
+
+void LLFlatListViewEx::updateNoItemsMessage(const std::string& filter_string)
+{
+	bool items_filtered = !filter_string.empty();
+	if (items_filtered)
+	{
+		// items were filtered
+		LLStringUtil::format_map_t args;
+		args["[SEARCH_TERM]"] = LLURI::escape(filter_string);
+		std::string text = mNoFilteredItemsMsg;
+		LLStringUtil::format(text, args);
+		setNoItemsCommentText(text);
+	}
+	else
+	{
+		// list does not contain any items at all
+		setNoItemsCommentText(mNoItemsMsg);
+	}
+
 }
 
 //EOF

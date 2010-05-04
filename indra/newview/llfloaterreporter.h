@@ -93,6 +93,7 @@ public:
 	static void showFromMenu(EReportType report_type);
 
 	static void showFromObject(const LLUUID& object_id);
+	static void showFromAvatar(const LLUUID& avatar_id, const std::string avatar_name);
 
 	static void onClickSend			(void *userdata);
 	static void onClickCancel		(void *userdata);
@@ -109,6 +110,8 @@ public:
 	void setPickedObjectProperties(const std::string& object_name, const std::string& owner_name, const LLUUID owner_id);
 
 private:
+	static void show(const LLUUID& object_id, const std::string& avatar_name = LLStringUtil::null);
+
 	void takeScreenshot();
 	void sendReportViaCaps(std::string url);
 	void uploadImage();
@@ -120,7 +123,8 @@ private:
 	void setPosBox(const LLVector3d &pos);
 	void enableControls(BOOL own_avatar);
 	void getObjectInfo(const LLUUID& object_id);
-	void callbackAvatarID(const std::vector<std::string>& names, const std::vector<LLUUID>& ids);
+	void callbackAvatarID(const std::vector<std::string>& names, const uuid_vec_t& ids);
+	void setFromAvatar(const LLUUID& avatar_id, const std::string& avatar_name = LLStringUtil::null);
 
 private:
 	EReportType		mReportType;

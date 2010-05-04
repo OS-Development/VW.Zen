@@ -33,7 +33,7 @@
 #ifndef LL_LLEXPANDABLETEXTBOX_H
 #define LL_LLEXPANDABLETEXTBOX_H
 
-#include "lltextbox.h"
+#include "lltexteditor.h"
 #include "llscrollcontainer.h"
 
 /**
@@ -49,12 +49,11 @@ protected:
 	 * Extended text box. "More" link will appear at end of text if 
 	 * text is too long to fit into text box size.
 	 */
-	class LLTextBoxEx : public LLTextBox
+	class LLTextBoxEx : public LLTextEditor
 	{
 	public:
-		struct Params :	public LLInitParam::Block<Params, LLTextBox::Params>
+		struct Params :	public LLInitParam::Block<Params, LLTextEditor::Params>
 		{
-			Mandatory<std::string> more_label;
 			Params();
 		};
 
@@ -68,6 +67,11 @@ protected:
 		 * Value is positive if text height is greater than text box height.
 		 */
 		virtual S32 getVerticalTextDelta();
+
+		/**
+		 * Returns the height of text rect.
+		 */
+		S32 getTextPixelHeight();
 
 		/**
 		 * Shows "More" link
@@ -138,6 +142,7 @@ public:
 	 * Collapses text box on top_lost event
 	 */
 	/*virtual*/ void onTopLost();
+
 
 	/**
 	 * Draws text box, collapses text box if its expanded and its parent's position changed

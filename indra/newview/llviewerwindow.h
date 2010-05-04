@@ -69,6 +69,7 @@ class LLHUDIcon;
 class LLWindow;
 class LLRootView;
 class LLViewerWindowListener;
+class LLPopupView;
 
 #define PICK_HALF_WIDTH 5
 #define PICK_DIAMETER (2 * PICK_HALF_WIDTH + 1)
@@ -126,9 +127,6 @@ private:
 	void			updateXYCoords();
 
 	BOOL			mWantSurfaceInfo;   // do we populate mUVCoord, mNormal, mBinormal?
-	U8				mPickBuffer[PICK_DIAMETER * PICK_DIAMETER * 4];
-	F32				mPickDepthBuffer[PICK_DIAMETER * PICK_DIAMETER];
-	BOOL			mPickParcelWall;
 
 };
 
@@ -169,7 +167,8 @@ public:
 	/*virtual*/ BOOL handleRightMouseUp(LLWindow *window,  LLCoordGL pos, MASK mask);
 	/*virtual*/ BOOL handleMiddleMouseDown(LLWindow *window,  LLCoordGL pos, MASK mask);
 	/*virtual*/ BOOL handleMiddleMouseUp(LLWindow *window,  LLCoordGL pos, MASK mask);
-	/*virtual*/ void handleMouseMove(LLWindow *window,  LLCoordGL pos, MASK mask);
+	/*virtual*/ LLWindowCallbacks::DragNDropResult handleDragNDrop(LLWindow *window, LLCoordGL pos, MASK mask, LLWindowCallbacks::DragNDropAction action, std::string data);
+				void handleMouseMove(LLWindow *window,  LLCoordGL pos, MASK mask);
 	/*virtual*/ void handleMouseLeave(LLWindow *window);
 	/*virtual*/ void handleResize(LLWindow *window,  S32 x,  S32 y);
 	/*virtual*/ void handleFocus(LLWindow *window);
@@ -301,6 +300,11 @@ public:
 	LLView*			getFloaterViewHolder() { return mFloaterViewHolder.get(); }
 	BOOL			handleKey(KEY key, MASK mask);
 	void			handleScrollWheel	(S32 clicks);
+
+	// add and remove views from "popup" layer
+	void			addPopup(LLView* popup);
+	void			removePopup(LLView* popup);
+	void			clearPopups();
 
 	// Hide normal UI when a logon fails, re-show everything when logon is attempted again
 	void			setNormalControlsVisible( BOOL visible );
@@ -460,6 +464,7 @@ protected:
 	LLHandle<LLView> mWorldViewPlaceholder;	// widget that spans the portion of screen dedicated to rendering the 3d world
 	LLHandle<LLView> mNonSideTrayView;		// parent of world view + bottom bar, etc...everything but the side tray
 	LLHandle<LLView> mFloaterViewHolder;	// container for floater_view
+	LLPopupView*	mPopupView;			// container for transient popups
 	
 	class LLDebugText* mDebugText; // Internal class for debug text
 	
@@ -475,7 +480,11 @@ protected:
 	static std::string sSnapshotDir;
 
 	static std::string sMovieBaseName;
-};	
+	
+private:
+	// Object temporarily hovered over while dragging
+	LLPointer<LLViewerObject>	mDragHoveredObject;
+};
 
 void toggle_flying(void*);
 void toggle_first_person();
@@ -504,5 +513,6 @@ extern S32 CHAT_BAR_HEIGHT;
 extern BOOL			gDisplayCameraPos;
 extern BOOL			gDisplayWindInfo;
 extern BOOL			gDisplayFOV;
+extern BOOL			gDisplayBadge;
 
 #endif

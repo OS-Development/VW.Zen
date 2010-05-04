@@ -38,6 +38,7 @@
 #include "llpanelprimmediacontrols.h"
 #include "llpluginclassmedia.h"
 #include "llagent.h"
+#include "llagentcamera.h"
 #include "lltoolpie.h"
 #include "llviewercamera.h"
 #include "llviewermedia.h"
@@ -126,7 +127,7 @@ void LLViewerMediaFocus::setFocusFace(LLPointer<LLViewerObject> objectp, S32 fac
 			if(face_auto_zoom && ! parcel->getMediaPreventCameraZoom())
 			{
 				// Zoom in on this face
-				mMediaControls.get()->resetZoomLevel();
+				mMediaControls.get()->resetZoomLevel(false);
 				mMediaControls.get()->nextZoomLevel();
 			}
 			else
@@ -157,7 +158,6 @@ void LLViewerMediaFocus::setFocusFace(LLPointer<LLViewerObject> objectp, S32 fac
 			mFocusedObjectFace = 0;
 		}
 	}
-	
 }
 
 void LLViewerMediaFocus::clearFocus()
@@ -198,11 +198,11 @@ bool LLViewerMediaFocus::getFocus()
 }
 
 // This function selects an ideal viewing distance based on the focused object, pick normal, and padding value
-void LLViewerMediaFocus::setCameraZoom(LLViewerObject* object, LLVector3 normal, F32 padding_factor)
+void LLViewerMediaFocus::setCameraZoom(LLViewerObject* object, LLVector3 normal, F32 padding_factor, bool zoom_in_only)
 {
 	if (object)
 	{
-		gAgent.setFocusOnAvatar(FALSE, ANIMATE);
+		gAgentCamera.setFocusOnAvatar(FALSE, ANIMATE);
 
 		LLBBox bbox = object->getBoundingBoxAgent();
 		LLVector3d center = gAgent.getPosGlobalFromAgent(bbox.getCenterAgent());
@@ -261,7 +261,7 @@ void LLViewerMediaFocus::setCameraZoom(LLViewerObject* object, LLVector3 normal,
 			// orientation with respect to the face.  In other words, if before zoom
 			// the media appears "upside down" from the camera, after zooming it will
 			// still be upside down, but at least it will not flip.
-            LLVector3d cur_camera_pos = LLVector3d(gAgent.getCameraPositionGlobal());
+            LLVector3d cur_camera_pos = LLVector3d(gAgentCamera.getCameraPositionGlobal());
             LLVector3d delta = (cur_camera_pos - camera_pos);
             F64 len = delta.length();
             delta.normalize();
@@ -269,12 +269,21 @@ void LLViewerMediaFocus::setCameraZoom(LLViewerObject* object, LLVector3 normal,
             camera_pos += 0.01 * len * delta;
         }
 
-		gAgent.setCameraPosAndFocusGlobal(camera_pos, target_pos, object->getID() );
+		// If we are not allowing zooming out and the old camera position is closer to 
+		// the center then the new intended camera position, don't move camera and return
+		if (zoom_in_only &&
+		    (dist_vec_squared(gAgentCamera.getCameraPositionGlobal(), target_pos) < dist_vec_squared(camera_pos, target_pos)))
+		{
+			return;
+		}
+
+		gAgentCamera.setCameraPosAndFocusGlobal(camera_pos, target_pos, object->getID() );
+
 	}
 	else
 	{
 		// If we have no object, focus back on the avatar.
-		gAgent.setFocusOnAvatar(TRUE, ANIMATE);
+		gAgentCamera.setFocusOnAvatar(TRUE, ANIMATE);
 	}
 }
 void LLViewerMediaFocus::onFocusReceived()
@@ -549,6 +558,19 @@ void LLViewerMediaFocus::focusZoomOnMedia(LLUUID media_id)
 			}
 		}
 	}
+}
+
+void LLViewerMediaFocus::unZoom()
+{
+	if(mMediaControls.get())
+	{
+		mMediaControls.get()->resetZoomLevel();
+	}
+}
+
+bool LLViewerMediaFocus::isZoomed() const
+{
+	return (mMediaControls.get() && mMediaControls.get()->getZoomLevel() != LLPanelPrimMediaControls::ZOOM_NONE);
 }
 
 LLUUID LLViewerMediaFocus::getControlsMediaID()

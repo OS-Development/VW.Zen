@@ -142,9 +142,9 @@ LLPanelPermissions::LLPanelPermissions() :
 BOOL LLPanelPermissions::postBuild()
 {
 	childSetCommitCallback("Object Name",LLPanelPermissions::onCommitName,this);
-	childSetPrevalidate("Object Name",LLLineEditor::prevalidateASCIIPrintableNoPipe);
+	childSetPrevalidate("Object Name",LLTextValidate::validateASCIIPrintableNoPipe);
 	childSetCommitCallback("Object Description",LLPanelPermissions::onCommitDesc,this);
-	childSetPrevalidate("Object Description",LLLineEditor::prevalidateASCIIPrintableNoPipe);
+	childSetPrevalidate("Object Description",LLTextValidate::validateASCIIPrintableNoPipe);
 
 	
 	getChild<LLUICtrl>("button set group")->setCommitCallback(boost::bind(&LLPanelPermissions::onClickGroup,this));
@@ -195,8 +195,8 @@ void LLPanelPermissions::disableAll()
 	childSetEnabled("Owner Name",						FALSE);
 
 	childSetEnabled("Group:",							FALSE);
-	childSetText("Group Name",							LLStringUtil::null);
-	childSetEnabled("Group Name",						FALSE);
+	childSetText("Group Name Proxy",					LLStringUtil::null);
+	childSetEnabled("Group Name Proxy",					FALSE);
 	childSetEnabled("button set group",					FALSE);
 
 	childSetText("Object Name",							LLStringUtil::null);

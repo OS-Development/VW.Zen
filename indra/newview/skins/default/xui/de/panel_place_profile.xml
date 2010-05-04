@@ -6,7 +6,7 @@
 	<string name="available" value="verfügbar"/>
 	<string name="allocated" value="vergeben"/>
 	<string name="title_place" value="Ortsprofil"/>
-	<string name="title_teleport_history" value="Teleport-Verlauf"/>
+	<string name="title_teleport_history" value="Teleport-Liste"/>
 	<string name="not_available" value="k.A."/>
 	<string name="unknown" value="(unbekannt)"/>
 	<string name="public" value="(öffentlich)"/>
@@ -56,6 +56,7 @@
 	<string name="icon_ScriptsNo" value="parcel_drk_ScriptsNo"/>
 	<string name="icon_Damage" value="parcel_drk_Damage"/>
 	<string name="icon_DamageNo" value="parcel_drk_DamageNo"/>
+	<button name="back_btn" tool_tip="Hinten"/>
 	<text name="title" value="Ortsprofil"/>
 	<scroll_container name="place_scroll">
 		<panel name="scrolling_panel">
@@ -67,7 +68,7 @@
 			<text name="maturity_value" value="unbekannt"/>
 			<accordion name="advanced_info_accordion">
 				<accordion_tab name="parcel_characteristics_tab" title="Parzelle">
-					<panel>
+					<panel name="parcel_characteristics_panel">
 						<text name="rating_label" value="Einstufung:"/>
 						<text name="rating_value" value="unbekannt"/>
 						<text name="voice_label" value="Voice:"/>
@@ -86,7 +87,7 @@
 					</panel>
 				</accordion_tab>
 				<accordion_tab name="region_information_tab" title="Region">
-					<panel>
+					<panel name="region_information_panel">
 						<text name="region_name_label" value="Region:"/>
 						<text name="region_name" value="Mooseland"/>
 						<text name="region_type_label" value="Typ:"/>
@@ -99,19 +100,19 @@
 						<text name="region_group">
 							The Mighty Moose of mooseville soundvillemoose
 						</text>
-						<button label="Region/Grundstück" name="region_info_btn"/>
+						<button label="Region/Grundbesitz" name="region_info_btn"/>
 					</panel>
 				</accordion_tab>
-				<accordion_tab name="estate_information_tab" title="Grundstück">
-					<panel>
-						<text name="estate_name_label" value="Grundstück:"/>
+				<accordion_tab name="estate_information_tab" title="Grundbesitz">
+					<panel name="estate_information_panel">
+						<text name="estate_name_label" value="Grundbesitz:"/>
 						<text name="estate_rating_label" value="Einstufung:"/>
 						<text name="estate_owner_label" value="Eigentümer:"/>
 						<text name="covenant_label" value="Vertrag:"/>
 					</panel>
 				</accordion_tab>
 				<accordion_tab name="sales_tab" title="Zum Verkauf">
-					<panel>
+					<panel name="sales_panel">
 						<text name="sales_price_label" value="Preis:"/>
 						<text name="area_label" value="Gebiet:"/>
 						<text name="traffic_label" value="Traffic:"/>

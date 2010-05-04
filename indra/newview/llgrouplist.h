@@ -47,14 +47,10 @@
  * 
  * @see setNameFilter()
  */
-class LLGroupList: public LLFlatListView, public LLOldEvents::LLSimpleListener
+class LLGroupList: public LLFlatListViewEx, public LLOldEvents::LLSimpleListener
 {
 	LOG_CLASS(LLGroupList);
 public:
-	struct Params : public LLInitParam::Block<Params, LLFlatListView::Params> 
-	{
-		Params();
-	};
 
 	LLGroupList(const Params& p);
 	virtual ~LLGroupList();
@@ -65,7 +61,7 @@ public:
 	void setNameFilter(const std::string& filter);
 	void toggleIcons();
 	bool getIconsVisible() const { return mShowIcons; }
-	
+
 private:
 	void setDirty(bool val = true)		{ mDirty = val; }
 	void refresh();

@@ -47,7 +47,8 @@
          min_height="23"
          width="310"
          top="4"
-         min_width="188"
+         max_width="320"
+         min_width="216"
          name="chat_bar"
          user_resize="false"
          filename="panel_nearby_chat_bar.xml" />
@@ -58,7 +59,7 @@
          height="28"
          layout="topleft"
          min_height="28"
-         width="100"
+         width="105"
          top_delta="0"
          min_width="54"
          name="speak_panel"
@@ -72,7 +73,17 @@
            left="0"
            name="talk"
            top="5"
-          width="100">
+          width="105">
+            <!-- do not remove halign attribute with default value. otherwise it can't be overridden in other locales.
+             & pad_right is default value for long label which can be right aligned. See EXT-6318 -->
+  <speak_button
+    halign="center"
+    name="speak_btn"
+    label="Speak"
+    label_selected="Speak"
+    pad_right="22"
+    use_ellipses="true"
+    />
               <show_button>
                   <show_button.init_callback
                    function="Button.SetDockableFloaterToggle"
@@ -87,7 +98,7 @@
             image_name="spacer24.tga"
             layout="topleft"
             left="0"
-            name="DUMMY"
+            name="after_speak_panel"
             min_width="3"
             top="0"
             width="3"/>
@@ -100,7 +111,7 @@
          min_height="28"
          width="82"
          top_delta="0"
-         min_width="52"
+         min_width="62"
          name="gesture_panel"
          user_resize="false">
          <gesture_combo_list
@@ -116,6 +127,8 @@
              <gesture_combo_list.combo_button
               pad_right="10"
               use_ellipses="true" />
+             <gesture_combo_list.combo_list
+              page_lines="17" />
          </gesture_combo_list>
         </layout_panel>
 		 <icon
@@ -127,7 +140,7 @@
          layout="topleft"
          left="0"
          min_width="3"
-         name="DUMMY"
+         name="after_gesture_panel"
          top="0"
          width="3"/>
         <layout_panel
@@ -169,7 +182,7 @@
          layout="topleft"
          left="0"
          min_width="3"
-         name="DUMMY"
+         name="after_movement_panel"
          top="0"
          width="3"/>
         <layout_panel
@@ -212,7 +225,7 @@
          layout="topleft"
          left="0"
          min_width="3"
-         name="DUMMY"
+         name="after_cam_panel"
          top="0"
          width="3"/>
         <layout_panel
@@ -247,12 +260,12 @@
         <layout_panel
          mouse_opaque="false"
          follows="left|right"
-         height="29"
+         height="30"
          layout="topleft"
          top="0"
          name="chiclet_list_panel"
          width="189"
-         min_width="110"
+         min_width="95"
          user_resize="false"
          auto_resize="true">
 <!--*NOTE: min_width of the chiclet_panel (chiclet_list) must be the same
@@ -260,12 +273,12 @@ as for parent layout_panel (chiclet_list_panel) to resize bottom tray properly. 
             <chiclet_panel
 	    mouse_opaque="false"
              follows="left|right"
-             height="23"
+             height="24"
              layout="topleft"
              left="1"
-             min_width="110"
+             min_width="95"
              name="chiclet_list"
-             top="6"
+             top="7"
              chiclet_padding="4"
              scrolling_offset="40"
              width="189">
@@ -284,7 +297,7 @@ as for parent layout_panel (chiclet_list_panel) to resize bottom tray properly. 
                  name="chicklet_left_scroll_button"
         scale_image="true"
                  tab_stop="false"
-                 top="-2"
+                 top="-4"
                  right_pad="2"
                  visible="false"
                  width="7" />
@@ -303,7 +316,7 @@ as for parent layout_panel (chiclet_list_panel) to resize bottom tray properly. 
                  name="chicklet_right_scroll_button"
         scale_image="true"
                  tab_stop="false"
-                 top="-2"
+                 top="-4"
                  visible="false"
                  width="7" />
             </chiclet_panel>
@@ -317,8 +330,9 @@ as for parent layout_panel (chiclet_list_panel) to resize bottom tray properly. 
          layout="topleft"
          left="0"
          min_width="4"
+         name="DUMMY"
          top="0"
-         width="5"/>
+         width="4"/>
         <layout_panel
          auto_resize="false"
          follows="right"
@@ -327,18 +341,17 @@ as for parent layout_panel (chiclet_list_panel) to resize bottom tray properly. 
          min_height="28"
          top="0"
          name="im_well_panel"
-         width="35"
-         min_width="35"
+         width="37"
+         min_width="37"
          user_resize="false">
             <chiclet_im_well
              max_displayed_count="99"
-             flash_period="0.3"
              follows="right"
-             height="23"
+             height="28"
              layout="topleft"
              left="0"
              name="im_well"
-             top="5"
+             top="0"
              width="35">
              <!--
 Emulate 4 states of button by background images, see details in EXT-3147. The same should be for notification_well button
@@ -350,7 +363,6 @@ image_pressed_selected  "Lit" + "Selected" - there are new messages and the Well
              -->
                 <button
                  auto_resize="true"
-                 flash_color="ChicletFlashColor"
                  follows="right"
                  halign="center"
                  height="23"
@@ -358,12 +370,12 @@ image_pressed_selected  "Lit" + "Selected" - there are new messages and the Well
                  image_overlay_alignment="center"
                  image_pressed="WellButton_Lit"
                  image_pressed_selected="WellButton_Lit_Selected"
-                 image_selected="PushButton_Selected_Press"
+                 image_selected="PushButton_Press"
                  label_color="Black"
                  left="0"
                  name="Unread IM messages"
                  tool_tip="Conversations"
-                 width="35" >
+                 width="34" >
                     <button.init_callback
                      function="Button.SetDockableFloaterToggle"
                      parameter="im_well_window" />
@@ -377,24 +389,11 @@ image_pressed_selected  "Lit" + "Selected" - there are new messages and the Well
          layout="topleft"
          min_height="28"
          top="0"
-         left_pad="3"
          name="notification_well_panel"
-         width="40"
-         min_width="40"
+         width="37"
+         min_width="37"
          user_resize="false">
-         <icon
-         auto_resize="false"
-         color="0 0 0 0"
-         follows="left|right"
-         height="10"
-         image_name="spacer24.tga"
-         layout="topleft"
-         left="0"
-         min_width="4"
-         top="0"
-         width="5" />
             <chiclet_notification
-             flash_period="0.25"
              follows="right"
              height="23"
              layout="topleft"
@@ -407,35 +406,22 @@ image_pressed_selected  "Lit" + "Selected" - there are new messages and the Well
                  bottom_pad="3"
                  image_pressed="WellButton_Lit"
                  image_pressed_selected="WellButton_Lit_Selected"
-                 image_selected="PushButton_Selected_Press"
+                 image_selected="PushButton_Press"
               auto_resize="true"
                halign="center"
                height="23"
                follows="right"
-               flash_color="ChicletFlashColor"
                 label_color="Black"
                left="0"
                name="Unread"
                image_overlay="Notices_Unread"
                image_overlay_alignment="center"
-               pad_right="15"
                tool_tip="Notifications"
-               width="35" >
+               width="34" >
                   <button.init_callback
                    function="Button.SetDockableFloaterToggle"
                    parameter="notification_well_window" />
               </button>
-                      <icon
-         auto_resize="false"
-         color="0 0 0 0"
-         follows="left|right"
-         height="10"
-         image_name="spacer24.tga"
-         layout="topleft"
-         left="0"
-         min_width="4"
-         top="0"
-         width="5" />
 	    </chiclet_notification>
         </layout_panel>
     </layout_stack>

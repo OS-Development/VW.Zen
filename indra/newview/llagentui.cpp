@@ -49,12 +49,10 @@
 void LLAgentUI::buildName(std::string& name)
 {
 	name.clear();
-
-	LLVOAvatarSelf* avatar_object = gAgent.getAvatarObject();
-	if (avatar_object)
+	if (isAgentAvatarValid())
 	{
-		LLNameValue *first_nv = avatar_object->getNVPair("FirstName");
-		LLNameValue *last_nv = avatar_object->getNVPair("LastName");
+		LLNameValue *first_nv = gAgentAvatarp->getNVPair("FirstName");
+		LLNameValue *last_nv = gAgentAvatarp->getNVPair("LastName");
 		if (first_nv && last_nv)
 		{
 			name = first_nv->printData() + " " + last_nv->printData();
@@ -73,7 +71,8 @@ void LLAgentUI::buildName(std::string& name)
 //static
 void LLAgentUI::buildFullname(std::string& name)
 {
-	if (gAgent.getAvatarObject()) name = gAgent.getAvatarObject()->getFullname();
+	if (isAgentAvatarValid())
+		name = gAgentAvatarp->getFullname();
 }
 
 //static
@@ -150,10 +149,16 @@ BOOL LLAgentUI::buildLocationString(std::string& str, ELocationFormat fmt,const 
 				sim_access_string.c_str());
 			break;
 		case LOCATION_FORMAT_NO_MATURITY:
-		case LOCATION_FORMAT_FULL:
 			buffer = llformat("%s (%d, %d, %d)",
 				region_name.c_str(),
 				pos_x, pos_y, pos_z);
+			break;
+		case LOCATION_FORMAT_FULL:
+			buffer = llformat("%s (%d, %d, %d)%s%s",
+				region_name.c_str(),
+				pos_x, pos_y, pos_z,
+				sim_access_string.empty() ? "" : " - ",
+				sim_access_string.c_str());
 			break;
 		}
 	}

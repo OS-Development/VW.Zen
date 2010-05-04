@@ -17,6 +17,7 @@
      follows="left|bottom"
      height="23"
      label="Clear History"
+     tool_tip="Clear login image, last location, teleport history, web, and texture cache"
      layout="topleft"
      left="30"
      name="clear_cache"
@@ -68,41 +69,7 @@
      name="auto_disengage_mic_check"
      top_pad="10"
      width="350" />
-    <check_box
-     control_name="CookiesEnabled"
-     height="16"
-     label="Accept cookies"
-     layout="topleft"
-     left="30"
-     name="cookies_enabled"
-     top_pad="10"
-     width="350" />
-	<check_box
-     control_name="MediaEnabled"
-     height="16"
-     label="Media Enabled"
-     layout="topleft"
-     left="30"
-     name="media_enabled"
-     top_pad="10"
-     width="350">
-       <check_box.commit_callback
-          function="Pref.MediaEnabled" />
-    </check_box>
-	<check_box
-	 enabled_control="MediaEnabled"
-     control_name="ParcelMediaAutoPlayEnable"
-     height="16"
-     label="Allow Media to auto-play"
-     layout="topleft"
-     left="30"
-     name="autoplay_enabled"
-     top_pad="10"
-     width="350">
-       <check_box.commit_callback
-          function="Pref.ParcelMediaAutoPlayEnable" />
-    </check_box>
-   <text
+	<text
       type="string"
     length="1"
     follows="left|top"
@@ -117,7 +84,7 @@
     </text>
     <check_box
 	 enabled="false"
-     control_name="LogChat"
+     control_name="LogNearbyChat"
      height="16"
      label="Save nearby chat logs on my computer"
      layout="topleft"
@@ -162,8 +129,7 @@
     </text>    
     <line_editor
      bottom="366"
-     control_name="InstantMessageLogFolder"
-     enabled="false"
+     control_name="InstantMessageLogPath"
      follows="top|left|right"
      halign="right"
      height="23"

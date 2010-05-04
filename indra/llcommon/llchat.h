@@ -43,7 +43,8 @@ typedef enum e_chat_source_type
 {
 	CHAT_SOURCE_SYSTEM = 0,
 	CHAT_SOURCE_AGENT = 1,
-	CHAT_SOURCE_OBJECT = 2
+	CHAT_SOURCE_OBJECT = 2,
+	CHAT_SOURCE_UNKNOWN = 3
 } EChatSourceType;
 
 typedef enum e_chat_type
@@ -68,7 +69,8 @@ typedef enum e_chat_audible_level
 typedef enum e_chat_style
 {
 	CHAT_STYLE_NORMAL,
-	CHAT_STYLE_IRC
+	CHAT_STYLE_IRC,
+	CHAT_STYLE_HISTORY
 }EChatStyle;
 
 // A piece of chat
@@ -79,6 +81,7 @@ public:
 	:	mText(text),
 		mFromName(),
 		mFromID(),
+		mNotifId(),
 		mSourceType(CHAT_SOURCE_AGENT),
 		mChatType(CHAT_TYPE_NORMAL),
 		mAudible(CHAT_AUDIBLE_FULLY),
@@ -87,12 +90,14 @@ public:
 		mTimeStr(),
 		mPosAgent(),
 		mURL(),
-		mChatStyle(CHAT_STYLE_NORMAL)
+		mChatStyle(CHAT_STYLE_NORMAL),
+		mSessionID()
 	{ }
 	
 	std::string		mText;		// UTF-8 line of text
 	std::string		mFromName;	// agent or object name
 	LLUUID			mFromID;	// agent id or object id
+	LLUUID			mNotifId;
 	EChatSourceType	mSourceType;
 	EChatType		mChatType;
 	EChatAudible	mAudible;
@@ -102,6 +107,7 @@ public:
 	LLVector3		mPosAgent;
 	std::string		mURL;
 	EChatStyle		mChatStyle;
+	LLUUID			mSessionID;
 };
 
 #endif

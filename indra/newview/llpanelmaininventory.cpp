@@ -34,16 +34,19 @@
 #include "llpanelmaininventory.h"
 
 #include "llagent.h"
+#include "llavataractions.h"
 #include "lldndbutton.h"
 #include "lleconomy.h"
 #include "llfilepicker.h"
 #include "llfloaterinventory.h"
 #include "llinventorybridge.h"
 #include "llinventoryfunctions.h"
+#include "llinventorymodelbackgroundfetch.h"
 #include "llinventorypanel.h"
 #include "llfiltereditor.h"
 #include "llfloaterreg.h"
 #include "llpreviewtexture.h"
+#include "llresmgr.h"
 #include "llscrollcontainer.h"
 #include "llsdserialize.h"
 #include "llspinctrl.h"
@@ -114,10 +117,11 @@ LLPanelMainInventory::LLPanelMainInventory()
 	mCommitCallbackRegistrar.add("Inventory.ShowFilters", boost::bind(&LLPanelMainInventory::toggleFindOptions, this));
 	mCommitCallbackRegistrar.add("Inventory.ResetFilters", boost::bind(&LLPanelMainInventory::resetFilters, this));
 	mCommitCallbackRegistrar.add("Inventory.SetSortBy", boost::bind(&LLPanelMainInventory::setSortBy, this, _2));
+	mCommitCallbackRegistrar.add("Inventory.Share",  boost::bind(&LLAvatarActions::shareWithAvatars));
 
 	// Controls
 	// *TODO: Just use persistant settings for each of these
-	U32 sort_order = gSavedSettings.getU32("InventorySortOrder");
+	U32 sort_order = gSavedSettings.getU32(LLInventoryPanel::DEFAULT_SORT_ORDER);
 	BOOL sort_by_name = ! ( sort_order & LLInventoryFilter::SO_DATE );
 	BOOL sort_folders_by_name = ( sort_order & LLInventoryFilter::SO_FOLDERS_BY_NAME );
 	BOOL sort_system_folders_to_top = ( sort_order & LLInventoryFilter::SO_SYSTEM_FOLDERS_TO_TOP );
@@ -145,7 +149,7 @@ BOOL LLPanelMainInventory::postBuild()
 	if (mActivePanel)
 	{
 		// "All Items" is the previous only view, so it gets the InventorySortOrder
-		mActivePanel->setSortOrder(gSavedSettings.getU32("InventorySortOrder"));
+		mActivePanel->setSortOrder(gSavedSettings.getU32(LLInventoryPanel::DEFAULT_SORT_ORDER));
 		mActivePanel->getFilter()->markDefault();
 		mActivePanel->getRootFolder()->applyFunctorRecursively(*mSavedFolderState);
 		mActivePanel->setSelectCallback(boost::bind(&LLPanelMainInventory::onSelectionChange, this, mActivePanel, _1, _2));
@@ -418,12 +422,10 @@ void LLPanelMainInventory::onFilterEdit(const std::string& search_string )
 		return;
 	}
 
-	gInventory.startBackgroundFetch();
+	LLInventoryModelBackgroundFetch::instance().start();
 
-	std::string uppercase_search_string = search_string;
-	LLStringUtil::toUpper(uppercase_search_string);
-	mFilterSubString = uppercase_search_string;
-	if (mActivePanel->getFilterSubString().empty() && uppercase_search_string.empty())
+	mFilterSubString = search_string;
+	if (mActivePanel->getFilterSubString().empty() && mFilterSubString.empty())
 	{
 			// current filter and new filter empty, do nothing
 			return;
@@ -437,7 +439,7 @@ void LLPanelMainInventory::onFilterEdit(const std::string& search_string )
 	}
 
 	// set new filter string
-	mActivePanel->setFilterSubString(mFilterSubString);
+	setFilterSubString(mFilterSubString);
 }
 
 
@@ -500,7 +502,7 @@ void LLPanelMainInventory::onFilterSelected()
 	if (filter->isActive())
 	{
 		// If our filter is active we may be the first thing requiring a fetch so we better start it here.
-		gInventory.startBackgroundFetch();
+		LLInventoryModelBackgroundFetch::instance().start();
 	}
 	setFilterTextFromFilter();
 }
@@ -540,7 +542,7 @@ BOOL LLPanelMainInventory::handleDragAndDrop(S32 x, S32 y, MASK mask, BOOL drop,
 // virtual
 void LLPanelMainInventory::changed(U32)
 {
-	// empty, but must have this defined for abstract base class.
+	updateItemcountText();
 }
 
 
@@ -552,6 +554,34 @@ void LLPanelMainInventory::draw()
 		mFilterEditor->setText(mFilterSubString);
 	}	
 	LLPanel::draw();
+	updateItemcountText();
+}
+
+void LLPanelMainInventory::updateItemcountText()
+{
+	LLLocale locale(LLLocale::USER_LOCALE);
+	std::string item_count_string;
+	LLResMgr::getInstance()->getIntegerString(item_count_string, gInventory.getItemCount());
+
+	LLStringUtil::format_map_t string_args;
+	string_args["[ITEM_COUNT]"] = item_count_string;
+	string_args["[FILTER]"] = getFilterText();
+
+	std::string text = "";
+
+	if (LLInventoryModelBackgroundFetch::instance().backgroundFetchActive())
+	{
+		text = getString("ItemcountFetching", string_args);
+	}
+	else if (LLInventoryModelBackgroundFetch::instance().isEverythingFetched())
+	{
+		text = getString("ItemcountCompleted", string_args);
+	}
+	else
+	{
+		text = getString("ItemcountUnknown");
+	}
+	childSetText("ItemcountText",text);
 }
 
 void LLPanelMainInventory::setFilterTextFromFilter() 
@@ -573,7 +603,7 @@ void LLPanelMainInventory::toggleFindOptions()
 		if (parent_floater) // Seraph: Fix this, shouldn't be null even for sidepanel
 			parent_floater->addDependentFloater(mFinderHandle);
 		// start background fetch of folders
-		gInventory.startBackgroundFetch();
+		LLInventoryModelBackgroundFetch::instance().start();
 	}
 	else
 	{
@@ -1003,7 +1033,10 @@ void LLPanelMainInventory::onCustomAction(const LLSD& userdata)
 		}
 		const LLUUID item_id = current_item->getListener()->getUUID();
 		LLViewerInventoryItem *item = gInventory.getItem(item_id);
-		item->regenerateLink();
+		if (item)
+		{
+			item->regenerateLink();
+		}
 		active_panel->setSelection(item_id, TAKE_FOCUS_NO);
 	}
 	if (command_name == "find_original")
@@ -1013,7 +1046,7 @@ void LLPanelMainInventory::onCustomAction(const LLSD& userdata)
 		{
 			return;
 		}
-		current_item->getListener()->performAction(getActivePanel()->getRootFolder(), getActivePanel()->getModel(), "goto");
+		current_item->getListener()->performAction(getActivePanel()->getModel(), "goto");
 	}
 
 	if (command_name == "find_links")
@@ -1058,20 +1091,24 @@ BOOL LLPanelMainInventory::isActionEnabled(const LLSD& userdata)
 	if (command_name == "delete")
 	{
 		BOOL can_delete = FALSE;
-		LLFolderView *folder = getActivePanel()->getRootFolder();
-		if (folder)
+		LLFolderView* root = getActivePanel()->getRootFolder();
+		if (root)
 		{
 			can_delete = TRUE;
 			std::set<LLUUID> selection_set;
-			folder->getSelectionList(selection_set);
+			root->getSelectionList(selection_set);
 			if (selection_set.empty()) return FALSE;
 			for (std::set<LLUUID>::iterator iter = selection_set.begin();
 				 iter != selection_set.end();
 				 ++iter)
 			{
 				const LLUUID &item_id = (*iter);
-				LLFolderViewItem *item = folder->getItemByID(item_id);
-				can_delete &= item->getListener()->isItemRemovable();
+				LLFolderViewItem *item = root->getItemByID(item_id);
+				const LLFolderViewEventListener *listener = item->getListener();
+				llassert(listener);
+				if (!listener) return FALSE;
+				can_delete &= listener->isItemRemovable();
+				can_delete &= !listener->isItemInTrash();
 			}
 			return can_delete;
 		}

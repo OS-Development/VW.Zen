@@ -41,6 +41,7 @@
 #include "llagentwearables.h"
 #include "llcallingcard.h"
 #include "llfloaterreg.h"
+#include "llinventorydefines.h"
 #include "llsdserialize.h"
 #include "llfiltereditor.h"
 #include "llspinctrl.h"
@@ -76,7 +77,6 @@
 #include "lltabcontainer.h"
 #include "lltooldraganddrop.h"
 #include "lluictrlfactory.h"
-#include "llviewerinventory.h"
 #include "llviewermessage.h"
 #include "llviewerobjectlist.h"
 #include "llviewerregion.h"
@@ -86,6 +86,217 @@
 
 BOOL LLInventoryState::sWearNewClothing = FALSE;
 LLUUID LLInventoryState::sWearNewClothingTransactionID;
+
+
+///----------------------------------------------------------------------------
+/// LLInventoryCollectFunctor implementations
+///----------------------------------------------------------------------------
+
+// static
+bool LLInventoryCollectFunctor::itemTransferCommonlyAllowed(LLInventoryItem* item)
+{
+	if (!item)
+		return false;
+
+	bool allowed = false;
+
+	switch(item->getType())
+	{
+		case LLAssetType::AT_CALLINGCARD:
+			// not allowed
+			break;
+			
+		case LLAssetType::AT_OBJECT:
+			if (isAgentAvatarValid() && !gAgentAvatarp->isWearingAttachment(item->getUUID()))
+			{
+				allowed = true;
+			}
+			break;
+			
+		case LLAssetType::AT_BODYPART:
+		case LLAssetType::AT_CLOTHING:
+			if(!gAgentWearables.isWearingItem(item->getUUID()))
+			{
+				allowed = true;
+			}
+			break;
+		default:
+			allowed = true;
+			break;
+	}
+	
+	return allowed;
+}
+
+bool LLIsType::operator()(LLInventoryCategory* cat, LLInventoryItem* item)
+{
+	if(mType == LLAssetType::AT_CATEGORY)
+	{
+		if(cat) return TRUE;
+	}
+	if(item)
+	{
+		if(item->getType() == mType) return TRUE;
+	}
+	return FALSE;
+}
+
+bool LLIsNotType::operator()(LLInventoryCategory* cat, LLInventoryItem* item)
+{
+	if(mType == LLAssetType::AT_CATEGORY)
+	{
+		if(cat) return FALSE;
+	}
+	if(item)
+	{
+		if(item->getType() == mType) return FALSE;
+		else return TRUE;
+	}
+	return TRUE;
+}
+
+bool LLIsTypeWithPermissions::operator()(LLInventoryCategory* cat, LLInventoryItem* item)
+{
+	if(mType == LLAssetType::AT_CATEGORY)
+	{
+		if(cat) 
+		{
+			return TRUE;
+		}
+	}
+	if(item)
+	{
+		if(item->getType() == mType)
+		{
+			LLPermissions perm = item->getPermissions();
+			if ((perm.getMaskBase() & mPerm) == mPerm)
+			{
+				return TRUE;
+			}
+		}
+	}
+	return FALSE;
+}
+
+bool LLBuddyCollector::operator()(LLInventoryCategory* cat,
+								  LLInventoryItem* item)
+{
+	if(item)
+	{
+		if((LLAssetType::AT_CALLINGCARD == item->getType())
+		   && (!item->getCreatorUUID().isNull())
+		   && (item->getCreatorUUID() != gAgent.getID()))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+
+bool LLUniqueBuddyCollector::operator()(LLInventoryCategory* cat,
+										LLInventoryItem* item)
+{
+	if(item)
+	{
+		if((LLAssetType::AT_CALLINGCARD == item->getType())
+ 		   && (item->getCreatorUUID().notNull())
+ 		   && (item->getCreatorUUID() != gAgent.getID()))
+		{
+			mSeen.insert(item->getCreatorUUID());
+			return true;
+		}
+	}
+	return false;
+}
+
+
+bool LLParticularBuddyCollector::operator()(LLInventoryCategory* cat,
+											LLInventoryItem* item)
+{
+	if(item)
+	{
+		if((LLAssetType::AT_CALLINGCARD == item->getType())
+		   && (item->getCreatorUUID() == mBuddyID))
+		{
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+
+bool LLNameCategoryCollector::operator()(
+	LLInventoryCategory* cat, LLInventoryItem* item)
+{
+	if(cat)
+	{
+		if (!LLStringUtil::compareInsensitive(mName, cat->getName()))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+bool LLFindCOFValidItems::operator()(LLInventoryCategory* cat,
+									 LLInventoryItem* item)
+{
+	// Valid COF items are:
+	// - links to wearables (body parts or clothing)
+	// - links to attachments
+	// - links to gestures
+	// - links to ensemble folders
+	LLViewerInventoryItem *linked_item = ((LLViewerInventoryItem*)item)->getLinkedItem();
+	if (linked_item)
+	{
+		LLAssetType::EType type = linked_item->getType();
+		return (type == LLAssetType::AT_CLOTHING ||
+				type == LLAssetType::AT_BODYPART ||
+				type == LLAssetType::AT_GESTURE ||
+				type == LLAssetType::AT_OBJECT);
+	}
+	else
+	{
+		LLViewerInventoryCategory *linked_category = ((LLViewerInventoryItem*)item)->getLinkedCategory();
+		// BAP remove AT_NONE support after ensembles are fully working?
+		return (linked_category &&
+				((linked_category->getPreferredType() == LLFolderType::FT_NONE) ||
+				 (LLFolderType::lookupIsEnsembleType(linked_category->getPreferredType()))));
+	}
+}
+
+bool LLFindWearables::operator()(LLInventoryCategory* cat,
+								 LLInventoryItem* item)
+{
+	if(item)
+	{
+		if((item->getType() == LLAssetType::AT_CLOTHING)
+		   || (item->getType() == LLAssetType::AT_BODYPART))
+		{
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+///----------------------------------------------------------------------------
+/// LLAssetIDMatches 
+///----------------------------------------------------------------------------
+bool LLAssetIDMatches::operator()(LLInventoryCategory* cat, LLInventoryItem* item)
+{
+	return (item && item->getAssetUUID() == mAssetID);
+}
+
+///----------------------------------------------------------------------------
+/// LLLinkedItemIDMatches 
+///----------------------------------------------------------------------------
+bool LLLinkedItemIDMatches::operator()(LLInventoryCategory* cat, LLInventoryItem* item)
+{
+	return (item && 
+			(item->getIsLinkType()) &&
+			(item->getLinkedUUID() == mBaseItemID)); // A linked item's assetID will be the compared-to item's itemID.
+}
 
 void LLSaveFolderState::setApply(BOOL apply)
 {
@@ -196,6 +407,62 @@ void LLOpenFoldersWithSelection::doFolder(LLFolderViewFolder* folder)
 	}
 }
 
+static void assign_clothing_bodypart_icon(EInventoryIcon &idx, U32 attachment_point)
+{
+	const EWearableType wearable_type = EWearableType(LLInventoryItemFlags::II_FLAGS_WEARABLES_MASK & attachment_point);
+	switch(wearable_type)
+	{
+		case WT_SHAPE:
+			idx = BODYPART_SHAPE_ICON_NAME;
+			break;
+		case WT_SKIN:
+			idx = BODYPART_SKIN_ICON_NAME;
+			break;
+		case WT_HAIR:
+			idx = BODYPART_HAIR_ICON_NAME;
+			break;
+		case WT_EYES:
+			idx = BODYPART_EYES_ICON_NAME;
+			break;
+		case WT_SHIRT:
+			idx = CLOTHING_SHIRT_ICON_NAME;
+			break;
+		case WT_PANTS:
+			idx = CLOTHING_PANTS_ICON_NAME;
+			break;
+		case WT_SHOES:
+			idx = CLOTHING_SHOES_ICON_NAME;
+			break;
+		case WT_SOCKS:
+			idx = CLOTHING_SOCKS_ICON_NAME;
+			break;
+		case WT_JACKET:
+			idx = CLOTHING_JACKET_ICON_NAME;
+			break;
+		case WT_GLOVES:
+			idx = CLOTHING_GLOVES_ICON_NAME;
+			break;
+		case WT_UNDERSHIRT:
+			idx = CLOTHING_UNDERSHIRT_ICON_NAME;
+			break;
+		case WT_UNDERPANTS:
+			idx = CLOTHING_UNDERPANTS_ICON_NAME;
+			break;
+		case WT_SKIRT:
+			idx = CLOTHING_SKIRT_ICON_NAME;
+			break;
+		case WT_ALPHA:
+			idx = CLOTHING_ALPHA_ICON_NAME;
+			break;
+		case WT_TATTOO:
+			idx = CLOTHING_TATTOO_ICON_NAME;
+			break;
+		default:
+			break;
+	}
+}
+										  
+
 const std::string& get_item_icon_name(LLAssetType::EType asset_type,
 							 LLInventoryType::EType inventory_type,
 							 U32 attachment_point,
@@ -250,62 +517,11 @@ const std::string& get_item_icon_name(LLAssetType::EType asset_type,
 		break;
 	case LLAssetType::AT_CLOTHING:
 		idx = CLOTHING_ICON_NAME;
-	case LLAssetType::AT_BODYPART :
-		if(LLAssetType::AT_BODYPART == asset_type)
-		{
-			idx = BODYPART_ICON_NAME;
-		}
-		switch(LLInventoryItem::II_FLAGS_WEARABLES_MASK & attachment_point)
-		{
-		case WT_SHAPE:
-			idx = BODYPART_SHAPE_ICON_NAME;
-			break;
-		case WT_SKIN:
-			idx = BODYPART_SKIN_ICON_NAME;
-			break;
-		case WT_HAIR:
-			idx = BODYPART_HAIR_ICON_NAME;
-			break;
-		case WT_EYES:
-			idx = BODYPART_EYES_ICON_NAME;
-			break;
-		case WT_SHIRT:
-			idx = CLOTHING_SHIRT_ICON_NAME;
-			break;
-		case WT_PANTS:
-			idx = CLOTHING_PANTS_ICON_NAME;
-			break;
-		case WT_SHOES:
-			idx = CLOTHING_SHOES_ICON_NAME;
-			break;
-		case WT_SOCKS:
-			idx = CLOTHING_SOCKS_ICON_NAME;
-			break;
-		case WT_JACKET:
-			idx = CLOTHING_JACKET_ICON_NAME;
-			break;
-		case WT_GLOVES:
-			idx = CLOTHING_GLOVES_ICON_NAME;
-			break;
-		case WT_UNDERSHIRT:
-			idx = CLOTHING_UNDERSHIRT_ICON_NAME;
-			break;
-		case WT_UNDERPANTS:
-			idx = CLOTHING_UNDERPANTS_ICON_NAME;
-			break;
-		case WT_SKIRT:
-			idx = CLOTHING_SKIRT_ICON_NAME;
-			break;
-		case WT_ALPHA:
-			idx = CLOTHING_ALPHA_ICON_NAME;
-			break;
-		case WT_TATTOO:
-			idx = CLOTHING_TATTOO_ICON_NAME;
-			break;
-		default:
-			// no-op, go with choice above
-			break;
-		}
+		assign_clothing_bodypart_icon(idx, attachment_point);
+		break;
+	case LLAssetType::AT_BODYPART:
+		idx = BODYPART_ICON_NAME;
+		assign_clothing_bodypart_icon(idx, attachment_point);
 		break;
 	case LLAssetType::AT_NOTECARD:
 		idx = NOTECARD_ICON_NAME;
@@ -348,8 +564,7 @@ BOOL get_is_item_worn(const LLUUID& id)
 	{
 		case LLAssetType::AT_OBJECT:
 		{
-			const LLVOAvatarSelf* my_avatar = gAgent.getAvatarObject();
-			if(my_avatar && my_avatar->isWearingAttachment(item->getLinkedUUID()))
+			if (isAgentAvatarValid() && gAgentAvatarp->isWearingAttachment(item->getLinkedUUID()))
 				return TRUE;
 			break;
 		}
@@ -359,7 +574,7 @@ BOOL get_is_item_worn(const LLUUID& id)
 				return TRUE;
 			break;
 		case LLAssetType::AT_GESTURE:
-			if (LLGestureManager::instance().isGestureActive(item->getLinkedUUID()))
+			if (LLGestureMgr::instance().isGestureActive(item->getLinkedUUID()))
 				return TRUE;
 			break;
 		default:

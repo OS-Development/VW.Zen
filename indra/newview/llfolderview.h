@@ -62,6 +62,7 @@ class LLLineEditor;
 class LLMenuGL;
 class LLScrollContainer;
 class LLUICtrl;
+class LLTextBox;
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Class LLFolderViewFunctor
@@ -92,8 +93,9 @@ class LLFolderView : public LLFolderViewFolder, public LLEditMenuHandler
 public:
 	struct Params : public LLInitParam::Block<Params, LLFolderViewFolder::Params>
 	{
-		Mandatory<LLPanel*> parent_panel;
-		Optional<LLUUID>	task_id;
+		Mandatory<LLPanel*>	    parent_panel;
+		Optional<LLUUID>        task_id;
+		Optional<std::string>   title;
 	};
 	LLFolderView(const Params&);
 	virtual ~LLFolderView( void );
@@ -266,6 +268,9 @@ public:
 	LLPanel* getParentPanel() { return mParentPanel; }
 	// DEBUG only
 	void dumpSelectionInformation();
+
+	virtual S32	notify(const LLSD& info) ;
+	void setEnableScroll(bool enable_scroll) { mEnableScroll = enable_scroll; }
 	
 private:
 	void updateRenamerPosition();
@@ -274,10 +279,13 @@ protected:
 	LLScrollContainer* mScrollContainer;  // NULL if this is not a child of a scroll container.
 
 	void commitRename( const LLSD& data );
-	static void onRenamerLost( LLFocusableElement* renamer);
+	void onRenamerLost( LLFocusableElement* renamer);
 
 	void finishRenamingItem( void );
 	void closeRenamer( void );
+
+	bool selectFirstItem();
+	bool selectLastItem();
 	
 protected:
 	LLHandle<LLView>					mPopupMenuHandle;
@@ -294,6 +302,7 @@ protected:
 	LLLineEditor*					mRenamer;
 
 	BOOL							mNeedsScroll;
+	bool							mEnableScroll;
 	BOOL							mPinningSelectedItem;
 	LLRect							mScrollConstraintRect;
 	BOOL							mNeedsAutoSelect;
@@ -322,7 +331,7 @@ protected:
 	
 	LLUUID							mSelectThisID; // if non null, select this item
 	
-	LLPanel*				mParentPanel;
+	LLPanel*						mParentPanel;
 
 	/**
 	 * Is used to determine if we need to cut text In LLFolderViewItem to avoid horizontal scroll.
@@ -339,6 +348,8 @@ protected:
 	
 public:
 	static F32 sAutoOpenTime;
+	LLTextBox*						mStatusTextBox;
+
 };
 
 bool sort_item_name(LLFolderViewItem* a, LLFolderViewItem* b);

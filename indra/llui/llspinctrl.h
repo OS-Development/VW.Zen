@@ -81,8 +81,8 @@ public:
 	virtual void	setPrecision(S32 precision);
 
 	void			setLabel(const LLStringExplicit& label);
-	void			setLabelColor(const LLColor4& c)			{ mTextEnabledColor = c; }
-	void			setDisabledLabelColor(const LLColor4& c)	{ mTextDisabledColor = c; }
+	void			setLabelColor(const LLColor4& c)			{ mTextEnabledColor = c; updateLabelColor(); }
+	void			setDisabledLabelColor(const LLColor4& c)	{ mTextDisabledColor = c; updateLabelColor();}
 	void			setAllowEdit(BOOL allow_edit);
 
 	virtual void	onTabInto();
@@ -94,6 +94,7 @@ public:
 
 	virtual BOOL	handleScrollWheel(S32 x,S32 y,S32 clicks);
 	virtual BOOL	handleKeyHere(KEY key, MASK mask);
+	virtual BOOL	handleDoubleClick(S32 x, S32 y, MASK mask);
 
 	void			onEditorCommit(const LLSD& data);
 	static void		onEditorGainFocus(LLFocusableElement* caller, void *userdata);
@@ -103,6 +104,7 @@ public:
 	void			onDownBtn(const LLSD& data);
 
 private:
+	void			updateLabelColor();
 	void			updateEditor();
 	void			reportInvalidData();
 

@@ -35,6 +35,7 @@ set(llcommon_SOURCE_FILES
     llbase32.cpp
     llbase64.cpp
     llcommon.cpp
+    llcommonutils.cpp
     llcoros.cpp
     llcrc.cpp
     llcriticaldamp.cpp
@@ -50,7 +51,8 @@ set(llcommon_SOURCE_FILES
     lleventdispatcher.cpp
     lleventfilter.cpp
     llevents.cpp
-    llfasttimer.cpp
+    lleventtimer.cpp
+    llfasttimer_class.cpp
     llfile.cpp
     llfindlocale.cpp
     llfixedbuffer.cpp
@@ -123,6 +125,7 @@ set(llcommon_HEADER_FILES
     llchat.h
     llclickaction.h
     llcommon.h
+    llcommonutils.h
     llcoros.h
     llcrc.h
     llcriticaldamp.h
@@ -163,7 +166,6 @@ set(llcommon_HEADER_FILES
     llheartbeat.h
     llhttpstatuscodes.h
     llindexedqueue.h
-    llinstancetracker.h
     llinstancetracker.h
     llkeythrottle.h
     lllazy.h
@@ -249,7 +251,7 @@ list(APPEND llcommon_SOURCE_FILES ${llcommon_HEADER_FILES})
 
 if(LLCOMMON_LINK_SHARED)
     add_library (llcommon SHARED ${llcommon_SOURCE_FILES})
-	ll_stage_sharedlib(llcommon)
+    ll_stage_sharedlib(llcommon)
 else(LLCOMMON_LINK_SHARED)
     add_library (llcommon ${llcommon_SOURCE_FILES})
 endif(LLCOMMON_LINK_SHARED)

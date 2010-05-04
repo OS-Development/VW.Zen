@@ -95,7 +95,7 @@ void LLDockableFloater::toggleInstance(const LLSD& sdname)
 	LLDockableFloater* instance =
 			dynamic_cast<LLDockableFloater*> (LLFloaterReg::findInstance(name));
 	// if floater closed or docked
-	if (instance == NULL || instance != NULL && instance->isDocked())
+	if (instance == NULL || (instance && instance->isDocked()))
 	{
 		LLFloaterReg::toggleInstance(name, key);
 		// restore button toggle state
@@ -146,7 +146,7 @@ void LLDockableFloater::setVisible(BOOL visible)
 
 	if (visible)
 	{
-		LLFloater::setFrontmost(TRUE);
+		LLFloater::setFrontmost(getAutoFocus());
 	}
 	LLFloater::setVisible(visible);
 }
@@ -202,10 +202,6 @@ void LLDockableFloater::setDocked(bool docked, bool pop_on_undock)
 			translate(0, UNDOCK_LEAP_HEIGHT);
 		}
 	}
-	else
-	{
-		docked = false;
-	}
 
 	LLFloater::setDocked(docked, pop_on_undock);
 }
@@ -226,7 +222,7 @@ void LLDockableFloater::draw()
 void LLDockableFloater::setDockControl(LLDockControl* dockControl)
 {
 	mDockControl.reset(dockControl);
-	setDocked(mDockControl.get() != NULL && mDockControl.get()->isDockVisible());
+	setDocked(isDocked());
 }
 
 const LLUIImagePtr& LLDockableFloater::getDockTongue()

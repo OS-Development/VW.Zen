@@ -34,6 +34,7 @@
 
 #include "llaudioengine.h"
 #include "llagent.h"
+#include "llagentcamera.h"
 #include "llappviewer.h"
 #include "llvieweraudio.h"
 #include "llviewercamera.h"
@@ -51,7 +52,7 @@ void init_audio()
 		llwarns << "Failed to create an appropriate Audio Engine" << llendl;
 		return;
 	}
-	LLVector3d lpos_global = gAgent.getCameraPositionGlobal();
+	LLVector3d lpos_global = gAgentCamera.getCameraPositionGlobal();
 	LLVector3 lpos_global_f;
 
 	lpos_global_f.setVec(lpos_global);
@@ -144,7 +145,7 @@ void audio_update_volume(bool force_update)
 	{		
 		F32 music_volume = gSavedSettings.getF32("AudioLevelMusic");
 		BOOL music_muted = gSavedSettings.getBOOL("MuteMusic");
-		music_volume = mute_volume * master_volume * (music_volume*music_volume);
+		music_volume = mute_volume * master_volume * music_volume;
 		gAudiop->setInternetStreamGain ( music_muted ? 0.f : music_volume );
 	
 	}
@@ -152,7 +153,7 @@ void audio_update_volume(bool force_update)
 	// Streaming Media
 	F32 media_volume = gSavedSettings.getF32("AudioLevelMedia");
 	BOOL media_muted = gSavedSettings.getBOOL("MuteMedia");
-	media_volume = mute_volume * master_volume * (media_volume*media_volume);
+	media_volume = mute_volume * master_volume * media_volume;
 	LLViewerMedia::setVolume( media_muted ? 0.0f : media_volume );
 
 	// Voice
@@ -180,7 +181,7 @@ void audio_update_listener()
 	if (gAudiop)
 	{
 		// update listener position because agent has moved	
-		LLVector3d lpos_global = gAgent.getCameraPositionGlobal();		
+		LLVector3d lpos_global = gAgentCamera.getCameraPositionGlobal();		
 		LLVector3 lpos_global_f;
 		lpos_global_f.setVec(lpos_global);
 	
@@ -203,7 +204,7 @@ void audio_update_wind(bool force_update)
 	if (region)
 	{
 		static F32 last_camera_water_height = -1000.f;
-		LLVector3 camera_pos = gAgent.getCameraPositionAgent();
+		LLVector3 camera_pos = gAgentCamera.getCameraPositionAgent();
 		F32 camera_water_height = camera_pos.mV[VZ] - region->getWaterHeight();
 		
 		//
@@ -242,10 +243,29 @@ void audio_update_wind(bool force_update)
 		// outside the fade-in.
 		F32 master_volume  = gSavedSettings.getBOOL("MuteAudio") ? 0.f : gSavedSettings.getF32("AudioLevelMaster");
 		F32 ambient_volume = gSavedSettings.getBOOL("MuteAmbient") ? 0.f : gSavedSettings.getF32("AudioLevelAmbient");
+		F32 max_wind_volume = master_volume * ambient_volume;
 
-		F32 wind_volume = master_volume * ambient_volume;
-		gAudiop->mMaxWindGain = wind_volume;
-		
+		const F32 WIND_SOUND_TRANSITION_TIME = 2.f;
+		// amount to change volume this frame
+		F32 volume_delta = (LLFrameTimer::getFrameDeltaTimeF32() / WIND_SOUND_TRANSITION_TIME) * max_wind_volume;
+		if (force_update) 
+		{
+			// initialize wind volume (force_update) by using large volume_delta
+			// which is sufficient to completely turn off or turn on wind noise
+			volume_delta = 1.f;
+		}
+
+		// mute wind when not flying
+		if (gAgent.getFlying())
+		{
+			// volume increases by volume_delta, up to no more than max_wind_volume
+			gAudiop->mMaxWindGain = llmin(gAudiop->mMaxWindGain + volume_delta, max_wind_volume);
+		}
+		else
+		{
+			// volume decreases by volume_delta, down to no less than 0
+			gAudiop->mMaxWindGain = llmax(gAudiop->mMaxWindGain - volume_delta, 0.f);
+		}
 		
 		last_camera_water_height = camera_water_height;
 		gAudiop->updateWind(gRelativeWindVec, camera_water_height);

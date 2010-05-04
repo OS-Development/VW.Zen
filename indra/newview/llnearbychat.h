@@ -47,9 +47,13 @@ public:
 	~LLNearbyChat();
 
 	BOOL	postBuild			();
-	void	addMessage			(const LLChat& message,bool archive = true);	
+
+	/** @param archive true - to save a message to the chat history log */
+	void	addMessage			(const LLChat& message,bool archive = true, const LLSD &args = LLSD());	
 	void	onNearbyChatContextMenuItemClicked(const LLSD& userdata);
 	bool	onNearbyChatCheckContextMenuItem(const LLSD& userdata);
+
+	virtual BOOL	handleMouseDown(S32 x, S32 y, MASK mask);
 
 	// focus overrides
 	/*virtual*/ void	onFocusLost();
@@ -64,6 +68,10 @@ public:
 	virtual void updateChatHistoryStyle();
 
 	static void processChatHistoryStyleUpdate(const LLSD& newvalue);
+
+	void loadHistory();
+
+	static LLNearbyChat* getInstance();
 
 private:
 	virtual void    applySavedVariables();

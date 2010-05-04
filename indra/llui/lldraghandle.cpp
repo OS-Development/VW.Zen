@@ -113,6 +113,7 @@ void LLDragHandleTop::setTitle(const std::string& title)
 		params.follows.flags(FOLLOWS_TOP | FOLLOWS_LEFT | FOLLOWS_RIGHT);
 		params.font_shadow(LLFontGL::DROP_SHADOW_SOFT);
 		params.use_ellipses = true;
+		params.allow_html = false; //cancel URL replacement in floater title
 		mTitleBox = LLUICtrlFactory::create<LLTextBox> (params);
 		addChild( mTitleBox );
 	}
@@ -247,15 +248,14 @@ void LLDragHandleTop::reshapeTitleBox()
 		return;
 	}
 	const LLFontGL* font = LLFontGL::getFontSansSerif();
-	S32 title_width = font->getWidth( mTitleBox->getText() ) + TITLE_HPAD;
-	if (getMaxTitleWidth() > 0)
-		title_width = llmin(title_width, getMaxTitleWidth());
+	S32 title_width = getRect().getWidth();
+	title_width -= LEFT_PAD + 2 * BORDER_PAD + getButtonsRect().getWidth();
 	S32 title_height = llround(font->getLineHeight());
 	LLRect title_rect;
 	title_rect.setLeftTopAndSize( 
 		LEFT_PAD, 
 		getRect().getHeight() - title_vpad,
-		getRect().getWidth() - LEFT_PAD - RIGHT_PAD,
+		title_width,
 		title_height);
 
 	// calls reshape on mTitleBox

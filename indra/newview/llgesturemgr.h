@@ -54,7 +54,7 @@ public:
 	virtual void changed() = 0;
 };
 
-class LLGestureManager : public LLSingleton<LLGestureManager>, public LLInventoryFetchObserver
+class LLGestureMgr : public LLSingleton<LLGestureMgr>, public LLInventoryFetchItemsObserver
 {
 public:
 
@@ -63,8 +63,8 @@ public:
 	typedef std::map<LLUUID, LLMultiGesture*> item_map_t;
 	typedef std::map<LLUUID, gesture_loaded_callback_t> callback_map_t;
 
-	LLGestureManager();
-	~LLGestureManager();
+	LLGestureMgr();
+	~LLGestureMgr();
 
 	void init();
 
@@ -140,10 +140,13 @@ public:
 	void removeObserver(LLGestureManagerObserver* observer);
 	void notifyObservers();
 
+	// Overriding so we can update active gesture names and notify observers 
+	void changed(U32 mask); 
+
 	BOOL matchPrefix(const std::string& in_str, std::string* out_str);
 
 	// Copy item ids into the vector
-	void getItemIDs(std::vector<LLUUID>* ids);
+	void getItemIDs(uuid_vec_t* ids);
 
 protected:
 	// Handle the processing of a single gesture

@@ -237,13 +237,16 @@ private:
 ///////////////////////////////////////////////////////////////////
 LLTextEditor::Params::Params()
 :	default_text("default_text"),
+	prevalidate_callback("prevalidate_callback"),
 	embedded_items("embedded_items", false),
 	ignore_tab("ignore_tab", true),
-	handle_edit_keys_directly("handle_edit_keys_directly", false),
 	show_line_numbers("show_line_numbers", false),
 	default_color("default_color"),
-    commit_on_focus_lost("commit_on_focus_lost", false)
-{}
+    commit_on_focus_lost("commit_on_focus_lost", false),
+	show_context_menu("show_context_menu")
+{
+	addSynonym(prevalidate_callback, "text_type");
+}
 
 LLTextEditor::LLTextEditor(const LLTextEditor::Params& p) :
 	LLTextBase(p),
@@ -254,11 +257,12 @@ LLTextEditor::LLTextEditor(const LLTextEditor::Params& p) :
 	mShowLineNumbers ( p.show_line_numbers ),
 	mCommitOnFocusLost( p.commit_on_focus_lost),
 	mAllowEmbeddedItems( p.embedded_items ),
-	mHandleEditKeysDirectly( p.handle_edit_keys_directly ),
 	mMouseDownX(0),
 	mMouseDownY(0),
 	mTabsToNextField(p.ignore_tab),
-	mContextMenu(NULL)
+	mPrevalidateFunc(p.prevalidate_callback()),
+	mContextMenu(NULL),
+	mShowContextMenu(p.show_context_menu)
 {
 	mDefaultFont = p.font;
 
@@ -299,12 +303,6 @@ LLTextEditor::~LLTextEditor()
 {
 	gFocusMgr.releaseFocusIfNeeded( this ); // calls onCommit() while LLTextEditor still valid
 
-	// Route menu back to the default
-	if( gEditMenuHandler == this )
-	{
-		gEditMenuHandler = NULL;
-	}
-
 	// Scrollbar is deleted by LLView
 	std::for_each(mUndoStack.begin(), mUndoStack.end(), DeletePointer());
 
@@ -318,6 +316,17 @@ LLTextEditor::~LLTextEditor()
 
 void LLTextEditor::setText(const LLStringExplicit &utf8str, const LLStyle::Params& input_params)
 {
+	// validate incoming text if necessary
+	if (mPrevalidateFunc)
+	{
+		LLWString test_text = utf8str_to_wstring(utf8str);
+		if (!mPrevalidateFunc(test_text))
+		{
+			// not valid text, nothing to do
+			return;
+		}
+	}
+
 	blockUndo();
 	deselect();
 
@@ -490,21 +499,6 @@ void LLTextEditor::getSegmentsInRange(LLTextEditor::segment_vec_t& segments_out,
 	}
 }
 
-// virtual
-BOOL LLTextEditor::canDeselect() const
-{
-	return hasSelection(); 
-}
-
-
-void LLTextEditor::deselect()
-{
-	mSelectionStart = 0;
-	mSelectionEnd = 0;
-	mIsSelecting = FALSE;
-}
-
-
 BOOL LLTextEditor::selectionContainsLineBreaks()
 {
 	if (hasSelection())
@@ -651,6 +645,7 @@ void LLTextEditor::selectAll()
 	mSelectionStart = getLength();
 	mSelectionEnd = 0;
 	setCursorPos(mSelectionEnd);
+	updatePrimary();
 }
 
 BOOL LLTextEditor::handleMouseDown(S32 x, S32 y, MASK mask)
@@ -718,9 +713,13 @@ BOOL LLTextEditor::handleRightMouseDown(S32 x, S32 y, MASK mask)
 	{
 		setFocus(TRUE);
 	}
-	if (!LLTextBase::handleRightMouseDown(x, y, mask))
+	// Prefer editor menu if it has selection. See EXT-6806.
+	if (hasSelection() || !LLTextBase::handleRightMouseDown(x, y, mask))
 	{
-		showContextMenu(x, y);
+		if(getShowContextMenu())
+		{
+			showContextMenu(x, y);
+		}
 	}
 	return TRUE;
 }
@@ -906,6 +905,21 @@ S32 LLTextEditor::execute( TextCmd* cmd )
 		// Push the new command is now on the top (front) of the undo stack.
 		mUndoStack.push_front(cmd);
 		mLastCmd = cmd;
+
+		bool need_to_rollback = mPrevalidateFunc 
+								&& !mPrevalidateFunc(getViewModel()->getDisplay());
+		if (need_to_rollback)
+		{
+			// get rid of this last command and clean up undo stack
+			undo();
+
+			// remove any evidence of this command from redo history
+			mUndoStack.pop_front();
+			delete cmd;
+
+			// failure, nothing changed
+			delta = 0;
+		}
 	}
 	else
 	{
@@ -990,7 +1004,7 @@ void LLTextEditor::removeCharOrTab()
 	}
 	else
 	{
-		reportBadKeystroke();
+		LLUI::reportBadKeystroke();
 	}
 }
 
@@ -1013,7 +1027,7 @@ void LLTextEditor::removeChar()
 	}
 	else
 	{
-		reportBadKeystroke();
+		LLUI::reportBadKeystroke();
 	}
 }
 
@@ -1029,7 +1043,21 @@ S32 LLTextEditor::addChar(S32 pos, llwchar wc)
 	if (mLastCmd && mLastCmd->canExtend(pos))
 	{
 		S32 delta = 0;
+		if (mPrevalidateFunc)
+		{
+			// get a copy of current text contents
+			LLWString test_string(getViewModel()->getDisplay());
+
+			// modify text contents as if this addChar succeeded
+			llassert(pos <= (S32)test_string.size());
+			test_string.insert(pos, 1, wc);
+			if (!mPrevalidateFunc( test_string))
+			{
+				return 0;
+			}
+		}
 		mLastCmd->extendAndExecute(this, pos, wc, &delta);
+
 		return delta;
 	}
 	else
@@ -1149,22 +1177,6 @@ BOOL LLTextEditor::handleSelectionKey(const KEY key, const MASK mask)
 		}
 	}
 
-	if( !handled && mHandleEditKeysDirectly )
-	{
-		if( (MASK_CONTROL & mask) && ('A' == key) )
-		{
-			if( canSelectAll() )
-			{
-				selectAll();
-			}
-			else
-			{
-				reportBadKeystroke();
-			}
-			handled = TRUE;
-		}
-	}
-
 	if( handled )
 	{
 		// take selection to 'primary' clipboard
@@ -1198,6 +1210,7 @@ BOOL LLTextEditor::handleNavigationKey(const KEY key, const MASK mask)
 
 		case KEY_DOWN:
 			changeLine( 1 );
+			deselect();
 			break;
 
 		case KEY_PAGE_DOWN:
@@ -1211,7 +1224,7 @@ BOOL LLTextEditor::handleNavigationKey(const KEY key, const MASK mask)
 		case KEY_LEFT:
 			if( hasSelection() )
 			{
-				setCursorPos(llmin( mCursorPos - 1, mSelectionStart, mSelectionEnd ));
+				setCursorPos(llmin( mSelectionStart, mSelectionEnd ));
 			}
 			else
 			{
@@ -1221,7 +1234,7 @@ BOOL LLTextEditor::handleNavigationKey(const KEY key, const MASK mask)
 				}
 				else
 				{
-					reportBadKeystroke();
+					LLUI::reportBadKeystroke();
 				}
 			}
 			break;
@@ -1229,7 +1242,7 @@ BOOL LLTextEditor::handleNavigationKey(const KEY key, const MASK mask)
 		case KEY_RIGHT:
 			if( hasSelection() )
 			{
-				setCursorPos(llmax( mCursorPos + 1, mSelectionStart, mSelectionEnd ));
+				setCursorPos(llmax( mSelectionStart, mSelectionEnd ));
 			}
 			else
 			{
@@ -1239,7 +1252,7 @@ BOOL LLTextEditor::handleNavigationKey(const KEY key, const MASK mask)
 				}
 				else
 				{
-					reportBadKeystroke();
+					LLUI::reportBadKeystroke();
 				}
 			}	
 			break;
@@ -1248,6 +1261,11 @@ BOOL LLTextEditor::handleNavigationKey(const KEY key, const MASK mask)
 			handled = FALSE;
 			break;
 		}
+	}
+	
+	if (handled)
+	{
+		deselect();
 	}
 	
 	return handled;
@@ -1284,8 +1302,6 @@ void LLTextEditor::cut()
 	S32 length = llabs( mSelectionStart - mSelectionEnd );
 	gClipboard.copyFromSubstring( getWText(), left_pos, length, mSourceID );
 	deleteSelection( FALSE );
-
-	needsReflow();
 
 	onKeyStroke();
 }
@@ -1390,8 +1406,6 @@ void LLTextEditor::pasteHelper(bool is_primary)
 	// Insert the new text into the existing text.
 	setCursorPos(mCursorPos + insert(mCursorPos, clean_string, FALSE, LLTextSegmentPtr()));
 	deselect();
-
-	needsReflow();
 
 	onKeyStroke();
 }
@@ -1506,74 +1520,12 @@ BOOL LLTextEditor::handleControlKey(const KEY key, const MASK mask)
 	return handled;
 }
 
-BOOL LLTextEditor::handleEditKey(const KEY key, const MASK mask)
-{
-	BOOL handled = FALSE;
 
-	// Standard edit keys (Ctrl-X, Delete, etc,) are handled here instead of routed by the menu system.
-	if( KEY_DELETE == key )
+BOOL LLTextEditor::handleSpecialKey(const KEY key, const MASK mask)	
 	{
-		if( canDoDelete() )
-		{
-			doDelete();
-		}
-		else
-		{
-			reportBadKeystroke();
-		}
-		handled = TRUE;
-	}
-	else
-	if( MASK_CONTROL & mask )
-	{
-		if( 'C' == key )
-		{
-			if( canCopy() )
-			{
-				copy();
-			}
-			else
-			{
-				reportBadKeystroke();
-			}
-			handled = TRUE;
-		}
-		else
-		if( 'V' == key )
-		{
-			if( canPaste() )
-			{
-				paste();
-			}
-			else
-			{
-				reportBadKeystroke();
-			}
-			handled = TRUE;
-		}
-		else
-		if( 'X' == key )
-		{
-			if( canCut() )
-			{
-				cut();
-			}
-			else
-			{
-				reportBadKeystroke();
-			}
-			handled = TRUE;
-		}
-	}
-
-	return handled;
-}
-
-	
-BOOL LLTextEditor::handleSpecialKey(const KEY key, const MASK mask, BOOL* return_key_hit)	
-{
-	*return_key_hit = FALSE;
 	BOOL handled = TRUE;
+
+	if (mReadOnly) return FALSE;
 
 	switch( key )
 	{
@@ -1596,7 +1548,7 @@ BOOL LLTextEditor::handleSpecialKey(const KEY key, const MASK mask, BOOL* return
 		}
 		else
 		{
-			reportBadKeystroke();
+			LLUI::reportBadKeystroke();
 		}
 		break;
 
@@ -1649,6 +1601,10 @@ BOOL LLTextEditor::handleSpecialKey(const KEY key, const MASK mask, BOOL* return
 		break;
 	}
 
+	if (handled)
+	{
+		onKeyStroke();
+	}
 	return handled;
 }
 
@@ -1669,9 +1625,6 @@ void LLTextEditor::unindentLineBeforeCloseBrace()
 BOOL LLTextEditor::handleKeyHere(KEY key, MASK mask )
 {
 	BOOL	handled = FALSE;
-	BOOL	selection_modified = FALSE;
-	BOOL	return_key_hit = FALSE;
-	BOOL	text_may_have_changed = TRUE;
 
 	// Special case for TAB.  If want to move to next field, report
 	// not handled and let the parent take care of field movement.
@@ -1679,118 +1632,24 @@ BOOL LLTextEditor::handleKeyHere(KEY key, MASK mask )
 	{
 		return FALSE;
 	}
-	/*
-	if (KEY_F10 == key)
-	{
-		LLComboBox::Params cp;
-		cp.name = "combo box";
-		cp.label = "my combo";
-		cp.rect.width = 100;
-		cp.rect.height = 20;
-		cp.items.add().label = "item 1";
-		cp.items.add().label = "item 2";
-		cp.items.add().label = "item 3";
 		
-		appendWidget(LLUICtrlFactory::create<LLComboBox>(cp), "combo", true, false);
-	}
-	if (KEY_F11 == key)
+	if (mReadOnly && mScroller)
 	{
-		LLButton::Params bp;
-		bp.name = "text button";
-		bp.label = "Click me";
-		bp.rect.width = 100;
-		bp.rect.height = 20;
-
-		appendWidget(LLUICtrlFactory::create<LLButton>(bp), "button", true, false);
-	}
-	*/
-	if (mReadOnly)
-	{
-		if(mScroller)
-		{
-			handled = mScroller->handleKeyHere( key, mask );
+		handled = (mScroller && mScroller->handleKeyHere( key, mask ))
+				|| handleSelectionKey(key, mask)
+				|| handleControlKey(key, mask);
 		}
 		else 
 		{
-			handled = handleNavigationKey( key, mask );
-		}
-
-	}
-	else
-	{
-		// handle navigation keys ourself
-		handled = handleNavigationKey( key, mask );
-	}
-
-
-	if( handled )
-	{
-		text_may_have_changed = FALSE;
-	}
-		
-	if( !handled )
-	{
-		handled = handleSelectionKey( key, mask );
-		if( handled )
-		{
-			selection_modified = TRUE;
-		}
-	}
-
-	if( !handled )
-	{
-		handled = handleControlKey( key, mask );
-		if( handled )
-		{
-			selection_modified = TRUE;
-		}
-	}
-
-	if( !handled && mHandleEditKeysDirectly )
-	{
-		handled = handleEditKey( key, mask );
-		if( handled )
-		{
-			selection_modified = TRUE;
-			text_may_have_changed = TRUE;
-		}
-	}
-
-	// Handle most keys only if the text editor is writeable.
-	if( !mReadOnly )
-	{
-		if( !handled )
-		{
-			handled = handleSpecialKey( key, mask, &return_key_hit );
-			if( handled )
-			{
-				selection_modified = TRUE;
-				text_may_have_changed = TRUE;
-			}
-		}
-
+		handled = handleNavigationKey( key, mask )
+				|| handleSelectionKey(key, mask)
+				|| handleControlKey(key, mask)
+				|| handleSpecialKey(key, mask);
 	}
 
 	if( handled )
 	{
 		resetCursorBlink();
-
-		// Most keystrokes will make the selection box go away, but not all will.
-		if( !selection_modified &&
-			KEY_SHIFT != key &&
-			KEY_CONTROL != key &&
-			KEY_ALT != key &&
-			KEY_CAPSLOCK )
-		{
-			deselect();
-		}
-
-		if(text_may_have_changed)
-		{
-			needsReflow();
-
-			onKeyStroke();
-		}
 		needsScroll();
 	}
 
@@ -1830,8 +1689,6 @@ BOOL LLTextEditor::handleUnicodeCharHere(llwchar uni_char)
 
 		// Most keystrokes will make the selection box go away, but not all will.
 		deselect();
-
-		needsReflow();
 
 		onKeyStroke();
 	}
@@ -1891,8 +1748,6 @@ void LLTextEditor::doDelete()
 	}
 
 	onKeyStroke();
-
-	needsReflow();
 }
 
 //----------------------------------------------------------------------------
@@ -1935,8 +1790,6 @@ void LLTextEditor::undo()
 
 		setCursorPos(pos);
 
-	needsReflow();
-
 	onKeyStroke();
 }
 
@@ -1978,8 +1831,6 @@ void LLTextEditor::redo()
 			(mLastCmd != mUndoStack.front()) );
 		
 		setCursorPos(pos);
-
-	needsReflow();
 
 	onKeyStroke();
 }
@@ -2039,6 +1890,20 @@ void LLTextEditor::showContextMenu(S32 x, S32 y)
 																				LLMenuGL::sMenuContainer, 
 																				LLMenuHolderGL::child_registry_t::instance());
 	}
+
+	// Route menu to this class
+	// previously this was done in ::handleRightMoseDown:
+	//if(hasTabStop())
+	// setFocus(TRUE)  - why? weird...
+	// and then inside setFocus
+	// ....
+	//    gEditMenuHandler = this;
+	// ....
+	// but this didn't work in all cases and just weird...
+    //why not here? 
+	// (all this was done for EXT-4443)
+
+	gEditMenuHandler = this;
 
 	S32 screen_x, screen_y;
 	localPointToScreen(x, y, &screen_x, &screen_y);
@@ -2285,7 +2150,7 @@ void LLTextEditor::getCurrentLineAndColumn( S32* line, S32* col, BOOL include_wo
 void LLTextEditor::autoIndent()
 {
 	// Count the number of spaces in the current line
-	S32 line = getLineNumFromDocIndex(mCursorPos);
+	S32 line = getLineNumFromDocIndex(mCursorPos, false);
 	S32 line_start = getLineStart(line);
 	S32 space_count = 0;
 	S32 i;
@@ -2325,8 +2190,6 @@ void LLTextEditor::insertText(const std::string &new_text)
 
 	setCursorPos(mCursorPos + insert( mCursorPos, utf8str_to_wstring(new_text), FALSE, LLTextSegmentPtr() ));
 	
-	needsReflow();
-
 	setEnabled( enabled );
 }
 
@@ -2349,8 +2212,6 @@ void LLTextEditor::appendWidget(const LLInlineViewSegment::Params& params, const
 	LLTextSegmentPtr segment = new LLInlineViewSegment(params, old_length, old_length + widget_wide_text.size());
 	insert(getLength(), widget_wide_text, FALSE, segment);
 
-	needsReflow();
-	
 	// Set the cursor and scroll position
 	if( selection_start != selection_end )
 	{
@@ -2375,52 +2236,6 @@ void LLTextEditor::appendWidget(const LLInlineViewSegment::Params& params, const
 	}
 }
 
-
-void LLTextEditor::replaceUrlLabel(const std::string &url,
-								   const std::string &label)
-{
-	// get the full (wide) text for the editor so we can change it
-	LLWString text = getWText();
-	LLWString wlabel = utf8str_to_wstring(label);
-	bool modified = false;
-	S32 seg_start = 0;
-
-	// iterate through each segment looking for ones styled as links
-	segment_set_t::iterator it;
-	for (it = mSegments.begin(); it != mSegments.end(); ++it)
-	{
-		LLTextSegment *seg = *it;
-		const LLStyleSP style = seg->getStyle();
-
-		// update segment start/end length in case we replaced text earlier
-		S32 seg_length = seg->getEnd() - seg->getStart();
-		seg->setStart(seg_start);
-		seg->setEnd(seg_start + seg_length);
-
-		// if we find a link with our Url, then replace the label
-		if (style->isLink() && style->getLinkHREF() == url)
-		{
-			S32 start = seg->getStart();
-			S32 end = seg->getEnd();
-			text = text.substr(0, start) + wlabel + text.substr(end, text.size() - end + 1);
-			seg->setEnd(start + wlabel.size());
-			modified = true;
-		}
-
-		// work out the character offset for the next segment
-		seg_start = seg->getEnd();
-	}
-
-	// update the editor with the new (wide) text string
-	if (modified)
-	{
-		getViewModel()->setDisplay(text);
-		deselect();
-		setCursorPos(mCursorPos);
-		needsReflow();
-	}
-}
-
 void LLTextEditor::removeTextFromEnd(S32 num_chars)
 {
 	if (num_chars <= 0) return;
@@ -2432,7 +2247,6 @@ void LLTextEditor::removeTextFromEnd(S32 num_chars)
 	mSelectionStart = llclamp(mSelectionStart, 0, len);
 	mSelectionEnd = llclamp(mSelectionEnd, 0, len);
 
-	needsReflow();
 	needsScroll();
 }
 
@@ -2491,8 +2305,6 @@ BOOL LLTextEditor::tryToRevertToPristineState()
 				i--;
 			}
 		}
-
-		needsReflow();
 	}
 
 	return isPristine(); // TRUE => success
@@ -2528,9 +2340,9 @@ void LLTextEditor::loadKeywords(const std::string& filename,
 
 void LLTextEditor::updateSegments()
 {
-	LLFastTimer ft(FTM_SYNTAX_HIGHLIGHTING);
-	if (mKeywords.isLoaded())
+	if (mReflowIndex < S32_MAX && mKeywords.isLoaded())
 	{
+		LLFastTimer ft(FTM_SYNTAX_HIGHLIGHTING);
 		// HACK:  No non-ascii keywords for now
 		segment_vec_t segment_list;
 		mKeywords.findSegments(&segment_list, getWText(), mDefaultColor.get(), *this);
@@ -2559,13 +2371,16 @@ void LLTextEditor::updateLinkSegments()
 			// if the link's label (what the user can edit) is a valid Url,
 			// then update the link's HREF to be the same as the label text.
 			// This lets users edit Urls in-place.
-			LLStyleSP style = static_cast<LLStyleSP>(segment->getStyle());
+			LLStyleConstSP style = segment->getStyle();
+			LLStyleSP new_style(new LLStyle(*style));
 			LLWString url_label = wtext.substr(segment->getStart(), segment->getEnd()-segment->getStart());
 			if (LLUrlRegistry::instance().hasUrl(url_label))
 			{
 				std::string new_url = wstring_to_utf8str(url_label);
 				LLStringUtil::trim(new_url);
-				style->setLinkHREF(new_url);
+				new_style->setLinkHREF(new_url);
+				LLStyleConstSP sp(new_style);
+				segment->setStyle(sp);
 			}
 		}
 	}
@@ -2664,7 +2479,6 @@ BOOL LLTextEditor::importBuffer(const char* buffer, S32 length )
 	startOfDoc();
 	deselect();
 
-	needsReflow();
 	return success;
 }
 
@@ -2768,7 +2582,6 @@ void LLTextEditor::updatePreedit(const LLWString &preedit_string,
 
 	mPreeditStandouts = preedit_standouts;
 
-	needsReflow();
 	setCursorPos(insert_preedit_at + caret_position);
 
 	// Update of the preedit should be caused by some key strokes.

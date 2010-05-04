@@ -7,6 +7,7 @@
 	<menu_item_call label="テレポート" name="teleport"/>
 	<menu_item_call label="グループに招待" name="invite_to_group"/>
 	<menu_item_call label="ブロック" name="block"/>
+	<menu_item_call label="ブロック解除" name="unblock"/>
 	<menu_item_call label="報告" name="report"/>
 	<menu_item_call label="フリーズ" name="freeze"/>
 	<menu_item_call label="追放" name="eject"/>
@@ -14,4 +15,5 @@
 	<menu_item_call label="地図で探す" name="find_on_map"/>
 	<menu_item_call label="ズームイン" name="zoom_in"/>
 	<menu_item_call label="支払う" name="pay"/>
+	<menu_item_call label="共有" name="share"/>
 </menu>

@@ -1,36 +1,49 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<panel label="Controlli &amp; Telecamera" name="Input panel">
-	<text name=" Mouselook Options:">
-		Opzioni visualizzazione
-in soggettiva:
+<panel label="Impostazione" name="Input panel">
+	<button bottom_delta="-40" label="Altri dispositivi" name="joystick_setup_button" width="165"/>
+	<text name="Mouselook:">
+		Soggettiva:
 	</text>
-	<text name=" Mouse Sensitivity:">
-		Sensibilità del mouse:
+	<text name=" Mouse Sensitivity">
+		Sensibilità mouse
 	</text>
-	<check_box label="Inverti i controlli del mouse" name="invert_mouse"/>
-	<text name=" Auto Fly Options:">
-		Opzioni di volo
-automatico:
+	<check_box label="Inverti" name="invert_mouse"/>
+	<text name="Network:">
+		Rete:
 	</text>
-	<check_box label="Vola/atterra premendo su/giù" name="automatic_fly"/>
-	<text name=" Camera Options:">
-		Opzioni della
-telecamera:
+	<text name="Maximum bandwidth">
+		Capacità massima di banda
 	</text>
-	<text name="camera_fov_label" width="218">
-		Angolo di visualizzazione della telecamera:
+	<text name="text_box2">
+		kbps
 	</text>
-	<slider bottom_delta="-6" width="128" left="366" name="camera_fov" />
-	<text name="Camera Follow Distance:" width="218">
-		Distanza della telecamera dall&apos;avatar:
+	<check_box label="Porta personalizzata" name="connection_port_enabled"/>
+	<spinner label="Numero porta:" name="connection_port"/>
+	<text name="cache_size_label_l">
+		Dimensioni cache
 	</text>
-	<slider bottom_delta="-6" width="128" left="366" name="camera_offset_scale" />
-	<check_box label="Movimenti automatici della telecamera in &#10;modalità modifica oggetti" name="edit_camera_movement" tool_tip="Usa il posizionamento automatico della telecamera entrando e uscendo dalla modalità modifica oggetti"/>
-	<check_box bottom_delta="-34" label="Movimenti automatici della telecamera in &#10;modalità aspetto fisico" name="appearance_camera_movement" tool_tip="Usa il posizionamento automatico della telecamera durante la modalità modifica oggetti"/>
-	<text name="text2" bottom_delta="-42">
-		Opzione di visualizzazione
-dell&apos;avatar:
+	<text name="text_box5">
+		MB
 	</text>
-	<check_box label="Mostra l&apos;avatar in prima persona" name="first_person_avatar_visible"/>
-	<button bottom_delta="-40" label="Installazione del joystick" name="joystick_setup_button" width="165"/>
+	<text name="Cache location">
+		Ubicazione della cache:
+	</text>
+	<button label="Sfoglia" label_selected="Sfoglia" name="set_cache"/>
+	<button label="Reimposta" label_selected="Reimposta" name="reset_cache"/>
+	<text name="Web:">
+		Web:
+	</text>
+	<radio_group name="use_external_browser">
+		<radio_item label="Usa il mio browser (IE, Firefox, Safari)" name="external" tool_tip="Utilizza il browser Web predefinito di sistema per l&apos;aiuto, per i link Web e così via. Sconsigliato durante l&apos;esecuzione a tutto schermo." value="1"/>
+		<radio_item label="Utilizza il browser Web integrato" name="internal" tool_tip="Utilizza il browser Web integrato per l&apos;aiuto, per i link Web e così via. Questo browser si apre in una nuova finestra in [APP_NAME]." value=""/>
+	</radio_group>
+	<check_box initial_value="vero" label="Abilita plugin" name="browser_plugins_enabled"/>
+	<check_box initial_value="vero" label="Accetta cookie" name="cookies_enabled"/>
+	<check_box initial_value="vero" label="Abilita Javascript" name="browser_javascript_enabled"/>
+	<check_box initial_value="false" label="Abilita proxy Web" name="web_proxy_enabled"/>
+	<text name="Proxy location">
+		Ubicazione proxy:
+	</text>
+	<line_editor name="web_proxy_editor" tool_tip="Il nome o l&apos;indirizzo IP del proxy che preferisci usare"/>
+	<spinner label="Numero porta:" name="web_proxy_port"/>
 </panel>

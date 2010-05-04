@@ -39,6 +39,7 @@
 #include "llparcel.h"
 
 #include "llagent.h"
+#include "llagentcamera.h"
 #include "llviewercontrol.h"
 #include "llfocusmgr.h"
 //#include "llfirstuse.h"
@@ -68,7 +69,6 @@
 #include "llviewermedia.h"
 #include "llvoavatarself.h"
 #include "llviewermediafocus.h"
-#include "llvovolume.h"
 #include "llworld.h"
 #include "llui.h"
 #include "llweb.h"
@@ -181,10 +181,10 @@ BOOL LLToolPie::pickLeftMouseDownCallback()
 		parent = object->getRootEdit();
 	}
 
-
-	BOOL touchable = (object && object->flagHandleTouch()) 
-					 || (parent && parent->flagHandleTouch());
-
+	if (handleMediaClick(mPick))
+	{
+		return TRUE;
+	}
 
 	// If it's a left-click, and we have a special action, do it.
 	if (useClickAction(mask, object, parent))
@@ -205,15 +205,15 @@ BOOL LLToolPie::pickLeftMouseDownCallback()
 			// touch behavior down below...
 			break;
 		case CLICK_ACTION_SIT:
-
-			if ((gAgent.getAvatarObject() != NULL) && (!gAgent.getAvatarObject()->isSitting())) // agent not already sitting
 			{
-				handle_object_sit_or_stand();
-				// put focus in world when sitting on an object
-				gFocusMgr.setKeyboardFocus(NULL);
-				return TRUE;
-			} // else nothing (fall through to touch)
-			
+				if (isAgentAvatarValid() && !gAgentAvatarp->isSitting()) // agent not already sitting
+				{
+					handle_object_sit_or_stand();
+					// put focus in world when sitting on an object
+					gFocusMgr.setKeyboardFocus(NULL);
+					return TRUE;
+				} // else nothing (fall through to touch)
+			}
 		case CLICK_ACTION_PAY:
 			if ((object && object->flagTakesMoney())
 				|| (parent && parent->flagTakesMoney()))
@@ -264,7 +264,7 @@ BOOL LLToolPie::pickLeftMouseDownCallback()
 				
 				if (object)
 				{
-					gAgent.setFocusOnAvatar(FALSE, ANIMATE);
+					gAgentCamera.setFocusOnAvatar(FALSE, ANIMATE);
 					
 					LLBBox bbox = object->getBoundingBoxAgent() ;
 					F32 angle_of_view = llmax(0.1f, LLViewerCamera::getInstance()->getAspect() > 1.f ? LLViewerCamera::getInstance()->getView() * LLViewerCamera::getInstance()->getAspect() : LLViewerCamera::getInstance()->getView());
@@ -274,7 +274,7 @@ BOOL LLToolPie::pickLeftMouseDownCallback()
 					obj_to_cam.normVec();
 					
 					LLVector3d object_center_global = gAgent.getPosGlobalFromAgent(bbox.getCenterAgent());
-					gAgent.setCameraPosAndFocusGlobal(object_center_global + LLVector3d(obj_to_cam * distance), 
+					gAgentCamera.setCameraPosAndFocusGlobal(object_center_global + LLVector3d(obj_to_cam * distance), 
 													  object_center_global, 
 													  mPick.mObjectID );
 				}
@@ -286,13 +286,11 @@ BOOL LLToolPie::pickLeftMouseDownCallback()
 		}
 	}
 
-	if (handleMediaClick(mPick))
-	{
-		return TRUE;
-	}
-
 	// put focus back "in world"
 	gFocusMgr.setKeyboardFocus(NULL);
+
+	BOOL touchable = (object && object->flagHandleTouch()) 
+					 || (parent && parent->flagHandleTouch());
 
 	// Switch to grab tool if physical or triggerable
 	if (object && 
@@ -330,14 +328,14 @@ BOOL LLToolPie::pickLeftMouseDownCallback()
 			}
 			object = (LLViewerObject*)object->getParent();
 		}
-		if (object && object == gAgent.getAvatarObject())
+		if (object && object == gAgentAvatarp)
 		{
 			// we left clicked on avatar, switch to focus mode
 			LLToolMgr::getInstance()->setTransientTool(LLToolCamera::getInstance());
 			gViewerWindow->hideCursor();
 			LLToolCamera::getInstance()->setMouseCapture(TRUE);
 			LLToolCamera::getInstance()->pickCallback(mPick);
-			gAgent.setFocusOnAvatar(TRUE, TRUE);
+			gAgentCamera.setFocusOnAvatar(TRUE, TRUE);
 
 			return TRUE;
 		}
@@ -411,26 +409,28 @@ ECursorType cursor_from_object(LLViewerObject* object)
 	switch(click_action)
 	{
 	case CLICK_ACTION_SIT:
-		if ((gAgent.getAvatarObject() != NULL) && (!gAgent.getAvatarObject()->isSitting())) // not already sitting?
 		{
-			cursor = UI_CURSOR_HAND;
+			if (isAgentAvatarValid() && !gAgentAvatarp->isSitting()) // not already sitting?
+			{
+				cursor = UI_CURSOR_TOOLSIT;
+			}
 		}
 		break;
 	case CLICK_ACTION_BUY:
-		cursor = UI_CURSOR_HAND;
+		cursor = UI_CURSOR_TOOLBUY;
 		break;
 	case CLICK_ACTION_OPEN:
 		// Open always opens the parent.
 		if (parent && parent->allowOpen())
 		{
-			cursor = UI_CURSOR_HAND;
+			cursor = UI_CURSOR_TOOLOPEN;
 		}
 		break;
 	case CLICK_ACTION_PAY:	
 		if ((object && object->flagTakesMoney())
 			|| (parent && parent->flagTakesMoney()))
 		{
-			cursor = UI_CURSOR_HAND;
+			cursor = UI_CURSOR_TOOLBUY;
 		}
 		break;
 	case CLICK_ACTION_ZOOM:
@@ -497,6 +497,8 @@ void LLToolPie::selectionPropertiesReceived()
 BOOL LLToolPie::handleHover(S32 x, S32 y, MASK mask)
 {
 	mHoverPick = gViewerWindow->pickImmediate(x, y, FALSE);
+	// perform a separate pick that detects transparent objects since they respond to 1-click actions
+	LLPickInfo click_action_pick = gViewerWindow->pickImmediate(x, y, TRUE);
 
 	// Show screen-space highlight glow effect
 	bool show_highlight = false;
@@ -508,14 +510,8 @@ BOOL LLToolPie::handleHover(S32 x, S32 y, MASK mask)
 		parent = object->getRootEdit();
 	}
 
-	if (object && useClickAction(mask, object, parent))
-	{
-		show_highlight = true;
-		ECursorType cursor = cursor_from_object(object);
-		gViewerWindow->setCursor(cursor);
-		lldebugst(LLERR_USER_INPUT) << "hover handled by LLToolPie (inactive)" << llendl;
-	}
-	else if (handleMediaHover(mHoverPick))
+	LLViewerObject* click_action_object = click_action_pick.getObject();
+	if (handleMediaHover(mHoverPick))
 	{
 		// *NOTE: If you think the hover glow conflicts with the media outline, you
 		// could disable it here.
@@ -523,6 +519,14 @@ BOOL LLToolPie::handleHover(S32 x, S32 y, MASK mask)
 		// cursor set by media object
 		lldebugst(LLERR_USER_INPUT) << "hover handled by LLToolPie (inactive)" << llendl;
 	}
+	else if (click_action_object && useClickAction(mask, click_action_object, click_action_object->getRootEdit()))
+	{
+		show_highlight = true;
+		ECursorType cursor = cursor_from_object(click_action_object);
+		gViewerWindow->setCursor(cursor);
+		lldebugst(LLERR_USER_INPUT) << "hover handled by LLToolPie (inactive)" << llendl;
+	}
+	
 	else if ((object && !object->isAvatar() && object->usePhysics()) 
 			 || (parent && !parent->isAvatar() && parent->usePhysics()))
 	{
@@ -593,7 +597,7 @@ BOOL LLToolPie::handleMouseUp(S32 x, S32 y, MASK mask)
 
 	mGrabMouseButtonDown = FALSE;
 	LLToolMgr::getInstance()->clearTransientTool();
-	gAgent.setLookAt(LOOKAT_TARGET_CONVERSATION, obj); // maybe look at object/person clicked on
+	gAgentCamera.setLookAt(LOOKAT_TARGET_CONVERSATION, obj); // maybe look at object/person clicked on
 	return LLTool::handleMouseUp(x, y, mask);
 }
 
@@ -630,14 +634,12 @@ static bool needs_tooltip(LLSelectNode* nodep)
 		return false;
 
 	LLViewerObject* object = nodep->getObject();
-	LLVOVolume* vovolume = dynamic_cast<LLVOVolume*>(object);
 	LLViewerObject *parent = (LLViewerObject *)object->getParent();
 	if (object->flagHandleTouch()
 		|| (parent && parent->flagHandleTouch())
 		|| object->flagTakesMoney()
 		|| (parent && parent->flagTakesMoney())
 		|| object->flagAllowInventoryAdd()
-		|| (vovolume && vovolume->hasMedia())
 		)
 	{
 		return true;
@@ -661,78 +663,338 @@ static bool needs_tooltip(LLSelectNode* nodep)
 	return false;
 }
 
-BOOL LLToolPie::handleToolTip(S32 local_x, S32 local_y, MASK mask)
+
+BOOL LLToolPie::handleTooltipLand(std::string line, std::string tooltip_msg)
 {
-	if (!LLUI::sSettingGroups["config"]->getBOOL("ShowHoverTips")) return TRUE;
-	if (!mHoverPick.isValid()) return TRUE;
-
-	LLViewerObject* hover_object = mHoverPick.getObject();
-
-	// update hover object and hover parcel
-	LLSelectMgr::getInstance()->setHoverObject(hover_object, mHoverPick.mObjectFace);
-
-	if (mHoverPick.mPickType == LLPickInfo::PICK_LAND)
+	LLViewerParcelMgr::getInstance()->setHoverParcel( mHoverPick.mPosGlobal );
+	// 
+	//  Do not show hover for land unless prefs are set to allow it.
+	// 
+	
+	if (!gSavedSettings.getBOOL("ShowLandHoverTip")) return TRUE; 
+	
+	// Didn't hit an object, but since we have a land point we
+	// must be hovering over land.
+	
+	LLParcel* hover_parcel = LLViewerParcelMgr::getInstance()->getHoverParcel();
+	LLUUID owner;
+	S32 width = 0;
+	S32 height = 0;
+	
+	if ( hover_parcel )
 	{
-		LLViewerParcelMgr::getInstance()->setHoverParcel( mHoverPick.mPosGlobal );
+		owner = hover_parcel->getOwnerID();
+		width = S32(LLViewerParcelMgr::getInstance()->getHoverParcelWidth());
+		height = S32(LLViewerParcelMgr::getInstance()->getHoverParcelHeight());
 	}
-
-	std::string tooltip_msg;
-	std::string line;
-
-	if ( hover_object )
+	
+	// Line: "Land"
+	line.clear();
+	line.append(LLTrans::getString("TooltipLand"));
+	if (hover_parcel)
 	{
-		if ( hover_object->isHUDAttachment() )
+		line.append(hover_parcel->getName());
+	}
+	tooltip_msg.append(line);
+	tooltip_msg.push_back('\n');
+	
+	// Line: "Owner: James Linden"
+	line.clear();
+	line.append(LLTrans::getString("TooltipOwner") + " ");
+	
+	if ( hover_parcel )
+	{
+		std::string name;
+		if (LLUUID::null == owner)
 		{
-			// no hover tips for HUD elements, since they can obscure
-			// what the HUD is displaying
+			line.append(LLTrans::getString("TooltipPublic"));
+		}
+		else if (hover_parcel->getIsGroupOwned())
+		{
+			if (gCacheName->getGroupName(owner, name))
+			{
+				line.append(name);
+				line.append(LLTrans::getString("TooltipIsGroup"));
+			}
+			else
+			{
+				line.append(LLTrans::getString("RetrievingData"));
+			}
+		}
+		else if(gCacheName->getFullName(owner, name))
+		{
+			line.append(name);
+		}
+		else
+		{
+			line.append(LLTrans::getString("RetrievingData"));
+		}
+	}
+	else
+	{
+		line.append(LLTrans::getString("RetrievingData"));
+	}
+	tooltip_msg.append(line);
+	tooltip_msg.push_back('\n');
+	
+	// Line: "no fly, not safe, no build"
+	
+	// Don't display properties for your land.  This is just
+	// confusing, because you can do anything on your own land.
+	if ( hover_parcel && owner != gAgent.getID() )
+	{
+		S32 words = 0;
+		
+		line.clear();
+		// JC - Keep this in the same order as the checkboxes
+		// on the land info panel
+		if ( !hover_parcel->getAllowModify() )
+		{
+			if ( hover_parcel->getAllowGroupModify() )
+			{
+				line.append(LLTrans::getString("TooltipFlagGroupBuild"));
+			}
+			else
+			{
+				line.append(LLTrans::getString("TooltipFlagNoBuild"));
+			}
+			words++;
+		}
+		
+		if ( !hover_parcel->getAllowTerraform() )
+		{
+			if (words) line.append(", ");
+			line.append(LLTrans::getString("TooltipFlagNoEdit"));
+			words++;
+		}
+		
+		if ( hover_parcel->getAllowDamage() )
+		{
+			if (words) line.append(", ");
+			line.append(LLTrans::getString("TooltipFlagNotSafe"));
+			words++;
+		}
+		
+		// Maybe we should reflect the estate's block fly bit here as well?  DK 12/1/04
+		if ( !hover_parcel->getAllowFly() )
+		{
+			if (words) line.append(", ");
+			line.append(LLTrans::getString("TooltipFlagNoFly"));
+			words++;
+		}
+		
+		if ( !hover_parcel->getAllowOtherScripts() )
+		{
+			if (words) line.append(", ");
+			if ( hover_parcel->getAllowGroupScripts() )
+			{
+				line.append(LLTrans::getString("TooltipFlagGroupScripts"));
+			}
+			else
+			{
+				line.append(LLTrans::getString("TooltipFlagNoScripts"));
+			}
+			
+			words++;
+		}
+		
+		if (words) 
+		{
+			tooltip_msg.append(line);
+			tooltip_msg.push_back('\n');
+		}
+	}
+	
+	if (hover_parcel && hover_parcel->getParcelFlag(PF_FOR_SALE))
+	{
+		LLStringUtil::format_map_t args;
+		args["[AMOUNT]"] = llformat("%d", hover_parcel->getSalePrice());
+		line = LLTrans::getString("TooltipForSaleL$", args);
+		tooltip_msg.append(line);
+		tooltip_msg.push_back('\n');
+	}
+	
+	// trim last newlines
+	if (!tooltip_msg.empty())
+	{
+		tooltip_msg.erase(tooltip_msg.size() - 1);
+		LLToolTipMgr::instance().show(tooltip_msg);
+	}
+	
+	return TRUE;
+}
+
+BOOL LLToolPie::handleTooltipObject( LLViewerObject* hover_object, std::string line, std::string tooltip_msg)
+{
+	if ( hover_object->isHUDAttachment() )
+	{
+		// no hover tips for HUD elements, since they can obscure
+		// what the HUD is displaying
+		return TRUE;
+	}
+	
+	if ( hover_object->isAttachment() )
+	{
+		// get root of attachment then parent, which is avatar
+		LLViewerObject* root_edit = hover_object->getRootEdit();
+		if (!root_edit)
+		{
+			// Strange parenting issue, don't show any text
 			return TRUE;
 		}
-
-		if ( hover_object->isAttachment() )
+		hover_object = (LLViewerObject*)root_edit->getParent();
+		if (!hover_object)
 		{
-			// get root of attachment then parent, which is avatar
-			LLViewerObject* root_edit = hover_object->getRootEdit();
-			if (!root_edit)
-			{
-				// Strange parenting issue, don't show any text
-				return TRUE;
-			}
-			hover_object = (LLViewerObject*)root_edit->getParent();
-			if (!hover_object)
-			{
-				// another strange parenting issue, bail out
-				return TRUE;
-			}
+			// another strange parenting issue, bail out
+			return TRUE;
 		}
-
-		line.clear();
-		if (hover_object->isAvatar())
+	}
+	
+	line.clear();
+	if (hover_object->isAvatar())
+	{
+		// only show tooltip if same inspector not already open
+		LLFloater* existing_inspector = LLFloaterReg::findInstance("inspect_avatar");
+		if (!existing_inspector 
+			|| !existing_inspector->getVisible()
+			|| existing_inspector->getKey()["avatar_id"].asUUID() != hover_object->getID())
 		{
-			// only show tooltip if same inspector not already open
-			LLFloater* existing_inspector = LLFloaterReg::findInstance("inspect_avatar");
-			if (!existing_inspector 
-				|| !existing_inspector->getVisible()
-				|| existing_inspector->getKey()["avatar_id"].asUUID() != hover_object->getID())
+			std::string avatar_name;
+			LLNameValue* firstname = hover_object->getNVPair("FirstName");
+			LLNameValue* lastname =  hover_object->getNVPair("LastName");
+			if (firstname && lastname)
 			{
-				std::string avatar_name;
-				LLNameValue* firstname = hover_object->getNVPair("FirstName");
-				LLNameValue* lastname =  hover_object->getNVPair("LastName");
-				if (firstname && lastname)
-				{
-					avatar_name = llformat("%s %s", firstname->getString(), lastname->getString());
-				}
-				else
-				{
-					avatar_name = LLTrans::getString("TooltipPerson");
-				}
+				avatar_name = llformat("%s %s", firstname->getString(), lastname->getString());
+			}
+			else
+			{
+				avatar_name = LLTrans::getString("TooltipPerson");
+			}
+			
+			// *HACK: We may select this object, so pretend it was clicked
+			mPick = mHoverPick;
+			LLInspector::Params p;
+			p.fillFrom(LLUICtrlFactory::instance().getDefaultParams<LLInspector>());
+			p.message(avatar_name);
+			p.image.name("Inspector_I");
+			p.click_callback(boost::bind(showAvatarInspector, hover_object->getID()));
+			p.visible_time_near(6.f);
+			p.visible_time_far(3.f);
+			p.delay_time(0.35f);
+			p.wrap(false);
+			
+			LLToolTipMgr::instance().show(p);
+		}
+	}
+	else
+	{
+		//
+		//  We have hit a regular object (not an avatar or attachment)
+		// 
+		
+		//
+		//  Default prefs will suppress display unless the object is interactive
+		//
+		bool show_all_object_tips =
+		(bool)gSavedSettings.getBOOL("ShowAllObjectHoverTip");			
+		LLSelectNode *nodep = LLSelectMgr::getInstance()->getHoverNode();
+		
+		// only show tooltip if same inspector not already open
+		LLFloater* existing_inspector = LLFloaterReg::findInstance("inspect_object");
+		if (nodep &&
+			(!existing_inspector 
+			 || !existing_inspector->getVisible()
+			 || existing_inspector->getKey()["object_id"].asUUID() != hover_object->getID()))
+		{
+						
+			// Add price to tooltip for items on sale
+			bool for_sale = for_sale_selection(nodep);
+			if(for_sale)
+			{
+				LLStringUtil::format_map_t args;
+				args["[PRICE]"] = llformat ("%d", nodep->mSaleInfo.getSalePrice());
+				tooltip_msg.append(LLTrans::getString("TooltipPrice", args) );
+			}
 
-				// *HACK: We may select this object, so pretend it was clicked
+			if (nodep->mName.empty())
+			{
+				tooltip_msg.append(LLTrans::getString("TooltipNoName"));
+			}
+			else
+			{
+				tooltip_msg.append( nodep->mName );
+			}
+			
+			bool has_media = false;
+			bool is_time_based_media = false;
+			bool is_web_based_media = false;
+			bool is_media_playing = false;
+			bool is_media_displaying = false;
+			
+			// Does this face have media?
+			const LLTextureEntry* tep = hover_object->getTE(mHoverPick.mObjectFace);
+			
+			if(tep)
+			{
+				has_media = tep->hasMedia();
+				const LLMediaEntry* mep = has_media ? tep->getMediaData() : NULL;
+				if (mep)
+				{
+					viewer_media_t media_impl = LLViewerMedia::getMediaImplFromTextureID(mep->getMediaID());
+					LLPluginClassMedia* media_plugin = NULL;
+					
+					if (media_impl.notNull() && (media_impl->hasMedia()))
+					{
+						is_media_displaying = true;
+						//LLStringUtil::format_map_t args;
+						
+						media_plugin = media_impl->getMediaPlugin();
+						if(media_plugin)
+						{	
+							if(media_plugin->pluginSupportsMediaTime())
+							{
+								is_time_based_media = true;
+								is_web_based_media = false;
+								//args["[CurrentURL]"] =  media_impl->getMediaURL();
+								is_media_playing = media_impl->isMediaPlaying();
+							}
+							else
+							{
+								is_time_based_media = false;
+								is_web_based_media = true;
+								//args["[CurrentURL]"] =  media_plugin->getLocation();
+							}
+							//tooltip_msg.append(LLTrans::getString("CurrentURL", args));
+						}
+					}
+				}
+			}
+			
+
+			// Avoid showing tip over media that's displaying unless it's for sale
+			// also check the primary node since sometimes it can have an action even though
+			// the root node doesn't
+			
+			bool needs_tip = (!is_media_displaying || 
+				              for_sale) &&
+				(has_media || 
+				 needs_tooltip(nodep) || 
+				 needs_tooltip(LLSelectMgr::getInstance()->getPrimaryHoverNode()));
+			
+			if (show_all_object_tips || needs_tip)
+			{
+				// We may select this object, so pretend it was clicked
 				mPick = mHoverPick;
 				LLInspector::Params p;
 				p.fillFrom(LLUICtrlFactory::instance().getDefaultParams<LLInspector>());
-				p.message(avatar_name);
+				p.message(tooltip_msg);
 				p.image.name("Inspector_I");
-				p.click_callback(boost::bind(showAvatarInspector, hover_object->getID()));
+				p.click_callback(boost::bind(showObjectInspector, hover_object->getID(), mHoverPick.mObjectFace));
+				p.time_based_media(is_time_based_media);
+				p.web_based_media(is_web_based_media);
+				p.media_playing(is_media_playing);
+				p.click_playmedia_callback(boost::bind(playCurrentMedia, mHoverPick));
+				p.click_homepage_callback(boost::bind(VisitHomePage, mHoverPick));
 				p.visible_time_near(6.f);
 				p.visible_time_far(3.f);
 				p.delay_time(0.35f);
@@ -741,261 +1003,33 @@ BOOL LLToolPie::handleToolTip(S32 local_x, S32 local_y, MASK mask)
 				LLToolTipMgr::instance().show(p);
 			}
 		}
-		else
-		{
-			//
-			//  We have hit a regular object (not an avatar or attachment)
-			// 
-
-			//
-			//  Default prefs will suppress display unless the object is interactive
-			//
-			bool show_all_object_tips =
-				(bool)gSavedSettings.getBOOL("ShowAllObjectHoverTip");			
-			LLSelectNode *nodep = LLSelectMgr::getInstance()->getHoverNode();
-			
-			// only show tooltip if same inspector not already open
-			LLFloater* existing_inspector = LLFloaterReg::findInstance("inspect_object");
-			if (nodep &&
-				(!existing_inspector 
-					|| !existing_inspector->getVisible()
-					|| existing_inspector->getKey()["object_id"].asUUID() != hover_object->getID()))
-			{
-				if (nodep->mName.empty())
-				{
-					tooltip_msg.append(LLTrans::getString("TooltipNoName"));
-				}
-				else
-				{
-					tooltip_msg.append( nodep->mName );
-				}
-				
-				bool is_time_based_media = false;
-				bool is_web_based_media = false;
-				bool is_media_playing = false;
-				
-				// Does this face have media?
-				const LLTextureEntry* tep = hover_object->getTE(mHoverPick.mObjectFace);
-				
-				if(tep)
-				{
-					const LLMediaEntry* mep = tep->hasMedia() ? tep->getMediaData() : NULL;
-					if (mep)
-					{
-						viewer_media_t media_impl = mep ? LLViewerMedia::getMediaImplFromTextureID(mep->getMediaID()) : NULL;
-						LLPluginClassMedia* media_plugin = NULL;
-				
-						if (media_impl.notNull() && (media_impl->hasMedia()))
-						{
-							LLStringUtil::format_map_t args;
-					
-							media_plugin = media_impl->getMediaPlugin();
-							if(media_plugin)
-							{	if(media_plugin->pluginSupportsMediaTime())
-								{
-									is_time_based_media = true;
-									is_web_based_media = false;
-									//args["[CurrentURL]"] =  media_impl->getMediaURL();
-									is_media_playing = media_impl->isMediaPlaying();
-								}
-								else
-								{
-									is_time_based_media = false;
-									is_web_based_media = true;
-									//args["[CurrentURL]"] =  media_plugin->getLocation();
-								}
-								//tooltip_msg.append(LLTrans::getString("CurrentURL", args));
-							}
-						}
-					}
-				}
-				
-				// also check the primary node since sometimes it can have an action even though
-				// the root node doesn't
-				bool needs_tip = needs_tooltip(nodep) || 
-					             needs_tooltip(LLSelectMgr::getInstance()->getPrimaryHoverNode());
-
-				if (show_all_object_tips || needs_tip)
-				{
-					// We may select this object, so pretend it was clicked
-					mPick = mHoverPick;
-					LLInspector::Params p;
-					p.fillFrom(LLUICtrlFactory::instance().getDefaultParams<LLInspector>());
-					p.message(tooltip_msg);
-					p.image.name("Inspector_I");
-					p.click_callback(boost::bind(showObjectInspector, hover_object->getID(), mHoverPick.mObjectFace));
-					p.time_based_media(is_time_based_media);
-					p.web_based_media(is_web_based_media);
-					p.media_playing(is_media_playing);
-					p.click_playmedia_callback(boost::bind(playCurrentMedia, mHoverPick));
-					p.click_homepage_callback(boost::bind(VisitHomePage, mHoverPick));
-					p.visible_time_near(6.f);
-					p.visible_time_far(3.f);
-					p.delay_time(0.35f);
-					p.wrap(false);
-					
-					LLToolTipMgr::instance().show(p);
-				}
-			}
-		}
 	}
-	else if ( mHoverPick.mPickType == LLPickInfo::PICK_LAND )
+	
+	return TRUE;
+}
+
+BOOL LLToolPie::handleToolTip(S32 local_x, S32 local_y, MASK mask)
+{
+	if (!LLUI::sSettingGroups["config"]->getBOOL("ShowHoverTips")) return TRUE;
+	if (!mHoverPick.isValid()) return TRUE;
+
+	LLViewerObject* hover_object = mHoverPick.getObject();
+	
+	// update hover object and hover parcel
+	LLSelectMgr::getInstance()->setHoverObject(hover_object, mHoverPick.mObjectFace);
+	
+	
+	std::string tooltip_msg;
+	std::string line;
+
+	if ( hover_object )
 	{
-		// 
-		//  Do not show hover for land unless prefs are set to allow it.
-		// 
-		
-		if (!gSavedSettings.getBOOL("ShowLandHoverTip")) return TRUE; 
-
-		// Didn't hit an object, but since we have a land point we
-		// must be hovering over land.
-
-		LLParcel* hover_parcel = LLViewerParcelMgr::getInstance()->getHoverParcel();
-		LLUUID owner;
-		S32 width = 0;
-		S32 height = 0;
-
-		if ( hover_parcel )
-		{
-			owner = hover_parcel->getOwnerID();
-			width = S32(LLViewerParcelMgr::getInstance()->getHoverParcelWidth());
-			height = S32(LLViewerParcelMgr::getInstance()->getHoverParcelHeight());
-		}
-
-		// Line: "Land"
-		line.clear();
-		line.append(LLTrans::getString("TooltipLand"));
-		if (hover_parcel)
-		{
-			line.append(hover_parcel->getName());
-		}
-		tooltip_msg.append(line);
-		tooltip_msg.push_back('\n');
-
-		// Line: "Owner: James Linden"
-		line.clear();
-		line.append(LLTrans::getString("TooltipOwner") + " ");
-
-		if ( hover_parcel )
-		{
-			std::string name;
-			if (LLUUID::null == owner)
-			{
-				line.append(LLTrans::getString("TooltipPublic"));
-			}
-			else if (hover_parcel->getIsGroupOwned())
-			{
-				if (gCacheName->getGroupName(owner, name))
-				{
-					line.append(name);
-					line.append(LLTrans::getString("TooltipIsGroup"));
-				}
-				else
-				{
-					line.append(LLTrans::getString("RetrievingData"));
-				}
-			}
-			else if(gCacheName->getFullName(owner, name))
-			{
-				line.append(name);
-			}
-			else
-			{
-				line.append(LLTrans::getString("RetrievingData"));
-			}
-		}
-		else
-		{
-			line.append(LLTrans::getString("RetrievingData"));
-		}
-		tooltip_msg.append(line);
-		tooltip_msg.push_back('\n');
-
-		// Line: "no fly, not safe, no build"
-
-		// Don't display properties for your land.  This is just
-		// confusing, because you can do anything on your own land.
-		if ( hover_parcel && owner != gAgent.getID() )
-		{
-			S32 words = 0;
-			
-			line.clear();
-			// JC - Keep this in the same order as the checkboxes
-			// on the land info panel
-			if ( !hover_parcel->getAllowModify() )
-			{
-				if ( hover_parcel->getAllowGroupModify() )
-				{
-					line.append(LLTrans::getString("TooltipFlagGroupBuild"));
-				}
-				else
-				{
-					line.append(LLTrans::getString("TooltipFlagNoBuild"));
-				}
-				words++;
-			}
-
-			if ( !hover_parcel->getAllowTerraform() )
-			{
-				if (words) line.append(", ");
-				line.append(LLTrans::getString("TooltipFlagNoEdit"));
-				words++;
-			}
-
-			if ( hover_parcel->getAllowDamage() )
-			{
-				if (words) line.append(", ");
-				line.append(LLTrans::getString("TooltipFlagNotSafe"));
-				words++;
-			}
-
-			// Maybe we should reflect the estate's block fly bit here as well?  DK 12/1/04
-			if ( !hover_parcel->getAllowFly() )
-			{
-				if (words) line.append(", ");
-				line.append(LLTrans::getString("TooltipFlagNoFly"));
-				words++;
-			}
-
-			if ( !hover_parcel->getAllowOtherScripts() )
-			{
-				if (words) line.append(", ");
-				if ( hover_parcel->getAllowGroupScripts() )
-				{
-					line.append(LLTrans::getString("TooltipFlagGroupScripts"));
-				}
-				else
-				{
-					line.append(LLTrans::getString("TooltipFlagNoScripts"));
-				}
-				
-				words++;
-			}
-
-			if (words) 
-			{
-				tooltip_msg.append(line);
-				tooltip_msg.push_back('\n');
-			}
-		}
-
-		if (hover_parcel && hover_parcel->getParcelFlag(PF_FOR_SALE))
-		{
-			LLStringUtil::format_map_t args;
-			args["[AMOUNT]"] = llformat("%d", hover_parcel->getSalePrice());
-			line = LLTrans::getString("TooltipForSaleL$", args);
-			tooltip_msg.append(line);
-			tooltip_msg.push_back('\n');
-		}
-
-		// trim last newlines
-		if (!tooltip_msg.empty())
-		{
-			tooltip_msg.erase(tooltip_msg.size() - 1);
-			LLToolTipMgr::instance().show(tooltip_msg);
-		}
+		handleTooltipObject(hover_object, line, tooltip_msg  );
 	}
-
+	else if (mHoverPick.mPickType == LLPickInfo::PICK_LAND)
+	{
+		handleTooltipLand(line, tooltip_msg);
+	}
 
 	return TRUE;
 }
@@ -1233,6 +1267,7 @@ bool LLToolPie::handleMediaClick(const LLPickInfo& pick)
 
 	if (!parcel ||
 		objectp.isNull() ||
+		objectp->isHUDAttachment() ||
 		pick.mObjectFace < 0 || 
 		pick.mObjectFace >= objectp->getNumTEs()) 
 	{
@@ -1247,11 +1282,10 @@ bool LLToolPie::handleMediaClick(const LLPickInfo& pick)
 		return false;
 
 	LLMediaEntry* mep = (tep->hasMedia()) ? tep->getMediaData() : NULL;
-	
 	if(!mep)
 		return false;
 	
-	viewer_media_t media_impl = mep ? LLViewerMedia::getMediaImplFromTextureID(mep->getMediaID()) : NULL;
+	viewer_media_t media_impl = LLViewerMedia::getMediaImplFromTextureID(mep->getMediaID());
 
 	if (gSavedSettings.getBOOL("MediaOnAPrimUI"))
 	{
@@ -1469,6 +1503,12 @@ BOOL LLToolPie::pickRightMouseDownCallback()
 			while( object && object->isAttachment())
 			{
 				object = (LLViewerObject*)object->getParent();
+				llassert(object);
+			}
+
+			if (!object)
+			{
+				return TRUE; // unexpected, but escape
 			}
 
 			// Object is an avatar, so check for mute by id.

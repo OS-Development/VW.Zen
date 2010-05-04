@@ -47,7 +47,6 @@
 #include "llsyswellwindow.h"
 #include "llimfloater.h"
 #include "llscriptfloater.h"
-#include "llfontgl.h"
 
 #include <algorithm>
 
@@ -79,17 +78,12 @@ LLScreenChannelBase::~LLScreenChannelBase()
 
 bool  LLScreenChannelBase::isHovering()
 {
-	bool res = mHoveredToast != NULL;
-	if (!res)
+	if (!mHoveredToast)
 	{
-		return res;
+		return false;
 	}
 
-	S32 x, y;
-	mHoveredToast->screenPointToLocal(gViewerWindow->getCurrentMouseX(),
-			gViewerWindow->getCurrentMouseY(), &x, &y);
-	res = mHoveredToast->pointInView(x, y) == TRUE;
-	return res;
+	return mHoveredToast->isHovered();
 }
 
 void LLScreenChannelBase::updatePositionAndSize(LLRect old_world_rect, LLRect new_world_rect)
@@ -479,18 +473,32 @@ void LLScreenChannel::showToastsBottom()
 	{
 		if(it != mToastList.rbegin())
 		{
-			bottom = (*(it-1)).toast->getRect().mTop;
+			LLToast* toast = (*(it-1)).toast;
+			bottom = toast->getRect().mTop - toast->getTopPad();
 			toast_margin = gSavedSettings.getS32("ToastGap");
 		}
 
 		toast_rect = (*it).toast->getRect();
-		toast_rect.setOriginAndSize(getRect().mLeft, bottom + toast_margin, toast_rect.getWidth() ,toast_rect.getHeight());
+		toast_rect.setOriginAndSize(getRect().mRight - toast_rect.getWidth(),
+				bottom + toast_margin, toast_rect.getWidth(),
+				toast_rect.getHeight());
 		(*it).toast->setRect(toast_rect);
 
-		// don't show toasts if there is not enough space
 		if(floater && floater->overlapsScreenChannel())
 		{
+			if(it == mToastList.rbegin())
+			{
+				// move first toast above docked floater
+				S32 shift = floater->getRect().getHeight();
+				if(floater->getDockControl())
+				{
+					shift += floater->getDockControl()->getTongueHeight();
+				}
+				(*it).toast->translate(0, shift);
+			}
+
 			LLRect world_rect = gViewerWindow->getWorldViewRectScaled();
+			// don't show toasts if there is not enough space
 			if(toast_rect.mTop > world_rect.mTop)
 			{
 				break;
@@ -522,9 +530,13 @@ void LLScreenChannel::showToastsBottom()
 			// HACK
 			// EXT-2653: it is necessary to prevent overlapping for secondary showed toasts
 			(*it).toast->setVisible(TRUE);
-			// Show toast behind floaters. (EXT-3089)
-			gFloaterView->sendChildToBack((*it).toast);
 		}		
+		if(!(*it).toast->hasFocus())
+		{
+			// Fixing Z-order of toasts (EXT-4862)
+			// Next toast will be positioned under this one.
+			gFloaterView->sendChildToBack((*it).toast);
+		}
 	}
 
 	if(it != mToastList.rend())
@@ -569,7 +581,6 @@ void LLScreenChannel::showToastsTop()
 void LLScreenChannel::createStartUpToast(S32 notif_num, F32 timer)
 {
 	LLRect toast_rect;
-	LLRect tbox_rect;
 	LLToast::Params p;
 	p.lifetime_secs = timer;
 	p.enable_hide_btn = false;
@@ -580,34 +591,26 @@ void LLScreenChannel::createStartUpToast(S32 notif_num, F32 timer)
 
 	mStartUpToastPanel->setOnFadeCallback(boost::bind(&LLScreenChannel::onStartUpToastHide, this));
 
+	LLPanel* wrapper_panel = mStartUpToastPanel->getChild<LLPanel>("wrapper_panel");
 	LLTextBox* text_box = mStartUpToastPanel->getChild<LLTextBox>("toast_text");
 
 	std::string	text = LLTrans::getString("StartUpNotifications");
 
-	tbox_rect   = text_box->getRect();
-	S32 tbox_width  = tbox_rect.getWidth();
-	S32 tbox_vpad   = text_box->getVPad();
-	S32 text_width  = text_box->getDefaultFont()->getWidth(text);
-	S32 text_height = text_box->getTextPixelHeight();
-
-	// EXT - 3703 (Startup toast message doesn't fit toast width)
-	// Calculating TextBox HEIGHT needed to include the whole string according to the given WIDTH of the TextBox.
-	S32 new_tbox_height = (text_width/tbox_width + 1) * text_height;
-	// Calculating TOP position of TextBox
-	S32 new_tbox_top = new_tbox_height + tbox_vpad + gSavedSettings.getS32("ToastGap");
-	// Calculating toast HEIGHT according to the new TextBox size
-	S32 toast_height = new_tbox_height + tbox_vpad * 2;
-
-	tbox_rect.setLeftTopAndSize(tbox_rect.mLeft, new_tbox_top, tbox_rect.getWidth(), new_tbox_height);
-	text_box->setRect(tbox_rect);
-
 	toast_rect = mStartUpToastPanel->getRect();
 	mStartUpToastPanel->reshape(getRect().getWidth(), toast_rect.getHeight(), true);
-	toast_rect.setLeftTopAndSize(0, toast_height + gSavedSettings.getS32("ToastGap"), getRect().getWidth(), toast_height);
-	mStartUpToastPanel->setRect(toast_rect);
 
 	text_box->setValue(text);
 	text_box->setVisible(TRUE);
+
+	S32 old_height = text_box->getRect().getHeight();
+	text_box->reshapeToFitText();
+	text_box->setOrigin(text_box->getRect().mLeft, (wrapper_panel->getRect().getHeight() - text_box->getRect().getHeight())/2);
+	S32 new_height = text_box->getRect().getHeight();
+	S32 height_delta = new_height - old_height;
+
+	toast_rect.setLeftTopAndSize(0, toast_rect.getHeight() + height_delta +gSavedSettings.getS32("ToastGap"), getRect().getWidth(), toast_rect.getHeight());
+	mStartUpToastPanel->setRect(toast_rect);
+
 	addChild(mStartUpToastPanel);
 	
 	mStartUpToastPanel->setVisible(TRUE);
@@ -676,7 +679,10 @@ void LLNotificationsUI::LLScreenChannel::startFadingToasts()
 	while (it != mToastList.end())
 	{
 		ToastElem& elem = *it;
-		elem.toast->startFading();
+		if (elem.toast->getVisible())
+		{
+			elem.toast->startFading();
+		}
 		++it;
 	}
 }
@@ -696,9 +702,7 @@ void LLScreenChannel::hideToast(const LLUUID& notification_id)
 	if(mToastList.end() != it)
 	{
 		ToastElem te = *it;
-		te.toast->setVisible(FALSE);
-		te.toast->stopTimer();
-		mToastList.erase(it);
+		te.toast->hide();
 	}
 }
 
@@ -762,23 +766,16 @@ void LLScreenChannel::onToastHover(LLToast* toast, bool mouse_enter)
 {
 	// because of LLViewerWindow::updateUI() that NOT ALWAYS calls onMouseEnter BEFORE onMouseLeave
 	// we must check hovering directly to prevent incorrect setting for hovering in a channel
-	S32 x,y;
 	if (mouse_enter)
 	{
-		toast->screenPointToLocal(gViewerWindow->getCurrentMouseX(),
-				gViewerWindow->getCurrentMouseY(), &x, &y);
-		bool hover = toast->pointInView(x, y) == TRUE;
-		if (hover)
+		if (toast->isHovered())
 		{
 			mHoveredToast = toast;
 		}
 	}
 	else if (mHoveredToast != NULL)
 	{
-		mHoveredToast->screenPointToLocal(gViewerWindow->getCurrentMouseX(),
-				gViewerWindow->getCurrentMouseY(), &x, &y);
-		bool hover = mHoveredToast->pointInView(x, y) == TRUE;
-		if (!hover)
+		if (!mHoveredToast->isHovered())
 		{
 			mHoveredToast = NULL;
 		}
@@ -801,16 +798,6 @@ void LLScreenChannel::updateShowToastsState()
 
 	S32 channel_bottom = gViewerWindow->getWorldViewRectScaled().mBottom + gSavedSettings.getS32("ChannelBottomPanelMargin");;
 	LLRect this_rect = getRect();
-
-	// adjust channel's height
-	if(floater->overlapsScreenChannel())
-	{
-		channel_bottom += floater->getRect().getHeight();
-		if(floater->getDockControl())
-		{
-			channel_bottom += floater->getDockControl()->getTongueHeight();
-		}
-	}
 
 	if(channel_bottom != this_rect.mBottom)
 	{

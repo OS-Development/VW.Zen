@@ -91,14 +91,15 @@ LLFontManager::~LLFontManager()
 
 LLFontGlyphInfo::LLFontGlyphInfo(U32 index)
 :	mGlyphIndex(index),
+	mWidth(0),			// In pixels
+	mHeight(0),			// In pixels
+	mXAdvance(0.f),		// In pixels
+	mYAdvance(0.f),		// In pixels
 	mXBitmapOffset(0), 	// Offset to the origin in the bitmap
 	mYBitmapOffset(0), 	// Offset to the origin in the bitmap
 	mXBearing(0),		// Distance from baseline to left in pixels
 	mYBearing(0),		// Distance from baseline to top in pixels
-	mWidth(0),			// In pixels
-	mHeight(0),			// In pixels
-	mXAdvance(0.f),		// In pixels
-	mYAdvance(0.f)		// In pixels
+	mBitmapNum(0) // Which bitmap in the bitmap cache contains this glyph
 {
 }
 
@@ -112,6 +113,7 @@ LLFontFreetype::LLFontFreetype()
 	mFTFace(NULL),
 	mRenderGlyphCount(0),
 	mAddGlyphCount(0),
+	mStyle(0),
 	mPointSize(0)
 {
 }
@@ -268,6 +270,14 @@ F32 LLFontFreetype::getXAdvance(llwchar wch) const
 	return (F32)mFontBitmapCachep->getMaxCharWidth();
 }
 
+F32 LLFontFreetype::getXAdvance(const LLFontGlyphInfo* glyph) const
+{
+	if (mFTFace == NULL)
+		return 0.0;
+
+	return glyph->mXAdvance;
+}
+
 F32 LLFontFreetype::getXKerning(llwchar char_left, llwchar char_right) const
 {
 	if (mFTFace == NULL)
@@ -278,6 +288,21 @@ F32 LLFontFreetype::getXKerning(llwchar char_left, llwchar char_right) const
 	U32 left_glyph = left_glyph_info ? left_glyph_info->mGlyphIndex : 0;
 	// Kern this puppy.
 	LLFontGlyphInfo* right_glyph_info = getGlyphInfo(char_right);
+	U32 right_glyph = right_glyph_info ? right_glyph_info->mGlyphIndex : 0;
+
+	FT_Vector  delta;
+
+	llverify(!FT_Get_Kerning(mFTFace, left_glyph, right_glyph, ft_kerning_unfitted, &delta));
+
+	return delta.x*(1.f/64.f);
+}
+
+F32 LLFontFreetype::getXKerning(const LLFontGlyphInfo* left_glyph_info, const LLFontGlyphInfo* right_glyph_info) const
+{
+	if (mFTFace == NULL)
+		return 0.0;
+
+	U32 left_glyph = left_glyph_info ? left_glyph_info->mGlyphIndex : 0;
 	U32 right_glyph = right_glyph_info ? right_glyph_info->mGlyphIndex : 0;
 
 	FT_Vector  delta;
@@ -502,8 +527,13 @@ void LLFontFreetype::resetBitmapCache()
 	mCharGlyphInfoMap.clear();
 	mFontBitmapCachep->reset();
 
-	// Add the empty glyph
-	addGlyphFromFont(this, 0, 0);
+	// Adding default glyph is skipped for fallback fonts here as well as in loadFace(). 
+	// This if was added as fix for EXT-4971.
+	if(!mIsFallback)
+	{
+		// Add the empty glyph
+		addGlyphFromFont(this, 0, 0);
+	}
 }
 
 void LLFontFreetype::destroyGL()

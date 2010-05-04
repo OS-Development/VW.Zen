@@ -164,7 +164,6 @@ public:
 
 		// handlers for individual events (could be done inside the switch in handleMediaEvent, they're just individual functions for clarity)
 		void onClickLinkHref( LLPluginClassMedia* self );
-		void onClickLinkNoFollow( LLPluginClassMedia* self );
 		
 	protected:
 		void convertInputCoords(S32& x, S32& y);
@@ -172,6 +171,7 @@ public:
 	private:
 		void onVisibilityChange ( const LLSD& new_visibility );
 		static bool onClickLinkExternalTarget( const LLSD&, const LLSD& );
+		static void clickLinkWithTarget(const std::string& url, const S32& target_type );
 
 		const S32 mTextureDepthBytes;
 		LLUUID mMediaTextureID;

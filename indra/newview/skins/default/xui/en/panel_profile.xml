@@ -7,7 +7,7 @@
  left="0"
  name="panel_profile"
  top="0"
- width="313">
+ width="317">
     <string
      name="CaptionTextAcctInfo">
         [ACCTTYPE]
@@ -41,8 +41,8 @@
      layout="topleft"
      left="0"
      top="0"
-     height="517"
-     width="313"
+     height="524"
+     width="317"
      border_size="0">
       <layout_panel
          name="profile_stack"
@@ -50,8 +50,8 @@
          layout="topleft"
          top="0"
          left="0"
-         height="505"
-         width="313">
+         height="524"
+         width="317">
         <scroll_container
          color="DkGray2"
          follows="all"
@@ -59,22 +59,23 @@
          left="0"
          name="profile_scroll"
          opaque="true"
-         height="505"
-         width="313"
+         height="527"
+         width="317"
          top="0">
           <panel
                 layout="topleft"
           follows="left|top|right"
                 height="505"
+		min_height="505"
                 name="profile_scroll_panel"
                 top="0"
                 left="0"
                 width="297">
             <panel
                   follows="left|top|right"
-                  height="117"
+                  height="124"
                   layout="topleft"
-                  left="10"
+                  left="13"
                   name="second_life_image_panel"
                   top="0"
                   width="297">
@@ -83,7 +84,7 @@
                default_image_name="None"
                enabled="false"
                follows="top|left"
-               height="117"
+               height="124"
                layout="topleft"
                left="0"
                name="2nd_life_pic"
@@ -102,24 +103,27 @@
                width="180" />
               <expandable_text
                follows="left|top|right"
-               height="95"
+               height="97"
                layout="topleft"
                left="107"
                textbox.max_length="512"
+               textbox.label="More"
+               textbox.show_context_menu="true"
                name="sl_description_edit"
                top_pad="-3"
-               width="185"
+               translate="false"
+               width="180"
                expanded_bg_visible="true"
                expanded_bg_color="DkGray">
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean viverra orci et justo sagittis aliquet. Nullam malesuada mauris sit amet ipsum. adipiscing elit. Aenean viverra orci et justo sagittis aliquet. Nullam malesuada mauris sit amet ipsum. adipiscing elit. Aenean viverra orci et justo sagittis aliquet. Nullam malesuada mauris sit amet ipsum.
+                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean viverra orci et justo sagittis aliquet.Nullamma lesuada mauris sit amet ipsum. adipiscing elit. Ae nean viverra orci et justo sagittis aliquet. Nullam malesuada mauris sit amet ipsum. adipiscing elit. Aenean viverra orci et justo sagittis aliquet. Nullam malesuada mauris sit amet ipsum.
               </expandable_text>
             </panel>
             <panel
              follows="left|top|right"
-             height="117"
+             height="124"
              layout="topleft"
-       top_pad="10"
-             left="10"
+       top_pad="0"
+             left="13"
              name="first_life_image_panel"
              width="297">
               <texture_picker
@@ -127,7 +131,7 @@
                default_image_name="None"
                enabled="false"
                follows="top|left"
-               height="117"
+               height="124"
                layout="topleft"
                left="0"
                name="real_world_pic"
@@ -145,13 +149,16 @@
                width="180" />
               <expandable_text
                follows="left|top|right"
-               height="95"
+               height="97"
                layout="topleft"
                left="107"
                textbox.max_length="512"
+               textbox.label="More"
+               textbox.show_context_menu="true"
                name="fl_description_edit"
                top_pad="-3"
-               width="185"
+               translate="false"
+               width="180"
                expanded_bg_visible="true"
                expanded_bg_color="DkGray">
                 Lorem ipsum dolor sit amet, consectetur adlkjpiscing elit moose moose. Aenean viverra orci et justo sagittis aliquet. Nullam malesuada mauris sit amet. adipiscing elit. Aenean rigviverra orci et justo sagittis aliquet. Nullam malesuada mauris sit amet sorbet ipsum. adipiscing elit. Aenean viverra orci et justo sagittis aliquet. Nullam malesuada mauris sit amet ipsum.
@@ -166,11 +173,11 @@
               left="10"
               name="homepage_edit"
               top_pad="0"
+              translate="false"
               value="http://librarianavengers.org"
               width="300"
               word_wrap="false"
-              use_ellipses="true"
-         />
+              use_ellipses="true" />
             <text
              follows="left|top"
            font.style="BOLD"
@@ -182,12 +189,18 @@
              top_pad="10"
              value="Resident Since:"
              width="300" />
-            <text
+            <text_editor
+             allow_scroll="false"
+             bg_visible="false"
              follows="left|top"
+             h_pad="0"
              height="15"
              layout="topleft"
              left="10"
              name="register_date"
+             read_only="true"
+             translate="false"
+             v_pad="0"
              value="05/31/2376"
              width="300"
              word_wrap="true" />
@@ -213,18 +226,24 @@
          top_delta="0"
 	 value="Go to Dashboard"
          width="100"/> -->
-            <text
+            <text_editor
+             allow_scroll="false"
+             bg_visible="false"
              follows="left|top"
+             h_pad="0"
              height="28"
              layout="topleft"
              left="10"
              name="acc_status_text"
+             read_only="true"
              top_pad="0"
+             translate="false"
+             v_pad="0"
              width="300"
              word_wrap="true">
               Resident. No payment info on file.
               Linden.
-            </text>
+            </text_editor>
             <text
              follows="left|top"
        font.style="BOLD"
@@ -269,11 +288,15 @@
              width="300" />
             <expandable_text
             follows="all"
-            height="113"
+            height="103"
             layout="topleft"
             left="7"
             name="sl_groups"
+            textbox.max_length="512"
+            textbox.label="More"
+            textbox.show_context_menu="true"
             top_pad="0"
+            translate="false"
             width="290"
             expanded_bg_visible="true"
             expanded_bg_color="DkGray">
@@ -287,19 +310,22 @@
          height="30"
          layout="topleft"
          name="profile_buttons_panel"
-         auto_resize="false" 
-         width="313">
+         auto_resize="false"
+         width="317">
         <button
          follows="bottom|left"
          height="23"
          label="Add Friend"
          layout="topleft"
-         left="0"
+         left="2"
          mouse_opaque="false"
          name="add_friend"
+         pad_left="1" 
+         pad_right="1"
          tool_tip="Offer friendship to the Resident"
          top="5"
-         width="80" />
+         use_ellipses="true"
+         width="117" />
         <button
          follows="bottom|left"
          height="23"
@@ -308,8 +334,8 @@
          name="im"
          tool_tip="Open instant message session"
          top="5"
-         left_pad="3"
-         width="45" />
+         left_pad="1"
+         width="21" />
         <button
          follows="bottom|left"
          height="23"
@@ -317,20 +343,12 @@
          layout="topleft"
          name="call"
          tool_tip="Call this Resident"
-         left_pad="3"
+         left_pad="1"
+         pad_left="1" 
+         pad_right="1"
          top="5"
-         width="45" />
-        <button
-         enabled="false"
-         follows="bottom|left"
-         height="23"
-         label="Map"
-         layout="topleft"
-         name="show_on_map_btn"
-         tool_tip="Show the Resident on the map"
-         top="5"
-         left_pad="3"
-         width="45" />
+         use_ellipses="true"
+         width="51" />
         <button
          follows="bottom|left"
          height="23"
@@ -338,10 +356,13 @@
          layout="topleft"
          name="teleport"
          tool_tip="Offer teleport"
-         left_pad="3"
+         left_pad="1"
+         pad_left="1" 
+         pad_right="1"
          top="5"
-         width="85" />
-       <!-- <button
+         use_ellipses="true"
+         width="92" />
+        <button
          follows="bottom|right"
          height="23"
          label="▼"
@@ -350,8 +371,7 @@
          tool_tip="Pay money to or share inventory with the Resident"
          right="-1"
          top="5"
-	 left_pad="3"
-         width="23" />-->
+         width="23" />
         </layout_panel>
       <layout_panel
          follows="bottom|left"
@@ -369,15 +389,7 @@
          name="edit_profile_btn"
          tool_tip="Edit your personal information"
          width="130" />
-        <button
-         follows="bottom|right"
-         height="23"
-         label="Edit Appearance"
-         left_pad="10"
-         name="edit_appearance_btn"
-         tool_tip="Create/edit your appearance: physical data, clothes and etc."
-         width="130" />
         </layout_panel>
-    
+
 </layout_stack>
 </panel>

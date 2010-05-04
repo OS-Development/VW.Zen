@@ -657,11 +657,38 @@ LLMenuItemVerticalSeparatorGL::LLMenuItemVerticalSeparatorGL( void )
 // Class LLMenuItemTearOffGL
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 LLMenuItemTearOffGL::LLMenuItemTearOffGL(const LLMenuItemTearOffGL::Params& p) 
-:	LLMenuItemGL(p), 
-	mParentHandle(p.parent_floater_handle)
+:	LLMenuItemGL(p)
 {
 }
 
+// Returns the first floater ancestor if there is one
+LLFloater* LLMenuItemTearOffGL::getParentFloater()
+{
+	LLView* parent_view = getMenu();
+
+	while (parent_view)
+	{
+		if (dynamic_cast<LLFloater*>(parent_view))
+		{
+			return dynamic_cast<LLFloater*>(parent_view);
+		}
+
+		bool parent_is_menu = dynamic_cast<LLMenuGL*>(parent_view) && !dynamic_cast<LLMenuBarGL*>(parent_view);
+
+		if (parent_is_menu)
+		{
+			// use menu parent
+			parent_view =  dynamic_cast<LLMenuGL*>(parent_view)->getParentMenuItem();
+		}
+		else
+		{
+			// just use regular view parent
+			parent_view = parent_view->getParent();
+		}
+	}
+
+	return NULL;
+}
 
 void LLMenuItemTearOffGL::onCommit()
 {
@@ -680,7 +707,7 @@ void LLMenuItemTearOffGL::onCommit()
 
 		getMenu()->needsArrange();
 
-		LLFloater* parent_floater = mParentHandle.get();
+		LLFloater* parent_floater = getParentFloater();
 		LLFloater* tear_off_menu = LLTearOffMenu::create(getMenu());
 
 		if (tear_off_menu)
@@ -1651,6 +1678,7 @@ LLMenuGL::LLMenuGL(const LLMenuGL::Params& p)
 	mBackgroundColor( p.bg_color() ),
 	mBgVisible( p.bg_visible ),
 	mDropShadowed( p.drop_shadow ),
+	mHasSelection(false),
 	mHorizontalLayout( p.horizontal_layout ),
 	mScrollable(mHorizontalLayout ? FALSE : p.scrollable), // Scrolling is supported only for vertical layout
 	mMaxScrollableItems(p.max_scrollable_items),
@@ -1670,7 +1698,6 @@ LLMenuGL::LLMenuGL(const LLMenuGL::Params& p)
 	mSpilloverMenu(NULL),
 	mJumpKey(p.jump_key),
 	mCreateJumpKeys(p.create_jump_keys),
-	mParentFloaterHandle(p.parent_floater),
 	mNeedsArrange(FALSE), 
 	mShortcutPad(p.shortcut_pad)
 {
@@ -1698,7 +1725,7 @@ LLMenuGL::LLMenuGL(const LLMenuGL::Params& p)
 void LLMenuGL::initFromParams(const LLMenuGL::Params& p)
 {
 	LLUICtrl::initFromParams(p);
-	setCanTearOff(p.can_tear_off, p.parent_floater);
+	setCanTearOff(p.can_tear_off);
 }
 
 // Destroys the object
@@ -1710,12 +1737,11 @@ LLMenuGL::~LLMenuGL( void )
 	mJumpKeys.clear();
 }
 
-void LLMenuGL::setCanTearOff(BOOL tear_off, LLHandle<LLFloater> parent_floater_handle )
+void LLMenuGL::setCanTearOff(BOOL tear_off)
 {
 	if (tear_off && mTearOffItem == NULL)
 	{
 		LLMenuItemTearOffGL::Params p;
-		p.parent_floater_handle = parent_floater_handle;
 		mTearOffItem = LLUICtrlFactory::create<LLMenuItemTearOffGL>(p);
 		addChildInBack(mTearOffItem);
 	}
@@ -1875,17 +1901,21 @@ void LLMenuGL::scrollItemsDown()
 
 	item_list_t::iterator next_item_iter;
 
-	for (next_item_iter = ++cur_item_iter; next_item_iter != mItems.end(); next_item_iter++)
+	if (cur_item_iter != mItems.end())
 	{
-		if( (*next_item_iter)->getVisible())
+		for (next_item_iter = ++cur_item_iter; next_item_iter != mItems.end(); next_item_iter++)
 		{
-			break;
+			if( (*next_item_iter)->getVisible())
+			{
+				break;
+			}
 		}
-	}
-
-	if ((*next_item_iter)->getVisible())
-	{
-		mFirstVisibleItem = *next_item_iter;
+		
+		if (next_item_iter != mItems.end() &&
+		    (*next_item_iter)->getVisible())
+		{
+			mFirstVisibleItem = *next_item_iter;
+		}
 	}
 	
 	mNeedsArrange = TRUE;
@@ -2228,7 +2258,6 @@ void LLMenuGL::createSpilloverBranch()
 		LLMenuGL::Params p;
 		p.name("More");
 		p.label("More"); // *TODO: Translate
-		p.parent_floater(mParentFloaterHandle);
 		p.bg_color(mBackgroundColor);
 		p.bg_visible(true);
 		p.can_tear_off(false);
@@ -2809,7 +2838,7 @@ BOOL LLMenuGL::handleHover( S32 x, S32 y, MASK mask )
 					((LLMenuItemGL*)viewp)->setHighlight(TRUE);
 					LLMenuGL::setKeyboardMode(FALSE);
 				}
-				mHasSelection = TRUE;
+				mHasSelection = true;
 			}
 		}
 	}
@@ -2888,7 +2917,7 @@ void LLMenuGL::setVisible(BOOL visible)
 		}
 		else
 		{
-			mHasSelection = FALSE;
+			mHasSelection = true;
 			mFadeTimer.stop();
 		}
 
@@ -3316,7 +3345,7 @@ void LLMenuHolderGL::draw()
 	LLView::draw();
 	// now draw last selected item as overlay
 	LLMenuItemGL* selecteditem = (LLMenuItemGL*)sItemLastSelectedHandle.get();
-	if (selecteditem && sItemActivationTimer.getStarted() && sItemActivationTimer.getElapsedTimeF32() < ACTIVATE_HIGHLIGHT_TIME)
+	if (selecteditem && selecteditem->getVisible() && sItemActivationTimer.getStarted() && sItemActivationTimer.getElapsedTimeF32() < ACTIVATE_HIGHLIGHT_TIME)
 	{
 		// make sure toggle items, for example, show the proper state when fading out
 		selecteditem->buildDrawLabel();
@@ -3426,7 +3455,7 @@ LLView* const LLMenuHolderGL::getVisibleMenu() const
 	for ( child_list_const_iter_t child_it = getChildList()->begin(); child_it != getChildList()->end(); ++child_it)
 	{
 		LLView* viewp = *child_it;
-		if (viewp->getVisible() && dynamic_cast<LLMenuBarGL*>(viewp) == NULL)
+		if (viewp->getVisible() && dynamic_cast<LLMenuGL*>(viewp) != NULL)
 		{
 			return viewp;
 		}
@@ -3449,8 +3478,7 @@ BOOL LLMenuHolderGL::hideMenus()
 		for ( child_list_const_iter_t child_it = getChildList()->begin(); child_it != getChildList()->end(); ++child_it)
 		{
 			LLView* viewp = *child_it;
-			// clicks off of menu do not hide menu bar
-			if (dynamic_cast<LLMenuBarGL*>(viewp) == NULL && viewp->getVisible())
+			if (dynamic_cast<LLMenuGL*>(viewp) != NULL && viewp->getVisible())
 			{
 				viewp->setVisible(FALSE);
 			}
@@ -3936,7 +3964,6 @@ BOOL LLContextMenu::appendContextSubMenu(LLContextMenu *menu)
 	
 	item = LLUICtrlFactory::create<LLContextMenuBranch>(p);
 	LLMenuGL::sMenuContainer->addChild(item->getBranch());
-	item->setFont( LLFontGL::getFontSansSerif() );
 
 	return append( item );
 }

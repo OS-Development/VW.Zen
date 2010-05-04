@@ -63,14 +63,8 @@ public:
 	
 	LLMute(const LLUUID& id, const std::string& name = std::string(), EType type = BY_NAME, U32 flags = 0);
 
-	// Returns name + suffix based on type
-	// For example:  "James Tester (resident)"
-	std::string getDisplayName() const;
-	
-	// Converts a UI name into just the agent or object name
-	// For example: "James Tester (resident)" sets the name to "James Tester"
-	// and the type to AGENT.
-	void setFromDisplayName(const std::string& display_name);
+	// Returns localized type name of muted item
+	std::string getDisplayType() const;
 	
 public:
 	LLUUID		mID;	// agent or object id
@@ -127,12 +121,7 @@ public:
 	// call this method on logout to save everything.
 	void cache(const LLUUID& agent_id);
 
-	void setSavedResidentVolume(const LLUUID& id, F32 volume);
-	F32 getSavedResidentVolume(const LLUUID& id);
-
 private:
-	void loadUserVolumes();
-	
 	BOOL loadFromFile(const std::string& filename);
 	BOOL saveToFile(const std::string& filename);
 
@@ -179,12 +168,8 @@ private:
 	observer_set_t mObservers;
 
 	BOOL mIsLoaded;
-	BOOL mUserVolumesLoaded;
 
 	friend class LLDispatchEmptyMuteList;
-
-	typedef std::map<LLUUID, F32> user_volume_map_t; 
-	user_volume_map_t mUserVolumeSettings;
 };
 
 class LLMuteListObserver

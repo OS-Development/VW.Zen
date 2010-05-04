@@ -40,6 +40,7 @@
 #include "llbutton.h"
 #include "llfloaterreg.h"
 #include "llgroupactions.h"
+#include "llinventorydefines.h"
 #include "llinventorymodel.h"
 #include "llinventoryobserver.h"
 #include "lllineeditor.h"
@@ -109,9 +110,9 @@ BOOL LLSidepanelItemInfo::postBuild()
 {
 	LLSidepanelInventorySubpanel::postBuild();
 
-	childSetPrevalidate("LabelItemName",&LLLineEditor::prevalidateASCIIPrintableNoPipe);
+	childSetPrevalidate("LabelItemName",&LLTextValidate::validateASCIIPrintableNoPipe);
 	getChild<LLUICtrl>("LabelItemName")->setCommitCallback(boost::bind(&LLSidepanelItemInfo::onCommitName,this));
-	childSetPrevalidate("LabelItemDesc",&LLLineEditor::prevalidateASCIIPrintableNoPipe);
+	childSetPrevalidate("LabelItemDesc",&LLTextValidate::validateASCIIPrintableNoPipe);
 	getChild<LLUICtrl>("LabelItemDesc")->setCommitCallback(boost::bind(&LLSidepanelItemInfo:: onCommitDescription, this));
 	// Creator information
 	getChild<LLUICtrl>("BtnCreator")->setCommitCallback(boost::bind(&LLSidepanelItemInfo::onClickCreator,this));
@@ -231,20 +232,23 @@ void LLSidepanelItemInfo::refreshFromItem(LLViewerInventoryItem* item)
 	// PERMISSIONS LOOKUP //
 	////////////////////////
 
+	llassert(item);
+	if (!item) return;
+
 	// do not enable the UI for incomplete items.
-	BOOL is_complete = item->isComplete();
+	BOOL is_complete = item->isFinished();
 	const BOOL cannot_restrict_permissions = LLInventoryType::cannotRestrictPermissions(item->getInventoryType());
 	const BOOL is_calling_card = (item->getInventoryType() == LLInventoryType::IT_CALLINGCARD);
 	const LLPermissions& perm = item->getPermissions();
 	const BOOL can_agent_manipulate = gAgent.allowOperation(PERM_OWNER, perm, 
-															GP_OBJECT_MANIPULATE);
+								GP_OBJECT_MANIPULATE);
 	const BOOL can_agent_sell = gAgent.allowOperation(PERM_OWNER, perm, 
-													  GP_OBJECT_SET_SALE) &&
+							  GP_OBJECT_SET_SALE) &&
 		!cannot_restrict_permissions;
 	const BOOL is_link = item->getIsLinkType();
 	
 	const LLUUID trash_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_TRASH);
-	bool not_in_trash = item && (item->getUUID() != trash_id) && !gInventory.isObjectDescendentOf(item->getUUID(), trash_id);
+	bool not_in_trash = (item->getUUID() != trash_id) && !gInventory.isObjectDescendentOf(item->getUUID(), trash_id);
 
 	// You need permission to modify the object to modify an inventory
 	// item in it.
@@ -436,9 +440,9 @@ void LLSidepanelItemInfo::refreshFromItem(LLViewerInventoryItem* item)
 		if (item->getType() == LLAssetType::AT_OBJECT)
 		{
 			U32 flags = item->getFlags();
-			slam_perm 			= flags & LLInventoryItem::II_FLAGS_OBJECT_SLAM_PERM;
-			overwrite_everyone	= flags & LLInventoryItem::II_FLAGS_OBJECT_PERM_OVERWRITE_EVERYONE;
-			overwrite_group		= flags & LLInventoryItem::II_FLAGS_OBJECT_PERM_OVERWRITE_GROUP;
+			slam_perm 			= flags & LLInventoryItemFlags::II_FLAGS_OBJECT_SLAM_PERM;
+			overwrite_everyone	= flags & LLInventoryItemFlags::II_FLAGS_OBJECT_PERM_OVERWRITE_EVERYONE;
+			overwrite_group		= flags & LLInventoryItemFlags::II_FLAGS_OBJECT_PERM_OVERWRITE_GROUP;
 		}
 		
 		std::string perm_string;
@@ -739,7 +743,7 @@ void LLSidepanelItemInfo::onCommitPermissions()
 							CheckNextOwnerTransfer->get(), PERM_TRANSFER);
 	}
 	if(perm != item->getPermissions()
-		&& item->isComplete())
+		&& item->isFinished())
 	{
 		LLPointer<LLViewerInventoryItem> new_item = new LLViewerInventoryItem(item);
 		new_item->setPermissions(perm);
@@ -749,7 +753,7 @@ void LLSidepanelItemInfo::onCommitPermissions()
 		if((perm.getMaskNextOwner()!=item->getPermissions().getMaskNextOwner())
 		   && (item->getType() == LLAssetType::AT_OBJECT))
 		{
-			flags |= LLInventoryItem::II_FLAGS_OBJECT_SLAM_PERM;
+			flags |= LLInventoryItemFlags::II_FLAGS_OBJECT_SLAM_PERM;
 		}
 		// If everyone permissions have changed (and this is an object)
 		// then set the overwrite everyone permissions flag so they
@@ -757,7 +761,7 @@ void LLSidepanelItemInfo::onCommitPermissions()
 		if ((perm.getMaskEveryone()!=item->getPermissions().getMaskEveryone())
 			&& (item->getType() == LLAssetType::AT_OBJECT))
 		{
-			flags |= LLInventoryItem::II_FLAGS_OBJECT_PERM_OVERWRITE_EVERYONE;
+			flags |= LLInventoryItemFlags::II_FLAGS_OBJECT_PERM_OVERWRITE_EVERYONE;
 		}
 		// If group permissions have changed (and this is an object)
 		// then set the overwrite group permissions flag so they
@@ -765,7 +769,7 @@ void LLSidepanelItemInfo::onCommitPermissions()
 		if ((perm.getMaskGroup()!=item->getPermissions().getMaskGroup())
 			&& (item->getType() == LLAssetType::AT_OBJECT))
 		{
-			flags |= LLInventoryItem::II_FLAGS_OBJECT_PERM_OVERWRITE_GROUP;
+			flags |= LLInventoryItemFlags::II_FLAGS_OBJECT_PERM_OVERWRITE_GROUP;
 		}
 		new_item->setFlags(flags);
 		if(mObjectID.isNull())
@@ -869,7 +873,7 @@ void LLSidepanelItemInfo::updateSaleInfo()
 		sale_info.setSaleType(LLSaleInfo::FS_NOT);
 	}
 	if(sale_info != item->getSaleInfo()
-		&& item->isComplete())
+		&& item->isFinished())
 	{
 		LLPointer<LLViewerInventoryItem> new_item = new LLViewerInventoryItem(item);
 
@@ -877,7 +881,7 @@ void LLSidepanelItemInfo::updateSaleInfo()
 		if (item->getType() == LLAssetType::AT_OBJECT)
 		{
 			U32 flags = new_item->getFlags();
-			flags |= LLInventoryItem::II_FLAGS_OBJECT_SLAM_SALE;
+			flags |= LLInventoryItemFlags::II_FLAGS_OBJECT_SLAM_SALE;
 			new_item->setFlags(flags);
 		}
 

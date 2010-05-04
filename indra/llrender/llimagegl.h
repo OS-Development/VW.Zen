@@ -157,7 +157,7 @@ public:
 	void updatePickMask(S32 width, S32 height, const U8* data_in);
 	BOOL getMask(const LLVector2 &tc);
 
-	void checkTexSize() const ;
+	void checkTexSize(bool forced = false) const ;
 	
 	// Sets the addressing mode used to sample the texture 
 	//  (such as wrapping, mirrored wrapping, and clamp)
@@ -193,6 +193,8 @@ public:
 private:
 	LLPointer<LLImageRaw> mSaveData; // used for destroyGL/restoreGL
 	U8* mPickMask;  //downsampled bitmap approximation of alpha channel.  NULL if no alpha channel
+	U16 mPickMaskWidth;
+	U16 mPickMaskHeight;
 	S8 mUseMipMaps;
 	S8 mHasExplicitFormat; // If false (default), GL format is f(mComponents)
 	S8 mAutoGenMips;

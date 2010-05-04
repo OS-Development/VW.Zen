@@ -81,12 +81,18 @@ public:
 	virtual BOOL handleRightMouseDown	( S32 x, S32 y, MASK mask); 
 	virtual BOOL handleScrollWheel		( S32 x, S32 y, S32 clicks );
 	virtual BOOL handleKeyHere			(KEY key, MASK mask);
+	virtual BOOL handleDragAndDrop		(S32 x, S32 y, MASK mask, BOOL drop,
+										 EDragAndDropType cargo_type,
+										 void* cargo_data,
+										 EAcceptance* accept,
+										 std::string& tooltip_msg);
 	//
 
 	// Call reshape after changing splitter's size
 	virtual void reshape(S32 width, S32 height, BOOL called_from_parent = TRUE);
 
 	void addCollapsibleCtrl(LLView* view);
+	void removeCollapsibleCtrl(LLView* view);
 	void arrange();
 
 
@@ -100,6 +106,9 @@ public:
 	void	reset		();
 
 private:
+	void	arrangeSinge();
+	void	arrangeMultiple();
+
 	// Calc Splitter's height that is necessary to display all child content
 	S32		calcRecuiredHeight();
 	S32		getRecuiredHeight() const { return mInnerRect.getHeight(); }
@@ -112,11 +121,15 @@ private:
 	void	showScrollbar			(S32 width, S32 height);
 	void	hideScrollbar			(S32 width, S32 height);
 
+	BOOL	autoScroll				(S32 x, S32 y);
+
 private:
 	LLRect			mInnerRect;
 	LLScrollbar*	mScrollbar;
 	bool			mSingleExpansion;
 	bool			mFitParent;
+	bool			mAutoScrolling;
+	F32				mAutoScrollRate;
 };
 
 

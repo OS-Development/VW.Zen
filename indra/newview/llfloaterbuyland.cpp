@@ -54,6 +54,7 @@
 #include "llstatusbar.h"
 #include "lltextbox.h"
 #include "lltexturectrl.h"
+#include "lltrans.h"
 #include "llviewchildren.h"
 #include "llviewercontrol.h"
 #include "lluictrlfactory.h"
@@ -82,7 +83,10 @@ public:
 	virtual ~LLFloaterBuyLandUI();
 	
 	/*virtual*/ void onClose(bool app_quitting);
-	
+
+	// Left padding for maturity rating icon.
+	static const S32 ICON_PAD = 2;
+
 private:
 	class SelectionObserver : public LLParcelObserver
 	{
@@ -501,6 +505,25 @@ void LLFloaterBuyLandUI::updateCovenantInfo()
 	{
 		std::string region_name_txt = region->getName() + " ("+rating +")";
 		region_name->setText(region_name_txt);
+
+		LLIconCtrl* rating_icon = getChild<LLIconCtrl>("rating_icon");
+		LLRect rect = rating_icon->getRect();
+		S32 icon_left_pad = region_name->getRect().mLeft + region_name->getTextBoundingRect().getWidth() + ICON_PAD;
+		rating_icon->setRect(rect.setOriginAndSize(icon_left_pad, rect.mBottom, rect.getWidth(), rect.getHeight()));
+
+		switch(sim_access)
+		{
+		case SIM_ACCESS_PG:
+			rating_icon->setValue(getString("icon_PG"));
+			break;
+
+		case SIM_ACCESS_ADULT:
+			rating_icon->setValue(getString("icon_R"));
+			break;
+
+		default:
+			rating_icon->setValue(getString("icon_M"));
+		}
 	}
 
 	LLTextBox* region_type = getChild<LLTextBox>("region_type_text");
@@ -1150,13 +1173,13 @@ void LLFloaterBuyLandUI::refreshUI()
 		
 		if (!mParcelValid)
 		{
-			message += getString("no_parcel_selected");
+			message += LLTrans::getString("sentences_separator") + getString("no_parcel_selected");
 		}
 		else if (mParcelBillableArea == mParcelActualArea)
 		{
 			LLStringUtil::format_map_t string_args;
 			string_args["[AMOUNT]"] = llformat("%d ", mParcelActualArea);
-			message += getString("parcel_meters", string_args);
+			message += LLTrans::getString("sentences_separator") + getString("parcel_meters", string_args);
 		}
 		else
 		{
@@ -1165,13 +1188,13 @@ void LLFloaterBuyLandUI::refreshUI()
 			{	
 				LLStringUtil::format_map_t string_args;
 				string_args["[AMOUNT]"] = llformat("%d ", mParcelBillableArea);
-				message += getString("premium_land", string_args);
+				message += LLTrans::getString("sentences_separator") + getString("premium_land", string_args);
 			}
 			else
 			{
 				LLStringUtil::format_map_t string_args;
 				string_args["[AMOUNT]"] = llformat("%d ", mParcelBillableArea);
-				message += getString("discounted_land", string_args);
+				message += LLTrans::getString("sentences_separator") + getString("discounted_land", string_args);
 			}
 		}
 

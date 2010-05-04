@@ -99,6 +99,12 @@ LLTexLayerSetBuffer::~LLTexLayerSetBuffer()
 }
 
 //virtual 
+S8 LLTexLayerSetBuffer::getType() const 
+{
+	return LLViewerDynamicTexture::LL_TEX_LAYER_SET_BUFFER ;
+}
+
+//virtual 
 void LLTexLayerSetBuffer::restoreGLTexture() 
 {	
 	LLViewerDynamicTexture::restoreGLTexture() ;
@@ -166,12 +172,13 @@ void LLTexLayerSetBuffer::popProjection() const
 
 BOOL LLTexLayerSetBuffer::needsRender()
 {
-	const LLVOAvatarSelf* avatar = mTexLayerSet->getAvatar();
-	BOOL upload_now = mNeedsUpload && mTexLayerSet->isLocalTextureDataFinal();
-	BOOL needs_update = gAgentQueryManager.hasNoPendingQueries() && (mNeedsUpdate || upload_now) && !avatar->mAppearanceAnimating;
+	llassert(mTexLayerSet->getAvatar() == gAgentAvatarp);
+	if (!isAgentAvatarValid()) return FALSE;
+	BOOL upload_now = mNeedsUpload && mTexLayerSet->isLocalTextureDataFinal() && gAgentQueryManager.hasNoPendingQueries();
+	BOOL needs_update = (mNeedsUpdate || upload_now) && !gAgentAvatarp->mAppearanceAnimating;
 	if (needs_update)
 	{
-		BOOL invalid_skirt = avatar->getBakedTE(mTexLayerSet) == LLVOAvatarDefines::TEX_SKIRT_BAKED && !avatar->isWearingWearableType(WT_SKIRT);
+		BOOL invalid_skirt = gAgentAvatarp->getBakedTE(mTexLayerSet) == LLVOAvatarDefines::TEX_SKIRT_BAKED && !gAgentAvatarp->isWearingWearableType(WT_SKIRT);
 		if (invalid_skirt)
 		{
 			// we were trying to create a skirt texture
@@ -181,7 +188,6 @@ BOOL LLTexLayerSetBuffer::needsRender()
 		}
 		else
 		{
-			needs_update &= (avatar->isSelf() || (avatar->isVisible() && !avatar->isCulled()));
 			needs_update &= mTexLayerSet->isLocalTextureDataAvailable();
 		}
 	}
@@ -284,8 +290,6 @@ void LLTexLayerSetBuffer::readBackAndUpload()
 	llinfos << "Baked " << mTexLayerSet->getBodyRegion() << llendl;
 	LLViewerStats::getInstance()->incStat(LLViewerStats::ST_TEX_BAKES);
 
-	llassert( gAgent.getAvatarObject() == mTexLayerSet->getAvatar() );
-
 	// We won't need our caches since we're baked now.  (Techically, we won't 
 	// really be baked until this image is sent to the server and the Avatar
 	// Appearance message is received.)
@@ -352,7 +356,7 @@ void LLTexLayerSetBuffer::readBackAndUpload()
 			{
 				// baked_upload_data is owned by the responder and deleted after the request completes
 				LLBakedUploadData* baked_upload_data =
-					new LLBakedUploadData(gAgent.getAvatarObject(), this->mTexLayerSet, asset_id);
+					new LLBakedUploadData(gAgentAvatarp, this->mTexLayerSet, asset_id);
 				mUploadID = asset_id;
 				
 				// upload the image
@@ -409,12 +413,10 @@ void LLTexLayerSetBuffer::onTextureUploadComplete(const LLUUID& uuid,
 {
 	LLBakedUploadData* baked_upload_data = (LLBakedUploadData*)userdata;
 
-	LLVOAvatarSelf* avatar = gAgent.getAvatarObject();
-
 	if (0 == result &&
-		avatar &&
-		!avatar->isDead() &&
-		baked_upload_data->mAvatar == avatar && // Sanity check: only the user's avatar should be uploading textures.
+		isAgentAvatarValid() &&
+		!gAgentAvatarp->isDead() &&
+		baked_upload_data->mAvatar == gAgentAvatarp && // Sanity check: only the user's avatar should be uploading textures.
 		baked_upload_data->mTexLayerSet->hasComposite()
 		)
 	{
@@ -439,11 +441,11 @@ void LLTexLayerSetBuffer::onTextureUploadComplete(const LLUUID& uuid,
 
 			if (result >= 0)
 			{
-				LLVOAvatarDefines::ETextureIndex baked_te = avatar->getBakedTE(layerset_buffer->mTexLayerSet);
+				LLVOAvatarDefines::ETextureIndex baked_te = gAgentAvatarp->getBakedTE(layerset_buffer->mTexLayerSet);
 				// Update baked texture info with the new UUID
 				U64 now = LLFrameTimer::getTotalTime();		// Record starting time
 				llinfos << "Baked texture upload took " << (S32)((now - baked_upload_data->mStartTime) / 1000) << " ms" << llendl;
-				avatar->setNewBakedTexture(baked_te, uuid);
+				gAgentAvatarp->setNewBakedTexture(baked_te, uuid);
 			}
 			else
 			{	
@@ -457,7 +459,7 @@ void LLTexLayerSetBuffer::onTextureUploadComplete(const LLUUID& uuid,
 			llinfos << "Received baked texture out of date, ignored." << llendl;
 		}
 
-		avatar->dirtyMesh();
+		gAgentAvatarp->dirtyMesh();
 	}
 	else
 	{
@@ -567,6 +569,7 @@ LLTexLayerSet::LLTexLayerSet(LLVOAvatarSelf* const avatar) :
 	mAvatar( avatar ),
 	mUpdatesEnabled( FALSE ),
 	mIsVisible( TRUE ),
+	mBakedTexIndex(LLVOAvatarDefines::BAKED_HEAD),
 	mInfo( NULL )
 {
 }
@@ -1129,7 +1132,8 @@ LLTexLayerInterface::LLTexLayerInterface(LLTexLayerSet* const layer_set):
 }
 
 LLTexLayerInterface::LLTexLayerInterface(const LLTexLayerInterface &layer, LLWearable *wearable):
-	mTexLayerSet( layer.mTexLayerSet )
+	mTexLayerSet( layer.mTexLayerSet ),
+	mInfo(NULL)
 {
 	// don't add visual params for cloned layers
 	setInfo(layer.getInfo(), wearable);
@@ -1139,7 +1143,12 @@ LLTexLayerInterface::LLTexLayerInterface(const LLTexLayerInterface &layer, LLWea
 
 BOOL LLTexLayerInterface::setInfo(const LLTexLayerInfo *info, LLWearable* wearable  ) // This sets mInfo and calls initialization functions
 {
-	//llassert(mInfo == NULL); // nyx says this is probably bogus but needs investigating
+	// setInfo should only be called once. Code is not robust enough to handle redefinition of a texlayer.
+	// Not a critical warning, but could be useful for debugging later issues. -Nyx
+	if (mInfo != NULL) 
+	{
+			llwarns << "mInfo != NULL" << llendl;
+	}
 	mInfo = info;
 	//mID = info->mID; // No ID
 
@@ -1856,7 +1865,7 @@ U32 LLTexLayerTemplate::updateWearableCache()
 }
 LLTexLayer* LLTexLayerTemplate::getLayer(U32 i)
 {
-	if (mWearableCache.size() <= i || i < 0)
+	if (mWearableCache.size() <= i)
 	{
 		return NULL;
 	}
@@ -1876,6 +1885,11 @@ LLTexLayer* LLTexLayerTemplate::getLayer(U32 i)
 
 /*virtual*/ BOOL LLTexLayerTemplate::render(S32 x, S32 y, S32 width, S32 height)
 {
+	if(!mInfo)
+	{
+		return FALSE ;
+	}
+
 	BOOL success = TRUE;
 	updateWearableCache();
 	for (wearable_cache_t::const_iterator iter = mWearableCache.begin(); iter!= mWearableCache.end(); iter++)

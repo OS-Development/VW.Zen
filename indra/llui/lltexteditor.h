@@ -44,6 +44,7 @@
 #include "lldarray.h"
 #include "llviewborder.h" // for params
 #include "lltextbase.h"
+#include "lltextvalidate.h"
 
 #include "llpreeditor.h"
 #include "llcontrol.h"
@@ -63,12 +64,13 @@ public:
 	struct Params : public LLInitParam::Block<Params, LLTextBase::Params>
 	{
 		Optional<std::string>	default_text;
+		Optional<LLTextValidate::validate_func_t, LLTextValidate::ValidateTextNamedFuncs>	prevalidate_callback;
 
 		Optional<bool>			embedded_items,
 								ignore_tab,
-								handle_edit_keys_directly,
 								show_line_numbers,
-								commit_on_focus_lost;
+								commit_on_focus_lost,
+								show_context_menu;
 
 		//colors
 		Optional<LLUIColor>		default_color;
@@ -143,13 +145,10 @@ public:
 	virtual BOOL	canDoDelete() const;
 	virtual void	selectAll();
 	virtual BOOL	canSelectAll()	const;
-	virtual void	deselect();
-	virtual BOOL	canDeselect() const;
 
 	void			selectNext(const std::string& search_text_in, BOOL case_insensitive, BOOL wrap = TRUE);
 	BOOL			replaceText(const std::string& search_text, const std::string& replace_text, BOOL case_insensitive, BOOL wrap = TRUE);
 	void			replaceTextAll(const std::string& search_text, const std::string& replace_text, BOOL case_insensitive);
-	void			replaceUrlLabel(const std::string &url, const std::string &label);
 	
 	// Undo/redo stack
 	void			blockUndo();
@@ -201,6 +200,9 @@ public:
 	const LLTextSegmentPtr	getPreviousSegment() const;
 	void getSelectedSegments(segment_vec_t& segments) const;
 
+	void			setShowContextMenu(bool show) { mShowContextMenu = show; }
+	bool			getShowContextMenu() const { return mShowContextMenu; }
+
 protected:
 	void			showContextMenu(S32 x, S32 y);
 	void			drawPreeditMarker();
@@ -213,13 +215,10 @@ protected:
 	S32				indentLine( S32 pos, S32 spaces );
 	void			unindentLineBeforeCloseBrace();
 
-	void			reportBadKeystroke() { make_ui_sound("UISndBadKeystroke"); }
-
 	BOOL			handleNavigationKey(const KEY key, const MASK mask);
-	BOOL			handleSpecialKey(const KEY key, const MASK mask, BOOL* return_key_hit);
+	BOOL			handleSpecialKey(const KEY key, const MASK mask);
 	BOOL			handleSelectionKey(const KEY key, const MASK mask);
 	BOOL			handleControlKey(const KEY key, const MASK mask);
-	BOOL			handleEditKey(const KEY key, const MASK mask);
 
 	BOOL			selectionContainsLineBreaks();
 	void			deleteSelection(BOOL transient_operation);
@@ -320,16 +319,14 @@ private:
 	BOOL			mTakesFocus;
 
 	BOOL			mAllowEmbeddedItems;
+	bool			mShowContextMenu;
 
 	LLUUID			mSourceID;
-
-	// If true, the standard edit keys (Ctrl-X, Delete, etc,) are handled here 
-	//instead of routed by the menu system
-	BOOL			mHandleEditKeysDirectly;  
 
 	LLCoordGL		mLastIMEPosition;		// Last position of the IME editor
 
 	keystroke_signal_t mKeystrokeSignal;
+	LLTextValidate::validate_func_t mPrevalidateFunc;
 
 	LLContextMenu* mContextMenu;
 }; // end class LLTextEditor

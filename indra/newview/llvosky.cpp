@@ -41,6 +41,7 @@
 #include "timing.h"
 
 #include "llagent.h"
+#include "llagentcamera.h"
 #include "lldrawable.h"
 #include "llface.h"
 #include "llcubemap.h"
@@ -343,7 +344,6 @@ LLVOSky::LLVOSky(const LLUUID &id, const LLPCode pcode, LLViewerRegion *regionp)
 	cloud_pos_density1 = LLColor3();
 	cloud_pos_density2 = LLColor3();
 
-
 	mInitialized = FALSE;
 	mbCanSelect = FALSE;
 	mUpdateTimer.reset();
@@ -358,7 +358,7 @@ LLVOSky::LLVOSky(const LLUUID &id, const LLPCode pcode, LLViewerRegion *regionp)
 		mFace[i] = NULL;
 	}
 	
-	mCameraPosAgent = gAgent.getCameraPositionAgent();
+	mCameraPosAgent = gAgentCamera.getCameraPositionAgent();
 	mAtmHeight = ATM_HEIGHT;
 	mEarthCenter = LLVector3(mCameraPosAgent.mV[0], mCameraPosAgent.mV[1], -EARTH_RADIUS);
 
@@ -385,6 +385,10 @@ LLVOSky::LLVOSky(const LLUUID &id, const LLPCode pcode, LLViewerRegion *regionp)
 	mBloomTexturep->setAddressMode(LLTexUnit::TAM_CLAMP);
 
 	mHeavenlyBodyUpdated = FALSE ;
+
+	mDrawRefl = 0;
+	mHazeConcentration = 0.f;
+	mInterpVal = 0.f;
 }
 
 
@@ -1072,10 +1076,10 @@ BOOL LLVOSky::updateSky()
 		++next_frame;
 		next_frame = next_frame % cycle_frame_no;
 
-		sInterpVal = (!mInitialized) ? 1 : (F32)next_frame / cycle_frame_no;
+		mInterpVal = (!mInitialized) ? 1 : (F32)next_frame / cycle_frame_no;
 		// sInterpVal = (F32)next_frame / cycle_frame_no;
-		LLSkyTex::setInterpVal( sInterpVal );
-		LLHeavenBody::setInterpVal( sInterpVal );
+		LLSkyTex::setInterpVal( mInterpVal );
+		LLHeavenBody::setInterpVal( mInterpVal );
 		calcAtmospherics();
 
 		if (mForceUpdate || total_no_tiles == frame)
@@ -2031,7 +2035,7 @@ void LLVOSky::updateFog(const F32 distance)
 
 	const F32 water_height = gAgent.getRegion() ? gAgent.getRegion()->getWaterHeight() : 0.f;
 	// LLWorld::getInstance()->getWaterHeight();
-	F32 camera_height = gAgent.getCameraPositionAgent().mV[2];
+	F32 camera_height = gAgentCamera.getCameraPositionAgent().mV[2];
 
 	F32 near_clip_height = LLViewerCamera::getInstance()->getAtAxis().mV[VZ] * LLViewerCamera::getInstance()->getNear();
 	camera_height += near_clip_height;

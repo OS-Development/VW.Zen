@@ -332,6 +332,12 @@ class WindowsManifest(ViewerManifest):
             self.path("media_plugin_webkit.dll")
             self.end_prefix()
 
+        # winmm.dll shim
+        if self.prefix(src='../media_plugins/winmmshim/%s' % self.args['configuration'], dst="llplugin"):
+            self.path("winmm.dll")
+            self.end_prefix()
+
+
         if self.args['configuration'].lower() == 'debug':
             if self.prefix(src=os.path.join(os.pardir, os.pardir, 'libraries', 'i686-win32', 'lib', 'debug'),
                            dst="llplugin"):
@@ -479,8 +485,8 @@ class WindowsManifest(ViewerManifest):
                 grid_vars_template = """
                 OutFile "%(installer_file)s"
                 !define INSTFLAGS "%(flags)s"
-                !define INSTNAME   "SecondLife"
-                !define SHORTCUT   "Second Life"
+                !define INSTNAME   "SecondLifeViewer2"
+                !define SHORTCUT   "Second Life Viewer 2"
                 !define URLNAME   "secondlife"
                 Caption "Second Life ${VERSION}"
                 """
@@ -639,10 +645,14 @@ class DarwinManifest(ViewerManifest):
                 self.path("../mac_crash_logger/" + self.args['configuration'] + "/mac-crash-logger.app", "mac-crash-logger.app")
                 self.path("../mac_updater/" + self.args['configuration'] + "/mac-updater.app", "mac-updater.app")
 
+                # plugin launcher
+                self.path("../llplugin/slplugin/" + self.args['configuration'] + "/SLPlugin.app", "SLPlugin.app")
+
                 # our apps dependencies on shared libs
                 if dylibs["llcommon"]:
                     mac_crash_logger_res_path = self.dst_path_of("mac-crash-logger.app/Contents/Resources")
                     mac_updater_res_path = self.dst_path_of("mac-updater.app/Contents/Resources")
+                    slplugin_res_path = self.dst_path_of("SLPlugin.app/Contents/Resources")
                     for libfile in ("libllcommon.dylib",
                                     "libapr-1.0.3.7.dylib",
                                     "libaprutil-1.0.3.8.dylib",
@@ -656,9 +666,10 @@ class DarwinManifest(ViewerManifest):
                                          {'target': target_lib,
                                           'link' : os.path.join(mac_updater_res_path, libfile)}
                                          )
-
-                # plugin launcher
-                self.path("../llplugin/slplugin/" + self.args['configuration'] + "/SLPlugin", "SLPlugin")
+                        self.run_command("ln -sf %(target)r %(link)r" % 
+                                         {'target': target_lib,
+                                          'link' : os.path.join(slplugin_res_path, libfile)}
+                                         )
 
                 # plugins
                 if self.prefix(src="", dst="llplugin"):
@@ -686,7 +697,7 @@ class DarwinManifest(ViewerManifest):
 
 
     def package_finish(self):
-        channel_standin = 'Second Life'  # hah, our default channel is not usable on its own
+        channel_standin = 'Second Life Viewer 2'  # hah, our default channel is not usable on its own
         if not self.default_channel():
             channel_standin = self.channel()
 
@@ -822,8 +833,8 @@ class LinuxManifest(ViewerManifest):
             'dst': self.get_dst_prefix(),
             'inst': self.build_path_of(installer_name)})
         try:
-            # only create tarball if it's not a debug build.
-            if self.args['buildtype'].lower() != 'debug':
+            # only create tarball if it's a release build.
+            if self.args['buildtype'].lower() == 'release':
                 # --numeric-owner hides the username of the builder for
                 # security etc.
                 self.run_command('tar -C %(dir)s --numeric-owner -cjf '
@@ -854,16 +865,10 @@ class Linux_i686Manifest(LinuxManifest):
                 print "Skipping %s - not found" % libfile
                 pass
 
-            
-        if(self.args['buildtype'].lower() != 'debug'):
-            print "* packaging stripped viewer binary."
-            self.path("secondlife-stripped","bin/do-not-directly-run-secondlife-bin")
-        else:
-            print "* packaging un-stripped viewer binary."
-            self.path("secondlife-bin","bin/do-not-directly-run-secondlife-bin")
+        self.path("secondlife-bin","bin/do-not-directly-run-secondlife-bin")
 
-        self.path("../linux_crash_logger/linux-crash-logger-stripped","bin/linux-crash-logger.bin")
-        self.path("../linux_updater/linux-updater-stripped", "bin/linux-updater.bin")
+        self.path("../linux_crash_logger/linux-crash-logger","bin/linux-crash-logger.bin")
+        self.path("../linux_updater/linux-updater", "bin/linux-updater.bin")
         self.path("../llplugin/slplugin/SLPlugin", "bin/SLPlugin")
         if self.prefix("res-sdl"):
             self.path("*")
@@ -914,23 +919,16 @@ class Linux_i686Manifest(LinuxManifest):
             if self.prefix(src="vivox-runtime/i686-linux", dst="lib"):
                     self.path("libortp.so")
                     self.path("libsndfile.so.1")
-                    #self.path("libvivoxoal.so.1") # no - we'll re-use the viewer's own OAL lib
+                    #self.path("libvivoxoal.so.1") # no - we'll re-use the viewer's own OpenAL lib
                     self.path("libvivoxsdk.so")
                     self.path("libvivoxplatform.so")
                     self.end_prefix("lib")
 
-class Linux_x86_64Manifest(LinuxManifest):
-    def construct(self):
-        super(Linux_x86_64Manifest, self).construct()
-        self.path("secondlife-stripped","bin/do-not-directly-run-secondlife-bin")
-        self.path("../linux_crash_logger/linux-crash-logger-stripped","linux-crash-logger.bin")
-        if self.prefix("res-sdl"):
-            self.path("*")
-            # recurse
-            self.end_prefix("res-sdl")
+        if self.args['buildtype'].lower() == 'release':
+            print "* Going strip-crazy on the packaged binaries, since this is a RELEASE build"
+            self.run_command("find %(d)r/bin %(d)r/lib -type f | xargs --no-run-if-empty strip -S" % {'d': self.get_dst_prefix()} ) # makes some small assumptions about our packaged dir structure
 
-        self.path("featuretable_linux.txt")
-        self.path("secondlife-i686.supp")
+################################################################
 
 if __name__ == "__main__":
     main()

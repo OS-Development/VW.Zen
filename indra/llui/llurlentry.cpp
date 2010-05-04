@@ -34,13 +34,16 @@
 #include "linden_common.h"
 #include "llurlentry.h"
 #include "lluri.h"
+#include "llurlmatch.h"
+#include "llurlregistry.h"
 
 #include "llcachename.h"
 #include "lltrans.h"
 #include "lluicolortable.h"
 
-LLUrlEntryBase::LLUrlEntryBase()
-: mColor(LLUIColorTable::instance().getColor("HTMLLinkColor"))
+LLUrlEntryBase::LLUrlEntryBase() :
+	mColor(LLUIColorTable::instance().getColor("HTMLLinkColor")),
+	mDisabledLink(false)
 {
 }
 
@@ -48,7 +51,7 @@ LLUrlEntryBase::~LLUrlEntryBase()
 {
 }
 
-std::string LLUrlEntryBase::getUrl(const std::string &string)
+std::string LLUrlEntryBase::getUrl(const std::string &string) const
 {
 	return escapeUrl(string);
 }
@@ -88,7 +91,7 @@ std::string LLUrlEntryBase::escapeUrl(const std::string &url) const
 	return LLURI::escape(url, no_escape_chars, true);
 }
 
-std::string LLUrlEntryBase::getLabelFromWikiLink(const std::string &url)
+std::string LLUrlEntryBase::getLabelFromWikiLink(const std::string &url) const
 {
 	// return the label part from [http://www.example.org Label]
 	const char *text = url.c_str();
@@ -104,7 +107,7 @@ std::string LLUrlEntryBase::getLabelFromWikiLink(const std::string &url)
 	return unescapeUrl(url.substr(start, url.size()-start-1));
 }
 
-std::string LLUrlEntryBase::getUrlFromWikiLink(const std::string &string)
+std::string LLUrlEntryBase::getUrlFromWikiLink(const std::string &string) const
 {
 	// return the url part from [http://www.example.org Label]
 	const char *text = string.c_str();
@@ -191,7 +194,7 @@ std::string LLUrlEntryHTTPLabel::getLabel(const std::string &url, const LLUrlLab
 	return getLabelFromWikiLink(url);
 }
 
-std::string LLUrlEntryHTTPLabel::getUrl(const std::string &string)
+std::string LLUrlEntryHTTPLabel::getUrl(const std::string &string) const
 {
 	return getUrlFromWikiLink(string);
 }
@@ -204,7 +207,7 @@ LLUrlEntryHTTPNoProtocol::LLUrlEntryHTTPNoProtocol()
 	mPattern = boost::regex("("
 				"\\bwww\\.\\S+\\.\\S+" // i.e. www.FOO.BAR
 				"|" // or
-				"(?<!@)\\b[^[:space:]:@/]+\\.(?:com|net|edu|org)([/:]\\S*)?\\b" // i.e. FOO.net
+				"(?<!@)\\b[^[:space:]:@/>]+\\.(?:com|net|edu|org)([/:][^[:space:]<]*)?\\b" // i.e. FOO.net
 				")",
 				boost::regex::perl|boost::regex::icase);
 	mMenuName = "menu_url_http.xml";
@@ -216,7 +219,7 @@ std::string LLUrlEntryHTTPNoProtocol::getLabel(const std::string &url, const LLU
 	return unescapeUrl(url);
 }
 
-std::string LLUrlEntryHTTPNoProtocol::getUrl(const std::string &string)
+std::string LLUrlEntryHTTPNoProtocol::getUrl(const std::string &string) const
 {
 	if (string.find("://") == std::string::npos)
 	{
@@ -231,7 +234,7 @@ std::string LLUrlEntryHTTPNoProtocol::getUrl(const std::string &string)
 LLUrlEntrySLURL::LLUrlEntrySLURL()
 {
 	// see http://slurl.com/about.php for details on the SLURL format
-	mPattern = boost::regex("http://slurl.com/secondlife/\\S+/?(\\d+)?/?(\\d+)?/?(\\d+)?/?\\S*",
+	mPattern = boost::regex("http://(maps.secondlife.com|slurl.com)/secondlife/[^ /]+(/\\d+){0,3}(/?(\\?title|\\?img|\\?msg)=\\S*)?/?",
 							boost::regex::perl|boost::regex::icase);
 	mMenuName = "menu_url_slurl.xml";
 	mTooltip = LLTrans::getString("TooltipSLURL");
@@ -286,7 +289,7 @@ std::string LLUrlEntrySLURL::getLabel(const std::string &url, const LLUrlLabelCa
 std::string LLUrlEntrySLURL::getLocation(const std::string &url) const
 {
 	// return the part of the Url after slurl.com/secondlife/
-	const std::string search_string = "secondlife";
+	const std::string search_string = "/secondlife";
 	size_t pos = url.find(search_string);
 	if (pos == std::string::npos)
 	{
@@ -319,6 +322,38 @@ void LLUrlEntryAgent::onAgentNameReceived(const LLUUID& id,
 	callObservers(id.asString(), first + " " + last);
 }
 
+std::string LLUrlEntryAgent::getTooltip(const std::string &string) const
+{
+	// return a tooltip corresponding to the URL type instead of the generic one
+	std::string url = getUrl(string);
+
+	if (LLStringUtil::endsWith(url, "/mute"))
+	{
+		return LLTrans::getString("TooltipAgentMute");
+	}
+	if (LLStringUtil::endsWith(url, "/unmute"))
+	{
+		return LLTrans::getString("TooltipAgentUnmute");
+	}
+	if (LLStringUtil::endsWith(url, "/im"))
+	{
+		return LLTrans::getString("TooltipAgentIM");
+	}
+	if (LLStringUtil::endsWith(url, "/pay"))
+	{
+		return LLTrans::getString("TooltipAgentPay");
+	}
+	if (LLStringUtil::endsWith(url, "/offerteleport"))
+	{
+		return LLTrans::getString("TooltipAgentOfferTeleport");
+	}
+	if (LLStringUtil::endsWith(url, "/requestfriend"))
+	{
+		return LLTrans::getString("TooltipAgentRequestFriend");
+	}
+	return LLTrans::getString("TooltipAgentUrl");
+}
+
 std::string LLUrlEntryAgent::getLabel(const std::string &url, const LLUrlLabelCallback &cb)
 {
 	if (!gCacheName)
@@ -342,6 +377,31 @@ std::string LLUrlEntryAgent::getLabel(const std::string &url, const LLUrlLabelCa
 	}
 	else if (gCacheName->getFullName(agent_id, full_name))
 	{
+		// customize label string based on agent SLapp suffix
+		if (LLStringUtil::endsWith(url, "/mute"))
+		{
+			return LLTrans::getString("SLappAgentMute") + " " + full_name;
+		}
+		if (LLStringUtil::endsWith(url, "/unmute"))
+		{
+			return LLTrans::getString("SLappAgentUnmute") + " " + full_name;
+		}
+		if (LLStringUtil::endsWith(url, "/im"))
+		{
+			return LLTrans::getString("SLappAgentIM") + " " + full_name;
+		}
+		if (LLStringUtil::endsWith(url, "/pay"))
+		{
+			return LLTrans::getString("SLappAgentPay") + " " + full_name;
+		}
+		if (LLStringUtil::endsWith(url, "/offerteleport"))
+		{
+			return LLTrans::getString("SLappAgentOfferTeleport") + " " + full_name;
+		}
+		if (LLStringUtil::endsWith(url, "/requestfriend"))
+		{
+			return LLTrans::getString("SLappAgentRequestFriend") + " " + full_name;
+		}
 		return full_name;
 	}
 	else
@@ -431,6 +491,35 @@ std::string LLUrlEntryInventory::getLabel(const std::string &url, const LLUrlLab
 {
 	std::string label = getStringAfterToken(url, "name=");
 	return LLURI::unescape(label.empty() ? url : label);
+}
+
+//
+// LLUrlEntryObjectIM Describes a Second Life inspector for the object Url, e.g.,
+// secondlife:///app/objectim/7bcd7864-da6b-e43f-4486-91d28a28d95b?name=Object&owner=3de548e1-57be-cfea-2b78-83ae3ad95998&slurl=Danger!%20Danger!/200/200/30/&groupowned=1
+//
+LLUrlEntryObjectIM::LLUrlEntryObjectIM()
+{
+	mPattern = boost::regex("secondlife:///app/objectim/[\\da-f-]+\?.*",
+							boost::regex::perl|boost::regex::icase);
+	mMenuName = "menu_url_objectim.xml";
+}
+
+std::string LLUrlEntryObjectIM::getLabel(const std::string &url, const LLUrlLabelCallback &cb)
+{
+	LLURI uri(url);
+	LLSD query_map = uri.queryMap();
+	if (query_map.has("name"))
+		return query_map["name"];
+	return unescapeUrl(url);
+}
+
+std::string LLUrlEntryObjectIM::getLocation(const std::string &url) const
+{
+	LLURI uri(url);
+	LLSD query_map = uri.queryMap();
+	if (query_map.has("slurl"))
+		return query_map["slurl"];
+	return LLUrlEntryBase::getLocation(url);
 }
 
 ///
@@ -596,9 +685,23 @@ std::string LLUrlEntrySLLabel::getLabel(const std::string &url, const LLUrlLabel
 	return getLabelFromWikiLink(url);
 }
 
-std::string LLUrlEntrySLLabel::getUrl(const std::string &string)
+std::string LLUrlEntrySLLabel::getUrl(const std::string &string) const
 {
 	return getUrlFromWikiLink(string);
+}
+
+std::string LLUrlEntrySLLabel::getTooltip(const std::string &string) const
+{
+	// return a tooltip corresponding to the URL type instead of the generic one (EXT-4574)
+	std::string url = getUrl(string);
+	LLUrlMatch match;
+	if (LLUrlRegistry::instance().findUrl(url, match))
+	{
+		return match.getTooltip();
+	}
+
+	// unrecognized URL? should not happen
+	return LLUrlEntryBase::getTooltip(string);
 }
 
 //
@@ -629,7 +732,7 @@ std::string LLUrlEntryWorldMap::getLabel(const std::string &url, const LLUrlLabe
 	}
 
 	const std::string label = LLTrans::getString("SLurlLabelShowOnMap");
-	std::string location = path_array[2];
+	std::string location = unescapeUrl(path_array[2]);
 	std::string x = (path_parts > 3) ? path_array[3] : "128";
 	std::string y = (path_parts > 4) ? path_array[4] : "128";
 	std::string z = (path_parts > 5) ? path_array[5] : "0";
@@ -640,4 +743,57 @@ std::string LLUrlEntryWorldMap::getLocation(const std::string &url) const
 {
 	// return the part of the Url after secondlife:///app/worldmap/ part
 	return ::getStringAfterToken(url, "app/worldmap/");
+}
+
+//
+// LLUrlEntryNoLink lets us turn of URL detection with <nolink>...</nolink> tags
+//
+LLUrlEntryNoLink::LLUrlEntryNoLink()
+{
+	mPattern = boost::regex("<nolink>[^<]*</nolink>",
+							boost::regex::perl|boost::regex::icase);
+	mDisabledLink = true;
+}
+
+std::string LLUrlEntryNoLink::getUrl(const std::string &url) const
+{
+	// return the text between the <nolink> and </nolink> tags
+	return url.substr(8, url.size()-8-9);
+}
+
+std::string LLUrlEntryNoLink::getLabel(const std::string &url, const LLUrlLabelCallback &cb)
+{
+	return getUrl(url);
+}
+
+//
+// LLUrlEntryIcon describes an icon with <icon>...</icon> tags
+//
+LLUrlEntryIcon::LLUrlEntryIcon()
+{
+	mPattern = boost::regex("<icon\\s*>\\s*([^<]*)?\\s*</icon\\s*>",
+							boost::regex::perl|boost::regex::icase);
+	mDisabledLink = true;
+}
+
+std::string LLUrlEntryIcon::getUrl(const std::string &url) const
+{
+	return LLStringUtil::null;
+}
+
+std::string LLUrlEntryIcon::getLabel(const std::string &url, const LLUrlLabelCallback &cb)
+{
+	return LLStringUtil::null;
+}
+
+std::string LLUrlEntryIcon::getIcon(const std::string &url)
+{
+	// Grep icon info between <icon>...</icon> tags
+	// matches[1] contains the icon name/path
+	boost::match_results<std::string::const_iterator> matches;
+	mIcon = (boost::regex_match(url, matches, mPattern) && matches[1].matched)
+		? matches[1]
+		: LLStringUtil::null;
+	LLStringUtil::trim(mIcon);
+	return mIcon;
 }

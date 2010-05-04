@@ -12,16 +12,16 @@
 		<combo_box.item label="1024 x 768" name="1024x768"/>
 	</combo_box>
 	<text name="UI Size:">
-		Taille de l&apos;UI :
+		Taille de l&apos;interface :
 	</text>
 	<text name="QualitySpeed">
 		Qualité et vitesse :
 	</text>
-	<text left="105" name="FasterText">
+	<text name="FasterText">
 		Plus rapide
 	</text>
 	<text name="BetterText">
-		Mieux
+		Meilleure
 	</text>
 	<text name="ShadersPrefText">
 		Faible
@@ -62,7 +62,7 @@
 		<text name="DrawDistanceMeterText2">
 			m
 		</text>
-		<slider label="Nombre de particules max. :" label_width="143" name="MaxParticleCount"/>
+		<slider label="Nombre de particules max. :" label_width="147" name="MaxParticleCount"/>
 		<slider label="Qualité post-traitement :" name="RenderPostProcess"/>
 		<text name="MeshDetailText">
 			Détails des rendus :

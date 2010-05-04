@@ -35,6 +35,7 @@
 
 #include "llagent.h"
 #include "llaudioengine.h"
+#include "llmimetypes.h"
 #include "llviewercontrol.h"
 #include "llviewermedia.h"
 #include "llviewerregion.h"
@@ -105,15 +106,6 @@ void LLViewerParcelMedia::update(LLParcel* parcel)
 			std::string mediaUrl = std::string ( parcel->getMediaURL () );
 			std::string mediaCurrentUrl = std::string( parcel->getMediaCurrentURL());
 
-			// First use warning
-			if( (!mediaUrl.empty() ||
-			     !parcel->getMusicURL().empty())
-			    && LLViewerMedia::needsMediaFirstRun())
-			{
-				LLViewerMedia::displayMediaFirstRun();
-				return;
-			}
-
 			// if we have a current (link sharing) url, use it instead
 			if (mediaCurrentUrl != "" && parcel->getMediaType() == "text/html")
 			{
@@ -179,7 +171,7 @@ void LLViewerParcelMedia::play(LLParcel* parcel)
 
 	if (!parcel) return;
 
-	if (!gSavedSettings.getBOOL("AudioStreamingMedia") || !gSavedSettings.getBOOL("AudioStreamingVideo"))
+	if (!gSavedSettings.getBOOL("AudioStreamingMedia"))
 		return;
 
 	std::string media_url = parcel->getMediaURL();
@@ -212,11 +204,22 @@ void LLViewerParcelMedia::play(LLParcel* parcel)
 		else
 		{
 			// Since the texture id is different, we need to generate a new impl
-			LL_DEBUGS("Media") << "new media impl with mime type " << mime_type << ", url " << media_url << LL_ENDL;
 
 			// Delete the old one first so they don't fight over the texture.
 			sMediaImpl = NULL;
+			
+			// A new impl will be created below.
+		}
+	}
+	
+	// Don't ever try to play if the media type is set to "none/none"
+	if(stricmp(mime_type.c_str(), LLMIMETypes::getDefaultMimeType().c_str()) != 0)
+	{
+		if(!sMediaImpl)
+		{
+			LL_DEBUGS("Media") << "new media impl with mime type " << mime_type << ", url " << media_url << LL_ENDL;
 
+			// There is no media impl, make a new one
 			sMediaImpl = LLViewerMedia::newMediaImpl(
 				placeholder_texture_id,
 				media_width, 
@@ -226,25 +229,11 @@ void LLViewerParcelMedia::play(LLParcel* parcel)
 			sMediaImpl->setIsParcelMedia(true);
 			sMediaImpl->navigateTo(media_url, mime_type, true);
 		}
+
+		//LLFirstUse::useMedia();
+
+		LLViewerParcelMediaAutoPlay::playStarted();
 	}
-	else
-	{
-		LL_DEBUGS("Media") << "new media impl with mime type " << mime_type << ", url " << media_url << LL_ENDL;
-
-		// There is no media impl, make a new one
-		sMediaImpl = LLViewerMedia::newMediaImpl(
-			placeholder_texture_id,
-			media_width, 
-			media_height, 
-			media_auto_scale,
-			media_loop);
-		sMediaImpl->setIsParcelMedia(true);
-		sMediaImpl->navigateTo(media_url, mime_type, true);
-	}
-
-	//LLFirstUse::useMedia();
-
-	LLViewerParcelMediaAutoPlay::playStarted();
 }
 
 // static
@@ -318,7 +307,7 @@ LLPluginClassMediaOwner::EMediaStatus LLViewerParcelMedia::getStatus()
 // static
 std::string LLViewerParcelMedia::getMimeType()
 {
-	return sMediaImpl.notNull() ? sMediaImpl->getMimeType() : "none/none";
+	return sMediaImpl.notNull() ? sMediaImpl->getMimeType() : LLMIMETypes::getDefaultMimeType();
 }
 
 //static 
@@ -328,11 +317,14 @@ std::string LLViewerParcelMedia::getURL()
 	if(sMediaImpl.notNull())
 		url = sMediaImpl->getMediaURL();
 	
-	if (url.empty())
-		url = LLViewerParcelMgr::getInstance()->getAgentParcel()->getMediaCurrentURL();
-	
-	if (url.empty())
-		url = LLViewerParcelMgr::getInstance()->getAgentParcel()->getMediaURL();
+	if(stricmp(LLViewerParcelMgr::getInstance()->getAgentParcel()->getMediaType().c_str(), LLMIMETypes::getDefaultMimeType().c_str()) != 0)
+	{
+		if (url.empty())
+			url = LLViewerParcelMgr::getInstance()->getAgentParcel()->getMediaCurrentURL();
+		
+		if (url.empty())
+			url = LLViewerParcelMgr::getInstance()->getAgentParcel()->getMediaURL();
+	}
 	
 	return url;
 }

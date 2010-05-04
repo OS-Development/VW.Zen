@@ -33,8 +33,13 @@
 #ifndef LL_LLIMFLOATERCONTAINER_H
 #define LL_LLIMFLOATERCONTAINER_H
 
+#include <map>
+#include <vector>
+
 #include "llfloater.h"
 #include "llmultifloater.h"
+#include "llavatarpropertiesprocessor.h"
+#include "llgroupmgr.h"
 
 class LLTabContainer;
 
@@ -46,6 +51,7 @@ public:
 	
 	/*virtual*/ BOOL postBuild();
 	/*virtual*/ void onOpen(const LLSD& key);
+	void onCloseFloater(LLUUID& id);
 
 	/*virtual*/ void addFloater(LLFloater* floaterp, 
 								BOOL select_added_floater, 
@@ -57,9 +63,14 @@ public:
 
 	static LLIMFloaterContainer* getInstance();
 
-protected:
-	
-	LLFloater* mActiveVoiceFloater;
+	virtual void setMinimized(BOOL b);
+
+private:
+	typedef std::map<LLUUID,LLFloater*> avatarID_panel_map_t;
+	avatarID_panel_map_t mSessions;
+
+
+	void onNewMessageReceived(const LLSD& data);
 };
 
 #endif // LL_LLIMFLOATERCONTAINER_H

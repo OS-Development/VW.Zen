@@ -1,18 +1,16 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <panel label="Notices" name="notices_tab">
 	<panel.string name="help_text">
-		Les notices vous permettent d&apos;envoyer un message et,
-facultativement, une pièce jointe. Les notices ne peuvent être envoyées
-qu&apos;aux membres du groupe dont le rôle leur permet de
-recevoir des notices. Vous pouvez désactiver la réception des notices dans 
-l&apos;onglet Général.
+		Les notices vous permettent d&apos;envoyer un message et facultativement, une pièce jointe si vous le souhaitez.
+Les notices ne peuvent être envoyées qu&apos;aux membres du groupe dont le rôle leur permet de recevoir des notices.
+Vous pouvez désactiver la réception des notices dans l&apos;onglet Général.
 	</panel.string>
 	<panel.string name="no_notices_text">
 		Pas d&apos;anciennes notices
 	</panel.string>
 	<text name="lbl2">
 		Les notices sont conservées pendant 14 jours.
-200 maximum par groupe et par jour
+200 max. par groupe et par jour.
 	</text>
 	<scroll_list name="notice_list">
 		<scroll_list.columns label="" name="icon"/>
@@ -24,29 +22,29 @@ l&apos;onglet Général.
 		Aucun résultat
 	</text>
 	<button label="Créer une notice" label_selected="Créer une notice" name="create_new_notice" tool_tip="Créer une notice"/>
-	<button label="Rafraîchir" label_selected="Rafraîchir la liste" name="refresh_notices"/>
+	<button label="Rafraîchir" label_selected="Rafraîchir la liste" name="refresh_notices" tool_tip="Actualiser la liste des notices"/>
 	<panel label="Créer une notice" name="panel_create_new_notice">
 		<text name="lbl">
 			Créer une notice
 		</text>
-		<text bottom_delta="-79" left="20" name="lbl3">
+		<text name="lbl3">
 			Sujet :
 		</text>
-		<line_editor left_delta="61" name="create_subject" width="331"/>
-		<text left="20" name="lbl4">
+		<line_editor name="create_subject"/>
+		<text name="lbl4">
 			Message :
 		</text>
-		<text_editor bottom_delta="-90" height="104" left_delta="61" name="create_message" width="330"/>
-		<text name="lbl5" width="68">
+		<text_editor name="create_message"/>
+		<text name="lbl5">
 			Pièce-jointe :
 		</text>
-		<line_editor left_delta="74" name="create_inventory_name" width="190"/>
+		<line_editor name="create_inventory_name"/>
 		<text name="string">
-			Faites glisser ici pour joindre quelque chose -- &gt;
+			Faire glisser l&apos;objet et le déposer ici pour le joindre :
 		</text>
-		<button label="Supprimer" label_selected="Supprimer pièce-jointe" left="274" name="remove_attachment" width="140"/>
-		<button label="Envoyer" label_selected="Envoyer" left="274" name="send_notice" width="140"/>
-		<group_drop_target name="drop_target" tool_tip="Pour joindre un objet de l&apos;inventaire à la notice, faites-le glisser dans la boîte de message. Pour envoyer l&apos;objet avec la notice, vous devez avoir la permission de le copier et de le transférer."/>
+		<button label="Supprimer" label_selected="Supprimer pièce-jointe" name="remove_attachment" tool_tip="Supprimer la pièce jointe de votre notification"/>
+		<button label="Envoyer" label_selected="Envoyer" left="200" name="send_notice" width="100"/>
+		<group_drop_target name="drop_target" tool_tip="Faites glisser un objet de l&apos;inventaire jusqu&apos;à cette case pour l&apos;envoyer avec la notice. Vous devez avoir l&apos;autorisation de copier et transférer l&apos;objet pour pouvoir le joindre."/>
 	</panel>
 	<panel label="Voir ancienne notice" name="panel_view_past_notice">
 		<text name="lbl">

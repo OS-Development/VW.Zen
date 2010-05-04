@@ -1,21 +1,17 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <panel label="Choses" name="main inventory panel">
-	<panel.string name="Title">
-		Choses
+	<panel.string name="ItemcountFetching">
+		Récupération de [ITEM_COUNT] objets... [FILTER]
 	</panel.string>
-	<filter_editor label="Filtre" name="inventory search editor"/>
-	<tab_container name="inventory filter tabs">
-		<inventory_panel label="Tous les objets" name="All Items"/>
-		<inventory_panel label="Objets récents" name="Recent Items"/>
-	</tab_container>
-	<panel name="bottom_panel">
-		<button name="options_gear_btn" tool_tip="Afficher d&apos;autres options"/>
-		<button name="add_btn" tool_tip="Ajouter un nouvel article"/>
-		<dnd_button name="trash_btn" tool_tip="Supprimer l&apos;article sélectionné"/>
-	</panel>
+	<panel.string name="ItemcountCompleted">
+		[ITEM_COUNT] objets [FILTER]
+	</panel.string>
+	<text name="ItemcountText">
+		Objets :
+	</text>
 	<menu_bar name="Inventory Menu">
 		<menu label="Fichier" name="File">
-			<menu_item_call label="Ouvert" name="Open"/>
+			<menu_item_call label="Ouvrir" name="Open"/>
 			<menu label="Charger" name="upload">
 				<menu_item_call label="Image ([COST] L$)..." name="Upload Image"/>
 				<menu_item_call label="Son ([COST] L$)..." name="Upload Sound"/>
@@ -27,7 +23,7 @@
 			<menu_item_call label="Réinitialiser les filtres" name="Reset Current"/>
 			<menu_item_call label="Fermer tous les dossiers" name="Close All Folders"/>
 			<menu_item_call label="Vider la corbeille" name="Empty Trash"/>
-			<menu_item_call label="Vider les Objets trouvés" name="Empty Lost And Found"/>
+			<menu_item_call label="Vider les objets trouvés" name="Empty Lost And Found"/>
 		</menu>
 		<menu label="Créer" name="Create">
 			<menu_item_call label="Nouveau dossier" name="New Folder"/>
@@ -42,8 +38,8 @@
 				<menu_item_call label="Nouvelle veste" name="New Jacket"/>
 				<menu_item_call label="Nouvelle jupe" name="New Skirt"/>
 				<menu_item_call label="Nouveaux gants" name="New Gloves"/>
-				<menu_item_call label="Nouveaux sous-vêtements (homme)" name="New Undershirt"/>
-				<menu_item_call label="Nouveaux sous-vêtements (femme)" name="New Underpants"/>
+				<menu_item_call label="Nouveau débardeur" name="New Undershirt"/>
+				<menu_item_call label="Nouveau caleçon" name="New Underpants"/>
 				<menu_item_call label="Nouvel alpha" name="New Alpha"/>
 				<menu_item_call label="Nouveau tatouage" name="New Tattoo"/>
 			</menu>
@@ -61,4 +57,14 @@
 			<menu_item_check label="Dossiers système en premier" name="System Folders To Top"/>
 		</menu>
 	</menu_bar>
+	<filter_editor label="Filtrer l&apos;inventaire" name="inventory search editor"/>
+	<tab_container name="inventory filter tabs">
+		<inventory_panel label="MON INVENTAIRE" name="All Items"/>
+		<inventory_panel label="RÉCENT" name="Recent Items"/>
+	</tab_container>
+	<panel name="bottom_panel">
+		<button name="options_gear_btn" tool_tip="Afficher d&apos;autres options"/>
+		<button name="add_btn" tool_tip="Ajouter un nouvel article"/>
+		<dnd_button name="trash_btn" tool_tip="Supprimer l&apos;article sélectionné"/>
+	</panel>
 </panel>

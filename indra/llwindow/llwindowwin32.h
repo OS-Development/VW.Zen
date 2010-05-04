@@ -39,6 +39,8 @@
 #include <windows.h>
 
 #include "llwindow.h"
+#include "llwindowcallbacks.h"
+#include "lldragdropwin32.h"
 
 // Hack for async host by name
 #define LL_WM_HOST_RESOLVED      (WM_APP + 1)
@@ -112,7 +114,9 @@ public:
 	/*virtual*/ void setLanguageTextInput( const LLCoordGL & pos );
 	/*virtual*/ void updateLanguageTextInputArea();
 	/*virtual*/ void interruptLanguageTextInput();
-	/*virtual*/ void spawnWebBrowser(const std::string& escaped_url);
+	/*virtual*/ void spawnWebBrowser(const std::string& escaped_url, bool async);
+
+	LLWindowCallbacks::DragNDropResult completeDragNDropRequest( const LLCoordGL gl_coord, const MASK mask, LLWindowCallbacks::DragNDropAction action, const std::string url );
 
 	static std::vector<std::string> getDynamicFallbackFontList();
 
@@ -128,7 +132,7 @@ protected:
 	HCURSOR loadColorCursor(LPCTSTR name);
 	BOOL	isValid();
 	void	moveWindow(const LLCoordScreen& position,const LLCoordScreen& size);
-
+	LLSD	getNativeKeyData();
 
 	// Changes display resolution. Returns true if successful
 	BOOL	setDisplayResolution(S32 width, S32 height, S32 bits, S32 refresh);
@@ -204,6 +208,12 @@ protected:
 	LLRect			mLanguageTextInputAreaGL;
 
 	LLPreeditor		*mPreeditor;
+
+	LLDragDropWin32* mDragDrop;
+
+	U32				mKeyCharCode;
+	U32				mKeyScanCode;
+	U32				mKeyVirtualKey;
 
 	friend class LLWindowManager;
 };

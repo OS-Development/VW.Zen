@@ -5,9 +5,10 @@
 	<string name="no_one_near" value="近くに誰もいません"/>
 	<string name="no_friends_online" value="オンラインのフレンドはいません"/>
 	<string name="no_friends" value="フレンドはいません"/>
-	<string name="no_groups" value="グループはありません"/>
 	<string name="people_filter_label" value="人をフィルター"/>
 	<string name="groups_filter_label" value="グループをフィルター"/>
+	<string name="no_filtered_groups_msg" value="[secondlife:///app/search/groups 検索でグループを探してみますか？]"/>
+	<string name="no_groups_msg" value="[secondlife:///app/search/groups 入会するグループを探します。]"/>
 	<filter_editor label="フィルター" name="filter_input"/>
 	<tab_container name="tabs">
 		<panel label="近く" name="nearby_panel">
@@ -16,22 +17,26 @@
 				<button name="add_friend_btn" tool_tip="選択した住人をフレンドリストに登録"/>
 			</panel>
 		</panel>
-		<panel label="フレンド" name="friends_panel">
+		<panel label="マイ フレンド" name="friends_panel">
 			<accordion name="friends_accordion">
 				<accordion_tab name="tab_online" title="オンライン"/>
 				<accordion_tab name="tab_all" title="全員"/>
 			</accordion>
 			<panel label="bottom_panel" name="bottom_panel">
 				<button name="friends_viewsort_btn" tool_tip="オプション"/>
-				<button name="add_btn" tool_tip="フレンド登録を申し出る"/>
-				<button name="del_btn" tool_tip="選択した人をフレンドリストから削除"/>
+				<button name="add_btn" tool_tip="フレンド登録を申し出ます"/>
+				<button name="del_btn" tool_tip="選択した人をフレンドリストから削除します"/>
 			</panel>
+			<text name="no_friends_msg">
+				フレンドを登録するには、[secondlife:///app/search/people グローバル検索] をするか、住人を右クリックしてください。
+誰か一緒に行動をする人をお探しの時は、[secondlife:///app/worldmap 地図をお試しださい]。
+			</text>
 		</panel>
-		<panel label="グループ" name="groups_panel">
+		<panel label="マイ グループ" name="groups_panel">
 			<panel label="bottom_panel" name="bottom_panel">
 				<button name="groups_viewsort_btn" tool_tip="オプション"/>
-				<button name="plus_btn" tool_tip="グループに参加 / 新規グループを作成"/>
-				<button name="activate_btn" tool_tip="選択したグループをアクティベート"/>
+				<button name="plus_btn" tool_tip="グループに参加 / 新規グループを作成します"/>
+				<button name="activate_btn" tool_tip="選択したグループをアクティブにします"/>
 			</panel>
 		</panel>
 		<panel label="最新" name="recent_panel">
@@ -42,12 +47,13 @@
 		</panel>
 	</tab_container>
 	<panel name="button_bar">
-		<button label="プロフィール" name="view_profile_btn" tool_tip="写真、グループ、その他住人情報を表示"/>
-		<button label="IM" name="im_btn" tool_tip="インスタントメッセージを開く"/>
-		<button label="コール" name="call_btn" tool_tip="この住人にコールする"/>
+		<button label="プロフィール" name="view_profile_btn" tool_tip="写真、グループ、その他住人情報を表示します"/>
+		<button label="IM" name="im_btn" tool_tip="インスタントメッセージを開きます"/>
+		<button label="コール" name="call_btn" tool_tip="この住人にコールします"/>
 		<button label="共有" name="share_btn"/>
-		<button label="テレポート" name="teleport_btn" tool_tip="テレポートを送る"/>
-		<button label="グループ情報" name="group_info_btn" tool_tip="グループ情報を表示"/>
-		<button label="グループチャット" name="chat_btn" tool_tip="チャットを開始"/>
+		<button label="テレポート" name="teleport_btn" tool_tip="テレポートを送ります"/>
+		<button label="グループ情報" name="group_info_btn" tool_tip="グループ情報を表示します"/>
+		<button label="グループチャット" name="chat_btn" tool_tip="チャットを開始します"/>
+		<button label="グループコール" name="group_call_btn" tool_tip="このグループにコールします"/>
 	</panel>
 </panel>

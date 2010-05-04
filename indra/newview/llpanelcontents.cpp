@@ -40,6 +40,7 @@
 #include "llerror.h"
 #include "llfloaterreg.h"
 #include "llfontgl.h"
+#include "llinventorydefines.h"
 #include "llmaterialtable.h"
 #include "llpermissionsflags.h"
 #include "llrect.h"
@@ -50,7 +51,6 @@
 
 // project includes
 #include "llagent.h"
-#include "llfloaterbulkpermission.h"
 #include "llpanelobjectinventory.h"
 #include "llpreviewscript.h"
 #include "llresmgr.h"
@@ -60,6 +60,7 @@
 #include "lltoolmgr.h"
 #include "lltrans.h"
 #include "llviewerassettype.h"
+#include "llviewerinventory.h"
 #include "llviewerobject.h"
 #include "llviewerregion.h"
 #include "llviewerwindow.h"
@@ -180,7 +181,7 @@ void LLPanelContents::onClickNewScript(void *userdata)
 				LLTrans::getString("PanelContentsNewScript"),
 				desc,
 				LLSaleInfo::DEFAULT,
-				LLViewerInventoryItem::II_FLAGS_NONE,
+				LLInventoryItemFlags::II_FLAGS_NONE,
 				time_corrected());
 		object->saveScript(new_item, TRUE, true);
 

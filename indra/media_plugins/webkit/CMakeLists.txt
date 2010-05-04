@@ -9,14 +9,17 @@ include(LLPlugin)
 include(LLMath)
 include(LLRender)
 include(LLWindow)
+include(UI)
 include(Linking)
 include(PluginAPI)
 include(MediaPluginBase)
 include(FindOpenGL)
+include(PulseAudio)
 
 include(WebKitLibPlugin)
 
 include_directories(
+    ${PULSEAUDIO_INCLUDE_DIRS}
     ${LLPLUGIN_INCLUDE_DIRS}
     ${MEDIA_PLUGIN_BASE_INCLUDE_DIRS}
     ${LLCOMMON_INCLUDE_DIRS}
@@ -33,18 +36,51 @@ set(media_plugin_webkit_SOURCE_FILES
     media_plugin_webkit.cpp
     )
 
-add_library(media_plugin_webkit
-    SHARED
-    ${media_plugin_webkit_SOURCE_FILES}
-)
+set(media_plugin_webkit_HEADER_FILES
+    volume_catcher.h
+    )
 
-target_link_libraries(media_plugin_webkit
+set(media_plugin_webkit_LINK_LIBRARIES
   ${LLPLUGIN_LIBRARIES}
   ${MEDIA_PLUGIN_BASE_LIBRARIES}
   ${LLCOMMON_LIBRARIES}
   ${WEBKIT_PLUGIN_LIBRARIES}
   ${PLUGIN_API_WINDOWS_LIBRARIES}
+  ${PULSEAUDIO_LIBRARIES}
 )
+
+# Select which VolumeCatcher implementation to use
+if (LINUX AND PULSEAUDIO)
+  list(APPEND media_plugin_webkit_SOURCE_FILES linux_volume_catcher.cpp)
+  list(APPEND media_plugin_webkit_LINK_LIBRARIES
+       ${UI_LIBRARIES}     # for glib/GTK
+       )
+elseif (DARWIN)
+  list(APPEND media_plugin_webkit_SOURCE_FILES mac_volume_catcher.cpp)
+  find_library(CORESERVICES_LIBRARY CoreServices)
+  find_library(AUDIOUNIT_LIBRARY AudioUnit)
+  list(APPEND media_plugin_webkit_LINK_LIBRARIES
+       ${CORESERVICES_LIBRARY}     # for Component Manager calls
+       ${AUDIOUNIT_LIBRARY}        # for AudioUnit calls
+       )
+elseif (WINDOWS)
+  list(APPEND media_plugin_webkit_SOURCE_FILES windows_volume_catcher.cpp)
+else (LINUX AND PULSEAUDIO)
+  # All other platforms use the dummy volume catcher for now.
+  list(APPEND media_plugin_webkit_SOURCE_FILES dummy_volume_catcher.cpp)
+endif (LINUX AND PULSEAUDIO)
+
+set_source_files_properties(${media_plugin_webkit_HEADER_FILES}
+                            PROPERTIES HEADER_FILE_ONLY TRUE)
+
+list(APPEND media_plugin_webkit_SOURCE_FILES ${media_plugin_webkit_HEADER_FILES})
+
+add_library(media_plugin_webkit
+    SHARED
+    ${media_plugin_webkit_SOURCE_FILES}
+)
+
+target_link_libraries(media_plugin_webkit ${media_plugin_webkit_LINK_LIBRARIES})
 
 add_dependencies(media_plugin_webkit
   ${LLPLUGIN_LIBRARIES}
@@ -80,3 +116,4 @@ if (DARWIN)
     )
     
 endif (DARWIN)
+

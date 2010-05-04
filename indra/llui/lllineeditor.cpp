@@ -55,6 +55,7 @@
 #include "llui.h"
 #include "lluictrlfactory.h"
 #include "llclipboard.h"
+#include "llmenugl.h"
 
 //
 // Imported globals
@@ -70,6 +71,8 @@ const S32   SCROLL_INCREMENT_DEL = 4;	// make space for baskspacing
 const F32   AUTO_SCROLL_TIME = 0.05f;
 const F32	TRIPLE_CLICK_INTERVAL = 0.3f;	// delay between double and triple click. *TODO: make this equal to the double click interval?
 
+const std::string PASSWORD_ASTERISK( "\xE2\x80\xA2" ); // U+2022 BULLET
+
 static LLDefaultChildRegistry::Register<LLLineEditor> r1("line_editor");
 
 // Compiler optimization, generate extern template
@@ -80,19 +83,6 @@ template class LLLineEditor* LLView::getChild<class LLLineEditor>(
 // Member functions
 //
 
-void LLLineEditor::PrevalidateNamedFuncs::declareValues()
-{
-	declare("ascii", LLLineEditor::prevalidateASCII);
-	declare("float", LLLineEditor::prevalidateFloat);
-	declare("int", LLLineEditor::prevalidateInt);
-	declare("positive_s32", LLLineEditor::prevalidatePositiveS32);
-	declare("non_negative_s32", LLLineEditor::prevalidateNonNegativeS32);
-	declare("alpha_num", LLLineEditor::prevalidateAlphaNum);
-	declare("alpha_num_space", LLLineEditor::prevalidateAlphaNumSpace);
-	declare("ascii_printable_no_pipe", LLLineEditor::prevalidateASCIIPrintableNoPipe);
-	declare("ascii_printable_no_space", LLLineEditor::prevalidateASCIIPrintableNoSpace);
-}
-
 LLLineEditor::Params::Params()
 :	max_length_bytes("max_length", 254),
     keystroke_callback("keystroke_callback"),
@@ -101,7 +91,6 @@ LLLineEditor::Params::Params()
 	background_image_disabled("background_image_disabled"),
 	background_image_focused("background_image_focused"),
 	select_on_focus("select_on_focus", false),
-	handle_edit_keys_directly("handle_edit_keys_directly", false),
 	revert_on_esc("revert_on_esc", true),
 	commit_on_focus_lost("commit_on_focus_lost", true),
 	ignore_tab("ignore_tab", true),
@@ -146,7 +135,6 @@ LLLineEditor::LLLineEditor(const LLLineEditor::Params& p)
 	mIgnoreArrowKeys( FALSE ),
 	mIgnoreTab( p.ignore_tab ),
 	mDrawAsterixes( FALSE ),
-	mHandleEditKeysDirectly(p.handle_edit_keys_directly),
 	mSelectAllonFocusReceived( p.select_on_focus ),
 	mPassDelete(FALSE),
 	mReadOnly(FALSE),
@@ -162,7 +150,8 @@ LLLineEditor::LLLineEditor(const LLLineEditor::Params& p)
 	mTentativeFgColor(p.text_tentative_color()),
 	mHighlightColor(p.highlight_color()),
 	mPreeditBgColor(p.preedit_bg_color()),
-	mGLFont(p.font)
+	mGLFont(p.font),
+	mContextMenuHandle()
 {
 	llassert( mMaxLengthBytes > 0 );
 
@@ -189,18 +178,20 @@ LLLineEditor::LLLineEditor(const LLLineEditor::Params& p)
 	setCursor(mText.length());
 
 	setPrevalidate(p.prevalidate_callback());
+
+	LLContextMenu* menu = LLUICtrlFactory::instance().createFromFile<LLContextMenu>
+		("menu_text_editor.xml",
+		 LLMenuGL::sMenuContainer,
+		 LLMenuHolderGL::child_registry_t::instance());
+	setContextMenu(menu);
 }
  
 LLLineEditor::~LLLineEditor()
 {
 	mCommitOnFocusLost = FALSE;
 
+	// calls onCommit() while LLLineEditor still valid
 	gFocusMgr.releaseFocusIfNeeded( this );
-
-	if( gEditMenuHandler == this )
-	{
-		gEditMenuHandler = NULL;
-	}
 }
 
 
@@ -401,7 +392,7 @@ void LLLineEditor::setCursorAtLocalPos( S32 local_mouse_x )
 	{
 		for (S32 i = 0; i < mText.length(); i++)
 		{
-			asterix_text += '*';
+			asterix_text += utf8str_to_wstring(PASSWORD_ASTERISK);
 		}
 		wtext = asterix_text.c_str();
 	}
@@ -420,12 +411,16 @@ void LLLineEditor::setCursor( S32 pos )
 	S32 old_cursor_pos = getCursor();
 	mCursorPos = llclamp( pos, 0, mText.length());
 
+	// position of end of next character after cursor
 	S32 pixels_after_scroll = findPixelNearestPos();
 	if( pixels_after_scroll > mTextRightEdge )
 	{
 		S32 width_chars_to_left = mGLFont->getWidth(mText.getWString().c_str(), 0, mScrollHPos);
 		S32 last_visible_char = mGLFont->maxDrawableChars(mText.getWString().c_str(), llmax(0.f, (F32)(mTextRightEdge - mTextLeftEdge + width_chars_to_left))); 
-		S32 min_scroll = mGLFont->firstDrawableChar(mText.getWString().c_str(), (F32)(mTextRightEdge - mTextLeftEdge), mText.length(), getCursor());
+		// character immediately to left of cursor should be last one visible (SCROLL_INCREMENT_ADD will scroll in more characters)
+		// or first character if cursor is at beginning
+		S32 new_last_visible_char = llmax(0, getCursor() - 1);
+		S32 min_scroll = mGLFont->firstDrawableChar(mText.getWString().c_str(), (F32)(mTextRightEdge - mTextLeftEdge), mText.length(), new_last_visible_char);
 		if (old_cursor_pos == last_visible_char)
 		{
 			mScrollHPos = llmin(mText.length(), llmax(min_scroll, mScrollHPos + SCROLL_INCREMENT_ADD));
@@ -496,6 +491,7 @@ void LLLineEditor::selectAll()
 	setCursor(mSelectionEnd);
 	//mScrollHPos = 0;
 	mIsSelecting = TRUE;
+	updatePrimary();
 }
 
 
@@ -661,6 +657,16 @@ BOOL LLLineEditor::handleMiddleMouseDown(S32 x, S32 y, MASK mask)
 	return TRUE;
 }
 
+BOOL LLLineEditor::handleRightMouseDown(S32 x, S32 y, MASK mask)
+{
+	setFocus(TRUE);
+	if (!LLUICtrl::handleRightMouseDown(x, y, mask))
+	{
+		showContextMenu(x, y);
+	}
+	return TRUE;
+}
+
 BOOL LLLineEditor::handleHover(S32 x, S32 y, MASK mask)
 {
 	BOOL handled = FALSE;
@@ -777,7 +783,7 @@ void LLLineEditor::removeChar()
 	}
 	else
 	{
-		reportBadKeystroke();
+		LLUI::reportBadKeystroke();
 	}
 }
 
@@ -816,7 +822,7 @@ void LLLineEditor::addChar(const llwchar uni_char)
 	}
 	else
 	{
-		reportBadKeystroke();
+		LLUI::reportBadKeystroke();
 	}
 
 	getWindow()->hideCursorUntilMouseMove();
@@ -905,7 +911,7 @@ BOOL LLLineEditor::handleSelectionKey(KEY key, MASK mask)
 			}
 			else
 			{
-				reportBadKeystroke();
+				LLUI::reportBadKeystroke();
 			}
 			break;
 
@@ -921,7 +927,7 @@ BOOL LLLineEditor::handleSelectionKey(KEY key, MASK mask)
 			}
 			else
 			{
-				reportBadKeystroke();
+				LLUI::reportBadKeystroke();
 			}
 			break;
 
@@ -944,22 +950,6 @@ BOOL LLLineEditor::handleSelectionKey(KEY key, MASK mask)
 		default:
 			handled = FALSE;
 			break;
-		}
-	}
-
-	if (!handled && mHandleEditKeysDirectly)
-	{
-		if( (MASK_CONTROL & mask) && ('A' == key) )
-		{
-			if( canSelectAll() )
-			{
-				selectAll();
-			}
-			else
-			{
-				reportBadKeystroke();
-			}
-			handled = TRUE;
 		}
 	}
 
@@ -1009,7 +999,7 @@ void LLLineEditor::cut()
 		if( need_to_rollback )
 		{
 			rollback.doRollback( this );
-			reportBadKeystroke();
+			LLUI::reportBadKeystroke();
 		}
 		else
 		if( mKeystrokeCallback )
@@ -1118,7 +1108,7 @@ void LLLineEditor::pasteHelper(bool is_primary)
 				}
 				// Truncate the clean string at the limit of what will fit
 				clean_string = clean_string.substr(0, wchars_that_fit);
-				reportBadKeystroke();
+				LLUI::reportBadKeystroke();
 			}
  
 			mText.insert(getCursor(), clean_string);
@@ -1130,7 +1120,7 @@ void LLLineEditor::pasteHelper(bool is_primary)
 			if( need_to_rollback )
 			{
 				rollback.doRollback( this );
-				reportBadKeystroke();
+				LLUI::reportBadKeystroke();
 			}
 			else
 			if( mKeystrokeCallback )
@@ -1195,7 +1185,7 @@ BOOL LLLineEditor::handleSpecialKey(KEY key, MASK mask)
 			}
 			else
 			{
-				reportBadKeystroke();
+				LLUI::reportBadKeystroke();
 			}
 		}
 		handled = TRUE;
@@ -1244,7 +1234,7 @@ BOOL LLLineEditor::handleSpecialKey(KEY key, MASK mask)
 			}
 			else
 			{
-				reportBadKeystroke();
+				LLUI::reportBadKeystroke();
 			}
 			handled = TRUE;
 		}
@@ -1271,7 +1261,7 @@ BOOL LLLineEditor::handleSpecialKey(KEY key, MASK mask)
 			}
 			else
 			{
-				reportBadKeystroke();
+				LLUI::reportBadKeystroke();
 			}
 			handled = TRUE;
 		}
@@ -1288,7 +1278,7 @@ BOOL LLLineEditor::handleSpecialKey(KEY key, MASK mask)
 			}
 			else
 			{
-				reportBadKeystroke();
+				LLUI::reportBadKeystroke();
 			}
 			handled = TRUE;
 		}
@@ -1305,7 +1295,7 @@ BOOL LLLineEditor::handleSpecialKey(KEY key, MASK mask)
 			}
 			else
 			{
-				reportBadKeystroke();
+				LLUI::reportBadKeystroke();
 			}
 			handled = TRUE;
 		}
@@ -1328,64 +1318,6 @@ BOOL LLLineEditor::handleSpecialKey(KEY key, MASK mask)
 		break;
 	}
 
-	if( !handled && mHandleEditKeysDirectly )
-	{
-		// Standard edit keys (Ctrl-X, Delete, etc,) are handled here instead of routed by the menu system.
-		if( KEY_DELETE == key )
-		{
-			if( canDoDelete() )
-			{
-				doDelete();
-			}
-			else
-			{
-				reportBadKeystroke();
-			}
-			handled = TRUE;
-		}
-		else
-		if( MASK_CONTROL & mask )
-		{
-			if( 'C' == key )
-			{
-				if( canCopy() )
-				{
-					copy();
-				}
-				else
-				{
-					reportBadKeystroke();
-				}
-				handled = TRUE;
-			}
-			else
-			if( 'V' == key )
-			{
-				if( canPaste() )
-				{
-					paste();
-				}
-				else
-				{
-					reportBadKeystroke();
-				}
-				handled = TRUE;
-			}
-			else
-			if( 'X' == key )
-			{
-				if( canCut() )
-				{
-					cut();
-				}
-				else
-				{
-					reportBadKeystroke();
-				}
-				handled = TRUE;
-			}
-		}
-	}
 	return handled;
 }
 
@@ -1440,7 +1372,7 @@ BOOL LLLineEditor::handleKeyHere(KEY key, MASK mask )
 			{
 				rollback.doRollback(this);
 
-				reportBadKeystroke();
+				LLUI::reportBadKeystroke();
 			}
 
 			// Notify owner if requested
@@ -1488,7 +1420,7 @@ BOOL LLLineEditor::handleUnicodeCharHere(llwchar uni_char)
 		{
 			rollback.doRollback( this );
 
-			reportBadKeystroke();
+			LLUI::reportBadKeystroke();
 		}
 
 		// Notify owner if requested
@@ -1508,7 +1440,7 @@ BOOL LLLineEditor::handleUnicodeCharHere(llwchar uni_char)
 
 BOOL LLLineEditor::canDoDelete() const
 {
-	return ( !mReadOnly && (!mPassDelete || (hasSelection() || (getCursor() < mText.length()))) );
+	return ( !mReadOnly && mText.length() > 0 && (!mPassDelete || (hasSelection() || (getCursor() < mText.length()))) );
 }
 
 void LLLineEditor::doDelete()
@@ -1533,7 +1465,7 @@ void LLLineEditor::doDelete()
 		if( need_to_rollback )
 		{
 			rollback.doRollback( this );
-			reportBadKeystroke();
+			LLUI::reportBadKeystroke();
 		}
 		else
 		{
@@ -1599,7 +1531,7 @@ void LLLineEditor::draw()
 		std::string text;
 		for (S32 i = 0; i < mText.length(); i++)
 		{
-			text += '*';
+			text += PASSWORD_ASTERISK;
 		}
 		mText = text;
 	}
@@ -1868,11 +1800,6 @@ S32 LLLineEditor::findPixelNearestPos(const S32 cursor_offset) const
 	return result;
 }
 
-void LLLineEditor::reportBadKeystroke()
-{
-	make_ui_sound("UISndBadKeystroke");
-}
-
 //virtual
 void LLLineEditor::clear()
 {
@@ -1960,49 +1887,10 @@ void LLLineEditor::setRect(const LLRect& rect)
 	}
 }
 
-void LLLineEditor::setPrevalidate(LLLinePrevalidateFunc func)
+void LLLineEditor::setPrevalidate(LLTextValidate::validate_func_t func)
 {
 	mPrevalidateFunc = func;
 	updateAllowingLanguageInput();
-}
-
-// Limits what characters can be used to [1234567890.-] with [-] only valid in the first position.
-// Does NOT ensure that the string is a well-formed number--that's the job of post-validation--for
-// the simple reasons that intermediate states may be invalid even if the final result is valid.
-// 
-// static
-BOOL LLLineEditor::prevalidateFloat(const LLWString &str)
-{
-	LLLocale locale(LLLocale::USER_LOCALE);
-
-	BOOL success = TRUE;
-	LLWString trimmed = str;
-	LLWStringUtil::trim(trimmed);
-	S32 len = trimmed.length();
-	if( 0 < len )
-	{
-		// May be a comma or period, depending on the locale
-		llwchar decimal_point = (llwchar)LLResMgr::getInstance()->getDecimalPoint();
-
-		S32 i = 0;
-
-		// First character can be a negative sign
-		if( '-' == trimmed[0] )
-		{
-			i++;
-		}
-
-		for( ; i < len; i++ )
-		{
-			if( (decimal_point != trimmed[i] ) && !LLStringOps::isDigit( trimmed[i] ) )
-			{
-				success = FALSE;
-				break;
-			}
-		}
-	}		
-
-	return success;
 }
 
 // static
@@ -2062,223 +1950,6 @@ BOOL LLLineEditor::postvalidateFloat(const std::string &str)
 	success = has_digit;
 
 	return success;
-}
-
-// Limits what characters can be used to [1234567890-] with [-] only valid in the first position.
-// Does NOT ensure that the string is a well-formed number--that's the job of post-validation--for
-// the simple reasons that intermediate states may be invalid even if the final result is valid.
-//
-// static
-BOOL LLLineEditor::prevalidateInt(const LLWString &str)
-{
-	LLLocale locale(LLLocale::USER_LOCALE);
-
-	BOOL success = TRUE;
-	LLWString trimmed = str;
-	LLWStringUtil::trim(trimmed);
-	S32 len = trimmed.length();
-	if( 0 < len )
-	{
-		S32 i = 0;
-
-		// First character can be a negative sign
-		if( '-' == trimmed[0] )
-		{
-			i++;
-		}
-
-		for( ; i < len; i++ )
-		{
-			if( !LLStringOps::isDigit( trimmed[i] ) )
-			{
-				success = FALSE;
-				break;
-			}
-		}
-	}		
-
-	return success;
-}
-
-// static
-BOOL LLLineEditor::prevalidatePositiveS32(const LLWString &str)
-{
-	LLLocale locale(LLLocale::USER_LOCALE);
-
-	LLWString trimmed = str;
-	LLWStringUtil::trim(trimmed);
-	S32 len = trimmed.length();
-	BOOL success = TRUE;
-	if(0 < len)
-	{
-		if(('-' == trimmed[0]) || ('0' == trimmed[0]))
-		{
-			success = FALSE;
-		}
-		S32 i = 0;
-		while(success && (i < len))
-		{
-			if(!LLStringOps::isDigit(trimmed[i++]))
-			{
-				success = FALSE;
-			}
-		}
-	}
-	if (success)
-	{
-		S32 val = strtol(wstring_to_utf8str(trimmed).c_str(), NULL, 10);
-		if (val <= 0)
-		{
-			success = FALSE;
-		}
-	}
-	return success;
-}
-
-BOOL LLLineEditor::prevalidateNonNegativeS32(const LLWString &str)
-{
-	LLLocale locale(LLLocale::USER_LOCALE);
-
-	LLWString trimmed = str;
-	LLWStringUtil::trim(trimmed);
-	S32 len = trimmed.length();
-	BOOL success = TRUE;
-	if(0 < len)
-	{
-		if('-' == trimmed[0])
-		{
-			success = FALSE;
-		}
-		S32 i = 0;
-		while(success && (i < len))
-		{
-			if(!LLStringOps::isDigit(trimmed[i++]))
-			{
-				success = FALSE;
-			}
-		}
-	}
-	if (success)
-	{
-		S32 val = strtol(wstring_to_utf8str(trimmed).c_str(), NULL, 10);
-		if (val < 0)
-		{
-			success = FALSE;
-		}
-	}
-	return success;
-}
-
-BOOL LLLineEditor::prevalidateAlphaNum(const LLWString &str)
-{
-	LLLocale locale(LLLocale::USER_LOCALE);
-
-	BOOL rv = TRUE;
-	S32 len = str.length();
-	if(len == 0) return rv;
-	while(len--)
-	{
-		if( !LLStringOps::isAlnum((char)str[len]) )
-		{
-			rv = FALSE;
-			break;
-		}
-	}
-	return rv;
-}
-
-// static
-BOOL LLLineEditor::prevalidateAlphaNumSpace(const LLWString &str)
-{
-	LLLocale locale(LLLocale::USER_LOCALE);
-
-	BOOL rv = TRUE;
-	S32 len = str.length();
-	if(len == 0) return rv;
-	while(len--)
-	{
-		if(!(LLStringOps::isAlnum((char)str[len]) || (' ' == str[len])))
-		{
-			rv = FALSE;
-			break;
-		}
-	}
-	return rv;
-}
-
-// Used for most names of things stored on the server, due to old file-formats
-// that used the pipe (|) for multiline text storage.  Examples include
-// inventory item names, parcel names, object names, etc.
-// static
-BOOL LLLineEditor::prevalidateASCIIPrintableNoPipe(const LLWString &str)
-{
-	BOOL rv = TRUE;
-	S32 len = str.length();
-	if(len == 0) return rv;
-	while(len--)
-	{
-		llwchar wc = str[len];
-		if (wc < 0x20
-			|| wc > 0x7f
-			|| wc == '|')
-		{
-			rv = FALSE;
-			break;
-		}
-		if(!(wc == ' '
-			 || LLStringOps::isAlnum((char)wc)
-			 || LLStringOps::isPunct((char)wc) ) )
-		{
-			rv = FALSE;
-			break;
-		}
-	}
-	return rv;
-}
-
-
-// Used for avatar names
-// static
-BOOL LLLineEditor::prevalidateASCIIPrintableNoSpace(const LLWString &str)
-{
-	BOOL rv = TRUE;
-	S32 len = str.length();
-	if(len == 0) return rv;
-	while(len--)
-	{
-		llwchar wc = str[len];
-		if (wc < 0x20
-			|| wc > 0x7f
-			|| LLStringOps::isSpace(wc))
-		{
-			rv = FALSE;
-			break;
-		}
-		if( !(LLStringOps::isAlnum((char)str[len]) ||
-		      LLStringOps::isPunct((char)str[len]) ) )
-		{
-			rv = FALSE;
-			break;
-		}
-	}
-	return rv;
-}
-
-
-// static
-BOOL LLLineEditor::prevalidateASCII(const LLWString &str)
-{
-	BOOL rv = TRUE;
-	S32 len = str.length();
-	while(len--)
-	{
-		if (str[len] < 0x20 || str[len] > 0x7f)
-		{
-			rv = FALSE;
-			break;
-		}
-	}
-	return rv;
 }
 
 void LLLineEditor::onMouseCaptureLost()
@@ -2557,4 +2228,26 @@ LLWString LLLineEditor::getConvertedText() const
 		LLWStringUtil::replaceChar(text,182,'\n'); // Convert paragraph symbols back into newlines.
 	}
 	return text;
+}
+
+void LLLineEditor::showContextMenu(S32 x, S32 y)
+{
+	LLContextMenu* menu = static_cast<LLContextMenu*>(mContextMenuHandle.get());
+
+	if (menu)
+	{
+		gEditMenuHandler = this;
+
+		S32 screen_x, screen_y;
+		localPointToScreen(x, y, &screen_x, &screen_y);
+		menu->show(screen_x, screen_y);
+	}
+}
+
+void LLLineEditor::setContextMenu(LLContextMenu* new_context_menu)
+{
+	if (new_context_menu)
+		mContextMenuHandle = new_context_menu->getHandle();
+	else
+		mContextMenuHandle.markDead();
 }

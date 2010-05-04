@@ -36,6 +36,7 @@
 #include "llagent.h"
 #include "llavataractions.h"
 #include "llbottomtray.h"
+#include "lleventtimer.h"
 #include "llgroupactions.h"
 #include "lliconctrl.h"
 #include "llimfloater.h"
@@ -130,8 +131,6 @@ LLSysWellChiclet::Params::Params()
 : button("button")
 , unread_notifications("unread_notifications")
 , max_displayed_count("max_displayed_count", 99)
-, flash_to_lit_count("flash_to_lit_count", 3)
-, flash_period("flash_period", 0.5F)
 {
 	button.name("button");
 	button.tab_stop(FALSE);
@@ -151,7 +150,13 @@ LLSysWellChiclet::LLSysWellChiclet(const Params& p)
 	mButton = LLUICtrlFactory::create<LLButton>(button_params);
 	addChild(mButton);
 
-	mFlashToLitTimer = new FlashToLitTimer(p.flash_to_lit_count, p.flash_period, boost::bind(&LLSysWellChiclet::changeLitState, this));
+	// use settings from settings.xml to be able change them via Debug settings. See EXT-5973.
+	// Due to Timer is implemented as derived class from EventTimer it is impossible to change period
+	// in runtime. So, both settings are made as required restart.
+	static S32 flash_to_lit_count = gSavedSettings.getS32("WellIconFlashCount");
+	static F32 flash_period = gSavedSettings.getF32("WellIconFlashPeriod");
+
+	mFlashToLitTimer = new FlashToLitTimer(flash_to_lit_count, flash_period, boost::bind(&LLSysWellChiclet::changeLitState, this));
 }
 
 LLSysWellChiclet::~LLSysWellChiclet()
@@ -228,6 +233,11 @@ void LLSysWellChiclet::setNewMessagesState(bool new_messages)
 void LLSysWellChiclet::updateWidget(bool is_window_empty)
 {
 	mButton->setEnabled(!is_window_empty);
+
+	LLSD params;
+	params["well_empty"] = is_window_empty;
+	params["well_name"] = getName();
+	notifyParent(params);
 }
 // virtual
 BOOL LLSysWellChiclet::handleRightMouseDown(S32 x, S32 y, MASK mask)
@@ -455,10 +465,19 @@ LLIMChiclet::LLIMChiclet(const LLIMChiclet::Params& p)
 , mSpeakerCtrl(NULL)
 , mCounterCtrl(NULL)
 , mChicletButton(NULL)
+, mPopupMenu(NULL)
 {
 	enableCounterControl(p.enable_counter);
 }
 
+/* virtual*/
+BOOL LLIMChiclet::postBuild()
+{
+	mChicletButton = getChild<LLButton>("chiclet_button");
+	mChicletButton->setCommitCallback(boost::bind(&LLIMChiclet::onMouseDown, this));
+	mChicletButton->setDoubleClickCallback(boost::bind(&LLIMChiclet::onMouseDown, this));
+	return TRUE;
+}
 void LLIMChiclet::setShowSpeaker(bool show)
 {
 	bool needs_resize = getShowSpeaker() != show;
@@ -537,6 +556,7 @@ void LLIMChiclet::toggleSpeakerControl()
 	}
 
 	setRequiredWidth();
+	mSpeakerCtrl->setSpeakerId(LLUUID::null);
 	mSpeakerCtrl->setVisible(getShowSpeaker());
 }
 
@@ -581,12 +601,6 @@ void LLIMChiclet::onMouseDown()
 void LLIMChiclet::setToggleState(bool toggle)
 {
 	mChicletButton->setToggleState(toggle);
-}
-
-BOOL LLIMChiclet::handleMouseDown(S32 x, S32 y, MASK mask)
-{
-	onMouseDown();
-	return LLChiclet::handleMouseDown(x, y, mask);
 }
 
 void LLIMChiclet::draw()
@@ -635,6 +649,37 @@ LLIMChiclet::EType LLIMChiclet::getIMSessionType(const LLUUID& session_id)
 	return type;
 }
 
+BOOL LLIMChiclet::handleRightMouseDown(S32 x, S32 y, MASK mask)
+{
+	if(!mPopupMenu)
+	{
+		createPopupMenu();
+	}
+
+	if (mPopupMenu)
+	{
+		updateMenuItems();
+		mPopupMenu->arrangeAndClear();
+		LLMenuGL::showPopup(this, mPopupMenu, x, y);
+	}
+
+	return TRUE;
+}
+
+bool LLIMChiclet::canCreateMenu()
+{
+	if(mPopupMenu)
+	{
+		llwarns << "Menu already exists" << llendl;
+		return false;
+	}
+	if(getSessionId().isNull())
+	{
+		return false;
+	}
+	return true;
+}
+
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
@@ -652,7 +697,6 @@ LLIMP2PChiclet::Params::Params()
 LLIMP2PChiclet::LLIMP2PChiclet(const Params& p)
 : LLIMChiclet(p)
 , mChicletIconCtrl(NULL)
-, mPopupMenu(NULL)
 {
 	LLButton::Params button_params = p.chiclet_button;
 	mChicletButton = LLUICtrlFactory::create<LLButton>(button_params);
@@ -707,34 +751,10 @@ void LLIMP2PChiclet::updateMenuItems()
 	mPopupMenu->getChild<LLUICtrl>("Add Friend")->setEnabled(!is_friend);
 }
 
-BOOL LLIMP2PChiclet::handleRightMouseDown(S32 x, S32 y, MASK mask)
-{
-	if(!mPopupMenu)
-	{
-		createPopupMenu();
-	}
-
-	if (mPopupMenu)
-	{
-		updateMenuItems();
-		mPopupMenu->arrangeAndClear();
-		LLMenuGL::showPopup(this, mPopupMenu, x, y);
-	}
-
-	return TRUE;
-}
-
 void LLIMP2PChiclet::createPopupMenu()
 {
-	if(mPopupMenu)
-	{
-		llwarns << "Menu already exists" << llendl;
+	if(!canCreateMenu())
 		return;
-	}
-	if(getSessionId().isNull())
-	{
-		return;
-	}
 
 	LLUICtrl::CommitCallbackRegistry::ScopedRegistrar registrar;
 	registrar.add("IMChicletMenu.Action", boost::bind(&LLIMP2PChiclet::onMenuItemClicked, this, _2));
@@ -784,7 +804,6 @@ LLAdHocChiclet::Params::Params()
 LLAdHocChiclet::LLAdHocChiclet(const Params& p)
 : LLIMChiclet(p)
 , mChicletIconCtrl(NULL)
-, mPopupMenu(NULL)
 {
 	LLButton::Params button_params = p.chiclet_button;
 	mChicletButton = LLUICtrlFactory::create<LLButton>(button_params);
@@ -854,15 +873,8 @@ void LLAdHocChiclet::switchToCurrentSpeaker()
 
 void LLAdHocChiclet::createPopupMenu()
 {
-	if(mPopupMenu)
-	{
-		llwarns << "Menu already exists" << llendl;
+	if(!canCreateMenu())
 		return;
-	}
-	if(getSessionId().isNull())
-	{
-		return;
-	}
 
 	LLUICtrl::CommitCallbackRegistry::ScopedRegistrar registrar;
 	registrar.add("IMChicletMenu.Action", boost::bind(&LLAdHocChiclet::onMenuItemClicked, this, _2));
@@ -880,22 +892,6 @@ void LLAdHocChiclet::onMenuItemClicked(const LLSD& user_data)
 	{
 		LLGroupActions::endIM(group_id);
 	}
-}
-
-BOOL LLAdHocChiclet::handleRightMouseDown(S32 x, S32 y, MASK mask)
-{
-	if(!mPopupMenu)
-	{
-		createPopupMenu();
-	}
-
-	if (mPopupMenu)
-	{
-		mPopupMenu->arrangeAndClear();
-		LLMenuGL::showPopup(this, mPopupMenu, x, y);
-	}
-
-	return TRUE;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -916,7 +912,6 @@ LLIMGroupChiclet::LLIMGroupChiclet(const Params& p)
 : LLIMChiclet(p)
 , LLGroupMgrObserver(LLUUID::null)
 , mChicletIconCtrl(NULL)
-, mPopupMenu(NULL)
 {
 	LLButton::Params button_params = p.chiclet_button;
 	mChicletButton = LLUICtrlFactory::create<LLButton>(button_params);
@@ -952,7 +947,10 @@ LLIMGroupChiclet::~LLIMGroupChiclet()
 
 void LLIMGroupChiclet::draw()
 {
-	switchToCurrentSpeaker();
+	if(getShowSpeaker())
+	{
+		switchToCurrentSpeaker();
+	}
 	LLIMChiclet::draw();
 }
 
@@ -1026,34 +1024,10 @@ void LLIMGroupChiclet::updateMenuItems()
 	mPopupMenu->getChild<LLUICtrl>("Chat")->setEnabled(!open_window_exists);
 }
 
-BOOL LLIMGroupChiclet::handleRightMouseDown(S32 x, S32 y, MASK mask)
-{
-	if(!mPopupMenu)
-	{
-		createPopupMenu();
-	}
-
-	if (mPopupMenu)
-	{
-		updateMenuItems();
-		mPopupMenu->arrangeAndClear();
-		LLMenuGL::showPopup(this, mPopupMenu, x, y);
-	}
-
-	return TRUE;
-}
-
 void LLIMGroupChiclet::createPopupMenu()
 {
-	if(mPopupMenu)
-	{
-		llwarns << "Menu already exists" << llendl;
+	if(!canCreateMenu())
 		return;
-	}
-	if(getSessionId().isNull())
-	{
-		return;
-	}
 
 	LLUICtrl::CommitCallbackRegistry::ScopedRegistrar registrar;
 	registrar.add("IMChicletMenu.Action", boost::bind(&LLIMGroupChiclet::onMenuItemClicked, this, _2));
@@ -1130,7 +1104,7 @@ void im_chiclet_callback(LLChicletPanel* panel, const LLSD& data){
 	S32 unread = data["participant_unread"].asInteger();
 
 	LLIMFloater* im_floater = LLIMFloater::findInstance(session_id);
-	if (im_floater && im_floater->getVisible())
+	if (im_floater && im_floater->getVisible() && im_floater->hasFocus())
 	{
 		unread = 0;
 	}
@@ -1152,10 +1126,10 @@ void im_chiclet_callback(LLChicletPanel* panel, const LLSD& data){
 
 void object_chiclet_callback(const LLSD& data)
 {
-	LLUUID object_id = data["object_id"];
+	LLUUID notification_id = data["notification_id"];
 	bool new_message = data["new_message"];
 
-	std::list<LLChiclet*> chiclets = LLIMChiclet::sFindChicletsSignal(object_id);
+	std::list<LLChiclet*> chiclets = LLIMChiclet::sFindChicletsSignal(notification_id);
 	std::list<LLChiclet *>::iterator iter;
 	for (iter = chiclets.begin(); iter != chiclets.end(); iter++)
 	{
@@ -1272,6 +1246,7 @@ bool LLChicletPanel::addChiclet(LLChiclet* chiclet, S32 index)
 		chiclet->setChicletSizeChangedCallback(boost::bind(&LLChicletPanel::onChicletSizeChanged, this, _1, index));
 
 		arrange();
+		LLTransientFloaterMgr::getInstance()->addControlView(LLTransientFloaterMgr::IM, chiclet);
 
 		return true;
 	}
@@ -1299,6 +1274,7 @@ void LLChicletPanel::removeChiclet(chiclet_list_t::iterator it)
 	mChicletList.erase(it);
 	
 	arrange();
+	LLTransientFloaterMgr::getInstance()->removeControlView(LLTransientFloaterMgr::IM, chiclet);
 	chiclet->die();
 }
 
@@ -1885,12 +1861,8 @@ void LLScriptChiclet::setSessionId(const LLUUID& session_id)
 	setShowNewMessagesIcon( getSessionId() != session_id );
 
 	LLIMChiclet::setSessionId(session_id);
-	LLUUID notification_id = LLScriptFloaterManager::getInstance()->findNotificationId(session_id);
-	LLNotificationPtr notification = LLNotifications::getInstance()->find(notification_id);
-	if(notification)
-	{
-		setToolTip(notification->getSubstitutions()["TITLE"].asString());
-	}
+
+	setToolTip(LLScriptFloaterManager::getObjectName(session_id));
 }
 
 void LLScriptChiclet::setCounter(S32 counter)
@@ -1903,10 +1875,26 @@ void LLScriptChiclet::onMouseDown()
 	LLScriptFloaterManager::getInstance()->toggleScriptFloater(getSessionId());
 }
 
-BOOL LLScriptChiclet::handleMouseDown(S32 x, S32 y, MASK mask)
+void LLScriptChiclet::onMenuItemClicked(const LLSD& user_data)
 {
-	onMouseDown();
-	return LLChiclet::handleMouseDown(x, y, mask);
+	std::string action = user_data.asString();
+
+	if("end" == action)
+	{
+		LLScriptFloaterManager::instance().onRemoveNotification(getSessionId());
+	}
+}
+
+void LLScriptChiclet::createPopupMenu()
+{
+	if(!canCreateMenu())
+		return;
+
+	LLUICtrl::CommitCallbackRegistry::ScopedRegistrar registrar;
+	registrar.add("ScriptChiclet.Action", boost::bind(&LLScriptChiclet::onMenuItemClicked, this, _2));
+
+	mPopupMenu = LLUICtrlFactory::getInstance()->createFromFile<LLMenuGL>
+		("menu_script_chiclet.xml", gMenuHolder, LLViewerMenuHolderGL::child_registry_t::instance());
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1945,13 +1933,10 @@ void LLInvOfferChiclet::setSessionId(const LLUUID& session_id)
 {
 	setShowNewMessagesIcon( getSessionId() != session_id );
 
+	setToolTip(LLScriptFloaterManager::getObjectName(session_id));
+
 	LLIMChiclet::setSessionId(session_id);
-	LLUUID notification_id = LLScriptFloaterManager::getInstance()->findNotificationId(session_id);
-	LLNotificationPtr notification = LLNotifications::getInstance()->find(notification_id);
-	if(notification)
-	{
-		setToolTip(notification->getSubstitutions()["TITLE"].asString());
-	}
+	LLNotificationPtr notification = LLNotifications::getInstance()->find(session_id);
 
 	if ( notification && notification->getName() == INVENTORY_USER_OFFER )
 	{
@@ -1973,10 +1958,26 @@ void LLInvOfferChiclet::onMouseDown()
 	LLScriptFloaterManager::instance().toggleScriptFloater(getSessionId());
 }
 
-BOOL LLInvOfferChiclet::handleMouseDown(S32 x, S32 y, MASK mask)
+void LLInvOfferChiclet::onMenuItemClicked(const LLSD& user_data)
 {
-	onMouseDown();
-	return LLChiclet::handleMouseDown(x, y, mask);
+	std::string action = user_data.asString();
+
+	if("end" == action)
+	{
+		LLScriptFloaterManager::instance().onRemoveNotification(getSessionId());
+	}
+}
+
+void LLInvOfferChiclet::createPopupMenu()
+{
+	if(!canCreateMenu())
+		return;
+
+	LLUICtrl::CommitCallbackRegistry::ScopedRegistrar registrar;
+	registrar.add("InvOfferChiclet.Action", boost::bind(&LLInvOfferChiclet::onMenuItemClicked, this, _2));
+
+	mPopupMenu = LLUICtrlFactory::getInstance()->createFromFile<LLMenuGL>
+		("menu_inv_offer_chiclet.xml", gMenuHolder, LLViewerMenuHolderGL::child_registry_t::instance());
 }
 
 // EOF

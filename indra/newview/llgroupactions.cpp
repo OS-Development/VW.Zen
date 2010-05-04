@@ -79,7 +79,9 @@ public:
 		{
 			if (tokens[1].asString() == "show")
 			{
-				LLFloaterReg::showInstance("contacts", "groups");
+				LLSD params;
+				params["people_panel_tab_name"] = "groups_panel";
+				LLSideTray::getInstance()->showPanel("panel_people", params);
 				return true;
 			}
             return false;
@@ -104,7 +106,7 @@ public:
 		{
 			if (group_id.isNull())
 				return true;
-			LLGroupActions::show(group_id);
+			LLGroupActions::inspect(group_id);
 			return true;
 		}
 		return false;
@@ -160,12 +162,17 @@ void LLGroupActions::join(const LLUUID& group_id)
 		S32 cost = gdatap->mMembershipFee;
 		LLSD args;
 		args["COST"] = llformat("%d", cost);
+		args["NAME"] = gdatap->mName;
 		LLSD payload;
 		payload["group_id"] = group_id;
 
 		if (can_afford_transaction(cost))
 		{
-			LLNotificationsUtil::add("JoinGroupCanAfford", args, payload, onJoinGroup);
+			if(cost > 0)
+				LLNotificationsUtil::add("JoinGroupCanAfford", args, payload, onJoinGroup);
+			else
+				LLNotificationsUtil::add("JoinGroupNoCost", args, payload, onJoinGroup);
+				
 		}
 		else
 		{
@@ -238,6 +245,12 @@ static bool isGroupUIVisible()
 	if(!panel)
 		return false;
 	return panel->isInVisibleChain();
+}
+
+// static 
+void LLGroupActions::inspect(const LLUUID& group_id)
+{
+	LLFloaterReg::showInstance("inspect_group", LLSD().with("group_id", group_id));
 }
 
 // static

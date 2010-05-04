@@ -75,6 +75,7 @@ private:
 	static instance_map_t sInstanceMap;
 	static build_map_t sBuildMap;
 	static std::map<std::string,std::string> sGroupMap;
+	static bool sBlockShowFloaters;
 	
 public:
 	// Registration
@@ -133,6 +134,7 @@ public:
 	static void hideFloaterInstance(const LLSD& sdname);
 	static void toggleFloaterInstance(const LLSD& sdname);
 	static bool floaterInstanceVisible(const LLSD& sdname);
+	static bool floaterInstanceMinimized(const LLSD& sdname);
 	
 	// Typed find / get / show
 	template <class T>
@@ -152,6 +154,8 @@ public:
 	{
 		return dynamic_cast<T*>(showInstance(name, key, focus));
 	}
+
+	static void blockShowFloaters(bool value) { sBlockShowFloaters = value;}
 	
 };
 

@@ -48,6 +48,7 @@
 #include "lltextutil.h"
 #include "llviewercontrol.h"	// for gSavedSettings
 #include "llviewermenu.h"		// for gMenuHolder
+#include "llvoiceclient.h"
 
 static LLDefaultChildRegistry::Register<LLGroupList> r("group_list");
 S32 LLGroupListItem::sIconWidth = 0;
@@ -70,13 +71,9 @@ public:
 
 static const LLGroupComparator GROUP_COMPARATOR;
 
-LLGroupList::Params::Params()
-{
-	
-}
 
 LLGroupList::LLGroupList(const Params& p)
-:	LLFlatListView(p)
+:	LLFlatListViewEx(p)
 	, mDirty(true) // to force initial update
 {
 	// Listen for agent group changes.
@@ -84,9 +81,6 @@ LLGroupList::LLGroupList(const Params& p)
 
 	mShowIcons = gSavedSettings.getBOOL("GroupListShowIcons");
 	setCommitOnSelectionChange(true);
-	// TODO: implement context menu
-	// display a context menu appropriate for a list of group names
-//	setContextMenu(LLScrollListCtrl::MENU_GROUP);
 
 	// Set default sort order.
 	setComparator(&GROUP_COMPARATOR);
@@ -125,7 +119,7 @@ BOOL LLGroupList::handleRightMouseDown(S32 x, S32 y, MASK mask)
 	BOOL handled = LLUICtrl::handleRightMouseDown(x, y, mask);
 
 	LLMenuGL* context_menu = (LLMenuGL*)mContextMenuHandle.get();
-	if (context_menu)
+	if (context_menu && size() > 0)
 	{
 		context_menu->buildDrawLabels();
 		context_menu->updateParent(LLMenuGL::sMenuContainer);
@@ -137,9 +131,15 @@ BOOL LLGroupList::handleRightMouseDown(S32 x, S32 y, MASK mask)
 
 void LLGroupList::setNameFilter(const std::string& filter)
 {
-	if (mNameFilter != filter)
+	std::string filter_upper = filter;
+	LLStringUtil::toUpper(filter_upper);
+	if (mNameFilter != filter_upper)
 	{
-		mNameFilter = filter;
+		mNameFilter = filter_upper;
+
+		// set no items message depend on filter state
+		updateNoItemsMessage(filter);
+
 		setDirty();
 	}
 }
@@ -172,7 +172,8 @@ void LLGroupList::refresh()
 	sort();
 
 	// Add "none" to list at top if filter not set (what's the point of filtering "none"?).
-	if (!have_filter)
+	// but only if some real groups exists. EXT-4838
+	if (!have_filter && count > 0)
 	{
 		std::string loc_none = LLTrans::getString("GroupsNone");
 		addNewItem(LLUUID::null, loc_none, LLUUID::null, ADD_TOP);
@@ -270,6 +271,9 @@ bool LLGroupList::onContextMenuItemEnable(const LLSD& userdata)
 	// each group including "none" can be activated
 	if (userdata.asString() == "activate")
 		return gAgent.getGroupID() != selected_group_id;
+
+	if (userdata.asString() == "call")
+		return real_group_selected && LLVoiceClient::voiceEnabled()&&gVoiceClient->voiceWorking();
 
 	return real_group_selected;
 }

@@ -452,6 +452,7 @@ LLPanelGroupSubTab::LLPanelGroupSubTab()
 :	LLPanelGroupTab(),
 	mHeader(NULL),
 	mFooter(NULL),
+	mActivated(false),
 	mSearchEditor(NULL)
 {
 }
@@ -504,13 +505,14 @@ void LLPanelGroupSubTab::setGroupID(const LLUUID& id)
 		mSearchEditor->clear();
 		setSearchFilter("");
 	}
+
+	mActivated = false;
 }
 
 void LLPanelGroupSubTab::setSearchFilter(const std::string& filter)
 {
 	if(mSearchFilter == filter)
 		return;
-	lldebugs << "LLPanelGroupSubTab::setSearchFilter() ==> '" << filter << "'" << llendl;
 	mSearchFilter = filter;
 	LLStringUtil::toLower(mSearchFilter);
 	update(GC_ALL);
@@ -518,13 +520,11 @@ void LLPanelGroupSubTab::setSearchFilter(const std::string& filter)
 
 void LLPanelGroupSubTab::activate()
 {
-	lldebugs << "LLPanelGroupSubTab::activate()" << llendl;
 	setOthersVisible(TRUE);
 }
 
 void LLPanelGroupSubTab::deactivate()
 {
-	lldebugs << "LLPanelGroupSubTab::deactivate()" << llendl;
 	setOthersVisible(FALSE);
 }
 
@@ -534,18 +534,10 @@ void LLPanelGroupSubTab::setOthersVisible(BOOL b)
 	{
 		mHeader->setVisible( b );
 	}
-	else
-	{
-		llwarns << "LLPanelGroupSubTab missing header!" << llendl;
-	}
 
 	if (mFooter)
 	{
 		mFooter->setVisible( b );
-	}
-	else
-	{
-		llwarns << "LLPanelGroupSubTab missing footer!" << llendl;
 	}
 }
 
@@ -867,7 +859,7 @@ void LLPanelGroupMembersSubTab::handleMemberSelect()
 	if (selection.empty()) return;
 
 	// Build a vector of all selected members, and gather allowed actions.
-	std::vector<LLUUID> selected_members;
+	uuid_vec_t selected_members;
 	U64 allowed_by_all = 0xffffffffffffLL;
 	U64 allowed_by_some = 0;
 
@@ -875,10 +867,12 @@ void LLPanelGroupMembersSubTab::handleMemberSelect()
 	for (itor = selection.begin();
 		 itor != selection.end(); ++itor)
 	{
-		selected_members.push_back( (*itor)->getUUID() );
+		LLUUID member_id = (*itor)->getUUID();
+
+		selected_members.push_back( member_id );
 		// Get this member's power mask including any unsaved changes
 
-		U64 powers = getAgentPowersBasedOnRoleChanges((*itor)->getUUID());
+		U64 powers = getAgentPowersBasedOnRoleChanges( member_id );
 
 		allowed_by_all &= powers;
 		allowed_by_some |= powers;
@@ -931,8 +925,8 @@ void LLPanelGroupMembersSubTab::handleMemberSelect()
 			if (cb_enable && (count > 0) && role_id == gdatap->mOwnerRole)
 			{
 				// Check if any owners besides this agent are selected.
-				std::vector<LLUUID>::const_iterator member_iter;
-				std::vector<LLUUID>::const_iterator member_end =
+				uuid_vec_t::const_iterator member_iter;
+				uuid_vec_t::const_iterator member_end =
 												selected_members.end();
 				for (member_iter = selected_members.begin();
 					 member_iter != member_end;	
@@ -958,7 +952,7 @@ void LLPanelGroupMembersSubTab::handleMemberSelect()
 
 			//now see if there are any role changes for the selected
 			//members and remember to include them
-			std::vector<LLUUID>::iterator sel_mem_iter = selected_members.begin();
+			uuid_vec_t::iterator sel_mem_iter = selected_members.begin();
 			for (; sel_mem_iter != selected_members.end(); sel_mem_iter++)
 			{
 				LLRoleMemberChangeType type;
@@ -1015,13 +1009,14 @@ void LLPanelGroupMembersSubTab::handleMemberSelect()
 				check->setTentative(
 					(0 != count)
 					&& (selected_members.size() !=
-						(std::vector<LLUUID>::size_type)count));
+						(uuid_vec_t::size_type)count));
 
 				//NOTE: as of right now a user can break the group
 				//by removing himself from a role if he is the
 				//last owner.  We should check for this special case
 				// -jwolk
 				check->setEnabled(cb_enable);
+				item->setEnabled(cb_enable);
 			}
 		}
 		else
@@ -1089,7 +1084,7 @@ void LLPanelGroupMembersSubTab::onEjectMembers(void *userdata)
 void LLPanelGroupMembersSubTab::handleEjectMembers()
 {
 	//send down an eject message
-	std::vector<LLUUID> selected_members;
+	uuid_vec_t selected_members;
 
 	std::vector<LLScrollListItem*> selection = mMembersList->getAllSelected();
 	if (selection.empty()) return;
@@ -1098,7 +1093,8 @@ void LLPanelGroupMembersSubTab::handleEjectMembers()
 	for (itor = selection.begin() ; 
 		 itor != selection.end(); ++itor)
 	{
-		selected_members.push_back((*itor)->getUUID());
+		LLUUID member_id = (*itor)->getUUID();
+		selected_members.push_back( member_id );
 	}
 
 	mMembersList->deleteSelectedItems();
@@ -1109,13 +1105,13 @@ void LLPanelGroupMembersSubTab::handleEjectMembers()
 									 selected_members);
 }
 
-void LLPanelGroupMembersSubTab::sendEjectNotifications(const LLUUID& group_id, const std::vector<LLUUID>& selected_members)
+void LLPanelGroupMembersSubTab::sendEjectNotifications(const LLUUID& group_id, const uuid_vec_t& selected_members)
 {
 	LLGroupMgrGroupData* group_data = LLGroupMgr::getInstance()->getGroupData(group_id);
 
 	if (group_data)
 	{
-		for (std::vector<LLUUID>::const_iterator i = selected_members.begin(); i != selected_members.end(); ++i)
+		for (uuid_vec_t::const_iterator i = selected_members.begin(); i != selected_members.end(); ++i)
 		{
 			LLSD args;
 			std::string name;
@@ -1154,6 +1150,7 @@ void LLPanelGroupMembersSubTab::handleRoleCheck(const LLUUID& role_id,
 	for (std::vector<LLScrollListItem*>::iterator itor = selection.begin() ; 
 		 itor != selection.end(); ++itor)
 	{
+
 		member_id = (*itor)->getUUID();
 
 		//see if we requested a change for this member before
@@ -1245,15 +1242,19 @@ void LLPanelGroupMembersSubTab::handleMemberDoubleClick()
 	LLScrollListItem* selected = mMembersList->getFirstSelected();
 	if (selected)
 	{
-		LLAvatarActions::showProfile(selected->getUUID());
+		LLUUID member_id = selected->getUUID();
+		LLAvatarActions::showProfile( member_id );
 	}
 }
 
 void LLPanelGroupMembersSubTab::activate()
 {
 	LLPanelGroupSubTab::activate();
-
-	update(GC_ALL);
+	if(!mActivated)
+	{
+		update(GC_ALL);
+		mActivated = true;
+	}
 }
 
 void LLPanelGroupMembersSubTab::deactivate()
@@ -1436,7 +1437,7 @@ U64 LLPanelGroupMembersSubTab::getAgentPowersBasedOnRoleChanges(const LLUUID& ag
 
 	if ( role_change_datap )
 	{
-		std::vector<LLUUID> roles_to_be_removed;
+		uuid_vec_t roles_to_be_removed;
 
 		for (role_change_data_map_t::iterator role = role_change_datap->begin();
 			 role != role_change_datap->end(); ++ role)
@@ -1629,7 +1630,9 @@ void LLPanelGroupMembersSubTab::updateMembers()
 			row["columns"][2]["value"] = mMemberProgress->second->getOnlineStatus();
 			row["columns"][2]["font"] = "SANSSERIF_SMALL";
 
-			mMembersList->addElement(row);//, ADD_SORTED);
+			LLScrollListItem* member = mMembersList->addElement(row);//, ADD_SORTED);
+
+			LLUUID id = member->getUUID();
 			mHasMatch = TRUE;
 		}
 	}
@@ -2083,8 +2086,8 @@ void LLPanelGroupRolesSubTab::buildMembersList()
 			LLGroupRoleData* rdatap = (*rit).second;
 			if (rdatap)
 			{
-				std::vector<LLUUID>::const_iterator mit = rdatap->getMembersBegin();
-				std::vector<LLUUID>::const_iterator end = rdatap->getMembersEnd();
+				uuid_vec_t::const_iterator mit = rdatap->getMembersBegin();
+				uuid_vec_t::const_iterator end = rdatap->getMembersEnd();
 				for ( ; mit != end; ++mit)
 				{
 					mAssignedMembersList->addNameItem((*mit));

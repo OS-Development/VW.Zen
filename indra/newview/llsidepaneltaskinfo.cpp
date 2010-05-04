@@ -100,13 +100,15 @@ BOOL LLSidepanelTaskInfo::postBuild()
 	mPayBtn->setClickedCallback(boost::bind(&LLSidepanelTaskInfo::onPayButtonClicked, this));
 	mBuyBtn = getChild<LLButton>("buy_btn");
 	mBuyBtn->setClickedCallback(boost::bind(&LLSidepanelTaskInfo::onBuyButtonClicked, this));
+	mDetailsBtn = getChild<LLButton>("details_btn");
+	mDetailsBtn->setClickedCallback(boost::bind(&LLSidepanelTaskInfo::onDetailsButtonClicked, this));
 
 	mLabelGroupName = getChild<LLNameBox>("Group Name Proxy");
 
 	childSetCommitCallback("Object Name",						LLSidepanelTaskInfo::onCommitName,this);
-	childSetPrevalidate("Object Name",							LLLineEditor::prevalidateASCIIPrintableNoPipe);
+	childSetPrevalidate("Object Name",							LLTextValidate::validateASCIIPrintableNoPipe);
 	childSetCommitCallback("Object Description",				LLSidepanelTaskInfo::onCommitDesc,this);
-	childSetPrevalidate("Object Description",					LLLineEditor::prevalidateASCIIPrintableNoPipe);
+	childSetPrevalidate("Object Description",					LLTextValidate::validateASCIIPrintableNoPipe);
 	getChild<LLUICtrl>("button set group")->setCommitCallback(boost::bind(&LLSidepanelTaskInfo::onClickGroup,this));
 	childSetCommitCallback("checkbox share with group",			&LLSidepanelTaskInfo::onCommitGroupShare,this);
 	childSetAction("button deed",								&LLSidepanelTaskInfo::onClickDeedToGroup,this);
@@ -1122,6 +1124,15 @@ void LLSidepanelTaskInfo::updateVerbs()
 	//mEditBtn->setEnabled(obj && obj->permModify());
 	*/
 
+	LLSafeHandle<LLObjectSelection> object_selection = LLSelectMgr::getInstance()->getSelection();
+	const BOOL multi_select = (object_selection->getNumNodes() > 1);
+
+	mOpenBtn->setVisible(!multi_select);
+	mPayBtn->setVisible(!multi_select);
+	mBuyBtn->setVisible(!multi_select);
+	mDetailsBtn->setVisible(multi_select);
+	mDetailsBtn->setEnabled(multi_select);
+
 	mOpenBtn->setEnabled(enable_object_open());
 	mPayBtn->setEnabled(enable_pay_object());
 	mBuyBtn->setEnabled(enable_buy_object());
@@ -1143,6 +1154,11 @@ void LLSidepanelTaskInfo::onPayButtonClicked()
 void LLSidepanelTaskInfo::onBuyButtonClicked()
 {
 	doClickAction(CLICK_ACTION_BUY);
+}
+
+void LLSidepanelTaskInfo::onDetailsButtonClicked()
+{
+	LLFloaterReg::showInstance("inspect", LLSD());
 }
 
 // virtual

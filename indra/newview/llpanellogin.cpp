@@ -213,8 +213,8 @@ LLPanelLogin::LLPanelLogin(const LLRect &rect,
 	}
 
 #if !USE_VIEWER_AUTH
-	childSetPrevalidate("first_name_edit", LLLineEditor::prevalidateASCIIPrintableNoSpace);
-	childSetPrevalidate("last_name_edit", LLLineEditor::prevalidateASCIIPrintableNoSpace);
+	childSetPrevalidate("first_name_edit", LLTextValidate::validateASCIIPrintableNoSpace);
+	childSetPrevalidate("last_name_edit", LLTextValidate::validateASCIIPrintableNoSpace);
 
 	childSetCommitCallback("password_edit", mungePassword, this);
 	getChild<LLLineEditor>("password_edit")->setKeystrokeCallback(onPassKey, this);
@@ -232,6 +232,7 @@ LLPanelLogin::LLPanelLogin(const LLRect &rect,
 	if(sim_string.empty())
 	{
 		LLURLSimString::setString(gSavedSettings.getString("LoginLocation"));
+		sim_string = LLURLSimString::sInstance.mSimString;
 	}
 
 	if (!sim_string.empty())
@@ -675,10 +676,12 @@ void LLPanelLogin::refreshLocation( bool force_visible )
 	{
 		// Don't show on first run after install
 		// Otherwise ShowStartLocation defaults to true.
-		show_start = gSavedSettings.getBOOL("ShowStartLocation")
-					&& !gSavedSettings.getBOOL("FirstRunThisInstall");
+		show_start = gSavedSettings.getBOOL("ShowStartLocation");
 	}
 
+	// Update the value of the location combo.
+	updateLocationUI();
+	
 	sInstance->childSetVisible("start_location_combo", show_start);
 	sInstance->childSetVisible("start_location_text", show_start);
 
@@ -686,6 +689,23 @@ void LLPanelLogin::refreshLocation( bool force_visible )
 	sInstance->childSetVisible("server_combo", show_server);
 
 #endif
+}
+
+// static
+void LLPanelLogin::updateLocationUI()
+{
+	if (!sInstance) return;
+	
+	std::string sim_string = LLURLSimString::sInstance.mSimString;
+	if (!sim_string.empty())
+	{
+		// Replace "<Type region name>" with this region name
+		LLComboBox* combo = sInstance->getChild<LLComboBox>("start_location_combo");
+		combo->remove(2);
+		combo->add( sim_string );
+		combo->setTextEntry(sim_string);
+		combo->setCurrentByIndex( 2 );
+	}
 }
 
 // static
@@ -829,8 +849,7 @@ void LLPanelLogin::loadLoginPage()
 	{
 		oStr << "&auto_login=TRUE";
 	}
-	if (gSavedSettings.getBOOL("ShowStartLocation")
-		&& !gSavedSettings.getBOOL("FirstRunThisInstall"))
+	if (gSavedSettings.getBOOL("ShowStartLocation"))
 	{
 		oStr << "&show_start_location=TRUE";
 	}	
@@ -988,7 +1007,7 @@ void LLPanelLogin::onPassKey(LLLineEditor* caller, void* user_data)
 {
 	if (gKeyboard->getKeyDown(KEY_CAPSLOCK) && sCapslockDidNotification == FALSE)
 	{
-		LLNotificationsUtil::add("CapsKeyOn");
+// *TODO: use another way to notify user about enabled caps lock, see EXT-6858
 		sCapslockDidNotification = TRUE;
 	}
 }

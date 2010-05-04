@@ -36,6 +36,7 @@
 #include "llallocator.h"
 #include "llcontrol.h"
 #include "llsys.h"			// for LLOSInfo
+#include "lltimer.h"
 
 class LLCommandLineParser;
 class LLFrameTimer;
@@ -100,6 +101,8 @@ public:
 	static LLTextureCache* getTextureCache() { return sTextureCache; }
 	static LLImageDecodeThread* getImageDecodeThread() { return sImageDecodeThread; }
 	static LLTextureFetch* getTextureFetch() { return sTextureFetch; }
+
+	static S32 getCacheVersion() ;
 
 	const std::string& getSerialNumber() { return mSerialNumber; }
 	
@@ -167,6 +170,10 @@ public:
 	boost::signals2::connection setOnLoginCompletedCallback( const login_completed_signal_t::slot_type& cb ) { return mOnLoginCompleted.connect(cb); } 
 
 	void purgeCache(); // Clear the local cache. 
+	
+	// mute/unmute the system's master audio
+	virtual void setMasterSystemAudioMute(bool mute);
+	virtual bool getMasterSystemAudioMute();
 	
 protected:
 	virtual bool initWindow(); // Initialize the viewer's window.

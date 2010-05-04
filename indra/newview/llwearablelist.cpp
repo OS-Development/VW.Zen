@@ -38,7 +38,6 @@
 #include "llassetstorage.h"
 #include "llagent.h"
 #include "llvoavatar.h"
-#include "llviewerinventory.h"
 #include "llviewerstats.h"
 #include "llnotificationsutil.h"
 #include "llinventorymodel.h"
@@ -236,8 +235,7 @@ LLWearable* LLWearableList::createNewWearable( EWearableType type )
 	LLWearable *wearable = generateNewWearable();
 	wearable->setType( type );
 	
-	std::string name = "New ";
-	name.append( wearable->getTypeLabel() );
+	std::string name = LLTrans::getString( LLWearableDictionary::getTypeDefaultNewName(wearable->getType()) );
 	wearable->setName( name );
 
 	LLPermissions perm;

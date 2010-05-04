@@ -34,6 +34,7 @@
 
 #include "llnearbychathandler.h"
 
+#include "llbottomtray.h"
 #include "llchatitemscontainerctrl.h"
 #include "llnearbychat.h"
 #include "llrecentpeople.h"
@@ -54,7 +55,6 @@ LLToastPanelBase* createToastPanel()
 	LLNearbyChatToastPanel* item = LLNearbyChatToastPanel::createInstance();
 	return item;
 }
-
 
 class LLNearbyChatScreenChannel: public LLScreenChannelBase
 {
@@ -87,11 +87,7 @@ public:
 	{
 		for(std::vector<LLToast*>::iterator it = m_active_toasts.begin(); it != m_active_toasts.end(); ++it)
 		{
-			LLToast* toast = (*it);
-			toast->setVisible(FALSE);
-			toast->stopTimer();
-			m_toast_pool.push_back(toast);
-
+			addToToastPool((*it));
 		}
 		m_active_toasts.clear();
 	};
@@ -104,6 +100,14 @@ public:
 	}
 
 protected:
+	void	addToToastPool(LLToast* toast)
+	{
+		toast->setVisible(FALSE);
+		toast->stopTimer();
+		toast->setIsHidden(true);
+		m_toast_pool.push_back(toast);
+	}
+
 	void	createOverflowToast(S32 bottom, F32 timer);
 
 	create_toast_panel_callback_t m_create_toast_panel_callback_t;
@@ -131,11 +135,12 @@ void LLNearbyChatScreenChannel::onToastFade(LLToast* toast)
 	//fade mean we put toast to toast pool
 	if(!toast)
 		return;
-	m_toast_pool.push_back(toast);
 
 	std::vector<LLToast*>::iterator pos = std::find(m_active_toasts.begin(),m_active_toasts.end(),toast);
 	if(pos!=m_active_toasts.end())
 		m_active_toasts.erase(pos);
+
+	addToToastPool(toast);
 	
 	arrangeToasts();
 }
@@ -175,10 +180,11 @@ void LLNearbyChatScreenChannel::addNotification(LLSD& notification)
 	if(m_active_toasts.size())
 	{
 		LLUUID fromID = notification["from_id"].asUUID();		// agent id or object id
+		std::string from = notification["from"].asString();
 		LLToast* toast = m_active_toasts[0];
 		LLNearbyChatToastPanel* panel = dynamic_cast<LLNearbyChatToastPanel*>(toast->getPanel());
 
-		if(panel && panel->messageID() == fromID && panel->canAddText())
+		if(panel && panel->messageID() == fromID && panel->getFromName() == from && panel->canAddText())
 		{
 			panel->addMessage(notification);
 			toast->reshapeToPanel();
@@ -226,7 +232,7 @@ void LLNearbyChatScreenChannel::addNotification(LLSD& notification)
 	toast->reshapeToPanel();
 	toast->resetTimer();
 	
-	m_active_toasts.insert(m_active_toasts.begin(),toast);
+	m_active_toasts.push_back(toast);
 
 	arrangeToasts();
 }
@@ -238,7 +244,14 @@ void LLNearbyChatScreenChannel::arrangeToasts()
 
 	hideToastsFromScreen();
 
-	showToastsBottom();					
+	showToastsBottom();
+}
+
+int sort_toasts_predicate(LLToast* first,LLToast* second)
+{
+	F32 v1 = first->getTimer()->getEventTimer().getElapsedTimeF32();
+	F32 v2 = second->getTimer()->getEventTimer().getElapsedTimeF32();
+	return v1 < v2;
 }
 
 void LLNearbyChatScreenChannel::showToastsBottom()
@@ -250,33 +263,41 @@ void LLNearbyChatScreenChannel::showToastsBottom()
 	S32		bottom = getRect().mBottom;
 	S32		margin = gSavedSettings.getS32("ToastGap");
 
+	//sort active toasts
+	std::sort(m_active_toasts.begin(),m_active_toasts.end(),sort_toasts_predicate);
+
+	//calc max visible item and hide other toasts.
+
 	for(std::vector<LLToast*>::iterator it = m_active_toasts.begin(); it != m_active_toasts.end(); ++it)
 	{
-		LLToast* toast = (*it);
-		S32 toast_top = bottom + toast->getRect().getHeight() + margin;
+		S32 toast_top = bottom + (*it)->getRect().getHeight() + margin;
 
 		if(toast_top > gFloaterView->getRect().getHeight())
 		{
 			while(it!=m_active_toasts.end())
 			{
-				toast->setVisible(FALSE);
-				toast->stopTimer();
-				m_toast_pool.push_back(toast);
+				addToToastPool((*it));
 				it=m_active_toasts.erase(it);
 			}
 			break;
 		}
-		else
-		{
-			toast_rect = toast->getRect();
-			toast_rect.setLeftTopAndSize(getRect().mLeft , toast_top, toast_rect.getWidth() ,toast_rect.getHeight());
-		
-			toast->setRect(toast_rect);
-			toast->setIsHidden(false);
-			toast->setVisible(TRUE);
-			
-			bottom = toast->getRect().mTop;
-		}		
+		LLToast* toast = (*it);
+
+		toast_rect = toast->getRect();
+		toast_rect.setLeftTopAndSize(getRect().mLeft , bottom + toast_rect.getHeight(), toast_rect.getWidth() ,toast_rect.getHeight());
+
+		toast->setRect(toast_rect);
+		bottom += toast_rect.getHeight() + margin;
+	}
+	
+	// use reverse order to provide correct z-order and avoid toast blinking
+	
+	for(std::vector<LLToast*>::reverse_iterator it = m_active_toasts.rbegin(); it != m_active_toasts.rend(); ++it)
+	{
+		LLToast* toast = (*it);
+		toast->setIsHidden(false);
+		toast->setVisible(TRUE);
+
 	}
 }
 
@@ -312,14 +333,14 @@ LLNearbyChatHandler::~LLNearbyChatHandler()
 void LLNearbyChatHandler::initChannel()
 {
 	LLNearbyChat* nearby_chat = LLFloaterReg::getTypedInstance<LLNearbyChat>("nearby_chat", LLSD());
+	LLView* chat_box = LLBottomTray::getInstance()->getChildView("chat_box");
 	S32 channel_right_bound = nearby_chat->getRect().mRight;
-	S32 channel_width = nearby_chat->getRect().mRight; 
-	mChannel->init(channel_right_bound - channel_width, channel_right_bound);
+	mChannel->init(chat_box->getRect().mLeft, channel_right_bound);
 }
 
 
 
-void LLNearbyChatHandler::processChat(const LLChat& chat_msg)
+void LLNearbyChatHandler::processChat(const LLChat& chat_msg, const LLSD &args)
 {
 	if(chat_msg.mMuted == TRUE)
 		return;
@@ -337,9 +358,11 @@ void LLNearbyChatHandler::processChat(const LLChat& chat_msg)
 		//if(tmp_chat.mFromName.empty() && tmp_chat.mFromID!= LLUUID::null)
 		//	tmp_chat.mFromName = tmp_chat.mFromID.asString();
 	}
-	nearby_chat->addMessage(chat_msg);
-	if(nearby_chat->getVisible())
-		return;//no need in toast if chat is visible
+	nearby_chat->addMessage(chat_msg, true, args);
+	if( nearby_chat->getVisible()
+		|| ( chat_msg.mSourceType == CHAT_SOURCE_AGENT
+			&& gSavedSettings.getBOOL("UseChatBubbles") ) )
+		return;//no need in toast if chat is visible or if bubble chat is enabled
 
 	// Handle irc styled messages for toast panel
 	if (tmp_chat.mChatStyle == CHAT_STYLE_IRC)
@@ -356,12 +379,17 @@ void LLNearbyChatHandler::processChat(const LLChat& chat_msg)
 		initChannel();
 	}
 
+	/*
+	//comment all this due to EXT-4432
+	..may clean up after some time...
+
 	//only messages from AGENTS
 	if(CHAT_SOURCE_OBJECT == chat_msg.mSourceType)
 	{
 		if(chat_msg.mChatType == CHAT_TYPE_DEBUG_MSG)
 			return;//ok for now we don't skip messeges from object, so skip only debug messages
 	}
+	*/
 
 	LLUUID id;
 	id.generate();

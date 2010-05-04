@@ -51,12 +51,14 @@
 #include "llviewermenu.h"
 #include "llvoiceclient.h"
 #include "llviewerobjectlist.h"
+#include "lltransientfloatermgr.h"
 
 // Linden libraries
 #include "llfloater.h"
 #include "llfloaterreg.h"
 #include "llmenubutton.h"
 #include "lltooltip.h"	// positionViewNearMouse()
+#include "lltrans.h"
 #include "lluictrl.h"
 
 #include "llavatariconctrl.h"
@@ -71,7 +73,7 @@ class LLFetchAvatarData;
 // Avatar Inspector, a small information window used when clicking
 // on avatar names in the 2D UI and in the ambient inspector widget for
 // the 3D world.
-class LLInspectAvatar : public LLInspect
+class LLInspectAvatar : public LLInspect, LLTransientFloater
 {
 	friend class LLFloaterReg;
 	
@@ -97,6 +99,8 @@ public:
 	// gear menu is not open
 	/* virtual */ void onMouseLeave(S32 x, S32 y, MASK mask);
 	
+	virtual LLTransientFloaterMgr::ETransientGroup getGroup() { return LLTransientFloaterMgr::GLOBAL; }
+
 private:
 	// Make network requests for all the data to display in this view.
 	// Used on construction and if avatar id changes.
@@ -120,6 +124,7 @@ private:
 	void onClickTeleport();
 	void onClickInviteToGroup();
 	void onClickPay();
+	void onClickShare();
 	void onToggleMute();
 	void onClickReport();
 	void onClickFreeze();
@@ -133,6 +138,7 @@ private:
 	void onVolumeChange(const LLSD& data);
 	bool enableMute();
 	bool enableUnmute();
+	bool enableTeleportOffer();
 
 	// Is used to determine if "Add friend" option should be enabled in gear menu
 	bool isNotFriend();
@@ -213,6 +219,7 @@ LLInspectAvatar::LLInspectAvatar(const LLSD& sd)
 	mCommitCallbackRegistrar.add("InspectAvatar.Teleport",	boost::bind(&LLInspectAvatar::onClickTeleport, this));	
 	mCommitCallbackRegistrar.add("InspectAvatar.InviteToGroup",	boost::bind(&LLInspectAvatar::onClickInviteToGroup, this));	
 	mCommitCallbackRegistrar.add("InspectAvatar.Pay",	boost::bind(&LLInspectAvatar::onClickPay, this));	
+	mCommitCallbackRegistrar.add("InspectAvatar.Share",	boost::bind(&LLInspectAvatar::onClickShare, this));
 	mCommitCallbackRegistrar.add("InspectAvatar.ToggleMute",	boost::bind(&LLInspectAvatar::onToggleMute, this));	
 	mCommitCallbackRegistrar.add("InspectAvatar.Freeze",
 		boost::bind(&LLInspectAvatar::onClickFreeze, this));	
@@ -229,11 +236,16 @@ LLInspectAvatar::LLInspectAvatar(const LLSD& sd)
 	mEnableCallbackRegistrar.add("InspectAvatar.VisibleZoomIn", 
 		boost::bind(&LLInspectAvatar::onVisibleZoomIn, this));
 	mEnableCallbackRegistrar.add("InspectAvatar.Gear.Enable", boost::bind(&LLInspectAvatar::isNotFriend, this));
+	mEnableCallbackRegistrar.add("InspectAvatar.Gear.EnableCall", boost::bind(&LLAvatarActions::canCall));
+	mEnableCallbackRegistrar.add("InspectAvatar.Gear.EnableTeleportOffer", boost::bind(&LLInspectAvatar::enableTeleportOffer, this));
 	mEnableCallbackRegistrar.add("InspectAvatar.EnableMute", boost::bind(&LLInspectAvatar::enableMute, this));
 	mEnableCallbackRegistrar.add("InspectAvatar.EnableUnmute", boost::bind(&LLInspectAvatar::enableUnmute, this));
 
 	// can't make the properties request until the widgets are constructed
 	// as it might return immediately, so do it in postBuild.
+
+	LLTransientFloaterMgr::getInstance()->addControlView(LLTransientFloaterMgr::GLOBAL, this);
+	LLTransientFloater::init(this);
 }
 
 LLInspectAvatar::~LLInspectAvatar()
@@ -242,6 +254,8 @@ LLInspectAvatar::~LLInspectAvatar()
 	// view
 	delete mPropertiesRequest;
 	mPropertiesRequest = NULL;
+
+	LLTransientFloaterMgr::getInstance()->removeControlView(this);
 }
 
 /*virtual*/
@@ -367,7 +381,11 @@ void LLInspectAvatar::requestUpdate()
 void LLInspectAvatar::processAvatarData(LLAvatarData* data)
 {
 	LLStringUtil::format_map_t args;
-	args["[BORN_ON]"] = data->born_on;
+	{
+		std::string birth_date = LLTrans::getString("AvatarBirthDateFormat");
+		LLStringUtil::format(birth_date, LLSD().with("datetime", (S32) data->born_on.secondsSinceEpoch()));
+		args["[BORN_ON]"] = birth_date;
+	}
 	args["[AGE]"] = LLDateUtil::ageFromDate(data->born_on, LLDate::now());
 	args["[SL_PROFILE]"] = data->about_text;
 	args["[RW_PROFILE"] = data->fl_about_text;
@@ -392,11 +410,18 @@ void LLInspectAvatar::onMouseLeave(S32 x, S32 y, MASK mask)
 {
 	LLMenuGL* gear_menu = getChild<LLMenuButton>("gear_btn")->getMenu();
 	LLMenuGL* gear_menu_self = getChild<LLMenuButton>("gear_self_btn")->getMenu();
-	if ( !(gear_menu && gear_menu->getVisible()) &&
-		 !(gear_menu_self && gear_menu_self->getVisible()))
+	if ( gear_menu && gear_menu->getVisible() &&
+		 gear_menu_self && gear_menu_self->getVisible() )
 	{
-		mOpenTimer.unpause();
+		return;
 	}
+
+	if(childHasVisiblePopupMenu())
+	{
+		return;
+	}
+
+	mOpenTimer.unpause();
 }
 
 void LLInspectAvatar::updateModeratorPanel()
@@ -546,7 +571,6 @@ void LLInspectAvatar::updateVolumeSlider()
 		LLUICtrl* volume_slider = getChild<LLUICtrl>("volume_slider");
 		volume_slider->setEnabled( !is_muted );
 
-		const F32 DEFAULT_VOLUME = 0.5f;
 		F32 volume;
 		if (is_muted)
 		{
@@ -557,13 +581,6 @@ void LLInspectAvatar::updateVolumeSlider()
 		{
 			// actual volume
 			volume = gVoiceClient->getUserVolume(mAvatarID);
-
-			// *HACK: Voice client doesn't have any data until user actually
-			// says something.
-			if (volume == 0.f)
-			{
-				volume = DEFAULT_VOLUME;
-			}
 		}
 		volume_slider->setValue( (F64)volume );
 	}
@@ -670,6 +687,12 @@ void LLInspectAvatar::onClickPay()
 	closeFloater();
 }
 
+void LLInspectAvatar::onClickShare()
+{
+	LLAvatarActions::share(mAvatarID);
+	closeFloater();
+}
+
 void LLInspectAvatar::onToggleMute()
 {
 	LLMute mute(mAvatarID, mAvatarName, LLMute::AGENT);
@@ -689,7 +712,7 @@ void LLInspectAvatar::onToggleMute()
 
 void LLInspectAvatar::onClickReport()
 {
-	LLFloaterReporter::showFromObject(mAvatarID);
+	LLFloaterReporter::showFromAvatar(mAvatarID, mAvatarName);
 	closeFloater();
 }
 
@@ -746,6 +769,11 @@ bool LLInspectAvatar::enableUnmute()
 		{
 			return false;
 		}
+}
+
+bool LLInspectAvatar::enableTeleportOffer()
+{
+	return LLAvatarActions::canOfferTeleport(mAvatarID);
 }
 
 //////////////////////////////////////////////////////////////////////////////

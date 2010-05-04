@@ -41,6 +41,16 @@
 
 using namespace LLNotificationsUI;
 
+/*virtual*/
+BOOL LLToastLifeTimer::tick()
+{
+	if (mEventTimer.hasExpired())
+	{
+		mToast->expire();
+	}
+	return FALSE;
+}
+
 //--------------------------------------------------------------------------
 LLToast::Params::Params() 
 :	can_fade("can_fade", true),
@@ -68,11 +78,18 @@ LLToast::LLToast(const LLToast::Params& p)
 	mNotification(p.notification),
 	mIsHidden(false),
 	mHideBtnPressed(false),
-	mIsTip(p.is_tip)
+	mIsTip(p.is_tip),
+	mWrapperPanel(NULL)
 {
+	mTimer.reset(new LLToastLifeTimer(this, p.lifetime_secs));
+
 	LLUICtrlFactory::getInstance()->buildFloater(this, "panel_toast.xml", NULL);
 
 	setCanDrag(FALSE);
+
+	mWrapperPanel = getChild<LLPanel>("wrapper_panel");
+	mWrapperPanel->setMouseEnterCallback(boost::bind(&LLToast::onToastMouseEnter, this));
+	mWrapperPanel->setMouseLeaveCallback(boost::bind(&LLToast::onToastMouseLeave, this));
 
 	if(mPanel)
 	{
@@ -83,6 +100,8 @@ LLToast::LLToast(const LLToast::Params& p)
 	{
 		mHideBtn = getChild<LLButton>("hide_btn");
 		mHideBtn->setClickedCallback(boost::bind(&LLToast::hide,this));
+		mHideBtn->setMouseEnterCallback(boost::bind(&LLToast::onToastMouseEnter, this));
+		mHideBtn->setMouseLeaveCallback(boost::bind(&LLToast::onToastMouseLeave, this));
 	}
 
 	// init callbacks if present
@@ -98,30 +117,10 @@ BOOL LLToast::postBuild()
 {
 	if(!mCanFade)
 	{
-		mTimer.stop();
-	}
-
-	if (mIsTip)
-	{
-		mTextEditor = mPanel->getChild<LLTextEditor>("text_editor_box");
-
-		if (mTextEditor)
-		{
-			mTextEditor->setMouseUpCallback(boost::bind(&LLToast::hide,this));
-			mPanel->setMouseUpCallback(boost::bind(&LLToast::handleTipToastClick, this, _2, _3, _4));
-		}
+		mTimer->stop();
 	}
 
 	return TRUE;
-}
-
-//--------------------------------------------------------------------------
-void LLToast::handleTipToastClick(S32 x, S32 y, MASK mask)
-{
-	if (!mTextEditor->getRect().pointInRect(x, y))
-	{
-		hide();
-	}
 }
 
 //--------------------------------------------------------------------------
@@ -138,40 +137,48 @@ LLToast::~LLToast()
 }
 
 //--------------------------------------------------------------------------
-void LLToast::setAndStartTimer(F32 period)
-{
-	if(mCanFade)
-	{
-		mToastLifetime = period;
-		mTimer.start();
-	}
-}
-
-//--------------------------------------------------------------------------
-bool LLToast::lifetimeHasExpired()
-{
-	if (mTimer.getStarted())
-	{
-		F32 elapsed_time = mTimer.getElapsedTimeF32();
-		if ((mToastLifetime - elapsed_time) <= mToastFadingTime) 
-		{
-			setBackgroundOpaque(FALSE);
-		}
-		if (elapsed_time > mToastLifetime) 
-		{
-			return true;
-		}
-	}
-	return false;
-}
-
-//--------------------------------------------------------------------------
 void LLToast::hide()
 {
 	setVisible(FALSE);
-	mTimer.stop();
+	mTimer->stop();
 	mIsHidden = true;
 	mOnFadeSignal(this); 
+}
+
+void LLToast::onFocusLost()
+{
+	if(mWrapperPanel && !isBackgroundVisible())
+	{
+		// Lets make wrapper panel behave like a floater
+		setBackgroundOpaque(FALSE);
+	}
+}
+
+void LLToast::onFocusReceived()
+{
+	if(mWrapperPanel && !isBackgroundVisible())
+	{
+		// Lets make wrapper panel behave like a floater
+		setBackgroundOpaque(TRUE);
+	}
+}
+
+S32 LLToast::getTopPad()
+{
+	if(mWrapperPanel)
+	{
+		return getRect().getHeight() - mWrapperPanel->getRect().getHeight();
+	}
+	return 0;
+}
+
+S32 LLToast::getRightPad()
+{
+	if(mWrapperPanel)
+	{
+		return getRect().getWidth() - mWrapperPanel->getRect().getWidth();
+	}
+	return 0;
 }
 
 //--------------------------------------------------------------------------
@@ -179,12 +186,13 @@ void LLToast::setCanFade(bool can_fade)
 { 
 	mCanFade = can_fade; 
 	if(!mCanFade)
-		mTimer.stop();
+		mTimer->stop();
 }
 
 //--------------------------------------------------------------------------
-void LLToast::tick()
+void LLToast::expire()
 {
+	// if toast has fade property - hide it
 	if(mCanFade)
 	{
 		hide();
@@ -199,34 +207,48 @@ void LLToast::reshapeToPanel()
 	if(!panel)
 		return;
 
-	LLRect panel_rect;
+	LLRect panel_rect = panel->getRect();
 
-	panel_rect = panel->getRect();
-	reshape(panel_rect.getWidth(), panel_rect.getHeight());
 	panel_rect.setLeftTopAndSize(0, panel_rect.getHeight(), panel_rect.getWidth(), panel_rect.getHeight());
-	panel->setRect(panel_rect);
+	panel->setShape(panel_rect);
 	
 	LLRect toast_rect = getRect();
-	toast_rect.setLeftTopAndSize(toast_rect.mLeft,toast_rect.mTop,panel_rect.getWidth(), panel_rect.getHeight());
-	setRect(toast_rect);
 
+	toast_rect.setLeftTopAndSize(toast_rect.mLeft, toast_rect.mTop,
+		panel_rect.getWidth() + getRightPad(), panel_rect.getHeight() + getTopPad());
+	setShape(toast_rect);
 }
 
 void LLToast::insertPanel(LLPanel* panel)
 {
-	addChild(panel);	
+	mWrapperPanel->addChild(panel);	
 	reshapeToPanel();
 }
 
 //--------------------------------------------------------------------------
 void LLToast::draw()
 {
-	if(lifetimeHasExpired())
+	LLFloater::draw();
+
+	if(!isBackgroundVisible())
 	{
-		tick();
+		// Floater background is invisible, lets make wrapper panel look like a 
+		// floater - draw shadow.
+		drawShadow(mWrapperPanel);
+
+		// Shadow will probably overlap close button, lets redraw the button
+		if(mHideBtn)
+		{
+			drawChild(mHideBtn);
+		}
 	}
 
-	LLFloater::draw();
+	// if timer started and remaining time <= fading time
+	if (mTimer->getStarted() && (mToastLifetime
+			- mTimer->getEventTimer().getElapsedTimeF32()) <= mToastFadingTime)
+	{
+		setBackgroundOpaque(FALSE);
+	}
 }
 
 //--------------------------------------------------------------------------
@@ -245,11 +267,17 @@ void LLToast::setVisible(BOOL show)
 	if(show)
 	{
 		setBackgroundOpaque(TRUE);
-		if(!mTimer.getStarted() && mCanFade)
+		if(!mTimer->getStarted() && mCanFade)
 		{
-			mTimer.start();
+			mTimer->start();
 		}
 		LLModalDialog::setFrontmost(FALSE);
+	}
+	else
+	{
+		//hide "hide" button in case toast was hidden without mouse_leave
+		if(mHideBtn)
+			mHideBtn->setVisible(show);
 	}
 	LLFloater::setVisible(show);
 	if(mPanel)
@@ -261,43 +289,78 @@ void LLToast::setVisible(BOOL show)
 	}
 }
 
-//--------------------------------------------------------------------------
-void LLToast::onMouseEnter(S32 x, S32 y, MASK mask)
+void LLToast::onToastMouseEnter()
 {
-	mOnToastHoverSignal(this, MOUSE_ENTER);
-
-	setBackgroundOpaque(TRUE);
-
-	//toasts fading is management by Screen Channel
-	
-	sendChildToFront(mHideBtn);
-	if(mHideBtn && mHideBtn->getEnabled())
-		mHideBtn->setVisible(TRUE);
-	mOnMouseEnterSignal(this);
-
-	LLModalDialog::onMouseEnter(x, y, mask);
-}
-
-//--------------------------------------------------------------------------
-void LLToast::onMouseLeave(S32 x, S32 y, MASK mask)
-{	
-	mOnToastHoverSignal(this, MOUSE_LEAVE);
-
-	//toasts fading is management by Screen Channel
-
-	if(mHideBtn && mHideBtn->getEnabled())
+	LLRect panel_rc = mWrapperPanel->calcScreenRect();
+	LLRect button_rc;
+	if(mHideBtn)
 	{
-		if( mHideBtnPressed )
-		{
-			mHideBtnPressed = false;
-			return;
-		}
-		mHideBtn->setVisible(FALSE);		
+		button_rc = mHideBtn->calcScreenRect();
 	}
 
-	LLModalDialog::onMouseLeave(x, y, mask);
+	S32 x, y;
+	LLUI::getMousePositionScreen(&x, &y);
+
+	if(panel_rc.pointInRect(x, y) || button_rc.pointInRect(x, y))
+	{
+		mOnToastHoverSignal(this, MOUSE_ENTER);
+
+		setBackgroundOpaque(TRUE);
+
+		//toasts fading is management by Screen Channel
+
+		sendChildToFront(mHideBtn);
+		if(mHideBtn && mHideBtn->getEnabled())
+		{
+			mHideBtn->setVisible(TRUE);
+		}
+		mOnMouseEnterSignal(this);
+		mToastMouseEnterSignal(this, getValue());
+	}
 }
 
+void LLToast::onToastMouseLeave()
+{
+	LLRect panel_rc = mWrapperPanel->calcScreenRect();
+	LLRect button_rc;
+	if(mHideBtn)
+	{
+		button_rc = mHideBtn->calcScreenRect();
+	}
+
+	S32 x, y;
+	LLUI::getMousePositionScreen(&x, &y);
+
+	if( !panel_rc.pointInRect(x, y) && !button_rc.pointInRect(x, y))
+	{
+		mOnToastHoverSignal(this, MOUSE_LEAVE);
+
+		//toasts fading is management by Screen Channel
+
+		if(mHideBtn && mHideBtn->getEnabled())
+		{
+			if( mHideBtnPressed )
+			{
+				mHideBtnPressed = false;
+				return;
+			}
+			mHideBtn->setVisible(FALSE);		
+		}
+		mToastMouseLeaveSignal(this, getValue());
+	}
+}
+
+void LLToast::setBackgroundOpaque(BOOL b)
+{
+	if(mWrapperPanel && !isBackgroundVisible())
+	{
+		mWrapperPanel->setBackgroundOpaque(b);
+	}
+	else
+	{
+		LLModalDialog::setBackgroundOpaque(b);
+	}
+}
 
 void LLNotificationsUI::LLToast::stopFading()
 {
@@ -313,6 +376,13 @@ void LLNotificationsUI::LLToast::startFading()
 	{
 		resetTimer();
 	}
+}
+
+bool LLToast::isHovered()
+{
+	S32 x, y;
+	LLUI::getMousePositionScreen(&x, &y);
+	return mWrapperPanel->calcScreenRect().pointInRect(x, y);
 }
 
 //--------------------------------------------------------------------------
@@ -339,4 +409,13 @@ bool LLToast::isNotificationValid()
 
 //--------------------------------------------------------------------------
 
+S32	LLToast::notifyParent(const LLSD& info)
+{
+	if (info.has("action") && "hide_toast" == info["action"].asString())
+	{
+		hide();
+		return 1;
+	}
 
+	return LLModalDialog::notifyParent(info);
+}

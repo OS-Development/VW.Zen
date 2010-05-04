@@ -40,6 +40,7 @@ class LLFolderView;
 class LLFolderViewItem;
 class LLFolderViewEventListener;
 class LLInventoryPanel;
+class LLOutfitsList;
 class LLSaveFolderState;
 class LLButton;
 class LLMenuGL;
@@ -61,10 +62,10 @@ public:
 	void onEdit();
 	void onSave();
 	
-	void onSaveCommit(const std::string& item_name);
+	bool onSaveCommit(const LLSD& notification, const LLSD& response);
 
 	void onSelectionChange(const std::deque<LLFolderViewItem*> &items, BOOL user_action);
-	void onSelectorButtonClicked();
+	void showEditOutfitPanel();
 
 	// If a compatible listener type is selected, then return a pointer to that.
 	// Otherwise, return NULL.
@@ -73,31 +74,36 @@ public:
 
 	LLFolderView* getRootFolder();
 
+	static LLPanelOutfitsInventory* findInstance();
+
 protected:
 	void updateVerbs();
 	bool getIsCorrectType(const LLFolderViewEventListener *listenerp) const;
 
 private:
-	LLSidepanelAppearance*      mParent;
-	LLSaveFolderState*			mSavedFolderState;
-	LLTabContainer*				mAppearanceTabs;
-	std::string 				mFilterSubString;
+	LLSidepanelAppearance*  mParent;
+	LLSaveFolderState*		mSavedFolderState;
+	LLTabContainer*			mAppearanceTabs;
+	std::string 			mFilterSubString;
 
 public:
 	//////////////////////////////////////////////////////////////////////////////////
 	// tab panels
-	LLInventoryPanel* 	getActivePanel();
-	bool isTabPanel(LLInventoryPanel *panel);
-	
+	// TODO: change getActivePanel() to return the active tab instead of returning
+	// a pointer to "Wearing" inventory panel.
+	LLInventoryPanel* 		getActivePanel() { return mCurrentOutfitPanel; }
+
+	BOOL 					isTabPanel(LLInventoryPanel *panel) const;
+	BOOL 					isCOFPanelActive() const;
+
 protected:
-	void 				initTabPanels();
-	void 				onTabSelectionChange(LLInventoryPanel* tab_panel, const std::deque<LLFolderViewItem*> &items, BOOL user_action);
-	void 				onTabChange();
-	
+	void 					initTabPanels();
+	void 					onTabSelectionChange(LLInventoryPanel* tab_panel, const std::deque<LLFolderViewItem*> &items, BOOL user_action);
+	void 					onTabChange();
+
 private:
-	LLInventoryPanel* 	mActivePanel;
-	typedef std::vector<LLInventoryPanel *> tabpanels_vec_t;
-	tabpanels_vec_t 		mTabPanels;
+	LLOutfitsList*			mMyOutfitsPanel;
+	LLInventoryPanel*		mCurrentOutfitPanel;
 
 	// tab panels                                                               //
 	////////////////////////////////////////////////////////////////////////////////

@@ -35,35 +35,53 @@
 
 #include "llsingleton.h"
 #include "llinventorymodel.h"
+#include "llinventoryobserver.h"
 #include "llviewerinventory.h"
 #include "llcallbacklist.h"
 
 class LLWearable;
-struct LLWearableHoldingPattern;
+class LLWearableHoldingPattern;
+class LLInventoryCallback;
 
-class LLAppearanceManager: public LLSingleton<LLAppearanceManager>
+class LLAppearanceMgr: public LLSingleton<LLAppearanceMgr>
 {
-	friend class LLSingleton<LLAppearanceManager>;
+	friend class LLSingleton<LLAppearanceMgr>;
 	
 public:
+	typedef std::vector<LLInventoryModel::item_array_t> wearables_by_type_t;
+
 	void updateAppearanceFromCOF();
 	bool needToSaveCOF();
 	void updateCOF(const LLUUID& category, bool append = false);
 	void wearInventoryCategory(LLInventoryCategory* category, bool copy, bool append);
 	void wearInventoryCategoryOnAvatar(LLInventoryCategory* category, bool append);
+	void wearCategoryFinal(LLUUID& cat_id, bool copy_items, bool append);
 	void wearOutfitByName(const std::string& name);
 	void changeOutfit(bool proceed, const LLUUID& category, bool append);
 
-	// Copy all items in a category.
+	// Copy all items and the src category itself.
 	void shallowCopyCategory(const LLUUID& src_id, const LLUUID& dst_id,
 							 LLPointer<LLInventoryCallback> cb);
 
+	// Return whether this folder contains minimal contents suitable for making a full outfit.
+	BOOL getCanMakeFolderIntoOutfit(const LLUUID& folder_id);
+
+	// Copy all items in a category.
+	void shallowCopyCategoryContents(const LLUUID& src_id, const LLUUID& dst_id,
+									 LLPointer<LLInventoryCallback> cb);
+
 	// Find the Current Outfit folder.
-	LLUUID getCOF();
+	const LLUUID getCOF() const;
 
 	// Finds the folder link to the currently worn outfit
 	const LLViewerInventoryItem *getBaseOutfitLink();
 	bool getBaseOutfitName(std::string &name);
+
+	// find the UUID of the currently worn outfit (Base Outfit)
+	const LLUUID getBaseOutfitUUID();
+
+	// Wear/attach an item (from a user's inventory) on the agent
+	bool wearItemOnAvatar(const LLUUID& item_to_wear, bool do_update = true);
 
 	// Update the displayed outfit name in UI.
 	void updatePanelOutfitName(const std::string& name);
@@ -107,11 +125,39 @@ public:
 	// should only be necessary to do on initial login.
 	void updateIsDirty();
 
+	// Called when self avatar is first fully visible.
+	void onFirstFullyVisible();
+
+	// Create initial outfits from library.
+	void autopopulateOutfits();
+	
+	void wearBaseOutfit();
+
+	// Overrides the base outfit with the content from COF
+	// @return false if there is no base outfit
+	bool updateBaseOutfit();
+
+	//Remove clothing or detach an object from the agent (a bodypart cannot be removed)
+	void removeItemFromAvatar(const LLUUID& item_id);
+
+
+	LLUUID makeNewOutfitLinks(const std::string& new_folder_name);
+
+	bool moveWearable(LLViewerInventoryItem* item, bool closer_to_body);
+
+	static void sortItemsByActualDescription(LLInventoryModel::item_array_t& items);
+
+	//Divvy items into arrays by wearable type
+	static void divvyWearablesByType(const LLInventoryModel::item_array_t& items, wearables_by_type_t& items_by_type);
+
 protected:
-	LLAppearanceManager();
-	~LLAppearanceManager();
+	LLAppearanceMgr();
+	~LLAppearanceMgr();
 
 private:
+
+	//Check ordering information on wearables stored in links' descriptions and update if it is invalid
+	void updateClothingOrderingInfo();
 
 	void filterWearableItems(LLInventoryModel::item_array_t& items, S32 max_per_type);
 	
@@ -132,24 +178,46 @@ private:
 	std::set<LLUUID> mRegisteredAttachments;
 	bool mAttachmentInvLinkEnabled;
 	bool mOutfitIsDirty;
+
+	//////////////////////////////////////////////////////////////////////////////////
+	// Item-specific convenience functions 
+public:
+	// Is this in the COF?
+	BOOL getIsInCOF(const LLUUID& obj_id) const;
+	// Is this in the COF and can the user delete it from the COF?
+	BOOL getIsProtectedCOFItem(const LLUUID& obj_id) const;
 };
 
+class LLUpdateAppearanceOnDestroy: public LLInventoryCallback
+{
+public:
+	LLUpdateAppearanceOnDestroy();
+	virtual ~LLUpdateAppearanceOnDestroy();
+	/* virtual */ void fire(const LLUUID& inv_item);
+
+private:
+	U32 mFireCount;
+};
+
+
 #define SUPPORT_ENSEMBLES 0
+
+LLUUID findDescendentCategoryIDByName(const LLUUID& parent_id,const std::string& name);
 
 // Shim class and template function to allow arbitrary boost::bind
 // expressions to be run as one-time idle callbacks.
 template <typename T>
-class OnIdleCallback
+class OnIdleCallbackOneTime
 {
 public:
-	OnIdleCallback(T callable):
+	OnIdleCallbackOneTime(T callable):
 		mCallable(callable)
 	{
 	}
 	static void onIdle(void *data)
 	{
 		gIdleCallbacks.deleteFunction(onIdle, data);
-		OnIdleCallback<T>* self = reinterpret_cast<OnIdleCallback<T>*>(data);
+		OnIdleCallbackOneTime<T>* self = reinterpret_cast<OnIdleCallbackOneTime<T>*>(data);
 		self->call();
 		delete self;
 	}
@@ -162,10 +230,147 @@ private:
 };
 
 template <typename T>
-void doOnIdle(T callable)
+void doOnIdleOneTime(T callable)
 {
-	OnIdleCallback<T>* cb_functor = new OnIdleCallback<T>(callable);
-	gIdleCallbacks.addFunction(&OnIdleCallback<T>::onIdle,cb_functor);
+	OnIdleCallbackOneTime<T>* cb_functor = new OnIdleCallbackOneTime<T>(callable);
+	gIdleCallbacks.addFunction(&OnIdleCallbackOneTime<T>::onIdle,cb_functor);
+}
+
+// Shim class and template function to allow arbitrary boost::bind
+// expressions to be run as recurring idle callbacks.
+// Callable should return true when done, false to continue getting called.
+template <typename T>
+class OnIdleCallbackRepeating
+{
+public:
+	OnIdleCallbackRepeating(T callable):
+		mCallable(callable)
+	{
+	}
+	// Will keep getting called until the callable returns true.
+	static void onIdle(void *data)
+	{
+		OnIdleCallbackRepeating<T>* self = reinterpret_cast<OnIdleCallbackRepeating<T>*>(data);
+		bool done = self->call();
+		if (done)
+		{
+			gIdleCallbacks.deleteFunction(onIdle, data);
+			delete self;
+		}
+	}
+	bool call()
+	{
+		return mCallable();
+	}
+private:
+	T mCallable;
+};
+
+template <typename T>
+void doOnIdleRepeating(T callable)
+{
+	OnIdleCallbackRepeating<T>* cb_functor = new OnIdleCallbackRepeating<T>(callable);
+	gIdleCallbacks.addFunction(&OnIdleCallbackRepeating<T>::onIdle,cb_functor);
+}
+
+template <class T>
+class CallAfterCategoryFetchStage2: public LLInventoryFetchItemsObserver
+{
+public:
+	CallAfterCategoryFetchStage2(const uuid_vec_t& ids,
+								 T callable) :
+		LLInventoryFetchItemsObserver(ids),
+		mCallable(callable)
+	{
+	}
+	~CallAfterCategoryFetchStage2()
+	{
+	}
+	virtual void done()
+	{
+		gInventory.removeObserver(this);
+		doOnIdleOneTime(mCallable);
+		delete this;
+	}
+protected:
+	T mCallable;
+};
+
+template <class T>
+class CallAfterCategoryFetchStage1: public LLInventoryFetchDescendentsObserver
+{
+public:
+	CallAfterCategoryFetchStage1(const LLUUID& cat_id, T callable) :
+		LLInventoryFetchDescendentsObserver(cat_id),
+		mCallable(callable)
+	{
+	}
+	~CallAfterCategoryFetchStage1()
+	{
+	}
+	virtual void done()
+	{
+		// What we do here is get the complete information on the items in
+		// the library, and set up an observer that will wait for that to
+		// happen.
+		LLInventoryModel::cat_array_t cat_array;
+		LLInventoryModel::item_array_t item_array;
+		gInventory.collectDescendents(mComplete.front(),
+									  cat_array,
+									  item_array,
+									  LLInventoryModel::EXCLUDE_TRASH);
+		S32 count = item_array.count();
+		if(!count)
+		{
+			llwarns << "Nothing fetched in category " << mComplete.front()
+					<< llendl;
+			//dec_busy_count();
+			gInventory.removeObserver(this);
+			delete this;
+			return;
+		}
+
+		uuid_vec_t ids;
+		for(S32 i = 0; i < count; ++i)
+		{
+			ids.push_back(item_array.get(i)->getUUID());
+		}
+		
+		gInventory.removeObserver(this);
+		
+		// do the fetch
+		CallAfterCategoryFetchStage2<T> *stage2 = new CallAfterCategoryFetchStage2<T>(ids, mCallable);
+		stage2->startFetch();
+		if(stage2->isFinished())
+		{
+			// everything is already here - call done.
+			stage2->done();
+		}
+		else
+		{
+			// it's all on it's way - add an observer, and the inventory
+			// will call done for us when everything is here.
+			gInventory.addObserver(stage2);
+		}
+		delete this;
+	}
+protected:
+	T mCallable;
+};
+
+template <class T> 
+void callAfterCategoryFetch(const LLUUID& cat_id, T callable)
+{
+	CallAfterCategoryFetchStage1<T> *stage1 = new CallAfterCategoryFetchStage1<T>(cat_id, callable);
+	stage1->startFetch();
+	if (stage1->isFinished())
+	{
+		stage1->done();
+	}
+	else
+	{
+		gInventory.addObserver(stage1);
+	}
 }
 
 #endif

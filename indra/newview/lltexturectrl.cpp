@@ -48,6 +48,7 @@
 #include "llfoldervieweventlistener.h"
 #include "llinventory.h"
 #include "llinventoryfunctions.h"
+#include "llinventorymodelbackgroundfetch.h"
 #include "llinventoryobserver.h"
 #include "llinventorypanel.h"
 #include "llfloaterinventory.h"
@@ -1053,7 +1054,7 @@ public:
 	{
 		// We need to find textures in all folders, so get the main
 		// background download going.
-		gInventory.startBackgroundFetch();
+		LLInventoryModelBackgroundFetch::instance().start();
 		gInventory.removeObserver(this);
 		delete this;
 	}
@@ -1074,9 +1075,9 @@ BOOL LLTextureCtrl::handleMouseDown(S32 x, S32 y, MASK mask)
 	{
 		showPicker(FALSE);
 		//grab textures first...
-		gInventory.startBackgroundFetch(gInventory.findCategoryUUIDForType(LLFolderType::FT_TEXTURE));
+		LLInventoryModelBackgroundFetch::instance().start(gInventory.findCategoryUUIDForType(LLFolderType::FT_TEXTURE));
 		//...then start full inventory fetch.
-		gInventory.startBackgroundFetch();
+		LLInventoryModelBackgroundFetch::instance().start();
 		handled = TRUE;
 	}
 
@@ -1103,7 +1104,10 @@ void LLTextureCtrl::onFloaterCommit(ETexturePickOp op)
 	{
 		if (op == TEXTURE_CANCEL)
 			mViewModel->resetDirty();
-		else
+		// If the "no_commit_on_selection" parameter is set
+		// we get dirty only when user presses OK in the picker
+		// (i.e. op == TEXTURE_SELECT) or texture changes via DnD.
+		else if (mCommitOnSelection || op == TEXTURE_SELECT)
 			mViewModel->setDirty(); // *TODO: shouldn't we be using setValue() here?
 			
 		if( floaterp->isDirty() )
@@ -1125,7 +1129,7 @@ void LLTextureCtrl::onFloaterCommit(ETexturePickOp op)
 			{
 				// If the "no_commit_on_selection" parameter is set
 				// we commit only when user presses OK in the picker
-				// (i.e. op == TEXTURE_SELECT) or changes texture via DnD.
+				// (i.e. op == TEXTURE_SELECT) or texture changes via DnD.
 				if (mCommitOnSelection || op == TEXTURE_SELECT)
 					onCommit();
 			}
@@ -1165,6 +1169,9 @@ BOOL LLTextureCtrl::handleDragAndDrop(S32 x, S32 y, MASK mask,
 		{
 			if(doDrop(item))
 			{
+				if (!mCommitOnSelection)
+					mViewModel->setDirty();
+
 				// This removes the 'Multiple' overlay, since
 				// there is now only one texture selected.
 				setTentative( FALSE ); 

@@ -36,6 +36,7 @@
 #include "llfloaterreg.h"
 #include "llmenugl.h"
 #include "llnotificationsutil.h"
+#include "lleventtimer.h"
 #include "llfiltereditor.h"
 #include "lltabcontainer.h"
 #include "lluictrlfactory.h"
@@ -133,13 +134,13 @@ public:
 	typedef std::map < LLUUID, LLVector3d > id_to_pos_map_t;
 	LLAvatarItemDistanceComparator() {};
 
-	void updateAvatarsPositions(std::vector<LLVector3d>& positions, std::vector<LLUUID>& uuids)
+	void updateAvatarsPositions(std::vector<LLVector3d>& positions, uuid_vec_t& uuids)
 	{
 		std::vector<LLVector3d>::const_iterator
 			pos_it = positions.begin(),
 			pos_end = positions.end();
 
-		std::vector<LLUUID>::const_iterator
+		uuid_vec_t::const_iterator
 			id_it = uuids.begin(),
 			id_end = uuids.end();
 
@@ -177,8 +178,8 @@ public:
 protected:
 	virtual bool doCompare(const LLAvatarListItem* item1, const LLAvatarListItem* item2) const
 	{
-		LLPointer<LLSpeaker> lhs = LLLocalSpeakerMgr::instance().findSpeaker(item1->getAvatarId());
-		LLPointer<LLSpeaker> rhs = LLLocalSpeakerMgr::instance().findSpeaker(item2->getAvatarId());
+		LLPointer<LLSpeaker> lhs = LLActiveSpeakerMgr::instance().findSpeaker(item1->getAvatarId());
+		LLPointer<LLSpeaker> rhs = LLActiveSpeakerMgr::instance().findSpeaker(item2->getAvatarId());
 		if ( lhs.notNull() && rhs.notNull() )
 		{
 			// Compare by last speaking time
@@ -442,6 +443,7 @@ public:
 LLPanelPeople::LLPanelPeople()
 	:	LLPanel(),
 		mFilterSubString(LLStringUtil::null),
+		mFilterSubStringOrig(LLStringUtil::null),
 		mFilterEditor(NULL),
 		mTabContainer(NULL),
 		mOnlineFriendList(NULL),
@@ -461,6 +463,11 @@ LLPanelPeople::~LLPanelPeople()
 	delete mNearbyListUpdater;
 	delete mFriendListUpdater;
 	delete mRecentListUpdater;
+
+	if(LLVoiceClient::instanceExists())
+	{
+		LLVoiceClient::getInstance()->removeObserver(this);
+	}
 
 	LLView::deleteViewByHandle(mGroupPlusMenuHandle);
 	LLView::deleteViewByHandle(mNearbyViewSortMenuHandle);
@@ -506,14 +513,19 @@ BOOL LLPanelPeople::postBuild()
 
 	mNearbyList = getChild<LLPanel>(NEARBY_TAB_NAME)->getChild<LLAvatarList>("avatar_list");
 	mNearbyList->setNoItemsCommentText(getString("no_one_near"));
+	mNearbyList->setNoItemsMsg(getString("no_one_near"));
+	mNearbyList->setNoFilteredItemsMsg(getString("no_one_filtered_near"));
 	mNearbyList->setShowIcons("NearbyListShowIcons");
 
 	mRecentList = getChild<LLPanel>(RECENT_TAB_NAME)->getChild<LLAvatarList>("avatar_list");
-	mRecentList->setNoItemsCommentText(getString("no_people"));
+	mRecentList->setNoItemsCommentText(getString("no_recent_people"));
+	mRecentList->setNoItemsMsg(getString("no_recent_people"));
+	mRecentList->setNoFilteredItemsMsg(getString("no_filtered_recent_people"));
 	mRecentList->setShowIcons("RecentListShowIcons");
 
 	mGroupList = getChild<LLGroupList>("group_list");
-	mGroupList->setNoItemsCommentText(getString("no_groups"));
+	mGroupList->setNoItemsMsg(getString("no_groups_msg"));
+	mGroupList->setNoFilteredItemsMsg(getString("no_filtered_groups_msg"));
 
 	mNearbyList->setContextMenu(&LLPanelPeopleMenus::gNearbyMenu);
 	mRecentList->setContextMenu(&LLPanelPeopleMenus::gNearbyMenu);
@@ -612,6 +624,8 @@ BOOL LLPanelPeople::postBuild()
 	if(recent_view_sort)
 		mRecentViewSortMenuHandle  = recent_view_sort->getHandle();
 
+	gVoiceClient->addObserver(this);
+
 	// call this method in case some list is empty and buttons can be in inconsistent state
 	updateButtons();
 
@@ -619,6 +633,36 @@ BOOL LLPanelPeople::postBuild()
 	mAllFriendList->setRefreshCompleteCallback(boost::bind(&LLPanelPeople::onFriendListRefreshComplete, this, _1, _2));
 
 	return TRUE;
+}
+
+// virtual
+void LLPanelPeople::onChange(EStatusType status, const std::string &channelURI, bool proximal)
+{
+	if(status == STATUS_JOINING || status == STATUS_LEFT_CHANNEL)
+	{
+		return;
+	}
+	
+	updateButtons();
+}
+
+void LLPanelPeople::updateFriendListHelpText()
+{
+	// show special help text for just created account to help finding friends. EXT-4836
+	static LLTextBox* no_friends_text = getChild<LLTextBox>("no_friends_help_text");
+
+	// Seems sometimes all_friends can be empty because of issue with Inventory loading (clear cache, slow connection...)
+	// So, lets check all lists to avoid overlapping the text with online list. See EXT-6448.
+	bool any_friend_exists = mAllFriendList->filterHasMatches() || mOnlineFriendList->filterHasMatches();
+	no_friends_text->setVisible(!any_friend_exists);
+	if (no_friends_text->getVisible())
+	{
+		//update help text for empty lists
+		std::string message_name = mFilterSubString.empty() ? "no_friends_msg" : "no_filtered_friends_msg";
+		LLStringUtil::format_map_t args;
+		args["[SEARCH_TERM]"] = LLURI::escape(mFilterSubStringOrig);
+		no_friends_text->setText(getString(message_name, args));
+	}
 }
 
 void LLPanelPeople::updateFriendList()
@@ -632,8 +676,8 @@ void LLPanelPeople::updateFriendList()
 	av_tracker.copyBuddyList(all_buddies);
 
 	// save them to the online and all friends vectors
-	LLAvatarList::uuid_vector_t& online_friendsp = mOnlineFriendList->getIDs();
-	LLAvatarList::uuid_vector_t& all_friendsp = mAllFriendList->getIDs();
+	uuid_vec_t& online_friendsp = mOnlineFriendList->getIDs();
+	uuid_vec_t& all_friendsp = mAllFriendList->getIDs();
 
 	all_friendsp.clear();
 	online_friendsp.clear();
@@ -660,9 +704,15 @@ void LLPanelPeople::updateFriendList()
 			online_friendsp.push_back(buddy_id);
 	}
 
-	mOnlineFriendList->setDirty();
-	mAllFriendList->setDirty();
-
+	/*
+	 * Avatarlists  will be hidden by showFriendsAccordionsIfNeeded(), if they do not have items.
+	 * But avatarlist can be updated only if it is visible @see LLAvatarList::draw();   
+	 * So we need to do force update of lists to avoid inconsistency of data and view of avatarlist. 
+	 */
+	mOnlineFriendList->setDirty(true, !mOnlineFriendList->filterHasMatches());// do force update if list do NOT have items
+	mAllFriendList->setDirty(true, !mAllFriendList->filterHasMatches());
+	//update trash and other buttons according to a selected item
+	updateButtons();
 	showFriendsAccordionsIfNeeded();
 }
 
@@ -677,7 +727,7 @@ void LLPanelPeople::updateNearbyList()
 	mNearbyList->setDirty();
 
 	DISTANCE_COMPARATOR.updateAvatarsPositions(positions, mNearbyList->getIDs());
-	LLLocalSpeakerMgr::instance().update(TRUE);
+	LLActiveSpeakerMgr::instance().update(TRUE);
 }
 
 void LLPanelPeople::updateRecentList()
@@ -712,7 +762,7 @@ void LLPanelPeople::buttonSetAction(const std::string& btn_name, const commit_si
 
 bool LLPanelPeople::isFriendOnline(const LLUUID& id)
 {
-	LLAvatarList::uuid_vector_t ids = mOnlineFriendList->getIDs();
+	uuid_vec_t ids = mOnlineFriendList->getIDs();
 	return std::find(ids.begin(), ids.end(), id) != ids.end();
 }
 
@@ -725,7 +775,7 @@ void LLPanelPeople::updateButtons()
 	//bool recent_tab_active	= (cur_tab == RECENT_TAB_NAME);
 	LLUUID selected_id;
 
-	std::vector<LLUUID> selected_uuids;
+	uuid_vec_t selected_uuids;
 	getCurrentItemIDs(selected_uuids);
 	bool item_selected = (selected_uuids.size() == 1);
 	bool multiple_selected = (selected_uuids.size() >= 1);
@@ -775,39 +825,18 @@ void LLPanelPeople::updateButtons()
 		}
 	}
 
+	bool enable_calls = gVoiceClient->voiceWorking() && gVoiceClient->voiceEnabled();
+
 	buttonSetEnabled("teleport_btn",		friends_tab_active && item_selected && isFriendOnline(selected_uuids.front()));
 	buttonSetEnabled("view_profile_btn",	item_selected);
 	buttonSetEnabled("im_btn",				multiple_selected); // allow starting the friends conference for multiple selection
-	buttonSetEnabled("call_btn",			multiple_selected && canCall());
+	buttonSetEnabled("call_btn",			multiple_selected && enable_calls);
 	buttonSetEnabled("share_btn",			item_selected); // not implemented yet
 
 	bool none_group_selected = item_selected && selected_id.isNull();
 	buttonSetEnabled("group_info_btn", !none_group_selected);
-	buttonSetEnabled("group_call_btn", !none_group_selected);
+	buttonSetEnabled("group_call_btn", !none_group_selected && enable_calls);
 	buttonSetEnabled("chat_btn", !none_group_selected);
-}
-
-bool LLPanelPeople::canCall()
-{
-	std::vector<LLUUID> selected_uuids;
-	getCurrentItemIDs(selected_uuids);
-
-	bool result = false;
-
-	std::vector<LLUUID>::const_iterator
-		id = selected_uuids.begin(),
-		uuids_end = selected_uuids.end();
-
-	for (;id != uuids_end; ++id)
-	{
-		if (LLAvatarActions::canCall(*id))
-		{
-			result = true;
-			break;
-		}
-	}
-
-	return result;
 }
 
 std::string LLPanelPeople::getActiveTabName() const
@@ -842,7 +871,7 @@ LLUUID LLPanelPeople::getCurrentItemID() const
 	return LLUUID::null;
 }
 
-void LLPanelPeople::getCurrentItemIDs(std::vector<LLUUID>& selected_uuids) const
+void LLPanelPeople::getCurrentItemIDs(uuid_vec_t& selected_uuids) const
 {
 	std::string cur_tab = getActiveTabName();
 
@@ -955,10 +984,11 @@ bool LLPanelPeople::isRealGroup()
 
 void LLPanelPeople::onFilterEdit(const std::string& search_string)
 {
-	std::string search_upper = search_string;
+	mFilterSubStringOrig = search_string;
+	LLStringUtil::trimHead(mFilterSubStringOrig);
 	// Searches are case-insensitive
+	std::string search_upper = mFilterSubStringOrig;
 	LLStringUtil::toUpper(search_upper);
-	LLStringUtil::trimHead(search_upper);
 
 	if (mFilterSubString == search_upper)
 		return;
@@ -973,11 +1003,11 @@ void LLPanelPeople::onFilterEdit(const std::string& search_string)
 
 
 	// Apply new filter.
-	mNearbyList->setNameFilter(mFilterSubString);
-	mOnlineFriendList->setNameFilter(mFilterSubString);
-	mAllFriendList->setNameFilter(mFilterSubString);
-	mRecentList->setNameFilter(mFilterSubString);
-	mGroupList->setNameFilter(mFilterSubString);
+	mNearbyList->setNameFilter(mFilterSubStringOrig);
+	mOnlineFriendList->setNameFilter(mFilterSubStringOrig);
+	mAllFriendList->setNameFilter(mFilterSubStringOrig);
+	mRecentList->setNameFilter(mFilterSubStringOrig);
+	mGroupList->setNameFilter(mFilterSubStringOrig);
 
 	setAccordionCollapsedByUser("tab_online", false);
 	setAccordionCollapsedByUser("tab_all", false);
@@ -1053,10 +1083,10 @@ void LLPanelPeople::onAddFriendButtonClicked()
 	}
 }
 
-bool LLPanelPeople::isItemsFreeOfFriends(const std::vector<LLUUID>& uuids)
+bool LLPanelPeople::isItemsFreeOfFriends(const uuid_vec_t& uuids)
 {
 	const LLAvatarTracker& av_tracker = LLAvatarTracker::instance();
-	for ( std::vector<LLUUID>::const_iterator
+	for ( uuid_vec_t::const_iterator
 			  id = uuids.begin(),
 			  id_end = uuids.end();
 		  id != id_end; ++id )
@@ -1084,7 +1114,7 @@ void LLPanelPeople::onAddFriendWizButtonClicked()
 
 void LLPanelPeople::onDeleteFriendButtonClicked()
 {
-	std::vector<LLUUID> selected_uuids;
+	uuid_vec_t selected_uuids;
 	getCurrentItemIDs(selected_uuids);
 
 	if (selected_uuids.size() == 1)
@@ -1111,7 +1141,7 @@ void LLPanelPeople::onChatButtonClicked()
 
 void LLPanelPeople::onImButtonClicked()
 {
-	std::vector<LLUUID> selected_uuids;
+	uuid_vec_t selected_uuids;
 	getCurrentItemIDs(selected_uuids);
 	if ( selected_uuids.size() == 1 )
 	{
@@ -1133,7 +1163,7 @@ void LLPanelPeople::onActivateButtonClicked()
 // static
 void LLPanelPeople::onAvatarPicked(
 		const std::vector<std::string>& names,
-		const std::vector<LLUUID>& ids)
+		const uuid_vec_t& ids)
 {
 	if (!names.empty() && !ids.empty())
 		LLAvatarActions::requestFriendshipDialog(ids[0], names[0]);
@@ -1283,7 +1313,7 @@ bool LLPanelPeople::onRecentViewSortMenuItemCheck(const LLSD& userdata)
 
 void LLPanelPeople::onCallButtonClicked()
 {
-	std::vector<LLUUID> selected_uuids;
+	uuid_vec_t selected_uuids;
 	getCurrentItemIDs(selected_uuids);
 
 	if (selected_uuids.size() == 1)
@@ -1419,6 +1449,9 @@ void LLPanelPeople::showFriendsAccordionsIfNeeded()
 		// Rearrange accordions
 		LLAccordionCtrl* accordion = getChild<LLAccordionCtrl>("friends_accordion");
 		accordion->arrange();
+
+		// keep help text in a synchronization with accordions visibility.
+		updateFriendListHelpText();
 	}
 }
 
@@ -1432,9 +1465,6 @@ void LLPanelPeople::onFriendListRefreshComplete(LLUICtrl*ctrl, const LLSD& param
 	{
 		showAccordion("tab_all", param.asInteger());
 	}
-
-	LLAccordionCtrl* accordion = getChild<LLAccordionCtrl>("friends_accordion");
-	accordion->arrange();
 }
 
 void LLPanelPeople::setAccordionCollapsedByUser(LLUICtrl* acc_tab, bool collapsed)

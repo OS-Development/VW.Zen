@@ -68,9 +68,9 @@ BOOL LLPlacesInventoryPanel::postBuild()
 
 	// clear Contents();
 	{
-		mFolders->destroyView();
-		mFolders->getParent()->removeChild(mFolders);
-		mFolders->die();
+		mFolderRoot->destroyView();
+		mFolderRoot->getParent()->removeChild(mFolderRoot);
+		mFolderRoot->die();
 
 		if( mScroller )
 		{
@@ -78,7 +78,7 @@ BOOL LLPlacesInventoryPanel::postBuild()
 			mScroller->die();
 			mScroller = NULL;
 		}
-		mFolders = NULL;
+		mFolderRoot = NULL;
 	}
 
 
@@ -92,15 +92,16 @@ BOOL LLPlacesInventoryPanel::postBuild()
 			0);
 		LLPlacesFolderView::Params p;
 		p.name = getName();
+		p.title = getLabel();
 		p.rect = folder_rect;
 		p.parent_panel = this;
-		mFolders = (LLFolderView*)LLUICtrlFactory::create<LLPlacesFolderView>(p);
-		mFolders->setAllowMultiSelect(mAllowMultiSelect);
+		mFolderRoot = (LLFolderView*)LLUICtrlFactory::create<LLPlacesFolderView>(p);
+		mFolderRoot->setAllowMultiSelect(mAllowMultiSelect);
 	}
 
 	mCommitCallbackRegistrar.popScope();
 
-	mFolders->setCallbackRegistrar(&mCommitCallbackRegistrar);
+	mFolderRoot->setCallbackRegistrar(&mCommitCallbackRegistrar);
 
 	// scroller
 	{
@@ -115,13 +116,14 @@ BOOL LLPlacesInventoryPanel::postBuild()
 		mScroller = LLUICtrlFactory::create<LLScrollContainer>(p);
 	}
 	addChild(mScroller);
-	mScroller->addChild(mFolders);
+	mScroller->addChild(mFolderRoot);
 
-	mFolders->setScrollContainer(mScroller);
+	mFolderRoot->setScrollContainer(mScroller);
+	mFolderRoot->addChild(mFolderRoot->mStatusTextBox);
 
 
 	// cut subitems
-	mFolders->setUseEllipses(true);
+	mFolderRoot->setUseEllipses(true);
 
 	return TRUE;
 }
@@ -130,17 +132,34 @@ BOOL LLPlacesInventoryPanel::postBuild()
 void LLPlacesInventoryPanel::saveFolderState()
 {
 	mSavedFolderState->setApply(FALSE);
-	getRootFolder()->applyFunctorRecursively(*mSavedFolderState);
+	mFolderRoot->applyFunctorRecursively(*mSavedFolderState);
 }
 
 // re-open folders which state was saved
 void LLPlacesInventoryPanel::restoreFolderState()
 {
 	mSavedFolderState->setApply(TRUE);
-	getRootFolder()->applyFunctorRecursively(*mSavedFolderState);
+	mFolderRoot->applyFunctorRecursively(*mSavedFolderState);
 	LLOpenFoldersWithSelection opener;
-	getRootFolder()->applyFunctorRecursively(opener);
-	getRootFolder()->scrollToShowSelection();
+	mFolderRoot->applyFunctorRecursively(opener);
+	mFolderRoot->scrollToShowSelection();
+}
+
+S32	LLPlacesInventoryPanel::notify(const LLSD& info) 
+{
+	if(info.has("action"))
+	{
+		std::string str_action = info["action"];
+		if(str_action == "select_first")
+		{
+			return mFolderRoot->notify(info);
+		}
+		else if(str_action == "select_last")
+		{
+			return mFolderRoot->notify(info);
+		}
+	}
+	return 0;
 }
 
 /************************************************************************/
@@ -156,6 +175,15 @@ void LLPlacesInventoryPanel::restoreFolderState()
 //////////////////////////////////////////////////////////////////////////
 //  PUBLIC METHODS
 //////////////////////////////////////////////////////////////////////////
+
+LLPlacesFolderView::LLPlacesFolderView(const LLFolderView::Params& p)
+: LLFolderView(p)
+{
+	// we do not need auto select functionality in places landmarks, so override default behavior.
+	// this disables applying of the LLSelectFirstFilteredItem in LLFolderView::doIdle.
+	// Fixed issues: EXT-1631, EXT-4994.
+	mAutoSelectOverride = TRUE;
+}
 
 BOOL LLPlacesFolderView::handleRightMouseDown(S32 x, S32 y, MASK mask)
 {

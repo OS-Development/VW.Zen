@@ -34,6 +34,7 @@
 
 #include "llfloaterreg.h"
 
+//#include "llagent.h" 
 #include "llfloater.h"
 #include "llmultifloater.h"
 #include "llfloaterreglistener.h"
@@ -45,6 +46,7 @@ LLFloaterReg::instance_list_t LLFloaterReg::sNullInstanceList;
 LLFloaterReg::instance_map_t LLFloaterReg::sInstanceMap;
 LLFloaterReg::build_map_t LLFloaterReg::sBuildMap;
 std::map<std::string,std::string> LLFloaterReg::sGroupMap;
+bool LLFloaterReg::sBlockShowFloaters = false;
 
 static LLFloaterRegListener sFloaterRegListener;
 
@@ -217,6 +219,8 @@ LLFloaterReg::const_instance_list_t& LLFloaterReg::getFloaterList(const std::str
 //static
 LLFloater* LLFloaterReg::showInstance(const std::string& name, const LLSD& key, BOOL focus) 
 {
+	if( sBlockShowFloaters )
+		return 0;//
 	LLFloater* instance = getInstance(name, key); 
 	if (instance) 
 	{
@@ -268,11 +272,11 @@ bool LLFloaterReg::toggleInstance(const std::string& name, const LLSD& key)
 }
 
 //static
-// returns true if the instance exists and is visible
+// returns true if the instance exists and is visible (doesnt matter minimized or not)
 bool LLFloaterReg::instanceVisible(const std::string& name, const LLSD& key)
 {
 	LLFloater* instance = findInstance(name, key); 
-	return LLFloater::isShown(instance);
+	return LLFloater::isVisible(instance);
 }
 
 //static
@@ -459,3 +463,12 @@ bool LLFloaterReg::floaterInstanceVisible(const LLSD& sdname)
 	return instanceVisible(name, key);
 }
 
+//static
+bool LLFloaterReg::floaterInstanceMinimized(const LLSD& sdname)
+{
+	LLSD key;
+	std::string name = sdname.asString();
+	parse_name_key(name, key);
+	LLFloater* instance = findInstance(name, key); 
+	return LLFloater::isShown(instance);
+}

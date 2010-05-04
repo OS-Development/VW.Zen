@@ -34,19 +34,25 @@
 #include "llviewerinventory.h"
 
 #include "llnotificationsutil.h"
+#include "llsdserialize.h"
 #include "message.h"
 #include "indra_constants.h"
 
 #include "llagent.h"
+#include "llagentcamera.h"
 #include "llviewerfoldertype.h"
 #include "llfolderview.h"
 #include "llviewercontrol.h"
 #include "llconsole.h"
+#include "llinventorydefines.h"
+#include "llinventoryfunctions.h"
 #include "llinventorymodel.h"
+#include "llinventorymodelbackgroundfetch.h"
 #include "llgesturemgr.h"
 #include "llsidetray.h"
 
 #include "llinventorybridge.h"
+#include "llinventorypanel.h"
 #include "llfloaterinventory.h"
 
 #include "llviewerassettype.h"
@@ -59,6 +65,40 @@
 #include "llfloatercustomize.h"
 #include "llcommandhandler.h"
 #include "llviewermessage.h"
+
+///----------------------------------------------------------------------------
+/// Helper class to store special inventory item names 
+///----------------------------------------------------------------------------
+class LLLocalizedInventoryItemsDictionary : public LLSingleton<LLLocalizedInventoryItemsDictionary>
+{
+public:
+	std::map<std::string, std::string> mInventoryItemsDict;
+
+	LLLocalizedInventoryItemsDictionary()
+	{
+		mInventoryItemsDict["New Shape"]		= LLTrans::getString("New Shape");
+		mInventoryItemsDict["New Skin"]			= LLTrans::getString("New Skin");
+		mInventoryItemsDict["New Hair"]			= LLTrans::getString("New Hair");
+		mInventoryItemsDict["New Eyes"]			= LLTrans::getString("New Eyes");
+		mInventoryItemsDict["New Shirt"]		= LLTrans::getString("New Shirt");
+		mInventoryItemsDict["New Pants"]		= LLTrans::getString("New Pants");
+		mInventoryItemsDict["New Shoes"]		= LLTrans::getString("New Shoes");
+		mInventoryItemsDict["New Socks"]		= LLTrans::getString("New Socks");
+		mInventoryItemsDict["New Jacket"]		= LLTrans::getString("New Jacket");
+		mInventoryItemsDict["New Gloves"]		= LLTrans::getString("New Gloves");
+		mInventoryItemsDict["New Undershirt"]	= LLTrans::getString("New Undershirt");
+		mInventoryItemsDict["New Underpants"]	= LLTrans::getString("New Underpants");
+		mInventoryItemsDict["New Skirt"]		= LLTrans::getString("New Skirt");
+		mInventoryItemsDict["New Alpha"]		= LLTrans::getString("New Alpha");
+		mInventoryItemsDict["New Tattoo"]		= LLTrans::getString("New Tattoo");
+		mInventoryItemsDict["Invalid Wearable"] = LLTrans::getString("Invalid Wearable");
+
+		mInventoryItemsDict["New Script"]		= LLTrans::getString("New Script");
+		mInventoryItemsDict["New Folder"]		= LLTrans::getString("New Folder");
+		mInventoryItemsDict["Contents"]			= LLTrans::getString("Contents");
+	}
+};
+
 
 ///----------------------------------------------------------------------------
 /// Local function declarations, constants, enums, and typedefs
@@ -99,7 +139,7 @@ public:
 		const std::string verb = params[1].asString();
 		if (verb == "select")
 		{
-			std::vector<LLUUID> items_to_open;
+			uuid_vec_t items_to_open;
 			items_to_open.push_back(inventory_id);
 			//inventory_handler is just a stub, because we don't know from who this offer
 			open_inventory_offer(items_to_open, "inventory_handler");
@@ -310,6 +350,18 @@ BOOL LLViewerInventoryItem::unpackMessage(LLSD item)
 BOOL LLViewerInventoryItem::unpackMessage(LLMessageSystem* msg, const char* block, S32 block_num)
 {
 	BOOL rv = LLInventoryItem::unpackMessage(msg, block, block_num);
+
+	std::string localized_str;
+
+	std::map<std::string, std::string>::const_iterator dictionary_iter;
+
+	dictionary_iter = LLLocalizedInventoryItemsDictionary::getInstance()->mInventoryItemsDict.find(mName);
+
+	if(dictionary_iter != LLLocalizedInventoryItemsDictionary::getInstance()->mInventoryItemsDict.end())
+	{
+		mName = dictionary_iter->second;
+	}
+
 	mIsComplete = TRUE;
 	return rv;
 }
@@ -510,7 +562,7 @@ void LLViewerInventoryCategory::removeFromServer( void )
 	gAgent.sendReliableMessage();
 }
 
-bool LLViewerInventoryCategory::fetchDescendents()
+bool LLViewerInventoryCategory::fetch()
 {
 	if((VERSION_UNKNOWN == mVersion)
 	   && mDescendentsRequested.hasExpired())	//Expired check prevents multiple downloads.
@@ -524,7 +576,7 @@ bool LLViewerInventoryCategory::fetchDescendents()
 		// 2 = folders by date
 		// Need to mask off anything but the first bit.
 		// This comes from LLInventoryFilter from llfolderview.h
-		U32 sort_order = gSavedSettings.getU32("InventorySortOrder") & 0x1;
+		U32 sort_order = gSavedSettings.getU32(LLInventoryPanel::DEFAULT_SORT_ORDER) & 0x1;
 
 		// *NOTE: For bug EXT-2879, originally commented out
 		// gAgent.getRegion()->getCapability in order to use the old
@@ -535,7 +587,7 @@ bool LLViewerInventoryCategory::fetchDescendents()
 		std::string url = gAgent.getRegion()->getCapability("WebFetchInventoryDescendents");
 		if (!url.empty()) //Capability found.  Build up LLSD and use it.
 		{
-			gInventory.startBackgroundFetch(mUUID);			
+			LLInventoryModelBackgroundFetch::instance().start(mUUID);			
 		}
 		else
 		{	//Deprecated, but if we don't have a capability, use the old system.
@@ -648,6 +700,8 @@ bool LLViewerInventoryCategory::exportFileLocal(LLFILE* fp) const
 
 void LLViewerInventoryCategory::determineFolderType()
 {
+	/* Do NOT uncomment this code.  This is for future 2.1 support of ensembles.
+	llassert(FALSE);
 	LLFolderType::EType original_type = getPreferredType();
 	if (LLFolderType::lookupIsProtectedType(original_type))
 		return;
@@ -691,6 +745,8 @@ void LLViewerInventoryCategory::determineFolderType()
 	{
 		changeType(LLFolderType::FT_NONE);
 	}
+	llassert(FALSE);
+	*/
 }
 
 void LLViewerInventoryCategory::changeType(LLFolderType::EType new_folder_type)
@@ -784,8 +840,8 @@ void WearOnAvatarCallback::fire(const LLUUID& inv_item)
 
 void ModifiedCOFCallback::fire(const LLUUID& inv_item)
 {
-	LLAppearanceManager::instance().updateAppearanceFromCOF();
-	if( CAMERA_MODE_CUSTOMIZE_AVATAR == gAgent.getCameraMode() )
+	LLAppearanceMgr::instance().updateAppearanceFromCOF();
+	if( CAMERA_MODE_CUSTOMIZE_AVATAR == gAgentCamera.getCameraMode() )
 	{
 		// If we're in appearance editing mode, the current tab may need to be refreshed
 		if (gFloaterCustomize)
@@ -820,7 +876,7 @@ void ActivateGestureCallback::fire(const LLUUID& inv_item)
 	if (inv_item.isNull())
 		return;
 
-	LLGestureManager::instance().activateGesture(inv_item);
+	LLGestureMgr::instance().activateGesture(inv_item);
 }
 
 void CreateGestureCallback::fire(const LLUUID& inv_item)
@@ -828,7 +884,7 @@ void CreateGestureCallback::fire(const LLUUID& inv_item)
 	if (inv_item.isNull())
 		return;
 
-	LLGestureManager::instance().activateGesture(inv_item);
+	LLGestureMgr::instance().activateGesture(inv_item);
 	
 	LLViewerInventoryItem* item = gInventory.getItem(inv_item);
 	if (!item) return;
@@ -857,6 +913,25 @@ void create_inventory_item(const LLUUID& agent_id, const LLUUID& session_id,
 						   U32 next_owner_perm,
 						   LLPointer<LLInventoryCallback> cb)
 {
+	//check if name is equal to one of special inventory items names
+	//EXT-5839
+	std::string server_name = name;
+
+	{
+		std::map<std::string, std::string>::const_iterator dictionary_iter;
+
+		for (dictionary_iter = LLLocalizedInventoryItemsDictionary::getInstance()->mInventoryItemsDict.begin();
+			 dictionary_iter != LLLocalizedInventoryItemsDictionary::getInstance()->mInventoryItemsDict.end();
+			 dictionary_iter++)
+		{
+			const std::string& localized_name = dictionary_iter->second;
+			if(localized_name == name)
+			{
+				server_name = dictionary_iter->first;
+			}
+		}
+	}
+
 	LLMessageSystem* msg = gMessageSystem;
 	msg->newMessageFast(_PREHASH_CreateInventoryItem);
 	msg->nextBlock(_PREHASH_AgentData);
@@ -870,7 +945,7 @@ void create_inventory_item(const LLUUID& agent_id, const LLUUID& session_id,
 	msg->addS8Fast(_PREHASH_Type, (S8)asset_type);
 	msg->addS8Fast(_PREHASH_InvType, (S8)inv_type);
 	msg->addU8Fast(_PREHASH_WearableType, (U8)wtype);
-	msg->addStringFast(_PREHASH_Name, name);
+	msg->addStringFast(_PREHASH_Name, server_name);
 	msg->addStringFast(_PREHASH_Description, desc);
 	
 	gAgent.sendReliableMessage();
@@ -913,6 +988,7 @@ void link_inventory_item(
 	const LLUUID& item_id,
 	const LLUUID& parent_id,
 	const std::string& new_name,
+	const std::string& new_description,
 	const LLAssetType::EType asset_type,
 	LLPointer<LLInventoryCallback> cb)
 {
@@ -938,7 +1014,6 @@ void link_inventory_item(
 	}
 	
 	LLUUID transaction_id;
-	std::string desc = "Broken link"; // This should only show if the object can't find its baseobj.
 	LLInventoryType::EType inv_type = LLInventoryType::IT_NONE;
 	if (dynamic_cast<const LLInventoryCategory *>(baseobj))
 	{
@@ -969,7 +1044,7 @@ void link_inventory_item(
 		msg->addS8Fast(_PREHASH_Type, (S8)asset_type);
 		msg->addS8Fast(_PREHASH_InvType, (S8)inv_type);
 		msg->addStringFast(_PREHASH_Name, new_name);
-		msg->addStringFast(_PREHASH_Description, desc);
+		msg->addStringFast(_PREHASH_Description, new_description);
 	}
 	gAgent.sendReliableMessage();
 }
@@ -1065,7 +1140,7 @@ const std::string NEW_NOTECARD_NAME = "New Note"; // *TODO:Translate? (probably 
 const std::string NEW_GESTURE_NAME = "New Gesture"; // *TODO:Translate? (probably not)
 
 // ! REFACTOR ! Really need to refactor this so that it's not a bunch of if-then statements...
-void menu_create_inventory_item(LLFolderView* folder, LLFolderBridge *bridge, const LLSD& userdata, const LLUUID& default_parent_uuid)
+void menu_create_inventory_item(LLFolderView* root, LLFolderBridge *bridge, const LLSD& userdata, const LLUUID& default_parent_uuid)
 {
 	std::string type_name = userdata.asString();
 	
@@ -1089,7 +1164,7 @@ void menu_create_inventory_item(LLFolderView* folder, LLFolderBridge *bridge, co
 
 		LLUUID category = gInventory.createNewCategory(parent_id, preferred_type, LLStringUtil::null);
 		gInventory.notifyObservers();
-		folder->setSelectionByID(category, TRUE);
+		root->setSelectionByID(category, TRUE);
 	}
 	else if ("lsl" == type_name)
 	{
@@ -1134,7 +1209,7 @@ void menu_create_inventory_item(LLFolderView* folder, LLFolderBridge *bridge, co
 			llwarns << "Can't create unrecognized type " << type_name << llendl;
 		}
 	}
-	folder->setNeedsAutoRename(TRUE);	
+	root->setNeedsAutoRename(TRUE);	
 }
 
 LLAssetType::EType LLViewerInventoryItem::getType() const
@@ -1160,6 +1235,40 @@ const LLUUID& LLViewerInventoryItem::getAssetUUID() const
 	return LLInventoryItem::getAssetUUID();
 }
 
+const LLUUID& LLViewerInventoryItem::getProtectedAssetUUID() const
+{
+	if (const LLViewerInventoryItem *linked_item = getLinkedItem())
+	{
+		return linked_item->getProtectedAssetUUID();
+	}
+
+	// check for conditions under which we may return a visible UUID to the user
+	bool item_is_fullperm = getIsFullPerm();
+	bool agent_is_godlike = gAgent.isGodlikeWithoutAdminMenuFakery();
+	if (item_is_fullperm || agent_is_godlike)
+	{
+		return LLInventoryItem::getAssetUUID();
+	}
+
+	return LLUUID::null;
+}
+
+const bool LLViewerInventoryItem::getIsFullPerm() const
+{
+	LLPermissions item_permissions = getPermissions();
+
+	// modify-ok & copy-ok & transfer-ok
+	return ( item_permissions.allowOperationBy(PERM_MODIFY,
+						   gAgent.getID(),
+						   gAgent.getGroupID()) &&
+		 item_permissions.allowOperationBy(PERM_COPY,
+						   gAgent.getID(),
+						   gAgent.getGroupID()) &&
+		 item_permissions.allowOperationBy(PERM_TRANSFER,
+						   gAgent.getID(),
+						   gAgent.getGroupID()) );
+}
+
 const std::string& LLViewerInventoryItem::getName() const
 {
 	if (const LLViewerInventoryItem *linked_item = getLinkedItem())
@@ -1171,79 +1280,194 @@ const std::string& LLViewerInventoryItem::getName() const
 		return linked_category->getName();
 	}
 
-	return getDisplayName();
+	return  LLInventoryItem::getName();
 }
 
-const std::string& LLViewerInventoryItem::getDisplayName() const
+/**
+ * Class to store sorting order of favorites landmarks in a local file. EXT-3985.
+ * It replaced previously implemented solution to store sort index in landmark's name as a "<N>@" prefix.
+ * Data are stored in user home directory.
+ */
+class LLFavoritesOrderStorage : public LLSingleton<LLFavoritesOrderStorage>
+	, public LLDestroyClass<LLFavoritesOrderStorage>
 {
-	std::string result;
-	BOOL hasSortField = extractSortFieldAndDisplayName(0, &result);
+public:
+	/**
+	 * Sets sort index for specified with LLUUID favorite landmark
+	 */
+	void setSortIndex(const LLUUID& inv_item_id, S32 sort_index);
 
-	return mDisplayName = hasSortField ? result : LLInventoryItem::getName();
+	/**
+	 * Gets sort index for specified with LLUUID favorite landmark
+	 */
+	S32 getSortIndex(const LLUUID& inv_item_id);
+	void removeSortIndex(const LLUUID& inv_item_id);
+
+	/**
+	 * Implementation of LLDestroyClass. Calls cleanup() instance method.
+	 *
+	 * It is important this callback is called before gInventory is cleaned.
+	 * For now it is called from LLAppViewer::cleanup() -> LLAppViewer::disconnectViewer(),
+	 * Inventory is cleaned later from LLAppViewer::cleanup() after LLAppViewer::disconnectViewer() is called.
+	 * @see cleanup()
+	 */
+	static void destroyClass();
+
+	const static S32 NO_INDEX;
+private:
+	friend class LLSingleton<LLFavoritesOrderStorage>;
+	LLFavoritesOrderStorage() : mIsDirty(false) { load(); }
+	~LLFavoritesOrderStorage() { save(); }
+
+	/**
+	 * Removes sort indexes for items which are not in Favorites bar for now.
+	 */
+	void cleanup();
+
+	const static std::string SORTING_DATA_FILE_NAME;
+
+	void load();
+	void save();
+
+	typedef std::map<LLUUID, S32> sort_index_map_t;
+	sort_index_map_t mSortIndexes;
+
+	bool mIsDirty;
+
+	struct IsNotInFavorites
+	{
+		IsNotInFavorites(const LLInventoryModel::item_array_t& items)
+			: mFavoriteItems(items)
+		{
+
+		}
+
+		/**
+		 * Returns true if specified item is not found among inventory items
+		 */
+		bool operator()(const sort_index_map_t::value_type& id_index_pair) const
+		{
+			LLPointer<LLViewerInventoryItem> item = gInventory.getItem(id_index_pair.first);
+			if (item.isNull()) return true;
+
+			LLInventoryModel::item_array_t::const_iterator found_it =
+				std::find(mFavoriteItems.begin(), mFavoriteItems.end(), item);
+
+			return found_it == mFavoriteItems.end();
+		}
+	private:
+		LLInventoryModel::item_array_t mFavoriteItems;
+	};
+
+};
+
+const std::string LLFavoritesOrderStorage::SORTING_DATA_FILE_NAME = "landmarks_sorting.xml";
+const S32 LLFavoritesOrderStorage::NO_INDEX = -1;
+
+void LLFavoritesOrderStorage::setSortIndex(const LLUUID& inv_item_id, S32 sort_index)
+{
+	mSortIndexes[inv_item_id] = sort_index;
+	mIsDirty = true;
+}
+
+S32 LLFavoritesOrderStorage::getSortIndex(const LLUUID& inv_item_id)
+{
+	sort_index_map_t::const_iterator it = mSortIndexes.find(inv_item_id);
+	if (it != mSortIndexes.end())
+	{
+		return it->second;
+	}
+	return NO_INDEX;
+}
+
+void LLFavoritesOrderStorage::removeSortIndex(const LLUUID& inv_item_id)
+{
+	mSortIndexes.erase(inv_item_id);
+	mIsDirty = true;
 }
 
 // static
-std::string LLViewerInventoryItem::getDisplayName(const std::string& name)
+void LLFavoritesOrderStorage::destroyClass()
 {
-	std::string result;
-	BOOL hasSortField = extractSortFieldAndDisplayName(name, 0, &result);
-
-	return hasSortField ? result : name;
+	LLFavoritesOrderStorage::instance().cleanup();
 }
+
+void LLFavoritesOrderStorage::load()
+{
+	// load per-resident sorting information
+	std::string filename = gDirUtilp->getExpandedFilename(LL_PATH_PER_SL_ACCOUNT, SORTING_DATA_FILE_NAME);
+
+	LLSD settings_llsd;
+	llifstream file;
+	file.open(filename);
+	if (file.is_open())
+	{
+		LLSDSerialize::fromXML(settings_llsd, file);
+	}
+
+	for (LLSD::map_const_iterator iter = settings_llsd.beginMap();
+		iter != settings_llsd.endMap(); ++iter)
+	{
+		mSortIndexes.insert(std::make_pair(LLUUID(iter->first), (S32)iter->second.asInteger()));
+	}
+}
+
+void LLFavoritesOrderStorage::save()
+{
+	// nothing to save if clean
+	if (!mIsDirty) return;
+
+	// If we quit from the login screen we will not have an SL account
+	// name.  Don't try to save, otherwise we'll dump a file in
+	// C:\Program Files\SecondLife\ or similar. JC
+	std::string user_dir = gDirUtilp->getLindenUserDir();
+	if (!user_dir.empty())
+	{
+		std::string filename = gDirUtilp->getExpandedFilename(LL_PATH_PER_SL_ACCOUNT, SORTING_DATA_FILE_NAME);
+		LLSD settings_llsd;
+
+		for(sort_index_map_t::const_iterator iter = mSortIndexes.begin(); iter != mSortIndexes.end(); ++iter)
+		{
+			settings_llsd[iter->first.asString()] = iter->second;
+		}
+
+		llofstream file;
+		file.open(filename);
+		LLSDSerialize::toPrettyXML(settings_llsd, file);
+	}
+}
+
+void LLFavoritesOrderStorage::cleanup()
+{
+	// nothing to clean
+	if (!mIsDirty) return;
+
+	const LLUUID fav_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_FAVORITE);
+	LLInventoryModel::cat_array_t cats;
+	LLInventoryModel::item_array_t items;
+	gInventory.collectDescendents(fav_id, cats, items, LLInventoryModel::EXCLUDE_TRASH);
+
+	IsNotInFavorites is_not_in_fav(items);
+
+	sort_index_map_t  aTempMap;
+	//copy unremoved values from mSortIndexes to aTempMap
+	std::remove_copy_if(mSortIndexes.begin(), mSortIndexes.end(), 
+		inserter(aTempMap, aTempMap.begin()),
+		is_not_in_fav);
+
+	//Swap the contents of mSortIndexes and aTempMap
+	mSortIndexes.swap(aTempMap);
+}
+
 
 S32 LLViewerInventoryItem::getSortField() const
 {
-	S32 result;
-	BOOL hasSortField = extractSortFieldAndDisplayName(&result, 0);
-
-	return hasSortField ? result : -1;
+	return LLFavoritesOrderStorage::instance().getSortIndex(mUUID);
 }
 
 void LLViewerInventoryItem::setSortField(S32 sortField)
 {
-	using std::string;
-
-	std::stringstream ss;
-	ss << sortField;
-
-	string newSortField = ss.str();
-
-	const char separator = getSeparator();
-	const string::size_type separatorPos = mName.find(separator, 0);
-
-	if (separatorPos < string::npos)
-	{
-		// the name of the LLViewerInventoryItem already consists of sort field and display name.
-		mName = newSortField + separator + mName.substr(separatorPos + 1, string::npos);
-	}
-	else
-	{
-		// there is no sort field in the name of LLViewerInventoryItem, we should add it
-		mName = newSortField + separator + mName;
-	}
-}
-
-void LLViewerInventoryItem::rename(const std::string& n)
-{
-	using std::string;
-
-	string new_name(n);
-	LLStringUtil::replaceNonstandardASCII(new_name, ' ');
-	LLStringUtil::replaceChar(new_name, '|', ' ');
-	LLStringUtil::trim(new_name);
-	LLStringUtil::truncate(new_name, DB_INV_ITEM_NAME_STR_LEN);
-
-	const char separator = getSeparator();
-	const string::size_type separatorPos = mName.find(separator, 0);
-
-	if (separatorPos < string::npos)
-	{
-		mName.replace(separatorPos + 1, string::npos, new_name);
-	}
-	else
-	{
-		mName = new_name;
-	}
+	LLFavoritesOrderStorage::instance().setSortIndex(mUUID, sortField);
 }
 
 const LLPermissions& LLViewerInventoryItem::getPermissions() const
@@ -1320,7 +1544,7 @@ EWearableType LLViewerInventoryItem::getWearableType() const
 		llwarns << "item is not a wearable" << llendl;
 		return WT_INVALID;
 	}
-	return EWearableType(getFlags() & LLInventoryItem::II_FLAGS_WEARABLES_MASK);
+	return EWearableType(getFlags() & LLInventoryItemFlags::II_FLAGS_WEARABLES_MASK);
 }
 
 
@@ -1334,6 +1558,8 @@ U32 LLViewerInventoryItem::getCRC32() const
 	return LLInventoryItem::getCRC32();	
 }
 
+// *TODO: mantipov: should be removed with LMSortPrefix patch in llinventorymodel.cpp, EXT-3985
+static char getSeparator() { return '@'; }
 BOOL LLViewerInventoryItem::extractSortFieldAndDisplayName(const std::string& name, S32* sortField, std::string* displayName)
 {
 	using std::string;
@@ -1368,12 +1594,6 @@ BOOL LLViewerInventoryItem::extractSortFieldAndDisplayName(const std::string& na
 
 	return result;
 }
-
-void LLViewerInventoryItem::insertDefaultSortField(std::string& name)
-{
-	name.insert(0, std::string("1") + getSeparator());
-}
-
 
 // This returns true if the item that this item points to 
 // doesn't exist in memory (i.e. LLInventoryModel).  The baseitem

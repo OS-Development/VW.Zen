@@ -73,9 +73,9 @@ S32		LLView::sLastBottomXML = S32_MIN;
 std::vector<LLViewDrawContext*> LLViewDrawContext::sDrawContextStack;
 
 
-#if LL_DEBUG
+//#if LL_DEBUG
 BOOL LLView::sIsDrawing = FALSE;
-#endif
+//#endif
 
 // Compiler optimization, generate extern template
 template class LLView* LLView::getChild<class LLView>(
@@ -150,6 +150,10 @@ LLView::~LLView()
 {
 	dirtyRect();
 	//llinfos << "Deleting view " << mName << ":" << (void*) this << llendl;
+	if (LLView::sIsDrawing)
+	{
+		lldebugs << "Deleting view " << mName << " during UI draw() phase" << llendl;
+	}
 // 	llassert(LLView::sIsDrawing == FALSE);
 	
 //	llassert_always(sDepth == 0); // avoid deleting views while drawing! It can subtly break list iterators
@@ -592,11 +596,6 @@ void LLView::setVisible(BOOL visible)
 {
 	if ( mVisible != visible )
 	{
-		if( !visible && (gFocusMgr.getTopCtrl() == this) )
-		{
-			gFocusMgr.setTopCtrl( NULL );
-		}
-
 		mVisible = visible;
 
 		// notify children of visibility change if root, or part of visible hierarchy
@@ -1322,11 +1321,12 @@ void LLView::drawChildren()
 
 			if (viewp->getVisible() && viewp->getRect().isValid())
 			{
+				// check for bad data
+				llassert_always(viewp->getVisible() == TRUE);
 				// Only draw views that are within the root view
 				localRectToScreen(viewp->getRect(),&screenRect);
 				if ( rootRect.overlaps(screenRect)  && LLUI::sDirtyRect.overlaps(screenRect))
 				{
-					glMatrixMode(GL_MODELVIEW);
 					LLUI::pushMatrix();
 					{
 						LLUI::translate((F32)viewp->getRect().mLeft, (F32)viewp->getRect().mBottom, 0.f);
@@ -1350,8 +1350,6 @@ void LLView::drawChildren()
 		}
 		--sDepth;
 	}
-
-	gGL.getTexUnit(0)->disable();
 }
 
 void LLView::dirtyRect()
@@ -1720,6 +1718,7 @@ LLView* LLView::findChildView(const std::string& name, BOOL recurse) const
 	for ( child_it = mChildList.begin(); child_it != mChildList.end(); ++child_it)
 	{
 		LLView* childp = *child_it;
+		llassert(childp);
 		if (childp->getName() == name)
 		{
 			return childp;
@@ -1731,6 +1730,7 @@ LLView* LLView::findChildView(const std::string& name, BOOL recurse) const
 		for ( child_it = mChildList.begin(); child_it != mChildList.end(); ++child_it)
 		{
 			LLView* childp = *child_it;
+			llassert(childp);
 			LLView* viewp = childp->findChildView(name, recurse);
 			if ( viewp )
 			{

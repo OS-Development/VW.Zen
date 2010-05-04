@@ -328,6 +328,10 @@ public:
 	virtual ~LLIMChiclet() {};
 
 	/**
+	 * It is used for default setting up of chicklet:click handler, etc.  
+	 */
+	BOOL postBuild();
+	/**
 	 * Sets IM session name. This name will be displayed in chiclet tooltip.
 	 */
 	virtual void setIMSessionName(const std::string& name) { setToolTip(name); }
@@ -424,13 +428,30 @@ public:
 
 	virtual void setToggleState(bool toggle);
 
+	/**
+	 * Displays popup menu.
+	 */
+	virtual BOOL handleRightMouseDown(S32 x, S32 y, MASK mask);
+
 protected:
 
 	LLIMChiclet(const LLIMChiclet::Params& p);
 
-	/*virtual*/ BOOL handleMouseDown(S32 x, S32 y, MASK mask);
-
 protected:
+
+	/**
+	 * Creates chiclet popup menu.
+	 */
+	virtual void createPopupMenu() = 0;
+
+	/** 
+	 * Enables/disables menus.
+	 */
+	virtual void updateMenuItems() {};
+
+	bool canCreateMenu();
+
+	LLMenuGL* mPopupMenu;
 
 	bool mShowSpeaker;
 	bool mCounterEnabled;
@@ -517,11 +538,6 @@ protected:
 	 */
 	virtual void onMenuItemClicked(const LLSD& user_data);
 
-	/**
-	 * Displays popup menu.
-	 */
-	/*virtual*/ BOOL handleRightMouseDown(S32 x, S32 y, MASK mask);
-
 	/** 
 	 * Enables/disables menus based on relationship with other participant.
 	 * Enables/disables "show session" menu item depending on visible IM floater existence.
@@ -531,7 +547,6 @@ protected:
 private:
 
 	LLChicletAvatarIconCtrl* mChicletIconCtrl;
-	LLMenuGL* mPopupMenu;
 };
 
 /**
@@ -596,11 +611,6 @@ protected:
 	virtual void onMenuItemClicked(const LLSD& user_data);
 
 	/**
-	 * Displays popup menu.
-	 */
-	virtual BOOL handleRightMouseDown(S32 x, S32 y, MASK mask);
-
-	/**
 	 * Finds a current speaker and resets the SpeakerControl with speaker's ID
 	 */
 	/*virtual*/ void switchToCurrentSpeaker();
@@ -608,7 +618,6 @@ protected:
 private:
 
 	LLChicletAvatarIconCtrl* mChicletIconCtrl;
-	LLMenuGL* mPopupMenu;
 };
 
 /**
@@ -640,15 +649,20 @@ public:
 	 */
 	/*virtual*/ void onMouseDown();
 
-	/**
-	 * Override default handler
-	 */
-	/*virtual*/ BOOL handleMouseDown(S32 x, S32 y, MASK mask);
-
 protected:
 
 	LLScriptChiclet(const Params&);
 	friend class LLUICtrlFactory;
+
+	/**
+	 * Creates chiclet popup menu.
+	 */
+	virtual void createPopupMenu();
+
+	/**
+	 * Processes clicks on chiclet popup menu.
+	 */
+	virtual void onMenuItemClicked(const LLSD& user_data);
 
 private:
 
@@ -684,15 +698,19 @@ public:
 	 */
 	/*virtual*/ void onMouseDown();
 
-	/**
-	 * Override default handler
-	 */
-	/*virtual*/ BOOL handleMouseDown(S32 x, S32 y, MASK mask);
-
-
 protected:
 	LLInvOfferChiclet(const Params&);
 	friend class LLUICtrlFactory;
+
+	/**
+	 * Creates chiclet popup menu.
+	 */
+	virtual void createPopupMenu();
+
+	/**
+	 * Processes clicks on chiclet popup menu.
+	 */
+	virtual void onMenuItemClicked(const LLSD& user_data);
 
 private:
 	LLChicletInvOfferIconCtrl* mChicletIconCtrl;
@@ -776,15 +794,9 @@ protected:
 	 */
 	virtual void updateMenuItems();
 
-	/**
-	 * Displays popup menu.
-	 */
-	/*virtual*/ BOOL handleRightMouseDown(S32 x, S32 y, MASK mask);
-
 private:
 
 	LLChicletGroupIconCtrl* mChicletIconCtrl;
-	LLMenuGL* mPopupMenu;
 };
 
 /**
@@ -808,16 +820,6 @@ public:
 		 * Otherwise 9+ will be shown (for default value).
 		 */
 		Optional<S32> max_displayed_count;
-
-		/**
-		 * How many time chiclet should flash before set "Lit" state. Default value is 3.
-		 */
-		Optional<S32> flash_to_lit_count;
-
-		/**
-		 * Period of flashing while setting "Lit" state, in seconds. Default value is 0.5.
-		 */
-		Optional<F32> flash_period;
 
 		Params();
 	};
@@ -919,6 +921,9 @@ protected:
 class LLNotificationChiclet : public LLSysWellChiclet
 {
 	friend class LLUICtrlFactory;
+public:
+	struct Params : public LLInitParam::Block<Params, LLSysWellChiclet::Params>{};
+
 protected:
 	LLNotificationChiclet(const Params& p);
 
@@ -1237,12 +1242,15 @@ T* LLChicletPanel::findChiclet(const LLUUID& im_session_id)
 	{
 		LLChiclet* chiclet = *it;
 
+		llassert(chiclet);
+		if (!chiclet) continue;
 		if(chiclet->getSessionId() == im_session_id)
 		{
 			T* result = dynamic_cast<T*>(chiclet);
-			if(!result && chiclet)
+			if(!result)
 			{
 				llwarns << "Found chiclet but of wrong type " << llendl;
+				continue;
 			}
 			return result;
 		}

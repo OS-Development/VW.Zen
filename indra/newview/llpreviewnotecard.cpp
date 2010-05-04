@@ -38,9 +38,11 @@
 
 #include "llagent.h"
 #include "llassetuploadresponders.h"
+#include "lldraghandle.h"
 #include "llviewerwindow.h"
 #include "llbutton.h"
 #include "llfloaterreg.h"
+#include "llinventorydefines.h"
 #include "llinventorymodel.h"
 #include "lllineeditor.h"
 #include "llnotificationsutil.h"
@@ -95,7 +97,7 @@ BOOL LLPreviewNotecard::postBuild()
 	childSetCommitCallback("desc", LLPreview::onText, this);
 	if (item)
 		childSetText("desc", item->getDescription());
-	childSetPrevalidate("desc", &LLLineEditor::prevalidateASCIIPrintableNoPipe);
+	childSetPrevalidate("desc", &LLTextValidate::validateASCIIPrintableNoPipe);
 
 	return LLPreview::postBuild();
 }
@@ -186,6 +188,20 @@ void LLPreviewNotecard::refreshFromInventory(const LLUUID& new_item_id)
 	}
 	lldebugs << "LLPreviewNotecard::refreshFromInventory()" << llendl;
 	loadAsset();
+}
+
+void LLPreviewNotecard::updateTitleButtons()
+{
+	LLPreview::updateTitleButtons();
+
+	LLUICtrl* lock_btn = getChild<LLUICtrl>("lock");
+	if(lock_btn->getVisible() && !isMinimized()) // lock button stays visible if floater is minimized.
+	{
+		LLRect lock_rc = lock_btn->getRect();
+		LLRect buttons_rect = getDragHandle()->getButtonsRect();
+		buttons_rect.mLeft = lock_rc.mLeft;
+		getDragHandle()->setButtonsRect(buttons_rect);
+	}
 }
 
 void LLPreviewNotecard::loadAsset()

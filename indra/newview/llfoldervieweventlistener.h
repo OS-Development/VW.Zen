@@ -73,7 +73,8 @@ public:
 	virtual BOOL isItemRenameable() const = 0;
 	virtual BOOL renameItem(const std::string& new_name) = 0;
 	virtual BOOL isItemMovable( void ) const = 0;		// Can be moved to another folder
-	virtual BOOL isItemRemovable( void ) = 0;	// Can be destroyed
+	virtual BOOL isItemRemovable( void ) const = 0;		// Can be destroyed
+	virtual BOOL isItemInTrash( void) const { return FALSE; } // TODO: make into pure virtual.
 	virtual BOOL removeItem() = 0;
 	virtual void removeBatch(LLDynamicArray<LLFolderViewEventListener*>& batch) = 0;
 	virtual void move( LLFolderViewEventListener* parent_listener ) = 0;
@@ -87,7 +88,7 @@ public:
 	virtual BOOL isUpToDate() const = 0;
 	virtual BOOL hasChildren() const = 0;
 	virtual LLInventoryType::EType getInventoryType() const = 0;
-	virtual void performAction(LLFolderView* folder, LLInventoryModel* model, std::string action) = 0;
+	virtual void performAction(LLInventoryModel* model, std::string action) = 0;
 	
 	// This method should be called when a drag begins. returns TRUE
 	// if the drag can begin, otherwise FALSE.

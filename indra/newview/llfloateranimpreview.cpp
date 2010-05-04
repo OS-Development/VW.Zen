@@ -86,38 +86,40 @@ const F32 BASE_ANIM_TIME_OFFSET = 5.f;
 
 std::string STATUS[] =
 {
-  "E_ST_OK",
-  "E_ST_EOF",
-  "E_ST_NO_CONSTRAINT",
-  "E_ST_NO_FILE",
-"E_ST_NO_HIER",
-"E_ST_NO_JOINT",
-"E_ST_NO_NAME",
-"E_ST_NO_OFFSET",
-"E_ST_NO_CHANNELS",
-"E_ST_NO_ROTATION",
-"E_ST_NO_AXIS",
-"E_ST_NO_MOTION",
-"E_ST_NO_FRAMES",
-"E_ST_NO_FRAME_TIME",
-"E_ST_NO_POS",
-"E_ST_NO_ROT",
-"E_ST_NO_XLT_FILE",
-"E_ST_NO_XLT_HEADER",
-"E_ST_NO_XLT_NAME",
-"E_ST_NO_XLT_IGNORE",
-"E_ST_NO_XLT_RELATIVE",
-"E_ST_NO_XLT_OUTNAME",
-"E_ST_NO_XLT_MATRIX",
-"E_ST_NO_XLT_MERGECHILD",
-"E_ST_NO_XLT_MERGEPARENT",
-"E_ST_NO_XLT_PRIORITY",
-"E_ST_NO_XLT_LOOP",
-"E_ST_NO_XLT_EASEIN",
-"E_ST_NO_XLT_EASEOUT",
-"E_ST_NO_XLT_HAND",
-"E_ST_NO_XLT_EMOTE",
+	"E_ST_OK",
+	"E_ST_EOF",
+	"E_ST_NO_CONSTRAINT",
+	"E_ST_NO_FILE",
+	"E_ST_NO_HIER",
+	"E_ST_NO_JOINT",
+	"E_ST_NO_NAME",
+	"E_ST_NO_OFFSET",
+	"E_ST_NO_CHANNELS",
+	"E_ST_NO_ROTATION",
+	"E_ST_NO_AXIS",
+	"E_ST_NO_MOTION",
+	"E_ST_NO_FRAMES",
+	"E_ST_NO_FRAME_TIME",
+	"E_ST_NO_POS",
+	"E_ST_NO_ROT",
+	"E_ST_NO_XLT_FILE",
+	"E_ST_NO_XLT_HEADER",
+	"E_ST_NO_XLT_NAME",
+	"E_ST_NO_XLT_IGNORE",
+	"E_ST_NO_XLT_RELATIVE",
+	"E_ST_NO_XLT_OUTNAME",
+	"E_ST_NO_XLT_MATRIX",
+	"E_ST_NO_XLT_MERGECHILD",
+	"E_ST_NO_XLT_MERGEPARENT",
+	"E_ST_NO_XLT_PRIORITY",
+	"E_ST_NO_XLT_LOOP",
+	"E_ST_NO_XLT_EASEIN",
+	"E_ST_NO_XLT_EASEOUT",
+	"E_ST_NO_XLT_HAND",
+	"E_ST_NO_XLT_EMOTE",
+"E_ST_BAD_ROOT"
 };
+
 //-----------------------------------------------------------------------------
 // LLFloaterAnimPreview()
 //-----------------------------------------------------------------------------
@@ -566,7 +568,7 @@ void LLFloaterAnimPreview::onBtnPlay(void* user_data)
 	{
 		LLVOAvatar* avatarp = previewp->mAnimPreview->getDummyAvatar();
 		
-		if(!avatarp->isMotionActive(previewp->mMotionID))
+		if (!avatarp->isMotionActive(previewp->mMotionID))
 		{
 			previewp->resetMotion();
 			previewp->mPauseRequest = NULL;
@@ -591,7 +593,7 @@ void LLFloaterAnimPreview::onBtnPause(void* user_data)
 	{
 		LLVOAvatar* avatarp = previewp->mAnimPreview->getDummyAvatar();
 
-		if(avatarp->isMotionActive(previewp->mMotionID))
+		if (avatarp->isMotionActive(previewp->mMotionID))
 		{
 			if (!avatarp->areAnimationsPaused())
 			{
@@ -999,19 +1001,18 @@ void LLFloaterAnimPreview::onBtnOK(void* userdata)
 			{
 				std::string name = floaterp->childGetValue("name_form").asString();
 				std::string desc = floaterp->childGetValue("description_form").asString();
-				LLAssetStorage::LLStoreAssetCallback callback = NULL;
 				S32 expected_upload_cost = LLGlobalEconomy::Singleton::getInstance()->getPriceUpload();
-				void *userdata = NULL;
 				upload_new_resource(floaterp->mTransactionID, // tid
 						    LLAssetType::AT_ANIMATION,
 						    name,
 						    desc,
-						    0,
 						    LLFolderType::FT_NONE,
 						    LLInventoryType::IT_ANIMATION,
-						    LLFloaterPerms::getNextOwnerPerms(), LLFloaterPerms::getGroupPerms(), LLFloaterPerms::getEveryonePerms(),
+						    LLFloaterPerms::getNextOwnerPerms(), 
+							LLFloaterPerms::getGroupPerms(), LLFloaterPerms::getEveryonePerms(),
 						    name,
-						    callback, expected_upload_cost, userdata);
+						    NULL, 
+							expected_upload_cost);
 			}
 			else
 			{
@@ -1065,6 +1066,12 @@ LLPreviewAnimation::LLPreviewAnimation(S32 width, S32 height) : LLViewerDynamicT
 LLPreviewAnimation::~LLPreviewAnimation()
 {
 	mDummyAvatar->markDead();
+}
+
+//virtual
+S8 LLPreviewAnimation::getType() const
+{
+	return LLViewerDynamicTexture::LL_PREVIEW_ANIMATION ;
 }
 
 //-----------------------------------------------------------------------------
