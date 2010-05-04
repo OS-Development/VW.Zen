@@ -52,8 +52,10 @@ class LLInventoryPanel;
 class LLSaveFolderState;
 class LLFolderViewItem;
 class LLScrollListCtrl;
+class LLToggleableMenu;
 class LLLookFetchObserver;
 class LLFilterEditor;
+class LLFilteredWearableListManager;
 
 class LLPanelOutfitEdit : public LLPanel
 {
@@ -81,26 +83,26 @@ public:
 	/*virtual*/ BOOL postBuild();
 	/*virtual*/ void changed(U32 mask);
 
-	void reset();
-		// Ignore all old information, useful if you are 
-		// recycling an existing dialog and need to clear it.
-
 	/*virtual*/ void setParcelID(const LLUUID& parcel_id);
 		// Sends a request for data about the given parcel, which will
 		// only update the location if there is none already available.
 
 	void showAddWearablesPanel();
+	void showWearablesFilter();
+	void showFilteredWearablesPanel();
+	void saveOutfit(bool as_new = false);
+	void showSaveMenu();
 
 	void onTypeFilterChanged(LLUICtrl* ctrl);
 	void onSearchEdit(const std::string& string);
 	void onInventorySelectionChange(const std::deque<LLFolderViewItem*> &items, BOOL user_action);
-	void onAddToLookClicked(void);
-	void onLookItemSelectionChange(void);
-	void onRemoveFromLookClicked(void);
+	void onAddToOutfitClicked(void);
+	void onOutfitItemSelectionChange(void);
+	void onRemoveFromOutfitClicked(void);
 	void onEditWearableClicked(void);
 	void onUpClicked(void);
 
-	void displayLookInfo(const LLInventoryCategory* pLook);
+	void displayCurrentOutfit();
 	
 	void lookFetched(void);
 	
@@ -108,19 +110,23 @@ public:
 
 private:
 
-	LLUUID				mLookID;
-	LLTextBox*			mLookName;
+	//*TODO got rid of mCurrentOutfitID
+	LLUUID				mCurrentOutfitID;
+
+	LLTextBox*			mCurrentOutfitName;
 	LLScrollListCtrl*	mLookContents;
 	LLInventoryPanel*	mInventoryItemsPanel;
 	LLFilterEditor*		mSearchFilter;
 	LLSaveFolderState*	mSavedFolderState;
 	std::string			mSearchString;
-	LLButton*			mAddToLookBtn;
-	LLButton*			mRemoveFromLookBtn;
+	LLButton*			mAddToOutfitBtn;
+	LLButton*			mRemoveFromOutfitBtn;
 	LLButton*			mUpBtn;
 	LLButton*			mEditWearableBtn;
-	S32					mNumItemsInLook;
-	
+	LLToggleableMenu*	mSaveMenu;
+
+	LLFilteredWearableListManager* mWearableListManager;
+
 	LLLookFetchObserver*		mFetchLook;
 	LLInventoryLookObserver*	mLookObserver;
 	std::vector<LLLookItemType> mLookItemTypes;

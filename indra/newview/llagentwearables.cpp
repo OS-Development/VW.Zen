@@ -905,8 +905,7 @@ void LLAgentWearables::processAgentInitialWearablesUpdate(LLMessageSystem* mesgs
 
 		// Get the UUID of the current outfit folder (will be created if it doesn't exist)
 		const LLUUID current_outfit_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_CURRENT_OUTFIT);
-		
-		LLInitialWearablesFetch* outfit = new LLInitialWearablesFetch();
+		LLInitialWearablesFetch* outfit = new LLInitialWearablesFetch(current_outfit_id);
 		
 		//lldebugs << "processAgentInitialWearablesUpdate()" << llendl;
 		// Add wearables
@@ -952,10 +951,8 @@ void LLAgentWearables::processAgentInitialWearablesUpdate(LLMessageSystem* mesgs
 		
 		// Get the complete information on the items in the inventory and set up an observer
 		// that will trigger when the complete information is fetched.
-		uuid_vec_t folders;
-		folders.push_back(current_outfit_id);
-		outfit->fetchDescendents(folders);
-		if(outfit->isEverythingComplete())
+		outfit->startFetch();
+		if(outfit->isFinished())
 		{
 			// everything is already here - call done.
 			outfit->done();
@@ -1341,7 +1338,8 @@ public:
 		LLSideTray::getInstance()->showPanel("panel_outfits_inventory", key);
 		LLPanelOutfitsInventory *outfit_panel =
 			dynamic_cast<LLPanelOutfitsInventory*>(LLSideTray::getInstance()->getPanel("panel_outfits_inventory"));
-		if (outfit_panel)
+		// TODO: add handling "My Outfits" tab.
+		if (outfit_panel && outfit_panel->isCOFPanelActive())
 		{
 			outfit_panel->getRootFolder()->clearSelection();
 			outfit_panel->getRootFolder()->setSelectionByID(mFolderID, TRUE);
@@ -1363,24 +1361,6 @@ public:
 private:
 	LLUUID mFolderID;
 };
-
-LLUUID LLAgentWearables::makeNewOutfitLinks(const std::string& new_folder_name)
-{
-	if (!isAgentAvatarValid()) return LLUUID::null;
-
-	// First, make a folder in the My Outfits directory.
-	const LLUUID parent_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_MY_OUTFITS);
-	LLUUID folder_id = gInventory.createNewCategory(
-		parent_id,
-		LLFolderType::FT_OUTFIT,
-		new_folder_name);
-
-	LLPointer<LLInventoryCallback> cb = new LLShowCreatedOutfit(folder_id);
-	LLAppearanceMgr::instance().shallowCopyCategoryContents(LLAppearanceMgr::instance().getCOF(),folder_id, cb);
-	LLAppearanceMgr::instance().createBaseOutfitLink(folder_id, cb);
-
-	return folder_id;
-}
 
 void LLAgentWearables::makeNewOutfitDone(S32 type, U32 index)
 {
@@ -2061,17 +2041,15 @@ void LLAgentWearables::populateMyOutfitsFolder(void)
 {	
 	llinfos << "starting outfit population" << llendl;
 
-	LLLibraryOutfitsFetch* outfits = new LLLibraryOutfitsFetch();
+	const LLUUID& my_outfits_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_MY_OUTFITS);
+	LLLibraryOutfitsFetch* outfits = new LLLibraryOutfitsFetch(my_outfits_id);
+	outfits->mMyOutfitsID = my_outfits_id;
 	
 	// Get the complete information on the items in the inventory and 
 	// setup an observer that will wait for that to happen.
-	uuid_vec_t folders;
-	outfits->mMyOutfitsID = gInventory.findCategoryUUIDForType(LLFolderType::FT_MY_OUTFITS);
-
-	folders.push_back(outfits->mMyOutfitsID);
 	gInventory.addObserver(outfits);
-	outfits->fetchDescendents(folders);
-	if (outfits->isEverythingComplete())
+	outfits->startFetch();
+	if (outfits->isFinished())
 	{
 		outfits->done();
 	}

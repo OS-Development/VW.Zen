@@ -43,6 +43,7 @@
 #include "llfolderview.h"
 #include "llviewercontrol.h"
 #include "llconsole.h"
+#include "llinventorydefines.h"
 #include "llinventoryfunctions.h"
 #include "llinventorymodel.h"
 #include "llinventorymodelbackgroundfetch.h"
@@ -518,7 +519,7 @@ void LLViewerInventoryCategory::removeFromServer( void )
 	gAgent.sendReliableMessage();
 }
 
-bool LLViewerInventoryCategory::fetchDescendents()
+bool LLViewerInventoryCategory::fetch()
 {
 	if((VERSION_UNKNOWN == mVersion)
 	   && mDescendentsRequested.hasExpired())	//Expired check prevents multiple downloads.
@@ -925,6 +926,7 @@ void link_inventory_item(
 	const LLUUID& item_id,
 	const LLUUID& parent_id,
 	const std::string& new_name,
+	const std::string& new_description,
 	const LLAssetType::EType asset_type,
 	LLPointer<LLInventoryCallback> cb)
 {
@@ -950,7 +952,6 @@ void link_inventory_item(
 	}
 	
 	LLUUID transaction_id;
-	std::string desc = "Broken link"; // This should only show if the object can't find its baseobj.
 	LLInventoryType::EType inv_type = LLInventoryType::IT_NONE;
 	if (dynamic_cast<const LLInventoryCategory *>(baseobj))
 	{
@@ -981,7 +982,7 @@ void link_inventory_item(
 		msg->addS8Fast(_PREHASH_Type, (S8)asset_type);
 		msg->addS8Fast(_PREHASH_InvType, (S8)inv_type);
 		msg->addStringFast(_PREHASH_Name, new_name);
-		msg->addStringFast(_PREHASH_Description, desc);
+		msg->addStringFast(_PREHASH_Description, new_description);
 	}
 	gAgent.sendReliableMessage();
 }
@@ -1077,7 +1078,7 @@ const std::string NEW_NOTECARD_NAME = "New Note"; // *TODO:Translate? (probably 
 const std::string NEW_GESTURE_NAME = "New Gesture"; // *TODO:Translate? (probably not)
 
 // ! REFACTOR ! Really need to refactor this so that it's not a bunch of if-then statements...
-void menu_create_inventory_item(LLFolderView* folder, LLFolderBridge *bridge, const LLSD& userdata, const LLUUID& default_parent_uuid)
+void menu_create_inventory_item(LLFolderView* root, LLFolderBridge *bridge, const LLSD& userdata, const LLUUID& default_parent_uuid)
 {
 	std::string type_name = userdata.asString();
 	
@@ -1101,7 +1102,7 @@ void menu_create_inventory_item(LLFolderView* folder, LLFolderBridge *bridge, co
 
 		LLUUID category = gInventory.createNewCategory(parent_id, preferred_type, LLStringUtil::null);
 		gInventory.notifyObservers();
-		folder->setSelectionByID(category, TRUE);
+		root->setSelectionByID(category, TRUE);
 	}
 	else if ("lsl" == type_name)
 	{
@@ -1146,7 +1147,7 @@ void menu_create_inventory_item(LLFolderView* folder, LLFolderBridge *bridge, co
 			llwarns << "Can't create unrecognized type " << type_name << llendl;
 		}
 	}
-	folder->setNeedsAutoRename(TRUE);	
+	root->setNeedsAutoRename(TRUE);	
 }
 
 LLAssetType::EType LLViewerInventoryItem::getType() const
@@ -1481,7 +1482,7 @@ EWearableType LLViewerInventoryItem::getWearableType() const
 		llwarns << "item is not a wearable" << llendl;
 		return WT_INVALID;
 	}
-	return EWearableType(getFlags() & LLInventoryItem::II_FLAGS_WEARABLES_MASK);
+	return EWearableType(getFlags() & LLInventoryItemFlags::II_FLAGS_WEARABLES_MASK);
 }
 
 

@@ -735,6 +735,14 @@ You need an account to enter [SECOND_LIFE]. Would you like to create one now?
 
   <notification
    icon="alertmodal.tga"
+   name="InvalidCredentialFormat"
+   type="alertmodal">
+You need to enter both the First and Last name of your avatar into the Username field, then login again.
+  </notification>
+  
+
+  <notification
+   icon="alertmodal.tga"
    name="AddClassified"
    type="alertmodal">
 Classified ads appear in the &apos;Classified&apos; section of the Search directory and on [http://secondlife.com/community/classifieds secondlife.com] for one week.
@@ -800,7 +808,7 @@ Insufficient funds to create classified.
    icon="alertmodal.tga"
    name="DeleteAvatarPick"
    type="alertmodal">
-Delete pick [PICK]?
+Delete pick &lt;nolink&gt;[PICK]&lt;/nolink&gt;?
     <usetemplate
      name="okcancelbuttons"
      notext="Cancel"
@@ -3443,6 +3451,13 @@ You can click &apos;Change Preference&apos; to raise your maturity Rating prefer
   </notification>
 
   <notification
+   icon="notifytip.tga"
+   name="PreferredMaturityChanged"
+   type="notifytip">
+Your maturity rating preference is now [RATING].
+  </notification>
+
+  <notification
    icon="alertmodal.tga"
    name="LandClaimAccessBlocked"
    type="alertmodal">
@@ -4439,6 +4454,18 @@ Uploading in-world and web site snapshots...
   </notification>
 
   <notification
+   icon="alertmodal.tga"
+   name="UploadConfirmation"
+   type="alertmodal">
+Uploading costs L$[AMOUNT].
+Do you wish to proceed?
+    <usetemplate
+     name="okcancelbuttons"
+     notext="Cancel"
+     yestext="Upload"/>
+  </notification>
+
+  <notification
    icon="notify.tga"
    name="UploadPayment"
    type="notify">
@@ -5110,6 +5137,7 @@ No valid parcel could be found.
   <notification
    icon="notify.tga"
    name="ObjectGiveItem"
+   persist="true"
    type="offer">
 An object named [OBJECTFROMNAME] owned by [NAME_SLURL] has given you this [OBJECTTYPE]:
 [ITEM_SLURL]
@@ -5154,6 +5182,7 @@ An object named [OBJECTFROMNAME] owned by (an unknown Resident) has given you th
   <notification
    icon="notify.tga"
    name="UserGiveItem"
+   persist="true"
    type="offer">
 [NAME_SLURL] has given you this [OBJECTTYPE]:
 [ITEM_SLURL]
@@ -5206,10 +5235,11 @@ An object named [OBJECTFROMNAME] owned by (an unknown Resident) has given you th
   <notification
    icon="notify.tga"
    name="TeleportOffered"
+   persist="true"
    type="offer">
 [NAME_SLURL] has offered to teleport you to their location:
 
-[MESSAGE]
+[MESSAGE], ([MATURITY])
     <form name="form">
       <button
        index="0"
@@ -5251,6 +5281,7 @@ An object named [OBJECTFROMNAME] owned by (an unknown Resident) has given you th
   <notification
    icon="notify.tga"
    name="OfferFriendship"
+   persist="true"
    type="offer">
 [NAME_SLURL] is offering friendship.
 
@@ -6005,6 +6036,19 @@ Selected button can not be shown right now.
 The button will be shown when there is enough space for it.
   </notification>
 
+  <notification
+   icon="notifytip.tga"
+   name="ShareNotification"
+   type="notifytip">
+Drag items from inventory onto a person in the resident picker
+  </notification>
+
+  <notification
+   icon="notifytip.tga"
+   name="AvatarRezNotification"
+   type="notifytip">
+Avatar '[NAME]' rezzed in [TIME] seconds.
+  </notification>
 
   <global name="UnsupportedCPU">
 - Your CPU speed does not meet the minimum requirements.

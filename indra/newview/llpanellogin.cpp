@@ -221,16 +221,12 @@ LLPanelLogin::LLPanelLogin(const LLRect &rect,
 	LLLineEditor* edit = getChild<LLLineEditor>("password_edit");
 	if (edit) edit->setDrawAsterixes(TRUE);
 
-	LLComboBox* combo = getChild<LLComboBox>("start_location_combo");
-
 	if(LLStartUp::getStartSLURL().getType() != LLSLURL::LOCATION)
 	{
 		LLSLURL slurl(gSavedSettings.getString("LoginLocation"));
 		LLStartUp::setStartSLURL(slurl);
 	}
 	updateLocationCombo(false);
-	
-	combo->setCommitCallback(onSelectLocation, NULL);
 
 	LLComboBox* server_choice_combo = sInstance->getChild<LLComboBox>("server_combo");
 	server_choice_combo->setCommitCallback(onSelectServer, NULL);
@@ -575,7 +571,7 @@ void LLPanelLogin::setFields(LLPointer<LLCredential> credential,
 
 // static
 void LLPanelLogin::getFields(LLPointer<LLCredential>& credential,
-							 BOOL remember)
+							 BOOL& remember)
 {
 	if (!sInstance)
 	{
@@ -607,34 +603,41 @@ void LLPanelLogin::getFields(LLPointer<LLCredential>& credential,
 	{
 		LL_INFOS2("Credentials", "Authentication") << "account: " << username << LL_ENDL;
 		// single username, so this is a 'clear' identifier
-		identifier["type"] = "account";
+		identifier["type"] = CRED_IDENTIFIER_TYPE_ACCOUNT;
 		identifier["account_name"] = username;
 		
 		if (LLPanelLogin::sInstance->mPasswordModified)
 		{
 			authenticator = LLSD::emptyMap();
 			// password is plaintext
-			authenticator["type"] = "clear";
+			authenticator["type"] = CRED_AUTHENTICATOR_TYPE_CLEAR;
 			authenticator["secret"] = password;
 		}
 	}
-	else if (separator_index == username.find_last_of(' '))
+	else
 	{
-		LL_INFOS2("Credentials", "Authentication") << "agent: " << username << LL_ENDL;
-		// traditional firstname / lastname
-		identifier["type"] = "agent";
-		identifier["first_name"] = username.substr(0, separator_index);
-		identifier["last_name"] = username.substr(separator_index+1, username.npos);
+		std::string first = username.substr(0, separator_index);
+		std::string last = username.substr(separator_index, username.npos);
+		LLStringUtil::trim(last);
 		
-		if (LLPanelLogin::sInstance->mPasswordModified)
+		if (last.find_first_of(' ') == last.npos)
 		{
-			authenticator = LLSD::emptyMap();
-			authenticator["type"] = "hash";
-			authenticator["algorithm"] = "md5";
-			LLMD5 pass((const U8 *)password.c_str());
-			char md5pass[33];               /* Flawfinder: ignore */
-			pass.hex_digest(md5pass);
-			authenticator["secret"] = md5pass;
+			LL_INFOS2("Credentials", "Authentication") << "agent: " << username << LL_ENDL;
+			// traditional firstname / lastname
+			identifier["type"] = CRED_IDENTIFIER_TYPE_AGENT;
+			identifier["first_name"] = first;
+			identifier["last_name"] = last;
+		
+			if (LLPanelLogin::sInstance->mPasswordModified)
+			{
+				authenticator = LLSD::emptyMap();
+				authenticator["type"] = CRED_AUTHENTICATOR_TYPE_HASH;
+				authenticator["algorithm"] = "md5";
+				LLMD5 pass((const U8 *)password.c_str());
+				char md5pass[33];               /* Flawfinder: ignore */
+				pass.hex_digest(md5pass);
+				authenticator["secret"] = md5pass;
+			}
 		}
 	}
 	credential = gSecAPIHandler->createCredential(LLGridManager::getInstance()->getGrid(), identifier, authenticator);
@@ -692,7 +695,6 @@ void LLPanelLogin::updateLocationCombo( bool force_visible )
 		return;
 	}	
 	
-	llinfos << "updatelocationcombo " << LLStartUp::getStartSLURL().asString() << llendl;
 	LLComboBox* combo = sInstance->getChild<LLComboBox>("start_location_combo");
 	
 	switch(LLStartUp::getStartSLURL().getType())
@@ -720,11 +722,13 @@ void LLPanelLogin::updateLocationCombo( bool force_visible )
 	sInstance->childSetVisible("start_location_combo", show_start);
 	sInstance->childSetVisible("start_location_text", show_start);
 	
-	sInstance->childSetVisible("server_combo", TRUE);
+	BOOL show_server = gSavedSettings.getBOOL("ForceShowGrid");
+	sInstance->childSetVisible("server_combo_text", show_server);	
+	sInstance->childSetVisible("server_combo", show_server);
 }
 
 // static
-void LLPanelLogin::onSelectLocation(LLUICtrl*, void*)
+void LLPanelLogin::updateStartSLURL()
 {
 	if (!sInstance) return;
 	
@@ -733,30 +737,11 @@ void LLPanelLogin::onSelectLocation(LLUICtrl*, void*)
 	
 	switch (index)
 	{
-		case 2:
+		case 0:
 		{
-			LLSLURL slurl = LLSLURL(combo->getSelectedValue());
-			if((slurl.getType() == LLSLURL::LOCATION) &&
-			   (slurl.getGrid() != LLStartUp::getStartSLURL().getGrid()))
-			{
-				
-
-				// we've changed the grid, so update the grid selection
-				try 
-				{
-					LLStartUp::setStartSLURL(slurl);
-				}
-				catch (LLInvalidGridName ex)
-				{
-					LLSD args;	
-					args["GRID"] = slurl.getGrid();
-					LLNotificationsUtil::add("InvalidGrid", args);
-					return; 
-				}	
-				loadLoginPage();
-			}
+			LLStartUp::setStartSLURL(LLSLURL(LLSLURL::SIM_LOCATION_LAST));
 			break;
-		}
+		}			
 		case 1:
 		{
 			LLStartUp::setStartSLURL(LLSLURL(LLSLURL::SIM_LOCATION_HOME));
@@ -764,34 +749,17 @@ void LLPanelLogin::onSelectLocation(LLUICtrl*, void*)
 		}
 		default:
 		{
-			LLStartUp::setStartSLURL(LLSLURL(LLSLURL::SIM_LOCATION_LAST));
+			LLSLURL slurl = LLSLURL(combo->getValue().asString());
+			if(slurl.getType() == LLSLURL::LOCATION)
+			{
+				// we've changed the grid, so update the grid selection
+				LLStartUp::setStartSLURL(slurl);
+			}
 			break;
-		}
+		}			
 	}
 }
 
-
-// static
-void LLPanelLogin::getLocation(LLSLURL& slurl)
-{
-	LLSLURL result;
-	if (!sInstance)
-	{
-		llwarns << "Attempted getLocation with no login view shown" << llendl;
-	}
-	
-	LLComboBox* combo = sInstance->getChild<LLComboBox>("start_location_combo");
-	
-	switch(combo->getCurrentIndex())
-	{
-		case 0:
-			slurl = LLSLURL(LLSLURL::SIM_LOCATION_HOME);
-		case 1:
-			slurl =  LLSLURL(LLSLURL::SIM_LOCATION_LAST);
-		default:
-			slurl = LLSLURL(combo->getValue().asString());
-	}
-}
 
 void LLPanelLogin::setLocation(const LLSLURL& slurl)
 {
@@ -1015,16 +983,44 @@ void LLPanelLogin::onClickConnect(void *)
 			LLNotificationsUtil::add("InvalidGrid", args);
 			return;
 		}
-		
+		updateStartSLURL();
 		std::string username = sInstance->childGetText("username_edit");
+
+		
 		if(username.empty())
 		{
+			// user must type in something into the username field
 			LLNotificationsUtil::add("MustHaveAccountToLogIn");
 		}
 		else
 		{
-			// has both first and last name typed
-			sInstance->mCallback(0, sInstance->mCallbackData);
+			LLPointer<LLCredential> cred;
+			BOOL remember;
+			getFields(cred, remember);
+			std::string identifier_type;
+			cred->identifierType(identifier_type);
+			LLSD allowed_credential_types;
+			LLGridManager::getInstance()->getLoginIdentifierTypes(allowed_credential_types);
+			
+			// check the typed in credential type against the credential types expected by the server.
+			for(LLSD::array_iterator i = allowed_credential_types.beginArray();
+				i != allowed_credential_types.endArray();
+				i++)
+			{
+				
+				if(i->asString() == identifier_type)
+				{
+					// yay correct credential type
+					sInstance->mCallback(0, sInstance->mCallbackData);
+					return;
+				}
+			}
+			
+			// Right now, maingrid is the only thing that is picky about
+			// credential format, as it doesn't yet allow account (single username)
+			// format creds.  - Rox.  James, we wanna fix the message when we change
+			// this.
+			LLNotificationsUtil::add("InvalidCredentialFormat");			
 		}
 	}
 }
@@ -1086,7 +1082,7 @@ void LLPanelLogin::onPassKey(LLLineEditor* caller, void* user_data)
 	This->mPasswordModified = TRUE;
 	if (gKeyboard->getKeyDown(KEY_CAPSLOCK) && sCapslockDidNotification == FALSE)
 	{
-		LLNotificationsUtil::add("CapsKeyOn");
+// *TODO: use another way to notify user about enabled caps lock, see EXT-6858
 		sCapslockDidNotification = TRUE;
 	}
 }
@@ -1125,11 +1121,9 @@ void LLPanelLogin::updateServerCombo()
 	// We add all of the possible values, sorted, and then add a bar and the current value at the top
 	LLComboBox* server_choice_combo = sInstance->getChild<LLComboBox>("server_combo");	
 	server_choice_combo->removeall();
-#ifdef LL_RELEASE_FOR_DOWNLOAD
-	std::map<std::string, std::string> known_grids = LLGridManager::getInstance()->getKnownGrids(TRUE);
-#else
-	std::map<std::string, std::string> known_grids = LLGridManager::getInstance()->getKnownGrids(FALSE);	
-#endif
+
+	std::map<std::string, std::string> known_grids = LLGridManager::getInstance()->getKnownGrids(!gSavedSettings.getBOOL("ShowBetaGrids"));
+
 	for (std::map<std::string, std::string>::iterator grid_choice = known_grids.begin();
 		 grid_choice != known_grids.end();
 		 grid_choice++)

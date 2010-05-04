@@ -47,7 +47,7 @@
 class LLInitialWearablesFetch : public LLInventoryFetchDescendentsObserver
 {
 public:
-	LLInitialWearablesFetch();
+	LLInitialWearablesFetch(const LLUUID& cof_id);
 	~LLInitialWearablesFetch();
 	virtual void done();
 
@@ -92,7 +92,7 @@ public:
 		LOFS_CONTENTS
 	};
 
-	LLLibraryOutfitsFetch();
+	LLLibraryOutfitsFetch(const LLUUID& my_outfits_id);
 	~LLLibraryOutfitsFetch();
 
 	virtual void done();
@@ -100,11 +100,11 @@ public:
 	LLUUID mMyOutfitsID;
 	void importedFolderFetch();
 protected:
-	void folderDone(void);
-	void outfitsDone(void);
-	void libraryDone(void);
-	void importedFolderDone(void);
-	void contentsDone(void);
+	void folderDone();
+	void outfitsDone();
+	void libraryDone();
+	void importedFolderDone();
+	void contentsDone();
 	enum ELibraryOutfitFetchStep mCurrFetchStep;
 	uuid_vec_t mLibraryClothingFolders;
 	uuid_vec_t mImportedClothingFolders;

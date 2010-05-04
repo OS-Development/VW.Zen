@@ -4153,7 +4153,7 @@ LLVivoxVoiceClient::participantState *LLVivoxVoiceClient::sessionState::addParti
 			else
 			{
 				// Create a UUID by hashing the URI, but do NOT set mAvatarIDValid.
-				// This tells both code in LLVivoxVoiceClient and code in llfloateractivespeakers.cpp that the ID will not be in the name cache.
+				// This tells code in LLVivoxVoiceClient that the ID will not be in the name cache.
 				setUUIDFromStringHash(result->mAvatarID, uri);
 			}
 		}
@@ -4593,7 +4593,11 @@ void LLVivoxVoiceClient::endUserIMSession(const LLUUID &uuid)
 		LL_DEBUGS("Voice") << "Session not found for participant ID " << uuid << LL_ENDL;
 	}
 }
-
+bool LLVivoxVoiceClient::isValidChannel(std::string &sessionHandle)
+{
+  return(findSession(sessionHandle) != NULL);
+	
+}
 bool LLVivoxVoiceClient::answerInvite(std::string &sessionHandle)
 {
 	// this is only ever used to answer incoming p2p call invites.
@@ -4804,7 +4808,7 @@ std::string LLVivoxVoiceClient::nameFromID(const LLUUID &uuid)
 		LLStringUtil::replaceChar(result, '_', ' ');
 		return result;
 	}
-	// Prepending this apparently prevents conflicts with reserved names inside the vivox and diamondware code.
+	// Prepending this apparently prevents conflicts with reserved names inside the vivox code.
 	result = "x";
 	
 	// Base64 encode and replace the pieces of base64 that are less compatible 
@@ -6205,12 +6209,10 @@ void LLVivoxVoiceClient::avatarNameResolved(const LLUUID &id, const std::string 
 	{
 		mFriendsListDirty = true;
 	}
-	
 	// Iterate over all sessions.
 	for(sessionIterator iter = sessionsBegin(); iter != sessionsEnd(); iter++)
 	{
 		sessionState *session = *iter;
-
 		// Check for this user as a participant in this session
 		participantState *participant = session->findParticipantByID(id);
 		if(participant)
@@ -6237,13 +6239,14 @@ void LLVivoxVoiceClient::avatarNameResolved(const LLUUID &id, const std::string 
 				session->mVoiceInvitePending = false;
 
 				gIMMgr->inviteToSession(
-										LLIMMgr::computeSessionID(IM_SESSION_P2P_INVITE, session->mCallerID),
+										session->mIMSessionID,
 										session->mName,
 										session->mCallerID, 
 										session->mName, 
 										IM_SESSION_P2P_INVITE, 
 										LLIMMgr::INVITATION_TYPE_VOICE,
-										session->mHandle);
+										session->mHandle,
+										session->mSIPURI);
 			}
 			
 		}

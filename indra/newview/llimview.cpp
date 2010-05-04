@@ -297,7 +297,7 @@ void LLIMModel::LLIMSession::onVoiceChannelStateChanged(const LLVoiceChannel::ES
 				LLIMModel::getInstance()->addMessage(mSessionID, SYSTEM_FROM, LLUUID::null, message);
 				break;
 			case LLVoiceChannel::STATE_CONNECTED :
-				message = other_avatar_name + " " + joined_call;
+				message = LLTrans::getString("answered_call");
 				LLIMModel::getInstance()->addMessage(mSessionID, SYSTEM_FROM, LLUUID::null, message);
 			default:
 				break;
@@ -1459,7 +1459,13 @@ void LLCallDialogManager::onVoiceChannelChanged(const LLUUID &session_id)
 	}
 
 	sSession = session;
-	sSession->mVoiceChannel->setStateChangedCallback(boost::bind(LLCallDialogManager::onVoiceChannelStateChanged, _1, _2, _3, _4));
+
+	static boost::signals2::connection prev_channel_state_changed_connection;
+	// disconnect previously connected callback to avoid have invalid sSession in onVoiceChannelStateChanged()
+	prev_channel_state_changed_connection.disconnect();
+	prev_channel_state_changed_connection =
+		sSession->mVoiceChannel->setStateChangedCallback(boost::bind(LLCallDialogManager::onVoiceChannelStateChanged, _1, _2, _3, _4));
+
 	if(sCurrentSessionlName != session->mName)
 	{
 		sPreviousSessionlName = sCurrentSessionlName;
@@ -1713,7 +1719,6 @@ void LLOutgoingCallDialog::show(const LLSD& key)
 			channel_name = LLTextUtil::formatPhoneNumber(channel_name);
 		}
 		childSetTextArg("nearby", "[VOICE_CHANNEL_NAME]", channel_name);
-		childSetTextArg("nearby_P2P_by_other", "[VOICE_CHANNEL_NAME]", mPayload["disconnected_channel_name"].asString());
 
 		// skipping "You will now be reconnected to nearby" in notification when call is ended by disabling voice,
 		// so no reconnection to nearby chat happens (EXT-4397)
@@ -1842,12 +1847,8 @@ LLCallDialog(payload)
 
 void LLIncomingCallDialog::onLifetimeExpired()
 {
-	// check whether a call is valid or not
-	LLVoiceChannel* channelp = LLVoiceChannel::getChannelByID(mPayload["session_id"].asUUID());
-	if(channelp &&
-	   (channelp->getState() != LLVoiceChannel::STATE_NO_CHANNEL_INFO) &&
-	   (channelp->getState() != LLVoiceChannel::STATE_ERROR) &&
-	   (channelp->getState() != LLVoiceChannel::STATE_HUNG_UP))
+	std::string session_handle = mPayload["session_handle"].asString();
+	if (LLVoiceClient::getInstance()->isValidChannel(session_handle))
 	{
 		// restart notification's timer if call is still valid
 		mLifetimeTimer.start();
@@ -2740,6 +2741,12 @@ bool LLIMMgr::endCall(const LLUUID& session_id)
 	if (!voice_channel) return false;
 
 	voice_channel->deactivate();
+	LLIMModel::LLIMSession* im_session = LLIMModel::getInstance()->findIMSession(session_id);
+	if (im_session)
+	{
+		// need to update speakers' state
+		im_session->mSpeakers->update(FALSE);
+	}
 	return true;
 }
 
@@ -3079,7 +3086,7 @@ public:
 				return;
 			}
 			
-			if(!LLVoiceClient::getInstance()->voiceEnabled())
+			if(!LLVoiceClient::getInstance()->voiceEnabled() || !LLVoiceClient::getInstance()->isVoiceWorking())
 			{
 				// Don't display voice invites unless the user has voice enabled.
 				return;

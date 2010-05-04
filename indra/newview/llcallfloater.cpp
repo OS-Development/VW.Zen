@@ -131,9 +131,7 @@ LLCallFloater::~LLCallFloater()
 	mAvatarListRefreshConnection.disconnect();
 	mVoiceChannelStateChangeConnection.disconnect();
 
-	// Don't use LLVoiceClient::getInstance() here 
-	// singleton MAY have already been destroyed.
-	if(LLVoiceClient::getInstance())
+	if(LLVoiceClient::instanceExists())
 	{
 		LLVoiceClient::getInstance()->removeObserver(this);
 	}
@@ -229,7 +227,7 @@ void LLCallFloater::leaveCall()
 	LLVoiceChannel* voice_channel = LLVoiceChannel::getCurrentVoiceChannel();
 	if (voice_channel)
 	{
-		voice_channel->deactivate();
+		gIMMgr->endCall(voice_channel->getSessionID());
 	}
 }
 
@@ -334,7 +332,7 @@ void LLCallFloater::refreshParticipantList()
 
 	if (!non_avatar_caller)
 	{
-		mParticipants = new LLParticipantList(mSpeakerManager, mAvatarList, true, mVoiceType != VC_GROUP_CHAT && mVoiceType != VC_AD_HOC_CHAT);
+		mParticipants = new LLParticipantList(mSpeakerManager, mAvatarList, true, mVoiceType != VC_GROUP_CHAT && mVoiceType != VC_AD_HOC_CHAT, false);
 		mParticipants->setValidateSpeakerCallback(boost::bind(&LLCallFloater::validateSpeaker, this, _1));
 		mParticipants->setSortOrder(LLParticipantList::E_SORT_BY_RECENT_SPEAKERS);
 
@@ -600,10 +598,13 @@ void LLCallFloater::updateNotInVoiceParticipantState(LLAvatarListItem* item)
 			}
 		}
 		break;
-	case STATE_INVITED:
 	case STATE_LEFT:
 		// nothing to do. These states should not be changed.
 		break;
+	case STATE_INVITED:
+		// If avatar was invited into group chat and went offline it is still exists in mSpeakerStateMap
+		// If it goes online it will be rendered as JOINED via LAvatarListItem.
+		// Lets update its visual representation. See EXT-6660
 	case STATE_UNKNOWN:
 		// If an avatarID is not found in a speakers list from VoiceClient and
 		// a panel with this ID has an UNKNOWN status this means that this person
@@ -662,8 +663,8 @@ void LLCallFloater::setVoiceRemoveTimer(const LLUUID& voice_speaker_id)
 
 bool LLCallFloater::removeVoiceLeftParticipant(const LLUUID& voice_speaker_id)
 {
-	LLAvatarList::uuid_vector_t& speaker_uuids = mAvatarList->getIDs();
-	LLAvatarList::uuid_vector_t::iterator pos = std::find(speaker_uuids.begin(), speaker_uuids.end(), voice_speaker_id);
+	uuid_vec_t& speaker_uuids = mAvatarList->getIDs();
+	uuid_vec_t::iterator pos = std::find(speaker_uuids.begin(), speaker_uuids.end(), voice_speaker_id);
 	if(pos != speaker_uuids.end())
 	{
 		speaker_uuids.erase(pos);

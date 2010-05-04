@@ -1,6 +1,6 @@
 /**
  * @file llvoavatar.h
- * @brief Declaration of LLVOAvatar class which is a derivation fo
+ * @brief Declaration of LLVOAvatar class which is a derivation of
  * LLViewerObject
  *
  * $LicenseInfo:firstyear=2001&license=viewergpl$
@@ -247,7 +247,8 @@ public:
 public:
 	BOOL			isFullyLoaded() const;
 protected:
-	virtual BOOL	updateIsFullyLoaded();
+	virtual BOOL	getIsCloud();
+	BOOL			updateIsFullyLoaded();
 	BOOL			processFullyLoadedChange(bool loading);
 	void			updateRuthTimer(bool loading);
 	F32 			calcMorphAmount();
@@ -258,6 +259,7 @@ private:
 	S32				mFullyLoadedFrameCounter;
 	LLFrameTimer	mFullyLoadedTimer;
 	LLFrameTimer	mRuthTimer;
+	LLFrameTimer	mRuthDebugTimer; // For tracking how long it takes for av to rez
 	
 /**                    State
  **                                                                            **
@@ -828,6 +830,7 @@ private:
 	BOOL	  		mNameBusy;
 	BOOL	  		mNameMute;
 	BOOL      		mNameAppearance;
+	BOOL      		mNameCloud;
 	BOOL      		mRenderGroupTitles;
 
 	//--------------------------------------------------------------------

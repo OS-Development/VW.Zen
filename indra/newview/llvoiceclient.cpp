@@ -33,7 +33,6 @@
 #include "llvoiceclient.h"
 #include "llviewercontrol.h"
 #include "llviewerwindow.h"
-#include "llvoicedw.h"
 #include "llvoicevivox.h"
 #include "llviewernetwork.h"
 #include "llhttpnode.h"
@@ -105,11 +104,7 @@ void LLVoiceClient::userAuthorized(const std::string& user_id, const LLUUID &age
 	// with a table lookup of sorts.
 	std::string voice_server = gSavedSettings.getString("VoiceServerType");
 	LL_DEBUGS("Voice") << "voice server type " << voice_server << LL_ENDL;
-	if(voice_server == "diamondware")
-	{
-		mVoiceModule = (LLVoiceModuleInterface *)LLDiamondwareVoiceClient::getInstance();
-	}
-	else if(voice_server == "vivox")
+	if(voice_server == "vivox")
 	{
 		mVoiceModule = (LLVoiceModuleInterface *)LLVivoxVoiceClient::getInstance();
 	}
@@ -387,6 +382,18 @@ std::string LLVoiceClient::getCurrentChannel()
 void LLVoiceClient::callUser(const LLUUID &uuid)
 {
 	if (mVoiceModule) mVoiceModule->callUser(uuid);
+}
+
+bool LLVoiceClient::isValidChannel(std::string &session_handle)
+{
+	if (mVoiceModule) 
+	{
+		return mVoiceModule->isValidChannel(session_handle);
+	}
+	else
+	{
+		return false;
+	}
 }
 
 bool LLVoiceClient::answerInvite(std::string &channelHandle)

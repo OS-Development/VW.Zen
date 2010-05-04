@@ -512,15 +512,19 @@ BOOL LLPanelPeople::postBuild()
 
 	mNearbyList = getChild<LLPanel>(NEARBY_TAB_NAME)->getChild<LLAvatarList>("avatar_list");
 	mNearbyList->setNoItemsCommentText(getString("no_one_near"));
+	mNearbyList->setNoItemsMsg(getString("no_one_near"));
+	mNearbyList->setNoFilteredItemsMsg(getString("no_one_filtered_near"));
 	mNearbyList->setShowIcons("NearbyListShowIcons");
 
 	mRecentList = getChild<LLPanel>(RECENT_TAB_NAME)->getChild<LLAvatarList>("avatar_list");
-	mRecentList->setNoItemsCommentText(getString("no_people"));
+	mRecentList->setNoItemsCommentText(getString("no_recent_people"));
+	mRecentList->setNoItemsMsg(getString("no_recent_people"));
+	mRecentList->setNoFilteredItemsMsg(getString("no_filtered_recent_people"));
 	mRecentList->setShowIcons("RecentListShowIcons");
 
 	mGroupList = getChild<LLGroupList>("group_list");
-	mGroupList->setNoGroupsMsg(getString("no_groups_msg"));
-	mGroupList->setNoFilteredGroupsMsg(getString("no_filtered_groups_msg"));
+	mGroupList->setNoItemsMsg(getString("no_groups_msg"));
+	mGroupList->setNoFilteredItemsMsg(getString("no_filtered_groups_msg"));
 
 	mNearbyList->setContextMenu(&LLPanelPeopleMenus::gNearbyMenu);
 	mRecentList->setContextMenu(&LLPanelPeopleMenus::gNearbyMenu);
@@ -641,6 +645,23 @@ void LLPanelPeople::onChange(EStatusType status, const std::string &channelURI, 
 	updateButtons();
 }
 
+void LLPanelPeople::updateFriendListHelpText()
+{
+	// show special help text for just created account to help finding friends. EXT-4836
+	static LLTextBox* no_friends_text = getChild<LLTextBox>("no_friends_help_text");
+
+	// Seems sometimes all_friends can be empty because of issue with Inventory loading (clear cache, slow connection...)
+	// So, lets check all lists to avoid overlapping the text with online list. See EXT-6448.
+	bool any_friend_exists = mAllFriendList->filterHasMatches() || mOnlineFriendList->filterHasMatches();
+	no_friends_text->setVisible(!any_friend_exists);
+	if (no_friends_text->getVisible())
+	{
+		//update help text for empty lists
+		std::string message_name = mFilterSubString.empty() ? "no_friends_msg" : "no_filtered_friends_msg";
+		no_friends_text->setText(getString(message_name));
+	}
+}
+
 void LLPanelPeople::updateFriendList()
 {
 	if (!mOnlineFriendList || !mAllFriendList)
@@ -652,8 +673,8 @@ void LLPanelPeople::updateFriendList()
 	av_tracker.copyBuddyList(all_buddies);
 
 	// save them to the online and all friends vectors
-	LLAvatarList::uuid_vector_t& online_friendsp = mOnlineFriendList->getIDs();
-	LLAvatarList::uuid_vector_t& all_friendsp = mAllFriendList->getIDs();
+	uuid_vec_t& online_friendsp = mOnlineFriendList->getIDs();
+	uuid_vec_t& all_friendsp = mAllFriendList->getIDs();
 
 	all_friendsp.clear();
 	online_friendsp.clear();
@@ -679,14 +700,6 @@ void LLPanelPeople::updateFriendList()
 		if (av_tracker.isBuddyOnline(buddy_id))
 			online_friendsp.push_back(buddy_id);
 	}
-
-	// show special help text for just created account to help found friends. EXT-4836
-	static LLTextBox* no_friends_text = getChild<LLTextBox>("no_friends_msg");
-
-	// Seems sometimes all_friends can be empty because of issue with Inventory loading (clear cache, slow connection...)
-	// So, lets check all lists to avoid overlapping the text with online list. See EXT-6448.
-	bool any_friend_exists = (all_friendsp.size() > 0) || (online_friendsp.size() > 0);
-	no_friends_text->setVisible(!any_friend_exists);
 
 	/*
 	 * Avatarlists  will be hidden by showFriendsAccordionsIfNeeded(), if they do not have items.
@@ -746,7 +759,7 @@ void LLPanelPeople::buttonSetAction(const std::string& btn_name, const commit_si
 
 bool LLPanelPeople::isFriendOnline(const LLUUID& id)
 {
-	LLAvatarList::uuid_vector_t ids = mOnlineFriendList->getIDs();
+	uuid_vec_t ids = mOnlineFriendList->getIDs();
 	return std::find(ids.begin(), ids.end(), id) != ids.end();
 }
 
@@ -1432,6 +1445,9 @@ void LLPanelPeople::showFriendsAccordionsIfNeeded()
 		// Rearrange accordions
 		LLAccordionCtrl* accordion = getChild<LLAccordionCtrl>("friends_accordion");
 		accordion->arrange();
+
+		// keep help text in a synchronization with accordions visibility.
+		updateFriendListHelpText();
 	}
 }
 

@@ -34,6 +34,7 @@
 #include "llpanelmaininventory.h"
 
 #include "llagent.h"
+#include "llavataractions.h"
 #include "lldndbutton.h"
 #include "lleconomy.h"
 #include "llfilepicker.h"
@@ -116,6 +117,7 @@ LLPanelMainInventory::LLPanelMainInventory()
 	mCommitCallbackRegistrar.add("Inventory.ShowFilters", boost::bind(&LLPanelMainInventory::toggleFindOptions, this));
 	mCommitCallbackRegistrar.add("Inventory.ResetFilters", boost::bind(&LLPanelMainInventory::resetFilters, this));
 	mCommitCallbackRegistrar.add("Inventory.SetSortBy", boost::bind(&LLPanelMainInventory::setSortBy, this, _2));
+	mCommitCallbackRegistrar.add("Inventory.Share",  boost::bind(&LLAvatarActions::shareWithAvatars));
 
 	// Controls
 	// *TODO: Just use persistant settings for each of these
@@ -1044,7 +1046,7 @@ void LLPanelMainInventory::onCustomAction(const LLSD& userdata)
 		{
 			return;
 		}
-		current_item->getListener()->performAction(getActivePanel()->getRootFolder(), getActivePanel()->getModel(), "goto");
+		current_item->getListener()->performAction(getActivePanel()->getModel(), "goto");
 	}
 
 	if (command_name == "find_links")
@@ -1089,19 +1091,19 @@ BOOL LLPanelMainInventory::isActionEnabled(const LLSD& userdata)
 	if (command_name == "delete")
 	{
 		BOOL can_delete = FALSE;
-		LLFolderView *folder = getActivePanel()->getRootFolder();
-		if (folder)
+		LLFolderView* root = getActivePanel()->getRootFolder();
+		if (root)
 		{
 			can_delete = TRUE;
 			std::set<LLUUID> selection_set;
-			folder->getSelectionList(selection_set);
+			root->getSelectionList(selection_set);
 			if (selection_set.empty()) return FALSE;
 			for (std::set<LLUUID>::iterator iter = selection_set.begin();
 				 iter != selection_set.end();
 				 ++iter)
 			{
 				const LLUUID &item_id = (*iter);
-				LLFolderViewItem *item = folder->getItemByID(item_id);
+				LLFolderViewItem *item = root->getItemByID(item_id);
 				const LLFolderViewEventListener *listener = item->getListener();
 				llassert(listener);
 				if (!listener) return FALSE;

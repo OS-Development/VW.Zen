@@ -397,15 +397,6 @@ class WindowsManifest(ViewerManifest):
 
         self.disable_manifest_check()
 
-        # Diamondware Runtimes
-        if self.prefix(src="diamondware-runtime/i686-win32", dst=""):
-            self.path("SLVoice_dwTVC.exe")
-            self.path("libcurl.dll")
-            self.path("libeay32.dll")
-            self.path("ssleay32.dll")
-            self.path("zlib1.dll")
-            self.end_prefix()
-
         # pull in the crash logger and updater from other projects
         # tag:"crash-logger" here as a cue to the exporter
         self.path(src='../win_crash_logger/%s/windows-crash-logger.exe' % self.args['configuration'],
@@ -615,9 +606,6 @@ class DarwinManifest(ViewerManifest):
                 self.path("vivox-runtime/universal-darwin/libvivoxsdk.dylib", "libvivoxsdk.dylib")
                 self.path("vivox-runtime/universal-darwin/libvivoxplatform.dylib", "libvivoxplatform.dylib")
                 self.path("vivox-runtime/universal-darwin/SLVoice", "SLVoice")
-                # DiamondWare runtime                                           
-                self.path("diamondware-runtime/universal-darwin/SLVoice_dwTVC","SLVoice_dwTVC")
-                self.path("diamondware-runtime/universal-darwin/libfmodex.dylib", "libfmodex.dylib")
 
                 libdir = "../../libraries/universal-darwin/lib_release"
                 dylibs = {}
@@ -651,10 +639,14 @@ class DarwinManifest(ViewerManifest):
                 self.path("../mac_crash_logger/" + self.args['configuration'] + "/mac-crash-logger.app", "mac-crash-logger.app")
                 self.path("../mac_updater/" + self.args['configuration'] + "/mac-updater.app", "mac-updater.app")
 
+                # plugin launcher
+                self.path("../llplugin/slplugin/" + self.args['configuration'] + "/SLPlugin.app", "SLPlugin.app")
+
                 # our apps dependencies on shared libs
                 if dylibs["llcommon"]:
                     mac_crash_logger_res_path = self.dst_path_of("mac-crash-logger.app/Contents/Resources")
                     mac_updater_res_path = self.dst_path_of("mac-updater.app/Contents/Resources")
+                    slplugin_res_path = self.dst_path_of("SLPlugin.app/Contents/Resources")
                     for libfile in ("libllcommon.dylib",
                                     "libapr-1.0.3.7.dylib",
                                     "libaprutil-1.0.3.8.dylib",
@@ -668,9 +660,10 @@ class DarwinManifest(ViewerManifest):
                                          {'target': target_lib,
                                           'link' : os.path.join(mac_updater_res_path, libfile)}
                                          )
-
-                # plugin launcher
-                self.path("../llplugin/slplugin/" + self.args['configuration'] + "/SLPlugin", "SLPlugin")
+                        self.run_command("ln -sf %(target)r %(link)r" % 
+                                         {'target': target_lib,
+                                          'link' : os.path.join(slplugin_res_path, libfile)}
+                                         )
 
                 # plugins
                 if self.prefix(src="", dst="llplugin"):
@@ -912,11 +905,6 @@ class Linux_i686Manifest(LinuxManifest):
                     print "Skipping libkdu_v42R.so - not found"
                     pass
             self.end_prefix("lib")
-
-            # Diamondware runtimes
-            if self.prefix(src="diamondware-runtime/i686-linux", dst="bin"):
-                    self.path("SLVoice_dwTVC")
-                    self.end_prefix()
 
             # Vivox runtimes
             if self.prefix(src="vivox-runtime/i686-linux", dst="bin"):

@@ -168,6 +168,8 @@ public:
 	void setSnapshotBufferType(LLViewerWindow::ESnapshotType type) { mSnapshotBufferType = type; }
 	void updateSnapshot(BOOL new_snapshot, BOOL new_thumbnail = FALSE, F32 delay = 0.f);
 	LLFloaterPostcard* savePostcard();
+	void confirmSavingTexture(bool set_as_profile_pic = false);
+	bool onSavingTextureConfirmed(const LLSD& notification, const LLSD& response, bool set_as_profile_pic);
 	void saveTexture(bool set_as_profile_pic = false);
 	BOOL saveLocal();
 	void saveWeb(std::string url);
@@ -983,6 +985,26 @@ void profile_pic_upload_callback(const LLUUID& uuid)
 	floater->setAsProfilePic(uuid);
 }
 
+void LLSnapshotLivePreview::confirmSavingTexture(bool set_as_profile_pic)
+{
+	LLSD args;
+	args["AMOUNT"] = LLGlobalEconomy::Singleton::getInstance()->getPriceUpload();
+	LLNotificationsUtil::add("UploadConfirmation", args, LLSD(),
+			boost::bind(&LLSnapshotLivePreview::onSavingTextureConfirmed, this, _1, _2, set_as_profile_pic));
+}
+
+bool LLSnapshotLivePreview::onSavingTextureConfirmed(const LLSD& notification, const LLSD& response, bool set_as_profile_pic)
+{
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
+
+	if (option == 0)
+	{
+		saveTexture(set_as_profile_pic);
+	}
+
+	return false;
+}
+
 
 void LLSnapshotLivePreview::saveTexture(bool set_as_profile_pic)
 {
@@ -1319,7 +1341,27 @@ void LLFloaterSnapshot::Impl::updateLayout(LLFloaterSnapshot* floaterp)
 // static
 void LLFloaterSnapshot::Impl::updateControls(LLFloaterSnapshot* floater)
 {
+	LLSnapshotLivePreview* previewp = getPreviewView(floater);
+	if (NULL == previewp)
+	{
+		return;
+	}
 
+	// Disable buttons until Snapshot is ready. EXT-6534
+	BOOL got_snap = previewp->getSnapshotUpToDate();
+
+	// process Main buttons
+	floater->childSetEnabled("share", got_snap);
+	floater->childSetEnabled("save", got_snap);
+	floater->childSetEnabled("set_profile_pic", got_snap);
+
+	// process Share actions buttons
+	floater->childSetEnabled("share_to_web", got_snap);
+	floater->childSetEnabled("share_to_email", got_snap);
+
+	// process Save actions buttons
+	floater->childSetEnabled("save_to_inventory", got_snap);
+	floater->childSetEnabled("save_to_computer", got_snap);
 }
 
 // static
@@ -1726,7 +1768,7 @@ void LLFloaterSnapshot::Impl::onCommitProfilePic(LLFloaterSnapshot* view)
 	
 	if(previewp)
 	{
-		previewp->saveTexture(true);
+		previewp->confirmSavingTexture(true);
 	}
 }
 
@@ -1748,7 +1790,7 @@ void LLFloaterSnapshot::Impl::onCommitSnapshot(LLFloaterSnapshot* view, LLSnapsh
 		}
 		else if (type == LLSnapshotLivePreview::SNAPSHOT_TEXTURE)
 		{
-			previewp->saveTexture();
+			previewp->confirmSavingTexture();
 		}
 		else if (type == LLSnapshotLivePreview::SNAPSHOT_POSTCARD)
 		{
