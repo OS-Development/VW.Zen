@@ -492,6 +492,7 @@ void LLViewerTexture::init(bool firstinit)
 
 	mTextureState = NO_DELETE ;
 	mDontDiscard = FALSE;
+	mCanResetMaxVirtualSize = true ;
 	mMaxVirtualSize = 0.f;
 	mNeedsGLTexture = FALSE ;
 	mNeedsResetMaxVirtualSize = FALSE ;
@@ -540,6 +541,11 @@ void LLViewerTexture::setBoostLevel(S32 level)
 		if(mBoostLevel != LLViewerTexture::BOOST_NONE)
 		{
 			setNoDelete() ;		
+
+			if(LLViewerTexture::BOOST_AVATAR_BAKED_SELF == mBoostLevel || LLViewerTexture::BOOST_AVATAR_BAKED == mBoostLevel)
+			{
+				mCanResetMaxVirtualSize = false ;
+			}
 		}
 		if(gAuditTexture)
 		{
@@ -613,7 +619,7 @@ void LLViewerTexture::addTextureStats(F32 virtual_size, BOOL needs_gltexture) co
 
 void LLViewerTexture::resetTextureStats()
 {
-	mMaxVirtualSize = 0.0f;
+	mMaxVirtualSize = 0.0f ;
 	mAdditionalDecodePriority = 0.f ;	
 	mNeedsResetMaxVirtualSize = FALSE ;
 }
@@ -1071,6 +1077,7 @@ void LLViewerFetchedTexture::init(bool firstinit)
 	mRequestedDiscardLevel = -1;
 	mRequestedDownloadPriority = 0.f;
 	mFullyLoaded = FALSE;
+	mCanUseHTTP = true ;
 	mDesiredDiscardLevel = MAX_DISCARD_LEVEL + 1;
 	mMinDesiredDiscardLevel = MAX_DISCARD_LEVEL + 1;
 	
@@ -1672,7 +1679,11 @@ void LLViewerFetchedTexture::updateVirtualSize()
 			setAdditionalDecodePriority(facep->getImportanceToCamera()) ;
 		}
 	}
-	mNeedsResetMaxVirtualSize = TRUE ;
+
+	if(mCanResetMaxVirtualSize)
+	{
+		mNeedsResetMaxVirtualSize = TRUE ;
+	}
 	reorganizeFaceList() ;
 	reorganizeVolumeList();
 }
@@ -1753,7 +1764,7 @@ bool LLViewerFetchedTexture::updateFetch()
 		else
 		{
 			mFetchState = LLAppViewer::getTextureFetch()->getFetchState(mID, mDownloadProgress, mRequestedDownloadPriority,
-																		mFetchPriority, mFetchDeltaTime, mRequestDeltaTime);
+																		mFetchPriority, mFetchDeltaTime, mRequestDeltaTime, mCanUseHTTP);
 		}
 		
 		// We may have data ready regardless of whether or not we are finished (e.g. waiting on write)
@@ -1893,7 +1904,7 @@ bool LLViewerFetchedTexture::updateFetch()
 		// bypass texturefetch directly by pulling from LLTextureCache
 		bool fetch_request_created = false;
 		fetch_request_created = LLAppViewer::getTextureFetch()->createRequest(mUrl, getID(),getTargetHost(), decode_priority,
-																			  w, h, c, desired_discard, needsAux());
+																			  w, h, c, desired_discard, needsAux(), mCanUseHTTP);
 		
 		if (fetch_request_created)
 		{
@@ -1901,7 +1912,7 @@ bool LLViewerFetchedTexture::updateFetch()
 			mIsFetching = TRUE;
 			mRequestedDiscardLevel = desired_discard;
 			mFetchState = LLAppViewer::getTextureFetch()->getFetchState(mID, mDownloadProgress, mRequestedDownloadPriority,
-													   mFetchPriority, mFetchDeltaTime, mRequestDeltaTime);
+													   mFetchPriority, mFetchDeltaTime, mRequestDeltaTime, mCanUseHTTP);
 		}
 
 		// if createRequest() failed, we're finishing up a request for this UUID,
@@ -3298,7 +3309,10 @@ F32 LLViewerMediaTexture::getMaxVirtualSize()
 		}
 	}
 
-	mNeedsResetMaxVirtualSize = TRUE ;
+	if(mCanResetMaxVirtualSize)
+	{
+		mNeedsResetMaxVirtualSize = TRUE ;
+	}
 	reorganizeFaceList() ;
 	reorganizeVolumeList();
 
