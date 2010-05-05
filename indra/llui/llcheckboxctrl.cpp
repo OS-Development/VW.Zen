@@ -2,31 +2,25 @@
  * @file llcheckboxctrl.cpp
  * @brief LLCheckBoxCtrl base class
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -81,17 +75,6 @@ LLCheckBoxCtrl::LLCheckBoxCtrl(const LLCheckBoxCtrl::Params& p)
 	// must be big enough to hold all children
 	setUseBoundingRect(TRUE);
 
-	// Label (add a little space to make sure text actually renders)
-	const S32 FUDGE = 10;
-	S32 text_width = mFont->getWidth( p.label ) + FUDGE;
-	S32 text_height = llround(mFont->getLineHeight());
-	LLRect label_rect;
-	label_rect.setOriginAndSize(
-		llcheckboxctrl_hpad + llcheckboxctrl_btn_size + llcheckboxctrl_spacing,
-		llcheckboxctrl_vpad + 1, // padding to get better alignment
-		text_width + llcheckboxctrl_hpad,
-		text_height );
-
 	// *HACK Get rid of this with SL-55508... 
 	// this allows blank check boxes and radio boxes for now
 	std::string local_label = p.label;
@@ -101,7 +84,6 @@ LLCheckBoxCtrl::LLCheckBoxCtrl(const LLCheckBoxCtrl::Params& p)
 	}
 
 	LLTextBox::Params tbparams = p.label_text;
-	tbparams.rect(label_rect);
 	tbparams.initial_value(local_label);
 	if (p.font.isProvided())
 	{
@@ -110,6 +92,17 @@ LLCheckBoxCtrl::LLCheckBoxCtrl(const LLCheckBoxCtrl::Params& p)
 	tbparams.text_color( p.enabled() ? p.text_enabled_color() : p.text_disabled_color() );
 	mLabel = LLUICtrlFactory::create<LLTextBox> (tbparams);
 	addChild(mLabel);
+
+	S32 text_width = mLabel->getTextBoundingRect().getWidth();
+	S32 text_height = llround(mFont->getLineHeight());
+	LLRect label_rect;
+	label_rect.setOriginAndSize(
+		llcheckboxctrl_hpad + llcheckboxctrl_btn_size + llcheckboxctrl_spacing,
+		llcheckboxctrl_vpad + 1, // padding to get better alignment
+		text_width + llcheckboxctrl_hpad,
+		text_height );
+	mLabel->setShape(label_rect);
+
 
 	// Button
 	// Note: button cover the label by extending all the way to the right.
@@ -190,8 +183,7 @@ void LLCheckBoxCtrl::reshape(S32 width, S32 height, BOOL called_from_parent)
 	static LLUICachedControl<S32> llcheckboxctrl_vpad ("UICheckboxctrlVPad", 0);
 	static LLUICachedControl<S32> llcheckboxctrl_btn_size ("UICheckboxctrlBtnSize", 0);
 
-	const S32 FUDGE = 10;
-	S32 text_width = mFont->getWidth( mLabel->getText() ) + FUDGE;
+	S32 text_width = mLabel->getTextBoundingRect().getWidth();
 	S32 text_height = llround(mFont->getLineHeight());
 	LLRect label_rect;
 	label_rect.setOriginAndSize(
@@ -199,7 +191,7 @@ void LLCheckBoxCtrl::reshape(S32 width, S32 height, BOOL called_from_parent)
 		llcheckboxctrl_vpad,
 		text_width,
 		text_height );
-	mLabel->setRect(label_rect);
+	mLabel->setShape(label_rect);
 
 	LLRect btn_rect;
 	btn_rect.setOriginAndSize(
@@ -207,7 +199,7 @@ void LLCheckBoxCtrl::reshape(S32 width, S32 height, BOOL called_from_parent)
 		llcheckboxctrl_vpad,
 		llcheckboxctrl_btn_size + llcheckboxctrl_spacing + text_width,
 		llmax( text_height, llcheckboxctrl_btn_size() ) );
-	mButton->setRect( btn_rect );
+	mButton->setShape( btn_rect );
 	
 	LLUICtrl::reshape(width, height, called_from_parent);
 }

@@ -2,31 +2,25 @@
  * @file LLMediaCtrl.cpp
  * @brief Web browser UI control
  *
- * $LicenseInfo:firstyear=2006&license=viewergpl$
- * 
- * Copyright (c) 2006-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2006&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -78,8 +72,6 @@ LLMediaCtrl::LLMediaCtrl( const Params& p) :
 	mBorder(NULL),
 	mFrequentUpdates( true ),
 	mForceUpdate( false ),
-	mOpenLinksInExternalBrowser( false ),
-	mOpenLinksInInternalBrowser( false ),
 	mHomePageUrl( "" ),
 	mTrusted(false),
 	mIgnoreUIScale( true ),
@@ -165,20 +157,6 @@ void LLMediaCtrl::setTakeFocusOnClick( bool take_focus )
 {
 	mTakeFocusOnClick = take_focus;
 }
-
-////////////////////////////////////////////////////////////////////////////////
-// set flag that forces the embedded browser to open links in the external system browser
-void LLMediaCtrl::setOpenInExternalBrowser( bool valIn )
-{
-	mOpenLinksInExternalBrowser = valIn;
-};
-
-////////////////////////////////////////////////////////////////////////////////
-// set flag that forces the embedded browser to open links in the internal browser floater
-void LLMediaCtrl::setOpenInInternalBrowser( bool valIn )
-{
-	mOpenLinksInInternalBrowser = valIn;
-};
 
 ////////////////////////////////////////////////////////////////////////////////
 void LLMediaCtrl::setTrusted( bool valIn )
@@ -944,7 +922,6 @@ void LLMediaCtrl::handleMediaEvent(LLPluginClassMedia* self, EMediaEvent event)
 		case MEDIA_EVENT_CLICK_LINK_HREF:
 		{
 			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_CLICK_LINK_HREF, target is \"" << self->getClickTarget() << "\", uri is " << self->getClickURL() << LL_ENDL;
-			onClickLinkHref(self);
 		};
 		break;
 		
@@ -975,95 +952,6 @@ void LLMediaCtrl::handleMediaEvent(LLPluginClassMedia* self, EMediaEvent event)
 
 	// chain all events to any potential observers of this object.
 	emitEvent(self, event);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// 
-void LLMediaCtrl::onClickLinkHref( LLPluginClassMedia* self )
-{
-	// retrieve the event parameters
-	std::string url = self->getClickURL();
-	U32 target_type = self->getClickTargetType();
-	
-	// is there is a target specified for the link?
-	if (target_type == LLPluginClassMedia::TARGET_EXTERNAL ||
-		target_type == LLPluginClassMedia::TARGET_BLANK )
-	{
-		if (gSavedSettings.getBOOL("UseExternalBrowser"))
-		{
-			LLSD payload;
-			payload["url"] = url;
-			payload["target_type"] = LLSD::Integer(target_type);
-			LLNotificationsUtil::add( "WebLaunchExternalTarget", LLSD(), payload, onClickLinkExternalTarget);
-		}
-		else
-		{
-			clickLinkWithTarget(url, target_type);
-		}
-	}
-	else {
-		const std::string protocol1( "http://" );
-		const std::string protocol2( "https://" );
-		if( mOpenLinksInExternalBrowser )
-		{
-			if ( !url.empty() )
-			{
-				if ( LLStringUtil::compareInsensitive( url.substr( 0, protocol1.length() ), protocol1 ) == 0 ||
-					LLStringUtil::compareInsensitive( url.substr( 0, protocol2.length() ), protocol2 ) == 0 )
-				{
-					LLWeb::loadURLExternal( url );
-				}
-			}
-		}
-		else
-		if( mOpenLinksInInternalBrowser )
-		{
-			if ( !url.empty() )
-			{
-				if ( LLStringUtil::compareInsensitive( url.substr( 0, protocol1.length() ), protocol1 ) == 0 ||
-					LLStringUtil::compareInsensitive( url.substr( 0, protocol2.length() ), protocol2 ) == 0 )
-				{
-					llwarns << "Dead, unimplemented path that we used to send to the built-in browser long ago." << llendl;
-				}
-			}
-		}
-	}
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// static 
-bool LLMediaCtrl::onClickLinkExternalTarget(const LLSD& notification, const LLSD& response )
-{
-	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
-	if ( 0 == option )
-	{
-		LLSD payload = notification["payload"];
-		std::string url = payload["url"].asString();
-		S32 target_type = payload["target_type"].asInteger();
-		clickLinkWithTarget(url, target_type);
-	}
-	return false;
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-// static 
-void LLMediaCtrl::clickLinkWithTarget(const std::string& url, const S32& target_type )
-{
-	if (target_type == LLPluginClassMedia::TARGET_EXTERNAL)
-	{
-		// load target in an external browser
-		LLWeb::loadURLExternal(url);
-	}
-	else if (target_type == LLPluginClassMedia::TARGET_BLANK)
-	{
-		// load target in the user's preferred browser
-		LLWeb::loadURL(url);
-	}
-	else {
-		// unsupported link target - shouldn't happen
-		LL_WARNS("LinkTarget") << "Unsupported link target type" << LL_ENDL;
-	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
