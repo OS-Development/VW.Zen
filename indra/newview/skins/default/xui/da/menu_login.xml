@@ -2,11 +2,10 @@
 <menu_bar name="Login Menu">
 	<menu label="Mig" name="File">
 		<menu_item_call label="Indstillinger" name="Preferences..."/>
-		<menu_item_call label="Afslut [APP_NAME]" name="Quit"/>
+		<menu_item_call label="Afslut" name="Quit"/>
 	</menu>
 	<menu label="Hjælp" name="Help">
 		<menu_item_call label="[SECOND_LIFE] hjælp" name="Second Life Help"/>
-		<menu_item_call label="Om [APP_NAME]" name="About Second Life"/>
 	</menu>
 	<menu_item_check label="Vis debug menu" name="Show Debug Menu"/>
 	<menu label="Debug" name="Debug">

@@ -182,7 +182,7 @@
 			</button>
         </layout_panel>
         <layout_panel
-         height="40"
+         height="20"
          layout="topleft"
          left_delta="0"
          name="external_controls"
@@ -190,7 +190,7 @@
          user_resize="false"
          width="540">
             <web_browser
-             bottom="-30"
+             bottom="-10"
              follows="left|right|top|bottom"
              layout="topleft"
              left="0"
@@ -206,9 +206,9 @@
              name="open_browser"
              top_pad="5"
              width="185">
-              <button.commit_callback
-                function="MediaBrowser.OpenWebBrowser" />
-            </button>
+				<button.commit_callback
+				function="MediaBrowser.OpenWebBrowser" />
+			</button>
             <check_box
              control_name="UseExternalBrowser"
              follows="bottom|left"

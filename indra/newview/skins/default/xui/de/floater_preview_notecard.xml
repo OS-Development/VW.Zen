@@ -9,6 +9,9 @@
 	<floater.string name="Title">
 		Notizkarte: [NAME]
 	</floater.string>
+	<floater.string label="Speichern" label_selected="Speichern" name="Save">
+		Speichern
+	</floater.string>
 	<text name="desc txt">
 		Beschreibung:
 	</text>
@@ -16,5 +19,4 @@
 		Wird geladen...
 	</text_editor>
 	<button label="Speichern" label_selected="Speichern" name="Save"/>
-	<button label="Löschen" label_selected="Löschen" name="Delete"/>
 </floater>

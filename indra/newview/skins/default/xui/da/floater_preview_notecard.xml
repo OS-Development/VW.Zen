@@ -9,6 +9,9 @@
 	<floater.string name="Title">
 		Note: [NAME]
 	</floater.string>
+	<floater.string label="Gem" label_selected="Gem" name="Save">
+		Gem
+	</floater.string>
 	<text name="desc txt">
 		Beskrivelse:
 	</text>
@@ -16,5 +19,4 @@
 		Indlæser...
 	</text_editor>
 	<button label="Gem" label_selected="Gem" name="Save"/>
-	<button label="Slet" label_selected="Slet" name="Delete"/>
 </floater>

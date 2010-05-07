@@ -3,8 +3,7 @@
   <multiselect_text font="SansSerifSmall"/>
   <caption_text text="Multiple" 
                 halign="center" 
-                font="SansSerifSmall"
-                v_pad="2"/>
+                font="SansSerifSmall"/>
   <border bevel_style="in"/>
 </texture_picker>
 

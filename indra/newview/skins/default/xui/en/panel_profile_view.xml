@@ -18,16 +18,14 @@
     </string>
     <button
      follows="top|right"
-     height="24"
-     image_hover_unselected="BackButton_Over"
-     image_pressed="BackButton_Press"
-     image_unselected="BackButton_Off"
+     height="23"
+     image_overlay="BackArrow_Off"
      layout="topleft"
      name="back"
-     left="10"
+     left="12"
      tab_stop="false"
      top="2"
-     width="30" />
+     width="23" />
     <text_editor
     	h_pad="0"
     	v_pad="0"
@@ -38,10 +36,10 @@
       font="SansSerifHugeBold"
       height="26"
       layout="topleft"
-      left_pad="5"
+      left_pad="10"
       name="user_name"
       text_color="LtGray"
-      top="2"
+      top="0"
       value="(Loading...)"
       use_ellipses="true"
       width="275" />

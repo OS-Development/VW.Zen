@@ -2,5 +2,4 @@
 <menu name="hide_navbar_menu">
 	<menu_item_check label="Navigationsleiste anzeigen" name="ShowNavbarNavigationPanel"/>
 	<menu_item_check label="Favoritenleiste anzeigen" name="ShowNavbarFavoritesPanel"/>
-	<menu_item_check label="Mini-Standortleiste anzeigen" name="ShowMiniLocationPanel"/>
 </menu>

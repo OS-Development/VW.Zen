@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<floater name="Postcard" title="スナップショットをEメールで送信">
+<floater name="Postcard" title="スナップショットをメール">
 	<text name="to_label">
-		受信先のEメール：
+		住人のメール：
 	</text>
 	<line_editor left="145" name="to_form" width="125"/>
 	<text name="from_label">
-		あなたのEメール：
+		あなたのメール：
 	</text>
 	<line_editor left="145" name="from_form" width="125"/>
 	<text name="name_label">
