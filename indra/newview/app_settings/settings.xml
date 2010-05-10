@@ -1674,6 +1674,17 @@
       <key>Value</key>
       <string />
     </map>
+	<key>DebugAvatarRezTime</key>
+	<map>
+		<key>Comment</key>
+		<string>Display times for avatars to resolve.</string>
+		<key>Persist</key>
+		<integer>1</integer>
+		<key>Type</key>
+		<string>Boolean</string>
+		<key>Value</key>
+		<integer>0</integer>
+	</map>
     <key>DebugBeaconLineWidth</key>
     <map>
       <key>Comment</key>
@@ -3512,6 +3523,17 @@
       <key>Value</key>
       <integer>0</integer>
     </map>
+    <key>FullScreen</key>
+    <map>
+      <key>Comment</key>
+      <string>Run SL in fullscreen mode</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>0</integer>
+    </map>
     <key>FullScreenAspectRatio</key>
     <map>
       <key>Comment</key>
@@ -3842,6 +3864,17 @@
       <key>Value</key>
       <real>1.0</real>
     </map>
+	<key>InventoryLinking</key>
+	<map>
+		<key>Comment</key>
+		<string>Enable ability to create links to folders and items via "Paste as link".</string>
+		<key>Persist</key>
+		<integer>1</integer>
+		<key>Type</key>
+		<string>Boolean</string>
+		<key>Value</key>
+		<integer>0</integer>
+	</map>
     <key>InventorySortOrder</key>
     <map>
       <key>Comment</key>
@@ -8195,6 +8228,17 @@
       <key>Value</key>
       <integer>1</integer>   
     </map>
+    <key>SidebarCameraMovement</key>
+    <map>
+      <key>Comment</key>
+      <string>Reflects world rect changing while changing sidebar visibility.</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>1</integer>
+    </map>
     <key>GroupListShowIcons</key>
     <map>
       <key>Comment</key>
@@ -10836,17 +10880,6 @@
       <string>Boolean</string>
       <key>Value</key>
       <integer>1</integer>
-    </map>
-    <key>WindowFullScreen</key>
-    <map>
-      <key>Comment</key>
-      <string>Run SL in fullscreen mode</string>
-      <key>Persist</key>
-      <integer>1</integer>
-      <key>Type</key>
-      <string>Boolean</string>
-      <key>Value</key>
-      <integer>0</integer>
     </map>
     <key>WindowHeight</key>
     <map>

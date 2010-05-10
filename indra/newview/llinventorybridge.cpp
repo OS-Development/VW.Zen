@@ -645,10 +645,13 @@ void LLInvFVBridge::getClipboardEntries(bool show_asset_id,
 		disabled_items.push_back(std::string("Paste"));
 	}
 
-	items.push_back(std::string("Paste As Link"));
-	if (!isClipboardPasteableAsLink() || (flags & FIRST_SELECTED_ITEM) == 0)
+	if (gSavedSettings.getBOOL("InventoryLinking"))
 	{
-		disabled_items.push_back(std::string("Paste As Link"));
+		items.push_back(std::string("Paste As Link"));
+		if (!isClipboardPasteableAsLink() || (flags & FIRST_SELECTED_ITEM) == 0)
+		{
+			disabled_items.push_back(std::string("Paste As Link"));
+		}
 	}
 
 	items.push_back(std::string("Paste Separator"));
@@ -1405,13 +1408,65 @@ BOOL LLItemBridge::removeItem()
 	{
 		return FALSE;
 	}
+
+	
 	// move it to the trash
 	LLPreview::hide(mUUID, TRUE);
 	LLInventoryModel* model = getInventoryModel();
 	if(!model) return FALSE;
-	const LLUUID trash_id = model->findCategoryUUIDForType(LLFolderType::FT_TRASH);
+	const LLUUID& trash_id = model->findCategoryUUIDForType(LLFolderType::FT_TRASH);
 	LLViewerInventoryItem* item = getItem();
+	if (!item) return FALSE;
 
+	// Already in trash
+	if (model->isObjectDescendentOf(mUUID, trash_id)) return FALSE;
+
+	LLNotification::Params params("ConfirmItemDeleteHasLinks");
+	params.functor.function(boost::bind(&LLItemBridge::confirmRemoveItem, this, _1, _2));
+	
+	// Check if this item has any links.  If generic inventory linking is enabled,
+	// we can't do this check because we may have items in a folder somewhere that is
+	// not yet in memory, so we don't want false negatives.  (If disabled, then we 
+	// know we only have links in the Outfits folder which we explicitly fetch.)
+	if (!gSavedSettings.getBOOL("InventoryLinking"))
+	{
+		if (!item->getIsLinkType())
+		{
+			LLInventoryModel::cat_array_t cat_array;
+			LLInventoryModel::item_array_t item_array;
+			LLLinkedItemIDMatches is_linked_item_match(mUUID);
+			gInventory.collectDescendentsIf(gInventory.getRootFolderID(),
+											cat_array,
+											item_array,
+											LLInventoryModel::INCLUDE_TRASH,
+											is_linked_item_match);
+
+			const U32 num_links = cat_array.size() + item_array.size();
+			if (num_links > 0)
+			{
+				// Warn if the user is will break any links when deleting this item.
+				LLNotifications::instance().add(params);
+				return FALSE;
+			}
+		}
+	}
+	
+	LLNotifications::instance().forceResponse(params, 0);
+	return TRUE;
+}
+
+BOOL LLItemBridge::confirmRemoveItem(const LLSD& notification, const LLSD& response)
+{
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
+	if (option != 0) return FALSE;
+
+	LLInventoryModel* model = getInventoryModel();
+	if (!model) return FALSE;
+
+	LLViewerInventoryItem* item = getItem();
+	if (!item) return FALSE;
+
+	const LLUUID& trash_id = model->findCategoryUUIDForType(LLFolderType::FT_TRASH);
 	// if item is not already in trash
 	if(item && !model->isObjectDescendentOf(mUUID, trash_id))
 	{
@@ -1420,11 +1475,7 @@ BOOL LLItemBridge::removeItem()
 		// delete was successful
 		return TRUE;
 	}
-	else
-	{
-		// tried to delete already item in trash (should purge?)
-		return FALSE;
-	}
+	return FALSE;
 }
 
 BOOL LLItemBridge::isItemCopyable() const
@@ -1589,8 +1640,12 @@ BOOL LLFolderBridge::isUpToDate() const
 
 BOOL LLFolderBridge::isItemCopyable() const
 {
-	// Can copy folders to paste-as-link, but not for straight paste.
-	return TRUE;
+	if (gSavedSettings.getBOOL("InventoryLinking"))
+	{
+		// Can copy folders to paste-as-link, but not for straight paste.
+		return TRUE;
+	}
+	return FALSE;
 }
 
 BOOL LLFolderBridge::copyToClipboard() const
@@ -5525,3 +5580,67 @@ LLInvFVBridgeAction* LLInvFVBridgeAction::createAction(LLAssetType::EType asset_
 /**                    Bridge Actions
  **
  ********************************************************************************/
+
+/************************************************************************/
+/* Recent Inventory Panel related classes                               */
+/************************************************************************/
+void LLRecentItemsFolderBridge::buildContextMenu(LLMenuGL& menu, U32 flags)
+{
+	LLFolderBridge::buildContextMenu(menu, flags);
+
+	menuentry_vec_t disabled_items, items = getMenuItems();
+
+	items.erase(std::find(items.begin(), items.end(), std::string("New Folder")));
+	items.erase(std::find(items.begin(), items.end(), std::string("New Script")));
+	items.erase(std::find(items.begin(), items.end(), std::string("New Note")));
+	items.erase(std::find(items.begin(), items.end(), std::string("New Gesture")));
+	items.erase(std::find(items.begin(), items.end(), std::string("New Clothes")));
+	items.erase(std::find(items.begin(), items.end(), std::string("New Body Parts")));
+
+	hide_context_entries(menu, items, disabled_items);
+}
+
+LLInvFVBridge* LLRecentInventoryBridgeBuilder::createBridge(
+	LLAssetType::EType asset_type,
+	LLAssetType::EType actual_asset_type,
+	LLInventoryType::EType inv_type,
+	LLInventoryPanel* inventory,
+	LLFolderView* root,
+	const LLUUID& uuid,
+	U32 flags /*= 0x00*/ ) const
+{
+	LLInvFVBridge* new_listener = NULL;
+	switch(asset_type)
+	{
+	case LLAssetType::AT_CATEGORY:
+		if (actual_asset_type == LLAssetType::AT_LINK_FOLDER)
+		{
+			// *TODO: Create a link folder handler instead if it is necessary
+			new_listener = LLInventoryFVBridgeBuilder::createBridge(
+				asset_type,
+				actual_asset_type,
+				inv_type,
+				inventory,
+				root,
+				uuid,
+				flags);
+			break;
+		}
+		new_listener = new LLRecentItemsFolderBridge(inv_type, inventory, root, uuid);
+		break;
+	default:
+		new_listener = LLInventoryFVBridgeBuilder::createBridge(
+			asset_type,
+			actual_asset_type,
+			inv_type,
+			inventory,
+			root,
+			uuid,
+			flags);
+	}
+	return new_listener;
+
+}
+
+
+// EOF

@@ -77,6 +77,7 @@ LLPanelOutfitsInventory::LLPanelOutfitsInventory() :
 {
 	mSavedFolderState = new LLSaveFolderState();
 	mSavedFolderState->setApply(FALSE);
+	gAgentWearables.addLoadedCallback(boost::bind(&LLPanelOutfitsInventory::onWearablesLoaded, this));
 }
 
 LLPanelOutfitsInventory::~LLPanelOutfitsInventory()
@@ -90,6 +91,15 @@ BOOL LLPanelOutfitsInventory::postBuild()
 	initTabPanels();
 	initListCommandsHandlers();
 
+	// Fetch your outfits folder so that the links are in memory.
+	// ( This is only necessary if we want to show a warning if a user deletes an item that has a
+	// a link in an outfit, see "ConfirmItemDeleteHasLinks". )
+	const LLUUID &outfits_cat = gInventory.findCategoryUUIDForType(LLFolderType::FT_OUTFIT, false);
+	if (outfits_cat.notNull())
+	{
+		LLInventoryModelBackgroundFetch::instance().start(outfits_cat);
+	}
+	
 	return TRUE;
 }
 
@@ -190,6 +200,7 @@ void LLPanelOutfitsInventory::onWearButtonClick()
 	if (!isCOFPanelActive())
 	{
 		mMyOutfitsPanel->performAction("replaceoutfit");
+		setWearablesLoading(true);
 	}
 	else
 	{
@@ -641,4 +652,20 @@ BOOL LLPanelOutfitsInventory::isTabPanel(LLInventoryPanel *panel) const
 BOOL LLPanelOutfitsInventory::isCOFPanelActive() const
 {
 	return (childGetVisibleTab("appearance_tabs")->getName() == COF_TAB_NAME);
+}
+
+void LLPanelOutfitsInventory::setWearablesLoading(bool val)
+{
+	mListCommands->childSetEnabled("wear_btn", !val);
+
+	llassert(mParent);
+	if (mParent)
+	{
+		mParent->setWearablesLoading(val);
+	}
+}
+
+void LLPanelOutfitsInventory::onWearablesLoaded()
+{
+	setWearablesLoading(false);
 }

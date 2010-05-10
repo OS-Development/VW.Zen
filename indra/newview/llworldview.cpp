@@ -1,6 +1,6 @@
 /** 
- * @file llfiltereditor.cpp
- * @brief LLFilterEditor implementation
+ * @file llworldview.cpp
+ * @brief LLWorldView class implementation
  *
  * $LicenseInfo:firstyear=2001&license=viewergpl$
  * 
@@ -30,23 +30,32 @@
  * $/LicenseInfo$
  */
 
-// Text editor widget to let users enter a single line.
+#include "llviewerprecompiledheaders.h"
 
-#include "linden_common.h"
- 
-#include "llfiltereditor.h"
+#include "llworldview.h"
 
-LLFilterEditor::LLFilterEditor(const LLFilterEditor::Params& p)
-:	LLSearchEditor(p)
+#include "llviewercontrol.h"
+#include "llsidetray.h"
+/////////////////////////////////////////////////////
+// LLFloaterView
+
+static LLDefaultChildRegistry::Register<LLWorldView> r("world_view");
+
+LLWorldView::LLWorldView(const Params& p)
+:	LLUICtrl (p)
 {
-	setCommitOnFocusLost(FALSE); // we'll commit on every keystroke, don't re-commit when we take focus away (i.e. we go to interact with the actual results!)
 }
 
-
-void LLFilterEditor::handleKeystroke()
+void LLWorldView::reshape(S32 width, S32 height, BOOL called_from_parent)
 {
-	this->LLSearchEditor::handleKeystroke();
-
-	// Commit on every keystroke.
-	onCommit();
+	if (FALSE == gSavedSettings.getBOOL("SidebarCameraMovement") )
+	{
+		LLView* main_view = LLUI::getRootView()->findChild<LLView>("main_view");
+		if(main_view)
+		{
+			width = main_view->getRect().getWidth();
+		}
+	}
+	
+	LLUICtrl::reshape(width, height, called_from_parent);
 }
