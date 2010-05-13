@@ -2328,7 +2328,8 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 
 				LLSD args;
 				args["MESSAGE"] = message;
-				LLNotificationsUtil::add("JoinGroup", args, payload, join_group_response);
+				// we shouldn't pass callback functor since it is registered in LLFunctorRegistration
+				LLNotificationsUtil::add("JoinGroup", args, payload);
 			}
 		}
 		break;
@@ -6473,3 +6474,19 @@ void LLOfferInfo::forceResponse(InventoryOfferResponse response)
 	params.functor.function(boost::bind(&LLOfferInfo::inventory_offer_callback, this, _1, _2));
 	LLNotifications::instance().forceResponse(params, response);
 }
+
+static bool confirm_leave_call_callback(const LLSD& notification, const LLSD& response)
+{
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
+	const LLSD& payload = notification["payload"];
+	LLUUID session_id = payload["session_id"];
+
+	LLFloater* im_floater = LLFloaterReg::findInstance("impanel", session_id);
+	if (option == 0 && im_floater != NULL)
+	{
+		im_floater->closeFloater();
+	}
+
+	return false;
+}
+static LLNotificationFunctorRegistration confirm_leave_call_cb("ConfirmLeaveCall", confirm_leave_call_callback);
