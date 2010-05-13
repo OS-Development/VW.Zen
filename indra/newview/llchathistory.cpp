@@ -32,10 +32,12 @@
 
 #include "llviewerprecompiledheaders.h"
 
+#include "llchathistory.h"
+
+#include "llavatarnamecache.h"
 #include "llinstantmessage.h"
 
 #include "llimview.h"
-#include "llchathistory.h"
 #include "llcommandhandler.h"
 #include "llpanel.h"
 #include "lluictrlfactory.h"
@@ -240,7 +242,6 @@ public:
 		mAvatarID = chat.mFromID;
 		mSessionID = chat.mSessionID;
 		mSourceType = chat.mSourceType;
-		gCacheName->get(mAvatarID, FALSE, boost::bind(&LLChatHistoryHeader::nameUpdatedCallback, this, _1, _2, _3, _4));
 
 		//*TODO overly defensive thing, source type should be maintained out there
 		if((chat.mFromID.isNull() && chat.mFromName.empty()) || chat.mFromName == SYSTEM_FROM)
@@ -253,14 +254,19 @@ public:
 		userName->setReadOnlyColor(style_params.readonly_color());
 		userName->setColor(style_params.color());
 		
-		userName->setValue(chat.mFromName);
-		mFrom = chat.mFromName;
-		if (chat.mFromName.empty() || CHAT_SOURCE_SYSTEM == mSourceType)
+		if (chat.mFromName.empty()
+			|| mSourceType == CHAT_SOURCE_SYSTEM
+			|| mAvatarID.isNull())
 		{
 			mFrom = LLTrans::getString("SECOND_LIFE");
 			userName->setValue(mFrom);
 		}
-
+		else
+		{
+			// ...from a normal user, lookup the name and fill in later
+			LLAvatarNameCache::get(mAvatarID,
+				boost::bind(&LLChatHistoryHeader::onAvatarNameCache, this, _1, _2));
+		}
 
 		mMinUserNameWidth = style_params.font()->getWidth(userName->getWText().c_str()) + PADDING;
 
@@ -317,12 +323,17 @@ public:
 		LLPanel::draw();
 	}
 
-	void nameUpdatedCallback(const LLUUID& id,const std::string& first,const std::string& last,BOOL is_group)
+	void onAvatarNameCache(const LLUUID& agent_id, const LLAvatarName& av_name)
 	{
-		if (id != mAvatarID)
-			return;
-		mFrom = first + " " + last;
+		mFrom = av_name.mDisplayName;
+
+		LLTextBox* user_name = getChild<LLTextBox>("user_name");
+		user_name->setValue( LLSD(av_name.mDisplayName ) );
+
+		user_name->setToolTip( av_name.mSLID );
+		setToolTip( av_name.mSLID );
 	}
+
 protected:
 	static const S32 PADDING = 20;
 

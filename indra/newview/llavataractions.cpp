@@ -37,11 +37,11 @@
 
 #include "boost/lambda/lambda.hpp"	// for lambda::constant
 
+#include "llavatarnamecache.h"	// IDEVO
 #include "llsd.h"
 #include "lldarray.h"
 #include "llnotifications.h"
 #include "llnotificationsutil.h"
-
 #include "roles_constants.h"    // for GP_MEMBER_INVITE
 
 #include "llagent.h"
@@ -67,6 +67,7 @@
 #include "llimfloater.h"
 #include "lltrans.h"
 #include "llcallingcard.h"
+#include "llslurl.h"			// IDEVO
 
 // static
 void LLAvatarActions::requestFriendshipDialog(const LLUUID& id, const std::string& name)
@@ -78,7 +79,7 @@ void LLAvatarActions::requestFriendshipDialog(const LLUUID& id, const std::strin
 	}
 
 	LLSD args;
-	args["NAME"] = name;
+	args["NAME"] = LLSLURL::buildCommand("agent", id, "inspect");
 	LLSD payload;
 	payload["id"] = id;
 	payload["name"] = name;
@@ -133,11 +134,10 @@ void LLAvatarActions::removeFriendsDialog(const uuid_vec_t& ids)
 	if(ids.size() == 1)
 	{
 		LLUUID agent_id = ids[0];
-		std::string first, last;
-		if(gCacheName->getName(agent_id, first, last))
+		std::string full_name;
+		if(gCacheName->getFullName(agent_id, full_name))
 		{
-			args["FIRST_NAME"] = first;
-			args["LAST_NAME"] = last;	
+			args["NAME"] = full_name;
 		}
 
 		msgType = "RemoveFromFriends";
@@ -187,25 +187,26 @@ void LLAvatarActions::offerTeleport(const uuid_vec_t& ids)
 	handle_lure(ids);
 }
 
+static void on_avatar_name_cache_start_im(const LLUUID& agent_id,
+										  const LLAvatarName& av_name)
+{
+	std::string name = av_name.getNameAndSLID();
+	LLUUID session_id = gIMMgr->addSession(name, IM_NOTHING_SPECIAL, agent_id);
+	if (session_id != LLUUID::null)
+	{
+		LLIMFloater::show(session_id);
+	}
+	make_ui_sound("UISndStartIM");
+}
+
 // static
 void LLAvatarActions::startIM(const LLUUID& id)
 {
 	if (id.isNull())
 		return;
 
-	std::string name;
-	if (!gCacheName->getFullName(id, name))
-	{
-		gCacheName->get(id, FALSE, boost::bind(&LLAvatarActions::startIM, id));
-		return;
-	}
-
-	LLUUID session_id = gIMMgr->addSession(name, IM_NOTHING_SPECIAL, id);
-	if (session_id != LLUUID::null)
-	{
-		LLIMFloater::show(session_id);
-	}
-	make_ui_sound("UISndStartIM");
+	LLAvatarNameCache::get(id,
+		boost::bind(&on_avatar_name_cache_start_im, _1, _2));
 }
 
 // static
@@ -221,6 +222,18 @@ void LLAvatarActions::endIM(const LLUUID& id)
 	}
 }
 
+static void on_avatar_name_cache_start_call(const LLUUID& agent_id,
+											const LLAvatarName& av_name)
+{
+	std::string name = av_name.getNameAndSLID();
+	LLUUID session_id = gIMMgr->addSession(name, IM_NOTHING_SPECIAL, agent_id, true);
+	if (session_id != LLUUID::null)
+	{
+		gIMMgr->startCall(session_id);
+	}
+	make_ui_sound("UISndStartIM");
+}
+
 // static
 void LLAvatarActions::startCall(const LLUUID& id)
 {
@@ -228,15 +241,8 @@ void LLAvatarActions::startCall(const LLUUID& id)
 	{
 		return;
 	}
-
-	std::string name;
-	gCacheName->getFullName(id, name);
-	LLUUID session_id = gIMMgr->addSession(name, IM_NOTHING_SPECIAL, id, true);
-	if (session_id != LLUUID::null)
-	{
-		gIMMgr->startCall(session_id);
-	}
-	make_ui_sound("UISndStartIM");
+	LLAvatarNameCache::get(id,
+		boost::bind(&on_avatar_name_cache_start_call, _1, _2));
 }
 
 // static
@@ -672,9 +678,9 @@ bool LLAvatarActions::isBlocked(const LLUUID& id)
 // static
 bool LLAvatarActions::canBlock(const LLUUID& id)
 {
-	std::string firstname, lastname;
-	gCacheName->getName(id, firstname, lastname);
-	bool is_linden = !LLStringUtil::compareStrings(lastname, "Linden");
+	std::string full_name;
+	gCacheName->getFullName(id, full_name);
+	bool is_linden = (full_name.find("Linden") != std::string::npos);
 	bool is_self = id == gAgentID;
 	return !is_self && !is_linden;
 }

@@ -252,7 +252,7 @@
      height="28"
 	 control_name="EditLinkedParts"
      label="Edit linked"
-     layout="topleft"     
+     layout="topleft"
      name="checkbox edit linked parts" >
 		  <check_box.commit_callback
 			function="BuildTool.selectComponent"/>
@@ -757,7 +757,7 @@
 	 name="General"
 	 top="16"
 	 width="295">
-<panel.string
+	 <panel.string
 	  name="text deed continued">
 		Deed
 	 </panel.string>

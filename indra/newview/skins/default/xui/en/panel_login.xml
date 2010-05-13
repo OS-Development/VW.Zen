@@ -60,17 +60,18 @@ name="username_text"
 top="20"
 left="20"
 width="150">
-Username:
+Second Life ID or Name:
 </text>
 <line_editor
 follows="left|bottom"
 height="22"
-label="Username"
+label="bobsmith12 or Stellar Sunshine"
 left_delta="0"
-max_length="31"
+max_length="63"
 name="username_edit"
+prevalidate_callback="ascii" 
 select_on_focus="true"
-tool_tip="[SECOND_LIFE] Username"
+tool_tip="[SECOND_LIFE] ID, like bobsmith12 or Stellar Sunshine"
 top_pad="0"
 width="150" />
 <text

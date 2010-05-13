@@ -211,7 +211,6 @@ LLPanelLogin::LLPanelLogin(const LLRect &rect,
 	}
 
 #if !USE_VIEWER_AUTH
-	childSetPrevalidate("username_edit", LLTextValidate::validateASCIIPrintableNoPipe);
 	getChild<LLLineEditor>("password_edit")->setKeystrokeCallback(onPassKey, this);
 
 	// change z sort of clickable text to be behind buttons
@@ -528,8 +527,16 @@ void LLPanelLogin::setFields(LLPointer<LLCredential> credential,
 	LLSD identifier = credential->getIdentifier();
 	if((std::string)identifier["type"] == "agent") 
 	{
-		sInstance->childSetText("username_edit", (std::string)identifier["first_name"] + " " + 
-								(std::string)identifier["last_name"]);	
+		std::string firstname = identifier["first_name"].asString();
+		std::string lastname = identifier["last_name"].asString();
+	    std::string login_id = firstname;
+	    if (!lastname.empty() && lastname != "Resident")
+	    {
+		    // support traditional First Last name slurls
+		    login_id += " ";
+		    login_id += lastname;
+	    }
+		sInstance->childSetText("username_edit", login_id);	
 	}
 	else if((std::string)identifier["type"] == "account")
 	{

@@ -37,6 +37,7 @@
 #include "llagent.h"
 #include "llagentdata.h"
 #include "llavataractions.h"
+#include "llavatarnamecache.h"
 #include "llavatarpropertiesprocessor.h"
 #include "llcallingcard.h"
 #include "lldateutil.h"
@@ -144,11 +145,11 @@ private:
 	bool isNotFriend();
 	
 	// Callback for gCacheName to look up avatar name
-	void nameUpdatedCallback(
-							 const LLUUID& id,
-							 const std::string& first,
-							 const std::string& last,
-							 BOOL is_group);
+	void onNameCache(const LLUUID& id,
+							 const std::string& name,
+							 bool is_group);
+	void onAvatarNameCache(const LLUUID& agent_id,
+						   const LLAvatarName& av_name);
 	
 private:
 	LLUUID				mAvatarID;
@@ -336,6 +337,7 @@ void LLInspectAvatar::requestUpdate()
 
 	// Clear out old data so it doesn't flash between old and new
 	getChild<LLUICtrl>("user_name")->setValue("");
+	getChild<LLUICtrl>("user_slid")->setValue("");
 	getChild<LLUICtrl>("user_subtitle")->setValue("");
 	getChild<LLUICtrl>("user_details")->setValue("");
 	
@@ -373,9 +375,19 @@ void LLInspectAvatar::requestUpdate()
 
 	childSetValue("avatar_icon", LLSD(mAvatarID) );
 
-	gCacheName->get(mAvatarID, FALSE,
-		boost::bind(&LLInspectAvatar::nameUpdatedCallback,
-			this, _1, _2, _3, _4));
+	// JAMESDEBUG HACK: Request via both legacy name system and new
+	// name system to set mAvatarName for not-yet-converted friendship
+	// request system.
+	gCacheName->get(mAvatarID, false,
+		boost::bind(&LLInspectAvatar::onNameCache,
+			this, _1, _2, _3));
+
+	if (LLAvatarNameCache::useDisplayNames())
+	{
+		LLAvatarNameCache::get(mAvatarID,
+			boost::bind(&LLInspectAvatar::onAvatarNameCache,
+				this, _1, _2));
+	}
 }
 
 void LLInspectAvatar::processAvatarData(LLAvatarData* data)
@@ -612,16 +624,33 @@ void LLInspectAvatar::onVolumeChange(const LLSD& data)
 	LLVoiceClient::getInstance()->setUserVolume(mAvatarID, volume);
 }
 
-void LLInspectAvatar::nameUpdatedCallback(
+void LLInspectAvatar::onNameCache(
 	const LLUUID& id,
-	const std::string& first,
-	const std::string& last,
-	BOOL is_group)
+	const std::string& full_name,
+	bool is_group)
 {
 	if (id == mAvatarID)
 	{
-		mAvatarName = first + " " + last;
-		childSetValue("user_name", LLSD(mAvatarName) );
+		mAvatarName = full_name;
+
+		// IDEVO JAMESDEBUG - need to always display a display name
+		if (!LLAvatarNameCache::useDisplayNames())
+		{
+			getChild<LLUICtrl>("user_name")->setValue(full_name);
+			getChild<LLUICtrl>("user_slid")->setValue("");
+		}
+	}
+}
+
+void LLInspectAvatar::onAvatarNameCache(
+		const LLUUID& agent_id,
+		const LLAvatarName& av_name)
+{
+	if (agent_id == mAvatarID)
+	{
+		// JAMESDEBUG what to do about mAvatarName ?
+		getChild<LLUICtrl>("user_name")->setValue(av_name.mDisplayName);
+		getChild<LLUICtrl>("user_slid")->setValue(av_name.mSLID);
 	}
 }
 

@@ -835,6 +835,7 @@ void LLPanelLandGeneral::refreshNames()
 		}
 	}
 }
+}
 
 
 // virtual
@@ -1387,10 +1388,9 @@ bool LLPanelLandObjects::callbackReturnOwnerObjects(const LLSD& notification, co
 			}
 			else
 			{
-				std::string first, last;
-				gCacheName->getName(owner_id, first, last);
-				args["FIRST"] = first;
-				args["LAST"] = last;
+				std::string full_name;
+				gCacheName->getFullName(owner_id, full_name);
+				args["NAME"] = full_name;
 				LLNotificationsUtil::add("OtherObjectsReturned", args);
 			}
 			send_return_objects_message(parcel->getLocalID(), RT_OWNER);
@@ -2506,7 +2506,7 @@ void LLPanelLandAccess::refresh()
 			if (maturity_pos != std::string::npos)
 			{
 				maturity_string.replace(maturity_pos, MATURITY.length(), std::string(""));
-			}
+		}
 
 			maturity_checkbox->setLabel(maturity_string);
 		}

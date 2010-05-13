@@ -229,7 +229,7 @@ void LLAvatarListItem::setAvatarId(const LLUUID& id, const LLUUID& session_id, b
 		mAvatarIcon->setValue(id);
 
 		// Set avatar name.
-		gCacheName->get(id, FALSE, boost::bind(&LLAvatarListItem::onNameCache, this, _2, _3));
+		gCacheName->get(id, FALSE, boost::bind(&LLAvatarListItem::onNameCache, this, _2));
 	}
 }
 
@@ -335,10 +335,9 @@ void LLAvatarListItem::setNameInternal(const std::string& name, const std::strin
 	mAvatarName->setToolTip(name);
 }
 
-void LLAvatarListItem::onNameCache(const std::string& first_name, const std::string& last_name)
+void LLAvatarListItem::onNameCache(const std::string& fullname)
 {
-	std::string name = first_name + " " + last_name;
-	setName(name);
+	setName(fullname);
 
 	//requesting the list to resort
 	notifyParent(LLSD().with("sort", LLSD()));
