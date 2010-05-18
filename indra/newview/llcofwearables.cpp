@@ -46,6 +46,20 @@ static LLRegisterPanelClassWrapper<LLCOFWearables> t_cof_wearables("cof_wearable
 
 const LLSD REARRANGE = LLSD().with("rearrange", LLSD());
 
+static const LLWearableItemNameComparator WEARABLE_NAME_COMPARATOR;
+
+
+bool LLWearableItemNameComparator::doCompare(const LLPanelWearableListItem* wearable_item1, const LLPanelWearableListItem* wearable_item2) const
+{
+	std::string name1 = wearable_item1->getItemName();
+	std::string name2 = wearable_item2->getItemName();
+
+	LLStringUtil::toUpper(name1);
+	LLStringUtil::toUpper(name2);
+
+	return name1 < name2;
+}
+
 
 LLCOFWearables::LLCOFWearables() : LLPanel(),
 	mAttachments(NULL),
@@ -72,6 +86,10 @@ BOOL LLCOFWearables::postBuild()
 	mAttachments->setCommitOnSelectionChange(true);
 	mClothing->setCommitOnSelectionChange(true);
 	mBodyParts->setCommitOnSelectionChange(true);
+
+	//clothing is sorted according to its position relatively to the body
+	mAttachments->setComparator(&WEARABLE_NAME_COMPARATOR);
+	mBodyParts->setComparator(&WEARABLE_NAME_COMPARATOR);
 
 	return LLPanel::postBuild();
 }
@@ -150,7 +168,7 @@ void LLCOFWearables::populateAttachmentsAndBodypartsLists(const LLInventoryModel
 		LLPanelInventoryListItemBase* item_panel = NULL;
 		if (item_type == LLAssetType::AT_OBJECT)
 		{
-				item_panel = LLPanelInventoryListItemBase::create(item);
+			item_panel = buildAttachemntListItem(item);
 			mAttachments->addItem(item_panel, item->getUUID(), ADD_BOTTOM, false);
 		}
 		else if (item_type == LLAssetType::AT_BODYPART)
@@ -164,16 +182,15 @@ void LLCOFWearables::populateAttachmentsAndBodypartsLists(const LLInventoryModel
 
 	if (mAttachments->size())
 	{
-		mAttachments->sort(); //*TODO by Name
+		mAttachments->sort();
 		mAttachments->notify(REARRANGE); //notifying the parent about the list's size change (cause items were added with rearrange=false)
 	}
 
 	if (mBodyParts->size())
 	{
-		mBodyParts->sort(); //*TODO by name
+		mBodyParts->sort();
+		mBodyParts->notify(REARRANGE);
 	}
-
-	mBodyParts->notify(REARRANGE);
 }
 
 //create a clothing list item, update verbs and show/hide line separator
@@ -228,6 +245,21 @@ LLPanelBodyPartsListItem* LLCOFWearables::buildBodypartListItem(LLViewerInventor
 	//*TODO move that item panel's inner structure disclosing stuff into the panels
 	item_panel->childSetAction("btn_delete", mCOFCallbacks.mDeleteWearable);
 	item_panel->childSetAction("btn_edit", mCOFCallbacks.mEditWearable);
+
+	return item_panel;
+}
+
+LLPanelDeletableWearableListItem* LLCOFWearables::buildAttachemntListItem(LLViewerInventoryItem* item)
+{
+	llassert(item);
+	if (!item) return NULL;
+
+	LLPanelDeletableWearableListItem* item_panel = LLPanelDeletableWearableListItem::create(item);
+	if (!item_panel) return NULL;
+
+	//setting callbacks
+	//*TODO move that item panel's inner structure disclosing stuff into the panels
+	item_panel->childSetAction("btn_delete", mCOFCallbacks.mDeleteWearable);
 
 	return item_panel;
 }

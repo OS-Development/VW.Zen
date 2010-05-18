@@ -55,6 +55,25 @@
 
 char ORDER_NUMBER_SEPARATOR('@');
 
+// support for secondlife:///app/appearance SLapps
+class LLAppearanceHandler : public LLCommandHandler
+{
+public:
+	// requests will be throttled from a non-trusted browser
+	LLAppearanceHandler() : LLCommandHandler("appearance", UNTRUSTED_THROTTLE) {}
+
+	bool handle(const LLSD& params, const LLSD& query_map, LLMediaCtrl* web)
+	{
+		// support secondlife:///app/appearance/show, but for now we just
+		// make all secondlife:///app/appearance SLapps behave this way
+		LLSideTray::getInstance()->showPanel("sidepanel_appearance", LLSD());
+		return true;
+	}
+};
+
+LLAppearanceHandler gAppearanceHandler;
+
+
 LLUUID findDescendentCategoryIDByName(const LLUUID& parent_id, const std::string& name)
 {
 	LLInventoryModel::cat_array_t cat_array;
@@ -179,7 +198,7 @@ struct LLFoundData
 {
 	LLFoundData() :
 		mAssetType(LLAssetType::AT_NONE),
-		mWearableType(LLWearableType::WT_NONE),
+		mWearableType(LLWearableType::WT_INVALID),
 		mWearable(NULL) {}
 
 	LLFoundData(const LLUUID& item_id,
@@ -392,7 +411,7 @@ public:
 						  linked_item->getAssetUUID(),
 						  linked_item->getName(),
 						  linked_item->getType(),
-						  linked_item->isWearableType() ? linked_item->getWearableType() : LLWearableType::WT_NONE
+						  linked_item->isWearableType() ? linked_item->getWearableType() : LLWearableType::WT_INVALID
 						  );
 				found.mWearable = mWearable;
 				mHolder->mFoundList.push_front(found);
@@ -1115,7 +1134,7 @@ void LLAppearanceMgr::updateAppearanceFromCOF()
 							  linked_item->getAssetUUID(),
 							  linked_item->getName(),
 							  linked_item->getType(),
-							  linked_item->isWearableType() ? linked_item->getWearableType() : LLWearableType::WT_NONE
+							  linked_item->isWearableType() ? linked_item->getWearableType() : LLWearableType::WT_INVALID
 				);
 
 #if 0

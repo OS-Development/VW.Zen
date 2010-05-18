@@ -134,11 +134,6 @@ void LLPanelOutfitsInventory::onOpen(const LLSD& key)
 
 void LLPanelOutfitsInventory::updateVerbs()
 {
-	if (mParent)
-	{
-		mParent->updateVerbs();
-	}
-
 	if (mListCommands)
 	{
 		updateListCommands();
@@ -493,8 +488,7 @@ BOOL LLPanelOutfitsInventory::isActionEnabled(const LLSD& userdata)
 			LLFolderView* root = getActivePanel()->getRootFolder();
 			if (root)
 			{
-				std::set<LLUUID> selection_set;
-				root->getSelectionList(selection_set);
+				std::set<LLUUID> selection_set = root->getSelectionList();
 				can_delete = (selection_set.size() > 0);
 				for (std::set<LLUUID>::iterator iter = selection_set.begin();
 					 iter != selection_set.end();
@@ -515,8 +509,7 @@ BOOL LLPanelOutfitsInventory::isActionEnabled(const LLSD& userdata)
 		LLFolderView* root = getActivePanel()->getRootFolder();
 		if (root)
 		{
-			std::set<LLUUID> selection_set;
-			root->getSelectionList(selection_set);
+			std::set<LLUUID> selection_set = root->getSelectionList();
 			can_delete = (selection_set.size() > 0);
 			for (std::set<LLUUID>::iterator iter = selection_set.begin();
 				 iter != selection_set.end();
@@ -568,8 +561,7 @@ bool LLPanelOutfitsInventory::hasItemsSelected()
 		LLFolderView* root = getActivePanel()->getRootFolder();
 		if (root)
 		{
-			std::set<LLUUID> selection_set;
-			root->getSelectionList(selection_set);
+			std::set<LLUUID> selection_set = root->getSelectionList();
 			has_items_selected = (selection_set.size() > 0);
 		}
 	}
