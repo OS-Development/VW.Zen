@@ -65,7 +65,7 @@ public:
 	virtual BOOL isVisibleByAgent(LLAgent* agentp);
 
 	
-	void handleClickSubTab();
+	bool handleSubTabSwitch(const LLSD& data);
 
 	// Checks if the current tab needs to be applied, and tries to switch to the requested tab.
 	BOOL attemptTransition();
@@ -93,7 +93,6 @@ protected:
 	LLPanelGroupTab*		mRequestedTab;
 	LLTabContainer*	mSubTabContainer;
 	BOOL					mFirstUse;
-	BOOL					mIgnoreTransition;
 
 	std::string				mDefaultNeedsApplyMesg;
 	std::string				mWantApplyMesg;
@@ -258,6 +257,8 @@ public:
 	void handleDeleteRole();
 
 	void saveRoleChanges();
+
+	virtual void setGroupID(const LLUUID& id);
 protected:
 	void handleActionCheck(LLUICtrl* ctrl, bool force);
 	LLSD createRoleItem(const LLUUID& role_id, std::string name, std::string title, S32 members);
@@ -295,6 +296,8 @@ public:
 	virtual void update(LLGroupChange gc);
 
 	void handleActionSelect();
+
+	virtual void setGroupID(const LLUUID& id);
 protected:
 	LLScrollListCtrl*	mActionList;
 	LLScrollListCtrl*	mActionRoles;

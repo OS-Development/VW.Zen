@@ -143,7 +143,6 @@ const std::string& LLInvFVBridge::getDisplayName() const
 // Folders have full perms
 PermissionMask LLInvFVBridge::getPermissionMask() const
 {
-
 	return PERM_ALL;
 }
 
@@ -1219,18 +1218,7 @@ PermissionMask LLItemBridge::getPermissionMask() const
 {
 	LLViewerInventoryItem* item = getItem();
 	PermissionMask perm_mask = 0;
-	if(item)
-	{
-		BOOL copy = item->getPermissions().allowCopyBy(gAgent.getID());
-		BOOL mod = item->getPermissions().allowModifyBy(gAgent.getID());
-		BOOL xfer = item->getPermissions().allowOperationBy(PERM_TRANSFER,
-															gAgent.getID());
-
-		if (copy) perm_mask |= PERM_COPY;
-		if (mod)  perm_mask |= PERM_MODIFY;
-		if (xfer) perm_mask |= PERM_TRANSFER;
-
-	}
+	if (item) perm_mask = item->getPermissionMask();
 	return perm_mask;
 }
 
@@ -4992,18 +4980,20 @@ void LLWearableBridge::removeAllClothesFromAvatar()
 		if (itype == LLWearableType::WT_SHAPE || itype == LLWearableType::WT_SKIN || itype == LLWearableType::WT_HAIR || itype == LLWearableType::WT_EYES)
 			continue;
 
-		// MULTI-WEARABLES: fixed to index 0
-		LLViewerInventoryItem *item = dynamic_cast<LLViewerInventoryItem*>(
-			gAgentWearables.getWearableInventoryItem((LLWearableType::EType)itype, 0));
-		if (!item)
-			continue;
-		const LLUUID &item_id = gInventory.getLinkedItemID(item->getUUID());
-		const LLWearable *wearable = gAgentWearables.getWearableFromItemID(item_id);
-		if (!wearable)
-			continue;
-
-		// Find and remove this item from the COF.
-		LLAppearanceMgr::instance().removeCOFItemLinks(item_id,false);
+		for (S32 index = gAgentWearables.getWearableCount(itype)-1; index >= 0 ; --index)
+		{
+			LLViewerInventoryItem *item = dynamic_cast<LLViewerInventoryItem*>(
+				gAgentWearables.getWearableInventoryItem((LLWearableType::EType)itype, index));
+			if (!item)
+				continue;
+			const LLUUID &item_id = gInventory.getLinkedItemID(item->getUUID());
+			const LLWearable *wearable = gAgentWearables.getWearableFromItemID(item_id);
+			if (!wearable)
+				continue;
+	
+			// Find and remove this item from the COF.
+			LLAppearanceMgr::instance().removeCOFItemLinks(item_id,false);
+		}
 	}
 	gInventory.notifyObservers();
 

@@ -91,6 +91,7 @@ set(viewer_SOURCE_FILES
     llbottomtray.cpp
     llbox.cpp
     llbreadcrumbview.cpp
+    llbuycurrencyhtml.cpp
     llcallbacklist.cpp
     llcallfloater.cpp
     llcallingcard.cpp
@@ -159,6 +160,7 @@ set(viewer_SOURCE_FILES
     llfloaterbuy.cpp
     llfloaterbuycontents.cpp
     llfloaterbuycurrency.cpp
+    llfloaterbuycurrencyhtml.cpp
     llfloaterbuyland.cpp
     llfloatercamera.cpp
     llfloatercolorpicker.cpp
@@ -421,7 +423,6 @@ set(viewer_SOURCE_FILES
     lltexturestats.cpp
     lltexturestatsuploader.cpp
     lltextureview.cpp
-    lltextutil.cpp
     lltoast.cpp
     lltoastalertpanel.cpp
     lltoastgroupnotifypanel.cpp
@@ -605,6 +606,7 @@ set(viewer_HEADER_FILES
     llbottomtray.h
     llbox.h
     llbreadcrumbview.h
+    llbuycurrencyhtml.h
     llcallbacklist.h
     llcallfloater.h
     llcallingcard.h
@@ -675,6 +677,7 @@ set(viewer_HEADER_FILES
     llfloaterbuy.h
     llfloaterbuycontents.h
     llfloaterbuycurrency.h
+    llfloaterbuycurrencyhtml.h
     llfloaterbuyland.h
     llfloatercamera.h
     llfloatercolorpicker.h
@@ -935,7 +938,6 @@ set(viewer_HEADER_FILES
     lltexturestats.h
     lltexturestatsuploader.h
     lltextureview.h
-    lltextutil.h
     lltoast.h
     lltoastalertpanel.h
     lltoastgroupnotifypanel.h

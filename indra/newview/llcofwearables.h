@@ -33,12 +33,16 @@
 #ifndef LL_LLCOFWEARABLES_H
 #define LL_LLCOFWEARABLES_H
 
+// llui
+#include "llflatlistview.h"
 #include "llpanel.h"
-#include "llinventorymodel.h"
-#include "llappearancemgr.h"
-#include "llwearableitemslist.h"
 
-class LLFlatListView;
+#include "llappearancemgr.h"
+#include "llinventorymodel.h"
+
+class LLPanelClothingListItem;
+class LLPanelBodyPartsListItem;
+class LLPanelDeletableWearableListItem;
 
 /**
  * Adaptor between LLAccordionCtrlTab and LLFlatListView to facilitate communication between them 

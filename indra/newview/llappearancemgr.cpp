@@ -55,6 +55,25 @@
 
 char ORDER_NUMBER_SEPARATOR('@');
 
+// support for secondlife:///app/appearance SLapps
+class LLAppearanceHandler : public LLCommandHandler
+{
+public:
+	// requests will be throttled from a non-trusted browser
+	LLAppearanceHandler() : LLCommandHandler("appearance", UNTRUSTED_THROTTLE) {}
+
+	bool handle(const LLSD& params, const LLSD& query_map, LLMediaCtrl* web)
+	{
+		// support secondlife:///app/appearance/show, but for now we just
+		// make all secondlife:///app/appearance SLapps behave this way
+		LLSideTray::getInstance()->showPanel("sidepanel_appearance", LLSD());
+		return true;
+	}
+};
+
+LLAppearanceHandler gAppearanceHandler;
+
+
 LLUUID findDescendentCategoryIDByName(const LLUUID& parent_id, const std::string& name)
 {
 	LLInventoryModel::cat_array_t cat_array;
@@ -505,6 +524,7 @@ bool LLWearableHoldingPattern::pollMissingWearables()
 
 	if (done)
 	{
+		gAgentAvatarp->wearablesLoaded();
 		clearCOFLinksForMissingWearables();
 		onAllComplete();
 	}
@@ -1449,14 +1469,21 @@ void LLAppearanceMgr::addCOFItemLink(const LLInventoryItem *item, bool do_update
 	{
 		// Are these links to the same object?
 		const LLViewerInventoryItem* inv_item = item_array.get(i).get();
+		const LLWearableType::EType wearable_type = inv_item->getWearableType();
+
+		const bool is_body_part =    (wearable_type == LLWearableType::WT_SHAPE) 
+								  || (wearable_type == LLWearableType::WT_HAIR) 
+								  || (wearable_type == LLWearableType::WT_EYES)
+								  || (wearable_type == LLWearableType::WT_SKIN);
+
 		if (inv_item->getLinkedUUID() == vitem->getLinkedUUID())
 		{
 			linked_already = true;
 		}
-		// Are these links to different items of the same wearable
+		// Are these links to different items of the same body part
 		// type? If so, new item will replace old.
-		// MULTI-WEARABLES: revisit if more than one per type is allowed.
-		else if (FALSE/*areMatchingWearables(vitem,inv_item)*/)
+		// TODO: MULTI-WEARABLE: check for wearable limit for clothing types
+		else if (is_body_part)
 		{
 			if (inv_item->getIsLinkType())
 			{
@@ -1630,6 +1657,7 @@ void LLAppearanceMgr::autopopulateOutfits()
 // Handler for anything that's deferred until avatar de-clouds.
 void LLAppearanceMgr::onFirstFullyVisible()
 {
+	gAgentAvatarp->avatarVisible();
 	autopopulateOutfits();
 }
 

@@ -46,6 +46,8 @@ static LLRegisterPanelClassWrapper<LLCOFWearables> t_cof_wearables("cof_wearable
 
 const LLSD REARRANGE = LLSD().with("rearrange", LLSD());
 
+static const LLWearableItemNameComparator WEARABLE_NAME_COMPARATOR;
+
 
 LLCOFWearables::LLCOFWearables() : LLPanel(),
 	mAttachments(NULL),
@@ -72,6 +74,10 @@ BOOL LLCOFWearables::postBuild()
 	mAttachments->setCommitOnSelectionChange(true);
 	mClothing->setCommitOnSelectionChange(true);
 	mBodyParts->setCommitOnSelectionChange(true);
+
+	//clothing is sorted according to its position relatively to the body
+	mAttachments->setComparator(&WEARABLE_NAME_COMPARATOR);
+	mBodyParts->setComparator(&WEARABLE_NAME_COMPARATOR);
 
 	return LLPanel::postBuild();
 }
@@ -164,16 +170,15 @@ void LLCOFWearables::populateAttachmentsAndBodypartsLists(const LLInventoryModel
 
 	if (mAttachments->size())
 	{
-		mAttachments->sort(); //*TODO by Name
+		mAttachments->sort();
 		mAttachments->notify(REARRANGE); //notifying the parent about the list's size change (cause items were added with rearrange=false)
 	}
 
 	if (mBodyParts->size())
 	{
-		mBodyParts->sort(); //*TODO by name
+		mBodyParts->sort();
+		mBodyParts->notify(REARRANGE);
 	}
-
-	mBodyParts->notify(REARRANGE);
 }
 
 //create a clothing list item, update verbs and show/hide line separator

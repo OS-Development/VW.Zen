@@ -667,6 +667,8 @@ LLVOAvatar::LLVOAvatar(const LLUUID& id,
 	mTexEyeColor( NULL ),
 	mNeedsSkin(FALSE),
 	mUpdatePeriod(1),
+	mFullyLoaded(FALSE),
+	mPreviousFullyLoaded(FALSE),
 	mFullyLoadedInitialized(FALSE),
 	mSupportsAlphaLayers(FALSE)
 {
@@ -746,8 +748,11 @@ LLVOAvatar::LLVOAvatar(const LLUUID& id,
 	mOohMorph      = NULL;
 	mAahMorph      = NULL;
 
-	mCurrentGesticulationLevel = 0;		
+	mCurrentGesticulationLevel = 0;
 
+	mRuthTimer.reset();
+	mRuthDebugTimer.reset();
+	mDebugExistenceTimer.reset();
 }
 
 //------------------------------------------------------------------------
@@ -755,6 +760,27 @@ LLVOAvatar::LLVOAvatar(const LLUUID& id,
 //------------------------------------------------------------------------
 LLVOAvatar::~LLVOAvatar()
 {
+	if (gSavedSettings.getBOOL("DebugAvatarRezTime"))
+	{
+		if (!mFullyLoaded)
+		{
+			llinfos << "REZTIME: [ " << (U32)mDebugExistenceTimer.getElapsedTimeF32() << "sec ] Avatar '" << getFullname() << "' left after " << (U32)mRuthDebugTimer.getElapsedTimeF32() << " seconds as cloud." << llendl;
+			LLSD args;
+			args["EXISTENCE"] = llformat("%d",(U32)mDebugExistenceTimer.getElapsedTimeF32());
+			args["TIME"] = llformat("%d",(U32)mRuthDebugTimer.getElapsedTimeF32());
+			args["NAME"] = getFullname();
+			LLNotificationsUtil::add("AvatarRezLeftCloudNotification",args);
+		}
+		else
+		{
+			llinfos << "REZTIME: [ " << (U32)mDebugExistenceTimer.getElapsedTimeF32() << "sec ] Avatar '" << getFullname() << "' left." << llendl;
+			LLSD args;
+			args["EXISTENCE"] = llformat("%d",(U32)mDebugExistenceTimer.getElapsedTimeF32());
+			args["NAME"] = getFullname();
+			LLNotificationsUtil::add("AvatarRezLeftNotification",args);
+		}
+
+	}
 	lldebugs << "LLVOAvatar Destructor (0x" << this << ") id:" << mID << llendl;
 
 	mRoot.removeAllChildren();
@@ -1269,6 +1295,7 @@ void LLVOAvatar::initInstance(void)
 	//VTPause();  // VTune
 	
 	mVoiceVisualizer->setVoiceEnabled( LLVoiceClient::getInstance()->getVoiceEnabled( mID ) );
+
 }
 
 const LLVector3 LLVOAvatar::getRenderPosition() const
@@ -2076,9 +2103,24 @@ U32 LLVOAvatar::processUpdateMessage(LLMessageSystem *mesgsys,
 	LLMemType mt(LLMemType::MTYPE_AVATAR);
 	
 	LLVector3 old_vel = getVelocity();
+	const BOOL has_name = !getNVPair("FirstName");
+
 	// Do base class updates...
 	U32 retval = LLViewerObject::processUpdateMessage(mesgsys, user_data, block_num, update_type, dp);
 
+	// Print out arrival information once we have name of avatar.
+	if (gSavedSettings.getBOOL("DebugAvatarRezTime"))
+	{
+		if (has_name && getNVPair("FirstName"))
+		{
+			mDebugExistenceTimer.reset();
+			LLSD args;
+			args["EXISTENCE"] = llformat("%d",(U32)mDebugExistenceTimer.getElapsedTimeF32());
+			args["NAME"] = getFullname();
+			LLNotificationsUtil::add("AvatarRezArrivedNotification",args);
+			llinfos << "REZTIME: [ " << (U32)mDebugExistenceTimer.getElapsedTimeF32() << "sec ] Avatar '" << getFullname() << "' arrived." << llendl;
+		}
+	}
 	if(retval & LLViewerObject::INVALID_UPDATE)
 	{
 		if (isSelf())
@@ -2771,6 +2813,29 @@ void LLVOAvatar::idleUpdateNameTag(const LLVector3& root_pos_last)
 			const BOOL is_appearance = mSignaledAnimations.find(ANIM_AGENT_CUSTOMIZE) != mSignaledAnimations.end();
 			const BOOL is_muted = isSelf() ? FALSE : LLMuteList::getInstance()->isMuted(getID());
 			const BOOL is_cloud = getIsCloud();
+
+			if (gSavedSettings.getBOOL("DebugAvatarRezTime"))
+			{
+				if (is_appearance != mNameAppearance)
+				{
+					if (is_appearance)
+					{
+						LLSD args;
+						args["EXISTENCE"] = llformat("%d",(U32)mDebugExistenceTimer.getElapsedTimeF32());
+						args["NAME"] = getFullname();
+						LLNotificationsUtil::add("AvatarRezEnteredAppearanceNotification",args);
+						llinfos << "REZTIME: [ " << (U32)mDebugExistenceTimer.getElapsedTimeF32() << "sec ] Avatar '" << getFullname() << "' entered appearance mode." << llendl;
+					}
+					else
+					{
+						LLSD args;
+						args["EXISTENCE"] = llformat("%d",(U32)mDebugExistenceTimer.getElapsedTimeF32());
+						args["NAME"] = getFullname();
+						LLNotificationsUtil::add("AvatarRezLeftAppearanceNotification",args);
+						llinfos << "REZTIME: [ " << (U32)mDebugExistenceTimer.getElapsedTimeF32() << "sec ] Avatar '" << getFullname() << "' left appearance mode." << llendl;
+					}
+				}
+			}
 
 			if (mNameString.empty() ||
 				new_name ||
@@ -4821,7 +4886,7 @@ BOOL LLVOAvatar::loadAvatar()
 	}
 
 	// Uncomment to enable avatar_lad.xml debugging. 
-/*	std::ofstream file;
+	std::ofstream file;
 	file.open("avatar_lad.log");
 	for( LLViewerVisualParam* param = (LLViewerVisualParam*) getFirstVisualParam(); 
 	param;
@@ -4831,7 +4896,7 @@ BOOL LLVOAvatar::loadAvatar()
 		file << std::endl;
 	}
 
-	file.close();*/
+	file.close();
 	
 	return TRUE;
 }
@@ -5863,20 +5928,29 @@ void LLVOAvatar::updateRuthTimer(bool loading)
 	if (mPreviousFullyLoaded)
 	{
 		mRuthTimer.reset();
+		if (gSavedSettings.getBOOL("DebugAvatarRezTime"))
+		{
+			llinfos << "REZTIME: [ " << (U32)mDebugExistenceTimer.getElapsedTimeF32() << "sec ] Avatar '" << getFullname() << "' became cloud." << llendl;
+			LLSD args;
+			args["EXISTENCE"] = llformat("%d",(U32)mDebugExistenceTimer.getElapsedTimeF32());
+			args["TIME"] = llformat("%d",(U32)mRuthDebugTimer.getElapsedTimeF32());
+			args["NAME"] = getFullname();
+			LLNotificationsUtil::add("AvatarRezCloudNotification",args);
+		}
 		mRuthDebugTimer.reset();
 	}
 	
 	const F32 LOADING_TIMEOUT = 120.f;
 	if (mRuthTimer.getElapsedTimeF32() > LOADING_TIMEOUT)
 	{
-		/*
+		
 		llinfos << "Ruth Timer timeout: Missing texture data for '" << getFullname() << "' "
 				<< "( Params loaded : " << !visualParamWeightsAreDefault() << " ) "
 				<< "( Lower : " << isTextureDefined(TEX_LOWER_BAKED) << " ) "
 				<< "( Upper : " << isTextureDefined(TEX_UPPER_BAKED) << " ) "
 				<< "( Head : " << isTextureDefined(TEX_HEAD_BAKED) << " )."
 				<< llendl;
-		*/
+		
 		LLAvatarPropertiesProcessor::getInstance()->sendAvatarTexturesRequest(getID());
 		mRuthTimer.reset();
 	}
@@ -5896,8 +5970,9 @@ BOOL LLVOAvatar::processFullyLoadedChange(bool loading)
 	{
 		if (!mPreviousFullyLoaded && !loading && mFullyLoaded)
 		{
-			llinfos << "Avatar '" << getFullname() << "' resolved in " << mRuthDebugTimer.getElapsedTimeF32() << " seconds." << llendl;
+			llinfos << "REZTIME: [ " << (U32)mDebugExistenceTimer.getElapsedTimeF32() << "sec ] Avatar '" << getFullname() << "' resolved in " << (U32)mRuthDebugTimer.getElapsedTimeF32() << " seconds." << llendl;
 			LLSD args;
+			args["EXISTENCE"] = llformat("%d",(U32)mDebugExistenceTimer.getElapsedTimeF32());
 			args["TIME"] = llformat("%d",(U32)mRuthDebugTimer.getElapsedTimeF32());
 			args["NAME"] = getFullname();
 			LLNotificationsUtil::add("AvatarRezNotification",args);
@@ -6279,6 +6354,14 @@ BOOL LLVOAvatar::teToColorParams( ETextureIndex te, U32 *param_name )
 			param_name[1] = 922; //"skirt_green";
 			param_name[2] = 923; //"skirt_blue";
 			break;
+
+		case TEX_HEAD_TATTOO:
+		case TEX_LOWER_TATTOO:
+		case TEX_UPPER_TATTOO:
+			param_name[0] = 1071; //"tattoo_red";
+			param_name[1] = 1072; //"tattoo_green";
+			param_name[2] = 1073; //"tattoo_blue";
+			break;	
 
 		default:
 			llassert(0);
