@@ -51,7 +51,7 @@
 #include "llappviewer.h"
 #include "llcallbacklist.h"
 #include "llfloaterbuycurrency.h"
-#include "llslurl.h"		// IDEVO
+#include "llslurl.h"
 #include "llstatusbar.h"
 #include "llviewercontrol.h"
 #include "llviewerparcelmgr.h"
@@ -578,7 +578,7 @@ void LLPanelPlaceProfile::onForSaleBannerClick()
 			{
 				LLStringUtil::format_map_t args;
 				args["AMOUNT"] = llformat("%d", price);
-				LLFloaterBuyCurrency::buyCurrency(LLTrans::getString("buying_selected_land", args), price);
+				LLBuyCurrencyHTML::openCurrencyFloater( LLTrans::getString("buying_selected_land", args), price );
 			}
 			else
 			{
