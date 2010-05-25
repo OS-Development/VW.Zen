@@ -47,6 +47,7 @@
 #include "llfloaterworldmap.h"
 #include "llfriendcard.h"
 #include "llgesturemgr.h"
+#include "llgiveinventory.h"
 #include "llimfloater.h"
 #include "llimview.h"
 #include "llinventoryclipboard.h"
@@ -1016,11 +1017,7 @@ BOOL LLInvFVBridge::canShare() const
 	{
 		if (!LLInventoryCollectFunctor::itemTransferCommonlyAllowed(item)) 
 			return FALSE;
-		if (!item->getPermissions().allowOperationBy(PERM_TRANSFER, gAgent.getID()))
-			return FALSE;
-		if (!item->getPermissions().allowCopyBy(gAgent.getID()))
-			return FALSE;
-		return TRUE;
+		return (BOOL)LLGiveInventory::isInventoryGiveAcceptable(item);
 	}
 
 	// All categories can be given.
@@ -3755,7 +3752,7 @@ BOOL LLCallingCardBridge::dragOrDrop(MASK mask, BOOL drop,
 					rv = TRUE;
 					if(drop)
 					{
-						LLToolDragAndDrop::giveInventory(item->getCreatorUUID(),
+						LLGiveInventory::doGiveInventoryItem(item->getCreatorUUID(),
 														 (LLInventoryItem*)cargo_data);
 					}
 				}
@@ -3776,7 +3773,7 @@ BOOL LLCallingCardBridge::dragOrDrop(MASK mask, BOOL drop,
 					rv = TRUE;
 					if(drop)
 					{
-						LLToolDragAndDrop::giveInventoryCategory(
+						LLGiveInventory::doGiveInventoryCategory(
 							item->getCreatorUUID(),
 							inv_cat);
 					}
@@ -4146,21 +4143,9 @@ void LLObjectBridge::performAction(LLInventoryModel* model, std::string action)
 
 void LLObjectBridge::openItem()
 {
-	LLViewerInventoryItem* item = getItem();
-
-	if (item)
-	{
-		LLInvFVBridgeAction::doAction(item->getType(),mUUID,getInventoryModel());
-	}
-
-	LLSD key;
-	key["id"] = mUUID;
-	LLSideTray::getInstance()->showPanel("sidepanel_inventory", key);
-
-	// Disable old properties floater; this is replaced by the sidepanel.
-	/*
-	  LLFloaterReg::showInstance("properties", mUUID);
-	*/
+	// object double-click action is to wear/unwear object
+	performAction(getInventoryModel(),
+		      get_is_item_worn(mUUID) ? "detach" : "attach");
 }
 
 LLFontGL::StyleFlags LLObjectBridge::getLabelStyle() const
