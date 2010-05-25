@@ -34,6 +34,7 @@
 
 #include "llimview.h"
 
+#include "llavatarnamecache.h"	// IDEVO
 #include "llfloaterreg.h"
 #include "llfontgl.h"
 #include "llgl.h"
@@ -269,7 +270,7 @@ void LLIMModel::LLIMSession::onVoiceChannelStateChanged(const LLVoiceChannel::ES
 		// no text notifications
 		break;
 	case P2P_SESSION:
-		gCacheName->getFullName(mOtherParticipantID, other_avatar_name);
+		gCacheName->getFullName(mOtherParticipantID, other_avatar_name); // voice
 
 		if(direction == LLVoiceChannel::INCOMING_CALL)
 		{
@@ -404,12 +405,16 @@ void LLIMModel::LLIMSession::addMessagesFromHistory(const std::list<LLSD>& histo
 		const LLSD& msg = *it;
 
 		std::string from = msg[IM_FROM];
-		LLUUID from_id = LLUUID::null;
-		if (msg[IM_FROM_ID].isUndefined())
+		LLUUID from_id;
+		if (msg[IM_FROM_ID].isDefined())
 		{
+			from_id = msg[IM_FROM_ID].asUUID();
+		}
+		else
+		{
+			// Legacy chat logs only wrote the legacy name, not the agent_id
 			gCacheName->getUUID(from, from_id);
 		}
-
 
 		std::string timestamp = msg[IM_TIME];
 		std::string text = msg[IM_TEXT];
@@ -631,7 +636,7 @@ bool LLIMModel::clearSession(const LLUUID& session_id)
 void LLIMModel::getMessagesSilently(const LLUUID& session_id, std::list<LLSD>& messages, int start_index)
 {
 	LLIMSession* session = findIMSession(session_id);
-	if (!session)
+	if (!session) 
 	{
 		llwarns << "session " << session_id << "does not exist " << llendl;
 		return;
@@ -639,7 +644,7 @@ void LLIMModel::getMessagesSilently(const LLUUID& session_id, std::list<LLSD>& m
 
 	int i = session->mMsgs.size() - start_index;
 
-	for (std::list<LLSD>::iterator iter = session->mMsgs.begin();
+	for (std::list<LLSD>::iterator iter = session->mMsgs.begin(); 
 		iter != session->mMsgs.end() && i > 0;
 		iter++)
 	{
@@ -1745,8 +1750,19 @@ void LLOutgoingCallDialog::show(const LLSD& key)
 	setTitle(callee_name);
 
 	LLSD callee_id = mPayload["other_user_id"];
-	childSetTextArg("calling", "[CALLEE_NAME]", callee_name);
-	childSetTextArg("connecting", "[CALLEE_NAME]", callee_name);
+	// Beautification:  Since SLID is in the title bar, and you probably
+	// recognize this person's voice, just show display name
+	std::string final_callee_name = callee_name;
+	if (mPayload["session_type"].asInteger() == LLIMModel::LLIMSession::P2P_SESSION)
+	{
+		LLAvatarName av_name;
+		if (LLAvatarNameCache::get(callee_id, &av_name))
+		{
+			final_callee_name = av_name.mDisplayName;
+		}
+	}
+	childSetTextArg("calling", "[CALLEE_NAME]", final_callee_name);
+	childSetTextArg("connecting", "[CALLEE_NAME]", final_callee_name);
 
 	// for outgoing group calls callee_id == group id == session id
 	setIcon(callee_id, callee_id);
@@ -1903,16 +1919,21 @@ BOOL LLIncomingCallDialog::postBuild()
 	if (caller_name == "anonymous")
 	{
 		caller_name = getString("anonymous");
+		setCallerName(caller_name, caller_name, call_type);
 	}
 	else if (!is_avatar)
 	{
 		caller_name = LLTextUtil::formatPhoneNumber(caller_name);
+		setCallerName(caller_name, caller_name, call_type);
+	}
+	else
+	{
+		// Get the full name information
+		LLAvatarNameCache::get(caller_id,
+			boost::bind(&LLIncomingCallDialog::onAvatarNameCache,
+				this, _1, _2, call_type));
 	}
 
-	setTitle(caller_name + " " + call_type);
-
-	LLUICtrl* caller_name_widget = getChild<LLUICtrl>("caller name");
-	caller_name_widget->setValue(caller_name + " " + call_type);
 	setIcon(session_id, caller_id);
 
 	childSetAction("Accept", onAccept, this);
@@ -1936,6 +1957,24 @@ BOOL LLIncomingCallDialog::postBuild()
 	return TRUE;
 }
 
+void LLIncomingCallDialog::setCallerName(const std::string& ui_title,
+										 const std::string& ui_label,
+										 const std::string& call_type)
+{
+	setTitle(ui_title);
+
+	// call_type may be a string like " is calling."
+	LLUICtrl* caller_name_widget = getChild<LLUICtrl>("caller name");
+	caller_name_widget->setValue(ui_label + " " + call_type);
+}
+
+void LLIncomingCallDialog::onAvatarNameCache(const LLUUID& agent_id,
+											 const LLAvatarName& av_name,
+											 const std::string& call_type)
+{
+	std::string title = av_name.getCompleteName();
+	setCallerName(title, av_name.mDisplayName, call_type);
+}
 
 void LLIncomingCallDialog::onOpen(const LLSD& key)
 {
@@ -2034,8 +2073,11 @@ void LLIncomingCallDialog::processCallResponse(S32 response)
 					}
 					else
 					{
-						if (gCacheName->getFullName(caller_id, correct_session_name))
+						// *NOTE: really should be using callbacks here
+						LLAvatarName av_name;
+						if (LLAvatarNameCache::get(caller_id, &av_name))
 						{
+							correct_session_name = av_name.mDisplayName + " (" + av_name.mUsername + ")";
 							correct_session_name.append(ADHOC_NAME_SUFFIX); 
 						}
 					}
@@ -2544,7 +2586,8 @@ void LLIMMgr::inviteToSession(
 	{
 		if (caller_name.empty())
 		{
-			gCacheName->get(caller_id, FALSE, boost::bind(&LLIMMgr::onInviteNameLookup, payload, _1, _2, _3, _4));
+			gCacheName->get(caller_id, false,  // voice
+				boost::bind(&LLIMMgr::onInviteNameLookup, payload, _1, _2, _3));
 		}
 		else
 		{
@@ -2554,9 +2597,9 @@ void LLIMMgr::inviteToSession(
 	}
 }
 
-void LLIMMgr::onInviteNameLookup(LLSD payload, const LLUUID& id, const std::string& first, const std::string& last, BOOL is_group)
+void LLIMMgr::onInviteNameLookup(LLSD payload, const LLUUID& id, const std::string& name, bool is_group)
 {
-	payload["caller_name"] = first + " " + last;
+	payload["caller_name"] = name;
 	payload["session_name"] = payload["caller_name"].asString();
 
 	std::string notify_box_type = payload["notify_box_type"].asString();
@@ -2777,13 +2820,14 @@ void LLIMMgr::noteOfflineUsers(
 		for(S32 i = 0; i < count; ++i)
 		{
 			info = at.getBuddyInfo(ids.get(i));
-			std::string first, last;
-			if(info && !info->isOnline()
-			   && gCacheName->getName(ids.get(i), first, last))
+			LLAvatarName av_name;
+			if (info
+				&& !info->isOnline()
+				&& LLAvatarNameCache::get(ids.get(i), &av_name))
 			{
 				LLUIString offline = LLTrans::getString("offline_message");
-				offline.setArg("[FIRST]", first);
-				offline.setArg("[LAST]", last);
+				// Use display name only because this user is your friend
+				offline.setArg("[NAME]", av_name.mDisplayName);
 				im_model.proccessOnlineOfflineNotification(session_id, offline);
 			}
 		}
