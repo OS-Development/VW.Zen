@@ -44,6 +44,7 @@
 // newview
 #include "llagentdata.h" // for comparator
 #include "llavatariconctrl.h"
+#include "llavatarnamecache.h"
 #include "llcallingcard.h" // for LLAvatarTracker
 #include "llcachename.h"
 #include "lllistcontextmenu.h"
@@ -242,12 +243,15 @@ void LLAvatarList::refresh()
 
 	// Handle added items.
 	unsigned nadded = 0;
+	const std::string waiting_str = LLTrans::getString("AvatarNameWaiting");
+
 	for (uuid_vec_t::const_iterator it=added.begin(); it != added.end(); it++)
 	{
-		std::string name;
 		const LLUUID& buddy_id = *it;
-		have_names &= (bool)gCacheName->getFullName(buddy_id, name);
-		if (!have_filter || findInsensitive(name, mNameFilter))
+		LLAvatarName av_name;
+		have_names &= LLAvatarNameCache::get(buddy_id, &av_name);
+
+		if (!have_filter || findInsensitive(av_name.mDisplayName, mNameFilter))
 		{
 			if (nadded >= ADD_LIMIT)
 			{
@@ -256,7 +260,9 @@ void LLAvatarList::refresh()
 			}
 			else
 			{
-				addNewItem(buddy_id, name, LLAvatarTracker::instance().isBuddyOnline(buddy_id));
+				addNewItem(buddy_id, 
+					       av_name.mDisplayName.empty() ? waiting_str : av_name.mDisplayName, 
+						   LLAvatarTracker::instance().isBuddyOnline(buddy_id));
 				modified = true;
 				nadded++;
 			}
@@ -374,7 +380,7 @@ S32 LLAvatarList::notifyParent(const LLSD& info)
 void LLAvatarList::addNewItem(const LLUUID& id, const std::string& name, BOOL is_online, EAddPosition pos)
 {
 	LLAvatarListItem* item = new LLAvatarListItem();
-	item->setName(name);
+	// This sets the name as a side effect
 	item->setAvatarId(id, mSessionID, mIgnoreOnlineStatus);
 	item->setOnline(mIgnoreOnlineStatus ? true : is_online);
 	item->showLastInteractionTime(mShowLastInteractionTime);
@@ -540,11 +546,13 @@ void LLAvalineListItem::setName(const std::string& name)
 		std::string hidden_name = LLTrans::getString("AvalineCaller", args);
 
 		LL_DEBUGS("Avaline") << "Avaline caller: " << uuid << ", name: " << hidden_name << LL_ENDL;
-		LLAvatarListItem::setName(hidden_name);
+		LLAvatarListItem::setAvatarName(hidden_name);
+		LLAvatarListItem::setAvatarToolTip(hidden_name);
 	}
 	else
 	{
 		const std::string& formatted_phone = LLTextUtil::formatPhoneNumber(name);
-		LLAvatarListItem::setName(formatted_phone);
+		LLAvatarListItem::setAvatarName(formatted_phone);
+		LLAvatarListItem::setAvatarToolTip(formatted_phone);
 	}
 }
