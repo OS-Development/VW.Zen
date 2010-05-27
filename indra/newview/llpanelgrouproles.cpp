@@ -199,16 +199,13 @@ bool LLPanelGroupRoles::handleSubTabSwitch(const LLSD& data)
 {
 	std::string panel_name = data.asString();
 	
-	LLPanelGroupTab* activating_tab = static_cast<LLPanelGroupTab*>(mSubTabContainer->getPanelByName(panel_name));
-
-	if(activating_tab == mCurrentTab
-		|| activating_tab == mRequestedTab)
+	if(mRequestedTab != NULL)//we already have tab change request
 	{
-		return true;
+		return false;
 	}
 
-	mRequestedTab = activating_tab;
-	
+	mRequestedTab = static_cast<LLPanelGroupTab*>(mSubTabContainer->getPanelByName(panel_name));
+
 	std::string mesg;
 	if (mCurrentTab && mCurrentTab->needsApply(mesg))
 	{
@@ -229,15 +226,9 @@ bool LLPanelGroupRoles::handleSubTabSwitch(const LLSD& data)
 		// we get a response back from the user.
 		return false;
 	}
-	else
-	{
-		// The current panel didn't have anything it needed to apply.
-		if (mRequestedTab)
-		{
-			transitionToTab();
-		}
-		return true;
-	}
+
+	transitionToTab();
+	return true;
 }
 
 void LLPanelGroupRoles::transitionToTab()
@@ -806,8 +797,37 @@ BOOL LLPanelGroupMembersSubTab::postBuildSubTab(LLView* root)
 
 void LLPanelGroupMembersSubTab::setGroupID(const LLUUID& id)
 {
-	LLPanelGroupSubTab::setGroupID(id);
+	//clear members list
+	if(mMembersList) mMembersList->deleteAllItems();
+	if(mAssignedRolesList) mAssignedRolesList->deleteAllItems();
+	if(mAllowedActionsList) mAllowedActionsList->deleteAllItems();
 
+	LLPanelGroupSubTab::setGroupID(id);
+}
+
+void LLPanelGroupRolesSubTab::setGroupID(const LLUUID& id)
+{
+	if(mRolesList) mRolesList->deleteAllItems();
+	if(mAssignedMembersList) mAssignedMembersList->deleteAllItems();
+	if(mAllowedActionsList) mAllowedActionsList->deleteAllItems();
+
+	if(mRoleName) mRoleName->clear();
+	if(mRoleDescription) mRoleDescription->clear();
+	if(mRoleTitle) mRoleTitle->clear();
+
+	setFooterEnabled(FALSE);
+
+	LLPanelGroupSubTab::setGroupID(id);
+}
+void LLPanelGroupActionsSubTab::setGroupID(const LLUUID& id)
+{
+	if(mActionList) mActionList->deleteAllItems();
+	if(mActionRoles) mActionRoles->deleteAllItems();
+	if(mActionMembers) mActionMembers->deleteAllItems();
+
+	if(mActionDescription) mActionDescription->clear();
+
+	LLPanelGroupSubTab::setGroupID(id);
 }
 
 
@@ -1729,8 +1749,7 @@ BOOL LLPanelGroupRolesSubTab::postBuildSubTab(LLView* root)
 	mRoleTitle->setKeystrokeCallback(onPropertiesKey, this);
 
 	mRoleDescription->setCommitOnFocusLost(TRUE);
-	mRoleDescription->setCommitCallback(onDescriptionCommit, this);
-	mRoleDescription->setFocusReceivedCallback(boost::bind(onDescriptionFocus, _1, this));
+	mRoleDescription->setKeystrokeCallback(boost::bind(&LLPanelGroupRolesSubTab::onDescriptionKeyStroke, this, _1));
 
 	setFooterEnabled(FALSE);
 
@@ -2186,14 +2205,10 @@ void LLPanelGroupRolesSubTab::onPropertiesKey(LLLineEditor* ctrl, void* user_dat
 	self->notifyObservers();
 }
 
-// static 
-void LLPanelGroupRolesSubTab::onDescriptionFocus(LLFocusableElement* ctrl, void* user_data)
+void LLPanelGroupRolesSubTab::onDescriptionKeyStroke(LLTextEditor* caller)
 {
-	LLPanelGroupRolesSubTab* self = static_cast<LLPanelGroupRolesSubTab*>(user_data);
-	if (!self) return;
-
-	self->mHasRoleChange = TRUE;
-	self->notifyObservers();
+	mHasRoleChange = TRUE;
+	notifyObservers();
 }
 
 // static 

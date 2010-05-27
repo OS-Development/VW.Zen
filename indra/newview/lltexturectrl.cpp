@@ -1267,22 +1267,25 @@ void LLTextureCtrl::draw()
 	// fully loaded.
 	if (mTexturep.notNull() &&
 		(!mTexturep->isFullyLoaded()) &&
-		(mShowLoadingPlaceholder == TRUE) &&
-		(mTexturep->getDiscardLevel() != 1) &&
-		(mTexturep->getDiscardLevel() != 0))
+		(mShowLoadingPlaceholder == TRUE))
 	{
 		U32 v_offset = 25;
 		LLFontGL* font = LLFontGL::getFontSansSerif();
-		font->renderUTF8(
-			mLoadingPlaceholderString, 
-			0,
-			llfloor(interior.mLeft+3), 
-			llfloor(interior.mTop-v_offset),
-			LLColor4::white,
-			LLFontGL::LEFT,
-			LLFontGL::BASELINE,
-			LLFontGL::DROP_SHADOW);
-		
+
+		// Don't show as loaded if the texture is almost fully loaded (i.e. discard1) unless god
+		if ((mTexturep->getDiscardLevel() > 1) || gAgent.isGodlike())
+		{
+			font->renderUTF8(
+				mLoadingPlaceholderString, 
+				0,
+				llfloor(interior.mLeft+3), 
+				llfloor(interior.mTop-v_offset),
+				LLColor4::white,
+				LLFontGL::LEFT,
+				LLFontGL::BASELINE,
+				LLFontGL::DROP_SHADOW);
+		}
+
 		// Show more detailed information if this agent is god.
 		if (gAgent.isGodlike())
 		{
@@ -1301,7 +1304,7 @@ void LLTextureCtrl::draw()
 							 LLColor4::white, LLFontGL::LEFT, LLFontGL::BASELINE, LLFontGL::DROP_SHADOW);
 
 			v_offset += 12;
-			tdesc = llformat("  ID  : %s...", (mImageAssetID.asString().substr(0,10)).c_str());
+			tdesc = llformat("  ID  : %s...", (mImageAssetID.asString().substr(0,7)).c_str());
 			font->renderUTF8(tdesc, 0, llfloor(interior.mLeft+3), llfloor(interior.mTop-v_offset),
 							 LLColor4::white, LLFontGL::LEFT, LLFontGL::BASELINE, LLFontGL::DROP_SHADOW);
 		}

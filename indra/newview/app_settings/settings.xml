@@ -2687,6 +2687,17 @@
       <key>Value</key>
       <integer>4</integer>
     </map>
+    <key>DumpVFSCaches</key>
+    <map>
+      <key>Comment</key>
+      <string>Dump VFS caches on startup.</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>0</integer>
+    </map>
     <key>DynamicCameraStrength</key>
     <map>
       <key>Comment</key>
@@ -4602,6 +4613,17 @@
       <key>Value</key>
       <string />
     </map>
+    <key>MarketplaceURL</key>
+    <map>
+      <key>Comment</key>
+      <string>URL to the Marketplace</string>
+      <key>Persist</key>
+      <integer>0</integer>
+      <key>Type</key>
+      <string>String</string>
+      <key>Value</key>
+      <string>https://www.xstreetsl.com/modules.php?name=Marketplace</string>
+    </map>    
     <key>MaxDragDistance</key>
     <map>
       <key>Comment</key>
@@ -5971,7 +5993,7 @@
     <key>Type</key>
     <string>F32</string>
     <key>Value</key>
-    <real>0.2</real>
+    <real>0.125</real>
   </map>
   <key>MediaRollOffMin</key>
   <map>
@@ -5982,7 +6004,7 @@
     <key>Type</key>
     <string>F32</string>
     <key>Value</key>
-    <real>7.0</real>
+    <real>5.0</real>
   </map>
   <key>MediaRollOffMax</key>
   <map>
@@ -6021,6 +6043,17 @@
     <map>
       <key>Comment</key>
       <string>Experimental: Embed registration in login screen</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>0</integer>
+    </map>
+    <key>QuickBuyCurrency</key>
+    <map>
+      <key>Comment</key>
+      <string>Toggle between HTML based currency purchase floater and legacy XUI version</string>
       <key>Persist</key>
       <integer>1</integer>
       <key>Type</key>
@@ -8151,17 +8184,6 @@
       <key>Value</key>
       <integer>0</integer>
     </map>    
-    <key>ShowCameraButton</key>                
-    <map>
-      <key>Comment</key>
-      <string>Show/Hide Camera button in the bottom tray</string>
-      <key>Persist</key>
-      <integer>1</integer>
-      <key>Type</key>
-      <string>Boolean</string>
-      <key>Value</key>
-      <integer>1</integer>   
-    </map>
 	<key>ShowScriptErrors</key>
     <map>
       <key>Comment</key>
@@ -8182,40 +8204,7 @@
       <key>Type</key>
       <string>S32</string>
       <key>Value</key>
-      <integer>0</integer>
-    </map>
-    <key>ShowSnapshotButton</key>                
-    <map>
-      <key>Comment</key>
-      <string>Show/Hide Snapshot button button in the bottom tray</string>
-      <key>Persist</key>
       <integer>1</integer>
-      <key>Type</key>
-      <string>Boolean</string>
-      <key>Value</key>
-      <integer>1</integer>   
-    </map>
-    <key>ShowMoveButton</key>                
-    <map>
-      <key>Comment</key>
-      <string>Show/Hide Move button in the bottom tray</string>
-      <key>Persist</key>
-      <integer>1</integer>
-      <key>Type</key>
-      <string>Boolean</string>
-      <key>Value</key>
-      <integer>1</integer>   
-    </map>    
-    <key>ShowGestureButton</key>                
-    <map>
-      <key>Comment</key>
-      <string>Show/Hide Gesture button in the bottom tray</string>
-      <key>Persist</key>
-      <integer>1</integer>
-      <key>Type</key>
-      <string>Boolean</string>
-      <key>Value</key>
-      <integer>1</integer>   
     </map>
     <key>ShowObjectRenderingCost</key>                
     <map>
@@ -8737,6 +8726,17 @@
       <key>Value</key>
       <integer>0</integer>
     </map>
+    <key>SidebarWithButtonsVisibility</key>
+    <map>
+      <key>Comment</key>
+      <string>Sets visibility of sidebar with its tabs' buttons</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>1</integer>
+    </map>
     <key>SkinCurrent</key>
     <map>
       <key>Comment</key>
@@ -9072,6 +9072,17 @@
       <integer>1</integer>
       <key>Type</key>
       <string>Boolean</string>
+      <key>Value</key>
+      <integer>0</integer>
+    </map>
+    <key>TextureDiscardLevel</key>
+    <map>
+      <key>Comment</key>
+      <string>Specify texture resolution (0 = highest, 5 = lowest)</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>U32</string>
       <key>Value</key>
       <integer>0</integer>
     </map>
@@ -10362,7 +10373,17 @@
       <key>Value</key>
       <real>10.0</real>
     </map>
-
+    <key>UseNewWalkRun</key>
+    <map>
+      <key>Comment</key>
+      <string>Replace standard walk/run animations with new ones.</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>0</integer>
+    </map>
     <key>UseStartScreen</key>
     <map>
       <key>Comment</key>
