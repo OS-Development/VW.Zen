@@ -164,7 +164,6 @@ set(viewer_SOURCE_FILES
     llfloaterbuyland.cpp
     llfloatercamera.cpp
     llfloatercolorpicker.cpp
-    llfloatercustomize.cpp
     llfloaterdaycycle.cpp
     llfloaterenvsettings.cpp
     llfloaterevent.cpp
@@ -226,6 +225,7 @@ set(viewer_SOURCE_FILES
     llfollowcam.cpp
     llfriendcard.cpp
     llgesturemgr.cpp
+    llgiveinventory.cpp
     llglsandbox.cpp
     llgroupactions.cpp
     llgroupiconctrl.cpp
@@ -267,6 +267,7 @@ set(viewer_SOURCE_FILES
     lllandmarkactions.cpp
     lllandmarklist.cpp
     lllistbrowser.cpp
+    lllistcontextmenu.cpp
     lllistview.cpp
     lllocaltextureobject.cpp
     lllocationhistory.cpp
@@ -274,6 +275,7 @@ set(viewer_SOURCE_FILES
     lllogchat.cpp
     llloginhandler.cpp
     lllogininstance.cpp
+    llmachineid.cpp
     llmanip.cpp
     llmaniprotate.cpp
     llmanipscale.cpp
@@ -552,7 +554,6 @@ set(viewer_SOURCE_FILES
     llworldmapmessage.cpp
     llworldmipmap.cpp
     llworldmapview.cpp
-    llworldview.cpp
     llxmlrpclistener.cpp
     llxmlrpctransaction.cpp
     noise.cpp
@@ -681,7 +682,6 @@ set(viewer_HEADER_FILES
     llfloaterbuyland.h
     llfloatercamera.h
     llfloatercolorpicker.h
-    llfloatercustomize.h
     llfloaterdaycycle.h
     llfloaterenvsettings.h
     llfloaterevent.h
@@ -744,6 +744,7 @@ set(viewer_HEADER_FILES
     llfollowcam.h
     llfriendcard.h
     llgesturemgr.h
+    llgiveinventory.h
     llgroupactions.h
     llgroupiconctrl.h
     llgrouplist.h
@@ -784,6 +785,7 @@ set(viewer_HEADER_FILES
     lllandmarklist.h
     lllightconstants.h
     lllistbrowser.h
+    lllistcontextmenu.h
     lllistview.h
     lllocaltextureobject.h
     lllocationhistory.h
@@ -791,6 +793,7 @@ set(viewer_HEADER_FILES
     lllogchat.h
     llloginhandler.h
     lllogininstance.h
+    llmachineid.h
     llmanip.h
     llmaniprotate.h
     llmanipscale.h
@@ -1067,7 +1070,6 @@ set(viewer_HEADER_FILES
     llworldmapmessage.h
     llworldmipmap.h
     llworldmapview.h
-    llworldview.h
     llxmlrpclistener.h
     llxmlrpctransaction.h
     macmain.h
@@ -1841,7 +1843,7 @@ if (LL_TESTS)
   )
 
     LL_ADD_INTEGRATION_TEST(llsechandler_basic
-     llsechandler_basic.cpp
+    llsechandler_basic.cpp
     "${test_libs}"
     )
 

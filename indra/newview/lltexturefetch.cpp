@@ -329,7 +329,11 @@ public:
 					partial = true;
 				}
 			}
-
+			else
+			{
+				worker->setGetStatus(status, reason);
+// 				llwarns << status << ": " << reason << llendl;
+			}
 			if (!success)
 			{
 				worker->setGetStatus(status, reason);
@@ -923,17 +927,6 @@ bool LLTextureFetchWorker::doWork(S32 param)
 					max_attempts = mHTTPFailCount+1; // Keep retrying
 					LL_INFOS_ONCE("Texture") << "Texture server busy (503): " << mUrl << LL_ENDL;
 				}
-				else if(mGetStatus >= HTTP_MULTIPLE_CHOICES && mGetStatus < HTTP_BAD_REQUEST) //http re-direct
-				{
-					++mHTTPFailCount;
-					max_attempts = 5 ; //try at most 5 times to avoid infinite redirection loop.
-
-					llwarns << "HTTP GET failed because of redirection: "  << mUrl
-							<< " Status: " << mGetStatus << " Reason: '" << mGetReason << llendl ;
-
-					//assign to the new url
-					mUrl = mGetReason ;
-				}
 				else
 				{
 					const S32 HTTP_MAX_RETRY_COUNT = 3;
@@ -943,7 +936,6 @@ bool LLTextureFetchWorker::doWork(S32 param)
 							<< " Status: " << mGetStatus << " Reason: '" << mGetReason << "'"
 							<< " Attempt:" << mHTTPFailCount+1 << "/" << max_attempts << llendl;
 				}
-
 				if (mHTTPFailCount >= max_attempts)
 				{
 					if (cur_size > 0)

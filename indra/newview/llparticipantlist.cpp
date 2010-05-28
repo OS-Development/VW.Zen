@@ -648,8 +648,7 @@ LLContextMenu* LLParticipantList::LLParticipantListMenu::createMenu()
 	enable_registrar.add("ParticipantList.CheckItem",  boost::bind(&LLParticipantList::LLParticipantListMenu::checkContextMenuItem,	this, _2));
 
 	// create the context menu from the XUI
-	LLContextMenu* main_menu = LLUICtrlFactory::getInstance()->createFromFile<LLContextMenu>(
-		"menu_participant_list.xml", LLMenuGL::sMenuContainer, LLViewerMenuHolderGL::child_registry_t::instance());
+	LLContextMenu* main_menu = createFromFile("menu_participant_list.xml");
 
 	// Don't show sort options for P2P chat
 	bool is_sort_visible = (mParent.mAvatarList && mParent.mAvatarList->size() > 1);
@@ -666,9 +665,9 @@ LLContextMenu* LLParticipantList::LLParticipantListMenu::createMenu()
 
 void LLParticipantList::LLParticipantListMenu::show(LLView* spawning_view, const uuid_vec_t& uuids, S32 x, S32 y)
 {
-	LLPanelPeopleMenus::ContextMenu::show(spawning_view, uuids, x, y);
-
 	if (uuids.size() == 0) return;
+
+	LLListContextMenu::show(spawning_view, uuids, x, y);
 
 	const LLUUID& speaker_id = mUUIDs.front();
 	BOOL is_muted = isMuted(speaker_id);
@@ -794,7 +793,7 @@ void LLParticipantList::LLParticipantListMenu::moderateVoice(const LLSD& userdat
 	else
 	{
 		bool unmute_all = userdata.asString() == "unmute_all";
-		moderateVoiceOtherParticipants(LLUUID::null, unmute_all);
+		moderateVoiceAllParticipants(unmute_all);
 	}
 }
 
@@ -807,7 +806,7 @@ void LLParticipantList::LLParticipantListMenu::moderateVoiceParticipant(const LL
 	}
 }
 
-void LLParticipantList::LLParticipantListMenu::moderateVoiceOtherParticipants(const LLUUID& excluded_avatar_id, bool unmute)
+void LLParticipantList::LLParticipantListMenu::moderateVoiceAllParticipants(bool unmute)
 {
 	LLIMSpeakerMgr* mgr = dynamic_cast<LLIMSpeakerMgr*>(mParent.mSpeakerMgr);
 	if (mgr)
@@ -816,12 +815,11 @@ void LLParticipantList::LLParticipantListMenu::moderateVoiceOtherParticipants(co
 		{
 			LLSD payload;
 			payload["session_id"] = mgr->getSessionID();
-			payload["excluded_avatar_id"] = excluded_avatar_id;
 			LLNotificationsUtil::add("ConfirmMuteAll", LLSD(), payload, confirmMuteAllCallback);
 			return;
 		}
 
-		mgr->moderateVoiceOtherParticipants(excluded_avatar_id, unmute);
+		mgr->moderateVoiceAllParticipants(unmute);
 	}
 }
 
@@ -836,13 +834,12 @@ void LLParticipantList::LLParticipantListMenu::confirmMuteAllCallback(const LLSD
 
 	const LLSD& payload = notification["payload"];
 	const LLUUID& session_id = payload["session_id"];
-	const LLUUID& excluded_avatar_id = payload["excluded_avatar_id"];
 
 	LLIMSpeakerMgr * speaker_manager = dynamic_cast<LLIMSpeakerMgr*> (
 			LLIMModel::getInstance()->getSpeakerManager(session_id));
 	if (speaker_manager)
 	{
-		speaker_manager->moderateVoiceOtherParticipants(excluded_avatar_id, false);
+		speaker_manager->moderateVoiceAllParticipants(false);
 	}
 
 	return;

@@ -124,8 +124,6 @@ public:
 	//--------------------------------------------------------------------
 public:
 	/*virtual*/ BOOL    getIsCloud();
-	void bakedTextureUpload(LLVOAvatarDefines::EBakedTextureIndex index, BOOL finished);
-	static void		onTimingLocalTexLoaded(BOOL success, LLViewerFetchedTexture *src_vi, LLImageRaw* src, LLImageRaw* aux_src, S32 discard_level, BOOL final, void* userdata);
 
 	//--------------------------------------------------------------------
 	// Region state
@@ -181,6 +179,9 @@ public:
 	BOOL				isLocalTextureDataFinal(const LLTexLayerSet* layerset) const;
 	// If you want to check all textures of a given type, pass gAgentWearables.getWearableCount() for index
 	/*virtual*/ BOOL    isTextureDefined(LLVOAvatarDefines::ETextureIndex type, U32 index) const;
+	/*virtual*/ BOOL	isTextureVisible(LLVOAvatarDefines::ETextureIndex type, U32 index = 0) const;
+	/*virtual*/ BOOL	isTextureVisible(LLVOAvatarDefines::ETextureIndex type, LLWearable *wearable) const;
+
 
 	//--------------------------------------------------------------------
 	// Local Textures
@@ -348,16 +349,24 @@ public:
 		LLUUID			mAvatarID;
 		LLVOAvatarDefines::ETextureIndex	mIndex;
 	};
-	void wearablesLoaded() { mTimeWearablesLoaded = mDebugSelfLoadTimer.getElapsedTimeF32(); }
-	void avatarVisible() { mTimeAvatarVisible = mDebugSelfLoadTimer.getElapsedTimeF32(); }
-	void outputRezDiagnostics() const;
+	void 					debugWearablesLoaded() { mDebugTimeWearablesLoaded = mDebugSelfLoadTimer.getElapsedTimeF32(); }
+	void 					debugAvatarVisible() { mDebugTimeAvatarVisible = mDebugSelfLoadTimer.getElapsedTimeF32(); }
+	void 					outputRezDiagnostics() const;
+	void 					debugBakedTextureUpload(LLVOAvatarDefines::EBakedTextureIndex index, BOOL finished);
+	static void				debugOnTimingLocalTexLoaded(BOOL success, LLViewerFetchedTexture *src_vi, LLImageRaw* src, LLImageRaw* aux_src, S32 discard_level, BOOL final, void* userdata);
+
+	BOOL					isAllLocalTextureDataFinal() const;
+
+	const LLTexLayerSet*  	debugGetLayerSet(LLVOAvatarDefines::EBakedTextureIndex index) const { return mBakedTextureDatas[index].mTexLayerSet; }
+	const std::string		debugDumpLocalTextureDataInfo(const LLTexLayerSet* layerset) const; // Lists out state of this particular baked texture layer
+	const std::string		debugDumpAllLocalTextureDataInfo() const; // Lists out which baked textures are at highest LOD
 private:
-	LLFrameTimer    mDebugSelfLoadTimer;
-	F32				mTimeWearablesLoaded;
-	F32 			mTimeAvatarVisible;
-	F32 			mTextureLoadTimes[LLVOAvatarDefines::TEX_NUM_INDICES][MAX_DISCARD_LEVEL+1]; // load time for each texture at each discard level
-	F32 			mBakedTextureTimes[LLVOAvatarDefines::BAKED_NUM_INDICES][2]; // time to start upload and finish upload of each baked texture
-	void			timingLocalTexLoaded(BOOL success, LLViewerFetchedTexture *src_vi, LLImageRaw* src, LLImageRaw* aux_src, S32 discard_level, BOOL final, void* userdata);
+	LLFrameTimer    		mDebugSelfLoadTimer;
+	F32						mDebugTimeWearablesLoaded;
+	F32 					mDebugTimeAvatarVisible;
+	F32 					mDebugTextureLoadTimes[LLVOAvatarDefines::TEX_NUM_INDICES][MAX_DISCARD_LEVEL+1]; // load time for each texture at each discard level
+	F32 					mDebugBakedTextureTimes[LLVOAvatarDefines::BAKED_NUM_INDICES][2]; // time to start upload and finish upload of each baked texture
+	void					debugTimingLocalTexLoaded(BOOL success, LLViewerFetchedTexture *src_vi, LLImageRaw* src, LLImageRaw* aux_src, S32 discard_level, BOOL final, void* userdata);
 
 /**                    Diagnostics
  **                                                                            **
