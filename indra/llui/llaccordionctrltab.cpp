@@ -32,12 +32,13 @@
 
 #include "linden_common.h"
 
-#include "lluictrl.h"
-#include "llscrollbar.h"
 #include "llaccordionctrltab.h"
-#include "lllocalcliprect.h"
 
+#include "lllocalcliprect.h"
+#include "llscrollbar.h"
 #include "lltextbox.h"
+#include "lltextutil.h"
+#include "lluictrl.h"
 
 static const std::string DD_BUTTON_NAME = "dd_button";
 static const std::string DD_TEXTBOX_NAME = "dd_textbox";
@@ -72,7 +73,8 @@ public:
 
 	virtual BOOL postBuild();
 
-	void	setTitle(const std::string& title);
+	std::string getTitle();
+	void	setTitle(const std::string& title, const std::string& hl);
 
 	virtual void onMouseEnter(S32 x, S32 y, MASK mask);
 	virtual void onMouseLeave(S32 x, S32 y, MASK mask);
@@ -146,10 +148,28 @@ BOOL LLAccordionCtrlTab::LLAccordionCtrlTabHeader::postBuild()
 	return TRUE;
 }
 
-void	LLAccordionCtrlTab::LLAccordionCtrlTabHeader::setTitle(const std::string& title)
+std::string LLAccordionCtrlTab::LLAccordionCtrlTabHeader::getTitle()
 {
 	if(mHeaderTextbox)
-		mHeaderTextbox->setText(title);
+	{
+		return mHeaderTextbox->getText();
+	}
+	else
+	{
+		return LLStringUtil::null;
+	}
+}
+
+void LLAccordionCtrlTab::LLAccordionCtrlTabHeader::setTitle(const std::string& title, const std::string& hl)
+{
+	if(mHeaderTextbox)
+	{
+		LLTextUtil::textboxSetHighlightedVal(
+			mHeaderTextbox,
+			LLStyle::Params(),
+			title,
+			hl);
+	}
 }
 
 void LLAccordionCtrlTab::LLAccordionCtrlTabHeader::draw()
@@ -425,6 +445,9 @@ bool LLAccordionCtrlTab::addChild(LLView* child, S32 tab_group)
 			setDisplayChildren(getDisplayChildren());	
 	}
 
+	if (!mContainerPanel)
+		mContainerPanel = findContainerView();
+
 	return res;
 }
 
@@ -433,6 +456,47 @@ void LLAccordionCtrlTab::setAccordionView(LLView* panel)
 	addChild(panel,0);
 }
 
+std::string LLAccordionCtrlTab::getTitle()
+{
+	LLAccordionCtrlTabHeader* header = findChild<LLAccordionCtrlTabHeader>(DD_HEADER_NAME);
+	if (header)
+	{
+		return header->getTitle();
+	}
+	else
+	{
+		return LLStringUtil::null;
+	}
+}
+
+void LLAccordionCtrlTab::setTitle(const std::string& title, const std::string& hl)
+{
+	LLAccordionCtrlTabHeader* header = findChild<LLAccordionCtrlTabHeader>(DD_HEADER_NAME);
+	if (header)
+	{
+		header->setTitle(title, hl);
+	}
+}
+
+boost::signals2::connection LLAccordionCtrlTab::setFocusReceivedCallback(const focus_signal_t::slot_type& cb)
+{
+	LLAccordionCtrlTabHeader* header = findChild<LLAccordionCtrlTabHeader>(DD_HEADER_NAME);
+	if (header)
+	{
+		return header->setFocusReceivedCallback(cb);
+	}
+	return boost::signals2::connection();
+}
+
+boost::signals2::connection LLAccordionCtrlTab::setFocusLostCallback(const focus_signal_t::slot_type& cb)
+{
+	LLAccordionCtrlTabHeader* header = findChild<LLAccordionCtrlTabHeader>(DD_HEADER_NAME);
+	if (header)
+	{
+		return header->setFocusLostCallback(cb);
+	}
+	return boost::signals2::connection();
+}
 
 LLView*	LLAccordionCtrlTab::findContainerView()
 {
@@ -465,10 +529,11 @@ void LLAccordionCtrlTab::setHeaderVisible(bool value)
 	reshape(getRect().getWidth(), getRect().getHeight(), FALSE);
 };
 
-//vurtual
+//virtual
 BOOL LLAccordionCtrlTab::postBuild()
 {
-	mHeader->setVisible(mHeaderVisible);
+	if(mHeader)
+		mHeader->setVisible(mHeaderVisible);
 	
 	static LLUICachedControl<S32> scrollbar_size ("UIScrollbarSize", 0);
 
@@ -504,7 +569,8 @@ BOOL LLAccordionCtrlTab::postBuild()
 		mScrollbar->setVisible(false);
 	}
 
-	mContainerPanel->setVisible(mDisplayChildren);
+	if(mContainerPanel)
+		mContainerPanel->setVisible(mDisplayChildren);
 
 	return LLUICtrl::postBuild();
 }
@@ -549,7 +615,8 @@ S32	LLAccordionCtrlTab::notifyParent(const LLSD& info)
 			}
 			
 			//LLAccordionCtrl should rearrange accodion tab if one of accordion change its size
-			getParent()->notifyParent(info);
+			if (getParent()) // A parent may not be set if tabs are added dynamically.
+				getParent()->notifyParent(info);
 			return 1;
 		}
 		else if(str_action == "select_prev") 
@@ -826,9 +893,6 @@ void LLAccordionCtrlTab::draw()
 			LLLocalClipRect clip(child_rect);
 			drawChild(root_rect,mContainerPanel);
 		}
-		
-
-		gGL.getTexUnit(0)->disable();
 	}
 }
 
@@ -861,5 +925,14 @@ void LLAccordionCtrlTab::ctrlSetLeftTopAndSize(LLView* panel, S32 left, S32 top,
 	panel->reshape( width, height, 1);
 	panel->setRect(panel_rect);
 }
-
-
+BOOL LLAccordionCtrlTab::handleToolTip(S32 x, S32 y, MASK mask)
+{
+	//header may be not the first child but we need to process it first
+	if(y >= (getRect().getHeight() - HEADER_HEIGHT - HEADER_HEIGHT/2) )
+	{
+		//inside tab header
+		//fix for EXT-6619
+		return TRUE;
+	}
+	return LLUICtrl::handleToolTip(x, y, mask);
+}

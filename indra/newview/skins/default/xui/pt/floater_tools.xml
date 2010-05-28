@@ -63,12 +63,15 @@
 		<radio_item label="Stretch (Ctrl+Shift)" name="radio stretch"/>
 		<radio_item label="Face selecionada" name="radio select face"/>
 	</radio_group>
-	<check_box label="Editar item linkado" name="checkbox edit linked parts"/>
+	<check_box label="Editar partes linkadas" name="checkbox edit linked parts"/>
 	<text name="RenderingCost" tool_tip="Mostra o cálculo do custo de renderização do objeto">
 		þ: [COUNT]
 	</text>
-	<check_box label="Esticar ambos os lados" name="checkbox uniform"/>
-	<check_box initial_value="true" label="Esticar Texturas" name="checkbox stretch textures"/>
+	<check_box name="checkbox uniform"/>
+	<text name="checkbox uniform label">
+		Esticar ambos os lados
+	</text>
+	<check_box initial_value="true" label="Esticar texturas" name="checkbox stretch textures"/>
 	<check_box initial_value="true" label="Mostrar na grade" name="checkbox snap to grid"/>
 	<combo_box name="combobox grid mode" tool_tip="Selecione o tipo de régua da grade onde o objeto será colocado">
 		<combo_box.item label="Grid SL" name="World"/>
@@ -91,7 +94,7 @@
 	<button label="" label_selected="" name="ToolRing" tool_tip="Anel"/>
 	<button label="" label_selected="" name="ToolTree" tool_tip="Árvore"/>
 	<button label="" label_selected="" name="ToolGrass" tool_tip="Grama"/>
-	<check_box label="Ficar com ferramenta selecionado" name="checkbox sticky"/>
+	<check_box label="Ficar com ferramenta selecionada" name="checkbox sticky"/>
 	<check_box label="Copiar seleção" name="checkbox copy selection"/>
 	<check_box initial_value="true" label="Copiar parte central" name="checkbox copy centers"/>
 	<check_box label="Girar cópia" name="checkbox copy rotates"/>
@@ -115,7 +118,7 @@
 	</text>
 	<button label="Aplicar" label_selected="Aplicar" name="button apply to selection" tool_tip="Modificar a terra selecionada"/>
 	<text left="134" name="obj_count">
-		Objects: [COUNT]
+		Objetos: [COUNT]
 	</text>
 	<text left="134" name="prim_count">
 		Prims: [COUNT]
@@ -183,10 +186,10 @@
 			<name_box initial_value="Carregando..." name="Group Name Proxy"/>
 			<button label="Doar" label_selected="Doar" name="button deed" tool_tip="Ao doar este item, o próximo dono terá permissões de próximo dono.  Objetos de grupos podem ser doados por um oficial do grupo."/>
 			<check_box label="Compartilhar" name="checkbox share with group" tool_tip="Permitir que todos os membros do grupo tenhas suas permissões de modificação para este objeto.  Faça uma doação para ativar restrições de função."/>
-			<text name="label click action" width="220">
+			<text name="label click action">
 				Clique para:
 			</text>
-			<combo_box name="clickaction" width="192">
+			<combo_box name="clickaction">
 				<combo_box.item label="Tocar (padrão)" name="Touch/grab(default)"/>
 				<combo_box.item label="Sentar no objeto" name="Sitonobject"/>
 				<combo_box.item label="Comprar objeto" name="Buyobject"/>

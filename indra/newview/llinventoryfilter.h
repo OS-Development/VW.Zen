@@ -84,6 +84,7 @@ public:
 
 	void 				setFilterSubString(const std::string& string);
 	const std::string& 	getFilterSubString(BOOL trim = FALSE) const;
+	const std::string& 	getFilterSubStringOrig() const { return mFilterSubStringOrig; } 
 	BOOL 				hasFilterString() const;
 
 	void 				setFilterPermissions(PermissionMask perms);
@@ -97,11 +98,15 @@ public:
 	void 				setHoursAgo(U32 hours);
 	U32 				getHoursAgo() const;
 
+	void 				setIncludeLinks(BOOL include_links);
+	BOOL				getIncludeLinks() const;
+
 	// +-------------------------------------------------------------------+
 	// + Execution And Results
 	// +-------------------------------------------------------------------+
 	BOOL 				check(const LLFolderViewItem* item);
-	BOOL 				checkAgainstFilterType(const LLFolderViewItem* item);
+	BOOL 				checkAgainstFilterType(const LLFolderViewItem* item) const;
+	BOOL 				checkAgainstPermissions(const LLFolderViewItem* item) const;
 	std::string::size_type getStringMatchOffset() const;
 
 	// +-------------------------------------------------------------------+
@@ -171,6 +176,7 @@ private:
 		U32				mHoursAgo;
 		EFolderShow		mShowFolderState;
 		PermissionMask	mPermissions;
+		BOOL			mIncludeLinks;
 	};
 
 	U32						mOrder;
@@ -181,6 +187,7 @@ private:
 
 	std::string::size_type	mSubStringMatchOffset;
 	std::string				mFilterSubString;
+	std::string				mFilterSubStringOrig;
 	const std::string		mName;
 
 	S32						mFilterGeneration;

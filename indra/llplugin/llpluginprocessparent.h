@@ -41,12 +41,14 @@
 #include "llpluginsharedmemory.h"
 
 #include "lliosocket.h"
+#include "llthread.h"
 
 class LLPluginProcessParentOwner
 {
 public:
 	virtual ~LLPluginProcessParentOwner();
 	virtual void receivePluginMessage(const LLPluginMessage &message) = 0;
+	virtual bool receivePluginMessageEarly(const LLPluginMessage &message) {return false;};
 	// This will only be called when the plugin has died unexpectedly 
 	virtual void pluginLaunchFailed() {};
 	virtual void pluginDied() {};
@@ -59,7 +61,10 @@ public:
 	LLPluginProcessParent(LLPluginProcessParentOwner *owner);
 	~LLPluginProcessParent();
 		
-	void init(const std::string &launcher_filename, const std::string &plugin_filename, bool debug, const std::string &user_data_path);
+	void init(const std::string &launcher_filename, 
+			  const std::string &plugin_filename, 
+			  bool debug);
+
 	void idle(void);
 	
 	// returns true if the plugin is on its way to steady state
@@ -70,6 +75,9 @@ public:
 
 	// returns true if the process has exited or we've had a fatal error
 	bool isDone(void);	
+	
+	// returns true if the process is currently waiting on a blocking request
+	bool isBlocked(void) { return mBlocked; };
 	
 	void killSockets(void);
 	
@@ -84,7 +92,9 @@ public:
 	void receiveMessage(const LLPluginMessage &message);
 	
 	// Inherited from LLPluginMessagePipeOwner
-	void receiveMessageRaw(const std::string &message);
+	/*virtual*/ void receiveMessageRaw(const std::string &message);
+	/*virtual*/ void receiveMessageEarly(const LLPluginMessage &message);
+	/*virtual*/ void setMessagePipe(LLPluginMessagePipe *message_pipe) ;
 	
 	// This adds a memory segment shared with the client, generating a name for the segment.  The name generated is guaranteed to be unique on the host.
 	// The caller must call removeSharedMemory first (and wait until getSharedMemorySize returns 0 for the indicated name) before re-adding a segment with the same name.
@@ -107,7 +117,11 @@ public:
 	void setLockupTimeout(F32 timeout) { mPluginLockupTimeout = timeout; };
 
 	F64 getCPUUsage() { return mCPUUsage; };
-
+	
+	static void poll(F64 timeout);
+	static bool canPollThreadRun() { return (sPollSet || sPollsetNeedsRebuild || sUseReadThread); };
+	static void setUseReadThread(bool use_read_thread);
+	static bool getUseReadThread() { return sUseReadThread; };
 private:
 
 	enum EState
@@ -143,8 +157,6 @@ private:
 	
 	std::string mPluginFile;
 
-	std::string mUserDataPath;
-
 	LLPluginProcessParentOwner *mOwner;
 	
 	typedef std::map<std::string, LLPluginSharedMemory*> sharedMemoryRegionsType;
@@ -159,12 +171,27 @@ private:
 	
 	bool mDisableTimeout;
 	bool mDebug;
+	bool mBlocked;
+	bool mPolledInput;
 
 	LLProcessLauncher mDebugger;
 	
 	F32 mPluginLaunchTimeout;		// Somewhat longer timeout for initial launch.
 	F32 mPluginLockupTimeout;		// If we don't receive a heartbeat in this many seconds, we declare the plugin locked up.
 
+	static bool sUseReadThread;
+	apr_pollfd_t mPollFD;
+	static apr_pollset_t *sPollSet;
+	static bool sPollsetNeedsRebuild;
+	static LLMutex *sInstancesMutex;
+	static std::list<LLPluginProcessParent*> sInstances;
+	static void dirtyPollSet();
+	static void updatePollset();
+	void servicePoll();
+	static LLThread *sReadThread;
+	
+	LLMutex mIncomingQueueMutex;
+	std::queue<LLPluginMessage> mIncomingQueue;
 };
 
 #endif // LL_LLPLUGINPROCESSPARENT_H

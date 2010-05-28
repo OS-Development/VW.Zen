@@ -125,7 +125,7 @@ public:
 	/*virtual*/ void *getPlatformWindow();
 	/*virtual*/ void bringToFront();
 
-	/*virtual*/ void spawnWebBrowser(const std::string& escaped_url);
+	/*virtual*/ void spawnWebBrowser(const std::string& escaped_url, bool async);
 	
 	static std::vector<std::string> getDynamicFallbackFontList();
 
@@ -147,9 +147,6 @@ public:
 	static Window get_SDL_XWindowID(void);
 	static Display* get_SDL_Display(void);
 #endif // LL_X11	
-
-	static S32 getDisplayWidth();
-	static S32 getDisplayHeight();
 
 protected:
 	LLWindowSDL(LLWindowCallbacks* callbacks,

@@ -128,68 +128,29 @@ LLMute::LLMute(const LLUUID& id, const std::string& name, EType type, U32 flags)
 }
 
 
-std::string LLMute::getDisplayName() const
+std::string LLMute::getDisplayType() const
 {
-	std::string name_with_suffix = mName;
 	switch (mType)
 	{
 		case BY_NAME:
 		default:
-			name_with_suffix += " " + LLTrans::getString("MuteByName");
+			return LLTrans::getString("MuteByName");
 			break;
 		case AGENT:
-			name_with_suffix += " " + LLTrans::getString("MuteAgent");
+			return LLTrans::getString("MuteAgent");
 			break;
 		case OBJECT:
-			name_with_suffix += " " + LLTrans::getString("MuteObject");
+			return LLTrans::getString("MuteObject");
 			break;
 		case GROUP:
-			name_with_suffix += " " + LLTrans::getString("MuteGroup");
+			return LLTrans::getString("MuteGroup");
+			break;
+		case EXTERNAL:
+			return LLTrans::getString("MuteExternal");
 			break;
 	}
-	return name_with_suffix;
 }
 
-void LLMute::setFromDisplayName(const std::string& display_name)
-{
-	size_t pos = 0;
-	mName = display_name;
-	
-	pos = mName.rfind(" " + LLTrans::getString("MuteGroup"));
-	if (pos != std::string::npos)
-	{
-		mName.erase(pos);
-		mType = GROUP;
-		return;
-	}
-	
-	pos = mName.rfind(" " + LLTrans::getString("MuteObject"));
-	if (pos != std::string::npos)
-	{
-		mName.erase(pos);
-		mType = OBJECT;
-		return;
-	}
-	
-	pos = mName.rfind(" " + LLTrans::getString("MuteAgent"));
-	if (pos != std::string::npos)
-	{
-		mName.erase(pos);
-		mType = AGENT;
-		return;
-	}
-	
-	pos = mName.rfind(" " + LLTrans::getString("MuteByName"));
-	if (pos != std::string::npos)
-	{
-		mName.erase(pos);
-		mType = BY_NAME;
-		return;
-	}
-	
-	llwarns << "Unable to set mute from display name " << display_name << llendl;
-	return;
-}
 
 /* static */
 LLMuteList* LLMuteList::getInstance()
@@ -345,6 +306,12 @@ BOOL LLMuteList::add(const LLMute& mute, U32 flags)
 
 void LLMuteList::updateAdd(const LLMute& mute)
 {
+	// External mutes (e.g. Avaline callers) are local only, don't send them to the server.
+	if (mute.mType == LLMute::EXTERNAL)
+	{
+		return;
+	}
+
 	// Update the database
 	LLMessageSystem* msg = gMessageSystem;
 	msg->newMessageFast(_PREHASH_UpdateMuteListEntry);
@@ -432,6 +399,12 @@ BOOL LLMuteList::remove(const LLMute& mute, U32 flags)
 
 void LLMuteList::updateRemove(const LLMute& mute)
 {
+	// External mutes are not sent to the server anyway, no need to remove them.
+	if (mute.mType == LLMute::EXTERNAL)
+	{
+		return;
+	}
+
 	LLMessageSystem* msg = gMessageSystem;
 	msg->newMessageFast(_PREHASH_RemoveMuteListEntry);
 	msg->nextBlockFast(_PREHASH_AgentData);
@@ -615,9 +588,14 @@ BOOL LLMuteList::saveToFile(const std::string& filename)
 		 it != mMutes.end();
 		 ++it)
 	{
-		it->mID.toString(id_string);
-		const std::string& name = it->mName;
-		fprintf(fp, "%d %s %s|%u\n", (S32)it->mType, id_string.c_str(), name.c_str(), it->mFlags);
+		// Don't save external mutes as they are not sent to the server and probably won't
+		//be valid next time anyway.
+		if (it->mType != LLMute::EXTERNAL)
+		{
+			it->mID.toString(id_string);
+			const std::string& name = it->mName;
+			fprintf(fp, "%d %s %s|%u\n", (S32)it->mType, id_string.c_str(), name.c_str(), it->mFlags);
+		}
 	}
 	fclose(fp);
 	return TRUE;

@@ -79,7 +79,7 @@ public:
 		} SType;
 
 		LLIMSession(const LLUUID& session_id, const std::string& name, 
-			const EInstantMessage& type, const LLUUID& other_participant_id, const std::vector<LLUUID>& ids, bool voice);
+			const EInstantMessage& type, const LLUUID& other_participant_id, const uuid_vec_t& ids, bool voice);
 		virtual ~LLIMSession();
 
 		void sessionInitReplyReceived(const LLUUID& new_session_id);
@@ -111,7 +111,7 @@ public:
 		EInstantMessage mType;
 		SType mSessionType;
 		LLUUID mOtherParticipantID;
-		std::vector<LLUUID> mInitialTargetIDs;
+		uuid_vec_t mInitialTargetIDs;
 		std::string mHistoryFileName;
 
 		// connection to voice channel state change signal
@@ -170,7 +170,7 @@ public:
 	 * Find an Ad-Hoc IM Session with specified participants
 	 * @return first found Ad-Hoc session or NULL if the session does not exist
 	 */
-	LLIMSession* findAdHocIMSession(const std::vector<LLUUID>& ids);
+	LLIMSession* findAdHocIMSession(const uuid_vec_t& ids);
 
 	/**
 	 * Rebind session data to a new session id.
@@ -185,7 +185,7 @@ public:
 	 * @param name session name should not be empty, will return false if empty
 	 */
 	bool newSession(const LLUUID& session_id, const std::string& name, const EInstantMessage& type, const LLUUID& other_participant_id, 
-		const std::vector<LLUUID>& ids, bool voice = false);
+		const uuid_vec_t& ids, bool voice = false);
 
 	bool newSession(const LLUUID& session_id, const std::string& name, const EInstantMessage& type,
 		const LLUUID& other_participant_id, bool voice = false);
@@ -194,6 +194,17 @@ public:
 	 * Remove all session data associated with a session specified by session_id
 	 */
 	bool clearSession(const LLUUID& session_id);
+
+	/**
+	 * Populate supplied std::list with messages starting from index specified by start_index without
+	 * emitting no unread messages signal.
+	 */
+	void getMessagesSilently(const LLUUID& session_id, std::list<LLSD>& messages, int start_index = 0);
+
+	/**
+	 * Sends no unread messages signal.
+	 */
+	void sendNoUnreadMessages(const LLUUID& session_id);
 
 	/**
 	 * Populate supplied std::list with messages starting from index specified by start_index
@@ -262,7 +273,7 @@ public:
 
 	static void sendLeaveSession(const LLUUID& session_id, const LLUUID& other_participant_id);
 	static bool sendStartSession(const LLUUID& temp_session_id, const LLUUID& other_participant_id,
-						  const std::vector<LLUUID>& ids, EInstantMessage dialog);
+						  const uuid_vec_t& ids, EInstantMessage dialog);
 	static void sendTypingState(LLUUID session_id, LLUUID other_participant_id, BOOL typing);
 	static void sendMessage(const std::string& utf8_text, const LLUUID& im_session_id,
 								const LLUUID& other_participant_id, EInstantMessage dialog);
@@ -484,7 +495,7 @@ class LLCallDialog : public LLDockableFloater
 {
 public:
 	LLCallDialog(const LLSD& payload);
-	~LLCallDialog() {}
+	~LLCallDialog();
 
 	virtual BOOL postBuild();
 

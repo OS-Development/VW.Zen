@@ -57,8 +57,10 @@ public:
 	/*virtual*/ BOOL postBuild();
 	/*virtual*/ void onSearchEdit(const std::string& string);
 	/*virtual*/ void onShowOnMap();
+	/*virtual*/ void onShowProfile();
 	/*virtual*/ void onTeleport();
 	/*virtual*/ void updateVerbs();
+	/*virtual*/ bool isSingleItemSelected();
 
 	void onSelectionChange(LLPlacesInventoryPanel* inventory_list, const std::deque<LLFolderViewItem*> &items, BOOL user_action);
 	void onSelectorButtonClicked();
@@ -112,7 +114,7 @@ private:
 	void initMyInventoryPanel();
 	void initLibraryInventoryPanel();
 	void initLandmarksPanel(LLPlacesInventoryPanel* inventory_list);
-	void initAccordion(const std::string& accordion_tab_name, LLPlacesInventoryPanel* inventory_list, bool expand_tab);
+	LLAccordionCtrlTab* initAccordion(const std::string& accordion_tab_name, LLPlacesInventoryPanel* inventory_list, bool expand_tab);
 	void onAccordionExpandedCollapsed(const LLSD& param, LLPlacesInventoryPanel* inventory_list);
 	void deselectOtherThan(const LLPlacesInventoryPanel* inventory_list);
 
@@ -121,7 +123,6 @@ private:
 	void updateListCommands();
 	void onActionsButtonClick();
 	void showActionMenu(LLMenuGL* menu, std::string spawning_view_name);
-	void onAddButtonHeldDown();
 	void onTrashButtonClick() const;
 	void onAddAction(const LLSD& command_name) const;
 	void onClipboardAction(const LLSD& command_name) const;
@@ -142,7 +143,7 @@ private:
 	/**
 	 * Processes drag-n-drop of the Landmarks and folders into trash button.
 	 */
-	bool handleDragAndDropToTrash(BOOL drop, EDragAndDropType cargo_type, EAcceptance* accept);
+	bool handleDragAndDropToTrash(BOOL drop, EDragAndDropType cargo_type, void* cargo_data, EAcceptance* accept);
 
 	/**
 	 * Landmark actions callbacks. Fire when a landmark is loaded from the list.
@@ -170,6 +171,8 @@ private:
 	
 	typedef	std::vector<LLAccordionCtrlTab*> accordion_tabs_t;
 	accordion_tabs_t			mAccordionTabs;
+
+	LLAccordionCtrlTab*			mMyLandmarksAccordionTab;
 };
 
 #endif //LL_LLPANELLANDMARKS_H

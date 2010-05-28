@@ -288,7 +288,8 @@ void LLPanelPicks::processProperties(void* data, EAvatarProcessorType type)
 		LLAvatarClassifieds* c_info = static_cast<LLAvatarClassifieds*>(data);
 		if(c_info && getAvatarId() == c_info->target_id)
 		{
-			mClassifiedsList->clear();
+			// do not clear classified list in case we will receive two or more data packets.
+			// list has been cleared in updateData(). (fix for EXT-6436)
 
 			LLAvatarClassifieds::classifieds_list_t::const_iterator it = c_info->classifieds_list.begin();
 			for(; c_info->classifieds_list.end() != it; ++it)
@@ -827,7 +828,11 @@ void LLPanelPicks::onPanelClassifiedSave(LLPanelClassifiedEdit* panel)
 	else if(panel->isNewWithErrors())
 	{
 		LLClassifiedItem* c_item = dynamic_cast<LLClassifiedItem*>(mClassifiedsList->getSelectedItem());
-		c_item->fillIn(panel);
+		llassert(c_item);
+		if (c_item)
+		{
+			c_item->fillIn(panel);
+		}
 	}
 	else 
 	{
@@ -970,6 +975,11 @@ void LLPanelPicks::onPanelClassifiedEdit()
 	}
 
 	LLClassifiedItem* c_item = dynamic_cast<LLClassifiedItem*>(mClassifiedsList->getSelectedItem());
+	llassert(c_item);
+	if (!c_item)
+	{
+		return;
+	}
 
 	LLSD params;
 	params["classified_id"] = c_item->getClassifiedId();

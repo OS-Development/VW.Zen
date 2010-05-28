@@ -2,8 +2,7 @@
 <floater
  legacy_header_height="18"
  can_resize="true"
- center_horiz="true"
- center_vert="true"
+ open_centered="true"
  height="600"
  layout="topleft"
  min_height="520"
@@ -496,7 +495,7 @@
      top_delta="-1"
      name="DoSearch"
      tool_tip="Search for region"
-     width="58">
+     width="62">
 		<button.commit_callback
 		function="WMap.Location" />
     </button>
@@ -538,6 +537,7 @@
     <button
      follows="right|bottom"
      height="23"
+     image_unselected="PushButton_On"
      label="Teleport"
      layout="topleft"
      left="25"

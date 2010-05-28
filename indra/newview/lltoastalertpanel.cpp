@@ -50,6 +50,8 @@
 #include "llnotifications.h"
 #include "llfunctorregistry.h"
 #include "llrootview.h"
+#include "lltransientfloatermgr.h"
+#include "llviewercontrol.h" // for gSavedSettings
 
 const S32 MAX_ALLOWED_MSG_WIDTH = 400;
 const F32 DEFAULT_BUTTON_DELAY = 0.5f;
@@ -279,10 +281,18 @@ LLToastAlertPanel::LLToastAlertPanel( LLNotificationPtr notification, bool modal
 			mLineEditor->reshape(leditor_rect.getWidth(), leditor_rect.getHeight());
 			mLineEditor->setRect(leditor_rect);
 			mLineEditor->setText(edit_text_contents);
-			mLineEditor->setMaxTextLength(STD_STRING_STR_LEN - 1);
 
-			// make sure all edit keys get handled properly (DEV-22396)
-			mLineEditor->setHandleEditKeysDirectly(TRUE);
+			// decrease limit of line editor of teleport offer dialog to avoid truncation of
+			// location URL in invitation message, see EXT-6891
+			if ("OfferTeleport" == mNotification->getName())
+			{
+				mLineEditor->setMaxTextLength(gSavedSettings.getS32(
+						"teleport_offer_invitation_max_length"));
+			}
+			else
+			{
+				mLineEditor->setMaxTextLength(STD_STRING_STR_LEN - 1);
+			}
 
 			LLToastPanel::addChild(mLineEditor);
 
@@ -315,6 +325,9 @@ LLToastAlertPanel::LLToastAlertPanel( LLNotificationPtr notification, bool modal
 		mDefaultBtnTimer.start();
 		mDefaultBtnTimer.setTimerExpirySec(DEFAULT_BUTTON_DELAY);
 	}
+
+	LLTransientFloaterMgr::instance().addControlView(
+			LLTransientFloaterMgr::GLOBAL, this);
 }
 
 bool LLToastAlertPanel::setCheckBox( const std::string& check_title, const std::string& check_control )
@@ -368,6 +381,8 @@ void LLToastAlertPanel::setVisible( BOOL visible )
 
 LLToastAlertPanel::~LLToastAlertPanel()
 {
+	LLTransientFloaterMgr::instance().removeControlView(
+			LLTransientFloaterMgr::GLOBAL, this);
 }
 
 BOOL LLToastAlertPanel::hasTitleBar() const

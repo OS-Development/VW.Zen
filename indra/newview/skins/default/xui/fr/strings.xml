@@ -23,7 +23,22 @@
 		Détection du matériel...
 	</string>
 	<string name="StartupLoading">
-		Chargement
+		Chargement de [APP_NAME]...
+	</string>
+	<string name="StartupClearingCache">
+		Vidage du cache...
+	</string>
+	<string name="StartupInitializingTextureCache">
+		Initialisation du cache des textures...
+	</string>
+	<string name="StartupInitializingVFS">
+		Initialisation VFS...
+	</string>
+	<string name="ProgressRestoring">
+		Restauration...
+	</string>
+	<string name="ProgressChangingResolution">
+		Changement de la résolution...
 	</string>
 	<string name="Fullbright">
 		Fullbright (Legacy)
@@ -85,8 +100,29 @@
 	<string name="LoginDownloadingClothing">
 		Habits en cours de téléchargement...
 	</string>
+	<string name="InvalidCertificate">
+		Certificat non valide ou corrompu renvoyé par le serveur. Contactez l&apos;administrateur de la grille.
+	</string>
+	<string name="CertInvalidHostname">
+		Nom d&apos;hôte non valide utilisé pour accéder au serveur. Vérifiez votre nom d&apos;hôte de grille ou SLURL.
+	</string>
+	<string name="CertExpired">
+		Il semble que le certificat renvoyé par la grille ait expiré. Vérifiez votre horloge système ou contactez l&apos;administrateur de la grille.
+	</string>
+	<string name="CertKeyUsage">
+		Impossible d&apos;utiliser le certificat renvoyé par le serveur pour SSL. Contactez l&apos;administrateur de la grille.
+	</string>
+	<string name="CertBasicConstraints">
+		Certificats trop nombreux dans la chaîne des certificats du serveur. Contactez l&apos;administrateur de la grille.
+	</string>
+	<string name="CertInvalidSignature">
+		Impossible de vérifier la signature de certificat renvoyée par le serveur de la grille. Contactez l&apos;administrateur de la grille.
+	</string>
 	<string name="LoginFailedNoNetwork">
 		Erreur réseau : impossible d&apos;établir la connexion. Veuillez vérifier votre connexion réseau.
+	</string>
+	<string name="LoginFailed">
+		Échec de la connexion.
 	</string>
 	<string name="Quit">
 		Quitter
@@ -96,6 +132,24 @@
 	</string>
 	<string name="AgentLostConnection">
 		Il y a peut-être des problèmes techniques dans cette région.  Veuillez vérifier votre connexion Internet.
+	</string>
+	<string name="SavingSettings">
+		Enregistrement des paramètres...
+	</string>
+	<string name="LoggingOut">
+		Déconnexion...
+	</string>
+	<string name="ShuttingDown">
+		Arrêt en cours...
+	</string>
+	<string name="YouHaveBeenDisconnected">
+		Vous avez été déconnecté de la région où vous étiez.
+	</string>
+	<string name="SentToInvalidRegion">
+		Vous avez été transféré vers une région non valide.
+	</string>
+	<string name="TestingDisconnect">
+		Test de déconnexion du client
 	</string>
 	<string name="TooltipPerson">
 		Personne
@@ -151,6 +205,24 @@
 	<string name="TooltipAgentUrl">
 		Cliquez pour afficher le profil de ce résident
 	</string>
+	<string name="TooltipAgentMute">
+		Cliquer pour ignorer ce résident
+	</string>
+	<string name="TooltipAgentUnmute">
+		Cliquer pour ne plus ignorer ce résident
+	</string>
+	<string name="TooltipAgentIM">
+		Cliquer pour envoyer un IM à ce résident
+	</string>
+	<string name="TooltipAgentPay">
+		Cliquer pour payer ce résident
+	</string>
+	<string name="TooltipAgentOfferTeleport">
+		Cliquer pour proposer une téléportation à ce résident
+	</string>
+	<string name="TooltipAgentRequestFriend">
+		Cliquer pour demander à ce résident d&apos;être votre ami
+	</string>
 	<string name="TooltipGroupUrl">
 		Cliquez pour afficher la description de ce groupe
 	</string>
@@ -176,17 +248,39 @@
 		Cliquez pour exécuter la commande secondlife:// command
 	</string>
 	<string name="CurrentURL" value=" URL actuelle : [CurrentURL]"/>
+	<string name="TooltipPrice" value="[PRICE] L$-"/>
 	<string name="SLurlLabelTeleport">
 		Me téléporter vers
 	</string>
 	<string name="SLurlLabelShowOnMap">
 		Afficher la carte pour
 	</string>
+	<string name="SLappAgentMute">
+		Ignorer
+	</string>
+	<string name="SLappAgentUnmute">
+		Ne plus ignorer
+	</string>
+	<string name="SLappAgentIM">
+		IM
+	</string>
+	<string name="SLappAgentPay">
+		Payer
+	</string>
+	<string name="SLappAgentOfferTeleport">
+		Proposer une téléportation à
+	</string>
+	<string name="SLappAgentRequestFriend">
+		Demande d&apos;amitié
+	</string>
 	<string name="BUTTON_CLOSE_DARWIN">
 		Fermer (⌘W)
 	</string>
 	<string name="BUTTON_CLOSE_WIN">
 		Fermer (Ctrl+W)
+	</string>
+	<string name="BUTTON_CLOSE_CHROME">
+		Fermer
 	</string>
 	<string name="BUTTON_RESTORE">
 		Restaurer
@@ -229,6 +323,9 @@
 	</string>
 	<string name="GroupNameNone">
 		(aucun)
+	</string>
+	<string name="AvalineCaller">
+		Appelant Avaline [ORDER]
 	</string>
 	<string name="AssetErrorNone">
 		Aucune erreur
@@ -334,6 +431,9 @@
 	</string>
 	<string name="symbolic link">
 		lien
+	</string>
+	<string name="symbolic folder link">
+		lien du dossier
 	</string>
 	<string name="AvatarEditingAppearance">
 		(Apparence en cours de modification)
@@ -758,6 +858,42 @@
 	<string name="invalid">
 		non valide
 	</string>
+	<string name="shirt_not_worn">
+		Chemise non portée
+	</string>
+	<string name="pants_not_worn">
+		Pantalon non porté
+	</string>
+	<string name="shoes_not_worn">
+		Chaussures non portées
+	</string>
+	<string name="socks_not_worn">
+		Chaussettes non portées
+	</string>
+	<string name="jacket_not_worn">
+		Veste non portée
+	</string>
+	<string name="gloves_not_worn">
+		Gants non portés
+	</string>
+	<string name="undershirt_not_worn">
+		Débardeur non porté
+	</string>
+	<string name="underpants_not_worn">
+		Caleçon non porté
+	</string>
+	<string name="skirt_not_worn">
+		Jupe non portée
+	</string>
+	<string name="alpha_not_worn">
+		Alpha non porté
+	</string>
+	<string name="tattoo_not_worn">
+		Tatouage non porté
+	</string>
+	<string name="invalid_not_worn">
+		non valide
+	</string>
 	<string name="NewWearable">
 		Nouv. [WEARABLE_ITEM]
 	</string>
@@ -828,7 +964,10 @@
 		Appuyez sur ESC pour quitter la vue subjective
 	</string>
 	<string name="InventoryNoMatchingItems">
-		Aucun objet correspondant dans l&apos;inventaire.  Essayer la [secondlife:///app/search/groups &quot;Recherche&quot;].
+		Vous n&apos;avez pas trouvé ce que vous cherchiez ? Essayez [secondlife:///app/search/all/Rechercher [SEARCH_TERM]].
+	</string>
+	<string name="PlacesNoMatchingItems">
+		Vous n&apos;avez pas trouvé ce que vous cherchiez ? Essayez [secondlife:///app/search/places/Rechercher [SEARCH_TERM]].
 	</string>
 	<string name="FavoritesNoMatchingItems">
 		Faites glisser un repère ici pour l&apos;ajouter à vos Favoris.
@@ -849,6 +988,7 @@
 		Aucun contenu
 	</string>
 	<string name="WornOnAttachmentPoint" value=" (porté sur [ATTACHMENT_POINT])"/>
+	<string name="ActiveGesture" value="[GESLABEL] (actif)"/>
 	<string name="PermYes">
 		Oui
 	</string>
@@ -863,6 +1003,7 @@
 	<string name="Wave" value=" Faire signe"/>
 	<string name="HelloAvatar" value=" Bonjour, avatar !"/>
 	<string name="ViewAllGestures" value="  Tout afficher &gt;&gt;"/>
+	<string name="GetMoreGestures" value="Plus &gt;&gt;"/>
 	<string name="Animations" value=" Animations,"/>
 	<string name="Calling Cards" value=" Cartes de visite,"/>
 	<string name="Clothing" value=" Habits,"/>
@@ -947,6 +1088,9 @@
 	</string>
 	<string name="InvFolder My Outfits">
 		Mes tenues
+	</string>
+	<string name="InvFolder Accessories">
+		Accessoires
 	</string>
 	<string name="InvFolder Friends">
 		Amis
@@ -1471,6 +1615,9 @@
 	<string name="PanelContentsNewScript">
 		Nouveau script
 	</string>
+	<string name="PanelContentsTooltip">
+		Contenu de l&apos;objet
+	</string>
 	<string name="BusyModeResponseDefault">
 		Le résident auquel vous avez envoyé un message est en mode Occupé, ce qui signifie qu&apos;il a demandé à ne pas être dérangé.  Votre message restera affiché dans son panneau IM afin qu&apos;il puisse le lire ultérieurement.
 	</string>
@@ -1486,15 +1633,16 @@
 	<string name="MuteGroup">
 		(groupe)
 	</string>
+	<string name="MuteExternal">
+		(externe)
+	</string>
 	<string name="RegionNoCovenant">
 		Il n&apos;y a aucun règlement pour ce domaine.
 	</string>
 	<string name="RegionNoCovenantOtherOwner">
 		Il n&apos;y a aucun règlement pour ce domaine. Le terrain sur ce domaine est vendu par le propriétaire, non par Linden Lab.  Pour en savoir plus, veuillez contacter le propriétaire.
 	</string>
-	<string name="covenant_last_modified">
-		Dernière modification :
-	</string>
+	<string name="covenant_last_modified" value="Dernière modification :"/>
 	<string name="none_text" value=" (aucun)"/>
 	<string name="never_text" value=" (jamais)"/>
 	<string name="GroupOwned">
@@ -1588,7 +1736,10 @@
 		Annuler
 	</string>
 	<string name="UploadingCosts">
-		Charger %s coûte
+		Le chargement de [NAME] coûte [AMOUNT] L$
+	</string>
+	<string name="BuyingCosts">
+		Cet achat coûte [AMOUNT] L$
 	</string>
 	<string name="UnknownFileExtension">
 		Extension de fichier inconnue .%s
@@ -1999,7 +2150,7 @@ Si ce message persiste, veuillez aller sur la page [SUPPORT_SITE].
 		Large
 	</string>
 	<string name="Brow Size">
-		Taille
+		Taille du front
 	</string>
 	<string name="Bug Eyes">
 		Yeux globuleux
@@ -2149,7 +2300,7 @@ Si ce message persiste, veuillez aller sur la page [SUPPORT_SITE].
 		Extrémités
 	</string>
 	<string name="Egg Head">
-		Forme de la tête
+		Proéminence
 	</string>
 	<string name="Eye Bags">
 		Cernes
@@ -2272,10 +2423,10 @@ Si ce message persiste, veuillez aller sur la page [SUPPORT_SITE].
 		Brillant
 	</string>
 	<string name="Glove Fingers">
-		Doigts avec gants
+		Gants avec doigts
 	</string>
 	<string name="Glove Length">
-		Longueur des gants
+		Longueur
 	</string>
 	<string name="Hair">
 		Cheveux
@@ -2389,7 +2540,7 @@ Si ce message persiste, veuillez aller sur la page [SUPPORT_SITE].
 		Angle mâchoire
 	</string>
 	<string name="Jaw Jut">
-		Saillie de la mâchoire
+		Saillie mâchoire
 	</string>
 	<string name="Jaw Shape">
 		Mâchoire
@@ -2473,7 +2624,7 @@ Si ce message persiste, veuillez aller sur la page [SUPPORT_SITE].
 		Fente labiale
 	</string>
 	<string name="Lip Cleft Depth">
-		Fente labiale
+		Prof. fente labiale
 	</string>
 	<string name="Lip Fullness">
 		Volume des lèvres
@@ -2557,7 +2708,7 @@ Si ce message persiste, veuillez aller sur la page [SUPPORT_SITE].
 		Abaisser
 	</string>
 	<string name="Lower Bridge">
-		Arête plus basse
+		Arête inférieure
 	</string>
 	<string name="Lower Cheeks">
 		Joue inférieure
@@ -2731,19 +2882,19 @@ Si ce message persiste, veuillez aller sur la page [SUPPORT_SITE].
 		Épaisseur du nez
 	</string>
 	<string name="Nose Tip Angle">
-		Bout du nez
+		Angle bout du nez
 	</string>
 	<string name="Nose Tip Shape">
-		Bout du nez
+		Forme bout du nez
 	</string>
 	<string name="Nose Width">
 		Largeur du nez
 	</string>
 	<string name="Nostril Division">
-		Division des narines
+		Division narines
 	</string>
 	<string name="Nostril Width">
-		Largeur des narines
+		Largeur narines
 	</string>
 	<string name="Opaque">
 		Opaque
@@ -2833,10 +2984,10 @@ Si ce message persiste, veuillez aller sur la page [SUPPORT_SITE].
 		Plus rose
 	</string>
 	<string name="Platform Height">
-		Plateforme (hauteur)
+		Platef. (hauteur)
 	</string>
 	<string name="Platform Width">
-		Plateforme (largeur)
+		Platef. (largeur)
 	</string>
 	<string name="Pointy">
 		Pointue
@@ -2860,7 +3011,7 @@ Si ce message persiste, veuillez aller sur la page [SUPPORT_SITE].
 		Plus
 	</string>
 	<string name="Puffy Eyelids">
-		Cernes
+		Paup. gonflées
 	</string>
 	<string name="Rainbow Color">
 		Couleur arc en ciel
@@ -2926,7 +3077,7 @@ Si ce message persiste, veuillez aller sur la page [SUPPORT_SITE].
 		Vers la gauche
 	</string>
 	<string name="Shift Mouth">
-		Déplacer la bouche
+		Déplacement
 	</string>
 	<string name="Shift Right">
 		Vers la droite
@@ -3034,7 +3185,7 @@ Si ce message persiste, veuillez aller sur la page [SUPPORT_SITE].
 		Cheveux lisses
 	</string>
 	<string name="Socks Length">
-		Longueur des chaussettes
+		Longueur
 	</string>
 	<string name="Soulpatch">
 		Barbichette
@@ -3124,7 +3275,7 @@ Si ce message persiste, veuillez aller sur la page [SUPPORT_SITE].
 		Forme de l&apos;orteil
 	</string>
 	<string name="Toe Thickness">
-		Épaisseur de l&apos;orteil
+		Épaisseur orteil
 	</string>
 	<string name="Torso Length">
 		Longueur du torse
@@ -3151,7 +3302,7 @@ Si ce message persiste, veuillez aller sur la page [SUPPORT_SITE].
 		Arête supérieure
 	</string>
 	<string name="Upper Cheeks">
-		Pommette
+		Joue supérieure
 	</string>
 	<string name="Upper Chin Cleft">
 		Menton supérieur
@@ -3225,6 +3376,15 @@ Si ce message persiste, veuillez aller sur la page [SUPPORT_SITE].
 	<string name="LocationCtrlDamageTooltip">
 		Santé
 	</string>
+	<string name="LocationCtrlAdultIconTooltip">
+		Région de type Adulte
+	</string>
+	<string name="LocationCtrlModerateIconTooltip">
+		Région de type Modéré
+	</string>
+	<string name="LocationCtrlGeneralIconTooltip">
+		Région de type Général
+	</string>
 	<string name="UpdaterWindowTitle">
 		[APP_NAME] - Mise à jour
 	</string>
@@ -3255,6 +3415,12 @@ Si ce message persiste, veuillez aller sur la page [SUPPORT_SITE].
 	<string name="UpdaterFailStartTitle">
 		Impossible de lancer le client
 	</string>
+	<string name="ItemsComingInTooFastFrom">
+		[APP_NAME] : transfert trop rapide des articles de [FROM_NAME] ; aperçu automatique désactivé pendant [TIME] secondes
+	</string>
+	<string name="ItemsComingInTooFast">
+		[APP_NAME] : transfert trop rapide des articles ; aperçu automatique désactivé pendant [TIME] secondes
+	</string>
 	<string name="IM_logging_string">
 		-- Archivage des IM activé --
 	</string>
@@ -3282,11 +3448,17 @@ Si ce message persiste, veuillez aller sur la page [SUPPORT_SITE].
 	<string name="IM_moderator_label">
 		(Modérateur)
 	</string>
-	<string name="started_call">
-		A appelé quelqu&apos;un
+	<string name="answered_call">
+		Votre appel a fait l&apos;objet d&apos;une réponse
 	</string>
-	<string name="joined_call">
-		A rejoint l&apos;appel
+	<string name="you_started_call">
+		Vous appelez.
+	</string>
+	<string name="you_joined_call">
+		Vous avez rejoint l&apos;appel
+	</string>
+	<string name="name_started_call">
+		[NAME] appelle.
 	</string>
 	<string name="ringing-im">
 		En train de rejoindre l&apos;appel...
@@ -3374,5 +3546,220 @@ Si ce message persiste, veuillez aller sur la page [SUPPORT_SITE].
 	</string>
 	<string name="unread_chat_multiple">
 		[SOURCES] ont dit quelque chose de nouveau
+	</string>
+	<string name="session_initialization_timed_out_error">
+		Expiration du délai d&apos;initialisation de la session
+	</string>
+	<string name="paid_you_ldollars">
+		[NAME] vous a payé [AMOUNT] L$
+	</string>
+	<string name="you_paid_ldollars">
+		Vous avez payé à [AMOUNT] L$ [REASON].
+	</string>
+	<string name="you_paid_ldollars_no_info">
+		Vous avez payé [AMOUNT] L$.
+	</string>
+	<string name="you_paid_ldollars_no_reason">
+		Vous avez payé à [NAME] [AMOUNT] L$.
+	</string>
+	<string name="you_paid_ldollars_no_name">
+		Vous avez payé à [AMOUNT] L$ [REASON].
+	</string>
+	<string name="for a parcel of land">
+		pour une parcelle de terrain
+	</string>
+	<string name="for a land access pass">
+		pour un pass d&apos;accès au terrain
+	</string>
+	<string name="for deeding land">
+		pour une cession de terrain
+	</string>
+	<string name="to create a group">
+		pour créer un groupe
+	</string>
+	<string name="to join a group">
+		pour rejoindre un groupe
+	</string>
+	<string name="to upload">
+		pour charger
+	</string>
+	<string name="giving">
+		Donner [AMOUNT] L$
+	</string>
+	<string name="uploading_costs">
+		Le chargement coûte [AMOUNT] L$
+	</string>
+	<string name="this_costs">
+		Cela coûte [AMOUNT] L$
+	</string>
+	<string name="buying_selected_land">
+		Achat du terrain sélectionné pour [AMOUNT] L$
+	</string>
+	<string name="this_object_costs">
+		Cet objet coûte [AMOUNT] L$
+	</string>
+	<string name="group_role_everyone">
+		Tous
+	</string>
+	<string name="group_role_officers">
+		Officiers
+	</string>
+	<string name="group_role_owners">
+		Propriétaires
+	</string>
+	<string name="uploading_abuse_report">
+		Chargement en cours... 
+
+de l&apos;infraction signalée
+	</string>
+	<string name="New Shape">
+		Nouvelle silhouette
+	</string>
+	<string name="New Skin">
+		Nouvelle peau
+	</string>
+	<string name="New Hair">
+		Nouveaux cheveux
+	</string>
+	<string name="New Eyes">
+		Nouveaux yeux
+	</string>
+	<string name="New Shirt">
+		Nouvelle chemise
+	</string>
+	<string name="New Pants">
+		Nouveau pantalon
+	</string>
+	<string name="New Shoes">
+		Nouvelles chaussures
+	</string>
+	<string name="New Socks">
+		Nouvelles chaussettes
+	</string>
+	<string name="New Jacket">
+		Nouvelle veste
+	</string>
+	<string name="New Gloves">
+		Nouveaux gants
+	</string>
+	<string name="New Undershirt">
+		Nouveau débardeur
+	</string>
+	<string name="New Underpants">
+		Nouveau caleçon
+	</string>
+	<string name="New Skirt">
+		Nouvelle jupe
+	</string>
+	<string name="New Alpha">
+		Nouvel alpha
+	</string>
+	<string name="New Tattoo">
+		Nouveau tatouage
+	</string>
+	<string name="Invalid Wearable">
+		Objet à porter non valide
+	</string>
+	<string name="New Script">
+		Nouveau script
+	</string>
+	<string name="New Folder">
+		Nouveau dossier
+	</string>
+	<string name="Contents">
+		Contenus
+	</string>
+	<string name="Gesture">
+		Geste
+	</string>
+	<string name="Male Gestures">
+		Gestes masculins
+	</string>
+	<string name="Female Gestures">
+		Gestes féminins
+	</string>
+	<string name="Other Gestures">
+		Autres gestes
+	</string>
+	<string name="Speech Gestures">
+		Gestes liés à la parole
+	</string>
+	<string name="Common Gestures">
+		Gestes communs
+	</string>
+	<string name="Male - Excuse me">
+		Homme - Demander pardon
+	</string>
+	<string name="Male - Get lost">
+		Homme - Dire d&apos;aller au diable
+	</string>
+	<string name="Male - Blow kiss">
+		Homme - Envoyer un baiser
+	</string>
+	<string name="Male - Boo">
+		Homme - Hou !
+	</string>
+	<string name="Male - Bored">
+		Homme - Ennui
+	</string>
+	<string name="Male - Hey">
+		Homme - Hé !
+	</string>
+	<string name="Male - Laugh">
+		Homme - Rire
+	</string>
+	<string name="Male - Repulsed">
+		Homme - Dégoût
+	</string>
+	<string name="Male - Shrug">
+		Homme - Hausser les épaules
+	</string>
+	<string name="Male - Stick tougue out">
+		Homme - Tirer la langue
+	</string>
+	<string name="Male - Wow">
+		Homme - Ouah !
+	</string>
+	<string name="FeMale - Excuse me">
+		Femme - Demander pardon
+	</string>
+	<string name="FeMale - Get lost">
+		Femme - Dire d&apos;aller au diable
+	</string>
+	<string name="FeMale - Blow kiss">
+		Femme - Envoyer un baiser
+	</string>
+	<string name="FeMale - Boo">
+		Femme - Hou !
+	</string>
+	<string name="Female - Bored">
+		Femme - Ennui
+	</string>
+	<string name="Female - Hey">
+		Femme - Hé !
+	</string>
+	<string name="Female - Laugh">
+		Femme - Rire
+	</string>
+	<string name="Female - Repulsed">
+		Femme - Dégoût
+	</string>
+	<string name="Female - Shrug">
+		Femme - Hausser les épaules
+	</string>
+	<string name="Female - Stick tougue out">
+		Femme - Tirer la langue
+	</string>
+	<string name="Female - Wow">
+		Femme - Ouah !
+	</string>
+	<string name="AvatarBirthDateFormat">
+		[day,datetime,slt]/[mthnum,datetime,slt]/[year,datetime,slt]
+	</string>
+	<string name="DefaultMimeType">
+		aucun/aucun
+	</string>
+	<string name="texture_load_dimensions_error">
+		Impossible de charger des images de taille supérieure à [WIDTH]*[HEIGHT]
 	</string>
 </strings>

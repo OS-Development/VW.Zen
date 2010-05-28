@@ -49,7 +49,6 @@
 #include "lldrawable.h"
 #include "lldrawpoolavatar.h"
 #include "llface.h"
-#include "llfloatercustomize.h"
 #include "llmorphview.h"
 #include "llresmgr.h"
 #include "llselectmgr.h"
@@ -79,6 +78,7 @@ LLVisualParamHint::LLVisualParamHint(
 	S32 width, S32 height, 
 	LLViewerJointMesh *mesh, 
 	LLViewerVisualParam *param,
+	LLWearable *wearable,
 	F32 param_weight)
 	:
 	LLViewerDynamicTexture(width, height, 3, LLViewerDynamicTexture::ORDER_MIDDLE, TRUE ),
@@ -86,6 +86,7 @@ LLVisualParamHint::LLVisualParamHint(
 	mIsVisible( FALSE ),
 	mJointMesh( mesh ),
 	mVisualParam( param ),
+	mWearablePtr( wearable ),
 	mVisualParamWeight( param_weight ),
 	mAllowsUpdates( TRUE ),
 	mDelayFrames( 0 ),
@@ -106,6 +107,12 @@ LLVisualParamHint::LLVisualParamHint(
 LLVisualParamHint::~LLVisualParamHint()
 {
 	LLVisualParamHint::sInstances.erase( this );
+}
+
+//virtual
+S8 LLVisualParamHint::getType() const
+{
+	return LLViewerDynamicTexture::LL_VISUAL_PARAM_HINT ;
 }
 
 //-----------------------------------------------------------------------------
@@ -139,22 +146,20 @@ void LLVisualParamHint::requestHintUpdates( LLVisualParamHint* exception1, LLVis
 
 BOOL LLVisualParamHint::needsRender()
 {
-	return mNeedsUpdate && mDelayFrames-- <= 0 && !gAgent.getAvatarObject()->mAppearanceAnimating && mAllowsUpdates;
+	return mNeedsUpdate && mDelayFrames-- <= 0 && !gAgentAvatarp->mAppearanceAnimating && mAllowsUpdates;
 }
 
 void LLVisualParamHint::preRender(BOOL clear_depth)
 {
-	LLVOAvatarSelf* avatarp = gAgent.getAvatarObject();
-
 	mLastParamWeight = mVisualParam->getWeight();
-	mVisualParam->setWeight(mVisualParamWeight, FALSE);
-	avatarp->setVisualParamWeight(mVisualParam->getID(), mVisualParamWeight, FALSE);
-	avatarp->setVisualParamWeight("Blink_Left", 0.f);
-	avatarp->setVisualParamWeight("Blink_Right", 0.f);
-	avatarp->updateComposites();
-	avatarp->updateVisualParams();
-	avatarp->updateGeometry(avatarp->mDrawable);
-	avatarp->updateLOD();
+	mWearablePtr->setVisualParamWeight(mVisualParam->getID(), mVisualParamWeight, FALSE);
+	gAgentAvatarp->setVisualParamWeight(mVisualParam->getID(), mVisualParamWeight, FALSE);
+	gAgentAvatarp->setVisualParamWeight("Blink_Left", 0.f);
+	gAgentAvatarp->setVisualParamWeight("Blink_Right", 0.f);
+	gAgentAvatarp->updateComposites();
+	gAgentAvatarp->updateVisualParams();
+	gAgentAvatarp->updateGeometry(gAgentAvatarp->mDrawable);
+	gAgentAvatarp->updateLOD();
 
 	LLViewerDynamicTexture::preRender(clear_depth);
 }
@@ -165,7 +170,6 @@ void LLVisualParamHint::preRender(BOOL clear_depth)
 BOOL LLVisualParamHint::render()
 {
 	LLVisualParamReset::sDirty = TRUE;
-	LLVOAvatar* avatarp = gAgent.getAvatarObject();
 
 	gGL.pushUIMatrix();
 	gGL.loadUIIdentity();
@@ -196,7 +200,7 @@ BOOL LLVisualParamHint::render()
 	const std::string& cam_target_mesh_name = mVisualParam->getCameraTargetName();
 	if( !cam_target_mesh_name.empty() )
 	{
-		cam_target_joint = (LLViewerJointMesh*)avatarp->getJoint( cam_target_mesh_name );
+		cam_target_joint = (LLViewerJointMesh*)gAgentAvatarp->getJoint( cam_target_mesh_name );
 	}
 	if( !cam_target_joint )
 	{
@@ -204,11 +208,11 @@ BOOL LLVisualParamHint::render()
 	}
 	if( !cam_target_joint )
 	{
-		cam_target_joint = (LLViewerJointMesh*)avatarp->getJoint("mHead");
+		cam_target_joint = (LLViewerJointMesh*)gAgentAvatarp->getJoint("mHead");
 	}
 
 	LLQuaternion avatar_rotation;
-	LLJoint* root_joint = avatarp->getRootJoint();
+	LLJoint* root_joint = gAgentAvatarp->getRootJoint();
 	if( root_joint )
 	{
 		avatar_rotation = root_joint->getWorldRotation();
@@ -236,21 +240,23 @@ BOOL LLVisualParamHint::render()
 
 	LLViewerCamera::getInstance()->setPerspective(FALSE, mOrigin.mX, mOrigin.mY, mFullWidth, mFullHeight, FALSE);
 
-	if (avatarp->mDrawable.notNull())
+	if (gAgentAvatarp->mDrawable.notNull())
 	{
-		LLDrawPoolAvatar *avatarPoolp = (LLDrawPoolAvatar *)avatarp->mDrawable->getFace(0)->getPool();
+		LLDrawPoolAvatar *avatarPoolp = (LLDrawPoolAvatar *)gAgentAvatarp->mDrawable->getFace(0)->getPool();
 		LLGLDepthTest gls_depth(GL_TRUE, GL_TRUE);
 		gGL.setAlphaRejectSettings(LLRender::CF_ALWAYS);
 		gGL.setSceneBlendType(LLRender::BT_REPLACE);
-		avatarPoolp->renderAvatars(avatarp);  // renders only one avatar
+		avatarPoolp->renderAvatars(gAgentAvatarp);  // renders only one avatar
 		gGL.setSceneBlendType(LLRender::BT_ALPHA);
 		gGL.setAlphaRejectSettings(LLRender::CF_DEFAULT);
 	}
-	avatarp->setVisualParamWeight(mVisualParam->getID(), mLastParamWeight);
-	mVisualParam->setWeight(mLastParamWeight, FALSE);
+	gAgentAvatarp->setVisualParamWeight(mVisualParam->getID(), mLastParamWeight);
+	mWearablePtr->setVisualParamWeight(mVisualParam->getID(), mLastParamWeight, FALSE);
+	gAgentAvatarp->updateVisualParams();
 	gGL.color4f(1,1,1,1);
 	mGLTexturep->setGLTextureCreated(true);
 	gGL.popUIMatrix();
+
 	return TRUE;
 }
 
@@ -290,6 +296,12 @@ LLVisualParamReset::LLVisualParamReset() : LLViewerDynamicTexture(1, 1, 1, ORDER
 {	
 }
 
+//virtual
+S8 LLVisualParamReset::getType() const
+{
+	return LLViewerDynamicTexture::LL_VISUAL_PARAM_RESET ;
+}
+
 //-----------------------------------------------------------------------------
 // render()
 //-----------------------------------------------------------------------------
@@ -297,10 +309,9 @@ BOOL LLVisualParamReset::render()
 {
 	if (sDirty)
 	{
-		LLVOAvatarSelf* avatarp = gAgent.getAvatarObject();
-		avatarp->updateComposites();
-		avatarp->updateVisualParams();
-		avatarp->updateGeometry(avatarp->mDrawable);
+		gAgentAvatarp->updateComposites();
+		gAgentAvatarp->updateVisualParams();
+		gAgentAvatarp->updateGeometry(gAgentAvatarp->mDrawable);
 		sDirty = FALSE;
 	}
 

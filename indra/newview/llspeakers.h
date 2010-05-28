@@ -234,6 +234,14 @@ public:
 	LLVoiceChannel* getVoiceChannel() { return mVoiceChannel; }
 	const LLUUID getSessionID();
 
+	/**
+	 * Removes avaline speaker.
+	 *
+	 * This is a HACK due to server does not send information that Avaline caller ends call.
+	 * It can be removed when server is updated. See EXT-4301 for details
+	 */
+	bool removeAvalineSpeaker(const LLUUID& speaker_id) { return removeSpeaker(speaker_id); }
+
 protected:
 	virtual void updateSpeakerList();
 	void setSpeakerNotInChannel(LLSpeaker* speackerp);
@@ -295,7 +303,15 @@ protected:
 
 	void moderateVoiceSession(const LLUUID& session_id, bool disallow_voice);
 
+	/**
+	 * Process all participants to mute/unmute them according to passed voice session state.
+	 */
+	void forceVoiceModeratedMode(bool should_be_muted);
+
+private:
 	LLUUID mReverseVoiceModeratedAvatarID;
+	bool mVoiceModerated;
+
 };
 
 class LLActiveSpeakerMgr : public LLSpeakerMgr, public LLSingleton<LLActiveSpeakerMgr>
