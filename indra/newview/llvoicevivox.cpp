@@ -1328,12 +1328,13 @@ void LLVivoxVoiceClient::stateMachine()
 
 			if (LLVoiceClient::instance().getVoiceEffectEnabled())
 			{
-				// request the set of available voice fonts
+				// Request the set of available voice fonts.
 				setState(stateVoiceFontsWait);
 				refreshVoiceEffectLists(true);
 			}
 			else
 			{
+				// If voice effects are disabled, pretend we've received them and carry on.
 				setState(stateVoiceFontsReceived);
 			}
 
@@ -7663,7 +7664,7 @@ void LLVivoxProtocolParser::processResponse(std::string tag)
 		}
 		else if (!stricmp(eventTypeCstr, "AuxAudioPropertiesEvent"))
 		{
-			// These are really spamming in tuning mode
+			// These are really spammy in tuning mode
 			squelchDebugOutput = true;
 
 			LLVivoxVoiceClient::getInstance()->auxAudioPropertiesEvent(energy);

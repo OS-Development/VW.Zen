@@ -65,7 +65,7 @@ private:
 		PREVIEW_VOICE_EFFECTS = 1,
 		GET_VOICE_EFFECTS = 2
 	} EVoiceEffectComboItems;
-	
+
 	LLComboBox* mVoiceEffectCombo;
 };
 
