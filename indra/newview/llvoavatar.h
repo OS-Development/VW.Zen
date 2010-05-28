@@ -158,12 +158,14 @@ public:
 	virtual LLJoint*		getCharacterJoint(U32 num);
 	virtual BOOL			allocateCharacterJoints(U32 num);
 
+	virtual LLUUID			remapMotionID(const LLUUID& id);
 	virtual BOOL			startMotion(const LLUUID& id, F32 time_offset = 0.f);
 	virtual BOOL			stopMotion(const LLUUID& id, BOOL stop_immediate = FALSE);
 	virtual void			stopMotionFromSource(const LLUUID& source_id);
 	virtual void			requestStopMotion(LLMotion* motion);
 	LLMotion*				findMotion(const LLUUID& id) const;
 	void					startDefaultMotions();
+	void					dumpAnimationState();
 
 	virtual LLJoint*		getJoint(const std::string &name);
 	virtual LLJoint*     	getRootJoint() { return &mRoot; }
@@ -462,7 +464,9 @@ public:
 	//--------------------------------------------------------------------
 public:
 	virtual BOOL    isTextureDefined(LLVOAvatarDefines::ETextureIndex type, U32 index = 0) const;
-	BOOL			isTextureVisible(LLVOAvatarDefines::ETextureIndex index) const;
+	virtual BOOL	isTextureVisible(LLVOAvatarDefines::ETextureIndex type, U32 index = 0) const;
+	virtual BOOL	isTextureVisible(LLVOAvatarDefines::ETextureIndex type, LLWearable *wearable) const;
+
 protected:
 	BOOL			isFullyBaked();
 	static BOOL		areAllNearbyInstancesBaked(S32& grey_avatars);
@@ -1038,15 +1042,5 @@ protected: // Shared with LLVOAvatarSelf
  *******************************************************************************/
 
 }; // LLVOAvatar
-
-//------------------------------------------------------------------------
-// Inlines
-//------------------------------------------------------------------------
-inline BOOL LLVOAvatar::isTextureVisible(LLVOAvatarDefines::ETextureIndex te) const
-{
-	return ((isTextureDefined(te) || isSelf())
-			&& (getTEImage(te)->getID() != IMG_INVISIBLE 
-				|| LLDrawPoolAlpha::sShowDebugAlpha));
-}
 
 #endif // LL_VO_AVATAR_H

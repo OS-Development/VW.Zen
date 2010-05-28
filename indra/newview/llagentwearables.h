@@ -71,17 +71,18 @@ protected:
 public:
 	BOOL			isWearingItem(const LLUUID& item_id) const;
 	BOOL			isWearableModifiable(LLWearableType::EType type, U32 index /*= 0*/) const;
+	BOOL			isWearableModifiable(const LLUUID& item_id) const;
+
 	BOOL			isWearableCopyable(LLWearableType::EType type, U32 index /*= 0*/) const;
 	BOOL			areWearablesLoaded() const;
 	void			updateWearablesLoaded();
 	void			checkWearablesLoaded() const;
+	bool			canMoveWearable(const LLUUID& item_id, bool closer_to_body);
 	
 	// Note: False for shape, skin, eyes, and hair, unless you have MORE than 1.
 	bool			canWearableBeRemoved(const LLWearable* wearable) const;
 
 	void			animateAllWearableParams(F32 delta, BOOL upload_bake);
-	
-	bool			moveWearable(const LLViewerInventoryItem* item, bool closer_to_body);
 
 	//--------------------------------------------------------------------
 	// Accessors
@@ -90,12 +91,14 @@ public:
 	const LLUUID		getWearableItemID(LLWearableType::EType type, U32 index /*= 0*/) const;
 	const LLUUID		getWearableAssetID(LLWearableType::EType type, U32 index /*= 0*/) const;
 	const LLWearable*	getWearableFromItemID(const LLUUID& item_id) const;
+	LLWearable*	getWearableFromItemID(const LLUUID& item_id);
 	LLWearable*	getWearableFromAssetID(const LLUUID& asset_id);
 	LLInventoryItem*	getWearableInventoryItem(LLWearableType::EType type, U32 index /*= 0*/);
 	static BOOL			selfHasWearable(LLWearableType::EType type);
 	LLWearable*			getWearable(const LLWearableType::EType type, U32 index /*= 0*/); 
 	const LLWearable* 	getWearable(const LLWearableType::EType type, U32 index /*= 0*/) const;
 	LLWearable*		getTopWearable(const LLWearableType::EType type);
+	LLWearable*		getBottomWearable(const LLWearableType::EType type);
 	U32				getWearableCount(const LLWearableType::EType type) const;
 	U32				getWearableCount(const U32 tex_index) const;
 
@@ -134,6 +137,14 @@ protected:
 	void			recoverMissingWearableDone();
 
 	//--------------------------------------------------------------------
+	// Editing/moving wearables
+	//--------------------------------------------------------------------
+
+public:
+	static void		editWearable(const LLUUID& item_id);
+	bool			moveWearable(const LLViewerInventoryItem* item, bool closer_to_body);
+
+	//--------------------------------------------------------------------
 	// Removing wearables
 	//--------------------------------------------------------------------
 public:
@@ -150,6 +161,8 @@ protected:
 public:
 	// Processes the initial wearables update message (if necessary, since the outfit folder makes it redundant)
 	static void		processAgentInitialWearablesUpdate(LLMessageSystem* mesgsys, void** user_data);
+	LLUUID			computeBakedTextureHash(LLVOAvatarDefines::EBakedTextureIndex index);
+
 protected:
 	void			sendAgentWearablesUpdate();
 	void			sendAgentWearablesRequest();

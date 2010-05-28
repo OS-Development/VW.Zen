@@ -67,6 +67,8 @@ public:
 	void showOutfitEditPanel();
 	void showWearableEditPanel(LLWearable *wearable = NULL);
 	void setWearablesLoading(bool val);
+	void showDefaultSubpart();
+	void updateScrollingPanelList();
 
 private:
 	void onFilterEdit(const std::string& search_string);
@@ -75,8 +77,8 @@ private:
 	void onEditAppearanceButtonClicked();
 
 	void togglMyOutfitsPanel(BOOL visible);
-	void toggleOutfitEditPanel(BOOL visible);
-	void toggleWearableEditPanel(BOOL visible, LLWearable* wearable = NULL);
+	void toggleOutfitEditPanel(BOOL visible, BOOL disable_camera_switch = FALSE);
+	void toggleWearableEditPanel(BOOL visible, LLWearable* wearable = NULL, BOOL disable_camera_switch = FALSE);
 
 	LLFilterEditor*			mFilterEditor;
 	LLPanelOutfitsInventory* mPanelOutfitsInventory;
