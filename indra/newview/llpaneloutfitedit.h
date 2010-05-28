@@ -58,6 +58,7 @@ class LLScrollListCtrl;
 class LLToggleableMenu;
 class LLFilterEditor;
 class LLFilteredWearableListManager;
+class LLMenuGL;
 
 class LLPanelOutfitEdit : public LLPanel
 {
@@ -104,7 +105,8 @@ public:
 	void onEditWearableClicked(void);
 
 	void displayCurrentOutfit();
-	
+	void updateCurrentOutfitName();
+
 	void update();
 
 	void updateVerbs();
@@ -125,6 +127,8 @@ public:
 
 private:
 
+	void onGearButtonClick(LLUICtrl* clicked_button);
+	void onGearMenuItemClick(const LLSD& data);
 
 
 	LLTextBox*			mCurrentOutfitName;
@@ -148,6 +152,7 @@ private:
 	std::vector<LLLookItemType> mLookItemTypes;
 
 	LLCOFWearables*		mCOFWearables;
+	LLMenuGL*			mGearMenu;
 	bool				mInitialized;
 };
 

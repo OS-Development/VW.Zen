@@ -148,6 +148,8 @@ protected:
 		else
 		{
 			mBaseOutfitId = baseoutfit_id;
+			mPanel->updateCurrentOutfitName();
+
 			if (baseoutfit_id.isNull()) return;
 
 			mBaseOutfitLastVersion = getCategoryVersion(mBaseOutfitId);
@@ -210,6 +212,7 @@ LLPanelOutfitEdit::LLPanelOutfitEdit()
 	mCOFWearables(NULL),
 	mInventoryItemsPanel(NULL),
 	mCOFObserver(NULL),
+	mGearMenu(NULL),
 	mCOFDragAndDropObserver(NULL),
 	mInitialized(false)
 {
@@ -252,6 +255,8 @@ BOOL LLPanelOutfitEdit::postBuild()
 	childSetCommitCallback("filter_button", boost::bind(&LLPanelOutfitEdit::showWearablesFilter, this), NULL);
 	childSetCommitCallback("folder_view_btn", boost::bind(&LLPanelOutfitEdit::showFilteredFolderWearablesPanel, this), NULL);
 	childSetCommitCallback("list_view_btn", boost::bind(&LLPanelOutfitEdit::showFilteredWearablesPanel, this), NULL);
+	childSetCommitCallback("gear_menu_btn", boost::bind(&LLPanelOutfitEdit::onGearButtonClick, this, _1), NULL);
+	childSetCommitCallback("wearables_gear_menu_btn", boost::bind(&LLPanelOutfitEdit::onGearButtonClick, this, _1), NULL);
 
 	mCOFWearables = getChild<LLCOFWearables>("cof_wearables_list");
 	mCOFWearables->setCommitCallback(boost::bind(&LLPanelOutfitEdit::onOutfitItemSelectionChange, this));
@@ -350,6 +355,8 @@ void LLPanelOutfitEdit::showFilteredWearablesPanel()
 	if(switchPanels(mInventoryItemsPanel, mWearableItemsPanel))
 	{
 		mFolderViewBtn->setToggleState(FALSE);
+		mFolderViewBtn->setImageOverlay(getString("folder_view_off"), mFolderViewBtn->getImageOverlayHAlign());
+		mListViewBtn->setImageOverlay(getString("list_view_on"), mListViewBtn->getImageOverlayHAlign());
 	}
 	mListViewBtn->setToggleState(TRUE);
 }
@@ -359,6 +366,8 @@ void LLPanelOutfitEdit::showFilteredFolderWearablesPanel()
 	if(switchPanels(mWearableItemsPanel, mInventoryItemsPanel))
 	{
 		mListViewBtn->setToggleState(FALSE);
+		mListViewBtn->setImageOverlay(getString("list_view_off"), mListViewBtn->getImageOverlayHAlign());
+		mFolderViewBtn->setImageOverlay(getString("folder_view_on"), mFolderViewBtn->getImageOverlayHAlign());
 	}
 	mFolderViewBtn->setToggleState(TRUE);
 }
@@ -639,6 +648,13 @@ void LLPanelOutfitEdit::displayCurrentOutfit()
 		setVisible(TRUE);
 	}
 
+	updateCurrentOutfitName();
+
+	update();
+}
+
+void LLPanelOutfitEdit::updateCurrentOutfitName()
+{
 	std::string current_outfit_name;
 	if (LLAppearanceMgr::getInstance()->getBaseOutfitName(current_outfit_name))
 	{
@@ -648,8 +664,6 @@ void LLPanelOutfitEdit::displayCurrentOutfit()
 	{
 		mCurrentOutfitName->setText(getString("No Outfit"));
 	}
-
-	update();
 }
 
 //private
@@ -679,6 +693,33 @@ bool LLPanelOutfitEdit::switchPanels(LLPanel* switch_from_panel, LLPanel* switch
 		return true;
 	}
 	return false;
+}
+
+void LLPanelOutfitEdit::onGearButtonClick(LLUICtrl* clicked_button)
+{
+	if(!mGearMenu)
+	{
+		LLUICtrl::CommitCallbackRegistry::ScopedRegistrar registrar;
+
+		registrar.add("Gear.OnClick", boost::bind(&LLPanelOutfitEdit::onGearMenuItemClick, this, _2));
+
+		mGearMenu = LLUICtrlFactory::getInstance()->createFromFile<LLMenuGL>(
+			"menu_cof_gear.xml", LLMenuGL::sMenuContainer, LLViewerMenuHolderGL::child_registry_t::instance());
+		mGearMenu->buildDrawLabels();
+		mGearMenu->updateParent(LLMenuGL::sMenuContainer);
+	}
+
+	S32 menu_y = mGearMenu->getRect().getHeight() + clicked_button->getRect().getHeight();
+	LLMenuGL::showPopup(clicked_button, mGearMenu, 0, menu_y);
+}
+
+void LLPanelOutfitEdit::onGearMenuItemClick(const LLSD& data)
+{
+	std::string param = data.asString();
+	if("add" == param)
+	{
+		// TODO
+	}
 }
 
 // EOF

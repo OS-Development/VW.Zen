@@ -53,8 +53,7 @@
 //#include "llfirstuse.h"
 #include "llfloaterbuy.h"
 #include "llfloaterbuycontents.h"
-#include "llfloaterbuycurrency.h"
-#include "llfloatercustomize.h"
+#include "llbuycurrencyhtml.h"
 #include "llfloatergodtools.h"
 #include "llfloaterinventory.h"
 #include "llfloaterland.h"
@@ -108,6 +107,7 @@
 #include "lluilistener.h"
 #include "llappearancemgr.h"
 #include "lltrans.h"
+#include "lleconomy.h"
 
 using namespace LLVOAvatarDefines;
 
@@ -3288,7 +3288,7 @@ void handle_buy_object(LLSaleInfo sale_info)
 	{
 		LLStringUtil::format_map_t args;
 		args["AMOUNT"] = llformat("%d", price);
-		LLFloaterBuyCurrency::buyCurrency(LLTrans::getString("this_object_costs", args), price);
+		LLBuyCurrencyHTML::openCurrencyFloater( LLTrans::getString("this_object_costs", args), price );
 		return;
 	}
 
@@ -3735,17 +3735,15 @@ void reset_view_final( BOOL proceed );
 
 void handle_reset_view()
 {
-	if( (CAMERA_MODE_CUSTOMIZE_AVATAR == gAgentCamera.getCameraMode()) && gFloaterCustomize )
+	if (gAgentCamera.cameraCustomizeAvatar())
 	{
-		// Show dialog box if needed.
-		gFloaterCustomize->askToSaveIfDirty( reset_view_final );
+		// switching to outfit selector should automagically save any currently edited wearable
+		LLSideTray::getInstance()->showPanel("sidepanel_appearance", LLSD().with("type", "my_outfits"));
 	}
-	else
-	{
-		gAgentCamera.switchCameraPreset(CAMERA_PRESET_REAR_VIEW);
-		reset_view_final( TRUE );
-		LLFloaterCamera::resetCameraMode();
-	}
+
+	gAgentCamera.switchCameraPreset(CAMERA_PRESET_REAR_VIEW);
+	reset_view_final( TRUE );
+	LLFloaterCamera::resetCameraMode();
 }
 
 class LLViewResetView : public view_listener_t
@@ -4430,8 +4428,7 @@ void handle_buy_or_take()
 		{
 			LLStringUtil::format_map_t args;
 			args["AMOUNT"] = llformat("%d", total_price);
-			LLFloaterBuyCurrency::buyCurrency(
-					LLTrans::getString("BuyingCosts", args), total_price);
+			LLBuyCurrencyHTML::openCurrencyFloater( LLTrans::getString( "BuyingCosts", args ), total_price );
 		}
 	}
 	else
@@ -5612,6 +5609,11 @@ void handle_customize_avatar()
 	LLSideTray::getInstance()->showPanel("sidepanel_appearance", LLSD().with("type", "my_outfits"));
 }
 
+void handle_edit_outfit()
+{
+	LLSideTray::getInstance()->showPanel("sidepanel_appearance", LLSD().with("type", "edit_outfit"));
+}
+
 void handle_edit_shape()
 {
 	LLSideTray::getInstance()->showPanel("sidepanel_appearance", LLSD().with("type", "edit_shape"));
@@ -5626,7 +5628,7 @@ void handle_report_abuse()
 
 void handle_buy_currency()
 {
-	LLFloaterBuyCurrency::buyCurrency();
+	LLBuyCurrencyHTML::openCurrencyFloater();
 }
 
 class LLFloaterVisible : public view_listener_t
@@ -7654,6 +7656,42 @@ class LLWorldToggleCameraControls : public view_listener_t
 	}
 };
 
+class LLUploadCostCalculator : public view_listener_t
+{
+	std::string mCostStr;
+
+	bool handleEvent(const LLSD& userdata)
+	{
+		std::string menu_name = userdata.asString();
+		gMenuHolder->childSetLabelArg(menu_name, "[COST]", mCostStr);
+
+		return true;
+	}
+
+	void calculateCost();
+
+public:
+	LLUploadCostCalculator()
+	{
+		calculateCost();
+	}
+};
+
+void LLUploadCostCalculator::calculateCost()
+{
+	S32 upload_cost = LLGlobalEconomy::Singleton::getInstance()->getPriceUpload();
+
+	// getPriceUpload() returns -1 if no data available yet.
+	if(upload_cost >= 0)
+	{
+		mCostStr = llformat("%d", upload_cost);
+	}
+	else
+	{
+		mCostStr = llformat("%d", gSavedSettings.getU32("DefaultUploadCost"));
+	}
+}
+
 void show_navbar_context_menu(LLView* ctrl, S32 x, S32 y)
 {
 	static LLMenuGL*	show_navbar_context_menu = LLUICtrlFactory::getInstance()->createFromFile<LLMenuGL>("menu_hide_navbar.xml",
@@ -7695,6 +7733,8 @@ void initialize_menus()
 	enable.add("IsGodCustomerService", boost::bind(&is_god_customer_service));
 	enable.add("IsGodCustomerService", boost::bind(&is_god_customer_service));
 
+	view_listener_t::addEnable(new LLUploadCostCalculator(), "Upload.CalculateCosts");
+
 	// Agent
 	commit.add("Agent.toggleFlying", boost::bind(&LLAgent::toggleFlying));
 	enable.add("Agent.enableFlying", boost::bind(&LLAgent::enableFlying));
@@ -7727,6 +7767,7 @@ void initialize_menus()
 	view_listener_t::addMenu(new LLEditEnableCustomizeAvatar(), "Edit.EnableCustomizeAvatar");
 	view_listener_t::addMenu(new LLEnableEditShape(), "Edit.EnableEditShape");
 	commit.add("CustomizeAvatar", boost::bind(&handle_customize_avatar));
+	commit.add("EditOutfit", boost::bind(&handle_edit_outfit));
 	commit.add("EditShape", boost::bind(&handle_edit_shape));
 
 	// View menu
