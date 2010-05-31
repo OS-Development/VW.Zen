@@ -34,8 +34,8 @@
 #define LL_LLSAVEOUTFITCOMBOBTN_H
 
 class LLButton;
-class LLToggleableMenu;
 
+#include "lltoggleablemenu.h"
 
 /**
  * Represents outfit Save/Save As combo button.

@@ -35,7 +35,6 @@
 #include "llappearancemgr.h"
 #include "llpaneloutfitsinventory.h"
 #include "llsaveoutfitcombobtn.h"
-#include "lltoggleablemenu.h"
 #include "llviewermenu.h"
 
 static const std::string SAVE_BTN("save_btn");
