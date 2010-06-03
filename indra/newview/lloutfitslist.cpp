@@ -43,6 +43,8 @@
 #include "llinventoryfunctions.h"
 #include "llinventorymodel.h"
 #include "lllistcontextmenu.h"
+#include "llnotificationsutil.h"
+#include "llsidetray.h"
 #include "lltransutil.h"
 #include "llviewermenu.h"
 #include "llvoavatar.h"
@@ -68,11 +70,62 @@ protected:
 			boost::bind(&LLAppearanceMgr::addCategoryToCurrentOutfit, &LLAppearanceMgr::instance(), selected_id));
 		registrar.add("Outfit.TakeOff",
 				boost::bind(&LLAppearanceMgr::takeOffOutfit, &LLAppearanceMgr::instance(), selected_id));
-		// *TODO: implement this
-		// registrar.add("Outfit.Rename", boost::bind());
-		// registrar.add("Outfit.Delete", boost::bind());
+		registrar.add("Outfit.Edit", boost::bind(editOutfit));
+		registrar.add("Outfit.Rename", boost::bind(renameOutfit, selected_id));
+		registrar.add("Outfit.Delete", boost::bind(deleteOutfit, selected_id));
+
+		enable_registrar.add("Outfit.OnEnable", boost::bind(&OutfitContextMenu::onEnable, this, _2));
 
 		return createFromFile("menu_outfit_tab.xml");
+	}
+
+	bool onEnable(const LLSD& data)
+	{
+		std::string param = data.asString();
+		LLUUID outfit_cat_id = mUUIDs.back();
+		bool is_worn = LLAppearanceMgr::instance().getBaseOutfitUUID() == outfit_cat_id;
+
+		if ("wear_replace" == param)
+		{
+			return !is_worn;
+		}
+		else if ("wear_add" == param)
+		{
+			return !is_worn;
+		}
+		else if ("take_off" == param)
+		{
+			return is_worn;
+		}
+		else if ("edit" == param)
+		{
+			return is_worn;
+		}
+		else if ("rename" == param)
+		{
+			return get_is_category_renameable(&gInventory, outfit_cat_id);
+		}
+		else if ("delete" == param)
+		{
+			return LLAppearanceMgr::instance().getCanRemoveOutfit(outfit_cat_id);
+		}
+
+		return true;
+	}
+
+	static void editOutfit()
+	{
+		LLSideTray::getInstance()->showPanel("sidepanel_appearance", LLSD().with("type", "edit_outfit"));
+	}
+
+	static void renameOutfit(const LLUUID& outfit_cat_id)
+	{
+		LLAppearanceMgr::instance().renameOutfit(outfit_cat_id);
+	}
+
+	static void deleteOutfit(const LLUUID& outfit_cat_id)
+	{
+		remove_category(&gInventory, outfit_cat_id);
 	}
 };
 
@@ -303,6 +356,10 @@ void LLOutfitsList::performAction(std::string action)
 	else if ("addtooutfit" == action)
 	{
 		LLAppearanceMgr::instance().wearInventoryCategory( cat, FALSE, TRUE );
+	}
+	else if ("rename_outfit" == action)
+	{
+		LLAppearanceMgr::instance().renameOutfit(mSelectedOutfitUUID);
 	}
 }
 
@@ -578,4 +635,5 @@ bool is_tab_header_clicked(LLAccordionCtrlTab* tab, S32 y)
 	S32 header_bottom = tab->getLocalRect().getHeight() - tab->getHeaderHeight();
 	return y >= header_bottom;
 }
+
 // EOF

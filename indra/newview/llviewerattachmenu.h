@@ -1,11 +1,10 @@
 /** 
- * @file llurlmatch.cpp
- * @author Martin Reddy
- * @brief Specifies a matched Url in a string, as returned by LLUrlRegistry
+ * @file llviewerattachmenu.h
+ * @brief "Attach to" / "Attach to HUD" submenus.
  *
- * $LicenseInfo:firstyear=2009&license=viewergpl$
+ * $LicenseInfo:firstyear=2010&license=viewergpl$
  * 
- * Copyright (c) 2009, Linden Research, Inc.
+ * Copyright (c) 2010, Linden Research, Inc.
  * 
  * Second Life Viewer Source Code
  * The source code in this file ("Source Code") is provided by Linden Lab
@@ -31,37 +30,14 @@
  * $/LicenseInfo$
  */
 
-#include "linden_common.h"
-#include "llurlmatch.h"
+#ifndef LL_LLVIEWERATTACHMENU_H
+#define LL_LLVIEWERATTACHMENU_H
 
-LLUrlMatch::LLUrlMatch() :
-	mStart(0),
-	mEnd(0),
-	mUrl(""),
-	mLabel(""),
-	mTooltip(""),
-	mIcon(""),
-	mMenuName(""),
-	mLocation(""),
-	mDisabledLink(false)
+class LLViewerAttachMenu
 {
-}
+public:
+	static void populateMenus(const std::string& attach_to_menu_name, const std::string& attach_to_hud_menu_name);
+	static void attachObjects(const uuid_vec_t& items, const std::string& joint_name);
+};
 
-void LLUrlMatch::setValues(U32 start, U32 end, const std::string &url,
-						   const std::string &label, const std::string &tooltip,
-						   const std::string &icon, const LLUIColor& color,
-						   const std::string &menu, const std::string &location,
-						   bool disabled_link, const LLUUID& id)
-{
-	mStart = start;
-	mEnd = end;
-	mUrl = url;
-	mLabel = label;
-	mTooltip = tooltip;
-	mIcon = icon;
-	mColor = color;
-	mMenuName = menu;
-	mLocation = location;
-	mDisabledLink = disabled_link;
-	mID = id;
-}
+#endif // LL_LLVIEWERATTACHMENU_H
