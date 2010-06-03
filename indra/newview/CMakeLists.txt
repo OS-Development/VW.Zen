@@ -468,6 +468,7 @@ set(viewer_SOURCE_FILES
     llviewchildren.cpp
     llviewerassetstorage.cpp
     llviewerassettype.cpp
+    llviewerattachmenu.cpp
     llvieweraudio.cpp
     llviewercamera.cpp
     llviewerchat.cpp
@@ -988,6 +989,7 @@ set(viewer_HEADER_FILES
     llviewchildren.h
     llviewerassetstorage.h
     llviewerassettype.h
+    llviewerattachmenu.h
     llvieweraudio.h
     llviewercamera.h
     llviewerchat.h

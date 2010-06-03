@@ -1445,6 +1445,8 @@ void LLAgentWearables::setWearableOutfit(const LLInventoryItem::item_array_t& it
 	queryWearableCache();
 	updateServer();
 
+	gAgentAvatarp->dumpAvatarTEs("setWearableOutfit");
+
 	lldebugs << "setWearableOutfit() end" << llendl;
 }
 
@@ -1617,13 +1619,13 @@ void LLAgentWearables::queryWearableCache()
 	gAgentQueryManager.mWearablesCacheQueryID++;
 }
 
-LLUUID LLAgentWearables::computeBakedTextureHash(LLVOAvatarDefines::EBakedTextureIndex index)
+LLUUID LLAgentWearables::computeBakedTextureHash(LLVOAvatarDefines::EBakedTextureIndex baked_index,
+												 BOOL generate_valid_hash) // Set to false if you want to upload the baked texture w/o putting it in the cache
 {
 	LLUUID hash_id;
 	bool hash_computed = false;
 	LLMD5 hash;
-
-	const LLVOAvatarDictionary::BakedEntry *baked_dict = LLVOAvatarDictionary::getInstance()->getBakedTexture(index);
+	const LLVOAvatarDictionary::BakedEntry *baked_dict = LLVOAvatarDictionary::getInstance()->getBakedTexture(baked_index);
 
 	for (U8 i=0; i < baked_dict->mWearables.size(); i++)
 	{
@@ -1636,6 +1638,10 @@ LLUUID LLAgentWearables::computeBakedTextureHash(LLVOAvatarDefines::EBakedTextur
 			{
 				LLUUID asset_id = wearable->getAssetID();
 				hash.update((const unsigned char*)asset_id.mData, UUID_BYTES);
+				if (!generate_valid_hash)
+				{
+					hash.update((const unsigned char*)asset_id.mData, UUID_BYTES);
+				}
 				hash_computed = true;
 			}
 		}
@@ -1971,6 +1977,32 @@ bool LLAgentWearables::moveWearable(const LLViewerInventoryItem* item, bool clos
 	}
 
 	return false;
+}
+
+// static
+void LLAgentWearables::createWearable(LLWearableType::EType type, bool wear, const LLUUID& parent_id)
+{
+	LLWearable* wearable = LLWearableList::instance().createNewWearable(type);
+	LLAssetType::EType asset_type = wearable->getAssetType();
+	LLInventoryType::EType inv_type = LLInventoryType::IT_WEARABLE;
+	LLPointer<LLInventoryCallback> cb = wear ? new WearOnAvatarCallback : NULL;
+	LLUUID folder_id;
+
+	if (parent_id.notNull())
+	{
+		folder_id = parent_id;
+	}
+	else
+	{
+		LLFolderType::EType folder_type = LLFolderType::assetTypeToFolderType(asset_type);
+		folder_id = gInventory.findCategoryUUIDForType(folder_type);
+	}
+
+	create_inventory_item(gAgent.getID(), gAgent.getSessionID(),
+						  folder_id, wearable->getTransactionID(), wearable->getName(),
+						  wearable->getDescription(), asset_type, inv_type, wearable->getType(),
+						  wearable->getPermissions().getMaskNextOwner(),
+						  cb);
 }
 
 // static
