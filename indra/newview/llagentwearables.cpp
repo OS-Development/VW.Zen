@@ -39,7 +39,6 @@
 #include "llagentwearablesfetch.h"
 #include "llappearancemgr.h"
 #include "llcallbacklist.h"
-#include "llfloatercustomize.h"
 #include "llfolderview.h"
 #include "llgesturemgr.h"
 #include "llinventorybridge.h"
@@ -617,6 +616,23 @@ const LLWearable* LLAgentWearables::getWearableFromItemID(const LLUUID& item_id)
 	return NULL;
 }
 
+LLWearable* LLAgentWearables::getWearableFromItemID(const LLUUID& item_id)
+{
+	const LLUUID& base_item_id = gInventory.getLinkedItemID(item_id);
+	for (S32 i=0; i < LLWearableType::WT_COUNT; i++)
+	{
+		for (U32 j=0; j < getWearableCount((LLWearableType::EType)i); j++)
+		{
+			LLWearable * curr_wearable = getWearable((LLWearableType::EType)i, j);
+			if (curr_wearable && (curr_wearable->getItemID() == base_item_id))
+			{
+				return curr_wearable;
+			}
+		}
+	}
+	return NULL;
+}
+
 LLWearable*	LLAgentWearables::getWearableFromAssetID(const LLUUID& asset_id) 
 {
 	for (S32 i=0; i < LLWearableType::WT_COUNT; i++)
@@ -702,16 +718,16 @@ U32 LLAgentWearables::pushWearable(const LLWearableType::EType type, LLWearable 
 	{
 		// no null wearables please!
 		llwarns << "Null wearable sent for type " << type << llendl;
-		return MAX_WEARABLES_PER_TYPE;
+		return MAX_CLOTHING_PER_TYPE;
 	}
-	if (type < LLWearableType::WT_COUNT || mWearableDatas[type].size() < MAX_WEARABLES_PER_TYPE)
+	if (type < LLWearableType::WT_COUNT || mWearableDatas[type].size() < MAX_CLOTHING_PER_TYPE)
 	{
 		mWearableDatas[type].push_back(wearable);
 		wearableUpdated(wearable);
 		checkWearableAgainstInventory(wearable);
 		return mWearableDatas[type].size()-1;
 	}
-	return MAX_WEARABLES_PER_TYPE;
+	return MAX_CLOTHING_PER_TYPE;
 }
 
 void LLAgentWearables::wearableUpdated(LLWearable *wearable)
@@ -748,7 +764,7 @@ void LLAgentWearables::popWearable(LLWearable *wearable)
 	U32 index = getWearableIndex(wearable);
 	LLWearableType::EType type = wearable->getType();
 
-	if (index < MAX_WEARABLES_PER_TYPE && index < getWearableCount(type))
+	if (index < MAX_CLOTHING_PER_TYPE && index < getWearableCount(type))
 	{
 		popWearable(type, index);
 	}
@@ -769,7 +785,7 @@ U32	LLAgentWearables::getWearableIndex(LLWearable *wearable)
 {
 	if (wearable == NULL)
 	{
-		return MAX_WEARABLES_PER_TYPE;
+		return MAX_CLOTHING_PER_TYPE;
 	}
 
 	const LLWearableType::EType type = wearable->getType();
@@ -777,7 +793,7 @@ U32	LLAgentWearables::getWearableIndex(LLWearable *wearable)
 	if (wearable_iter == mWearableDatas.end())
 	{
 		llwarns << "tried to get wearable index with an invalid type!" << llendl;
-		return MAX_WEARABLES_PER_TYPE;
+		return MAX_CLOTHING_PER_TYPE;
 	}
 	const wearableentry_vec_t& wearable_vec = wearable_iter->second;
 	for(U32 index = 0; index < wearable_vec.size(); index++)
@@ -788,7 +804,7 @@ U32	LLAgentWearables::getWearableIndex(LLWearable *wearable)
 		}
 	}
 
-	return MAX_WEARABLES_PER_TYPE;
+	return MAX_CLOTHING_PER_TYPE;
 }
 
 const LLWearable* LLAgentWearables::getWearable(const LLWearableType::EType type, U32 index) const
@@ -1429,6 +1445,8 @@ void LLAgentWearables::setWearableOutfit(const LLInventoryItem::item_array_t& it
 	queryWearableCache();
 	updateServer();
 
+	gAgentAvatarp->dumpAvatarTEs("setWearableOutfit");
+
 	lldebugs << "setWearableOutfit() end" << llendl;
 }
 
@@ -1601,13 +1619,13 @@ void LLAgentWearables::queryWearableCache()
 	gAgentQueryManager.mWearablesCacheQueryID++;
 }
 
-LLUUID LLAgentWearables::computeBakedTextureHash(LLVOAvatarDefines::EBakedTextureIndex index)
+LLUUID LLAgentWearables::computeBakedTextureHash(LLVOAvatarDefines::EBakedTextureIndex baked_index,
+												 BOOL generate_valid_hash) // Set to false if you want to upload the baked texture w/o putting it in the cache
 {
 	LLUUID hash_id;
 	bool hash_computed = false;
 	LLMD5 hash;
-
-	const LLVOAvatarDictionary::BakedEntry *baked_dict = LLVOAvatarDictionary::getInstance()->getBakedTexture(index);
+	const LLVOAvatarDictionary::BakedEntry *baked_dict = LLVOAvatarDictionary::getInstance()->getBakedTexture(baked_index);
 
 	for (U8 i=0; i < baked_dict->mWearables.size(); i++)
 	{
@@ -1627,6 +1645,15 @@ LLUUID LLAgentWearables::computeBakedTextureHash(LLVOAvatarDefines::EBakedTextur
 	if (hash_computed)
 	{
 		hash.update((const unsigned char*)baked_dict->mWearablesHashID.mData, UUID_BYTES);
+
+		// Add some garbage into the hash so that it becomes invalid.
+		if (!generate_valid_hash)
+		{
+			if (isAgentAvatarValid())
+			{
+				hash.update((const unsigned char*)gAgentAvatarp->getID().mData, UUID_BYTES);
+			}
+		}
 		hash.finalize();
 		hash.raw_digest(hash_id.mData);
 	}
@@ -1659,14 +1686,12 @@ void LLAgentWearables::userRemoveWearablesOfType(const LLWearableType::EType &ty
 void LLAgentWearables::userRemoveAllClothes()
 {
 	// We have to do this up front to avoid having to deal with the case of multiple wearables being dirty.
-	if (gFloaterCustomize)
+	if (gAgentCamera.cameraCustomizeAvatar())
 	{
-		gFloaterCustomize->askToSaveIfDirty(userRemoveAllClothesStep2);
+		// switching to outfit editor should automagically save any currently edited wearable
+		LLSideTray::getInstance()->showPanel("sidepanel_appearance", LLSD().with("type", "edit_outfit"));
 	}
-	else
-	{
-		userRemoveAllClothesStep2(TRUE);
-	}
+	userRemoveAllClothesStep2(TRUE);
 }
 
 // static
@@ -1957,6 +1982,32 @@ bool LLAgentWearables::moveWearable(const LLViewerInventoryItem* item, bool clos
 	}
 
 	return false;
+}
+
+// static
+void LLAgentWearables::createWearable(LLWearableType::EType type, bool wear, const LLUUID& parent_id)
+{
+	LLWearable* wearable = LLWearableList::instance().createNewWearable(type);
+	LLAssetType::EType asset_type = wearable->getAssetType();
+	LLInventoryType::EType inv_type = LLInventoryType::IT_WEARABLE;
+	LLPointer<LLInventoryCallback> cb = wear ? new WearOnAvatarCallback : NULL;
+	LLUUID folder_id;
+
+	if (parent_id.notNull())
+	{
+		folder_id = parent_id;
+	}
+	else
+	{
+		LLFolderType::EType folder_type = LLFolderType::assetTypeToFolderType(asset_type);
+		folder_id = gInventory.findCategoryUUIDForType(folder_type);
+	}
+
+	create_inventory_item(gAgent.getID(), gAgent.getSessionID(),
+						  folder_id, wearable->getTransactionID(), wearable->getName(),
+						  wearable->getDescription(), asset_type, inv_type, wearable->getType(),
+						  wearable->getPermissions().getMaskNextOwner(),
+						  cb);
 }
 
 // static

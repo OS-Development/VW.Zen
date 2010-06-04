@@ -39,6 +39,7 @@
 
 #include "llagent.h"
 #include "llagentcamera.h"
+#include "llagentwearables.h"
 #include "llviewerfoldertype.h"
 #include "llfolderview.h"
 #include "llviewercontrol.h"
@@ -61,9 +62,9 @@
 #include "llviewerwindow.h"
 #include "lltrans.h"
 #include "llappearancemgr.h"
-#include "llfloatercustomize.h"
 #include "llcommandhandler.h"
 #include "llviewermessage.h"
+#include "llsidepanelappearance.h"
 
 ///----------------------------------------------------------------------------
 /// Helper class to store special inventory item names 
@@ -119,10 +120,10 @@ public:
 		mInventoryItemsDict["Male - Wow"]				= LLTrans::getString("Male - Wow");
 
 		//female
-		mInventoryItemsDict["FeMale - Excuse me"]		= LLTrans::getString("FeMale - Excuse me");
-		mInventoryItemsDict["FeMale - Get lost"]		= LLTrans::getString("FeMale - Get lost");
-		mInventoryItemsDict["FeMale - Blow kiss"]		= LLTrans::getString("FeMale - Blow kiss");
-		mInventoryItemsDict["FeMale - Boo"]				= LLTrans::getString("FeMale - Boo");
+		mInventoryItemsDict["Female - Excuse me"]		= LLTrans::getString("Female - Excuse me");
+		mInventoryItemsDict["Female - Get lost"]		= LLTrans::getString("Female - Get lost");
+		mInventoryItemsDict["Female - Blow kiss"]		= LLTrans::getString("Female - Blow kiss");
+		mInventoryItemsDict["Female - Boo"]				= LLTrans::getString("Female - Boo");
 		mInventoryItemsDict["Female - Bored"]			= LLTrans::getString("Female - Bored");
 		mInventoryItemsDict["Female - Hey"]				= LLTrans::getString("Female - Hey");
 		mInventoryItemsDict["Female - Laugh"]			= LLTrans::getString("Female - Laugh");
@@ -606,6 +607,7 @@ bool LLViewerInventoryCategory::fetch()
 	if((VERSION_UNKNOWN == mVersion)
 	   && mDescendentsRequested.hasExpired())	//Expired check prevents multiple downloads.
 	{
+		LL_DEBUGS("InventoryFetch") << "Fetching category children: " << mName << ", UUID: " << mUUID << LL_ENDL;
 		const F32 FETCH_TIMER_EXPIRY = 10.0f;
 		mDescendentsRequested.reset();
 		mDescendentsRequested.setTimerExpirySec(FETCH_TIMER_EXPIRY);
@@ -880,12 +882,22 @@ void WearOnAvatarCallback::fire(const LLUUID& inv_item)
 void ModifiedCOFCallback::fire(const LLUUID& inv_item)
 {
 	LLAppearanceMgr::instance().updateAppearanceFromCOF();
-	if( CAMERA_MODE_CUSTOMIZE_AVATAR == gAgentCamera.getCameraMode() )
+
+	if (LLSideTray::getInstance()->isPanelActive("sidepanel_appearance"))
+	{
+		// *HACK: Edit the wearable that has just been worn
+		//        only if the Appearance SP is currently opened.
+		LLAgentWearables::editWearable(inv_item);
+	}
+
+	// TODO: camera mode may not be changed if a debug setting is tweaked
+	if( gAgentCamera.cameraCustomizeAvatar() )
 	{
 		// If we're in appearance editing mode, the current tab may need to be refreshed
-		if (gFloaterCustomize)
+		LLSidepanelAppearance *panel = dynamic_cast<LLSidepanelAppearance*>(LLSideTray::getInstance()->getPanel("sidepanel_appearance"));
+		if (panel)
 		{
-			gFloaterCustomize->switchToDefaultSubpart();
+			panel->showDefaultSubpart();
 		}
 	}
 }
@@ -1238,10 +1250,8 @@ void menu_create_inventory_item(LLFolderView* root, LLFolderBridge *bridge, cons
 		LLWearableType::EType wearable_type = LLWearableType::typeNameToType(type_name);
 		if (wearable_type >= LLWearableType::WT_SHAPE && wearable_type < LLWearableType::WT_COUNT)
 		{
-			LLAssetType::EType asset_type = LLWearableType::getAssetType(wearable_type);
-			LLFolderType::EType folder_type = LLFolderType::assetTypeToFolderType(asset_type);
-			const LLUUID parent_id = bridge ? bridge->getUUID() : gInventory.findCategoryUUIDForType(folder_type);
-			LLFolderBridge::createWearable(parent_id, wearable_type);
+			const LLUUID parent_id = bridge ? bridge->getUUID() : LLUUID::null;
+			LLAgentWearables::createWearable(wearable_type, false, parent_id);
 		}
 		else
 		{
@@ -1580,7 +1590,6 @@ LLWearableType::EType LLViewerInventoryItem::getWearableType() const
 {
 	if (!isWearableType())
 	{
-		llwarns << "item is not a wearable" << llendl;
 		return LLWearableType::WT_INVALID;
 	}
 	return LLWearableType::EType(getFlags() & LLInventoryItemFlags::II_FLAGS_WEARABLES_MASK);

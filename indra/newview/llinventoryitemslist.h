@@ -133,6 +133,9 @@ public:
 	/** Get the description of a corresponding inventory item */
 	const std::string& getDescription() const { return mItem->getDescription(); }
 
+	/** Get the associated inventory item */
+	LLViewerInventoryItem* getItem() const { return mItem; }
+
 	virtual ~LLPanelInventoryListItemBase(){}
 
 protected:
@@ -175,6 +178,9 @@ protected:
 
 	/** Set item title - inventory item name usually */
 	void setTitle(const std::string& title, const std::string& highlit_text);
+
+	// force not showing link icon on item's icon
+	bool mForceNoLinksOnIcons;
 
 private:
 

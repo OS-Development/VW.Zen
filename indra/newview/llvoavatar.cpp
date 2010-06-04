@@ -68,6 +68,7 @@
 #include "llmoveview.h"
 #include "llnotificationsutil.h"
 #include "llquantize.h"
+#include "llrand.h"
 #include "llregionhandle.h"
 #include "llresmgr.h"
 #include "llselectmgr.h"
@@ -94,6 +95,12 @@
 #include "llgesturemgr.h" //needed to trigger the voice gesticulations
 #include "llvoiceclient.h"
 #include "llvoicevisualizer.h" // Ventrella
+
+#include "lldebugmessagebox.h"
+extern F32 SPEED_ADJUST_MAX;
+extern F32 SPEED_ADJUST_MAX_SEC;
+extern F32 ANIM_SPEED_MAX;
+extern F32 ANIM_SPEED_MIN;
 
 #if LL_MSVC
 // disable boost::lexical_cast warning
@@ -1138,6 +1145,17 @@ void LLVOAvatar::initClass()
 	{
 		llerrs << "Error parsing skeleton node in avatar XML file: " << skeleton_path << llendl;
 	}
+
+	gAnimLibrary.animStateSetString(ANIM_AGENT_BODY_NOISE,"body_noise");
+	gAnimLibrary.animStateSetString(ANIM_AGENT_BREATHE_ROT,"breathe_rot");
+	gAnimLibrary.animStateSetString(ANIM_AGENT_EDITING,"editing");
+	gAnimLibrary.animStateSetString(ANIM_AGENT_EYE,"eye");
+	gAnimLibrary.animStateSetString(ANIM_AGENT_FLY_ADJUST,"fly_adjust");
+	gAnimLibrary.animStateSetString(ANIM_AGENT_HAND_MOTION,"hand_motion");
+	gAnimLibrary.animStateSetString(ANIM_AGENT_HEAD_ROT,"head_rot");
+	gAnimLibrary.animStateSetString(ANIM_AGENT_PELVIS_FIX,"pelvis_fix");
+	gAnimLibrary.animStateSetString(ANIM_AGENT_TARGET,"target");
+	gAnimLibrary.animStateSetString(ANIM_AGENT_WALK_ADJUST,"walk_adjust");
 }
 
 
@@ -1249,7 +1267,11 @@ void LLVOAvatar::initInstance(void)
 		registerMotion( ANIM_AGENT_EXPRESS_TOOTHSMILE,		LLEmote::create );
 		registerMotion( ANIM_AGENT_EXPRESS_WINK,			LLEmote::create );
 		registerMotion( ANIM_AGENT_EXPRESS_WORRY,			LLEmote::create );
+		registerMotion( ANIM_AGENT_FEMALE_RUN_NEW,			LLKeyframeWalkMotion::create );
+		registerMotion( ANIM_AGENT_FEMALE_WALK,				LLKeyframeWalkMotion::create );
+		registerMotion( ANIM_AGENT_FEMALE_WALK_NEW,			LLKeyframeWalkMotion::create );
 		registerMotion( ANIM_AGENT_RUN,						LLKeyframeWalkMotion::create );
+		registerMotion( ANIM_AGENT_RUN_NEW,					LLKeyframeWalkMotion::create );
 		registerMotion( ANIM_AGENT_STAND,					LLKeyframeStandMotion::create );
 		registerMotion( ANIM_AGENT_STAND_1,					LLKeyframeStandMotion::create );
 		registerMotion( ANIM_AGENT_STAND_2,					LLKeyframeStandMotion::create );
@@ -1259,6 +1281,7 @@ void LLVOAvatar::initInstance(void)
 		registerMotion( ANIM_AGENT_TURNLEFT,				LLKeyframeWalkMotion::create );
 		registerMotion( ANIM_AGENT_TURNRIGHT,				LLKeyframeWalkMotion::create );
 		registerMotion( ANIM_AGENT_WALK,					LLKeyframeWalkMotion::create );
+		registerMotion( ANIM_AGENT_WALK_NEW,				LLKeyframeWalkMotion::create );
 		
 		// motions without a start/stop bit
 		registerMotion( ANIM_AGENT_BODY_NOISE,				LLBodyNoiseMotion::create );
@@ -2156,6 +2179,33 @@ static LLFastTimer::DeclareTimer FTM_AVATAR_UPDATE("Update Avatar");
 static LLFastTimer::DeclareTimer FTM_JOINT_UPDATE("Update Joints");
 
 //------------------------------------------------------------------------
+// LLVOAvatar::dumpAnimationState()
+//------------------------------------------------------------------------
+void LLVOAvatar::dumpAnimationState()
+{
+	llinfos << "==============================================" << llendl;
+	for (LLVOAvatar::AnimIterator it = mSignaledAnimations.begin(); it != mSignaledAnimations.end(); ++it)
+	{
+		LLUUID id = it->first;
+		std::string playtag = "";
+		if (mPlayingAnimations.find(id) != mPlayingAnimations.end())
+		{
+			playtag = "*";
+		}
+		llinfos << gAnimLibrary.animationName(id) << playtag << llendl;
+	}
+	for (LLVOAvatar::AnimIterator it = mPlayingAnimations.begin(); it != mPlayingAnimations.end(); ++it)
+	{
+		LLUUID id = it->first;
+		bool is_signaled = mSignaledAnimations.find(id) != mSignaledAnimations.end();
+		if (!is_signaled)
+		{
+			llinfos << gAnimLibrary.animationName(id) << "!S" << llendl;
+		}
+	}
+}
+
+//------------------------------------------------------------------------
 // idleUpdate()
 //------------------------------------------------------------------------
 BOOL LLVOAvatar::idleUpdate(LLAgent &agent, LLWorld &world, const F64 &time)
@@ -2258,6 +2308,7 @@ BOOL LLVOAvatar::idleUpdate(LLAgent &agent, LLWorld &world, const F64 &time)
 	idleUpdateNameTag( root_pos_last );
 	idleUpdateRenderCost();
 	idleUpdateTractorBeam();
+
 	return TRUE;
 }
 
@@ -4434,6 +4485,55 @@ void LLVOAvatar::resetAnimations()
 	flushAllMotions();
 }
 
+// Override selectively based on avatar sex and whether we're using new
+// animations.
+LLUUID LLVOAvatar::remapMotionID(const LLUUID& id)
+{
+	BOOL use_new_walk_run = gSavedSettings.getBOOL("UseNewWalkRun");
+	LLUUID result = id;
+
+	// start special case female walk for female avatars
+	if (getSex() == SEX_FEMALE)
+	{
+		if (id == ANIM_AGENT_WALK)
+		{
+			if (use_new_walk_run)
+				result = ANIM_AGENT_FEMALE_WALK_NEW;
+			else
+				result = ANIM_AGENT_FEMALE_WALK;
+		}
+		else if (id == ANIM_AGENT_RUN)
+		{
+			// There is no old female run animation, so only override
+			// in one case.
+			if (use_new_walk_run)
+				result = ANIM_AGENT_FEMALE_RUN_NEW;
+		}
+		else if (id == ANIM_AGENT_SIT)
+		{
+			result = ANIM_AGENT_SIT_FEMALE;
+		}
+	}
+	else
+	{
+		// Male avatar.
+		if (id == ANIM_AGENT_WALK)
+		{
+			if (use_new_walk_run)
+				result = ANIM_AGENT_WALK_NEW;
+		}
+		else if (id == ANIM_AGENT_RUN)
+		{
+			if (use_new_walk_run)
+				result = ANIM_AGENT_RUN_NEW;
+		}
+	
+	}
+
+	return result;
+
+}
+
 //-----------------------------------------------------------------------------
 // startMotion()
 // id is the asset if of the animation to start
@@ -4442,26 +4542,22 @@ void LLVOAvatar::resetAnimations()
 BOOL LLVOAvatar::startMotion(const LLUUID& id, F32 time_offset)
 {
 	LLMemType mt(LLMemType::MTYPE_AVATAR);
-	
-	// start special case female walk for female avatars
-	if (getSex() == SEX_FEMALE)
+
+	lldebugs << "motion requested " << id.asString() << " " << gAnimLibrary.animationName(id) << llendl;
+
+	LLUUID remap_id = remapMotionID(id);
+
+	if (remap_id != id)
 	{
-		if (id == ANIM_AGENT_WALK)
-		{
-			return LLCharacter::startMotion(ANIM_AGENT_FEMALE_WALK, time_offset);
-		}
-		else if (id == ANIM_AGENT_SIT)
-		{
-			return LLCharacter::startMotion(ANIM_AGENT_SIT_FEMALE, time_offset);
-		}
+		lldebugs << "motion resultant " << remap_id.asString() << " " << gAnimLibrary.animationName(remap_id) << llendl;
 	}
 
-	if (isSelf() && id == ANIM_AGENT_AWAY)
+	if (isSelf() && remap_id == ANIM_AGENT_AWAY)
 	{
 		gAgent.setAFK();
 	}
 
-	return LLCharacter::startMotion(id, time_offset);
+	return LLCharacter::startMotion(remap_id, time_offset);
 }
 
 //-----------------------------------------------------------------------------
@@ -4469,21 +4565,21 @@ BOOL LLVOAvatar::startMotion(const LLUUID& id, F32 time_offset)
 //-----------------------------------------------------------------------------
 BOOL LLVOAvatar::stopMotion(const LLUUID& id, BOOL stop_immediate)
 {
+	lldebugs << "motion requested " << id.asString() << " " << gAnimLibrary.animationName(id) << llendl;
+
+	LLUUID remap_id = remapMotionID(id);
+	
+	if (remap_id != id)
+	{
+		lldebugs << "motion resultant " << remap_id.asString() << " " << gAnimLibrary.animationName(remap_id) << llendl;
+	}
+
 	if (isSelf())
 	{
-		gAgent.onAnimStop(id);
+		gAgent.onAnimStop(remap_id);
 	}
 
-	if (id == ANIM_AGENT_WALK)
-	{
-		LLCharacter::stopMotion(ANIM_AGENT_FEMALE_WALK, stop_immediate);
-	}
-	else if (id == ANIM_AGENT_SIT)
-	{
-		LLCharacter::stopMotion(ANIM_AGENT_SIT_FEMALE, stop_immediate);
-	}
-
-	return LLCharacter::stopMotion(id, stop_immediate);
+	return LLCharacter::stopMotion(remap_id, stop_immediate);
 }
 
 //-----------------------------------------------------------------------------
@@ -5940,10 +6036,9 @@ void LLVOAvatar::updateRuthTimer(bool loading)
 		mRuthDebugTimer.reset();
 	}
 	
-	const F32 LOADING_TIMEOUT = 120.f;
-	if (mRuthTimer.getElapsedTimeF32() > LOADING_TIMEOUT)
+	const F32 LOADING_TIMEOUT__SECONDS = 120.f;
+	if (mRuthTimer.getElapsedTimeF32() > LOADING_TIMEOUT__SECONDS)
 	{
-		
 		llinfos << "Ruth Timer timeout: Missing texture data for '" << getFullname() << "' "
 				<< "( Params loaded : " << !visualParamWeightsAreDefault() << " ) "
 				<< "( Lower : " << isTextureDefined(TEX_LOWER_BAKED) << " ) "
@@ -6403,16 +6498,13 @@ LLColor4 LLVOAvatar::getDummyColor()
 
 void LLVOAvatar::dumpAvatarTEs( const std::string& context ) const
 {	
-	/* const char* te_name[] = {
-			"TEX_HEAD_BODYPAINT   ",
-			"TEX_UPPER_SHIRT      ", */
 	llinfos << (isSelf() ? "Self: " : "Other: ") << context << llendl;
 	for (LLVOAvatarDictionary::Textures::const_iterator iter = LLVOAvatarDictionary::getInstance()->getTextures().begin();
 		 iter != LLVOAvatarDictionary::getInstance()->getTextures().end();
 		 ++iter)
 	{
 		const LLVOAvatarDictionary::TextureEntry *texture_dict = iter->second;
-		// TODO: handle multiple textures for self
+		// TODO: MULTI-WEARABLE: handle multiple textures for self
 		const LLViewerTexture* te_image = getImage(iter->first,0);
 		if( !te_image )
 		{
@@ -6592,6 +6684,41 @@ void LLVOAvatar::onFirstTEMessageReceived()
 }
 
 //-----------------------------------------------------------------------------
+// bool visualParamWeightsAreDefault()
+//-----------------------------------------------------------------------------
+bool LLVOAvatar::visualParamWeightsAreDefault()
+{
+	bool rtn = true;
+
+	bool is_wearing_skirt = isWearingWearableType(LLWearableType::WT_SKIRT);
+	for (LLVisualParam *param = getFirstVisualParam(); 
+	     param;
+	     param = getNextVisualParam())
+	{
+		if (param->getGroup() == VISUAL_PARAM_GROUP_TWEAKABLE)
+		{
+			LLViewerVisualParam* vparam = dynamic_cast<LLViewerVisualParam*>(param);
+			llassert(vparam);
+			bool is_skirt_param = vparam &&
+				LLWearableType::WT_SKIRT == vparam->getWearableType();
+			if (param->getWeight() != param->getDefaultWeight() &&
+			    // we have to not care whether skirt weights are default, if we're not actually wearing a skirt
+			    (is_wearing_skirt || !is_skirt_param))
+			{
+				//llinfos << "param '" << param->getName() << "'=" << param->getWeight() << " which differs from default=" << param->getDefaultWeight() << llendl;
+				rtn = false;
+				break;
+			}
+		}
+	}
+
+	//llinfos << "params are default ? " << int(rtn) << llendl;
+
+	return rtn;
+}
+
+
+//-----------------------------------------------------------------------------
 // processAvatarAppearance()
 //-----------------------------------------------------------------------------
 void LLVOAvatar::processAvatarAppearance( LLMessageSystem* mesgsys )
@@ -6659,16 +6786,17 @@ void LLVOAvatar::processAvatarAppearance( LLMessageSystem* mesgsys )
 	{
 		releaseComponentTextures();
 	}
-	
-	
+		
 	// parse visual params
 	S32 num_blocks = mesgsys->getNumberOfBlocksFast(_PREHASH_VisualParam);
-	if( num_blocks > 1 )
+	bool drop_visual_params_debug = gSavedSettings.getBOOL("BlockSomeAvatarAppearanceVisualParams") && (ll_rand(2) == 0); // pretend that ~12% of AvatarAppearance messages arrived without a VisualParam block, for testing
+	if( num_blocks > 1 && !drop_visual_params_debug)
 	{
 		BOOL params_changed = FALSE;
 		BOOL interp_params = FALSE;
 		
 		LLVisualParam* param = getFirstVisualParam();
+		llassert(param); // if this ever fires, we should do the same as when num_blocks<=1
 		if (!param)
 		{
 			llwarns << "No visual params!" << llendl;
@@ -6684,8 +6812,8 @@ void LLVOAvatar::processAvatarAppearance( LLMessageSystem* mesgsys )
 						
 				if( !param )
 				{
-					llwarns << "Number of params in AvatarAppearance msg does not match number of params in avatar xml file." << llendl;
-					return;
+					// more visual params supplied than expected - just process what we know about
+					break;
 				}
 
 				U8 value;
@@ -6710,14 +6838,10 @@ void LLVOAvatar::processAvatarAppearance( LLMessageSystem* mesgsys )
 			}
 		}
 
-		while( param && (param->getGroup() != VISUAL_PARAM_GROUP_TWEAKABLE) )
+		const S32 expected_tweakable_count = getVisualParamCountInGroup(VISUAL_PARAM_GROUP_TWEAKABLE);
+		if (num_blocks != expected_tweakable_count)
 		{
-			param = getNextVisualParam();
-		}
-		if( param )
-		{
-			llwarns << "Number of params in AvatarAppearance msg does not match number of params in avatar xml file." << llendl;
-			return;
+			llinfos << "Number of params in AvatarAppearance msg (" << num_blocks << ") does not match number of tweakable params in avatar xml file (" << expected_tweakable_count << ").  Processing what we can.  object: " << getID() << llendl;
 		}
 
 		if (params_changed)
@@ -6734,15 +6858,36 @@ void LLVOAvatar::processAvatarAppearance( LLMessageSystem* mesgsys )
 				updateSexDependentLayerSets( FALSE );
 			}	
 		}
+
+		llassert( getSex() == ((getVisualParamWeight( "male" ) > 0.5f) ? SEX_MALE : SEX_FEMALE) );
 	}
 	else
 	{
-		llwarns << "AvatarAppearance msg received without any parameters, object: " << getID() << llendl;
+		// AvatarAppearance message arrived without visual params
+		if (drop_visual_params_debug)
+		{
+			llinfos << "Debug-faked lack of parameters on AvatarAppearance for object: "  << getID() << llendl;
+		}
+		else
+		{
+			llinfos << "AvatarAppearance msg received without any parameters, object: " << getID() << llendl;
+		}
+
+		// this isn't really a problem if we already have a non-default shape
+		if (visualParamWeightsAreDefault())
+		{
+			// re-request appearance, hoping that it comes back with a shape next time
+			llinfos << "Re-requesting AvatarAppearance for object: "  << getID() << llendl;
+			LLAvatarPropertiesProcessor::getInstance()->sendAvatarTexturesRequest(getID());
+		}
+		else
+		{
+			llinfos << "That's okay, we already have a non-default shape for object: "  << getID() << llendl;
+			// we don't really care.
+		}
 	}
 
 	setCompositeUpdatesEnabled( TRUE );
-
-	llassert( getSex() == ((getVisualParamWeight( "male" ) > 0.5f) ? SEX_MALE : SEX_FEMALE) );
 
 	// If all of the avatars are completely baked, release the global image caches to conserve memory.
 	LLVOAvatar::cullAvatarsByPixelArea();
@@ -7767,6 +7912,8 @@ void LLVOAvatar::idleUpdateRenderCost()
 	static const U32 ARC_BODY_PART_COST = 20;
 	static const U32 ARC_LIMIT = 2048;
 
+	static std::set<LLUUID> all_textures;
+
 	if (!gPipeline.hasRenderDebugMask(LLPipeline::RENDER_DEBUG_SHAME))
 	{
 		return;
@@ -7812,7 +7959,45 @@ void LLVOAvatar::idleUpdateRenderCost()
 			}
 		}
 	}
+	// Diagnostic output to identify all avatar-related textures.
+	// Does not affect rendering cost calculation.
+	// Could be wrapped in a debug option if output becomes problematic.
+	if (isSelf())
+	{
+		// print any attachment textures we didn't already know about.
+		for (std::set<LLUUID>::iterator it = textures.begin(); it != textures.end(); ++it)
+		{
+			LLUUID image_id = *it;
+			if( image_id.isNull() || image_id == IMG_DEFAULT || image_id == IMG_DEFAULT_AVATAR)
+				continue;
+			if (all_textures.find(image_id) == all_textures.end())
+			{
+				// attachment texture not previously seen.
+				llinfos << "attachment_texture: " << image_id.asString() << llendl;
+				all_textures.insert(image_id);
+			}
+		}
 
+		// print any avatar textures we didn't already know about
+		for (LLVOAvatarDictionary::Textures::const_iterator iter = LLVOAvatarDictionary::getInstance()->getTextures().begin();
+			 iter != LLVOAvatarDictionary::getInstance()->getTextures().end();
+			 ++iter)
+		{
+			const LLVOAvatarDictionary::TextureEntry *texture_dict = iter->second;
+			// TODO: MULTI-WEARABLE: handle multiple textures for self
+			const LLViewerTexture* te_image = getImage(iter->first,0);
+			if (!te_image)
+				continue;
+			LLUUID image_id = te_image->getID();
+			if( image_id.isNull() || image_id == IMG_DEFAULT || image_id == IMG_DEFAULT_AVATAR)
+				continue;
+			if (all_textures.find(image_id) == all_textures.end())
+			{
+				llinfos << "local_texture: " << texture_dict->mName << ": " << image_id << llendl;
+				all_textures.insert(image_id);
+			}
+		}
+	}
 	cost += textures.size() * LLVOVolume::ARC_TEXTURE_COST;
 
 	setDebugText(llformat("%d", cost));
@@ -7885,5 +8070,28 @@ BOOL LLVOAvatar::isTextureDefined(LLVOAvatarDefines::ETextureIndex te, U32 index
 
 	return (getImage(te, index)->getID() != IMG_DEFAULT_AVATAR && 
 			getImage(te, index)->getID() != IMG_DEFAULT);
+}
+
+//virtual
+BOOL LLVOAvatar::isTextureVisible(LLVOAvatarDefines::ETextureIndex type, U32 index) const
+{
+	if (isIndexLocalTexture(type))
+	{
+		return isTextureDefined(type, index);
+	}
+	else
+	{
+		// baked textures can use TE images directly
+		return ((isTextureDefined(type) || isSelf())
+				&& (getTEImage(type)->getID() != IMG_INVISIBLE 
+				|| LLDrawPoolAlpha::sShowDebugAlpha));
+	}
+}
+
+//virtual
+BOOL LLVOAvatar::isTextureVisible(LLVOAvatarDefines::ETextureIndex type, LLWearable *wearable) const
+{
+	// non-self avatars don't have wearables
+	return FALSE;
 }
 

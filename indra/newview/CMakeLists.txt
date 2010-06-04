@@ -164,7 +164,6 @@ set(viewer_SOURCE_FILES
     llfloaterbuyland.cpp
     llfloatercamera.cpp
     llfloatercolorpicker.cpp
-    llfloatercustomize.cpp
     llfloaterdaycycle.cpp
     llfloaterenvsettings.cpp
     llfloaterevent.cpp
@@ -276,6 +275,7 @@ set(viewer_SOURCE_FILES
     lllogchat.cpp
     llloginhandler.cpp
     lllogininstance.cpp
+    llmachineid.cpp
     llmanip.cpp
     llmaniprotate.cpp
     llmanipscale.cpp
@@ -356,6 +356,7 @@ set(viewer_SOURCE_FILES
     llpanelprofileview.cpp
     llpanelteleporthistory.cpp
     llpaneltiptoast.cpp
+    llpaneltopinfobar.cpp
     llpanelvolume.cpp
     llpanelvolumepulldown.cpp
     llparcelselection.cpp
@@ -379,6 +380,7 @@ set(viewer_SOURCE_FILES
     llregionposition.cpp
     llremoteparcelrequest.cpp
     llsavedsettingsglue.cpp
+    llsaveoutfitcombobtn.cpp
     llscreenchannel.cpp
     llscriptfloater.cpp
     llscrollingpanelparam.cpp
@@ -465,6 +467,7 @@ set(viewer_SOURCE_FILES
     llviewchildren.cpp
     llviewerassetstorage.cpp
     llviewerassettype.cpp
+    llviewerattachmenu.cpp
     llvieweraudio.cpp
     llviewercamera.cpp
     llviewerchat.cpp
@@ -682,7 +685,6 @@ set(viewer_HEADER_FILES
     llfloaterbuyland.h
     llfloatercamera.h
     llfloatercolorpicker.h
-    llfloatercustomize.h
     llfloaterdaycycle.h
     llfloaterenvsettings.h
     llfloaterevent.h
@@ -794,6 +796,7 @@ set(viewer_HEADER_FILES
     lllogchat.h
     llloginhandler.h
     lllogininstance.h
+    llmachineid.h
     llmanip.h
     llmaniprotate.h
     llmanipscale.h
@@ -869,6 +872,7 @@ set(viewer_HEADER_FILES
     llpanelprofileview.h
     llpanelteleporthistory.h
     llpaneltiptoast.h
+    llpaneltopinfobar.h
     llpanelvolume.h
     llpanelvolumepulldown.h
     llparcelselection.h
@@ -894,6 +898,7 @@ set(viewer_HEADER_FILES
     llresourcedata.h
     llrootview.h
     llsavedsettingsglue.h
+    llsaveoutfitcombobtn.h
     llscreenchannel.h
     llscriptfloater.h
     llscrollingpanelparam.h
@@ -982,6 +987,7 @@ set(viewer_HEADER_FILES
     llviewchildren.h
     llviewerassetstorage.h
     llviewerassettype.h
+    llviewerattachmenu.h
     llvieweraudio.h
     llviewercamera.h
     llviewerchat.h
@@ -1843,7 +1849,7 @@ if (LL_TESTS)
   )
 
     LL_ADD_INTEGRATION_TEST(llsechandler_basic
-     llsechandler_basic.cpp
+    llsechandler_basic.cpp
     "${test_libs}"
     )
 

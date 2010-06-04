@@ -91,6 +91,7 @@ public:
 	const LLUUID		getWearableItemID(LLWearableType::EType type, U32 index /*= 0*/) const;
 	const LLUUID		getWearableAssetID(LLWearableType::EType type, U32 index /*= 0*/) const;
 	const LLWearable*	getWearableFromItemID(const LLUUID& item_id) const;
+	LLWearable*	getWearableFromItemID(const LLUUID& item_id);
 	LLWearable*	getWearableFromAssetID(const LLUUID& asset_id);
 	LLInventoryItem*	getWearableInventoryItem(LLWearableType::EType type, U32 index /*= 0*/);
 	static BOOL			selfHasWearable(LLWearableType::EType type);
@@ -100,6 +101,9 @@ public:
 	LLWearable*		getBottomWearable(const LLWearableType::EType type);
 	U32				getWearableCount(const LLWearableType::EType type) const;
 	U32				getWearableCount(const U32 tex_index) const;
+
+	static const U32 MAX_CLOTHING_PER_TYPE = 5; 
+
 
 	//--------------------------------------------------------------------
 	// Setters
@@ -140,6 +144,7 @@ protected:
 	//--------------------------------------------------------------------
 
 public:
+	static void		createWearable(LLWearableType::EType type, bool wear = false, const LLUUID& parent_id = LLUUID::null);
 	static void		editWearable(const LLUUID& item_id);
 	bool			moveWearable(const LLViewerInventoryItem* item, bool closer_to_body);
 
@@ -160,7 +165,8 @@ protected:
 public:
 	// Processes the initial wearables update message (if necessary, since the outfit folder makes it redundant)
 	static void		processAgentInitialWearablesUpdate(LLMessageSystem* mesgsys, void** user_data);
-	LLUUID			computeBakedTextureHash(LLVOAvatarDefines::EBakedTextureIndex index);
+	LLUUID			computeBakedTextureHash(LLVOAvatarDefines::EBakedTextureIndex baked_index,
+											BOOL generate_valid_hash = TRUE);
 
 protected:
 	void			sendAgentWearablesUpdate();
@@ -272,8 +278,6 @@ private:
 		U32 mTodo;
 		LLPointer<LLRefCount> mCB;
 	};
-
-	static const U32 MAX_WEARABLES_PER_TYPE = 1; 
 
 }; // LLAgentWearables
 
