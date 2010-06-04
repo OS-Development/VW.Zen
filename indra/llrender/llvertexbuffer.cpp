@@ -31,6 +31,7 @@
  */
 
 #include "linden_common.h"
+#include "llmemory.h"
 
 #include <boost/static_assert.hpp>
 
@@ -627,7 +628,7 @@ void LLVertexBuffer::createGLBuffer()
 	{
 		static int gl_buffer_idx = 0;
 		mGLBuffer = ++gl_buffer_idx;
-		mMappedData = (U8*) _mm_malloc(size, 16);
+		mMappedData = (U8*) ll_aligned_malloc_16(size);
 		memset(mMappedData, 0, size);
 	}
 }
@@ -662,7 +663,7 @@ void LLVertexBuffer::createGLIndices()
 	}
 	else
 	{
-		mMappedIndexData = (U8*) _mm_malloc(size, 16);
+		mMappedIndexData = (U8*) ll_aligned_malloc_16(size);
 		static int gl_buffer_idx = 0;
 		mGLIndices = ++gl_buffer_idx;
 	}
@@ -683,7 +684,7 @@ void LLVertexBuffer::destroyGLBuffer()
 		}
 		else
 		{
-			_mm_free(mMappedData);
+			ll_aligned_free_16(mMappedData);
 			mMappedData = NULL;
 			mEmpty = TRUE;
 		}
@@ -710,7 +711,7 @@ void LLVertexBuffer::destroyGLIndices()
 		}
 		else
 		{
-			_mm_free(mMappedIndexData);
+			ll_aligned_free_16(mMappedIndexData);
 			mMappedIndexData = NULL;
 			mEmpty = TRUE;
 		}
@@ -846,8 +847,8 @@ void LLVertexBuffer::resizeBuffer(S32 newnverts, S32 newnindices)
 			{
 				if (!useVBOs())
 				{
-					_mm_free(mMappedData);
-					mMappedData = (U8*) _mm_malloc(newsize, 16);
+					ll_aligned_free_16(mMappedData);
+					mMappedData = (U8*) ll_aligned_malloc_16(newsize);
 				}
 				mResized = TRUE;
 			}
@@ -867,8 +868,8 @@ void LLVertexBuffer::resizeBuffer(S32 newnverts, S32 newnindices)
 			{
 				if (!useVBOs())
 				{
-					_mm_free(mMappedIndexData);
-					mMappedIndexData = (U8*) _mm_malloc(new_index_size, 16);
+					ll_aligned_free_16(mMappedIndexData);
+					mMappedIndexData = (U8*) ll_aligned_malloc_16(new_index_size);
 				}
 				mResized = TRUE;
 			}

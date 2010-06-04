@@ -152,7 +152,7 @@ void cylindricalProjection(LLVector2 &tc, const LLVector4a& normal, const LLVect
 
 void LLFace::init(LLDrawable* drawablep, LLViewerObject* objp)
 {
-	mExtents = (LLVector4a*) _mm_malloc(sizeof(LLVector4a)*2, 16);
+	mExtents = (LLVector4a*) ll_aligned_malloc_16(sizeof(LLVector4a)*2);
 
 	mLastUpdateTime = gFrameTimeSeconds;
 	mLastMoveTime = 0.f;
@@ -269,7 +269,7 @@ void LLFace::destroy()
 		mVObjp = NULL;
 	}
 
-	_mm_free(mExtents);
+	ll_aligned_free_16(mExtents);
 	mExtents = NULL;
 }
 
@@ -1328,8 +1328,8 @@ BOOL LLFace::getGeometryVolume(const LLVolume& volume,
 					for (S32 i = 0; i < num_vertices; i++)
 					{	
 						LLVector2 tc(vf.mTexCoords[i]);
-						LLVector4a& norm = vf.mNormals[i];
-						LLVector4a& center = *(vf.mCenter);
+						//LLVector4a& norm = vf.mNormals[i];
+						//LLVector4a& center = *(vf.mCenter);
 
 						LLVector3 tmp(tc.mV[0], tc.mV[1], 0.f);
 						tmp = tmp * *mTextureMatrix;
