@@ -50,6 +50,7 @@
 #include "lllineeditor.h"
 #include "llmodaldialog.h"
 #include "llnotificationsutil.h"
+#include "lloutfitobserver.h"
 #include "lloutfitslist.h"
 #include "llsaveoutfitcombobtn.h"
 #include "llsidepanelappearance.h"
@@ -204,6 +205,11 @@ LLPanelOutfitsInventory::LLPanelOutfitsInventory() :
 	mSavedFolderState = new LLSaveFolderState();
 	mSavedFolderState->setApply(FALSE);
 	gAgentWearables.addLoadedCallback(boost::bind(&LLPanelOutfitsInventory::onWearablesLoaded, this));
+
+	LLOutfitObserver& observer = LLOutfitObserver::instance();
+	observer.addBOFChangedCallback(boost::bind(&LLPanelOutfitsInventory::updateVerbs, this));
+	observer.addCOFChangedCallback(boost::bind(&LLPanelOutfitsInventory::updateVerbs, this));
+	observer.addOutfitLockChangedCallback(boost::bind(&LLPanelOutfitsInventory::updateVerbs, this));
 }
 
 LLPanelOutfitsInventory::~LLPanelOutfitsInventory()
@@ -517,12 +523,12 @@ void LLPanelOutfitsInventory::updateListCommands()
 {
 	bool trash_enabled = isActionEnabled("delete");
 	bool wear_enabled = isActionEnabled("wear");
-	bool make_outfit_enabled = isActionEnabled("make_outfit");
+	bool make_outfit_enabled = isActionEnabled("save_outfit");
 
 	mListCommands->childSetEnabled("trash_btn", trash_enabled);
 	mListCommands->childSetEnabled("wear_btn", wear_enabled);
 	mListCommands->childSetVisible("wear_btn", wear_enabled);
-	mSaveComboBtn->setSaveBtnEnabled(make_outfit_enabled);
+	mSaveComboBtn->setMenuItemEnabled("save_outfit", make_outfit_enabled);
 }
 
 void LLPanelOutfitsInventory::showGearMenu()
@@ -663,9 +669,12 @@ BOOL LLPanelOutfitsInventory::isActionEnabled(const LLSD& userdata)
 			return FALSE;
 		}
 	}
-	if (command_name == "make_outfit")
+	if (command_name == "save_outfit")
 	{
-		return TRUE;
+		bool outfit_locked = LLAppearanceMgr::getInstance()->isOutfitLocked();
+		bool outfit_dirty =LLAppearanceMgr::getInstance()->isOutfitDirty();
+		// allow save only if outfit isn't locked and is dirty
+		return !outfit_locked && outfit_dirty;
 	}
    
 	if (command_name == "edit" || 
@@ -789,6 +798,7 @@ void LLPanelOutfitsInventory::onWearablesLoaded()
 	setWearablesLoading(false);
 }
 
+// static
 LLSidepanelAppearance* LLPanelOutfitsInventory::getAppearanceSP()
 {
 	static LLSidepanelAppearance* panel_appearance =

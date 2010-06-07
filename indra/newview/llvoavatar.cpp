@@ -4209,7 +4209,6 @@ void LLVOAvatar::addBakedTextureStats( LLViewerFetchedTexture* imagep, F32 pixel
 {
 	mMaxPixelArea = llmax(pixel_area, mMaxPixelArea);
 	mMinPixelArea = llmin(pixel_area, mMinPixelArea);
-
 	imagep->resetTextureStats();
 	imagep->setResetMaxVirtualSizeFlag(false) ;
 	imagep->setCanUseHTTP(false) ; //turn off http fetching for baked textures.
