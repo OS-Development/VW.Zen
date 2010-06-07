@@ -35,6 +35,7 @@
 
 #include "llagent.h"
 #include "llagentwearables.h"
+#include "llappearancemgr.h"
 #include "llinventorypanel.h"
 #include "llinventorybridge.h"
 #include "llinventoryfunctions.h"
@@ -564,6 +565,11 @@ const LLUUID& LLInventoryModel::getLinkedItemID(const LLUUID& object_id) const
 	// Find the base item in case this a link (if it's not a link,
 	// this will just be inv_item_id)
 	return item->getLinkedUUID();
+}
+
+LLViewerInventoryItem* LLInventoryModel::getLinkedItem(const LLUUID& object_id) const
+{
+	return object_id.notNull() ? getItem(getLinkedItemID(object_id)) : NULL;
 }
 
 LLInventoryModel::item_array_t LLInventoryModel::collectLinkedItems(const LLUUID& id,
@@ -1244,7 +1250,11 @@ void LLInventoryModel::addCategory(LLViewerInventoryCategory* category)
 
 void LLInventoryModel::addItem(LLViewerInventoryItem* item)
 {
-	//llinfos << "LLInventoryModel::addItem()" << llendl;
+	/*
+	const LLViewerInventoryCategory* cat = gInventory.getCategory(item->getParentUUID()); // Seraph remove for 2.1
+	const std::string cat_name = cat ? cat->getName() : "CAT NOT FOUND"; // Seraph remove for 2.1
+	llinfos << "Added item [ name:" << item->getName() << " UUID:" << item->getUUID() << " type:" << item->getActualType() << " ] to folder [ name:" << cat_name << " uuid:" << item->getParentUUID() << " ]" << llendl; // Seraph remove for 2.1
+	*/
 
 	llassert(item);
 	if(item)
@@ -2552,7 +2562,7 @@ void LLInventoryModel::processBulkUpdateInventory(LLMessageSystem* msg, void**)
 		{
 			LLViewerInventoryItem* wearable_item;
 			wearable_item = gInventory.getItem(wearable_ids[i]);
-			wear_inventory_item_on_avatar(wearable_item);
+			LLAppearanceMgr::instance().wearItemOnAvatar(wearable_item->getUUID(), true, true);
 		}
 	}
 

@@ -1090,7 +1090,9 @@ The region [REGION] does not allow terraforming.
    icon="alertmodal.tga"
    name="CannotCopyWarning"
    type="alertmodal">
-You do not have permission to copy this item and will lose it from your inventory if you give it away. Do you really want to offer this item?
+You do not have permission to copy the following items:
+[ITEMS]
+and will lose it from your inventory if you give it away. Do you really want to offer these items?
     <usetemplate
      name="okcancelbuttons"
      notext="No"
@@ -2053,6 +2055,51 @@ Would you be my friend?
     <form name="form">
       <input name="message" type="text">
         [DESC] (new)
+      </input>
+      <button
+       default="true"
+       index="0"
+       name="Offer"
+       text="OK"/>
+      <button
+       index="1"
+       name="Cancel"
+       text="Cancel"/>
+    </form>
+  </notification>
+
+  <notification
+ icon="alertmodal.tga"
+ label="Save Wearable"
+ name="SaveWearableAs"
+ type="alertmodal">
+    Save item to my inventory as:
+    <form name="form">
+      <input name="message" type="text">
+        [DESC] (new)
+      </input>
+      <button
+       default="true"
+       index="0"
+       name="Offer"
+       text="OK"/>
+      <button
+       index="1"
+       name="Cancel"
+       text="Cancel"/>
+    </form>
+  </notification>
+
+
+  <notification
+   icon="alertmodal.tga"
+   label="Rename Outfit"
+   name="RenameOutfit"
+   type="alertmodal">
+    New outfit name:
+    <form name="form">
+      <input name="new_name" type="text">
+        [NAME]
       </input>
       <button
        default="true"
@@ -3451,7 +3498,7 @@ You are not allowed in that region due to your maturity Rating.
    type="alertmodal">
 You are not allowed in that Region due to your maturity Rating preference.
 
-You can click &apos;Change Preference&apos; to raise your maturity Rating preference now and allow you to enter. You will be able to search and access [REGIONMATURITY] content from now on. If you later want to change this setting back, go to Me &gt; Preferences &gt; General.
+To enter the desired region, please change your maturity Rating preference. This will allow you to search for and access [REGIONMATURITY] content. To undo any changes, go to Me &gt; Preferences &gt; General.
 	 <form name="form">
       <button
        index="0"
@@ -3470,7 +3517,7 @@ You can click &apos;Change Preference&apos; to raise your maturity Rating prefer
    icon="notifytip.tga"
    name="PreferredMaturityChanged"
    type="notifytip">
-Your maturity rating preference is now [RATING].
+Your maturity Rating preference is now [RATING].
   </notification>
 
   <notification
@@ -6118,12 +6165,146 @@ The button will be shown when there is enough space for it.
    type="notifytip">
 Drag items from inventory onto a person in the resident picker
   </notification>
+  <notification
+   icon="notifytip.tga"
+   name="ShareItemsConfirmation"
+   type="alertmodal">
+Are you sure you want to share the following items:
+
+[ITEMS]
+
+With the following Residents:
+
+[RESIDENTS]
+	<usetemplate
+     name="okcancelbuttons"
+     notext="Cancel"
+     yestext="Ok"/>
+  </notification>
+  <notification
+   icon="notifytip.tga"
+   name="ItemsShared"
+   type="notifytip">
+Items are successfully shared.
+  </notification>
+  <notification
+   icon="notifytip.tga"
+   name="DeedToGroupFail"
+   type="notifytip">
+Deed to group failed.
+  </notification>
 
   <notification
    icon="notifytip.tga"
    name="AvatarRezNotification"
    type="notifytip">
-Avatar '[NAME]' rezzed in [TIME] seconds.
+( [EXISTENCE] seconds alive )
+Avatar '[NAME]' declouded after [TIME] seconds.
+  </notification>
+
+  <notification
+   icon="notifytip.tga"
+   name="AvatarRezSelfBakedDoneNotification"
+   type="notifytip">
+( [EXISTENCE] seconds alive )
+You finished baking your outfit after [TIME] seconds.
+  </notification>
+
+  <notification
+   icon="notifytip.tga"
+   name="AvatarRezSelfBakedUpdateNotification"
+   type="notifytip">
+( [EXISTENCE] seconds alive )
+You sent out an update of your appearance after [TIME] seconds.
+[STATUS]
+  </notification>
+
+
+  <notification
+   icon="notifytip.tga"
+   name="AvatarRezCloudNotification"
+   type="notifytip">
+( [EXISTENCE] seconds alive )
+Avatar '[NAME]' became cloud.
+  </notification>
+
+  <notification
+   icon="notifytip.tga"
+   name="AvatarRezArrivedNotification"
+   type="notifytip">
+( [EXISTENCE] seconds alive )
+Avatar '[NAME]' appeared.
+  </notification>
+
+  <notification
+   icon="notifytip.tga"
+   name="AvatarRezLeftCloudNotification"
+   type="notifytip">
+( [EXISTENCE] seconds alive )
+Avatar '[NAME]' left after [TIME] seconds as cloud.
+  </notification>
+
+  <notification
+   icon="notifytip.tga"
+   name="AvatarRezEnteredAppearanceNotification"
+   type="notifytip">
+( [EXISTENCE] seconds alive )
+Avatar '[NAME]' entered appearance mode.
+  </notification>
+
+  <notification
+   icon="notifytip.tga"
+   name="AvatarRezLeftAppearanceNotification"
+   type="notifytip">
+( [EXISTENCE] seconds alive )
+Avatar '[NAME]' left appearance mode.
+  </notification>
+
+    <notification
+   icon="alertmodal.tga"
+   name="NoConnect"
+   type="alertmodal">
+        We're having trouble connecting using [PROTOCOL] [HOSTID].
+        Please check your network and firewall setup.
+        <form name="form">
+            <button
+               default="true"
+               index="0"
+               name="OK"
+               text="OK"/>
+        </form>
+    </notification>
+
+    <notification
+          icon="alertmodal.tga"
+          name="NoVoiceConnect"
+          type="alertmodal">
+        We're having trouble connecting your voiceserver using [HOSTID].
+        Voice communications will not be available.
+        Please check your network and firewall setup.
+        <form name="form">
+            <button
+               default="true"
+               index="0"
+               name="OK"
+               text="OK"/>
+        </form>
+    </notification>
+
+  <notification
+   icon="notifytip.tga"
+   name="AvatarRezLeftNotification"
+   type="notifytip">
+( [EXISTENCE] seconds alive )
+Avatar '[NAME]' left as fully loaded.
+  </notification>
+
+  <notification
+   icon="notifytip.tga"
+   name="AvatarRezSelfBakeNotification"
+   type="notifytip">
+( [EXISTENCE] seconds alive )
+You uploaded a [RESOLUTION] baked texture for '[BODYREGION]' after [TIME] seconds.
   </notification>
 
   <notification
@@ -6136,6 +6317,23 @@ Are you sure you want to leave this call?
      name="okcancelignore"
      notext="No"
      yestext="Yes"/>
+     <unique/>
+  </notification>
+
+  <notification
+   icon="alertmodal.tga"
+   name="ConfirmMuteAll"
+   type="alert">
+You have selected to mute all participants in a group call.
+This will also cause all residents that later join the call to be
+muted, even after you have left the call.
+
+Mute everyone?
+    <usetemplate
+     ignoretext="Confirm before I mute all participants in a group call"
+     name="okcancelignore"
+     yestext="Ok"
+     notext="Cancel"/>
      <unique/>
   </notification>
 

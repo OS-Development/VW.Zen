@@ -574,6 +574,17 @@
       <key>Value</key>
       <integer>2</integer>
     </map>
+    <key>AvatarBakedTextureTimeout</key>
+    <map>
+      <key>Comment</key>
+      <string>Specifes the maximum time in seconds to wait before sending your baked textures for avatar appearance.  Set to 0 to disable and wait until all baked textures are at highest resolution.</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>U32</string>
+      <key>Value</key>
+      <integer>180</integer>
+    </map>
     <key>AvatarSex</key>
     <map>
       <key>Comment</key>
@@ -621,7 +632,18 @@
     <key>BlockAvatarAppearanceMessages</key>
         <map>
         <key>Comment</key>
-            <string>Ignore's appearance messages (for simulating Ruth)</string>
+            <string>Ignores appearance messages (for simulating Ruth)</string>
+        <key>Persist</key>
+            <integer>1</integer>
+        <key>Type</key>
+            <string>Boolean</string>
+        <key>Value</key>
+            <integer>0</integer>
+        </map>
+    <key>BlockSomeAvatarAppearanceVisualParams</key>
+        <map>
+        <key>Comment</key>
+            <string>Drop around 50% of VisualParam occurances in appearance messages (for simulating Ruth)</string>
         <key>Persist</key>
             <integer>1</integer>
         <key>Type</key>
@@ -1596,6 +1618,17 @@
       <string>Boolean</string>
       <key>Value</key>
       <integer>1</integer>
+    </map>
+    <key>ChatBarCustomWidth</key>
+    <map>
+      <key>Comment</key>
+      <string>Stores customized width of chat bar.</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>S32</string>
+      <key>Value</key>
+      <integer>0</integer>
     </map>
     <key>CreateToolCopyCenters</key>
     <map>
@@ -2676,6 +2709,17 @@
       <key>Value</key>
       <integer>4</integer>
     </map>
+    <key>DumpVFSCaches</key>
+    <map>
+      <key>Comment</key>
+      <string>Dump VFS caches on startup.</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>0</integer>
+    </map>
     <key>DynamicCameraStrength</key>
     <map>
       <key>Comment</key>
@@ -3578,6 +3622,17 @@
       <key>Value</key>
       <integer>1024</integer>
     </map>
+    <key>GesturesMarketplaceURL</key>
+    <map>
+      <key>Comment</key>
+      <string>URL to the Gestures Marketplace</string>
+      <key>Persist</key>
+      <integer>0</integer>
+      <key>Type</key>
+      <string>String</string>
+      <key>Value</key>
+      <string>https://www.xstreetsl.com/modules.php?name=Marketplace&amp;CategoryID=233</string>
+    </map>
     <key>GridCrossSections</key>
     <map>
       <key>Comment</key>
@@ -3807,7 +3862,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>InBandwidth</key>
     <map>
@@ -4139,6 +4194,17 @@
         <key>Value</key>
             <integer>1</integer>
         </map>
+    <key>LastGPUClass</key>
+    <map>
+      <key>Comment</key>
+      <string>[DO NOT MODIFY] previous GPU class for tracking hardware changes</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>S32</string>
+      <key>Value</key>
+      <integer>-1</integer>
+    </map>
     <key>LastFeatureVersion</key>
     <map>
       <key>Comment</key>
@@ -4580,6 +4646,17 @@
       <key>Value</key>
       <string />
     </map>
+    <key>MarketplaceURL</key>
+    <map>
+      <key>Comment</key>
+      <string>URL to the Marketplace</string>
+      <key>Persist</key>
+      <integer>0</integer>
+      <key>Type</key>
+      <string>String</string>
+      <key>Value</key>
+      <string>https://www.xstreetsl.com/modules.php?name=Marketplace</string>
+    </map>    
     <key>MaxDragDistance</key>
     <map>
       <key>Comment</key>
@@ -5949,7 +6026,7 @@
     <key>Type</key>
     <string>F32</string>
     <key>Value</key>
-    <real>0.2</real>
+    <real>0.125</real>
   </map>
   <key>MediaRollOffMin</key>
   <map>
@@ -5960,7 +6037,7 @@
     <key>Type</key>
     <string>F32</string>
     <key>Value</key>
-    <real>7.0</real>
+    <real>5.0</real>
   </map>
   <key>MediaRollOffMax</key>
   <map>
@@ -5999,6 +6076,17 @@
     <map>
       <key>Comment</key>
       <string>Experimental: Embed registration in login screen</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>0</integer>
+    </map>
+    <key>QuickBuyCurrency</key>
+    <map>
+      <key>Comment</key>
+      <string>Toggle between HTML based currency purchase floater and legacy XUI version</string>
       <key>Persist</key>
       <integer>1</integer>
       <key>Type</key>
@@ -8030,6 +8118,28 @@
       <key>Value</key>
       <integer>1</integer>
     </map>
+    <key>ShowBuildButton</key>
+    <map>
+      <key>Comment</key>
+      <string>Shows/Hides Build button in the bottom tray.</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>0</integer>
+    </map>
+    <key>ShowCameraButton</key>
+    <map>
+      <key>Comment</key>
+      <string>Show/Hide View button in the bottom tray.</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>1</integer>
+    </map>
     <key>ShowConsoleWindow</key>
     <map>
       <key>Comment</key>
@@ -8107,6 +8217,17 @@
       <key>Value</key>
       <integer>0</integer>
     </map>
+    <key>ShowGestureButton</key>
+    <map>
+      <key>Comment</key>
+      <string>Shows/Hides Gesture button in the bottom tray.</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>1</integer>
+    </map>
     <key>ShowHoverTips</key>
     <map>
       <key>Comment</key>
@@ -8129,16 +8250,27 @@
       <key>Value</key>
       <integer>0</integer>
     </map>    
-    <key>ShowCameraButton</key>                
+    <key>ShowMiniMapButton</key>
     <map>
       <key>Comment</key>
-      <string>Show/Hide Camera button in the bottom tray</string>
+      <string>Shows/Hides Mini-Map button in the bottom tray.</string>
       <key>Persist</key>
       <integer>1</integer>
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>1</integer>   
+      <integer>0</integer>
+    </map>
+    <key>ShowMoveButton</key>
+    <map>
+      <key>Comment</key>
+      <string>Shows/Hides Move button in the bottom tray.</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>1</integer>
     </map>
 	<key>ShowScriptErrors</key>
     <map>
@@ -8160,40 +8292,29 @@
       <key>Type</key>
       <string>S32</string>
       <key>Value</key>
+      <integer>1</integer>
+    </map>
+    <key>ShowSearchButton</key>
+    <map>
+      <key>Comment</key>
+      <string>Shows/Hides Search button in the bottom tray.</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
       <integer>0</integer>
     </map>
-    <key>ShowSnapshotButton</key>                
+    <key>ShowSnapshotButton</key>
     <map>
       <key>Comment</key>
-      <string>Show/Hide Snapshot button button in the bottom tray</string>
+      <string>Shows/Hides Snapshot button button in the bottom tray.</string>
       <key>Persist</key>
       <integer>1</integer>
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>1</integer>   
-    </map>
-    <key>ShowMoveButton</key>                
-    <map>
-      <key>Comment</key>
-      <string>Show/Hide Move button in the bottom tray</string>
-      <key>Persist</key>
       <integer>1</integer>
-      <key>Type</key>
-      <string>Boolean</string>
-      <key>Value</key>
-      <integer>1</integer>   
-    </map>    
-    <key>ShowGestureButton</key>                
-    <map>
-      <key>Comment</key>
-      <string>Show/Hide Gesture button in the bottom tray</string>
-      <key>Persist</key>
-      <integer>1</integer>
-      <key>Type</key>
-      <string>Boolean</string>
-      <key>Value</key>
-      <integer>1</integer>   
     </map>
     <key>ShowObjectRenderingCost</key>                
     <map>
@@ -8227,6 +8348,28 @@
       <string>Boolean</string>
       <key>Value</key>
       <integer>1</integer>   
+    </map>
+    <key>ShowWorldMapButton</key>
+    <map>
+      <key>Comment</key>
+      <string>Shows/Hides Map button in the bottom tray.</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>0</integer>
+    </map>
+    <key>ShowMiniLocationPanel</key>
+    <map>
+      <key>Comment</key>
+      <string>Show/Hide Mini-Location Panel</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>0</integer>
     </map>
     <key>SidebarCameraMovement</key>
     <map>
@@ -9050,6 +9193,17 @@
       <integer>1</integer>
       <key>Type</key>
       <string>Boolean</string>
+      <key>Value</key>
+      <integer>0</integer>
+    </map>
+    <key>TextureDiscardLevel</key>
+    <map>
+      <key>Comment</key>
+      <string>Specify texture resolution (0 = highest, 5 = lowest)</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>U32</string>
       <key>Value</key>
       <integer>0</integer>
     </map>
@@ -10340,7 +10494,17 @@
       <key>Value</key>
       <real>10.0</real>
     </map>
-
+    <key>UseNewWalkRun</key>
+    <map>
+      <key>Comment</key>
+      <string>Replace standard walk/run animations with new ones.</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>0</integer>
+    </map>
     <key>UseStartScreen</key>
     <map>
       <key>Comment</key>
@@ -11205,6 +11369,31 @@
       <string>S32</string>
       <key>Value</key>
       <integer>178</integer>
+    </map>
+    <key>always_showable_floaters</key>
+    <map>
+      <key>Comment</key>
+      <string>Floaters that can be shown despite mouselook mode</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>LLSD</string>
+      <key>Value</key>
+      <array>
+	      <string>snapshot</string>
+	      <string>mini_map</string>
+      </array>
+    </map>
+    <key>LandmarksSortedByDate</key>
+    <map>
+      <key>Comment</key>
+      <string>Reflects landmarks panel sorting order.</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>1</integer>
     </map>
 </map>
 </llsd>

@@ -50,6 +50,7 @@ class LLCOFWearables;
 class LLTextBox;
 class LLInventoryCategory;
 class LLCOFObserver;
+class LLCOFDragAndDropObserver;
 class LLInventoryPanel;
 class LLSaveFolderState;
 class LLFolderViewItem;
@@ -57,9 +58,14 @@ class LLScrollListCtrl;
 class LLToggleableMenu;
 class LLFilterEditor;
 class LLFilteredWearableListManager;
+class LLMenuGL;
+class LLFindNonLinksByMask;
+class LLFindWearablesOfType;
+class LLSaveOutfitComboBtn;
 
 class LLPanelOutfitEdit : public LLPanel
 {
+	LOG_CLASS(LLPanelOutfitEdit);
 public:
 	
 	// NOTE: initialize mLookItemTypes at the index of any new enum you add in the LLPanelOutfitEdit() constructor
@@ -82,15 +88,15 @@ public:
 	/*virtual*/ ~LLPanelOutfitEdit();
 
 	/*virtual*/ BOOL postBuild();
+	/*virtual*/ void onOpen(const LLSD& key);
 
 	void moveWearable(bool closer_to_body);
 
 	void toggleAddWearablesPanel();
+	void showAddWearablesPanel(bool show__add_wearables);
 	void showWearablesFilter();
 	void showFilteredWearablesPanel();
 	void showFilteredFolderWearablesPanel();
-	void saveOutfit(bool as_new = false);
-	void showSaveMenu();
 
 	void onTypeFilterChanged(LLUICtrl* ctrl);
 	void onSearchEdit(const std::string& string);
@@ -99,9 +105,12 @@ public:
 	void onOutfitItemSelectionChange(void);
 	void onRemoveFromOutfitClicked(void);
 	void onEditWearableClicked(void);
+	void onAddWearableClicked(void);
+	void onReplaceBodyPartMenuItemClicked(LLUUID selected_item_id);
 
 	void displayCurrentOutfit();
-	
+	void updateCurrentOutfitName();
+
 	void update();
 
 	void updateVerbs();
@@ -114,8 +123,16 @@ public:
 	 */
 	bool switchPanels(LLPanel* switch_from_panel, LLPanel* switch_to_panel);
 
+	virtual BOOL	handleDragAndDrop(S32 x, S32 y, MASK mask, BOOL drop,
+									  EDragAndDropType cargo_type,
+									  void* cargo_data,
+									  EAcceptance* accept,
+									  std::string& tooltip_msg);
+
 private:
 
+	void onGearButtonClick(LLUICtrl* clicked_button);
+	void showFilteredWearableItemsList(LLWearableType::EType type);
 
 
 	LLTextBox*			mCurrentOutfitName;
@@ -127,16 +144,25 @@ private:
 	LLButton*			mEditWearableBtn;
 	LLButton*			mFolderViewBtn;
 	LLButton*			mListViewBtn;
-	LLToggleableMenu*	mSaveMenu;
+	LLPanel*			mAddWearablesPanel;
+
+	LLFindNonLinksByMask*  mWearableListMaskCollector;
+	LLFindWearablesOfType* mWearableListTypeCollector;
 
 	LLFilteredWearableListManager* 	mWearableListManager;
 	LLInventoryItemsList* 			mWearableItemsList;
 	LLPanel*						mWearableItemsPanel;
 
 	LLCOFObserver*	mCOFObserver;
+	LLCOFDragAndDropObserver* mCOFDragAndDropObserver;
+
 	std::vector<LLLookItemType> mLookItemTypes;
 
 	LLCOFWearables*		mCOFWearables;
+	LLMenuGL*			mGearMenu;
+	bool				mInitialized;
+	std::auto_ptr<LLSaveOutfitComboBtn> mSaveComboBtn;
+
 };
 
 #endif // LL_LLPANELOUTFITEDIT_H

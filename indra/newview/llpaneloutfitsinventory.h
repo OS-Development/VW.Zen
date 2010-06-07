@@ -46,9 +46,12 @@ class LLButton;
 class LLMenuGL;
 class LLSidepanelAppearance;
 class LLTabContainer;
+class LLSaveOutfitComboBtn;
+class LLOutfitListGearMenu;
 
 class LLPanelOutfitsInventory : public LLPanel
 {
+	LOG_CLASS(LLPanelOutfitsInventory);
 public:
 	LLPanelOutfitsInventory();
 	virtual ~LLPanelOutfitsInventory();
@@ -72,6 +75,7 @@ public:
 	void setParent(LLSidepanelAppearance *parent);
 
 	LLFolderView* getRootFolder();
+	LLSidepanelAppearance* getAppearanceSP();
 
 	static LLPanelOutfitsInventory* findInstance();
 
@@ -84,7 +88,7 @@ private:
 	LLSaveFolderState*		mSavedFolderState;
 	LLTabContainer*			mAppearanceTabs;
 	std::string 			mFilterSubString;
-
+	std::auto_ptr<LLSaveOutfitComboBtn> mSaveComboBtn;
 public:
 	//////////////////////////////////////////////////////////////////////////////////
 	// tab panels
@@ -113,10 +117,8 @@ private:
 protected:
 	void initListCommandsHandlers();
 	void updateListCommands();
-	void onGearButtonClick();
 	void onWearButtonClick();
-	void onAddButtonClick();
-	void showActionMenu(LLMenuGL* menu, std::string spawning_view_name);
+	void showGearMenu();
 	void onTrashButtonClick();
 	void onClipboardAction(const LLSD& userdata);
 	BOOL isActionEnabled(const LLSD& command_name);
@@ -127,11 +129,13 @@ protected:
 	void onWearablesLoaded();
 private:
 	LLPanel*					mListCommands;
-	LLMenuGL*					mMenuGearDefault;
+	LLOutfitListGearMenu*		mGearMenu;
 	LLMenuGL*					mMenuAdd;
 	// List Commands                                                              //
 	////////////////////////////////////////////////////////////////////////////////
 	///
+
+	bool mInitialized;
 };
 
 #endif //LL_LLPANELOUTFITSINVENTORY_H

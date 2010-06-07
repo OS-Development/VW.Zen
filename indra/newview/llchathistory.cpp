@@ -649,7 +649,7 @@ void LLChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
 				// for object IMs, create a secondlife:///app/objectim SLapp
 				std::string url = LLSLURL("objectim", chat.mFromID, "").getSLURLString();
 				url += "?name=" + chat.mFromName;
-				url += "&owner=" + args["owner_id"].asString();
+				url += "&owner=" + chat.mOwnerID.asString();
 
 				std::string slurl = args["slurl"].asString();
 				if (slurl.empty())
@@ -845,13 +845,4 @@ void LLChatHistory::draw()
 	}
 
 	LLUICtrl::draw();
-}
-
-void LLChatHistory::reshape(S32 width, S32 height, BOOL called_from_parent)
-{
-	bool is_scrolled_to_end = mEditor->scrolledToEnd();
-	LLUICtrl::reshape( width, height, called_from_parent );
-	// update scroll
-	if (is_scrolled_to_end)
-		mEditor->setCursorAndScrollToEnd();
 }

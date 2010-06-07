@@ -225,6 +225,7 @@ extern S32 gStartImageHeight;
 static bool gGotUseCircuitCodeAck = false;
 static std::string sInitialOutfit;
 static std::string sInitialOutfitGender;	// "male" or "female"
+static boost::signals2::connection sWearablesLoadedCon;
 
 static bool gUseCircuitCallbackCalled = false;
 
@@ -384,13 +385,22 @@ bool idle_startup()
 		{
 			LLNotificationsUtil::add("DisplaySetToRecommended");
 		}
+		else if ((gSavedSettings.getS32("LastGPUClass") != LLFeatureManager::getInstance()->getGPUClass()) &&
+				 (gSavedSettings.getS32("LastGPUClass") != -1))
+		{
+			LLNotificationsUtil::add("DisplaySetToRecommended");
+		}
 		else if (!gViewerWindow->getInitAlert().empty())
 		{
 			LLNotificationsUtil::add(gViewerWindow->getInitAlert());
 		}
 			
 		gSavedSettings.setS32("LastFeatureVersion", LLFeatureManager::getInstance()->getVersion());
+		gSavedSettings.setS32("LastGPUClass", LLFeatureManager::getInstance()->getGPUClass());
 
+		// load dynamic GPU/feature tables from website (S3)
+		LLFeatureManager::getInstance()->fetchHTTPTables();
+		
 		std::string xml_file = LLUI::locateSkin("xui_version.xml");
 		LLXMLNodePtr root;
 		bool xml_ok = false;
@@ -725,6 +735,8 @@ bool idle_startup()
 			}
 			// Make sure the process dialog doesn't hide things
 			gViewerWindow->setShowProgress(FALSE);
+
+			initialize_edit_menu();
 
 			// Show the login dialog
 			login_show();
@@ -2430,6 +2442,8 @@ void LLStartUp::loadInitialOutfit( const std::string& outfit_folder_name,
 	}
 	else
 	{
+		sWearablesLoadedCon = gAgentWearables.addLoadedCallback(LLStartUp::saveInitialOutfit);
+
 		bool do_copy = true;
 		bool do_append = false;
 		LLViewerInventoryCategory *cat = gInventory.getCategory(cat_id);
@@ -2473,6 +2487,24 @@ void LLStartUp::loadInitialOutfit( const std::string& outfit_folder_name,
 	// an outfit/shape that will give the avatar a gender eventually. JC
 	gAgent.setGenderChosen(TRUE);
 
+}
+
+//static
+void LLStartUp::saveInitialOutfit()
+{
+	if (sInitialOutfit.empty()) return;
+	
+	if (sWearablesLoadedCon.connected())
+	{
+		sWearablesLoadedCon.disconnect();
+	}
+
+	LLAppearanceMgr::getInstance()->makeNewOutfitLinks(sInitialOutfit);
+}
+
+std::string& LLStartUp::getInitialOutfitName()
+{
+	return sInitialOutfit;
 }
 
 // Loads a bitmap to display during load
@@ -2702,7 +2734,8 @@ LLSD transform_cert_args(LLPointer<LLCertificate> cert)
 {
 	LLSD args = LLSD::emptyMap();
 	std::string value;
-	LLSD cert_info = cert->getLLSD();
+	LLSD cert_info;
+	cert->getLLSD(cert_info);
 	// convert all of the elements in the cert into                                        
 	// args for the xml dialog, so we have flexability to                                  
 	// display various parts of the cert by only modifying                                 
@@ -3041,7 +3074,7 @@ bool process_login_success_response()
 	// Default male and female avatars allowing the user to choose their avatar on first login.
 	// These may be passed up by SLE to allow choice of enterprise avatars instead of the standard
 	// "new ruth."  Not to be confused with 'initial-outfit' below 
-	LLSD newuser_config = response["newuser-config"];
+	LLSD newuser_config = response["newuser-config"][0];
 	if(newuser_config.has("DefaultFemaleAvatar"))
 	{
 		gSavedSettings.setString("DefaultFemaleAvatar", newuser_config["DefaultFemaleAvatar"].asString()); 		
