@@ -2,31 +2,25 @@
  * @file llpaneleditwearable.h
  * @brief A LLPanel dedicated to the editing of wearables.
  *
- * $LicenseInfo:firstyear=2009&license=viewergpl$
- * 
- * Copyright (c) 2009-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2009&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -39,9 +33,9 @@
 #include "llvoavatardefines.h"
 #include "llwearabletype.h"
 
+class LLAccordionCtrl;
 class LLCheckBoxCtrl;
 class LLWearable;
-class LLTextEditor;
 class LLTextBox;
 class LLViewerInventoryItem;
 class LLViewerVisualParam;
@@ -49,6 +43,7 @@ class LLVisualParamHint;
 class LLViewerJointMesh;
 class LLAccordionCtrlTab;
 class LLJoint;
+class LLLineEditor;
 
 class LLPanelEditWearable : public LLPanel
 {
@@ -63,7 +58,7 @@ public:
 	LLWearable* 		getWearable() { return mWearablePtr; }
 	void				setWearable(LLWearable *wearable);
 
-	void				saveChanges();
+	void				saveChanges(bool force_save_as = false);
 	void				revertChanges();
 
 	void				showDefaultSubpart();
@@ -104,6 +99,19 @@ private:
 	void initPreviousAlphaTextures();
 	void initPreviousAlphaTextureEntry(LLVOAvatarDefines::ETextureIndex te);
 
+	// callback for HeightUnits parameter.
+	bool changeHeightUnits(const LLSD& new_value);
+
+	// updates current metric and replacemet metric label text
+	void updateMetricLayout(BOOL new_value);
+
+	// updates avatar height label
+	void updateAvatarHeightLabel();
+
+	void onWearablePanelVisibilityChange(const LLSD &in_visible_chain, LLAccordionCtrl* accordion_ctrl);
+
+	void setWearablePanelVisibilityChangeCallback(LLPanel* bodypart_panel);
+
 	// the pointer to the wearable we're editing. NULL means we're not editing a wearable.
 	LLWearable *mWearablePtr;
 	LLViewerInventoryItem* mWearableItem;
@@ -111,15 +119,28 @@ private:
 	// these are constant no matter what wearable we're editing
 	LLButton *mBtnRevert;
 	LLButton *mBtnBack;
+	std::string mBackBtnLabel;
 
 	LLTextBox *mPanelTitle;
 	LLTextBox *mDescTitle;
 	LLTextBox *mTxtAvatarHeight;
 
 
+	// localized and parametrized strings that used to build avatar_height_label
+	std::string mMeters;
+	std::string mFeet;
+	std::string mHeigth;
+	LLUIString  mHeigthValue;
+	LLUIString  mReplacementMetricUrl;
+
+	// color for mHeigth string
+	LLUIColor mAvatarHeigthLabelColor;
+	// color for mHeigthValue string
+	LLUIColor mAvatarHeigthValueLabelColor;
+
 	// This text editor reference will change each time we edit a new wearable - 
 	// it will be grabbed from the currently visible panel
-	LLTextEditor *mTextEditor;
+	LLLineEditor *mNameEditor;
 
 	// The following panels will be shown/hidden based on what wearable we're editing
 	// body parts

@@ -2,31 +2,25 @@
  * @file llinventorybridge.h
  * @brief Implementation of the Inventory-Folder-View-Bridge classes.
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -74,7 +68,6 @@ public:
 									   U32 flags = 0x00);
 	virtual ~LLInvFVBridge() {}
 
-	BOOL isInOutfitsSidePanel() const; // allow context menus to be customized for side panel
 	BOOL canShare() const;
 
 	//--------------------------------------------------------------------
@@ -123,6 +116,7 @@ public:
 							EDragAndDropType cargo_type,
 							void* cargo_data) { return FALSE; }
 	virtual LLInventoryType::EType getInventoryType() const { return mInvType; }
+	virtual LLWearableType::EType getWearableType() const { return LLWearableType::WT_NONE; }
 
 	//--------------------------------------------------------------------
 	// Convenience functions for adding various common menu options.
@@ -230,8 +224,8 @@ public:
 				   const LLUUID& uuid) :
 		LLInvFVBridge(inventory, root, uuid),
 		mCallingCards(FALSE),
-		mWearables(FALSE),
-		mMenu(NULL) {}
+		mWearables(FALSE)
+	{}
 	BOOL dragItemIntoFolder(LLInventoryItem* inv_item, BOOL drop);
 	BOOL dragCategoryIntoFolder(LLInventoryCategory* inv_category, BOOL drop);
 
@@ -245,7 +239,7 @@ public:
 	virtual LLFolderType::EType getPreferredType() const;
 	virtual LLUIImagePtr getIcon() const;
 	virtual LLUIImagePtr getOpenIcon() const;
-	static LLUIImagePtr getIcon(LLFolderType::EType preferred_type, BOOL is_link = FALSE);
+	static LLUIImagePtr getIcon(LLFolderType::EType preferred_type);
 
 	virtual BOOL renameItem(const std::string& new_name);
 
@@ -272,6 +266,7 @@ public:
 	static void createWearable(LLFolderBridge* bridge, LLWearableType::EType type);
 
 	LLViewerInventoryCategory* getCategory() const;
+	LLHandle<LLFolderBridge> getHandle() { mHandle.bind(this); return mHandle; }
 
 protected:
 	//--------------------------------------------------------------------
@@ -294,7 +289,6 @@ protected:
 	static void createNewEyes(void* user_data);
 
 	BOOL checkFolderForContentsOfType(LLInventoryModel* model, LLInventoryCollectFunctor& typeToCheck);
-	BOOL areAnyContentsWorn(LLInventoryModel* model) const;
 
 	void modifyOutfit(BOOL append);
 	void determineFolderType();
@@ -306,16 +300,17 @@ protected:
 	// Messy hacks for handling folder options
 	//--------------------------------------------------------------------
 public:
-	static LLFolderBridge* sSelf;
+	static LLHandle<LLFolderBridge> sSelf;
 	static void staticFolderOptionsMenu();
 	void folderOptionsMenu();
 
 private:
-	BOOL			mCallingCards;
-	BOOL			mWearables;
-	LLMenuGL*		mMenu;
-	menuentry_vec_t mItems;
-	menuentry_vec_t mDisabledItems;
+	BOOL				mCallingCards;
+	BOOL				mWearables;
+	LLHandle<LLView>	mMenu;
+	menuentry_vec_t		mItems;
+	menuentry_vec_t		mDisabledItems;
+	LLRootHandle<LLFolderBridge> mHandle;
 };
 
 class LLTextureBridge : public LLItemBridge
@@ -471,6 +466,7 @@ public:
 	virtual void	buildContextMenu(LLMenuGL& menu, U32 flags);
 	virtual std::string getLabelSuffix() const;
 	virtual BOOL renameItem(const std::string& new_name);
+	virtual LLWearableType::EType getWearableType() const { return mWearableType; }
 
 	static void		onWearOnAvatar( void* userdata );	// Access to wearOnAvatar() from menu
 	static BOOL		canWearOnAvatar( void* userdata );
@@ -603,8 +599,12 @@ BOOL move_inv_category_world_to_agent(const LLUUID& object_id,
 									  void* user_data = NULL);
 
 // Utility function to hide all entries except those in the list
+// Can be called multiple times on the same menu (e.g. if multiple items
+// are selected).  If "append" is false, then only common enabled items
+// are set as enabled.
 void hide_context_entries(LLMenuGL& menu, 
 						  const menuentry_vec_t &entries_to_show, 
-						  const menuentry_vec_t &disabled_entries);
+						  const menuentry_vec_t &disabled_entries,
+						  BOOL append = FALSE);
 
 #endif // LL_LLINVENTORYBRIDGE_H

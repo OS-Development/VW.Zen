@@ -2,70 +2,40 @@
  * @file llinventorymodelbackgroundfetch.h
  * @brief LLInventoryModelBackgroundFetch class header file
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
 #ifndef LL_LLINVENTORYMODELBACKGROUNDFETCH_H
 #define LL_LLINVENTORYMODELBACKGROUNDFETCH_H
 
-// Seraph clean this up
-#include "llassettype.h"
-#include "llfoldertype.h"
-#include "lldarray.h"
-#include "llframetimer.h"
-#include "llhttpclient.h"
+#include "llsingleton.h"
 #include "lluuid.h"
-#include "llpermissionsflags.h"
-#include "llstring.h"
-#include <map>
-#include <set>
-#include <string>
-#include <vector>
-
-// Seraph clean this up
-class LLInventoryObserver;
-class LLInventoryObject;
-class LLInventoryItem;
-class LLInventoryCategory;
-class LLViewerInventoryItem;
-class LLViewerInventoryCategory;
-class LLViewerInventoryItem;
-class LLViewerInventoryCategory;
-class LLMessageSystem;
-class LLInventoryCollectFunctor;
-
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Class LLInventoryModelBackgroundFetch
 //
-// This class handles background fetch.
+// This class handles background fetches, which are fetches of
+// inventory folder.  Fetches can be recursive or not.
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
 class LLInventoryModelBackgroundFetch : public LLSingleton<LLInventoryModelBackgroundFetch>
 {
 	friend class LLInventoryModelFetchDescendentsResponder;
@@ -75,48 +45,37 @@ public:
 	~LLInventoryModelBackgroundFetch();
 
 	// Start and stop background breadth-first fetching of inventory contents.
-	// This gets triggered when performing a filter-search
+	// This gets triggered when performing a filter-search.
 	void start(const LLUUID& cat_id = LLUUID::null, BOOL recursive = TRUE);
-	BOOL backgroundFetchActive();
-	bool isEverythingFetched();
-	void incrBulkFetch(S16 fetching);
-	void stopBackgroundFetch(); // stop fetch process
-	bool isBulkFetchProcessingComplete();
 
-	// Add categories to a list to be fetched in bulk.
+	BOOL backgroundFetchActive() const;
+	bool isEverythingFetched() const; // completing the fetch once per session should be sufficient
+
+	bool libraryFetchStarted() const;
+	bool libraryFetchCompleted() const;
+	bool libraryFetchInProgress() const;
+	
+	bool inventoryFetchStarted() const;
+	bool inventoryFetchCompleted() const;
+	bool inventoryFetchInProgress() const;
+
+    void findLostItems();	
+protected:
+	void incrBulkFetch(S16 fetching);
+	bool isBulkFetchProcessingComplete() const;
 	void bulkFetch(std::string url);
 
-	bool libraryFetchStarted();
-	bool libraryFetchCompleted();
-	bool libraryFetchInProgress();
-	
-	bool inventoryFetchStarted();
-	bool inventoryFetchCompleted();
-	bool inventoryFetchInProgress();
-    void findLostItems();
+	void backgroundFetch();
+	static void backgroundFetchCB(void*); // background fetch idle function
+	void stopBackgroundFetch(); // stop fetch process
 
 	void setAllFoldersFetched();
-
-	static void backgroundFetchCB(void*); // background fetch idle function
-	void backgroundFetch();
-	
-	struct FetchQueueInfo
-	{
-		FetchQueueInfo(const LLUUID& id, BOOL recursive) :
-			mCatUUID(id), mRecursive(recursive)
-		{
-		}
-		LLUUID mCatUUID;
-		BOOL mRecursive;
-	};
-protected:
 	bool fetchQueueContainsNoDescendentsOf(const LLUUID& cat_id) const;
 private:
  	BOOL mRecursiveInventoryFetchStarted;
 	BOOL mRecursiveLibraryFetchStarted;
 	BOOL mAllFoldersFetched;
 
-	// completing the fetch once per session should be sufficient
 	BOOL mBackgroundFetchActive;
 	S16 mBulkFetchCount;
 	BOOL mTimelyFetchPending;
@@ -126,6 +85,15 @@ private:
 	F32 mMinTimeBetweenFetches;
 	F32 mMaxTimeBetweenFetches;
 
+	struct FetchQueueInfo
+	{
+		FetchQueueInfo(const LLUUID& id, BOOL recursive) :
+			mCatUUID(id), mRecursive(recursive)
+		{
+		}
+		LLUUID mCatUUID;
+		BOOL mRecursive;
+	};
 	typedef std::deque<FetchQueueInfo> fetch_queue_t;
 	fetch_queue_t mFetchQueue;
 };

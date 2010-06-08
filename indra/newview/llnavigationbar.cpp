@@ -2,31 +2,25 @@
  * @file llnavigationbar.cpp
  * @brief Navigation bar implementation
  *
- * $LicenseInfo:firstyear=2009&license=viewergpl$
- * 
- * Copyright (c) 2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2009&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -776,7 +770,7 @@ void LLNavigationBar::showNavigationPanel(BOOL visible)
 		{
 			// Navigation Panel must be shown. Favorites Panel is hidden.
 
-			S32 height = mDefaultNbRect.getHeight() - mDefaultFpRect.getHeight();
+			S32 height = mDefaultNbRect.getHeight() - mDefaultFpRect.getHeight() - FAVBAR_TOP_PADDING;
 			nbRect.setLeftTopAndSize(nbRect.mLeft, nbRect.mTop, nbRect.getWidth(), height);
 
 			reshape(nbRect.getWidth(), nbRect.getHeight());
@@ -790,8 +784,11 @@ void LLNavigationBar::showNavigationPanel(BOOL visible)
 		{
 			// Navigation Panel must be hidden. Favorites Panel is visible.
 
-			nbRect.setLeftTopAndSize(nbRect.mLeft, nbRect.mTop, nbRect.getWidth(), fbRect.getHeight());
-			fbRect.setLeftTopAndSize(fbRect.mLeft, fbRect.getHeight(), fbRect.getWidth(), fbRect.getHeight());
+			S32 fpHeight = mDefaultFpRect.getHeight() + FAVBAR_TOP_PADDING;
+			S32 fpTop = fpHeight - (mDefaultFpRect.getHeight() / 2) + 1;
+
+			nbRect.setLeftTopAndSize(nbRect.mLeft, nbRect.mTop, nbRect.getWidth(), fpHeight);
+			fbRect.setLeftTopAndSize(fbRect.mLeft, fpTop, fbRect.getWidth(), mDefaultFpRect.getHeight());
 
 			// this is duplicated in 'else' section because it should be called BEFORE fb->reshape
 			reshape(nbRect.getWidth(), nbRect.getHeight());
@@ -813,8 +810,9 @@ void LLNavigationBar::showNavigationPanel(BOOL visible)
 		}
 	}
 
-	childSetVisible("bg_icon", fpVisible);
-	childSetVisible("bg_icon_no_fav", !fpVisible);
+	childSetVisible("bg_icon", visible && fpVisible);
+	childSetVisible("bg_icon_no_fav_bevel", visible && !fpVisible);
+	childSetVisible("bg_icon_no_nav_bevel", !visible && fpVisible);
 }
 
 void LLNavigationBar::showFavoritesPanel(BOOL visible)
@@ -833,7 +831,7 @@ void LLNavigationBar::showFavoritesPanel(BOOL visible)
 			// Favorites Panel must be shown. Navigation Panel is visible.
 
 			S32 fbHeight = fbRect.getHeight();
-			S32 newHeight = nbRect.getHeight() + fbHeight;
+			S32 newHeight = nbRect.getHeight() + fbHeight + FAVBAR_TOP_PADDING;
 
 			nbRect.setLeftTopAndSize(nbRect.mLeft, nbRect.mTop, nbRect.getWidth(), newHeight);
 			fbRect.setLeftTopAndSize(mDefaultFpRect.mLeft, mDefaultFpRect.mTop, fbRect.getWidth(), fbRect.getHeight());
@@ -842,9 +840,11 @@ void LLNavigationBar::showFavoritesPanel(BOOL visible)
 		{
 			// Favorites Panel must be shown. Navigation Panel is hidden.
 
-			S32 fpHeight = mDefaultFpRect.getHeight();
+			S32 fpHeight = mDefaultFpRect.getHeight() + FAVBAR_TOP_PADDING;
+			S32 fpTop = fpHeight - (mDefaultFpRect.getHeight() / 2) + 1;
+
 			nbRect.setLeftTopAndSize(nbRect.mLeft, nbRect.mTop, nbRect.getWidth(), fpHeight);
-			fbRect.setLeftTopAndSize(fbRect.mLeft, fpHeight, fbRect.getWidth(), fpHeight);
+			fbRect.setLeftTopAndSize(fbRect.mLeft, fpTop, fbRect.getWidth(), mDefaultFpRect.getHeight());
 		}
 
 		reshape(nbRect.getWidth(), nbRect.getHeight());
@@ -861,7 +861,7 @@ void LLNavigationBar::showFavoritesPanel(BOOL visible)
 			// Favorites Panel must be hidden. Navigation Panel is visible.
 
 			S32 fbHeight = fbRect.getHeight();
-			S32 newHeight = nbRect.getHeight() - fbHeight;
+			S32 newHeight = nbRect.getHeight() - fbHeight - FAVBAR_TOP_PADDING;
 
 			nbRect.setLeftTopAndSize(nbRect.mLeft, nbRect.mTop, nbRect.getWidth(), newHeight);
 		}
@@ -877,8 +877,9 @@ void LLNavigationBar::showFavoritesPanel(BOOL visible)
 		getParent()->reshape(nbRect.getWidth(), nbRect.getHeight());
 	}
 
-	childSetVisible("bg_icon", visible);
-	childSetVisible("bg_icon_no_fav", !visible);
+	childSetVisible("bg_icon", npVisible && visible);
+	childSetVisible("bg_icon_no_fav_bevel", npVisible && !visible);
+	childSetVisible("bg_icon_no_nav_bevel", !npVisible && visible);
 
 	fb->setVisible(visible);
 }
