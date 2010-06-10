@@ -199,15 +199,7 @@
          mouse_opaque="false"
          name="popup_holder"
          class="popup_holder"
-         width="1024">
-    <icon follows="right|bottom"
-          image_name="Resize_Corner"
-          right="-1"
-          name="resize_corner"
-          width="11"
-          bottom="-1"
-          height="11" />
-  </panel>
+         width="1024"/>
   <menu_holder top="0"
                follows="all"
                height="768"

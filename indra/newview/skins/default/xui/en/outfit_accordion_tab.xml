@@ -3,7 +3,7 @@
 <!-- All accordion tabs in the My Appearance/My Outfits panel will be created from this one at runtime-->
 <!-- Non of string values of controls below are visible to user. They are not need to be translated. -->
 <accordion_tab
- expanded="false"
+ display_children="false"
  follows="all"
  height="45"
  layout="topleft"
@@ -19,6 +19,6 @@
      multi_select="true"
      name="wearable_items_list"
      translate="false"
-     standalone="false"
+     use_internal_context_menu="false"
     />
 </accordion_tab>

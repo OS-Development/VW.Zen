@@ -323,9 +323,6 @@ Você precisa de uma conta para entrar no [SECOND_LIFE]. Você gostaria de abrir
 		</url>
 		<usetemplate name="okcancelbuttons" notext="Tentar novamente" yestext="Abrir conta"/>
 	</notification>
-	<notification name="InvalidCredentialFormat">
-		Digite o nome e sobrenome do seu avatar no campo Nome de usuário, depois faça o login novamente.
-	</notification>
 	<notification name="AddClassified">
 		Os anúncios serão publicados na seção &apos;Classificados&apos; das buscas e em [http://secondlife.com/community/classifieds secondlife.com] durante uma semana.
 Escreva seu anúncio e clique em &apos;Publicar...&apos; 
@@ -354,10 +351,6 @@ Tem certeza de que quer prosseguir?
 	<notification name="DeleteAvatarPick">
 		Excluir destaque &lt;nolink&gt;[PICK]&lt;/nolink&gt;?
 		<usetemplate name="okcancelbuttons" notext="Cancelar" yestext="Apagar"/>
-	</notification>
-	<notification name="DeleteOutfits">
-		Excluir look(s) selecionado(s)?
-		<usetemplate name="okcancelbuttons" notext="Cancelar" yestext="OK"/>
 	</notification>
 	<notification name="PromptGoToEventsPage">
 		Ir até a página web de enventos [SECOND_LIFE] ?
@@ -473,9 +466,7 @@ Para aumentar a qualidade do vídeo, vá para Preferências &gt; Vídeo.
 		A região [REGION] não permite ser aplainada.
 	</notification>
 	<notification name="CannotCopyWarning">
-		Você não tem autorização para copiar os itens abaixo:
-[ITENS]
-ao dá-los, você ficará sem eles no seu inventário. Deseja realmente dar estes itens?
+		Você não tem permissão para copiar este item e irá perdê-lo do seu inventário se entregá-lo a alguém. Quer realmente oferecer este item?
 		<usetemplate name="okcancelbuttons" notext="Não" yestext="Sim"/>
 	</notification>
 	<notification name="CannotGiveItem">
@@ -611,10 +602,6 @@ Esperada [VALIDS]
 	</notification>
 	<notification name="CannotEncodeFile">
 		Impossível codificar o arquivo: [FILE]
-	</notification>
-	<notification name="CorruptedProtectedDataStore">
-		Não podemos preencher seu nome e senha.   Isso pode ocorrer após mudanças na configuração da rede
-		<usetemplate name="okbutton" yestext="OK"/>
 	</notification>
 	<notification name="CorruptResourceFile">
 		Fonte do arquivo corrompida: [FILE]
@@ -941,26 +928,6 @@ Oferecer amizade para [NAME]?
 			<button name="Cancel" text="Cancelar"/>
 		</form>
 	</notification>
-	<notification label="Salvar item de vestuário" name="SaveWearableAs">
-		Salvar item no meu inventário como:
-		<form name="form">
-			<input name="message">
-				[DESC] (novo)
-			</input>
-			<button name="Offer" text="OK"/>
-			<button name="Cancel" text="Cancelar"/>
-		</form>
-	</notification>
-	<notification label="Renomear look" name="RenameOutfit">
-		Nome do novo look:
-		<form name="form">
-			<input name="new_name">
-				[NAME]
-			</input>
-			<button name="Offer" text="OK"/>
-			<button name="Cancel" text="Cancelar"/>
-		</form>
-	</notification>
 	<notification name="RemoveFromFriends">
 		Você quer remover [FIRST_NAME] [LAST_NAME] da sua lista de amigos?
 		<usetemplate name="okcancelbuttons" notext="Cancelar" yestext="Remover"/>
@@ -994,12 +961,6 @@ em TODOS OS TERRENOS deste sim?
 		Preço mínimo a pagar para incluir na listagem é de L$[MIN_PRICE].
 
 Por favor, insira um valor maior.
-	</notification>
-	<notification name="ConfirmItemDeleteHasLinks">
-		Pelo menos um dos itens possui links que levam a ele.  Ao excluir o item, os links não funcionarão mais.   Por isso, recomendamos excluir os links primeiro.
-
-Tem certeza de que quer excluir estes items?
-		<usetemplate name="okcancelbuttons" notext="Cancelar" yestext="OK"/>
 	</notification>
 	<notification name="ConfirmObjectDeleteLock">
 		Pelo menos um dos itens que você selecionou está trancado.
@@ -1141,42 +1102,6 @@ Use as teclas de seta para andar.
 Pressione a tecla F1 para ajuda ou aprender mais sobre [SECOND_LIFE].
 Por favor, escolha se o seu avatar é feminino ou masculino. Você pode mudar de idéia depois.
 		<usetemplate name="okcancelbuttons" notext="Feminino" yestext="Masculino"/>
-	</notification>
-	<notification name="CantTeleportToGrid">
-		Não foi possível ir para [SLURL], que fica em outro grid ([GRID]) em relação ao grid atual, ([CURRENT_GRID]).  Feche o Visualizador e tente novamente.
-		<usetemplate name="okbutton" yestext="OK"/>
-	</notification>
-	<notification name="GeneralCertificateError">
-		Falha de conexão com o servidor.
-[REASON]
-
-SubjectName: [SUBJECT_NAME_STRING]
-IssuerName: [ISSUER_NAME_STRING]
-Válido de: [VALID_FROM]
-Válido até: [VALID_TO]
-MD5 Fingerprint: [SHA1_DIGEST]
-Impressão digital SHA1: [MD5_DIGEST]
-Uso da chave: [KEYUSAGE]
-Uso estendido da chave: [EXTENDEDKEYUSAGE]
-Identificador chave de assunto: [SUBJECTKEYIDENTIFIER]
-		<usetemplate name="okbutton" yestext="OK"/>
-	</notification>
-	<notification name="TrustCertificateError">
-		A autoridade de certificação deste servidor é desconhecida.
-
-Dados do certificado:
-SubjectName: [SUBJECT_NAME_STRING]
-IssuerName: [ISSUER_NAME_STRING]
-Válido de: [VALID_FROM]
-Válido até: [VALID_TO]
-MD5 Fingerprint: [SHA1_DIGEST]
-Impressão digital SHA1: [MD5_DIGEST]
-Uso da chave: [KEYUSAGE]
-Uso estendido da chave: [EXTENDEDKEYUSAGE]
-Identificador chave de assunto: [SUBJECTKEYIDENTIFIER]
-
-Confiar nesta autoridade?
-		<usetemplate name="okcancelbuttons" notext="Cancelar" yestext="Confiança"/>
 	</notification>
 	<notification name="NotEnoughCurrency">
 		[NAME] L$ [PRICE] Você não possui suficientes L$ para fazer isso.
@@ -1568,9 +1493,9 @@ Ir para o Banco de Conhecimento para maiores informações sobre Classificaçõe
 		Você não é permitido nesta região devido à sua Classificação de maturidade.
 	</notification>
 	<notification name="RegionEntryAccessBlocked_Change">
-		Você não pode entrar nessa região devido à sua seleção de maturidade.
+		Você não pode entrar nessa região devido à sua seleção de maturidade. 
 
-Para entrar na região desejada, mude o nível de maturidade.  Você então poderá fazer buscas e acessar conteúdo [REGIONMATURITY]. Para desfazer qualquer mudança, vá para Eu &gt; Preferências &gt; Geral.
+Clique em &apos;Mudar preferência&apos; para aumentar o nível de maturidade e entrar nessa região.  De agora em diante você pode buscar e acessar conteúdo [REGIONMATURITY] .  Para modificar esta configuração, vá à Eu &gt; Preferências &gt; Geral.
 		<form name="form">
 			<button name="OK" text="Mudar preferência"/>
 			<button default="true" name="Cancel" text="Fechar"/>
@@ -2026,6 +1951,11 @@ Inclua um link para facilitar o acesso para visitantes. Teste o link na barra de
 		Fazendo o upload das fotos do site da web e do mundo...
 (Leva cerca de 5 minutos)
 	</notification>
+	<notification name="UploadConfirmation">
+		O upload custa L$ [AMOUNT].
+Deseja continuar?
+		<usetemplate name="okcancelbuttons" notext="Cancelar" yestext="Upload"/>
+	</notification>
 	<notification name="UploadPayment">
 		Você paga L$[AMOUNT] para fazer o upload.
 	</notification>
@@ -2332,6 +2262,15 @@ Por favor, tente novamente em alguns instantes.
 			<button name="Mute" text="Bloquear"/>
 		</form>
 	</notification>
+	<notification name="ObjectGiveItemUnknownUser">
+		Um objeto chamado [OBJECTFROMNAME] de (residente desconhecido) lhe deu [OBJECTTYPE]:
+[ITEM_SLURL]
+		<form name="form">
+			<button name="Keep" text="Segure"/>
+			<button name="Discard" text="Descarte"/>
+			<button name="Mute" text="Bloquear"/>
+		</form>
+	</notification>
 	<notification name="UserGiveItem">
 		[NAME_SLURL] lhe deu [OBJECTTYPE]:
 [ITEM_SLURL]
@@ -2441,6 +2380,9 @@ Do objeto: [OBJECTNAME], dono: [NAME]?
 	</notification>
 	<notification name="FailedToFindWearable">
 		Falhou ao procurar [TYPE] nomeado [DESC] no banco de dados.
+	</notification>
+	<notification name="ShareToWebFailed">
+		Falha de upload da imagem na web.
 	</notification>
 	<notification name="InvalidWearable">
 		O item que você está tentando usar tem um recurso que seu Visualizador não consegue ler.  Atualize o [APP_NAME] para poder vestir esse item.
@@ -2573,21 +2515,6 @@ Clique em Aceitar para atender ou em Recusar para recusar este convite.  Clique 
 	<notification name="VoiceLoginRetry">
 		Estamos criando uma canal de voz para você. Isto pode levar até um minuto.
 	</notification>
-	<notification name="VoiceEffectsExpired">
-		Um ou mais serviços de distorção de voz que você assinou veceu.
-[[URL] Clique aqui] para renovar o serviço.
-	</notification>
-	<notification name="VoiceEffectsExpiredInUse">
-		A Distorção de voz ativa expirou. Suas configurações de voz padrão foram ativadas.
-[[URL] Clique aqui] para renovar o serviço.
-	</notification>
-	<notification name="VoiceEffectsWillExpire">
-		Uma ou mais das suas distorções de voz tem vencimento em menos de [INTERVAL] dias.
-[[URL] Clique aqui] para renovar o serviço.
-	</notification>
-	<notification name="VoiceEffectsNew">
-		Novas Distorções de voz!
-	</notification>
 	<notification name="Cannot enter parcel: not a group member">
 		Só membros de um grupo podem acessar esta área.
 	</notification>
@@ -2654,94 +2581,10 @@ Para sua segurança, os SLurls serão bloqueados por alguns instantes.
 O botão será exibido quando houver espaço suficente.
 	</notification>
 	<notification name="ShareNotification">
-		Selecione os residentes com quem compartilhar.
-	</notification>
-	<notification name="ShareItemsConfirmation">
-		Tem certeza de que quer compartilhar os items abaixo?
-
-[ITENS]
-
-Com os seguintes residentes:
-
-[RESIDENTS]
-		<usetemplate name="okcancelbuttons" notext="Cancelar" yestext="OK"/>
-	</notification>
-	<notification name="ItemsShared">
-		Itens compartilhados.
-	</notification>
-	<notification name="DeedToGroupFail">
-		Ocorreu uma falha durante a doação ao grupo.
+		Arraste itens do inventário para uma pessoa no seletor de residentes
 	</notification>
 	<notification name="AvatarRezNotification">
-		( [EXISTENCE] segundos de vida )
-O avatar de &apos;[NAME]&apos; emergiu em [TIME] segundos.
-	</notification>
-	<notification name="AvatarRezSelfBakedDoneNotification">
-		( [EXISTENCE] segundos de vida )
-Você confeccionou seu look em [TIME] segundos.
-	</notification>
-	<notification name="AvatarRezSelfBakedUpdateNotification">
-		( [EXISTENCE] segundos de vida )
-Você enviou uma atualização da sua aparência em [TIME] segundos.
-[STATUS]
-	</notification>
-	<notification name="AvatarRezCloudNotification">
-		( [EXISTENCE] segundos de vida )
-Avatar &apos;[NAME]&apos; transformou-se em nuvem.
-	</notification>
-	<notification name="AvatarRezArrivedNotification">
-		( [EXISTENCE] segundos de vida )
-Avatar &apos;[NAME]&apos; surgiu.
-	</notification>
-	<notification name="AvatarRezLeftCloudNotification">
-		( [EXISTENCE] segundos de vida )
-O avatar de &apos;[NAME]&apos; transformou-se em nuvem depois de [TIME] segundos.
-	</notification>
-	<notification name="AvatarRezEnteredAppearanceNotification">
-		( [EXISTENCE] segundos de vida )
-Avatar &apos;[NAME]&apos; entrou no modo aparência.
-	</notification>
-	<notification name="AvatarRezLeftAppearanceNotification">
-		( [EXISTENCE] segundos de vida )
-Avatar &apos;[NAME]&apos; sair do modo aparecer.
-	</notification>
-	<notification name="NoConnect">
-		Detectamos um problema de conexão com [PROTOCOL] [HOSTID].
-Verifique a configuração da sua rede e firewall.
-		<form name="form">
-			<button name="OK" text="OK"/>
-		</form>
-	</notification>
-	<notification name="NoVoiceConnect">
-		Estamos tendo problemas de conexão com o seu servidor de voz:
-
-[HOSTID]
-
-Talvez não seja possível se comunicar via voz.
-Verifique a configuração da sua rede e firewall.
-		<form name="form">
-			<button name="OK" text="OK"/>
-		</form>
-	</notification>
-	<notification name="AvatarRezLeftNotification">
-		( [EXISTENCE] segundos de vida )
-Avatar &apos;[NAME]&apos; saiu totalmente carregado.
-	</notification>
-	<notification name="AvatarRezSelfBakeNotification">
-		( [EXISTENCE] segundos de vida )
-[ACTION] de textura com [RESOLUTION] para o(a) &apos;[BODYREGION]&apos; em [TIME] segundos.
-	</notification>
-	<notification name="ConfirmLeaveCall">
-		Tem certeza de que quer sair desta ligação?
-		<usetemplate ignoretext="Confirmar antes de deixar ligação" name="okcancelignore" notext="Não" yestext="Sim"/>
-	</notification>
-	<notification name="ConfirmMuteAll">
-		Você silenciou todos os participantes de uma ligação de grupo.
-Todos os demais residentes que entrarem na ligação mais tarde também serão silenciados, mesmo se você sair da ligação.
-
-
-Silenciar todos?
-		<usetemplate ignoretext="Confirmar antes de silenciar todos os participantes em ligações de grupo." name="okcancelignore" notext="Cancelar" yestext="OK"/>
+		O avatar de &apos;[NAME]&apos; renderizou em [TIME] s.
 	</notification>
 	<global name="UnsupportedCPU">
 		- A velocidade da sua CPU não suporta os requisitos mínimos exigidos.
@@ -2766,8 +2609,5 @@ Se você continuar a receber esta mensagem, consulte o [SUPPORT_SITE].
 	<global name="You can only set your &apos;Home Location&apos; on your land or at a mainland Infohub.">
 		Se você tem um terreno, seu terreno pode ser seu início. 
 Outra opção é procurar por lugares com a tag &apos;Infohub&apos; no mapa.
-	</global>
-	<global name="You died and have been teleported to your home location">
-		Você morreu e foi reenviado ao seu início.
 	</global>
 </notifications>

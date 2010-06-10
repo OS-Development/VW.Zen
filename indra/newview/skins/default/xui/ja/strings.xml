@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <!-- This file contains strings that used to be hardcoded in the source.
      It is only for those strings which do not belong in a floater.
      For example, the strings used in avatar chat bubbles, and strings
@@ -107,7 +107,7 @@
 		無効なホストネームがサーバーにアクセスしていました。SLURL かグリッドのホストネームをご確認ください。
 	</string>
 	<string name="CertExpired">
-		グリッドが返した証明書は有効期限が終了していると考えられます。お使いのシステムクロックを確認するか、グリッドの管理者にお問い合わせください。
+		証明書の有効期限が切れています。  システムの時計を確認するかグリッド管理者にご連絡ください。
 	</string>
 	<string name="CertKeyUsage">
 		SSL 証明書のエラーが発生しました。  グリッド管理者にご連絡ください。
@@ -116,7 +116,7 @@
 		サーバーの証明書チェーンに証明書が多すぎます。  グリッド管理者にご連絡ください。
 	</string>
 	<string name="CertInvalidSignature">
-		グリッドサーバーが返した証明書の署名を認証できませんでした。グリッドの管理者にお問い合わせください。
+		証明書署名を認証できませんでした。  グリッド管理者にご連絡ください。
 	</string>
 	<string name="LoginFailedNoNetwork">
 		ネットワークエラー： 接続を確立できませんでした。お使いのネットワーク接続をご確認ください。
@@ -196,7 +196,6 @@
 	<string name="TooltipMustSingleDrop">
 		アイテムは 1 つだけここにドラッグできます
 	</string>
-	<string name="TooltipPrice" value="L$[AMOUNT]："/>
 	<string name="TooltipHttpUrl">
 		クリックしてこの Web ページを見ます
 	</string>
@@ -249,6 +248,7 @@
 		クリックして secondlife:// コマンドを出します
 	</string>
 	<string name="CurrentURL" value=" 現在の URL： [CurrentURL]"/>
+	<string name="TooltipPrice" value="L$[PRICE]-"/>
 	<string name="SLurlLabelTeleport">
 		テレポート
 	</string>
@@ -308,9 +308,6 @@
 	</string>
 	<string name="ReleaseNotes">
 		リリースノート
-	</string>
-	<string name="RELEASE_NOTES_BASE_URL">
-		http://wiki.secondlife.com/wiki/Release_Notes/
 	</string>
 	<string name="LoadingData">
 		ローディング...
@@ -663,9 +660,6 @@
 	<string name="worldmap_offline">
 		オフライン
 	</string>
-	<string name="worldmap_item_tooltip_format">
-		[AREA] 平方メートル L$[PRICE]
-	</string>
 	<string name="worldmap_results_none_found">
 		見つかりませんでした。
 	</string>
@@ -758,12 +752,6 @@
 	</string>
 	<string name="land_type_unknown">
 		（不明）
-	</string>
-	<string name="Estate / Full Region">
-		不動産 / フルリージョン
-	</string>
-	<string name="Mainland / Full Region">
-		メインランド / フルリージョン
 	</string>
 	<string name="all_files">
 		全てのファイル
@@ -870,9 +858,6 @@
 	<string name="invalid">
 		無効
 	</string>
-	<string name="none">
-		なし
-	</string>
 	<string name="shirt_not_worn">
 		シャツ未着用
 	</string>
@@ -907,54 +892,6 @@
 		タトゥー未着用
 	</string>
 	<string name="invalid_not_worn">
-		無効
-	</string>
-	<string name="create_new_shape">
-		新しいシェイプを作成
-	</string>
-	<string name="create_new_skin">
-		新しいスキンを作成
-	</string>
-	<string name="create_new_hair">
-		新しい髪を作成
-	</string>
-	<string name="create_new_eyes">
-		新しい目を作成
-	</string>
-	<string name="create_new_shirt">
-		新しいシャツを作成
-	</string>
-	<string name="create_new_pants">
-		新しいパンツを作成
-	</string>
-	<string name="create_new_shoes">
-		新しい靴を作成
-	</string>
-	<string name="create_new_socks">
-		新しい靴下を作成
-	</string>
-	<string name="create_new_jacket">
-		新しい上着を作成
-	</string>
-	<string name="create_new_gloves">
-		新しい手袋を作成
-	</string>
-	<string name="create_new_undershirt">
-		新しい下着シャツを作成
-	</string>
-	<string name="create_new_underpants">
-		新しい下着パンツを作成
-	</string>
-	<string name="create_new_skirt">
-		新しいスカートを作成
-	</string>
-	<string name="create_new_alpha">
-		新しいアルファを作成
-	</string>
-	<string name="create_new_tattoo">
-		新しいタトゥを作成
-	</string>
-	<string name="create_new_invalid">
 		無効
 	</string>
 	<string name="NewWearable">
@@ -1064,7 +1001,6 @@
 	<string name="AnimFlagStop" value=" アニメーションを停止："/>
 	<string name="AnimFlagStart" value=" アニメーションを開始："/>
 	<string name="Wave" value=" 手を振る"/>
-	<string name="GestureActionNone" value="なし"/>
 	<string name="HelloAvatar" value=" やあ、アバター！"/>
 	<string name="ViewAllGestures" value="  すべて表示 &gt;&gt;"/>
 	<string name="GetMoreGestures" value="ショッピング &gt;&gt;"/>
@@ -1144,14 +1080,11 @@
 	<string name="InvFolder Gestures">
 		ジェスチャー
 	</string>
-	<string name="InvFolder Favorite">
+	<string name="InvFolder favorite">
 		お気に入り
 	</string>
 	<string name="InvFolder Current Outfit">
 		着用中のアウトフィット
-	</string>
-	<string name="InvFolder Initial Outfits">
-		最初のアウトフィット
 	</string>
 	<string name="InvFolder My Outfits">
 		マイ アウトフィット
@@ -1472,7 +1405,6 @@
 	<string name="SummaryForTheWeek" value="今週のまとめ。開始日は"/>
 	<string name="NextStipendDay" value="です。次回のお小遣い支給日："/>
 	<string name="GroupIndividualShare" value="                      グループ       個人の割り当て"/>
-	<string name="GroupColumn" value="グループの設定"/>
 	<string name="Balance">
 		残高
 	</string>
@@ -1668,9 +1600,6 @@
 	<string name="ATTACH_HUD_BOTTOM_RIGHT">
 		HUD（右下）
 	</string>
-	<string name="Bad attachment point">
-		装着先が正しくありません
-	</string>
 	<string name="CursorPos">
 		[LINE] 行目、[COLUMN] 列目
 	</string>
@@ -1683,20 +1612,14 @@
 	<string name="PanelDirEventsDateText">
 		[mthnum,datetime,slt]/[day,datetime,slt]
 	</string>
-	<string name="PanelContentsTooltip">
-		オブジェクトの中身
-	</string>
 	<string name="PanelContentsNewScript">
 		新規スクリプト
 	</string>
+	<string name="PanelContentsTooltip">
+		オブジェクトの中身
+	</string>
 	<string name="BusyModeResponseDefault">
 		メッセージを送った住人は、誰にも邪魔をされたくないため現在「取り込み中」モードです。  あなたのメッセージは、あとで確認できるように IM パネルに表示されます。
-	</string>
-	<string name="NoOutfits">
-		アウトフィットがまだありません。[secondlife:///app/search/all/ Search]をお試しください
-	</string>
-	<string name="NoOutfitsTabsMatched">
-		お探しのものは見つかりましたか？[secondlife:///app/search/all/[SEARCH_TERM]をお試しください。
 	</string>
 	<string name="MuteByName">
 		（名称別）
@@ -3627,9 +3550,6 @@ www.secondlife.com から最新バージョンをダウンロードしてくだ�
 	<string name="session_initialization_timed_out_error">
 		セッションの初期化がタイムアウトしました
 	</string>
-	<string name="voice_morphing_url">
-		http://secondlife.com/landing/voicemorphing
-	</string>
 	<string name="paid_you_ldollars">
 		[NAME] は L$[AMOUNT] 支払いました
 	</string>
@@ -3687,9 +3607,6 @@ www.secondlife.com から最新バージョンをダウンロードしてくだ�
 	<string name="group_role_owners">
 		オーナー
 	</string>
-	<string name="group_member_status_online">
-		オンライン
-	</string>
 	<string name="uploading_abuse_report">
 		アップロード中...
   
@@ -3743,14 +3660,8 @@ www.secondlife.com から最新バージョンをダウンロードしてくだ�
 	<string name="Invalid Wearable">
 		無効な着用物
 	</string>
-	<string name="New Gesture">
-		ジェスチャー
-	</string>
 	<string name="New Script">
 		新規スクリプト
-	</string>
-	<string name="New Note">
-		ノート
 	</string>
 	<string name="New Folder">
 		新規フォルダ
@@ -3809,26 +3720,17 @@ www.secondlife.com から最新バージョンをダウンロードしてくだ�
 	<string name="Male - Wow">
 		男性 - Wow
 	</string>
-	<string name="Female - Chuckle">
-		女性 – クスクス
+	<string name="FeMale - Excuse me">
+		女性 - すみません
 	</string>
-	<string name="Female - Cry">
-		女性 – 泣く
+	<string name="FeMale - Get lost">
+		女性 - Get lost
 	</string>
-	<string name="Female - Embarrassed">
-		女性 – 恥ずかしい
-	</string>
-	<string name="Female - Excuse me">
-		女性 – すみません
-	</string>
-	<string name="Female - Get lost">
-		女性 – あっち行ってよ
-	</string>
-	<string name="Female - Blow kiss">
+	<string name="FeMale - Blow kiss">
 		女性 - 投げキッス
 	</string>
-	<string name="Female - Boo">
-		女性 – ワッ！
+	<string name="FeMale - Boo">
+		女性 - Boo
 	</string>
 	<string name="Female - Bored">
 		女性 - 退屈
@@ -3836,20 +3738,8 @@ www.secondlife.com から最新バージョンをダウンロードしてくだ�
 	<string name="Female - Hey">
 		女性 - Hey
 	</string>
-	<string name="Female - Hey baby">
-		女性 – ヘイ、ベィビー！
-	</string>
 	<string name="Female - Laugh">
 		女性 - 笑う
-	</string>
-	<string name="Female - Looking good">
-		女性 – いい感じ
-	</string>
-	<string name="Female - Over here">
-		女性 – こっちよ
-	</string>
-	<string name="Female - Please">
-		女性 – プリーズ
 	</string>
 	<string name="Female - Repulsed">
 		女性 - 拒絶
@@ -3871,75 +3761,5 @@ www.secondlife.com から最新バージョンをダウンロードしてくだ�
 	</string>
 	<string name="texture_load_dimensions_error">
 		[WIDTH]*[HEIGHT] 以上の画像は読み込めません
-	</string>
-	<string name="words_separator" value=","/>
-	<string name="server_is_down">
-		大変申し訳ございませんが、予期せぬ問題が発生しました。
-
-	status.secondlifegrid.netで、サービスに関する既知の問題についてお調べください。
-        問題が引き続き発生する場合は、お使いのネットワークやファイアウォールの設定を確認してください。
-	</string>
-	<string name="dateTimeWeekdaysNames">
-		日曜日:月曜日:火曜日:水曜日:木曜日:金曜日:土曜日
-	</string>
-	<string name="dateTimeWeekdaysShortNames">
-		日:月:火:水:木:金:土
-	</string>
-	<string name="dateTimeMonthNames">
-		1月:2月:3月:4月:5月:6月:7月:8月:9月:10月:11月:12月
-	</string>
-	<string name="dateTimeMonthShortNames">
-		1月:2月:3月:4月:5月:6月:7月:8月:9月:10月:11月:12月
-	</string>
-	<string name="dateTimeDayFormat">
-		[MDAY]
-	</string>
-	<string name="dateTimeAM">
-		AM
-	</string>
-	<string name="dateTimePM">
-		PM
-	</string>
-	<string name="LocalEstimateUSD">
-		US$ [AMOUNT]
-	</string>
-	<string name="Membership">
-		会員
-	</string>
-	<string name="Roles">
-		役割
-	</string>
-	<string name="Group Identity">
-		グループの識別情報
-	</string>
-	<string name="Parcel Management">
-		区画の管理
-	</string>
-	<string name="Parcel Identity">
-		区画の識別情報
-	</string>
-	<string name="Parcel Settings">
-		区画の設定
-	</string>
-	<string name="Parcel Powers">
-		区画の権限
-	</string>
-	<string name="Parcel Access">
-		区画へのアクセス
-	</string>
-	<string name="Parcel Content">
-		区画のコンテンツ
-	</string>
-	<string name="Object Management">
-		オブジェクトの管理
-	</string>
-	<string name="Accounting">
-		会計
-	</string>
-	<string name="Notices">
-		通知
-	</string>
-	<string name="Chat">
-		チャット
 	</string>
 </strings>

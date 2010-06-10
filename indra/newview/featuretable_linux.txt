@@ -26,7 +26,7 @@ list all
 RenderAnisotropic			1	0
 RenderAvatarCloth			1	1
 RenderAvatarLODFactor		1	1.0
-RenderAvatarMaxVisible      1   12
+RenderAvatarMaxVisible      1   35
 RenderAvatarVP				1	1
 RenderCubeMap				1	1
 RenderDelayVBUpdate			1	0
@@ -57,7 +57,6 @@ Disregard128DefaultDrawDistance	1	1
 Disregard96DefaultDrawDistance	1	1
 RenderTextureMemoryMultiple		1	1.0
 SkyUseClassicClouds			1	1
-WatchdogDisabled				1	1
 
 //
 // Low Graphics Settings

@@ -9,7 +9,6 @@
 		<menu_item_check label="Beholdning" name="Inventory"/>
 		<menu_item_check label="Min beholdning" name="ShowSidetrayInventory"/>
 		<menu_item_check label="Mine bevægelser" name="Gestures"/>
-		<menu_item_check label="Min stemme" name="ShowVoice"/>
 		<menu label="Min status" name="Status">
 			<menu_item_call label="Væk" name="Set Away"/>
 			<menu_item_call label="Optaget" name="Set Busy"/>
@@ -69,12 +68,6 @@
 		<menu_item_call label="Sammenkæd" name="Link"/>
 		<menu_item_call label="Adskil" name="Unlink"/>
 		<menu_item_check label="Redigér sammekædede objekter" name="Edit Linked Parts"/>
-		<menu label="Vis lænkede dele" name="Select Linked Parts">
-			<menu_item_call label="Vælg næste del" name="Select Next Part"/>
-			<menu_item_call label="Vælg forrige del" name="Select Previous Part"/>
-			<menu_item_call label="Inkludér næste del" name="Include Next Part"/>
-			<menu_item_call label="Inkludér forrige del" name="Include Previous Part"/>
-		</menu>
 		<menu_item_call label="Fokusér på valgte" name="Focus on Selection"/>
 		<menu_item_call label="Zoom til valgte" name="Zoom to Selection"/>
 		<menu label="Objekt" name="Object">
@@ -92,7 +85,7 @@
 			<menu_item_call label="Sæt scripts til &quot;Not Running&quot;" name="Set Scripts to Not Running"/>
 		</menu>
 		<menu label="Valg" name="Options">
-			<menu_item_call label="Sæt standard rettigher for upload" name="perm prefs"/>
+			<menu_item_call label="Sæt standard rettigheder" name="perm prefs"/>
 			<menu_item_check label="Vis avancerede rettigheder" name="DebugPermissions"/>
 			<menu_item_check label="Vælg kun egne objekter" name="Select Only My Objects"/>
 			<menu_item_check label="Vis kun flytbare objekter" name="Select Only Movable Objects"/>
@@ -105,11 +98,11 @@
 			<menu_item_call label="Benyt valgte som grundlag for gitter" name="Use Selection for Grid"/>
 			<menu_item_call label="Gitter indstillinger" name="Grid Options"/>
 		</menu>
-		<menu label="Send" name="Upload">
-			<menu_item_call label="Billede (L$[COST])..." name="Upload Image"/>
-			<menu_item_call label="Lyd (L$[COST])..." name="Upload Sound"/>
-			<menu_item_call label="Animation (L$[COST])..." name="Upload Animation"/>
-			<menu_item_call label="Mange (L$[COST] pr. fil)..." name="Bulk Upload"/>
+		<menu label="Vis lænkede dele" name="Select Linked Parts">
+			<menu_item_call label="Vælg næste del" name="Select Next Part"/>
+			<menu_item_call label="Vælg forrige del" name="Select Previous Part"/>
+			<menu_item_call label="Inkludér næste del" name="Include Next Part"/>
+			<menu_item_call label="Inkludér forrige del" name="Include Previous Part"/>
 		</menu>
 	</menu>
 	<menu label="Hjælp" name="Help">
@@ -175,7 +168,6 @@
 			<menu_item_check label="Søg" name="Search"/>
 			<menu_item_call label="Frigør taster" name="Release Keys"/>
 			<menu_item_call label="Sæt UI størrelse til standard" name="Set UI Size to Default"/>
-			<menu_item_check label="Vis avanceret menu" name="Show Advanced Menu - legacy shortcut"/>
 			<menu_item_check label="Løb altid" name="Always Run"/>
 			<menu_item_check label="Flyv" name="Fly"/>
 			<menu_item_call label="Luk vindue" name="Close Window"/>

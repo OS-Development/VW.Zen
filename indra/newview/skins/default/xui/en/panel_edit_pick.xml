@@ -24,7 +24,7 @@
      image_unselected="BackButton_Off"
      layout="topleft"
      name="back_btn"
-     left="10"
+     left="7"
      tab_stop="false"
      top="2"
      width="30" />
@@ -35,10 +35,10 @@
      font="SansSerifHugeBold"
      height="26"
      layout="topleft"
-     left_pad="4"
+     left_pad="10"
      name="title"
      text_color="LtGray"
-     top="2"
+     top="0"
      width="250">
         Edit Pick
     </text>
@@ -63,7 +63,6 @@
      left="0"
      width="285">
     <texture_picker
-     fallback_image="default_land_picture.j2c"
      follows="left|top|right"
      height="197"
      width="272"

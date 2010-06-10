@@ -2,25 +2,31 @@
  * @file llagentwearablesfetch.cpp
  * @brief LLAgentWearblesFetch class implementation
  *
- * $LicenseInfo:firstyear=2001&license=viewerlgpl$
+ * $LicenseInfo:firstyear=2001&license=viewergpl$
+ * 
+ * Copyright (c) 2001-2009, Linden Research, Inc.
+ * 
  * Second Life Viewer Source Code
- * Copyright (C) 2010, Linden Research, Inc.
+ * The source code in this file ("Source Code") is provided by Linden Lab
+ * to you under the terms of the GNU General Public License, version 2.0
+ * ("GPL"), unless you have obtained a separate licensing agreement
+ * ("Other License"), formally executed by you and Linden Lab.  Terms of
+ * the GPL can be found in doc/GPL-license.txt in this distribution, or
+ * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
  * 
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation;
- * version 2.1 of the License only.
+ * There are special exceptions to the terms and conditions of the GPL as
+ * it is applied to this Source Code. View the full text of the exception
+ * in the file doc/FLOSS-exception.txt in this software distribution, or
+ * online at
+ * http://secondlifegrid.net/programs/open_source/licensing/flossexception
  * 
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
+ * By copying, modifying or distributing this software, you acknowledge
+ * that you have read and understood your obligations described above,
+ * and agree to abide by those obligations.
  * 
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
- * 
- * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
+ * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
+ * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
+ * COMPLETENESS OR PERFORMANCE.
  * $/LicenseInfo$
  */
 
@@ -42,12 +48,6 @@ public:
 
 	virtual ~LLOrderMyOutfitsOnDestroy()
 	{
-		if (!LLApp::isRunning())
-		{
-			llwarns << "called during shutdown, skipping" << llendl;
-			return;
-		}
-		
 		const LLUUID& my_outfits_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_MY_OUTFITS);
 		if (my_outfits_id.isNull()) return;
 
@@ -121,7 +121,6 @@ void LLInitialWearablesFetch::processContents()
 	LLAppearanceMgr::instance().setAttachmentInvLinkEnable(true);
 	if (wearable_array.count() > 0)
 	{
-		gAgentWearables.notifyLoadingStarted();
 		LLAppearanceMgr::instance().updateAppearanceFromCOF();
 	}
 	else
@@ -241,8 +240,6 @@ LLLibraryOutfitsFetch::LLLibraryOutfitsFetch(const LLUUID& my_outfits_id) :
 	mCurrFetchStep(LOFS_FOLDER), 
 	mOutfitsPopulated(false) 
 {
-	llinfos << "created" << llendl;
-
 	mMyOutfitsID = LLUUID::null;
 	mClothingID = LLUUID::null;
 	mLibraryClothingID = LLUUID::null;
@@ -252,13 +249,10 @@ LLLibraryOutfitsFetch::LLLibraryOutfitsFetch(const LLUUID& my_outfits_id) :
 
 LLLibraryOutfitsFetch::~LLLibraryOutfitsFetch()
 {
-	llinfos << "destroyed" << llendl;
 }
 
 void LLLibraryOutfitsFetch::done()
 {
-	llinfos << "start" << llendl;
-
 	// Delay this until idle() routine, since it's a heavy operation and
 	// we also can't have it run within notifyObservers.
 	doOnIdleOneTime(boost::bind(&LLLibraryOutfitsFetch::doneIdle,this));
@@ -267,8 +261,6 @@ void LLLibraryOutfitsFetch::done()
 
 void LLLibraryOutfitsFetch::doneIdle()
 {
-	llinfos << "start" << llendl;
-
 	gInventory.addObserver(this); // Add this back in since it was taken out during ::done()
 	
 	switch (mCurrFetchStep)
@@ -309,8 +301,6 @@ void LLLibraryOutfitsFetch::doneIdle()
 
 void LLLibraryOutfitsFetch::folderDone()
 {
-	llinfos << "start" << llendl;
-
 	LLInventoryModel::cat_array_t cat_array;
 	LLInventoryModel::item_array_t wearable_array;
 	gInventory.collectDescendents(mMyOutfitsID, cat_array, wearable_array, 
@@ -318,7 +308,8 @@ void LLLibraryOutfitsFetch::folderDone()
 	
 	// Early out if we already have items in My Outfits
 	// except the case when My Outfits contains just initial outfit
-	if (cat_array.count() > 1)
+	if (cat_array.count() > 1 ||
+		cat_array.count() == 1 && cat_array[0]->getUUID() != LLAppearanceMgr::getInstance()->getBaseOutfitUUID())
 	{
 		mOutfitsPopulated = true;
 		return;
@@ -356,8 +347,6 @@ void LLLibraryOutfitsFetch::folderDone()
 
 void LLLibraryOutfitsFetch::outfitsDone()
 {
-	llinfos << "start" << llendl;
-
 	LLInventoryModel::cat_array_t cat_array;
 	LLInventoryModel::item_array_t wearable_array;
 	uuid_vec_t folders;
@@ -435,8 +424,6 @@ private:
 // Copy the clothing folders from the library into the imported clothing folder
 void LLLibraryOutfitsFetch::libraryDone()
 {
-	llinfos << "start" << llendl;
-
 	if (mImportedClothingID != LLUUID::null)
 	{
 		// Skip straight to fetching the contents of the imported folder
@@ -492,8 +479,6 @@ void LLLibraryOutfitsFetch::libraryDone()
 
 void LLLibraryOutfitsFetch::importedFolderFetch()
 {
-	llinfos << "start" << llendl;
-
 	// Fetch the contents of the Imported Clothing Folder
 	uuid_vec_t folders;
 	folders.push_back(mImportedClothingID);
@@ -509,8 +494,6 @@ void LLLibraryOutfitsFetch::importedFolderFetch()
 
 void LLLibraryOutfitsFetch::importedFolderDone()
 {
-	llinfos << "start" << llendl;
-
 	LLInventoryModel::cat_array_t cat_array;
 	LLInventoryModel::item_array_t wearable_array;
 	uuid_vec_t folders;
@@ -541,8 +524,6 @@ void LLLibraryOutfitsFetch::importedFolderDone()
 
 void LLLibraryOutfitsFetch::contentsDone()
 {		
-	llinfos << "start" << llendl;
-
 	LLInventoryModel::cat_array_t cat_array;
 	LLInventoryModel::item_array_t wearable_array;
 	

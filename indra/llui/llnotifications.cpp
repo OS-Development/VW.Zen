@@ -2,25 +2,31 @@
 * @file llnotifications.cpp
 * @brief Non-UI queue manager for keeping a prioritized list of notifications
 *
-* $LicenseInfo:firstyear=2008&license=viewerlgpl$
+* $LicenseInfo:firstyear=2008&license=viewergpl$
+* 
+* Copyright (c) 2008-2009, Linden Research, Inc.
+* 
 * Second Life Viewer Source Code
-* Copyright (C) 2010, Linden Research, Inc.
+* The source code in this file ("Source Code") is provided by Linden Lab
+* to you under the terms of the GNU General Public License, version 2.0
+* ("GPL"), unless you have obtained a separate licensing agreement
+* ("Other License"), formally executed by you and Linden Lab.  Terms of
+* the GPL can be found in doc/GPL-license.txt in this distribution, or
+* online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
 * 
-* This library is free software; you can redistribute it and/or
-* modify it under the terms of the GNU Lesser General Public
-* License as published by the Free Software Foundation;
-* version 2.1 of the License only.
+* There are special exceptions to the terms and conditions of the GPL as
+* it is applied to this Source Code. View the full text of the exception
+* in the file doc/FLOSS-exception.txt in this software distribution, or
+* online at
+* http://secondlifegrid.net/programs/open_source/licensing/flossexception
 * 
-* This library is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-* Lesser General Public License for more details.
+* By copying, modifying or distributing this software, you acknowledge
+* that you have read and understood your obligations described above,
+* and agree to abide by those obligations.
 * 
-* You should have received a copy of the GNU Lesser General Public
-* License along with this library; if not, write to the Free Software
-* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-* 
-* Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
+* ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
+* WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
+* COMPLETENESS OR PERFORMANCE.
 * $/LicenseInfo$
 */
 
@@ -28,7 +34,6 @@
 
 #include "llnotifications.h"
 
-#include "llinstantmessage.h"
 #include "llxmlnode.h"
 #include "lluictrl.h"
 #include "lluictrlfactory.h"
@@ -36,7 +41,6 @@
 #include "llsdserialize.h"
 #include "lltrans.h"
 #include "llnotificationslistener.h"
-#include "llstring.h"
 
 #include <algorithm>
 #include <boost/regex.hpp>
@@ -369,7 +373,6 @@ LLNotification::LLNotification(const LLSD& sd) :
 LLSD LLNotification::asLLSD()
 {
 	LLSD output;
-	output["id"] = mId;
 	output["name"] = mTemplatep->mName;
 	output["form"] = getForm()->asLLSD();
 	output["substitutions"] = mSubstitutions;
@@ -557,6 +560,21 @@ void LLNotification::setResponseFunctor(const LLNotificationResponderPtr& respon
 	mResponder = responder;
 }
 
+bool LLNotification::payloadContainsAll(const std::vector<std::string>& required_fields) const
+{
+	for(std::vector<std::string>::const_iterator required_fields_it = required_fields.begin(); 
+		required_fields_it != required_fields.end();
+		required_fields_it++)
+	{
+		std::string required_field_name = *required_fields_it;
+		if( ! getPayload().has(required_field_name))
+		{
+			return false; // a required field was not found
+		}
+	}
+	return true; // all required fields were found
+}
+
 bool LLNotification::isEquivalentTo(LLNotificationPtr that) const
 {
 	if (this->mTemplatep->mName != that->mTemplatep->mName) 
@@ -565,22 +583,11 @@ bool LLNotification::isEquivalentTo(LLNotificationPtr that) const
 	}
 	if (this->mTemplatep->mUnique)
 	{
-		const LLSD& these_substitutions = this->getSubstitutions();
-		const LLSD& those_substitutions = that->getSubstitutions();
-
 		// highlander bit sez there can only be one of these
-		for (std::vector<std::string>::const_iterator it = mTemplatep->mUniqueContext.begin(), end_it = mTemplatep->mUniqueContext.end();
-			it != end_it;
-			++it)
-		{
-			if (these_substitutions.get(*it).asString() != those_substitutions.get(*it).asString())
-			{
-				return false;
-			}
-		}
-		return true;
+		return
+			this->payloadContainsAll(that->mTemplatep->mUniqueContext) &&
+			that->payloadContainsAll(this->mTemplatep->mUniqueContext);
 	}
-
 	return false; 
 }
 
@@ -1484,14 +1491,7 @@ std::ostream& operator<<(std::ostream& s, const LLNotification& notification)
 void LLPostponedNotification::onCachedNameReceived(const LLUUID& id, const std::string& first,
 		const std::string& last, bool is_group)
 {
-	mName = first + " " + last;
-
-	LLStringUtil::trim(mName);
-	if (mName.empty())
-	{
-		llwarns << "Empty name received for Id: " << id << llendl;
-		mName = SYSTEM_FROM;
-	}
+	gCacheName->getFullName(id, mName);
 	modifyNotificationParams();
 	LLNotifications::instance().add(mParams);
 	cleanup();

@@ -13,10 +13,10 @@
 		Faible
 	</text>
 	<text name="ShadersPrefText2">
-		Moyenne
+		Moyen
 	</text>
 	<text name="ShadersPrefText3">
-		Élevée
+		Élevé
 	</text>
 	<text name="ShadersPrefText4">
 		Ultra
@@ -49,7 +49,10 @@
 			m
 		</text>
 		<slider label="Nombre de particules max. :" label_width="147" name="MaxParticleCount"/>
-		<slider label="Nb max d&apos;avatars non éloignés en 2D :" name="MaxNumberAvatarDrawn"/>
+		<slider label="Limite d&apos;affichage max des avatars :" name="MaxAvatarDrawDistance"/>
+		<text name="DrawDistanceMeterText3">
+			m
+		</text>
 		<slider label="Qualité post-traitement :" name="RenderPostProcess"/>
 		<text name="MeshDetailText">
 			Détails des rendus :

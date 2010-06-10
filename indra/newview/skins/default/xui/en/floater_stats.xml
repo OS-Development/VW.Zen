@@ -361,7 +361,8 @@
 			<stat_view
 			   name="physicsdetail"
 			   label="Physics Details"
-			   show_label="true">
+			   show_label="true"
+			   display_children="false">
 			  <stat_bar
 				 name="physicspinnedtasks"
 				 label="Pinned Objects"

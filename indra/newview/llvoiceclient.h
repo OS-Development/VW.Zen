@@ -2,25 +2,30 @@
  * @file llvoiceclient.h
  * @brief Declaration of LLVoiceClient class which is the interface to the voice client process.
  *
- * $LicenseInfo:firstyear=2001&license=viewerlgpl$
+ * $LicenseInfo:firstyear=2001&license=viewergpl$
+ * 
+ * Copyright (c) 2001-2009, Linden Research, Inc.
+ * 
  * Second Life Viewer Source Code
- * Copyright (C) 2010, Linden Research, Inc.
+ * The source code in this file ("Source Code") is provided by Linden Lab
+ * to you under the terms of the GNU General Public License, version 2.0
+ * ("GPL"), unless you have obtained a separate licensing agreement
+ * ("Other License"), formally executed by you and Linden Lab.  Terms of
+ * the GPL can be found in doc/GPL-license.txt in this distribution, or
+ * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
  * 
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation;
- * version 2.1 of the License only.
+ * There are special exceptions to the terms and conditions of the GPL as
+ * it is applied to this Source Code. View the full text of the exception
+ * in the file doc/FLOSS-exception.txt in this software distribution, or
+ * online at http://secondlifegrid.net/programs/open_source/licensing/flossexception
  * 
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
+ * By copying, modifying or distributing this software, you acknowledge
+ * that you have read and understood your obligations described above,
+ * and agree to abide by those obligations.
  * 
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
- * 
- * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
+ * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
+ * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
+ * COMPLETENESS OR PERFORMANCE.
  * $/LicenseInfo$
  */
 #ifndef LL_VOICE_CLIENT_H
@@ -37,7 +42,6 @@ class LLVOAvatar;
 #include "llviewerregion.h"
 #include "llcallingcard.h"   // for LLFriendObserver
 #include "llsecapi.h"
-#include "llcontrol.h"
 
 // devices
 
@@ -48,7 +52,7 @@ class LLVoiceClientParticipantObserver
 {
 public:
 	virtual ~LLVoiceClientParticipantObserver() { }
-	virtual void onParticipantsChanged() = 0;
+	virtual void onChange() = 0;
 };
 
 
@@ -105,7 +109,7 @@ public:
 	
 	virtual void updateSettings()=0; // call after loading settings and whenever they change
 	
-	virtual bool isVoiceWorking() const = 0; // connected to a voice server and voice channel
+	virtual bool isVoiceWorking()=0; // connected to a voice server and voice channel
 
 	virtual const LLVoiceVersionInfo& getVersion()=0;
 	
@@ -213,6 +217,8 @@ public:
 	//////////////////////////
 	/// @name nearby speaker accessors
 	//@{
+
+
 	virtual BOOL getVoiceEnabled(const LLUUID& id)=0;		// true if we've received data for this avatar
 	virtual std::string getDisplayName(const LLUUID& id)=0;
 	virtual BOOL isOnlineSIP(const LLUUID &id)=0;	
@@ -255,63 +261,6 @@ public:
 };
 
 
-//////////////////////////////////
-/// @class LLVoiceEffectObserver
-class LLVoiceEffectObserver
-{
-public:
-	virtual ~LLVoiceEffectObserver() { }
-	virtual void onVoiceEffectChanged(bool effect_list_updated) = 0;
-};
-
-typedef std::multimap<const std::string, const LLUUID, LLDictionaryLess> voice_effect_list_t;
-
-//////////////////////////////////
-/// @class LLVoiceEffectInterface
-/// @brief Voice effect module interface
-///
-/// Voice effect modules should provide an implementation for this interface.
-/////////////////////////////////
-
-class LLVoiceEffectInterface
-{
-public:
-	LLVoiceEffectInterface() {}
-	virtual ~LLVoiceEffectInterface() {}
-
-	//////////////////////////
-	/// @name Accessors
-	//@{
-	virtual bool setVoiceEffect(const LLUUID& id) = 0;
-	virtual const LLUUID getVoiceEffect() = 0;
-	virtual LLSD getVoiceEffectProperties(const LLUUID& id) = 0;
-
-	virtual void refreshVoiceEffectLists(bool clear_lists) = 0;
-	virtual const voice_effect_list_t &getVoiceEffectList() const = 0;
-	virtual const voice_effect_list_t &getVoiceEffectTemplateList() const = 0;
-	//@}
-
-	//////////////////////////////
-	/// @name Status notification
-	//@{
-	virtual void addObserver(LLVoiceEffectObserver* observer) = 0;
-	virtual void removeObserver(LLVoiceEffectObserver* observer) = 0;
-	//@}
-
-	//////////////////////////////
-	/// @name Preview buffer
-	//@{
-	virtual void enablePreviewBuffer(bool enable) = 0;
-	virtual void recordPreviewBuffer() = 0;
-	virtual void playPreviewBuffer(const LLUUID& effect_id = LLUUID::null) = 0;
-	virtual void stopPreviewBuffer() = 0;
-
-	virtual bool isPreviewRecording() = 0;
-	virtual bool isPreviewPlaying() = 0;
-	//@}
-};
-
-
 class LLVoiceClient: public LLSingleton<LLVoiceClient>
 {
 	LOG_CLASS(LLVoiceClient);
@@ -332,7 +281,7 @@ public:
 
 	void updateSettings(); // call after loading settings and whenever they change
 
-	bool isVoiceWorking() const; // connected to a voice server and voice channel
+	bool isVoiceWorking(); // connected to a voice server and voice channel
 
 	// tuning
 	void tuningStart();
@@ -454,23 +403,10 @@ public:
 	void removeObserver(LLVoiceClientParticipantObserver* observer);
 	
 	std::string sipURIFromID(const LLUUID &id);	
-
-	//////////////////////////
-	/// @name Voice effects
-	//@{
-	bool getVoiceEffectEnabled() const { return mVoiceEffectEnabled; };
-	LLUUID getVoiceEffectDefault() const { return LLUUID(mVoiceEffectDefault); };
-
-	// Returns NULL if voice effects are not supported, or not enabled.
-	LLVoiceEffectInterface* getVoiceEffectInterface() const;
-	//@}
-
+		
 protected:
 	LLVoiceModuleInterface* mVoiceModule;
 	LLPumpIO *m_servicePump;
-
-	LLCachedControl<bool> mVoiceEffectEnabled;
-	LLCachedControl<std::string> mVoiceEffectDefault;
 };
 
 /**

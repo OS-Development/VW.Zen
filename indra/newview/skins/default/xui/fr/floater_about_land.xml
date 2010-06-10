@@ -220,10 +220,10 @@ ou divisé.
 				[COUNT] sur [MAX] ([DELETED] seront supprimés)
 			</panel.string>
 			<text name="parcel_object_bonus">
-				Facteur Bonus objets : [BONUS]
+				Facteur Bonus Objets : [BONUS]
 			</text>
 			<text name="Simulator primitive usage:">
-				Utilisation des primitives :
+				Utilisation des prims :
 			</text>
 			<text left="214" name="objects_available" width="230">
 				[COUNT] sur [MAX] ([AVAILABLE] disponibles)
