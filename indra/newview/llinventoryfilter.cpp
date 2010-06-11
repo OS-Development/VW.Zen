@@ -3,31 +3,25 @@
 * @brief Support for filtering your inventory to only display a subset of the
 * available items.
 *
-* $LicenseInfo:firstyear=2005&license=viewergpl$
-* 
-* Copyright (c) 2005-2009, Linden Research, Inc.
-* 
+* $LicenseInfo:firstyear=2005&license=viewerlgpl$
 * Second Life Viewer Source Code
-* The source code in this file ("Source Code") is provided by Linden Lab
-* to you under the terms of the GNU General Public License, version 2.0
-* ("GPL"), unless you have obtained a separate licensing agreement
-* ("Other License"), formally executed by you and Linden Lab.  Terms of
-* the GPL can be found in doc/GPL-license.txt in this distribution, or
-* online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+* Copyright (C) 2010, Linden Research, Inc.
 * 
-* There are special exceptions to the terms and conditions of the GPL as
-* it is applied to this Source Code. View the full text of the exception
-* in the file doc/FLOSS-exception.txt in this software distribution, or
-* online at
-* http://secondlifegrid.net/programs/open_source/licensing/flossexception
+* This library is free software; you can redistribute it and/or
+* modify it under the terms of the GNU Lesser General Public
+* License as published by the Free Software Foundation;
+* version 2.1 of the License only.
 * 
-* By copying, modifying or distributing this software, you acknowledge
-* that you have read and understood your obligations described above,
-* and agree to abide by those obligations.
+* This library is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+* Lesser General Public License for more details.
 * 
-* ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
-* WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
-* COMPLETENESS OR PERFORMANCE.
+* You should have received a copy of the GNU Lesser General Public
+* License along with this library; if not, write to the Free Software
+* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+* 
+* Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
 * $/LicenseInfo$
 */
 #include "llviewerprecompiledheaders.h"
@@ -49,6 +43,7 @@
 LLInventoryFilter::FilterOps::FilterOps() :
 	mFilterObjectTypes(0xffffffffffffffffULL),
 	mFilterCategoryTypes(0xffffffffffffffffULL),
+	mFilterWearableTypes(0xffffffffffffffffULL),
 	mMinDate(time_min()),
 	mMaxDate(time_max()),
 	mHoursAgo(0),
@@ -56,7 +51,7 @@ LLInventoryFilter::FilterOps::FilterOps() :
 	mPermissions(PERM_NONE),
 	mFilterTypes(FILTERTYPE_OBJECT),
 	mFilterUUID(LLUUID::null),
-	mIncludeLinks(TRUE)
+	mFilterLinks(FILTERLINK_INCLUDE_LINKS)
 {
 }
 
@@ -103,8 +98,10 @@ BOOL LLInventoryFilter::check(const LLFolderViewItem* item)
 
 	const BOOL passed_filtertype = checkAgainstFilterType(item);
 	const BOOL passed_permissions = checkAgainstPermissions(item);
+	const BOOL passed_filterlink = checkAgainstFilterLinks(item);
 	const BOOL passed = (passed_filtertype &&
-						 passed_permissions && 
+						 passed_permissions &&
+						 passed_filterlink &&
 						 (mFilterSubString.size() == 0 || mSubStringMatchOffset != std::string::npos));
 
 	return passed;
@@ -139,8 +136,6 @@ BOOL LLInventoryFilter::checkAgainstFilterType(const LLFolderViewItem* item) con
 			return FALSE;
 		}
 	}
-	//
-	////////////////////////////////////////////////////////////////////////////////
 	
 	
 	////////////////////////////////////////////////////////////////////////////////
@@ -164,8 +159,6 @@ BOOL LLInventoryFilter::checkAgainstFilterType(const LLFolderViewItem* item) con
 		if ((1LL << cat->getPreferredType() & mFilterOps.mFilterCategoryTypes) == U64(0))
 			return FALSE;
 	}
-	//
-	////////////////////////////////////////////////////////////////////////////////
 
 
 	////////////////////////////////////////////////////////////////////////////////
@@ -178,8 +171,6 @@ BOOL LLInventoryFilter::checkAgainstFilterType(const LLFolderViewItem* item) con
 		if (object->getLinkedUUID() != mFilterOps.mFilterUUID)
 			return FALSE;
 	}
-	//
-	////////////////////////////////////////////////////////////////////////////////
 
 
 	////////////////////////////////////////////////////////////////////////////////
@@ -201,8 +192,18 @@ BOOL LLInventoryFilter::checkAgainstFilterType(const LLFolderViewItem* item) con
 			listener->getCreationDate() > mFilterOps.mMaxDate)
 			return FALSE;
 	}
-	//
+
 	////////////////////////////////////////////////////////////////////////////////
+	// FILTERTYPE_WEARABLE
+	// Pass if this item is a wearable of the appropriate type
+	if (filterTypes & FILTERTYPE_WEARABLE)
+	{
+		LLWearableType::EType type = listener->getWearableType();
+		if ((0x1LL << type & mFilterOps.mFilterWearableTypes) == 0)
+		{
+			return FALSE;
+		}
+	}
 
 	return TRUE;
 }
@@ -224,6 +225,23 @@ BOOL LLInventoryFilter::checkAgainstPermissions(const LLFolderViewItem* item) co
 	return (perm & mFilterOps.mPermissions) == mFilterOps.mPermissions;
 }
 
+BOOL LLInventoryFilter::checkAgainstFilterLinks(const LLFolderViewItem* item) const
+{
+	const LLFolderViewEventListener* listener = item->getListener();
+	if (!listener) return TRUE;
+
+	const LLUUID object_id = listener->getUUID();
+	const LLInventoryObject *object = gInventory.getObject(object_id);
+	if (!object) return TRUE;
+
+	const BOOL is_link = object->getIsLinkType();
+	if (is_link && (mFilterOps.mFilterLinks == FILTERLINK_EXCLUDE_LINKS))
+		return FALSE;
+	if (!is_link && (mFilterOps.mFilterLinks == FILTERLINK_ONLY_LINKS))
+		return FALSE;
+	return TRUE;
+}
+
 const std::string& LLInventoryFilter::getFilterSubString(BOOL trim) const
 {
 	return mFilterSubString;
@@ -238,7 +256,10 @@ std::string::size_type LLInventoryFilter::getStringMatchOffset() const
 BOOL LLInventoryFilter::isNotDefault() const
 {
 	return mFilterOps.mFilterObjectTypes != mDefaultFilterOps.mFilterObjectTypes 
+		|| mFilterOps.mFilterCategoryTypes != mDefaultFilterOps.mFilterCategoryTypes 
+		|| mFilterOps.mFilterWearableTypes != mDefaultFilterOps.mFilterWearableTypes 
 		|| mFilterOps.mFilterTypes != FILTERTYPE_OBJECT
+		|| mFilterOps.mFilterLinks != FILTERLINK_INCLUDE_LINKS
 		|| mFilterSubString.size() 
 		|| mFilterOps.mPermissions != mDefaultFilterOps.mPermissions
 		|| mFilterOps.mMinDate != mDefaultFilterOps.mMinDate 
@@ -249,7 +270,10 @@ BOOL LLInventoryFilter::isNotDefault() const
 BOOL LLInventoryFilter::isActive() const
 {
 	return mFilterOps.mFilterObjectTypes != 0xffffffffffffffffULL
+		|| mFilterOps.mFilterCategoryTypes != 0xffffffffffffffffULL
+		|| mFilterOps.mFilterWearableTypes != 0xffffffffffffffffULL
 		|| mFilterOps.mFilterTypes != FILTERTYPE_OBJECT
+		|| mFilterOps.mFilterLinks != FILTERLINK_INCLUDE_LINKS
 		|| mFilterSubString.size() 
 		|| mFilterOps.mPermissions != PERM_NONE 
 		|| mFilterOps.mMinDate != time_min()
@@ -322,7 +346,35 @@ void LLInventoryFilter::setFilterCategoryTypes(U64 types)
 			setModified(FILTER_MORE_RESTRICTIVE);
 		}
 	}
-	mFilterOps.mFilterTypes |= FILTERTYPE_CATEGORY;
+	mFilterOps.mFilterTypes |= FILTERTYPE_OBJECT;
+}
+
+void LLInventoryFilter::setFilterWearableTypes(U64 types)
+{
+	if (mFilterOps.mFilterWearableTypes != types)
+	{
+		// keep current items only if no type bits getting turned off
+		BOOL fewer_bits_set = (mFilterOps.mFilterWearableTypes & ~types);
+		BOOL more_bits_set = (~mFilterOps.mFilterWearableTypes & types);
+
+		mFilterOps.mFilterWearableTypes = types;
+		if (more_bits_set && fewer_bits_set)
+		{
+			// neither less or more restrive, both simultaneously
+			// so we need to filter from scratch
+			setModified(FILTER_RESTART);
+		}
+		else if (more_bits_set)
+		{
+			// target is only one of all requested types so more type bits == less restrictive
+			setModified(FILTER_LESS_RESTRICTIVE);
+		}
+		else if (fewer_bits_set)
+		{
+			setModified(FILTER_MORE_RESTRICTIVE);
+		}
+	}
+	mFilterOps.mFilterTypes |= FILTERTYPE_WEARABLE;
 }
 
 void LLInventoryFilter::setFilterUUID(const LLUUID& object_id)
@@ -372,6 +424,11 @@ void LLInventoryFilter::setFilterSubString(const std::string& string)
 			mFilterOps.mFilterTypes &= ~FILTERTYPE_UUID;
 			mFilterOps.mFilterUUID == LLUUID::null;
 			setModified(FILTER_RESTART);
+		}
+
+		// Cancel out filter links once the search string is modified
+		{
+			mFilterOps.mFilterLinks = FILTERLINK_INCLUDE_LINKS;
 		}
 	}
 }
@@ -471,16 +528,17 @@ void LLInventoryFilter::setHoursAgo(U32 hours)
 	mFilterOps.mFilterTypes |= FILTERTYPE_DATE;
 }
 
-void LLInventoryFilter::setIncludeLinks(BOOL include_links)
+void LLInventoryFilter::setFilterLinks(U64 filter_links)
 {
-	if (mFilterOps.mIncludeLinks != include_links)
+	if (mFilterOps.mFilterLinks != filter_links)
 	{
-		if (!mFilterOps.mIncludeLinks)
-			setModified(FILTER_LESS_RESTRICTIVE);
-		else
+		if (mFilterOps.mFilterLinks == FILTERLINK_EXCLUDE_LINKS ||
+			mFilterOps.mFilterLinks == FILTERLINK_ONLY_LINKS)
 			setModified(FILTER_MORE_RESTRICTIVE);
+		else
+			setModified(FILTER_LESS_RESTRICTIVE);
 	}
-	mFilterOps.mIncludeLinks = include_links;
+	mFilterOps.mFilterLinks = filter_links;
 }
 
 void LLInventoryFilter::setShowFolderState(EFolderShow state)
@@ -858,9 +916,9 @@ U32 LLInventoryFilter::getHoursAgo() const
 { 
 	return mFilterOps.mHoursAgo; 
 }
-BOOL LLInventoryFilter::getIncludeLinks() const
+U64 LLInventoryFilter::getFilterLinks() const
 {
-	return mFilterOps.mIncludeLinks;
+	return mFilterOps.mFilterLinks;
 }
 LLInventoryFilter::EFolderShow LLInventoryFilter::getShowFolderState() const
 { 

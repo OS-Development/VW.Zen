@@ -13,20 +13,17 @@
 		Attendre :
 	</floater.string>
 	<floater.string name="stop_txt">
-		Stop
+		Arrêter
 	</floater.string>
 	<floater.string name="preview_txt">
 		Prévisualiser
 	</floater.string>
 	<floater.string name="none_text">
-		-- Aucune --
+		- Aucun choix -
 	</floater.string>
 	<floater.string name="Title">
 		Geste : [NAME]
 	</floater.string>
-	<text name="name_text">
-		Nom :
-	</text>
 	<text name="desc_label">
 		Description :
 	</text>
@@ -45,7 +42,12 @@
 	<text name="library_label">
 		Bibliothèque :
 	</text>
-	<scroll_list name="library_list"/>
+	<scroll_list name="library_list">
+		<scroll_list.rows name="action_animation" value="Animation"/>
+		<scroll_list.rows name="action_sound" value="Son"/>
+		<scroll_list.rows name="action_chat" value="Chat"/>
+		<scroll_list.rows name="action_wait" value="Attente"/>
+	</scroll_list>
 	<button label="Ajouter &gt;&gt;" name="add_btn"/>
 	<text name="steps_label">
 		Étapes :
@@ -53,12 +55,15 @@
 	<button label="Haut" name="up_btn"/>
 	<button label="Bas" name="down_btn"/>
 	<button label="Supprimer" name="delete_btn"/>
+	<text name="options_text">
+		(options)
+	</text>
 	<radio_group name="animation_trigger_type">
 		<radio_item label="Lancer" name="start"/>
 		<radio_item label="Arrêter" name="stop"/>
 	</radio_group>
 	<check_box label="jusqu&apos;à la fin des animations" name="wait_anim_check"/>
-	<check_box label="temps (sec)" name="wait_time_check"/>
+	<check_box label="temps (sec) :" name="wait_time_check"/>
 	<line_editor left_delta="130" name="wait_time_editor"/>
 	<text name="help_label">
 		Toutes les étapes ont lieu en même temps si vous n&apos;ajoutez pas d&apos;étapes d&apos;attente.
