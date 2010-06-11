@@ -2,31 +2,25 @@
  * @file llviewertexteditor.cpp
  * @brief Text editor widget to let users enter a multi-line document.
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -90,7 +84,7 @@ public:
 	}
 	static void processForeignLandmark(LLLandmark* landmark,
 			const LLUUID& object_id, const LLUUID& notecard_inventory_id,
-			LLInventoryItem* item)
+			LLPointer<LLInventoryItem> item_ptr)
 	{
 		LLVector3d global_pos;
 		landmark->getGlobalPos(global_pos);
@@ -103,8 +97,16 @@ public:
 		}
 		else
 		{
-			LLPointer<LLEmbeddedLandmarkCopied> cb = new LLEmbeddedLandmarkCopied();
-			copy_inventory_from_notecard(object_id, notecard_inventory_id, item, gInventoryCallbacks.registerCB(cb));
+			if (item_ptr.isNull())
+			{
+				// check to prevent a crash. See EXT-8459.
+				llwarns << "Passed handle contains a dead inventory item. Most likely notecard has been closed and embedded item was destroyed." << llendl;
+			}
+			else
+			{
+				LLPointer<LLEmbeddedLandmarkCopied> cb = new LLEmbeddedLandmarkCopied();
+				copy_inventory_from_notecard(object_id, notecard_inventory_id, item_ptr.get(), gInventoryCallbacks.registerCB(cb));
+			}
 		}
 	}
 };
@@ -300,14 +302,14 @@ public:
 
 	void	markSaved();
 	
-	static LLInventoryItem* getEmbeddedItem(llwchar ext_char); // returns item from static list
+	static LLPointer<LLInventoryItem> getEmbeddedItemPtr(llwchar ext_char); // returns pointer to item from static list
 	static BOOL getEmbeddedItemSaved(llwchar ext_char); // returns whether item from static list is saved
 
 private:
 
 	struct embedded_info_t
 	{
-		LLPointer<LLInventoryItem> mItem;
+		LLPointer<LLInventoryItem> mItemPtr;
 		BOOL mSaved;
 	};
 	typedef std::map<llwchar, embedded_info_t > item_map_t;
@@ -378,7 +380,7 @@ BOOL LLEmbeddedItems::insertEmbeddedItem( LLInventoryItem* item, llwchar* ext_ch
 		++wc_emb;
 	}
 
-	sEntries[wc_emb].mItem = item;
+	sEntries[wc_emb].mItemPtr = item;
 	sEntries[wc_emb].mSaved = is_new ? FALSE : TRUE;
 	*ext_char = wc_emb;
 	mEmbeddedUsedChars.insert(wc_emb);
@@ -400,14 +402,14 @@ BOOL LLEmbeddedItems::removeEmbeddedItem( llwchar ext_char )
 }
 	
 // static
-LLInventoryItem* LLEmbeddedItems::getEmbeddedItem(llwchar ext_char)
+LLPointer<LLInventoryItem> LLEmbeddedItems::getEmbeddedItemPtr(llwchar ext_char)
 {
 	if( ext_char >= LLTextEditor::FIRST_EMBEDDED_CHAR && ext_char <= LLTextEditor::LAST_EMBEDDED_CHAR )
 	{
 		item_map_t::iterator iter = sEntries.find(ext_char);
 		if (iter != sEntries.end())
 		{
-			return iter->second.mItem;
+			return iter->second.mItemPtr;
 		}
 	}
 	return NULL;
@@ -505,7 +507,7 @@ BOOL LLEmbeddedItems::hasEmbeddedItem(llwchar ext_char)
 
 LLUIImagePtr LLEmbeddedItems::getItemImage(llwchar ext_char) const
 {
-	LLInventoryItem* item = getEmbeddedItem(ext_char);
+	LLInventoryItem* item = getEmbeddedItemPtr(ext_char);
 	if (item)
 	{
 		const char* img_name = "";
@@ -567,7 +569,7 @@ void LLEmbeddedItems::getEmbeddedItemList( std::vector<LLPointer<LLInventoryItem
 	for (std::set<llwchar>::iterator iter = mEmbeddedUsedChars.begin(); iter != mEmbeddedUsedChars.end(); ++iter)
 	{
 		llwchar wc = *iter;
-		LLPointer<LLInventoryItem> item = getEmbeddedItem(wc);
+		LLPointer<LLInventoryItem> item = getEmbeddedItemPtr(wc);
 		if (item)
 		{
 			items.push_back(item);
@@ -698,7 +700,7 @@ BOOL LLViewerTextEditor::handleMouseDown(S32 x, S32 y, MASK mask)
 			{
 				wc = getWText()[mCursorPos];
 			}
-			LLInventoryItem* item_at_pos = LLEmbeddedItems::getEmbeddedItem(wc);
+			LLPointer<LLInventoryItem> item_at_pos = LLEmbeddedItems::getEmbeddedItemPtr(wc);
 			if (item_at_pos)
 			{
 				mDragItem = item_at_pos;
@@ -1019,7 +1021,7 @@ llwchar LLViewerTextEditor::pasteEmbeddedItem(llwchar ext_char)
 	{
 		return ext_char; // already exists in my list
 	}
-	LLInventoryItem* item = LLEmbeddedItems::getEmbeddedItem(ext_char);
+	LLInventoryItem* item = LLEmbeddedItems::getEmbeddedItemPtr(ext_char);
 	if (item)
 	{
 		// Add item to my list and return new llwchar associated with it
@@ -1053,7 +1055,7 @@ void LLViewerTextEditor::findEmbeddedItemSegments(S32 start, S32 end)
 			&& embedded_char <= LAST_EMBEDDED_CHAR 
 			&& mEmbeddedItemList->hasEmbeddedItem(embedded_char) )
 		{
-			LLInventoryItem* itemp = mEmbeddedItemList->getEmbeddedItem(embedded_char);
+			LLInventoryItem* itemp = mEmbeddedItemList->getEmbeddedItemPtr(embedded_char);
 			LLUIImagePtr image = mEmbeddedItemList->getItemImage(embedded_char);
 			insertSegment(new LLEmbeddedItemSegment(idx, image, itemp, *this));
 		}
@@ -1065,7 +1067,7 @@ BOOL LLViewerTextEditor::openEmbeddedItemAtPos(S32 pos)
 	if( pos < getLength())
 	{
 		llwchar wc = getWText()[pos];
-		LLInventoryItem* item = LLEmbeddedItems::getEmbeddedItem( wc );
+		LLPointer<LLInventoryItem> item = LLEmbeddedItems::getEmbeddedItemPtr( wc );
 		if( item )
 		{
 			BOOL saved = LLEmbeddedItems::getEmbeddedItemSaved( wc );
@@ -1083,7 +1085,7 @@ BOOL LLViewerTextEditor::openEmbeddedItemAtPos(S32 pos)
 }
 
 
-BOOL LLViewerTextEditor::openEmbeddedItem(LLInventoryItem* item, llwchar wc)
+BOOL LLViewerTextEditor::openEmbeddedItem(LLPointer<LLInventoryItem> item, llwchar wc)
 {
 
 	switch( item->getType() )
@@ -1151,17 +1153,17 @@ void LLViewerTextEditor::openEmbeddedSound( LLInventoryItem* item, llwchar wc )
 }
 
 
-void LLViewerTextEditor::openEmbeddedLandmark( LLInventoryItem* item, llwchar wc )
+void LLViewerTextEditor::openEmbeddedLandmark( LLPointer<LLInventoryItem> item_ptr, llwchar wc )
 {
-	if (!item)
+	if (item_ptr.isNull())
 		return;
 
-	LLLandmark* landmark = gLandmarkList.getAsset(item->getAssetUUID(),
-			boost::bind(&LLEmbeddedLandmarkCopied::processForeignLandmark, _1, mObjectID, mNotecardInventoryID, item));
+	LLLandmark* landmark = gLandmarkList.getAsset(item_ptr->getAssetUUID(),
+			boost::bind(&LLEmbeddedLandmarkCopied::processForeignLandmark, _1, mObjectID, mNotecardInventoryID, item_ptr));
 	if (landmark)
 	{
 		LLEmbeddedLandmarkCopied::processForeignLandmark(landmark, mObjectID,
-				mNotecardInventoryID, item);
+				mNotecardInventoryID, item_ptr);
 	}
 }
 
@@ -1220,7 +1222,7 @@ bool LLViewerTextEditor::onCopyToInvDialog(const LLSD& notification, const LLSD&
 	{
 		LLUUID item_id = notification["payload"]["item_id"].asUUID();
 		llwchar wc = llwchar(notification["payload"]["item_wc"].asInteger());
-		LLInventoryItem* itemp = LLEmbeddedItems::getEmbeddedItem(wc);
+		LLInventoryItem* itemp = LLEmbeddedItems::getEmbeddedItemPtr(wc);
 		if (itemp)
 			copyInventory(itemp);
 	}
