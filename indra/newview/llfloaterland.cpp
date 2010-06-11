@@ -2,31 +2,25 @@
  * @file llfloaterland.cpp
  * @brief "About Land" floater, allowing display and editing of land parcel properties.
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -58,6 +52,7 @@
 #include "llpanellandaudio.h"
 #include "llpanellandmedia.h"
 #include "llradiogroup.h"
+#include "llresmgr.h"					// getMonetaryString
 #include "llscrolllistctrl.h"
 #include "llscrolllistitem.h"
 #include "llscrolllistcell.h"
@@ -739,7 +734,8 @@ void LLPanelLandGeneral::refresh()
 				cost_per_sqm = (F32)parcel->getSalePrice() / (F32)area;
 			}
 
-			mSaleInfoForSale1->setTextArg("[PRICE]", llformat("%d", parcel->getSalePrice()));
+			S32 price = parcel->getSalePrice();
+			mSaleInfoForSale1->setTextArg("[PRICE]", LLResMgr::getInstance()->getMonetaryString(price));
 			mSaleInfoForSale1->setTextArg("[PRICE_PER_SQM]", llformat("%.1f", cost_per_sqm));
 			if (can_be_sold)
 			{
@@ -1940,8 +1936,6 @@ BOOL LLPanelLandOptions::postBuild()
 	mLandingTypeCombo = getChild<LLComboBox>( "landing type");
 	childSetCommitCallback("landing type", onCommitAny, this);
 
-	getChild<LLTextureCtrl>("snapshot_ctrl")->setFallbackImageName("default_land_picture.j2c");
-
 	return TRUE;
 }
 
@@ -2088,7 +2082,8 @@ void LLPanelLandOptions::refresh()
 			LLStyle::Params style;
 			style.image(LLUI::getUIImage(gFloaterView->getParentFloater(this)->getString("maturity_icon_moderate")));
 			LLCheckBoxWithTBAcess* fullaccess_mature_ctrl = (LLCheckBoxWithTBAcess*)mMatureCtrl;
-			fullaccess_mature_ctrl->getTextBox()->setText(std::string("icon"),style);
+			fullaccess_mature_ctrl->getTextBox()->setText(LLStringExplicit(""));
+			fullaccess_mature_ctrl->getTextBox()->appendImageSegment(style);
 			fullaccess_mature_ctrl->getTextBox()->appendText(getString("mature_check_mature"), false);
 			fullaccess_mature_ctrl->setToolTip(getString("mature_check_mature_tooltip"));
 			fullaccess_mature_ctrl->reshape(fullaccess_mature_ctrl->getRect().getWidth(), fullaccess_mature_ctrl->getRect().getHeight(), FALSE);
@@ -3022,8 +3017,9 @@ void insert_maturity_into_textbox(LLTextBox* target_textbox, LLFloater* names_fl
 	std::string text_after_rating = str_to_parse.substr(maturity_pos + MATURITY.length());
 
 	target_textbox->setText(text_before_rating);
-	// any text may be here instead of "icon" except ""
-	target_textbox->appendText(std::string("icon"), false, style);
+
+	target_textbox->appendImageSegment(style);
+
 	target_textbox->appendText(LLViewerParcelMgr::getInstance()->getSelectionRegion()->getSimAccessString(), false);
 	target_textbox->appendText(text_after_rating, false);
 }
