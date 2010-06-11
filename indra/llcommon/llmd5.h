@@ -1,31 +1,25 @@
 /** 
  * @file llmd5.h
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -95,6 +89,7 @@ public:
   void  update     (const uint1 *input, const uint4 input_length);
   void  update     (std::istream& stream);
   void  update     (FILE *file);
+  void  update     (const std::string& str);
   void  finalize   ();
 
 // constructors for special circumstances.  All these constructors finalize
@@ -105,11 +100,10 @@ public:
   LLMD5              (const unsigned char *string, const unsigned int number);
   
 // methods to acquire finalized result
-  void				raw_digest(unsigned char *array);	// provide 16-byte array for binary data
-  void				hex_digest(char *string);			// provide 33-byte array for ascii-hex string
+  void				raw_digest(unsigned char *array) const;	// provide 16-byte array for binary data
+  void				hex_digest(char *string) const;			// provide 33-byte array for ascii-hex string
+
   friend std::ostream&   operator<< (std::ostream&, LLMD5 context);
-
-
 
 private:
 
@@ -130,5 +124,8 @@ private:
   static void decode    (uint4 *dest, const uint1 *src, const uint4 length);
 
 };
+
+LL_COMMON_API bool operator==(const LLMD5& a, const LLMD5& b);
+LL_COMMON_API bool operator!=(const LLMD5& a, const LLMD5& b);
 
 #endif // LL_LLMD5_H

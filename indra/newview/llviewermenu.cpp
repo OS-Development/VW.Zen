@@ -2,31 +2,25 @@
  * @file llviewermenu.cpp
  * @brief Builds menus out of items.
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -108,8 +102,11 @@
 #include "llappearancemgr.h"
 #include "lltrans.h"
 #include "lleconomy.h"
+#include "boost/unordered_map.hpp"
 
 using namespace LLVOAvatarDefines;
+
+static boost::unordered_map<std::string, LLStringExplicit> sDefaultItemLabels;
 
 BOOL enable_land_build(void*);
 BOOL enable_object_build(void*);
@@ -2403,31 +2400,55 @@ void handle_object_touch()
 		msg->sendMessage(object->getRegion()->getHost());
 }
 
-// One object must have touch sensor
-class LLObjectEnableTouch : public view_listener_t
+static void init_default_item_label(const std::string& item_name)
 {
-	bool handleEvent(const LLSD& userdata)
+	boost::unordered_map<std::string, LLStringExplicit>::iterator it = sDefaultItemLabels.find(item_name);
+	if (it == sDefaultItemLabels.end())
 	{
-		LLViewerObject* obj = LLSelectMgr::getInstance()->getSelection()->getPrimaryObject();
-		
-		bool new_value = obj && obj->flagHandleTouch();
-
-		// Update label based on the node touch name if available.
-		std::string touch_text;
-		LLSelectNode* node = LLSelectMgr::getInstance()->getSelection()->getFirstRootNode();
-		if (node && node->mValid && !node->mTouchName.empty())
+		// *NOTE: This will not work for items of type LLMenuItemCheckGL because they return boolean value
+		//       (doesn't seem to matter much ATM).
+		LLStringExplicit default_label = gMenuHolder->childGetValue(item_name).asString();
+		if (!default_label.empty())
 		{
-			touch_text = node->mTouchName;
+			sDefaultItemLabels.insert(std::pair<std::string, LLStringExplicit>(item_name, default_label));
 		}
-		else
-		{
-			touch_text = userdata.asString();
-		}
-		gMenuHolder->childSetText("Object Touch", touch_text);
-		gMenuHolder->childSetText("Attachment Object Touch", touch_text);
-
-		return new_value;
 	}
+}
+
+static LLStringExplicit get_default_item_label(const std::string& item_name)
+{
+	LLStringExplicit res("");
+	boost::unordered_map<std::string, LLStringExplicit>::iterator it = sDefaultItemLabels.find(item_name);
+	if (it != sDefaultItemLabels.end())
+	{
+		res = it->second;
+	}
+
+	return res;
+}
+
+
+bool enable_object_touch(LLUICtrl* ctrl)
+{
+	LLViewerObject* obj = LLSelectMgr::getInstance()->getSelection()->getPrimaryObject();
+
+	bool new_value = obj && obj->flagHandleTouch();
+
+	std::string item_name = ctrl->getName();
+	init_default_item_label(item_name);
+
+	// Update label based on the node touch name if available.
+	LLSelectNode* node = LLSelectMgr::getInstance()->getSelection()->getFirstRootNode();
+	if (node && node->mValid && !node->mTouchName.empty())
+	{
+		gMenuHolder->childSetText(item_name, node->mTouchName);
+	}
+	else
+	{
+		gMenuHolder->childSetText(item_name, get_default_item_label(item_name));
+	}
+
+	return new_value;
 };
 
 //void label_touch(std::string& label, void*)
@@ -3278,16 +3299,6 @@ void handle_buy_object(LLSaleInfo sale_info)
 		return;
 	}
 
-	S32 price = sale_info.getSalePrice();
-	
-	if (price > 0 && price > gStatusBar->getBalance())
-	{
-		LLStringUtil::format_map_t args;
-		args["AMOUNT"] = llformat("%d", price);
-		LLBuyCurrencyHTML::openCurrencyFloater( LLTrans::getString("this_object_costs", args), price );
-		return;
-	}
-
 	LLFloaterBuy::show(sale_info);
 }
 
@@ -3637,7 +3648,7 @@ class LLEnableEditShape : public view_listener_t
 	}
 };
 
-bool enable_sit_object()
+bool is_object_sittable()
 {
 	LLViewerObject* object = LLSelectMgr::getInstance()->getSelection()->getPrimaryObject();
 
@@ -3784,17 +3795,6 @@ class LLViewMouselook : public view_listener_t
 		{
 			gAgentCamera.changeCameraToDefault();
 		}
-		return true;
-	}
-};
-
-class LLViewFullscreen : public view_listener_t
-{
-	bool handleEvent(const LLSD& userdata)
-	{
-		// we no longer permit full screen mode EXT-6775
-		// gViewerWindow->toggleFullscreen(TRUE);
-		llwarns << "full screen mode no longer supported" << llendl;
 		return true;
 	}
 };
@@ -4553,6 +4553,16 @@ void handle_buy()
 	LLSaleInfo sale_info;
 	BOOL valid = LLSelectMgr::getInstance()->selectGetSaleInfo(sale_info);
 	if (!valid) return;
+
+	S32 price = sale_info.getSalePrice();
+	
+	if (price > 0 && price > gStatusBar->getBalance())
+	{
+		LLStringUtil::format_map_t args;
+		args["AMOUNT"] = llformat("%d", price);
+		LLBuyCurrencyHTML::openCurrencyFloater( LLTrans::getString("this_object_costs", args), price );
+		return;
+	}
 
 	if (sale_info.getSaleType() == LLSaleInfo::FS_CONTENTS)
 	{
@@ -5524,55 +5534,36 @@ bool enable_pay_object()
 	return false;
 }
 
-bool visible_object_stand_up()
+bool enable_object_stand_up()
 {
-	// 'Object Stand Up' menu item is visible when agent is sitting on selection
+	// 'Object Stand Up' menu item is enabled when agent is sitting on selection
 	return sitting_on_selection();
 }
 
-bool visible_object_sit()
+bool enable_object_sit(LLUICtrl* ctrl)
 {
-	// 'Object Sit' menu item is visible when agent is not sitting on selection
-	bool is_sit_visible = !sitting_on_selection();
-	if (is_sit_visible)
+	// 'Object Sit' menu item is enabled when agent is not sitting on selection
+	bool sitting_on_sel = sitting_on_selection();
+	if (!sitting_on_sel)
 	{
-		LLMenuItemGL* sit_menu_item = gMenuHolder->getChild<LLMenuItemGL>("Object Sit");
-		// Init default 'Object Sit' menu item label
-		static const LLStringExplicit sit_text(sit_menu_item->getLabel());
+		std::string item_name = ctrl->getName();
+
+		// init default labels
+		init_default_item_label(item_name);
+
 		// Update label
-		std::string label;
 		LLSelectNode* node = LLSelectMgr::getInstance()->getSelection()->getFirstRootNode();
 		if (node && node->mValid && !node->mSitName.empty())
 		{
-			label.assign(node->mSitName);
+			gMenuHolder->childSetText(item_name, node->mSitName);
 		}
 		else
 		{
-			label = sit_text;
+			gMenuHolder->childSetText(item_name, get_default_item_label(item_name));
 		}
-		sit_menu_item->setLabel(label);
 	}
-	return is_sit_visible;
+	return !sitting_on_sel && is_object_sittable();
 }
-
-class LLObjectEnableSitOrStand : public view_listener_t
-{
-	bool handleEvent(const LLSD& userdata)
-	{
-		bool new_value = false;
-		LLViewerObject* dest_object = LLSelectMgr::getInstance()->getSelection()->getPrimaryObject();
-
-		if(dest_object)
-		{
-			if(dest_object->getPCode() == LL_PCODE_VOLUME)
-			{
-				new_value = true;
-			}
-		}
-
-		return new_value;
-	}
-};
 
 void dump_select_mgr(void*)
 {
@@ -7209,7 +7200,7 @@ void handle_web_browser_test(const LLSD& param)
 	{
 		url = "about:blank";
 	}
-	LLWeb::loadURL(url);
+	LLWeb::loadURLInternal(url);
 }
 
 void handle_buy_currency_test(void*)
@@ -7704,6 +7695,31 @@ void show_navbar_context_menu(LLView* ctrl, S32 x, S32 y)
 	LLMenuGL::showPopup(ctrl, show_navbar_context_menu, x, y);
 }
 
+void show_topinfobar_context_menu(LLView* ctrl, S32 x, S32 y)
+{
+	static LLMenuGL* show_topbarinfo_context_menu = LLUICtrlFactory::getInstance()->createFromFile<LLMenuGL>("menu_topinfobar.xml",
+			gMenuHolder, LLViewerMenuHolderGL::child_registry_t::instance());
+
+	LLMenuItemGL* landmark_item = show_topbarinfo_context_menu->getChild<LLMenuItemGL>("Landmark");
+	if (!LLLandmarkActions::landmarkAlreadyExists())
+	{
+		landmark_item->setLabel(LLTrans::getString("AddLandmarkNavBarMenu"));
+	}
+	else
+	{
+		landmark_item->setLabel(LLTrans::getString("EditLandmarkNavBarMenu"));
+	}
+
+	if(gMenuHolder->hasVisibleMenu())
+	{
+		gMenuHolder->hideMenus();
+	}
+
+	show_topbarinfo_context_menu->buildDrawLabels();
+	show_topbarinfo_context_menu->updateParent(LLMenuGL::sMenuContainer);
+	LLMenuGL::showPopup(ctrl, show_topbarinfo_context_menu, x, y);
+}
+
 void initialize_edit_menu()
 {
 	view_listener_t::addMenu(new LLEditUndo(), "Edit.Undo");
@@ -7783,7 +7799,6 @@ void initialize_menus()
 	view_listener_t::addMenu(new LLZoomer(1.2f), "View.ZoomOut");
 	view_listener_t::addMenu(new LLZoomer(1/1.2f), "View.ZoomIn");
 	view_listener_t::addMenu(new LLZoomer(DEFAULT_FIELD_OF_VIEW, false), "View.ZoomDefault");
-	view_listener_t::addMenu(new LLViewFullscreen(), "View.Fullscreen");
 	view_listener_t::addMenu(new LLViewDefaultUISize(), "View.DefaultUISize");
 
 	view_listener_t::addMenu(new LLViewEnableMouselook(), "View.EnableMouselook");
@@ -8054,7 +8069,6 @@ void initialize_menus()
 	view_listener_t::addMenu(new LLObjectBuild(), "Object.Build");
 	commit.add("Object.Touch", boost::bind(&handle_object_touch));
 	commit.add("Object.SitOrStand", boost::bind(&handle_object_sit_or_stand));
-	enable.add("Object.EnableSit", boost::bind(&enable_sit_object));
 	commit.add("Object.Delete", boost::bind(&handle_object_delete));
 	view_listener_t::addMenu(new LLObjectAttachToAvatar(), "Object.AttachToAvatar");
 	view_listener_t::addMenu(new LLObjectReturn(), "Object.Return");
@@ -8070,13 +8084,12 @@ void initialize_menus()
 	commit.add("Object.Open", boost::bind(&handle_object_open));
 	commit.add("Object.Take", boost::bind(&handle_take));
 	enable.add("Object.EnableOpen", boost::bind(&enable_object_open));
-	view_listener_t::addMenu(new LLObjectEnableTouch(), "Object.EnableTouch");
-	view_listener_t::addMenu(new LLObjectEnableSitOrStand(), "Object.EnableSitOrStand");
+	enable.add("Object.EnableTouch", boost::bind(&enable_object_touch, _1));
 	enable.add("Object.EnableDelete", boost::bind(&enable_object_delete));
 	enable.add("Object.EnableWear", boost::bind(&object_selected_and_point_valid));
 
-	enable.add("Object.StandUpVisible", boost::bind(&visible_object_stand_up));
-	enable.add("Object.SitVisible", boost::bind(&visible_object_sit));
+	enable.add("Object.EnableStandUp", boost::bind(&enable_object_stand_up));
+	enable.add("Object.EnableSit", boost::bind(&enable_object_sit, _1));
 
 	view_listener_t::addMenu(new LLObjectEnableReturn(), "Object.EnableReturn");
 	view_listener_t::addMenu(new LLObjectEnableReportAbuse(), "Object.EnableReportAbuse");

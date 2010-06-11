@@ -2,30 +2,25 @@
  * @file llwearableitemslist.h
  * @brief A flat list of wearable items.
  *
- * $LicenseInfo:firstyear=2010&license=viewergpl$
- *
- * Copyright (c) 2010, Linden Research, Inc.
- *
+ * $LicenseInfo:firstyear=2010&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
- *
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/flossexception
- *
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
- *
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * Copyright (C) 2010, Linden Research, Inc.
+ * 
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
+ * 
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -38,6 +33,7 @@
 
 // newview
 #include "llinventoryitemslist.h"
+#include "llinventorylistitem.h"
 #include "llinventorymodel.h"
 #include "lllistcontextmenu.h"
 #include "llwearabletype.h"
@@ -67,7 +63,7 @@ public:
 
 protected:
 
-	LLPanelWearableListItem(LLViewerInventoryItem* item);
+	LLPanelWearableListItem(LLViewerInventoryItem* item, const Params& params);
 };
 
 /**
@@ -81,23 +77,34 @@ class LLPanelWearableOutfitItem : public LLPanelInventoryListItemBase
 {
 	LOG_CLASS(LLPanelWearableOutfitItem);
 public:
-	static LLPanelWearableOutfitItem* create(LLViewerInventoryItem* item);
+	static LLPanelWearableOutfitItem* create(LLViewerInventoryItem* item,
+											 bool worn_indication_enabled);
 
 	/**
-	* Puts item on if it is not worn by agent
-	* otherwise takes it off on double click.
-	*/
-	/*virtual*/ BOOL handleDoubleClick(S32 x, S32 y, MASK mask);
+	 * Updates item name and (worn) suffix.
+	 */
+	/*virtual*/ void updateItem(const std::string& name,
+								EItemState item_state = IS_DEFAULT);
 
 protected:
+	LLPanelWearableOutfitItem(LLViewerInventoryItem* item,
+							  bool worn_indication_enabled, const Params& params);
 
-	LLPanelWearableOutfitItem(LLViewerInventoryItem* item);
+private:
+	bool	mWornIndicationEnabled;
 };
 
 class LLPanelDeletableWearableListItem : public LLPanelWearableListItem
 {
 	LOG_CLASS(LLPanelDeletableWearableListItem);
 public:
+	struct Params : public LLInitParam::Block<Params, LLPanelWearableListItem::Params>
+	{
+		Optional<LLButton::Params>		delete_btn;
+
+		Params();
+	};
+
 
 	static LLPanelDeletableWearableListItem* create(LLViewerInventoryItem* item);
 
@@ -111,9 +118,23 @@ public:
 	inline void setShowDeleteButton(bool show) { setShowWidget("btn_delete", show); }
 
 protected:
-	LLPanelDeletableWearableListItem(LLViewerInventoryItem* item);
+	LLPanelDeletableWearableListItem(LLViewerInventoryItem* item, const Params& params);
+};
 
-	/*virtual*/ void init();
+/** Outfit list item for an attachment */
+class LLPanelAttachmentListItem : public LLPanelDeletableWearableListItem
+{
+	LOG_CLASS(LLPanelAttachmentListItem);
+public:
+	static LLPanelAttachmentListItem* create(LLViewerInventoryItem* item);
+	virtual ~LLPanelAttachmentListItem() {};
+
+	/** Set item title. Joint name is added to the title in parenthesis */
+	/*virtual*/ void updateItem(const std::string& name,
+								EItemState item_state = IS_DEFAULT);
+
+protected:
+	LLPanelAttachmentListItem(LLViewerInventoryItem* item, const Params& params) : LLPanelDeletableWearableListItem(item, params) {};
 };
 
 /**
@@ -125,6 +146,18 @@ class LLPanelClothingListItem : public LLPanelDeletableWearableListItem
 {
 	LOG_CLASS(LLPanelClothingListItem);
 public:
+
+	struct Params : public LLInitParam::Block<Params, LLPanelDeletableWearableListItem::Params>
+	{
+		Optional<LLButton::Params>		up_btn,
+										down_btn,
+										edit_btn;
+		Optional<LLPanel::Params>		lock_panel,
+										edit_panel;
+		Optional<LLIconCtrl::Params>	lock_icon;
+
+		Params();
+	};
 
 	static LLPanelClothingListItem* create(LLViewerInventoryItem* item);
 
@@ -141,18 +174,25 @@ public:
 	inline void setShowLockButton(bool show) { setShowWidget("btn_lock", show); }
 	inline void setShowEditButton(bool show) { setShowWidget("btn_edit_panel", show); }
 
-
 protected:
 
-	LLPanelClothingListItem(LLViewerInventoryItem* item);
-	
-	/*virtual*/ void init();
+	LLPanelClothingListItem(LLViewerInventoryItem* item, const Params& params);
+
 };
 
 class LLPanelBodyPartsListItem : public LLPanelWearableListItem
 {
 	LOG_CLASS(LLPanelBodyPartsListItem);
 public:
+	struct Params : public LLInitParam::Block<Params, LLPanelWearableListItem::Params>
+	{
+		Optional<LLButton::Params>		edit_btn;
+		Optional<LLPanel::Params>		lock_panel,
+										edit_panel;
+		Optional<LLIconCtrl::Params>	lock_icon;
+
+		Params();
+	};
 
 	static LLPanelBodyPartsListItem* create(LLViewerInventoryItem* item);
 
@@ -167,9 +207,7 @@ public:
 	inline void setShowEditButton(bool show) { setShowWidget("btn_edit_panel", show); }
 
 protected:
-	LLPanelBodyPartsListItem(LLViewerInventoryItem* item);
-
-	/*virtual*/ void init();
+	LLPanelBodyPartsListItem(LLViewerInventoryItem* item, const Params& params);
 };
 
 
@@ -181,16 +219,19 @@ protected:
 class LLPanelDummyClothingListItem : public LLPanelWearableListItem
 {
 public:
+	struct Params : public LLInitParam::Block<Params, LLPanelWearableListItem::Params>
+	{
+		Optional<LLPanel::Params> add_panel;
+		Optional<LLButton::Params> add_btn;
+		Params();
+	};
 	static LLPanelDummyClothingListItem* create(LLWearableType::EType w_type);
 
-	/*virtual*/ void updateItem();
 	/*virtual*/ BOOL postBuild();
 	LLWearableType::EType getWearableType() const;
 
 protected:
-	LLPanelDummyClothingListItem(LLWearableType::EType w_type);
-
-	/*virtual*/ void init();
+	LLPanelDummyClothingListItem(LLWearableType::EType w_type, const Params& params);
 
 	static std::string wearableTypeToString(LLWearableType::EType w_type);
 
@@ -261,33 +302,76 @@ class LLWearableItemTypeNameComparator : public LLWearableItemNameComparator
 	LOG_CLASS(LLWearableItemTypeNameComparator);
 
 public:
-	LLWearableItemTypeNameComparator() {};
+
+	LLWearableItemTypeNameComparator();
 	virtual ~LLWearableItemTypeNameComparator() {};
+
+	enum ETypeListOrder
+	{
+		ORDER_RANK_1 = 1,
+		ORDER_RANK_2,
+		ORDER_RANK_3,
+		ORDER_RANK_UNKNOWN
+	};
+
+	void setOrder(LLAssetType::EType items_of_type, ETypeListOrder order_priority, bool sort_items_by_name, bool sort_wearable_items_by_name);
 
 protected:
 	/**
-	 * Returns "true" if wearable_item1 is placed before wearable_item2 sorted by the following:
-	 *   - Attachments (abc order)
-	 *   - Clothing
-	 *         - by type (types order determined in LLWearableType::EType)
-	 *         - outer layer on top
-	 *   - Body Parts (abc order),
-	 * "false" otherwise.
+	 * All information about sort order is stored in mWearableOrder map
+	 *
+	 * mWearableOrder :      KYES              VALUES
+	 *                  [LLAssetType] [struct LLWearableTypeOrder]
+	 *
+	 *---------------------------------------------------------------------------------------------
+	 * I. Determines order (ORDER_RANK) in which items of LLAssetType should be displayed in list.
+	 *     For example by spec in MY OUTFITS the order is:
+	 *     1. AT_CLOTHING (ORDER_RANK_1)
+	 *     2. AT_OBJECT   (ORDER_RANK_2)
+	 *     3. AT_BODYPART (ORDER_RANK_3)
+	 *
+	 * II.Items of each type(LLAssetType) are sorted by name or type(LLWearableType)
+	 *     For example by spec in MY OUTFITS the order within each items type(LLAssetType) is:
+	 *     1. AT_OBJECTS (abc order)
+	 *     2. AT_CLOTHINGS
+	 *       - by type (types order determined in LLWearableType::EType)
+	 *       - outer layer on top
+	 *     3. AT_BODYPARTS  (abc order)
+	 *---------------------------------------------------------------------------------------------
+	 *
+	 * For each LLAssetType (KEYS in mWearableOrder) the information about:
+	 *
+	 *                                             I.  ORDER_RANK (the flag is LLWearableTypeOrder::mOrderPriority)
+	 *
+	 *                                             II. whether items of this LLAssetType type should be ordered
+	 *                                                 by name or by LLWearableType::EType (the flag is LLWearableTypeOrder::mSortAssetTypeByName)
+	 *
+	 *                                             III.whether items of LLWearableType type within this LLAssetType
+	 *                                                 should be ordered by name (the flag is LLWearableTypeOrder::mSortWearableTypeByName)
+	 *
+	 *  holds in mWearableOrder map as VALUES (struct LLWearableTypeOrder).
 	 */
 	/*virtual*/ bool doCompare(const LLPanelInventoryListItemBase* wearable_item1, const LLPanelInventoryListItemBase* wearable_item2) const;
 
 private:
-	enum ETypeListOrder
-	{
-		TLO_ATTACHMENT	= 0x01,
-		TLO_CLOTHING	= 0x02,
-		TLO_BODYPART	= 0x04,
-		TLO_UNKNOWN		= 0x08,
 
-		TLO_NOT_CLOTHING = TLO_ATTACHMENT | TLO_BODYPART | TLO_UNKNOWN
+	struct LLWearableTypeOrder
+	{
+		ETypeListOrder mOrderPriority;
+		bool mSortAssetTypeByName;
+		bool mSortWearableTypeByName;
+
+		LLWearableTypeOrder(ETypeListOrder order_priority, bool sort_asset_by_name, bool sort_wearable_by_name);
+		LLWearableTypeOrder(){};
 	};
 
-	static LLWearableItemTypeNameComparator::ETypeListOrder getTypeListOrder(LLAssetType::EType item_type);
+	ETypeListOrder getTypeListOrder(LLAssetType::EType item_type) const;
+
+	bool sortAssetTypeByName(LLAssetType::EType item_type) const;
+	bool sortWearableTypeByName(LLAssetType::EType item_type) const;
+
+	typedef std::map<LLAssetType::EType,LLWearableTypeOrder> wearable_type_order_map_t;
+	wearable_type_order_map_t mWearableOrder;
 };
 
 /**
@@ -300,6 +384,7 @@ private:
  */
 class LLWearableItemsList : public LLInventoryItemsList
 {
+	LOG_CLASS(LLWearableItemsList);
 public:
 	/**
 	 * Context menu.
@@ -310,6 +395,10 @@ public:
 	 */
 	class ContextMenu : public LLListContextMenu, public LLSingleton<ContextMenu>
 	{
+	public:
+		ContextMenu();
+		/*virtual*/ void show(LLView* spawning_view, const uuid_vec_t& uuids, S32 x, S32 y);
+
 	protected:
 		enum {
 			MASK_CLOTHING		= 0x01,
@@ -325,11 +414,15 @@ public:
 		static void setMenuItemEnabled(LLContextMenu* menu, const std::string& name, bool val);
 		static void updateMask(U32& mask, LLAssetType::EType at);
 		static void createNewWearable(const LLUUID& item_id);
+		static bool canAddWearable(const LLUUID& item_id);
+
+		LLWearableItemsList*	mParent;
 	};
 
 	struct Params : public LLInitParam::Block<Params, LLInventoryItemsList::Params>
 	{
-		Optional<bool> use_internal_context_menu;
+		Optional<bool> standalone;
+		Optional<bool> worn_indication_enabled;
 
 		Params();
 	};
@@ -340,11 +433,22 @@ public:
 
 	void updateList(const LLUUID& category_id);
 
+	/**
+	 * Update items that match UUIDs from changed_items_uuids
+	 * or links that point at such items.
+	 */
+	void updateChangedItems(const LLInventoryModel::changed_items_t& changed_items_uuids);
+
+	bool isStandalone() const { return mIsStandalone; }
+
 protected:
 	friend class LLUICtrlFactory;
 	LLWearableItemsList(const LLWearableItemsList::Params& p);
 
 	void onRightClick(S32 x, S32 y);
+
+	bool mIsStandalone;
+	bool mWornIndicationEnabled;
 };
 
 #endif //LL_LLWEARABLEITEMSLIST_H

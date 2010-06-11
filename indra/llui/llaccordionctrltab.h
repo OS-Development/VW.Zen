@@ -2,31 +2,25 @@
  * @file LLAccordionCtrlTab.h
  * @brief Collapsible box control implementation
  *
- * $LicenseInfo:firstyear=2004&license=viewergpl$
- * 
- * Copyright (c) 2004-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2004&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -37,6 +31,7 @@
 #include "llrect.h"
 #include "lluictrl.h"
 #include "lluicolor.h"
+#include "llstyle.h"
 
 class LLUICtrlFactory;
 class LLUIImage;
@@ -115,10 +110,16 @@ public:
 	void		setAccordionView(LLView* panel);
 	LLView*		getAccordionView() { return mContainerPanel; };
 
-	std::string getTitle();
+	std::string getTitle() const;
 
 	// Set text and highlight substring in LLAccordionCtrlTabHeader
 	void setTitle(const std::string& title, const std::string& hl = LLStringUtil::null);
+
+	// Set text font style in LLAccordionCtrlTabHeader
+	void setTitleFontStyle(std::string style);
+
+	// Set text color in LLAccordionCtrlTabHeader
+	void setTitleColor(LLUIColor color);
 
 	boost::signals2::connection setFocusReceivedCallback(const focus_signal_t::slot_type& cb);
 	boost::signals2::connection setFocusLostCallback(const focus_signal_t::slot_type& cb);
@@ -154,6 +155,11 @@ public:
 	// Call reshape after changing size
 	virtual void reshape(S32 width, S32 height, BOOL called_from_parent = TRUE);
 
+	/**
+	 * Raises notifyParent event with "child_visibility_change" = new_visibility
+	 */
+	void handleVisibilityChange(BOOL new_visibility);
+
 	// Changes expand/collapse state and triggers expand/collapse callbacks
 	virtual BOOL handleMouseDown(S32 x, S32 y, MASK mask);
 
@@ -161,10 +167,12 @@ public:
 	virtual BOOL handleKey(KEY key, MASK mask, BOOL called_from_parent);
 
 	virtual BOOL handleToolTip(S32 x, S32 y, MASK mask);
+	virtual BOOL handleScrollWheel( S32 x, S32 y, S32 clicks );
+
 
 	virtual bool addChild(LLView* child, S32 tab_group);
 
-	bool isExpanded() { return mDisplayChildren; }
+	bool isExpanded() const { return mDisplayChildren; }
 
 	S32 getHeaderHeight();
 
@@ -185,6 +193,7 @@ public:
 	void showAndFocusHeader();
 
 	void setFitPanel( bool fit ) { mFitPanel = true; }
+	bool getFitParent() const { return mFitPanel; }
 
 protected:
 	void adjustContainerPanel	(const LLRect& child_rect);
@@ -205,6 +214,7 @@ protected:
 	LLView* findContainerView	();
 
 	void selectOnFocusReceived();
+	void deselectOnFocusLost();
 
 private:
 

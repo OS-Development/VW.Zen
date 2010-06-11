@@ -11,7 +11,7 @@
     <accordion
      fit_parent="true"
      follows="all"
-     height="200"
+     height="198"
      layout="topleft"
      left="0"
      single_expansion="true"
@@ -22,27 +22,14 @@
      width="311">
         <accordion_tab
          layout="topleft"
-         name="tab_attachments"
-         title="Attachments">
-            <flat_list_view
-             allow_select="true"
-             follows="all"
-             height="10"
-             layout="topleft"
-             left="0"
-             multi_select="true"
-             name="list_attachments"
-             top="0"
-             width="311" />
-        </accordion_tab>
-        <accordion_tab
-         layout="topleft"
          name="tab_clothing"
          title="Clothing">
             <flat_list_view
              allow_select="true"
              follows="all"
              height="10"
+             item_pad="3"
+             keep_selection_visible_on_reshape="true"
              layout="topleft"
              left="0"
              multi_select="true"
@@ -52,12 +39,34 @@
         </accordion_tab>
         <accordion_tab
          layout="topleft"
+         name="tab_attachments"
+         title="Attachments">
+            <flat_list_view
+             allow_select="true"
+             follows="all"
+             height="10"
+             item_pad="3"
+             layout="topleft"
+             left="0"
+             keep_selection_visible_on_reshape="true"
+             multi_select="true"
+             name="list_attachments"
+             top="0"
+             width="311">
+              <flat_list_view.no_items_text
+               value="No attachments worn" />
+              </flat_list_view>
+        </accordion_tab>
+        <accordion_tab
+         layout="topleft"
          name="tab_body_parts"
          title="Body Parts">
             <flat_list_view
              allow_select="true"
              follows="all"
              height="10"
+             item_pad="3"
+             keep_selection_visible_on_reshape="true"
              layout="topleft"
              left="0"
              multi_select="true"

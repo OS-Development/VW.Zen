@@ -2,30 +2,25 @@
  * @file llsidepanelappearance.cpp
  * @brief Side Bar "Appearance" panel
  *
- * $LicenseInfo:firstyear=2009&license=viewergpl$
- *
- * Copyright (c) 2004-2009, Linden Research, Inc.
- *
+ * $LicenseInfo:firstyear=2009&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
- *
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/flossexception
- *
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
- *
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * Copyright (C) 2010, Linden Research, Inc.
+ * 
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
+ * 
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -42,6 +37,7 @@
 #include "llfloaterreg.h"
 #include "llfloaterworldmap.h"
 #include "llfoldervieweventlistener.h"
+#include "lloutfitobserver.h"
 #include "llpaneleditwearable.h"
 #include "llpaneloutfitsinventory.h"
 #include "llsidetray.h"
@@ -73,26 +69,6 @@ private:
 	LLSidepanelAppearance *mPanel;
 };
 
-class LLWatchForOutfitRenameObserver : public LLInventoryObserver
-{
-public:
-	LLWatchForOutfitRenameObserver(LLSidepanelAppearance *panel) :
-		mPanel(panel)
-	{}
-	virtual void changed(U32 mask);
-	
-private:
-	LLSidepanelAppearance *mPanel;
-};
-
-void LLWatchForOutfitRenameObserver::changed(U32 mask)
-{
-	if (mask & LABEL)
-	{
-		mPanel->refreshCurrentOutfitName();
-	}
-}
-
 LLSidepanelAppearance::LLSidepanelAppearance() :
 	LLPanel(),
 	mFilterSubString(LLStringUtil::null),
@@ -101,12 +77,17 @@ LLSidepanelAppearance::LLSidepanelAppearance() :
 	mCurrOutfitPanel(NULL),
 	mOpened(false)
 {
+	LLOutfitObserver& outfit_observer =  LLOutfitObserver::instance();
+	outfit_observer.addBOFReplacedCallback(boost::bind(&LLSidepanelAppearance::refreshCurrentOutfitName, this, ""));
+	outfit_observer.addBOFChangedCallback(boost::bind(&LLSidepanelAppearance::refreshCurrentOutfitName, this, ""));
+	outfit_observer.addCOFChangedCallback(boost::bind(&LLSidepanelAppearance::refreshCurrentOutfitName, this, ""));
+
+	gAgentWearables.addLoadingStartedCallback(boost::bind(&LLSidepanelAppearance::setWearablesLoading, this, true));
+	gAgentWearables.addLoadedCallback(boost::bind(&LLSidepanelAppearance::setWearablesLoading, this, false));
 }
 
 LLSidepanelAppearance::~LLSidepanelAppearance()
 {
-	gInventory.removeObserver(mOutfitRenameWatcher);
-	delete mOutfitRenameWatcher;
 }
 
 // virtual
@@ -131,7 +112,6 @@ BOOL LLSidepanelAppearance::postBuild()
 	}
 
 	mPanelOutfitsInventory = dynamic_cast<LLPanelOutfitsInventory *>(getChild<LLPanel>("panel_outfits_inventory"));
-	mPanelOutfitsInventory->setParent(this);
 
 	mOutfitEdit = dynamic_cast<LLPanelOutfitEdit*>(getChild<LLPanel>("panel_outfit_edit"));
 	if (mOutfitEdit)
@@ -160,8 +140,6 @@ BOOL LLSidepanelAppearance::postBuild()
 	
 	mCurrOutfitPanel = getChild<LLPanel>("panel_currentlook");
 
-	mOutfitRenameWatcher = new LLWatchForOutfitRenameObserver(this);
-	gInventory.addObserver(mOutfitRenameWatcher);
 
 	setVisibleCallback(boost::bind(&LLSidepanelAppearance::onVisibilityChange,this,_2));
 
@@ -207,11 +185,28 @@ void LLSidepanelAppearance::onVisibilityChange(const LLSD &new_visibility)
 {
 	if (new_visibility.asBoolean())
 	{
-		if ((mOutfitEdit && mOutfitEdit->getVisible()) || (mEditWearable && mEditWearable->getVisible()))
+		bool is_outfit_edit_visible = mOutfitEdit && mOutfitEdit->getVisible();
+		bool is_wearable_edit_visible = mEditWearable && mEditWearable->getVisible();
+
+		if (is_outfit_edit_visible || is_wearable_edit_visible)
 		{
 			if (!gAgentCamera.cameraCustomizeAvatar() && gSavedSettings.getBOOL("AppearanceCameraMovement"))
 			{
 				gAgentCamera.changeCameraToCustomizeAvatar();
+			}
+			if (is_wearable_edit_visible)
+			{
+				LLWearable *wearable_ptr = mEditWearable->getWearable();
+				if (gAgentWearables.getWearableIndex(wearable_ptr) == LLAgentWearables::MAX_CLOTHING_PER_TYPE)
+				{
+					// we're no longer wearing the wearable we were last editing, switch back to outfit editor
+					showOutfitEditPanel();
+				}
+			}
+
+			if (is_outfit_edit_visible)
+			{
+				mOutfitEdit->resetAccordionState();
 			}
 		}
 	}
@@ -291,6 +286,15 @@ void LLSidepanelAppearance::showOutfitsInventoryPanel()
 
 void LLSidepanelAppearance::showOutfitEditPanel()
 {
+	// Accordion's state must be reset in all cases except the one when user
+	// is returning back to the mOutfitEdit panel from the mEditWearable panel.
+	// The simplest way to control this is to check the visibility state of the mEditWearable
+	// BEFORE it is changed by the call to the toggleWearableEditPanel(FALSE, NULL, TRUE).
+	if (mEditWearable != NULL && !mEditWearable->getVisible() && mOutfitEdit != NULL)
+	{
+		mOutfitEdit->resetAccordionState();
+	}
+
 	togglMyOutfitsPanel(FALSE);
 	toggleWearableEditPanel(FALSE, NULL, TRUE); // don't switch out of edit appearance mode
 	toggleOutfitEditPanel(TRUE);
@@ -372,12 +376,12 @@ void LLSidepanelAppearance::toggleWearableEditPanel(BOOL visible, LLWearable *we
 
 	if (visible)
 	{
-		mEditWearable->setWearable(wearable);
-		mEditWearable->onOpen(LLSD()); // currently no-op, just for consistency
 		if (!disable_camera_switch && gSavedSettings.getBOOL("AppearanceCameraMovement") )
 		{
 			gAgentCamera.changeCameraToCustomizeAvatar();
 		}
+		mEditWearable->setWearable(wearable);
+		mEditWearable->onOpen(LLSD()); // currently no-op, just for consistency
 	}
 	else
 	{
@@ -406,7 +410,9 @@ void LLSidepanelAppearance::refreshCurrentOutfitName(const std::string& name)
 				mCurrentLookName->setText(outfit_name);
 				return;
 		}
-		mCurrentLookName->setText(getString("No Outfit"));
+
+		std::string string_name = gAgentWearables.isCOFChangeInProgress() ? "Changing outfits" : "No Outfit";
+		mCurrentLookName->setText(getString(string_name));
 		mOpenOutfitBtn->setEnabled(FALSE);
 	}
 	else
@@ -420,6 +426,8 @@ void LLSidepanelAppearance::refreshCurrentOutfitName(const std::string& name)
 //static
 void LLSidepanelAppearance::editWearable(LLWearable *wearable, LLView *data)
 {
+	LLSideTray::getInstance()->showPanel("sidepanel_appearance");
+
 	LLSidepanelAppearance *panel = dynamic_cast<LLSidepanelAppearance*>(data);
 	if (panel)
 	{
@@ -490,6 +498,12 @@ void LLSidepanelAppearance::setWearablesLoading(bool val)
 {
 	childSetVisible("wearables_loading_indicator", val);
 	childSetVisible("edit_outfit_btn", !val);
+
+	if (!val)
+	{
+		// refresh outfit name when COF is already changed.
+		refreshCurrentOutfitName();
+	}
 }
 
 void LLSidepanelAppearance::showDefaultSubpart()

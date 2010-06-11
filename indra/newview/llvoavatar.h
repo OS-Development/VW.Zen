@@ -3,31 +3,25 @@
  * @brief Declaration of LLVOAvatar class which is a derivation of
  * LLViewerObject
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -223,8 +217,8 @@ public:
 public:
 	static S32		sRenderName;
 	static BOOL		sRenderGroupTitles;
-	static S32		sMaxVisible;
-	static F32		sRenderDistance; //distance at which avatars will render (affected by control "RenderAvatarMaxVisible")
+	static U32		sMaxVisible; //(affected by control "RenderAvatarMaxVisible")
+	static F32		sRenderDistance; //distance at which avatars will render.
 	static BOOL		sShowAnimationDebug; // show animation debug info
 	static BOOL		sUseImpostors; //use impostors for far away avatars
 	static BOOL		sShowFootPlane;	// show foot collision plane reported by server
@@ -263,6 +257,8 @@ private:
 	S32				mFullyLoadedFrameCounter;
 	LLFrameTimer	mFullyLoadedTimer;
 	LLFrameTimer	mRuthTimer;
+protected:
+	LLFrameTimer    mInvisibleTimer;
 	
 /**                    State
  **                                                                            **
@@ -499,7 +495,8 @@ protected:
 	};
 	typedef std::vector<BakedTextureData> 	bakedtexturedata_vec_t;
 	bakedtexturedata_vec_t 					mBakedTextureDatas;
-
+	LLLoadedCallbackEntry::source_callback_list_t mCallbackTextureList ; 
+	BOOL mLoadedCallbacksPaused;
 	//--------------------------------------------------------------------
 	// Local Textures
 	//--------------------------------------------------------------------
@@ -519,7 +516,7 @@ private:
 	virtual const LLTextureEntry* getTexEntry(const U8 te_num) const;
 	virtual void setTexEntry(const U8 index, const LLTextureEntry &te);
 
-
+	void checkTextureLoading() ;
 	//--------------------------------------------------------------------
 	// Layers
 	//--------------------------------------------------------------------
@@ -608,8 +605,9 @@ public:
 	// Appearance morphing
 	//--------------------------------------------------------------------
 public:
-	BOOL			mAppearanceAnimating;
+	BOOL			getIsAppearanceAnimating() const { return mAppearanceAnimating; }
 private:
+	BOOL			mAppearanceAnimating;
 	LLFrameTimer	mAppearanceMorphTimer;
 	F32				mLastAppearanceBlendTime;
 
@@ -865,7 +863,7 @@ private:
 public:
 	// Responsible for detecting the user's voice signal (and when the
 	// user speaks, it puts a voice symbol over the avatar's head) and gesticulations
-	LLVoiceVisualizer*  mVoiceVisualizer;
+	LLPointer<LLVoiceVisualizer>  mVoiceVisualizer;
 	int					mCurrentGesticulationLevel;
 
 	//--------------------------------------------------------------------
@@ -1045,5 +1043,7 @@ protected: // Shared with LLVOAvatarSelf
  *******************************************************************************/
 
 }; // LLVOAvatar
+extern const S32 MAX_TEXTURE_VIRTURE_SIZE_RESET_INTERVAL;
+extern const F32  SELF_ADDITIONAL_PRI;
 
 #endif // LL_VO_AVATAR_H
