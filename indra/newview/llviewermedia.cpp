@@ -2,25 +2,31 @@
  * @file llviewermedia.cpp
  * @brief Client interface to the media engine
  *
- * $LicenseInfo:firstyear=2007&license=viewerlgpl$
+ * $LicenseInfo:firstyear=2007&license=viewergpl$
+ * 
+ * Copyright (c) 2007-2009, Linden Research, Inc.
+ * 
  * Second Life Viewer Source Code
- * Copyright (C) 2010, Linden Research, Inc.
+ * The source code in this file ("Source Code") is provided by Linden Lab
+ * to you under the terms of the GNU General Public License, version 2.0
+ * ("GPL"), unless you have obtained a separate licensing agreement
+ * ("Other License"), formally executed by you and Linden Lab.  Terms of
+ * the GPL can be found in doc/GPL-license.txt in this distribution, or
+ * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
  * 
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation;
- * version 2.1 of the License only.
+ * There are special exceptions to the terms and conditions of the GPL as
+ * it is applied to this Source Code. View the full text of the exception
+ * in the file doc/FLOSS-exception.txt in this software distribution, or
+ * online at
+ * http://secondlifegrid.net/programs/open_source/licensing/flossexception
  * 
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
+ * By copying, modifying or distributing this software, you acknowledge
+ * that you have read and understood your obligations described above,
+ * and agree to abide by those obligations.
  * 
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
- * 
- * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
+ * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
+ * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
+ * COMPLETENESS OR PERFORMANCE.
  * $/LicenseInfo$
  */
 
@@ -757,7 +763,7 @@ void LLViewerMedia::updateMedia(void *dummy_arg)
 	}
 		
 	// Sort the static instance list using our interest criteria
-	sViewerMediaImplList.sort(priorityComparitor);
+	std::stable_sort(sViewerMediaImplList.begin(), sViewerMediaImplList.end(), priorityComparitor);
 
 	// Go through the list again and adjust according to priority.
 	iter = sViewerMediaImplList.begin();
@@ -1770,22 +1776,29 @@ void LLViewerMediaImpl::loadURI()
 		llinfos << "Asking media source to load URI: " << uri << llendl;
 		
 		mMediaSource->loadURI( uri );
-		
-		// A non-zero mPreviousMediaTime means that either this media was previously unloaded by the priority code while playing/paused, 
-		// or a seek happened before the media loaded.  In either case, seek to the saved time.
-		if(mPreviousMediaTime != 0.0f)
-		{
-			seek(mPreviousMediaTime);
-		}
-			
+
 		if(mPreviousMediaState == MEDIA_PLAYING)
 		{
 			// This media was playing before this instance was unloaded.
+
+			if(mPreviousMediaTime != 0.0f)
+			{
+				// Seek back to where we left off, if possible.
+				seek(mPreviousMediaTime);
+			}
+			
 			start();
 		}
 		else if(mPreviousMediaState == MEDIA_PAUSED)
 		{
 			// This media was paused before this instance was unloaded.
+
+			if(mPreviousMediaTime != 0.0f)
+			{
+				// Seek back to where we left off, if possible.
+				seek(mPreviousMediaTime);
+			}
+			
 			pause();
 		}
 		else
@@ -1844,10 +1857,6 @@ void LLViewerMediaImpl::pause()
 	{
 		mMediaSource->pause();
 	}
-	else
-	{
-		mPreviousMediaState = MEDIA_PAUSED;
-	}
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1857,10 +1866,6 @@ void LLViewerMediaImpl::start()
 	{
 		mMediaSource->start();
 	}
-	else
-	{
-		mPreviousMediaState = MEDIA_PLAYING;
-	}
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1869,11 +1874,6 @@ void LLViewerMediaImpl::seek(F32 time)
 	if(mMediaSource)
 	{
 		mMediaSource->seek(time);
-	}
-	else
-	{
-		// Save the seek time to be set when the media is loaded.
-		mPreviousMediaTime = time;
 	}
 }
 
@@ -3047,25 +3047,20 @@ void LLViewerMediaImpl::calculateInterest()
 	
 	// Calculate distance from the avatar, for use in the proximity calculation.
 	mProximityDistance = 0.0f;
-	mProximityCamera = 0.0f;
 	if(!mObjectList.empty())
 	{
 		// Just use the first object in the list.  We could go through the list and find the closest object, but this should work well enough.
 		std::list< LLVOVolume* >::iterator iter = mObjectList.begin() ;
 		LLVOVolume* objp = *iter ;
 		llassert_always(objp != NULL) ;
-		
-		// The distance calculation is invalid for HUD attachments -- leave both mProximityDistance and mProximityCamera at 0 for them.
-		if(!objp->isHUDAttachment())
-		{
-			LLVector3d obj_global = objp->getPositionGlobal() ;
-			LLVector3d agent_global = gAgent.getPositionGlobal() ;
-			LLVector3d global_delta = agent_global - obj_global ;
-			mProximityDistance = global_delta.magVecSquared();  // use distance-squared because it's cheaper and sorts the same.
 
-			LLVector3d camera_delta = gAgentCamera.getCameraPositionGlobal() - obj_global;
-			mProximityCamera = camera_delta.magVec();
-		}
+		LLVector3d obj_global = objp->getPositionGlobal() ;
+		LLVector3d agent_global = gAgent.getPositionGlobal() ;
+		LLVector3d global_delta = agent_global - obj_global ;
+		mProximityDistance = global_delta.magVecSquared();  // use distance-squared because it's cheaper and sorts the same.
+
+		LLVector3d camera_delta = gAgentCamera.getCameraPositionGlobal() - obj_global;
+		mProximityCamera = camera_delta.magVec();
 	}
 	
 	if(mNeedsMuteCheck)

@@ -63,7 +63,7 @@
      image_pressed="BackButton_Press"
      image_unselected="BackButton_Off"
      layout="topleft"
-     left="9"
+     left="8"
      name="back_btn"
      tool_tip="Back"
      tab_stop="false"
@@ -74,10 +74,10 @@
      font="SansSerifHugeBold"
      height="26"
      layout="topleft"
-     left_pad="7"
+     left_pad="10"
      name="title"
      text_color="LtGray"
-     top="3"
+     top="2"
      use_ellipses="true"
      value="Place Profile"
      width="280" />
@@ -103,8 +103,7 @@
          width="310">
             <texture_picker
              enabled="false"
-             fallback_image="default_land_picture.j2c"
-             follows="left|top|right"
+         follows="left|top|right"
              height="197"
              layout="topleft"
              left="11"

@@ -10,6 +10,7 @@
  name="topinfo_bar"
  width="1024">
   <button
+    border="true"
     follows="left|top"
     height="16"
     hover_glow_amount="0.15"

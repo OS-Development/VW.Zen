@@ -39,7 +39,6 @@ import shutil
 import sys
 import tarfile
 import errno
-import subprocess
 
 def path_ancestors(path):
     drive, path = os.path.splitdrive(os.path.normpath(path))
@@ -367,23 +366,20 @@ class LLManifest(object):
 
     def run_command(self, command):
         """ Runs an external command, and returns the output.  Raises
-        an exception if the command returns a nonzero status code.  For
-        debugging/informational purposes, prints out the command's
+        an exception if the command reurns a nonzero status code.  For
+        debugging/informational purpoases, prints out the command's
         output as it is received."""
         print "Running command:", command
-        sys.stdout.flush()
-        child = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                 shell=True)
+        fd = os.popen(command, 'r')
         lines = []
         while True:
-            lines.append(child.stdout.readline())
+            lines.append(fd.readline())
             if lines[-1] == '':
                 break
             else:
                 print lines[-1],
         output = ''.join(lines)
-        child.stdout.close()
-        status = child.wait()
+        status = fd.close()
         if status:
             raise RuntimeError(
                 "Command %s returned non-zero status (%s) \noutput:\n%s"

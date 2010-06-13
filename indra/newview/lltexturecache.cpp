@@ -2,25 +2,31 @@
  * @file lltexturecache.cpp
  * @brief Object which handles local texture caching
  *
- * $LicenseInfo:firstyear=2000&license=viewerlgpl$
+ * $LicenseInfo:firstyear=2000&license=viewergpl$
+ * 
+ * Copyright (c) 2000-2009, Linden Research, Inc.
+ * 
  * Second Life Viewer Source Code
- * Copyright (C) 2010, Linden Research, Inc.
+ * The source code in this file ("Source Code") is provided by Linden Lab
+ * to you under the terms of the GNU General Public License, version 2.0
+ * ("GPL"), unless you have obtained a separate licensing agreement
+ * ("Other License"), formally executed by you and Linden Lab.  Terms of
+ * the GPL can be found in doc/GPL-license.txt in this distribution, or
+ * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
  * 
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation;
- * version 2.1 of the License only.
+ * There are special exceptions to the terms and conditions of the GPL as
+ * it is applied to this Source Code. View the full text of the exception
+ * in the file doc/FLOSS-exception.txt in this software distribution, or
+ * online at
+ * http://secondlifegrid.net/programs/open_source/licensing/flossexception
  * 
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
+ * By copying, modifying or distributing this software, you acknowledge
+ * that you have read and understood your obligations described above,
+ * and agree to abide by those obligations.
  * 
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
- * 
- * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
+ * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
+ * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
+ * COMPLETENESS OR PERFORMANCE.
  * $/LicenseInfo$
  */
 
@@ -385,7 +391,6 @@ bool LLTextureCacheRemoteWorker::doRead()
 		}
 		else
 		{
-			//llinfos << "texture " << mID.asString() << " found in local_assets" << llendl;
 			mImageSize = local_size;
 			mImageLocal = TRUE;
 		}
@@ -992,11 +997,7 @@ LLAPRFile* LLTextureCache::openHeaderEntriesFile(bool readonly, S32 offset)
 
 void LLTextureCache::closeHeaderEntriesFile()
 {
-	if(!mHeaderAPRFile)
-	{
-		return ;
-	}
-
+	llassert_always(mHeaderAPRFile != NULL);
 	delete mHeaderAPRFile;
 	mHeaderAPRFile = NULL;
 }
@@ -1113,7 +1114,7 @@ S32 LLTextureCache::openAndReadEntry(const LLUUID& id, Entry& entry, bool create
 }
 
 //mHeaderMutex is locked before calling this.
-void LLTextureCache::writeEntryToHeaderImmediately(S32& idx, Entry& entry, bool write_header)
+void LLTextureCache::writeEntryToHeaderImmediately(S32 idx, Entry& entry, bool write_header)
 {	
 	LLAPRFile* aprfile ;
 	S32 bytes_written ;
@@ -1122,13 +1123,7 @@ void LLTextureCache::writeEntryToHeaderImmediately(S32& idx, Entry& entry, bool 
 	{
 		aprfile = openHeaderEntriesFile(false, 0);		
 		bytes_written = aprfile->write((U8*)&mHeaderEntriesInfo, sizeof(EntriesInfo)) ;
-		if(bytes_written != sizeof(EntriesInfo))
-		{
-			clearCorruptedCache() ; //clear the cache.
-			idx = -1 ;//mark the idx invalid.
-			return ;
-		}
-
+		llassert_always(bytes_written == sizeof(EntriesInfo));
 		mHeaderAPRFile->seek(APR_SET, offset);
 	}
 	else
@@ -1136,31 +1131,19 @@ void LLTextureCache::writeEntryToHeaderImmediately(S32& idx, Entry& entry, bool 
 		aprfile = openHeaderEntriesFile(false, offset);
 	}
 	bytes_written = aprfile->write((void*)&entry, (S32)sizeof(Entry));
-	if(bytes_written != sizeof(Entry))
-	{
-		clearCorruptedCache() ; //clear the cache.
-		idx = -1 ;//mark the idx invalid.
-
-		return ;
-	}
-
+	llassert_always(bytes_written == sizeof(Entry));
 	closeHeaderEntriesFile();
 	mUpdatedEntryMap.erase(idx) ;
 }
 
 //mHeaderMutex is locked before calling this.
-void LLTextureCache::readEntryFromHeaderImmediately(S32& idx, Entry& entry)
+void LLTextureCache::readEntryFromHeaderImmediately(S32 idx, Entry& entry)
 {
 	S32 offset = sizeof(EntriesInfo) + idx * sizeof(Entry);
 	LLAPRFile* aprfile = openHeaderEntriesFile(true, offset);
 	S32 bytes_read = aprfile->read((void*)&entry, (S32)sizeof(Entry));
+	llassert_always(bytes_read == sizeof(Entry));			
 	closeHeaderEntriesFile();
-
-	if(bytes_read != sizeof(Entry))
-	{
-		clearCorruptedCache() ; //clear the cache.
-		idx = -1 ;//mark the idx invalid.
-	}
 }
 
 //mHeaderMutex is locked before calling this.
@@ -1185,7 +1168,7 @@ void LLTextureCache::updateEntryTimeStamp(S32 idx, Entry& entry)
 }
 
 //update an existing entry, write to header file immediately.
-bool LLTextureCache::updateEntry(S32& idx, Entry& entry, S32 new_image_size, S32 new_data_size)
+bool LLTextureCache::updateEntry(S32 idx, Entry& entry, S32 new_image_size, S32 new_data_size)
 {
 	S32 new_body_size = llmax(0, new_data_size - TEXTURE_CACHE_ENTRY_SIZE) ;
 	
@@ -1256,10 +1239,6 @@ U32 LLTextureCache::openAndReadEntries(std::vector<Entry>& entries)
 	{
 		aprfile = openHeaderEntriesFile(false, 0);
 		updatedHeaderEntriesFile() ;
-		if(!aprfile)
-		{
-			return 0;
-		}
 		aprfile->seek(APR_SET, (S32)sizeof(EntriesInfo));
 	}
 	for (U32 idx=0; idx<num_entries; idx++)
@@ -1301,11 +1280,7 @@ void LLTextureCache::writeEntriesAndClose(const std::vector<Entry>& entries)
 		for (S32 idx=0; idx<num_entries; idx++)
 		{
 			S32 bytes_written = aprfile->write((void*)(&entries[idx]), (S32)sizeof(Entry));
-			if(bytes_written != sizeof(Entry))
-			{
-				clearCorruptedCache() ; //clear the cache.
-				return ;
-			}
+			llassert_always(bytes_written == sizeof(Entry));
 		}
 		closeHeaderEntriesFile();
 	}
@@ -1331,11 +1306,7 @@ void LLTextureCache::updatedHeaderEntriesFile()
 		//entriesInfo
 		mHeaderAPRFile->seek(APR_SET, 0);
 		S32 bytes_written = mHeaderAPRFile->write((U8*)&mHeaderEntriesInfo, sizeof(EntriesInfo)) ;
-		if(bytes_written != sizeof(EntriesInfo))
-		{
-			clearCorruptedCache() ; //clear the cache.
-			return ;
-		}
+		llassert_always(bytes_written == sizeof(EntriesInfo));
 		
 		//write each updated entry
 		S32 entry_size = (S32)sizeof(Entry) ;
@@ -1351,11 +1322,7 @@ void LLTextureCache::updatedHeaderEntriesFile()
 			}
 			
 			bytes_written = mHeaderAPRFile->write((void*)(&iter->second), entry_size);
-			if(bytes_written != entry_size)
-			{
-				clearCorruptedCache() ; //clear the cache.
-				return ;
-			}
+			llassert_always(bytes_written == entry_size);
 		}
 		mUpdatedEntryMap.clear() ;
 	}
@@ -1476,29 +1443,6 @@ void LLTextureCache::readHeaderCache()
 
 //////////////////////////////////////////////////////////////////////////////
 
-//the header mutex is locked before calling this.
-void LLTextureCache::clearCorruptedCache()
-{
-	llwarns << "the texture cache is corrupted, need to be cleared." << llendl ;
-
-	closeHeaderEntriesFile();//close possible file handler
-	purgeAllTextures(false) ; //clear the cache.
-	
-	if (!mReadOnly) //regenerate the directory tree if not exists.
-	{
-		LLFile::mkdir(mTexturesDirName);
-		
-		const char* subdirs = "0123456789abcdef";
-		for (S32 i=0; i<16; i++)
-		{
-			std::string dirname = mTexturesDirName + gDirUtilp->getDirDelimiter() + subdirs[i];
-			LLFile::mkdir(dirname);
-		}
-	}
-
-	return ;
-}
-
 void LLTextureCache::purgeAllTextures(bool purge_directories)
 {
 	if (!mReadOnly)
@@ -1527,14 +1471,11 @@ void LLTextureCache::purgeAllTextures(bool purge_directories)
 	mTexturesSizeTotal = 0;
 	mFreeList.clear();
 	mTexturesSizeTotal = 0;
-	mUpdatedEntryMap.clear();
 
 	// Info with 0 entries
 	mHeaderEntriesInfo.mVersion = sHeaderCacheVersion;
 	mHeaderEntriesInfo.mEntries = 0;
 	writeEntriesHeader();
-
-	llinfos << "The entire texture cache is cleared." << llendl ;
 }
 
 void LLTextureCache::purgeTextures(bool validate)
@@ -1702,8 +1643,7 @@ S32 LLTextureCache::setHeaderCacheEntry(const LLUUID& id, Entry& entry, S32 imag
 	{
 		updateEntry(idx, entry, imagesize, datasize);				
 	}
-
-	if(idx < 0) // retry
+	else // retry
 	{
 		readHeaderCache(); // We couldn't write an entry, so refresh the LRU
 	

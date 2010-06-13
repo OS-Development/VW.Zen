@@ -1,10 +1,4 @@
 <paths>
-	<directory>
-    <subdir>xui</subdir>
-    <subdir>en</subdir>
-  </directory>
-	<directory>
-    <subdir>xui</subdir>
-    <subdir>[LANGUAGE]</subdir>
-  </directory>
+	<directory>xui/en</directory>
+	<directory>xui/[LANGUAGE]</directory>
 </paths>

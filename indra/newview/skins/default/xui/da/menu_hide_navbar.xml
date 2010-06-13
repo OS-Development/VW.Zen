@@ -2,5 +2,4 @@
 <menu name="hide_navbar_menu">
 	<menu_item_check label="Vis navigationsbjælke" name="ShowNavbarNavigationPanel"/>
 	<menu_item_check label="Vis favoritbjælke" name="ShowNavbarFavoritesPanel"/>
-	<menu_item_check label="Vis min lokation bjælke" name="ShowMiniLocationPanel"/>
 </menu>
