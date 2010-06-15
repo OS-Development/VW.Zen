@@ -48,6 +48,7 @@
 #include "llfoldervieweventlistener.h"
 #include "llinventory.h"
 #include "llinventoryfunctions.h"
+#include "llinventorymodelbackgroundfetch.h"
 #include "llinventoryobserver.h"
 #include "llinventorypanel.h"
 #include "llfloaterinventory.h"
@@ -1053,7 +1054,7 @@ public:
 	{
 		// We need to find textures in all folders, so get the main
 		// background download going.
-		gInventory.startBackgroundFetch();
+		LLInventoryModelBackgroundFetch::instance().start();
 		gInventory.removeObserver(this);
 		delete this;
 	}
@@ -1074,9 +1075,9 @@ BOOL LLTextureCtrl::handleMouseDown(S32 x, S32 y, MASK mask)
 	{
 		showPicker(FALSE);
 		//grab textures first...
-		gInventory.startBackgroundFetch(gInventory.findCategoryUUIDForType(LLFolderType::FT_TEXTURE));
+		LLInventoryModelBackgroundFetch::instance().start(gInventory.findCategoryUUIDForType(LLFolderType::FT_TEXTURE));
 		//...then start full inventory fetch.
-		gInventory.startBackgroundFetch();
+		LLInventoryModelBackgroundFetch::instance().start();
 		handled = TRUE;
 	}
 
@@ -1132,6 +1133,20 @@ void LLTextureCtrl::onFloaterCommit(ETexturePickOp op)
 				if (mCommitOnSelection || op == TEXTURE_SELECT)
 					onCommit();
 			}
+		}
+	}
+}
+
+void	LLTextureCtrl::setImageAssetName(const std::string& name)
+{
+	LLPointer<LLUIImage> imagep = LLUI::getUIImage(name);
+	if(imagep)
+	{
+		LLViewerFetchedTexture* pTexture = dynamic_cast<LLViewerFetchedTexture*>(imagep->getImage().get());
+		if(pTexture)
+		{
+			LLUUID id = pTexture->getID();
+			setImageAssetID(id);
 		}
 	}
 }
@@ -1247,25 +1262,52 @@ void LLTextureCtrl::draw()
 
 	mTentativeLabel->setVisible( !mTexturep.isNull() && getTentative() );
 	
-	
 	// Show "Loading..." string on the top left corner while this texture is loading.
 	// Using the discard level, do not show the string if the texture is almost but not 
 	// fully loaded.
-	if ( mTexturep.notNull() &&
-		 (!mTexturep->isFullyLoaded()) &&
-		 (mShowLoadingPlaceholder == TRUE) && 
-		 (mTexturep->getDiscardLevel() != 1) &&
-		 (mTexturep->getDiscardLevel() != 0))
+	if (mTexturep.notNull() &&
+		(!mTexturep->isFullyLoaded()) &&
+		(mShowLoadingPlaceholder == TRUE))
 	{
+		U32 v_offset = 25;
 		LLFontGL* font = LLFontGL::getFontSansSerif();
-		font->renderUTF8(
-			mLoadingPlaceholderString, 0,
-			llfloor(interior.mLeft+3), 
-			llfloor(interior.mTop-25),
-			LLColor4::white,
-			LLFontGL::LEFT,
-			LLFontGL::BASELINE,
-			LLFontGL::DROP_SHADOW);
+
+		// Don't show as loaded if the texture is almost fully loaded (i.e. discard1) unless god
+		if ((mTexturep->getDiscardLevel() > 1) || gAgent.isGodlike())
+		{
+			font->renderUTF8(
+				mLoadingPlaceholderString, 
+				0,
+				llfloor(interior.mLeft+3), 
+				llfloor(interior.mTop-v_offset),
+				LLColor4::white,
+				LLFontGL::LEFT,
+				LLFontGL::BASELINE,
+				LLFontGL::DROP_SHADOW);
+		}
+
+		// Optionally show more detailed information.
+		if (gSavedSettings.getBOOL("DebugAvatarRezTime"))
+		{
+			LLFontGL* font = LLFontGL::getFontSansSerif();
+			std::string tdesc;
+			// Show what % the texture has loaded (0 to 100%, 100 is highest), and what level of detail (5 to 0, 0 is best).
+
+			v_offset += 12;
+			tdesc = llformat("  PK  : %d%%", U32(mTexturep->getDownloadProgress()*100.0));
+			font->renderUTF8(tdesc, 0, llfloor(interior.mLeft+3), llfloor(interior.mTop-v_offset),
+							 LLColor4::white, LLFontGL::LEFT, LLFontGL::BASELINE, LLFontGL::DROP_SHADOW);
+
+			v_offset += 12;
+			tdesc = llformat("  LVL: %d", mTexturep->getDiscardLevel());
+			font->renderUTF8(tdesc, 0, llfloor(interior.mLeft+3), llfloor(interior.mTop-v_offset),
+							 LLColor4::white, LLFontGL::LEFT, LLFontGL::BASELINE, LLFontGL::DROP_SHADOW);
+
+			v_offset += 12;
+			tdesc = llformat("  ID  : %s...", (mImageAssetID.asString().substr(0,7)).c_str());
+			font->renderUTF8(tdesc, 0, llfloor(interior.mLeft+3), llfloor(interior.mTop-v_offset),
+							 LLColor4::white, LLFontGL::LEFT, LLFontGL::BASELINE, LLFontGL::DROP_SHADOW);
+		}
 	}
 
 	LLUICtrl::draw();

@@ -36,6 +36,7 @@
 #include "llavatarconstants.h"
 #include "llpanelme.h"
 #include "llagent.h"
+#include "llagentcamera.h"
 #include "llagentwearables.h"
 #include "lliconctrl.h"
 #include "llsidetray.h"
@@ -62,7 +63,6 @@ BOOL LLPanelMe::postBuild()
 	LLPanelProfile::postBuild();
 
 	getTabContainer()[PANEL_PROFILE]->childSetAction("edit_profile_btn", boost::bind(&LLPanelMe::onEditProfileClicked, this), this);
-	getTabContainer()[PANEL_PROFILE]->childSetAction("edit_appearance_btn", boost::bind(&LLPanelMe::onEditAppearanceClicked, this), this);
 
 	return TRUE;
 }
@@ -138,14 +138,6 @@ void LLPanelMe::onEditProfileClicked()
 {
 	buildEditPanel();
 	togglePanel(mEditPanel, getAvatarId()); // open
-}
-
-void LLPanelMe::onEditAppearanceClicked()
-{
-	if (gAgentWearables.areWearablesLoaded())
-	{
-		gAgent.changeCameraToCustomizeAvatar();
-	}
 }
 
 void LLPanelMe::onSaveChangesClicked()

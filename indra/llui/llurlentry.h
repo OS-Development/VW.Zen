@@ -77,7 +77,7 @@ public:
 	virtual std::string getLabel(const std::string &url, const LLUrlLabelCallback &cb) { return url; }
 
 	/// Return an icon that can be displayed next to Urls of this type
-	std::string getIcon() const { return mIcon; }
+	virtual std::string getIcon(const std::string &url) { return mIcon; }
 
 	/// Return the color to render the displayed text
 	LLUIColor getColor() const { return mColor; }
@@ -93,6 +93,8 @@ public:
 
 	/// is this a match for a URL that should not be hyperlinked?
 	bool isLinkDisabled() const { return mDisabledLink; }
+
+	virtual LLUUID	getID(const std::string &string) const { return LLUUID::null; }
 
 protected:
 	std::string getIDStringFromUrl(const std::string &url) const;
@@ -201,6 +203,18 @@ public:
 private:
 };
 
+///
+/// LLUrlEntryObjectIM Describes a Second Life inspector for the object Url, e.g.,
+/// secondlife:///app/objectim/7bcd7864-da6b-e43f-4486-91d28a28d95b?name=Object&owner=3de548e1-57be-cfea-2b78-83ae3ad95998&slurl=Danger!%20Danger!/200/200/30/&groupowned=1
+///
+class LLUrlEntryObjectIM : public LLUrlEntryBase
+{
+public:
+	LLUrlEntryObjectIM();
+	/*virtual*/ std::string getLabel(const std::string &url, const LLUrlLabelCallback &cb);
+	/*virtual*/ std::string getLocation(const std::string &url) const;
+private:
+};
 
 ///
 /// LLUrlEntryParcel Describes a Second Life parcel Url, e.g.,
@@ -283,5 +297,18 @@ public:
 	/*virtual*/ std::string getLabel(const std::string &url, const LLUrlLabelCallback &cb);
 	/*virtual*/ std::string getUrl(const std::string &string) const;
 };
+
+///
+/// LLUrlEntryIcon describes an icon with <icon>...</icon> tags
+///
+class LLUrlEntryIcon : public LLUrlEntryBase
+{
+public:
+	LLUrlEntryIcon();
+	/*virtual*/ std::string getUrl(const std::string &string) const;
+	/*virtual*/ std::string getLabel(const std::string &url, const LLUrlLabelCallback &cb);
+	/*virtual*/ std::string getIcon(const std::string &url);
+};
+
 
 #endif

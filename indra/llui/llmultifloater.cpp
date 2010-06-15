@@ -238,6 +238,16 @@ void LLMultiFloater::addFloater(LLFloater* floaterp, BOOL select_added_floater, 
 	moveResizeHandlesToFront();
 }
 
+void LLMultiFloater::updateFloaterTitle(LLFloater* floaterp)
+{
+	S32 index = mTabContainer->getIndexForPanel(floaterp);
+	if (index != -1)
+	{
+		mTabContainer->setPanelTitle(index, floaterp->getShortTitle());
+	}
+}
+
+
 /**
 	BOOL selectFloater(LLFloater* floaterp)
 
@@ -345,7 +355,7 @@ void LLMultiFloater::setVisible(BOOL visible)
 
 BOOL LLMultiFloater::handleKeyHere(KEY key, MASK mask)
 {
-	if (key == 'W' && mask == MASK_CONTROL)
+	if (key == 'W' && mask == (MASK_CONTROL|MASK_SHIFT))
 	{
 		LLFloater* floater = getActiveFloater();
 		// is user closeable and is system closeable

@@ -37,9 +37,11 @@
 // viewer includes
 #include "llfoldervieweventlistener.h"
 #include "llfolderviewitem.h"
-#include "llinventorymodel.h"	// gInventory.backgroundFetchActive()
+#include "llinventorymodel.h"
+#include "llinventorymodelbackgroundfetch.h"
 #include "llviewercontrol.h"
 #include "llfolderview.h"
+#include "llinventorybridge.h"
 
 // linden library includes
 #include "lltrans.h"
@@ -47,13 +49,15 @@
 LLInventoryFilter::FilterOps::FilterOps() :
 	mFilterObjectTypes(0xffffffffffffffffULL),
 	mFilterCategoryTypes(0xffffffffffffffffULL),
+	mFilterWearableTypes(0xffffffffffffffffULL),
 	mMinDate(time_min()),
 	mMaxDate(time_max()),
 	mHoursAgo(0),
 	mShowFolderState(SHOW_NON_EMPTY_FOLDERS),
 	mPermissions(PERM_NONE),
 	mFilterTypes(FILTERTYPE_OBJECT),
-	mFilterUUID(LLUUID::null)
+	mFilterUUID(LLUUID::null),
+	mIncludeLinks(TRUE)
 {
 }
 
@@ -96,23 +100,23 @@ BOOL LLInventoryFilter::check(const LLFolderViewItem* item)
 		return TRUE;
 	}
 
-	const LLFolderViewEventListener* listener = item->getListener();
 	mSubStringMatchOffset = mFilterSubString.size() ? item->getSearchableLabel().find(mFilterSubString) : std::string::npos;
 
 	const BOOL passed_filtertype = checkAgainstFilterType(item);
-	const BOOL passed = passed_filtertype &&
-		(mFilterSubString.size() == 0 || mSubStringMatchOffset != std::string::npos) &&
-		((listener->getPermissionMask() & mFilterOps.mPermissions) == mFilterOps.mPermissions);
+	const BOOL passed_permissions = checkAgainstPermissions(item);
+	const BOOL passed = (passed_filtertype &&
+						 passed_permissions && 
+						 (mFilterSubString.size() == 0 || mSubStringMatchOffset != std::string::npos));
 
 	return passed;
 }
 
-BOOL LLInventoryFilter::checkAgainstFilterType(const LLFolderViewItem* item)
+BOOL LLInventoryFilter::checkAgainstFilterType(const LLFolderViewItem* item) const
 {
 	const LLFolderViewEventListener* listener = item->getListener();
 	if (!listener) return FALSE;
 
-	const LLInventoryType::EType object_type = listener->getInventoryType();
+	LLInventoryType::EType object_type = listener->getInventoryType();
 	const LLUUID object_id = listener->getUUID();
 	const LLInventoryObject *object = gInventory.getObject(object_id);
 
@@ -127,15 +131,15 @@ BOOL LLInventoryFilter::checkAgainstFilterType(const LLFolderViewItem* item)
 		if (object_type == LLInventoryType::IT_NONE)
 		{
 			if (object && object->getIsLinkType())
+			{
 				return FALSE;
+			}
 		}
 		else if ((1LL << object_type & mFilterOps.mFilterObjectTypes) == U64(0))
 		{
 			return FALSE;
 		}
 	}
-	//
-	////////////////////////////////////////////////////////////////////////////////
 	
 	
 	////////////////////////////////////////////////////////////////////////////////
@@ -159,8 +163,6 @@ BOOL LLInventoryFilter::checkAgainstFilterType(const LLFolderViewItem* item)
 		if ((1LL << cat->getPreferredType() & mFilterOps.mFilterCategoryTypes) == U64(0))
 			return FALSE;
 	}
-	//
-	////////////////////////////////////////////////////////////////////////////////
 
 
 	////////////////////////////////////////////////////////////////////////////////
@@ -173,8 +175,6 @@ BOOL LLInventoryFilter::checkAgainstFilterType(const LLFolderViewItem* item)
 		if (object->getLinkedUUID() != mFilterOps.mFilterUUID)
 			return FALSE;
 	}
-	//
-	////////////////////////////////////////////////////////////////////////////////
 
 
 	////////////////////////////////////////////////////////////////////////////////
@@ -196,12 +196,38 @@ BOOL LLInventoryFilter::checkAgainstFilterType(const LLFolderViewItem* item)
 			listener->getCreationDate() > mFilterOps.mMaxDate)
 			return FALSE;
 	}
-	//
+
 	////////////////////////////////////////////////////////////////////////////////
+	// FILTERTYPE_WEARABLE
+	// Pass if this item is a wearable of the appropriate type
+	if (filterTypes & FILTERTYPE_WEARABLE)
+	{
+		LLWearableType::EType type = listener->getWearableType();
+		if ((0x1LL << type & mFilterOps.mFilterWearableTypes) == 0)
+		{
+			return FALSE;
+		}
+	}
 
 	return TRUE;
 }
 
+BOOL LLInventoryFilter::checkAgainstPermissions(const LLFolderViewItem* item) const
+{
+	const LLFolderViewEventListener* listener = item->getListener();
+	if (!listener) return FALSE;
+
+	PermissionMask perm = listener->getPermissionMask();
+	const LLInvFVBridge *bridge = dynamic_cast<const LLInvFVBridge *>(item->getListener());
+	if (bridge && bridge->isLink())
+	{
+		const LLUUID& linked_uuid = gInventory.getLinkedItemID(bridge->getUUID());
+		const LLViewerInventoryItem *linked_item = gInventory.getItem(linked_uuid);
+		if (linked_item)
+			perm = linked_item->getPermissionMask();
+	}
+	return (perm & mFilterOps.mPermissions) == mFilterOps.mPermissions;
+}
 
 const std::string& LLInventoryFilter::getFilterSubString(BOOL trim) const
 {
@@ -217,6 +243,8 @@ std::string::size_type LLInventoryFilter::getStringMatchOffset() const
 BOOL LLInventoryFilter::isNotDefault() const
 {
 	return mFilterOps.mFilterObjectTypes != mDefaultFilterOps.mFilterObjectTypes 
+		|| mFilterOps.mFilterCategoryTypes != mDefaultFilterOps.mFilterCategoryTypes 
+		|| mFilterOps.mFilterWearableTypes != mDefaultFilterOps.mFilterWearableTypes 
 		|| mFilterOps.mFilterTypes != FILTERTYPE_OBJECT
 		|| mFilterSubString.size() 
 		|| mFilterOps.mPermissions != mDefaultFilterOps.mPermissions
@@ -228,6 +256,8 @@ BOOL LLInventoryFilter::isNotDefault() const
 BOOL LLInventoryFilter::isActive() const
 {
 	return mFilterOps.mFilterObjectTypes != 0xffffffffffffffffULL
+		|| mFilterOps.mFilterCategoryTypes != 0xffffffffffffffffULL
+		|| mFilterOps.mFilterWearableTypes != 0xffffffffffffffffULL
 		|| mFilterOps.mFilterTypes != FILTERTYPE_OBJECT
 		|| mFilterSubString.size() 
 		|| mFilterOps.mPermissions != PERM_NONE 
@@ -301,7 +331,35 @@ void LLInventoryFilter::setFilterCategoryTypes(U64 types)
 			setModified(FILTER_MORE_RESTRICTIVE);
 		}
 	}
-	mFilterOps.mFilterTypes |= FILTERTYPE_CATEGORY;
+	mFilterOps.mFilterTypes |= FILTERTYPE_OBJECT;
+}
+
+void LLInventoryFilter::setFilterWearableTypes(U64 types)
+{
+	if (mFilterOps.mFilterWearableTypes != types)
+	{
+		// keep current items only if no type bits getting turned off
+		BOOL fewer_bits_set = (mFilterOps.mFilterWearableTypes & ~types);
+		BOOL more_bits_set = (~mFilterOps.mFilterWearableTypes & types);
+
+		mFilterOps.mFilterWearableTypes = types;
+		if (more_bits_set && fewer_bits_set)
+		{
+			// neither less or more restrive, both simultaneously
+			// so we need to filter from scratch
+			setModified(FILTER_RESTART);
+		}
+		else if (more_bits_set)
+		{
+			// target is only one of all requested types so more type bits == less restrictive
+			setModified(FILTER_LESS_RESTRICTIVE);
+		}
+		else if (fewer_bits_set)
+		{
+			setModified(FILTER_MORE_RESTRICTIVE);
+		}
+	}
+	mFilterOps.mFilterTypes |= FILTERTYPE_WEARABLE;
 }
 
 void LLInventoryFilter::setFilterUUID(const LLUUID& object_id)
@@ -328,9 +386,10 @@ void LLInventoryFilter::setFilterSubString(const std::string& string)
 		// appending new characters
 		const BOOL more_restrictive = mFilterSubString.size() < string.size() && !string.substr(0, mFilterSubString.size()).compare(mFilterSubString);
 
-		mFilterSubString = string;
+		mFilterSubStringOrig = string;
+		LLStringUtil::trimHead(mFilterSubStringOrig);
+		mFilterSubString = mFilterSubStringOrig;
 		LLStringUtil::toUpper(mFilterSubString);
-		LLStringUtil::trimHead(mFilterSubString);
 		if (less_restrictive)
 		{
 			setModified(FILTER_LESS_RESTRICTIVE);
@@ -447,6 +506,18 @@ void LLInventoryFilter::setHoursAgo(U32 hours)
 		}
 	}
 	mFilterOps.mFilterTypes |= FILTERTYPE_DATE;
+}
+
+void LLInventoryFilter::setIncludeLinks(BOOL include_links)
+{
+	if (mFilterOps.mIncludeLinks != include_links)
+	{
+		if (!mFilterOps.mIncludeLinks)
+			setModified(FILTER_LESS_RESTRICTIVE);
+		else
+			setModified(FILTER_MORE_RESTRICTIVE);
+	}
+	mFilterOps.mIncludeLinks = include_links;
 }
 
 void LLInventoryFilter::setShowFolderState(EFolderShow state)
@@ -713,7 +784,7 @@ const std::string& LLInventoryFilter::getFilterText()
 		filtered_by_all_types = FALSE;
 	}
 
-	if (!gInventory.backgroundFetchActive()
+	if (!LLInventoryModelBackgroundFetch::instance().backgroundFetchActive()
 		&& filtered_by_type
 		&& !filtered_by_all_types)
 	{
@@ -823,6 +894,10 @@ time_t LLInventoryFilter::getMaxDate() const
 U32 LLInventoryFilter::getHoursAgo() const 
 { 
 	return mFilterOps.mHoursAgo; 
+}
+BOOL LLInventoryFilter::getIncludeLinks() const
+{
+	return mFilterOps.mIncludeLinks;
 }
 LLInventoryFilter::EFolderShow LLInventoryFilter::getShowFolderState() const
 { 

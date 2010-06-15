@@ -7,10 +7,7 @@
 		Non hai il permesso di leggere questo biglietto.
 	</floater.string>
 	<floater.string name="Title">
-		Notecard: [NAME]
-	</floater.string>
-	<floater.string label="Salva" label_selected="Salva" name="Save">
-		Salva
+		Biglietto: [NAME]
 	</floater.string>
 	<text name="desc txt">
 		Descrizione:
@@ -19,4 +16,5 @@
 		In caricamento...
 	</text_editor>
 	<button label="Salva" label_selected="Salva" name="Save"/>
+	<button label="Elimina" label_selected="Elimina" name="Delete"/>
 </floater>

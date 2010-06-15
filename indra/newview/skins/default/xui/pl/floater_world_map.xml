@@ -20,10 +20,10 @@
 			Sprzedaż Posiadłości
 		</text>
 		<text name="by_owner_label">
-			przez właściciela
+			przez Właściciela
 		</text>
 		<text name="auction_label">
-			aukcja posiadłości
+			aukcja Posiadłości
 		</text>
 		<button name="Go Home" tool_tip="Teleportuj do mojego Miejsca Startowego"/>
 		<text name="Home_label">
@@ -35,7 +35,7 @@
 		<text name="pg_label">
 			Ogólne
 		</text>
-		<check_box initial_value="prawda" name="event_mature_chk"/>
+		<check_box name="event_mature_chk"/>
 		<text name="mature_label">
 			Moderuj
 		</text>

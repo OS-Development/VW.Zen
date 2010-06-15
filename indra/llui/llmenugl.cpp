@@ -3345,7 +3345,7 @@ void LLMenuHolderGL::draw()
 	LLView::draw();
 	// now draw last selected item as overlay
 	LLMenuItemGL* selecteditem = (LLMenuItemGL*)sItemLastSelectedHandle.get();
-	if (selecteditem && sItemActivationTimer.getStarted() && sItemActivationTimer.getElapsedTimeF32() < ACTIVATE_HIGHLIGHT_TIME)
+	if (selecteditem && selecteditem->getVisible() && sItemActivationTimer.getStarted() && sItemActivationTimer.getElapsedTimeF32() < ACTIVATE_HIGHLIGHT_TIME)
 	{
 		// make sure toggle items, for example, show the proper state when fading out
 		selecteditem->buildDrawLabel();
@@ -3420,6 +3420,12 @@ BOOL LLMenuHolderGL::handleKey(KEY key, MASK mask, BOOL called_from_parent)
 			
 	if (pMenu)
 	{
+		//eat TAB key - EXT-7000
+		if (key == KEY_TAB && mask == MASK_NONE)
+		{
+			return TRUE;
+		}
+
 		//handle ESCAPE and RETURN key
 		handled = LLPanel::handleKey(key, mask, called_from_parent);
 		if (!handled)
@@ -3726,10 +3732,14 @@ void LLContextMenuBranch::buildDrawLabel( void )
 
 void	LLContextMenuBranch::showSubMenu()
 {
-	S32 center_x;
-	S32 center_y;
-	localPointToScreen(getRect().getWidth(), getRect().getHeight() , &center_x, &center_y);
-	mBranch->show(	center_x, center_y);
+	LLMenuItemGL* menu_item = mBranch->getParentMenuItem();
+	if (menu_item != NULL && menu_item->getVisible())
+	{
+		S32 center_x;
+		S32 center_y;
+		localPointToScreen(getRect().getWidth(), getRect().getHeight() , &center_x, &center_y);
+		mBranch->show(center_x, center_y);
+	}
 }
 
 // onCommit() - do the primary funcationality of the menu item.

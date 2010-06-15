@@ -63,6 +63,9 @@
 				No se ha seleccionado una parcela.
 Vaya al menú Mundo &gt; Acerca del terreno o seleccione otra parcela para ver sus características.
 			</panel.string>
+			<panel.string name="time_stamp_template">
+				[wkday,datetime,local] [mth,datetime,local] [day,datetime,local] [hour,datetime,local]:[min,datetime,local]:[second,datetime,local] [year,datetime,local]
+			</panel.string>
 			<text name="Name:">
 				Nombre:
 			</text>
@@ -263,8 +266,8 @@ Vaya al menú Mundo &gt; Acerca del terreno o seleccione otra parcela para ver s
 			<text left="204" name="selected_objects_text" width="48">
 				[COUNT]
 			</text>
-			<text left="4" name="Autoreturn" width="412">
-				Devolución automática de objetos de otros Residentes (minutos, 0 para desactivarla):
+			<text name="Autoreturn">
+				Devolución automát. de objetos de otros (en min., 0 la desactiva):
 			</text>
 			<line_editor name="clean other time" right="-20"/>
 			<text name="Object Owners:" width="150">
@@ -275,7 +278,7 @@ Vaya al menú Mundo &gt; Acerca del terreno o seleccione otra parcela para ver s
 			<name_list name="owner list">
 				<name_list.columns label="Tipo" name="type"/>
 				<name_list.columns label="Nombre" name="name"/>
-				<name_list.columns label="Número" name="count"/>
+				<name_list.columns label="Núm." name="count"/>
 				<name_list.columns label="Más recientes" name="mostrecent"/>
 			</name_list>
 		</panel>
@@ -319,25 +322,25 @@ Sólo las parcelas más grandes pueden listarse en la búsqueda.
 			<text name="allow_label2">
 				Crear objetos:
 			</text>
-			<check_box label="Todos los residentes" left="255" name="edit objects check"/>
-			<check_box label="El grupo" left="385" name="edit group objects check"/>
+			<check_box label="Todos los residentes" name="edit objects check"/>
+			<check_box label="El grupo" name="edit group objects check"/>
 			<text name="allow_label3">
 				Dejar objetos:
 			</text>
-			<check_box label="Todos los residentes" left="255" name="all object entry check"/>
-			<check_box label="El grupo" left="385" name="group object entry check"/>
+			<check_box label="Todos los residentes" name="all object entry check"/>
+			<check_box label="El grupo" name="group object entry check"/>
 			<text name="allow_label4">
 				Ejecutar scripts:
 			</text>
-			<check_box label="Todos los residentes" left="255" name="check other scripts"/>
-			<check_box label="El grupo" left="385" name="check group scripts"/>
+			<check_box label="Todos los residentes" name="check other scripts"/>
+			<check_box label="El grupo" name="check group scripts"/>
 			<text name="land_options_label">
 				Opciones del terreno:
 			</text>
 			<check_box label="Seguro (sin daño)" name="check safe" tool_tip="Si se marca, convierte el terreno en &apos;seguro&apos;, desactivando el daño en combate. Si no, se activa el daño en combate."/>
 			<check_box label="Sin &apos;empujones&apos;" name="PushRestrictCheck" tool_tip="Previene scripts que empujen. Marcando esta opción prevendrá que en su terreno haya comportamientos destructivos."/>
 			<check_box label="Mostrar el sitio en la búsqueda (30 L$/semana)" name="ShowDirectoryCheck" tool_tip="Let people see this parcel in search results"/>
-			<combo_box left="282" name="land category with adult" width="140">
+			<combo_box name="land category with adult">
 				<combo_box.item label="Cualquier categoría" name="item0"/>
 				<combo_box.item label="Localización Linden" name="item1"/>
 				<combo_box.item label="&apos;Adult&apos;" name="item2"/>
@@ -352,7 +355,7 @@ Sólo las parcelas más grandes pueden listarse en la búsqueda.
 				<combo_box.item label="Compras" name="item11"/>
 				<combo_box.item label="Otra" name="item12"/>
 			</combo_box>
-			<combo_box left="282" name="land category" width="140">
+			<combo_box name="land category">
 				<combo_box.item label="Cualquier categoría" name="item0"/>
 				<combo_box.item label="Localización Linden" name="item1"/>
 				<combo_box.item label="Arte y Cultura" name="item3"/>
@@ -394,7 +397,7 @@ Sólo las parcelas más grandes pueden listarse en la búsqueda.
 				Página inicial:
 			</text>
 			<line_editor left="97" name="media_url"/>
-			<button label="Definir..." label_selected="Definir..." name="set_media_url"/>
+			<button label="Definir" name="set_media_url"/>
 			<check_box label="Ocultar la URL del media" left="97" name="hide_media_url" tool_tip="Marcando esta opción esconderá en la información de esta parcela -a quien no esté autorizado a verla- la URL del media. Note que esto no está disponible para HTML."/>
 			<text name="Description:">
 				Descripción:

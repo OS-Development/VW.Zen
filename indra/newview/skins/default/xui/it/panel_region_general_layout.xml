@@ -31,13 +31,13 @@
 		Categoria:
 	</text>
 	<combo_box label="Moderato" name="access_combo">
-		<combo_box.item label="Adulto" name="Adult"/>
+		<combo_box.item label="Adulti" name="Adult"/>
 		<combo_box.item label="Moderato" name="Mature"/>
 		<combo_box.item label="Generale" name="PG"/>
 	</combo_box>
 	<button label="Applica" name="apply_btn"/>
-	<button label="Teleport a Casa un utente..." name="kick_btn"/>
-	<button label="Teleport a Casa tutti gli utenti..." name="kick_all_btn"/>
+	<button label="Teleport a casa un residente..." name="kick_btn"/>
+	<button label="Teleport a casa tutti i residenti..." name="kick_all_btn"/>
 	<button label="Invia messaggio alla regione..." name="im_btn"/>
 	<button label="Gestisci telehub..." name="manage_telehub_btn"/>
 </panel>

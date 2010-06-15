@@ -42,12 +42,13 @@ class LLViewerVisualParam;
 class LLWearable;
 class LLVisualParamHint;
 class LLViewerVisualParam;
+class LLJoint;
 
 class LLScrollingPanelParam : public LLScrollingPanel
 {
 public:
 	LLScrollingPanelParam( const LLPanel::Params& panel_params,
-						   LLViewerJointMesh* mesh, LLViewerVisualParam* param, BOOL allow_modify, LLWearable* wearable );
+						   LLViewerJointMesh* mesh, LLViewerVisualParam* param, BOOL allow_modify, LLWearable* wearable, LLJoint* jointp );
 	virtual ~LLScrollingPanelParam();
 
 	virtual void		draw();
@@ -75,13 +76,8 @@ public:
 	// Constants for LLPanelVisualParam
 	const static F32 PARAM_STEP_TIME_THRESHOLD;
 	
-	const static S32 BTN_BORDER;
 	const static S32 PARAM_HINT_WIDTH;
 	const static S32 PARAM_HINT_HEIGHT;
-	const static S32 PARAM_HINT_LABEL_HEIGHT;
-	const static S32 PARAM_PANEL_WIDTH;
-	const static S32 PARAM_PANEL_HEIGHT; 
-
 
 public:
 	LLViewerVisualParam* mParam;

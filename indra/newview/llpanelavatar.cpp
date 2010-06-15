@@ -51,6 +51,7 @@
 #include "llnotificationsutil.h"
 #include "llvoiceclient.h"
 #include "llnamebox.h"
+#include "lltrans.h"
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Class LLDropTarget
@@ -163,7 +164,7 @@ BOOL LLPanelAvatarNotes::postBuild()
 	resetControls();
 	resetData();
 
-	gVoiceClient->addObserver((LLVoiceClientStatusObserver*)this);
+	LLVoiceClient::getInstance()->addObserver((LLVoiceClientStatusObserver*)this);
 
 	return TRUE;
 }
@@ -374,7 +375,7 @@ void LLPanelAvatarNotes::onChange(EStatusType status, const std::string &channel
 		return;
 	}
 
-	childSetEnabled("call", LLVoiceClient::voiceEnabled() && gVoiceClient->voiceWorking());
+	childSetEnabled("call", LLVoiceClient::getInstance()->voiceEnabled() && LLVoiceClient::getInstance()->isVoiceWorking());
 }
 
 void LLPanelAvatarNotes::setAvatarId(const LLUUID& id)
@@ -518,7 +519,7 @@ BOOL LLPanelAvatarProfile::postBuild()
 	pic = getChild<LLTextureCtrl>("real_world_pic");
 	pic->setFallbackImageName("default_profile_picture.j2c");
 
-	gVoiceClient->addObserver((LLVoiceClientStatusObserver*)this);
+	LLVoiceClient::getInstance()->addObserver((LLVoiceClientStatusObserver*)this);
 
 	resetControls();
 	resetData();
@@ -645,7 +646,11 @@ void LLPanelAvatarProfile::fillCommonData(const LLAvatarData* avatar_data)
 	LLAvatarIconIDCache::getInstance()->remove(avatar_data->avatar_id);
 
 	LLStringUtil::format_map_t args;
-	args["[REG_DATE]"] = avatar_data->born_on;
+	{
+		std::string birth_date = LLTrans::getString("AvatarBirthDateFormat");
+		LLStringUtil::format(birth_date, LLSD().with("datetime", (S32) avatar_data->born_on.secondsSinceEpoch()));
+		args["[REG_DATE]"] = birth_date;
+	}
 	args["[AGE]"] = LLDateUtil::ageFromDate( avatar_data->born_on, LLDate::now());
 	std::string register_date = getString("RegisterDateFormat", args);
 	childSetValue("register_date", register_date );
@@ -809,7 +814,7 @@ void LLPanelAvatarProfile::onChange(EStatusType status, const std::string &chann
 		return;
 	}
 
-	childSetEnabled("call", LLVoiceClient::voiceEnabled() && gVoiceClient->voiceWorking());
+	childSetEnabled("call", LLVoiceClient::getInstance()->voiceEnabled() && LLVoiceClient::getInstance()->isVoiceWorking());
 }
 
 void LLPanelAvatarProfile::setAvatarId(const LLUUID& id)
