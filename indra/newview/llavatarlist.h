@@ -38,6 +38,7 @@
 #include "llavatarlistitem.h"
 
 class LLTimer;
+class LLListContextMenu;
 
 /**
  * Generic list of avatars.
@@ -49,11 +50,11 @@ class LLTimer;
  * @see setDirty()
  * @see setNameFilter()
  */
-class LLAvatarList : public LLFlatListView
+class LLAvatarList : public LLFlatListViewEx
 {
 	LOG_CLASS(LLAvatarList);
 public:
-	struct Params : public LLInitParam::Block<Params, LLFlatListView::Params> 
+	struct Params : public LLInitParam::Block<Params, LLFlatListViewEx::Params>
 	{
 		Optional<bool>	ignore_online_status, // show all items as online
 						show_last_interaction_time, // show most recent interaction time. *HACK: move this to a derived class
@@ -70,12 +71,14 @@ public:
 
 	virtual void clear();
 
+	virtual void setVisible(BOOL visible);
+
 	void setNameFilter(const std::string& filter);
 	void setDirty(bool val = true, bool force_refresh = false);
 	uuid_vec_t& getIDs() 							{ return mIDs; }
 	bool contains(const LLUUID& id);
 
-	void setContextMenu(LLAvatarListItem::ContextMenu* menu) { mContextMenu = menu; }
+	void setContextMenu(LLListContextMenu* menu) { mContextMenu = menu; }
 	void setSessionID(const LLUUID& session_id) { mSessionID = session_id; }
 	const LLUUID& getSessionID() { return mSessionID; }
 
@@ -95,6 +98,8 @@ public:
 	boost::signals2::connection setItemDoubleClickCallback(const mouse_signal_t::slot_type& cb);
 
 	virtual S32 notifyParent(const LLSD& info);
+
+	void addAvalineItem(const LLUUID& item_id, const LLUUID& session_id, const std::string& item_name);
 
 protected:
 	void refresh();
@@ -123,7 +128,7 @@ private:
 	uuid_vec_t				mIDs;
 	LLUUID					mSessionID;
 
-	LLAvatarListItem::ContextMenu* mContextMenu;
+	LLListContextMenu*	mContextMenu;
 
 	commit_signal_t mRefreshCompleteSignal;
 	mouse_signal_t mItemDoubleClickSignal;
@@ -173,6 +178,29 @@ public:
 
 protected:
 	virtual bool doCompare(const LLAvatarListItem* avatar_item1, const LLAvatarListItem* avatar_item2) const;
+};
+
+/**
+ * Represents Avaline caller in Avatar list in Voice Control Panel and group chats.
+ */
+class LLAvalineListItem : public LLAvatarListItem
+{
+public:
+
+	/**
+	 * Constructor
+	 *
+	 * @param hide_number - flag indicating if number should be hidden.
+	 *		In this case It will be shown as "Avaline Caller 1", "Avaline Caller 1", etc.
+	 */
+	LLAvalineListItem(bool hide_number = true);
+
+	/*virtual*/ BOOL postBuild();
+
+	/*virtual*/ void setName(const std::string& name);
+
+private:
+	bool mIsHideNumber;
 };
 
 #endif // LL_LLAVATARLIST_H

@@ -5,6 +5,14 @@
  name="Popup"
  visible="false">
     <menu_item_call
+     label="Share"
+     layout="topleft"
+     name="Share"
+     visible="true">
+        <menu_item_call.on_click
+         function="Inventory.Share" />
+    </menu_item_call>
+    <menu_item_call
      label="Buy"
      layout="topleft"
      name="Task Buy">
@@ -402,6 +410,14 @@
          parameter="open" />
     </menu_item_call>
     <menu_item_call
+     label="Open Original"
+     layout="topleft"
+     name="Open Original">
+        <menu_item_call.on_click
+         function="Inventory.DoToSelected"
+         parameter="open_original" />
+    </menu_item_call>
+    <menu_item_call
      label="Properties"
      layout="topleft"
      name="Properties">
@@ -644,6 +660,14 @@
         <menu_item_call.on_click
          function="Inventory.DoToSelected"
          parameter="wear" />
+    </menu_item_call>
+    <menu_item_call
+     label="Add"
+     layout="topleft"
+     name="Wearable Add">
+        <menu_item_call.on_click
+         function="Inventory.DoToSelected"
+         parameter="wear_add" />
     </menu_item_call>
     <menu_item_call
      label="Take Off"

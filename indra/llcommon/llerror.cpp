@@ -954,7 +954,12 @@ namespace LLError
 		
 		std::string class_name = className(site.mClassInfo);
 		std::string function_name = functionName(site.mFunction);
+#if LL_LINUX
+		// gross, but typeid comparison seems to always fail here with gcc4.1
+		if (0 != strcmp(site.mClassInfo.name(), typeid(NoClassInfo).name()))
+#else
 		if (site.mClassInfo != typeid(NoClassInfo))
+#endif // LL_LINUX
 		{
 			function_name = class_name + "::" + function_name;
 		}
@@ -1079,7 +1084,12 @@ namespace LLError
 	#if LL_WINDOWS
 		// DevStudio: __FUNCTION__ already includes the full class name
 	#else
+                #if LL_LINUX
+		// gross, but typeid comparison seems to always fail here with gcc4.1
+		if (0 != strcmp(site.mClassInfo.name(), typeid(NoClassInfo).name()))
+                #else
 		if (site.mClassInfo != typeid(NoClassInfo))
+                #endif // LL_LINUX
 		{
 			prefix << className(site.mClassInfo) << "::";
 		}
@@ -1225,17 +1235,32 @@ namespace LLError
 	char** LLCallStacks::sBuffer = NULL ;
 	S32    LLCallStacks::sIndex  = 0 ;
 
+#define SINGLE_THREADED 1
+
 	class CallStacksLogLock
 	{
 	public:
 		CallStacksLogLock();
 		~CallStacksLogLock();
+
+#if SINGLE_THREADED
+		bool ok() const { return true; }
+#else
 		bool ok() const { return mOK; }
 	private:
 		bool mLocked;
 		bool mOK;
+#endif
 	};
 	
+#if SINGLE_THREADED
+	CallStacksLogLock::CallStacksLogLock()
+	{
+	}
+	CallStacksLogLock::~CallStacksLogLock()
+	{
+	}
+#else
 	CallStacksLogLock::CallStacksLogLock()
 		: mLocked(false), mOK(false)
 	{
@@ -1271,6 +1296,7 @@ namespace LLError
 			apr_thread_mutex_unlock(gCallStacksLogMutexp);
 		}
 	}
+#endif
 
 	//static
    void LLCallStacks::push(const char* function, const int line)

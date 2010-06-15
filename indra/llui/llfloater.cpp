@@ -169,6 +169,7 @@ LLFloater::Params::Params()
 	save_rect("save_rect", false),
 	save_visibility("save_visibility", false),
 	can_dock("can_dock", false),
+	open_centered("open_centered", false),
 	header_height("header_height", 0),
 	legacy_header_height("legacy_header_height", 0),
 	close_image("close_image"),
@@ -329,6 +330,7 @@ void LLFloater::addDragHandle()
 		addChild(mDragHandle);
 	}
 	layoutDragHandle();
+	applyTitle();
 }
 
 void LLFloater::layoutDragHandle()
@@ -345,9 +347,8 @@ void LLFloater::layoutDragHandle()
 	{
 		rect = getLocalRect();
 	}
-	mDragHandle->setRect(rect);
+	mDragHandle->setShape(rect);
 	updateTitleButtons();
-	applyTitle();
 }
 
 void LLFloater::addResizeCtrls()
@@ -563,6 +564,7 @@ void LLFloater::handleVisibilityChange ( BOOL new_visibility )
 
 void LLFloater::openFloater(const LLSD& key)
 {
+	llinfos << "Opening floater " << getName() << llendl;
 	mKey = key; // in case we need to open ourselves again
 	
 	if (getSoundFlags() != SILENT 
@@ -603,6 +605,7 @@ void LLFloater::openFloater(const LLSD& key)
 
 void LLFloater::closeFloater(bool app_quitting)
 {
+	llinfos << "Closing floater " << getName() << llendl;
 	if (app_quitting)
 	{
 		LLFloater::sQuitting = true;
@@ -761,6 +764,13 @@ void    LLFloater::applySavedVariables()
 
 void LLFloater::applyRectControl()
 {
+	// first, center on screen if requested	
+	if (mOpenCentered)
+	{
+		center();
+	}
+
+	// override center if we have saved rect control
 	if (mRectControl.size() > 1)
 	{
 		const LLRect& rect = LLUI::sSettingGroups["floater"]->getRect(mRectControl);
@@ -799,6 +809,11 @@ void LLFloater::applyTitle()
 	else
 	{
 		mDragHandle->setTitle ( mTitle );
+	}
+
+	if (getHost())
+	{
+		getHost()->updateFloaterTitle(this);	
 	}
 }
 
@@ -2509,7 +2524,7 @@ LLFloater *LLFloaterView::getBackmost() const
 
 void LLFloaterView::syncFloaterTabOrder()
 {
-	// look for a visible modal dialog, starting from first (should be only one)
+	// look for a visible modal dialog, starting from first
 	LLModalDialog* modal_dialog = NULL;
 	for ( child_list_const_iter_t child_it = getChildList()->begin(); child_it != getChildList()->end(); ++child_it)
 	{
@@ -2709,6 +2724,7 @@ void LLFloater::initFromParams(const LLFloater::Params& p)
 	mLegacyHeaderHeight = p.legacy_header_height;
 	mSingleInstance = p.single_instance;
 	mAutoTile = p.auto_tile;
+	mOpenCentered = p.open_centered;
 
 	if (p.save_rect)
 	{

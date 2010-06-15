@@ -45,6 +45,7 @@ LLUrlRegistry::LLUrlRegistry()
 {
 	// Urls are matched in the order that they were registered
 	registerUrl(new LLUrlEntryNoLink());
+	registerUrl(new LLUrlEntryIcon());
 	registerUrl(new LLUrlEntrySLURL());
 	registerUrl(new LLUrlEntryHTTP());
 	registerUrl(new LLUrlEntryHTTPLabel());
@@ -135,7 +136,8 @@ static bool stringHasUrl(const std::string &text)
 			text.find(".net") != std::string::npos ||
 			text.find(".edu") != std::string::npos ||
 			text.find(".org") != std::string::npos ||
-			text.find("<nolink>") != std::string::npos);
+			text.find("<nolink>") != std::string::npos ||
+			text.find("<icon") != std::string::npos);
 }
 
 bool LLUrlRegistry::findUrl(const std::string &text, LLUrlMatch &match, const LLUrlLabelCallback &cb)
@@ -177,11 +179,12 @@ bool LLUrlRegistry::findUrl(const std::string &text, LLUrlMatch &match, const LL
 						match_entry->getUrl(url),
 						match_entry->getLabel(url, cb),
 						match_entry->getTooltip(url),
-						match_entry->getIcon(),
+						match_entry->getIcon(url),
 						match_entry->getColor(),
 						match_entry->getMenuName(),
 						match_entry->getLocation(url),
-						match_entry->isLinkDisabled());
+						match_entry->isLinkDisabled(),
+						match_entry->getID(url));
 		return true;
 	}
 
@@ -215,7 +218,8 @@ bool LLUrlRegistry::findUrl(const LLWString &text, LLUrlMatch &match, const LLUr
 						match.getColor(),
 						match.getMenuName(),
 						match.getLocation(),
-						match.isLinkDisabled());
+						match.isLinkDisabled(),
+						match.getID());
 		return true;
 	}
 	return false;

@@ -42,12 +42,16 @@
 class LLWearable;
 class LLWearableHoldingPattern;
 class LLInventoryCallback;
+class LLOutfitUnLockTimer;
 
 class LLAppearanceMgr: public LLSingleton<LLAppearanceMgr>
 {
 	friend class LLSingleton<LLAppearanceMgr>;
+	friend class LLOutfitUnLockTimer;
 	
 public:
+	typedef std::vector<LLInventoryModel::item_array_t> wearables_by_type_t;
+
 	void updateAppearanceFromCOF();
 	bool needToSaveCOF();
 	void updateCOF(const LLUUID& category, bool append = false);
@@ -56,6 +60,10 @@ public:
 	void wearCategoryFinal(LLUUID& cat_id, bool copy_items, bool append);
 	void wearOutfitByName(const std::string& name);
 	void changeOutfit(bool proceed, const LLUUID& category, bool append);
+	void replaceCurrentOutfit(const LLUUID& new_outfit);
+	void renameOutfit(const LLUUID& outfit_id);
+	void takeOffOutfit(const LLUUID& cat_id);
+	void addCategoryToCurrentOutfit(const LLUUID& cat_id);
 
 	// Copy all items and the src category itself.
 	void shallowCopyCategory(const LLUUID& src_id, const LLUUID& dst_id,
@@ -63,6 +71,9 @@ public:
 
 	// Return whether this folder contains minimal contents suitable for making a full outfit.
 	BOOL getCanMakeFolderIntoOutfit(const LLUUID& folder_id);
+
+	// Determine whether a given outfit can be removed.
+	bool getCanRemoveOutfit(const LLUUID& outfit_cat_id);
 
 	// Copy all items in a category.
 	void shallowCopyCategoryContents(const LLUUID& src_id, const LLUUID& dst_id,
@@ -79,7 +90,7 @@ public:
 	const LLUUID getBaseOutfitUUID();
 
 	// Wear/attach an item (from a user's inventory) on the agent
-	bool wearItemOnAvatar(const LLUUID& item_to_wear, bool do_update = true);
+	bool wearItemOnAvatar(const LLUUID& item_to_wear, bool do_update = true, bool replace = false);
 
 	// Update the displayed outfit name in UI.
 	void updatePanelOutfitName(const std::string& name);
@@ -109,6 +120,7 @@ public:
 
 	// Remove COF entries
 	void removeCOFItemLinks(const LLUUID& item_id, bool do_update = true);
+	void removeCOFLinksOfType(LLWearableType::EType type, bool do_update = true);
 
 	// Add COF link to ensemble folder.
 	void addEnsembleLink(LLInventoryCategory* item, bool do_update = true);
@@ -135,6 +147,25 @@ public:
 	// @return false if there is no base outfit
 	bool updateBaseOutfit();
 
+	//Remove clothing or detach an object from the agent (a bodypart cannot be removed)
+	void removeItemFromAvatar(const LLUUID& item_id);
+
+
+	LLUUID makeNewOutfitLinks(const std::string& new_folder_name,bool show_panel = true);
+
+	bool moveWearable(LLViewerInventoryItem* item, bool closer_to_body);
+
+	static void sortItemsByActualDescription(LLInventoryModel::item_array_t& items);
+
+	//Divvy items into arrays by wearable type
+	static void divvyWearablesByType(const LLInventoryModel::item_array_t& items, wearables_by_type_t& items_by_type);
+
+	//Check ordering information on wearables stored in links' descriptions and update if it is invalid
+	// COF is processed if cat_id is not specified
+	void updateClothingOrderingInfo(LLUUID cat_id = LLUUID::null);
+
+	bool isOutfitLocked() { return mOutfitLocked; }
+
 protected:
 	LLAppearanceMgr();
 	~LLAppearanceMgr();
@@ -157,9 +188,21 @@ private:
 	void purgeCategory(const LLUUID& category, bool keep_outfit_links);
 	void purgeBaseOutfitLink(const LLUUID& category);
 
+	static void onOutfitRename(const LLSD& notification, const LLSD& response);
+
+	void setOutfitLocked(bool locked);
+
 	std::set<LLUUID> mRegisteredAttachments;
 	bool mAttachmentInvLinkEnabled;
 	bool mOutfitIsDirty;
+
+	/**
+	 * Lock for blocking operations on outfit until server reply or timeout exceed
+	 * to avoid unsynchronized outfit state or performing duplicate operations.
+	 */
+	bool mOutfitLocked;
+
+	std::auto_ptr<LLOutfitUnLockTimer> mUnlockOutfitTimer;
 
 	//////////////////////////////////////////////////////////////////////////////////
 	// Item-specific convenience functions 
@@ -256,10 +299,12 @@ void doOnIdleRepeating(T callable)
 }
 
 template <class T>
-class CallAfterCategoryFetchStage2: public LLInventoryFetchObserver
+class CallAfterCategoryFetchStage2: public LLInventoryFetchItemsObserver
 {
 public:
-	CallAfterCategoryFetchStage2(T callable):
+	CallAfterCategoryFetchStage2(const uuid_vec_t& ids,
+								 T callable) :
+		LLInventoryFetchItemsObserver(ids),
 		mCallable(callable)
 	{
 	}
@@ -280,7 +325,8 @@ template <class T>
 class CallAfterCategoryFetchStage1: public LLInventoryFetchDescendentsObserver
 {
 public:
-	CallAfterCategoryFetchStage1(T callable):
+	CallAfterCategoryFetchStage1(const LLUUID& cat_id, T callable) :
+		LLInventoryFetchDescendentsObserver(cat_id),
 		mCallable(callable)
 	{
 	}
@@ -309,7 +355,6 @@ public:
 			return;
 		}
 
-		CallAfterCategoryFetchStage2<T> *stage2 = new CallAfterCategoryFetchStage2<T>(mCallable);
 		uuid_vec_t ids;
 		for(S32 i = 0; i < count; ++i)
 		{
@@ -319,8 +364,9 @@ public:
 		gInventory.removeObserver(this);
 		
 		// do the fetch
-		stage2->fetch(ids);
-		if(stage2->isEverythingComplete())
+		CallAfterCategoryFetchStage2<T> *stage2 = new CallAfterCategoryFetchStage2<T>(ids, mCallable);
+		stage2->startFetch();
+		if(stage2->isFinished())
 		{
 			// everything is already here - call done.
 			stage2->done();
@@ -340,11 +386,9 @@ protected:
 template <class T> 
 void callAfterCategoryFetch(const LLUUID& cat_id, T callable)
 {
-	CallAfterCategoryFetchStage1<T> *stage1 = new CallAfterCategoryFetchStage1<T>(callable);
-	uuid_vec_t folders;
-	folders.push_back(cat_id);
-	stage1->fetch(folders);
-	if (stage1->isEverythingComplete())
+	CallAfterCategoryFetchStage1<T> *stage1 = new CallAfterCategoryFetchStage1<T>(cat_id, callable);
+	stage1->startFetch();
+	if (stage1->isFinished())
 	{
 		stage1->done();
 	}
