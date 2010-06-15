@@ -1,11 +1,14 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <panel label="Vestiario" name="appearance panel">
 	<string name="No Outfit" value="Nessun vestiario"/>
-	<filter_editor label="Filtri per il vestiario" name="Filter"/>
-	<panel name="bottom_panel">
-		<button name="options_gear_btn" tool_tip="Mostra opzioni addizionali"/>
-		<button name="newlook_btn" tool_tip="Aggiungi nuovo vestiario"/>
-		<dnd_button name="trash_btn" tool_tip="Rimuovi l&apos;articolo selezionato"/>
-		<button label="Indossa" name="wear_btn"/>
+	<string name="Unsaved Changes" value="Modifiche non salvate"/>
+	<string name="Now Wearing" value="Abbigliamento attuale..."/>
+	<panel name="panel_currentlook">
+		<button label="M" name="editappearance_btn"/>
+		<button label="A" name="openoutfit_btn"/>
+		<text name="currentlook_status">
+			(Stato)
+		</text>
 	</panel>
+	<filter_editor label="Filtri per il vestiario" name="Filter"/>
 </panel>

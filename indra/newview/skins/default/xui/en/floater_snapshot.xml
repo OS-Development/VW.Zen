@@ -11,7 +11,11 @@
  save_rect="true"
  save_visibility="true"
  title="SNAPSHOT PREVIEW"
- width="215">
+ width="215">   
+    <floater.string
+     name="share_to_web_url" translate="false">
+http://pdp36.lindenlab.com:12777/
+    </floater.string>
     <floater.string
      name="unknown">
         unknown

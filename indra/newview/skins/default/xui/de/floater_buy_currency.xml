@@ -37,7 +37,7 @@
 		Schätzung erfolgt...
 	</text>
 	<text name="buy_action">
-		[NAME] L$ [PRICE]
+		[ACTION]
 	</text>
 	<text name="total_label">
 		Mein neuer Kontostand wird sein
@@ -59,9 +59,8 @@
 	</text>
 	<button label="Jetzt kaufen" name="buy_btn"/>
 	<button label="Abbrechen" name="cancel_btn"/>
-	<text name="info_cannot_buy" left="160" width="200" height="40">
-		Kauf nicht
-möglich
+	<text name="info_cannot_buy">
+		Kauf nicht möglich
 	</text>
-	<button label="Weiter zum Internet" name="error_web"/>
+	<button label="Weiter zur Kontoseite" name="error_web"/>
 </floater>

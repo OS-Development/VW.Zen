@@ -56,6 +56,7 @@
 #include "llfloaterreg.h"
 #include "llmenugl.h"
 #include "llmenubutton.h"
+#include "llloadingindicator.h"
 #include "llwindow.h"
 
 // for registration
@@ -94,7 +95,10 @@ std::list<std::string> gUntranslated;
 static LLDefaultChildRegistry::Register<LLFilterEditor> register_filter_editor("filter_editor");
 static LLDefaultChildRegistry::Register<LLFlyoutButton> register_flyout_button("flyout_button");
 static LLDefaultChildRegistry::Register<LLSearchEditor> register_search_editor("search_editor");
+
+// register other widgets which otherwise may not be linked in
 static LLDefaultChildRegistry::Register<LLMenuButton> register_menu_button("menu_button");
+static LLDefaultChildRegistry::Register<LLLoadingIndicator> register_loading_indicator("loading_indicator");
 
 
 //
@@ -207,7 +211,7 @@ void gl_rect_2d(S32 left, S32 top, S32 right, S32 bottom, BOOL filled )
 
 	// Counterclockwise quad will face the viewer
 	if( filled )
-	{
+	{ 
 		gGL.begin( LLRender::QUADS );
 			gGL.vertex2i(left, top);
 			gGL.vertex2i(left, bottom);
@@ -1914,7 +1918,12 @@ void LLUI::clearPopups()
 	}
 }
 
-
+//static
+void LLUI::reportBadKeystroke()
+{
+	make_ui_sound("UISndBadKeystroke");
+}
+	
 //static
 // spawn_x and spawn_y are top left corner of view in screen GL coordinates
 void LLUI::positionViewNearMouse(LLView* view, S32 spawn_x, S32 spawn_y)

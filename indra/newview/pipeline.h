@@ -462,6 +462,7 @@ public:
 	static BOOL				sRenderAttachedLights;
 	static BOOL				sRenderAttachedParticles;
 	static BOOL				sRenderDeferred;
+	static BOOL             sAllowRebuildPriorityGroup;
 	static S32				sVisibleLightCount;
 	static F32				sMinRenderSize;
 
@@ -686,6 +687,9 @@ protected:
 public:
 	static BOOL				sRenderBeacons;
 	static BOOL				sRenderHighlight;
+
+	//debug use
+	static U32              sCurRenderPoolType ;
 };
 
 void render_bbox(const LLVector3 &min, const LLVector3 &max);

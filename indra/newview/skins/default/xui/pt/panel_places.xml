@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <panel label="Lugares" name="places panel">
 	<string name="landmarks_tab_title" value="MEUS MARCOS"/>
-	<string name="teleport_history_tab_title" value="HISTÓRICO DE TELETRANSPORTES"/>
+	<string name="teleport_history_tab_title" value="TELETRANSPORTES"/>
 	<filter_editor label="Filtrar meus lugares" name="Filter"/>
 	<panel name="button_panel">
 		<button label="Teletransportar" name="teleport_btn" tool_tip="Teletransportar para a área selecionada"/>
@@ -11,5 +11,6 @@
 		<button label="Salvar" name="save_btn"/>
 		<button label="Cancelar" name="cancel_btn"/>
 		<button label="Fechar" name="close_btn"/>
+		<button label="Perfil" name="profile_btn"/>
 	</panel>
 </panel>

@@ -348,7 +348,7 @@ LLContextMenu* LLTeleportHistoryPanel::ContextMenu::createMenu()
 
 void LLTeleportHistoryPanel::ContextMenu::onTeleport()
 {
-	LLTeleportHistoryStorage::getInstance()->goToItem(mIndex);
+	confirmTeleport(mIndex);
 }
 
 void LLTeleportHistoryPanel::ContextMenu::onInfo()
@@ -477,6 +477,12 @@ void LLTeleportHistoryPanel::onSearchEdit(const std::string& string)
 }
 
 // virtual
+bool LLTeleportHistoryPanel::isSingleItemSelected()
+{
+	return mLastSelectedFlatlList && mLastSelectedFlatlList->getSelectedItem();
+}
+
+// virtual
 void LLTeleportHistoryPanel::onShowOnMap()
 {
 	if (!mLastSelectedFlatlList)
@@ -496,6 +502,20 @@ void LLTeleportHistoryPanel::onShowOnMap()
 	}
 }
 
+//virtual
+void LLTeleportHistoryPanel::onShowProfile()
+{
+	if (!mLastSelectedFlatlList)
+		return;
+
+	LLTeleportHistoryFlatItem* itemp = dynamic_cast<LLTeleportHistoryFlatItem *> (mLastSelectedFlatlList->getSelectedItem());
+
+	if(!itemp)
+		return;
+
+	LLTeleportHistoryFlatItem::showPlaceInfoPanel(itemp->getIndex());
+}
+
 // virtual
 void LLTeleportHistoryPanel::onTeleport()
 {
@@ -507,7 +527,7 @@ void LLTeleportHistoryPanel::onTeleport()
 		return;
 
 	// teleport to existing item in history, so we don't add it again
-	mTeleportHistory->goToItem(itemp->getIndex());
+	confirmTeleport(itemp->getIndex());
 }
 
 /*
@@ -543,6 +563,7 @@ void LLTeleportHistoryPanel::updateVerbs()
 	if (!mLastSelectedFlatlList)
 	{
 		mTeleportBtn->setEnabled(false);
+		mShowProfile->setEnabled(false);
 		mShowOnMapBtn->setEnabled(false);
 		return;
 	}
@@ -550,6 +571,7 @@ void LLTeleportHistoryPanel::updateVerbs()
 	LLTeleportHistoryFlatItem* itemp = dynamic_cast<LLTeleportHistoryFlatItem *> (mLastSelectedFlatlList->getSelectedItem());
 
 	mTeleportBtn->setEnabled(NULL != itemp);
+	mShowProfile->setEnabled(NULL != itemp);
 	mShowOnMapBtn->setEnabled(NULL != itemp);
 }
 
@@ -1057,4 +1079,28 @@ void LLTeleportHistoryPanel::onAccordionExpand(LLUICtrl* ctrl, const LLSD& param
 	{
 		mLastSelectedFlatlList->resetSelection();
 	}
+}
+
+// static
+void LLTeleportHistoryPanel::confirmTeleport(S32 hist_idx)
+{
+	LLSD args;
+	args["HISTORY_ENTRY"] = LLTeleportHistoryStorage::getInstance()->getItems()[hist_idx].mTitle;
+	LLNotificationsUtil::add("TeleportToHistoryEntry", args, LLSD(),
+		boost::bind(&LLTeleportHistoryPanel::onTeleportConfirmation, _1, _2, hist_idx));
+}
+
+// Called when user reacts upon teleport confirmation dialog.
+// static
+bool LLTeleportHistoryPanel::onTeleportConfirmation(const LLSD& notification, const LLSD& response, S32 hist_idx)
+{
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
+
+	if (0 == option)
+	{
+		// Teleport to given history item.
+		LLTeleportHistoryStorage::getInstance()->goToItem(hist_idx);
+	}
+
+	return false;
 }

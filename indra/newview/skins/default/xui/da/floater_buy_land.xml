@@ -41,7 +41,7 @@ Prøv at vælge et mindre område.
 		Det valgte område har ingen offentlige arealer.
 	</floater.string>
 	<floater.string name="not_owned_by_you">
-		Jord, der ejes af en anden bruger er valgt. 
+		Land ejet af en anden beboer valgt.
 Prøv at vælge et mindre område.
 	</floater.string>
 	<floater.string name="processing">
@@ -126,9 +126,6 @@ gennemført.
 	<floater.string name="no_parcel_selected">
 		(intet parcel er valgt)
 	</floater.string>
-	<floater.string name="icon_PG" value="Parcel_PG_Dark"/>
-	<floater.string name="icon_M" value="Parcel_M_Dark"/>
-	<floater.string name="icon_R" value="Parcel_R_Dark"/>
 	<text name="region_name_label">
 		Region:
 	</text>

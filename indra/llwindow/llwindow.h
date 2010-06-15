@@ -160,7 +160,7 @@ public:
 	virtual void setLanguageTextInput( const LLCoordGL & pos ) {};
 	virtual void updateLanguageTextInputArea() {}
 	virtual void interruptLanguageTextInput() {}
-	virtual void spawnWebBrowser(const std::string& escaped_url) {};
+	virtual void spawnWebBrowser(const std::string& escaped_url, bool async) {};
 
 	static std::vector<std::string> getDynamicFallbackFontList();
 	
@@ -280,20 +280,5 @@ extern const std::string gURLProtocolWhitelist[];
 extern const std::string gURLProtocolWhitelistHandler[];
 
 void simpleEscapeString ( std::string& stringIn  );
-
-//=============================================================================
-//
-//	CLASS		LLDisplayInfo
-class LLDisplayInfo
-
-/*!	@brief		Class to query the information about some display settings
-*/
-{
-public:
-	LLDisplayInfo(){}; ///< Default constructor
-
-	S32 getDisplayWidth() const; ///< display width
-	S32 getDisplayHeight() const; ///< display height
-};
 
 #endif // _LL_window_h_

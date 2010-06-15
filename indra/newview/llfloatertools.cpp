@@ -38,7 +38,7 @@
 #include "llcoord.h"
 //#include "llgl.h"
 
-#include "llagent.h"
+#include "llagentcamera.h"
 #include "llbutton.h"
 #include "llcheckboxctrl.h"
 #include "llcombobox.h"
@@ -237,6 +237,7 @@ BOOL	LLFloaterTools::postBuild()
 	childSetValue("checkbox stretch textures",(BOOL)gSavedSettings.getBOOL("ScaleStretchTextures"));
 	mTextGridMode			= getChild<LLTextBox>("text ruler mode");
 	mComboGridMode			= getChild<LLComboBox>("combobox grid mode");
+	mCheckStretchUniformLabel = getChild<LLTextBox>("checkbox uniform label");
 
 	//
 	// Create Buttons
@@ -316,6 +317,7 @@ LLFloaterTools::LLFloaterTools(const LLSD& key)
 	mComboGridMode(NULL),
 	mCheckStretchUniform(NULL),
 	mCheckStretchTexture(NULL),
+	mCheckStretchUniformLabel(NULL),
 
 	mBtnRotateLeft(NULL),
 	mBtnRotateReset(NULL),
@@ -533,7 +535,7 @@ void LLFloaterTools::updatePopup(LLCoordGL center, MASK mask)
 	}
 
 	// multiply by correction factor because volume sliders go [0, 0.5]
-	childSetValue( "slider zoom", gAgent.getCameraZoomFraction() * 0.5f);
+	childSetValue( "slider zoom", gAgentCamera.getCameraZoomFraction() * 0.5f);
 
 	// Move buttons
 	BOOL move_visible = (tool == LLToolGrab::getInstance());
@@ -632,6 +634,7 @@ void LLFloaterTools::updatePopup(LLCoordGL center, MASK mask)
 	//mCheckSelectLinked	->setVisible( edit_visible );
 	if (mCheckStretchUniform) mCheckStretchUniform->setVisible( edit_visible );
 	if (mCheckStretchTexture) mCheckStretchTexture->setVisible( edit_visible );
+	if (mCheckStretchUniformLabel) mCheckStretchUniformLabel->setVisible( edit_visible );
 
 	// Create buttons
 	BOOL create_visible = (tool == LLToolCompCreate::getInstance());
@@ -766,7 +769,7 @@ void LLFloaterTools::onClose(bool app_quitting)
 
     // Different from handle_reset_view in that it doesn't actually 
 	//   move the camera if EditCameraMovement is not set.
-	gAgent.resetView(gSavedSettings.getBOOL("EditCameraMovement"));
+	gAgentCamera.resetView(gSavedSettings.getBOOL("EditCameraMovement"));
 	
 	// exit component selection mode
 	LLSelectMgr::getInstance()->promoteSelectionToRoot();
@@ -847,7 +850,7 @@ void commit_slider_zoom(LLUICtrl *ctrl)
 {
 	// renormalize value, since max "volume" level is 0.5 for some reason
 	F32 zoom_level = (F32)ctrl->getValue().asReal() * 2.f; // / 0.5f;
-	gAgent.setCameraZoomFraction(zoom_level);
+	gAgentCamera.setCameraZoomFraction(zoom_level);
 }
 
 void click_popup_rotate_left(void*)
