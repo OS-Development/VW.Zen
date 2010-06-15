@@ -39,6 +39,12 @@
 #include "llassetstorage.h"
 
 // Globally constructed; be careful that there's no dependency with gAgent.
+/* 
+   BUG: mList's system of mapping between assetIDs and wearables is flawed
+   since LLWearable* has an associated itemID, and you can have multiple 
+   inventory items pointing to the same asset (i.e. more than one ItemID
+   per assetID).  EXT-6252
+*/
 class LLWearableList : public LLSingleton<LLWearableList>
 {
 public:
@@ -55,7 +61,7 @@ public:
 								 void* userdata);
 
 	LLWearable*			createCopy(const LLWearable* old_wearable, const std::string& new_name = std::string());
-	LLWearable*			createNewWearable(EWearableType type);
+	LLWearable*			createNewWearable(LLWearableType::EType type);
 	
 	// Callback
 	static void	 	    processGetAssetReply(const char* filename, const LLAssetID& assetID, void* user_data, S32 status, LLExtStat ext_status);

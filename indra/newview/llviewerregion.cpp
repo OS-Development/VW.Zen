@@ -47,6 +47,7 @@
 #include "v4math.h"
 
 #include "llagent.h"
+#include "llagentcamera.h"
 #include "llcallingcard.h"
 #include "llcaphttpsender.h"
 #include "llcommandhandler.h"
@@ -215,6 +216,7 @@ LLViewerRegion::LLViewerRegion(const U64 &handle,
 	mColoName("unknown"),
 	mProductSKU("unknown"),
 	mProductName("unknown"),
+	mHttpUrl(""),
 	mCacheLoaded(FALSE),
 	mCacheEntriesCount(0),
 	mCacheID(),
@@ -626,6 +628,26 @@ std::string LLViewerRegion::accessToString(U8 sim_access)
 }
 
 // static
+std::string LLViewerRegion::getAccessIcon(U8 sim_access)
+{
+	switch(sim_access)
+	{
+	case SIM_ACCESS_MATURE:
+		return "Parcel_M_Dark";
+
+	case SIM_ACCESS_ADULT:
+		return "Parcel_R_Light";
+
+	case SIM_ACCESS_PG:
+		return "Parcel_PG_Light";
+
+	case SIM_ACCESS_MIN:
+	default:
+		return "";
+	}
+}
+
+// static
 std::string LLViewerRegion::accessToShortString(U8 sim_access)
 {
 	switch(sim_access)		/* Flawfinder: ignore */
@@ -819,7 +841,7 @@ void LLViewerRegion::calculateCenterGlobal()
 
 void LLViewerRegion::calculateCameraDistance()
 {
-	mCameraDistanceSquared = (F32)(gAgent.getCameraPositionGlobal() - getCenterGlobal()).magVecSquared();
+	mCameraDistanceSquared = (F32)(gAgentCamera.getCameraPositionGlobal() - getCenterGlobal()).magVecSquared();
 }
 
 std::ostream& operator<<(std::ostream &s, const LLViewerRegion &region)
@@ -1534,6 +1556,10 @@ void LLViewerRegion::setCapability(const std::string& name, const std::string& u
 	else
 	{
 		mCapabilities[name] = url;
+		if(name == "GetTexture")
+		{
+			mHttpUrl = url ;
+		}
 	}
 }
 

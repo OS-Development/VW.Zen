@@ -241,6 +241,9 @@ LLMediaPluginTest::~LLMediaPluginTest()
 	{
 		remMediaPanel( mMediaPanels[ i ] );
 	};
+	
+	// Stop the plugin read thread if it's running.
+	LLPluginProcessParent::setUseReadThread(false);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1047,6 +1050,11 @@ void LLMediaPluginTest::gluiCallback( int control_id )
 		}
 	}
 	else
+	if ( control_id == mIdUsePluginReadThread )
+	{
+		LLPluginProcessParent::setUseReadThread(mUsePluginReadThread);
+	}
+	else
 	if ( control_id == mIdControlCrashPlugin )
 	{
 		// send message to plugin and ask it to crash
@@ -1431,6 +1439,12 @@ void LLMediaPluginTest::makeChrome()
 	glui_window_misc_control->set_main_gfx_window( mAppWindow );
 	glui_window_misc_control->add_column( true );
 
+	mIdUsePluginReadThread = start_id++;
+	mUsePluginReadThread = 0;
+	glui_window_misc_control->add_checkbox( "Use plugin read thread", &mUsePluginReadThread, mIdUsePluginReadThread, gluiCallbackWrapper );
+	glui_window_misc_control->set_main_gfx_window( mAppWindow );
+	glui_window_misc_control->add_column( true );
+
 	mIdLargePanelSpacing = start_id++;
 	mLargePanelSpacing = 0;
 	glui_window_misc_control->add_checkbox( "Large Panel Spacing", &mLargePanelSpacing, mIdLargePanelSpacing, gluiCallbackWrapper );
@@ -1593,8 +1607,8 @@ void LLMediaPluginTest::addMediaPanel( std::string url )
 	}
 	std::string user_data_path = std::string( cwd ) + "/";
 #endif
-
-	media_source->init( launcher_name, plugin_name, false, user_data_path );
+	media_source->setUserDataPath(user_data_path);
+	media_source->init( launcher_name, plugin_name, false );
 	media_source->setDisableTimeout(mDisableTimeout);
 
 	// make a new panel and save parameters
@@ -1831,7 +1845,8 @@ void LLMediaPluginTest::replaceMediaPanel( mediaPanel* panel, std::string url )
 	std::string user_data_path = std::string( cwd ) + "/";
 #endif
 
-	media_source->init( launcher_name, plugin_name, false, user_data_path );
+	media_source->setUserDataPath(user_data_path);
+	media_source->init( launcher_name, plugin_name, false );
 	media_source->setDisableTimeout(mDisableTimeout);
 
 	// make a new panel and save parameters
@@ -1954,7 +1969,7 @@ void LLMediaPluginTest::updateStatusBar()
 		 cached_distance == mDistanceCameraToSelectedGeometry
 	   )
 	{
-		// nothing changed so don't spend time in this shitty function
+		// nothing changed so don't spend time here
 		return;
 	};
 

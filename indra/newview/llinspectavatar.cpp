@@ -58,6 +58,7 @@
 #include "llfloaterreg.h"
 #include "llmenubutton.h"
 #include "lltooltip.h"	// positionViewNearMouse()
+#include "lltrans.h"
 #include "lluictrl.h"
 
 #include "llavatariconctrl.h"
@@ -137,6 +138,7 @@ private:
 	void onVolumeChange(const LLSD& data);
 	bool enableMute();
 	bool enableUnmute();
+	bool enableTeleportOffer();
 
 	// Is used to determine if "Add friend" option should be enabled in gear menu
 	bool isNotFriend();
@@ -235,6 +237,7 @@ LLInspectAvatar::LLInspectAvatar(const LLSD& sd)
 		boost::bind(&LLInspectAvatar::onVisibleZoomIn, this));
 	mEnableCallbackRegistrar.add("InspectAvatar.Gear.Enable", boost::bind(&LLInspectAvatar::isNotFriend, this));
 	mEnableCallbackRegistrar.add("InspectAvatar.Gear.EnableCall", boost::bind(&LLAvatarActions::canCall));
+	mEnableCallbackRegistrar.add("InspectAvatar.Gear.EnableTeleportOffer", boost::bind(&LLInspectAvatar::enableTeleportOffer, this));
 	mEnableCallbackRegistrar.add("InspectAvatar.EnableMute", boost::bind(&LLInspectAvatar::enableMute, this));
 	mEnableCallbackRegistrar.add("InspectAvatar.EnableUnmute", boost::bind(&LLInspectAvatar::enableUnmute, this));
 
@@ -378,7 +381,11 @@ void LLInspectAvatar::requestUpdate()
 void LLInspectAvatar::processAvatarData(LLAvatarData* data)
 {
 	LLStringUtil::format_map_t args;
-	args["[BORN_ON]"] = data->born_on;
+	{
+		std::string birth_date = LLTrans::getString("AvatarBirthDateFormat");
+		LLStringUtil::format(birth_date, LLSD().with("datetime", (S32) data->born_on.secondsSinceEpoch()));
+		args["[BORN_ON]"] = birth_date;
+	}
 	args["[AGE]"] = LLDateUtil::ageFromDate(data->born_on, LLDate::now());
 	args["[SL_PROFILE]"] = data->about_text;
 	args["[RW_PROFILE"] = data->fl_about_text;
@@ -534,8 +541,7 @@ void LLInspectAvatar::toggleSelectedVoice(bool enabled)
 
 void LLInspectAvatar::updateVolumeSlider()
 {
-
-	bool voice_enabled = gVoiceClient->getVoiceEnabled(mAvatarID);
+	bool voice_enabled = LLVoiceClient::getInstance()->getVoiceEnabled(mAvatarID);
 
 	// Do not display volume slider and mute button if it 
 	// is ourself or we are not in a voice channel together
@@ -564,8 +570,8 @@ void LLInspectAvatar::updateVolumeSlider()
 		LLUICtrl* volume_slider = getChild<LLUICtrl>("volume_slider");
 		volume_slider->setEnabled( !is_muted );
 
-		const F32 DEFAULT_VOLUME = 0.5f;
 		F32 volume;
+		
 		if (is_muted)
 		{
 			// it's clearer to display their volume as zero
@@ -574,14 +580,7 @@ void LLInspectAvatar::updateVolumeSlider()
 		else
 		{
 			// actual volume
-			volume = gVoiceClient->getUserVolume(mAvatarID);
-
-			// *HACK: Voice client doesn't have any data until user actually
-			// says something.
-			if (volume == 0.f)
-			{
-				volume = DEFAULT_VOLUME;
-			}
+			volume = LLVoiceClient::getInstance()->getUserVolume(mAvatarID);
 		}
 		volume_slider->setValue( (F64)volume );
 	}
@@ -610,7 +609,7 @@ void LLInspectAvatar::onClickMuteVolume()
 void LLInspectAvatar::onVolumeChange(const LLSD& data)
 {
 	F32 volume = (F32)data.asReal();
-	gVoiceClient->setUserVolume(mAvatarID, volume);
+	LLVoiceClient::getInstance()->setUserVolume(mAvatarID, volume);
 }
 
 void LLInspectAvatar::nameUpdatedCallback(
@@ -770,6 +769,11 @@ bool LLInspectAvatar::enableUnmute()
 		{
 			return false;
 		}
+}
+
+bool LLInspectAvatar::enableTeleportOffer()
+{
+	return LLAvatarActions::canOfferTeleport(mAvatarID);
 }
 
 //////////////////////////////////////////////////////////////////////////////

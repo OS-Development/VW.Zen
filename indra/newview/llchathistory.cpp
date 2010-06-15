@@ -93,7 +93,7 @@ public:
 		payload["object_id"] = object_id;
 		payload["owner_id"] = query_map["owner"];
 		payload["name"] = query_map["name"];
-		payload["slurl"] = query_map["slurl"];
+		payload["slurl"] = LLWeb::escapeURL(query_map["slurl"]);
 		payload["group_owned"] = query_map["groupowned"];
 		LLFloaterReg::showInstance("inspect_remote_object", payload);
 		return true;
@@ -243,7 +243,7 @@ public:
 		gCacheName->get(mAvatarID, FALSE, boost::bind(&LLChatHistoryHeader::nameUpdatedCallback, this, _1, _2, _3, _4));
 
 		//*TODO overly defensive thing, source type should be maintained out there
-		if((chat.mFromID.isNull() && chat.mFromName.empty()) || chat.mFromName == SYSTEM_FROM)
+		if((chat.mFromID.isNull() && chat.mFromName.empty()) || chat.mFromName == SYSTEM_FROM && chat.mFromID.isNull())
 		{
 			mSourceType = CHAT_SOURCE_SYSTEM;
 		}
@@ -632,7 +632,14 @@ void LLChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
 
 	if (use_plain_text_chat_history)
 	{
-		mEditor->appendText("[" + chat.mTimeStr + "] ", mEditor->getText().size() != 0, style_params);
+		LLStyle::Params timestamp_style(style_params);
+		if (!message_from_log)
+		{
+			LLColor4 timestamp_color = LLUIColorTable::instance().getColor("ChatTimestampColor");
+			timestamp_style.color(timestamp_color);
+			timestamp_style.readonly_color(timestamp_color);
+		}
+		mEditor->appendText("[" + chat.mTimeStr + "] ", mEditor->getText().size() != 0, timestamp_style);
 
 		if (utf8str_trim(chat.mFromName).size() != 0)
 		{
@@ -640,20 +647,19 @@ void LLChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
 			if ( chat.mSourceType == CHAT_SOURCE_OBJECT && chat.mFromID.notNull())
 			{
 				// for object IMs, create a secondlife:///app/objectim SLapp
-				std::string url = LLSLURL::buildCommand("objectim", chat.mFromID, "");
+				std::string url = LLSLURL("objectim", chat.mFromID, "").getSLURLString();
 				url += "?name=" + chat.mFromName;
-				url += "&owner=" + args["owner_id"].asString();
+				url += "&owner=" + chat.mOwnerID.asString();
 
 				std::string slurl = args["slurl"].asString();
 				if (slurl.empty())
 				{
-					LLViewerRegion *region = LLWorld::getInstance()->getRegionFromPosAgent(chat.mPosAgent);
-					if (region)
-					{
-						S32 x, y, z;
-						LLSLURL::globalPosToXYZ(LLVector3d(chat.mPosAgent), x, y, z);
-						slurl = region->getName() + llformat("/%d/%d/%d", x, y, z);
-					}
+				    LLViewerRegion *region = LLWorld::getInstance()->getRegionFromPosAgent(chat.mPosAgent);
+				    if(region)
+				      {
+					LLSLURL region_slurl(region->getName(), chat.mPosAgent);
+					slurl = region_slurl.getLocationString();
+				      }
 				}
 				url += "&slurl=" + slurl;
 
@@ -661,7 +667,7 @@ void LLChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
 				// (don't let object names with hyperlinks override our objectim Url)
 				LLStyle::Params link_params(style_params);
 				link_params.color.control = "HTMLLinkColor";
-				link_params.link_href = url;
+				link_params.link_href = LLURI::escape(url);
 				mEditor->appendText("<nolink>" + chat.mFromName + "</nolink>"  + delimiter,
 									false, link_params);
 			}
@@ -734,8 +740,8 @@ void LLChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
 		LLNotificationPtr notification = LLNotificationsUtil::find(chat.mNotifId);
 		if (notification != NULL)
 		{
-			LLToastNotifyPanel* notify_box = new LLToastNotifyPanel(
-					notification);
+			LLIMToastNotifyPanel* notify_box = new LLIMToastNotifyPanel(
+					notification, chat.mSessionID);
 			//we can't set follows in xml since it broke toasts behavior
 			notify_box->setFollowsLeft();
 			notify_box->setFollowsRight();
@@ -743,7 +749,9 @@ void LLChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
 
 			ctrl_list_t ctrls = notify_box->getControlPanel()->getCtrlList();
 			S32 offset = 0;
-			for (ctrl_list_t::iterator it = ctrls.begin(); it != ctrls.end(); it++)
+			// Children were added by addChild() which uses push_front to insert them into list,
+			// so to get buttons in correct order reverse iterator is used (EXT-5906) 
+			for (ctrl_list_t::reverse_iterator it = ctrls.rbegin(); it != ctrls.rend(); it++)
 			{
 				LLButton * button = dynamic_cast<LLButton*> (*it);
 				if (button != NULL)
@@ -758,7 +766,7 @@ void LLChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
 							button->getRect().mBottom));
 					button->setAutoResize(true);
 					button->autoResize();
-					offset += 2 * HPAD + button->getRect().getWidth();
+					offset += HPAD + button->getRect().getWidth();
 					button->setFollowsNone();
 				}
 			}
@@ -817,7 +825,6 @@ void LLChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
 			message = chat.mFromName + message;
 		}
 		
-
 		mEditor->appendText(message, FALSE, style_params);
 	}
 	mEditor->blockUndo();
@@ -838,13 +845,4 @@ void LLChatHistory::draw()
 	}
 
 	LLUICtrl::draw();
-}
-
-void LLChatHistory::reshape(S32 width, S32 height, BOOL called_from_parent)
-{
-	bool is_scrolled_to_end = mEditor->scrolledToEnd();
-	LLUICtrl::reshape( width, height, called_from_parent );
-	// update scroll
-	if (is_scrolled_to_end)
-		mEditor->setCursorAndScrollToEnd();
 }
