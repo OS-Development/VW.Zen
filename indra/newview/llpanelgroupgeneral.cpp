@@ -212,7 +212,6 @@ void LLPanelGroupGeneral::setupCtrls(LLPanel* panel_group)
 	if (mInsignia)
 	{
 		mInsignia->setCommitCallback(onCommitAny, this);
-		mDefaultIconID = mInsignia->getImageAssetID();
 	}
 	mFounderName = getChild<LLNameBox>("founder_name");
 
@@ -656,7 +655,7 @@ void LLPanelGroupGeneral::update(LLGroupChange gc)
 		}
 		else
 		{
-			mInsignia->setImageAssetID(mDefaultIconID);
+			mInsignia->setImageAssetName(mInsignia->getDefaultImageName());
 		}
 	}
 
@@ -820,15 +819,15 @@ void LLPanelGroupGeneral::reset()
 	
 	mCtrlListGroup->set(true);
 	
-	mCtrlReceiveNotices->setEnabled(true);
+	mCtrlReceiveNotices->setEnabled(false);
 	mCtrlReceiveNotices->setVisible(true);
 
-	mCtrlListGroup->setEnabled(true);
+	mCtrlListGroup->setEnabled(false);
 
 	mGroupNameEditor->setEnabled(TRUE);
 	mEditCharter->setEnabled(TRUE);
 
-	mCtrlShowInGroupList->setEnabled(TRUE);
+	mCtrlShowInGroupList->setEnabled(false);
 	mComboMature->setEnabled(TRUE);
 	
 	mCtrlOpenEnrollment->setEnabled(TRUE);
@@ -845,6 +844,8 @@ void LLPanelGroupGeneral::reset()
 	mInsignia->setImageAssetID(LLUUID::null);
 	
 	mInsignia->setEnabled(true);
+
+	mInsignia->setImageAssetName(mInsignia->getDefaultImageName());
 
 	{
 		std::string empty_str = "";
@@ -933,6 +934,8 @@ void LLPanelGroupGeneral::setGroupID(const LLUUID& id)
 		mCtrlListGroup->set(list_in_profile);
 		mCtrlListGroup->setEnabled(data.mID.notNull());
 	}
+
+	mCtrlShowInGroupList->setEnabled(data.mID.notNull());
 
 	mActiveTitleLabel = getChild<LLTextBox>("active_title_label");
 	

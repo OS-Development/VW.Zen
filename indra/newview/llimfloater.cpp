@@ -44,6 +44,7 @@
 #include "llchiclet.h"
 #include "llfloaterreg.h"
 #include "llimfloatercontainer.h" // to replace separate IM Floaters with multifloater container
+#include "llinventoryfunctions.h"
 #include "lllayoutstack.h"
 #include "lllineeditor.h"
 #include "lllogchat.h"
@@ -52,14 +53,20 @@
 #include "llsyswellwindow.h"
 #include "lltrans.h"
 #include "llchathistory.h"
+#include "llnotifications.h"
 #include "llviewerwindow.h"
 #include "llvoicechannel.h"
 #include "lltransientfloatermgr.h"
 #include "llinventorymodel.h"
 #include "llrootview.h"
-
 #include "llspeakers.h"
+#include "llsidetray.h"
 
+
+static const S32 RECT_PADDING_NOT_INIT = -1;
+static const S32 RECT_PADDING_NEED_RECALC = -2;
+
+S32 LLIMFloater::sAllowedRectRightPadding = RECT_PADDING_NOT_INIT;
 
 LLIMFloater::LLIMFloater(const LLUUID& session_id)
   : LLTransientDockableFloater(NULL, true, session_id),
@@ -128,6 +135,11 @@ void LLIMFloater::onFocusReceived()
 	LLIMModel::getInstance()->setActiveSessionID(mSessionID);
 
 	LLBottomTray::getInstance()->getChicletPanel()->setChicletToggleState(mSessionID, true);
+
+	if (getVisible())
+	{
+		LLIMModel::instance().sendNoUnreadMessages(mSessionID);
+	}
 }
 
 // virtual
@@ -365,6 +377,8 @@ void LLIMFloater::onSlide()
 //static
 LLIMFloater* LLIMFloater::show(const LLUUID& session_id)
 {
+	closeHiddenIMToasts();
+
 	if (!gIMMgr->hasSession(session_id)) return NULL;
 
 	if(!isChatMultiTab())
@@ -436,25 +450,50 @@ LLIMFloater* LLIMFloater::show(const LLUUID& session_id)
 	return floater;
 }
 
+//static
+bool LLIMFloater::resetAllowedRectPadding(const LLSD& newvalue)
+{
+	//reset allowed rect right padding if "SidebarCameraMovement" option 
+	//or sidebar state changed
+	sAllowedRectRightPadding = RECT_PADDING_NEED_RECALC ;
+	return true;
+}
+
 void LLIMFloater::getAllowedRect(LLRect& rect)
 {
+	if (sAllowedRectRightPadding == RECT_PADDING_NOT_INIT) //wasn't initialized
+	{
+		gSavedSettings.getControl("SidebarCameraMovement")->getSignal()->connect(boost::bind(&LLIMFloater::resetAllowedRectPadding, _2));
+
+		LLSideTray*	side_bar = LLSideTray::getInstance();
+		side_bar->getCollapseSignal().connect(boost::bind(&LLIMFloater::resetAllowedRectPadding, _2));
+		sAllowedRectRightPadding = RECT_PADDING_NEED_RECALC;
+	}
+
 	rect = gViewerWindow->getWorldViewRectScaled();
-	static S32 right_padding = 0;
-	if (right_padding == 0)
+	if (sAllowedRectRightPadding == RECT_PADDING_NEED_RECALC) //recalc allowed rect right padding
 	{
 		LLPanel* side_bar_tabs =
 				gViewerWindow->getRootView()->getChild<LLPanel> (
 						"side_bar_tabs");
-		right_padding = side_bar_tabs->getRect().getWidth();
+		sAllowedRectRightPadding = side_bar_tabs->getRect().getWidth();
 		LLTransientFloaterMgr::getInstance()->addControlView(side_bar_tabs);
+
+		if (gSavedSettings.getBOOL("SidebarCameraMovement") == FALSE)
+		{
+			LLSideTray*	side_bar = LLSideTray::getInstance();
+
+			if (side_bar->getVisible() && !side_bar->getCollapsed())
+				sAllowedRectRightPadding += side_bar->getRect().getWidth();
+		}
 	}
-	rect.mRight -= right_padding;
+	rect.mRight -= sAllowedRectRightPadding;
 }
 
 void LLIMFloater::setDocked(bool docked, bool pop_on_undock)
 {
 	// update notification channel state
-	LLNotificationsUI::LLScreenChannel* channel = dynamic_cast<LLNotificationsUI::LLScreenChannel*>
+	LLNotificationsUI::LLScreenChannel* channel = static_cast<LLNotificationsUI::LLScreenChannel*>
 		(LLNotificationsUI::LLChannelManager::getInstance()->
 											findChannelByID(LLUUID(gSavedSettings.getString("NotificationChannelUUID"))));
 	
@@ -473,7 +512,7 @@ void LLIMFloater::setDocked(bool docked, bool pop_on_undock)
 
 void LLIMFloater::setVisible(BOOL visible)
 {
-	LLNotificationsUI::LLScreenChannel* channel = dynamic_cast<LLNotificationsUI::LLScreenChannel*>
+	LLNotificationsUI::LLScreenChannel* channel = static_cast<LLNotificationsUI::LLScreenChannel*>
 		(LLNotificationsUI::LLChannelManager::getInstance()->
 											findChannelByID(LLUUID(gSavedSettings.getString("NotificationChannelUUID"))));
 	LLTransientDockableFloater::setVisible(visible);
@@ -493,8 +532,8 @@ void LLIMFloater::setVisible(BOOL visible)
 	{
 		//only if floater was construced and initialized from xml
 		updateMessages();
-		//prevent steal focus when IM opened in multitab mode
-		if (!isChatMultiTab())
+		//prevent stealing focus when opening a background IM tab (EXT-5387, checking focus for EXT-6781)
+		if (!isChatMultiTab() || hasFocus())
 		{
 			mInputEditor->setFocus(TRUE);
 		}
@@ -609,7 +648,16 @@ void LLIMFloater::updateMessages()
 	bool use_plain_text_chat_history = gSavedSettings.getBOOL("PlainTextChatHistory");
 
 	std::list<LLSD> messages;
-	LLIMModel::instance().getMessages(mSessionID, messages, mLastMessageIndex+1);
+
+	// we shouldn't reset unread message counters if IM floater doesn't have focus
+	if (hasFocus())
+	{
+		LLIMModel::instance().getMessages(mSessionID, messages, mLastMessageIndex+1);
+	}
+	else
+	{
+		LLIMModel::instance().getMessagesSilently(mSessionID, messages, mLastMessageIndex+1);
+	}
 
 	if (messages.size())
 	{
@@ -642,6 +690,24 @@ void LLIMFloater::updateMessages()
 			if (msg.has("notification_id"))
 			{
 				chat.mNotifId = msg["notification_id"].asUUID();
+				// if notification exists - embed it
+				if (LLNotificationsUtil::find(chat.mNotifId) != NULL)
+				{
+					// remove embedded notification from channel
+					LLNotificationsUI::LLScreenChannel* channel = static_cast<LLNotificationsUI::LLScreenChannel*>
+							(LLNotificationsUI::LLChannelManager::getInstance()->
+																findChannelByID(LLUUID(gSavedSettings.getString("NotificationChannelUUID"))));
+					if (getVisible())
+					{
+						// toast will be automatically closed since it is not storable toast
+						channel->hideToast(chat.mNotifId);
+					}
+				}
+				// if notification doesn't exist - try to use next message which should be log entry
+				else
+				{
+					continue;
+				}
 			}
 			//process text message
 			else
@@ -651,6 +717,19 @@ void LLIMFloater::updateMessages()
 			
 			mChatHistory->appendMessage(chat, chat_args);
 			mLastMessageIndex = msg["index"].asInteger();
+
+			// if it is a notification - next message is a notification history log, so skip it
+			if (chat.mNotifId.notNull() && LLNotificationsUtil::find(chat.mNotifId) != NULL)
+			{
+				if (++iter == iter_end)
+				{
+					break;
+				}
+				else
+				{
+					mLastMessageIndex++;
+				}
+			}
 		}
 	}
 }
@@ -877,7 +956,7 @@ BOOL LLIMFloater::dropCallingCard(LLInventoryItem* item, BOOL drop)
 	{
 		if(drop)
 		{
-			std::vector<LLUUID> ids;
+			uuid_vec_t ids;
 			ids.push_back(item->getCreatorUUID());
 			inviteToSession(ids);
 		}
@@ -910,7 +989,7 @@ BOOL LLIMFloater::dropCategory(LLInventoryCategory* category, BOOL drop)
 		}
 		else if(drop)
 		{
-			std::vector<LLUUID> ids;
+			uuid_vec_t ids;
 			ids.reserve(count);
 			for(S32 i = 0; i < count; ++i)
 			{
@@ -947,7 +1026,7 @@ private:
 	LLUUID mSessionID;
 };
 
-BOOL LLIMFloater::inviteToSession(const std::vector<LLUUID>& ids)
+BOOL LLIMFloater::inviteToSession(const uuid_vec_t& ids)
 {
 	LLViewerRegion* region = gAgent.getRegion();
 	if (!region)
@@ -1038,6 +1117,41 @@ void LLIMFloater::removeTypingIndicator(const LLIMInfo* im_info)
 }
 
 // static
+void LLIMFloater::closeHiddenIMToasts()
+{
+	class IMToastMatcher: public LLNotificationsUI::LLScreenChannel::Matcher
+	{
+	public:
+		bool matches(const LLNotificationPtr notification) const
+		{
+			// "notifytoast" type of notifications is reserved for IM notifications
+			return "notifytoast" == notification->getType();
+		}
+	};
+
+	LLNotificationsUI::LLScreenChannel* channel = LLNotificationsUI::LLChannelManager::getNotificationScreenChannel();
+	if (channel != NULL)
+	{
+		channel->closeHiddenToasts(IMToastMatcher());
+	}
+}
+// static
+void LLIMFloater::confirmLeaveCallCallback(const LLSD& notification, const LLSD& response)
+{
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
+	const LLSD& payload = notification["payload"];
+	LLUUID session_id = payload["session_id"];
+
+	LLFloater* im_floater = LLFloaterReg::findInstance("impanel", session_id);
+	if (option == 0 && im_floater != NULL)
+	{
+		im_floater->closeFloater();
+	}
+
+	return;
+}
+
+// static
 bool LLIMFloater::isChatMultiTab()
 {
 	// Restart is required in order to change chat window type.
@@ -1085,4 +1199,32 @@ void LLIMFloater::onIMChicletCreated( const LLUUID& session_id )
 		im_box->addFloater(new_tab, FALSE, LLTabContainer::END);
 	}
 
+}
+
+void	LLIMFloater::onClickCloseBtn()
+{
+
+	LLIMModel::LLIMSession* session = LLIMModel::instance().findIMSession(
+				mSessionID);
+
+	if (session == NULL)
+	{
+		llwarns << "Empty session." << llendl;
+		return;
+	}
+
+	bool is_call_with_chat = session->isGroupSessionType()
+			|| session->isAdHocSessionType() || session->isP2PSessionType();
+
+	LLVoiceChannel* voice_channel = LLIMModel::getInstance()->getVoiceChannel(mSessionID);
+
+	if (is_call_with_chat && voice_channel != NULL && voice_channel->isActive())
+	{
+		LLSD payload;
+		payload["session_id"] = mSessionID;
+		LLNotificationsUtil::add("ConfirmLeaveCall", LLSD(), payload, confirmLeaveCallCallback);
+		return;
+	}
+
+	LLFloater::onClickCloseBtn();
 }

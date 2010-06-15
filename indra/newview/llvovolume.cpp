@@ -369,7 +369,7 @@ U32 LLVOVolume::processUpdateMessage(LLMessageSystem *mesgsys,
 			S32 res2 = unpackTEMessage(*dp);
 			if (TEM_INVALID == res2)
 			{
-				// Well, crap, there's something bogus in the data that we're unpacking.
+				// There's something bogus in the data that we're unpacking.
 				dp->dumpBufferToLog();
 				llwarns << "Flushing cache files" << llendl;
 				std::string mask;
@@ -962,8 +962,11 @@ void LLVOVolume::updateSculptTexture()
 	if (isSculpted())
 	{
 		LLSculptParams *sculpt_params = (LLSculptParams *)getParameterEntry(LLNetworkData::PARAMS_SCULPT);
-		LLUUID id =  sculpt_params->getSculptTexture(); 
-		mSculptTexture = LLViewerTextureManager::getFetchedTexture(id, TRUE, LLViewerTexture::BOOST_NONE, LLViewerTexture::LOD_TEXTURE);
+		LLUUID id =  sculpt_params->getSculptTexture();
+		if (id.notNull())
+		{
+			mSculptTexture = LLViewerTextureManager::getFetchedTexture(id, TRUE, LLViewerTexture::BOOST_NONE, LLViewerTexture::LOD_TEXTURE);
+		}
 	}
 	else
 	{
@@ -1853,6 +1856,11 @@ void LLVOVolume::syncMediaData(S32 texture_index, const LLSD &media_data, bool m
 	}
 	
 	LLTextureEntry *te = getTE(texture_index);
+	if(!te)
+	{
+		return ;
+	}
+
 	LL_DEBUGS("MediaOnAPrim") << "BEFORE: texture_index = " << texture_index
 		<< " hasMedia = " << te->hasMedia() << " : " 
 		<< ((NULL == te->getMediaData()) ? "NULL MEDIA DATA" : ll_pretty_print_sd(te->getMediaData()->asLLSD())) << llendl;
@@ -3290,7 +3298,6 @@ static LLFastTimer::DeclareTimer FTM_REBUILD_VBO("VBO Rebuilt");
 
 void LLVolumeGeometryManager::rebuildGeom(LLSpatialGroup* group)
 {
-	llpushcallstacks ;
 	if (group->changeLOD())
 	{
 		group->mLastUpdateDistance = group->mDistance;
@@ -3521,7 +3528,6 @@ void LLVolumeGeometryManager::rebuildGeom(LLSpatialGroup* group)
 static LLFastTimer::DeclareTimer FTM_VOLUME_GEOM("Volume Geometry");
 void LLVolumeGeometryManager::rebuildMesh(LLSpatialGroup* group)
 {
-	llpushcallstacks ;
 	llassert(group);
 	if (group && group->isState(LLSpatialGroup::MESH_DIRTY) && !group->isState(LLSpatialGroup::GEOM_DIRTY))
 	{
@@ -3613,7 +3619,6 @@ void LLVolumeGeometryManager::rebuildMesh(LLSpatialGroup* group)
 
 void LLVolumeGeometryManager::genDrawInfo(LLSpatialGroup* group, U32 mask, std::vector<LLFace*>& faces, BOOL distance_sort)
 {
-	llpushcallstacks ;
 	//calculate maximum number of vertices to store in a single buffer
 	U32 max_vertices = (gSavedSettings.getS32("RenderMaxVBOSize")*1024)/LLVertexBuffer::calcStride(group->mSpatialPartition->mVertexDataMask);
 	max_vertices = llmin(max_vertices, (U32) 65535);

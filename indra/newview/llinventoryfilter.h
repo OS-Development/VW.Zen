@@ -59,10 +59,11 @@ public:
 	enum EFilterType
 	{
 		FILTERTYPE_NONE = 0,
-		FILTERTYPE_OBJECT = 1,		// normal default search-by-object-type
-		FILTERTYPE_CATEGORY = 2,	// search by folder type
-		FILTERTYPE_UUID	= 4,		// find the object with UUID and any links to it
-		FILTERTYPE_DATE = 8			// search by date range
+		FILTERTYPE_OBJECT = 0x1 << 0,	// normal default search-by-object-type
+		FILTERTYPE_CATEGORY = 0x1 << 1,	// search by folder type
+		FILTERTYPE_UUID	= 0x1 << 2,		// find the object with UUID and any links to it
+		FILTERTYPE_DATE = 0x1 << 3,		// search by date range
+		FILTERTYPE_WEARABLE = 0x1 << 4	// search by wearable type
 	};
 
 	// REFACTOR: Change this to an enum.
@@ -81,9 +82,11 @@ public:
 	BOOL 				isFilterObjectTypesWith(LLInventoryType::EType t) const;
 	void 				setFilterCategoryTypes(U64 types);
 	void 				setFilterUUID(const LLUUID &object_id);
+	void				setFilterWearableTypes(U64 types);
 
 	void 				setFilterSubString(const std::string& string);
 	const std::string& 	getFilterSubString(BOOL trim = FALSE) const;
+	const std::string& 	getFilterSubStringOrig() const { return mFilterSubStringOrig; } 
 	BOOL 				hasFilterString() const;
 
 	void 				setFilterPermissions(PermissionMask perms);
@@ -97,11 +100,15 @@ public:
 	void 				setHoursAgo(U32 hours);
 	U32 				getHoursAgo() const;
 
+	void 				setIncludeLinks(BOOL include_links);
+	BOOL				getIncludeLinks() const;
+
 	// +-------------------------------------------------------------------+
 	// + Execution And Results
 	// +-------------------------------------------------------------------+
 	BOOL 				check(const LLFolderViewItem* item);
-	BOOL 				checkAgainstFilterType(const LLFolderViewItem* item);
+	BOOL 				checkAgainstFilterType(const LLFolderViewItem* item) const;
+	BOOL 				checkAgainstPermissions(const LLFolderViewItem* item) const;
 	std::string::size_type getStringMatchOffset() const;
 
 	// +-------------------------------------------------------------------+
@@ -163,6 +170,7 @@ private:
 		U32 			mFilterTypes;
 
 		U64				mFilterObjectTypes; // For _OBJECT
+		U64				mFilterWearableTypes;
 		U64				mFilterCategoryTypes; // For _CATEGORY
 		LLUUID      	mFilterUUID; // for UUID
 
@@ -171,6 +179,7 @@ private:
 		U32				mHoursAgo;
 		EFolderShow		mShowFolderState;
 		PermissionMask	mPermissions;
+		BOOL			mIncludeLinks;
 	};
 
 	U32						mOrder;
@@ -181,6 +190,7 @@ private:
 
 	std::string::size_type	mSubStringMatchOffset;
 	std::string				mFilterSubString;
+	std::string				mFilterSubStringOrig;
 	const std::string		mName;
 
 	S32						mFilterGeneration;

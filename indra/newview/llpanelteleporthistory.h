@@ -47,6 +47,7 @@ class LLFlatListView;
 class LLTeleportHistoryPanel : public LLPanelPlacesTab
 {
 public:
+	// *TODO: derive from LLListContextMenu?
 	class ContextMenu
 	{
 	public:
@@ -73,9 +74,11 @@ public:
 
 	/*virtual*/ void onSearchEdit(const std::string& string);
 	/*virtual*/ void onShowOnMap();
+	/*virtual*/ void onShowProfile();
 	/*virtual*/ void onTeleport();
 	///*virtual*/ void onCopySLURL();
 	/*virtual*/ void updateVerbs();
+	/*virtual*/ bool isSingleItemSelected();
 
 private:
 
@@ -103,6 +106,9 @@ private:
 	bool isAccordionCollapsedByUser(LLUICtrl* acc_tab);
 	void onAccordionExpand(LLUICtrl* ctrl, const LLSD& param);
 
+	static void confirmTeleport(S32 hist_idx);
+	static bool onTeleportConfirmation(const LLSD& notification, const LLSD& response, S32 hist_idx);
+
 	LLTeleportHistoryStorage*	mTeleportHistory;
 	LLAccordionCtrl*		mHistoryAccordion;
 
@@ -118,5 +124,7 @@ private:
 	LLContextMenu*			mAccordionTabMenu;
 	LLHandle<LLView>		mGearMenuHandle;
 };
+
+
 
 #endif //LL_LLPANELTELEPORTHISTORY_H

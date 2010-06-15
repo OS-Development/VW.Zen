@@ -59,11 +59,14 @@ Se si continua a visualizzare questo messaggio, consulta la pagina [SUPPORT_SITE
 		<message name="completing">
 			Teletrasporto completato
 		</message>
+		<message name="completed_from">
+			Teleport completato da [T_SLURL]
+		</message>
 		<message name="resolving">
 			Elaborazione della destinazione in corso...
 		</message>
 		<message name="contacting">
-			Contattando la nuova regione.
+			Contatto in corso con la nuova regione.
 		</message>
 		<message name="arriving">
 			In arrivo a destinazione...

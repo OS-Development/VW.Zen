@@ -36,6 +36,7 @@
 
 #include "llpanel.h"
 #include "llinventoryobserver.h"
+#include "lldndbutton.h"
 
 #include "llfolderview.h"
 
@@ -113,7 +114,8 @@ protected:
 	void setSortBy(const LLSD& userdata);
 	void saveTexture(const LLSD& userdata);
 	bool isSaveTextureEnabled(const LLSD& userdata);
-	
+	void updateItemcountText();
+
 private:
 	LLFloaterInventoryFinder* getFinder();
 
@@ -144,7 +146,7 @@ protected:
 	 */
 	void setUploadCostIfNeeded();
 private:
-	LLPanel*					mListCommands;
+	LLDragAndDropButton*		mTrashButton;
 	LLMenuGL*					mMenuGearDefault;
 	LLMenuGL*					mMenuAdd;
 

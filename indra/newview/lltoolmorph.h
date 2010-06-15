@@ -47,6 +47,7 @@
 class LLViewerJointMesh;
 class LLPolyMesh;
 class LLViewerObject;
+class LLJoint;
 
 //-----------------------------------------------------------------------------
 // LLVisualParamHint
@@ -62,7 +63,11 @@ public:
 		S32 width, S32 height, 
 		LLViewerJointMesh *mesh, 
 		LLViewerVisualParam *param,
-		F32 param_weight);	
+		LLWearable *wearable,
+		F32 param_weight, 
+		LLJoint* jointp);	
+
+	/*virtual*/ S8 getType() const ;
 
 	BOOL					needsRender();
 	void					preRender(BOOL clear_depth);
@@ -87,11 +92,13 @@ protected:
 	BOOL					mIsVisible;			// is this distortion hint visible?
 	LLViewerJointMesh*		mJointMesh;			// mesh that this distortion applies to
 	LLViewerVisualParam*	mVisualParam;		// visual param applied by this hint
+	LLWearable*				mWearablePtr;		// wearable we're editing
 	F32						mVisualParamWeight;		// weight for this visual parameter
 	BOOL					mAllowsUpdates;		// updates are blocked unless this is true
 	S32						mDelayFrames;		// updates are blocked for this many frames
 	LLRect					mRect;
 	F32						mLastParamWeight;
+	LLJoint*				mCamTargetJoint;	// joint to target with preview camera
 
 	LLUIImagePtr mBackgroundp;
 
@@ -107,6 +114,7 @@ protected:
 public:
 	LLVisualParamReset();
 	/*virtual */ BOOL render();
+	/*virtual*/ S8 getType() const ;
 
 	static BOOL sDirty;
 };

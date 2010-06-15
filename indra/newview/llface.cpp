@@ -867,7 +867,6 @@ BOOL LLFace::getGeometryVolume(const LLVolume& volume,
 								const LLMatrix4& mat_vert, const LLMatrix3& mat_normal,
 								const U16 &index_offset)
 {
-	llpushcallstacks ;
 	const LLVolumeFace &vf = volume.getVolumeFace(f);
 	S32 num_vertices = (S32)vf.mVertices.size();
 	S32 num_indices = LLPipeline::sUseTriStrips ? (S32)vf.mTriStrip.size() : (S32) vf.mIndices.size();
@@ -1377,9 +1376,18 @@ F32 LLFace::getTextureVirtualSize()
 		texel_area = 1.f;
 	}
 
-	//apply texel area to face area to get accurate ratio
-	//face_area /= llclamp(texel_area, 1.f/64.f, 16.f);
-	F32 face_area = mPixelArea / llclamp(texel_area, 0.015625f, 128.f);
+	F32 face_area;
+	if (mVObjp->isSculpted() && texel_area > 1.f)
+	{
+		//sculpts can break assumptions about texel area
+		face_area = mPixelArea;
+	}
+	else
+	{
+		//apply texel area to face area to get accurate ratio
+		//face_area /= llclamp(texel_area, 1.f/64.f, 16.f);
+		face_area =  mPixelArea / llclamp(texel_area, 0.015625f, 128.f);
+	}
 
 	if(face_area > LLViewerTexture::sMaxSmallImageSize)
 	{

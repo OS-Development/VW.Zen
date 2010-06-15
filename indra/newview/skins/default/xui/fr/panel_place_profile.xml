@@ -18,16 +18,16 @@
 	<string name="all_residents_text" value="Tous les résidents"/>
 	<string name="group_text" value="Groupe"/>
 	<string name="can_resell">
-		Le terrain acheté dans cette région peut être revendu.
+		Le terrain acheté dans la région peut être revendu.
 	</string>
 	<string name="can_not_resell">
-		Le terrain acheté dans cette région ne peut pas être revendu.
+		Le terrain acheté dans la région ne peut pas être revendu.
 	</string>
 	<string name="can_change">
-		Le terrain acheté dans cette région peut être fusionné ou divisé.
+		Le terrain acheté dans la région peut être fusionné ou divisé.
 	</string>
 	<string name="can_not_change">
-		Le terrain acheté dans cette région ne peut pas être fusionné ou divisé.
+		Le terrain acheté dans la région ne peut être fusionné ou divisé.
 	</string>
 	<string name="server_update_text">
 		Les informations sur le lieu ne sont pas disponibles sans mise à jour du serveur.
@@ -41,21 +41,6 @@
 	<string name="acquired_date">
 		[wkday,datetime,local] [mth,datetime,local] [day,datetime,local] [hour,datetime,local]:[min,datetime,local]:[second,datetime,local] [year,datetime,local]
 	</string>
-	<string name="icon_PG" value="parcel_drk_PG"/>
-	<string name="icon_M" value="parcel_drk_M"/>
-	<string name="icon_R" value="parcel_drk_R"/>
-	<string name="icon_Voice" value="parcel_drk_Voice"/>
-	<string name="icon_VoiceNo" value="parcel_drk_VoiceNo"/>
-	<string name="icon_Fly" value="parcel_drk_Fly"/>
-	<string name="icon_FlyNo" value="parcel_drk_FlyNo"/>
-	<string name="icon_Push" value="parcel_drk_Push"/>
-	<string name="icon_PushNo" value="parcel_drk_PushNo"/>
-	<string name="icon_Build" value="parcel_drk_Build"/>
-	<string name="icon_BuildNo" value="parcel_drk_BuildNo"/>
-	<string name="icon_Scripts" value="parcel_drk_Scripts"/>
-	<string name="icon_ScriptsNo" value="parcel_drk_ScriptsNo"/>
-	<string name="icon_Damage" value="parcel_drk_Damage"/>
-	<string name="icon_DamageNo" value="parcel_drk_DamageNo"/>
 	<button name="back_btn" tool_tip="Précédent"/>
 	<text name="title" value="Profil du lieu"/>
 	<scroll_container name="place_scroll">
