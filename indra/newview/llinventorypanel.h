@@ -84,6 +84,7 @@ public:
 		Optional<std::string>				sort_order_setting;
 		Optional<LLInventoryModel*>			inventory;
 		Optional<bool>						allow_multi_select;
+		Optional<bool>						show_item_link_overlays;
 		Optional<Filter>					filter;
 		Optional<std::string>               start_folder;
 
@@ -91,6 +92,7 @@ public:
 		:	sort_order_setting("sort_order_setting"),
 			inventory("", &gInventory),
 			allow_multi_select("allow_multi_select", true),
+			show_item_link_overlays("show_item_link_overlays", false),
 			filter("filter"),
 			start_folder("start_folder")
 		{}
@@ -136,6 +138,7 @@ public:
 	U32 getFilterObjectTypes() const { return mFolderRoot->getFilterObjectTypes(); }
 	void setFilterPermMask(PermissionMask filter_perm_mask);
 	U32 getFilterPermMask() const { return mFolderRoot->getFilterPermissions(); }
+	void setFilterWearableTypes(U64 filter);
 	void setFilterSubString(const std::string& string);
 	const std::string getFilterSubString() { return mFolderRoot->getFilterSubString(); }
 	void setSinceLogoff(BOOL sl);
@@ -177,6 +180,7 @@ protected:
 	LLInventoryModel*			mInventory;
 	LLInventoryObserver*		mInventoryObserver;
 	BOOL 						mAllowMultiSelect;
+	BOOL 						mShowItemLinkOverlays; // Shows link graphic over inventory item icons
 
 	LLFolderView*				mFolderRoot;
 	LLScrollContainer*			mScroller;

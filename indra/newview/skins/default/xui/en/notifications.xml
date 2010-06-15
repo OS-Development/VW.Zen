@@ -1397,8 +1397,7 @@ Unable to encode file: [FILE]
    icon="alertmodal.tga"
    name="CorruptedProtectedDataStore"
    type="alertmodal">
-  We are unable to read your protected data so it is being reset.
-   This may happen when you change network setup.
+   We can't fill in your username and password.  This may happen when you change network setup
 
     <usetemplate
      name="okbutton"
@@ -2066,6 +2065,7 @@ Would you be my friend?
        name="Cancel"
        text="Cancel"/>
     </form>
+    <unique/>
   </notification>
 
   <notification
@@ -6207,7 +6207,7 @@ The button will be shown when there is enough space for it.
    icon="notifytip.tga"
    name="ShareNotification"
    type="notifytip">
-Drag items from inventory onto a person in the resident picker
+Select residents to share with.
   </notification>
   <notification
    icon="notifytip.tga"

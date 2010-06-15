@@ -148,6 +148,12 @@ public:
 	static void		editWearable(const LLUUID& item_id);
 	bool			moveWearable(const LLViewerInventoryItem* item, bool closer_to_body);
 
+	void			requestEditingWearable(const LLUUID& item_id);
+	void			editWearableIfRequested(const LLUUID& item_id);
+
+private:
+	LLUUID			mItemToEdit;
+
 	//--------------------------------------------------------------------
 	// Removing wearables
 	//--------------------------------------------------------------------
@@ -218,11 +224,18 @@ public:
 	// Signals
 	//--------------------------------------------------------------------
 public:
+	typedef boost::function<void()>			loading_started_callback_t;
+	typedef boost::signals2::signal<void()>	loading_started_signal_t;
+	boost::signals2::connection				addLoadingStartedCallback(loading_started_callback_t cb);
+
 	typedef boost::function<void()>			loaded_callback_t;
 	typedef boost::signals2::signal<void()>	loaded_signal_t;
 	boost::signals2::connection				addLoadedCallback(loaded_callback_t cb);
 
+	void									notifyLoadingStarted();
+
 private:
+	loading_started_signal_t				mLoadingStartedSignal; // should be called before wearables are changed
 	loaded_signal_t							mLoadedSignal; // emitted when all agent wearables get loaded
 
 	//--------------------------------------------------------------------

@@ -352,7 +352,7 @@ void LLAccordionCtrl::addCollapsibleCtrl(LLView* view)
 	mAccordionTabs.push_back(accordion_tab);
 
 	accordion_tab->setDropDownStateChangedCallback( boost::bind(&LLAccordionCtrl::onCollapseCtrlCloseOpen, this, mAccordionTabs.size() - 1) );
-
+	arrange();	
 }
 
 void LLAccordionCtrl::removeCollapsibleCtrl(LLView* view)
@@ -523,6 +523,8 @@ void	LLAccordionCtrl::arrangeMultiple()
 
 void LLAccordionCtrl::arrange()
 {
+	updateNoTabsHelpTextVisibility();
+
 	if( mAccordionTabs.size() == 0)
 	{
 		//We do not arrange if we do not have what should be arranged
@@ -541,6 +543,8 @@ void LLAccordionCtrl::arrange()
 		
 		S32 panel_height = getRect().getHeight() - 2*BORDER_MARGIN;
 
+		if (accordion_tab->getFitParent())
+			panel_height = accordion_tab->getRect().getHeight();
 		ctrlSetLeftTopAndSize(accordion_tab,panel_rect.mLeft,panel_top,panel_width,panel_height);
 		
 		show_hide_scrollbar(getRect().getWidth(),getRect().getHeight());
@@ -816,7 +820,7 @@ void	LLAccordionCtrl::setFilterSubString(const std::string& filter_string)
 {
 	LLStringUtil::format_map_t args;
 	args["[SEARCH_TERM]"] = LLURI::escape(filter_string);
-	std::string text = mNoVisibleTabsOrigString;
+	std::string text = filter_string.empty() ? LLStringUtil::null : mNoVisibleTabsOrigString;
 	LLStringUtil::format(text, args);
 
 	mNoVisibleTabsHelpText->setValue(text);

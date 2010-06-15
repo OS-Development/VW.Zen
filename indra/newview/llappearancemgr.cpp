@@ -38,11 +38,13 @@
 #include "llagentwearables.h"
 #include "llappearancemgr.h"
 #include "llcommandhandler.h"
+#include "lleventtimer.h"
 #include "llgesturemgr.h"
 #include "llinventorybridge.h"
 #include "llinventoryfunctions.h"
 #include "llinventoryobserver.h"
 #include "llnotificationsutil.h"
+#include "lloutfitobserver.h"
 #include "llpaneloutfitsinventory.h"
 #include "llselectmgr.h"
 #include "llsidepanelappearance.h"
@@ -54,6 +56,34 @@
 #include "llwearablelist.h"
 
 char ORDER_NUMBER_SEPARATOR('@');
+
+class LLOutfitUnLockTimer: public LLEventTimer
+{
+public:
+	LLOutfitUnLockTimer(F32 period) : LLEventTimer(period)
+	{
+		// restart timer on BOF changed event
+		LLOutfitObserver::instance().addBOFChangedCallback(boost::bind(
+				&LLOutfitUnLockTimer::reset, this));
+		stop();
+	}
+
+	/*virtual*/
+	BOOL tick()
+	{
+		if(mEventTimer.hasExpired())
+		{
+			LLAppearanceMgr::instance().setOutfitLocked(false);
+		}
+		return FALSE;
+	}
+	void stop() { mEventTimer.stop(); }
+	void start() { mEventTimer.start(); }
+	void reset() { mEventTimer.reset(); }
+	BOOL getStarted() { return mEventTimer.getStarted(); }
+
+	LLTimer&  getEventTimer() { return mEventTimer;}
+};
 
 // support for secondlife:///app/appearance SLapps
 class LLAppearanceHandler : public LLCommandHandler
@@ -614,6 +644,13 @@ const LLViewerInventoryItem* LLAppearanceMgr::getBaseOutfitLink()
 		const LLViewerInventoryCategory *cat = item->getLinkedCategory();
 		if (cat && cat->getPreferredType() == LLFolderType::FT_OUTFIT)
 		{
+			const LLUUID parent_id = cat->getParentUUID();
+			LLViewerInventoryCategory*  parent_cat =  gInventory.getCategory(parent_id);
+			// if base outfit moved to trash it means that we don't have base outfit
+			if (parent_cat != NULL && parent_cat->getPreferredType() == LLFolderType::FT_TRASH)
+			{
+				return NULL;
+			}
 			return item;
 		}
 	}
@@ -760,6 +797,27 @@ void LLAppearanceMgr::onOutfitRename(const LLSD& notification, const LLSD& respo
 		LLUUID cat_id = notification["payload"]["cat_id"].asUUID();
 		rename_category(&gInventory, cat_id, outfit_name);
 	}
+}
+
+void LLAppearanceMgr::setOutfitLocked(bool locked)
+{
+	if (mOutfitLocked == locked)
+	{
+		return;
+	}
+
+	mOutfitLocked = locked;
+	if (locked)
+	{
+		mUnlockOutfitTimer->reset();
+		mUnlockOutfitTimer->start();
+	}
+	else
+	{
+		mUnlockOutfitTimer->stop();
+	}
+
+	LLOutfitObserver::instance().notifyOutfitLockChanged();
 }
 
 void LLAppearanceMgr::addCategoryToCurrentOutfit(const LLUUID& cat_id)
@@ -914,18 +972,10 @@ bool LLAppearanceMgr::getCanRemoveOutfit(const LLUUID& outfit_cat_id)
 		return false;
 	}
 
-	// Check if the folder contains worn items.
-	LLInventoryModel::cat_array_t cats;
-	LLInventoryModel::item_array_t items;
-	LLFindWorn filter_worn;
-	gInventory.collectDescendentsIf(outfit_cat_id, cats, items, false, filter_worn);
-	if (!items.empty())
-	{
-		return false;
-	}
-
 	// Check for the folder's non-removable descendants.
 	LLFindNonRemovableObjects filter_non_removable;
+	LLInventoryModel::cat_array_t cats;
+	LLInventoryModel::item_array_t items;
 	LLInventoryModel::item_array_t::const_iterator it;
 	gInventory.collectDescendentsIf(outfit_cat_id, cats, items, false, filter_non_removable);
 	if (!cats.empty() || !items.empty())
@@ -1357,6 +1407,7 @@ void LLAppearanceMgr::getUserDescendents(const LLUUID& category,
 
 void LLAppearanceMgr::wearInventoryCategory(LLInventoryCategory* category, bool copy, bool append)
 {
+	gAgentWearables.notifyLoadingStarted();
 	if(!category) return;
 
 	llinfos << "wearInventoryCategory( " << category->getName()
@@ -1810,6 +1861,14 @@ void LLAppearanceMgr::onFirstFullyVisible()
 
 bool LLAppearanceMgr::updateBaseOutfit()
 {
+	if (isOutfitLocked())
+	{
+		// don't allow modify locked outfit
+		llassert(!isOutfitLocked());
+		return false;
+	}
+	setOutfitLocked(true);
+
 	const LLUUID base_outfit_id = getBaseOutfitUUID();
 	if (base_outfit_id.isNull()) return false;
 
@@ -1941,13 +2000,19 @@ void LLAppearanceMgr::updateClothingOrderingInfo(LLUUID cat_id)
 class LLShowCreatedOutfit: public LLInventoryCallback
 {
 public:
-	LLShowCreatedOutfit(LLUUID& folder_id): mFolderID(folder_id)
+	LLShowCreatedOutfit(LLUUID& folder_id, bool show_panel = true): mFolderID(folder_id), mShowPanel(show_panel)
 	{}
 
 	virtual ~LLShowCreatedOutfit()
 	{
 		LLSD key;
-		LLSideTray::getInstance()->showPanel("panel_outfits_inventory", key);
+		
+		//EXT-7727. For new accounts LLShowCreatedOutfit is created during login process
+		// add may be processed after login process is finished
+		if (mShowPanel)
+		{
+			LLSideTray::getInstance()->showPanel("panel_outfits_inventory", key);
+		}
 		LLPanelOutfitsInventory *outfit_panel =
 			dynamic_cast<LLPanelOutfitsInventory*>(LLSideTray::getInstance()->getPanel("panel_outfits_inventory"));
 		if (outfit_panel)
@@ -1971,9 +2036,10 @@ public:
 
 private:
 	LLUUID mFolderID;
+	bool mShowPanel;
 };
 
-LLUUID LLAppearanceMgr::makeNewOutfitLinks(const std::string& new_folder_name)
+LLUUID LLAppearanceMgr::makeNewOutfitLinks(const std::string& new_folder_name, bool show_panel)
 {
 	if (!isAgentAvatarValid()) return LLUUID::null;
 
@@ -1986,7 +2052,7 @@ LLUUID LLAppearanceMgr::makeNewOutfitLinks(const std::string& new_folder_name)
 
 	updateClothingOrderingInfo();
 
-	LLPointer<LLInventoryCallback> cb = new LLShowCreatedOutfit(folder_id);
+	LLPointer<LLInventoryCallback> cb = new LLShowCreatedOutfit(folder_id,show_panel);
 	shallowCopyCategoryContents(getCOF(),folder_id, cb);
 	createBaseOutfitLink(folder_id, cb);
 
@@ -2080,7 +2146,7 @@ bool LLAppearanceMgr::moveWearable(LLViewerInventoryItem* item, bool closer_to_b
 	bool result = false;
 	if (result = gAgentWearables.moveWearable(item, closer_to_body))
 	{
-		gAgentAvatarp->wearableUpdated(item->getWearableType(), TRUE);
+		gAgentAvatarp->wearableUpdated(item->getWearableType(), FALSE);
 	}
 
 	setOutfitDirty(true);
@@ -2138,6 +2204,14 @@ LLAppearanceMgr::LLAppearanceMgr():
 	mAttachmentInvLinkEnabled(false),
 	mOutfitIsDirty(false)
 {
+	LLOutfitObserver& outfit_observer = LLOutfitObserver::instance();
+
+	// unlock outfit on save operation completed
+	outfit_observer.addCOFSavedCallback(boost::bind(
+			&LLAppearanceMgr::setOutfitLocked, this, false));
+
+	mUnlockOutfitTimer.reset(new LLOutfitUnLockTimer(gSavedSettings.getS32(
+			"OutfitOperationsTimeout")));
 }
 
 LLAppearanceMgr::~LLAppearanceMgr()
