@@ -544,8 +544,12 @@ MediaPluginGStreamer010::pause()
 {
 	DEBUGMSG("pausing media...");
 	// todo: error-check this?
-	llgst_element_set_state(mPlaybin, GST_STATE_PAUSED);
-	return true;
+	if (mDoneInit && mPlaybin)
+	{
+		llgst_element_set_state(mPlaybin, GST_STATE_PAUSED);
+		return true;
+	}
+	return false;
 }
 
 bool
@@ -553,8 +557,12 @@ MediaPluginGStreamer010::stop()
 {
 	DEBUGMSG("stopping media...");
 	// todo: error-check this?
-	llgst_element_set_state(mPlaybin, GST_STATE_READY);
-	return true;
+	if (mDoneInit && mPlaybin)
+	{
+		llgst_element_set_state(mPlaybin, GST_STATE_READY);
+		return true;
+	}
+	return false;
 }
 
 bool
@@ -564,8 +572,12 @@ MediaPluginGStreamer010::play(double rate)
 
         DEBUGMSG("playing media... rate=%f", rate);
 	// todo: error-check this?
-	llgst_element_set_state(mPlaybin, GST_STATE_PLAYING);
-	return true;
+	if (mDoneInit && mPlaybin)
+	{
+		llgst_element_set_state(mPlaybin, GST_STATE_PLAYING);
+		return true;
+	}
+	return false;
 }
 
 bool
@@ -608,7 +620,7 @@ bool
 MediaPluginGStreamer010::getTimePos(double &sec_out)
 {
 	bool got_position = false;
-	if (mPlaybin)
+	if (mDoneInit && mPlaybin)
 	{
 		gint64 pos;
 		GstFormat timefmt = GST_FORMAT_TIME;
@@ -688,6 +700,7 @@ MediaPluginGStreamer010::load()
 					   this);
 	llgst_object_unref (bus);
 
+#if 0 // not quite stable/correct yet
 	// get a visualizer element (bonus feature!)
 	char* vis_name = getenv("LL_GST_VIS_NAME");
 	if (!vis_name ||
@@ -714,6 +727,7 @@ MediaPluginGStreamer010::load()
 			}
 		}
 	}
+#endif
 
 	if (NULL == getenv("LL_GSTREAMER_EXTERNAL")) {
 		// instantiate a custom video sink
@@ -986,33 +1000,6 @@ void MediaPluginGStreamer010::receiveMessage(const char *message_string)
 
 				message.setValue("plugin_version", getVersion());
 				sendMessage(message);
-
-				// Plugin gets to decide the texture parameters to use.
-				message.setMessage(LLPLUGIN_MESSAGE_CLASS_MEDIA, "texture_params");
-				// lame to have to decide this now, it depends on the movie.  Oh well.
-				mDepth = 4;
-
-				mCurrentWidth = 1;
-				mCurrentHeight = 1;
-				mPreviousWidth = 1;
-				mPreviousHeight = 1;
-				mNaturalWidth = 1;
-				mNaturalHeight = 1;
-				mWidth = 1;
-				mHeight = 1;
-				mTextureWidth = 1;
-				mTextureHeight = 1;
-
-				message.setValueU32("format", GL_RGBA);
-				message.setValueU32("type", GL_UNSIGNED_INT_8_8_8_8_REV);
-
-				message.setValueS32("depth", mDepth);
-				message.setValueS32("default_width", mWidth);
-				message.setValueS32("default_height", mHeight);
-				message.setValueU32("internalformat", GL_RGBA8);
-				message.setValueBoolean("coords_opengl", true);	// true == use OpenGL-style coordinates, false == (0,0) is upper left.
-				message.setValueBoolean("allow_downsample", true); // we respond with grace and performance if asked to downscale
-				sendMessage(message);
 			}
 			else if(message_name == "idle")
 			{
@@ -1077,7 +1064,36 @@ void MediaPluginGStreamer010::receiveMessage(const char *message_string)
 		}
 		else if(message_class == LLPLUGIN_MESSAGE_CLASS_MEDIA)
 		{
-			if(message_name == "size_change")
+			if(message_name == "init")
+			{
+				// Plugin gets to decide the texture parameters to use.
+				LLPluginMessage message(LLPLUGIN_MESSAGE_CLASS_MEDIA, "texture_params");
+				// lame to have to decide this now, it depends on the movie.  Oh well.
+				mDepth = 4;
+
+				mCurrentWidth = 1;
+				mCurrentHeight = 1;
+				mPreviousWidth = 1;
+				mPreviousHeight = 1;
+				mNaturalWidth = 1;
+				mNaturalHeight = 1;
+				mWidth = 1;
+				mHeight = 1;
+				mTextureWidth = 1;
+				mTextureHeight = 1;
+
+				message.setValueU32("format", GL_RGBA);
+				message.setValueU32("type", GL_UNSIGNED_INT_8_8_8_8_REV);
+
+				message.setValueS32("depth", mDepth);
+				message.setValueS32("default_width", mWidth);
+				message.setValueS32("default_height", mHeight);
+				message.setValueU32("internalformat", GL_RGBA8);
+				message.setValueBoolean("coords_opengl", true);	// true == use OpenGL-style coordinates, false == (0,0) is upper left.
+				message.setValueBoolean("allow_downsample", true); // we respond with grace and performance if asked to downscale
+				sendMessage(message);
+			}
+			else if(message_name == "size_change")
 			{
 				std::string name = message_in.getValue("name");
 				S32 width = message_in.getValueS32("width");

@@ -62,6 +62,7 @@ protected:
 	std::vector<LLMultiGesture*> mGestures;
 	std::string mLabel;
 	LLSD::Integer mViewAllItemIndex;
+	LLSD::Integer mGetMoreItemIndex;
 
 public:
 
@@ -70,7 +71,7 @@ public:
 	LLCtrlListInterface* getListInterface()		{ return (LLCtrlListInterface*)mList; };
 	virtual void	showList();
 	virtual void	hideList();
-	virtual BOOL	handleKey(KEY key, MASK mask, BOOL called_from_parent);
+	virtual BOOL	handleKeyHere(KEY key, MASK mask);
 
 	S32				getCurrentIndex() const;
 	void			onItemSelected(const LLSD& data);
@@ -121,6 +122,7 @@ protected:
 	static BOOL matchChatTypeTrigger(const std::string& in_str, std::string* out_str);
 	static void onChatBoxKeystroke(LLLineEditor* caller, void* userdata);
 	static void onChatBoxFocusLost(LLFocusableElement* caller, void* userdata);
+	void onChatBoxFocusReceived();
 
 	void sendChat( EChatType type );
 	void onChatBoxCommit();

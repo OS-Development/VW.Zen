@@ -72,7 +72,7 @@ LLNameListCtrl::LLNameListCtrl(const LLNameListCtrl::Params& p)
 
 // public
 void LLNameListCtrl::addNameItem(const LLUUID& agent_id, EAddPosition pos,
-								 BOOL enabled, std::string& suffix)
+								 BOOL enabled, const std::string& suffix)
 {
 	//llinfos << "LLNameListCtrl::addNameItem " << agent_id << llendl;
 
@@ -81,7 +81,7 @@ void LLNameListCtrl::addNameItem(const LLUUID& agent_id, EAddPosition pos,
 	item.enabled = enabled;
 	item.target = INDIVIDUAL;
 
-	addNameItemRow(item, pos);
+	addNameItemRow(item, pos, suffix);
 }
 
 // virtual, public
@@ -142,21 +142,36 @@ void LLNameListCtrl::showInspector(const LLUUID& avatar_id, bool is_group)
 
 void	LLNameListCtrl::mouseOverHighlightNthItem( S32 target_index )
 {
-	if (getHighlightedItemInx()!= target_index)
+	S32 cur_index = getHighlightedItemInx();
+	if (cur_index != target_index)
 	{
-		if(getHighlightedItemInx()!=-1)
+		if(0 <= cur_index && cur_index < (S32)getItemList().size())
 		{
-			LLScrollListItem* item = getItemList()[getHighlightedItemInx()];
-			LLScrollListText* cell = dynamic_cast<LLScrollListText*>(item->getColumn(mNameColumnIndex));
-			if(cell)
-				cell->setTextWidth(cell->getTextWidth() + info_icon_size);
+			LLScrollListItem* item = getItemList()[cur_index];
+			if (item)
+			{
+				LLScrollListText* cell = dynamic_cast<LLScrollListText*>(item->getColumn(mNameColumnIndex));
+				if (cell)
+					cell->setTextWidth(cell->getTextWidth() + info_icon_size);
+			}
+			else
+			{
+				llwarns << "highlighted name list item is NULL" << llendl;
+			}
 		}
 		if(target_index != -1)
 		{
 			LLScrollListItem* item = getItemList()[target_index];
 			LLScrollListText* cell = dynamic_cast<LLScrollListText*>(item->getColumn(mNameColumnIndex));
-			if(cell)
-				cell->setTextWidth(cell->getTextWidth() - info_icon_size);
+			if (item)
+			{
+				if (cell)
+					cell->setTextWidth(cell->getTextWidth() - info_icon_size);
+			}
+			else
+			{
+				llwarns << "target name item is NULL" << llendl;
+			}
 		}
 	}
 
@@ -253,7 +268,7 @@ LLScrollListItem* LLNameListCtrl::addElement(const LLSD& element, EAddPosition p
 LLScrollListItem* LLNameListCtrl::addNameItemRow(
 	const LLNameListCtrl::NameItem& name_item,
 	EAddPosition pos,
-	std::string& suffix)
+	const std::string& suffix)
 {
 	LLUUID id = name_item.value().asUUID();
 	LLNameListItem* item = NULL;

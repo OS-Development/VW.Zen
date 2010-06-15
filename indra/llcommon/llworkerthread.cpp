@@ -347,12 +347,12 @@ bool LLWorkerClass::checkWork(bool aborting)
 			{
 				mRequestHandle = LLWorkerThread::nullHandle();
 				clearFlags(WCF_HAVE_WORK);
-				return true ;
 			}
 			else
 			{
 				llassert_always(workreq);
 			}
+			return true ;
 		}
 
 		LLQueuedThread::status_t status = workreq->getStatus();
@@ -404,7 +404,7 @@ void LLWorkerClass::scheduleDelete()
 void LLWorkerClass::setPriority(U32 priority)
 {
 	mMutex.lock();
-	if (mRequestHandle != LLWorkerThread::nullHandle())
+	if (mRequestHandle != LLWorkerThread::nullHandle() && mRequestPriority != priority)
 	{
 		mRequestPriority = priority;
 		mWorkerThread->setPriority(mRequestHandle, priority);

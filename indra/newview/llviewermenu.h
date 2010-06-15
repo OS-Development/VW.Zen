@@ -44,6 +44,7 @@ class LLParcelSelection;
 class LLObjectSelection;
 class LLSelectNode;
 
+void initialize_edit_menu();
 void init_menus();
 void cleanup_menus();
 
@@ -157,6 +158,7 @@ extern const std::string SAVE_INTO_INVENTORY;
 
 extern LLMenuBarGL*		gMenuBarView;
 //extern LLView*			gMenuBarHolder;
+extern LLMenuGL*		gEditMenu;
 extern LLMenuGL*		gPopupMenuView;
 extern LLViewerMenuHolderGL*	gMenuHolder;
 extern LLMenuBarGL*		gLoginMenuBarView;
