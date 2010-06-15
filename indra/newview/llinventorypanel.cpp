@@ -87,6 +87,7 @@ LLInventoryPanel::LLInventoryPanel(const LLInventoryPanel::Params& p) :
 	mSortOrderSetting(p.sort_order_setting),
 	mInventory(p.inventory),
 	mAllowMultiSelect(p.allow_multi_select),
+	mShowItemLinkOverlays(p.show_item_link_overlays),
 	mViewsInitialized(false),
 	mStartFolderString(p.start_folder),	
 	mBuildDefaultHierarchy(true),
@@ -187,6 +188,8 @@ LLInventoryPanel::~LLInventoryPanel()
 			gSavedSettings.setU32(mSortOrderSetting, sort_order);
 		}
 	}
+
+	gIdleCallbacks.deleteFunction(onIdle, this);
 
 	// LLView destructor will take care of the sub-views.
 	mInventory->removeObserver(mInventoryObserver);
@@ -522,6 +525,10 @@ void LLInventoryPanel::buildNewViews(const LLUUID& id)
 				params.name = new_listener->getDisplayName();
 				params.icon = new_listener->getIcon();
 				params.icon_open = new_listener->getOpenIcon();
+				if (mShowItemLinkOverlays) // if false, then links show up just like normal items
+				{
+					params.icon_overlay = LLUI::getUIImage("Inv_Link");
+				}
 				params.root = mFolderRoot;
 				params.listener = new_listener;
 				params.tool_tip = params.name;
@@ -560,6 +567,10 @@ void LLInventoryPanel::buildNewViews(const LLUUID& id)
 				params.name = new_listener->getDisplayName();
 				params.icon = new_listener->getIcon();
 				params.icon_open = new_listener->getOpenIcon();
+				if (mShowItemLinkOverlays) // if false, then links show up just like normal items
+				{
+					params.icon_overlay = LLUI::getUIImage("Inv_Link");
+				}
 				params.creation_date = new_listener->getCreationDate();
 				params.root = mFolderRoot;
 				params.listener = new_listener;

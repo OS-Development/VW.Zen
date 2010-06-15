@@ -152,7 +152,7 @@ public:
 	} e_locking_thread;
 
 	LLMutex(apr_pool_t *apr_poolp); // NULL pool constructs a new pool for the mutex
-	~LLMutex();
+	virtual ~LLMutex();
 	
 	void lock();		// blocks
 	void unlock();

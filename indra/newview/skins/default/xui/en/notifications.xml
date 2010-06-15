@@ -2066,6 +2066,7 @@ Would you be my friend?
        name="Cancel"
        text="Cancel"/>
     </form>
+    <unique/>
   </notification>
 
   <notification
@@ -6218,7 +6219,7 @@ The button will be shown when there is enough space for it.
    icon="notifytip.tga"
    name="ShareNotification"
    type="notifytip">
-Drag items from inventory onto a person in the resident picker
+Select residents to share with.
   </notification>
 
   <notification
