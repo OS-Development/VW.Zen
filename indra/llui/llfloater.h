@@ -110,7 +110,8 @@ public:
 								save_rect,
 								save_visibility,
 								save_dock_state,
-								can_dock;
+								can_dock,
+								open_centered;
 		Optional<S32>			header_height,
 								legacy_header_height; // HACK see initFromXML()
 
@@ -373,6 +374,7 @@ private:
 	BOOL			mCanClose;
 	BOOL			mDragOnLeft;
 	BOOL			mResizable;
+	bool			mOpenCentered;
 	
 	S32				mMinWidth;
 	S32				mMinHeight;
@@ -432,11 +434,15 @@ private:
 
 class LLFloaterView : public LLUICtrl
 {
+public:
+	struct Params : public LLInitParam::Block<Params, LLUICtrl::Params>{};
+
 protected:
 	LLFloaterView (const Params& p);
 	friend class LLUICtrlFactory;
 
 public:
+
 	/*virtual*/ void reshape(S32 width, S32 height, BOOL called_from_parent = TRUE);
 	void reshapeFloater(S32 width, S32 height, BOOL called_from_parent, BOOL adjust_vertical);
 

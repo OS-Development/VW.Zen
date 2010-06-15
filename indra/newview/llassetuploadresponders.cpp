@@ -37,8 +37,9 @@
 // viewer includes
 #include "llagent.h"
 #include "llcompilequeue.h"
-#include "llfloaterbuycurrency.h"
+#include "llbuycurrencyhtml.h"
 #include "llfilepicker.h"
+#include "llinventorydefines.h"
 #include "llinventoryobserver.h"
 #include "llinventorypanel.h"
 #include "llpermissionsflags.h"
@@ -185,7 +186,7 @@ void LLAssetUploadResponder::uploadFailure(const LLSD& content)
 		S32 price = LLGlobalEconomy::Singleton::getInstance()->getPriceUpload();
 		LLStringUtil::format_map_t args;
 		args["AMOUNT"] = llformat("%d", price);
-		LLFloaterBuyCurrency::buyCurrency(LLTrans::getString("uploading_costs", args), price);
+		LLBuyCurrencyHTML::openCurrencyFloater( LLTrans::getString("uploading_costs", args), price );
 	}
 	else
 	{
@@ -288,7 +289,7 @@ void LLNewAgentInventoryResponder::uploadComplete(const LLSD& content)
 										mPostData["name"].asString(),
 										mPostData["description"].asString(),
 										LLSaleInfo::DEFAULT,
-										LLInventoryItem::II_FLAGS_NONE,
+										LLInventoryItemFlags::II_FLAGS_NONE,
 										creation_date_now);
 		gInventory.updateItem(item);
 		gInventory.notifyObservers();

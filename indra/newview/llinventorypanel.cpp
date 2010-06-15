@@ -38,6 +38,7 @@
 #include "llagent.h"
 #include "llagentwearables.h"
 #include "llappearancemgr.h"
+#include "llavataractions.h"
 #include "llfloaterinventory.h"
 #include "llfloaterreg.h"
 #include "llimfloater.h"
@@ -48,6 +49,7 @@
 #include "llsidepanelinventory.h"
 #include "llsidetray.h"
 #include "llscrollcontainer.h"
+#include "llviewerattachmenu.h"
 #include "llviewerfoldertype.h"
 #include "llvoavatarself.h"
 
@@ -85,6 +87,7 @@ LLInventoryPanel::LLInventoryPanel(const LLInventoryPanel::Params& p) :
 	mSortOrderSetting(p.sort_order_setting),
 	mInventory(p.inventory),
 	mAllowMultiSelect(p.allow_multi_select),
+	mShowItemLinkOverlays(p.show_item_link_overlays),
 	mViewsInitialized(false),
 	mStartFolderString(p.start_folder),	
 	mBuildDefaultHierarchy(true),
@@ -99,6 +102,7 @@ LLInventoryPanel::LLInventoryPanel(const LLInventoryPanel::Params& p) :
 	mCommitCallbackRegistrar.add("Inventory.DoCreate", boost::bind(&LLInventoryPanel::doCreate, this, _2));
 	mCommitCallbackRegistrar.add("Inventory.AttachObject", boost::bind(&LLInventoryPanel::attachObject, this, _2));
 	mCommitCallbackRegistrar.add("Inventory.BeginIMSession", boost::bind(&LLInventoryPanel::beginIMSession, this));
+	mCommitCallbackRegistrar.add("Inventory.Share",  boost::bind(&LLAvatarActions::shareWithAvatars));
 	
 	if (mStartFolderString != "")
 	{
@@ -185,6 +189,8 @@ LLInventoryPanel::~LLInventoryPanel()
 		}
 	}
 
+	gIdleCallbacks.deleteFunction(onIdle, this);
+
 	// LLView destructor will take care of the sub-views.
 	mInventory->removeObserver(mInventoryObserver);
 	delete mInventoryObserver;
@@ -220,6 +226,11 @@ void LLInventoryPanel::setFilterPermMask(PermissionMask filter_perm_mask)
 	getFilter()->setFilterPermissions(filter_perm_mask);
 }
 
+void LLInventoryPanel::setFilterWearableTypes(U64 types)
+{
+	getFilter()->setFilterWearableTypes(types);
+}
+
 void LLInventoryPanel::setFilterSubString(const std::string& string)
 {
 	getFilter()->setFilterSubString(string);
@@ -244,6 +255,11 @@ void LLInventoryPanel::setSinceLogoff(BOOL sl)
 void LLInventoryPanel::setHoursAgo(U32 hours)
 {
 	getFilter()->setHoursAgo(hours);
+}
+
+void LLInventoryPanel::setIncludeLinks(BOOL include_links)
+{
+	getFilter()->setIncludeLinks(include_links);
 }
 
 void LLInventoryPanel::setShowFolderState(LLInventoryFilter::EFolderShow show)
@@ -514,6 +530,10 @@ void LLInventoryPanel::buildNewViews(const LLUUID& id)
 				params.name = new_listener->getDisplayName();
 				params.icon = new_listener->getIcon();
 				params.icon_open = new_listener->getOpenIcon();
+				if (mShowItemLinkOverlays) // if false, then links show up just like normal items
+				{
+					params.icon_overlay = LLUI::getUIImage("Inv_Link");
+				}
 				params.root = mFolderRoot;
 				params.listener = new_listener;
 				params.tool_tip = params.name;
@@ -552,6 +572,10 @@ void LLInventoryPanel::buildNewViews(const LLUUID& id)
 				params.name = new_listener->getDisplayName();
 				params.icon = new_listener->getIcon();
 				params.icon_open = new_listener->getOpenIcon();
+				if (mShowItemLinkOverlays) // if false, then links show up just like normal items
+				{
+					params.icon_overlay = LLUI::getUIImage("Inv_Link");
+				}
 				params.creation_date = new_listener->getCreationDate();
 				params.root = mFolderRoot;
 				params.listener = new_listener;
@@ -669,7 +693,8 @@ BOOL LLInventoryPanel::handleDragAndDrop(S32 x, S32 y, MASK mask, BOOL drop,
 
 	// If folder view is empty the (x, y) point won't be in its rect
 	// so the handler must be called explicitly.
-	if (!mFolderRoot->hasVisibleChildren())
+	// but only if was not handled before. See EXT-6746.
+	if (!handled && !mFolderRoot->hasVisibleChildren())
 	{
 		handled = mFolderRoot->handleDragAndDrop(x, y, mask, drop, cargo_type, cargo_data, accept, tooltip_msg);
 	}
@@ -772,8 +797,7 @@ void LLInventoryPanel::doCreate(const LLSD& userdata)
 
 bool LLInventoryPanel::beginIMSession()
 {
-	std::set<LLUUID> selected_items;
-	mFolderRoot->getSelectionList(selected_items);
+	std::set<LLUUID> selected_items = mFolderRoot->getSelectionList();
 
 	std::string name;
 	static int session_num = 1;
@@ -870,49 +894,19 @@ bool LLInventoryPanel::beginIMSession()
 
 bool LLInventoryPanel::attachObject(const LLSD& userdata)
 {
-	std::set<LLUUID> selected_items;
-	mFolderRoot->getSelectionList(selected_items);
-
-	std::string joint_name = userdata.asString();
-	LLViewerJointAttachment* attachmentp = NULL;
-	for (LLVOAvatar::attachment_map_t::iterator iter = gAgentAvatarp->mAttachmentPoints.begin(); 
-		 iter != gAgentAvatarp->mAttachmentPoints.end(); )
-	{
-		LLVOAvatar::attachment_map_t::iterator curiter = iter++;
-		LLViewerJointAttachment* attachment = curiter->second;
-		if (attachment->getName() == joint_name)
-		{
-			attachmentp = attachment;
-			break;
-		}
-	}
-	if (attachmentp == NULL)
-	{
-		return true;
-	}
-
+	// Copy selected item UUIDs to a vector.
+	std::set<LLUUID> selected_items = mFolderRoot->getSelectionList();
+	uuid_vec_t items;
 	for (std::set<LLUUID>::const_iterator set_iter = selected_items.begin(); 
 		 set_iter != selected_items.end(); 
 		 ++set_iter)
 	{
-		const LLUUID &id = *set_iter;
-		LLViewerInventoryItem* item = (LLViewerInventoryItem*)gInventory.getItem(id);
-		if(item && gInventory.isObjectDescendentOf(id, gInventory.getRootFolderID()))
-		{
-			rez_attachment(item, attachmentp);
-		}
-		else if(item && item->isComplete())
-		{
-			// must be in library. copy it to our inventory and put it on.
-			LLPointer<LLInventoryCallback> cb = new RezAttachmentCallback(attachmentp);
-			copy_inventory_item(gAgent.getID(),
-								item->getPermissions().getOwner(),
-								item->getUUID(),
-								LLUUID::null,
-								std::string(),
-								cb);
-		}
+		items.push_back(*set_iter);
 	}
+
+	// Attach selected items.
+	LLViewerAttachMenu::attachObjects(items, userdata.asString());
+
 	gFocusMgr.setKeyboardFocus(NULL);
 
 	return true;
@@ -998,3 +992,30 @@ BOOL LLInventoryPanel::getIsHiddenFolderType(LLFolderType::EType folder_type) co
 {
 	return (std::find(mHiddenFolderTypes.begin(), mHiddenFolderTypes.end(), folder_type) != mHiddenFolderTypes.end());
 }
+
+
+/************************************************************************/
+/* Recent Inventory Panel related class                                 */
+/************************************************************************/
+class LLInventoryRecentItemsPanel;
+static LLDefaultChildRegistry::Register<LLInventoryRecentItemsPanel> t_recent_inventory_panel("recent_inventory_panel");
+
+static const LLRecentInventoryBridgeBuilder RECENT_ITEMS_BUILDER;
+class LLInventoryRecentItemsPanel : public LLInventoryPanel
+{
+public:
+	struct Params :	public LLInitParam::Block<Params, LLInventoryPanel::Params>
+	{};
+
+protected:
+	LLInventoryRecentItemsPanel (const Params&);
+	friend class LLUICtrlFactory;
+};
+
+LLInventoryRecentItemsPanel::LLInventoryRecentItemsPanel( const Params& params)
+: LLInventoryPanel(params)
+{
+	// replace bridge builder to have necessary View bridges.
+	mInvFVBridgeBuilder = &RECENT_ITEMS_BUILDER;
+}
+

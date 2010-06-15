@@ -107,6 +107,8 @@
 #include "llpluginclassmedia.h"
 #include "llteleporthistorystorage.h"
 
+#include "lllogininstance.h"        // to check if logged in yet
+
 const F32 MAX_USER_FAR_CLIP = 512.f;
 const F32 MIN_USER_FAR_CLIP = 64.f;
 
@@ -328,7 +330,26 @@ BOOL LLFloaterPreference::postBuild()
 	std::string cache_location = gDirUtilp->getExpandedFilename(LL_PATH_CACHE, "");
 	childSetText("cache_location", cache_location);
 
+	// if floater is opened before login set default localized busy message
+	if (LLStartUp::getStartupState() < STATE_STARTED)
+	{
+		gSavedPerAccountSettings.setString("BusyModeResponse", LLTrans::getString("BusyModeResponseDefault"));
+	}
+
 	return TRUE;
+}
+
+void LLFloaterPreference::onBusyResponseChanged()
+{
+	// set "BusyResponseChanged" TRUE if user edited message differs from default, FALSE otherwise
+	if(LLTrans::getString("BusyModeResponseDefault") != getChild<LLUICtrl>("busy_response")->getValue().asString())
+	{
+		gSavedPerAccountSettings.setBOOL("BusyResponseChanged", TRUE );
+	}
+	else
+	{
+		gSavedPerAccountSettings.setBOOL("BusyResponseChanged", FALSE );
+	}
 }
 
 LLFloaterPreference::~LLFloaterPreference()
@@ -485,6 +506,22 @@ void LLFloaterPreference::cancel()
 
 void LLFloaterPreference::onOpen(const LLSD& key)
 {
+	// this variable and if that follows it are used to properly handle busy mode response message
+	static bool initialized = FALSE;
+	// if user is logged in and we haven't initialized busy_response yet, do it
+	if (!initialized && LLStartUp::getStartupState() == STATE_STARTED)
+	{
+		// Special approach is used for busy response localization, because "BusyModeResponse" is
+		// in non-localizable xml, and also because it may be changed by user and in this case it shouldn't be localized.
+		// To keep track of whether busy response is default or changed by user additional setting BusyResponseChanged
+		// was added into per account settings.
+
+		// initialization should happen once,so setting variable to TRUE
+		initialized = TRUE;
+		// this connection is needed to properly set "BusyResponseChanged" setting when user makes changes in
+		// busy response message.
+		gSavedPerAccountSettings.getControl("BusyModeResponse")->getSignal()->connect(boost::bind(&LLFloaterPreference::onBusyResponseChanged, this));
+	}
 	gAgent.sendAgentUserInfoRequest();
 
 	/////////////////////////// From LLPanelGeneral //////////////////////////
@@ -499,7 +536,7 @@ void LLFloaterPreference::onOpen(const LLSD& key)
 	if (can_choose_maturity)
 	{		
 		// if they're not adult or a god, they shouldn't see the adult selection, so delete it
-		if (!gAgent.isAdult() && !gAgent.isGodlike())
+		if (!gAgent.isAdult() && !gAgent.isGodlikeWithoutAdminMenuFakery())
 		{
 			// we're going to remove the adult entry from the combo
 			LLScrollListCtrl* maturity_list = maturity_combo->findChild<LLScrollListCtrl>("ComboBox");
@@ -537,6 +574,16 @@ void LLFloaterPreference::onVertexShaderEnable()
 {
 	refreshEnabledGraphics();
 }
+
+//static
+void LLFloaterPreference::initBusyResponse()
+	{
+		if (!gSavedPerAccountSettings.getBOOL("BusyResponseChanged"))
+		{
+			//LLTrans::getString("BusyModeResponseDefault") is used here for localization (EXT-5885)
+			gSavedPerAccountSettings.setString("BusyModeResponse", LLTrans::getString("BusyModeResponseDefault"));
+		}
+	}
 
 void LLFloaterPreference::setHardwareDefaults()
 {
@@ -858,6 +905,8 @@ void LLFloaterPreference::refreshEnabledState()
 	ctrl_wind_light->setEnabled(ctrl_shader_enable->getEnabled() && shaders);
 	// now turn off any features that are unavailable
 	disableUnavailableSettings();
+
+	childSetEnabled ("block_list", LLLoginInstance::getInstance()->authSuccess());
 }
 
 void LLFloaterPreference::disableUnavailableSettings()
@@ -954,18 +1003,6 @@ void LLFloaterPreference::onChangeQuality(const LLSD& data)
 	LLFeatureManager::getInstance()->setGraphicsLevel(level, true);
 	refreshEnabledGraphics();
 	refresh();
-}
-
-// static
-// DEV-24146 -  needs to be removed at a later date. jan-2009
-void LLFloaterPreference::cleanupBadSetting()
-{
-	if (gSavedPerAccountSettings.getString("BusyModeResponse2") == "|TOKEN COPY BusyModeResponse|")
-	{
-		llwarns << "cleaning old BusyModeResponse" << llendl;
-		//LLTrans::getString("BusyModeResponseDefault") is used here for localization (EXT-5885)
-		gSavedPerAccountSettings.setString("BusyModeResponse2", LLTrans::getString("BusyModeResponseDefault"));
-	}
 }
 
 void LLFloaterPreference::onClickSetKey()
@@ -1079,10 +1116,8 @@ void LLFloaterPreference::onClickLogPath()
 	{
 		return; //Canceled!
 	}
-	std::string chat_log_dir = picker.getDirName();
-	std::string chat_log_top_folder= gDirUtilp->getBaseFileName(chat_log_dir);
-	gSavedPerAccountSettings.setString("InstantMessageLogPath",chat_log_dir);
-	gSavedPerAccountSettings.setString("InstantMessageLogFolder",chat_log_top_folder);
+
+	gSavedPerAccountSettings.setString("InstantMessageLogPath", picker.getDirName());
 }
 
 void LLFloaterPreference::setPersonalInfo(const std::string& visibility, bool im_via_email, const std::string& email)
@@ -1195,7 +1230,7 @@ void LLFloaterPreference::applyResolution()
 	gSavedSettings.setS32("FullScreenWidth", supported_resolutions[resIndex].mWidth);
 	gSavedSettings.setS32("FullScreenHeight", supported_resolutions[resIndex].mHeight);
 	
-	gViewerWindow->requestResolutionUpdate(gSavedSettings.getBOOL("WindowFullScreen"));
+	gViewerWindow->requestResolutionUpdate(gSavedSettings.getBOOL("FullScreen"));
 	
 	send_agent_update(TRUE);
 	

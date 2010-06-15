@@ -7,7 +7,7 @@
   background_opaque="true"
 	background_visible="true"
 	layout="topleft"
-	width="270"
+	width="328"
 	height="230"
 	name="nearby_media"
 	help_topic="nearby_media">
@@ -29,7 +29,7 @@
 		follows="left"
 		tool_tip="Turn all nearby media off"
 		left="8"
-		width="66"
+		width="95"
 		height="22"
 		label="Stop All">
 	  <button.commit_callback
@@ -40,7 +40,7 @@
 		follows="left"
 		tool_tip="Turn all nearby media on"
 		left_pad="4"
-		width="66"
+		width="95"
 		height="22"
 		label="Start All">
 	  <button.commit_callback
@@ -64,19 +64,31 @@
 		  function="MediaListCtrl.GoMediaPrefs" />
 	</button>
 	<button
-		name="more_less_btn"
+		name="more_btn"
 		follows="right"
 		tool_tip="Advanced Controls"
 		top_delta="0"
 		right="-8"
 		width="66"
 		height="22"
-		toggle="true"
 		label="More &gt;&gt;"
 		label_selected="Less &lt;&lt;">
 	  <button.commit_callback
 		  function="MediaListCtrl.MoreLess" />
 	</button>
+  <button
+		name="less_btn"
+		follows="right"
+		tool_tip="Advanced Controls"
+		top_delta="0"
+		right="-8"
+		width="66"
+		height="22"
+		label="More &gt;&gt;"
+		label_selected="Less &lt;&lt;">
+      <button.commit_callback
+        function="MediaListCtrl.MoreLess" />
+  </button>
   </panel>
   <panel
 	  name="nearby_media_panel"

@@ -151,8 +151,9 @@ bool LLURLDispatcherImpl::dispatchApp(const LLSLURL& slurl,
 									  bool trusted_browser)
 {
 	llinfos << "cmd: " << slurl.getAppCmd() << " path: " << slurl.getAppPath() << " query: " << slurl.getAppQuery() << llendl;
+	const LLSD& query_map = LLURI::queryMap(slurl.getAppQuery());
 	bool handled = LLCommandDispatcher::dispatch(
-			slurl.getAppCmd(), slurl.getAppPath(), slurl.getAppQuery(), web, trusted_browser);
+			slurl.getAppCmd(), slurl.getAppPath(), query_map, web, trusted_browser);
 
 	// alert if we didn't handle this secondlife:///app/ SLURL
 	// (but still return true because it is a valid app SLURL)
@@ -214,7 +215,8 @@ void LLURLDispatcherImpl::regionHandleCallback(U64 region_handle, const LLSLURL&
 		LLSD args;
 		args["SLURL"] = slurl.getLocationString();
 		args["CURRENT_GRID"] = LLGridManager::getInstance()->getGridLabel();
-		LLSD grid_info = LLGridManager::getInstance()->getGridInfo(slurl.getGrid());
+		LLSD grid_info;
+		LLGridManager::getInstance()->getGridInfo(slurl.getGrid(), grid_info);
 		
 		if(grid_info.has(GRID_LABEL_VALUE))
 		{

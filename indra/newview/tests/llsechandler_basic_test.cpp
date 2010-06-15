@@ -47,6 +47,14 @@
 #include <openssl/err.h>
 #include <openssl/evp.h>
 #include "llxorcipher.h"
+#include <openssl/ossl_typ.h>
+#include <openssl/x509.h>
+#include <openssl/x509v3.h>
+#include <openssl/pem.h>
+#include <openssl/asn1.h>
+#include <openssl/rand.h>
+#include <openssl/err.h>
+#include "../llmachineid.h"
 
 #define ensure_throws(str, exc_type, cert, func, ...) \
 try \
@@ -95,10 +103,26 @@ LLSD LLCredential::getLoginParams()
 	return result;
 }
 
+void LLCredential::identifierType(std::string &idType)
+{
+}
+
+void LLCredential::authenticatorType(std::string &idType)
+{
+}
 
 
 LLControlGroup gSavedSettings("test");
 unsigned char gMACAddress[MAC_ADDRESS_BYTES] = {77,21,46,31,89,2};
+
+
+S32 LLMachineID::getUniqueID(unsigned char *unique_id, size_t len)
+{
+	memcpy(unique_id, gMACAddress, len);
+	return 1;
+}
+S32 LLMachineID::init() { return 1; }
+	
 
 // -------------------------------------------------------------------------------------------
 // TUT
@@ -108,12 +132,13 @@ namespace tut
 	// Test wrapper declaration : wrapping nothing for the moment
 	struct sechandler_basic_test
 	{
-		std::string mPemTestCert, mPemRootCert, mPemIntermediateCert, mPemChildCert;
+		std::string mPemTestCert, mPemRootCert, mPemIntermediateCert, mPemChildCert, mSha1RSATestCert, mSha1RSATestCA;
 		std::string mDerFormat;
 		X509 *mX509TestCert, *mX509RootCert, *mX509IntermediateCert, *mX509ChildCert;
 
 		sechandler_basic_test()
 		{
+            LLMachineID::init();
 			OpenSSL_add_all_algorithms();
 			OpenSSL_add_all_ciphers();
 			OpenSSL_add_all_digests();	
@@ -216,6 +241,49 @@ namespace tut
 "1ME7a55lFEnSeT0umlOAjR2mAbvSM5X5oSZNrmetdzyTj2flCM8CC7MLab0kkdngRIlUBGHF1/S5"
 "nmPbK+9A46sd33oqK8n8";
 			
+			mSha1RSATestCert = "-----BEGIN CERTIFICATE-----\n"
+			"MIIDFDCCAn2gAwIBAgIDDqqYMA0GCSqGSIb3DQEBBQUAME4xCzAJBgNVBAYTAlVT\n"
+			"MRAwDgYDVQQKEwdFcXVpZmF4MS0wKwYDVQQLEyRFcXVpZmF4IFNlY3VyZSBDZXJ0\n"
+			"aWZpY2F0ZSBBdXRob3JpdHkwHhcNMTAwMTA1MDAzNjMwWhcNMTEwMTA3MjAyMTE0\n"
+			"WjCBnjEpMCcGA1UEBRMgQmNmc0RBRkl1U0YwdFpWVm5vOFJKbjVUbW9hNGR2Wkgx\n"
+			"CzAJBgNVBAYTAlVTMRMwEQYDVQQIEwpDYWxpZm9ybmlhMRYwFAYDVQQHEw1TYW4g\n"
+			"RnJhbmNpc2NvMR0wGwYDVQQKExRMaW5kZW4gUmVzZWFyY2ggSW5jLjEYMBYGA1UE\n"
+			"AxQPKi5saW5kZW5sYWIuY29tMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQD2\n"
+			"14Jdko8v6GB33hHbW+lNQyloFQtc2h4ykjf+fYPJ27dw6tQO2if7N3k/5XDkwC1N\n"
+			"krGgE9vt3iecCPgasue6k67Zyfj9HbEP2D+j38eROudrsxLaRFDQx50BvZ5YMNl3\n"
+			"4zQCj8/gCMsuq8cvaP9/rbJTUpgYWFGLsm8yAYOgWwIDAQABo4GuMIGrMA4GA1Ud\n"
+			"DwEB/wQEAwIE8DAdBgNVHQ4EFgQUIBK/JB9AyqquSEbkzt2Zux6v9sYwOgYDVR0f\n"
+			"BDMwMTAvoC2gK4YpaHR0cDovL2NybC5nZW90cnVzdC5jb20vY3Jscy9zZWN1cmVj\n"
+			"YS5jcmwwHwYDVR0jBBgwFoAUSOZo+SvSspXXR9gjIBBPM5iQn9QwHQYDVR0lBBYw\n"
+			"FAYIKwYBBQUHAwEGCCsGAQUFBwMCMA0GCSqGSIb3DQEBBQUAA4GBAKKR84+hvLuB\n"
+			"pop9VG7HQPIyEKtZq3Nnk+UlJGfjGY3csLWSFmxU727r5DzdEP1W1PwF3rxuoKcZ\n"
+			"4nJJpKdzoGVujgBMP2U/J0PJvU7D8U3Zqu7nrXAjOHj7iVnvJ3EKJ1bvwXaisgPN\n"
+			"wt21kKfGnA4OlhJtJ6VQvUkcF12I3pTP\n"
+			"-----END CERTIFICATE-----\n";
+			
+			mSha1RSATestCA = "-----BEGIN CERTIFICATE-----\n"
+			"MIIDIDCCAomgAwIBAgIENd70zzANBgkqhkiG9w0BAQUFADBOMQswCQYDVQQGEwJV\n"
+			"UzEQMA4GA1UEChMHRXF1aWZheDEtMCsGA1UECxMkRXF1aWZheCBTZWN1cmUgQ2Vy\n"
+			"dGlmaWNhdGUgQXV0aG9yaXR5MB4XDTk4MDgyMjE2NDE1MVoXDTE4MDgyMjE2NDE1\n"
+			"MVowTjELMAkGA1UEBhMCVVMxEDAOBgNVBAoTB0VxdWlmYXgxLTArBgNVBAsTJEVx\n"
+			"dWlmYXggU2VjdXJlIENlcnRpZmljYXRlIEF1dGhvcml0eTCBnzANBgkqhkiG9w0B\n"
+			"AQEFAAOBjQAwgYkCgYEAwV2xWGcIYu6gmi0fCG2RFGiYCh7+2gRvE4RiIcPRfM6f\n"
+			"BeC4AfBONOziipUEZKzxa1NfBbPLZ4C/QgKO/t0BCezhABRP/PvwDN1Dulsr4R+A\n"
+			"cJkVV5MW8Q+XarfCaCMczE1ZMKxRHjuvK9buY0V7xdlfUNLjUA86iOe/FP3gx7kC\n"
+			"AwEAAaOCAQkwggEFMHAGA1UdHwRpMGcwZaBjoGGkXzBdMQswCQYDVQQGEwJVUzEQ\n"
+			"MA4GA1UEChMHRXF1aWZheDEtMCsGA1UECxMkRXF1aWZheCBTZWN1cmUgQ2VydGlm\n"
+			"aWNhdGUgQXV0aG9yaXR5MQ0wCwYDVQQDEwRDUkwxMBoGA1UdEAQTMBGBDzIwMTgw\n"
+			"ODIyMTY0MTUxWjALBgNVHQ8EBAMCAQYwHwYDVR0jBBgwFoAUSOZo+SvSspXXR9gj\n"
+			"IBBPM5iQn9QwHQYDVR0OBBYEFEjmaPkr0rKV10fYIyAQTzOYkJ/UMAwGA1UdEwQF\n"
+			"MAMBAf8wGgYJKoZIhvZ9B0EABA0wCxsFVjMuMGMDAgbAMA0GCSqGSIb3DQEBBQUA\n"
+			"A4GBAFjOKer89961zgK5F7WF0bnj4JXMJTENAKaSbn+2kmOeUJXRmm/kEd5jhW6Y\n"
+			"7qj/WsjTVbJmcVfewCHrPSqnI0kBBIZCe/zuf6IWUrVnZ9NA2zsmWLIodz2uFHdh\n"
+			"1voqZiegDfqnc1zqcPGUIWVEX/r87yloqaKHee9570+sB3c4\n"
+			"-----END CERTIFICATE-----\n";
+
+			
+			
+			
 			mX509TestCert = NULL;
 			mX509RootCert = NULL;
 			mX509IntermediateCert = NULL;
@@ -270,7 +338,8 @@ namespace tut
 		
 		ensure_equals("Der Format is correct", memcmp(buffer, mDerFormat.c_str(), mDerFormat.length()), 0);
 		
-		LLSD llsd_cert = test_cert->getLLSD();
+		LLSD llsd_cert;
+		test_cert->getLLSD(llsd_cert);
 		std::ostringstream llsd_value;
 		llsd_value << LLSDOStreamer<LLSDNotationFormatter>(llsd_cert) << std::endl;
 		std::string llsd_cert_str = llsd_value.str();
@@ -318,8 +387,6 @@ namespace tut
 	void sechandler_basic_test_object::test<2>()
 
 	{
-		unsigned char MACAddress[MAC_ADDRESS_BYTES];
-		LLUUID::getNodeID(MACAddress);
 		
 		std::string protected_data = "sUSh3wj77NG9oAMyt3XIhaej3KLZhLZWFZvI6rIGmwUUOmmelrRg0NI9rkOj8ZDpTPxpwToaBT5u"
 		"GQhakdaGLJznr9bHr4/6HIC1bouKj4n2rs4TL6j2WSjto114QdlNfLsE8cbbE+ghww58g8SeyLQO"
@@ -332,7 +399,9 @@ namespace tut
 
 		LLXORCipher cipher(gMACAddress, MAC_ADDRESS_BYTES);
 		cipher.decrypt(&binary_data[0], 16);
-		LLXORCipher cipher2(MACAddress, MAC_ADDRESS_BYTES);
+		unsigned char unique_id[MAC_ADDRESS_BYTES];
+        LLMachineID::getUniqueID(unique_id, sizeof(unique_id));
+		LLXORCipher cipher2(unique_id, sizeof(unique_id));
 		cipher2.encrypt(&binary_data[0], 16);
 		std::ofstream temp_file("sechandler_settings.tmp", std::ofstream::binary);
 		temp_file.write((const char *)&binary_data[0], binary_data.size());
@@ -513,11 +582,11 @@ namespace tut
 		int length = apr_base64_decode_len(hashed_password.c_str());
 		std::vector<char> decoded_password(length);
 		apr_base64_decode(&decoded_password[0], hashed_password.c_str());
-		unsigned char MACAddress[MAC_ADDRESS_BYTES];
-		LLUUID::getNodeID(MACAddress);
 		LLXORCipher cipher(gMACAddress, MAC_ADDRESS_BYTES);
 		cipher.decrypt((U8*)&decoded_password[0], length);
-		LLXORCipher cipher2(MACAddress, MAC_ADDRESS_BYTES);
+		unsigned char unique_id[MAC_ADDRESS_BYTES];
+		LLMachineID::getUniqueID(unique_id, sizeof(unique_id));
+		LLXORCipher cipher2(unique_id, sizeof(unique_id));
 		cipher2.encrypt((U8*)&decoded_password[0], length);
 		llofstream password_file("test_password.dat", std::ofstream::binary);
 		password_file.write(&decoded_password[0], length); 
@@ -695,12 +764,18 @@ namespace tut
 	{
 		ensure("simple name match", 
 			   _cert_hostname_wildcard_match("foo", "foo"));
-		
+
 		ensure("simple name match, with end period", 
 			   _cert_hostname_wildcard_match("foo.", "foo."));
 		
 		ensure("simple name match, with begin period", 
 			   _cert_hostname_wildcard_match(".foo", ".foo"));		
+
+		ensure("simple name match, with mismatched period cn", 
+			   _cert_hostname_wildcard_match("foo.", "foo"));	
+		
+		ensure("simple name match, with mismatched period hostname", 
+			   _cert_hostname_wildcard_match("foo", "foo."));	
 		
 		ensure("simple name match, with subdomain", 
 			   _cert_hostname_wildcard_match("foo.bar", "foo.bar"));	
@@ -765,11 +840,26 @@ namespace tut
 		ensure("end periods", 
 			   _cert_hostname_wildcard_match("foo.bar.com.", "*.b*r.com."));	
 		
-		ensure("mismatch end period", 
-			   !_cert_hostname_wildcard_match("foo.bar.com.", "*.b*r.com"));
+		ensure("match end period", 
+			   _cert_hostname_wildcard_match("foo.bar.com.", "*.b*r.com"));
 		
-		ensure("mismatch end period2", 
-			   !_cert_hostname_wildcard_match("foo.bar.com", "*.b*r.com."));				
+		ensure("match end period2", 
+			   _cert_hostname_wildcard_match("foo.bar.com", "*.b*r.com."));
+		
+		ensure("wildcard mismatch", 
+			   !_cert_hostname_wildcard_match("bar.com", "*.bar.com"));	
+		
+		ensure("wildcard match", 
+			   _cert_hostname_wildcard_match("foo.bar.com", "*.bar.com"));	
+
+		ensure("wildcard match", 
+			   _cert_hostname_wildcard_match("foo.foo.bar.com", "*.bar.com"));	
+		
+		ensure("wildcard match", 
+			   _cert_hostname_wildcard_match("foo.foo.bar.com", "*.*.com"));
+		
+		ensure("wildcard mismatch", 
+			   !_cert_hostname_wildcard_match("foo.foo.bar.com", "*.foo.com"));			
 	}
 	
 	// test cert chain
@@ -871,31 +961,38 @@ namespace tut
 
 		test_chain->add(new LLBasicCertificate(mX509IntermediateCert));
 
-		test_chain->validate(0, test_store, validation_params);
+		test_store->validate(0, test_chain, validation_params);
 
 		// add the root certificate to the chain and revalidate
 		test_chain->add(new LLBasicCertificate(mX509RootCert));	
-		test_chain->validate(0, test_store, validation_params);
+		test_store->validate(0, test_chain, validation_params);
 
 		// add the child cert at the head of the chain, and revalidate (3 deep chain)
 		test_chain->insert(test_chain->begin(), new LLBasicCertificate(mX509ChildCert));
-		test_chain->validate(0, test_store, validation_params);
+		test_store->validate(0, test_chain, validation_params);
 
 		// basic failure cases
 		test_chain = new LLBasicCertificateChain(NULL);
-		//validate with only the child cert
+		//validate with only the child cert in chain, but child cert was previously
+		// trusted
 		test_chain->add(new LLBasicCertificate(mX509ChildCert));
+		
+		// validate without the trust flag.
+		test_store->validate(VALIDATION_POLICY_TRUSTED, test_chain, validation_params);	
+		
+		// Validate with child cert but no parent, and no parent in CA store
+		test_store = new LLBasicCertificateStore("mycertstore.pem");
 		ensure_throws("no CA, with only a child cert", 
 					  LLCertValidationTrustException, 
 					  (*test_chain)[0],
-					  test_chain->validate, 
+					  test_store->validate, 
 					  VALIDATION_POLICY_TRUSTED, 
-					  test_store, 
+					  test_chain, 
 					  validation_params);
 
 
 		// validate without the trust flag.
-		test_chain->validate(0, test_store, validation_params);		
+		test_store->validate(0, test_chain, validation_params);		
 
 		// clear out the store
 		test_store = new LLBasicCertificateStore("mycertstore.pem");
@@ -904,18 +1001,19 @@ namespace tut
 		ensure_throws("no CA, with child and intermediate certs", 
 					  LLCertValidationTrustException, 
 					  (*test_chain)[1],
-					  test_chain->validate, 
+					  test_store->validate, 
 					  VALIDATION_POLICY_TRUSTED, 
-					  test_store, 
+					  test_chain, 
 					  validation_params);
 		// validate without the trust flag
-		test_chain->validate(0, test_store, validation_params);
+		test_store->validate(0, test_chain, validation_params);
 
 		// Test time validity
-		LLSD child_info = (*test_chain)[0]->getLLSD();
+		LLSD child_info;
+		((*test_chain)[0])->getLLSD(child_info);
 		validation_params = LLSD::emptyMap();
 		validation_params[CERT_VALIDATION_DATE] = LLDate(child_info[CERT_VALID_FROM].asDate().secondsSinceEpoch() + 1.0);  
-		test_chain->validate(VALIDATION_POLICY_TIME, test_store, validation_params);
+		test_store->validate(VALIDATION_POLICY_TIME, test_chain, validation_params);
 
 		validation_params = LLSD::emptyMap();		
 		validation_params[CERT_VALIDATION_DATE] = child_info[CERT_VALID_FROM].asDate();
@@ -923,12 +1021,12 @@ namespace tut
 		validation_params[CERT_VALIDATION_DATE] = LLDate(child_info[CERT_VALID_FROM].asDate().secondsSinceEpoch() - 1.0);
  		
 		// test not yet valid
-		ensure_throws("Child cert not yet valid", 
+		ensure_throws("Child cert not yet valid" , 
 					  LLCertValidationExpirationException, 
 					  (*test_chain)[0],
-					  test_chain->validate, 
+					  test_store->validate, 
 					  VALIDATION_POLICY_TIME, 
-					  test_store, 
+					  test_chain, 
 					  validation_params);	
 		validation_params = LLSD::emptyMap();		
 		validation_params[CERT_VALIDATION_DATE] = LLDate(child_info[CERT_VALID_TO].asDate().secondsSinceEpoch() + 1.0);
@@ -937,9 +1035,9 @@ namespace tut
 		ensure_throws("Child cert expired", 
 					  LLCertValidationExpirationException, 
 					  (*test_chain)[0],
-					  test_chain->validate, 
+					  test_store->validate, 
 					  VALIDATION_POLICY_TIME, 
-					  test_store, 
+					  test_chain, 
 					  validation_params);
 
 		// test SSL KU
@@ -947,18 +1045,27 @@ namespace tut
 		test_chain = new LLBasicCertificateChain(NULL);
 		test_chain->add(new LLBasicCertificate(mX509ChildCert));
 		test_chain->add(new LLBasicCertificate(mX509IntermediateCert));
-		test_chain->validate(VALIDATION_POLICY_SSL_KU, test_store, validation_params);	
+		test_store->validate(VALIDATION_POLICY_SSL_KU, test_chain, validation_params);	
 
 		test_chain = new LLBasicCertificateChain(NULL);
 		test_chain->add(new LLBasicCertificate(mX509TestCert));
 
+		test_store = new LLBasicCertificateStore("mycertstore.pem");		
 		ensure_throws("Cert doesn't have ku", 
 					  LLCertKeyUsageValidationException, 
 					  (*test_chain)[0],
-					  test_chain->validate, 
+					  test_store->validate, 
 					  VALIDATION_POLICY_SSL_KU, 
-					  test_store, 
+					  test_chain, 
 					  validation_params);
+		
+		// test sha1RSA validation
+		test_chain = new LLBasicCertificateChain(NULL);
+		test_chain->add(new LLBasicCertificate(mSha1RSATestCert));	
+		test_chain->add(new LLBasicCertificate(mSha1RSATestCA));
+
+		test_store->validate(0, test_chain, validation_params);	
 	}
+	
 };
 

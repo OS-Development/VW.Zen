@@ -50,6 +50,8 @@
 #include "llnotifications.h"
 #include "llfunctorregistry.h"
 #include "llrootview.h"
+#include "lltransientfloatermgr.h"
+#include "llviewercontrol.h" // for gSavedSettings
 
 const S32 MAX_ALLOWED_MSG_WIDTH = 400;
 const F32 DEFAULT_BUTTON_DELAY = 0.5f;
@@ -170,6 +172,7 @@ LLToastAlertPanel::LLToastAlertPanel( LLNotificationPtr notification, bool modal
 	params.tab_stop(false);
 	params.wrap(true);
 	params.follows.flags(FOLLOWS_LEFT | FOLLOWS_TOP);
+	params.allow_scroll(true);
 
 	LLTextBox * msg_box = LLUICtrlFactory::create<LLTextBox> (params);
 	// Compute max allowable height for the dialog text, so we can allocate
@@ -178,9 +181,16 @@ LLToastAlertPanel::LLToastAlertPanel( LLNotificationPtr notification, bool modal
 			gFloaterView->getRect().getHeight()
 			- LINE_HEIGHT			// title bar
 			- 3*VPAD - BTN_HEIGHT;
+	// reshape to calculate real text width and height
 	msg_box->reshape( MAX_ALLOWED_MSG_WIDTH, max_allowed_msg_height );
 	msg_box->setValue(msg);
-	msg_box->reshapeToFitText();
+
+	S32 pixel_width = msg_box->getTextPixelWidth();
+	S32 pixel_height = msg_box->getTextPixelHeight();
+
+	// We should use some space to prevent set textbox's scroller visible when it is unnecessary.
+	msg_box->reshape( llmin(MAX_ALLOWED_MSG_WIDTH,pixel_width + 2 * msg_box->getHPad() + HPAD),
+		llmin(max_allowed_msg_height,pixel_height + 2 * msg_box->getVPad())  ) ;
 
 	const LLRect& text_rect = msg_box->getRect();
 	S32 dialog_width = llmax( btn_total_width, text_rect.getWidth() ) + 2 * HPAD;
@@ -279,7 +289,18 @@ LLToastAlertPanel::LLToastAlertPanel( LLNotificationPtr notification, bool modal
 			mLineEditor->reshape(leditor_rect.getWidth(), leditor_rect.getHeight());
 			mLineEditor->setRect(leditor_rect);
 			mLineEditor->setText(edit_text_contents);
-			mLineEditor->setMaxTextLength(STD_STRING_STR_LEN - 1);
+
+			// decrease limit of line editor of teleport offer dialog to avoid truncation of
+			// location URL in invitation message, see EXT-6891
+			if ("OfferTeleport" == mNotification->getName())
+			{
+				mLineEditor->setMaxTextLength(gSavedSettings.getS32(
+						"teleport_offer_invitation_max_length"));
+			}
+			else
+			{
+				mLineEditor->setMaxTextLength(STD_STRING_STR_LEN - 1);
+			}
 
 			LLToastPanel::addChild(mLineEditor);
 
@@ -312,6 +333,9 @@ LLToastAlertPanel::LLToastAlertPanel( LLNotificationPtr notification, bool modal
 		mDefaultBtnTimer.start();
 		mDefaultBtnTimer.setTimerExpirySec(DEFAULT_BUTTON_DELAY);
 	}
+
+	LLTransientFloaterMgr::instance().addControlView(
+			LLTransientFloaterMgr::GLOBAL, this);
 }
 
 bool LLToastAlertPanel::setCheckBox( const std::string& check_title, const std::string& check_control )
@@ -365,6 +389,8 @@ void LLToastAlertPanel::setVisible( BOOL visible )
 
 LLToastAlertPanel::~LLToastAlertPanel()
 {
+	LLTransientFloaterMgr::instance().removeControlView(
+			LLTransientFloaterMgr::GLOBAL, this);
 }
 
 BOOL LLToastAlertPanel::hasTitleBar() const

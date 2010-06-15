@@ -33,15 +33,52 @@
 #include "llvoiceclient.h"
 #include "llviewercontrol.h"
 #include "llviewerwindow.h"
-#include "llvoicedw.h"
 #include "llvoicevivox.h"
 #include "llviewernetwork.h"
+#include "llcommandhandler.h"
 #include "llhttpnode.h"
 #include "llnotificationsutil.h"
 #include "llsdserialize.h"
 #include "llui.h"
 
 const F32 LLVoiceClient::OVERDRIVEN_POWER_LEVEL = 0.7f;
+
+const F32 LLVoiceClient::VOLUME_MIN = 0.f;
+const F32 LLVoiceClient::VOLUME_DEFAULT = 0.5f;
+const F32 LLVoiceClient::VOLUME_MAX = 1.0f;
+
+
+// Support for secondlife:///app/voice SLapps
+class LLVoiceHandler : public LLCommandHandler
+{
+public:
+	// requests will be throttled from a non-trusted browser
+	LLVoiceHandler() : LLCommandHandler("voice", UNTRUSTED_THROTTLE) {}
+
+	bool handle(const LLSD& params, const LLSD& query_map, LLMediaCtrl* web)
+	{
+		if (params[0].asString() == "effects")
+		{
+			LLVoiceEffectInterface* effect_interface = LLVoiceClient::instance().getVoiceEffectInterface();
+			// If the voice client doesn't support voice effects, we can't handle effects SLapps
+			if (!effect_interface)
+			{
+				return false;
+			}
+
+			// Support secondlife:///app/voice/effects/refresh to update the voice effect list with new effects
+			if (params[1].asString() == "refresh")
+			{
+				effect_interface->refreshVoiceEffectLists(false);
+				return true;
+			}
+		}
+		return false;
+	}
+};
+LLVoiceHandler gVoiceHandler;
+
+
 
 std::string LLVoiceClientStatusObserver::status2string(LLVoiceClientStatusObserver::EStatusType inStatus)
 {
@@ -74,12 +111,15 @@ std::string LLVoiceClientStatusObserver::status2string(LLVoiceClientStatusObserv
 
 
 
-
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
 LLVoiceClient::LLVoiceClient()
+	:
+	mVoiceModule(NULL),
+	m_servicePump(NULL),
+	mVoiceEffectEnabled(LLCachedControl<bool>(gSavedSettings, "VoiceMorphingEnabled")),
+	mVoiceEffectDefault(LLCachedControl<std::string>(gSavedPerAccountSettings, "VoiceEffectDefault"))
 {
-	mVoiceModule = NULL;
 }
 
 //---------------------------------------------------
@@ -101,11 +141,7 @@ void LLVoiceClient::userAuthorized(const std::string& user_id, const LLUUID &age
 	// with a table lookup of sorts.
 	std::string voice_server = gSavedSettings.getString("VoiceServerType");
 	LL_DEBUGS("Voice") << "voice server type " << voice_server << LL_ENDL;
-	if(voice_server == "diamondware")
-	{
-		mVoiceModule = (LLVoiceModuleInterface *)LLDiamondwareVoiceClient::getInstance();
-	}
-	else if(voice_server == "vivox")
+	if(voice_server == "vivox")
 	{
 		mVoiceModule = (LLVoiceModuleInterface *)LLVivoxVoiceClient::getInstance();
 	}
@@ -385,6 +421,18 @@ void LLVoiceClient::callUser(const LLUUID &uuid)
 	if (mVoiceModule) mVoiceModule->callUser(uuid);
 }
 
+bool LLVoiceClient::isValidChannel(std::string &session_handle)
+{
+	if (mVoiceModule) 
+	{
+		return mVoiceModule->isValidChannel(session_handle);
+	}
+	else
+	{
+		return false;
+	}
+}
+
 bool LLVoiceClient::answerInvite(std::string &channelHandle)
 {
 	if (mVoiceModule) 
@@ -554,7 +602,7 @@ std::string LLVoiceClient::getDisplayName(const LLUUID& id)
 	}
 }
 
-bool LLVoiceClient::isVoiceWorking()
+bool LLVoiceClient::isVoiceWorking() const
 {
 	if (mVoiceModule) 
 	{
@@ -697,6 +745,10 @@ std::string LLVoiceClient::sipURIFromID(const LLUUID &id)
 	}
 }
 
+LLVoiceEffectInterface* LLVoiceClient::getVoiceEffectInterface() const
+{
+	return getVoiceEffectEnabled() ? dynamic_cast<LLVoiceEffectInterface*>(mVoiceModule) : NULL;
+}
 
 ///////////////////
 // version checking
@@ -795,29 +847,93 @@ LLSpeakerVolumeStorage::~LLSpeakerVolumeStorage()
 
 void LLSpeakerVolumeStorage::storeSpeakerVolume(const LLUUID& speaker_id, F32 volume)
 {
-	mSpeakersData[speaker_id] = volume;
+	if ((volume >= LLVoiceClient::VOLUME_MIN) && (volume <= LLVoiceClient::VOLUME_MAX))
+	{
+		mSpeakersData[speaker_id] = volume;
+
+		// Enable this when debugging voice slider issues.  It's way to spammy even for debug-level logging.
+		// LL_DEBUGS("Voice") << "Stored volume = " << volume <<  " for " << id << LL_ENDL;
+	}
+	else
+	{
+		LL_WARNS("Voice") << "Attempted to store out of range volume " << volume << " for " << speaker_id << LL_ENDL;
+		llassert(0);
+	}
 }
 
-S32 LLSpeakerVolumeStorage::getSpeakerVolume(const LLUUID& speaker_id)
+bool LLSpeakerVolumeStorage::getSpeakerVolume(const LLUUID& speaker_id, F32& volume)
 {
-	// Return value of -1 indicates no level is stored for this speaker
-	S32 ret_val = -1;
 	speaker_data_map_t::const_iterator it = mSpeakersData.find(speaker_id);
 	
 	if (it != mSpeakersData.end())
 	{
-		F32 f_val = it->second;
-		// volume can amplify by as much as 4x!
-		S32 ivol = (S32)(400.f * f_val * f_val);
-		ret_val = llclamp(ivol, 0, 400);
+		volume = it->second;
+
+		// Enable this when debugging voice slider issues.  It's way to spammy even for debug-level logging.
+		// LL_DEBUGS("Voice") << "Retrieved stored volume = " << volume <<  " for " << id << LL_ENDL;
+
+		return true;
 	}
-	return ret_val;
+
+	return false;
+}
+
+void LLSpeakerVolumeStorage::removeSpeakerVolume(const LLUUID& speaker_id)
+{
+	mSpeakersData.erase(speaker_id);
+
+	// Enable this when debugging voice slider issues.  It's way to spammy even for debug-level logging.
+	// LL_DEBUGS("Voice") << "Removing stored volume for  " << id << LL_ENDL;
+}
+
+/* static */ F32 LLSpeakerVolumeStorage::transformFromLegacyVolume(F32 volume_in)
+{
+	// Convert to linear-logarithmic [0.0..1.0] with 0.5 = 0dB
+	// from legacy characteristic composed of two square-curves
+	// that intersect at volume_in = 0.5, volume_out = 0.56
+
+	F32 volume_out = 0.f;
+	volume_in = llclamp(volume_in, 0.f, 1.0f);
+
+	if (volume_in <= 0.5f)
+	{
+		volume_out = volume_in * volume_in * 4.f * 0.56f;
+	}
+	else
+	{
+		volume_out = (1.f - 0.56f) * (4.f * volume_in * volume_in - 1.f) / 3.f + 0.56f;
+	}
+
+	return volume_out;
+}
+
+/* static */ F32 LLSpeakerVolumeStorage::transformToLegacyVolume(F32 volume_in)
+{
+	// Convert from linear-logarithmic [0.0..1.0] with 0.5 = 0dB
+	// to legacy characteristic composed of two square-curves
+	// that intersect at volume_in = 0.56, volume_out = 0.5
+
+	F32 volume_out = 0.f;
+	volume_in = llclamp(volume_in, 0.f, 1.0f);
+
+	if (volume_in <= 0.56f)
+	{
+		volume_out = sqrt(volume_in / (4.f * 0.56f));
+	}
+	else
+	{
+		volume_out = sqrt((3.f * (volume_in - 0.56f) / (1.f - 0.56f) + 1.f) / 4.f);
+	}
+
+	return volume_out;
 }
 
 void LLSpeakerVolumeStorage::load()
 {
 	// load per-resident voice volume information
 	std::string filename = gDirUtilp->getExpandedFilename(LL_PATH_PER_SL_ACCOUNT, SETTINGS_FILE_NAME);
+
+	LL_INFOS("Voice") << "Loading stored speaker volumes from: " << filename << LL_ENDL;
 
 	LLSD settings_llsd;
 	llifstream file;
@@ -830,7 +946,10 @@ void LLSpeakerVolumeStorage::load()
 	for (LLSD::map_const_iterator iter = settings_llsd.beginMap();
 		iter != settings_llsd.endMap(); ++iter)
 	{
-		mSpeakersData.insert(std::make_pair(LLUUID(iter->first), (F32)iter->second.asReal()));
+		// Maintain compatibility with 1.23 non-linear saved volume levels
+		F32 volume = transformFromLegacyVolume((F32)iter->second.asReal());
+
+		storeSpeakerVolume(LLUUID(iter->first), volume);
 	}
 }
 
@@ -845,9 +964,14 @@ void LLSpeakerVolumeStorage::save()
 		std::string filename = gDirUtilp->getExpandedFilename(LL_PATH_PER_SL_ACCOUNT, SETTINGS_FILE_NAME);
 		LLSD settings_llsd;
 
+		LL_INFOS("Voice") << "Saving stored speaker volumes to: " << filename << LL_ENDL;
+
 		for(speaker_data_map_t::const_iterator iter = mSpeakersData.begin(); iter != mSpeakersData.end(); ++iter)
 		{
-			settings_llsd[iter->first.asString()] = iter->second;
+			// Maintain compatibility with 1.23 non-linear saved volume levels
+			F32 volume = transformToLegacyVolume(iter->second);
+
+			settings_llsd[iter->first.asString()] = volume;
 		}
 
 		llofstream file;

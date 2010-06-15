@@ -137,10 +137,7 @@ LLVoiceChannel::LLVoiceChannel(const LLUUID& session_id, const std::string& sess
 
 LLVoiceChannel::~LLVoiceChannel()
 {
-	// Don't use LLVoiceClient::getInstance() here -- this can get called during atexit() time and that singleton MAY have already been destroyed.
-	// Using call of instanceExists() instead of gVoiceClient in check to avoid crash in LLVoiceClient::removeObserver() 
-	// when quitting viewer by closing console window before login (though in case of such quit crash will occur 
-	// later in other destructors anyway). EXT-5524
+	// Must check instance exists here, the singleton MAY have already been destroyed.
 	if(LLVoiceClient::instanceExists())
 	{
 		LLVoiceClient::getInstance()->removeObserver(this);
@@ -794,6 +791,12 @@ void LLVoiceChannelP2P::handleStatusChange(EStatusType type)
 		}
 		mIgnoreNextSessionLeave = FALSE;
 		return;
+	case STATUS_JOINING:
+		// because we join session we expect to process session leave event in the future. EXT-7371
+		// may be this should be done in the LLVoiceChannel::handleStatusChange.
+		mIgnoreNextSessionLeave = FALSE;
+		break;
+
 	default:
 		break;
 	}
@@ -894,9 +897,9 @@ void LLVoiceChannelP2P::setSessionHandle(const std::string& handle, const std::s
 	else
 	{
 		LL_WARNS("Voice") << "incoming SIP URL is not provided. Channel may not work properly." << LL_ENDL;
-		// In case of incoming AvaLine call generated URI will be differ from original one.
-		// This is because Avatar-2-Avatar URI is based on avatar UUID but Avaline is not.
-		// See LLVoiceClient::sessionAddedEvent() -> setUUIDFromStringHash()
+		// In the case of an incoming AvaLine call, the generated URI will be different from the
+		// original one. This is because the P2P URI is based on avatar UUID but Avaline is not.
+		// See LLVoiceClient::sessionAddedEvent()
 		setURI(LLVoiceClient::getInstance()->sipURIFromID(mOtherUserID));
 	}
 	

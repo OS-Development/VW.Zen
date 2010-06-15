@@ -151,6 +151,7 @@ void LLLoginInstance::constructAuthParams(LLPointer<LLCredential> user_credentia
 	requested_options.append("newuser-config");
 	requested_options.append("ui-config");
 #endif
+	requested_options.append("map-server-url");	
 	requested_options.append("voice-config");
 	requested_options.append("tutorial_setting");
 	requested_options.append("login-flags");
@@ -364,20 +365,18 @@ void LLLoginInstance::updateApp(bool mandatory, const std::string& auth_msg)
 	payload["mandatory"] = mandatory;
 
 /*
- We're constructing one of the following 6 strings here:
+ We're constructing one of the following 9 strings here:
 	 "DownloadWindowsMandatory"
 	 "DownloadWindowsReleaseForDownload"
 	 "DownloadWindows"
 	 "DownloadMacMandatory"
 	 "DownloadMacReleaseForDownload"
 	 "DownloadMac"
+	 "DownloadLinuxMandatory"
+	 "DownloadLinuxReleaseForDownload"
+	 "DownloadLinux"
  
  I've called them out explicitly in this comment so that they can be grepped for.
- 
- Also, we assume that if we're not Windows we're Mac. If we ever intend to support 
- Linux with autoupdate, this should be an explicit #elif LL_DARWIN, but 
- we'd rather deliver the wrong message than no message, so until Linux is supported
- we'll leave it alone.
  */
 	std::string notification_name = "Download";
 	

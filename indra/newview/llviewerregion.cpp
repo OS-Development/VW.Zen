@@ -216,6 +216,7 @@ LLViewerRegion::LLViewerRegion(const U64 &handle,
 	mColoName("unknown"),
 	mProductSKU("unknown"),
 	mProductName("unknown"),
+	mHttpUrl(""),
 	mCacheLoaded(FALSE),
 	mCacheEntriesCount(0),
 	mCacheID(),
@@ -623,6 +624,26 @@ std::string LLViewerRegion::accessToString(U8 sim_access)
 	case SIM_ACCESS_MIN:
 	default:
 		return LLTrans::getString("SIM_ACCESS_MIN");
+	}
+}
+
+// static
+std::string LLViewerRegion::getAccessIcon(U8 sim_access)
+{
+	switch(sim_access)
+	{
+	case SIM_ACCESS_MATURE:
+		return "Parcel_M_Dark";
+
+	case SIM_ACCESS_ADULT:
+		return "Parcel_R_Light";
+
+	case SIM_ACCESS_PG:
+		return "Parcel_PG_Light";
+
+	case SIM_ACCESS_MIN:
+	default:
+		return "";
 	}
 }
 
@@ -1535,6 +1556,10 @@ void LLViewerRegion::setCapability(const std::string& name, const std::string& u
 	else
 	{
 		mCapabilities[name] = url;
+		if(name == "GetTexture")
+		{
+			mHttpUrl = url ;
+		}
 	}
 }
 

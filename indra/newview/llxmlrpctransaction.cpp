@@ -45,6 +45,7 @@
 #include <xmlrpc-epi/xmlrpc.h>
 
 #include "llappviewer.h"
+#include "lltrans.h"
 
 // Static instance of LLXMLRPCListener declared here so that every time we
 // bring in this code, we instantiate a listener. If we put the static
@@ -247,7 +248,8 @@ int LLXMLRPCTransaction::Impl::_sslCertVerifyCallback(X509_STORE_CTX *ctx, void 
 	validation_params[CERT_HOSTNAME] = uri.hostName();
 	try
 	{
-		chain->validate(VALIDATION_POLICY_SSL, store, validation_params);
+		// don't validate hostname.  Let libcurl do it instead.  That way, it'll handle redirects
+		store->validate(VALIDATION_POLICY_SSL & (~VALIDATION_POLICY_HOSTNAME), chain, validation_params);
 	}
 	catch (LLCertValidationTrustException& cert_exception)
 	{
@@ -325,10 +327,10 @@ void LLXMLRPCTransaction::Impl::init(XMLRPC_REQUEST request, bool useGzip)
 //	mCurlRequest->setopt(CURLOPT_VERBOSE, 1); // usefull for debugging
 	mCurlRequest->setopt(CURLOPT_NOSIGNAL, 1);
 	mCurlRequest->setWriteCallback(&curlDownloadCallback, (void*)this);
-	BOOL verifySSLCert = !gSavedSettings.getBOOL("NoVerifySSLCert");
+	BOOL vefifySSLCert = !gSavedSettings.getBOOL("NoVerifySSLCert");
 	mCertStore = gSavedSettings.getString("CertStore");
-	mCurlRequest->setopt(CURLOPT_SSL_VERIFYPEER, verifySSLCert);
-	mCurlRequest->setopt(CURLOPT_SSL_VERIFYHOST, verifySSLCert ? 2 : 0);
+	mCurlRequest->setopt(CURLOPT_SSL_VERIFYPEER, vefifySSLCert);
+	mCurlRequest->setopt(CURLOPT_SSL_VERIFYHOST, vefifySSLCert ? 2 : 0);
 	// Be a little impatient about establishing connections.
 	mCurlRequest->setopt(CURLOPT_CONNECTTIMEOUT, 40L);
 	mCurlRequest->setSSLCtxCallback(_sslCtxFunction, (void *)this);
@@ -510,13 +512,8 @@ void LLXMLRPCTransaction::Impl::setStatus(EStatus status,
 			default:
 				// Usually this means that there's a problem with the login server,
 				// not with the client.  Direct user to status page.
-				mStatusMessage =
-					"Despite our best efforts, something unexpected has gone wrong. \n"
-					" \n"
-					"Please check secondlife.com/status \n"
-					"to see if there is a known problem with the service.";
-
-				mStatusURI = "http://secondlife.com/status/";
+				mStatusMessage = LLTrans::getString("server_is_down");
+				mStatusURI = "http://status.secondlifegrid.net/";
 		}
 	}
 }
@@ -550,7 +547,7 @@ void LLXMLRPCTransaction::Impl::setCurlStatus(CURLcode code)
 				"Often this means that your computer\'s clock is set incorrectly.\n"
 				"Please go to Control Panels and make sure the time and date\n"
 				"are set correctly.\n"
-				"\n"
+				"Also check that your network and firewall are set up correctly.\n"
 				"If you continue to receive this error, please go\n"
 				"to the Support section of the SecondLife.com web site\n"
 				"and report the problem.";

@@ -35,6 +35,7 @@
 #include "llsecapi.h"
 #include "llsechandler_basic.h"
 #include <openssl/evp.h>
+#include <openssl/err.h>
 #include <map>
 #include "llhttpclient.h"
 
@@ -45,9 +46,9 @@ LLPointer<LLSecAPIHandler> gSecAPIHandler;
 
 void initializeSecHandler()
 {
+	ERR_load_crypto_strings();
 	OpenSSL_add_all_algorithms();
-	OpenSSL_add_all_ciphers();
-	OpenSSL_add_all_digests();	
+
 	gHandlerMap[BASIC_SECHANDLER] = new LLSecAPIBasicHandler();
 	
 	
@@ -58,7 +59,7 @@ void initializeSecHandler()
 	gSecAPIHandler = gHandlerMap[BASIC_SECHANDLER];
 
 	// initialize all SecAPIHandlers
-	LLProtectedDataException ex = LLProtectedDataException("");
+	std::string exception_msg;
 	std::map<std::string, LLPointer<LLSecAPIHandler> >::const_iterator itr;
 	for(itr = gHandlerMap.begin(); itr != gHandlerMap.end(); ++itr)
 	{
@@ -69,12 +70,12 @@ void initializeSecHandler()
 		}
 		catch (LLProtectedDataException e)
 		{
-			ex = e;
+			exception_msg = e.getMessage();
 		}
 	}
-	if (ex.getMessage().length() > 0 )  // an exception was thrown.
+	if (!exception_msg.empty())  // an exception was thrown.
 	{
-		throw ex;
+		throw LLProtectedDataException(exception_msg.c_str());
 	}
 
 }
@@ -120,7 +121,10 @@ int secapiSSLCertVerifyCallback(X509_STORE_CTX *ctx, void *param)
 	validation_params[CERT_HOSTNAME] = uri.hostName();
 	try
 	{
-		chain->validate(VALIDATION_POLICY_SSL, store, validation_params);
+		// we rely on libcurl to validate the hostname, as libcurl does more extensive validation
+		// leaving our hostname validation call mechanism for future additions with respect to
+		// OS native (Mac keyring, windows CAPI) validation.
+		store->validate(VALIDATION_POLICY_SSL & (~VALIDATION_POLICY_HOSTNAME), chain, validation_params);
 	}
 	catch (LLCertValidationTrustException& cert_exception)
 	{
@@ -143,19 +147,51 @@ int secapiSSLCertVerifyCallback(X509_STORE_CTX *ctx, void *param)
 LLSD LLCredential::getLoginParams()
 {
 	LLSD result = LLSD::emptyMap();
-	if (mIdentifier["type"].asString() == "agent")
+	try 
 	{
-		// legacy credential
-		result["passwd"] = "$1$" + mAuthenticator["secret"].asString();
-		result["first"] = mIdentifier["first_name"];
-		result["last"] = mIdentifier["last_name"];
-	
+		if (mIdentifier["type"].asString() == "agent")
+		{
+			// legacy credential
+			result["passwd"] = "$1$" + mAuthenticator["secret"].asString();
+			result["first"] = mIdentifier["first_name"];
+			result["last"] = mIdentifier["last_name"];
+		
+		}
+		else if (mIdentifier["type"].asString() == "account")
+		{
+			result["username"] = mIdentifier["account_name"];
+			result["passwd"] = mAuthenticator["secret"];
+										
+		}
 	}
-	else if (mIdentifier["type"].asString() == "account")
+	catch (...)
 	{
-		result["username"] = mIdentifier["account_name"];
-		result["passwd"] = mAuthenticator["secret"];
-                                    
+		// we could have corrupt data, so simply return a null login param if so
+		LL_WARNS("AppInit") << "Invalid credential" << LL_ENDL;
 	}
 	return result;
+}
+
+void LLCredential::identifierType(std::string &idType)
+{
+	if(mIdentifier.has("type"))
+	{
+		idType = mIdentifier["type"].asString();
+	}
+	else {
+		idType = std::string();
+		
+	}
+}
+
+void LLCredential::authenticatorType(std::string &idType)
+{
+	if(mAuthenticator.has("type"))
+	{
+		idType = mAuthenticator["type"].asString();
+	}
+	else {
+		idType = std::string();
+		
+	}
 }

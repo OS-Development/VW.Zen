@@ -88,6 +88,10 @@ const S32 MIN_ITEM_WIDTH_VISIBLE = LLFolderViewItem::ICON_WIDTH
 			+ /*first few characters*/ 40;
 const S32 MINIMUM_RENAMER_WIDTH = 80;
 
+// *TODO: move in params in xml if necessary. Requires modification of LLFolderView & LLInventoryPanel Params.
+const S32 STATUS_TEXT_HPAD = 6;
+const S32 STATUS_TEXT_VPAD = 8;
+
 enum {
 	SIGNAL_NO_KEYBOARD_FOCUS = 1,
 	SIGNAL_KEYBOARD_FOCUS = 2
@@ -246,6 +250,10 @@ LLFolderView::LLFolderView(const Params& p)
 	text_p.font(font);
 	text_p.visible(false);
 	text_p.allow_html(true);
+	text_p.wrap(true); // allow multiline text. See EXT-7564, EXT-7047
+	// set text padding the same as in People panel. EXT-7047, EXT-4837
+	text_p.h_pad(STATUS_TEXT_HPAD);
+	text_p.v_pad(STATUS_TEXT_VPAD);
 	mStatusTextBox = LLUICtrlFactory::create<LLTextBox> (text_p);
 	mStatusTextBox->setFollowsLeft();
 	mStatusTextBox->setFollowsTop();
@@ -846,16 +854,16 @@ void LLFolderView::clearSelection()
 	mSelectThisID.setNull();
 }
 
-BOOL LLFolderView::getSelectionList(std::set<LLUUID> &selection) const
+std::set<LLUUID> LLFolderView::getSelectionList() const
 {
+	std::set<LLUUID> selection;
 	for (selected_items_t::const_iterator item_it = mSelectedItems.begin(); 
 		 item_it != mSelectedItems.end(); 
 		 ++item_it)
 	{
 		selection.insert((*item_it)->getListener()->getUUID());
 	}
-
-	return (selection.size() != 0);
+	return selection;
 }
 
 BOOL LLFolderView::startDrag(LLToolDragAndDrop::ESource source)
@@ -946,11 +954,30 @@ void LLFolderView::draw()
 		}
 		else
 		{
-			mStatusText = LLTrans::getString(getFilter()->getEmptyLookupMessage());
+			LLStringUtil::format_map_t args;
+			args["[SEARCH_TERM]"] = LLURI::escape(getFilter()->getFilterSubStringOrig());
+			mStatusText = LLTrans::getString(getFilter()->getEmptyLookupMessage(), args);
 			//font->renderUTF8(mStatusText, 0, 2, 1, sSearchStatusColor, LLFontGL::LEFT, LLFontGL::TOP, LLFontGL::NORMAL,  LLFontGL::NO_SHADOW, S32_MAX, S32_MAX, NULL, FALSE );
 		}
 		mStatusTextBox->setValue(mStatusText);
 		mStatusTextBox->setVisible( TRUE );
+
+		// firstly reshape message textbox with current size. This is necessary to
+		// LLTextBox::getTextPixelHeight works properly
+		const LLRect local_rect = getLocalRect();
+		mStatusTextBox->setShape(local_rect);
+
+		// get preferable text height...
+		S32 pixel_height = mStatusTextBox->getTextPixelHeight();
+		bool height_changed = local_rect.getHeight() != pixel_height;
+		if (height_changed)
+		{
+			// ... if it does not match current height, lets rearrange current view.
+			// This will indirectly call ::arrange and reshape of the status textbox.
+			// We should call this method to also notify parent about required rect.
+			// See EXT-7564, EXT-7047.
+			arrangeFromRoot();
+		}
 		
 	}
 
@@ -1416,8 +1443,8 @@ void LLFolderView::startRenamingSelectedItem( void )
 		mRenamer->setVisible( TRUE );
 		// set focus will fail unless item is visible
 		mRenamer->setFocus( TRUE );
-		mRenamer->setTopLostCallback(boost::bind(onRenamerLost, _1));
-		mRenamer->setFocusLostCallback(boost::bind(onRenamerLost, _1));
+		mRenamer->setTopLostCallback(boost::bind(&LLFolderView::onRenamerLost, this, _1));
+		mRenamer->setFocusLostCallback(boost::bind(&LLFolderView::onRenamerLost, this, _1));
 		gViewerWindow->addPopup(mRenamer);
 	}
 }
@@ -1741,6 +1768,8 @@ BOOL LLFolderView::handleMouseDown( S32 x, S32 y, MASK mask )
 	mSearchString.clear();
 
 	mParentPanel->setFocus(TRUE);
+
+	LLEditMenuHandler::gEditMenuHandler = this;
 
 	return LLView::handleMouseDown( x, y, mask );
 }
@@ -2068,8 +2097,7 @@ bool LLFolderView::doToSelected(LLInventoryModel* model, const LLSD& userdata)
 	}
 
 
-	std::set<LLUUID> selected_items;
-	getSelectionList(selected_items);
+	std::set<LLUUID> selected_items = getSelectionList();
 
 	LLMultiPreview* multi_previewp = NULL;
 	LLMultiProperties* multi_propertiesp = NULL;
@@ -2307,7 +2335,7 @@ void LLFolderView::updateRenamerPosition()
 bool LLFolderView::selectFirstItem()
 {
 	for (folders_t::iterator iter = mFolders.begin();
-		 iter != mFolders.end();)
+		 iter != mFolders.end();++iter)
 	{
 		LLFolderViewFolder* folder = (*iter );
 		if (folder->getVisible())
@@ -2344,7 +2372,7 @@ bool LLFolderView::selectLastItem()
 		}
 	}
 	for (folders_t::reverse_iterator iter = mFolders.rbegin();
-		 iter != mFolders.rend();)
+		 iter != mFolders.rend();++iter)
 	{
 		LLFolderViewFolder* folder = (*iter);
 		if (folder->getVisible())
@@ -2386,9 +2414,9 @@ S32	LLFolderView::notify(const LLSD& info)
 /// Local function definitions
 ///----------------------------------------------------------------------------
 
-//static 
 void LLFolderView::onRenamerLost( LLFocusableElement* renamer)
 {
+	mRenameItem = NULL;
 	LLUICtrl* uictrl = dynamic_cast<LLUICtrl*>(renamer);
 	if (uictrl)
 	{

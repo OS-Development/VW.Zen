@@ -477,6 +477,12 @@ void LLTeleportHistoryPanel::onSearchEdit(const std::string& string)
 }
 
 // virtual
+bool LLTeleportHistoryPanel::isSingleItemSelected()
+{
+	return mLastSelectedFlatlList && mLastSelectedFlatlList->getSelectedItem();
+}
+
+// virtual
 void LLTeleportHistoryPanel::onShowOnMap()
 {
 	if (!mLastSelectedFlatlList)
@@ -494,6 +500,20 @@ void LLTeleportHistoryPanel::onShowOnMap()
 		LLFloaterWorldMap::getInstance()->trackLocation(global_pos);
 		LLFloaterReg::showInstance("world_map", "center");
 	}
+}
+
+//virtual
+void LLTeleportHistoryPanel::onShowProfile()
+{
+	if (!mLastSelectedFlatlList)
+		return;
+
+	LLTeleportHistoryFlatItem* itemp = dynamic_cast<LLTeleportHistoryFlatItem *> (mLastSelectedFlatlList->getSelectedItem());
+
+	if(!itemp)
+		return;
+
+	LLTeleportHistoryFlatItem::showPlaceInfoPanel(itemp->getIndex());
 }
 
 // virtual
@@ -543,6 +563,7 @@ void LLTeleportHistoryPanel::updateVerbs()
 	if (!mLastSelectedFlatlList)
 	{
 		mTeleportBtn->setEnabled(false);
+		mShowProfile->setEnabled(false);
 		mShowOnMapBtn->setEnabled(false);
 		return;
 	}
@@ -550,6 +571,7 @@ void LLTeleportHistoryPanel::updateVerbs()
 	LLTeleportHistoryFlatItem* itemp = dynamic_cast<LLTeleportHistoryFlatItem *> (mLastSelectedFlatlList->getSelectedItem());
 
 	mTeleportBtn->setEnabled(NULL != itemp);
+	mShowProfile->setEnabled(NULL != itemp);
 	mShowOnMapBtn->setEnabled(NULL != itemp);
 }
 

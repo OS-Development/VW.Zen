@@ -41,9 +41,12 @@ from llmanifest import LLManifest, main, proper_windows_path, path_ancestors
 
 class ViewerManifest(LLManifest):
     def is_packaging_viewer(self):
-        # This is overridden by the WindowsManifest sub-class,
-        # which has different behavior if it is not packaging the viewer.
-        return True
+        # Some commands, files will only be included
+        # if we are packaging the viewer on windows.
+        # This manifest is also used to copy
+        # files during the build (see copy_w_viewer_manifest
+        # and copy_l_viewer_manifest targets)
+        return 'package' in self.args['actions']
     
     def construct(self):
         super(ViewerManifest, self).construct()
@@ -104,6 +107,12 @@ class ViewerManifest(LLManifest):
                             self.path("*/*/*.gif")
                             self.end_prefix("*/html")
                     self.end_prefix("skins")
+
+            # local_assets dir (for pre-cached textures)
+            if self.prefix(src="local_assets"):
+                self.path("*.j2c")
+                self.path("*.tga")
+                self.end_prefix("local_assets")
 
             # Files in the newview/ directory
             self.path("gpu_table.txt")
@@ -168,13 +177,6 @@ class WindowsManifest(ViewerManifest):
                 return "SecondLifePreview.exe"
         else:
             return ''.join(self.channel().split()) + '.exe'
-
-    def is_packaging_viewer(self):
-        # Some commands, files will only be included
-        # if we are packaging the viewer on windows.
-        # This manifest is also used to copy
-        # files during the build.
-        return 'package' in self.args['actions']
 
     def test_msvcrt_and_copy_action(self, src, dst):
         # This is used to test a dll manifest.
@@ -332,6 +334,12 @@ class WindowsManifest(ViewerManifest):
             self.path("media_plugin_webkit.dll")
             self.end_prefix()
 
+        # winmm.dll shim
+        if self.prefix(src='../media_plugins/winmmshim/%s' % self.args['configuration'], dst="llplugin"):
+            self.path("winmm.dll")
+            self.end_prefix()
+
+
         if self.args['configuration'].lower() == 'debug':
             if self.prefix(src=os.path.join(os.pardir, os.pardir, 'libraries', 'i686-win32', 'lib', 'debug'),
                            dst="llplugin"):
@@ -396,15 +404,6 @@ class WindowsManifest(ViewerManifest):
                 self.end_prefix()
 
         self.disable_manifest_check()
-
-        # Diamondware Runtimes
-        if self.prefix(src="diamondware-runtime/i686-win32", dst=""):
-            self.path("SLVoice_dwTVC.exe")
-            self.path("libcurl.dll")
-            self.path("libeay32.dll")
-            self.path("ssleay32.dll")
-            self.path("zlib1.dll")
-            self.end_prefix()
 
         # pull in the crash logger and updater from other projects
         # tag:"crash-logger" here as a cue to the exporter
@@ -560,6 +559,10 @@ class WindowsManifest(ViewerManifest):
 
 
 class DarwinManifest(ViewerManifest):
+    def is_packaging_viewer(self):
+        # darwin requires full app bundle packaging even for debugging.
+        return True
+
     def construct(self):
         # copy over the build result (this is a no-op if run within the xcode script)
         self.path(self.args['configuration'] + "/Second Life.app", dst="")
@@ -615,9 +618,6 @@ class DarwinManifest(ViewerManifest):
                 self.path("vivox-runtime/universal-darwin/libvivoxsdk.dylib", "libvivoxsdk.dylib")
                 self.path("vivox-runtime/universal-darwin/libvivoxplatform.dylib", "libvivoxplatform.dylib")
                 self.path("vivox-runtime/universal-darwin/SLVoice", "SLVoice")
-                # DiamondWare runtime                                           
-                self.path("diamondware-runtime/universal-darwin/SLVoice_dwTVC","SLVoice_dwTVC")
-                self.path("diamondware-runtime/universal-darwin/libfmodex.dylib", "libfmodex.dylib")
 
                 libdir = "../../libraries/universal-darwin/lib_release"
                 dylibs = {}
@@ -641,7 +641,9 @@ class DarwinManifest(ViewerManifest):
                 if dylibs["llcommon"]:
                     for libfile in ("libapr-1.0.3.7.dylib",
                                     "libaprutil-1.0.3.8.dylib",
-                                    "libexpat.0.5.0.dylib"):
+                                    "libexpat.0.5.0.dylib",
+                                    "libexception_handler.dylib",
+                                    ):
                         self.path(os.path.join(libdir, libfile), libfile)
 
                 #libfmodwrapper.dylib
@@ -651,14 +653,20 @@ class DarwinManifest(ViewerManifest):
                 self.path("../mac_crash_logger/" + self.args['configuration'] + "/mac-crash-logger.app", "mac-crash-logger.app")
                 self.path("../mac_updater/" + self.args['configuration'] + "/mac-updater.app", "mac-updater.app")
 
+                # plugin launcher
+                self.path("../llplugin/slplugin/" + self.args['configuration'] + "/SLPlugin.app", "SLPlugin.app")
+
                 # our apps dependencies on shared libs
                 if dylibs["llcommon"]:
                     mac_crash_logger_res_path = self.dst_path_of("mac-crash-logger.app/Contents/Resources")
                     mac_updater_res_path = self.dst_path_of("mac-updater.app/Contents/Resources")
+                    slplugin_res_path = self.dst_path_of("SLPlugin.app/Contents/Resources")
                     for libfile in ("libllcommon.dylib",
                                     "libapr-1.0.3.7.dylib",
                                     "libaprutil-1.0.3.8.dylib",
-                                    "libexpat.0.5.0.dylib"):
+                                    "libexpat.0.5.0.dylib",
+                                    "libexception_handler.dylib",
+                                    ):
                         target_lib = os.path.join('../../..', libfile)
                         self.run_command("ln -sf %(target)r %(link)r" % 
                                          {'target': target_lib,
@@ -668,9 +676,10 @@ class DarwinManifest(ViewerManifest):
                                          {'target': target_lib,
                                           'link' : os.path.join(mac_updater_res_path, libfile)}
                                          )
-
-                # plugin launcher
-                self.path("../llplugin/slplugin/" + self.args['configuration'] + "/SLPlugin", "SLPlugin")
+                        self.run_command("ln -sf %(target)r %(link)r" % 
+                                         {'target': target_lib,
+                                          'link' : os.path.join(slplugin_res_path, libfile)}
+                                         )
 
                 # plugins
                 if self.prefix(src="", dst="llplugin"):
@@ -888,6 +897,7 @@ class Linux_i686Manifest(LinuxManifest):
         if self.prefix("../../libraries/i686-linux/lib_release_client", dst="lib"):
             self.path("libapr-1.so.0")
             self.path("libaprutil-1.so.0")
+            self.path("libbreakpad_client.so.0.0.0", "libbreakpad_client.so.0")
             self.path("libdb-4.2.so")
             self.path("libcrypto.so.0.9.7")
             self.path("libexpat.so.1")
@@ -913,11 +923,6 @@ class Linux_i686Manifest(LinuxManifest):
                     pass
             self.end_prefix("lib")
 
-            # Diamondware runtimes
-            if self.prefix(src="diamondware-runtime/i686-linux", dst="bin"):
-                    self.path("SLVoice_dwTVC")
-                    self.end_prefix()
-
             # Vivox runtimes
             if self.prefix(src="vivox-runtime/i686-linux", dst="bin"):
                     self.path("SLVoice")
@@ -930,7 +935,7 @@ class Linux_i686Manifest(LinuxManifest):
                     self.path("libvivoxplatform.so")
                     self.end_prefix("lib")
 
-        if self.args['buildtype'].lower() == 'release':
+        if self.args['buildtype'].lower() == 'release' and self.is_packaging_viewer():
             print "* Going strip-crazy on the packaged binaries, since this is a RELEASE build"
             self.run_command("find %(d)r/bin %(d)r/lib -type f | xargs --no-run-if-empty strip -S" % {'d': self.get_dst_prefix()} ) # makes some small assumptions about our packaged dir structure
 

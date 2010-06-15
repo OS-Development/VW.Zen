@@ -84,7 +84,7 @@ void LLSpeaker::onAvatarNameLookup(const LLUUID& id, const std::string& first, c
 
 bool LLSpeaker::isInVoiceChannel()
 {
-	return mStatus == LLSpeaker::STATUS_VOICE_ACTIVE || mStatus == LLSpeaker::STATUS_MUTED;
+	return mStatus <= LLSpeaker::STATUS_VOICE_ACTIVE || mStatus == LLSpeaker::STATUS_MUTED;
 }
 
 LLSpeakerUpdateModeratorEvent::LLSpeakerUpdateModeratorEvent(LLSpeaker* source)
@@ -251,6 +251,8 @@ bool LLSpeakersDelayActionsStorage::onTimerActionCallback(const LLUUID& speaker_
 
 LLSpeakerMgr::LLSpeakerMgr(LLVoiceChannel* channelp) : 
 	mVoiceChannel(channelp)
+, mVoiceModerated(false)
+, mModerateModeHandledFirstTime(false)
 {
 	static LLUICachedControl<F32> remove_delay ("SpeakerParticipantRemoveDelay", 10.0);
 
@@ -295,6 +297,33 @@ LLPointer<LLSpeaker> LLSpeakerMgr::setSpeaker(const LLUUID& id, const std::strin
 
 	mSpeakerDelayRemover->unsetActionTimer(speakerp->mID);
 	return speakerp;
+}
+
+// *TODO: Once way to request the current voice channel moderation mode is implemented
+// this method with related code should be removed.
+/*
+ Initializes "moderate_mode" of voice session on first join.
+ 
+ This is WORKAROUND because a way to request the current voice channel moderation mode exists
+ but is not implemented in viewer yet. See EXT-6937.
+*/
+void LLSpeakerMgr::initVoiceModerateMode()
+{
+	if (!mModerateModeHandledFirstTime && (mVoiceChannel && mVoiceChannel->isActive()))
+	{
+		LLPointer<LLSpeaker> speakerp;
+
+		if (mSpeakers.find(gAgentID) != mSpeakers.end())
+		{
+			speakerp = mSpeakers[gAgentID];
+		}
+
+		if (speakerp.notNull())
+		{
+			mVoiceModerated = speakerp->mModeratorMutedVoice;
+			mModerateModeHandledFirstTime = true;
+		}
+	}
 }
 
 void LLSpeakerMgr::update(BOOL resort_ok)
@@ -761,43 +790,26 @@ void LLIMSpeakerMgr::moderateVoiceParticipant(const LLUUID& avatar_id, bool unmu
 		new ModerationResponder(getSessionID()));
 }
 
-void LLIMSpeakerMgr::moderateVoiceOtherParticipants(const LLUUID& excluded_avatar_id, bool unmute_everyone_else)
+void LLIMSpeakerMgr::moderateVoiceAllParticipants( bool unmute_everyone )
 {
-	// *TODO: mantipov: add more intellectual processing of several following requests if it is needed.
-	/*
-		Such situation should be tested:
-		 "Moderator sends the same second request before first response is come"
-		Moderator sends "mute everyone else" for A and then for B
-			two requests to disallow voice chat are sent
-			UUID of B is stored.
-		Then first response (to disallow voice chat) is come
-			request to allow voice for stored avatar (B)
-		Then second response (to disallow voice chat) is come
-			have nothing to do, the latest selected speaker is already enabled
-
-			What can happen?
-		If request to allow voice for stored avatar (B) is processed on server BEFORE 
-		second request to disallow voice chat all speakers will be disabled on voice.
-		But I'm not sure such situation is possible. 
-		See EXT-3431.
-	*/
-
-	mReverseVoiceModeratedAvatarID = excluded_avatar_id;
-	moderateVoiceSession(getSessionID(), !unmute_everyone_else);
+	if (mVoiceModerated == !unmute_everyone)
+	{
+		// session already in requested state. Just force participants which do not match it.
+		forceVoiceModeratedMode(mVoiceModerated);
+	}
+	else
+	{
+		// otherwise set moderated mode for a whole session.
+		moderateVoiceSession(getSessionID(), !unmute_everyone);
+	}
 }
 
 void LLIMSpeakerMgr::processSessionUpdate(const LLSD& session_update)
 {
-	if (mReverseVoiceModeratedAvatarID.isNull()) return;
-
 	if (session_update.has("moderated_mode") &&
 		session_update["moderated_mode"].has("voice"))
 	{
-		BOOL voice_moderated = session_update["moderated_mode"]["voice"];
-
-		moderateVoiceParticipant(mReverseVoiceModeratedAvatarID, voice_moderated);
-
-		mReverseVoiceModeratedAvatarID = LLUUID::null;
+		mVoiceModerated = session_update["moderated_mode"]["voice"];
 	}
 }
 
@@ -817,6 +829,20 @@ void LLIMSpeakerMgr::moderateVoiceSession(const LLUUID& session_id, bool disallo
 	LLHTTPClient::post(url, data, new ModerationResponder(session_id));
 }
 
+void LLIMSpeakerMgr::forceVoiceModeratedMode(bool should_be_muted)
+{
+	for (speaker_map_t::iterator speaker_it = mSpeakers.begin(); speaker_it != mSpeakers.end(); ++speaker_it)
+	{
+		LLUUID speaker_id = speaker_it->first;
+		LLSpeaker* speakerp = speaker_it->second;
+
+		// participant does not match requested state
+		if (should_be_muted != (bool)speakerp->mModeratorMutedVoice)
+		{
+			moderateVoiceParticipant(speaker_id, !should_be_muted);
+		}
+	}
+}
 
 //
 // LLActiveSpeakerMgr

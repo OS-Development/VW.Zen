@@ -252,6 +252,9 @@ BOOL LLPanelPlaces::postBuild()
 	mOverflowBtn = getChild<LLButton>("overflow_btn");
 	mOverflowBtn->setClickedCallback(boost::bind(&LLPanelPlaces::onOverflowButtonClicked, this));
 
+	mPlaceInfoBtn = getChild<LLButton>("profile_btn");
+	mPlaceInfoBtn->setClickedCallback(boost::bind(&LLPanelPlaces::onProfileButtonClicked, this));
+
 	LLUICtrl::CommitCallbackRegistry::ScopedRegistrar registrar;
 	registrar.add("Places.OverflowMenu.Action",  boost::bind(&LLPanelPlaces::onOverflowMenuItemClicked, this, _2));
 	LLUICtrl::EnableCallbackRegistry::ScopedRegistrar enable_registrar;
@@ -525,8 +528,7 @@ void LLPanelPlaces::onFilterEdit(const std::string& search_string, bool force_fi
 		std::string string = search_string;
 
 		// Searches are case-insensitive
-		LLStringUtil::toUpper(string);
-		LLStringUtil::trimHead(string);
+		// but we don't convert the typed string to upper-case so that it can be fed to the web search as-is.
 
 		mActivePanel->onSearchEdit(string);
 	}
@@ -613,8 +615,21 @@ void LLPanelPlaces::onShowOnMapButtonClicked()
 	}
 	else
 	{
-		if (mActivePanel)
+		if (mActivePanel && mActivePanel->isSingleItemSelected())
+		{
 			mActivePanel->onShowOnMap();
+		}
+		else
+		{
+			LLFloaterWorldMap* worldmap_instance = LLFloaterWorldMap::getInstance();
+			LLVector3d global_pos = gAgent.getPositionGlobal();
+
+			if (!global_pos.isExactlyZero() && worldmap_instance)
+			{
+				worldmap_instance->trackLocation(global_pos);
+				LLFloaterReg::showInstance("world_map", "center");
+			}
+		}
 	}
 }
 
@@ -743,6 +758,14 @@ void LLPanelPlaces::onOverflowButtonClicked()
 	menu->updateParent(LLMenuGL::sMenuContainer);
 	LLRect rect = mOverflowBtn->getRect();
 	LLMenuGL::showPopup(this, menu, rect.mRight, rect.mTop);
+}
+
+void LLPanelPlaces::onProfileButtonClicked()
+{
+	if (!mActivePanel)
+		return;
+
+	mActivePanel->onShowProfile();
 }
 
 bool LLPanelPlaces::onOverflowMenuItemEnable(const LLSD& param)
@@ -1060,8 +1083,9 @@ void LLPanelPlaces::updateVerbs()
 	mSaveBtn->setVisible(isLandmarkEditModeOn);
 	mCancelBtn->setVisible(isLandmarkEditModeOn);
 	mCloseBtn->setVisible(is_create_landmark_visible && !isLandmarkEditModeOn);
+	mPlaceInfoBtn->setVisible(!is_place_info_visible && !is_create_landmark_visible && !isLandmarkEditModeOn);
 
-	mShowOnMapBtn->setEnabled(!is_create_landmark_visible && !isLandmarkEditModeOn && have_3d_pos);
+	mPlaceInfoBtn->setEnabled(!is_create_landmark_visible && !isLandmarkEditModeOn && have_3d_pos);
 
 	if (is_place_info_visible)
 	{

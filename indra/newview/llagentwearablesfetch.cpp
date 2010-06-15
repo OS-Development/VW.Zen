@@ -37,9 +37,55 @@
 #include "llagentwearables.h"
 #include "llappearancemgr.h"
 #include "llinventoryfunctions.h"
+#include "llstartup.h"
 #include "llvoavatarself.h"
 
-LLInitialWearablesFetch::LLInitialWearablesFetch()
+
+class LLOrderMyOutfitsOnDestroy: public LLInventoryCallback
+{
+public:
+	LLOrderMyOutfitsOnDestroy() {};
+
+	virtual ~LLOrderMyOutfitsOnDestroy()
+	{
+		const LLUUID& my_outfits_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_MY_OUTFITS);
+		if (my_outfits_id.isNull()) return;
+
+		LLInventoryModel::cat_array_t* cats;
+		LLInventoryModel::item_array_t* items;
+		gInventory.getDirectDescendentsOf(my_outfits_id, cats, items);
+		if (!cats) return;
+
+		//My Outfits should at least contain saved initial outfit and one another outfit
+		if (cats->size() < 2)
+		{
+			llwarning("My Outfits category was not populated properly", 0);
+			return;
+		}
+
+		llinfos << "Starting updating My Outfits with wearables ordering information" << llendl;
+
+		for (LLInventoryModel::cat_array_t::iterator outfit_iter = cats->begin();
+			outfit_iter != cats->end(); ++outfit_iter)
+		{
+			const LLUUID& cat_id = (*outfit_iter)->getUUID();
+			if (cat_id.isNull()) continue;
+
+			// saved initial outfit already contains wearables ordering information
+			if (cat_id == LLAppearanceMgr::getInstance()->getBaseOutfitUUID()) continue;
+
+			LLAppearanceMgr::getInstance()->updateClothingOrderingInfo(cat_id);
+		}
+
+		llinfos << "Finished updating My Outfits with wearables ordering information" << llendl;
+	}
+
+	/* virtual */ void fire(const LLUUID& inv_item) {};
+};
+
+
+LLInitialWearablesFetch::LLInitialWearablesFetch(const LLUUID& cof_id) :
+	LLInventoryFetchDescendentsObserver(cof_id)
 {
 }
 
@@ -69,7 +115,7 @@ void LLInitialWearablesFetch::processContents()
 	LLInventoryModel::cat_array_t cat_array;
 	LLInventoryModel::item_array_t wearable_array;
 	LLFindWearables is_wearable;
-	gInventory.collectDescendentsIf(mCompleteFolders.front(), cat_array, wearable_array, 
+	gInventory.collectDescendentsIf(mComplete.front(), cat_array, wearable_array, 
 									LLInventoryModel::EXCLUDE_TRASH, is_wearable);
 
 	LLAppearanceMgr::instance().setAttachmentInvLinkEnable(true);
@@ -86,12 +132,11 @@ void LLInitialWearablesFetch::processContents()
 	delete this;
 }
 
-class LLFetchAndLinkObserver: public LLInventoryFetchObserver
+class LLFetchAndLinkObserver: public LLInventoryFetchItemsObserver
 {
 public:
 	LLFetchAndLinkObserver(uuid_vec_t& ids):
-		m_ids(ids),
-		LLInventoryFetchObserver(true) // retry for missing items
+		LLInventoryFetchItemsObserver(ids)
 	{
 	}
 	~LLFetchAndLinkObserver()
@@ -103,8 +148,8 @@ public:
 
 		// Link to all fetched items in COF.
 		LLPointer<LLInventoryCallback> link_waiter = new LLUpdateAppearanceOnDestroy;
-		for (uuid_vec_t::iterator it = m_ids.begin();
-			 it != m_ids.end();
+		for (uuid_vec_t::iterator it = mIDs.begin();
+			 it != mIDs.end();
 			 ++it)
 		{
 			LLUUID id = *it;
@@ -119,12 +164,11 @@ public:
 								item->getLinkedUUID(),
 								LLAppearanceMgr::instance().getCOF(),
 								item->getName(),
+								item->getDescription(),
 								LLAssetType::AT_LINK,
 								link_waiter);
 		}
 	}
-private:
-	uuid_vec_t m_ids;
 };
 
 void LLInitialWearablesFetch::processWearablesMessage()
@@ -173,10 +217,10 @@ void LLInitialWearablesFetch::processWearablesMessage()
 
 		// Need to fetch the inventory items for ids, then create links to them after they arrive.
 		LLFetchAndLinkObserver *fetcher = new LLFetchAndLinkObserver(ids);
-		fetcher->fetchItems(ids);
+		fetcher->startFetch();
 		// If no items to be fetched, done will never be triggered.
-		// TODO: Change LLInventoryFetchObserver::fetchItems to trigger done() on this condition.
-		if (fetcher->isEverythingComplete())
+		// TODO: Change LLInventoryFetchItemsObserver::fetchItems to trigger done() on this condition.
+		if (fetcher->isFinished())
 		{
 			fetcher->done();
 		}
@@ -191,7 +235,8 @@ void LLInitialWearablesFetch::processWearablesMessage()
 	}
 }
 
-LLLibraryOutfitsFetch::LLLibraryOutfitsFetch() : 
+LLLibraryOutfitsFetch::LLLibraryOutfitsFetch(const LLUUID& my_outfits_id) : 
+	LLInventoryFetchDescendentsObserver(my_outfits_id),
 	mCurrFetchStep(LOFS_FOLDER), 
 	mOutfitsPopulated(false) 
 {
@@ -260,8 +305,11 @@ void LLLibraryOutfitsFetch::folderDone()
 	LLInventoryModel::item_array_t wearable_array;
 	gInventory.collectDescendents(mMyOutfitsID, cat_array, wearable_array, 
 								  LLInventoryModel::EXCLUDE_TRASH);
-	// Early out if we already have items in My Outfits.
-	if (cat_array.count() > 0 || wearable_array.count() > 0)
+	
+	// Early out if we already have items in My Outfits
+	// except the case when My Outfits contains just initial outfit
+	if (cat_array.count() > 1 ||
+		cat_array.count() == 1 && cat_array[0]->getUUID() != LLAppearanceMgr::getInstance()->getBaseOutfitUUID())
 	{
 		mOutfitsPopulated = true;
 		return;
@@ -272,6 +320,7 @@ void LLLibraryOutfitsFetch::folderDone()
 
 	// If Library->Clothing->Initial Outfits exists, use that.
 	LLNameCategoryCollector matchFolderFunctor("Initial Outfits");
+	cat_array.clear();
 	gInventory.collectDescendentsIf(mLibraryClothingID,
 									cat_array, wearable_array, 
 									LLInventoryModel::EXCLUDE_TRASH,
@@ -282,14 +331,15 @@ void LLLibraryOutfitsFetch::folderDone()
 		mLibraryClothingID = cat->getUUID();
 	}
 
-	mCompleteFolders.clear();
+	mComplete.clear();
 	
 	// Get the complete information on the items in the inventory.
 	uuid_vec_t folders;
 	folders.push_back(mClothingID);
 	folders.push_back(mLibraryClothingID);
-	fetchDescendents(folders);
-	if (isEverythingComplete())
+	setFetchIDs(folders);
+	startFetch();
+	if (isFinished())
 	{
 		done();
 	}
@@ -336,10 +386,10 @@ void LLLibraryOutfitsFetch::outfitsDone()
 		mImportedClothingID = cat->getUUID();
 	}
 	
-	mCompleteFolders.clear();
-	
-	fetchDescendents(folders);
-	if (isEverythingComplete())
+	mComplete.clear();
+	setFetchIDs(folders);
+	startFetch();
+	if (isFinished())
 	{
 		done();
 	}
@@ -433,10 +483,10 @@ void LLLibraryOutfitsFetch::importedFolderFetch()
 	uuid_vec_t folders;
 	folders.push_back(mImportedClothingID);
 	
-	mCompleteFolders.clear();
-	
-	fetchDescendents(folders);
-	if (isEverythingComplete())
+	mComplete.clear();
+	setFetchIDs(folders);
+	startFetch();
+	if (isFinished())
 	{
 		done();
 	}
@@ -463,9 +513,10 @@ void LLLibraryOutfitsFetch::importedFolderDone()
 		mImportedClothingFolders.push_back(cat->getUUID());
 	}
 	
-	mCompleteFolders.clear();
-	fetchDescendents(folders);
-	if (isEverythingComplete())
+	mComplete.clear();
+	setFetchIDs(folders);
+	startFetch();
+	if (isFinished())
 	{
 		done();
 	}
@@ -476,6 +527,8 @@ void LLLibraryOutfitsFetch::contentsDone()
 	LLInventoryModel::cat_array_t cat_array;
 	LLInventoryModel::item_array_t wearable_array;
 	
+	LLPointer<LLOrderMyOutfitsOnDestroy> order_myoutfits_on_destroy = new LLOrderMyOutfitsOnDestroy;
+
 	for (uuid_vec_t::const_iterator folder_iter = mImportedClothingFolders.begin();
 		 folder_iter != mImportedClothingFolders.end();
 		 ++folder_iter)
@@ -487,6 +540,9 @@ void LLLibraryOutfitsFetch::contentsDone()
 			llwarns << "Library folder import for uuid:" << folder_id << " failed to find folder." << llendl;
 			continue;
 		}
+
+		//initial outfit should be already in My Outfits
+		if (cat->getName() == LLStartUp::getInitialOutfitName()) continue;
 		
 		// First, make a folder in the My Outfits directory.
 		LLUUID new_outfit_folder_id = gInventory.createNewCategory(mMyOutfitsID, LLFolderType::FT_OUTFIT, cat->getName());
@@ -506,8 +562,9 @@ void LLLibraryOutfitsFetch::contentsDone()
 								item->getLinkedUUID(),
 								new_outfit_folder_id,
 								item->getName(),
+								item->getDescription(),
 								LLAssetType::AT_LINK,
-								NULL);
+								order_myoutfits_on_destroy);
 		}
 	}
 

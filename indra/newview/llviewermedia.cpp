@@ -33,6 +33,7 @@
 #include "llviewerprecompiledheaders.h"
 
 #include "llagent.h"
+#include "llagentcamera.h"
 #include "llviewermedia.h"
 #include "llviewermediafocus.h"
 #include "llmimetypes.h"
@@ -732,10 +733,17 @@ static bool proximity_comparitor(const LLViewerMediaImpl* i1, const LLViewerMedi
 	}
 }
 
+static LLFastTimer::DeclareTimer FTM_MEDIA_UPDATE("Update Media");
+
 //////////////////////////////////////////////////////////////////////////////////////////
 // static
 void LLViewerMedia::updateMedia(void *dummy_arg)
 {
+	LLFastTimer t1(FTM_MEDIA_UPDATE);
+	
+	// Enable/disable the plugin read thread
+	LLPluginProcessParent::setUseReadThread(gSavedSettings.getBOOL("PluginUseReadThread"));
+	
 	sAnyMediaShowing = false;
 	sUpdatedCookies = getCookieStore()->getChangedCookies();
 	if(!sUpdatedCookies.empty())
@@ -1286,7 +1294,30 @@ void LLViewerMedia::setOpenIDCookie()
 {
 	if(!sOpenIDCookie.empty())
 	{
-		getCookieStore()->setCookiesFromHost(sOpenIDCookie, sOpenIDURL.mAuthority);
+		// The LLURL can give me the 'authority', which is of the form: [username[:password]@]hostname[:port]
+		// We want just the hostname for the cookie code, but LLURL doesn't seem to have a way to extract that.
+		// We therefore do it here.
+		std::string authority = sOpenIDURL.mAuthority;
+		std::string::size_type host_start = authority.find('@'); 
+		if(host_start == std::string::npos)
+		{
+			// no username/password
+			host_start = 0;
+		}
+		else
+		{
+			// Hostname starts after the @. 
+			// (If the hostname part is empty, this may put host_start at the end of the string.  In that case, it will end up passing through an empty hostname, which is correct.)
+			++host_start;
+		}
+		std::string::size_type host_end = authority.rfind(':'); 
+		if((host_end == std::string::npos) || (host_end < host_start))
+		{
+			// no port
+			host_end = authority.size();
+		}
+		
+		getCookieStore()->setCookiesFromHost(sOpenIDCookie, authority.substr(host_start, host_end - host_start));
 	}
 }
 
@@ -1555,6 +1586,7 @@ void LLViewerMediaImpl::destroyMediaSource()
 	
 	if(mMediaSource)
 	{
+		mMediaSource->setDeleteOK(true) ;
 		delete mMediaSource;
 		mMediaSource = NULL;
 	}	
@@ -1706,7 +1738,7 @@ bool LLViewerMediaImpl::initializePlugin(const std::string& media_type)
 		}
 				
 		mMediaSource = media_source;
-
+		mMediaSource->setDeleteOK(false) ;
 		updateVolume();
 
 		return true;
@@ -1891,7 +1923,28 @@ void LLViewerMediaImpl::updateVolume()
 {
 	if(mMediaSource)
 	{
-		mMediaSource->setVolume(mRequestedVolume * LLViewerMedia::getVolume());
+		// always scale the volume by the global media volume 
+		F32 volume = mRequestedVolume * LLViewerMedia::getVolume();
+
+		if (mProximityCamera > 0) 
+		{
+			if (mProximityCamera > gSavedSettings.getF32("MediaRollOffMax"))
+			{
+				volume = 0;
+			}
+			else if (mProximityCamera > gSavedSettings.getF32("MediaRollOffMin"))
+			{
+				// attenuated_volume = 1 / (roll_off_rate * (d - min))^2
+				// the +1 is there so that for distance 0 the volume stays the same
+				F64 adjusted_distance = mProximityCamera - gSavedSettings.getF32("MediaRollOffMin");
+				F64 attenuation = 1.0 + (gSavedSettings.getF32("MediaRollOffRate") * adjusted_distance);
+				attenuation = 1.0 / (attenuation * attenuation);
+				// the attenuation multiplier should never be more than one since that would increase volume
+				volume = volume * llmin(1.0, attenuation);
+			}
+		}
+
+		mMediaSource->setVolume(volume);
 	}
 }
 
@@ -2222,7 +2275,7 @@ void LLViewerMediaImpl::navigateInternal()
 	// This helps in supporting legacy media content where the server the media resides on returns a bogus MIME type
 	// but the parcel owner has correctly set the MIME type in the parcel media settings.
 	
-	if(!mMimeType.empty() && (mMimeType != "none/none"))
+	if(!mMimeType.empty() && (mMimeType != LLMIMETypes::getDefaultMimeType()))
 	{
 		std::string plugin_basename = LLMIMETypes::implType(mMimeType);
 		if(!plugin_basename.empty())
@@ -2404,6 +2457,8 @@ void LLViewerMediaImpl::update()
 	}
 	else
 	{
+		updateVolume();
+
 		// If we didn't just create the impl, it may need to get cookie updates.
 		if(!sUpdatedCookies.empty())
 		{
@@ -2753,6 +2808,33 @@ void LLViewerMediaImpl::handleMediaEvent(LLPluginClassMedia* plugin, LLPluginCla
 
 		}
 		break;
+		case MEDIA_EVENT_CLICK_LINK_HREF:
+		{
+			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_CLICK_LINK_HREF, target is \"" << plugin->getClickTarget() << "\", uri is " << plugin->getClickURL() << LL_ENDL;
+			// retrieve the event parameters
+			std::string url = plugin->getClickURL();
+			U32 target_type = plugin->getClickTargetType();
+			
+			switch (target_type)
+			{
+			case LLPluginClassMedia::TARGET_EXTERNAL:
+				// force url to external browser
+				LLWeb::loadURLExternal(url);
+				break;
+			case LLPluginClassMedia::TARGET_BLANK:
+				// open in SL media browser or external browser based on user pref
+				LLWeb::loadURL(url);
+				break;
+			case LLPluginClassMedia::TARGET_NONE:
+				// ignore this click and let media plugin handle it
+				break;
+			case LLPluginClassMedia::TARGET_OTHER:
+				LL_WARNS("LinkTarget") << "Unsupported link target type" << LL_ENDL;
+				break;
+			default: break;
+			}
+		};
+		break;
 		case MEDIA_EVENT_PLUGIN_FAILED_LAUNCH:
 		{
 			// The plugin failed to load properly.  Make sure the timer doesn't retry.
@@ -2976,6 +3058,9 @@ void LLViewerMediaImpl::calculateInterest()
 		LLVector3d agent_global = gAgent.getPositionGlobal() ;
 		LLVector3d global_delta = agent_global - obj_global ;
 		mProximityDistance = global_delta.magVecSquared();  // use distance-squared because it's cheaper and sorts the same.
+
+		LLVector3d camera_delta = gAgentCamera.getCameraPositionGlobal() - obj_global;
+		mProximityCamera = camera_delta.magVec();
 	}
 	
 	if(mNeedsMuteCheck)
@@ -3252,8 +3337,9 @@ bool LLViewerMediaImpl::shouldShowBasedOnClass() const
 	//	" outside = " << (!inside_parcel && gSavedSettings.getBOOL(LLViewerMedia::SHOW_MEDIA_OUTSIDE_PARCEL_SETTING)) << llendl;
 	
 	// If it has focus, we should show it
-	if (hasFocus())
-		return true;
+	// This is incorrect, and causes EXT-6750 (disabled attachment media still plays)
+//	if (hasFocus())
+//		return true;
 	
 	// If it is attached to an avatar and the pref is off, we shouldn't show it
 	if (attached_to_another_avatar)

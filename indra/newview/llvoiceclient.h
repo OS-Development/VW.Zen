@@ -42,6 +42,7 @@ class LLVOAvatar;
 #include "llviewerregion.h"
 #include "llcallingcard.h"   // for LLFriendObserver
 #include "llsecapi.h"
+#include "llcontrol.h"
 
 // devices
 
@@ -52,7 +53,7 @@ class LLVoiceClientParticipantObserver
 {
 public:
 	virtual ~LLVoiceClientParticipantObserver() { }
-	virtual void onChange() = 0;
+	virtual void onParticipantsChanged() = 0;
 };
 
 
@@ -109,7 +110,7 @@ public:
 	
 	virtual void updateSettings()=0; // call after loading settings and whenever they change
 	
-	virtual bool isVoiceWorking()=0; // connected to a voice server and voice channel
+	virtual bool isVoiceWorking() const = 0; // connected to a voice server and voice channel
 
 	virtual const LLVoiceVersionInfo& getVersion()=0;
 	
@@ -176,6 +177,7 @@ public:
 	//@{
 	// start a voice channel with the specified user
 	virtual void callUser(const LLUUID &uuid)=0;
+	virtual bool isValidChannel(std::string& channelHandle)=0;
 	virtual bool answerInvite(std::string &channelHandle)=0;
 	virtual void declineInvite(std::string &channelHandle)=0;
 	//@}
@@ -216,8 +218,6 @@ public:
 	//////////////////////////
 	/// @name nearby speaker accessors
 	//@{
-
-
 	virtual BOOL getVoiceEnabled(const LLUUID& id)=0;		// true if we've received data for this avatar
 	virtual std::string getDisplayName(const LLUUID& id)=0;
 	virtual BOOL isOnlineSIP(const LLUUID &id)=0;	
@@ -260,6 +260,63 @@ public:
 };
 
 
+//////////////////////////////////
+/// @class LLVoiceEffectObserver
+class LLVoiceEffectObserver
+{
+public:
+	virtual ~LLVoiceEffectObserver() { }
+	virtual void onVoiceEffectChanged(bool effect_list_updated) = 0;
+};
+
+typedef std::multimap<const std::string, const LLUUID, LLDictionaryLess> voice_effect_list_t;
+
+//////////////////////////////////
+/// @class LLVoiceEffectInterface
+/// @brief Voice effect module interface
+///
+/// Voice effect modules should provide an implementation for this interface.
+/////////////////////////////////
+
+class LLVoiceEffectInterface
+{
+public:
+	LLVoiceEffectInterface() {}
+	virtual ~LLVoiceEffectInterface() {}
+
+	//////////////////////////
+	/// @name Accessors
+	//@{
+	virtual bool setVoiceEffect(const LLUUID& id) = 0;
+	virtual const LLUUID getVoiceEffect() = 0;
+	virtual LLSD getVoiceEffectProperties(const LLUUID& id) = 0;
+
+	virtual void refreshVoiceEffectLists(bool clear_lists) = 0;
+	virtual const voice_effect_list_t &getVoiceEffectList() const = 0;
+	virtual const voice_effect_list_t &getVoiceEffectTemplateList() const = 0;
+	//@}
+
+	//////////////////////////////
+	/// @name Status notification
+	//@{
+	virtual void addObserver(LLVoiceEffectObserver* observer) = 0;
+	virtual void removeObserver(LLVoiceEffectObserver* observer) = 0;
+	//@}
+
+	//////////////////////////////
+	/// @name Preview buffer
+	//@{
+	virtual void enablePreviewBuffer(bool enable) = 0;
+	virtual void recordPreviewBuffer() = 0;
+	virtual void playPreviewBuffer(const LLUUID& effect_id = LLUUID::null) = 0;
+	virtual void stopPreviewBuffer() = 0;
+
+	virtual bool isPreviewRecording() = 0;
+	virtual bool isPreviewPlaying() = 0;
+	//@}
+};
+
+
 class LLVoiceClient: public LLSingleton<LLVoiceClient>
 {
 	LOG_CLASS(LLVoiceClient);
@@ -272,11 +329,15 @@ public:
 	
 	const LLVoiceVersionInfo getVersion();
 	
-static const F32 OVERDRIVEN_POWER_LEVEL;
+	static const F32 OVERDRIVEN_POWER_LEVEL;
+
+	static const F32 VOLUME_MIN;
+	static const F32 VOLUME_DEFAULT;
+	static const F32 VOLUME_MAX;
 
 	void updateSettings(); // call after loading settings and whenever they change
 
-	bool isVoiceWorking(); // connected to a voice server and voice channel
+	bool isVoiceWorking() const; // connected to a voice server and voice channel
 
 	// tuning
 	void tuningStart();
@@ -324,7 +385,8 @@ static const F32 OVERDRIVEN_POWER_LEVEL;
 	// NOTE that it will return an empty string if it's in the process of joining a channel.
 	std::string getCurrentChannel();
 	// start a voice channel with the specified user
-	void callUser(const LLUUID &uuid);	
+	void callUser(const LLUUID &uuid);
+	bool isValidChannel(std::string& channelHandle);
 	bool answerInvite(std::string &channelHandle);
 	void declineInvite(std::string &channelHandle);	
 	void leaveChannel(void);		// call this on logout or teleport begin
@@ -397,40 +459,56 @@ static const F32 OVERDRIVEN_POWER_LEVEL;
 	void removeObserver(LLVoiceClientParticipantObserver* observer);
 	
 	std::string sipURIFromID(const LLUUID &id);	
-		
+
+	//////////////////////////
+	/// @name Voice effects
+	//@{
+	bool getVoiceEffectEnabled() const { return mVoiceEffectEnabled; };
+	LLUUID getVoiceEffectDefault() const { return LLUUID(mVoiceEffectDefault); };
+
+	// Returns NULL if voice effects are not supported, or not enabled.
+	LLVoiceEffectInterface* getVoiceEffectInterface() const;
+	//@}
+
 protected:
 	LLVoiceModuleInterface* mVoiceModule;
 	LLPumpIO *m_servicePump;
+
+	LLCachedControl<bool> mVoiceEffectEnabled;
+	LLCachedControl<std::string> mVoiceEffectDefault;
 };
 
 /**
  * Speaker volume storage helper class
  **/
-
 class LLSpeakerVolumeStorage : public LLSingleton<LLSpeakerVolumeStorage>
 {
 	LOG_CLASS(LLSpeakerVolumeStorage);
 public:
 
 	/**
-	 * Sets internal voluem level for specified user.
+	 * Stores volume level for specified user.
 	 *
-	 * @param[in] speaker_id - LLUUID of user to store volume level for
-	 * @param[in] volume - external volume level to be stored for user.
+	 * @param[in] speaker_id - LLUUID of user to store volume level for.
+	 * @param[in] volume - volume level to be stored for user.
 	 */
 	void storeSpeakerVolume(const LLUUID& speaker_id, F32 volume);
 
 	/**
-	 * Gets stored external volume level for specified speaker.
+	 * Gets stored volume level for specified speaker
 	 *
-	 * If specified user is not found default level will be returned. It is equivalent of 
-	 * external level 0.5 from the 0.0..1.0 range.
-	 * Default external level is calculated as: internal = 400 * external^2
-	 * Maps 0.0 to 1.0 to internal values 0-400 with default 0.5 == 100
-	 *
-	 * @param[in] speaker_id - LLUUID of user to get his volume level
+	 * @param[in] speaker_id - LLUUID of user to retrieve volume level for.
+	 * @param[out] volume - set to stored volume if found, otherwise unmodified.
+	 * @return - true if a stored volume is found.
 	 */
-	S32 getSpeakerVolume(const LLUUID& speaker_id);
+	bool getSpeakerVolume(const LLUUID& speaker_id, F32& volume);
+
+	/**
+	 * Removes stored volume level for specified user.
+	 *
+	 * @param[in] speaker_id - LLUUID of user to remove.
+	 */
+	void removeSpeakerVolume(const LLUUID& speaker_id);
 
 private:
 	friend class LLSingleton<LLSpeakerVolumeStorage>;
@@ -441,6 +519,9 @@ private:
 
 	void load();
 	void save();
+
+	static F32 transformFromLegacyVolume(F32 volume_in);
+	static F32 transformToLegacyVolume(F32 volume_in);
 
 	typedef std::map<LLUUID, F32> speaker_data_map_t;
 	speaker_data_map_t mSpeakersData;

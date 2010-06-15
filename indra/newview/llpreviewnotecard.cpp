@@ -35,6 +35,7 @@
 #include "llpreviewnotecard.h"
 
 #include "llinventory.h"
+#include "llinventoryfunctions.h" // for change_item_parent()
 
 #include "llagent.h"
 #include "llassetuploadresponders.h"
@@ -42,6 +43,7 @@
 #include "llviewerwindow.h"
 #include "llbutton.h"
 #include "llfloaterreg.h"
+#include "llinventorydefines.h"
 #include "llinventorymodel.h"
 #include "lllineeditor.h"
 #include "llnotificationsutil.h"
@@ -91,11 +93,17 @@ BOOL LLPreviewNotecard::postBuild()
 	childSetAction("Save", onClickSave, this);
 	childSetVisible("lock", FALSE);	
 
+	childSetAction("Delete", onClickDelete, this);
+	childSetEnabled("Delete", false);
+
 	const LLInventoryItem* item = getItem();
 
 	childSetCommitCallback("desc", LLPreview::onText, this);
 	if (item)
+	{
 		childSetText("desc", item->getDescription());
+		childSetEnabled("Delete", true);
+	}
 	childSetPrevalidate("desc", &LLTextValidate::validateASCIIPrintableNoPipe);
 
 	return LLPreview::postBuild();
@@ -373,6 +381,17 @@ void LLPreviewNotecard::onClickSave(void* user_data)
 	}
 }
 
+
+// static
+void LLPreviewNotecard::onClickDelete(void* user_data)
+{
+	LLPreviewNotecard* preview = (LLPreviewNotecard*)user_data;
+	if(preview)
+	{
+		preview->deleteNotecard();
+	}
+}
+
 struct LLSaveNotecardInfo
 {
 	LLPreviewNotecard* mSelf;
@@ -463,6 +482,18 @@ bool LLPreviewNotecard::saveIfNeeded(LLInventoryItem* copyitem)
 		}
 	}
 	return true;
+}
+
+void LLPreviewNotecard::deleteNotecard()
+{
+	LLViewerInventoryItem* item = gInventory.getItem(mItemUUID);
+	if (item != NULL)
+	{
+		const LLUUID trash_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_TRASH);
+		change_item_parent(&gInventory, item, trash_id, FALSE);
+	}
+
+	closeFloater();
 }
 
 // static

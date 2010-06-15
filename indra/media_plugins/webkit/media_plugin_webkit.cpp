@@ -50,9 +50,7 @@
 # define LL_QTWEBKIT_USES_PIXMAPS 0
 #endif // LL_LINUX
 
-#if LL_LINUX
-# include "linux_volume_catcher.h"
-#endif // LL_LINUX
+# include "volume_catcher.h"
 
 #if LL_WINDOWS
 # include <direct.h>
@@ -119,9 +117,7 @@ private:
 	F32 mBackgroundG;
 	F32 mBackgroundB;
 	
-#if LL_LINUX
-	LinuxVolumeCatcher mLinuxVolumeCatcher;
-#endif // LL_LINUX
+	VolumeCatcher mVolumeCatcher;
 
 	void setInitState(int state)
 	{
@@ -135,9 +131,7 @@ private:
 	{
 		LLQtWebKit::getInstance()->pump( milliseconds );
 		
-#if LL_LINUX
-		mLinuxVolumeCatcher.pump();
-#endif // LL_LINUX
+		mVolumeCatcher.pump();
 
 		checkEditState();
 		
@@ -303,11 +297,17 @@ private:
 		// append details to agent string
 		LLQtWebKit::getInstance()->setBrowserAgentId( mUserAgent );
 
+		// TODO: Remove this ifdef when the Linux version of llqtwebkit gets updated with the new WOB constant.
+#if !LL_LINUX
+		// Set up window open behavior
+		LLQtWebKit::getInstance()->setWindowOpenBehavior(mBrowserWindowId, LLQtWebKit::WOB_SIMULATE_BLANK_HREF_CLICK);
+#endif
+		
 #if !LL_QTWEBKIT_USES_PIXMAPS
 		// don't flip bitmap
 		LLQtWebKit::getInstance()->flipWindow( mBrowserWindowId, true );
 #endif // !LL_QTWEBKIT_USES_PIXMAPS
-		
+
 		// set background color
 		// convert background color channels from [0.0, 1.0] to [0, 255];
 		LLQtWebKit::getInstance()->setBackgroundColor( mBrowserWindowId, int(mBackgroundR * 255.0f), int(mBackgroundG * 255.0f), int(mBackgroundB * 255.0f) );
@@ -1139,9 +1139,7 @@ void MediaPluginWebKit::receiveMessage(const char *message_string)
 
 void MediaPluginWebKit::setVolume(F32 volume)
 {
-#if LL_LINUX
-	mLinuxVolumeCatcher.setVolume(volume);
-#endif // LL_LINUX
+	mVolumeCatcher.setVolume(volume);
 }
 
 int init_media_plugin(LLPluginInstance::sendMessageFunction host_send_func, void *host_user_data, LLPluginInstance::sendMessageFunction *plugin_send_func, void **plugin_user_data)
