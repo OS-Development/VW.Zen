@@ -37,7 +37,6 @@
 #include "llpreview.h"
 #include "llmultigesture.h"
 
-class LLMultiGesture;
 class LLLineEditor;
 class LLTextBox;
 class LLCheckBoxCtrl;
