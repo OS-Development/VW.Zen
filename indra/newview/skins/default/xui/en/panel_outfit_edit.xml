@@ -106,7 +106,7 @@
             <panel
              bevel_style="none"
              follows="top|right"
-             height="38"
+             height="37"
              layout="topleft"
              left_pad="5"
              name="outfit_name_and_status"
@@ -122,18 +122,26 @@
                  top="2"
                  value="Now editing..."
                  use_ellipses="true"
-                 width="270" /> 
+                 width="245" /> 
                 <text
                  follows="bottom|left|right"
                  font="SansSerifLargeBold"
-                 height="26"
+                 height="18"
                  layout="topleft"
                  name="curr_outfit_name"
                  text_color="LtGray"
                  top_pad="2"
                  value="[Current Outfit]"
                  use_ellipses="true"
-                 width="270" /> 
+                 width="245" /> 
+                <loading_indicator
+                 follows="right|top"
+                 height="24"
+                 layout="topleft"
+                 right="-2"
+                 name="edit_outfit_loading_indicator"
+                 top="6"
+                 width="24" />
             </panel>
     </panel>
 
@@ -144,7 +152,7 @@ Required height for dragbar (icon in spec) is 10, so resizebar height should be 
 It is calculated as border_size + 2*UIResizeBarOverlap
 -->
     <layout_stack
-     animate="false"
+     animate="true"
      border_size="8"
      clip="false"
      default_tab_group="2"
@@ -160,7 +168,7 @@ It is calculated as border_size + 2*UIResizeBarOverlap
         <layout_panel
          layout="topleft"
          height="187"
-         min_height="100"
+         min_height="155"
          name="outfit_wearables_panel"
          width="313"
          auto_resize="true"
@@ -284,8 +292,8 @@ It is calculated as border_size + 2*UIResizeBarOverlap
          bg_alpha_color="DkGray2"
          auto_resize="true"
          default_tab_group="3"
-         height="211"
-         min_height="210"
+         height="450"
+         min_height="53"
          name="add_wearables_panel"
          width="313"
          tab_group="2"
@@ -307,7 +315,7 @@ It is calculated as border_size + 2*UIResizeBarOverlap
              background_visible="false"
              border="false"
              follows="left|top|right|bottom"
-             height="203"
+             height="442"
              layout="topleft"
              left="0"
              mouse_opaque="false"
@@ -322,7 +330,7 @@ It is calculated as border_size + 2*UIResizeBarOverlap
              layout="topleft"
              follows="left|top|right|bottom"
              border="false"
-             height="210"
+             height="449"
              left="0"
              mouse_opaque="false"
              width="310"
@@ -336,7 +344,7 @@ It is calculated as border_size + 2*UIResizeBarOverlap
                  follows="all"
                  multi_select="true"
                  width="310"
-                 height="210"
+                 height="449"
                  left="0"
                  top="0"/>
             </panel>
@@ -375,7 +383,19 @@ It is calculated as border_size + 2*UIResizeBarOverlap
          layout="topleft"
          left_pad="1"
          name="dummy_right_icon"
-         width="281" />
+         width="246" />
+        <button
+         follows="bottom|right"
+         height="25"
+         image_hover_unselected="Toolbar_Middle_Over"
+         image_overlay="AddItem_Off"
+         image_selected="Toolbar_Middle_Selected"
+         image_unselected="Toolbar_Middle_Off"
+         layout="topleft"
+         left_pad="0"
+         name="shop_btn"
+         top="1"
+         width="31" />
     </panel>
     
     
@@ -439,7 +459,7 @@ It is calculated as border_size + 2*UIResizeBarOverlap
          label=""
          layout="topleft"
          left_pad="1"
-         name="add_to_outfit_btn"
+         name="plus_btn"
          top="1"
          width="31" />
         <icon
@@ -490,7 +510,7 @@ It is calculated as border_size + 2*UIResizeBarOverlap
          follows="bottom|left|right"
          height="23"
          left_pad="12"
-         label="Revert"
+         label="Undo Changes"
          layout="topleft"
          name="revert_btn"
          top="0"

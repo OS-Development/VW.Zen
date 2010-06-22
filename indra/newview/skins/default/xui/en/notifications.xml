@@ -2098,7 +2098,7 @@ Would you be my friend?
    type="alertmodal">
     New outfit name:
     <form name="form">
-      <input name="new_name" type="text">
+      <input name="new_name" type="text" width="300">
         [NAME]
       </input>
       <button
@@ -4518,18 +4518,6 @@ Uploading in-world and web site snapshots...
   </notification>
 
   <notification
-   icon="alertmodal.tga"
-   name="UploadConfirmation"
-   type="alertmodal">
-Uploading costs L$[AMOUNT].
-Do you wish to proceed?
-    <usetemplate
-     name="okcancelbuttons"
-     notext="Cancel"
-     yestext="Upload"/>
-  </notification>
-
-  <notification
    icon="notify.tga"
    name="UploadPayment"
    persist="true"
@@ -5527,14 +5515,6 @@ Failed to find [TYPE] named [DESC] in database.
 
   <notification
    icon="notify.tga"
-   name="ShareToWebFailed"
-   persist="true"
-   type="notify">
-    Failed to upload image to web.
-  </notification>
-  
-  <notification
-   icon="notify.tga"
    name="InvalidWearable"
    persist="true"
    type="notify">
@@ -6229,7 +6209,7 @@ With the following Residents:
    icon="notifytip.tga"
    name="ItemsShared"
    type="notifytip">
-Items are successfully shared.
+Items successfully shared.
   </notification>
   <notification
    icon="notifytip.tga"

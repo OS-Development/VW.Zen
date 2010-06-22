@@ -34,11 +34,11 @@
 #include "llwearableitemslist.h"
 
 #include "lliconctrl.h"
+#include "llmenugl.h" // for LLContextMenu
 
 #include "llagentwearables.h"
 #include "llappearancemgr.h"
 #include "llinventoryfunctions.h"
-#include "llmenugl.h" // for LLContextMenu
 #include "lltransutil.h"
 #include "llviewerattachmenu.h"
 #include "llvoavatarself.h"
@@ -106,42 +106,24 @@ LLPanelWearableOutfitItem* LLPanelWearableOutfitItem::create(LLViewerInventoryIt
 	return list_item;
 }
 
-BOOL LLPanelWearableOutfitItem::handleDoubleClick(S32 x, S32 y, MASK mask)
-{
-	LLViewerInventoryItem* item = getItem();
-	if (item)
-	{
-		LLUUID id = item->getUUID();
-
-		if (get_is_item_worn(id))
-		{
-			LLAppearanceMgr::getInstance()->removeItemFromAvatar(id);
-		}
-		else
-		{
-			LLAppearanceMgr::getInstance()->wearItemOnAvatar(id, true, false);
-		}
-	}
-
-	return LLUICtrl::handleDoubleClick(x, y, mask);
-}
-
-// virtual
-void LLPanelWearableOutfitItem::updateItem(const std::string& name)
-{
-	std::string search_label = name;
-
-	if (mItem && get_is_item_worn(mItem->getUUID()))
-	{
-		search_label += LLTrans::getString("worn");
-	}
-
-	LLPanelInventoryListItemBase::updateItem(search_label);
-}
-
 LLPanelWearableOutfitItem::LLPanelWearableOutfitItem(LLViewerInventoryItem* item)
 : LLPanelInventoryListItemBase(item)
 {
+}
+
+// virtual
+void LLPanelWearableOutfitItem::updateItem(const std::string& name,
+										   EItemState item_state)
+{
+	std::string search_label = name;
+
+	if (get_is_item_worn(mInventoryItemUUID))
+	{
+		search_label += LLTrans::getString("worn");
+		item_state = IS_WORN;
+	}
+
+	LLPanelInventoryListItemBase::updateItem(search_label, item_state);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -281,17 +263,19 @@ LLPanelAttachmentListItem* LLPanelAttachmentListItem::create(LLViewerInventoryIt
 	return list_item;
 }
 
-void LLPanelAttachmentListItem::setTitle(const std::string& title, const std::string& highlit_text)
+void LLPanelAttachmentListItem::updateItem(const std::string& name,
+										   EItemState item_state)
 {
-	std::string title_joint = title;
+	std::string title_joint;
 
-	if (mItem && isAgentAvatarValid() && gAgentAvatarp->isWearingAttachment(mItem->getLinkedUUID()))
+	LLViewerInventoryItem* inv_item = getItem();
+	if (inv_item && isAgentAvatarValid() && gAgentAvatarp->isWearingAttachment(inv_item->getLinkedUUID()))
 	{
-		std::string joint = LLTrans::getString(gAgentAvatarp->getAttachedPointName(mItem->getLinkedUUID()));
-		title_joint = title + " (" + joint + ")";
+		std::string joint = LLTrans::getString(gAgentAvatarp->getAttachedPointName(inv_item->getLinkedUUID()));
+		title_joint = name + " (" + joint + ")";
 	}
 
-	LLPanelDeletableWearableListItem::setTitle(title_joint, highlit_text);
+	LLPanelInventoryListItemBase::updateItem(title_joint, item_state);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -518,6 +502,9 @@ void LLWearableItemsList::updateList(const LLUUID& category_id)
 
 void LLWearableItemsList::updateChangedItems(const LLInventoryModel::changed_items_t& changed_items_uuids)
 {
+	// nothing to update
+	if (changed_items_uuids.empty()) return;
+
 	typedef std::vector<LLPanel*> item_panel_list_t;
 
 	item_panel_list_t items;
@@ -542,6 +529,7 @@ void LLWearableItemsList::updateChangedItems(const LLInventoryModel::changed_ite
 			if (linked_uuid == *iter)
 			{
 				item->setNeedsRefresh(true);
+				break;
 			}
 		}
 	}
@@ -667,6 +655,7 @@ void LLWearableItemsList::ContextMenu::updateItemsVisibility(LLContextMenu* menu
 
 	// *TODO: eliminate multiple traversals over the menu items
 	setMenuItemVisible(menu, "wear_add",			mask == MASK_CLOTHING && n_worn == 0);
+	setMenuItemEnabled(menu, "wear_add",			n_items == 1 && canAddWearable(ids.front()));
 	setMenuItemVisible(menu, "wear",				n_worn == 0);
 	setMenuItemVisible(menu, "edit",				!standalone && mask & (MASK_CLOTHING|MASK_BODYPART));
 	setMenuItemEnabled(menu, "edit",				n_editable == 1 && n_worn == 1 && n_items == 1);
@@ -758,6 +747,25 @@ void LLWearableItemsList::ContextMenu::createNewWearable(const LLUUID& item_id)
 	if (!item || !item->isWearableType()) return;
 
 	LLAgentWearables::createWearable(item->getWearableType(), true);
+}
+
+// Can we wear another wearable of the given item's wearable type?
+// static
+bool LLWearableItemsList::ContextMenu::canAddWearable(const LLUUID& item_id)
+{
+	if (!gAgentWearables.areWearablesLoaded())
+	{
+		return false;
+	}
+
+	LLViewerInventoryItem* item = gInventory.getItem(item_id);
+	if (!item || item->getType() != LLAssetType::AT_CLOTHING)
+	{
+		return false;
+	}
+
+	U32 wearable_count = gAgentWearables.getWearableCount(item->getWearableType());
+	return wearable_count < LLAgentWearables::MAX_CLOTHING_PER_TYPE;
 }
 
 // EOF

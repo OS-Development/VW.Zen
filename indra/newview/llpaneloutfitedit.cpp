@@ -60,6 +60,7 @@
 #include "llinventorybridge.h"
 #include "llinventorymodel.h"
 #include "llinventorymodelbackgroundfetch.h"
+#include "llloadingindicator.h"
 #include "llpaneloutfitsinventory.h"
 #include "lluiconstants.h"
 #include "llsaveoutfitcombobtn.h"
@@ -72,6 +73,8 @@
 #include "lltoggleablemenu.h"
 #include "llwearablelist.h"
 #include "llwearableitemslist.h"
+#include "llwearabletype.h"
+#include "llweb.h"
 
 static LLRegisterPanelClassWrapper<LLPanelOutfitEdit> t_outfit_edit("panel_outfit_edit");
 
@@ -80,6 +83,65 @@ const U64 ATTACHMENT_MASK = (1LL << LLInventoryType::IT_ATTACHMENT) | (1LL << LL
 const U64 ALL_ITEMS_MASK = WEARABLE_MASK | ATTACHMENT_MASK;
 
 static const std::string REVERT_BTN("revert_btn");
+
+class LLShopURLDispatcher
+{
+public:
+	std::string resolveURL(LLWearableType::EType wearable_type, ESex sex);
+	std::string resolveURL(LLAssetType::EType asset_type, ESex sex);
+};
+
+std::string LLShopURLDispatcher::resolveURL(LLWearableType::EType wearable_type, ESex sex)
+{
+	const std::string prefix = "MarketplaceURL";
+	const std::string sex_str = (sex == SEX_MALE) ? "Male" : "Female";
+	const std::string type_str = LLWearableType::getTypeName(wearable_type);
+
+	std::string setting_name = prefix;
+
+	switch (wearable_type)
+	{
+	case LLWearableType::WT_ALPHA:
+	case LLWearableType::WT_NONE:
+	case LLWearableType::WT_INVALID:	// just in case, this shouldn't happen
+	case LLWearableType::WT_COUNT:		// just in case, this shouldn't happen
+		break;
+
+	default:
+		setting_name += '_';
+		setting_name += type_str;
+		setting_name += sex_str;
+		break;
+	}
+
+	return gSavedSettings.getString(setting_name);
+}
+
+std::string LLShopURLDispatcher::resolveURL(LLAssetType::EType asset_type, ESex sex)
+{
+	const std::string prefix = "MarketplaceURL";
+	const std::string sex_str = (sex == SEX_MALE) ? "Male" : "Female";
+	const std::string type_str = LLAssetType::lookup(asset_type);
+
+	std::string setting_name = prefix;
+
+	switch (asset_type)
+	{
+	case LLAssetType::AT_CLOTHING:
+	case LLAssetType::AT_OBJECT:
+	case LLAssetType::AT_BODYPART:
+		setting_name += '_';
+		setting_name += type_str;
+		setting_name += sex_str;
+		break;
+
+	// to suppress warnings
+	default:
+		break;
+	}
+
+	return gSavedSettings.getString(setting_name);
+}
 
 class LLPanelOutfitEditGearMenu
 {
@@ -201,6 +263,9 @@ LLPanelOutfitEdit::LLPanelOutfitEdit()
 	observer.addBOFChangedCallback(boost::bind(&LLPanelOutfitEdit::updateVerbs, this));
 	observer.addOutfitLockChangedCallback(boost::bind(&LLPanelOutfitEdit::updateVerbs, this));
 	observer.addCOFChangedCallback(boost::bind(&LLPanelOutfitEdit::update, this));
+
+	gAgentWearables.addLoadingStartedCallback(boost::bind(&LLPanelOutfitEdit::onOutfitChanging, this, true));
+	gAgentWearables.addLoadedCallback(boost::bind(&LLPanelOutfitEdit::onOutfitChanging, this, false));
 	
 	mFolderViewItemTypes.reserve(NUM_FOLDER_VIEW_ITEM_TYPES);
 	for (U32 i = 0; i < NUM_FOLDER_VIEW_ITEM_TYPES; i++)
@@ -262,6 +327,7 @@ BOOL LLPanelOutfitEdit::postBuild()
 	childSetCommitCallback("list_view_btn", boost::bind(&LLPanelOutfitEdit::showWearablesListView, this), NULL);
 	childSetCommitCallback("wearables_gear_menu_btn", boost::bind(&LLPanelOutfitEdit::onGearButtonClick, this, _1), NULL);
 	childSetCommitCallback("gear_menu_btn", boost::bind(&LLPanelOutfitEdit::onGearButtonClick, this, _1), NULL);
+	childSetCommitCallback("shop_btn", boost::bind(&LLPanelOutfitEdit::onShopButtonClicked, this), NULL);
 
 	mCOFWearables = getChild<LLCOFWearables>("cof_wearables_list");
 	mCOFWearables->setCommitCallback(boost::bind(&LLPanelOutfitEdit::filterWearablesBySelectedItem, this));
@@ -305,7 +371,7 @@ BOOL LLPanelOutfitEdit::postBuild()
 
 	childSetAction("show_add_wearables_btn", boost::bind(&LLPanelOutfitEdit::onAddMoreButtonClicked, this));
 
-	childSetAction("add_to_outfit_btn", boost::bind(&LLPanelOutfitEdit::onAddToOutfitClicked, this));
+	childSetAction("plus_btn", boost::bind(&LLPanelOutfitEdit::onPlusBtnClicked, this));
 	
 	mEditWearableBtn = getChild<LLButton>("edit_wearable_btn");
 	mEditWearableBtn->setEnabled(FALSE);
@@ -385,6 +451,10 @@ void LLPanelOutfitEdit::showWearablesFilter()
 	{
 		mSearchFilter->clear();
 		onSearchEdit(LLStringUtil::null);
+	}
+	else
+	{
+		mSearchFilter->setFocus(TRUE);
 	}
 }
 
@@ -487,7 +557,7 @@ void LLPanelOutfitEdit::onSearchEdit(const std::string& string)
 
 }
 
-void LLPanelOutfitEdit::onAddToOutfitClicked(void)
+void LLPanelOutfitEdit::onPlusBtnClicked(void)
 {
 	LLUUID selected_id;
 	if (mInventoryItemsPanel->getVisible())
@@ -507,7 +577,8 @@ void LLPanelOutfitEdit::onAddToOutfitClicked(void)
 
 	if (selected_id.isNull()) return;
 
-	LLAppearanceMgr::getInstance()->wearItemOnAvatar(selected_id);
+	//replacing instead of adding the item
+	LLAppearanceMgr::getInstance()->wearItemOnAvatar(selected_id, true, true);
 }
 
 void LLPanelOutfitEdit::onAddWearableClicked(void)
@@ -528,6 +599,46 @@ void LLPanelOutfitEdit::onReplaceBodyPartMenuItemClicked(LLUUID selected_item_id
 	{
 		showFilteredWearablesListView(item->getWearableType());
 	}
+}
+
+void LLPanelOutfitEdit::onShopButtonClicked()
+{
+	static LLShopURLDispatcher url_resolver;
+
+	std::string url;
+	std::vector<LLPanel*> selected_items;
+	mCOFWearables->getSelectedItems(selected_items);
+
+	ESex sex = gSavedSettings.getU32("AvatarSex") ? SEX_MALE : SEX_FEMALE;
+
+	if (selected_items.size() == 1)
+	{
+		LLWearableType::EType type = LLWearableType::WT_NONE;
+		LLPanel* item = selected_items.front();
+
+		// LLPanelDummyClothingListItem is lower then LLPanelInventoryListItemBase in hierarchy tree
+		if (LLPanelDummyClothingListItem* dummy_item = dynamic_cast<LLPanelDummyClothingListItem*>(item))
+		{
+			type = dummy_item->getWearableType();
+		}
+		else if (LLPanelInventoryListItemBase* real_item = dynamic_cast<LLPanelInventoryListItemBase*>(item))
+		{
+			type = real_item->getWearableType();
+		}
+
+		// WT_INVALID comes for attachments
+		if (type != LLWearableType::WT_INVALID)
+		{
+			url = url_resolver.resolveURL(type, sex);
+		}
+	}
+
+	if (url.empty())
+	{
+		url = url_resolver.resolveURL(mCOFWearables->getExpandedAccordionAssetType(), sex);
+	}
+
+	LLWeb::loadURLExternal(url);
 }
 
 void LLPanelOutfitEdit::onRemoveFromOutfitClicked(void)
@@ -800,6 +911,27 @@ void LLPanelOutfitEdit::showFilteredWearablesListView(LLWearableType::EType type
 	applyListViewFilter((EListViewItemType) (LVIT_SHAPE + type));
 }
 
+static void update_status_widget_rect(LLView * widget, S32 right_border)
+{
+	LLRect rect = widget->getRect();
+	rect.mRight = right_border;
 
+	widget->setShape(rect);
+}
+
+void LLPanelOutfitEdit::onOutfitChanging(bool started)
+{
+	static LLLoadingIndicator* indicator = getChild<LLLoadingIndicator>("edit_outfit_loading_indicator");
+	static LLView* status_panel = getChild<LLView>("outfit_name_and_status");
+	static S32 indicator_delta = status_panel->getRect().getWidth() - indicator->getRect().mLeft;
+
+	S32 delta = started ? indicator_delta : 0;
+	S32 right_border = status_panel->getRect().getWidth() - delta;
+
+	update_status_widget_rect(mCurrentOutfitName, right_border);
+	update_status_widget_rect(mStatus, right_border);
+
+	indicator->setVisible(started);
+}
 
 // EOF

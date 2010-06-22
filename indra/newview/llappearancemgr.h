@@ -75,6 +75,12 @@ public:
 	// Determine whether a given outfit can be removed.
 	bool getCanRemoveOutfit(const LLUUID& outfit_cat_id);
 
+	// Determine whether we're wearing any of the outfit contents (excluding body parts).
+	static bool getCanRemoveFromCOF(const LLUUID& outfit_cat_id);
+
+	// Determine whether we can add anything (but body parts) from the outfit contents to COF.
+	static bool getCanAddToCOF(const LLUUID& outfit_cat_id);
+
 	// Copy all items in a category.
 	void shallowCopyCategoryContents(const LLUUID& src_id, const LLUUID& dst_id,
 									 LLPointer<LLInventoryCallback> cb);
@@ -313,6 +319,9 @@ public:
 	}
 	virtual void done()
 	{
+		llinfos << this << " done with incomplete " << mIncomplete.size()
+				<< " complete " << mComplete.size() <<  " calling callable" << llendl;
+
 		gInventory.removeObserver(this);
 		doOnIdleOneTime(mCallable);
 		delete this;
@@ -355,6 +364,7 @@ public:
 			return;
 		}
 
+		llinfos << "stage1 got " << item_array.count() << " items, passing to stage2 " << llendl;
 		uuid_vec_t ids;
 		for(S32 i = 0; i < count; ++i)
 		{

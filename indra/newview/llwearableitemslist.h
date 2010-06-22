@@ -38,6 +38,7 @@
 
 // newview
 #include "llinventoryitemslist.h"
+#include "llinventorylistitem.h"
 #include "llinventorymodel.h"
 #include "lllistcontextmenu.h"
 #include "llwearabletype.h"
@@ -56,13 +57,13 @@ class LLPanelWearableListItem : public LLPanelInventoryListItemBase
 public:
 
 	/**
-	 * Shows buttons when mouse is over
-	 */
+	* Shows buttons when mouse is over
+	*/
 	/*virtual*/ void onMouseEnter(S32 x, S32 y, MASK mask);
 
 	/**
-	 * Hides buttons when mouse is out
-	 */
+	* Hides buttons when mouse is out
+	*/
 	/*virtual*/ void onMouseLeave(S32 x, S32 y, MASK mask);
 
 protected:
@@ -84,18 +85,12 @@ public:
 	static LLPanelWearableOutfitItem* create(LLViewerInventoryItem* item);
 
 	/**
-	 * Puts item on if it is not worn by agent
-	 * otherwise takes it off on double click.
-	 */
-	/*virtual*/ BOOL handleDoubleClick(S32 x, S32 y, MASK mask);
-
-	/**
 	 * Updates item name and (worn) suffix.
 	 */
-	/*virtual*/ void updateItem(const std::string& name);
+	/*virtual*/ void updateItem(const std::string& name,
+								EItemState item_state = IS_DEFAULT);
 
 protected:
-
 	LLPanelWearableOutfitItem(LLViewerInventoryItem* item);
 };
 
@@ -130,7 +125,8 @@ public:
 	virtual ~LLPanelAttachmentListItem() {};
 
 	/** Set item title. Joint name is added to the title in parenthesis */
-	/*virtual*/ void setTitle(const std::string& title, const std::string& highlit_text);
+	/*virtual*/ void updateItem(const std::string& name,
+								EItemState item_state = IS_DEFAULT);
 
 protected:
 	LLPanelAttachmentListItem(LLViewerInventoryItem* item) : LLPanelDeletableWearableListItem(item) {};
@@ -348,6 +344,7 @@ public:
 		static void setMenuItemEnabled(LLContextMenu* menu, const std::string& name, bool val);
 		static void updateMask(U32& mask, LLAssetType::EType at);
 		static void createNewWearable(const LLUUID& item_id);
+		static bool canAddWearable(const LLUUID& item_id);
 
 		LLWearableItemsList*	mParent;
 	};
