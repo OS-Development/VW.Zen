@@ -111,16 +111,16 @@
           <key>darwin</key>
           <map>
             <key>md5sum</key>
-            <string>d9ce3ace9235249b7edf6f564de83395</string>
+            <string>cdb2f5c4a5a1f9ecd75bc1dbdd4db8e9</string>
             <key>url</key>
-            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/ares-1.4.0-darwin-20080731b.tar.bz2</uri>
+            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/ares-1.7.1-darwin-20100606.tar.bz2</uri>
           </map>
           <key>linux</key>
           <map>
             <key>md5sum</key>
-            <string>946c2e106f14f7a1e521d4a14e0e146f</string>
+            <string>91694429e391efeea1de974df26032a2</string>
             <key>url</key>
-            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/ares-1.4.0-linux-20081202.tar.bz2</uri>
+            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/ares-1.7.1-linux-20100527.tar.bz2</uri>
           </map>
           <key>linux64</key>
           <map>
@@ -132,9 +132,9 @@
           <key>windows</key>
           <map>
             <key>md5sum</key>
-            <string>f5cf8d121b26f2e7944f7e63cdbff04d</string>
+            <string>4b84738eec2e21b0c096d53b79ee2681</string>
             <key>url</key>
-            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/ares-1.6.0-windows-20091105.tar.bz2</uri>
+            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/ares-1.7.1-windows-20100611a.tar.bz2</uri>
           </map>
         </map>
       </map>
@@ -193,16 +193,16 @@
           <key>darwin</key>
           <map>
             <key>md5sum</key>
-            <string>84821102cb819257a66c8f38732647fc</string>
+            <string>71defd179827bf172b76d6020023e0e8</string>
             <key>url</key>
-            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/boost-1.39.0-darwin-20100119.tar.bz2</uri>
+            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/boost-1.39.0-darwin-20100222a.tar.bz2</uri>
           </map>
           <key>linux</key>
           <map>
             <key>md5sum</key>
-            <string>ee8e1b4bbcf137a84d6a85a1c51386ff</string>
+            <string>d58ac1a8396ac983b67cc3e3541457e3</string>
             <key>url</key>
-            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/boost-1.39.0-linux-20100119.tar.bz2</uri>
+            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/boost-1.39.0-linux-20100222a.tar.bz2</uri>
           </map>
           <key>linux64</key>
           <map>
@@ -214,9 +214,9 @@
           <key>windows</key>
           <map>
             <key>md5sum</key>
-            <string>acbf7a4165a917a4e087879d1756b355</string>
+            <string>94fd43f534e2055858d524086384907d</string>
             <key>url</key>
-            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/boost-1.39.0-windows-20100119.tar.bz2</uri>
+            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/boost-1.39.0-windows-20100219.tar.bz2</uri>
           </map>
         </map>
       </map>
@@ -233,16 +233,16 @@
           <key>darwin</key>
           <map>
             <key>md5sum</key>
-            <string>1bece4ebdc5fc3818854bc3df14b511b</string>
+            <string>752e295ccb17f0dcb7c0167db3ad1e69</string>
             <key>url</key>
-            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/curl-7.16.4a-darwin-20090304.tar.bz2</uri>
+            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/curl-7.20.1-darwin-20100606.tar.bz2</uri>
           </map>
           <key>linux</key>
           <map>
             <key>md5sum</key>
-            <string>0f366e421ae9c72d9659bd20a2a326d6</string>
+            <string>a20e73f2e7d6a032ff25a5161b1b7394</string>
             <key>url</key>
-            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/curl-7.16.4a-linux-20090303a.tar.bz2</uri>
+            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/curl-7.20.1-linux-20100527.tar.bz2</uri>
           </map>
           <key>linux64</key>
           <map>
@@ -254,9 +254,9 @@
           <key>windows</key>
           <map>
             <key>md5sum</key>
-            <string>53e5ab7affff7121a5af2f82b4d58b54</string>
+            <string>b28856d3d02ee680353ae440561a6579</string>
             <key>url</key>
-            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/curl-7.19.6-windows-20091016.tar.bz2</uri>
+            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/curl-7.20.1-windows-20100611.tar.bz2</uri>
           </map>
         </map>
       </map>
@@ -436,9 +436,9 @@
           <key>linux</key>
           <map>
             <key>md5sum</key>
-            <string>978ad7c67fe4a2419bfc841e2956ff9f</string>
+            <string>9de3f44be65645c7f6af236139596942</string>
             <key>url</key>
-            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/freetype-2.3.9-linux-20090521c.tar.bz2</uri>
+            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/freetype-2.3.9-linux-2010-02-19a-nommap.tar.bz2</uri>
           </map>
           <key>linux64</key>
           <map>
@@ -580,6 +580,39 @@
             <string>32dba32ddd460a08e082898ebba6315c</string>
             <key>url</key>
             <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/google-perftools-1.0-windows-20090406.tar.bz2</uri>
+          </map>
+        </map>
+      </map>
+      <key>google_breakpad</key>
+      <map>
+        <key>copyright</key>
+        <string>Copyright (c) 2006, Google Inc.</string>
+        <key>description</key>
+        <string>An open-source multi-platform crash reporting system </string>
+        <key>license</key>
+        <string>bsd</string>
+        <key>packages</key>
+        <map>
+          <key>darwin</key>
+          <map>
+            <key>md5sum</key>
+            <string>ced4010b59f1a579caa7fe3c18512499</string>
+            <key>url</key>
+            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/google_breakpad-0.0.0-rev599-darwin-20100528a.tar.bz2</uri>
+          </map>
+          <key>linux</key>
+          <map>
+            <key>md5sum</key>
+            <string>29c3e7dad60bbf02c811786436d99523</string>
+            <key>url</key>
+            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/google_breakpad-0.0.0-rev599-linux-20100521b.tar.bz2</uri>
+          </map>
+          <key>windows</key>
+          <map>
+            <key>md5sum</key>
+            <string>0859d47242990125f17eaab30bece2ff</string>
+            <key>url</key>
+            <uri>http://viewer-source-downloads.s3.amazonaws.com/install_pkgs/google_breakpad-0.0.0-rev599-windows-20100524.tar.bz2</uri>
           </map>
         </map>
       </map>
@@ -948,23 +981,23 @@ anguage Infrstructure (CLI) international standard</string>
           <key>darwin</key>
           <map>
             <key>md5sum</key>
-            <string>d97d843704514ae1b5f153fab2931920</string>
+            <string>becffca6bd8dcb239de284ea2a8b485b</string>
             <key>url</key>
-            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/llqtwebkit-4.6-darwin-20100120.tar.bz2</uri>
+            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/llqtwebkit-4.6+cookies-darwin-20100617.tar.bz2</uri>
           </map>
           <key>linux</key>
           <map>
             <key>md5sum</key>
-            <string>c4c40fca14a8bd32096f8a27c75c526f</string>
+            <string>414d72dd59e3d83c96f0e1531360792e</string>
             <key>url</key>
-            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/llqtwebkit-linux-20100105c.tar.bz2</uri>
+            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/llqtwebkit-linux-20100618.tar.bz2</uri>
           </map>
           <key>windows</key>
           <map>
             <key>md5sum</key>
-            <string>18c1a4059bad1504a457e70c8c218033</string>
+            <string>df1bdd683128e060d60e435f65d8f7e8</string>
             <key>url</key>
-            <uri>http://viewer-source-downloads.s3.amazonaws.com/install_pkgs/llqtwebkit-windows-qt4.6-20100120.tar.bz2</uri>
+            <uri>http://viewer-source-downloads.s3.amazonaws.com/install_pkgs/llqtwebkit-windows-qt4.6-20100617.tar.bz2</uri>
           </map>
         </map>
       </map>
@@ -1112,9 +1145,9 @@ anguage Infrstructure (CLI) international standard</string>
           <key>darwin</key>
           <map>
             <key>md5sum</key>
-            <string>a7b49e0f3eedbd5de117a3524c414b3a</string>
+            <string>11d2be4f2b172430747b7d4a6739e3d8</string>
             <key>url</key>
-            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/openSSL-0.9.7c-darwin-20080812.tar.bz2</uri>
+            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/openSSL-0.9.8l-darwin-20100428.tar.bz2</uri>
           </map>
           <key>linux</key>
           <map>
@@ -1266,6 +1299,25 @@ anguage Infrstructure (CLI) international standard</string>
           </map>
         </map>
       </map>
+      <key>pulseaudio</key>
+      <map>
+        <key>copyright</key>
+        <string>Copyright 2004-2006 Lennart Poettering, Copyright 2006 Pierre Ossman (ossman@cendio.se) for Cendio AB</string>
+        <key>description</key>
+        <string>pulseaudio: headers only</string>
+        <key>license</key>
+        <string>lgpl</string>
+        <key>packages</key>
+        <map>
+          <key>linux</key>
+          <map>
+            <key>md5sum</key>
+            <string>30cb00069fe2a545fbf7be1070386236</string>
+            <key>url</key>
+            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/linux-pulse-headers-0.9.14.tar.bz2</uri>
+          </map>
+        </map>
+      </map>
       <key>quicktime</key>
       <map>
         <key>copyright</key>
@@ -1367,23 +1419,23 @@ anguage Infrstructure (CLI) international standard</string>
           <key>darwin</key>
           <map>
             <key>md5sum</key>
-            <string>51f3fa1ab39563505df83b48ba432a3c</string>
+            <string>aa144917d0e33453d3c2cc2c05c6c47c</string>
             <key>url</key>
-            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/vivox-3.1.0001.7852-darwin-20100115.tar.bz2</uri>
+            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/vivox-3.1.0001.8821-darwin-20100529.tar.bz2</uri>
           </map>
           <key>linux</key>
           <map>
             <key>md5sum</key>
-            <string>ab9573d6aa2acdd79a553c144c9ecb09</string>
+            <string>98f7945755f3ee8e52f685a3eff4d7be</string>
             <key>url</key>
-            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/vivox-3.1.0001.7852-linux-20100115.tar.bz2</uri>
+            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/vivox-3.1.0001.8821-linux-20100529.tar.bz2</uri>
           </map>
           <key>windows</key>
           <map>
             <key>md5sum</key>
-            <string>88ab785eebdc4f53a7dfc4e0b95f67ec</string>
+            <string>e8fdd46cb026c2ec72c4489eb3bf39c1</string>
             <key>url</key>
-            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/vivox-3.1.0001.7852-windows-20100115.tar.bz2</uri>
+            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/vivox-3.1.0001.8821-windows-20100529.tar.bz2</uri>
           </map>
         </map>
       </map>

@@ -284,7 +284,7 @@ void LLCurrencyUIManager::Impl::startTransaction(TransactionType type,
 	static std::string transactionURI;
 	if (transactionURI.empty())
 	{
-		transactionURI = LLViewerLogin::getInstance()->getHelperURI() + "currency.php";
+		transactionURI = LLGridManager::getInstance()->getHelperURI() + "currency.php";
 	}
 
 	delete mTransaction;
@@ -426,7 +426,7 @@ void LLCurrencyUIManager::Impl::prepare()
 	LLLineEditor* lindenAmount = mPanel.getChild<LLLineEditor>("currency_amt");
 	if (lindenAmount)
 	{
-		lindenAmount->setPrevalidate(LLLineEditor::prevalidateNonNegativeS32);
+		lindenAmount->setPrevalidate(LLTextValidate::validateNonNegativeS32);
 		lindenAmount->setKeystrokeCallback(onCurrencyKey, this);
 	}
 }

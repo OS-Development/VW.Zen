@@ -47,23 +47,10 @@
  * 
  * @see setNameFilter()
  */
-class LLGroupList: public LLFlatListView, public LLOldEvents::LLSimpleListener
+class LLGroupList: public LLFlatListViewEx, public LLOldEvents::LLSimpleListener
 {
 	LOG_CLASS(LLGroupList);
 public:
-	struct Params : public LLInitParam::Block<Params, LLFlatListView::Params> 
-	{
-		/**
-		 * Contains a message for empty list when user is not a member of any group
-		 */
-		Optional<std::string>	no_groups_msg;
-
-		/**
-		 * Contains a message for empty list when all groups don't match passed filter
-		 */
-		Optional<std::string>	no_filtered_groups_msg;
-		Params();
-	};
 
 	LLGroupList(const Params& p);
 	virtual ~LLGroupList();
@@ -74,7 +61,7 @@ public:
 	void setNameFilter(const std::string& filter);
 	void toggleIcons();
 	bool getIconsVisible() const { return mShowIcons; }
-	
+
 private:
 	void setDirty(bool val = true)		{ mDirty = val; }
 	void refresh();
@@ -89,8 +76,6 @@ private:
 	bool mShowIcons;
 	bool mDirty;
 	std::string mNameFilter;
-	std::string mNoFilteredGroupsMsg;
-	std::string mNoGroupsMsg;
 };
 
 class LLButton;

@@ -478,7 +478,7 @@ LLViewerFetchedTexture* LLViewerTextureList::createImage(const LLUUID &image_id,
 	}
 	else
 	{
-		//by default, the texure can not be removed from memory even if it is not used.
+		//by default, the texture can not be removed from memory even if it is not used.
 		//here turn this off
 		//if this texture should be set to NO_DELETE, call setNoDelete() afterwards.
 		imagep->forceActive() ;
@@ -502,10 +502,11 @@ void LLViewerTextureList::addImageToList(LLViewerFetchedTexture *image)
 	{
 		llerrs << "LLViewerTextureList::addImageToList - Image already in list" << llendl;
 	}
-	if ((mImageList.insert(image)).second != true)
+	if((mImageList.insert(image)).second != true) 
 	{
-		llwarns << "BAD STUFF!  (mImageList.insert(image)).second != true" << llendl;
+		llerrs << "Error happens when insert image to mImageList!" << llendl ;
 	}
+	
 	image->setInImageList(TRUE) ;
 }
 
@@ -522,10 +523,11 @@ void LLViewerTextureList::removeImageFromList(LLViewerFetchedTexture *image)
 		}
 		llerrs << "LLViewerTextureList::removeImageFromList - Image not in list" << llendl;
 	}
-	if (mImageList.erase(image) != 1)
-        {
-                llwarns << "BAD STUFF!  mImageList.erase(image) != 1" << llendl;
-        }
+	if(mImageList.erase(image) != 1) 
+	{
+		llerrs << "Error happens when remove image from mImageList!" << llendl ;
+	}
+      
 	image->setInImageList(FALSE) ;
 }
 

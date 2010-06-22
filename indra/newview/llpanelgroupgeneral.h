@@ -83,6 +83,8 @@ private:
 	static void onReceiveNotices(LLUICtrl* ctrl, void* data);
 	static void openProfile(void* data);
 
+	S32		sortMembersList(S32,const LLScrollListItem*,const LLScrollListItem*);
+
     static bool joinDlgCB(const LLSD& notification, const LLSD& response);
 
 	void updateMembers();
@@ -93,7 +95,6 @@ private:
 	BOOL			mChanged;
 	BOOL			mFirstUse;
 	std::string		mIncompleteMemberDataStr;
-	LLUUID			mDefaultIconID;
 
 	// Group information (include any updates in updateChanged)
 	LLLineEditor		*mGroupNameEditor;

@@ -4,6 +4,7 @@
  can_minimize="false"
  height="100"
  layout="topleft"
+ title="Save Outfit"
  name="modal container"
  width="240">
     <button
@@ -44,7 +45,6 @@ as a new Outfit:
      border_style="line"
      border_thickness="1"
      follows="left|top"
-     handle_edit_keys_directly="true"
      height="23"
      layout="topleft"
      left_delta="0"

@@ -49,13 +49,10 @@
    name="test_menu_bar"
    top="16">
     <menu
-     height="16"
      label="Menu"
      layout="topleft"
      tear_off="true"
-     left="0"
      name="Menu"
-     top="-32"
      width="128">
       <!-- menu_item_call will trigger a function call in the C++ code -->
       <menu_item_call
@@ -88,7 +85,6 @@
   <!-- First column -->
 
   <button
-   height="20"
    follows="top|left"
    label="Button"
    layout="topleft"
@@ -100,7 +96,6 @@
   <!-- "flyout_button" is a button that can spawn a menu -->
   <flyout_button
    follows="top|left"
-   height="20"
    label="Flyout"
    layout="topleft"
    left_delta="0"
@@ -136,7 +131,6 @@
   <combo_box
    bottom_delta="35"
    follows="top|left"
-   height="16"
    width="150"
    label="Combobox"
    layout="topleft"
@@ -343,12 +337,10 @@ line to actually fit
   <tab_container
    follows="all"
    height="400"
-   halign="center"
    layout="topleft"
    left="525"
    name="group_tab_container"
    tab_position="top"
-   tab_height="20"
    tool_tip="tab container"
    top="80"
    width="300">

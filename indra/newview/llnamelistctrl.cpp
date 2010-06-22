@@ -47,6 +47,8 @@
 
 static LLDefaultChildRegistry::Register<LLNameListCtrl> r("name_list");
 
+static const S32 info_icon_size = 16;
+
 void LLNameListCtrl::NameTypeNames::declareValues()
 {
 	declare("INDIVIDUAL", LLNameListCtrl::INDIVIDUAL);
@@ -70,7 +72,7 @@ LLNameListCtrl::LLNameListCtrl(const LLNameListCtrl::Params& p)
 
 // public
 void LLNameListCtrl::addNameItem(const LLUUID& agent_id, EAddPosition pos,
-								 BOOL enabled, std::string& suffix)
+								 BOOL enabled, const std::string& suffix)
 {
 	//llinfos << "LLNameListCtrl::addNameItem " << agent_id << llendl;
 
@@ -79,7 +81,7 @@ void LLNameListCtrl::addNameItem(const LLUUID& agent_id, EAddPosition pos,
 	item.enabled = enabled;
 	item.target = INDIVIDUAL;
 
-	addNameItemRow(item, pos);
+	addNameItemRow(item, pos, suffix);
 }
 
 // virtual, public
@@ -138,6 +140,44 @@ void LLNameListCtrl::showInspector(const LLUUID& avatar_id, bool is_group)
 		LLFloaterReg::showInstance("inspect_avatar", LLSD().with("avatar_id", avatar_id));
 }
 
+void	LLNameListCtrl::mouseOverHighlightNthItem( S32 target_index )
+{
+	S32 cur_index = getHighlightedItemInx();
+	if (cur_index != target_index)
+	{
+		if(0 <= cur_index && cur_index < (S32)getItemList().size())
+		{
+			LLScrollListItem* item = getItemList()[cur_index];
+			if (item)
+			{
+				LLScrollListText* cell = dynamic_cast<LLScrollListText*>(item->getColumn(mNameColumnIndex));
+				if (cell)
+					cell->setTextWidth(cell->getTextWidth() + info_icon_size);
+			}
+			else
+			{
+				llwarns << "highlighted name list item is NULL" << llendl;
+			}
+		}
+		if(target_index != -1)
+		{
+			LLScrollListItem* item = getItemList()[target_index];
+			LLScrollListText* cell = dynamic_cast<LLScrollListText*>(item->getColumn(mNameColumnIndex));
+			if (item)
+			{
+				if (cell)
+					cell->setTextWidth(cell->getTextWidth() - info_icon_size);
+			}
+			else
+			{
+				llwarns << "target name item is NULL" << llendl;
+			}
+		}
+	}
+
+	LLScrollListCtrl::mouseOverHighlightNthItem(target_index);
+}
+
 //virtual
 BOOL LLNameListCtrl::handleToolTip(S32 x, S32 y, MASK mask)
 {
@@ -164,7 +204,7 @@ BOOL LLNameListCtrl::handleToolTip(S32 x, S32 y, MASK mask)
 
 				// Spawn at right side of cell
 				LLPointer<LLUIImage> icon = LLUI::getUIImage("Info_Small");
-				LLCoordGL pos( sticky_rect.mRight - 16, sticky_rect.mTop - (sticky_rect.getHeight() - icon->getHeight())/2 );
+				LLCoordGL pos( sticky_rect.mRight - info_icon_size, sticky_rect.mTop - (sticky_rect.getHeight() - icon->getHeight())/2 );
 
 				// Should we show a group or an avatar inspector?
 				bool is_group = hit_item->getValue()["is_group"].asBoolean();
@@ -228,7 +268,7 @@ LLScrollListItem* LLNameListCtrl::addElement(const LLSD& element, EAddPosition p
 LLScrollListItem* LLNameListCtrl::addNameItemRow(
 	const LLNameListCtrl::NameItem& name_item,
 	EAddPosition pos,
-	std::string& suffix)
+	const std::string& suffix)
 {
 	LLUUID id = name_item.value().asUUID();
 	LLNameListItem* item = NULL;
@@ -339,8 +379,7 @@ void LLNameListCtrl::refresh(const LLUUID& id, const std::string& first,
 		LLScrollListItem* item = *iter;
 		if (item->getUUID() == id)
 		{
-			LLScrollListCell* cell = (LLScrollListCell*)item->getColumn(0);
-			cell = item->getColumn(mNameColumnIndex);
+			LLScrollListCell* cell = item->getColumn(mNameColumnIndex);
 			if (cell)
 			{
 				cell->setValue(fullname);
@@ -356,8 +395,9 @@ void LLNameListCtrl::refresh(const LLUUID& id, const std::string& first,
 void LLNameListCtrl::refreshAll(const LLUUID& id, const std::string& first,
 								const std::string& last, BOOL is_group)
 {
+	LLInstanceTrackerScopedGuard guard;
 	LLInstanceTracker<LLNameListCtrl>::instance_iter it;
-	for (it = beginInstances(); it != endInstances(); ++it)
+	for (it = guard.beginInstances(); it != guard.endInstances(); ++it)
 	{
 		LLNameListCtrl& ctrl = *it;
 		ctrl.refresh(id, first, last, is_group);

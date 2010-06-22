@@ -2,7 +2,8 @@
 <panel
 	 background_visible="true"
      bevel_style="in"
-     bg_alpha_color="black"
+     bg_opaque_color="Black" 
+     bg_alpha_color="DkGray_66"
      follows="top|left|right"
      height="24"
      label="im_header"
@@ -19,7 +20,8 @@
          name="avatar_icon"
          top="3"
          width="18" />
-    <text_editor
+    <text
+      allow_html="false"
       allow_scroll="false"
       v_pad = "7"
       read_only = "true"

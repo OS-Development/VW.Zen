@@ -44,6 +44,8 @@
 #include "llviewercontrol.h"
 #include "llagentdata.h"
 
+#include "llslurl.h"
+
 static const S32 msg_left_offset = 10;
 static const S32 msg_right_offset = 10;
 static const S32 msg_height_pad = 5;
@@ -144,6 +146,7 @@ void LLNearbyChatToastPanel::init(LLSD& notification)
 	std::string		messageText = notification["message"].asString();		// UTF-8 line of text
 	std::string		fromName = notification["from"].asString();	// agent or object name
 	mFromID = notification["from_id"].asUUID();		// agent id or object id
+	mFromName = fromName;
 	
 	int sType = notification["source"].asInteger();
     mSourceType = (EChatSourceType)sType;
@@ -188,6 +191,8 @@ void LLNearbyChatToastPanel::init(LLSD& notification)
 			std::string font_style_size = LLFontGL::sizeFromFont(messageFont);
 			style_params_name.font.name(font_name);
 			style_params_name.font.size(font_style_size);
+
+			style_params_name.link_href = LLSLURL("agent",mFromID,"about").getSLURLString();
 
 			msg_text->appendText(str_sender, FALSE, style_params_name);
 
@@ -321,7 +326,14 @@ void LLNearbyChatToastPanel::draw()
 		if(icon)
 		{
 			icon->setDrawTooltip(mSourceType == CHAT_SOURCE_AGENT);
-			icon->setValue(mFromID);
+			if(mSourceType == CHAT_SOURCE_OBJECT)
+				icon->setValue(LLSD("OBJECT_Icon"));
+			else if(mSourceType == CHAT_SOURCE_SYSTEM)
+				icon->setValue(LLSD("SL_Logo"));
+			else if(mSourceType == CHAT_SOURCE_AGENT)
+				icon->setValue(mFromID);
+			else if(!mFromID.isNull())
+				icon->setValue(mFromID);
 		}
 		mIsDirty = false;
 	}

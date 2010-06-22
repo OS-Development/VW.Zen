@@ -72,7 +72,7 @@ public:
 	virtual void uploadComplete(const LLSD& content);
 };
 
-class LLBakedUploadData;
+struct LLBakedUploadData;
 class LLSendTexLayerResponder : public LLAssetUploadResponder
 {
 public:

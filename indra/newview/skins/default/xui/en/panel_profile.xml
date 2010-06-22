@@ -59,7 +59,7 @@
          left="0"
          name="profile_scroll"
          opaque="true"
-         height="524"
+         height="527"
          width="317"
          top="0">
           <panel
@@ -107,6 +107,8 @@
                layout="topleft"
                left="107"
                textbox.max_length="512"
+               textbox.label="More"
+               textbox.show_context_menu="true"
                name="sl_description_edit"
                top_pad="-3"
                translate="false"
@@ -151,6 +153,8 @@
                layout="topleft"
                left="107"
                textbox.max_length="512"
+               textbox.label="More"
+               textbox.show_context_menu="true"
                name="fl_description_edit"
                top_pad="-3"
                translate="false"
@@ -284,10 +288,13 @@
              width="300" />
             <expandable_text
             follows="all"
-            height="113"
+            height="103"
             layout="topleft"
             left="7"
             name="sl_groups"
+            textbox.max_length="512"
+            textbox.label="More"
+            textbox.show_context_menu="true"
             top_pad="0"
             translate="false"
             width="290"
@@ -313,9 +320,12 @@
          left="2"
          mouse_opaque="false"
          name="add_friend"
+         pad_left="1" 
+         pad_right="1"
          tool_tip="Offer friendship to the Resident"
          top="5"
-         width="80" />
+         use_ellipses="true"
+         width="117" />
         <button
          follows="bottom|left"
          height="23"
@@ -324,8 +334,8 @@
          name="im"
          tool_tip="Open instant message session"
          top="5"
-         left_pad="3"
-         width="39" />
+         left_pad="1"
+         width="21" />
         <button
          follows="bottom|left"
          height="23"
@@ -333,20 +343,12 @@
          layout="topleft"
          name="call"
          tool_tip="Call this Resident"
-         left_pad="3"
+         left_pad="1"
+         pad_left="1" 
+         pad_right="1"
          top="5"
-         width="43" />
-        <button
-         enabled="false"
-         follows="bottom|left"
-         height="23"
-         label="Map"
-         layout="topleft"
-         name="show_on_map_btn"
-         tool_tip="Show the Resident on the map"
-         top="5"
-         left_pad="3"
-         width="41" />
+         use_ellipses="true"
+         width="51" />
         <button
          follows="bottom|left"
          height="23"
@@ -354,9 +356,12 @@
          layout="topleft"
          name="teleport"
          tool_tip="Offer teleport"
-         left_pad="3"
+         left_pad="1"
+         pad_left="1" 
+         pad_right="1"
          top="5"
-         width="69" />
+         use_ellipses="true"
+         width="92" />
         <button
          follows="bottom|right"
          height="23"
@@ -366,7 +371,6 @@
          tool_tip="Pay money to or share inventory with the Resident"
          right="-1"
          top="5"
-	 	 left_pad="3"
          width="23" />
         </layout_panel>
       <layout_panel
@@ -384,14 +388,6 @@
          label="Edit Profile"
          name="edit_profile_btn"
          tool_tip="Edit your personal information"
-         width="130" />
-        <button
-         follows="bottom|right"
-         height="23"
-         label="Edit Appearance"
-         left_pad="10"
-         name="edit_appearance_btn"
-         tool_tip="Create/edit your appearance: physical data, clothes and etc."
          width="130" />
         </layout_panel>
 

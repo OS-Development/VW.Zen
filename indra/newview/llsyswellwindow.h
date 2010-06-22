@@ -70,6 +70,7 @@ public:
 	/*virtual*/ void	setDocked(bool docked, bool pop_on_undock = true);
 	// override LLFloater's minimization according to EXT-1216
 	/*virtual*/ void	setMinimized(BOOL minimize);
+	/*virtual*/ void	handleReshape(const LLRect& rect, bool by_user);
 
 	void onStartUpToastClick(S32 x, S32 y, MASK mask);
 
@@ -81,20 +82,12 @@ public:
 
 protected:
 
-	typedef enum{
-		IT_NOTIFICATION,
-		IT_INSTANT_MESSAGE
-	}EItemType; 
-
 	// gets a rect that bounds possible positions for the SysWellWindow on a screen (EXT-1111)
 	void getAllowedRect(LLRect& rect);
 
 
 	// init Window's channel
 	virtual void initChannel();
-	void handleItemAdded(EItemType added_item_type);
-	void handleItemRemoved(EItemType removed_item_type);
-	bool anotherTypeExists(EItemType item_type) ;
 
 	const std::string NOTIFICATION_WELL_ANCHOR_NAME;
 	const std::string IM_WELL_ANCHOR_NAME;
@@ -112,16 +105,7 @@ protected:
 	 */
 	LLSysWellChiclet* mSysWellChiclet;
 
-	/**
-	 *	Special panel which is used as separator of Notifications & IM Rows.
-	 *	It is always presents in the list and shown when it is necessary.
-	 *	It should be taken into account when reshaping and checking list size
-	 */
-	LLPanel* mSeparator;
-
-	typedef std::map<EItemType, S32> typed_items_count_t;
-	typed_items_count_t mTypedItemsCount;
-
+	bool mIsReshapedByUser;
 };
 
 /**
@@ -188,8 +172,8 @@ public:
 	/*virtual*/ void sessionRemoved(const LLUUID& session_id);
 	/*virtual*/ void sessionIDUpdated(const LLUUID& old_session_id, const LLUUID& new_session_id);
 
-	void addObjectRow(const LLUUID& object_id, bool new_message = false);
-	void removeObjectRow(const LLUUID& object_id);
+	void addObjectRow(const LLUUID& notification_id, bool new_message = false);
+	void removeObjectRow(const LLUUID& notification_id);
 
 	void addIMRow(const LLUUID& session_id);
 	bool hasIMRow(const LLUUID& session_id);
@@ -201,7 +185,7 @@ protected:
 
 private:
 	LLChiclet * findIMChiclet(const LLUUID& sessionId);
-	LLChiclet* findObjectChiclet(const LLUUID& object_id);
+	LLChiclet* findObjectChiclet(const LLUUID& notification_id);
 
 	void addIMRow(const LLUUID& sessionId, S32 chicletCounter, const std::string& name, const LLUUID& otherParticipantId);
 	void delIMRow(const LLUUID& sessionId);
@@ -235,17 +219,8 @@ private:
 
 	class ObjectRowPanel: public LLPanel
 	{
-		typedef enum e_object_type
-		{
-			OBJ_UNKNOWN,
-
-			OBJ_SCRIPT,
-			OBJ_GIVE_INVENTORY,
-			OBJ_LOAD_URL
-		}EObjectType;
-
 	public:
-		ObjectRowPanel(const LLUUID& object_id, bool new_message = false);
+		ObjectRowPanel(const LLUUID& notification_id, bool new_message = false);
 		virtual ~ObjectRowPanel();
 		/*virtual*/ void onMouseEnter(S32 x, S32 y, MASK mask);
 		/*virtual*/ void onMouseLeave(S32 x, S32 y, MASK mask);
@@ -254,12 +229,8 @@ private:
 
 	private:
 		void onClosePanel();
-		static EObjectType getObjectType(const LLNotificationPtr& notification);
-		void initChiclet(const LLUUID& object_id, bool new_message = false);
-		std::string getObjectName(const LLUUID& object_id);
+		void initChiclet(const LLUUID& notification_id, bool new_message = false);
 
-		typedef std::map<std::string, EObjectType> object_type_map;
-		static object_type_map initObjectTypeMap();
 	public:
 		LLIMChiclet* mChiclet;
 	private:

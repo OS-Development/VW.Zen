@@ -207,7 +207,7 @@ void LLFloaterMediaSettings::commitFields()
 	if (hasFocus())
 	{
 		LLUICtrl* cur_focus = dynamic_cast<LLUICtrl*>(gFocusMgr.getKeyboardFocus());
-		if (cur_focus->acceptsTextInput())
+		if (cur_focus && cur_focus->acceptsTextInput())
 		{
 			cur_focus->onCommit();
 		};
@@ -242,6 +242,12 @@ void LLFloaterMediaSettings::onBtnApply( void* userdata )
 	sInstance->commitFields();
 
 	sInstance->apply();
+
+	sInstance->mInitialValues.clear();
+	sInstance->mPanelMediaSettingsGeneral->getValues( sInstance->mInitialValues );
+	sInstance->mPanelMediaSettingsSecurity->getValues( sInstance->mInitialValues );
+	sInstance->mPanelMediaSettingsPermissions->getValues( sInstance->mInitialValues );
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////

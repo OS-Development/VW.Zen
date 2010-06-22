@@ -34,6 +34,7 @@ import sys
 import os.path
 import re
 import tarfile
+import time
 viewer_dir = os.path.dirname(__file__)
 # add llmanifest library to our path so we don't have to muck with PYTHONPATH
 sys.path.append(os.path.join(viewer_dir, '../lib/python/indra/util'))
@@ -41,9 +42,12 @@ from llmanifest import LLManifest, main, proper_windows_path, path_ancestors
 
 class ViewerManifest(LLManifest):
     def is_packaging_viewer(self):
-        # This is overridden by the WindowsManifest sub-class,
-        # which has different behavior if it is not packaging the viewer.
-        return True
+        # Some commands, files will only be included
+        # if we are packaging the viewer on windows.
+        # This manifest is also used to copy
+        # files during the build (see copy_w_viewer_manifest
+        # and copy_l_viewer_manifest targets)
+        return 'package' in self.args['actions']
     
     def construct(self):
         super(ViewerManifest, self).construct()
@@ -104,6 +108,12 @@ class ViewerManifest(LLManifest):
                             self.path("*/*/*.gif")
                             self.end_prefix("*/html")
                     self.end_prefix("skins")
+
+            # local_assets dir (for pre-cached textures)
+            if self.prefix(src="local_assets"):
+                self.path("*.j2c")
+                self.path("*.tga")
+                self.end_prefix("local_assets")
 
             # Files in the newview/ directory
             self.path("gpu_table.txt")
@@ -168,13 +178,6 @@ class WindowsManifest(ViewerManifest):
                 return "SecondLifePreview.exe"
         else:
             return ''.join(self.channel().split()) + '.exe'
-
-    def is_packaging_viewer(self):
-        # Some commands, files will only be included
-        # if we are packaging the viewer on windows.
-        # This manifest is also used to copy
-        # files during the build.
-        return 'package' in self.args['actions']
 
     def test_msvcrt_and_copy_action(self, src, dst):
         # This is used to test a dll manifest.
@@ -332,6 +335,12 @@ class WindowsManifest(ViewerManifest):
             self.path("media_plugin_webkit.dll")
             self.end_prefix()
 
+        # winmm.dll shim
+        if self.prefix(src='../media_plugins/winmmshim/%s' % self.args['configuration'], dst="llplugin"):
+            self.path("winmm.dll")
+            self.end_prefix()
+
+
         if self.args['configuration'].lower() == 'debug':
             if self.prefix(src=os.path.join(os.pardir, os.pardir, 'libraries', 'i686-win32', 'lib', 'debug'),
                            dst="llplugin"):
@@ -479,8 +488,8 @@ class WindowsManifest(ViewerManifest):
                 grid_vars_template = """
                 OutFile "%(installer_file)s"
                 !define INSTFLAGS "%(flags)s"
-                !define INSTNAME   "SecondLife"
-                !define SHORTCUT   "Second Life"
+                !define INSTNAME   "SecondLifeViewer2"
+                !define SHORTCUT   "Second Life Viewer 2"
                 !define URLNAME   "secondlife"
                 Caption "Second Life ${VERSION}"
                 """
@@ -551,6 +560,10 @@ class WindowsManifest(ViewerManifest):
 
 
 class DarwinManifest(ViewerManifest):
+    def is_packaging_viewer(self):
+        # darwin requires full app bundle packaging even for debugging.
+        return True
+
     def construct(self):
         # copy over the build result (this is a no-op if run within the xcode script)
         self.path(self.args['configuration'] + "/Second Life.app", dst="")
@@ -629,7 +642,9 @@ class DarwinManifest(ViewerManifest):
                 if dylibs["llcommon"]:
                     for libfile in ("libapr-1.0.3.7.dylib",
                                     "libaprutil-1.0.3.8.dylib",
-                                    "libexpat.0.5.0.dylib"):
+                                    "libexpat.0.5.0.dylib",
+                                    "libexception_handler.dylib",
+                                    ):
                         self.path(os.path.join(libdir, libfile), libfile)
 
                 #libfmodwrapper.dylib
@@ -639,14 +654,20 @@ class DarwinManifest(ViewerManifest):
                 self.path("../mac_crash_logger/" + self.args['configuration'] + "/mac-crash-logger.app", "mac-crash-logger.app")
                 self.path("../mac_updater/" + self.args['configuration'] + "/mac-updater.app", "mac-updater.app")
 
+                # plugin launcher
+                self.path("../llplugin/slplugin/" + self.args['configuration'] + "/SLPlugin.app", "SLPlugin.app")
+
                 # our apps dependencies on shared libs
                 if dylibs["llcommon"]:
                     mac_crash_logger_res_path = self.dst_path_of("mac-crash-logger.app/Contents/Resources")
                     mac_updater_res_path = self.dst_path_of("mac-updater.app/Contents/Resources")
+                    slplugin_res_path = self.dst_path_of("SLPlugin.app/Contents/Resources")
                     for libfile in ("libllcommon.dylib",
                                     "libapr-1.0.3.7.dylib",
                                     "libaprutil-1.0.3.8.dylib",
-                                    "libexpat.0.5.0.dylib"):
+                                    "libexpat.0.5.0.dylib",
+                                    "libexception_handler.dylib",
+                                    ):
                         target_lib = os.path.join('../../..', libfile)
                         self.run_command("ln -sf %(target)r %(link)r" % 
                                          {'target': target_lib,
@@ -656,9 +677,10 @@ class DarwinManifest(ViewerManifest):
                                          {'target': target_lib,
                                           'link' : os.path.join(mac_updater_res_path, libfile)}
                                          )
-
-                # plugin launcher
-                self.path("../llplugin/slplugin/" + self.args['configuration'] + "/SLPlugin", "SLPlugin")
+                        self.run_command("ln -sf %(target)r %(link)r" % 
+                                         {'target': target_lib,
+                                          'link' : os.path.join(slplugin_res_path, libfile)}
+                                         )
 
                 # plugins
                 if self.prefix(src="", dst="llplugin"):
@@ -686,7 +708,7 @@ class DarwinManifest(ViewerManifest):
 
 
     def package_finish(self):
-        channel_standin = 'Second Life'  # hah, our default channel is not usable on its own
+        channel_standin = 'Second Life Viewer 2'  # hah, our default channel is not usable on its own
         if not self.default_channel():
             channel_standin = self.channel()
 
@@ -716,55 +738,72 @@ class DarwinManifest(ViewerManifest):
 
         # mount the image and get the name of the mount point and device node
         hdi_output = self.run_command('hdiutil attach -private %r' % sparsename)
-        devfile = re.search("/dev/disk([0-9]+)[^s]", hdi_output).group(0).strip()
-        volpath = re.search('HFS\s+(.+)', hdi_output).group(1).strip()
+        try:
+            devfile = re.search("/dev/disk([0-9]+)[^s]", hdi_output).group(0).strip()
+            volpath = re.search('HFS\s+(.+)', hdi_output).group(1).strip()
 
-        # Copy everything in to the mounted .dmg
+            # Copy everything in to the mounted .dmg
 
-        if self.default_channel() and not self.default_grid():
-            app_name = "Second Life " + self.args['grid']
-        else:
-            app_name = channel_standin.strip()
+            if self.default_channel() and not self.default_grid():
+                app_name = "Second Life " + self.args['grid']
+            else:
+                app_name = channel_standin.strip()
 
-        # Hack:
-        # Because there is no easy way to coerce the Finder into positioning
-        # the app bundle in the same place with different app names, we are
-        # adding multiple .DS_Store files to svn. There is one for release,
-        # one for release candidate and one for first look. Any other channels
-        # will use the release .DS_Store, and will look broken.
-        # - Ambroff 2008-08-20
-        dmg_template = os.path.join(
-            'installers', 
-            'darwin',
-            '%s-dmg' % "".join(self.channel_unique().split()).lower())
+            # Hack:
+            # Because there is no easy way to coerce the Finder into positioning
+            # the app bundle in the same place with different app names, we are
+            # adding multiple .DS_Store files to svn. There is one for release,
+            # one for release candidate and one for first look. Any other channels
+            # will use the release .DS_Store, and will look broken.
+            # - Ambroff 2008-08-20
+            dmg_template = os.path.join(
+                'installers', 
+                'darwin',
+                '%s-dmg' % "".join(self.channel_unique().split()).lower())
 
-        if not os.path.exists (self.src_path_of(dmg_template)):
-            dmg_template = os.path.join ('installers', 'darwin', 'release-dmg')
+            if not os.path.exists (self.src_path_of(dmg_template)):
+                dmg_template = os.path.join ('installers', 'darwin', 'release-dmg')
 
-        for s,d in {self.get_dst_prefix():app_name + ".app",
-                    os.path.join(dmg_template, "_VolumeIcon.icns"): ".VolumeIcon.icns",
-                    os.path.join(dmg_template, "background.jpg"): "background.jpg",
-                    os.path.join(dmg_template, "_DS_Store"): ".DS_Store"}.items():
-            print "Copying to dmg", s, d
-            self.copy_action(self.src_path_of(s), os.path.join(volpath, d))
+            for s,d in {self.get_dst_prefix():app_name + ".app",
+                        os.path.join(dmg_template, "_VolumeIcon.icns"): ".VolumeIcon.icns",
+                        os.path.join(dmg_template, "background.jpg"): "background.jpg",
+                        os.path.join(dmg_template, "_DS_Store"): ".DS_Store"}.items():
+                print "Copying to dmg", s, d
+                self.copy_action(self.src_path_of(s), os.path.join(volpath, d))
 
-        # Hide the background image, DS_Store file, and volume icon file (set their "visible" bit)
-        for f in ".VolumeIcon.icns", "background.jpg", ".DS_Store":
-            self.run_command('SetFile -a V %r' % os.path.join(volpath, f))
+            # Hide the background image, DS_Store file, and volume icon file (set their "visible" bit)
+            for f in ".VolumeIcon.icns", "background.jpg", ".DS_Store":
+                pathname = os.path.join(volpath, f)
+                # We've observed mysterious "no such file" failures of the SetFile
+                # command, especially on the first file listed above -- yet
+                # subsequent inspection of the target directory confirms it's
+                # there. Timing problem with copy command? Try to handle.
+                for x in xrange(3):
+                    if os.path.exists(pathname):
+                        print "Confirmed existence: %r" % pathname
+                        break
+                    print "Waiting for %s copy command to complete (%s)..." % (f, x+1)
+                    sys.stdout.flush()
+                    time.sleep(1)
+                # If we fall out of the loop above without a successful break, oh
+                # well, possibly we've mistaken the nature of the problem. In any
+                # case, don't hang up the whole build looping indefinitely, let
+                # the original problem manifest by executing the desired command.
+                self.run_command('SetFile -a V %r' % pathname)
 
-        # Create the alias file (which is a resource file) from the .r
-        self.run_command('rez %r -o %r' %
-                         (self.src_path_of("installers/darwin/release-dmg/Applications-alias.r"),
-                          os.path.join(volpath, "Applications")))
+            # Create the alias file (which is a resource file) from the .r
+            self.run_command('rez %r -o %r' %
+                             (self.src_path_of("installers/darwin/release-dmg/Applications-alias.r"),
+                              os.path.join(volpath, "Applications")))
 
-        # Set the alias file's alias and custom icon bits
-        self.run_command('SetFile -a AC %r' % os.path.join(volpath, "Applications"))
+            # Set the alias file's alias and custom icon bits
+            self.run_command('SetFile -a AC %r' % os.path.join(volpath, "Applications"))
 
-        # Set the disk image root's custom icon bit
-        self.run_command('SetFile -a C %r' % volpath)
-
-        # Unmount the image
-        self.run_command('hdiutil detach -force %r' % devfile)
+            # Set the disk image root's custom icon bit
+            self.run_command('SetFile -a C %r' % volpath)
+        finally:
+            # Unmount the image even if exceptions from any of the above 
+            self.run_command('hdiutil detach -force %r' % devfile)
 
         print "Converting temp disk image to final disk image"
         self.run_command('hdiutil convert %(sparse)r -format UDZO -imagekey zlib-level=9 -o %(final)r' % {'sparse':sparsename, 'final':finalname})
@@ -854,16 +893,10 @@ class Linux_i686Manifest(LinuxManifest):
                 print "Skipping %s - not found" % libfile
                 pass
 
-            
-        if(self.args['buildtype'].lower() == 'release'):
-            print "* packaging stripped viewer binary."
-            self.path("secondlife-stripped","bin/do-not-directly-run-secondlife-bin")
-        else:
-            print "* packaging un-stripped viewer binary."
-            self.path("secondlife-bin","bin/do-not-directly-run-secondlife-bin")
+        self.path("secondlife-bin","bin/do-not-directly-run-secondlife-bin")
 
-        self.path("../linux_crash_logger/linux-crash-logger-stripped","bin/linux-crash-logger.bin")
-        self.path("../linux_updater/linux-updater-stripped", "bin/linux-updater.bin")
+        self.path("../linux_crash_logger/linux-crash-logger","bin/linux-crash-logger.bin")
+        self.path("../linux_updater/linux-updater", "bin/linux-updater.bin")
         self.path("../llplugin/slplugin/SLPlugin", "bin/SLPlugin")
         if self.prefix("res-sdl"):
             self.path("*")
@@ -882,6 +915,7 @@ class Linux_i686Manifest(LinuxManifest):
         if self.prefix("../../libraries/i686-linux/lib_release_client", dst="lib"):
             self.path("libapr-1.so.0")
             self.path("libaprutil-1.so.0")
+            self.path("libbreakpad_client.so.0.0.0", "libbreakpad_client.so.0")
             self.path("libdb-4.2.so")
             self.path("libcrypto.so.0.9.7")
             self.path("libexpat.so.1")
@@ -914,23 +948,16 @@ class Linux_i686Manifest(LinuxManifest):
             if self.prefix(src="vivox-runtime/i686-linux", dst="lib"):
                     self.path("libortp.so")
                     self.path("libsndfile.so.1")
-                    #self.path("libvivoxoal.so.1") # no - we'll re-use the viewer's own OAL lib
+                    #self.path("libvivoxoal.so.1") # no - we'll re-use the viewer's own OpenAL lib
                     self.path("libvivoxsdk.so")
                     self.path("libvivoxplatform.so")
                     self.end_prefix("lib")
 
-class Linux_x86_64Manifest(LinuxManifest):
-    def construct(self):
-        super(Linux_x86_64Manifest, self).construct()
-        self.path("secondlife-stripped","bin/do-not-directly-run-secondlife-bin")
-        self.path("../linux_crash_logger/linux-crash-logger-stripped","linux-crash-logger.bin")
-        if self.prefix("res-sdl"):
-            self.path("*")
-            # recurse
-            self.end_prefix("res-sdl")
+        if self.args['buildtype'].lower() == 'release' and self.is_packaging_viewer():
+            print "* Going strip-crazy on the packaged binaries, since this is a RELEASE build"
+            self.run_command("find %(d)r/bin %(d)r/lib -type f | xargs --no-run-if-empty strip -S" % {'d': self.get_dst_prefix()} ) # makes some small assumptions about our packaged dir structure
 
-        self.path("featuretable_linux.txt")
-        self.path("secondlife-i686.supp")
+################################################################
 
 if __name__ == "__main__":
     main()

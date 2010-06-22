@@ -73,9 +73,9 @@ S32		LLView::sLastBottomXML = S32_MIN;
 std::vector<LLViewDrawContext*> LLViewDrawContext::sDrawContextStack;
 
 
-#if LL_DEBUG
+//#if LL_DEBUG
 BOOL LLView::sIsDrawing = FALSE;
-#endif
+//#endif
 
 // Compiler optimization, generate extern template
 template class LLView* LLView::getChild<class LLView>(
@@ -107,8 +107,6 @@ LLView::Params::Params()
 	top_delta("top_delta", S32_MAX),
 	left_pad("left_pad"),
 	left_delta("left_delta", S32_MAX),
-	center_horiz("center_horiz", false),
-	center_vert("center_vert", false),
 	from_xui("from_xui", false),
 	user_resize("user_resize"),
 	auto_resize("auto_resize"),
@@ -150,6 +148,10 @@ LLView::~LLView()
 {
 	dirtyRect();
 	//llinfos << "Deleting view " << mName << ":" << (void*) this << llendl;
+	if (LLView::sIsDrawing)
+	{
+		lldebugs << "Deleting view " << mName << " during UI draw() phase" << llendl;
+	}
 // 	llassert(LLView::sIsDrawing == FALSE);
 	
 //	llassert_always(sDepth == 0); // avoid deleting views while drawing! It can subtly break list iterators
@@ -592,11 +594,6 @@ void LLView::setVisible(BOOL visible)
 {
 	if ( mVisible != visible )
 	{
-		if( !visible && (gFocusMgr.getTopCtrl() == this) )
-		{
-			gFocusMgr.setTopCtrl( NULL );
-		}
-
 		mVisible = visible;
 
 		// notify children of visibility change if root, or part of visible hierarchy
@@ -1326,7 +1323,6 @@ void LLView::drawChildren()
 				localRectToScreen(viewp->getRect(),&screenRect);
 				if ( rootRect.overlaps(screenRect)  && LLUI::sDirtyRect.overlaps(screenRect))
 				{
-					glMatrixMode(GL_MODELVIEW);
 					LLUI::pushMatrix();
 					{
 						LLUI::translate((F32)viewp->getRect().mLeft, (F32)viewp->getRect().mBottom, 0.f);
@@ -1350,8 +1346,6 @@ void LLView::drawChildren()
 		}
 		--sDepth;
 	}
-
-	gGL.getTexUnit(0)->disable();
 }
 
 void LLView::dirtyRect()
@@ -1720,6 +1714,7 @@ LLView* LLView::findChildView(const std::string& name, BOOL recurse) const
 	for ( child_it = mChildList.begin(); child_it != mChildList.end(); ++child_it)
 	{
 		LLView* childp = *child_it;
+		llassert(childp);
 		if (childp->getName() == name)
 		{
 			return childp;
@@ -1731,6 +1726,7 @@ LLView* LLView::findChildView(const std::string& name, BOOL recurse) const
 		for ( child_it = mChildList.begin(); child_it != mChildList.end(); ++child_it)
 		{
 			LLView* childp = *child_it;
+			llassert(childp);
 			LLView* viewp = childp->findChildView(name, recurse);
 			if ( viewp )
 			{
@@ -2501,7 +2497,6 @@ void LLView::applyXUILayout(LLView::Params& p, LLView* parent)
 		p.layout = parent->getLayout();
 	}
 
-
 	if (parent)
 	{
 		LLRect parent_rect = parent->getLocalRect();
@@ -2509,59 +2504,20 @@ void LLView::applyXUILayout(LLView::Params& p, LLView* parent)
 		LLRect last_rect = parent->getLocalRect();
 
 		bool layout_topleft = (p.layout() == "topleft");
+
+		// convert negative or centered coordinates to parent relative values
+		// Note: some of this logic matches the logic in TypedParam<LLRect>::setValueFromBlock()
+		if (p.rect.left.isProvided() && p.rect.left < 0) p.rect.left = p.rect.left + parent_rect.getWidth();
+		if (p.rect.right.isProvided() && p.rect.right < 0) p.rect.right = p.rect.right + parent_rect.getWidth();
+		if (p.rect.bottom.isProvided() && p.rect.bottom < 0) p.rect.bottom = p.rect.bottom + parent_rect.getHeight();
+		if (p.rect.top.isProvided() && p.rect.top < 0) p.rect.top = p.rect.top + parent_rect.getHeight();
+
 		if (layout_topleft)
 		{
 			//invert top to bottom
 			if (p.rect.top.isProvided()) p.rect.top = parent_rect.getHeight() - p.rect.top;
 			if (p.rect.bottom.isProvided()) p.rect.bottom = parent_rect.getHeight() - p.rect.bottom;
 		}
-
-		// convert negative or centered coordinates to parent relative values
-		// Note: some of this logic matches the logic in TypedParam<LLRect>::setValueFromBlock()
-
-		if (p.center_horiz)
-		{
-			if (p.rect.left.isProvided() && p.rect.right.isProvided())
-			{
-				S32 width = p.rect.right - p.rect.left;
-				width = llmax(width, 0);
-				S32 offset = parent_rect.getWidth()/2 - width/2;
-				p.rect.left = p.rect.left + offset;
-				p.rect.right = p.rect.right + offset;
-			}
-			else
-			{
-				p.rect.left = p.rect.left + parent_rect.getWidth()/2 - p.rect.width/2;
-				p.rect.right.setProvided(false); // recalculate the right
-			}
-		}
-		else
-		{
-			if (p.rect.left.isProvided() && p.rect.left < 0) p.rect.left = p.rect.left + parent_rect.getWidth();
-			if (p.rect.right.isProvided() && p.rect.right < 0) p.rect.right = p.rect.right + parent_rect.getWidth();
-		}
-		if (p.center_vert)
-		{
-			if (p.rect.bottom.isProvided() && p.rect.top.isProvided())
-			{
-				S32 height = p.rect.top - p.rect.bottom;
-				height = llmax(height, 0);
-				S32 offset = parent_rect.getHeight()/2 - height/2;
-				p.rect.bottom = p.rect.bottom + offset;
-				p.rect.top = p.rect.top + offset;
-			}
-			else
-			{
-				p.rect.bottom = p.rect.bottom + parent_rect.getHeight()/2 - p.rect.height/2;
-				p.rect.top.setProvided(false); // recalculate the top
-			}
-		}
-		else
-		{
-			if (p.rect.bottom.isProvided() && p.rect.bottom < 0) p.rect.bottom = p.rect.bottom + parent_rect.getHeight();
-			if (p.rect.top.isProvided() && p.rect.top < 0) p.rect.top = p.rect.top + parent_rect.getHeight();
-		}
-
 
 		// DEPRECATE: automatically fall back to height of MIN_WIDGET_HEIGHT pixels
 		if (!p.rect.height.isProvided() && !p.rect.top.isProvided() && p.rect.height == 0)

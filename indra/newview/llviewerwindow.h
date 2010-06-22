@@ -69,6 +69,7 @@ class LLHUDIcon;
 class LLWindow;
 class LLRootView;
 class LLViewerWindowListener;
+class LLPopupView;
 
 #define PICK_HALF_WIDTH 5
 #define PICK_DIAMETER (2 * PICK_HALF_WIDTH + 1)
@@ -261,10 +262,6 @@ public:
 	// Is window of our application frontmost?
 	BOOL			getActive() const			{ return mActive; }
 
-	void			getTargetWindow(BOOL& fullscreen, S32& width, S32& height) const;
-		// The 'target' is where the user wants the window to be. It may not be
-		// there yet, because we may be supressing fullscreen prior to login.
-
 	const std::string&	getInitAlert() { return mInitAlert; }
 	
 	//
@@ -299,6 +296,11 @@ public:
 	LLView*			getFloaterViewHolder() { return mFloaterViewHolder.get(); }
 	BOOL			handleKey(KEY key, MASK mask);
 	void			handleScrollWheel	(S32 clicks);
+
+	// add and remove views from "popup" layer
+	void			addPopup(LLView* popup);
+	void			removePopup(LLView* popup);
+	void			clearPopups();
 
 	// Hide normal UI when a logon fails, re-show everything when logon is attempted again
 	void			setNormalControlsVisible( BOOL visible );
@@ -374,17 +376,12 @@ public:
 	// Prints window implementation details
 	void			dumpState();
 
-	// Request display setting changes	
-	void			toggleFullscreen(BOOL show_progress);
-
 	// handle shutting down GL and bringing it back up
-	void			requestResolutionUpdate(bool fullscreen_checked);
-	void			requestResolutionUpdate(); // doesn't affect fullscreen
-	BOOL			checkSettings();
+	void			requestResolutionUpdate();
+	void			checkSettings();
 	void			restartDisplay(BOOL show_progress_bar);
-	BOOL			changeDisplaySettings(BOOL fullscreen, LLCoordScreen size, BOOL disable_vsync, BOOL show_progress_bar);
+	BOOL			changeDisplaySettings(LLCoordScreen size, BOOL disable_vsync, BOOL show_progress_bar);
 	BOOL			getIgnoreDestroyWindow() { return mIgnoreActivate; }
-	F32				getDisplayAspectRatio() const;
 	F32				getWorldViewAspectRatio() const;
 	const LLVector2& getDisplayScale() const { return mDisplayScale; }
 	void			calcDisplayScale();
@@ -409,8 +406,6 @@ public:
 
 protected:
 	BOOL			mActive;
-	BOOL			mWantFullscreen;
-	BOOL			mShowFullscreenProgress;
 
 	LLRect			mWindowRectRaw;				// whole window, including UI
 	LLRect			mWindowRectScaled;			// whole window, scaled by UI size
@@ -458,12 +453,12 @@ protected:
 	LLHandle<LLView> mWorldViewPlaceholder;	// widget that spans the portion of screen dedicated to rendering the 3d world
 	LLHandle<LLView> mNonSideTrayView;		// parent of world view + bottom bar, etc...everything but the side tray
 	LLHandle<LLView> mFloaterViewHolder;	// container for floater_view
+	LLPopupView*	mPopupView;			// container for transient popups
 	
 	class LLDebugText* mDebugText; // Internal class for debug text
 	
 	bool			mResDirty;
 	bool			mStatesDirty;
-	bool			mIsFullscreenChecked; // Did the user check the fullscreen checkbox in the display settings
 	U32			mCurrResolutionIndex;
 
     boost::scoped_ptr<LLViewerWindowListener> mViewerWindowListener;
@@ -477,7 +472,7 @@ protected:
 private:
 	// Object temporarily hovered over while dragging
 	LLPointer<LLViewerObject>	mDragHoveredObject;
-};	
+};
 
 void toggle_flying(void*);
 void toggle_first_person();

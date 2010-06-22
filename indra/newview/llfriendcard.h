@@ -49,7 +49,7 @@ class LLFriendCardsManager
 	friend class CreateFriendCardCallback;
 
 public:
-	typedef std::map<LLUUID, std::vector<LLUUID> > folderid_buddies_map_t;
+	typedef std::map<LLUUID, uuid_vec_t > folderid_buddies_map_t;
 
 	// LLFriendObserver implementation
 	void changed(U32 mask)
@@ -120,7 +120,7 @@ private:
 		return (mBuddyIDSet.end() != mBuddyIDSet.find(avatarID));
 	}
 
-	const LLUUID& findChildFolderUUID(const LLUUID& parentFolderUUID, const std::string& localizedName) const;
+	const LLUUID& findChildFolderUUID(const LLUUID& parentFolderUUID, const std::string& nonLocalizedName) const;
 	const LLUUID& findFriendFolderUUIDImpl() const;
 	const LLUUID& findFriendAllSubfolderUUIDImpl() const;
 	const LLUUID& findFriendCardInventoryUUIDImpl(const LLUUID& avatarID);

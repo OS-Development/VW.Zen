@@ -9,13 +9,23 @@
  name="chat"
  top="1"
  width="517">
-    <radio_group
+  <text
+   follows="left|top"
+   layout="topleft"
+   left="30"
+   height="12"
+   name="font_size"
+   width="120"
+   top="10">
+    Font size:
+  </text>
+  <radio_group
      height="30"
      layout="topleft"
-     left="30"
-	 control_name="ChatFontSize"
+     left="40"
+	   control_name="ChatFontSize"
      name="chat_font_size"
-     top="10"
+     top_pad="0"
      width="440">
         <radio_item
          height="16"
@@ -45,12 +55,25 @@
          top_delta="0"
          width="125" />
     </radio_group>
+
+    <text
+      follows="left|top"
+      layout="topleft"
+      left="30"
+      height="12"
+      name="font_colors" 
+      top_pad="10" 
+      width="120"
+      >
+    Font colors:
+    </text>  
+  
     <color_swatch
      can_apply_immediately="true"
      follows="left|top"
      height="47"
      layout="topleft"
-     left="30"
+     left="40"
      name="user"
      top_pad="10"
      width="44" >
@@ -79,7 +102,7 @@
      follows="left|top"
      height="47"
      layout="topleft"
-     left="180"
+     left="190"
      name="agent"
      top_pad="-17"
      width="44" >
@@ -110,7 +133,7 @@
      height="47"
      label_width="60"
      layout="topleft"
-     left="350"
+     left="360"
      name="im"
      top_pad="-17"
      width="44">
@@ -141,7 +164,7 @@
      height="47"
      label_width="44"
      layout="topleft"
-     left="30"
+     left="40"
      name="system"
      top_pad="40"
      width="44" >
@@ -171,7 +194,7 @@
      follows="left|top"
      height="47"
      layout="topleft"
-     left="180"
+     left="190"
      name="script_error"
      top_pad="-17"
      width="44">
@@ -201,7 +224,7 @@
      follows="left|top"
      height="47"
      layout="topleft"
-     left="350"
+     left="360"
      name="objects"
      top_pad="-17"
      width="44" >
@@ -231,7 +254,7 @@
      follows="left|top"
      height="47"
      layout="topleft"
-     left="30"
+     left="40"
      name="owner"
      top_pad="40"
      width="44" >
@@ -261,7 +284,7 @@
      follows="left|top"
      height="47"
      layout="topleft"
-     left="180"
+     left="190"
      name="links"
      top_pad="-17"
      width="44" >
@@ -307,31 +330,38 @@
     <check_box
      enabled="false"
      height="16"
-     label="Enable plain text chat history"
+     label="Enable plain text IM and chat history"
      layout="topleft"
      left_delta="0"
      name="plain_text_chat_history"
      top_pad="5"
      width="400" />
     <text
+     name="show_ims_in_label"
+     follows="left|top"
+     layout="topleft"
      left="30"
      height="20"
-     width="120"
+     width="170"
      top_pad="20">
      Show IMs in:
     </text>
     <text
-	 left_pad="6"
-	 height="20"
-	 width="100"
-	 text_color="White_25"
-	 >
+     name="requires_restart_label"
+     follows="left|top"
+     layout="topleft"
+     top_delta="0" 
+     left="170" 
+  	 height="20"
+	   width="130"
+     text_color="White_25"
+	  >
       (requires restart)
       </text>
     <radio_group
      height="30"
      layout="topleft"
-     left="30"
+     left="40"
      control_name="ChatWindow"
      name="chat_window"
      top_pad="0"

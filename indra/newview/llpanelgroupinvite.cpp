@@ -36,6 +36,7 @@
 #include "llagent.h"
 #include "llfloateravatarpicker.h"
 #include "llbutton.h"
+#include "llcallingcard.h"
 #include "llcombobox.h"
 #include "llgroupactions.h"
 #include "llgroupmgr.h"
@@ -56,7 +57,7 @@ public:
 	~impl();
 
 	void addUsers(const std::vector<std::string>& names,
-				  const std::vector<LLUUID>& agent_ids);
+				  const uuid_vec_t& agent_ids);
 	void submitInvitations();
 	void addRoleNames(LLGroupMgrGroupData* gdatap);
 	void handleRemove();
@@ -68,7 +69,7 @@ public:
 	static void callbackClickRemove(void* userdata);
 	static void callbackSelect(LLUICtrl* ctrl, void* userdata);
 	static void callbackAddUsers(const std::vector<std::string>& names,
-								 const std::vector<LLUUID>& agent_ids,
+								 const uuid_vec_t& agent_ids,
 								 void* user_data);
 	bool inviteOwnerCallback(const LLSD& notification, const LLSD& response);
 
@@ -110,7 +111,7 @@ LLPanelGroupInvite::impl::~impl()
 }
 
 void LLPanelGroupInvite::impl::addUsers(const std::vector<std::string>& names,
-										const std::vector<LLUUID>& agent_ids)
+										const uuid_vec_t& agent_ids)
 {
 	std::string name;
 	LLUUID id;
@@ -360,7 +361,7 @@ void LLPanelGroupInvite::impl::callbackClickOK(void* userdata)
 
 //static
 void LLPanelGroupInvite::impl::callbackAddUsers(const std::vector<std::string>& names,
-												const std::vector<LLUUID>& ids,
+												const uuid_vec_t& ids,
 												void* user_data)
 {
 	impl* selfp = (impl*) user_data;
@@ -398,23 +399,20 @@ void LLPanelGroupInvite::clear()
 	mImplementation->mOKButton->setEnabled(FALSE);
 }
 
-void LLPanelGroupInvite::addUsers(std::vector<LLUUID>& agent_ids)
+void LLPanelGroupInvite::addUsers(uuid_vec_t& agent_ids)
 {
 	std::vector<std::string> names;
 	for (S32 i = 0; i < (S32)agent_ids.size(); i++)
 	{
 		LLUUID agent_id = agent_ids[i];
 		LLViewerObject* dest = gObjectList.findObject(agent_id);
+		std::string fullname;
 		if(dest && dest->isAvatar())
 		{
-			std::string fullname;
-			LLSD args;
 			LLNameValue* nvfirst = dest->getNVPair("FirstName");
 			LLNameValue* nvlast = dest->getNVPair("LastName");
 			if(nvfirst && nvlast)
 			{
-				args["FIRST"] = std::string(nvfirst->getString());
-				args["LAST"] = std::string(nvlast->getString());
 				fullname = std::string(nvfirst->getString()) + " " + std::string(nvlast->getString());
 			}
 			if (!fullname.empty())
@@ -427,10 +425,44 @@ void LLPanelGroupInvite::addUsers(std::vector<LLUUID>& agent_ids)
 				names.push_back("(Unknown)");
 			}
 		}
+		else
+		{
+			//looks like user try to invite offline friend
+			//for offline avatar_id gObjectList.findObject() will return null
+			//so we need to do this additional search in avatar tracker, see EXT-4732
+			if (LLAvatarTracker::instance().isBuddy(agent_id))
+			{
+				if (!gCacheName->getFullName(agent_id, fullname))
+				{
+					// actually it should happen, just in case
+					gCacheName->get(LLUUID(agent_id), false, boost::bind(
+							&LLPanelGroupInvite::addUserCallback, this, _1, _2,
+							_3));
+					// for this special case!
+					//when there is no cached name we should remove resident from agent_ids list to avoid breaking of sequence
+					// removed id will be added in callback
+					agent_ids.erase(agent_ids.begin() + i);
+				}
+				else
+				{
+					names.push_back(fullname);
+				}
+			}
+		}
 	}
 	mImplementation->addUsers(names, agent_ids);
 }
 
+void LLPanelGroupInvite::addUserCallback(const LLUUID& id, const std::string& first_name, const std::string& last_name)
+{
+	std::vector<std::string> names;
+	uuid_vec_t agent_ids;
+	std::string full_name = first_name + " " + last_name;
+	agent_ids.push_back(id);
+	names.push_back(first_name + " " + last_name);
+
+	mImplementation->addUsers(names, agent_ids);
+}
 void LLPanelGroupInvite::draw()
 {
 	LLPanel::draw();

@@ -47,6 +47,7 @@ LLFloaterReg::instance_map_t LLFloaterReg::sInstanceMap;
 LLFloaterReg::build_map_t LLFloaterReg::sBuildMap;
 std::map<std::string,std::string> LLFloaterReg::sGroupMap;
 bool LLFloaterReg::sBlockShowFloaters = false;
+std::set<std::string> LLFloaterReg::sAlwaysShowableList;
 
 static LLFloaterRegListener sFloaterRegListener;
 
@@ -219,7 +220,9 @@ LLFloaterReg::const_instance_list_t& LLFloaterReg::getFloaterList(const std::str
 //static
 LLFloater* LLFloaterReg::showInstance(const std::string& name, const LLSD& key, BOOL focus) 
 {
-	if( sBlockShowFloaters )
+	if( sBlockShowFloaters
+			// see EXT-7090
+			&& sAlwaysShowableList.find(name) == sAlwaysShowableList.end())
 		return 0;//
 	LLFloater* instance = getInstance(name, key); 
 	if (instance) 
@@ -272,11 +275,11 @@ bool LLFloaterReg::toggleInstance(const std::string& name, const LLSD& key)
 }
 
 //static
-// returns true if the instance exists and is visible
+// returns true if the instance exists and is visible (doesnt matter minimized or not)
 bool LLFloaterReg::instanceVisible(const std::string& name, const LLSD& key)
 {
 	LLFloater* instance = findInstance(name, key); 
-	return LLFloater::isShown(instance);
+	return LLFloater::isVisible(instance);
 }
 
 //static
@@ -403,6 +406,14 @@ void LLFloaterReg::registerControlVariables()
 			declareVisibilityControl(name);
 		}
 	}
+
+	const LLSD& exclude_list = LLUI::sSettingGroups["config"]->getLLSD("always_showable_floaters");
+	for (LLSD::array_const_iterator iter = exclude_list.beginArray();
+		iter != exclude_list.endArray();
+		iter++)
+	{
+		sAlwaysShowableList.insert(iter->asString());
+	}
 }
 
 // Callbacks
@@ -463,3 +474,12 @@ bool LLFloaterReg::floaterInstanceVisible(const LLSD& sdname)
 	return instanceVisible(name, key);
 }
 
+//static
+bool LLFloaterReg::floaterInstanceMinimized(const LLSD& sdname)
+{
+	LLSD key;
+	std::string name = sdname.asString();
+	parse_name_key(name, key);
+	LLFloater* instance = findInstance(name, key); 
+	return LLFloater::isShown(instance);
+}

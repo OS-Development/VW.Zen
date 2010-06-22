@@ -41,6 +41,7 @@
 #include "llcombobox.h"
 #include "lldir.h"
 #include "llfloaterreg.h"
+#include "llinventorydefines.h"
 #include "llinventorymodel.h"
 #include "llkeyboard.h"
 #include "lllineeditor.h"
@@ -661,7 +662,9 @@ void LLScriptEdCore::onBtnDynamicHelp()
 		live_help_floater = new LLFloater(LLSD());
 		LLUICtrlFactory::getInstance()->buildFloater(live_help_floater, "floater_lsl_guide.xml", NULL);
 		LLFloater* parent = dynamic_cast<LLFloater*>(getParent());
-		parent->addDependentFloater(live_help_floater, TRUE);
+		llassert(parent);
+		if (parent)
+			parent->addDependentFloater(live_help_floater, TRUE);
 		live_help_floater->childSetCommitCallback("lock_check", onCheckLock, this);
 		live_help_floater->childSetValue("lock_check", gSavedSettings.getBOOL("ScriptHelpFollowsCursor"));
 		live_help_floater->childSetCommitCallback("history_combo", onHelpComboCommit, this);
@@ -953,9 +956,13 @@ BOOL LLPreviewLSL::postBuild()
 {
 	const LLInventoryItem* item = getItem();	
 
+	llassert(item);
+	if (item)
+	{
+		childSetText("desc", item->getDescription());
+	}
 	childSetCommitCallback("desc", LLPreview::onText, this);
-	childSetText("desc", item->getDescription());
-	childSetPrevalidate("desc", &LLLineEditor::prevalidateASCIIPrintableNoPipe);
+	childSetPrevalidate("desc", &LLTextValidate::validateASCIIPrintableNoPipe);
 
 	return LLPreview::postBuild();
 }
@@ -1084,8 +1091,7 @@ void LLPreviewLSL::onSave(void* userdata, BOOL close_after_save)
 
 // Save needs to compile the text in the buffer. If the compile
 // succeeds, then save both assets out to the database. If the compile
-// fails, go ahead and save the text anyway so that the user doesn't
-// get too fucked.
+// fails, go ahead and save the text anyway.
 void LLPreviewLSL::saveIfNeeded()
 {
 	// llinfos << "LLPreviewLSL::saveIfNeeded()" << llendl;
@@ -1573,7 +1579,7 @@ void LLLiveLSLEditor::loadAsset()
 										  DEFAULT_SCRIPT_NAME,
 										  DEFAULT_SCRIPT_DESC,
 										  LLSaleInfo::DEFAULT,
-										  LLInventoryItem::II_FLAGS_NONE,
+										  LLInventoryItemFlags::II_FLAGS_NONE,
 										  time_corrected());
 		mAssetStatus = PREVIEW_ASSET_LOADED;
 	}
@@ -1817,7 +1823,7 @@ void LLLiveLSLEditor::saveIfNeeded()
 		return;
 	}
 
-	if(mItem.isNull() || !mItem->isComplete())
+	if(mItem.isNull() || !mItem->isFinished())
 	{
 		// $NOTE: While the error message may not be exactly correct,
 		// it's pretty close.

@@ -42,7 +42,6 @@
 #include "llnotificationsutil.h"
 #include "llparcel.h"
 #include "message.h"
-#include "lluserauth.h"
 
 #include "llagent.h"
 #include "llbutton.h"
@@ -86,10 +85,12 @@
 static std::string OWNER_ONLINE 	= "0";
 static std::string OWNER_OFFLINE	= "1";
 static std::string OWNER_GROUP 		= "2";
+static std::string MATURITY 		= "[MATURITY]";
 
 // constants used in callbacks below - syntactic sugar.
 static const BOOL BUY_GROUP_LAND = TRUE;
 static const BOOL BUY_PERSONAL_LAND = FALSE;
+LLPointer<LLParcelSelection> LLPanelLandGeneral::sSelectionForBuyPass = NULL;
 
 // Statics
 LLParcelSelectionObserver* LLFloaterLand::sObserver = NULL;
@@ -101,6 +102,22 @@ class LLParcelSelectionObserver : public LLParcelObserver
 public:
 	virtual void changed() { LLFloaterLand::refreshAll(); }
 };
+
+// class needed to get full access to textbox inside checkbox, because LLCheckBoxCtrl::setLabel() has string as its argument.
+// It was introduced while implementing EXT-4706
+class LLCheckBoxWithTBAcess	: public LLCheckBoxCtrl
+{
+public:
+	LLTextBox* getTextBox()
+	{
+		return mLabel;
+	}
+};
+
+// inserts maturity info(icon and text) into target textbox 
+// names_floater - pointer to floater which contains strings with maturity icons filenames
+// str_to_parse is string in format "txt1[MATURITY]txt2" where maturity icon and text will be inserted instead of [MATURITY]
+void insert_maturity_into_textbox(LLTextBox* target_textbox, LLFloater* names_floater, std::string str_to_parse);
 
 //---------------------------------------------------------------------------
 // LLFloaterLand
@@ -353,7 +370,7 @@ BOOL LLPanelLandGeneral::postBuild()
 {
 	mEditName = getChild<LLLineEditor>("Name");
 	mEditName->setCommitCallback(onCommitAny, this);	
-	childSetPrevalidate("Name", LLLineEditor::prevalidateASCIIPrintableNoPipe);
+	childSetPrevalidate("Name", LLTextValidate::validateASCIIPrintableNoPipe);
 
 	mEditDesc = getChild<LLTextEditor>("Description");
 	mEditDesc->setCommitOnFocusLost(TRUE);
@@ -554,8 +571,8 @@ void LLPanelLandGeneral::refresh()
 		
 		if (regionp)
 		{
-			mContentRating->setText(regionp->getSimAccessString());
-			mLandType->setText(regionp->getSimProductName());
+			insert_maturity_into_textbox(mContentRating, gFloaterView->getParentFloater(this), MATURITY);
+			mLandType->setText(LLTrans::getString(regionp->getSimProductName()));
 		}
 
 		// estate owner/manager cannot edit other parts of the parcel
@@ -629,9 +646,12 @@ void LLPanelLandGeneral::refresh()
 			}
 
 			// Display claim date
-			// *TODO:Localize (Time format may need Translating)
 			time_t claim_date = parcel->getClaimDate();
-			mTextClaimDate->setText(formatted_time(claim_date));
+			std::string claim_date_str = getString("time_stamp_template");
+			LLSD substitution;
+			substitution["datetime"] = (S32) claim_date;
+			LLStringUtil::format (claim_date_str, substitution);
+			mTextClaimDate->setText(claim_date_str);
 			mTextClaimDate->setEnabled(is_leased);
 
 			BOOL enable_auction = (gAgent.getGodLevel() >= GOD_LIAISON)
@@ -787,7 +807,7 @@ void LLPanelLandGeneral::refreshNames()
 	else
 	{
 		// Figure out the owner's name
-		owner = LLSLURL::buildCommand("agent", parcel->getOwnerID(), "inspect");
+		owner = LLSLURL("agent", parcel->getOwnerID(), "inspect").getSLURLString();
 	}
 
 	if(LLParcel::OS_LEASE_PENDING == parcel->getOwnershipStatus())
@@ -799,20 +819,23 @@ void LLPanelLandGeneral::refreshNames()
 	std::string group;
 	if (!parcel->getGroupID().isNull())
 	{
-		group = LLSLURL::buildCommand("group", parcel->getGroupID(), "inspect");
+		group = LLSLURL("group", parcel->getGroupID(), "inspect").getSLURLString();
 	}
 	mTextGroup->setText(group);
 
-	const LLUUID& auth_buyer_id = parcel->getAuthorizedBuyerID();
-	if(auth_buyer_id.notNull())
+	if (parcel->getForSale())
 	{
-		std::string name;
-		name = LLSLURL::buildCommand("agent", auth_buyer_id, "inspect");
-		mSaleInfoForSale2->setTextArg("[BUYER]", name);
-	}
-	else
-	{
-		mSaleInfoForSale2->setTextArg("[BUYER]", getString("anyone"));
+		const LLUUID& auth_buyer_id = parcel->getAuthorizedBuyerID();
+		if(auth_buyer_id.notNull())
+		{
+		  std::string name;
+		  name = LLSLURL("agent", auth_buyer_id, "inspect").getSLURLString();
+		  mSaleInfoForSale2->setTextArg("[BUYER]", name);
+		}
+		else
+		{
+			mSaleInfoForSale2->setTextArg("[BUYER]", getString("anyone"));
+		}
 	}
 }
 
@@ -955,6 +978,8 @@ void LLPanelLandGeneral::onClickBuyPass(void* data)
 	args["PARCEL_NAME"] = parcel_name;
 	args["TIME"] = time;
 	
+	// creating pointer on selection to avoid deselection of parcel until we are done with buying pass (EXT-6464)
+	sSelectionForBuyPass = LLViewerParcelMgr::getInstance()->getParcelSelection();
 	LLNotificationsUtil::add("LandBuyPass", args, LLSD(), cbBuyPass);
 }
 
@@ -986,6 +1011,8 @@ bool LLPanelLandGeneral::cbBuyPass(const LLSD& notification, const LLSD& respons
 		// User clicked OK
 		LLViewerParcelMgr::getInstance()->buyPass();
 	}
+	// we are done with buying pass, additional selection is no longer needed
+	sSelectionForBuyPass = NULL;
 	return false;
 }
 
@@ -1111,7 +1138,7 @@ BOOL LLPanelLandObjects::postBuild()
 
 	mCleanOtherObjectsTime->setFocusLostCallback(boost::bind(onLostFocus, _1, this));
 	mCleanOtherObjectsTime->setCommitCallback(onCommitClean, this);
-	childSetPrevalidate("clean other time", LLLineEditor::prevalidateNonNegativeS32);
+	childSetPrevalidate("clean other time", LLTextValidate::validateNonNegativeS32);
 	
 	mBtnRefresh = getChild<LLButton>("Refresh List");
 	mBtnRefresh->setClickedCallback(onClickRefresh, this);
@@ -1592,7 +1619,7 @@ void LLPanelLandObjects::processParcelObjectOwnersReply(LLMessageSystem *msg, vo
 		item_params.columns.add().value(object_count_str).font(FONT).column("count");
 		item_params.columns.add().value(LLDate((time_t)most_recent_time)).font(FONT).column("mostrecent").type("date");
 
-		self->mOwnerList->addRow(item_params);
+		self->mOwnerList->addNameItemRow(item_params);
 
 		lldebugs << "object owner " << owner_id << " (" << (is_group_owned ? "group" : "agent")
 				<< ") owns " << object_count << " objects." << llendl;
@@ -2058,8 +2085,14 @@ void LLPanelLandOptions::refresh()
 		{
 			// not teen so fill in the data for the maturity control
 			mMatureCtrl->setVisible(TRUE);
-			mMatureCtrl->setLabel(getString("mature_check_mature"));
-			mMatureCtrl->setToolTip(getString("mature_check_mature_tooltip"));
+			LLStyle::Params style;
+			style.image(LLUI::getUIImage(gFloaterView->getParentFloater(this)->getString("maturity_icon_moderate")));
+			LLCheckBoxWithTBAcess* fullaccess_mature_ctrl = (LLCheckBoxWithTBAcess*)mMatureCtrl;
+			fullaccess_mature_ctrl->getTextBox()->setText(std::string("icon"),style);
+			fullaccess_mature_ctrl->getTextBox()->appendText(getString("mature_check_mature"), false);
+			fullaccess_mature_ctrl->setToolTip(getString("mature_check_mature_tooltip"));
+			fullaccess_mature_ctrl->reshape(fullaccess_mature_ctrl->getRect().getWidth(), fullaccess_mature_ctrl->getRect().getHeight(), FALSE);
+			
 			// they can see the checkbox, but its disposition depends on the 
 			// state of the region
 			LLViewerRegion* regionp = LLViewerParcelMgr::getInstance()->getSelectionRegion();
@@ -2460,19 +2493,26 @@ void LLPanelLandAccess::refresh()
 			}
 		}
 		
+		LLCheckBoxWithTBAcess* maturity_checkbox = (LLCheckBoxWithTBAcess*) getChild<LLCheckBoxCtrl>( "public_access");
 		LLViewerRegion* region = LLViewerParcelMgr::getInstance()->getSelectionRegion();
 		if(region)
 		{
-			std::string region_access = "(";
-			region_access += region->getSimAccessString();
-			region_access += ")";
-			childSetLabelArg( "public_access", "[MATURITY]", region_access );
+			LLTextBox* maturity_textbox = maturity_checkbox->getTextBox();
+			insert_maturity_into_textbox(maturity_textbox, gFloaterView->getParentFloater(this), getString("allow_public_access"));
+			maturity_checkbox->reshape(maturity_checkbox->getRect().getWidth(), maturity_checkbox->getRect().getHeight(), FALSE);
 		}
 		else
 		{
-			childSetLabelArg( "public_access", "[MATURITY]", std::string() );
-		}
+			std::string maturity_string = getString("allow_public_access");
+			size_t maturity_pos = maturity_string.find(MATURITY);
 
+			if (maturity_pos != std::string::npos)
+			{
+				maturity_string.replace(maturity_pos, MATURITY.length(), std::string(""));
+			}
+
+			maturity_checkbox->setLabel(maturity_string);
+		}
 
 		if(parcel->getRegionDenyAnonymousOverride())
 		{
@@ -2741,7 +2781,7 @@ void LLPanelLandAccess::onClickAddAccess()
 	gFloaterView->getParentFloater(this)->addDependentFloater(LLFloaterAvatarPicker::show(boost::bind(&LLPanelLandAccess::callbackAvatarCBAccess, this, _1,_2)) );
 }
 
-void LLPanelLandAccess::callbackAvatarCBAccess(const std::vector<std::string>& names, const std::vector<LLUUID>& ids)
+void LLPanelLandAccess::callbackAvatarCBAccess(const std::vector<std::string>& names, const uuid_vec_t& ids)
 {
 	if (!names.empty() && !ids.empty())
 	{
@@ -2786,7 +2826,7 @@ void LLPanelLandAccess::onClickAddBanned()
 }
 
 // static
-void LLPanelLandAccess::callbackAvatarCBBanned(const std::vector<std::string>& names, const std::vector<LLUUID>& ids)
+void LLPanelLandAccess::callbackAvatarCBBanned(const std::vector<std::string>& names, const uuid_vec_t& ids)
 {
 	if (!names.empty() && !ids.empty())
 	{
@@ -2858,7 +2898,7 @@ void LLPanelLandCovenant::refresh()
 	LLTextBox* region_maturity = getChild<LLTextBox>("region_maturity_text");
 	if (region_maturity)
 	{
-		region_maturity->setText(region->getSimAccessString());
+		insert_maturity_into_textbox(region_maturity, gFloaterView->getParentFloater(this), MATURITY);
 	}
 	
 	LLTextBox* resellable_clause = getChild<LLTextBox>("resellable_clause");
@@ -2938,4 +2978,52 @@ void LLPanelLandCovenant::updateEstateOwnerName(const std::string& name)
 		LLTextBox* editor = self->getChild<LLTextBox>("estate_owner_text");
 		if (editor) editor->setText(name);
 	}
+}
+
+// inserts maturity info(icon and text) into target textbox 
+// names_floater - pointer to floater which contains strings with maturity icons filenames
+// str_to_parse is string in format "txt1[MATURITY]txt2" where maturity icon and text will be inserted instead of [MATURITY]
+void insert_maturity_into_textbox(LLTextBox* target_textbox, LLFloater* names_floater, std::string str_to_parse)
+{
+	LLViewerRegion* region = LLViewerParcelMgr::getInstance()->getSelectionRegion();
+	if (!region)
+		return;
+
+	LLStyle::Params style;
+
+	U8 sim_access = region->getSimAccess();
+
+	switch(sim_access)
+	{
+	case SIM_ACCESS_PG:
+		style.image(LLUI::getUIImage(names_floater->getString("maturity_icon_general")));
+		break;
+
+	case SIM_ACCESS_ADULT:
+		style.image(LLUI::getUIImage(names_floater->getString("maturity_icon_adult")));
+		break;
+
+	case SIM_ACCESS_MATURE:
+		style.image(LLUI::getUIImage(names_floater->getString("maturity_icon_moderate")));
+		break;
+
+	default:
+		break;
+	}
+
+	size_t maturity_pos = str_to_parse.find(MATURITY);
+	
+	if (maturity_pos == std::string::npos)
+	{
+		return;
+	}
+
+	std::string text_before_rating = str_to_parse.substr(0, maturity_pos);
+	std::string text_after_rating = str_to_parse.substr(maturity_pos + MATURITY.length());
+
+	target_textbox->setText(text_before_rating);
+	// any text may be here instead of "icon" except ""
+	target_textbox->appendText(std::string("icon"), false, style);
+	target_textbox->appendText(LLViewerParcelMgr::getInstance()->getSelectionRegion()->getSimAccessString(), false);
+	target_textbox->appendText(text_after_rating, false);
 }

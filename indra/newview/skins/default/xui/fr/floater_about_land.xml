@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<floater name="floaterland" title="À PROPOS DES TERRAINS">
+<floater name="floaterland" title="À PROPOS DU TERRAIN">
+	<floater.string name="maturity_icon_general">
+		&quot;Parcel_PG_Dark&quot;
+	</floater.string>
+	<floater.string name="maturity_icon_moderate">
+		&quot;Parcel_M_Dark&quot;
+	</floater.string>
+	<floater.string name="maturity_icon_adult">
+		&quot;Parcel_R_Dark&quot;
+	</floater.string>
 	<floater.string name="Minutes">
 		[MINUTES] minutes
 	</floater.string>
@@ -12,10 +21,10 @@
 	<floater.string name="Remaining">
 		restantes
 	</floater.string>
-	<tab_container name="landtab">
+	<tab_container name="landtab" tab_min_width="60">
 		<panel label="GÉNÉRAL" name="land_general_panel">
 			<panel.string name="new users only">
-				Nouveaux utilisateurs uniquement
+				Nouveaux résidents uniquement
 			</panel.string>
 			<panel.string name="anyone">
 				Tout le monde
@@ -53,6 +62,9 @@
 			<panel.string name="no_selection_text">
 				Aucune parcelle sélectionnée.
 			</panel.string>
+			<panel.string name="time_stamp_template">
+				[wkday,datetime,local] [day,datetime,local] [mth,datetime,local] [year,datetime,local] [hour,datetime,local]:[min,datetime,local]:[second,datetime,local]
+			</panel.string>
 			<text name="Name:">
 				Nom :
 			</text>
@@ -71,7 +83,7 @@
 				Catégorie :
 			</text>
 			<text name="ContentRatingText">
-				Adult
+				Adulte
 			</text>
 			<text name="Owner:">
 				Propriétaire :
@@ -99,7 +111,7 @@
 				Prix : [PRICE] L$ ([PRICE_PER_SQM] L$/m²)
 			</text>
 			<text name="SalePending"/>
-			<button label="Vendez du terrain" label_selected="Vendre le terrain..." name="Sell Land..."/>
+			<button label="Vendre le terrain" label_selected="Vendre le terrain..." name="Sell Land..."/>
 			<text name="For sale to">
 				À vendre à : [BUYER]
 			</text>
@@ -109,7 +121,7 @@
 			<text name="Selling with no objects in parcel.">
 				Objets non inclus dans la vente
 			</text>
-			<button label="Annuler la vente du terrain" label_selected="Annuler la vente du terrain" left="275" name="Cancel Land Sale" width="165"/>
+			<button label="Annuler la vente du terrain" label_selected="Annuler la vente du terrain" name="Cancel Land Sale"/>
 			<text name="Claimed:">
 				Acquis :
 			</text>
@@ -128,10 +140,10 @@
 			<text name="DwellText">
 				0
 			</text>
-			<button label="Acheter du terrain" label_selected="Acheter le terrain..." left="130" name="Buy Land..." width="125"/>
-			<button label="Infos sur les scripts" name="Scripts..."/>
+			<button label="Acheter du terrain" label_selected="Acheter le terrain..." left_delta="60" name="Buy Land..." width="125"/>
+			<button label="Infos sur les scripts" name="Scripts..." width="110"/>
 			<button label="Acheter pour le groupe" label_selected="Acheter pour le groupe..." name="Buy For Group..."/>
-			<button label="Acheter un pass" label_selected="Acheter un pass..." left="130" name="Buy Pass..." tool_tip="Un pass vous donne un accès temporaire à ce terrain." width="125"/>
+			<button label="Acheter un pass" label_selected="Acheter un pass..." left_delta="-127" name="Buy Pass..." tool_tip="Un pass vous donne un accès temporaire à ce terrain." width="125"/>
 			<button label="Abandonner le terrain" label_selected="Abandonner le terrain..." name="Abandon Land..."/>
 			<button label="Récupérer le terrain" label_selected="Redemander le terrain…" name="Reclaim Land..."/>
 			<button label="Vente Linden" label_selected="Vente Linden..." name="Linden Sale..." tool_tip="Le terrain doit être la propriété d&apos;un résident, avoir un contenu défini et ne pas être aux enchères."/>
@@ -252,13 +264,13 @@ ou divisé.
 			</text>
 			<button label="Afficher" label_selected="Afficher" name="ShowOther" right="-135" width="60"/>
 			<button label="Retour" label_selected="Renvoyer..." name="ReturnOther..." right="-10" tool_tip="Renvoyer les objets à leurs propriétaires." width="119"/>
-			<text left="14" name="Selected / sat upon:" width="193">
+			<text left="14" name="Selected / sat upon:" width="220">
 				Sélectionnées/où quelqu&apos;un est assis :
 			</text>
-			<text left="214" name="selected_objects_text" width="48">
+			<text left_delta="214" name="selected_objects_text" width="48">
 				[COUNT]
 			</text>
-			<text left="4" name="Autoreturn" width="412">
+			<text name="Autoreturn">
 				Renvoi automatique des objets d&apos;autres résidents (minutes, 0 pour désactiver) :
 			</text>
 			<line_editor name="clean other time" right="-6" width="36"/>
@@ -270,9 +282,9 @@ ou divisé.
 			<name_list label="Plus récents" name="owner list">
 				<name_list.columns label="Type" name="type"/>
 				<name_list.columns name="online_status"/>
-				<name_list.columns label="Nom" name="name"/>
-				<name_list.columns label="Nombre" name="count"/>
-				<name_list.columns label="Plus récents" name="mostrecent"/>
+				<name_list.columns label="Nom" name="name" width="100"/>
+				<name_list.columns label="Nombre" name="count" width="100"/>
+				<name_list.columns label="Plus récents" name="mostrecent" width="120"/>
 			</name_list>
 		</panel>
 		<panel label="OPTIONS" name="land_options_panel">
@@ -312,21 +324,21 @@ Seules les parcelles de grande taille peuvent apparaître dans la recherche.
 			</text>
 			<check_box label="Modifier le terrain" name="edit land check" tool_tip="Si cette option est cochée, n&apos;importe qui peut terraformer votre terrain. Il vaut mieux ne pas cocher cette option pour toujours pouvoir modifer votre propre terrain."/>
 			<check_box label="Voler" name="check fly" tool_tip="Si cette option est cochée, les résidents peuvent voler sur votre terrain. Si elle n&apos;est pas cochée, ils ne pourront voler que lorsqu&apos;ils arrivent et passent au dessus de votre terrain."/>
-			<text left="152" name="allow_label2">
+			<text name="allow_label2">
 				Construire :
 			</text>
-			<check_box label="Tous" left="285" name="edit objects check"/>
-			<check_box label="Groupe" left="395" name="edit group objects check"/>
-			<text left="152" name="allow_label3" width="134">
+			<check_box label="Tous" name="edit objects check"/>
+			<check_box label="Groupe" name="edit group objects check"/>
+			<text name="allow_label3">
 				Laisser entrer des objets :
 			</text>
-			<check_box label="Tous" left="285" name="all object entry check"/>
-			<check_box label="Groupe" left="395" name="group object entry check"/>
-			<text left="152" name="allow_label4">
+			<check_box label="Tous" name="all object entry check"/>
+			<check_box label="Groupe" name="group object entry check"/>
+			<text name="allow_label4">
 				Exécuter des scripts :
 			</text>
-			<check_box label="Tous" left="285" name="check other scripts"/>
-			<check_box label="Groupe" left="395" name="check group scripts"/>
+			<check_box label="Tous" name="check other scripts"/>
+			<check_box label="Groupe" name="check group scripts"/>
 			<text name="land_options_label">
 				Options du terrain :
 			</text>
@@ -367,11 +379,11 @@ Seules les parcelles de grande taille peuvent apparaître dans la recherche.
 				Photo :
 			</text>
 			<texture_picker bottom="-319" label="" name="snapshot_ctrl" tool_tip="Cliquez pour sélectionner une image"/>
-			<text bottom="-323" name="landing_point">
+			<text name="landing_point">
 				Lieu d&apos;arrivée : [LANDING]
 			</text>
-			<button bottom="-323" label="Définir" label_selected="Définir" name="Set" tool_tip="Définit le point d&apos;arrivée des visiteurs. Définit l&apos;emplacement de votre avatar sur ce terrain."/>
-			<button bottom="-323" label="Annuler" label_selected="Annuler" name="Clear" tool_tip="Effacer le lieu d&apos;arrivée"/>
+			<button label="Définir" label_selected="Définir" name="Set" tool_tip="Définit le point d&apos;arrivée des visiteurs. Définit l&apos;emplacement de votre avatar sur ce terrain."/>
+			<button label="Annuler" label_selected="Annuler" name="Clear" tool_tip="Effacer le lieu d&apos;arrivée"/>
 			<text bottom="-343" name="Teleport Routing: ">
 				Règles de téléportation :
 			</text>
@@ -391,18 +403,15 @@ Seules les parcelles de grande taille peuvent apparaître dans la recherche.
 				Page d&apos;accueil :
 			</text>
 			<line_editor left="97" name="media_url"/>
-			<button label="Choisir" label_selected="Définir..." name="set_media_url"/>
-			<text name="CurrentURL:">
-				Page actuelle :
-			</text>
-			<button label="Réinitialiser..." label_selected="Réinitialiser..." name="reset_media_url" tool_tip="Actualiser l&apos;URL"/>
+			<button label="Choisir" name="set_media_url"/>
 			<check_box label="Masquer l&apos;URL" left="97" name="hide_media_url" tool_tip="Si vous cochez cette option, les personnes non autorisées à accéder aux infos de cette parcelle ne verront pas l&apos;URL du média. Cette option n&apos;est pas disponible pour les fichiers HTML."/>
 			<text name="Description:">
 				Description :
 			</text>
 			<line_editor left="97" name="url_description" tool_tip="Texte affiché à côté du bouton Jouer/Charger"/>
 			<text name="Media texture:">
-				Remplacer la texture :
+				Remplacer la 
+texture :
 			</text>
 			<texture_picker label="" left="97" name="media texture" tool_tip="Cliquez pour sélectionner une image"/>
 			<text name="replace_texture_help">
@@ -423,9 +432,11 @@ Seules les parcelles de grande taille peuvent apparaître dans la recherche.
 			<check_box label="En boucle" name="media_loop" tool_tip="Jouer le média en boucle. Lorsque le média aura fini de jouer, il recommencera."/>
 		</panel>
 		<panel label="SON" name="land_audio_panel">
-			<text name="MusicURL:">
-				URL de la musique :
+			<text bottom_delta="-28" name="MusicURL:">
+				URL de la 
+musique :
 			</text>
+			<check_box label="Masquer l&apos;URL" name="hide_music_url" tool_tip="Si vous cochez cette option, l&apos;URL de musique sera masquée et invisible pour tous les utilisateurs non autorisés des informations de cette parcelle."/>
 			<text name="Sound:">
 				Son :
 			</text>
@@ -435,11 +446,14 @@ Seules les parcelles de grande taille peuvent apparaître dans la recherche.
 			</text>
 			<check_box label="Activer le chat vocal" name="parcel_enable_voice_channel"/>
 			<check_box label="Activer la voix (contrôlé par le domaine)" name="parcel_enable_voice_channel_is_estate_disabled"/>
-			<check_box label="Limiter le chat vocal à cette parcelle" name="parcel_enable_voice_channel_parcel"/>
+			<check_box label="Limiter le chat vocal à cette parcelle" name="parcel_enable_voice_channel_local"/>
 		</panel>
 		<panel label="ACCÈS" name="land_access_panel">
 			<panel.string name="access_estate_defined">
 				(défini par le domaine
+			</panel.string>
+			<panel.string name="allow_public_access">
+				Autoriser l&apos;accès public ([MATURITY])
 			</panel.string>
 			<panel.string name="estate_override">
 				Au moins une de ces options est définie au niveau du domaine.
@@ -455,7 +469,7 @@ Seules les parcelles de grande taille peuvent apparaître dans la recherche.
 			<check_box label="Vérification de l&apos;âge [ESTATE_AGE_LIMIT]" name="limit_age_verified" tool_tip="Bannir les résidents qui n&apos;ont pas vérifié leur âge. Consultez la page [SUPPORT_SITE] pour plus d&apos;informations."/>
 			<check_box label="Autoriser l&apos;accès au groupe : [GROUP]" name="GroupCheck" tool_tip="Définir le groupe à l&apos;onglet Général."/>
 			<check_box label="Vendre des pass à :" name="PassCheck" tool_tip="Autoriser un accès temporaire à cette parcelle"/>
-			<combo_box name="pass_combo">
+			<combo_box name="pass_combo" width="110">
 				<combo_box.item label="Tout le monde" name="Anyone"/>
 				<combo_box.item label="Groupe" name="Group"/>
 			</combo_box>

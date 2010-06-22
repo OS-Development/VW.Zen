@@ -442,7 +442,6 @@ void LLRenderPass::renderTexture(U32 type, U32 mask)
 
 void LLRenderPass::pushBatches(U32 type, U32 mask, BOOL texture)
 {
-	llpushcallstacks ;
 	for (LLCullResult::drawinfo_list_t::iterator i = gPipeline.beginRenderMap(type); i != gPipeline.endRenderMap(type); ++i)	
 	{
 		LLDrawInfo* pparams = *i;
@@ -496,8 +495,8 @@ void LLRenderPass::pushBatch(LLDrawInfo& params, U32 mask, BOOL texture)
 			params.mGroup->rebuildMesh();
 		}
 		params.mVertexBuffer->setBuffer(mask);
-		params.mVertexBuffer->drawRange(LLRender::TRIANGLES, params.mStart, params.mEnd, params.mCount, params.mOffset);
-		gPipeline.addTrianglesDrawn(params.mCount/3);
+		params.mVertexBuffer->drawRange(params.mDrawMode, params.mStart, params.mEnd, params.mCount, params.mOffset);
+		gPipeline.addTrianglesDrawn(params.mCount, params.mDrawMode);
 	}
 
 	if (params.mTextureMatrix && texture && params.mTexture.notNull())

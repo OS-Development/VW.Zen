@@ -283,8 +283,13 @@ void LLFloaterTopObjects::updateSelectionInfo()
 	std::string object_id_string = object_id.asString();
 
 	childSetValue("id_editor", LLSD(object_id_string));
-	childSetValue("object_name_editor", list->getFirstSelected()->getColumn(1)->getValue().asString());
-	childSetValue("owner_name_editor", list->getFirstSelected()->getColumn(2)->getValue().asString());
+	LLScrollListItem* sli = list->getFirstSelected();
+	llassert(sli);
+	if (sli)
+	{
+		childSetValue("object_name_editor", sli->getColumn(1)->getValue().asString());
+		childSetValue("owner_name_editor", sli->getColumn(2)->getValue().asString());
+	}
 }
 
 // static
@@ -310,7 +315,7 @@ void LLFloaterTopObjects::doToObjects(int action, bool all)
 	LLCtrlListInterface *list = childGetListInterface("objects_list");
 	if (!list || list->getItemCount() == 0) return;
 
-	std::vector<LLUUID>::iterator id_itor;
+	uuid_vec_t::iterator id_itor;
 
 	bool start_message = true;
 

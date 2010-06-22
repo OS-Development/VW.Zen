@@ -98,8 +98,6 @@ private:
 	
 	std::string mPluginFile;
 
-	std::string mUserDataPath;
-	
 	LLPluginInstance *mInstance;
 
 	typedef std::map<std::string, LLPluginSharedMemory*> sharedMemoryRegionsType;
@@ -108,6 +106,11 @@ private:
 	LLTimer mHeartbeat;
 	F64		mSleepTime;
 	F64		mCPUElapsed;
+	bool	mBlockingRequest;
+	bool	mBlockingResponseReceived;
+	std::queue<std::string> mMessageQueue;
+	
+	void deliverQueuedMessages();
 	
 };
 

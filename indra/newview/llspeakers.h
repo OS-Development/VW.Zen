@@ -34,6 +34,7 @@
 #define LL_LLSPEAKERS_H
 
 #include "llevent.h"
+#include "lleventtimer.h"
 #include "llspeakers.h"
 #include "llvoicechannel.h"
 
@@ -155,6 +156,13 @@ public:
 	 */
 	virtual BOOL tick();
 
+	/**
+	 * Clears the callback.
+	 *
+	 * Use this instead of deleteing this object. 
+	 * The next call to tick() will return true and that will destroy this object.
+	 */
+	void unset();
 private:
 	action_callback_t	mActionCallback;
 	LLUUID				mSpeakerId;
@@ -180,7 +188,7 @@ public:
 	 *
 	 * @see onTimerActionCallback()
 	 */
-	void unsetActionTimer(const LLUUID& speaker_id, bool delete_it);
+	void unsetActionTimer(const LLUUID& speaker_id);
 
 	void removeAllTimers();
 private:
@@ -188,7 +196,6 @@ private:
 	 * Callback of the each instance of LLSpeakerActionTimer.
 	 *
 	 * Unsets an appropriate timer instance and calls action callback for specified speacker_id.
-	 * It always returns false to not use LLEventTimer::updateClass functionality of timer deleting.
 	 *
 	 * @see unsetActionTimer()
 	 */
@@ -227,6 +234,21 @@ public:
 	LLVoiceChannel* getVoiceChannel() { return mVoiceChannel; }
 	const LLUUID getSessionID();
 
+	/**
+	 * Removes avaline speaker.
+	 *
+	 * This is a HACK due to server does not send information that Avaline caller ends call.
+	 * It can be removed when server is updated. See EXT-4301 for details
+	 */
+	bool removeAvalineSpeaker(const LLUUID& speaker_id) { return removeSpeaker(speaker_id); }
+
+	/**
+	 * Initializes mVoiceModerated depend on LLSpeaker::mModeratorMutedVoice of agent's participant.
+	 *
+	 * Is used only to implement workaround to initialize mVoiceModerated on first join to group chat. See EXT-6937
+	 */
+	void initVoiceModerateMode();
+
 protected:
 	virtual void updateSpeakerList();
 	void setSpeakerNotInChannel(LLSpeaker* speackerp);
@@ -243,6 +265,14 @@ protected:
 	 * time out speakers when they are not part of current session
 	 */
 	LLSpeakersDelayActionsStorage* mSpeakerDelayRemover;
+
+	// *TODO: should be moved back into LLIMSpeakerMgr when a way to request the current voice channel
+	// moderation mode is implemented: See EXT-6937
+	bool mVoiceModerated;
+
+	// *TODO: To be removed when a way to request the current voice channel
+	// moderation mode is implemented: See EXT-6937
+	bool mModerateModeHandledFirstTime;
 };
 
 class LLIMSpeakerMgr : public LLSpeakerMgr
@@ -264,22 +294,21 @@ public:
 	 * @param[in] avatar_id UUID of avatar to be processed
 	 * @param[in] unmute if false - specified avatar will be muted, otherwise - unmuted.
 	 *
-	 * @see moderateVoiceOtherParticipants()
+	 * @see moderateVoiceAllParticipants()
 	 */
 	void moderateVoiceParticipant(const LLUUID& avatar_id, bool unmute);
 
 	/**
-	 * Mutes/Unmutes all avatars except specified for current group voice chat.
+	 * Mutes/Unmutes all avatars for current group voice chat.
 	 *
 	 * It only marks avatars as muted for session and does not use local Agent's Block list.
-	 * It based call moderateVoiceParticipant() for each avatar should be muted/unmuted.
+	 * It calls forceVoiceModeratedMode() in case of session is already in requested state.
 	 *
-	 * @param[in] excluded_avatar_id UUID of avatar NOT to be processed
-	 * @param[in] unmute_everyone_else if false - avatars will be muted, otherwise - unmuted.
+	 * @param[in] unmute_everyone if false - avatars will be muted, otherwise - unmuted.
 	 *
 	 * @see moderateVoiceParticipant()
 	 */
-	void moderateVoiceOtherParticipants(const LLUUID& excluded_avatar_id, bool unmute_everyone_else);
+	void moderateVoiceAllParticipants(bool unmute_everyone);
 
 	void processSessionUpdate(const LLSD& session_update);
 
@@ -288,7 +317,11 @@ protected:
 
 	void moderateVoiceSession(const LLUUID& session_id, bool disallow_voice);
 
-	LLUUID mReverseVoiceModeratedAvatarID;
+	/**
+	 * Process all participants to mute/unmute them according to passed voice session state.
+	 */
+	void forceVoiceModeratedMode(bool should_be_muted);
+
 };
 
 class LLActiveSpeakerMgr : public LLSpeakerMgr, public LLSingleton<LLActiveSpeakerMgr>

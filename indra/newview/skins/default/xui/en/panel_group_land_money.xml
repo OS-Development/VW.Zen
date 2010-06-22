@@ -1,14 +1,13 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <panel
  border="false"
- follows="all"
  height="500"
  label="Land &amp; L$"
  layout="topleft"
  left="0"
  name="land_money_tab"
  top="0"
- width="313">
+ width="304">
     <panel.string
      name="help_text">
    A warning appears until the Total Land in Use is less than or = to the Total Contribution.
@@ -16,6 +15,10 @@
     <panel.string
      name="cant_view_group_land_text">
         You don&apos;t have permission to view group owned land
+    </panel.string>
+    <panel.string
+     name="epmty_view_group_land_text">
+        No entries
     </panel.string>
     <panel.string
      name="cant_view_group_accounting_text">
@@ -263,6 +266,7 @@
          top="0"
          width="313">
             <text_editor
+             enabled="false"
              type="string"
              follows="all"
              height="200"
@@ -287,6 +291,7 @@
          top="0"
          width="313">
           <text_editor
+             enabled="false"
              type="string"
              follows="all"
              height="185"
@@ -330,6 +335,7 @@
          top="0"
          width="313">
             <text_editor
+             enabled="false"
              type="string"
              follows="all"
              height="185"

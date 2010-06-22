@@ -137,15 +137,15 @@ namespace LLInitParam
 	}
 
 
-	bool BaseBlock::validateBlock(bool silent) const
+	bool BaseBlock::validateBlock(bool emit_errors) const
 	{
-		const BlockDescriptor& block_data = getBlockDescriptor();
+		const BlockDescriptor& block_data = mostDerivedBlockDescriptor();
 		for (BlockDescriptor::param_validation_list_t::const_iterator it = block_data.mValidationList.begin(); it != block_data.mValidationList.end(); ++it)
 		{
 			const Param* param = getParamFromHandle(it->first);
 			if (!it->second(param))
 			{
-				if (!silent)
+				if (emit_errors)
 				{
 					llwarns << "Invalid param \"" << getParamName(block_data, param) << "\"" << llendl;
 				}
@@ -159,7 +159,7 @@ namespace LLInitParam
 	{
 		// named param is one like LLView::Params::follows
 		// unnamed param is like LLView::Params::rect - implicit
-		const BlockDescriptor& block_data = getBlockDescriptor();
+		const BlockDescriptor& block_data = mostDerivedBlockDescriptor();
 
 		for (BlockDescriptor::param_list_t::const_iterator it = block_data.mUnnamedParams.begin(); 
 			it != block_data.mUnnamedParams.end(); 
@@ -230,7 +230,7 @@ namespace LLInitParam
 	{
 		// named param is one like LLView::Params::follows
 		// unnamed param is like LLView::Params::rect - implicit
-		const BlockDescriptor& block_data = getBlockDescriptor();
+		const BlockDescriptor& block_data = mostDerivedBlockDescriptor();
 
 		for (BlockDescriptor::param_list_t::const_iterator it = block_data.mUnnamedParams.begin(); 
 			it != block_data.mUnnamedParams.end(); 
@@ -301,7 +301,7 @@ namespace LLInitParam
 
 	bool BaseBlock::deserializeBlock(Parser& p, Parser::name_stack_range_t name_stack)
 	{
-		BlockDescriptor& block_data = getBlockDescriptor();
+		BlockDescriptor& block_data = mostDerivedBlockDescriptor();
 		bool names_left = name_stack.first != name_stack.second;
 
 		if (names_left)
@@ -386,7 +386,7 @@ namespace LLInitParam
 
 	void BaseBlock::addSynonym(Param& param, const std::string& synonym)
 	{
-		BlockDescriptor& block_data = getBlockDescriptor();
+		BlockDescriptor& block_data = mostDerivedBlockDescriptor();
 		if (block_data.mInitializationState == BlockDescriptor::INITIALIZING)
 		{
 			param_handle_t handle = getHandleFromParam(&param);
@@ -417,8 +417,8 @@ namespace LLInitParam
 	{ 
 		if (user_provided)
 		{
-		mChangeVersion++;
-	}
+			mChangeVersion++;
+		}
 	}
 
 	const std::string& BaseBlock::getParamName(const BlockDescriptor& block_data, const Param* paramp) const
@@ -445,7 +445,7 @@ namespace LLInitParam
 
 	ParamDescriptor* BaseBlock::findParamDescriptor(param_handle_t handle)
 	{
-		BlockDescriptor& descriptor = getBlockDescriptor();
+		BlockDescriptor& descriptor = mostDerivedBlockDescriptor();
 		BlockDescriptor::all_params_list_t::iterator end_it = descriptor.mAllParams.end();
 		for (BlockDescriptor::all_params_list_t::iterator it = descriptor.mAllParams.begin();
 			it != end_it;
@@ -458,9 +458,9 @@ namespace LLInitParam
 
 	// take all provided params from other and apply to self
 	// NOTE: this requires that "other" is of the same derived type as this
-	bool BaseBlock::overwriteFromImpl(BlockDescriptor& block_data, const BaseBlock& other)
+	bool BaseBlock::merge(BlockDescriptor& block_data, const BaseBlock& other, bool overwrite)
 	{
-		bool param_changed = false;
+		bool some_param_changed = false;
 		BlockDescriptor::all_params_list_t::const_iterator end_it = block_data.mAllParams.end();
 		for (BlockDescriptor::all_params_list_t::const_iterator it = block_data.mAllParams.begin();
 			it != end_it;
@@ -471,30 +471,10 @@ namespace LLInitParam
 			if (merge_func)
 			{
 				Param* paramp = getParamFromHandle(it->mParamHandle);
-				param_changed |= merge_func(*paramp, *other_paramp, true);
+				some_param_changed |= merge_func(*paramp, *other_paramp, overwrite);
 			}
 		}
-		return param_changed;
-	}
-
-	// take all provided params that are not already provided, and apply to self
-	bool BaseBlock::fillFromImpl(BlockDescriptor& block_data, const BaseBlock& other)
-	{
-		bool param_changed = false;
-		BlockDescriptor::all_params_list_t::const_iterator end_it = block_data.mAllParams.end();
-		for (BlockDescriptor::all_params_list_t::const_iterator it = block_data.mAllParams.begin();
-			it != end_it;
-			++it)
-		{
-			const Param* other_paramp = other.getParamFromHandle(it->mParamHandle);
-			ParamDescriptor::merge_func_t merge_func = it->mMergeFunc;
-			if (merge_func)
-			{
-				Param* paramp = getParamFromHandle(it->mParamHandle);
-				param_changed |= merge_func(*paramp, *other_paramp, false);
-			}
-		}
-		return param_changed;
+		return some_param_changed;
 	}
 
 	bool ParamCompare<LLSD, false>::equals(const LLSD &a, const LLSD &b)

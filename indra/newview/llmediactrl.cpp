@@ -78,10 +78,8 @@ LLMediaCtrl::LLMediaCtrl( const Params& p) :
 	mBorder(NULL),
 	mFrequentUpdates( true ),
 	mForceUpdate( false ),
-	mOpenLinksInExternalBrowser( false ),
-	mOpenLinksInInternalBrowser( false ),
-	mTrusted( false ),
 	mHomePageUrl( "" ),
+	mTrusted(false),
 	mIgnoreUIScale( true ),
 	mAlwaysRefresh( false ),
 	mMediaSource( 0 ),
@@ -167,22 +165,12 @@ void LLMediaCtrl::setTakeFocusOnClick( bool take_focus )
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// set flag that forces the embedded browser to open links in the external system browser
-void LLMediaCtrl::setOpenInExternalBrowser( bool valIn )
-{
-	mOpenLinksInExternalBrowser = valIn;
-};
-
-////////////////////////////////////////////////////////////////////////////////
-// set flag that forces the embedded browser to open links in the internal browser floater
-void LLMediaCtrl::setOpenInInternalBrowser( bool valIn )
-{
-	mOpenLinksInInternalBrowser = valIn;
-};
-
-////////////////////////////////////////////////////////////////////////////////
 void LLMediaCtrl::setTrusted( bool valIn )
 {
+	if(mMediaSource)
+	{
+		mMediaSource->setTrustedBrowser(valIn);
+	}
 	mTrusted = valIn;
 }
 
@@ -632,6 +620,7 @@ bool LLMediaCtrl::ensureMediaSourceExists()
 			mMediaSource->setVisible( getVisible() );
 			mMediaSource->addObserver( this );
 			mMediaSource->setBackgroundColor( getBackgroundColor() );
+			mMediaSource->setTrustedBrowser(mTrusted);
 			if(mClearCache)
 			{
 				mMediaSource->clearCache();
@@ -724,14 +713,14 @@ void LLMediaCtrl::draw()
 		LLGLSUIDefault gls_ui;
 		LLGLDisable gls_alphaTest( GL_ALPHA_TEST );
 
-		gGL.pushMatrix();
+		gGL.pushUIMatrix();
 		{
 			if (mIgnoreUIScale)
 			{
-				glLoadIdentity();
+				gGL.loadUIIdentity();
 				// font system stores true screen origin, need to scale this by UI scale factor
 				// to get render origin for this view (with unit scale)
-				gGL.translatef(floorf(LLFontGL::sCurOrigin.mX * LLUI::sGLScaleFactor.mV[VX]), 
+				gGL.translateUI(floorf(LLFontGL::sCurOrigin.mX * LLUI::sGLScaleFactor.mV[VX]), 
 							floorf(LLFontGL::sCurOrigin.mY * LLUI::sGLScaleFactor.mV[VY]), 
 							LLFontGL::sCurOrigin.mZ);
 			}
@@ -825,7 +814,7 @@ void LLMediaCtrl::draw()
 			gGL.end();
 			gGL.setSceneBlendType(LLRender::BT_ALPHA);
 		}
-		gGL.popMatrix();
+		gGL.popUIMatrix();
 	
 	}
 	else
@@ -939,14 +928,12 @@ void LLMediaCtrl::handleMediaEvent(LLPluginClassMedia* self, EMediaEvent event)
 		case MEDIA_EVENT_CLICK_LINK_HREF:
 		{
 			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_CLICK_LINK_HREF, target is \"" << self->getClickTarget() << "\", uri is " << self->getClickURL() << LL_ENDL;
-			onClickLinkHref(self);
 		};
 		break;
 		
 		case MEDIA_EVENT_CLICK_LINK_NOFOLLOW:
 		{
 			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_CLICK_LINK_NOFOLLOW, uri is " << self->getClickURL() << LL_ENDL;
-			onClickLinkNoFollow(self);
 		};
 		break;
 
@@ -971,100 +958,6 @@ void LLMediaCtrl::handleMediaEvent(LLPluginClassMedia* self, EMediaEvent event)
 
 	// chain all events to any potential observers of this object.
 	emitEvent(self, event);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// 
-void LLMediaCtrl::onClickLinkHref( LLPluginClassMedia* self )
-{
-	// retrieve the event parameters
-	std::string url = self->getClickURL();
-	U32 target_type = self->getClickTargetType();
-	
-	// is there is a target specified for the link?
-	if (gSavedSettings.getBOOL("UseExternalBrowser") || target_type == LLPluginClassMedia::TARGET_EXTERNAL)
-	{
-		LLSD payload;
-		payload["url"] = url;
-		payload["target_type"] = LLSD::Integer(target_type);
-		LLNotificationsUtil::add( "WebLaunchExternalTarget", LLSD(), payload, onClickLinkExternalTarget);
-	}
-	else if (target_type == LLPluginClassMedia::TARGET_BLANK)
-	{
-		clickLinkWithTarget(url, target_type);
-	}
-	else {
-		const std::string protocol1( "http://" );
-		const std::string protocol2( "https://" );
-		if( mOpenLinksInExternalBrowser )
-		{
-			if ( !url.empty() )
-			{
-				if ( LLStringUtil::compareInsensitive( url.substr( 0, protocol1.length() ), protocol1 ) == 0 ||
-					LLStringUtil::compareInsensitive( url.substr( 0, protocol2.length() ), protocol2 ) == 0 )
-				{
-					LLWeb::loadURLExternal( url );
-				}
-			}
-		}
-		else
-		if( mOpenLinksInInternalBrowser )
-		{
-			if ( !url.empty() )
-			{
-				if ( LLStringUtil::compareInsensitive( url.substr( 0, protocol1.length() ), protocol1 ) == 0 ||
-					LLStringUtil::compareInsensitive( url.substr( 0, protocol2.length() ), protocol2 ) == 0 )
-				{
-					llwarns << "Dead, unimplemented path that we used to send to the built-in browser long ago." << llendl;
-				}
-			}
-		}
-	}
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// static 
-bool LLMediaCtrl::onClickLinkExternalTarget(const LLSD& notification, const LLSD& response )
-{
-	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
-	if ( 0 == option )
-	{
-		LLSD payload = notification["payload"];
-		std::string url = payload["url"].asString();
-		S32 target_type = payload["target_type"].asInteger();
-		clickLinkWithTarget(url, target_type);
-	}
-	return false;
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-// static 
-void LLMediaCtrl::clickLinkWithTarget(const std::string& url, const S32& target_type )
-{
-	if (gSavedSettings.getBOOL("UseExternalBrowser") || target_type == LLPluginClassMedia::TARGET_EXTERNAL)
-	{
-		// load target in an external browser
-		LLWeb::loadURLExternal(url);
-	}
-	else if (target_type == LLPluginClassMedia::TARGET_BLANK)
-	{
-		// load target in the user's preferred browser
-		LLWeb::loadURL(url);
-	}
-	else {
-		// unsupported link target - shouldn't happen
-		LL_WARNS("LinkTarget") << "Unsupported link target type" << LL_ENDL;
-	}
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// 
-void LLMediaCtrl::onClickLinkNoFollow( LLPluginClassMedia* self )
-{
-	// let the dispatcher handle blocking/throttling of SLURLs
-	std::string url = self->getClickURL();
-	LLURLDispatcher::dispatch(url, this, mTrusted);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

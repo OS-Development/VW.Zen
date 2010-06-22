@@ -40,9 +40,10 @@
 #include "lltoastnotifypanel.h"
 #include "llviewercontrol.h"
 #include "llviewerwindow.h"
+#include "llnotificationmanager.h"
+#include "llpaneltiptoast.h"
 
 using namespace LLNotificationsUI;
-
 
 //--------------------------------------------------------------------------
 LLTipHandler::LLTipHandler(e_notification_type type, const LLSD& id)
@@ -51,6 +52,10 @@ LLTipHandler::LLTipHandler(e_notification_type type, const LLSD& id)
 
 	// Getting a Channel for our notifications
 	mChannel = LLChannelManager::getInstance()->createNotificationChannel();
+
+	LLScreenChannel* channel = dynamic_cast<LLScreenChannel*>(mChannel);
+	if(channel)
+		channel->setOnRejectToastCallback(boost::bind(&LLTipHandler::onRejectToast, this, _1));
 }
 
 //--------------------------------------------------------------------------
@@ -101,11 +106,16 @@ bool LLTipHandler::processNotification(const LLSD& notify)
 			}
 		}
 
+		std::string session_name = notification->getPayload()["SESSION_NAME"];
 		const std::string name = notification->getSubstitutions()["NAME"];
+		if (session_name.empty())
+		{
+			session_name = name;
+		}
 		LLUUID from_id = notification->getPayload()["from_id"];
 		if (LLHandlerUtil::canLogToIM(notification))
 		{
-			LLHandlerUtil::logToIM(IM_NOTHING_SPECIAL, name, name,
+			LLHandlerUtil::logToIM(IM_NOTHING_SPECIAL, session_name, name,
 					notification->getMessage(), from_id, from_id);
 		}
 
@@ -114,7 +124,13 @@ bool LLTipHandler::processNotification(const LLSD& notify)
 			LLHandlerUtil::spawnIMSession(name, from_id);
 		}
 
-		LLToastNotifyPanel* notify_box = new LLToastNotifyPanel(notification);
+		// don't spawn toast for inventory accepted/declined offers if respective IM window is open (EXT-5909)
+		if (!LLHandlerUtil::canSpawnToast(notification))
+		{
+			return true;
+		}
+
+		LLToastPanel* notify_box = LLToastPanel::buidPanelFromNotification(notification);
 
 		LLToast::Params p;
 		p.notif_id = notification->getID();
@@ -124,6 +140,8 @@ bool LLTipHandler::processNotification(const LLSD& notify)
 		p.is_tip = true;
 		p.can_be_stored = false;
 		
+		removeExclusiveNotifications(notification);
+
 		LLScreenChannel* channel = dynamic_cast<LLScreenChannel*>(mChannel);
 		if(channel)
 			channel->addToast(p);
@@ -142,4 +160,14 @@ void LLTipHandler::onDeleteToast(LLToast* toast)
 
 //--------------------------------------------------------------------------
 
+void LLTipHandler::onRejectToast(const LLUUID& id)
+{
+	LLNotificationPtr notification = LLNotifications::instance().find(id);
 
+	if (notification
+			&& LLNotificationManager::getInstance()->getHandlerForNotification(
+					notification->getType()) == this)
+	{
+		LLNotifications::instance().cancel(notification);
+	}
+}

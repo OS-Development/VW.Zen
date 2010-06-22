@@ -63,13 +63,10 @@ public:
 	static void cleanup();
 
 	// Inherited functionality
-	/*virtual*/ void changed(U32 mask);
-	/*virtual*/ void draw();
 	/*virtual*/ void onOpen(const LLSD& key);
 
 	LLInventoryPanel* getPanel();
-protected:
-	void updateTitle();
+	LLPanelMainInventory* getMainInventoryPanel() { return mPanelMainInventory;}
 private:
 	LLPanelMainInventory* mPanelMainInventory;
 };

@@ -92,14 +92,6 @@ void LLMultiFloater::draw()
 	}
 	else
 	{
-		for (S32 i = 0; i < mTabContainer->getTabCount(); i++)
-		{
-			LLFloater* floaterp = (LLFloater*)mTabContainer->getPanelByIndex(i);
-			if (floaterp->getShortTitle() != mTabContainer->getPanelTitle(i))
-			{
-				mTabContainer->setPanelTitle(i, floaterp->getShortTitle());
-			}
-		}
 		LLFloater::draw();
 	}
 }
@@ -246,6 +238,16 @@ void LLMultiFloater::addFloater(LLFloater* floaterp, BOOL select_added_floater, 
 	moveResizeHandlesToFront();
 }
 
+void LLMultiFloater::updateFloaterTitle(LLFloater* floaterp)
+{
+	S32 index = mTabContainer->getIndexForPanel(floaterp);
+	if (index != -1)
+	{
+		mTabContainer->setPanelTitle(index, floaterp->getShortTitle());
+	}
+}
+
+
 /**
 	BOOL selectFloater(LLFloater* floaterp)
 
@@ -353,13 +355,20 @@ void LLMultiFloater::setVisible(BOOL visible)
 
 BOOL LLMultiFloater::handleKeyHere(KEY key, MASK mask)
 {
-	if (key == 'W' && mask == MASK_CONTROL)
+	if (key == 'W' && mask == (MASK_CONTROL|MASK_SHIFT))
 	{
 		LLFloater* floater = getActiveFloater();
 		// is user closeable and is system closeable
 		if (floater && floater->canClose() && floater->isCloseable())
 		{
 			floater->closeFloater();
+
+			// EXT-5695 (Tabbed IM window loses focus if close any tabs by Ctrl+W)
+			// bring back focus on tab container if there are any tab left
+			if(mTabContainer->getTabCount() > 0)
+			{
+				mTabContainer->setFocus(TRUE);
+			}
 		}
 		return TRUE;
 	}

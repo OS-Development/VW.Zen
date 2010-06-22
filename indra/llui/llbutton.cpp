@@ -81,10 +81,9 @@ LLButton::Params::Params()
 	image_pressed_selected("image_pressed_selected"),
 	image_overlay("image_overlay"),
 	image_overlay_alignment("image_overlay_alignment", std::string("center")),
-	image_left_pad("image_left_pad"),
-	image_right_pad("image_right_pad"),
 	image_top_pad("image_top_pad"),
 	image_bottom_pad("image_bottom_pad"),
+	imgoverlay_label_space("imgoverlay_label_space", 1),
 	label_color("label_color"),
 	label_color_selected("label_color_selected"),	// requires is_toggle true
 	label_color_disabled("label_color_disabled"),
@@ -129,6 +128,7 @@ LLButton::LLButton(const LLButton::Params& p)
 	mImageSelected(p.image_selected),
 	mImageDisabled(p.image_disabled),
 	mImageDisabledSelected(p.image_disabled_selected),
+	mImageFlash(p.image_flash),
 	mImagePressed(p.image_pressed),
 	mImagePressedSelected(p.image_pressed_selected),
 	mImageHoverSelected(p.image_hover_selected),
@@ -144,10 +144,9 @@ LLButton::LLButton(const LLButton::Params& p)
 	mImageOverlay(p.image_overlay()),
 	mImageOverlayColor(p.image_overlay_color()),
 	mImageOverlayAlignment(LLFontGL::hAlignFromName(p.image_overlay_alignment)),
-	mImageOverlayLeftPad(p.image_left_pad),
-	mImageOverlayRightPad(p.image_right_pad),
 	mImageOverlayTopPad(p.image_top_pad),
 	mImageOverlayBottomPad(p.image_bottom_pad),
+	mImgOverlayLabelSpace(p.imgoverlay_label_space),
 	mIsToggle(p.is_toggle),
 	mScaleImage(p.scale_image),
 	mDropShadowedText(p.label_shadow),
@@ -637,14 +636,24 @@ void LLButton::draw()
 
 	if (mFlashing)
 	{
-		LLColor4 flash_color = mFlashBgColor.get();
-		use_glow_effect = TRUE;
-		glow_type = LLRender::BT_ALPHA; // blend the glow
-
-		if (mNeedsHighlight) // highlighted AND flashing
-			glow_color = (glow_color*0.5f + flash_color*0.5f) % 2.0f; // average between flash and highlight colour, with sum of the opacity
+		// if button should flash and we have icon for flashing, use it as image for button
+		if(flash && mImageFlash)
+		{
+			// setting flash to false to avoid its further influence on glow
+			flash = false;
+			imagep = mImageFlash;
+		}
+		// else use usual flashing via flash_color
 		else
-			glow_color = flash_color;
+		{
+			LLColor4 flash_color = mFlashBgColor.get();
+			use_glow_effect = TRUE;
+			glow_type = LLRender::BT_ALPHA; // blend the glow
+			if (mNeedsHighlight) // highlighted AND flashing
+				glow_color = (glow_color*0.5f + flash_color*0.5f) % 2.0f; // average between flash and highlight colour, with sum of the opacity
+			else
+				glow_color = flash_color;
+		}
 	}
 
 	if (mNeedsHighlight && !imagep)
@@ -771,12 +780,7 @@ void LLButton::draw()
 			center_x++;
 		}
 
-		S32 text_width_delta = overlay_width + 1;
-		// if image paddings set, they should participate in scaling process
-		S32 image_size_delta = mImageOverlayTopPad + mImageOverlayBottomPad;
-		overlay_width = overlay_width - image_size_delta;
-		overlay_height = overlay_height - image_size_delta;
-
+		center_y += (mImageOverlayBottomPad - mImageOverlayTopPad);
 		// fade out overlay images on disabled buttons
 		LLColor4 overlay_color = mImageOverlayColor.get();
 		if (!enabled)
@@ -788,10 +792,9 @@ void LLButton::draw()
 		switch(mImageOverlayAlignment)
 		{
 		case LLFontGL::LEFT:
-			text_left += overlay_width + mImageOverlayRightPad + 1;
-			text_width -= text_width_delta;
+			text_left += overlay_width + mImgOverlayLabelSpace;
 			mImageOverlay->draw(
-				mLeftHPad, 
+				mLeftHPad,
 				center_y - (overlay_height / 2), 
 				overlay_width, 
 				overlay_height, 
@@ -806,10 +809,9 @@ void LLButton::draw()
 				overlay_color);
 			break;
 		case LLFontGL::RIGHT:
-			text_right -= overlay_width + mImageOverlayLeftPad+ 1;
-			text_width -= text_width_delta;
+			text_right -= overlay_width + mImgOverlayLabelSpace;
 			mImageOverlay->draw(
-				getRect().getWidth() - mRightHPad - overlay_width, 
+				getRect().getWidth() - mRightHPad - overlay_width,
 				center_y - (overlay_height / 2), 
 				overlay_width, 
 				overlay_height, 
@@ -833,7 +835,7 @@ void LLButton::draw()
 			x = text_right;
 			break;
 		case LLFontGL::HCENTER:
-			x = getRect().getWidth() / 2;
+			x = text_left + (text_width / 2);
 			break;
 		case LLFontGL::LEFT:
 		default:
@@ -1012,6 +1014,11 @@ void LLButton::setImageDisabledSelected(LLPointer<LLUIImage> image)
 	mFadeWhenDisabled = TRUE;
 }
 
+void LLButton::setImagePressed(LLPointer<LLUIImage> image)
+{
+	mImagePressed = image;
+}
+
 void LLButton::setImageHoverSelected(LLPointer<LLUIImage> image)
 {
 	mImageHoverSelected = image;
@@ -1020,6 +1027,11 @@ void LLButton::setImageHoverSelected(LLPointer<LLUIImage> image)
 void LLButton::setImageHoverUnselected(LLPointer<LLUIImage> image)
 {
 	mImageHoverUnselected = image;
+}
+
+void LLButton::setImageFlash(LLPointer<LLUIImage> image)
+{
+	mImageFlash = image;
 }
 
 void LLButton::setImageOverlay(const std::string& image_name, LLFontGL::HAlign alignment, const LLColor4& color)

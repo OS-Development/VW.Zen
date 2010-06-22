@@ -106,6 +106,9 @@
 	<floater.string name="E_ST_NO_XLT_EMOTE">
 		エモート名を読みとれません。
 	</floater.string>
+	<floater.string name="E_ST_BAD_ROOT">
+		ルートジョイント名が無効です。「hip」を使用してください。
+	</floater.string>
 	<text name="name_label">
 		名前：
 	</text>
@@ -114,8 +117,8 @@
 	</text>
 	<spinner label="優先順位" name="priority" tool_tip="このアニメーションがどのアニメーションを上書きするかを決めます"/>
 	<check_box label="ループ" name="loop_check" tool_tip="このアニメーションをループ再生します"/>
-	<spinner label="イン(％)" label_width="45" left="70" name="loop_in_point" tool_tip="アニメーションのループ復帰点を設定します" width="100"/>
-	<spinner label="アウト(％)" label_width="60" left="170" name="loop_out_point" tool_tip="アニメーションのループ終了点を設定します" width="100"/>
+	<spinner label="イン(％)" label_width="45" left="60" name="loop_in_point" tool_tip="アニメーションのループ復帰点を設定します" width="100"/>
+	<spinner label="アウト(％)" label_width="50" left="170" name="loop_out_point" tool_tip="アニメーションのループ終了点を設定します" width="100"/>
 	<text name="hand_label">
 		手の動き
 	</text>
@@ -138,47 +141,47 @@
 		表現
 	</text>
 	<combo_box label="" name="emote_combo" tool_tip="アニメーション再生中の顔の表情を決めます">
-		<combo_box.item label="（なし）" name="[None]"/>
-		<combo_box.item label="アーーーーー" name="Aaaaah"/>
-		<combo_box.item label="恐れる" name="Afraid"/>
-		<combo_box.item label="怒る" name="Angry"/>
-		<combo_box.item label="満面の笑み" name="BigSmile"/>
-		<combo_box.item label="退屈" name="Bored"/>
-		<combo_box.item label="泣く" name="Cry"/>
-		<combo_box.item label="侮辱" name="Disdain"/>
-		<combo_box.item label="恥ずかしがる" name="Embarrassed"/>
-		<combo_box.item label="しかめっ面" name="Frown"/>
-		<combo_box.item label="キス" name="Kiss"/>
-		<combo_box.item label="笑う" name="Laugh"/>
-		<combo_box.item label="Plllppt" name="Plllppt"/>
-		<combo_box.item label="嫌悪感" name="Repulsed"/>
-		<combo_box.item label="悲しい" name="Sad"/>
-		<combo_box.item label="肩をすくめる" name="Shrug"/>
-		<combo_box.item label="微笑む" name="Smile"/>
-		<combo_box.item label="驚く" name="Surprise"/>
-		<combo_box.item label="ウィンク" name="Wink"/>
-		<combo_box.item label="心配する" name="Worry"/>
+		<item label="（なし）" name="[None]" value=""/>
+		<item label="アーーーーー" name="Aaaaah" value="アーーーーー"/>
+		<item label="恐れる" name="Afraid" value="恐れる"/>
+		<item label="怒る" name="Angry" value="怒る"/>
+		<item label="満面の笑み" name="BigSmile" value="満面の笑み"/>
+		<item label="退屈" name="Bored" value="退屈"/>
+		<item label="泣く" name="Cry" value="泣く"/>
+		<item label="侮辱" name="Disdain" value="侮辱"/>
+		<item label="恥ずかしがる" name="Embarrassed" value="恥ずかしがる"/>
+		<item label="しかめっ面" name="Frown" value="しかめっ面"/>
+		<item label="キス" name="Kiss" value="キス"/>
+		<item label="笑う" name="Laugh" value="笑う"/>
+		<item label="Plllppt" name="Plllppt" value="Plllppt"/>
+		<item label="嫌悪感" name="Repulsed" value="嫌悪感"/>
+		<item label="悲しい" name="Sad" value="悲しい"/>
+		<item label="肩をすくめる" name="Shrug" value="肩をすくめる"/>
+		<item label="微笑む" name="Smile" value="微笑む"/>
+		<item label="驚く" name="Surprise" value="驚く"/>
+		<item label="ウィンク" name="Wink" value="ウィンク"/>
+		<item label="心配する" name="Worry" value="心配する"/>
 	</combo_box>
 	<text name="preview_label">
 		同時進行行動
 	</text>
 	<combo_box label="" name="preview_base_anim" tool_tip="アバターが普通の行動をするときのアニメーションの動きをテストするためにこれを使います。">
-		<combo_box.item label="立つ" name="Standing"/>
-		<combo_box.item label="歩く" name="Walking"/>
-		<combo_box.item label="座る" name="Sitting"/>
-		<combo_box.item label="飛ぶ" name="Flying"/>
+		<item label="立つ" name="Standing" value="立つ"/>
+		<item label="歩く" name="Walking" value="歩く"/>
+		<item label="座る" name="Sitting" value="座る"/>
+		<item label="飛ぶ" name="Flying" value="飛ぶ"/>
 	</combo_box>
-	<spinner label="ﾌｪｰｽﾞｲﾝ(秒)" name="ease_in_time" tool_tip="アニメーションのブレンドイン時間（秒）"/>
-	<spinner label="ﾌｪｰｽﾞｱｳﾄ(秒)" name="ease_out_time" tool_tip="アニメーションのブレンドアウト時間（秒）"/>
+	<spinner label="イーズイン(秒)" name="ease_in_time" tool_tip="アニメーションのブレンドイン時間（秒）"/>
+	<spinner label="イーズアウト(秒)" name="ease_out_time" tool_tip="アニメーションのブレンドアウト時間（秒）"/>
 	<button label="" name="play_btn" tool_tip="アニメーションを再生する"/>
 	<button name="pause_btn" tool_tip="アニメーションを一時停止する"/>
 	<button label="" name="stop_btn" tool_tip="アニメーションの再生を停止"/>
 	<slider label="" name="playback_slider"/>
 	<text name="bad_animation_text">
-		アニメーション・ファイルを読み込めません。
+		アニメーションファイルを読み込めません。
  
  Poser 4からエクスポートされたBVHファイルを推奨します。
 	</text>
-	<button label="ｱｯﾌﾟﾛｰﾄﾞL$[AMOUNT]" name="ok_btn"/>
+	<button label="アップロードL$[AMOUNT]" name="ok_btn"/>
 	<button label="取り消し" name="cancel_btn"/>
 </floater>

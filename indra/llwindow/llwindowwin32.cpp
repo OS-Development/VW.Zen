@@ -46,6 +46,7 @@
 #include "llerror.h"
 #include "llgl.h"
 #include "llstring.h"
+#include "lldir.h"
 
 // System includes
 #include <commdlg.h>
@@ -378,6 +379,9 @@ LLWindowWin32::LLWindowWin32(LLWindowCallbacks* callbacks,
 	mMousePositionModified = FALSE;
 	mInputProcessingPaused = FALSE;
 	mPreeditor = NULL;
+	mKeyCharCode = 0;
+	mKeyScanCode = 0;
+	mKeyVirtualKey = 0;
 	mhDC = NULL;
 	mhRC = NULL;
 
@@ -1540,11 +1544,14 @@ void LLWindowWin32::initCursors()
 	mCursor[ UI_CURSOR_TOOLZOOMIN ] = LoadCursor(module, TEXT("TOOLZOOMIN"));
 	mCursor[ UI_CURSOR_TOOLPICKOBJECT3 ] = LoadCursor(module, TEXT("TOOLPICKOBJECT3"));
 	mCursor[ UI_CURSOR_PIPETTE ] = LoadCursor(module, TEXT("TOOLPIPETTE"));
+	mCursor[ UI_CURSOR_TOOLSIT ]	= LoadCursor(module, TEXT("TOOLSIT"));
+	mCursor[ UI_CURSOR_TOOLBUY ]	= LoadCursor(module, TEXT("TOOLBUY"));
+	mCursor[ UI_CURSOR_TOOLOPEN ]	= LoadCursor(module, TEXT("TOOLOPEN"));
 
 	// Color cursors
-	mCursor[UI_CURSOR_TOOLPLAY] = loadColorCursor(TEXT("TOOLPLAY"));
-	mCursor[UI_CURSOR_TOOLPAUSE] = loadColorCursor(TEXT("TOOLPAUSE"));
-	mCursor[UI_CURSOR_TOOLMEDIAOPEN] = loadColorCursor(TEXT("TOOLMEDIAOPEN"));
+	mCursor[ UI_CURSOR_TOOLPLAY ]		= loadColorCursor(TEXT("TOOLPLAY"));
+	mCursor[ UI_CURSOR_TOOLPAUSE ]		= loadColorCursor(TEXT("TOOLPAUSE"));
+	mCursor[ UI_CURSOR_TOOLMEDIAOPEN ]	= loadColorCursor(TEXT("TOOLMEDIAOPEN"));
 
 	// Note: custom cursors that are not found make LoadCursor() return NULL.
 	for( S32 i = 0; i < UI_CURSOR_COUNT; i++ )
@@ -1872,6 +1879,10 @@ LRESULT CALLBACK LLWindowWin32::mainWindowProc(HWND h_wnd, UINT u_msg, WPARAM w_
 			// allow system keys, such as ALT-F4 to be processed by Windows
 			eat_keystroke = FALSE;
 		case WM_KEYDOWN:
+			window_imp->mKeyCharCode = 0; // don't know until wm_char comes in next
+			window_imp->mKeyScanCode = ( l_param >> 16 ) & 0xff;
+			window_imp->mKeyVirtualKey = w_param;
+
 			window_imp->mCallbacks->handlePingWatchdog(window_imp, "Main:WM_KEYDOWN");
 			{
 				if (gDebugWindowProc)
@@ -1891,6 +1902,9 @@ LRESULT CALLBACK LLWindowWin32::mainWindowProc(HWND h_wnd, UINT u_msg, WPARAM w_
 			eat_keystroke = FALSE;
 		case WM_KEYUP:
 		{
+			window_imp->mKeyScanCode = ( l_param >> 16 ) & 0xff;
+			window_imp->mKeyVirtualKey = w_param;
+
 			window_imp->mCallbacks->handlePingWatchdog(window_imp, "Main:WM_KEYUP");
 			LLFastTimer t2(FTM_KEYHANDLER);
 
@@ -1976,6 +1990,8 @@ LRESULT CALLBACK LLWindowWin32::mainWindowProc(HWND h_wnd, UINT u_msg, WPARAM w_
 			break;
 
 		case WM_CHAR:
+			window_imp->mKeyCharCode = w_param;
+
 			// Should really use WM_UNICHAR eventually, but it requires a specific Windows version and I need
 			// to figure out how that works. - Doug
 			//
@@ -2861,8 +2877,16 @@ void LLSplashScreenWin32::updateImpl(const std::string& mesg)
 {
 	if (!mWindow) return;
 
-	WCHAR w_mesg[1024];
-	mbstowcs(w_mesg, mesg.c_str(), 1024);
+	int output_str_len = MultiByteToWideChar(CP_UTF8, 0, mesg.c_str(), mesg.length(), NULL, 0);
+	if( output_str_len>1024 )
+		return;
+
+	WCHAR w_mesg[1025];//big enought to keep null terminatos
+
+	MultiByteToWideChar (CP_UTF8, 0, mesg.c_str(), mesg.length(), w_mesg, output_str_len);
+
+	//looks like MultiByteToWideChar didn't add null terminator to converted string, see EXT-4858
+	w_mesg[output_str_len] = 0;
 
 	SendDlgItemMessage(mWindow,
 		666,		// HACK: text id
@@ -2941,7 +2965,7 @@ S32 OSMessageBoxWin32(const std::string& text, const std::string& caption, U32 t
 }
 
 
-void LLWindowWin32::spawnWebBrowser(const std::string& escaped_url )
+void LLWindowWin32::spawnWebBrowser(const std::string& escaped_url, bool async)
 {
 	bool found = false;
 	S32 i;
@@ -2971,86 +2995,31 @@ void LLWindowWin32::spawnWebBrowser(const std::string& escaped_url )
 
 	// let the OS decide what to use to open the URL
 	SHELLEXECUTEINFO sei = { sizeof( sei ) };
-	sei.fMask = SEE_MASK_FLAG_DDEWAIT;
+	// NOTE: this assumes that SL will stick around long enough to complete the DDE message exchange
+	// necessary for ShellExecuteEx to complete
+	if (async)
+	{
+		sei.fMask = SEE_MASK_ASYNCOK;
+	}
 	sei.nShow = SW_SHOWNORMAL;
 	sei.lpVerb = L"open";
 	sei.lpFile = url_utf16.c_str();
 	ShellExecuteEx( &sei );
-
-	//// TODO: LEAVING OLD CODE HERE SO I DON'T BONE OTHER MERGES
-	//// DELETE THIS ONCE THE MERGES ARE DONE
-
-	// Figure out the user's default web browser
-	// HKEY_CLASSES_ROOT\http\shell\open\command
-	/*
-	std::string reg_path_str = gURLProtocolWhitelistHandler[i] + "\\shell\\open\\command";
-	WCHAR reg_path_wstr[256];
-	mbstowcs( reg_path_wstr, reg_path_str.c_str(), LL_ARRAY_SIZE(reg_path_wstr) );
-
-	HKEY key;
-	WCHAR browser_open_wstr[1024];
-	DWORD buffer_length = 1024;
-	RegOpenKeyEx(HKEY_CLASSES_ROOT, reg_path_wstr, 0, KEY_QUERY_VALUE, &key);
-	RegQueryValueEx(key, NULL, NULL, NULL, (LPBYTE)browser_open_wstr, &buffer_length);
-	RegCloseKey(key);
-
-	// Convert to STL string
-	LLWString browser_open_wstring = utf16str_to_wstring(browser_open_wstr);
-
-	if (browser_open_wstring.length() < 2)
-	{
-		LL_WARNS("Window") << "Invalid browser executable in registry " << browser_open_wstring << LL_ENDL;
-		return;
-	}
-
-	// Extract the process that's supposed to be launched
-	LLWString browser_executable;
-	if (browser_open_wstring[0] == '"')
-	{
-		// executable is quoted, find the matching quote
-		size_t quote_pos = browser_open_wstring.find('"', 1);
-		// copy out the string including both quotes
-		browser_executable = browser_open_wstring.substr(0, quote_pos+1);
-	}
-	else
-	{
-		// executable not quoted, find a space
-		size_t space_pos = browser_open_wstring.find(' ', 1);
-		browser_executable = browser_open_wstring.substr(0, space_pos);
-	}
-
-	LL_DEBUGS("Window") << "Browser reg key: " << wstring_to_utf8str(browser_open_wstring) << LL_ENDL;
-	LL_INFOS("Window") << "Browser executable: " << wstring_to_utf8str(browser_executable) << LL_ENDL;
-
-	// Convert URL to wide string for Windows API
-	// Assume URL is UTF8, as can come from scripts
-	LLWString url_wstring = utf8str_to_wstring(escaped_url);
-	llutf16string url_utf16 = wstring_to_utf16str(url_wstring);
-
-	// Convert executable and path to wide string for Windows API
-	llutf16string browser_exec_utf16 = wstring_to_utf16str(browser_executable);
-
-	// ShellExecute returns HINSTANCE for backwards compatiblity.
-	// MS docs say to cast to int and compare to 32.
-	HWND our_window = NULL;
-	LPCWSTR directory_wstr = NULL;
-	int retval = (int) ShellExecute(our_window, 	// Flawfinder: ignore
-									L"open", 
-									browser_exec_utf16.c_str(), 
-									url_utf16.c_str(), 
-									directory_wstr,
-									SW_SHOWNORMAL);
-	if (retval > 32)
-	{
-		LL_DEBUGS("Window") << "load_url success with " << retval << LL_ENDL;
-	}
-	else
-	{
-		LL_INFOS("Window") << "load_url failure with " << retval << LL_ENDL;
-	}
-	*/
 }
 
+/*
+	Make the raw keyboard data available - used to poke through to LLQtWebKit so
+	that Qt/Webkit has access to the virtual keycodes etc. that it needs
+*/
+LLSD LLWindowWin32::getNativeKeyData()
+{
+	LLSD result = LLSD::emptyMap();
+
+	result["scan_code"] = (S32)mKeyScanCode;
+	result["virtual_key"] = (S32)mKeyVirtualKey;
+
+	return result;
+}
 
 BOOL LLWindowWin32::dialogColorPicker( F32 *r, F32 *g, F32 *b )
 {

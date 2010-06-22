@@ -59,12 +59,17 @@
 #include "llviewertexturelist.h"
 #include "llstring.h"
 
+#include "llendianswizzle.h"
+
+#include "llviewercontrol.h"
+#include "lltrans.h"
+#include "llimagedimensionsinfo.h"
+
 const S32 PREVIEW_BORDER_WIDTH = 2;
 const S32 PREVIEW_RESIZE_HANDLE_SIZE = S32(RESIZE_HANDLE_WIDTH * OO_SQRT2) + PREVIEW_BORDER_WIDTH;
 const S32 PREVIEW_HPAD = PREVIEW_RESIZE_HANDLE_SIZE;
 const S32 PREF_BUTTON_HEIGHT = 16 + 7 + 16;
 const S32 PREVIEW_TEXTURE_HEIGHT = 300;
-
 
 //-----------------------------------------------------------------------------
 // LLFloaterImagePreview()
@@ -124,6 +129,11 @@ BOOL LLFloaterImagePreview::postBuild()
 		childShow("bad_image_text");
 		childDisable("clothing_type_combo");
 		childDisable("ok_btn");
+
+		if(!mImageLoadError.empty())
+		{
+			childSetValue("bad_image_text",mImageLoadError.c_str());
+		}
 	}
 	
 	getChild<LLUICtrl>("ok_btn")->setCommitCallback(boost::bind(&LLFloaterNameDesc::onBtnOK, this));
@@ -340,6 +350,27 @@ bool LLFloaterImagePreview::loadImage(const std::string& src_filename)
 	{
 		codec = IMG_CODEC_PNG;
 	}
+
+	LLImageDimensionsInfo image_info;
+	if(!image_info.load(src_filename,codec))
+	{
+		mImageLoadError = image_info.getLastError();
+		return false;
+	}
+
+	S32 max_width = gSavedSettings.getS32("max_texture_dimension_X");
+	S32 max_heigh = gSavedSettings.getS32("max_texture_dimension_Y");
+
+	if(image_info.getWidth() > max_width|| image_info.getHeight() > max_heigh)
+	{
+		LLStringUtil::format_map_t args;
+		args["WIDTH"] = llformat("%d", max_width);
+		args["HEIGHT"] = llformat("%d", max_heigh);
+
+		mImageLoadError = LLTrans::getString("texture_load_dimensions_error", args);
+		return false;
+	}
+	
 
 	LLPointer<LLImageRaw> raw_image = new LLImageRaw;
 
@@ -611,7 +642,6 @@ LLImagePreviewAvatar::LLImagePreviewAvatar(S32 width, S32 height) : LLViewerDyna
 	mCameraZoom = 1.f;
 
 	mDummyAvatar = (LLVOAvatar*)gObjectList.createObjectViewer(LL_PCODE_LEGACY_AVATAR, gAgent.getRegion());
-	mDummyAvatar->initInstance();
 	mDummyAvatar->createDrawable(&gPipeline);
 	mDummyAvatar->mIsDummy = TRUE;
 	mDummyAvatar->mSpecialRenderMode = 2;
@@ -630,6 +660,11 @@ LLImagePreviewAvatar::~LLImagePreviewAvatar()
 	mDummyAvatar->markDead();
 }
 
+//virtual
+S8 LLImagePreviewAvatar::getType() const
+{
+	return LLViewerDynamicTexture::LL_IMAGE_PREVIEW_AVATAR ;
+}
 
 void LLImagePreviewAvatar::setPreviewTarget(const std::string& joint_name, const std::string& mesh_name, LLImageRaw* imagep, F32 distance, BOOL male) 
 { 
@@ -688,6 +723,9 @@ BOOL LLImagePreviewAvatar::render()
 	mNeedsUpdate = FALSE;
 	LLVOAvatar* avatarp = mDummyAvatar;
 
+	gGL.pushUIMatrix();
+	gGL.loadUIIdentity();
+
 	glMatrixMode(GL_PROJECTION);
 	gGL.pushMatrix();
 	glLoadIdentity();
@@ -696,6 +734,7 @@ BOOL LLImagePreviewAvatar::render()
 	glMatrixMode(GL_MODELVIEW);
 	gGL.pushMatrix();
 	glLoadIdentity();
+	
 
 	LLGLSUIDefault def;
 	gGL.color4f(0.15f, 0.2f, 0.3f, 1.f);
@@ -741,6 +780,7 @@ BOOL LLImagePreviewAvatar::render()
 		avatarPoolp->renderAvatars(avatarp);  // renders only one avatar
 	}
 
+	gGL.popUIMatrix();
 	gGL.color4f(1,1,1,1);
 	return TRUE;
 }
@@ -804,6 +844,11 @@ LLImagePreviewSculpted::~LLImagePreviewSculpted()
 {
 }
 
+//virtual
+S8 LLImagePreviewSculpted::getType() const
+{
+	return LLViewerDynamicTexture::LL_IMAGE_PREVIEW_SCULPTED ;
+}
 
 void LLImagePreviewSculpted::setPreviewTarget(LLImageRaw* imagep, F32 distance)
 { 

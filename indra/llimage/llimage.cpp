@@ -93,9 +93,10 @@ LLImageBase::LLImageBase()
 	  mWidth(0),
 	  mHeight(0),
 	  mComponents(0),
+	  mBadBufferAllocation(false),
+	  mAllowOverSize(false),
 	  mMemType(LLMemType::MTYPE_IMAGEBASE)
 {
-	mBadBufferAllocation = FALSE ;
 }
 
 // virtual
@@ -134,8 +135,6 @@ void LLImageBase::sanityCheck()
 	}
 }
 
-BOOL LLImageBase::sSizeOverride = FALSE;
-
 // virtual
 void LLImageBase::deleteData()
 {
@@ -157,22 +156,32 @@ U8* LLImageBase::allocateData(S32 size)
 			llerrs << llformat("LLImageBase::allocateData called with bad dimensions: %dx%dx%d",mWidth,mHeight,mComponents) << llendl;
 		}
 	}
-	else if (size <= 0 || (size > 4096*4096*16 && sSizeOverride == FALSE))
-	{
-		llerrs << "LLImageBase::allocateData: bad size: " << size << llendl;
-	}
 	
+	//make this function thread-safe.
+	static const U32 MAX_BUFFER_SIZE = 4096 * 4096 * 16 ; //256 MB
+	if (size < 1 || size > MAX_BUFFER_SIZE) 
+	{
+		llinfos << "width: " << mWidth << " height: " << mHeight << " components: " << mComponents << llendl ;
+		if(mAllowOverSize)
+		{
+			llinfos << "Oversize: " << size << llendl ;
+		}
+		else
+		{
+			llerrs << "LLImageBase::allocateData: bad size: " << size << llendl;
+		}
+	}
 	if (!mData || size != mDataSize)
 	{
 		deleteData(); // virtual
-		mBadBufferAllocation = FALSE ;
+		mBadBufferAllocation = false ;
 		mData = new U8[size];
 		if (!mData)
 		{
 			llwarns << "allocate image data: " << size << llendl;
 			size = 0 ;
 			mWidth = mHeight = 0 ;
-			mBadBufferAllocation = TRUE ;
+			mBadBufferAllocation = true ;
 		}
 		mDataSize = size;
 	}
@@ -221,7 +230,7 @@ U8* LLImageBase::getData()
 	return mData; 
 }
 
-BOOL LLImageBase::isBufferInvalid()
+bool LLImageBase::isBufferInvalid()
 {
 	return mBadBufferAllocation || mData == NULL ;
 }
@@ -257,7 +266,7 @@ LLImageRaw::LLImageRaw(U16 width, U16 height, S8 components)
 	: LLImageBase()
 {
 	mMemType = LLMemType::MTYPE_IMAGERAW;
-	llassert( S32(width) * S32(height) * S32(components) <= MAX_IMAGE_DATA_SIZE );
+	//llassert( S32(width) * S32(height) * S32(components) <= MAX_IMAGE_DATA_SIZE );
 	allocateDataSize(width, height, components);
 	++sRawImageCount;
 }
@@ -675,9 +684,6 @@ void LLImageRaw::copy(LLImageRaw* src)
 	}
 
 	LLImageRaw* dst = this;  // Just for clarity.
-
-	llassert( (3 == src->getComponents()) || (4 == src->getComponents()) );
-	llassert( (3 == dst->getComponents()) || (4 == dst->getComponents()) );
 
 	if( (src->getWidth() == dst->getWidth()) && (src->getHeight() == dst->getHeight()) )
 	{
@@ -1328,7 +1334,7 @@ LLImageFormatted::LLImageFormatted(S8 codec)
 	  mCodec(codec),
 	  mDecoding(0),
 	  mDecoded(0),
-	  mDiscardLevel(0)
+	  mDiscardLevel(-1)
 {
 	mMemType = LLMemType::MTYPE_IMAGEFORMATTED;
 }

@@ -560,8 +560,8 @@ void LLDrawPoolBump::renderGroup(LLSpatialGroup* group, U32 type, U32 mask, BOOL
 			params.mGroup->rebuildMesh();
 		}
 		params.mVertexBuffer->setBuffer(mask);
-		params.mVertexBuffer->drawRange(LLRender::TRIANGLES, params.mStart, params.mEnd, params.mCount, params.mOffset);
-		gPipeline.addTrianglesDrawn(params.mCount/3);
+		params.mVertexBuffer->drawRange(params.mDrawMode, params.mStart, params.mEnd, params.mCount, params.mOffset);
+		gPipeline.addTrianglesDrawn(params.mCount, params.mDrawMode);
 	}
 }
 
@@ -825,7 +825,6 @@ void LLBumpImageList::addTextureStats(U8 bump, const LLUUID& base_image_id, F32 
 
 void LLBumpImageList::updateImages()
 {	
-	llpushcallstacks ;
 	for (bump_image_map_t::iterator iter = mBrightnessEntries.begin(); iter != mBrightnessEntries.end(); )
 	{
 		bump_image_map_t::iterator curiter = iter++;
@@ -852,7 +851,6 @@ void LLBumpImageList::updateImages()
 			}
 		}
 	}
-	llpushcallstacks ;
 	for (bump_image_map_t::iterator iter = mDarknessEntries.begin(); iter != mDarknessEntries.end(); )
 	{
 		bump_image_map_t::iterator curiter = iter++;
@@ -879,7 +877,6 @@ void LLBumpImageList::updateImages()
 			}
 		}
 	}
-	llpushcallstacks ;
 }
 
 
@@ -1231,8 +1228,8 @@ void LLDrawPoolBump::pushBatch(LLDrawInfo& params, U32 mask, BOOL texture)
 		params.mGroup->rebuildMesh();
 	}
 	params.mVertexBuffer->setBuffer(mask);
-	params.mVertexBuffer->drawRange(LLRender::TRIANGLES, params.mStart, params.mEnd, params.mCount, params.mOffset);
-	gPipeline.addTrianglesDrawn(params.mCount/3);
+	params.mVertexBuffer->drawRange(params.mDrawMode, params.mStart, params.mEnd, params.mCount, params.mOffset);
+	gPipeline.addTrianglesDrawn(params.mCount, params.mDrawMode);
 	if (params.mTextureMatrix)
 	{
 		if (mShiny)

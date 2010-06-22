@@ -1,6 +1,6 @@
 /** 
  * @file llavatarlistitem.cpp
- * @avatar list item source file
+ * @brief avatar list item source file
  *
  * $LicenseInfo:firstyear=2009&license=viewergpl$
  * 
@@ -36,12 +36,13 @@
 #include "llavataractions.h"
 #include "llavatarlistitem.h"
 
-#include "llfloaterreg.h"
-#include "llagent.h"
-#include "lloutputmonitorctrl.h"
-#include "llavatariconctrl.h"
-#include "lltextutil.h"
 #include "llbutton.h"
+#include "llfloaterreg.h"
+#include "lltextutil.h"
+
+#include "llagent.h"
+#include "llavatariconctrl.h"
+#include "lloutputmonitorctrl.h"
 
 bool LLAvatarListItem::sStaticInitialized = false;
 S32 LLAvatarListItem::sLeftPadding = 0;
@@ -119,8 +120,9 @@ S32 LLAvatarListItem::notifyParent(const LLSD& info)
 	if (info.has("visibility_changed"))
 	{
 		updateChildren();
+		return 1;
 	}
-	return 0;
+	return LLPanel::notifyParent(info);
 }
 
 void LLAvatarListItem::onMouseEnter(S32 x, S32 y, MASK mask)
@@ -211,21 +213,25 @@ void LLAvatarListItem::setState(EItemState item_style)
 	mAvatarIcon->setColor(item_icon_color_map[item_style]);
 }
 
-void LLAvatarListItem::setAvatarId(const LLUUID& id, bool ignore_status_changes)
+void LLAvatarListItem::setAvatarId(const LLUUID& id, const LLUUID& session_id, bool ignore_status_changes/* = false*/, bool is_resident/* = true*/)
 {
 	if (mAvatarId.notNull())
 		LLAvatarTracker::instance().removeParticularFriendObserver(mAvatarId, this);
 
 	mAvatarId = id;
-	mAvatarIcon->setValue(id);
-	mSpeakingIndicator->setSpeakerId(id);
+	mSpeakingIndicator->setSpeakerId(id, session_id);
 
 	// We'll be notified on avatar online status changes
 	if (!ignore_status_changes && mAvatarId.notNull())
 		LLAvatarTracker::instance().addParticularFriendObserver(mAvatarId, this);
 
-	// Set avatar name.
-	gCacheName->get(id, FALSE, boost::bind(&LLAvatarListItem::onNameCache, this, _2, _3));
+	if (is_resident)
+	{
+		mAvatarIcon->setValue(id);
+
+		// Set avatar name.
+		gCacheName->get(id, FALSE, boost::bind(&LLAvatarListItem::onNameCache, this, _2, _3));
+	}
 }
 
 void LLAvatarListItem::showLastInteractionTime(bool show)
@@ -334,6 +340,9 @@ void LLAvatarListItem::onNameCache(const std::string& first_name, const std::str
 {
 	std::string name = first_name + " " + last_name;
 	setName(name);
+
+	//requesting the list to resort
+	notifyParent(LLSD().with("sort", LLSD()));
 }
 
 // Convert given number of seconds to a string like "23 minutes", "15 hours" or "3 years",
@@ -526,21 +535,30 @@ void LLAvatarListItem::updateChildren()
 LLView* LLAvatarListItem::getItemChildView(EAvatarListItemChildIndex child_view_index)
 {
 	LLView* child_view = mAvatarName;
-	if (child_view_index < 0 || ALIC_COUNT <= child_view_index)
-	{
-		LL_WARNS("AvatarItemReshape") << "Child view index is out of range: " << child_view_index << LL_ENDL;
-		return child_view;
-	}
+
 	switch (child_view_index)
 	{
-	case ALIC_ICON:					child_view = mAvatarIcon; break;
-	case ALIC_NAME:					child_view = mAvatarName; break;
-	case ALIC_INTERACTION_TIME:		child_view = mLastInteractionTime; break;
-	case ALIC_SPEAKER_INDICATOR:	child_view = mSpeakingIndicator; break;
-	case ALIC_INFO_BUTTON:			child_view = mInfoBtn; break;
-	case ALIC_PROFILE_BUTTON:		child_view = mProfileBtn; break;
+	case ALIC_ICON:
+		child_view = mAvatarIcon;
+		break;
+	case ALIC_NAME:
+		child_view = mAvatarName;
+		break;
+	case ALIC_INTERACTION_TIME:
+		child_view = mLastInteractionTime;
+		break;
+	case ALIC_SPEAKER_INDICATOR:
+		child_view = mSpeakingIndicator; 
+		break;
+	case ALIC_INFO_BUTTON:
+		child_view = mInfoBtn;
+		break;
+	case ALIC_PROFILE_BUTTON:
+		child_view = mProfileBtn;
+		break;
 	default:
 		LL_WARNS("AvatarItemReshape") << "Unexpected child view index is passed: " << child_view_index << LL_ENDL;
+		// leave child_view untouched
 	}
 	
 	return child_view;

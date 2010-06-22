@@ -209,7 +209,7 @@ F64 calc_clock_frequency(U32 uiMeasureMSecs)
 // Both Linux and Mac use gettimeofday for accurate time
 F64 calc_clock_frequency(unsigned int uiMeasureMSecs)
 {
-	return 1000000.0; // microseconds, so 1 Mhz.
+	return 1000000.0; // microseconds, so 1 MHz.
 }
 
 U64 get_clock_count()
@@ -552,63 +552,6 @@ void microsecondsToTimecodeString(U64 current_time, std::string& tcstring)
 void secondsToTimecodeString(F32 current_time, std::string& tcstring)
 {
 	microsecondsToTimecodeString((U64)((F64)(SEC_TO_MICROSEC*current_time)), tcstring);
-}
-
-
-//////////////////////////////////////////////////////////////////////////////
-//
-//		LLEventTimer Implementation
-//
-//////////////////////////////////////////////////////////////////////////////
-
-LLEventTimer::LLEventTimer(F32 period)
-: mEventTimer()
-{
-	mPeriod = period;
-	mBusy = false;
-}
-
-LLEventTimer::LLEventTimer(const LLDate& time)
-: mEventTimer()
-{
-	mPeriod = (F32)(time.secondsSinceEpoch() - LLDate::now().secondsSinceEpoch());
-	mBusy = false;
-}
-
-
-LLEventTimer::~LLEventTimer()
-{
-	llassert(!mBusy); // this LLEventTimer was destroyed from within its own tick() function - bad.  if you want tick() to cause destruction of its own timer, make it return true.
-}
-
-//static
-void LLEventTimer::updateClass() 
-{
-	std::list<LLEventTimer*> completed_timers;
-	for (instance_iter iter = beginInstances(); iter != endInstances(); ) 
-	{
-		LLEventTimer& timer = *iter++;
-		F32 et = timer.mEventTimer.getElapsedTimeF32();
-		if (timer.mEventTimer.getStarted() && et > timer.mPeriod) {
-			timer.mEventTimer.reset();
-			timer.mBusy = true;
-			if ( timer.tick() )
-			{
-				completed_timers.push_back( &timer );
-			}
-			timer.mBusy = false;
-		}
-	}
-
-	if ( completed_timers.size() > 0 )
-	{
-		for (std::list<LLEventTimer*>::iterator completed_iter = completed_timers.begin(); 
-			 completed_iter != completed_timers.end(); 
-			 completed_iter++ ) 
-		{
-			delete *completed_iter;
-		}
-	}
 }
 
 

@@ -143,9 +143,6 @@ public:
 									left_pad,	// from last right to my left
 									left_delta;	// from last left to my left
 								
-		Optional<bool>				center_horiz,
-									center_vert;
-
 		// these are nested attributes for LLLayoutPanel
 		//FIXME: get parent context involved in parsing traversal
 		Ignored						user_resize,
@@ -171,9 +168,9 @@ private:
 	// widgets in general are not copyable
 	LLView(const LLView& other) {};
 public:
-#if LL_DEBUG
+//#if LL_DEBUG
 	static BOOL sIsDrawing;
-#endif
+//#endif
 	enum ESoundFlags
 	{
 		SILENT = 0,

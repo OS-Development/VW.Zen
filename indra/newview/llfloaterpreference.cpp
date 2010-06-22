@@ -107,10 +107,13 @@
 #include "llpluginclassmedia.h"
 #include "llteleporthistorystorage.h"
 
+#include "lllogininstance.h"        // to check if logged in yet
+
 const F32 MAX_USER_FAR_CLIP = 512.f;
 const F32 MIN_USER_FAR_CLIP = 64.f;
 
-const S32 ASPECT_RATIO_STR_LEN = 100;
+//control value for middle mouse as talk2push button
+const static std::string MIDDLE_MOUSE_CV = "MiddleMouse";
 
 class LLVoiceSetKeyDialog : public LLModalDialog
 {
@@ -181,8 +184,6 @@ void LLVoiceSetKeyDialog::onCancel(void* user_data)
 // if creating/destroying these is too slow, we'll need to create
 // a static member and update all our static callbacks
 
-void handleNameTagOptionChanged(const LLSD& newvalue);	
-viewer_media_t get_web_media();
 bool callback_clear_browser_cache(const LLSD& notification, const LLSD& response);
 
 //bool callback_skip_dialogs(const LLSD& notification, const LLSD& response, LLFloaterPreference* floater);
@@ -190,23 +191,14 @@ bool callback_clear_browser_cache(const LLSD& notification, const LLSD& response
 
 void fractionFromDecimal(F32 decimal_val, S32& numerator, S32& denominator);
 
-viewer_media_t get_web_media()
-{
-	viewer_media_t media_source = LLViewerMedia::newMediaImpl(LLUUID::null);
-	media_source->initializeMedia("text/html");
-	return media_source;
-}
-
-
 bool callback_clear_browser_cache(const LLSD& notification, const LLSD& response)
 {
 	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	if ( option == 0 ) // YES
 	{
 		// clean web
-		viewer_media_t media_source = get_web_media();
-		if (media_source && media_source->hasMedia())
-			media_source->getMediaPlugin()->clear_cache();
+		LLViewerMedia::clearAllCaches();
+		LLViewerMedia::clearAllCookies();
 		
 		// clean nav bar history
 		LLNavigationBar::getInstance()->clearHistoryCache();
@@ -225,15 +217,6 @@ bool callback_clear_browser_cache(const LLSD& notification, const LLSD& response
 	}
 	
 	return false;
-}
-
-void handleNameTagOptionChanged(const LLSD& newvalue)
-{
-	S32 name_tag_option = S32(newvalue);
-	if(name_tag_option==2)
-	{
-		gSavedSettings.setBOOL("SmallAvatarNames", TRUE);
-	}
 }
 
 /*bool callback_skip_dialogs(const LLSD& notification, const LLSD& response, LLFloaterPreference* floater)
@@ -283,7 +266,6 @@ void fractionFromDecimal(F32 decimal_val, S32& numerator, S32& denominator)
 }
 // static
 std::string LLFloaterPreference::sSkin = "";
-F32 LLFloaterPreference::sAspectRatio = 0.0;
 //////////////////////////////////////////////
 // LLFloaterPreference
 
@@ -318,24 +300,17 @@ LLFloaterPreference::LLFloaterPreference(const LLSD& key)
 	mCommitCallbackRegistrar.add("Pref.ClickEnablePopup",		boost::bind(&LLFloaterPreference::onClickEnablePopup, this));
 	mCommitCallbackRegistrar.add("Pref.ClickDisablePopup",		boost::bind(&LLFloaterPreference::onClickDisablePopup, this));	
 	mCommitCallbackRegistrar.add("Pref.LogPath",				boost::bind(&LLFloaterPreference::onClickLogPath, this));
-	mCommitCallbackRegistrar.add("Pref.UpdateMeterText",		boost::bind(&LLFloaterPreference::updateMeterText, this, _1));	
 	mCommitCallbackRegistrar.add("Pref.HardwareSettings",       boost::bind(&LLFloaterPreference::onOpenHardwareSettings, this));	
 	mCommitCallbackRegistrar.add("Pref.HardwareDefaults",       boost::bind(&LLFloaterPreference::setHardwareDefaults, this));	
 	mCommitCallbackRegistrar.add("Pref.VertexShaderEnable",     boost::bind(&LLFloaterPreference::onVertexShaderEnable, this));	
 	mCommitCallbackRegistrar.add("Pref.WindowedMod",            boost::bind(&LLFloaterPreference::onCommitWindowedMode, this));	
 	mCommitCallbackRegistrar.add("Pref.UpdateSliderText",       boost::bind(&LLFloaterPreference::onUpdateSliderText,this, _1,_2));	
-	mCommitCallbackRegistrar.add("Pref.AutoDetectAspect",       boost::bind(&LLFloaterPreference::onCommitAutoDetectAspect, this));	
-	mCommitCallbackRegistrar.add("Pref.ParcelMediaAutoPlayEnable",       boost::bind(&LLFloaterPreference::onCommitParcelMediaAutoPlayEnable, this));	
-	mCommitCallbackRegistrar.add("Pref.MediaEnabled",           boost::bind(&LLFloaterPreference::onCommitMediaEnabled, this));	
-	mCommitCallbackRegistrar.add("Pref.MusicEnabled",           boost::bind(&LLFloaterPreference::onCommitMusicEnabled, this));	
-	mCommitCallbackRegistrar.add("Pref.onSelectAspectRatio",    boost::bind(&LLFloaterPreference::onKeystrokeAspectRatio, this));	
 	mCommitCallbackRegistrar.add("Pref.QualityPerformance",     boost::bind(&LLFloaterPreference::onChangeQuality, this, _2));	
 	mCommitCallbackRegistrar.add("Pref.applyUIColor",			boost::bind(&LLFloaterPreference::applyUIColor, this ,_1, _2));
 	mCommitCallbackRegistrar.add("Pref.getUIColor",				boost::bind(&LLFloaterPreference::getUIColor, this ,_1, _2));
-	
+	mCommitCallbackRegistrar.add("Pref.MaturitySettings",		boost::bind(&LLFloaterPreference::onChangeMaturity, this));
+
 	sSkin = gSavedSettings.getString("SkinCurrent");
-	
-	gSavedSettings.getControl("AvatarNameTagMode")->getCommitSignal()->connect(boost::bind(&handleNameTagOptionChanged,  _2));
 }
 
 BOOL LLFloaterPreference::postBuild()
@@ -344,27 +319,43 @@ BOOL LLFloaterPreference::postBuild()
 
 	gSavedSettings.getControl("PlainTextChatHistory")->getSignal()->connect(boost::bind(&LLNearbyChat::processChatHistoryStyleUpdate, _2));
 
+	gSavedSettings.getControl("ChatFontSize")->getSignal()->connect(boost::bind(&LLIMFloater::processChatHistoryStyleUpdate, _2));
+
+	gSavedSettings.getControl("ChatFontSize")->getSignal()->connect(boost::bind(&LLNearbyChat::processChatHistoryStyleUpdate, _2));
+
 	LLTabContainer* tabcontainer = getChild<LLTabContainer>("pref core");
 	if (!tabcontainer->selectTab(gSavedSettings.getS32("LastPrefTab")))
 		tabcontainer->selectFirstTab();
-	S32 show_avatar_nametag_options = gSavedSettings.getS32("AvatarNameTagMode");
-	handleNameTagOptionChanged(LLSD(show_avatar_nametag_options));
 
 	std::string cache_location = gDirUtilp->getExpandedFilename(LL_PATH_CACHE, "");
 	childSetText("cache_location", cache_location);
 
+	// if floater is opened before login set default localized busy message
+	if (LLStartUp::getStartupState() < STATE_STARTED)
+	{
+		gSavedPerAccountSettings.setString("BusyModeResponse", LLTrans::getString("BusyModeResponseDefault"));
+	}
+
 	return TRUE;
+}
+
+void LLFloaterPreference::onBusyResponseChanged()
+{
+	// set "BusyResponseChanged" TRUE if user edited message differs from default, FALSE otherwise
+	if(LLTrans::getString("BusyModeResponseDefault") != getChild<LLUICtrl>("busy_response")->getValue().asString())
+	{
+		gSavedPerAccountSettings.setBOOL("BusyResponseChanged", TRUE );
+	}
+	else
+	{
+		gSavedPerAccountSettings.setBOOL("BusyResponseChanged", FALSE );
+	}
 }
 
 LLFloaterPreference::~LLFloaterPreference()
 {
 	// clean up user data
-	LLComboBox* ctrl_aspect_ratio = getChild<LLComboBox>( "aspect_ratio");
 	LLComboBox* ctrl_window_size = getChild<LLComboBox>("windowsize combo");
-	for (S32 i = 0; i < ctrl_aspect_ratio->getItemCount(); i++)
-	{
-		ctrl_aspect_ratio->setCurrentByIndex(i);
-	}
 	for (S32 i = 0; i < ctrl_window_size->getItemCount(); i++)
 	{
 		ctrl_window_size->setCurrentByIndex(i);
@@ -435,17 +426,14 @@ void LLFloaterPreference::apply()
 	std::string cache_location = gDirUtilp->getExpandedFilename(LL_PATH_CACHE, "");
 	childSetText("cache_location", cache_location);		
 	
-	viewer_media_t media_source = get_web_media();
-	if (media_source && media_source->hasMedia())
+	LLViewerMedia::setCookiesEnabled(childGetValue("cookies_enabled"));
+	
+	if(hasChild("web_proxy_enabled") &&hasChild("web_proxy_editor") && hasChild("web_proxy_port"))
 	{
-		media_source->getMediaPlugin()->enable_cookies(childGetValue("cookies_enabled"));
-		if(hasChild("web_proxy_enabled") &&hasChild("web_proxy_editor") && hasChild("web_proxy_port"))
-		{
-			bool proxy_enable = childGetValue("web_proxy_enabled");
-			std::string proxy_address = childGetValue("web_proxy_editor");
-			int proxy_port = childGetValue("web_proxy_port");
-			media_source->getMediaPlugin()->proxy_setup(proxy_enable, proxy_address, proxy_port);
-		}
+		bool proxy_enable = childGetValue("web_proxy_enabled");
+		std::string proxy_address = childGetValue("web_proxy_editor");
+		int proxy_port = childGetValue("web_proxy_port");
+		LLViewerMedia::setProxyConfig(proxy_enable, proxy_address, proxy_port);
 	}
 	
 //	LLWString busy_response = utf8str_to_wstring(getChild<LLUICtrl>("busy_response")->getValue().asString());
@@ -477,8 +465,6 @@ void LLFloaterPreference::apply()
 			gAgent.sendAgentUpdateUserInfo(new_im_via_email,mDirectoryVisibility);
 		}
 	}
-
-	applyResolution();
 }
 
 void LLFloaterPreference::cancel()
@@ -514,40 +500,60 @@ void LLFloaterPreference::cancel()
 	
 	LLFloaterReg::hideInstance("pref_voicedevicesettings");
 	
-	gSavedSettings.setF32("FullScreenAspectRatio", sAspectRatio);
-
 }
 
 void LLFloaterPreference::onOpen(const LLSD& key)
 {
+	// this variable and if that follows it are used to properly handle busy mode response message
+	static bool initialized = FALSE;
+	// if user is logged in and we haven't initialized busy_response yet, do it
+	if (!initialized && LLStartUp::getStartupState() == STATE_STARTED)
+	{
+		// Special approach is used for busy response localization, because "BusyModeResponse" is
+		// in non-localizable xml, and also because it may be changed by user and in this case it shouldn't be localized.
+		// To keep track of whether busy response is default or changed by user additional setting BusyResponseChanged
+		// was added into per account settings.
+
+		// initialization should happen once,so setting variable to TRUE
+		initialized = TRUE;
+		// this connection is needed to properly set "BusyResponseChanged" setting when user makes changes in
+		// busy response message.
+		gSavedPerAccountSettings.getControl("BusyModeResponse")->getSignal()->connect(boost::bind(&LLFloaterPreference::onBusyResponseChanged, this));
+	}
 	gAgent.sendAgentUserInfoRequest();
 
 	/////////////////////////// From LLPanelGeneral //////////////////////////
 	// if we have no agent, we can't let them choose anything
 	// if we have an agent, then we only let them choose if they have a choice
 	bool can_choose_maturity =
-		gAgent.getID().notNull() &&	(gAgent.isMature() || gAgent.isGodlike());
+		gAgent.getID().notNull() &&
+		(gAgent.isMature() || gAgent.isGodlike());
 	
 	LLComboBox* maturity_combo = getChild<LLComboBox>("maturity_desired_combobox");
 	
 	if (can_choose_maturity)
 	{		
 		// if they're not adult or a god, they shouldn't see the adult selection, so delete it
-		if (!gAgent.isAdult() && !gAgent.isGodlike())
+		if (!gAgent.isAdult() && !gAgent.isGodlikeWithoutAdminMenuFakery())
 		{
-			// we're going to remove the adult entry from the combo. This obviously depends
-			// on the order of items in the XML file, but there doesn't seem to be a reasonable
-			// way to depend on the field in XML called 'name'.
-			maturity_combo->remove(0);
+			// we're going to remove the adult entry from the combo
+			LLScrollListCtrl* maturity_list = maturity_combo->findChild<LLScrollListCtrl>("ComboBox");
+			if (maturity_list)
+			{
+				maturity_list->deleteItems(LLSD(SIM_ACCESS_ADULT));
+			}
 		}
 		childSetVisible("maturity_desired_combobox", true);
-		childSetVisible("maturity_desired_textbox", false);		
+		childSetVisible("maturity_desired_textbox", false);
 	}
 	else
 	{
 		childSetText("maturity_desired_textbox",  maturity_combo->getSelectedItemLabel());
 		childSetVisible("maturity_desired_combobox", false);
 	}
+
+	// Display selected maturity icons.
+	onChangeMaturity();
 	
 	// Enabled/disabled popups, might have been changed by user actions
 	// while preferences floater was closed.
@@ -566,6 +572,16 @@ void LLFloaterPreference::onVertexShaderEnable()
 {
 	refreshEnabledGraphics();
 }
+
+//static
+void LLFloaterPreference::initBusyResponse()
+	{
+		if (!gSavedPerAccountSettings.getBOOL("BusyResponseChanged"))
+		{
+			//LLTrans::getString("BusyModeResponseDefault") is used here for localization (EXT-5885)
+			gSavedPerAccountSettings.setString("BusyModeResponse", LLTrans::getString("BusyModeResponseDefault"));
+		}
+	}
 
 void LLFloaterPreference::setHardwareDefaults()
 {
@@ -602,7 +618,7 @@ void LLFloaterPreference::onBtnOK()
 	if (hasFocus())
 	{
 		LLUICtrl* cur_focus = dynamic_cast<LLUICtrl*>(gFocusMgr.getKeyboardFocus());
-		if (cur_focus->acceptsTextInput())
+		if (cur_focus && cur_focus->acceptsTextInput())
 		{
 			cur_focus->onCommit();
 		}
@@ -626,7 +642,7 @@ void LLFloaterPreference::onBtnOK()
 		llinfos << "Can't close preferences!" << llendl;
 	}
 
-	LLPanelLogin::refreshLocation( false );
+	LLPanelLogin::updateLocationCombo( false );
 }
 
 // static 
@@ -635,7 +651,7 @@ void LLFloaterPreference::onBtnApply( )
 	if (hasFocus())
 	{
 		LLUICtrl* cur_focus = dynamic_cast<LLUICtrl*>(gFocusMgr.getKeyboardFocus());
-		if (cur_focus->acceptsTextInput())
+		if (cur_focus && cur_focus->acceptsTextInput())
 		{
 			cur_focus->onCommit();
 		}
@@ -643,7 +659,7 @@ void LLFloaterPreference::onBtnApply( )
 	apply();
 	saveSettings();
 
-	LLPanelLogin::refreshLocation( false );
+	LLPanelLogin::updateLocationCombo( false );
 }
 
 // static 
@@ -652,7 +668,7 @@ void LLFloaterPreference::onBtnCancel()
 	if (hasFocus())
 	{
 		LLUICtrl* cur_focus = dynamic_cast<LLUICtrl*>(gFocusMgr.getKeyboardFocus());
-		if (cur_focus->acceptsTextInput())
+		if (cur_focus && cur_focus->acceptsTextInput())
 		{
 			cur_focus->onCommit();
 		}
@@ -678,28 +694,14 @@ void LLFloaterPreference::refreshEnabledGraphics()
 	LLFloaterPreference* instance = LLFloaterReg::findTypedInstance<LLFloaterPreference>("preferences");
 	if(instance)
 	{
-		instance->refreshEnabledState();
+		instance->refresh();
+		//instance->refreshEnabledState();
 	}
 	LLFloaterHardwareSettings* hardware_settings = LLFloaterReg::getTypedInstance<LLFloaterHardwareSettings>("prefs_hardware_settings");
 	if (hardware_settings)
 	{
 		hardware_settings->refreshEnabledState();
 	}
-}
-
-void LLFloaterPreference::updateMeterText(LLUICtrl* ctrl)
-{
-	// get our UI widgets
-	LLSliderCtrl* slider = (LLSliderCtrl*) ctrl;
-
-	LLTextBox* m1 = getChild<LLTextBox>("DrawDistanceMeterText1");
-	LLTextBox* m2 = getChild<LLTextBox>("DrawDistanceMeterText2");
-
-	// toggle the two text boxes based on whether we have 1 or two digits
-	F32 val = slider->getValueF32();
-	bool two_digits = val < 100;
-	m1->setVisible(two_digits);
-	m2->setVisible(!two_digits);
 }
 
 void LLFloaterPreference::onClickBrowserClearCache()
@@ -901,6 +903,8 @@ void LLFloaterPreference::refreshEnabledState()
 	ctrl_wind_light->setEnabled(ctrl_shader_enable->getEnabled() && shaders);
 	// now turn off any features that are unavailable
 	disableUnavailableSettings();
+
+	childSetEnabled ("block_list", LLLoginInstance::getInstance()->authSuccess());
 }
 
 void LLFloaterPreference::disableUnavailableSettings()
@@ -968,60 +972,6 @@ void LLFloaterPreference::disableUnavailableSettings()
 	}
 }
 
-void LLFloaterPreference::onCommitAutoDetectAspect()
-{
-	BOOL auto_detect = getChild<LLCheckBoxCtrl>("aspect_auto_detect")->get();
-	F32 ratio;
-	
-	if (auto_detect)
-	{
-		S32 numerator = 0;
-		S32 denominator = 0;
-		
-		// clear any aspect ratio override
-		gViewerWindow->mWindow->setNativeAspectRatio(0.f);
-		fractionFromDecimal(gViewerWindow->mWindow->getNativeAspectRatio(), numerator, denominator);
-		
-		std::string aspect;
-		if (numerator != 0)
-		{
-			aspect = llformat("%d:%d", numerator, denominator);
-		}
-		else
-		{
-			aspect = llformat("%.3f", gViewerWindow->mWindow->getNativeAspectRatio());
-		}
-		
-		getChild<LLComboBox>( "aspect_ratio")->setLabel(aspect);
-		
-		ratio = gViewerWindow->mWindow->getNativeAspectRatio();
-		gSavedSettings.setF32("FullScreenAspectRatio", ratio);
-	}
-}
-
-void LLFloaterPreference::onCommitParcelMediaAutoPlayEnable()
-{
-	BOOL autoplay = getChild<LLCheckBoxCtrl>("autoplay_enabled")->get();
-		
-	gSavedSettings.setBOOL(LLViewerMedia::AUTO_PLAY_MEDIA_SETTING, autoplay);
-
-	lldebugs << "autoplay now = " << int(autoplay) << llendl;
-}
-
-void LLFloaterPreference::onCommitMediaEnabled()
-{
-	LLCheckBoxCtrl *media_enabled_ctrl = getChild<LLCheckBoxCtrl>("media_enabled");
-	bool enabled = media_enabled_ctrl->get();
-	gSavedSettings.setBOOL("AudioStreamingMedia", enabled);
-}
-
-void LLFloaterPreference::onCommitMusicEnabled()
-{
-	LLCheckBoxCtrl *music_enabled_ctrl = getChild<LLCheckBoxCtrl>("music_enabled");
-	bool enabled = music_enabled_ctrl->get();
-	gSavedSettings.setBOOL("AudioStreamingMusic", enabled);
-}
-
 void LLFloaterPreference::refresh()
 {
 	LLPanel::refresh();
@@ -1053,17 +1003,6 @@ void LLFloaterPreference::onChangeQuality(const LLSD& data)
 	refresh();
 }
 
-// static
-// DEV-24146 -  needs to be removed at a later date. jan-2009
-void LLFloaterPreference::cleanupBadSetting()
-{
-	if (gSavedPerAccountSettings.getString("BusyModeResponse2") == "|TOKEN COPY BusyModeResponse|")
-	{
-		llwarns << "cleaning old BusyModeResponse" << llendl;
-		gSavedPerAccountSettings.setString("BusyModeResponse2", gSavedPerAccountSettings.getText("BusyModeResponse"));
-	}
-}
-
 void LLFloaterPreference::onClickSetKey()
 {
 	LLVoiceSetKeyDialog* dialog = LLFloaterReg::showTypedInstance<LLVoiceSetKeyDialog>("voice_set_key", LLSD(), TRUE);
@@ -1082,9 +1021,17 @@ void LLFloaterPreference::setKey(KEY key)
 
 void LLFloaterPreference::onClickSetMiddleMouse()
 {
-	childSetValue("modifier_combo", "MiddleMouse");
+	LLUICtrl* p2t_line_editor = getChild<LLUICtrl>("modifier_combo");
+
 	// update the control right away since we no longer wait for apply
-	getChild<LLUICtrl>("modifier_combo")->onCommit();
+	p2t_line_editor->setControlValue(MIDDLE_MOUSE_CV);
+
+	//push2talk button "middle mouse" control value is in English, need to localize it for presentation
+	LLPanel* advanced_preferences = dynamic_cast<LLPanel*>(p2t_line_editor->getParent());
+	if (advanced_preferences)
+	{
+		p2t_line_editor->setValue(advanced_preferences->getString("middle_mouse"));
+	}
 }
 /*
 void LLFloaterPreference::onClickSkipDialogs()
@@ -1167,10 +1114,8 @@ void LLFloaterPreference::onClickLogPath()
 	{
 		return; //Canceled!
 	}
-	std::string chat_log_dir = picker.getDirName();
-	std::string chat_log_top_folder= gDirUtilp->getBaseFileName(chat_log_dir);
-	gSavedPerAccountSettings.setString("InstantMessageLogPath",chat_log_dir);
-	gSavedPerAccountSettings.setString("InstantMessageLogFolder",chat_log_top_folder);
+
+	gSavedPerAccountSettings.setString("InstantMessageLogPath", picker.getDirName());
 }
 
 void LLFloaterPreference::setPersonalInfo(const std::string& visibility, bool im_via_email, const std::string& email)
@@ -1266,79 +1211,19 @@ void LLFloaterPreference::updateSliderText(LLSliderCtrl* ctrl, LLTextBox* text_b
 	}
 }
 
-void LLFloaterPreference::onKeystrokeAspectRatio()
+void LLFloaterPreference::onChangeMaturity()
 {
-	getChild<LLCheckBoxCtrl>("aspect_auto_detect")->set(FALSE);
+	U8 sim_access = gSavedSettings.getU32("PreferredMaturity");
+
+	getChild<LLIconCtrl>("rating_icon_general")->setVisible(sim_access == SIM_ACCESS_PG
+															|| sim_access == SIM_ACCESS_MATURE
+															|| sim_access == SIM_ACCESS_ADULT);
+
+	getChild<LLIconCtrl>("rating_icon_moderate")->setVisible(sim_access == SIM_ACCESS_MATURE
+															|| sim_access == SIM_ACCESS_ADULT);
+
+	getChild<LLIconCtrl>("rating_icon_adult")->setVisible(sim_access == SIM_ACCESS_ADULT);
 }
-
-void LLFloaterPreference::applyResolution()
-{
-	LLComboBox* ctrl_aspect_ratio = getChild<LLComboBox>( "aspect_ratio");
-	gGL.flush();
-	char aspect_ratio_text[ASPECT_RATIO_STR_LEN];		/*Flawfinder: ignore*/
-	if (ctrl_aspect_ratio->getCurrentIndex() == -1)
-	{
-		// *Can't pass const char* from c_str() into strtok
-		strncpy(aspect_ratio_text, ctrl_aspect_ratio->getSimple().c_str(), sizeof(aspect_ratio_text) -1);	/*Flawfinder: ignore*/
-		aspect_ratio_text[sizeof(aspect_ratio_text) -1] = '\0';
-		char *element = strtok(aspect_ratio_text, ":/\\");
-		if (!element)
-		{
-			sAspectRatio = 0.f; // will be clamped later
-		}
-		else
-		{
-			LLLocale locale(LLLocale::USER_LOCALE);
-			sAspectRatio = (F32)atof(element);
-		}
-		
-		// look for denominator
-		element = strtok(NULL, ":/\\");
-		if (element)
-		{
-			LLLocale locale(LLLocale::USER_LOCALE);
-			
-			F32 denominator = (F32)atof(element);
-			if (denominator != 0.f)
-			{
-				sAspectRatio /= denominator;
-			}
-		}
-	}
-	else
-	{
-		sAspectRatio = (F32)ctrl_aspect_ratio->getValue().asReal();
-	}
-	
-	// presumably, user entered a non-numeric value if aspect_ratio == 0.f
-	if (sAspectRatio != 0.f)
-	{
-		sAspectRatio = llclamp(sAspectRatio, 0.2f, 5.f);
-		gSavedSettings.setF32("FullScreenAspectRatio", sAspectRatio);
-	}
-	
-	// Screen resolution
-	S32 num_resolutions;
-	LLWindow::LLWindowResolution* supported_resolutions = 
-	gViewerWindow->getWindow()->getSupportedResolutions(num_resolutions);
-	S32 resIndex = getChild<LLComboBox>("fullscreen combo")->getCurrentIndex();
-	if (resIndex == -1)
-	{
-		// use highest resolution if nothing selected
-		resIndex = num_resolutions - 1;
-	}
-	gSavedSettings.setS32("FullScreenWidth", supported_resolutions[resIndex].mWidth);
-	gSavedSettings.setS32("FullScreenHeight", supported_resolutions[resIndex].mHeight);
-	
-	gViewerWindow->requestResolutionUpdate(gSavedSettings.getBOOL("WindowFullScreen"));
-	
-	send_agent_update(TRUE);
-	
-	// Update enable/disable
-	refresh();
-}
-
-
 
 
 void LLFloaterPreference::applyUIColor(LLUICtrl* ctrl, const LLSD& param)
@@ -1393,54 +1278,12 @@ BOOL LLPanelPreference::postBuild()
 		childSetText("email_address",getString("log_in_to_change") );
 //		childSetText("busy_response", getString("log_in_to_change"));		
 	}
-
-
-	if(hasChild("aspect_ratio"))
-	{
-		// We used to set up fullscreen resolution and window size
-		// controls here, see LLFloaterWindowSize::initWindowSizeControls()
-		
-		if (gSavedSettings.getBOOL("FullScreenAutoDetectAspectRatio"))
-		{
-			LLFloaterPreference::sAspectRatio = gViewerWindow->getDisplayAspectRatio();
-		}
-		else
-		{
-			LLFloaterPreference::sAspectRatio = gSavedSettings.getF32("FullScreenAspectRatio");
-		}
-
-		getChild<LLComboBox>("aspect_ratio")->setTextEntryCallback(boost::bind(&LLPanelPreference::setControlFalse, this, LLSD("FullScreenAutoDetectAspectRatio") ));	
-		
-
-		S32 numerator = 0;
-		S32 denominator = 0;
-		fractionFromDecimal(LLFloaterPreference::sAspectRatio, numerator, denominator);		
-		
-		LLUIString aspect_ratio_text = getString("aspect_ratio_text");
-		if (numerator != 0)
-		{
-			aspect_ratio_text.setArg("[NUM]", llformat("%d",  numerator));
-			aspect_ratio_text.setArg("[DEN]", llformat("%d",  denominator));
-		}	
-		else
-		{
-			aspect_ratio_text = llformat("%.3f", LLFloaterPreference::sAspectRatio);
-		}
-		
-		LLComboBox* ctrl_aspect_ratio = getChild<LLComboBox>( "aspect_ratio");
-		//mCtrlAspectRatio->setCommitCallback(onSelectAspectRatio, this);
-		// add default aspect ratios
-		ctrl_aspect_ratio->add(aspect_ratio_text, &LLFloaterPreference::sAspectRatio, ADD_TOP);
-		ctrl_aspect_ratio->setCurrentByIndex(0);
-		
-		refresh();
-	}
 	
 	//////////////////////PanelPrivacy ///////////////////
 	if (hasChild("media_enabled"))
 	{
 		bool media_enabled = gSavedSettings.getBOOL("AudioStreamingMedia");
-		getChild<LLCheckBoxCtrl>("voice_call_friends_only_check")->setCommitCallback(boost::bind(&showFriendsOnlyWarning, _1, _2));
+		
 		getChild<LLCheckBoxCtrl>("media_enabled")->set(media_enabled);
 		getChild<LLCheckBoxCtrl>("autoplay_enabled")->setEnabled(media_enabled);
 	}
@@ -1448,7 +1291,21 @@ BOOL LLPanelPreference::postBuild()
 	{
 		getChild<LLCheckBoxCtrl>("music_enabled")->set(gSavedSettings.getBOOL("AudioStreamingMusic"));
 	}
-	
+	if (hasChild("voice_call_friends_only_check"))
+	{
+		getChild<LLCheckBoxCtrl>("voice_call_friends_only_check")->setCommitCallback(boost::bind(&showFriendsOnlyWarning, _1, _2));
+	}
+
+	// Panel Advanced
+	if (hasChild("modifier_combo"))
+	{
+		//localizing if push2talk button is set to middle mouse
+		if (MIDDLE_MOUSE_CV == childGetValue("modifier_combo").asString())
+		{
+			childSetValue("modifier_combo", getString("middle_mouse"));
+		}
+	}
+
 	apply();
 	return true;
 }

@@ -202,12 +202,12 @@ void LLAudioEngine::updateInternetStream()
 }
 
 // virtual
-int LLAudioEngine::isInternetStreamPlaying()
+LLAudioEngine::LLAudioPlayState LLAudioEngine::isInternetStreamPlaying()
 {
 	if (mStreamingAudioImpl)
-		return mStreamingAudioImpl->isPlaying();
+		return (LLAudioEngine::LLAudioPlayState) mStreamingAudioImpl->isPlaying();
 
-	return 0; // Stopped
+	return LLAudioEngine::AUDIO_STOPPED; // Stopped
 }
 
 
@@ -548,12 +548,11 @@ void LLAudioEngine::enableWind(bool enable)
 {
 	if (enable && (!mEnableWind))
 	{
-		initWind();
-		mEnableWind = enable;
+		mEnableWind = initWind();
 	}
 	else if (mEnableWind && (!enable))
 	{
-		mEnableWind = enable;
+		mEnableWind = false;
 		cleanupWind();
 	}
 }
@@ -592,7 +591,7 @@ LLAudioBuffer * LLAudioEngine::getFreeBuffer()
 
 	if (buffer_id >= 0)
 	{
-		llinfos << "Taking over unused buffer " << buffer_id << llendl;
+		lldebugs << "Taking over unused buffer " << buffer_id << llendl;
 		//llinfos << "Flushing unused buffer!" << llendl;
 		mBuffers[buffer_id]->mAudioDatap->mBufferp = NULL;
 		delete mBuffers[buffer_id];

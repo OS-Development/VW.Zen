@@ -58,7 +58,7 @@ public:
 		OUTGOING_CALL
 	} EDirection;
 
-	typedef boost::signals2::signal<void(const EState& old_state, const EState& new_state, const EDirection& direction)> state_changed_signal_t;
+	typedef boost::signals2::signal<void(const EState& old_state, const EState& new_state, const EDirection& direction, bool ended_by_agent)> state_changed_signal_t;
 
 	// on current channel changed signal
 	typedef boost::function<void(const LLUUID& session_id)> channel_changed_callback_t;
@@ -98,7 +98,8 @@ public:
 
 	static LLVoiceChannel* getChannelByID(const LLUUID& session_id);
 	static LLVoiceChannel* getChannelByURI(std::string uri);
-	static LLVoiceChannel* getCurrentVoiceChannel() { return sCurrentVoiceChannel; }
+	static LLVoiceChannel* getCurrentVoiceChannel();
+	
 	static void initClass();
 	
 	static void suspend();
@@ -112,7 +113,7 @@ protected:
 	void doSetState(const EState& state);
 	void setURI(std::string uri);
 
-	// there can be two directions ICOMING and OUTGOING
+	// there can be two directions INCOMING and OUTGOING
 	EDirection mCallDirection;
 
 	std::string	mURI;
@@ -122,6 +123,8 @@ protected:
 	std::string	mSessionName;
 	LLSD mNotifyArgs;
 	LLSD mCallDialogPayload;
+	// true if call was ended by agent
+	bool mCallEndedByAgent;
 	BOOL		mIgnoreNextSessionLeave;
 	LLHandle<LLPanel> mLoginNotificationHandle;
 

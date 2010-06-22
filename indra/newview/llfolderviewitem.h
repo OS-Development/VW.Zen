@@ -97,6 +97,7 @@ public:
 	{
 		Optional<LLUIImage*>					icon;
 		Optional<LLUIImage*>					icon_open;  // used for folders
+		Optional<LLUIImage*>					icon_overlay;  // for links
 		Optional<LLFolderView*>					root;
 		Optional<LLFolderViewEventListener*>	listener;
 
@@ -147,10 +148,10 @@ protected:
 	LLUIImagePtr				mIcon;
 	std::string					mStatusText;
 	LLUIImagePtr				mIconOpen;
+	LLUIImagePtr				mIconOverlay;
 	BOOL						mHasVisibleChildren;
 	S32							mIndentation;
 	S32							mItemHeight;
-	S32							mNumDescendantsSelected;
 	BOOL						mPassedFilter;
 	S32							mLastFilterGeneration;
 	std::string::size_type		mStringMatchOffset;
@@ -231,11 +232,8 @@ public:
 	// this method is used to group select items
 	virtual S32 extendSelection(LLFolderViewItem* selection, LLFolderViewItem* last_selected, LLDynamicArray<LLFolderViewItem*>& items){ return FALSE; }
 
-	// this method is used to group select items
-	virtual void recursiveDeselect(BOOL deselect_self);
-
 	// gets multiple-element selection
-	virtual BOOL getSelectionList(std::set<LLUUID> &selection) const {return TRUE;}
+	virtual std::set<LLUUID> getSelectionList() const;
 
 	// Returns true is this object and all of its children can be removed (deleted by user)
 	virtual BOOL isRemovable();
@@ -246,9 +244,9 @@ public:
 	// destroys this item recursively
 	virtual void destroyView();
 
-	S32 getNumSelectedDescendants() { return mNumDescendantsSelected; }
-
 	BOOL isSelected() { return mIsSelected; }
+
+	void setUnselected() { mIsSelected = FALSE; }
 
 	void setIsCurSelection(BOOL select) { mIsCurSelection = select; }
 
@@ -440,8 +438,6 @@ public:
 
 	// this method is used to group select items
 	virtual S32 extendSelection(LLFolderViewItem* selection, LLFolderViewItem* last_selected, LLDynamicArray<LLFolderViewItem*>& items);
-
-	virtual void recursiveDeselect(BOOL deselect_self);
 
 	// Returns true is this object and all of its children can be removed.
 	virtual BOOL isRemovable();

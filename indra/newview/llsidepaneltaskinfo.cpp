@@ -80,6 +80,7 @@ static LLRegisterPanelClassWrapper<LLSidepanelTaskInfo> t_task_info("sidepanel_t
 LLSidepanelTaskInfo::LLSidepanelTaskInfo()
 {
 	setMouseOpaque(FALSE);
+	LLSelectMgr::instance().mUpdateSignal.connect(boost::bind(&LLSidepanelTaskInfo::refreshAll, this));
 }
 
 
@@ -100,13 +101,15 @@ BOOL LLSidepanelTaskInfo::postBuild()
 	mPayBtn->setClickedCallback(boost::bind(&LLSidepanelTaskInfo::onPayButtonClicked, this));
 	mBuyBtn = getChild<LLButton>("buy_btn");
 	mBuyBtn->setClickedCallback(boost::bind(&LLSidepanelTaskInfo::onBuyButtonClicked, this));
+	mDetailsBtn = getChild<LLButton>("details_btn");
+	mDetailsBtn->setClickedCallback(boost::bind(&LLSidepanelTaskInfo::onDetailsButtonClicked, this));
 
 	mLabelGroupName = getChild<LLNameBox>("Group Name Proxy");
 
 	childSetCommitCallback("Object Name",						LLSidepanelTaskInfo::onCommitName,this);
-	childSetPrevalidate("Object Name",							LLLineEditor::prevalidateASCIIPrintableNoPipe);
+	childSetPrevalidate("Object Name",							LLTextValidate::validateASCIIPrintableNoPipe);
 	childSetCommitCallback("Object Description",				LLSidepanelTaskInfo::onCommitDesc,this);
-	childSetPrevalidate("Object Description",					LLLineEditor::prevalidateASCIIPrintableNoPipe);
+	childSetPrevalidate("Object Description",					LLTextValidate::validateASCIIPrintableNoPipe);
 	getChild<LLUICtrl>("button set group")->setCommitCallback(boost::bind(&LLSidepanelTaskInfo::onClickGroup,this));
 	childSetCommitCallback("checkbox share with group",			&LLSidepanelTaskInfo::onCommitGroupShare,this);
 	childSetAction("button deed",								&LLSidepanelTaskInfo::onClickDeedToGroup,this);
@@ -123,10 +126,8 @@ BOOL LLSidepanelTaskInfo::postBuild()
 	return TRUE;
 }
 
-// virtual
-void LLSidepanelTaskInfo::setVisible(BOOL visible)
+/*virtual*/ void LLSidepanelTaskInfo::handleVisibilityChange ( BOOL visible )
 {
-	LLPanel::setVisible(visible);
 	if (visible)
 	{
 		sActivePanel = this;
@@ -135,8 +136,11 @@ void LLSidepanelTaskInfo::setVisible(BOOL visible)
 	else
 	{
 		sActivePanel = NULL;
+		// drop selection reference
+		mObjectSelection = NULL;
 	}
 }
+
 
 void LLSidepanelTaskInfo::disableAll()
 {
@@ -268,7 +272,6 @@ void LLSidepanelTaskInfo::refresh()
 	// BUG: fails if a root and non-root are both single-selected.
 	const BOOL is_perm_modify = (mObjectSelection->getFirstRootNode() && LLSelectMgr::getInstance()->selectGetRootsModify()) ||
 		LLSelectMgr::getInstance()->selectGetModify();
-	const LLFocusableElement* keyboard_focus_view = gFocusMgr.getKeyboardFocus();
 
 	S32 string_index = 0;
 	std::string MODIFY_INFO_STRINGS[] =
@@ -362,14 +365,14 @@ void LLSidepanelTaskInfo::refresh()
 
 	if (is_one_object)
 	{
-		if (keyboard_focus_view != LineEditorObjectName)
+		if (!LineEditorObjectName->hasFocus())
 		{
 			childSetText("Object Name",nodep->mName);
 		}
 
 		if (LineEditorObjectDesc)
 		{
-			if (keyboard_focus_view != LineEditorObjectDesc)
+			if (!LineEditorObjectDesc->hasFocus())
 			{
 				LineEditorObjectDesc->setText(nodep->mDescription);
 			}
@@ -1122,6 +1125,15 @@ void LLSidepanelTaskInfo::updateVerbs()
 	//mEditBtn->setEnabled(obj && obj->permModify());
 	*/
 
+	LLSafeHandle<LLObjectSelection> object_selection = LLSelectMgr::getInstance()->getSelection();
+	const BOOL multi_select = (object_selection->getNumNodes() > 1);
+
+	mOpenBtn->setVisible(!multi_select);
+	mPayBtn->setVisible(!multi_select);
+	mBuyBtn->setVisible(!multi_select);
+	mDetailsBtn->setVisible(multi_select);
+	mDetailsBtn->setEnabled(multi_select);
+
 	mOpenBtn->setEnabled(enable_object_open());
 	mPayBtn->setEnabled(enable_pay_object());
 	mBuyBtn->setEnabled(enable_buy_object());
@@ -1145,6 +1157,11 @@ void LLSidepanelTaskInfo::onBuyButtonClicked()
 	doClickAction(CLICK_ACTION_BUY);
 }
 
+void LLSidepanelTaskInfo::onDetailsButtonClicked()
+{
+	LLFloaterReg::showInstance("inspect", LLSD());
+}
+
 // virtual
 void LLSidepanelTaskInfo::save()
 {
@@ -1161,9 +1178,30 @@ void LLSidepanelTaskInfo::save()
 	onCommitIncludeInSearch(getChild<LLCheckBoxCtrl>("search_check"), this);
 }
 
+// removes keyboard focus so that all fields can be updated
+// and then restored focus
+void LLSidepanelTaskInfo::refreshAll()
+{
+	// update UI as soon as we have an object
+	// but remove keyboard focus first so fields are free to update
+	LLFocusableElement* focus = NULL;
+	if (hasFocus())
+	{
+		focus = gFocusMgr.getKeyboardFocus();
+		setFocus(FALSE);
+	}
+	refresh();
+	if (focus)
+	{
+		focus->setFocus(TRUE);
+	}
+}
+
+
 void LLSidepanelTaskInfo::setObjectSelection(LLObjectSelectionHandle selection)
 {
 	mObjectSelection = selection;
+	refreshAll();
 }
 
 LLSidepanelTaskInfo* LLSidepanelTaskInfo::getActivePanel()

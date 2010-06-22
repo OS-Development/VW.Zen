@@ -31,8 +31,8 @@
 
 #include "llviewerprecompiledheaders.h"
 
-//LLPanelPrimMediaControls
 #include "llagent.h"
+#include "llagentcamera.h"
 #include "llparcel.h"
 #include "llpanel.h"
 #include "llselectmgr.h"
@@ -64,7 +64,6 @@
 #include "llvovolume.h"
 #include "llweb.h"
 #include "llwindow.h"
-
 #include "llfloatertools.h"  // to enable hide if build tools are up
 
 // Functions pulled from pipeline.cpp
@@ -351,6 +350,11 @@ void LLPanelPrimMediaControls::updateShape()
 		mHomeCtrl->setEnabled(has_focus && can_navigate);
 		LLPluginClassMediaOwner::EMediaStatus result = ((media_impl != NULL) && media_impl->hasMedia()) ? media_plugin->getStatus() : LLPluginClassMediaOwner::MEDIA_NONE;
 		
+		mVolumeCtrl->setVisible(has_focus);
+		mVolumeCtrl->setEnabled(has_focus);
+		mVolumeSliderCtrl->setEnabled(has_focus && shouldVolumeSliderBeVisible());
+		mVolumeSliderCtrl->setVisible(has_focus && shouldVolumeSliderBeVisible());
+
 		if(media_plugin && media_plugin->pluginSupportsMediaTime())
 		{
 			mReloadCtrl->setEnabled(false);
@@ -463,11 +467,15 @@ void LLPanelPrimMediaControls::updateShape()
 			mSkipBackCtrl->setVisible(FALSE);
 			mSkipBackCtrl->setEnabled(FALSE);
 			
-			mVolumeCtrl->setVisible(FALSE);
-			mVolumeSliderCtrl->setVisible(FALSE);
-			mVolumeCtrl->setEnabled(FALSE);
-			mVolumeSliderCtrl->setEnabled(FALSE);
-			
+			if(media_impl->getVolume() <= 0.0)
+			{
+				mMuteBtn->setToggleState(true);
+			}
+			else
+			{
+				mMuteBtn->setToggleState(false);
+			}
+
 			if (mMediaPanelScroll)
 			{
 				mMediaPanelScroll->setVisible(has_focus);
@@ -724,10 +732,10 @@ void LLPanelPrimMediaControls::draw()
 	mMediaControlsStack->updateLayout();
 	
 	// adjust for layout stack spacing
-	S32 space = mMediaControlsStack->getPanelSpacing() + 1;
+	S32 space = mMediaControlsStack->getPanelSpacing() + 2;
 	LLRect controls_bg_area = mMediaControlsStack->getRect();
 	
-	controls_bg_area.mTop += space;
+	controls_bg_area.mTop += space + 2;
 	
 	// adjust to ignore space from volume slider
 	controls_bg_area.mBottom += mVolumeSliderCtrl->getRect().getHeight();
@@ -736,7 +744,7 @@ void LLPanelPrimMediaControls::draw()
 	controls_bg_area.mLeft += mLeftBookend->getRect().getWidth() - space;
 	
 	// ignore space from right bookend padding
-	controls_bg_area.mRight -= mRightBookend->getRect().getWidth() - space;
+	controls_bg_area.mRight -= mRightBookend->getRect().getWidth() - space - 2;
 		
 	// draw control background UI image
 	mBackgroundImage->draw( controls_bg_area, UI_VERTEX_COLOR % alpha);
@@ -1010,7 +1018,7 @@ void LLPanelPrimMediaControls::updateZoom()
 	{
 	case ZOOM_NONE:
 		{
-			gAgent.setFocusOnAvatar(TRUE, ANIMATE);
+			gAgentCamera.setFocusOnAvatar(TRUE, ANIMATE);
 			break;
 		}
 	case ZOOM_FAR:
@@ -1030,14 +1038,15 @@ void LLPanelPrimMediaControls::updateZoom()
 		}
 	default:
 		{
-			gAgent.setFocusOnAvatar(TRUE, ANIMATE);
+			gAgentCamera.setFocusOnAvatar(TRUE, ANIMATE);
 			break;
 		}
 	}
 
 	if (zoom_padding > 0.0f)
-	{
-		LLViewerMediaFocus::setCameraZoom(getTargetObject(), mTargetObjectNormal, zoom_padding);
+	{	
+		// since we only zoom into medium for now, always set zoom_in constraint to true
+		LLViewerMediaFocus::setCameraZoom(getTargetObject(), mTargetObjectNormal, zoom_padding, true);
 	}
 	
 	// Remember the object ID/face we zoomed into, so we can update the zoom icon appropriately

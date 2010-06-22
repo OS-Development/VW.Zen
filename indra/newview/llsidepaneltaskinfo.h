@@ -54,7 +54,7 @@ public:
 	virtual ~LLSidepanelTaskInfo();
 
 	/*virtual*/	BOOL postBuild();
-	/*virtual*/ void setVisible(BOOL visible);
+	/*virtual*/ void handleVisibilityChange ( BOOL new_visibility );
 
 	void setObjectSelection(LLObjectSelectionHandle selection);
 
@@ -66,6 +66,8 @@ protected:
 	/*virtual*/ void refresh();	// refresh all labels as needed
 	/*virtual*/ void save();
 	/*virtual*/ void updateVerbs();
+
+	void refreshAll(); // ignore current keyboard focus and update all fields
 
 	// statics
 	static void onClickClaim(void*);
@@ -109,16 +111,18 @@ protected:
 	void 						onOpenButtonClicked();
 	void 						onPayButtonClicked();
 	void 						onBuyButtonClicked();
+	void 						onDetailsButtonClicked();
 private:
 	LLButton*					mOpenBtn;
 	LLButton*					mPayBtn;
 	LLButton*					mBuyBtn;
+	LLButton*					mDetailsBtn;
 
 protected:
 	LLViewerObject*				getObject();
 private:
 	LLViewerObject*				mObject;
-	LLObjectSelectionHandle mObjectSelection;
+	LLObjectSelectionHandle		mObjectSelection;
 	static LLSidepanelTaskInfo* sActivePanel;
 };
 

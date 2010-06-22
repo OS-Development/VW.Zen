@@ -68,15 +68,16 @@ const F32 TOTAL_LOGIN_TIME = 10.f;	// seconds, wild guess at time from GL contex
 S32 gLastStartAnimationFrame = 0;	// human-style indexing, first image = 1
 const S32 ANIMATION_FRAMES = 1; //13;
 
+static LLRegisterPanelClassWrapper<LLProgressView> r("progress_view");
+
+
 // XUI: Translate
-LLProgressView::LLProgressView(const LLRect &rect) 
+LLProgressView::LLProgressView() 
 :	LLPanel(),
 	mPercentDone( 0.f ),
 	mMouseDownInActiveArea( false ),
 	mUpdateEvents("LLProgressView")
 {
-	LLUICtrlFactory::getInstance()->buildPanel(this, "panel_progress.xml");
-	reshape(rect.getWidth(), rect.getHeight());
 	mUpdateEvents.listen("self", boost::bind(&LLProgressView::handleUpdate, this, _1));
 }
 
@@ -91,6 +92,9 @@ BOOL LLProgressView::postBuild()
 	getChild<LLTextBox>("title_text")->setText(LLStringExplicit(LLAppViewer::instance()->getSecondLifeTitle()));
 
 	getChild<LLTextBox>("message_text")->setClickedCallback(onClickMessage, this);
+
+	// hidden initially, until we need it
+	LLPanel::setVisible(FALSE);
 
 	sInstance = this;
 	return TRUE;
@@ -126,17 +130,23 @@ BOOL LLProgressView::handleKeyHere(KEY key, MASK mask)
 
 void LLProgressView::setVisible(BOOL visible)
 {
+	// hiding progress view
 	if (getVisible() && !visible)
 	{
 		mFadeTimer.start();
+		// hiding progress view, so show menu bars
+		LLUI::getRootView()->getChildView("menu_bar_holder")->setVisible(TRUE);
 	}
+	// showing progress view
 	else if (!getVisible() && visible)
 	{
-		gFocusMgr.setTopCtrl(this);
+		// showing progress view, so hide menu bars
+		LLUI::getRootView()->getChildView("menu_bar_holder")->setVisible(FALSE);
+		
 		setFocus(TRUE);
 		mFadeTimer.stop();
 		mProgressTimer.start();
-		LLPanel::setVisible(visible);
+		LLPanel::setVisible(TRUE);
 	}
 }
 
@@ -146,7 +156,7 @@ void LLProgressView::draw()
 	static LLTimer timer;
 
 	// Paint bitmap if we've got one
-	glPushMatrix();
+	glPushMatrix();	
 	if (gStartTexture)
 	{
 		LLGLSUIDefault gls_ui;
@@ -187,6 +197,8 @@ void LLProgressView::draw()
 			// Fade is complete, release focus
 			gFocusMgr.releaseFocusIfNeeded( this );
 			LLPanel::setVisible(FALSE);
+			mFadeTimer.stop();
+
 			gStartTexture = NULL;
 		}
 		return;
@@ -223,7 +235,10 @@ void LLProgressView::setCancelButtonVisible(BOOL b, const std::string& label)
 // static
 void LLProgressView::onCancelButtonClicked(void*)
 {
-	if (gAgent.getTeleportState() == LLAgent::TELEPORT_NONE)
+	// Quitting viewer here should happen only when "Quit" button is pressed while starting up.
+	// Check for startup state is used here instead of teleport state to avoid quitting when
+	// cancel is pressed while teleporting inside region (EXT-4911)
+	if (LLStartUp::getStartupState() < STATE_STARTED)
 	{
 		LLAppViewer::instance()->requestQuit();
 	}

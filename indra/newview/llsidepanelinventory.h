@@ -51,7 +51,12 @@ public:
 	/*virtual*/ void onOpen(const LLSD& key);
 
 	LLInventoryPanel* getActivePanel(); // Returns an active inventory panel, if any.
+	LLPanelMainInventory* getMainInventoryPanel() const { return mPanelMainInventory; }
 	BOOL isMainInventoryPanelActive() const;
+
+	void showItemInfoPanel();
+	void showTaskInfoPanel();
+	void showInventoryPanel();
 
 protected:
 	// Tracks highlighted (selected) item in inventory panel.
@@ -60,10 +65,8 @@ protected:
 	void onSelectionChange(const std::deque<LLFolderViewItem*> &items, BOOL user_action);
 	// "wear", "teleport", etc.
 	void performActionOnSelection(const std::string &action);
+	bool canShare();
 
-	void showItemInfoPanel();
-	void showTaskInfoPanel();
-	void showInventoryPanel();
 	void updateVerbs();
 
 	//
@@ -78,6 +81,7 @@ private:
 protected:
 	void 						onInfoButtonClicked();
 	void 						onShareButtonClicked();
+	void 						onShopButtonClicked();
 	void 						onWearButtonClicked();
 	void 						onPlayButtonClicked();
 	void 						onTeleportButtonClicked();

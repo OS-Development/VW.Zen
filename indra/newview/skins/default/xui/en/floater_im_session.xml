@@ -2,6 +2,7 @@
 <floater
  legacy_header_height="18"
  background_visible="true"
+ default_tab_group="1"
  follows="all"
  height="350"
  layout="topleft"
@@ -12,33 +13,36 @@
  can_minimize="true"
  can_close="true"
  visible="false"
- width="360"
+ width="394"
  can_resize="true"
  min_width="250"
  min_height="190">
   <layout_stack
    animate="false" 
+   default_tab_group="2"
   follows="all"
   height="320"
-  width="360"
+  width="394"
   layout="topleft"
   orientation="horizontal"
   name="im_panels"
+  tab_group="1"
   top="20"
   left="0">
     <layout_panel
       name="panel_im_control_panel"
       layout="topleft"
       follows="left"
-      label="IM Control Panel"
       min_width="115" 
       auto_resize="false"
       user_resize="true" />
     <layout_panel
+       default_tab_group="3"
        left="0"
+       tab_group="2"
        top="0"
        height="200"
-	     width="245"
+	     width="254"
        user_resize="true">
         <button
           height="20"
@@ -65,7 +69,7 @@
          parse_highlights="true"
          allow_html="true"
         left="1"
-         width="240">
+         width="249">
         </chat_history>
         <line_editor
          bottom="0"
@@ -75,7 +79,8 @@
          label="To"
          layout="bottomleft"
          name="chat_editor"
-         width="240">
+         tab_group="3"
+         width="249">
         </line_editor>
     </layout_panel>
   </layout_stack>

@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
  legacy_header_height="18"
- center_horiz="true"
- center_vert="true"
+ open_centered="true"
  default_tab_group="1"
  height="460"
  layout="topleft"
@@ -10,7 +9,7 @@
  help_topic="preferences"
  single_instance="true"
  title="PREFERENCES"
- width="620">
+ width="658">
     <button
      follows="right|bottom"
      height="23"
@@ -39,6 +38,7 @@
     </button>
     <tab_container
      follows="all"
+     halign="left"
      height="410"
      layout="topleft"
      left="0"
@@ -46,8 +46,9 @@
      tab_group="1"
      tab_position="left"
      tab_width="115"
+     tab_padding_right="0"
      top="21"
-     width="620">
+     width="658">
         <panel
 	 class="panel_preference"
          filename="panel_preferences_general.xml"
@@ -72,7 +73,7 @@
         <panel
 		 class="panel_preference"
          filename="panel_preferences_sound.xml"
-         label="Sound"
+         label="Sound &amp; Media"
          layout="topleft"
          help_topic="preferences_audio_tab"
          name="audio" />

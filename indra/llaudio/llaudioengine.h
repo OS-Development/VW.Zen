@@ -91,6 +91,15 @@ public:
 		AUDIO_TYPE_COUNT   = 4 // last
 	};
 	
+	enum LLAudioPlayState
+	{
+		// isInternetStreamPlaying() returns an *int*, with
+		// 0 = stopped, 1 = playing, 2 = paused.
+		AUDIO_STOPPED = 0,
+		AUDIO_PLAYING = 1,
+		AUDIO_PAUSED = 2
+	};
+	
 	LLAudioEngine();
 	virtual ~LLAudioEngine();
 
@@ -156,7 +165,7 @@ public:
 	void stopInternetStream();
 	void pauseInternetStream(int pause);
 	void updateInternetStream(); // expected to be called often
-	int isInternetStreamPlaying();
+	LLAudioPlayState isInternetStreamPlaying();
 	// use a value from 0.0 to 1.0, inclusive
 	void setInternetStreamGain(F32 vol);
 	std::string getInternetStreamURL();
@@ -186,7 +195,7 @@ protected:
 	virtual LLAudioBuffer *createBuffer() = 0;
 	virtual LLAudioChannel *createChannel() = 0;
 
-	virtual void initWind() = 0;
+	virtual bool initWind() = 0;
 	virtual void cleanupWind() = 0;
 	virtual void setInternalGain(F32 gain) = 0;
 

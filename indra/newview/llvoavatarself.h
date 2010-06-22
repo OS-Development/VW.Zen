@@ -39,9 +39,10 @@
 
 struct LocalTextureData;
 
-//------------------------------------------------------------------------
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // LLVOAvatarSelf
-//------------------------------------------------------------------------
+//
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 class LLVOAvatarSelf :
 	public LLVOAvatar
 {
@@ -55,7 +56,8 @@ public:
 	LLVOAvatarSelf(const LLUUID &id, const LLPCode pcode, LLViewerRegion *regionp);
 	virtual 				~LLVOAvatarSelf();
 	virtual void			markDead();
-	virtual void 		initInstance(); // Called after construction to initialize the class.
+	virtual void 			initInstance(); // Called after construction to initialize the class.
+	void					cleanup();
 protected:
 	/*virtual*/ BOOL		loadAvatar();
 	BOOL					loadAvatarSelf();
@@ -77,6 +79,7 @@ protected:
 	//--------------------------------------------------------------------
 public:
 	/*virtual*/ void 		updateRegion(LLViewerRegion *regionp);
+	/*virtual*/ BOOL   	 	idleUpdate(LLAgent &agent, LLWorld &world, const F64 &time);
 
 	//--------------------------------------------------------------------
 	// LLCharacter interface and related
@@ -120,9 +123,7 @@ public:
 	// Loading state
 	//--------------------------------------------------------------------
 public:
-	/*virtual*/ BOOL    updateIsFullyLoaded();
-private:
-	BOOL                mIsBaked; // are the stored baked textures up to date?
+	/*virtual*/ BOOL    getIsCloud();
 
 	//--------------------------------------------------------------------
 	// Region state
@@ -176,8 +177,12 @@ public:
 	bool				areTexturesCurrent() const;
 	BOOL				isLocalTextureDataAvailable(const LLTexLayerSet* layerset) const;
 	BOOL				isLocalTextureDataFinal(const LLTexLayerSet* layerset) const;
+	BOOL				isBakedTextureFinal(const LLVOAvatarDefines::EBakedTextureIndex index) const;
 	// If you want to check all textures of a given type, pass gAgentWearables.getWearableCount() for index
 	/*virtual*/ BOOL    isTextureDefined(LLVOAvatarDefines::ETextureIndex type, U32 index) const;
+	/*virtual*/ BOOL	isTextureVisible(LLVOAvatarDefines::ETextureIndex type, U32 index = 0) const;
+	/*virtual*/ BOOL	isTextureVisible(LLVOAvatarDefines::ETextureIndex type, LLWearable *wearable) const;
+
 
 	//--------------------------------------------------------------------
 	// Local Textures
@@ -187,8 +192,6 @@ public:
 	LLViewerFetchedTexture*	getLocalTextureGL(LLVOAvatarDefines::ETextureIndex type, U32 index) const;
 	const LLUUID&		getLocalTextureID(LLVOAvatarDefines::ETextureIndex type, U32 index) const;
 	void				setLocalTextureTE(U8 te, LLViewerTexture* image, U32 index);
-	const LLUUID&		grabLocalTexture(LLVOAvatarDefines::ETextureIndex type, U32 index) const;
-	BOOL				canGrabLocalTexture(LLVOAvatarDefines::ETextureIndex type, U32 index) const;
 	/*virtual*/ void	setLocalTexture(LLVOAvatarDefines::ETextureIndex type, LLViewerTexture* tex, BOOL baked_version_exits, U32 index);
 protected:
 	/*virtual*/ void	setBakedReady(LLVOAvatarDefines::ETextureIndex type, BOOL baked_version_exists, U32 index);
@@ -222,6 +225,7 @@ protected:
 	//--------------------------------------------------------------------
 public:
 	void 				requestLayerSetUploads();
+	void				requestLayerSetUpload(LLVOAvatarDefines::EBakedTextureIndex i);
 	void				requestLayerSetUpdate(LLVOAvatarDefines::ETextureIndex i);
 	LLTexLayerSet*		getLayerSet(LLVOAvatarDefines::ETextureIndex index) const;
 	
@@ -231,9 +235,15 @@ public:
 public:
 	/* virtual */ void	invalidateComposite(LLTexLayerSet* layerset, BOOL upload_result);
 	/* virtual */ void	invalidateAll();
-	/* virtual */ void	setCompositeUpdatesEnabled(BOOL b); // only works for self
+	/* virtual */ void	setCompositeUpdatesEnabled(bool b); // only works for self
+	/* virtual */ void  setCompositeUpdatesEnabled(U32 index, bool b);
+	/* virtual */ bool 	isCompositeUpdateEnabled(U32 index);
 	void				setupComposites();
 	void				updateComposites();
+
+	const LLUUID&		grabBakedTexture(LLVOAvatarDefines::EBakedTextureIndex baked_index) const;
+	BOOL				canGrabBakedTexture(LLVOAvatarDefines::EBakedTextureIndex baked_index) const;
+
 
 	//--------------------------------------------------------------------
 	// Scratch textures (used for compositing)
@@ -269,8 +279,8 @@ protected:
  **/
 
 public:
-	/*virtual*/ BOOL	isWearingWearableType(EWearableType type) const;
-	void				wearableUpdated(EWearableType type, BOOL upload_result);
+	/*virtual*/ BOOL	isWearingWearableType(LLWearableType::EType type) const;
+	void				wearableUpdated(LLWearableType::EType type, BOOL upload_result);
 protected:
 	U32 getNumWearables(LLVOAvatarDefines::ETextureIndex i) const;
 
@@ -319,15 +329,54 @@ public:
  **                    DIAGNOSTICS
  **/
 
+	//--------------------------------------------------------------------
+	// General
+	//--------------------------------------------------------------------
 public:	
 	static void		dumpTotalLocalTextureByteCount();
 	void			dumpLocalTextures() const;
 	static void		dumpScratchTextureByteCount();
+
+	//--------------------------------------------------------------------
+	// Avatar Rez Metrics
+	//--------------------------------------------------------------------
+public:	
+	struct LLAvatarTexData
+	{
+		LLAvatarTexData(const LLUUID& id, LLVOAvatarDefines::ETextureIndex index) : 
+			mAvatarID(id), 
+			mIndex(index) 
+		{}
+		LLUUID			mAvatarID;
+		LLVOAvatarDefines::ETextureIndex	mIndex;
+	};
+	void 					debugWearablesLoaded() { mDebugTimeWearablesLoaded = mDebugSelfLoadTimer.getElapsedTimeF32(); }
+	void 					debugAvatarVisible() { mDebugTimeAvatarVisible = mDebugSelfLoadTimer.getElapsedTimeF32(); }
+	void 					outputRezDiagnostics() const;
+	void 					debugBakedTextureUpload(LLVOAvatarDefines::EBakedTextureIndex index, BOOL finished);
+	static void				debugOnTimingLocalTexLoaded(BOOL success, LLViewerFetchedTexture *src_vi, LLImageRaw* src, LLImageRaw* aux_src, S32 discard_level, BOOL final, void* userdata);
+
+	BOOL					isAllLocalTextureDataFinal() const;
+
+	const LLTexLayerSet*  	debugGetLayerSet(LLVOAvatarDefines::EBakedTextureIndex index) const { return mBakedTextureDatas[index].mTexLayerSet; }
+	const std::string		debugDumpLocalTextureDataInfo(const LLTexLayerSet* layerset) const; // Lists out state of this particular baked texture layer
+	const std::string		debugDumpAllLocalTextureDataInfo() const; // Lists out which baked textures are at highest LOD
+private:
+	LLFrameTimer    		mDebugSelfLoadTimer;
+	F32						mDebugTimeWearablesLoaded;
+	F32 					mDebugTimeAvatarVisible;
+	F32 					mDebugTextureLoadTimes[LLVOAvatarDefines::TEX_NUM_INDICES][MAX_DISCARD_LEVEL+1]; // load time for each texture at each discard level
+	F32 					mDebugBakedTextureTimes[LLVOAvatarDefines::BAKED_NUM_INDICES][2]; // time to start upload and finish upload of each baked texture
+	void					debugTimingLocalTexLoaded(BOOL success, LLViewerFetchedTexture *src_vi, LLImageRaw* src, LLImageRaw* aux_src, S32 discard_level, BOOL final, void* userdata);
 
 /**                    Diagnostics
  **                                                                            **
  *******************************************************************************/
 
 };
+
+extern LLVOAvatarSelf *gAgentAvatarp;
+
+BOOL isAgentAvatarValid();
 
 #endif // LL_VO_AVATARSELF_H

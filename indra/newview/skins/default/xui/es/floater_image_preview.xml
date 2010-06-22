@@ -10,17 +10,17 @@
 		Previsualizar la
 imagen como:
 	</text>
-	<combo_box label="Tipo de ropa" name="clothing_type_combo" left="100" width="186">
-		<combo_box.item name="Image" label="Imagen" />
-		<combo_box.item name="Hair" label="Pelo" />
-		<combo_box.item name="FemaleHead" label="Cabeza de mujer" />
-		<combo_box.item name="FemaleUpperBody" label="Mujer: parte superior del cuerpo" />
-		<combo_box.item name="FemaleLowerBody" label="Mujer: parte inferior del cuerpo" />
-		<combo_box.item name="MaleHead" label="Cabeza de varón" />
-		<combo_box.item name="MaleUpperBody" label="Varón: parte superior del cuerpo" />
-		<combo_box.item name="MaleLowerBody" label="Varón: parte inferior del cuerpo" />
-		<combo_box.item name="Skirt" label="Falda" />
-		<combo_box.item name="SculptedPrim" label="Prim sculpted"/>
+	<combo_box label="Tipo de ropa" left="100" name="clothing_type_combo" width="186">
+		<item label="Imagen" name="Image" value="Imagen"/>
+		<item label="Pelo" name="Hair" value="Pelo"/>
+		<item label="Mujer: cabeza" name="FemaleHead" value="Mujer: cabeza"/>
+		<item label="Mujer: parte superior del cuerpo" name="FemaleUpperBody" value="Mujer: parte superior del cuerpo"/>
+		<item label="Mujer: parte inferior del cuerpo" name="FemaleLowerBody" value="Mujer: parte inferior del cuerpo"/>
+		<item label="Varón: cabeza" name="MaleHead" value="Varón: cabeza"/>
+		<item label="Varón: parte superior del cuerpo" name="MaleUpperBody" value="Varón: parte superior del cuerpo"/>
+		<item label="Varón: parte inferior del cuerpo" name="MaleLowerBody" value="Varón: parte inferior del cuerpo"/>
+		<item label="Falda" name="Skirt" value="Falda"/>
+		<item label="Prim sculpted" name="SculptedPrim" value="Prim sculpted"/>
 	</combo_box>
 	<text name="bad_image_text">
 		Imposible leer la imagen.

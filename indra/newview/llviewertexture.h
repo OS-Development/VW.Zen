@@ -134,7 +134,9 @@ public:
 	static S32 getIndexFromCategory(S32 category) ;
 	static S32 getCategoryFromIndex(S32 index) ;
 
-	typedef std::vector<LLFace*> ll_face_list_t ;
+	typedef std::vector<LLFace*> ll_face_list_t;
+	typedef std::vector<LLVOVolume*> ll_volume_list_t;
+
 
 protected:
 	virtual ~LLViewerTexture();
@@ -164,6 +166,7 @@ public:
 
 	void addTextureStats(F32 virtual_size, BOOL needs_gltexture = TRUE) const;
 	void resetTextureStats();	
+	void setResetMaxVirtualSizeFlag(bool flag) ;
 
 	virtual F32  getMaxVirtualSize() ;
 
@@ -178,6 +181,11 @@ public:
 	S32 getNumFaces() const;
 	const ll_face_list_t* getFaceList() const {return &mFaceList;}
 
+	virtual void addVolume(LLVOVolume* volumep);
+	virtual void removeVolume(LLVOVolume* volumep);
+	S32 getNumVolumes() const;
+	const ll_volume_list_t* getVolumeList() const { return &mVolumeList; }
+
 	void generateGLTexture() ;
 	void destroyGLTexture() ;
 	
@@ -191,6 +199,7 @@ public:
 	LLGLuint   getTexName() const ;		
 	BOOL       createGLTexture() ;
 	BOOL       createGLTexture(S32 discard_level, const LLImageRaw* imageraw, S32 usename = 0, BOOL to_create = TRUE, S32 category = LLViewerTexture::OTHER);
+	virtual void setCachedRawImage(S32 discard_level, LLImageRaw* imageraw) ;
 
 	void       setFilteringOption(LLTexUnit::eTextureFilterOptions option);
 	void       setExplicitFormat(LLGLint internal_format, LLGLenum primary_format, LLGLenum type_format = 0, BOOL swap_bytes = FALSE);
@@ -242,7 +251,7 @@ protected:
 	void cleanup() ;
 	void init(bool firstinit) ;	
 	void reorganizeFaceList() ;
-
+	void reorganizeVolumeList() ;
 private:
 	//note: do not make this function public.
 	/*virtual*/ LLImageGL* getGLTexture() const ;
@@ -255,6 +264,7 @@ protected:
 	S32 mFullHeight;
 	BOOL  mUseMipMaps ;
 	S8  mComponents;
+	bool mCanResetMaxVirtualSize;
 	mutable F32 mMaxVirtualSize;	// The largest virtual size of the image, in pixels - how much data to we need?
 	mutable S8  mNeedsGLTexture;
 	mutable BOOL mNeedsResetMaxVirtualSize ;
@@ -269,6 +279,10 @@ protected:
 	U32               mNumFaces ;
 	LLFrameTimer      mLastFaceListUpdateTimer ;
 
+	ll_volume_list_t  mVolumeList;
+	U32					mNumVolumes;
+	LLFrameTimer	  mLastVolumeListUpdateTimer;
+
 	//do not use LLPointer here.
 	LLViewerMediaTexture* mParcelMedia ;
 
@@ -280,15 +294,15 @@ protected:
 		INACTIVE,            //not be used for the last certain period (i.e., 30 seconds).
 		ACTIVE,              //just being used, can become inactive if not being used for a certain time (10 seconds).
 		NO_DELETE = 99       //stay in memory, can not be removed.
-	} LLGLTexureState;
-	LLGLTexureState  mTextureState ;
+	} LLGLTextureState;
+	LLGLTextureState  mTextureState ;
 
 public:
 	static const U32 sCurrentFileVersion;	
 	static S32 sImageCount;
 	static S32 sRawCount;
 	static S32 sAuxCount;
-	static LLTimer sEvaluationTimer;
+	static LLFrameTimer sEvaluationTimer;
 	static F32 sDesiredDiscardBias;
 	static F32 sDesiredDiscardScale;
 	static S32 sBoundTextureMemoryInBytes;
@@ -436,23 +450,26 @@ public:
 	BOOL        isCachedRawImageReady() const {return mCachedRawImageReady ;}
 	BOOL        isRawImageValid()const { return mIsRawImageValid ; }	
 	void        forceToSaveRawImage(S32 desired_discard = 0) ;
+	/*virtual*/ void setCachedRawImage(S32 discard_level, LLImageRaw* imageraw) ;
 	void        destroySavedRawImage() ;
 	LLImageRaw* getSavedRawImage() ;
 	BOOL        hasSavedRawImage() const ;
 	F32         getElapsedLastReferencedSavedRawImageTime() const ;
 	BOOL		isFullyLoaded() const;
 
+	BOOL        hasFetcher() const { return mHasFetcher;}
+	void        setCanUseHTTP(bool can_use_http) {mCanUseHTTP = can_use_http;}
+
 protected:
 	/*virtual*/ void switchToCachedImage();
+	S32 getCurrentDiscardLevelForFetching() ;
 
 private:
 	void init(bool firstinit) ;
 	void cleanup() ;
 
 	void saveRawImage() ;
-	BOOL forceFetch() ;
 	void setCachedRawImage() ;
-	BOOL keepReuestedDiscardLevel();
 
 	//for atlas
 	void resetFaceAtlas() ;
@@ -492,6 +509,7 @@ protected:
 	S8  mIsRawImageValid;
 	S8  mHasFetcher;				// We've made a fecth request
 	S8  mIsFetching;				// Fetch request is active
+	bool mCanUseHTTP ;              //This texture can be fetched through http if true.
 	
 	mutable S8 mIsMissingAsset;		// True if we know that there is no image asset with this image id in the database.		
 

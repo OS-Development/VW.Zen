@@ -2,9 +2,8 @@
 <floater
  legacy_header_height="18"
  can_resize="true"
- center_horiz="true"
- center_vert="true"
- height="535"
+ open_centered="true"
+ height="600"
  layout="topleft"
  min_height="520"
  min_width="520"
@@ -14,16 +13,16 @@
  save_visibility="true"
  single_instance="true"
  title="WORLD MAP"
- width="800">
+ width="650">
     <panel
      filename="panel_world_map.xml"
      follows="all"
-     height="500"
+     height="555"
      layout="topleft"
      left="10"
      name="objects_mapview"
      top="25"
-     width="542" />
+     width="375" />
      <panel
      name="layout_panel_1"
      height="22"
@@ -53,7 +52,8 @@
  follows="right|top"
   height="126"
   top_pad="0"
-  width="238">
+  width="238"
+  name="layout_panel_2">
 <button
      follows="right|top"
      height="22"
@@ -178,29 +178,6 @@
      width="90">
         Land Sale
     </text>
-    <icon
-     color="1 1 0.25 1"
-     follows="top|right"
-     height="16"
-     image_name="legend.tga"
-     layout="topleft"
-     mouse_opaque="true"
-     name="square2"
-     left="41"
-     top_pad="-2"
-     width="16" />
-    <text
-     type="string"
-     length="1"
-     follows="top|right"
-     height="16"
-     layout="topleft"
-     left_pad="0"
-     name="by_owner_label"
-     top_delta="3"
-     width="100">
-       by owner
-    </text>
         <icon
      color="0.5 0.25 1 1"
      follows="top|right"
@@ -209,8 +186,8 @@
      layout="topleft"
      mouse_opaque="true"
      name="square2"
-     left="41"
-     top_pad="-3"
+     left="20"
+     top_pad="2"
      width="16" />
     <text
      type="string"
@@ -223,6 +200,29 @@
      top_delta="3"
      width="170">
         land auction
+    </text>
+    <icon
+     color="1 1 0.25 1"
+     follows="top|right"
+     height="16"
+     image_name="legend.tga"
+     layout="topleft"
+     mouse_opaque="true"
+     name="square2"
+     left="20"
+     top_pad="-5"
+     width="16" />
+    <text
+     type="string"
+     length="1"
+     follows="top|right"
+     height="16"
+     layout="topleft"
+     left_pad="0"
+     name="by_owner_label"
+     top_delta="3"
+     width="100">
+       by owner
     </text>
 
     <button
@@ -279,12 +279,12 @@
          <icon
      follows="top|right"
      height="16"
-     image_name="map_event.tga"
+     image_name="Parcel_PG_Dark"
      layout="topleft"
      mouse_opaque="true"
      name="event"
      left_pad="0"
-     width="16" />
+     width="18" />
       <text
      type="string"
      length="1"
@@ -312,13 +312,13 @@
     <icon
      follows="top|right"
      height="16"
-     image_name="map_event_mature.tga"
+     image_name="Parcel_M_Dark"
      layout="topleft"
      mouse_opaque="true"
      name="events_mature_icon"
      top_delta="0"
      left_pad="0"
-     width="16" />
+     width="18" />
            <text
      type="string"
      length="1"
@@ -345,13 +345,13 @@
     <icon
      follows="top|right"
      height="16"
-     image_name="map_event_adult.tga"
+     image_name="Parcel_R_Dark"
      layout="topleft"
      left_pad="0"
      mouse_opaque="true"
      name="events_adult_icon"
      top_delta="0"
-     width="16" />
+     width="18" />
                 <text
      type="string"
      length="1"
@@ -374,7 +374,8 @@
   top_pad="0"
   width="238"
   background_visible="true"
-  bg_alpha_color="DkGray2">
+  bg_alpha_color="DkGray2"
+  name="layout_panel_3">
     <text
      text_color="White"
      font="SansSerifLarge"
@@ -394,9 +395,10 @@
 
     <panel
      follows="right|top|bottom"
-	 height="270"
+	 height="310"
 	 top_pad="0"
-	 width="238">
+	 width="238"
+	 name="layout_panel_4">
 	 <icon
       color="0.5 0 0 1"
       follows="top|right"
@@ -493,7 +495,7 @@
      top_delta="-1"
      name="DoSearch"
      tool_tip="Search for region"
-     width="58">
+     width="62">
 		<button.commit_callback
 		function="WMap.Location" />
     </button>
@@ -514,7 +516,7 @@
      draw_stripes="false"
      bg_writeable_color="MouseGray"
      follows="all"
-     height="115"
+     height="145"
      layout="topleft"
      left="28"
      name="search_results"
@@ -535,6 +537,7 @@
     <button
      follows="right|bottom"
      height="23"
+     image_unselected="PushButton_On"
      label="Teleport"
      layout="topleft"
      left="25"
@@ -638,7 +641,8 @@
   top_pad="0"
   width="238"
   background_visible="true"
-  bg_alpha_color="DkGray2">
+  bg_alpha_color="DkGray2"
+  name="layout_panel_5">
     <text
      text_color="White"
      font="SansSerifLarge"
@@ -660,7 +664,8 @@
   height="30"
   min_height="30"
   top_pad="0"
-  width="238">
+  width="238"
+  name="layout_panel_6">
   <icon
      follows="left|bottom"
      height="16"
@@ -670,7 +675,7 @@
      mouse_opaque="true"
      name="zoom_icon"
      top_pad="7"
-     width="16" />
+     width="16" ></icon>
     <slider
      follows="left|bottom"
      height="16"

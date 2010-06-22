@@ -44,7 +44,6 @@
 #include "llviewernetwork.h"
 #include "llviewercontrol.h"
 #include "llmd5.h"
-#include "llurlsimstring.h"
 #include "llfloaterworldmap.h"
 #include "llurldispatcher.h"
 #include <Carbon/Carbon.h>
@@ -265,11 +264,6 @@ bool LLAppViewerMacOSX::restoreErrorTrap()
 	return reset_count == 0;
 }
 
-void LLAppViewerMacOSX::handleSyncCrashTrace()
-{
-	// do nothing
-}
-
 static OSStatus CarbonEventHandler(EventHandlerCallRef inHandlerCallRef, 
 								   EventRef inEvent, 
 								   void* inUserData)
@@ -291,6 +285,7 @@ static OSStatus CarbonEventHandler(EventHandlerCallRef inHandlerCallRef,
 		if(os_result >= 0 && matching_psn)
 		{
 			sCrashReporterIsRunning = false;
+			QuitApplicationEventLoop();
 		}
     }
     return noErr;
@@ -326,7 +321,7 @@ void LLAppViewerMacOSX::handleCrashReporting(bool reportFreeze)
 			// *NOTE:Mani A better way - make a copy of the data that the crash reporter will send
 			// and let SL go about its business. This way makes the mac work like windows and linux
 			// and is the smallest patch for the issue. 
-			sCrashReporterIsRunning = true;
+			sCrashReporterIsRunning = false;
 			ProcessSerialNumber o_psn;
 
 			static EventHandlerRef sCarbonEventsRef = NULL;
@@ -356,15 +351,13 @@ void LLAppViewerMacOSX::handleCrashReporting(bool reportFreeze)
 			
 			if(os_result >= 0)
 			{	
-				EventRecord evt;
-				while(sCrashReporterIsRunning)
-				{
-					while(WaitNextEvent(osMask, &evt, 0, NULL))
-					{
-						// null op!?!
-					}
-				}
-			}	
+				sCrashReporterIsRunning = true;
+			}
+
+			while(sCrashReporterIsRunning)
+			{
+				RunApplicationEventLoop();
+			}
 
 			// Re-install the apps quit handler.
 			AEInstallEventHandler(kCoreEventClass, 
@@ -386,33 +379,6 @@ void LLAppViewerMacOSX::handleCrashReporting(bool reportFreeze)
 		}
 		
 	}
-
-	if(!reportFreeze)
-	{
-		_exit(1);
-	}
-	
-	// TODO:palmer REMOVE THIS VERY SOON.  THIS WILL NOT BE IN VIEWER 2.0
-	// Remove the crash stack log from previous executions.
-	// Since we've started logging a new instance of the app, we can assume 
-	// The old crash stack is invalid for the next crash report.
-	char path[MAX_PATH];		
-	FSRef folder;
-	if(FSFindFolder(kUserDomain, kLogsFolderType, false, &folder) == noErr)
-	{
-		// folder is an FSRef to ~/Library/Logs/
-		if(FSRefMakePath(&folder, (UInt8*)&path, sizeof(path)) == noErr)
-		{
-			std::string pathname = std::string(path) + std::string("/CrashReporter/");
-			std::string mask = "Second Life*";
-			std::string file_name;
-			while(gDirUtilp->getNextFileInDir(pathname, mask, file_name, false))
-			{
-				LLFile::remove(pathname + file_name);
-			}
-		}
-	}
-	
 }
 
 std::string LLAppViewerMacOSX::generateSerialNumber()
@@ -448,16 +414,17 @@ std::string LLAppViewerMacOSX::generateSerialNumber()
 static AudioDeviceID get_default_audio_output_device(void)
 {
 	AudioDeviceID device = 0;
-	UInt32 size;
-	OSStatus err;
-	
-	size = sizeof(device);
-	err = AudioHardwareGetProperty(kAudioHardwarePropertyDefaultOutputDevice, &size, &device);
+	UInt32 size = sizeof(device);
+	AudioObjectPropertyAddress device_address = { kAudioHardwarePropertyDefaultOutputDevice,
+												  kAudioObjectPropertyScopeGlobal,
+												  kAudioObjectPropertyElementMaster };
+
+	OSStatus err = AudioObjectGetPropertyData(kAudioObjectSystemObject, &device_address, 0, NULL, &size, &device);
 	if(err != noErr)
 	{
 		LL_DEBUGS("SystemMute") << "Couldn't get default audio output device (0x" << std::hex << err << ")" << LL_ENDL;
 	}
-	
+
 	return device;
 }
 
@@ -465,11 +432,15 @@ static AudioDeviceID get_default_audio_output_device(void)
 void LLAppViewerMacOSX::setMasterSystemAudioMute(bool new_mute)
 {
 	AudioDeviceID device = get_default_audio_output_device();
-	
+
 	if(device != 0)
 	{
 		UInt32 mute = new_mute;
-		OSStatus err = AudioDeviceSetProperty(device, NULL, 0, false, kAudioDevicePropertyMute, sizeof(mute), &mute);
+		AudioObjectPropertyAddress device_address = { kAudioDevicePropertyMute,
+													  kAudioDevicePropertyScopeOutput,
+													  kAudioObjectPropertyElementMaster };
+
+		OSStatus err = AudioObjectSetPropertyData(device, &device_address, 0, NULL, sizeof(mute), &mute);
 		if(err != noErr)
 		{
 			LL_INFOS("SystemMute") << "Couldn't set audio mute property (0x" << std::hex << err << ")" << LL_ENDL;
@@ -482,13 +453,17 @@ bool LLAppViewerMacOSX::getMasterSystemAudioMute()
 {
 	// Assume the system isn't muted 
 	UInt32 mute = 0;
-	
+
 	AudioDeviceID device = get_default_audio_output_device();
-	
+
 	if(device != 0)
 	{
 		UInt32 size = sizeof(mute);
-		OSStatus err = AudioDeviceGetProperty(device, 0, false, kAudioDevicePropertyMute, &size, &mute);
+		AudioObjectPropertyAddress device_address = { kAudioDevicePropertyMute,
+													  kAudioDevicePropertyScopeOutput,
+													  kAudioObjectPropertyElementMaster };
+
+		OSStatus err = AudioObjectGetPropertyData(device, &device_address, 0, NULL, &size, &mute);
 		if(err != noErr)
 		{
 			LL_DEBUGS("SystemMute") << "Couldn't get audio mute property (0x" << std::hex << err << ")" << LL_ENDL;

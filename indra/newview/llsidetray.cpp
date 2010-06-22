@@ -34,7 +34,8 @@
 
 #include "lltextbox.h"
 
-#include "llagent.h"
+#include "llagentcamera.h"
+#include "llappviewer.h"
 #include "llbottomtray.h"
 #include "llsidetray.h"
 #include "llviewerwindow.h"
@@ -248,6 +249,11 @@ LLSideTray::LLSideTray(Params& params)
 	// panel_name should be specified via "parameter" attribute.
 	commit.add("SideTray.ShowPanel", boost::bind(&LLSideTray::showPanel, this, _2, LLUUID::null));
 	LLTransientFloaterMgr::getInstance()->addControlView(this);
+	LLView* side_bar_tabs  = gViewerWindow->getRootView()->getChildView("side_bar_tabs");
+	if (side_bar_tabs != NULL)
+	{
+		LLTransientFloaterMgr::getInstance()->addControlView(side_bar_tabs);
+	}
 
 	LLPanel::Params p;
 	p.name = "buttons_panel";
@@ -267,7 +273,16 @@ BOOL LLSideTray::postBuild()
 		collapseSideBar();
 
 	setMouseOpaque(false);
+
+	LLAppViewer::instance()->setOnLoginCompletedCallback(boost::bind(&LLSideTray::handleLoginComplete, this));
+
 	return true;
+}
+
+void LLSideTray::handleLoginComplete()
+{
+	//reset tab to "home" tab if it was changesd during login process
+	selectTabByName("sidebar_home");
 }
 
 LLSideTrayTab* LLSideTray::getTab(const std::string& name)
@@ -464,6 +479,9 @@ void LLSideTray::reflectCollapseChange()
 	}
 
 	gFloaterView->refresh();
+	
+	LLSD new_value = mCollapsed;
+	mCollapseSignal(this,new_value);
 }
 
 void LLSideTray::arrange()
@@ -541,7 +559,6 @@ void LLSideTray::collapseSideBar()
 	//mActiveTab->setVisible(FALSE);
 	reflectCollapseChange();
 	setFocus( FALSE );
-
 }
 
 void LLSideTray::expandSideBar()
@@ -566,7 +583,6 @@ void LLSideTray::expandSideBar()
 		LLButton* btn = btn_it->second;
 		btn->setImageOverlay( mActiveTab->mImageSelected  );
 	}
-
 }
 
 void LLSideTray::highlightFocused()
@@ -633,6 +649,7 @@ LLPanel*	LLSideTray::showPanel		(const std::string& panel_name, const LLSD& para
 			{
 				panel->onOpen(params);
 			}
+
 			return panel;
 		}
 	}
@@ -715,17 +732,12 @@ bool		LLSideTray::isPanelActive(const std::string& panel_name)
 	return (panel->getName() == panel_name);
 }
 
-
-// *TODO: Eliminate magic constants.
-static const S32	fake_offset = 132;
-static const S32	fake_top_offset = 18;
-
 void	LLSideTray::updateSidetrayVisibility()
 {
 	// set visibility of parent container based on collapsed state
 	if (getParent())
 	{
-		getParent()->setVisible(!mCollapsed && !gAgent.cameraMouselook());
+		getParent()->setVisible(!mCollapsed && !gAgentCamera.cameraMouselook());
 	}
 }
 

@@ -39,6 +39,7 @@
 #include "llparcel.h"
 
 #include "llagent.h"
+#include "llagentcamera.h"
 #include "llviewercontrol.h"
 #include "llfocusmgr.h"
 //#include "llfirstuse.h"
@@ -180,10 +181,10 @@ BOOL LLToolPie::pickLeftMouseDownCallback()
 		parent = object->getRootEdit();
 	}
 
-
-	BOOL touchable = (object && object->flagHandleTouch()) 
-					 || (parent && parent->flagHandleTouch());
-
+	if (handleMediaClick(mPick))
+	{
+		return TRUE;
+	}
 
 	// If it's a left-click, and we have a special action, do it.
 	if (useClickAction(mask, object, parent))
@@ -204,15 +205,15 @@ BOOL LLToolPie::pickLeftMouseDownCallback()
 			// touch behavior down below...
 			break;
 		case CLICK_ACTION_SIT:
-
-			if ((gAgent.getAvatarObject() != NULL) && (!gAgent.getAvatarObject()->isSitting())) // agent not already sitting
 			{
-				handle_object_sit_or_stand();
-				// put focus in world when sitting on an object
-				gFocusMgr.setKeyboardFocus(NULL);
-				return TRUE;
-			} // else nothing (fall through to touch)
-			
+				if (isAgentAvatarValid() && !gAgentAvatarp->isSitting()) // agent not already sitting
+				{
+					handle_object_sit_or_stand();
+					// put focus in world when sitting on an object
+					gFocusMgr.setKeyboardFocus(NULL);
+					return TRUE;
+				} // else nothing (fall through to touch)
+			}
 		case CLICK_ACTION_PAY:
 			if ((object && object->flagTakesMoney())
 				|| (parent && parent->flagTakesMoney()))
@@ -263,7 +264,7 @@ BOOL LLToolPie::pickLeftMouseDownCallback()
 				
 				if (object)
 				{
-					gAgent.setFocusOnAvatar(FALSE, ANIMATE);
+					gAgentCamera.setFocusOnAvatar(FALSE, ANIMATE);
 					
 					LLBBox bbox = object->getBoundingBoxAgent() ;
 					F32 angle_of_view = llmax(0.1f, LLViewerCamera::getInstance()->getAspect() > 1.f ? LLViewerCamera::getInstance()->getView() * LLViewerCamera::getInstance()->getAspect() : LLViewerCamera::getInstance()->getView());
@@ -273,7 +274,7 @@ BOOL LLToolPie::pickLeftMouseDownCallback()
 					obj_to_cam.normVec();
 					
 					LLVector3d object_center_global = gAgent.getPosGlobalFromAgent(bbox.getCenterAgent());
-					gAgent.setCameraPosAndFocusGlobal(object_center_global + LLVector3d(obj_to_cam * distance), 
+					gAgentCamera.setCameraPosAndFocusGlobal(object_center_global + LLVector3d(obj_to_cam * distance), 
 													  object_center_global, 
 													  mPick.mObjectID );
 				}
@@ -285,13 +286,11 @@ BOOL LLToolPie::pickLeftMouseDownCallback()
 		}
 	}
 
-	if (handleMediaClick(mPick))
-	{
-		return TRUE;
-	}
-
 	// put focus back "in world"
 	gFocusMgr.setKeyboardFocus(NULL);
+
+	BOOL touchable = (object && object->flagHandleTouch()) 
+					 || (parent && parent->flagHandleTouch());
 
 	// Switch to grab tool if physical or triggerable
 	if (object && 
@@ -329,14 +328,14 @@ BOOL LLToolPie::pickLeftMouseDownCallback()
 			}
 			object = (LLViewerObject*)object->getParent();
 		}
-		if (object && object == gAgent.getAvatarObject())
+		if (object && object == gAgentAvatarp)
 		{
 			// we left clicked on avatar, switch to focus mode
 			LLToolMgr::getInstance()->setTransientTool(LLToolCamera::getInstance());
 			gViewerWindow->hideCursor();
 			LLToolCamera::getInstance()->setMouseCapture(TRUE);
 			LLToolCamera::getInstance()->pickCallback(mPick);
-			gAgent.setFocusOnAvatar(TRUE, TRUE);
+			gAgentCamera.setFocusOnAvatar(TRUE, TRUE);
 
 			return TRUE;
 		}
@@ -410,26 +409,28 @@ ECursorType cursor_from_object(LLViewerObject* object)
 	switch(click_action)
 	{
 	case CLICK_ACTION_SIT:
-		if ((gAgent.getAvatarObject() != NULL) && (!gAgent.getAvatarObject()->isSitting())) // not already sitting?
 		{
-			cursor = UI_CURSOR_HAND;
+			if (isAgentAvatarValid() && !gAgentAvatarp->isSitting()) // not already sitting?
+			{
+				cursor = UI_CURSOR_TOOLSIT;
+			}
 		}
 		break;
 	case CLICK_ACTION_BUY:
-		cursor = UI_CURSOR_HAND;
+		cursor = UI_CURSOR_TOOLBUY;
 		break;
 	case CLICK_ACTION_OPEN:
 		// Open always opens the parent.
 		if (parent && parent->allowOpen())
 		{
-			cursor = UI_CURSOR_HAND;
+			cursor = UI_CURSOR_TOOLOPEN;
 		}
 		break;
 	case CLICK_ACTION_PAY:	
 		if ((object && object->flagTakesMoney())
 			|| (parent && parent->flagTakesMoney()))
 		{
-			cursor = UI_CURSOR_HAND;
+			cursor = UI_CURSOR_TOOLBUY;
 		}
 		break;
 	case CLICK_ACTION_ZOOM:
@@ -496,6 +497,8 @@ void LLToolPie::selectionPropertiesReceived()
 BOOL LLToolPie::handleHover(S32 x, S32 y, MASK mask)
 {
 	mHoverPick = gViewerWindow->pickImmediate(x, y, FALSE);
+	// perform a separate pick that detects transparent objects since they respond to 1-click actions
+	LLPickInfo click_action_pick = gViewerWindow->pickImmediate(x, y, TRUE);
 
 	// Show screen-space highlight glow effect
 	bool show_highlight = false;
@@ -507,14 +510,8 @@ BOOL LLToolPie::handleHover(S32 x, S32 y, MASK mask)
 		parent = object->getRootEdit();
 	}
 
-	if (object && useClickAction(mask, object, parent))
-	{
-		show_highlight = true;
-		ECursorType cursor = cursor_from_object(object);
-		gViewerWindow->setCursor(cursor);
-		lldebugst(LLERR_USER_INPUT) << "hover handled by LLToolPie (inactive)" << llendl;
-	}
-	else if (handleMediaHover(mHoverPick))
+	LLViewerObject* click_action_object = click_action_pick.getObject();
+	if (handleMediaHover(mHoverPick))
 	{
 		// *NOTE: If you think the hover glow conflicts with the media outline, you
 		// could disable it here.
@@ -522,6 +519,14 @@ BOOL LLToolPie::handleHover(S32 x, S32 y, MASK mask)
 		// cursor set by media object
 		lldebugst(LLERR_USER_INPUT) << "hover handled by LLToolPie (inactive)" << llendl;
 	}
+	else if (click_action_object && useClickAction(mask, click_action_object, click_action_object->getRootEdit()))
+	{
+		show_highlight = true;
+		ECursorType cursor = cursor_from_object(click_action_object);
+		gViewerWindow->setCursor(cursor);
+		lldebugst(LLERR_USER_INPUT) << "hover handled by LLToolPie (inactive)" << llendl;
+	}
+	
 	else if ((object && !object->isAvatar() && object->usePhysics()) 
 			 || (parent && !parent->isAvatar() && parent->usePhysics()))
 	{
@@ -592,7 +597,7 @@ BOOL LLToolPie::handleMouseUp(S32 x, S32 y, MASK mask)
 
 	mGrabMouseButtonDown = FALSE;
 	LLToolMgr::getInstance()->clearTransientTool();
-	gAgent.setLookAt(LOOKAT_TARGET_CONVERSATION, obj); // maybe look at object/person clicked on
+	gAgentCamera.setLookAt(LOOKAT_TARGET_CONVERSATION, obj); // maybe look at object/person clicked on
 	return LLTool::handleMouseUp(x, y, mask);
 }
 
@@ -901,6 +906,16 @@ BOOL LLToolPie::handleTooltipObject( LLViewerObject* hover_object, std::string l
 			 || !existing_inspector->getVisible()
 			 || existing_inspector->getKey()["object_id"].asUUID() != hover_object->getID()))
 		{
+						
+			// Add price to tooltip for items on sale
+			bool for_sale = for_sale_selection(nodep);
+			if(for_sale)
+			{
+				LLStringUtil::format_map_t args;
+				args["[PRICE]"] = llformat ("%d", nodep->mSaleInfo.getSalePrice());
+				tooltip_msg.append(LLTrans::getString("TooltipPrice", args) );
+			}
+
 			if (nodep->mName.empty())
 			{
 				tooltip_msg.append(LLTrans::getString("TooltipNoName"));
@@ -931,7 +946,7 @@ BOOL LLToolPie::handleTooltipObject( LLViewerObject* hover_object, std::string l
 					if (media_impl.notNull() && (media_impl->hasMedia()))
 					{
 						is_media_displaying = true;
-						LLStringUtil::format_map_t args;
+						//LLStringUtil::format_map_t args;
 						
 						media_plugin = media_impl->getMediaPlugin();
 						if(media_plugin)
@@ -955,10 +970,13 @@ BOOL LLToolPie::handleTooltipObject( LLViewerObject* hover_object, std::string l
 				}
 			}
 			
-			// Avoid showing tip over media that's displaying
+
+			// Avoid showing tip over media that's displaying unless it's for sale
 			// also check the primary node since sometimes it can have an action even though
 			// the root node doesn't
-			bool needs_tip = !is_media_displaying &&
+			
+			bool needs_tip = (!is_media_displaying || 
+				              for_sale) &&
 				(has_media || 
 				 needs_tooltip(nodep) || 
 				 needs_tooltip(LLSelectMgr::getInstance()->getPrimaryHoverNode()));
@@ -1249,6 +1267,7 @@ bool LLToolPie::handleMediaClick(const LLPickInfo& pick)
 
 	if (!parcel ||
 		objectp.isNull() ||
+		objectp->isHUDAttachment() ||
 		pick.mObjectFace < 0 || 
 		pick.mObjectFace >= objectp->getNumTEs()) 
 	{
@@ -1263,11 +1282,10 @@ bool LLToolPie::handleMediaClick(const LLPickInfo& pick)
 		return false;
 
 	LLMediaEntry* mep = (tep->hasMedia()) ? tep->getMediaData() : NULL;
-	
 	if(!mep)
 		return false;
 	
-	viewer_media_t media_impl = mep ? LLViewerMedia::getMediaImplFromTextureID(mep->getMediaID()) : NULL;
+	viewer_media_t media_impl = LLViewerMedia::getMediaImplFromTextureID(mep->getMediaID());
 
 	if (gSavedSettings.getBOOL("MediaOnAPrimUI"))
 	{
@@ -1485,6 +1503,12 @@ BOOL LLToolPie::pickRightMouseDownCallback()
 			while( object && object->isAttachment())
 			{
 				object = (LLViewerObject*)object->getParent();
+				llassert(object);
+			}
+
+			if (!object)
+			{
+				return TRUE; // unexpected, but escape
 			}
 
 			// Object is an avatar, so check for mute by id.

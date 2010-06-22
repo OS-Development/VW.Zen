@@ -48,6 +48,7 @@
 
 class LLContextMenu;
 class LLTextSegment;
+class LLNormalTextSegment;
 
 typedef LLPointer<LLTextSegment> LLTextSegmentPtr;
 
@@ -61,6 +62,9 @@ class LLTextBase
 	protected LLEditMenuHandler
 {
 public:
+	friend class LLTextSegment;
+	friend class LLNormalTextSegment;
+
 	struct LineSpacingParams : public LLInitParam::Choice<LineSpacingParams>
 	{
 		Alternative<F32>	multiple;
@@ -82,6 +86,7 @@ public:
 								track_end,
 								read_only,
 								allow_scroll,
+								plain_text,
 								wrap,
 								use_ellipses,
 								allow_html,
@@ -128,6 +133,7 @@ public:
 	/*virtual*/ LLTextViewModel* getViewModel() const;
 
 	// LLEditMenuHandler interface
+	/*virtual*/ BOOL		canDeselect() const;
 	/*virtual*/ void		deselect();
 
 	// used by LLTextSegment layout code
@@ -165,12 +171,15 @@ public:
 	S32						getVPad() { return mVPad; }
 	S32						getHPad() { return mHPad; }
 
-	S32						getDocIndexFromLocalCoord( S32 local_x, S32 local_y, BOOL round ) const;
+	S32						getDocIndexFromLocalCoord( S32 local_x, S32 local_y, BOOL round, bool hit_past_end_of_line = true) const;
 	LLRect					getLocalRectFromDocIndex(S32 pos) const;
 	LLRect					getDocRectFromDocIndex(S32 pos) const;
 
 	void					setReadOnly(bool read_only) { mReadOnly = read_only; }
 	bool					getReadOnly() { return mReadOnly; }
+
+	void					setPlainText(bool value) { mPlainText = value;}
+	bool					getPlainText() const { return mPlainText; }
 
 	// cursor manipulation
 	bool					setCursor(S32 row, S32 column);
@@ -269,13 +278,13 @@ protected:
 	S32								insertStringNoUndo(S32 pos, const LLWString &wstr, segment_vec_t* segments = NULL); // returns num of chars actually inserted
 	S32 							removeStringNoUndo(S32 pos, S32 length);
 	S32								overwriteCharNoUndo(S32 pos, llwchar wc);
-	void							appendAndHighlightText(const std::string &new_text, bool prepend_newline, S32 highlight_part, const LLStyle::Params& stylep);
+	void							appendAndHighlightText(const std::string &new_text, S32 highlight_part, const LLStyle::Params& stylep);
 
 
 	// manage segments 
 	void                			getSegmentAndOffset( S32 startpos, segment_set_t::const_iterator* seg_iter, S32* offsetp ) const;
 	void                			getSegmentAndOffset( S32 startpos, segment_set_t::iterator* seg_iter, S32* offsetp );
-	LLTextSegmentPtr    			getSegmentAtLocalPos( S32 x, S32 y );
+	LLTextSegmentPtr    			getSegmentAtLocalPos( S32 x, S32 y, bool hit_past_end_of_line = true);
 	segment_set_t::iterator			getSegIterContaining(S32 index);
 	segment_set_t::const_iterator	getSegIterContaining(S32 index) const;
 	void                			clearSegments();
@@ -310,6 +319,13 @@ protected:
 	void							updateRects();
 	void							needsScroll() { mScrollNeeded = TRUE; }
 	void							replaceUrlLabel(const std::string &url, const std::string &label);
+
+	void							appendLineBreakSegment(const LLStyle::Params& style_params);
+	void							appendImageSegment(S32 highlight_part, const LLStyle::Params& style_params);
+	
+	void							appendTextImpl(const std::string &new_text, const LLStyle::Params& input_params = LLStyle::Params());
+	void							appendAndHighlightTextImpl(const std::string &new_text, S32 highlight_part, const LLStyle::Params& style_params);
+	
 
 protected:
 	// text segmentation and flow
@@ -354,6 +370,7 @@ protected:
 	bool						mReadOnly;
 	bool						mBGVisible;			// render background?
 	bool						mClipPartial;		// false if we show lines that are partially inside bounding rect
+	bool						mPlainText;			// didn't use Image or Icon segments
 	S32							mMaxTextByteLength;	// Maximum length mText is allowed to be in bytes
 
 	// support widgets
@@ -502,5 +519,33 @@ private:
 	bool	mForceNewLine;
 };
 
+class LLLineBreakTextSegment : public LLTextSegment
+{
+public:
+
+	LLLineBreakTextSegment(LLStyleConstSP style,S32 pos);
+	LLLineBreakTextSegment(S32 pos);
+	~LLLineBreakTextSegment();
+	bool		getDimensions(S32 first_char, S32 num_chars, S32& width, S32& height) const;
+	S32			getNumChars(S32 num_pixels, S32 segment_offset, S32 line_offset, S32 max_chars) const;
+	F32			draw(S32 start, S32 end, S32 selection_start, S32 selection_end, const LLRect& draw_rect);
+
+private:
+	S32			mFontHeight;
+};
+
+class LLImageTextSegment : public LLTextSegment
+{
+public:
+	LLImageTextSegment(LLStyleConstSP style,S32 pos,class LLTextBase& editor);
+	~LLImageTextSegment();
+	bool		getDimensions(S32 first_char, S32 num_chars, S32& width, S32& height) const;
+	S32			getNumChars(S32 num_pixels, S32 segment_offset, S32 line_offset, S32 max_chars) const;
+	F32			draw(S32 start, S32 end, S32 selection_start, S32 selection_end, const LLRect& draw_rect);
+
+private:
+	class LLTextBase&	mEditor;
+	LLStyleConstSP	mStyle;
+};
 
 #endif

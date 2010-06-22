@@ -1,8 +1,5 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <panel label="Grafica" name="Display panel">
-	<text name="UI Size:">
-		misura UI:
-	</text>
 	<text name="QualitySpeed">
 		Qualità e velocità:
 	</text>
@@ -47,12 +44,16 @@
 		<check_box initial_value="true" label="Avatar bidimensionali (Impostor)" name="AvatarImpostors"/>
 		<check_box initial_value="true" label="Hardware Skinning" name="AvatarVertexProgram"/>
 		<check_box initial_value="true" label="Abiti dell&apos;avatar" name="AvatarCloth"/>
-		<slider label="Distanza di disegno:" label_width="158" name="DrawDistance" width="255"/>
+		<slider label="Distanza di disegno:" name="DrawDistance"/>
 		<text name="DrawDistanceMeterText2">
 			m
 		</text>
-		<slider label="Conteggio massimo particelle:" label_width="158" name="MaxParticleCount" width="262"/>
-		<slider label="Qualità in post-produzione:" label_width="158" name="RenderPostProcess" width="223"/>
+		<slider label="Conteggio massimo particelle:" name="MaxParticleCount"/>
+		<slider label="Distanza visual. max avatar:" name="MaxAvatarDrawDistance"/>
+		<text name="DrawDistanceMeterText3">
+			m
+		</text>
+		<slider label="Qualità in post-produzione:" name="RenderPostProcess"/>
 		<text name="MeshDetailText">
 			Dettagli reticolo:
 		</text>
@@ -87,8 +88,8 @@
 			Dettagli illuminazione:
 		</text>
 		<radio_group name="LightingDetailRadio">
-			<radio_item label="Solo il sole e la luna" name="SunMoon"/>
-			<radio_item label="Luci locali" name="LocalLights"/>
+			<radio_item label="Solo il sole e la luna" name="SunMoon" value="0"/>
+			<radio_item label="Luci locali" name="LocalLights" value="1"/>
 		</radio_group>
 		<text name="TerrainDetailText">
 			Dettagli terreno:
@@ -99,7 +100,7 @@
 		</radio_group>
 	</panel>
 	<button label="Applica" label_selected="Applica" name="Apply"/>
-	<button label="Resetta" left="110" name="Defaults" width="190"/>
-	<button label="Avanzato" name="Advanced"/>
+	<button label="Reimposta" name="Defaults"/>
+	<button label="Avanzate" name="Advanced"/>
 	<button label="Hardware" label_selected="Hardware" name="GraphicsHardwareButton"/>
 </panel>

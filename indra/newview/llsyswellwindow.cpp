@@ -56,13 +56,11 @@ LLSysWellWindow::LLSysWellWindow(const LLSD& key) : LLTransientDockableFloater(N
 													mChannel(NULL),
 													mMessageList(NULL),
 													mSysWellChiclet(NULL),
-													mSeparator(NULL),
 													NOTIFICATION_WELL_ANCHOR_NAME("notification_well_panel"),
-													IM_WELL_ANCHOR_NAME("im_well_panel")
+													IM_WELL_ANCHOR_NAME("im_well_panel"),
+													mIsReshapedByUser(false)
 
 {
-	mTypedItemsCount[IT_NOTIFICATION] = 0;
-	mTypedItemsCount[IT_INSTANT_MESSAGE] = 0;
 	setOverlapsScreenChannel(true);
 }
 
@@ -73,18 +71,6 @@ BOOL LLSysWellWindow::postBuild()
 
 	// get a corresponding channel
 	initChannel();
-
-	LLPanel::Params params;
-	mSeparator = LLUICtrlFactory::create<LLPanel>(params);
-	LLUICtrlFactory::instance().buildPanel(mSeparator, "panel_separator.xml");
-
-	LLRect rc = mSeparator->getRect();
-	rc.setOriginAndSize(0, 0, mMessageList->getItemsRect().getWidth(), rc.getHeight());
-	mSeparator->setRect(rc);
-	mSeparator->setFollows(FOLLOWS_LEFT | FOLLOWS_RIGHT | FOLLOWS_TOP);
-	mSeparator->setVisible(FALSE);
-
-	mMessageList->addItem(mSeparator);
 
 	// click on SysWell Window should clear "new message" state (and 'Lit' status). EXT-3147.
 	// mouse up callback is not called in this case.
@@ -97,6 +83,13 @@ BOOL LLSysWellWindow::postBuild()
 void LLSysWellWindow::setMinimized(BOOL minimize)
 {
 	LLTransientDockableFloater::setMinimized(minimize);
+}
+
+//---------------------------------------------------------------------------------
+void LLSysWellWindow::handleReshape(const LLRect& rect, bool by_user)
+{
+	mIsReshapedByUser |= by_user; // mark floater that it is reshaped by user
+	LLTransientDockableFloater::handleReshape(rect, by_user);
 }
 
 //---------------------------------------------------------------------------------
@@ -122,7 +115,7 @@ void LLSysWellWindow::removeItemByID(const LLUUID& id)
 {
 	if(mMessageList->removeItemByValue(id))
 	{
-		handleItemRemoved(IT_NOTIFICATION);
+		mSysWellChiclet->updateWidget(isWindowEmpty());
 		reshapeWindow();
 	}
 	else
@@ -211,22 +204,25 @@ void LLSysWellWindow::reshapeWindow()
 	// it includes height from floater top to list top and from floater bottom and list bottom
 	static S32 parent_list_delta_height = getRect().getHeight() - mMessageList->getRect().getHeight();
 
-	S32 notif_list_height = mMessageList->getItemsRect().getHeight() + 2 * mMessageList->getBorderWidth();
-
-	LLRect curRect = getRect();
-
-	S32 new_window_height = notif_list_height + parent_list_delta_height;
-
-	if (new_window_height > MAX_WINDOW_HEIGHT)
+	if (!mIsReshapedByUser) // Don't reshape Well window, if it ever was reshaped by user. See EXT-5715.
 	{
-		new_window_height = MAX_WINDOW_HEIGHT;
-	}
-	S32 newY = curRect.mTop + new_window_height - curRect.getHeight();
-	S32 newWidth = curRect.getWidth() < MIN_WINDOW_WIDTH ? MIN_WINDOW_WIDTH
+		S32 notif_list_height = mMessageList->getItemsRect().getHeight() + 2 * mMessageList->getBorderWidth();
+
+		LLRect curRect = getRect();
+
+		S32 new_window_height = notif_list_height + parent_list_delta_height;
+
+		if (new_window_height > MAX_WINDOW_HEIGHT)
+		{
+			new_window_height = MAX_WINDOW_HEIGHT;
+		}
+		S32 newY = curRect.mTop + new_window_height - curRect.getHeight();
+		S32 newWidth = curRect.getWidth() < MIN_WINDOW_WIDTH ? MIN_WINDOW_WIDTH
 			: curRect.getWidth();
-	curRect.setLeftTopAndSize(curRect.mLeft, newY, newWidth, new_window_height);
-	reshape(curRect.getWidth(), curRect.getHeight(), TRUE);
-	setRect(curRect);
+		curRect.setLeftTopAndSize(curRect.mLeft, newY, newWidth, new_window_height);
+		reshape(curRect.getWidth(), curRect.getHeight(), TRUE);
+		setRect(curRect);
+	}
 
 	// update notification channel state
 	// update on a window reshape is important only when a window is visible and docked
@@ -247,76 +243,7 @@ void LLSysWellWindow::releaseNewMessagesState()
 //---------------------------------------------------------------------------------
 bool LLSysWellWindow::isWindowEmpty()
 {
-	// keep in mind, mSeparator is always in the list
-	return mMessageList->size() == 1;
-}
-
-// *TODO: mantipov: probably is deprecated
-void LLSysWellWindow::handleItemAdded(EItemType added_item_type)
-{
-	bool should_be_shown = ++mTypedItemsCount[added_item_type] == 1 && anotherTypeExists(added_item_type);
-
-	if (should_be_shown && !mSeparator->getVisible())
-	{
-		mSeparator->setVisible(TRUE);
-
-		// refresh list to recalculate mSeparator position
-		mMessageList->reshape(mMessageList->getRect().getWidth(), mMessageList->getRect().getHeight());
-	}
-
-	//fix for EXT-3254
-	//set limits for min_height. 
-	S32 parent_list_delta_height = getRect().getHeight() - mMessageList->getRect().getHeight();
-
-	std::vector<LLPanel*> items;
-	mMessageList->getItems(items);
-
-	if(items.size()>1)//first item is separator
-	{
-		S32 min_height;
-		S32 min_width;
-		getResizeLimits(&min_width,&min_height);
-
-		min_height = items[1]->getRect().getHeight() + 2 * mMessageList->getBorderWidth() + parent_list_delta_height;
-
-		setResizeLimits(min_width,min_height);
-	}
-	mSysWellChiclet->updateWidget(isWindowEmpty());
-}
-
-void LLSysWellWindow::handleItemRemoved(EItemType removed_item_type)
-{
-	bool should_be_hidden = --mTypedItemsCount[removed_item_type] == 0;
-
-	if (should_be_hidden && mSeparator->getVisible())
-	{
-		mSeparator->setVisible(FALSE);
-
-		// refresh list to recalculate mSeparator position
-		mMessageList->reshape(mMessageList->getRect().getWidth(), mMessageList->getRect().getHeight());
-	}
-	mSysWellChiclet->updateWidget(isWindowEmpty());
-}
-
-bool LLSysWellWindow::anotherTypeExists(EItemType item_type)
-{
-	bool exists = false;
-	switch(item_type)
-	{
-	case IT_INSTANT_MESSAGE:
-		if (mTypedItemsCount[IT_NOTIFICATION] > 0)
-		{
-			exists = true;
-		}
-		break;
-	case IT_NOTIFICATION:
-		if (mTypedItemsCount[IT_INSTANT_MESSAGE] > 0)
-		{
-			exists = true;
-		}
-		break;
-	}
-	return exists;
+	return mMessageList->size() == 0;
 }
 
 /************************************************************************/
@@ -404,7 +331,10 @@ BOOL LLIMWellWindow::RowPanel::handleMouseDown(S32 x, S32 y, MASK mask)
 {
 	// Pass the mouse down event to the chiclet (EXT-596).
 	if (!mChiclet->pointInView(x, y) && !mCloseBtn->getRect().pointInRect(x, y)) // prevent double call of LLIMChiclet::onMouseDown()
+	{
 		mChiclet->onMouseDown();
+		return TRUE;
+	}
 
 	return LLPanel::handleMouseDown(x, y, mask);
 }
@@ -418,16 +348,16 @@ BOOL LLIMWellWindow::RowPanel::handleRightMouseDown(S32 x, S32 y, MASK mask)
 /*         ObjectRowPanel implementation                                */
 /************************************************************************/
 
-LLIMWellWindow::ObjectRowPanel::ObjectRowPanel(const LLUUID& object_id, bool new_message/* = false*/)
+LLIMWellWindow::ObjectRowPanel::ObjectRowPanel(const LLUUID& notification_id, bool new_message/* = false*/)
  : LLPanel()
  , mChiclet(NULL)
 {
 	LLUICtrlFactory::getInstance()->buildPanel(this, "panel_active_object_row.xml", NULL);
 
-	initChiclet(object_id);
+	initChiclet(notification_id);
 
 	LLTextBox* obj_name = getChild<LLTextBox>("object_name");
-	obj_name->setValue(getObjectName(object_id));
+	obj_name->setValue(LLScriptFloaterManager::getObjectName(notification_id));
 
 	mCloseBtn = getChild<LLButton>("hide_btn");
 	mCloseBtn->setCommitCallback(boost::bind(&LLIMWellWindow::ObjectRowPanel::onClosePanel, this));
@@ -438,90 +368,18 @@ LLIMWellWindow::ObjectRowPanel::~ObjectRowPanel()
 {
 }
 
-std::string LLIMWellWindow::ObjectRowPanel::getObjectName(const LLUUID& object_id)
-{
-	using namespace LLNotificationsUI;
-	LLUUID notification_id = LLScriptFloaterManager::getInstance()->findNotificationId(object_id);
-	LLNotificationPtr notification = LLNotifications::getInstance()->find(notification_id);
-	if(!notification)
-	{
-		llwarns << "Invalid notification" << llendl;
-		return LLStringUtil::null;
-	}
-
-	std::string text;
-
-	switch(getObjectType(notification))
-	{
-	case OBJ_SCRIPT:
-		text = notification->getSubstitutions()["TITLE"].asString();
-		break;
-	case OBJ_LOAD_URL:
-		text = notification->getSubstitutions()["OBJECTNAME"].asString();
-		break;
-	case OBJ_GIVE_INVENTORY:
-		text = notification->getSubstitutions()["NAME"].asString();
-		break;
-	default:
-		text = getString("unknown_obj");
-		break;
-	}
-
-	return text;
-}
-
 //---------------------------------------------------------------------------------
 void LLIMWellWindow::ObjectRowPanel::onClosePanel()
 {
-	LLScriptFloaterManager::getInstance()->removeNotificationByObjectId(mChiclet->getSessionId());
+	LLScriptFloaterManager::getInstance()->onRemoveNotification(mChiclet->getSessionId());
 }
 
-//static
-LLIMWellWindow::ObjectRowPanel::object_type_map LLIMWellWindow::ObjectRowPanel::initObjectTypeMap()
+void LLIMWellWindow::ObjectRowPanel::initChiclet(const LLUUID& notification_id, bool new_message/* = false*/)
 {
-	object_type_map type_map;
-	type_map["ScriptDialog"] = OBJ_SCRIPT;
-	type_map["LoadWebPage"] = OBJ_LOAD_URL;
-	type_map["ObjectGiveItem"] = OBJ_GIVE_INVENTORY;
-	return type_map;
-}
-
-// static
-LLIMWellWindow::ObjectRowPanel::EObjectType LLIMWellWindow::ObjectRowPanel::getObjectType(const LLNotificationPtr& notification)
-{
-	if(!notification)
-	{
-		llwarns << "Invalid notification" << llendl;
-		return OBJ_UNKNOWN;
-	}
-
-	static object_type_map type_map = initObjectTypeMap();
-	std::string name = notification->getName();
-	object_type_map::const_iterator it = type_map.find(name);
-	if(it != type_map.end())
-	{
-		return it->second;
-	}
-
-	llwarns << "Unknown object type" << llendl;
-	return OBJ_UNKNOWN;
-}
-
-void LLIMWellWindow::ObjectRowPanel::initChiclet(const LLUUID& object_id, bool new_message/* = false*/)
-{
-	using namespace LLNotificationsUI;
-	LLUUID notification_id = LLScriptFloaterManager::getInstance()->findNotificationId(object_id);
-	LLNotificationPtr notification = LLNotifications::getInstance()->find(notification_id);
-	if(!notification)
-	{
-		llwarns << "Invalid notification" << llendl;
-		return;
-	}
-
 	// Choose which of the pre-created chiclets to use.
-	switch(getObjectType(notification))
+	switch(LLScriptFloaterManager::getObjectType(notification_id))
 	{
-	case OBJ_GIVE_INVENTORY:
+	case LLScriptFloaterManager::OBJ_GIVE_INVENTORY:
 		mChiclet = getChild<LLInvOfferChiclet>("inv_offer_chiclet");
 		break;
 	default:
@@ -530,8 +388,7 @@ void LLIMWellWindow::ObjectRowPanel::initChiclet(const LLUUID& object_id, bool n
 	}
 
 	mChiclet->setVisible(true);
-	mChiclet->setSessionId(object_id);
-//	mChiclet->setShowNewMessagesIcon(new_message);
+	mChiclet->setSessionId(notification_id);
 }
 
 //---------------------------------------------------------------------------------
@@ -552,7 +409,10 @@ BOOL LLIMWellWindow::ObjectRowPanel::handleMouseDown(S32 x, S32 y, MASK mask)
 {
 	// Pass the mouse down event to the chiclet (EXT-596).
 	if (!mChiclet->pointInView(x, y) && !mCloseBtn->getRect().pointInRect(x, y)) // prevent double call of LLIMChiclet::onMouseDown()
+	{
 		mChiclet->onMouseDown();
+		return TRUE;
+	}
 
 	return LLPanel::handleMouseDown(x, y, mask);
 }
@@ -615,8 +475,7 @@ void LLNotificationWellWindow::addItem(LLSysWellItem::Params p)
 	LLSysWellItem* new_item = new LLSysWellItem(p);
 	if (mMessageList->addItem(new_item, value, ADD_TOP))
 	{
-		handleItemAdded(IT_NOTIFICATION);
-
+		mSysWellChiclet->updateWidget(isWindowEmpty());
 		reshapeWindow();
 
 		new_item->setOnItemCloseCallback(boost::bind(&LLNotificationWellWindow::onItemClose, this, _1));
@@ -780,10 +639,10 @@ void LLIMWellWindow::sessionIDUpdated(const LLUUID& old_session_id, const LLUUID
 	}
 }
 
-LLChiclet* LLIMWellWindow::findObjectChiclet(const LLUUID& object_id)
+LLChiclet* LLIMWellWindow::findObjectChiclet(const LLUUID& notification_id)
 {
 	LLChiclet* res = NULL;
-	ObjectRowPanel* panel = mMessageList->getTypedItemByValue<ObjectRowPanel>(object_id);
+	ObjectRowPanel* panel = mMessageList->getTypedItemByValue<ObjectRowPanel>(notification_id);
 	if (panel != NULL)
 	{
 		res = panel->mChiclet;
@@ -811,9 +670,9 @@ void LLIMWellWindow::addIMRow(const LLUUID& sessionId, S32 chicletCounter,
 							   const std::string& name, const LLUUID& otherParticipantId)
 {
 	RowPanel* item = new RowPanel(this, sessionId, chicletCounter, name, otherParticipantId);
-	if (mMessageList->insertItemAfter(mSeparator, item, sessionId))
+	if (mMessageList->addItem(item, sessionId))
 	{
-		handleItemAdded(IT_INSTANT_MESSAGE);
+		mSysWellChiclet->updateWidget(isWindowEmpty());
 	}
 	else
 	{
@@ -838,7 +697,7 @@ void LLIMWellWindow::delIMRow(const LLUUID& sessionId)
 
 	if (mMessageList->removeItemByValue(sessionId))
 	{
-		handleItemRemoved(IT_INSTANT_MESSAGE);
+		mSysWellChiclet->updateWidget(isWindowEmpty());
 	}
 	else
 	{
@@ -861,33 +720,33 @@ void LLIMWellWindow::delIMRow(const LLUUID& sessionId)
 	}
 }
 
-void LLIMWellWindow::addObjectRow(const LLUUID& object_id, bool new_message/* = false*/)
+void LLIMWellWindow::addObjectRow(const LLUUID& notification_id, bool new_message/* = false*/)
 {
-	if (mMessageList->getItemByValue(object_id) == NULL)
+	if (mMessageList->getItemByValue(notification_id) == NULL)
 	{
-		ObjectRowPanel* item = new ObjectRowPanel(object_id, new_message);
-		if (mMessageList->insertItemAfter(mSeparator, item, object_id))
+		ObjectRowPanel* item = new ObjectRowPanel(notification_id, new_message);
+		if (mMessageList->addItem(item, notification_id))
 		{
-			handleItemAdded(IT_INSTANT_MESSAGE);
+			mSysWellChiclet->updateWidget(isWindowEmpty());
 		}
 		else
 		{
-			llwarns << "Unable to add Object Row into the list, objectID: " << object_id << llendl;
+			llwarns << "Unable to add Object Row into the list, notificationID: " << notification_id << llendl;
 			item->die();
 		}
 		reshapeWindow();
 	}
 }
 
-void LLIMWellWindow::removeObjectRow(const LLUUID& object_id)
+void LLIMWellWindow::removeObjectRow(const LLUUID& notification_id)
 {
-	if (mMessageList->removeItemByValue(object_id))
+	if (mMessageList->removeItemByValue(notification_id))
 	{
-		handleItemRemoved(IT_INSTANT_MESSAGE);
+		mSysWellChiclet->updateWidget(isWindowEmpty());
 	}
 	else
 	{
-		llwarns << "Unable to remove Object Row from the list, objectID: " << object_id << llendl;
+		llwarns << "Unable to remove Object Row from the list, notificationID: " << notification_id << llendl;
 	}
 
 	reshapeWindow();
@@ -967,8 +826,7 @@ void LLIMWellWindow::closeAllImpl()
 		ObjectRowPanel* obj_panel = dynamic_cast <ObjectRowPanel*> (panel);
 		if (obj_panel)
 		{
-			LLScriptFloaterManager::instance()
-				.removeNotificationByObjectId(*iter);
+			LLScriptFloaterManager::instance().onRemoveNotification(*iter);
 		}
 	}
 }

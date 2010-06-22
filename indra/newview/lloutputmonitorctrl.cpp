@@ -142,7 +142,7 @@ void LLOutputMonitorCtrl::draw()
 
 	// Copied from llmediaremotectrl.cpp
 	// *TODO: Give the LLOutputMonitorCtrl an agent-id to monitor, then
-	// call directly into gVoiceClient to ask if that agent-id is muted, is
+	// call directly into LLVoiceClient::getInstance() to ask if that agent-id is muted, is
 	// speaking, and what power.  This avoids duplicating data, which can get
 	// out of sync.
 	const F32 LEVEL_0 = LLVoiceClient::OVERDRIVEN_POWER_LEVEL / 3.f;
@@ -151,14 +151,14 @@ void LLOutputMonitorCtrl::draw()
 
 	if (getVisible() && mAutoUpdate && !mIsMuted && mSpeakerId.notNull())
 	{
-		setPower(gVoiceClient->getCurrentPower(mSpeakerId));
+		setPower(LLVoiceClient::getInstance()->getCurrentPower(mSpeakerId));
 		if(mIsAgentControl)
 		{
-			setIsTalking(gVoiceClient->getUserPTTState());
+			setIsTalking(LLVoiceClient::getInstance()->getUserPTTState());
 		}
 		else
 		{
-			setIsTalking(gVoiceClient->getIsSpeaking(mSpeakerId));
+			setIsTalking(LLVoiceClient::getInstance()->getIsSpeaking(mSpeakerId));
 		}
 	}
 
@@ -247,8 +247,13 @@ void LLOutputMonitorCtrl::draw()
 		gl_rect_2d(0, monh, monw, 0, sColorBound, FALSE);
 }
 
-void LLOutputMonitorCtrl::setSpeakerId(const LLUUID& speaker_id)
+void LLOutputMonitorCtrl::setSpeakerId(const LLUUID& speaker_id, const LLUUID& session_id/* = LLUUID::null*/)
 {
+	if (speaker_id.isNull() && mSpeakerId.notNull())
+	{
+		LLSpeakingIndicatorManager::unregisterSpeakingIndicator(mSpeakerId, this);
+	}
+
 	if (speaker_id.isNull() || speaker_id == mSpeakerId) return;
 
 	if (mSpeakerId.notNull())
@@ -256,8 +261,9 @@ void LLOutputMonitorCtrl::setSpeakerId(const LLUUID& speaker_id)
 		// Unregister previous registration to avoid crash. EXT-4782.
 		LLSpeakingIndicatorManager::unregisterSpeakingIndicator(mSpeakerId, this);
 	}
+
 	mSpeakerId = speaker_id;
-	LLSpeakingIndicatorManager::registerSpeakingIndicator(mSpeakerId, this);
+	LLSpeakingIndicatorManager::registerSpeakingIndicator(mSpeakerId, this, session_id);
 
 	//mute management
 	if (mAutoUpdate)
@@ -297,7 +303,7 @@ void LLOutputMonitorCtrl::switchIndicator(bool switch_on)
 	}
 
 	// otherwise remember necessary state and mark itself as dirty.
-	// State will be applied i next draw when parents chain became visible.
+	// State will be applied in next draw when parents chain becomes visible.
 	else
 	{
 		LL_DEBUGS("SpeakingIndicator") << "Indicator is not in visible chain, parent won't be notified: " << mSpeakerId << LL_ENDL;
@@ -311,7 +317,7 @@ void LLOutputMonitorCtrl::switchIndicator(bool switch_on)
 //////////////////////////////////////////////////////////////////////////
 void LLOutputMonitorCtrl::notifyParentVisibilityChanged()
 {
-	LL_DEBUGS("SpeakingIndicator") << "Notify parent that visibility was changed: " << mSpeakerId << " ,new_visibility: " << getVisible() << LL_ENDL;
+	LL_DEBUGS("SpeakingIndicator") << "Notify parent that visibility was changed: " << mSpeakerId << ", new_visibility: " << getVisible() << LL_ENDL;
 
 	LLSD params = LLSD().with("visibility_changed", getVisible());
 

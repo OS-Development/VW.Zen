@@ -84,6 +84,7 @@ public:
 								image_hover_unselected,
 								image_disabled_selected,
 								image_disabled,
+								image_flash,
 								image_pressed,
 								image_pressed_selected,
 								image_overlay;
@@ -107,10 +108,13 @@ public:
 		Optional<S32>			pad_bottom; // under text label
 		
 		//image overlay paddings
-		Optional<S32>			image_left_pad;
-		Optional<S32>			image_right_pad;
 		Optional<S32>			image_top_pad;
 		Optional<S32>			image_bottom_pad;
+
+		/**
+		 * Space between image_overlay and label
+		 */
+		Optional<S32>			imgoverlay_label_space;
 
 		// callbacks
 		Optional<CommitCallbackParam>	click_callback, // alias -> commit_callback
@@ -192,10 +196,6 @@ public:
 	void			setLeftHPad( S32 pad )					{ mLeftHPad = pad; }
 	void			setRightHPad( S32 pad )					{ mRightHPad = pad; }
 
-	void 			setImageOverlayLeftPad( S32 pad )			{ mImageOverlayLeftPad = pad; }
-	S32 			getImageOverlayLeftPad() const				{ return mImageOverlayLeftPad; }
-	void 			setImageOverlayRightPad( S32 pad )			{ mImageOverlayRightPad = pad; }
-	S32 			getImageOverlayRightPad() const				{ return mImageOverlayRightPad; }
 	void 			setImageOverlayTopPad( S32 pad )			{ mImageOverlayTopPad = pad; }
 	S32 			getImageOverlayTopPad() const				{ return mImageOverlayTopPad; }
 	void 			setImageOverlayBottomPad( S32 pad )			{ mImageOverlayBottomPad = pad; }
@@ -217,7 +217,8 @@ public:
 	void			setImageOverlay(const std::string& image_name, LLFontGL::HAlign alignment = LLFontGL::HCENTER, const LLColor4& color = LLColor4::white);
 	void 			setImageOverlay(const LLUUID& image_id, LLFontGL::HAlign alignment = LLFontGL::HCENTER, const LLColor4& color = LLColor4::white);
 	LLPointer<LLUIImage> getImageOverlay() { return mImageOverlay; }
-
+	LLFontGL::HAlign getImageOverlayHAlign() const	{ return mImageOverlayAlignment; }
+	
 	void            autoResize();	// resize with label of current btn state 
 	void            resize(LLUIString label); // resize with label input
 	void			setLabel( const LLStringExplicit& label);
@@ -246,6 +247,8 @@ public:
 	void			setImageHoverUnselected(LLPointer<LLUIImage> image);
 	void			setImageDisabled(LLPointer<LLUIImage> image);
 	void			setImageDisabledSelected(LLPointer<LLUIImage> image);
+	void			setImageFlash(LLPointer<LLUIImage> image);
+	void			setImagePressed(LLPointer<LLUIImage> image);
 
 	void			setCommitOnReturn(BOOL commit) { mCommitOnReturn = commit; }
 	BOOL			getCommitOnReturn() const { return mCommitOnReturn; }
@@ -258,6 +261,8 @@ public:
 
 	void		setForcePressedState(bool b) { mForcePressedState = b; }
 	
+	void 		setAutoResize(bool auto_resize) { mAutoResize = auto_resize; }
+
 protected:
 	LLPointer<LLUIImage> getImageUnselected() const	{ return mImageUnselected; }
 	LLPointer<LLUIImage> getImageSelected() const	{ return mImageSelected; }
@@ -307,6 +312,11 @@ private:
 	LLPointer<LLUIImage>		mImagePressed;
 	LLPointer<LLUIImage>		mImagePressedSelected;
 
+	/* There are two ways an image can flash- by making changes in color according to flash_color attribute
+	   or by changing icon from current to the one specified in image_flash. Second way is used only if
+	   flash icon name is set in attributes(by default it isn't). First way is used otherwise. */
+	LLPointer<LLUIImage>		mImageFlash;
+
 	LLUIColor					mHighlightColor;
 	LLUIColor					mFlashBgColor;
 
@@ -328,10 +338,13 @@ private:
 	S32							mRightHPad;
 	S32							mBottomVPad;	// under text label
 
-	S32							mImageOverlayLeftPad;
-	S32							mImageOverlayRightPad;
 	S32							mImageOverlayTopPad;
 	S32							mImageOverlayBottomPad;
+
+	/*
+	 * Space between image_overlay and label
+	 */
+	S32							mImgOverlayLabelSpace;
 
 	F32							mHoverGlowStrength;
 	F32							mCurGlowStrength;

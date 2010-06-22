@@ -86,13 +86,11 @@ private:
 	void onWalkButtonClick();
 	void onRunButtonClick();
 	void onFlyButtonClick();
-	void onStopFlyingButtonClick();
 	void initMovementMode();
 	void setMovementMode(const EMovementMode mode);
-	void showFlyControls(bool bShow);
 	void initModeTooltips();
 	void setModeTooltip(const EMovementMode mode);
-	void showQuickTips(const EMovementMode mode);
+	void setModeTitle(const EMovementMode mode);
 	void initModeButtonMap();
 	void setModeButtonToggleState(const EMovementMode mode);
 	void updateButtonsWithMovementMode(const EMovementMode newMode);
@@ -103,12 +101,13 @@ public:
 
 	LLJoystickAgentTurn*	mForwardButton;
 	LLJoystickAgentTurn*	mBackwardButton;
+	LLJoystickAgentSlide*	mSlideLeftButton;
+	LLJoystickAgentSlide*	mSlideRightButton;
 	LLButton*				mTurnLeftButton;
 	LLButton*				mTurnRightButton;
 	LLButton*				mMoveUpButton;
 	LLButton*				mMoveDownButton;
 private:
-	LLButton*				mStopFlyingButton;
 	LLPanel*				mModeActionsPanel;
 	
 	typedef std::map<LLView*, std::string> control_tooltip_map_t;
