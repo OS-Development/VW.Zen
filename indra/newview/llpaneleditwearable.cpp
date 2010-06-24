@@ -977,6 +977,7 @@ void LLPanelEditWearable::revertChanges()
 
 	mWearablePtr->revertValues();
 	mNameEditor->setText(mWearablePtr->getName());
+	updatePanelPickerControls(mWearablePtr->getType());
 }
 
 void LLPanelEditWearable::showWearable(LLWearable* wearable, BOOL show)
@@ -1126,7 +1127,6 @@ void LLPanelEditWearable::changeCamera(U8 subpart)
 	}
 
 	// Update the camera
-	gMorphView->setCameraDistToDefault();
 	gMorphView->setCameraTargetJoint( gAgentAvatarp->getJoint( subpart_entry->mTargetJoint ) );
 	gMorphView->setCameraTargetOffset( subpart_entry->mTargetOffset );
 	gMorphView->setCameraOffset( subpart_entry->mCameraOffset );
