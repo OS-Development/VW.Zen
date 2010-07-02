@@ -309,6 +309,9 @@
 	<string name="ReleaseNotes">
 		Versionshinweise
 	</string>
+	<string name="RELEASE_NOTES_BASE_URL">
+		http://wiki.secondlife.com/wiki/Release_Notes/
+	</string>
 	<string name="LoadingData">
 		Wird geladen...
 	</string>
@@ -864,6 +867,9 @@
 	<string name="invalid">
 		ungültig
 	</string>
+	<string name="none">
+		keine
+	</string>
 	<string name="shirt_not_worn">
 		Hemd nicht getragen
 	</string>
@@ -1089,7 +1095,7 @@
 	<string name="InvFolder Gestures">
 		Gesten
 	</string>
-	<string name="InvFolder favorite">
+	<string name="InvFolder Favorite">
 		Favoriten
 	</string>
 	<string name="InvFolder Current Outfit">

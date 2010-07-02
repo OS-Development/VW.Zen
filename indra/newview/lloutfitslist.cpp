@@ -548,6 +548,7 @@ void LLOutfitsList::highlightBaseOutfit()
 		if (mOutfitsMap[mHighlightedOutfitUUID])
 		{
 			mOutfitsMap[mHighlightedOutfitUUID]->setTitleFontStyle("NORMAL");
+			mOutfitsMap[mHighlightedOutfitUUID]->setTitleColor(LLUIColorTable::instance().getColor("AccordionHeaderTextColor"));
 		}
 
 		mHighlightedOutfitUUID = base_id;
@@ -555,6 +556,7 @@ void LLOutfitsList::highlightBaseOutfit()
 	if (mOutfitsMap[base_id])
 	{
 		mOutfitsMap[base_id]->setTitleFontStyle("BOLD");
+		mOutfitsMap[base_id]->setTitleColor(LLUIColorTable::instance().getColor("SelectedOutfitTextColor"));
 	}
 }
 
@@ -655,10 +657,10 @@ bool LLOutfitsList::isActionEnabled(const LLSD& userdata)
 	}
 	if (command_name == "take_off")
 	{
-		// Enable "Take Off" only if a worn item or base outfit is selected.
-		return ( !hasItemSelected()
-				 && LLAppearanceMgr::getInstance()->getBaseOutfitUUID() == mSelectedOutfitUUID )
-				|| hasWornItemSelected();
+		// Enable "Take Off" if any of selected items can be taken off
+		// or the selected outfit contains items that can be taken off.
+		return ( hasItemSelected() && canTakeOffSelected() )
+				|| ( !hasItemSelected() && LLAppearanceMgr::getCanRemoveFromCOF(mSelectedOutfitUUID) );
 	}
 
 	if (command_name == "wear_add")
@@ -953,14 +955,19 @@ void LLOutfitsList::applyFilterToTab(
 	}
 }
 
-bool LLOutfitsList::hasWornItemSelected()
+bool LLOutfitsList::canTakeOffSelected()
 {
 	uuid_vec_t selected_uuids;
 	getSelectedItemsUUIDs(selected_uuids);
 
+	LLFindWearablesEx is_worn(/*is_worn=*/ true, /*include_body_parts=*/ false);
+
 	for (uuid_vec_t::const_iterator it=selected_uuids.begin(); it != selected_uuids.end(); ++it)
 	{
-		if (get_is_item_worn(*it)) return true;
+		LLViewerInventoryItem* item = gInventory.getItem(*it);
+		if (!item) continue;
+
+		if (is_worn(NULL, item)) return true;
 	}
 	return false;
 }
