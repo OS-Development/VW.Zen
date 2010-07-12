@@ -468,6 +468,10 @@ public:
 	inline BOOL		flagObjectMove() const			{ return ((mFlags & FLAGS_OBJECT_MOVE) != 0); }
 
 	inline U8       getPhysicsShapeType() const     { return mPhysicsShapeType; }
+	inline F32      getPhysicsGravity() const       { return mPhysicsGravity; }
+	inline F32      getPhysicsFriction() const      { return mPhysicsFriction; }
+	inline F32      getPhysicsDensity() const       { return mPhysicsDensity; }
+	inline F32      getPhysicsRestitution() const   { return mPhysicsRestitution; }
 	
 	bool getIncludeInSearch() const;
 	void setIncludeInSearch(bool include_in_search);
@@ -485,6 +489,10 @@ public:
 	void updateFlags();
 	BOOL setFlags(U32 flag, BOOL state);
 	void setPhysicsShapeType(U8 type);
+	void setPhysicsGravity(F32 gravity);
+	void setPhysicsFriction(F32 friction);
+	void setPhysicsDensity(F32 density);
+	void setPhysicsRestitution(F32 restitution);
 	
 	virtual void dump() const;
 	static U32		getNumZombieObjects()			{ return sNumZombieObjects; }
@@ -566,6 +574,11 @@ public:
 
 	// Sent to sim in UPDATE_FLAGS, received in ObjectPhysicsProperties
 	U8              mPhysicsShapeType;
+	F32             mPhysicsGravity;
+	F32             mPhysicsFriction;
+	F32             mPhysicsDensity;
+	F32             mPhysicsRestitution;
+	
 
 	// Pipeline classes
 	LLPointer<LLDrawable> mDrawable;
