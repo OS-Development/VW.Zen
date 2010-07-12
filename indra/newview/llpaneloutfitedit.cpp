@@ -196,7 +196,7 @@ private:
 
 			LLMenuItemCallGL::Params p;
 			p.name = type_name;
-			p.label = LLWearableType::getTypeDefaultNewName(type);
+			p.label = LLTrans::getString(LLWearableType::getTypeDefaultNewName(type));
 			p.on_click.function_name = "Wearable.Create";
 			p.on_click.parameter = LLSD(type_name);
 
@@ -263,7 +263,7 @@ LLPanelOutfitEdit::LLPanelOutfitEdit()
 	observer.addBOFReplacedCallback(boost::bind(&LLPanelOutfitEdit::updateCurrentOutfitName, this));
 	observer.addBOFChangedCallback(boost::bind(&LLPanelOutfitEdit::updateVerbs, this));
 	observer.addOutfitLockChangedCallback(boost::bind(&LLPanelOutfitEdit::updateVerbs, this));
-	observer.addCOFChangedCallback(boost::bind(&LLPanelOutfitEdit::update, this));
+	observer.addCOFChangedCallback(boost::bind(&LLPanelOutfitEdit::onCOFChanged, this));
 
 	gAgentWearables.addLoadingStartedCallback(boost::bind(&LLPanelOutfitEdit::onOutfitChanging, this, true));
 	gAgentWearables.addLoadedCallback(boost::bind(&LLPanelOutfitEdit::onOutfitChanging, this, false));
@@ -297,9 +297,9 @@ BOOL LLPanelOutfitEdit::postBuild()
 	mFolderViewItemTypes[FVIT_ATTACHMENT] = LLLookItemType(getString("Filter.Objects"), ATTACHMENT_MASK);
 
 	//order is important, see EListViewItemType for order information
-	mListViewItemTypes.push_back(new LLFilterItem(getString("Filter.All"), new LLFindByMask(ALL_ITEMS_MASK)));
-	mListViewItemTypes.push_back(new LLFilterItem(getString("Filter.Clothing"), new LLIsType(LLAssetType::AT_CLOTHING)));
-	mListViewItemTypes.push_back(new LLFilterItem(getString("Filter.Bodyparts"), new LLIsType(LLAssetType::AT_BODYPART)));
+	mListViewItemTypes.push_back(new LLFilterItem(getString("Filter.All"), new LLFindNonLinksByMask(ALL_ITEMS_MASK)));
+	mListViewItemTypes.push_back(new LLFilterItem(getString("Filter.Clothing"), new LLIsTypeActual(LLAssetType::AT_CLOTHING)));
+	mListViewItemTypes.push_back(new LLFilterItem(getString("Filter.Bodyparts"), new LLIsTypeActual(LLAssetType::AT_BODYPART)));
 	mListViewItemTypes.push_back(new LLFilterItem(getString("Filter.Objects"), new LLFindByMask(ATTACHMENT_MASK)));;
 	mListViewItemTypes.push_back(new LLFilterItem(LLTrans::getString("shape"), new LLFindActualWearablesOfType(LLWearableType::WT_SHAPE)));
 	mListViewItemTypes.push_back(new LLFilterItem(LLTrans::getString("skin"), new LLFindActualWearablesOfType(LLWearableType::WT_SKIN)));
@@ -331,7 +331,7 @@ BOOL LLPanelOutfitEdit::postBuild()
 	childSetCommitCallback("shop_btn_1", boost::bind(&LLPanelOutfitEdit::onShopButtonClicked, this), NULL);
 	childSetCommitCallback("shop_btn_2", boost::bind(&LLPanelOutfitEdit::onShopButtonClicked, this), NULL);
 
-	setVisibleCallback(boost::bind(&LLPanelOutfitEdit::onVisibilityChange, this));
+	setVisibleCallback(boost::bind(&LLPanelOutfitEdit::onVisibilityChange, this, _2));
 
 	mCOFWearables = getChild<LLCOFWearables>("cof_wearables_list");
 	mCOFWearables->setCommitCallback(boost::bind(&LLPanelOutfitEdit::filterWearablesBySelectedItem, this));
@@ -567,20 +567,32 @@ void LLPanelOutfitEdit::onSearchEdit(const std::string& string)
 
 void LLPanelOutfitEdit::onPlusBtnClicked(void)
 {
-	LLUUID selected_id;
-	getCurrentItemUUID(selected_id);
+	uuid_vec_t selected_items;
+	getSelectedItemsUUID(selected_items);
 
-	if (selected_id.isNull()) return;
-
-	//replacing instead of adding the item
-	LLAppearanceMgr::getInstance()->wearItemOnAvatar(selected_id, true, true);
+	LLPointer<LLInventoryCallback> link_waiter = new LLUpdateAppearanceOnDestroy;
+	
+	for(uuid_vec_t::iterator iter = selected_items.begin(); iter != selected_items.end(); iter++)
+	{
+		LLUUID selected_id = *iter;
+		if (!selected_id.isNull())
+		{
+			//replacing instead of adding the item
+			LLAppearanceMgr::getInstance()->wearItemOnAvatar(selected_id, false, true, link_waiter);
+		}
+	}
 }
 
-void LLPanelOutfitEdit::onVisibilityChange()
+void LLPanelOutfitEdit::onVisibilityChange(const LLSD &in_visible_chain)
 {
 	showAddWearablesPanel(false);
 	mWearableItemsList->resetSelection();
 	mInventoryItemsPanel->clearSelection();
+
+	if (in_visible_chain.asBoolean())
+	{
+		update();
+	}
 }
 
 void LLPanelOutfitEdit::onAddWearableClicked(void)
@@ -1005,6 +1017,14 @@ void LLPanelOutfitEdit::getSelectedItemsUUID(uuid_vec_t& uuid_list)
 	}
 
 //	return selected_id;
+}
+
+void LLPanelOutfitEdit::onCOFChanged()
+{
+	//the panel is only updated when is visible to a user
+	if (!isInVisibleChain()) return;
+
+	update();
 }
 
 
