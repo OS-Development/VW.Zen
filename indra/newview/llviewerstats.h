@@ -235,7 +235,8 @@ public:
 
 		inline void reset()
 		{
-			mCount = mSum = mSumOfSquares = 0;
+			mCount = 0;
+			mSum = mSumOfSquares = 0.0;
 			mCountOfNextUpdatesToIgnore = 0;
 		}
 		
