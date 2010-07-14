@@ -53,6 +53,8 @@
 #include "lltooldraganddrop.h"
 #include "llviewermenu.h"
 #include "llviewertexturelist.h"
+#include "llsidepanelinventory.h"
+#include "llsidetray.h"
 
 const std::string FILTERS_FILENAME("filters.xml");
 
@@ -195,14 +197,15 @@ BOOL LLPanelMainInventory::postBuild()
 		mFilterEditor->setCommitCallback(boost::bind(&LLPanelMainInventory::onFilterEdit, this, _2));
 	}
 
+	initListCommandsHandlers();
+
 	// *TODO:Get the cost info from the server
 	const std::string upload_cost("10");
-	childSetLabelArg("Upload Image", "[COST]", upload_cost);
-	childSetLabelArg("Upload Sound", "[COST]", upload_cost);
-	childSetLabelArg("Upload Animation", "[COST]", upload_cost);
-	childSetLabelArg("Bulk Upload", "[COST]", upload_cost);
+	mMenuAdd->getChild<LLMenuItemGL>("Upload Image")->setLabelArg("[COST]", upload_cost);
+	mMenuAdd->getChild<LLMenuItemGL>("Upload Sound")->setLabelArg("[COST]", upload_cost);
+	mMenuAdd->getChild<LLMenuItemGL>("Upload Animation")->setLabelArg("[COST]", upload_cost);
+	mMenuAdd->getChild<LLMenuItemGL>("Bulk Upload")->setLabelArg("[COST]", upload_cost);
 
-	initListCommandsHandlers();
 	return TRUE;
 }
 
@@ -392,6 +395,7 @@ void LLPanelMainInventory::onClearSearch()
 	{
 		mActivePanel->setFilterSubString(LLStringUtil::null);
 		mActivePanel->setFilterTypes(0xffffffff);
+		mActivePanel->setFilterLinks(LLInventoryFilter::FILTERLINK_INCLUDE_LINKS);
 	}
 
 	if (finder)
@@ -604,7 +608,7 @@ void LLPanelMainInventory::toggleFindOptions()
 		finder->openFloater();
 
 		LLFloater* parent_floater = gFloaterView->getParentFloater(this);
-		if (parent_floater) // Seraph: Fix this, shouldn't be null even for sidepanel
+		if (parent_floater)
 			parent_floater->addDependentFloater(mFinderHandle);
 		// start background fetch of folders
 		LLInventoryModelBackgroundFetch::instance().start();
@@ -1068,6 +1072,7 @@ void LLPanelMainInventory::onCustomAction(const LLSD& userdata)
 		mFilterEditor->setFocus(TRUE);
 		filter->setFilterUUID(item_id);
 		filter->setShowFolderState(LLInventoryFilter::SHOW_NON_EMPTY_FOLDERS);
+		filter->setFilterLinks(LLInventoryFilter::FILTERLINK_ONLY_LINKS);
 	}
 }
 
@@ -1134,7 +1139,10 @@ BOOL LLPanelMainInventory::isActionEnabled(const LLSD& userdata)
 
 	if (command_name == "find_links")
 	{
-		LLFolderViewItem* current_item = getActivePanel()->getRootFolder()->getCurSelectedItem();
+		LLFolderView* root = getActivePanel()->getRootFolder();
+		std::set<LLUUID> selection_set = root->getSelectionList();
+		if (selection_set.size() != 1) return FALSE;
+		LLFolderViewItem* current_item = root->getCurSelectedItem();
 		if (!current_item) return FALSE;
 		const LLUUID& item_id = current_item->getListener()->getUUID();
 		const LLInventoryObject *obj = gInventory.getObject(item_id);
@@ -1156,6 +1164,12 @@ BOOL LLPanelMainInventory::isActionEnabled(const LLSD& userdata)
 			return TRUE;
 		}
 		return FALSE;
+	}
+
+	if (command_name == "share")
+	{
+		LLSidepanelInventory* parent = dynamic_cast<LLSidepanelInventory*>(LLSideTray::getInstance()->getPanel("sidepanel_inventory"));
+		return parent ? parent->canShare() : FALSE;
 	}
 
 	return TRUE;

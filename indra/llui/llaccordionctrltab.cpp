@@ -44,7 +44,7 @@ static const std::string DD_BUTTON_NAME = "dd_button";
 static const std::string DD_TEXTBOX_NAME = "dd_textbox";
 static const std::string DD_HEADER_NAME = "dd_header";
 
-static const S32 HEADER_HEIGHT = 20;
+static const S32 HEADER_HEIGHT = 23;
 static const S32 HEADER_IMAGE_LEFT_OFFSET = 5;
 static const S32 HEADER_TEXT_LEFT_OFFSET = 30;
 static const F32 AUTO_OPEN_TIME = 1.f;
@@ -76,6 +76,10 @@ public:
 	std::string getTitle();
 	void	setTitle(const std::string& title, const std::string& hl);
 
+	void	setTitleFontStyle(std::string style);
+
+	void	setTitleColor(LLUIColor);
+
 	void	setSelected(bool is_selected) { mIsSelected = is_selected; }
 
 	virtual void onMouseEnter(S32 x, S32 y, MASK mask);
@@ -101,6 +105,9 @@ private:
 	LLPointer<LLUIImage> mImageHeaderOver;
 	LLPointer<LLUIImage> mImageHeaderPressed;
 	LLPointer<LLUIImage> mImageHeaderFocused;
+
+	// style saved when applying it in setTitleFontStyle
+	LLStyle::Params			mStyleParams;
 
 	LLUIColor mHeaderBGColor;
 
@@ -170,9 +177,28 @@ void LLAccordionCtrlTab::LLAccordionCtrlTabHeader::setTitle(const std::string& t
 	{
 		LLTextUtil::textboxSetHighlightedVal(
 			mHeaderTextbox,
-			LLStyle::Params(),
+			mStyleParams,
 			title,
 			hl);
+	}
+}
+
+void LLAccordionCtrlTab::LLAccordionCtrlTabHeader::setTitleFontStyle(std::string style)
+{
+	if (mHeaderTextbox)
+	{
+		std::string text = mHeaderTextbox->getText();
+		mStyleParams.font(mHeaderTextbox->getDefaultFont());
+		mStyleParams.font.style(style);
+		mHeaderTextbox->setText(text, mStyleParams);
+	}
+}
+
+void LLAccordionCtrlTab::LLAccordionCtrlTabHeader::setTitleColor(LLUIColor color)
+{
+	if(mHeaderTextbox)
+	{
+		mHeaderTextbox->setColor(color);
 	}
 }
 
@@ -233,6 +259,15 @@ void LLAccordionCtrlTab::LLAccordionCtrlTabHeader::reshape(S32 width, S32 height
 	LLRect textboxRect(HEADER_TEXT_LEFT_OFFSET,(height+header_height)/2 ,width,(height-header_height)/2);
 	mHeaderTextbox->reshape(textboxRect.getWidth(), textboxRect.getHeight());
 	mHeaderTextbox->setRect(textboxRect);
+
+	if (mHeaderTextbox->getTextPixelWidth() > mHeaderTextbox->getRect().getWidth())
+	{
+		setToolTip(mHeaderTextbox->getText());
+	}
+	else
+	{
+		setToolTip(LLStringUtil::null);
+	}
 }
 
 void LLAccordionCtrlTab::LLAccordionCtrlTabHeader::onMouseEnter(S32 x, S32 y, MASK mask)
@@ -492,6 +527,24 @@ void LLAccordionCtrlTab::setTitle(const std::string& title, const std::string& h
 	if (header)
 	{
 		header->setTitle(title, hl);
+	}
+}
+
+void LLAccordionCtrlTab::setTitleFontStyle(std::string style)
+{
+	LLAccordionCtrlTabHeader* header = findChild<LLAccordionCtrlTabHeader>(DD_HEADER_NAME);
+	if (header)
+	{
+		header->setTitleFontStyle(style);
+	}
+}
+
+void LLAccordionCtrlTab::setTitleColor(LLUIColor color)
+{
+	LLAccordionCtrlTabHeader* header = findChild<LLAccordionCtrlTabHeader>(DD_HEADER_NAME);
+	if (header)
+	{
+		header->setTitleColor(color);
 	}
 }
 
@@ -964,7 +1017,21 @@ BOOL LLAccordionCtrlTab::handleToolTip(S32 x, S32 y, MASK mask)
 	{
 		//inside tab header
 		//fix for EXT-6619
+		mHeader->handleToolTip(x, y, mask);
 		return TRUE;
 	}
 	return LLUICtrl::handleToolTip(x, y, mask);
 }
+BOOL LLAccordionCtrlTab::handleScrollWheel		( S32 x, S32 y, S32 clicks )
+{
+	if( LLUICtrl::handleScrollWheel(x,y,clicks))
+	{
+		return TRUE;
+	}
+	if( mScrollbar && mScrollbar->getVisible() && mScrollbar->handleScrollWheel( 0, 0, clicks ) )
+	{
+		return TRUE;
+	}
+	return FALSE;
+}
+

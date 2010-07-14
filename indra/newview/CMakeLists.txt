@@ -268,6 +268,7 @@ set(viewer_SOURCE_FILES
     llinventoryfunctions.cpp
     llinventoryicon.cpp
     llinventoryitemslist.cpp
+    llinventorylistitem.cpp
     llinventorymodel.cpp
     llinventorymodelbackgroundfetch.cpp
     llinventoryobserver.cpp
@@ -372,6 +373,7 @@ set(viewer_SOURCE_FILES
     llpaneltopinfobar.cpp
     llpanelvolume.cpp
     llpanelvolumepulldown.cpp
+    llpanelwearing.cpp
     llparcelselection.cpp
     llparticipantlist.cpp
     llpatchvertexarray.cpp
@@ -560,6 +562,7 @@ set(viewer_SOURCE_FILES
     llwearablelist.cpp
     llwearabletype.cpp
     llweb.cpp
+    llwebsharing.cpp
     llwind.cpp
     llwlanimator.cpp
     llwldaycycle.cpp
@@ -795,6 +798,7 @@ set(viewer_HEADER_FILES
     llinventoryfunctions.h
     llinventoryicon.h
     llinventoryitemslist.h
+    llinventorylistitem.h
     llinventorymodel.h
     llinventorymodelbackgroundfetch.h
     llinventoryobserver.h
@@ -842,6 +846,7 @@ set(viewer_HEADER_FILES
     lloutfitslist.h
     lloutfitobserver.h
     lloutputmonitorctrl.h
+    llpanelappearancetab.h
     llpanelavatar.h
     llpanelavatartag.h
     llpanelblockedlist.h
@@ -895,6 +900,7 @@ set(viewer_HEADER_FILES
     llpaneltopinfobar.h
     llpanelvolume.h
     llpanelvolumepulldown.h
+    llpanelwearing.h
     llparcelselection.h
     llparticipantlist.h
     llpatchvertexarray.h
@@ -1085,6 +1091,7 @@ set(viewer_HEADER_FILES
     llwearablelist.h
     llwearabletype.h
     llweb.h
+    llwebsharing.h
     llwind.h
     llwlanimator.h
     llwldaycycle.h
@@ -1159,10 +1166,12 @@ endif (LINUX)
 if (WINDOWS)
     list(APPEND viewer_SOURCE_FILES
          llappviewerwin32.cpp
+         llwindebug.cpp
          )
 
     list(APPEND viewer_HEADER_FILES
          llappviewerwin32.h
+         llwindebug.h
          )
 
     # precompiled header configuration
@@ -1328,8 +1337,6 @@ set(viewer_APPSETTINGS_FILES
     ${CMAKE_SOURCE_DIR}/../etc/message.xml
     ${CMAKE_SOURCE_DIR}/../scripts/messages/message_template.msg
     )
-
-use_prebuilt_binary(artwork-common)
 
 source_group("App Settings" FILES ${viewer_APPSETTINGS_FILES})
 
@@ -1790,40 +1797,19 @@ if (DARWIN)
         COMMAND ${PYTHON_EXECUTABLE}
         ARGS
           ${CMAKE_CURRENT_SOURCE_DIR}/viewer_manifest.py
-          --grid=${GRID}
-          --buildtype=${CMAKE_BUILD_TYPE}
-          --configuration=${CMAKE_CFG_INTDIR}
-          --channel=${VIEWER_CHANNEL}
-          --login_channel=${VIEWER_LOGIN_CHANNEL}
-          --source=${CMAKE_CURRENT_SOURCE_DIR}
           --artwork=${ARTWORK_DIR}
           --build=${CMAKE_CURRENT_BINARY_DIR}
+          --buildtype=${CMAKE_BUILD_TYPE}
+          --channel=${VIEWER_CHANNEL}
+          --configuration=${CMAKE_CFG_INTDIR}
           --dest=${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/${product}.app
+          --grid=${GRID}
+          --login_channel=${VIEWER_LOGIN_CHANNEL}
+          --source=${CMAKE_CURRENT_SOURCE_DIR}
           --touch=${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/.${product}.touched
         DEPENDS
           ${CMAKE_CURRENT_SOURCE_DIR}/viewer_manifest.py
       )
-
-
-      add_custom_command(
-        TARGET package POST_BUILD
-        COMMAND ${PYTHON_EXECUTABLE}
-        ARGS
-          ${CMAKE_CURRENT_SOURCE_DIR}/viewer_manifest.py
-          --grid=${GRID}
-          --buildtype=${CMAKE_BUILD_TYPE}
-          --configuration=${CMAKE_CFG_INTDIR}
-          --channel=${VIEWER_CHANNEL}
-          --login_channel=${VIEWER_LOGIN_CHANNEL}
-          --source=${CMAKE_CURRENT_SOURCE_DIR}
-          --artwork=${ARTWORK_DIR}
-          --build=${CMAKE_CURRENT_BINARY_DIR}
-          --dest=${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/${product}.app
-          --touch=${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/.${product}.touched
-        DEPENDS
-          ${CMAKE_CURRENT_SOURCE_DIR}/viewer_manifest.py
-      )
-
   endif (PACKAGE)
 endif (DARWIN)
 

@@ -1128,6 +1128,11 @@ void upload_new_resource(
 	S32 expected_upload_cost,
 	void *userdata)
 {
+	if(gDisconnected)
+	{
+		return ;
+	}
+	
 	LLAssetID uuid = 
 		upload_new_resource_prep(
 			tid,
@@ -1136,6 +1141,41 @@ void upload_new_resource(
 			name,
 			display_name,
 			desc);
+	
+	if( LLAssetType::AT_SOUND == asset_type )
+	{
+		LLViewerStats::getInstance()->incStat(LLViewerStats::ST_UPLOAD_SOUND_COUNT );
+	}
+	else
+	if( LLAssetType::AT_TEXTURE == asset_type )
+	{
+		LLViewerStats::getInstance()->incStat(LLViewerStats::ST_UPLOAD_TEXTURE_COUNT );
+	}
+	else
+	if( LLAssetType::AT_ANIMATION == asset_type)
+	{
+		LLViewerStats::getInstance()->incStat(LLViewerStats::ST_UPLOAD_ANIM_COUNT );
+	}
+
+	if(LLInventoryType::IT_NONE == inv_type)
+	{
+		inv_type = LLInventoryType::defaultForAssetType(asset_type);
+	}
+	LLStringUtil::stripNonprintable(name);
+	LLStringUtil::stripNonprintable(desc);
+	if(name.empty())
+	{
+		name = "(No Name)";
+	}
+	if(desc.empty())
+	{
+		desc = "(No Description)";
+	}
+	
+	// At this point, we're ready for the upload.
+	std::string upload_message = "Uploading...\n\n";
+	upload_message.append(display_name);
+	LLUploadDialog::modalUploadDialog(upload_message);
 
 	llinfos << "*** Uploading: " << llendl;
 	llinfos << "Type: " << LLAssetType::lookup(asset_type) << llendl;
@@ -1172,10 +1212,13 @@ void upload_new_resource(
 				body,
 				uuid,
 				asset_type));
+
+		LLHTTPClient::post(url, body, new LLNewAgentInventoryResponder(body, uuid, asset_type));
 	}
 	else
 #endif
 	{
+		llinfos << "NewAgentInventory capability not found, new agent inventory via asset system." << llendl;
 		// check for adequate funds
 		// TODO: do this check on the sim
 		if (LLAssetType::AT_SOUND == asset_type ||
@@ -1187,8 +1230,9 @@ void upload_new_resource(
 			{
 				// insufficient funds, bail on this upload
 				LLStringUtil::format_map_t args;
+				args["NAME"] = name;
 				args["AMOUNT"] = llformat("%d", expected_upload_cost);
-				LLFloaterBuyCurrency::buyCurrency(LLTrans::getString("uploading_costs", args), expected_upload_cost);
+				LLBuyCurrencyHTML::openCurrencyFloater( LLTrans::getString("UploadingCosts", args), expected_upload_cost );
 				return;
 			}
 		}
@@ -1297,7 +1341,7 @@ BOOL upload_new_variable_price_resource(
 LLAssetID generate_asset_id_for_new_upload(const LLTransactionID& tid)
 {
 	if ( gDisconnected )
-	{
+	{	
 		LLAssetID rv;
 
 		rv.setNull();

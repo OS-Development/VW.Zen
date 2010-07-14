@@ -48,6 +48,12 @@ public:
 
 	virtual ~LLOrderMyOutfitsOnDestroy()
 	{
+		if (!LLApp::isRunning())
+		{
+			llwarns << "called during shutdown, skipping" << llendl;
+			return;
+		}
+		
 		const LLUUID& my_outfits_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_MY_OUTFITS);
 		if (my_outfits_id.isNull()) return;
 
@@ -121,6 +127,7 @@ void LLInitialWearablesFetch::processContents()
 	LLAppearanceMgr::instance().setAttachmentInvLinkEnable(true);
 	if (wearable_array.count() > 0)
 	{
+		gAgentWearables.notifyLoadingStarted();
 		LLAppearanceMgr::instance().updateAppearanceFromCOF();
 	}
 	else
@@ -240,6 +247,8 @@ LLLibraryOutfitsFetch::LLLibraryOutfitsFetch(const LLUUID& my_outfits_id) :
 	mCurrFetchStep(LOFS_FOLDER), 
 	mOutfitsPopulated(false) 
 {
+	llinfos << "created" << llendl;
+
 	mMyOutfitsID = LLUUID::null;
 	mClothingID = LLUUID::null;
 	mLibraryClothingID = LLUUID::null;
@@ -249,10 +258,13 @@ LLLibraryOutfitsFetch::LLLibraryOutfitsFetch(const LLUUID& my_outfits_id) :
 
 LLLibraryOutfitsFetch::~LLLibraryOutfitsFetch()
 {
+	llinfos << "destroyed" << llendl;
 }
 
 void LLLibraryOutfitsFetch::done()
 {
+	llinfos << "start" << llendl;
+
 	// Delay this until idle() routine, since it's a heavy operation and
 	// we also can't have it run within notifyObservers.
 	doOnIdleOneTime(boost::bind(&LLLibraryOutfitsFetch::doneIdle,this));
@@ -261,6 +273,8 @@ void LLLibraryOutfitsFetch::done()
 
 void LLLibraryOutfitsFetch::doneIdle()
 {
+	llinfos << "start" << llendl;
+
 	gInventory.addObserver(this); // Add this back in since it was taken out during ::done()
 	
 	switch (mCurrFetchStep)
@@ -301,6 +315,8 @@ void LLLibraryOutfitsFetch::doneIdle()
 
 void LLLibraryOutfitsFetch::folderDone()
 {
+	llinfos << "start" << llendl;
+
 	LLInventoryModel::cat_array_t cat_array;
 	LLInventoryModel::item_array_t wearable_array;
 	gInventory.collectDescendents(mMyOutfitsID, cat_array, wearable_array, 
@@ -308,8 +324,7 @@ void LLLibraryOutfitsFetch::folderDone()
 	
 	// Early out if we already have items in My Outfits
 	// except the case when My Outfits contains just initial outfit
-	if (cat_array.count() > 1 ||
-		cat_array.count() == 1 && cat_array[0]->getUUID() != LLAppearanceMgr::getInstance()->getBaseOutfitUUID())
+	if (cat_array.count() > 1)
 	{
 		mOutfitsPopulated = true;
 		return;
@@ -347,6 +362,8 @@ void LLLibraryOutfitsFetch::folderDone()
 
 void LLLibraryOutfitsFetch::outfitsDone()
 {
+	llinfos << "start" << llendl;
+
 	LLInventoryModel::cat_array_t cat_array;
 	LLInventoryModel::item_array_t wearable_array;
 	uuid_vec_t folders;
@@ -424,6 +441,8 @@ private:
 // Copy the clothing folders from the library into the imported clothing folder
 void LLLibraryOutfitsFetch::libraryDone()
 {
+	llinfos << "start" << llendl;
+
 	if (mImportedClothingID != LLUUID::null)
 	{
 		// Skip straight to fetching the contents of the imported folder
@@ -479,6 +498,8 @@ void LLLibraryOutfitsFetch::libraryDone()
 
 void LLLibraryOutfitsFetch::importedFolderFetch()
 {
+	llinfos << "start" << llendl;
+
 	// Fetch the contents of the Imported Clothing Folder
 	uuid_vec_t folders;
 	folders.push_back(mImportedClothingID);
@@ -494,6 +515,8 @@ void LLLibraryOutfitsFetch::importedFolderFetch()
 
 void LLLibraryOutfitsFetch::importedFolderDone()
 {
+	llinfos << "start" << llendl;
+
 	LLInventoryModel::cat_array_t cat_array;
 	LLInventoryModel::item_array_t wearable_array;
 	uuid_vec_t folders;
@@ -524,6 +547,8 @@ void LLLibraryOutfitsFetch::importedFolderDone()
 
 void LLLibraryOutfitsFetch::contentsDone()
 {		
+	llinfos << "start" << llendl;
+
 	LLInventoryModel::cat_array_t cat_array;
 	LLInventoryModel::item_array_t wearable_array;
 	

@@ -41,7 +41,6 @@
 
 class LLCheckBoxCtrl;
 class LLWearable;
-class LLTextEditor;
 class LLTextBox;
 class LLViewerInventoryItem;
 class LLViewerVisualParam;
@@ -49,6 +48,7 @@ class LLVisualParamHint;
 class LLViewerJointMesh;
 class LLAccordionCtrlTab;
 class LLJoint;
+class LLLineEditor;
 
 class LLPanelEditWearable : public LLPanel
 {
@@ -120,6 +120,7 @@ private:
 	// these are constant no matter what wearable we're editing
 	LLButton *mBtnRevert;
 	LLButton *mBtnBack;
+	std::string mBackBtnLabel;
 
 	LLTextBox *mPanelTitle;
 	LLTextBox *mDescTitle;
@@ -140,7 +141,7 @@ private:
 
 	// This text editor reference will change each time we edit a new wearable - 
 	// it will be grabbed from the currently visible panel
-	LLTextEditor *mTextEditor;
+	LLLineEditor *mNameEditor;
 
 	// The following panels will be shown/hidden based on what wearable we're editing
 	// body parts

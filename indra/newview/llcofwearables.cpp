@@ -34,6 +34,8 @@
 
 #include "llcofwearables.h"
 
+#include "llaccordionctrl.h"
+#include "llaccordionctrltab.h"
 #include "llagentdata.h"
 #include "llagentwearables.h"
 #include "llappearancemgr.h"
@@ -77,9 +79,7 @@ protected:
 		}
 
 		// Set proper label for the "Create new <WEARABLE_TYPE>" menu item.
-		LLStringUtil::format_map_t args;
-		args["[WEARABLE_TYPE]"] = LLWearableType::getTypeDefaultNewName(w_type);
-		std::string new_label = LLTrans::getString("CreateNewWearable", args);
+		std::string new_label = LLTrans::getString("create_new_" + LLWearableType::getTypeName(w_type));
 		menu_item->setLabel(new_label);
 	}
 
@@ -163,6 +163,22 @@ public:
 	}
 
 protected:
+	static void replaceWearable()
+	{
+		// *TODO: Most probable that accessing to LLPanelOutfitEdit instance should be:
+		// LLSideTray::getInstance()->getSidepanelAppearance()->getPanelOutfitEdit()
+		// without casting. Getter methods provides possibility to check and construct
+		// absent instance. Explicit relations between components avoids situations
+		// when we tries to construct instance with unsatisfied implicit input conditions.
+		LLPanelOutfitEdit	* panel_outfit_edit =
+						dynamic_cast<LLPanelOutfitEdit*> (LLSideTray::getInstance()->getPanel(
+								"panel_outfit_edit"));
+		if (panel_outfit_edit != NULL)
+		{
+			panel_outfit_edit->showAddWearablesPanel(true);
+		}
+	}
+
 	/*virtual*/ LLContextMenu* createMenu()
 	{
 		LLUICtrl::CommitCallbackRegistry::ScopedRegistrar registrar;
@@ -171,8 +187,7 @@ protected:
 		functor_t take_off = boost::bind(&LLAppearanceMgr::removeItemFromAvatar, LLAppearanceMgr::getInstance(), _1);
 
 		registrar.add("Clothing.TakeOff", boost::bind(handleMultiple, take_off, mUUIDs));
-		registrar.add("Clothing.MoveUp", boost::bind(moveWearable, selected_id, false));
-		registrar.add("Clothing.MoveDown", boost::bind(moveWearable, selected_id, true));
+		registrar.add("Clothing.Replace", boost::bind(replaceWearable));
 		registrar.add("Clothing.Edit", boost::bind(LLAgentWearables::editWearable, selected_id));
 		registrar.add("Clothing.Create", boost::bind(&CofClothingContextMenu::createNew, this, selected_id));
 
@@ -192,31 +207,20 @@ protected:
 		std::string param = data.asString();
 		LLUUID selected_id = mUUIDs.back();
 
-		if ("move_up" == param)
-		{
-			return gAgentWearables.canMoveWearable(selected_id, false);
-		}
-		else if ("move_down" == param)
-		{
-			return gAgentWearables.canMoveWearable(selected_id, true);
-		}
-		else if ("take_off" == param)
+		if ("take_off" == param)
 		{
 			return get_is_item_worn(selected_id);
 		}
 		else if ("edit" == param)
 		{
-			return gAgentWearables.isWearableModifiable(selected_id);
+			return mUUIDs.size() == 1 && gAgentWearables.isWearableModifiable(selected_id);
 		}
-		return true;
-	}
+		else if ("replace" == param)
+		{
+			return get_is_item_worn(selected_id) && mUUIDs.size() == 1;
+		}
 
-	// We don't use LLAppearanceMgr::moveWearable() directly because
-	// the item may be invalidated between setting the callback and calling it.
-	static bool moveWearable(const LLUUID& item_id, bool closer_to_body)
-	{
-		LLViewerInventoryItem* item = gInventory.getItem(item_id);
-		return LLAppearanceMgr::instance().moveWearable(item, closer_to_body);
+		return true;
 	}
 };
 
@@ -262,7 +266,7 @@ protected:
 
 		if ("edit" == param)
 		{
-			return gAgentWearables.isWearableModifiable(selected_id);
+			return mUUIDs.size() == 1 && gAgentWearables.isWearableModifiable(selected_id);
 		}
 
 		return true;
@@ -275,7 +279,12 @@ LLCOFWearables::LLCOFWearables() : LLPanel(),
 	mAttachments(NULL),
 	mClothing(NULL),
 	mBodyParts(NULL),
-	mLastSelectedList(NULL)
+	mLastSelectedList(NULL),
+	mClothingTab(NULL),
+	mAttachmentsTab(NULL),
+	mBodyPartsTab(NULL),
+	mLastSelectedTab(NULL),
+	mCOFVersion(-1)
 {
 	mClothingMenu = new CofClothingContextMenu(this);
 	mAttachmentMenu = new CofAttachmentContextMenu(this);
@@ -313,6 +322,20 @@ BOOL LLCOFWearables::postBuild()
 	mAttachments->setComparator(&WEARABLE_NAME_COMPARATOR);
 	mBodyParts->setComparator(&WEARABLE_NAME_COMPARATOR);
 
+
+	mClothingTab = getChild<LLAccordionCtrlTab>("tab_clothing");
+	mClothingTab->setDropDownStateChangedCallback(boost::bind(&LLCOFWearables::onAccordionTabStateChanged, this, _1, _2));
+
+	mAttachmentsTab = getChild<LLAccordionCtrlTab>("tab_attachments");
+	mAttachmentsTab->setDropDownStateChangedCallback(boost::bind(&LLCOFWearables::onAccordionTabStateChanged, this, _1, _2));
+
+	mBodyPartsTab = getChild<LLAccordionCtrlTab>("tab_body_parts");
+	mBodyPartsTab->setDropDownStateChangedCallback(boost::bind(&LLCOFWearables::onAccordionTabStateChanged, this, _1, _2));
+
+	mTab2AssetType[mClothingTab] = LLAssetType::AT_CLOTHING;
+	mTab2AssetType[mAttachmentsTab] = LLAssetType::AT_OBJECT;
+	mTab2AssetType[mBodyPartsTab] = LLAssetType::AT_BODYPART;
+
 	return LLPanel::postBuild();
 }
 
@@ -332,8 +355,47 @@ void LLCOFWearables::onSelectionChange(LLFlatListView* selected_list)
 	onCommit();
 }
 
+void LLCOFWearables::onAccordionTabStateChanged(LLUICtrl* ctrl, const LLSD& expanded)
+{
+	bool had_selected_items = mClothing->numSelected() || mAttachments->numSelected() || mBodyParts->numSelected();
+	mClothing->resetSelection(true);
+	mAttachments->resetSelection(true);
+	mBodyParts->resetSelection(true);
+
+	bool tab_selection_changed = false;
+	LLAccordionCtrlTab* tab = dynamic_cast<LLAccordionCtrlTab*>(ctrl);
+	if (tab && tab != mLastSelectedTab)
+	{
+		mLastSelectedTab = tab;
+		tab_selection_changed = true;
+	}
+
+	if (had_selected_items || tab_selection_changed)
+	{
+		//sending commit signal to indicate selection changes
+		onCommit();
+	}
+}
+
 void LLCOFWearables::refresh()
 {
+	const LLUUID cof_id = LLAppearanceMgr::instance().getCOF();
+	if (cof_id.isNull())
+	{
+		llwarns << "COF ID cannot be NULL" << llendl;
+		return;
+	}
+
+	LLViewerInventoryCategory* catp = gInventory.getCategory(cof_id);
+	if (!catp)
+	{
+		llwarns << "COF category cannot be NULL" << llendl;
+		return;
+	}
+
+	if (mCOFVersion == catp->getVersion()) return;
+	mCOFVersion = catp->getVersion();
+
 	typedef std::vector<LLSD> values_vector_t;
 	typedef std::map<LLFlatListView*, values_vector_t> selection_map_t;
 
@@ -349,7 +411,7 @@ void LLCOFWearables::refresh()
 	LLInventoryModel::cat_array_t cats;
 	LLInventoryModel::item_array_t cof_items;
 
-	gInventory.collectDescendents(LLAppearanceMgr::getInstance()->getCOF(), cats, cof_items, LLInventoryModel::EXCLUDE_TRASH);
+	gInventory.collectDescendents(cof_id, cats, cof_items, LLInventoryModel::EXCLUDE_TRASH);
 
 	populateAttachmentsAndBodypartsLists(cof_items);
 
@@ -366,14 +428,26 @@ void LLCOFWearables::refresh()
 		 iter != iter_end; ++iter)
 	{
 		LLFlatListView* list = iter->first;
+		if (!list) continue;
+
+		//restoring selection should not fire commit callbacks
+		list->setCommitOnSelectionChange(false);
+
 		const values_vector_t& values = iter->second;
 		for (values_vector_t::const_iterator
 				 value_it = values.begin(),
 				 value_it_end = values.end();
 			 value_it != value_it_end; ++value_it)
 		{
-			list->selectItemByValue(*value_it);
+			// value_it may be null because of dummy items
+			// Dummy items have no ID
+			if(value_it->asUUID().notNull())
+			{
+				list->selectItemByValue(*value_it);
+			}
 		}
+
+		list->setCommitOnSelectionChange(true);
 	}
 }
 
@@ -445,7 +519,7 @@ LLPanelClothingListItem* LLCOFWearables::buildClothingListItem(LLViewerInventory
 	item_panel->childSetAction("btn_edit", mCOFCallbacks.mEditWearable);
 	
 	//turning on gray separator line for the last item in the items group of the same wearable type
-	item_panel->childSetVisible("wearable_type_separator_icon", last);
+	item_panel->setSeparatorVisible(last);
 
 	return item_panel;
 }
@@ -557,11 +631,38 @@ LLPanel* LLCOFWearables::getSelectedItem()
 	return mLastSelectedList->getSelectedItem();
 }
 
+void LLCOFWearables::getSelectedItems(std::vector<LLPanel*>& selected_items) const
+{
+	if (mLastSelectedList)
+	{
+		mLastSelectedList->getSelectedItems(selected_items);
+	}
+}
+
 void LLCOFWearables::clear()
 {
 	mAttachments->clear();
 	mClothing->clear();
 	mBodyParts->clear();
+}
+
+LLAssetType::EType LLCOFWearables::getExpandedAccordionAssetType()
+{
+	typedef std::map<std::string, LLAssetType::EType> type_map_t;
+
+	static type_map_t type_map;
+	static LLAccordionCtrl* accordion_ctrl = getChild<LLAccordionCtrl>("cof_wearables_accordion");
+	const LLAccordionCtrlTab* expanded_tab = accordion_ctrl->getExpandedTab();
+
+	return get_if_there(mTab2AssetType, expanded_tab, LLAssetType::AT_NONE);
+	}
+
+LLAssetType::EType LLCOFWearables::getSelectedAccordionAssetType()
+	{
+	static LLAccordionCtrl* accordion_ctrl = getChild<LLAccordionCtrl>("cof_wearables_accordion");
+	const LLAccordionCtrlTab* selected_tab = accordion_ctrl->getSelectedTab();
+
+	return get_if_there(mTab2AssetType, selected_tab, LLAssetType::AT_NONE);
 }
 
 void LLCOFWearables::onListRightClick(LLUICtrl* ctrl, S32 x, S32 y, LLListContextMenu* menu)
@@ -571,7 +672,20 @@ void LLCOFWearables::onListRightClick(LLUICtrl* ctrl, S32 x, S32 y, LLListContex
 		uuid_vec_t selected_uuids;
 		if(getSelectedUUIDs(selected_uuids))
 		{
-			menu->show(ctrl, selected_uuids, x, y);
+			bool show_menu = false;
+			for(uuid_vec_t::iterator it = selected_uuids.begin();it!=selected_uuids.end();++it)
+			{
+				if ((*it).notNull())
+				{
+					show_menu = true;
+					break;
+				}
+			}
+
+			if(show_menu)
+			{
+				menu->show(ctrl, selected_uuids, x, y);
+			}
 		}
 	}
 }

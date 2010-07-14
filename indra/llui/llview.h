@@ -148,6 +148,8 @@ public:
 		Ignored						user_resize,
 									auto_resize,
 									needs_translate,
+									min_width,
+									max_width,
 									xmlns,
 									xmlns_xsi,
 									xsi_schemaLocation,
@@ -263,7 +265,7 @@ public:
 
 	virtual BOOL	postBuild() { return TRUE; }
 
-	child_tab_order_t getCtrlOrder() const		{ return mCtrlOrder; }
+	const child_tab_order_t& getCtrlOrder() const		{ return mCtrlOrder; }
 	ctrl_list_t getCtrlList() const;
 	ctrl_list_t getCtrlListSorted() const;
 	
@@ -308,7 +310,8 @@ public:
 
 	void			pushVisible(BOOL visible)	{ mLastVisible = mVisible; setVisible(visible); }
 	void			popVisible()				{ setVisible(mLastVisible); }
-	
+	BOOL			getLastVisible()	const	{ return mLastVisible; }
+
 	LLHandle<LLView>	getHandle()				{ mHandle.bind(this); return mHandle; }
 
 	U32			getFollows() const				{ return mReshapeFlags; }
@@ -617,12 +620,13 @@ public:
 class LLCompareByTabOrder
 {
 public:
-	LLCompareByTabOrder(LLView::child_tab_order_t order) : mTabOrder(order) {}
+	LLCompareByTabOrder(const LLView::child_tab_order_t& order) : mTabOrder(order) {}
 	virtual ~LLCompareByTabOrder() {}
 	bool operator() (const LLView* const a, const LLView* const b) const;
 private:
 	virtual bool compareTabOrders(const LLView::tab_order_t & a, const LLView::tab_order_t & b) const { return a < b; }
-	LLView::child_tab_order_t mTabOrder;
+	// ok to store a reference, as this should only be allocated on stack during view query operations
+	const LLView::child_tab_order_t& mTabOrder;
 };
 
 template <class T> T* LLView::getChild(const std::string& name, BOOL recurse) const
@@ -634,7 +638,7 @@ template <class T> T* LLView::getChild(const std::string& name, BOOL recurse) co
 		// did we find *something* with that name?
 		if (child)
 		{
-			llwarns << "Found child named " << name << " but of wrong type " << typeid(*child).name() << ", expecting " << typeid(T*).name() << llendl;
+			llwarns << "Found child named \"" << name << "\" but of wrong type " << typeid(*child).name() << ", expecting " << typeid(T*).name() << llendl;
 		}
 		result = getDefaultWidget<T>(name);
 		if (!result)

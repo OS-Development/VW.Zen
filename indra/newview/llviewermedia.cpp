@@ -56,6 +56,7 @@
 #include "llvoavatar.h"
 #include "llvoavatarself.h"
 #include "llviewerregion.h"
+#include "llwebsharing.h"	// For LLWebSharing::setOpenIDCookie(), *TODO: find a better way to do this!
 
 #include "llevent.h"		// LLSimpleListener
 #include "llnotificationsutil.h"
@@ -763,7 +764,7 @@ void LLViewerMedia::updateMedia(void *dummy_arg)
 	}
 		
 	// Sort the static instance list using our interest criteria
-	std::stable_sort(sViewerMediaImplList.begin(), sViewerMediaImplList.end(), priorityComparitor);
+	sViewerMediaImplList.sort(priorityComparitor);
 
 	// Go through the list again and adjust according to priority.
 	iter = sViewerMediaImplList.begin();
@@ -1318,6 +1319,9 @@ void LLViewerMedia::setOpenIDCookie()
 		}
 		
 		getCookieStore()->setCookiesFromHost(sOpenIDCookie, authority.substr(host_start, host_end - host_start));
+
+		// *HACK: Doing this here is nasty, find a better way.
+		LLWebSharing::instance().setOpenIDCookie(sOpenIDCookie);
 	}
 }
 
@@ -1776,29 +1780,22 @@ void LLViewerMediaImpl::loadURI()
 		llinfos << "Asking media source to load URI: " << uri << llendl;
 		
 		mMediaSource->loadURI( uri );
-
+		
+		// A non-zero mPreviousMediaTime means that either this media was previously unloaded by the priority code while playing/paused, 
+		// or a seek happened before the media loaded.  In either case, seek to the saved time.
+		if(mPreviousMediaTime != 0.0f)
+		{
+			seek(mPreviousMediaTime);
+		}
+			
 		if(mPreviousMediaState == MEDIA_PLAYING)
 		{
 			// This media was playing before this instance was unloaded.
-
-			if(mPreviousMediaTime != 0.0f)
-			{
-				// Seek back to where we left off, if possible.
-				seek(mPreviousMediaTime);
-			}
-			
 			start();
 		}
 		else if(mPreviousMediaState == MEDIA_PAUSED)
 		{
 			// This media was paused before this instance was unloaded.
-
-			if(mPreviousMediaTime != 0.0f)
-			{
-				// Seek back to where we left off, if possible.
-				seek(mPreviousMediaTime);
-			}
-			
 			pause();
 		}
 		else
@@ -1857,6 +1854,10 @@ void LLViewerMediaImpl::pause()
 	{
 		mMediaSource->pause();
 	}
+	else
+	{
+		mPreviousMediaState = MEDIA_PAUSED;
+	}
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1866,6 +1867,10 @@ void LLViewerMediaImpl::start()
 	{
 		mMediaSource->start();
 	}
+	else
+	{
+		mPreviousMediaState = MEDIA_PLAYING;
+	}
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1874,6 +1879,11 @@ void LLViewerMediaImpl::seek(F32 time)
 	if(mMediaSource)
 	{
 		mMediaSource->seek(time);
+	}
+	else
+	{
+		// Save the seek time to be set when the media is loaded.
+		mPreviousMediaTime = time;
 	}
 }
 

@@ -145,8 +145,10 @@ public:
 	void onFolderViewFilterCommitted(LLUICtrl* ctrl);
 	void onListViewFilterCommitted(LLUICtrl* ctrl);
 	void onSearchEdit(const std::string& string);
-	void onInventorySelectionChange(const std::deque<LLFolderViewItem*> &items, BOOL user_action);
-	void onAddToOutfitClicked(void);
+	void updatePlusButton();
+	void onPlusBtnClicked(void);
+
+	void onVisibilityChange(const LLSD &in_visible_chain);
 
 	void applyFolderViewFilter(EFolderViewItemType type);
 	void applyListViewFilter(EListViewItemType type);
@@ -163,6 +165,7 @@ public:
 	void onEditWearableClicked(void);
 	void onAddWearableClicked(void);
 	void onReplaceBodyPartMenuItemClicked(LLUUID selected_item_id);
+	void onShopButtonClicked();
 
 	void displayCurrentOutfit();
 	void updateCurrentOutfitName();
@@ -190,7 +193,14 @@ private:
 	void onGearButtonClick(LLUICtrl* clicked_button);
 	void onAddMoreButtonClicked();
 	void showFilteredWearablesListView(LLWearableType::EType type);
+	void onOutfitChanging(bool started);
+	void getSelectedItemsUUID(uuid_vec_t& uuid_list);
+	void getCurrentItemUUID(LLUUID& selected_id);
+	void onCOFChanged();
 
+	LLWearableType::EType getCOFWearablesSelectionType() const;
+	LLWearableType::EType getAddMorePanelSelectionType() const;
+	LLWearableType::EType getWearableTypeByItemUUID(const LLUUID& item_uuid) const;
 
 	LLTextBox*			mCurrentOutfitName;
 	LLTextBox*			mStatus;
@@ -201,6 +211,7 @@ private:
 	LLButton*			mEditWearableBtn;
 	LLButton*			mFolderViewBtn;
 	LLButton*			mListViewBtn;
+	LLButton*			mPlusBtn;
 	LLPanel*			mAddWearablesPanel;
 	
 	LLComboBox*			mFolderViewFilterCmbBox;

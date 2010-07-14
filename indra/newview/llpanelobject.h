@@ -65,14 +65,14 @@ public:
 	static bool		precommitValidate(const LLSD& data);
 	
 	static void		onCommitLock(LLUICtrl *ctrl, void *data);
-	static void 	onCommitPosition(			LLUICtrl* ctrl, void* userdata);
-	static void 	onCommitScale(				LLUICtrl* ctrl, void* userdata);
-	static void 	onCommitRotation(			LLUICtrl* ctrl, void* userdata);
-	static void 	onCommitPhysics(			LLUICtrl* ctrl, void* userdata);
-	static void 	onCommitTemporary(			LLUICtrl* ctrl, void* userdata);
-	static void 	onCommitPhantom(			LLUICtrl* ctrl, void* userdata);
+	static void 	onCommitPosition(		LLUICtrl* ctrl, void* userdata);
+	static void 	onCommitScale(			LLUICtrl* ctrl, void* userdata);
+	static void 	onCommitRotation(		LLUICtrl* ctrl, void* userdata);
+	static void 	onCommitPhysics(		LLUICtrl* ctrl, void* userdata);
+	static void 	onCommitTemporary(		LLUICtrl* ctrl, void* userdata);
+	static void 	onCommitPhantom(		LLUICtrl* ctrl, void* userdata);
 	static void     onCommitPhysicsParam(       LLUICtrl* ctrl, void* userdata);
-	static void 	onCommitCastShadows(		LLUICtrl* ctrl, void* userdata);
+	static void 	onCommitCastShadows(	LLUICtrl* ctrl, void* userdata);
 
 	static void 	onCommitParametric(LLUICtrl* ctrl, void* userdata);
 
@@ -103,11 +103,9 @@ protected:
 protected:
 	S32				mComboMaterialItemCount;
 
-	LLTextBox*		mLabelMaterial;
 	LLComboBox*		mComboMaterial;
 	
 	// Per-object options
-	LLTextBox*		mLabelBaseType;
 	LLComboBox*		mComboBaseType;
 
 	LLTextBox*		mLabelCut;

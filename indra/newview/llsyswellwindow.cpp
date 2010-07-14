@@ -371,7 +371,7 @@ LLIMWellWindow::ObjectRowPanel::~ObjectRowPanel()
 //---------------------------------------------------------------------------------
 void LLIMWellWindow::ObjectRowPanel::onClosePanel()
 {
-	LLScriptFloaterManager::getInstance()->onRemoveNotification(mChiclet->getSessionId());
+	LLScriptFloaterManager::getInstance()->removeNotification(mChiclet->getSessionId());
 }
 
 void LLIMWellWindow::ObjectRowPanel::initChiclet(const LLUUID& notification_id, bool new_message/* = false*/)
@@ -582,8 +582,6 @@ LLIMWellWindow::LLIMWellWindow(const LLSD& key)
 : LLSysWellWindow(key)
 {
 	LLIMMgr::getInstance()->addSessionObserver(this);
-	LLIMChiclet::sFindChicletsSignal.connect(boost::bind(&LLIMWellWindow::findIMChiclet, this, _1));
-	LLIMChiclet::sFindChicletsSignal.connect(boost::bind(&LLIMWellWindow::findObjectChiclet, this, _1));
 }
 
 LLIMWellWindow::~LLIMWellWindow()
@@ -601,6 +599,10 @@ BOOL LLIMWellWindow::postBuild()
 {
 	BOOL rv = LLSysWellWindow::postBuild();
 	setTitle(getString("title_im_well_window"));
+
+	LLIMChiclet::sFindChicletsSignal.connect(boost::bind(&LLIMWellWindow::findIMChiclet, this, _1));
+	LLIMChiclet::sFindChicletsSignal.connect(boost::bind(&LLIMWellWindow::findObjectChiclet, this, _1));
+
 	return rv;
 }
 
@@ -641,6 +643,8 @@ void LLIMWellWindow::sessionIDUpdated(const LLUUID& old_session_id, const LLUUID
 
 LLChiclet* LLIMWellWindow::findObjectChiclet(const LLUUID& notification_id)
 {
+	if (!mMessageList) return NULL;
+
 	LLChiclet* res = NULL;
 	ObjectRowPanel* panel = mMessageList->getTypedItemByValue<ObjectRowPanel>(notification_id);
 	if (panel != NULL)
@@ -655,6 +659,8 @@ LLChiclet* LLIMWellWindow::findObjectChiclet(const LLUUID& notification_id)
 // PRIVATE METHODS
 LLChiclet* LLIMWellWindow::findIMChiclet(const LLUUID& sessionId)
 {
+	if (!mMessageList) return NULL;
+
 	LLChiclet* res = NULL;
 	RowPanel* panel = mMessageList->getTypedItemByValue<RowPanel>(sessionId);
 	if (panel != NULL)
@@ -826,7 +832,7 @@ void LLIMWellWindow::closeAllImpl()
 		ObjectRowPanel* obj_panel = dynamic_cast <ObjectRowPanel*> (panel);
 		if (obj_panel)
 		{
-			LLScriptFloaterManager::instance().onRemoveNotification(*iter);
+			LLScriptFloaterManager::instance().removeNotification(*iter);
 		}
 	}
 }

@@ -47,7 +47,7 @@
 #include "llinventorypanel.h"
 #include "llmd5.h"
 #include "llnotificationsutil.h"
-#include "llpaneloutfitsinventory.h"
+#include "lloutfitobserver.h"
 #include "llsidepanelappearance.h"
 #include "llsidetray.h"
 #include "lltexlayer.h"
@@ -166,6 +166,7 @@ struct LLAgentDumper
 
 LLAgentWearables::LLAgentWearables() :
 	mWearablesLoaded(FALSE)
+,	mCOFChangeInProgress(false)
 {
 }
 
@@ -176,6 +177,14 @@ LLAgentWearables::~LLAgentWearables()
 
 void LLAgentWearables::cleanup()
 {
+}
+
+// static
+void LLAgentWearables::initClass()
+{
+	// this can not be called from constructor because its instance is global and is created too early.
+	// Subscribe to "COF is Saved" signal to notify observers about this (Loading indicator for ex.).
+	LLOutfitObserver::instance().addCOFSavedCallback(boost::bind(&LLAgentWearables::notifyLoadingFinished, &gAgentWearables));
 }
 
 void LLAgentWearables::setAvatarObject(LLVOAvatarSelf *avatar)
@@ -502,7 +511,11 @@ void LLAgentWearables::saveWearableAs(const LLWearableType::EType type,
 void LLAgentWearables::revertWearable(const LLWearableType::EType type, const U32 index)
 {
 	LLWearable* wearable = getWearable(type, index);
-	wearable->revertValues();
+	llassert(wearable);
+	if (wearable)
+	{
+		wearable->revertValues();
+	}
 
 	gAgent.sendAgentSetAppearance();
 }
@@ -534,6 +547,7 @@ void LLAgentWearables::setWearableName(const LLUUID& item_id, const std::string&
 			{
 				LLWearable* old_wearable = getWearable((LLWearableType::EType)i,j);
 				llassert(old_wearable);
+				if (!old_wearable) continue;
 
 				std::string old_name = old_wearable->getName();
 				old_wearable->setName(new_name);
@@ -795,7 +809,7 @@ void LLAgentWearables::popWearable(const LLWearableType::EType type, U32 index)
 	if (wearable)
 	{
 		mWearableDatas[type].erase(mWearableDatas[type].begin() + index);
-		gAgentAvatarp->wearableUpdated(wearable->getType(), FALSE);
+		gAgentAvatarp->wearableUpdated(wearable->getType(), TRUE);
 		wearable->setLabelUpdated();
 	}
 }
@@ -920,13 +934,19 @@ BOOL LLAgentWearables::isWearingItem(const LLUUID& item_id) const
 // static
 // ! BACKWARDS COMPATIBILITY ! When we stop supporting viewer1.23, we can assume
 // that viewers have a Current Outfit Folder and won't need this message, and thus
-// we can remove/ignore this whole function.
+// we can remove/ignore this whole function. EXCEPT gAgentWearables.notifyLoadingStarted
 void LLAgentWearables::processAgentInitialWearablesUpdate(LLMessageSystem* mesgsys, void** user_data)
 {
 	// We should only receive this message a single time.  Ignore subsequent AgentWearablesUpdates
 	// that may result from AgentWearablesRequest having been sent more than once.
 	if (mInitialWearablesUpdateReceived)
 		return;
+
+	// notify subscribers that wearables started loading. See EXT-7777
+	// *TODO: find more proper place to not be called from deprecated method.
+	// Seems such place is found: LLInitialWearablesFetch::processContents()
+	gAgentWearables.notifyLoadingStarted();
+
 	mInitialWearablesUpdateReceived = true;
 
 	LLUUID agent_id;
@@ -1208,52 +1228,13 @@ void LLAgentWearables::createStandardWearablesAllDone()
 
 	mWearablesLoaded = TRUE; 
 	checkWearablesLoaded();
-	mLoadedSignal();
+	notifyLoadingFinished();
 	
 	updateServer();
 
 	// Treat this as the first texture entry message, if none received yet
 	gAgentAvatarp->onFirstTEMessageReceived();
 }
-
-
-class LLShowCreatedOutfit: public LLInventoryCallback
-{
-public:
-	LLShowCreatedOutfit(LLUUID& folder_id):
-		mFolderID(folder_id)
-	{
-	}
-
-	virtual ~LLShowCreatedOutfit()
-	{
-		LLSD key;
-		LLSideTray::getInstance()->showPanel("panel_outfits_inventory", key);
-		LLPanelOutfitsInventory *outfit_panel =
-			dynamic_cast<LLPanelOutfitsInventory*>(LLSideTray::getInstance()->getPanel("panel_outfits_inventory"));
-		// TODO: add handling "My Outfits" tab.
-		if (outfit_panel && outfit_panel->isCOFPanelActive())
-		{
-			outfit_panel->getRootFolder()->clearSelection();
-			outfit_panel->getRootFolder()->setSelectionByID(mFolderID, TRUE);
-		}
-		LLAccordionCtrlTab* tab_outfits = outfit_panel ? outfit_panel->findChild<LLAccordionCtrlTab>("tab_outfits") : 0;
-		if (tab_outfits && !tab_outfits->getDisplayChildren())
-		{
-			tab_outfits->changeOpenClose(tab_outfits->getDisplayChildren());
-		}
-
-		LLAppearanceMgr::instance().updateIsDirty();
-		LLAppearanceMgr::instance().updatePanelOutfitName("");
-	}
-	
-	virtual void fire(const LLUUID&)
-	{
-	}
-	
-private:
-	LLUUID mFolderID;
-};
 
 void LLAgentWearables::makeNewOutfitDone(S32 type, U32 index)
 {
@@ -1460,7 +1441,7 @@ void LLAgentWearables::setWearableOutfit(const LLInventoryItem::item_array_t& it
 	// Start rendering & update the server
 	mWearablesLoaded = TRUE; 
 	checkWearablesLoaded();
-	mLoadedSignal();
+	notifyLoadingFinished();
 	queryWearableCache();
 	updateServer();
 
@@ -1891,11 +1872,10 @@ void LLAgentWearables::userAttachMultipleAttachments(LLInventoryModel::item_arra
 		msg->nextBlockFast(_PREHASH_ObjectData );
 		msg->addUUIDFast(_PREHASH_ItemID, item->getLinkedUUID());
 		msg->addUUIDFast(_PREHASH_OwnerID, item->getPermissions().getOwner());
-#if ENABLE_MULTIATTACHMENTS
-		msg->addU8Fast(_PREHASH_AttachmentPt, 0 | ATTACHMENT_ADD );
-#else
-		msg->addU8Fast(_PREHASH_AttachmentPt, 0 );	// Wear at the previous or default attachment point
-#endif
+		if (gSavedSettings.getBOOL("MultipleAttachments"))
+			msg->addU8Fast(_PREHASH_AttachmentPt, 0 | ATTACHMENT_ADD );
+		else
+			msg->addU8Fast(_PREHASH_AttachmentPt, 0 );	// Wear at the previous or default attachment point
 		pack_permissions_slam(msg, item->getFlags(), item->getPermissions());
 		msg->addStringFast(_PREHASH_Name, item->getName());
 		msg->addStringFast(_PREHASH_Description, item->getDescription());
@@ -1945,7 +1925,7 @@ void LLAgentWearables::updateWearablesLoaded()
 	mWearablesLoaded = (itemUpdatePendingCount()==0);
 	if (mWearablesLoaded)
 	{
-		mLoadedSignal();
+		notifyLoadingFinished();
 	}
 }
 
@@ -1965,7 +1945,11 @@ void LLAgentWearables::animateAllWearableParams(F32 delta, BOOL upload_bake)
 		for (S32 count = 0; count < (S32)getWearableCount((LLWearableType::EType)type); ++count)
 		{
 			LLWearable *wearable = getWearable((LLWearableType::EType)type,count);
-			wearable->animateParams(delta, upload_bake);
+			llassert(wearable);
+			if (wearable)
+			{
+				wearable->animateParams(delta, upload_bake);
+			}
 		}
 	}
 }
@@ -2099,7 +2083,25 @@ void LLAgentWearables::populateMyOutfitsFolder(void)
 	}
 }
 
+boost::signals2::connection LLAgentWearables::addLoadingStartedCallback(loading_started_callback_t cb)
+{
+	return mLoadingStartedSignal.connect(cb);
+}
+
 boost::signals2::connection LLAgentWearables::addLoadedCallback(loaded_callback_t cb)
 {
 	return mLoadedSignal.connect(cb);
 }
+
+void LLAgentWearables::notifyLoadingStarted()
+{
+	mCOFChangeInProgress = true;
+	mLoadingStartedSignal();
+}
+
+void LLAgentWearables::notifyLoadingFinished()
+{
+	mCOFChangeInProgress = false;
+	mLoadedSignal();
+}
+// EOF

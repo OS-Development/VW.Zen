@@ -137,7 +137,7 @@ BOOL	LLPanelObject::postBuild()
 	// Phantom checkbox
 	mCheckPhantom = getChild<LLCheckBoxCtrl>("Phantom Checkbox Ctrl");
 	childSetCommitCallback("Phantom Checkbox Ctrl",onCommitPhantom,this);
-
+	
 	// PhysicsShapeType combobox
 	mComboPhysicsShapeType = getChild<LLComboBox>("Physics Shape Type Combo Ctrl");
 	childSetCommitCallback("Physics Shape Type Combo Ctrl", onCommitPhysicsParam, this);
@@ -158,7 +158,6 @@ BOOL	LLPanelObject::postBuild()
 	mSpinPhysicsRestitution = getChild<LLSpinCtrl>("Physics Restitution");
 	childSetCommitCallback("Physics Restitution", onCommitPhysicsParam, this);
 
-	
 	// Position
 	mLabelPosition = getChild<LLTextBox>("label position");
 	mCtrlPosX = getChild<LLSpinCtrl>("Pos X");
@@ -193,7 +192,6 @@ BOOL	LLPanelObject::postBuild()
 	//--------------------------------------------------------
 		
 	// material type popup
-	mLabelMaterial = getChild<LLTextBox>("label material");
 	mComboMaterial = getChild<LLComboBox>("material");
 	childSetCommitCallback("material",onCommitMaterial,this);
 	mComboMaterial->removeall();
@@ -210,7 +208,6 @@ BOOL	LLPanelObject::postBuild()
 	mComboMaterialItemCount = mComboMaterial->getItemCount();
 
 	// Base Type
-	mLabelBaseType = getChild<LLTextBox>("label basetype");
 	mComboBaseType = getChild<LLComboBox>("comboBaseType");
 	childSetCommitCallback("comboBaseType",onCommitParametric,this);
 
@@ -584,7 +581,6 @@ void LLPanelObject::getState( )
 	if (editable && single_volume && material_same)
 	{
 		mComboMaterial->setEnabled( TRUE );
-		mLabelMaterial->setEnabled( TRUE );
 		if (material_code == LL_MCODE_LIGHT)
 		{
 			if (mComboMaterial->getItemCount() == mComboMaterialItemCount)
@@ -606,7 +602,6 @@ void LLPanelObject::getState( )
 	else
 	{
 		mComboMaterial->setEnabled( FALSE );
-		mLabelMaterial->setEnabled( FALSE );	
 	}
 	//----------------------------------------------------------------------------
 
@@ -1015,7 +1010,6 @@ void LLPanelObject::getState( )
 	}
 
 	// Update field enablement
-	mLabelBaseType	->setEnabled( enabled );
 	mComboBaseType	->setEnabled( enabled );
 
 	mLabelCut		->setEnabled( enabled );
@@ -1295,8 +1289,6 @@ void LLPanelObject::sendPhysicsParam()
 	body.append(LLSelectMgr::getInstance()->getSelection()->getFirstObject()->getID());
 	
 	LLHTTPClient::post( url, body, new CostResponder(body[0].asInteger()) );
-}
-
 void LLPanelObject::sendCastShadows()
 {
 	BOOL value = mCheckCastShadows->get();
@@ -1971,8 +1963,6 @@ void LLPanelObject::clearCtrls()
 	mCheckPhantom	->set(FALSE);
 	mCheckPhantom	->setEnabled( FALSE );
 	
-	mComboPhysicsShapeType->setCurrentByIndex(0);
-	mComboPhysicsShapeType->setEnabled(FALSE);
 	mSpinPhysicsGravity->setEnabled(FALSE);
 	mSpinPhysicsFriction->setEnabled(FALSE);
 	mSpinPhysicsDensity->setEnabled(FALSE);
@@ -1983,12 +1973,10 @@ void LLPanelObject::clearCtrls()
 	mCheckCastShadows->setEnabled( FALSE );
 #endif
 	mComboMaterial	->setEnabled( FALSE );
-	mLabelMaterial	->setEnabled( FALSE );
 	// Disable text labels
 	mLabelPosition	->setEnabled( FALSE );
 	mLabelSize		->setEnabled( FALSE );
 	mLabelRotation	->setEnabled( FALSE );
-	mLabelBaseType	->setEnabled( FALSE );
 	mLabelCut		->setEnabled( FALSE );
 	mLabelHollow	->setEnabled( FALSE );
 	mLabelHoleType	->setEnabled( FALSE );

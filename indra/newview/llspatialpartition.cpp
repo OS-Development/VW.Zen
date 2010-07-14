@@ -344,6 +344,7 @@ LLSpatialGroup::~LLSpatialGroup()
 	}
 
 	ll_aligned_free_16(mOcclusionVerts);
+	mOcclusionVerts = NULL;
 
 	LLMemType mt(LLMemType::MTYPE_SPACE_PARTITION);
 	clearDrawMap();

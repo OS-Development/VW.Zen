@@ -40,9 +40,11 @@ class LLTextBox;
 class LLIconCtrl;
 class LLParcelChangeObserver;
 
-class LLPanelTopInfoBar : public LLPanel, public LLSingleton<LLPanelTopInfoBar>
+class LLPanelTopInfoBar : public LLPanel, public LLSingleton<LLPanelTopInfoBar>, private LLDestroyClass<LLPanelTopInfoBar>
 {
 	LOG_CLASS(LLPanelTopInfoBar);
+
+	friend class LLDestroyClass<LLPanelTopInfoBar>;
 
 public:
 	LLPanelTopInfoBar();
@@ -95,6 +97,11 @@ private:
 	void onAgentParcelChange();
 
 	/**
+	 * Called when context menu item is clicked.
+	 */
+	void onContextMenuItemClicked(const LLSD::String& userdata);
+
+	/**
 	 * Called when user checks/unchecks Show Coordinates menu item.
 	 */
 	void onNavBarShowParcelPropertiesCtrlChanged();
@@ -139,6 +146,17 @@ private:
 	 * Sets new value to the mParcelInfoText and updates the size of the top bar.
 	 */
 	void setParcelInfoText(const std::string& new_text);
+
+	/**
+	 *  Implementation of LLDestroyClass<LLSideTray>
+	 */
+	static void destroyClass()
+	{
+		if (LLPanelTopInfoBar::instanceExists())
+		{
+			LLPanelTopInfoBar::getInstance()->setEnabled(FALSE);
+		}
+	}
 
 	LLButton* 				mInfoBtn;
 	LLTextBox* 				mParcelInfoText;

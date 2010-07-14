@@ -110,7 +110,7 @@ LLInventoryPanel::LLInventoryPanel(const LLInventoryPanel::Params& p) :
 	}
 }
 
-BOOL LLInventoryPanel::postBuild()
+void LLInventoryPanel::initFromParams(const LLInventoryPanel::Params& params)
 {
 	LLMemType mt(LLMemType::MTYPE_INVENTORY_POST_BUILD);
 
@@ -128,6 +128,7 @@ BOOL LLInventoryPanel::postBuild()
 		p.rect = folder_rect;
 		p.parent_panel = this;
 		p.tool_tip = p.name;
+		p.use_label_suffix = params.use_label_suffix;
 		mFolderRoot = LLUICtrlFactory::create<LLFolderView>(p);
 		mFolderRoot->setAllowMultiSelect(mAllowMultiSelect);
 	}
@@ -174,8 +175,6 @@ BOOL LLInventoryPanel::postBuild()
 		setSortOrder(gSavedSettings.getU32(DEFAULT_SORT_ORDER));
 	}
 	mFolderRoot->setSortOrder(getFilter()->getSortOrder());
-
-	return TRUE;
 }
 
 LLInventoryPanel::~LLInventoryPanel()
@@ -226,6 +225,11 @@ void LLInventoryPanel::setFilterPermMask(PermissionMask filter_perm_mask)
 	getFilter()->setFilterPermissions(filter_perm_mask);
 }
 
+void LLInventoryPanel::setFilterWearableTypes(U64 types)
+{
+	getFilter()->setFilterWearableTypes(types);
+}
+
 void LLInventoryPanel::setFilterSubString(const std::string& string)
 {
 	getFilter()->setFilterSubString(string);
@@ -252,9 +256,9 @@ void LLInventoryPanel::setHoursAgo(U32 hours)
 	getFilter()->setHoursAgo(hours);
 }
 
-void LLInventoryPanel::setIncludeLinks(BOOL include_links)
+void LLInventoryPanel::setFilterLinks(U64 filter_links)
 {
-	getFilter()->setIncludeLinks(include_links);
+	getFilter()->setFilterLinks(filter_links);
 }
 
 void LLInventoryPanel::setShowFolderState(LLInventoryFilter::EFolderShow show)
@@ -777,7 +781,6 @@ void LLInventoryPanel::onSelectionChange(const std::deque<LLFolderViewItem*>& it
 			fv->startRenamingSelectedItem();
 		}
 	}
-	// Seraph - Put determineFolderType in here for ensemble typing?
 }
 
 void LLInventoryPanel::doToSelected(const LLSD& userdata)

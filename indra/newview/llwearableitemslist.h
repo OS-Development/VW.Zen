@@ -38,6 +38,7 @@
 
 // newview
 #include "llinventoryitemslist.h"
+#include "llinventorylistitem.h"
 #include "llinventorymodel.h"
 #include "lllistcontextmenu.h"
 #include "llwearabletype.h"
@@ -56,18 +57,18 @@ class LLPanelWearableListItem : public LLPanelInventoryListItemBase
 public:
 
 	/**
-	 * Shows buttons when mouse is over
-	 */
+	* Shows buttons when mouse is over
+	*/
 	/*virtual*/ void onMouseEnter(S32 x, S32 y, MASK mask);
 
 	/**
-	 * Hides buttons when mouse is out
-	 */
+	* Hides buttons when mouse is out
+	*/
 	/*virtual*/ void onMouseLeave(S32 x, S32 y, MASK mask);
 
 protected:
 
-	LLPanelWearableListItem(LLViewerInventoryItem* item);
+	LLPanelWearableListItem(LLViewerInventoryItem* item, const Params& params);
 };
 
 /**
@@ -81,28 +82,34 @@ class LLPanelWearableOutfitItem : public LLPanelInventoryListItemBase
 {
 	LOG_CLASS(LLPanelWearableOutfitItem);
 public:
-	static LLPanelWearableOutfitItem* create(LLViewerInventoryItem* item);
-
-	/**
-	 * Puts item on if it is not worn by agent
-	 * otherwise takes it off on double click.
-	 */
-	/*virtual*/ BOOL handleDoubleClick(S32 x, S32 y, MASK mask);
+	static LLPanelWearableOutfitItem* create(LLViewerInventoryItem* item,
+											 bool worn_indication_enabled);
 
 	/**
 	 * Updates item name and (worn) suffix.
 	 */
-	/*virtual*/ void updateItem(const std::string& name);
+	/*virtual*/ void updateItem(const std::string& name,
+								EItemState item_state = IS_DEFAULT);
 
 protected:
+	LLPanelWearableOutfitItem(LLViewerInventoryItem* item,
+							  bool worn_indication_enabled, const Params& params);
 
-	LLPanelWearableOutfitItem(LLViewerInventoryItem* item);
+private:
+	bool	mWornIndicationEnabled;
 };
 
 class LLPanelDeletableWearableListItem : public LLPanelWearableListItem
 {
 	LOG_CLASS(LLPanelDeletableWearableListItem);
 public:
+	struct Params : public LLInitParam::Block<Params, LLPanelWearableListItem::Params>
+	{
+		Optional<LLButton::Params>		delete_btn;
+
+		Params();
+	};
+
 
 	static LLPanelDeletableWearableListItem* create(LLViewerInventoryItem* item);
 
@@ -116,9 +123,7 @@ public:
 	inline void setShowDeleteButton(bool show) { setShowWidget("btn_delete", show); }
 
 protected:
-	LLPanelDeletableWearableListItem(LLViewerInventoryItem* item);
-
-	/*virtual*/ void init();
+	LLPanelDeletableWearableListItem(LLViewerInventoryItem* item, const Params& params);
 };
 
 /** Outfit list item for an attachment */
@@ -130,10 +135,11 @@ public:
 	virtual ~LLPanelAttachmentListItem() {};
 
 	/** Set item title. Joint name is added to the title in parenthesis */
-	/*virtual*/ void setTitle(const std::string& title, const std::string& highlit_text);
+	/*virtual*/ void updateItem(const std::string& name,
+								EItemState item_state = IS_DEFAULT);
 
 protected:
-	LLPanelAttachmentListItem(LLViewerInventoryItem* item) : LLPanelDeletableWearableListItem(item) {};
+	LLPanelAttachmentListItem(LLViewerInventoryItem* item, const Params& params) : LLPanelDeletableWearableListItem(item, params) {};
 };
 
 /**
@@ -145,6 +151,18 @@ class LLPanelClothingListItem : public LLPanelDeletableWearableListItem
 {
 	LOG_CLASS(LLPanelClothingListItem);
 public:
+
+	struct Params : public LLInitParam::Block<Params, LLPanelDeletableWearableListItem::Params>
+	{
+		Optional<LLButton::Params>		up_btn,
+										down_btn,
+										edit_btn;
+		Optional<LLPanel::Params>		lock_panel,
+										edit_panel;
+		Optional<LLIconCtrl::Params>	lock_icon;
+
+		Params();
+	};
 
 	static LLPanelClothingListItem* create(LLViewerInventoryItem* item);
 
@@ -161,18 +179,25 @@ public:
 	inline void setShowLockButton(bool show) { setShowWidget("btn_lock", show); }
 	inline void setShowEditButton(bool show) { setShowWidget("btn_edit_panel", show); }
 
-
 protected:
 
-	LLPanelClothingListItem(LLViewerInventoryItem* item);
-	
-	/*virtual*/ void init();
+	LLPanelClothingListItem(LLViewerInventoryItem* item, const Params& params);
+
 };
 
 class LLPanelBodyPartsListItem : public LLPanelWearableListItem
 {
 	LOG_CLASS(LLPanelBodyPartsListItem);
 public:
+	struct Params : public LLInitParam::Block<Params, LLPanelWearableListItem::Params>
+	{
+		Optional<LLButton::Params>		edit_btn;
+		Optional<LLPanel::Params>		lock_panel,
+										edit_panel;
+		Optional<LLIconCtrl::Params>	lock_icon;
+
+		Params();
+	};
 
 	static LLPanelBodyPartsListItem* create(LLViewerInventoryItem* item);
 
@@ -187,9 +212,7 @@ public:
 	inline void setShowEditButton(bool show) { setShowWidget("btn_edit_panel", show); }
 
 protected:
-	LLPanelBodyPartsListItem(LLViewerInventoryItem* item);
-
-	/*virtual*/ void init();
+	LLPanelBodyPartsListItem(LLViewerInventoryItem* item, const Params& params);
 };
 
 
@@ -201,15 +224,19 @@ protected:
 class LLPanelDummyClothingListItem : public LLPanelWearableListItem
 {
 public:
+	struct Params : public LLInitParam::Block<Params, LLPanelWearableListItem::Params>
+	{
+		Optional<LLPanel::Params> add_panel;
+		Optional<LLButton::Params> add_btn;
+		Params();
+	};
 	static LLPanelDummyClothingListItem* create(LLWearableType::EType w_type);
 
 	/*virtual*/ BOOL postBuild();
 	LLWearableType::EType getWearableType() const;
 
 protected:
-	LLPanelDummyClothingListItem(LLWearableType::EType w_type);
-
-	/*virtual*/ void init();
+	LLPanelDummyClothingListItem(LLWearableType::EType w_type, const Params& params);
 
 	static std::string wearableTypeToString(LLWearableType::EType w_type);
 
@@ -298,12 +325,12 @@ protected:
 private:
 	enum ETypeListOrder
 	{
-		TLO_ATTACHMENT	= 0x01,
-		TLO_CLOTHING	= 0x02,
+		TLO_CLOTHING	= 0x01,
+		TLO_ATTACHMENT	= 0x02,
 		TLO_BODYPART	= 0x04,
 		TLO_UNKNOWN		= 0x08,
 
-		TLO_NOT_CLOTHING = TLO_ATTACHMENT | TLO_BODYPART | TLO_UNKNOWN
+		TLO_SORTABLE_BY_NAME = TLO_ATTACHMENT | TLO_UNKNOWN
 	};
 
 	static LLWearableItemTypeNameComparator::ETypeListOrder getTypeListOrder(LLAssetType::EType item_type);
@@ -348,6 +375,7 @@ public:
 		static void setMenuItemEnabled(LLContextMenu* menu, const std::string& name, bool val);
 		static void updateMask(U32& mask, LLAssetType::EType at);
 		static void createNewWearable(const LLUUID& item_id);
+		static bool canAddWearable(const LLUUID& item_id);
 
 		LLWearableItemsList*	mParent;
 	};
@@ -355,6 +383,7 @@ public:
 	struct Params : public LLInitParam::Block<Params, LLInventoryItemsList::Params>
 	{
 		Optional<bool> standalone;
+		Optional<bool> worn_indication_enabled;
 
 		Params();
 	};
@@ -380,6 +409,7 @@ protected:
 	void onRightClick(S32 x, S32 y);
 
 	bool mIsStandalone;
+	bool mWornIndicationEnabled;
 };
 
 #endif //LL_LLWEARABLEITEMSLIST_H

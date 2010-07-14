@@ -54,6 +54,9 @@
     <string name="Filter.Clothing" value="Clothing"/>
     <string name="Filter.Bodyparts" value="Body parts"/>
 
+    <string
+     name="replace_body_part"
+     value="Click to replace your existing shape"/>
 
     <button
      follows="top|left"
@@ -106,7 +109,7 @@
             <panel
              bevel_style="none"
              follows="top|right"
-             height="38"
+             height="37"
              layout="topleft"
              left_pad="5"
              name="outfit_name_and_status"
@@ -122,18 +125,26 @@
                  top="2"
                  value="Now editing..."
                  use_ellipses="true"
-                 width="270" /> 
+                 width="245" /> 
                 <text
                  follows="bottom|left|right"
                  font="SansSerifLargeBold"
-                 height="26"
+                 height="18"
                  layout="topleft"
                  name="curr_outfit_name"
                  text_color="LtGray"
                  top_pad="2"
                  value="[Current Outfit]"
                  use_ellipses="true"
-                 width="270" /> 
+                 width="245" /> 
+                <loading_indicator
+                 follows="right|top"
+                 height="24"
+                 layout="topleft"
+                 right="-2"
+                 name="edit_outfit_loading_indicator"
+                 top="6"
+                 width="24" />
             </panel>
     </panel>
 
@@ -144,7 +155,7 @@ Required height for dragbar (icon in spec) is 10, so resizebar height should be 
 It is calculated as border_size + 2*UIResizeBarOverlap
 -->
     <layout_stack
-     animate="false"
+     animate="true"
      border_size="8"
      clip="false"
      default_tab_group="2"
@@ -160,7 +171,7 @@ It is calculated as border_size + 2*UIResizeBarOverlap
         <layout_panel
          layout="topleft"
          height="187"
-         min_height="100"
+         min_height="155"
          name="outfit_wearables_panel"
          width="313"
          auto_resize="true"
@@ -178,8 +189,7 @@ It is calculated as border_size + 2*UIResizeBarOverlap
              left="0">
                 <layout_panel
                  auto_resize="true" 
-                 background_visible="true"
-                 bg_alpha_color="DkGray2"
+                 background_visible="false"
                  layout="topleft"
                  height="154"
                  name="add_button_and_combobox"
@@ -280,12 +290,12 @@ It is calculated as border_size + 2*UIResizeBarOverlap
 
 
         <layout_panel
-         background_visible="true"
+         background_visible="false"
          bg_alpha_color="DkGray2"
          auto_resize="true"
          default_tab_group="3"
-         height="211"
-         min_height="210"
+         height="450"
+         min_height="53"
          name="add_wearables_panel"
          width="313"
          tab_group="2"
@@ -307,13 +317,13 @@ It is calculated as border_size + 2*UIResizeBarOverlap
              background_visible="false"
              border="false"
              follows="left|top|right|bottom"
-             height="203"
+             height="418"
              layout="topleft"
              left="0"
              mouse_opaque="false"
              name="folder_view"
-             top_pad="5"
-             width="310"
+             top_pad="0"
+             width="313"
              visible="false"/>
             <panel
              name="filtered_wearables_panel"
@@ -322,7 +332,7 @@ It is calculated as border_size + 2*UIResizeBarOverlap
              layout="topleft"
              follows="left|top|right|bottom"
              border="false"
-             height="210"
+             height="418"
              left="0"
              mouse_opaque="false"
              width="310"
@@ -335,11 +345,20 @@ It is calculated as border_size + 2*UIResizeBarOverlap
                  layout="topleft"
                  follows="all"
                  multi_select="true"
-                 width="310"
-                 height="210"
+                 width="313"
+                 height="418"
                  left="0"
                  top="0"/>
             </panel>
+            <button
+	         follows="bottom|left"
+	         height="22"
+	         left="2"
+	         label="Wear Item"
+	         layout="topleft"
+	         name="plus_btn"
+	         top_pad="5"
+	         width="130" />
 
         </layout_panel>
     </layout_stack>
@@ -371,11 +390,24 @@ It is calculated as border_size + 2*UIResizeBarOverlap
         <icon
          follows="bottom|left|right"
          height="25"
-         image_name="Toolbar_Right_Off"
+         image_name="Toolbar_Middle_Off"
          layout="topleft"
          left_pad="1"
          name="dummy_right_icon"
-         width="281" />
+         width="250" />
+        <button
+         follows="bottom|right"
+         height="25"
+         image_hover_unselected="Toolbar_Right_Over"
+         image_overlay="Shop"
+         image_selected="Toolbar_Right_Selected"
+         image_unselected="Toolbar_Right_Off"
+         layout="topleft"
+         left_pad="1"
+         name="shop_btn_1"
+         top="1"
+         tool_tip="Visit the SL Marketplace. You can also select something you are wearing, then click here to see more things like it"
+         width="31" />
     </panel>
     
     
@@ -429,28 +461,28 @@ It is calculated as border_size + 2*UIResizeBarOverlap
          name="list_view_btn"
          top="1"
          width="31" />
-        <button
-         follows="bottom|left"
-         height="25"
-         image_hover_unselected="Toolbar_Middle_Over"
-         image_overlay="AddItem_Off"
-         image_selected="Toolbar_Middle_Selected"
-         image_unselected="Toolbar_Middle_Off"
-         label=""
-         layout="topleft"
-         left_pad="1"
-         name="add_to_outfit_btn"
-         top="1"
-         width="31" />
         <icon
          follows="bottom|left|right"
          height="25"
-         image_name="Toolbar_Right_Off"
+         image_name="Toolbar_Middle_Off"
          layout="topleft"
          left_pad="1"
          name="dummy_right_icon"
-         width="184" >
+         width="186" >
         </icon>
+        <button
+         follows="bottom|right"
+         height="25"
+         image_hover_unselected="Toolbar_Right_Over"
+         image_overlay="Shop"
+         image_selected="Toolbar_Right_Selected"
+         image_unselected="Toolbar_Right_Off"
+         layout="topleft"
+         left_pad="1"
+         name="shop_btn_2"
+         top="1"
+         tool_tip="Visit the SL Marketplace. You can also select something you are wearing, then click here to see more things like it"
+         width="31" />
     </panel>
     
     <!-- SAVE AND REVERT BUTTONS -->
@@ -490,7 +522,7 @@ It is calculated as border_size + 2*UIResizeBarOverlap
          follows="bottom|left|right"
          height="23"
          left_pad="12"
-         label="Revert"
+         label="Undo Changes"
          layout="topleft"
          name="revert_btn"
          top="0"

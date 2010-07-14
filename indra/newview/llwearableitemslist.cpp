@@ -34,11 +34,11 @@
 #include "llwearableitemslist.h"
 
 #include "lliconctrl.h"
+#include "llmenugl.h" // for LLContextMenu
 
 #include "llagentwearables.h"
 #include "llappearancemgr.h"
 #include "llinventoryfunctions.h"
-#include "llmenugl.h" // for LLContextMenu
 #include "lltransutil.h"
 #include "llviewerattachmenu.h"
 #include "llvoavatarself.h"
@@ -85,8 +85,8 @@ void LLPanelWearableListItem::onMouseLeave(S32 x, S32 y, MASK mask)
 	reshapeWidgets();
 }
 
-LLPanelWearableListItem::LLPanelWearableListItem(LLViewerInventoryItem* item)
-: LLPanelInventoryListItemBase(item)
+LLPanelWearableListItem::LLPanelWearableListItem(LLViewerInventoryItem* item, const LLPanelWearableListItem::Params& params)
+: LLPanelInventoryListItemBase(item, params)
 {
 }
 
@@ -95,58 +95,58 @@ LLPanelWearableListItem::LLPanelWearableListItem(LLViewerInventoryItem* item)
 //////////////////////////////////////////////////////////////////////////
 
 // static
-LLPanelWearableOutfitItem* LLPanelWearableOutfitItem::create(LLViewerInventoryItem* item)
+LLPanelWearableOutfitItem* LLPanelWearableOutfitItem::create(LLViewerInventoryItem* item,
+															 bool worn_indication_enabled)
 {
 	LLPanelWearableOutfitItem* list_item = NULL;
 	if (item)
 	{
-		list_item = new LLPanelWearableOutfitItem(item);
-		list_item->init();
+		const LLPanelInventoryListItemBase::Params& params = LLUICtrlFactory::getDefaultParams<LLPanelInventoryListItemBase>();
+
+		list_item = new LLPanelWearableOutfitItem(item, worn_indication_enabled, params);
+		list_item->initFromParams(params);
+		list_item->postBuild();
 	}
 	return list_item;
 }
 
-BOOL LLPanelWearableOutfitItem::handleDoubleClick(S32 x, S32 y, MASK mask)
+LLPanelWearableOutfitItem::LLPanelWearableOutfitItem(LLViewerInventoryItem* item,
+													 bool worn_indication_enabled,
+													 const LLPanelWearableOutfitItem::Params& params)
+: LLPanelInventoryListItemBase(item, params)
+, mWornIndicationEnabled(worn_indication_enabled)
 {
-	LLViewerInventoryItem* item = getItem();
-	if (item)
-	{
-		LLUUID id = item->getUUID();
-
-		if (get_is_item_worn(id))
-		{
-			LLAppearanceMgr::getInstance()->removeItemFromAvatar(id);
-		}
-		else
-		{
-			LLAppearanceMgr::getInstance()->wearItemOnAvatar(id, true, false);
-		}
-	}
-
-	return LLUICtrl::handleDoubleClick(x, y, mask);
 }
 
 // virtual
-void LLPanelWearableOutfitItem::updateItem(const std::string& name)
+void LLPanelWearableOutfitItem::updateItem(const std::string& name,
+										   EItemState item_state)
 {
 	std::string search_label = name;
 
-	if (mItem && get_is_item_worn(mItem->getUUID()))
+	if (mWornIndicationEnabled && get_is_item_worn(mInventoryItemUUID))
 	{
 		search_label += LLTrans::getString("worn");
+		item_state = IS_WORN;
 	}
 
-	LLPanelInventoryListItemBase::updateItem(search_label);
-}
-
-LLPanelWearableOutfitItem::LLPanelWearableOutfitItem(LLViewerInventoryItem* item)
-: LLPanelInventoryListItemBase(item)
-{
+	LLPanelInventoryListItemBase::updateItem(search_label, item_state);
 }
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
+static LLWidgetNameRegistry::StaticRegistrar sRegisterPanelClothingListItem(&typeid(LLPanelClothingListItem::Params), "clothing_list_item");
+
+
+LLPanelClothingListItem::Params::Params()
+:	up_btn("up_btn"),
+	down_btn("down_btn"),
+	edit_btn("edit_btn"),
+	lock_panel("lock_panel"),
+	edit_panel("edit_panel"),
+	lock_icon("lock_icon")
+{}
 
 // static
 LLPanelClothingListItem* LLPanelClothingListItem::create(LLViewerInventoryItem* item)
@@ -154,24 +154,54 @@ LLPanelClothingListItem* LLPanelClothingListItem::create(LLViewerInventoryItem* 
 	LLPanelClothingListItem* list_item = NULL;
 	if(item)
 	{
-		list_item = new LLPanelClothingListItem(item);
-		list_item->init();
+		const LLPanelClothingListItem::Params& params = LLUICtrlFactory::getDefaultParams<LLPanelClothingListItem>();
+		list_item = new LLPanelClothingListItem(item, params);
+		list_item->initFromParams(params);
+		list_item->postBuild();
 	}
 	return list_item;
 }
 
-LLPanelClothingListItem::LLPanelClothingListItem(LLViewerInventoryItem* item)
- : LLPanelDeletableWearableListItem(item)
+LLPanelClothingListItem::LLPanelClothingListItem(LLViewerInventoryItem* item, const LLPanelClothingListItem::Params& params)
+ : LLPanelDeletableWearableListItem(item, params)
 {
+	LLButton::Params button_params = params.up_btn;
+	applyXUILayout(button_params, this);
+	addChild(LLUICtrlFactory::create<LLButton>(button_params));
+
+	button_params = params.down_btn;
+	applyXUILayout(button_params, this);
+	addChild(LLUICtrlFactory::create<LLButton>(button_params));
+
+	LLPanel::Params panel_params = params.lock_panel;
+	applyXUILayout(panel_params, this);
+	LLPanel* lock_panelp = LLUICtrlFactory::create<LLPanel>(panel_params);
+	addChild(lock_panelp);
+
+	panel_params = params.edit_panel;
+	applyXUILayout(panel_params, this);
+	LLPanel* edit_panelp = LLUICtrlFactory::create<LLPanel>(panel_params);
+	addChild(edit_panelp);
+
+	if (lock_panelp)
+{
+		LLIconCtrl::Params icon_params = params.lock_icon;
+		applyXUILayout(icon_params, this);
+		lock_panelp->addChild(LLUICtrlFactory::create<LLIconCtrl>(icon_params));
+}
+
+	if (edit_panelp)
+{
+		button_params = params.edit_btn;
+		applyXUILayout(button_params, this);
+		edit_panelp->addChild(LLUICtrlFactory::create<LLButton>(button_params));
+	}
+
+	setSeparatorVisible(false);
 }
 
 LLPanelClothingListItem::~LLPanelClothingListItem()
 {
-}
-
-void LLPanelClothingListItem::init()
-{
-	LLUICtrlFactory::getInstance()->buildPanel(this, "panel_clothing_list_item.xml");
 }
 
 BOOL LLPanelClothingListItem::postBuild()
@@ -193,30 +223,62 @@ BOOL LLPanelClothingListItem::postBuild()
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
+static LLWidgetNameRegistry::StaticRegistrar sRegisterPanelBodyPartsListItem(&typeid(LLPanelBodyPartsListItem::Params), "bodyparts_list_item");
+
+
+LLPanelBodyPartsListItem::Params::Params()
+:	edit_btn("edit_btn"),
+	edit_panel("edit_panel"),
+	lock_panel("lock_panel"),
+	lock_icon("lock_icon")
+{}
+
 // static
 LLPanelBodyPartsListItem* LLPanelBodyPartsListItem::create(LLViewerInventoryItem* item)
 {
 	LLPanelBodyPartsListItem* list_item = NULL;
 	if(item)
 	{
-		list_item = new LLPanelBodyPartsListItem(item);
-		list_item->init();
+		const Params& params = LLUICtrlFactory::getDefaultParams<LLPanelBodyPartsListItem>();
+		list_item = new LLPanelBodyPartsListItem(item, params);
+		list_item->initFromParams(params);
+		list_item->postBuild();
 	}
 	return list_item;
 }
 
-LLPanelBodyPartsListItem::LLPanelBodyPartsListItem(LLViewerInventoryItem* item)
-: LLPanelWearableListItem(item)
+LLPanelBodyPartsListItem::LLPanelBodyPartsListItem(LLViewerInventoryItem* item, const LLPanelBodyPartsListItem::Params& params)
+: LLPanelWearableListItem(item, params)
 {
+	LLPanel::Params panel_params = params.edit_panel;
+	applyXUILayout(panel_params, this);
+	LLPanel* edit_panelp = LLUICtrlFactory::create<LLPanel>(panel_params);
+	addChild(edit_panelp);
+
+	panel_params = params.lock_panel;
+	applyXUILayout(panel_params, this);
+	LLPanel* lock_panelp = LLUICtrlFactory::create<LLPanel>(panel_params);
+	addChild(lock_panelp);
+	
+	if (edit_panelp)
+	{
+		LLButton::Params btn_params = params.edit_btn;
+		applyXUILayout(btn_params, this);
+		edit_panelp->addChild(LLUICtrlFactory::create<LLButton>(btn_params));
+}
+
+	if (lock_panelp)
+{
+		LLIconCtrl::Params icon_params = params.lock_icon;
+		applyXUILayout(icon_params, this);
+		lock_panelp->addChild(LLUICtrlFactory::create<LLIconCtrl>(icon_params));
+	}
+
+	setSeparatorVisible(true);
 }
 
 LLPanelBodyPartsListItem::~LLPanelBodyPartsListItem()
 {
-}
-
-void LLPanelBodyPartsListItem::init()
-{
-	LLUICtrlFactory::getInstance()->buildPanel(this, "panel_body_parts_list_item.xml");
 }
 
 BOOL LLPanelBodyPartsListItem::postBuild()
@@ -229,6 +291,11 @@ BOOL LLPanelBodyPartsListItem::postBuild()
 	return TRUE;
 }
 
+static LLWidgetNameRegistry::StaticRegistrar sRegisterPanelDeletableWearableListItem(&typeid(LLPanelDeletableWearableListItem::Params), "deletable_wearable_list_item");
+
+LLPanelDeletableWearableListItem::Params::Params()
+:	delete_btn("delete_btn")
+{}
 
 // static
 LLPanelDeletableWearableListItem* LLPanelDeletableWearableListItem::create(LLViewerInventoryItem* item)
@@ -236,20 +303,22 @@ LLPanelDeletableWearableListItem* LLPanelDeletableWearableListItem::create(LLVie
 	LLPanelDeletableWearableListItem* list_item = NULL;
 	if(item)
 	{
-		list_item = new LLPanelDeletableWearableListItem(item);
-		list_item->init();
+		const Params& params = LLUICtrlFactory::getDefaultParams<LLPanelDeletableWearableListItem>();
+		list_item = new LLPanelDeletableWearableListItem(item, params);
+		list_item->initFromParams(params);
+		list_item->postBuild();
 	}
 	return list_item;
 }
 
-LLPanelDeletableWearableListItem::LLPanelDeletableWearableListItem(LLViewerInventoryItem* item)
-: LLPanelWearableListItem(item)
+LLPanelDeletableWearableListItem::LLPanelDeletableWearableListItem(LLViewerInventoryItem* item, const LLPanelDeletableWearableListItem::Params& params)
+: LLPanelWearableListItem(item, params)
 {
-}
+	LLButton::Params button_params = params.delete_btn;
+	applyXUILayout(button_params, this);
+	addChild(LLUICtrlFactory::create<LLButton>(button_params));
 
-void LLPanelDeletableWearableListItem::init()
-{
-	LLUICtrlFactory::getInstance()->buildPanel(this, "panel_deletable_wearable_list_item.xml");
+	setSeparatorVisible(true);
 }
 
 BOOL LLPanelDeletableWearableListItem::postBuild()
@@ -275,49 +344,59 @@ LLPanelAttachmentListItem* LLPanelAttachmentListItem::create(LLViewerInventoryIt
 	LLPanelAttachmentListItem* list_item = NULL;
 	if(item)
 	{
-		list_item = new LLPanelAttachmentListItem(item);
-		list_item->init();
+		const Params& params = LLUICtrlFactory::getDefaultParams<LLPanelDeletableWearableListItem>();
+
+		list_item = new LLPanelAttachmentListItem(item, params);
+		list_item->initFromParams(params);
+		list_item->postBuild();
 	}
 	return list_item;
 }
 
-void LLPanelAttachmentListItem::setTitle(const std::string& title, const std::string& highlit_text)
+void LLPanelAttachmentListItem::updateItem(const std::string& name,
+										   EItemState item_state)
 {
-	std::string title_joint = title;
+	std::string title_joint = name;
 
-	if (mItem && isAgentAvatarValid() && gAgentAvatarp->isWearingAttachment(mItem->getLinkedUUID()))
+	LLViewerInventoryItem* inv_item = getItem();
+	if (inv_item && isAgentAvatarValid() && gAgentAvatarp->isWearingAttachment(inv_item->getLinkedUUID()))
 	{
-		std::string joint = LLTrans::getString(gAgentAvatarp->getAttachedPointName(mItem->getLinkedUUID()));
-		title_joint = title + " (" + joint + ")";
+		std::string joint = LLTrans::getString(gAgentAvatarp->getAttachedPointName(inv_item->getLinkedUUID()));
+		title_joint =  title_joint + " (" + joint + ")";
 	}
 
-	LLPanelDeletableWearableListItem::setTitle(title_joint, highlit_text);
+	LLPanelInventoryListItemBase::updateItem(title_joint, item_state);
 }
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
+static LLWidgetNameRegistry::StaticRegistrar sRegisterPanelDummyClothingListItem(&typeid(LLPanelDummyClothingListItem::Params), "dummy_clothing_list_item");
+
+LLPanelDummyClothingListItem::Params::Params()
+:	add_panel("add_panel"),
+	add_btn("add_btn")
+{}
 
 LLPanelDummyClothingListItem* LLPanelDummyClothingListItem::create(LLWearableType::EType w_type)
 {
-	LLPanelDummyClothingListItem* list_item = new LLPanelDummyClothingListItem(w_type);
-	list_item->init();
+	const Params& params = LLUICtrlFactory::getDefaultParams<LLPanelDummyClothingListItem>();
+
+	LLPanelDummyClothingListItem* list_item = new LLPanelDummyClothingListItem(w_type, params);
+	list_item->initFromParams(params);
+	list_item->postBuild();
 	return list_item;
 }
 
 BOOL LLPanelDummyClothingListItem::postBuild()
 {
-	LLIconCtrl* icon = getChild<LLIconCtrl>("item_icon");
-	setIconCtrl(icon);
-	setTitleCtrl(getChild<LLTextBox>("item_name"));
-
 	addWidgetToRightSide("btn_add_panel");
 
 	setIconImage(LLInventoryIcon::getIcon(LLAssetType::AT_CLOTHING, LLInventoryType::IT_NONE, mWearableType, FALSE));
 	updateItem(wearableTypeToString(mWearableType));
 
 	// Make it look loke clothing item - reserve space for 'delete' button
-	setLeftWidgetsWidth(icon->getRect().mLeft);
+	setLeftWidgetsWidth(getChildView("item_icon")->getRect().mLeft);
 
 	setWidgetsVisible(false);
 	reshapeWidgets();
@@ -330,15 +409,23 @@ LLWearableType::EType LLPanelDummyClothingListItem::getWearableType() const
 	return mWearableType;
 }
 
-LLPanelDummyClothingListItem::LLPanelDummyClothingListItem(LLWearableType::EType w_type)
- : LLPanelWearableListItem(NULL)
- , mWearableType(w_type)
+LLPanelDummyClothingListItem::LLPanelDummyClothingListItem(LLWearableType::EType w_type, const LLPanelDummyClothingListItem::Params& params)
+:	LLPanelWearableListItem(NULL, params), 
+	mWearableType(w_type)
 {
+	LLPanel::Params panel_params(params.add_panel);
+	applyXUILayout(panel_params, this);
+	LLPanel* add_panelp = LLUICtrlFactory::create<LLPanel>(panel_params);
+	addChild(add_panelp);
+
+	if (add_panelp)
+{
+		LLButton::Params button_params(params.add_btn);
+		applyXUILayout(button_params, this);
+		add_panelp->addChild(LLUICtrlFactory::create<LLButton>(button_params));
 }
 
-void LLPanelDummyClothingListItem::init()
-{
-	LLUICtrlFactory::getInstance()->buildPanel(this, "panel_dummy_clothing_list_item.xml");
+	setSeparatorVisible(true);
 }
 
 typedef std::map<LLWearableType::EType, std::string> clothing_to_string_map_t;
@@ -406,9 +493,9 @@ bool LLWearableItemTypeNameComparator::doCompare(const LLPanelInventoryListItemB
 		return item_type_order1 < item_type_order2;
 	}
 
-	if (item_type_order1 & TLO_NOT_CLOTHING)
+	if (item_type_order1 & TLO_SORTABLE_BY_NAME)
 	{
-		// If both items are of the same asset type except AT_CLOTHING
+		// If both items are of the same asset type except AT_CLOTHING and AT_BODYPART
 		// we can compare them by name.
 		return LLWearableItemNameComparator::doCompare(wearable_item1, wearable_item2);
 	}
@@ -460,6 +547,7 @@ static const LLDefaultChildRegistry::Register<LLWearableItemsList> r("wearable_i
 
 LLWearableItemsList::Params::Params()
 :	standalone("standalone", true)
+,	worn_indication_enabled("worn_indication_enabled", true)
 {}
 
 LLWearableItemsList::LLWearableItemsList(const LLWearableItemsList::Params& p)
@@ -472,6 +560,7 @@ LLWearableItemsList::LLWearableItemsList(const LLWearableItemsList::Params& p)
 		// Use built-in context menu.
 		setRightMouseDownCallback(boost::bind(&LLWearableItemsList::onRightClick, this, _2, _3));
 	}
+	mWornIndicationEnabled = p.worn_indication_enabled;
 }
 
 // virtual
@@ -487,7 +576,7 @@ void LLWearableItemsList::addNewItem(LLViewerInventoryItem* item, bool rearrange
 		llassert(item != NULL);
 	}
 
-	LLPanelWearableOutfitItem *list_item = LLPanelWearableOutfitItem::create(item);
+	LLPanelWearableOutfitItem *list_item = LLPanelWearableOutfitItem::create(item, mWornIndicationEnabled);
 	if (!list_item)
 		return;
 
@@ -518,6 +607,9 @@ void LLWearableItemsList::updateList(const LLUUID& category_id)
 
 void LLWearableItemsList::updateChangedItems(const LLInventoryModel::changed_items_t& changed_items_uuids)
 {
+	// nothing to update
+	if (changed_items_uuids.empty()) return;
+
 	typedef std::vector<LLPanel*> item_panel_list_t;
 
 	item_panel_list_t items;
@@ -542,6 +634,7 @@ void LLWearableItemsList::updateChangedItems(const LLInventoryModel::changed_ite
 			if (linked_uuid == *iter)
 			{
 				item->setNeedsRefresh(true);
+				break;
 			}
 		}
 	}
@@ -583,8 +676,8 @@ LLContextMenu* LLWearableItemsList::ContextMenu::createMenu()
 	const uuid_vec_t& ids = mUUIDs;		// selected items IDs
 	LLUUID selected_id = ids.front();	// ID of the first selected item
 
-	functor_t wear = boost::bind(&LLAppearanceMgr::wearItemOnAvatar, LLAppearanceMgr::getInstance(), _1, true, true);
-	functor_t add = boost::bind(&LLAppearanceMgr::wearItemOnAvatar, LLAppearanceMgr::getInstance(), _1, true, false);
+	functor_t wear = boost::bind(&LLAppearanceMgr::wearItemOnAvatar, LLAppearanceMgr::getInstance(), _1, true, true, LLPointer<LLInventoryCallback>(NULL));
+	functor_t add = boost::bind(&LLAppearanceMgr::wearItemOnAvatar, LLAppearanceMgr::getInstance(), _1, true, false, LLPointer<LLInventoryCallback>(NULL));
 	functor_t take_off = boost::bind(&LLAppearanceMgr::removeItemFromAvatar, LLAppearanceMgr::getInstance(), _1);
 
 	// Register handlers common for all wearable types.
@@ -628,6 +721,7 @@ void LLWearableItemsList::ContextMenu::updateItemsVisibility(LLContextMenu* menu
 	U32 mask = 0;					// mask of selected items' types
 	U32 n_items = ids.size();		// number of selected items
 	U32 n_worn = 0;					// number of worn items among the selected ones
+	U32 n_already_worn = 0;			// number of items worn of same type as selected items
 	U32 n_links = 0;				// number of links among the selected items
 	U32 n_editable = 0;				// number of editable items among the selected ones
 
@@ -645,10 +739,11 @@ void LLWearableItemsList::ContextMenu::updateItemsVisibility(LLContextMenu* menu
 
 		updateMask(mask, item->getType());
 
-		bool is_link = item->getIsLinkType();
-		bool is_worn = get_is_item_worn(id);
-		bool is_editable = gAgentWearables.isWearableModifiable(id);
-
+		const LLWearableType::EType wearable_type = item->getWearableType();
+		const bool is_link = item->getIsLinkType();
+		const bool is_worn = get_is_item_worn(id);
+		const bool is_editable = gAgentWearables.isWearableModifiable(id);
+		const bool is_already_worn = gAgentWearables.selfHasWearable(wearable_type);
 		if (is_worn)
 		{
 			++n_worn;
@@ -661,14 +756,22 @@ void LLWearableItemsList::ContextMenu::updateItemsVisibility(LLContextMenu* menu
 		{
 			++n_links;
 		}
+		if (is_already_worn)
+		{
+			++n_already_worn;
+		}
 	} // for
 
 	bool standalone = mParent ? mParent->isStandalone() : false;
 
 	// *TODO: eliminate multiple traversals over the menu items
-	setMenuItemVisible(menu, "wear_add",			mask == MASK_CLOTHING && n_worn == 0);
-	setMenuItemVisible(menu, "wear",				n_worn == 0);
-	setMenuItemVisible(menu, "edit",				!standalone && mask & (MASK_CLOTHING|MASK_BODYPART));
+	setMenuItemVisible(menu, "wear_wear", 			n_already_worn == 0);
+	setMenuItemEnabled(menu, "wear_wear", 			n_already_worn == 0);
+	setMenuItemVisible(menu, "wear_add",			mask == MASK_CLOTHING && n_worn == 0 && n_already_worn != 0);
+	setMenuItemEnabled(menu, "wear_add",			n_items == 1 && canAddWearable(ids.front()) && n_already_worn != 0);
+	setMenuItemVisible(menu, "wear_replace",		n_worn == 0 && n_already_worn != 0);
+	//visible only when one item selected and this item is worn
+	setMenuItemVisible(menu, "edit",				!standalone && mask & (MASK_CLOTHING|MASK_BODYPART) && n_worn == n_items && n_worn == 1);
 	setMenuItemEnabled(menu, "edit",				n_editable == 1 && n_worn == 1 && n_items == 1);
 	setMenuItemVisible(menu, "create_new",			mask & (MASK_CLOTHING|MASK_BODYPART) && n_items == 1);
 	setMenuItemVisible(menu, "show_original",		!standalone);
@@ -679,6 +782,8 @@ void LLWearableItemsList::ContextMenu::updateItemsVisibility(LLContextMenu* menu
 	setMenuItemEnabled(menu, "take_off_or_detach",	n_worn == n_items);
 	setMenuItemVisible(menu, "object_profile",		!standalone);
 	setMenuItemEnabled(menu, "object_profile",		n_items == 1);
+	setMenuItemVisible(menu, "--no options--", 		FALSE);
+	setMenuItemEnabled(menu, "--no options--",		FALSE);
 
 	// Populate or hide the "Attach to..." / "Attach to HUD..." submenus.
 	if (mask == MASK_ATTACHMENT && n_worn == 0)
@@ -695,6 +800,20 @@ void LLWearableItemsList::ContextMenu::updateItemsVisibility(LLContextMenu* menu
 	{
 		llwarns << "Non-wearable items passed." << llendl;
 	}
+
+	U32 num_visible_items = 0;
+	for (U32 menu_item_index = 0; menu_item_index < menu->getItemCount(); ++menu_item_index)
+	{
+		const LLMenuItemGL* menu_item = menu->getItem(menu_item_index);
+		if (menu_item && menu_item->getVisible())
+		{
+			num_visible_items++;
+		}
+	}
+	if (num_visible_items == 0)
+	{
+		setMenuItemVisible(menu, "--no options--", TRUE);
+	}
 }
 
 void LLWearableItemsList::ContextMenu::updateItemsLabels(LLContextMenu* menu)
@@ -706,10 +825,8 @@ void LLWearableItemsList::ContextMenu::updateItemsLabels(LLContextMenu* menu)
 	LLViewerInventoryItem* item = gInventory.getLinkedItem(mUUIDs.back());
 	if (!item || !item->isWearableType()) return;
 
-	LLStringUtil::format_map_t args;
 	LLWearableType::EType w_type = item->getWearableType();
-	args["[WEARABLE_TYPE]"] = LLWearableType::getTypeDefaultNewName(w_type);
-	std::string new_label = LLTrans::getString("CreateNewWearable", args);
+	std::string new_label = LLTrans::getString("create_new_" + LLWearableType::getTypeName(w_type));
 
 	LLMenuItemGL* menu_item = menu->getChild<LLMenuItemGL>("create_new");
 	menu_item->setLabel(new_label);
@@ -758,6 +875,22 @@ void LLWearableItemsList::ContextMenu::createNewWearable(const LLUUID& item_id)
 	if (!item || !item->isWearableType()) return;
 
 	LLAgentWearables::createWearable(item->getWearableType(), true);
+}
+
+// Can we wear another wearable of the given item's wearable type?
+// static
+bool LLWearableItemsList::ContextMenu::canAddWearable(const LLUUID& item_id)
+{
+	// TODO: investigate wearables may not be loaded at this point EXT-8231
+
+	LLViewerInventoryItem* item = gInventory.getItem(item_id);
+	if (!item || item->getType() != LLAssetType::AT_CLOTHING)
+	{
+		return false;
+	}
+
+	U32 wearable_count = gAgentWearables.getWearableCount(item->getWearableType());
+	return wearable_count < LLAgentWearables::MAX_CLOTHING_PER_TYPE;
 }
 
 // EOF

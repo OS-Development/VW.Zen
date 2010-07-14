@@ -37,6 +37,7 @@
 #include "llrect.h"
 #include "lluictrl.h"
 #include "lluicolor.h"
+#include "llstyle.h"
 
 class LLUICtrlFactory;
 class LLUIImage;
@@ -120,6 +121,12 @@ public:
 	// Set text and highlight substring in LLAccordionCtrlTabHeader
 	void setTitle(const std::string& title, const std::string& hl = LLStringUtil::null);
 
+	// Set text font style in LLAccordionCtrlTabHeader
+	void setTitleFontStyle(std::string style);
+
+	// Set text color in LLAccordionCtrlTabHeader
+	void setTitleColor(LLUIColor color);
+
 	boost::signals2::connection setFocusReceivedCallback(const focus_signal_t::slot_type& cb);
 	boost::signals2::connection setFocusLostCallback(const focus_signal_t::slot_type& cb);
 
@@ -166,10 +173,12 @@ public:
 	virtual BOOL handleKey(KEY key, MASK mask, BOOL called_from_parent);
 
 	virtual BOOL handleToolTip(S32 x, S32 y, MASK mask);
+	virtual BOOL handleScrollWheel( S32 x, S32 y, S32 clicks );
+
 
 	virtual bool addChild(LLView* child, S32 tab_group);
 
-	bool isExpanded() { return mDisplayChildren; }
+	bool isExpanded() const { return mDisplayChildren; }
 
 	S32 getHeaderHeight();
 

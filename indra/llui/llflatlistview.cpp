@@ -50,14 +50,21 @@ LLFlatListView::Params::Params()
 	allow_select("allow_select"),
 	multi_select("multi_select"),
 	keep_one_selected("keep_one_selected"),
+	keep_selection_visible_on_reshape("keep_selection_visible_on_reshape",false),
 	no_items_text("no_items_text")
 {};
 
 void LLFlatListView::reshape(S32 width, S32 height, BOOL called_from_parent /* = TRUE */)
 {
+	S32 delta = height - getRect().getHeight();
 	LLScrollContainer::reshape(width, height, called_from_parent);
 	setItemsNoScrollWidth(width);
 	rearrangeItems();
+	
+	if(delta!= 0 && mKeepSelectionVisibleOnReshape)
+	{
+		ensureSelectedVisible();
+	}
 }
 
 const LLRect& LLFlatListView::getItemsRect() const
@@ -150,7 +157,7 @@ bool LLFlatListView::insertItemAfter(LLPanel* after_item, LLPanel* item_to_add, 
 }
 
 
-bool LLFlatListView::removeItem(LLPanel* item)
+bool LLFlatListView::removeItem(LLPanel* item, bool rearrange)
 {
 	if (!item) return false;
 	if (item->getParent() != mItemsPanel) return false;
@@ -158,22 +165,22 @@ bool LLFlatListView::removeItem(LLPanel* item)
 	item_pair_t* item_pair = getItemPair(item);
 	if (!item_pair) return false;
 
-	return removeItemPair(item_pair);
+	return removeItemPair(item_pair, rearrange);
 }
 
-bool LLFlatListView::removeItemByValue(const LLSD& value)
+bool LLFlatListView::removeItemByValue(const LLSD& value, bool rearrange)
 {
 	if (value.isUndefined()) return false;
 	
 	item_pair_t* item_pair = getItemPair(value);
 	if (!item_pair) return false;
 
-	return removeItemPair(item_pair);
+	return removeItemPair(item_pair, rearrange);
 }
 
-bool LLFlatListView::removeItemByUUID(const LLUUID& uuid)
+bool LLFlatListView::removeItemByUUID(const LLUUID& uuid, bool rearrange)
 {
-	return removeItemByValue(LLSD(uuid));
+	return removeItemByValue(LLSD(uuid), rearrange);
 }
 
 LLPanel* LLFlatListView::getItemByValue(const LLSD& value) const
@@ -320,6 +327,9 @@ U32 LLFlatListView::size(const bool only_visible_items) const
 
 void LLFlatListView::clear()
 {
+	// This will clear mSelectedItemPairs, calling all appropriate callbacks.
+	resetSelection();
+	
 	// do not use LLView::deleteAllChildren to avoid removing nonvisible items. drag-n-drop for ex.
 	for (pairs_iterator_t it = mItemPairs.begin(); it != mItemPairs.end(); ++it)
 	{
@@ -328,7 +338,6 @@ void LLFlatListView::clear()
 		delete *it;
 	}
 	mItemPairs.clear();
-	mSelectedItemPairs.clear();
 
 	// also set items panel height to zero. Reshape it to allow reshaping of non-item children
 	LLRect rc = mItemsPanel->getRect();
@@ -380,6 +389,7 @@ LLFlatListView::LLFlatListView(const LLFlatListView::Params& p)
   , mPrevNotifyParentRect(LLRect())
   , mNoItemsCommentTextbox(NULL)
   , mIsConsecutiveSelection(false)
+  , mKeepSelectionVisibleOnReshape(p.keep_selection_visible_on_reshape)
 {
 	mBorderThickness = getBorderWidth();
 
@@ -962,11 +972,12 @@ bool LLFlatListView::isSelected(item_pair_t* item_pair) const
 	return std::find(mSelectedItemPairs.begin(), it_end, item_pair) != it_end;
 }
 
-bool LLFlatListView::removeItemPair(item_pair_t* item_pair)
+bool LLFlatListView::removeItemPair(item_pair_t* item_pair, bool rearrange)
 {
 	llassert(item_pair);
 
 	bool deleted = false;
+	bool selection_changed = false;
 	for (pairs_iterator_t it = mItemPairs.begin(); it != mItemPairs.end(); ++it)
 	{
 		item_pair_t* _item_pair = *it;
@@ -986,6 +997,7 @@ bool LLFlatListView::removeItemPair(item_pair_t* item_pair)
 		if (selected_item_pair == item_pair)
 		{
 			it = mSelectedItemPairs.erase(it);
+			selection_changed = true;
 			break;
 		}
 	}
@@ -994,8 +1006,16 @@ bool LLFlatListView::removeItemPair(item_pair_t* item_pair)
 	item_pair->first->die();
 	delete item_pair;
 
+	if (rearrange)
+	{
 	rearrangeItems();
 	notifyParentItemsRectChanged();
+	}
+
+	if (selection_changed && mCommitOnSelectionChange)
+	{
+		onCommit();
+	}
 
 	return true;
 }
@@ -1059,6 +1079,7 @@ void LLFlatListView::setNoItemsCommentVisible(bool visible) const
 			mNoItemsCommentTextbox->setRect(comment_rect);
 */
 		}
+		mSelectedItemsBorder->setVisible(FALSE);
 		mNoItemsCommentTextbox->setVisible(visible);
 	}
 }
@@ -1088,7 +1109,10 @@ void LLFlatListView::getValues(std::vector<LLSD>& values) const
 // virtual
 void LLFlatListView::onFocusReceived()
 {
+	if (size())
+	{
 	mSelectedItemsBorder->setVisible(TRUE);
+	}
 	gEditMenuHandler = this;
 }
 // virtual
@@ -1218,6 +1242,8 @@ LLFlatListViewEx::LLFlatListViewEx(const Params& p)
 :	LLFlatListView(p)
 , mNoFilteredItemsMsg(p.no_filtered_items_msg)
 , mNoItemsMsg(p.no_items_msg)
+, mForceShowingUnmatchedItems(false)
+, mHasMatchedItems(false)
 {
 
 }
@@ -1240,6 +1266,16 @@ void LLFlatListViewEx::updateNoItemsMessage(const std::string& filter_string)
 		setNoItemsCommentText(mNoItemsMsg);
 	}
 
+}
+
+bool LLFlatListViewEx::getForceShowingUnmatchedItems()
+{
+	return mForceShowingUnmatchedItems;
+}
+
+void LLFlatListViewEx::setForceShowingUnmatchedItems(bool show)
+{
+	mForceShowingUnmatchedItems = show;
 }
 
 void LLFlatListViewEx::setFilterSubString(const std::string& filter_str)
@@ -1265,6 +1301,7 @@ void LLFlatListViewEx::filterItems()
 	item_panel_list_t items;
 	getItems(items);
 
+	mHasMatchedItems = false;
 	for (item_panel_list_t::iterator
 			 iter = items.begin(),
 			 iter_end = items.end();
@@ -1275,18 +1312,27 @@ void LLFlatListViewEx::filterItems()
 		// i.e. we don't hide items that don't support 'match_filter' action, separators etc.
 		if (0 == pItem->notify(action))
 		{
+			mHasMatchedItems = true;
 			pItem->setVisible(true);
 		}
 		else
 		{
 			// TODO: implement (re)storing of current selection.
-			selectItem(pItem, false);
-			pItem->setVisible(false);
+			if(!mForceShowingUnmatchedItems)
+			{
+				selectItem(pItem, false);
+			}
+			pItem->setVisible(mForceShowingUnmatchedItems);
 		}
 	}
 
 	sort();
 	notifyParentItemsRectChanged();
+}
+
+bool LLFlatListViewEx::hasMatchedItems()
+{
+	return mHasMatchedItems;
 }
 
 //EOF

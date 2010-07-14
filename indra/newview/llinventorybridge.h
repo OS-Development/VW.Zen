@@ -76,7 +76,6 @@ public:
 									   U32 flags = 0x00);
 	virtual ~LLInvFVBridge() {}
 
-	BOOL isInOutfitsSidePanel() const; // allow context menus to be customized for side panel
 	BOOL canShare() const;
 
 	//--------------------------------------------------------------------
@@ -125,6 +124,7 @@ public:
 							EDragAndDropType cargo_type,
 							void* cargo_data) { return FALSE; }
 	virtual LLInventoryType::EType getInventoryType() const { return mInvType; }
+	virtual LLWearableType::EType getWearableType() const { return LLWearableType::WT_NONE; }
 
 	//--------------------------------------------------------------------
 	// Convenience functions for adding various common menu options.
@@ -296,7 +296,6 @@ protected:
 	static void createNewEyes(void* user_data);
 
 	BOOL checkFolderForContentsOfType(LLInventoryModel* model, LLInventoryCollectFunctor& typeToCheck);
-	BOOL areAnyContentsWorn(LLInventoryModel* model) const;
 
 	void modifyOutfit(BOOL append);
 	void determineFolderType();
@@ -473,6 +472,7 @@ public:
 	virtual void	buildContextMenu(LLMenuGL& menu, U32 flags);
 	virtual std::string getLabelSuffix() const;
 	virtual BOOL renameItem(const std::string& new_name);
+	virtual LLWearableType::EType getWearableType() const { return mWearableType; }
 
 	static void		onWearOnAvatar( void* userdata );	// Access to wearOnAvatar() from menu
 	static BOOL		canWearOnAvatar( void* userdata );
@@ -636,8 +636,12 @@ BOOL move_inv_category_world_to_agent(const LLUUID& object_id,
 									  void* user_data = NULL);
 
 // Utility function to hide all entries except those in the list
+// Can be called multiple times on the same menu (e.g. if multiple items
+// are selected).  If "append" is false, then only common enabled items
+// are set as enabled.
 void hide_context_entries(LLMenuGL& menu, 
 						  const menuentry_vec_t &entries_to_show, 
-						  const menuentry_vec_t &disabled_entries);
+						  const menuentry_vec_t &disabled_entries,
+						  BOOL append = FALSE);
 
 #endif // LL_LLINVENTORYBRIDGE_H

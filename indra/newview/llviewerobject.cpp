@@ -80,6 +80,7 @@
 #include "llviewerparceloverlay.h"
 #include "llviewerpartsource.h"
 #include "llviewerregion.h"
+#include "llviewerstats.h"
 #include "llviewertextureanim.h"
 #include "llviewerwindow.h" // For getSpinAxis
 #include "llvoavatar.h"
@@ -771,7 +772,24 @@ U32 LLViewerObject::processUpdateMessage(LLMessageSystem *mesgsys,
 	// Coordinates of objects on simulators are region-local.
 	U64 region_handle;
 	mesgsys->getU64Fast(_PREHASH_RegionData, _PREHASH_RegionHandle, region_handle);
-	mRegionp = LLWorld::getInstance()->getRegionFromHandle(region_handle);
+	
+	{
+		LLViewerRegion* regionp = LLWorld::getInstance()->getRegionFromHandle(region_handle);
+		if(regionp != mRegionp && regionp && mRegionp)//region cross
+		{
+			//this is the redundant position and region update, but it is necessary in case the viewer misses the following 
+			//position and region update messages from sim.
+			//this redundant update should not cause any problems.
+			LLVector3 delta_pos =  mRegionp->getOriginAgent() - regionp->getOriginAgent();
+			setPositionParent(getPosition() + delta_pos); //update to the new region position immediately.
+			setRegion(regionp) ; //change the region.
+		}
+		else
+		{
+			mRegionp = regionp ;
+		}
+	}	
+	
 	if (!mRegionp)
 	{
 		U32 x, y;
@@ -1912,6 +1930,12 @@ U32 LLViewerObject::processUpdateMessage(LLMessageSystem *mesgsys,
 			LLVOAvatar *avatar = (LLVOAvatar*)mParent;
 
 			avatar->clampAttachmentPositions();
+		}
+		
+		// If we're snapping the position by more than 0.5m, update LLViewerStats::mAgentPositionSnaps
+		if ( asAvatar() && asAvatar()->isSelf() && (mag_sqr > 0.25f) )
+		{
+			LLViewerStats::getInstance()->mAgentPositionSnaps.push( diff.length() );
 		}
 	}
 
@@ -4991,6 +5015,11 @@ void LLViewerObject::setIncludeInSearch(bool include_in_search)
 
 void LLViewerObject::setRegion(LLViewerRegion *regionp)
 {
+	if (!regionp)
+	{
+		llwarns << "viewer object set region to NULL" << llendl;
+	}
+	
 	mLatestRecvPacketID = 0;
 	mRegionp = regionp;
 

@@ -242,7 +242,7 @@
 		Clicca per avviare il comando secondlife://
 	</string>
 	<string name="CurrentURL" value="URL attuale: [CurrentURL]"/>
-	<string name="TooltipPrice" value="L$ [PRICE]-"/>
+	<string name="TooltipPrice" value="L$[AMOUNT]: "/>
 	<string name="SLurlLabelTeleport">
 		Teleportati a
 	</string>
@@ -302,6 +302,9 @@
 	</string>
 	<string name="ReleaseNotes">
 		Note sulla versione
+	</string>
+	<string name="RELEASE_NOTES_BASE_URL">
+		http://wiki.secondlife.com/wiki/Release_Notes/
 	</string>
 	<string name="LoadingData">
 		In caricamento...
@@ -738,6 +741,12 @@
 	<string name="land_type_unknown">
 		(sconosciuto)
 	</string>
+	<string name="Estate / Full Region">
+		Proprietà immobiliare / Regione completa
+	</string>
+	<string name="Mainland / Full Region">
+		Continente / Regione completa
+	</string>
 	<string name="all_files">
 		Tutti i file
 	</string>
@@ -843,6 +852,9 @@
 	<string name="invalid">
 		non valido
 	</string>
+	<string name="none">
+		nessuno
+	</string>
 	<string name="shirt_not_worn">
 		Camicia non indossata
 	</string>
@@ -881,6 +893,9 @@
 	</string>
 	<string name="NewWearable">
 		Nuovo [WEARABLE_ITEM]
+	</string>
+	<string name="CreateNewWearable">
+		Crea [WEARABLE_TYPE]
 	</string>
 	<string name="next">
 		Avanti
@@ -1059,7 +1074,7 @@
 	<string name="InvFolder Gestures">
 		Gesture
 	</string>
-	<string name="InvFolder favorite">
+	<string name="InvFolder Favorite">
 		Preferiti
 	</string>
 	<string name="InvFolder Current Outfit">
@@ -1579,20 +1594,29 @@
 	<string name="ATTACH_HUD_BOTTOM_RIGHT">
 		HUD basso a destra
 	</string>
+	<string name="Bad attachment point">
+		Punto di collegamento non valido
+	</string>
 	<string name="CursorPos">
 		Riga [LINE], Colonna [COLUMN]
 	</string>
 	<string name="PanelDirCountFound">
 		[COUNT] trovato/i
 	</string>
-	<string name="PanelContentsNewScript">
-		Nuovo script
-	</string>
 	<string name="PanelContentsTooltip">
 		Contenuto dell&apos;oggetto
 	</string>
+	<string name="PanelContentsNewScript">
+		Nuovo script
+	</string>
 	<string name="BusyModeResponseDefault">
 		Il residente al quale hai inviato un messaggio è in modalità &apos;occupato&apos;, ovvero ha chiesto di non essere disturbato.  Il tuo messaggio comparirà nel suo pannello IM, dove potrà essere letto in un secondo momento.
+	</string>
+	<string name="NoOutfits">
+		Non hai ancora vestiario da indossare. Prova [secondlife:///app/search/all Cerca].
+	</string>
+	<string name="NoOutfitsTabsMatched">
+		Non riesci a trovare quello che cerchi? Prova [secondlife:///app/search/all/[SEARCH_TERM] Cerca].
 	</string>
 	<string name="MuteByName">
 		(In base al nome)
@@ -3454,6 +3478,9 @@ Se il messaggio persiste, contatta [SUPPORT_SITE].
 	<string name="session_initialization_timed_out_error">
 		Sessione di inizializzazione scaduta
 	</string>
+	<string name="voice_morphing_url">
+		http://secondlife.com/landing/voicemorphing
+	</string>
 	<string name="paid_you_ldollars">
 		[NAME] ti ha inviato un pagamento di L$[AMOUNT].
 	</string>
@@ -3624,16 +3651,16 @@ Segnala abuso
 	<string name="Male - Wow">
 		Maschio - Accipicchia
 	</string>
-	<string name="FeMale - Excuse me">
+	<string name="Female - Excuse me">
 		Femmina - Chiedere scusa
 	</string>
-	<string name="FeMale - Get lost">
+	<string name="Female - Get lost">
 		Femmina - Levati dai piedi!
 	</string>
-	<string name="FeMale - Blow kiss">
+	<string name="Female - Blow kiss">
 		Femmina - Butta un bacio
 	</string>
-	<string name="FeMale - Boo">
+	<string name="Female - Boo">
 		Femmina - Bu
 	</string>
 	<string name="Female - Bored">
@@ -3665,5 +3692,33 @@ Segnala abuso
 	</string>
 	<string name="texture_load_dimensions_error">
 		Impossibile caricare immagini di dimensioni superiori a [WIDTH]*[HEIGHT]
+	</string>
+	<string name="words_separator" value=","/>
+	<string name="server_is_down">
+		Nonostante i nostri tentativi, si è verificato un errore imprevisto.
+
+	Consulta la pagina status.secondlifegrid.net per determinare se si sia verificato un problema noto con il servizio.  
+        Se il problema continua, ti consigliamo di controllare le tue impostazioni di rete e della firewall.
+	</string>
+	<string name="dateTimeWeekdaysNames">
+		lunedì:martedì:mercoledì:giovedì:venerdì:sabato:domenica
+	</string>
+	<string name="dateTimeWeekdaysShortNames">
+		lun:mar:mer:gio:ven:sab:dom
+	</string>
+	<string name="dateTimeMonthNames">
+		gennaio:febbraio:marzo:aprile:maggio:giugno:luglio:agosto:settembre:ottobre:novembre:dicembre
+	</string>
+	<string name="dateTimeMonthShortNames">
+		gen:feb:mar:apr:mag:giu:lug:ago:sett:ott:nov:dic
+	</string>
+	<string name="dateTimeDayFormat">
+		[MDAY]
+	</string>
+	<string name="dateTimeAM">
+		antemeridiane
+	</string>
+	<string name="dateTimePM">
+		pomeridiane
 	</string>
 </strings>

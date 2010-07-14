@@ -185,6 +185,7 @@ LLFolderView::LLFolderView(const Params& p)
 	mRenameItem( NULL ),
 	mNeedsScroll( FALSE ),
 	mEnableScroll( true ),
+	mUseLabelSuffix(p.use_label_suffix),
 	mPinningSelectedItem(FALSE),
 	mNeedsAutoSelect( FALSE ),
 	mAutoSelectOverride(FALSE),
@@ -961,7 +962,7 @@ void LLFolderView::draw()
 		}
 		mStatusTextBox->setValue(mStatusText);
 		mStatusTextBox->setVisible( TRUE );
-
+		
 		// firstly reshape message textbox with current size. This is necessary to
 		// LLTextBox::getTextPixelHeight works properly
 		const LLRect local_rect = getLocalRect();
@@ -1867,7 +1868,8 @@ BOOL LLFolderView::handleRightMouseDown( S32 x, S32 y, MASK mask )
 		LLView::child_list_t::const_iterator menu_itor;
 		for (menu_itor = list->begin(); menu_itor != list->end(); ++menu_itor)
 		{
-			(*menu_itor)->setVisible(TRUE);
+			(*menu_itor)->setVisible(FALSE);
+			(*menu_itor)->pushVisible(TRUE);
 			(*menu_itor)->setEnabled(TRUE);
 		}
 		

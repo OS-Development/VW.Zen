@@ -97,7 +97,6 @@ public:
 		const std::string& file_name,
 		LLAssetType::EType asset_type,
 		const LLSD& inventory_info);
-
 	virtual ~LLNewAgentInventoryVariablePriceResponder();
 
 	void errorWithContent(

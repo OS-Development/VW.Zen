@@ -34,10 +34,12 @@
 #define LL_LLAPPEARANCEMGR_H
 
 #include "llsingleton.h"
+
+#include "llagentwearables.h"
+#include "llcallbacklist.h"
 #include "llinventorymodel.h"
 #include "llinventoryobserver.h"
 #include "llviewerinventory.h"
-#include "llcallbacklist.h"
 
 class LLWearable;
 class LLWearableHoldingPattern;
@@ -52,7 +54,7 @@ class LLAppearanceMgr: public LLSingleton<LLAppearanceMgr>
 public:
 	typedef std::vector<LLInventoryModel::item_array_t> wearables_by_type_t;
 
-	void updateAppearanceFromCOF();
+	void updateAppearanceFromCOF(bool update_base_outfit_ordering = false);
 	bool needToSaveCOF();
 	void updateCOF(const LLUUID& category, bool append = false);
 	void wearInventoryCategory(LLInventoryCategory* category, bool copy, bool append);
@@ -64,6 +66,7 @@ public:
 	void renameOutfit(const LLUUID& outfit_id);
 	void takeOffOutfit(const LLUUID& cat_id);
 	void addCategoryToCurrentOutfit(const LLUUID& cat_id);
+	void enforceItemCountLimits();
 
 	// Copy all items and the src category itself.
 	void shallowCopyCategory(const LLUUID& src_id, const LLUUID& dst_id,
@@ -74,6 +77,12 @@ public:
 
 	// Determine whether a given outfit can be removed.
 	bool getCanRemoveOutfit(const LLUUID& outfit_cat_id);
+
+	// Determine whether we're wearing any of the outfit contents (excluding body parts).
+	static bool getCanRemoveFromCOF(const LLUUID& outfit_cat_id);
+
+	// Determine whether we can add anything (but body parts) from the outfit contents to COF.
+	static bool getCanAddToCOF(const LLUUID& outfit_cat_id);
 
 	// Copy all items in a category.
 	void shallowCopyCategoryContents(const LLUUID& src_id, const LLUUID& dst_id,
@@ -90,7 +99,7 @@ public:
 	const LLUUID getBaseOutfitUUID();
 
 	// Wear/attach an item (from a user's inventory) on the agent
-	bool wearItemOnAvatar(const LLUUID& item_to_wear, bool do_update = true, bool replace = false);
+	bool wearItemOnAvatar(const LLUUID& item_to_wear, bool do_update = true, bool replace = false, LLPointer<LLInventoryCallback> cb = NULL);
 
 	// Update the displayed outfit name in UI.
 	void updatePanelOutfitName(const std::string& name);
@@ -115,8 +124,8 @@ public:
 				 LLPointer<LLInventoryCallback> cb);
 
 	// Add COF link to individual item.
-	void addCOFItemLink(const LLUUID& item_id, bool do_update = true);
-	void addCOFItemLink(const LLInventoryItem *item, bool do_update = true);
+	void addCOFItemLink(const LLUUID& item_id, bool do_update = true, LLPointer<LLInventoryCallback> cb = NULL);
+	void addCOFItemLink(const LLInventoryItem *item, bool do_update = true, LLPointer<LLInventoryCallback> cb = NULL);
 
 	// Remove COF entries
 	void removeCOFItemLinks(const LLUUID& item_id, bool do_update = true);
@@ -151,7 +160,7 @@ public:
 	void removeItemFromAvatar(const LLUUID& item_id);
 
 
-	LLUUID makeNewOutfitLinks(const std::string& new_folder_name);
+	LLUUID makeNewOutfitLinks(const std::string& new_folder_name,bool show_panel = true);
 
 	bool moveWearable(LLViewerInventoryItem* item, bool closer_to_body);
 
@@ -162,9 +171,11 @@ public:
 
 	//Check ordering information on wearables stored in links' descriptions and update if it is invalid
 	// COF is processed if cat_id is not specified
-	void updateClothingOrderingInfo(LLUUID cat_id = LLUUID::null);
+	void updateClothingOrderingInfo(LLUUID cat_id = LLUUID::null, bool update_base_outfit_ordering = false);
 
 	bool isOutfitLocked() { return mOutfitLocked; }
+
+	bool isInUpdateAppearanceFromCOF() { return mIsInUpdateAppearanceFromCOF; }
 
 protected:
 	LLAppearanceMgr();
@@ -195,6 +206,7 @@ private:
 	std::set<LLUUID> mRegisteredAttachments;
 	bool mAttachmentInvLinkEnabled;
 	bool mOutfitIsDirty;
+	bool mIsInUpdateAppearanceFromCOF; // to detect recursive calls.
 
 	/**
 	 * Lock for blocking operations on outfit until server reply or timeout exceed
@@ -216,12 +228,13 @@ public:
 class LLUpdateAppearanceOnDestroy: public LLInventoryCallback
 {
 public:
-	LLUpdateAppearanceOnDestroy();
+	LLUpdateAppearanceOnDestroy(bool update_base_outfit_ordering = false);
 	virtual ~LLUpdateAppearanceOnDestroy();
 	/* virtual */ void fire(const LLUUID& inv_item);
 
 private:
 	U32 mFireCount;
+	bool mUpdateBaseOrder;
 };
 
 
@@ -313,6 +326,9 @@ public:
 	}
 	virtual void done()
 	{
+		llinfos << this << " done with incomplete " << mIncomplete.size()
+				<< " complete " << mComplete.size() <<  " calling callable" << llendl;
+
 		gInventory.removeObserver(this);
 		doOnIdleOneTime(mCallable);
 		delete this;
@@ -351,10 +367,14 @@ public:
 					<< llendl;
 			//dec_busy_count();
 			gInventory.removeObserver(this);
+
+			// lets notify observers that loading is finished.
+			gAgentWearables.notifyLoadingFinished();
 			delete this;
 			return;
 		}
 
+		llinfos << "stage1 got " << item_array.count() << " items, passing to stage2 " << llendl;
 		uuid_vec_t ids;
 		for(S32 i = 0; i < count; ++i)
 		{

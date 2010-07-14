@@ -1267,8 +1267,8 @@ BOOL LLVOAvatarSelf::isLocalTextureDataAvailable(const LLTexLayerSet* layerset) 
 //-----------------------------------------------------------------------------
 BOOL LLVOAvatarSelf::isLocalTextureDataFinal(const LLTexLayerSet* layerset) const
 {
-	//const U32 desired_tex_discard_level = gSavedSettings.getU32("TextureDiscardLevel"); 
-	const U32 desired_tex_discard_level = 0; // SERAPH hack to not bake textures on lower discard levels.
+	const U32 desired_tex_discard_level = gSavedSettings.getU32("TextureDiscardLevel"); 
+	// const U32 desired_tex_discard_level = 0; // hack to not bake textures on lower discard levels.
 
 	for (U32 i = 0; i < mBakedTextureDatas.size(); i++)
 	{
@@ -1299,8 +1299,8 @@ BOOL LLVOAvatarSelf::isLocalTextureDataFinal(const LLTexLayerSet* layerset) cons
 
 BOOL LLVOAvatarSelf::isAllLocalTextureDataFinal() const
 {
-	// const U32 desired_tex_discard_level = gSavedSettings.getU32("TextureDiscardLevel"); 
-	const U32 desired_tex_discard_level = 0; // SERAPH hack to not bake textures on lower discard levels
+	const U32 desired_tex_discard_level = gSavedSettings.getU32("TextureDiscardLevel"); 
+	// const U32 desired_tex_discard_level = 0; // hack to not bake textures on lower discard levels
 
 	for (U32 i = 0; i < mBakedTextureDatas.size(); i++)
 	{
@@ -1632,8 +1632,8 @@ void LLVOAvatarSelf::setLocalTexture(ETextureIndex type, LLViewerTexture* src_te
 					}
 				}
 				else
-				{
-					tex->setLoadedCallback(onLocalTextureLoaded, desired_discard, TRUE, FALSE, new LLAvatarTexData(getID(), type));
+				{					
+					tex->setLoadedCallback(onLocalTextureLoaded, desired_discard, TRUE, FALSE, new LLAvatarTexData(getID(), type), NULL, NULL);
 				}
 			}
 			tex->setMinDiscardLevel(desired_discard);
@@ -2032,9 +2032,9 @@ void LLVOAvatarSelf::addLocalTextureStats( ETextureIndex type, LLViewerFetchedTe
 			imagep->setBoostLevel(getAvatarBoostLevel());
 
 			imagep->resetTextureStats();
-			imagep->setResetMaxVirtualSizeFlag(false) ;
+			imagep->setMaxVirtualSizeResetInterval(16);
 			imagep->addTextureStats( desired_pixels / texel_area_ratio );
-			imagep->setAdditionalDecodePriority(1.0f) ;
+			imagep->setAdditionalDecodePriority(SELF_ADDITIONAL_PRI) ;
 			imagep->forceUpdateBindStats() ;
 			if (imagep->getDiscardLevel() < 0)
 			{
@@ -2260,6 +2260,16 @@ void LLVOAvatarSelf::processRebakeAvatarTextures(LLMessageSystem* msg, void**)
 		gAgentAvatarp->updateMeshTextures();
 	}
 }
+
+BOOL LLVOAvatarSelf::isUsingBakedTextures() const
+{
+	// Composite textures are used during appearance mode.
+	if (gAgentCamera.cameraCustomizeAvatar())
+		return FALSE;
+
+	return TRUE;
+}
+
 
 void LLVOAvatarSelf::forceBakeAllTextures(bool slam_for_debug)
 {

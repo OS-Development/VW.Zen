@@ -643,7 +643,8 @@ void LLPipeline::updateRenderDeferred()
 			 LLFeatureManager::getInstance()->isFeatureAvailable("RenderDeferred") &&
 			 gSavedSettings.getBOOL("VertexShaderEnable") && 
 			 gSavedSettings.getBOOL("RenderAvatarVP") &&
-			 gSavedSettings.getBOOL("WindLightUseAtmosShaders")) ? TRUE : FALSE;
+			 (gSavedSettings.getBOOL("WindLightUseAtmosShaders")) ? TRUE : FALSE) &&
+		!gUseWireframe;
 	
 	sRenderDeferred = deferred;			
 }
@@ -918,13 +919,18 @@ S32 LLPipeline::setLightingDetail(S32 level)
 
 	if (level < 0)
 	{
-		level = gSavedSettings.getS32("RenderLightingDetail");
+		if (gSavedSettings.getBOOL("VertexShaderEnable"))
+		{
+			level = 1;
+		}
+		else
+		{
+			level = 0;
+		}
 	}
 	level = llclamp(level, 0, getMaxLightingDetail());
 	if (level != mLightingDetail)
 	{
-		gSavedSettings.setS32("RenderLightingDetail", level);
-		
 		mLightingDetail = level;
 
 		if (mVertexShadersLoaded == 1)
@@ -2030,7 +2036,7 @@ void LLPipeline::rebuildPriorityGroups()
 #endif
 
 	// Iterate through all drawables on the priority build queue,
-	for (LLSpatialGroup::sg_list_t::iterator iter = mGroupQ1.begin();
+	for (LLSpatialGroup::sg_vector_t::iterator iter = mGroupQ1.begin();
 		 iter != mGroupQ1.end(); ++iter)
 	{
 		LLSpatialGroup* group = *iter;
@@ -2456,7 +2462,6 @@ void LLPipeline::stateSort(LLCamera& camera, LLCullResult &result)
 	//LLVertexBuffer::unbind();
 
 	grabReferences(result);
-	llpushcallstacks ;
 	for (LLCullResult::sg_list_t::iterator iter = sCull->beginDrawableGroups(); iter != sCull->endDrawableGroups(); ++iter)
 	{
 		LLSpatialGroup* group = *iter;
@@ -2474,7 +2479,6 @@ void LLPipeline::stateSort(LLCamera& camera, LLCullResult &result)
 			}
 		}
 	}
-	llpushcallstacks ;
 	for (LLCullResult::sg_list_t::iterator iter = sCull->beginVisibleGroups(); iter != sCull->endVisibleGroups(); ++iter)
 	{
 		LLSpatialGroup* group = *iter;
@@ -2490,7 +2494,6 @@ void LLPipeline::stateSort(LLCamera& camera, LLCullResult &result)
 		}
 	}
 	
-	llpushcallstacks ;
 	if (LLViewerCamera::sCurCameraID == LLViewerCamera::CAMERA_WORLD)
 	{
 		for (LLCullResult::bridge_list_t::iterator i = sCull->beginVisibleBridge(); i != sCull->endVisibleBridge(); ++i)
@@ -2504,7 +2507,6 @@ void LLPipeline::stateSort(LLCamera& camera, LLCullResult &result)
 			}
 		}
 	}
-	llpushcallstacks ;
 	{
 		LLFastTimer ftm(FTM_STATESORT_DRAWABLE);
 		for (LLCullResult::drawable_list_t::iterator iter = sCull->beginVisibleList();
@@ -2517,14 +2519,12 @@ void LLPipeline::stateSort(LLCamera& camera, LLCullResult &result)
 			}
 		}
 	}
-
 	{
 		LLFastTimer ftm(FTM_CLIENT_COPY);
 		LLVertexBuffer::clientCopy();
 	}
-
-	postSort(camera);
-	llpushcallstacks ;
+	
+	postSort(camera);	
 }
 
 void LLPipeline::stateSort(LLSpatialGroup* group, LLCamera& camera)
@@ -2794,6 +2794,7 @@ void LLPipeline::postSort(LLCamera& camera)
 
 	assertInitialized();
 
+	llpushcallstacks ;
 	//rebuild drawable geometry
 	for (LLCullResult::sg_list_t::iterator i = sCull->beginDrawableGroups(); i != sCull->endDrawableGroups(); ++i)
 	{
@@ -2804,7 +2805,7 @@ void LLPipeline::postSort(LLCamera& camera)
 			group->rebuildGeom();
 		}
 	}
-
+	llpushcallstacks ;
 	//rebuild groups
 	sCull->assertDrawMapsEmpty();
 
@@ -2824,6 +2825,7 @@ void LLPipeline::postSort(LLCamera& camera)
 
 
 	rebuildPriorityGroups();
+	llpushcallstacks ;
 
 	const S32 bin_count = 1024*8;
 		
@@ -2927,7 +2929,7 @@ void LLPipeline::postSort(LLCamera& camera)
 
 		std::sort(sCull->beginAlphaGroups(), sCull->endAlphaGroups(), LLSpatialGroup::CompareDepthGreater());
 	}
-	
+	llpushcallstacks ;
 	// only render if the flag is set. The flag is only set if we are in edit mode or the toggle is set in the menus
 	if (LLFloaterReg::instanceVisible("beacons") && !sShadowRender)
 	{
@@ -2975,7 +2977,7 @@ void LLPipeline::postSort(LLCamera& camera)
 			forAllVisibleDrawables(renderSoundHighlights);
 		}
 	}
-
+	llpushcallstacks ;
 	// If managing your telehub, draw beacons at telehub and currently selected spawnpoint.
 	if (LLFloaterTelehub::renderBeacons())
 	{
@@ -3005,6 +3007,7 @@ void LLPipeline::postSort(LLCamera& camera)
 	}
 
 	//LLSpatialGroup::sNoDelete = FALSE;
+	llpushcallstacks ;
 }
 
 
@@ -3667,20 +3670,6 @@ void LLPipeline::renderGeomPostDeferred(LLCamera& camera)
 
 	gGLLastMatrix = NULL;
 	glLoadMatrixd(gGLModelView);
-
-	renderHighlights();
-	mHighlightFaces.clear();
-
-	renderDebug();
-
-	LLVertexBuffer::unbind();
-
-	if (gPipeline.hasRenderDebugFeatureMask(LLPipeline::RENDER_DEBUG_FEATURE_UI))
-	{
-		// Render debugging beacons.
-		gObjectList.renderObjectBeacons();
-		gObjectList.resetObjectBeacons();
-	}
 
 	if (occlude)
 	{
@@ -4917,7 +4906,8 @@ void LLPipeline::setupHWLights(LLDrawPool* pool)
 			glLightf (gllight, GL_CONSTANT_ATTENUATION,   0.0f);
 			glLightf (gllight, GL_LINEAR_ATTENUATION,     linatten);
 			glLightf (gllight, GL_QUADRATIC_ATTENUATION,  0.0f);
-			if (light->isLightSpotlight()) // directional (spot-)light
+			if (light->isLightSpotlight() // directional (spot-)light
+			    && (LLPipeline::sRenderDeferred || gSavedSettings.getBOOL("RenderSpotLightsInNondeferred"))) // these are only rendered as GL spotlights if we're in deferred rendering mode *or* the setting forces them on
 			{
 				LLVector3 spotparams = light->getSpotLightParams();
 				LLQuaternion quat = light->getRenderRotation();
@@ -6880,11 +6870,15 @@ void LLPipeline::renderDeferredLighting()
 		if (LLViewerShaderMgr::instance()->getVertexShaderLevel(LLViewerShaderMgr::SHADER_DEFERRED) > 2)
 		{
 			mDeferredLight[1].bindTarget();
-			mDeferredLight[1].clear(GL_COLOR_BUFFER_BIT);
+			// clear color buffer here (GI) - zeroing alpha (glow) is important or it will accumulate against sky
+			glClearColor(0,0,0,0);
+			mScreen.clear(GL_COLOR_BUFFER_BIT);
 		}
 		else
 		{
 			mScreen.bindTarget();
+			// clear color buffer here - zeroing alpha (glow) is important or it will accumulate against sky
+			glClearColor(0,0,0,0);
 			mScreen.clear(GL_COLOR_BUFFER_BIT);
 		}
 
@@ -7295,6 +7289,7 @@ void LLPipeline::renderDeferredLighting()
 		{
 			// Render debugging beacons.
 			gObjectList.renderObjectBeacons();
+			LLHUDObject::renderAll();
 			gObjectList.resetObjectBeacons();
 		}
 	}
@@ -7508,12 +7503,11 @@ void LLPipeline::generateWaterReflection(LLCamera& camera_in)
 	if (LLPipeline::sWaterReflections && assertInitialized() && LLDrawPoolWater::sNeedsReflectionUpdate)
 	{
 		BOOL skip_avatar_update = FALSE;
-		if (gAgentCamera.getCameraAnimating() || gAgentCamera.getCameraMode() != CAMERA_MODE_MOUSELOOK)
+		if (!isAgentAvatarValid() || gAgentCamera.getCameraAnimating() || gAgentCamera.getCameraMode() != CAMERA_MODE_MOUSELOOK)
 		{
 			skip_avatar_update = TRUE;
 		}
 
-		llpushcallstacks ;
 		if (!skip_avatar_update)
 		{
 			gAgentAvatarp->updateAttachmentVisibility(CAMERA_MODE_THIRD_PERSON);
@@ -7613,7 +7607,6 @@ void LLPipeline::generateWaterReflection(LLCamera& camera_in)
 												LLPipeline::END_RENDER_TYPES);
 					static LLCullResult result;
 					updateCull(camera, result);
-					llpushcallstacks ;
 					stateSort(camera, result);
 					andRenderTypeMask(LLPipeline::RENDER_TYPE_SKY,
 										LLPipeline::RENDER_TYPE_CLOUDS,
@@ -7651,7 +7644,6 @@ void LLPipeline::generateWaterReflection(LLCamera& camera_in)
 					LLGLUserClipPlane clip_plane(plane, mat, projection);
 					LLGLDisable cull(GL_CULL_FACE);
 					updateCull(camera, ref_result, 1);
-					llpushcallstacks ;
 					stateSort(camera, ref_result);
 				}	
 				
@@ -7709,7 +7701,6 @@ void LLPipeline::generateWaterReflection(LLCamera& camera_in)
 				LLGLUserClipPlane clip_plane(LLPlane(-pnorm, -(pd+pad)), mat, projection);
 				static LLCullResult result;
 				updateCull(camera, result, water_clip);
-				llpushcallstacks ;
 				stateSort(camera, result);
 
 				gGL.setColorMask(true, true);
@@ -7748,7 +7739,6 @@ void LLPipeline::generateWaterReflection(LLCamera& camera_in)
 		{
 			gAgentAvatarp->updateAttachmentVisibility(gAgentCamera.getCameraMode());
 		}
-		llpushcallstacks ;
 	}
 }
 

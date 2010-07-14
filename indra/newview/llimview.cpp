@@ -1022,6 +1022,14 @@ void LLIMModel::sendMessage(const std::string& utf8_text,
 		}
 		else
 		{
+			// IM_SESSION_INVITE means that this is an Ad-hoc incoming chat
+			//		(it can be also Group chat but it is checked above)
+			// In this case mInitialTargetIDs contains Ad-hoc session ID and it should not be added
+			// to Recent People to prevent showing of an item with (???)(???). See EXT-8246.
+			// Concrete participants will be added into this list once they sent message in chat.
+			if (IM_SESSION_INVITE == dialog) return;
+
+			// implemented adding of all participants of an outgoing to Recent People List. See EXT-5694.
 			for(uuid_vec_t::iterator it = session->mInitialTargetIDs.begin();
 				it!=session->mInitialTargetIDs.end();++it)
 			{
@@ -1898,8 +1906,6 @@ BOOL LLIncomingCallDialog::postBuild()
 	
 	// check to see if this is an Avaline call
 	bool is_avatar = LLVoiceClient::getInstance()->isParticipantAvatar(session_id);
-	childSetVisible("Start IM", is_avatar); // no IM for avaline
-
 	if (caller_name == "anonymous")
 	{
 		caller_name = getString("anonymous");
@@ -1930,6 +1936,10 @@ BOOL LLIncomingCallDialog::postBuild()
 	{
 		mLifetimeTimer.stop();
 	}
+
+	//it's not possible to connect to existing Ad-Hoc/Group chat through incoming ad-hoc call
+	//and no IM for avaline
+	childSetVisible("Start IM", is_avatar && notify_box_type != "VoiceInviteAdHoc" && notify_box_type != "VoiceInviteGroup");
 
 	setCanDrag(FALSE);
 
@@ -2311,11 +2321,19 @@ void LLIMMgr::addSystemMessage(const LLUUID& session_id, const std::string& mess
 	}
 	else // going to IM session
 	{
+		message = LLTrans::getString(message_name + "-im");
+		message.setArgs(args);
 		if (hasSession(session_id))
 		{
-			message = LLTrans::getString(message_name + "-im");
-			message.setArgs(args);
 			gIMMgr->addMessage(session_id, LLUUID::null, SYSTEM_FROM, message.getString());
+		}
+		// log message to file
+		else
+		{
+			std::string session_name;
+			// since we select user to share item with - his name is already in cache
+			gCacheName->getFullName(args["user_id"], session_name);
+			LLIMModel::instance().logToFile(session_name, SYSTEM_FROM, LLUUID::null, message.getString());
 		}
 	}
 }

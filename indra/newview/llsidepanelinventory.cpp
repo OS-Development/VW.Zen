@@ -71,8 +71,8 @@ BOOL LLSidepanelInventory::postBuild()
 		mShareBtn = mInventoryPanel->getChild<LLButton>("share_btn");
 		mShareBtn->setClickedCallback(boost::bind(&LLSidepanelInventory::onShareButtonClicked, this));
 		
-		LLButton* shop_btn = mInventoryPanel->getChild<LLButton>("shop_btn");
-		shop_btn->setClickedCallback(boost::bind(&LLSidepanelInventory::onShopButtonClicked, this));
+		mShopBtn = mInventoryPanel->getChild<LLButton>("shop_btn");
+		mShopBtn->setClickedCallback(boost::bind(&LLSidepanelInventory::onShopButtonClicked, this));
 
 		mWearBtn = mInventoryPanel->getChild<LLButton>("wear_btn");
 		mWearBtn->setClickedCallback(boost::bind(&LLSidepanelInventory::onWearButtonClicked, this));
@@ -88,6 +88,8 @@ BOOL LLSidepanelInventory::postBuild()
 		
 		mPanelMainInventory = mInventoryPanel->getChild<LLPanelMainInventory>("panel_main_inventory");
 		mPanelMainInventory->setSelectCallback(boost::bind(&LLSidepanelInventory::onSelectionChange, this, _1, _2));
+		LLTabContainer* tabs = mPanelMainInventory->getChild<LLTabContainer>("inventory filter tabs");
+		tabs->setCommitCallback(boost::bind(&LLSidepanelInventory::updateVerbs, this));
 
 		/* 
 		   EXT-4846 : "Can we suppress the "Landmarks" and "My Favorites" folder since they have their own Task Panel?"
@@ -263,6 +265,7 @@ void LLSidepanelInventory::updateVerbs()
 	mPlayBtn->setEnabled(FALSE);
  	mTeleportBtn->setVisible(FALSE);
  	mTeleportBtn->setEnabled(FALSE);
+ 	mShopBtn->setVisible(TRUE);
 
 	mShareBtn->setEnabled(canShare());
 
@@ -281,16 +284,19 @@ void LLSidepanelInventory::updateVerbs()
 		case LLInventoryType::IT_ATTACHMENT:
 			mWearBtn->setVisible(TRUE);
 			mWearBtn->setEnabled(TRUE);
+		 	mShopBtn->setVisible(FALSE);
 			break;
 		case LLInventoryType::IT_SOUND:
 		case LLInventoryType::IT_GESTURE:
 		case LLInventoryType::IT_ANIMATION:
 			mPlayBtn->setVisible(TRUE);
 			mPlayBtn->setEnabled(TRUE);
+		 	mShopBtn->setVisible(FALSE);
 			break;
 		case LLInventoryType::IT_LANDMARK:
 			mTeleportBtn->setVisible(TRUE);
 			mTeleportBtn->setEnabled(TRUE);
+		 	mShopBtn->setVisible(FALSE);
 			break;
 		default:
 			break;

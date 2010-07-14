@@ -81,9 +81,6 @@ extern LLPointer<LLViewerTexture> gStartTexture;
 class LLStartUp
 {
 public:
-	static bool canGoFullscreen();
-		// returns true if we are far enough along in startup to allow
-		// going full screen
 
 	// Always use this to set gStartupState so changes are logged
 	static void setStartupState( EStartupState state );
@@ -95,6 +92,8 @@ public:
 
 	// Load default fonts not already loaded at start screen
 	static void fontInit();
+
+	static void copyLibraryGestures(const std::string& same_gender_gestures);
 
 	// outfit_folder_name can be a folder anywhere in your inventory, 
 	// but the name must be a case-sensitive exact match.
