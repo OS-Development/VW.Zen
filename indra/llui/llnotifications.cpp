@@ -34,6 +34,9 @@
 
 #include "llnotifications.h"
 
+#include "llavatarnamecache.h"
+#include "llinstantmessage.h"
+#include "llcachename.h"
 #include "llxmlnode.h"
 #include "lluictrl.h"
 #include "lluictrlfactory.h"
@@ -41,6 +44,7 @@
 #include "llsdserialize.h"
 #include "lltrans.h"
 #include "llnotificationslistener.h"
+#include "llstring.h"
 
 #include <algorithm>
 #include <boost/regex.hpp>
@@ -1484,10 +1488,50 @@ std::ostream& operator<<(std::ostream& s, const LLNotification& notification)
 	return s;
 }
 
-void LLPostponedNotification::onCachedNameReceived(const LLUUID& id, const std::string& first,
-		const std::string& last, bool is_group)
+//static
+void LLPostponedNotification::lookupName(LLPostponedNotification* thiz,
+										 const LLUUID& id,
+										 bool is_group)
 {
-	gCacheName->getFullName(id, mName);
+	if (is_group)
+	{
+		gCacheName->getGroup(id,
+			boost::bind(&LLPostponedNotification::onGroupNameCache,
+				thiz, _1, _2, _3));
+	}
+	else
+	{
+		LLAvatarNameCache::get(id,
+			boost::bind(&LLPostponedNotification::onAvatarNameCache,
+				thiz, _1, _2));
+	}
+}
+
+void LLPostponedNotification::onGroupNameCache(const LLUUID& id,
+											   const std::string& full_name,
+											   bool is_group)
+{
+	finalizeName(full_name);
+}
+
+void LLPostponedNotification::onAvatarNameCache(const LLUUID& agent_id,
+												const LLAvatarName& av_name)
+{
+	std::string name = av_name.getCompleteName();
+
+	// from PE merge - we should figure out if this is the right thing to do
+	if (name.empty())
+	{
+		llwarns << "Empty name received for Id: " << agent_id << llendl;
+		name = SYSTEM_FROM;
+	}
+
+	finalizeName(name);
+}
+
+void LLPostponedNotification::finalizeName(const std::string& name)
+{
+	mName = name;
 	modifyNotificationParams();
 	LLNotifications::instance().add(mParams);
 	cleanup();

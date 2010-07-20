@@ -69,6 +69,7 @@
 #include "llface.h"
 #include "llfloaterproperties.h"
 #include "llfollowcam.h"
+#include "llhudtext.h"
 #include "llselectmgr.h"
 #include "llrendersphere.h"
 #include "lltooldraganddrop.h"
@@ -79,6 +80,7 @@
 #include "llviewerparceloverlay.h"
 #include "llviewerpartsource.h"
 #include "llviewerregion.h"
+#include "llviewerstats.h"
 #include "llviewertextureanim.h"
 #include "llviewerwindow.h" // For getSpinAxis
 #include "llvoavatar.h"
@@ -1097,7 +1099,7 @@ U32 LLViewerObject::processUpdateMessage(LLMessageSystem *mesgsys,
 					// alpha was flipped so that it zero encoded better
 					coloru.mV[3] = 255 - coloru.mV[3];
 					mText->setColor(LLColor4(coloru));
-					mText->setStringUTF8(temp_string);
+					mText->setString(temp_string);
 					
 					if (mDrawable.notNull())
 					{
@@ -1489,7 +1491,7 @@ U32 LLViewerObject::processUpdateMessage(LLMessageSystem *mesgsys,
 					dp->unpackBinaryDataFixed(coloru.mV, 4, "Color");
 					coloru.mV[3] = 255 - coloru.mV[3];
 					mText->setColor(LLColor4(coloru));
-					mText->setStringUTF8(temp_string);
+					mText->setString(temp_string);
 
 					setChanged(TEXTURE);
 				}
@@ -1915,6 +1917,12 @@ U32 LLViewerObject::processUpdateMessage(LLMessageSystem *mesgsys,
 			LLVOAvatar *avatar = (LLVOAvatar*)mParent;
 
 			avatar->clampAttachmentPositions();
+		}
+		
+		// If we're snapping the position by more than 0.5m, update LLViewerStats::mAgentPositionSnaps
+		if ( asAvatar() && asAvatar()->isSelf() && (mag_sqr > 0.25f) )
+		{
+			LLViewerStats::getInstance()->mAgentPositionSnaps.push( diff.length() );
 		}
 	}
 
@@ -4149,7 +4157,7 @@ void LLViewerObject::setDebugText(const std::string &utf8text)
 		mText->setOnHUDAttachment(isHUDAttachment());
 	}
 	mText->setColor(LLColor4::white);
-	mText->setStringUTF8(utf8text);
+	mText->setString(utf8text);
 	mText->setZCompare(FALSE);
 	mText->setDoFade(FALSE);
 	updateText();
