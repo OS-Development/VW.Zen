@@ -572,8 +572,10 @@ bool LLWearableItemTypeNameComparator::sortAssetTypeByName(LLAssetType::EType it
 }
 
 bool LLWearableItemTypeNameComparator::sortWearableTypeByName(LLAssetType::EType item_type) const
+bool LLWearableItemCreationDateComparator::doCompare(const LLPanelInventoryListItemBase* item1, const LLPanelInventoryListItemBase* item2) const
 {
 	wearable_type_order_map_t::const_iterator const_it = mWearableOrder.find(item_type);
+	time_t date2 = item2->getCreationDate();
 
 	if(const_it == mWearableOrder.end())
 	{
@@ -583,11 +585,14 @@ bool LLWearableItemTypeNameComparator::sortWearableTypeByName(LLAssetType::EType
 
 	return const_it->second.mSortWearableTypeByName;
 }
+
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
 static const LLWearableItemTypeNameComparator WEARABLE_TYPE_NAME_COMPARATOR;
+static const LLWearableItemNameComparator WEARABLE_NAME_COMPARATOR;
+static const LLWearableItemCreationDateComparator WEARABLE_CREATION_DATE_COMPARATOR;
 
 static const LLDefaultChildRegistry::Register<LLWearableItemsList> r("wearable_items_list");
 
@@ -599,7 +604,7 @@ LLWearableItemsList::Params::Params()
 LLWearableItemsList::LLWearableItemsList(const LLWearableItemsList::Params& p)
 :	LLInventoryItemsList(p)
 {
-	setComparator(&WEARABLE_TYPE_NAME_COMPARATOR);
+	setSortOrder(E_SORT_BY_TYPE, false);
 	mIsStandalone = p.standalone;
 	if (mIsStandalone)
 	{
@@ -697,6 +702,32 @@ void LLWearableItemsList::onRightClick(S32 x, S32 y)
 	}
 
 	ContextMenu::instance().show(this, selected_uuids, x, y);
+}
+
+void LLWearableItemsList::setSortOrder(ESortOrder sort_order, bool sort_now)
+{
+	switch (sort_order)
+	{
+	case E_SORT_BY_MOST_RECENT:
+		setComparator(&WEARABLE_CREATION_DATE_COMPARATOR);
+		break;
+	case E_SORT_BY_NAME:
+		setComparator(&WEARABLE_NAME_COMPARATOR);
+		break;
+	case E_SORT_BY_TYPE:
+		setComparator(&WEARABLE_TYPE_NAME_COMPARATOR);
+		break;
+
+	// No "default:" to raise compiler warning
+	// if we're not handling something
+	}
+
+	mSortOrder = sort_order;
+
+	if (sort_now)
+	{
+		sort();
+	}
 }
 
 //////////////////////////////////////////////////////////////////////////
