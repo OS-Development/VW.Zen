@@ -64,6 +64,7 @@ class LLMenuGL;
 class LLFindNonLinksByMask;
 class LLFindWearablesOfType;
 class LLSaveOutfitComboBtn;
+class LLWearableItemTypeNameComparator;
 
 class LLPanelOutfitEdit : public LLPanel
 {
@@ -182,6 +183,8 @@ public:
 	 */
 	bool switchPanels(LLPanel* switch_from_panel, LLPanel* switch_to_panel);
 
+	void resetAccordionState();
+
 	virtual BOOL	handleDragAndDrop(S32 x, S32 y, MASK mask, BOOL drop,
 									  EDragAndDropType cargo_type,
 									  void* cargo_data,
@@ -198,8 +201,10 @@ private:
 	void getCurrentItemUUID(LLUUID& selected_id);
 	void onCOFChanged();
 
+	typedef std::pair<LLWearableType::EType, size_t> selection_info_t;
+
 	LLWearableType::EType getCOFWearablesSelectionType() const;
-	LLWearableType::EType getAddMorePanelSelectionType() const;
+	selection_info_t getAddMorePanelSelectionType() const;
 	LLWearableType::EType getWearableTypeByItemUUID(const LLUUID& item_uuid) const;
 
 	LLTextBox*			mCurrentOutfitName;
@@ -220,6 +225,7 @@ private:
 	LLFilteredWearableListManager* 	mWearableListManager;
 	LLInventoryItemsList* 			mWearableItemsList;
 	LLPanel*						mWearablesListViewPanel;
+	LLWearableItemTypeNameComparator* mWearableListViewItemsComparator;
 
 	LLCOFDragAndDropObserver* mCOFDragAndDropObserver;
 

@@ -283,6 +283,8 @@ LLPanelOutfitEdit::~LLPanelOutfitEdit()
 
 	delete mCOFDragAndDropObserver;
 
+	delete mWearableListViewItemsComparator;
+
 	while (!mListViewItemTypes.empty()) {
 		delete mListViewItemTypes.back();
 		mListViewItemTypes.pop_back();
@@ -386,11 +388,24 @@ BOOL LLPanelOutfitEdit::postBuild()
 
 	childSetAction(REVERT_BTN, boost::bind(&LLAppearanceMgr::wearBaseOutfit, LLAppearanceMgr::getInstance()));
 
+	/*
+	 * By default AT_CLOTHING are sorted by (in in MY OUTFITS):
+	 *  - by type (types order determined in LLWearableType::EType)
+	 *  - each LLWearableType::EType by outer layer on top
+	 *
+	 * In Add More panel AT_CLOTHING should be sorted in a such way:
+	 *  - by type (types order determined in LLWearableType::EType)
+	 *  - each LLWearableType::EType by name (EXT-8205)
+	*/
+	mWearableListViewItemsComparator = new LLWearableItemTypeNameComparator();
+	mWearableListViewItemsComparator->setOrder(LLAssetType::AT_CLOTHING, LLWearableItemTypeNameComparator::ORDER_RANK_1, false, true);
+
 	mWearablesListViewPanel = getChild<LLPanel>("filtered_wearables_panel");
 	mWearableItemsList = getChild<LLInventoryItemsList>("list_view");
 	mWearableItemsList->setCommitOnSelectionChange(true);
 	mWearableItemsList->setCommitCallback(boost::bind(&LLPanelOutfitEdit::updatePlusButton, this));
 	mWearableItemsList->setDoubleClickCallback(boost::bind(&LLPanelOutfitEdit::onPlusBtnClicked, this));
+	mWearableItemsList->setComparator(mWearableListViewItemsComparator);
 
 	mSaveComboBtn.reset(new LLSaveOutfitComboBtn(this));
 	return TRUE;
@@ -629,8 +644,17 @@ void LLPanelOutfitEdit::onShopButtonClicked()
 	if (isAgentAvatarValid())
 	{
 		// try to get wearable type from 'Add More' panel first (EXT-7639)
-		LLWearableType::EType type = getAddMorePanelSelectionType();
+		selection_info_t selection_info = getAddMorePanelSelectionType();
 
+		LLWearableType::EType type = selection_info.first;
+
+		if (selection_info.second > 1)
+		{
+			// the second argument is not important in this case: generic market place will be opened
+			url = url_resolver.resolveURL(LLWearableType::WT_NONE, SEX_FEMALE);
+		}
+		else
+		{
 		if (type == LLWearableType::WT_NONE)
 		{
 			type = getCOFWearablesSelectionType();
@@ -646,7 +670,9 @@ void LLPanelOutfitEdit::onShopButtonClicked()
 
 		if (url.empty())
 		{
-			url = url_resolver.resolveURL(mCOFWearables->getExpandedAccordionAssetType(), sex);
+				url = url_resolver.resolveURL(
+						mCOFWearables->getExpandedAccordionAssetType(), sex);
+			}
 		}
 	}
 	else
@@ -685,9 +711,9 @@ LLWearableType::EType LLPanelOutfitEdit::getCOFWearablesSelectionType() const
 	return type;
 }
 
-LLWearableType::EType LLPanelOutfitEdit::getAddMorePanelSelectionType() const
+LLPanelOutfitEdit::selection_info_t LLPanelOutfitEdit::getAddMorePanelSelectionType() const
 {
-	LLWearableType::EType type = LLWearableType::WT_NONE;
+	selection_info_t result = std::make_pair(LLWearableType::WT_NONE, 0);
 
 	if (mAddWearablesPanel != NULL && mAddWearablesPanel->getVisible())
 	{
@@ -695,9 +721,11 @@ LLWearableType::EType LLPanelOutfitEdit::getAddMorePanelSelectionType() const
 		{
 			std::set<LLUUID> selected_uuids = mInventoryItemsPanel->getRootFolder()->getSelectionList();
 
-			if (selected_uuids.size() == 1)
+			result.second = selected_uuids.size();
+
+			if (result.second == 1)
 			{
-				type = getWearableTypeByItemUUID(*(selected_uuids.begin()));
+				result.first = getWearableTypeByItemUUID(*(selected_uuids.begin()));
 			}
 		}
 		else if (mWearableItemsList != NULL && mWearableItemsList->getVisible())
@@ -705,14 +733,16 @@ LLWearableType::EType LLPanelOutfitEdit::getAddMorePanelSelectionType() const
 			std::vector<LLUUID> selected_uuids;
 			mWearableItemsList->getSelectedUUIDs(selected_uuids);
 
-			if (selected_uuids.size() == 1)
+			result.second = selected_uuids.size();
+
+			if (result.second == 1)
 			{
-				type = getWearableTypeByItemUUID(selected_uuids.front());
+				result.first = getWearableTypeByItemUUID(selected_uuids.front());
 			}
 		}
 	}
 
-	return type;
+	return result;
 }
 
 LLWearableType::EType LLPanelOutfitEdit::getWearableTypeByItemUUID(const LLUUID& item_uuid) const
@@ -749,7 +779,9 @@ void LLPanelOutfitEdit::updatePlusButton()
 	}
 
 	// If any of the selected items are not wearable (due to already being worn OR being of the wrong type), disable the add button.
-	uuid_vec_t::iterator unwearable_item = std::find_if(selected_items.begin(), selected_items.end(), !boost::bind(& get_can_item_be_worn, _1));
+	uuid_vec_t::iterator unwearable_item = std::find_if(selected_items.begin(), selected_items.end(), !boost::bind(& get_can_item_be_worn, _1)
+		// since item can be not worn but in wearing process at that time - we need to check is link to item presents in COF
+		|| boost::bind(&LLAppearanceMgr::isLinkInCOF, _1));
 	bool can_add = ( unwearable_item == selected_items.end() );
 
 	mPlusBtn->setEnabled(can_add);
@@ -809,15 +841,38 @@ void LLPanelOutfitEdit::filterWearablesBySelectedItem(void)
 	bool more_than_one_selected = ids.size() > 1;
 	bool is_dummy_item = (ids.size() && dynamic_cast<LLPanelDummyClothingListItem*>(mCOFWearables->getSelectedItem()));
 
-	//selected and expanded accordion tabs determine filtering when no item is selected
+	// selected, expanded accordion tabs and selection in flat list view determine filtering when no item is selected in COF
+	// selection in flat list view participates in determining filtering because of EXT-7963
+	// So the priority of criterions in is:
+	//                   1. Selected accordion tab            |  IF (any accordion selected)
+	//                                                        |     filter_type = selected_accordion_type
+	//                   2. Selected item in flat list view   |  ELSEIF (any item in flat list view selected)
+	//                                                        |     filter_type = selected_item_type
+	//                   3. Expanded accordion tab            |  ELSEIF (any accordion expanded)
+	//                                                        |      filter_type = expanded accordion_type
 	if (nothing_selected)
 	{
 		showWearablesListView();
 
-		//selected accordion tab is more priority than expanded tab when determining filtering
+		//selected accordion tab is more priority than expanded tab
+		//and selected item in flat list view of 'Add more' panel when
+		//determining filtering
 		LLAssetType::EType type = mCOFWearables->getSelectedAccordionAssetType();
 		if (type == LLAssetType::AT_NONE)
+		{ //no accordion selected
+
+			// when no accordion selected then selected item from flat list view
+			// has more priority than expanded when determining filtering
+			LLUUID selected_item_id = mWearableItemsList->getSelectedUUID();
+			LLViewerInventoryItem* item = gInventory.getLinkedItem(selected_item_id);
+			if(item)
 		{
+				showFilteredWearablesListView(item->getWearableType());
+				return;
+			}
+
+			// when no accordion selected and no selected items in flat list view
+			// determine filtering according to expanded accordion
 			type = mCOFWearables->getExpandedAccordionAssetType();
 		}
 
@@ -997,6 +1052,18 @@ bool LLPanelOutfitEdit::switchPanels(LLPanel* switch_from_panel, LLPanel* switch
 	return false;
 }
 
+void LLPanelOutfitEdit::resetAccordionState()
+{
+	if (mCOFWearables != NULL)
+	{
+		mCOFWearables->expandDefaultAccordionTab();
+	}
+	else
+	{
+		llwarns << "mCOFWearables is NULL" << llendl;
+	}
+}
+
 void LLPanelOutfitEdit::onGearButtonClick(LLUICtrl* clicked_button)
 {
 	if(!mGearMenu)
@@ -1087,9 +1154,6 @@ void LLPanelOutfitEdit::getSelectedItemsUUID(uuid_vec_t& uuid_list)
 
 void LLPanelOutfitEdit::onCOFChanged()
 {
-	//the panel is only updated when is visible to a user
-	if (!isInVisibleChain()) return;
-
 	update();
 }
 

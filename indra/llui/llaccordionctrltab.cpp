@@ -358,6 +358,7 @@ LLAccordionCtrlTab::LLAccordionCtrlTab(const LLAccordionCtrlTab::Params&p)
 	,mPaddingBottom(p.padding_bottom)
 	,mCanOpenClose(true)
 	,mFitPanel(p.fit_panel)
+	,mSelectionEnabled(p.selection_enabled)
 	,mContainerPanel(NULL)
 	,mScrollbar(NULL)
 {
@@ -371,9 +372,11 @@ LLAccordionCtrlTab::LLAccordionCtrlTab(const LLAccordionCtrlTab::Params&p)
 	mHeader = LLUICtrlFactory::create<LLAccordionCtrlTabHeader>(headerParams);
 	addChild(mHeader, 1);
 
-	if (p.selection_enabled)
+	LLFocusableElement::setFocusReceivedCallback(boost::bind(&LLAccordionCtrlTab::selectOnFocusReceived, this));
+
+	if (!p.selection_enabled)
 	{
-		LLFocusableElement::setFocusReceivedCallback(boost::bind(&LLAccordionCtrlTab::selectOnFocusReceived, this));
+		LLFocusableElement::setFocusLostCallback(boost::bind(&LLAccordionCtrlTab::deselectOnFocusLost, this));
 	}
 
 	reshape(100, 200,FALSE);
@@ -598,6 +601,15 @@ void LLAccordionCtrlTab::selectOnFocusReceived()
 		getParent()->notifyParent(LLSD().with("action", "select_current"));
 }
 
+void LLAccordionCtrlTab::deselectOnFocusLost()
+{
+	if(getParent()) // A parent may not be set if tabs are added dynamically.
+	{
+		getParent()->notifyParent(LLSD().with("action", "deselect_current"));
+	}
+
+}
+
 S32 LLAccordionCtrlTab::getHeaderHeight()
 {
 	return mHeaderVisible?HEADER_HEIGHT:0; 
@@ -797,7 +809,7 @@ void LLAccordionCtrlTab::showAndFocusHeader()
 {
 	LLAccordionCtrlTabHeader* header = getChild<LLAccordionCtrlTabHeader>(DD_HEADER_NAME);	
 	header->setFocus(true);
-	header->setSelected(true);
+	header->setSelected(mSelectionEnabled);
 
 	LLRect screen_rc;
 	LLRect selected_rc = header->getRect();

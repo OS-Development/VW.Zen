@@ -45,6 +45,7 @@
 #include "llgroupmgr.h"
 #include "llagent.h"
 #include "llagentcamera.h"
+#include "llagentlanguage.h"
 #include "llagentwearables.h"
 #include "llwindow.h"
 #include "llviewerstats.h"
@@ -356,7 +357,7 @@ static void ui_audio_callback(const LLUUID& uuid)
 
 bool	create_text_segment_icon_from_url_match(LLUrlMatch* match,LLTextBase* base)
 {
-	if(!match || !base)
+	if(!match || !base || base->getPlainText())
 		return false;
 
 	LLUUID match_id = match->getID();
@@ -385,7 +386,7 @@ bool	create_text_segment_icon_from_url_match(LLUrlMatch* match,LLTextBase* base)
 	params.view = icon;
 	params.left_pad = 4;
 	params.right_pad = 4;
-	params.top_pad = 2;
+	params.top_pad = -2;
 	params.bottom_pad = 2;
 
 	base->appendWidget(params," ",false);
@@ -946,6 +947,8 @@ bool LLAppViewer::init()
 		LLStringOps::sPM = LLTrans::getString("dateTimePM");
 	}
 
+	LLAgentLanguage::init();
+
 	return true;
 }
 
@@ -958,6 +961,11 @@ static LLFastTimer::DeclareTimer FTM_LFS("LFS Thread");
 static LLFastTimer::DeclareTimer FTM_PAUSE_THREADS("Pause Threads");
 static LLFastTimer::DeclareTimer FTM_IDLE("Idle");
 static LLFastTimer::DeclareTimer FTM_PUMP("Pump");
+static LLFastTimer::DeclareTimer FTM_PUMP_ARES("Ares");
+static LLFastTimer::DeclareTimer FTM_PUMP_SERVICE("Service");
+static LLFastTimer::DeclareTimer FTM_SERVICE_CALLBACK("Callback");
+static LLFastTimer::DeclareTimer FTM_AGENT_AUTOPILOT("Autopilot");
+static LLFastTimer::DeclareTimer FTM_AGENT_UPDATE("Update");
 
 bool LLAppViewer::mainLoop()
 {
@@ -1067,10 +1075,20 @@ bool LLAppViewer::mainLoop()
 						LLMemType mt_ip(LLMemType::MTYPE_IDLE_PUMP);
 						pingMainloopTimeout("Main:ServicePump");				
 						LLFastTimer t4(FTM_PUMP);
-						gAres->process();
-						// this pump is necessary to make the login screen show up
-						gServicePump->pump();
-						gServicePump->callback();
+						{
+							LLFastTimer t(FTM_PUMP_ARES);
+							gAres->process();
+						}
+						{
+							LLFastTimer t(FTM_PUMP_SERVICE);
+							// this pump is necessary to make the login screen show up
+							gServicePump->pump();
+
+							{
+								LLFastTimer t(FTM_SERVICE_CALLBACK);
+								gServicePump->callback();
+							}
+						}
 					}
 					
 					resumeMainloopTimeout();
@@ -3563,9 +3581,12 @@ void LLAppViewer::idle()
 			gAgent.moveYaw(-1.f);
 		}
 
-	    // Handle automatic walking towards points
-	    gAgentPilot.updateTarget();
-	    gAgent.autoPilot(&yaw);
+		{
+			LLFastTimer t(FTM_AGENT_AUTOPILOT);
+			// Handle automatic walking towards points
+			gAgentPilot.updateTarget();
+			gAgent.autoPilot(&yaw);
+		}
     
 	    static LLFrameTimer agent_update_timer;
 	    static U32 				last_control_flags;
@@ -3576,6 +3597,7 @@ void LLAppViewer::idle()
 		    
 	    if (flags_changed || (agent_update_time > (1.0f / (F32) AGENT_UPDATES_PER_SECOND)))
 	    {
+		    LLFastTimer t(FTM_AGENT_UPDATE);
 		    // Send avatar and camera info
 		    last_control_flags = gAgent.getControlFlags();
 		    send_agent_update(TRUE);

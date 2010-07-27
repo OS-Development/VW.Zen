@@ -108,8 +108,11 @@
 #include "llappearancemgr.h"
 #include "lltrans.h"
 #include "lleconomy.h"
+#include "boost/unordered_map.hpp"
 
 using namespace LLVOAvatarDefines;
+
+static boost::unordered_map<std::string, LLStringExplicit> sDefaultItemLabels;
 
 BOOL enable_land_build(void*);
 BOOL enable_object_build(void*);
@@ -2051,9 +2054,9 @@ class LLAdvancedEnableRenderDeferred: public view_listener_t
 };
 
 /////////////////////////////////////
-// Enable Global Illumination 	  ///
+// Enable Deferred Rendering sub-options
 /////////////////////////////////////
-class LLAdvancedEnableRenderDeferredGI: public view_listener_t
+class LLAdvancedEnableRenderDeferredOptions: public view_listener_t
 {
 	bool handleEvent(const LLSD& userdata)
 	{
@@ -2403,31 +2406,53 @@ void handle_object_touch()
 		msg->sendMessage(object->getRegion()->getHost());
 }
 
-// One object must have touch sensor
-class LLObjectEnableTouch : public view_listener_t
+static void init_default_item_label(const std::string& item_name)
 {
-	bool handleEvent(const LLSD& userdata)
+	boost::unordered_map<std::string, LLStringExplicit>::iterator it = sDefaultItemLabels.find(item_name);
+	if (it == sDefaultItemLabels.end())
 	{
-		LLViewerObject* obj = LLSelectMgr::getInstance()->getSelection()->getPrimaryObject();
-		
-		bool new_value = obj && obj->flagHandleTouch();
-
-		// Update label based on the node touch name if available.
-		std::string touch_text;
-		LLSelectNode* node = LLSelectMgr::getInstance()->getSelection()->getFirstRootNode();
-		if (node && node->mValid && !node->mTouchName.empty())
+		LLStringExplicit default_label = gMenuHolder->childGetValue(item_name).asString();
+		if (!default_label.empty())
 		{
-			touch_text = node->mTouchName;
+			sDefaultItemLabels.insert(std::pair<std::string, LLStringExplicit>(item_name, default_label));
 		}
-		else
-		{
-			touch_text = userdata.asString();
-		}
-		gMenuHolder->childSetText("Object Touch", touch_text);
-		gMenuHolder->childSetText("Attachment Object Touch", touch_text);
-
-		return new_value;
 	}
+}
+
+static LLStringExplicit get_default_item_label(const std::string& item_name)
+{
+	LLStringExplicit res("");
+	boost::unordered_map<std::string, LLStringExplicit>::iterator it = sDefaultItemLabels.find(item_name);
+	if (it != sDefaultItemLabels.end())
+	{
+		res = it->second;
+	}
+
+	return res;
+}
+
+
+bool enable_object_touch(LLUICtrl* ctrl)
+{
+	LLViewerObject* obj = LLSelectMgr::getInstance()->getSelection()->getPrimaryObject();
+
+	bool new_value = obj && obj->flagHandleTouch();
+
+	std::string item_name = ctrl->getName();
+	init_default_item_label(item_name);
+
+	// Update label based on the node touch name if available.
+	LLSelectNode* node = LLSelectMgr::getInstance()->getSelection()->getFirstRootNode();
+	if (node && node->mValid && !node->mTouchName.empty())
+	{
+		gMenuHolder->childSetText(item_name, node->mTouchName);
+	}
+	else
+	{
+		gMenuHolder->childSetText(item_name, get_default_item_label(item_name));
+	}
+
+	return new_value;
 };
 
 //void label_touch(std::string& label, void*)
@@ -3627,7 +3652,7 @@ class LLEnableEditShape : public view_listener_t
 	}
 };
 
-bool enable_sit_object()
+bool is_object_sittable()
 {
 	LLViewerObject* object = LLSelectMgr::getInstance()->getSelection()->getPrimaryObject();
 
@@ -5513,55 +5538,36 @@ bool enable_pay_object()
 	return false;
 }
 
-bool visible_object_stand_up()
+bool enable_object_stand_up()
 {
-	// 'Object Stand Up' menu item is visible when agent is sitting on selection
+	// 'Object Stand Up' menu item is enabled when agent is sitting on selection
 	return sitting_on_selection();
 }
 
-bool visible_object_sit()
+bool enable_object_sit(LLUICtrl* ctrl)
 {
-	// 'Object Sit' menu item is visible when agent is not sitting on selection
-	bool is_sit_visible = !sitting_on_selection();
-	if (is_sit_visible)
+	// 'Object Sit' menu item is enabled when agent is not sitting on selection
+	bool sitting_on_sel = sitting_on_selection();
+	if (!sitting_on_sel)
 	{
-		LLMenuItemGL* sit_menu_item = gMenuHolder->getChild<LLMenuItemGL>("Object Sit");
-		// Init default 'Object Sit' menu item label
-		static const LLStringExplicit sit_text(sit_menu_item->getLabel());
+		std::string item_name = ctrl->getName();
+
+		// init default labels
+		init_default_item_label(item_name);
+
 		// Update label
-		std::string label;
 		LLSelectNode* node = LLSelectMgr::getInstance()->getSelection()->getFirstRootNode();
 		if (node && node->mValid && !node->mSitName.empty())
 		{
-			label.assign(node->mSitName);
+			gMenuHolder->childSetText(item_name, node->mSitName);
 		}
 		else
 		{
-			label = sit_text;
+			gMenuHolder->childSetText(item_name, get_default_item_label(item_name));
 		}
-		sit_menu_item->setLabel(label);
 	}
-	return is_sit_visible;
+	return !sitting_on_sel && is_object_sittable();
 }
-
-class LLObjectEnableSitOrStand : public view_listener_t
-{
-	bool handleEvent(const LLSD& userdata)
-	{
-		bool new_value = false;
-		LLViewerObject* dest_object = LLSelectMgr::getInstance()->getSelection()->getPrimaryObject();
-
-		if(dest_object)
-		{
-			if(dest_object->getPCode() == LL_PCODE_VOLUME)
-			{
-				new_value = true;
-			}
-		}
-
-		return new_value;
-	}
-};
 
 void dump_select_mgr(void*)
 {
@@ -6526,7 +6532,7 @@ void handle_dump_attachments(void*)
 }
 
 
-// these are used in the gl menus to set control values.
+// these are used in the gl menus to set control values, generically.
 class LLToggleControl : public view_listener_t
 {
 	bool handleEvent(const LLSD& userdata)
@@ -6545,8 +6551,44 @@ class LLCheckControl : public view_listener_t
 		std::string callback_data = userdata.asString();
 		bool new_value = gSavedSettings.getBOOL(callback_data);
 		return new_value;
-}
+	}
+};
 
+// not so generic
+
+class LLAdvancedCheckRenderShadowOption: public view_listener_t
+{
+	bool handleEvent(const LLSD& userdata)
+	{
+		std::string control_name = userdata.asString();
+		S32 current_shadow_level = gSavedSettings.getS32(control_name);
+		if (current_shadow_level == 0) // is off
+		{
+			return false;
+		}
+		else // is on
+		{
+			return true;
+		}
+	}
+};
+
+class LLAdvancedClickRenderShadowOption: public view_listener_t
+{
+	bool handleEvent(const LLSD& userdata)
+	{
+		std::string control_name = userdata.asString();
+		S32 current_shadow_level = gSavedSettings.getS32(control_name);
+		if (current_shadow_level == 0) // upgrade to level 2
+		{
+			gSavedSettings.setS32(control_name, 2);
+		}
+		else // downgrade to level 0
+		{
+			gSavedSettings.setS32(control_name, 0);
+		}
+		return true;
+	}
 };
 
 void menu_toggle_attached_lights(void* user_data)
@@ -7871,7 +7913,7 @@ void initialize_menus()
 	// Help menu
 	// most items use the ShowFloater method
 
-	// Advance menu
+	// Advanced menu
 	view_listener_t::addMenu(new LLAdvancedToggleConsole(), "Advanced.ToggleConsole");
 	view_listener_t::addMenu(new LLAdvancedCheckConsole(), "Advanced.CheckConsole");
 	view_listener_t::addMenu(new LLAdvancedDumpInfoToConsole(), "Advanced.DumpInfoToConsole");
@@ -7898,12 +7940,13 @@ void initialize_menus()
 	view_listener_t::addMenu(new LLAdvancedSelectedTextureInfo(), "Advanced.SelectedTextureInfo");
 	view_listener_t::addMenu(new LLAdvancedToggleWireframe(), "Advanced.ToggleWireframe");
 	view_listener_t::addMenu(new LLAdvancedCheckWireframe(), "Advanced.CheckWireframe");
+	// Develop > Render
 	view_listener_t::addMenu(new LLAdvancedToggleTextureAtlas(), "Advanced.ToggleTextureAtlas");
 	view_listener_t::addMenu(new LLAdvancedCheckTextureAtlas(), "Advanced.CheckTextureAtlas");
 	view_listener_t::addMenu(new LLAdvancedEnableObjectObjectOcclusion(), "Advanced.EnableObjectObjectOcclusion");
 	view_listener_t::addMenu(new LLAdvancedEnableRenderFBO(), "Advanced.EnableRenderFBO");
 	view_listener_t::addMenu(new LLAdvancedEnableRenderDeferred(), "Advanced.EnableRenderDeferred");
-	view_listener_t::addMenu(new LLAdvancedEnableRenderDeferredGI(), "Advanced.EnableRenderDeferredGI");
+	view_listener_t::addMenu(new LLAdvancedEnableRenderDeferredOptions(), "Advanced.EnableRenderDeferredOptions");
 	view_listener_t::addMenu(new LLAdvancedToggleRandomizeFramerate(), "Advanced.ToggleRandomizeFramerate");
 	view_listener_t::addMenu(new LLAdvancedCheckRandomizeFramerate(), "Advanced.CheckRandomizeFramerate");
 	view_listener_t::addMenu(new LLAdvancedTogglePeriodicSlowFrame(), "Advanced.TogglePeriodicSlowFrame");
@@ -7912,6 +7955,8 @@ void initialize_menus()
 	view_listener_t::addMenu(new LLAdvancedToggleFrameTest(), "Advanced.ToggleFrameTest");
 	view_listener_t::addMenu(new LLAdvancedCheckFrameTest(), "Advanced.CheckFrameTest");
 	view_listener_t::addMenu(new LLAdvancedHandleAttachedLightParticles(), "Advanced.HandleAttachedLightParticles");
+	view_listener_t::addMenu(new LLAdvancedCheckRenderShadowOption(), "Advanced.CheckRenderShadowOption");
+	view_listener_t::addMenu(new LLAdvancedClickRenderShadowOption(), "Advanced.ClickRenderShadowOption");
 	
 
 	#ifdef TOGGLE_HACKED_GODLIKE_VIEWER
@@ -8067,7 +8112,6 @@ void initialize_menus()
 	view_listener_t::addMenu(new LLObjectBuild(), "Object.Build");
 	commit.add("Object.Touch", boost::bind(&handle_object_touch));
 	commit.add("Object.SitOrStand", boost::bind(&handle_object_sit_or_stand));
-	enable.add("Object.EnableSit", boost::bind(&enable_sit_object));
 	commit.add("Object.Delete", boost::bind(&handle_object_delete));
 	view_listener_t::addMenu(new LLObjectAttachToAvatar(), "Object.AttachToAvatar");
 	view_listener_t::addMenu(new LLObjectReturn(), "Object.Return");
@@ -8083,13 +8127,12 @@ void initialize_menus()
 	commit.add("Object.Open", boost::bind(&handle_object_open));
 	commit.add("Object.Take", boost::bind(&handle_take));
 	enable.add("Object.EnableOpen", boost::bind(&enable_object_open));
-	view_listener_t::addMenu(new LLObjectEnableTouch(), "Object.EnableTouch");
-	view_listener_t::addMenu(new LLObjectEnableSitOrStand(), "Object.EnableSitOrStand");
+	enable.add("Object.EnableTouch", boost::bind(&enable_object_touch, _1));
 	enable.add("Object.EnableDelete", boost::bind(&enable_object_delete));
 	enable.add("Object.EnableWear", boost::bind(&object_selected_and_point_valid));
 
-	enable.add("Object.StandUpVisible", boost::bind(&visible_object_stand_up));
-	enable.add("Object.SitVisible", boost::bind(&visible_object_sit));
+	enable.add("Object.EnableStandUp", boost::bind(&enable_object_stand_up));
+	enable.add("Object.EnableSit", boost::bind(&enable_object_sit, _1));
 
 	view_listener_t::addMenu(new LLObjectEnableReturn(), "Object.EnableReturn");
 	view_listener_t::addMenu(new LLObjectEnableReportAbuse(), "Object.EnableReportAbuse");
