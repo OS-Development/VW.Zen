@@ -163,7 +163,7 @@ public:
 	}
 
 protected:
-	static void replaceWearable(const LLUUID& item_id)
+	static void replaceWearable()
 	{
 		// *TODO: Most probable that accessing to LLPanelOutfitEdit instance should be:
 		// LLSideTray::getInstance()->getSidepanelAppearance()->getPanelOutfitEdit()
@@ -175,7 +175,7 @@ protected:
 								"panel_outfit_edit"));
 		if (panel_outfit_edit != NULL)
 		{
-			panel_outfit_edit->onReplaceMenuItemClicked(item_id);
+			panel_outfit_edit->showAddWearablesPanel(true);
 		}
 	}
 
@@ -187,7 +187,7 @@ protected:
 		functor_t take_off = boost::bind(&LLAppearanceMgr::removeItemFromAvatar, LLAppearanceMgr::getInstance(), _1);
 
 		registrar.add("Clothing.TakeOff", boost::bind(handleMultiple, take_off, mUUIDs));
-		registrar.add("Clothing.Replace", boost::bind(replaceWearable, selected_id));
+		registrar.add("Clothing.Replace", boost::bind(replaceWearable));
 		registrar.add("Clothing.Edit", boost::bind(LLAgentWearables::editWearable, selected_id));
 		registrar.add("Clothing.Create", boost::bind(&CofClothingContextMenu::createNew, this, selected_id));
 
@@ -244,7 +244,7 @@ protected:
 		// *HACK* need to pass pointer to LLPanelOutfitEdit instead of LLSideTray::getInstance()->getPanel().
 		// LLSideTray::getInstance()->getPanel() is rather slow variant
 		LLPanelOutfitEdit* panel_oe = dynamic_cast<LLPanelOutfitEdit*>(LLSideTray::getInstance()->getPanel("panel_outfit_edit"));
-		registrar.add("BodyPart.Replace", boost::bind(&LLPanelOutfitEdit::onReplaceMenuItemClicked, panel_oe, selected_id));
+		registrar.add("BodyPart.Replace", boost::bind(&LLPanelOutfitEdit::onReplaceBodyPartMenuItemClicked, panel_oe, selected_id));
 		registrar.add("BodyPart.Edit", boost::bind(LLAgentWearables::editWearable, selected_id));
 		registrar.add("BodyPart.Create", boost::bind(&CofBodyPartContextMenu::createNew, this, selected_id));
 
@@ -284,7 +284,8 @@ LLCOFWearables::LLCOFWearables() : LLPanel(),
 	mAttachmentsTab(NULL),
 	mBodyPartsTab(NULL),
 	mLastSelectedTab(NULL),
-	mCOFVersion(-1)
+	mCOFVersion(-1),
+	mAccordionCtrl(NULL)
 {
 	mClothingMenu = new CofClothingContextMenu(this);
 	mAttachmentMenu = new CofAttachmentContextMenu(this);
@@ -335,6 +336,8 @@ BOOL LLCOFWearables::postBuild()
 	mTab2AssetType[mClothingTab] = LLAssetType::AT_CLOTHING;
 	mTab2AssetType[mAttachmentsTab] = LLAssetType::AT_OBJECT;
 	mTab2AssetType[mBodyPartsTab] = LLAssetType::AT_BODYPART;
+
+	mAccordionCtrl = getChild<LLAccordionCtrl>("cof_wearables_accordion");
 
 	return LLPanel::postBuild();
 }
@@ -652,18 +655,35 @@ LLAssetType::EType LLCOFWearables::getExpandedAccordionAssetType()
 	typedef std::map<std::string, LLAssetType::EType> type_map_t;
 
 	static type_map_t type_map;
-	static LLAccordionCtrl* accordion_ctrl = getChild<LLAccordionCtrl>("cof_wearables_accordion");
-	const LLAccordionCtrlTab* expanded_tab = accordion_ctrl->getExpandedTab();
 
-	return get_if_there(mTab2AssetType, expanded_tab, LLAssetType::AT_NONE);
+	if (mAccordionCtrl != NULL)
+	{
+		const LLAccordionCtrlTab* expanded_tab = mAccordionCtrl->getExpandedTab();
+
+		return get_if_there(mTab2AssetType, expanded_tab, LLAssetType::AT_NONE);
 	}
 
-LLAssetType::EType LLCOFWearables::getSelectedAccordionAssetType()
-	{
-	static LLAccordionCtrl* accordion_ctrl = getChild<LLAccordionCtrl>("cof_wearables_accordion");
-	const LLAccordionCtrlTab* selected_tab = accordion_ctrl->getSelectedTab();
+	return LLAssetType::AT_NONE;
+}
 
-	return get_if_there(mTab2AssetType, selected_tab, LLAssetType::AT_NONE);
+LLAssetType::EType LLCOFWearables::getSelectedAccordionAssetType()
+{
+	if (mAccordionCtrl != NULL)
+	{
+		const LLAccordionCtrlTab* selected_tab = mAccordionCtrl->getSelectedTab();
+
+		return get_if_there(mTab2AssetType, selected_tab, LLAssetType::AT_NONE);
+	}
+
+	return LLAssetType::AT_NONE;
+}
+
+void LLCOFWearables::expandDefaultAccordionTab()
+{
+	if (mAccordionCtrl != NULL)
+	{
+		mAccordionCtrl->expandDefaultTab();
+	}
 }
 
 void LLCOFWearables::onListRightClick(LLUICtrl* ctrl, S32 x, S32 y, LLListContextMenu* menu)
