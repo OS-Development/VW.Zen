@@ -221,7 +221,13 @@ BOOL get_is_item_worn(const LLUUID& id)
 	const LLViewerInventoryItem* item = gInventory.getItem(id);
 	if (!item)
 		return FALSE;
-	
+
+	// Consider the item as worn if it has links in COF.
+	if (LLAppearanceMgr::instance().isLinkInCOF(id))
+	{
+		return TRUE;
+	}
+
 	switch(item->getType())
 	{
 		case LLAssetType::AT_OBJECT:
@@ -250,7 +256,29 @@ BOOL get_can_item_be_worn(const LLUUID& id)
 	const LLViewerInventoryItem* item = gInventory.getItem(id);
 	if (!item)
 		return FALSE;
+
+	if (LLAppearanceMgr::isLinkInCOF(item->getLinkedUUID()))
+	{
+		// an item having links in COF (i.e. a worn item)
+		return FALSE;
+	}
+
+	if (gInventory.isObjectDescendentOf(id, LLAppearanceMgr::instance().getCOF()))
+	{
+		// a non-link object in COF (should not normally happen)
+		return FALSE;
+	}
 	
+	const LLUUID trash_id = gInventory.findCategoryUUIDForType(
+			LLFolderType::FT_TRASH);
+
+	// item can't be worn if base obj in trash, see EXT-7015
+	if (gInventory.isObjectDescendentOf(item->getLinkedUUID(),
+			trash_id))
+	{
+		return false;
+	}
+
 	switch(item->getType())
 	{
 		case LLAssetType::AT_OBJECT:
