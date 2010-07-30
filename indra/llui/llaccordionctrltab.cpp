@@ -359,6 +359,7 @@ LLAccordionCtrlTab::LLAccordionCtrlTab(const LLAccordionCtrlTab::Params&p)
 	,mPaddingBottom(p.padding_bottom)
 	,mCanOpenClose(true)
 	,mFitPanel(p.fit_panel)
+	,mSelectionEnabled(p.selection_enabled)
 	,mContainerPanel(NULL)
 	,mScrollbar(NULL)
 {
@@ -830,7 +831,7 @@ void LLAccordionCtrlTab::showAndFocusHeader()
 {
 	LLAccordionCtrlTabHeader* header = getChild<LLAccordionCtrlTabHeader>(DD_HEADER_NAME);	
 	header->setFocus(true);
-	header->setSelected(true);
+	header->setSelected(mSelectionEnabled);
 
 	LLRect screen_rc;
 	LLRect selected_rc = header->getRect();
