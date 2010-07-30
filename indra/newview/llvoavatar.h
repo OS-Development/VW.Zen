@@ -342,7 +342,6 @@ private:
  **/
 
 public:
-	U32 		renderFootShadows();
 	U32 		renderImpostor(LLColor4U color = LLColor4U(255,255,255,255), S32 diffuse_channel = 0);
 	U32 		renderRigid();
 	U32 		renderSkinned(EAvatarRenderPass pass);
@@ -579,7 +578,8 @@ protected:
 	void 			releaseMeshData();
 	virtual void restoreMeshData();
 private:
-	BOOL 			mDirtyMesh;
+	void 			dirtyMesh(S32 priority); // Dirty the avatar mesh, with priority
+	S32 			mDirtyMesh; // 0 -- not dirty, 1 -- morphed, 2 -- LOD
 	BOOL			mMeshTexturesDirty;
 
 	typedef std::multimap<std::string, LLPolyMesh*> polymesh_map_t;
@@ -623,7 +623,7 @@ private:
 public:
 	void			setClothesColor(LLVOAvatarDefines::ETextureIndex te, const LLColor4& new_color, BOOL upload_bake);
 	LLColor4		getClothesColor(LLVOAvatarDefines::ETextureIndex te);
-	static BOOL		teToColorParams(LLVOAvatarDefines::ETextureIndex te, U32 *param_name);
+	static BOOL			teToColorParams(LLVOAvatarDefines::ETextureIndex te, U32 *param_name);
 
 	//--------------------------------------------------------------------
 	// Global colors
@@ -1049,7 +1049,7 @@ protected: // Shared with LLVOAvatarSelf
  *******************************************************************************/
 
 }; // LLVOAvatar
-extern const F32 SELF_ADDITIONAL_PRI;
+extern const F32  SELF_ADDITIONAL_PRI;
 extern const S32 MAX_TEXTURE_VIRTURE_SIZE_RESET_INTERVAL;
 
 #endif // LL_VO_AVATAR_H
