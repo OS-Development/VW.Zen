@@ -258,17 +258,17 @@ void LLPanelOutfitsInventory::updateListCommands()
 	bool wear_visible = !isCOFPanelActive();
 	bool make_outfit_enabled = isActionEnabled("save_outfit");
 
-	mMyOutfitsPanel->getChildView("trash_btn")->setEnabled(trash_enabled);
-	mListCommands->getChildView("wear_btn")->setEnabled(wear_enabled);
-	mListCommands->getChildView("wear_btn")->setVisible( wear_visible);
+	mMyOutfitsPanel->childSetEnabled("trash_btn", trash_enabled);
+	mListCommands->childSetEnabled("wear_btn", wear_enabled);
+	mListCommands->childSetVisible("wear_btn", wear_visible);
 	mSaveComboBtn->setMenuItemEnabled("save_outfit", make_outfit_enabled);
 	if (mMyOutfitsPanel->hasItemSelected())
 	{
-		mListCommands->getChildView("wear_btn")->setToolTip(getString("wear_items_tooltip"));
+		mListCommands->childSetToolTip("wear_btn", getString("wear_items_tooltip"));
 	}
 	else
 	{
-		mListCommands->getChildView("wear_btn")->setToolTip(getString("wear_outfit_tooltip"));
+		mListCommands->childSetToolTip("wear_btn", getString("wear_outfit_tooltip"));
 	}
 }
 
@@ -337,7 +337,7 @@ bool LLPanelOutfitsInventory::isCOFPanelActive() const
 
 void LLPanelOutfitsInventory::setWearablesLoading(bool val)
 {
-	mListCommands->getChildView("wear_btn")->setEnabled(!val);
+	updateVerbs();
 }
 
 void LLPanelOutfitsInventory::onWearablesLoaded()

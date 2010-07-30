@@ -1012,21 +1012,26 @@ void LLTextBase::draw()
 	if (mBGVisible)
 	{
 		// clip background rect against extents, if we support scrolling
-		LLLocalClipRect clip(doc_rect, mScroller != NULL);
-
+		LLRect bg_rect = mVisibleTextRect;
+		if (mScroller)
+		{
+			bg_rect.intersectWith(doc_rect);
+		}
 		LLColor4 bg_color = mReadOnly 
 							? mReadOnlyBgColor.get()
 							: hasFocus() 
 								? mFocusBgColor.get() 
 								: mWriteableBgColor.get();
-		gl_rect_2d(mVisibleTextRect, bg_color, TRUE);
+		gl_rect_2d(doc_rect, bg_color, TRUE);
 	}
 
 	// draw document view
 	LLUICtrl::draw();
 
 	{
-		// only clip if we support scrolling (mScroller != NULL)
+		// only clip if we support scrolling...
+		// since convention is that text boxes never vertically truncate their contents
+		// regardless of rect bounds
 		LLLocalClipRect clip(doc_rect, mScroller != NULL);
 		drawSelectionBackground();
 		drawText();
@@ -1495,6 +1500,7 @@ LLTextBase::segment_set_t::iterator LLTextBase::getSegIterContaining(S32 index)
 	// when there are no segments, we return the end iterator, which must be checked by caller
 	if (mSegments.size() <= 1) { return mSegments.begin(); }
 
+	//FIXME: avoid operator new somehow (without running into refcount problems)
 	segment_set_t::iterator it = mSegments.upper_bound(new LLIndexSegment(index));
 	return it;
 }
@@ -1642,7 +1648,7 @@ void LLTextBase::appendTextImpl(const std::string &new_text, const LLStyle::Para
 			}
 			else
 			{
-				appendAndHighlightText(match.getLabel(), part, link_params);
+				appendAndHighlightText(match.getLabel(), part, link_params, match.underlineOnHoverOnly());
 
 				// set the tooltip for the Url label
 				if (! match.getTooltip().empty())
@@ -1725,7 +1731,7 @@ void LLTextBase::appendWidget(const LLInlineViewSegment::Params& params, const s
 	insertStringNoUndo(getLength(), widget_wide_text, &segments);
 }
 
-void LLTextBase::appendAndHighlightTextImpl(const std::string &new_text, S32 highlight_part, const LLStyle::Params& style_params)
+void LLTextBase::appendAndHighlightTextImpl(const std::string &new_text, S32 highlight_part, const LLStyle::Params& style_params, bool underline_on_hover_only)
 {
 	// Save old state
 	S32 selection_start = mSelectionStart;
@@ -1756,7 +1762,17 @@ void LLTextBase::appendAndHighlightTextImpl(const std::string &new_text, S32 hig
 
 			S32 cur_length = getLength();
 			LLStyleConstSP sp(new LLStyle(highlight_params));
-			LLTextSegmentPtr segmentp = new LLNormalTextSegment(sp, cur_length, cur_length + wide_text.size(), *this);
+			LLTextSegmentPtr segmentp;
+			if(underline_on_hover_only)
+			{
+				highlight_params.font.style("NORMAL");
+				LLStyleConstSP normal_sp(new LLStyle(highlight_params));
+				segmentp = new LLOnHoverChangeableTextSegment(sp, normal_sp, cur_length, cur_length + wide_text.size(), *this);
+			}
+			else
+			{
+				segmentp = new LLNormalTextSegment(sp, cur_length, cur_length + wide_text.size(), *this);
+			}
 			segment_vec_t segments;
 			segments.push_back(segmentp);
 			insertStringNoUndo(cur_length, wide_text, &segments);
@@ -1771,7 +1787,17 @@ void LLTextBase::appendAndHighlightTextImpl(const std::string &new_text, S32 hig
 		S32 segment_start = old_length;
 		S32 segment_end = old_length + wide_text.size();
 		LLStyleConstSP sp(new LLStyle(style_params));
+		if (underline_on_hover_only)
+		{
+			LLStyle::Params normal_style_params(style_params);
+			normal_style_params.font.style("NORMAL");
+			LLStyleConstSP normal_sp(new LLStyle(normal_style_params));
+			segments.push_back(new LLOnHoverChangeableTextSegment(sp, normal_sp, segment_start, segment_end, *this ));
+		}
+		else
+		{
 		segments.push_back(new LLNormalTextSegment(sp, segment_start, segment_end, *this ));
+		}
 
 		insertStringNoUndo(getLength(), wide_text, &segments);
 	}
@@ -1795,7 +1821,7 @@ void LLTextBase::appendAndHighlightTextImpl(const std::string &new_text, S32 hig
 	}
 }
 
-void LLTextBase::appendAndHighlightText(const std::string &new_text, S32 highlight_part, const LLStyle::Params& style_params)
+void LLTextBase::appendAndHighlightText(const std::string &new_text, S32 highlight_part, const LLStyle::Params& style_params, bool underline_on_hover_only)
 {
 	if (new_text.empty()) return; 
 
@@ -1807,7 +1833,7 @@ void LLTextBase::appendAndHighlightText(const std::string &new_text, S32 highlig
 		if(pos!=start)
 		{
 			std::string str = std::string(new_text,start,pos-start);
-			appendAndHighlightTextImpl(str,highlight_part, style_params);
+			appendAndHighlightTextImpl(str,highlight_part, style_params, underline_on_hover_only);
 		}
 		appendLineBreakSegment(style_params);
 		start = pos+1;
@@ -1815,7 +1841,7 @@ void LLTextBase::appendAndHighlightText(const std::string &new_text, S32 highlig
 	}
 
 	std::string str = std::string(new_text,start,new_text.length()-start);
-	appendAndHighlightTextImpl(str,highlight_part, style_params);
+	appendAndHighlightTextImpl(str,highlight_part, style_params, underline_on_hover_only);
 }
 
 
@@ -2269,6 +2295,7 @@ void LLTextBase::updateRects()
 	// allow horizontal scrolling?
 	// if so, use entire width of text contents
 	// otherwise, stop at width of mVisibleTextRect
+	//FIXME: consider use of getWordWrap() instead
 	doc_rect.mRight = mScroller 
 		? llmax(mVisibleTextRect.getWidth(), mTextBoundingRect.mRight)
 		: mVisibleTextRect.getWidth();
@@ -2673,6 +2700,30 @@ void LLNormalTextSegment::dump() const
 		mStart << ", " <<
 		getEnd() << "]" <<
 		llendl;
+}
+
+//
+// LLOnHoverChangeableTextSegment
+//
+
+LLOnHoverChangeableTextSegment::LLOnHoverChangeableTextSegment( LLStyleConstSP style, LLStyleConstSP normal_style, S32 start, S32 end, LLTextBase& editor ):
+	  LLNormalTextSegment(normal_style, start, end, editor),
+	  mHoveredStyle(style),
+	  mNormalStyle(normal_style){}
+
+/*virtual*/ 
+F32 LLOnHoverChangeableTextSegment::draw(S32 start, S32 end, S32 selection_start, S32 selection_end, const LLRect& draw_rect)
+{
+	F32 result = LLNormalTextSegment::draw(start, end, selection_start, selection_end, draw_rect);
+	mStyle = mNormalStyle;
+	return result;
+}
+
+/*virtual*/
+BOOL LLOnHoverChangeableTextSegment::handleHover(S32 x, S32 y, MASK mask)
+{
+	mStyle = mHoveredStyle;
+	return LLNormalTextSegment::handleHover(x, y, mask);
 }
 
 
