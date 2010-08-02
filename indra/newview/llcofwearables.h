@@ -40,6 +40,7 @@
 #include "llappearancemgr.h"
 #include "llinventorymodel.h"
 
+class LLAccordionCtrl;
 class LLAccordionCtrlTab;
 class LLListContextMenu;
 class LLPanelClothingListItem;
@@ -87,6 +88,7 @@ public:
 
 	LLAssetType::EType getExpandedAccordionAssetType();
 	LLAssetType::EType getSelectedAccordionAssetType();
+	void expandDefaultAccordionTab();
 
 	LLCOFCallbacks& getCOFCallbacks() { return mCOFCallbacks; }
 
@@ -125,6 +127,7 @@ protected:
 	LLListContextMenu* mAttachmentMenu;
 	LLListContextMenu* mBodyPartMenu;
 
+	LLAccordionCtrl*	mAccordionCtrl;
 	/* COF category version since last refresh */
 	S32 mCOFVersion;
 };
