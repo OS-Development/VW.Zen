@@ -394,7 +394,7 @@ LLGestureComboList::~LLGestureComboList()
 LLCtrlListInterface* LLGestureComboList::getListInterface()
 {
 	return mList;
-};
+}
 
 LLNearbyChatBar::LLNearbyChatBar() 
 	: LLPanel()

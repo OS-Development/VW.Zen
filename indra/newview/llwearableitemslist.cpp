@@ -569,7 +569,7 @@ bool LLWearableItemTypeNameComparator::sortAssetTypeByName(LLAssetType::EType it
 	}
 
 	return const_it->second.mSortAssetTypeByName;
-}
+	}
 
 bool LLWearableItemTypeNameComparator::sortWearableTypeByName(LLAssetType::EType item_type) const
 {
@@ -579,15 +579,32 @@ bool LLWearableItemTypeNameComparator::sortWearableTypeByName(LLAssetType::EType
 	{
 		llwarns<<"Absent information about sorting items of "<<LLAssetType::getDesc(item_type)<<" type"<<llendl;
 		return true;
-	}
+}
 
 	return const_it->second.mSortWearableTypeByName;
+}
+
+/*virtual*/
+bool LLWearableItemCreationDateComparator::doCompare(const LLPanelInventoryListItemBase* item1, const LLPanelInventoryListItemBase* item2) const
+{
+	time_t date1 = item1->getCreationDate();
+	time_t date2 = item2->getCreationDate();
+
+	if (date1 == date2)
+	{
+		return LLWearableItemNameComparator::doCompare(item1, item2);
+	}
+
+	return date1 > date2;
 }
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
-static const LLWearableItemTypeNameComparator WEARABLE_TYPE_NAME_COMPARATOR;
+static LLWearableItemTypeNameComparator WEARABLE_TYPE_NAME_COMPARATOR;
+static const LLWearableItemTypeNameComparator WEARABLE_TYPE_LAYER_COMPARATOR;
+static const LLWearableItemNameComparator WEARABLE_NAME_COMPARATOR;
+static const LLWearableItemCreationDateComparator WEARABLE_CREATION_DATE_COMPARATOR;
 
 static const LLDefaultChildRegistry::Register<LLWearableItemsList> r("wearable_items_list");
 
@@ -599,7 +616,7 @@ LLWearableItemsList::Params::Params()
 LLWearableItemsList::LLWearableItemsList(const LLWearableItemsList::Params& p)
 :	LLInventoryItemsList(p)
 {
-	setComparator(&WEARABLE_TYPE_NAME_COMPARATOR);
+	setSortOrder(E_SORT_BY_TYPE_LAYER, false);
 	mIsStandalone = p.standalone;
 	if (mIsStandalone)
 	{
@@ -699,6 +716,38 @@ void LLWearableItemsList::onRightClick(S32 x, S32 y)
 	ContextMenu::instance().show(this, selected_uuids, x, y);
 }
 
+void LLWearableItemsList::setSortOrder(ESortOrder sort_order, bool sort_now)
+{
+	switch (sort_order)
+	{
+	case E_SORT_BY_MOST_RECENT:
+		setComparator(&WEARABLE_CREATION_DATE_COMPARATOR);
+		break;
+	case E_SORT_BY_NAME:
+		setComparator(&WEARABLE_NAME_COMPARATOR);
+		break;
+	case E_SORT_BY_TYPE_LAYER:
+		setComparator(&WEARABLE_TYPE_LAYER_COMPARATOR);
+		break;
+	case E_SORT_BY_TYPE_NAME:
+	{
+		WEARABLE_TYPE_NAME_COMPARATOR.setOrder(LLAssetType::AT_CLOTHING, LLWearableItemTypeNameComparator::ORDER_RANK_1, false, true);
+		setComparator(&WEARABLE_TYPE_NAME_COMPARATOR);
+		break;
+	}
+
+	// No "default:" to raise compiler warning
+	// if we're not handling something
+	}
+
+	mSortOrder = sort_order;
+
+	if (sort_now)
+	{
+		sort();
+	}
+}
+
 //////////////////////////////////////////////////////////////////////////
 /// ContextMenu
 //////////////////////////////////////////////////////////////////////////
@@ -769,6 +818,8 @@ void LLWearableItemsList::ContextMenu::updateItemsVisibility(LLContextMenu* menu
 	U32 n_links = 0;				// number of links among the selected items
 	U32 n_editable = 0;				// number of editable items among the selected ones
 
+	bool can_be_worn = true;
+
 	for (uuid_vec_t::const_iterator it = ids.begin(); it != ids.end(); ++it)
 	{
 		LLUUID id = *it;
@@ -804,16 +855,21 @@ void LLWearableItemsList::ContextMenu::updateItemsVisibility(LLContextMenu* menu
 		{
 			++n_already_worn;
 		}
+
+		if (can_be_worn)
+		{
+			can_be_worn = get_can_item_be_worn(item->getLinkedUUID());
+		}
 	} // for
 
 	bool standalone = mParent ? mParent->isStandalone() : false;
 
 	// *TODO: eliminate multiple traversals over the menu items
-	setMenuItemVisible(menu, "wear_wear", 			n_already_worn == 0 && n_worn == 0);
+	setMenuItemVisible(menu, "wear_wear", 			n_already_worn == 0 && n_worn == 0 && can_be_worn);
 	setMenuItemEnabled(menu, "wear_wear", 			n_already_worn == 0 && n_worn == 0);
-	setMenuItemVisible(menu, "wear_add",			mask == MASK_CLOTHING && n_worn == 0 && n_already_worn != 0);
+	setMenuItemVisible(menu, "wear_add",			mask == MASK_CLOTHING && n_worn == 0 && n_already_worn != 0 && can_be_worn);
 	setMenuItemEnabled(menu, "wear_add",			n_items == 1 && canAddWearable(ids.front()) && n_already_worn != 0);
-	setMenuItemVisible(menu, "wear_replace",		n_worn == 0 && n_already_worn != 0);
+	setMenuItemVisible(menu, "wear_replace",		n_worn == 0 && n_already_worn != 0 && can_be_worn);
 	//visible only when one item selected and this item is worn
 	setMenuItemVisible(menu, "edit",				!standalone && mask & (MASK_CLOTHING|MASK_BODYPART) && n_worn == n_items && n_worn == 1);
 	setMenuItemEnabled(menu, "edit",				n_editable == 1 && n_worn == 1 && n_items == 1);

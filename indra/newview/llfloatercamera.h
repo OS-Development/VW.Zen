@@ -68,6 +68,9 @@ public:
 	/** resets current camera mode to orbit mode */
 	static void resetCameraMode();
 
+	/** Called when Avatar is entered/exited editing appearance mode */
+	static void onAvatarEditingAppearance(bool editing);
+
 	/* determines actual mode and updates ui */
 	void update();
 
@@ -121,9 +124,12 @@ private:
 	// fills flatlist with items from given panel
 	void fillFlatlistFromPanel (LLFlatListView* list, LLPanel* panel);
 
+	void handleAvatarEditingAppearance(bool editing);
+
 	// set to true when free camera mode is selected in modes list
 	// remains true until preset camera mode is chosen, or pan button is clicked, or escape pressed
 	static bool sFreeCamera;
+	static bool sAppearanceEditing;
 	BOOL mClosed;
 	ECameraControlMode mPrevMode;
 	ECameraControlMode mCurrMode;
