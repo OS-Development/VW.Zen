@@ -1049,7 +1049,7 @@ protected: // Shared with LLVOAvatarSelf
  *******************************************************************************/
 
 }; // LLVOAvatar
-extern const F32  SELF_ADDITIONAL_PRI;
 extern const S32 MAX_TEXTURE_VIRTURE_SIZE_RESET_INTERVAL;
+extern const F32  SELF_ADDITIONAL_PRI;
 
 #endif // LL_VO_AVATAR_H

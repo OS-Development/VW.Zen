@@ -128,6 +128,7 @@ protected:
 	LLListContextMenu* mBodyPartMenu;
 
 	LLAccordionCtrl*	mAccordionCtrl;
+
 	/* COF category version since last refresh */
 	S32 mCOFVersion;
 };

@@ -666,7 +666,7 @@ LLAssetType::EType LLCOFWearables::getExpandedAccordionAssetType()
 }
 
 LLAssetType::EType LLCOFWearables::getSelectedAccordionAssetType()
-	{
+{
 	if (mAccordionCtrl != NULL)
 	{
 		const LLAccordionCtrlTab* selected_tab = mAccordionCtrl->getSelectedTab();
