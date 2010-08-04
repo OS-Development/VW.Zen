@@ -999,7 +999,7 @@ bool LLAppearanceMgr::wearItemOnAvatar(const LLUUID& item_id_to_wear, bool do_up
 			{
 				removeCOFItemLinks(gAgentWearables.getWearableItemID(item_to_wear->getWearableType(), wearable_count-1), false);
 			}
-			addCOFItemLink(item_to_wear, do_update);
+			addCOFItemLink(item_to_wear, do_update, cb);
 		} 
 		break;
 	case LLAssetType::AT_BODYPART:
@@ -1275,9 +1275,40 @@ bool LLAppearanceMgr::getCanRemoveFromCOF(const LLUUID& outfit_cat_id)
 // static
 bool LLAppearanceMgr::getCanAddToCOF(const LLUUID& outfit_cat_id)
 {
+	if (gAgentWearables.isCOFChangeInProgress())
+	{
+		return false;
+	}
+
 	LLInventoryModel::cat_array_t cats;
 	LLInventoryModel::item_array_t items;
 	LLFindWearablesEx not_worn(/*is_worn=*/ false, /*include_body_parts=*/ false);
+	gInventory.collectDescendentsIf(outfit_cat_id,
+		cats,
+		items,
+		LLInventoryModel::EXCLUDE_TRASH,
+		not_worn);
+	return items.size() > 0;
+}
+
+bool LLAppearanceMgr::getCanReplaceCOF(const LLUUID& outfit_cat_id)
+{
+	// Don't allow wearing anything while we're changing appearance.
+	if (gAgentWearables.isCOFChangeInProgress())
+	{
+		return false;
+	}
+
+	// Check whether it's the base outfit.
+	if (outfit_cat_id.isNull() || outfit_cat_id == getBaseOutfitUUID())
+	{
+		return false;
+	}
+
+	// Check whether the outfit contains any non-worn wearables.
+	LLInventoryModel::cat_array_t cats;
+	LLInventoryModel::item_array_t items;
+	LLFindWearablesEx not_worn(/*is_worn=*/ false, /*include_body_parts=*/ true);
 	gInventory.collectDescendentsIf(outfit_cat_id,
 		cats,
 		items,
@@ -2183,32 +2214,24 @@ void LLAppearanceMgr::updateIsDirty()
 	}
 	else
 	{
+		LLIsOfAssetType collector = LLIsOfAssetType(LLAssetType::AT_LINK);
+
 		LLInventoryModel::cat_array_t cof_cats;
 		LLInventoryModel::item_array_t cof_items;
-		gInventory.collectDescendents(cof, cof_cats, cof_items,
-									  LLInventoryModel::EXCLUDE_TRASH);
+		gInventory.collectDescendentsIf(cof, cof_cats, cof_items,
+									  LLInventoryModel::EXCLUDE_TRASH, collector);
 
 		LLInventoryModel::cat_array_t outfit_cats;
 		LLInventoryModel::item_array_t outfit_items;
-		gInventory.collectDescendents(base_outfit, outfit_cats, outfit_items,
-									  LLInventoryModel::EXCLUDE_TRASH);
+		gInventory.collectDescendentsIf(base_outfit, outfit_cats, outfit_items,
+									  LLInventoryModel::EXCLUDE_TRASH, collector);
 
-		if(outfit_items.count() != cof_items.count() -1)
+		if(outfit_items.count() != cof_items.count())
 		{
 			// Current outfit folder should have one more item than the outfit folder.
 			// this one item is the link back to the outfit folder itself.
 			mOutfitIsDirty = true;
 			return;
-		}
-
-		//getting rid of base outfit folder link to simplify comparison
-		for (LLInventoryModel::item_array_t::iterator it = cof_items.begin(); it != cof_items.end(); ++it)
-		{
-			if (*it == base_outfit_item)
-			{
-				cof_items.erase(it);
-				break;
-			}
 		}
 
 		//"dirty" - also means a difference in linked UUIDs and/or a difference in wearables order (links' descriptions)
