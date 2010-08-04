@@ -163,7 +163,7 @@ public:
 	}
 
 protected:
-	static void replaceWearable()
+	static void replaceWearable(const LLUUID& item_id)
 	{
 		// *TODO: Most probable that accessing to LLPanelOutfitEdit instance should be:
 		// LLSideTray::getInstance()->getSidepanelAppearance()->getPanelOutfitEdit()
@@ -175,7 +175,7 @@ protected:
 								"panel_outfit_edit"));
 		if (panel_outfit_edit != NULL)
 		{
-			panel_outfit_edit->showAddWearablesPanel(true);
+			panel_outfit_edit->onReplaceMenuItemClicked(item_id);
 		}
 	}
 
@@ -187,7 +187,7 @@ protected:
 		functor_t take_off = boost::bind(&LLAppearanceMgr::removeItemFromAvatar, LLAppearanceMgr::getInstance(), _1);
 
 		registrar.add("Clothing.TakeOff", boost::bind(handleMultiple, take_off, mUUIDs));
-		registrar.add("Clothing.Replace", boost::bind(replaceWearable));
+		registrar.add("Clothing.Replace", boost::bind(replaceWearable, selected_id));
 		registrar.add("Clothing.Edit", boost::bind(LLAgentWearables::editWearable, selected_id));
 		registrar.add("Clothing.Create", boost::bind(&CofClothingContextMenu::createNew, this, selected_id));
 
@@ -244,7 +244,7 @@ protected:
 		// *HACK* need to pass pointer to LLPanelOutfitEdit instead of LLSideTray::getInstance()->getPanel().
 		// LLSideTray::getInstance()->getPanel() is rather slow variant
 		LLPanelOutfitEdit* panel_oe = dynamic_cast<LLPanelOutfitEdit*>(LLSideTray::getInstance()->getPanel("panel_outfit_edit"));
-		registrar.add("BodyPart.Replace", boost::bind(&LLPanelOutfitEdit::onReplaceBodyPartMenuItemClicked, panel_oe, selected_id));
+		registrar.add("BodyPart.Replace", boost::bind(&LLPanelOutfitEdit::onReplaceMenuItemClicked, panel_oe, selected_id));
 		registrar.add("BodyPart.Edit", boost::bind(LLAgentWearables::editWearable, selected_id));
 		registrar.add("BodyPart.Create", boost::bind(&CofBodyPartContextMenu::createNew, this, selected_id));
 
@@ -284,7 +284,8 @@ LLCOFWearables::LLCOFWearables() : LLPanel(),
 	mAttachmentsTab(NULL),
 	mBodyPartsTab(NULL),
 	mLastSelectedTab(NULL),
-	mAccordionCtrl(NULL)
+	mAccordionCtrl(NULL),
+	mCOFVersion(-1)
 {
 	mClothingMenu = new CofClothingContextMenu(this);
 	mAttachmentMenu = new CofAttachmentContextMenu(this);
@@ -381,6 +382,23 @@ void LLCOFWearables::onAccordionTabStateChanged(LLUICtrl* ctrl, const LLSD& expa
 
 void LLCOFWearables::refresh()
 {
+	const LLUUID cof_id = LLAppearanceMgr::instance().getCOF();
+	if (cof_id.isNull())
+	{
+		llwarns << "COF ID cannot be NULL" << llendl;
+		return;
+	}
+
+	LLViewerInventoryCategory* catp = gInventory.getCategory(cof_id);
+	if (!catp)
+	{
+		llwarns << "COF category cannot be NULL" << llendl;
+		return;
+	}
+
+	if (mCOFVersion == catp->getVersion()) return;
+	mCOFVersion = catp->getVersion();
+
 	typedef std::vector<LLSD> values_vector_t;
 	typedef std::map<LLFlatListView*, values_vector_t> selection_map_t;
 
@@ -396,7 +414,7 @@ void LLCOFWearables::refresh()
 	LLInventoryModel::cat_array_t cats;
 	LLInventoryModel::item_array_t cof_items;
 
-	gInventory.collectDescendents(LLAppearanceMgr::getInstance()->getCOF(), cats, cof_items, LLInventoryModel::EXCLUDE_TRASH);
+	gInventory.collectDescendents(cof_id, cats, cof_items, LLInventoryModel::EXCLUDE_TRASH);
 
 	populateAttachmentsAndBodypartsLists(cof_items);
 
@@ -504,7 +522,7 @@ LLPanelClothingListItem* LLCOFWearables::buildClothingListItem(LLViewerInventory
 	item_panel->childSetAction("btn_edit", mCOFCallbacks.mEditWearable);
 	
 	//turning on gray separator line for the last item in the items group of the same wearable type
-	item_panel->childSetVisible("wearable_type_separator_icon", last);
+	item_panel->setSeparatorVisible(last);
 
 	return item_panel;
 }
