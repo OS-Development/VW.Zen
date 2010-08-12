@@ -33,7 +33,7 @@
 #ifndef LL_LLFONTFREETYPE_H
 #define LL_LLFONTFREETYPE_H
 
-#include <boost/unordered_map.hpp>
+#include <map>
 #include "llpointer.h"
 #include "llstl.h"
 
@@ -170,7 +170,7 @@ private:
 
 	BOOL mValid;
 
-	typedef boost::unordered_map<llwchar, LLFontGlyphInfo*> char_glyph_info_map_t;
+	typedef std::map<llwchar, LLFontGlyphInfo*> char_glyph_info_map_t;
 	mutable char_glyph_info_map_t mCharGlyphInfoMap; // Information about glyph location in bitmap
 
 	mutable LLPointer<LLFontBitmapCache> mFontBitmapCachep;

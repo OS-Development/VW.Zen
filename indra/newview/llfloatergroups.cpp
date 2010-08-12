@@ -98,7 +98,7 @@ BOOL LLFloaterGroupPicker::postBuild()
 
 	setDefaultBtn("OK");
 
-	getChildView("OK")->setEnabled(TRUE);
+	childEnable("OK");
 
 	return TRUE;
 }
@@ -179,8 +179,8 @@ void LLPanelGroups::reset()
 	{
 		group_list->operateOnAll(LLCtrlListInterface::OP_DELETE);
 	}
-	getChild<LLUICtrl>("groupcount")->setTextArg("[COUNT]", llformat("%d",gAgent.mGroups.count()));
-	getChild<LLUICtrl>("groupcount")->setTextArg("[MAX]", llformat("%d",MAX_AGENT_GROUPS));
+	childSetTextArg("groupcount", "[COUNT]", llformat("%d",gAgent.mGroups.count()));
+	childSetTextArg("groupcount", "[MAX]", llformat("%d",MAX_AGENT_GROUPS));
 
 	init_group_list(getChild<LLScrollListCtrl>("group list"), gAgent.getGroupID());
 	enableButtons();
@@ -190,8 +190,8 @@ BOOL LLPanelGroups::postBuild()
 {
 	childSetCommitCallback("group list", onGroupList, this);
 
-	getChild<LLUICtrl>("groupcount")->setTextArg("[COUNT]", llformat("%d",gAgent.mGroups.count()));
-	getChild<LLUICtrl>("groupcount")->setTextArg("[MAX]", llformat("%d",MAX_AGENT_GROUPS));
+	childSetTextArg("groupcount", "[COUNT]", llformat("%d",gAgent.mGroups.count()));
+	childSetTextArg("groupcount", "[MAX]", llformat("%d",MAX_AGENT_GROUPS));
 
 	LLScrollListCtrl *list = getChild<LLScrollListCtrl>("group list");
 	if (list)
@@ -231,25 +231,25 @@ void LLPanelGroups::enableButtons()
 
 	if(group_id != gAgent.getGroupID())
 	{
-		getChildView("Activate")->setEnabled(TRUE);
+		childEnable("Activate");
 	}
 	else
 	{
-		getChildView("Activate")->setEnabled(FALSE);
+		childDisable("Activate");
 	}
 	if (group_id.notNull())
 	{
-		getChildView("Info")->setEnabled(TRUE);
-		getChildView("IM")->setEnabled(TRUE);
-		getChildView("Leave")->setEnabled(TRUE);
+		childEnable("Info");
+		childEnable("IM");
+		childEnable("Leave");
 	}
 	else
 	{
-		getChildView("Info")->setEnabled(FALSE);
-		getChildView("IM")->setEnabled(FALSE);
-		getChildView("Leave")->setEnabled(FALSE);
+		childDisable("Info");
+		childDisable("IM");
+		childDisable("Leave");
 	}
-	getChildView("Create")->setEnabled(gAgent.canJoinGroups());
+	childSetEnabled("Create", gAgent.canJoinGroups());
 }
 
 

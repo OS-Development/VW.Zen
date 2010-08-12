@@ -1625,14 +1625,14 @@ void LLVOAvatarSelf::setLocalTexture(ETextureIndex type, LLViewerTexture* src_te
 					if (isSelf())
 					{
 						if (gAgentAvatarp->isUsingBakedTextures())
-					{
-						requestLayerSetUpdate(type);
-					}
+						{
+							requestLayerSetUpdate(type);
+						}
 						else
-					{
-						LLVisualParamHint::requestHintUpdates();
+						{
+							LLVisualParamHint::requestHintUpdates();
+						}
 					}
-				}
 				}
 				else
 				{					

@@ -274,6 +274,7 @@ public:
 	void dumpSelectionInformation();
 
 	virtual S32	notify(const LLSD& info) ;
+	void setEnableScroll(bool enable_scroll) { mEnableScroll = enable_scroll; }
 	
 	bool useLabelSuffix() { return mUseLabelSuffix; }
 private:
@@ -293,8 +294,6 @@ protected:
 	
 	BOOL addNoOptions(LLMenuGL* menu) const;
 
-	void onItemsRemovalConfirmation(const LLSD& notification, const LLSD& response);
-
 protected:
 	LLHandle<LLView>					mPopupMenuHandle;
 	
@@ -310,6 +309,7 @@ protected:
 	LLLineEditor*					mRenamer;
 
 	BOOL							mNeedsScroll;
+	bool							mEnableScroll;
 	BOOL							mPinningSelectedItem;
 	LLRect							mScrollConstraintRect;
 	BOOL							mNeedsAutoSelect;

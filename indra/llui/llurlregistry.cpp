@@ -184,8 +184,7 @@ bool LLUrlRegistry::findUrl(const std::string &text, LLUrlMatch &match, const LL
 						match_entry->getMenuName(),
 						match_entry->getLocation(url),
 						match_entry->isLinkDisabled(),
-						match_entry->getID(url),
-						match_entry->underlineOnHoverOnly(url));
+						match_entry->getID(url));
 		return true;
 	}
 
@@ -220,8 +219,7 @@ bool LLUrlRegistry::findUrl(const LLWString &text, LLUrlMatch &match, const LLUr
 						match.getMenuName(),
 						match.getLocation(),
 						match.isLinkDisabled(),
-						match.getID(),
-						match.underlineOnHoverOnly());
+						match.getID());
 		return true;
 	}
 	return false;

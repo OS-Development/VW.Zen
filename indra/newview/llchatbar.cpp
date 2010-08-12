@@ -191,7 +191,7 @@ void LLChatBar::refresh()
 		gAgent.stopTyping();
 	}
 
-	getChildView("Say")->setEnabled(mInputEditor->getText().size() > 0);
+	childSetEnabled("Say", mInputEditor->getText().size() > 0);
 
 }
 
@@ -393,7 +393,7 @@ void LLChatBar::sendChat( EChatType type )
 		}
 	}
 
-	getChild<LLUICtrl>("Chat Editor")->setValue(LLStringUtil::null);
+	childSetValue("Chat Editor", LLStringUtil::null);
 
 	gAgent.stopTyping();
 

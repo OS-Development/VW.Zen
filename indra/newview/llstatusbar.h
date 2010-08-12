@@ -112,8 +112,6 @@ private:
 
 	LLButton	*mBtnVolume;
 	LLButton	*mMediaToggle;
-	LLView*		mScriptOut;
-	LLFrameTimer	mClockUpdateTimer;
 
 	S32				mBalance;
 	S32				mHealth;

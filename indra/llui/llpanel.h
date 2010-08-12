@@ -170,7 +170,6 @@ public:
 	std::string getString(const std::string& name) const;
 
 	// ** Wrappers for setting child properties by name ** -TomY
-	// WARNING: These are deprecated, please use getChild<T>("name")->doStuff() idiom instead
 
 	// LLView
 	void childSetVisible(const std::string& name, bool visible);
@@ -234,8 +233,7 @@ public:
 	void childSetPrevalidate(const std::string& id, bool (*func)(const LLWString &) );
 
 	// LLButton
-	void childSetAction(const std::string& id, boost::function<void(void*)> function, void* value);
-	void childSetAction(const std::string& id, const commit_signal_t::slot_type& function);
+	void childSetAction(const std::string& id, boost::function<void(void*)> function, void* value = NULL);
 
 	// LLTextBox
 	void childSetActionTextbox(const std::string& id, boost::function<void(void*)> function, void* value = NULL);

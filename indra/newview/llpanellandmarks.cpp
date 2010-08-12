@@ -522,9 +522,6 @@ void LLLandmarksPanel::setParcelID(const LLUUID& parcel_id)
 {
 	if (!parcel_id.isNull())
 	{
-        //ext-4655, defensive. remove now incase this gets called twice without a remove
-        LLRemoteParcelInfoProcessor::getInstance()->removeObserver(parcel_id, this);
-        
 		LLRemoteParcelInfoProcessor::getInstance()->addObserver(parcel_id, this);
 		LLRemoteParcelInfoProcessor::getInstance()->sendParcelInfoRequest(parcel_id);
 	}
@@ -721,8 +718,8 @@ void LLLandmarksPanel::updateListCommands()
 	bool trash_enabled = isActionEnabled("delete");
 
 	// keep Options & Add Landmark buttons always enabled
-	mListCommands->getChildView(ADD_FOLDER_BUTTON_NAME)->setEnabled(add_folder_enabled);
-	mListCommands->getChildView(TRASH_BUTTON_NAME)->setEnabled(trash_enabled);
+	mListCommands->childSetEnabled(ADD_FOLDER_BUTTON_NAME, add_folder_enabled);
+	mListCommands->childSetEnabled(TRASH_BUTTON_NAME, trash_enabled);
 }
 
 void LLLandmarksPanel::onActionsButtonClick()
