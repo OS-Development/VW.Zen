@@ -67,8 +67,7 @@ LLMediaCtrl::Params::Params()
 	decouple_texture_size("decouple_texture_size", false),
 	texture_width("texture_width", 1024),
 	texture_height("texture_height", 1024),
-	caret_color("caret_color"),
-	initial_mime_type("initial_mime_type")
+	caret_color("caret_color")
 {
 	tab_stop(false);
 }
@@ -93,8 +92,7 @@ LLMediaCtrl::LLMediaCtrl( const Params& p) :
 	mDecoupleTextureSize ( false ),
 	mTextureWidth ( 1024 ),
 	mTextureHeight ( 1024 ),
-	mClearCache(false),
-	mHomePageMimeType(p.initial_mime_type)
+	mClearCache(false)
 {
 	{
 		LLColor4 color = p.caret_color().get();
@@ -103,7 +101,7 @@ LLMediaCtrl::LLMediaCtrl( const Params& p) :
 
 	setIgnoreUIScale(p.ignore_ui_scale);
 	
-	setHomePageUrl(p.start_url, p.initial_mime_type);
+	setHomePageUrl(p.start_url);
 	
 	setBorderVisible(p.border_visible);
 	
@@ -569,12 +567,12 @@ void LLMediaCtrl::navigateHome()
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-void LLMediaCtrl::setHomePageUrl( const std::string& urlIn, const std::string& mime_type )
+void LLMediaCtrl::setHomePageUrl( const std::string urlIn )
 {
 	mHomePageUrl = urlIn;
 	if (mMediaSource)
 	{
-		mMediaSource->setHomeURL(mHomePageUrl, mime_type);
+		mMediaSource->setHomeURL(mHomePageUrl);
 	}
 }
 
@@ -618,7 +616,7 @@ bool LLMediaCtrl::ensureMediaSourceExists()
 		if ( mMediaSource )
 		{
 			mMediaSource->setUsedInUI(true);
-			mMediaSource->setHomeURL(mHomePageUrl, mHomePageMimeType);
+			mMediaSource->setHomeURL(mHomePageUrl);
 			mMediaSource->setVisible( getVisible() );
 			mMediaSource->addObserver( this );
 			mMediaSource->setBackgroundColor( getBackgroundColor() );

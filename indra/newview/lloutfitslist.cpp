@@ -403,12 +403,6 @@ void LLOutfitsList::onOpen(const LLSD& /*info*/)
 
 		mIsInitialized = true;
 	}
-
-	LLAccordionCtrlTab* selected_tab = mAccordion->getSelectedTab();
-	if (!selected_tab) return;
-
-	// Pass focus to the selected outfit tab.
-	selected_tab->showAndFocusHeader();
 }
 
 void LLOutfitsList::refreshList(const LLUUID& category_id)
@@ -1044,7 +1038,14 @@ void LLOutfitsList::wearSelectedItems()
 		return;
 	}
 
-	wear_multiple(selected_uuids, false);
+	uuid_vec_t::const_iterator it;
+	// Wear items from all selected lists(if possible- add, else replace)
+	for (it = selected_uuids.begin(); it != selected_uuids.end()-1; ++it)
+	{
+		LLAppearanceMgr::getInstance()->wearItemOnAvatar(*it, false, false);
+	}
+	// call update only when wearing last item
+	LLAppearanceMgr::getInstance()->wearItemOnAvatar(*it, true, false);
 }
 
 void LLOutfitsList::onWearableItemsListRightClick(LLUICtrl* ctrl, S32 x, S32 y)

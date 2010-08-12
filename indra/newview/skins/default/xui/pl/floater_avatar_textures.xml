@@ -6,7 +6,8 @@
 	<scroll_container name="profile_scroll">
 		<panel name="scroll_content_panel">
 			<text name="label">
-				Tekstury bakowane
+				Baked
+Textures
 			</text>
 			<text name="composite_label">
 				Tekstury kompozytowe

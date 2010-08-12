@@ -523,7 +523,7 @@ F32 LLDrawable::updateXform(BOOL undamped)
 		{
 			// snap to final position
 			dist_squared = 0.0f;
-			if (getVOVolume() && !isRoot())
+			if (!isRoot())
 			{ //child prim snapping to some position, needs a rebuild
 				gPipeline.markRebuild(this, LLDrawable::REBUILD_POSITION, TRUE);
 			}

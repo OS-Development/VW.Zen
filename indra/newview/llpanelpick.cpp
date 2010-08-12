@@ -210,9 +210,6 @@ void LLPanelPickInfo::sendParcelInfoRequest()
 {
 	if (mParcelId != mRequestedId)
 	{
-        //ext-4655, remove now incase this gets called twice without a remove
-        LLRemoteParcelInfoProcessor::getInstance()->removeObserver(mRequestedId, this);
-        
 		LLRemoteParcelInfoProcessor::getInstance()->addObserver(mParcelId, this);
 		LLRemoteParcelInfoProcessor::getInstance()->sendParcelInfoRequest(mParcelId);
 
@@ -250,13 +247,13 @@ void LLPanelPickInfo::resetControls()
 {
 	if(getAvatarId() == gAgent.getID())
 	{
-		getChildView("edit_btn")->setEnabled(TRUE);
-		getChildView("edit_btn")->setVisible( TRUE);
+		childSetEnabled("edit_btn", TRUE);
+		childSetVisible("edit_btn", TRUE);
 	}
 	else
 	{
-		getChildView("edit_btn")->setEnabled(FALSE);
-		getChildView("edit_btn")->setVisible( FALSE);
+		childSetEnabled("edit_btn", FALSE);
+		childSetVisible("edit_btn", FALSE);
 	}
 }
 
@@ -309,17 +306,17 @@ void LLPanelPickInfo::setSnapshotId(const LLUUID& id)
 
 void LLPanelPickInfo::setPickName(const std::string& name)
 {
-	getChild<LLUICtrl>(XML_NAME)->setValue(name);
+	childSetValue(XML_NAME, name);
 }
 
 void LLPanelPickInfo::setPickDesc(const std::string& desc)
 {
-	getChild<LLUICtrl>(XML_DESC)->setValue(desc);
+	childSetValue(XML_DESC, desc);
 }
 
 void LLPanelPickInfo::setPickLocation(const std::string& location)
 {
-	getChild<LLUICtrl>(XML_LOCATION)->setValue(location);
+	childSetValue(XML_LOCATION, location);
 }
 
 void LLPanelPickInfo::onClickMap()
@@ -402,8 +399,8 @@ void LLPanelPickEdit::onOpen(const LLSD& key)
 		}
 
 		setParcelID(parcel_id);
-		getChild<LLUICtrl>("pick_name")->setValue(pick_name.empty() ? region_name : pick_name);
-		getChild<LLUICtrl>("pick_desc")->setValue(pick_desc);
+		childSetValue("pick_name", pick_name.empty() ? region_name : pick_name);
+		childSetValue("pick_desc", pick_desc);
 		setSnapshotId(snapshot_id);
 		setPickLocation(createLocationText(getLocationNotice(), pick_name, region_name, getPosGlobal()));
 
@@ -431,8 +428,8 @@ void LLPanelPickEdit::setPickData(const LLPickData* pick_data)
 	mNeedData = false;
 
 	setParcelID(pick_data->parcel_id);
-	getChild<LLUICtrl>("pick_name")->setValue(pick_data->name);
-	getChild<LLUICtrl>("pick_desc")->setValue(pick_data->desc);
+	childSetValue("pick_name", pick_data->name);
+	childSetValue("pick_desc", pick_data->desc);
 	setSnapshotId(pick_data->snapshot_id);
 	setPosGlobal(pick_data->pos_global);
 	setPickLocation(createLocationText(LLStringUtil::null, pick_data->name,
@@ -514,8 +511,8 @@ void LLPanelPickEdit::sendUpdate()
 	//legacy var  need to be deleted
 	pick_data.top_pick = FALSE; 
 	pick_data.parcel_id = mParcelId;
-	pick_data.name = getChild<LLUICtrl>(XML_NAME)->getValue().asString();
-	pick_data.desc = getChild<LLUICtrl>(XML_DESC)->getValue().asString();
+	pick_data.name = childGetValue(XML_NAME).asString();
+	pick_data.desc = childGetValue(XML_DESC).asString();
 	pick_data.snapshot_id = mSnapshotCtrl->getImageAssetID();
 	pick_data.pos_global = getPosGlobal();
 	pick_data.sort_order = 0;
@@ -550,7 +547,7 @@ void LLPanelPickEdit::resetData()
 
 void LLPanelPickEdit::enableSaveButton(bool enable)
 {
-	getChildView(XML_BTN_SAVE)->setEnabled(enable);
+	childSetEnabled(XML_BTN_SAVE, enable);
 }
 
 void LLPanelPickEdit::onClickSetLocation()

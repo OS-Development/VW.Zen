@@ -62,7 +62,6 @@
 #include "llviewerwindow.h"
 #include "llvoavatar.h"
 #include "llfloaterproperties.h"
-#include "llnotificationsutil.h"
 
 // Linden library includes
 #include "lldbstrings.h"
@@ -185,6 +184,7 @@ LLFolderView::LLFolderView(const Params& p)
 	mSourceID(p.task_id),
 	mRenameItem( NULL ),
 	mNeedsScroll( FALSE ),
+	mEnableScroll( true ),
 	mUseLabelSuffix(p.use_label_suffix),
 	mPinningSelectedItem(FALSE),
 	mNeedsAutoSelect( FALSE ),
@@ -250,7 +250,7 @@ LLFolderView::LLFolderView(const Params& p)
 	text_p.name(std::string(p.name));
 	text_p.font(font);
 	text_p.visible(false);
-	text_p.parse_urls(true);
+	text_p.allow_html(true);
 	text_p.wrap(true); // allow multiline text. See EXT-7564, EXT-7047
 	// set text padding the same as in People panel. EXT-7047, EXT-4837
 	text_p.h_pad(STATUS_TEXT_HPAD);
@@ -1025,17 +1025,6 @@ void LLFolderView::closeRenamer( void )
 
 void LLFolderView::removeSelectedItems( void )
 {
-	if (mSelectedItems.empty()) return;
-	LLSD args;
-	args["QUESTION"] = LLTrans::getString(mSelectedItems.size() > 1 ? "DeleteItems" :  "DeleteItem");
-	LLNotificationsUtil::add("DeleteItems", args, LLSD(), boost::bind(&LLFolderView::onItemsRemovalConfirmation, this, _1, _2));
-}
-
-void LLFolderView::onItemsRemovalConfirmation(const LLSD& notification, const LLSD& response)
-{
-	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
-	if (option != 0) return; // canceled
-
 	if(getVisible() && getEnabled())
 	{
 		// just in case we're removing the renaming item.
@@ -1991,9 +1980,7 @@ void LLFolderView::deleteAllChildren()
 
 void LLFolderView::scrollToShowSelection()
 {
-	// If items are filtered while background fetch is in progress
-	// scrollbar resets to the first filtered item. See EXT-3981.
-	if (!LLInventoryModelBackgroundFetch::instance().backgroundFetchActive() && mSelectedItems.size())
+	if (mEnableScroll && mSelectedItems.size())
 	{
 		mNeedsScroll = TRUE;
 	}

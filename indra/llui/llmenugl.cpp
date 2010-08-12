@@ -58,7 +58,6 @@
 #include "llbutton.h"
 #include "llfontgl.h"
 #include "llresmgr.h"
-#include "lltrans.h"
 #include "llui.h"
 
 #include "llstl.h"
@@ -2273,9 +2272,8 @@ void LLMenuGL::createSpilloverBranch()
 		// technically, you can't tear off spillover menus, but we're passing the handle
 		// along just to be safe
 		LLMenuGL::Params p;
-		std::string label = LLTrans::getString("More");
 		p.name("More");
-		p.label(label);
+		p.label("More"); // *TODO: Translate
 		p.bg_color(mBackgroundColor);
 		p.bg_visible(true);
 		p.can_tear_off(false);
@@ -2284,7 +2282,7 @@ void LLMenuGL::createSpilloverBranch()
 
 		LLMenuItemBranchGL::Params branch_params;
 		branch_params.name = "More";
-		branch_params.label = label;
+		branch_params.label = "More"; // *TODO: Translate
 		branch_params.branch = mSpilloverMenu;
 		branch_params.font.style = "italic";
 

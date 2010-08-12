@@ -63,8 +63,6 @@ public:
 								texture_height;
 		
 		Optional<LLUIColor>		caret_color;
-
-		Optional<std::string>	initial_mime_type;
 		
 		Params();
 	};
@@ -111,7 +109,7 @@ public:
 		// because we control the page content.  See DEV-9530.  JC.
 		void setTrusted( bool valIn );
 
-		void setHomePageUrl( const std::string& urlIn, const std::string& mime_type = LLStringUtil::null );
+		void setHomePageUrl( const std::string urlIn );
 		std::string getHomePageUrl();
 
 		// set/clear URL to visit when a 404 page is reached
@@ -175,7 +173,6 @@ public:
 		bool mForceUpdate;
 		bool mTrusted;
 		std::string mHomePageUrl;
-		std::string mHomePageMimeType;
 		std::string mCurrentNavUrl;
 		bool mIgnoreUIScale;
 		bool mAlwaysRefresh;

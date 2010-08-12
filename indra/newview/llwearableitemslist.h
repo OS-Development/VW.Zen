@@ -339,8 +339,8 @@ protected:
 	 *     For example by spec in MY OUTFITS the order within each items type(LLAssetType) is:
 	 *     1. AT_OBJECTS (abc order)
 	 *     2. AT_CLOTHINGS
-	 *         - by type (types order determined in LLWearableType::EType)
-	 *         - outer layer on top
+	 *       - by type (types order determined in LLWearableType::EType)
+	 *       - outer layer on top
 	 *     3. AT_BODYPARTS  (abc order)
 	 *---------------------------------------------------------------------------------------------
 	 *
@@ -377,19 +377,6 @@ private:
 
 	typedef std::map<LLAssetType::EType,LLWearableTypeOrder> wearable_type_order_map_t;
 	wearable_type_order_map_t mWearableOrder;
-};
-
-/**
- * @class LLWearableItemCreationDateComparator
- *
- * Comparator for sorting wearable list items by creation date (newest go first).
- */
-class LLWearableItemCreationDateComparator : public LLWearableItemNameComparator
-{
-	LOG_CLASS(LLWearableItemCreationDateComparator);
-
-protected:
-	/*virtual*/ bool doCompare(const LLPanelInventoryListItemBase* item1, const LLPanelInventoryListItemBase* item2) const;
 };
 
 /**
@@ -431,7 +418,7 @@ public:
 		static void setMenuItemEnabled(LLContextMenu* menu, const std::string& name, bool val);
 		static void updateMask(U32& mask, LLAssetType::EType at);
 		static void createNewWearable(const LLUUID& item_id);
-		static bool canAddWearables(const uuid_vec_t& item_ids);
+		static bool canAddWearable(const LLUUID& item_id);
 
 		LLWearableItemsList*	mParent;
 	};
@@ -443,14 +430,6 @@ public:
 
 		Params();
 	};
-
-	typedef enum e_sort_order {
-		// Values should be compatible with InventorySortOrder setting.
-		E_SORT_BY_NAME			= 0,
-		E_SORT_BY_MOST_RECENT	= 1,
-		E_SORT_BY_TYPE_LAYER	= 2,
-		E_SORT_BY_TYPE_NAME 	= 3,
-	} ESortOrder;
 
 	virtual ~LLWearableItemsList();
 
@@ -466,10 +445,6 @@ public:
 
 	bool isStandalone() const { return mIsStandalone; }
 
-	ESortOrder getSortOrder() const { return mSortOrder; }
-
-	void setSortOrder(ESortOrder sort_order, bool sort_now = true);
-
 protected:
 	friend class LLUICtrlFactory;
 	LLWearableItemsList(const LLWearableItemsList::Params& p);
@@ -478,8 +453,6 @@ protected:
 
 	bool mIsStandalone;
 	bool mWornIndicationEnabled;
-
-	ESortOrder		mSortOrder;
 };
 
 #endif //LL_LLWEARABLEITEMSLIST_H
