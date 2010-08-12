@@ -237,6 +237,25 @@ LLIMModel::LLIMSession::LLIMSession(const LLUUID& session_id, const std::string&
 		new LLSessionTimeoutTimer(mSessionID, SESSION_INITIALIZATION_TIMEOUT);
 	}
 
+	// *WORKAROUND: for server hard-coded string in indra\newsim\llsimchatterbox.cpp
+	if (isAdHocSessionType() && IM_SESSION_INVITE == type)
+	{
+		// For an ad-hoc incoming chat name is received from the server and is in a form of "<Avatar's name> Conference"
+		// Lets update it to localize the "Conference" word. See EXT-8429.
+		S32 separator_index = mName.rfind(" ");
+		std::string name = mName.substr(0, separator_index);
+		++separator_index;
+		std::string conference_word = mName.substr(separator_index, mName.length());
+
+		// additional check that session name is what we expected
+		if ("Conference" == conference_word)
+		{
+			LLStringUtil::format_map_t args;
+			args["[AGENT_NAME]"] = name;
+			LLTrans::findString(mName, "conference-title-incoming", args);
+		}
+	}
+
 	if (IM_NOTHING_SPECIAL == type)
 	{
 		mCallBackEnabled = LLVoiceClient::getInstance()->isSessionCallBackPossible(mSessionID);
@@ -1709,12 +1728,12 @@ void LLOutgoingCallDialog::show(const LLSD& key)
 			old_caller_name = LLTextUtil::formatPhoneNumber(old_caller_name);
 		}
 
-		childSetTextArg("leaving", "[CURRENT_CHAT]", old_caller_name);
+		getChild<LLUICtrl>("leaving")->setTextArg("[CURRENT_CHAT]", old_caller_name);
 		show_oldchannel = true;
 	}
 	else
 	{
-		childSetTextArg("leaving", "[CURRENT_CHAT]", getString("localchat"));		
+		getChild<LLUICtrl>("leaving")->setTextArg("[CURRENT_CHAT]", getString("localchat"));		
 	}
 
 	if (!mPayload["disconnected_channel_name"].asString().empty())
@@ -1724,16 +1743,16 @@ void LLOutgoingCallDialog::show(const LLSD& key)
 		{
 			channel_name = LLTextUtil::formatPhoneNumber(channel_name);
 		}
-		childSetTextArg("nearby", "[VOICE_CHANNEL_NAME]", channel_name);
+		getChild<LLUICtrl>("nearby")->setTextArg("[VOICE_CHANNEL_NAME]", channel_name);
 
 		// skipping "You will now be reconnected to nearby" in notification when call is ended by disabling voice,
 		// so no reconnection to nearby chat happens (EXT-4397)
 		bool voice_works = LLVoiceClient::getInstance()->voiceEnabled() && LLVoiceClient::getInstance()->isVoiceWorking();
 		std::string reconnect_nearby = voice_works ? LLTrans::getString("reconnect_nearby") : std::string();
-		childSetTextArg("nearby", "[RECONNECT_NEARBY]", reconnect_nearby);
+		getChild<LLUICtrl>("nearby")->setTextArg("[RECONNECT_NEARBY]", reconnect_nearby);
 
 		const std::string& nearby_str = mPayload["ended_by_agent"] ? NEARBY_P2P_BY_AGENT : NEARBY_P2P_BY_OTHER;
-		childSetTextArg(nearby_str, "[RECONNECT_NEARBY]", reconnect_nearby);
+		getChild<LLUICtrl>(nearby_str)->setTextArg("[RECONNECT_NEARBY]", reconnect_nearby);
 	}
 
 	std::string callee_name = mPayload["session_name"].asString();
@@ -1753,8 +1772,8 @@ void LLOutgoingCallDialog::show(const LLSD& key)
 	setTitle(callee_name);
 
 	LLSD callee_id = mPayload["other_user_id"];
-	childSetTextArg("calling", "[CALLEE_NAME]", callee_name);
-	childSetTextArg("connecting", "[CALLEE_NAME]", callee_name);
+	getChild<LLUICtrl>("calling")->setTextArg("[CALLEE_NAME]", callee_name);
+	getChild<LLUICtrl>("connecting")->setTextArg("[CALLEE_NAME]", callee_name);
 
 	// for outgoing group calls callee_id == group id == session id
 	setIcon(callee_id, callee_id);
@@ -1939,7 +1958,7 @@ BOOL LLIncomingCallDialog::postBuild()
 
 	//it's not possible to connect to existing Ad-Hoc/Group chat through incoming ad-hoc call
 	//and no IM for avaline
-	childSetVisible("Start IM", is_avatar && notify_box_type != "VoiceInviteAdHoc" && notify_box_type != "VoiceInviteGroup");
+	getChildView("Start IM")->setVisible( is_avatar && notify_box_type != "VoiceInviteAdHoc" && notify_box_type != "VoiceInviteGroup");
 
 	setCanDrag(FALSE);
 
@@ -1963,12 +1982,12 @@ void LLIncomingCallDialog::onOpen(const LLSD& key)
 	if (voice && !voice->getSessionName().empty())
 	{
 		args["[CURRENT_CHAT]"] = voice->getSessionName();
-		childSetText("question", getString(key["question_type"].asString(), args));
+		getChild<LLUICtrl>("question")->setValue(getString(key["question_type"].asString(), args));
 	}
 	else
 	{
 		args["[CURRENT_CHAT]"] = getString("localchat");
-		childSetText("question", getString(key["question_type"].asString(), args));
+		getChild<LLUICtrl>("question")->setValue(getString(key["question_type"].asString(), args));
 	}
 }
 
