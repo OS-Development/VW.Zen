@@ -283,7 +283,7 @@ protected:
 	LLScrollContainer* mScrollContainer;  // NULL if this is not a child of a scroll container.
 
 	void commitRename( const LLSD& data );
-	void onRenamerLost( LLFocusableElement* renamer);
+	void onRenamerLost();
 
 	void finishRenamingItem( void );
 	void closeRenamer( void );
@@ -292,6 +292,8 @@ protected:
 	bool selectLastItem();
 	
 	BOOL addNoOptions(LLMenuGL* menu) const;
+
+	void onItemsRemovalConfirmation(const LLSD& notification, const LLSD& response);
 
 protected:
 	LLHandle<LLView>					mPopupMenuHandle;
