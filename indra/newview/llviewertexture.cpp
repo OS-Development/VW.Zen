@@ -2136,7 +2136,7 @@ void LLViewerFetchedTexture::deleteCallbackEntry(const LLLoadedCallbackEntry::so
 void LLViewerFetchedTexture::unpauseLoadedCallbacks(const LLLoadedCallbackEntry::source_callback_list_t* callback_list)
 {
 	if(!callback_list)
-	{
+{
 		mPauseLoadedCallBacks = FALSE ;
 		return ;
 	}
@@ -2165,7 +2165,7 @@ void LLViewerFetchedTexture::unpauseLoadedCallbacks(const LLLoadedCallbackEntry:
 void LLViewerFetchedTexture::pauseLoadedCallbacks(const LLLoadedCallbackEntry::source_callback_list_t* callback_list)
 {
 	if(!callback_list)
-	{
+{
 		return ;
 	}
 
