@@ -93,8 +93,14 @@ static LLFastTimer::DeclareTimer FTM_GEN_VOLUME("Generate Volumes");
 class LLMediaDataClientObjectImpl : public LLMediaDataClientObject
 {
 public:
-	LLMediaDataClientObjectImpl(LLVOVolume *obj, bool isNew) : mObject(obj), mNew(isNew) {}
-	LLMediaDataClientObjectImpl() { mObject = NULL; }
+	LLMediaDataClientObjectImpl(LLVOVolume *obj, bool isNew) : mObject(obj), mNew(isNew) 
+	{
+		mObject->addMDCImpl();
+	}
+	~LLMediaDataClientObjectImpl()
+	{
+		mObject->removeMDCImpl();
+	}
 	
 	virtual U8 getMediaDataCount() const 
 		{ return mObject->getNumTEs(); }
@@ -118,6 +124,18 @@ public:
 				}
 			}
 			return result;
+		}
+	virtual bool isCurrentMediaUrl(U8 index, const std::string &url) const
+		{
+			LLTextureEntry *te = mObject->getTE(index); 
+			if (te)
+			{
+				if (te->getMediaData())
+				{
+					return (te->getMediaData()->getCurrentURL() == url);
+				}
+			}
+			return url.empty();
 		}
 
 	virtual LLUUID getID() const
@@ -193,6 +211,7 @@ LLVOVolume::LLVOVolume(const LLUUID &id, const LLPCode pcode, LLViewerRegion *re
 	mMediaImplList.resize(getNumTEs());
 	mLastFetchedMediaVersion = -1;
 	mIndexInTex = 0;
+	mMDCImplCount = 0;
 }
 
 LLVOVolume::~LLVOVolume()
@@ -218,9 +237,12 @@ void LLVOVolume::markDead()
 {
 	if (!mDead)
 	{
-		LLMediaDataClientObject::ptr_t obj = new LLMediaDataClientObjectImpl(const_cast<LLVOVolume*>(this), false);
-		if (sObjectMediaClient) sObjectMediaClient->removeFromQueue(obj);
-		if (sObjectMediaNavigateClient) sObjectMediaNavigateClient->removeFromQueue(obj);
+		if(getMDCImplCount() > 0)
+		{
+			LLMediaDataClientObject::ptr_t obj = new LLMediaDataClientObjectImpl(const_cast<LLVOVolume*>(this), false);
+			if (sObjectMediaClient) sObjectMediaClient->removeFromQueue(obj);
+			if (sObjectMediaNavigateClient) sObjectMediaNavigateClient->removeFromQueue(obj);
+		}
 		
 		// Detach all media impls from this object
 		for(U32 i = 0 ; i < mMediaImplList.size() ; i++)
@@ -2025,12 +2047,12 @@ void LLVOVolume::mediaNavigated(LLViewerMediaImpl *impl, LLPluginClassMedia* plu
 	}
 	else
 	{
-		llwarns << "Couldn't find media entry!" << llendl;
+		LL_WARNS("MediaOnAPrim") << "Couldn't find media entry!" << LL_ENDL;
 	}
 						
 	if(block_navigation)
 	{
-		llinfos << "blocking navigate to URI " << new_location << llendl;
+		LL_INFOS("MediaOnAPrim") << "blocking navigate to URI " << new_location << LL_ENDL;
 
 		// "bounce back" to the current URL from the media entry
 		mediaNavigateBounceBack(face_index);
@@ -2038,7 +2060,7 @@ void LLVOVolume::mediaNavigated(LLViewerMediaImpl *impl, LLPluginClassMedia* plu
 	else if (sObjectMediaNavigateClient)
 	{
 		
-		llinfos << "broadcasting navigate with URI " << new_location << llendl;
+		LL_DEBUGS("MediaOnAPrim") << "broadcasting navigate with URI " << new_location << LL_ENDL;
 
 		sObjectMediaNavigateClient->navigate(new LLMediaDataClientObjectImpl(this, false), face_index, new_location);
 	}
@@ -2060,14 +2082,19 @@ void LLVOVolume::mediaEvent(LLViewerMediaImpl *impl, LLPluginClassMedia* plugin,
 				}
 				break;
 				
+				case LLViewerMediaImpl::MEDIANAVSTATE_FIRST_LOCATION_CHANGED_SPURIOUS:
+					// This navigate didn't change the current URL.  
+					LL_DEBUGS("MediaOnAPrim") << "	NOT broadcasting navigate (spurious)" << LL_ENDL;
+				break;
+				
 				case LLViewerMediaImpl::MEDIANAVSTATE_SERVER_FIRST_LOCATION_CHANGED:
 					// This is the first location changed event after the start of a server-directed nav.  Don't broadcast it.
-					llinfos << "	NOT broadcasting navigate (server-directed)" << llendl;
+					LL_INFOS("MediaOnAPrim") << "	NOT broadcasting navigate (server-directed)" << LL_ENDL;
 				break;
 				
 				default:
 					// This is a subsequent location-changed due to a redirect.	 Don't broadcast.
-					llinfos << "	NOT broadcasting navigate (redirect)" << llendl;
+					LL_INFOS("MediaOnAPrim") << "	NOT broadcasting navigate (redirect)" << LL_ENDL;
 				break;
 			}
 		}
@@ -2084,9 +2111,14 @@ void LLVOVolume::mediaEvent(LLViewerMediaImpl *impl, LLPluginClassMedia* plugin,
 				}
 				break;
 				
+				case LLViewerMediaImpl::MEDIANAVSTATE_COMPLETE_BEFORE_LOCATION_CHANGED_SPURIOUS:
+					// This navigate didn't change the current URL.  
+					LL_DEBUGS("MediaOnAPrim") << "	NOT broadcasting navigate (spurious)" << LL_ENDL;
+				break;
+
 				case LLViewerMediaImpl::MEDIANAVSTATE_SERVER_COMPLETE_BEFORE_LOCATION_CHANGED:
 					// This is the the navigate complete event from a server-directed nav.  Don't broadcast it.
-					llinfos << "	NOT broadcasting navigate (server-directed)" << llendl;
+					LL_INFOS("MediaOnAPrim") << "	NOT broadcasting navigate (server-directed)" << LL_ENDL;
 				break;
 				
 				default:
@@ -2457,6 +2489,17 @@ void LLVOVolume::updateSpotLightPriority()
 		mLightTexture->addTextureStats(mSpotLightPriority);
 		mLightTexture->setBoostLevel(LLViewerTexture::BOOST_CLOUDS);
 	}
+}
+
+
+bool LLVOVolume::isLightSpotlight() const
+{
+	LLLightImageParams* params = (LLLightImageParams*) getParameterEntry(LLNetworkData::PARAMS_LIGHT_IMAGE);
+	if (params)
+	{
+		return params->isLightSpotlight();
+	}
+	return false;
 }
 
 
@@ -2919,9 +2962,7 @@ F32 LLVOVolume::getBinRadius()
 		{
 			LLFace* face = mDrawable->getFace(i);
 			if (face->getPoolType() == LLDrawPool::POOL_ALPHA &&
-				(!LLPipeline::sFastAlpha || 
-				face->getFaceColor().mV[3] != 1.f ||
-				!face->getTexture()->getIsAlphaMask()))
+			    !face->canRenderAsMask())
 			{
 				alpha_wrap = TRUE;
 				break;
@@ -3197,11 +3238,10 @@ void LLVolumeGeometryManager::registerFace(LLSpatialGroup* group, LLFace* facep,
 
 	S32 idx = draw_vec.size()-1;
 
-
 	BOOL fullbright = (type == LLRenderPass::PASS_FULLBRIGHT) ||
-					  (type == LLRenderPass::PASS_INVISIBLE) ||
-					  (type == LLRenderPass::PASS_ALPHA ? facep->isState(LLFace::FULLBRIGHT) : FALSE);
-
+		(type == LLRenderPass::PASS_INVISIBLE) ||
+		(type == LLRenderPass::PASS_ALPHA && facep->isState(LLFace::FULLBRIGHT));
+	
 	if (!fullbright && type != LLRenderPass::PASS_GLOW && !facep->mVertexBuffer->hasDataType(LLVertexBuffer::TYPE_NORMAL))
 	{
 		llwarns << "Non fullbright face has no normals!" << llendl;
@@ -3226,16 +3266,12 @@ void LLVolumeGeometryManager::registerFace(LLSpatialGroup* group, LLFace* facep,
 		model_mat = &(drawable->getRegion()->mRenderMatrix);
 	}
 
-	U8 bump = (type == LLRenderPass::PASS_BUMP ? facep->getTextureEntry()->getBumpmap() : 0);
+
+	U8 bump = (type == LLRenderPass::PASS_BUMP || type == LLRenderPass::PASS_POST_BUMP) ? facep->getTextureEntry()->getBumpmap() : 0;
 	
 	LLViewerTexture* tex = facep->getTexture();
 
-	U8 glow = 0;
-		
-	if (type == LLRenderPass::PASS_GLOW)
-	{
-		glow = (U8) (facep->getTextureEntry()->getGlow() * 255);
-	}
+	U8 glow = (U8) (facep->getTextureEntry()->getGlow() * 255);
 
 	if (facep->mVertexBuffer.isNull())
 	{
@@ -3299,6 +3335,7 @@ void LLVolumeGeometryManager::getGeometry(LLSpatialGroup* group)
 
 static LLFastTimer::DeclareTimer FTM_REBUILD_VOLUME_VB("Volume");
 static LLFastTimer::DeclareTimer FTM_REBUILD_VBO("VBO Rebuilt");
+
 
 void LLVolumeGeometryManager::rebuildGeom(LLSpatialGroup* group)
 {
@@ -3425,10 +3462,7 @@ void LLVolumeGeometryManager::rebuildGeom(LLSpatialGroup* group)
 
 				if (type == LLDrawPool::POOL_ALPHA)
 				{
-					if (LLPipeline::sFastAlpha &&
-					    (te->getColor().mV[VW] == 1.0f) &&
-					    (!te->getFullbright()) && // hack: alpha masking renders fullbright faces invisible, need to figure out why - for now, avoid
-					    facep->getTexture()->getIsAlphaMask())
+					if (facep->canRenderAsMask())
 					{ //can be treated as alpha mask
 						simple_faces.push_back(facep);
 					}
@@ -3530,6 +3564,8 @@ void LLVolumeGeometryManager::rebuildGeom(LLSpatialGroup* group)
 }
 
 static LLFastTimer::DeclareTimer FTM_VOLUME_GEOM("Volume Geometry");
+static LLFastTimer::DeclareTimer FTM_VOLUME_GEOM_PARTIAL("Terse Rebuild");
+
 void LLVolumeGeometryManager::rebuildMesh(LLSpatialGroup* group)
 {
 	llassert(group);
@@ -3542,6 +3578,7 @@ void LLVolumeGeometryManager::rebuildMesh(LLSpatialGroup* group)
 		
 		for (LLSpatialGroup::element_iter drawable_iter = group->getData().begin(); drawable_iter != group->getData().end(); ++drawable_iter)
 		{
+			LLFastTimer t(FTM_VOLUME_GEOM_PARTIAL);
 			LLDrawable* drawablep = *drawable_iter;
 
 			if (drawablep->isDead() || drawablep->isState(LLDrawable::FORCE_INVISIBLE) )
@@ -3769,15 +3806,12 @@ void LLVolumeGeometryManager::genDrawInfo(LLSpatialGroup* group, U32 mask, std::
 
 			const LLTextureEntry* te = facep->getTextureEntry();
 
-			BOOL is_alpha = facep->getPoolType() == LLDrawPool::POOL_ALPHA ? TRUE : FALSE;
+			BOOL is_alpha = (facep->getPoolType() == LLDrawPool::POOL_ALPHA) ? TRUE : FALSE;
 		
 			if (is_alpha)
 			{
 				// can we safely treat this as an alpha mask?
-				if (LLPipeline::sFastAlpha &&
-				    (te->getColor().mV[VW] == 1.0f) &&
-				    (!te->getFullbright()) && // hack: alpha masking renders fullbright faces invisible, need to figure out why - for now, avoid
-				    facep->getTexture()->getIsAlphaMask())
+				if (facep->canRenderAsMask())
 				{
 					if (te->getFullbright())
 					{
@@ -3802,66 +3836,76 @@ void LLVolumeGeometryManager::genDrawInfo(LLSpatialGroup* group, U32 mask, std::
 				&& group->mSpatialPartition->mPartitionType != LLViewerRegion::PARTITION_HUD 
 				&& LLPipeline::sRenderBump 
 				&& te->getShiny())
-			{
+			{ //shiny
 				if (tex->getPrimaryFormat() == GL_ALPHA)
-				{
+				{ //invisiprim+shiny
 					registerFace(group, facep, LLRenderPass::PASS_INVISI_SHINY);
 					registerFace(group, facep, LLRenderPass::PASS_INVISIBLE);
 				}
 				else if (LLPipeline::sRenderDeferred)
-				{
-					if (te->getBumpmap())
-					{
+				{ //deferred rendering
+					if (te->getFullbright())
+					{ //register in post deferred fullbright shiny pass
+						registerFace(group, facep, LLRenderPass::PASS_FULLBRIGHT_SHINY);
+						if (te->getBumpmap())
+						{ //register in post deferred bump pass
+							registerFace(group, facep, LLRenderPass::PASS_POST_BUMP);
+						}
+					}
+					else if (te->getBumpmap())
+					{ //register in deferred bump pass
 						registerFace(group, facep, LLRenderPass::PASS_BUMP);
 					}
-					else if (te->getFullbright())
-					{
-						registerFace(group, facep, LLRenderPass::PASS_FULLBRIGHT_SHINY);
-					}
 					else
-					{
+					{ //register in deferred simple pass (deferred simple includes shiny)
 						llassert(mask & LLVertexBuffer::MAP_NORMAL);
 						registerFace(group, facep, LLRenderPass::PASS_SIMPLE);
 					}
 				}
 				else if (fullbright)
-				{						
+				{	//not deferred, register in standard fullbright shiny pass					
 					registerFace(group, facep, LLRenderPass::PASS_FULLBRIGHT_SHINY);
 				}
 				else
-				{
+				{ //not deferred or fullbright, register in standard shiny pass
 					registerFace(group, facep, LLRenderPass::PASS_SHINY);
 				}
 			}
 			else
-			{
+			{ //not alpha and not shiny
 				if (!is_alpha && tex->getPrimaryFormat() == GL_ALPHA)
-				{
+				{ //invisiprim
 					registerFace(group, facep, LLRenderPass::PASS_INVISIBLE);
 				}
 				else if (fullbright)
-				{
+				{ //fullbright
 					registerFace(group, facep, LLRenderPass::PASS_FULLBRIGHT);
+					if (LLPipeline::sRenderDeferred && LLPipeline::sRenderBump && te->getBumpmap())
+					{ //if this is the deferred render and a bump map is present, register in post deferred bump
+						registerFace(group, facep, LLRenderPass::PASS_POST_BUMP);
+					}
 				}
 				else
 				{
-					if (LLPipeline::sRenderDeferred && te->getBumpmap())
-					{
+					if (LLPipeline::sRenderDeferred && LLPipeline::sRenderBump && te->getBumpmap())
+					{ //non-shiny or fullbright deferred bump
 						registerFace(group, facep, LLRenderPass::PASS_BUMP);
 					}
 					else
-					{
+					{ //all around simple
 						llassert(mask & LLVertexBuffer::MAP_NORMAL);
 						registerFace(group, facep, LLRenderPass::PASS_SIMPLE);
 					}
 				}
 				
+				//not sure why this is here -- shiny HUD attachments maybe?  -- davep 5/11/2010
 				if (!is_alpha && te->getShiny() && LLPipeline::sRenderBump)
 				{
 					registerFace(group, facep, LLRenderPass::PASS_SHINY);
 				}
 			}
 			
+			//not sure why this is here, and looks like it might cause bump mapped objects to get rendered redundantly -- davep 5/11/2010
 			if (!is_alpha && !LLPipeline::sRenderDeferred)
 			{
 				llassert((mask & LLVertexBuffer::MAP_NORMAL) || fullbright);
@@ -3873,7 +3917,7 @@ void LLVolumeGeometryManager::genDrawInfo(LLSpatialGroup* group, U32 mask, std::
 				}
 			}
 
-			if (LLPipeline::sRenderGlow && te->getGlow() > 0.f)
+			if (!is_alpha && LLPipeline::sRenderGlow && te->getGlow() > 0.f)
 			{
 				registerFace(group, facep, LLRenderPass::PASS_GLOW);
 			}
