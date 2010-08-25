@@ -183,6 +183,11 @@ private:
 	 */
 	bool canTakeOffSelected();
 
+	/**
+	 * Returns true if all selected items can be worn.
+	 */
+	bool canWearSelected();
+
 	void onAccordionTabRightClick(LLUICtrl* ctrl, S32 x, S32 y, const LLUUID& cat_id);
 	void onWearableItemsListRightClick(LLUICtrl* ctrl, S32 x, S32 y);
 	void onCOFChanged();
@@ -208,6 +213,10 @@ private:
 	typedef	std::map<LLUUID, LLAccordionCtrlTab*>		outfits_map_t;
 	typedef outfits_map_t::value_type					outfits_map_value_t;
 	outfits_map_t					mOutfitsMap;
+
+	// IDs of original items which are worn and linked in COF.
+	// Used to monitor COF changes for updating items worn state. See EXT-8636.
+	uuid_vec_t						mCOFLinkedItems;
 
 	LLOutfitListGearMenu*			mGearMenu;
 	LLListContextMenu*				mOutfitMenu;

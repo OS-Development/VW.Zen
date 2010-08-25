@@ -427,13 +427,6 @@ U32 LLCurl::Easy::report(CURLcode code)
 		responseReason = strerror(code) + " : " + mErrorBuffer;
 		setopt(CURLOPT_FRESH_CONNECT, TRUE);
 	}
-		
-	if(responseCode >= 300 && responseCode < 400) //redirect
-	{
-		char new_url[512] ;
-		curl_easy_getinfo(mCurlEasyHandle, CURLINFO_REDIRECT_URL, new_url);
-		responseReason = new_url ; //get the new URL.
-	}
 
 	if (mResponder)
 	{	
@@ -531,6 +524,13 @@ void LLCurl::Easy::prepRequest(const std::string& url,
 	
 	setopt(CURLOPT_HEADERFUNCTION, (void*)&curlHeaderCallback);
 	setopt(CURLOPT_HEADERDATA, (void*)this);
+
+	// Allow up to five redirects
+	if(responder && responder->followRedir())
+	{
+		setopt(CURLOPT_FOLLOWLOCATION, 1);
+		setopt(CURLOPT_MAXREDIRS, MAX_REDIRECTS);
+	}
 
 	setErrorBuffer();
 	setCA();
@@ -1181,3 +1181,4 @@ void LLCurl::cleanupClass()
 	}
 }
 
+const unsigned int LLCurl::MAX_REDIRECTS = 5;

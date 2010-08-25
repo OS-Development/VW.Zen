@@ -111,6 +111,12 @@ public:
 		return pInstance;
 	}
 
+	~LLChatHistoryHeader()
+	{
+		// Detach the info button so that it doesn't get destroyed (EXT-8463).
+		hideInfoCtrl();
+	}
+
 	BOOL handleMouseUp(S32 x, S32 y, MASK mask)
 	{
 		return LLPanel::handleMouseUp(x,y,mask);
@@ -382,8 +388,18 @@ protected:
 				
 		if (!sInfoCtrl)
 		{
+			// *TODO: Delete the button at exit.
 			sInfoCtrl = LLUICtrlFactory::createFromFile<LLUICtrl>("inspector_info_ctrl.xml", NULL, LLPanel::child_registry_t::instance());
-			sInfoCtrl->setCommitCallback(boost::bind(&LLChatHistoryHeader::onClickInfoCtrl, sInfoCtrl));
+			if (sInfoCtrl)
+			{
+				sInfoCtrl->setCommitCallback(boost::bind(&LLChatHistoryHeader::onClickInfoCtrl, sInfoCtrl));
+			}
+		}
+
+		if (!sInfoCtrl)
+		{
+			llassert(sInfoCtrl != NULL);
+			return;
 		}
 
 		LLTextBase* name = getChild<LLTextBase>("user_name");
@@ -683,8 +699,9 @@ void LLChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
 			{
 				LLStyle::Params link_params(style_params);
 				link_params.overwriteFrom(LLStyleMap::instance().lookupAgent(chat.mFromID));
-				// Convert the name to a hotlink and add to message.
-				mEditor->appendText(chat.mFromName + delimiter, false, link_params);
+				// Add link to avatar's inspector and delimiter to message.
+				mEditor->appendText(link_params.link_href, false, style_params);
+				mEditor->appendText(delimiter, false, style_params);
 			}
 			else
 			{

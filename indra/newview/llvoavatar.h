@@ -615,8 +615,9 @@ public:
 	// Appearance morphing
 	//--------------------------------------------------------------------
 public:
-	BOOL			mAppearanceAnimating;
+	BOOL			getIsAppearanceAnimating() const { return mAppearanceAnimating; }
 private:
+	BOOL			mAppearanceAnimating;
 	LLFrameTimer	mAppearanceMorphTimer;
 	F32				mLastAppearanceBlendTime;
 
@@ -690,6 +691,7 @@ public:
 	void 				rebuildHUD();
 	void 				resetHUDAttachments();
 	BOOL				canAttachMoreObjects() const;
+	BOOL				canAttachMoreObjects(U32 n) const;
 protected:
 	U32					getNumAttachments() const; // O(N), not O(1)
 
@@ -1052,6 +1054,7 @@ protected: // Shared with LLVOAvatarSelf
  *******************************************************************************/
 
 }; // LLVOAvatar
-extern const F32  SELF_ADDITIONAL_PRI;
+extern const F32 SELF_ADDITIONAL_PRI;
+extern const S32 MAX_TEXTURE_VIRTURE_SIZE_RESET_INTERVAL;
 
 #endif // LL_VO_AVATAR_H

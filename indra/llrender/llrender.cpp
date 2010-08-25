@@ -39,7 +39,6 @@
 #include "llimagegl.h"
 #include "llrendertarget.h"
 #include "lltexture.h"
-#include "llvector4a.h"
 
 LLRender gGL;
 
@@ -54,7 +53,6 @@ U32 LLRender::sUICalls = 0;
 U32 LLRender::sUIVerts = 0;
 
 static const U32 LL_NUM_TEXTURE_LAYERS = 16; 
-static const U32 LL_MAX_UI_STACK_DEPTH = 32;
 
 static GLenum sGLTextureType[] =
 {
@@ -167,7 +165,6 @@ void LLTexUnit::enable(eTextureType type)
 	if ( (mCurrTexType != type || gGL.mDirty) && (type != TT_NONE) )
 	{
 		activate();
-
 		if (mCurrTexType != TT_NONE && !gGL.mDirty)
 		{
 			disable(); // Force a disable of a previous texture type if it's enabled.
@@ -759,27 +756,14 @@ LLRender::LLRender()
     mCount(0),
     mMode(LLRender::TRIANGLES),
     mCurrTextureUnitIndex(0),
-    mMaxAnisotropy(0.f),
-	mUIStackDepth(0)
+    mMaxAnisotropy(0.f) 
 {
 	mBuffer = new LLVertexBuffer(immediate_mask, 0);
 	mBuffer->allocateBuffer(4096, 0, TRUE);
-
-	LLStrider<LLVector3> vert;
-	LLStrider<LLVector2> tc;
-	LLStrider<LLColor4U> color;
-
-	mBuffer->getVertexStrider(vert);
-	mBuffer->getTexCoord0Strider(tc);
-	mBuffer->getColorStrider(color);
-
-	mVerticesp = (LLVector4a*) vert.get();
-	mTexcoordsp = tc.get();
-	mColorsp = color.get();
-
-	mUIOffset = (LLVector4a*) ll_aligned_malloc_16(LL_MAX_UI_STACK_DEPTH*sizeof(LLVector4a));
-	mUIScale = (LLVector4a*) ll_aligned_malloc_16(LL_MAX_UI_STACK_DEPTH*sizeof(LLVector4a));
-		
+	mBuffer->getVertexStrider(mVerticesp);
+	mBuffer->getTexCoord0Strider(mTexcoordsp);
+	mBuffer->getColorStrider(mColorsp);
+	
 	mTexUnits.reserve(LL_NUM_TEXTURE_LAYERS);
 	for (U32 i = 0; i < LL_NUM_TEXTURE_LAYERS; i++)
 	{
@@ -794,7 +778,6 @@ LLRender::LLRender()
 
 	mCurrAlphaFunc = CF_DEFAULT;
 	mCurrAlphaFuncVal = 0.01f;
-
 	mCurrBlendColorSFactor = BF_UNDEF;
 	mCurrBlendAlphaSFactor = BF_UNDEF;
 	mCurrBlendColorDFactor = BF_UNDEF;
@@ -815,11 +798,6 @@ void LLRender::shutdown()
 	mTexUnits.clear();
 	delete mDummyTexUnit;
 	mDummyTexUnit = NULL;
-
-	ll_aligned_free_16(mUIOffset);
-	mUIOffset = NULL;
-	ll_aligned_free_16(mUIScale);
-	mUIScale = NULL;
 }
 
 void LLRender::refreshState(void)
@@ -868,83 +846,84 @@ void LLRender::popMatrix()
 
 void LLRender::translateUI(F32 x, F32 y, F32 z)
 {
-	if (mUIStackDepth == 0)
+	if (mUIOffset.empty())
 	{
 		llerrs << "Need to push a UI translation frame before offsetting" << llendl;
 	}
 
-	LLVector4a trans(x,y,z);
-	mUIOffset[mUIStackDepth-1].add(trans);
+	mUIOffset.back().mV[0] += x;
+	mUIOffset.back().mV[1] += y;
+	mUIOffset.back().mV[2] += z;
 }
 
 void LLRender::scaleUI(F32 x, F32 y, F32 z)
 {
-	if (mUIStackDepth == 0)
+	if (mUIScale.empty())
 	{
 		llerrs << "Need to push a UI transformation frame before scaling." << llendl;
 	}
 
-	LLVector4a scale(x,y,z);
-	mUIScale[mUIStackDepth-1].mul(scale);
+	mUIScale.back().scaleVec(LLVector3(x,y,z));
 }
 
 void LLRender::pushUIMatrix()
 {
-	if (mUIStackDepth == 0)
+	if (mUIOffset.empty())
 	{
-		mUIOffset[0].clear();
-		mUIScale[0].splat(1.f);
-	}
-	else if (mUIStackDepth < LL_MAX_UI_STACK_DEPTH)
-	{
-		mUIOffset[mUIStackDepth] = mUIOffset[mUIStackDepth-1];
-		mUIScale[mUIStackDepth] = mUIScale[mUIStackDepth-1];
+		mUIOffset.push_back(LLVector3(0,0,0));
 	}
 	else
 	{
-		llerrs << "Blown UI matrix stack." << llendl;
+		mUIOffset.push_back(mUIOffset.back());
 	}
 	
-	++mUIStackDepth;
-	
+	if (mUIScale.empty())
+	{
+		mUIScale.push_back(LLVector3(1,1,1));
+	}
+	else
+	{
+		mUIScale.push_back(mUIScale.back());
+	}
 }
 
 void LLRender::popUIMatrix()
 {
-	if (mUIStackDepth == 0)
+	if (mUIOffset.empty())
 	{
 		llerrs << "UI offset stack blown." << llendl;
 	}
-	--mUIStackDepth;
+	mUIOffset.pop_back();
+	mUIScale.pop_back();
 }
 
 LLVector3 LLRender::getUITranslation()
 {
-	if (mUIStackDepth == 0)
+	if (mUIOffset.empty())
 	{
 		llerrs << "UI offset stack empty." << llendl;
 	}
-	return LLVector3(mUIOffset[mUIStackDepth-1].getF32ptr());
+	return mUIOffset.back();
 }
 
 LLVector3 LLRender::getUIScale()
 {
-	if (mUIStackDepth == 0)
+	if (mUIScale.empty())
 	{
 		llerrs << "UI scale stack empty." << llendl;
 	}
-	return LLVector3(mUIScale[mUIStackDepth-1].getF32ptr());
+	return mUIScale.back();
 }
 
 
 void LLRender::loadUIIdentity()
 {
-	if (mUIStackDepth == 0)
+	if (mUIOffset.empty())
 	{
 		llerrs << "Need to push UI translation frame before clearing offset." << llendl;
 	}
-	mUIOffset[mUIStackDepth-1].clear();
-	mUIScale[mUIStackDepth-1].splat(1.f);
+	mUIOffset.back().setVec(0,0,0);
+	mUIScale.back().setVec(1,1,1);
 }
 
 void LLRender::setColorMask(bool writeColor, bool writeAlpha)
@@ -1173,7 +1152,7 @@ void LLRender::flush()
 		}
 #endif
 				
-		if (mUIStackDepth > 0)
+		if (!mUIOffset.empty())
 		{
 			sUICalls++;
 			sUIVerts += mCount;
@@ -1225,20 +1204,83 @@ void LLRender::vertex3f(const GLfloat& x, const GLfloat& y, const GLfloat& z)
 		return;
 	}
 
-	LLVector3& v = reinterpret_cast<LLVector3&>(mVerticesp[mCount]);
-	v.set(x,y,z);
-	if (mUIStackDepth != 0)
+	if (mUIOffset.empty())
 	{
-		v += reinterpret_cast<LLVector3&>(mUIOffset[mUIStackDepth-1]);
-		v.scaleVec(reinterpret_cast<LLVector3&>(mUIScale[mUIStackDepth-1]));
+		mVerticesp[mCount] = LLVector3(x,y,z);
+	}
+	else
+	{
+		LLVector3 vert = (LLVector3(x,y,z)+mUIOffset.back()).scaledVec(mUIScale.back());
+		mVerticesp[mCount] = vert;
 	}
 
 	mCount++;
-	if (mCount < 4096)
+	mVerticesp[mCount] = mVerticesp[mCount-1];
+	mColorsp[mCount] = mColorsp[mCount-1];
+	mTexcoordsp[mCount] = mTexcoordsp[mCount-1];
+}
+
+void LLRender::vertexBatchPreTransformed(LLVector3* verts, S32 vert_count)
+{
+	if (mCount + vert_count > 4094)
 	{
-		mColorsp[mCount] = mColorsp[mCount-1];
-		mTexcoordsp[mCount] = mTexcoordsp[mCount-1];
+		//	llwarns << "GL immediate mode overflow.  Some geometry not drawn." << llendl;
+		return;
 	}
+
+	for (S32 i = 0; i < vert_count; i++)
+	{
+		mVerticesp[mCount] = verts[i];
+
+		mCount++;
+		mTexcoordsp[mCount] = mTexcoordsp[mCount-1];
+		mColorsp[mCount] = mColorsp[mCount-1];
+	}
+
+	mVerticesp[mCount] = mVerticesp[mCount-1];
+}
+
+void LLRender::vertexBatchPreTransformed(LLVector3* verts, LLVector2* uvs, S32 vert_count)
+{
+	if (mCount + vert_count > 4094)
+	{
+		//	llwarns << "GL immediate mode overflow.  Some geometry not drawn." << llendl;
+		return;
+	}
+
+	for (S32 i = 0; i < vert_count; i++)
+	{
+		mVerticesp[mCount] = verts[i];
+		mTexcoordsp[mCount] = uvs[i];
+
+		mCount++;
+		mColorsp[mCount] = mColorsp[mCount-1];
+	}
+
+	mVerticesp[mCount] = mVerticesp[mCount-1];
+	mTexcoordsp[mCount] = mTexcoordsp[mCount-1];
+}
+
+void LLRender::vertexBatchPreTransformed(LLVector3* verts, LLVector2* uvs, LLColor4U* colors, S32 vert_count)
+{
+	if (mCount + vert_count > 4094)
+	{
+		//	llwarns << "GL immediate mode overflow.  Some geometry not drawn." << llendl;
+		return;
+	}
+
+	for (S32 i = 0; i < vert_count; i++)
+	{
+		mVerticesp[mCount] = verts[i];
+		mTexcoordsp[mCount] = uvs[i];
+		mColorsp[mCount] = colors[i];
+
+		mCount++;
+	}
+
+	mVerticesp[mCount] = mVerticesp[mCount-1];
+	mTexcoordsp[mCount] = mTexcoordsp[mCount-1];
+	mColorsp[mCount] = mColorsp[mCount-1];
 }
 
 void LLRender::vertex2i(const GLint& x, const GLint& y)

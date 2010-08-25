@@ -73,7 +73,7 @@ S32 LLVOTree::sLODVertexCount[sMAX_NUM_TREE_LOD_LEVELS];
 S32 LLVOTree::sLODIndexOffset[sMAX_NUM_TREE_LOD_LEVELS];
 S32 LLVOTree::sLODIndexCount[sMAX_NUM_TREE_LOD_LEVELS];
 S32 LLVOTree::sLODSlices[sMAX_NUM_TREE_LOD_LEVELS] = {10, 5, 4, 3};
-F32 LLVOTree::sLODAngles[sMAX_NUM_TREE_LOD_LEVELS] = {30.f, 20.f, 15.f, 0.00001f};
+F32 LLVOTree::sLODAngles[sMAX_NUM_TREE_LOD_LEVELS] = {30.f, 20.f, 15.f, F_ALMOST_ZERO};
 
 F32 LLVOTree::sTreeFactor = 1.f;
 
@@ -99,6 +99,12 @@ LLVOTree::~LLVOTree()
 		delete[] mData;
 		mData = NULL;
 	}
+}
+
+//static
+bool LLVOTree::isTreeRenderingStopped()
+{
+	return LLVOTree::sTreeFactor < LLVOTree::sLODAngles[sMAX_NUM_TREE_LOD_LEVELS - 1] ;
 }
 
 // static
@@ -442,22 +448,35 @@ void LLVOTree::render(LLAgent &agent)
 
 void LLVOTree::setPixelAreaAndAngle(LLAgent &agent)
 {
-	// First calculate values as for any other object (for mAppAngle)
-	LLViewerObject::setPixelAreaAndAngle(agent);
-
-	// Re-calculate mPixelArea accurately
+	LLVector3 center = getPositionAgent();//center of tree.
+	LLVector3 viewer_pos_agent = gAgentCamera.getCameraPositionAgent();
+	LLVector3 lookAt = center - viewer_pos_agent;
+	F32 dist = lookAt.normVec() ;	
+	F32 cos_angle_to_view_dir = lookAt * LLViewerCamera::getInstance()->getXAxis() ;	
 	
-	// This should be the camera's center, as soon as we move to all region-local.
-	LLVector3 relative_position = getPositionAgent() - gAgentCamera.getCameraPositionAgent();
-	F32 range_squared = relative_position.lengthSquared() ;				
+	F32 range = dist - getMinScale()/2;
+	if (range < F_ALMOST_ZERO || isHUDAttachment())		// range == zero
+	{
+		mAppAngle = 180.f;
+	}
+	else
+	{
+		mAppAngle = (F32) atan2( getMaxScale(), range) * RAD_TO_DEG;		
+	}
 
 	F32 max_scale = mBillboardScale * getMaxScale();
 	F32 area = max_scale * (max_scale*mBillboardRatio);
-
 	// Compute pixels per meter at the given range
-	F32 pixels_per_meter = LLViewerCamera::getInstance()->getViewHeightInPixels() / tan(LLViewerCamera::getInstance()->getView());
+	F32 pixels_per_meter = LLViewerCamera::getInstance()->getViewHeightInPixels() / (tan(LLViewerCamera::getInstance()->getView()) * dist);
+	mPixelArea = pixels_per_meter * pixels_per_meter * area ;	
 
-	mPixelArea = (pixels_per_meter) * (pixels_per_meter) * area / range_squared;
+	F32 importance = LLFace::calcImportanceToCamera(cos_angle_to_view_dir, dist) ;
+	mPixelArea = LLFace::adjustPixelArea(importance, mPixelArea) ;
+	if (mPixelArea > LLViewerCamera::getInstance()->getScreenPixelArea())
+	{
+		mAppAngle = 180.f;
+	}
+
 #if 0
 	// mAppAngle is a bit of voodoo;
 	// use the one calculated LLViewerObject::setPixelAreaAndAngle above

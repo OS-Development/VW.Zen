@@ -5352,6 +5352,33 @@ void LLViewerObject::resetChildrenPosition(const LLVector3& offset, BOOL simplif
 	return ;
 }
 
+const LLUUID &LLViewerObject::getAttachmentItemID() const
+{
+	return mAttachmentItemID;
+}
+
+void LLViewerObject::setAttachmentItemID(const LLUUID &id)
+{
+	mAttachmentItemID = id;
+}
+
+const LLUUID &LLViewerObject::extractAttachmentItemID()
+{
+	LLUUID item_id = LLUUID::null;
+	LLNameValue* item_id_nv = getNVPair("AttachItemID");
+	if( item_id_nv )
+	{
+		const char* s = item_id_nv->getString();
+		if( s )
+		{
+			item_id.set(s);
+		}
+	}
+	setAttachmentItemID(item_id);
+	return getAttachmentItemID();
+}
+
+
 //virtual
 LLVOAvatar* LLViewerObject::getAvatar() const
 {
@@ -5423,4 +5450,3 @@ public:
 
 LLHTTPRegistration<ObjectPhysicsProperties>
 	gHTTPRegistrationObjectPhysicsProperties("/message/ObjectPhysicsProperties");
-

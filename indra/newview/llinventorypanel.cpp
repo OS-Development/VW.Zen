@@ -175,6 +175,9 @@ void LLInventoryPanel::initFromParams(const LLInventoryPanel::Params& params)
 		setSortOrder(gSavedSettings.getU32(DEFAULT_SORT_ORDER));
 	}
 	mFolderRoot->setSortOrder(getFilter()->getSortOrder());
+
+	// Initialize base class params.
+	LLPanel::initFromParams(params);
 }
 
 LLInventoryPanel::~LLInventoryPanel()
@@ -706,21 +709,6 @@ BOOL LLInventoryPanel::handleDragAndDrop(S32 x, S32 y, MASK mask, BOOL drop,
 	return handled;
 }
 
-// virtual
-void LLInventoryPanel::onMouseEnter(S32 x, S32 y, MASK mask)
-{
-	LLPanel::onMouseEnter(x, y, mask);
-	// don't auto-scroll a list when cursor is over Inventory. See EXT-3981.
-	mFolderRoot->setEnableScroll(false);
-}
-
-// virtual
-void LLInventoryPanel::onMouseLeave(S32 x, S32 y, MASK mask)
-{
-	LLPanel::onMouseLeave(x, y, mask);
-	mFolderRoot->setEnableScroll(true);
-}
-
 void LLInventoryPanel::onFocusLost()
 {
 	// inventory no longer handles cut/copy/paste/delete
@@ -790,7 +778,7 @@ void LLInventoryPanel::doToSelected(const LLSD& userdata)
 
 void LLInventoryPanel::doCreate(const LLSD& userdata)
 {
-	menu_create_inventory_item(mFolderRoot, LLFolderBridge::sSelf, userdata);
+	menu_create_inventory_item(mFolderRoot, LLFolderBridge::sSelf.get(), userdata);
 }
 
 bool LLInventoryPanel::beginIMSession()

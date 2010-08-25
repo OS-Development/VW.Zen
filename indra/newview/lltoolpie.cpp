@@ -1270,7 +1270,6 @@ bool LLToolPie::handleMediaClick(const LLPickInfo& pick)
 
 	if (!parcel ||
 		objectp.isNull() ||
-		objectp->isHUDAttachment() ||
 		pick.mObjectFace < 0 || 
 		pick.mObjectFace >= objectp->getNumTEs()) 
 	{
@@ -1561,7 +1560,7 @@ BOOL LLToolPie::pickRightMouseDownCallback()
 				mute_msg = LLTrans::getString("MuteObject2");
 			}
 			
-			gMenuHolder->childSetText("Object Mute", mute_msg);
+			gMenuHolder->getChild<LLUICtrl>("Object Mute")->setValue(mute_msg);
 			gMenuObject->show(x, y);
 
 			showVisualContextMenuEffect();

@@ -45,7 +45,6 @@
 #include "v4coloru.h"
 #include "llstrider.h"
 #include "llpointer.h"
-#include "llmemory.h"
 #include "llglheaders.h"
 
 class LLVertexBuffer;
@@ -53,7 +52,6 @@ class LLCubeMap;
 class LLImageGL;
 class LLRenderTarget;
 class LLTexture ;
-class LLVector4a;
 
 class LLTexUnit
 {
@@ -319,6 +317,10 @@ public:
 	void color3fv(const GLfloat* c);
 	void color4ubv(const GLubyte* c);
 
+	void vertexBatchPreTransformed(LLVector3* verts, S32 vert_count);
+	void vertexBatchPreTransformed(LLVector3* verts, LLVector2* uvs, S32 vert_count);
+	void vertexBatchPreTransformed(LLVector3* verts, LLVector2* uvs, LLColor4U*, S32 vert_count);
+
 	void setColorMask(bool writeColor, bool writeAlpha);
 	void setColorMask(bool writeColorR, bool writeColorG, bool writeColorB, bool writeAlpha);
 	void setSceneBlendType(eBlendType type);
@@ -362,10 +364,9 @@ private:
 	F32				mCurrAlphaFuncVal;
 
 	LLPointer<LLVertexBuffer>	mBuffer;
-	LLVector4a*					mVerticesp;
-	LLVector2*					mTexcoordsp;
-	LLColor4U*					mColorsp;
-
+	LLStrider<LLVector3>		mVerticesp;
+	LLStrider<LLVector2>		mTexcoordsp;
+	LLStrider<LLColor4U>		mColorsp;
 	std::vector<LLTexUnit*>		mTexUnits;
 	LLTexUnit*			mDummyTexUnit;
 
@@ -373,12 +374,12 @@ private:
 	eBlendFactor mCurrBlendColorDFactor;
 	eBlendFactor mCurrBlendAlphaSFactor;
 	eBlendFactor mCurrBlendAlphaDFactor;
+
 	F32				mMaxAnisotropy;
 
-	LLVector4a* mUIOffset;
-	LLVector4a* mUIScale;
+	std::vector<LLVector3> mUIOffset;
+	std::vector<LLVector3> mUIScale;
 
-	U32 mUIStackDepth;
 };
 
 extern F64 gGLModelView[16];

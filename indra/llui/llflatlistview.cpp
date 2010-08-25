@@ -610,8 +610,14 @@ void LLFlatListView::onItemMouseClick(item_pair_t* item_pair, MASK mask)
 		return;
 	}
 
-	if (!(mask & MASK_CONTROL) || !mMultipleSelection) resetSelection();
+	//no need to do additional commit on selection reset
+	if (!(mask & MASK_CONTROL) || !mMultipleSelection) resetSelection(true);
+
+	//only CTRL usage allows to deselect an item, usual clicking on an item cannot deselect it
+	if (mask & MASK_CONTROL)
 	selectItemPair(item_pair, select_item);
+	else
+		selectItemPair(item_pair, true);
 }
 
 void LLFlatListView::onItemRightMouseClick(item_pair_t* item_pair, MASK mask)
@@ -660,6 +666,14 @@ BOOL LLFlatListView::handleKeyHere(KEY key, MASK mask)
 				// If case we are in accordion tab notify parent to go to the next accordion
 				if( notifyParent(LLSD().with("action","select_next")) > 0 ) //message was processed
 					resetSelection();
+			}
+			break;
+		}
+		case KEY_ESCAPE:
+		{
+			if (mask == MASK_NONE)
+			{
+				setFocus(FALSE); // pass focus to the game area (EXT-8357)
 			}
 			break;
 		}
@@ -776,6 +790,18 @@ bool LLFlatListView::selectItemPair(item_pair_t* item_pair, bool select)
 	mIsConsecutiveSelection = false;
 
 	return true;
+}
+
+void LLFlatListView::scrollToShowFirstSelectedItem()
+{
+	if (!mSelectedItemPairs.size())	return;
+
+	LLRect selected_rc = mSelectedItemPairs.front()->first->getRect();
+
+	if (selected_rc.isValid())
+	{
+		scrollToShowRect(selected_rc);
+	}
 }
 
 LLRect LLFlatListView::getLastSelectedItemRect()
@@ -1060,26 +1086,7 @@ void LLFlatListView::setNoItemsCommentVisible(bool visible) const
 {
 	if (mNoItemsCommentTextbox)
 	{
-		if (visible)
-		{
-/*
-// *NOTE: MA 2010-02-04
-// Deprecated after params of the comment text box were moved into widget (flat_list_view.xml)
-// can be removed later if nothing happened.
-			// We have to update child rect here because of issues with rect after reshaping while creating LLTextbox
-			// It is possible to have invalid LLRect if Flat List is in LLAccordionTab
-			LLRect comment_rect = getLocalRect();
-
-			// To see comment correctly (EXT - 3244) in mNoItemsCommentTextbox we must get border width
-			// of LLFlatListView (@see getBorderWidth()) and stretch mNoItemsCommentTextbox to this width
-			// But getBorderWidth() returns 0 if LLFlatListView not visible. So we have to get border width
-			// from 'scroll_border'
-			LLViewBorder* scroll_border = getChild<LLViewBorder>("scroll border");
-			comment_rect.stretch(-scroll_border->getBorderWidth());
-			mNoItemsCommentTextbox->setRect(comment_rect);
-*/
-		}
-		mSelectedItemsBorder->setVisible(FALSE);
+		mSelectedItemsBorder->setVisible(!visible);
 		mNoItemsCommentTextbox->setVisible(visible);
 	}
 }

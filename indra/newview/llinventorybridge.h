@@ -232,8 +232,8 @@ public:
 				   const LLUUID& uuid) :
 		LLInvFVBridge(inventory, root, uuid),
 		mCallingCards(FALSE),
-		mWearables(FALSE),
-		mMenu(NULL) {}
+		mWearables(FALSE)
+	{}
 	BOOL dragItemIntoFolder(LLInventoryItem* inv_item, BOOL drop);
 	BOOL dragCategoryIntoFolder(LLInventoryCategory* inv_category, BOOL drop);
 
@@ -274,6 +274,7 @@ public:
 	static void createWearable(LLFolderBridge* bridge, LLWearableType::EType type);
 
 	LLViewerInventoryCategory* getCategory() const;
+	LLHandle<LLFolderBridge> getHandle() { mHandle.bind(this); return mHandle; }
 
 protected:
 	//--------------------------------------------------------------------
@@ -307,16 +308,17 @@ protected:
 	// Messy hacks for handling folder options
 	//--------------------------------------------------------------------
 public:
-	static LLFolderBridge* sSelf;
+	static LLHandle<LLFolderBridge> sSelf;
 	static void staticFolderOptionsMenu();
 	void folderOptionsMenu();
 
 private:
-	BOOL			mCallingCards;
-	BOOL			mWearables;
-	LLMenuGL*		mMenu;
-	menuentry_vec_t mItems;
-	menuentry_vec_t mDisabledItems;
+	BOOL				mCallingCards;
+	BOOL				mWearables;
+	LLHandle<LLView>	mMenu;
+	menuentry_vec_t		mItems;
+	menuentry_vec_t		mDisabledItems;
+	LLRootHandle<LLFolderBridge> mHandle;
 };
 
 class LLTextureBridge : public LLItemBridge
@@ -625,7 +627,8 @@ public:
 };
 
 void rez_attachment(LLViewerInventoryItem* item, 
-					LLViewerJointAttachment* attachment);
+					LLViewerJointAttachment* attachment,
+					bool replace = false);
 
 // Move items from an in-world object's "Contents" folder to a specified
 // folder in agent inventory.

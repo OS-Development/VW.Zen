@@ -633,14 +633,14 @@ namespace snprintf_hack
 	}
 }
 
-std::string ll_convert_wide_to_string(const wchar_t* in)
+std::string ll_convert_wide_to_string(const wchar_t* in, unsigned int code_page)
 {
 	std::string out;
 	if(in)
 	{
 		int len_in = wcslen(in);
 		int len_out = WideCharToMultiByte(
-			CP_ACP,
+			code_page,
 			0,
 			in,
 			len_in,
@@ -655,7 +655,7 @@ std::string ll_convert_wide_to_string(const wchar_t* in)
 		if(pout)
 		{
 			WideCharToMultiByte(
-				CP_ACP,
+				code_page,
 				0,
 				in,
 				len_in,
@@ -668,6 +668,38 @@ std::string ll_convert_wide_to_string(const wchar_t* in)
 		}
 	}
 	return out;
+}
+
+wchar_t* ll_convert_string_to_wide(const std::string& in, unsigned int code_page)
+{
+	// From review:
+	// We can preallocate a wide char buffer that is the same length (in wchar_t elements) as the utf8 input,
+	// plus one for a null terminator, and be guaranteed to not overflow.
+
+	//	Normally, I'd call that sort of thing premature optimization,
+	// but we *are* seeing string operations taking a bunch of time, especially when constructing widgets.
+//	int output_str_len = MultiByteToWideChar(code_page, 0, in.c_str(), in.length(), NULL, 0);
+
+	// reserve place to NULL terminator
+	int output_str_len = in.length();
+	wchar_t* w_out = new wchar_t[output_str_len + 1];
+
+	memset(w_out, 0, output_str_len + 1);
+	int real_output_str_len = MultiByteToWideChar (code_page, 0, in.c_str(), in.length(), w_out, output_str_len);
+
+	//looks like MultiByteToWideChar didn't add null terminator to converted string, see EXT-4858.
+	w_out[real_output_str_len] = 0;
+
+	return w_out;
+}
+
+std::string ll_convert_string_to_utf8_string(const std::string& in)
+{
+	wchar_t* w_mesg = ll_convert_string_to_wide(in, CP_ACP);
+	std::string out_utf8(ll_convert_wide_to_string(w_mesg, CP_UTF8));
+	delete[] w_mesg;
+
+	return out_utf8;
 }
 #endif // LL_WINDOWS
 
@@ -726,6 +758,7 @@ void LLStringOps::setupDatetimeInfo (bool daylight)
 	datetimeToCodes["month"]	= "%B";		// August
 	datetimeToCodes["mthnum"]	= "%m";		// 08
 	datetimeToCodes["day"]		= "%d";		// 31
+	datetimeToCodes["sday"]		= "%-d";	// 9
 	datetimeToCodes["hour24"]	= "%H";		// 14
 	datetimeToCodes["hour"]		= "%H";		// 14
 	datetimeToCodes["hour12"]	= "%I";		// 02
@@ -1094,6 +1127,11 @@ bool LLStringUtil::formatDatetime(std::string& replacement, std::string token,
 		args["[MDAY]"] = llformat ("%d", gmt->tm_mday);
 		replacement = LLStringOps::sDayFormat;
 		LLStringUtil::format(replacement, args);
+	}
+	else if (code == "%-d")
+	{
+		struct tm * gmt = gmtime (&loc_seconds);
+		replacement = llformat ("%d", gmt->tm_mday); // day of the month without leading zero
 	}
 	else if( !LLStringOps::sAM.empty() && !LLStringOps::sPM.empty() && code == "%p" )
 	{

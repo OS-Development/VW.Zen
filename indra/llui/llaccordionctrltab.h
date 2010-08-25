@@ -220,6 +220,7 @@ protected:
 	LLView* findContainerView	();
 
 	void selectOnFocusReceived();
+	void deselectOnFocusLost();
 
 private:
 
@@ -240,6 +241,8 @@ private:
 
 	bool mStoredOpenCloseState;
 	bool mWasStateStored;
+
+	bool mSelectionEnabled;
 
 	LLScrollbar*	mScrollbar;
 	LLView*			mContainerPanel;

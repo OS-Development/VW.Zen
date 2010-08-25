@@ -384,10 +384,13 @@ void LLAgentWearables::sendAgentWearablesUpdate()
 	gAgent.sendReliableMessage();
 }
 
-void LLAgentWearables::saveWearable(const LLWearableType::EType type, const U32 index, BOOL send_update)
+void LLAgentWearables::saveWearable(const LLWearableType::EType type, const U32 index, BOOL send_update,
+									const std::string new_name)
 {
 	LLWearable* old_wearable = getWearable(type, index);
-	if (old_wearable && (old_wearable->isDirty() || old_wearable->isOldVersion()))
+	if(!old_wearable) return;
+	bool name_changed = !new_name.empty() && (new_name != old_wearable->getName());
+	if (name_changed || old_wearable->isDirty() || old_wearable->isOldVersion())
 	{
 		LLUUID old_item_id = old_wearable->getItemID();
 		LLWearable* new_wearable = LLWearableList::instance().createCopy(old_wearable);
@@ -402,6 +405,12 @@ void LLAgentWearables::saveWearable(const LLWearableType::EType type, const U32 
 		LLInventoryItem* item = gInventory.getItem(old_item_id);
 		if (item)
 		{
+			std::string item_name = item->getName();
+			if (name_changed)
+			{
+				llinfos << "saveWearable changing name from "  << item->getName() << " to " << new_name << llendl;
+				item_name = new_name;
+			}
 			// Update existing inventory item
 			LLPointer<LLViewerInventoryItem> template_item =
 				new LLViewerInventoryItem(item->getUUID(),
@@ -410,7 +419,7 @@ void LLAgentWearables::saveWearable(const LLWearableType::EType type, const U32 
 										  new_wearable->getAssetID(),
 										  new_wearable->getAssetType(),
 										  item->getInventoryType(),
-										  item->getName(),
+										  item_name,
 										  item->getDescription(),
 										  item->getSaleInfo(),
 										  item->getFlags(),
@@ -418,6 +427,10 @@ void LLAgentWearables::saveWearable(const LLWearableType::EType type, const U32 
 			template_item->setTransactionID(new_wearable->getTransactionID());
 			template_item->updateServer(FALSE);
 			gInventory.updateItem(template_item);
+			if (name_changed)
+			{
+				gInventory.notifyObservers();
+			}
 		}
 		else
 		{
@@ -1743,7 +1756,7 @@ void LLAgentWearables::userUpdateAttachments(LLInventoryModel::item_array_t& obj
 			LLViewerObject *objectp = (*attachment_iter);
 			if (objectp)
 			{
-				LLUUID object_item_id = objectp->getItemID();
+				LLUUID object_item_id = objectp->getAttachmentItemID();
 				if (requested_item_ids.find(object_item_id) != requested_item_ids.end())
 				{
 					// Object currently worn, was requested.
@@ -1872,10 +1885,7 @@ void LLAgentWearables::userAttachMultipleAttachments(LLInventoryModel::item_arra
 		msg->nextBlockFast(_PREHASH_ObjectData );
 		msg->addUUIDFast(_PREHASH_ItemID, item->getLinkedUUID());
 		msg->addUUIDFast(_PREHASH_OwnerID, item->getPermissions().getOwner());
-		if (gSavedSettings.getBOOL("MultipleAttachments"))
-			msg->addU8Fast(_PREHASH_AttachmentPt, 0 | ATTACHMENT_ADD );
-		else
-			msg->addU8Fast(_PREHASH_AttachmentPt, 0 );	// Wear at the previous or default attachment point
+		msg->addU8Fast(_PREHASH_AttachmentPt, 0 );	// Wear at the previous or default attachment point
 		pack_permissions_slam(msg, item->getFlags(), item->getPermissions());
 		msg->addStringFast(_PREHASH_Name, item->getName());
 		msg->addStringFast(_PREHASH_Description, item->getDescription());

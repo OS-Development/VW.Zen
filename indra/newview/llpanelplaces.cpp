@@ -54,6 +54,7 @@
 #include "llagent.h"
 #include "llagentpicksinfo.h"
 #include "llavatarpropertiesprocessor.h"
+#include "llcommandhandler.h"
 #include "llfloaterworldmap.h"
 #include "llinventorybridge.h"
 #include "llinventoryobserver.h"
@@ -66,6 +67,7 @@
 #include "llpanelplaceprofile.h"
 #include "llpanelteleporthistory.h"
 #include "llremoteparcelrequest.h"
+#include "llsidetray.h"
 #include "llteleporthistorystorage.h"
 #include "lltoggleablemenu.h"
 #include "llviewerinventory.h"
@@ -75,6 +77,7 @@
 #include "llviewerregion.h"
 #include "llviewerwindow.h"
 
+// Constants
 static const S32 LANDMARK_FOLDERS_MENU_WIDTH = 250;
 static const F32 PLACE_INFO_UPDATE_INTERVAL = 3.0;
 static const std::string AGENT_INFO_TYPE			= "agent";
@@ -82,6 +85,40 @@ static const std::string CREATE_LANDMARK_INFO_TYPE	= "create_landmark";
 static const std::string LANDMARK_INFO_TYPE			= "landmark";
 static const std::string REMOTE_PLACE_INFO_TYPE		= "remote_place";
 static const std::string TELEPORT_HISTORY_INFO_TYPE	= "teleport_history";
+
+// Support for secondlife:///app/parcel/{UUID}/about SLapps
+class LLParcelHandler : public LLCommandHandler
+{
+public:
+	// requires trusted browser to trigger
+	LLParcelHandler() : LLCommandHandler("parcel", UNTRUSTED_THROTTLE) { }
+	bool handle(const LLSD& params, const LLSD& query_map,
+				LLMediaCtrl* web)
+	{
+		if (params.size() < 2)
+		{
+			return false;
+		}
+		LLUUID parcel_id;
+		if (!parcel_id.set(params[0], FALSE))
+		{
+			return false;
+		}
+		if (params[1].asString() == "about")
+		{
+			if (parcel_id.notNull())
+			{
+				LLSD key;
+				key["type"] = "remote_place";
+				key["id"] = parcel_id;
+				LLSideTray::getInstance()->showPanel("panel_places", key);
+				return true;
+			}
+		}
+		return false;
+	}
+};
+LLParcelHandler gParcelHandler;
 
 // Helper functions
 static bool is_agent_in_selected_parcel(LLParcel* parcel);
@@ -718,8 +755,8 @@ void LLPanelPlaces::onOverflowButtonClicked()
 	bool is_agent_place_info_visible = mPlaceInfoType == AGENT_INFO_TYPE;
 
 	if ((is_agent_place_info_visible ||
-		 mPlaceInfoType == "remote_place" ||
-		 mPlaceInfoType == "teleport_history") && mPlaceMenu != NULL)
+		 mPlaceInfoType == REMOTE_PLACE_INFO_TYPE ||
+		 mPlaceInfoType == TELEPORT_HISTORY_INFO_TYPE) && mPlaceMenu != NULL)
 	{
 		menu = mPlaceMenu;
 
@@ -1089,6 +1126,8 @@ void LLPanelPlaces::updateVerbs()
 
 	if (is_place_info_visible)
 	{
+		mShowOnMapBtn->setEnabled(have_3d_pos);
+
 		if (is_agent_place_info_visible)
 		{
 			// We don't need to teleport to the current location

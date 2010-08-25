@@ -482,11 +482,11 @@ BOOL LLPreviewGesture::postBuild()
 
 	if (item) 
 	{
-		childSetText("desc", item->getDescription());
-		childSetPrevalidate("desc", &LLTextValidate::validateASCIIPrintableNoPipe);
+		getChild<LLUICtrl>("desc")->setValue(item->getDescription());
+		getChild<LLLineEditor>("desc")->setPrevalidate(&LLTextValidate::validateASCIIPrintableNoPipe);
 		
-		childSetText("name", item->getName());
-		childSetPrevalidate("name", &LLTextValidate::validateASCIIPrintableNoPipe);
+		getChild<LLUICtrl>("name")->setValue(item->getName());
+		getChild<LLLineEditor>("name")->setPrevalidate(&LLTextValidate::validateASCIIPrintableNoPipe);
 	}
 
 	return LLPreview::postBuild();
@@ -628,7 +628,7 @@ void LLPreviewGesture::refresh()
 	if (mPreviewGesture || !is_complete)
 	{
 		
-		childSetEnabled("desc", FALSE);
+		getChildView("desc")->setEnabled(FALSE);
 		//mDescEditor->setEnabled(FALSE);
 		mTriggerEditor->setEnabled(FALSE);
 		mReplaceText->setEnabled(FALSE);
@@ -659,7 +659,7 @@ void LLPreviewGesture::refresh()
 
 	BOOL modifiable = item->getPermissions().allowModifyBy(gAgent.getID());
 
-	childSetEnabled("desc", modifiable);
+	getChildView("desc")->setEnabled(modifiable);
 	mTriggerEditor->setEnabled(TRUE);
 	mLibraryList->setEnabled(modifiable);
 	mStepList->setEnabled(modifiable);
@@ -1625,7 +1625,17 @@ std::string LLPreviewGesture::getLabel(std::vector<std::string> labels)
 		result=LLTrans::getString("AnimFlagStart");
 	}
 
-	result.append(v_labels[1]);
+	// lets localize action value
+	std::string action = v_labels[1];
+	if ("None" == action)
+	{
+		action = LLTrans::getString("GestureActionNone");
+	}
+	else if ("until animations are done" == action)
+	{
+		action = LLFloaterReg::getInstance("preview_gesture")->getChild<LLCheckBoxCtrl>("wait_anim_check")->getLabel();
+	}
+	result.append(action);
 	return result;
 	
 }

@@ -2547,17 +2547,6 @@ void LLViewerWindow::updateUI()
 	// only update mouse hover set when UI is visible (since we shouldn't send hover events to invisible UI
 	if (gPipeline.hasRenderDebugFeatureMask(LLPipeline::RENDER_DEBUG_FEATURE_UI))
 	{
-		// include all ancestors of captor_view as automatically having mouse
-		if (captor_view)
-		{
-			LLView* captor_parent_view = captor_view->getParent();
-			while(captor_parent_view)
-			{
-				mouse_hover_set.insert(captor_parent_view->getHandle());
-				captor_parent_view = captor_parent_view->getParent();
-			}
-		}
-
 		// aggregate visible views that contain mouse cursor in display order
 		LLPopupView::popup_list_t popups = mPopupView->getCurrentPopups();
 
@@ -4466,7 +4455,7 @@ void LLViewerWindow::restoreGL(const std::string& progress_message)
 		
 		gResizeScreenTexture = TRUE;
 
-		if (gAgentCamera.cameraCustomizeAvatar())
+		if (isAgentAvatarValid() && !gAgentAvatarp->isUsingBakedTextures())
 		{
 			LLVisualParamHint::requestHintUpdates();
 		}

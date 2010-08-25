@@ -275,11 +275,10 @@ protected:
 		}
 		else if ("wear_replace" == param)
 		{
-			return !gAgentWearables.isCOFChangeInProgress();
+			return LLAppearanceMgr::instance().getCanReplaceCOF(outfit_cat_id);
 		}
 		else if ("wear_add" == param)
 		{
-			if (gAgentWearables.isCOFChangeInProgress()) return false;
 			return LLAppearanceMgr::getCanAddToCOF(outfit_cat_id);
 		}
 		else if ("take_off" == param)
@@ -404,6 +403,12 @@ void LLOutfitsList::onOpen(const LLSD& /*info*/)
 
 		mIsInitialized = true;
 	}
+
+	LLAccordionCtrlTab* selected_tab = mAccordion->getSelectedTab();
+	if (!selected_tab) return;
+
+	// Pass focus to the selected outfit tab.
+	selected_tab->showAndFocusHeader();
 }
 
 void LLOutfitsList::refreshList(const LLUUID& category_id)
@@ -665,7 +670,18 @@ bool LLOutfitsList::isActionEnabled(const LLSD& userdata)
 	}
 	if (command_name == "wear")
 	{
-		return !gAgentWearables.isCOFChangeInProgress();
+		if (gAgentWearables.isCOFChangeInProgress())
+		{
+			return false;
+		}
+
+		if (hasItemSelected())
+		{
+			return canWearSelected();
+		}
+
+		// outfit selected
+		return LLAppearanceMgr::instance().getCanReplaceCOF(mSelectedOutfitUUID);
 	}
 	if (command_name == "take_off")
 	{
@@ -677,11 +693,7 @@ bool LLOutfitsList::isActionEnabled(const LLSD& userdata)
 
 	if (command_name == "wear_add")
 	{
-		if (gAgentWearables.isCOFChangeInProgress())
-		{
-			return false;
-		}
-
+		// *TODO: do we ever get here?
 		return LLAppearanceMgr::getCanAddToCOF(mSelectedOutfitUUID);
 	}
 
@@ -984,6 +996,26 @@ bool LLOutfitsList::canTakeOffSelected()
 	return false;
 }
 
+bool LLOutfitsList::canWearSelected()
+{
+	uuid_vec_t selected_items;
+	getSelectedItemsUUIDs(selected_items);
+
+	for (uuid_vec_t::const_iterator it = selected_items.begin(); it != selected_items.end(); ++it)
+	{
+		const LLUUID& id = *it;
+
+		// Check whether the item is worn.
+		if (!get_can_item_be_worn(id))
+		{
+			return false;
+		}
+	}
+
+	// All selected items can be worn.
+	return true;
+}
+
 void LLOutfitsList::onAccordionTabRightClick(LLUICtrl* ctrl, S32 x, S32 y, const LLUUID& cat_id)
 {
 	LLAccordionCtrlTab* tab = dynamic_cast<LLAccordionCtrlTab*>(ctrl);
@@ -1012,14 +1044,7 @@ void LLOutfitsList::wearSelectedItems()
 		return;
 	}
 
-	uuid_vec_t::const_iterator it;
-	// Wear items from all selected lists(if possible- add, else replace)
-	for (it = selected_uuids.begin(); it != selected_uuids.end()-1; ++it)
-	{
-		LLAppearanceMgr::getInstance()->wearItemOnAvatar(*it, false, false);
-	}
-	// call update only when wearing last item
-	LLAppearanceMgr::getInstance()->wearItemOnAvatar(*it, true, false);
+	wear_multiple(selected_uuids, false);
 }
 
 void LLOutfitsList::onWearableItemsListRightClick(LLUICtrl* ctrl, S32 x, S32 y)
@@ -1036,24 +1061,36 @@ void LLOutfitsList::onWearableItemsListRightClick(LLUICtrl* ctrl, S32 x, S32 y)
 
 void LLOutfitsList::onCOFChanged()
 {
-	LLInventoryModel::changed_items_t changed_linked_items;
+	LLInventoryModel::cat_array_t cat_array;
+	LLInventoryModel::item_array_t item_array;
 
-	const LLInventoryModel::changed_items_t& changed_items = gInventory.getChangedIDs();
-	for (LLInventoryModel::changed_items_t::const_iterator iter = changed_items.begin();
-		 iter != changed_items.end();
-		 ++iter)
+	// Collect current COF items
+	gInventory.collectDescendents(
+		LLAppearanceMgr::instance().getCOF(),
+		cat_array,
+		item_array,
+		LLInventoryModel::EXCLUDE_TRASH);
+
+	uuid_vec_t vnew;
+	uuid_vec_t vadded;
+	uuid_vec_t vremoved;
+
+	// From gInventory we get the UUIDs of links that are currently in COF.
+	// These links UUIDs are not the same UUIDs that we have in each wearable items list.
+	// So we collect base items' UUIDs to find them or links that point to them in wearable
+	// items lists and update their worn state there.
+	for (LLInventoryModel::item_array_t::const_iterator iter = item_array.begin();
+		iter != item_array.end();
+		++iter)
 	{
-		LLViewerInventoryItem* item = gInventory.getItem(*iter);
-		if (item)
-		{
-			// From gInventory we get the UUIDs of new links added to COF
-			// or removed from COF. These links UUIDs are not the same UUIDs
-			// that we have in each wearable items list. So we collect base items
-			// UUIDs to find all items or links that point to same base items in wearable
-			// items lists and update their worn state there.
-			changed_linked_items.insert(item->getLinkedUUID());
-		}
+		vnew.push_back((*iter)->getLinkedUUID());
 	}
+
+	// We need to update only items that were added or removed from COF.
+	LLCommonUtils::computeDifference(vnew, mCOFLinkedItems, vadded, vremoved);
+
+	// Store the ids of items currently linked from COF.
+	mCOFLinkedItems = vnew;
 
 	for (outfits_map_t::iterator iter = mOutfitsMap.begin();
 			iter != mOutfitsMap.end();
@@ -1065,9 +1102,13 @@ void LLOutfitsList::onCOFChanged()
 		LLWearableItemsList* list = dynamic_cast<LLWearableItemsList*>(tab->getAccordionView());
 		if (!list) continue;
 
+		// Append removed ids to added ids because we should update all of them.
+		vadded.reserve(vadded.size() + vremoved.size());
+		vadded.insert(vadded.end(), vremoved.begin(), vremoved.end());
+
 		// Every list updates the labels of changed items  or
 		// the links that point to these items.
-		list->updateChangedItems(changed_linked_items);
+		list->updateChangedItems(vadded);
 	}
 }
 

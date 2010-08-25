@@ -190,13 +190,16 @@ void LLSidepanelAppearance::onVisibilityChange(const LLSD &new_visibility)
 {
 	if (new_visibility.asBoolean())
 	{
-		if ((mOutfitEdit && mOutfitEdit->getVisible()) || (mEditWearable && mEditWearable->getVisible()))
+		bool is_outfit_edit_visible = mOutfitEdit && mOutfitEdit->getVisible();
+		bool is_wearable_edit_visible = mEditWearable && mEditWearable->getVisible();
+
+		if (is_outfit_edit_visible || is_wearable_edit_visible)
 		{
 			if (!gAgentCamera.cameraCustomizeAvatar() && gSavedSettings.getBOOL("AppearanceCameraMovement"))
 			{
 				gAgentCamera.changeCameraToCustomizeAvatar();
 			}
-			if (mEditWearable && mEditWearable->getVisible())
+			if (is_wearable_edit_visible)
 			{
 				LLWearable *wearable_ptr = mEditWearable->getWearable();
 				if (gAgentWearables.getWearableIndex(wearable_ptr) == LLAgentWearables::MAX_CLOTHING_PER_TYPE)
@@ -204,6 +207,11 @@ void LLSidepanelAppearance::onVisibilityChange(const LLSD &new_visibility)
 					// we're no longer wearing the wearable we were last editing, switch back to outfit editor
 					showOutfitEditPanel();
 				}
+			}
+
+			if (is_outfit_edit_visible)
+			{
+				mOutfitEdit->resetAccordionState();
 			}
 		}
 	}
@@ -283,6 +291,15 @@ void LLSidepanelAppearance::showOutfitsInventoryPanel()
 
 void LLSidepanelAppearance::showOutfitEditPanel()
 {
+	// Accordion's state must be reset in all cases except the one when user
+	// is returning back to the mOutfitEdit panel from the mEditWearable panel.
+	// The simplest way to control this is to check the visibility state of the mEditWearable
+	// BEFORE it is changed by the call to the toggleWearableEditPanel(FALSE, NULL, TRUE).
+	if (mEditWearable != NULL && !mEditWearable->getVisible() && mOutfitEdit != NULL)
+	{
+		mOutfitEdit->resetAccordionState();
+	}
+
 	togglMyOutfitsPanel(FALSE);
 	toggleWearableEditPanel(FALSE, NULL, TRUE); // don't switch out of edit appearance mode
 	toggleOutfitEditPanel(TRUE);
@@ -456,7 +473,7 @@ void LLSidepanelAppearance::fetchInventory()
 			{
 				LLViewerObject* attached_object = (*attachment_iter);
 				if (!attached_object) continue;
-				const LLUUID& item_id = attached_object->getItemID();
+				const LLUUID& item_id = attached_object->getAttachmentItemID();
 				if (item_id.isNull()) continue;
 				ids.push_back(item_id);
 			}
@@ -484,8 +501,8 @@ void LLSidepanelAppearance::inventoryFetched()
 
 void LLSidepanelAppearance::setWearablesLoading(bool val)
 {
-	childSetVisible("wearables_loading_indicator", val);
-	childSetVisible("edit_outfit_btn", !val);
+	getChildView("wearables_loading_indicator")->setVisible( val);
+	getChildView("edit_outfit_btn")->setVisible( !val);
 
 	if (!val)
 	{

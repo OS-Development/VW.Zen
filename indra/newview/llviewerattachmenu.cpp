@@ -84,7 +84,7 @@ void LLViewerAttachMenu::populateMenus(const std::string& attach_to_menu_name, c
 
 		LLSD cbparams;
 		cbparams["index"] = curiter->first;
-		cbparams["label"] = attachment->getName();
+		cbparams["label"] = p.name;
 		p.on_click.function_name = "Object.Attach";
 		p.on_click.parameter = LLSD(attachment->getName());
 		p.on_enable.function_name = "Attachment.Label";
@@ -122,7 +122,7 @@ void LLViewerAttachMenu::attachObjects(const uuid_vec_t& items, const std::strin
 		LLViewerInventoryItem* item = (LLViewerInventoryItem*)gInventory.getLinkedItem(id);
 		if(item && gInventory.isObjectDescendentOf(id, gInventory.getRootFolderID()))
 		{
-			rez_attachment(item, attachmentp);
+			rez_attachment(item, attachmentp); // don't replace if called from an "Attach To..." menu
 		}
 		else if(item && item->isFinished())
 		{

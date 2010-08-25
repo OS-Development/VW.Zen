@@ -163,7 +163,7 @@ public:
 	}
 
 protected:
-	static void replaceWearable()
+	static void replaceWearable(const LLUUID& item_id)
 	{
 		// *TODO: Most probable that accessing to LLPanelOutfitEdit instance should be:
 		// LLSideTray::getInstance()->getSidepanelAppearance()->getPanelOutfitEdit()
@@ -175,7 +175,7 @@ protected:
 								"panel_outfit_edit"));
 		if (panel_outfit_edit != NULL)
 		{
-			panel_outfit_edit->showAddWearablesPanel(true);
+			panel_outfit_edit->onReplaceMenuItemClicked(item_id);
 		}
 	}
 
@@ -187,7 +187,7 @@ protected:
 		functor_t take_off = boost::bind(&LLAppearanceMgr::removeItemFromAvatar, LLAppearanceMgr::getInstance(), _1);
 
 		registrar.add("Clothing.TakeOff", boost::bind(handleMultiple, take_off, mUUIDs));
-		registrar.add("Clothing.Replace", boost::bind(replaceWearable));
+		registrar.add("Clothing.Replace", boost::bind(replaceWearable, selected_id));
 		registrar.add("Clothing.Edit", boost::bind(LLAgentWearables::editWearable, selected_id));
 		registrar.add("Clothing.Create", boost::bind(&CofClothingContextMenu::createNew, this, selected_id));
 
@@ -244,7 +244,7 @@ protected:
 		// *HACK* need to pass pointer to LLPanelOutfitEdit instead of LLSideTray::getInstance()->getPanel().
 		// LLSideTray::getInstance()->getPanel() is rather slow variant
 		LLPanelOutfitEdit* panel_oe = dynamic_cast<LLPanelOutfitEdit*>(LLSideTray::getInstance()->getPanel("panel_outfit_edit"));
-		registrar.add("BodyPart.Replace", boost::bind(&LLPanelOutfitEdit::onReplaceBodyPartMenuItemClicked, panel_oe, selected_id));
+		registrar.add("BodyPart.Replace", boost::bind(&LLPanelOutfitEdit::onReplaceMenuItemClicked, panel_oe, selected_id));
 		registrar.add("BodyPart.Edit", boost::bind(LLAgentWearables::editWearable, selected_id));
 		registrar.add("BodyPart.Create", boost::bind(&CofBodyPartContextMenu::createNew, this, selected_id));
 
@@ -284,6 +284,7 @@ LLCOFWearables::LLCOFWearables() : LLPanel(),
 	mAttachmentsTab(NULL),
 	mBodyPartsTab(NULL),
 	mLastSelectedTab(NULL),
+	mAccordionCtrl(NULL),
 	mCOFVersion(-1)
 {
 	mClothingMenu = new CofClothingContextMenu(this);
@@ -335,6 +336,8 @@ BOOL LLCOFWearables::postBuild()
 	mTab2AssetType[mClothingTab] = LLAssetType::AT_CLOTHING;
 	mTab2AssetType[mAttachmentsTab] = LLAssetType::AT_OBJECT;
 	mTab2AssetType[mBodyPartsTab] = LLAssetType::AT_BODYPART;
+
+	mAccordionCtrl = getChild<LLAccordionCtrl>("cof_wearables_accordion");
 
 	return LLPanel::postBuild();
 }
@@ -393,7 +396,11 @@ void LLCOFWearables::refresh()
 		return;
 	}
 
-	if (mCOFVersion == catp->getVersion()) return;
+	// BAP - this check has to be removed because an item name change does not
+	// change cat version - ie, checking version is not a complete way
+	// of finding out whether anything has changed in this category.
+	//if (mCOFVersion == catp->getVersion()) return;
+
 	mCOFVersion = catp->getVersion();
 
 	typedef std::vector<LLSD> values_vector_t;
@@ -513,10 +520,10 @@ LLPanelClothingListItem* LLCOFWearables::buildClothingListItem(LLViewerInventory
 
 	//setting callbacks
 	//*TODO move that item panel's inner structure disclosing stuff into the panels
-	item_panel->childSetAction("btn_delete", mCOFCallbacks.mDeleteWearable);
-	item_panel->childSetAction("btn_move_up", mCOFCallbacks.mMoveWearableFurther);
-	item_panel->childSetAction("btn_move_down", mCOFCallbacks.mMoveWearableCloser);
-	item_panel->childSetAction("btn_edit", mCOFCallbacks.mEditWearable);
+	item_panel->childSetAction("btn_delete", boost::bind(mCOFCallbacks.mDeleteWearable));
+	item_panel->childSetAction("btn_move_up", boost::bind(mCOFCallbacks.mMoveWearableFurther));
+	item_panel->childSetAction("btn_move_down", boost::bind(mCOFCallbacks.mMoveWearableCloser));
+	item_panel->childSetAction("btn_edit", boost::bind(mCOFCallbacks.mEditWearable));
 	
 	//turning on gray separator line for the last item in the items group of the same wearable type
 	item_panel->setSeparatorVisible(last);
@@ -542,8 +549,8 @@ LLPanelBodyPartsListItem* LLCOFWearables::buildBodypartListItem(LLViewerInventor
 
 	//setting callbacks
 	//*TODO move that item panel's inner structure disclosing stuff into the panels
-	item_panel->childSetAction("btn_delete", mCOFCallbacks.mDeleteWearable);
-	item_panel->childSetAction("btn_edit", mCOFCallbacks.mEditWearable);
+	item_panel->childSetAction("btn_delete", boost::bind(mCOFCallbacks.mDeleteWearable));
+	item_panel->childSetAction("btn_edit", boost::bind(mCOFCallbacks.mEditWearable));
 
 	return item_panel;
 }
@@ -558,7 +565,7 @@ LLPanelDeletableWearableListItem* LLCOFWearables::buildAttachemntListItem(LLView
 
 	//setting callbacks
 	//*TODO move that item panel's inner structure disclosing stuff into the panels
-	item_panel->childSetAction("btn_delete", mCOFCallbacks.mDeleteWearable);
+	item_panel->childSetAction("btn_delete", boost::bind(mCOFCallbacks.mDeleteWearable));
 
 	return item_panel;
 }
@@ -604,7 +611,7 @@ void LLCOFWearables::addClothingTypesDummies(const LLAppearanceMgr::wearables_by
 		LLWearableType::EType w_type = static_cast<LLWearableType::EType>(type);
 		LLPanelInventoryListItemBase* item_panel = LLPanelDummyClothingListItem::create(w_type);
 		if(!item_panel) continue;
-		item_panel->childSetAction("btn_add", mCOFCallbacks.mAddWearable);
+		item_panel->childSetAction("btn_add", boost::bind(mCOFCallbacks.mAddWearable));
 		mClothing->addItem(item_panel, LLUUID::null, ADD_BOTTOM, false);
 	}
 }
@@ -651,18 +658,35 @@ LLAssetType::EType LLCOFWearables::getExpandedAccordionAssetType()
 	typedef std::map<std::string, LLAssetType::EType> type_map_t;
 
 	static type_map_t type_map;
-	static LLAccordionCtrl* accordion_ctrl = getChild<LLAccordionCtrl>("cof_wearables_accordion");
-	const LLAccordionCtrlTab* expanded_tab = accordion_ctrl->getExpandedTab();
+
+	if (mAccordionCtrl != NULL)
+	{
+		const LLAccordionCtrlTab* expanded_tab = mAccordionCtrl->getExpandedTab();
 
 	return get_if_there(mTab2AssetType, expanded_tab, LLAssetType::AT_NONE);
 	}
 
+	return LLAssetType::AT_NONE;
+}
+
 LLAssetType::EType LLCOFWearables::getSelectedAccordionAssetType()
 	{
-	static LLAccordionCtrl* accordion_ctrl = getChild<LLAccordionCtrl>("cof_wearables_accordion");
-	const LLAccordionCtrlTab* selected_tab = accordion_ctrl->getSelectedTab();
+	if (mAccordionCtrl != NULL)
+	{
+		const LLAccordionCtrlTab* selected_tab = mAccordionCtrl->getSelectedTab();
 
 	return get_if_there(mTab2AssetType, selected_tab, LLAssetType::AT_NONE);
+}
+
+	return LLAssetType::AT_NONE;
+}
+
+void LLCOFWearables::expandDefaultAccordionTab()
+{
+	if (mAccordionCtrl != NULL)
+	{
+		mAccordionCtrl->expandDefaultTab();
+	}
 }
 
 void LLCOFWearables::onListRightClick(LLUICtrl* ctrl, S32 x, S32 y, LLListContextMenu* menu)

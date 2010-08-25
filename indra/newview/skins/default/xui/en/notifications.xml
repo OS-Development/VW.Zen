@@ -4023,6 +4023,19 @@ Are you sure you want to quit?
 
   <notification
    icon="alertmodal.tga"
+   name="DeleteItems"
+   type="alertmodal">
+    [QUESTION]
+    <usetemplate
+     ignoretext="Confirm before deleting items"
+     name="okcancelignore"
+     notext="Cancel"
+     yestext="OK"/>
+    <unique/>
+  </notification>
+
+  <notification
+   icon="alertmodal.tga"
    name="HelpReportAbuseEmailLL"
    type="alert">
 Use this tool to report violations of the [http://secondlife.com/corporate/tos.php Terms of Service] and [http://secondlife.com/corporate/cs.php Community Standards].
@@ -6359,10 +6372,18 @@ Avatar '[NAME]' left as fully loaded.
 
   <notification
    icon="notifytip.tga"
-   name="AvatarRezSelfBakeNotification"
+   name="AvatarRezSelfBakedTextureUploadNotification"
    type="notifytip">
 ( [EXISTENCE] seconds alive )
 You uploaded a [RESOLUTION] baked texture for '[BODYREGION]' after [TIME] seconds.
+  </notification>
+
+  <notification
+   icon="notifytip.tga"
+   name="AvatarRezSelfBakedTextureUpdateNotification"
+   type="notifytip">
+( [EXISTENCE] seconds alive )
+You locally updated a [RESOLUTION] baked texture for '[BODYREGION]' after [TIME] seconds.
   </notification>
 
   <notification
@@ -6420,11 +6441,14 @@ If you continue to have problems, please visit the [SUPPORT_SITE].
 - Your system memory does not meet the minimum requirements.
   </global>
 
-<!-- this is alert string from server. the name needs to match entire the server string, and needs to be changed
+<!-- these are alert strings from server. the name needs to match entire the server string, and needs to be changed
 	whenever the server string changes -->
    <global name="You can only set your 'Home Location' on your land or at a mainland Infohub.">
 If you own a piece of land, you can make it your home location.
 Otherwise, you can look at the Map and find places marked &quot;Infohub&quot;.
+  </global>
+  <global name="You died and have been teleported to your home location">
+You died and have been teleported to your home location.
   </global>
 
 </notifications>

@@ -962,6 +962,8 @@ void LLInvFVBridge::purgeItem(LLInventoryModel *model, const LLUUID &uuid)
 
 BOOL LLInvFVBridge::canShare() const
 {
+	if (!isAgentInventory()) return FALSE;
+
 	const LLInventoryModel* model = getInventoryModel();
 	if (!model) return FALSE;
 
@@ -973,9 +975,10 @@ BOOL LLInvFVBridge::canShare() const
 		return (BOOL)LLGiveInventory::isInventoryGiveAcceptable(item);
 	}
 
-	// All categories can be given.
-	const LLViewerInventoryCategory* cat = model->getCategory(mUUID);
-	return (cat != NULL);
+	// Categories can be given.
+	if (model->getCategory(mUUID)) return TRUE;
+
+	return FALSE;
 }
 
 // +=================================================+
@@ -1277,6 +1280,12 @@ BOOL LLItemBridge::isItemRenameable() const
 		{
 			return FALSE;
 		}
+
+		if (!item->isFinished()) // EXT-8662
+		{
+			return FALSE;
+		}
+
 		return (item->getPermissions().allowModifyBy(gAgent.getID()));
 	}
 	return FALSE;
@@ -1454,7 +1463,7 @@ bool LLItemBridge::isRemoveAction(std::string action) const
 // |        LLFolderBridge                           |
 // +=================================================+
 
-LLFolderBridge* LLFolderBridge::sSelf=NULL;
+LLHandle<LLFolderBridge> LLFolderBridge::sSelf;
 
 // Can be moved to another folder
 BOOL LLFolderBridge::isItemMovable() const
@@ -2401,8 +2410,11 @@ void LLFolderBridge::pasteLinkFromClipboard()
 
 void LLFolderBridge::staticFolderOptionsMenu()
 {
-	if (!sSelf) return;
-	sSelf->folderOptionsMenu();
+	LLFolderBridge* selfp = sSelf.get();
+	if (selfp)
+	{
+		selfp->folderOptionsMenu();
+	}
 }
 
 void LLFolderBridge::folderOptionsMenu()
@@ -2479,11 +2491,15 @@ void LLFolderBridge::folderOptionsMenu()
 		}
 		mItems.push_back(std::string("Outfit Separator"));
 	}
-	hide_context_entries(*mMenu, mItems, disabled_items, TRUE);
+	LLMenuGL* menup = dynamic_cast<LLMenuGL*>(mMenu.get());
+	if (menup)
+	{
+		hide_context_entries(*menup, mItems, disabled_items, TRUE);
 
-	// Reposition the menu, in case we're adding items to an existing menu.
-	mMenu->needsArrange();
-	mMenu->arrangeAndClear();
+		// Reposition the menu, in case we're adding items to an existing menu.
+		menup->needsArrange();
+		menup->arrangeAndClear();
+	}
 }
 
 BOOL LLFolderBridge::checkFolderForContentsOfType(LLInventoryModel* model, LLInventoryCollectFunctor& is_type)
@@ -2524,6 +2540,10 @@ void LLFolderBridge::buildContextMenu(LLMenuGL& menu, U32 flags)
 		mDisabledItems.push_back(std::string("New Clothes"));
 		mDisabledItems.push_back(std::string("New Body Parts"));
 	}
+
+	// clear out old menu and folder pointers
+	mMenu.markDead();
+	sSelf.markDead();
 
 	if(trash_id == mUUID)
 	{
@@ -2600,9 +2620,6 @@ void LLFolderBridge::buildContextMenu(LLMenuGL& menu, U32 flags)
 		{
 			mWearables=TRUE;
 		}
-
-		mMenu = &menu;
-		sSelf = this;
 	}
 
 	// Preemptively disable system folder removal if more than one item selected.
@@ -2617,12 +2634,6 @@ void LLFolderBridge::buildContextMenu(LLMenuGL& menu, U32 flags)
 		mDisabledItems.push_back(std::string("Share"));
 	}
 
-	if (mItems.empty())
-	{
-		mItems.push_back(std::string("--no options--"));
-		mDisabledItems.push_back(std::string("--no options--"));
-	}
-
 	hide_context_entries(menu, mItems, mDisabledItems);
 
 	// Add menu items that are dependent on the contents of the folder.
@@ -2632,6 +2643,9 @@ void LLFolderBridge::buildContextMenu(LLMenuGL& menu, U32 flags)
 	{
 		folders.push_back(category->getUUID());
 	}
+
+	mMenu = menu.getHandle();
+	sSelf = getHandle();
 	LLRightClickInventoryFetchDescendentsObserver* fetch = new LLRightClickInventoryFetchDescendentsObserver(folders, FALSE);
 	fetch->startFetch();
 	inc_busy_count();
@@ -3947,7 +3961,7 @@ void LLObjectBridge::performAction(LLInventoryModel* model, std::string action)
 		item = (LLViewerInventoryItem*)gInventory.getItem(object_id);
 		if(item && gInventory.isObjectDescendentOf(object_id, gInventory.getRootFolderID()))
 		{
-			rez_attachment(item, NULL);
+			rez_attachment(item, NULL, true); // Replace if "Wear"ing.
 		}
 		else if(item && item->isFinished())
 		{
@@ -3963,23 +3977,16 @@ void LLObjectBridge::performAction(LLInventoryModel* model, std::string action)
 		}
 		gFocusMgr.setKeyboardFocus(NULL);
 	}
+	else if ("wear_add" == action)
+	{
+		LLAppearanceMgr::instance().wearItemOnAvatar(mUUID, true, false); // Don't replace if adding.
+	}
 	else if (isRemoveAction(action))
 	{
 		LLInventoryItem* item = gInventory.getItem(mUUID);
 		if(item)
 		{
-			gMessageSystem->newMessageFast(_PREHASH_DetachAttachmentIntoInv);
-			gMessageSystem->nextBlockFast(_PREHASH_ObjectData);
-			gMessageSystem->addUUIDFast(_PREHASH_AgentID, gAgent.getID());
-			gMessageSystem->addUUIDFast(_PREHASH_ItemID, item->getLinkedUUID());
-			gMessageSystem->sendReliable( gAgent.getRegion()->getHost());
-
-			// this object might have been selected, so let the selection manager know it's gone now
-			LLViewerObject *found_obj = gObjectList.findObject(item->getLinkedUUID());
-			if (found_obj)
-			{
-				LLSelectMgr::getInstance()->remove(found_obj);
-			}
+			LLVOAvatarSelf::detachAttachmentIntoInventory(item->getLinkedUUID());
 		}
 	}
 	else LLItemBridge::performAction(model, action);
@@ -3996,6 +4003,11 @@ std::string LLObjectBridge::getLabelSuffix() const
 {
 	if (get_is_item_worn(mUUID))
 	{
+		if (!isAgentAvatarValid())
+		{
+			return LLItemBridge::getLabelSuffix() + LLTrans::getString("worn");
+		}
+
 		std::string attachment_point_name = gAgentAvatarp->getAttachedPointName(mUUID);
 
 		// e.g. "(worn on ...)" / "(attached to ...)"
@@ -4009,10 +4021,19 @@ std::string LLObjectBridge::getLabelSuffix() const
 	}
 }
 
-void rez_attachment(LLViewerInventoryItem* item, LLViewerJointAttachment* attachment)
+void rez_attachment(LLViewerInventoryItem* item, LLViewerJointAttachment* attachment, bool replace)
 {
-	LLSD payload;
-	payload["item_id"] = item->getLinkedUUID(); // Wear the base object in case this is a link.
+	const LLUUID& item_id = item->getLinkedUUID();
+
+	// Check for duplicate request.
+	if (isAgentAvatarValid() &&
+		(gAgentAvatarp->attachmentWasRequested(item_id) ||
+		 gAgentAvatarp->isWearingAttachment(item_id)))
+	{
+		llwarns << "duplicate attachment request, ignoring" << llendl;
+		return;
+	}
+	gAgentAvatarp->addAttachmentRequest(item_id);
 
 	S32 attach_pt = 0;
 	if (isAgentAvatarValid() && attachment)
@@ -4028,9 +4049,16 @@ void rez_attachment(LLViewerInventoryItem* item, LLViewerJointAttachment* attach
 		}
 	}
 
+	if (!replace)
+	{
+		attach_pt |= ATTACHMENT_ADD;
+	}
+
+	LLSD payload;
+	payload["item_id"] = item_id; // Wear the base object in case this is a link.
 	payload["attachment_point"] = attach_pt;
 
-	if (!gSavedSettings.getBOOL("MultipleAttachments") &&
+	if (replace &&
 		(attachment && attachment->getNumObjects() > 0))
 	{
 		LLNotificationsUtil::add("ReplaceAttachment", LLSD(), payload, confirm_replace_attachment_rez);
@@ -4054,13 +4082,13 @@ bool confirm_replace_attachment_rez(const LLSD& notification, const LLSD& respon
 	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	if (option == 0/*YES*/)
 	{
-		LLViewerInventoryItem* itemp = gInventory.getItem(notification["payload"]["item_id"].asUUID());
+		LLUUID item_id = notification["payload"]["item_id"].asUUID();
+		LLViewerInventoryItem* itemp = gInventory.getItem(item_id);
 
 		if (itemp)
 		{
 			U8 attachment_pt = notification["payload"]["attachment_point"].asInteger();
-			if (gSavedSettings.getBOOL("MultipleAttachments"))
-				attachment_pt |= ATTACHMENT_ADD;
+			
 
 			LLMessageSystem* msg = gMessageSystem;
 			msg->newMessageFast(_PREHASH_RezSingleAttachmentFromInv);
@@ -4117,6 +4145,7 @@ void LLObjectBridge::buildContextMenu(LLMenuGL& menu, U32 flags)
 			{
 				items.push_back(std::string("Wearable And Object Separator"));
 				items.push_back(std::string("Wearable And Object Wear"));
+				items.push_back(std::string("Wearable Add"));
 				items.push_back(std::string("Attach To"));
 				items.push_back(std::string("Attach To HUD"));
 				// commented out for DEV-32347
@@ -4125,6 +4154,7 @@ void LLObjectBridge::buildContextMenu(LLMenuGL& menu, U32 flags)
 				if (!gAgentAvatarp->canAttachMoreObjects())
 				{
 					disabled_items.push_back(std::string("Wearable And Object Wear"));
+					disabled_items.push_back(std::string("Wearable Add"));
 					disabled_items.push_back(std::string("Attach To"));
 					disabled_items.push_back(std::string("Attach To HUD"));
 				}
@@ -4153,7 +4183,7 @@ void LLObjectBridge::buildContextMenu(LLMenuGL& menu, U32 flags)
 						}
 						LLSD cbparams;
 						cbparams["index"] = curiter->first;
-						cbparams["label"] = attachment->getName();
+						cbparams["label"] = p.name;
 						p.on_click.function_name = "Inventory.AttachObject";
 						p.on_click.parameter = LLSD(attachment->getName());
 						p.on_enable.function_name = "Attachment.Label";
@@ -4327,19 +4357,7 @@ void remove_inventory_category_from_avatar_step2( BOOL proceed, LLUUID category_
 				LLViewerInventoryItem *obj_item = obj_item_array.get(i);
 				if (get_is_item_worn(obj_item->getUUID()))
 				{
-					gMessageSystem->newMessageFast(_PREHASH_DetachAttachmentIntoInv);
-					gMessageSystem->nextBlockFast(_PREHASH_ObjectData );
-					gMessageSystem->addUUIDFast(_PREHASH_AgentID, gAgent.getID() );
-					gMessageSystem->addUUIDFast(_PREHASH_ItemID, obj_item->getLinkedUUID() );
-					
-					gMessageSystem->sendReliable( gAgent.getRegion()->getHost() );
-					
-					// this object might have been selected, so let the selection manager know it's gone now
-					LLViewerObject *found_obj = gObjectList.findObject( obj_item->getLinkedUUID());
-					if (found_obj)
-					{
-						LLSelectMgr::getInstance()->remove(found_obj);
-					}
+					LLVOAvatarSelf::detachAttachmentIntoInventory(obj_item->getLinkedUUID());
 				}
 			}
 		}

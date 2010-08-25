@@ -58,6 +58,7 @@
 #include "llbutton.h"
 #include "llfontgl.h"
 #include "llresmgr.h"
+#include "lltrans.h"
 #include "llui.h"
 
 #include "llstl.h"
@@ -215,6 +216,12 @@ LLMenuItemGL::LLMenuItemGL(const LLMenuItemGL::Params& p)
 void LLMenuItemGL::setValue(const LLSD& value)
 {
 	setLabel(value.asString());
+}
+
+//virtual
+LLSD LLMenuItemGL::getValue() const
+{
+	return getLabel();
 }
 
 //virtual
@@ -920,6 +927,15 @@ void LLMenuItemCheckGL::setValue(const LLSD& value)
 	{
 		mDrawBoolLabel.clear();
 	}
+}
+
+//virtual
+LLSD LLMenuItemCheckGL::getValue() const
+{
+	// Get our boolean value from the view model.
+	// If we don't override this method then the implementation from
+	// LLMenuItemGL will return a string. (EXT-8501)
+	return LLUICtrl::getValue();
 }
 
 // called to rebuild the draw label
@@ -2257,8 +2273,9 @@ void LLMenuGL::createSpilloverBranch()
 		// technically, you can't tear off spillover menus, but we're passing the handle
 		// along just to be safe
 		LLMenuGL::Params p;
+		std::string label = LLTrans::getString("More");
 		p.name("More");
-		p.label("More"); // *TODO: Translate
+		p.label(label);
 		p.bg_color(mBackgroundColor);
 		p.bg_visible(true);
 		p.can_tear_off(false);
@@ -2267,7 +2284,7 @@ void LLMenuGL::createSpilloverBranch()
 
 		LLMenuItemBranchGL::Params branch_params;
 		branch_params.name = "More";
-		branch_params.label = "More"; // *TODO: Translate
+		branch_params.label = label;
 		branch_params.branch = mSpilloverMenu;
 		branch_params.font.style = "italic";
 

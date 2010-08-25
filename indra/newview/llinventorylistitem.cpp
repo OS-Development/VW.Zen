@@ -96,9 +96,12 @@ void LLPanelInventoryListItemBase::draw()
 
 	if (mSeparatorVisible && mSeparatorImage)
 	{
-		// stretch along bottom of listitem, using image height
+		// place under bottom of listitem, using image height
+		// item_pad in list using the item should be >= image height
+		// to avoid cropping of top of the next item.
 		LLRect separator_rect = getLocalRect();
-		separator_rect.mTop = mSeparatorImage->getHeight();
+		separator_rect.mTop = separator_rect.mBottom;
+		separator_rect.mBottom -= mSeparatorImage->getHeight();
 		mSeparatorImage->draw(separator_rect);
 	}
 	
@@ -232,6 +235,17 @@ const std::string& LLPanelInventoryListItemBase::getDescription() const
 		return LLStringUtil::null;
 	}
 	return inv_item->getDescription();
+}
+
+time_t LLPanelInventoryListItemBase::getCreationDate() const
+{
+	LLViewerInventoryItem* inv_item = getItem();
+	if (NULL == inv_item)
+	{
+		return 0;
+	}
+
+	return inv_item->getCreationDate();
 }
 
 LLViewerInventoryItem* LLPanelInventoryListItemBase::getItem() const

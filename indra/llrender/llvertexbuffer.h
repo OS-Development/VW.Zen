@@ -94,7 +94,7 @@ public:
 	static LLVBOPool sDynamicVBOPool;
 	static LLVBOPool sStreamIBOPool;
 	static LLVBOPool sDynamicIBOPool;
-	
+
 	static S32	sWeight4Loc;
 
 	static BOOL	sUseStreamDraw;

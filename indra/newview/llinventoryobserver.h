@@ -34,6 +34,7 @@
 #define LL_LLINVENTORYOBSERVERS_H
 
 #include "lluuid.h"
+#include "llmd5.h"
 #include <string>
 #include <vector>
 
@@ -294,15 +295,14 @@ public:
 protected:
 	struct LLCategoryData
 	{
-		LLCategoryData(callback_t cb, S32 version, S32 num_descendents)
-		: mCallback(cb)
-		, mVersion(version)
-		, mDescendentsCount(num_descendents)
-		{}
+		LLCategoryData(const LLUUID& cat_id, callback_t cb, S32 version, S32 num_descendents);
 
 		callback_t	mCallback;
 		S32			mVersion;
 		S32			mDescendentsCount;
+		LLMD5		mItemNameHash;
+		bool		mIsNameHashInitialized;
+		LLUUID		mCatID;
 	};
 
 	typedef	std::map<LLUUID, LLCategoryData>	category_map_t;
