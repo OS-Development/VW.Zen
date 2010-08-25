@@ -138,6 +138,26 @@ BOOL	LLPanelObject::postBuild()
 	mCheckPhantom = getChild<LLCheckBoxCtrl>("Phantom Checkbox Ctrl");
 	childSetCommitCallback("Phantom Checkbox Ctrl",onCommitPhantom,this);
 	
+	// PhysicsShapeType combobox
+	mComboPhysicsShapeType = getChild<LLComboBox>("Physics Shape Type Combo Ctrl");
+	childSetCommitCallback("Physics Shape Type Combo Ctrl", onCommitPhysicsParam, this);
+
+	// PhysicsGravity
+	mSpinPhysicsGravity = getChild<LLSpinCtrl>("Physics Gravity");
+	childSetCommitCallback("Physics Gravity", onCommitPhysicsParam, this);
+
+	// PhysicsFriction
+	mSpinPhysicsFriction = getChild<LLSpinCtrl>("Physics Friction");
+	childSetCommitCallback("Physics Friction", onCommitPhysicsParam, this);
+	
+	// PhysicsDensity
+	mSpinPhysicsDensity = getChild<LLSpinCtrl>("Physics Density");
+	childSetCommitCallback("Physics Density", onCommitPhysicsParam, this);
+
+	// PhysicsRestitution
+	mSpinPhysicsRestitution = getChild<LLSpinCtrl>("Physics Restitution");
+	childSetCommitCallback("Physics Restitution", onCommitPhysicsParam, this);
+
 	// Position
 	mLabelPosition = getChild<LLTextBox>("label position");
 	mCtrlPosX = getChild<LLSpinCtrl>("Pos X");
@@ -464,17 +484,17 @@ void LLPanelObject::getState( )
 	BOOL editable = root_objectp->permModify();
 
 	// Select Single Message
-	childSetVisible("select_single", FALSE);
-	childSetVisible("edit_object", FALSE);
+	getChildView("select_single")->setVisible( FALSE);
+	getChildView("edit_object")->setVisible( FALSE);
 	if (!editable || single_volume || selected_count <= 1)
 	{
-		childSetVisible("edit_object", TRUE);
-		childSetEnabled("edit_object", TRUE);
+		getChildView("edit_object")->setVisible( TRUE);
+		getChildView("edit_object")->setEnabled(TRUE);
 	}
 	else
 	{
-		childSetVisible("select_single", TRUE);
-		childSetEnabled("select_single", TRUE);
+		getChildView("select_single")->setVisible( TRUE);
+		getChildView("select_single")->setEnabled(TRUE);
 	}
 	// Lock checkbox - only modifiable if you own the object.
 	BOOL self_owned = (gAgent.getID() == owner_id);
@@ -524,6 +544,21 @@ void LLPanelObject::getState( )
 	mIsPhantom = root_objectp->flagPhantom();
 	mCheckPhantom->set( mIsPhantom );
 	mCheckPhantom->setEnabled( roots_selected>0 && editable && !is_flexible );
+
+	mComboPhysicsShapeType->setCurrentByIndex(objectp->getPhysicsShapeType());
+	mComboPhysicsShapeType->setEnabled(editable);
+	
+	mSpinPhysicsGravity->set(objectp->getPhysicsGravity());
+	mSpinPhysicsGravity->setEnabled(editable);
+
+	mSpinPhysicsFriction->set(objectp->getPhysicsFriction());
+	mSpinPhysicsFriction->setEnabled(editable);
+	
+	mSpinPhysicsDensity->set(objectp->getPhysicsDensity());
+	mSpinPhysicsDensity->setEnabled(editable);
+	
+	mSpinPhysicsRestitution->set(objectp->getPhysicsRestitution());
+	mSpinPhysicsRestitution->setEnabled(editable);
 
 #if 0 // 1.9.2
 	mCastShadows = root_objectp->flagCastShadows();
@@ -993,19 +1028,19 @@ void LLPanelObject::getState( )
 	mLabelSkew		->setEnabled( enabled );
 	mSpinSkew		->setEnabled( enabled );
 
-	childSetVisible("scale_hole", FALSE);
-	childSetVisible("scale_taper", FALSE);
+	getChildView("scale_hole")->setVisible( FALSE);
+	getChildView("scale_taper")->setVisible( FALSE);
 	if (top_size_x_visible || top_size_y_visible)
 	{
 		if (size_is_hole)
 		{
-			childSetVisible("scale_hole", TRUE);
-			childSetEnabled("scale_hole", enabled);
+			getChildView("scale_hole")->setVisible( TRUE);
+			getChildView("scale_hole")->setEnabled(enabled);
 		}
 		else
 		{
-			childSetVisible("scale_taper", TRUE);
-			childSetEnabled("scale_taper", enabled);
+			getChildView("scale_taper")->setVisible( TRUE);
+			getChildView("scale_taper")->setEnabled(enabled);
 		}
 	}
 	
@@ -1016,27 +1051,27 @@ void LLPanelObject::getState( )
 	mSpinShearX		->setEnabled( enabled );
 	mSpinShearY		->setEnabled( enabled );
 
-	childSetVisible("advanced_cut", FALSE);
-	childSetVisible("advanced_dimple", FALSE);
-	childSetVisible("advanced_slice", FALSE);
+	getChildView("advanced_cut")->setVisible( FALSE);
+	getChildView("advanced_dimple")->setVisible( FALSE);
+	getChildView("advanced_slice")->setVisible( FALSE);
 
 	if (advanced_cut_visible)
 	{
 		if (advanced_is_dimple)
 		{
-			childSetVisible("advanced_dimple", TRUE);
-			childSetEnabled("advanced_dimple", enabled);
+			getChildView("advanced_dimple")->setVisible( TRUE);
+			getChildView("advanced_dimple")->setEnabled(enabled);
 		}
 
 		else if (advanced_is_slice)
 		{
-			childSetVisible("advanced_slice", TRUE);
-			childSetEnabled("advanced_slice", enabled);
+			getChildView("advanced_slice")->setVisible( TRUE);
+			getChildView("advanced_slice")->setEnabled(enabled);
 		}
 		else
 		{
-			childSetVisible("advanced_cut", TRUE);
-			childSetEnabled("advanced_cut", enabled);
+			getChildView("advanced_cut")->setVisible( TRUE);
+			getChildView("advanced_cut")->setEnabled(enabled);
 		}
 	}
 	
@@ -1225,6 +1260,35 @@ void LLPanelObject::sendIsPhantom()
 	{
 		llinfos << "update phantom not changed" << llendl;
 	}
+}
+
+#include "llsdutil.h"
+class CostResponder : public LLHTTPClient::Responder
+{
+public:
+	CostResponder(U32 id) { mID = id; }
+	virtual void result(const LLSD& content) { llinfos << ll_pretty_print_sd(content) << llendl; }
+
+	U32 mID;
+};
+
+void LLPanelObject::sendPhysicsParam()
+{
+	U8 type = (U8)mComboPhysicsShapeType->getCurrentIndex();
+	F32 gravity = mSpinPhysicsGravity->get();
+	F32 friction = mSpinPhysicsFriction->get();
+	F32 density = mSpinPhysicsDensity->get();
+	F32 restitution = mSpinPhysicsRestitution->get();
+	
+	LLSelectMgr::getInstance()->selectionUpdatePhysicsParam(type, gravity, friction, 
+																density, restitution);
+
+	std::string url = gAgent.getRegion()->getCapability("GetObjectCost");
+	LLSD body = LLSD::emptyArray();
+	
+	body.append(LLSelectMgr::getInstance()->getSelection()->getFirstObject()->getID());
+	
+	LLHTTPClient::post( url, body, new CostResponder(body[0].asInteger()) );
 }
 
 void LLPanelObject::sendCastShadows()
@@ -1900,6 +1964,12 @@ void LLPanelObject::clearCtrls()
 	mCheckTemporary	->setEnabled( FALSE );
 	mCheckPhantom	->set(FALSE);
 	mCheckPhantom	->setEnabled( FALSE );
+	
+	mSpinPhysicsGravity->setEnabled(FALSE);
+	mSpinPhysicsFriction->setEnabled(FALSE);
+	mSpinPhysicsDensity->setEnabled(FALSE);
+	mSpinPhysicsRestitution->setEnabled(FALSE);
+							 
 #if 0 // 1.9.2
 	mCheckCastShadows->set(FALSE);
 	mCheckCastShadows->setEnabled( FALSE );
@@ -1919,15 +1989,15 @@ void LLPanelObject::clearCtrls()
 	mLabelRadiusOffset->setEnabled( FALSE );
 	mLabelRevolutions->setEnabled( FALSE );
 
-	childSetVisible("select_single", FALSE);
-	childSetVisible("edit_object", TRUE);	
-	childSetEnabled("edit_object", FALSE);
+	getChildView("select_single")->setVisible( FALSE);
+	getChildView("edit_object")->setVisible( TRUE);	
+	getChildView("edit_object")->setEnabled(FALSE);
 	
-	childSetEnabled("scale_hole", FALSE);
-	childSetEnabled("scale_taper", FALSE);
-	childSetEnabled("advanced_cut", FALSE);
-	childSetEnabled("advanced_dimple", FALSE);
-	childSetVisible("advanced_slice", FALSE);
+	getChildView("scale_hole")->setEnabled(FALSE);
+	getChildView("scale_taper")->setEnabled(FALSE);
+	getChildView("advanced_cut")->setEnabled(FALSE);
+	getChildView("advanced_dimple")->setEnabled(FALSE);
+	getChildView("advanced_slice")->setVisible( FALSE);
 }
 
 //
@@ -1990,6 +2060,13 @@ void LLPanelObject::onCommitPhantom( LLUICtrl* ctrl, void* userdata )
 {
 	LLPanelObject* self = (LLPanelObject*) userdata;
 	self->sendIsPhantom();
+}
+
+// static
+void LLPanelObject::onCommitPhysicsParam(LLUICtrl* ctrl, void* userdata )
+{
+	LLPanelObject* self = (LLPanelObject*) userdata;
+	self->sendPhysicsParam();
 }
 
 // static

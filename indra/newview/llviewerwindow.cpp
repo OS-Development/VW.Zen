@@ -31,7 +31,6 @@
  */
 
 #include "llviewerprecompiledheaders.h"
-
 #include "llviewerwindow.h"
 
 #if LL_WINDOWS
@@ -47,6 +46,7 @@
 #include "llagent.h"
 #include "llagentcamera.h"
 #include "llfloaterreg.h"
+#include "llmeshrepository.h"
 #include "llpanellogin.h"
 #include "llviewerkeyboard.h"
 #include "llviewermenu.h"
@@ -230,6 +230,8 @@ LLVector2       gDebugRaycastTexCoord;
 LLVector3       gDebugRaycastNormal;
 LLVector3       gDebugRaycastBinormal;
 S32				gDebugRaycastFaceHit;
+LLVector3		gDebugRaycastStart;
+LLVector3		gDebugRaycastEnd;
 
 // HUD display lines in lower right
 BOOL				gDisplayWindInfo = FALSE;
@@ -320,7 +322,7 @@ public:
 		mTextColor = LLColor4( 0.86f, 0.86f, 0.86f, 1.f );
 
 		// Draw stuff growing up from right lower corner of screen
-		U32 xpos = mWindow->getWindowWidthScaled() - 350;
+		U32 xpos = mWindow->getWorldViewWidthScaled() - 350;
 		U32 ypos = 64;
 		const U32 y_inc = 20;
 
@@ -505,6 +507,19 @@ public:
 			
 			ypos += y_inc;
 
+			addText(xpos, ypos, llformat("%.3f MB Mesh Data Received", LLMeshRepository::sBytesReceived/(1024.f*1024.f)));
+			
+			ypos += y_inc;
+			
+			addText(xpos, ypos, llformat("%d/%d Mesh HTTP Requests/Retries", LLMeshRepository::sHTTPRequestCount,
+				LLMeshRepository::sHTTPRetryCount));
+			
+			ypos += y_inc;
+
+			addText(xpos, ypos, llformat("%.3f/%.3f MB Mesh Cache Read/Write ", LLMeshRepository::sCacheBytesRead/(1024.f*1024.f), LLMeshRepository::sCacheBytesWritten/(1024.f*1024.f)));
+
+			ypos += y_inc;
+
 			LLVertexBuffer::sBindCount = LLImageGL::sBindCount = 
 				LLVertexBuffer::sSetCount = LLImageGL::sUniqueCount = 
 				gPipeline.mNumVisibleNodes = LLPipeline::sVisibleLightCount = 0;
@@ -585,6 +600,54 @@ public:
 				ypos += y_inc;
 			}
 		}
+
+
+		if (gSavedSettings.getBOOL("DebugShowUploadCost"))
+		{
+#if LL_MESH_ENABLED
+			addText(xpos, ypos, llformat("       Meshes: L$%d", gPipeline.mDebugMeshUploadCost));
+			ypos += y_inc/2;
+#endif
+			addText(xpos, ypos, llformat("    Sculpties: L$%d", gPipeline.mDebugSculptUploadCost));
+			ypos += y_inc/2;
+			addText(xpos, ypos, llformat("     Textures: L$%d", gPipeline.mDebugTextureUploadCost));
+			ypos += y_inc/2;
+			addText(xpos, ypos, "Upload Cost: ");
+						
+			ypos += y_inc;
+		}
+
+#if LL_MESH_ENABLED
+		//temporary hack to give feedback on mesh upload progress
+		if (!gMeshRepo.mUploads.empty())
+		{
+			for (std::vector<LLMeshUploadThread*>::iterator iter = gMeshRepo.mUploads.begin(); 
+				iter != gMeshRepo.mUploads.end(); ++iter)
+			{
+				LLMeshUploadThread* thread = *iter;
+
+				addText(xpos, ypos, llformat("Mesh Upload -- price quote: %d:%d | upload: %d:%d | create: %d", 
+								thread->mPendingConfirmations, thread->mUploadQ.size()+thread->mTextureQ.size(),
+								thread->mPendingUploads, thread->mConfirmedQ.size()+thread->mConfirmedTextureQ.size(),
+								thread->mInstanceQ.size()));
+				ypos += y_inc;
+			}
+		}
+
+		S32 pending = (S32) gMeshRepo.mPendingRequests.size();
+		S32 header = (S32) gMeshRepo.mThread->mHeaderReqQ.size();
+		S32 lod = (S32) gMeshRepo.mThread->mLODReqQ.size();
+
+		if (pending + header + lod + LLMeshRepoThread::sActiveHeaderRequests + LLMeshRepoThread::sActiveLODRequests != 0)
+		{
+			addText(xpos, ypos, llformat ("Mesh Queue - %d pending (%d:%d header | %d:%d LOD)", 
+												pending,
+												LLMeshRepoThread::sActiveHeaderRequests, header,
+												LLMeshRepoThread::sActiveLODRequests, lod));
+
+			ypos += y_inc;
+		}
+#endif
 	}
 
 	void draw()
@@ -1348,7 +1411,7 @@ LLViewerWindow::LLViewerWindow(
 		gSavedSettings.getBOOL("DisableVerticalSync"),
 		!gNoRender,
 		ignore_pixel_depth,
-		gSavedSettings.getU32("RenderFSAASamples"));
+		0); //gSavedSettings.getU32("RenderFSAASamples"));
 
 	if (!LLAppViewer::instance()->restoreErrorTrap())
 	{
@@ -2450,7 +2513,9 @@ void LLViewerWindow::updateUI()
 											  &gDebugRaycastIntersection,
 											  &gDebugRaycastTexCoord,
 											  &gDebugRaycastNormal,
-											  &gDebugRaycastBinormal);
+											  &gDebugRaycastBinormal,
+											  &gDebugRaycastStart,
+											  &gDebugRaycastEnd);
 	}
 
 	updateMouseDelta();
@@ -2482,17 +2547,6 @@ void LLViewerWindow::updateUI()
 	// only update mouse hover set when UI is visible (since we shouldn't send hover events to invisible UI
 	if (gPipeline.hasRenderDebugFeatureMask(LLPipeline::RENDER_DEBUG_FEATURE_UI))
 	{
-		// include all ancestors of captor_view as automatically having mouse
-		if (captor_view)
-		{
-			LLView* captor_parent_view = captor_view->getParent();
-			while(captor_parent_view)
-			{
-				mouse_hover_set.insert(captor_parent_view->getHandle());
-				captor_parent_view = captor_parent_view->getParent();
-			}
-		}
-
 		// aggregate visible views that contain mouse cursor in display order
 		LLPopupView::popup_list_t popups = mPopupView->getCurrentPopups();
 
@@ -3395,7 +3449,9 @@ LLViewerObject* LLViewerWindow::cursorIntersect(S32 mouse_x, S32 mouse_y, F32 de
 												LLVector3 *intersection,
 												LLVector2 *uv,
 												LLVector3 *normal,
-												LLVector3 *binormal)
+												LLVector3 *binormal,
+												LLVector3* start,
+												LLVector3* end)
 {
 	S32 x = mouse_x;
 	S32 y = mouse_y;
@@ -3427,7 +3483,16 @@ LLViewerObject* LLViewerWindow::cursorIntersect(S32 mouse_x, S32 mouse_y, F32 de
 	LLVector3 mouse_world_start = mouse_point_global;
 	LLVector3 mouse_world_end   = mouse_point_global + mouse_direction_global * depth;
 
-	
+	if (start)
+	{
+		*start = mouse_world_start;
+	}
+
+	if (end)
+	{
+		*end = mouse_world_end;
+	}
+
 	LLViewerObject* found = NULL;
 
 	if (this_object)  // check only this object
@@ -3818,140 +3883,6 @@ void LLViewerWindow::playSnapshotAnimAndSound()
 BOOL LLViewerWindow::thumbnailSnapshot(LLImageRaw *raw, S32 preview_width, S32 preview_height, BOOL show_ui, BOOL do_rebuild, ESnapshotType type)
 {
 	return rawSnapshot(raw, preview_width, preview_height, FALSE, FALSE, show_ui, do_rebuild, type);
-	
-	// *TODO below code was broken in deferred pipeline
-	/*
-	if ((!raw) || preview_width < 10 || preview_height < 10)
-	{
-		return FALSE;
-	}
-
-	if(gResizeScreenTexture) //the window is resizing
-	{
-		return FALSE ;
-	}
-
-	setCursor(UI_CURSOR_WAIT);
-
-	// Hide all the UI widgets first and draw a frame
-	BOOL prev_draw_ui = gPipeline.hasRenderDebugFeatureMask(LLPipeline::RENDER_DEBUG_FEATURE_UI);
-
-	if ( prev_draw_ui != show_ui)
-	{
-		LLPipeline::toggleRenderDebugFeature((void*)LLPipeline::RENDER_DEBUG_FEATURE_UI);
-	}
-
-	BOOL hide_hud = !gSavedSettings.getBOOL("RenderHUDInSnapshot") && LLPipeline::sShowHUDAttachments;
-	if (hide_hud)
-	{
-		LLPipeline::sShowHUDAttachments = FALSE;
-	}
-
-	S32 render_name = gSavedSettings.getS32("RenderName");
-	gSavedSettings.setS32("RenderName", 0);
-	LLVOAvatar::updateFreezeCounter(1) ; //pause avatar updating for one frame
-	
-	S32 w = preview_width ;
-	S32 h = preview_height ;
-	LLVector2 display_scale = mDisplayScale ;
-	mDisplayScale.setVec((F32)w / mWindowRectRaw.getWidth(), (F32)h / mWindowRectRaw.getHeight()) ;
-	LLRect window_rect = mWindowRectRaw;
-	mWindowRectRaw.set(0, h, w, 0);
-	
-	gDisplaySwapBuffers = FALSE;
-	gDepthDirty = TRUE;
-	glClearColor(0.f, 0.f, 0.f, 0.f);
-	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-	setup3DRender();
-
-	LLFontGL::setFontDisplay(FALSE) ;
-	LLHUDText::setDisplayText(FALSE) ;
-	if (type == SNAPSHOT_TYPE_OBJECT_ID)
-	{
-		gObjectList.renderPickList(gViewerWindow->getWindowRectScaled(), FALSE, FALSE);
-	}
-	else
-	{
-		display(do_rebuild, 1.0f, 0, TRUE);
-		render_ui();
-	}
-
-	S32 glformat, gltype, glpixel_length ;
-	if(SNAPSHOT_TYPE_DEPTH == type)
-	{
-		glpixel_length = 4 ;
-		glformat = GL_DEPTH_COMPONENT ; 
-		gltype = GL_FLOAT ;
-	}
-	else
-	{
-		glpixel_length = 3 ;
-		glformat = GL_RGB ;
-		gltype = GL_UNSIGNED_BYTE ;
-	}
-
-	raw->resize(w, h, glpixel_length);
-	glReadPixels(0, 0, w, h, glformat, gltype, raw->getData());
-
-	if(SNAPSHOT_TYPE_DEPTH == type)
-	{
-		LLViewerCamera* camerap = LLViewerCamera::getInstance();
-		F32 depth_conversion_factor_1 = (camerap->getFar() + camerap->getNear()) / (2.f * camerap->getFar() * camerap->getNear());
-		F32 depth_conversion_factor_2 = (camerap->getFar() - camerap->getNear()) / (2.f * camerap->getFar() * camerap->getNear());
-
-		//calculate the depth 
-		for (S32 y = 0 ; y < h ; y++)
-		{
-			for(S32 x = 0 ; x < w ; x++)
-			{
-				S32 i = (w * y + x) << 2 ;
-				
-				F32 depth_float_i = *(F32*)(raw->getData() + i);
-				
-				F32 linear_depth_float = 1.f / (depth_conversion_factor_1 - (depth_float_i * depth_conversion_factor_2));
-				U8 depth_byte = F32_to_U8(linear_depth_float, camerap->getNear(), camerap->getFar());
-				*(raw->getData() + i + 0) = depth_byte;
-				*(raw->getData() + i + 1) = depth_byte;
-				*(raw->getData() + i + 2) = depth_byte;
-				*(raw->getData() + i + 3) = 255;
-			}
-		}		
-	}
-
-	LLFontGL::setFontDisplay(TRUE) ;
-	LLHUDText::setDisplayText(TRUE) ;
-	mDisplayScale.setVec(display_scale) ;
-	mWindowRectRaw = window_rect;	
-	setup3DRender();
-	gDisplaySwapBuffers = FALSE;
-	gDepthDirty = TRUE;
-
-	// POST SNAPSHOT
-	if (!gPipeline.hasRenderDebugFeatureMask(LLPipeline::RENDER_DEBUG_FEATURE_UI))
-	{
-		LLPipeline::toggleRenderDebugFeature((void*)LLPipeline::RENDER_DEBUG_FEATURE_UI);
-	}
-
-	if (hide_hud)
-	{
-		LLPipeline::sShowHUDAttachments = TRUE;
-	}
-
-	setCursor(UI_CURSOR_ARROW);
-
-	if (do_rebuild)
-	{
-		// If we had to do a rebuild, that means that the lists of drawables to be rendered
-		// was empty before we started.
-		// Need to reset these, otherwise we call state sort on it again when render gets called the next time
-		// and we stand a good chance of crashing on rebuild because the render drawable arrays have multiple copies of
-		// objects on them.
-		gPipeline.resetDrawOrders();
-	}
-	
-	gSavedSettings.setS32("RenderName", render_name);	
-	
-	return TRUE;*/
 }
 
 // Saves the image from the screen to the specified filename and path.
@@ -4596,22 +4527,26 @@ void LLViewerWindow::restartDisplay(BOOL show_progress_bar)
 
 BOOL LLViewerWindow::changeDisplaySettings(LLCoordScreen size, BOOL disable_vsync, BOOL show_progress_bar)
 {
-	BOOL was_maximized = gSavedSettings.getBOOL("WindowMaximized");
+	//BOOL was_maximized = gSavedSettings.getBOOL("WindowMaximized");
 
 	//gResizeScreenTexture = TRUE;
 
-	U32 fsaa = gSavedSettings.getU32("RenderFSAASamples");
-	U32 old_fsaa = mWindow->getFSAASamples();
+
+	//U32 fsaa = gSavedSettings.getU32("RenderFSAASamples");
+	//U32 old_fsaa = mWindow->getFSAASamples();
+
 	// if not maximized, use the request size
 	if (!mWindow->getMaximized())
 	{
 		mWindow->setSize(size);
 	}
 
-	if (fsaa == old_fsaa)
+	//if (fsaa == old_fsaa)
 	{
 		return TRUE;
 	}
+
+/*
 
 	// Close floaters that don't handle settings change
 	LLFloaterReg::hideInstance("snapshot");
@@ -4628,13 +4563,13 @@ BOOL LLViewerWindow::changeDisplaySettings(LLCoordScreen size, BOOL disable_vsyn
 	LLCoordScreen old_pos;
 	mWindow->getSize(&old_size);
 
-	mWindow->setFSAASamples(fsaa);
+	//mWindow->setFSAASamples(fsaa);
 
 	result_first_try = mWindow->switchContext(false, size, disable_vsync);
 	if (!result_first_try)
 	{
 		// try to switch back
-		mWindow->setFSAASamples(old_fsaa);
+		//mWindow->setFSAASamples(old_fsaa);
 		result_second_try = mWindow->switchContext(false, old_size, disable_vsync);
 
 		if (!result_second_try)
@@ -4688,6 +4623,8 @@ BOOL LLViewerWindow::changeDisplaySettings(LLCoordScreen size, BOOL disable_vsyn
 	gFocusMgr.setKeyboardFocus(keyboard_focus);
 	
 	return success;
+
+	*/
 }
 
 F32	LLViewerWindow::getWorldViewAspectRatio() const

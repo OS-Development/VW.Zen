@@ -64,6 +64,7 @@
 #include "llworld.h"
 #include "llfeaturemanager.h"
 #include "llviewernetwork.h"
+#include "llmeshrepository.h" //for LLMeshRepository::sBytesReceived
 
 
 class StatAttributes
@@ -600,7 +601,7 @@ void update_statistics(U32 frame_count)
 		}
 	}
 	LLViewerStats::getInstance()->setStat(LLViewerStats::ST_ENABLE_VBO, (F64)gSavedSettings.getBOOL("RenderVBOEnable"));
-	LLViewerStats::getInstance()->setStat(LLViewerStats::ST_LIGHTING_DETAIL, (F64)gSavedSettings.getS32("RenderLightingDetail"));
+	LLViewerStats::getInstance()->setStat(LLViewerStats::ST_LIGHTING_DETAIL, (F64)gPipeline.getLightingDetail());
 	LLViewerStats::getInstance()->setStat(LLViewerStats::ST_DRAW_DIST, (F64)gSavedSettings.getF32("RenderFarClip"));
 	LLViewerStats::getInstance()->setStat(LLViewerStats::ST_CHAT_BUBBLES, (F64)gSavedSettings.getBOOL("UseChatBubbles"));
 #if 0 // 1.9.2
@@ -799,6 +800,7 @@ void send_stats()
 	download["world_kbytes"] = gTotalWorldBytes / 1024.0;
 	download["object_kbytes"] = gTotalObjectBytes / 1024.0;
 	download["texture_kbytes"] = gTotalTextureBytes / 1024.0;
+	download["mesh_kbytes"] = LLMeshRepository::sBytesReceived/1024.0;
 
 	LLSD &in = body["stats"]["net"]["in"];
 

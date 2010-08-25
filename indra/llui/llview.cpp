@@ -123,7 +123,8 @@ LLView::Params::Params()
 }
 
 LLView::LLView(const LLView::Params& p)
-:	mName(p.name),
+:	mVisible(p.visible),
+	mName(p.name),
 	mParentView(NULL),
 	mReshapeFlags(FOLLOWS_NONE),
 	mFromXUI(p.from_xui),
@@ -132,7 +133,6 @@ LLView::LLView(const LLView::Params& p)
 	mNextInsertionOrdinal(0),
 	mHoverCursor(getCursorFromString(p.hover_cursor)),
 	mEnabled(p.enabled),
-	mVisible(p.visible),
 	mMouseOpaque(p.mouse_opaque),
 	mSoundFlags(p.sound_flags),
 	mUseBoundingRect(p.use_bounding_rect),
@@ -403,45 +403,46 @@ bool LLCompareByTabOrder::operator() (const LLView* const a, const LLView* const
 	return (a_score == b_score) ? a < b : a_score < b_score;
 }
 
-bool LLView::trueToRoot(const boost::function<bool (const LLView*)>& predicate) const
-{
-	const LLView* cur_view = this;
-	while(cur_view)
-	{
-		if(!predicate(cur_view))
-		{
-			return false;
-		}
-		cur_view = cur_view->getParent();
-	}
-	return true;
-}
-
 BOOL LLView::isInVisibleChain() const
 {
-	return trueToRoot(&LLView::getVisible);
+	BOOL visible = TRUE;
+
+	const LLView* viewp = this;
+	while(viewp)
+	{
+		if (!viewp->getVisible())
+		{
+			visible = FALSE;
+			break;
+		}
+		viewp = viewp->getParent();
+	}
+	
+	return visible;
 }
 
 BOOL LLView::isInEnabledChain() const
 {
-	return trueToRoot(&LLView::getEnabled);
+	BOOL enabled = TRUE;
+
+	const LLView* viewp = this;
+	while(viewp)
+	{
+		if (!viewp->getEnabled())
+		{
+			enabled = FALSE;
+			break;
+		}
+		viewp = viewp->getParent();
+	}
+	
+	return enabled;
 }
 
 // virtual
 BOOL LLView::canFocusChildren() const
 {
 	return TRUE;
-}
-
-//virtual
-void LLView::setTentative(BOOL b)
-{
-}
-
-//virtual
-BOOL LLView::getTentative() const
-{
-	return FALSE;
 }
 
 //virtual
@@ -1309,7 +1310,13 @@ void LLView::drawChildren()
 {
 	if (!mChildList.empty())
 	{
-		LLRect rootRect = getRootView()->getRect();
+		static const LLRect* rootRect = NULL;
+		
+		if (!mParentView)
+		{
+			rootRect = &mRect;
+		}
+
 		LLRect screenRect;
 
 		++sDepth;
@@ -1323,7 +1330,7 @@ void LLView::drawChildren()
 			{
 				// Only draw views that are within the root view
 				localRectToScreen(viewp->getRect(),&screenRect);
-				if ( rootRect.overlaps(screenRect)  && LLUI::sDirtyRect.overlaps(screenRect))
+				if ( rootRect->overlaps(screenRect)  && LLUI::sDirtyRect.overlaps(screenRect))
 				{
 					LLUI::pushMatrix();
 					{
@@ -2782,6 +2789,19 @@ LLView::tree_post_iterator_t LLView::endTreeDFSPost()
 { 
 	// an empty iterator is an "end" iterator
 	return tree_post_iterator_t();
+}
+
+LLView::bfs_tree_iterator_t LLView::beginTreeBFS() 
+{ 
+	return bfs_tree_iterator_t(this, 
+							boost::bind(boost::mem_fn(&LLView::beginChild), _1), 
+							boost::bind(boost::mem_fn(&LLView::endChild), _1)); 
+}
+
+LLView::bfs_tree_iterator_t LLView::endTreeBFS() 
+{ 
+	// an empty iterator is an "end" iterator
+	return bfs_tree_iterator_t();
 }
 
 

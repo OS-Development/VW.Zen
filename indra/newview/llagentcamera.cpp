@@ -557,7 +557,9 @@ BOOL LLAgentCamera::calcCameraMinDistance(F32 &obj_min_distance)
 {
 	BOOL soft_limit = FALSE; // is the bounding box to be treated literally (volumes) or as an approximation (avatars)
 
-	if (!mFocusObject || mFocusObject->isDead())
+	if (!mFocusObject || mFocusObject->isDead() || 
+		mFocusObject->isMesh() ||
+		gSavedSettings.getBOOL("DisableCameraConstraints"))
 	{
 		obj_min_distance = 0.f;
 		return TRUE;
@@ -1149,10 +1151,9 @@ void LLAgentCamera::updateCamera()
 	static LLFastTimer::DeclareTimer ftm("Camera");
 	LLFastTimer t(ftm);
 
-	//Ventrella - changed camera_skyward to the new global "mCameraUpVector"
+	// - changed camera_skyward to the new global "mCameraUpVector"
 	mCameraUpVector = LLVector3::z_axis;
 	//LLVector3	camera_skyward(0.f, 0.f, 1.f);
-	//end Ventrella
 
 	U32 camera_mode = mCameraAnimating ? mLastCameraMode : mCameraMode;
 
@@ -1162,10 +1163,8 @@ void LLAgentCamera::updateCamera()
 		gAgentAvatarp->isSitting() &&
 		camera_mode == CAMERA_MODE_MOUSELOOK)
 	{
-		//Ventrella
 		//changed camera_skyward to the new global "mCameraUpVector"
 		mCameraUpVector = mCameraUpVector * gAgentAvatarp->getRenderRotation();
-		//end Ventrella
 	}
 
 	if (cameraThirdPerson() && mFocusOnAvatar && LLFollowCamMgr::getActiveFollowCamParams())
@@ -1173,13 +1172,11 @@ void LLAgentCamera::updateCamera()
 		changeCameraToFollow();
 	}
 
-	//Ventrella
 	//NOTE - this needs to be integrated into a general upVector system here within llAgent. 
 	if ( camera_mode == CAMERA_MODE_FOLLOW && mFocusOnAvatar )
 	{
 		mCameraUpVector = mFollowCam.getUpVector();
 	}
-	//end Ventrella
 
 	if (mSitCameraEnabled)
 	{
@@ -1256,7 +1253,6 @@ void LLAgentCamera::updateCamera()
 	// lerp camera focus offset
 	mCameraFocusOffset = lerp(mCameraFocusOffset, mCameraFocusOffsetTarget, LLCriticalDamp::getInterpolant(CAMERA_FOCUS_HALF_LIFE));
 
-	//Ventrella
 	if ( mCameraMode == CAMERA_MODE_FOLLOW )
 	{
 		if (isAgentAvatarValid())
@@ -1283,7 +1279,6 @@ void LLAgentCamera::updateCamera()
 			}
 		}
 	}
-	// end Ventrella
 
 	BOOL hit_limit;
 	LLVector3d camera_pos_global;
@@ -1414,10 +1409,8 @@ void LLAgentCamera::updateCamera()
 
 	// Move the camera
 
-	//Ventrella
 	LLViewerCamera::getInstance()->updateCameraLocation(mCameraPositionAgent, mCameraUpVector, focus_agent);
 	//LLViewerCamera::getInstance()->updateCameraLocation(mCameraPositionAgent, camera_skyward, focus_agent);
-	//end Ventrella
 	
 	// Change FOV
 	LLViewerCamera::getInstance()->setView(LLViewerCamera::getInstance()->getDefaultFOV() / (1.f + mCameraCurrentFOVZoomFactor));
@@ -1532,12 +1525,11 @@ LLVector3d LLAgentCamera::calcFocusPositionTargetGlobal()
 		clearFocusObject();
 	}
 
-	// Ventrella
 	if (mCameraMode == CAMERA_MODE_FOLLOW && mFocusOnAvatar)
 	{
 		mFocusTargetGlobal = gAgent.getPosGlobalFromAgent(mFollowCam.getSimulatedFocus());
 		return mFocusTargetGlobal;
-	}// End Ventrella 
+	}
 	else if (mCameraMode == CAMERA_MODE_MOUSELOOK)
 	{
 		LLVector3d at_axis(1.0, 0.0, 0.0);
@@ -1706,11 +1698,10 @@ LLVector3d LLAgentCamera::calcCameraPositionTargetGlobal(BOOL *hit_limit)
 
 	LLVector3d camera_position_global;
 
-	// Ventrella 
 	if (mCameraMode == CAMERA_MODE_FOLLOW && mFocusOnAvatar)
 	{
 		camera_position_global = gAgent.getPosGlobalFromAgent(mFollowCam.getSimulatedPosition());
-	}// End Ventrella
+	}
 	else if (mCameraMode == CAMERA_MODE_MOUSELOOK)
 	{
 		if (!isAgentAvatarValid() || gAgentAvatarp->mDrawable.isNull())
@@ -2130,7 +2121,6 @@ void LLAgentCamera::changeCameraToDefault()
 }
 
 
-// Ventrella
 //-----------------------------------------------------------------------------
 // changeCameraToFollow()
 //-----------------------------------------------------------------------------

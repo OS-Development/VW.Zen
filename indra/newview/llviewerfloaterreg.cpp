@@ -71,6 +71,7 @@
 #include "llimfloater.h"
 #include "llfloaterinspect.h"
 #include "llfloaterinventory.h"
+#include "llfloaterimportcollada.h"
 #include "llfloaterjoystick.h"
 #include "llfloaterlagmeter.h"
 #include "llfloaterland.h"
@@ -81,7 +82,6 @@
 #include "llfloaternotificationsconsole.h"
 #include "llfloateropenobject.h"
 #include "llfloaterpay.h"
-#include "llfloaterparcel.h"
 #include "llfloaterperms.h"
 #include "llfloaterpostcard.h"
 #include "llfloaterpostprocess.h"
@@ -101,7 +101,6 @@
 #include "llfloatertos.h"
 #include "llfloatertopobjects.h"
 #include "llfloateruipreview.h"
-#include "llfloaterurldisplay.h"
 #include "llfloatervoicedevicesettings.h"
 #include "llfloatervoiceeffect.h"
 #include "llfloaterwater.h"
@@ -127,6 +126,8 @@
 #include "llpreviewtexture.h"
 #include "llsyswellwindow.h"
 #include "llscriptfloater.h"
+#include "llfloatermodelpreview.h"
+
 // *NOTE: Please add files in alphabetical order to keep merges easy.
 
 
@@ -174,6 +175,9 @@ void LLViewerFloaterReg::registerFloaters()
 	LLFloaterReg::add("hud", "floater_hud.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterHUD>);
 
 	LLFloaterReg::add("impanel", "floater_im_session.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLIMFloater>);
+#if LL_MESH_ENABLED
+	LLFloaterReg::add("import_collada", "floater_import_collada.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterImportCollada>);
+#endif
 	LLFloaterReg::add("im_container", "floater_im_container.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLIMFloaterContainer>);
 	LLFloaterReg::add("im_well_window", "floater_sys_well.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLIMWellWindow>);
 	LLFloaterReg::add("incoming_call", "floater_incoming_call.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLIncomingCallDialog>);
@@ -202,14 +206,12 @@ void LLViewerFloaterReg::registerFloaters()
 
 	LLFloaterReg::add("openobject", "floater_openobject.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterOpenObject>);
 	LLFloaterReg::add("outgoing_call", "floater_outgoing_call.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLOutgoingCallDialog>);
-	LLFloaterReg::add("parcel_info", "floater_preview_url.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterParcelInfo>);
 	LLFloaterPayUtil::registerFloater();
 
 	LLFloaterReg::add("postcard", "floater_postcard.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterPostcard>);
 	LLFloaterReg::add("preferences", "floater_preferences.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterPreference>);
 	LLFloaterReg::add("prefs_hardware_settings", "floater_hardware_settings.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterHardwareSettings>);
 	LLFloaterReg::add("perm_prefs", "floater_perm_prefs.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterPerms>);
-	LLFloaterReg::add("preview_url", "floater_preview_url.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterURLDisplay>);
 	LLFloaterReg::add("pref_joystick", "floater_joystick.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterJoystick>);
 	LLFloaterReg::add("pref_voicedevicesettings", "floater_device_settings.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterVoiceDeviceSettings>);
 	LLFloaterReg::add("preview_anim", "floater_preview_animation.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLPreviewAnim>, "preview");
@@ -254,7 +256,10 @@ void LLViewerFloaterReg::registerFloaters()
 	LLFloaterReg::add("upload_anim", "floater_animation_preview.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterAnimPreview>, "upload");
 	LLFloaterReg::add("upload_image", "floater_image_preview.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterImagePreview>, "upload");
 	LLFloaterReg::add("upload_sound", "floater_sound_preview.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterSoundPreview>, "upload");
-	
+#if LL_MESH_ENABLED
+	LLFloaterReg::add("upload_model", "floater_model_preview.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterModelPreview>, "upload");
+#endif
+
 	LLFloaterReg::add("voice_controls", "floater_voice_controls.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLCallFloater>);
 	LLFloaterReg::add("voice_effect", "floater_voice_effect.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterVoiceEffect>);
 

@@ -920,6 +920,16 @@ LLInvFVBridge* LLInvFVBridge::createBridge(LLAssetType::EType asset_type,
 			// Only should happen for broken links.
 			new_listener = new LLLinkItemBridge(inventory, root, uuid);
 			break;
+#if LL_MESH_ENABLED
+	    case LLAssetType::AT_MESH:
+			if(!(inv_type == LLInventoryType::IT_MESH))
+			{
+				llwarns << LLAssetType::lookup(asset_type) << " asset has inventory type " << LLInventoryType::lookupHumanReadable(inv_type) << " on uuid " << uuid << llendl;
+			}
+			new_listener = new LLMeshBridge(inventory, root, uuid);
+			break;
+#endif
+
 		default:
 			llinfos << "Unhandled asset type (llassetstorage.h): "
 					<< (S32)asset_type << llendl;
@@ -1270,6 +1280,12 @@ BOOL LLItemBridge::isItemRenameable() const
 		{
 			return FALSE;
 		}
+
+		if (!item->isFinished()) // EXT-8662
+		{
+			return FALSE;
+		}
+
 		return (item->getPermissions().allowModifyBy(gAgent.getID()));
 	}
 	return FALSE;
@@ -2234,6 +2250,9 @@ LLUIImagePtr LLFolderBridge::getIcon() const
 LLUIImagePtr LLFolderBridge::getIcon(LLFolderType::EType preferred_type)
 {
 	return LLUI::getUIImage(LLViewerFolderType::lookupIconName(preferred_type, FALSE));
+		/*case LLAssetType::AT_MESH:
+			control = "inv_folder_mesh.tga";
+			break;*/
 }
 
 LLUIImagePtr LLFolderBridge::getOpenIcon() const
@@ -2671,6 +2690,9 @@ BOOL LLFolderBridge::dragOrDrop(MASK mask, BOOL drop,
 		case DAD_ANIMATION:
 		case DAD_GESTURE:
 		case DAD_LINK:
+#if LL_MESH_ENABLED
+		case DAD_MESH:
+#endif
 			accept = dragItemIntoFolder((LLInventoryItem*)cargo_data,
 										drop);
 			break;
@@ -3580,6 +3602,9 @@ BOOL LLCallingCardBridge::dragOrDrop(MASK mask, BOOL drop,
 			case DAD_BODYPART:
 			case DAD_ANIMATION:
 			case DAD_GESTURE:
+#if LL_MESH_ENABLED
+			case DAD_MESH:
+#endif
 			{
 				LLInventoryItem* inv_item = (LLInventoryItem*)cargo_data;
 				const LLPermissions& perm = inv_item->getPermissions();
@@ -3936,7 +3961,7 @@ void LLObjectBridge::performAction(LLInventoryModel* model, std::string action)
 		item = (LLViewerInventoryItem*)gInventory.getItem(object_id);
 		if(item && gInventory.isObjectDescendentOf(object_id, gInventory.getRootFolderID()))
 		{
-			rez_attachment(item, NULL);
+			rez_attachment(item, NULL, true); // Replace if "Wear"ing.
 		}
 		else if(item && item->isFinished())
 		{
@@ -3952,23 +3977,16 @@ void LLObjectBridge::performAction(LLInventoryModel* model, std::string action)
 		}
 		gFocusMgr.setKeyboardFocus(NULL);
 	}
+	else if ("wear_add" == action)
+	{
+		LLAppearanceMgr::instance().wearItemOnAvatar(mUUID, true, false); // Don't replace if adding.
+	}
 	else if (isRemoveAction(action))
 	{
 		LLInventoryItem* item = gInventory.getItem(mUUID);
 		if(item)
 		{
-			gMessageSystem->newMessageFast(_PREHASH_DetachAttachmentIntoInv);
-			gMessageSystem->nextBlockFast(_PREHASH_ObjectData);
-			gMessageSystem->addUUIDFast(_PREHASH_AgentID, gAgent.getID());
-			gMessageSystem->addUUIDFast(_PREHASH_ItemID, item->getLinkedUUID());
-			gMessageSystem->sendReliable( gAgent.getRegion()->getHost());
-
-			// this object might have been selected, so let the selection manager know it's gone now
-			LLViewerObject *found_obj = gObjectList.findObject(item->getLinkedUUID());
-			if (found_obj)
-			{
-				LLSelectMgr::getInstance()->remove(found_obj);
-			}
+			LLVOAvatarSelf::detachAttachmentIntoInventory(item->getLinkedUUID());
 		}
 	}
 	else LLItemBridge::performAction(model, action);
@@ -3985,6 +4003,11 @@ std::string LLObjectBridge::getLabelSuffix() const
 {
 	if (get_is_item_worn(mUUID))
 	{
+		if (!isAgentAvatarValid())
+		{
+			return LLItemBridge::getLabelSuffix() + LLTrans::getString("worn");
+		}
+
 		std::string attachment_point_name = gAgentAvatarp->getAttachedPointName(mUUID);
 
 		// e.g. "(worn on ...)" / "(attached to ...)"
@@ -3998,10 +4021,19 @@ std::string LLObjectBridge::getLabelSuffix() const
 	}
 }
 
-void rez_attachment(LLViewerInventoryItem* item, LLViewerJointAttachment* attachment)
+void rez_attachment(LLViewerInventoryItem* item, LLViewerJointAttachment* attachment, bool replace)
 {
-	LLSD payload;
-	payload["item_id"] = item->getLinkedUUID(); // Wear the base object in case this is a link.
+	const LLUUID& item_id = item->getLinkedUUID();
+
+	// Check for duplicate request.
+	if (isAgentAvatarValid() &&
+		(gAgentAvatarp->attachmentWasRequested(item_id) ||
+		 gAgentAvatarp->isWearingAttachment(item_id)))
+	{
+		llwarns << "duplicate attachment request, ignoring" << llendl;
+		return;
+	}
+	gAgentAvatarp->addAttachmentRequest(item_id);
 
 	S32 attach_pt = 0;
 	if (isAgentAvatarValid() && attachment)
@@ -4017,9 +4049,16 @@ void rez_attachment(LLViewerInventoryItem* item, LLViewerJointAttachment* attach
 		}
 	}
 
+	if (!replace)
+	{
+		attach_pt |= ATTACHMENT_ADD;
+	}
+
+	LLSD payload;
+	payload["item_id"] = item_id; // Wear the base object in case this is a link.
 	payload["attachment_point"] = attach_pt;
 
-	if (!gSavedSettings.getBOOL("MultipleAttachments") &&
+	if (replace &&
 		(attachment && attachment->getNumObjects() > 0))
 	{
 		LLNotificationsUtil::add("ReplaceAttachment", LLSD(), payload, confirm_replace_attachment_rez);
@@ -4043,13 +4082,13 @@ bool confirm_replace_attachment_rez(const LLSD& notification, const LLSD& respon
 	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	if (option == 0/*YES*/)
 	{
-		LLViewerInventoryItem* itemp = gInventory.getItem(notification["payload"]["item_id"].asUUID());
+		LLUUID item_id = notification["payload"]["item_id"].asUUID();
+		LLViewerInventoryItem* itemp = gInventory.getItem(item_id);
 
 		if (itemp)
 		{
 			U8 attachment_pt = notification["payload"]["attachment_point"].asInteger();
-			if (gSavedSettings.getBOOL("MultipleAttachments"))
-				attachment_pt |= ATTACHMENT_ADD;
+			
 
 			LLMessageSystem* msg = gMessageSystem;
 			msg->newMessageFast(_PREHASH_RezSingleAttachmentFromInv);
@@ -4106,6 +4145,7 @@ void LLObjectBridge::buildContextMenu(LLMenuGL& menu, U32 flags)
 			{
 				items.push_back(std::string("Wearable And Object Separator"));
 				items.push_back(std::string("Wearable And Object Wear"));
+				items.push_back(std::string("Wearable Add"));
 				items.push_back(std::string("Attach To"));
 				items.push_back(std::string("Attach To HUD"));
 				// commented out for DEV-32347
@@ -4114,6 +4154,7 @@ void LLObjectBridge::buildContextMenu(LLMenuGL& menu, U32 flags)
 				if (!gAgentAvatarp->canAttachMoreObjects())
 				{
 					disabled_items.push_back(std::string("Wearable And Object Wear"));
+					disabled_items.push_back(std::string("Wearable Add"));
 					disabled_items.push_back(std::string("Attach To"));
 					disabled_items.push_back(std::string("Attach To HUD"));
 				}
@@ -4316,19 +4357,7 @@ void remove_inventory_category_from_avatar_step2( BOOL proceed, LLUUID category_
 				LLViewerInventoryItem *obj_item = obj_item_array.get(i);
 				if (get_is_item_worn(obj_item->getUUID()))
 				{
-					gMessageSystem->newMessageFast(_PREHASH_DetachAttachmentIntoInv);
-					gMessageSystem->nextBlockFast(_PREHASH_ObjectData );
-					gMessageSystem->addUUIDFast(_PREHASH_AgentID, gAgent.getID() );
-					gMessageSystem->addUUIDFast(_PREHASH_ItemID, obj_item->getLinkedUUID() );
-					
-					gMessageSystem->sendReliable( gAgent.getRegion()->getHost() );
-					
-					// this object might have been selected, so let the selection manager know it's gone now
-					LLViewerObject *found_obj = gObjectList.findObject( obj_item->getLinkedUUID());
-					if (found_obj)
-					{
-						LLSelectMgr::getInstance()->remove(found_obj);
-					}
+					LLVOAvatarSelf::detachAttachmentIntoInventory(obj_item->getLinkedUUID());
 				}
 			}
 		}
@@ -4734,6 +4763,7 @@ void LLWearableBridge::removeFromAvatar()
 	}
 }
 
+
 // +=================================================+
 // |        LLLinkItemBridge                         |
 // +=================================================+
@@ -4762,6 +4792,65 @@ void LLLinkItemBridge::buildContextMenu(LLMenuGL& menu, U32 flags)
 	}
 	hide_context_entries(menu, items, disabled_items);
 }
+
+#if LL_MESH_ENABLED
+// +=================================================+
+// |        LLMeshBridge                             |
+// +=================================================+
+
+LLUIImagePtr LLMeshBridge::getIcon() const
+{
+	return LLInventoryIcon::getIcon(LLAssetType::AT_MESH, LLInventoryType::IT_MESH, 0, FALSE);
+}
+
+void LLMeshBridge::openItem()
+{
+	LLViewerInventoryItem* item = getItem();
+	
+	if (item)
+	{
+		// open mesh
+	}
+}
+
+void LLMeshBridge::previewItem()
+{
+	LLViewerInventoryItem* item = getItem();
+	if(item)
+	{
+		// preview mesh
+	}
+}
+
+
+void LLMeshBridge::buildContextMenu(LLMenuGL& menu, U32 flags)
+{
+	lldebugs << "LLMeshBridge::buildContextMenu()" << llendl;
+	std::vector<std::string> items;
+	std::vector<std::string> disabled_items;
+
+	if(isItemInTrash())
+	{
+		items.push_back(std::string("Purge Item"));
+		if (!isItemRemovable())
+		{
+			disabled_items.push_back(std::string("Purge Item"));
+		}
+
+		items.push_back(std::string("Restore Item"));
+	}
+	else
+	{
+		items.push_back(std::string("Properties"));
+
+		getClipboardEntries(true, items, disabled_items, flags);
+	}
+
+
+	hide_context_entries(menu, items, disabled_items);
+}
+
+#endif
 
 // +=================================================+
 // |        LLLinkBridge                             |
@@ -5069,6 +5158,7 @@ public:
 	{
 		wearOnAvatar();
 	}
+
 	virtual ~LLWearableBridgeAction(){}
 protected:
 	LLWearableBridgeAction(const LLUUID& id,LLInventoryModel* model) : LLInvFVBridgeAction(id,model) {}

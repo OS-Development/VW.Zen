@@ -448,22 +448,35 @@ void LLVOTree::render(LLAgent &agent)
 
 void LLVOTree::setPixelAreaAndAngle(LLAgent &agent)
 {
-	// First calculate values as for any other object (for mAppAngle)
-	LLViewerObject::setPixelAreaAndAngle(agent);
-
-	// Re-calculate mPixelArea accurately
+	LLVector3 center = getPositionAgent();//center of tree.
+	LLVector3 viewer_pos_agent = gAgentCamera.getCameraPositionAgent();
+	LLVector3 lookAt = center - viewer_pos_agent;
+	F32 dist = lookAt.normVec() ;	
+	F32 cos_angle_to_view_dir = lookAt * LLViewerCamera::getInstance()->getXAxis() ;	
 	
-	// This should be the camera's center, as soon as we move to all region-local.
-	LLVector3 relative_position = getPositionAgent() - gAgentCamera.getCameraPositionAgent();
-	F32 range_squared = relative_position.lengthSquared() ;				
+	F32 range = dist - getMinScale()/2;
+	if (range < F_ALMOST_ZERO || isHUDAttachment())		// range == zero
+	{
+		mAppAngle = 180.f;
+	}
+	else
+	{
+		mAppAngle = (F32) atan2( getMaxScale(), range) * RAD_TO_DEG;		
+	}
 
 	F32 max_scale = mBillboardScale * getMaxScale();
 	F32 area = max_scale * (max_scale*mBillboardRatio);
-
 	// Compute pixels per meter at the given range
-	F32 pixels_per_meter = LLViewerCamera::getInstance()->getViewHeightInPixels() / tan(LLViewerCamera::getInstance()->getView());
+	F32 pixels_per_meter = LLViewerCamera::getInstance()->getViewHeightInPixels() / (tan(LLViewerCamera::getInstance()->getView()) * dist);
+	mPixelArea = pixels_per_meter * pixels_per_meter * area ;	
 
-	mPixelArea = (pixels_per_meter) * (pixels_per_meter) * area / range_squared;
+	F32 importance = LLFace::calcImportanceToCamera(cos_angle_to_view_dir, dist) ;
+	mPixelArea = LLFace::adjustPixelArea(importance, mPixelArea) ;
+	if (mPixelArea > LLViewerCamera::getInstance()->getScreenPixelArea())
+	{
+		mAppAngle = 180.f;
+	}
+
 #if 0
 	// mAppAngle is a bit of voodoo;
 	// use the one calculated LLViewerObject::setPixelAreaAndAngle above
@@ -478,7 +491,7 @@ void LLVOTree::updateTextures()
 	{
 		if (gPipeline.hasRenderDebugMask(LLPipeline::RENDER_DEBUG_TEXTURE_AREA))
 		{
-			setDebugText(llformat("%4.0f", fsqrtf(mPixelArea)));
+			setDebugText(llformat("%4.0f", (F32) sqrt(mPixelArea)));
 		}
 		mTreeImagep->addTextureStats(mPixelArea);
 	}
@@ -1253,7 +1266,7 @@ void LLVOTree::updateRadius()
 	mDrawable->setRadius(32.0f);
 }
 
-void LLVOTree::updateSpatialExtents(LLVector3& newMin, LLVector3& newMax)
+void LLVOTree::updateSpatialExtents(LLVector4a& newMin, LLVector4a& newMax)
 {
 	F32 radius = getScale().length()*0.05f;
 	LLVector3 center = getRenderPosition();
@@ -1263,9 +1276,11 @@ void LLVOTree::updateSpatialExtents(LLVector3& newMin, LLVector3& newMax)
 
 	center += LLVector3(0, 0, size.mV[2]) * getRotation();
 	
-	newMin.set(center-size);
-	newMax.set(center+size);
-	mDrawable->setPositionGroup(center);
+	newMin.load3((center-size).mV);
+	newMax.load3((center+size).mV);
+	LLVector4a pos;
+	pos.load3(center.mV);
+	mDrawable->setPositionGroup(pos);
 }
 
 BOOL LLVOTree::lineSegmentIntersect(const LLVector3& start, const LLVector3& end, S32 face, BOOL pick_transparent, S32 *face_hitp,
@@ -1278,8 +1293,13 @@ BOOL LLVOTree::lineSegmentIntersect(const LLVector3& start, const LLVector3& end
 		return FALSE;
 	}
 
-	const LLVector3* ext = mDrawable->getSpatialExtents();
+	const LLVector4a* exta = mDrawable->getSpatialExtents();
 
+	//VECTORIZE THIS
+	LLVector3 ext[2];
+	ext[0].set(exta[0].getF32ptr());
+	ext[1].set(exta[1].getF32ptr());
+	
 	LLVector3 center = (ext[1]+ext[0])*0.5f;
 	LLVector3 size = (ext[1]-ext[0]);
 

@@ -69,7 +69,7 @@ const S32 PREVIEW_BORDER_WIDTH = 2;
 const S32 PREVIEW_RESIZE_HANDLE_SIZE = S32(RESIZE_HANDLE_WIDTH * OO_SQRT2) + PREVIEW_BORDER_WIDTH;
 const S32 PREVIEW_HPAD = PREVIEW_RESIZE_HANDLE_SIZE;
 const S32 PREF_BUTTON_HEIGHT = 16 + 7 + 16;
-const S32 PREVIEW_TEXTURE_HEIGHT = 300;
+const S32 PREVIEW_TEXTURE_HEIGHT = 320;
 
 //-----------------------------------------------------------------------------
 // LLFloaterImagePreview()
@@ -109,7 +109,7 @@ BOOL LLFloaterImagePreview::postBuild()
 		PREVIEW_HPAD + PREF_BUTTON_HEIGHT + PREVIEW_HPAD);
 	mPreviewImageRect.set(0.f, 1.f, 1.f, 0.f);
 
-	childHide("bad_image_text");
+	getChildView("bad_image_text")->setVisible(FALSE);
 
 	if (mRawImagep.notNull() && gAgent.getRegion() != NULL)
 	{
@@ -120,19 +120,19 @@ BOOL LLFloaterImagePreview::postBuild()
 		mSculptedPreview->setPreviewTarget(mRawImagep, 2.0f);
 
 		if (mRawImagep->getWidth() * mRawImagep->getHeight () <= LL_IMAGE_REZ_LOSSLESS_CUTOFF * LL_IMAGE_REZ_LOSSLESS_CUTOFF)
-			childEnable("lossless_check");
+			getChildView("lossless_check")->setEnabled(TRUE);
 	}
 	else
 	{
 		mAvatarPreview = NULL;
 		mSculptedPreview = NULL;
-		childShow("bad_image_text");
-		childDisable("clothing_type_combo");
-		childDisable("ok_btn");
+		getChildView("bad_image_text")->setVisible(TRUE);
+		getChildView("clothing_type_combo")->setEnabled(FALSE);
+		getChildView("ok_btn")->setEnabled(FALSE);
 
 		if(!mImageLoadError.empty())
 		{
-			childSetValue("bad_image_text",mImageLoadError.c_str());
+			getChild<LLUICtrl>("bad_image_text")->setValue(mImageLoadError.c_str());
 		}
 	}
 	
@@ -864,8 +864,8 @@ void LLImagePreviewSculpted::setPreviewTarget(LLImageRaw* imagep, F32 distance)
 	}
 
 	const LLVolumeFace &vf = mVolume->getVolumeFace(0);
-	U32 num_indices = vf.mIndices.size();
-	U32 num_vertices = vf.mVertices.size();
+	U32 num_indices = vf.mNumIndices;
+	U32 num_vertices = vf.mNumVertices;
 
 	mVertexBuffer = new LLVertexBuffer(LLVertexBuffer::MAP_VERTEX | LLVertexBuffer::MAP_NORMAL, 0);
 	mVertexBuffer->allocateBuffer(num_vertices, num_indices, TRUE);
@@ -879,10 +879,16 @@ void LLImagePreviewSculpted::setPreviewTarget(LLImageRaw* imagep, F32 distance)
 	mVertexBuffer->getIndexStrider(index_strider);
 
 	// build vertices and normals
+	LLStrider<LLVector3> pos;
+	pos = (LLVector3*) vf.mPositions; pos.setStride(16);
+	LLStrider<LLVector3> norm;
+	norm = (LLVector3*) vf.mNormals; norm.setStride(16);
+		
+
 	for (U32 i = 0; i < num_vertices; i++)
 	{
-		*(vertex_strider++) = vf.mVertices[i].mPosition;
-		LLVector3 normal = vf.mVertices[i].mNormal;
+		*(vertex_strider++) = *pos++;
+		LLVector3 normal = *norm++;
 		normal.normalize();
 		*(normal_strider++) = normal;
 	}
@@ -901,7 +907,6 @@ void LLImagePreviewSculpted::setPreviewTarget(LLImageRaw* imagep, F32 distance)
 BOOL LLImagePreviewSculpted::render()
 {
 	mNeedsUpdate = FALSE;
-
 	LLGLSUIDefault def;
 	LLGLDisable no_blend(GL_BLEND);
 	LLGLEnable cull(GL_CULL_FACE);
@@ -946,7 +951,7 @@ BOOL LLImagePreviewSculpted::render()
 	LLViewerCamera::getInstance()->setPerspective(FALSE, mOrigin.mX, mOrigin.mY, mFullWidth, mFullHeight, FALSE);
 
 	const LLVolumeFace &vf = mVolume->getVolumeFace(0);
-	U32 num_indices = vf.mIndices.size();
+	U32 num_indices = vf.mNumIndices;
 	
 	mVertexBuffer->setBuffer(LLVertexBuffer::MAP_VERTEX | LLVertexBuffer::MAP_NORMAL);
 
@@ -959,7 +964,6 @@ BOOL LLImagePreviewSculpted::render()
 	mVertexBuffer->draw(LLRender::TRIANGLES, num_indices, 0);
 
 	gGL.popMatrix();
-		
 	return TRUE;
 }
 
