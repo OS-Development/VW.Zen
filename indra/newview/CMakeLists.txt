@@ -82,6 +82,7 @@ set(viewer_SOURCE_FILES
     llappviewerlistener.cpp
     llassetuploadqueue.cpp
     llassetuploadresponders.cpp
+    llattachmentsmgr.cpp
     llaudiosourcevo.cpp
     llavataractions.cpp
     llavatariconctrl.cpp
@@ -604,6 +605,7 @@ set(viewer_HEADER_FILES
     llappviewerlistener.h
     llassetuploadqueue.h
     llassetuploadresponders.h
+    llattachmentsmgr.h
     llaudiosourcevo.h
     llavataractions.h
     llavatariconctrl.h
@@ -1390,10 +1392,6 @@ add_executable(${VIEWER_BINARY_NAME}
     ${viewer_SOURCE_FILES}
     )
 
-if (LLKDU_LIBRARY)
-  add_dependencies(${VIEWER_BINARY_NAME} ${LLKDU_LIBRARY})
-endif (LLKDU_LIBRARY)
-
 # add package files
 file(GLOB EVENT_HOST_SCRIPT_GLOB_LIST
      ${CMAKE_CURRENT_SOURCE_DIR}/../viewer_components/*.py)
@@ -1551,11 +1549,6 @@ if (WINDOWS)
 
     add_dependencies(${VIEWER_BINARY_NAME} stage_third_party_libs llcommon copy_w_viewer_manifest)
     
-    if(LLKDU_LIBRARY)
-      # kdu may not exist!
-      add_dependencies(copy_w_viewer_manifest llkdu)
-    endif(LLKDU_LIBRARY)
-
     if (EXISTS ${CMAKE_SOURCE_DIR}/copy_win_scripts)
       add_dependencies(${VIEWER_BINARY_NAME} copy_win_scripts)
     endif (EXISTS ${CMAKE_SOURCE_DIR}/copy_win_scripts)

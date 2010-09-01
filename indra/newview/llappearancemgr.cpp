@@ -31,6 +31,7 @@
 #include "llagentcamera.h"
 #include "llagentwearables.h"
 #include "llappearancemgr.h"
+#include "llattachmentsmgr.h"
 #include "llcommandhandler.h"
 #include "lleventtimer.h"
 #include "llgesturemgr.h"
@@ -2307,12 +2308,17 @@ bool LLAppearanceMgr::updateBaseOutfit()
 
 void LLAppearanceMgr::divvyWearablesByType(const LLInventoryModel::item_array_t& items, wearables_by_type_t& items_by_type)
 {
-	items_by_type.reserve(LLWearableType::WT_COUNT);
+	items_by_type.resize(LLWearableType::WT_COUNT);
 	if (items.empty()) return;
 
 	for (S32 i=0; i<items.count(); i++)
 	{
 		LLViewerInventoryItem *item = items.get(i);
+		if (!item)
+		{
+			LL_WARNS("Appearance") << "NULL item found" << llendl;
+			continue;
+		}
 		// Ignore non-wearables.
 		if (!item->isWearableType())
 			continue;
@@ -2335,6 +2341,7 @@ std::string build_order_string(LLWearableType::EType type, U32 i)
 
 struct WearablesOrderComparator
 {
+	LOG_CLASS(WearablesOrderComparator);
 	WearablesOrderComparator(const LLWearableType::EType type)
 	{
 		mControlSize = build_order_string(type, 0).size();
@@ -2638,6 +2645,8 @@ LLAppearanceMgr::LLAppearanceMgr():
 
 	mUnlockOutfitTimer.reset(new LLOutfitUnLockTimer(gSavedSettings.getS32(
 			"OutfitOperationsTimeout")));
+
+	gIdleCallbacks.addFunction(&LLAttachmentsMgr::onIdle,NULL);
 }
 
 LLAppearanceMgr::~LLAppearanceMgr()
