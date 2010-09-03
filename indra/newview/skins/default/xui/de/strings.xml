@@ -196,6 +196,7 @@
 	<string name="TooltipMustSingleDrop">
 		Sie können nur ein einzelnes Objekt hierher ziehen
 	</string>
+	<string name="TooltipPrice" value="[AMOUNT] L$"/>
 	<string name="TooltipHttpUrl">
 		Anklicken, um Webseite anzuzeigen
 	</string>
@@ -248,7 +249,6 @@
 		Anklicken, um Befehl secondlife:// auszuführen
 	</string>
 	<string name="CurrentURL" value=" CurrentURL: [CurrentURL]"/>
-	<string name="TooltipPrice" value="[AMOUNT]L$: "/>
 	<string name="SLurlLabelTeleport">
 		Teleportieren nach
 	</string>
@@ -663,6 +663,9 @@
 	<string name="worldmap_offline">
 		Offline
 	</string>
+	<string name="worldmap_item_tooltip_format">
+		[PRICE] L$ für [AREA] m²
+	</string>
 	<string name="worldmap_results_none_found">
 		Nicht gefunden.
 	</string>
@@ -906,11 +909,56 @@
 	<string name="invalid_not_worn">
 		ungültig
 	</string>
+	<string name="create_new_shape">
+		Neue Form/Gestalt erstellen
+	</string>
+	<string name="create_new_skin">
+		Neue Haut erstellen
+	</string>
+	<string name="create_new_hair">
+		Neue Haare erstellen
+	</string>
+	<string name="create_new_eyes">
+		Neue Augen erstellen
+	</string>
+	<string name="create_new_shirt">
+		Neues Hemd erstellen
+	</string>
+	<string name="create_new_pants">
+		Neue Hose erstellen
+	</string>
+	<string name="create_new_shoes">
+		Neue Schuhe erstellen
+	</string>
+	<string name="create_new_socks">
+		Neue Socken erstellen
+	</string>
+	<string name="create_new_jacket">
+		Neue Jacke erstellen
+	</string>
+	<string name="create_new_gloves">
+		Neue Handschuhe erstellen
+	</string>
+	<string name="create_new_undershirt">
+		Neues Unterhemd erstellen
+	</string>
+	<string name="create_new_underpants">
+		Neue Unterhose erstellen
+	</string>
+	<string name="create_new_skirt">
+		Neuer Rock erstellen
+	</string>
+	<string name="create_new_alpha">
+		Neue Alpha erstellen
+	</string>
+	<string name="create_new_tattoo">
+		Neue Tätowierung erstellen
+	</string>
+	<string name="create_new_invalid">
+		ungültig
+	</string>
 	<string name="NewWearable">
 		Neue/r/s [WEARABLE_ITEM]
-	</string>
-	<string name="CreateNewWearable">
-		[WEARABLE_TYPE] erstellen
 	</string>
 	<string name="next">
 		Weiter
@@ -1016,6 +1064,7 @@
 	<string name="AnimFlagStop" value=" Animation stoppen:"/>
 	<string name="AnimFlagStart" value=" Animation starten:"/>
 	<string name="Wave" value=" Winken"/>
+	<string name="GestureActionNone" value="Keine"/>
 	<string name="HelloAvatar" value=" Hallo Avatar!"/>
 	<string name="ViewAllGestures" value="  Alle anzeigen &gt;&gt;"/>
 	<string name="GetMoreGestures" value="Mehr &gt;&gt;"/>
@@ -1100,6 +1149,9 @@
 	</string>
 	<string name="InvFolder Current Outfit">
 		Aktuelles Outfit
+	</string>
+	<string name="InvFolder Initial Outfits">
+		Ursprüngliche Outfits
 	</string>
 	<string name="InvFolder My Outfits">
 		Meine Outfits
@@ -1420,6 +1472,7 @@
 	<string name="SummaryForTheWeek" value="Zusammenfassung für diese Woche, beginnend am "/>
 	<string name="NextStipendDay" value=". Der nächste Stipendium-Tag ist "/>
 	<string name="GroupIndividualShare" value="                      Gruppenanteil       Einzelanteil"/>
+	<string name="GroupColumn" value="Gruppe"/>
 	<string name="Balance">
 		Kontostand
 	</string>
@@ -1615,6 +1668,9 @@
 	<string name="ATTACH_HUD_BOTTOM_RIGHT">
 		HUD unten rechts
 	</string>
+	<string name="Bad attachment point">
+		Ungültige Stelle für Anhang
+	</string>
 	<string name="CursorPos">
 		Zeile [LINE], Spalte [COLUMN]
 	</string>
@@ -1627,14 +1683,20 @@
 	<string name="PanelDirEventsDateText">
 		[mthnum,datetime,slt]/[day,datetime,slt]
 	</string>
-	<string name="PanelContentsNewScript">
-		Neues Skript
-	</string>
 	<string name="PanelContentsTooltip">
 		Objektinhalt
 	</string>
+	<string name="PanelContentsNewScript">
+		Neues Skript
+	</string>
 	<string name="BusyModeResponseDefault">
 		Der Einwohner/Die Einwohnerin ist „beschäftigt”, d.h. er/sie möchte im Moment nicht gestört werden.  Ihre Nachricht wird dem Einwohner/der Einwohnerin als IM angezeigt, und kann später beantwortet werden.
+	</string>
+	<string name="NoOutfits">
+		Sie haben noch keine Outfits. Versuchen Sie es mit der [secondlife:///app/search/all Suche].
+	</string>
+	<string name="NoOutfitsTabsMatched">
+		Sie haben nicht das Richtige gefunden? Versuchen Sie es mit der [secondlife:///app/search/all/[SEARCH_TERM] Suche].
 	</string>
 	<string name="MuteByName">
 		(Nach Namen)
@@ -3625,6 +3687,9 @@ Falls diese Meldung weiterhin angezeigt wird, wenden Sie sich bitte an [SUPPORT_
 	<string name="group_role_owners">
 		Eigentümer
 	</string>
+	<string name="group_member_status_online">
+		Online
+	</string>
 	<string name="uploading_abuse_report">
 		Bericht wird hochgeladen...
   
@@ -3678,8 +3743,14 @@ Missbrauchsbericht
 	<string name="Invalid Wearable">
 		Ungültiges Objekt
 	</string>
+	<string name="New Gesture">
+		Neue Geste
+	</string>
 	<string name="New Script">
 		Neues Skript
+	</string>
+	<string name="New Note">
+		Neue Notiz
 	</string>
 	<string name="New Folder">
 		Neuer Ordner
@@ -3738,6 +3809,15 @@ Missbrauchsbericht
 	<string name="Male - Wow">
 		Männlich - Wow
 	</string>
+	<string name="Female - Chuckle">
+		Weiblich - Kichern
+	</string>
+	<string name="Female - Cry">
+		Weiblich - Weinen
+	</string>
+	<string name="Female - Embarrassed">
+		Weiblich - Verlegen
+	</string>
 	<string name="Female - Excuse me">
 		Weiblich - Räuspern
 	</string>
@@ -3756,8 +3836,20 @@ Missbrauchsbericht
 	<string name="Female - Hey">
 		Weiblich - Hey
 	</string>
+	<string name="Female - Hey baby">
+		Weiblich - Hey Süße(r)
+	</string>
 	<string name="Female - Laugh">
 		Weiblich - Lachen
+	</string>
+	<string name="Female - Looking good">
+		Weiblich - Looking good
+	</string>
+	<string name="Female - Over here">
+		Weiblich - Over here
+	</string>
+	<string name="Female - Please">
+		Weiblich - Please
 	</string>
 	<string name="Female - Repulsed">
 		Weiblich - Angewidert
@@ -3807,5 +3899,47 @@ Missbrauchsbericht
 	</string>
 	<string name="dateTimePM">
 		Uhr
+	</string>
+	<string name="LocalEstimateUSD">
+		[AMOUNT] US$
+	</string>
+	<string name="Membership">
+		Mitgliedschaft
+	</string>
+	<string name="Roles">
+		Rollen
+	</string>
+	<string name="Group Identity">
+		Gruppenidentität
+	</string>
+	<string name="Parcel Management">
+		Parzellenverwaltung
+	</string>
+	<string name="Parcel Identity">
+		Parzellenidentität
+	</string>
+	<string name="Parcel Settings">
+		Parzelleneinstellungen
+	</string>
+	<string name="Parcel Powers">
+		Parzellenfähigkeiten
+	</string>
+	<string name="Parcel Access">
+		Parzellenzugang
+	</string>
+	<string name="Parcel Content">
+		Parzelleninhalt
+	</string>
+	<string name="Object Management">
+		Objektmanagement
+	</string>
+	<string name="Accounting">
+		Kontoführung
+	</string>
+	<string name="Notices">
+		Mitteilungen
+	</string>
+	<string name="Chat">
+		Chat
 	</string>
 </strings>

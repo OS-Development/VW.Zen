@@ -2,36 +2,31 @@
  * @file llscriptfloater.cpp
  * @brief LLScriptFloater class definition
  *
- * $LicenseInfo:firstyear=2009&license=viewergpl$
- * 
- * Copyright (c) 2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2009&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
 #include "llviewerprecompiledheaders.h"
 #include "llscriptfloater.h"
+#include "llagentcamera.h"
 
 #include "llbottomtray.h"
 #include "llchannelmanager.h"
@@ -71,6 +66,7 @@ LLScriptFloater::LLScriptFloater(const LLSD& key)
 {
 	setMouseDownCallback(boost::bind(&LLScriptFloater::onMouseDown, this));
 	setOverlapsScreenChannel(true);
+	mIsDockedStateForcedCallback = boost::bind(&LLAgentCamera::cameraMouselook, &gAgentCamera);
 }
 
 bool LLScriptFloater::toggle(const LLUUID& notification_id)
@@ -176,7 +172,15 @@ void LLScriptFloater::onClose(bool app_quitting)
 
 	if(getNotificationId().notNull())
 	{
-		LLScriptFloaterManager::getInstance()->onRemoveNotification(getNotificationId());
+		// we shouldn't kill notification on exit since it may be used as persistent.
+		if (app_quitting)
+		{
+			LLScriptFloaterManager::getInstance()->onRemoveNotification(getNotificationId());
+		}
+		else
+		{
+			LLScriptFloaterManager::getInstance()->removeNotification(getNotificationId());
+		}
 	}
 }
 
@@ -352,7 +356,7 @@ void LLScriptFloaterManager::onAddNotification(const LLUUID& notification_id)
 				set_new_message |= !floater->hasFocus();
 			}
 
-			onRemoveNotification(it->first);
+			removeNotification(it->first);
 		}
 	}
 
@@ -379,6 +383,17 @@ void LLScriptFloaterManager::onAddNotification(const LLUUID& notification_id)
 	toggleScriptFloater(notification_id, set_new_message);
 }
 
+void LLScriptFloaterManager::removeNotification(const LLUUID& notification_id)
+{
+	LLNotificationPtr notification = LLNotifications::instance().find(notification_id);
+	if (notification != NULL && !notification->isCancelled())
+	{
+		LLNotificationsUtil::cancel(notification);
+	}
+
+	onRemoveNotification(notification_id);
+}
+
 void LLScriptFloaterManager::onRemoveNotification(const LLUUID& notification_id)
 {
 	if(notification_id.isNull())
@@ -392,6 +407,8 @@ void LLScriptFloaterManager::onRemoveNotification(const LLUUID& notification_id)
 
 	LLIMWellWindow::getInstance()->removeObjectRow(notification_id);
 
+	mNotifications.erase(notification_id);
+
 	// close floater
 	LLScriptFloater* floater = LLFloaterReg::findTypedInstance<LLScriptFloater>("script_floater", notification_id);
 	if(floater)
@@ -400,8 +417,6 @@ void LLScriptFloaterManager::onRemoveNotification(const LLUUID& notification_id)
 		floater->setNotificationId(LLUUID::null);
 		floater->closeFloater();
 	}
-
-	mNotifications.erase(notification_id);
 }
 
 void LLScriptFloaterManager::toggleScriptFloater(const LLUUID& notification_id, bool set_new_message)

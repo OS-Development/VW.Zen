@@ -2,30 +2,25 @@
  * @file llpanelplaces.cpp
  * @brief Side Bar "Places" panel
  *
- * $LicenseInfo:firstyear=2009&license=viewergpl$
- *
- * Copyright (c) 2009, Linden Research, Inc.
- *
+ * $LicenseInfo:firstyear=2009&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
- *
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/flossexception
- *
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
- *
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * Copyright (C) 2010, Linden Research, Inc.
+ * 
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
+ * 
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -54,6 +49,7 @@
 #include "llagent.h"
 #include "llagentpicksinfo.h"
 #include "llavatarpropertiesprocessor.h"
+#include "llcommandhandler.h"
 #include "llfloaterworldmap.h"
 #include "llinventorybridge.h"
 #include "llinventoryobserver.h"
@@ -66,6 +62,7 @@
 #include "llpanelplaceprofile.h"
 #include "llpanelteleporthistory.h"
 #include "llremoteparcelrequest.h"
+#include "llsidetray.h"
 #include "llteleporthistorystorage.h"
 #include "lltoggleablemenu.h"
 #include "llviewerinventory.h"
@@ -75,6 +72,7 @@
 #include "llviewerregion.h"
 #include "llviewerwindow.h"
 
+// Constants
 static const S32 LANDMARK_FOLDERS_MENU_WIDTH = 250;
 static const F32 PLACE_INFO_UPDATE_INTERVAL = 3.0;
 static const std::string AGENT_INFO_TYPE			= "agent";
@@ -82,6 +80,40 @@ static const std::string CREATE_LANDMARK_INFO_TYPE	= "create_landmark";
 static const std::string LANDMARK_INFO_TYPE			= "landmark";
 static const std::string REMOTE_PLACE_INFO_TYPE		= "remote_place";
 static const std::string TELEPORT_HISTORY_INFO_TYPE	= "teleport_history";
+
+// Support for secondlife:///app/parcel/{UUID}/about SLapps
+class LLParcelHandler : public LLCommandHandler
+{
+public:
+	// requires trusted browser to trigger
+	LLParcelHandler() : LLCommandHandler("parcel", UNTRUSTED_THROTTLE) { }
+	bool handle(const LLSD& params, const LLSD& query_map,
+				LLMediaCtrl* web)
+	{
+		if (params.size() < 2)
+		{
+			return false;
+		}
+		LLUUID parcel_id;
+		if (!parcel_id.set(params[0], FALSE))
+		{
+			return false;
+		}
+		if (params[1].asString() == "about")
+		{
+			if (parcel_id.notNull())
+			{
+				LLSD key;
+				key["type"] = "remote_place";
+				key["id"] = parcel_id;
+				LLSideTray::getInstance()->showPanel("panel_places", key);
+				return true;
+			}
+		}
+		return false;
+	}
+};
+LLParcelHandler gParcelHandler;
 
 // Helper functions
 static bool is_agent_in_selected_parcel(LLParcel* parcel);
@@ -718,8 +750,8 @@ void LLPanelPlaces::onOverflowButtonClicked()
 	bool is_agent_place_info_visible = mPlaceInfoType == AGENT_INFO_TYPE;
 
 	if ((is_agent_place_info_visible ||
-		 mPlaceInfoType == "remote_place" ||
-		 mPlaceInfoType == "teleport_history") && mPlaceMenu != NULL)
+		 mPlaceInfoType == REMOTE_PLACE_INFO_TYPE ||
+		 mPlaceInfoType == TELEPORT_HISTORY_INFO_TYPE) && mPlaceMenu != NULL)
 	{
 		menu = mPlaceMenu;
 
@@ -1089,6 +1121,8 @@ void LLPanelPlaces::updateVerbs()
 
 	if (is_place_info_visible)
 	{
+		mShowOnMapBtn->setEnabled(have_3d_pos);
+
 		if (is_agent_place_info_visible)
 		{
 			// We don't need to teleport to the current location

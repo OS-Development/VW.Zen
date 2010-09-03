@@ -2,31 +2,25 @@
  * @file llfloatermap.cpp
  * @brief The "mini-map" or radar in the upper right part of the screen.
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -53,7 +47,10 @@
 //
 // Constants
 //
-const F32 MAP_MINOR_DIR_THRESHOLD = 0.08f;
+
+// The minor cardinal direction labels are hidden if their height is more
+// than this proportion of the map.
+const F32 MAP_MINOR_DIR_THRESHOLD = 0.07f;
 const S32 MAP_PADDING_LEFT = 0;
 const S32 MAP_PADDING_TOP = 2;
 const S32 MAP_PADDING_RIGHT = 2;
@@ -99,7 +96,7 @@ BOOL LLFloaterMap::postBuild()
 	mTextBoxNorthWest = getChild<LLTextBox> ("floater_map_northwest");
 
 	LLUICtrl::CommitCallbackRegistry::ScopedRegistrar registrar;
-	
+
 	registrar.add("Minimap.Zoom", boost::bind(&LLFloaterMap::handleZoom, this, _2));
 	registrar.add("Minimap.Tracker", boost::bind(&LLFloaterMap::handleStopTracking, this, _2));
 
@@ -261,7 +258,7 @@ void LLFloaterMap::reshape(S32 width, S32 height, BOOL called_from_parent)
 void LLFloaterMap::handleZoom(const LLSD& userdata)
 {
 	std::string level = userdata.asString();
-	
+
 	F32 scale = 0.0f;
 	if (level == std::string("close"))
 		scale = LLNetMap::MAP_SCALE_MAX;

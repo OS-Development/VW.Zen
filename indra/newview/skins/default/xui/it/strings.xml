@@ -190,6 +190,7 @@
 	<string name="TooltipMustSingleDrop">
 		Solo un singolo oggetto può essere creato qui
 	</string>
+	<string name="TooltipPrice" value="L$ [AMOUNT]:"/>
 	<string name="TooltipHttpUrl">
 		Clicca per visitare questa pagina web
 	</string>
@@ -242,7 +243,6 @@
 		Clicca per avviare il comando secondlife://
 	</string>
 	<string name="CurrentURL" value="URL attuale: [CurrentURL]"/>
-	<string name="TooltipPrice" value="L$[AMOUNT]: "/>
 	<string name="SLurlLabelTeleport">
 		Teleportati a
 	</string>
@@ -651,6 +651,9 @@
 	<string name="worldmap_offline">
 		Offline
 	</string>
+	<string name="worldmap_item_tooltip_format">
+		L$ [PRICE] - [AREA] m²
+	</string>
 	<string name="worldmap_results_none_found">
 		Nessun risultato.
 	</string>
@@ -891,11 +894,56 @@
 	<string name="invalid_not_worn">
 		non valido
 	</string>
+	<string name="create_new_shape">
+		Crea nuova figura corporea
+	</string>
+	<string name="create_new_skin">
+		Crea nuova pelle
+	</string>
+	<string name="create_new_hair">
+		Crea nuovi capelli
+	</string>
+	<string name="create_new_eyes">
+		Crea nuovi occhi
+	</string>
+	<string name="create_new_shirt">
+		Crea nuova camicia
+	</string>
+	<string name="create_new_pants">
+		Crea nuovi pantaloni
+	</string>
+	<string name="create_new_shoes">
+		Crea nuove scarpe
+	</string>
+	<string name="create_new_socks">
+		Crea nuove calze
+	</string>
+	<string name="create_new_jacket">
+		Crea nuova giacca
+	</string>
+	<string name="create_new_gloves">
+		Crea nuovi guanti
+	</string>
+	<string name="create_new_undershirt">
+		Crea nuova maglietta intima
+	</string>
+	<string name="create_new_underpants">
+		Crea nuovi slip
+	</string>
+	<string name="create_new_skirt">
+		Crea nuova gonna
+	</string>
+	<string name="create_new_alpha">
+		Crea nuovo Alpha
+	</string>
+	<string name="create_new_tattoo">
+		Crea un nuovo tatuaggio
+	</string>
+	<string name="create_new_invalid">
+		non valido
+	</string>
 	<string name="NewWearable">
 		Nuovo [WEARABLE_ITEM]
-	</string>
-	<string name="CreateNewWearable">
-		Crea [WEARABLE_TYPE]
 	</string>
 	<string name="next">
 		Avanti
@@ -995,6 +1043,7 @@
 	<string name="AnimFlagStop" value="Ferma l&apos;animazione :"/>
 	<string name="AnimFlagStart" value="Inizia l&apos;animazione :"/>
 	<string name="Wave" value="Saluta con la mano"/>
+	<string name="GestureActionNone" value="Nessuna"/>
 	<string name="HelloAvatar" value="Ciao, avatar!"/>
 	<string name="ViewAllGestures" value="Visualizza tutto &gt;&gt;"/>
 	<string name="GetMoreGestures" value="Altre &gt;&gt;"/>
@@ -1079,6 +1128,9 @@
 	</string>
 	<string name="InvFolder Current Outfit">
 		Abbigliamento attuale
+	</string>
+	<string name="InvFolder Initial Outfits">
+		Vestiario iniziale
 	</string>
 	<string name="InvFolder My Outfits">
 		Il mio vestiario
@@ -1399,6 +1451,7 @@
 	<string name="SummaryForTheWeek" value="Riassunto della settimana, partendo dal"/>
 	<string name="NextStipendDay" value="Il prossimo giorno di stipendio è"/>
 	<string name="GroupIndividualShare" value="Gruppo       Dividendi individuali"/>
+	<string name="GroupColumn" value="Gruppo"/>
 	<string name="Balance">
 		Saldo
 	</string>
@@ -1594,20 +1647,29 @@
 	<string name="ATTACH_HUD_BOTTOM_RIGHT">
 		HUD basso a destra
 	</string>
+	<string name="Bad attachment point">
+		Punto di collegamento non valido
+	</string>
 	<string name="CursorPos">
 		Riga [LINE], Colonna [COLUMN]
 	</string>
 	<string name="PanelDirCountFound">
 		[COUNT] trovato/i
 	</string>
-	<string name="PanelContentsNewScript">
-		Nuovo script
-	</string>
 	<string name="PanelContentsTooltip">
 		Contenuto dell&apos;oggetto
 	</string>
+	<string name="PanelContentsNewScript">
+		Nuovo script
+	</string>
 	<string name="BusyModeResponseDefault">
 		Il residente al quale hai inviato un messaggio è in modalità &apos;occupato&apos;, ovvero ha chiesto di non essere disturbato.  Il tuo messaggio comparirà nel suo pannello IM, dove potrà essere letto in un secondo momento.
+	</string>
+	<string name="NoOutfits">
+		Non hai ancora vestiario da indossare. Prova [secondlife:///app/search/all Cerca].
+	</string>
+	<string name="NoOutfitsTabsMatched">
+		Non riesci a trovare quello che cerchi? Prova [secondlife:///app/search/all/[SEARCH_TERM] Cerca].
 	</string>
 	<string name="MuteByName">
 		(In base al nome)
@@ -3529,6 +3591,9 @@ Se il messaggio persiste, contatta [SUPPORT_SITE].
 	<string name="group_role_owners">
 		Proprietari
 	</string>
+	<string name="group_member_status_online">
+		Online
+	</string>
 	<string name="uploading_abuse_report">
 		Caricamento in corso...
   
@@ -3582,8 +3647,14 @@ Segnala abuso
 	<string name="Invalid Wearable">
 		Capo da indossare non valido
 	</string>
+	<string name="New Gesture">
+		Nuova gesture
+	</string>
 	<string name="New Script">
 		Nuovo script
+	</string>
+	<string name="New Note">
+		Nuovo appunto
 	</string>
 	<string name="New Folder">
 		Nuova cartella
@@ -3642,6 +3713,15 @@ Segnala abuso
 	<string name="Male - Wow">
 		Maschio - Accipicchia
 	</string>
+	<string name="Female - Chuckle">
+		Femmina - Risatina
+	</string>
+	<string name="Female - Cry">
+		Femmina - Pianto
+	</string>
+	<string name="Female - Embarrassed">
+		Femmina - Imbarazzata
+	</string>
 	<string name="Female - Excuse me">
 		Femmina - Chiedere scusa
 	</string>
@@ -3660,8 +3740,20 @@ Segnala abuso
 	<string name="Female - Hey">
 		Femmina - Ehi
 	</string>
+	<string name="Female - Hey baby">
+		Femmina - Ehi tu
+	</string>
 	<string name="Female - Laugh">
 		Femmina - Ridere
+	</string>
+	<string name="Female - Looking good">
+		Femmina - Sei in forma
+	</string>
+	<string name="Female - Over here">
+		Femmina - Per di qua
+	</string>
+	<string name="Female - Please">
+		Femmina - Per cortesia
 	</string>
 	<string name="Female - Repulsed">
 		Femmina - Disgustata
@@ -3711,5 +3803,47 @@ Segnala abuso
 	</string>
 	<string name="dateTimePM">
 		pomeridiane
+	</string>
+	<string name="LocalEstimateUSD">
+		US$ [AMOUNT]
+	</string>
+	<string name="Membership">
+		Abbonamento
+	</string>
+	<string name="Roles">
+		Ruoli
+	</string>
+	<string name="Group Identity">
+		Identità gruppo
+	</string>
+	<string name="Parcel Management">
+		Gestione lotto
+	</string>
+	<string name="Parcel Identity">
+		Identità lotto
+	</string>
+	<string name="Parcel Settings">
+		Impostazioni lotto
+	</string>
+	<string name="Parcel Powers">
+		Poteri lotto
+	</string>
+	<string name="Parcel Access">
+		Accesso al lotto
+	</string>
+	<string name="Parcel Content">
+		Contenuto lotto
+	</string>
+	<string name="Object Management">
+		Gestione oggetti
+	</string>
+	<string name="Accounting">
+		Contabilità
+	</string>
+	<string name="Notices">
+		Avvisi
+	</string>
+	<string name="Chat">
+		Chat
 	</string>
 </strings>

@@ -2,31 +2,25 @@
  * @file llvoavatar.cpp
  * @brief Implementation of LLVOAvatar class which is a derivation fo LLViewerObject
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -1016,6 +1010,44 @@ BOOL LLVOAvatarSelf::isWearingAttachment(const LLUUID& inv_item_id) const
 }
 
 //-----------------------------------------------------------------------------
+BOOL LLVOAvatarSelf::attachmentWasRequested(const LLUUID& inv_item_id) const
+{
+	const F32 REQUEST_EXPIRATION_SECONDS = 5.0;  // any request older than this is ignored/removed.
+	std::map<LLUUID,LLTimer>::iterator it = mAttachmentRequests.find(inv_item_id);
+	if (it != mAttachmentRequests.end())
+	{
+		const LLTimer& request_time = it->second;
+		F32 request_time_elapsed = request_time.getElapsedTimeF32();
+		if (request_time_elapsed > REQUEST_EXPIRATION_SECONDS)
+		{
+			mAttachmentRequests.erase(it);
+			return FALSE;
+		}
+		else
+		{
+			return TRUE;
+		}
+	}
+	else
+	{
+		return FALSE;
+	}
+}
+
+//-----------------------------------------------------------------------------
+void LLVOAvatarSelf::addAttachmentRequest(const LLUUID& inv_item_id)
+{
+	LLTimer current_time;
+	mAttachmentRequests[inv_item_id] = current_time;
+}
+
+//-----------------------------------------------------------------------------
+void LLVOAvatarSelf::removeAttachmentRequest(const LLUUID& inv_item_id)
+{
+	mAttachmentRequests.erase(inv_item_id);
+}
+
+//-----------------------------------------------------------------------------
 // getWornAttachment()
 //-----------------------------------------------------------------------------
 LLViewerObject* LLVOAvatarSelf::getWornAttachment(const LLUUID& inv_item_id)
@@ -1067,8 +1099,10 @@ const LLViewerJointAttachment *LLVOAvatarSelf::attachObject(LLViewerObject *view
 	// Should just be the last object added
 	if (attachment->isObjectAttached(viewer_object))
 	{
-		const LLUUID& attachment_id = viewer_object->getItemID();
+		const LLUUID& attachment_id = viewer_object->getAttachmentItemID();
 		LLAppearanceMgr::instance().registerAttachment(attachment_id);
+		// Clear any pending requests once the attachment arrives.
+		removeAttachmentRequest(attachment_id);
 	}
 
 	return attachment;
@@ -1077,7 +1111,7 @@ const LLViewerJointAttachment *LLVOAvatarSelf::attachObject(LLViewerObject *view
 //virtual
 BOOL LLVOAvatarSelf::detachObject(LLViewerObject *viewer_object)
 {
-	const LLUUID attachment_id = viewer_object->getItemID();
+	const LLUUID attachment_id = viewer_object->getAttachmentItemID();
 	if (LLVOAvatar::detachObject(viewer_object))
 	{
 		// the simulator should automatically handle permission revocation
@@ -1110,6 +1144,29 @@ BOOL LLVOAvatarSelf::detachObject(LLViewerObject *viewer_object)
 			LLAppearanceMgr::instance().unregisterAttachment(attachment_id);
 		}
 		
+		return TRUE;
+	}
+	return FALSE;
+}
+
+// static
+BOOL LLVOAvatarSelf::detachAttachmentIntoInventory(const LLUUID &item_id)
+{
+	LLInventoryItem* item = gInventory.getItem(item_id);
+	if (item)
+	{
+		gMessageSystem->newMessageFast(_PREHASH_DetachAttachmentIntoInv);
+		gMessageSystem->nextBlockFast(_PREHASH_ObjectData);
+		gMessageSystem->addUUIDFast(_PREHASH_AgentID, gAgent.getID());
+		gMessageSystem->addUUIDFast(_PREHASH_ItemID, item_id);
+		gMessageSystem->sendReliable(gAgent.getRegion()->getHost());
+		
+		// this object might have been selected, so let the selection manager know it's gone now
+		LLViewerObject *found_obj = gObjectList.findObject(item_id);
+		if (found_obj)
+		{
+			LLSelectMgr::getInstance()->remove(found_obj);
+		}
 		return TRUE;
 	}
 	return FALSE;
@@ -1148,11 +1205,11 @@ void LLVOAvatarSelf::localTextureLoaded(BOOL success, LLViewerFetchedTexture *sr
 			discard_level < local_tex_obj->getDiscard())
 		{
 			local_tex_obj->setDiscard(discard_level);
-			if (!gAgentCamera.cameraCustomizeAvatar())
+			if (isUsingBakedTextures())
 			{
 				requestLayerSetUpdate(index);
 			}
-			else if (gAgentCamera.cameraCustomizeAvatar())
+			else
 			{
 				LLVisualParamHint::requestHintUpdates();
 			}
@@ -1622,18 +1679,21 @@ void LLVOAvatarSelf::setLocalTexture(ETextureIndex type, LLViewerTexture* src_te
 				if (tex_discard >= 0 && tex_discard <= desired_discard)
 				{
 					local_tex_obj->setDiscard(tex_discard);
-					if (isSelf() && !gAgentCamera.cameraCustomizeAvatar())
+					if (isSelf())
+					{
+						if (gAgentAvatarp->isUsingBakedTextures())
 					{
 						requestLayerSetUpdate(type);
 					}
-					else if (isSelf() && gAgentCamera.cameraCustomizeAvatar())
+						else
 					{
 						LLVisualParamHint::requestHintUpdates();
 					}
 				}
+				}
 				else
 				{					
-					tex->setLoadedCallback(onLocalTextureLoaded, desired_discard, TRUE, FALSE, new LLAvatarTexData(getID(), type), NULL, NULL);
+					tex->setLoadedCallback(onLocalTextureLoaded, desired_discard, TRUE, FALSE, new LLAvatarTexData(getID(), type), NULL);
 				}
 			}
 			tex->setMinDiscardLevel(desired_discard);
@@ -2032,9 +2092,9 @@ void LLVOAvatarSelf::addLocalTextureStats( ETextureIndex type, LLViewerFetchedTe
 			imagep->setBoostLevel(getAvatarBoostLevel());
 
 			imagep->resetTextureStats();
-			imagep->setMaxVirtualSizeResetInterval(16);
+			imagep->setMaxVirtualSizeResetInterval(MAX_TEXTURE_VIRTURE_SIZE_RESET_INTERVAL);
 			imagep->addTextureStats( desired_pixels / texel_area_ratio );
-			imagep->setAdditionalDecodePriority(1.0f) ;
+			imagep->setAdditionalDecodePriority(SELF_ADDITIONAL_PRI) ;
 			imagep->forceUpdateBindStats() ;
 			if (imagep->getDiscardLevel() < 0)
 			{
@@ -2142,6 +2202,11 @@ void LLVOAvatarSelf::setNewBakedTexture( ETextureIndex te, const LLUUID& uuid )
 
 void LLVOAvatarSelf::outputRezDiagnostics() const
 {
+	if(!gSavedSettings.getBOOL("DebugAvatarLocalTexLoadedTime"))
+	{
+		return ;
+	}
+
 	const F32 final_time = mDebugSelfLoadTimer.getElapsedTimeF32();
 	llinfos << "REZTIME: Myself rez stats:" << llendl;
 	llinfos << "\t Time from avatar creation to load wearables: " << (S32)mDebugTimeWearablesLoaded << llendl;

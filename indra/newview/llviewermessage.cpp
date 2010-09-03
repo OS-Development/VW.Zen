@@ -2,31 +2,25 @@
  * @file llviewermessage.cpp
  * @brief Dumping ground for viewer-side message system callbacks.
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -1138,10 +1132,26 @@ void open_inventory_offer(const uuid_vec_t& objects, const std::string& from_nam
 						}
 						else if(from_name.empty())
 						{
+							std::string folder_name;
+							if (parent_folder)
+							{
+								// Localize folder name.
+								// *TODO: share this code?
+								folder_name = parent_folder->getName();
+								if (LLFolderType::lookupIsProtectedType(parent_folder->getPreferredType()))
+								{
+									LLTrans::findString(folder_name, "InvFolder " + folder_name);
+								}
+							}
+							else
+							{
+								 folder_name = LLTrans::getString("Unknown");
+							}
+
 							// we receive a message from LLOpenTaskOffer, it mean that new landmark has been added.
 							LLSD args;
 							args["LANDMARK_NAME"] = item->getName();
-							args["FOLDER_NAME"] = std::string(parent_folder ? parent_folder->getName() : "unknown");
+							args["FOLDER_NAME"] = folder_name;
 							LLNotificationsUtil::add("LandmarkCreated", args);
 						}
 					}
@@ -1215,8 +1225,9 @@ bool highlight_offered_object(const LLUUID& obj_id)
 void inventory_offer_mute_callback(const LLUUID& blocked_id,
 								   const std::string& first_name,
 								   const std::string& last_name,
-								   BOOL is_group, LLOfferInfo* offer = NULL)
+								   BOOL is_group, boost::shared_ptr<LLNotificationResponderInterface> offer_ptr)
 {
+	LLOfferInfo* offer =  dynamic_cast<LLOfferInfo*>(offer_ptr.get());
 	std::string from_name;
 	LLMute::EType type;
 	if (is_group)
@@ -1406,7 +1417,13 @@ bool LLOfferInfo::inventory_offer_callback(const LLSD& notification, const LLSD&
 	// * we can't build two messages at once.
 	if (2 == button) // Block
 	{
-		gCacheName->get(mFromID, mFromGroup, boost::bind(&inventory_offer_mute_callback,_1,_2,_3,_4,this));
+		LLNotificationPtr notification_ptr = LLNotifications::instance().find(notification["id"].asUUID());
+
+		llassert(notification_ptr != NULL);
+		if (notification_ptr != NULL)
+		{
+			gCacheName->get(mFromID, mFromGroup, boost::bind(&inventory_offer_mute_callback,_1,_2,_3,_4, notification_ptr->getResponderPtr()));
+		}
 	}
 
 	std::string from_string; // Used in the pop-up.
@@ -1540,7 +1557,13 @@ bool LLOfferInfo::inventory_task_offer_callback(const LLSD& notification, const 
 	// * we can't build two messages at once.
 	if (2 == button)
 	{
-		gCacheName->get(mFromID, mFromGroup, boost::bind(&inventory_offer_mute_callback,_1,_2,_3,_4,this));
+		LLNotificationPtr notification_ptr = LLNotifications::instance().find(notification["id"].asUUID());
+
+		llassert(notification_ptr != NULL);
+		if (notification_ptr != NULL)
+		{
+			gCacheName->get(mFromID, mFromGroup, boost::bind(&inventory_offer_mute_callback,_1,_2,_3,_4, notification_ptr->getResponderPtr()));
+		}
 	}
 	
 	LLMessageSystem* msg = gMessageSystem;
@@ -2160,7 +2183,9 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 			std::string saved;
 			if(offline == IM_OFFLINE)
 			{
-				saved = llformat("(Saved %s) ", formatted_time(timestamp).c_str());
+				LLStringUtil::format_map_t args;
+				args["[LONG_TIMESTAMP]"] = formatted_time(timestamp);
+				saved = LLTrans::getString("Saved_message", args);
 			}
 			buffer = saved + message;
 
@@ -2585,7 +2610,7 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 			params.substitutions = substitutions;
 			params.payload = payload;
 
-			LLPostponedNotification::add<LLPostponedServerObjectNotification>(params, from_id, false);
+			LLPostponedNotification::add<LLPostponedServerObjectNotification>(params, from_id, from_group);
 		}
 		break;
 	case IM_FROM_TASK_AS_ALERT:
@@ -2628,7 +2653,7 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 			{
 				LLVector3 pos, look_at;
 				U64 region_handle;
-				U8 region_access;
+				U8 region_access = SIM_ACCESS_MIN;
 				std::string region_info = ll_safe_string((char*)binary_bucket, binary_bucket_size);
 				std::string region_access_str = LLStringUtil::null;
 				std::string region_access_icn = LLStringUtil::null;
@@ -2939,7 +2964,8 @@ void process_chat_from_simulator(LLMessageSystem *msg, void **user_data)
 
 		// Make swirly things only for talking objects. (not script debug messages, though)
 		if (chat.mSourceType == CHAT_SOURCE_OBJECT 
-			&& chat.mChatType != CHAT_TYPE_DEBUG_MSG)
+			&& chat.mChatType != CHAT_TYPE_DEBUG_MSG
+			&& gSavedSettings.getBOOL("EffectScriptChatParticles") )
 		{
 			LLPointer<LLViewerPartSourceChat> psc = new LLViewerPartSourceChat(chatter->getPositionAgent());
 			psc->setSourceObject(chatter);
@@ -3639,6 +3665,7 @@ const F32 THRESHOLD_HEAD_ROT_QDOT = 0.9997f;	// ~= 2.5 degrees -- if its less th
 const F32 MAX_HEAD_ROT_QDOT = 0.99999f;			// ~= 0.5 degrees -- if its greater than this then no need to update head_rot
 												// between these values we delay the updates (but no more than one second)
 
+static LLFastTimer::DeclareTimer FTM_AGENT_UPDATE_SEND("Send Message");
 
 void send_agent_update(BOOL force_send, BOOL send_reliable)
 {
@@ -3797,6 +3824,7 @@ void send_agent_update(BOOL force_send, BOOL send_reliable)
 
 	if (duplicate_count < DUP_MSGS && !gDisconnected)
 	{
+		LLFastTimer t(FTM_AGENT_UPDATE_SEND);
 		// Build the message
 		msg->newMessageFast(_PREHASH_AgentUpdate);
 		msg->nextBlockFast(_PREHASH_AgentData);
@@ -5093,7 +5121,7 @@ void process_alert_message(LLMessageSystem *msgsystem, void **user_data)
 
 void process_alert_core(const std::string& message, BOOL modal)
 {
-	// HACK -- handle callbacks for specific alerts
+	// HACK -- handle callbacks for specific alerts. It also is localized in notifications.xml
 	if ( message == "You died and have been teleported to your home location")
 	{
 		LLViewerStats::getInstance()->incStat(LLViewerStats::ST_KILLED_COUNT);
@@ -5288,10 +5316,10 @@ void process_economy_data(LLMessageSystem *msg, void** /*user_data*/)
 
 	LL_INFOS_ONCE("Messaging") << "EconomyData message arrived; upload cost is L$" << upload_cost << LL_ENDL;
 
-	gMenuHolder->childSetLabelArg("Upload Image", "[COST]", llformat("%d", upload_cost));
-	gMenuHolder->childSetLabelArg("Upload Sound", "[COST]", llformat("%d", upload_cost));
-	gMenuHolder->childSetLabelArg("Upload Animation", "[COST]", llformat("%d", upload_cost));
-	gMenuHolder->childSetLabelArg("Bulk Upload", "[COST]", llformat("%d", upload_cost));
+	gMenuHolder->getChild<LLUICtrl>("Upload Image")->setLabelArg("[COST]", llformat("%d", upload_cost));
+	gMenuHolder->getChild<LLUICtrl>("Upload Sound")->setLabelArg("[COST]", llformat("%d", upload_cost));
+	gMenuHolder->getChild<LLUICtrl>("Upload Animation")->setLabelArg("[COST]", llformat("%d", upload_cost));
+	gMenuHolder->getChild<LLUICtrl>("Bulk Upload")->setLabelArg("[COST]", llformat("%d", upload_cost));
 }
 
 void notify_cautioned_script_question(const LLSD& notification, const LLSD& response, S32 orig_questions, BOOL granted)

@@ -11,8 +11,7 @@
          function="Object.Touch" />
         <menu_item_call.on_enable
          function="Object.EnableTouch"
-         name="EnableTouch"
-         parameter="Touch" />
+         name="EnableTouch"/>
     </menu_item_call>
     <!--menu_item_call
      label="Stand Up"
@@ -24,7 +23,7 @@
         <menu_item_call.on_enable
          function="Self.EnableStandUp" />
     </menu_item_call-->
-        <menu_item_call
+    <menu_item_call
      enabled="false"
      label="Edit"
      layout="topleft"
@@ -46,6 +45,17 @@
     </menu_item_call>
   <menu_item_separator
     layout="topleft" />
+
+    <menu_item_call
+     label="Sit Down"
+     layout="topleft"
+     name="Sit Down Here">
+        <menu_item_call.on_click
+         function="Self.SitDown"
+         parameter="" />
+        <menu_item_call.on_enable
+         function="Self.EnableSitDown" />
+    </menu_item_call>
 
   <menu_item_call
 label="Stand Up"

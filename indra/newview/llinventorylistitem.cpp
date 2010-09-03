@@ -5,30 +5,25 @@
  * Class LLPanelInventoryListItemBase displays inventory item as an element
  * of LLInventoryItemsList.
  *
- * $LicenseInfo:firstyear=2010&license=viewergpl$
- *
- * Copyright (c) 2010, Linden Research, Inc.
- *
+ * $LicenseInfo:firstyear=2010&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
- *
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/flossexception
- *
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
- *
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * Copyright (C) 2010, Linden Research, Inc.
+ * 
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
+ * 
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -96,9 +91,12 @@ void LLPanelInventoryListItemBase::draw()
 
 	if (mSeparatorVisible && mSeparatorImage)
 	{
-		// stretch along bottom of listitem, using image height
+		// place under bottom of listitem, using image height
+		// item_pad in list using the item should be >= image height
+		// to avoid cropping of top of the next item.
 		LLRect separator_rect = getLocalRect();
-		separator_rect.mTop = mSeparatorImage->getHeight();
+		separator_rect.mTop = separator_rect.mBottom;
+		separator_rect.mBottom -= mSeparatorImage->getHeight();
 		mSeparatorImage->draw(separator_rect);
 	}
 	
@@ -232,6 +230,17 @@ const std::string& LLPanelInventoryListItemBase::getDescription() const
 		return LLStringUtil::null;
 	}
 	return inv_item->getDescription();
+}
+
+time_t LLPanelInventoryListItemBase::getCreationDate() const
+{
+	LLViewerInventoryItem* inv_item = getItem();
+	if (NULL == inv_item)
+	{
+		return 0;
+	}
+
+	return inv_item->getCreationDate();
 }
 
 LLViewerInventoryItem* LLPanelInventoryListItemBase::getItem() const

@@ -2,30 +2,25 @@
  * @file llsidepanelappearance.cpp
  * @brief Side Bar "Appearance" panel
  *
- * $LicenseInfo:firstyear=2009&license=viewergpl$
- *
- * Copyright (c) 2004-2009, Linden Research, Inc.
- *
+ * $LicenseInfo:firstyear=2009&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
- *
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/flossexception
- *
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
- *
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * Copyright (C) 2010, Linden Research, Inc.
+ * 
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
+ * 
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -190,13 +185,16 @@ void LLSidepanelAppearance::onVisibilityChange(const LLSD &new_visibility)
 {
 	if (new_visibility.asBoolean())
 	{
-		if ((mOutfitEdit && mOutfitEdit->getVisible()) || (mEditWearable && mEditWearable->getVisible()))
+		bool is_outfit_edit_visible = mOutfitEdit && mOutfitEdit->getVisible();
+		bool is_wearable_edit_visible = mEditWearable && mEditWearable->getVisible();
+
+		if (is_outfit_edit_visible || is_wearable_edit_visible)
 		{
 			if (!gAgentCamera.cameraCustomizeAvatar() && gSavedSettings.getBOOL("AppearanceCameraMovement"))
 			{
 				gAgentCamera.changeCameraToCustomizeAvatar();
 			}
-			if (mEditWearable && mEditWearable->getVisible())
+			if (is_wearable_edit_visible)
 			{
 				LLWearable *wearable_ptr = mEditWearable->getWearable();
 				if (gAgentWearables.getWearableIndex(wearable_ptr) == LLAgentWearables::MAX_CLOTHING_PER_TYPE)
@@ -204,6 +202,11 @@ void LLSidepanelAppearance::onVisibilityChange(const LLSD &new_visibility)
 					// we're no longer wearing the wearable we were last editing, switch back to outfit editor
 					showOutfitEditPanel();
 				}
+			}
+
+			if (is_outfit_edit_visible)
+			{
+				mOutfitEdit->resetAccordionState();
 			}
 		}
 	}
@@ -283,6 +286,15 @@ void LLSidepanelAppearance::showOutfitsInventoryPanel()
 
 void LLSidepanelAppearance::showOutfitEditPanel()
 {
+	// Accordion's state must be reset in all cases except the one when user
+	// is returning back to the mOutfitEdit panel from the mEditWearable panel.
+	// The simplest way to control this is to check the visibility state of the mEditWearable
+	// BEFORE it is changed by the call to the toggleWearableEditPanel(FALSE, NULL, TRUE).
+	if (mEditWearable != NULL && !mEditWearable->getVisible() && mOutfitEdit != NULL)
+	{
+		mOutfitEdit->resetAccordionState();
+	}
+
 	togglMyOutfitsPanel(FALSE);
 	toggleWearableEditPanel(FALSE, NULL, TRUE); // don't switch out of edit appearance mode
 	toggleOutfitEditPanel(TRUE);
@@ -456,7 +468,7 @@ void LLSidepanelAppearance::fetchInventory()
 			{
 				LLViewerObject* attached_object = (*attachment_iter);
 				if (!attached_object) continue;
-				const LLUUID& item_id = attached_object->getItemID();
+				const LLUUID& item_id = attached_object->getAttachmentItemID();
 				if (item_id.isNull()) continue;
 				ids.push_back(item_id);
 			}
@@ -484,8 +496,8 @@ void LLSidepanelAppearance::inventoryFetched()
 
 void LLSidepanelAppearance::setWearablesLoading(bool val)
 {
-	childSetVisible("wearables_loading_indicator", val);
-	childSetVisible("edit_outfit_btn", !val);
+	getChildView("wearables_loading_indicator")->setVisible( val);
+	getChildView("edit_outfit_btn")->setVisible( !val);
 
 	if (!val)
 	{

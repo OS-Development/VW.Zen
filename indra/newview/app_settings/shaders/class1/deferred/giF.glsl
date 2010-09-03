@@ -1,8 +1,8 @@
 /** 
  * @file giF.glsl
  *
- * Copyright (c) 2007-$CurrentYear$, Linden Research, Inc.
- * $License$
+ * $LicenseInfo:firstyear=2007&license=viewerlgpl$
+ * $/LicenseInfo$
  */
 
 #extension GL_ARB_texture_rectangle : enable
@@ -159,7 +159,8 @@ void main()
 {
 	vec2 pos_screen = vary_fragcoord.xy;
 	vec4 pos = getPosition(pos_screen);
-	vec3 norm = texture2DRect(normalMap, pos_screen).xyz*2.0-1.0;
+	vec3 norm = texture2DRect(normalMap, pos_screen).xyz;
+	norm = vec3((norm.xy-0.5)*2.0,norm.z); // unpack norm
 	
 	gl_FragData[0].xyz = giAmbient(pos, norm);
 }

@@ -2,31 +2,25 @@
  * @file llvotree.cpp
  * @brief LLVOTree class implementation
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -73,7 +67,7 @@ S32 LLVOTree::sLODVertexCount[sMAX_NUM_TREE_LOD_LEVELS];
 S32 LLVOTree::sLODIndexOffset[sMAX_NUM_TREE_LOD_LEVELS];
 S32 LLVOTree::sLODIndexCount[sMAX_NUM_TREE_LOD_LEVELS];
 S32 LLVOTree::sLODSlices[sMAX_NUM_TREE_LOD_LEVELS] = {10, 5, 4, 3};
-F32 LLVOTree::sLODAngles[sMAX_NUM_TREE_LOD_LEVELS] = {30.f, 20.f, 15.f, 0.00001f};
+F32 LLVOTree::sLODAngles[sMAX_NUM_TREE_LOD_LEVELS] = {30.f, 20.f, 15.f, F_ALMOST_ZERO};
 
 F32 LLVOTree::sTreeFactor = 1.f;
 
@@ -99,6 +93,12 @@ LLVOTree::~LLVOTree()
 		delete[] mData;
 		mData = NULL;
 	}
+}
+
+//static
+bool LLVOTree::isTreeRenderingStopped()
+{
+	return LLVOTree::sTreeFactor < LLVOTree::sLODAngles[sMAX_NUM_TREE_LOD_LEVELS - 1] ;
 }
 
 // static
@@ -442,22 +442,35 @@ void LLVOTree::render(LLAgent &agent)
 
 void LLVOTree::setPixelAreaAndAngle(LLAgent &agent)
 {
-	// First calculate values as for any other object (for mAppAngle)
-	LLViewerObject::setPixelAreaAndAngle(agent);
-
-	// Re-calculate mPixelArea accurately
+	LLVector3 center = getPositionAgent();//center of tree.
+	LLVector3 viewer_pos_agent = gAgentCamera.getCameraPositionAgent();
+	LLVector3 lookAt = center - viewer_pos_agent;
+	F32 dist = lookAt.normVec() ;	
+	F32 cos_angle_to_view_dir = lookAt * LLViewerCamera::getInstance()->getXAxis() ;	
 	
-	// This should be the camera's center, as soon as we move to all region-local.
-	LLVector3 relative_position = getPositionAgent() - gAgentCamera.getCameraPositionAgent();
-	F32 range_squared = relative_position.lengthSquared() ;				
+	F32 range = dist - getMinScale()/2;
+	if (range < F_ALMOST_ZERO || isHUDAttachment())		// range == zero
+	{
+		mAppAngle = 180.f;
+	}
+	else
+	{
+		mAppAngle = (F32) atan2( getMaxScale(), range) * RAD_TO_DEG;		
+	}
 
 	F32 max_scale = mBillboardScale * getMaxScale();
 	F32 area = max_scale * (max_scale*mBillboardRatio);
-
 	// Compute pixels per meter at the given range
-	F32 pixels_per_meter = LLViewerCamera::getInstance()->getViewHeightInPixels() / tan(LLViewerCamera::getInstance()->getView());
+	F32 pixels_per_meter = LLViewerCamera::getInstance()->getViewHeightInPixels() / (tan(LLViewerCamera::getInstance()->getView()) * dist);
+	mPixelArea = pixels_per_meter * pixels_per_meter * area ;	
 
-	mPixelArea = (pixels_per_meter) * (pixels_per_meter) * area / range_squared;
+	F32 importance = LLFace::calcImportanceToCamera(cos_angle_to_view_dir, dist) ;
+	mPixelArea = LLFace::adjustPixelArea(importance, mPixelArea) ;
+	if (mPixelArea > LLViewerCamera::getInstance()->getScreenPixelArea())
+	{
+		mAppAngle = 180.f;
+	}
+
 #if 0
 	// mAppAngle is a bit of voodoo;
 	// use the one calculated LLViewerObject::setPixelAreaAndAngle above

@@ -2,31 +2,25 @@
  * @file llviewertexture.h
  * @brief Object for managing images and their textures
  *
- * $LicenseInfo:firstyear=2000&license=viewergpl$
- * 
- * Copyright (c) 2000-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2000&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -75,7 +69,6 @@ public:
 						  BOOL need_imageraw, // Needs image raw for the callback
 						  void* userdata,
 						  source_callback_list_t* src_callback_list,
-						  void* source,
 						  LLViewerFetchedTexture* target,
 						  BOOL pause);
 	~LLLoadedCallbackEntry();
@@ -88,10 +81,9 @@ public:
 	BOOL                    mPaused;
 	void*					mUserData;
 	source_callback_list_t* mSourceCallbackList;
-	void*                   mSource;
 	
 public:
-	static void cleanUpCallbackList(LLLoadedCallbackEntry::source_callback_list_t* callback_list, void* src) ;
+	static void cleanUpCallbackList(LLLoadedCallbackEntry::source_callback_list_t* callback_list) ;
 };
 
 class LLTextureBar;
@@ -126,15 +118,16 @@ public:
 		BOOST_HIGH 			= 10,
 		BOOST_BUMP          ,
 		BOOST_TERRAIN		, // has to be high priority for minimap / low detail
-		BOOST_SELECTED		,
-		BOOST_HUD			,
+		BOOST_SELECTED		,		
 		BOOST_AVATAR_BAKED_SELF	,
+		BOOST_AVATAR_SELF	, // needed for baking avatar
+		BOOST_SUPER_HIGH    , //textures higher than this need to be downloaded at the required resolution without delay.
+		BOOST_HUD			,
 		BOOST_ICON			,
 		BOOST_UI			,
 		BOOST_PREVIEW		,
 		BOOST_MAP			,
-		BOOST_MAP_VISIBLE	,
-		BOOST_AVATAR_SELF	, // needed for baking avatar
+		BOOST_MAP_VISIBLE	,		
 		BOOST_MAX_LEVEL,
 
 		//other texture Categories
@@ -264,10 +257,11 @@ public:
 
 	/*virtual*/ void updateBindStatsForTester() ;
 protected:
-	virtual void cleanup() ;
+	void cleanup() ;
 	void init(bool firstinit) ;	
 	void reorganizeFaceList() ;
 	void reorganizeVolumeList() ;
+	void setTexelsPerImage();
 private:
 	//note: do not make this function public.
 	/*virtual*/ LLImageGL* getGLTexture() const ;
@@ -280,6 +274,7 @@ protected:
 	S32 mFullHeight;
 	BOOL  mUseMipMaps ;
 	S8  mComponents;
+	F32 mTexelsPerImage;			// Texels per image.
 	mutable S8  mNeedsGLTexture;
 	mutable F32 mMaxVirtualSize;	// The largest virtual size of the image, in pixels - how much data to we need?	
 	mutable S32  mMaxVirtualSizeResetCounter ;
@@ -384,13 +379,14 @@ public:
 	// Set callbacks to get called when the image gets updated with higher 
 	// resolution versions.
 	void setLoadedCallback(loaded_callback_func cb,
-						   S32 discard_level, BOOL keep_imageraw, BOOL needs_aux, void* src,
+						   S32 discard_level, BOOL keep_imageraw, BOOL needs_aux,
 						   void* userdata, LLLoadedCallbackEntry::source_callback_list_t* src_callback_list, BOOL pause = FALSE);
 	bool hasCallbacks() { return mLoadedCallbackList.empty() ? false : true; }	
-	void pauseLoadedCallbacks(void* src);
-	void unpauseLoadedCallbacks(void* src);
+	void pauseLoadedCallbacks(const LLLoadedCallbackEntry::source_callback_list_t* callback_list);
+	void unpauseLoadedCallbacks(const LLLoadedCallbackEntry::source_callback_list_t* callback_list);
 	bool doLoadedCallbacks();
-	void deleteCallbackEntry(void* src);
+	void deleteCallbackEntry(const LLLoadedCallbackEntry::source_callback_list_t* callback_list);
+	void clearCallbackEntryList() ;
 
 	void addToCreateTexture();
 
@@ -485,7 +481,7 @@ protected:
 
 private:
 	void init(bool firstinit) ;
-	/*virtual*/ void cleanup() ;
+	void cleanup() ;
 
 	void saveRawImage() ;
 	void setCachedRawImage() ;
@@ -561,6 +557,7 @@ protected:
 
 	// Timers
 	LLFrameTimer mLastPacketTimer;		// Time since last packet.
+	LLFrameTimer mStopFetchingTimer;	// Time since mDecodePriority == 0.f.
 
 	BOOL  mInImageList;				// TRUE if image is in list (in which case don't reset priority!)
 	BOOL  mNeedsCreateTexture;	
@@ -598,8 +595,6 @@ private:
 	void scaleDown() ;		
 
 private:
-	
-	F32 mTexelsPerImage;			// Texels per image.
 	F32 mDiscardVirtualSize;		// Virtual size used to calculate desired discard	
 	F32 mCalculatedDiscardLevel;    // Last calculated discard level
 };

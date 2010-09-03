@@ -355,6 +355,10 @@ No se reembolsan las cuotas pagadas.
 		¿Borrar el destacado &lt;nolink&gt;[PICK]&lt;/nolink&gt;?
 		<usetemplate name="okcancelbuttons" notext="Cancelar" yestext="OK"/>
 	</notification>
+	<notification name="DeleteOutfits">
+		¿Eliminar el vestuario seleccionado?
+		<usetemplate name="okcancelbuttons" notext="Cancelar" yestext="OK"/>
+	</notification>
 	<notification name="PromptGoToEventsPage">
 		¿Ir a la web de eventos de [SECOND_LIFE]?
 		<url name="url">
@@ -2042,11 +2046,6 @@ Publícala en una página web para que otros puedan acceder fácilmente a esta p
 		Subiendo fotos del mundo y del sitio web...
 (tardará unos 5 minutos).
 	</notification>
-	<notification name="UploadConfirmation">
-		La subida cuesta [AMOUNT] L$.
-¿Quieres continuar?
-		<usetemplate name="okcancelbuttons" notext="Cancelar" yestext="Subir"/>
-	</notification>
 	<notification name="UploadPayment">
 		Has pagado [AMOUNT] LS por la subida.
 	</notification>
@@ -2466,9 +2465,6 @@ Del objeto: [OBJECTNAME]; propiedad de: [NAME]?
 	<notification name="FailedToFindWearable">
 		Búsqueda fallida de [TYPE] de nombre [DESC] en la base de datos.
 	</notification>
-	<notification name="ShareToWebFailed">
-		Fallo al subir la imagen a la web.
-	</notification>
 	<notification name="InvalidWearable">
 		El ítem que quieres vestirte tiene una característica que tu visor no puede leer. Por favor, actualiza tu versión de [APP_NAME] para ponerte este ítem.
 	</notification>
@@ -2754,8 +2750,8 @@ Comprueba la configuración de la red y del servidor de seguridad.
 El avatar &apos;[NAME]&apos; ya estaba totalmente cargado al salir.
 	</notification>
 	<notification name="AvatarRezSelfBakeNotification">
-		( [EXISTENCE] segundos vivo)
-Has cargado una textura obtenida mediante bake de [RESOLUTION] para &apos;[BODYREGION]&apos; después de [TIME] segundos.
+		( [EXISTENCE] segundos con vida )
+Has [ACTION] una textura obtenida mediante bake de [RESOLUTION] para &apos;[BODYREGION]&apos; después de [TIME] segundos.
 	</notification>
 	<notification name="ConfirmLeaveCall">
 		¿Estás seguro de que deseas salir de esta multiconferencia?
@@ -2791,5 +2787,8 @@ Si los problemas persisten, por favor, acude a [SUPPORT_SITE].
 	<global name="You can only set your &apos;Home Location&apos; on your land or at a mainland Infohub.">
 		Si posees un terreno, puedes hacerlo tu Base.
 También puedes buscar en el Mapa lugares marcados como &quot;Puntos de Información&quot;.
+	</global>
+	<global name="You died and have been teleported to your home location">
+		Has muerto y te has teleportado a tu Base.
 	</global>
 </notifications>

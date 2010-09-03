@@ -2,31 +2,25 @@
  * @file llaccordionctrl.cpp
  * @brief Accordion panel  implementation
  *
- * $LicenseInfo:firstyear=2009&license=viewergpl$
- * 
- * Copyright (c) 2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2009&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 #include "linden_common.h"
@@ -39,8 +33,6 @@
 #include "llwindow.h"
 #include "llfocusmgr.h"
 #include "lllocalcliprect.h"
-
-#include "lltrans.h"
 
 #include "boost/bind.hpp"
 
@@ -74,7 +66,6 @@ LLAccordionCtrl::LLAccordionCtrl(const Params& params):LLPanel(params)
 {
 	initNoTabsWidget(params.no_matched_tabs_text);
 
-	mNoVisibleTabsOrigString = LLTrans::getString(params.no_visible_tabs_text.initial_value().asString());
 	mSingleExpansion = params.single_expansion;
 	if(mFitParent && !mSingleExpansion)
 	{
@@ -389,7 +380,7 @@ void	LLAccordionCtrl::initNoTabsWidget(const LLTextBox::Params& tb_params)
 {
 	LLTextBox::Params tp = tb_params;
 	tp.rect(getLocalRect());
-	mNoMatchedTabsOrigString = LLTrans::getString(tp.initial_value().asString());
+	mNoMatchedTabsOrigString = tp.initial_value().asString();
 	mNoVisibleTabsHelpText = LLUICtrlFactory::create<LLTextBox>(tp, this);
 }
 
@@ -768,6 +759,17 @@ S32	LLAccordionCtrl::notifyParent(const LLSD& info)
 			}
 			return 0;
 		}
+		else if(str_action == "deselect_current")
+		{
+			// Reset selection to the currently selected tab.
+			if (mSelectedTab)
+			{
+				mSelectedTab->setSelected(false);
+				mSelectedTab = NULL;
+				return 1;
+			}
+			return 0;
+		}
 	}
 	else if (info.has("scrollToShowRect"))
 	{
@@ -812,6 +814,31 @@ void	LLAccordionCtrl::reset		()
 {
 	if(mScrollbar)
 		mScrollbar->setDocPos(0);
+}
+
+void LLAccordionCtrl::expandDefaultTab()
+{
+	if (mAccordionTabs.size() > 0)
+	{
+		LLAccordionCtrlTab* tab = mAccordionTabs.front();
+
+		if (!tab->getDisplayChildren())
+		{
+			tab->setDisplayChildren(true);
+		}
+
+		for (size_t i = 1; i < mAccordionTabs.size(); ++i)
+		{
+			tab = mAccordionTabs[i];
+
+			if (tab->getDisplayChildren())
+			{
+				tab->setDisplayChildren(false);
+			}
+		}
+
+		arrange();
+	}
 }
 
 void LLAccordionCtrl::sort()

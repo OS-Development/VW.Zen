@@ -358,6 +358,10 @@ Vuoi continuare?
 		Elimina preferito &lt;nolink&gt;[PICK]&lt;/nolink&gt;?
 		<usetemplate name="okcancelbuttons" notext="Annulla" yestext="OK"/>
 	</notification>
+	<notification name="DeleteOutfits">
+		Elimina il vestiario selezionato?
+		<usetemplate name="okcancelbuttons" notext="Annulla" yestext="OK"/>
+	</notification>
 	<notification name="PromptGoToEventsPage">
 		Vai alla pagina degli eventi di [SECOND_LIFE]?
 		<url name="url">
@@ -2039,11 +2043,6 @@ Inseriscilo in una pagina web per dare ad altri un accesso facile a questa ubica
 		Sto importando le fotografie per l&apos;uso inworld e per il web...
 (Durata circa 5 minuti.)
 	</notification>
-	<notification name="UploadConfirmation">
-		Il costo per il caricamento è di L$ [AMOUNT].
-Continuare?
-		<usetemplate name="okcancelbuttons" notext="Annulla" yestext="Carica nel server"/>
-	</notification>
 	<notification name="UploadPayment">
 		Hai pagato [AMOUNT]L$ per il caricamento.
 	</notification>
@@ -2463,9 +2462,6 @@ Dall&apos;oggetto: [OBJECTNAME], di: [NAME]?
 	<notification name="FailedToFindWearable">
 		Impossibile trovare [TYPE] chiamato [DESC] nel database.
 	</notification>
-	<notification name="ShareToWebFailed">
-		Caricamento dell&apos;immagine su Web non riuscita.
-	</notification>
 	<notification name="InvalidWearable">
 		L&apos;elemento che stai tentando di indossare usa delle caratteristiche che il tuo viewer non può leggere. Aggiorna la versione di [APP_NAME] per poterlo indossare.
 	</notification>
@@ -2753,7 +2749,7 @@ Avatar &apos;[NAME]&apos; è partito completamente caricato.
 	</notification>
 	<notification name="AvatarRezSelfBakeNotification">
 		( in esistenza da [EXISTENCE] secondi )
-Hai caricato una texture [RESOLUTION] completata per &apos;[BODYREGION]&apos; dopo [TIME] secondi.
+Effettuata l&apos;azione: [ACTION] di una texture [RESOLUTION] completata per &apos;[BODYREGION]&apos; dopo [TIME] secondi.
 	</notification>
 	<notification name="ConfirmLeaveCall">
 		Sei sicuro di volere uscire dalla chiamata?
@@ -2790,5 +2786,8 @@ Se continui ad avere problemi, visita la pagina [SUPPORT_SITE].
 	<global name="You can only set your &apos;Home Location&apos; on your land or at a mainland Infohub.">
 		Se sei proprietario di un appezzamento di terreno, puoi definirlo come la tua posizione iniziale.
 In alternativa, puoi guardare sulla mappa e trovare luoghi segnalati come &quot;Infohub&quot;.
+	</global>
+	<global name="You died and have been teleported to your home location">
+		Sei deceduto e sei stato teleportato a casa tua.
 	</global>
 </notifications>

@@ -2,31 +2,25 @@
  * @file llinventoryobserver.cpp
  * @brief Implementation of the inventory observers used to track agent inventory.
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -676,7 +670,9 @@ void LLInventoryCategoriesObserver::changed(U32 mask)
 		 iter != mCategoryMap.end();
 		 ++iter)
 	{
-		LLViewerInventoryCategory* category = gInventory.getCategory((*iter).first);
+		const LLUUID& cat_id = (*iter).first;
+
+		LLViewerInventoryCategory* category = gInventory.getCategory(cat_id);
 		if (!category)
 			continue;
 
@@ -691,7 +687,7 @@ void LLInventoryCategoriesObserver::changed(U32 mask)
 		// Check number of known descendents to find out whether it has changed.
 		LLInventoryModel::cat_array_t* cats;
 		LLInventoryModel::item_array_t* items;
-		gInventory.getDirectDescendentsOf((*iter).first, cats, items);
+		gInventory.getDirectDescendentsOf(cat_id, cats, items);
 		if (!cats || !items)
 		{
 			llwarns << "Category '" << category->getName() << "' descendents corrupted, fetch failed." << llendl;
@@ -703,20 +699,39 @@ void LLInventoryCategoriesObserver::changed(U32 mask)
 
 			continue;
 		}
-
+		
 		const S32 current_num_known_descendents = cats->count() + items->count();
 
-		LLCategoryData cat_data = (*iter).second;
+		LLCategoryData& cat_data = (*iter).second;
+
+		bool cat_changed = false;
 
 		// If category version or descendents count has changed
-		// update category data in mCategoryMap and fire a callback.
+		// update category data in mCategoryMap
 		if (version != cat_data.mVersion || current_num_known_descendents != cat_data.mDescendentsCount)
 		{
 			cat_data.mVersion = version;
 			cat_data.mDescendentsCount = current_num_known_descendents;
-
-			cat_data.mCallback();
+			cat_changed = true;
 		}
+
+		// If any item names have changed, update the name hash 
+		// Only need to check if (a) name hash has not previously been
+		// computed, or (b) a name has changed.
+		if (!cat_data.mIsNameHashInitialized || (mask & LLInventoryObserver::LABEL))
+		{
+			LLMD5 item_name_hash = gInventory.hashDirectDescendentNames(cat_id);
+			if (cat_data.mItemNameHash != item_name_hash)
+			{
+				cat_data.mIsNameHashInitialized = true;
+				cat_data.mItemNameHash = item_name_hash;
+				cat_changed = true;
+			}
+		}
+
+		// If anything has changed above, fire the callback.
+		if (cat_changed)
+			cat_data.mCallback();
 	}
 }
 
@@ -758,7 +773,8 @@ bool LLInventoryCategoriesObserver::addCategory(const LLUUID& cat_id, callback_t
 
 	if (can_be_added)
 	{
-		mCategoryMap.insert(category_map_value_t(cat_id, LLCategoryData(cb, version, current_num_known_descendents)));
+		mCategoryMap.insert(category_map_value_t(
+								cat_id,LLCategoryData(cat_id, cb, version, current_num_known_descendents)));
 	}
 
 	return can_be_added;
@@ -767,4 +783,16 @@ bool LLInventoryCategoriesObserver::addCategory(const LLUUID& cat_id, callback_t
 void LLInventoryCategoriesObserver::removeCategory(const LLUUID& cat_id)
 {
 	mCategoryMap.erase(cat_id);
+}
+
+LLInventoryCategoriesObserver::LLCategoryData::LLCategoryData(
+	const LLUUID& cat_id, callback_t cb, S32 version, S32 num_descendents)
+	
+	: mCatID(cat_id)
+	, mCallback(cb)
+	, mVersion(version)
+	, mDescendentsCount(num_descendents)
+	, mIsNameHashInitialized(false)
+{
+	mItemNameHash.finalize();
 }
