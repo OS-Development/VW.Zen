@@ -2,31 +2,25 @@
  * @file llfloatermediabrowser.cpp
  * @brief media browser floater - uses embedded media browser control
  *
- * $LicenseInfo:firstyear=2006&license=viewergpl$
- * 
- * Copyright (c) 2006-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2006&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -59,8 +53,54 @@
 LLFloaterMediaBrowser::LLFloaterMediaBrowser(const LLSD& key)
 	: LLFloater(key)
 {
-//	LLUICtrlFactory::getInstance()->buildFloater(this, "floater_media_browser.xml");
+}
 
+//static 
+void LLFloaterMediaBrowser::create(const std::string &url, const std::string& target)
+{
+	std::string tag = target;
+	
+	if(target.empty() || target == "_blank")
+	{
+		// create a unique tag for this instance
+		LLUUID id;
+		id.generate();
+		tag = id.asString();
+	}
+	
+	S32 browser_window_limit = gSavedSettings.getS32("MediaBrowserWindowLimit");
+	
+	if(LLFloaterReg::findInstance("media_browser", tag) != NULL)
+	{
+		// There's already a media browser for this tag, so we won't be opening a new window.
+	}
+	else if(browser_window_limit != 0)
+	{
+		// showInstance will open a new window.  Figure out how many media browsers are already open, 
+		// and close the least recently opened one if this will put us over the limit.
+		
+		LLFloaterReg::const_instance_list_t &instances = LLFloaterReg::getFloaterList("media_browser");
+		lldebugs << "total instance count is " << instances.size() << llendl;
+		
+		for(LLFloaterReg::const_instance_list_t::const_iterator iter = instances.begin(); iter != instances.end(); iter++)
+		{
+			lldebugs << "    " << (*iter)->getKey() << llendl;
+		}
+		
+		if(instances.size() >= (size_t)browser_window_limit)
+		{
+			// Destroy the least recently opened instance
+			(*instances.begin())->closeFloater();
+		}
+	}
+
+	LLFloaterMediaBrowser *browser = dynamic_cast<LLFloaterMediaBrowser*> (LLFloaterReg::showInstance("media_browser", tag));
+	llassert(browser);
+	if(browser)
+	{
+		// tell the browser instance to load the specified URL
+		browser->openMedia(url);
+	}
 }
 
 void LLFloaterMediaBrowser::draw()
@@ -105,6 +145,7 @@ BOOL LLFloaterMediaBrowser::postBuild()
 
 	mAddressCombo = getChild<LLComboBox>("address");
 	mAddressCombo->setCommitCallback(onEnterAddress, this);
+	mAddressCombo->sortByName();
 
 	childSetAction("back", onClickBack, this);
 	childSetAction("forward", onClickForward, this);
@@ -176,6 +217,11 @@ void LLFloaterMediaBrowser::handleMediaEvent(LLPluginClassMedia* self, EMediaEve
 		getChildView("back")->setEnabled(self->getHistoryBackAvailable());
 		getChildView("forward")->setEnabled(self->getHistoryForwardAvailable());
 	}
+	else if(event == MEDIA_EVENT_CLOSE_REQUEST)
+	{
+		// The browser instance wants its window closed.
+		closeFloater();
+	}
 }
 void LLFloaterMediaBrowser::setCurrentURL(const std::string& url)
 {
@@ -185,7 +231,7 @@ void LLFloaterMediaBrowser::setCurrentURL(const std::string& url)
 	if (mCurrentURL != "about:blank")
 	{
 		mAddressCombo->remove(mCurrentURL);
-		mAddressCombo->add(mCurrentURL, ADD_SORTED);
+		mAddressCombo->add(mCurrentURL);
 		mAddressCombo->selectByValue(mCurrentURL);
 
 		// Serialize url history
@@ -195,12 +241,6 @@ void LLFloaterMediaBrowser::setCurrentURL(const std::string& url)
 	getChildView("back")->setEnabled(mBrowser->canNavigateBack());
 	getChildView("forward")->setEnabled(mBrowser->canNavigateForward());
 	getChildView("reload")->setEnabled(TRUE);
-}
-
-void LLFloaterMediaBrowser::onOpen(const LLSD& media_url)
-{
-	LLFloater::onOpen(media_url);
-	openMedia(media_url.asString());
 }
 
 //static 

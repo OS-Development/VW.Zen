@@ -2,31 +2,25 @@
  * @file llfloatercamera.cpp
  * @brief Container for camera control buttons (zoom, pan, orbit)
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -62,6 +56,7 @@ const F32 CAMERA_BUTTON_DELAY = 0.0f;
 #define CONTROLS "controls"
 
 bool LLFloaterCamera::sFreeCamera = false;
+bool LLFloaterCamera::sAppearanceEditing = false;
 
 // Zoom the camera in and out
 class LLPanelCameraZoom
@@ -250,16 +245,21 @@ void LLFloaterCamera::resetCameraMode()
 
 void LLFloaterCamera::onAvatarEditingAppearance(bool editing)
 {
+	sAppearanceEditing = editing;
 	LLFloaterCamera* floater_camera = LLFloaterCamera::findInstance();
 	if (!floater_camera) return;
+	floater_camera->handleAvatarEditingAppearance(editing);
+}
 
+void LLFloaterCamera::handleAvatarEditingAppearance(bool editing)
+{
 	//camera presets (rear, front, etc.)
-	floater_camera->getChildView("preset_views_list")->setEnabled(!editing);
-	floater_camera->getChildView("presets_btn")->setEnabled(!editing);
+	getChildView("preset_views_list")->setEnabled(!editing);
+	getChildView("presets_btn")->setEnabled(!editing);
 
 	//camera modes (object view, mouselook view)
-	floater_camera->getChildView("camera_modes_list")->setEnabled(!editing);
-	floater_camera->getChildView("avatarview_btn")->setEnabled(!editing);
+	getChildView("camera_modes_list")->setEnabled(!editing);
+	getChildView("avatarview_btn")->setEnabled(!editing);
 }
 
 void LLFloaterCamera::update()
@@ -345,7 +345,7 @@ BOOL LLFloaterCamera::postBuild()
 	setTitleVisible(TRUE); // restore title visibility after chrome applying
 
 	mRotate = getChild<LLJoystickCameraRotate>(ORBIT);
-	mZoom = getChild<LLPanelCameraZoom>(ZOOM);
+	mZoom = findChild<LLPanelCameraZoom>(ZOOM);
 	mTrack = getChild<LLJoystickCameraTrack>(PAN);
 
 	assignButton2Mode(CAMERA_CTRL_MODE_MODES,			"avatarview_btn");
@@ -353,6 +353,9 @@ BOOL LLFloaterCamera::postBuild()
 	assignButton2Mode(CAMERA_CTRL_MODE_PRESETS,		"presets_btn");
 
 	update();
+
+	// ensure that appearance mode is handled while building. See EXT-7796.
+	handleAvatarEditingAppearance(sAppearanceEditing);
 
 	return LLDockableFloater::postBuild();
 }
@@ -376,6 +379,12 @@ void LLFloaterCamera::fillFlatlistFromPanel (LLFlatListView* list, LLPanel* pane
 
 ECameraControlMode LLFloaterCamera::determineMode()
 {
+	if (sAppearanceEditing)
+	{
+		// this is the only enabled camera mode while editing agent appearance.
+		return CAMERA_CTRL_MODE_PAN;
+	}
+
 	LLTool* curr_tool = LLToolMgr::getInstance()->getCurrentTool();
 	if (curr_tool == LLToolCamera::getInstance())
 	{

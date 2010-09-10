@@ -2,31 +2,25 @@
  * @file llchathistory.cpp
  * @brief LLTextEditor base class
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -107,7 +101,7 @@ public:
 	static LLChatHistoryHeader* createInstance(const std::string& file_name)
 	{
 		LLChatHistoryHeader* pInstance = new LLChatHistoryHeader;
-		LLUICtrlFactory::getInstance()->buildPanel(pInstance, file_name);	
+		pInstance->buildFromFile(file_name);	
 		return pInstance;
 	}
 
@@ -402,7 +396,7 @@ protected:
 			return;
 		}
 
-		LLTextBase* name = getChild<LLTextBase>("user_name");
+		LLTextBox* name = getChild<LLTextBox>("user_name");
 		LLRect sticky_rect = name->getRect();
 		S32 icon_x = llmin(sticky_rect.mLeft + name->getTextBoundingRect().getWidth() + 7, sticky_rect.mRight - 3);
 		sInfoCtrl->setOrigin(icon_x, sticky_rect.getCenterY() - sInfoCtrl->getRect().getHeight() / 2 ) ;
@@ -502,12 +496,17 @@ void LLChatHistory::initFromParams(const LLChatHistory::Params& p)
 	
 	const S32 NEW_TEXT_NOTICE_HEIGHT = 20;
 	
-	LLPanel::Params panel_p;
+	LLLayoutPanel::Params panel_p;
 	panel_p.name = "spacer";
 	panel_p.background_visible = false;
 	panel_p.has_border = false;
 	panel_p.mouse_opaque = false;
-	stackp->addPanel(LLUICtrlFactory::create<LLPanel>(panel_p), 0, 30, S32_MAX, S32_MAX, true, false, LLLayoutStack::ANIMATE);
+	panel_p.min_dim = 30;
+	panel_p.max_dim = S32_MAX;
+	panel_p.auto_resize = true;
+	panel_p.user_resize = false;
+
+	stackp->addPanel(LLUICtrlFactory::create<LLLayoutPanel>(panel_p), LLLayoutStack::ANIMATE);
 
 	panel_p.name = "new_text_notice_holder";
 	LLRect new_text_notice_rect = getLocalRect();
@@ -516,7 +515,10 @@ void LLChatHistory::initFromParams(const LLChatHistory::Params& p)
 	panel_p.background_opaque = true;
 	panel_p.background_visible = true;
 	panel_p.visible = false;
-	mMoreChatPanel = LLUICtrlFactory::create<LLPanel>(panel_p);
+	panel_p.min_dim = 0;
+	panel_p.auto_resize = false;
+	panel_p.user_resize = false;
+	mMoreChatPanel = LLUICtrlFactory::create<LLLayoutPanel>(panel_p);
 	
 	LLTextBox::Params text_p(p.more_chat_text);
 	text_p.rect = mMoreChatPanel->getLocalRect();
@@ -525,7 +527,7 @@ void LLChatHistory::initFromParams(const LLChatHistory::Params& p)
 	mMoreChatText = LLUICtrlFactory::create<LLTextBox>(text_p, mMoreChatPanel);
 	mMoreChatText->setClickedCallback(boost::bind(&LLChatHistory::onClickMoreText, this));
 
-	stackp->addPanel(mMoreChatPanel, 0, 0, S32_MAX, S32_MAX, false, false, LLLayoutStack::ANIMATE);
+	stackp->addPanel(mMoreChatPanel, LLLayoutStack::ANIMATE);
 }
 
 
@@ -699,8 +701,9 @@ void LLChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
 			{
 				LLStyle::Params link_params(style_params);
 				link_params.overwriteFrom(LLStyleMap::instance().lookupAgent(chat.mFromID));
-				// Convert the name to a hotlink and add to message.
-				mEditor->appendText(chat.mFromName + delimiter, false, link_params);
+				// Add link to avatar's inspector and delimiter to message.
+				mEditor->appendText(link_params.link_href, false, style_params);
+				mEditor->appendText(delimiter, false, style_params);
 			}
 			else
 			{

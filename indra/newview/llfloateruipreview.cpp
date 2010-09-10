@@ -2,31 +2,25 @@
  * @file llfloateruipreview.cpp
  * @brief Tool for previewing and editing floaters, plus localization tool integration
  *
- * $LicenseInfo:firstyear=2008&license=viewergpl$
- * 
- * Copyright (c) 2008-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2008&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -400,7 +394,6 @@ LLFloaterUIPreview::LLFloaterUIPreview(const LLSD& key)
 	mLastDisplayedX(0),
 	mLastDisplayedY(0)
 {
-	// called from floater reg: LLUICtrlFactory::getInstance()->buildFloater(this, "floater_ui_preview.xml");
 }
 
 // Destructor
@@ -838,7 +831,7 @@ void LLFloaterUIPreview::displayFloater(BOOL click, S32 ID, bool save)
 		if (save)
 		{
 			LLXMLNodePtr floater_write = new LLXMLNode();			
-			LLUICtrlFactory::getInstance()->buildFloater(*floaterp, path, floater_write);	// just build it
+			(*floaterp)->buildFromFile(path, floater_write);	// just build it
 
 			if (!floater_write->isNull())
 			{
@@ -852,7 +845,7 @@ void LLFloaterUIPreview::displayFloater(BOOL click, S32 ID, bool save)
 		}
 		else
 		{
-			LLUICtrlFactory::getInstance()->buildFloater(*floaterp, path, NULL);	// just build it
+			(*floaterp)->buildFromFile(path);	// just build it
 			(*floaterp)->openFloater((*floaterp)->getKey());
 			(*floaterp)->setCanResize((*floaterp)->isResizable());
 		}
@@ -891,7 +884,7 @@ void LLFloaterUIPreview::displayFloater(BOOL click, S32 ID, bool save)
 		if (save)
 		{
 			LLXMLNodePtr panel_write = new LLXMLNode();
-			LLUICtrlFactory::getInstance()->buildPanel(panel, path, panel_write);		// build it
+			panel->buildFromFile(path, panel_write);		// build it
 			
 			if (!panel_write->isNull())
 			{
@@ -905,7 +898,7 @@ void LLFloaterUIPreview::displayFloater(BOOL click, S32 ID, bool save)
 		}
 		else
 		{
-			LLUICtrlFactory::getInstance()->buildPanel(panel, path);		// build it
+			panel->buildFromFile(path);										// build it
 			LLRect new_size = panel->getRect();								// get its rectangle
 			panel->setOrigin(0,0);											// reset its origin point so it's not offset by -left or other XUI attributes
 			(*floaterp)->setTitle(path);									// use the file name as its title, since panels have no guaranteed meaningful name attribute

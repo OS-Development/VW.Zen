@@ -2,31 +2,25 @@
  * @file llviewermenu.cpp
  * @brief Builds menus out of items.
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -1083,6 +1077,8 @@ class LLAdvancedToggleWireframe : public view_listener_t
 	bool handleEvent(const LLSD& userdata)
 	{
 		gUseWireframe = !(gUseWireframe);
+		LLPipeline::updateRenderDeferred();
+		gPipeline.resetVertexBuffers();
 		return true;
 	}
 };
@@ -3387,8 +3383,21 @@ class LLSelfStandUp : public view_listener_t
 
 bool enable_standup_self()
 {
-	bool new_value = isAgentAvatarValid() && gAgentAvatarp->isSitting();
-	return new_value;
+    return isAgentAvatarValid() && gAgentAvatarp->isSitting();
+}
+
+class LLSelfSitDown : public view_listener_t
+    {
+        bool handleEvent(const LLSD& userdata)
+        {
+            gAgent.sitDown();
+            return true;
+        }
+    };
+
+bool enable_sitdown_self()
+{
+    return isAgentAvatarValid() && !gAgentAvatarp->isSitting() && !gAgent.getFlying();
 }
 
 // Used from the login screen to aid in UI work on side tray
@@ -5852,6 +5861,7 @@ void handle_buy_land()
 class LLObjectAttachToAvatar : public view_listener_t
 {
 public:
+	LLObjectAttachToAvatar(bool replace) : mReplace(replace) {}
 	static void setObjectSelection(LLObjectSelectionHandle selection) { sObjectSelection = selection; }
 
 private:
@@ -5865,22 +5875,38 @@ private:
 			LLViewerJointAttachment* attachment_point = NULL;
 			if (index > 0)
 				attachment_point = get_if_there(gAgentAvatarp->mAttachmentPoints, index, (LLViewerJointAttachment*)NULL);
-			confirm_replace_attachment(0, attachment_point);
+			confirmReplaceAttachment(0, attachment_point);
 		}
 		return true;
 	}
 
+	static void onNearAttachObject(BOOL success, void *user_data);
+	void confirmReplaceAttachment(S32 option, LLViewerJointAttachment* attachment_point);
+
+	struct CallbackData
+	{
+		CallbackData(LLViewerJointAttachment* point, bool replace) : mAttachmentPoint(point), mReplace(replace) {}
+
+		LLViewerJointAttachment*	mAttachmentPoint;
+		bool						mReplace;
+	};
+
 protected:
 	static LLObjectSelectionHandle sObjectSelection;
+	bool mReplace;
 };
 
 LLObjectSelectionHandle LLObjectAttachToAvatar::sObjectSelection;
 
-void near_attach_object(BOOL success, void *user_data)
+// static
+void LLObjectAttachToAvatar::onNearAttachObject(BOOL success, void *user_data)
 {
+	if (!user_data) return;
+	CallbackData* cb_data = static_cast<CallbackData*>(user_data);
+
 	if (success)
 	{
-		const LLViewerJointAttachment *attachment = (LLViewerJointAttachment *)user_data;
+		const LLViewerJointAttachment *attachment = cb_data->mAttachmentPoint;
 		
 		U8 attachment_id = 0;
 		if (attachment)
@@ -5900,12 +5926,15 @@ void near_attach_object(BOOL success, void *user_data)
 			// interpret 0 as "default location"
 			attachment_id = 0;
 		}
-		LLSelectMgr::getInstance()->sendAttach(attachment_id);
+		LLSelectMgr::getInstance()->sendAttach(attachment_id, cb_data->mReplace);
 	}		
 	LLObjectAttachToAvatar::setObjectSelection(NULL);
+
+	delete cb_data;
 }
 
-void confirm_replace_attachment(S32 option, void* user_data)
+// static
+void LLObjectAttachToAvatar::confirmReplaceAttachment(S32 option, LLViewerJointAttachment* attachment_point)
 {
 	if (option == 0/*YES*/)
 	{
@@ -5930,7 +5959,9 @@ void confirm_replace_attachment(S32 option, void* user_data)
 			delta = delta * 0.5f;
 			walkToSpot -= delta;
 
-			gAgent.startAutoPilotGlobal(gAgent.getPosGlobalFromAgent(walkToSpot), "Attach", NULL, near_attach_object, user_data, stop_distance);
+			// The callback will be called even if avatar fails to get close enough to the object, so we won't get a memory leak.
+			CallbackData* user_data = new CallbackData(attachment_point, mReplace);
+			gAgent.startAutoPilotGlobal(gAgent.getPosGlobalFromAgent(walkToSpot), "Attach", NULL, onNearAttachObject, user_data, stop_distance);
 			gAgentCamera.clearFocusObject();
 		}
 	}
@@ -6050,7 +6081,7 @@ static bool onEnableAttachmentLabel(LLUICtrl* ctrl, const LLSD& data)
 				const LLViewerObject* attached_object = (*attachment_iter);
 				if (attached_object)
 				{
-					LLViewerInventoryItem* itemp = gInventory.getItem(attached_object->getItemID());
+					LLViewerInventoryItem* itemp = gInventory.getItem(attached_object->getAttachmentItemID());
 					if (itemp)
 					{
 						label += std::string(" (") + itemp->getName() + std::string(")");
@@ -6169,14 +6200,14 @@ class LLAttachmentEnableDrop : public view_listener_t
 				{
 					// make sure item is in your inventory (it could be a delayed attach message being sent from the sim)
 					// so check to see if the item is in the inventory already
-					item = gInventory.getItem((*attachment_iter)->getItemID());
+					item = gInventory.getItem((*attachment_iter)->getAttachmentItemID());
 					if (!item)
 					{
 						// Item does not exist, make an observer to enable the pie menu 
 						// when the item finishes fetching worst case scenario 
 						// if a fetch is already out there (being sent from a slow sim)
 						// we refetch and there are 2 fetches
-						LLWornItemFetchedObserver* worn_item_fetched = new LLWornItemFetchedObserver((*attachment_iter)->getItemID());		
+						LLWornItemFetchedObserver* worn_item_fetched = new LLWornItemFetchedObserver((*attachment_iter)->getAttachmentItemID());		
 						worn_item_fetched->startFetch();
 						gInventory.addObserver(worn_item_fetched);
 					}
@@ -6523,7 +6554,7 @@ void handle_dump_attachments(void*)
 							!attached_object->mDrawable->isRenderType(0));
 			LLVector3 pos;
 			if (visible) pos = attached_object->mDrawable->getPosition();
-			llinfos << "ATTACHMENT " << key << ": item_id=" << attached_object->getItemID()
+			llinfos << "ATTACHMENT " << key << ": item_id=" << attached_object->getAttachmentItemID()
 					<< (attached_object ? " present " : " absent ")
 					<< (visible ? "visible " : "invisible ")
 					<<  " at " << pos
@@ -7231,7 +7262,7 @@ void handle_load_from_xml(void*)
 	{
 		std::string filename = picker.getFirstFile();
 		LLFloater* floater = new LLFloater(LLSD());
-		LLUICtrlFactory::getInstance()->buildFloater(floater, filename, NULL);
+		floater->buildFromFile(filename);
 	}
 }
 
@@ -8082,11 +8113,13 @@ void initialize_menus()
 	// Admin top level
 	view_listener_t::addMenu(new LLAdminOnSaveState(), "Admin.OnSaveState");
 
-	// Self pie menu
+	// Self context menu
 	view_listener_t::addMenu(new LLSelfStandUp(), "Self.StandUp");
+	enable.add("Self.EnableStandUp", boost::bind(&enable_standup_self));
+	view_listener_t::addMenu(new LLSelfSitDown(), "Self.SitDown");
+	enable.add("Self.EnableSitDown", boost::bind(&enable_sitdown_self));
 	view_listener_t::addMenu(new LLSelfRemoveAllAttachments(), "Self.RemoveAllAttachments");
 
-	enable.add("Self.EnableStandUp", boost::bind(&enable_standup_self));
 	view_listener_t::addMenu(new LLSelfEnableRemoveAllAttachments(), "Self.EnableRemoveAllAttachments");
 
 	// we don't use boost::bind directly to delay side tray construction
@@ -8115,7 +8148,8 @@ void initialize_menus()
 	commit.add("Object.Touch", boost::bind(&handle_object_touch));
 	commit.add("Object.SitOrStand", boost::bind(&handle_object_sit_or_stand));
 	commit.add("Object.Delete", boost::bind(&handle_object_delete));
-	view_listener_t::addMenu(new LLObjectAttachToAvatar(), "Object.AttachToAvatar");
+	view_listener_t::addMenu(new LLObjectAttachToAvatar(true), "Object.AttachToAvatar");
+	view_listener_t::addMenu(new LLObjectAttachToAvatar(false), "Object.AttachAddToAvatar");
 	view_listener_t::addMenu(new LLObjectReturn(), "Object.Return");
 	view_listener_t::addMenu(new LLObjectReportAbuse(), "Object.ReportAbuse");
 	view_listener_t::addMenu(new LLObjectMute(), "Object.Mute");

@@ -2,31 +2,25 @@
  * @file llui.cpp
  * @brief UI implementation
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -477,8 +471,8 @@ void gl_draw_scaled_image_with_border(S32 x, S32 y, S32 width, S32 height, LLTex
 	}
 
 	// add in offset of current image to current ui translation
-	const LLVector3 ui_translation = gGL.getUITranslation() + LLVector3(x, y, 0.f);
 	const LLVector3 ui_scale = gGL.getUIScale();
+	const LLVector3 ui_translation = (gGL.getUITranslation() + LLVector3(x, y, 0.f)).scaledVec(ui_scale);
 
 	F32 uv_width = uv_outer_rect.getWidth();
 	F32 uv_height = uv_outer_rect.getHeight();
@@ -514,8 +508,8 @@ void gl_draw_scaled_image_with_border(S32 x, S32 y, S32 width, S32 height, LLTex
 		F32 shrink_scale = 1.f - llmax(shrink_width_ratio, shrink_height_ratio);
 
 		draw_center_rect.mLeft = llround(ui_translation.mV[VX] + (F32)draw_center_rect.mLeft * shrink_scale * ui_scale.mV[VX]);
-		draw_center_rect.mTop = llround(ui_translation.mV[VY] + lerp((F32)height, (F32)draw_center_rect.mTop, shrink_scale * ui_scale.mV[VY]));
-		draw_center_rect.mRight = llround(ui_translation.mV[VX] + lerp((F32)width, (F32)draw_center_rect.mRight, shrink_scale * ui_scale.mV[VX]));
+		draw_center_rect.mTop = llround(ui_translation.mV[VY] + lerp((F32)height, (F32)draw_center_rect.mTop, shrink_scale) * ui_scale.mV[VY]);
+		draw_center_rect.mRight = llround(ui_translation.mV[VX] + lerp((F32)width, (F32)draw_center_rect.mRight, shrink_scale) * ui_scale.mV[VX]);
 		draw_center_rect.mBottom = llround(ui_translation.mV[VY] + (F32)draw_center_rect.mBottom * shrink_scale * ui_scale.mV[VY]);
 	}
 
@@ -735,17 +729,21 @@ void gl_draw_scaled_rotated_image(S32 x, S32 y, S32 width, S32 height, F32 degre
 
 		gGL.begin(LLRender::QUADS);
 		{
+			LLVector3 ui_scale = gGL.getUIScale();
 			LLVector3 ui_translation = gGL.getUITranslation();
 			ui_translation.mV[VX] += x;
 			ui_translation.mV[VY] += y;
+			ui_translation.scaleVec(ui_scale);
 			S32 index = 0;
+			S32 scaled_width = llround(width * ui_scale.mV[VX]);
+			S32 scaled_height = llround(height * ui_scale.mV[VY]);
 
 			uv[index] = LLVector2(uv_rect.mRight, uv_rect.mTop);
-			pos[index] = LLVector3(ui_translation.mV[VX] + width, ui_translation.mV[VY] + height, 0.f);
+			pos[index] = LLVector3(ui_translation.mV[VX] + scaled_width, ui_translation.mV[VY] + scaled_height, 0.f);
 			index++;
 
 			uv[index] = LLVector2(uv_rect.mLeft, uv_rect.mTop);
-			pos[index] = LLVector3(ui_translation.mV[VX], ui_translation.mV[VY] + height, 0.f);
+			pos[index] = LLVector3(ui_translation.mV[VX], ui_translation.mV[VY] + scaled_height, 0.f);
 			index++;
 
 			uv[index] = LLVector2(uv_rect.mLeft, uv_rect.mBottom);
@@ -753,7 +751,7 @@ void gl_draw_scaled_rotated_image(S32 x, S32 y, S32 width, S32 height, F32 degre
 			index++;
 
 			uv[index] = LLVector2(uv_rect.mRight, uv_rect.mBottom);
-			pos[index] = LLVector3(ui_translation.mV[VX] + width, ui_translation.mV[VY], 0.f);
+			pos[index] = LLVector3(ui_translation.mV[VX] + scaled_width, ui_translation.mV[VY], 0.f);
 			index++;
 
 			gGL.vertexBatchPreTransformed(pos, uv, NUM_VERTICES);
@@ -1798,7 +1796,8 @@ void LLUI::setupPaths()
 	LLXMLNodePtr root;
 	BOOL success  = LLXMLNode::parseFile(filename, root, NULL);
 	Paths paths;
-	LLXUIParser::instance().readXUI(root, paths, filename);
+	LLXUIParser parser;
+	parser.readXUI(root, paths, filename);
 
 	sXUIPaths.clear();
 	

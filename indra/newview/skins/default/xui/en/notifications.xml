@@ -4023,6 +4023,19 @@ Are you sure you want to quit?
 
   <notification
    icon="alertmodal.tga"
+   name="DeleteItems"
+   type="alertmodal">
+    [QUESTION]
+    <usetemplate
+     ignoretext="Confirm before deleting items"
+     name="okcancelignore"
+     notext="Cancel"
+     yestext="OK"/>
+    <unique/>
+  </notification>
+
+  <notification
+   icon="alertmodal.tga"
    name="HelpReportAbuseEmailLL"
    type="alert">
 Use this tool to report violations of the [http://secondlife.com/corporate/tos.php Terms of Service] and [http://secondlife.com/corporate/cs.php Community Standards].
@@ -6340,10 +6353,18 @@ Avatar '[NAME]' left as fully loaded.
 
   <notification
    icon="notifytip.tga"
-   name="AvatarRezSelfBakeNotification"
+   name="AvatarRezSelfBakedTextureUploadNotification"
    type="notifytip">
 ( [EXISTENCE] seconds alive )
-You [ACTION] a [RESOLUTION] baked texture for '[BODYREGION]' after [TIME] seconds.
+You uploaded a [RESOLUTION] baked texture for '[BODYREGION]' after [TIME] seconds.
+  </notification>
+
+  <notification
+   icon="notifytip.tga"
+   name="AvatarRezSelfBakedTextureUpdateNotification"
+   type="notifytip">
+( [EXISTENCE] seconds alive )
+You locally updated a [RESOLUTION] baked texture for '[BODYREGION]' after [TIME] seconds.
   </notification>
 
   <notification
@@ -6373,6 +6394,62 @@ Mute everyone?
      name="okcancelignore"
      yestext="Ok"
      notext="Cancel"/>
+    <unique/>
+  </notification>
+
+  <notification
+  name="HintChat"
+  label="Chat"
+  type="hint">
+    To join the conversation, type into the chat field below.
+    <unique/>
+  </notification>
+
+  <notification
+  name="HintSit"
+  label="Stand"
+  type="hint">
+    To stand up and exit the sitting position, click the Stand button.
+    <unique/>
+  </notification>
+
+  <notification
+  name="HintDestinationGuide"
+  label="Explore the World"
+  type="hint">
+    The Destination Guide contains thousands of new places to discover. Select a location and choose Teleport to start exploring.
+    <unique/>
+  </notification>
+
+  <notification
+    name="HintSidePanel"
+    label="Side Panel"
+    type="hint">
+    Get quick access to your inventory, outfits, profiles and more in the side panel.
+    <unique/>
+  </notification>
+
+  <notification
+  name="HintMove"
+  label="Move"
+  type="hint">
+    To walk or run, open the Move Panel and use the directional arrows to navigate. You can also use the directional keys on your keyboard.
+    <unique/>
+  </notification>
+
+  <notification
+  name="HintInventory"
+  label="Inventory"
+  type="hint">
+    Check your inventory to find items. Newest items can be easily found in the Recent tab.
+    <unique/>
+  </notification>
+
+  <notification
+  name="HintLindenDollar"
+  label="You've got Linden Dollars!"
+  type="hint">
+    Here's your current balance of L$. Click Buy L$ to purchase more Linden Dollars.
     <unique/>
   </notification>
 
