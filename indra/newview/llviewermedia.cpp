@@ -2856,13 +2856,6 @@ void LLViewerMediaImpl::handleMediaEvent(LLPluginClassMedia* plugin, LLPluginCla
 		case MEDIA_EVENT_CLICK_LINK_HREF:
 		{
 			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_CLICK_LINK_HREF, target is \"" << plugin->getClickTarget() << "\", uri is " << plugin->getClickURL() << LL_ENDL;
-			// retrieve the event parameters
-			std::string url = plugin->getClickURL();
-			std::string target = plugin->getClickTarget();
-			std::string uuid = plugin->getClickUUID();
-			
-			// loadURL now handles distinguishing between _blank, _external, and other named targets.
-			LLWeb::loadURL(url, target, uuid);
 		};
 		break;
 		case MEDIA_EVENT_PLUGIN_FAILED_LAUNCH:

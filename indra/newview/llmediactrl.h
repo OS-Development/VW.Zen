@@ -59,6 +59,7 @@ public:
 		Optional<LLUIColor>		caret_color;
 
 		Optional<std::string>	initial_mime_type;
+		Optional<std::string>	media_id;
 		
 		Params();
 	};
@@ -141,6 +142,7 @@ public:
 		bool getDecoupleTextureSize() { return mDecoupleTextureSize; }
 
 		void setTextureSize(S32 width, S32 height);
+		void setMediaID(const std::string& id) { mMediaID = id; }
 
 
 		// over-rides
@@ -163,6 +165,7 @@ public:
 
 	private:
 		void onVisibilityChange ( const LLSD& new_visibility );
+		void onPopup(const LLSD& notification, const LLSD& response);
 
 		const S32 mTextureDepthBytes;
 		LLUUID mMediaTextureID;
@@ -185,6 +188,7 @@ public:
 		bool mDecoupleTextureSize;
 		S32 mTextureWidth;
 		S32 mTextureHeight;
+		std::string mMediaID;
 		bool mClearCache;
 };
 

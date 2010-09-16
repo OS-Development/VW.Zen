@@ -48,6 +48,7 @@
 
 // linden library includes
 #include "llfocusmgr.h"
+#include "llsdutil.h"
 
 extern BOOL gRestoreGL;
 
@@ -62,7 +63,8 @@ LLMediaCtrl::Params::Params()
 	texture_width("texture_width", 1024),
 	texture_height("texture_height", 1024),
 	caret_color("caret_color"),
-	initial_mime_type("initial_mime_type")
+	initial_mime_type("initial_mime_type"),
+	media_id("media_id")
 {
 	tab_stop(false);
 }
@@ -88,6 +90,7 @@ LLMediaCtrl::LLMediaCtrl( const Params& p) :
 	mTextureWidth ( 1024 ),
 	mTextureHeight ( 1024 ),
 	mClearCache(false),
+	mMediaID(p.media_id),
 	mHomePageMimeType(p.initial_mime_type)
 {
 	{
@@ -934,9 +937,20 @@ void LLMediaCtrl::handleMediaEvent(LLPluginClassMedia* self, EMediaEvent event)
 		case MEDIA_EVENT_CLICK_LINK_HREF:
 		{
 			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_CLICK_LINK_HREF, target is \"" << self->getClickTarget() << "\", uri is " << self->getClickURL() << LL_ENDL;
+			// retrieve the event parameters
+			std::string url = self->getClickURL();
+			std::string target = self->getClickTarget();
+			std::string uuid = self->getClickUUID();
+			
+			if(gSavedSettings.getBOOL("MediaEnablePopups"))
+			{
+				LLNotificationsUtil::add("PopupAttempt", 
+					LLSD(), 
+					LLSD().with("source", mMediaID).with("target", target).with("url", url).with("uuid", uuid),
+					boost::bind(&LLMediaCtrl::onPopup, this, _1, _2));
+			}
 		};
-		break;
-		
+
 		case MEDIA_EVENT_CLICK_LINK_NOFOLLOW:
 		{
 			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_CLICK_LINK_NOFOLLOW, uri is " << self->getClickURL() << LL_ENDL;
@@ -991,3 +1005,16 @@ std::string LLMediaCtrl::getCurrentNavUrl()
 	return mCurrentNavUrl;
 }
 
+void LLMediaCtrl::onPopup(const LLSD& notification, const LLSD& response)
+{
+	if (response["open"])
+	{
+		LLWeb::loadURL(notification["payload"]["url"], notification["payload"]["target"], notification["payload"]["uuid"]);
+	}
+	else
+	{
+		// Make sure the opening instance knows its window open request was denied, so it can clean things up.
+		LLViewerMedia::proxyWindowClosed(notification["payload"]["uuid"]);
+	}
+
+}

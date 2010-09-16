@@ -1,6 +1,5 @@
 <?xml version="1.0" ?><notifications>
-
-  <global name="skipnexttime">
+    <global name="skipnexttime">
 
 		Don&apos;t show me this again
   </global>
@@ -97,7 +96,7 @@
   </template>
 
   <notification
-   functor="GenericAcknowledge"
+ functor="GenericAcknowledge"
    icon="alertmodal.tga"
    name="MissingAlert"
    label="Unknown Notification Message"
@@ -723,7 +722,7 @@ You need an account to enter [SECOND_LIFE]. Would you like to create one now?
     <url
 	option="0"
 	name="url"
-	openexternally = "1">
+	target = "_external">
 
 			http://join.secondlife.com/
     </url>
@@ -2033,8 +2032,8 @@ Offer friendship to [NAME]?
   </notification>
 
   <notification
-   icon="alertmodal.tga"
-   label="Add Friend"
+ icon="alertmodal.tga"
+ label="Add Friend"
    name="AddFriendWithMessage"
    type="alertmodal">
 Friends can give permissions to track each other on the map and receive online status updates.
@@ -6040,7 +6039,6 @@ One or more of your Voice Morphs will expire in less than [INTERVAL] days.
 [[URL] Click here] to renew your subscription.
     <unique/>
   </notification>
-		LLNotificationsUtil::add("VoiceEffectsNew");
 
   <notification
    icon="notify.tga"
@@ -6453,6 +6451,27 @@ Mute everyone?
     <unique/>
   </notification>
 
+  <notification
+  name="PopupAttempt"
+  icon="Popup_Caution"
+  type="browser"
+  duration="10"
+  >
+    A pop-up was prevented from opening.
+    <unique/>
+    <form name="form">
+      <ignore name="ignore"
+       text="Enable all pop-ups"/>
+      <button default="true"
+              index="0"
+              name="open"
+              text="Open pop-up window"/>
+    </form>
+
+
+  </notification>
+
+  
   <global name="UnsupportedCPU">
 - Your CPU speed does not meet the minimum requirements.
   </global>

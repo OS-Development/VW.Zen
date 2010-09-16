@@ -29,6 +29,7 @@
 
 // Project includes
 #include "llsdparam.h"
+#include "llsdutil.h"
 
 static 	LLInitParam::Parser::parser_read_func_map_t sReadFuncs;
 static 	LLInitParam::Parser::parser_write_func_map_t sWriteFuncs;
@@ -48,7 +49,7 @@ LLParamSDParser::LLParamSDParser()
 		registerParserFuncs<U32>(readU32, &LLParamSDParser::writeU32Param);
 		registerParserFuncs<F32>(readF32, &LLParamSDParser::writeTypedValue<F32>);
 		registerParserFuncs<F64>(readF64, &LLParamSDParser::writeTypedValue<F64>);
-		registerParserFuncs<bool>(readBool, &LLParamSDParser::writeTypedValue<F32>);
+		registerParserFuncs<bool>(readBool, &LLParamSDParser::writeTypedValue<bool>);
 		registerParserFuncs<std::string>(readString, &LLParamSDParser::writeTypedValue<std::string>);
 		registerParserFuncs<LLUUID>(readUUID, &LLParamSDParser::writeTypedValue<LLUUID>);
 		registerParserFuncs<LLDate>(readDate, &LLParamSDParser::writeTypedValue<LLDate>);
@@ -61,7 +62,7 @@ LLParamSDParser::LLParamSDParser()
 bool LLParamSDParser::writeU32Param(LLParamSDParser::parser_t& parser, const void* val_ptr, const parser_t::name_stack_t& name_stack)
 {
 	LLParamSDParser& sdparser = static_cast<LLParamSDParser&>(parser);
-	if (!sdparser.mWriteSD) return false;
+	if (!sdparser.mWriteRootSD) return false;
 	
 	LLSD* sd_to_write = sdparser.getSDWriteNode(name_stack);
 	if (!sd_to_write) return false;
@@ -81,7 +82,8 @@ void LLParamSDParser::readSD(const LLSD& sd, LLInitParam::BaseBlock& block, bool
 
 void LLParamSDParser::writeSD(LLSD& sd, const LLInitParam::BaseBlock& block)
 {
-	mWriteSD = &sd;
+	mNameStack.clear();
+	mWriteRootSD = &sd;
 	block.serializeBlock(*this);
 }
 
@@ -131,7 +133,77 @@ void LLParamSDParser::readSDValues(const LLSD& sd, LLInitParam::BaseBlock& block
 LLSD* LLParamSDParser::getSDWriteNode(const parser_t::name_stack_t& name_stack)
 {
 	//TODO: implement nested LLSD writing
-	return mWriteSD;
+	LLSD* sd_to_write = mWriteRootSD;
+	bool new_traversal = false;
+	for (name_stack_t::const_iterator it = name_stack.begin(), prev_it = mNameStack.begin();
+		it != name_stack.end();
+		++it)
+	{
+		bool new_array_entry = false;
+		if (prev_it == mNameStack.end())
+		{
+			new_traversal = true;
+		}
+		else
+		{
+			if (!new_traversal						// have not diverged yet from previous trace
+				&& prev_it->first == it->first		// names match
+				&& prev_it->second != it->second)	// versions differ
+			{
+				// name stacks match, but version numbers differ in last place.
+				// create a different entry at this point using an LLSD array
+				new_array_entry = true;
+			}
+			if (prev_it->first != it->first			// names differ
+				|| prev_it->second != it->second)	// versions differ
+			{
+				// at this point we have diverged from our last trace
+				// so any elements referenced here are new
+				new_traversal = true;
+			}
+		}
+
+		LLSD* child_sd = &(*sd_to_write)[it->first];
+
+		if (child_sd->isArray())
+		{
+			if (new_traversal)
+			{
+				// write to new element at end
+				sd_to_write = &(*child_sd)[child_sd->size()];
+			}
+			else
+			{
+				// write to last of existing elements, or first element if empty
+				sd_to_write = &(*child_sd)[llmax(0, child_sd->size() - 1)];
+			}
+		}
+		else
+		{
+			if (new_array_entry && !child_sd->isArray())
+			{
+				// copy child contents into first element of an array
+				LLSD new_array = LLSD::emptyArray();
+				new_array.append(*child_sd);
+				// assign array to slot that previously held the single value
+				*child_sd = new_array;
+				// return next element in that array
+				sd_to_write = &((*child_sd)[1]);
+			}
+			else
+			{
+				sd_to_write = child_sd;
+			}
+		}
+		if (prev_it != mNameStack.end())
+		{
+			++prev_it;
+		}
+	}
+	mNameStack = name_stack;
+	
+	//llinfos << ll_pretty_print_sd(*mWriteRootSD) << llendl;
+	return sd_to_write;
 }
 
 bool LLParamSDParser::readS32(Parser& parser, void* val_ptr)
