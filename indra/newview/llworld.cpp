@@ -46,8 +46,8 @@
 #include "llregionhandle.h"
 #include "llsurface.h"
 #include "llviewercamera.h"
-#include "llviewerimage.h"
-#include "llviewerimagelist.h"
+#include "llviewertexture.h"
+#include "llviewertexturelist.h"
 #include "llviewernetwork.h"
 #include "llviewerobjectlist.h"
 #include "llviewerparceloverlay.h"
@@ -109,8 +109,8 @@ LLWorld::LLWorld() :
 	*(default_texture++) = MAX_WATER_COLOR.mV[2];
 	*(default_texture++) = MAX_WATER_COLOR.mV[3];
 	
-	mDefaultWaterTexturep = new LLViewerImage(raw, FALSE);
-	gGL.getTexUnit(0)->bind(mDefaultWaterTexturep.get());
+	mDefaultWaterTexturep = LLViewerTextureManager::getLocalTexture(raw.get(), FALSE);
+	gGL.getTexUnit(0)->bind(mDefaultWaterTexturep);
 	mDefaultWaterTexturep->setAddressMode(LLTexUnit::TAM_CLAMP);
 
 }
@@ -118,6 +118,7 @@ LLWorld::LLWorld() :
 
 void LLWorld::destroyClass()
 {
+	mHoleWaterObjects.clear();
 	gObjectList.destroy();
 	for(region_list_t::iterator region_it = mRegionList.begin(); region_it != mRegionList.end(); )
 	{
@@ -632,6 +633,7 @@ void LLWorld::updateVisibilities()
 
 void LLWorld::updateRegions(F32 max_update_time)
 {
+	LLMemType mt_ur(LLMemType::MTYPE_IDLE_UPDATE_REGIONS);
 	LLTimer update_timer;
 	BOOL did_one = FALSE;
 	
@@ -961,7 +963,7 @@ void LLWorld::shiftRegions(const LLVector3& offset)
 	LLViewerPartSim::getInstance()->shift(offset);
 }
 
-LLViewerImage* LLWorld::getDefaultWaterTexture()
+LLViewerTexture* LLWorld::getDefaultWaterTexture()
 {
 	return mDefaultWaterTexturep;
 }

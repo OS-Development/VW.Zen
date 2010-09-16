@@ -44,12 +44,18 @@
 
 #include "v3dmath.h"
 #include "v2math.h"
-#include "llwindow.h"
+#include "llwindowcallbacks.h"
 #include "lltimer.h"
 #include "llstat.h"
-#include "llalertdialog.h"
-#include "llnotifications.h"
 #include "llmousehandler.h"
+#include "llcursortypes.h"
+#include "llhandle.h"
+#include "llimage.h"
+
+#include <boost/function.hpp>
+#include <boost/signals2.hpp>
+#include <boost/scoped_ptr.hpp>
+
 
 class LLView;
 class LLViewerObject;
@@ -57,9 +63,12 @@ class LLUUID;
 class LLProgressView;
 class LLTool;
 class LLVelocityBar;
-class LLTextBox;
+class LLPanel;
 class LLImageRaw;
 class LLHUDIcon;
+class LLWindow;
+class LLRootView;
+class LLViewerWindowListener;
 
 #define PICK_HALF_WIDTH 5
 #define PICK_DIAMETER (2 * PICK_HALF_WIDTH + 1)
@@ -67,22 +76,6 @@ class LLHUDIcon;
 class LLPickInfo
 {
 public:
-	LLPickInfo();
-	LLPickInfo(const LLCoordGL& mouse_pos, 
-		const LLRect& screen_region,
-		MASK keyboard_mask, 
-		BOOL pick_transparent, 
-		BOOL pick_surface_info,
-		void (*pick_callback)(const LLPickInfo& pick_info));
-	~LLPickInfo();
-
-	void fetchResults();
-	LLPointer<LLViewerObject> getObject() const;
-	LLUUID getObjectID() const { return mObjectID; }
-	void drawPickBuffer() const;
-
-	static bool isFlora(LLViewerObject* object);
-
 	typedef enum
 	{
 		PICK_OBJECT,
@@ -92,6 +85,21 @@ public:
 		PICK_PARCEL_WALL,
 		PICK_INVALID
 	} EPickType;
+
+public:
+	LLPickInfo();
+	LLPickInfo(const LLCoordGL& mouse_pos, 
+		MASK keyboard_mask, 
+		BOOL pick_transparent, 
+		BOOL pick_surface_info,
+		void (*pick_callback)(const LLPickInfo& pick_info));
+
+	void fetchResults();
+	LLPointer<LLViewerObject> getObject() const;
+	LLUUID getObjectID() const { return mObjectID; }
+	bool isValid() const { return mPickType != PICK_INVALID; }
+
+	static bool isFlora(LLViewerObject* object);
 
 public:
 	LLCoordGL		mMousePt;
@@ -112,7 +120,6 @@ public:
 	LLVector3		mNormal;
 	LLVector3		mBinormal;
 	BOOL			mPickTransparent;
-	LLRect			mScreenRegion;
 	void		    getSurfaceInfo();
 
 private:
@@ -145,6 +152,8 @@ public:
 	void            adjustControlRectanglesForFirstUse(const LLRect& window);
 	void			initWorldUI();
 
+	BOOL handleAnyMouseClick(LLWindow *window,  LLCoordGL pos, MASK mask, LLMouseHandler::EClickType clicktype, BOOL down);
+
 	//
 	// LLWindowCallback interface implementation
 	//
@@ -152,7 +161,6 @@ public:
 	/*virtual*/ BOOL handleTranslatedKeyUp(KEY key,  MASK mask);
 	/*virtual*/ void handleScanKey(KEY key, BOOL key_down, BOOL key_up, BOOL key_level);
 	/*virtual*/ BOOL handleUnicodeChar(llwchar uni_char, MASK mask);	// NOT going to handle extended 
-	/*virtual*/ BOOL handleAnyMouseClick(LLWindow *window,  LLCoordGL pos, MASK mask, LLMouseHandler::EClickType clicktype, BOOL down);
 	/*virtual*/ BOOL handleMouseDown(LLWindow *window,  LLCoordGL pos, MASK mask);
 	/*virtual*/ BOOL handleMouseUp(LLWindow *window,  LLCoordGL pos, MASK mask);
 	/*virtual*/ BOOL handleCloseRequest(LLWindow *window);
@@ -181,28 +189,50 @@ public:
 	/*virtual*/ void handlePingWatchdog(LLWindow *window, const char * msg);
 	/*virtual*/ void handlePauseWatchdog(LLWindow *window);
 	/*virtual*/ void handleResumeWatchdog(LLWindow *window);
-
+	/*virtual*/ std::string translateString(const char* tag);
+	/*virtual*/ std::string translateString(const char* tag,
+					const std::map<std::string, std::string>& args);
+	
+	// signal on bottom tray width changed
+	typedef boost::function<void (void)> bottom_tray_callback_t;
+	typedef boost::signals2::signal<void (void)> bottom_tray_signal_t;
+	bottom_tray_signal_t mOnBottomTrayWidthChanged;
+	boost::signals2::connection setOnBottomTrayWidthChanged(bottom_tray_callback_t cb) { return mOnBottomTrayWidthChanged.connect(cb); }
+	// signal on update of WorldView rect
+	typedef boost::function<void (LLRect old_world_rect, LLRect new_world_rect)> world_rect_callback_t;
+	typedef boost::signals2::signal<void (LLRect old_world_rect, LLRect new_world_rect)> world_rect_signal_t;
+	world_rect_signal_t mOnWorldViewRectUpdated;
+	boost::signals2::connection setOnWorldViewRectUpdated(world_rect_callback_t cb) { return mOnWorldViewRectUpdated.connect(cb); }
 
 	//
 	// ACCESSORS
 	//
-	LLView*			getRootView()		const	{ return mRootView; }
+	LLRootView*			getRootView()		const;
+
+	// 3D world area in scaled pixels (via UI scale), use for most UI computations
+	LLRect			getWorldViewRectScaled() const;
+	S32				getWorldViewHeightScaled() const;
+	S32				getWorldViewWidthScaled() const;
+
+	// 3D world area, in raw unscaled pixels
+	LLRect			getWorldViewRectRaw() const		{ return mWorldViewRectRaw; }
+	S32 			getWorldViewHeightRaw() const;
+	S32 			getWorldViewWidthRaw() const;
+
+	// Window in scaled pixels (via UI scale), use for most UI computations
+	LLRect			getWindowRectScaled() const		{ return mWindowRectScaled; }
+	S32				getWindowHeightScaled() const;
+	S32				getWindowWidthScaled() const;
 
 	// Window in raw pixels as seen on screen.
-	const LLRect&	getWindowRect()		const	{ return mWindowRect; };
-	S32				getWindowDisplayHeight()	const;
-	S32				getWindowDisplayWidth()	const;
-
-	// Window in scaled pixels (via UI scale), use this for
-	// UI elements checking size.
-	const LLRect&	getVirtualWindowRect()		const	{ return mVirtualWindowRect; };
-	S32				getWindowHeight()	const;
-	S32				getWindowWidth()	const;
+	LLRect			getWindowRectRaw() const		{ return mWindowRectRaw; }
+	S32				getWindowHeightRaw() const;
+	S32				getWindowWidthRaw() const;
 
 	LLWindow*		getWindow()			const	{ return mWindow; }
-	void*			getPlatformWindow() const	{ return mWindow->getPlatformWindow(); }
-	void*			getMediaWindow() 	const	{ return mWindow->getMediaWindow(); }
-	void			focusClient()		const	{ return mWindow->focusClient(); };
+	void*			getPlatformWindow() const;
+	void*			getMediaWindow() 	const;
+	void			focusClient()		const;
 
 	LLCoordGL		getLastMouse()		const	{ return mLastMousePoint; }
 	S32				getLastMouseX()		const	{ return mLastMousePoint.mX; }
@@ -219,9 +249,9 @@ public:
 	BOOL			getRightMouseDown()	const	{ return mRightMouseDown; }
 
 	const LLPickInfo&	getLastPick() const { return mLastPick; }
-	const LLPickInfo&	getHoverPick() const { return mHoverPick; }
 
-	void			setupViewport(S32 x_offset = 0, S32 y_offset = 0);
+	void			setup2DViewport(S32 x_offset = 0, S32 y_offset = 0);
+	void			setup3DViewport(S32 x_offset = 0, S32 y_offset = 0);
 	void			setup3DRender();
 	void			setup2DRender();
 
@@ -261,8 +291,14 @@ public:
 
 	void			updateObjectUnderCursor();
 
-	BOOL			handlePerFrameHover();							// Once per frame, update UI based on mouse position
+	void			updateUI();		// Once per frame, update UI based on mouse position, calls following update* functions
+	void				updateLayout();						
+	void				updateMouseDelta();		
+	void				updateKeyboardFocus();		
 
+	void			updateWorldViewRect(bool use_full_window=false);
+	LLView*			getNonSideTrayView() { return mNonSideTrayView.get(); }
+	LLView*			getFloaterViewHolder() { return mFloaterViewHolder.get(); }
 	BOOL			handleKey(KEY key, MASK mask);
 	void			handleScrollWheel	(S32 clicks);
 
@@ -291,7 +327,7 @@ public:
 	} ESnapshotType;
 	BOOL			saveSnapshot(const std::string&  filename, S32 image_width, S32 image_height, BOOL show_ui = TRUE, BOOL do_rebuild = FALSE, ESnapshotType type = SNAPSHOT_TYPE_COLOR);
 	BOOL			rawSnapshot(LLImageRaw *raw, S32 image_width, S32 image_height, BOOL keep_window_aspect = TRUE, BOOL is_texture = FALSE,
-								BOOL show_ui = TRUE, BOOL do_rebuild = FALSE, ESnapshotType type = SNAPSHOT_TYPE_COLOR, S32 max_size = MAX_IMAGE_SIZE );
+								BOOL show_ui = TRUE, BOOL do_rebuild = FALSE, ESnapshotType type = SNAPSHOT_TYPE_COLOR, S32 max_size = MAX_SNAPSHOT_IMAGE_SIZE );
 	BOOL			thumbnailSnapshot(LLImageRaw *raw, S32 preview_width, S32 preview_height, BOOL show_ui, BOOL do_rebuild, ESnapshotType type) ;
 	BOOL			isSnapshotLocSet() const { return ! sSnapshotDir.empty(); }
 	void			resetSnapshotLoc() const { sSnapshotDir.clear(); }
@@ -308,12 +344,8 @@ public:
 	void			performPick();
 	void			returnEmptyPicks();
 
-
-	void			pickAsync(S32 x, S32 y_from_bot, MASK mask, void (*callback)(const LLPickInfo& pick_info),
-							  BOOL pick_transparent = FALSE, BOOL get_surface_info = FALSE);
+	void			pickAsync(S32 x, S32 y_from_bot, MASK mask, void (*callback)(const LLPickInfo& pick_info), BOOL pick_transparent = FALSE);
 	LLPickInfo		pickImmediate(S32 x, S32 y, BOOL pick_transparent);
-	static void     hoverPickCallback(const LLPickInfo& pick_info);
-	
 	LLHUDIcon* cursorIntersectIcon(S32 mouse_x, S32 mouse_y, F32 depth,
 										   LLVector3* intersection);
 
@@ -349,20 +381,21 @@ public:
 
 	// handle shutting down GL and bringing it back up
 	void			requestResolutionUpdate(bool fullscreen_checked);
+	void			requestResolutionUpdate(); // doesn't affect fullscreen
 	BOOL			checkSettings();
 	void			restartDisplay(BOOL show_progress_bar);
 	BOOL			changeDisplaySettings(BOOL fullscreen, LLCoordScreen size, BOOL disable_vsync, BOOL show_progress_bar);
 	BOOL			getIgnoreDestroyWindow() { return mIgnoreActivate; }
 	F32				getDisplayAspectRatio() const;
+	F32				getWorldViewAspectRatio() const;
 	const LLVector2& getDisplayScale() const { return mDisplayScale; }
 	void			calcDisplayScale();
-
-	void			drawPickBuffer() const;
+	static LLRect 	calcScaledRect(const LLRect & rect, const LLVector2& display_scale);
 
 private:
 	bool                    shouldShowToolTipFor(LLMouseHandler *mh);
 	static bool onAlert(const LLSD& notify);
-	
+
 	void			switchToolByMask(MASK mask);
 	void			destroyWindow();
 	void			drawMouselookInstructions();
@@ -380,9 +413,12 @@ protected:
 	BOOL			mActive;
 	BOOL			mWantFullscreen;
 	BOOL			mShowFullscreenProgress;
-	LLRect			mWindowRect;
-	LLRect			mVirtualWindowRect;
-	LLView*			mRootView;					// a view of size mWindowRect, containing all child views
+
+	LLRect			mWindowRectRaw;				// whole window, including UI
+	LLRect			mWindowRectScaled;			// whole window, scaled by UI size
+	LLRect			mWorldViewRectRaw;			// area of screen for 3D world
+	LLRect			mWorldViewRectScaled;		// area of screen for 3D world scaled by UI size
+	LLRootView*		mRootView;					// a view of size mWindowRectRaw, containing all child views
 	LLVector2		mDisplayScale;
 
 	LLCoordGL		mCurrentMousePoint;			// last mouse position in GL coords
@@ -395,22 +431,22 @@ protected:
 
 	LLProgressView	*mProgressView;
 
-	LLTextBox*		mToolTip;
-	BOOL			mToolTipBlocked;			// True after a key press or a mouse button event.  False once the mouse moves again.
+	LLFrameTimer	mToolTipFadeTimer;
+	LLPanel*		mToolTip;
+	std::string		mLastToolTipMessage;
 	LLRect			mToolTipStickyRect;			// Once a tool tip is shown, it will stay visible until the mouse leaves this rect.
 
 	BOOL			mMouseInWindow;				// True if the mouse is over our window or if we have captured the mouse.
 	BOOL			mFocusCycleMode;
+	typedef std::set<LLHandle<LLView> > view_handle_set_t;
+	view_handle_set_t mMouseHoverViews;
 
 	// Variables used for tool override switching based on modifier keys.  JC
 	MASK			mLastMask;			// used to detect changes in modifier mask
 	LLTool*			mToolStored;		// the tool we're overriding
-	BOOL			mSuppressToolbox;	// sometimes hide the toolbox, despite
-										// having a camera tool selected
 	BOOL			mHideCursorPermanent;	// true during drags, mouselook
 	BOOL            mCursorHidden;
 	LLPickInfo		mLastPick;
-	LLPickInfo		mHoverPick;
 	std::vector<LLPickInfo> mPicks;
 	LLRect			mPickScreenRegion; // area of frame buffer for rendering pick frames (generally follows mouse to avoid going offscreen)
 	LLTimer         mPickTimer;        // timer for scheduling n picks per second
@@ -420,6 +456,10 @@ protected:
 	BOOL			mIgnoreActivate;
 
 	std::string		mInitAlert;			// Window / GL initialization requires an alert
+
+	LLHandle<LLView> mWorldViewPlaceholder;	// widget that spans the portion of screen dedicated to rendering the 3d world
+	LLHandle<LLView> mNonSideTrayView;		// parent of world view + bottom bar, etc...everything but the side tray
+	LLHandle<LLView> mFloaterViewHolder;	// container for floater_view
 	
 	class LLDebugText* mDebugText; // Internal class for debug text
 	
@@ -428,6 +468,8 @@ protected:
 	bool			mIsFullscreenChecked; // Did the user check the fullscreen checkbox in the display settings
 	U32			mCurrResolutionIndex;
 
+    boost::scoped_ptr<LLViewerWindowListener> mViewerWindowListener;
+
 protected:
 	static std::string sSnapshotBaseName;
 	static std::string sSnapshotDir;
@@ -435,45 +477,21 @@ protected:
 	static std::string sMovieBaseName;
 };	
 
-class LLBottomPanel : public LLPanel
-{
-public:
-	LLBottomPanel(const LLRect& rect);
-	void setFocusIndicator(LLView * indicator);
-	LLView * getFocusIndicator() { return mIndicator; }
-	/*virtual*/ void draw();
-
-	static void* createHUD(void* data);
-	static void* createOverlayBar(void* data);
-	static void* createToolBar(void* data);
-
-protected:
-	LLView * mIndicator;
-};
-extern LLBottomPanel * gBottomPanel;
-
 void toggle_flying(void*);
 void toggle_first_person();
 void toggle_build(void*);
 void reset_viewer_state_on_sim(void);
 void update_saved_window_size(const std::string& control,S32 delta_width, S32 delta_height);
 
-
-
 //
 // Globals
 //
 
-extern LLVelocityBar*	gVelocityBar;
 extern LLViewerWindow*	gViewerWindow;
 
-extern LLFrameTimer		gMouseIdleTimer;		// how long has it been since the mouse last moved?
 extern LLFrameTimer		gAwayTimer;				// tracks time before setting the avatar away state to true
 extern LLFrameTimer		gAwayTriggerTimer;		// how long the avatar has been away
 
-extern BOOL				gDebugSelect;
-
-extern BOOL				gDebugFastUIRender;
 extern LLViewerObject*  gDebugRaycastObject;
 extern LLVector3        gDebugRaycastIntersection;
 extern LLVector2        gDebugRaycastTexCoord;
@@ -485,7 +503,6 @@ extern S32 CHAT_BAR_HEIGHT;
 
 extern BOOL			gDisplayCameraPos;
 extern BOOL			gDisplayWindInfo;
-extern BOOL			gDisplayNearestWater;
 extern BOOL			gDisplayFOV;
 
 #endif

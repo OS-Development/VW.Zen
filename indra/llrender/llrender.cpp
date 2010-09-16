@@ -38,16 +38,18 @@
 #include "llcubemap.h"
 #include "llimagegl.h"
 #include "llrendertarget.h"
+#include "lltexture.h"
 
 LLRender gGL;
 
 // Handy copies of last good GL matrices
 F64	gGLModelView[16];
 F64	gGLLastModelView[16];
+F64 gGLLastProjection[16];
 F64 gGLProjection[16];
 S32	gGLViewport[4];
 
-static const U32 LL_NUM_TEXTURE_LAYERS = 8; 
+static const U32 LL_NUM_TEXTURE_LAYERS = 16; 
 
 static GLenum sGLTextureType[] =
 {
@@ -160,6 +162,8 @@ void LLTexUnit::enable(eTextureType type)
 			disable(); // Force a disable of a previous texture type if it's enabled.
 		}
 		mCurrTexType = type;
+
+		gGL.flush();
 		glEnable(sGLTextureType[type]);
 	}
 }
@@ -177,26 +181,81 @@ void LLTexUnit::disable(void)
 	}
 }
 
-bool LLTexUnit::bind(LLImageGL* texture, bool forceBind)
+bool LLTexUnit::bind(LLTexture* texture, bool for_rendering, bool forceBind)
 {
 	stop_glerror();
 	if (mIndex < 0) return false;
 
 	gGL.flush();
 
-	if (texture == NULL)
+	LLImageGL* gl_tex = NULL ;
+	if (texture == NULL || !(gl_tex = texture->getGLTexture()))
 	{
 		llwarns << "NULL LLTexUnit::bind texture" << llendl;
 		return false;
 	}
-	
-	if (!texture->getTexName()) //if texture does not exist
+
+	if (!gl_tex->getTexName()) //if texture does not exist
 	{
 		//if deleted, will re-generate it immediately
 		texture->forceImmediateUpdate() ;
 
+		gl_tex->forceUpdateBindStats() ;
 		return texture->bindDefaultImage(mIndex);
 	}
+
+	//in audit, replace the selected texture by the default one.
+	if(gAuditTexture && for_rendering && LLImageGL::sCurTexPickSize > 0)
+	{
+		if(texture->getWidth() * texture->getHeight() == LLImageGL::sCurTexPickSize)
+		{
+			gl_tex->updateBindStats(gl_tex->mTextureMemory);
+			return bind(LLImageGL::sHighlightTexturep.get());
+		}
+	}
+	if ((mCurrTexture != gl_tex->getTexName()) || forceBind)
+	{
+		activate();
+		enable(gl_tex->getTarget());
+		mCurrTexture = gl_tex->getTexName();
+		glBindTexture(sGLTextureType[gl_tex->getTarget()], mCurrTexture);
+		if(gl_tex->updateBindStats(gl_tex->mTextureMemory))
+		{
+			texture->setActive() ;
+			texture->updateBindStatsForTester() ;
+		}
+		mHasMipMaps = gl_tex->mHasMipMaps;
+		if (gl_tex->mTexOptionsDirty)
+		{
+			gl_tex->mTexOptionsDirty = false;
+			setTextureAddressMode(gl_tex->mAddressMode);
+			setTextureFilteringOption(gl_tex->mFilterOption);
+		}
+	}
+	return true;
+}
+
+bool LLTexUnit::bind(LLImageGL* texture, bool for_rendering, bool forceBind)
+{
+	stop_glerror();
+	if (mIndex < 0) return false;
+
+	if(!texture)
+	{
+		llwarns << "NULL LLTexUnit::bind texture" << llendl;
+		return false;
+	}
+
+	if(!texture->getTexName())
+	{
+		if(LLImageGL::sDefaultGLTexture && LLImageGL::sDefaultGLTexture->getTexName())
+		{
+			return bind(LLImageGL::sDefaultGLTexture) ;
+		}
+		return false ;
+	}
+
+	gGL.flush();
 
 	if ((mCurrTexture != texture->getTexName()) || forceBind)
 	{
@@ -204,8 +263,7 @@ bool LLTexUnit::bind(LLImageGL* texture, bool forceBind)
 		enable(texture->getTarget());
 		mCurrTexture = texture->getTexName();
 		glBindTexture(sGLTextureType[texture->getTarget()], mCurrTexture);
-		texture->updateBindStats();
-		texture->setActive() ;
+		texture->updateBindStats(texture->mTextureMemory);		
 		mHasMipMaps = texture->mHasMipMaps;
 		if (texture->mTexOptionsDirty)
 		{
@@ -214,6 +272,7 @@ bool LLTexUnit::bind(LLImageGL* texture, bool forceBind)
 			setTextureFilteringOption(texture->mFilterOption);
 		}
 	}
+
 	return true;
 }
 
@@ -238,7 +297,7 @@ bool LLTexUnit::bind(LLCubeMap* cubeMap)
 			mCurrTexture = cubeMap->mImages[0]->getTexName();
 			glBindTexture(GL_TEXTURE_CUBE_MAP_ARB, mCurrTexture);
 			mHasMipMaps = cubeMap->mImages[0]->mHasMipMaps;
-			cubeMap->mImages[0]->updateBindStats();
+			cubeMap->mImages[0]->updateBindStats(cubeMap->mImages[0]->mTextureMemory);
 			if (cubeMap->mImages[0]->mTexOptionsDirty)
 			{
 				cubeMap->mImages[0]->mTexOptionsDirty = false;
@@ -266,6 +325,11 @@ bool LLTexUnit::bind(LLRenderTarget* renderTarget, bool bindDepth)
 
 	if (bindDepth)
 	{
+		if (renderTarget->hasStencil())
+		{
+			llerrs << "Cannot bind a render buffer for sampling.  Allocate render target without a stencil buffer if sampling of depth buffer is required." << llendl;
+		}
+
 		bindManual(renderTarget->getUsage(), renderTarget->getDepth());
 	}
 	else
@@ -279,15 +343,21 @@ bool LLTexUnit::bind(LLRenderTarget* renderTarget, bool bindDepth)
 
 bool LLTexUnit::bindManual(eTextureType type, U32 texture, bool hasMips)
 {
-	if (mIndex < 0 || mCurrTexture == texture) return false;
-
-	gGL.flush();
+	if (mIndex < 0)  
+	{
+		return false;
+	}
 	
-	activate();
-	enable(type);
-	mCurrTexture = texture;
-	glBindTexture(sGLTextureType[type], texture);
-	mHasMipMaps = hasMips;
+	if(mCurrTexture != texture)
+	{
+		gGL.flush();
+		
+		activate();
+		enable(type);
+		mCurrTexture = texture;
+		glBindTexture(sGLTextureType[type], texture);
+		mHasMipMaps = hasMips;
+	}
 	return true;
 }
 
@@ -784,6 +854,9 @@ void LLRender::setSceneBlendType(eBlendType type)
 			break;
 		case BT_MULT:
 			glBlendFunc(GL_DST_COLOR, GL_ZERO);
+			break;
+		case BT_MULT_ALPHA:
+			glBlendFunc(GL_DST_ALPHA, GL_ZERO);
 			break;
 		case BT_MULT_X2:
 			glBlendFunc(GL_DST_COLOR, GL_SRC_COLOR);

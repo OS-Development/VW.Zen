@@ -35,9 +35,12 @@
 
 #include "llfloaterparcel.h"
 
+#include "llfloaterreg.h"
+
 // viewer project includes
 #include "llcommandhandler.h"
 #include "llpanelplace.h"
+#include "llsidetray.h"
 
 // linden library includes
 #include "lluuid.h"
@@ -47,15 +50,13 @@
 // Globals
 //-----------------------------------------------------------------------------
 
-LLMap< const LLUUID, LLFloaterParcelInfo* > gPlaceInfoInstances;
-
 class LLParcelHandler : public LLCommandHandler
 {
 public:
 	// requires trusted browser to trigger
-	LLParcelHandler() : LLCommandHandler("parcel", true) { }
+	LLParcelHandler() : LLCommandHandler("parcel", UNTRUSTED_THROTTLE) { }
 	bool handle(const LLSD& params, const LLSD& query_map,
-				LLWebBrowserCtrl* web)
+				LLMediaCtrl* web)
 	{
 		if (params.size() < 2)
 		{
@@ -68,8 +69,14 @@ public:
 		}
 		if (params[1].asString() == "about")
 		{
-			LLFloaterParcelInfo::show(parcel_id);
-			return true;
+			if (parcel_id.notNull())
+			{
+				LLSD key;
+				key["type"] = "remote_place";
+				key["id"] = parcel_id;
+				LLSideTray::getInstance()->showPanel("panel_places", key);
+				return true;
+			}
 		}
 		return false;
 	}
@@ -82,7 +89,7 @@ LLParcelHandler gParcelHandler;
 
 //----------------------------------------------------------------------------
 
-void*	LLFloaterParcelInfo::createPanelPlace(void*	data)
+void* LLFloaterParcelInfo::createPanelPlace(void* data)
 {
 	LLFloaterParcelInfo* self = (LLFloaterParcelInfo*)data;
 	self->mPanelParcelp = new LLPanelPlace(); // allow edit self
@@ -93,54 +100,29 @@ void*	LLFloaterParcelInfo::createPanelPlace(void*	data)
 //----------------------------------------------------------------------------
 
 
-LLFloaterParcelInfo::LLFloaterParcelInfo(const std::string& name, const LLUUID &parcel_id)
-:	LLFloater(name),
-	mParcelID( parcel_id )
+LLFloaterParcelInfo::LLFloaterParcelInfo(const LLSD& parcel_id)
+:	LLFloater(parcel_id),
+	mParcelID( parcel_id.asUUID() ),
+	mPanelParcelp(NULL)
 {
 	mFactoryMap["place_details_panel"] = LLCallbackMap(LLFloaterParcelInfo::createPanelPlace, this);
-	LLUICtrlFactory::getInstance()->buildFloater(this, "floater_preview_url.xml", &getFactoryMap());
-	gPlaceInfoInstances.addData(parcel_id, this);
+// 	LLUICtrlFactory::getInstance()->buildFloater(this, "floater_preview_url.xml");
 }
 
 // virtual
 LLFloaterParcelInfo::~LLFloaterParcelInfo()
 {
-	// child views automatically deleted
-	gPlaceInfoInstances.removeData(mParcelID);
 
 }
 
-void LLFloaterParcelInfo::displayParcelInfo(const LLUUID& parcel_id)
+BOOL LLFloaterParcelInfo::postBuild()
 {
-	mPanelParcelp->setParcelID(parcel_id);
-}
-
-// static
-LLFloaterParcelInfo* LLFloaterParcelInfo::show(const LLUUID &parcel_id)
-{
-	if (parcel_id.isNull())
+	if (mPanelParcelp)
 	{
-		return NULL;
+		mPanelParcelp->setParcelID(mParcelID);
 	}
-
-	LLFloaterParcelInfo *floater;
-	if (gPlaceInfoInstances.checkData(parcel_id))
-	{
-		// ...bring that window to front
-		floater = gPlaceInfoInstances.getData(parcel_id);
-		floater->open();	/*Flawfinder: ignore*/
-		floater->setFrontmost(true);
-	}
-	else
-	{
-		floater =  new LLFloaterParcelInfo("parcelinfo", parcel_id );
-		floater->center();
-		floater->open();	/*Flawfinder: ignore*/
-		floater->displayParcelInfo(parcel_id);
-		floater->setFrontmost(true);
-	}
-
-	return floater;
+	center();
+	return LLFloater::postBuild();
 }
 
 

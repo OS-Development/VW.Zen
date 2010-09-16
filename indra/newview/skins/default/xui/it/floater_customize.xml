@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<floater name="floater customize" title="Aspetto fisico" width="551">
+<floater name="floater customize" title="ASPETTO FISICO" width="551">
 	<tab_container name="customize tab container" tab_min_width="120" width="549">
-		<panel label="Parti del corpo" name="body_parts_placeholder"/>
+		<placeholder label="Parti del corpo" name="body_parts_placeholder"/>
 		<panel label="Forma del corpo" name="Shape" left="124" width="389">
 			<button font="SansSerifSmall" width="120" left="267" label="Annulla le modifiche" label_selected="Annulla le modifiche" name="Revert"/>
 			<button label="Corpo" label_selected="Corpo" name="Body"/>
@@ -14,12 +14,8 @@
 			<button label="Torso" label_selected="Torso" name="Torso"/>
 			<button label="Gambe" label_selected="Gambe" name="Legs"/>
 			<radio_group name="sex radio">
-				<radio_item name="radio">
-					Femmina
-				</radio_item>
-				<radio_item name="radio2">
-					Maschio
-				</radio_item>
+				<radio_item name="radio" label="Femmina" />
+				<radio_item name="radio2" label="Maschio" />
 			</radio_group>
 			<text name="title">
 				[DESC]

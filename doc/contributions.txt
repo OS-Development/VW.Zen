@@ -1,7 +1,7 @@
 Linden Lab would like to acknowledge source code contributions from the
-following residents.   The Second Life resident name is given below,
+following residents. The Second Life resident name is given below,
 along with the issue identifier corresponding to the patches we've
-received from them.  To see more about these contributions, visit the
+received from them. To see more about these contributions, visit the
 browsable version: http://wiki.secondlife.com/wiki/Source_contributions
 
 Able Whitman
@@ -25,27 +25,37 @@ Aimee Trescothick
 	VWR-6348
 	VWR-6358
 	VWR-6360
+	VWR-6432
 	VWR-6550
 	VWR-6583
 	VWR-6482
 	VWR-7109
 	VWR-7383
+	VWR-7800
+	VWR-8008
 	VWR-8341
 	VWR-8430
 	VWR-8482
 	VWR-9255
+	VWR-10717
 	VWR-10990
 	VWR-11100
 	VWR-11111
- 	VWR-11844
+	VWR-11844
+	VWR-14267
+	VWR-14278
+	VWR-14087
 Alejandro Rosenthal
 	VWR-1184
 Aleric Inglewood
 	VWR-10001
 	VWR-10759
 	VWR-10837
+	VWR-12691
+	VWR-13996
+	VWR-14426
 Ales Beaumont
-    VWR-9352
+	VWR-9352
 Alissa Sabre
 	VWR-81
 	VWR-83
@@ -67,7 +77,7 @@ Alissa Sabre
 	VWR-1351
 	VWR-1353
 	VWR-1410
-        VWR-1843
+	VWR-1843
 	VWR-2116
 	VWR-2826
 	VWR-3290
@@ -75,19 +85,25 @@ Alissa Sabre
 	VWR-3857
 	VWR-4010
 	VWR-5575
-        VWR-5929
-        VWR-6384
-        VWR-6385
+	VWR-5717
+	VWR-5929
+	VWR-6384
+	VWR-6385
 	VWR-6386
-        VWR-6430
+	VWR-6430
 	VWR-6858
-        VWR-6668
-        VWR-7086
-        VWR-7087
-        VWR-7153
-        VWR-7168
+	VWR-6668
+	VWR-7086
+	VWR-7087
+	VWR-7153
+	VWR-7168
 	VWR-9190
 	VWR-10728
+	VWR-11172
+	VWR-12569
+	VWR-12617
+	VWR-12620
+	VWR-12789
 Angus Boyd
 	VWR-592
 Ann Congrejo
@@ -123,6 +139,7 @@ Blakar Ogre
 blino Nakamura
 	VWR-17
 Boroondas Gupte
+	SNOW-278
 	VWR-233
 	WEB-262
 Bulli Schumann
@@ -145,6 +162,7 @@ Carjay McGinnis
 	VWR-4212
 	VWR-6154
 	VWR-9400
+	VWR-9620
 Catherine Pfeffer
 	VWR-1282
 	VWR-8624
@@ -197,6 +215,7 @@ Feep Larsson
 	VWR-4444
 Flemming Congrejo
 	CT-193
+	CT-318
 Fluf Fredriksson
 	VWR-3450
 Fremont Cunningham
@@ -274,7 +293,11 @@ Jacek Antonelli
 	VWR-597
 	VWR-2054
 	VWR-2448
+	VWR-2896
+	VWR-2947
+	VWR-2948
 	VWR-3605
+	VWR-8617
 JB Kraft
 	VWR-5283
 	VWR-7802
@@ -288,6 +311,7 @@ Kerutsen Sellery
 	VWR-1350
 Khyota Wulluf
 	VWR-2085
+	VWR-8885
 	VWR-9256
 	VWR-9966
 Kunnis Basiat
@@ -330,6 +354,7 @@ McCabe Maxsted
 	VWR-7877
 	VWR-7893
 	VWR-8080
+	VWR-8454
 	VWR-8689
 	VWR-9007
 Michelle2 Zenovka
@@ -344,12 +369,15 @@ Michelle2 Zenovka
 	VWR-5082
 	VWR-5659
 	VWR-7831
+	VWR-8885
 	VWR-8889
 	VWR-8310
 	VWR-9499
 Mm Alder
+	VWR-197
 	VWR-3777
 	VWR-4794
+	VWR-13578
 Mr Greggan
 	VWR-445
 Nicholaz Beresford
@@ -457,7 +485,7 @@ Pf Shan
 	CT-321
 princess niven
 	VWR-5733
-        CT-85
+	CT-85
 	CT-320
 	CT-352
 Renault Clio
@@ -472,9 +500,17 @@ Ringo Tuxing
 	CT-231
 	CT-321
 Robin Cornelius
+	SNOW-108
+	SNOW-204
+	SNOW-287
+	SNOW-512
 	VWR-2488
 	VWR-9557
+	VWR-11128
+	VWR-12533
 	VWR-12587
+	VWR-12763
+	VWR-12995
 	VWR-20911
 Ryozu Kojima
 	VWR-53
@@ -546,6 +582,8 @@ Strife Onizuka
 	VWR-183
 	VWR-2265
 	VWR-4111
+Tayra Dagostino
+	VWR-13947
 TBBle Kurosawa
 	VWR-938
 	VWR-941
@@ -556,12 +594,18 @@ TBBle Kurosawa
 	VWR-1892
 Teardrops Fall
 	VWR-5366
+Techwolf Lupindo
+	SNOW-92
+	VWR-12385
 tenebrous pau
 	VWR-247
 Tharax Ferraris
 	VWR-605
 Thickbrick Sleaford
 	VWR-7109
+	VWR-9287
+	VWR-13483
+	VWR-13947
 Thraxis Epsilon
 	SVC-371
 	VWR-383

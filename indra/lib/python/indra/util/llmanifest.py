@@ -119,10 +119,10 @@ ARGUMENTS=[
         On Linux this would try to use Linux_i686Manifest.""",
          default=""),
     dict(name='build', description='Build directory.', default=DEFAULT_SRCTREE),
+    dict(name='buildtype', description='Build type (i.e. Debug, Release, RelWithDebInfo).', default=None),
     dict(name='configuration',
-         description="""The build configuration used. Only used on OS X for
-        now, but it could be used for other platforms as well.""",
-         default="Universal"),
+         description="""The build configuration used.""",
+         default="Release"),
     dict(name='dest', description='Destination directory.', default=DEFAULT_SRCTREE),
     dict(name='grid',
          description="""Which grid the client will try to connect to. Even

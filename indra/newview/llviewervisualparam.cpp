@@ -76,13 +76,19 @@ BOOL LLViewerVisualParamInfo::parseXml(LLXmlTreeNode *node)
 	static LLStdStringHandle wearable_string = LLXmlTree::addAttributeString("wearable");
 	if( node->getFastAttributeString( wearable_string, wearable) )
 	{
-		mWearableType = LLWearable::typeNameToType( wearable );
+		mWearableType = LLWearableDictionary::typeNameToType( wearable );
 	}
 
 	static LLStdStringHandle edit_group_string = LLXmlTree::addAttributeString("edit_group");
 	if (!node->getFastAttributeString( edit_group_string, mEditGroup))
 	{
 		mEditGroup = "";
+	}
+
+	static LLStdStringHandle cross_wearable_string = LLXmlTree::addAttributeString("cross_wearable");
+	if (!node->getFastAttributeBOOL(cross_wearable_string, mCrossWearable))
+	{
+		mCrossWearable = FALSE;
 	}
 
 	// Optional camera offsets from the current joint center.  Used for generating "hints" (thumbnails).
@@ -112,18 +118,21 @@ BOOL LLViewerVisualParamInfo::parseXml(LLXmlTreeNode *node)
 	return TRUE;
 }
 
+/*virtual*/ void LLViewerVisualParamInfo::toStream(std::ostream &out)
+{
+	LLVisualParamInfo::toStream(out);
+
+	out << mWearableType << "\t";
+	out << mEditGroup << "\t";
+	out << mEditGroupDisplayOrder << "\t";
+}
+
 //-----------------------------------------------------------------------------
 // LLViewerVisualParam()
 //-----------------------------------------------------------------------------
 LLViewerVisualParam::LLViewerVisualParam()
 {
 }
-
-/*
-//=============================================================================
-// These virtual functions should always be overridden,
-// but are included here for use as templates
-//=============================================================================
 
 //-----------------------------------------------------------------------------
 // setInfo()
@@ -139,6 +148,12 @@ BOOL LLViewerVisualParam::setInfo(LLViewerVisualParamInfo *info)
 	setWeight(getDefaultWeight(), FALSE );
 	return TRUE;
 }
+
+/*
+//=============================================================================
+// These virtual functions should always be overridden,
+// but are included here for use as templates
+//=============================================================================
 
 //-----------------------------------------------------------------------------
 // parseData()

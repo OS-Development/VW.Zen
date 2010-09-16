@@ -37,10 +37,44 @@
 
 #include "llstring.h"
 #include "llframetimer.h"
-#include "llview.h"
+#include "llui.h"
 
 class LLUICtrl;
 class LLMouseHandler;
+class LLView;
+
+// NOTE: the LLFocusableElement class declaration has been moved here from lluictrl.h.
+class LLFocusableElement
+{
+	friend class LLFocusMgr; // allow access to focus change handlers
+public:
+	LLFocusableElement();
+	virtual ~LLFocusableElement();
+
+	virtual void	setFocus( BOOL b );
+	virtual BOOL	hasFocus() const;
+
+	typedef boost::signals2::signal<void(LLFocusableElement*)> focus_signal_t;
+	
+	boost::signals2::connection setFocusLostCallback( const focus_signal_t::slot_type& cb);
+	boost::signals2::connection	setFocusReceivedCallback(const focus_signal_t::slot_type& cb);
+	boost::signals2::connection	setFocusChangedCallback(const focus_signal_t::slot_type& cb);
+	boost::signals2::connection	setTopLostCallback(const focus_signal_t::slot_type& cb);
+
+	// These were brought up the hierarchy from LLView so that we don't have to use dynamic_cast when dealing with keyboard focus.
+	virtual BOOL	handleKey(KEY key, MASK mask, BOOL called_from_parent);
+	virtual BOOL	handleUnicodeChar(llwchar uni_char, BOOL called_from_parent);
+
+protected:	
+	virtual void	onFocusReceived();
+	virtual void	onFocusLost();
+	virtual void	onTopLost();	// called when registered as top ctrl and user clicks elsewhere
+	focus_signal_t*  mFocusLostCallback;
+	focus_signal_t*  mFocusReceivedCallback;
+	focus_signal_t*  mFocusChangedCallback;
+	focus_signal_t*  mTopLostCallback;
+};
+
 
 class LLFocusMgr
 {
@@ -55,15 +89,14 @@ public:
 	BOOL			childHasMouseCapture( const LLView* parent ) const;
 
 	// Keyboard Focus
-	void			setKeyboardFocus(LLUICtrl* new_focus, BOOL lock = FALSE, BOOL keystrokes_only = FALSE);		// new_focus = NULL to release the focus.
-	LLUICtrl*		getKeyboardFocus() const { return mKeyboardFocus; }  
-	LLUICtrl*		getLastKeyboardFocus() const { return mLastKeyboardFocus; }  
+	void			setKeyboardFocus(LLFocusableElement* new_focus, BOOL lock = FALSE, BOOL keystrokes_only = FALSE);		// new_focus = NULL to release the focus.
+	LLFocusableElement*		getKeyboardFocus() const { return mKeyboardFocus; }  
+	LLFocusableElement*		getLastKeyboardFocus() const { return mLastKeyboardFocus; }  
 	BOOL			childHasKeyboardFocus( const LLView* parent ) const;
-	void			removeKeyboardFocusWithoutCallback( const LLView* focus );
+	void			removeKeyboardFocusWithoutCallback( const LLFocusableElement* focus );
 	BOOL			getKeystrokesOnly() { return mKeystrokesOnly; }
 	void			setKeystrokesOnly(BOOL keystrokes_only) { mKeystrokesOnly = keystrokes_only; }
 
-	F32				getFocusTime() const { return mFocusTimer.getElapsedTimeF32(); }
 	F32				getFocusFlashAmt() const;
 	S32				getFocusFlashWidth() const { return llround(lerp(1.f, 3.f, getFocusFlashAmt())); }
 	LLColor4		getFocusColor() const;
@@ -75,8 +108,8 @@ public:
 
 	// If setKeyboardFocus(NULL) is called, and there is a non-NULL default
 	// keyboard focus view, focus goes there. JC
-	void			setDefaultKeyboardFocus(LLUICtrl* default_focus) { mDefaultKeyboardFocus = default_focus; }
-	LLUICtrl*		getDefaultKeyboardFocus() const { return mDefaultKeyboardFocus; }
+	void			setDefaultKeyboardFocus(LLFocusableElement* default_focus) { mDefaultKeyboardFocus = default_focus; }
+	LLFocusableElement*		getDefaultKeyboardFocus() const { return mDefaultKeyboardFocus; }
 
 	
 	// Top View
@@ -98,16 +131,19 @@ private:
 	LLMouseHandler*		mMouseCaptor;				// Mouse events are premptively routed to this object
 
 	// Keyboard Focus
-	LLUICtrl*			mKeyboardFocus;				// Keyboard events are preemptively routed to this object
-	LLUICtrl*			mLastKeyboardFocus;			// who last had focus
-	LLUICtrl*			mDefaultKeyboardFocus;
+	LLFocusableElement*	mKeyboardFocus;				// Keyboard events are preemptively routed to this object
+	LLFocusableElement*	mLastKeyboardFocus;			// who last had focus
+	LLFocusableElement*	mDefaultKeyboardFocus;
 	BOOL				mKeystrokesOnly;
+	
+	// caching list of keyboard focus ancestors for calling onFocusReceived and onFocusLost
+	typedef std::list<LLHandle<LLView> > view_handle_list_t;
+	view_handle_list_t mCachedKeyboardFocusList;
 
 	// Top View
 	LLUICtrl*			mTopCtrl;
 
-	LLFrameTimer		mFocusTimer;
-	F32					mFocusWeight;
+	LLFrameTimer		mFocusFlashTimer;
 
 	BOOL				mAppHasFocus;
 

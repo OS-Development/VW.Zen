@@ -38,7 +38,7 @@
 #include "llviewercontrol.h"
 
 #include "llagent.h"
-#include "llviewerwindow.h"
+#include "llnotificationsutil.h"
 #include "lldrawable.h"
 #include "llface.h"
 #include "llsky.h"
@@ -46,7 +46,7 @@
 #include "llsurfacepatch.h"
 #include "llvosky.h"
 #include "llviewercamera.h"
-#include "llviewerimagelist.h"
+#include "llviewertexturelist.h"
 #include "llviewerregion.h"
 #include "pipeline.h"
 #include "llspatialpartition.h"
@@ -106,7 +106,7 @@ void LLVOGrass::updateSpecies()
 		SpeciesMap::const_iterator it = sSpeciesTable.begin();
 		mSpecies = (*it).first;
 	}
-	setTEImage(0, gImageList.getImage(sSpeciesTable[mSpecies]->mTextureID));
+	setTEImage(0, LLViewerTextureManager::getFetchedTexture(sSpeciesTable[mSpecies]->mTextureID, TRUE, LLViewerTexture::BOOST_NONE, LLViewerTexture::LOD_TEXTURE));
 }
 
 
@@ -165,16 +165,6 @@ void LLVOGrass::initClass()
 		grass_def->getFastAttributeUUID(texture_id_string, id);
 		newGrass->mTextureID = id;
 
-		if (newGrass->mTextureID.isNull())
-		{
-			std::string textureName;
-
-			static LLStdStringHandle texture_name_string = LLXmlTree::addAttributeString("texture_name");
-			success &= grass_def->getFastAttributeString(texture_name_string, textureName);
-			LLViewerImage* grass_image = gImageList.getImageFromFile(textureName);
-			newGrass->mTextureID = grass_image->getID();
-		}
-
 		static LLStdStringHandle blade_sizex_string = LLXmlTree::addAttributeString("blade_size_x");
 		success &= grass_def->getFastAttributeF32(blade_sizex_string, F32_val);
 		newGrass->mBladeSizeX = F32_val;
@@ -221,7 +211,7 @@ void LLVOGrass::initClass()
 	{
 		LLSD args;
 		args["SPECIES"] = err;
-		LLNotifications::instance().add("ErrorUndefinedGrasses", args);
+		LLNotificationsUtil::add("ErrorUndefinedGrasses", args);
 	}
 
 	for (S32 i = 0; i < GRASS_MAX_BLADES; ++i)
@@ -332,7 +322,7 @@ void LLVOGrass::setPixelAreaAndAngle(LLAgent &agent)
 
 
 // BUG could speed this up by caching the relative_position and range calculations
-void LLVOGrass::updateTextures(LLAgent &agent)
+void LLVOGrass::updateTextures()
 {
 	if (getTEImage(0))
 	{
@@ -392,9 +382,11 @@ LLDrawable* LLVOGrass::createDrawable(LLPipeline *pipeline)
 	return mDrawable;
 }
 
+static LLFastTimer::DeclareTimer FTM_UPDATE_GRASS("Update Grass");
+
 BOOL LLVOGrass::updateGeometry(LLDrawable *drawable)
 {
-	LLFastTimer ftm(LLFastTimer::FTM_UPDATE_GRASS);
+	LLFastTimer ftm(FTM_UPDATE_GRASS);
 	dirtySpatialGroup();
 	plantBlades();
 	return TRUE;

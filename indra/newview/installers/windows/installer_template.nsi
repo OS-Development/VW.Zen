@@ -498,7 +498,8 @@ RMDir "$INSTDIR"
 IfFileExists "$INSTDIR" FOLDERFOUND NOFOLDER
 
 FOLDERFOUND:
-  MessageBox MB_YESNO $(DeleteProgramFilesMB) IDNO NOFOLDER
+  ; Silent uninstall always removes all files (/SD IDYES)
+  MessageBox MB_YESNO $(DeleteProgramFilesMB) /SD IDYES IDNO NOFOLDER
   RMDir /r "$INSTDIR"
 
 NOFOLDER:
@@ -757,7 +758,7 @@ CreateShortCut	"$SMPROGRAMS\$INSTSHORTCUT\$INSTSHORTCUT.lnk" \
 
 WriteINIStr		"$SMPROGRAMS\$INSTSHORTCUT\SL Create Account.url" \
 				"InternetShortcut" "URL" \
-				"http://www.secondlife.com/registration/"
+				"http://join.secondlife.com/"
 WriteINIStr		"$SMPROGRAMS\$INSTSHORTCUT\SL Your Account.url" \
 				"InternetShortcut" "URL" \
 				"http://www.secondlife.com/account/"

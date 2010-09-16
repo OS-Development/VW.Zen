@@ -36,6 +36,17 @@
 
 #include "llwindowwin32.h"
 
+// LLWindow library includes
+#include "llkeyboardwin32.h"
+#include "llpreeditor.h"
+#include "llwindowcallbacks.h"
+
+// Linden library includes
+#include "llerror.h"
+#include "llgl.h"
+#include "llstring.h"
+
+// System includes
 #include <commdlg.h>
 #include <WinUser.h>
 #include <mapi.h>
@@ -49,16 +60,7 @@
 #include <dinput.h>
 #include <Dbt.h.>
 
-#include "llkeyboardwin32.h"
-#include "llerror.h"
-#include "llgl.h"
-#include "llstring.h"
-#include "lldir.h"
-
-#include "indra_constants.h"
-
-#include "llpreeditor.h"
-
+#include "llmemtype.h"
 // culled from winuser.h
 #ifndef WM_MOUSEWHEEL /* Added to be compatible with later SDK's */
 const S32	WM_MOUSEWHEEL = 0x020A;
@@ -358,13 +360,14 @@ LLWinImm::~LLWinImm()
 }
 
 
-LLWindowWin32::LLWindowWin32(const std::string& title, const std::string& name, S32 x, S32 y, S32 width,
+LLWindowWin32::LLWindowWin32(LLWindowCallbacks* callbacks,
+							 const std::string& title, const std::string& name, S32 x, S32 y, S32 width,
 							 S32 height, U32 flags, 
 							 BOOL fullscreen, BOOL clearBg,
 							 BOOL disable_vsync, BOOL use_gl,
 							 BOOL ignore_pixel_depth,
 							 U32 fsaa_samples)
-	: LLWindow(fullscreen, flags)
+	: LLWindow(callbacks, fullscreen, flags)
 {
 	mFSAASamples = fsaa_samples;
 	mIconResource = gIconResource;
@@ -378,6 +381,7 @@ LLWindowWin32::LLWindowWin32(const std::string& title, const std::string& name, 
 
 	// Initialize the keyboard
 	gKeyboard = new LLKeyboardWin32();
+	gKeyboard->setCallbacks(callbacks);
 
 	// Initialize (boot strap) the Language text input management,
 	// based on the system's (user's) default settings.
@@ -481,7 +485,8 @@ LLWindowWin32::LLWindowWin32(const std::string& title, const std::string& name, 
 
 		if (!RegisterClass(&wc))
 		{
-			OSMessageBox("RegisterClass failed", "Error", OSMB_OK);
+			OSMessageBox(mCallbacks->translateString("MBRegClassFailed"), 
+				mCallbacks->translateString("MBError"), OSMB_OK);
 			return;
 		}
 		sIsClassRegistered = TRUE;
@@ -572,8 +577,11 @@ LLWindowWin32::LLWindowWin32(const std::string& title, const std::string& name, 
 			mFullscreenBits    = -1;
 			mFullscreenRefresh = -1;
 
-			std::string error = llformat("Unable to run fullscreen at %d x %d.\nRunning in window.", width, height);
-			OSMessageBox(error, "Error", OSMB_OK);
+			std::map<std::string,std::string> args;
+			args["[WIDTH]"] = llformat("%d", width);
+			args["[HEIGHT]"] = llformat ("%d", height);
+			OSMessageBox(mCallbacks->translateString("MBFullScreenErr", args),
+				mCallbacks->translateString("MBError"), OSMB_OK);
 		}
 	}
 
@@ -635,6 +643,7 @@ void LLWindowWin32::hide()
 	ShowWindow(mWindowHandle, SW_HIDE);
 }
 
+//virtual
 void LLWindowWin32::minimize()
 {
 	setMouseClipping(FALSE);
@@ -642,7 +651,7 @@ void LLWindowWin32::minimize()
 	ShowWindow(mWindowHandle, SW_MINIMIZE);
 }
 
-
+//virtual
 void LLWindowWin32::restore()
 {
 	ShowWindow(mWindowHandle, SW_RESTORE);
@@ -712,7 +721,9 @@ void LLWindowWin32::close()
 	// This causes WM_DESTROY to be sent *immediately*
 	if (!DestroyWindow(mWindowHandle))
 	{
-		OSMessageBox("DestroyWindow(mWindowHandle) failed", "Shutdown Error", OSMB_OK);
+		OSMessageBox(mCallbacks->translateString("MBDestroyWinFailed"),
+			mCallbacks->translateString("MBShutdownErr"),
+			OSMB_OK);
 	}
 
 	mWindowHandle = NULL;
@@ -1015,14 +1026,16 @@ BOOL LLWindowWin32::switchContext(BOOL fullscreen, const LLCoordScreen &size, BO
 	if (!(mhDC = GetDC(mWindowHandle)))
 	{
 		close();
-		OSMessageBox("Can't make GL device context", "Error", OSMB_OK);
+		OSMessageBox(mCallbacks->translateString("MBDevContextErr"),
+			mCallbacks->translateString("MBError"), OSMB_OK);
 		return FALSE;
 	}
 
 	if (!(pixel_format = ChoosePixelFormat(mhDC, &pfd)))
 	{
 		close();
-		OSMessageBox("Can't find suitable pixel format", "Error", OSMB_OK);
+		OSMessageBox(mCallbacks->translateString("MBPixelFmtErr"),
+			mCallbacks->translateString("MBError"), OSMB_OK);
 		return FALSE;
 	}
 
@@ -1031,57 +1044,48 @@ BOOL LLWindowWin32::switchContext(BOOL fullscreen, const LLCoordScreen &size, BO
 		&pfd))
 	{
 		close();
-		OSMessageBox("Can't get pixel format description", "Error", OSMB_OK);
+		OSMessageBox(mCallbacks->translateString("MBPixelFmtDescErr"),
+			mCallbacks->translateString("MBError"), OSMB_OK);
 		return FALSE;
 	}
 
 	if (pfd.cColorBits < 32)
 	{
 		close();
-		OSMessageBox(
-			"Second Life requires True Color (32-bit) to run in a window.\n"
-			"Please go to Control Panels -> Display -> Settings and\n"
-			"set the screen to 32-bit color.\n"
-			"Alternately, if you choose to run fullscreen, Second Life\n"
-			"will automatically adjust the screen each time it runs.",
-			"Error",
-			OSMB_OK);
+		OSMessageBox(mCallbacks->translateString("MBTrueColorWindow"),
+			mCallbacks->translateString("MBError"), OSMB_OK);
 		return FALSE;
 	}
 
 	if (pfd.cAlphaBits < 8)
 	{
 		close();
-		OSMessageBox(
-			"Second Life is unable to run because it can't get an 8 bit alpha\n"
-			"channel.  Usually this is due to video card driver issues.\n"
-			"Please make sure you have the latest video card drivers installed.\n"
-			"Also be sure your monitor is set to True Color (32-bit) in\n"
-			"Control Panels -> Display -> Settings.\n"
-			"If you continue to receive this message, contact customer service.",
-			"Error",
-			OSMB_OK);
+		OSMessageBox(mCallbacks->translateString("MBAlpha"),
+			mCallbacks->translateString("MBError"), OSMB_OK);
 		return FALSE;
 	}
 
 	if (!SetPixelFormat(mhDC, pixel_format, &pfd))
 	{
 		close();
-		OSMessageBox("Can't set pixel format", "Error", OSMB_OK);
+		OSMessageBox(mCallbacks->translateString("MBPixelFmtSetErr"),
+			mCallbacks->translateString("MBError"), OSMB_OK);
 		return FALSE;
 	}
 
 	if (!(mhRC = wglCreateContext(mhDC)))
 	{
 		close();
-		OSMessageBox("Can't create GL rendering context", "Error", OSMB_OK);
+		OSMessageBox(mCallbacks->translateString("MBGLContextErr"),
+			mCallbacks->translateString("MBError"), OSMB_OK);
 		return FALSE;
 	}
 
 	if (!wglMakeCurrent(mhDC, mhRC))
 	{
 		close();
-		OSMessageBox("Can't activate GL rendering context", "Error", OSMB_OK);
+		OSMessageBox(mCallbacks->translateString("MBGLContextActErr"),
+			mCallbacks->translateString("MBError"), OSMB_OK);
 		return FALSE;
 	}
 
@@ -1243,14 +1247,15 @@ BOOL LLWindowWin32::switchContext(BOOL fullscreen, const LLCoordScreen &size, BO
 		if (!(mhDC = GetDC(mWindowHandle)))
 		{
 			close();
-			OSMessageBox("Can't make GL device context", "Error", OSMB_OK);
+			OSMessageBox(mCallbacks->translateString("MBDevContextErr"), mCallbacks->translateString("MBError"), OSMB_OK);
 			return FALSE;
 		}
 
 		if (!SetPixelFormat(mhDC, pixel_format, &pfd))
 		{
 			close();
-			OSMessageBox("Can't set pixel format", "Error", OSMB_OK);
+			OSMessageBox(mCallbacks->translateString("MBPixelFmtSetErr"),
+				mCallbacks->translateString("MBError"), OSMB_OK);
 			return FALSE;
 		}
 
@@ -1287,7 +1292,7 @@ BOOL LLWindowWin32::switchContext(BOOL fullscreen, const LLCoordScreen &size, BO
 		&pfd))
 	{
 		close();
-		OSMessageBox("Can't get pixel format description", "Error", OSMB_OK);
+		OSMessageBox(mCallbacks->translateString("MBPixelFmtDescErr"), mCallbacks->translateString("MBError"), OSMB_OK);
 		return FALSE;
 	}
 
@@ -1300,57 +1305,35 @@ BOOL LLWindowWin32::switchContext(BOOL fullscreen, const LLCoordScreen &size, BO
 	if (pfd.cColorBits < 32 || GetDeviceCaps(mhDC, BITSPIXEL) < 32)
 	{
 		close();
-		OSMessageBox(
-			"Second Life requires True Color (32-bit) to run in a window.\n"
-			"Please go to Control Panels -> Display -> Settings and\n"
-			"set the screen to 32-bit color.\n"
-			"Alternately, if you choose to run fullscreen, Second Life\n"
-			"will automatically adjust the screen each time it runs.",
-			"Error",
-			OSMB_OK);
+		OSMessageBox(mCallbacks->translateString("MBTrueColorWindow"), mCallbacks->translateString("MBError"), OSMB_OK);
 		return FALSE;
 	}
 
 	if (pfd.cAlphaBits < 8)
 	{
 		close();
-		OSMessageBox(
-			"Second Life is unable to run because it can't get an 8 bit alpha\n"
-			"channel.  Usually this is due to video card driver issues.\n"
-			"Please make sure you have the latest video card drivers installed.\n"
-			"Also be sure your monitor is set to True Color (32-bit) in\n"
-			"Control Panels -> Display -> Settings.\n"
-			"If you continue to receive this message, contact customer service.",
-			"Error",
-			OSMB_OK);
+		OSMessageBox(mCallbacks->translateString("MBAlpha"), mCallbacks->translateString("MBError"), OSMB_OK);
 		return FALSE;
 	}
 
 	if (!(mhRC = wglCreateContext(mhDC)))
 	{
 		close();
-		OSMessageBox("Can't create GL rendering context", "Error", OSMB_OK);
+		OSMessageBox(mCallbacks->translateString("MBGLContextErr"), mCallbacks->translateString("MBError"), OSMB_OK);
 		return FALSE;
 	}
 
 	if (!wglMakeCurrent(mhDC, mhRC))
 	{
 		close();
-		OSMessageBox("Can't activate GL rendering context", "Error", OSMB_OK);
+		OSMessageBox(mCallbacks->translateString("MBGLContextActErr"), mCallbacks->translateString("MBError"), OSMB_OK);
 		return FALSE;
 	}
 
 	if (!gGLManager.initGL())
 	{
 		close();
-		OSMessageBox(
-					 "Second Life is unable to run because your video card drivers\n"
-					 "did not install properly, are out of date, or are for unsupported\n" 
-					 "hardware. Please make sure you have the latest video card drivers\n"
-					 "and even if you do have the latest, try reinstalling them.\n\n"
-					 "If you continue to receive this message, contact customer service.",
-					 "Error",
-					 OSMB_OK);
+		OSMessageBox(mCallbacks->translateString("MBVideoDrvErr"), mCallbacks->translateString("MBError"), OSMB_OK);
 		return FALSE;
 	}
 
@@ -1545,10 +1528,6 @@ void LLWindowWin32::initCursors()
 	mCursor[ UI_CURSOR_PIPETTE ] = LoadCursor(module, TEXT("TOOLPIPETTE"));
 
 	// Color cursors
-	mCursor[UI_CURSOR_TOOLSIT] = loadColorCursor(TEXT("TOOLSIT"));
-	mCursor[UI_CURSOR_TOOLBUY] = loadColorCursor(TEXT("TOOLBUY"));
-	mCursor[UI_CURSOR_TOOLPAY] = loadColorCursor(TEXT("TOOLPAY"));
-	mCursor[UI_CURSOR_TOOLOPEN] = loadColorCursor(TEXT("TOOLOPEN"));
 	mCursor[UI_CURSOR_TOOLPLAY] = loadColorCursor(TEXT("TOOLPLAY"));
 	mCursor[UI_CURSOR_TOOLPAUSE] = loadColorCursor(TEXT("TOOLPAUSE"));
 	mCursor[UI_CURSOR_TOOLMEDIAOPEN] = loadColorCursor(TEXT("TOOLMEDIAOPEN"));
@@ -1612,6 +1591,8 @@ void LLWindowWin32::gatherInput()
 	MSG		msg;
 	int		msg_count = 0;
 
+	LLMemType m1(LLMemType::MTYPE_GATHER_INPUT);
+
 	while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE) && msg_count < MAX_MESSAGE_PER_UPDATE)
 	{
 		mCallbacks->handlePingWatchdog(this, "Main:TranslateGatherInput");
@@ -1660,6 +1641,9 @@ void LLWindowWin32::gatherInput()
 	// we slammed the mouse position
 	mMousePositionModified = FALSE;
 }
+
+static LLFastTimer::DeclareTimer FTM_KEYHANDLER("Handle Keyboard");
+static LLFastTimer::DeclareTimer FTM_MOUSEHANDLER("Handle Mouse");
 
 LRESULT CALLBACK LLWindowWin32::mainWindowProc(HWND h_wnd, UINT u_msg, WPARAM w_param, LPARAM l_param)
 {
@@ -1894,7 +1878,7 @@ LRESULT CALLBACK LLWindowWin32::mainWindowProc(HWND h_wnd, UINT u_msg, WPARAM w_
 		case WM_KEYUP:
 		{
 			window_imp->mCallbacks->handlePingWatchdog(window_imp, "Main:WM_KEYUP");
-			LLFastTimer t2(LLFastTimer::FTM_KEYHANDLER);
+			LLFastTimer t2(FTM_KEYHANDLER);
 
 			if (gDebugWindowProc)
 			{
@@ -2003,7 +1987,7 @@ LRESULT CALLBACK LLWindowWin32::mainWindowProc(HWND h_wnd, UINT u_msg, WPARAM w_
 		case WM_LBUTTONDOWN:
 			{
 				window_imp->mCallbacks->handlePingWatchdog(window_imp, "Main:WM_LBUTTONDOWN");
-				LLFastTimer t2(LLFastTimer::FTM_MOUSEHANDLER);
+				LLFastTimer t2(FTM_MOUSEHANDLER);
 				if (LLWinImm::isAvailable() && window_imp->mPreeditor)
 				{
 					window_imp->interruptLanguageTextInput();
@@ -2067,7 +2051,7 @@ LRESULT CALLBACK LLWindowWin32::mainWindowProc(HWND h_wnd, UINT u_msg, WPARAM w_
 		case WM_LBUTTONUP:
 			{
 				window_imp->mCallbacks->handlePingWatchdog(window_imp, "Main:WM_LBUTTONUP");
-				LLFastTimer t2(LLFastTimer::FTM_MOUSEHANDLER);
+				LLFastTimer t2(FTM_MOUSEHANDLER);
 				//if (gDebugClicks)
 				//{
 				//	LL_INFOS("Window") << "WndProc left button up" << LL_ENDL;
@@ -2101,7 +2085,7 @@ LRESULT CALLBACK LLWindowWin32::mainWindowProc(HWND h_wnd, UINT u_msg, WPARAM w_
 		case WM_RBUTTONDOWN:
 			{
 				window_imp->mCallbacks->handlePingWatchdog(window_imp, "Main:WM_RBUTTONDOWN");
-				LLFastTimer t2(LLFastTimer::FTM_MOUSEHANDLER);
+				LLFastTimer t2(FTM_MOUSEHANDLER);
 				if (LLWinImm::isAvailable() && window_imp->mPreeditor)
 				{
 					window_imp->interruptLanguageTextInput();
@@ -2135,7 +2119,7 @@ LRESULT CALLBACK LLWindowWin32::mainWindowProc(HWND h_wnd, UINT u_msg, WPARAM w_
 		case WM_RBUTTONUP:
 			{
 				window_imp->mCallbacks->handlePingWatchdog(window_imp, "Main:WM_RBUTTONUP");
-				LLFastTimer t2(LLFastTimer::FTM_MOUSEHANDLER);
+				LLFastTimer t2(FTM_MOUSEHANDLER);
 				// Because we move the cursor position in the app, we need to query
 				// to find out where the cursor at the time the event is handled.
 				// If we don't do this, many clicks could get buffered up, and if the
@@ -2165,7 +2149,7 @@ LRESULT CALLBACK LLWindowWin32::mainWindowProc(HWND h_wnd, UINT u_msg, WPARAM w_
 //		case WM_MBUTTONDBLCLK:
 			{
 				window_imp->mCallbacks->handlePingWatchdog(window_imp, "Main:WM_MBUTTONDOWN");
-				LLFastTimer t2(LLFastTimer::FTM_MOUSEHANDLER);
+				LLFastTimer t2(FTM_MOUSEHANDLER);
 				if (LLWinImm::isAvailable() && window_imp->mPreeditor)
 				{
 					window_imp->interruptLanguageTextInput();
@@ -2199,8 +2183,8 @@ LRESULT CALLBACK LLWindowWin32::mainWindowProc(HWND h_wnd, UINT u_msg, WPARAM w_
 		case WM_MBUTTONUP:
 			{
 				window_imp->mCallbacks->handlePingWatchdog(window_imp, "Main:WM_MBUTTONUP");
-				LLFastTimer t2(LLFastTimer::FTM_MOUSEHANDLER);
-				// Because we move the cursor position in tllviewerhe app, we need to query
+				LLFastTimer t2(FTM_MOUSEHANDLER);
+				// Because we move the cursor position in the llviewer app, we need to query
 				// to find out where the cursor at the time the event is handled.
 				// If we don't do this, many clicks could get buffered up, and if the
 				// first click changes the cursor position, all subsequent clicks
@@ -2230,7 +2214,27 @@ LRESULT CALLBACK LLWindowWin32::mainWindowProc(HWND h_wnd, UINT u_msg, WPARAM w_
 				window_imp->mCallbacks->handlePingWatchdog(window_imp, "Main:WM_MOUSEWHEEL");
 				static short z_delta = 0;
 
-				z_delta += HIWORD(w_param);
+				RECT	client_rect;
+
+				// eat scroll events that occur outside our window, since we use mouse position to direct scroll
+				// instead of keyboard focus
+				// NOTE: mouse_coord is in *window* coordinates for scroll events
+				POINT mouse_coord = {(S32)(S16)LOWORD(l_param), (S32)(S16)HIWORD(l_param)};
+
+				if (ScreenToClient(window_imp->mWindowHandle, &mouse_coord)
+					&& GetClientRect(window_imp->mWindowHandle, &client_rect))
+				{
+					// we have a valid mouse point and client rect
+					if (mouse_coord.x < client_rect.left || client_rect.right < mouse_coord.x
+						|| mouse_coord.y < client_rect.top || client_rect.bottom < mouse_coord.y)
+					{
+						// mouse is outside of client rect, so don't do anything
+						return 0;
+					}
+				}
+
+				S16 incoming_z_delta = HIWORD(w_param);
+				z_delta += incoming_z_delta;
 				// cout << "z_delta " << z_delta << endl;
 
 				// current mouse wheels report changes in increments of zDelta (+120, -120)
@@ -3030,7 +3034,7 @@ void LLWindowWin32::spawnWebBrowser(const std::string& escaped_url )
 }
 
 
-BOOL LLWindowWin32::dialog_color_picker ( F32 *r, F32 *g, F32 *b )
+BOOL LLWindowWin32::dialogColorPicker( F32 *r, F32 *g, F32 *b )
 {
 	BOOL retval = FALSE;
 
@@ -3557,7 +3561,7 @@ BOOL LLWindowWin32::handleImeRequests(U32 request, U32 param, LRESULT *result)
 				// WCHARs, i.e., UTF-16 encoding units, so we can't simply pass the
 				// number to getPreeditLocation.  
 
-				const LLWString & wtext = mPreeditor->getWText();
+				const LLWString & wtext = mPreeditor->getPreeditString();
 				S32 preedit, preedit_length;
 				mPreeditor->getPreeditRange(&preedit, &preedit_length);
 				LLCoordGL caret_coord;
@@ -3584,7 +3588,7 @@ BOOL LLWindowWin32::handleImeRequests(U32 request, U32 param, LRESULT *result)
 			case IMR_RECONVERTSTRING:
 			{
 				mPreeditor->resetPreedit();
-				const LLWString & wtext = mPreeditor->getWText();
+				const LLWString & wtext = mPreeditor->getPreeditString();
 				S32 select, select_length;
 				mPreeditor->getSelectionRange(&select, &select_length);
 
@@ -3626,7 +3630,7 @@ BOOL LLWindowWin32::handleImeRequests(U32 request, U32 param, LRESULT *result)
 			}
 			case IMR_DOCUMENTFEED:
 			{
-				const LLWString & wtext = mPreeditor->getWText();
+				const LLWString & wtext = mPreeditor->getPreeditString();
 				S32 preedit, preedit_length;
 				mPreeditor->getPreeditRange(&preedit, &preedit_length);
 				

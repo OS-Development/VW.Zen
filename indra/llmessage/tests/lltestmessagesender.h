@@ -2,9 +2,9 @@
  * @file 
  * @brief 
  *
- * $LicenseInfo:firstyear=2008&license=internal$
+ * $LicenseInfo:firstyear=2008&license=viewergpl$
  * 
- * Copyright (c) 2008, Linden Research, Inc.
+ * Copyright (c) 2008-2009, Linden Research, Inc.
  * 
  * The following source code is PROPRIETARY AND CONFIDENTIAL. Use of
  * this source code is governed by the Linden Lab Source Code Disclosure

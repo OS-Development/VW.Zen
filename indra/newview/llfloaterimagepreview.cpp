@@ -56,11 +56,8 @@
 #include "llvoavatar.h"
 #include "pipeline.h"
 #include "lluictrlfactory.h"
-#include "llviewerimagelist.h"
+#include "llviewertexturelist.h"
 #include "llstring.h"
-
-//static
-S32 LLFloaterImagePreview::sUploadAmount = 10;
 
 const S32 PREVIEW_BORDER_WIDTH = 2;
 const S32 PREVIEW_RESIZE_HANDLE_SIZE = S32(RESIZE_HANDLE_WIDTH * OO_SQRT2) + PREVIEW_BORDER_WIDTH;
@@ -93,9 +90,7 @@ BOOL LLFloaterImagePreview::postBuild()
 	{
 		return FALSE;
 	}
-
-	childSetLabelArg("ok_btn", "[AMOUNT]", llformat("%d",sUploadAmount));
-
+	
 	LLCtrlSelectionInterface* iface = childGetSelectionInterface("clothing_type_combo");
 	if (iface)
 	{
@@ -130,7 +125,9 @@ BOOL LLFloaterImagePreview::postBuild()
 		childDisable("clothing_type_combo");
 		childDisable("ok_btn");
 	}
-
+	
+	getChild<LLUICtrl>("ok_btn")->setCommitCallback(boost::bind(&LLFloaterNameDesc::onBtnOK, this));
+	
 	return TRUE;
 }
 
@@ -142,9 +139,6 @@ LLFloaterImagePreview::~LLFloaterImagePreview()
 	clearAllPreviewTextures();
 
 	mRawImagep = NULL;
-	delete mAvatarPreview;
-	delete mSculptedPreview;
-	
 	mImagep = NULL ;
 }
 
@@ -214,13 +208,16 @@ void	LLFloaterImagePreview::onPreviewTypeCommit(LLUICtrl* ctrl, void* userdata)
 //-----------------------------------------------------------------------------
 void LLFloaterImagePreview::clearAllPreviewTextures()
 {
-	mAvatarPreview->clearPreviewTexture("mHairMesh0");
-	mAvatarPreview->clearPreviewTexture("mUpperBodyMesh0");
-	mAvatarPreview->clearPreviewTexture("mLowerBodyMesh0");
-	mAvatarPreview->clearPreviewTexture("mHeadMesh0");
-	mAvatarPreview->clearPreviewTexture("mUpperBodyMesh0");
-	mAvatarPreview->clearPreviewTexture("mLowerBodyMesh0");
-	mAvatarPreview->clearPreviewTexture("mSkirtMesh0");
+	if (mAvatarPreview)
+	{
+		mAvatarPreview->clearPreviewTexture("mHairMesh0");
+		mAvatarPreview->clearPreviewTexture("mUpperBodyMesh0");
+		mAvatarPreview->clearPreviewTexture("mLowerBodyMesh0");
+		mAvatarPreview->clearPreviewTexture("mHeadMesh0");
+		mAvatarPreview->clearPreviewTexture("mUpperBodyMesh0");
+		mAvatarPreview->clearPreviewTexture("mLowerBodyMesh0");
+		mAvatarPreview->clearPreviewTexture("mSkirtMesh0");
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -249,7 +246,7 @@ void LLFloaterImagePreview::draw()
 			}
 			else
 			{
-				mImagep = new LLImageGL(mRawImagep, FALSE) ;
+				mImagep = LLViewerTextureManager::getLocalTexture(mRawImagep.get(), FALSE) ;
 				
 				gGL.getTexUnit(0)->unbind(mImagep->getTarget()) ;
 				gGL.getTexUnit(0)->bindManual(LLTexUnit::TT_TEXTURE, mImagep->getTexName());
@@ -291,11 +288,11 @@ void LLFloaterImagePreview::draw()
 
 				if (selected == 9)
 				{
-					gGL.getTexUnit(0)->bind(mSculptedPreview->getTexture());
+					gGL.getTexUnit(0)->bind(mSculptedPreview);
 				}
 				else
 				{
-					gGL.getTexUnit(0)->bind(mAvatarPreview->getTexture());
+					gGL.getTexUnit(0)->bind(mAvatarPreview);
 				}
 
 				gGL.begin( LLRender::QUADS );
@@ -550,7 +547,7 @@ BOOL LLFloaterImagePreview::handleHover(S32 x, S32 y, MASK mask)
 			mSculptedPreview->refresh();
 		}
 
-		LLUI::setCursorPositionLocal(this, mLastMouseX, mLastMouseY);
+		LLUI::setMousePositionLocal(this, mLastMouseX, mLastMouseY);
 	}
 
 	if (!mPreviewRect.pointInRect(x, y) || !mAvatarPreview || !mSculptedPreview)
@@ -603,7 +600,7 @@ void LLFloaterImagePreview::onMouseCaptureLostImagePreview(LLMouseHandler* handl
 //-----------------------------------------------------------------------------
 // LLImagePreviewAvatar
 //-----------------------------------------------------------------------------
-LLImagePreviewAvatar::LLImagePreviewAvatar(S32 width, S32 height) : LLDynamicTexture(width, height, 3, ORDER_MIDDLE, FALSE)
+LLImagePreviewAvatar::LLImagePreviewAvatar(S32 width, S32 height) : LLViewerDynamicTexture(width, height, 3, ORDER_MIDDLE, FALSE)
 {
 	mNeedsUpdate = TRUE;
 	mTargetJoint = NULL;
@@ -614,6 +611,7 @@ LLImagePreviewAvatar::LLImagePreviewAvatar(S32 width, S32 height) : LLDynamicTex
 	mCameraZoom = 1.f;
 
 	mDummyAvatar = (LLVOAvatar*)gObjectList.createObjectViewer(LL_PCODE_LEGACY_AVATAR, gAgent.getRegion());
+	mDummyAvatar->initInstance();
 	mDummyAvatar->createDrawable(&gPipeline);
 	mDummyAvatar->mIsDummy = TRUE;
 	mDummyAvatar->mSpecialRenderMode = 2;
@@ -671,11 +669,14 @@ void LLImagePreviewAvatar::setPreviewTarget(const std::string& joint_name, const
 //-----------------------------------------------------------------------------
 void LLImagePreviewAvatar::clearPreviewTexture(const std::string& mesh_name)
 {
-	LLViewerJointMesh *mesh = (LLViewerJointMesh*)mDummyAvatar->mRoot.findJoint(mesh_name);
-	// clear out existing test mesh
-	if (mesh)
+	if (mDummyAvatar)
 	{
-		mesh->setTestTexture(0);
+		LLViewerJointMesh *mesh = (LLViewerJointMesh*)mDummyAvatar->mRoot.findJoint(mesh_name);
+		// clear out existing test mesh
+		if (mesh)
+		{
+			mesh->setTestTexture(0);
+		}
 	}
 }
 
@@ -690,7 +691,7 @@ BOOL LLImagePreviewAvatar::render()
 	glMatrixMode(GL_PROJECTION);
 	gGL.pushMatrix();
 	glLoadIdentity();
-	glOrtho(0.0f, mWidth, 0.0f, mHeight, -1.0f, 1.0f);
+	glOrtho(0.0f, mFullWidth, 0.0f, mFullHeight, -1.0f, 1.0f);
 
 	glMatrixMode(GL_MODELVIEW);
 	gGL.pushMatrix();
@@ -699,7 +700,7 @@ BOOL LLImagePreviewAvatar::render()
 	LLGLSUIDefault def;
 	gGL.color4f(0.15f, 0.2f, 0.3f, 1.f);
 
-	gl_rect_2d_simple( mWidth, mHeight );
+	gl_rect_2d_simple( mFullWidth, mFullHeight );
 
 	glMatrixMode(GL_PROJECTION);
 	gGL.popMatrix();
@@ -721,9 +722,9 @@ BOOL LLImagePreviewAvatar::render()
 
 	stop_glerror();
 
-	LLViewerCamera::getInstance()->setAspect((F32)mWidth / mHeight);
+	LLViewerCamera::getInstance()->setAspect((F32)mFullWidth / mFullHeight);
 	LLViewerCamera::getInstance()->setView(LLViewerCamera::getInstance()->getDefaultFOV() / mCameraZoom);
-	LLViewerCamera::getInstance()->setPerspective(FALSE, mOrigin.mX, mOrigin.mY, mWidth, mHeight, FALSE);
+	LLViewerCamera::getInstance()->setPerspective(FALSE, mOrigin.mX, mOrigin.mY, mFullWidth, mFullHeight, FALSE);
 
 	LLVertexBuffer::unbind();
 	avatarp->updateLOD();
@@ -781,7 +782,7 @@ void LLImagePreviewAvatar::pan(F32 right, F32 up)
 // LLImagePreviewSculpted
 //-----------------------------------------------------------------------------
 
-LLImagePreviewSculpted::LLImagePreviewSculpted(S32 width, S32 height) : LLDynamicTexture(width, height, 3, ORDER_MIDDLE, FALSE)
+LLImagePreviewSculpted::LLImagePreviewSculpted(S32 width, S32 height) : LLViewerDynamicTexture(width, height, 3, ORDER_MIDDLE, FALSE)
 {
 	mNeedsUpdate = TRUE;
 	mCameraDistance = 0.f;
@@ -796,27 +797,11 @@ LLImagePreviewSculpted::LLImagePreviewSculpted(S32 width, S32 height) : LLDynami
 	
 	F32 const HIGHEST_LOD = 4.0f;
 	mVolume = new LLVolume(volume_params,  HIGHEST_LOD);
-
-	/*
-	mDummyAvatar = new LLVOAvatar(LLUUID::null, LL_PCODE_LEGACY_AVATAR, gAgent.getRegion());
-	mDummyAvatar->createDrawable(&gPipeline);
-	mDummyAvatar->mIsDummy = TRUE;
-	mDummyAvatar->mSpecialRenderMode = 2;
-	mDummyAvatar->setPositionAgent(LLVector3::zero);
-	mDummyAvatar->slamPosition();
-	mDummyAvatar->updateJointLODs();
-	mDummyAvatar->updateGeometry(mDummyAvatar->mDrawable);
-	gPipeline.markVisible(mDummyAvatar->mDrawable, *LLViewerCamera::getInstance());
-	mTextureName = 0;
-	*/
 }
 
 
 LLImagePreviewSculpted::~LLImagePreviewSculpted()
 {
-	/*
-	mDummyAvatar->markDead();
-	*/
 }
 
 
@@ -880,7 +865,7 @@ BOOL LLImagePreviewSculpted::render()
 	glMatrixMode(GL_PROJECTION);
 	gGL.pushMatrix();
 	glLoadIdentity();
-	glOrtho(0.0f, mWidth, 0.0f, mHeight, -1.0f, 1.0f);
+	glOrtho(0.0f, mFullWidth, 0.0f, mFullHeight, -1.0f, 1.0f);
 
 	glMatrixMode(GL_MODELVIEW);
 	gGL.pushMatrix();
@@ -888,7 +873,7 @@ BOOL LLImagePreviewSculpted::render()
 		
 	gGL.color4f(0.15f, 0.2f, 0.3f, 1.f);
 
-	gl_rect_2d_simple( mWidth, mHeight );
+	gl_rect_2d_simple( mFullWidth, mFullHeight );
 
 	glMatrixMode(GL_PROJECTION);
 	gGL.popMatrix();
@@ -911,9 +896,9 @@ BOOL LLImagePreviewSculpted::render()
 
 	stop_glerror();
 
-	LLViewerCamera::getInstance()->setAspect((F32) mWidth / mHeight);
+	LLViewerCamera::getInstance()->setAspect((F32) mFullWidth / mFullHeight);
 	LLViewerCamera::getInstance()->setView(LLViewerCamera::getInstance()->getDefaultFOV() / mCameraZoom);
-	LLViewerCamera::getInstance()->setPerspective(FALSE, mOrigin.mX, mOrigin.mY, mWidth, mHeight, FALSE);
+	LLViewerCamera::getInstance()->setPerspective(FALSE, mOrigin.mX, mOrigin.mY, mFullWidth, mFullHeight, FALSE);
 
 	const LLVolumeFace &vf = mVolume->getVolumeFace(0);
 	U32 num_indices = vf.mIndices.size();

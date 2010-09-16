@@ -47,7 +47,7 @@
 // Note: ~LLQueuedThread is O(N) N=# of queued threads, assumed to be small
 //   It is assumed that LLQueuedThreads are rarely created/destroyed.
 
-class LLQueuedThread : public LLThread
+class LL_COMMON_API LLQueuedThread : public LLThread
 {
 	//------------------------------------------------------------------------
 public:
@@ -80,7 +80,7 @@ public:
 	//------------------------------------------------------------------------
 public:
 
-	class QueuedRequest : public LLSimpleHashEntry<handle_t>
+	class LL_COMMON_API QueuedRequest : public LLSimpleHashEntry<handle_t>
 	{
 		friend class LLQueuedThread;
 		
@@ -148,6 +148,7 @@ protected:
 		}
 	};
 
+
 	//------------------------------------------------------------------------
 	
 public:
@@ -165,6 +166,9 @@ private:
 
 	virtual bool runCondition(void);
 	virtual void run(void);
+	virtual void startThread(void);
+	virtual void endThread(void);
+	virtual void threadedUpdate(void);
 
 protected:
 	handle_t generateHandle();
@@ -199,6 +203,7 @@ public:
 	
 protected:
 	BOOL mThreaded;  // if false, run on main thread and do updates during update()
+	BOOL mStarted;  // required when mThreaded is false to call startThread() from update()
 	LLAtomic32<BOOL> mIdleThread; // request queue is empty (or we are quitting) and the thread is idle
 	
 	typedef std::set<QueuedRequest*, queued_request_less> request_queue_t;

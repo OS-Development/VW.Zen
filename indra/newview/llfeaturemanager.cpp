@@ -44,10 +44,11 @@
 #include "llgl.h"
 #include "llsecondlifeurls.h"
 
+#include "llappviewer.h"
 #include "llviewercontrol.h"
 #include "llworld.h"
 #include "lldrawpoolterrain.h"
-#include "llviewerimagelist.h"
+#include "llviewertexturelist.h"
 #include "llwindow.h"
 #include "llui.h"
 #include "llcontrol.h"
@@ -58,11 +59,6 @@
 #include "lldxhardware.h"
 #endif
 
-//
-// externs
-//
-extern LLMemoryInfo gSysMemory;
-extern LLCPUInfo gSysCPU;
 
 #if LL_DARWIN
 const char FEATURE_TABLE_FILENAME[] = "featuretable_mac.txt";
@@ -434,7 +430,6 @@ void LLFeatureManager::applyRecommendedSettings()
 
 	setGraphicsLevel(level, false);
 	gSavedSettings.setU32("RenderQualityPerformance", level);
-	gSavedSettings.setBOOL("RenderCustomSettings", FALSE);
 
 	// now apply the tweaks to draw distance
 	// these are double negatives, because feature masks only work by

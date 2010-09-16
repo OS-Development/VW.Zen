@@ -6,9 +6,11 @@ if (STANDALONE)
 else (STANDALONE)
   use_prebuilt_binary(google)
   if (WINDOWS)
+    use_prebuilt_binary(google-perftools)
     set(TCMALLOC_LIBRARIES 
         debug libtcmalloc_minimal-debug
-        optimized libtcmalloc_minimal-debug)
+        optimized libtcmalloc_minimal)
+    set(GOOGLE_PERFTOOLS_FOUND "YES")
   endif (WINDOWS)
   if (LINUX)
     set(TCMALLOC_LIBRARIES tcmalloc)
@@ -21,12 +23,15 @@ else (STANDALONE)
 endif (STANDALONE)
 
 if (GOOGLE_PERFTOOLS_FOUND)
-  set(USE_GOOGLE_PERFTOOLS ON CACHE BOOL "Build with Google PerfTools support.")
+  # XXX Disable temporarily, until we have compilation issues on 64-bit
+  # Etch sorted.
+  set(USE_GOOGLE_PERFTOOLS OFF CACHE BOOL "Build with Google PerfTools support.")
 endif (GOOGLE_PERFTOOLS_FOUND)
 
-# XXX Disable temporarily, until we have compilation issues on 64-bit
-# Etch sorted.
-set(USE_GOOGLE_PERFTOOLS OFF)
+if (WINDOWS)
+    # *TODO -reenable this once we get server usage sorted out
+    #set(USE_GOOGLE_PERFTOOLS ON)
+endif (WINDOWS)
 
 if (USE_GOOGLE_PERFTOOLS)
   set(TCMALLOC_FLAG -DLL_USE_TCMALLOC=1)

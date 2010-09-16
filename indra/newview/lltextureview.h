@@ -35,7 +35,7 @@
 
 #include "llcontainerview.h"
 
-class LLViewerImage;
+class LLViewerFetchedTexture;
 class LLTextureBar;
 class LLGLTexMemBar;
 
@@ -43,8 +43,10 @@ class LLTextureView : public LLContainerView
 {
 	friend class LLTextureBar;
 	friend class LLGLTexMemBar;
+protected:
+	LLTextureView(const Params&);
+	friend class LLUICtrlFactory;
 public:
-	LLTextureView(const std::string& name, const LLRect& rect);
 	~LLTextureView();
 
 	/*virtual*/ void draw();
@@ -52,12 +54,12 @@ public:
 	/*virtual*/ BOOL handleMouseUp(S32 x, S32 y, MASK mask);
 	/*virtual*/ BOOL handleKey(KEY key, MASK mask, BOOL called_from_parent);
 
-	static void addDebugImage(LLViewerImage* image) { sDebugImages.insert(image); }
-	static void removeDebugImage(LLViewerImage* image) { sDebugImages.insert(image); }
+	static void addDebugImage(LLViewerFetchedTexture* image) { sDebugImages.insert(image); }
+	static void removeDebugImage(LLViewerFetchedTexture* image) { sDebugImages.insert(image); }
 	static void clearDebugImages() { sDebugImages.clear(); }
 
 private:
-	BOOL addBar(LLViewerImage *image, BOOL hilight = FALSE);
+	BOOL addBar(LLViewerFetchedTexture *image, BOOL hilight = FALSE);
 	void removeAllBars();
 
 private:
@@ -73,8 +75,45 @@ private:
 	LLGLTexMemBar* mGLTexMemBar;
 	
 public:
-	static std::set<LLViewerImage*> sDebugImages;
+	static std::set<LLViewerFetchedTexture*> sDebugImages;
 };
 
+class LLGLTexSizeBar;
+class LLTextureSizeView : public LLContainerView
+{
+protected:
+	LLTextureSizeView(const Params&);
+	friend class LLUICtrlFactory;
+public:	
+	~LLTextureSizeView();
+
+	/*virtual*/ void draw();
+	/*virtual*/ BOOL handleHover(S32 x, S32 y, MASK mask) ;
+	
+	void setType(S32 type) {mType = type ;}
+	enum
+	{
+		TEXTURE_MEM_OVER_SIZE,
+		TEXTURE_MEM_OVER_CATEGORY
+	};
+private:
+	//draw background for TEXTURE_MEM_OVER_SIZE
+	F32 drawTextureSizeDistributionGraph() ;
+	//draw real-time texture mem bar over size
+	void drawTextureSizeGraph();
+
+	//draw background for TEXTURE_MEM_OVER_CATEGORY
+	F32 drawTextureCategoryDistributionGraph() ;
+	//draw real-time texture mem bar over category
+	void drawTextureCategoryGraph();
+
+private:
+	std::vector<LLGLTexSizeBar*> mTextureSizeBar ;
+	LLRect mTextureSizeBarRect ;
+	S32    mTextureSizeBarWidth ;	
+	S32    mType ;
+};
 extern LLTextureView *gTextureView;
+extern LLTextureSizeView *gTextureSizeView;
+extern LLTextureSizeView *gTextureCategoryView;
 #endif // LL_TEXTURE_VIEW_H

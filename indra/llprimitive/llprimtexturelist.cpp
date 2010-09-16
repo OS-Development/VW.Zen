@@ -4,7 +4,7 @@
  *
  * $LicenseInfo:firstyear=2008&license=viewergpl$
  * 
- * Copyright (c) 2008-2007, Linden Research, Inc.
+ * Copyright (c) 2008-2009, Linden Research, Inc.
  * 
  * Second Life Viewer Source Code
  * The source code in this file ("Source Code") is provided by Linden Lab
@@ -12,12 +12,13 @@
  * ("GPL"), unless you have obtained a separate licensing agreement
  * ("Other License"), formally executed by you and Linden Lab.  Terms of
  * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlife.com/developers/opensource/gplv2
+ * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
  * 
  * There are special exceptions to the terms and conditions of the GPL as
  * it is applied to this Source Code. View the full text of the exception
  * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at http://secondlife.com/developers/opensource/flossexception
+ * online at
+ * http://secondlifegrid.net/programs/open_source/licensing/flossexception
  * 
  * By copying, modifying or distributing this software, you acknowledge
  * that you have read and understood your obligations described above,
@@ -134,13 +135,12 @@ S32 LLPrimTextureList::copyTexture(const U8 index, const LLTextureEntry& te)
 {
 	if (S32(index) >= mEntryList.size())
 	{
-		// TODO -- assert here
 		S32 current_size = mEntryList.size();
-		llerrs << "index = " << S32(index) << "  current_size = " << current_size << llendl;
+		llwarns << "ignore copy of index = " << S32(index) << " into texture entry list of size = " << current_size << llendl;
 		return TEM_CHANGE_NONE;
 	}
 
-	// we're changing an existing entry
+		// we're changing an existing entry
 	llassert(mEntryList[index]);
 	delete (mEntryList[index]);
 	if  (&te)
@@ -386,8 +386,18 @@ void LLPrimTextureList::setSize(S32 new_size)
 		mEntryList.resize(new_size);
 		for (S32 index = current_size; index < new_size; ++index)
 		{
-			LLTextureEntry* new_entry = LLPrimTextureList::newTextureEntry();
-			mEntryList[index] = new_entry;
+			if (current_size > 0
+				&& mEntryList[current_size - 1])
+			{
+				// copy the last valid entry for the new one
+				mEntryList[index] = mEntryList[current_size - 1]->newCopy();
+			}
+			else
+			{
+				// no valid enries to copy, so we new one up
+				LLTextureEntry* new_entry = LLPrimTextureList::newTextureEntry();
+				mEntryList[index] = new_entry;
+			}
 		}
 	}
 	else if (new_size < current_size)

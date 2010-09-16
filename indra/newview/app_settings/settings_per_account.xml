@@ -22,17 +22,17 @@
         <key>Value</key>
             <string>|TOKEN COPY BusyModeResponse|</string>
         </map>
-    <key>IMLogTimestamp</key>
+    <key>InstantMessageLogFolder</key>
         <map>
         <key>Comment</key>
-            <string>Log Timestamp of Instant Messages</string>
+            <string>Top level folder to your log files.</string>
         <key>Persist</key>
             <integer>1</integer>
         <key>Type</key>
-            <string>Boolean</string>
+            <string>String</string>
         <key>Value</key>
-            <integer>1</integer>
-        </map>
+            <string />
+        </map>				
     <key>InstantMessageLogPath</key>
         <map>
         <key>Comment</key>
@@ -64,29 +64,18 @@
         <key>Type</key>
             <string>Boolean</string>
         <key>Value</key>
-            <integer>0</integer>
+            <integer>1</integer>
         </map>
-    <key>LogChatIM</key>
+    <key>LogTimestamp</key>
         <map>
         <key>Comment</key>
-            <string>Log Incoming Instant Messages with Chat</string>
+            <string>Log Timestamp</string>
         <key>Persist</key>
             <integer>1</integer>
         <key>Type</key>
             <string>Boolean</string>
         <key>Value</key>
-            <integer>0</integer>
-        </map>
-    <key>LogChatTimestamp</key>
-        <map>
-        <key>Comment</key>
-            <string>Log Timestamp of Chat</string>
-        <key>Persist</key>
             <integer>1</integer>
-        <key>Type</key>
-            <string>Boolean</string>
-        <key>Value</key>
-            <integer>0</integer>
         </map>
     <key>LogInstantMessages</key>
         <map>

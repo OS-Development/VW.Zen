@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <panel name="status">
-	<text length="1" name="ParcelNameText" tool_tip="Nombre de la parcela en la que está. Pulse Acerca del terreno." type="string">
+	<text name="ParcelNameText" tool_tip="Nombre de la parcela en la que está. Pulse Acerca del terreno.">
 		el nombre de la parcela va aquí
 	</text>
-	<text length="1" name="BalanceText" tool_tip="Saldo de su cuenta" type="string">
+	<text name="BalanceText" tool_tip="Saldo de su cuenta">
 		Cargando...
 	</text>
 	<button label="" label_selected="" name="buycurrency" tool_tip="Comprar dinero"/>
-	<text length="12" name="TimeText" tool_tip="Hora actual (costa oeste EE.UU.)" type="string">
+	<text name="TimeText" tool_tip="Hora actual (costa oeste EE.UU.)">
 		12:00 AM
 	</text>
 	<string name="StatBarDaysOfWeek">
@@ -18,7 +18,7 @@
 	</string>
 	<button label="" label_selected="" name="scriptout" tool_tip="Errores y alertas de los scripts"/>
 	<button label="" label_selected="" name="health" tool_tip="Vida"/>
-	<text length="1" name="HealthText" tool_tip="Vida" type="string">
+	<text name="HealthText" tool_tip="Vida">
 		100%
 	</text>
 	<button label="" label_selected="" name="no_fly" tool_tip="Prohibido volar"/>
@@ -27,8 +27,8 @@
 	<button label="" label_selected="" name="restrictpush" tool_tip="Sin &apos;empujones&apos;"/>
 	<button label="" label_selected="" name="status_no_voice" tool_tip="Aquí no está disponible la voz"/>
 	<button label="" label_selected="" name="buyland" tool_tip="Comprar esta parcela"/>
-	<line_editor label="Buscar" name="search_editor" tool_tip="Buscar en Second Life"/>
-	<button label="" label_selected="" name="search_btn" tool_tip="Buscar en Second Life"/>
+	<line_editor label="Buscar" name="search_editor" tool_tip="Buscar en [SECOND_LIFE]"/>
+	<button label="" label_selected="" name="search_btn" tool_tip="Buscar en [SECOND_LIFE]"/>
 	<string name="packet_loss_tooltip">
 		Pérdida de paquetes
 	</string>

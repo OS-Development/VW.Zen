@@ -39,34 +39,38 @@
 
 #include "llcachename.h"
 #include "llfocusmgr.h"
+#include "llnotificationsutil.h"
 #include "llparcel.h"
 #include "message.h"
 #include "lluserauth.h"
 
 #include "llagent.h"
-#include "llfloateravatarpicker.h"
 #include "llbutton.h"
 #include "llcheckboxctrl.h"
-#include "llradiogroup.h"
 #include "llcombobox.h"
+#include "llfloaterreg.h"
+#include "llfloateravatarpicker.h"
 #include "llfloaterauction.h"
-#include "llfloateravatarinfo.h"
 #include "llfloatergroups.h"
-#include "llfloatergroupinfo.h"
+#include "llfloaterscriptlimits.h"
+#include "llavataractions.h"
 #include "lllineeditor.h"
 #include "llnamelistctrl.h"
-#include "llnotify.h"
+#include "llpanellandaudio.h"
 #include "llpanellandmedia.h"
 #include "llradiogroup.h"
 #include "llscrolllistctrl.h"
+#include "llscrolllistitem.h"
+#include "llscrolllistcell.h"
 #include "llselectmgr.h"
+#include "llslurl.h"
 #include "llspinctrl.h"
 #include "lltabcontainer.h"
 #include "lltextbox.h"
 #include "lltexturectrl.h"
 #include "lluiconstants.h"
 #include "lluictrlfactory.h"
-#include "llviewerimagelist.h"		// LLUIImageList
+#include "llviewertexturelist.h"		// LLUIImageList
 #include "llviewermessage.h"
 #include "llviewerparcelmgr.h"
 #include "llviewerregion.h"
@@ -75,6 +79,9 @@
 #include "llviewerwindow.h"
 #include "llviewercontrol.h"
 #include "roles_constants.h"
+#include "lltrans.h"
+
+#include "llgroupactions.h"
 
 static std::string OWNER_ONLINE 	= "0";
 static std::string OWNER_OFFLINE	= "1";
@@ -99,7 +106,7 @@ public:
 // LLFloaterLand
 //---------------------------------------------------------------------------
 
-void send_parcel_select_objects(S32 parcel_local_id, S32 return_type,
+void send_parcel_select_objects(S32 parcel_local_id, U32 return_type,
 								uuid_list_t* return_ids = NULL)
 {
 	LLMessageSystem *msg = gMessageSystem;
@@ -117,7 +124,7 @@ void send_parcel_select_objects(S32 parcel_local_id, S32 return_type,
 	msg->addUUIDFast(_PREHASH_SessionID,gAgent.getSessionID());
 	msg->nextBlockFast(_PREHASH_ParcelData);
 	msg->addS32Fast(_PREHASH_LocalID, parcel_local_id);
-	msg->addS32Fast(_PREHASH_ReturnType, return_type);
+	msg->addU32Fast(_PREHASH_ReturnType, return_type);
 
 	// Throw all return ids into the packet.
 	// TODO: Check for too many ids.
@@ -142,27 +149,58 @@ void send_parcel_select_objects(S32 parcel_local_id, S32 return_type,
 	msg->sendReliable(region->getHost());
 }
 
+LLParcel* LLFloaterLand::getCurrentSelectedParcel()
+{
+	return mParcel->getParcel();
+};
 
 //static
 LLPanelLandObjects* LLFloaterLand::getCurrentPanelLandObjects()
 {
-	return LLFloaterLand::getInstance()->mPanelObjects;
+	LLFloaterLand* land_instance = LLFloaterReg::getTypedInstance<LLFloaterLand>("about_land");
+	if(land_instance)
+	{
+		return land_instance->mPanelObjects;
+	}
+	else
+	{
+		return NULL;
+	}
 }
 
 //static
 LLPanelLandCovenant* LLFloaterLand::getCurrentPanelLandCovenant()
 {
-	return LLFloaterLand::getInstance()->mPanelCovenant;
+	LLFloaterLand* land_instance = LLFloaterReg::getTypedInstance<LLFloaterLand>("about_land");
+	if(land_instance)
+	{
+		return land_instance->mPanelCovenant;
+	}
+	else
+	{
+		return NULL;
+	}
 }
 
 // static
 void LLFloaterLand::refreshAll()
 {
-	LLFloaterLand::getInstance()->refresh();
+	LLFloaterLand* land_instance = LLFloaterReg::getTypedInstance<LLFloaterLand>("about_land");
+	if(land_instance)
+	{
+		land_instance->refresh();
+	}
 }
 
-void LLFloaterLand::onOpen()
+void LLFloaterLand::onOpen(const LLSD& key)
 {
+	// moved from triggering show instance in llviwermenu.cpp
+	
+	if (LLViewerParcelMgr::getInstance()->selectionEmpty())
+	{
+		LLViewerParcelMgr::getInstance()->selectParcelAt(gAgent.getPositionGlobal());
+	}
+	
 	// Done automatically when the selected parcel's properties arrive
 	// (and hence we have the local id).
 	// LLViewerParcelMgr::getInstance()->sendParcelAccessListRequest(AL_ACCESS | AL_BAN | AL_RENTER);
@@ -174,45 +212,40 @@ void LLFloaterLand::onOpen()
 	refresh();
 }
 
-
-// virtual
-void LLFloaterLand::onClose(bool app_quitting)
+void LLFloaterLand::onVisibilityChange(const LLSD& visible)
 {
-	LLViewerParcelMgr::getInstance()->removeObserver( sObserver );
-	delete sObserver;
-	sObserver = NULL;
+	if (!visible.asBoolean())
+	{
+		// Might have been showing owned objects
+		LLSelectMgr::getInstance()->unhighlightAll();
 
-	// Might have been showing owned objects
-	LLSelectMgr::getInstance()->unhighlightAll();
-
-	// Save which panel we had open
-	sLastTab = mTabLand->getCurrentPanelIndex();
-
-	destroy();
+		// Save which panel we had open
+		sLastTab = mTabLand->getCurrentPanelIndex();
+	}
 }
 
 
 LLFloaterLand::LLFloaterLand(const LLSD& seed)
-:	LLFloater(std::string("floaterland"), std::string("FloaterLandRect5"), std::string("About Land"))
+:	LLFloater(seed)
 {
-	LLCallbackMap::map_t factory_map;
-	factory_map["land_general_panel"] = LLCallbackMap(createPanelLandGeneral, this);
+	mFactoryMap["land_general_panel"] = LLCallbackMap(createPanelLandGeneral, this);
+	mFactoryMap["land_covenant_panel"] = LLCallbackMap(createPanelLandCovenant, this);
+	mFactoryMap["land_objects_panel"] = LLCallbackMap(createPanelLandObjects, this);
+	mFactoryMap["land_options_panel"] = LLCallbackMap(createPanelLandOptions, this);
+	mFactoryMap["land_audio_panel"] =	LLCallbackMap(createPanelLandAudio, this);
+	mFactoryMap["land_media_panel"] =	LLCallbackMap(createPanelLandMedia, this);
+	mFactoryMap["land_access_panel"] =	LLCallbackMap(createPanelLandAccess, this);
 
-	
-	factory_map["land_covenant_panel"] = LLCallbackMap(createPanelLandCovenant, this);
-	factory_map["land_objects_panel"] = LLCallbackMap(createPanelLandObjects, this);
-	factory_map["land_options_panel"] = LLCallbackMap(createPanelLandOptions, this);
-	factory_map["land_media_panel"] =	LLCallbackMap(createPanelLandMedia, this);
-	factory_map["land_access_panel"] =	LLCallbackMap(createPanelLandAccess, this);
-
-	LLUICtrlFactory::getInstance()->buildFloater(this, "floater_about_land.xml", &factory_map, false);
+	//LLUICtrlFactory::getInstance()->buildFloater(this, "floater_about_land.xml", false);
 
 	sObserver = new LLParcelSelectionObserver();
 	LLViewerParcelMgr::getInstance()->addObserver( sObserver );
 }
 
 BOOL LLFloaterLand::postBuild()
-{
+{	
+	setVisibleCallback(boost::bind(&LLFloaterLand::onVisibilityChange, this, _2));
+	
 	LLTabContainer* tab = getChild<LLTabContainer>("landtab");
 
 	mTabLand = (LLTabContainer*) tab;
@@ -229,6 +262,9 @@ BOOL LLFloaterLand::postBuild()
 // virtual
 LLFloaterLand::~LLFloaterLand()
 {
+	LLViewerParcelMgr::getInstance()->removeObserver( sObserver );
+	delete sObserver;
+	sObserver = NULL;
 }
 
 // public
@@ -237,8 +273,10 @@ void LLFloaterLand::refresh()
 	mPanelGeneral->refresh();
 	mPanelObjects->refresh();
 	mPanelOptions->refresh();
+	mPanelAudio->refresh();
 	mPanelMedia->refresh();
 	mPanelAccess->refresh();
+	mPanelCovenant->refresh();
 }
 
 
@@ -276,6 +314,14 @@ void* LLFloaterLand::createPanelLandOptions(void* data)
 }
 
 // static
+void* LLFloaterLand::createPanelLandAudio(void* data)
+{
+	LLFloaterLand* self = (LLFloaterLand*)data;
+	self->mPanelAudio = new LLPanelLandAudio(self->mParcel);
+	return self->mPanelAudio;
+}
+
+// static
 void* LLFloaterLand::createPanelLandMedia(void* data)
 {
 	LLFloaterLand* self = (LLFloaterLand*)data;
@@ -297,7 +343,7 @@ void* LLFloaterLand::createPanelLandAccess(void* data)
 
 
 LLPanelLandGeneral::LLPanelLandGeneral(LLParcelSelectionHandle& parcel)
-:	LLPanel(std::string("land_general_panel")),
+:	LLPanel(),
 	mUncheckedSell(FALSE),
 	mParcel(parcel)
 {
@@ -306,16 +352,15 @@ LLPanelLandGeneral::LLPanelLandGeneral(LLParcelSelectionHandle& parcel)
 BOOL LLPanelLandGeneral::postBuild()
 {
 	mEditName = getChild<LLLineEditor>("Name");
-	mEditName->setCommitCallback(onCommitAny);	
-	childSetPrevalidate("Name", LLLineEditor::prevalidatePrintableNotPipe);
-	childSetUserData("Name", this);
+	mEditName->setCommitCallback(onCommitAny, this);	
+	childSetPrevalidate("Name", LLLineEditor::prevalidateASCIIPrintableNoPipe);
 
 	mEditDesc = getChild<LLTextEditor>("Description");
 	mEditDesc->setCommitOnFocusLost(TRUE);
-	mEditDesc->setCommitCallback(onCommitAny);	
-	childSetPrevalidate("Description", LLLineEditor::prevalidatePrintableNotPipe);
-	childSetUserData("Description", this);
-
+	mEditDesc->setCommitCallback(onCommitAny, this);	
+	// No prevalidate function - historically the prevalidate function was broken,
+	// allowing residents to put in characters like U+2661 WHITE HEART SUIT, so
+	// preserve that ability.
 	
 	mTextSalePending = getChild<LLTextBox>("SalePending");
 	mTextOwnerLabel = getChild<LLTextBox>("Owner:");
@@ -333,7 +378,7 @@ BOOL LLPanelLandGeneral::postBuild()
 
 	
 	mBtnSetGroup = getChild<LLButton>("Set...");
-	mBtnSetGroup->setClickedCallback(onClickSetGroup, this);
+	mBtnSetGroup->setCommitCallback(boost::bind(&LLPanelLandGeneral::onClickSetGroup, this));
 
 	
 	mCheckDeedToGroup = getChild<LLCheckBoxCtrl>( "check deed");
@@ -382,6 +427,9 @@ BOOL LLPanelLandGeneral::postBuild()
 	mBtnBuyLand = getChild<LLButton>("Buy Land...");
 	mBtnBuyLand->setClickedCallback(onClickBuyLand, (void*)&BUY_PERSONAL_LAND);
 	
+	mBtnScriptLimits = getChild<LLButton>("Scripts...");
+	mBtnScriptLimits->setClickedCallback(onClickScriptLimits, this);
+	
 	mBtnBuyGroupLand = getChild<LLButton>("Buy For Group...");
 	mBtnBuyGroupLand->setClickedCallback(onClickBuyLand, (void*)&BUY_GROUP_LAND);
 	
@@ -396,7 +444,7 @@ BOOL LLPanelLandGeneral::postBuild()
 	mBtnReclaimLand->setClickedCallback(onClickReclaim, NULL);
 	
 	mBtnStartAuction = getChild<LLButton>("Linden Sale...");
-	mBtnStartAuction->setClickedCallback(onClickStartAuction, NULL);
+	mBtnStartAuction->setClickedCallback(onClickStartAuction, this);
 
 	return TRUE;
 }
@@ -469,6 +517,7 @@ void LLPanelLandGeneral::refresh()
 		mTextDwell->setText(LLStringUtil::null);
 
 		mBtnBuyLand->setEnabled(FALSE);
+		mBtnScriptLimits->setEnabled(FALSE);
 		mBtnBuyGroupLand->setEnabled(FALSE);
 		mBtnReleaseLand->setEnabled(FALSE);
 		mBtnReclaimLand->setEnabled(FALSE);
@@ -676,6 +725,8 @@ void LLPanelLandGeneral::refresh()
 
 		mBtnBuyLand->setEnabled(
 			LLViewerParcelMgr::getInstance()->canAgentBuyParcel(parcel, false));
+		mBtnScriptLimits->setEnabled(true);
+//			LLViewerParcelMgr::getInstance()->canAgentBuyParcel(parcel, false));
 		mBtnBuyGroupLand->setEnabled(
 			LLViewerParcelMgr::getInstance()->canAgentBuyParcel(parcel, true));
 
@@ -706,6 +757,7 @@ void LLPanelLandGeneral::refreshNames()
 	if (!parcel)
 	{
 		mTextOwner->setText(LLStringUtil::null);
+		mTextGroup->setText(LLStringUtil::null);
 		return;
 	}
 
@@ -717,7 +769,7 @@ void LLPanelLandGeneral::refreshNames()
 	else
 	{
 		// Figure out the owner's name
-		gCacheName->getFullName(parcel->getOwnerID(), owner);
+		owner = LLSLURL::buildCommand("agent", parcel->getOwnerID(), "inspect");
 	}
 
 	if(LLParcel::OS_LEASE_PENDING == parcel->getOwnershipStatus())
@@ -727,9 +779,9 @@ void LLPanelLandGeneral::refreshNames()
 	mTextOwner->setText(owner);
 
 	std::string group;
-	if(!parcel->getGroupID().isNull())
+	if (!parcel->getGroupID().isNull())
 	{
-		gCacheName->getGroupName(parcel->getGroupID(), group);
+		group = LLSLURL::buildCommand("group", parcel->getGroupID(), "inspect");
 	}
 	mTextGroup->setText(group);
 
@@ -737,7 +789,7 @@ void LLPanelLandGeneral::refreshNames()
 	if(auth_buyer_id.notNull())
 	{
 		std::string name;
-		gCacheName->getFullName(auth_buyer_id, name);
+		name = LLSLURL::buildCommand("agent", auth_buyer_id, "inspect");
 		mSaleInfoForSale2->setTextArg("[BUYER]", name);
 	}
 	else
@@ -750,26 +802,23 @@ void LLPanelLandGeneral::refreshNames()
 // virtual
 void LLPanelLandGeneral::draw()
 {
-	refreshNames();
 	LLPanel::draw();
 }
 
-// static
-void LLPanelLandGeneral::onClickSetGroup(void* userdata)
+void LLPanelLandGeneral::onClickSetGroup()
 {
-	LLPanelLandGeneral* panelp = (LLPanelLandGeneral*)userdata;
-	LLFloaterGroupPicker* fg;
+	LLFloater* parent_floater = gFloaterView->getParentFloater(this);
 
-	LLFloater* parent_floater = gFloaterView->getParentFloater(panelp);
-
-	fg = LLFloaterGroupPicker::showInstance(LLSD(gAgent.getID()));
-	fg->setSelectCallback( cbGroupID, userdata );
-
-	if (parent_floater)
+	LLFloaterGroupPicker* fg = 	LLFloaterReg::showTypedInstance<LLFloaterGroupPicker>("group_picker", LLSD(gAgent.getID()));
+	if (fg)
 	{
-		LLRect new_rect = gFloaterView->findNeighboringPosition(parent_floater, fg);
-		fg->setOrigin(new_rect.mLeft, new_rect.mBottom);
-		parent_floater->addDependentFloater(fg);
+		fg->setSelectGroupCallback( boost::bind(&LLPanelLandGeneral::setGroup, this, _1 ));
+		if (parent_floater)
+		{
+			LLRect new_rect = gFloaterView->findNeighboringPosition(parent_floater, fg);
+			fg->setOrigin(new_rect.mLeft, new_rect.mBottom);
+			parent_floater->addDependentFloater(fg);
+		}
 	}
 }
 
@@ -783,20 +832,13 @@ void LLPanelLandGeneral::onClickProfile(void* data)
 	if (parcel->getIsGroupOwned())
 	{
 		const LLUUID& group_id = parcel->getGroupID();
-		LLFloaterGroupInfo::showFromUUID(group_id);
+		LLGroupActions::show(group_id);
 	}
 	else
 	{
 		const LLUUID& avatar_id = parcel->getOwnerID();
-		LLFloaterAvatarInfo::showFromObject(avatar_id);
+		LLAvatarActions::showProfile(avatar_id);
 	}
-}
-
-// static
-void LLPanelLandGeneral::cbGroupID(LLUUID group_id, void* userdata)
-{
-	LLPanelLandGeneral* self = (LLPanelLandGeneral*)userdata;
-	self->setGroup(group_id);
 }
 
 // public
@@ -822,6 +864,17 @@ void LLPanelLandGeneral::onClickBuyLand(void* data)
 {
 	BOOL* for_group = (BOOL*)data;
 	LLViewerParcelMgr::getInstance()->startBuyLand(*for_group);
+}
+
+// static
+void LLPanelLandGeneral::onClickScriptLimits(void* data)
+{
+	LLPanelLandGeneral* panelp = (LLPanelLandGeneral*)data;
+	LLParcel* parcel = panelp->mParcel->getParcel();
+	if(parcel != NULL)
+	{
+		LLFloaterReg::showInstance("script_limits");
+	}
 }
 
 BOOL LLPanelLandGeneral::enableDeedToGroup(void* data)
@@ -884,7 +937,7 @@ void LLPanelLandGeneral::onClickBuyPass(void* data)
 	args["PARCEL_NAME"] = parcel_name;
 	args["TIME"] = time;
 	
-	LLNotifications::instance().add("LandBuyPass", args, LLSD(), cbBuyPass);
+	LLNotificationsUtil::add("LandBuyPass", args, LLSD(), cbBuyPass);
 }
 
 // static
@@ -896,11 +949,12 @@ void LLPanelLandGeneral::onClickStartAuction(void* data)
 	{
 		if(parcelp->getForSale())
 		{
-			LLNotifications::instance().add("CannotStartAuctionAlreadyForSale");
+			LLNotificationsUtil::add("CannotStartAuctionAlreadyForSale");
 		}
 		else
 		{
-			LLFloaterAuction::show();
+			//LLFloaterAuction::showInstance();
+			LLFloaterReg::showInstance("auction");
 		}
 	}
 }
@@ -908,7 +962,7 @@ void LLPanelLandGeneral::onClickStartAuction(void* data)
 // static
 bool LLPanelLandGeneral::cbBuyPass(const LLSD& notification, const LLSD& response)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	if (0 == option)
 	{
 		// User clicked OK
@@ -974,7 +1028,8 @@ void LLPanelLandGeneral::onClickStopSellLand(void* data)
 // LLPanelLandObjects
 //---------------------------------------------------------------------------
 LLPanelLandObjects::LLPanelLandObjects(LLParcelSelectionHandle& parcel)
-:	LLPanel(std::string("land_objects_panel")), mParcel(parcel)
+	:	LLPanel(),
+		mParcel(parcel)
 {
 }
 
@@ -1013,11 +1068,9 @@ BOOL LLPanelLandObjects::postBuild()
 	mSelectedObjects = getChild<LLTextBox>("selected_objects_text");
 	mCleanOtherObjectsTime = getChild<LLLineEditor>("clean other time");
 
-	mCleanOtherObjectsTime->setFocusLostCallback(onLostFocus, this);
-	mCleanOtherObjectsTime->setCommitCallback(onCommitClean);
-
+	mCleanOtherObjectsTime->setFocusLostCallback(boost::bind(onLostFocus, _1, this));
+	mCleanOtherObjectsTime->setCommitCallback(onCommitClean, this);
 	childSetPrevalidate("clean other time", LLLineEditor::prevalidateNonNegativeS32);
-	childSetUserData("clean other time", this);
 	
 	mBtnRefresh = getChild<LLButton>("Refresh List");
 	mBtnRefresh->setClickedCallback(onClickRefresh, this);
@@ -1025,14 +1078,15 @@ BOOL LLPanelLandObjects::postBuild()
 	mBtnReturnOwnerList = getChild<LLButton>("Return objects...");
 	mBtnReturnOwnerList->setClickedCallback(onClickReturnOwnerList, this);
 
-	mIconAvatarOnline = LLUIImageList::getInstance()->getUIImage("icon_avatar_online.tga");
-	mIconAvatarOffline = LLUIImageList::getInstance()->getUIImage("icon_avatar_offline.tga");
-	mIconGroup = LLUIImageList::getInstance()->getUIImage("icon_group.tga");
+	mIconAvatarOnline = LLUIImageList::getInstance()->getUIImage("icon_avatar_online.tga", 0);
+	mIconAvatarOffline = LLUIImageList::getInstance()->getUIImage("icon_avatar_offline.tga", 0);
+	mIconGroup = LLUIImageList::getInstance()->getUIImage("icon_group.tga", 0);
 
 	mOwnerList = getChild<LLNameListCtrl>("owner list");
 	mOwnerList->sortByColumnIndex(3, FALSE);
 	childSetCommitCallback("owner list", onCommitList, this);
-	mOwnerList->setDoubleClickCallback(onDoubleClickOwner);
+	mOwnerList->setDoubleClickCallback(onDoubleClickOwner, this);
+	mOwnerList->setContextMenu(LLScrollListCtrl::MENU_AVATAR);
 
 	return TRUE;
 }
@@ -1064,11 +1118,11 @@ void LLPanelLandObjects::onDoubleClickOwner(void *userdata)
 		BOOL is_group = cell->getValue().asString() == OWNER_GROUP;
 		if (is_group)
 		{
-			LLFloaterGroupInfo::showFromUUID(owner_id);
+			LLGroupActions::show(owner_id);
 		}
 		else
 		{
-			LLFloaterAvatarInfo::showFromDirectory(owner_id);
+			LLAvatarActions::showProfile(owner_id);
 		}
 	}
 }
@@ -1254,7 +1308,7 @@ void send_return_objects_message(S32 parcel_local_id, S32 return_type,
 
 bool LLPanelLandObjects::callbackReturnOwnerObjects(const LLSD& notification, const LLSD& response)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	LLParcel *parcel = mParcel->getParcel();
 	if (0 == option)
 	{
@@ -1264,7 +1318,7 @@ bool LLPanelLandObjects::callbackReturnOwnerObjects(const LLSD& notification, co
 			LLSD args;
 			if (owner_id == gAgentID)
 			{
-				LLNotifications::instance().add("OwnedObjectsReturned");
+				LLNotificationsUtil::add("OwnedObjectsReturned");
 			}
 			else
 			{
@@ -1272,7 +1326,7 @@ bool LLPanelLandObjects::callbackReturnOwnerObjects(const LLSD& notification, co
 				gCacheName->getName(owner_id, first, last);
 				args["FIRST"] = first;
 				args["LAST"] = last;
-				LLNotifications::instance().add("OtherObjectsReturned", args);
+				LLNotificationsUtil::add("OtherObjectsReturned", args);
 			}
 			send_return_objects_message(parcel->getLocalID(), RT_OWNER);
 		}
@@ -1286,7 +1340,7 @@ bool LLPanelLandObjects::callbackReturnOwnerObjects(const LLSD& notification, co
 
 bool LLPanelLandObjects::callbackReturnGroupObjects(const LLSD& notification, const LLSD& response)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	LLParcel *parcel = mParcel->getParcel();
 	if (0 == option)
 	{
@@ -1296,7 +1350,7 @@ bool LLPanelLandObjects::callbackReturnGroupObjects(const LLSD& notification, co
 			gCacheName->getGroupName(parcel->getGroupID(), group_name);
 			LLSD args;
 			args["GROUPNAME"] = group_name;
-			LLNotifications::instance().add("GroupObjectsReturned", args);
+			LLNotificationsUtil::add("GroupObjectsReturned", args);
 			send_return_objects_message(parcel->getLocalID(), RT_GROUP);
 		}
 	}
@@ -1308,13 +1362,13 @@ bool LLPanelLandObjects::callbackReturnGroupObjects(const LLSD& notification, co
 
 bool LLPanelLandObjects::callbackReturnOtherObjects(const LLSD& notification, const LLSD& response)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	LLParcel *parcel = mParcel->getParcel();
 	if (0 == option)
 	{
 		if (parcel)
 		{
-			LLNotifications::instance().add("UnOwnedObjectsReturned");
+			LLNotificationsUtil::add("UnOwnedObjectsReturned");
 			send_return_objects_message(parcel->getLocalID(), RT_OTHER);
 		}
 	}
@@ -1326,7 +1380,7 @@ bool LLPanelLandObjects::callbackReturnOtherObjects(const LLSD& notification, co
 
 bool LLPanelLandObjects::callbackReturnOwnerList(const LLSD& notification, const LLSD& response)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	LLParcel *parcel = mParcel->getParcel();
 	if (0 == option)
 	{
@@ -1340,12 +1394,12 @@ bool LLPanelLandObjects::callbackReturnOwnerList(const LLSD& notification, const
 				if (mSelectedIsGroup)
 				{
 					args["GROUPNAME"] = mSelectedName;
-					LLNotifications::instance().add("GroupObjectsReturned", args);
+					LLNotificationsUtil::add("GroupObjectsReturned", args);
 				}
 				else
 				{
 					args["NAME"] = mSelectedName;
-					LLNotifications::instance().add("OtherObjectsReturned2", args);
+					LLNotificationsUtil::add("OtherObjectsReturned2", args);
 				}
 
 				send_return_objects_message(parcel->getLocalID(), RT_LIST, &(mSelectedOwners));
@@ -1382,11 +1436,11 @@ void LLPanelLandObjects::onClickReturnOwnerList(void* userdata)
 	args["N"] = llformat("%d",self->mSelectedCount);
 	if (self->mSelectedIsGroup)
 	{
-		LLNotifications::instance().add("ReturnObjectsDeededToGroup", args, LLSD(), boost::bind(&LLPanelLandObjects::callbackReturnOwnerList, self, _1, _2));	
+		LLNotificationsUtil::add("ReturnObjectsDeededToGroup", args, LLSD(), boost::bind(&LLPanelLandObjects::callbackReturnOwnerList, self, _1, _2));	
 	}
 	else 
 	{
-		LLNotifications::instance().add("ReturnObjectsOwnedByUser", args, LLSD(), boost::bind(&LLPanelLandObjects::callbackReturnOwnerList, self, _1, _2));	
+		LLNotificationsUtil::add("ReturnObjectsOwnedByUser", args, LLSD(), boost::bind(&LLPanelLandObjects::callbackReturnOwnerList, self, _1, _2));	
 	}
 }
 
@@ -1406,7 +1460,7 @@ void LLPanelLandObjects::onClickRefresh(void* userdata)
 
 	// ready the list for results
 	self->mOwnerList->deleteAllItems();
-	self->mOwnerList->addCommentText(std::string("Searching...")); // *TODO: Translate
+	self->mOwnerList->setCommentText(LLTrans::getString("Searching"));
 	self->mOwnerList->setEnabled(FALSE);
 	self->mFirstReply = TRUE;
 
@@ -1468,39 +1522,36 @@ void LLPanelLandObjects::processParcelObjectOwnersReply(LLMessageSystem *msg, vo
 			continue;
 		}
 
-		LLScrollListItem *row = new LLScrollListItem( TRUE, NULL, owner_id);
+		LLNameListCtrl::NameItem item_params;
+		item_params.value = owner_id;
+		item_params.target = is_group_owned ? LLNameListCtrl::GROUP : LLNameListCtrl::INDIVIDUAL;
+
 		if (is_group_owned)
 		{
-			row->addColumn(self->mIconGroup);
-			row->addColumn(OWNER_GROUP, FONT);
+			item_params.columns.add().type("icon").value(self->mIconGroup->getName()).column("type");
+			item_params.columns.add().value(OWNER_GROUP).font(FONT).column("online_status");
 		}
 		else if (is_online)
 		{
-			row->addColumn(self->mIconAvatarOnline);
-			row->addColumn(OWNER_ONLINE, FONT);
+			item_params.columns.add().type("icon").value(self->mIconAvatarOnline->getName()).column("type");
+			item_params.columns.add().value(OWNER_ONLINE).font(FONT).column("online_status");
 		}
 		else  // offline
 		{
-			row->addColumn(self->mIconAvatarOffline);
-			row->addColumn(OWNER_OFFLINE, FONT);
+			item_params.columns.add().type("icon").value(self->mIconAvatarOffline->getName()).column("type");
+			item_params.columns.add().value(OWNER_OFFLINE).font(FONT).column("online_status");
 		}
+
 		// Placeholder for name.
-		row->addColumn(LLStringUtil::null, FONT);
+		std::string name;
+		gCacheName->getFullName(owner_id, name);		
+		item_params.columns.add().value(name).font(FONT).column("name");
 
 		object_count_str = llformat("%d", object_count);
-		row->addColumn(object_count_str, FONT);
-		
-		row->addColumn(formatted_time((time_t)most_recent_time), FONT);
+		item_params.columns.add().value(object_count_str).font(FONT).column("count");
+		item_params.columns.add().value(LLDate((time_t)most_recent_time)).font(FONT).column("mostrecent").type("date");
 
-
-		if (is_group_owned)
-		{
-			self->mOwnerList->addGroupNameItem(row, ADD_BOTTOM);
-		}
-		else
-		{
-			self->mOwnerList->addNameItem(row, ADD_BOTTOM);
-		}
+		self->mOwnerList->addRow(item_params);
 
 		lldebugs << "object owner " << owner_id << " (" << (is_group_owned ? "group" : "agent")
 				<< ") owns " << object_count << " objects." << llendl;
@@ -1508,7 +1559,7 @@ void LLPanelLandObjects::processParcelObjectOwnersReply(LLMessageSystem *msg, vo
 	// check for no results
 	if (0 == self->mOwnerList->getItemCount())
 	{
-		self->mOwnerList->addCommentText(std::string("None found.")); // *TODO: Translate
+		self->mOwnerList->setCommentText(LLTrans::getString("NoneFound"));
 	}
 	else
 	{
@@ -1599,14 +1650,14 @@ void LLPanelLandObjects::onClickReturnOwnerObjects(void* userdata)
 
 	if (owner_id == gAgent.getID())
 	{
-		LLNotifications::instance().add("ReturnObjectsOwnedBySelf", args, LLSD(), boost::bind(&LLPanelLandObjects::callbackReturnOwnerObjects, panelp, _1, _2));
+		LLNotificationsUtil::add("ReturnObjectsOwnedBySelf", args, LLSD(), boost::bind(&LLPanelLandObjects::callbackReturnOwnerObjects, panelp, _1, _2));
 	}
 	else
 	{
 		std::string name;
 		gCacheName->getFullName(owner_id, name);
 		args["NAME"] = name;
-		LLNotifications::instance().add("ReturnObjectsOwnedByUser", args, LLSD(), boost::bind(&LLPanelLandObjects::callbackReturnOwnerObjects, panelp, _1, _2));
+		LLNotificationsUtil::add("ReturnObjectsOwnedByUser", args, LLSD(), boost::bind(&LLPanelLandObjects::callbackReturnOwnerObjects, panelp, _1, _2));
 	}
 }
 
@@ -1627,7 +1678,7 @@ void LLPanelLandObjects::onClickReturnGroupObjects(void* userdata)
 	args["N"] = llformat("%d", parcel->getGroupPrimCount());
 
 	// create and show confirmation textbox
-	LLNotifications::instance().add("ReturnObjectsDeededToGroup", args, LLSD(), boost::bind(&LLPanelLandObjects::callbackReturnGroupObjects, panelp, _1, _2));
+	LLNotificationsUtil::add("ReturnObjectsDeededToGroup", args, LLSD(), boost::bind(&LLPanelLandObjects::callbackReturnGroupObjects, panelp, _1, _2));
 }
 
 // static
@@ -1652,7 +1703,7 @@ void LLPanelLandObjects::onClickReturnOtherObjects(void* userdata)
 		gCacheName->getGroupName(parcel->getGroupID(), group_name);
 		args["NAME"] = group_name;
 
-		LLNotifications::instance().add("ReturnObjectsNotOwnedByGroup", args, LLSD(), boost::bind(&LLPanelLandObjects::callbackReturnOtherObjects, panelp, _1, _2));
+		LLNotificationsUtil::add("ReturnObjectsNotOwnedByGroup", args, LLSD(), boost::bind(&LLPanelLandObjects::callbackReturnOtherObjects, panelp, _1, _2));
 	}
 	else
 	{
@@ -1660,7 +1711,7 @@ void LLPanelLandObjects::onClickReturnOtherObjects(void* userdata)
 
 		if (owner_id == gAgent.getID())
 		{
-			LLNotifications::instance().add("ReturnObjectsNotOwnedBySelf", args, LLSD(), boost::bind(&LLPanelLandObjects::callbackReturnOtherObjects, panelp, _1, _2));
+			LLNotificationsUtil::add("ReturnObjectsNotOwnedBySelf", args, LLSD(), boost::bind(&LLPanelLandObjects::callbackReturnOtherObjects, panelp, _1, _2));
 		}
 		else
 		{
@@ -1668,7 +1719,7 @@ void LLPanelLandObjects::onClickReturnOtherObjects(void* userdata)
 			gCacheName->getFullName(owner_id, name);
 			args["NAME"] = name;
 
-			LLNotifications::instance().add("ReturnObjectsNotOwnedByUser", args, LLSD(), boost::bind(&LLPanelLandObjects::callbackReturnOtherObjects, panelp, _1, _2));
+			LLNotificationsUtil::add("ReturnObjectsNotOwnedByUser", args, LLSD(), boost::bind(&LLPanelLandObjects::callbackReturnOtherObjects, panelp, _1, _2));
 		}
 	}
 }
@@ -1699,7 +1750,7 @@ void LLPanelLandObjects::onCommitClean(LLUICtrl *caller, void* user_data)
 //---------------------------------------------------------------------------
 
 LLPanelLandOptions::LLPanelLandOptions(LLParcelSelectionHandle& parcel)
-:	LLPanel(std::string("land_options_panel")),
+:	LLPanel(),
 	mCheckEditObjects(NULL),
 	mCheckEditGroupObjects(NULL),
 	mCheckAllObjectEntry(NULL),
@@ -1709,7 +1760,6 @@ LLPanelLandOptions::LLPanelLandOptions(LLParcelSelectionHandle& parcel)
 	mCheckFly(NULL),
 	mCheckGroupScripts(NULL),
 	mCheckOtherScripts(NULL),
-	mCheckLandmark(NULL),
 	mCheckShowDirectory(NULL),
 	mCategoryCombo(NULL),
 	mLandingTypeCombo(NULL),
@@ -1719,7 +1769,6 @@ LLPanelLandOptions::LLPanelLandOptions(LLParcelSelectionHandle& parcel)
 	mClearBtn(NULL),
 	mMatureCtrl(NULL),
 	mPushRestrictionCtrl(NULL),
-	mPublishHelpButton(NULL),
 	mParcel(parcel)
 {
 }
@@ -1741,10 +1790,6 @@ BOOL LLPanelLandOptions::postBuild()
 	
 	mCheckEditLand = getChild<LLCheckBoxCtrl>( "edit land check");
 	childSetCommitCallback("edit land check", onCommitAny, this);
-
-	
-	mCheckLandmark = getChild<LLCheckBoxCtrl>( "check landmark");
-	childSetCommitCallback("check landmark", onCommitAny, this);
 
 	
 	mCheckGroupScripts = getChild<LLCheckBoxCtrl>( "check group scripts");
@@ -1792,14 +1837,9 @@ BOOL LLPanelLandOptions::postBuild()
 	mMatureCtrl = getChild<LLCheckBoxCtrl>( "MatureCheck");
 	childSetCommitCallback("MatureCheck", onCommitAny, this);
 	
-	mPublishHelpButton = getChild<LLButton>("?");
-	mPublishHelpButton->setClickedCallback(onClickPublishHelp, this);
-
 	if (gAgent.wantsPGOnly())
 	{
 		// Disable these buttons if they are PG (Teen) users
-		mPublishHelpButton->setVisible(FALSE);
-		mPublishHelpButton->setEnabled(FALSE);
 		mMatureCtrl->setVisible(FALSE);
 		mMatureCtrl->setEnabled(FALSE);
 	}
@@ -1808,8 +1848,7 @@ BOOL LLPanelLandOptions::postBuild()
 	mSnapshotCtrl = getChild<LLTextureCtrl>("snapshot_ctrl");
 	if (mSnapshotCtrl)
 	{
-		mSnapshotCtrl->setCommitCallback( onCommitAny );
-		mSnapshotCtrl->setCallbackUserData( this );
+		mSnapshotCtrl->setCommitCallback( onCommitAny, this );
 		mSnapshotCtrl->setAllowNoTexture ( TRUE );
 		mSnapshotCtrl->setImmediateFilterPermMask(PERM_COPY | PERM_TRANSFER);
 		mSnapshotCtrl->setNonImmediateFilterPermMask(PERM_COPY | PERM_TRANSFER);
@@ -1873,9 +1912,6 @@ void LLPanelLandOptions::refresh()
 		mCheckFly			->set(FALSE);
 		mCheckFly			->setEnabled(FALSE);
 
-		mCheckLandmark		->set(FALSE);
-		mCheckLandmark		->setEnabled(FALSE);
-
 		mCheckGroupScripts	->set(FALSE);
 		mCheckGroupScripts	->setEnabled(FALSE);
 
@@ -1896,7 +1932,6 @@ void LLPanelLandOptions::refresh()
 		mClearBtn->setEnabled(FALSE);
 
 		mMatureCtrl->setEnabled(FALSE);
-		mPublishHelpButton->setEnabled(FALSE);
 	}
 	else
 	{
@@ -1925,9 +1960,6 @@ void LLPanelLandOptions::refresh()
 
 		mCheckFly			->set( parcel->getAllowFly() );
 		mCheckFly			->setEnabled( can_change_options );
-
-		mCheckLandmark		->set( parcel->getAllowLandmark() );
-		mCheckLandmark		->setEnabled( can_change_options );
 
 		mCheckGroupScripts	->set( parcel->getAllowGroupScripts() || parcel->getAllowOtherScripts());
 		mCheckGroupScripts	->setEnabled( can_change_options && !parcel->getAllowOtherScripts());
@@ -1975,13 +2007,9 @@ void LLPanelLandOptions::refresh()
 		mSetBtn->setEnabled( can_change_landing_point );
 		mClearBtn->setEnabled( can_change_landing_point );
 
-		mPublishHelpButton->setEnabled( can_change_identity );
-
 		if (gAgent.wantsPGOnly())
 		{
 			// Disable these buttons if they are PG (Teen) users
-			mPublishHelpButton->setVisible(FALSE);
-			mPublishHelpButton->setEnabled(FALSE);
 			mMatureCtrl->setVisible(FALSE);
 			mMatureCtrl->setEnabled(FALSE);
 		}
@@ -2143,7 +2171,7 @@ void LLPanelLandOptions::onCommitAny(LLUICtrl *ctrl, void *userdata)
 	BOOL allow_terraform	= self->mCheckEditLand->get();
 	BOOL allow_damage		= !self->mCheckSafe->get();
 	BOOL allow_fly			= self->mCheckFly->get();
-	BOOL allow_landmark		= self->mCheckLandmark->get();
+	BOOL allow_landmark		= TRUE; // cannot restrict landmark creation
 	BOOL allow_group_scripts	= self->mCheckGroupScripts->get() || self->mCheckOtherScripts->get();
 	BOOL allow_other_scripts	= self->mCheckOtherScripts->get();
 	BOOL allow_publish		= FALSE;
@@ -2160,7 +2188,7 @@ void LLPanelLandOptions::onCommitAny(LLUICtrl *ctrl, void *userdata)
 	if (!allow_other_scripts && region && region->getAllowDamage())
 	{
 
-		LLNotifications::instance().add("UnableToDisableOutsideScripts");
+		LLNotificationsUtil::add("UnableToDisableOutsideScripts");
 		return;
 	}
 
@@ -2204,7 +2232,7 @@ void LLPanelLandOptions::onClickSet(void* userdata)
 
 	if (agent_parcel->getLocalID() != selected_parcel->getLocalID())
 	{
-		LLNotifications::instance().add("MustBeInParcel");
+		LLNotificationsUtil::add("MustBeInParcel");
 		return;
 	}
 
@@ -2234,35 +2262,14 @@ void LLPanelLandOptions::onClickClear(void* userdata)
 	self->refresh();
 }
 
-// static
-void LLPanelLandOptions::onClickPublishHelp(void*)
-{
-	LLViewerRegion* region = LLViewerParcelMgr::getInstance()->getSelectionRegion();
-	LLParcel *parcel = LLViewerParcelMgr::getInstance()->getFloatingParcelSelection()->getParcel();
-	llassert(region); // Region should never be null.
-
-	bool can_change_identity = region && parcel ? 
-		LLViewerParcelMgr::isParcelModifiableByAgent(parcel, GP_LAND_CHANGE_IDENTITY) &&
-		! (region->getRegionFlags() & REGION_FLAGS_BLOCK_PARCEL_SEARCH) : false;
-
-	if(! can_change_identity)
-	{
-		LLNotifications::instance().add("ClickPublishHelpLandDisabled");
-	}
-	else
-	{
-		LLNotifications::instance().add("ClickPublishHelpLand");
-	}
-}
-
-
 
 //---------------------------------------------------------------------------
 // LLPanelLandAccess
 //---------------------------------------------------------------------------
 
 LLPanelLandAccess::LLPanelLandAccess(LLParcelSelectionHandle& parcel)
-:	LLPanel(std::string("land_access_panel")), mParcel(parcel)
+	: LLPanel(),
+	  mParcel(parcel)
 {
 }
 
@@ -2278,18 +2285,24 @@ BOOL LLPanelLandAccess::postBuild()
 	childSetCommitCallback("PriceSpin", onCommitAny, this);
 	childSetCommitCallback("HoursSpin", onCommitAny, this);
 
-	childSetAction("add_allowed", onClickAddAccess, this);
+	childSetAction("add_allowed", boost::bind(&LLPanelLandAccess::onClickAddAccess, this));
 	childSetAction("remove_allowed", onClickRemoveAccess, this);
-	childSetAction("add_banned", onClickAddBanned, this);
+	childSetAction("add_banned", boost::bind(&LLPanelLandAccess::onClickAddBanned, this));
 	childSetAction("remove_banned", onClickRemoveBanned, this);
 	
 	mListAccess = getChild<LLNameListCtrl>("AccessList");
 	if (mListAccess)
+	{
 		mListAccess->sortByColumnIndex(0, TRUE); // ascending
+		mListAccess->setContextMenu(LLScrollListCtrl::MENU_AVATAR);
+	}
 
 	mListBanned = getChild<LLNameListCtrl>("BannedList");
 	if (mListBanned)
+	{
 		mListBanned->sortByColumnIndex(0, TRUE); // ascending
+		mListBanned->setContextMenu(LLScrollListCtrl::MENU_AVATAR);
+	}
 
 	return TRUE;
 }
@@ -2301,13 +2314,15 @@ LLPanelLandAccess::~LLPanelLandAccess()
 
 void LLPanelLandAccess::refresh()
 {
+	LLFloater* parent_floater = gFloaterView->getParentFloater(this);
+	
 	if (mListAccess)
 		mListAccess->deleteAllItems();
 	if (mListBanned)
 		mListBanned->deleteAllItems();
 	
 	LLParcel *parcel = mParcel->getParcel();
-	
+		
 	// Display options
 	if (parcel)
 	{
@@ -2328,7 +2343,6 @@ void LLPanelLandAccess::refresh()
 			childSetToolTipArg("AccessList", "[LISTED]", llformat("%d",count));
 			childSetToolTipArg("AccessList", "[MAX]", llformat("%d",PARCEL_MAX_ACCESS_LIST));
 
-			// *TODO: Translate
 			for (access_map_const_iterator cit = parcel->mAccessList.begin();
 				 cit != parcel->mAccessList.end(); ++cit)
 			{
@@ -2336,25 +2350,28 @@ void LLPanelLandAccess::refresh()
 				std::string suffix;
 				if (entry.mTime != 0)
 				{
+					LLStringUtil::format_map_t args;
 					S32 now = time(NULL);
 					S32 seconds = entry.mTime - now;
 					if (seconds < 0) seconds = 0;
 					suffix.assign(" (");
 					if (seconds >= 120)
 					{
-						std::string buf = llformat("%d minutes", (seconds/60));
+						args["[MINUTES]"] = llformat("%d", (seconds/60));
+						std::string buf = parent_floater->getString ("Minutes", args);
 						suffix.append(buf);
 					}
 					else if (seconds >= 60)
 					{
-						suffix.append("1 minute");
+						suffix.append("1 " + parent_floater->getString("Minute"));
 					}
 					else
 					{
-						std::string buf = llformat("%d seconds", seconds);
+						args["[SECONDS]"] = llformat("%d", seconds);
+						std::string buf = parent_floater->getString ("Seconds", args);
 						suffix.append(buf);
 					}
-					suffix.append(" remaining)");
+					suffix.append(" " + parent_floater->getString("Remaining") + ")");
 				}
 				if (mListAccess)
 					mListAccess->addNameItem(entry.mID, ADD_SORTED, TRUE, suffix);
@@ -2375,45 +2392,66 @@ void LLPanelLandAccess::refresh()
 				std::string suffix;
 				if (entry.mTime != 0)
 				{
+					LLStringUtil::format_map_t args;
 					S32 now = time(NULL);
 					S32 seconds = entry.mTime - now;
 					if (seconds < 0) seconds = 0;
 					suffix.assign(" (");
 					if (seconds >= 120)
 					{
-						std::string buf = llformat("%d minutes", (seconds/60));
+						args["[MINUTES]"] = llformat("%d", (seconds/60));
+						std::string buf = parent_floater->getString ("Minutes", args);
 						suffix.append(buf);
 					}
 					else if (seconds >= 60)
 					{
-						suffix.append("1 minute");
+						suffix.append("1 " + parent_floater->getString("Minute"));
 					}
 					else
 					{
-						std::string buf = llformat("%d seconds", seconds);
+						args["[SECONDS]"] = llformat("%d", seconds);
+						std::string buf = parent_floater->getString ("Seconds", args);
 						suffix.append(buf);
 					}
-					suffix.append(" remaining)");
+					suffix.append(" " + parent_floater->getString("Remaining") + ")");
 				}
 				mListBanned->addNameItem(entry.mID, ADD_SORTED, TRUE, suffix);
 			}
 		}
+		
+		LLViewerRegion* region = LLViewerParcelMgr::getInstance()->getSelectionRegion();
+		if(region)
+		{
+			std::string region_access = "(";
+			region_access += region->getSimAccessString();
+			region_access += ")";
+			childSetLabelArg( "public_access", "[MATURITY]", region_access );
+		}
+		else
+		{
+			childSetLabelArg( "public_access", "[MATURITY]", std::string() );
+		}
+
 
 		if(parcel->getRegionDenyAnonymousOverride())
 		{
 			childSetValue("limit_payment", TRUE);
+			childSetLabelArg( "limit_payment", "[ESTATE_PAYMENT_LIMIT]", getString("access_estate_defined") );
 		}
 		else
 		{
 			childSetValue("limit_payment", (parcel->getParcelFlag(PF_DENY_ANONYMOUS)));
+			childSetLabelArg( "limit_payment", "[ESTATE_PAYMENT_LIMIT]", std::string() );
 		}
 		if(parcel->getRegionDenyAgeUnverifiedOverride())
 		{
 			childSetValue("limit_age_verified", TRUE);
+			childSetLabelArg( "limit_age_verified", "[ESTATE_AGE_LIMIT]", getString("access_estate_defined") );
 		}
 		else
 		{
 			childSetValue("limit_age_verified", (parcel->getParcelFlag(PF_DENY_AGEUNVERIFIED)));
+			childSetLabelArg( "limit_age_verified", "[ESTATE_AGE_LIMIT]", std::string() );
 		}
 		
 		BOOL use_pass = parcel->getParcelFlag(PF_USE_PASS_LIST);
@@ -2657,29 +2695,22 @@ void LLPanelLandAccess::onCommitAny(LLUICtrl *ctrl, void *userdata)
 	self->refresh();
 }
 
-// static
-void LLPanelLandAccess::onClickAddAccess(void* data)
+void LLPanelLandAccess::onClickAddAccess()
 {
-	LLPanelLandAccess* panelp = (LLPanelLandAccess*)data;
-	if (panelp)
-	{
-		gFloaterView->getParentFloater(panelp)->addDependentFloater(LLFloaterAvatarPicker::show(callbackAvatarCBAccess, data) );
-	}
+	gFloaterView->getParentFloater(this)->addDependentFloater(LLFloaterAvatarPicker::show(boost::bind(&LLPanelLandAccess::callbackAvatarCBAccess, this, _1,_2)) );
 }
 
-// static
-void LLPanelLandAccess::callbackAvatarCBAccess(const std::vector<std::string>& names, const std::vector<LLUUID>& ids, void* userdata)
+void LLPanelLandAccess::callbackAvatarCBAccess(const std::vector<std::string>& names, const std::vector<LLUUID>& ids)
 {
-	LLPanelLandAccess* panelp = (LLPanelLandAccess*)userdata;
 	if (!names.empty() && !ids.empty())
 	{
 		LLUUID id = ids[0];
-		LLParcel* parcel = panelp->mParcel->getParcel();
+		LLParcel* parcel = mParcel->getParcel();
 		if (parcel)
 		{
 			parcel->addToAccessList(id, 0);
 			LLViewerParcelMgr::getInstance()->sendParcelAccessListUpdate(AL_ACCESS);
-			panelp->refresh();
+			refresh();
 		}
 	}
 }
@@ -2708,25 +2739,23 @@ void LLPanelLandAccess::onClickRemoveAccess(void* data)
 }
 
 // static
-void LLPanelLandAccess::onClickAddBanned(void* data)
+void LLPanelLandAccess::onClickAddBanned()
 {
-	LLPanelLandAccess* panelp = (LLPanelLandAccess*)data;
-	gFloaterView->getParentFloater(panelp)->addDependentFloater(LLFloaterAvatarPicker::show(callbackAvatarCBBanned, data) );
+	gFloaterView->getParentFloater(this)->addDependentFloater(LLFloaterAvatarPicker::show(boost::bind(&LLPanelLandAccess::callbackAvatarCBBanned, this, _1,_2)));
 }
 
 // static
-void LLPanelLandAccess::callbackAvatarCBBanned(const std::vector<std::string>& names, const std::vector<LLUUID>& ids, void* userdata)
+void LLPanelLandAccess::callbackAvatarCBBanned(const std::vector<std::string>& names, const std::vector<LLUUID>& ids)
 {
-	LLPanelLandAccess* panelp = (LLPanelLandAccess*)userdata;
 	if (!names.empty() && !ids.empty())
 	{
 		LLUUID id = ids[0];
-		LLParcel* parcel = panelp->mParcel->getParcel();
+		LLParcel* parcel = mParcel->getParcel();
 		if (parcel)
 		{
 			parcel->addToBanList(id, 0);
 			LLViewerParcelMgr::getInstance()->sendParcelAccessListUpdate(AL_BAN);
-			panelp->refresh();
+			refresh();
 		}
 	}
 }
@@ -2758,18 +2787,13 @@ void LLPanelLandAccess::onClickRemoveBanned(void* data)
 // LLPanelLandCovenant
 //---------------------------------------------------------------------------
 LLPanelLandCovenant::LLPanelLandCovenant(LLParcelSelectionHandle& parcel)
-:	LLPanel(std::string("land_covenant_panel")), mParcel(parcel)
+	: LLPanel(),
+	  mParcel(parcel)
 {	
 }
 
 LLPanelLandCovenant::~LLPanelLandCovenant()
 {
-}
-
-BOOL LLPanelLandCovenant::postBuild()
-{
-	refresh();
-	return TRUE;
 }
 
 // virtual
@@ -2838,11 +2862,7 @@ void LLPanelLandCovenant::updateCovenantText(const std::string &string)
 	if (self)
 	{
 		LLViewerTextEditor* editor = self->getChild<LLViewerTextEditor>("covenant_editor");
-		if (editor)
-		{
-			editor->setHandleEditKeysDirectly(TRUE);
-			editor->setText(string);
-		}
+		editor->setText(string);
 	}
 }
 

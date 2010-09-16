@@ -4,6 +4,7 @@
      For example, the strings used in avatar chat bubbles, and strings 
      that are returned from one component and may appear in many places-->
 <strings>
+	<string name="create_account_url">http://join.secondlife.com/index.php?lang=it-IT</string>
 	<string name="LoginInProgress">
 		In connessione. [APP_NAME] può sembrare rallentata.  Attendi.
 	</string>
@@ -17,7 +18,7 @@
 		Un precedente tentativo di login è fallito. Tentativo di connessione [NUMBER]
 	</string>
 	<string name="LoginPrecaching">
-		Sto caricando SecondLife...
+		Sto caricando [SECOND_LIFE]...
 	</string>
 	<string name="LoginInitializingBrowser">
 		Inizializzazione del browser web incorporato...
@@ -483,4 +484,169 @@
 	<string name="choose_the_directory">
 		Scegli la cartella
 	</string>
+	<string name="accel-mac-control">
+		&#8963;
+	</string>
+	<string name="accel-mac-command">
+		&#8984;
+	</string>
+	<string name="accel-mac-option">
+		&#8997;
+	</string>
+	<string name="accel-mac-shift">
+		&#8679;
+	</string>
+	<string name="accel-win-control">
+		Ctrl+
+	</string>
+	<string name="accel-win-alt">
+		Alt+
+	</string>
+	<string name="accel-win-shift">
+		Shift+
+	</string>
+	<string name="GraphicsQualityLow">
+		Basso
+	</string>
+	<string name="GraphicsQualityMid">
+		Medio
+	</string>
+	<string name="GraphicsQualityHigh">
+		Alto
+	</string>
+	
+	<!-- PARCEL_CATEGORY_UI_STRING - TAKE FROM floater_about_land."land category with adult".item1-item12 -->
+	<string name="Linden Location">Luogo dei Linden</string>
+	<string name="Adult">Adult</string>
+	<string name="Arts&amp;Culture">Arte &amp; Cultura</string>
+	<string name="Business">Affari</string>
+	<string name="Educational">Educazione</string>
+	<string name="Gaming">Gioco</string>
+	<string name="Hangout">Divertimento</string>
+	<string name="Newcomer Friendly">Accoglienza nuovi residenti</string>
+	<string name="Parks&amp;Nature">Parchi &amp; Natura</string>
+	<string name="Residential">Residenziale</string>
+	<string name="Shopping">Shopping</string>
+	<string name="Other">Altro</string>
+	
+	<string name="ringing">
+		In connessione alla Voice Chat in-world...
+	</string>
+	<string name="connected">
+		Connesso
+	</string>
+	<string name="unavailable">
+		Il voice non è disponibile nel posto dove ti trovi ora
+	</string>
+	<string name="hang_up">
+		Disconnesso dalla Voice Chat in-world
+	</string>
+  <string name="ScriptQuestionCautionChatGranted">
+	A &apos;[OBJECTNAME]&apos;, un oggetto di proprietà di &apos;[OWNERNAME]&apos;, situato in [REGIONNAME] [REGIONPOS], è stato concesso il permesso di: [PERMISSIONS].
+  </string>
+  <string name="ScriptQuestionCautionChatDenied">
+	A &apos;[OBJECTNAME]&apos;, un oggetto di proprietà di &apos;[OWNERNAME]&apos;, situato in [REGIONNAME] [REGIONPOS], è stato negato il permesso di: [PERMISSIONS].
+  </string>
+  <string name="ScriptTakeMoney">
+	Prendere dollari Linden (L$) da te
+  </string>
+  <string name="ActOnControlInputs">
+	Agire sul tuo controllo degli input
+  </string>
+  <string name="RemapControlInputs">
+	Rimappare il tuo controllo degli input
+  </string>
+  <string name="AnimateYourAvatar">
+	Animare il tuo avatar
+  </string>
+  <string name="AttachToYourAvatar">
+	Far indossare al tuo avatar
+  </string>
+  <string name="ReleaseOwnership">
+	Rilasciare la propietà è far diventare pubblico.
+  </string>
+  <string name="LinkAndDelink">
+	Collegare e scollegare dagli altri oggetti
+  </string>
+  <string name="AddAndRemoveJoints">
+	Aggiungere e rimuovere le giunzioni insieme con gli altri oggetti
+  </string>
+  <string name="ChangePermissions">
+	Cambiare i permessi
+  </string>
+  <string name="TrackYourCamera">
+	Tracciare la fotocamera
+  </string>
+  <string name="ControlYourCamera">
+	Controllare la tua fotocamera
+  </string>
+	<string name="only_user_message">
+		Sei l&apos;unico utente di questa sessione.
+	</string>
+	<string name="offline_message">
+		[FIRST] [LAST] è offline.
+	</string>
+	<string name="invite_message">
+		Clicca il tasto [BUTTON NAME] per accettare/connetterti a questa voice chat.
+	</string>
+	<string name="generic_request_error">
+		Errore durante la richiesta, riprova più tardi.
+	</string>
+	<string name="insufficient_perms_error">
+		Non hai sufficienti permessi.
+	</string>
+	<string name="session_does_not_exist_error">
+		Questa sessione non esiste più
+	</string>
+	<string name="no_ability_error">
+		Non hai questa abilitazione.
+	</string>
+	<string name="no_ability">
+		Non hai questa abilitazione.
+	</string>
+	<string name="not_a_mod_error">
+		Non sei un moderatore.
+	</string>
+	<string name="muted_error">
+		Un moderatore di gruppo ti ha disabilitato dalla chat di testo.
+	</string>
+	<string name="add_session_event">
+		Impossibile aggiungere utenti alla chat con [RECIPIENT].
+	</string>
+	<string name="message_session_event">
+		Impossibile inviare il messaggio nella chat con [RECIPIENT].
+	</string>
+	<string name="removed_from_group">
+		Sei stato espulso dal gruppo.
+	</string>
+	<string name="close_on_no_ability">
+		Non hai più le abilitazioni per rimanere nella sessione chat.
+	</string>
+			<string name="AcctTypeResident">
+				Residente
+			</string>
+			<string name="AcctTypeTrial">
+				Prova
+			</string>
+			<string name="AcctTypeCharterMember">
+				Membro privilegiato
+			</string>
+			<string name="AcctTypeEmployee">
+				Impiegato della Linden Lab
+			</string>
+			<string name="PaymentInfoUsed">
+				Info. di pagamento usate
+			</string>
+			<string name="PaymentInfoOnFile">
+				Info. di pagamento in archivio
+			</string>
+			<string name="NoPaymentInfoOnFile">
+				Nessuna info. di pagamento
+			</string>
+			<string name="AgeVerified">
+				Età verificata
+			</string>
+			<string name="NotAgeVerified">
+				Età non verificata
+			</string>
 </strings>

@@ -33,19 +33,24 @@
 #ifndef LL_LLVIEWERMESSAGE_H
 #define LL_LLVIEWERMESSAGE_H
 
+#include "llassettype.h"
 #include "llinstantmessage.h"
+#include "llpointer.h"
 #include "lltransactiontypes.h"
 #include "lluuid.h"
+#include "message.h"
 #include "stdenums.h"
 
 //
 // Forward declarations
 //
 class LLColor4;
-class LLViewerObject;
 class LLInventoryObject;
 class LLInventoryItem;
+class LLMeanCollisionData;
 class LLMessageSystem;
+class LLVFS;
+class LLViewerObject;
 class LLViewerRegion;
 
 //
@@ -57,7 +62,8 @@ enum InventoryOfferResponse
 	IOR_ACCEPT,
 	IOR_DECLINE,
 	IOR_MUTE,
-	IOR_BUSY
+	IOR_BUSY,
+	IOR_SHOW
 };
 
 BOOL can_afford_transaction(S32 cost);
@@ -151,7 +157,7 @@ void send_group_notice(const LLUUID& group_id,
 					   const LLInventoryItem* item);
 
 void handle_lure(const LLUUID& invitee);
-void handle_lure(LLDynamicArray<LLUUID>& ids);
+void handle_lure(const std::vector<LLUUID>& ids);
 
 // always from gAgent and 
 // routes through the gAgent's current simulator
@@ -195,6 +201,7 @@ void invalid_message_callback(LLMessageSystem*, void*, EMessageException);
 
 void process_initiate_download(LLMessageSystem* msg, void**);
 void start_new_inventory_observer();
+void open_inventory_offer(const std::vector<LLUUID>& items, const std::string& from_name);
 
 struct LLOfferInfo
 {
@@ -216,7 +223,9 @@ struct LLOfferInfo
 	LLHost mHost;
 
 	LLSD asLLSD();
+	void send_auto_receive_response(void);
 	bool inventory_offer_callback(const LLSD& notification, const LLSD& response);
+	bool inventory_task_offer_callback(const LLSD& notification, const LLSD& response);
 
 };
 

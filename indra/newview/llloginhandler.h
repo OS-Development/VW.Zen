@@ -39,8 +39,8 @@ class LLLoginHandler : public LLCommandHandler
 {
  public:
 	// allow from external browsers
-	LLLoginHandler() : LLCommandHandler("login", false) { }
-	/*virtual*/ bool handle(const LLSD& tokens, const LLSD& query_map, LLWebBrowserCtrl* web);
+	LLLoginHandler() : LLCommandHandler("login", UNTRUSTED_ALLOW) { }
+	/*virtual*/ bool handle(const LLSD& tokens, const LLSD& query_map, LLMediaCtrl* web);
 
 	// Fill in our internal fields from a SLURL like
 	// secondlife:///app/login?first=Bob&last=Dobbs
@@ -48,7 +48,9 @@ class LLLoginHandler : public LLCommandHandler
 
 	std::string getFirstName() const { return mFirstName; }
 	std::string getLastName() const { return mLastName; }
-	LLUUID getWebLoginKey() const { return mWebLoginKey; }
+
+	// Web-based login unsupported
+	//LLUUID getWebLoginKey() const { return mWebLoginKey; }
 
 private:
 	void parse(const LLSD& queryMap);
@@ -56,7 +58,7 @@ private:
 private:
 	std::string mFirstName;
 	std::string mLastName;
-	LLUUID mWebLoginKey;
+	//LLUUID mWebLoginKey;
 };
 
 extern LLLoginHandler gLoginHandler;

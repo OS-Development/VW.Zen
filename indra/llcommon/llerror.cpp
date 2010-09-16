@@ -45,20 +45,16 @@
 # include <syslog.h>
 # include <unistd.h>
 #endif // !LL_WINDOWS
-#if LL_WINDOWS
-# include <windows.h>
-#endif // LL_WINDOWS
 #include <vector>
 
 #include "llapp.h"
 #include "llapr.h"
 #include "llfile.h"
-#include "llfixedbuffer.h"
 #include "lllivefile.h"
 #include "llsd.h"
 #include "llsdserialize.h"
 #include "llstl.h"
-
+#include "lltimer.h"
 
 namespace {
 #if !LL_WINDOWS
@@ -192,16 +188,16 @@ namespace {
 	class RecordToFixedBuffer : public LLError::Recorder
 	{
 	public:
-		RecordToFixedBuffer(LLFixedBuffer& buffer) : mBuffer(buffer) { }
+		RecordToFixedBuffer(LLLineBuffer* buffer) : mBuffer(buffer) { }
 		
 		virtual void recordMessage(LLError::ELevel level,
-									const std::string& message)
+								   const std::string& message)
 		{
-			mBuffer.addLine(message);
+			mBuffer->addLine(message);
 		}
 	
 	private:
-		LLFixedBuffer& mBuffer;
+		LLLineBuffer* mBuffer;
 	};
 
 #if LL_WINDOWS
@@ -209,7 +205,7 @@ namespace {
 	{
 	public:
 		virtual void recordMessage(LLError::ELevel level,
-									const std::string& message)
+								   const std::string& message)
 		{
 			llutf16string utf16str =
 				wstring_to_utf16str(utf8str_to_wstring(message));
@@ -433,7 +429,7 @@ namespace LLError
 		Settings()
 			:	printLocation(false),
 				defaultLevel(LLError::LEVEL_DEBUG),
-				crashFunction(NULL),
+				crashFunction(),
 				timeFunction(NULL),
 				fileRecorder(NULL),
 				fixedBufferRecorder(NULL),
@@ -601,11 +597,17 @@ namespace LLError
 		s.printLocation = print;
 	}
 
-	void setFatalFunction(FatalFunction f)
+	void setFatalFunction(const FatalFunction& f)
 	{
 		Settings& s = Settings::get();
 		s.crashFunction = f;
 	}
+
+    FatalFunction getFatalFunction()
+    {
+        Settings& s = Settings::get();
+        return s.crashFunction;
+    }
 
 	void setTimeFunction(TimeFunction f)
 	{
@@ -786,7 +788,7 @@ namespace LLError
 		addRecorder(f);
 	}
 	
-	void logToFixedBuffer(LLFixedBuffer* fixedBuffer)
+	void logToFixedBuffer(LLLineBuffer* fixedBuffer)
 	{
 		LLError::Settings& s = LLError::Settings::get();
 
@@ -799,7 +801,7 @@ namespace LLError
 			return;
 		}
 		
-		s.fixedBufferRecorder = new RecordToFixedBuffer(*fixedBuffer);
+		s.fixedBufferRecorder = new RecordToFixedBuffer(fixedBuffer);
 		addRecorder(s.fixedBufferRecorder);
 	}
 

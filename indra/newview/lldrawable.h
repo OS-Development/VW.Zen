@@ -46,7 +46,6 @@
 #include "llmemtype.h"
 #include "llprimitive.h"
 #include "lldarray.h"
-#include "llstat.h"
 #include "llviewerobject.h"
 #include "llrect.h"
 #include "llappviewer.h" // for gFrameTimeSeconds
@@ -59,11 +58,10 @@ class LLSpatialGroup;
 class LLSpatialBridge;
 class LLSpatialPartition;
 class LLVOVolume;
-class LLViewerImage;
+class LLViewerTexture;
 
 // Can have multiple silhouettes for each object
 const U32 SILHOUETTE_HIGHLIGHT = 0;
-
 
 // All data for new renderer goes into this class.
 class LLDrawable : public LLRefCount
@@ -80,7 +78,8 @@ public:
 
 	BOOL isLight() const;
 
-	BOOL isVisible() const;		
+	BOOL isVisible() const;	
+	BOOL isRecentlyVisible() const;	
 	virtual void setVisible(LLCamera& camera_in, std::vector<LLDrawable*>* results = NULL, BOOL for_select = FALSE);
 
 
@@ -126,11 +125,11 @@ public:
 	inline S32			getNumFaces()      	 const;
 
 	//void                removeFace(const S32 i); // SJB: Avoid using this, it's slow
-	LLFace*				addFace(LLFacePool *poolp, LLViewerImage *texturep);
-	LLFace*				addFace(const LLTextureEntry *te, LLViewerImage *texturep);
+	LLFace*				addFace(LLFacePool *poolp, LLViewerTexture *texturep);
+	LLFace*				addFace(const LLTextureEntry *te, LLViewerTexture *texturep);
 	void				deleteFaces(S32 offset, S32 count);
-	void                setNumFaces(const S32 numFaces, LLFacePool *poolp, LLViewerImage *texturep);
-	void                setNumFacesFast(const S32 numFaces, LLFacePool *poolp, LLViewerImage *texturep);
+	void                setNumFaces(const S32 numFaces, LLFacePool *poolp, LLViewerTexture *texturep);
+	void                setNumFacesFast(const S32 numFaces, LLFacePool *poolp, LLViewerTexture *texturep);
 	void				mergeFaces(LLDrawable* src);
 
 	void init();
@@ -151,7 +150,7 @@ public:
 	
 	void updateTexture();
 	void updateMaterial();
-	virtual void updateDistance(LLCamera& camera);
+	virtual void updateDistance(LLCamera& camera, bool force_update);
 	BOOL updateGeometry(BOOL priority);
 	void updateFaceSize(S32 idx);
 		
@@ -266,7 +265,8 @@ public:
 		BUILT			= 0x08000000,
 		FORCE_INVISIBLE = 0x10000000, // stay invis until CLEAR_INVISIBLE is set (set of orphaned)
 		CLEAR_INVISIBLE = 0x20000000, // clear FORCE_INVISIBLE next draw frame
-		REBUILD_SHADOW =  0x40000000
+		REBUILD_SHADOW =  0x40000000,
+		HAS_ALPHA		= 0x80000000,
 	} EDrawableFlags;
 
 	LLXformMatrix       mXform;
@@ -279,7 +279,8 @@ public:
 	S32				mQuietCount;
 
 	static S32 getCurrentFrame() { return sCurVisible; }
-	
+	static S32 getMinVisFrameRange();
+
 	void setSpatialBridge(LLSpatialBridge* bridge) { mSpatialBridge = (LLDrawable*) bridge; }
 	LLSpatialBridge* getSpatialBridge() { return (LLSpatialBridge*) (LLDrawable*) mSpatialBridge; }
 	
@@ -301,7 +302,7 @@ private:
 	LLVector3d		mPositionGroup;
 	F64				mBinRadius;
 	S32				mGeneration;
-
+	
 	LLVector3		mCurrentScale;
 	
 	static U32 sCurVisible; // Counter for what value of mVisible means currently visible

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<floater name="worldmap" title="Mapa del Mundo">
+<floater name="worldmap" title="MAPA DEL MUNDO">
 	<tab_container name="maptab">
 		<panel label="Objetos" name="objects_mapview"/>
 		<panel label="Terreno" name="terrain_mapview"/>
@@ -28,14 +28,10 @@
 	<check_box label="&apos;Mature&apos;" name="event_mature_chk"/>
 	<check_box label="&apos;Adult&apos;" name="event_adult_chk"/>
 	<combo_box label="Amigos conectados" name="friend combo" tool_tip="Amigo a mostrar en el mapa">
-		<combo_item name="none_selected">
-			Amigos conectados
-		</combo_item>
+		<combo_box.item name="item1" label="Amigos conectados" />
 	</combo_box>
 	<combo_box label="Hitos" name="landmark combo" tool_tip="Hito a mostrar en el mapa">
-		<combo_item name="none_selected">
-			Hitos
-		</combo_item>
+		<combo_box.item name="item1" label="Hitos" />
 	</combo_box>
 	<line_editor label="Buscar por el nombre de la región" name="location" tool_tip="Escriba el nombre de una región"/>
 	<button label="Buscar" name="DoSearch" tool_tip="Buscar una región"/>

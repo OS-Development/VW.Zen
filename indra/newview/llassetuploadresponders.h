@@ -47,6 +47,7 @@ public:
 							const std::string& file_name,
 							LLAssetType::EType asset_type);
 	~LLAssetUploadResponder();
+
     virtual void error(U32 statusNum, const std::string& reason);
 	virtual void result(const LLSD& content);
 	virtual void uploadUpload(const LLSD& content);
@@ -83,6 +84,7 @@ public:
 	~LLSendTexLayerResponder();
 
 	virtual void uploadComplete(const LLSD& content);
+	virtual void error(U32 statusNum, const std::string& reason);
 
 	LLBakedUploadData * mBakedUploadData;
 };

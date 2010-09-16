@@ -35,6 +35,7 @@
 
 #include "llpanel.h"
 #include "llframetimer.h"
+#include "llevents.h"
 
 class LLImageRaw;
 class LLButton;
@@ -43,7 +44,7 @@ class LLProgressBar;
 class LLProgressView : public LLPanel
 {
 public:
-	LLProgressView(const std::string& name, const LLRect& rect);
+	LLProgressView(const LLRect& rect);
 	virtual ~LLProgressView();
 	
 	BOOL postBuild();
@@ -74,9 +75,13 @@ protected:
 	LLFrameTimer mProgressTimer;
 	LLRect mOutlineRect;
 	bool mMouseDownInActiveArea;
-	bool mURLInMessage;
 
+	// The LLEventStream mUpdateEvents depends upon this class being a singleton
+	// to avoid pump name conflicts.
 	static LLProgressView* sInstance;
+	LLEventStream mUpdateEvents; 
+
+	bool handleUpdate(const LLSD& event_data);
 };
 
 #endif // LL_LLPROGRESSVIEW_H

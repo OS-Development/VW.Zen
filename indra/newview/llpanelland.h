@@ -46,7 +46,7 @@ class LLPanelLandInfo
 :	public LLPanel
 {
 public:
-	LLPanelLandInfo(const std::string& name);
+	LLPanelLandInfo();
 	virtual ~LLPanelLandInfo();
 
 	void refresh();
@@ -60,7 +60,6 @@ protected:
 	static void onClickDivide(void*);
 	static void onClickJoin(void*);
 	static void onClickAbout(void*);
-	static void onShowOwnersHelp(void*);
 
 protected:
 	//LLTextBox*		mTextPriceLabel;

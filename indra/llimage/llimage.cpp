@@ -55,13 +55,9 @@ std::string LLImage::sLastErrorMessage;
 LLMutex* LLImage::sMutex = NULL;
 
 //static
-void LLImage::initClass(LLWorkerThread* workerthread)
+void LLImage::initClass()
 {
 	sMutex = new LLMutex(NULL);
-	if (workerthread)
-	{
-		LLImageWorker::initImageWorker(workerthread);
-	}
 	LLImageJ2C::openDSO();
 }
 
@@ -69,7 +65,6 @@ void LLImage::initClass(LLWorkerThread* workerthread)
 void LLImage::cleanupClass()
 {
 	LLImageJ2C::closeDSO();
-	LLImageWorker::cleanupImageWorker();
 	delete sMutex;
 	sMutex = NULL;
 }
@@ -152,14 +147,14 @@ void LLImageBase::deleteData()
 // virtual
 U8* LLImageBase::allocateData(S32 size)
 {
-	LLMemType mt1((LLMemType::EMemType)mMemType);
+	LLMemType mt1(mMemType);
 	
 	if (size < 0)
 	{
 		size = mWidth * mHeight * mComponents;
 		if (size <= 0)
 		{
-			llerrs << llformat("LLImageBase::allocateData called with bad dimentions: %dx%dx%d",mWidth,mHeight,mComponents) << llendl;
+			llerrs << llformat("LLImageBase::allocateData called with bad dimensions: %dx%dx%d",mWidth,mHeight,mComponents) << llendl;
 		}
 	}
 	else if (size <= 0 || (size > 4096*4096*16 && sSizeOverride == FALSE))
@@ -188,7 +183,7 @@ U8* LLImageBase::allocateData(S32 size)
 // virtual
 U8* LLImageBase::reallocateData(S32 size)
 {
-	LLMemType mt1((LLMemType::EMemType)mMemType);
+	LLMemType mt1(mMemType);
 	U8 *new_datap = new U8[size];
 	if (!new_datap)
 	{
@@ -316,6 +311,21 @@ void LLImageRaw::deleteData()
 	LLImageBase::deleteData();
 }
 
+void LLImageRaw::setDataAndSize(U8 *data, S32 width, S32 height, S8 components) 
+{ 
+	if(data == getData())
+	{
+		return ;
+	}
+
+	deleteData();
+
+	LLImageBase::setSize(width, height, components) ;
+	LLImageBase::setDataAndSize(data, width * height * components) ;
+	
+	sGlobalRawMemory += getDataSize();
+}
+
 BOOL LLImageRaw::resize(U16 width, U16 height, S8 components)
 {
 	if ((getWidth() == width) && (getHeight() == height) && (getComponents() == components))
@@ -332,7 +342,7 @@ BOOL LLImageRaw::resize(U16 width, U16 height, S8 components)
 
 U8 * LLImageRaw::getSubImage(U32 x_pos, U32 y_pos, U32 width, U32 height) const
 {
-	LLMemType mt1((LLMemType::EMemType)mMemType);
+	LLMemType mt1(mMemType);
 	U8 *data = new U8[width*height*getComponents()];
 
 	// Should do some simple bounds checking
@@ -415,7 +425,7 @@ void LLImageRaw::clear(U8 r, U8 g, U8 b, U8 a)
 // Reverses the order of the rows in the image
 void LLImageRaw::verticalFlip()
 {
-	LLMemType mt1((LLMemType::EMemType)mMemType);
+	LLMemType mt1(mMemType);
 	S32 row_bytes = getWidth() * getComponents();
 	llassert(row_bytes > 0);
 	std::vector<U8> line_buffer(row_bytes);
@@ -548,7 +558,7 @@ void LLImageRaw::composite( LLImageRaw* src )
 // Src and dst can be any size.  Src has 4 components.  Dst has 3 components.
 void LLImageRaw::compositeScaled4onto3(LLImageRaw* src)
 {
-	LLMemType mt1((LLMemType::EMemType)mMemType);
+	LLMemType mt1(mMemType);
 	llinfos << "compositeScaled4onto3" << llendl;
 
 	LLImageRaw* dst = this;  // Just for clarity.
@@ -658,6 +668,12 @@ void LLImageRaw::fill( const LLColor4U& color )
 // Src and dst can be any size.  Src and dst can each have 3 or 4 components.
 void LLImageRaw::copy(LLImageRaw* src)
 {
+	if (!src)
+	{
+		llwarns << "LLImageRaw::copy called with a null src pointer" << llendl;
+		return;
+	}
+
 	LLImageRaw* dst = this;  // Just for clarity.
 
 	llassert( (3 == src->getComponents()) || (4 == src->getComponents()) );
@@ -787,7 +803,7 @@ void LLImageRaw::copyUnscaled3onto4( LLImageRaw* src )
 // Src and dst can be any size.  Src and dst have same number of components.
 void LLImageRaw::copyScaled( LLImageRaw* src )
 {
-	LLMemType mt1((LLMemType::EMemType)mMemType);
+	LLMemType mt1(mMemType);
 	LLImageRaw* dst = this;  // Just for clarity.
 
 	llassert_always( (1 == src->getComponents()) || (3 == src->getComponents()) || (4 == src->getComponents()) );
@@ -816,10 +832,55 @@ void LLImageRaw::copyScaled( LLImageRaw* src )
 	}
 }
 
+//scale down image by not blending a pixel with its neighbors.
+BOOL LLImageRaw::scaleDownWithoutBlending( S32 new_width, S32 new_height)
+{
+	LLMemType mt1(mMemType);
+
+	S8 c = getComponents() ;
+	llassert((1 == c) || (3 == c) || (4 == c) );
+
+	S32 old_width = getWidth();
+	S32 old_height = getHeight();
+	
+	S32 new_data_size = old_width * new_height * c ;
+	llassert_always(new_data_size > 0);
+
+	F32 ratio_x = (F32)old_width / new_width ;
+	F32 ratio_y = (F32)old_height / new_height ;
+	if( ratio_x < 1.0f || ratio_y < 1.0f )
+	{
+		return TRUE;  // Nothing to do.
+	}
+	ratio_x -= 1.0f ;
+	ratio_y -= 1.0f ;
+
+	U8* new_data = new U8[new_data_size] ;
+	llassert_always(new_data != NULL) ;
+
+	U8* old_data = getData() ;
+	S32 i, j, k, s, t;
+	for(i = 0, s = 0, t = 0 ; i < new_height ; i++)
+	{
+		for(j = 0 ; j < new_width ; j++)
+		{
+			for(k = 0 ; k < c ; k++)
+			{
+				new_data[s++] = old_data[t++] ;
+			}
+			t += (S32)(ratio_x * c + 0.1f) ;
+		}
+		t += (S32)(ratio_y * old_width * c + 0.1f) ;
+	}
+
+	setDataAndSize(new_data, new_width, new_height, c) ;
+	
+	return TRUE ;
+}
 
 BOOL LLImageRaw::scale( S32 new_width, S32 new_height, BOOL scale_image_data )
 {
-	LLMemType mt1((LLMemType::EMemType)mMemType);
+	LLMemType mt1(mMemType);
 	llassert((1 == getComponents()) || (3 == getComponents()) || (4 == getComponents()) );
 
 	S32 old_width = getWidth();
@@ -1223,25 +1284,28 @@ bool LLImageRaw::createFromFile(const std::string &filename, bool j2c_lowest_mip
 	ifs.read ((char*)buffer, length);
 	ifs.close();
 	
-	image->updateData();
-	
-	if (j2c_lowest_mip_only && codec == IMG_CODEC_J2C)
-	{
-		S32 width = image->getWidth();
-		S32 height = image->getHeight();
-		S32 discard_level = 0;
-		while (width > 1 && height > 1 && discard_level < MAX_DISCARD_LEVEL)
-		{
-			width >>= 1;
-			height >>= 1;
-			discard_level++;
-		}
-		((LLImageJ2C *)((LLImageFormatted*)image))->setDiscardLevel(discard_level);
-	}
-	
-	BOOL success = image->decode(this, 100000.0f);
-	image = NULL; // deletes image
+	BOOL success;
 
+	success = image->updateData();
+	if (success)
+	{
+		if (j2c_lowest_mip_only && codec == IMG_CODEC_J2C)
+		{
+			S32 width = image->getWidth();
+			S32 height = image->getHeight();
+			S32 discard_level = 0;
+			while (width > 1 && height > 1 && discard_level < MAX_DISCARD_LEVEL)
+			{
+				width >>= 1;
+				height >>= 1;
+				discard_level++;
+			}
+			((LLImageJ2C *)((LLImageFormatted*)image))->setDiscardLevel(discard_level);
+		}
+		success = image->decode(this, 100000.0f);
+	}
+
+	image = NULL; // deletes image
 	if (!success)
 	{
 		deleteData();

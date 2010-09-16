@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<floater name="Postcard" title="Foto por email">
+<floater name="Postcard" title="FOTO POR EMAIL">
 	<text name="to_label" width="135">
 		Email do Destinatário:
 	</text>
@@ -24,17 +24,17 @@
 		Digite sua mensagem aqui.
 	</text_editor>
 	<text name="fine_print">
-		Se seu indicado entrar no SL, você receberá um bônus pela indicação.
+		Se seu indicado entrar no [SECOND_LIFE], você receberá um bônus pela indicação.
 	</text>
 	<button label="Cancelar" name="cancel_btn"/>
 	<button label="Enviar" name="send_btn"/>
 	<string name="default_subject">
-		Cartão postal do Second Life.
+		Cartão postal do [SECOND_LIFE]
 	</string>
 	<string name="default_message">
 		Dá uma olhada nisto!
 	</string>
 	<string name="upload_message">
-		&quot;Enviando...&quot;
+		Enviando...
 	</string>
 </floater>

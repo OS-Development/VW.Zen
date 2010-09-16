@@ -16,7 +16,7 @@ set(cmake_SOURCE_FILES
     CARes.cmake
     CURL.cmake
     CMakeCopyIfDifferent.cmake
-    CopyWinLibs.cmake
+    Copy3rdPartyLibs.cmake
     CSharpMacros.cmake
     DBusGlib.cmake
     DirectX.cmake
@@ -34,7 +34,7 @@ set(cmake_SOURCE_FILES
     FindXmlRpcEpi.cmake
     FMOD.cmake
     FreeType.cmake
-    GStreamer.cmake
+    GStreamer010Plugin.cmake
     GooglePerfTools.cmake
     JPEG.cmake
     LLAddBuildTest.cmake
@@ -48,11 +48,12 @@ set(cmake_SOURCE_FILES
     LLInventory.cmake
     LLKDU.cmake
     LLMath.cmake
-    LLMedia.cmake
     LLMessage.cmake
+    LLPlugin.cmake
     LLPrimitive.cmake
     LLRender.cmake
     LLScene.cmake
+    LLTestCommand.cmake
     LLUI.cmake
     LLVFS.cmake
     LLWindow.cmake
@@ -60,7 +61,6 @@ set(cmake_SOURCE_FILES
     LScript.cmake
     Linking.cmake
     MonoEmbed.cmake
-    Mozlib.cmake
     MySQL.cmake
     NDOF.cmake
     OPENAL.cmake
@@ -70,8 +70,6 @@ set(cmake_SOURCE_FILES
     PNG.cmake
     Python.cmake
     Prebuilt.cmake
-    QuickTime.cmake
-    RunBuildTest.cmake
     TemplateCheck.cmake
     Tut.cmake
     UI.cmake

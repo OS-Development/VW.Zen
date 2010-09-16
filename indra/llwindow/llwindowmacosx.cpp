@@ -32,19 +32,21 @@
 
 #include "linden_common.h"
 
-#include <Carbon/Carbon.h>
-#include <OpenGL/OpenGL.h>
-
 #include "llwindowmacosx.h"
+
 #include "llkeyboardmacosx.h"
+#include "llwindowcallbacks.h"
+#include "llwindowmacosx-objc.h"
+#include "llpreeditor.h"
+
 #include "llerror.h"
 #include "llgl.h"
 #include "llstring.h"
 #include "lldir.h"
 #include "indra_constants.h"
 
-#include "llwindowmacosx-objc.h"
-#include "llpreeditor.h"
+#include <Carbon/Carbon.h>
+#include <OpenGL/OpenGL.h>
 
 extern BOOL gDebugWindowProc;
 
@@ -214,19 +216,27 @@ static LLWindowMacOSX *gWindowImplementation = NULL;
 
 
 
-LLWindowMacOSX::LLWindowMacOSX(const std::string& title, const std::string& name, S32 x, S32 y, S32 width,
+LLWindowMacOSX::LLWindowMacOSX(LLWindowCallbacks* callbacks,
+							   const std::string& title, const std::string& name, S32 x, S32 y, S32 width,
 							   S32 height, U32 flags,
 							   BOOL fullscreen, BOOL clearBg,
 							   BOOL disable_vsync, BOOL use_gl,
 							   BOOL ignore_pixel_depth,
 							   U32 fsaa_samples)
-	: LLWindow(fullscreen, flags)
+	: LLWindow(NULL, fullscreen, flags)
 {
+	// *HACK: During window construction we get lots of OS events for window
+	// reshape, activate, etc. that the viewer isn't ready to handle.
+	// Route them to a dummy callback structure until the end of constructor.
+	LLWindowCallbacks null_callbacks;
+	mCallbacks = &null_callbacks;
+	
 	// Voodoo for calling cocoa from carbon (see llwindowmacosx-objc.mm).
 	setupCocoa();
 	
 	// Initialize the keyboard
 	gKeyboard = new LLKeyboardMacOSX();
+	gKeyboard->setCallbacks(callbacks);
 
 	// Ignore use_gl for now, only used for drones on PC
 	mWindow = NULL;
@@ -315,6 +325,7 @@ LLWindowMacOSX::LLWindowMacOSX(const std::string& title, const std::string& name
 		setCursor( UI_CURSOR_ARROW );
 	}
 
+	mCallbacks = callbacks;
 	stop_glerror();
 }
 
@@ -511,7 +522,6 @@ BOOL LLWindowMacOSX::createContext(int x, int y, int width, int height, int bits
 		if (mTSMDocument)
 		{
 			ActivateTSMDocument(mTSMDocument);
-			UseInputWindow(mTSMDocument, FALSE);
 			allowLanguageTextInput(NULL, FALSE);
 		}
 	}
@@ -1023,6 +1033,7 @@ void LLWindowMacOSX::hide()
 	HideWindow(mWindow);
 }
 
+//virtual
 void LLWindowMacOSX::minimize()
 {
 	setMouseClipping(FALSE);
@@ -1030,6 +1041,7 @@ void LLWindowMacOSX::minimize()
 	CollapseWindow(mWindow, true);
 }
 
+//virtual
 void LLWindowMacOSX::restore()
 {
 	show();
@@ -1378,11 +1390,11 @@ void LLWindowMacOSX::setMouseClipping( BOOL b )
 
 	if(b)
 	{
-		//		llinfos << "setMouseClipping(TRUE)" << llendl
+		//		llinfos << "setMouseClipping(TRUE)" << llendl;
 	}
 	else
 	{
-		//		llinfos << "setMouseClipping(FALSE)" << llendl
+		//		llinfos << "setMouseClipping(FALSE)" << llendl;
 	}
 
 	adjustCursorDecouple();
@@ -1400,7 +1412,7 @@ BOOL LLWindowMacOSX::setCursorPosition(const LLCoordWindow position)
 
 	CGPoint newPosition;
 
-	//	llinfos << "setCursorPosition(" << screen_pos.mX << ", " << screen_pos.mY << ")" << llendl
+	//	llinfos << "setCursorPosition(" << screen_pos.mX << ", " << screen_pos.mY << ")" << llendl;
 
 	newPosition.x = screen_pos.mX;
 	newPosition.y = screen_pos.mY;
@@ -1431,7 +1443,7 @@ static void fixOrigin(void)
 	::GetPortBounds(port, &portrect);
 	if((portrect.left != 0) || (portrect.top != 0))
 	{
-		// Mozilla sometimes changes our port origin.  Fuckers.
+		// Mozilla sometimes changes our port origin.
 		::SetOrigin(0,0);
 	}
 }
@@ -2005,7 +2017,7 @@ OSStatus LLWindowMacOSX::eventHandler (EventHandlerCallRef myHandler, EventRef e
 							// Although the spec. is unclear, replace range should
 							// not present when there is an active preedit.  We just
 							// ignore the case.  markAsPreedit will detect the case and warn it.
-							const LLWString & text = mPreeditor->getWText();
+							const LLWString & text = mPreeditor->getPreeditString();
 							const S32 location = wstring_wstring_length_from_utf16_length(text, 0, range.location);
 							const S32 length = wstring_wstring_length_from_utf16_length(text, location, range.length);
 							mPreeditor->markAsPreedit(location, length);
@@ -2203,7 +2215,7 @@ OSStatus LLWindowMacOSX::eventHandler (EventHandlerCallRef myHandler, EventRef e
 					{
 						S32 preedit, preedit_length;
 						mPreeditor->getPreeditRange(&preedit, &preedit_length);
-						const LLWString & text = mPreeditor->getWText();
+						const LLWString & text = mPreeditor->getPreeditString();
 						 
 						LLCoordGL caret_coord;
 						LLRect preedit_bounds;
@@ -2240,7 +2252,7 @@ OSStatus LLWindowMacOSX::eventHandler (EventHandlerCallRef myHandler, EventRef e
 						mPreeditor->getSelectionRange(&selection, &selection_length);
 						if (selection_length)
 						{
-							const LLWString text = mPreeditor->getWText().substr(selection, selection_length);
+							const LLWString text = mPreeditor->getPreeditString().substr(selection, selection_length);
 							const llutf16string text_utf16 = wstring_to_utf16str(text);
 							result = SetEventParameter(event, kEventParamTextInputReplyText, typeUnicodeText,
 										text_utf16.length() * sizeof(U16), text_utf16.c_str());
@@ -2626,7 +2638,7 @@ OSStatus LLWindowMacOSX::eventHandler (EventHandlerCallRef myHandler, EventRef e
 
 					S32 preedit, preedit_length;
 					mPreeditor->getPreeditRange(&preedit, &preedit_length);
-					const LLWString & text = mPreeditor->getWText();
+					const LLWString & text = mPreeditor->getPreeditString();
 					const CFIndex length = wstring_utf16_length(text, 0, preedit)
 						+ wstring_utf16_length(text, preedit + preedit_length, text.length());
 					result = SetEventParameter(event, kEventParamTSMDocAccessCharacterCount, typeCFIndex, sizeof(length), &length);
@@ -2643,7 +2655,7 @@ OSStatus LLWindowMacOSX::eventHandler (EventHandlerCallRef myHandler, EventRef e
 
 					S32 preedit, preedit_length;
 					mPreeditor->getPreeditRange(&preedit, &preedit_length);
-					const LLWString & text = mPreeditor->getWText();
+					const LLWString & text = mPreeditor->getPreeditString();
 					
 					CFRange range;
 					if (preedit_length)
@@ -2677,7 +2689,7 @@ OSStatus LLWindowMacOSX::eventHandler (EventHandlerCallRef myHandler, EventRef e
 					{
 						S32 preedit, preedit_length;
 						mPreeditor->getPreeditRange(&preedit, &preedit_length);
-						const LLWString & text = mPreeditor->getWText();
+						const LLWString & text = mPreeditor->getPreeditString();
 
 						// The GetCharacters event of TSMDA has a fundamental flaw;
 						// An input method need to decide the starting offset and length
@@ -2752,10 +2764,6 @@ const char* cursorIDToName(int id)
 		case UI_CURSOR_TOOLPAN:			return "UI_CURSOR_TOOLPAN";
 		case UI_CURSOR_TOOLZOOMIN:		return "UI_CURSOR_TOOLZOOMIN";
 		case UI_CURSOR_TOOLPICKOBJECT3:	return "UI_CURSOR_TOOLPICKOBJECT3";
-		case UI_CURSOR_TOOLSIT:			return "UI_CURSOR_TOOLSIT";
-		case UI_CURSOR_TOOLBUY:			return "UI_CURSOR_TOOLBUY";
-		case UI_CURSOR_TOOLPAY:			return "UI_CURSOR_TOOLPAY";
-		case UI_CURSOR_TOOLOPEN:		return "UI_CURSOR_TOOLOPEN";
 		case UI_CURSOR_TOOLPLAY:		return "UI_CURSOR_TOOLPLAY";
 		case UI_CURSOR_TOOLPAUSE:		return "UI_CURSOR_TOOLPAUSE";
 		case UI_CURSOR_TOOLMEDIAOPEN:	return "UI_CURSOR_TOOLMEDIAOPEN";
@@ -2851,10 +2859,6 @@ void LLWindowMacOSX::setCursor(ECursorType cursor)
 	case UI_CURSOR_TOOLPAN:
 	case UI_CURSOR_TOOLZOOMIN:
 	case UI_CURSOR_TOOLPICKOBJECT3:
-	case UI_CURSOR_TOOLSIT:
-	case UI_CURSOR_TOOLBUY:
-	case UI_CURSOR_TOOLPAY:
-	case UI_CURSOR_TOOLOPEN:
 	case UI_CURSOR_TOOLPLAY:
 	case UI_CURSOR_TOOLPAUSE:
 	case UI_CURSOR_TOOLMEDIAOPEN:
@@ -2896,10 +2900,6 @@ void LLWindowMacOSX::initCursors()
 	initPixmapCursor(UI_CURSOR_TOOLPAN, 7, 6);
 	initPixmapCursor(UI_CURSOR_TOOLZOOMIN, 7, 6);
 	initPixmapCursor(UI_CURSOR_TOOLPICKOBJECT3, 1, 1);
-	initPixmapCursor(UI_CURSOR_TOOLSIT, 1, 1);
-	initPixmapCursor(UI_CURSOR_TOOLBUY, 1, 1);
-	initPixmapCursor(UI_CURSOR_TOOLPAY, 1, 1);
-	initPixmapCursor(UI_CURSOR_TOOLOPEN, 1, 1);
 	initPixmapCursor(UI_CURSOR_TOOLPLAY, 1, 1);
 	initPixmapCursor(UI_CURSOR_TOOLPAUSE, 1, 1);
 	initPixmapCursor(UI_CURSOR_TOOLMEDIAOPEN, 1, 1);
@@ -3202,7 +3202,7 @@ void LLWindowMacOSX::spawnWebBrowser(const std::string& escaped_url)
 }
 
 
-BOOL LLWindowMacOSX::dialog_color_picker ( F32 *r, F32 *g, F32 *b)
+BOOL LLWindowMacOSX::dialogColorPicker( F32 *r, F32 *g, F32 *b)
 {
 	BOOL	retval = FALSE;
 	OSErr	error = noErr;
@@ -3318,6 +3318,8 @@ void LLWindowMacOSX::allowLanguageTextInput(LLPreeditor *preeditor, BOOL b)
 		return;
 	}
 
+	UseInputWindow(mTSMDocument, !b);
+	
 	// Take care of old and new preeditors.
 	if (preeditor != mPreeditor || !b)
 	{

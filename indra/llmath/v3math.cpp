@@ -185,14 +185,6 @@ void 	LLVector3::snap(S32 sig_digits)
 	mV[VZ] = snap_to_sig_figs(mV[VZ], sig_digits);
 }
 
-
-std::ostream& operator<<(std::ostream& s, const LLVector3 &a) 
-{
-	s << "{ " << a.mV[VX] << ", " << a.mV[VY] << ", " << a.mV[VZ] << " }";
-	return s;
-}
-
-
 const LLVector3&	LLVector3::rotVec(const LLMatrix3 &mat)
 {
 	*this = *this * mat;
@@ -312,12 +304,6 @@ void LLVector3::setValue(const LLSD& sd)
 	mV[0] = (F32) sd[0].asReal();
 	mV[1] = (F32) sd[1].asReal();
 	mV[2] = (F32) sd[2].asReal();
-}
-
-const LLVector3& LLVector3::operator=(const LLSD& sd)
-{
-	setValue(sd);
-	return *this;
 }
 
 const LLVector3& operator*=(LLVector3 &a, const LLQuaternion &rot)

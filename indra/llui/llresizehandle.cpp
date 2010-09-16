@@ -44,36 +44,38 @@
 
 const S32 RESIZE_BORDER_WIDTH = 3;
 
-LLResizeHandle::LLResizeHandle( const std::string& name, const LLRect& rect, S32 min_width, S32 min_height, ECorner corner )
-	:
-	LLView( name, rect, TRUE ),
+LLResizeHandle::Params::Params()
+:	corner("corner"),
+	min_width("min_width"),
+	min_height("min_height")
+{
+	name = "resize_handle";
+}
+
+LLResizeHandle::LLResizeHandle(const LLResizeHandle::Params& p)
+:	LLView(p),
 	mDragLastScreenX( 0 ),
 	mDragLastScreenY( 0 ),
 	mLastMouseScreenX( 0 ),
 	mLastMouseScreenY( 0 ),
 	mImage( NULL ),
-	mMinWidth( min_width ),
-	mMinHeight( min_height ),
-	mCorner( corner )
+	mMinWidth( p.min_width ),
+	mMinHeight( p.min_height ),
+	mCorner( p.corner )
 {
-	setSaveToXML(false);
-
 	if( RIGHT_BOTTOM == mCorner)
 	{
-		mImage = LLUI::sImageProvider->getUIImage("UIImgResizeBottomRightUUID");
+		mImage = LLUI::getUIImage("Resize_Corner");
 	}
-
-	switch( mCorner )
+	switch( p.corner )
 	{
-	case LEFT_TOP:		setFollows( FOLLOWS_LEFT | FOLLOWS_TOP );		break;
-	case LEFT_BOTTOM:	setFollows( FOLLOWS_LEFT | FOLLOWS_BOTTOM );	break;
-	case RIGHT_TOP:		setFollows( FOLLOWS_RIGHT | FOLLOWS_TOP );		break;
-	case RIGHT_BOTTOM:	setFollows( FOLLOWS_RIGHT | FOLLOWS_BOTTOM );	break;
+		case LEFT_TOP:		setFollows( FOLLOWS_LEFT | FOLLOWS_TOP );		break;
+		case LEFT_BOTTOM:	setFollows( FOLLOWS_LEFT | FOLLOWS_BOTTOM );	break;
+		case RIGHT_TOP:		setFollows( FOLLOWS_RIGHT | FOLLOWS_TOP );		break;
+		case RIGHT_BOTTOM:	setFollows( FOLLOWS_RIGHT | FOLLOWS_BOTTOM );	break;
 	}
-
-	// decorator object, don't serialize
-	setSaveToXML(FALSE);
 }
+
 
 BOOL LLResizeHandle::handleMouseDown(S32 x, S32 y, MASK mask)
 {
@@ -122,7 +124,7 @@ BOOL LLResizeHandle::handleHover(S32 x, S32 y, MASK mask)
 	{
 		// Make sure the mouse in still over the application.  We don't want to make the parent
 		// so big that we can't see the resize handle any more.
-	
+
 		S32 screen_x;
 		S32 screen_y;
 		localPointToScreen(x, y, &screen_x, &screen_y);
@@ -133,108 +135,108 @@ BOOL LLResizeHandle::handleHover(S32 x, S32 y, MASK mask)
 		LLView* resizing_view = getParent();
 		if( resizing_view )
 		{
+			// undock floater when user resize it
+			if (((LLFloater*)getParent())->isDocked())
+			{
+				((LLFloater*)getParent())->setDocked(false, false);
+			}
+
 			// Resize the parent
 			LLRect orig_rect = resizing_view->getRect();
 			LLRect scaled_rect = orig_rect;
 			S32 delta_x = screen_x - mDragLastScreenX;
 			S32 delta_y = screen_y - mDragLastScreenY;
+
+			if(delta_x == 0 && delta_y == 0)
+				return FALSE;
+
 			LLCoordGL mouse_dir;
 			// use hysteresis on mouse motion to preserve user intent when mouse stops moving
 			mouse_dir.mX = (screen_x == mLastMouseScreenX) ? mLastMouseDir.mX : screen_x - mLastMouseScreenX;
 			mouse_dir.mY = (screen_y == mLastMouseScreenY) ? mLastMouseDir.mY : screen_y - mLastMouseScreenY;
+			
 			mLastMouseScreenX = screen_x;
 			mLastMouseScreenY = screen_y;
 			mLastMouseDir = mouse_dir;
 
-			S32 x_multiple = 1;
-			S32 y_multiple = 1;
+			S32 new_width = orig_rect.getWidth();
+			S32 new_height = orig_rect.getHeight();
+
+			S32 new_pos_x = orig_rect.mLeft;
+			S32 new_pos_y = orig_rect.mTop;
+
 			switch( mCorner )
 			{
 			case LEFT_TOP:
-				x_multiple = -1; 
-				y_multiple =  1;	
+				new_width-=delta_x;
+				new_height+=delta_y;
+				new_pos_x+=delta_x;
+				new_pos_y+=delta_y;
 				break;
 			case LEFT_BOTTOM:	
-				x_multiple = -1; 
-				y_multiple = -1;	
+				new_width-=delta_x;
+				new_height-=delta_y;
+				new_pos_x+=delta_x;
 				break;
 			case RIGHT_TOP:		
-				x_multiple =  1; 
-				y_multiple =  1;	
+				new_width+=delta_x;
+				new_height+=delta_y;
+				new_pos_y+=delta_y;
 				break;
 			case RIGHT_BOTTOM:	
-				x_multiple =  1; 
-				y_multiple = -1;	
+				new_width+=delta_x;
+				new_height-=delta_y;
 				break;
 			}
 
-			S32 new_width = orig_rect.getWidth() + x_multiple * delta_x;
-			if( new_width < mMinWidth )
-			{
-				new_width = mMinWidth;
-				delta_x = x_multiple * (mMinWidth - orig_rect.getWidth());
-			}
-
-			S32 new_height = orig_rect.getHeight() + y_multiple * delta_y;
-			if( new_height < mMinHeight )
-			{
-				new_height = mMinHeight;
-				delta_y = y_multiple * (mMinHeight - orig_rect.getHeight());
-			}
-
-			switch( mCorner )
-			{
-			case LEFT_TOP:		
-				scaled_rect.translate(delta_x, 0);			
-				break;
-			case LEFT_BOTTOM:	
-				scaled_rect.translate(delta_x, delta_y);	
-				break;
-			case RIGHT_TOP:		
-				break;
-			case RIGHT_BOTTOM:	
-				scaled_rect.translate(0, delta_y);			
-				break;
-			}
-
+			new_width = llmax(new_width,mMinWidth);
+			new_height = llmax(new_height,mMinHeight);
+			
+			LLRect::tCoordType screen_width = resizing_view->getParent()->getSnapRect().getWidth();
+			LLRect::tCoordType screen_height = resizing_view->getParent()->getSnapRect().getHeight();
+			
+			new_width = llmin(new_width, screen_width);
+			new_height = llmin(new_height, screen_height);
+			
 			// temporarily set new parent rect
-			scaled_rect.mRight = scaled_rect.mLeft + new_width;
-			scaled_rect.mTop = scaled_rect.mBottom + new_height;
+			scaled_rect.setLeftTopAndSize(new_pos_x,new_pos_y,new_width,new_height);
+				
 			resizing_view->setRect(scaled_rect);
 
 			LLView* snap_view = NULL;
 			LLView* test_view = NULL;
 
+			static LLUICachedControl<S32> snap_margin ("SnapMargin", 0);
 			// now do snapping
 			switch(mCorner)
 			{
 			case LEFT_TOP:		
-				snap_view = resizing_view->findSnapEdge(scaled_rect.mLeft, mouse_dir, SNAP_LEFT, SNAP_PARENT_AND_SIBLINGS, LLUI::sConfigGroup->getS32("SnapMargin"));
-				test_view = resizing_view->findSnapEdge(scaled_rect.mTop, mouse_dir, SNAP_TOP, SNAP_PARENT_AND_SIBLINGS, LLUI::sConfigGroup->getS32("SnapMargin"));
+				snap_view = resizing_view->findSnapEdge(scaled_rect.mLeft, mouse_dir, SNAP_LEFT, SNAP_PARENT_AND_SIBLINGS, snap_margin);
+				test_view = resizing_view->findSnapEdge(scaled_rect.mTop, mouse_dir, SNAP_TOP, SNAP_PARENT_AND_SIBLINGS, snap_margin);
 				if (!snap_view)
 				{
 					snap_view = test_view;
 				}
 				break;
 			case LEFT_BOTTOM:	
-				snap_view = resizing_view->findSnapEdge(scaled_rect.mLeft, mouse_dir, SNAP_LEFT, SNAP_PARENT_AND_SIBLINGS, LLUI::sConfigGroup->getS32("SnapMargin"));
-				test_view = resizing_view->findSnapEdge(scaled_rect.mBottom, mouse_dir, SNAP_BOTTOM, SNAP_PARENT_AND_SIBLINGS, LLUI::sConfigGroup->getS32("SnapMargin"));
+				snap_view = resizing_view->findSnapEdge(scaled_rect.mLeft, mouse_dir, SNAP_LEFT, SNAP_PARENT_AND_SIBLINGS, snap_margin);
+				test_view = resizing_view->findSnapEdge(scaled_rect.mBottom, mouse_dir, SNAP_BOTTOM, SNAP_PARENT_AND_SIBLINGS, snap_margin);
 				if (!snap_view)
 				{
 					snap_view = test_view;
 				}
 				break;
 			case RIGHT_TOP:		
-				snap_view = resizing_view->findSnapEdge(scaled_rect.mRight, mouse_dir, SNAP_RIGHT, SNAP_PARENT_AND_SIBLINGS, LLUI::sConfigGroup->getS32("SnapMargin"));
-				test_view = resizing_view->findSnapEdge(scaled_rect.mTop, mouse_dir, SNAP_TOP, SNAP_PARENT_AND_SIBLINGS, LLUI::sConfigGroup->getS32("SnapMargin"));
+				snap_view = resizing_view->findSnapEdge(scaled_rect.mRight, mouse_dir, SNAP_RIGHT, SNAP_PARENT_AND_SIBLINGS, snap_margin);
+				test_view = resizing_view->findSnapEdge(scaled_rect.mTop, mouse_dir, SNAP_TOP, SNAP_PARENT_AND_SIBLINGS, snap_margin);
 				if (!snap_view)
 				{
 					snap_view = test_view;
 				}
 				break;
 			case RIGHT_BOTTOM:	
-				snap_view = resizing_view->findSnapEdge(scaled_rect.mRight, mouse_dir, SNAP_RIGHT, SNAP_PARENT_AND_SIBLINGS, LLUI::sConfigGroup->getS32("SnapMargin"));
-				test_view = resizing_view->findSnapEdge(scaled_rect.mBottom, mouse_dir, SNAP_BOTTOM, SNAP_PARENT_AND_SIBLINGS, LLUI::sConfigGroup->getS32("SnapMargin"));
+				snap_view = resizing_view->findSnapEdge(scaled_rect.mRight, mouse_dir, SNAP_RIGHT, SNAP_PARENT_AND_SIBLINGS, snap_margin);
+				test_view = resizing_view->findSnapEdge(scaled_rect.mBottom, mouse_dir, SNAP_BOTTOM, SNAP_PARENT_AND_SIBLINGS, snap_margin);
 				if (!snap_view)
 				{
 					snap_view = test_view;
@@ -243,13 +245,17 @@ BOOL LLResizeHandle::handleHover(S32 x, S32 y, MASK mask)
 			}
 
 			// register "snap" behavior with snapped view
-			resizing_view->snappedTo(snap_view);
+			resizing_view->setSnappedTo(snap_view);
 
 			// reset parent rect
 			resizing_view->setRect(orig_rect);
 
 			// translate and scale to new shape
-			resizing_view->userSetShape(scaled_rect);
+			resizing_view->reshape(scaled_rect.getWidth(),scaled_rect.getHeight());
+			resizing_view->setRect(scaled_rect);
+			//set shape to handle dependent floaters...
+			resizing_view->handleReshape(scaled_rect, false);
+			
 			
 			// update last valid mouse cursor position based on resized view's actual size
 			LLRect new_rect = resizing_view->getRect();

@@ -38,8 +38,9 @@
 #include <vector>
 
 #include "llfloater.h"
-//#include "llviewerimagelist.h"
-#include "llmemory.h"	// LLPointer<>
+#include "llpointer.h"	// LLPointer<>
+//#include "llviewertexturelist.h"
+#include "llsafehandle.h"
 
 typedef std::set<LLUUID, lluuid_less> uuid_list_t;
 const F32 CACHE_REFRESH_TIME	= 2.5f;
@@ -58,39 +59,43 @@ class LLTextBox;
 class LLTextEditor;
 class LLTextureCtrl;
 class LLUIImage;
-class LLViewerTextEditor;
 class LLParcelSelection;
 
 class LLPanelLandGeneral;
 class LLPanelLandObjects;
 class LLPanelLandOptions;
+class LLPanelLandAudio;
 class LLPanelLandMedia;
 class LLPanelLandAccess;
 class LLPanelLandBan;
 class LLPanelLandRenters;
 class LLPanelLandCovenant;
+class LLParcel;
 
 class LLFloaterLand
-:	public LLFloater, public LLFloaterSingleton<LLFloaterLand>
+:	public LLFloater
 {
-	friend class LLUISingleton<LLFloaterLand, VisibilityPolicy<LLFloater> >;
+	friend class LLFloaterReg;
 public:
 	static void refreshAll();
 
 	static LLPanelLandObjects* getCurrentPanelLandObjects();
 	static LLPanelLandCovenant* getCurrentPanelLandCovenant();
-
-	// Destroys itself on close.
-	virtual void onClose(bool app_quitting);
-	virtual void onOpen();
+	
+	LLParcel* getCurrentSelectedParcel();
+	
+	virtual void onOpen(const LLSD& key);
 	virtual BOOL postBuild();
 
-protected:
-
+private:
 	// Does its own instance management, so clients not allowed
 	// to allocate or destroy.
 	LLFloaterLand(const LLSD& seed);
 	virtual ~LLFloaterLand();
+		
+	void onVisibilityChange(const LLSD& visible);
+
+protected:
 
 	/*virtual*/ void refresh();
 
@@ -98,6 +103,7 @@ protected:
 	static void* createPanelLandCovenant(void* data);
 	static void* createPanelLandObjects(void* data);
 	static void* createPanelLandOptions(void* data);
+	static void* createPanelLandAudio(void* data);
 	static void* createPanelLandMedia(void* data);
 	static void* createPanelLandAccess(void* data);
 	static void* createPanelLandBan(void* data);
@@ -111,6 +117,7 @@ protected:
 	LLPanelLandGeneral*		mPanelGeneral;
 	LLPanelLandObjects*		mPanelObjects;
 	LLPanelLandOptions*		mPanelOptions;
+	LLPanelLandAudio*		mPanelAudio;
 	LLPanelLandMedia*		mPanelMedia;
 	LLPanelLandAccess*		mPanelAccess;
 	LLPanelLandCovenant*	mPanelCovenant;
@@ -138,11 +145,11 @@ public:
 
 	void setGroup(const LLUUID& group_id);
 	static void onClickProfile(void*);
-	static void onClickSetGroup(void*);
-	static void cbGroupID(LLUUID group_id, void* userdata);
+		   void onClickSetGroup();
 	static BOOL enableDeedToGroup(void*);
 	static void onClickDeed(void*);
 	static void onClickBuyLand(void* data);
+	static void onClickScriptLimits(void* data);
 	static void onClickRelease(void*);
 	static void onClickReclaim(void*);
 	static void onClickBuyPass(void* deselect_when_done);
@@ -212,6 +219,7 @@ protected:
 	LLTextBox*		mTextDwell;
 
 	LLButton*		mBtnBuyLand;
+	LLButton*		mBtnScriptLimits;
 	LLButton*		mBtnBuyGroupLand;
 
 	// these buttons share the same location, but
@@ -317,7 +325,6 @@ private:
 	static void onCommitAny(LLUICtrl* ctrl, void *userdata);
 	static void onClickSet(void* userdata);
 	static void onClickClear(void* userdata);
-	static void onClickPublishHelp(void*);
 
 private:
 	LLCheckBoxCtrl*	mCheckEditObjects;
@@ -329,7 +336,6 @@ private:
 	LLCheckBoxCtrl*	mCheckFly;
 	LLCheckBoxCtrl*	mCheckGroupScripts;
 	LLCheckBoxCtrl*	mCheckOtherScripts;
-	LLCheckBoxCtrl*	mCheckLandmark;
 
 	LLCheckBoxCtrl*	mCheckShowDirectory;
 	LLComboBox*		mCategoryCombo;
@@ -343,7 +349,6 @@ private:
 
 	LLCheckBoxCtrl		*mMatureCtrl;
 	LLCheckBoxCtrl		*mPushRestrictionCtrl;
-	LLButton			*mPublishHelpButton;
 
 	LLSafeHandle<LLParcelSelection>&	mParcel;
 };
@@ -362,14 +367,15 @@ public:
 
 	static void onCommitPublicAccess(LLUICtrl* ctrl, void *userdata);
 	static void onCommitAny(LLUICtrl* ctrl, void *userdata);
-	static void onClickAddAccess(void*);
-	static void callbackAvatarCBAccess(const std::vector<std::string>& names, const std::vector<LLUUID>& ids, void* userdata);
 	static void onClickRemoveAccess(void*);
-	static void onClickAddBanned(void*);
-	static void callbackAvatarCBBanned(const std::vector<std::string>& names, const std::vector<LLUUID>& ids, void* userdata);
 	static void onClickRemoveBanned(void*);
 
 	virtual BOOL postBuild();
+	
+	void onClickAddAccess();
+	void onClickAddBanned();
+	void callbackAvatarCBBanned(const std::vector<std::string>& names, const std::vector<LLUUID>& ids);
+	void callbackAvatarCBAccess(const std::vector<std::string>& names, const std::vector<LLUUID>& ids);
 
 protected:
 	LLNameListCtrl*		mListAccess;
@@ -385,7 +391,6 @@ class LLPanelLandCovenant
 public:
 	LLPanelLandCovenant(LLSafeHandle<LLParcelSelection>& parcelp);
 	virtual ~LLPanelLandCovenant();
-	virtual BOOL postBuild();
 	void refresh();
 	static void updateCovenantText(const std::string& string);
 	static void updateEstateName(const std::string& name);

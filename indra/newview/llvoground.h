@@ -36,7 +36,7 @@
 #include "stdtypes.h"
 #include "v3color.h"
 #include "v4coloru.h"
-#include "llviewerimage.h"
+#include "llviewertexture.h"
 #include "llviewerobject.h"
 
 class LLVOGround : public LLStaticViewerObject
@@ -51,7 +51,7 @@ public:
 	
 	// Graphical stuff for objects - maybe broken out into render class
 	// later?
-	/*virtual*/ void updateTextures(LLAgent &agent);
+	/*virtual*/ void updateTextures();
 	/*virtual*/ LLDrawable* createDrawable(LLPipeline *pipeline);
 	/*virtual*/ BOOL		updateGeometry(LLDrawable *drawable);
 

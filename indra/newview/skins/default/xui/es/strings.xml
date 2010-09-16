@@ -4,6 +4,7 @@
      For example, the strings used in avatar chat bubbles, and strings 
      that are returned from one component and may appear in many places-->
 <strings>
+	<string name="create_account_url">http://join.secondlife.com/index.php?lang=es-ES</string>
 	<string name="LoginInProgress">
 		Iniciando la sesión. [APP_NAME] debe de aparecer congelado. Por favor, espere.
 	</string>
@@ -54,6 +55,9 @@
 	</string>
 	<string name="LoginDownloadingClothing">
 		Descargando la ropa...
+	</string>
+	<string name="Quit">
+		Salir
 	</string>
 	<string name="AgentLostConnection">
 		Esta región puede estar teniendo problemas. Por favor, compruebe su conexión a internet.
@@ -483,4 +487,181 @@
 	<string name="choose_the_directory">
 		Elegir directorio
 	</string>
+	<!-- OSMessageBox messages -->
+	<string name="MBAlreadyRunning">
+		[APP_NAME] ya se está ejecutando.
+Busque en la barra de su escritorio una copia minimizada del programa.
+Si aun así persiste este mensaje, reinicie su ordenador.
+	</string>
+	<string name="MBVideoDrvErr">
+		No se puede ejecutar [APP_NAME] porque los drivers de su tarjeta de vídeo no están instalados correctamente, o no están actualizados, o son de un hardware no admitido. Por favor, asegúrese de que tiene los últimos drivers para su tarjeta de vídeo, e incluso en ese caso intente reinstalarlos.
+
+Si sigue recibiendo este mensaje, contacte con el [SUPPORT_SITE].
+	</string>
+	<string name="accel-mac-control">
+		&#8963;
+	</string>
+	<string name="accel-mac-command">
+		&#8984;
+	</string>
+	<string name="accel-mac-option">
+		&#8997;
+	</string>
+	<string name="accel-mac-shift">
+		&#8679;
+	</string>
+	<string name="accel-win-control">
+		Ctrl+
+	</string>
+	<string name="accel-win-alt">
+		Alt+
+	</string>
+	<string name="accel-win-shift">
+		Mayús+
+	</string>
+	<string name="GraphicsQualityLow">
+		Bajo
+	</string>
+	<string name="GraphicsQualityMid">
+		Medio
+	</string>
+	<string name="GraphicsQualityHigh">
+		Alto
+	</string>
+	
+	<!-- PARCEL_CATEGORY_UI_STRING  -->
+	<string name="Linden Location">Localización Linden</string>
+	<string name="Adult">&apos;Adult&apos;</string>
+	<string name="Arts&amp;Culture">Arte y Cultura</string>
+	<string name="Business">Negocios</string>
+	<string name="Educational">Educativo</string>
+	<string name="Gaming">Juegos de azar</string>
+	<string name="Hangout">Entretenimiento</string>
+	<string name="Newcomer Friendly">Para recién llegados</string>
+	<string name="Parks&amp;Nature">Parques y Naturaleza</string>
+	<string name="Residential">Residencial</string>
+	<string name="Shopping">Compras</string>
+	<string name="Other">Otra</string>
+	
+	<string name="ringing">
+		Conectando al chat de voz...
+	</string>
+	<string name="connected">
+		Conectado
+	</string>
+	<string name="unavailable">
+		La voz no está disponible en su localización actual
+	</string>
+	<string name="hang_up">
+		Desconectado del chat de voz
+	</string>
+  <string name="ScriptQuestionCautionChatGranted">
+	&apos;[OBJECTNAME]&apos;, un objeto propiedad de &apos;[OWNERNAME]&apos;, localizado en [REGIONNAME] con la posición [REGIONPOS], ha recibido permiso para: [PERMISSIONS].
+  </string>
+  <string name="ScriptQuestionCautionChatDenied">
+	A &apos;[OBJECTNAME]&apos;, un objeto propiedad de &apos;[OWNERNAME]&apos;, localizado en [REGIONNAME] con la posición [REGIONPOS], se le ha denegado el permiso para: [PERMISSIONS].
+  </string>
+  <string name="ScriptTakeMoney">
+	Cogerle a usted dólares Linden (L$)
+  </string>
+  <string name="ActOnControlInputs">
+	Actuar en sus controles de entrada
+  </string>
+  <string name="RemapControlInputs">
+	Reconfigurar sus controles de entrada
+  </string>
+  <string name="AnimateYourAvatar">
+	Ejecutar animaciones en su avatar
+  </string>
+  <string name="AttachToYourAvatar">
+	Anexarse a su avatar
+  </string>
+  <string name="ReleaseOwnership">
+	Anular la propiedad y que pase a ser público
+  </string>
+  <string name="LinkAndDelink">
+	Enlazar y desenlazar de otros objetos
+  </string>
+  <string name="AddAndRemoveJoints">
+	Añadir y quitar uniones con otros objetos
+  </string>
+  <string name="ChangePermissions">
+	Cambiar sus permisos
+  </string>
+  <string name="TrackYourCamera">
+	Seguir su cámara
+  </string>
+  <string name="ControlYourCamera">
+	Controlar su cámara
+  </string>
+	
+	<string name="only_user_message">
+		Usted es el único usuario en esta sesión.
+	</string>
+	<string name="offline_message">
+		[FIRST] [LAST] no está conectado.
+	</string>
+	<string name="invite_message">
+		Pulse el botón [BUTTON NAME] para aceptar/conectar este chat de voz.
+	</string>
+	<string name="generic_request_error">
+		Error al hacer lo solicitado; por favor, inténtelo más tarde.
+	</string>
+	<string name="insufficient_perms_error">
+		Usted no tiene permisos suficientes.
+	</string>
+	<string name="session_does_not_exist_error">
+		La sesión ya acabó
+	</string>
+	<string name="no_ability_error">
+		Usted no tiene esa capacidad.
+	</string>
+	<string name="no_ability">
+		Usted no tiene esa capacidad.
+	</string>
+	<string name="not_a_mod_error">
+		Usted no es un moderador de la sesión.
+	</string>
+	<string name="muted_error">
+		Un moderador del grupo le ha desactivado el chat de texto.
+	</string>
+	<string name="add_session_event">
+		No se ha podido añadir usuarios a la sesión de chat con [RECIPIENT].
+	</string>
+	<string name="message_session_event">
+		No se ha podido enviar su mensaje a la sesión de chat con [RECIPIENT].
+	</string>
+	<string name="removed_from_group">
+		Ha sido eliminado del grupo.
+	</string>
+	<string name="close_on_no_ability">
+		Usted ya no tendrá más la capacidad de estar en la sesión de chat.
+	</string>
+			<string name="AcctTypeResident">
+				Residente
+			</string>
+			<string name="AcctTypeTrial">
+				Prueba
+			</string>
+			<string name="AcctTypeCharterMember">
+				Miembro fundador
+			</string>
+			<string name="AcctTypeEmployee">
+				Empleado de Linden Lab
+			</string>
+			<string name="PaymentInfoUsed">
+				Ha usado una forma de pago
+			</string>
+			<string name="PaymentInfoOnFile">
+				Hay infor. de la forma de pago
+			</string>
+			<string name="NoPaymentInfoOnFile">
+				Sin infor. de la forma de pago
+			</string>
+			<string name="AgeVerified">
+				Edad verificada
+			</string>
+			<string name="NotAgeVerified">
+				Edad no verificada
+			</string>
 </strings>

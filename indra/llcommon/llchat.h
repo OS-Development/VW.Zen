@@ -65,6 +65,12 @@ typedef enum e_chat_audible_level
 	CHAT_AUDIBLE_FULLY = 1
 } EChatAudible;
 
+typedef enum e_chat_style
+{
+	CHAT_STYLE_NORMAL,
+	CHAT_STYLE_IRC
+}EChatStyle;
+
 // A piece of chat
 class LLChat
 {
@@ -78,8 +84,10 @@ public:
 		mAudible(CHAT_AUDIBLE_FULLY),
 		mMuted(FALSE),
 		mTime(0.0),
+		mTimeStr(),
 		mPosAgent(),
-		mURL()
+		mURL(),
+		mChatStyle(CHAT_STYLE_NORMAL)
 	{ }
 	
 	std::string		mText;		// UTF-8 line of text
@@ -90,8 +98,10 @@ public:
 	EChatAudible	mAudible;
 	BOOL			mMuted;		// pass muted chat to maintain list of chatters
 	F64				mTime;		// viewer only, seconds from viewer start
+	std::string		mTimeStr;
 	LLVector3		mPosAgent;
 	std::string		mURL;
+	EChatStyle		mChatStyle;
 };
 
 #endif

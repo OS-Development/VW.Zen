@@ -47,6 +47,9 @@ def usage():
 Options:
   --version
    Specify the version string to replace current version.
+  --revision
+   Specify the revision to replace the last digit of the version.
+   By default, revision is computed from the version control system.
   --skip-on-branch
    Specify a regular expression against which the current branch
    is matched. If it matches, then leave version strings alone.
@@ -161,6 +164,7 @@ def main():
     opts, args = getopt.getopt(sys.argv[1:],
                                "",
                                ['version=',
+                                'revision=',
                                 'channel=',
                                 'server_channel=',
                                 'skip-on-branch=',
@@ -171,12 +175,15 @@ def main():
     update_server = False
     update_viewer = False
     new_version = None
+    new_revision = None
     new_viewer_channel = None
     new_server_channel = None
     skip_on_branch_re = None
     for o,a in opts:
         if o in ('--version'):
             new_version = a
+        if o in ('--revision'):
+            new_revision = a
         if o in ('--skip-on-branch'):
             skip_on_branch_re = re.compile(a)
         if o in ('--channel'):
@@ -241,23 +248,26 @@ def main():
         if update_server:
             server_version = new_version
     else:
-        # Assume we're updating just the build number
-        cl = '%s info "%s"' % (svn, src_root)
-        status, output = _getstatusoutput(cl)
-        if verbose:
-            print
-            print "svn info output:"
-            print "----------------"
-            print output
 
-        branch_match = svn_branch_re.search(output)
-        revision_match = svn_revision_re.search(output)
-        if not branch_match or not revision_match:
-            print "Failed to execute svn info, output follows:"
-            print output
+        if llversion.using_svn():
+            if new_revision:
+                revision = new_revision
+            else:
+                revision = llversion.get_svn_revision()
+            branch = llversion.get_svn_branch()
+        elif llversion.using_hg():
+            if new_revision:
+                revision = new_revision
+            else:
+                revision = llversion.get_hg_changeset()
+            branch = llversion.get_hg_repo()
+        elif new_revision:
+            revision = new_revision
+            branch = "unknown"
+        else:
+            print >>sys.stderr, "ERROR: could not determine revision and branch"
             return -1
-        branch = branch_match.group(1)
-        revision = revision_match.group(1)
+        
         if skip_on_branch_re and skip_on_branch_re.match(branch):
             print "Release Candidate Build, leaving version files untouched."
             return 0

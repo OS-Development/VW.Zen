@@ -50,8 +50,9 @@
 #include "llstatusbar.h"
 #include "lleconomy.h"
 #include "llviewerwindow.h"
-#include "llfloaterdirectory.h"
-#include "llfloatergroupinfo.h"
+#include "llpanelgroup.h"
+#include "llgroupactions.h"
+#include "llnotificationsutil.h"
 #include "lluictrlfactory.h"
 #include <boost/regex.hpp>
 
@@ -757,7 +758,8 @@ void LLGroupMgr::clearGroupData(const LLUUID& group_id)
 
 void LLGroupMgr::addObserver(LLGroupMgrObserver* observer) 
 { 
-	mObservers.insert(std::pair<LLUUID, LLGroupMgrObserver*>(observer->getID(), observer));
+	if( observer->getID() != LLUUID::null )
+		mObservers.insert(std::pair<LLUUID, LLGroupMgrObserver*>(observer->getID(), observer));
 }
 
 void LLGroupMgr::removeObserver(LLGroupMgrObserver* observer)
@@ -808,7 +810,7 @@ static void formatDateString(std::string &date_string)
 		std::string day = result[2];
 
 		// ISO 8601 date format
-		date_string = llformat("%04s-%02s-%02s", year.c_str(), month.c_str(), day.c_str());
+		date_string = llformat("%02s/%02s/%04s", month.c_str(), day.c_str(), year.c_str());
 	}
 }
 
@@ -1210,7 +1212,7 @@ void LLGroupMgr::processEjectGroupMemberReply(LLMessageSystem* msg, void ** data
 	// If we had a failure, the group panel needs to be updated.
 	if (!success)
 	{
-		LLFloaterGroupInfo::refreshGroup(group_id);
+		LLGroupActions::refresh(group_id);
 	}
 }
 
@@ -1230,9 +1232,7 @@ void LLGroupMgr::processJoinGroupReply(LLMessageSystem* msg, void ** data)
 
 		LLGroupMgr::getInstance()->clearGroupData(group_id);
 		// refresh the floater for this group, if any.
-		LLFloaterGroupInfo::refreshGroup(group_id);
-		// refresh the group panel of the search window, if necessary.
-		LLFloaterDirectory::refreshGroup(group_id);
+		LLGroupActions::refresh(group_id);
 	}
 }
 
@@ -1252,9 +1252,7 @@ void LLGroupMgr::processLeaveGroupReply(LLMessageSystem* msg, void ** data)
 
 		LLGroupMgr::getInstance()->clearGroupData(group_id);
 		// close the floater for this group, if any.
-		LLFloaterGroupInfo::closeGroup(group_id);
-		// refresh the group panel of the search window, if necessary.
-		LLFloaterDirectory::refreshGroup(group_id);
+		LLGroupActions::closeGroup(group_id);
 	}
 }
 
@@ -1288,15 +1286,17 @@ void LLGroupMgr::processCreateGroupReply(LLMessageSystem* msg, void ** data)
 
 		gAgent.mGroups.push_back(gd);
 
-		LLFloaterGroupInfo::closeCreateGroup();
-		LLFloaterGroupInfo::showFromUUID(group_id,"roles_tab");
+		LLPanelGroup::refreshCreatedGroup(group_id);
+		//FIXME
+		//LLFloaterGroupInfo::closeCreateGroup();
+		//LLFloaterGroupInfo::showFromUUID(group_id,"roles_tab");
 	}
 	else
 	{
-		// *TODO:translate
+		// *TODO: Translate
 		LLSD args;
 		args["MESSAGE"] = message;
-		LLNotifications::instance().add("UnableToCreateGroup", args);
+		LLNotificationsUtil::add("UnableToCreateGroup", args);
 	}
 }
 
@@ -1322,11 +1322,16 @@ void LLGroupMgr::notifyObservers(LLGroupChange gc)
 {
 	for (group_map_t::iterator gi = mGroups.begin(); gi != mGroups.end(); ++gi)
 	{
+		LLUUID group_id = gi->first;
 		if (gi->second->mChanged)
 		{
+			// Copy the map because observers may remove themselves on update
+			observer_multimap_t observers = mObservers;
+
 			// find all observers for this group id
-			observer_multimap_t::iterator oi = mObservers.find(gi->first);
-			for (; oi != mObservers.end(); ++oi)
+			observer_multimap_t::iterator oi = observers.lower_bound(group_id);
+			observer_multimap_t::iterator end = observers.upper_bound(group_id);
+			for (; oi != end; ++oi)
 			{
 				oi->second->changed(gc);
 			}

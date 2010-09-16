@@ -100,7 +100,7 @@ LLDir_Solaris::LLDir_Solaris()
 	mAppRODataDir = strdup(tmp_str);
 	mOSUserDir = getCurrentUserHome(tmp_str);
 	mOSUserAppDir = "";
-	mLindenUserDir = tmp_str;
+	mLindenUserDir = "";
 
 	char path [LL_MAX_PATH];	/* Flawfinder: ignore */ 
 
@@ -161,6 +161,8 @@ LLDir_Solaris::LLDir_Solaris()
 		}
 	}
 	
+	mLLPluginDir = mExecutableDir + mDirDelimiter + "llplugin";
+
 	// *TODO: don't use /tmp, use $HOME/.secondlife/tmp or something.
 	mTempDir = "/tmp";
 }
@@ -172,8 +174,14 @@ LLDir_Solaris::~LLDir_Solaris()
 // Implementation
 
 
-void LLDir_Solaris::initAppDirs(const std::string &app_name)
+void LLDir_Solaris::initAppDirs(const std::string &app_name,
+								const std::string& app_read_only_data_dir)
 {
+	// Allow override so test apps can read newview directory
+	if (!app_read_only_data_dir.empty())
+	{
+		mAppRODataDir = app_read_only_data_dir;
+	}
 	mAppName = app_name;
 
 	std::string upper_app_name(app_name);
@@ -236,15 +244,6 @@ void LLDir_Solaris::initAppDirs(const std::string &app_name)
 		}
 	}
 	
-	res = LLFile::mkdir(getExpandedFilename(LL_PATH_MOZILLA_PROFILE,""));
-	if (res == -1)
-	{
-		if (errno != EEXIST)
-		{
-			llwarns << "Couldn't create LL_PATH_MOZILLA_PROFILE dir " << getExpandedFilename(LL_PATH_MOZILLA_PROFILE,"") << llendl;
-		}
-	}
-
 	mCAFile = getExpandedFilename(LL_PATH_APP_SETTINGS, "CA.pem");
 }
 

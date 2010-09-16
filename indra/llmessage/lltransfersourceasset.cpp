@@ -264,16 +264,16 @@ bool is_asset_fetch_by_id_allowed(LLAssetType::EType type)
 	bool rv = false;
 	switch(type)
 	{
-	case LLAssetType::AT_SOUND:
-	case LLAssetType::AT_LANDMARK:
-	case LLAssetType::AT_CLOTHING:
-	case LLAssetType::AT_BODYPART:
-	case LLAssetType::AT_ANIMATION:
-	case LLAssetType::AT_GESTURE:
-		rv = true;
-		break;
-	default:
-		break;
+		case LLAssetType::AT_SOUND:
+		case LLAssetType::AT_LANDMARK:
+		case LLAssetType::AT_CLOTHING:
+		case LLAssetType::AT_BODYPART:
+		case LLAssetType::AT_ANIMATION:
+		case LLAssetType::AT_GESTURE:
+			rv = true;
+			break;
+		default:
+			break;
 	}
 	return rv;
 }
@@ -284,18 +284,20 @@ bool is_asset_id_knowable(LLAssetType::EType type)
 	bool rv = false;
 	switch(type)
 	{
-	case LLAssetType::AT_TEXTURE:
-	case LLAssetType::AT_SOUND:
-	case LLAssetType::AT_LANDMARK:
-	case LLAssetType::AT_CLOTHING:
-	case LLAssetType::AT_NOTECARD:
-	case LLAssetType::AT_BODYPART:
-	case LLAssetType::AT_ANIMATION:
-	case LLAssetType::AT_GESTURE:
-		rv = true;
-		break;
-	default:
-		break;
+		case LLAssetType::AT_TEXTURE:
+		case LLAssetType::AT_SOUND:
+		case LLAssetType::AT_LANDMARK:
+		case LLAssetType::AT_CLOTHING:
+		case LLAssetType::AT_NOTECARD:
+		case LLAssetType::AT_BODYPART:
+		case LLAssetType::AT_ANIMATION:
+		case LLAssetType::AT_GESTURE:
+		case LLAssetType::AT_LINK:
+		case LLAssetType::AT_LINK_FOLDER:
+			rv = true;
+			break;
+		default:
+			break;
 	}
 	return rv;
 }

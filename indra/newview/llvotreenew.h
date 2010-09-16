@@ -41,7 +41,7 @@
 #include "llstrider.h"
 #include "v2math.h"
 #include "v3math.h"
-#include "llviewerimage.h"
+#include "llviewertexture.h"
 
 class LLFace;
 class LLDrawPool;
@@ -156,7 +156,7 @@ public:
 	/*virtual*/ BOOL idleUpdate(LLAgent &agent, LLWorld &world, const F64 &time);
 
 	/*virtual*/ void render(LLAgent &agent);
-	/*virtual*/ void updateTextures(LLAgent &agent);
+	/*virtual*/ void updateTextures();
 
 	/*virtual*/ LLDrawable* createDrawable(LLPipeline *pipeline);
 	/*virtual*/ BOOL		updateGeometry(LLDrawable *drawable);
@@ -187,7 +187,7 @@ public:
 	
 	//LLTreeParams mParams;
 	U8 mSpecies;
-	LLPointer<LLViewerImage> mTreeImagep;
+	LLPointer<LLViewerTexture> mTreeImagep;
 	LLMatrix4 mTrunkFlareFrames[MAX_FLARE];
 	F32 mSegSplitsError[3];
 	U32 mRandOffset[MAX_LEVELS];

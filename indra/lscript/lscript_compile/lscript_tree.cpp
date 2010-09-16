@@ -631,9 +631,7 @@ static void print_cil_cast(LLFILE* fp, LSCRIPTType srcType, LSCRIPTType targetTy
 		switch(targetType)
 		{
 		case LST_INTEGER:
-			//fprintf(fp, "call int32 [LslLibrary]LindenLab.SecondLife.LslRunTime::ToInteger(float32)\n");
-			fprintf(fp, "conv.i4\n"); // TODO replace this line with the above
-			// we the entire grid is > 1.25.1
+			fprintf(fp, "call int32 [LslLibrary]LindenLab.SecondLife.LslRunTime::ToInteger(float32)\n");
 			break;
 		case LST_STRING:
 			fprintf(fp, "call string [LslLibrary]LindenLab.SecondLife.LslRunTime::ToString(float32)\n");
@@ -8375,10 +8373,18 @@ void LLScriptStateChange::recurse(LLFILE *fp, S32 tabs, S32 tabsize, LSCRIPTComp
 			chunk->addInteger(mIdentifier->mScopeEntry->mCount);
 		}
 		break;
+	case LSCP_TYPE:
+		mReturnType = basetype;
+		break;
 	case LSCP_EMIT_CIL_ASSEMBLY:
 		fprintf(fp, "ldarg.0\n");
 		fprintf(fp, "ldstr \"%s\"\n", mIdentifier->mName);
 		fprintf(fp, "call instance void class [LslUserScript]LindenLab.SecondLife.LslUserScript::ChangeState(string)\n");
+		// We are doing a state change. In the LSL interpreter, this is basically a longjmp. We emulate it
+		// here using a call to the ChangeState followed by a short cut return of the current method. To
+		// maintain type safety we need to push an arbitrary variable of the current method's return type
+		// onto the stack before returning. This will be ignored and discarded.
+		print_cil_init_variable(fp, mReturnType);
 		fprintf(fp, "ret\n");
 		break;
 	default:
@@ -10673,20 +10679,21 @@ void LLScriptScript::recurse(LLFILE *fp, S32 tabs, S32 tabsize, LSCRIPTCompilePa
 		{
 			mGlobalScope = new LLScriptScope(gScopeStringTable);
 			// zeroth, add library functions to global scope
-			S32 i;
+			U16 function_index = 0;
 			const char *arg;
 			LLScriptScopeEntry *sentry;
-			for (i = 0; i < gScriptLibrary.mNextNumber; i++)
+			for (std::vector<LLScriptLibraryFunction>::const_iterator i = gScriptLibrary.mFunctions.begin();
+				 i != gScriptLibrary.mFunctions.end(); ++i)
 			{
 				// First, check to make sure this isn't a god only function, or that the viewer's agent is a god.
-				if (!gScriptLibrary.mFunctions[i]->mGodOnly || mGodLike)
+				if (!i->mGodOnly || mGodLike)
 				{
-					if (gScriptLibrary.mFunctions[i]->mReturnType)
-						sentry = mGlobalScope->addEntry(gScriptLibrary.mFunctions[i]->mName, LIT_LIBRARY_FUNCTION, char2type(*gScriptLibrary.mFunctions[i]->mReturnType));
+					if (i->mReturnType)
+						sentry = mGlobalScope->addEntry(i->mName, LIT_LIBRARY_FUNCTION, char2type(*i->mReturnType));
 					else
-						sentry = mGlobalScope->addEntry(gScriptLibrary.mFunctions[i]->mName, LIT_LIBRARY_FUNCTION, LST_NULL);
-					sentry->mLibraryNumber = i;
-					arg = gScriptLibrary.mFunctions[i]->mArgs;
+						sentry = mGlobalScope->addEntry(i->mName, LIT_LIBRARY_FUNCTION, LST_NULL);
+					sentry->mLibraryNumber = function_index;
+					arg = i->mArgs;
 					if (arg)
 					{
 						while (*arg)
@@ -10698,6 +10705,7 @@ void LLScriptScript::recurse(LLFILE *fp, S32 tabs, S32 tabsize, LSCRIPTCompilePa
 						}
 					}
 				}
+				function_index++;
 			}
 			// first go and collect all the global variables
 			if (mGlobals)

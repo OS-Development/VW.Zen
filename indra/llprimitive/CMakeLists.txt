@@ -17,6 +17,7 @@ include_directories(
 
 set(llprimitive_SOURCE_FILES
     llmaterialtable.cpp
+    llmediaentry.cpp
     llprimitive.cpp
     llprimtexturelist.cpp
     lltextureanim.cpp
@@ -24,6 +25,7 @@ set(llprimitive_SOURCE_FILES
     lltreeparams.cpp
     llvolumemessage.cpp
     llvolumexml.cpp
+    material_codes.cpp
     )
 
 set(llprimitive_HEADER_FILES
@@ -31,6 +33,7 @@ set(llprimitive_HEADER_FILES
 
     legacy_object_types.h
     llmaterialtable.h
+    llmediaentry.h
     llprimitive.h
     llprimtexturelist.h
     lltextureanim.h
@@ -49,3 +52,10 @@ set_source_files_properties(${llprimitive_HEADER_FILES}
 list(APPEND llprimitive_SOURCE_FILES ${llprimitive_HEADER_FILES})
 
 add_library (llprimitive ${llprimitive_SOURCE_FILES})
+
+#add unit tests
+INCLUDE(LLAddBuildTest)
+SET(llprimitive_TEST_SOURCE_FILES
+  llmediaentry.cpp
+  )
+LL_ADD_PROJECT_UNIT_TESTS(llprimitive "${llprimitive_TEST_SOURCE_FILES}")

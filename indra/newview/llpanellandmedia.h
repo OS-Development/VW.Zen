@@ -56,29 +56,25 @@ private:
 	static void onCommitAny(LLUICtrl* ctrl, void *userdata);
 	static void onCommitType(LLUICtrl* ctrl, void *userdata);
 	static void onSetBtn(void* userdata);
-	static void onClickSoundHelp(void*);
-
+	static void onResetBtn(void* userdata);
+	
 private:
-	LLCheckBoxCtrl* mCheckSoundLocal;
-	LLButton*       mSoundHelpButton;
-	LLCheckBoxCtrl*	mCheckEnableVoiceChat;
-	LLCheckBoxCtrl*	mCheckEnableVoiceChatIsEstateDisabled;
-	LLCheckBoxCtrl*	mCheckEnableVoiceChatParcel;
-	LLLineEditor*	mMusicURLEdit;
 	LLLineEditor*	mMediaURLEdit;
 	LLLineEditor*	mMediaDescEdit;
 	LLComboBox*		mMediaTypeCombo;
 	LLButton*		mSetURLButton;
 	LLSpinCtrl*		mMediaHeightCtrl;
 	LLSpinCtrl*		mMediaWidthCtrl;
+	LLTextBox*		mMediaResetCtrlLabel;
 	LLTextBox*		mMediaSizeCtrlLabel;
 	LLTextureCtrl*	mMediaTextureCtrl;
 	LLCheckBoxCtrl*	mMediaAutoScaleCheck;
 	LLCheckBoxCtrl*	mMediaLoopCheck;
 	LLCheckBoxCtrl* mMediaUrlCheck;
-	LLCheckBoxCtrl* mMusicUrlCheck;
 	LLHandle<LLFloater>	mURLEntryFloater;
 
+
+	
 	LLSafeHandle<LLParcelSelection>&	mParcel;
 };
 

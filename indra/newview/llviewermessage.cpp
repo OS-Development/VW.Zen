@@ -1,4 +1,3 @@
-
 /** 
  * @file llviewermessage.cpp
  * @brief Dumping ground for viewer-side message system callbacks.
@@ -32,114 +31,85 @@
  */
 
 #include "llviewerprecompiledheaders.h"
-
 #include "llviewermessage.h"
 
-#include <deque>
-
-#include "audioengine.h" 
-#include "indra_constants.h"
+#include "llanimationstates.h"
+#include "llaudioengine.h" 
+#include "llavataractions.h"
 #include "lscript_byteformat.h"
-#include "mean_collision_data.h"
-#include "llfloaterbump.h"
-#include "llassetstorage.h"
-#include "llcachename.h"
-#include "llchat.h"
-#include "lldbstrings.h"
 #include "lleconomy.h"
-#include "llfilepicker.h"
-#include "llfocusmgr.h"
+#include "llfloaterreg.h"
 #include "llfollowcamparams.h"
-#include "llinstantmessage.h"
-#include "llquantize.h"
-#include "llregionflags.h"
 #include "llregionhandle.h"
 #include "llsdserialize.h"
-#include "llstring.h"
 #include "llteleportflags.h"
-#include "lltracker.h"
 #include "lltransactionflags.h"
+#include "llvfile.h"
+#include "llvfs.h"
 #include "llxfermanager.h"
-#include "message.h"
-#include "sound_ids.h"
-#include "lltimer.h"
-#include "llmd5.h"
+#include "mean_collision_data.h"
 
 #include "llagent.h"
 #include "llcallingcard.h"
-#include "llconsole.h"
-#include "llvieweraudio.h"
-#include "llviewercontrol.h"
-#include "lldrawpool.h"
-#include "llfirstuse.h"
-#include "llfloateractivespeakers.h"
-#include "llfloateranimpreview.h"
+//#include "llfirstuse.h"
 #include "llfloaterbuycurrency.h"
 #include "llfloaterbuyland.h"
-#include "llfloaterchat.h"
-#include "llfloatergroupinfo.h"
-#include "llfloaterimagepreview.h"
 #include "llfloaterland.h"
 #include "llfloaterregioninfo.h"
 #include "llfloaterlandholdings.h"
-#include "llurldispatcher.h"
-#include "llfloatermute.h"
 #include "llfloaterpostcard.h"
 #include "llfloaterpreference.h"
-#include "llfollowcam.h"
-#include "llgroupnotify.h"
-#include "llhudeffect.h"
 #include "llhudeffecttrail.h"
 #include "llhudmanager.h"
-#include "llimpanel.h"
-#include "llinventorymodel.h"
-#include "llinventoryview.h"
-#include "llmenugl.h"
-#include "llmutelist.h"
+#include "llinventoryobserver.h"
+#include "llinventorypanel.h"
+#include "llnearbychat.h"
 #include "llnotifications.h"
-#include "llnotify.h"
+#include "llnotificationsutil.h"
 #include "llpanelgrouplandmoney.h"
+#include "llpanelplaces.h"
+#include "llrecentpeople.h"
+#include "llscriptfloater.h"
 #include "llselectmgr.h"
+#include "llsidetray.h"
 #include "llstartup.h"
 #include "llsky.h"
+#include "llslurl.h"
 #include "llstatenums.h"
 #include "llstatusbar.h"
 #include "llimview.h"
-#include "lltool.h"
-#include "lltoolbar.h"
-#include "lltoolmgr.h"
+#include "llspeakers.h"
 #include "lltrans.h"
-#include "llui.h"			// for make_ui_sound
-#include "lluploaddialog.h"
-#include "llviewercamera.h"
+#include "llviewerfoldertype.h"
+#include "lluri.h"
 #include "llviewergenericmessage.h"
-#include "llviewerinventory.h"
 #include "llviewermenu.h"
-#include "llviewerobject.h"
 #include "llviewerobjectlist.h"
 #include "llviewerparcelmgr.h"
-#include "llviewerpartsource.h"
-#include "llviewerregion.h"
 #include "llviewerstats.h"
 #include "llviewertexteditor.h"
 #include "llviewerthrottle.h"
 #include "llviewerwindow.h"
 #include "llvlmanager.h"
-#include "llvoavatar.h"
+#include "llvoavatarself.h"
 #include "llvotextbubble.h"
-#include "llweb.h"
 #include "llworld.h"
 #include "pipeline.h"
-#include "llappviewer.h"
 #include "llfloaterworldmap.h"
 #include "llviewerdisplay.h"
 #include "llkeythrottle.h"
+#include "llgroupactions.h"
+#include "llagentui.h"
+#include "llpanelblockedlist.h"
+#include "llpanelplaceprofile.h"
 
-#include <boost/tokenizer.hpp>
+#include <boost/algorithm/string/split.hpp> //
 
 #if LL_WINDOWS // For Windows specific error handler
 #include "llwindebug.h"	// For the invalid message handler
 #endif
+
+#include "llnotificationmanager.h" //
 
 //
 // Constants
@@ -156,11 +126,7 @@ static const F32 LLREQUEST_PERMISSION_THROTTLE_INTERVAL	= 10.0f; // seconds
 extern BOOL gDebugClicks;
 
 // function prototypes
-void open_offer(const std::vector<LLUUID>& items, const std::string& from_name);
 bool check_offer_throttle(const std::string& from_name, bool check_only);
-void callbackCacheEstateOwnerName(const LLUUID& id,
-								  const std::string& first, const std::string& last,
-								  BOOL is_group, void*);
 
 //inventory offer throttle globals
 LLFrameTimer gThrottleTimer;
@@ -200,17 +166,21 @@ const BOOL SCRIPT_QUESTION_IS_CAUTION[SCRIPT_PERMISSION_EOF] =
 
 bool friendship_offer_callback(const LLSD& notification, const LLSD& response)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
-	LLUUID fid;
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	LLMessageSystem* msg = gMessageSystem;
 	const LLSD& payload = notification["payload"];
+
+	// add friend to recent people list
+	LLRecentPeople::instance().add(payload["from_id"]);
+
 	switch(option)
 	{
 	case 0:
+	{
 		// accept
 		LLAvatarTracker::formFriendship(payload["from_id"]);
 
-		fid = gInventory.findCategoryUUIDForType(LLAssetType::AT_CALLINGCARD);
+		const LLUUID fid = gInventory.findCategoryUUIDForType(LLFolderType::FT_CALLINGCARD);
 
 		// This will also trigger an onlinenotification if the user is online
 		msg->newMessageFast(_PREHASH_AcceptFriendship);
@@ -223,18 +193,27 @@ bool friendship_offer_callback(const LLSD& notification, const LLSD& response)
 		msg->addUUIDFast(_PREHASH_FolderID, fid);
 		msg->sendReliable(LLHost(payload["sender"].asString()));
 		break;
-	case 1:
-		// decline
-		// We no longer notify other viewers, but we DO still send
-		// the rejection to the simulator to delete the pending userop.
-		msg->newMessageFast(_PREHASH_DeclineFriendship);
-		msg->nextBlockFast(_PREHASH_AgentData);
-		msg->addUUIDFast(_PREHASH_AgentID, gAgent.getID());
-		msg->addUUIDFast(_PREHASH_SessionID, gAgent.getSessionID());
-		msg->nextBlockFast(_PREHASH_TransactionBlock);
-		msg->addUUIDFast(_PREHASH_TransactionID, payload["session_id"]);
-		msg->sendReliable(LLHost(payload["sender"].asString()));
-		break;
+	}
+	case 1: // Decline
+	case 2: // Send IM - decline and start IM session
+		{
+			// decline
+			// We no longer notify other viewers, but we DO still send
+			// the rejection to the simulator to delete the pending userop.
+			msg->newMessageFast(_PREHASH_DeclineFriendship);
+			msg->nextBlockFast(_PREHASH_AgentData);
+			msg->addUUIDFast(_PREHASH_AgentID, gAgent.getID());
+			msg->addUUIDFast(_PREHASH_SessionID, gAgent.getSessionID());
+			msg->nextBlockFast(_PREHASH_TransactionBlock);
+			msg->addUUIDFast(_PREHASH_TransactionID, payload["session_id"]);
+			msg->sendReliable(LLHost(payload["sender"].asString()));
+
+			// start IM session
+			if(2 == option)
+			{
+				LLAvatarActions::startIM(payload["from_id"].asUUID());
+			}
+	}
 	default:
 		// close button probably, possibly timed out
 		break;
@@ -618,7 +597,7 @@ void send_sound_trigger(const LLUUID& sound_id, F32 gain)
 
 bool join_group_response(const LLSD& notification, const LLSD& response)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	BOOL delete_context_data = TRUE;
 	bool accept_invite = false;
 
@@ -630,10 +609,10 @@ bool join_group_response(const LLSD& notification, const LLSD& response)
 
 	if (option == 2 && !group_id.isNull())
 	{
-		LLFloaterGroupInfo::showFromUUID(group_id);
+		LLGroupActions::show(group_id);
 		LLSD args;
 		args["MESSAGE"] = message;
-		LLNotifications::instance().add("JoinGroup", args, notification["payload"]);
+		LLNotificationsUtil::add("JoinGroup", args, notification["payload"]);
 		return false;
 	}
 	if(option == 0 && !group_id.isNull())
@@ -652,7 +631,7 @@ bool join_group_response(const LLSD& notification, const LLSD& response)
 			LLSD args;
 			args["NAME"] = name;
 			args["INVITE"] = message;
-			LLNotifications::instance().add("JoinedTooManyGroupsMember", args, notification["payload"]);
+			LLNotificationsUtil::add("JoinedTooManyGroupsMember", args, notification["payload"]);
 		}
 	}
 
@@ -669,7 +648,7 @@ bool join_group_response(const LLSD& notification, const LLSD& response)
 			// asking about a fee.
 			LLSD next_payload = notification["payload"];
 			next_payload["fee"] = 0;
-			LLNotifications::instance().add("JoinGroupCanAfford",
+			LLNotificationsUtil::add("JoinGroupCanAfford",
 									args,
 									next_payload);
 		}
@@ -709,7 +688,7 @@ public:
 	LLOpenAgentOffer(const std::string& from_name) : mFromName(from_name) {}
 	/*virtual*/ void done()
 	{
-		open_offer(mComplete, mFromName);
+		open_inventory_offer(mComplete, mFromName);
 		gInventory.removeObserver(this);
 		delete this;
 	}
@@ -727,10 +706,22 @@ class LLOpenTaskOffer : public LLInventoryAddedObserver
 protected:
 	/*virtual*/ void done()
 	{
-		open_offer(mAdded, "");
+		open_inventory_offer(mAdded, "");
 		mAdded.clear();
 	}
  };
+
+class LLOpenTaskGroupOffer : public LLInventoryAddedObserver
+{
+protected:
+	/*virtual*/ void done()
+	{
+		open_inventory_offer(mAdded, "group_offer");
+		mAdded.clear();
+		gInventory.removeObserver(this);
+		delete this;
+	}
+};
 
 //one global instance to bind them
 LLOpenTaskOffer* gNewInventoryObserver=NULL;
@@ -747,6 +738,7 @@ void start_new_inventory_observer()
 
 class LLDiscardAgentOffer : public LLInventoryFetchComboObserver
 {
+	LOG_CLASS(LLDiscardAgentOffer);
 public:
 	LLDiscardAgentOffer(const LLUUID& folder_id, const LLUUID& object_id) :
 		mFolderID(folder_id),
@@ -755,8 +747,7 @@ public:
 	virtual void done()
 	{
 		LL_DEBUGS("Messaging") << "LLDiscardAgentOffer::done()" << LL_ENDL;
-		LLUUID trash_id;
-		trash_id = gInventory.findCategoryUUIDForType(LLAssetType::AT_TRASH);
+		const LLUUID trash_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_TRASH);
 		bool notify = false;
 		if(trash_id.notNull() && mObjectID.notNull())
 		{
@@ -844,9 +835,13 @@ bool check_offer_throttle(const std::string& from_name, bool check_only)
 				}
 				message << ", automatic preview disabled for "
 					<< OFFER_THROTTLE_TIME << " seconds.";
-				chat.mText = message.str();
+				
 				//this is kinda important, so actually put it on screen
-				LLFloaterChat::addChat(chat, FALSE, FALSE);
+				std::string log_msg = message.str();
+				LLSD args;
+				args["MESSAGE"] = log_msg;
+				LLNotificationsUtil::add("SystemMessage", args);
+
 				throttle_logged=true;
 			}
 			return false;
@@ -859,107 +854,151 @@ bool check_offer_throttle(const std::string& from_name, bool check_only)
 	}
 }
  
-void open_offer(const std::vector<LLUUID>& items, const std::string& from_name)
+void open_inventory_offer(const std::vector<LLUUID>& items, const std::string& from_name)
 {
-	std::vector<LLUUID>::const_iterator it = items.begin();
-	std::vector<LLUUID>::const_iterator end = items.end();
-	LLUUID trash_id(gInventory.findCategoryUUIDForType(LLAssetType::AT_TRASH));
-	LLInventoryItem* item;
-	for(; it != end; ++it)
+	for (std::vector<LLUUID>::const_iterator item_iter = items.begin();
+		 item_iter != items.end();
+		 ++item_iter)
 	{
-		item = gInventory.getItem(*it);
+		const LLUUID& item_id = (*item_iter);
+		LLInventoryItem* item = gInventory.getItem(item_id);
 		if(!item)
 		{
-			LL_WARNS("Messaging") << "Unable to show inventory item: " << *it << LL_ENDL;
+			LL_WARNS("Messaging") << "Unable to show inventory item: " << item_id << LL_ENDL;
 			continue;
 		}
-		if(gInventory.isObjectDescendentOf(*it, trash_id))
-		{
-			continue;
-		}
-		LLAssetType::EType asset_type = item->getType();
 
-		//if we are throttled, don't display them
-		if (check_offer_throttle(from_name, false))
+		////////////////////////////////////////////////////////////////////////////////
+		// Don't highlight if it's in certain "quiet" folders which don't need UI 
+		// notification (e.g. trash, cof, lost-and-found).
+		const BOOL user_is_away = gAwayTimer.getStarted();
+		if(!user_is_away)
 		{
-			// I'm not sure this is a good idea.
-			bool show_keep_discard = item->getPermissions().getCreator() != gAgent.getID();
-			//bool show_keep_discard = true;
+			const LLViewerInventoryCategory *parent = gInventory.getFirstNondefaultParent(item_id);
+			if (parent)
+			{
+				const LLFolderType::EType parent_type = parent->getPreferredType();
+				if (LLViewerFolderType::lookupIsQuietType(parent_type))
+				{
+					continue;
+				}
+			}
+		}
+
+		////////////////////////////////////////////////////////////////////////////////
+		// Special handling for various types.
+		const LLAssetType::EType asset_type = item->getType();
+		if (check_offer_throttle(from_name, false)) // If we are throttled, don't display
+		{
+			LL_DEBUGS("Messaging") << "Highlighting inventory item: " << item->getUUID()  << LL_ENDL;
+			// If we opened this ourselves, focus it
+			const BOOL take_focus = from_name.empty() ? TAKE_FOCUS_YES : TAKE_FOCUS_NO;
 			switch(asset_type)
 			{
-			case LLAssetType::AT_NOTECARD:
-				open_notecard((LLViewerInventoryItem*)item, std::string("Note: ") + item->getName(), LLUUID::null, show_keep_discard, LLUUID::null, FALSE);
+			  case LLAssetType::AT_NOTECARD:
+			  {
+				  LLFloaterReg::showInstance("preview_notecard", LLSD(item_id), take_focus);
+				  break;
+			  }
+			  case LLAssetType::AT_LANDMARK:
+			  	{
+					LLInventoryCategory* parent_folder = gInventory.getCategory(item->getParentUUID());
+					if ("inventory_handler" == from_name)
+					{
+						//we have to filter inventory_handler messages to avoid notification displaying
+						LLSideTray::getInstance()->showPanel("panel_places", 
+								LLSD().with("type", "landmark").with("id", item->getUUID()));
+					}
+					else if("group_offer" == from_name)
+					{
+						// do not open inventory when we open group notice attachment because 
+						// we already opened landmark info panel
+						// "group_offer" is passed by LLOpenTaskGroupOffer
+
+						continue;
+					}
+					else if(from_name.empty())
+					{
+						// we receive a message from LLOpenTaskOffer, it mean that new landmark has been added.
+						LLSD args;
+						args["LANDMARK_NAME"] = item->getName();
+						args["FOLDER_NAME"] = std::string(parent_folder ? parent_folder->getName() : "unknown");
+						LLNotificationsUtil::add("LandmarkCreated", args);
+						// Created landmark is passed to Places panel to allow its editing. In fact panel should be already displayed.
+						//TODO*:: dserduk(7/12/09) remove LLPanelPlaces dependency from here
+						LLPanelPlaces *places_panel = dynamic_cast<LLPanelPlaces*>(LLSideTray::getInstance()->showPanel("panel_places", LLSD()));
+						if (places_panel)
+						{
+							// we are creating a landmark
+							if("create_landmark" == places_panel->getPlaceInfoType() && !places_panel->getItem())
+							{
+								places_panel->setItem(item);
+							}
+							// we are opening a group notice attachment
+							else
+							{
+								LLSD args;
+								args["type"] = "landmark";
+								args["id"] = item_id;
+								LLSideTray::getInstance()->showPanel("panel_places", args);
+							}
+						}
+					}
+				}
 				break;
-			case LLAssetType::AT_LANDMARK:
-				open_landmark((LLViewerInventoryItem*)item, std::string("Landmark: ") + item->getName(), show_keep_discard, LLUUID::null, FALSE);
-				break;
-			case LLAssetType::AT_TEXTURE:
-				open_texture(*it, std::string("Texture: ") + item->getName(), show_keep_discard, LLUUID::null, FALSE);
-				break;
-			default:
+			  case LLAssetType::AT_TEXTURE:
+			  {
+				  LLFloaterReg::showInstance("preview_texture", LLSD(item_id), take_focus);
+				  break;
+			  }
+			  case LLAssetType::AT_ANIMATION:
+				  LLFloaterReg::showInstance("preview_anim", LLSD(item_id), take_focus);
+				  break;
+			  case LLAssetType::AT_SCRIPT:
+				  LLFloaterReg::showInstance("preview_script", LLSD(item_id), take_focus);
+				  break;
+			  case LLAssetType::AT_SOUND:
+				  LLFloaterReg::showInstance("preview_sound", LLSD(item_id), take_focus);
+				  break;
+			  default:
 				break;
 			}
 		}
-		//highlight item, if it's not in the trash or lost+found
 		
-		// Don't auto-open the inventory floater
-		LLInventoryView* view = LLInventoryView::getActiveInventory();
-		if(!view)
+		////////////////////////////////////////////////////////////////////////////////
+		// Highlight item if it's not in the trash, lost+found, or COF
+		const BOOL auto_open = gSavedSettings.getBOOL("ShowInInventory") &&
+			(asset_type != LLAssetType::AT_CALLINGCARD) &&
+			(item->getInventoryType() != LLInventoryType::IT_ATTACHMENT) &&
+			!from_name.empty();
+		LLInventoryPanel *active_panel = LLInventoryPanel::getActiveInventoryPanel(auto_open);
+		if(active_panel)
 		{
-			return;
+			LL_DEBUGS("Messaging") << "Highlighting" << item_id  << LL_ENDL;
+			LLFocusableElement* focus_ctrl = gFocusMgr.getKeyboardFocus();
+			active_panel->setSelection(item_id, TAKE_FOCUS_NO);
+			gFocusMgr.setKeyboardFocus(focus_ctrl);
 		}
-
-		if(gSavedSettings.getBOOL("ShowInInventory") &&
-		   asset_type != LLAssetType::AT_CALLINGCARD &&
-		   item->getInventoryType() != LLInventoryType::IT_ATTACHMENT &&
-		   !from_name.empty())
-		{
-			LLInventoryView::showAgentInventory(TRUE);
-		}
-		//Trash Check
-		LLUUID trash_id;
-		trash_id = gInventory.findCategoryUUIDForType(LLAssetType::AT_TRASH);
-		if(gInventory.isObjectDescendentOf(item->getUUID(), trash_id))
-		{
-			return;
-		}
-		LLUUID lost_and_found_id = gInventory.findCategoryUUIDForType(LLAssetType::AT_LOST_AND_FOUND);
-		//BOOL inventory_has_focus = gFocusMgr.childHasKeyboardFocus(view);
-		BOOL user_is_away = gAwayTimer.getStarted();
-
-		// don't select lost and found items if the user is active
-		if (gInventory.isObjectDescendentOf(item->getUUID(), lost_and_found_id)
-			&& !user_is_away)
-		{
-			return;
-		}
-
-		//Not sure about this check.  Could make it easy to miss incoming items.
-		//don't dick with highlight while the user is working
-		//if(inventory_has_focus && !user_is_away)
-		//	break;
-		LL_DEBUGS("Messaging") << "Highlighting" << item->getUUID()  << LL_ENDL;
-		//highlight item
-
-		LLUICtrl* focus_ctrl = gFocusMgr.getKeyboardFocus();
-		view->getPanel()->setSelection(item->getUUID(), TAKE_FOCUS_NO);
-		gFocusMgr.setKeyboardFocus(focus_ctrl);
 	}
 }
 
 void inventory_offer_mute_callback(const LLUUID& blocked_id,
 								   const std::string& first_name,
 								   const std::string& last_name,
-								   BOOL is_group,
-								   void* user_data)
+								   BOOL is_group, LLOfferInfo* offer = NULL)
 {
 	std::string from_name;
 	LLMute::EType type;
-
 	if (is_group)
 	{
 		type = LLMute::GROUP;
 		from_name = first_name;
+	}
+	else if(offer && offer->mFromObject)
+	{
+		//we have to block object by name because blocked_id is an id of owner
+		type = LLMute::BY_NAME;
+		from_name = offer->mFromName;
 	}
 	else
 	{
@@ -967,19 +1006,19 @@ void inventory_offer_mute_callback(const LLUUID& blocked_id,
 		from_name = first_name + " " + last_name;
 	}
 
-	LLMute mute(blocked_id, from_name, type);
+	// id should be null for BY_NAME mute, see  LLMuteList::add for details  
+	LLMute mute(type == LLMute::BY_NAME ? LLUUID::null : blocked_id, from_name, type);
 	if (LLMuteList::getInstance()->add(mute))
 	{
-		LLFloaterMute::showInstance();
-		LLFloaterMute::getInstance()->selectMute(blocked_id);
+		LLPanelBlockedList::showPanelAndSelect(blocked_id);
 	}
 
 	// purge the message queue of any previously queued inventory offers from the same source.
-	class OfferMatcher : public LLNotifyBoxView::Matcher
+	class OfferMatcher : public LLNotificationsUI::LLScreenChannel::Matcher
 	{
 	public:
 		OfferMatcher(const LLUUID& to_block) : blocked_id(to_block) {}
-		BOOL matches(const LLNotificationPtr notification) const
+		bool matches(const LLNotificationPtr notification) const
 		{
 			if(notification->getName() == "ObjectGiveItem" 
 				|| notification->getName() == "ObjectGiveItemUnknownUser"
@@ -992,7 +1031,9 @@ void inventory_offer_mute_callback(const LLUUID& blocked_id,
 	private:
 		const LLUUID& blocked_id;
 	};
-	gNotifyBoxView->purgeMessagesMatching(OfferMatcher(blocked_id));
+
+	LLNotificationsUI::LLChannelManager::getInstance()->killToastsFromChannel(LLUUID(
+			gSavedSettings.getString("NotificationChannelUUID")), OfferMatcher(blocked_id));
 }
 
 LLOfferInfo::LLOfferInfo(const LLSD& sd)
@@ -1027,22 +1068,8 @@ LLSD LLOfferInfo::asLLSD()
 	return sd;
 }
 
-bool LLOfferInfo::inventory_offer_callback(const LLSD& notification, const LLSD& response)
- {
-	LLChat chat;
-	std::string log_message;
-	S32 button = LLNotification::getSelectedOption(notification, response);
-
-	// For muting, we need to add the mute, then decline the offer.
-	// This must be done here because:
-	// * callback may be called immediately,
-	// * adding the mute sends a message,
-	// * we can't build two messages at once.
-	if (2 == button)
-	{
-		gCacheName->get(mFromID, mFromGroup, inventory_offer_mute_callback, this);
-	}
-
+void LLOfferInfo::send_auto_receive_response(void)
+{	
 	LLMessageSystem* msg = gMessageSystem;
 	msg->newMessageFast(_PREHASH_ImprovedInstantMessage);
 	msg->nextBlockFast(_PREHASH_AgentData);
@@ -1055,12 +1082,37 @@ bool LLOfferInfo::inventory_offer_callback(const LLSD& notification, const LLSD&
 	msg->addUUIDFast(_PREHASH_ID, mTransactionID);
 	msg->addU32Fast(_PREHASH_Timestamp, NO_TIMESTAMP); // no timestamp necessary
 	std::string name;
-	gAgent.buildFullname(name);
+	LLAgentUI::buildFullname(name);
 	msg->addStringFast(_PREHASH_FromAgentName, name);
 	msg->addStringFast(_PREHASH_Message, ""); 
 	msg->addU32Fast(_PREHASH_ParentEstateID, 0);
 	msg->addUUIDFast(_PREHASH_RegionID, LLUUID::null);
 	msg->addVector3Fast(_PREHASH_Position, gAgent.getPositionAgent());
+	
+	// Auto Receive Message. The math for the dialog works, because the accept
+	// for inventory_offered, task_inventory_offer or
+	// group_notice_inventory is 1 greater than the offer integer value.
+	// Generates IM_INVENTORY_ACCEPTED, IM_TASK_INVENTORY_ACCEPTED, 
+	// or IM_GROUP_NOTICE_INVENTORY_ACCEPTED
+	msg->addU8Fast(_PREHASH_Dialog, (U8)(mIM + 1));
+	msg->addBinaryDataFast(_PREHASH_BinaryBucket, &(mFolderID.mData),
+						   sizeof(mFolderID.mData));
+	// send the message
+	msg->sendReliable(mHost);
+	
+	if(IM_INVENTORY_OFFERED == mIM)
+	{
+		// add buddy to recent people list
+		LLRecentPeople::instance().add(mFromID);
+	}
+}
+
+bool LLOfferInfo::inventory_offer_callback(const LLSD& notification, const LLSD& response)
+{
+	LLChat chat;
+	std::string log_message;
+	S32 button = LLNotificationsUtil::getSelectedOption(notification, response);
+	
 	LLInventoryObserver* opener = NULL;
 	LLViewerInventoryCategory* catp = NULL;
 	catp = (LLViewerInventoryCategory*)gInventory.getCategory(mObjectID);
@@ -1069,108 +1121,79 @@ bool LLOfferInfo::inventory_offer_callback(const LLSD& notification, const LLSD&
 	{
 		itemp = (LLViewerInventoryItem*)gInventory.getItem(mObjectID);
 	}
+	 
+	// For muting, we need to add the mute, then decline the offer.
+	// This must be done here because:
+	// * callback may be called immediately,
+	// * adding the mute sends a message,
+	// * we can't build two messages at once.
+	if (2 == button) // Block
+	{
+		gCacheName->get(mFromID, mFromGroup, boost::bind(&inventory_offer_mute_callback,_1,_2,_3,_4,this));
+	}
 
-	// *TODO:translate
 	std::string from_string; // Used in the pop-up.
 	std::string chatHistory_string;  // Used in chat history.
-	if (mFromObject == TRUE)
-	{
-		if (mFromGroup)
-		{
-			std::string group_name;
-			if (gCacheName->getGroupName(mFromID, group_name))
-			{
-				from_string = std::string("An object named '") + mFromName + "' owned by the group '" + group_name + "'";
-				chatHistory_string = mFromName + " owned by the group '" + group_name + "'";
-			}
-			else
-			{
-				from_string = std::string("An object named '") + mFromName + "' owned by an unknown group";
-				chatHistory_string = mFromName + " owned by an unknown group";
-			}
-		}
-		else
-		{
-			std::string first_name, last_name;
-			if (gCacheName->getName(mFromID, first_name, last_name))
-			{
-				from_string = std::string("An object named '") + mFromName + "' owned by " + first_name + " " + last_name;
-				chatHistory_string = mFromName + " owned by " + first_name + " " + last_name;
-			}
-			else
-			{
-				from_string = std::string("An object named '") + mFromName + "' owned by an unknown user";
-				chatHistory_string = mFromName + " owned by an unknown user";
-			}
-		}
-	}
-	else
-	{
-		from_string = chatHistory_string = mFromName;
-	}
+	
+	// TODO: when task inventory offers can also be handled the new way, migrate the code that sets these strings here:
+	from_string = chatHistory_string = mFromName;
 	
 	bool busy=FALSE;
 	
 	switch(button)
 	{
-	case IOR_ACCEPT:
-		// ACCEPT. The math for the dialog works, because the accept
-		// for inventory_offered, task_inventory_offer or
-		// group_notice_inventory is 1 greater than the offer integer value.
-		// Generates IM_INVENTORY_ACCEPTED, IM_TASK_INVENTORY_ACCEPTED, 
-		// or IM_GROUP_NOTICE_INVENTORY_ACCEPTED
-		msg->addU8Fast(_PREHASH_Dialog, (U8)(mIM + 1));
-		msg->addBinaryDataFast(_PREHASH_BinaryBucket, &(mFolderID.mData),
-					 sizeof(mFolderID.mData));
-		// send the message
-		msg->sendReliable(mHost);
-
-		//don't spam them if they are getting flooded
-		if (check_offer_throttle(mFromName, true))
-		{
-			log_message = chatHistory_string + " gave you " + mDesc + ".";
- 			chat.mText = log_message;
- 			LLFloaterChat::addChatHistory(chat);
-		}
-
+	case IOR_SHOW:
 		// we will want to open this item when it comes back.
 		LL_DEBUGS("Messaging") << "Initializing an opener for tid: " << mTransactionID
 				 << LL_ENDL;
 		switch (mIM)
 		{
 		case IM_INVENTORY_OFFERED:
-		{
-			// This is an offer from an agent. In this case, the back
-			// end has already copied the items into your inventory,
-			// so we can fetch it out of our inventory.
-			LLInventoryFetchObserver::item_ref_t items;
-			items.push_back(mObjectID);
-			LLOpenAgentOffer* open_agent_offer = new LLOpenAgentOffer(from_string);
-			open_agent_offer->fetchItems(items);
-			if(catp || (itemp && itemp->isComplete()))
 			{
-				open_agent_offer->done();
+				// This is an offer from an agent. In this case, the back
+				// end has already copied the items into your inventory,
+				// so we can fetch it out of our inventory.
+				LLInventoryFetchObserver::item_ref_t items;
+				items.push_back(mObjectID);
+				LLOpenAgentOffer* open_agent_offer = new LLOpenAgentOffer(from_string);
+				open_agent_offer->fetchItems(items);
+				if(catp || (itemp && itemp->isComplete()))
+				{
+					open_agent_offer->done();
+				}
+				else
+				{
+					opener = open_agent_offer;
+				}
 			}
-			else
-			{
-				opener = open_agent_offer;
-			}
-		}
+			break;
+		case IM_GROUP_NOTICE:
+			opener = new LLOpenTaskGroupOffer;
+			send_auto_receive_response();
 			break;
 		case IM_TASK_INVENTORY_OFFERED:
-		case IM_GROUP_NOTICE:
 		case IM_GROUP_NOTICE_REQUESTED:
-		{
 			// This is an offer from a task or group.
 			// We don't use a new instance of an opener
 			// We instead use the singular observer gOpenTaskOffer
 			// Since it already exists, we don't need to actually do anything
-		}
-		break;
+			break;
 		default:
 			LL_WARNS("Messaging") << "inventory_offer_callback: unknown offer type" << LL_ENDL;
 			break;
-		}	// end switch (mIM)
+		}
+		break;
+		// end switch (mIM)
+			
+	case IOR_ACCEPT:
+		//don't spam them if they are getting flooded
+		if (check_offer_throttle(mFromName, true))
+		{
+			log_message = chatHistory_string + " " + LLTrans::getString("InvOfferGaveYou") + " " + mDesc + LLTrans::getString(".");
+			LLSD args;
+			args["MESSAGE"] = log_message;
+			LLNotificationsUtil::add("SystemMessage", args);
+		}
 		break;
 
 	case IOR_BUSY:
@@ -1179,31 +1202,18 @@ bool LLOfferInfo::inventory_offer_callback(const LLSD& notification, const LLSD&
 	case IOR_MUTE:
 		// MUTE falls through to decline
 	case IOR_DECLINE:
-		// DECLINE. The math for the dialog works, because the decline
-		// for inventory_offered, task_inventory_offer or
-		// group_notice_inventory is 2 greater than the offer integer value.
-		// Generates IM_INVENTORY_DECLINED, IM_TASK_INVENTORY_DECLINED,
-		// or IM_GROUP_NOTICE_INVENTORY_DECLINED
-	default:
-		// close button probably (or any of the fall-throughs from above)
-		msg->addU8Fast(_PREHASH_Dialog, (U8)(mIM + 2));
-		msg->addBinaryDataFast(_PREHASH_BinaryBucket, EMPTY_BINARY_BUCKET, EMPTY_BINARY_BUCKET_SIZE);
-		// send the message
-		msg->sendReliable(mHost);
-
-		log_message = "You decline " + mDesc + " from " + mFromName + ".";
-		chat.mText = log_message;
-		if( LLMuteList::getInstance()->isMuted(mFromID ) && ! LLMuteList::getInstance()->isLinden(mFromName) )  // muting for SL-42269
 		{
-			chat.mMuted = TRUE;
-		}
-		LLFloaterChat::addChatHistory(chat);
+			log_message = LLTrans::getString("InvOfferYouDecline") + " " + mDesc + " " + LLTrans::getString("InvOfferFrom") + " " + mFromName +".";
+			chat.mText = log_message;
+			if( LLMuteList::getInstance()->isMuted(mFromID ) && ! LLMuteList::getInstance()->isLinden(mFromName) )  // muting for SL-42269
+			{
+				chat.mMuted = TRUE;
+			}
 
-		// If it's from an agent, we have to fetch the item to throw
-		// it away. If it's from a task or group, just denying the 
-		// request will suffice to discard the item.
-		if(IM_INVENTORY_OFFERED == mIM)
-		{
+			// *NOTE dzaporozhan
+			// Disabled logging to old chat floater to fix crash in group notices - EXT-4149
+			// LLFloaterChat::addChatHistory(chat);
+			
 			LLInventoryFetchComboObserver::folder_ref_t folders;
 			LLInventoryFetchComboObserver::item_ref_t items;
 			items.push_back(mObjectID);
@@ -1219,11 +1229,18 @@ bool LLOfferInfo::inventory_offer_callback(const LLSD& notification, const LLSD&
 				opener = discard_agent_offer;
 			}
 			
+			
+			if (busy &&	(!mFromGroup && !mFromObject))
+			{
+				busy_message(gMessageSystem, mFromID);
+			}
+			break;
 		}
-		if (busy &&	(!mFromGroup && !mFromObject))
-		{
-			busy_message(msg,mFromID);
-		}
+	default:
+		// close button probably
+		// The item has already been fetched and is in your inventory, we simply won't highlight it
+		// OR delete it if the notification gets killed, since we don't want that to be a vector for 
+		// losing inventory offers.
 		break;
 	}
 
@@ -1232,16 +1249,194 @@ bool LLOfferInfo::inventory_offer_callback(const LLSD& notification, const LLSD&
 		gInventory.addObserver(opener);
 	}
 
-	// Allow these to stack up, but once you deal with one, reset the
-	// position.
-	gFloaterView->resetStartingFloaterPosition();
+	// Remove script dialog because there is no need in it no more.
+	LLUUID object_id = notification["payload"]["object_id"].asUUID();
+	LLScriptFloaterManager::instance().removeNotificationByObjectId(object_id);
 
 	delete this;
 	return false;
 }
 
+bool LLOfferInfo::inventory_task_offer_callback(const LLSD& notification, const LLSD& response)
+{
+	LLChat chat;
+	std::string log_message;
+	S32 button = LLNotification::getSelectedOption(notification, response);
+	
+	// For muting, we need to add the mute, then decline the offer.
+	// This must be done here because:
+	// * callback may be called immediately,
+	// * adding the mute sends a message,
+	// * we can't build two messages at once.
+	if (2 == button)
+	{
+		gCacheName->get(mFromID, mFromGroup, boost::bind(&inventory_offer_mute_callback,_1,_2,_3,_4,this));
+	}
+	
+	LLMessageSystem* msg = gMessageSystem;
+	msg->newMessageFast(_PREHASH_ImprovedInstantMessage);
+	msg->nextBlockFast(_PREHASH_AgentData);
+	msg->addUUIDFast(_PREHASH_AgentID, gAgent.getID());
+	msg->addUUIDFast(_PREHASH_SessionID, gAgent.getSessionID());
+	msg->nextBlockFast(_PREHASH_MessageBlock);
+	msg->addBOOLFast(_PREHASH_FromGroup, FALSE);
+	msg->addUUIDFast(_PREHASH_ToAgentID, mFromID);
+	msg->addU8Fast(_PREHASH_Offline, IM_ONLINE);
+	msg->addUUIDFast(_PREHASH_ID, mTransactionID);
+	msg->addU32Fast(_PREHASH_Timestamp, NO_TIMESTAMP); // no timestamp necessary
+	std::string name;
+	LLAgentUI::buildFullname(name);
+	msg->addStringFast(_PREHASH_FromAgentName, name);
+	msg->addStringFast(_PREHASH_Message, ""); 
+	msg->addU32Fast(_PREHASH_ParentEstateID, 0);
+	msg->addUUIDFast(_PREHASH_RegionID, LLUUID::null);
+	msg->addVector3Fast(_PREHASH_Position, gAgent.getPositionAgent());
+	LLInventoryObserver* opener = NULL;
+	LLViewerInventoryCategory* catp = NULL;
+	catp = (LLViewerInventoryCategory*)gInventory.getCategory(mObjectID);
+	LLViewerInventoryItem* itemp = NULL;
+	if(!catp)
+	{
+		itemp = (LLViewerInventoryItem*)gInventory.getItem(mObjectID);
+	}
+	
+	std::string from_string; // Used in the pop-up.
+	std::string chatHistory_string;  // Used in chat history.
+	if (mFromObject == TRUE)
+	{
+		if (mFromGroup)
+		{
+			std::string group_name;
+			if (gCacheName->getGroupName(mFromID, group_name))
+			{
+				from_string = LLTrans::getString("InvOfferAnObjectNamed") + " "+"'" 
+				+ mFromName + LLTrans::getString("'") +" " + LLTrans::getString("InvOfferOwnedByGroup") 
+				+ " "+ "'" + group_name + "'";
+				
+				chatHistory_string = mFromName + " " + LLTrans::getString("InvOfferOwnedByGroup") 
+				+ " " + group_name + "'";
+			}
+			else
+			{
+				from_string = LLTrans::getString("InvOfferAnObjectNamed") + " "+"'"
+				+ mFromName +"'"+ " " + LLTrans::getString("InvOfferOwnedByUnknownGroup");
+				chatHistory_string = mFromName + " " + LLTrans::getString("InvOfferOwnedByUnknownGroup");
+			}
+		}
+		else
+		{
+			std::string first_name, last_name;
+			if (gCacheName->getName(mFromID, first_name, last_name))
+			{
+				from_string = LLTrans::getString("InvOfferAnObjectNamed") + " "+ LLTrans::getString("'") + mFromName 
+				+ LLTrans::getString("'")+" " + LLTrans::getString("InvOfferOwnedBy") + first_name + " " + last_name;
+				chatHistory_string = mFromName + " " + LLTrans::getString("InvOfferOwnedBy") + " " + first_name + " " + last_name;
+			}
+			else
+			{
+				from_string = LLTrans::getString("InvOfferAnObjectNamed") + " "+LLTrans::getString("'") 
+				+ mFromName + LLTrans::getString("'")+" " + LLTrans::getString("InvOfferOwnedByUnknownUser");
+				chatHistory_string = mFromName + " " + LLTrans::getString("InvOfferOwnedByUnknownUser");
+			}
+		}
+	}
+	else
+	{
+		from_string = chatHistory_string = mFromName;
+	}
+	
+	bool busy=FALSE;
+	
+	switch(button)
+	{
+		case IOR_ACCEPT:
+			// ACCEPT. The math for the dialog works, because the accept
+			// for inventory_offered, task_inventory_offer or
+			// group_notice_inventory is 1 greater than the offer integer value.
+			// Generates IM_INVENTORY_ACCEPTED, IM_TASK_INVENTORY_ACCEPTED, 
+			// or IM_GROUP_NOTICE_INVENTORY_ACCEPTED
+			msg->addU8Fast(_PREHASH_Dialog, (U8)(mIM + 1));
+			msg->addBinaryDataFast(_PREHASH_BinaryBucket, &(mFolderID.mData),
+								   sizeof(mFolderID.mData));
+			// send the message
+			msg->sendReliable(mHost);
+			
+			//don't spam them if they are getting flooded
+			if (check_offer_throttle(mFromName, true))
+			{
+				log_message = chatHistory_string + " " + LLTrans::getString("InvOfferGaveYou") + " " + mDesc + LLTrans::getString(".");
+				//TODO* CHAT: how to show this?
+				//LLSD args;
+				//args["MESSAGE"] = log_message;
+				//LLNotificationsUtil::add("SystemMessage", args);
+			}
+			
+			// we will want to open this item when it comes back.
+			LL_DEBUGS("Messaging") << "Initializing an opener for tid: " << mTransactionID
+			<< LL_ENDL;
+			switch (mIM)
+		{
+			case IM_TASK_INVENTORY_OFFERED:
+			case IM_GROUP_NOTICE:
+			case IM_GROUP_NOTICE_REQUESTED:
+			{
+				// This is an offer from a task or group.
+				// We don't use a new instance of an opener
+				// We instead use the singular observer gOpenTaskOffer
+				// Since it already exists, we don't need to actually do anything
+			}
+				break;
+			default:
+				LL_WARNS("Messaging") << "inventory_offer_callback: unknown offer type" << LL_ENDL;
+				break;
+		}	// end switch (mIM)
+			break;
+			
+		case IOR_BUSY:
+			//Busy falls through to decline.  Says to make busy message.
+			busy=TRUE;
+		case IOR_MUTE:
+			// MUTE falls through to decline
+		case IOR_DECLINE:
+			// DECLINE. The math for the dialog works, because the decline
+			// for inventory_offered, task_inventory_offer or
+			// group_notice_inventory is 2 greater than the offer integer value.
+			// Generates IM_INVENTORY_DECLINED, IM_TASK_INVENTORY_DECLINED,
+			// or IM_GROUP_NOTICE_INVENTORY_DECLINED
+		default:
+			// close button probably (or any of the fall-throughs from above)
+			msg->addU8Fast(_PREHASH_Dialog, (U8)(mIM + 2));
+			msg->addBinaryDataFast(_PREHASH_BinaryBucket, EMPTY_BINARY_BUCKET, EMPTY_BINARY_BUCKET_SIZE);
+			// send the message
+			msg->sendReliable(mHost);
+			
+			//TODO* CHAT: how to show this?
+			//log_message = LLTrans::getString("InvOfferYouDecline") + " " + mDesc + " " + LLTrans::getString("InvOfferFrom") + " " + mFromName +".";
+			//LLSD args;
+			//args["MESSAGE"] = log_message;
+			//LLNotificationsUtil::add("SystemMessage", args);
+			
+			if (busy &&	(!mFromGroup && !mFromObject))
+			{
+				busy_message(msg,mFromID);
+			}
+			break;
+	}
+	
+	if(opener)
+	{
+		gInventory.addObserver(opener);
+	}
 
-void inventory_offer_handler(LLOfferInfo* info, BOOL from_task)
+	// Remove script dialog because there is no need in it no more.
+	LLUUID object_id = notification["payload"]["object_id"].asUUID();
+	LLScriptFloaterManager::instance().removeNotificationByObjectId(object_id);
+
+	delete this;
+	return false;
+}
+
+void inventory_offer_handler(LLOfferInfo* info)
 {
 	//Until throttling is implmented, busy mode should reject inventory instead of silently
 	//accepting it.  SEE SL-39554
@@ -1277,7 +1472,12 @@ void inventory_offer_handler(LLOfferInfo* info, BOOL from_task)
 	{
 		LLStringUtil::truncate(msg, indx);
 	}
-	
+
+	if(LLAssetType::AT_LANDMARK == info->mType)
+	{
+		msg = LLViewerInventoryItem::getDisplayName(msg);
+	}
+
 	LLSD args;
 	args["[OBJECTNAME]"] = msg;
 
@@ -1324,23 +1524,67 @@ void inventory_offer_handler(LLOfferInfo* info, BOOL from_task)
 		}
 	}
 
+	// If mObjectID is null then generate the object_id based on msg to prevent
+	// multiple creation of chiclets for same object.
+	LLUUID object_id = info->mObjectID;
+	if (object_id.isNull())
+		object_id.generate(msg);
+
 	payload["from_id"] = info->mFromID;
+	// Needed by LLScriptFloaterManager to bind original notification with 
+	// faked for toast one.
+	payload["object_id"] = object_id;
+	// Flag indicating that this notification is faked for toast.
+	payload["give_inventory_notification"] = FALSE;
 	args["OBJECTFROMNAME"] = info->mFromName;
 	args["NAME"] = info->mFromName;
+	args["NAME_SLURL"] = LLSLURL::buildCommand("agent", info->mFromID, "about");
+	std::string verb = "select?name=" + LLURI::escape(msg);
+	args["ITEM_SLURL"] = LLSLURL::buildCommand("inventory", info->mObjectID, verb.c_str());
 
 	LLNotification::Params p("ObjectGiveItem");
-	p.substitutions(args).payload(payload).functor(boost::bind(&LLOfferInfo::inventory_offer_callback, info, _1, _2));
 
-	if (from_task)
+	// Object -> Agent Inventory Offer
+	if (info->mFromObject)
 	{
+		// Inventory Slurls don't currently work for non agent transfers, so only display the object name.
+		args["ITEM_SLURL"] = msg;
+		// Note: sets inventory_task_offer_callback as the callback
+		p.substitutions(args).payload(payload).functor.function(boost::bind(&LLOfferInfo::inventory_task_offer_callback, info, _1, _2));
 		p.name = name_found ? "ObjectGiveItem" : "ObjectGiveItemUnknownUser";
+		// Pop up inv offer chiclet and let the user accept (keep), or reject (and silently delete) the inventory.
+		LLNotifications::instance().add(p);
 	}
-	else
+	else // Agent -> Agent Inventory Offer
 	{
+		// Note: sets inventory_offer_callback as the callback
+		p.substitutions(args).payload(payload).functor.function(boost::bind(&LLOfferInfo::inventory_offer_callback, info, _1, _2));
 		p.name = "UserGiveItem";
-	}
+		
+		// Prefetch the item into your local inventory.
+		LLInventoryFetchObserver::item_ref_t items;
+		items.push_back(info->mObjectID);
+		LLInventoryFetchObserver* fetch_item = new LLInventoryFetchObserver();
+		fetch_item->fetchItems(items);
+		if(fetch_item->isEverythingComplete())
+		{
+			fetch_item->done();
+		}
+		else
+		{
+			gInventory.addObserver(fetch_item);
+		}
+		
+		// In viewer 2 we're now auto receiving inventory offers and messaging as such (not sending reject messages).
+		info->send_auto_receive_response();
 
-	LLNotifications::instance().add(p);
+		// Inform user that there is a script floater via toast system
+		{
+			payload["give_inventory_notification"] = TRUE;
+			LLNotificationPtr notification = LLNotifications::instance().add(p.payload(payload)); 
+			LLScriptFloaterManager::getInstance()->setNotificationToastId(object_id, notification->getID());
+		}
+	}
 }
 
 bool lure_callback(const LLSD& notification, const LLSD& response)
@@ -1352,7 +1596,7 @@ bool lure_callback(const LLSD& notification, const LLSD& response)
 	}
 	else
 	{
-		option = LLNotification::getSelectedOption(notification, response);
+		option = LLNotificationsUtil::getSelectedOption(notification, response);
 	}
 	
 	LLUUID from_id = notification["payload"]["from_id"].asUUID();
@@ -1383,7 +1627,7 @@ static LLNotificationFunctorRegistration lure_callback_reg("TeleportOffered", lu
 bool goto_url_callback(const LLSD& notification, const LLSD& response)
 {
 	std::string url = notification["payload"]["url"].asString();
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	if(1 == option)
 	{
 		LLWeb::loadURL(url);
@@ -1391,6 +1635,17 @@ bool goto_url_callback(const LLSD& notification, const LLSD& response)
 	return false;
 }
 static LLNotificationFunctorRegistration goto_url_callback_reg("GotoURL", goto_url_callback);
+
+bool inspect_remote_object_callback(const LLSD& notification, const LLSD& response)
+{
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
+	if (0 == option)
+	{
+		LLFloaterReg::showInstance("inspect_remote_object", notification["payload"]);
+	}
+	return false;
+}
+static LLNotificationFunctorRegistration inspect_remote_object_callback_reg("ServerObjectMessage", inspect_remote_object_callback);
 
 void process_improved_im(LLMessageSystem *msg, void **user_data)
 {
@@ -1415,7 +1670,7 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 	LLChat chat;
 	std::string buffer;
 	
-	// *TODO:translate - need to fix the full name to first/last (maybe)
+	// *TODO: Translate - need to fix the full name to first/last (maybe)
 	msg->getUUIDFast(_PREHASH_AgentData, _PREHASH_AgentID, from_id);
 	msg->getBOOLFast(_PREHASH_MessageBlock, _PREHASH_FromGroup, from_group);
 	msg->getUUIDFast(_PREHASH_MessageBlock, _PREHASH_ToAgentID, to_id);
@@ -1433,10 +1688,19 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 	binary_bucket_size = msg->getSizeFast(_PREHASH_MessageBlock, _PREHASH_BinaryBucket);
 	EInstantMessage dialog = (EInstantMessage)d;
 
+    // make sure that we don't have an empty or all-whitespace name
+	LLStringUtil::trim(name);
+	if (name.empty())
+	{
+        name = LLTrans::getString("Unnamed");
+	}
+
 	BOOL is_busy = gAgent.getBusy();
 	BOOL is_muted = LLMuteList::getInstance()->isMuted(from_id, name, LLMute::flagTextChat);
 	BOOL is_linden = LLMuteList::getInstance()->isLinden(name);
 	BOOL is_owned_by_me = FALSE;
+	BOOL is_friend = (LLAvatarTracker::instance().getBuddyInfo(from_id) == NULL) ? false : true;
+	BOOL accept_im_from_only_friend = gSavedSettings.getBOOL("VoiceCallsFriendsOnly");
 	
 	chat.mMuted = is_muted && !is_linden;
 	chat.mFromID = from_id;
@@ -1450,15 +1714,6 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 	}
 
 	std::string separator_string(": ");
-	int message_offset = 0;
-
-		//Handle IRC styled /me messages.
-	std::string prefix = message.substr(0, 4);
-	if (prefix == "/me " || prefix == "/me'")
-	{
-		separator_string = "";
-		message_offset = 3;
-	}
 
 	LLSD args;
 	switch(dialog)
@@ -1466,12 +1721,12 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 	case IM_CONSOLE_AND_CHAT_HISTORY:
 		// These are used for system messages, hence don't need the name,
 		// as it is always "Second Life".
-	  	// *TODO:translate
+	  	// *TODO: Translate
 		args["MESSAGE"] = message;
 
 		// Note: don't put the message in the IM history, even though was sent
 		// via the IM mechanism.
-		LLNotifications::instance().add("SystemMessageTip",args);
+		LLNotificationsUtil::add("SystemMessageTip",args);
 		break;
 
 	case IM_NOTHING_SPECIAL: 
@@ -1492,7 +1747,7 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 				// if there is not a panel for this conversation (i.e. it is a new IM conversation
 				// initiated by the other party) then...
 				std::string my_name;
-				gAgent.buildFullname(my_name);
+				LLAgentUI::buildFullname(my_name);
 				std::string response = gSavedPerAccountSettings.getString("BusyModeResponse2");
 				pack_instant_message(
 					gMessageSystem,
@@ -1510,7 +1765,7 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 
 			// now store incoming IM in chat history
 
-			buffer = separator_string + message.substr(message_offset);
+			buffer = message;
 	
 			LL_INFOS("Messaging") << "process_improved_im: session_id( " << session_id << " ), from_id( " << from_id << " )" << LL_ENDL;
 
@@ -1526,31 +1781,30 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 				region_id,
 				position,
 				true);
-
-			// pretend this is chat generated by self, so it does not show up on screen
-			chat.mText = std::string("IM: ") + name + separator_string + message.substr(message_offset);
-			LLFloaterChat::addChat( chat, TRUE, TRUE );
 		}
 		else if (from_id.isNull())
 		{
-			// Messages from "Second Life" ID don't go to IM history
-			// messages which should be routed to IM window come from a user ID with name=SYSTEM_NAME
-			chat.mText = name + ": " + message;
-			LLFloaterChat::addChat(chat, FALSE, FALSE);
+			LLSD args;
+			args["MESSAGE"] = message;
+			LLNotificationsUtil::add("SystemMessage", args);
 		}
 		else if (to_id.isNull())
 		{
 			// Message to everyone from GOD
 			args["NAME"] = name;
 			args["MESSAGE"] = message;
-			LLNotifications::instance().add("GodMessage", args);
+			LLNotificationsUtil::add("GodMessage", args);
 
 			// Treat like a system message and put in chat history.
 			// Claim to be from a local agent so it doesn't go into
 			// console.
-			chat.mText = name + separator_string + message.substr(message_offset);
-			BOOL local_agent = TRUE;
-			LLFloaterChat::addChat(chat, FALSE, local_agent);
+			chat.mText = name + separator_string + message;
+
+			LLNearbyChat* nearby_chat = LLFloaterReg::getTypedInstance<LLNearbyChat>("nearby_chat", LLSD());
+			if(nearby_chat)
+			{
+				nearby_chat->addMessage(chat);
+			}
 		}
 		else
 		{
@@ -1560,11 +1814,16 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 			{
 				saved = llformat("(Saved %s) ", formatted_time(timestamp).c_str());
 			}
-			buffer = separator_string + saved  + message.substr(message_offset);
+			buffer = saved + message;
 
 			LL_INFOS("Messaging") << "process_improved_im: session_id( " << session_id << " ), from_id( " << from_id << " )" << LL_ENDL;
 
-			if (!is_muted || is_linden)
+			bool mute_im = is_muted;
+			if(accept_im_from_only_friend&&!is_friend)
+			{
+				mute_im = true;
+			}
+			if (!mute_im || is_linden) 
 			{
 				gIMMgr->addMessage(
 					session_id,
@@ -1577,19 +1836,18 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 					region_id,
 					position,
 					true);
-				chat.mText = std::string("IM: ") + name + separator_string + saved + message.substr(message_offset);
-
-				BOOL local_agent = FALSE;
-				LLFloaterChat::addChat( chat, TRUE, local_agent );
 			}
 			else
 			{
 				// muted user, so don't start an IM session, just record line in chat
 				// history.  Pretend the chat is from a local agent,
 				// so it will go into the history but not be shown on screen.
-				chat.mText = buffer;
-				BOOL local_agent = TRUE;
-				LLFloaterChat::addChat( chat, TRUE, local_agent );
+
+				//TODO* CHAT: how to show this?
+				//and this is not system message...
+				//LLSD args;
+				//args["MESSAGE"] = buffer;
+				//LLNotificationsUtil::add("SystemMessage", args);
 			}
 		}
 		break;
@@ -1611,9 +1869,9 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 	case IM_MESSAGEBOX:
 		{
 			// This is a block, modeless dialog.
-			//*TODO:translate
+			//*TODO: Translate
 			args["MESSAGE"] = message;
-			LLNotifications::instance().add("SystemMessage", args);
+			LLNotificationsUtil::add("SystemMessageTip", args);
 		}
 		break;
 	case IM_GROUP_NOTICE:
@@ -1660,7 +1918,7 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 				info->mFromGroup = from_group;
 				info->mTransactionID = session_id;
 				info->mType = (LLAssetType::EType) asset_type;
-				info->mFolderID = gInventory.findCategoryUUIDForType(info->mType);
+				info->mFolderID = gInventory.findCategoryUUIDForType(LLFolderType::assetTypeToFolderType(info->mType));
 				std::string from_name;
 
 				from_name += "A group member named ";
@@ -1698,13 +1956,14 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 				LLSD args;
 				args["SUBJECT"] = subj;
 				args["MESSAGE"] = mes;
-				LLNotifications::instance().add(LLNotification::Params("GroupNotice").substitutions(args).payload(payload).timestamp(timestamp));
+				LLNotifications::instance().add(LLNotification::Params("GroupNotice").substitutions(args).payload(payload).time_stamp(timestamp));
 			}
 
 			// Also send down the old path for now.
 			if (IM_GROUP_NOTICE_REQUESTED == dialog)
 			{
-				LLFloaterGroupInfo::showNotice(subj,mes,group_id,has_inventory,item_name,info);
+				
+				LLPanelGroup::showNotice(subj,mes,group_id,has_inventory,item_name,info);
 			}
 		}
 		break;
@@ -1745,7 +2004,7 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 
 				LLSD args;
 				args["MESSAGE"] = message;
-				LLNotifications::instance().add("JoinGroup", args, payload, join_group_response);
+				LLNotificationsUtil::add("JoinGroup", args, payload, join_group_response);
 			}
 		}
 		break;
@@ -1755,7 +2014,6 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 		// Someone has offered us some inventory.
 		{
 			LLOfferInfo* info = new LLOfferInfo;
-
 			if (IM_INVENTORY_OFFERED == dialog)
 			{
 				struct offer_agent_bucket_t
@@ -1788,7 +2046,7 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 			info->mFromID = from_id;
 			info->mFromGroup = from_group;
 			info->mTransactionID = session_id;
-			info->mFolderID = gInventory.findCategoryUUIDForType(info->mType);
+			info->mFolderID = gInventory.findCategoryUUIDForType(LLFolderType::assetTypeToFolderType(info->mType));
 
 			if (dialog == IM_TASK_INVENTORY_OFFERED)
 			{
@@ -1802,14 +2060,21 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 			info->mDesc = message;
 			info->mHost = msg->getSender();
 			//if (((is_busy && !is_owned_by_me) || is_muted))
-			if ( is_muted )
+			if (is_muted)
 			{
+				// Prefetch the offered item so that it can be discarded by the appropriate observer. (EXT-4331)
+				LLInventoryFetchObserver::item_ref_t items;
+				items.push_back(info->mObjectID);
+				LLInventoryFetchObserver* fetch_item = new LLInventoryFetchObserver();
+				fetch_item->fetchItems(items);
+				delete fetch_item;
+
 				// Same as closing window
 				info->forceResponse(IOR_DECLINE);
 			}
 			else
 			{
-				inventory_offer_handler(info, dialog == IM_TASK_INVENTORY_OFFERED);
+				inventory_offer_handler(info);
 			}
 		}
 		break;
@@ -1817,13 +2082,17 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 	case IM_INVENTORY_ACCEPTED:
 	{
 		args["NAME"] = name;
-		LLNotifications::instance().add("InventoryAccepted", args);
+		LLSD payload;
+		payload["from_id"] = from_id;
+		LLNotificationsUtil::add("InventoryAccepted", args, payload);
 		break;
 	}
 	case IM_INVENTORY_DECLINED:
 	{
 		args["NAME"] = name;
-		LLNotifications::instance().add("InventoryDeclined", args);
+		LLSD payload;
+		payload["from_id"] = from_id;
+		LLNotificationsUtil::add("InventoryDeclined", args, payload);
 		break;
 	}
 	// TODO: _DEPRECATED suffix as part of vote removal - DEV-24856
@@ -1859,7 +2128,7 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 		{
 			saved = llformat("(Saved %s) ", formatted_time(timestamp).c_str());
 		}
-		buffer = separator_string + saved + message.substr(message_offset);
+		buffer = saved + message;
 		BOOL is_this_agent = FALSE;
 		if(from_id == gAgentID)
 		{
@@ -1876,9 +2145,6 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 			region_id,
 			position,
 			true);
-
-		chat.mText = std::string("IM: ") + name + separator_string +  saved + message.substr(message_offset);
-		LLFloaterChat::addChat(chat, TRUE, is_this_agent);
 	}
 	break;
 
@@ -1888,20 +2154,9 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 			{
 				return;
 			}
-			chat.mText = name + separator_string + message.substr(message_offset);
-			chat.mFromName = name;
 
 			// Build a link to open the object IM info window.
-			std::string location = ll_safe_string((char*)binary_bucket,binary_bucket_size);
-			
-			LLSD query_string;
-			query_string["owner"] = from_id;
-			query_string["slurl"] = location.c_str();
-			query_string["name"] = name;
-			if (from_group)
-			{
-				query_string["groupowned"] = "true";
-			}	
+			std::string location = ll_safe_string((char*)binary_bucket, binary_bucket_size-1);
 
 			if (session_id.notNull())
 			{
@@ -1917,17 +2172,52 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 				chat.mFromID = from_id ^ gAgent.getSessionID();
 			}
 
+			LLSD query_string;
+			query_string["owner"] = from_id;
+			query_string["slurl"] = location;
+			query_string["name"] = name;
+			if (from_group)
+			{
+				query_string["groupowned"] = "true";
+			}	
+
 			std::ostringstream link;
-			link << "secondlife:///app/objectim/" << session_id
-					<< LLURI::mapToQueryString(query_string);
+			link << "secondlife:///app/objectim/" << session_id << LLURI::mapToQueryString(query_string);
 
 			chat.mURL = link.str();
-			chat.mText = name + separator_string + message.substr(message_offset);
-
-			// Note: lie to LLFloaterChat::addChat(), pretending that this is NOT an IM, because
-			// IMs from objcts don't open IM sessions.
+			chat.mText = message;
 			chat.mSourceType = CHAT_SOURCE_OBJECT;
-			LLFloaterChat::addChat(chat, FALSE, FALSE);
+
+			// Note: lie to Nearby Chat, pretending that this is NOT an IM, because
+			// IMs from obejcts don't open IM sessions.
+			LLNearbyChat* nearby_chat = LLFloaterReg::getTypedInstance<LLNearbyChat>("nearby_chat", LLSD());
+			if(nearby_chat)
+			{
+				nearby_chat->addMessage(chat);
+			}
+
+
+			//Object IMs send with from name: 'Second Life' need to be displayed also in notification toasts (EXT-1590)
+			if (SYSTEM_FROM != name) break;
+			
+			LLSD substitutions;
+			substitutions["NAME"] = name;
+			substitutions["MSG"] = message;
+
+			LLSD payload;
+			payload["object_id"] = session_id;
+			payload["owner_id"] = from_id;
+			payload["from_id"] = from_id;
+			payload["slurl"] = location;
+			payload["name"] = name;
+			std::string session_name;
+			gCacheName->getFullName(from_id, session_name);
+			payload["SESSION_NAME"] = session_name;
+			if (from_group)
+			{
+				payload["groupowned"] = "true";
+			}
+			LLNotificationsUtil::add("ServerObjectMessage", substitutions, payload);
 		}
 		break;
 	case IM_FROM_TASK_AS_ALERT:
@@ -1939,7 +2229,7 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 			// Construct a viewer alert for this message.
 			args["NAME"] = name;
 			args["MESSAGE"] = message;
-			LLNotifications::instance().add("ObjectMessage", args);
+			LLNotificationsUtil::add("ObjectMessage", args);
 		}
 		break;
 	case IM_BUSY_AUTO_RESPONSE:
@@ -1951,7 +2241,7 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 		else
 		{
 			// TODO: after LLTrans hits release, get "busy response" into translatable file
-			buffer = llformat("%s (%s): %s", name.c_str(), "busy response", message.substr(message_offset).c_str());
+			buffer = llformat("%s (%s): %s", name.c_str(), "busy response", message.c_str());
 			gIMMgr->addMessage(session_id, from_id, name, buffer);
 		}
 		break;
@@ -1969,14 +2259,14 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 			else
 			{
 				LLSD args;
-				// *TODO:translate -> [FIRST] [LAST] (maybe)
+				// *TODO: Translate -> [FIRST] [LAST] (maybe)
 				args["NAME"] = name;
 				args["MESSAGE"] = message;
 				LLSD payload;
 				payload["from_id"] = from_id;
 				payload["lure_id"] = session_id;
 				payload["godlike"] = FALSE;
-				LLNotifications::instance().add("TeleportOffered", args, payload);
+				LLNotificationsUtil::add("TeleportOffered", args, payload);
 			}
 		}
 		break;
@@ -2013,7 +2303,7 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 			args["URL"] = url;
 			LLSD payload;
 			payload["url"] = url;
-			LLNotifications::instance().add("GotoURL", args, payload );
+			LLNotificationsUtil::add("GotoURL", args, payload );
 		}
 		break;
 
@@ -2040,12 +2330,12 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 				if(message.empty())
 				{
 					//support for frienship offers from clients before July 2008
-				        LLNotifications::instance().add("OfferFriendshipNoMessage", args, payload);
+				        LLNotificationsUtil::add("OfferFriendshipNoMessage", args, payload);
 				}
 				else
 				{
 					args["[MESSAGE]"] = message;
-				        LLNotifications::instance().add("OfferFriendship", args, payload);
+				        LLNotificationsUtil::add("OfferFriendship", args, payload);
 				}
 			}
 		}
@@ -2063,7 +2353,9 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 			send_generic_message("requestonlinenotification", strings);
 			
 			args["NAME"] = name;
-			LLNotifications::instance().add("FriendshipAccepted", args);
+			LLSD payload;
+			payload["from_id"] = from_id;
+			LLNotificationsUtil::add("FriendshipAccepted", args, payload);
 		}
 		break;
 
@@ -2086,7 +2378,7 @@ void busy_message (LLMessageSystem* msg, LLUUID from_id)
 	if (gAgent.getBusy())
 	{
 		std::string my_name;
-		gAgent.buildFullname(my_name);
+		LLAgentUI::buildFullname(my_name);
 		std::string response = gSavedPerAccountSettings.getString("BusyModeResponse2");
 		pack_instant_message(
 			gMessageSystem,
@@ -2104,7 +2396,7 @@ void busy_message (LLMessageSystem* msg, LLUUID from_id)
 
 bool callingcard_offer_callback(const LLSD& notification, const LLSD& response)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	LLUUID fid;
 	LLUUID from_id;
 	LLMessageSystem* msg = gMessageSystem;
@@ -2118,7 +2410,7 @@ bool callingcard_offer_callback(const LLSD& notification, const LLSD& response)
 		msg->addUUIDFast(_PREHASH_SessionID, gAgent.getSessionID());
 		msg->nextBlockFast(_PREHASH_TransactionBlock);
 		msg->addUUIDFast(_PREHASH_TransactionID, notification["payload"]["transaction_id"].asUUID());
-		fid = gInventory.findCategoryUUIDForType(LLAssetType::AT_CALLINGCARD);
+		fid = gInventory.findCategoryUUIDForType(LLFolderType::FT_CALLINGCARD);
 		msg->nextBlockFast(_PREHASH_FolderData);
 		msg->addUUIDFast(_PREHASH_FolderID, fid);
 		msg->sendReliable(LLHost(notification["payload"]["sender"].asString()));
@@ -2183,7 +2475,7 @@ void process_offer_callingcard(LLMessageSystem* msg, void**)
 		}
 		else
 		{
-			LLNotifications::instance().add("OfferCallingCard", args, payload);
+			LLNotificationsUtil::add("OfferCallingCard", args, payload);
 		}
 	}
 	else
@@ -2194,18 +2486,18 @@ void process_offer_callingcard(LLMessageSystem* msg, void**)
 
 void process_accept_callingcard(LLMessageSystem* msg, void**)
 {
-	LLNotifications::instance().add("CallingCardAccepted");
+	LLNotificationsUtil::add("CallingCardAccepted");
 }
 
 void process_decline_callingcard(LLMessageSystem* msg, void**)
 {
-	LLNotifications::instance().add("CallingCardDeclined");
+	LLNotificationsUtil::add("CallingCardDeclined");
 }
 
 
 void process_chat_from_simulator(LLMessageSystem *msg, void **user_data)
 {
-	LLChat		chat;
+	LLChat	chat;
 	std::string		mesg;
 	std::string		from_name;
 	U8			source_temp;
@@ -2296,14 +2588,9 @@ void process_chat_from_simulator(LLMessageSystem *msg, void **user_data)
 		std::string prefix = mesg.substr(0, 4);
 		if (prefix == "/me " || prefix == "/me'")
 		{
-			chat.mText = from_name;
-			chat.mText += mesg.substr(3);
 			ircstyle = TRUE;
 		}
-		else
-		{
-			chat.mText = mesg;
-		}
+		chat.mText = mesg;
 
 		// Look for the start of typing so we can put "..." in the bubbles.
 		if (CHAT_TYPE_START == chat.mChatType)
@@ -2329,22 +2616,12 @@ void process_chat_from_simulator(LLMessageSystem *msg, void **user_data)
 			return;
 		}
 
-		// We have a real utterance now, so can stop showing "..." and proceed.
-		if (chatter && chatter->isAvatar())
-		{
-			LLLocalSpeakerMgr::getInstance()->setSpeakerTyping(from_id, FALSE);
-			((LLVOAvatar*)chatter)->stopTyping();
-
-			if (!is_muted && !is_busy)
-			{
-				visible_in_chat_bubble = gSavedSettings.getBOOL("UseChatBubbles");
-				((LLVOAvatar*)chatter)->addChat(chat);
-			}
-		}
-
 		// Look for IRC-style emotes
 		if (ircstyle)
 		{
+			// set CHAT_STYLE_IRC to avoid adding Avatar Name as author of message. See EXT-656
+			chat.mChatStyle = CHAT_STYLE_IRC;
+
 			// Do nothing, ircstyle is fixed above for chat bubbles
 		}
 		else
@@ -2352,15 +2629,15 @@ void process_chat_from_simulator(LLMessageSystem *msg, void **user_data)
 			switch(chat.mChatType)
 			{
 			case CHAT_TYPE_WHISPER:
-				verb = " " + LLTrans::getString("whisper") + " ";
+				verb = LLTrans::getString("whisper") + " ";
 				break;
 			case CHAT_TYPE_DEBUG_MSG:
 			case CHAT_TYPE_OWNER:
 			case CHAT_TYPE_NORMAL:
-				verb = ": ";
+				verb = "";
 				break;
 			case CHAT_TYPE_SHOUT:
-				verb = " " + LLTrans::getString("shout") + " ";
+				verb = LLTrans::getString("shout") + " ";
 				break;
 			case CHAT_TYPE_START:
 			case CHAT_TYPE_STOP:
@@ -2368,14 +2645,31 @@ void process_chat_from_simulator(LLMessageSystem *msg, void **user_data)
 				break;
 			default:
 				LL_WARNS("Messaging") << "Unknown type " << chat.mChatType << " in chat!" << LL_ENDL;
-				verb = " say, ";
+				verb = "";
 				break;
 			}
 
 
-			chat.mText = from_name;
+			chat.mText = "";
 			chat.mText += verb;
 			chat.mText += mesg;
+		}
+		
+		// We have a real utterance now, so can stop showing "..." and proceed.
+		if (chatter && chatter->isAvatar())
+		{
+			LLLocalSpeakerMgr::getInstance()->setSpeakerTyping(from_id, FALSE);
+			((LLVOAvatar*)chatter)->stopTyping();
+			
+			if (!is_muted && !is_busy)
+			{
+				visible_in_chat_bubble = gSavedSettings.getBOOL("UseChatBubbles");
+				std::string formated_msg = "";
+				LLViewerChat::formatChatMsg(chat, formated_msg);
+				LLChat chat_bubble = chat;
+				chat_bubble.mText = formated_msg;
+				((LLVOAvatar*)chatter)->addChat(chat_bubble);
+			}
 		}
 		
 		if (chatter)
@@ -2396,19 +2690,9 @@ void process_chat_from_simulator(LLMessageSystem *msg, void **user_data)
 		// T		*		*		*				F			Yes			Yes
 
 		chat.mMuted = is_muted && !is_linden;
-		
-		
-		if (!visible_in_chat_bubble 
-			&& (is_linden || !is_busy || is_owned_by_me))
-		{
-			// show on screen and add to history
-			LLFloaterChat::addChat(chat, FALSE, FALSE);
-		}
-		else
-		{
-			// just add to chat history
-			LLFloaterChat::addChatHistory(chat);
-		}
+
+		LLNotificationsUI::LLNotificationManager::instance().onChat(
+					chat, LLNotificationsUI::NT_NEARBYCHAT);
 	}
 }
 
@@ -2430,7 +2714,7 @@ void process_teleport_start(LLMessageSystem *msg, void**)
 	}
 	else
 	{
-		gViewerWindow->setProgressCancelButtonVisible(TRUE, std::string("Cancel")); // *TODO: Translate
+		gViewerWindow->setProgressCancelButtonVisible(TRUE, LLTrans::getString("Cancel"));
 	}
 
 	// Freeze the UI and show progress bar
@@ -2465,7 +2749,7 @@ void process_teleport_progress(LLMessageSystem* msg, void**)
 	}
 	else
 	{
-		gViewerWindow->setProgressCancelButtonVisible(TRUE, std::string("Cancel")); //TODO: Translate
+		gViewerWindow->setProgressCancelButtonVisible(TRUE, LLTrans::getString("Cancel"));
 	}
 	std::string buffer;
 	msg->getString("Info", "Message", buffer);
@@ -2520,13 +2804,13 @@ public:
 		{	// Show notification that they can now teleport to landmarks.  Use a random landmark from the inventory
 			S32 random_land = ll_rand( land_items.count() - 1 );
 			args["NAME"] = land_items[random_land]->getName();
-			LLNotifications::instance().add("TeleportToLandmark",args);
+			LLNotificationsUtil::add("TeleportToLandmark",args);
 		}
 		if ( card_items.count() > 0 )
 		{	// Show notification that they can now contact people.  Use a random calling card from the inventory
 			S32 random_card = ll_rand( card_items.count() - 1 );
 			args["NAME"] = card_items[random_card]->getName();
-			LLNotifications::instance().add("TeleportToPerson",args);
+			LLNotificationsUtil::add("TeleportToPerson",args);
 		}
 
 		gInventory.removeObserver(this);
@@ -2561,11 +2845,10 @@ BOOL LLPostTeleportNotifiers::tick()
 	{
 		// get callingcards and landmarks available to the user arriving.
 		LLInventoryFetchDescendentsObserver::folder_ref_t folders;
-		LLUUID folder_id;
-		folder_id = gInventory.findCategoryUUIDForType(LLAssetType::AT_CALLINGCARD);
-		if(folder_id.notNull()) 
-			folders.push_back(folder_id);
-		folder_id = gInventory.findCategoryUUIDForType(LLAssetType::AT_LANDMARK);
+		const LLUUID callingcard_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_CALLINGCARD);
+		if(callingcard_id.notNull()) 
+			folders.push_back(callingcard_id);
+		const LLUUID folder_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_LANDMARK);
 		if(folder_id.notNull()) 
 			folders.push_back(folder_id);
 		if(!folders.empty())
@@ -2794,9 +3077,11 @@ void process_agent_movement_complete(LLMessageSystem* msg, void**)
 		if (avatarp)
 		{
 			// Chat the "back" SLURL. (DEV-4907)
-			LLChat chat("Teleport completed from " + gAgent.getTeleportSourceSLURL());
-			chat.mSourceType = CHAT_SOURCE_SYSTEM;
- 			LLFloaterChat::addChatHistory(chat);
+
+			//TODO* CHAT: how to show this?
+			//LLSD args;
+			//args["MESSAGE"] = message;
+			//LLNotificationsUtil::add("SystemMessage", args);
 
 			// Set the new position
 			avatarp->setPositionAgent(agent_pos);
@@ -2878,9 +3163,33 @@ void process_agent_movement_complete(LLMessageSystem* msg, void**)
 
 	if (!gLastVersionChannel.empty())
 	{
-		LLSD payload;
-		payload["message"] = version_channel;
-		LLNotifications::instance().add("ServerVersionChanged", LLSD(), payload);
+		// work out the URL for this server's Release Notes
+		std::string url ="http://wiki.secondlife.com/wiki/Release_Notes/";
+		std::string server_version = version_channel;
+		std::vector<std::string> s_vect;
+		boost::algorithm::split(s_vect, server_version, isspace);
+		for(U32 i = 0; i < s_vect.size(); i++)
+		{
+			if (i != (s_vect.size() - 1))
+			{
+				if(i != (s_vect.size() - 2))
+				{
+				   url += s_vect[i] + "_";
+				}
+				else
+				{
+					url += s_vect[i] + "/";
+				}
+			}
+			else
+			{
+				url += s_vect[i].substr(0,4);
+			}
+		}
+
+		LLSD args;
+		args["URL"] = url;
+		LLNotificationsUtil::add("ServerVersionChanged", args);
 	}
 
 	gLastVersionChannel = version_channel;
@@ -3009,6 +3318,10 @@ void send_agent_update(BOOL force_send, BOOL send_reliable)
 	if (gAgent.isGroupTitleHidden())
 	{
 		flags |= AU_FLAGS_HIDETITLE;
+	}
+	if (gAgent.getAutoPilot())
+	{
+		flags |= AU_FLAGS_CLIENT_AUTOPILOT;
 	}
 
 	flag_change = last_flags ^ flags;
@@ -3162,7 +3475,6 @@ void process_object_update(LLMessageSystem *mesgsys, void **user_data)
 
 	// Update the object...
 	gObjectList.processObjectUpdate(mesgsys, user_data, OUT_FULL);
-	stop_glerror();
 }
 
 void process_compressed_object_update(LLMessageSystem *mesgsys, void **user_data)
@@ -3180,7 +3492,6 @@ void process_compressed_object_update(LLMessageSystem *mesgsys, void **user_data
 
 	// Update the object...
 	gObjectList.processCompressedObjectUpdate(mesgsys, user_data, OUT_FULL_COMPRESSED);
-	stop_glerror();
 }
 
 void process_cached_object_update(LLMessageSystem *mesgsys, void **user_data)
@@ -3198,7 +3509,6 @@ void process_cached_object_update(LLMessageSystem *mesgsys, void **user_data)
 
 	// Update the object...
 	gObjectList.processCachedObjectUpdate(mesgsys, user_data, OUT_FULL_CACHED);
-	stop_glerror();
 }
 
 
@@ -3217,11 +3527,12 @@ void process_terse_object_update_improved(LLMessageSystem *mesgsys, void **user_
 	gObjectList.processCompressedObjectUpdate(mesgsys, user_data, OUT_TERSE_IMPROVED);
 }
 
+static LLFastTimer::DeclareTimer FTM_PROCESS_OBJECTS("Process Objects");
 
 
 void process_kill_object(LLMessageSystem *mesgsys, void **user_data)
 {
-	LLFastTimer t(LLFastTimer::FTM_PROCESS_OBJECTS);
+	LLFastTimer t(FTM_PROCESS_OBJECTS);
 
 	LLUUID		id;
 	U32			local_id;
@@ -3677,6 +3988,17 @@ void process_avatar_animation(LLMessageSystem *mesgsys, void **user_data)
 
 			avatarp->mSignaledAnimations[animation_id] = anim_sequence_id;
 
+			// *HACK: Disabling flying mode if it has been enabled shortly before the agent
+			// stand up animation is signaled. In this case we don't get a signal to start
+			// flying animation from server, the AGENT_CONTROL_FLY flag remains set but the
+			// avatar does not play flying animation, so we switch flying mode off.
+			// See LLAgent::setFlying(). This may cause "Stop Flying" button to blink.
+			// See EXT-2781.
+			if (animation_id == ANIM_AGENT_STANDUP && gAgent.getFlying())
+			{
+				gAgent.setFlying(FALSE);
+			}
+
 			if (i < num_source_blocks)
 			{
 				mesgsys->getUUIDFast(_PREHASH_AnimationSourceList, _PREHASH_ObjectID, object_id, i);
@@ -3782,13 +4104,13 @@ void process_avatar_sit_response(LLMessageSystem *mesgsys, void **user_data)
 		gAgent.setSitCamera(sitObjectID, camera_eye, camera_at);
 	}
 	
-	gAgent.mForceMouselook = force_mouselook;
+	gAgent.setForceMouselook(force_mouselook);
 
 	LLViewerObject* object = gObjectList.findObject(sitObjectID);
 	if (object)
 	{
 		LLVector3 sit_spot = object->getPositionAgent() + (sitPosition * object->getRotation());
-		if (!use_autopilot || (avatar && avatar->mIsSitting && avatar->getRoot() == object->getRoot()))
+		if (!use_autopilot || (avatar && avatar->isSitting() && avatar->getRoot() == object->getRoot()))
 		{
 			//we're already sitting on this object, so don't autopilot
 		}
@@ -4065,10 +4387,10 @@ void process_money_balance_reply( LLMessageSystem* msg, void** )
 
 	if (gStatusBar)
 	{
-		S32 old_balance = gStatusBar->getBalance();
+	//	S32 old_balance = gStatusBar->getBalance();
 
 		// This is an update, not the first transmission of balance
-		if (old_balance != 0)
+	/*	if (old_balance != 0)
 		{
 			// this is actually an update
 			if (balance > old_balance)
@@ -4080,7 +4402,7 @@ void process_money_balance_reply( LLMessageSystem* msg, void** )
 				LLFirstUse::useBalanceDecrease(balance - old_balance);
 			}
 		}
-
+	 */
 		gStatusBar->setBalance(balance);
 		gStatusBar->setLandCredit(credit);
 		gStatusBar->setLandCommitted(committed);
@@ -4094,10 +4416,31 @@ void process_money_balance_reply( LLMessageSystem* msg, void** )
 	{
 		// Make the user confirm the transaction, since they might
 		// have missed something during an event.
-		// *TODO:translate
+		// *TODO: Translate
 		LLSD args;
 		args["MESSAGE"] = desc;
-		LLNotifications::instance().add("SystemMessage", args);
+
+		// this is a marker to retrieve avatar name from server message:
+		// "<avatar name> paid you L$"
+		const std::string marker = "paid you L$";
+
+		// extract avatar name from system message
+		std::string name = desc.substr(0, desc.find(marker, 0));
+		LLStringUtil::trim(name);
+
+		// if name extracted and name cache contains avatar id send loggable notification
+		LLUUID from_id;
+		if(name.size() > 0 && gCacheName->getUUID(name, from_id))
+		{
+			args["NAME"] = name;
+			LLSD payload;
+			payload["from_id"] = from_id;
+			LLNotificationsUtil::add("PaymentRecived", args, payload);
+		}
+		else
+		{
+			LLNotificationsUtil::add("SystemMessage", args);
+		}
 
 		// Once the 'recent' container gets large enough, chop some
 		// off the beginning.
@@ -4115,7 +4458,7 @@ void process_money_balance_reply( LLMessageSystem* msg, void** )
 
 bool handle_special_notification_callback(const LLSD& notification, const LLSD& response)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	
 	if (0 == option)
 	{
@@ -4136,18 +4479,18 @@ bool handle_special_notification(std::string notificationID, LLSD& llsdBlock)
 	llsdBlock["REGIONMATURITY"] = LLViewerRegion::accessToString(regionAccess);
 	
 	// we're going to throw the LLSD in there in case anyone ever wants to use it
-	LLNotifications::instance().add(notificationID+"_Notify", llsdBlock);
+	LLNotificationsUtil::add(notificationID+"_Notify", llsdBlock);
 	
 	if (regionAccess == SIM_ACCESS_MATURE)
 	{
 		if (gAgent.isTeen())
 		{
-			LLNotifications::instance().add(notificationID+"_KB", llsdBlock);
+			LLNotificationsUtil::add(notificationID+"_KB", llsdBlock);
 			return true;
 		}
 		else if (gAgent.prefersPG())
 		{
-			LLNotifications::instance().add(notificationID+"_Change", llsdBlock, llsdBlock, handle_special_notification_callback);
+			LLNotificationsUtil::add(notificationID+"_Change", llsdBlock, llsdBlock, handle_special_notification_callback);
 			return true;
 		}
 	}
@@ -4155,12 +4498,12 @@ bool handle_special_notification(std::string notificationID, LLSD& llsdBlock)
 	{
 		if (!gAgent.isAdult())
 		{
-			LLNotifications::instance().add(notificationID+"_KB", llsdBlock);
+			LLNotificationsUtil::add(notificationID+"_KB", llsdBlock);
 			return true;
 		}
 		else if (gAgent.prefersPG() || gAgent.prefersMature())
 		{
-			LLNotifications::instance().add(notificationID+"_Change", llsdBlock, llsdBlock, handle_special_notification_callback);
+			LLNotificationsUtil::add(notificationID+"_Change", llsdBlock, llsdBlock, handle_special_notification_callback);
 			return true;
 		}
 	}
@@ -4170,7 +4513,7 @@ bool handle_special_notification(std::string notificationID, LLSD& llsdBlock)
 bool attempt_standard_notification(LLMessageSystem* msgsystem)
 {
 	// if we have additional alert data
-	if (msgsystem->getNumberOfBlocksFast(_PREHASH_AlertInfo) > 0)
+	if (msgsystem->has(_PREHASH_AlertInfo) && msgsystem->getNumberOfBlocksFast(_PREHASH_AlertInfo) > 0)
 	{
 		// notification was specified using the new mechanism, so we can just handle it here
 		std::string notificationID;
@@ -4220,7 +4563,7 @@ bool attempt_standard_notification(LLMessageSystem* msgsystem)
 			}
 		}
 		
-		LLNotifications::instance().add(notificationID, llsdBlock);
+		LLNotificationsUtil::add(notificationID, llsdBlock);
 		return true;
 	}	
 	return false;
@@ -4276,7 +4619,7 @@ void process_alert_core(const std::string& message, BOOL modal)
 		std::string snap_filename = gDirUtilp->getLindenUserDir();
 		snap_filename += gDirUtilp->getDirDelimiter();
 		snap_filename += SCREEN_HOME_FILENAME;
-		gViewerWindow->saveSnapshot(snap_filename, gViewerWindow->getWindowDisplayWidth(), gViewerWindow->getWindowDisplayHeight(), FALSE, FALSE);
+		gViewerWindow->saveSnapshot(snap_filename, gViewerWindow->getWindowWidthRaw(), gViewerWindow->getWindowHeightRaw(), FALSE, FALSE);
 	}
 
 	const std::string ALERT_PREFIX("ALERT: ");
@@ -4286,14 +4629,14 @@ void process_alert_core(const std::string& message, BOOL modal)
 		// Allow the server to spawn a named alert so that server alerts can be
 		// translated out of English.
 		std::string alert_name(message.substr(ALERT_PREFIX.length()));
-		LLNotifications::instance().add(alert_name);
+		LLNotificationsUtil::add(alert_name);
 	}
 	else if (message.find(NOTIFY_PREFIX) == 0)
 	{
 		// Allow the server to spawn a named notification so that server notifications can be
 		// translated out of English.
 		std::string notify_name(message.substr(NOTIFY_PREFIX.length()));
-		LLNotifications::instance().add(notify_name);
+		LLNotificationsUtil::add(notify_name);
 	}
 	else if (message[0] == '/')
 	{
@@ -4305,35 +4648,35 @@ void process_alert_core(const std::string& message, BOOL modal)
 			S32 mins = 0;
 			LLStringUtil::convertToS32(text.substr(18), mins);
 			args["MINUTES"] = llformat("%d",mins);
-			LLNotifications::instance().add("RegionRestartMinutes", args);
+			LLNotificationsUtil::add("RegionRestartMinutes", args);
 		}
 		else if (text.substr(0,17) == "RESTART_X_SECONDS")
 		{
 			S32 secs = 0;
 			LLStringUtil::convertToS32(text.substr(18), secs);
 			args["SECONDS"] = llformat("%d",secs);
-			LLNotifications::instance().add("RegionRestartSeconds", args);
+			LLNotificationsUtil::add("RegionRestartSeconds", args);
 		}
 		else
 		{
-			// *TODO:translate
-			args["MESSAGE"] = text;
-			LLNotifications::instance().add("SystemMessage", args);
+			std::string new_msg =LLNotifications::instance().getGlobalString(text);
+			args["MESSAGE"] = new_msg;
+			LLNotificationsUtil::add("SystemMessage", args);
 		}
 	}
 	else if (modal)
 	{
-		// *TODO:translate
 		LLSD args;
-		args["ERROR_MESSAGE"] = message;
-		LLNotifications::instance().add("ErrorMessage", args);
+		std::string new_msg =LLNotifications::instance().getGlobalString(message);
+		args["ERROR_MESSAGE"] = new_msg;
+		LLNotificationsUtil::add("ErrorMessage", args);
 	}
 	else
 	{
-		// *TODO:translate
 		LLSD args;
-		args["MESSAGE"] = message;
-		LLNotifications::instance().add("SystemMessageTip", args);
+		std::string new_msg =LLNotifications::instance().getGlobalString(message);
+		args["MESSAGE"] = new_msg;
+		LLNotificationsUtil::add("SystemMessageTip", args);
 	}
 }
 
@@ -4346,11 +4689,11 @@ void handle_show_mean_events(void *)
 	{
 		return;
 	}
-
-	LLFloaterBump::show(NULL);
+	LLFloaterReg::showInstance("bumps");
+	//LLFloaterBump::showInstance();
 }
 
-void mean_name_callback(const LLUUID &id, const std::string& first, const std::string& last, BOOL always_false, void* data)
+void mean_name_callback(const LLUUID &id, const std::string& first, const std::string& last, BOOL always_false)
 {
 	if (gNoRender)
 	{
@@ -4428,7 +4771,7 @@ void process_mean_collision_alert_message(LLMessageSystem *msgsystem, void **use
 			LLMeanCollisionData *mcd = new LLMeanCollisionData(gAgentID, perp, time, type, mag);
 			gMeanCollisionList.push_front(mcd);
 			const BOOL is_group = FALSE;
-			gCacheName->get(perp, is_group, mean_name_callback);
+			gCacheName->get(perp, is_group, &mean_name_callback);
 		}
 	}
 }
@@ -4460,9 +4803,6 @@ void process_economy_data(LLMessageSystem *msg, void** /*user_data*/)
 
 	LL_INFOS_ONCE("Messaging") << "EconomyData message arrived; upload cost is L$" << upload_cost << LL_ENDL;
 
-	LLFloaterImagePreview::setUploadAmount(upload_cost);
-	LLFloaterAnimPreview::setUploadAmount(upload_cost);
-
 	gMenuHolder->childSetLabelArg("Upload Image", "[COST]", llformat("%d", upload_cost));
 	gMenuHolder->childSetLabelArg("Upload Sound", "[COST]", llformat("%d", upload_cost));
 	gMenuHolder->childSetLabelArg("Upload Animation", "[COST]", llformat("%d", upload_cost));
@@ -4480,7 +4820,7 @@ void notify_cautioned_script_question(const LLSD& notification, const LLSD& resp
 		// located in [REGIONNAME] at [REGIONPOS], 
 		// has been <granted|denied> permission to: [PERMISSIONS]."
 
-		LLUIString notice(LLFloaterChat::getInstance()->getString(granted ? "ScriptQuestionCautionChatGranted" : "ScriptQuestionCautionChatDenied"));
+		LLUIString notice(LLTrans::getString(granted ? "ScriptQuestionCautionChatGranted" : "ScriptQuestionCautionChatDenied"));
 
 		// always include the object name and owner name 
 		notice.setArg("[OBJECTNAME]", notification["payload"]["object_name"].asString());
@@ -4534,7 +4874,7 @@ void notify_cautioned_script_question(const LLSD& notification, const LLSD& resp
 					perms.append(", ");
 				}
 
-				perms.append(LLFloaterChat::getInstance()->getString(SCRIPT_QUESTIONS[i]));
+				perms.append(LLTrans::getString(SCRIPT_QUESTIONS[i]));
 			}
 		}
 
@@ -4545,14 +4885,14 @@ void notify_cautioned_script_question(const LLSD& notification, const LLSD& resp
 		if (caution)
 		{
 			LLChat chat(notice.getString());
-			LLFloaterChat::addChat(chat, FALSE, FALSE);
+	//		LLFloaterChat::addChat(chat, FALSE, FALSE);
 		}
 	}
 }
 
 bool script_question_cb(const LLSD& notification, const LLSD& response)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	LLMessageSystem *msg = gMessageSystem;
 	S32 orig = notification["payload"]["questions"].asInteger();
 	S32 new_questions = orig;
@@ -4593,33 +4933,34 @@ bool script_question_cb(const LLSD& notification, const LLSD& response)
 		LLMuteList::getInstance()->add(LLMute(item_id, notification["payload"]["object_name"].asString(), LLMute::OBJECT));
 
 		// purge the message queue of any previously queued requests from the same source. DEV-4879
-		class OfferMatcher : public LLNotifyBoxView::Matcher
+		class OfferMatcher : public LLNotificationsUI::LLScreenChannel::Matcher
 		{
 		public:
 			OfferMatcher(const LLUUID& to_block) : blocked_id(to_block) {}
-			BOOL matches(const LLNotificationPtr notification) const
+			bool matches(const LLNotificationPtr notification) const
 			{
 				if (notification->getName() == "ScriptQuestionCaution"
 					|| notification->getName() == "ScriptQuestion")
 				{
 					return (notification->getPayload()["item_id"].asUUID() == blocked_id);
 				}
-				return FALSE;
+				return false;
 			}
 		private:
 			const LLUUID& blocked_id;
 		};
-		// should do this via the channel
-		gNotifyBoxView->purgeMessagesMatching(OfferMatcher(item_id));
+
+		LLNotificationsUI::LLChannelManager::getInstance()->killToastsFromChannel(LLUUID(
+				gSavedSettings.getString("NotificationChannelUUID")), OfferMatcher(item_id));
 	}
 
 	if (response["Details"])
 	{
 		// respawn notification...
-		LLNotifications::instance().add(notification["name"], notification["substitutions"], notification["payload"]);
+		LLNotificationsUtil::add(notification["name"], notification["substitutions"], notification["payload"]);
 
 		// ...with description on top
-		LLNotifications::instance().add("DebitPermissionDetails");
+		LLNotificationsUtil::add("DebitPermissionDetails");
 	}
 	return false;
 }
@@ -4628,7 +4969,7 @@ static LLNotificationFunctorRegistration script_question_cb_reg_2("ScriptQuestio
 
 void process_script_question(LLMessageSystem *msg, void **user_data)
 {
-	// *TODO:translate owner name -> [FIRST] [LAST]
+	// *TODO: Translate owner name -> [FIRST] [LAST]
 
 	LLHost sender = msg->getSender();
 
@@ -4652,7 +4993,7 @@ void process_script_question(LLMessageSystem *msg, void **user_data)
 	// so we'll reuse the same namespace for both throttle types.
 	std::string throttle_name = owner_name;
 	std::string self_name;
-	gAgent.getName( self_name );
+	LLAgentUI::buildName( self_name );
 	if( owner_name == self_name )
 	{
 		throttle_name = taskid.getString();
@@ -4696,7 +5037,7 @@ void process_script_question(LLMessageSystem *msg, void **user_data)
 			if (questions & LSCRIPTRunTimePermissionBits[i])
 			{
 				count++;
-				script_question += "    " + LLFloaterChat::getInstance()->getString(SCRIPT_QUESTIONS[i]) + "\n";
+				script_question += "    " + LLTrans::getString(SCRIPT_QUESTIONS[i]) + "\n";
 
 				// check whether permission question should cause special caution dialog
 				caution |= (SCRIPT_QUESTION_IS_CAUTION[i]);
@@ -4716,12 +5057,12 @@ void process_script_question(LLMessageSystem *msg, void **user_data)
 		if (gSavedSettings.getBOOL("PermissionsCautionEnabled"))
 		{
 			// display the caution permissions prompt
-			LLNotifications::instance().add(caution ? "ScriptQuestionCaution" : "ScriptQuestion", args, payload);
+			LLNotificationsUtil::add(caution ? "ScriptQuestionCaution" : "ScriptQuestion", args, payload);
 		}
 		else
 		{
 			// fall back to default behavior if cautions are entirely disabled
-			LLNotifications::instance().add("ScriptQuestion", args, payload);
+			LLNotificationsUtil::add("ScriptQuestion", args, payload);
 		}
 
 	}
@@ -4744,22 +5085,21 @@ void container_inventory_arrived(LLViewerObject* object,
 		gAgent.changeCameraToDefault();
 	}
 
-	LLInventoryView* view = LLInventoryView::getActiveInventory();
+	LLInventoryPanel *active_panel = LLInventoryPanel::getActiveInventoryPanel();
 
 	if (inventory->size() > 2)
 	{
 		// create a new inventory category to put this in
 		LLUUID cat_id;
-		cat_id = gInventory.createNewCategory(gAgent.getInventoryRootID(),
-											  LLAssetType::AT_NONE,
-											  std::string("Acquired Items")); //TODO: Translate
+		cat_id = gInventory.createNewCategory(gInventory.getRootFolderID(),
+											  LLFolderType::FT_NONE,
+											  LLTrans::getString("AcquiredItems"));
 
 		InventoryObjectList::const_iterator it = inventory->begin();
 		InventoryObjectList::const_iterator end = inventory->end();
 		for ( ; it != end; ++it)
 		{
-			if ((*it)->getType() != LLAssetType::AT_CATEGORY &&
-				(*it)->getType() != LLAssetType::AT_ROOT_CATEGORY)
+			if ((*it)->getType() != LLAssetType::AT_CATEGORY)
 			{
 				LLInventoryObject* obj = (LLInventoryObject*)(*it);
 				LLInventoryItem* item = (LLInventoryItem*)(obj);
@@ -4783,9 +5123,9 @@ void container_inventory_arrived(LLViewerObject* object,
 			}
 		}
 		gInventory.notifyObservers();
-		if(view)
+		if(active_panel)
 		{
-			view->getPanel()->setSelection(cat_id, TAKE_FOCUS_NO);
+			active_panel->setSelection(cat_id, TAKE_FOCUS_NO);
 		}
 	}
 	else if (inventory->size() == 2)
@@ -4794,14 +5134,13 @@ void container_inventory_arrived(LLViewerObject* object,
 		// one actual object
 		InventoryObjectList::iterator it = inventory->begin();
 
-		if ((*it)->getType() == LLAssetType::AT_CATEGORY ||
-			(*it)->getType() == LLAssetType::AT_ROOT_CATEGORY)
+		if ((*it)->getType() == LLAssetType::AT_CATEGORY)
 		{
 			++it;
 		}
 
 		LLInventoryItem* item = (LLInventoryItem*)((LLInventoryObject*)(*it));
-		LLUUID category = gInventory.findCategoryUUIDForType(item->getType());
+		const LLUUID category = gInventory.findCategoryUUIDForType(LLFolderType::assetTypeToFolderType(item->getType()));
 
 		LLUUID item_id;
 		item_id.generate();
@@ -4820,9 +5159,9 @@ void container_inventory_arrived(LLViewerObject* object,
 		new_item->updateServer(TRUE);
 		gInventory.updateItem(new_item);
 		gInventory.notifyObservers();
-		if(view)
+		if(active_panel)
 		{
-			view->getPanel()->setSelection(item_id, TAKE_FOCUS_NO);
+			active_panel->setSelection(item_id, TAKE_FOCUS_NO);
 		}
 	}
 
@@ -4846,10 +5185,18 @@ void container_inventory_arrived(LLViewerObject* object,
 // method to format the time.
 std::string formatted_time(const time_t& the_time)
 {
-	char buffer[30]; /* Flawfinder: ignore */
-	LLStringUtil::copy(buffer, ctime(&the_time), 30);
-	buffer[24] = '\0';
-	return std::string(buffer);
+	std::string dateStr = "["+LLTrans::getString("LTimeWeek")+"] ["
+						+LLTrans::getString("LTimeMonth")+"] ["
+						+LLTrans::getString("LTimeDay")+"] ["
+						+LLTrans::getString("LTimeHour")+"]:["
+						+LLTrans::getString("LTimeMin")+"]:["
+						+LLTrans::getString("LTimeSec")+"] ["
+						+LLTrans::getString("LTimeYear")+"]";
+
+	LLSD substitution;
+	substitution["datetime"] = (S32) the_time;
+	LLStringUtil::format (dateStr, substitution);
+	return dateStr;
 }
 
 
@@ -4860,7 +5207,7 @@ void process_teleport_failed(LLMessageSystem *msg, void**)
 	LLSD args;
 
 	// if we have additional alert data
-	if (msg->getNumberOfBlocksFast(_PREHASH_AlertInfo) > 0)
+	if (msg->has(_PREHASH_AlertInfo) && msg->getSizeFast(_PREHASH_AlertInfo, _PREHASH_Message) > 0)
 	{
 		// Get the message ID
 		msg->getStringFast(_PREHASH_AlertInfo, _PREHASH_Message, reason);
@@ -4915,7 +5262,10 @@ void process_teleport_failed(LLMessageSystem *msg, void**)
 		}
 	}
 
-	LLNotifications::instance().add("CouldNotTeleportReason", args);
+	LLNotificationsUtil::add("CouldNotTeleportReason", args);
+
+	// Let the interested parties know that teleport failed.
+	LLViewerParcelMgr::getInstance()->onTeleportFailed();
 
 	if( gAgent.getTeleportState() != LLAgent::TELEPORT_NONE )
 	{
@@ -4966,6 +5316,11 @@ void process_teleport_local(LLMessageSystem *msg,void**)
 	gAgent.updateCamera();
 
 	send_agent_update(TRUE, TRUE);
+
+	// Let the interested parties know we've teleported.
+	// Vadim *HACK: Agent position seems to get reset (to render position?)
+	//              on each frame, so we have to pass the new position manually.
+	LLViewerParcelMgr::getInstance()->onTeleportFinished(true, gAgent.getPosGlobalFromAgent(pos));
 }
 
 void send_simple_im(const LLUUID& to_id,
@@ -4974,7 +5329,7 @@ void send_simple_im(const LLUUID& to_id,
 					const LLUUID& id)
 {
 	std::string my_name;
-	gAgent.buildFullname(my_name);
+	LLAgentUI::buildFullname(my_name);
 	send_improved_im(to_id,
 					 my_name,
 					 message,
@@ -4995,7 +5350,7 @@ void send_group_notice(const LLUUID& group_id,
 	// This will mean converting the item to a binary bucket,
 	// and the subject/message into a single field.
 	std::string my_name;
-	gAgent.buildFullname(my_name);
+	LLAgentUI::buildFullname(my_name);
 
 	// Combine subject + message into a single string.
 	std::ostringstream subject_and_message;
@@ -5040,7 +5395,8 @@ void send_group_notice(const LLUUID& group_id,
 bool handle_lure_callback(const LLSD& notification, const LLSD& response)
 {
 	std::string text = response["message"].asString();
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	text.append("\r\n").append(LLAgentUI::buildSLURL());
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 
 	if(0 == option)
 	{
@@ -5056,8 +5412,24 @@ bool handle_lure_callback(const LLSD& notification, const LLSD& response)
 			it != notification["payload"]["ids"].endArray();
 			++it)
 		{
+			LLUUID target_id = it->asUUID();
+
 			msg->nextBlockFast(_PREHASH_TargetData);
-			msg->addUUIDFast(_PREHASH_TargetID, it->asUUID());
+			msg->addUUIDFast(_PREHASH_TargetID, target_id);
+
+			// Record the offer.
+			{
+				std::string target_name;
+				gCacheName->getFullName(target_id, target_name);
+				LLSD args;
+				args["TO_NAME"] = target_name;
+	
+				LLSD payload;
+				payload["from_id"] = target_id;
+				payload["SESSION_NAME"] = target_name;
+				payload["SUPPRESS_TOAST"] = true;
+				LLNotificationsUtil::add("TeleportOfferSent", args, payload);
+			}
 		}
 		gAgent.sendReliableMessage();
 	}
@@ -5073,13 +5445,13 @@ void handle_lure(const LLUUID& invitee)
 }
 
 // Prompt for a message to the invited user.
-void handle_lure(LLDynamicArray<LLUUID>& ids) 
+void handle_lure(const std::vector<LLUUID>& ids)
 {
 	LLSD edit_args;
 	edit_args["REGION"] = gAgent.getRegion()->getName();
 
 	LLSD payload;
-	for (LLDynamicArray<LLUUID>::iterator it = ids.begin();
+	for (LLDynamicArray<LLUUID>::const_iterator it = ids.begin();
 		it != ids.end();
 		++it)
 	{
@@ -5087,11 +5459,11 @@ void handle_lure(LLDynamicArray<LLUUID>& ids)
 	}
 	if (gAgent.isGodlike())
 	{
-		LLNotifications::instance().add("OfferTeleportFromGod", edit_args, payload, handle_lure_callback);
+		LLNotificationsUtil::add("OfferTeleportFromGod", edit_args, payload, handle_lure_callback);
 	}
 	else
 	{
-		LLNotifications::instance().add("OfferTeleport", edit_args, payload, handle_lure_callback);
+		LLNotificationsUtil::add("OfferTeleport", edit_args, payload, handle_lure_callback);
 	}
 }
 
@@ -5284,7 +5656,7 @@ std::vector<LLSD> gLoadUrlList;
 
 bool callback_load_url(const LLSD& notification, const LLSD& response)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 
 	if (0 == option)
 	{
@@ -5298,7 +5670,7 @@ static LLNotificationFunctorRegistration callback_load_url_reg("LoadWebPage", ca
 
 // We've got the name of the person who owns the object hurling the url.
 // Display confirmation dialog.
-void callback_load_url_name(const LLUUID& id, const std::string& first, const std::string& last, BOOL is_group, void* data)
+void callback_load_url_name(const LLUUID& id, const std::string& first, const std::string& last, BOOL is_group)
 {
 	std::vector<LLSD>::iterator it;
 	for (it = gLoadUrlList.begin(); it != gLoadUrlList.end(); )
@@ -5311,7 +5683,7 @@ void callback_load_url_name(const LLUUID& id, const std::string& first, const st
 			std::string owner_name;
 			if (is_group)
 			{
-				owner_name = first + " (group)";
+				owner_name = first + LLTrans::getString("Group");
 			}
 			else
 			{
@@ -5329,7 +5701,7 @@ void callback_load_url_name(const LLUUID& id, const std::string& first, const st
 			args["OBJECTNAME"] = load_url_info["object_name"].asString();
 			args["NAME"] = owner_name;
 
-			LLNotifications::instance().add("LoadWebPage", args, load_url_info);
+			LLNotificationsUtil::add("LoadWebPage", args, load_url_info);
 		}
 		else
 		{
@@ -5375,7 +5747,7 @@ void process_load_url(LLMessageSystem* msg, void**)
 	// Add to list of pending name lookups
 	gLoadUrlList.push_back(payload);
 
-	gCacheName->get(owner_id, owner_is_group, callback_load_url_name);
+	gCacheName->get(owner_id, owner_is_group, &callback_load_url_name);
 }
 
 
@@ -5384,7 +5756,7 @@ void callback_download_complete(void** data, S32 result, LLExtStat ext_status)
 	std::string* filepath = (std::string*)data;
 	LLSD args;
 	args["DOWNLOAD_PATH"] = *filepath;
-	LLNotifications::instance().add("FinishedRawDownload", args);
+	LLNotificationsUtil::add("FinishedRawDownload", args);
 	delete filepath;
 }
 
@@ -5431,12 +5803,17 @@ void process_script_teleport_request(LLMessageSystem* msg, void**)
 	msg->getVector3("Data", "SimPosition", pos);
 	msg->getVector3("Data", "LookAt", look_at);
 
-	gFloaterWorldMap->trackURL(sim_name, (S32)pos.mV[VX], (S32)pos.mV[VY], (S32)pos.mV[VZ]);
-	LLFloaterWorldMap::show(NULL, TRUE);
-
+	LLFloaterWorldMap* instance = LLFloaterWorldMap::getInstance();
+	if(instance)
+	{
+		instance->trackURL(
+						   sim_name, (S32)pos.mV[VX], (S32)pos.mV[VY], (S32)pos.mV[VZ]);
+		LLFloaterReg::showInstance("world_map", "center");
+	}
+	
 	// remove above two lines and replace with below line
 	// to re-enable parcel browser for llMapDestination()
-	// LLURLDispatcher::dispatch(LLURLDispatcher::buildSLURL(sim_name, (S32)pos.mV[VX], (S32)pos.mV[VY], (S32)pos.mV[VZ]), FALSE);
+	// LLURLDispatcher::dispatch(LLSLURL::buildSLURL(sim_name, (S32)pos.mV[VX], (S32)pos.mV[VY], (S32)pos.mV[VZ]), FALSE);
 	
 }
 
@@ -5454,23 +5831,44 @@ void process_covenant_reply(LLMessageSystem* msg, void**)
 	LLPanelLandCovenant::updateEstateName(estate_name);
 	LLFloaterBuyLand::updateEstateName(estate_name);
 
+	std::string owner_name =
+		LLSLURL::buildCommand("agent", estate_owner_id, "inspect");
+	LLPanelEstateCovenant::updateEstateOwnerName(owner_name);
+	LLPanelLandCovenant::updateEstateOwnerName(owner_name);
+	LLFloaterBuyLand::updateEstateOwnerName(owner_name);
+
+	LLPanelPlaceProfile* panel = LLSideTray::getInstance()->findChild<LLPanelPlaceProfile>("panel_place_profile");
+	if (panel)
+	{
+		panel->updateEstateName(estate_name);
+		panel->updateEstateOwnerName(owner_name);
+	}
+
 	// standard message, not from system
 	std::string last_modified;
 	if (covenant_timestamp == 0)
 	{
-		last_modified = LLTrans::getString("covenant_never_modified");
+		last_modified = LLTrans::getString("covenant_last_modified")+LLTrans::getString("never_text");
 	}
 	else
 	{
-		last_modified = LLTrans::getString("covenant_modified") + " " + formatted_time((time_t)covenant_timestamp);
+		last_modified = LLTrans::getString("covenant_last_modified")+"["
+						+LLTrans::getString("LTimeWeek")+"] ["
+						+LLTrans::getString("LTimeMonth")+"] ["
+						+LLTrans::getString("LTimeDay")+"] ["
+						+LLTrans::getString("LTimeHour")+"]:["
+						+LLTrans::getString("LTimeMin")+"]:["
+						+LLTrans::getString("LTimeSec")+"] ["
+						+LLTrans::getString("LTimeYear")+"]";
+		LLSD substitution;
+		substitution["datetime"] = (S32) covenant_timestamp;
+		LLStringUtil::format (last_modified, substitution);
 	}
 
 	LLPanelEstateCovenant::updateLastModified(last_modified);
 	LLPanelLandCovenant::updateLastModified(last_modified);
 	LLFloaterBuyLand::updateLastModified(last_modified);
 
-	gCacheName->getName(estate_owner_id, callbackCacheEstateOwnerName);
-	
 	// load the actual covenant asset data
 	const BOOL high_priority = TRUE;
 	if (covenant_id.notNull())
@@ -5491,35 +5889,20 @@ void process_covenant_reply(LLMessageSystem* msg, void**)
 		if (estate_owner_id.isNull())
 		{
 			// mainland
-			covenant_text = "There is no Covenant provided for this Estate.";
+			covenant_text = LLTrans::getString("RegionNoCovenant");
 		}
 		else
 		{
-			covenant_text = "There is no Covenant provided for this Estate. The land on this estate is being sold by the Estate owner, not Linden Lab.  Please contact the Estate Owner for sales details.";
+			covenant_text = LLTrans::getString("RegionNoCovenantOtherOwner");
 		}
 		LLPanelEstateCovenant::updateCovenantText(covenant_text, covenant_id);
 		LLPanelLandCovenant::updateCovenantText(covenant_text);
 		LLFloaterBuyLand::updateCovenantText(covenant_text, covenant_id);
+		if (panel)
+		{
+			panel->updateCovenantText(covenant_text);
+		}
 	}
-}
-
-void callbackCacheEstateOwnerName(const LLUUID& id,
-								  const std::string& first, const std::string& last,
-								  BOOL is_group, void*)
-{
-	std::string name;
-	
-	if (id.isNull())
-	{
-		name = "(none)";
-	}
-	else
-	{
-		name = first + " " + last;
-	}
-	LLPanelEstateCovenant::updateEstateOwnerName(name);
-	LLPanelLandCovenant::updateEstateOwnerName(name);
-	LLFloaterBuyLand::updateEstateOwnerName(name);
 }
 
 void onCovenantLoadComplete(LLVFS *vfs,
@@ -5542,10 +5925,10 @@ void onCovenantLoadComplete(LLVFS *vfs,
 		
 		if( (file_length > 19) && !strncmp( &buffer[0], "Linden text version", 19 ) )
 		{
-			LLViewerTextEditor* editor =
-				new LLViewerTextEditor(std::string("temp"),
-						       LLRect(0,0,0,0),
-						       file_length+1);
+			LLViewerTextEditor::Params params;
+			params.name("temp");
+			params.max_text_length(file_length+1);
+			LLViewerTextEditor * editor = LLUICtrlFactory::create<LLViewerTextEditor> (params);
 			if( !editor->importBuffer( &buffer[0], file_length+1 ) )
 			{
 				LL_WARNS("Messaging") << "Problem importing estate covenant." << LL_ENDL;
@@ -5587,6 +5970,12 @@ void onCovenantLoadComplete(LLVFS *vfs,
 	LLPanelEstateCovenant::updateCovenantText(covenant_text, asset_uuid);
 	LLPanelLandCovenant::updateCovenantText(covenant_text);
 	LLFloaterBuyLand::updateCovenantText(covenant_text, asset_uuid);
+
+	LLPanelPlaceProfile* panel = LLSideTray::getInstance()->findChild<LLPanelPlaceProfile>("panel_place_profile");
+	if (panel)
+	{
+		panel->updateCovenantText(covenant_text);
+	}
 }
 
 
@@ -5620,6 +6009,6 @@ void invalid_message_callback(LLMessageSystem* msg,
 void LLOfferInfo::forceResponse(InventoryOfferResponse response)
 {
 	LLNotification::Params params("UserGiveItem");
-	params.functor(boost::bind(&LLOfferInfo::inventory_offer_callback, this, _1, _2));
+	params.functor.function(boost::bind(&LLOfferInfo::inventory_offer_callback, this, _1, _2));
 	LLNotifications::instance().forceResponse(params, response);
 }

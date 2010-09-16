@@ -421,8 +421,8 @@ BOOL LLHUDEffectLookAt::setLookAt(ELookAtType target_type, LLViewerObject *objec
 	BOOL lookAtChanged = (target_type != mTargetType) || (object != mTargetObject);
 
 	// lookat position has moved a certain amount and we haven't just sent an update
-	lookAtChanged = lookAtChanged || (dist_vec(position, mLastSentOffsetGlobal) > MIN_DELTAPOS_FOR_UPDATE) && 
-		((current_time - mLastSendTime) > (1.f / MAX_SENDS_PER_SEC));
+	lookAtChanged = lookAtChanged || ((dist_vec(position, mLastSentOffsetGlobal) > MIN_DELTAPOS_FOR_UPDATE) && 
+		((current_time - mLastSendTime) > (1.f / MAX_SENDS_PER_SEC)));
 
 	if (lookAtChanged)
 	{
@@ -610,7 +610,9 @@ bool LLHUDEffectLookAt::calcTargetPosition()
 	}
 
 	LLVOAvatar* source_avatar = (LLVOAvatar*)(LLViewerObject*)mSourceObject;
-
+	if (!source_avatar->isBuilt())
+		return false;
+	
 	if (target_obj && target_obj->mDrawable.notNull())
 	{
 		LLQuaternion target_rot;

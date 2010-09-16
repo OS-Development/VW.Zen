@@ -1,0 +1,345 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<panel
+ background_visible="true"
+ class="edit_profile_panel"
+  follows="all"
+ height="535"
+ label="Profile Edit"
+ layout="topleft"
+ left="0"
+ name="edit_profile_panel"
+  top="0"
+ width="313">
+   <string
+    name="CaptionTextAcctInfo">
+       [ACCTTYPE]
+[PAYMENTINFO] [AGEVERIFICATION]
+   </string>
+   <string 
+    name="RegisterDateFormat">
+	[REG_DATE] ([AGE])
+   </string> 
+   <string
+    name="AcctTypeResident"
+    value="Resident" />
+   <string
+    name="AcctTypeTrial"
+    value="Trial" />
+   <string
+    name="AcctTypeCharterMember"
+    value="Charter Member" />
+   <string
+    name="AcctTypeEmployee"
+    value="Linden Lab Employee" />
+   <string
+    name="PaymentInfoUsed"
+    value="Payment Info Used" />
+   <string
+    name="PaymentInfoOnFile"
+    value="Payment Info On File" />
+   <string
+    name="NoPaymentInfoOnFile"
+    value="No Payment Info On File" />
+   <string
+    name="AgeVerified"
+    value="Age-verified" />
+   <string
+    name="NotAgeVerified"
+    value="Not Age-verified" />
+   <string
+    name="partner_edit_link_url">
+       http://www.secondlife.com/account/partners.php?lang=en
+   </string>
+   <string
+    name="my_account_link_url">
+       http://secondlife.com/my
+   </string>
+   <string
+    name="no_partner_text"
+    value="None" />
+ <scroll_container
+     color="DkGray2"
+     follows="all"
+     height="505"
+     min_height="300"
+     layout="topleft"
+     left="0"
+     name="profile_scroll"
+     reserve_scroll_corner="true"
+     opaque="true"
+     top="0">
+      <panel
+         name="scroll_content_panel"
+         follows="left|top|right"
+         layout="topleft"
+         top="0"
+     height="505"
+     min_height="300"
+         left="0"
+         width="313">
+    <panel
+     name="data_panel"
+     follows="left|top|right"
+         layout="topleft"
+         top="0"
+     height="505"
+     min_height="300"
+         left="0"
+         width="313">
+     <panel
+       name="lifes_images_panel"
+         follows="left|top|right"
+         height="244"
+         layout="topleft"
+         top="0"
+         left="0"
+         width="285">
+	 <panel
+         follows="left|top"
+         height="117"
+         layout="topleft"
+         left="10"
+         name="second_life_image_panel"
+         top="0"
+         width="285">
+          <text
+             follows="left|top|right"
+	     font.style="BOLD"
+             height="15"
+             layout="topleft"
+             left="0"
+            name="second_life_photo_title_text"
+             text_color="white"
+             value="[SECOND_LIFE]:"
+             width="170" />
+            <texture_picker
+             allow_no_texture="true"
+             default_image_name="None"
+             enabled="false"
+             follows="top|left"
+             height="117"
+             layout="topleft"
+             left="0"
+             name="2nd_life_pic"
+             top_pad="0"
+             width="102" />
+          </panel>
+           <icon
+           height="18"
+           image_name="AddItem_Off"
+           layout="topleft"
+           name="2nd_life_edit_icon"
+           label=""
+           left="87"
+           tool_tip="Click to select an image"
+           top="25"
+           width="18" />
+      </panel>
+      <text_editor
+       type="string"
+       length="1"
+       follows="left|top|right"
+       font="SansSerifSmall"
+       height="100"
+       layout="topleft"
+       left="120"
+       top="18"
+       max_length="512"
+       name="sl_description_edit"
+       width="173"
+       word_wrap="true">
+      </text_editor>
+      <panel
+         follows="left|top"
+         height="117"
+         layout="topleft"
+	 top_pad="5"
+         left="10"
+         name="first_life_image_panel"
+         width="285">
+        <text
+             follows="left|top|right"
+	     font.style="BOLD"
+             height="15"
+             layout="topleft"
+             left="0"
+            name="real_world_photo_title_text"
+             text_color="white"
+             value="Real World:"
+             width="173" />
+            <texture_picker
+             allow_no_texture="true"
+             default_image_name="None"
+             enabled="false"
+             follows="top|left"
+             height="117"
+             layout="topleft"
+             left="0"
+             name="real_world_pic"
+             top_pad="0"
+             width="102" />
+          </panel>
+           <icon
+           height="18"
+           image_name="AddItem_Off"
+           layout="topleft"
+           name="real_world_edit_icon"
+           label=""
+           left="87"
+           tool_tip="Click to select an image"
+           top="148"
+           width="18" />
+       <text_editor
+       type="string"
+       length="1"
+       follows="left|top|right"
+       font="SansSerifSmall"
+       height="100"
+       layout="topleft"
+       left="120"
+       max_length="512"
+       top="142"
+       name="fl_description_edit"
+       width="173"
+       word_wrap="true">
+      </text_editor>
+      <text
+       type="string"
+       length="1"
+       follows="left|top"
+       font="SansSerifSmall"
+       font.style="BOLD"
+       height="15"
+       layout="topleft"
+       left="10"
+       name="title_homepage_text"
+       text_color="white"
+       top_pad="10"
+       width="285">
+          Homepage:
+      </text>
+      <line_editor
+       follows="left|top|right"
+       font="SansSerifSmall"
+       height="20"
+       layout="topleft"
+       left="10"
+       top_pad="0"
+       value="http://"
+       name="homepage_edit"
+       width="285">
+      </line_editor>
+      <check_box
+       follows="left|top"
+       font="SansSerifSmall"
+       label="Show me in Search results"
+       layout="topleft"
+       left="10"
+       name="show_in_search_checkbox"
+       height="15"
+       text_enabled_color="white"
+       top_pad="10"
+       width="240" />
+      <text
+         follows="left|top"
+         font="SansSerifSmall"
+	 font.style="BOLD"
+         height="15"
+         layout="topleft"
+         left="10"
+         name="title_acc_status_text"
+         text_color="white"
+         top_pad="5"
+         value="My Account:"
+         width="285" />
+        <text
+         type="string"
+         follows="left|top"
+         font="SansSerifSmall"
+         height="15"
+         layout="topleft"
+         left="10"
+         name="my_account_link"
+         value="[[URL] Go to My Dashboard]"
+         width="285" />
+        <text
+         follows="left|top|right"
+         height="20"
+         layout="topleft"
+         left="10"
+         name="acc_status_text"
+         top_pad="5"
+         value="Resident. No payment info on file."
+         width="285"
+         word_wrap="true" />
+        <text
+         follows="left|top"
+         font="SansSerifSmall"
+      	 font.style="BOLD"
+         height="15"
+         layout="topleft"
+         left="10"
+         name="title_partner_text"
+         text_color="white"
+         top_pad="0"
+         value="My Partner:"
+         width="150" />
+        <text
+         follows="left|top"
+         height="15"
+         halign="right"
+         layout="topleft"
+         left_pad="10"
+         right="-10"
+         name="partner_edit_link"
+         value="[[URL] Edit]"
+         width="50" />
+        <panel
+         follows="left|top|right"
+         height="15"
+         layout="topleft"
+         left="10"
+         name="partner_data_panel"
+         width="285">
+            <name_box
+             follows="left|top|right"
+             height="30"
+             initial_value="(retrieving)"
+             layout="topleft"
+             left="0"
+             link="true"
+             name="partner_text"
+             top="0"
+             width="285"
+             word_wrap="true" />
+         </panel>
+    </panel>
+    </panel>
+    </scroll_container>
+    <panel
+       follows="bottom|left"
+       height="20"
+       left="10"
+       name="profile_me_buttons_panel"
+       top_pad="5"
+       width="303">
+        <button
+         follows="bottom|left"
+         height="19"
+         label="Save Changes"
+         layout="topleft"
+         left="0"
+         name="save_btn"
+         top="0"
+         width="130" />
+        <button
+         follows="bottom|left"
+         height="19"
+         label="Cancel"
+         layout="topleft"
+         left_pad="10"
+         name="cancel_btn"
+         right="-1"
+         width="130" />
+    </panel>
+</panel>

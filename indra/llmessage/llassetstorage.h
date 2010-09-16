@@ -204,7 +204,16 @@ typedef std::map<LLUUID,U64,lluuid_less> toxic_asset_map_t;
 typedef void (*LLGetAssetCallback)(LLVFS *vfs, const LLUUID &asset_id,
 										 LLAssetType::EType asset_type, void *user_data, S32 status, LLExtStat ext_status);
 
-class LLAssetStorage
+class LLTempAssetStorage
+{
+public:
+	virtual ~LLTempAssetStorage() =0;
+	virtual void addTempAssetData(const LLUUID& asset_id,
+								  const LLUUID& agent_id,
+								  const std::string& host_name) = 0;
+};
+
+class LLAssetStorage : public LLTempAssetStorage
 {
 public:
 	// VFS member is public because static child methods need it :(
@@ -306,15 +315,15 @@ public:
 	void		markAssetToxic( const LLUUID& uuid );
 
 protected:
-	virtual LLSD getPendingDetails(const request_list_t* requests,
+	virtual LLSD getPendingDetailsImpl(const request_list_t* requests,
 	 				LLAssetType::EType asset_type,
 	 				const std::string& detail_prefix) const;
 
-	virtual LLSD getPendingRequest(const request_list_t* requests,
+	virtual LLSD getPendingRequestImpl(const request_list_t* requests,
 							LLAssetType::EType asset_type,
 							const LLUUID& asset_id) const;
 
-	virtual bool deletePendingRequest(request_list_t* requests,
+	virtual bool deletePendingRequestImpl(request_list_t* requests,
 							LLAssetType::EType asset_type,
 							const LLUUID& asset_id);
 

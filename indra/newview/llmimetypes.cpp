@@ -34,6 +34,7 @@
 #include "llviewerprecompiledheaders.h"
 
 #include "llmimetypes.h"
+#include "llxmlnode.h"
 
 #include "lluictrlfactory.h"
 
@@ -46,6 +47,8 @@ std::string sDefaultWidgetType;
 	// Returned when we don't know what widget set to use
 std::string sDefaultImpl;
 	// Returned when we don't know what impl to use
+std::string sXMLFilename; 
+    // Squirrel away XML filename so we know how to reset
 
 /////////////////////////////////////////////////////////////////////////////
 
@@ -146,6 +149,8 @@ bool LLMIMETypes::parseMIMETypes(const std::string& xml_filename)
 			sWidgetMap[set_name] = info;
 		}
 	}
+
+	sXMLFilename = xml_filename;
 	return true;
 }
 
@@ -267,3 +272,23 @@ bool LLMIMETypes::findAllowLooping(const std::string& mime_type)
 	}
 	return allow_looping;
 }
+
+// static
+bool LLMIMETypes::isTypeHandled(const std::string& mime_type)
+{
+	mime_info_map_t::const_iterator it = sMap.find(mime_type);
+	if (it != sMap.end())
+	{
+		return true;
+	}
+	return false;
+}
+
+// static
+void LLMIMETypes::reload(void*)
+{
+	sMap.clear();
+	sWidgetMap.clear();
+	(void)LLMIMETypes::parseMIMETypes(sXMLFilename);
+}
+

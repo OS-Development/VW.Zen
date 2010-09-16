@@ -11,6 +11,7 @@ include(LLVFS)
 include(LLWindow)
 include(LLXML)
 include(Linking)
+include(LLSharedLibs)
 
 include_directories(
     ${LLCOMMON_INCLUDE_DIRS}
@@ -72,6 +73,7 @@ target_link_libraries(windows-crash-logger
     ${LLCOMMON_LIBRARIES}
     ${WINDOWS_LIBRARIES}
     ${DXGUID_LIBRARY}
+    ${GOOGLE_PERFTOOLS_LIBRARIES}
     user32
     gdi32
     ole32
@@ -86,3 +88,5 @@ if (WINDOWS)
         LINK_FLAGS_DEBUG "/NODEFAULTLIB:\"LIBCMT;LIBCMTD;MSVCRT\""
         )
 endif (WINDOWS)
+
+ll_deploy_sharedlibs_command(windows-crash-logger)

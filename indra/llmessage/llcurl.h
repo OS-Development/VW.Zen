@@ -85,7 +85,7 @@ public:
 			return((200 <= status) && (status < 300));
 		}
 		
-		virtual void error(
+		virtual void errorWithContent(
 			U32 status,
 			const std::string& reason,
 			const LLSD& content);
@@ -120,8 +120,14 @@ public:
 			// of the header can be parsed.  In the ::completed call above only the body is contained in the LLSD.
 			virtual void completedHeader(U32 status, const std::string& reason, const LLSD& content);
 
+			// Used internally to set the url for debugging later.
+			void setURL(const std::string& url);
+
 	public: /* but not really -- don't touch this */
 		U32 mReferenceCount;
+
+	private:
+		std::string mURL;
 	};
 	typedef boost::intrusive_ptr<Responder>	ResponderPtr;
 
@@ -152,6 +158,16 @@ public:
 	static const std::string& getCAPath() { return sCAPath; }
 
 	/**
+	 * @ brief Set flag controlling whether to verify HTTPS certs.
+	 */
+	static void setSSLVerify(bool verify);
+
+	/**
+	 * @ brief Get flag controlling whether to verify HTTPS certs.
+	 */
+	static bool getSSLVerify();
+
+	/**
 	 * @ brief Initialize LLCurl class
 	 */
 	static void initClass();
@@ -176,6 +192,7 @@ public:
 private:
 	static std::string sCAPath;
 	static std::string sCAFile;
+	static bool sSSLVerify;
 };
 
 namespace boost
@@ -188,12 +205,14 @@ namespace boost
 class LLCurlRequest
 {
 public:
+	typedef std::vector<std::string> headers_t;
+	
 	LLCurlRequest();
 	~LLCurlRequest();
 
 	void get(const std::string& url, LLCurl::ResponderPtr responder);
-	bool getByteRange(const std::string& url, S32 offset, S32 length, LLCurl::ResponderPtr responder);
-	bool post(const std::string& url, const LLSD& data, LLCurl::ResponderPtr responder);
+	bool getByteRange(const std::string& url, const headers_t& headers, S32 offset, S32 length, LLCurl::ResponderPtr responder);
+	bool post(const std::string& url, const headers_t& headers, const LLSD& data, LLCurl::ResponderPtr responder);
 	S32  process();
 	S32  getQueued();
 
@@ -207,6 +226,7 @@ private:
 	curlmulti_set_t mMultiSet;
 	LLCurl::Multi* mActiveMulti;
 	S32 mActiveRequestCount;
+	U32 mThreadID; // debug
 };
 
 class LLCurlEasyRequest

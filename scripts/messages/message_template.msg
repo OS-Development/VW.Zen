@@ -53,7 +53,7 @@ version 2.0
 
 // OpenCircuit - Tells the recipient's messaging system to open the descibed circuit
 {
-	OpenCircuit Fixed 0xFFFFFFFC NotTrusted Unencoded
+	OpenCircuit Fixed 0xFFFFFFFC NotTrusted Unencoded UDPBlackListed
 	{
 		CircuitInfo		Single
 		{	IP			IPADDR	}
@@ -5288,6 +5288,10 @@ version 2.0
 		{	AgentLegacyAccess		U8	}
 		{	AgentMaxAccess			U8	}
 	}
+	{
+		AgentInfo				Variable
+		{	Flags					U32	}
+	}
 }
 
 // ChildAgentAlive
@@ -8943,5 +8947,26 @@ version 2.0
 		{	Description			Variable	1	}
 		{	CreationDate		S32	}
 		{	CRC				U32	}
+	}
+}
+
+// Link inventory
+{
+	LinkInventoryItem	Low	426 NotTrusted	Zerocoded
+	{
+		AgentData		Single
+		{	AgentID		LLUUID	}
+		{	SessionID	LLUUID	}
+	}
+	{
+		InventoryBlock		Single
+		{	CallbackID	U32			} // Async Response
+		{	FolderID		LLUUID	}
+		{	TransactionID			LLUUID	} // Going to become TransactionID
+		{	OldItemID		LLUUID	}
+		{	Type			S8	}
+		{	InvType			S8	}
+		{	Name			Variable	1	}
+		{	Description		Variable	1	}
 	}
 }

@@ -77,3 +77,4 @@ add_custom_command(
     ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/mac-updater.app/Contents/Resources/AutoUpdater.nib
   )
 
+ll_deploy_sharedlibs_command(mac-updater) 

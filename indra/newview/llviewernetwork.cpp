@@ -34,7 +34,12 @@
 #include "llviewerprecompiledheaders.h"
 
 #include "llviewernetwork.h"
+
+#include "llevents.h"
+#include "net.h"
+
 #include "llviewercontrol.h"
+#include "lllogin.h"
 
 struct LLGridData
 {
@@ -155,6 +160,10 @@ LLViewerLogin::LLViewerLogin() :
 {
 }
 
+ LLViewerLogin::~LLViewerLogin() 
+ {
+ }
+
 void LLViewerLogin::setGridChoice(EGridInfo grid)
 {	
 	if(grid < 0 || grid >= GRID_INFO_COUNT)
@@ -218,7 +227,7 @@ void LLViewerLogin::setGridChoice(const std::string& grid_name)
 void LLViewerLogin::resetURIs()
 {
     // Clear URIs when picking a new server
-	gSavedSettings.setValue("CmdLineLoginURI", LLSD::emptyArray());
+	gSavedSettings.setLLSD("CmdLineLoginURI", LLSD::emptyArray());
 	gSavedSettings.setString("CmdLineHelperURI", "");
 }
 

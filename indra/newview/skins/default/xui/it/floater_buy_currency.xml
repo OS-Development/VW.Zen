@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<floater name="buy currency" title="Acquista valuta">
+<floater name="buy currency" title="ACQUISTA VALUTA">
 	<text name="info_buying">
 		Acquistando valuta:
 	</text>
@@ -22,14 +22,14 @@
 	<text name="buy_action">
 		[NAME] [PRICE]L$
 	</text>
-	<text name="currency_action">
+	<text name="currency_action" width="45">
 		Compra 
 	</text>
 	<line_editor name="currency_amt">
 		1234
 	</line_editor>
 	<text name="currency_est">
-		L$ per circa [USD]US$
+		per circa [LOCALAMOUNT]
 	</text>
 	<text name="getting_data">
 		Dati in ricezione...
@@ -52,10 +52,11 @@
 	<text name="total_amount">
 		[AMT]L$
 	</text>
-	<text name="purchase_warning_repurchase" height="48" bottom_delta="-64" right="-10">
-		Confermando questa operazione si acquisterà solo
-la valuta. Per acquistare il bene, dovrai riprovare
-l&apos;operazione nuovamente.
+	<text name="currency_links">
+		[http://www.secondlife.com/my/account/payment_method_management.php?lang=it-IT payment method] | [http://www.secondlife.com/my/account/currency.php?lang=it-IT currency] | [http://www.secondlife.com/my/account/exchange_rates.php?lang=it-IT exchange rate]
+	</text>
+	<text name="purchase_warning_repurchase">
+		Confermando questa operazione si acquisterà solo la valuta. Per acquistare il bene, dovrai riprovare l&apos;operazione nuovamente.
 	</text>
 	<text name="purchase_warning_notenough" bottom_delta="16">
 		Non stai comprando abbastanza denaro.
@@ -64,6 +65,6 @@ Devi aumentare l&apos;importo da acquistare.
 	<button label="Cancella" name="cancel_btn"/>
 	<button label="Acquista" name="buy_btn"/>
 	<string name="buy_currency">
-		Compra [LINDENS] L$ per circa [USD] US$
+		acquistare [LINDENS]L$ per circa [LOCALAMOUNT]
 	</string>
 </floater>

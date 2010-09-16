@@ -65,6 +65,22 @@ LLTool::~LLTool()
 	}
 }
 
+BOOL LLTool::handleAnyMouseClick(S32 x, S32 y, MASK mask, LLMouseHandler::EClickType clicktype, BOOL down)
+{
+	BOOL result = LLMouseHandler::handleAnyMouseClick(x, y, mask, clicktype, down);
+	
+	// This behavior was moved here from LLViewerWindow::handleAnyMouseClick, so it can be selectively overridden by LLTool subclasses.
+	if(down && result)
+	{
+		// This is necessary to force clicks in the world to cause edit
+		// boxes that might have keyboard focus to relinquish it, and hence
+		// cause a commit to update their value.  JC
+		gFocusMgr.setKeyboardFocus(NULL);
+	}
+	
+	return result;
+}
+
 BOOL LLTool::handleMouseDown(S32 x, S32 y, MASK mask)
 {
 	if (gDebugClicks)
@@ -91,7 +107,7 @@ BOOL LLTool::handleMouseUp(S32 x, S32 y, MASK mask)
 
 BOOL LLTool::handleHover(S32 x, S32 y, MASK mask)
 {
-	gViewerWindow->getWindow()->setCursor(UI_CURSOR_ARROW);
+	gViewerWindow->setCursor(UI_CURSOR_ARROW);
 	lldebugst(LLERR_USER_INPUT) << "hover handled by a tool" << llendl;		
 	// by default, do nothing, say we handled it
 	return TRUE;
@@ -139,7 +155,7 @@ BOOL LLTool::handleMiddleMouseUp(S32 x, S32 y, MASK mask)
 	return FALSE;
 }
 
-BOOL LLTool::handleToolTip(S32 x, S32 y, std::string& msg, LLRect* sticky_rect_screen)
+BOOL LLTool::handleToolTip(S32 x, S32 y, MASK mask)
 {
 	// by default, didn't handle it
 	// llinfos << "LLTool::handleToolTip" << llendl;

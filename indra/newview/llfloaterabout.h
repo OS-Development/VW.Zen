@@ -33,20 +33,9 @@
 #ifndef LL_LLFLOATERABOUT_H
 #define LL_LLFLOATERABOUT_H
 
-#include "llfloater.h"
-
-class LLFloaterAbout 
-: public LLFloater
+namespace LLFloaterAboutUtil
 {
-public:
-	LLFloaterAbout();
-	virtual ~LLFloaterAbout();
-
-	static void show(void*);
-
-private:
-	static LLFloaterAbout* sInstance;
-};
-
+	void registerFloater();
+}
 
 #endif // LL_LLFLOATERABOUT_H

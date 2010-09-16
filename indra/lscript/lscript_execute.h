@@ -37,6 +37,8 @@
 #include "linked_lists.h"
 #include "lscript_library.h"
 
+class LLTimer;
+
 // Return values for run() methods
 const U32 NO_DELETE_FLAG	= 0x0000;
 const U32 DELETE_FLAG		= 0x0001;
@@ -369,8 +371,7 @@ class LLScriptExecute
 {
 public:
 	LLScriptExecute();
-	virtual ~LLScriptExecute() {;}
-
+	virtual ~LLScriptExecute()  = 0;
 	virtual S32 getVersion() const = 0;
 	virtual void deleteAllEvents() = 0;
 	virtual void addEvent(LLScriptDataCollection* event) = 0;

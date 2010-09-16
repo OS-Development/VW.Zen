@@ -4,7 +4,7 @@
  *
  * $LicenseInfo:firstyear=2008&license=viewergpl$
  * 
- * Copyright (c) 2008, Linden Research, Inc.
+ * Copyright (c) 2008-2009, Linden Research, Inc.
  * 
  * Second Life Viewer Source Code
  * The source code in this file ("Source Code") is provided by Linden Lab
@@ -12,12 +12,13 @@
  * ("GPL"), unless you have obtained a separate licensing agreement
  * ("Other License"), formally executed by you and Linden Lab.  Terms of
  * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlife.com/developers/opensource/gplv2
+ * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
  * 
  * There are special exceptions to the terms and conditions of the GPL as
  * it is applied to this Source Code. View the full text of the exception
  * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at http://secondlife.com/developers/opensource/flossexception
+ * online at
+ * http://secondlifegrid.net/programs/open_source/licensing/flossexception
  * 
  * By copying, modifying or distributing this software, you acknowledge
  * that you have read and understood your obligations described above,
@@ -36,13 +37,13 @@
 
 LLFontBitmapCache::LLFontBitmapCache():
 	mNumComponents(0),
-	mMaxCharWidth(0),
-	mMaxCharHeight(0),
 	mBitmapWidth(0),
 	mBitmapHeight(0),
+	mBitmapNum(-1),
+	mMaxCharWidth(0),
+	mMaxCharHeight(0),
 	mCurrentOffsetX(1),
-	mCurrentOffsetY(1),
-	mCurrentBitmapNum(-1)
+	mCurrentOffsetY(1)
 {
 }
 
@@ -159,10 +160,10 @@ void LLFontBitmapCache::reset()
 	mImageRawVec.clear();
 	mImageGLVec.clear();
 	
-	mBitmapWidth = 0,
-	mBitmapHeight = 0,
-	mCurrentOffsetX = 0,
-	mCurrentOffsetY = 0,
-	mCurrentBitmapNum = -1;
+	mBitmapWidth = 0;
+	mBitmapHeight = 0;
+	mBitmapNum = -1;
+	mCurrentOffsetX = 1;
+	mCurrentOffsetY = 1;
 }
 

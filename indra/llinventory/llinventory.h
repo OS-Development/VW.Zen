@@ -35,15 +35,15 @@
 
 #include <functional>
 
-#include "llassetstorage.h"
 #include "lldarray.h"
+#include "llfoldertype.h"
 #include "llinventorytype.h"
 #include "llmemtype.h"
 #include "llpermissions.h"
+#include "llrefcount.h"
 #include "llsaleinfo.h"
 #include "llsd.h"
 #include "lluuid.h"
-#include "llxmlnode.h"
 
 // consts for Key field in the task inventory update message
 extern const U8 TASK_INVENTORY_ITEM_KEY;
@@ -91,12 +91,14 @@ public:
 	// accessors
 	virtual const LLUUID& getUUID() const;
 	const LLUUID& getParentUUID() const;
-	const std::string& getName() const;
-	LLAssetType::EType getType() const;
-
+	virtual const LLUUID& getLinkedUUID() const; // get the inventoryID that this item points to, else this item's inventoryID
+	virtual const std::string& getName() const;
+	virtual LLAssetType::EType getType() const;
+	LLAssetType::EType getActualType() const; // bypasses indirection for linked items
+	BOOL getIsLinkType() const;
 	// mutators - will not call updateServer();
 	void setUUID(const LLUUID& new_uuid);
-	void rename(const std::string& new_name);
+	virtual void rename(const std::string& new_name);
 	void setParent(const LLUUID& new_parent);
 	void setType(LLAssetType::EType type);
 
@@ -216,6 +218,7 @@ protected:
 	~LLInventoryItem(); // ref counted
 
 public:
+
 	MEM_TYPE_NEW(LLMemType::MTYPE_INVENTORY);
 	LLInventoryItem(const LLUUID& uuid,
 					const LLUUID& parent_uuid,
@@ -238,15 +241,16 @@ public:
 	void generateUUID() { mUUID.generate(); }
 	
 	// accessors
-	const LLPermissions& getPermissions() const;
-	const LLUUID& getCreatorUUID() const;
-	const LLUUID& getAssetUUID() const;
-	const std::string& getDescription() const;
-	const LLSaleInfo& getSaleInfo() const;
-	LLInventoryType::EType getInventoryType() const;
-	U32 getFlags() const;
-	time_t getCreationDate() const;
-	U32 getCRC32() const; // really more of a checksum.
+	virtual const LLUUID& getLinkedUUID() const;
+	virtual const LLPermissions& getPermissions() const;
+	virtual const LLUUID& getCreatorUUID() const;
+	virtual const LLUUID& getAssetUUID() const;
+	virtual const std::string& getDescription() const;
+	virtual const LLSaleInfo& getSaleInfo() const;
+	virtual LLInventoryType::EType getInventoryType() const;
+	virtual U32 getFlags() const;
+	virtual time_t getCreationDate() const;
+	virtual U32 getCRC32() const; // really more of a checksum.
 	
 	// mutators - will not call updateServer(), and will never fail
 	// (though it may correct to sane values)
@@ -257,6 +261,14 @@ public:
 	void setInventoryType(LLInventoryType::EType inv_type);
 	void setFlags(U32 flags);
 	void setCreationDate(time_t creation_date_utc);
+
+	// Check for changes in permissions masks and sale info
+	// and set the corresponding bits in mFlags
+	void accumulatePermissionSlamBits(const LLInventoryItem& old_item);
+	
+	// This is currently only used in the Viewer to handle calling cards
+	// where the creator is actually used to store the target.
+	void setCreator(const LLUUID& creator) { mPermissions.setCreator(creator); }
 
 	// Put this inventory item onto the current outgoing mesage. It
 	// assumes you have already called nextBlock().
@@ -272,9 +284,6 @@ public:
 
 	virtual BOOL importLegacyStream(std::istream& input_stream);
 	virtual BOOL exportLegacyStream(std::ostream& output_stream, BOOL include_asset_key = TRUE) const;
-
-	virtual LLXMLNode *exportFileXML(BOOL include_asset_key = TRUE) const;
-	BOOL importXML(LLXMLNode* node);
 
 	// helper functions
 
@@ -311,15 +320,15 @@ protected:
 public:
 	MEM_TYPE_NEW(LLMemType::MTYPE_INVENTORY);
 	LLInventoryCategory(const LLUUID& uuid, const LLUUID& parent_uuid,
-						LLAssetType::EType preferred_type,
+						LLFolderType::EType preferred_type,
 						const std::string& name);
 	LLInventoryCategory();
 	LLInventoryCategory(const LLInventoryCategory* other);
 	void copyCategory(const LLInventoryCategory* other); // LLRefCount requires custom copy
 
 	// accessors and mutators
-	LLAssetType::EType getPreferredType() const;
-	void setPreferredType(LLAssetType::EType type);
+	LLFolderType::EType getPreferredType() const;
+	void setPreferredType(LLFolderType::EType type);
 	// For messaging system support
 	virtual void packMessage(LLMessageSystem* msg) const;
 	virtual void unpackMessage(LLMessageSystem* msg, const char* block, S32 block_num = 0);
@@ -335,10 +344,8 @@ public:
 	virtual BOOL exportLegacyStream(std::ostream& output_stream, BOOL include_asset_key = TRUE) const;
 
 protected:
-	// The type of asset that this category was "meant" to hold
-	// (although it may in fact hold any type).
-	LLAssetType::EType	mPreferredType;		
-
+	// May be the type that this category was "meant" to hold (although it may hold any type).	
+	LLFolderType::EType	mPreferredType;		
 };
 
 
@@ -348,7 +355,7 @@ protected:
 
 typedef std::list<LLPointer<LLInventoryObject> > InventoryObjectList;
 
-// These functions convert between structured data and an inventroy
+// These functions convert between structured data and an inventory
 // item, appropriate for serialization.
 LLSD ll_create_sd_from_inventory_item(LLPointer<LLInventoryItem> item);
 //LLPointer<LLInventoryItem> ll_create_item_from_sd(const LLSD& sd_item);

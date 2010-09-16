@@ -36,6 +36,7 @@
 #include "llviewervisualparam.h"
 
 class LLVOAvatar;
+class LLWearable;
 
 //-----------------------------------------------------------------------------
 
@@ -69,6 +70,8 @@ public:
 	
 	/*virtual*/ BOOL parseXml(LLXmlTreeNode* node);
 
+	/*virtual*/ void toStream(std::ostream &out);	
+
 protected:
 	typedef std::deque<LLDrivenEntryInfo> entry_info_list_t;
 	entry_info_list_t mDrivenInfoList;
@@ -80,6 +83,7 @@ class LLDriverParam : public LLViewerVisualParam
 {
 public:
 	LLDriverParam(LLVOAvatar *avatarp);
+	LLDriverParam(LLWearable *wearablep);
 	~LLDriverParam();
 
 	// Special: These functions are overridden by child classes
@@ -87,12 +91,19 @@ public:
 	//   This sets mInfo and calls initialization functions
 	BOOL					setInfo(LLDriverParamInfo *info);
 
+	void					setWearable(LLWearable *wearablep);
+	void					setAvatar(LLVOAvatar *avatarp);
+
+	/*virtual*/ LLViewerVisualParam* cloneParam(LLWearable* wearable) const;
+
 	// LLVisualParam Virtual functions
 	///*virtual*/ BOOL				parseData(LLXmlTreeNode* node);
 	/*virtual*/ void				apply( ESex sex ) {} // apply is called separately for each driven param.
-	/*virtual*/ void				setWeight(F32 weight, BOOL set_by_user);
-	/*virtual*/ void				setAnimationTarget( F32 target_value, BOOL set_by_user );
-	/*virtual*/ void				stopAnimating(BOOL set_by_user);
+	/*virtual*/ void				setWeight(F32 weight, BOOL upload_bake);
+	/*virtual*/ void				setAnimationTarget( F32 target_value, BOOL upload_bake );
+	/*virtual*/ void				stopAnimating(BOOL upload_bake);
+	/*virtual*/ BOOL				linkDrivenParams(visual_param_mapper mapper, BOOL only_cross_params);
+	/*virtual*/ void				resetDrivenParams();
 	
 	// LLViewerVisualParam Virtual functions
 	/*virtual*/ F32					getTotalDistortion();
@@ -103,6 +114,7 @@ public:
 	/*virtual*/ const LLVector3*	getNextDistortion(U32 *index, LLPolyMesh **poly_mesh);
 protected:
 	F32 getDrivenWeight(const LLDrivenEntry* driven, F32 input_weight);
+	void setDrivenWeight(LLDrivenEntry *driven, F32 driven_weight, bool upload_bake);
 
 
 	LLVector3	mDefaultVec; // temp holder
@@ -111,6 +123,7 @@ protected:
 	LLViewerVisualParam* mCurrentDistortionParam;
 	// Backlink only; don't make this an LLPointer.
 	LLVOAvatar* mAvatarp;
+	LLWearable* mWearablep;
 };
 
 #endif  // LL_LLDRIVERPARAM_H

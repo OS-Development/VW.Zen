@@ -35,8 +35,13 @@
 
 #include <boost/tokenizer.hpp>
 
+// library includes
+#include "llnotificationsutil.h"
+#include "llsdserialize.h"
 #include "llsdutil.h"
 
+
+// project includes
 #include "llvoavatar.h"
 #include "llbufferstream.h"
 #include "llfile.h"
@@ -46,6 +51,7 @@
 # include "expat/expat.h"
 #endif
 #include "llcallbacklist.h"
+#include "llcallingcard.h"   // for LLFriendObserver
 #include "llviewerregion.h"
 #include "llviewernetwork.h"		// for gGridChoice
 #include "llbase64.h"
@@ -56,15 +62,17 @@
 #include "llagent.h"
 #include "llcachename.h"
 #include "llimview.h" // for LLIMMgr
-#include "llimpanel.h" // for LLVoiceChannel
 #include "llparcel.h"
 #include "llviewerparcelmgr.h"
-#include "llfirstuse.h"
+//#include "llfirstuse.h"
+#include "llspeakers.h"
+#include "lltrans.h"
 #include "llviewerwindow.h"
 #include "llviewercamera.h"
+#include "llvoavatarself.h"
+#include "llvoicechannel.h"
 
 #include "llfloaterfriends.h"  //VIVOX, inorder to refresh communicate panel
-#include "llfloaterchat.h"		// for LLFloaterChat::addChat()
 
 // for base64 decoding
 #include "apr_base64.h"
@@ -107,31 +115,15 @@ static void setUUIDFromStringHash(LLUUID &uuid, const std::string &str)
 static int scale_mic_volume(float volume)
 {
 	// incoming volume has the range [0.0 ... 2.0], with 1.0 as the default.
-	// Map it as follows: 0.0 -> 40, 1.0 -> 44, 2.0 -> 75
-
-	volume -= 1.0f;		// offset volume to the range [-1.0 ... 1.0], with 0 at the default.
-	int scaled_volume = 44;	// offset scaled_volume by its default level
-	if(volume < 0.0f)
-		scaled_volume += ((int)(volume * 4.0f));	// (44 - 40)
-	else
-		scaled_volume += ((int)(volume * 31.0f));	// (75 - 44)
-	
-	return scaled_volume;
+	// Map it to Vivox levels as follows: 0.0 -> 30, 1.0 -> 50, 2.0 -> 70
+	return 30 + (int)(volume * 20.0f);
 }
 
 static int scale_speaker_volume(float volume)
 {
 	// incoming volume has the range [0.0 ... 1.0], with 0.5 as the default.
-	// Map it as follows: 0.0 -> 0, 0.5 -> 62, 1.0 -> 75
-	
-	volume -= 0.5f;		// offset volume to the range [-0.5 ... 0.5], with 0 at the default.
-	int scaled_volume = 62;	// offset scaled_volume by its default level
-	if(volume < 0.0f)
-		scaled_volume += ((int)(volume * 124.0f));	// (62 - 0) * 2
-	else
-		scaled_volume += ((int)(volume * 26.0f));	// (75 - 62) * 2
-	
-	return scaled_volume;
+	// Map it to Vivox levels as follows: 0.0 -> 30, 0.5 -> 50, 1.0 -> 70
+	return 30 + (int)(volume * 40.0f);
 }
 
 class LLViewerVoiceAccountProvisionResponder :
@@ -249,6 +241,7 @@ protected:
 	std::string		nameString;
 	std::string		audioMediaString;
 	std::string		displayNameString;
+	std::string		deviceString;
 	int				participantType;
 	bool			isLocallyMuted;
 	bool			isModeratorMuted;
@@ -480,6 +473,14 @@ void LLVivoxProtocolParser::StartTag(const char *tag, const char **attr)
 			{
 				gVoiceClient->clearRenderDevices();
 			}
+			else if (!stricmp("CaptureDevice", tag))
+			{
+				deviceString.clear();
+			}
+			else if (!stricmp("RenderDevice", tag))
+			{
+				deviceString.clear();
+			}
 			else if (!stricmp("Buddies", tag))
 			{
 				gVoiceClient->deleteAllBuddies();
@@ -503,7 +504,6 @@ void LLVivoxProtocolParser::StartTag(const char *tag, const char **attr)
 void LLVivoxProtocolParser::EndTag(const char *tag)
 {
 	const std::string& string = textBuffer;
-	bool clearbuffer = true;
 
 	responseDepth--;
 
@@ -575,6 +575,8 @@ void LLVivoxProtocolParser::EndTag(const char *tag)
 			nameString = string;
 		else if (!stricmp("DisplayName", tag))
 			displayNameString = string;
+		else if (!stricmp("Device", tag))
+			deviceString = string;
 		else if (!stricmp("AccountName", tag))
 			nameString = string;
 		else if (!stricmp("ParticipantType", tag))
@@ -591,18 +593,13 @@ void LLVivoxProtocolParser::EndTag(const char *tag)
 			uriString = string;
 		else if (!stricmp("Presence", tag))
 			statusString = string;
-		else if (!stricmp("Device", tag))
-		{
-			// This closing tag shouldn't clear the accumulated text.
-			clearbuffer = false;
-		}
 		else if (!stricmp("CaptureDevice", tag))
 		{
-			gVoiceClient->addCaptureDevice(textBuffer);
+			gVoiceClient->addCaptureDevice(deviceString);
 		}
 		else if (!stricmp("RenderDevice", tag))
 		{
-			gVoiceClient->addRenderDevice(textBuffer);
+			gVoiceClient->addRenderDevice(deviceString);
 		}
 		else if (!stricmp("Buddy", tag))
 		{
@@ -643,12 +640,8 @@ void LLVivoxProtocolParser::EndTag(const char *tag)
 		else if (!stricmp("SubscriptionType", tag))
 			subscriptionType = string;
 		
-
-		if(clearbuffer)
-		{
-			textBuffer.clear();
-			accumulateText= false;
-		}
+		textBuffer.clear();
+		accumulateText= false;
 		
 		if (responseDepth == 0)
 		{
@@ -1101,61 +1094,179 @@ static void killGateway()
 
 #endif
 
+class LLSpeakerVolumeStorage : public LLSingleton<LLSpeakerVolumeStorage>
+{
+	LOG_CLASS(LLSpeakerVolumeStorage);
+public:
+
+	/**
+	 * Sets internal voluem level for specified user.
+	 *
+	 * @param[in] speaker_id - LLUUID of user to store volume level for
+	 * @param[in] volume - internal volume level to be stored for user.
+	 */
+	void storeSpeakerVolume(const LLUUID& speaker_id, S32 volume);
+
+	/**
+	 * Gets stored internal volume level for specified speaker.
+	 *
+	 * If specified user is not found default level will be returned. It is equivalent of 
+	 * external level 0.5 from the 0.0..1.0 range.
+	 * Default internal level is calculated as: internal = 400 * external^2
+	 * Maps 0.0 to 1.0 to internal values 0-400 with default 0.5 == 100
+	 *
+	 * @param[in] speaker_id - LLUUID of user to get his volume level
+	 */
+	S32 getSpeakerVolume(const LLUUID& speaker_id);
+
+private:
+	friend class LLSingleton<LLSpeakerVolumeStorage>;
+	LLSpeakerVolumeStorage();
+	~LLSpeakerVolumeStorage();
+
+	const static std::string SETTINGS_FILE_NAME;
+
+	void load();
+	void save();
+
+	typedef std::map<LLUUID, S32> speaker_data_map_t;
+	speaker_data_map_t mSpeakersData;
+};
+
+const std::string LLSpeakerVolumeStorage::SETTINGS_FILE_NAME = "volume_settings.xml";
+
+LLSpeakerVolumeStorage::LLSpeakerVolumeStorage()
+{
+	load();
+}
+
+LLSpeakerVolumeStorage::~LLSpeakerVolumeStorage()
+{
+	save();
+}
+
+void LLSpeakerVolumeStorage::storeSpeakerVolume(const LLUUID& speaker_id, S32 volume)
+{
+	mSpeakersData[speaker_id] = volume;
+}
+
+S32 LLSpeakerVolumeStorage::getSpeakerVolume(const LLUUID& speaker_id)
+{
+	// default internal level of user voice.
+	const static LLUICachedControl<S32> DEFAULT_INTERNAL_VOLUME_LEVEL("VoiceDefaultInternalLevel", 100);
+	S32 ret_val = DEFAULT_INTERNAL_VOLUME_LEVEL;
+	speaker_data_map_t::const_iterator it = mSpeakersData.find(speaker_id);
+	
+	if (it != mSpeakersData.end())
+	{
+		ret_val = it->second;
+	}
+	return ret_val;
+}
+
+void LLSpeakerVolumeStorage::load()
+{
+	// load per-resident voice volume information
+	std::string filename = gDirUtilp->getExpandedFilename(LL_PATH_PER_SL_ACCOUNT, SETTINGS_FILE_NAME);
+
+	LLSD settings_llsd;
+	llifstream file;
+	file.open(filename);
+	if (file.is_open())
+	{
+		LLSDSerialize::fromXML(settings_llsd, file);
+	}
+
+	for (LLSD::map_const_iterator iter = settings_llsd.beginMap();
+		iter != settings_llsd.endMap(); ++iter)
+	{
+		mSpeakersData.insert(std::make_pair(LLUUID(iter->first), (S32)iter->second.asInteger()));
+	}
+}
+
+void LLSpeakerVolumeStorage::save()
+{
+	// If we quit from the login screen we will not have an SL account
+	// name.  Don't try to save, otherwise we'll dump a file in
+	// C:\Program Files\SecondLife\ or similar. JC
+	std::string user_dir = gDirUtilp->getLindenUserDir();
+	if (!user_dir.empty())
+	{
+		std::string filename = gDirUtilp->getExpandedFilename(LL_PATH_PER_SL_ACCOUNT, SETTINGS_FILE_NAME);
+		LLSD settings_llsd;
+
+		for(speaker_data_map_t::const_iterator iter = mSpeakersData.begin(); iter != mSpeakersData.end(); ++iter)
+		{
+			settings_llsd[iter->first.asString()] = iter->second;
+		}
+
+		llofstream file;
+		file.open(filename);
+		LLSDSerialize::toPrettyXML(settings_llsd, file);
+	}
+}
+
+
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
-LLVoiceClient::LLVoiceClient()
+LLVoiceClient::LLVoiceClient() :
+	mState(stateDisabled),
+	mSessionTerminateRequested(false),
+	mRelogRequested(false),
+	mConnected(false),
+	mPump(NULL),
+	
+	mTuningMode(false),
+	mTuningEnergy(0.0f),
+	mTuningMicVolume(0),
+	mTuningMicVolumeDirty(true),
+	mTuningSpeakerVolume(0),
+	mTuningSpeakerVolumeDirty(true),
+	mTuningExitState(stateDisabled),
+	
+	mAreaVoiceDisabled(false),
+	mAudioSession(NULL),
+	mAudioSessionChanged(false),
+	mNextAudioSession(NULL),
+	
+	mCurrentParcelLocalID(0),
+	mNumberOfAliases(0),
+	mCommandCookie(0),
+	mLoginRetryCount(0),
+	
+	mBuddyListMapPopulated(false),
+	mBlockRulesListReceived(false),
+	mAutoAcceptRulesListReceived(false),
+	mCaptureDeviceDirty(false),
+	mRenderDeviceDirty(false),
+	mSpatialCoordsDirty(false),
+
+	mPTTDirty(true),
+	mPTT(true),
+	mUsePTT(true),
+	mPTTIsMiddleMouse(false),
+	mPTTKey(0),
+	mPTTIsToggle(false),
+	mUserPTTState(false),
+	mMuteMic(false),
+	mFriendsListDirty(true),
+	
+	mEarLocation(0),
+	mSpeakerVolumeDirty(true),
+	mSpeakerMuteDirty(true),
+	mSpeakerVolume(0),
+	mMicVolume(0),
+	mMicVolumeDirty(true),
+	
+	mVoiceEnabled(false),
+	mWriteInProgress(false),
+	
+	mLipSyncEnabled(false)
 {	
 	gVoiceClient = this;
-	mWriteInProgress = false;
-	mAreaVoiceDisabled = false;
-	mPTT = true;
-	mUserPTTState = false;
-	mMuteMic = false;
-	mSessionTerminateRequested = false;
-	mRelogRequested = false;
-	mCommandCookie = 0;
-	mCurrentParcelLocalID = 0;
-	mLoginRetryCount = 0;
-
-	mSpeakerVolume = 0;
-	mMicVolume = 0;
-
-	mAudioSession = NULL;
-	mAudioSessionChanged = false;
-
-	// Initial dirty state
-	mSpatialCoordsDirty = false;
-	mPTTDirty = true;
-	mFriendsListDirty = true;
-	mSpeakerVolumeDirty = true;
-	mMicVolumeDirty = true;
-	mBuddyListMapPopulated = false;
-	mBlockRulesListReceived = false;
-	mAutoAcceptRulesListReceived = false;
-	mCaptureDeviceDirty = false;
-	mRenderDeviceDirty = false;
-
-	// Use default values for everything then call updateSettings() after preferences are loaded
-	mVoiceEnabled = false;
-	mUsePTT = true;
-	mPTTIsToggle = false;
-	mEarLocation = 0;
-	mLipSyncEnabled = false;
 	
-	mTuningMode = false;
-	mTuningEnergy = 0.0f;
-	mTuningMicVolume = 0;
-	mTuningMicVolumeDirty = true;
-	mTuningSpeakerVolume = 0;
-	mTuningSpeakerVolumeDirty = true;
-					
-	//  gMuteListp isn't set up at this point, so we defer this until later.
-//	gMuteListp->addObserver(&mutelist_listener);
-	
-	// stash the pump for later use
-	// This now happens when init() is called instead.
-	mPump = NULL;
-	
+	mAPIVersion = LLTrans::getString("NotConnected");
+
 #if LL_DARWIN || LL_LINUX || LL_SOLARIS
 		// HACK: THIS DOES NOT BELONG HERE
 		// When the vivox daemon dies, the next write attempt on our socket generates a SIGPIPE, which kills us.
@@ -1503,6 +1614,7 @@ std::string LLVoiceClientStatusObserver::status2string(LLVoiceClientStatusObserv
 		CASE(STATUS_JOINED);
 		CASE(STATUS_LEFT_CHANNEL);
 		CASE(STATUS_VOICE_DISABLED);
+		CASE(STATUS_VOICE_ENABLED);
 		CASE(BEGIN_ERROR_STATUS);
 		CASE(ERROR_CHANNEL_FULL);
 		CASE(ERROR_CHANNEL_LOCKED);
@@ -1590,7 +1702,7 @@ void LLVoiceClient::stateMachine()
 				}
 				else
 				{
-					LL_WARNS("Voice") << "region doesn't have ParcelVoiceInfoRequest capability.  This is normal for a short time after teleporting, but bad if it persists for very long." << LL_ENDL;
+					LL_WARNS_ONCE("Voice") << "region doesn't have ParcelVoiceInfoRequest capability.  This is normal for a short time after teleporting, but bad if it persists for very long." << LL_ENDL;
 				}
 			}
 		}
@@ -1655,7 +1767,6 @@ void LLVoiceClient::stateMachine()
 						// SLIM SDK: these arguments are no longer necessary.
 //						std::string args = " -p tcp -h -c";
 						std::string args;
-						std::string cmd;
 						std::string loglevel = gSavedSettings.getString("VivoxDebugLevel");
 						
 						if(loglevel.empty())
@@ -1670,17 +1781,18 @@ void LLVoiceClient::stateMachine()
 
 #if LL_WINDOWS
 						PROCESS_INFORMATION pinfo;
-						STARTUPINFOA sinfo;
+						STARTUPINFOW sinfo;
 						memset(&sinfo, 0, sizeof(sinfo));
-						std::string exe_dir = gDirUtilp->getAppRODataDir();
-						cmd = "SLVoice.exe";
-						cmd += args;
-						
-						// So retarded.  Windows requires that the second parameter to CreateProcessA be a writable (non-const) string...
-						char *args2 = new char[args.size() + 1];
-						strcpy(args2, args.c_str());
 
-						if(!CreateProcessA(exe_path.c_str(), args2, NULL, NULL, FALSE, 0, NULL, exe_dir.c_str(), &sinfo, &pinfo))
+						std::string exe_dir = gDirUtilp->getExecutableDir();
+
+						llutf16string exe_path16 = utf8str_to_utf16str(exe_path);
+						llutf16string exe_dir16 = utf8str_to_utf16str(exe_dir);
+						llutf16string args16 = utf8str_to_utf16str(args);
+						// Create a writeable copy to keep Windows happy.
+						U16 *argscpy_16 = new U16[args16.size() + 1];
+						wcscpy_s(argscpy_16,args16.size()+1,args16.c_str());
+						if(!CreateProcessW(exe_path16.c_str(), argscpy_16, NULL, NULL, FALSE, 0, NULL, exe_dir16.c_str(), &sinfo, &pinfo))
 						{
 //							DWORD dwErr = GetLastError();
 						}
@@ -1692,7 +1804,7 @@ void LLVoiceClient::stateMachine()
 							CloseHandle(pinfo.hThread); // stops leaks - nothing else
 						}		
 						
-						delete[] args2;
+						delete[] argscpy_16;
 #else	// LL_WINDOWS
 						// This should be the same for mac and linux
 						{
@@ -1859,7 +1971,7 @@ void LLVoiceClient::stateMachine()
 					}
 					else
 					{
-						LL_WARNS("Voice") << "region doesn't have ProvisionVoiceAccountRequest capability!" << LL_ENDL;
+						LL_WARNS_ONCE("Voice") << "region doesn't have ProvisionVoiceAccountRequest capability!" << LL_ENDL;
 					}
 				}
 			}
@@ -3740,6 +3852,7 @@ void LLVoiceClient::connectorCreateResponse(int statusCode, std::string &statusS
 	{
 		// Connector created, move forward.
 		LL_INFOS("Voice") << "Connector.Create succeeded, Vivox SDK version is " << versionID << LL_ENDL;
+		mAPIVersion = versionID;
 		mConnectorHandle = connectorHandle;
 		if(getState() == stateConnectorStarting)
 		{
@@ -4264,7 +4377,7 @@ void LLVoiceClient::mediaStreamUpdatedEvent(
 				if(incoming)
 				{
 					// Send the voice chat invite to the GUI layer
-					// TODO: Question: Should we correlate with the mute list here?
+					// *TODO: Question: Should we correlate with the mute list here?
 					session->mIMSessionID = LLIMMgr::computeSessionID(IM_SESSION_P2P_INVITE, session->mCallerID);
 					session->mVoiceInvitePending = true;
 					if(session->mName.empty())
@@ -4445,6 +4558,35 @@ void LLVoiceClient::participantUpdatedEvent(
 				participant->mPower = 0.0f;
 			}
 			participant->mVolume = volume;
+
+			
+			// *HACK: mantipov: added while working on EXT-3544
+			/*
+			Sometimes LLVoiceClient::participantUpdatedEvent callback is called BEFORE 
+			LLViewerChatterBoxSessionAgentListUpdates::post() sometimes AFTER.
+			
+			participantUpdatedEvent updates voice participant state in particular participantState::mIsModeratorMuted
+			Originally we wanted to update session Speaker Manager to fire LLSpeakerVoiceModerationEvent to fix the EXT-3544 bug.
+			Calling of the LLSpeakerMgr::update() method was added into LLIMMgr::processAgentListUpdates.
+			
+			But in case participantUpdatedEvent() is called after LLViewerChatterBoxSessionAgentListUpdates::post()
+			voice participant mIsModeratorMuted is changed after speakers are updated in Speaker Manager
+			and event is not fired.
+
+			So, we have to call LLSpeakerMgr::update() here. In any case it is better than call it
+			in LLCallFloater::draw()
+			*/
+			LLVoiceChannel* voice_cnl = LLVoiceChannel::getCurrentVoiceChannel();
+
+			// ignore session ID of local chat
+			if (voice_cnl && voice_cnl->getSessionID().notNull())
+			{
+				LLSpeakerMgr* speaker_manager = LLIMModel::getInstance()->getSpeakerManager(voice_cnl->getSessionID());
+				if (speaker_manager)
+				{
+					speaker_manager->update(true);
+				}
+			}
 		}
 		else
 		{
@@ -4547,7 +4689,7 @@ void LLVoiceClient::messageEvent(
 	
 	if(messageHeader.find("text/html") != std::string::npos)
 	{
-		std::string rawMessage;
+		std::string message;
 
 		{
 			const std::string startMarker = "<body";
@@ -4559,7 +4701,7 @@ void LLVoiceClient::messageEvent(
 			std::string::size_type end;
 			
 			// Default to displaying the raw string, so the message gets through.
-			rawMessage = messageBody;
+			message = messageBody;
 
 			// Find the actual message text within the XML fragment
 			start = messageBody.find(startMarker);
@@ -4573,7 +4715,7 @@ void LLVoiceClient::messageEvent(
 				if(end != std::string::npos)
 					end -= start;
 					
-				rawMessage.assign(messageBody, start, end);
+				message.assign(messageBody, start, end);
 			}
 			else 
 			{
@@ -4589,24 +4731,24 @@ void LLVoiceClient::messageEvent(
 					if(end != std::string::npos)
 						end -= start;
 					
-					rawMessage.assign(messageBody, start, end);
+					message.assign(messageBody, start, end);
 				}			
 			}
 		}	
 		
-//		LL_DEBUGS("Voice") << "    raw message = \n" << rawMessage << LL_ENDL;
+//		LL_DEBUGS("Voice") << "    raw message = \n" << message << LL_ENDL;
 
 		// strip formatting tags
 		{
 			std::string::size_type start;
 			std::string::size_type end;
 			
-			while((start = rawMessage.find('<')) != std::string::npos)
+			while((start = message.find('<')) != std::string::npos)
 			{
-				if((end = rawMessage.find('>', start + 1)) != std::string::npos)
+				if((end = message.find('>', start + 1)) != std::string::npos)
 				{
 					// Strip out the tag
-					rawMessage.erase(start, (end + 1) - start);
+					message.erase(start, (end + 1) - start);
 				}
 				else
 				{
@@ -4622,31 +4764,31 @@ void LLVoiceClient::messageEvent(
 
 			// The text may contain text encoded with &lt;, &gt;, and &amp;
 			mark = 0;
-			while((mark = rawMessage.find("&lt;", mark)) != std::string::npos)
+			while((mark = message.find("&lt;", mark)) != std::string::npos)
 			{
-				rawMessage.replace(mark, 4, "<");
+				message.replace(mark, 4, "<");
 				mark += 1;
 			}
 			
 			mark = 0;
-			while((mark = rawMessage.find("&gt;", mark)) != std::string::npos)
+			while((mark = message.find("&gt;", mark)) != std::string::npos)
 			{
-				rawMessage.replace(mark, 4, ">");
+				message.replace(mark, 4, ">");
 				mark += 1;
 			}
 			
 			mark = 0;
-			while((mark = rawMessage.find("&amp;", mark)) != std::string::npos)
+			while((mark = message.find("&amp;", mark)) != std::string::npos)
 			{
-				rawMessage.replace(mark, 5, "&");
+				message.replace(mark, 5, "&");
 				mark += 1;
 			}
 		}
 		
 		// strip leading/trailing whitespace (since we always seem to get a couple newlines)
-		LLStringUtil::trim(rawMessage);
+		LLStringUtil::trim(message);
 		
-//		LL_DEBUGS("Voice") << "    stripped message = \n" << rawMessage << LL_ENDL;
+//		LL_DEBUGS("Voice") << "    stripped message = \n" << message << LL_ENDL;
 		
 		sessionState *session = findSession(sessionHandle);
 		if(session)
@@ -4670,24 +4812,18 @@ void LLVoiceClient::messageEvent(
 					quiet_chat = true;
 					// TODO: Question: Return busy mode response here?  Or maybe when session is started instead?
 				}
-				
-				std::string fullMessage = std::string(": ") + rawMessage;
-				
+								
 				LL_DEBUGS("Voice") << "adding message, name " << session->mName << " session " << session->mIMSessionID << ", target " << session->mCallerID << LL_ENDL;
 				gIMMgr->addMessage(session->mIMSessionID,
 						session->mCallerID,
 						session->mName.c_str(),
-						fullMessage.c_str(),
+						message.c_str(),
 						LLStringUtil::null,		// default arg
 						IM_NOTHING_SPECIAL,		// default arg
 						0,						// default arg
 						LLUUID::null,			// default arg
 						LLVector3::zero,		// default arg
 						true);					// prepend name and make it a link to the user's profile
-
-				chat.mText = std::string("IM: ") + session->mName + std::string(": ") + rawMessage;
-				// If the chat should come in quietly (i.e. we're in busy mode), pretend it's from a local agent.
-				LLFloaterChat::addChat( chat, TRUE, quiet_chat );
 			}
 		}		
 	}
@@ -4893,7 +5029,9 @@ LLVoiceClient::participantState *LLVoiceClient::sessionState::addParticipant(con
 		}
 		
 		mParticipantsByUUID.insert(participantUUIDMap::value_type(&(result->mAvatarID), result));
-		
+
+		result->mUserVolume = LLSpeakerVolumeStorage::getInstance()->getSpeakerVolume(result->mAvatarID);
+
 		LL_DEBUGS("Voice") << "participant \"" << result->mURI << "\" added." << LL_ENDL;
 	}
 	
@@ -4965,7 +5103,7 @@ void LLVoiceClient::sessionState::removeAllParticipants()
 	
 	if(!mParticipantsByUUID.empty())
 	{
-		LL_ERRS("Voice") << "Internal error: empty URI map, non-empty UUID map" << LL_ENDL
+		LL_ERRS("Voice") << "Internal error: empty URI map, non-empty UUID map" << LL_ENDL;
 	}
 }
 
@@ -4979,6 +5117,17 @@ LLVoiceClient::participantMap *LLVoiceClient::getParticipantList(void)
 	return result;
 }
 
+void LLVoiceClient::getParticipantsUUIDSet(std::set<LLUUID>& participant_uuids)
+{
+	if (NULL == mAudioSession) return;
+
+	participantUUIDMap::const_iterator it = mAudioSession->mParticipantsByUUID.begin(),
+		it_end = mAudioSession->mParticipantsByUUID.end();
+	for (; it != it_end; ++it)
+	{
+		participant_uuids.insert((*(*it).first));
+	}
+}
 
 LLVoiceClient::participantState *LLVoiceClient::sessionState::findParticipant(const std::string &uri)
 {
@@ -5773,6 +5922,11 @@ void LLVoiceClient::setMuteMic(bool muted)
 	mMuteMic = muted;
 }
 
+bool LLVoiceClient::getMuteMic() const
+{
+	return mMuteMic;
+}
+
 void LLVoiceClient::setUserPTTState(bool ptt)
 {
 	mUserPTTState = ptt;
@@ -5793,21 +5947,32 @@ void LLVoiceClient::setVoiceEnabled(bool enabled)
 	if (enabled != mVoiceEnabled)
 	{
 		mVoiceEnabled = enabled;
+		LLVoiceClientStatusObserver::EStatusType status;
+
 		if (enabled)
 		{
 			LLVoiceChannel::getCurrentVoiceChannel()->activate();
+			status = LLVoiceClientStatusObserver::STATUS_VOICE_ENABLED;
 		}
 		else
 		{
 			// Turning voice off looses your current channel -- this makes sure the UI isn't out of sync when you re-enable it.
 			LLVoiceChannel::getCurrentVoiceChannel()->deactivate();
+			status = LLVoiceClientStatusObserver::STATUS_VOICE_DISABLED;
 		}
+
+		notifyStatusObservers(status);
 	}
 }
 
 bool LLVoiceClient::voiceEnabled()
 {
 	return gSavedSettings.getBOOL("EnableVoiceChat") && !gSavedSettings.getBOOL("CmdLineDisableVoice");
+}
+
+bool LLVoiceClient::voiceWorking()
+{
+	return (stateLoggedIn <= mState) && (mState <= stateLeavingSession);
 }
 
 void LLVoiceClient::setLipSyncEnabled(BOOL enabled)
@@ -5849,6 +6014,10 @@ void LLVoiceClient::setPTTIsToggle(bool PTTIsToggle)
 	mPTTIsToggle = PTTIsToggle;
 }
 
+bool LLVoiceClient::getPTTIsToggle()
+{
+	return mPTTIsToggle;
+}
 
 void LLVoiceClient::setPTTKey(std::string &key)
 {
@@ -5907,8 +6076,6 @@ void LLVoiceClient::setMicGain(F32 volume)
 
 void LLVoiceClient::keyDown(KEY key, MASK mask)
 {	
-//	LL_DEBUGS("Voice") << "key is " << LLKeyboard::stringFromKey(key) << LL_ENDL;
-
 	if (gKeyboard->getKeyRepeated(key))
 	{
 		// ignore auto-repeat keys
@@ -5917,44 +6084,39 @@ void LLVoiceClient::keyDown(KEY key, MASK mask)
 
 	if(!mPTTIsMiddleMouse)
 	{
-		if(mPTTIsToggle)
-		{
-			if(key == mPTTKey)
-			{
-				toggleUserPTTState();
-			}
-		}
-		else if(mPTTKey != KEY_NONE)
-		{
-			setUserPTTState(gKeyboard->getKeyDown(mPTTKey));
-		}
+		bool down = (mPTTKey != KEY_NONE)
+			&& gKeyboard->getKeyDown(mPTTKey);
+		inputUserControlState(down);
 	}
 }
 void LLVoiceClient::keyUp(KEY key, MASK mask)
 {
 	if(!mPTTIsMiddleMouse)
 	{
-		if(!mPTTIsToggle && (mPTTKey != KEY_NONE))
+		bool down = (mPTTKey != KEY_NONE)
+			&& gKeyboard->getKeyDown(mPTTKey);
+		inputUserControlState(down);
+	}
+}
+void LLVoiceClient::inputUserControlState(bool down)
+{
+	if(mPTTIsToggle)
+	{
+		if(down) // toggle open-mic state on 'down'
 		{
-			setUserPTTState(gKeyboard->getKeyDown(mPTTKey));
+			toggleUserPTTState();
 		}
+	}
+	else // set open-mic state as an absolute
+	{
+		setUserPTTState(down);
 	}
 }
 void LLVoiceClient::middleMouseState(bool down)
 {
 	if(mPTTIsMiddleMouse)
 	{
-		if(mPTTIsToggle)
-		{
-			if(down)
-			{
-				toggleUserPTTState();
-			}
-		}
-		else
-		{
-			setUserPTTState(down);
-		}
+		inputUserControlState(down);
 	}
 }
 
@@ -6118,6 +6280,9 @@ void LLVoiceClient::setUserVolume(const LLUUID& id, F32 volume)
 			participant->mUserVolume = llclamp(ivol, 0, 400);
 			participant->mVolumeDirty = TRUE;
 			mAudioSession->mVolumeDirty = TRUE;
+
+			// store this volume setting for future sessions
+			LLSpeakerVolumeStorage::getInstance()->storeSpeakerVolume(id, participant->mUserVolume);
 		}
 	}
 }
@@ -6468,7 +6633,7 @@ void LLVoiceClient::deleteSession(sessionState *session)
 		{
 			if(iter->second != session)
 			{
-				LL_ERRS("Voice") << "Internal error: session mismatch" << LL_ENDL
+				LL_ERRS("Voice") << "Internal error: session mismatch" << LL_ENDL;
 			}
 			mSessionsByHandle.erase(iter);
 		}
@@ -6508,7 +6673,7 @@ void LLVoiceClient::deleteAllSessions()
 	
 	if(!mSessionsByHandle.empty())
 	{
-		LL_ERRS("Voice") << "Internal error: empty session map, non-empty handle map" << LL_ENDL
+		LL_ERRS("Voice") << "Internal error: empty session map, non-empty handle map" << LL_ENDL;
 	}
 }
 
@@ -6901,11 +7066,12 @@ void LLVoiceClient::notifyFriendObservers()
 
 void LLVoiceClient::lookupName(const LLUUID &id)
 {
-	gCacheName->getName(id, onAvatarNameLookup);
+	BOOL is_group = FALSE;
+	gCacheName->get(id, is_group, &LLVoiceClient::onAvatarNameLookup);
 }
 
 //static
-void LLVoiceClient::onAvatarNameLookup(const LLUUID& id, const std::string& first, const std::string& last, BOOL is_group, void* user_data)
+void LLVoiceClient::onAvatarNameLookup(const LLUUID& id, const std::string& first, const std::string& last, BOOL is_group)
 {
 	if(gVoiceClient)
 	{
@@ -7039,7 +7205,7 @@ class LLViewerRequiredVoiceVersion : public LLHTTPNode
 				if (!sAlertedUser)
 				{
 					//sAlertedUser = TRUE;
-					LLNotifications::instance().add("VoiceVersionMismatch");
+					LLNotificationsUtil::add("VoiceVersionMismatch");
 					gSavedSettings.setBOOL("EnableVoiceChat", FALSE); // toggles listener
 				}
 			}
