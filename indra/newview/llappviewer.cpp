@@ -536,6 +536,7 @@ public:
 
 		os.close();
 	}
+
 };
 
 //virtual
@@ -1280,7 +1281,7 @@ bool LLAppViewer::cleanup()
 {
 	// workaround for DEV-35406 crash on shutdown
 	LLEventPumps::instance().reset();
-
+    
 	// remove any old breakpad minidump files from the log directory
 	if (! isError())
 	{
@@ -1631,7 +1632,7 @@ bool LLAppViewer::cleanup()
 				gDirUtilp->getExpandedFilename(LL_PATH_LOGS, "metric_report.csv"));
 		}
 	}
-	LLMetricPerformanceTester::cleanClass() ;
+	LLMetricPerformanceTesterBasic::cleanClass() ;
 
 	llinfos << "Cleaning up Media and Textures" << llendflush;
 
@@ -2125,7 +2126,7 @@ bool LLAppViewer::initConfiguration()
 	{
 		LLFastTimerView::sAnalyzePerformance = TRUE;
 	}
-
+    
 	if (clp.hasOption("replaysession"))
 	{
 		LLAgentPilot::sReplaySession = TRUE;
