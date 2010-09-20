@@ -56,6 +56,7 @@ viewer-release.build_viewer_update_version_manager = true
 
 viewer-development-import.build_debug_release_separately = true
 viewer-development-fixes.build_debug_release_separately = true
+viewer-development-tweaks.build_debug_release_separately = true
 
 # =======================================
 # brad
@@ -78,16 +79,11 @@ brad-parabuild.build_server = false
 brad-parabuild.build_server_tests = false
 
 # ========================================
-# moss
+# CG
 # ========================================
 
-mossbuild1.email = moss@lindenlab.com
-mossbuild1.build_server = false
-mossbuild1.build_server_tests = false
-
-mossbuild2.email = moss@lindenlab.com
-mossbuild2.build_server = false
-mossbuild2.build_server_tests = false
+cg_viewer-development_lenny.collect_metrics = true
+cg_viewer-development_lenny.show_changes_since = 4b140ce7839d
 
 # ========================================
 # gooey
@@ -171,6 +167,12 @@ oz_viewer-review2_coverity.build_coverity = true
 oz_viewer-review2_coverity.build_CYGWIN_Debug = false
 oz_viewer-review2_coverity.build_CYGWIN_RelWithDebInfo = false
 oz_viewer-review2_coverity.build_CYGWIN_Release = false
+
+# ========================================
+# tofu
+# ========================================
+
+tofu_viewer-development-staging.email = tofu.linden@lindenlab.com
 
 # ========================================
 # enus
