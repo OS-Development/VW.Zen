@@ -98,9 +98,6 @@
 
 #include "glod/glod.h"
 
-
-#if LL_MESH_ENABLED
-
 //static
 S32 LLFloaterModelPreview::sUploadAmount = 10;
 LLFloaterModelPreview* LLFloaterModelPreview::sInstance = NULL;
@@ -1992,13 +1989,13 @@ void LLModelPreview::loadModel(std::string filename, S32 lod)
 
 	if (lod == 3 && !mGroup.empty())
 	{
-		for (std::map<LLModel*, U32>::iterator iter = mGroup.begin(); iter != mGroup.end(); ++iter)
+		for (std::map<LLPointer<LLModel>, U32>::iterator iter = mGroup.begin(); iter != mGroup.end(); ++iter)
 		{
 			glodDeleteGroup(iter->second);
 			stop_gloderror();
 		}
 
-		for (std::map<LLModel*, U32>::iterator iter = mObject.begin(); iter != mObject.end(); ++iter)
+		for (std::map<LLPointer<LLModel>, U32>::iterator iter = mObject.begin(); iter != mObject.end(); ++iter)
 		{
 			glodDeleteObject(iter->second);
 			stop_gloderror();
@@ -2058,6 +2055,11 @@ void LLModelPreview::loadModelCallback(S32 lod)
 	mScene[lod] = mModelLoader->mScene;
 	mVertexBuffer[lod].clear();
 	
+	if (lod == LLModel::LOD_PHYSICS)
+	{
+		mPhysicsMesh.clear();
+	}
+
 	setPreviewLOD(lod);
 	
 	
@@ -2341,6 +2343,11 @@ void LLModelPreview::genLODs(S32 which_lod)
 		return;
 	}
 
+	if (which_lod == LLModel::LOD_PHYSICS)
+	{ //clear physics mesh map
+		mPhysicsMesh.clear();
+	}
+
 	LLVertexBuffer::unbind();
 
 	stop_gloderror();
@@ -2367,6 +2374,14 @@ void LLModelPreview::genLODs(S32 which_lod)
 	U32 base_triangle_count = triangle_count;
 
 	U32 type_mask = LLVertexBuffer::MAP_VERTEX | LLVertexBuffer::MAP_NORMAL | LLVertexBuffer::MAP_TEXCOORD0;
+
+	if (mGroup[mBaseModel[0]] == 0)
+	{ //clear LOD maps
+		mGroup.clear();
+		mObject.clear();
+		mPercentage.clear();
+		mPatch.clear();
+	}
 
 	for (LLModelLoader::model_list::iterator iter = mBaseModel.begin(); iter != mBaseModel.end(); ++iter)
 	{ //build GLOD objects for each model in base model list
@@ -3121,7 +3136,7 @@ BOOL LLModelPreview::render()
 						{
 							LLMutexLock(decomp->mMutex);
 												
-							std::map<LLModel*, std::vector<LLPointer<LLVertexBuffer> > >::iterator iter = 
+							std::map<LLPointer<LLModel>, std::vector<LLPointer<LLVertexBuffer> > >::iterator iter = 
 								mPhysicsMesh.find(model);
 							if (iter != mPhysicsMesh.end())
 							{
@@ -3409,7 +3424,7 @@ void LLFloaterModelPreview::onDecompose(void* user_data)
 void LLFloaterModelPreview::onModelDecompositionComplete(LLModel* model, std::vector<LLPointer<LLVertexBuffer> >& physics_mesh)
 {
 	if (sInstance && sInstance->mModelPreview)
-	{
+	{ 
 		sInstance->mModelPreview->mPhysicsMesh[model] = physics_mesh;
 
 		sInstance->mModelPreview->mDirty = true;
@@ -3436,6 +3451,4 @@ void LLModelPreview::textureLoadedCallback( BOOL success, LLViewerFetchedTexture
 	LLModelPreview* preview = (LLModelPreview*) userdata;
 	preview->refresh();
 }
-
-#endif
 
