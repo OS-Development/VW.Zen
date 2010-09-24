@@ -56,9 +56,9 @@
           <key>darwin</key>
           <map>
             <key>md5sum</key>
-            <string>cc3a93782ac74982eb74aa5dbcd923f0</string>
+            <string>590cfe561e5696d2f3e0b6b394c5af47</string>
             <key>url</key>
-            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/glod-1.0pre4-darwin-20100922.tar.bz2</uri>
+            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/glod-1.0pre4-darwin-20100923.tar.bz2</uri>
           </map>
           <key>linux</key>
           <map>
@@ -640,6 +640,13 @@
         <string>bsd</string>
         <key>packages</key>
         <map>
+          <key>linux</key>
+          <map>
+            <key>md5sum</key>
+            <string>03d09d0336ec52244679da8ebba39074</string>
+            <key>url</key>
+            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/tcmalloc-1.6-linux-20100923.tar.bz2</uri>
+          </map>
           <key>windows</key>
           <map>
             <key>md5sum</key>
