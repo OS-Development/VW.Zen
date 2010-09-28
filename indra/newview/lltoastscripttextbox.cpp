@@ -1,6 +1,6 @@
 /**
- * @file lltoastgroupnotifypanel.cpp
- * @brief Panel for group notify toasts.
+ * @file lltoastscripttextbox.cpp
+ * @brief Panel for script llTextBox dialogs
  *
  * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
@@ -26,7 +26,7 @@
 
 #include "llviewerprecompiledheaders.h"
 
-#include "lltoastgroupnotifypanel.h"
+#include "lltoastscripttextbox.h"
 
 #include "llfocusmgr.h"
 
@@ -48,13 +48,14 @@
 #include "llfloaterinventory.h"
 #include "llinventorytype.h"
 
-const S32 LLToastGroupNotifyPanel::DEFAULT_MESSAGE_MAX_LINE_COUNT	= 7;
+const S32 LLToastScriptTextbox::DEFAULT_MESSAGE_MAX_LINE_COUNT	= 7;
 
-LLToastGroupNotifyPanel::LLToastGroupNotifyPanel(LLNotificationPtr& notification)
+LLToastScriptTextbox::LLToastScriptTextbox(LLNotificationPtr& notification)
 :	LLToastPanel(notification),
 	mInventoryOffer(NULL)
 {
-	buildFromFile( "panel_group_notify.xml");
+	buildFromFile( "panel_notify_textbox.xml");
+
 	const LLSD& payload = notification->getPayload();
 	LLGroupData groupData;
 	if (!gAgent.getGroupData(payload["group_id"].asUUID(),groupData))
@@ -125,7 +126,7 @@ LLToastGroupNotifyPanel::LLToastGroupNotifyPanel(LLNotificationPtr& notification
 
 		mInventoryOffer = new LLOfferInfo(payload["inventory_offer"]);
 		getChild<LLTextBox>("attachment")->setClickedCallback(boost::bind(
-				&LLToastGroupNotifyPanel::onClickAttachment, this));
+				&LLToastScriptTextbox::onClickAttachment, this));
 
 		LLUIImagePtr attachIconImg = LLInventoryIcon::getIcon(mInventoryOffer->mType,
 												LLInventoryType::IT_TEXTURE);
@@ -134,7 +135,7 @@ LLToastGroupNotifyPanel::LLToastGroupNotifyPanel(LLNotificationPtr& notification
 
 	//ok button
 	LLButton* pOkBtn = getChild<LLButton>("btn_ok");
-	pOkBtn->setClickedCallback((boost::bind(&LLToastGroupNotifyPanel::onClickOk, this)));
+	pOkBtn->setClickedCallback((boost::bind(&LLToastScriptTextbox::onClickOk, this)));
 	setDefaultBtn(pOkBtn);
 
 	S32 maxLinesCount;
@@ -147,11 +148,11 @@ LLToastGroupNotifyPanel::LLToastGroupNotifyPanel(LLNotificationPtr& notification
 }
 
 // virtual
-LLToastGroupNotifyPanel::~LLToastGroupNotifyPanel()
+LLToastScriptTextbox::~LLToastScriptTextbox()
 {
 }
 
-void LLToastGroupNotifyPanel::close()
+void LLToastScriptTextbox::close()
 {
 	// The group notice dialog may be an inventory offer.
 	// If it has an inventory save button and that button is still enabled
@@ -165,14 +166,14 @@ void LLToastGroupNotifyPanel::close()
 	die();
 }
 
-void LLToastGroupNotifyPanel::onClickOk()
+void LLToastScriptTextbox::onClickOk()
 {
 	LLSD response = mNotification->getResponseTemplate();
 	mNotification->respond(response);
 	close();
 }
 
-void LLToastGroupNotifyPanel::onClickAttachment()
+void LLToastScriptTextbox::onClickAttachment()
 {
 	if (mInventoryOffer != NULL) {
 		mInventoryOffer->forceResponse(IOR_ACCEPT);
@@ -196,7 +197,7 @@ void LLToastGroupNotifyPanel::onClickAttachment()
 }
 
 //static
-bool LLToastGroupNotifyPanel::isAttachmentOpenable(LLAssetType::EType type)
+bool LLToastScriptTextbox::isAttachmentOpenable(LLAssetType::EType type)
 {
 	switch(type)
 	{
