@@ -243,6 +243,7 @@ set(viewer_SOURCE_FILES
     llhudeffecttrail.cpp
     llhudicon.cpp
     llhudmanager.cpp
+    llhudnametag.cpp
     llhudobject.cpp
     llhudrender.cpp
     llhudtext.cpp
@@ -485,6 +486,7 @@ set(viewer_SOURCE_FILES
     llviewercontrol.cpp
     llviewercontrollistener.cpp
     llviewerdisplay.cpp
+    llviewerdisplayname.cpp
     llviewerfloaterreg.cpp
     llviewerfoldertype.cpp
     llviewergenericmessage.cpp
@@ -773,6 +775,7 @@ set(viewer_HEADER_FILES
     llhudeffecttrail.h
     llhudicon.h
     llhudmanager.h
+    llhudnametag.h
     llhudobject.h
     llhudrender.h
     llhudtext.h
@@ -1013,6 +1016,7 @@ set(viewer_HEADER_FILES
     llviewercontrol.h
     llviewercontrollistener.h
     llviewerdisplay.h
+    llviewerdisplayname.h
     llviewerfloaterreg.h
     llviewerfoldertype.h
     llviewergenericmessage.h
