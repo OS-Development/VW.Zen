@@ -13,6 +13,7 @@ include(ELFIO)
 include(FMOD)
 include(OPENAL)
 include(FindOpenGL)
+include(JsonCpp)
 include(LLAudio)
 include(LLCharacter)
 include(LLCommon)
@@ -44,6 +45,7 @@ include(CMakeCopyIfDifferent)
 include_directories(
     ${DBUSGLIB_INCLUDE_DIRS}
     ${ELFIO_INCLUDE_DIR}
+    ${JSONCPP_INCLUDE_DIRS}
     ${LLAUDIO_INCLUDE_DIRS}
     ${LLCHARACTER_INCLUDE_DIRS}
     ${LLCOMMON_INCLUDE_DIRS}
@@ -82,6 +84,7 @@ set(viewer_SOURCE_FILES
     llappviewerlistener.cpp
     llassetuploadqueue.cpp
     llassetuploadresponders.cpp
+    llattachmentsmgr.cpp
     llaudiosourcevo.cpp
     llavataractions.cpp
     llavatariconctrl.cpp
@@ -91,6 +94,8 @@ set(viewer_SOURCE_FILES
     llbottomtray.cpp
     llbox.cpp
     llbreadcrumbview.cpp
+    llbrowsernotification.cpp
+    llbuycurrencyhtml.cpp
     llcallbacklist.cpp
     llcallfloater.cpp
     llcallingcard.cpp
@@ -159,10 +164,10 @@ set(viewer_SOURCE_FILES
     llfloaterbuy.cpp
     llfloaterbuycontents.cpp
     llfloaterbuycurrency.cpp
+    llfloaterbuycurrencyhtml.cpp
     llfloaterbuyland.cpp
     llfloatercamera.cpp
     llfloatercolorpicker.cpp
-    llfloatercustomize.cpp
     llfloaterdaycycle.cpp
     llfloaterenvsettings.cpp
     llfloaterevent.cpp
@@ -189,7 +194,6 @@ set(viewer_SOURCE_FILES
     llfloaternamedesc.cpp
     llfloaternotificationsconsole.cpp
     llfloateropenobject.cpp
-    llfloaterparcel.cpp
     llfloaterpay.cpp
     llfloaterperms.cpp
     llfloaterpostcard.cpp
@@ -203,6 +207,7 @@ set(viewer_SOURCE_FILES
     llfloatersearch.cpp
     llfloatersellland.cpp
     llfloatersettingsdebug.cpp
+    llfloatersidetraytab.cpp
     llfloatersnapshot.cpp
     llfloatertelehub.cpp
     llfloatertestinspectors.cpp
@@ -211,9 +216,8 @@ set(viewer_SOURCE_FILES
     llfloatertopobjects.cpp
     llfloatertos.cpp
     llfloateruipreview.cpp
-    llfloaterurldisplay.cpp
     llfloaterurlentry.cpp
-    llfloatervoicedevicesettings.cpp
+    llfloatervoiceeffect.cpp
     llfloaterwater.cpp
     llfloaterwhitelistentry.cpp
     llfloaterwindlight.cpp
@@ -224,11 +228,13 @@ set(viewer_SOURCE_FILES
     llfollowcam.cpp
     llfriendcard.cpp
     llgesturemgr.cpp
+    llgiveinventory.cpp
     llglsandbox.cpp
     llgroupactions.cpp
     llgroupiconctrl.cpp
     llgrouplist.cpp
     llgroupmgr.cpp
+    llhints.cpp
     llhomelocationresponder.cpp
     llhudeffect.cpp
     llhudeffectbeam.cpp
@@ -257,6 +263,7 @@ set(viewer_SOURCE_FILES
     llinventoryfunctions.cpp
     llinventoryicon.cpp
     llinventoryitemslist.cpp
+    llinventorylistitem.cpp
     llinventorymodel.cpp
     llinventorymodelbackgroundfetch.cpp
     llinventoryobserver.cpp
@@ -265,6 +272,7 @@ set(viewer_SOURCE_FILES
     lllandmarkactions.cpp
     lllandmarklist.cpp
     lllistbrowser.cpp
+    lllistcontextmenu.cpp
     lllistview.cpp
     lllocaltextureobject.cpp
     lllocationhistory.cpp
@@ -272,6 +280,7 @@ set(viewer_SOURCE_FILES
     lllogchat.cpp
     llloginhandler.cpp
     lllogininstance.cpp
+    llmachineid.cpp
     llmanip.cpp
     llmaniprotate.cpp
     llmanipscale.cpp
@@ -296,13 +305,16 @@ set(viewer_SOURCE_FILES
     llnotificationalerthandler.cpp
     llnotificationgrouphandler.cpp
     llnotificationhandlerutil.cpp
+    llnotificationhinthandler.cpp
     llnotificationmanager.cpp
     llnotificationofferhandler.cpp
     llnotificationscripthandler.cpp
     llnotificationstorage.cpp
     llnotificationtiphandler.cpp
     lloutfitslist.cpp
+    lloutfitobserver.cpp
     lloutputmonitorctrl.cpp
+    llpanelappearancetab.cpp
     llpanelavatar.cpp
     llpanelavatartag.cpp
     llpanelblockedlist.cpp
@@ -342,7 +354,6 @@ set(viewer_SOURCE_FILES
     llpanelpermissions.cpp
     llpanelpick.cpp
     llpanelpicks.cpp
-    llpanelplace.cpp
     llpanelplaceinfo.cpp
     llpanelplaceprofile.cpp
     llpanelplaces.cpp
@@ -352,8 +363,12 @@ set(viewer_SOURCE_FILES
     llpanelprofileview.cpp
     llpanelteleporthistory.cpp
     llpaneltiptoast.cpp
+    llpanelvoiceeffect.cpp
+    llpaneltopinfobar.cpp
+    llpanelvoicedevicesettings.cpp
     llpanelvolume.cpp
     llpanelvolumepulldown.cpp
+    llpanelwearing.cpp
     llparcelselection.cpp
     llparticipantlist.cpp
     llpatchvertexarray.cpp
@@ -375,6 +390,7 @@ set(viewer_SOURCE_FILES
     llregionposition.cpp
     llremoteparcelrequest.cpp
     llsavedsettingsglue.cpp
+    llsaveoutfitcombobtn.cpp
     llscreenchannel.cpp
     llscriptfloater.cpp
     llscrollingpanelparam.cpp
@@ -421,7 +437,6 @@ set(viewer_SOURCE_FILES
     lltexturestats.cpp
     lltexturestatsuploader.cpp
     lltextureview.cpp
-    lltextutil.cpp
     lltoast.cpp
     lltoastalertpanel.cpp
     lltoastgroupnotifypanel.cpp
@@ -449,6 +464,7 @@ set(viewer_SOURCE_FILES
     lltracker.cpp
     lltransientdockablefloater.cpp
     lltransientfloatermgr.cpp
+    lltranslate.cpp
     lluilistener.cpp
     lluploaddialog.cpp
     llurl.cpp
@@ -462,6 +478,7 @@ set(viewer_SOURCE_FILES
     llviewchildren.cpp
     llviewerassetstorage.cpp
     llviewerassettype.cpp
+    llviewerattachmenu.cpp
     llvieweraudio.cpp
     llviewercamera.cpp
     llviewerchat.cpp
@@ -541,6 +558,7 @@ set(viewer_SOURCE_FILES
     llwearablelist.cpp
     llwearabletype.cpp
     llweb.cpp
+    llwebsharing.cpp
     llwind.cpp
     llwlanimator.cpp
     llwldaycycle.cpp
@@ -551,7 +569,6 @@ set(viewer_SOURCE_FILES
     llworldmapmessage.cpp
     llworldmipmap.cpp
     llworldmapview.cpp
-    llworldview.cpp
     llxmlrpclistener.cpp
     llxmlrpctransaction.cpp
     noise.cpp
@@ -596,6 +613,7 @@ set(viewer_HEADER_FILES
     llappviewerlistener.h
     llassetuploadqueue.h
     llassetuploadresponders.h
+    llattachmentsmgr.h
     llaudiosourcevo.h
     llavataractions.h
     llavatariconctrl.h
@@ -605,6 +623,7 @@ set(viewer_HEADER_FILES
     llbottomtray.h
     llbox.h
     llbreadcrumbview.h
+    llbuycurrencyhtml.h
     llcallbacklist.h
     llcallfloater.h
     llcallingcard.h
@@ -675,10 +694,10 @@ set(viewer_HEADER_FILES
     llfloaterbuy.h
     llfloaterbuycontents.h
     llfloaterbuycurrency.h
+    llfloaterbuycurrencyhtml.h
     llfloaterbuyland.h
     llfloatercamera.h
     llfloatercolorpicker.h
-    llfloatercustomize.h
     llfloaterdaycycle.h
     llfloaterenvsettings.h
     llfloaterevent.h
@@ -705,7 +724,6 @@ set(viewer_HEADER_FILES
     llfloaternamedesc.h
     llfloaternotificationsconsole.h
     llfloateropenobject.h
-    llfloaterparcel.h
     llfloaterpay.h
     llfloaterperms.h
     llfloaterpostcard.h
@@ -719,6 +737,7 @@ set(viewer_HEADER_FILES
     llfloatersearch.h
     llfloatersellland.h
     llfloatersettingsdebug.h
+    llfloatersidetraytab.h
     llfloatersnapshot.h
     llfloatertelehub.h
     llfloatertestinspectors.h
@@ -727,9 +746,8 @@ set(viewer_HEADER_FILES
     llfloatertopobjects.h
     llfloatertos.h
     llfloateruipreview.h
-    llfloaterurldisplay.h
     llfloaterurlentry.h
-    llfloatervoicedevicesettings.h
+    llfloatervoiceeffect.h
     llfloaterwater.h
     llfloaterwhitelistentry.h
     llfloaterwindlight.h
@@ -741,10 +759,12 @@ set(viewer_HEADER_FILES
     llfollowcam.h
     llfriendcard.h
     llgesturemgr.h
+    llgiveinventory.h
     llgroupactions.h
     llgroupiconctrl.h
     llgrouplist.h
     llgroupmgr.h
+    llhints.h
     llhomelocationresponder.h
     llhudeffect.h
     llhudeffectbeam.h
@@ -772,6 +792,7 @@ set(viewer_HEADER_FILES
     llinventoryfunctions.h
     llinventoryicon.h
     llinventoryitemslist.h
+    llinventorylistitem.h
     llinventorymodel.h
     llinventorymodelbackgroundfetch.h
     llinventoryobserver.h
@@ -781,6 +802,7 @@ set(viewer_HEADER_FILES
     lllandmarklist.h
     lllightconstants.h
     lllistbrowser.h
+    lllistcontextmenu.h
     lllistview.h
     lllocaltextureobject.h
     lllocationhistory.h
@@ -788,6 +810,7 @@ set(viewer_HEADER_FILES
     lllogchat.h
     llloginhandler.h
     lllogininstance.h
+    llmachineid.h
     llmanip.h
     llmaniprotate.h
     llmanipscale.h
@@ -813,7 +836,9 @@ set(viewer_HEADER_FILES
     llnotificationmanager.h
     llnotificationstorage.h
     lloutfitslist.h
+    lloutfitobserver.h
     lloutputmonitorctrl.h
+    llpanelappearancetab.h
     llpanelavatar.h
     llpanelavatartag.h
     llpanelblockedlist.h
@@ -853,7 +878,6 @@ set(viewer_HEADER_FILES
     llpanelpermissions.h
     llpanelpick.h
     llpanelpicks.h
-    llpanelplace.h
     llpanelplaceinfo.h
     llpanelplaceprofile.h
     llpanelplaces.h
@@ -863,8 +887,12 @@ set(viewer_HEADER_FILES
     llpanelprofileview.h
     llpanelteleporthistory.h
     llpaneltiptoast.h
+    llpanelvoicedevicesettings.h
+    llpanelvoiceeffect.h
+    llpaneltopinfobar.h
     llpanelvolume.h
     llpanelvolumepulldown.h
+    llpanelwearing.h
     llparcelselection.h
     llparticipantlist.h
     llpatchvertexarray.h
@@ -888,6 +916,7 @@ set(viewer_HEADER_FILES
     llresourcedata.h
     llrootview.h
     llsavedsettingsglue.h
+    llsaveoutfitcombobtn.h
     llscreenchannel.h
     llscriptfloater.h
     llscrollingpanelparam.h
@@ -935,7 +964,6 @@ set(viewer_HEADER_FILES
     lltexturestats.h
     lltexturestatsuploader.h
     lltextureview.h
-    lltextutil.h
     lltoast.h
     lltoastalertpanel.h
     lltoastgroupnotifypanel.h
@@ -963,6 +991,7 @@ set(viewer_HEADER_FILES
     lltracker.h
     lltransientdockablefloater.h
     lltransientfloatermgr.h
+    lltranslate.h
     lluiconstants.h
     lluilistener.h
     lluploaddialog.h
@@ -977,6 +1006,7 @@ set(viewer_HEADER_FILES
     llviewchildren.h
     llviewerassetstorage.h
     llviewerassettype.h
+    llviewerattachmenu.h
     llvieweraudio.h
     llviewercamera.h
     llviewerchat.h
@@ -1054,8 +1084,8 @@ set(viewer_HEADER_FILES
     llwearablelist.h
     llwearabletype.h
     llweb.h
+    llwebsharing.h
     llwind.h
-    llwindebug.h
     llwlanimator.h
     llwldaycycle.h
     llwlparammanager.h
@@ -1065,7 +1095,6 @@ set(viewer_HEADER_FILES
     llworldmapmessage.h
     llworldmipmap.h
     llworldmapview.h
-    llworldview.h
     llxmlrpclistener.h
     llxmlrpctransaction.h
     macmain.h
@@ -1284,6 +1313,7 @@ set(viewer_APPSETTINGS_FILES
     app_settings/cmd_line.xml
     app_settings/grass.xml
     app_settings/high_graphics.xml
+    app_settings/ignorable_dialogs.xml
     app_settings/keys.ini
     app_settings/keywords.ini
     app_settings/logcontrol.xml
@@ -1300,8 +1330,6 @@ set(viewer_APPSETTINGS_FILES
     ${CMAKE_SOURCE_DIR}/../etc/message.xml
     ${CMAKE_SOURCE_DIR}/../scripts/messages/message_template.msg
     )
-
-use_prebuilt_binary(artwork-common)
 
 source_group("App Settings" FILES ${viewer_APPSETTINGS_FILES})
 
@@ -1375,10 +1403,6 @@ add_executable(${VIEWER_BINARY_NAME}
     MACOSX_BUNDLE
     ${viewer_SOURCE_FILES}
     )
-
-if (LLKDU_LIBRARY)
-  add_dependencies(${VIEWER_BINARY_NAME} ${LLKDU_LIBRARY})
-endif (LLKDU_LIBRARY)
 
 # add package files
 file(GLOB EVENT_HOST_SCRIPT_GLOB_LIST
@@ -1466,6 +1490,7 @@ if (WINDOWS)
       ${GOOGLE_PERF_TOOLS_SOURCE}
       ${CMAKE_CURRENT_SOURCE_DIR}/licenses-win32.txt
       ${CMAKE_CURRENT_SOURCE_DIR}/featuretable.txt
+      ${CMAKE_CURRENT_SOURCE_DIR}/featuretable_xp.txt
       ${CMAKE_CURRENT_SOURCE_DIR}/dbghelp.dll
       ${CMAKE_CURRENT_SOURCE_DIR}/fmod.dll
       ${ARCH_PREBUILT_DIRS_RELEASE}/libeay32.dll
@@ -1537,11 +1562,6 @@ if (WINDOWS)
 
     add_dependencies(${VIEWER_BINARY_NAME} stage_third_party_libs llcommon copy_w_viewer_manifest)
     
-    if(LLKDU_LIBRARY)
-      # kdu may not exist!
-      add_dependencies(copy_w_viewer_manifest llkdu)
-    endif(LLKDU_LIBRARY)
-
     if (EXISTS ${CMAKE_SOURCE_DIR}/copy_win_scripts)
       add_dependencies(${VIEWER_BINARY_NAME} copy_win_scripts)
     endif (EXISTS ${CMAKE_SOURCE_DIR}/copy_win_scripts)
@@ -1643,6 +1663,7 @@ target_link_libraries(${VIEWER_BINARY_NAME}
     ${OPENGL_LIBRARIES}
     ${FMODWRAPPER_LIBRARY} # must come after LLAudio
     ${OPENGL_LIBRARIES}
+    ${JSONCPP_LIBRARIES}
     ${SDL_LIBRARY}
     ${SMARTHEAP_LIBRARY}
     ${UI_LIBRARIES}
@@ -1686,12 +1707,35 @@ if (LINUX)
 
   add_dependencies(${VIEWER_BINARY_NAME} SLPlugin media_plugin_gstreamer010 media_plugin_webkit)
 
-  if (NOT INSTALL)
+  if (PACKAGE)
     add_custom_target(package ALL DEPENDS ${product}.tar.bz2)
     add_dependencies(package linux-crash-logger-target)
     add_dependencies(package linux-updater-target)
     check_message_template(package)
-  endif (NOT INSTALL)
+  endif (PACKAGE)
+
+  add_custom_command(
+    OUTPUT  ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/.${product}.copy_touched
+    COMMAND ${PYTHON_EXECUTABLE}
+    ARGS
+      ${CMAKE_CURRENT_SOURCE_DIR}/viewer_manifest.py
+      --arch=${ARCH}
+      --actions=copy
+      --artwork=${ARTWORK_DIR}
+      --build=${CMAKE_CURRENT_BINARY_DIR}
+      --buildtype=${CMAKE_BUILD_TYPE}
+      --configuration=${CMAKE_CFG_INTDIR}
+      --dest=${CMAKE_CURRENT_BINARY_DIR}/packaged
+      --grid=${GRID}
+      --source=${CMAKE_CURRENT_SOURCE_DIR}
+    DEPENDS 
+      ${CMAKE_CURRENT_SOURCE_DIR}/viewer_manifest.py
+      ${COPY_INPUT_DEPENDENCIES}
+    COMMENT "Performing viewer_manifest copy"
+    )
+    
+  add_custom_target(copy_l_viewer_manifest ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/.${product}.copy_touched) 
+  add_dependencies(copy_l_viewer_manifest "${VIEWER_BINARY_NAME}" linux-crash-logger-target linux-updater-target)
 endif (LINUX)
 
 if (DARWIN)
@@ -1726,58 +1770,75 @@ if (DARWIN)
     DEPENDS ${VIEWER_BINARY_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/viewer_manifest.py
     )
 
-  add_dependencies(${VIEWER_BINARY_NAME} SLPlugin media_plugin_quicktime media_plugin_webkit)
+  add_dependencies(${VIEWER_BINARY_NAME} SLPlugin media_plugin_quicktime media_plugin_webkit mac-updater mac-crash-logger)
 
   if (PACKAGE)
       add_custom_target(package ALL DEPENDS ${VIEWER_BINARY_NAME}) 
       check_message_template(package)
-      add_dependencies(package mac-updater mac-crash-logger)
 
       add_custom_command(
         TARGET package POST_BUILD
         COMMAND ${PYTHON_EXECUTABLE}
         ARGS
           ${CMAKE_CURRENT_SOURCE_DIR}/viewer_manifest.py
-          --grid=${GRID}
-          --buildtype=${CMAKE_BUILD_TYPE}
-          --configuration=${CMAKE_CFG_INTDIR}
-          --channel=${VIEWER_CHANNEL}
-          --login_channel=${VIEWER_LOGIN_CHANNEL}
-          --source=${CMAKE_CURRENT_SOURCE_DIR}
           --artwork=${ARTWORK_DIR}
           --build=${CMAKE_CURRENT_BINARY_DIR}
+          --buildtype=${CMAKE_BUILD_TYPE}
+          --channel=${VIEWER_CHANNEL}
+          --configuration=${CMAKE_CFG_INTDIR}
           --dest=${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/${product}.app
+          --grid=${GRID}
+          --login_channel=${VIEWER_LOGIN_CHANNEL}
+          --source=${CMAKE_CURRENT_SOURCE_DIR}
           --touch=${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/.${product}.touched
         DEPENDS
           ${CMAKE_CURRENT_SOURCE_DIR}/viewer_manifest.py
       )
-
-
-      add_custom_command(
-        TARGET package POST_BUILD
-        COMMAND ${PYTHON_EXECUTABLE}
-        ARGS
-          ${CMAKE_CURRENT_SOURCE_DIR}/viewer_manifest.py
-          --grid=${GRID}
-          --buildtype=${CMAKE_BUILD_TYPE}
-          --configuration=${CMAKE_CFG_INTDIR}
-          --channel=${VIEWER_CHANNEL}
-          --login_channel=${VIEWER_LOGIN_CHANNEL}
-          --source=${CMAKE_CURRENT_SOURCE_DIR}
-          --artwork=${ARTWORK_DIR}
-          --build=${CMAKE_CURRENT_BINARY_DIR}
-          --dest=${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/${product}.app
-          --touch=${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/.${product}.touched
-        DEPENDS
-          ${CMAKE_CURRENT_SOURCE_DIR}/viewer_manifest.py
-      )
-
   endif (PACKAGE)
 endif (DARWIN)
 
 if (INSTALL)
   include(${CMAKE_CURRENT_SOURCE_DIR}/ViewerInstall.cmake)
 endif (INSTALL)
+
+if (PACKAGE)
+  if (WINDOWS)
+    set(VIEWER_DIST_DIR "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}")
+    set(VIEWER_SYMBOL_FILE "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/secondlife-symbols-windows.tar.bz2")
+    set(VIEWER_EXE_GLOBS "${VIEWER_BINARY_NAME}${CMAKE_EXECUTABLE_SUFFIX} slplugin.exe")
+    set(VIEWER_LIB_GLOB "*${CMAKE_SHARED_MODULE_SUFFIX}")
+    set(VIEWER_COPY_MANIFEST copy_w_viewer_manifest)
+  endif (WINDOWS)
+  if (DARWIN)
+    set(VIEWER_DIST_DIR "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/${product}.app")
+    set(VIEWER_SYMBOL_FILE "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/secondlife-symbols-darwin.tar.bz2")
+    set(VIEWER_EXE_GLOBS "'Second Life' SLPlugin")
+    set(VIEWER_LIB_GLOB "*.dylib")
+  endif (DARWIN)
+  if (LINUX)
+    set(VIEWER_DIST_DIR "${CMAKE_CURRENT_BINARY_DIR}/packaged")
+    set(VIEWER_SYMBOL_FILE "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/secondlife-symbols-linux.tar.bz2")
+    set(VIEWER_EXE_GLOBS "do-not-directly-run-secondlife-bin SLPlugin")
+    set(VIEWER_LIB_GLOB "*${CMAKE_SHARED_MODULE_SUFFIX}*")
+    set(VIEWER_COPY_MANIFEST copy_l_viewer_manifest)
+  endif (LINUX)
+
+  add_custom_command(OUTPUT "${VIEWER_SYMBOL_FILE}"
+    COMMAND "${PYTHON_EXECUTABLE}"
+    ARGS
+      "${CMAKE_CURRENT_SOURCE_DIR}/generate_breakpad_symbols.py"
+      "${VIEWER_DIST_DIR}"
+      "${VIEWER_EXE_GLOBS}"
+      "${VIEWER_LIB_GLOB}"
+      "${LIBS_PREBUILT_DIR}/${LL_ARCH_DIR}/bin/dump_syms"
+      "${VIEWER_SYMBOL_FILE}"
+    DEPENDS generate_breakpad_symbols.py
+    VERBATIM
+  )
+  add_custom_target(generate_breakpad_symbols ALL DEPENDS "${VIEWER_SYMBOL_FILE}")
+  add_dependencies(generate_breakpad_symbols "${VIEWER_BINARY_NAME}" "${VIEWER_COPY_MANIFEST}")
+  add_dependencies(package generate_breakpad_symbols)
+endif (PACKAGE)
 
 if (LL_TESTS)
   # To add a viewer unit test, just add the test .cpp file below
@@ -1839,7 +1900,7 @@ if (LL_TESTS)
   )
 
     LL_ADD_INTEGRATION_TEST(llsechandler_basic
-     llsechandler_basic.cpp
+    llsechandler_basic.cpp
     "${test_libs}"
     )
 

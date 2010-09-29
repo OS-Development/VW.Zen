@@ -2,31 +2,25 @@
  * @file llworld.cpp
  * @brief Initial test structure to organize viewer regions
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -91,7 +85,8 @@ LLWorld::LLWorld() :
 	mLastPacketsIn(0),
 	mLastPacketsOut(0),
 	mLastPacketsLost(0),
-	mSpaceTimeUSec(0)
+	mSpaceTimeUSec(0),
+	mClassicCloudsEnabled(TRUE)
 {
 	for (S32 i = 0; i < 8; i++)
 	{
@@ -126,6 +121,7 @@ void LLWorld::destroyClass()
 		LLViewerRegion* region_to_delete = *region_it++;
 		removeRegion(region_to_delete->getHost());
 	}
+	LLVOCache::getInstance()->destroyClass() ;
 	LLViewerPartSim::getInstance()->destroyClass();
 }
 
@@ -261,6 +257,8 @@ void LLWorld::removeRegion(const LLHost &host)
 
 		llwarns << "Disabling region " << regionp->getName() << " that agent is in!" << llendl;
 		LLAppViewer::instance()->forceDisconnect(LLTrans::getString("YouHaveBeenDisconnected"));
+
+		regionp->saveObjectCache() ; //force to save objects here in case that the object cache is about to be destroyed.
 		return;
 	}
 
@@ -662,16 +660,41 @@ void LLWorld::updateClouds(const F32 dt)
 	static LLFastTimer::DeclareTimer ftm("World Clouds");
 	LLFastTimer t(ftm);
 
-	if (gSavedSettings.getBOOL("FreezeTime") ||
-		!gSavedSettings.getBOOL("SkyUseClassicClouds"))
+	if ( gSavedSettings.getBOOL("FreezeTime") )
 	{
 		// don't move clouds in snapshot mode
 		return;
 	}
+
+	if (
+		mClassicCloudsEnabled !=
+		gSavedSettings.getBOOL("SkyUseClassicClouds") )
+	{
+		// The classic cloud toggle has been flipped
+		// gotta update all of the cloud layers
+		mClassicCloudsEnabled =
+			gSavedSettings.getBOOL("SkyUseClassicClouds");
+
+		if ( !mClassicCloudsEnabled && mActiveRegionList.size() )
+		{
+			// We've transitioned to having classic clouds disabled
+			// reset all cloud layers.
+			for (
+				region_list_t::iterator iter = mActiveRegionList.begin();
+				iter != mActiveRegionList.end();
+				++iter)
+			{
+				LLViewerRegion* regionp = *iter;
+				regionp->mCloudLayer.reset();
+			}
+
+			return;
+		}
+	}
+	else if ( !mClassicCloudsEnabled ) return;
+
 	if (mActiveRegionList.size())
 	{
-		// Update all the cloud puff positions, and timer based stuff
-		// such as death decay
 		for (region_list_t::iterator iter = mActiveRegionList.begin();
 			 iter != mActiveRegionList.end(); ++iter)
 		{
@@ -1029,9 +1052,11 @@ void LLWorld::disconnectRegions()
 	}
 }
 
+static LLFastTimer::DeclareTimer FTM_ENABLE_SIMULATOR("Enable Sim");
 
 void process_enable_simulator(LLMessageSystem *msg, void **user_data)
 {
+	LLFastTimer t(FTM_ENABLE_SIMULATOR);
 	// enable the appropriate circuit for this simulator and 
 	// add its values into the gSimulator structure
 	U64		handle;

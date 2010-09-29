@@ -2,47 +2,43 @@
  * @file llfilteredwearablelist.h
  * @brief Functionality for showing filtered wearable flat list
  *
- * $LicenseInfo:firstyear=2010&license=viewergpl$
- *
- * Copyright (c) 2010, Linden Research, Inc.
- *
+ * $LicenseInfo:firstyear=2010&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
- *
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/flossexception
- *
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
- *
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * Copyright (C) 2010, Linden Research, Inc.
+ * 
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
+ * 
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
 #ifndef LL_LLFILTEREDWEARABLELIST_H
 #define LL_LLFILTEREDWEARABLELIST_H
 
+#include "llinventoryfunctions.h"
 #include "llinventoryobserver.h"
 
 class LLInventoryItemsList;
 
-// Class that fills LLInventoryItemsList with filtered data.
+// Class that fills LLInventoryItemsList with filtered data (original items only (non-links)).
 class LLFilteredWearableListManager : public LLInventoryObserver
 {
 	LOG_CLASS(LLFilteredWearableListManager);
 public:
 
-	LLFilteredWearableListManager(LLInventoryItemsList* list, U64 filter_mask);
+	LLFilteredWearableListManager(LLInventoryItemsList* list, LLInventoryCollectFunctor* collector);
 	~LLFilteredWearableListManager();
 
 	/** LLInventoryObserver implementation
@@ -51,9 +47,9 @@ public:
 	/*virtual*/ void changed(U32 mask);
 
 	/**
-	 * Sets new filter and applies it immediately
+	 * Sets new collector and applies it immediately
 	 */
-	void setFilterMask(U64 mask);
+	void setFilterCollector(LLInventoryCollectFunctor* collector);
 
 	/**
 	 * Populates wearable list with filtered data.
@@ -62,7 +58,7 @@ public:
 
 private:
 	LLInventoryItemsList* mWearableList;
-	U64 mFilterMask;
+	LLInventoryCollectFunctor* mCollector;
 };
 
 #endif //LL_LLFILTEREDWEARABLELIST_H

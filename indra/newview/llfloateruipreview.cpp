@@ -2,31 +2,25 @@
  * @file llfloateruipreview.cpp
  * @brief Tool for previewing and editing floaters, plus localization tool integration
  *
- * $LicenseInfo:firstyear=2008&license=viewergpl$
- * 
- * Copyright (c) 2008-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2008&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -266,11 +260,12 @@ private:
 class LLPreviewedFloater : public LLFloater
 {
 public:
-	LLPreviewedFloater(LLFloaterUIPreview* floater)
-		: LLFloater(LLSD()),
+	LLPreviewedFloater(LLFloaterUIPreview* floater, const Params& params)
+		: LLFloater(LLSD(), params),
 		  mFloaterUIPreview(floater)
 	{
 	}
+
 	virtual void draw();
 	BOOL handleRightMouseDown(S32 x, S32 y, MASK mask);
 	BOOL handleToolTip(S32 x, S32 y, MASK mask);
@@ -399,7 +394,6 @@ LLFloaterUIPreview::LLFloaterUIPreview(const LLSD& key)
 	mLastDisplayedX(0),
 	mLastDisplayedY(0)
 {
-	// called from floater reg: LLUICtrlFactory::getInstance()->buildFloater(this, "floater_ui_preview.xml");
 }
 
 // Destructor
@@ -428,6 +422,7 @@ BOOL LLFloaterUIPreview::postBuild()
 	// Double-click opens the floater, for convenience
 	mFileList->setDoubleClickCallback(boost::bind(&LLFloaterUIPreview::onClickDisplayFloater, this, PRIMARY_FLOATER));
 
+	setDefaultBtn("display_floater");
 	// get pointers to buttons and link to callbacks
 	mLanguageSelection = main_panel_tmp->getChild<LLComboBox>("language_select_combo");
 	mLanguageSelection->setCommitCallback(boost::bind(&LLFloaterUIPreview::onLanguageComboSelect, this, mLanguageSelection));
@@ -473,7 +468,7 @@ BOOL LLFloaterUIPreview::postBuild()
 	// Set up overlap panel
 	mOverlapPanel = getChild<LLOverlapPanel>("overlap_panel");
 
-	childSetVisible("overlap_scroll", mHighlightingOverlaps);
+	getChildView("overlap_scroll")->setVisible( mHighlightingOverlaps);
 	
 	mDelim = gDirUtilp->getDirDelimiter();	// initialize delimiter to dir sep slash
 
@@ -824,7 +819,11 @@ void LLFloaterUIPreview::displayFloater(BOOL click, S32 ID, bool save)
 		return;															// ignore click (this can only happen with empty list; otherwise an item is always selected)
 	}
 
-	*floaterp = new LLPreviewedFloater(this);
+	LLFloater::Params p(LLFloater::getDefaultParams());
+	p.min_height=p.header_height;
+	p.min_width=10;
+
+	*floaterp = new LLPreviewedFloater(this, p);
 
 	if(!strncmp(path.c_str(),"floater_",8)
 		|| !strncmp(path.c_str(), "inspect_", 8))		// if it's a floater
@@ -832,7 +831,7 @@ void LLFloaterUIPreview::displayFloater(BOOL click, S32 ID, bool save)
 		if (save)
 		{
 			LLXMLNodePtr floater_write = new LLXMLNode();			
-			LLUICtrlFactory::getInstance()->buildFloater(*floaterp, path, floater_write);	// just build it
+			(*floaterp)->buildFromFile(path, floater_write);	// just build it
 
 			if (!floater_write->isNull())
 			{
@@ -846,7 +845,7 @@ void LLFloaterUIPreview::displayFloater(BOOL click, S32 ID, bool save)
 		}
 		else
 		{
-			LLUICtrlFactory::getInstance()->buildFloater(*floaterp, path, NULL);	// just build it
+			(*floaterp)->buildFromFile(path);	// just build it
 			(*floaterp)->openFloater((*floaterp)->getKey());
 			(*floaterp)->setCanResize((*floaterp)->isResizable());
 		}
@@ -874,6 +873,8 @@ void LLFloaterUIPreview::displayFloater(BOOL click, S32 ID, bool save)
 	}
 	else																// if it is a panel...
 	{
+		(*floaterp)->setCanResize(true);
+
 		const LLFloater::Params& floater_params = LLFloater::getDefaultParams();
 		S32 floater_header_size = floater_params.header_height;
 
@@ -883,7 +884,7 @@ void LLFloaterUIPreview::displayFloater(BOOL click, S32 ID, bool save)
 		if (save)
 		{
 			LLXMLNodePtr panel_write = new LLXMLNode();
-			LLUICtrlFactory::getInstance()->buildPanel(panel, path, panel_write);		// build it
+			panel->buildFromFile(path, panel_write);		// build it
 			
 			if (!panel_write->isNull())
 			{
@@ -897,7 +898,7 @@ void LLFloaterUIPreview::displayFloater(BOOL click, S32 ID, bool save)
 		}
 		else
 		{
-			LLUICtrlFactory::getInstance()->buildPanel(panel, path);		// build it
+			panel->buildFromFile(path);										// build it
 			LLRect new_size = panel->getRect();								// get its rectangle
 			panel->setOrigin(0,0);											// reset its origin point so it's not offset by -left or other XUI attributes
 			(*floaterp)->setTitle(path);									// use the file name as its title, since panels have no guaranteed meaningful name attribute
@@ -1691,7 +1692,7 @@ void LLFloaterUIPreview::onClickToggleOverlapping()
 		setRect(LLRect(getRect().mLeft,getRect().mTop,getRect().mRight + mOverlapPanel->getRect().getWidth(),getRect().mBottom));
 		setResizeLimits(width + mOverlapPanel->getRect().getWidth(), height);
 	}
-	childSetVisible("overlap_scroll", mHighlightingOverlaps);
+	getChildView("overlap_scroll")->setVisible( mHighlightingOverlaps);
 }
 
 void LLFloaterUIPreview::findOverlapsInChildren(LLView* parent)

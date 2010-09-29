@@ -1,32 +1,27 @@
+
 /** 
  * @file llbutton.cpp
  * @brief LLButton base class
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -128,6 +123,7 @@ LLButton::LLButton(const LLButton::Params& p)
 	mImageSelected(p.image_selected),
 	mImageDisabled(p.image_disabled),
 	mImageDisabledSelected(p.image_disabled_selected),
+	mImageFlash(p.image_flash),
 	mImagePressed(p.image_pressed),
 	mImagePressedSelected(p.image_pressed_selected),
 	mImageHoverSelected(p.image_hover_selected),
@@ -503,7 +499,7 @@ void LLButton::onMouseEnter(S32 x, S32 y, MASK mask)
 
 	if (isInEnabledChain())
 		mNeedsHighlight = TRUE;
-}
+	}
 
 void LLButton::onMouseLeave(S32 x, S32 y, MASK mask)
 {
@@ -562,15 +558,19 @@ void LLButton::draw()
 		pressed_by_keyboard = gKeyboard->getKeyDown(' ') || (mCommitOnReturn && gKeyboard->getKeyDown(KEY_RETURN));
 	}
 
-	// Unselected image assignments
-	S32 local_mouse_x;
-	S32 local_mouse_y;
-	LLUI::getMousePositionLocal(this, &local_mouse_x, &local_mouse_y);
+	bool mouse_pressed_and_over = false;
+	if (hasMouseCapture())
+	{
+		S32 local_mouse_x ;
+		S32 local_mouse_y;
+		LLUI::getMousePositionLocal(this, &local_mouse_x, &local_mouse_y);
+		mouse_pressed_and_over = pointInView(local_mouse_x, local_mouse_y);
+	}
 
 	bool enabled = isInEnabledChain();
 
 	bool pressed = pressed_by_keyboard 
-					|| (hasMouseCapture() && pointInView(local_mouse_x, local_mouse_y))
+					|| mouse_pressed_and_over
 					|| mForcePressedState;
 	bool selected = getToggleState();
 	
@@ -635,14 +635,24 @@ void LLButton::draw()
 
 	if (mFlashing)
 	{
-		LLColor4 flash_color = mFlashBgColor.get();
-		use_glow_effect = TRUE;
-		glow_type = LLRender::BT_ALPHA; // blend the glow
-
-		if (mNeedsHighlight) // highlighted AND flashing
-			glow_color = (glow_color*0.5f + flash_color*0.5f) % 2.0f; // average between flash and highlight colour, with sum of the opacity
+		// if button should flash and we have icon for flashing, use it as image for button
+		if(flash && mImageFlash)
+		{
+			// setting flash to false to avoid its further influence on glow
+			flash = false;
+			imagep = mImageFlash;
+		}
+		// else use usual flashing via flash_color
 		else
-			glow_color = flash_color;
+		{
+			LLColor4 flash_color = mFlashBgColor.get();
+			use_glow_effect = TRUE;
+			glow_type = LLRender::BT_ALPHA; // blend the glow
+			if (mNeedsHighlight) // highlighted AND flashing
+				glow_color = (glow_color*0.5f + flash_color*0.5f) % 2.0f; // average between flash and highlight colour, with sum of the opacity
+			else
+				glow_color = flash_color;
+		}
 	}
 
 	if (mNeedsHighlight && !imagep)
@@ -1018,6 +1028,11 @@ void LLButton::setImageHoverUnselected(LLPointer<LLUIImage> image)
 	mImageHoverUnselected = image;
 }
 
+void LLButton::setImageFlash(LLPointer<LLUIImage> image)
+{
+	mImageFlash = image;
+}
+
 void LLButton::setImageOverlay(const std::string& image_name, LLFontGL::HAlign alignment, const LLColor4& color)
 {
 	if (image_name.empty())
@@ -1104,7 +1119,7 @@ void LLButton::setFloaterToggle(LLUICtrl* ctrl, const LLSD& sdname)
 	// Get the visibility control name for the floater
 	std::string vis_control_name = LLFloaterReg::declareVisibilityControl(sdname.asString());
 	// Set the button control value (toggle state) to the floater visibility control (Sets the value as well)
-	button->setControlVariable(LLUI::sSettingGroups["floater"]->getControl(vis_control_name));
+	button->setControlVariable(LLFloater::getControlGroup()->getControl(vis_control_name));
 	// Set the clicked callback to toggle the floater
 	button->setClickedCallback(boost::bind(&LLFloaterReg::toggleFloaterInstance, sdname));
 }
@@ -1118,7 +1133,7 @@ void LLButton::setDockableFloaterToggle(LLUICtrl* ctrl, const LLSD& sdname)
 	// Get the visibility control name for the floater
 	std::string vis_control_name = LLFloaterReg::declareVisibilityControl(sdname.asString());
 	// Set the button control value (toggle state) to the floater visibility control (Sets the value as well)
-	button->setControlVariable(LLUI::sSettingGroups["floater"]->getControl(vis_control_name));
+	button->setControlVariable(LLFloater::getControlGroup()->getControl(vis_control_name));
 	// Set the clicked callback to toggle the floater
 	button->setClickedCallback(boost::bind(&LLDockableFloater::toggleInstance, sdname));
 }
@@ -1145,4 +1160,11 @@ void LLButton::resetMouseDownTimer()
 {
 	mMouseDownTimer.stop();
 	mMouseDownTimer.reset();
+}
+
+
+BOOL LLButton::handleDoubleClick(S32 x, S32 y, MASK mask)
+{
+	// just treat a double click as a second click
+	return handleMouseDown(x, y, mask);
 }

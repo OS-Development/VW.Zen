@@ -2,137 +2,44 @@
  * @file llcofwearables.h
  * @brief LLCOFWearables displayes wearables from the current outfit split into three lists (attachments, clothing and body parts)
  *
- * $LicenseInfo:firstyear=2010&license=viewergpl$
- * 
- * Copyright (c) 2010, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2010&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
 #ifndef LL_LLCOFWEARABLES_H
 #define LL_LLCOFWEARABLES_H
 
+// llui
+#include "llflatlistview.h"
 #include "llpanel.h"
-#include "llinventorymodel.h"
+
 #include "llappearancemgr.h"
-#include "llwearableitemslist.h"
+#include "llinventorymodel.h"
 
-class LLFlatListView;
-
-
-/** Abstract comparator of wearable list items */
-class LLWearableListItemComparator : public LLFlatListView::ItemComparator
-{
-	LOG_CLASS(LLWearableListItemComparator);
-
-public:
-	LLWearableListItemComparator() {};
-	virtual ~LLWearableListItemComparator() {};
-
-	virtual bool compare(const LLPanel* item1, const LLPanel* item2) const
-	{
-		const LLPanelWearableListItem* wearable_item1 = dynamic_cast<const LLPanelWearableListItem*>(item1);
-		const LLPanelWearableListItem* wearable_item2 = dynamic_cast<const LLPanelWearableListItem*>(item2);
-
-		if (!wearable_item1 || !wearable_item2)
-		{
-			llwarning("item1 and item2 cannot be null", 0);
-			return true;
-		}
-
-		return doCompare(wearable_item1, wearable_item2);
-	}
-
-protected:
-
-	/** 
-	 * Returns true if wearable_item1 < wearable_item2, false otherwise 
-	 * Implement this method in your particular comparator.
-	 */
-	virtual bool doCompare(const LLPanelWearableListItem* wearable_item1, const LLPanelWearableListItem* wearable_item2) const = 0;
-};
-
-
-class LLWearableItemNameComparator : public LLWearableListItemComparator
-{
-	LOG_CLASS(LLWearableItemNameComparator);
-
-public:
-	LLWearableItemNameComparator() {};
-	virtual ~LLWearableItemNameComparator() {};
-
-protected:
-	virtual bool doCompare(const LLPanelWearableListItem* wearable_item1, const LLPanelWearableListItem* wearable_item2) const;
-};
-
-
-/**
- * Adaptor between LLAccordionCtrlTab and LLFlatListView to facilitate communication between them 
- * (notify, notifyParent) regarding size changes of a list and selection changes across accordion tabs.
- * Besides that it acts as a container for the LLFlatListView and a button bar on top of it.
- */
-class LLCOFAccordionListAdaptor : public LLPanel
-{
-public:
-	LLCOFAccordionListAdaptor() : LLPanel() {};
-	~LLCOFAccordionListAdaptor() {};
-
-	S32 notifyParent(const LLSD& info)
-	{
-		LLView* parent = getParent();
-		if (!parent) return -1;
-		
-		if (!(info.has("action") && "size_changes" == info["action"].asString()))
-		{
-			return parent->notifyParent(info);
-		}
-
-		LLRect rc;
-		childGetRect("button_bar", rc);
-
-		LLSD params;
-		params["action"] = "size_changes";
-		params["width"] = info["width"];
-		params["height"] = info["height"].asInteger() + rc.getHeight();
-
-		return parent->notifyParent(params);
-	}
-
-
-	S32 notify(const LLSD& info)
-	{
-		for (child_list_const_iter_t iter = beginChild(); iter != endChild(); iter++)
-		{
-			if (dynamic_cast<LLFlatListView*>(*iter))
-			{
-				return (*iter)->notify(info);
-			}
-		}
-		return LLPanel::notify(info);
-	};
-};
-
+class LLAccordionCtrl;
+class LLAccordionCtrlTab;
+class LLListContextMenu;
+class LLPanelClothingListItem;
+class LLPanelBodyPartsListItem;
+class LLPanelDeletableWearableListItem;
 
 class LLCOFWearables : public LLPanel
 {
@@ -147,8 +54,9 @@ public:
 		LLCOFCallbacks() {};
 		virtual ~LLCOFCallbacks() {};
 		
-		typedef boost::function<void (void*)> cof_callback_t;
+		typedef boost::function<void ()> cof_callback_t;
 
+		cof_callback_t mAddWearable;
 		cof_callback_t mMoveWearableCloser;
 		cof_callback_t mMoveWearableFurther;
 		cof_callback_t mEditWearable;
@@ -158,16 +66,30 @@ public:
 
 
 	LLCOFWearables();
-	virtual ~LLCOFWearables() {};
+	virtual ~LLCOFWearables();
 
 	/*virtual*/ BOOL postBuild();
 	
 	LLUUID getSelectedUUID();
+	bool getSelectedUUIDs(uuid_vec_t& selected_ids);
 
+	LLPanel* getSelectedItem();
+	void getSelectedItems(std::vector<LLPanel*>& selected_items) const;
+
+	/* Repopulate the COF wearables list if the COF category has been changed since the last refresh */
 	void refresh();
 	void clear();
 
+	LLAssetType::EType getExpandedAccordionAssetType();
+	LLAssetType::EType getSelectedAccordionAssetType();
+	void expandDefaultAccordionTab();
+
 	LLCOFCallbacks& getCOFCallbacks() { return mCOFCallbacks; }
+
+	/**
+	 * Selects first clothing item with specified LLWearableType::EType from clothing list
+	 */
+	void selectClothing(LLWearableType::EType clothing_type);
 
 protected:
 
@@ -176,10 +98,13 @@ protected:
 	
 	void addClothingTypesDummies(const LLAppearanceMgr::wearables_by_type_t& clothing_by_type);
 	void onSelectionChange(LLFlatListView* selected_list);
+	void onAccordionTabStateChanged(LLUICtrl* ctrl, const LLSD& expanded);
 
 	LLPanelClothingListItem* buildClothingListItem(LLViewerInventoryItem* item, bool first, bool last);
 	LLPanelBodyPartsListItem* buildBodypartListItem(LLViewerInventoryItem* item);
 	LLPanelDeletableWearableListItem* buildAttachemntListItem(LLViewerInventoryItem* item);
+
+	void onListRightClick(LLUICtrl* ctrl, S32 x, S32 y, LLListContextMenu* menu);
 
 	LLFlatListView* mAttachments;
 	LLFlatListView* mClothing;
@@ -187,8 +112,24 @@ protected:
 
 	LLFlatListView* mLastSelectedList;
 
+	LLAccordionCtrlTab* mClothingTab;
+	LLAccordionCtrlTab* mAttachmentsTab;
+	LLAccordionCtrlTab* mBodyPartsTab;
+
+	LLAccordionCtrlTab* mLastSelectedTab;
+
+	std::map<const LLAccordionCtrlTab*, LLAssetType::EType> mTab2AssetType;
+
 	LLCOFCallbacks mCOFCallbacks;
 
+	LLListContextMenu* mClothingMenu;
+	LLListContextMenu* mAttachmentMenu;
+	LLListContextMenu* mBodyPartMenu;
+
+	LLAccordionCtrl*	mAccordionCtrl;
+
+	/* COF category version since last refresh */
+	S32 mCOFVersion;
 };
 
 

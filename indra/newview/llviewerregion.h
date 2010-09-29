@@ -2,31 +2,25 @@
  * @file llviewerregion.h
  * @brief Description of the LLViewerRegion class.
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -99,9 +93,8 @@ public:
 	~LLViewerRegion();
 
 	// Call this after you have the region name and handle.
-	void loadCache();
-
-	void saveCache();
+	void loadObjectCache();
+	void saveObjectCache();
 
 	void sendMessage(); // Send the current message to this region's simulator
 	void sendReliableMessage(); // Send the current message to this region's simulator
@@ -291,6 +284,7 @@ public:
 	friend std::ostream& operator<<(std::ostream &s, const LLViewerRegion &region);
     /// implements LLCapabilityProvider
     virtual std::string getDescription() const;
+	std::string getHttpUrl() const { return mHttpUrl ;}
 
 	LLSpatialPartition* getSpatialPartition(U32 type);
 public:
@@ -383,17 +377,15 @@ private:
 	std::string mColoName;
 	std::string mProductSKU;
 	std::string mProductName;
+	std::string mHttpUrl ;
 	
 	
 	// Maps local ids to cache entries.
 	// Regions can have order 10,000 objects, so assume
 	// a structure of size 2^14 = 16,000
 	BOOL									mCacheLoaded;
-	typedef std::map<U32, LLVOCacheEntry *>	cache_map_t;
-	cache_map_t			  				 	mCacheMap;
-	LLVOCacheEntry							mCacheStart;
-	LLVOCacheEntry							mCacheEnd;
-	U32										mCacheEntriesCount;
+	BOOL                                    mCacheDirty;
+	LLVOCacheEntry::vocache_entry_map_t		mCacheMap;
 	LLDynamicArray<U32>						mCacheMissFull;
 	LLDynamicArray<U32>						mCacheMissCRC;
 	// time?
@@ -402,7 +394,7 @@ private:
 	// Cache ID is unique per-region, across renames, moving locations,
 	// etc.
 	LLUUID mCacheID;
-	
+
 	typedef std::map<std::string, std::string> CapabilityMap;
 	CapabilityMap mCapabilities;
 	

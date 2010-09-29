@@ -2,30 +2,25 @@
  * @file llpanellandmarks.cpp
  * @brief Landmarks tab for Side Bar "Places" panel
  *
- * $LicenseInfo:firstyear=2009&license=viewergpl$
- *
- * Copyright (c) 2009, Linden Research, Inc.
- *
+ * $LicenseInfo:firstyear=2009&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
- *
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/flossexception
- *
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
- *
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * Copyright (C) 2010, Linden Research, Inc.
+ * 
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
+ * 
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -202,7 +197,7 @@ LLLandmarksPanel::LLLandmarksPanel()
 	mInventoryObserver = new LLLandmarksPanelObserver(this);
 	gInventory.addObserver(mInventoryObserver);
 
-	LLUICtrlFactory::getInstance()->buildPanel(this, "panel_landmarks.xml");
+	buildFromFile( "panel_landmarks.xml");
 }
 
 LLLandmarksPanel::~LLLandmarksPanel()
@@ -221,8 +216,6 @@ BOOL LLLandmarksPanel::postBuild()
 	// mast be called before any other initXXX methods to init Gear menu
 	initListCommandsHandlers();
 
-	U32 sort_order = gSavedSettings.getU32(LLInventoryPanel::DEFAULT_SORT_ORDER);
-	mSortByDate = sort_order & LLInventoryFilter::SO_DATE;
 	initFavoritesInventoryPanel();
 	initLandmarksInventoryPanel();
 	initMyInventoryPanel();
@@ -336,7 +329,7 @@ void LLLandmarksPanel::updateVerbs()
 	bool landmark_selected = isLandmarkSelected();
 	mTeleportBtn->setEnabled(landmark_selected && isActionEnabled("teleport"));
 	mShowProfile->setEnabled(landmark_selected && isActionEnabled("more_info"));
-	mShowOnMapBtn->setEnabled(true);
+	mShowOnMapBtn->setEnabled(landmark_selected && isActionEnabled("show_on_map"));
 
 	// TODO: mantipov: Uncomment when mShareBtn is supported
 	// Share button should be enabled when neither a folder nor a landmark is selected
@@ -524,6 +517,9 @@ void LLLandmarksPanel::setParcelID(const LLUUID& parcel_id)
 {
 	if (!parcel_id.isNull())
 	{
+        //ext-4655, defensive. remove now incase this gets called twice without a remove
+        LLRemoteParcelInfoProcessor::getInstance()->removeObserver(parcel_id, this);
+        
 		LLRemoteParcelInfoProcessor::getInstance()->addObserver(parcel_id, this);
 		LLRemoteParcelInfoProcessor::getInstance()->sendParcelInfoRequest(parcel_id);
 	}
@@ -607,7 +603,8 @@ void LLLandmarksPanel::initLandmarksPanel(LLPlacesInventoryPanel* inventory_list
 	inventory_list->setSelectCallback(boost::bind(&LLLandmarksPanel::onSelectionChange, this, inventory_list, _1, _2));
 
 	inventory_list->setShowFolderState(LLInventoryFilter::SHOW_NON_EMPTY_FOLDERS);
-	updateSortOrder(inventory_list, mSortByDate);
+	bool sorting_order = gSavedSettings.getBOOL("LandmarksSortedByDate");
+	updateSortOrder(inventory_list, sorting_order);
 
 	LLPlacesFolderView* root_folder = dynamic_cast<LLPlacesFolderView*>(inventory_list->getRootFolder());
 	if (root_folder)
@@ -719,8 +716,8 @@ void LLLandmarksPanel::updateListCommands()
 	bool trash_enabled = isActionEnabled("delete");
 
 	// keep Options & Add Landmark buttons always enabled
-	mListCommands->childSetEnabled(ADD_FOLDER_BUTTON_NAME, add_folder_enabled);
-	mListCommands->childSetEnabled(TRASH_BUTTON_NAME, trash_enabled);
+	mListCommands->getChildView(ADD_FOLDER_BUTTON_NAME)->setEnabled(add_folder_enabled);
+	mListCommands->getChildView(TRASH_BUTTON_NAME)->setEnabled(trash_enabled);
 }
 
 void LLLandmarksPanel::onActionsButtonClick()
@@ -875,10 +872,12 @@ void LLLandmarksPanel::onFoldingAction(const LLSD& userdata)
 	}
 	else if ("sort_by_date" == command_name)
 	{
-		mSortByDate = !mSortByDate;
-		updateSortOrder(mLandmarksInventoryPanel, mSortByDate);
-		updateSortOrder(mMyInventoryPanel, mSortByDate);
-		updateSortOrder(mLibraryInventoryPanel, mSortByDate);
+		bool sorting_order = gSavedSettings.getBOOL("LandmarksSortedByDate");
+		sorting_order=!sorting_order;
+		gSavedSettings.setBOOL("LandmarksSortedByDate",sorting_order);
+		updateSortOrder(mLandmarksInventoryPanel, sorting_order);
+		updateSortOrder(mMyInventoryPanel, sorting_order);
+		updateSortOrder(mLibraryInventoryPanel, sorting_order);
 	}
 	else
 	{
@@ -895,7 +894,8 @@ bool LLLandmarksPanel::isActionChecked(const LLSD& userdata) const
 
 	if ( "sort_by_date" == command_name)
 	{
-		return  mSortByDate;
+		bool sorting_order = gSavedSettings.getBOOL("LandmarksSortedByDate");
+		return  sorting_order;
 	}
 
 	return false;
@@ -965,20 +965,64 @@ bool LLLandmarksPanel::isActionEnabled(const LLSD& userdata) const
 			|| "expand"		== command_name
 			)
 	{
-		return canSelectedBeModified(command_name);
+		if (!root_folder_view) return false;
+
+		std::set<LLUUID> selected_uuids = root_folder_view->getSelectionList();
+
+		// Allow to execute the command only if it can be applied to all selected items.
+		for (std::set<LLUUID>::const_iterator iter = selected_uuids.begin(); iter != selected_uuids.end(); ++iter)
+		{
+			LLFolderViewItem* item = root_folder_view->getItemByID(*iter);
+
+			// If no item is found it might be a folder id.
+			if (!item)
+			{
+				item = root_folder_view->getFolderByID(*iter);
+			}
+			if (!item) return false;
+
+			if (!canItemBeModified(command_name, item)) return false;
+		}
+
+		return true;
 	}
 	else if (  "teleport"		== command_name
 			|| "more_info"		== command_name
 			|| "show_on_map"	== command_name
 			|| "copy_slurl"		== command_name
+			|| "rename"			== command_name
 			)
 	{
 		// disable some commands for multi-selection. EXT-1757
-		return root_folder_view && root_folder_view->getSelectedCount() == 1;
+		bool is_single_selection = root_folder_view && root_folder_view->getSelectedCount() == 1;
+		if (!is_single_selection)
+		{
+			return false;
+		}
+
+		if ("show_on_map" == command_name)
+		{
+			LLFolderViewItem* cur_item = root_folder_view->getCurSelectedItem();
+			if (!cur_item) return false;
+
+			LLViewerInventoryItem* inv_item = cur_item->getInventoryItem();
+			if (!inv_item) return false;
+
+			LLUUID asset_uuid = inv_item->getAssetUUID();
+			if (asset_uuid.isNull()) return false;
+
+			// Disable "Show on Map" if landmark loading is in progress.
+			return !gLandmarkList.isAssetInLoadedCallbackMap(asset_uuid);
 	}
 	else if ("rename" == command_name)
 	{
-		return root_folder_view && root_folder_view->getSelectedCount() == 1 && canSelectedBeModified(command_name);
+			LLFolderViewItem* selected_item = getCurSelectedItem();
+			if (!selected_item) return false;
+
+			return canItemBeModified(command_name, selected_item);
+		}
+
+		return true;
 	}
 	else if("category" == command_name)
 	{
@@ -1044,12 +1088,11 @@ Rules:
  4. We can not paste folders from Clipboard (processed by LLFolderView::canPaste())
  5. Check LLFolderView/Inventory Bridges rules
  */
-bool LLLandmarksPanel::canSelectedBeModified(const std::string& command_name) const
+bool LLLandmarksPanel::canItemBeModified(const std::string& command_name, LLFolderViewItem* item) const
 {
 	// validate own rules first
 
-	LLFolderViewItem* selected = getCurSelectedItem();
-	if (!selected) return false;
+	if (!item) return false;
 
 	// nothing can be modified in Library
 	if (mLibraryInventoryPanel == mCurrentSelectedList) return false;
@@ -1057,7 +1100,7 @@ bool LLLandmarksPanel::canSelectedBeModified(const std::string& command_name) co
 	bool can_be_modified = false;
 
 	// landmarks can be modified in any other accordion...
-	if (isLandmarkSelected())
+	if (item->getListener()->getInventoryType() == LLInventoryType::IT_LANDMARK)
 	{
 		can_be_modified = true;
 
@@ -1086,20 +1129,21 @@ bool LLLandmarksPanel::canSelectedBeModified(const std::string& command_name) co
 	}
 	else if ("collapse" == command_name)
 	{
-		return selected->isOpen();
+		return item->isOpen();
 	}
 	else if ("expand" == command_name)
 	{
-		return !selected->isOpen();
+		return !item->isOpen();
 	}
 
 	if (can_be_modified)
 	{
-		LLFolderViewEventListener* listenerp = selected->getListener();
+		LLFolderViewEventListener* listenerp = item->getListener();
 
 		if ("cut" == command_name)
 		{
-			can_be_modified = root_folder->canCut();
+			// "Cut" disabled for folders. See EXT-8697.
+			can_be_modified = root_folder->canCut() && listenerp->getInventoryType() != LLInventoryType::IT_CATEGORY;
 		}
 		else if ("rename" == command_name)
 		{
@@ -1188,6 +1232,7 @@ void LLLandmarksPanel::doShowOnMap(LLLandmark* landmark)
 	}
 
 	mShowOnMapBtn->setEnabled(TRUE);
+	mGearLandmarkMenu->setItemEnabled("show_on_map", TRUE);
 }
 
 void LLLandmarksPanel::doProcessParcelInfo(LLLandmark* landmark,
@@ -1200,7 +1245,12 @@ void LLLandmarksPanel::doProcessParcelInfo(LLLandmark* landmark,
 	landmark->getGlobalPos(landmark_global_pos);
 
 	// let's toggle pick panel into  panel places
-	LLPanel* panel_places =  LLSideTray::getInstance()->getChild<LLPanel>("panel_places");//-> sidebar_places
+	LLPanel* panel_places =  LLSideTray::getInstance()->getPanel("panel_places");//-> sidebar_places
+	if (!panel_places)
+	{
+		llassert(NULL != panel_places);
+		return;
+	}
 	panel_places->addChild(panel_pick);
 	LLRect paren_rect(panel_places->getRect());
 	panel_pick->reshape(paren_rect.getWidth(),paren_rect.getHeight(), TRUE);

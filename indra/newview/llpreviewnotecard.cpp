@@ -2,31 +2,25 @@
  * @file llpreviewnotecard.cpp
  * @brief Implementation of the notecard editor
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -77,7 +71,6 @@ LLPreviewNotecard::LLPreviewNotecard(const LLSD& key) //const LLUUID& item_id,
 	{
 		mAssetID = item->getAssetUUID();
 	}	
-	//Called from floater reg: LLUICtrlFactory::getInstance()->buildFloater(this,"floater_preview_notecard.xml", FALSE);
 }
 
 LLPreviewNotecard::~LLPreviewNotecard()
@@ -91,20 +84,20 @@ BOOL LLPreviewNotecard::postBuild()
 	ed->makePristine();
 
 	childSetAction("Save", onClickSave, this);
-	childSetVisible("lock", FALSE);	
+	getChildView("lock")->setVisible( FALSE);	
 
 	childSetAction("Delete", onClickDelete, this);
-	childSetEnabled("Delete", false);
+	getChildView("Delete")->setEnabled(false);
 
 	const LLInventoryItem* item = getItem();
 
 	childSetCommitCallback("desc", LLPreview::onText, this);
 	if (item)
 	{
-		childSetText("desc", item->getDescription());
-		childSetEnabled("Delete", true);
+		getChild<LLUICtrl>("desc")->setValue(item->getDescription());
+		getChildView("Delete")->setEnabled(true);
 	}
-	childSetPrevalidate("desc", &LLTextValidate::validateASCIIPrintableNoPipe);
+	getChild<LLLineEditor>("desc")->setPrevalidate(&LLTextValidate::validateASCIIPrintableNoPipe);
 
 	return LLPreview::postBuild();
 }
@@ -120,10 +113,10 @@ void LLPreviewNotecard::setEnabled( BOOL enabled )
 
 	LLViewerTextEditor* editor = getChild<LLViewerTextEditor>("Notecard Editor");
 
-	childSetEnabled("Notecard Editor", enabled);
-	childSetVisible("lock", !enabled);
-	childSetEnabled("desc", enabled);
-	childSetEnabled("Save", enabled && editor && (!editor->isPristine()));
+	getChildView("Notecard Editor")->setEnabled(enabled);
+	getChildView("lock")->setVisible( !enabled);
+	getChildView("desc")->setEnabled(enabled);
+	getChildView("Save")->setEnabled(enabled && editor && (!editor->isPristine()));
 }
 
 
@@ -132,7 +125,7 @@ void LLPreviewNotecard::draw()
 	LLViewerTextEditor* editor = getChild<LLViewerTextEditor>("Notecard Editor");
 	BOOL changed = !editor->isPristine();
 
-	childSetEnabled("Save", changed && getEnabled());
+	getChildView("Save")->setEnabled(changed && getEnabled());
 	
 	LLPreview::draw();
 }
@@ -283,7 +276,7 @@ void LLPreviewNotecard::loadAsset()
 								GP_OBJECT_MANIPULATE))
 		{
 			editor->setEnabled(FALSE);
-			childSetVisible("lock", TRUE);
+			getChildView("lock")->setVisible( TRUE);
 		}
 	}
 	else

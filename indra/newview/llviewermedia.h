@@ -2,31 +2,25 @@
  * @file llviewermedia.h
  * @brief Client interface to the media engine
  *
- * $LicenseInfo:firstyear=2007&license=viewergpl$
- * 
- * Copyright (c) 2007-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2007&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -84,7 +78,7 @@ public:
 	static const char* SHOW_MEDIA_WITHIN_PARCEL_SETTING;
 	static const char* SHOW_MEDIA_OUTSIDE_PARCEL_SETTING;
 	
-	typedef std::vector<LLViewerMediaImpl*> impl_list;
+	typedef std::list<LLViewerMediaImpl*> impl_list;
 	
 	typedef std::map<LLUUID, LLViewerMediaImpl*> impl_id_map;
 	
@@ -157,6 +151,9 @@ public:
 
 	static void openIDSetup(const std::string &openid_url, const std::string &openid_token);
 	static void openIDCookieResponse(const std::string &cookie);
+	
+	static void proxyWindowOpened(const std::string &target, const std::string &uuid);
+	static void proxyWindowClosed(const std::string &uuid);
 	
 private:
 	static void setOpenIDCookie();
@@ -237,7 +234,7 @@ public:
 	std::string getCurrentMediaURL();
 	std::string getHomeURL() { return mHomeURL; }
 	std::string getMediaEntryURL() { return mMediaEntryURL; }
-    void setHomeURL(const std::string& home_url) { mHomeURL = home_url; };
+	void setHomeURL(const std::string& home_url, const std::string& mime_type = LLStringUtil::null) { mHomeURL = home_url; mHomeMimeType = mime_type;};
 	void clearCache();
 	std::string getMimeType() { return mMimeType; }
 	void scaleMouse(S32 *mouse_x, S32 *mouse_y);
@@ -277,8 +274,10 @@ public:
 
 	ECursorType getLastSetCursor() { return mLastSetCursor; }
 	
+	void setTarget(const std::string& target) { mTarget = target; }
+	
 	// utility function to create a ready-to-use media instance from a desired media type.
-	static LLPluginClassMedia* newSourceFromMediaType(std::string media_type, LLPluginClassMediaOwner *owner /* may be NULL */, S32 default_width, S32 default_height);
+	static LLPluginClassMedia* newSourceFromMediaType(std::string media_type, LLPluginClassMediaOwner *owner /* may be NULL */, S32 default_width, S32 default_height, const std::string target = LLStringUtil::null);
 
 	// Internally set our desired browser user agent string, including
 	// the Second Life version and skin name.  Used because we can
@@ -362,7 +361,9 @@ public:
 		MEDIANAVSTATE_NONE,										// State is outside what we need to track for navigation.
 		MEDIANAVSTATE_BEGUN,									// a MEDIA_EVENT_NAVIGATE_BEGIN has been received which was not server-directed
 		MEDIANAVSTATE_FIRST_LOCATION_CHANGED,					// first LOCATION_CHANGED event after a non-server-directed BEGIN
+		MEDIANAVSTATE_FIRST_LOCATION_CHANGED_SPURIOUS,			// Same as above, but the new URL is identical to the previously navigated URL.
 		MEDIANAVSTATE_COMPLETE_BEFORE_LOCATION_CHANGED,			// we received a NAVIGATE_COMPLETE event before the first LOCATION_CHANGED
+		MEDIANAVSTATE_COMPLETE_BEFORE_LOCATION_CHANGED_SPURIOUS,// Same as above, but the new URL is identical to the previously navigated URL.
 		MEDIANAVSTATE_SERVER_SENT,								// server-directed nav has been requested, but MEDIA_EVENT_NAVIGATE_BEGIN hasn't been received yet
 		MEDIANAVSTATE_SERVER_BEGUN,								// MEDIA_EVENT_NAVIGATE_BEGIN has been received which was server-directed
 		MEDIANAVSTATE_SERVER_FIRST_LOCATION_CHANGED,			// first LOCATION_CHANGED event after a server-directed BEGIN
@@ -399,6 +400,7 @@ private:
 	bool  mMovieImageHasMips;
 	std::string mMediaURL;			// The last media url set with NavigateTo
 	std::string mHomeURL;
+	std::string mHomeMimeType;		// forced mime type for home url
 	std::string mMimeType;
 	std::string mCurrentMediaURL;	// The most current media url from the plugin (via the "location changed" or "navigate complete" events).
 	std::string mCurrentMimeType;	// The MIME type that caused the currently loaded plugin to be loaded.
@@ -441,6 +443,7 @@ private:
 	bool mNavigateSuspended;
 	bool mNavigateSuspendedDeferred;
 	bool mTrustedBrowser;
+	std::string mTarget;
 	
 private:
 	BOOL mIsUpdated ;

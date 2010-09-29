@@ -1,32 +1,26 @@
 /** 
  * @file llavatarlistitem.h
- * @avatar list item header file
+ * @brief avatar list item header file
  *
- * $LicenseInfo:firstyear=2009&license=viewergpl$
- * 
- * Copyright (c) 2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2009&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -42,6 +36,7 @@
 #include "llcallingcard.h" // for LLFriendObserver
 
 class LLAvatarIconCtrl;
+class LLIconCtrl;
 
 class LLAvatarListItem : public LLPanel, public LLFriendObserver
 {
@@ -66,13 +61,6 @@ public:
 		IS_ONLINE,
 		IS_OFFLINE,
 	} EItemState;
-
-	class ContextMenu
-	{
-	public:
-		virtual void show(LLView* spawning_view, const uuid_vec_t& selected_uuids, S32 x, S32 y) = 0;
-		virtual void hide() = 0;
-	};
 
 	/**
 	 * Creates an instance of LLAvatarListItem.
@@ -107,6 +95,7 @@ public:
 	void setShowProfileBtn(bool show);
 	void setShowInfoBtn(bool show);
 	void showSpeakingIndicator(bool show);
+	void setShowPermissions(bool show) { mShowPermissions = show; };
 	void showLastInteractionTime(bool show);
 	void setAvatarIconVisible(bool visible);
 	
@@ -125,6 +114,15 @@ protected:
 	LLOutputMonitorCtrl* mSpeakingIndicator;
 
 	LLAvatarIconCtrl* mAvatarIcon;
+
+	/// Indicator for permission to see me online.
+	LLIconCtrl* mIconPermissionOnline;
+	/// Indicator for permission to see my position on the map.
+	LLIconCtrl* mIconPermissionMap;
+	/// Indicator for permission to edit my objects.
+	LLIconCtrl* mIconPermissionEditMine;
+	/// Indicator for permission to edit their objects.
+	LLIconCtrl* mIconPermissionEditTheirs;
 
 private:
 
@@ -145,6 +143,10 @@ private:
 		ALIC_SPEAKER_INDICATOR,
 		ALIC_PROFILE_BUTTON,
 		ALIC_INFO_BUTTON,
+		ALIC_PERMISSION_ONLINE,
+		ALIC_PERMISSION_MAP,
+		ALIC_PERMISSION_EDIT_MINE,
+		ALIC_PERMISSION_EDIT_THEIRS,
 		ALIC_INTERACTION_TIME,
 		ALIC_NAME,
 		ALIC_ICON,
@@ -172,6 +174,13 @@ private:
 	void updateChildren();
 
 	/**
+	 * Update visibility of active permissions icons.
+	 *
+	 * Need to call updateChildren() afterwards to sort out their layout.
+	 */
+	bool showPermissions(bool visible);
+
+	/**
 	 * Gets child view specified by index.
 	 *
 	 * This method implemented via switch by all EAvatarListItemChildIndex values.
@@ -193,6 +202,12 @@ private:
 	//Speaker indicator and avatar name coords are translated accordingly
 	bool mShowInfoBtn;
 	bool mShowProfileBtn;
+
+	/// indicates whether to show icons representing permissions granted
+	bool mShowPermissions;
+
+	/// true when the mouse pointer is hovering over this item
+	bool mHovered;
 
 	static bool	sStaticInitialized; // this variable is introduced to improve code readability
 	static S32  sLeftPadding; // padding to first left visible child (icon or name)

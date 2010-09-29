@@ -24,6 +24,8 @@ top="600"
 </panel.string>
 <!-- *NOTE: Custom resize logic for login_html in llpanellogin.cpp -->
 <web_browser
+  tab_stop="false" 
+trusted_content="true" 
 bg_opaque_color="Black"
 border_visible="false"
 bottom="600"
@@ -85,7 +87,6 @@ top="20"
 </text>
 <line_editor
 follows="left|bottom"
-handle_edit_keys_directly="true"
   height="22"
   max_length="16"
 name="password_edit"
@@ -131,7 +132,7 @@ control_name="LoginLocation"
 max_chars="128"
 top_pad="0"
 name="start_location_combo"
-     width="135">
+     width="170">
 <combo_box.item
 label="My last location"
 name="MyLastLocation"
@@ -157,6 +158,7 @@ width="135"
   visible="false" />
 </layout_panel>
 <layout_panel
+tab_stop="false"
 follows="right|bottom"
 name="links"
 width="200"

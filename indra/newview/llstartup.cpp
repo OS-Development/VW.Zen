@@ -2,31 +2,25 @@
  * @file llstartup.cpp
  * @brief startup routines.
  *
- * $LicenseInfo:firstyear=2004&license=viewergpl$
- * 
- * Copyright (c) 2004-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2004&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -118,7 +112,6 @@
 #include "llinventorybridge.h"
 #include "llinventorymodel.h"
 #include "llinventorymodelbackgroundfetch.h"
-#include "llfriendcard.h"
 #include "llkeyboard.h"
 #include "llloginhandler.h"			// gLoginHandler, SLURL support
 #include "lllogininstance.h" // Host the login module.
@@ -128,7 +121,6 @@
 #include "llfloaterevent.h"
 #include "llpanelclassified.h"
 #include "llpanelpick.h"
-#include "llpanelplace.h"
 #include "llpanelgrouplandmoney.h"
 #include "llpanelgroupnotices.h"
 #include "llpreview.h"
@@ -199,7 +191,6 @@
 #include "llstartuplistener.h"
 
 #if LL_WINDOWS
-#include "llwindebug.h"
 #include "lldxhardware.h"
 #endif
 
@@ -225,6 +216,7 @@ extern S32 gStartImageHeight;
 static bool gGotUseCircuitCodeAck = false;
 static std::string sInitialOutfit;
 static std::string sInitialOutfitGender;	// "male" or "female"
+static boost::signals2::connection sWearablesLoadedCon;
 
 static bool gUseCircuitCallbackCalled = false;
 
@@ -384,13 +376,22 @@ bool idle_startup()
 		{
 			LLNotificationsUtil::add("DisplaySetToRecommended");
 		}
+		else if ((gSavedSettings.getS32("LastGPUClass") != LLFeatureManager::getInstance()->getGPUClass()) &&
+				 (gSavedSettings.getS32("LastGPUClass") != -1))
+		{
+			LLNotificationsUtil::add("DisplaySetToRecommended");
+		}
 		else if (!gViewerWindow->getInitAlert().empty())
 		{
 			LLNotificationsUtil::add(gViewerWindow->getInitAlert());
 		}
 			
 		gSavedSettings.setS32("LastFeatureVersion", LLFeatureManager::getInstance()->getVersion());
+		gSavedSettings.setS32("LastGPUClass", LLFeatureManager::getInstance()->getGPUClass());
 
+		// load dynamic GPU/feature tables from website (S3)
+		LLFeatureManager::getInstance()->fetchHTTPTables();
+		
 		std::string xml_file = LLUI::locateSkin("xui_version.xml");
 		LLXMLNodePtr root;
 		bool xml_ok = false;
@@ -726,6 +727,8 @@ bool idle_startup()
 			// Make sure the process dialog doesn't hide things
 			gViewerWindow->setShowProgress(FALSE);
 
+			initialize_edit_menu();
+
 			// Show the login dialog
 			login_show();
 			// connect dialog is already shown, so fill in the names
@@ -769,9 +772,6 @@ bool idle_startup()
 		gViewerWindow->getWindow()->show();
 		display_startup();
 
-		//DEV-10530.  do cleanup.  remove at some later date.  jan-2009
-		LLFloaterPreference::cleanupBadSetting();
-
 		// DEV-16927.  The following code removes errant keystrokes that happen while the window is being 
 		// first made visible.
 #ifdef _WIN32
@@ -794,10 +794,6 @@ bool idle_startup()
 
 	if (STATE_LOGIN_CLEANUP == LLStartUp::getStartupState())
 	{
-		// Move the progress view in front of the UI immediately when login is performed
-		// this allows not to see main menu after Alt+Tab was pressed while login. EXT-744.
-		gViewerWindow->moveProgressViewToFront();
-
 		//reset the values that could have come in from a slurl
 		// DEV-42215: Make sure they're not empty -- gUserCredential
 		// might already have been set from gSavedSettings, and it's too bad
@@ -1108,8 +1104,6 @@ bool idle_startup()
 				LLVoiceClient::getInstance()->userAuthorized(gUserCredential->userID(), gAgentID);
 				// create the default proximal channel
 				LLVoiceChannel::initClass();
-				// update the voice settings
-				LLVoiceClient::getInstance()->updateSettings();
 				LLGridManager::getInstance()->setFavorite(); 
 				LLStartUp::setStartupState( STATE_WORLD_INIT);
 			}
@@ -1253,9 +1247,6 @@ bool idle_startup()
 
 		if (!gNoRender)
 		{
-			// Move the progress view in front of the UI
-			gViewerWindow->moveProgressViewToFront();
-
 			// direct logging to the debug console's line buffer
 			LLError::logToFixedBuffer(gDebugView->mDebugConsolep);
 			
@@ -1291,6 +1282,10 @@ bool idle_startup()
 			// Load stored cache if possible
             LLAppViewer::instance()->loadNameCache();
 		}
+
+		// update the voice settings *after* gCacheName initialization
+		// so that we can construct voice UI that relies on the name cache
+		LLVoiceClient::getInstance()->updateSettings();
 
 		//gCacheName is required for nearby chat history loading
 		//so I just moved nearby history loading a few states further
@@ -1635,12 +1630,6 @@ bool idle_startup()
 
 		//all categories loaded. lets create "My Favorites" category
 		gInventory.findCategoryUUIDForType(LLFolderType::FT_FAVORITE,true);
-
-		// Checks whether "Friends" and "Friends/All" folders exist in "Calling Cards" folder,
-		// fetches their contents if needed and synchronizes it with buddies list.
-		// If the folders are not found they are created.
-		LLFriendCardsManager::instance().syncFriendCardsFolders();
-
 
 		// set up callbacks
 		llinfos << "Registering Callbacks" << llendl;
@@ -2364,9 +2353,12 @@ void asset_callback_nothing(LLVFS*, const LLUUID&, LLAssetType::EType, void*, S3
 }
 
 // *HACK: Must match name in Library or agent inventory
+const std::string ROOT_GESTURES_FOLDER = "Gestures";
 const std::string COMMON_GESTURES_FOLDER = "Common Gestures";
 const std::string MALE_GESTURES_FOLDER = "Male Gestures";
 const std::string FEMALE_GESTURES_FOLDER = "Female Gestures";
+const std::string SPEECH_GESTURES_FOLDER = "Speech Gestures";
+const std::string OTHER_GESTURES_FOLDER = "Other Gestures";
 const S32 OPT_CLOSED_WINDOW = -1;
 const S32 OPT_MALE = 0;
 const S32 OPT_FEMALE = 1;
@@ -2395,6 +2387,60 @@ bool callback_choose_gender(const LLSD& notification, const LLSD& response)
 	return false;
 }
 
+void LLStartUp::copyLibraryGestures(const std::string& same_gender_gestures)
+{
+	llinfos << "Copying library gestures" << llendl;
+
+	// Copy gestures
+	LLUUID lib_gesture_cat_id =
+		gInventory.findCategoryUUIDForType(LLFolderType::FT_GESTURE,false,true);
+	if (lib_gesture_cat_id.isNull())
+	{
+		llwarns << "Unable to copy gestures, source category not found" << llendl;
+	}
+	LLUUID dst_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_GESTURE);
+
+	std::vector<std::string> gesture_folders_to_copy;
+	gesture_folders_to_copy.push_back(MALE_GESTURES_FOLDER);
+	gesture_folders_to_copy.push_back(FEMALE_GESTURES_FOLDER);
+	gesture_folders_to_copy.push_back(COMMON_GESTURES_FOLDER);
+	gesture_folders_to_copy.push_back(SPEECH_GESTURES_FOLDER);
+	gesture_folders_to_copy.push_back(OTHER_GESTURES_FOLDER);
+
+	for(std::vector<std::string>::iterator it = gesture_folders_to_copy.begin();
+		it != gesture_folders_to_copy.end();
+		++it)
+	{
+		std::string& folder_name = *it;
+
+		LLPointer<LLInventoryCallback> cb(NULL);
+
+		if (folder_name == same_gender_gestures ||
+			folder_name == COMMON_GESTURES_FOLDER ||
+			folder_name == OTHER_GESTURES_FOLDER)
+		{
+			cb = new ActivateGestureCallback;
+		}
+
+
+		LLUUID cat_id = findDescendentCategoryIDByName(lib_gesture_cat_id,folder_name);
+		if (cat_id.isNull())
+		{
+			llwarns << "failed to find gesture folder for " << folder_name << llendl;
+		}
+		else
+		{
+			llinfos << "initiating fetch and copy for " << folder_name << " cat_id " << cat_id << llendl;
+			LLAppearanceMgr* app_mgr = LLAppearanceMgr::getInstance();
+			callAfterCategoryFetch(cat_id,
+								   boost::bind(&LLAppearanceMgr::shallowCopyCategory,
+											   app_mgr,
+											   cat_id,
+											   dst_id,
+											   cb));
+		}
+	}
+}
 
 void LLStartUp::loadInitialOutfit( const std::string& outfit_folder_name,
 								   const std::string& gender_name )
@@ -2407,16 +2453,16 @@ void LLStartUp::loadInitialOutfit( const std::string& outfit_folder_name,
 	gInventory.findCategoryUUIDForType(LLFolderType::FT_CURRENT_OUTFIT);
 	
 	S32 gender = 0;
-	std::string gestures;
+	std::string same_gender_gestures;
 	if (gender_name == "male")
 	{
 		gender = OPT_MALE;
-		gestures = MALE_GESTURES_FOLDER;
+		same_gender_gestures = MALE_GESTURES_FOLDER;
 	}
 	else
 	{
 		gender = OPT_FEMALE;
-		gestures = FEMALE_GESTURES_FOLDER;
+		same_gender_gestures = FEMALE_GESTURES_FOLDER;
 	}
 
 	// try to find the outfit - if not there, create some default
@@ -2430,6 +2476,8 @@ void LLStartUp::loadInitialOutfit( const std::string& outfit_folder_name,
 	}
 	else
 	{
+		sWearablesLoadedCon = gAgentWearables.addLoadedCallback(LLStartUp::saveInitialOutfit);
+
 		bool do_copy = true;
 		bool do_append = false;
 		LLViewerInventoryCategory *cat = gInventory.getCategory(cat_id);
@@ -2437,42 +2485,29 @@ void LLStartUp::loadInitialOutfit( const std::string& outfit_folder_name,
 	}
 
 	// Copy gestures
-	LLUUID dst_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_GESTURE);
-	LLPointer<LLInventoryCallback> cb(NULL);
-	LLAppearanceMgr *app_mgr = &(LLAppearanceMgr::instance());
-
-	// - Copy gender-specific gestures.
-	LLUUID gestures_cat_id = findDescendentCategoryIDByName( 
-		gInventory.getLibraryRootFolderID(),
-		gestures);
-	if (gestures_cat_id.notNull())
-	{
-		callAfterCategoryFetch(gestures_cat_id,
-							   boost::bind(&LLAppearanceMgr::shallowCopyCategory,
-										   app_mgr,
-										   gestures_cat_id,
-										   dst_id,
-										   cb));
-	}
-
-	// - Copy common gestures.
-	LLUUID common_gestures_cat_id = findDescendentCategoryIDByName( 
-		gInventory.getLibraryRootFolderID(),
-		COMMON_GESTURES_FOLDER);
-	if (common_gestures_cat_id.notNull())
-	{
-		callAfterCategoryFetch(common_gestures_cat_id,
-							   boost::bind(&LLAppearanceMgr::shallowCopyCategory,
-										   app_mgr,
-										   common_gestures_cat_id,
-										   dst_id,
-										   cb));
-	}
-
+	copyLibraryGestures(same_gender_gestures);
+	
 	// This is really misnamed -- it means we have started loading
 	// an outfit/shape that will give the avatar a gender eventually. JC
 	gAgent.setGenderChosen(TRUE);
 
+}
+
+//static
+void LLStartUp::saveInitialOutfit()
+{
+	if (sInitialOutfit.empty()) return;
+	
+	if (sWearablesLoadedCon.connected())
+	{
+		sWearablesLoadedCon.disconnect();
+	}
+	LLAppearanceMgr::getInstance()->makeNewOutfitLinks(sInitialOutfit,false);
+}
+
+std::string& LLStartUp::getInitialOutfitName()
+{
+	return sInitialOutfit;
 }
 
 // Loads a bitmap to display during load
@@ -2610,12 +2645,6 @@ void reset_login()
 
 //---------------------------------------------------------------------------
 
-
-bool LLStartUp::canGoFullscreen()
-{
-	return gStartupState >= STATE_WORLD_INIT;
-}
-
 // Initialize all plug-ins except the web browser (which was initialized
 // early, before the login screen). JC
 void LLStartUp::multimediaInit()
@@ -2702,7 +2731,8 @@ LLSD transform_cert_args(LLPointer<LLCertificate> cert)
 {
 	LLSD args = LLSD::emptyMap();
 	std::string value;
-	LLSD cert_info = cert->getLLSD();
+	LLSD cert_info;
+	cert->getLLSD(cert_info);
 	// convert all of the elements in the cert into                                        
 	// args for the xml dialog, so we have flexability to                                  
 	// display various parts of the cert by only modifying                                 
@@ -2882,9 +2912,8 @@ bool process_login_success_response()
 	text = response["agent_region_access"].asString();
 	if (!text.empty())
 	{
-		U32 preferredMaturity =
-			llmin((U32)LLAgent::convertTextToMaturity(text[0]),
-			      gSavedSettings.getU32("PreferredMaturity"));
+		U32 preferredMaturity = (U32)LLAgent::convertTextToMaturity(text[0]);
+
 		gSavedSettings.setU32("PreferredMaturity", preferredMaturity);
 	}
 	// During the AO transition, this flag will be true. Then the flag will
@@ -3041,7 +3070,7 @@ bool process_login_success_response()
 	// Default male and female avatars allowing the user to choose their avatar on first login.
 	// These may be passed up by SLE to allow choice of enterprise avatars instead of the standard
 	// "new ruth."  Not to be confused with 'initial-outfit' below 
-	LLSD newuser_config = response["newuser-config"];
+	LLSD newuser_config = response["newuser-config"][0];
 	if(newuser_config.has("DefaultFemaleAvatar"))
 	{
 		gSavedSettings.setString("DefaultFemaleAvatar", newuser_config["DefaultFemaleAvatar"].asString()); 		
@@ -3095,6 +3124,13 @@ bool process_login_success_response()
 		{
 			gCloudTextureID = id;
 		}
+	}
+
+	// Set the location of the snapshot sharing config endpoint
+	std::string snapshot_config_url = response["snapshot_config_url"];
+	if(!snapshot_config_url.empty())
+	{
+		gSavedSettings.setString("SnapshotConfigURL", snapshot_config_url);
 	}
 
 	// Start the process of fetching the OpenID session cookie for this user login

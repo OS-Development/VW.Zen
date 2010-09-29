@@ -909,6 +909,9 @@
 	<string name="InvFolder Gestures">
 		Gebaren
 	</string>
+	<string name="InvFolder Favorite">
+		Favoriten
+	</string>
 	<string name="InvFolder favorite">
 		Favoriten
 	</string>

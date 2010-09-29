@@ -2,31 +2,25 @@
  * @file llfloater.cpp
  * @brief LLFloater base class
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -42,6 +36,7 @@
 #include "lluictrlfactory.h"
 #include "llbutton.h"
 #include "llcheckboxctrl.h"
+#include "lldir.h"
 #include "lldraghandle.h"
 #include "llfloaterreg.h"
 #include "llfocusmgr.h"
@@ -169,6 +164,7 @@ LLFloater::Params::Params()
 	save_rect("save_rect", false),
 	save_visibility("save_visibility", false),
 	can_dock("can_dock", false),
+	open_centered("open_centered", false),
 	header_height("header_height", 0),
 	legacy_header_height("legacy_header_height", 0),
 	close_image("close_image"),
@@ -329,6 +325,7 @@ void LLFloater::addDragHandle()
 		addChild(mDragHandle);
 	}
 	layoutDragHandle();
+	applyTitle();
 }
 
 void LLFloater::layoutDragHandle()
@@ -345,9 +342,8 @@ void LLFloater::layoutDragHandle()
 	{
 		rect = getLocalRect();
 	}
-	mDragHandle->setRect(rect);
+	mDragHandle->setShape(rect);
 	updateTitleButtons();
-	applyTitle();
 }
 
 void LLFloater::addResizeCtrls()
@@ -450,6 +446,14 @@ void LLFloater::enableResizeCtrls(bool enable)
 	}
 }
 
+void LLFloater::destroy()
+{
+	// LLFloaterReg should be synchronized with "dead" floater to avoid returning dead instance before
+	// it was deleted via LLMortician::updateClass(). See EXT-8458.
+	LLFloaterReg::removeInstance(mInstanceName, mKey);
+	die();
+}
+
 // virtual
 LLFloater::~LLFloater()
 {
@@ -496,7 +500,7 @@ void LLFloater::storeRectControl()
 {
 	if( mRectControl.size() > 1 )
 	{
-		LLUI::sSettingGroups["floater"]->setRect( mRectControl, getRect() );
+		getControlGroup()->setRect( mRectControl, getRect() );
 	}
 }
 
@@ -504,7 +508,7 @@ void LLFloater::storeVisibilityControl()
 {
 	if( !sQuitting && mVisibilityControl.size() > 1 )
 	{
-		LLUI::sSettingGroups["floater"]->setBOOL( mVisibilityControl, getVisible() );
+		getControlGroup()->setBOOL( mVisibilityControl, getVisible() );
 	}
 }
 
@@ -512,10 +516,47 @@ void LLFloater::storeDockStateControl()
 {
 	if( !sQuitting && mDocStateControl.size() > 1 )
 	{
-		LLUI::sSettingGroups["floater"]->setBOOL( mDocStateControl, isDocked() );
+		getControlGroup()->setBOOL( mDocStateControl, isDocked() );
 	}
 }
 
+LLRect LLFloater::getSavedRect() const
+{
+	LLRect rect;
+
+	if (mRectControl.size() > 1)
+	{
+		rect = getControlGroup()->getRect(mRectControl);
+	}
+
+	return rect;
+}
+
+bool LLFloater::hasSavedRect() const
+{
+	return !getSavedRect().isEmpty();
+}
+
+// static
+std::string LLFloater::getControlName(const std::string& name, const LLSD& key)
+{
+	std::string ctrl_name = name;
+
+	// Add the key to the control name if appropriate.
+	if (key.isString() && !key.asString().empty())
+	{
+		ctrl_name += "_" + key.asString();
+	}
+
+	return ctrl_name;
+}
+
+// static
+LLControlGroup*	LLFloater::getControlGroup()
+{
+	// Floater size, position, visibility, etc are saved in per-account settings.
+	return LLUI::sSettingGroups["account"];
+}
 
 void LLFloater::setVisible( BOOL visible )
 {
@@ -763,9 +804,16 @@ void    LLFloater::applySavedVariables()
 
 void LLFloater::applyRectControl()
 {
+	// first, center on screen if requested	
+	if (mOpenCentered)
+	{
+		center();
+	}
+
+	// override center if we have saved rect control
 	if (mRectControl.size() > 1)
 	{
-		const LLRect& rect = LLUI::sSettingGroups["floater"]->getRect(mRectControl);
+		const LLRect& rect = getControlGroup()->getRect(mRectControl);
 		if (rect.getWidth() > 0 && rect.getHeight() > 0)
 		{
 			translate( rect.mLeft - getRect().mLeft, rect.mBottom - getRect().mBottom);
@@ -781,7 +829,7 @@ void LLFloater::applyDockState()
 {
 	if (mDocStateControl.size() > 1)
 	{
-		bool dockState = LLUI::sSettingGroups["floater"]->getBOOL(mDocStateControl);
+		bool dockState = getControlGroup()->getBOOL(mDocStateControl);
 		setDocked(dockState);
 	}
 
@@ -801,6 +849,11 @@ void LLFloater::applyTitle()
 	else
 	{
 		mDragHandle->setTitle ( mTitle );
+	}
+
+	if (getHost())
+	{
+		getHost()->updateFloaterTitle(this);	
 	}
 }
 
@@ -1939,6 +1992,7 @@ LLFloaterView::LLFloaterView (const Params& p)
 :	LLUICtrl (p),
 
 	mFocusCycleMode(FALSE),
+	mMinimizePositionVOffset(0),
 	mSnapOffsetBottom(0),
 	mSnapOffsetRight(0)
 {
@@ -2264,6 +2318,7 @@ void LLFloaterView::getMinimizePosition(S32 *left, S32 *bottom)
 	S32 floater_header_size = default_params.header_height;
 	static LLUICachedControl<S32> minimized_width ("UIMinimizedWidth", 0);
 	LLRect snap_rect_local = getLocalSnapRect();
+	snap_rect_local.mTop += mMinimizePositionVOffset;
 	for(S32 col = snap_rect_local.mLeft;
 		col < snap_rect_local.getWidth() - minimized_width;
 		col += minimized_width)
@@ -2336,7 +2391,9 @@ void LLFloaterView::closeAllChildren(bool app_quitting)
 
 		// Attempt to close floater.  This will cause the "do you want to save"
 		// dialogs to appear.
-		if (floaterp->canClose() && !floaterp->isDead())
+		// Skip invisible floaters if we're not quitting (STORM-192).
+		if (floaterp->canClose() && !floaterp->isDead() &&
+			(app_quitting || floaterp->getVisible()))
 		{
 			floaterp->closeFloater(app_quitting);
 		}
@@ -2359,6 +2416,19 @@ BOOL LLFloaterView::allChildrenClosed()
 		}
 	}
 	return true;
+}
+
+void LLFloaterView::shiftFloaters(S32 x_offset, S32 y_offset)
+{
+	for (child_list_const_iter_t it = getChildList()->begin(); it != getChildList()->end(); ++it)
+	{
+		LLFloater* floaterp = dynamic_cast<LLFloater*>(*it);
+
+		if (floaterp && floaterp->isMinimized())
+		{
+			floaterp->translate(x_offset, y_offset);
+		}
+	}
 }
 
 void LLFloaterView::refresh()
@@ -2511,7 +2581,7 @@ LLFloater *LLFloaterView::getBackmost() const
 
 void LLFloaterView::syncFloaterTabOrder()
 {
-	// look for a visible modal dialog, starting from first (should be only one)
+	// look for a visible modal dialog, starting from first
 	LLModalDialog* modal_dialog = NULL;
 	for ( child_list_const_iter_t child_it = getChildList()->begin(); child_it != getChildList()->end(); ++child_it)
 	{
@@ -2635,18 +2705,20 @@ void LLFloater::setInstanceName(const std::string& name)
 	mInstanceName = name;
 	if (!mInstanceName.empty())
 	{
+		std::string ctrl_name = getControlName(mInstanceName, mKey);
+
 		// save_rect and save_visibility only apply to registered floaters
 		if (!mRectControl.empty())
 		{
-			mRectControl = LLFloaterReg::declareRectControl(mInstanceName);
+			mRectControl = LLFloaterReg::declareRectControl(ctrl_name);
 		}
 		if (!mVisibilityControl.empty())
 		{
-			mVisibilityControl = LLFloaterReg::declareVisibilityControl(mInstanceName);
+			mVisibilityControl = LLFloaterReg::declareVisibilityControl(ctrl_name);
 		}
 		if(!mDocStateControl.empty())
 		{
-			mDocStateControl = LLFloaterReg::declareDockStateControl(mInstanceName);
+			mDocStateControl = LLFloaterReg::declareDockStateControl(ctrl_name);
 		}
 
 	}
@@ -2711,6 +2783,7 @@ void LLFloater::initFromParams(const LLFloater::Params& p)
 	mLegacyHeaderHeight = p.legacy_header_height;
 	mSingleInstance = p.single_instance;
 	mAutoTile = p.auto_tile;
+	mOpenCentered = p.open_centered;
 
 	if (p.save_rect)
 	{
@@ -2740,10 +2813,11 @@ void LLFloater::initFromParams(const LLFloater::Params& p)
 
 LLFastTimer::DeclareTimer POST_BUILD("Floater Post Build");
 
-bool LLFloater::initFloaterXML(LLXMLNodePtr node, LLView *parent, LLXMLNodePtr output_node)
+bool LLFloater::initFloaterXML(LLXMLNodePtr node, LLView *parent, const std::string& filename, LLXMLNodePtr output_node)
 {
 	Params params(LLUICtrlFactory::getDefaultParams<LLFloater>());
-	LLXUIParser::instance().readXUI(node, params); // *TODO: Error checking
+	LLXUIParser parser;
+	parser.readXUI(node, params, filename); // *TODO: Error checking
 
 	if (output_node)
 	{
@@ -2751,8 +2825,7 @@ bool LLFloater::initFloaterXML(LLXMLNodePtr node, LLView *parent, LLXMLNodePtr o
 		setupParamsForExport(output_params, parent);
         Params default_params(LLUICtrlFactory::getDefaultParams<LLFloater>());
 		output_node->setName(node->getName()->mString);
-		LLXUIParser::instance().writeXUI(
-			output_node, output_params, &default_params);
+		parser.writeXUI(output_node, output_params, &default_params);
 	}
 
 	// Default floater position to top-left corner of screen
@@ -2846,4 +2919,65 @@ bool LLFloater::isMinimized(const LLFloater* floater)
 bool LLFloater::isVisible(const LLFloater* floater)
 {
     return floater && floater->getVisible();
+}
+
+static LLFastTimer::DeclareTimer FTM_BUILD_FLOATERS("Build Floaters");
+
+bool LLFloater::buildFromFile(const std::string& filename, LLXMLNodePtr output_node)
+{
+	LLFastTimer timer(FTM_BUILD_FLOATERS);
+	LLXMLNodePtr root;
+
+	//if exporting, only load the language being exported, 
+	//instead of layering localized version on top of english
+	if (output_node)
+	{
+		if (!LLUICtrlFactory::getLocalizedXMLNode(filename, root))
+		{
+			llwarns << "Couldn't parse floater from: " << LLUI::getLocalizedSkinPath() + gDirUtilp->getDirDelimiter() + filename << llendl;
+			return false;
+		}
+	}
+	else if (!LLUICtrlFactory::getLayeredXMLNode(filename, root))
+	{
+		llwarns << "Couldn't parse floater from: " << LLUI::getSkinPath() + gDirUtilp->getDirDelimiter() + filename << llendl;
+		return false;
+	}
+	
+	// root must be called floater
+	if( !(root->hasName("floater") || root->hasName("multi_floater")) )
+	{
+		llwarns << "Root node should be named floater in: " << filename << llendl;
+		return false;
+	}
+	
+	bool res = true;
+	
+	lldebugs << "Building floater " << filename << llendl;
+	LLUICtrlFactory::instance().pushFileName(filename);
+	{
+		if (!getFactoryMap().empty())
+		{
+			LLPanel::sFactoryStack.push_front(&getFactoryMap());
+		}
+
+		 // for local registry callbacks; define in constructor, referenced in XUI or postBuild
+		getCommitCallbackRegistrar().pushScope();
+		getEnableCallbackRegistrar().pushScope();
+		
+		res = initFloaterXML(root, getParent(), filename, output_node);
+
+		setXMLFilename(filename);
+		
+		getCommitCallbackRegistrar().popScope();
+		getEnableCallbackRegistrar().popScope();
+		
+		if (!getFactoryMap().empty())
+		{
+			LLPanel::sFactoryStack.pop_front();
+		}
+	}
+	LLUICtrlFactory::instance().popFileName();
+	
+	return res;
 }

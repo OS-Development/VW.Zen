@@ -63,6 +63,9 @@
 				Nessun appezzamento selezionato.
 Vai al menu Mondo &gt; Informazioni sul terreno oppure seleziona un altro appezzamento per vederne i dettagli.
 			</panel.string>
+			<panel.string name="time_stamp_template">
+				[wkday,datetime,local] [day,datetime,local] [mth,datetime,local] [hour,datetime,local]:[min,datetime,local]:[second,datetime,local] [year,datetime,local]
+			</panel.string>
 			<text name="Name:">
 				Nome:
 			</text>
@@ -142,7 +145,7 @@ Vai al menu Mondo &gt; Informazioni sul terreno oppure seleziona un altro appezz
 			<button label="Compra Pass..." label_selected="Compra Pass..." left="130" name="Buy Pass..." tool_tip="Un pass ti da un accesso temporaneo in questo territorio." width="125"/>
 			<button label="Abbandona la terra" name="Abandon Land..."/>
 			<button label="Reclama la terra" name="Reclaim Land..."/>
-			<button label="Vendita Linden" name="Linden Sale..." tool_tip="La terra deve essere di proprietà, con contenuto impostato, e non già messa all'asta."/>
+			<button label="Vendita Linden" name="Linden Sale..." tool_tip="La terra deve essere di proprietà, con contenuto impostato, e non già messa all&apos;asta."/>
 		</panel>
 		<panel label="REGOLAMENTO" name="land_covenant_panel">
 			<panel.string name="can_resell">
@@ -198,13 +201,13 @@ o suddivisa.
 			<text name="resellable_lbl">
 				Rivendita:
 			</text>
-			<text left="125" name="resellable_clause">
+			<text name="resellable_clause">
 				La terra in questa regione non può essere rivenduta.
 			</text>
 			<text name="changeable_lbl">
 				Suddividi:
 			</text>
-			<text left="125" name="changeable_clause">
+			<text name="changeable_clause">
 				La terra in questa regione non può essere unita/suddivisa.
 			</text>
 		</panel>
@@ -219,62 +222,62 @@ o suddivisa.
 				Fattore bonus degli oggetti della regione: [BONUS]
 			</text>
 			<text name="Simulator primitive usage:">
-				Uso dei Prim:
+				Uso delle primitive:
 			</text>
-			<text left="214" name="objects_available" width="230">
+			<text name="objects_available">
 				[COUNT] dei [MAX] ([AVAILABLE] dsponibili)
 			</text>
-			<text name="Primitives parcel supports:" width="200">
+			<text name="Primitives parcel supports:">
 				Oggetti che il terreno supporta:
 			</text>
-			<text left="214" name="object_contrib_text" width="152">
+			<text name="object_contrib_text">
 				[COUNT]
 			</text>
 			<text name="Primitives on parcel:">
 				Oggetti sul terreno:
 			</text>
-			<text left="214" name="total_objects_text" width="48">
+			<text name="total_objects_text">
 				[COUNT]
 			</text>
-			<text left="14" name="Owned by parcel owner:" width="180">
+			<text name="Owned by parcel owner:">
 				Posseduti dal proprietario:
 			</text>
-			<text left="214" name="owner_objects_text" width="48">
+			<text name="owner_objects_text">
 				[COUNT]
 			</text>
-			<button label="Mostra" label_selected="Mostra" name="ShowOwner" right="-135" width="60"/>
-			<button label="Restituisci" name="ReturnOwner..." right="-10" tool_tip="Restituisci gli oggetti ai loro proprietari." width="119"/>
-			<text left="14" name="Set to group:" width="180">
+			<button label="Mostra" label_selected="Mostra" name="ShowOwner"/>
+			<button label="Restituisci" name="ReturnOwner..." tool_tip="Restituisci gli oggetti ai loro proprietari."/>
+			<text name="Set to group:">
 				Imposta al gruppo:
 			</text>
-			<text left="214" name="group_objects_text" width="48">
+			<text name="group_objects_text">
 				[COUNT]
 			</text>
-			<button label="Mostra" label_selected="Mostra" name="ShowGroup" right="-135" width="60"/>
-			<button label="Restituisci" name="ReturnGroup..." right="-10" tool_tip="Restituisci gli oggetti ai loro proprietari." width="119"/>
-			<text left="14" name="Owned by others:" width="180">
+			<button label="Mostra" label_selected="Mostra" name="ShowGroup"/>
+			<button label="Restituisci" name="ReturnGroup..." tool_tip="Restituisci gli oggetti ai loro proprietari."/>
+			<text name="Owned by others:">
 				Posseduti da altri:
 			</text>
-			<text left="214" name="other_objects_text" width="48">
+			<text name="other_objects_text">
 				[COUNT]
 			</text>
-			<button label="Mostra" label_selected="Mostra" name="ShowOther" right="-135" width="60"/>
-			<button label="Restituisci" name="ReturnOther..." right="-10" tool_tip="Restituisci gli oggetti ai loro proprietari." width="119"/>
-			<text left="14" name="Selected / sat upon:" width="193">
+			<button label="Mostra" label_selected="Mostra" name="ShowOther"/>
+			<button label="Restituisci" name="ReturnOther..." tool_tip="Restituisci gli oggetti ai loro proprietari."/>
+			<text name="Selected / sat upon:">
 				Selezionati / sui quali sei sopra:
 			</text>
-			<text left="214" name="selected_objects_text" width="48">
+			<text name="selected_objects_text">
 				[COUNT]
 			</text>
 			<text name="Autoreturn">
 				Restituzione automatica degli oggetti di altri residenti (minuti, 0 per disattivarla):
 			</text>
-			<line_editor name="clean other time" right="-20"/>
-			<text name="Object Owners:" width="150">
+			<line_editor name="clean other time"/>
+			<text name="Object Owners:">
 				Proprietari degli oggetti:
 			</text>
-			<button label="Aggiorna Elenco" label_selected="Aggiorna Elenco" left="158" name="Refresh List" tool_tip="Refresh Object List"/>
-			<button label="Restituisci oggetti..." label_selected="Restituisci oggetti..." left="270" name="Return objects..." width="164"/>
+			<button label="Aggiorna Elenco" label_selected="Aggiorna Elenco" name="Refresh List" tool_tip="Refresh Object List"/>
+			<button label="Restituisci oggetti..." label_selected="Restituisci oggetti..." name="Return objects..."/>
 			<name_list name="owner list">
 				<name_list.columns label="Tipo" name="type"/>
 				<name_list.columns label="Nome" name="name"/>
@@ -317,7 +320,7 @@ Solamente terreni più grandi possono essere abilitati nella ricerca.
 			<text name="allow_label">
 				Permetti ad altri residenti di:
 			</text>
-			<check_box label="Modificare il terreno" name="edit land check" tool_tip="Se spuntato, chiunque può terraformare il tuo terreno. E&apos; preferibile lasciare questo quadrato non spuntato, dato che sarai sempre in grado di modificare il tuo terreno."/>
+			<check_box label="Modificare il terreno" name="edit land check" tool_tip="Se spuntata, chiunque può terraformare il tuo terreno. È preferibile lasciare questa opzione non spuntata, dato che sarai comunque in grado di modificare il tuo terreno."/>
 			<check_box label="Permetti il volo" name="check fly" tool_tip="Se spuntato, gli altri residenti potranno volare sul tuo terreno. Se non spuntato, potranno solamente arrivare in volo o sorvolare il terreno."/>
 			<text name="allow_label2">
 				Creare oggetti:
@@ -325,7 +328,7 @@ Solamente terreni più grandi possono essere abilitati nella ricerca.
 			<check_box label="Tutti i residenti" name="edit objects check"/>
 			<check_box label="Gruppo" name="edit group objects check"/>
 			<text name="allow_label3">
-				Entrata oggetti:
+				Immissione oggetti:
 			</text>
 			<check_box label="Tutti i residenti" name="all object entry check"/>
 			<check_box label="Gruppo" name="group object entry check"/>
@@ -337,10 +340,10 @@ Solamente terreni più grandi possono essere abilitati nella ricerca.
 			<text name="land_options_label">
 				Opzioni per il terreno:
 			</text>
-			<check_box label="Sicuro (senza danno)" name="check safe" tool_tip="Se spuntato, imposta il terreno su &apos;sicuro&apos;, disabilitando i danni da combattimento. Se non spuntato, viene abilitato il combattimento a morte."/>
+			<check_box label="Sicuro (senza danno)" name="check safe" tool_tip="Se spuntato, imposta il terreno su &apos;sicuro&apos;, disabilitando i danni da combattimento. Se non spuntato, viene abilitato il combattimento con danni."/>
 			<check_box label="Nessuna spinta" name="PushRestrictCheck" tool_tip="Previeni i colpi. Selezionare questa opzione può essere utile per prevenire comportamenti dannosi sul tuo terreno."/>
-			<check_box label="Mostra luogo nella ricerca (30 L$/settimana)" name="ShowDirectoryCheck" tool_tip="Lascia che questa terra sia vista dagli altri nei risultati di ricerca"/>
-			<combo_box left="282" name="land category with adult" width="140">
+			<check_box label="Mostra luogo nella ricerca (30 L$/settimana)" name="ShowDirectoryCheck" tool_tip="Consenti che il lotto sia visto nei risultati di ricerca"/>
+			<combo_box name="land category with adult">
 				<combo_box.item label="Tutte le categorie" name="item0"/>
 				<combo_box.item label="Luogo dei Linden" name="item1"/>
 				<combo_box.item label="Adulti" name="item2"/>
@@ -355,7 +358,7 @@ Solamente terreni più grandi possono essere abilitati nella ricerca.
 				<combo_box.item label="Shopping" name="item11"/>
 				<combo_box.item label="Altro" name="item12"/>
 			</combo_box>
-			<combo_box left="282" name="land category" width="140">
+			<combo_box name="land category">
 				<combo_box.item label="Tutte le categorie" name="item0"/>
 				<combo_box.item label="Luogo dei Linden" name="item1"/>
 				<combo_box.item label="Arte &amp; Cultura" name="item3"/>
@@ -418,7 +421,7 @@ Texture:
 			<spinner left_delta="104" name="media_size_width" tool_tip="Aumenta larghezza per far vedere meglio i media web, lascia a 0 per impostare il default."/>
 			<spinner name="media_size_height" tool_tip="Aumenta altezza per far vedere meglio i media web, lascia a 0 per impostare il default."/>
 			<text name="pixels">
-				pixels
+				pixel
 			</text>
 			<text name="Options:">
 				Opzioni
@@ -427,7 +430,17 @@ Media:
 			<check_box label="Fai ripetere il video" left="265" name="media_loop" tool_tip="Fai ripetere il video continuamente. Quando il video è finito, reinizierà dal principio."/>
 		</panel>
 		<panel label="SUONO" name="land_audio_panel">
+			<text name="MusicURL:">
+				URL musica:
+			</text>
 			<check_box label="Nascondi URL" name="hide_music_url" tool_tip="Questa opzione consente di nascondere l&apos;url della musica a chi non è autorizzato a visionare le informazioni di questo parcel."/>
+			<text name="Sound:">
+				Audio:
+			</text>
+			<check_box label="Limita l&apos;audio per oggetti e gesture a questo lotto" name="check sound local"/>
+			<text name="Voice settings:">
+				Voce:
+			</text>
 			<check_box label="Attiva voce" name="parcel_enable_voice_channel"/>
 			<check_box label="Attiva voce (stabilito dalla proprietà)" name="parcel_enable_voice_channel_is_estate_disabled"/>
 			<check_box label="Limita il chat vocale a questo lotto" name="parcel_enable_voice_channel_local"/>
@@ -460,7 +473,20 @@ Media:
 			<spinner label="Prezzo in L$:" name="PriceSpin"/>
 			<spinner label="Ore di accesso:" name="HoursSpin"/>
 			<panel name="Allowed_layout_panel">
+				<text label="Consenti sempre" name="AllowedText">
+					Residenti consentiti
+				</text>
 				<name_list name="AccessList" tool_tip="([LISTED] in lista, [MAX] max)"/>
+				<button label="Aggiungi" name="add_allowed"/>
+				<button label="Rimuovi" label_selected="Rimuovi" name="remove_allowed"/>
+			</panel>
+			<panel name="Banned_layout_panel">
+				<text label="Espelli" name="BanCheck">
+					Residenti con divieto
+				</text>
+				<name_list name="BannedList" tool_tip="([LISTED] in lista, [MAX] max)"/>
+				<button label="Aggiungi" name="add_banned"/>
+				<button label="Rimuovi" label_selected="Rimuovi" name="remove_banned"/>
 			</panel>
 		</panel>
 	</tab_container>

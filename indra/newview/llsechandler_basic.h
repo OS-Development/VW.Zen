@@ -3,30 +3,25 @@
  * @brief Security API for services such as certificate handling
  * secure local storage, etc.
  *
- * $LicenseInfo:firstyear=2009&license=viewergpl$
- * 
- * Copyright (c) 2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2009&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlife.com/developers/opensource/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at http://secondlife.com/developers/opensource/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -59,12 +54,13 @@ public:
 	
 	virtual std::string getPem() const;
 	virtual std::vector<U8> getBinary() const;
-	virtual LLSD getLLSD() const;
+	virtual void getLLSD(LLSD &llsd);
 
 	virtual X509* getOpenSSLX509() const;
 	
 	// set llsd elements for testing
 	void setLLSD(const std::string name, const LLSD& value) { mLLSDInfo[name] = value; }
+
 protected:
 
 	// certificates are stored as X509 objects, as validation and
@@ -116,6 +112,8 @@ public:
 		virtual bool equals(const LLPointer<iterator_impl>& _iter) const
 		{
 			const BasicIteratorImpl *rhs_iter = dynamic_cast<const BasicIteratorImpl *>(_iter.get());
+			llassert(rhs_iter);
+			if (!rhs_iter) return 0;
 			return (mIter == rhs_iter->mIter);
 		}
 		virtual LLPointer<LLCertificate> get()
@@ -173,8 +171,21 @@ public:
 	// return the store id
 	virtual std::string storeId() const;
 	
+	// validate a certificate chain against a certificate store, using the
+	// given validation policy.
+	virtual void validate(int validation_policy,
+						  LLPointer<LLCertificateChain> ca_chain,
+						  const LLSD& validation_params);
+	
 protected:
-	std::vector<LLPointer<LLCertificate> >mCerts;
+	std::vector<LLPointer<LLCertificate> >            mCerts;
+	
+	// cache of cert sha1 hashes to from/to date pairs, to improve
+	// performance of cert trust.  Note, these are not the CA certs,
+	// but the certs that have been validated against this store.
+	typedef std::map<std::string, std::pair<LLDate, LLDate> > t_cert_cache;
+	t_cert_cache mTrustedCertCache;
+	
 	std::string mFilename;
 };
 
@@ -189,11 +200,6 @@ public:
 	
 	virtual ~LLBasicCertificateChain() {}
 	
-	// validate a certificate chain against a certificate store, using the
-	// given validation policy.
-	virtual void validate(int validation_policy,
-						  LLPointer<LLCertificateStore> ca_store,
-						  const LLSD& validation_params);
 };
 
 

@@ -1,6 +1,5 @@
 <?xml version="1.0" ?><notifications>
-
-  <global name="skipnexttime">
+    <global name="skipnexttime">
 
 		Don&apos;t show me this again
   </global>
@@ -97,7 +96,7 @@
   </template>
 
   <notification
-   functor="GenericAcknowledge"
+ functor="GenericAcknowledge"
    icon="alertmodal.tga"
    name="MissingAlert"
    label="Unknown Notification Message"
@@ -723,7 +722,7 @@ You need an account to enter [SECOND_LIFE]. Would you like to create one now?
     <url
 	option="0"
 	name="url"
-	openexternally = "1">
+	target = "_external">
 
 			http://join.secondlife.com/
     </url>
@@ -809,6 +808,17 @@ Insufficient funds to create classified.
    name="DeleteAvatarPick"
    type="alertmodal">
 Delete pick &lt;nolink&gt;[PICK]&lt;/nolink&gt;?
+    <usetemplate
+     name="okcancelbuttons"
+     notext="Cancel"
+     yestext="OK"/>
+  </notification>
+
+  <notification
+   icon="alertmodal.tga"
+   name="DeleteOutfits"
+   type="alertmodal">
+    Delete the selected outfit?
     <usetemplate
      name="okcancelbuttons"
      notext="Cancel"
@@ -1090,7 +1100,9 @@ The region [REGION] does not allow terraforming.
    icon="alertmodal.tga"
    name="CannotCopyWarning"
    type="alertmodal">
-You do not have permission to copy this item and will lose it from your inventory if you give it away. Do you really want to offer this item?
+You do not have permission to copy the following items:
+[ITEMS]
+and will lose it from your inventory if you give it away. Do you really want to offer these items?
     <usetemplate
      name="okcancelbuttons"
      notext="No"
@@ -1395,8 +1407,7 @@ Unable to encode file: [FILE]
    icon="alertmodal.tga"
    name="CorruptedProtectedDataStore"
    type="alertmodal">
-  We are unable to read your protected data so it is being reset.
-   This may happen when you change network setup.
+   We can't fill in your username and password.  This may happen when you change network setup
 
     <usetemplate
      name="okbutton"
@@ -2021,8 +2032,8 @@ Offer friendship to [NAME]?
   </notification>
 
   <notification
-   icon="alertmodal.tga"
-   label="Add Friend"
+ icon="alertmodal.tga"
+ label="Add Friend"
    name="AddFriendWithMessage"
    type="alertmodal">
 Friends can give permissions to track each other on the map and receive online status updates.
@@ -2048,11 +2059,57 @@ Would you be my friend?
  icon="alertmodal.tga"
  label="Save Outfit"
  name="SaveOutfitAs"
- type="alertmodal">
+ type="alertmodal"
+ unique="true">
     Save what I'm wearing as a new Outfit:
     <form name="form">
       <input name="message" type="text">
         [DESC] (new)
+      </input>
+      <button
+       default="true"
+       index="0"
+       name="Offer"
+       text="OK"/>
+      <button
+       index="1"
+       name="Cancel"
+       text="Cancel"/>
+    </form>
+  </notification>
+
+  <notification
+ icon="alertmodal.tga"
+ label="Save Wearable"
+ name="SaveWearableAs"
+ type="alertmodal">
+    Save item to my inventory as:
+    <form name="form">
+      <input name="message" type="text">
+        [DESC] (new)
+      </input>
+      <button
+       default="true"
+       index="0"
+       name="Offer"
+       text="OK"/>
+      <button
+       index="1"
+       name="Cancel"
+       text="Cancel"/>
+    </form>
+  </notification>
+
+
+  <notification
+   icon="alertmodal.tga"
+   label="Rename Outfit"
+   name="RenameOutfit"
+   type="alertmodal">
+    New outfit name:
+    <form name="form">
+      <input name="new_name" type="text" width="300">
+        [NAME]
       </input>
       <button
        default="true"
@@ -3451,7 +3508,7 @@ You are not allowed in that region due to your maturity Rating.
    type="alertmodal">
 You are not allowed in that Region due to your maturity Rating preference.
 
-Click &apos;Change Preference&apos; to raise your maturity Rating preference for immediate entry. Doing so will allow you to search for and access [REGIONMATURITY] content. If you wish to change this setting later, you may do so from Me &gt; Preferences &gt; General.
+To enter the desired region, please change your maturity Rating preference. This will allow you to search for and access [REGIONMATURITY] content. To undo any changes, go to Me &gt; Preferences &gt; General.
 	 <form name="form">
       <button
        index="0"
@@ -3953,24 +4010,37 @@ Go to your [http://secondlife.com/account/ Dashboard] to see your account histor
   <notification
    icon="alertmodal.tga"
    name="ConfirmQuit"
-   type="alertmodal">
+   type="alertmodal"
+   unique="true">
 Are you sure you want to quit?
     <usetemplate
      ignoretext="Confirm before I quit"
      name="okcancelignore"
      notext="Don&apos;t Quit"
      yestext="Quit"/>
-     <unique/>
+  </notification>
+
+  <notification
+   icon="alertmodal.tga"
+   name="DeleteItems"
+   type="alertmodal"
+   unique="true">
+    [QUESTION]
+    <usetemplate
+     ignoretext="Confirm before deleting items"
+     name="okcancelignore"
+     notext="Cancel"
+     yestext="OK"/>
   </notification>
 
   <notification
    icon="alertmodal.tga"
    name="HelpReportAbuseEmailLL"
-   type="alert">
+   type="alert"
+   unique="true">
 Use this tool to report violations of the [http://secondlife.com/corporate/tos.php Terms of Service] and [http://secondlife.com/corporate/cs.php Community Standards].
 
 All reported abuses are investigated and resolved.
-   <unique/>
   </notification>
 
   <notification
@@ -4471,18 +4541,6 @@ Uploading in-world and web site snapshots...
   </notification>
 
   <notification
-   icon="alertmodal.tga"
-   name="UploadConfirmation"
-   type="alertmodal">
-Uploading costs L$[AMOUNT].
-Do you wish to proceed?
-    <usetemplate
-     name="okcancelbuttons"
-     notext="Cancel"
-     yestext="Upload"/>
-  </notification>
-
-  <notification
    icon="notify.tga"
    name="UploadPayment"
    persist="true"
@@ -4851,6 +4909,10 @@ If you want to view streaming media on parcels that support it you should go to 
    persist="true"
    type="notify">
 No Media Plugin was found to handle the "[MIME_TYPE]" mime type.  Media of this type will be unavailable.
+    <unique>
+      <context key="[MIME_TYPE]"/>
+    </unique>
+
   </notification>
   <notification
    icon="alertmodal.tga"
@@ -4920,47 +4982,47 @@ Message from [NAME]:
    icon="notify.tga"
    name="NotSafe"
    persist="true"
-   type="notify">
+   type="notify"
+   unique="true">
 This land has damage enabled.
 You can be hurt here. If you die, you will be teleported to your home location.
-    <unique/>
   </notification>
 
   <notification
    icon="notify.tga"
    name="NoFly"
    persist="true"
-   type="notify">
+   type="notify"
+   unique="true">
 This area has flying disabled.
 You can&apos;t fly here.
-    <unique/>
   </notification>
 
   <notification
    icon="notify.tga"
    name="PushRestricted"
    persist="true"
-   type="notify">
+   type="notify"
+   unique="true">
 This area does not allow pushing. You can&apos;t push others here unless you own the land.
-    <unique/>
   </notification>
 
   <notification
    icon="notify.tga"
    name="NoVoice"
    persist="true"
-   type="notify">
+   type="notify"
+   unique="true">
 This area has voice chat disabled. You won&apos;t be able to hear anyone talking.
-    <unique/>
   </notification>
 
   <notification
    icon="notify.tga"
    name="NoBuild"
    persist="true"
-   type="notify">
+   type="notify"
+   unique="true">
 This area has building disabled. You can&apos;t build or rez objects here.
-    <unique/>
   </notification>
 
   <notification
@@ -5443,7 +5505,6 @@ If you stay in this region you will be logged out.
   <notification
    icon="notify.tga"
    name="LoadWebPage"
-   persist="true"
    type="notify">
 Load web page [URL]?
 
@@ -5478,14 +5539,6 @@ Failed to find [TYPE] in database.
 Failed to find [TYPE] named [DESC] in database.
   </notification>
 
-  <notification
-   icon="notify.tga"
-   name="ShareToWebFailed"
-   persist="true"
-   type="notify">
-    Failed to upload image to web.
-  </notification>
-  
   <notification
    icon="notify.tga"
    name="InvalidWearable"
@@ -5551,7 +5604,6 @@ Grant this request?
   <notification
    icon="notify.tga"
    name="ScriptDialog"
-   persist="true"
    type="notify">
 [FIRST] [LAST]&apos;s &apos;[TITLE]&apos;
 [MESSAGE]
@@ -5566,7 +5618,6 @@ Grant this request?
   <notification
    icon="notify.tga"
    name="ScriptDialogGroup"
-   persist="true"
    type="notify">
 [GROUPNAME]&apos;s &apos;[TITLE]&apos;
 [MESSAGE]
@@ -5892,9 +5943,9 @@ The voice call you are trying to join, [VOICE_CHANNEL_NAME], has reached maximum
   <notification
    icon="notifytip.tga"
    name="ProximalVoiceChannelFull"
-   type="notifytip">
+   type="notifytip"
+   unique="true">
 We&apos;re sorry.  This area has reached maximum capacity for voice conversations.  Please try to use voice in another area.
-    <unique/>
   </notification>
 
   <notification
@@ -5951,9 +6002,52 @@ Failed to connect to [VOICE_CHANNEL_NAME], please try again later.  You will now
    duration="10"
    icon="notifytip.tga"
    name="VoiceLoginRetry"
-   type="notifytip">
+   type="notifytip"
+   unique="true">
 We are creating a voice channel for you. This may take up to one minute.
-    <unique/>
+  </notification>
+
+  <notification
+   icon="notify.tga"
+   name="VoiceEffectsExpired"
+   sound="UISndAlert"
+   persist="true"
+   type="notify"
+   unique="true">
+One or more of your subscribed Voice Morphs has expired.
+[[URL] Click here] to renew your subscription.
+  </notification>
+
+  <notification
+   icon="notify.tga"
+   name="VoiceEffectsExpiredInUse"
+   sound="UISndAlert"
+   persist="true"
+   type="notify"
+   unique="true">
+The active Voice Morph has expired, your normal voice settings have been applied.
+[[URL] Click here] to renew your subscription.
+  </notification>
+
+  <notification
+   icon="notify.tga"
+   name="VoiceEffectsWillExpire"
+   sound="UISndAlert"
+   persist="true"
+   type="notify"
+   unique="true">
+One or more of your Voice Morphs will expire in less than [INTERVAL] days.
+[[URL] Click here] to renew your subscription.
+  </notification>
+
+  <notification
+   icon="notify.tga"
+   name="VoiceEffectsNew"
+   sound="UISndAlert"
+   persist="true"
+   type="notify"
+   unique="true">
+New Voice Morphs are available!
   </notification>
 
   <notification
@@ -6116,14 +6210,159 @@ The button will be shown when there is enough space for it.
    icon="notifytip.tga"
    name="ShareNotification"
    type="notifytip">
-Drag items from inventory onto a person in the resident picker
+Select residents to share with.
+  </notification>
+  <notification
+   icon="notifytip.tga"
+   name="ShareItemsConfirmation"
+   type="alertmodal">
+Are you sure you want to share the following items:
+
+[ITEMS]
+
+With the following Residents:
+
+[RESIDENTS]
+	<usetemplate
+     name="okcancelbuttons"
+     notext="Cancel"
+     yestext="Ok"/>
+  </notification>
+  <notification
+   icon="notifytip.tga"
+   name="ItemsShared"
+   type="notifytip">
+Items successfully shared.
+  </notification>
+  <notification
+   icon="notifytip.tga"
+   name="DeedToGroupFail"
+   type="notifytip">
+Deed to group failed.
   </notification>
 
   <notification
    icon="notifytip.tga"
    name="AvatarRezNotification"
    type="notifytip">
-Avatar '[NAME]' rezzed in [TIME] seconds.
+( [EXISTENCE] seconds alive )
+Avatar '[NAME]' declouded after [TIME] seconds.
+  </notification>
+
+  <notification
+   icon="notifytip.tga"
+   name="AvatarRezSelfBakedDoneNotification"
+   type="notifytip">
+( [EXISTENCE] seconds alive )
+You finished baking your outfit after [TIME] seconds.
+  </notification>
+
+  <notification
+   icon="notifytip.tga"
+   name="AvatarRezSelfBakedUpdateNotification"
+   type="notifytip">
+( [EXISTENCE] seconds alive )
+You sent out an update of your appearance after [TIME] seconds.
+[STATUS]
+  </notification>
+
+
+  <notification
+   icon="notifytip.tga"
+   name="AvatarRezCloudNotification"
+   type="notifytip">
+( [EXISTENCE] seconds alive )
+Avatar '[NAME]' became cloud.
+  </notification>
+
+  <notification
+   icon="notifytip.tga"
+   name="AvatarRezArrivedNotification"
+   type="notifytip">
+( [EXISTENCE] seconds alive )
+Avatar '[NAME]' appeared.
+  </notification>
+
+  <notification
+   icon="notifytip.tga"
+   name="AvatarRezLeftCloudNotification"
+   type="notifytip">
+( [EXISTENCE] seconds alive )
+Avatar '[NAME]' left after [TIME] seconds as cloud.
+  </notification>
+
+  <notification
+   icon="notifytip.tga"
+   name="AvatarRezEnteredAppearanceNotification"
+   type="notifytip">
+( [EXISTENCE] seconds alive )
+Avatar '[NAME]' entered appearance mode.
+  </notification>
+
+  <notification
+   icon="notifytip.tga"
+   name="AvatarRezLeftAppearanceNotification"
+   type="notifytip">
+( [EXISTENCE] seconds alive )
+Avatar '[NAME]' left appearance mode.
+  </notification>
+
+  <notification
+   icon="alertmodal.tga"
+   name="NoConnect"
+   type="alertmodal">
+We're having trouble connecting using [PROTOCOL] [HOSTID].
+Please check your network and firewall setup.
+    <form name="form">
+      <button
+       default="true"
+       index="0"
+       name="OK"
+       text="OK"/>
+    </form>
+  </notification>
+
+  <notification
+   icon="alertmodal.tga"
+   name="NoVoiceConnect"
+   type="alertmodal">
+We're having trouble connecting to your voice server:
+
+[HOSTID]
+
+Voice communications will not be available.
+Please check your network and firewall setup.
+    <form name="form">
+      <button
+       default="true"
+       index="0"
+       name="OK"
+       text="OK"/>
+    </form>
+  </notification>
+
+  <notification
+   icon="notifytip.tga"
+   name="AvatarRezLeftNotification"
+   type="notifytip">
+( [EXISTENCE] seconds alive )
+Avatar '[NAME]' left as fully loaded.
+  </notification>
+
+  <notification
+   icon="notifytip.tga"
+   name="AvatarRezSelfBakedTextureUploadNotification"
+   type="notifytip">
+( [EXISTENCE] seconds alive )
+You uploaded a [RESOLUTION] baked texture for '[BODYREGION]' after [TIME] seconds.
+  </notification>
+
+  <notification
+   icon="notifytip.tga"
+   name="AvatarRezSelfBakedTextureUpdateNotification"
+   type="notifytip">
+( [EXISTENCE] seconds alive )
+You locally updated a [RESOLUTION] baked texture for '[BODYREGION]' after [TIME] seconds.
   </notification>
 
   <notification
@@ -6135,8 +6374,8 @@ Are you sure you want to leave this call?
      ignoretext="Confirm before I leave call"
      name="okcancelignore"
      notext="No"
-     yestext="Yes"/>
-     <unique/>
+     yestext="Yes"
+     unique="true"/>
   </notification>
 
   <notification
@@ -6151,11 +6390,85 @@ Mute everyone?
     <usetemplate
      ignoretext="Confirm before I mute all participants in a group call"
      name="okcancelignore"
-     notext="Ok"
-     yestext="Cancel"/>
-     <unique/>
+     yestext="Ok"
+     notext="Cancel"
+     unique="true"/>
   </notification>
 
+  <notification
+  name="HintChat"
+  label="Chat"
+  type="hint"
+  unique="true">
+    To join the conversation, type into the chat field below.
+  </notification>
+
+  <notification
+  name="HintSit"
+  label="Stand"
+  type="hint"
+  unique="true">
+    To stand up and exit the sitting position, click the Stand button.
+  </notification>
+
+  <notification
+  name="HintDestinationGuide"
+  label="Explore the World"
+  type="hint"
+  unique="true">
+    The Destination Guide contains thousands of new places to discover. Select a location and choose Teleport to start exploring.
+  </notification>
+
+  <notification
+    name="HintSidePanel"
+    label="Side Panel"
+    type="hint"
+    unique="true">
+    Get quick access to your inventory, outfits, profiles and more in the side panel.
+  </notification>
+
+  <notification
+  name="HintMove"
+  label="Move"
+  type="hint"
+  unique="true">
+    To walk or run, open the Move Panel and use the directional arrows to navigate. You can also use the directional keys on your keyboard.
+  </notification>
+
+  <notification
+  name="HintInventory"
+  label="Inventory"
+  type="hint"
+  unique="true">
+    Check your inventory to find items. Newest items can be easily found in the Recent tab.
+  </notification>
+
+  <notification
+  name="HintLindenDollar"
+  label="You've got Linden Dollars!"
+  type="hint"
+  unique="true">
+    Here's your current balance of L$. Click Buy L$ to purchase more Linden Dollars.
+  </notification>
+
+  <notification
+  name="PopupAttempt"
+  icon="Popup_Caution"
+  type="browser">
+    A pop-up was prevented from opening.
+    <form name="form">
+      <ignore name="ignore"
+              control="MediaEnablePopups"
+              invert_control="false"
+              text="Enable all pop-ups"/>
+      <button default="true"
+              index="0"
+              name="open"
+              text="Open pop-up window"/>
+    </form>
+  </notification>
+
+  
   <global name="UnsupportedCPU">
 - Your CPU speed does not meet the minimum requirements.
   </global>
@@ -6182,11 +6495,14 @@ If you continue to have problems, please visit the [SUPPORT_SITE].
 - Your system memory does not meet the minimum requirements.
   </global>
 
-<!-- this is alert string from server. the name needs to match entire the server string, and needs to be changed
+<!-- these are alert strings from server. the name needs to match entire the server string, and needs to be changed
 	whenever the server string changes -->
    <global name="You can only set your 'Home Location' on your land or at a mainland Infohub.">
 If you own a piece of land, you can make it your home location.
 Otherwise, you can look at the Map and find places marked &quot;Infohub&quot;.
+  </global>
+  <global name="You died and have been teleported to your home location">
+You died and have been teleported to your home location.
   </global>
 
 </notifications>

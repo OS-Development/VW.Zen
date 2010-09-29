@@ -2,31 +2,25 @@
  * @file llselectmgr.cpp
  * @brief A manager for selected objects and faces.
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -187,6 +181,7 @@ template class LLSelectMgr* LLSingleton<class LLSelectMgr>::getInstance();
 //-----------------------------------------------------------------------------
 LLSelectMgr::LLSelectMgr()
  : mHideSelectedObjects(LLCachedControl<bool>(gSavedSettings, "HideSelectedObjects", FALSE)),
+   mRenderHighlightSelections(LLCachedControl<bool>(gSavedSettings, "RenderHighlightSelections", TRUE)),
    mAllowSelectAvatar( LLCachedControl<bool>(gSavedSettings, "AllowSelectAvatar", FALSE)),
    mDebugSelectMgr(LLCachedControl<bool>(gSavedSettings, "DebugSelectMgr", FALSE))
 {
@@ -3615,7 +3610,7 @@ void LLSelectMgr::selectionSetObjectSaleInfo(const LLSaleInfo& sale_info)
 // Attachments
 //----------------------------------------------------------------------
 
-void LLSelectMgr::sendAttach(U8 attachment_point)
+void LLSelectMgr::sendAttach(U8 attachment_point, bool replace)
 {
 	LLViewerObject* attach_object = mSelectedObjects->getFirstRootObject();
 
@@ -3629,9 +3624,13 @@ void LLSelectMgr::sendAttach(U8 attachment_point)
 	if (0 == attachment_point ||
 		get_if_there(gAgentAvatarp->mAttachmentPoints, (S32)attachment_point, (LLViewerJointAttachment*)NULL))
 	{
-#if ENABLE_MULTIATTACHMENTS
-		attachment_point |= ATTACHMENT_ADD;
-#endif
+		if (!replace || attachment_point != 0)
+		{
+			// If we know the attachment point then we got here by clicking an
+			// "Attach to..." context menu item, so we should add, not replace.
+			attachment_point |= ATTACHMENT_ADD;
+		}
+
 		sendListToRegions(
 			"ObjectAttach",
 			packAgentIDAndSessionAndAttachment, 
@@ -4900,7 +4899,7 @@ void LLSelectMgr::updateSelectionSilhouette(LLObjectSelectionHandle object_handl
 }
 void LLSelectMgr::renderSilhouettes(BOOL for_hud)
 {
-	if (!mRenderSilhouettes)
+	if (!mRenderSilhouettes || !mRenderHighlightSelections)
 	{
 		return;
 	}
@@ -5060,23 +5059,13 @@ LLSelectNode::LLSelectNode(LLViewerObject* object, BOOL glow)
 	mSilhouetteExists(FALSE),
 	mDuplicated(FALSE),
 	mTESelectMask(0),
-	mLastTESelected(0)
+	mLastTESelected(0),
+	mName(LLStringUtil::null),
+	mDescription(LLStringUtil::null),
+	mTouchName(LLStringUtil::null),
+	mSitName(LLStringUtil::null),
+	mCreationDate(0)
 {
-	mObject = object;
-	selectAllTEs(FALSE);
-	mIndividualSelection	= FALSE;
-	mTransient		= FALSE;
-	mValid			= FALSE;
-	mPermissions	= new LLPermissions();
-	mInventorySerial = 0;
-	mName = LLStringUtil::null;
-	mDescription = LLStringUtil::null;
-	mTouchName = LLStringUtil::null;
-	mSitName = LLStringUtil::null;
-	mSilhouetteExists = FALSE;
-	mDuplicated = FALSE;
-	mCreationDate = 0;
-
 	saveColors();
 }
 
@@ -5631,6 +5620,10 @@ void LLSelectMgr::updateSelectionCenter()
 		LLVector3d select_center;
 		// keep a list of jointed objects for showing the joint HUDEffects
 
+		// Initialize the bounding box to the root prim, so the BBox orientation 
+		// matches the root prim's (affecting the orientation of the manipulators). 
+		bbox.addBBoxAgent( (mSelectedObjects->getFirstRootObject(TRUE))->getBoundingBoxAgent() ); 
+	                 
 		std::vector < LLViewerObject *> jointed_objects;
 
 		for (LLObjectSelection::iterator iter = mSelectedObjects->begin();

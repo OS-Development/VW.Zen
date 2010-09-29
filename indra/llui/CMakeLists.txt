@@ -91,6 +91,7 @@ set(llui_SOURCE_FILES
     lltextbox.cpp
     lltexteditor.cpp
     lltextparser.cpp
+    lltextutil.cpp
     lltextvalidate.cpp
     lltransutil.cpp
     lltoggleablemenu.cpp
@@ -101,7 +102,6 @@ set(llui_SOURCE_FILES
     lluictrlfactory.cpp
     lluiimage.cpp
     lluistring.cpp
-    lluitextutil.cpp
     llundo.cpp
     llurlaction.cpp
     llurlentry.cpp
@@ -158,6 +158,7 @@ set(llui_HEADER_FILES
     llnotifications.h
     llnotificationslistener.h
     llnotificationsutil.h
+    llnotificationtemplate.h
     llpanel.h
     llprogressbar.h
     llradiogroup.h
@@ -186,6 +187,7 @@ set(llui_HEADER_FILES
     lltextbox.h
     lltexteditor.h
     lltextparser.h
+    lltextutil.h
     lltextvalidate.h
     lltoggleablemenu.h
     lltooltip.h
@@ -198,7 +200,6 @@ set(llui_HEADER_FILES
     llui.h
     lluiimage.h
     lluistring.h
-    lluitextutil.h
     llundo.h
     llurlaction.h
     llurlentry.h
@@ -240,10 +241,12 @@ target_link_libraries(llui
     ${LLCOMMON_LIBRARIES} # must be after llimage, llwindow, llrender
     )
 
-# Add tests
-include(LLAddBuildTest)
-SET(llui_TEST_SOURCE_FILES
-    llurlmatch.cpp
-    llurlentry.cpp
-    )
-LL_ADD_PROJECT_UNIT_TESTS(llui "${llui_TEST_SOURCE_FILES}")
+if(LL_TESTS)
+  # Add tests
+  include(LLAddBuildTest)
+  SET(llui_TEST_SOURCE_FILES
+      llurlmatch.cpp
+      llurlentry.cpp
+      )
+  LL_ADD_PROJECT_UNIT_TESTS(llui "${llui_TEST_SOURCE_FILES}")
+endif(LL_TESTS)

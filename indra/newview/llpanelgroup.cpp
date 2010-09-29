@@ -1,31 +1,25 @@
 /** 
  * @file llpanelgroup.cpp
  *
- * $LicenseInfo:firstyear=2006&license=viewergpl$
- * 
- * Copyright (c) 2006-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2006&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -118,6 +112,7 @@ void LLPanelGroup::onOpen(const LLSD& key)
 	if(!key.has("action"))
 	{
 		setGroupID(group_id);
+		getChild<LLAccordionCtrl>("groups_accordion")->expandDefaultTab();
 		return;
 	}
 
@@ -305,7 +300,6 @@ void LLPanelGroup::onBtnCancel()
 	onBackBtnClick();
 }
 
-
 void LLPanelGroup::changed(LLGroupChange gc)
 {
 	for(std::vector<LLPanelGroupTab* >::iterator it = mTabs.begin();it!=mTabs.end();++it)
@@ -413,19 +407,14 @@ void LLPanelGroup::setGroupID(const LLUUID& group_id)
 
 	getChild<LLUICtrl>("prepend_founded_by")->setVisible(!is_null_group_id);
 
-	LLAccordionCtrl* tab_ctrl = findChild<LLAccordionCtrl>("group_accordion");
-	if(tab_ctrl)
-		tab_ctrl->reset();
+	LLAccordionCtrl* tab_ctrl = getChild<LLAccordionCtrl>("groups_accordion");
+	tab_ctrl->reset();
 
-	LLAccordionCtrlTab* tab_general = findChild<LLAccordionCtrlTab>("group_general_tab");
-	LLAccordionCtrlTab* tab_roles = findChild<LLAccordionCtrlTab>("group_roles_tab");
-	LLAccordionCtrlTab* tab_notices = findChild<LLAccordionCtrlTab>("group_notices_tab");
-	LLAccordionCtrlTab* tab_land = findChild<LLAccordionCtrlTab>("group_land_tab");
+	LLAccordionCtrlTab* tab_general = getChild<LLAccordionCtrlTab>("group_general_tab");
+	LLAccordionCtrlTab* tab_roles = getChild<LLAccordionCtrlTab>("group_roles_tab");
+	LLAccordionCtrlTab* tab_notices = getChild<LLAccordionCtrlTab>("group_notices_tab");
+	LLAccordionCtrlTab* tab_land = getChild<LLAccordionCtrlTab>("group_land_tab");
 
-
-	if(!tab_general || !tab_roles || !tab_notices || !tab_land)
-		return;
-	
 	if(mButtonJoin)
 		mButtonJoin->setVisible(false);
 
@@ -486,6 +475,8 @@ void LLPanelGroup::setGroupID(const LLUUID& group_id)
 			button_chat->setVisible(is_member);
 	}
 
+	tab_ctrl->arrange();
+
 	reposButtons();
 	update(GC_ALL);//show/hide "join" button if data is already ready
 }
@@ -536,6 +527,7 @@ void LLPanelGroup::draw()
 	{
 		mRefreshTimer.stop();
 		childEnable("btn_refresh");
+		childEnable("groups_accordion");
 	}
 
 	LLButton* button_apply = findChild<LLButton>("btn_apply");
@@ -564,6 +556,8 @@ void LLPanelGroup::refreshData()
 	
 	// 5 second timeout
 	childDisable("btn_refresh");
+	childDisable("groups_accordion");
+
 	mRefreshTimer.start();
 	mRefreshTimer.setTimerExpirySec(5);
 }
@@ -603,7 +597,7 @@ void LLPanelGroup::showNotice(const std::string& subject,
 //static
 void LLPanelGroup::refreshCreatedGroup(const LLUUID& group_id)
 {
-	LLPanelGroup* panel = LLSideTray::getInstance()->findChild<LLPanelGroup>("panel_group_info_sidetray");
+	LLPanelGroup* panel = LLSideTray::getInstance()->getPanel<LLPanelGroup>("panel_group_info_sidetray");
 	if(!panel)
 		return;
 	panel->setGroupID(group_id);
@@ -618,7 +612,7 @@ void LLPanelGroup::showNotice(const std::string& subject,
 					   const std::string& inventory_name,
 					   LLOfferInfo* inventory_offer)
 {
-	LLPanelGroup* panel = LLSideTray::getInstance()->findChild<LLPanelGroup>("panel_group_info_sidetray");
+	LLPanelGroup* panel = LLSideTray::getInstance()->getPanel<LLPanelGroup>("panel_group_info_sidetray");
 	if(!panel)
 		return;
 

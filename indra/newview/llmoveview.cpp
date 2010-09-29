@@ -2,31 +2,25 @@
  * @file llmoveview.cpp
  * @brief Container for movement buttons like forward, left, fly
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -45,7 +39,9 @@
 #include "llvoavatarself.h" // to check gAgentAvatarp->isSitting()
 #include "llbottomtray.h"
 #include "llbutton.h"
+#include "llfirstuse.h"
 #include "llfloaterreg.h"
+#include "llhints.h"
 #include "lljoystickbutton.h"
 #include "lluictrlfactory.h"
 #include "llviewerwindow.h"
@@ -81,6 +77,16 @@ LLFloaterMove::LLFloaterMove(const LLSD& key)
 	mModeActionsPanel(NULL),
 	mCurrentMode(MM_WALK)
 {
+}
+
+LLFloaterMove::~LLFloaterMove()
+{
+	// Ensure LLPanelStandStopFlying panel is not among floater's children. See EXT-8458.
+	setVisible(FALSE);
+
+	// Otherwise it can be destroyed and static pointer in LLPanelStandStopFlying::getInstance() will become invalid.
+	// Such situation was possible when LLFloaterReg returns "dead" instance of floater.
+	// Should not happen after LLFloater::destroy was modified to remove "dead" instances from LLFloaterReg.
 }
 
 // virtual
@@ -144,18 +150,6 @@ BOOL LLFloaterMove::postBuild()
 	return TRUE;
 }
 
-// virtual
-void LLFloaterMove::setEnabled(BOOL enabled)
-{
-	//we need to enable/disable only buttons, EXT-1061.
-
-	// is called before postBuild() - use findChild here.
-	LLPanel *panel_actions = findChild<LLPanel>("panel_actions");
-	if (panel_actions) panel_actions->setEnabled(enabled);
-
-	showModeButtons(enabled);
-}
-
 // *NOTE: we assume that setVisible() is called on floater close.
 // virtual
 void LLFloaterMove::setVisible(BOOL visible)
@@ -169,6 +163,7 @@ void LLFloaterMove::setVisible(BOOL visible)
 
 	if (visible)
 	{
+		LLFirstUse::notMoving(false);
 		// Attach the Stand/Stop Flying panel.
 		LLPanelStandStopFlying* ssf_panel = LLPanelStandStopFlying::getInstance();
 		ssf_panel->reparent(this);
@@ -406,7 +401,7 @@ void LLFloaterMove::initMovementMode()
 
 	if (isAgentAvatarValid())
 	{
-		setEnabled(!gAgentAvatarp->isSitting());
+		showModeButtons(!gAgentAvatarp->isSitting());
 	}
 }
 
@@ -476,8 +471,7 @@ void LLFloaterMove::sUpdateFlyingStatus()
 
 void LLFloaterMove::showModeButtons(BOOL bShow)
 {
-	// is called from setEnabled so can be called before postBuild(), check mModeActionsPanel agains to NULL
-	if (NULL == mModeActionsPanel || mModeActionsPanel->getVisible() == bShow)
+	if (mModeActionsPanel->getVisible() == bShow)
 		return;
 	mModeActionsPanel->setVisible(bShow);
 }
@@ -488,11 +482,13 @@ void LLFloaterMove::enableInstance(BOOL bEnable)
 	LLFloaterMove* instance = LLFloaterReg::findTypedInstance<LLFloaterMove>("moveview");
 	if (instance)
 	{
-		instance->setEnabled(bEnable);
-
 		if (gAgent.getFlying())
 		{
 			instance->showModeButtons(FALSE);
+		}
+		else
+		{
+			instance->showModeButtons(bEnable);
 		}
 	}
 }
@@ -567,6 +563,11 @@ void LLPanelStandStopFlying::setStandStopFlyingMode(EStandStopFlyingMode mode)
 {
 	LLPanelStandStopFlying* panel = getInstance();
 
+	if (mode == SSFM_STAND)
+	{
+		LLFirstUse::sit();
+		LLFirstUse::notMoving(false);
+	}
 	panel->mStandButton->setVisible(SSFM_STAND == mode);
 	panel->mStopFlyingButton->setVisible(SSFM_STOP_FLYING == mode);
 
@@ -597,6 +598,7 @@ BOOL LLPanelStandStopFlying::postBuild()
 	mStandButton->setCommitCallback(boost::bind(&LLPanelStandStopFlying::onStandButtonClick, this));
 	mStandButton->setCommitCallback(boost::bind(&LLFloaterMove::enableInstance, TRUE));
 	mStandButton->setVisible(FALSE);
+	LLHints::registerHintTarget("stand_btn", mStandButton->getHandle());
 	
 	mStopFlyingButton = getChild<LLButton>("stop_fly_btn");
 	//mStopFlyingButton->setCommitCallback(boost::bind(&LLFloaterMove::setFlyingMode, FALSE));
@@ -695,7 +697,7 @@ void LLPanelStandStopFlying::reparent(LLFloaterMove* move_view)
 LLPanelStandStopFlying* LLPanelStandStopFlying::getStandStopFlyingPanel()
 {
 	LLPanelStandStopFlying* panel = new LLPanelStandStopFlying();
-	LLUICtrlFactory::getInstance()->buildPanel(panel, "panel_stand_stop_flying.xml");
+	panel->buildFromFile("panel_stand_stop_flying.xml");
 
 	panel->setVisible(FALSE);
 	//LLUI::getRootView()->addChild(panel);
@@ -708,6 +710,8 @@ LLPanelStandStopFlying* LLPanelStandStopFlying::getStandStopFlyingPanel()
 
 void LLPanelStandStopFlying::onStandButtonClick()
 {
+	LLFirstUse::sit(false);
+
 	LLSelectMgr::getInstance()->deselectAllForStandingUp();
 	gAgent.setControlFlags(AGENT_CONTROL_STAND_UP);
 

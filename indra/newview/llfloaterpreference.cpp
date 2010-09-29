@@ -2,31 +2,25 @@
  * @file llfloaterpreference.cpp
  * @brief Global preferences with and without persistence.
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -55,7 +49,6 @@
 #include "llfloaterreg.h"
 #include "llfloaterabout.h"
 #include "llfloaterhardwaresettings.h"
-#include "llfloatervoicedevicesettings.h"
 #include "llimfloater.h"
 #include "llkeyboard.h"
 #include "llmodaldialog.h"
@@ -63,13 +56,16 @@
 #include "llnearbychat.h"
 #include "llnotifications.h"
 #include "llnotificationsutil.h"
+#include "llnotificationtemplate.h"
 #include "llpanellogin.h"
+#include "llpanelvoicedevicesettings.h"
 #include "llradiogroup.h"
 #include "llsearchcombobox.h"
 #include "llsky.h"
 #include "llscrolllistctrl.h"
 #include "llscrolllistitem.h"
 #include "llsliderctrl.h"
+#include "llsidetray.h"
 #include "lltabcontainer.h"
 #include "lltrans.h"
 #include "llviewercontrol.h"
@@ -136,14 +132,13 @@ LLVoiceSetKeyDialog::LLVoiceSetKeyDialog(const LLSD& key)
   : LLModalDialog(key),
 	mParent(NULL)
 {
-// 	LLUICtrlFactory::getInstance()->buildFloater(this, "floater_select_key.xml", NULL);
 }
 
 //virtual
 BOOL LLVoiceSetKeyDialog::postBuild()
 {
 	childSetAction("Cancel", onCancel, this);
-	childSetFocus("Cancel");
+	getChild<LLUICtrl>("Cancel")->setFocus(TRUE);
 	
 	gFocusMgr.setKeystrokesOnly(TRUE);
 	
@@ -309,6 +304,7 @@ LLFloaterPreference::LLFloaterPreference(const LLSD& key)
 	mCommitCallbackRegistrar.add("Pref.applyUIColor",			boost::bind(&LLFloaterPreference::applyUIColor, this ,_1, _2));
 	mCommitCallbackRegistrar.add("Pref.getUIColor",				boost::bind(&LLFloaterPreference::getUIColor, this ,_1, _2));
 	mCommitCallbackRegistrar.add("Pref.MaturitySettings",		boost::bind(&LLFloaterPreference::onChangeMaturity, this));
+	mCommitCallbackRegistrar.add("Pref.BlockList",				boost::bind(&LLFloaterPreference::onClickBlockList, this));
 
 	sSkin = gSavedSettings.getString("SkinCurrent");
 }
@@ -328,9 +324,28 @@ BOOL LLFloaterPreference::postBuild()
 		tabcontainer->selectFirstTab();
 
 	std::string cache_location = gDirUtilp->getExpandedFilename(LL_PATH_CACHE, "");
-	childSetText("cache_location", cache_location);
+	getChild<LLUICtrl>("cache_location")->setValue(cache_location);
+
+	// if floater is opened before login set default localized busy message
+	if (LLStartUp::getStartupState() < STATE_STARTED)
+	{
+		gSavedPerAccountSettings.setString("BusyModeResponse", LLTrans::getString("BusyModeResponseDefault"));
+	}
 
 	return TRUE;
+}
+
+void LLFloaterPreference::onBusyResponseChanged()
+{
+	// set "BusyResponseChanged" TRUE if user edited message differs from default, FALSE otherwise
+	if(LLTrans::getString("BusyModeResponseDefault") != getChild<LLUICtrl>("busy_response")->getValue().asString())
+	{
+		gSavedPerAccountSettings.setBOOL("BusyResponseChanged", TRUE );
+	}
+	else
+	{
+		gSavedPerAccountSettings.setBOOL("BusyResponseChanged", FALSE );
+	}
 }
 
 LLFloaterPreference::~LLFloaterPreference()
@@ -392,12 +407,6 @@ void LLFloaterPreference::apply()
 		hardware_settings->apply();
 	}
 	
-	LLFloaterVoiceDeviceSettings* voice_device_settings = LLFloaterReg::findTypedInstance<LLFloaterVoiceDeviceSettings>("pref_voicedevicesettings");
-	if(voice_device_settings)
-	{
-		voice_device_settings->apply();
-	}
-	
 	gViewerWindow->requestResolutionUpdate(); // for UIScaleFactor
 
 	LLSliderCtrl* fov_slider = getChild<LLSliderCtrl>("camera_fov");
@@ -405,28 +414,28 @@ void LLFloaterPreference::apply()
 	fov_slider->setMaxValue(LLViewerCamera::getInstance()->getMaxView());
 	
 	std::string cache_location = gDirUtilp->getExpandedFilename(LL_PATH_CACHE, "");
-	childSetText("cache_location", cache_location);		
+	getChild<LLUICtrl>("cache_location")->setValue(cache_location);		
 	
-	LLViewerMedia::setCookiesEnabled(childGetValue("cookies_enabled"));
+	LLViewerMedia::setCookiesEnabled(getChild<LLUICtrl>("cookies_enabled")->getValue());
 	
 	if(hasChild("web_proxy_enabled") &&hasChild("web_proxy_editor") && hasChild("web_proxy_port"))
 	{
-		bool proxy_enable = childGetValue("web_proxy_enabled");
-		std::string proxy_address = childGetValue("web_proxy_editor");
-		int proxy_port = childGetValue("web_proxy_port");
+		bool proxy_enable = getChild<LLUICtrl>("web_proxy_enabled")->getValue();
+		std::string proxy_address = getChild<LLUICtrl>("web_proxy_editor")->getValue();
+		int proxy_port = getChild<LLUICtrl>("web_proxy_port")->getValue();
 		LLViewerMedia::setProxyConfig(proxy_enable, proxy_address, proxy_port);
 	}
 	
 //	LLWString busy_response = utf8str_to_wstring(getChild<LLUICtrl>("busy_response")->getValue().asString());
 //	LLWStringUtil::replaceTabsWithSpaces(busy_response, 4);
 
-	gSavedSettings.setBOOL("PlainTextChatHistory", childGetValue("plain_text_chat_history").asBoolean());
+	gSavedSettings.setBOOL("PlainTextChatHistory", getChild<LLUICtrl>("plain_text_chat_history")->getValue().asBoolean());
 	
 	if(mGotPersonalInfo)
 	{ 
 //		gSavedSettings.setString("BusyModeResponse2", std::string(wstring_to_utf8str(busy_response)));
-		bool new_im_via_email = childGetValue("send_im_to_email").asBoolean();
-		bool new_hide_online = childGetValue("online_visibility").asBoolean();		
+		bool new_im_via_email = getChild<LLUICtrl>("send_im_to_email")->getValue().asBoolean();
+		bool new_hide_online = getChild<LLUICtrl>("online_visibility")->getValue().asBoolean();		
 	
 		if((new_im_via_email != mOriginalIMViaEmail)
 			||(new_hide_online != mOriginalHideOnlineStatus))
@@ -446,8 +455,6 @@ void LLFloaterPreference::apply()
 			gAgent.sendAgentUpdateUserInfo(new_im_via_email,mDirectoryVisibility);
 		}
 	}
-
-	applyResolution();
 }
 
 void LLFloaterPreference::cancel()
@@ -474,19 +481,26 @@ void LLFloaterPreference::cancel()
 	
 	// reverts any changes to current skin
 	gSavedSettings.setString("SkinCurrent", sSkin);
-	
-	LLFloaterVoiceDeviceSettings* voice_device_settings = LLFloaterReg::findTypedInstance<LLFloaterVoiceDeviceSettings>("pref_voicedevicesettings");
-	if (voice_device_settings)
-	{
-		voice_device_settings ->cancel();
-	}
-	
-	LLFloaterReg::hideInstance("pref_voicedevicesettings");
-	
 }
 
 void LLFloaterPreference::onOpen(const LLSD& key)
 {
+	// this variable and if that follows it are used to properly handle busy mode response message
+	static bool initialized = FALSE;
+	// if user is logged in and we haven't initialized busy_response yet, do it
+	if (!initialized && LLStartUp::getStartupState() == STATE_STARTED)
+	{
+		// Special approach is used for busy response localization, because "BusyModeResponse" is
+		// in non-localizable xml, and also because it may be changed by user and in this case it shouldn't be localized.
+		// To keep track of whether busy response is default or changed by user additional setting BusyResponseChanged
+		// was added into per account settings.
+
+		// initialization should happen once,so setting variable to TRUE
+		initialized = TRUE;
+		// this connection is needed to properly set "BusyResponseChanged" setting when user makes changes in
+		// busy response message.
+		gSavedPerAccountSettings.getControl("BusyModeResponse")->getSignal()->connect(boost::bind(&LLFloaterPreference::onBusyResponseChanged, this));
+	}
 	gAgent.sendAgentUserInfoRequest();
 
 	/////////////////////////// From LLPanelGeneral //////////////////////////
@@ -501,7 +515,7 @@ void LLFloaterPreference::onOpen(const LLSD& key)
 	if (can_choose_maturity)
 	{		
 		// if they're not adult or a god, they shouldn't see the adult selection, so delete it
-		if (!gAgent.isAdult() && !gAgent.isGodlike())
+		if (!gAgent.isAdult() && !gAgent.isGodlikeWithoutAdminMenuFakery())
 		{
 			// we're going to remove the adult entry from the combo
 			LLScrollListCtrl* maturity_list = maturity_combo->findChild<LLScrollListCtrl>("ComboBox");
@@ -510,13 +524,13 @@ void LLFloaterPreference::onOpen(const LLSD& key)
 				maturity_list->deleteItems(LLSD(SIM_ACCESS_ADULT));
 			}
 		}
-		childSetVisible("maturity_desired_combobox", true);
-		childSetVisible("maturity_desired_textbox", false);
+		getChildView("maturity_desired_combobox")->setVisible( true);
+		getChildView("maturity_desired_textbox")->setVisible( false);
 	}
 	else
 	{
-		childSetText("maturity_desired_textbox",  maturity_combo->getSelectedItemLabel());
-		childSetVisible("maturity_desired_combobox", false);
+		getChild<LLUICtrl>("maturity_desired_textbox")->setValue(maturity_combo->getSelectedItemLabel());
+		getChildView("maturity_desired_combobox")->setVisible( false);
 	}
 
 	// Display selected maturity icons.
@@ -539,6 +553,16 @@ void LLFloaterPreference::onVertexShaderEnable()
 {
 	refreshEnabledGraphics();
 }
+
+//static
+void LLFloaterPreference::initBusyResponse()
+	{
+		if (!gSavedPerAccountSettings.getBOOL("BusyResponseChanged"))
+		{
+			//LLTrans::getString("BusyModeResponseDefault") is used here for localization (EXT-5885)
+			gSavedPerAccountSettings.setString("BusyModeResponse", LLTrans::getString("BusyModeResponseDefault"));
+		}
+	}
 
 void LLFloaterPreference::setHardwareDefaults()
 {
@@ -759,7 +783,7 @@ void LLFloaterPreference::buildPopupLists()
 		
 		LLScrollListItem* item = NULL;
 		
-		bool show_popup = LLUI::sSettingGroups["ignores"]->getBOOL(templatep->mName);
+		bool show_popup = formp->getIgnored();
 		if (!show_popup)
 		{
 			if (ignore == LLNotificationForm::IGNORE_WITH_LAST_RESPONSE)
@@ -781,13 +805,11 @@ void LLFloaterPreference::buildPopupLists()
 				row["columns"][1]["font"] = "SANSSERIF_SMALL";
 				row["columns"][1]["width"] = 360;
 			}
-			item = disabled_popups.addElement(row,
-											  ADD_SORTED);
+			item = disabled_popups.addElement(row);
 		}
 		else
 		{
-			item = enabled_popups.addElement(row,
-											 ADD_SORTED);
+			item = enabled_popups.addElement(row);
 		}
 		
 		if (item)
@@ -799,7 +821,7 @@ void LLFloaterPreference::buildPopupLists()
 
 void LLFloaterPreference::refreshEnabledState()
 {	
-	LLCheckBoxCtrl* ctrl_reflections = getChild<LLCheckBoxCtrl>("Reflections");
+	LLComboBox* ctrl_reflections = getChild<LLComboBox>("Reflections");
 	LLRadioGroup* radio_reflection_detail = getChild<LLRadioGroup>("ReflectionDetailRadio");
 	
 	// Reflections
@@ -812,7 +834,7 @@ void LLFloaterPreference::refreshEnabledState()
 	bool bumpshiny = gGLManager.mHasCubeMap && LLCubeMap::sUseCubeMaps && LLFeatureManager::getInstance()->isFeatureAvailable("RenderObjectBump");
 	getChild<LLCheckBoxCtrl>("BumpShiny")->setEnabled(bumpshiny ? TRUE : FALSE);
 	
-	radio_reflection_detail->setEnabled(ctrl_reflections->get() && reflections);
+	radio_reflection_detail->setEnabled(reflections);
 	
 	// Avatar Mode
 	// Enable Avatar Shaders
@@ -858,20 +880,47 @@ void LLFloaterPreference::refreshEnabledState()
 	// *HACK just checks to see if we can use shaders... 
 	// maybe some cards that use shaders, but don't support windlight
 	ctrl_wind_light->setEnabled(ctrl_shader_enable->getEnabled() && shaders);
+
+	//Deferred/SSAO/Shadows
+	LLCheckBoxCtrl* ctrl_deferred = getChild<LLCheckBoxCtrl>("UseLightShaders");
+	if (LLFeatureManager::getInstance()->isFeatureAvailable("RenderUseFBO") &&
+	    LLFeatureManager::getInstance()->isFeatureAvailable("RenderDeferred") &&
+		shaders)
+	{
+		BOOL enabled = (ctrl_wind_light->get()) ? TRUE : FALSE;
+
+		ctrl_deferred->setEnabled(enabled);
+	
+		LLCheckBoxCtrl* ctrl_ssao = getChild<LLCheckBoxCtrl>("UseSSAO");
+		LLComboBox* ctrl_shadow = getChild<LLComboBox>("ShadowDetail");
+
+		enabled = enabled && LLFeatureManager::getInstance()->isFeatureAvailable("RenderDeferredSSAO") && (ctrl_deferred->get() ? TRUE : FALSE);
+		
+		ctrl_ssao->setEnabled(enabled);
+
+		enabled = enabled && LLFeatureManager::getInstance()->isFeatureAvailable("RenderShadowDetail");
+
+		ctrl_shadow->setEnabled(enabled);
+	}
+
+
 	// now turn off any features that are unavailable
 	disableUnavailableSettings();
 
-	childSetEnabled ("block_list", LLLoginInstance::getInstance()->authSuccess());
+	getChildView("block_list")->setEnabled(LLLoginInstance::getInstance()->authSuccess());
 }
 
 void LLFloaterPreference::disableUnavailableSettings()
 {	
-	LLCheckBoxCtrl* ctrl_reflections   = getChild<LLCheckBoxCtrl>("Reflections");
+	LLComboBox* ctrl_reflections   = getChild<LLComboBox>("Reflections");
 	LLCheckBoxCtrl* ctrl_avatar_vp     = getChild<LLCheckBoxCtrl>("AvatarVertexProgram");
 	LLCheckBoxCtrl* ctrl_avatar_cloth  = getChild<LLCheckBoxCtrl>("AvatarCloth");
 	LLCheckBoxCtrl* ctrl_shader_enable = getChild<LLCheckBoxCtrl>("BasicShaders");
 	LLCheckBoxCtrl* ctrl_wind_light    = getChild<LLCheckBoxCtrl>("WindLightUseAtmosShaders");
 	LLCheckBoxCtrl* ctrl_avatar_impostors = getChild<LLCheckBoxCtrl>("AvatarImpostors");
+	LLCheckBoxCtrl* ctrl_deferred = getChild<LLCheckBoxCtrl>("UseLightShaders");
+	LLComboBox* ctrl_shadows = getChild<LLComboBox>("ShadowDetail");
+	LLCheckBoxCtrl* ctrl_ssao = getChild<LLCheckBoxCtrl>("UseSSAO");
 
 	// if vertex shaders off, disable all shader related products
 	if(!LLFeatureManager::getInstance()->isFeatureAvailable("VertexShaderEnable"))
@@ -883,13 +932,22 @@ void LLFloaterPreference::disableUnavailableSettings()
 		ctrl_wind_light->setValue(FALSE);
 		
 		ctrl_reflections->setEnabled(FALSE);
-		ctrl_reflections->setValue(FALSE);
+		ctrl_reflections->setValue(0);
 		
 		ctrl_avatar_vp->setEnabled(FALSE);
 		ctrl_avatar_vp->setValue(FALSE);
 		
 		ctrl_avatar_cloth->setEnabled(FALSE);
 		ctrl_avatar_cloth->setValue(FALSE);
+
+		ctrl_shadows->setEnabled(FALSE);
+		ctrl_shadows->setValue(0);
+		
+		ctrl_ssao->setEnabled(FALSE);
+		ctrl_ssao->setValue(FALSE);
+
+		ctrl_deferred->setEnabled(FALSE);
+		ctrl_deferred->setValue(FALSE);
 	}
 	
 	// disabled windlight
@@ -897,10 +955,47 @@ void LLFloaterPreference::disableUnavailableSettings()
 	{
 		ctrl_wind_light->setEnabled(FALSE);
 		ctrl_wind_light->setValue(FALSE);
+
+		//deferred needs windlight, disable deferred
+		ctrl_shadows->setEnabled(FALSE);
+		ctrl_shadows->setValue(0);
+		
+		ctrl_ssao->setEnabled(FALSE);
+		ctrl_ssao->setValue(FALSE);
+
+		ctrl_deferred->setEnabled(FALSE);
+		ctrl_deferred->setValue(FALSE);
+	}
+
+	// disabled deferred
+	if(!LLFeatureManager::getInstance()->isFeatureAvailable("RenderDeferred"))
+	{
+		ctrl_shadows->setEnabled(FALSE);
+		ctrl_shadows->setValue(0);
+		
+		ctrl_ssao->setEnabled(FALSE);
+		ctrl_ssao->setValue(FALSE);
+
+		ctrl_deferred->setEnabled(FALSE);
+		ctrl_deferred->setValue(FALSE);
 	}
 	
+	// disabled deferred SSAO
+	if(!LLFeatureManager::getInstance()->isFeatureAvailable("RenderDeferredSSAO"))
+	{
+		ctrl_ssao->setEnabled(FALSE);
+		ctrl_ssao->setValue(FALSE);
+	}
+	
+	// disabled deferred shadows
+	if(!LLFeatureManager::getInstance()->isFeatureAvailable("RenderShadowDetail"))
+	{
+		ctrl_shadows->setEnabled(FALSE);
+		ctrl_shadows->setValue(0);
+	}
+
 	// disabled reflections
-	if(!LLFeatureManager::getInstance()->isFeatureAvailable("RenderWaterReflections"))
+	if(!LLFeatureManager::getInstance()->isFeatureAvailable("RenderReflectionDetail"))
 	{
 		ctrl_reflections->setEnabled(FALSE);
 		ctrl_reflections->setValue(FALSE);
@@ -914,13 +1009,25 @@ void LLFloaterPreference::disableUnavailableSettings()
 		
 		ctrl_avatar_cloth->setEnabled(FALSE);
 		ctrl_avatar_cloth->setValue(FALSE);
+
+		//deferred needs AvatarVP, disable deferred
+		ctrl_shadows->setEnabled(FALSE);
+		ctrl_shadows->setValue(0);
+		
+		ctrl_ssao->setEnabled(FALSE);
+		ctrl_ssao->setValue(FALSE);
+
+		ctrl_deferred->setEnabled(FALSE);
+		ctrl_deferred->setValue(FALSE);
 	}
+
 	// disabled cloth
 	if(!LLFeatureManager::getInstance()->isFeatureAvailable("RenderAvatarCloth"))
 	{
 		ctrl_avatar_cloth->setEnabled(FALSE);
 		ctrl_avatar_cloth->setValue(FALSE);
 	}
+
 	// disabled impostors
 	if(!LLFeatureManager::getInstance()->isFeatureAvailable("RenderUseImpostors"))
 	{
@@ -960,18 +1067,6 @@ void LLFloaterPreference::onChangeQuality(const LLSD& data)
 	refresh();
 }
 
-// static
-// DEV-24146 -  needs to be removed at a later date. jan-2009
-void LLFloaterPreference::cleanupBadSetting()
-{
-	if (gSavedPerAccountSettings.getString("BusyModeResponse2") == "|TOKEN COPY BusyModeResponse|")
-	{
-		llwarns << "cleaning old BusyModeResponse" << llendl;
-		//LLTrans::getString("BusyModeResponseDefault") is used here for localization (EXT-5885)
-		gSavedPerAccountSettings.setString("BusyModeResponse2", LLTrans::getString("BusyModeResponseDefault"));
-	}
-}
-
 void LLFloaterPreference::onClickSetKey()
 {
 	LLVoiceSetKeyDialog* dialog = LLFloaterReg::showTypedInstance<LLVoiceSetKeyDialog>("voice_set_key", LLSD(), TRUE);
@@ -983,7 +1078,7 @@ void LLFloaterPreference::onClickSetKey()
 
 void LLFloaterPreference::setKey(KEY key)
 {
-	childSetValue("modifier_combo", LLKeyboard::stringFromKey(key));
+	getChild<LLUICtrl>("modifier_combo")->setValue(LLKeyboard::stringFromKey(key));
 	// update the control right away since we no longer wait for apply
 	getChild<LLUICtrl>("modifier_combo")->onCommit();
 }
@@ -1040,9 +1135,7 @@ void LLFloaterPreference::onClickDisablePopup()
 	for (itor = items.begin(); itor != items.end(); ++itor)
 	{
 		LLNotificationTemplatePtr templatep = LLNotifications::instance().getTemplate(*(std::string*)((*itor)->getUserdata()));
-		//gSavedSettings.setWarning(templatep->mName, TRUE);
-		std::string notification_name = templatep->mName;
-		LLUI::sSettingGroups["ignores"]->setBOOL(notification_name, FALSE);
+		templatep->mForm->setIgnored(false);
 	}
 	
 	buildPopupLists();
@@ -1056,7 +1149,7 @@ void LLFloaterPreference::resetAllIgnored()
 	{
 		if (iter->second->mForm->getIgnoreType() != LLNotificationForm::IGNORE_NO)
 		{
-			LLUI::sSettingGroups["ignores"]->setBOOL(iter->first, TRUE);
+			iter->second->mForm->setIgnored(true);
 		}
 	}
 }
@@ -1069,7 +1162,7 @@ void LLFloaterPreference::setAllIgnored()
 	{
 		if (iter->second->mForm->getIgnoreType() != LLNotificationForm::IGNORE_NO)
 		{
-			LLUI::sSettingGroups["ignores"]->setBOOL(iter->first, FALSE);
+			iter->second->mForm->setIgnored(false);
 		}
 	}
 }
@@ -1096,46 +1189,46 @@ void LLFloaterPreference::setPersonalInfo(const std::string& visibility, bool im
 	if(visibility == VISIBILITY_DEFAULT)
 	{
 		mOriginalHideOnlineStatus = false;
-		childEnable("online_visibility"); 	 
+		getChildView("online_visibility")->setEnabled(TRUE); 	 
 	}
 	else if(visibility == VISIBILITY_HIDDEN)
 	{
 		mOriginalHideOnlineStatus = true;
-		childEnable("online_visibility"); 	 
+		getChildView("online_visibility")->setEnabled(TRUE); 	 
 	}
 	else
 	{
 		mOriginalHideOnlineStatus = true;
 	}
 	
-	childEnable("include_im_in_chat_history");
-	childEnable("show_timestamps_check_im");
-	childEnable("friends_online_notify_checkbox");
+	getChildView("include_im_in_chat_history")->setEnabled(TRUE);
+	getChildView("show_timestamps_check_im")->setEnabled(TRUE);
+	getChildView("friends_online_notify_checkbox")->setEnabled(TRUE);
 	
-	childSetValue("online_visibility", mOriginalHideOnlineStatus); 	 
-	childSetLabelArg("online_visibility", "[DIR_VIS]", mDirectoryVisibility);
-	childEnable("send_im_to_email");
-	childSetValue("send_im_to_email", im_via_email);
-	childEnable("plain_text_chat_history");
-	childSetValue("plain_text_chat_history", gSavedSettings.getBOOL("PlainTextChatHistory"));
-	childEnable("log_instant_messages");
-//	childEnable("log_chat");
-//	childEnable("busy_response");
-//	childEnable("log_instant_messages_timestamp");
-//	childEnable("log_chat_timestamp");
-	childEnable("log_chat_IM");
-	childEnable("log_date_timestamp");
+	getChild<LLUICtrl>("online_visibility")->setValue(mOriginalHideOnlineStatus); 	 
+	getChild<LLUICtrl>("online_visibility")->setLabelArg("[DIR_VIS]", mDirectoryVisibility);
+	getChildView("send_im_to_email")->setEnabled(TRUE);
+	getChild<LLUICtrl>("send_im_to_email")->setValue(im_via_email);
+	getChildView("plain_text_chat_history")->setEnabled(TRUE);
+	getChild<LLUICtrl>("plain_text_chat_history")->setValue(gSavedSettings.getBOOL("PlainTextChatHistory"));
+	getChildView("log_instant_messages")->setEnabled(TRUE);
+//	getChildView("log_chat")->setEnabled(TRUE);
+//	getChildView("busy_response")->setEnabled(TRUE);
+//	getChildView("log_instant_messages_timestamp")->setEnabled(TRUE);
+//	getChildView("log_chat_timestamp")->setEnabled(TRUE);
+	getChildView("log_chat_IM")->setEnabled(TRUE);
+	getChildView("log_date_timestamp")->setEnabled(TRUE);
 	
-//	childSetText("busy_response", gSavedSettings.getString("BusyModeResponse2"));
+//	getChild<LLUICtrl>("busy_response")->setValue(gSavedSettings.getString("BusyModeResponse2"));
 	
-	childEnable("log_nearby_chat");
-	childEnable("log_instant_messages");
-	childEnable("show_timestamps_check_im");
-	childDisable("log_path_string");// LineEditor becomes readonly in this case.
-	childEnable("log_path_button");
+	getChildView("log_nearby_chat")->setEnabled(TRUE);
+	getChildView("log_instant_messages")->setEnabled(TRUE);
+	getChildView("show_timestamps_check_im")->setEnabled(TRUE);
+	getChildView("log_path_string")->setEnabled(FALSE);// LineEditor becomes readonly in this case.
+	getChildView("log_path_button")->setEnabled(TRUE);
 	
 	std::string display_email(email);
-	childSetText("email_address",display_email);
+	getChild<LLUICtrl>("email_address")->setValue(display_email);
 
 }
 
@@ -1180,31 +1273,6 @@ void LLFloaterPreference::updateSliderText(LLSliderCtrl* ctrl, LLTextBox* text_b
 	}
 }
 
-void LLFloaterPreference::applyResolution()
-{
-	gGL.flush();
-	
-	// Screen resolution
-	S32 num_resolutions;
-	LLWindow::LLWindowResolution* supported_resolutions = 
-	gViewerWindow->getWindow()->getSupportedResolutions(num_resolutions);
-	S32 resIndex = getChild<LLComboBox>("fullscreen combo")->getCurrentIndex();
-	if (resIndex == -1)
-	{
-		// use highest resolution if nothing selected
-		resIndex = num_resolutions - 1;
-	}
-	gSavedSettings.setS32("FullScreenWidth", supported_resolutions[resIndex].mWidth);
-	gSavedSettings.setS32("FullScreenHeight", supported_resolutions[resIndex].mHeight);
-	
-	gViewerWindow->requestResolutionUpdate(gSavedSettings.getBOOL("FullScreen"));
-	
-	send_agent_update(TRUE);
-	
-	// Update enable/disable
-	refresh();
-}
-
 void LLFloaterPreference::onChangeMaturity()
 {
 	U8 sim_access = gSavedSettings.getU32("PreferredMaturity");
@@ -1217,6 +1285,17 @@ void LLFloaterPreference::onChangeMaturity()
 															|| sim_access == SIM_ACCESS_ADULT);
 
 	getChild<LLIconCtrl>("rating_icon_adult")->setVisible(sim_access == SIM_ACCESS_ADULT);
+}
+
+// FIXME: this will stop you from spawning the sidetray from preferences dialog on login screen
+// but the UI for this will still be enabled
+void LLFloaterPreference::onClickBlockList()
+{
+	// don't create side tray on demand
+	if (LLSideTray::instanceCreated())
+	{
+		LLSideTray::getInstance()->showPanel("panel_block_list_sidetray");
+	}
 }
 
 
@@ -1248,8 +1327,8 @@ BOOL LLPanelPreference::postBuild()
 	if(hasChild("voice_unavailable"))
 	{
 		BOOL voice_disabled = gSavedSettings.getBOOL("CmdLineDisableVoice");
-		childSetVisible("voice_unavailable", voice_disabled);
-		childSetVisible("enable_voice_check", !voice_disabled);
+		getChildView("voice_unavailable")->setVisible( voice_disabled);
+		getChildView("enable_voice_check")->setVisible( !voice_disabled);
 	}
 	
 	//////////////////////PanelSkins ///////////////////
@@ -1269,8 +1348,8 @@ BOOL LLPanelPreference::postBuild()
 
 	if(hasChild("online_visibility") && hasChild("send_im_to_email"))
 	{
-		childSetText("email_address",getString("log_in_to_change") );
-//		childSetText("busy_response", getString("log_in_to_change"));		
+		getChild<LLUICtrl>("email_address")->setValue(getString("log_in_to_change") );
+//		getChild<LLUICtrl>("busy_response")->setValue(getString("log_in_to_change"));		
 	}
 	
 	//////////////////////PanelPrivacy ///////////////////
@@ -1294,9 +1373,9 @@ BOOL LLPanelPreference::postBuild()
 	if (hasChild("modifier_combo"))
 	{
 		//localizing if push2talk button is set to middle mouse
-		if (MIDDLE_MOUSE_CV == childGetValue("modifier_combo").asString())
+		if (MIDDLE_MOUSE_CV == getChild<LLUICtrl>("modifier_combo")->getValue().asString())
 		{
-			childSetValue("modifier_combo", getString("middle_mouse"));
+			getChild<LLUICtrl>("modifier_combo")->setValue(getString("middle_mouse"));
 		}
 	}
 

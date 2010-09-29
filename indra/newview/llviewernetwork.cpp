@@ -3,30 +3,25 @@
  * @author James Cook, Richard Nelson
  * @brief Networking constants and globals for viewer.
  *
- * $LicenseInfo:firstyear=2006&license=viewergpl$
- * 
- * Copyright (c) 2006-2010, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2006&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlife.com/developers/opensource/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at http://secondlife.com/developers/opensource/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -49,6 +44,7 @@ const char* DEFAULT_SLURL_BASE = "https://%s/region/";
 const char* DEFAULT_APP_SLURL_BASE = "x-grid-location-info://%s/app";
 
 LLGridManager::LLGridManager()
+:	mIsInProductionGrid(false)
 {
 	// by default, we use the 'grids.xml' file in the user settings directory
 	// this file is an LLSD file containing multiple grid definitions.
@@ -108,6 +104,26 @@ void LLGridManager::initialize(const std::string& grid_file)
 				  "https://login.aruna.lindenlab.com/cgi-bin/login.cgi",                   
 				  "http://aruna-secondlife.webdev.lindenlab.com/helpers/",
 				  DEFAULT_LOGIN_PAGE);
+	addSystemGrid("Bharati",                                                                                            
+				  "util.bharati.lindenlab.com",                                              
+				  "https://login.bharati.lindenlab.com/cgi-bin/login.cgi",                   
+				  "http://bharati-secondlife.webdev.lindenlab.com/helpers/",
+				  DEFAULT_LOGIN_PAGE);
+	addSystemGrid("Chandra",                                                                                            
+				  "util.chandra.lindenlab.com",                                              
+				  "https://login.chandra.lindenlab.com/cgi-bin/login.cgi",                   
+				  "http://chandra-secondlife.webdev.lindenlab.com/helpers/",
+				  DEFAULT_LOGIN_PAGE);
+	addSystemGrid("Damballah",                                                                                            
+				  "util.damballah.lindenlab.com",                                              
+				  "https://login.damballah.lindenlab.com/cgi-bin/login.cgi",                   
+				  "http://damballah-secondlife.webdev.lindenlab.com/helpers/",
+				  DEFAULT_LOGIN_PAGE);
+	addSystemGrid("Danu",                                                                                            
+				  "util.danu.lindenlab.com",                                              
+				  "https://login.danu.lindenlab.com/cgi-bin/login.cgi",                   
+				  "http://danu-secondlife.webdev.lindenlab.com/helpers/",
+				  DEFAULT_LOGIN_PAGE);
 	addSystemGrid("Durga",                                                                                            
 				  "util.durga.lindenlab.com",                                              
 				  "https://login.durga.lindenlab.com/cgi-bin/login.cgi",                   
@@ -132,6 +148,11 @@ void LLGridManager::initialize(const std::string& grid_file)
 				  "util.nandi.lindenlab.com",                                              
 				  "https://login.nandi.lindenlab.com/cgi-bin/login.cgi",                   
 				  "http://nandi-secondlife.webdev.lindenlab.com/helpers/",
+				  DEFAULT_LOGIN_PAGE);
+	addSystemGrid("Parvati",                                                                                            
+				  "util.parvati.lindenlab.com",                                              
+				  "https://login.parvati.lindenlab.com/cgi-bin/login.cgi",                   
+				  "http://parvati-secondlife.webdev.lindenlab.com/helpers/",
 				  DEFAULT_LOGIN_PAGE);
 	addSystemGrid("Radha",                                                                                            
 				  "util.radha.lindenlab.com",                                              
@@ -158,7 +179,6 @@ void LLGridManager::initialize(const std::string& grid_file)
 				  "https://login.soma.lindenlab.com/cgi-bin/login.cgi",                    
 				  "http://soma-secondlife.webdev.lindenlab.com/helpers/",
 				  DEFAULT_LOGIN_PAGE);
-	
 	addSystemGrid("Uma",                                                                                              
 				  "util.uma.lindenlab.com",                                                
 				  "https://login.uma.lindenlab.com/cgi-bin/login.cgi",                     
@@ -202,11 +222,11 @@ void LLGridManager::initialize(const std::string& grid_file)
 					LLSD grid = grid_itr->second;
 					// TODO:  Make sure gridfile specified label is not 
 					// a system grid label
-					LL_INFOS("GridManager") << "reading: " << key_name << LL_ENDL;
+					LL_DEBUGS("GridManager") << "reading: " << key_name << LL_ENDL;
 					if (mGridList.has(key_name) &&
 						mGridList[key_name].has(GRID_IS_SYSTEM_GRID_VALUE))
 					{
-						LL_INFOS("GridManager") << "Cannot override grid " << key_name << " as it's a system grid" << LL_ENDL;
+						LL_DEBUGS("GridManager") << "Cannot override grid " << key_name << " as it's a system grid" << LL_ENDL;
 						// If the system grid does exist in the grids file, and it's marked as a favorite, set it as a favorite.
 						if(grid_itr->second.has(GRID_IS_FAVORITE_VALUE) && grid_itr->second[GRID_IS_FAVORITE_VALUE].asBoolean() )
 						{
@@ -218,7 +238,7 @@ void LLGridManager::initialize(const std::string& grid_file)
 						try
 						{
 							addGrid(grid);
-							LL_INFOS("GridManager") << "Added grid: " << key_name << LL_ENDL;
+							LL_DEBUGS("GridManager") << "Added grid: " << key_name << LL_ENDL;
 						}
 						catch (...)
 						{
@@ -233,89 +253,108 @@ void LLGridManager::initialize(const std::string& grid_file)
 	// load a grid from the command line.
 	// if the actual grid name is specified from the command line,
 	// set it as the 'selected' grid.
-	mGrid = gSavedSettings.getString("CmdLineGridChoice");
-	LL_INFOS("GridManager") << "Grid Name: " << mGrid << LL_ENDL;		
-	
-	// If a command line login URI was passed in, so we should add the command
-	// line grid to the list of grids
-
-	LLSD cmd_line_login_uri = gSavedSettings.getLLSD("CmdLineLoginURI");
-	if (cmd_line_login_uri.isString())
+	std::string cmd_line_grid = gSavedSettings.getString("CmdLineGridChoice");
+	if(!cmd_line_grid.empty())
 	{
-		LL_INFOS("GridManager") << "adding cmd line login uri" << LL_ENDL;
-		// grab the other related URI values
-		std::string cmd_line_helper_uri = gSavedSettings.getString("CmdLineHelperURI");
-		std::string cmd_line_login_page = gSavedSettings.getString("LoginPage");
+		// try to find the grid assuming the command line parameter is
+		// the case-insensitive 'label' of the grid.  ie 'Agni'
+		mGrid = getGridByLabel(cmd_line_grid);
+		if(mGrid.empty())
+		{
+			// if we couldn't find it, assume the
+			// requested grid is the actual grid 'name' or index,
+			// which would be the dns name of the grid (for non
+			// linden hosted grids)
+			// If the grid isn't there, that's ok, as it will be
+			// automatically added later.
+			mGrid = cmd_line_grid;
+		}
 		
-		// we've a cmd line login, so add a grid for the command line,
-		// overwriting any existing grids
-		LLSD grid = LLSD::emptyMap();
-		grid[GRID_LOGIN_URI_VALUE] = LLSD::emptyArray();
-		grid[GRID_LOGIN_URI_VALUE].append(cmd_line_login_uri);
-		LL_INFOS("GridManager") << "cmd line login uri: " << cmd_line_login_uri.asString() << LL_ENDL;
-		LLURI uri(cmd_line_login_uri.asString());
-		if (mGrid.empty())
-		{
-			// if a grid name was not passed in via the command line,
-			// then set the grid name based on the hostname of the 
-			// login uri
-			mGrid = uri.hostName();
-		}
-
-		grid[GRID_VALUE] = mGrid;
-
-		if (mGridList.has(mGrid) && mGridList[mGrid].has(GRID_LABEL_VALUE))
-		{
-			grid[GRID_LABEL_VALUE] = mGridList[mGrid][GRID_LABEL_VALUE];
-		}
-		else
-		{
-			grid[GRID_LABEL_VALUE] = mGrid;			
-		}
-		if(!cmd_line_helper_uri.empty())
-		{
-			grid[GRID_HELPER_URI_VALUE] = cmd_line_helper_uri;
-		}
-
-		if(!cmd_line_login_page.empty())
-		{
-			grid[GRID_LOGIN_PAGE_VALUE] = cmd_line_login_page;
-		}
-		// if the login page, helper URI value, and so on are not specified,
-		// add grid will generate them.
-
-		// Also, we will override a system grid if values are passed in via the command
-		// line, for testing.  These values will not be remembered though.
-		if (mGridList.has(mGrid) && mGridList[mGrid].has(GRID_IS_SYSTEM_GRID_VALUE))
-		{
-			grid[GRID_IS_SYSTEM_GRID_VALUE] = TRUE;
-		}
-		addGrid(grid);
 	}
-	
-	// if a grid was not passed in via the command line, grab it from the CurrentGrid setting.
-	if (mGrid.empty())
+	else
 	{
-
+		// if a grid was not passed in via the command line, grab it from the CurrentGrid setting.
+		// if there's no current grid, that's ok as it'll be either set by the value passed
+		// in via the login uri if that's specified, or will default to maingrid
 		mGrid = gSavedSettings.getString("CurrentGrid");
 	}
-
-	if (mGrid.empty() || !mGridList.has(mGrid))
+	
+	if(mGrid.empty())
 	{
-		// the grid name was empty, or the grid isn't actually in the list, then set it to the
-		// appropriate default.
-		LL_INFOS("GridManager") << "Resetting grid as grid name " << mGrid << " is not in the list" << LL_ENDL;
+		// no grid was specified so default to maingrid
+		LL_DEBUGS("GridManager") << "Setting grid to MAINGRID as no grid has been specified " << LL_ENDL;
 		mGrid = MAINGRID;
+		
 	}
-	LL_INFOS("GridManager") << "Selected grid is " << mGrid << LL_ENDL;		
-	gSavedSettings.setString("CurrentGrid", mGrid);
+	
+	// generate a 'grid list' entry for any command line parameter overrides
+	// or setting overides that we'll add to the grid list or override
+	// any grid list entries with.
+	LLSD grid = LLSD::emptyMap();	
+	
+	if(mGridList.has(mGrid))
+	{
+		grid = mGridList[mGrid];
+	}
+	else
+	{
+		grid[GRID_VALUE] = mGrid;
+		// add the grid with the additional values, or update the
+		// existing grid if it exists with the given values
+		addGrid(grid);		
+	}
 
+	LLControlVariablePtr grid_control = gSavedSettings.getControl("CurrentGrid");
+	if (grid_control.notNull())
+	{
+		grid_control->getSignal()->connect(boost::bind(&LLGridManager::updateIsInProductionGrid, this));
+	}
+
+	// since above only triggers on changes, trigger the callback manually to initialize state
+	updateIsInProductionGrid();
+
+	LL_DEBUGS("GridManager") << "Selected grid is " << mGrid << LL_ENDL;		
+	setGridChoice(mGrid);
+	if(mGridList[mGrid][GRID_LOGIN_URI_VALUE].isArray())
+	{
+		llinfos << "is array" << llendl;
+	}
 }
 
 LLGridManager::~LLGridManager()
 {
 	saveFavorites();
 }
+
+void LLGridManager::getGridInfo(const std::string &grid, LLSD& grid_info)
+{
+	
+	grid_info = mGridList[grid]; 
+	
+	// override any grid data with the command line info.
+	
+	LLSD cmd_line_login_uri = gSavedSettings.getLLSD("CmdLineLoginURI");
+	if (cmd_line_login_uri.isString())
+	{	
+		grid_info[GRID_LOGIN_URI_VALUE] = LLSD::emptyArray();
+		grid_info[GRID_LOGIN_URI_VALUE].append(cmd_line_login_uri);
+	}
+	
+	// override the helper uri if it was passed in
+	std::string cmd_line_helper_uri = gSavedSettings.getString("CmdLineHelperURI");
+	if(!cmd_line_helper_uri.empty())
+	{
+		grid_info[GRID_HELPER_URI_VALUE] = cmd_line_helper_uri;	
+	}
+	
+	// override the login page if it was passed in
+	std::string cmd_line_login_page = gSavedSettings.getString("LoginPage");
+	if(!cmd_line_login_page.empty())
+	{
+		grid_info[GRID_LOGIN_PAGE_VALUE] = cmd_line_login_page;
+	}	
+}
+
 
 //
 // LLGridManager::addGrid - add a grid to the grid list, populating the needed values
@@ -373,7 +412,7 @@ void LLGridManager::addGrid(LLSD& grid_data)
 			grid_data[GRID_LOGIN_IDENTIFIER_TYPES].append(CRED_IDENTIFIER_TYPE_ACCOUNT);
 		}
 		
-		LL_INFOS("GridManager") << "ADDING: " << grid << LL_ENDL;
+		LL_DEBUGS("GridManager") << "ADDING: " << grid << LL_ENDL;
 		mGridList[grid] = grid_data;		
 	}
 }
@@ -439,6 +478,7 @@ std::map<std::string, std::string> LLGridManager::getKnownGrids(bool favorite_on
 	return result;
 }
 
+
 void LLGridManager::setGridChoice(const std::string& grid)
 {
 	// Set the grid choice based on a string.
@@ -449,35 +489,38 @@ void LLGridManager::setGridChoice(const std::string& grid)
 
 	// loop through.  We could do just a hash lookup but we also want to match
 	// on label
-	for(LLSD::map_iterator grid_iter = mGridList.beginMap();
-		grid_iter != mGridList.endMap();
-		grid_iter++) 
+	std::string grid_name = grid;
+	if(!mGridList.has(grid_name))
 	{
-		if((grid == grid_iter->first) || 
-		   (grid == grid_iter->second[GRID_LABEL_VALUE].asString()))
-		{
-			mGrid = grid_iter->second[GRID_VALUE].asString();
-			gSavedSettings.setString("CurrentGrid", grid_iter->second[GRID_VALUE]);			
-			return; 
-
-		}
+		// case insensitive
+		grid_name = getGridByLabel(grid);
 	}
-	LLSD grid_data = LLSD::emptyMap();
-	grid_data[GRID_VALUE] = grid;
-	addGrid(grid_data);
+	
+	if(grid_name.empty())
+	{
+		// the grid was not in the list of grids.
+		LLSD grid_data = LLSD::emptyMap();
+		grid_data[GRID_VALUE] = grid;
+		addGrid(grid_data);		
+	}
 	mGrid = grid;
-	gSavedSettings.setString("CurrentGrid", grid);
+	gSavedSettings.setString("CurrentGrid", grid); 
+	updateIsInProductionGrid();
 }
 
-std::string LLGridManager::getGridByLabel( const std::string &grid_label)
+std::string LLGridManager::getGridByLabel( const std::string &grid_label, bool case_sensitive)
 {
 	for(LLSD::map_iterator grid_iter = mGridList.beginMap();
 		grid_iter != mGridList.endMap();
 		grid_iter++) 
 	{
-		if (grid_iter->second.has(GRID_LABEL_VALUE) && (grid_iter->second[GRID_LABEL_VALUE].asString() == grid_label))
+		if (grid_iter->second.has(GRID_LABEL_VALUE))
 		{
-			return grid_iter->first;
+			if (0 == (case_sensitive?LLStringUtil::compareStrings(grid_label, grid_iter->second[GRID_LABEL_VALUE].asString()):
+				LLStringUtil::compareInsensitive(grid_label, grid_iter->second[GRID_LABEL_VALUE].asString())))
+			{
+				return grid_iter->first;
+			}
 		}
 	}
 	return std::string();
@@ -486,6 +529,12 @@ std::string LLGridManager::getGridByLabel( const std::string &grid_label)
 void LLGridManager::getLoginURIs(std::vector<std::string>& uris)
 {
 	uris.clear();
+	LLSD cmd_line_login_uri = gSavedSettings.getLLSD("CmdLineLoginURI");
+	if (cmd_line_login_uri.isString())
+	{	
+		uris.push_back(cmd_line_login_uri);
+		return;
+	}
 	for (LLSD::array_iterator llsd_uri = mGridList[mGrid][GRID_LOGIN_URI_VALUE].beginArray();
 		 llsd_uri != mGridList[mGrid][GRID_LOGIN_URI_VALUE].endArray();
 		 llsd_uri++)
@@ -494,23 +543,52 @@ void LLGridManager::getLoginURIs(std::vector<std::string>& uris)
 	}
 }
 
-bool LLGridManager::isInProductionGrid()
+std::string LLGridManager::getHelperURI() 
 {
+	std::string cmd_line_helper_uri = gSavedSettings.getString("CmdLineHelperURI");
+	if(!cmd_line_helper_uri.empty())
+	{
+		return cmd_line_helper_uri;	
+	}
+	return mGridList[mGrid][GRID_HELPER_URI_VALUE];
+}
+
+std::string LLGridManager::getLoginPage() 
+{
+	// override the login page if it was passed in
+	std::string cmd_line_login_page = gSavedSettings.getString("LoginPage");
+	if(!cmd_line_login_page.empty())
+	{
+		return cmd_line_login_page;
+	}	
+	
+	return mGridList[mGrid][GRID_LOGIN_PAGE_VALUE];
+}
+
+void LLGridManager::updateIsInProductionGrid()
+{
+	mIsInProductionGrid = false;
+
 	// *NOTE:Mani This used to compare GRID_INFO_AGNI to gGridChoice,
 	// but it seems that loginURI trumps that.
 	std::vector<std::string> uris;
 	getLoginURIs(uris);
-	if (uris.size() < 1)
+	if (uris.empty())
 	{
-		return 1;
+		mIsInProductionGrid = true;
+		return;
 	}
 	LLStringUtil::toLower(uris[0]);
 	if((uris[0].find("agni") != std::string::npos))
 	{
-		return true;
+		mIsInProductionGrid = true;
+		return;
 	}
+}
 
-	return false;
+bool LLGridManager::isInProductionGrid()
+{
+	return mIsInProductionGrid;
 }
 
 void LLGridManager::saveFavorites()

@@ -3,31 +3,25 @@
  * @brief parameter block abstraction for creating complex objects and 
  * parsing construction parameters from xml and LLSD
  *
- * $LicenseInfo:firstyear=2008&license=viewergpl$
- * 
- * Copyright (c) 2008-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2008&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -74,7 +68,6 @@ namespace LLInitParam
 	void BlockDescriptor::aggregateBlockData(BlockDescriptor& src_block_data) 
 	{
 		mNamedParams.insert(src_block_data.mNamedParams.begin(), src_block_data.mNamedParams.end());
-		mSynonyms.insert(src_block_data.mSynonyms.begin(), src_block_data.mSynonyms.end());
 		std::copy(src_block_data.mUnnamedParams.begin(), src_block_data.mUnnamedParams.end(), std::back_inserter(mUnnamedParams));
 		std::copy(src_block_data.mValidationList.begin(), src_block_data.mValidationList.end(), std::back_inserter(mValidationList));
 		std::copy(src_block_data.mAllParams.begin(), src_block_data.mAllParams.end(), std::back_inserter(mAllParams));
@@ -84,8 +77,7 @@ namespace LLInitParam
 	// BaseBlock
 	//
 	BaseBlock::BaseBlock()
-	:	mChangeVersion(0),
-		mBlockDescriptor(NULL)
+	:	mChangeVersion(0)
 	{}
 
 	BaseBlock::~BaseBlock()
@@ -94,8 +86,6 @@ namespace LLInitParam
 	// called by each derived class in least to most derived order
 	void BaseBlock::init(BlockDescriptor& descriptor, BlockDescriptor& base_descriptor, size_t block_size)
 	{
-		mBlockDescriptor = &descriptor;
-
 		descriptor.mCurrentBlockPtr = this;
 		descriptor.mMaxParamOffset = block_size;
 
@@ -139,7 +129,7 @@ namespace LLInitParam
 
 	bool BaseBlock::validateBlock(bool emit_errors) const
 	{
-		const BlockDescriptor& block_data = getBlockDescriptor();
+		const BlockDescriptor& block_data = mostDerivedBlockDescriptor();
 		for (BlockDescriptor::param_validation_list_t::const_iterator it = block_data.mValidationList.begin(); it != block_data.mValidationList.end(); ++it)
 		{
 			const Param* param = getParamFromHandle(it->first);
@@ -159,7 +149,7 @@ namespace LLInitParam
 	{
 		// named param is one like LLView::Params::follows
 		// unnamed param is like LLView::Params::rect - implicit
-		const BlockDescriptor& block_data = getBlockDescriptor();
+		const BlockDescriptor& block_data = mostDerivedBlockDescriptor();
 
 		for (BlockDescriptor::param_list_t::const_iterator it = block_data.mUnnamedParams.begin(); 
 			it != block_data.mUnnamedParams.end(); 
@@ -188,7 +178,7 @@ namespace LLInitParam
 			param_handle_t param_handle = it->second->mParamHandle;
 			const Param* param = getParamFromHandle(param_handle);
 			ParamDescriptor::serialize_func_t serialize_func = it->second->mSerializeFunc;
-			if (serialize_func)
+			if (serialize_func && param->anyProvided())
 			{
 				// Ensure this param has not already been serialized
 				// Prevents <rect> from being serialized as its own tag.
@@ -230,7 +220,7 @@ namespace LLInitParam
 	{
 		// named param is one like LLView::Params::follows
 		// unnamed param is like LLView::Params::rect - implicit
-		const BlockDescriptor& block_data = getBlockDescriptor();
+		const BlockDescriptor& block_data = mostDerivedBlockDescriptor();
 
 		for (BlockDescriptor::param_list_t::const_iterator it = block_data.mUnnamedParams.begin(); 
 			it != block_data.mUnnamedParams.end(); 
@@ -280,28 +270,12 @@ namespace LLInitParam
 			}
 		}
 
-		for(BlockDescriptor::param_map_t::const_iterator it = block_data.mSynonyms.begin();
-			it != block_data.mSynonyms.end();
-			++it)
-		{
-			param_handle_t param_handle = it->second->mParamHandle;
-			const Param* param = getParamFromHandle(param_handle);
-			ParamDescriptor::inspect_func_t inspect_func = it->second->mInspectFunc;
-			if (inspect_func)
-			{
-				// use existing serial number for param
-				name_stack.push_back(std::make_pair(it->first, it->second->mGeneration));
-				inspect_func(*param, parser, name_stack, it->second->mMinCount, it->second->mMaxCount);
-				name_stack.pop_back();
-			}
-		}
-
 		return true;
 	}
 
 	bool BaseBlock::deserializeBlock(Parser& p, Parser::name_stack_range_t name_stack)
 	{
-		BlockDescriptor& block_data = getBlockDescriptor();
+		BlockDescriptor& block_data = mostDerivedBlockDescriptor();
 		bool names_left = name_stack.first != name_stack.second;
 
 		if (names_left)
@@ -317,22 +291,9 @@ namespace LLInitParam
 				// find pointer to member parameter from offset table
 				paramp = getParamFromHandle(found_it->second->mParamHandle);
 				deserialize_func = found_it->second->mDeserializeFunc;
-			}
-			else
-			{
-				BlockDescriptor::param_map_t::iterator found_it = block_data.mSynonyms.find(top_name);
-				if (found_it != block_data.mSynonyms.end())
-				{
-					// find pointer to member parameter from offset table
-					paramp = getParamFromHandle(found_it->second->mParamHandle);
-					deserialize_func = found_it->second->mDeserializeFunc;
-				}
-			}
 					
-			Parser::name_stack_range_t new_name_stack(name_stack.first, name_stack.second);
-			++new_name_stack.first;
-			if (deserialize_func)
-			{
+				Parser::name_stack_range_t new_name_stack(name_stack.first, name_stack.second);
+				++new_name_stack.first;
 				return deserialize_func(*paramp, p, new_name_stack, name_stack.first == name_stack.second ? -1 : name_stack.first->second);
 			}
 		}
@@ -386,7 +347,7 @@ namespace LLInitParam
 
 	void BaseBlock::addSynonym(Param& param, const std::string& synonym)
 	{
-		BlockDescriptor& block_data = getBlockDescriptor();
+		BlockDescriptor& block_data = mostDerivedBlockDescriptor();
 		if (block_data.mInitializationState == BlockDescriptor::INITIALIZING)
 		{
 			param_handle_t handle = getHandleFromParam(&param);
@@ -407,7 +368,7 @@ namespace LLInitParam
 				}
 				else
 				{
-					block_data.mSynonyms[synonym] = param_descriptor;
+					block_data.mNamedParams[synonym] = param_descriptor;
 				}
 			}
 		}
@@ -417,8 +378,8 @@ namespace LLInitParam
 	{ 
 		if (user_provided)
 		{
-		mChangeVersion++;
-	}
+			mChangeVersion++;
+		}
 	}
 
 	const std::string& BaseBlock::getParamName(const BlockDescriptor& block_data, const Param* paramp) const
@@ -432,20 +393,12 @@ namespace LLInitParam
 			}
 		}
 
-		for (BlockDescriptor::param_map_t::const_iterator it = block_data.mSynonyms.begin(); it != block_data.mSynonyms.end(); ++it)
-		{
-			if (it->second->mParamHandle == handle)
-			{
-				return it->first;
-			}
-		}
-
 		return LLStringUtil::null;
 	}
 
 	ParamDescriptor* BaseBlock::findParamDescriptor(param_handle_t handle)
 	{
-		BlockDescriptor& descriptor = getBlockDescriptor();
+		BlockDescriptor& descriptor = mostDerivedBlockDescriptor();
 		BlockDescriptor::all_params_list_t::iterator end_it = descriptor.mAllParams.end();
 		for (BlockDescriptor::all_params_list_t::iterator it = descriptor.mAllParams.begin();
 			it != end_it;
@@ -460,7 +413,7 @@ namespace LLInitParam
 	// NOTE: this requires that "other" is of the same derived type as this
 	bool BaseBlock::merge(BlockDescriptor& block_data, const BaseBlock& other, bool overwrite)
 	{
-		bool param_changed = false;
+		bool some_param_changed = false;
 		BlockDescriptor::all_params_list_t::const_iterator end_it = block_data.mAllParams.end();
 		for (BlockDescriptor::all_params_list_t::const_iterator it = block_data.mAllParams.begin();
 			it != end_it;
@@ -471,10 +424,10 @@ namespace LLInitParam
 			if (merge_func)
 			{
 				Param* paramp = getParamFromHandle(it->mParamHandle);
-				param_changed |= merge_func(*paramp, *other_paramp, overwrite);
+				some_param_changed |= merge_func(*paramp, *other_paramp, overwrite);
 			}
 		}
-		return param_changed;
+		return some_param_changed;
 	}
 
 	bool ParamCompare<LLSD, false>::equals(const LLSD &a, const LLSD &b)

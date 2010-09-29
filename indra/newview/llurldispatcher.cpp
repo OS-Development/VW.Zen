@@ -2,30 +2,25 @@
  * @file llurldispatcher.cpp
  * @brief Central registry for all URL handlers
  *
- * $LicenseInfo:firstyear=2007&license=viewergpl$
- * 
- * Copyright (c) 2010, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2007&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlife.com/developers/opensource/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at http://secondlife.com/developers/opensource/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 #include "llviewerprecompiledheaders.h"
@@ -37,7 +32,6 @@
 #include "llcommandhandler.h"
 #include "llfloaterhelpbrowser.h"
 #include "llfloaterreg.h"
-#include "llfloaterurldisplay.h"
 #include "llfloaterworldmap.h"
 #include "llpanellogin.h"
 #include "llregionhandle.h"
@@ -182,10 +176,6 @@ bool LLURLDispatcherImpl::dispatchRegion(const LLSLURL& slurl, bool right_mouse)
 		return true;
 	}
 
-	// LLFloaterURLDisplay functionality moved to LLPanelPlaces in Side Tray.
-	//LLFloaterURLDisplay* slurl_displayp = LLFloaterReg::getTypedInstance<LLFloaterURLDisplay>("preview_url",LLSD());
-	//if(slurl_displayp) slurl_displayp->setName(region_name);
-
 	// Request a region handle by name
 	LLWorldMapMessage::getInstance()->sendNamedRegionRequest(slurl.getRegion(),
 									  LLURLDispatcherImpl::regionNameCallback,
@@ -215,7 +205,8 @@ void LLURLDispatcherImpl::regionHandleCallback(U64 region_handle, const LLSLURL&
 		LLSD args;
 		args["SLURL"] = slurl.getLocationString();
 		args["CURRENT_GRID"] = LLGridManager::getInstance()->getGridLabel();
-		LLSD grid_info = LLGridManager::getInstance()->getGridInfo(slurl.getGrid());
+		LLSD grid_info;
+		LLGridManager::getInstance()->getGridInfo(slurl.getGrid(), grid_info);
 		
 		if(grid_info.has(GRID_LABEL_VALUE))
 		{
@@ -250,21 +241,6 @@ void LLURLDispatcherImpl::regionHandleCallback(U64 region_handle, const LLSLURL&
 		key["z"] = global_pos.mdV[VZ];
 
 		LLSideTray::getInstance()->showPanel("panel_places", key);
-
-		// LLFloaterURLDisplay functionality moved to LLPanelPlaces in Side Tray.
-
-//		// display informational floater, allow user to click teleport btn
-//		LLFloaterURLDisplay* slurl_displayp = LLFloaterReg::getTypedInstance<LLFloaterURLDisplay>("preview_url",LLSD());
-//		if(slurl_displayp)
-//		{
-//			url_displayp->displayParcelInfo(region_handle, local_pos);
-//			if(snapshot_id.notNull())
-//			{
-//				url_displayp->setSnapshotDisplay(snapshot_id);
-//			}
-//			std::string locationString = llformat("%s %d, %d, %d", region_name.c_str(), x, y, z);
-//			url_displayp->setLocationString(locationString);
-//		}
 	}
 }
 

@@ -2,49 +2,46 @@
  * @file llavatarlist.h
  * @brief Generic avatar list
  *
- * $LicenseInfo:firstyear=2009&license=viewergpl$
- * 
- * Copyright (c) 2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2009&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
 #include "llviewerprecompiledheaders.h"
 
+#include "llavatarlist.h"
+
 // common
 #include "lltrans.h"
 #include "llcommonutils.h"
 
-#include "llavatarlist.h"
-#include "llagentdata.h" // for comparator
+// llui
+#include "lltextutil.h"
 
 // newview
+#include "llagentdata.h" // for comparator
 #include "llavatariconctrl.h"
 #include "llcallingcard.h" // for LLAvatarTracker
 #include "llcachename.h"
+#include "lllistcontextmenu.h"
 #include "llrecentpeople.h"
-#include "lltextutil.h"
 #include "lluuid.h"
 #include "llvoiceclient.h"
 #include "llviewercontrol.h"	// for gSavedSettings
@@ -93,6 +90,20 @@ void LLAvatarList::setSpeakingIndicatorsVisible(bool visible)
 	}
 }
 
+void LLAvatarList::showPermissions(bool visible)
+{
+	// Save the value for new items to use.
+	mShowPermissions = visible;
+
+	// Enable or disable showing permissions icons for all existing items.
+	std::vector<LLPanel*> items;
+	getItems(items);
+	for(std::vector<LLPanel*>::const_iterator it = items.begin(), end_it = items.end(); it != end_it; ++it)
+	{
+		static_cast<LLAvatarListItem*>(*it)->setShowPermissions(mShowPermissions);
+	}
+}
+
 static bool findInsensitive(std::string haystack, const std::string& needle_upper)
 {
     LLStringUtil::toUpper(haystack);
@@ -110,6 +121,7 @@ LLAvatarList::Params::Params()
 , show_info_btn("show_info_btn", true)
 , show_profile_btn("show_profile_btn", true)
 , show_speaking_indicator("show_speaking_indicator", true)
+, show_permissions_granted("show_permissions_granted", false)
 {
 }
 
@@ -124,6 +136,7 @@ LLAvatarList::LLAvatarList(const Params& p)
 , mShowInfoBtn(p.show_info_btn)
 , mShowProfileBtn(p.show_profile_btn)
 , mShowSpeakingIndicator(p.show_speaking_indicator)
+, mShowPermissions(p.show_permissions_granted)
 {
 	setCommitOnSelectionChange(true);
 
@@ -208,7 +221,7 @@ void LLAvatarList::setDirty(bool val /*= true*/, bool force_refresh /*= false*/)
 void LLAvatarList::addAvalineItem(const LLUUID& item_id, const LLUUID& session_id, const std::string& item_name)
 {
 	LL_DEBUGS("Avaline") << "Adding avaline item into the list: " << item_name << "|" << item_id << ", session: " << session_id << LL_ENDL;
-	LLAvalineListItem* item = new LLAvalineListItem;
+	LLAvalineListItem* item = new LLAvalineListItem(/*hide_number=*/false);
 	item->setAvatarId(item_id, session_id, true, false);
 	item->setName(item_name);
 
@@ -380,8 +393,9 @@ void LLAvatarList::addNewItem(const LLUUID& id, const std::string& name, BOOL is
 	item->setShowInfoBtn(mShowInfoBtn);
 	item->setShowProfileBtn(mShowProfileBtn);
 	item->showSpeakingIndicator(mShowSpeakingIndicator);
+	item->setShowPermissions(mShowPermissions);
 
-	item->setDoubleClickCallback(boost::bind(&LLAvatarList::onItemDoucleClicked, this, _1, _2, _3, _4));
+	item->setDoubleClickCallback(boost::bind(&LLAvatarList::onItemDoubleClicked, this, _1, _2, _3, _4));
 
 	addItem(item, id, pos);
 }
@@ -444,7 +458,7 @@ void LLAvatarList::updateLastInteractionTimes()
 	}
 }
 
-void LLAvatarList::onItemDoucleClicked(LLUICtrl* ctrl, S32 x, S32 y, MASK mask)
+void LLAvatarList::onItemDoubleClicked(LLUICtrl* ctrl, S32 x, S32 y, MASK mask)
 {
 	mItemDoubleClickSignal(ctrl, x, y, mask);
 }
@@ -495,7 +509,7 @@ LLAvalineListItem::LLAvalineListItem(bool hide_number/* = true*/) : LLAvatarList
 , mIsHideNumber(hide_number)
 {
 	// should not use buildPanel from the base class to ensure LLAvalineListItem::postBuild is called.
-	LLUICtrlFactory::getInstance()->buildPanel(this, "panel_avatar_list_item.xml");
+	buildFromFile( "panel_avatar_list_item.xml");
 }
 
 BOOL LLAvalineListItem::postBuild()

@@ -1,8 +1,8 @@
 /** 
  * @file pointLightF.glsl
  *
- * Copyright (c) 2007-$CurrentYear$, Linden Research, Inc.
- * $License$
+ * $LicenseInfo:firstyear=2007&license=viewerlgpl$
+ * $/LicenseInfo$
  */
 
 #extension GL_ARB_texture_rectangle : enable
@@ -55,7 +55,8 @@ void main()
 		discard;
 	}
 	
-	vec3 norm = texture2DRect(normalMap, frag.xy).xyz*2.0-1.0;
+	vec3 norm = texture2DRect(normalMap, frag.xy).xyz;
+	norm = vec3((norm.xy-0.5)*2.0,norm.z); // unpack norm
 	float da = dot(norm, lv);
 	if (da < 0.0)
 	{

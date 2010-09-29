@@ -23,16 +23,17 @@
   Save
  </string>
   <button
-     follows="top|right"
-     height="23"
-     image_overlay="BackArrow_Off"
+     follows="top|left"
+     height="24"
+     image_hover_unselected="BackButton_Over"
+     image_pressed="BackButton_Press"
+     image_unselected="BackButton_Off"
      layout="topleft"
      name="back_btn"
-     picture_style="true"
-     left="12"
+     left="10"
      tab_stop="false"
      top="2"
-     width="23" />
+     width="30" />
    <text
      type="string"
      length="1"
@@ -40,7 +41,7 @@
      font="SansSerifHugeBold"
      height="26"
      layout="topleft"
-     left_pad="10"
+     left_pad="4"
      name="title"
      text_color="LtGray"
      top="0"
@@ -77,6 +78,7 @@
          top="10"
          width="272">
       <texture_picker
+       fallback_image="default_land_picture.j2c"
        follows="left|top|right"
        height="197"
        width="272"
@@ -117,7 +119,7 @@
          layout="topleft"
          left="10"
          top_pad="2"
-         max_length="63"
+         max_length="30"
          name="classified_name"
          prevalidate_callback="ascii"
          text_color="black"
@@ -145,7 +147,7 @@
          layout="topleft"
          left="10"
          top_pad="2"
-         max_length="1023"
+         max_length="64"
          name="classified_desc"
          text_color="black"
          word_wrap="true" />
@@ -252,9 +254,16 @@
                  width="20"/>
             </icons_combo_box.item>
         </icons_combo_box>
+        <check_box
+         height="16"
+         label="Auto renew each week"
+         layout="topleft"
+         left="10"
+         name="auto_renew"
+         top_pad="15"
+         width="250" />
         <text
          follows="left|top"
-         font.style="BOLD"
          height="10"
          layout="topleft"
          left="10"
@@ -281,14 +290,6 @@
          top_pad="5"
          tool_tip="Price for listing."
          width="105" />
-        <check_box
-         height="16"
-         label="Auto renew each week"
-         layout="topleft"
-         left="10"
-         name="auto_renew"
-         top_pad="15"
-         width="250" />
      </panel>
     </scroll_container>
     <panel
@@ -300,22 +301,56 @@
      name="bottom_panel"
      top_pad="5"
      width="303">
-        <button
-         follows="bottom|left"
-         height="23"
-         label="[LABEL]"
-         layout="topleft"
-         name="save_changes_btn"
-         left="0"
-         top="0"
-         width="152" />
-        <button
-         follows="bottom|left"
-         height="23"
-         label="Cancel"
-         layout="topleft"
-         name="cancel_btn"
-         left_pad="3"
-         width="153" />
+     
+         <layout_stack
+		  follows="bottom|left|right"
+		  height="23"
+		  layout="topleft"
+		  name="bottom_panel_ls"
+		  left="1"
+		  orientation="horizontal"
+		  top_pad="0"
+		  width="309">
+		  
+		  <layout_panel
+			  follows="bottom|left|right"
+			  height="23"
+			  layout="bottomleft"
+			  left="0"
+			  name="save_changes_btn_lp"
+		      user_resize="false" 
+		      auto_resize="true"
+			  width="156">
+			  <button
+		         follows="bottom|left|right"
+		         height="23"
+		         label="[LABEL]"
+		         layout="topleft"
+		         name="save_changes_btn"
+		         left="1"
+		         top="0"
+		         width="155" />	
+		  </layout_panel>
+		  
+		  <layout_panel
+			  follows="bottom|left|right"
+			  height="23"
+			  layout="bottomleft"
+			  left_pad="3"
+			  name="show_on_map_btn_lp"
+		      user_resize="false" 
+		      auto_resize="true"
+			  width="157">
+			  <button
+		         follows="bottom|left|right"
+		         height="23"
+		         label="Cancel"
+		         layout="topleft"
+		         name="cancel_btn"
+		         left="1"
+		         top="0"
+		         width="156" />
+		  </layout_panel>
+	   </layout_stack>
     </panel>
 </panel>

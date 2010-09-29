@@ -2,31 +2,25 @@
  * @file llflatlistview.h
  * @brief LLFlatListView base class and extension to support messages for several cases of an empty list.
  *
- * $LicenseInfo:firstyear=2009&license=viewergpl$
- * 
- * Copyright (c) 2009-2010, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2009&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -60,6 +54,7 @@
  */
 class LLFlatListView : public LLScrollContainer, public LLEditMenuHandler
 {
+	LOG_CLASS(LLFlatListView);
 public:
 
 	/**
@@ -105,6 +100,9 @@ public:
 		/** don't allow to deselect all selected items (for mouse events on items only) */
 		Optional<bool> keep_one_selected;
 
+		/** try to keep selection visible after reshape */
+		Optional<bool> keep_selection_visible_on_reshape;
+
 		/** padding between items */
 		Optional<U32> item_pad; 
 
@@ -114,6 +112,9 @@ public:
 		Params();
 	};
 	
+	// disable traversal when finding widget to hand focus off to
+	/*virtual*/ BOOL canFocusChildren() const { return FALSE; }
+
 	/**
 	 * Connects callback to signal called when Return key is pressed.
 	 */
@@ -146,19 +147,19 @@ public:
 	 * Remove specified item
 	 * @return true if the item was removed, false otherwise 
 	 */
-	virtual bool removeItem(LLPanel* item);
+	virtual bool removeItem(LLPanel* item, bool rearrange = true);
 
 	/** 
 	 * Remove an item specified by value
 	 * @return true if the item was removed, false otherwise 
 	 */
-	virtual bool removeItemByValue(const LLSD& value);
+	virtual bool removeItemByValue(const LLSD& value, bool rearrange = true);
 
 	/** 
 	 * Remove an item specified by uuid
 	 * @return true if the item was removed, false otherwise 
 	 */
-	virtual bool removeItemByUUID(const LLUUID& uuid);
+	virtual bool removeItemByUUID(const LLUUID& uuid, bool rearrange = true);
 
 	/** 
 	 * Get an item by value 
@@ -259,6 +260,7 @@ public:
 	void setAllowSelection(bool can_select) { mAllowSelection = can_select; }
 
 	/** Sets flag whether onCommit should be fired if selection was changed */
+	// FIXME: this should really be a separate signal, since "Commit" implies explicit user action, and selection changes can happen more indirectly.
 	void setCommitOnSelectionChange(bool b)		{ mCommitOnSelectionChange = b; }
 
 	/** Get number of selected items in the list */
@@ -290,6 +292,7 @@ public:
 
 	bool updateValue(const LLSD& old_value, const LLSD& new_value);
 
+	void scrollToShowFirstSelectedItem();
 
 	void selectFirstItem	();
 	void selectLastItem		();
@@ -346,7 +349,7 @@ protected:
 
 	virtual bool isSelected(item_pair_t* item_pair) const;
 
-	virtual bool removeItemPair(item_pair_t* item_pair);
+	virtual bool removeItemPair(item_pair_t* item_pair, bool rearrange);
 
 	/**
 	 * Notify parent about changed size of internal controls with "size_changes" action
@@ -412,6 +415,8 @@ private:
 
 	bool mIsConsecutiveSelection;
 
+	bool mKeepSelectionVisibleOnReshape;
+
 	/** All pairs of the list */
 	pairs_list_t mItemPairs;
 
@@ -445,6 +450,7 @@ private:
  */
 class LLFlatListViewEx : public LLFlatListView
 {
+	LOG_CLASS(LLFlatListViewEx);
 public:
 	struct Params : public LLInitParam::Block<Params, LLFlatListView::Params>
 	{
@@ -465,6 +471,10 @@ public:
 	void setNoItemsMsg(const std::string& msg) { mNoItemsMsg = msg; }
 	void setNoFilteredItemsMsg(const std::string& msg) { mNoFilteredItemsMsg = msg; }
 
+	bool getForceShowingUnmatchedItems();
+
+	void setForceShowingUnmatchedItems(bool show);
+
 	/**
 	 * Sets up new filter string and filters the list.
 	 */
@@ -475,6 +485,11 @@ public:
 	 * Derived classes may want to overload rearrangeItems() to exclude repeated separators after filtration.
 	 */
 	void filterItems();
+
+	/**
+	 * Returns true if last call of filterItems() found at least one matching item
+	 */
+	bool hasMatchedItems();
 
 protected:
 	LLFlatListViewEx(const Params& p);
@@ -491,6 +506,14 @@ private:
 	std::string mNoFilteredItemsMsg;
 	std::string mNoItemsMsg;
 	std::string	mFilterSubString;
+	/**
+	 * Show list items that don't match current filter
+	 */
+	bool mForceShowingUnmatchedItems;
+	/**
+	 * True if last call of filterItems() found at least one matching item
+	 */
+	bool mHasMatchedItems;
 };
 
 #endif

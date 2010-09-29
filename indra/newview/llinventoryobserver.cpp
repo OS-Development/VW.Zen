@@ -2,31 +2,25 @@
  * @file llinventoryobserver.cpp
  * @brief Implementation of the inventory observers used to track agent inventory.
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -62,13 +56,8 @@
 #include "llsdutil.h"
 #include <deque>
 
-// If the viewer gets a notification, your observer assumes
-// that that notification is for itself and then tries to process
-// the results.  The notification could be for something else (e.g.
-// you're fetching an item and a notification gets triggered because
-// you renamed some other item).  This counter is to specify how many
-// notification to wait for before giving up.
-static const U32 MAX_NUM_NOTIFICATIONS_TO_PROCESS = 20;
+const F32 LLInventoryFetchItemsObserver::FETCH_TIMER_EXPIRY = 60.0f;
+
 
 LLInventoryObserver::LLInventoryObserver()
 {
@@ -147,67 +136,64 @@ void LLInventoryCompletionObserver::watchItem(const LLUUID& id)
 }
 
 LLInventoryFetchItemsObserver::LLInventoryFetchItemsObserver(const LLUUID& item_id) :
-	LLInventoryFetchObserver(item_id),
-
-	mNumTries(MAX_NUM_NOTIFICATIONS_TO_PROCESS)
+	LLInventoryFetchObserver(item_id)
 {
 	mIDs.clear();
 	mIDs.push_back(item_id);
 }
 
 LLInventoryFetchItemsObserver::LLInventoryFetchItemsObserver(const uuid_vec_t& item_ids) :
-	LLInventoryFetchObserver(item_ids),
-
-	mNumTries(MAX_NUM_NOTIFICATIONS_TO_PROCESS)
+	LLInventoryFetchObserver(item_ids)
 {
 }
 
 void LLInventoryFetchItemsObserver::changed(U32 mask)
 {
-	BOOL any_items_missing = FALSE;
+	lldebugs << this << " remaining incomplete " << mIncomplete.size()
+			 << " complete " << mComplete.size()
+			 << " wait period " << mFetchingPeriod.getRemainingTimeF32()
+			 << llendl;
 
 	// scan through the incomplete items and move or erase them as
 	// appropriate.
 	if (!mIncomplete.empty())
 	{
+
+		// Have we exceeded max wait time?
+		bool timeout_expired = mFetchingPeriod.hasExpired();
+
 		for (uuid_vec_t::iterator it = mIncomplete.begin(); it < mIncomplete.end(); )
 		{
 			const LLUUID& item_id = (*it);
 			LLViewerInventoryItem* item = gInventory.getItem(item_id);
-			if (!item)
+			if (item && item->isFinished())
 			{
-				any_items_missing = TRUE;
-				if (mNumTries > 0)
+				mComplete.push_back(item_id);
+				it = mIncomplete.erase(it);
+			}
+			else
+			{
+				if (timeout_expired)
+				{
+					// Just concede that this item hasn't arrived in reasonable time and continue on.
+					llwarns << "Fetcher timed out when fetching inventory item UUID: " << item_id << LL_ENDL;
+					it = mIncomplete.erase(it);
+				}
+				else
 				{
 					// Keep trying.
 					++it;
 				}
-				else
-				{
-					// Just concede that this item hasn't arrived in reasonable time and continue on.
-					llwarns << "Fetcher timed out when fetching inventory item assetID:" << item_id << llendl;
-					it = mIncomplete.erase(it);
-				}
-				continue;
 			}
-			if (item->isFinished())
-			{
-				mComplete.push_back(item_id);
-				it = mIncomplete.erase(it);
-				continue;
-			}
-			++it;
-		}
-		if (any_items_missing)
-		{
-			mNumTries--;
 		}
 
-		if (mIncomplete.empty())
-		{
-			mNumTries = MAX_NUM_NOTIFICATIONS_TO_PROCESS;
-			done();
-		}
+	}
+
+	if (mIncomplete.empty())
+	{
+		lldebugs << this << " done at remaining incomplete "
+				 << mIncomplete.size() << " complete " << mComplete.size() << llendl;
+		done();
 	}
 	//llinfos << "LLInventoryFetchItemsObserver::changed() mComplete size " << mComplete.size() << llendl;
 	//llinfos << "LLInventoryFetchItemsObserver::changed() mIncomplete size " << mIncomplete.size() << llendl;
@@ -304,7 +290,16 @@ void LLInventoryFetchItemsObserver::startFetch()
 			// assume it's agent inventory.
 			owner_id = gAgent.getID();
 		}
-		
+
+		// Ignore categories since they're not items.  We
+		// could also just add this to mComplete but not sure what the
+		// side-effects would be, so ignoring to be safe.
+		LLViewerInventoryCategory* cat = gInventory.getCategory(*it);
+		if (cat)
+		{
+			continue;
+		}
+
 		// It's incomplete, so put it on the incomplete container, and
 		// pack this on the message.
 		mIncomplete.push_back(*it);
@@ -315,6 +310,10 @@ void LLInventoryFetchItemsObserver::startFetch()
 		item_entry["item_id"] = (*it);
 		items_llsd.append(item_entry);
 	}
+
+	mFetchingPeriod.reset();
+	mFetchingPeriod.setTimerExpirySec(FETCH_TIMER_EXPIRY);
+
 	fetch_items_from_llsd(items_llsd);
 }
 
@@ -506,8 +505,14 @@ void LLInventoryAddItemByAssetObserver::changed(U32 mask)
 		return;
 	}
 
-	LLPointer<LLViewerInventoryItem> item = new LLViewerInventoryItem;
 	LLMessageSystem* msg = gMessageSystem;
+	if (!(msg->getMessageName() && (0 == strcmp(msg->getMessageName(), "UpdateCreateInventoryItem"))))
+	{
+		// this is not our message
+		return; // to prevent a crash. EXT-7921;
+	}
+
+	LLPointer<LLViewerInventoryItem> item = new LLViewerInventoryItem;
 	S32 num_blocks = msg->getNumberOfBlocksFast(_PREHASH_InventoryData);
 	for(S32 i = 0; i < num_blocks; ++i)
 	{
@@ -665,7 +670,9 @@ void LLInventoryCategoriesObserver::changed(U32 mask)
 		 iter != mCategoryMap.end();
 		 ++iter)
 	{
-		LLViewerInventoryCategory* category = gInventory.getCategory((*iter).first);
+		const LLUUID& cat_id = (*iter).first;
+
+		LLViewerInventoryCategory* category = gInventory.getCategory(cat_id);
 		if (!category)
 			continue;
 
@@ -680,7 +687,7 @@ void LLInventoryCategoriesObserver::changed(U32 mask)
 		// Check number of known descendents to find out whether it has changed.
 		LLInventoryModel::cat_array_t* cats;
 		LLInventoryModel::item_array_t* items;
-		gInventory.getDirectDescendentsOf((*iter).first, cats, items);
+		gInventory.getDirectDescendentsOf(cat_id, cats, items);
 		if (!cats || !items)
 		{
 			llwarns << "Category '" << category->getName() << "' descendents corrupted, fetch failed." << llendl;
@@ -692,20 +699,39 @@ void LLInventoryCategoriesObserver::changed(U32 mask)
 
 			continue;
 		}
-
+		
 		const S32 current_num_known_descendents = cats->count() + items->count();
 
-		LLCategoryData cat_data = (*iter).second;
+		LLCategoryData& cat_data = (*iter).second;
+
+		bool cat_changed = false;
 
 		// If category version or descendents count has changed
-		// update category data in mCategoryMap and fire a callback.
+		// update category data in mCategoryMap
 		if (version != cat_data.mVersion || current_num_known_descendents != cat_data.mDescendentsCount)
 		{
 			cat_data.mVersion = version;
 			cat_data.mDescendentsCount = current_num_known_descendents;
-
-			cat_data.mCallback();
+			cat_changed = true;
 		}
+
+		// If any item names have changed, update the name hash 
+		// Only need to check if (a) name hash has not previously been
+		// computed, or (b) a name has changed.
+		if (!cat_data.mIsNameHashInitialized || (mask & LLInventoryObserver::LABEL))
+		{
+			LLMD5 item_name_hash = gInventory.hashDirectDescendentNames(cat_id);
+			if (cat_data.mItemNameHash != item_name_hash)
+			{
+				cat_data.mIsNameHashInitialized = true;
+				cat_data.mItemNameHash = item_name_hash;
+				cat_changed = true;
+			}
+		}
+
+		// If anything has changed above, fire the callback.
+		if (cat_changed)
+			cat_data.mCallback();
 	}
 }
 
@@ -747,7 +773,8 @@ bool LLInventoryCategoriesObserver::addCategory(const LLUUID& cat_id, callback_t
 
 	if (can_be_added)
 	{
-		mCategoryMap.insert(category_map_value_t(cat_id, LLCategoryData(cb, version, current_num_known_descendents)));
+		mCategoryMap.insert(category_map_value_t(
+								cat_id,LLCategoryData(cat_id, cb, version, current_num_known_descendents)));
 	}
 
 	return can_be_added;
@@ -756,4 +783,16 @@ bool LLInventoryCategoriesObserver::addCategory(const LLUUID& cat_id, callback_t
 void LLInventoryCategoriesObserver::removeCategory(const LLUUID& cat_id)
 {
 	mCategoryMap.erase(cat_id);
+}
+
+LLInventoryCategoriesObserver::LLCategoryData::LLCategoryData(
+	const LLUUID& cat_id, callback_t cb, S32 version, S32 num_descendents)
+	
+	: mCatID(cat_id)
+	, mCallback(cb)
+	, mVersion(version)
+	, mDescendentsCount(num_descendents)
+	, mIsNameHashInitialized(false)
+{
+	mItemNameHash.finalize();
 }

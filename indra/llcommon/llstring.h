@@ -2,31 +2,25 @@
  * @file llstring.h
  * @brief String utility functions and std::string class.
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -154,9 +148,19 @@ private:
 	static long sPacificTimeOffset;
 	static long sLocalTimeOffset;
 	static bool sPacificDaylightTime;
+
 	static std::map<std::string, std::string> datetimeToCodes;
 
 public:
+	static std::vector<std::string> sWeekDayList;
+	static std::vector<std::string> sWeekDayShortList;
+	static std::vector<std::string> sMonthList;
+	static std::vector<std::string> sMonthShortList;
+	static std::string sDayFormat;
+
+	static std::string sAM;
+	static std::string sPM;
+
 	static char toUpper(char elem) { return toupper((unsigned char)elem); }
 	static llwchar toUpper(llwchar elem) { return towupper(elem); }
 	
@@ -185,6 +189,14 @@ public:
 	static S32	collate(const llwchar* a, const llwchar* b);
 
 	static void setupDatetimeInfo(bool pacific_daylight_time);
+
+	static void setupWeekDaysNames(const std::string& data);
+	static void setupWeekDaysShortNames(const std::string& data);
+	static void setupMonthNames(const std::string& data);
+	static void setupMonthShortNames(const std::string& data);
+	static void setupDayFormat(const std::string& data);
+
+
 	static long getPacificTimeOffset(void) { return sPacificTimeOffset;}
 	static long getLocalTimeOffset(void) { return sLocalTimeOffset;}
 	// Is the Pacific time zone (aka server time zone)
@@ -231,7 +243,7 @@ public:
 	/////////////////////////////////////////////////////////////////////////////////////////
 	// Static Utility functions that operate on std::strings
 
-	static std::basic_string<T> null;
+	static const std::basic_string<T> null;
 	
 	typedef std::map<LLFormatMapString, LLFormatMapString> format_map_t;
 	LL_COMMON_API static void getTokens(const std::basic_string<T>& instr, std::vector<std::basic_string<T> >& tokens, const std::basic_string<T>& delims);
@@ -353,7 +365,7 @@ private:
 	LL_COMMON_API static size_type getSubstitution(const std::basic_string<T>& instr, size_type& start, std::vector<std::basic_string<T> >& tokens);
 };
 
-template<class T> std::basic_string<T> LLStringUtilBase<T>::null;
+template<class T> const std::basic_string<T> LLStringUtilBase<T>::null;
 template<class T> std::string LLStringUtilBase<T>::sLocale;
 
 typedef LLStringUtilBase<char> LLStringUtil;
@@ -423,7 +435,7 @@ LL_COMMON_API bool iswindividual(llwchar elem);
  */
 
 // Make the incoming string a utf8 string. Replaces any unknown glyph
-// with the UNKOWN_CHARACTER. Once any unknown glph is found, the rest
+// with the UNKNOWN_CHARACTER. Once any unknown glyph is found, the rest
 // of the data may not be recovered.
 LL_COMMON_API std::string rawstr_to_utf8(const std::string& raw);
 
@@ -546,7 +558,20 @@ using snprintf_hack::snprintf;
  *
  * This replaces the unsafe W2A macro from ATL.
  */
-LL_COMMON_API std::string ll_convert_wide_to_string(const wchar_t* in);
+LL_COMMON_API std::string ll_convert_wide_to_string(const wchar_t* in, unsigned int code_page);
+
+/**
+ * Converts a string to wide string.
+ *
+ * It will allocate memory for result string with "new []". Don't forget to release it with "delete []".
+ */
+LL_COMMON_API wchar_t* ll_convert_string_to_wide(const std::string& in, unsigned int code_page);
+
+/**
+ * Converts incoming string into urf8 string
+ *
+ */
+LL_COMMON_API std::string ll_convert_string_to_utf8_string(const std::string& in);
 
 //@}
 #endif // LL_WINDOWS

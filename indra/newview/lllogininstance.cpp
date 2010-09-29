@@ -2,31 +2,25 @@
  * @file lllogininstance.cpp
  * @brief Viewer's host for a login connection.
  *
- * $LicenseInfo:firstyear=2009&license=viewergpl$
- * 
- * Copyright (c) 2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2009&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -53,11 +47,13 @@
 #include "llfloaterreg.h"
 #include "llnotifications.h"
 #include "llwindow.h"
+#include "llviewerwindow.h"
 #if LL_LINUX || LL_SOLARIS
 #include "lltrans.h"
 #endif
 #include "llsecapi.h"
 #include "llstartup.h"
+#include "llmachineid.h"
 
 static const char * const TOS_REPLY_PUMP = "lllogininstance_tos_callback";
 static const char * const TOS_LISTENER_NAME = "lllogininstance_tos";
@@ -107,6 +103,7 @@ void LLLoginInstance::reconnect()
 	std::vector<std::string> uris;
 	LLGridManager::getInstance()->getLoginURIs(uris);
 	mLoginModule->connect(uris.front(), mRequestData);
+	gViewerWindow->setShowProgress(true);
 }
 
 void LLLoginInstance::disconnect()
@@ -165,20 +162,24 @@ void LLLoginInstance::constructAuthParams(LLPointer<LLCredential> user_credentia
 	// (re)initialize the request params with creds.
 	LLSD request_params = user_credential->getLoginParams();
 
-	char hashed_mac_string[MD5HEX_STR_SIZE];		/* Flawfinder: ignore */
-	LLMD5 hashed_mac;
-	unsigned char MACAddress[MAC_ADDRESS_BYTES];
-	LLUUID::getNodeID(MACAddress);	
-	hashed_mac.update( MACAddress, MAC_ADDRESS_BYTES );
-	hashed_mac.finalize();
-	hashed_mac.hex_digest(hashed_mac_string);
+	char hashed_unique_id_string[MD5HEX_STR_SIZE];		/* Flawfinder: ignore */
+	LLMD5 hashed_unique_id;
+	unsigned char unique_id[MAC_ADDRESS_BYTES];
+	if(LLUUID::getNodeID(unique_id) == 0) {
+		if(LLMachineID::getUniqueID(unique_id, sizeof(unique_id)) == 0) {
+			llerrs << "Failed to get an id; cannot uniquely identify this machine." << llendl;
+		}
+	}
+	hashed_unique_id.update(unique_id, MAC_ADDRESS_BYTES);
+	hashed_unique_id.finalize();
+	hashed_unique_id.hex_digest(hashed_unique_id_string);
 	
 	request_params["start"] = construct_start_string();
 	request_params["skipoptional"] = mSkipOptionalUpdate;
 	request_params["agree_to_tos"] = false; // Always false here. Set true in 
 	request_params["read_critical"] = false; // handleTOSResponse
 	request_params["last_exec_event"] = mLastExecEvent;
-	request_params["mac"] = hashed_mac_string;
+	request_params["mac"] = hashed_unique_id_string;
 	request_params["version"] = gCurrentVersion; // Includes channel name
 	request_params["channel"] = gSavedSettings.getString("VersionChannelName");
 	request_params["id0"] = mSerialNumber;
@@ -240,6 +241,7 @@ void LLLoginInstance::handleLoginFailure(const LLSD& event)
 			LLSD data(LLSD::emptyMap());
 			data["message"] = message_response;
 			data["reply_pump"] = TOS_REPLY_PUMP;
+			gViewerWindow->setShowProgress(FALSE);
 			LLFloaterReg::showInstance("message_tos", data);
 			LLEventPumps::instance().obtain(TOS_REPLY_PUMP)
 				.listen(TOS_LISTENER_NAME,
@@ -260,6 +262,7 @@ void LLLoginInstance::handleLoginFailure(const LLSD& event)
 				data["certificate"] = response["certificate"];
 			}
 			
+			gViewerWindow->setShowProgress(FALSE);
 			LLFloaterReg::showInstance("message_critical", data);
 			LLEventPumps::instance().obtain(TOS_REPLY_PUMP)
 				.listen(TOS_LISTENER_NAME,
@@ -403,6 +406,8 @@ void LLLoginInstance::updateApp(bool mandatory, const std::string& auth_msg)
 	{
 		mNotifications->add(notification_name, args, payload, 
 			boost::bind(&LLLoginInstance::updateDialogCallback, this, _1, _2));
+
+		gViewerWindow->setShowProgress(false);
 	}
 }
 

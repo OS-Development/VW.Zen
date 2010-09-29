@@ -2,31 +2,25 @@
  * @file llchathistory.cpp
  * @brief LLTextEditor base class
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -107,8 +101,14 @@ public:
 	static LLChatHistoryHeader* createInstance(const std::string& file_name)
 	{
 		LLChatHistoryHeader* pInstance = new LLChatHistoryHeader;
-		LLUICtrlFactory::getInstance()->buildPanel(pInstance, file_name);	
+		pInstance->buildFromFile(file_name);	
 		return pInstance;
+	}
+
+	~LLChatHistoryHeader()
+	{
+		// Detach the info button so that it doesn't get destroyed (EXT-8463).
+		hideInfoCtrl();
 	}
 
 	BOOL handleMouseUp(S32 x, S32 y, MASK mask)
@@ -243,7 +243,7 @@ public:
 		gCacheName->get(mAvatarID, FALSE, boost::bind(&LLChatHistoryHeader::nameUpdatedCallback, this, _1, _2, _3, _4));
 
 		//*TODO overly defensive thing, source type should be maintained out there
-		if((chat.mFromID.isNull() && chat.mFromName.empty()) || chat.mFromName == SYSTEM_FROM)
+		if((chat.mFromID.isNull() && chat.mFromName.empty()) || chat.mFromName == SYSTEM_FROM && chat.mFromID.isNull())
 		{
 			mSourceType = CHAT_SOURCE_SYSTEM;
 		}
@@ -382,11 +382,21 @@ protected:
 				
 		if (!sInfoCtrl)
 		{
+			// *TODO: Delete the button at exit.
 			sInfoCtrl = LLUICtrlFactory::createFromFile<LLUICtrl>("inspector_info_ctrl.xml", NULL, LLPanel::child_registry_t::instance());
-			sInfoCtrl->setCommitCallback(boost::bind(&LLChatHistoryHeader::onClickInfoCtrl, sInfoCtrl));
+			if (sInfoCtrl)
+			{
+				sInfoCtrl->setCommitCallback(boost::bind(&LLChatHistoryHeader::onClickInfoCtrl, sInfoCtrl));
+			}
 		}
 
-		LLTextBase* name = getChild<LLTextBase>("user_name");
+		if (!sInfoCtrl)
+		{
+			llassert(sInfoCtrl != NULL);
+			return;
+		}
+
+		LLTextBox* name = getChild<LLTextBox>("user_name");
 		LLRect sticky_rect = name->getRect();
 		S32 icon_x = llmin(sticky_rect.mLeft + name->getTextBoundingRect().getWidth() + 7, sticky_rect.mRight - 3);
 		sInfoCtrl->setOrigin(icon_x, sticky_rect.getCenterY() - sInfoCtrl->getRect().getHeight() / 2 ) ;
@@ -486,12 +496,17 @@ void LLChatHistory::initFromParams(const LLChatHistory::Params& p)
 	
 	const S32 NEW_TEXT_NOTICE_HEIGHT = 20;
 	
-	LLPanel::Params panel_p;
+	LLLayoutPanel::Params panel_p;
 	panel_p.name = "spacer";
 	panel_p.background_visible = false;
 	panel_p.has_border = false;
 	panel_p.mouse_opaque = false;
-	stackp->addPanel(LLUICtrlFactory::create<LLPanel>(panel_p), 0, 30, S32_MAX, S32_MAX, true, false, LLLayoutStack::ANIMATE);
+	panel_p.min_dim = 30;
+	panel_p.max_dim = S32_MAX;
+	panel_p.auto_resize = true;
+	panel_p.user_resize = false;
+
+	stackp->addPanel(LLUICtrlFactory::create<LLLayoutPanel>(panel_p), LLLayoutStack::ANIMATE);
 
 	panel_p.name = "new_text_notice_holder";
 	LLRect new_text_notice_rect = getLocalRect();
@@ -500,7 +515,10 @@ void LLChatHistory::initFromParams(const LLChatHistory::Params& p)
 	panel_p.background_opaque = true;
 	panel_p.background_visible = true;
 	panel_p.visible = false;
-	mMoreChatPanel = LLUICtrlFactory::create<LLPanel>(panel_p);
+	panel_p.min_dim = 0;
+	panel_p.auto_resize = false;
+	panel_p.user_resize = false;
+	mMoreChatPanel = LLUICtrlFactory::create<LLLayoutPanel>(panel_p);
 	
 	LLTextBox::Params text_p(p.more_chat_text);
 	text_p.rect = mMoreChatPanel->getLocalRect();
@@ -509,7 +527,7 @@ void LLChatHistory::initFromParams(const LLChatHistory::Params& p)
 	mMoreChatText = LLUICtrlFactory::create<LLTextBox>(text_p, mMoreChatPanel);
 	mMoreChatText->setClickedCallback(boost::bind(&LLChatHistory::onClickMoreText, this));
 
-	stackp->addPanel(mMoreChatPanel, 0, 0, S32_MAX, S32_MAX, false, false, LLLayoutStack::ANIMATE);
+	stackp->addPanel(mMoreChatPanel, LLLayoutStack::ANIMATE);
 }
 
 
@@ -556,6 +574,14 @@ void LLChatHistory::clear()
 void LLChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LLStyle::Params& input_append_params)
 {
 	bool use_plain_text_chat_history = args["use_plain_text_chat_history"].asBoolean();
+
+	llassert(mEditor);
+	if (!mEditor)
+	{
+		return;
+	}
+
+	mEditor->setPlainText(use_plain_text_chat_history);
 
 	if (!mEditor->scrolledToEnd() && chat.mFromID != gAgent.getID() && !chat.mFromName.empty())
 	{
@@ -649,7 +675,7 @@ void LLChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
 				// for object IMs, create a secondlife:///app/objectim SLapp
 				std::string url = LLSLURL("objectim", chat.mFromID, "").getSLURLString();
 				url += "?name=" + chat.mFromName;
-				url += "&owner=" + args["owner_id"].asString();
+				url += "&owner=" + chat.mOwnerID.asString();
 
 				std::string slurl = args["slurl"].asString();
 				if (slurl.empty())
@@ -661,7 +687,7 @@ void LLChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
 					slurl = region_slurl.getLocationString();
 				      }
 				}
-				url += "&slurl=" + slurl;
+				url += "&slurl=" + LLURI::escape(slurl);
 
 				// set the link for the object name to be the objectim SLapp
 				// (don't let object names with hyperlinks override our objectim Url)
@@ -675,8 +701,9 @@ void LLChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
 			{
 				LLStyle::Params link_params(style_params);
 				link_params.overwriteFrom(LLStyleMap::instance().lookupAgent(chat.mFromID));
-				// Convert the name to a hotlink and add to message.
-				mEditor->appendText(chat.mFromName + delimiter, false, link_params);
+				// Add link to avatar's inspector and delimiter to message.
+				mEditor->appendText(link_params.link_href, false, style_params);
+				mEditor->appendText(delimiter, false, style_params);
 			}
 			else
 			{
@@ -735,13 +762,13 @@ void LLChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
 		mIsLastMessageFromLog = message_from_log;
 	}
 
-   if (chat.mNotifId.notNull())
+	if (chat.mNotifId.notNull())
 	{
 		LLNotificationPtr notification = LLNotificationsUtil::find(chat.mNotifId);
 		if (notification != NULL)
 		{
 			LLIMToastNotifyPanel* notify_box = new LLIMToastNotifyPanel(
-					notification, chat.mSessionID);
+					notification, chat.mSessionID, LLRect::null, !use_plain_text_chat_history);
 			//we can't set follows in xml since it broke toasts behavior
 			notify_box->setFollowsLeft();
 			notify_box->setFollowsRight();
@@ -827,6 +854,7 @@ void LLChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
 		
 		mEditor->appendText(message, FALSE, style_params);
 	}
+
 	mEditor->blockUndo();
 
 	// automatically scroll to end when receiving chat from myself
@@ -845,13 +873,4 @@ void LLChatHistory::draw()
 	}
 
 	LLUICtrl::draw();
-}
-
-void LLChatHistory::reshape(S32 width, S32 height, BOOL called_from_parent)
-{
-	bool is_scrolled_to_end = mEditor->scrolledToEnd();
-	LLUICtrl::reshape( width, height, called_from_parent );
-	// update scroll
-	if (is_scrolled_to_end)
-		mEditor->setCursorAndScrollToEnd();
 }

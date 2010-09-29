@@ -2,31 +2,25 @@
  * @file llparticipantlist.cpp
  * @brief LLParticipantList intended to update view(LLAvatarList) according to incoming messages
  *
- * $LicenseInfo:firstyear=2009&license=viewergpl$
- * 
- * Copyright (c) 2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2009&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -51,6 +45,18 @@
 #endif
 
 static const LLAvatarItemAgentOnTopComparator AGENT_ON_TOP_NAME_COMPARATOR;
+
+// helper function to update AvatarList Item's indicator in the voice participant list
+static void update_speaker_indicator(const LLAvatarList* const avatar_list, const LLUUID& avatar_uuid, bool is_muted)
+{
+	LLAvatarListItem* item = dynamic_cast<LLAvatarListItem*>(avatar_list->getItemByValue(avatar_uuid));
+	if (item)
+	{
+		LLOutputMonitorCtrl* indicator = item->getChild<LLOutputMonitorCtrl>("speaking_indicator");
+		indicator->setIsMuted(is_muted);
+	}
+}
+
 
 // See EXT-4301.
 /**
@@ -94,7 +100,7 @@ public:
 		mAvalineCallers.insert(avaline_caller_id);
 	}
 
-	void onChange()
+	void onParticipantsChanged()
 	{
 		uuid_set_t participant_uuids;
 		LLVoiceClient::getInstance()->getParticipantList(participant_uuids);
@@ -354,6 +360,20 @@ void LLParticipantList::onAvatarListRefreshed(LLUICtrl* ctrl, const LLSD& param)
 				}
 			}
 		}
+
+		// update voice mute state of all items. See EXT-7235
+		LLSpeakerMgr::speaker_list_t speaker_list;
+
+		// Use also participants which are not in voice session now (the second arg is TRUE).
+		// They can already have mModeratorMutedVoice set from the previous voice session
+		// and LLSpeakerVoiceModerationEvent will not be sent when speaker manager is updated next time.
+		mSpeakerMgr->getSpeakerList(&speaker_list, TRUE);
+		for(LLSpeakerMgr::speaker_list_t::iterator it = speaker_list.begin(); it != speaker_list.end(); it++)
+		{
+			const LLPointer<LLSpeaker>& speakerp = *it;
+
+			update_speaker_indicator(list, speakerp->mID, speakerp->mModeratorMutedVoice);
+		}
 	}
 }
 
@@ -506,12 +526,7 @@ bool LLParticipantList::onSpeakerMuteEvent(LLPointer<LLOldEvents::LLEvent> event
 	// update UI on confirmation of moderator mutes
 	if (event->getValue().asString() == "voice")
 	{
-		LLAvatarListItem* item = dynamic_cast<LLAvatarListItem*>(mAvatarList->getItemByValue(speakerp->mID));
-		if (item)
-		{
-			LLOutputMonitorCtrl* indicator = item->getChild<LLOutputMonitorCtrl>("speaking_indicator");
-			indicator->setIsMuted(speakerp->mModeratorMutedVoice);
-		}
+		update_speaker_indicator(mAvatarList, speakerp->mID, speakerp->mModeratorMutedVoice);
 	}
 	return true;
 }
@@ -561,7 +576,7 @@ void LLParticipantList::addAvatarIDExceptAgent(const LLUUID& avatar_id)
 	else
 	{
 		std::string display_name = LLVoiceClient::getInstance()->getDisplayName(avatar_id);
-		mAvatarList->addAvalineItem(avatar_id, mSpeakerMgr->getSessionID(), display_name.empty() ? display_name : LLTrans::getString("AvatarNameWaiting"));
+		mAvatarList->addAvalineItem(avatar_id, mSpeakerMgr->getSessionID(), display_name.empty() ? LLTrans::getString("AvatarNameWaiting") : display_name);
 		mAvalineUpdater->watchAvalineCaller(avatar_id);
 	}
 	adjustParticipant(avatar_id);
@@ -648,8 +663,7 @@ LLContextMenu* LLParticipantList::LLParticipantListMenu::createMenu()
 	enable_registrar.add("ParticipantList.CheckItem",  boost::bind(&LLParticipantList::LLParticipantListMenu::checkContextMenuItem,	this, _2));
 
 	// create the context menu from the XUI
-	LLContextMenu* main_menu = LLUICtrlFactory::getInstance()->createFromFile<LLContextMenu>(
-		"menu_participant_list.xml", LLMenuGL::sMenuContainer, LLViewerMenuHolderGL::child_registry_t::instance());
+	LLContextMenu* main_menu = createFromFile("menu_participant_list.xml");
 
 	// Don't show sort options for P2P chat
 	bool is_sort_visible = (mParent.mAvatarList && mParent.mAvatarList->size() > 1);
@@ -666,20 +680,20 @@ LLContextMenu* LLParticipantList::LLParticipantListMenu::createMenu()
 
 void LLParticipantList::LLParticipantListMenu::show(LLView* spawning_view, const uuid_vec_t& uuids, S32 x, S32 y)
 {
-	LLPanelPeopleMenus::ContextMenu::show(spawning_view, uuids, x, y);
-
 	if (uuids.size() == 0) return;
+
+	LLListContextMenu::show(spawning_view, uuids, x, y);
 
 	const LLUUID& speaker_id = mUUIDs.front();
 	BOOL is_muted = isMuted(speaker_id);
 
 	if (is_muted)
 	{
-		LLMenuGL::sMenuContainer->childSetVisible("ModerateVoiceMuteSelected", false);
+		LLMenuGL::sMenuContainer->getChildView("ModerateVoiceMuteSelected")->setVisible( false);
 	}
 	else
 	{
-		LLMenuGL::sMenuContainer->childSetVisible("ModerateVoiceUnMuteSelected", false);
+		LLMenuGL::sMenuContainer->getChildView("ModerateVoiceUnMuteSelected")->setVisible( false);
 	}
 }
 
@@ -794,7 +808,7 @@ void LLParticipantList::LLParticipantListMenu::moderateVoice(const LLSD& userdat
 	else
 	{
 		bool unmute_all = userdata.asString() == "unmute_all";
-		moderateVoiceOtherParticipants(LLUUID::null, unmute_all);
+		moderateVoiceAllParticipants(unmute_all);
 	}
 }
 
@@ -807,7 +821,7 @@ void LLParticipantList::LLParticipantListMenu::moderateVoiceParticipant(const LL
 	}
 }
 
-void LLParticipantList::LLParticipantListMenu::moderateVoiceOtherParticipants(const LLUUID& excluded_avatar_id, bool unmute)
+void LLParticipantList::LLParticipantListMenu::moderateVoiceAllParticipants(bool unmute)
 {
 	LLIMSpeakerMgr* mgr = dynamic_cast<LLIMSpeakerMgr*>(mParent.mSpeakerMgr);
 	if (mgr)
@@ -816,12 +830,11 @@ void LLParticipantList::LLParticipantListMenu::moderateVoiceOtherParticipants(co
 		{
 			LLSD payload;
 			payload["session_id"] = mgr->getSessionID();
-			payload["excluded_avatar_id"] = excluded_avatar_id;
 			LLNotificationsUtil::add("ConfirmMuteAll", LLSD(), payload, confirmMuteAllCallback);
 			return;
 		}
 
-		mgr->moderateVoiceOtherParticipants(excluded_avatar_id, unmute);
+		mgr->moderateVoiceAllParticipants(unmute);
 	}
 }
 
@@ -829,20 +842,20 @@ void LLParticipantList::LLParticipantListMenu::moderateVoiceOtherParticipants(co
 void LLParticipantList::LLParticipantListMenu::confirmMuteAllCallback(const LLSD& notification, const LLSD& response)
 {
 	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
-	if (option != 1)
+	// if Cancel pressed
+	if (option == 1)
 	{
 		return;
 	}
 
 	const LLSD& payload = notification["payload"];
 	const LLUUID& session_id = payload["session_id"];
-	const LLUUID& excluded_avatar_id = payload["excluded_avatar_id"];
 
 	LLIMSpeakerMgr * speaker_manager = dynamic_cast<LLIMSpeakerMgr*> (
 			LLIMModel::getInstance()->getSpeakerManager(session_id));
 	if (speaker_manager)
 	{
-		speaker_manager->moderateVoiceOtherParticipants(excluded_avatar_id, false);
+		speaker_manager->moderateVoiceAllParticipants(false);
 	}
 
 	return;
