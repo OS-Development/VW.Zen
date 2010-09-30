@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<panel
+ background_visible="true"
+ height="90"
+ label="instant_message"
+ layout="topleft"
+ left="0"
+ name="panel_notify_textbox"
+ top="0"
+ width="305">
+    <string
+     name="message_max_lines_count"
+     value="7" />
+    <string
+     name="date_font"
+     value="SANSSERIF" />
+    <text_editor
+     parse_urls="true"
+     enabled="true"
+     follows="all"
+     height="0"
+     layout="topleft"
+     left="25"
+     max_length="2147483647"
+     name="message"
+     parse_highlights="true"
+     read_only="false"
+     top="40"
+     type="string"
+     use_ellipses="true"
+     value="message"
+     width="270"
+     word_wrap="true" >
+    </text_editor>
+    <button
+     bottom="85"
+     follows="bottom"
+     height="20"
+     label="OK"
+     layout="topleft"
+     right="-10"
+     name="btn_ok"
+     width="70" />
+</panel>

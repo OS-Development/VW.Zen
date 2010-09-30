@@ -34,6 +34,7 @@
 #include "llnotificationmanager.h"
 #include "llnotifications.h"
 #include "llscriptfloater.h"
+#include "lltoastscripttextbox.h"
 
 using namespace LLNotificationsUI;
 
@@ -42,7 +43,7 @@ static const std::string SCRIPT_DIALOG_GROUP		("ScriptDialogGroup");
 static const std::string SCRIPT_LOAD_URL			("LoadWebPage");
 
 //--------------------------------------------------------------------------
-LLScriptHandler::LLScriptHandler(e_notification_type type, const LLSD& id)
+LLScriptTextboxHandler::LLScriptTextboxHandler(e_notification_type type, const LLSD& id)
 {
 	mType = type;
 
@@ -52,17 +53,17 @@ LLScriptHandler::LLScriptHandler(e_notification_type type, const LLSD& id)
 	
 	LLScreenChannel* channel = dynamic_cast<LLScreenChannel*>(mChannel);
 	if(channel)
-		channel->setOnRejectToastCallback(boost::bind(&LLScriptHandler::onRejectToast, this, _1));
+		channel->setOnRejectToastCallback(boost::bind(&LLScriptTextboxHandler::onRejectToast, this, _1));
 
 }
 
 //--------------------------------------------------------------------------
-LLScriptHandler::~LLScriptHandler()
+LLScriptTextboxHandler::~LLScriptTextboxHandler()
 {
 }
 
 //--------------------------------------------------------------------------
-void LLScriptHandler::initChannel()
+void LLScriptTextboxHandler::initChannel()
 {
 	S32 channel_right_bound = gViewerWindow->getWorldViewRectScaled().mRight - gSavedSettings.getS32("NotificationChannelRightMargin"); 
 	S32 channel_width = gSavedSettings.getS32("NotifyBoxWidth");
@@ -70,7 +71,7 @@ void LLScriptHandler::initChannel()
 }
 
 //--------------------------------------------------------------------------
-bool LLScriptHandler::processNotification(const LLSD& notify)
+bool LLScriptTextboxHandler::processNotification(const LLSD& notify)
 {
 	if(!mChannel)
 	{
@@ -95,21 +96,19 @@ bool LLScriptHandler::processNotification(const LLSD& notify)
 			LLHandlerUtil::logToIMP2P(notification);
 		}
 
-		if(SCRIPT_DIALOG == notification->getName() || SCRIPT_DIALOG_GROUP == notification->getName() || SCRIPT_LOAD_URL == notification->getName())
+		if(0)//(SCRIPT_DIALOG == notification->getName() || SCRIPT_DIALOG_GROUP == notification->getName() || SCRIPT_LOAD_URL == notification->getName())
 		{
-			llwarns << "DUMB ROUTE" << llendl;
 			LLScriptFloaterManager::getInstance()->onAddNotification(notification->getID());
 		}
 		else
 		{
-			llwarns << "SMART ROUTE" << llendl;
-			LLToastNotifyPanel* notify_box = new LLToastNotifyPanel(notification);
+			LLToastScriptTextbox* notify_box = new LLToastScriptTextbox(notification);
 
 			LLToast::Params p;
 			p.notif_id = notification->getID();
 			p.notification = notification;
 			p.panel = notify_box;	
-			p.on_delete_toast = boost::bind(&LLScriptHandler::onDeleteToast, this, _1);
+			p.on_delete_toast = boost::bind(&LLScriptTextboxHandler::onDeleteToast, this, _1);
 
 			LLScreenChannel* channel = dynamic_cast<LLScreenChannel*>(mChannel);
 			if(channel)
@@ -137,7 +136,7 @@ bool LLScriptHandler::processNotification(const LLSD& notify)
 
 //--------------------------------------------------------------------------
 
-void LLScriptHandler::onDeleteToast(LLToast* toast)
+void LLScriptTextboxHandler::onDeleteToast(LLToast* toast)
 {
 	// send a signal to the counter manager
 	mDelNotificationSignal();
@@ -156,7 +155,7 @@ void LLScriptHandler::onDeleteToast(LLToast* toast)
 }
 
 //--------------------------------------------------------------------------
-void LLScriptHandler::onRejectToast(LLUUID& id)
+void LLScriptTextboxHandler::onRejectToast(LLUUID& id)
 {
 	LLNotificationPtr notification = LLNotifications::instance().find(id);
 
