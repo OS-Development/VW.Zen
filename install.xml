@@ -1058,9 +1058,9 @@ anguage Infrstructure (CLI) international standard</string>
           <key>windows</key>
           <map>
             <key>md5sum</key>
-            <string>a68bd49c01710edc4b9c902376844317</string>
+            <string>f661b5f34b5483d993e6032309723725</string>
             <key>url</key>
-            <uri>scp:install-packages.lindenlab.com:/local/www/install-packages/doc/llconvexdecomposition-0.1-windows-20100909.tar.bz2</uri>
+            <uri>scp:install-packages.lindenlab.com:/local/www/install-packages/doc/llconvexdecomposition-0.2-windows-20100929.tar.bz2</uri>
           </map>
           <key>linux</key>
           <map>
