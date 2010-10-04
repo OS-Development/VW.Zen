@@ -48,7 +48,9 @@
 #include "llmeshrepository.h"
 #include "llrender.h"
 #include "lloctree.h"
+#include "llphysicsshapebuilderutil.h"
 #include "llvoavatar.h"
+#include "llvolumemgr.h"
 #include "lltextureatlas.h"
 
 static LLFastTimer::DeclareTimer FTM_FRUSTUM_CULL("Frustum Culling");
@@ -2341,6 +2343,17 @@ void pushVerts(LLDrawable* drawable, U32 mask)
 	}
 }
 
+void pushVerts(LLVolume* volume)
+{
+	LLVertexBuffer::unbind();
+	for (S32 i = 0; i < volume->getNumVolumeFaces(); ++i)
+	{
+		const LLVolumeFace& face = volume->getVolumeFace(i);
+		glVertexPointer(3, GL_FLOAT, 16, face.mPositions);
+		glDrawElements(GL_TRIANGLES, face.mNumIndices, GL_UNSIGNED_SHORT, face.mIndices);
+	}
+}
+
 void pushBufferVerts(LLVertexBuffer* buffer, U32 mask)
 {
 	if (buffer)
@@ -2766,8 +2779,36 @@ void renderNormals(LLDrawable* drawablep)
 	}
 }
 
+S32 get_physics_detail(const LLVolumeParams& volume_params, const LLVector3& scale)
+{
+	const S32 DEFAULT_DETAIL = 1;
+	const F32 LARGE_THRESHOLD = 5.f;
+	const F32 MEGA_THRESHOLD = 25.f;
+
+	S32 detail = DEFAULT_DETAIL;
+	F32 avg_scale = (scale[0]+scale[1]+scale[2])/3.f;
+
+	if (avg_scale > LARGE_THRESHOLD)
+	{
+		detail += 1;
+		if (avg_scale > MEGA_THRESHOLD)
+		{
+			detail += 1;
+		}
+	}
+
+	return detail;
+}
+
 void renderPhysicsShape(LLDrawable* drawable, LLVOVolume* volume)
 {
+	U8 physics_type = volume->getPhysicsShapeType();
+
+	if (physics_type == LLViewerObject::PHYSICS_SHAPE_NONE)
+	{
+		return;
+	}
+
 	F32 threshold = gSavedSettings.getF32("ObjectCostHighThreshold");
 	F32 cost = volume->getObjectCost();
 
@@ -2789,10 +2830,21 @@ void renderPhysicsShape(LLDrawable* drawable, LLVOVolume* volume)
 
 	U32 data_mask = LLVertexBuffer::MAP_VERTEX;
 
-	if (volume->isMesh())
-	{			
+	LLVolumeParams volume_params = volume->getVolume()->getParams();
+
+	LLPhysicsVolumeParams physics_params(volume->getVolume()->getParams(), 
+		physics_type == LLViewerObject::PHYSICS_SHAPE_CONVEX_HULL); 
+
+	LLPhysicsShapeBuilderUtil::PhysicsShapeSpecification physics_spec;
+	LLPhysicsShapeBuilderUtil::determinePhysicsShape(physics_params, volume->getScale(), physics_spec);
+
+	U32 type = physics_spec.getType();
+
+	if (type == LLPhysicsShapeBuilderUtil::PhysicsShapeSpecification::USER_MESH)
+	{
 		LLUUID mesh_id = volume->getVolume()->getParams().getSculptID();
 		const LLMeshDecomposition* decomp = gMeshRepo.getDecomposition(mesh_id);
+
 		if (decomp)
 		{
 			gGL.pushMatrix();
@@ -2821,24 +2873,122 @@ void renderPhysicsShape(LLDrawable* drawable, LLVOVolume* volume)
 			}
 
 			gGL.popMatrix();
-
-			return;
 		}
 	}
-	
-	//push faces
-	glColor3fv(color.mV);
-	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-	pushVerts(drawable, data_mask);
-	glColor4fv(color.mV);
-	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-	pushVerts(drawable, data_mask);
+	else if (type == LLPhysicsShapeBuilderUtil::PhysicsShapeSpecification::BOX)
+	{
+		gGL.pushMatrix();
+		glMultMatrixf((GLfloat*) volume->getRelativeXform().mMatrix);
+		LLVector3 center = physics_spec.getCenter();
+		LLVector3 scale = physics_spec.getScale();
+		LLVector3 vscale = volume->getScale()*2.f;
+		scale.set(scale[0]/vscale[0], scale[1]/vscale[1], scale[2]/vscale[2]);
+		
+		gGL.color4fv(color.mV);
+		drawBox(center, scale);
+		gGL.popMatrix();
+	}
+	else if	(type == LLPhysicsShapeBuilderUtil::PhysicsShapeSpecification::SPHERE)
+	{
+		LLVolumeParams volume_params;
+		volume_params.setType( LL_PCODE_PROFILE_CIRCLE_HALF, LL_PCODE_PATH_CIRCLE );
+		volume_params.setBeginAndEndS( 0.f, 1.f );
+		volume_params.setBeginAndEndT( 0.f, 1.f );
+		volume_params.setRatio	( 1, 1 );
+		volume_params.setShear	( 0, 0 );
+		LLVolume* sphere = LLPrimitive::sVolumeManager->refVolume(volume_params, 3);
+		
+		gGL.pushMatrix();
+		glMultMatrixf((GLfloat*) volume->getRelativeXform().mMatrix);
+		glColor4fv(color.mV);
+		pushVerts(sphere);
+		gGL.popMatrix();
+		LLPrimitive::sVolumeManager->unrefVolume(sphere);
+	}
+	else if (type == LLPhysicsShapeBuilderUtil::PhysicsShapeSpecification::CYLINDER)
+	{
+		LLVolumeParams volume_params;
+		volume_params.setType( LL_PCODE_PROFILE_CIRCLE, LL_PCODE_PATH_LINE );
+		volume_params.setBeginAndEndS( 0.f, 1.f );
+		volume_params.setBeginAndEndT( 0.f, 1.f );
+		volume_params.setRatio	( 1, 1 );
+		volume_params.setShear	( 0, 0 );
+		LLVolume* cylinder = LLPrimitive::sVolumeManager->refVolume(volume_params, 3);
+		
+		gGL.pushMatrix();
+		glMultMatrixf((GLfloat*) volume->getRelativeXform().mMatrix);
+		glColor4fv(color.mV);
+		pushVerts(cylinder);
+		gGL.popMatrix();
+		LLPrimitive::sVolumeManager->unrefVolume(cylinder);
+	}
+	else if (type == LLPhysicsShapeBuilderUtil::PhysicsShapeSpecification::PRIM_MESH)
+	{
+		LLVolumeParams volume_params = volume->getVolume()->getParams();
+		S32 detail = get_physics_detail(volume_params, volume->getScale());
+
+		LLVolume* phys_volume = LLPrimitive::sVolumeManager->refVolume(volume_params, detail);
+		gGL.pushMatrix();
+		glMultMatrixf((GLfloat*) volume->getRelativeXform().mMatrix);
+		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+		
+		glColor3fv(color.mV);
+		pushVerts(phys_volume);
+		
+		glColor4fv(color.mV);
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		pushVerts(phys_volume);
+		gGL.popMatrix();
+		LLPrimitive::sVolumeManager->unrefVolume(phys_volume);
+	}
+	else if (type == LLPhysicsShapeBuilderUtil::PhysicsShapeSpecification::PRIM_CONVEX)
+	{
+		LLVolumeParams volume_params = volume->getVolume()->getParams();
+		S32 detail = get_physics_detail(volume_params, volume->getScale());
+
+		LLVolume* phys_volume = LLPrimitive::sVolumeManager->refVolume(volume_params, detail);
+
+		if (phys_volume->mHullPoints && phys_volume->mHullIndices)
+		{
+			gGL.pushMatrix();
+			glMultMatrixf((GLfloat*) volume->getRelativeXform().mMatrix);
+			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+			
+			LLVertexBuffer::unbind();
+			glVertexPointer(3, GL_FLOAT, 16, phys_volume->mHullPoints);
+			glColor3fv(color.mV);
+			glDrawElements(GL_TRIANGLES, phys_volume->mNumHullIndices, GL_UNSIGNED_SHORT, phys_volume->mHullIndices);
+			
+			glColor4fv(color.mV);
+			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+			glDrawElements(GL_TRIANGLES, phys_volume->mNumHullIndices, GL_UNSIGNED_SHORT, phys_volume->mHullIndices);			
+			gGL.popMatrix();
+		}
+		else
+		{
+			gMeshRepo.buildHull(volume_params, detail);
+		}
+		LLPrimitive::sVolumeManager->unrefVolume(phys_volume);
+	}
+
+	/*{ //analytical shape, just push visual rep.
+		glColor3fv(color.mV);
+		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+		pushVerts(drawable, data_mask);
+		glColor4fv(color.mV);
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		pushVerts(drawable, data_mask);
+	}*/
 }
 
 void renderPhysicsShapes(LLSpatialGroup* group)
 {
 	LLGLEnable blend(GL_BLEND);
 	LLGLDepthTest test(GL_TRUE, GL_FALSE);
+
+	LLGLEnable offset_fill(GL_POLYGON_OFFSET_FILL);
+	LLGLEnable offset_line(GL_POLYGON_OFFSET_LINE);
+	glPolygonOffset(-1.f, -1.f);
 
 	for (LLSpatialGroup::OctreeNode::const_element_iter i = group->getData().begin(); i != group->getData().end(); ++i)
 	{

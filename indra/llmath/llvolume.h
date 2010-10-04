@@ -646,6 +646,8 @@ public:
 	const F32&  getSkew() const			{ return mPathParams.getSkew();			}
 	const LLUUID& getSculptID() const	{ return mSculptID;						}
 	const U8& getSculptType() const     { return mSculptType;                   }
+	bool isSculpt() const;
+	bool isMeshSculpt() const;
 	BOOL isConvex() const;
 
 	// 'begin' and 'end' should be in range [0, 1] (they will be clamped)
@@ -1066,10 +1068,16 @@ public:
 	LLPath *mPathp;
 	LLProfile *mProfilep;
 	std::vector<Point> mMesh;
-
+	
 	BOOL mGenerateSingleFace;
 	typedef std::vector<LLVolumeFace> face_list_t;
 	face_list_t mVolumeFaces;
+
+public:
+	LLVector4a* mHullPoints;
+	U16* mHullIndices;
+	S32 mNumHullPoints;
+	S32 mNumHullIndices;
 };
 
 std::ostream& operator<<(std::ostream &s, const LLVolumeParams &volume_params);
