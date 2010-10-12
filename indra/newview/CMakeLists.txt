@@ -289,7 +289,6 @@ set(viewer_SOURCE_FILES
     llmediadataclient.cpp
     llmemoryview.cpp
     llmenucommands.cpp
-    llmetricperformancetester.cpp
     llmimetypes.cpp
     llmorphview.cpp
     llmoveview.cpp
@@ -819,7 +818,6 @@ set(viewer_HEADER_FILES
     llmediadataclient.h
     llmemoryview.h
     llmenucommands.h
-    llmetricperformancetester.h
     llmimetypes.h
     llmorphview.h
     llmoveview.h

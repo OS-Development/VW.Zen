@@ -30,6 +30,7 @@
 #include "lldir.h"
 #include "llimagej2c.h"
 #include "llmemtype.h"
+#include "lltimer.h"
 
 typedef LLImageJ2CImpl* (*CreateLLImageJ2CFunction)();
 typedef void (*DestroyLLImageJ2CFunction)(LLImageJ2CImpl*);
@@ -50,6 +51,9 @@ apr_dso_handle_t *j2cimpl_dso_handle;
 LLImageJ2CImpl* fallbackCreateLLImageJ2CImpl();
 void fallbackDestroyLLImageJ2CImpl(LLImageJ2CImpl* impl);
 const char* fallbackEngineInfoLLImageJ2CImpl();
+
+// Test data gathering handle
+LLImageCompressionTester* LLImageJ2C::sTesterp = NULL ;
 
 //static
 //Loads the required "create", "destroy" and "engineinfo" functions needed
@@ -195,6 +199,16 @@ LLImageJ2C::LLImageJ2C() : 	LLImageFormatted(IMG_CODEC_J2C),
 	{	// Array size is MAX_DISCARD_LEVEL+1
 		mDataSizes[i] = 0;
 	}
+
+	if (LLFastTimer::sMetricLog && !LLImageJ2C::sTesterp)
+	{
+		LLImageJ2C::sTesterp = new LLImageCompressionTester() ;
+        if (!LLImageJ2C::sTesterp->isValid())
+        {
+            delete LLImageJ2C::sTesterp;
+            LLImageJ2C::sTesterp = NULL;
+        }
+	}
 }
 
 // virtual
@@ -280,6 +294,7 @@ BOOL LLImageJ2C::decode(LLImageRaw *raw_imagep, F32 decode_time)
 // Returns TRUE to mean done, whether successful or not.
 BOOL LLImageJ2C::decodeChannels(LLImageRaw *raw_imagep, F32 decode_time, S32 first_channel, S32 max_channel_count )
 {
+    LLTimer elapsed;
 	LLMemType mt1(mMemType);
 
 	BOOL res = TRUE;
@@ -318,6 +333,20 @@ BOOL LLImageJ2C::decodeChannels(LLImageRaw *raw_imagep, F32 decode_time, S32 fir
 		LLImage::setLastError(mLastError);
 	}
 	
+    if (LLImageJ2C::sTesterp)
+    {
+        // Decompression stat gathering
+        // Note that we *do not* take into account the decompression failures data so we night overestimate the time spent processing
+        
+        // Always add the decompression time to the stat
+        LLImageJ2C::sTesterp->updateDecompressionStats(elapsed.getElapsedTimeF32()) ;
+        if (res)
+        {
+            // The whole data stream is finally decompressed when res is returned as TRUE
+            LLImageJ2C::sTesterp->updateDecompressionStats(this->getDataSize(), raw_imagep->getDataSize()) ;
+        }
+    }
+
 	return res;
 }
 
@@ -330,6 +359,7 @@ BOOL LLImageJ2C::encode(const LLImageRaw *raw_imagep, F32 encode_time)
 
 BOOL LLImageJ2C::encode(const LLImageRaw *raw_imagep, const char* comment_text, F32 encode_time)
 {
+    LLTimer elapsed;
 	LLMemType mt1(mMemType);
 	resetLastError();
 	BOOL res = mImpl->encodeImpl(*this, *raw_imagep, comment_text, encode_time, mReversible);
@@ -337,6 +367,22 @@ BOOL LLImageJ2C::encode(const LLImageRaw *raw_imagep, const char* comment_text, 
 	{
 		LLImage::setLastError(mLastError);
 	}
+
+    if (LLImageJ2C::sTesterp)
+    {
+        // Compression stat gathering
+        // Note that we *do not* take into account the compression failures cases so we night overestimate the time spent processing
+        
+        // Always add the compression time to the stat
+        LLImageJ2C::sTesterp->updateCompressionStats(elapsed.getElapsedTimeF32()) ;
+        if (res)
+        {
+            // The whole data stream is finally compressed when res is returned as TRUE
+            LLImageJ2C::sTesterp->updateCompressionStats(this->getDataSize(), raw_imagep->getDataSize()) ;
+        }
+    }
+    
+    
 	return res;
 }
 
@@ -540,3 +586,88 @@ void LLImageJ2C::updateRawDiscardLevel()
 LLImageJ2CImpl::~LLImageJ2CImpl()
 {
 }
+
+//----------------------------------------------------------------------------------------------
+// Start of LLImageCompressionTester
+//----------------------------------------------------------------------------------------------
+LLImageCompressionTester::LLImageCompressionTester() : LLMetricPerformanceTesterBasic("ImageCompressionTester") 
+{
+	addMetric("TotalBytesInDecompression");
+	addMetric("TotalBytesOutDecompression");
+	addMetric("TotalBytesInCompression");
+	addMetric("TotalBytesOutCompression");
+    
+	addMetric("TimeTimeDecompression");
+	addMetric("TimeTimeCompression");
+	
+    mTotalBytesInDecompression = 0;
+    mTotalBytesOutDecompression = 0;
+    mTotalBytesInCompression = 0;
+    mTotalBytesOutCompression = 0;
+
+    mTotalTimeDecompression = 0.0f;
+    mTotalTimeCompression = 0.0f;
+}
+
+LLImageCompressionTester::~LLImageCompressionTester()
+{
+	LLImageJ2C::sTesterp = NULL;
+}
+
+//virtual 
+void LLImageCompressionTester::outputTestRecord(LLSD *sd) 
+{	
+    std::string currentLabel = getCurrentLabelName();
+	(*sd)[currentLabel]["TotalBytesInDecompression"]   = (LLSD::Integer)mTotalBytesInDecompression;
+	(*sd)[currentLabel]["TotalBytesOutDecompression"]  = (LLSD::Integer)mTotalBytesOutDecompression;
+	(*sd)[currentLabel]["TotalBytesInCompression"]     = (LLSD::Integer)mTotalBytesInCompression;
+	(*sd)[currentLabel]["TotalBytesOutCompression"]    = (LLSD::Integer)mTotalBytesOutCompression;
+    
+	(*sd)[currentLabel]["TimeTimeDecompression"]       = (LLSD::Real)mTotalTimeDecompression;
+	(*sd)[currentLabel]["TimeTimeCompression"]         = (LLSD::Real)mTotalTimeCompression;
+}
+
+void LLImageCompressionTester::updateCompressionStats(const F32 deltaTime) 
+{
+    mTotalTimeCompression += deltaTime;
+}
+
+void LLImageCompressionTester::updateCompressionStats(const S32 bytesCompress, const S32 bytesRaw) 
+{
+    mTotalBytesInCompression += bytesRaw;
+    mTotalBytesOutCompression += bytesCompress;
+    if (mTotalBytesInCompression > (1000000))
+    {
+        // Output everything
+        outputTestResults();
+        // Reset only the compression data
+        mTotalBytesInCompression = 0;
+        mTotalBytesOutCompression = 0;
+        mTotalTimeCompression = 0.0f;
+    }
+}
+
+void LLImageCompressionTester::updateDecompressionStats(const F32 deltaTime) 
+{
+    mTotalTimeDecompression += deltaTime;
+}
+
+void LLImageCompressionTester::updateDecompressionStats(const S32 bytesIn, const S32 bytesOut) 
+{
+    mTotalBytesInDecompression += bytesIn;
+    mTotalBytesOutDecompression += bytesOut;
+    if (mTotalBytesInDecompression > (5*1000000))
+    {
+        // Output everything
+        outputTestResults();
+        // Reset only the decompression data
+        mTotalBytesInDecompression = 0;
+        mTotalBytesOutDecompression = 0;
+        mTotalTimeDecompression = 0.0f;
+    }
+}
+
+//----------------------------------------------------------------------------------------------
+// End of LLTexturePipelineTester
+//----------------------------------------------------------------------------------------------
+
