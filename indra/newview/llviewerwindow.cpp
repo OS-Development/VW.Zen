@@ -2,31 +2,25 @@
  * @file llviewerwindow.cpp
  * @brief Implementation of the LLViewerWindow class.
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -162,6 +156,7 @@
 #include "lltrans.h"
 #include "lluictrlfactory.h"
 #include "llurldispatcher.h"		// SLURL from other app instance
+#include "llversioninfo.h"
 #include "llvieweraudio.h"
 #include "llviewercamera.h"
 #include "llviewergesture.h"
@@ -1348,7 +1343,7 @@ LLViewerWindow::LLViewerWindow(
 		gSavedSettings.getBOOL("DisableVerticalSync"),
 		!gNoRender,
 		ignore_pixel_depth,
-		gSavedSettings.getU32("RenderFSAASamples"));
+		0); //gSavedSettings.getU32("RenderFSAASamples"));
 
 	if (!LLAppViewer::instance()->restoreErrorTrap())
 	{
@@ -1938,6 +1933,11 @@ void LLViewerWindow::setMenuBackgroundColor(bool god_mode, bool dev_grid)
     LLSD args;
     LLColor4 new_bg_color;
 
+	// no l10n problem because channel is always an english string
+	std::string channel = LLVersionInfo::getChannel();
+	bool isProject = (channel.find("Project") != std::string::npos);
+	
+	// god more important than project, proj more important than grid
     if(god_mode && LLGridManager::getInstance()->isInProductionGrid())
     {
         new_bg_color = LLUIColorTable::instance().getColor( "MenuBarGodBgColor" );
@@ -1945,6 +1945,10 @@ void LLViewerWindow::setMenuBackgroundColor(bool god_mode, bool dev_grid)
     else if(god_mode && !LLGridManager::getInstance()->isInProductionGrid())
     {
         new_bg_color = LLUIColorTable::instance().getColor( "MenuNonProductionGodBgColor" );
+    }
+	else if (!god_mode && isProject)
+	{
+		new_bg_color = LLUIColorTable::instance().getColor( "MenuBarProjectBgColor" );
     }
     else if(!god_mode && !LLGridManager::getInstance()->isInProductionGrid())
     {
@@ -2130,10 +2134,20 @@ BOOL LLViewerWindow::handleKey(KEY key, MASK mask)
 		return TRUE;
 	}
 
+	LLFocusableElement* keyboard_focus = gFocusMgr.getKeyboardFocus();
+
 	// give menus a chance to handle modified (Ctrl, Alt) shortcut keys before current focus 
 	// as long as focus isn't locked
 	if (mask & (MASK_CONTROL | MASK_ALT) && !gFocusMgr.focusLocked())
 	{
+		// Check the current floater's menu first, if it has one.
+		if (gFocusMgr.keyboardFocusHasAccelerators()
+			&& keyboard_focus 
+			&& keyboard_focus->handleKey(key,mask,FALSE))
+		{
+			return TRUE;
+		}
+
 		if ((gMenuBarView && gMenuBarView->handleAcceleratorKey(key, mask))
 			||(gLoginMenuBarView && gLoginMenuBarView->handleAcceleratorKey(key, mask)))
 		{
@@ -2169,7 +2183,6 @@ BOOL LLViewerWindow::handleKey(KEY key, MASK mask)
 	}
 
 	// Traverses up the hierarchy
-	LLFocusableElement* keyboard_focus = gFocusMgr.getKeyboardFocus();
 	if( keyboard_focus )
 	{
 		LLLineEditor* chat_editor = LLBottomTray::instanceExists() ? LLBottomTray::getInstance()->getNearbyChatBar()->getChatBox() : NULL;
@@ -3818,140 +3831,6 @@ void LLViewerWindow::playSnapshotAnimAndSound()
 BOOL LLViewerWindow::thumbnailSnapshot(LLImageRaw *raw, S32 preview_width, S32 preview_height, BOOL show_ui, BOOL do_rebuild, ESnapshotType type)
 {
 	return rawSnapshot(raw, preview_width, preview_height, FALSE, FALSE, show_ui, do_rebuild, type);
-	
-	// *TODO below code was broken in deferred pipeline
-	/*
-	if ((!raw) || preview_width < 10 || preview_height < 10)
-	{
-		return FALSE;
-	}
-
-	if(gResizeScreenTexture) //the window is resizing
-	{
-		return FALSE ;
-	}
-
-	setCursor(UI_CURSOR_WAIT);
-
-	// Hide all the UI widgets first and draw a frame
-	BOOL prev_draw_ui = gPipeline.hasRenderDebugFeatureMask(LLPipeline::RENDER_DEBUG_FEATURE_UI);
-
-	if ( prev_draw_ui != show_ui)
-	{
-		LLPipeline::toggleRenderDebugFeature((void*)LLPipeline::RENDER_DEBUG_FEATURE_UI);
-	}
-
-	BOOL hide_hud = !gSavedSettings.getBOOL("RenderHUDInSnapshot") && LLPipeline::sShowHUDAttachments;
-	if (hide_hud)
-	{
-		LLPipeline::sShowHUDAttachments = FALSE;
-	}
-
-	S32 render_name = gSavedSettings.getS32("RenderName");
-	gSavedSettings.setS32("RenderName", 0);
-	LLVOAvatar::updateFreezeCounter(1) ; //pause avatar updating for one frame
-	
-	S32 w = preview_width ;
-	S32 h = preview_height ;
-	LLVector2 display_scale = mDisplayScale ;
-	mDisplayScale.setVec((F32)w / mWindowRectRaw.getWidth(), (F32)h / mWindowRectRaw.getHeight()) ;
-	LLRect window_rect = mWindowRectRaw;
-	mWindowRectRaw.set(0, h, w, 0);
-	
-	gDisplaySwapBuffers = FALSE;
-	gDepthDirty = TRUE;
-	glClearColor(0.f, 0.f, 0.f, 0.f);
-	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-	setup3DRender();
-
-	LLFontGL::setFontDisplay(FALSE) ;
-	LLHUDText::setDisplayText(FALSE) ;
-	if (type == SNAPSHOT_TYPE_OBJECT_ID)
-	{
-		gObjectList.renderPickList(gViewerWindow->getWindowRectScaled(), FALSE, FALSE);
-	}
-	else
-	{
-		display(do_rebuild, 1.0f, 0, TRUE);
-		render_ui();
-	}
-
-	S32 glformat, gltype, glpixel_length ;
-	if(SNAPSHOT_TYPE_DEPTH == type)
-	{
-		glpixel_length = 4 ;
-		glformat = GL_DEPTH_COMPONENT ; 
-		gltype = GL_FLOAT ;
-	}
-	else
-	{
-		glpixel_length = 3 ;
-		glformat = GL_RGB ;
-		gltype = GL_UNSIGNED_BYTE ;
-	}
-
-	raw->resize(w, h, glpixel_length);
-	glReadPixels(0, 0, w, h, glformat, gltype, raw->getData());
-
-	if(SNAPSHOT_TYPE_DEPTH == type)
-	{
-		LLViewerCamera* camerap = LLViewerCamera::getInstance();
-		F32 depth_conversion_factor_1 = (camerap->getFar() + camerap->getNear()) / (2.f * camerap->getFar() * camerap->getNear());
-		F32 depth_conversion_factor_2 = (camerap->getFar() - camerap->getNear()) / (2.f * camerap->getFar() * camerap->getNear());
-
-		//calculate the depth 
-		for (S32 y = 0 ; y < h ; y++)
-		{
-			for(S32 x = 0 ; x < w ; x++)
-			{
-				S32 i = (w * y + x) << 2 ;
-				
-				F32 depth_float_i = *(F32*)(raw->getData() + i);
-				
-				F32 linear_depth_float = 1.f / (depth_conversion_factor_1 - (depth_float_i * depth_conversion_factor_2));
-				U8 depth_byte = F32_to_U8(linear_depth_float, camerap->getNear(), camerap->getFar());
-				*(raw->getData() + i + 0) = depth_byte;
-				*(raw->getData() + i + 1) = depth_byte;
-				*(raw->getData() + i + 2) = depth_byte;
-				*(raw->getData() + i + 3) = 255;
-			}
-		}		
-	}
-
-	LLFontGL::setFontDisplay(TRUE) ;
-	LLHUDText::setDisplayText(TRUE) ;
-	mDisplayScale.setVec(display_scale) ;
-	mWindowRectRaw = window_rect;	
-	setup3DRender();
-	gDisplaySwapBuffers = FALSE;
-	gDepthDirty = TRUE;
-
-	// POST SNAPSHOT
-	if (!gPipeline.hasRenderDebugFeatureMask(LLPipeline::RENDER_DEBUG_FEATURE_UI))
-	{
-		LLPipeline::toggleRenderDebugFeature((void*)LLPipeline::RENDER_DEBUG_FEATURE_UI);
-	}
-
-	if (hide_hud)
-	{
-		LLPipeline::sShowHUDAttachments = TRUE;
-	}
-
-	setCursor(UI_CURSOR_ARROW);
-
-	if (do_rebuild)
-	{
-		// If we had to do a rebuild, that means that the lists of drawables to be rendered
-		// was empty before we started.
-		// Need to reset these, otherwise we call state sort on it again when render gets called the next time
-		// and we stand a good chance of crashing on rebuild because the render drawable arrays have multiple copies of
-		// objects on them.
-		gPipeline.resetDrawOrders();
-	}
-	
-	gSavedSettings.setS32("RenderName", render_name);	
-	
-	return TRUE;*/
 }
 
 // Saves the image from the screen to the specified filename and path.
@@ -4052,7 +3931,14 @@ BOOL LLViewerWindow::rawSnapshot(LLImageRaw *raw, S32 image_width, S32 image_hei
 		image_buffer_x = llfloor(snapshot_width*scale_factor) ;
 		image_buffer_y = llfloor(snapshot_height *scale_factor) ;
 	}
-	raw->resize(image_buffer_x, image_buffer_y, 3);
+	if(image_buffer_x > 0 && image_buffer_y > 0)
+	{
+		raw->resize(image_buffer_x, image_buffer_y, 3);
+	}
+	else
+	{
+		return FALSE ;
+	}
 	if(raw->isBufferInvalid())
 	{
 		return FALSE ;
@@ -4596,22 +4482,25 @@ void LLViewerWindow::restartDisplay(BOOL show_progress_bar)
 
 BOOL LLViewerWindow::changeDisplaySettings(LLCoordScreen size, BOOL disable_vsync, BOOL show_progress_bar)
 {
-	BOOL was_maximized = gSavedSettings.getBOOL("WindowMaximized");
+	//BOOL was_maximized = gSavedSettings.getBOOL("WindowMaximized");
 
 	//gResizeScreenTexture = TRUE;
 
-	U32 fsaa = gSavedSettings.getU32("RenderFSAASamples");
-	U32 old_fsaa = mWindow->getFSAASamples();
+	//U32 fsaa = gSavedSettings.getU32("RenderFSAASamples");
+	//U32 old_fsaa = mWindow->getFSAASamples();
+
 	// if not maximized, use the request size
 	if (!mWindow->getMaximized())
 	{
 		mWindow->setSize(size);
 	}
 
-	if (fsaa == old_fsaa)
+	//if (fsaa == old_fsaa)
 	{
 		return TRUE;
 	}
+
+/*
 
 	// Close floaters that don't handle settings change
 	LLFloaterReg::hideInstance("snapshot");
@@ -4628,13 +4517,13 @@ BOOL LLViewerWindow::changeDisplaySettings(LLCoordScreen size, BOOL disable_vsyn
 	LLCoordScreen old_pos;
 	mWindow->getSize(&old_size);
 
-	mWindow->setFSAASamples(fsaa);
+	//mWindow->setFSAASamples(fsaa);
 
 	result_first_try = mWindow->switchContext(false, size, disable_vsync);
 	if (!result_first_try)
 	{
 		// try to switch back
-		mWindow->setFSAASamples(old_fsaa);
+		//mWindow->setFSAASamples(old_fsaa);
 		result_second_try = mWindow->switchContext(false, old_size, disable_vsync);
 
 		if (!result_second_try)
@@ -4688,6 +4577,8 @@ BOOL LLViewerWindow::changeDisplaySettings(LLCoordScreen size, BOOL disable_vsyn
 	gFocusMgr.setKeyboardFocus(keyboard_focus);
 	
 	return success;
+
+	*/
 }
 
 F32	LLViewerWindow::getWorldViewAspectRatio() const

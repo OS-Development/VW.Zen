@@ -2,31 +2,25 @@
  * @file llviewerregion.cpp
  * @brief Implementation of the LLViewerRegion class.
  *
- * $LicenseInfo:firstyear=2000&license=viewergpl$
- * 
- * Copyright (c) 2000-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2000&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -74,11 +68,6 @@
 #ifdef LL_WINDOWS
 	#pragma warning(disable:4355)
 #endif
-
-// Viewer object cache version, change if object update
-// format changes. JC
-const U32 INDRA_OBJECT_CACHE_VERSION = 14;
-
 
 extern BOOL gNoRender;
 
@@ -218,7 +207,7 @@ LLViewerRegion::LLViewerRegion(const U64 &handle,
 	mProductName("unknown"),
 	mHttpUrl(""),
 	mCacheLoaded(FALSE),
-	mCacheEntriesCount(0),
+	mCacheDirty(FALSE),
 	mCacheID(),
 	mEventPoll(NULL),
 	mReleaseNotesRequested(FALSE),
@@ -268,8 +257,6 @@ LLViewerRegion::LLViewerRegion(const U64 &handle,
 	// Create the object lists
 	initStats();
 
-	mCacheStart.append(mCacheEnd);
-	
 	//create object partitions
 	//MUST MATCH declaration of eObjectPartitions
 	mObjectPartition.push_back(new LLHUDPartition());		//PARTITION_HUD
@@ -323,13 +310,12 @@ LLViewerRegion::~LLViewerRegion()
 	delete mEventPoll;
 	LLHTTPSender::clearSender(mHost);
 	
-	saveCache();
+	saveObjectCache();
 
 	std::for_each(mObjectPartition.begin(), mObjectPartition.end(), DeletePointer());
 }
 
-
-void LLViewerRegion::loadCache()
+void LLViewerRegion::loadObjectCache()
 {
 	if (mCacheLoaded)
 	{
@@ -339,144 +325,36 @@ void LLViewerRegion::loadCache()
 	// Presume success.  If it fails, we don't want to try again.
 	mCacheLoaded = TRUE;
 
-	LLVOCacheEntry *entry;
-
-	std::string filename;
-	filename = gDirUtilp->getExpandedFilename(LL_PATH_CACHE,"") + gDirUtilp->getDirDelimiter() +
-		llformat("objects_%d_%d.slc",U32(mHandle>>32)/REGION_WIDTH_UNITS, U32(mHandle)/REGION_WIDTH_UNITS );
-
-	LLFILE* fp = LLFile::fopen(filename, "rb");		/* Flawfinder: ignore */
-	if (!fp)
+	if(LLVOCache::hasInstance())
 	{
-		// might not have a file, which is normal
-		return;
+		LLVOCache::getInstance()->readFromCache(mHandle, mCacheID, mCacheMap) ;
 	}
-
-	U32 zero;
-	size_t nread;
-	nread = fread(&zero, sizeof(U32), 1, fp);
-	if (nread != 1 || zero)
-	{
-		// a non-zero value here means bad things!
-		// skip reading the cached values
-		llinfos << "Cache file invalid" << llendl;
-		fclose(fp);
-		return;
-	}
-
-	U32 version;
-	nread = fread(&version, sizeof(U32), 1, fp);
-	if (nread != 1 || version != INDRA_OBJECT_CACHE_VERSION)
-	{
-		// a version mismatch here means we've changed the binary format!
-		// skip reading the cached values
-		llinfos << "Cache version changed, discarding" << llendl;
-		fclose(fp);
-		return;
-	}
-
-	LLUUID cache_id;
-	nread = fread(&cache_id.mData, 1, UUID_BYTES, fp);
-	if (nread != (size_t)UUID_BYTES || mCacheID != cache_id)
-	{
-		llinfos << "Cache ID doesn't match for this region, discarding"
-			<< llendl;
-		fclose(fp);
-		return;
-	}
-
-	S32 num_entries;
-	nread = fread(&num_entries, sizeof(S32), 1, fp);
-	if (nread != 1)
-	{
-		llinfos << "Short read, discarding" << llendl;
-		fclose(fp);
-		return;
-	}
-	
-	S32 i;
-	for (i = 0; i < num_entries; i++)
-	{
-		entry = new LLVOCacheEntry(fp);
-		if (!entry->getLocalID())
-		{
-			llwarns << "Aborting cache file load for " << filename << ", cache file corruption!" << llendl;
-			delete entry;
-			entry = NULL;
-			break;
-		}
-		mCacheEnd.insert(*entry);
-		mCacheMap[entry->getLocalID()] = entry;
-		mCacheEntriesCount++;
-	}
-
-	fclose(fp);
 }
 
 
-void LLViewerRegion::saveCache()
+void LLViewerRegion::saveObjectCache()
 {
 	if (!mCacheLoaded)
 	{
 		return;
 	}
 
-	S32 num_entries = mCacheEntriesCount;
-	if (0 == num_entries)
+	if (mCacheMap.empty())
 	{
 		return;
 	}
 
-	std::string filename;
-	filename = gDirUtilp->getExpandedFilename(LL_PATH_CACHE,"") + gDirUtilp->getDirDelimiter() +
-		llformat("objects_%d_%d.slc", U32(mHandle>>32)/REGION_WIDTH_UNITS, U32(mHandle)/REGION_WIDTH_UNITS );
-
-	LLFILE* fp = LLFile::fopen(filename, "wb");		/* Flawfinder: ignore */
-	if (!fp)
+	if(LLVOCache::hasInstance())
 	{
-		llwarns << "Unable to write cache file " << filename << llendl;
-		return;
+		LLVOCache::getInstance()->writeToCache(mHandle, mCacheID, mCacheMap, mCacheDirty) ;
+		mCacheDirty = FALSE;
 	}
 
-	// write out zero to indicate a version cache file
-	U32 zero = 0;
-	if (fwrite(&zero, sizeof(U32), 1, fp) != 1)
+	for(LLVOCacheEntry::vocache_entry_map_t::iterator iter = mCacheMap.begin(); iter != mCacheMap.end(); ++iter)
 	{
-		llwarns << "Short write" << llendl;
+		delete iter->second;
 	}
-
-	// write out version number
-	U32 version = INDRA_OBJECT_CACHE_VERSION;
-	if (fwrite(&version, sizeof(U32), 1, fp) != 1)
-	{
-		llwarns << "Short write" << llendl;
-	}
-
-	// write the cache id for this sim
-	if (fwrite(&mCacheID.mData, 1, UUID_BYTES, fp) != (size_t)UUID_BYTES)
-	{
-		llwarns << "Short write" << llendl;
-	}
-
-	if (fwrite(&num_entries, sizeof(S32), 1, fp) != 1)
-	{
-		llwarns << "Short write" << llendl;
-	}
-
-	LLVOCacheEntry *entry;
-
-	for (entry = mCacheStart.getNext(); entry && (entry != &mCacheEnd); entry = entry->getNext())
-	{
-		entry->writeToFile(fp);
-	}
-
 	mCacheMap.clear();
-	mCacheEnd.unlink();
-	mCacheEnd.init();
-	mCacheStart.deleteAll();
-	mCacheStart.init();
-
-	fclose(fp);
 }
 
 void LLViewerRegion::sendMessage()
@@ -1169,7 +1047,6 @@ void LLViewerRegion::cacheFullUpdate(LLViewerObject* objectp, LLDataPackerBinary
 			mCacheMap.erase(local_id);
 			delete entry;
 			entry = new LLVOCacheEntry(local_id, crc, dp);
-			mCacheEnd.insert(*entry);
 			mCacheMap[local_id] = entry;
 		}
 	}
@@ -1178,18 +1055,13 @@ void LLViewerRegion::cacheFullUpdate(LLViewerObject* objectp, LLDataPackerBinary
 		// we haven't seen this object before
 
 		// Create new entry and add to map
-		if (mCacheEntriesCount > MAX_OBJECT_CACHE_ENTRIES)
+		if (mCacheMap.size() > MAX_OBJECT_CACHE_ENTRIES)
 		{
-			entry = mCacheStart.getNext();
-			mCacheMap.erase(entry->getLocalID());
-			delete entry;
-			mCacheEntriesCount--;
+			mCacheMap.erase(mCacheMap.begin());
 		}
 		entry = new LLVOCacheEntry(local_id, crc, dp);
 
-		mCacheEnd.insert(*entry);
 		mCacheMap[local_id] = entry;
-		mCacheEntriesCount++;
 	}
 	return ;
 }
@@ -1304,6 +1176,7 @@ void LLViewerRegion::requestCacheMisses()
 	mCacheMissFull.reset();
 	mCacheMissCRC.reset();
 
+	mCacheDirty = TRUE ;
 	// llinfos << "KILLDEBUG Sent cache miss full " << full_count << " crc " << crc_count << llendl;
 }
 
@@ -1321,9 +1194,10 @@ void LLViewerRegion::dumpCache()
 	}
 
 	LLVOCacheEntry *entry;
-
-	for (entry = mCacheStart.getNext(); entry && (entry != &mCacheEnd); entry = entry->getNext())
+	for(LLVOCacheEntry::vocache_entry_map_t::iterator iter = mCacheMap.begin(); iter != mCacheMap.end(); ++iter)
 	{
+		entry = iter->second ;
+
 		S32 hits = entry->getHitCount();
 		S32 changes = entry->getCRCChangeCount();
 
@@ -1334,7 +1208,7 @@ void LLViewerRegion::dumpCache()
 		change_bin[changes]++;
 	}
 
-	llinfos << "Count " << mCacheEntriesCount << llendl;
+	llinfos << "Count " << mCacheMap.size() << llendl;
 	for (i = 0; i < BINS; i++)
 	{
 		llinfos << "Hits " << i << " " << hit_bin[i] << llendl;
@@ -1454,7 +1328,7 @@ void LLViewerRegion::unpackRegionHandshake()
 
 	// Now that we have the name, we can load the cache file
 	// off disk.
-	loadCache();
+	loadObjectCache();
 
 	// After loading cache, signal that simulator can start
 	// sending data.

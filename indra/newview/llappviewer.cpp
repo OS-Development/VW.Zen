@@ -2,31 +2,25 @@
  * @file llappviewer.cpp
  * @brief The LLAppViewer class definitions
  *
- * $LicenseInfo:firstyear=2007&license=viewergpl$
- * 
- * Copyright (c) 2007-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2007&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -934,8 +928,9 @@ bool LLAppViewer::init()
 
 	//EXT-7013 - On windows for some locale (Japanese) standard 
 	//datetime formatting functions didn't support some parameters such as "weekday".
+	//Names for days and months localized in xml are also useful for Polish locale(STORM-107).
 	std::string language = LLControlGroup::getInstance(sGlobalSettingsName)->getString("Language");
-	if(language == "ja")
+	if(language == "ja" || language == "pl")
 	{
 		LLStringOps::setupWeekDaysNames(LLTrans::getString("dateTimeWeekdaysNames"));
 		LLStringOps::setupWeekDaysShortNames(LLTrans::getString("dateTimeWeekdaysShortNames"));
@@ -961,6 +956,11 @@ static LLFastTimer::DeclareTimer FTM_LFS("LFS Thread");
 static LLFastTimer::DeclareTimer FTM_PAUSE_THREADS("Pause Threads");
 static LLFastTimer::DeclareTimer FTM_IDLE("Idle");
 static LLFastTimer::DeclareTimer FTM_PUMP("Pump");
+static LLFastTimer::DeclareTimer FTM_PUMP_ARES("Ares");
+static LLFastTimer::DeclareTimer FTM_PUMP_SERVICE("Service");
+static LLFastTimer::DeclareTimer FTM_SERVICE_CALLBACK("Callback");
+static LLFastTimer::DeclareTimer FTM_AGENT_AUTOPILOT("Autopilot");
+static LLFastTimer::DeclareTimer FTM_AGENT_UPDATE("Update");
 
 bool LLAppViewer::mainLoop()
 {
@@ -1070,10 +1070,20 @@ bool LLAppViewer::mainLoop()
 						LLMemType mt_ip(LLMemType::MTYPE_IDLE_PUMP);
 						pingMainloopTimeout("Main:ServicePump");				
 						LLFastTimer t4(FTM_PUMP);
-						gAres->process();
-						// this pump is necessary to make the login screen show up
-						gServicePump->pump();
-						gServicePump->callback();
+						{
+							LLFastTimer t(FTM_PUMP_ARES);
+							gAres->process();
+						}
+						{
+							LLFastTimer t(FTM_PUMP_SERVICE);
+							// this pump is necessary to make the login screen show up
+							gServicePump->pump();
+
+							{
+								LLFastTimer t(FTM_SERVICE_CALLBACK);
+								gServicePump->callback();
+							}
+						}
 					}
 					
 					resumeMainloopTimeout();
@@ -1108,8 +1118,7 @@ bool LLAppViewer::mainLoop()
 			{
 				LLMemType mt_sleep(LLMemType::MTYPE_SLEEP);
 				LLFastTimer t2(FTM_SLEEP);
-				bool run_multiple_threads = gSavedSettings.getBOOL("RunMultipleThreads");
-
+				
 				// yield some time to the os based on command line option
 				if(mYieldTime >= 0)
 				{
@@ -1147,9 +1156,7 @@ bool LLAppViewer::mainLoop()
 				}
 
 				static const F64 FRAME_SLOW_THRESHOLD = 0.5; //2 frames per seconds				
-				const F64 min_frame_time = 0.0; //(.0333 - .0010); // max video frame rate = 30 fps
-				const F64 min_idle_time = 0.0; //(.0010); // min idle time = 1 ms
-				const F64 max_idle_time = run_multiple_threads ? min_idle_time : llmin(.005*10.0*gFrameTimeSeconds, 0.005); // 5 ms a second
+				const F64 max_idle_time = llmin(.005*10.0*gFrameTimeSeconds, 0.005); // 5 ms a second
 				idleTimer.reset();
 				bool is_slow = (frameTimer.getElapsedTimeF64() > FRAME_SLOW_THRESHOLD) ;
 				S32 total_work_pending = 0;
@@ -1187,34 +1194,24 @@ bool LLAppViewer::mainLoop()
 
 					total_work_pending += work_pending ;
 					total_io_pending += io_pending ;
-					F64 frame_time = frameTimer.getElapsedTimeF64();
-					F64 idle_time = idleTimer.getElapsedTimeF64();
-					if (frame_time >= min_frame_time &&
-						idle_time >= min_idle_time &&
-						(!work_pending || idle_time >= max_idle_time))
+					
+					if (!work_pending || idleTimer.getElapsedTimeF64() >= max_idle_time)
 					{
 						break;
 					}
 				}
 
-				 // Prevent the worker threads from running while rendering.
-				// if (LLThread::processorCount()==1) //pause() should only be required when on a single processor client...
-				if (run_multiple_threads == FALSE)
+				if(!total_work_pending) //pause texture fetching threads if nothing to process.
 				{
-					//LLFastTimer ftm(FTM_PAUSE_THREADS); //not necessary.
-	 				
-					if(!total_work_pending) //pause texture fetching threads if nothing to process.
-					{
-						LLAppViewer::getTextureCache()->pause();
-						LLAppViewer::getImageDecodeThread()->pause();
-						LLAppViewer::getTextureFetch()->pause(); 
-					}
-					if(!total_io_pending) //pause file threads if nothing to process.
-					{
-						LLVFSThread::sLocal->pause(); 
-						LLLFSThread::sLocal->pause(); 
-					}
-				}					
+					LLAppViewer::getTextureCache()->pause();
+					LLAppViewer::getImageDecodeThread()->pause();
+					LLAppViewer::getTextureFetch()->pause(); 
+				}
+				if(!total_io_pending) //pause file threads if nothing to process.
+				{
+					LLVFSThread::sLocal->pause(); 
+					LLLFSThread::sLocal->pause(); 
+				}									
 
 				if ((LLStartUp::getStartupState() >= STATE_CLEANUP) &&
 					(frameTimer.getElapsedTimeF64() > FRAME_STALL_THRESHOLD))
@@ -3029,14 +3026,6 @@ void LLAppViewer::migrateCacheDirectory()
 #endif // LL_WINDOWS || LL_DARWIN
 }
 
-//static
-S32 LLAppViewer::getCacheVersion() 
-{
-	static const S32 cache_version = 7;
-
-	return cache_version ;
-}
-
 void dumpVFSCaches()
 {
 	llinfos << "======= Static VFS ========" << llendl;
@@ -3075,23 +3064,40 @@ void dumpVFSCaches()
 	SetCurrentDirectory(w_str);
 #endif
 }
+
+//static
+U32 LLAppViewer::getTextureCacheVersion() 
+{
+	//viewer texture cache version, change if the texture cache format changes.
+	const U32 TEXTURE_CACHE_VERSION = 7;
+
+	return TEXTURE_CACHE_VERSION ;
+}
+
+//static
+U32 LLAppViewer::getObjectCacheVersion() 
+{
+	// Viewer object cache version, change if object update
+	// format changes. JC
+	const U32 INDRA_OBJECT_CACHE_VERSION = 14;
+
+	return INDRA_OBJECT_CACHE_VERSION;
+}
+
 bool LLAppViewer::initCache()
 {
 	mPurgeCache = false;
-	BOOL disable_texture_cache = FALSE ;
 	BOOL read_only = mSecondInstance ? TRUE : FALSE;
 	LLAppViewer::getTextureCache()->setReadOnly(read_only) ;
+	LLVOCache::getInstance()->setReadOnly(read_only);
 
-	if (gSavedSettings.getS32("LocalCacheVersion") != LLAppViewer::getCacheVersion()) 
+	BOOL texture_cache_mismatch = FALSE ;
+	if (gSavedSettings.getS32("LocalCacheVersion") != LLAppViewer::getTextureCacheVersion()) 
 	{
-		if(read_only) 
+		texture_cache_mismatch = TRUE ;
+		if(!read_only) 
 		{
-			disable_texture_cache = TRUE ; //if the cache version of this viewer is different from the running one, this viewer can not use the texture cache.
-		}
-		else
-		{
-			mPurgeCache = true; // Purge cache if the version number is different.
-			gSavedSettings.setS32("LocalCacheVersion", LLAppViewer::getCacheVersion());
+			gSavedSettings.setS32("LocalCacheVersion", LLAppViewer::getTextureCacheVersion());
 		}
 	}
 
@@ -3142,8 +3148,10 @@ bool LLAppViewer::initCache()
 	const S64 MAX_CACHE_SIZE = 1024*MB;
 	cache_size = llmin(cache_size, MAX_CACHE_SIZE);
 	S64 texture_cache_size = ((cache_size * 8)/10);
-	S64 extra = LLAppViewer::getTextureCache()->initCache(LL_PATH_CACHE, texture_cache_size, disable_texture_cache);
+	S64 extra = LLAppViewer::getTextureCache()->initCache(LL_PATH_CACHE, texture_cache_size, texture_cache_mismatch);
 	texture_cache_size -= extra;
+
+	LLVOCache::getInstance()->initCache(LL_PATH_CACHE, gSavedSettings.getU32("CacheNumberOfRegionsForObjects"), getObjectCacheVersion()) ;
 
 	LLSplashScreen::update(LLTrans::getString("StartupInitializingVFS"));
 	
@@ -3307,6 +3315,7 @@ void LLAppViewer::purgeCache()
 {
 	LL_INFOS("AppCache") << "Purging Cache and Texture Cache..." << llendl;
 	LLAppViewer::getTextureCache()->purgeCache(LL_PATH_CACHE);
+	LLVOCache::getInstance()->removeCache(LL_PATH_CACHE);
 	std::string mask = gDirUtilp->getDirDelimiter() + "*.*";
 	gDirUtilp->deleteFilesInDir(gDirUtilp->getExpandedFilename(LL_PATH_CACHE,""),mask);
 }
@@ -3566,9 +3575,12 @@ void LLAppViewer::idle()
 			gAgent.moveYaw(-1.f);
 		}
 
-	    // Handle automatic walking towards points
-	    gAgentPilot.updateTarget();
-	    gAgent.autoPilot(&yaw);
+		{
+			LLFastTimer t(FTM_AGENT_AUTOPILOT);
+			// Handle automatic walking towards points
+			gAgentPilot.updateTarget();
+			gAgent.autoPilot(&yaw);
+		}
     
 	    static LLFrameTimer agent_update_timer;
 	    static U32 				last_control_flags;
@@ -3579,6 +3591,7 @@ void LLAppViewer::idle()
 		    
 	    if (flags_changed || (agent_update_time > (1.0f / (F32) AGENT_UPDATES_PER_SECOND)))
 	    {
+		    LLFastTimer t(FTM_AGENT_UPDATE);
 		    // Send avatar and camera info
 		    last_control_flags = gAgent.getControlFlags();
 		    send_agent_update(TRUE);

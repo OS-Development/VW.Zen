@@ -40,7 +40,7 @@
 		Edycja bielizny
 	</string>
 	<string name="edit_alpha_title">
-		Edycja maski Alpha
+		Edycja maski alpha
 	</string>
 	<string name="edit_tattoo_title">
 		Edycja tatuażu
@@ -73,7 +73,7 @@
 		Kurtka:
 	</string>
 	<string name="skirt_desc_text">
-		spódnica:
+		Spódnica:
 	</string>
 	<string name="gloves_desc_text">
 		Rękawiczki:
@@ -85,13 +85,13 @@
 		Bielizna:
 	</string>
 	<string name="alpha_desc_text">
-		Maska Alpha:
+		Maska alpha:
 	</string>
 	<string name="tattoo_desc_text">
 		Tatuaż:
 	</string>
 	<labeled_back_button label="Zapisz" name="back_btn" tool_tip="Powrót do edycji stroju"/>
-	<text name="edit_wearable_title" value="Edycja Kształtu"/>
+	<text name="edit_wearable_title" value="Edycja kształtu"/>
 	<panel label="Koszula" name="wearable_type_panel">
 		<text name="description_text" value="Kształt:"/>
 		<radio_group name="sex_radio">
@@ -102,7 +102,13 @@
 		<icon name="female_icon" tool_tip="Kobieta"/>
 	</panel>
 	<panel name="button_panel">
-		<button label="Zapisz" name="save_as_button"/>
-		<button label="Cofnij zmiany" name="revert_button"/>
+		<layout_stack name="button_panel_ls">
+			<layout_panel name="save_as_btn_lp">
+				<button label="Zapisz jako" name="save_as_button"/>
+			</layout_panel>
+			<layout_panel name="revert_btn_lp">
+				<button label="Cofnij zmiany" name="revert_button"/>
+			</layout_panel>
+		</layout_stack>
 	</panel>
 </panel>

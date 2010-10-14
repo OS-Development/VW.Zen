@@ -2019,6 +2019,7 @@ Clears (deletes) the media and all params from the given face.
 	<string name="Stomach">Stomach</string>
 	<string name="Left Pec">Left Pec</string>
 	<string name="Right Pec">Right Pec</string>
+	<string name="Invalid Attachment">Invalid Attachment Point</string>
 
   <!-- Avatar age computation, see LLDateUtil::ageFromDate -->
   <string name="YearsMonthsOld">[AGEYEARS] [AGEMONTHS] old</string>
@@ -2182,7 +2183,6 @@ Clears (deletes) the media and all params from the given face.
 	<string name="ATTACH_HUD_BOTTOM_LEFT">HUD Bottom Left</string>
 	<string name="ATTACH_HUD_BOTTOM">HUD Bottom</string>
 	<string name="ATTACH_HUD_BOTTOM_RIGHT">HUD Bottom Right</string>
-	<string name="Bad attachment point">Invalid Attachment Point</string>
 			
 	<!-- script editor -->
 	<string name="CursorPos">Line [LINE], Column [COLUMN]</string>
@@ -2225,7 +2225,7 @@ Clears (deletes) the media and all params from the given face.
   
   <!-- panel picks -->
   <string name="NoPicksClassifiedsText">You haven't created any Picks or Classifieds. Click the Plus button below to create a Pick or Classified.</string>
-  <string name="NoAvatarPicksClassifiedsText">User has no picks or classfields</string>
+  <string name="NoAvatarPicksClassifiedsText">User has no picks or classifieds</string>
   <string name="PicksClassifiedsLoadingText">Loading...</string>
 
 	<!-- Multi Preview Floater -->
@@ -2281,6 +2281,9 @@ Expected .wav, .tga, .bmp, .jpg, .jpeg, or .bvh
 	<string name="accel-win-control">Ctrl+</string>
 	<string name="accel-win-alt">Alt+</string>
 	<string name="accel-win-shift">Shift+</string>
+
+	<string name="Esc">Esc</string>
+	<string name="Home">Home</string>
 
 	<!-- Previews -->
 	<string name="FileSaved">File Saved</string>
@@ -3002,6 +3005,7 @@ If you continue to receive this message, contact the [SUPPORT_SITE].
 	<string name="IM_default_text_label">Click here to instant message.</string>
 	<string name="IM_to_label">To</string>
 	<string name="IM_moderator_label">(Moderator)</string>
+	<string name="Saved_message">(Saved [LONG_TIMESTAMP])</string>
 
 	<!-- voice calls -->
 	<string name="answered_call">Your call has been answered</string>
@@ -3024,6 +3028,9 @@ If you continue to receive this message, contact the [SUPPORT_SITE].
   <string name="conference-title">
     Ad-hoc Conference
   </string>
+  <string name="conference-title-incoming">
+    Conference with [AGENT_NAME]
+  </string>
   <string name="inventory_item_offered-im">
     Inventory item offered
   </string>
@@ -3032,6 +3039,9 @@ If you continue to receive this message, contact the [SUPPORT_SITE].
   </string>
 
 
+  <string name="no_session_message">
+    (IM Session Doesn't Exist)
+  </string>
   <string name="only_user_message">
     You are the only user in this session.
   </string>
@@ -3254,5 +3264,11 @@ Abuse Report</string>
   <string name="Accounting">Accounting</string>
   <string name="Notices">Notices</string>
   <string name="Chat">Chat</string>
+
+  <!-- Question strings for delete items notifications -->
+  <string name="DeleteItems">Delete selected items?</string>
+  <string name="DeleteItem">Delete selected item?</string>
+
+  <string name="EmptyOutfitText">There are no items in this outfit</string>
 
   </strings>

@@ -909,7 +909,7 @@ Fusionner le terrain ?
 	</notification>
 	<notification name="CannotSaveToAssetStore">
 		Impossible de sauvegarder le fichier [NAME] dans la base de données centrale.
-Cette erreur est généralement temporaire. Veuillez éditer et sauvegarder l&apos;élément endossable à nouveau d&apos;ici quelques minutes.
+Cette erreur est généralement temporaire. Veuillez modifier et sauvegarder l&apos;élément endossable à nouveau d&apos;ici quelques minutes.
 	</notification>
 	<notification name="YouHaveBeenLoggedOut">
 		Zut. Vous avez été déconnecté(e) de [SECOND_LIFE]
@@ -1811,6 +1811,10 @@ Déplacer les objets de l&apos;inventaire ?
 		Êtes-vous certain de vouloir quitter ?
 		<usetemplate ignoretext="Confirmer avant de quitter" name="okcancelignore" notext="Ne pas quitter" yestext="Quitter"/>
 	</notification>
+	<notification name="DeleteItems">
+		[QUESTION]
+		<usetemplate ignoretext="Confirmer avant de supprimer des articles" name="okcancelignore" notext="Annuler" yestext="OK"/>
+	</notification>
 	<notification name="HelpReportAbuseEmailLL">
 		Utilisez cet outil pour signaler des infractions aux [http://secondlife.com/corporate/tos.php Conditions d’utilisation] et aux [http://secondlife.com/corporate/cs.php Règles communautaires].
 
@@ -1917,7 +1921,7 @@ Liez-la à partir d&apos;une page web pour permettre aux autres résidents d&apo
 		<usetemplate name="okcancelbuttons" notext="Non" yestext="Oui"/>
 	</notification>
 	<notification name="WLNoEditDefault">
-		Vous ne pouvez pas éditer ou supprimer un préréglage par défaut.
+		Vous ne pouvez pas modifier ou supprimer un préréglage par défaut.
 	</notification>
 	<notification name="WLMissingSky">
 		Une dossier semble manquer au Cycle du jour : [SKY].
@@ -1953,7 +1957,7 @@ Liez-la à partir d&apos;une page web pour permettre aux autres résidents d&apo
 		Ce préréglage existe déjà !
 	</notification>
 	<notification name="WaterNoEditDefault">
-		Vous ne pouvez pas éditer ou supprimer un préréglage par défaut.
+		Vous ne pouvez pas modifier ou supprimer un préréglage par défaut.
 	</notification>
 	<notification name="ChatterBoxSessionStartError">
 		Impossible de démarrer une nouvelle session de chat avec [RECIPIENT].
@@ -2744,9 +2748,13 @@ Veuillez vérifier la configuration de votre réseau et de votre pare-feu.
 		([EXISTENCE] secondes d&apos;existence)
 Départ de l&apos;avatar [NAME] entièrement chargé.
 	</notification>
-	<notification name="AvatarRezSelfBakeNotification">
+	<notification name="AvatarRezSelfBakedTextureUploadNotification">
 		([EXISTENCE] secondes d&apos;existence)
-Vous avez [ACTION] une texture figée de [RESOLUTION] pour [BODYREGION] au bout de [TIME] secondes.
+Texture figée de [RESOLUTION] chargée pour [BODYREGION] au bout de [TIME] secondes.
+	</notification>
+	<notification name="AvatarRezSelfBakedTextureUpdateNotification">
+		([EXISTENCE] secondes d&apos;existence)
+Texture figée de [RESOLUTION] mise à jour localement pour [BODYREGION] au bout de [TIME] secondes.
 	</notification>
 	<notification name="ConfirmLeaveCall">
 		Voulez-vous vraiment quitter cet appel ?

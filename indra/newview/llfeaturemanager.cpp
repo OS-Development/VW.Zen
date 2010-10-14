@@ -2,31 +2,25 @@
  * @file llfeaturemanager.cpp
  * @brief LLFeatureManager class implementation
  *
- * $LicenseInfo:firstyear=2003&license=viewergpl$
- * 
- * Copyright (c) 2003-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2003&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -73,8 +67,8 @@ const char FEATURE_TABLE_VER_FILENAME[] = "featuretable_linux.%s.txt";
 const char FEATURE_TABLE_FILENAME[] = "featuretable_solaris.txt";
 const char FEATURE_TABLE_VER_FILENAME[] = "featuretable_solaris.%s.txt";
 #else
-const char FEATURE_TABLE_FILENAME[] = "featuretable.txt";
-const char FEATURE_TABLE_VER_FILENAME[] = "featuretable.%s.txt";
+const char FEATURE_TABLE_FILENAME[] = "featuretable%s.txt";
+const char FEATURE_TABLE_VER_FILENAME[] = "featuretable%s.%s.txt";
 #endif
 
 const char GPU_TABLE_FILENAME[] = "gpu_table.txt";
@@ -226,10 +220,30 @@ BOOL LLFeatureManager::loadFeatureTables()
 	// first table is install with app
 	std::string app_path = gDirUtilp->getAppRODataDir();
 	app_path += gDirUtilp->getDirDelimiter();
-	app_path += FEATURE_TABLE_FILENAME;
 
+	std::string filename;
+	std::string http_filename; 
+#if LL_WINDOWS
+	std::string os_string = LLAppViewer::instance()->getOSInfo().getOSStringSimple();
+	if (os_string.find("Microsoft Windows XP") == 0)
+	{
+		filename = llformat(FEATURE_TABLE_FILENAME, "_xp");
+		http_filename = llformat(FEATURE_TABLE_VER_FILENAME, "_xp", LLVersionInfo::getVersion().c_str());
+	}
+	else
+	{
+		filename = llformat(FEATURE_TABLE_FILENAME, "");
+		http_filename = llformat(FEATURE_TABLE_VER_FILENAME, "", LLVersionInfo::getVersion().c_str());
+	}
+#else
+	filename = FEATURE_TABLE_FILENAME;
+	http_filename = llformat(FEATURE_TABLE_VER_FILENAME, LLVersionInfo::getVersion().c_str());
+#endif
+
+	app_path += filename;
+
+	
 	// second table is downloaded with HTTP
-	std::string http_filename = llformat(FEATURE_TABLE_VER_FILENAME, LLVersionInfo::getVersion().c_str());
 	std::string http_path = gDirUtilp->getExpandedFilename(LL_PATH_USER_SETTINGS, http_filename);
 
 	// use HTTP table if it exists
@@ -494,7 +508,35 @@ private:
 	std::string mFilename;
 };
 
-void fetch_table(std::string table)
+void fetch_feature_table(std::string table)
+{
+	const std::string base       = gSavedSettings.getString("FeatureManagerHTTPTable");
+
+#if LL_WINDOWS
+	std::string os_string = LLAppViewer::instance()->getOSInfo().getOSStringSimple();
+	std::string filename;
+	if (os_string.find("Microsoft Windows XP") == 0)
+	{
+		filename = llformat(table.c_str(), "_xp", LLVersionInfo::getVersion().c_str());
+	}
+	else
+	{
+		filename = llformat(table.c_str(), "", LLVersionInfo::getVersion().c_str());
+	}
+#else
+	const std::string filename   = llformat(table.c_str(), LLVersionInfo::getVersion().c_str());
+#endif
+
+	const std::string url        = base + "/" + filename;
+
+	const std::string path       = gDirUtilp->getExpandedFilename(LL_PATH_USER_SETTINGS, filename);
+
+	llinfos << "LLFeatureManager fetching " << url << " into " << path << llendl;
+	
+	LLHTTPClient::get(url, new LLHTTPFeatureTableResponder(path));
+}
+
+void fetch_gpu_table(std::string table)
 {
 	const std::string base       = gSavedSettings.getString("FeatureManagerHTTPTable");
 
@@ -512,8 +554,8 @@ void fetch_table(std::string table)
 // fetch table(s) from a website (S3)
 void LLFeatureManager::fetchHTTPTables()
 {
-	fetch_table(FEATURE_TABLE_VER_FILENAME);
-	fetch_table(GPU_TABLE_VER_FILENAME);
+	fetch_feature_table(FEATURE_TABLE_VER_FILENAME);
+	fetch_gpu_table(GPU_TABLE_VER_FILENAME);
 }
 
 

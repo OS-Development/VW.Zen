@@ -18,8 +18,8 @@
 	<icon name="icon_bodypart" tool_tip="Części Ciała"/>
 	<check_box label="Ubranie" name="check_clothing"/>
 	<icon name="icon_clothing" tool_tip="Ubranie"/>
-	<check_box label="Gestury" name="check_gesture"/>
-	<icon name="icon_gesture" tool_tip="Gestury"/>
+	<check_box label="Gesturki" name="check_gesture"/>
+	<icon name="icon_gesture" tool_tip="Gesturki"/>
 	<check_box label="Noty" name="check_notecard"/>
 	<icon name="icon_notecard" tool_tip="Noty"/>
 	<check_box label="Obiekty" name="check_object"/>
@@ -30,8 +30,8 @@
 	<icon name="icon_sound" tool_tip="Dźwięki"/>
 	<check_box label="Tekstury" name="check_texture"/>
 	<icon name="icon_texture" tool_tip="Tekstury"/>
-	<button font="SansSerifSmall" label="√ Wszystkie" label_selected="Wszystkie" name="check_all" width="115"/>
-	<button font="SansSerifSmall" label="Żadne" label_selected="Żadne" name="check_none" width="115"/>
+	<button font="SansSerifSmall" label="√ Wszystkie" label_selected="Wszystkie" name="check_all"/>
+	<button font="SansSerifSmall" label="Żadne" label_selected="Żadne" name="check_none"/>
 	<text name="newperms">
 		Nowe prawa zawartości
 	</text>

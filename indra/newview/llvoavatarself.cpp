@@ -2,31 +2,25 @@
  * @file llvoavatar.cpp
  * @brief Implementation of LLVOAvatar class which is a derivation fo LLViewerObject
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -246,58 +240,58 @@ BOOL LLVOAvatarSelf::buildMenus()
 	gAttachBodyPartPieMenus[0] = NULL;
 
 	LLContextMenu::Params params;
-	params.label(LLTrans::getString("BodyPartsRightArm") + " >");
+	params.label(LLTrans::getString("BodyPartsRightArm"));
 	params.name(params.label);
 	params.visible(false);
 	gAttachBodyPartPieMenus[1] = LLUICtrlFactory::create<LLContextMenu> (params);
 
-	params.label(LLTrans::getString("BodyPartsHead") + " >");
+	params.label(LLTrans::getString("BodyPartsHead"));
 	params.name(params.label);
 	gAttachBodyPartPieMenus[2] = LLUICtrlFactory::create<LLContextMenu> (params);
 
-	params.label(LLTrans::getString("BodyPartsLeftArm") + " >");
+	params.label(LLTrans::getString("BodyPartsLeftArm"));
 	params.name(params.label);
 	gAttachBodyPartPieMenus[3] = LLUICtrlFactory::create<LLContextMenu> (params);
 
 	gAttachBodyPartPieMenus[4] = NULL;
 
-	params.label(LLTrans::getString("BodyPartsLeftLeg") + " >");
+	params.label(LLTrans::getString("BodyPartsLeftLeg"));
 	params.name(params.label);
 	gAttachBodyPartPieMenus[5] = LLUICtrlFactory::create<LLContextMenu> (params);
 
-	params.label(LLTrans::getString("BodyPartsTorso") + " >");
+	params.label(LLTrans::getString("BodyPartsTorso"));
 	params.name(params.label);
 	gAttachBodyPartPieMenus[6] = LLUICtrlFactory::create<LLContextMenu> (params);
 
-	params.label(LLTrans::getString("BodyPartsRightLeg") + " >");
+	params.label(LLTrans::getString("BodyPartsRightLeg"));
 	params.name(params.label);
 	gAttachBodyPartPieMenus[7] = LLUICtrlFactory::create<LLContextMenu> (params);
 
 	gDetachBodyPartPieMenus[0] = NULL;
 
-	params.label(LLTrans::getString("BodyPartsRightArm") + " >");
+	params.label(LLTrans::getString("BodyPartsRightArm"));
 	params.name(params.label);
 	gDetachBodyPartPieMenus[1] = LLUICtrlFactory::create<LLContextMenu> (params);
 
-	params.label(LLTrans::getString("BodyPartsHead") + " >");
+	params.label(LLTrans::getString("BodyPartsHead"));
 	params.name(params.label);
 	gDetachBodyPartPieMenus[2] = LLUICtrlFactory::create<LLContextMenu> (params);
 
-	params.label(LLTrans::getString("BodyPartsLeftArm") + " >");
+	params.label(LLTrans::getString("BodyPartsLeftArm"));
 	params.name(params.label);
 	gDetachBodyPartPieMenus[3] = LLUICtrlFactory::create<LLContextMenu> (params);
 
 	gDetachBodyPartPieMenus[4] = NULL;
 
-	params.label(LLTrans::getString("BodyPartsLeftLeg") + " >");
+	params.label(LLTrans::getString("BodyPartsLeftLeg"));
 	params.name(params.label);
 	gDetachBodyPartPieMenus[5] = LLUICtrlFactory::create<LLContextMenu> (params);
 
-	params.label(LLTrans::getString("BodyPartsTorso") + " >");
+	params.label(LLTrans::getString("BodyPartsTorso"));
 	params.name(params.label);
 	gDetachBodyPartPieMenus[6] = LLUICtrlFactory::create<LLContextMenu> (params);
 
-	params.label(LLTrans::getString("BodyPartsRightLeg") + " >");
+	params.label(LLTrans::getString("BodyPartsRightLeg"));
 	params.name(params.label);
 	gDetachBodyPartPieMenus[7] = LLUICtrlFactory::create<LLContextMenu> (params);
 
@@ -640,6 +634,7 @@ BOOL LLVOAvatarSelf::idleUpdate(LLAgent &agent, LLWorld &world, const F64 &time)
 		return TRUE;
 	}
 	LLVOAvatar::idleUpdate(agent, world, time);
+	idleUpdateTractorBeam();
 	return TRUE;
 }
 
@@ -1016,6 +1011,44 @@ BOOL LLVOAvatarSelf::isWearingAttachment(const LLUUID& inv_item_id) const
 }
 
 //-----------------------------------------------------------------------------
+BOOL LLVOAvatarSelf::attachmentWasRequested(const LLUUID& inv_item_id) const
+{
+	const F32 REQUEST_EXPIRATION_SECONDS = 5.0;  // any request older than this is ignored/removed.
+	std::map<LLUUID,LLTimer>::iterator it = mAttachmentRequests.find(inv_item_id);
+	if (it != mAttachmentRequests.end())
+	{
+		const LLTimer& request_time = it->second;
+		F32 request_time_elapsed = request_time.getElapsedTimeF32();
+		if (request_time_elapsed > REQUEST_EXPIRATION_SECONDS)
+		{
+			mAttachmentRequests.erase(it);
+			return FALSE;
+		}
+		else
+		{
+			return TRUE;
+		}
+	}
+	else
+	{
+		return FALSE;
+	}
+}
+
+//-----------------------------------------------------------------------------
+void LLVOAvatarSelf::addAttachmentRequest(const LLUUID& inv_item_id)
+{
+	LLTimer current_time;
+	mAttachmentRequests[inv_item_id] = current_time;
+}
+
+//-----------------------------------------------------------------------------
+void LLVOAvatarSelf::removeAttachmentRequest(const LLUUID& inv_item_id)
+{
+	mAttachmentRequests.erase(inv_item_id);
+}
+
+//-----------------------------------------------------------------------------
 // getWornAttachment()
 //-----------------------------------------------------------------------------
 LLViewerObject* LLVOAvatarSelf::getWornAttachment(const LLUUID& inv_item_id)
@@ -1067,8 +1100,10 @@ const LLViewerJointAttachment *LLVOAvatarSelf::attachObject(LLViewerObject *view
 	// Should just be the last object added
 	if (attachment->isObjectAttached(viewer_object))
 	{
-		const LLUUID& attachment_id = viewer_object->getItemID();
+		const LLUUID& attachment_id = viewer_object->getAttachmentItemID();
 		LLAppearanceMgr::instance().registerAttachment(attachment_id);
+		// Clear any pending requests once the attachment arrives.
+		removeAttachmentRequest(attachment_id);
 	}
 
 	return attachment;
@@ -1077,7 +1112,7 @@ const LLViewerJointAttachment *LLVOAvatarSelf::attachObject(LLViewerObject *view
 //virtual
 BOOL LLVOAvatarSelf::detachObject(LLViewerObject *viewer_object)
 {
-	const LLUUID attachment_id = viewer_object->getItemID();
+	const LLUUID attachment_id = viewer_object->getAttachmentItemID();
 	if (LLVOAvatar::detachObject(viewer_object))
 	{
 		// the simulator should automatically handle permission revocation
@@ -1110,6 +1145,41 @@ BOOL LLVOAvatarSelf::detachObject(LLViewerObject *viewer_object)
 			LLAppearanceMgr::instance().unregisterAttachment(attachment_id);
 		}
 		
+		return TRUE;
+	}
+	return FALSE;
+}
+
+// static
+BOOL LLVOAvatarSelf::detachAttachmentIntoInventory(const LLUUID &item_id)
+{
+	LLInventoryItem* item = gInventory.getItem(item_id);
+	if (item)
+	{
+		gMessageSystem->newMessageFast(_PREHASH_DetachAttachmentIntoInv);
+		gMessageSystem->nextBlockFast(_PREHASH_ObjectData);
+		gMessageSystem->addUUIDFast(_PREHASH_AgentID, gAgent.getID());
+		gMessageSystem->addUUIDFast(_PREHASH_ItemID, item_id);
+		gMessageSystem->sendReliable(gAgent.getRegion()->getHost());
+		
+		// This object might have been selected, so let the selection manager know it's gone now
+		LLViewerObject *found_obj = gObjectList.findObject(item_id);
+		if (found_obj)
+		{
+			LLSelectMgr::getInstance()->remove(found_obj);
+		}
+
+		// Error checking in case this object was attached to an invalid point
+		// In that case, just remove the item from COF preemptively since detach 
+		// will fail.
+		if (isAgentAvatarValid())
+		{
+			const LLViewerObject *attached_obj = gAgentAvatarp->getWornAttachment(item_id);
+			if (!attached_obj)
+			{
+				LLAppearanceMgr::instance().removeCOFItemLinks(item_id, false);
+			}
+		}
 		return TRUE;
 	}
 	return FALSE;
@@ -1625,14 +1695,14 @@ void LLVOAvatarSelf::setLocalTexture(ETextureIndex type, LLViewerTexture* src_te
 					if (isSelf())
 					{
 						if (gAgentAvatarp->isUsingBakedTextures())
-						{
-							requestLayerSetUpdate(type);
-						}
-						else
-						{
-							LLVisualParamHint::requestHintUpdates();
-						}
+					{
+						requestLayerSetUpdate(type);
 					}
+						else
+					{
+						LLVisualParamHint::requestHintUpdates();
+					}
+				}
 				}
 				else
 				{					
@@ -2145,6 +2215,11 @@ void LLVOAvatarSelf::setNewBakedTexture( ETextureIndex te, const LLUUID& uuid )
 
 void LLVOAvatarSelf::outputRezDiagnostics() const
 {
+	if(!gSavedSettings.getBOOL("DebugAvatarLocalTexLoadedTime"))
+	{
+		return ;
+	}
+
 	const F32 final_time = mDebugSelfLoadTimer.getElapsedTimeF32();
 	llinfos << "REZTIME: Myself rez stats:" << llendl;
 	llinfos << "\t Time from avatar creation to load wearables: " << (S32)mDebugTimeWearablesLoaded << llendl;

@@ -2,30 +2,25 @@
  * @file lloutfitslist.cpp
  * @brief List of agent's outfits for My Appearance side panel.
  *
- * $LicenseInfo:firstyear=2010&license=viewergpl$
- *
- * Copyright (c) 2010, Linden Research, Inc.
- *
+ * $LicenseInfo:firstyear=2010&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
- *
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/flossexception
- *
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
- *
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * Copyright (C) 2010, Linden Research, Inc.
+ * 
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
+ * 
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -43,6 +38,7 @@
 #include "llinventoryfunctions.h"
 #include "llinventorymodel.h"
 #include "lllistcontextmenu.h"
+#include "llmenubutton.h"
 #include "llnotificationsutil.h"
 #include "lloutfitobserver.h"
 #include "llsidetray.h"
@@ -90,7 +86,7 @@ public:
 
 		registrar.add("Gear.WearAdd", boost::bind(&LLOutfitListGearMenu::onAdd, this));
 
-		enable_registrar.add("Gear.OnEnable", boost::bind(&LLOutfitsList::isActionEnabled, mOutfitList, _2));
+		enable_registrar.add("Gear.OnEnable", boost::bind(&LLOutfitListGearMenu::onEnable, this, _2));
 		enable_registrar.add("Gear.OnVisible", boost::bind(&LLOutfitListGearMenu::onVisible, this, _2));
 
 		mMenu = LLUICtrlFactory::getInstance()->createFromFile<LLMenuGL>(
@@ -104,10 +100,8 @@ public:
 
 		updateItemsVisibility();
 		mMenu->buildDrawLabels();
+		mMenu->arrangeAndClear();
 		mMenu->updateParent(LLMenuGL::sMenuContainer);
-		S32 menu_x = 0;
-		S32 menu_y = spawning_view->getRect().getHeight() + mMenu->getRect().getHeight();
-		LLMenuGL::showPopup(spawning_view, mMenu, menu_x, menu_y);
 	}
 
 	void updateItemsVisibility()
@@ -119,6 +113,8 @@ public:
 		mMenu->setItemVisible("sepatator2", have_selection);
 		mMenu->arrangeAndClear(); // update menu height
 	}
+
+	LLMenuGL* getMenu() { return mMenu; }
 
 private:
 	const LLUUID& getSelectedOutfitID()
@@ -160,27 +156,11 @@ private:
 
 	void onTakeOff()
 	{
-		// Take off selected items if there are any
-		if (mOutfitList->hasItemSelected())
+		// Take off selected outfit.
+		const LLUUID& selected_outfit_id = getSelectedOutfitID();
+		if (selected_outfit_id.notNull())
 		{
-			uuid_vec_t selected_uuids;
-			mOutfitList->getSelectedItemsUUIDs(selected_uuids);
-
-			for (uuid_vec_t::const_iterator it=selected_uuids.begin(); it != selected_uuids.end(); ++it)
-			{
-				if (get_is_item_worn(*it))
-				{
-					LLAppearanceMgr::instance().removeItemFromAvatar(*it);
-				}
-			}
-		}
-		else // or take off the whole selected outfit if no items specified.
-		{
-			const LLUUID& selected_outfit_id = getSelectedOutfitID();
-			if (selected_outfit_id.notNull())
-			{
-				LLAppearanceMgr::instance().takeOffOutfit(selected_outfit_id);
-			}
+			LLAppearanceMgr::instance().takeOffOutfit(selected_outfit_id);
 		}
 	}
 
@@ -212,6 +192,20 @@ private:
 		}
 
 		LLAgentWearables::createWearable(type, true);
+	}
+
+	bool onEnable(LLSD::String param)
+	{
+		// Handle the "Wear - Replace Current Outfit" menu option specially
+		// because LLOutfitList::isActionEnabled() checks whether it's allowed
+		// to wear selected outfit OR selected items, while we're only
+		// interested in the outfit (STORM-183).
+		if ("wear" == param)
+		{
+			return LLAppearanceMgr::instance().getCanReplaceCOF(mOutfitList->getSelectedOutfitUUID());
+		}
+
+		return mOutfitList->isActionEnabled(param);
 	}
 
 	bool onVisible(LLSD::String param)
@@ -275,11 +269,10 @@ protected:
 		}
 		else if ("wear_replace" == param)
 		{
-			return !gAgentWearables.isCOFChangeInProgress();
+			return LLAppearanceMgr::instance().getCanReplaceCOF(outfit_cat_id);
 		}
 		else if ("wear_add" == param)
 		{
-			if (gAgentWearables.isCOFChangeInProgress()) return false;
 			return LLAppearanceMgr::getCanAddToCOF(outfit_cat_id);
 		}
 		else if ("take_off" == param)
@@ -361,6 +354,15 @@ BOOL LLOutfitsList::postBuild()
 	mAccordion = getChild<LLAccordionCtrl>("outfits_accordion");
 	mAccordion->setComparator(&OUTFIT_TAB_NAME_COMPARATOR);
 
+	LLMenuButton* menu_gear_btn = getChild<LLMenuButton>("options_gear_btn");
+
+	// LLMenuButton::handleMouseDownCallback calls signal LLUICtrl::mouse_signal_t, not LLButton::commit_signal_t.
+	// That's why to set signal LLUICtrl::mouse_signal_t we need to upcast to LLUICtrl. Using static_cast instead
+	// of getChild<LLUICtrl>(...) for performance.
+	static_cast<LLUICtrl*>(menu_gear_btn)->setMouseDownCallback(boost::bind(&LLOutfitsList::showGearMenu, this, _1));
+
+	menu_gear_btn->setMenu(mGearMenu->getMenu());
+
 	return TRUE;
 }
 
@@ -404,6 +406,12 @@ void LLOutfitsList::onOpen(const LLSD& /*info*/)
 
 		mIsInitialized = true;
 	}
+
+	LLAccordionCtrlTab* selected_tab = mAccordion->getSelectedTab();
+	if (!selected_tab) return;
+
+	// Pass focus to the selected outfit tab.
+	selected_tab->showAndFocusHeader();
 }
 
 void LLOutfitsList::refreshList(const LLUUID& category_id)
@@ -439,6 +447,7 @@ void LLOutfitsList::refreshList(const LLUUID& category_id)
 
 		static LLXMLNodePtr accordionXmlNode = getAccordionTabXMLNode();
 		LLAccordionCtrlTab* tab = LLUICtrlFactory::defaultBuilder<LLAccordionCtrlTab>(accordionXmlNode, NULL, NULL);
+		if (!tab) continue;
 
 		tab->setName(name);
 		tab->setTitle(name);
@@ -455,10 +464,7 @@ void LLOutfitsList::refreshList(const LLUUID& category_id)
 			mAccordion->removeCollapsibleCtrl(tab);
 
 			// kill removed tab
-			if (tab != NULL)
-			{
-				tab->die();
-			}
+			tab->die();
 			continue;
 		}
 
@@ -676,7 +682,7 @@ bool LLOutfitsList::isActionEnabled(const LLSD& userdata)
 		}
 
 		// outfit selected
-		return LLAppearanceMgr::getCanAddToCOF(mSelectedOutfitUUID);
+		return LLAppearanceMgr::instance().getCanReplaceCOF(mSelectedOutfitUUID);
 	}
 	if (command_name == "take_off")
 	{
@@ -689,11 +695,6 @@ bool LLOutfitsList::isActionEnabled(const LLSD& userdata)
 	if (command_name == "wear_add")
 	{
 		// *TODO: do we ever get here?
-		if (gAgentWearables.isCOFChangeInProgress())
-		{
-			return false;
-		}
-
 		return LLAppearanceMgr::getCanAddToCOF(mSelectedOutfitUUID);
 	}
 
@@ -704,7 +705,14 @@ bool LLOutfitsList::isActionEnabled(const LLSD& userdata)
 void LLOutfitsList::showGearMenu(LLView* spawning_view)
 {
 	if (!mGearMenu) return;
+
 	mGearMenu->show(spawning_view);
+
+	LLMenuButton* btn = dynamic_cast<LLMenuButton*>(spawning_view);
+	if (btn)
+	{
+		btn->setMenuPosition(LLMenuButton::ON_TOP_LEFT);
+	}
 }
 
 void LLOutfitsList::getSelectedItemsUUIDs(uuid_vec_t& selected_uuids) const
@@ -979,23 +987,6 @@ void LLOutfitsList::applyFilterToTab(
 	}
 }
 
-bool LLOutfitsList::canTakeOffSelected()
-{
-	uuid_vec_t selected_uuids;
-	getSelectedItemsUUIDs(selected_uuids);
-
-	LLFindWearablesEx is_worn(/*is_worn=*/ true, /*include_body_parts=*/ false);
-
-	for (uuid_vec_t::const_iterator it=selected_uuids.begin(); it != selected_uuids.end(); ++it)
-	{
-		LLViewerInventoryItem* item = gInventory.getItem(*it);
-		if (!item) continue;
-
-		if (is_worn(NULL, item)) return true;
-	}
-	return false;
-}
-
 bool LLOutfitsList::canWearSelected()
 {
 	uuid_vec_t selected_items;
@@ -1044,14 +1035,7 @@ void LLOutfitsList::wearSelectedItems()
 		return;
 	}
 
-	uuid_vec_t::const_iterator it;
-	// Wear items from all selected lists(if possible- add, else replace)
-	for (it = selected_uuids.begin(); it != selected_uuids.end()-1; ++it)
-	{
-		LLAppearanceMgr::getInstance()->wearItemOnAvatar(*it, false, false);
-	}
-	// call update only when wearing last item
-	LLAppearanceMgr::getInstance()->wearItemOnAvatar(*it, true, false);
+	wear_multiple(selected_uuids, false);
 }
 
 void LLOutfitsList::onWearableItemsListRightClick(LLUICtrl* ctrl, S32 x, S32 y)
@@ -1068,24 +1052,36 @@ void LLOutfitsList::onWearableItemsListRightClick(LLUICtrl* ctrl, S32 x, S32 y)
 
 void LLOutfitsList::onCOFChanged()
 {
-	LLInventoryModel::changed_items_t changed_linked_items;
+	LLInventoryModel::cat_array_t cat_array;
+	LLInventoryModel::item_array_t item_array;
 
-	const LLInventoryModel::changed_items_t& changed_items = gInventory.getChangedIDs();
-	for (LLInventoryModel::changed_items_t::const_iterator iter = changed_items.begin();
-		 iter != changed_items.end();
-		 ++iter)
+	// Collect current COF items
+	gInventory.collectDescendents(
+		LLAppearanceMgr::instance().getCOF(),
+		cat_array,
+		item_array,
+		LLInventoryModel::EXCLUDE_TRASH);
+
+	uuid_vec_t vnew;
+	uuid_vec_t vadded;
+	uuid_vec_t vremoved;
+
+	// From gInventory we get the UUIDs of links that are currently in COF.
+	// These links UUIDs are not the same UUIDs that we have in each wearable items list.
+	// So we collect base items' UUIDs to find them or links that point to them in wearable
+	// items lists and update their worn state there.
+	for (LLInventoryModel::item_array_t::const_iterator iter = item_array.begin();
+		iter != item_array.end();
+		++iter)
 	{
-		LLViewerInventoryItem* item = gInventory.getItem(*iter);
-		if (item)
-		{
-			// From gInventory we get the UUIDs of new links added to COF
-			// or removed from COF. These links UUIDs are not the same UUIDs
-			// that we have in each wearable items list. So we collect base items
-			// UUIDs to find all items or links that point to same base items in wearable
-			// items lists and update their worn state there.
-			changed_linked_items.insert(item->getLinkedUUID());
-		}
+		vnew.push_back((*iter)->getLinkedUUID());
 	}
+
+	// We need to update only items that were added or removed from COF.
+	LLCommonUtils::computeDifference(vnew, mCOFLinkedItems, vadded, vremoved);
+
+	// Store the ids of items currently linked from COF.
+	mCOFLinkedItems = vnew;
 
 	for (outfits_map_t::iterator iter = mOutfitsMap.begin();
 			iter != mOutfitsMap.end();
@@ -1097,9 +1093,13 @@ void LLOutfitsList::onCOFChanged()
 		LLWearableItemsList* list = dynamic_cast<LLWearableItemsList*>(tab->getAccordionView());
 		if (!list) continue;
 
+		// Append removed ids to added ids because we should update all of them.
+		vadded.reserve(vadded.size() + vremoved.size());
+		vadded.insert(vadded.end(), vremoved.begin(), vremoved.end());
+
 		// Every list updates the labels of changed items  or
 		// the links that point to these items.
-		list->updateChangedItems(changed_linked_items);
+		list->updateChangedItems(vadded);
 	}
 }
 

@@ -2,31 +2,25 @@
  * @file LLNearbyChatHandler.cpp
  * @brief Nearby chat notification managment
  *
- * $LicenseInfo:firstyear=2009&license=viewergpl$
- * 
- * Copyright (c) 2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2009&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -60,6 +54,7 @@ LLToastPanelBase* createToastPanel()
 
 class LLNearbyChatScreenChannel: public LLScreenChannelBase
 {
+	LOG_CLASS(LLNearbyChatScreenChannel);
 public:
 	LLNearbyChatScreenChannel(const LLUUID& id):LLScreenChannelBase(id) { mStopProcessing = false;};
 
@@ -70,7 +65,7 @@ public:
 	typedef boost::function<LLToastPanelBase* (void )> create_toast_panel_callback_t;
 	void setCreatePanelCallback(create_toast_panel_callback_t value) { m_create_toast_panel_callback_t = value;}
 
-	void onToastDestroyed	(LLToast* toast);
+	void onToastDestroyed	(LLToast* toast, bool app_quitting);
 	void onToastFade		(LLToast* toast);
 
 	void reshape			(S32 width, S32 height, BOOL called_from_parent);
@@ -96,14 +91,17 @@ public:
 
 	virtual void deleteAllChildren()
 	{
+		LL_DEBUGS("NearbyChat") << "Clearing toast pool" << llendl;
 		m_toast_pool.clear();
 		m_active_toasts.clear();
 		LLScreenChannelBase::deleteAllChildren();
 	}
 
 protected:
+	void	deactivateToast(LLToast* toast);
 	void	addToToastPool(LLToast* toast)
 	{
+		LL_DEBUGS("NearbyChat") << "Pooling toast" << llendl;
 		toast->setVisible(FALSE);
 		toast->stopTimer();
 		toast->setIsHidden(true);
@@ -122,25 +120,79 @@ protected:
 	bool	mStopProcessing;
 };
 
+//-----------------------------------------------------------------------------------------------
+// LLNearbyChatToast
+//-----------------------------------------------------------------------------------------------
+
+// We're deriving from LLToast to be able to override onClose()
+// in order to handle closing nearby chat toasts properly.
+class LLNearbyChatToast : public LLToast
+{
+	LOG_CLASS(LLNearbyChatToast);
+public:
+	LLNearbyChatToast(const LLToast::Params& p, LLNearbyChatScreenChannel* nc_channelp)
+	:	LLToast(p),
+	 	mNearbyChatScreenChannelp(nc_channelp)
+	{
+	}
+
+	/*virtual*/ void onClose(bool app_quitting);
+
+private:
+	LLNearbyChatScreenChannel*	mNearbyChatScreenChannelp;
+};
+
+//-----------------------------------------------------------------------------------------------
+// LLNearbyChatScreenChannel
+//-----------------------------------------------------------------------------------------------
+
+void LLNearbyChatScreenChannel::deactivateToast(LLToast* toast)
+{
+	std::vector<LLToast*>::iterator pos = std::find(m_active_toasts.begin(), m_active_toasts.end(), toast);
+
+	if (pos == m_active_toasts.end())
+	{
+		llassert(pos == m_active_toasts.end());
+		return;
+	}
+
+	LL_DEBUGS("NearbyChat") << "Deactivating toast" << llendl;
+	m_active_toasts.erase(pos);
+}
+
 void	LLNearbyChatScreenChannel::createOverflowToast(S32 bottom, F32 timer)
 {
 	//we don't need overflow toast in nearby chat
 }
 
-void LLNearbyChatScreenChannel::onToastDestroyed(LLToast* toast)
+void LLNearbyChatScreenChannel::onToastDestroyed(LLToast* toast, bool app_quitting)
 {	
-	mStopProcessing = true;
+	LL_DEBUGS("NearbyChat") << "Toast destroyed (app_quitting=" << app_quitting << ")" << llendl;
+
+	if (app_quitting)
+	{
+		// Viewer is quitting.
+		// Immediately stop processing chat messages (EXT-1419).
+		mStopProcessing = true;
+	}
+	else
+	{
+		// The toast is being closed by user (STORM-192).
+		// Remove it from the list of active toasts to prevent
+		// further references to the invalid pointer.
+		deactivateToast(toast);
+	}
 }
 
 void LLNearbyChatScreenChannel::onToastFade(LLToast* toast)
-{	
+{
+	LL_DEBUGS("NearbyChat") << "Toast fading" << llendl;
+
 	//fade mean we put toast to toast pool
 	if(!toast)
 		return;
 
-	std::vector<LLToast*>::iterator pos = std::find(m_active_toasts.begin(),m_active_toasts.end(),toast);
-	if(pos!=m_active_toasts.end())
-		m_active_toasts.erase(pos);
+	deactivateToast(toast);
 
 	addToToastPool(toast);
 	
@@ -159,12 +211,12 @@ bool	LLNearbyChatScreenChannel::createPoolToast()
 	p.lifetime_secs = gSavedSettings.getS32("NearbyToastLifeTime");
 	p.fading_time_secs = gSavedSettings.getS32("NearbyToastFadingTime");
 
-	LLToast* toast = new LLToast(p); 
+	LLToast* toast = new LLNearbyChatToast(p, this);
 	
 	
 	toast->setOnFadeCallback(boost::bind(&LLNearbyChatScreenChannel::onToastFade, this, _1));
-	toast->setOnToastDestroyedCallback(boost::bind(&LLNearbyChatScreenChannel::onToastDestroyed, this, _1));
 	
+	LL_DEBUGS("NearbyChat") << "Creating and pooling toast" << llendl;
 	m_toast_pool.push_back(toast);
 	return true;
 }
@@ -202,6 +254,7 @@ void LLNearbyChatScreenChannel::addNotification(LLSD& notification)
 	if(m_toast_pool.empty())
 	{
 		//"pool" is empty - create one more panel
+		LL_DEBUGS("NearbyChat") << "Empty pool" << llendl;
 		if(!createPoolToast())//created toast will go to pool. so next call will find it
 			return;
 		addNotification(notification);
@@ -221,6 +274,7 @@ void LLNearbyChatScreenChannel::addNotification(LLSD& notification)
 
 	//take 1st element from pool, (re)initialize it, put it in active toasts
 
+	LL_DEBUGS("NearbyChat") << "Getting toast from pool" << llendl;
 	LLToast* toast = m_toast_pool.back();
 
 	m_toast_pool.pop_back();
@@ -458,4 +512,14 @@ void LLNearbyChatHandler::onDeleteToast(LLToast* toast)
 }
 
 
+//-----------------------------------------------------------------------------------------------
+// LLNearbyChatToast
+//-----------------------------------------------------------------------------------------------
 
+// virtual
+void LLNearbyChatToast::onClose(bool app_quitting)
+{
+	mNearbyChatScreenChannelp->onToastDestroyed(this, app_quitting);
+}
+
+// EOF

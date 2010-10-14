@@ -2,31 +2,25 @@
  * @file llface.cpp
  * @brief LLFace class implementation
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -833,6 +827,73 @@ LLVector2 LLFace::surfaceToTexture(LLVector2 surface_coord, LLVector3 position, 
 	return tc;
 }
 
+// Returns scale compared to default texgen, and face orientation as calculated
+// by planarProjection(). This is needed to match planar texgen parameters.
+void LLFace::getPlanarProjectedParams(LLQuaternion* face_rot, LLVector3* face_pos, F32* scale) const
+{
+	const LLMatrix4& vol_mat = getWorldMatrix();
+	const LLVolumeFace& vf = getViewerObject()->getVolume()->getVolumeFace(mTEOffset);
+	LLVector3 normal = vf.mVertices[0].mNormal;
+	LLVector3 binormal = vf.mVertices[0].mBinormal;
+	LLVector2 projected_binormal;
+	planarProjection(projected_binormal, normal, vf.mCenter, binormal);
+	projected_binormal -= LLVector2(0.5f, 0.5f); // this normally happens in xform()
+	*scale = projected_binormal.length();
+	// rotate binormal to match what planarProjection() thinks it is,
+	// then find rotation from that:
+	projected_binormal.normalize();
+	F32 ang = acos(projected_binormal.mV[VY]);
+	ang = (projected_binormal.mV[VX] < 0.f) ? -ang : ang;
+	binormal.rotVec(ang, normal);
+	LLQuaternion local_rot( binormal % normal, binormal, normal );
+	*face_rot = local_rot * vol_mat.quaternion();
+	*face_pos = vol_mat.getTranslation();
+}
+
+// Returns the necessary texture transform to align this face's TE to align_to's TE
+bool LLFace::calcAlignedPlanarTE(const LLFace* align_to,  LLVector2* res_st_offset, 
+								 LLVector2* res_st_scale, F32* res_st_rot) const
+{
+	if (!align_to)
+	{
+		return false;
+	}
+	const LLTextureEntry *orig_tep = align_to->getTextureEntry();
+	if ((orig_tep->getTexGen() != LLTextureEntry::TEX_GEN_PLANAR) ||
+		(getTextureEntry()->getTexGen() != LLTextureEntry::TEX_GEN_PLANAR))
+	{
+		return false;
+	}
+
+	LLVector3 orig_pos, this_pos;
+	LLQuaternion orig_face_rot, this_face_rot;
+	F32 orig_proj_scale, this_proj_scale;
+	align_to->getPlanarProjectedParams(&orig_face_rot, &orig_pos, &orig_proj_scale);
+	getPlanarProjectedParams(&this_face_rot, &this_pos, &this_proj_scale);
+
+	// The rotation of "this face's" texture:
+	LLQuaternion orig_st_rot = LLQuaternion(orig_tep->getRotation(), LLVector3::z_axis) * orig_face_rot;
+	LLQuaternion this_st_rot = orig_st_rot * ~this_face_rot;
+	F32 x_ang, y_ang, z_ang;
+	this_st_rot.getEulerAngles(&x_ang, &y_ang, &z_ang);
+	*res_st_rot = z_ang;
+
+	// Offset and scale of "this face's" texture:
+	LLVector3 centers_dist = (this_pos - orig_pos) * ~orig_st_rot;
+	LLVector3 st_scale(orig_tep->mScaleS, orig_tep->mScaleT, 1.f);
+	st_scale *= orig_proj_scale;
+	centers_dist.scaleVec(st_scale);
+	LLVector2 orig_st_offset(orig_tep->mOffsetS, orig_tep->mOffsetT);
+
+	*res_st_offset = orig_st_offset + (LLVector2)centers_dist;
+	res_st_offset->mV[VX] -= (S32)res_st_offset->mV[VX];
+	res_st_offset->mV[VY] -= (S32)res_st_offset->mV[VY];
+
+	st_scale /= this_proj_scale;
+	*res_st_scale = (LLVector2)st_scale;
+	return true;
+}
+
 void LLFace::updateRebuildFlags()
 {
 	if (!mDrawablep->isState(LLDrawable::REBUILD_VOLUME))
@@ -861,6 +922,26 @@ void LLFace::updateRebuildFlags()
 		mLastUpdateTime = gFrameTimeSeconds;
 	}
 }
+
+
+bool LLFace::canRenderAsMask()
+{
+	const LLTextureEntry* te = getTextureEntry();
+	return (
+		(
+		 (LLPipeline::sRenderDeferred && LLPipeline::sAutoMaskAlphaDeferred) ||
+		 
+		 (!LLPipeline::sRenderDeferred && LLPipeline::sAutoMaskAlphaNonDeferred)		 
+		 ) // do we want masks at all?
+		&&
+		(te->getColor().mV[3] == 1.0f) && // can't treat as mask if we have face alpha
+		!(LLPipeline::sRenderDeferred && te->getFullbright()) && // hack: alpha masking renders fullbright faces invisible in deferred rendering mode, need to figure out why - for now, avoid
+		(te->getGlow() == 0.f) && // glowing masks are hard to implement - don't mask
+
+		getTexture()->getIsAlphaMask() // texture actually qualifies for masking (lazily recalculated but expensive)
+		);
+}
+
 
 static LLFastTimer::DeclareTimer FTM_FACE_GET_GEOM("Face Geom");
 
@@ -1392,24 +1473,13 @@ F32 LLFace::getTextureVirtualSize()
 		face_area =  mPixelArea / llclamp(texel_area, 0.015625f, 128.f);
 	}
 
-	if(face_area > LLViewerTexture::sMaxSmallImageSize)
+	face_area = LLFace::adjustPixelArea(mImportanceToCamera, face_area) ;
+	if(face_area > LLViewerTexture::sMinLargeImageSize) //if is large image, shrink face_area by considering the partial overlapping.
 	{
-		if(mImportanceToCamera < LEAST_IMPORTANCE) //if the face is not important, do not load hi-res.
-		{
-			static const F32 MAX_LEAST_IMPORTANCE_IMAGE_SIZE = 128.0f * 128.0f ;
-			face_area = llmin(face_area * 0.5f, MAX_LEAST_IMPORTANCE_IMAGE_SIZE) ;
-		}
-		else if(face_area > LLViewerTexture::sMinLargeImageSize) //if is large image, shrink face_area by considering the partial overlapping.
-		{
-			if(mImportanceToCamera < LEAST_IMPORTANCE_FOR_LARGE_IMAGE)//if the face is not important, do not load hi-res.
-			{
-				face_area = LLViewerTexture::sMinLargeImageSize ;
-			}	
-			else if(mTexture.notNull() && mTexture->isLargeImage())
-			{		
-				face_area *= adjustPartialOverlapPixelArea(cos_angle_to_view_dir, radius );
-			}			
-		}
+		if(mImportanceToCamera > LEAST_IMPORTANCE_FOR_LARGE_IMAGE && mTexture.notNull() && mTexture->isLargeImage())
+		{		
+			face_area *= adjustPartialOverlapPixelArea(cos_angle_to_view_dir, radius );
+		}	
 	}
 
 	setVirtualSize(face_area) ;
@@ -1534,6 +1604,28 @@ F32 LLFace::calcImportanceToCamera(F32 cos_angle_to_view_dir, F32 dist)
 	}
 
 	return importance ;
+}
+
+//static 
+F32 LLFace::adjustPixelArea(F32 importance, F32 pixel_area)
+{
+	if(pixel_area > LLViewerTexture::sMaxSmallImageSize)
+	{
+		if(importance < LEAST_IMPORTANCE) //if the face is not important, do not load hi-res.
+		{
+			static const F32 MAX_LEAST_IMPORTANCE_IMAGE_SIZE = 128.0f * 128.0f ;
+			pixel_area = llmin(pixel_area * 0.5f, MAX_LEAST_IMPORTANCE_IMAGE_SIZE) ;
+		}
+		else if(pixel_area > LLViewerTexture::sMinLargeImageSize) //if is large image, shrink face_area by considering the partial overlapping.
+		{
+			if(importance < LEAST_IMPORTANCE_FOR_LARGE_IMAGE)//if the face is not important, do not load hi-res.
+			{
+				pixel_area = LLViewerTexture::sMinLargeImageSize ;
+			}				
+		}
+	}
+
+	return pixel_area ;
 }
 
 BOOL LLFace::verify(const U32* indices_array) const

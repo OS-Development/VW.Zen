@@ -2,30 +2,25 @@
  * @file llpanelwearing.cpp
  * @brief List of agent's worn items.
  *
- * $LicenseInfo:firstyear=2010&license=viewergpl$
- *
- * Copyright (c) 2010, Linden Research, Inc.
- *
+ * $LicenseInfo:firstyear=2010&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
- *
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/flossexception
- *
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
- *
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * Copyright (C) 2010, Linden Research, Inc.
+ * 
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
+ * 
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -34,8 +29,10 @@
 #include "llpanelwearing.h"
 
 #include "llappearancemgr.h"
+#include "llinventoryfunctions.h"
 #include "llinventorymodel.h"
 #include "llinventoryobserver.h"
+#include "llmenubutton.h"
 #include "llsidetray.h"
 #include "llviewermenu.h"
 #include "llwearableitemslist.h"
@@ -51,12 +48,16 @@ static void edit_outfit()
 class LLWearingGearMenu
 {
 public:
-	LLWearingGearMenu()
-	:	mMenu(NULL)
+	LLWearingGearMenu(LLPanelWearing* panel_wearing)
+	:	mMenu(NULL), mPanelWearing(panel_wearing)
 	{
 		LLUICtrl::CommitCallbackRegistry::ScopedRegistrar registrar;
+		LLUICtrl::EnableCallbackRegistry::ScopedRegistrar enable_registrar;
 
 		registrar.add("Gear.Edit", boost::bind(&edit_outfit));
+		registrar.add("Gear.TakeOff", boost::bind(&LLWearingGearMenu::onTakeOff, this));
+
+		enable_registrar.add("Gear.OnEnable", boost::bind(&LLPanelWearing::isActionEnabled, mPanelWearing, _2));
 
 		mMenu = LLUICtrlFactory::getInstance()->createFromFile<LLMenuGL>(
 			"menu_wearing_gear.xml", gMenuHolder, LLViewerMenuHolderGL::child_registry_t::instance());
@@ -67,15 +68,28 @@ public:
 	{
 		if (!mMenu) return;
 
+		mMenu->arrangeAndClear();
 		mMenu->buildDrawLabels();
 		mMenu->updateParent(LLMenuGL::sMenuContainer);
-		S32 menu_x = 0;
-		S32 menu_y = spawning_view->getRect().getHeight() + mMenu->getRect().getHeight();
-		LLMenuGL::showPopup(spawning_view, mMenu, menu_x, menu_y);
 	}
 
+	LLMenuGL* getMenu() { return mMenu; }
+
 private:
+
+	void onTakeOff()
+	{
+		uuid_vec_t selected_uuids;
+		mPanelWearing->getSelectedItemsUUIDs(selected_uuids);
+
+		for (uuid_vec_t::const_iterator it=selected_uuids.begin(); it != selected_uuids.end(); ++it)
+		{
+				LLAppearanceMgr::instance().removeItemFromAvatar(*it);
+		}
+	}
+
 	LLMenuGL*		mMenu;
+	LLPanelWearing* mPanelWearing;
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -87,9 +101,58 @@ protected:
 	{
 		LLUICtrl::CommitCallbackRegistry::ScopedRegistrar registrar;
 
-		registrar.add("Wearing.Edit", boost::bind(&edit_outfit));
+		functor_t take_off = boost::bind(&LLAppearanceMgr::removeItemFromAvatar, LLAppearanceMgr::getInstance(), _1);
 
-		return createFromFile("menu_wearing_tab.xml");
+		registrar.add("Wearing.Edit", boost::bind(&edit_outfit));
+		registrar.add("Wearing.TakeOff", boost::bind(handleMultiple, take_off, mUUIDs));
+		registrar.add("Wearing.Detach", boost::bind(handleMultiple, take_off, mUUIDs));
+
+		LLContextMenu* menu = createFromFile("menu_wearing_tab.xml");
+
+		updateMenuItemsVisibility(menu);
+
+		return menu;
+	}
+
+	void updateMenuItemsVisibility(LLContextMenu* menu)
+	{
+		bool bp_selected			= false;	// true if body parts selected
+		bool clothes_selected		= false;
+		bool attachments_selected	= false;
+
+		// See what types of wearables are selected.
+		for (uuid_vec_t::const_iterator it = mUUIDs.begin(); it != mUUIDs.end(); ++it)
+		{
+			LLViewerInventoryItem* item = gInventory.getItem(*it);
+
+			if (!item)
+			{
+				llwarns << "Invalid item" << llendl;
+				continue;
+			}
+
+			LLAssetType::EType type = item->getType();
+			if (type == LLAssetType::AT_CLOTHING)
+			{
+				clothes_selected = true;
+			}
+			else if (type == LLAssetType::AT_BODYPART)
+			{
+				bp_selected = true;
+			}
+			else if (type == LLAssetType::AT_OBJECT)
+			{
+				attachments_selected = true;
+			}
+		}
+
+		// Enable/disable some menu items depending on the selection.
+		bool allow_detach = !bp_selected && !clothes_selected && attachments_selected;
+		bool allow_take_off = !bp_selected && clothes_selected && !attachments_selected;
+
+		menu->setItemVisible("take_off",	allow_take_off);
+		menu->setItemVisible("detach",		allow_detach);
+		menu->setItemVisible("edit_outfit_separator", allow_take_off || allow_detach);
 	}
 };
 
@@ -106,7 +169,7 @@ LLPanelWearing::LLPanelWearing()
 {
 	mCategoriesObserver = new LLInventoryCategoriesObserver();
 
-	mGearMenu = new LLWearingGearMenu();
+	mGearMenu = new LLWearingGearMenu(this);
 	mContextMenu = new LLWearingContextMenu();
 }
 
@@ -126,6 +189,16 @@ BOOL LLPanelWearing::postBuild()
 {
 	mCOFItemsList = getChild<LLWearableItemsList>("cof_items_list");
 	mCOFItemsList->setRightMouseDownCallback(boost::bind(&LLPanelWearing::onWearableItemsListRightClick, this, _1, _2, _3));
+
+	LLMenuButton* menu_gear_btn = getChild<LLMenuButton>("options_gear_btn");
+
+	// LLMenuButton::handleMouseDownCallback calls signal LLUICtrl::mouse_signal_t, not LLButton::commit_signal_t.
+	// That's why to set signal LLUICtrl::mouse_signal_t we need to upcast to LLUICtrl. Using static_cast instead
+	// of getChild<LLUICtrl>(...) for performance.
+	static_cast<LLUICtrl*>(menu_gear_btn)->setMouseDownCallback(boost::bind(&LLPanelWearing::showGearMenu, this, _1));
+
+	menu_gear_btn->setMenu(mGearMenu->getMenu());
+
 
 	return TRUE;
 }
@@ -182,6 +255,12 @@ bool LLPanelWearing::isActionEnabled(const LLSD& userdata)
 		// allow save only if outfit isn't locked and is dirty
 		return !outfit_locked && outfit_dirty;
 	}
+
+	if (command_name == "take_off")
+	{
+		return hasItemSelected() && canTakeOffSelected();
+	}
+
 	return false;
 }
 
@@ -189,7 +268,14 @@ bool LLPanelWearing::isActionEnabled(const LLSD& userdata)
 void LLPanelWearing::showGearMenu(LLView* spawning_view)
 {
 	if (!mGearMenu) return;
+
 	mGearMenu->show(spawning_view);
+
+	LLMenuButton* btn = dynamic_cast<LLMenuButton*>(spawning_view);
+	if (btn)
+	{
+		btn->setMenuPosition(LLMenuButton::ON_TOP_LEFT);
+	}
 }
 
 boost::signals2::connection LLPanelWearing::setSelectionChangeCallback(commit_callback_t cb)
@@ -209,6 +295,16 @@ void LLPanelWearing::onWearableItemsListRightClick(LLUICtrl* ctrl, S32 x, S32 y)
 	list->getSelectedUUIDs(selected_uuids);
 
 	mContextMenu->show(ctrl, selected_uuids, x, y);
+}
+
+bool LLPanelWearing::hasItemSelected()
+{
+	return mCOFItemsList->getSelectedItem() != NULL;
+}
+
+void LLPanelWearing::getSelectedItemsUUIDs(uuid_vec_t& selected_uuids) const
+{
+	mCOFItemsList->getSelectedUUIDs(selected_uuids);
 }
 
 // EOF
