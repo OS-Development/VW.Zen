@@ -85,6 +85,10 @@ public:
 	void updateApparentAngles(LLAgent &agent);
 	void update(LLAgent &agent, LLWorld &world);
 
+	void updateObjectCost(LLViewerObject* object);
+	void updateObjectCost(LLUUID object_id, F32 object_cost, F32 link_cost, F32 physics_cost, F32 link_physics_cost);
+	void onObjectCostFetchFailure(LLUUID object_id);
+
 	void shiftObjects(const LLVector3 &offset);
 
 	void renderObjectsForMap(LLNetMap &netmap);
@@ -185,6 +189,10 @@ protected:
 	vo_map mDeadObjects;	// Need to keep multiple entries per UUID
 
 	std::map<LLUUID, LLPointer<LLViewerObject> > mUUIDObjectMap;
+
+	//set of objects that need to update their cost
+	std::set<LLUUID> mStaleObjectCost;
+	std::set<LLUUID> mPendingObjectCost;
 
 	std::vector<LLDebugBeacon> mDebugBeacons;
 

@@ -108,6 +108,7 @@ LLHUDText::~LLHUDText()
 {
 }
 
+			LLTriangleRayIntersect(v[2], v[3], v[0], start, dir, a, b, t, FALSE) )
 void LLHUDText::render()
 {
 	if (!mOnHUDAttachment && sDisplayText)
@@ -268,6 +269,18 @@ void LLHUDText::renderText(BOOL for_select)
 	}
 	/// Reset the default color to white.  The renderer expects this to be the default. 
 	gGL.color4f(1.0f, 1.0f, 1.0f, 1.0f);
+}
+
+std::string LLHUDText::getString()
+{
+	std::ostringstream ostr;
+	for (U32 i = 0; i < mTextSegments.size(); ++i)
+	{
+		const std::string str = wstring_to_utf8str(mTextSegments[i].getText());
+		ostr << str;
+	}
+
+	return ostr.str();
 }
 
 void LLHUDText::setString(const std::string &text_utf8)

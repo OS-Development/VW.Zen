@@ -34,7 +34,7 @@
 class LLAvatarName;
 
 class LLNameListCtrl
-:	public LLScrollListCtrl, public LLInstanceTracker<LLNameListCtrl>
+:	public LLScrollListCtrl, protected LLInstanceTracker<LLNameListCtrl>
 {
 public:
 	typedef enum e_name_type
