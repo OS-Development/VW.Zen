@@ -91,11 +91,13 @@ void LLVolumeImplFlexible::onParameterChanged(U16 param_type, LLNetworkData *dat
 	}
 }
 
-void LLVolumeImplFlexible::onShift(const LLVector3 &shift_vector)
+void LLVolumeImplFlexible::onShift(const LLVector4a &shift_vector)
 {	
+	//VECTORIZE THIS
+	LLVector3 shift(shift_vector.getF32ptr());
 	for (int section = 0; section < (1<<FLEXIBLE_OBJECT_MAX_SECTIONS)+1; ++section)
 	{
-		mSection[section].mPosition += shift_vector;	
+		mSection[section].mPosition += shift;	
 	}
 }
 
@@ -690,6 +692,8 @@ BOOL LLVolumeImplFlexible::doUpdateGeometry(LLDrawable *drawable)
 	}
 
 	volume->updateRelativeXform();
+
+	if (mRenderRes > -1)
 	{
 		LLFastTimer t(FTM_DO_FLEXIBLE_UPDATE);
 		doFlexibleUpdate();
