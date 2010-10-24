@@ -2,31 +2,25 @@
  * @file pipeline.cpp
  * @brief Rendering pipeline.
  *
- * $LicenseInfo:firstyear=2005&license=viewergpl$
- * 
- * Copyright (c) 2005-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2005&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -70,6 +64,8 @@
 #include "llfloaterreg.h"
 #include "llgldbg.h"
 #include "llhudmanager.h"
+#include "llhudnametag.h"
+#include "llhudtext.h"
 #include "lllightconstants.h"
 #include "llmeshrepository.h"
 #include "llresmgr.h"
@@ -543,6 +539,22 @@ void LLPipeline::resizeScreenTexture()
 	}
 }
 
+void LLPipeline::allocatePhysicsBuffer()
+{
+	GLuint resX = gViewerWindow->getWorldViewWidthRaw();
+	GLuint resY = gViewerWindow->getWorldViewHeightRaw();
+
+	if (mPhysicsDisplay.getWidth() != resX || mPhysicsDisplay.getHeight() != resY)
+	{
+		mPhysicsDisplay.allocate(resX, resY, GL_RGBA, TRUE, FALSE, LLTexUnit::TT_RECT_TEXTURE, FALSE);
+		if (mSampleBuffer.getWidth() == mPhysicsDisplay.getWidth() && 
+			mSampleBuffer.getHeight() == mPhysicsDisplay.getHeight())
+		{
+			mPhysicsDisplay.setSampleBuffer(&mSampleBuffer);
+		}
+	}
+}
+
 void LLPipeline::allocateScreenBuffer(U32 resX, U32 resY)
 {
 	// remember these dimensions
@@ -565,6 +577,7 @@ void LLPipeline::allocateScreenBuffer(U32 resX, U32 resY)
 
 	if (LLPipeline::sRenderDeferred)
 	{
+		samples = llmin(samples, (U32) 8); //cap multisample buffers to 8 samples when rendering deferred
 		//allocate deferred rendering color buffers
 		mDeferredScreen.allocate(resX, resY, GL_RGBA, TRUE, TRUE, LLTexUnit::TT_RECT_TEXTURE, FALSE);
 		mDeferredDepth.allocate(resX, resY, 0, TRUE, FALSE, LLTexUnit::TT_RECT_TEXTURE, FALSE);
@@ -682,6 +695,7 @@ void LLPipeline::releaseGLBuffers()
 	mWaterRef.release();
 	mWaterDis.release();
 	mScreen.release();
+	mPhysicsDisplay.release();
 	mUIScreen.release();
 	mSampleBuffer.releaseSampleBuffer();
 	mDeferredScreen.release();
@@ -888,6 +902,11 @@ BOOL LLPipeline::canUseWindLightShadersOnObjects() const
 		&& LLViewerShaderMgr::instance()->getVertexShaderLevel(LLViewerShaderMgr::SHADER_OBJECT) > 0);
 }
 
+BOOL LLPipeline::canUseAntiAliasing() const
+{
+	return (gSavedSettings.getBOOL("RenderUseFBO"));
+}
+
 void LLPipeline::unloadShaders()
 {
 	LLMemType mt_us(LLMemType::MTYPE_PIPELINE_UNLOAD_SHADERS);
@@ -927,7 +946,7 @@ S32 LLPipeline::setLightingDetail(S32 level)
 
 	if (level < 0)
 	{
-		if (gSavedSettings.getBOOL("VertexShaderEnable"))
+		if (gSavedSettings.getBOOL("RenderLocalLights"))
 		{
 			level = 1;
 		}
@@ -937,15 +956,8 @@ S32 LLPipeline::setLightingDetail(S32 level)
 		}
 	}
 	level = llclamp(level, 0, getMaxLightingDetail());
-	if (level != mLightingDetail)
-	{
-		mLightingDetail = level;
-
-		if (mVertexShadersLoaded == 1)
-		{
-			LLViewerShaderMgr::instance()->setShaders();
-		}
-	}
+	mLightingDetail = level;
+	
 	return mLightingDetail;
 }
 
@@ -2039,9 +2051,7 @@ void LLPipeline::rebuildPriorityGroups()
 	
 	assertInitialized();
 
-#if LL_MESH_ENABLED
 	gMeshRepo.notifyLoadedMeshes();
-#endif
 
 	// Iterate through all drawables on the priority build queue,
 	for (LLSpatialGroup::sg_vector_t::iterator iter = mGroupQ1.begin();
@@ -2208,8 +2218,8 @@ void LLPipeline::markVisible(LLDrawable *drawablep, LLCamera& camera)
 
 	if(drawablep && !drawablep->isDead())
 	{
-	if (drawablep->isSpatialBridge())
-	{
+		if (drawablep->isSpatialBridge())
+		{
 			const LLDrawable* root = ((LLSpatialBridge*) drawablep)->mDrawable;
 			llassert(root); // trying to catch a bad assumption
 			if (root && //  // this test may not be needed, see above
@@ -2221,24 +2231,24 @@ void LLPipeline::markVisible(LLDrawable *drawablep, LLCamera& camera)
 					LLViewerObject *vobj = rootparent->getVObj();
 					llassert(vobj); // trying to catch a bad assumption
 					if (vobj) // this test may not be needed, see above
-		{
+					{
 						const LLVOAvatar* av = vobj->asAvatar();
-			if (av && av->isImpostor())
-			{
-				return;
-			}
-		}
+						if (av && av->isImpostor())
+						{
+							return;
+						}
+					}
 				}
 			}
-		sCull->pushBridge((LLSpatialBridge*) drawablep);
-	}
-	else
-	{
-		sCull->pushDrawable(drawablep);
-	}
+			sCull->pushBridge((LLSpatialBridge*) drawablep);
+		}
+		else
+		{
+			sCull->pushDrawable(drawablep);
+		}
 
-	drawablep->setVisible(camera);
-}
+		drawablep->setVisible(camera);
+	}
 }
 
 void LLPipeline::markMoved(LLDrawable *drawablep, BOOL damped_motion)
@@ -2350,6 +2360,7 @@ void LLPipeline::shiftObjects(const LLVector3 &offset)
 	}
 
 	LLHUDText::shiftAll(offset);
+	LLHUDNameTag::shiftAll(offset);
 	display_update_camera();
 }
 
@@ -3454,11 +3465,24 @@ void LLPipeline::renderGeom(LLCamera& camera, BOOL forceVBOUpdate)
 
 	LLVertexBuffer::unbind();
 	
-	if (!LLPipeline::sReflectionRender && !LLPipeline::sRenderDeferred && gPipeline.hasRenderDebugFeatureMask(LLPipeline::RENDER_DEBUG_FEATURE_UI))
+	if (!LLPipeline::sReflectionRender && !LLPipeline::sRenderDeferred)
 	{
-		// Render debugging beacons.
-		gObjectList.renderObjectBeacons();
-		gObjectList.resetObjectBeacons();
+		if (gPipeline.hasRenderDebugFeatureMask(LLPipeline::RENDER_DEBUG_FEATURE_UI))
+		{
+		      // Render debugging beacons.
+		      gObjectList.renderObjectBeacons();
+		      gObjectList.resetObjectBeacons();
+		}
+		else
+		{
+			// Make sure particle effects disappear
+			LLHUDObject::renderAllForTimer();
+		}
+	}
+	else
+	{
+		// Make sure particle effects disappear
+		LLHUDObject::renderAllForTimer();
 	}
 
 	LLAppViewer::instance()->pingMainloopTimeout("Pipeline:RenderGeomEnd");
@@ -3780,6 +3804,59 @@ void LLPipeline::addTrianglesDrawn(S32 index_count, U32 render_type)
 	}
 }
 
+void LLPipeline::renderPhysicsDisplay()
+{
+	if (!hasRenderDebugMask(LLPipeline::RENDER_DEBUG_PHYSICS_SHAPES))
+	{
+		return;
+	}
+
+	allocatePhysicsBuffer();
+
+	gGL.flush();
+	mPhysicsDisplay.bindTarget();
+	glClearColor(0,0,0,1);
+	gGL.setColorMask(true, true);
+	mPhysicsDisplay.clear();
+	glClearColor(0,0,0,0);
+
+	gGL.setColorMask(true, false);
+
+	for (LLWorld::region_list_t::const_iterator iter = LLWorld::getInstance()->getRegionList().begin(); 
+			iter != LLWorld::getInstance()->getRegionList().end(); ++iter)
+	{
+		LLViewerRegion* region = *iter;
+		for (U32 i = 0; i < LLViewerRegion::NUM_PARTITIONS; i++)
+		{
+			LLSpatialPartition* part = region->getSpatialPartition(i);
+			if (part)
+			{
+				if (hasRenderType(part->mDrawableType))
+				{
+					part->renderPhysicsShapes();
+				}
+			}
+		}
+	}
+
+	for (LLCullResult::bridge_list_t::const_iterator i = sCull->beginVisibleBridge(); i != sCull->endVisibleBridge(); ++i)
+	{
+		LLSpatialBridge* bridge = *i;
+		if (!bridge->isDead() && hasRenderType(bridge->mDrawableType))
+		{
+			glPushMatrix();
+			glMultMatrixf((F32*)bridge->mDrawable->getRenderMatrix().mMatrix);
+			bridge->renderPhysicsShapes();
+			glPopMatrix();
+		}
+	}
+
+
+	gGL.flush();
+	mPhysicsDisplay.flush();
+}
+
+
 void LLPipeline::renderDebug()
 {
 	LLMemType mt(LLMemType::MTYPE_PIPELINE);
@@ -3807,6 +3884,18 @@ void LLPipeline::renderDebug()
 					part->renderDebug();
 				}
 			}
+		}
+	}
+
+	for (LLCullResult::bridge_list_t::const_iterator i = sCull->beginVisibleBridge(); i != sCull->endVisibleBridge(); ++i)
+	{
+		LLSpatialBridge* bridge = *i;
+		if (!bridge->isDead() && hasRenderType(bridge->mDrawableType))
+		{
+			glPushMatrix();
+			glMultMatrixf((F32*)bridge->mDrawable->getRenderMatrix().mMatrix);
+			bridge->renderDebug();
+			glPopMatrix();
 		}
 	}
 
@@ -3857,7 +3946,6 @@ void LLPipeline::renderDebug()
 		gPipeline.mDebugTextureUploadCost = textures.size() * 10;
 		gPipeline.mDebugSculptUploadCost = sculpts.size()*10;
 		
-#if LL_MESH_ENABLED
 		U32 mesh_cost = 0;
 
 		for (std::set<LLUUID>::iterator iter = meshes.begin(); iter != meshes.end(); ++iter)
@@ -3866,19 +3954,6 @@ void LLPipeline::renderDebug()
 		}
 
 		gPipeline.mDebugMeshUploadCost = mesh_cost;
-#endif
-	}
-
-	for (LLCullResult::bridge_list_t::const_iterator i = sCull->beginVisibleBridge(); i != sCull->endVisibleBridge(); ++i)
-	{
-		LLSpatialBridge* bridge = *i;
-		if (!bridge->isDead() && hasRenderType(bridge->mDrawableType))
-		{
-			glPushMatrix();
-			glMultMatrixf((F32*)bridge->mDrawable->getRenderMatrix().mMatrix);
-			bridge->renderDebug();
-			glPopMatrix();
-		}
 	}
 
 	if (hasRenderDebugMask(LLPipeline::RENDER_DEBUG_SHADOW_FRUSTA))
@@ -4094,6 +4169,8 @@ void LLPipeline::renderDebug()
 	}
 
 	gGL.flush();
+
+	gPipeline.renderPhysicsDisplay();
 }
 
 void LLPipeline::renderForSelect(std::set<LLViewerObject*>& objects, BOOL render_transparent, const LLRect& screen_rect)
@@ -5104,7 +5181,7 @@ void LLPipeline::enableLightsFullbright(const LLColor4& color)
 void LLPipeline::disableLights()
 {
 	enableLights(0); // no lighting (full bright)
-	//glColor4f(1.f, 1.f, 1.f, 1.f); // lighting color = white by default
+	glColor4f(1.f, 1.f, 1.f, 1.f); // lighting color = white by default
 }
 
 //============================================================================
@@ -5629,7 +5706,8 @@ LLViewerObject* LLPipeline::lineSegmentIntersectInWorld(const LLVector3& start, 
 		++iter)
 	{
 		LLVOAvatar* av = (LLVOAvatar*) *iter;
-		if (av->mNameText.notNull() && av->mNameText->lineSegmentIntersect(start, local_end, position))
+		if (av->mNameText.notNull()
+			&& av->mNameText->lineSegmentIntersect(start, local_end, position))
 		{
 			drawable = av->mDrawable;
 			local_end = position;
@@ -6121,7 +6199,6 @@ void LLPipeline::renderBloom(BOOL for_snapshot, F32 zoom_factor, int subfield)
 	}
 	else
 	{
-
 		if (res_mod > 1)
 		{
 			tc2 /= (F32) res_mod;
@@ -6187,8 +6264,33 @@ void LLPipeline::renderBloom(BOOL for_snapshot, F32 zoom_factor, int subfield)
 		}
 	}
 	
-
 	gGL.setSceneBlendType(LLRender::BT_ALPHA);
+
+	if (hasRenderDebugMask(LLPipeline::RENDER_DEBUG_PHYSICS_SHAPES))
+	{
+		LLVector2 tc1(0,0);
+		LLVector2 tc2((F32) gViewerWindow->getWorldViewWidthRaw()*2,
+				  (F32) gViewerWindow->getWorldViewHeightRaw()*2);
+
+		LLGLEnable blend(GL_BLEND);
+		gGL.color4f(1,1,1,0.75f);
+
+		gGL.getTexUnit(0)->bind(&mPhysicsDisplay);
+
+		gGL.begin(LLRender::TRIANGLE_STRIP);
+		gGL.texCoord2f(tc1.mV[0], tc1.mV[1]);
+		gGL.vertex2f(-1,-1);
+		
+		gGL.texCoord2f(tc1.mV[0], tc2.mV[1]);
+		gGL.vertex2f(-1,3);
+		
+		gGL.texCoord2f(tc2.mV[0], tc1.mV[1]);
+		gGL.vertex2f(3,-1);
+		
+		gGL.end();
+		gGL.flush();
+	}
+
 	glMatrixMode(GL_PROJECTION);
 	glPopMatrix();
 	glMatrixMode(GL_MODELVIEW);
@@ -6843,7 +6945,6 @@ void LLPipeline::renderDeferredLighting()
 
 				gDeferredBlurLightProgram.uniform2f("delta", 1.f, 0.f);
 				gDeferredBlurLightProgram.uniform1f("dist_factor", dist_factor);
-				gDeferredBlurLightProgram.uniform3fv("kern[0]", kern_length, gauss[0].mV);
 				gDeferredBlurLightProgram.uniform3fv("kern", kern_length, gauss[0].mV);
 				gDeferredBlurLightProgram.uniform1f("kern_scale", blur_size * (kern_length/2.f - 0.5f));
 			
@@ -6946,10 +7047,8 @@ void LLPipeline::renderDeferredLighting()
 			gPipeline.popRenderTypeMask();
 		}
 
-		BOOL render_local = gSavedSettings.getBOOL("RenderDeferredLocalLights");
-		BOOL render_fullscreen = gSavedSettings.getBOOL("RenderDeferredFullscreenLights");
-		
-
+		BOOL render_local = gSavedSettings.getBOOL("RenderLocalLights");
+				
 		if (LLViewerShaderMgr::instance()->getVertexShaderLevel(LLViewerShaderMgr::SHADER_DEFERRED) > 2)
 		{
 			mDeferredLight[1].flush();
@@ -6957,7 +7056,7 @@ void LLPipeline::renderDeferredLighting()
 			mDeferredLight[2].clear(GL_COLOR_BUFFER_BIT);
 		}
 
-		if (render_local || render_fullscreen)
+		if (render_local)
 		{
 			gGL.setSceneBlendType(LLRender::BT_ADD);
 			std::list<LLVector4> fullscreen_lights;
@@ -6973,8 +7072,7 @@ void LLPipeline::renderDeferredLighting()
 
 			F32 v[24];
 			glVertexPointer(3, GL_FLOAT, 0, v);
-			BOOL render_local = gSavedSettings.getBOOL("RenderDeferredLocalLights");
-
+			
 			{
 				bindDeferredShader(gDeferredLightProgram);
 				LLGLDepthTest depth(GL_TRUE, GL_FALSE);
@@ -7065,7 +7163,7 @@ void LLPipeline::renderDeferredLighting()
 							stop_glerror();
 						}
 					}
-					else if (render_fullscreen)
+					else
 					{	
 						if (volume->isLightSpotlight())
 						{
@@ -7169,9 +7267,7 @@ void LLPipeline::renderDeferredLighting()
 					if (count == max_count || fullscreen_lights.empty())
 					{
 						gDeferredMultiLightProgram.uniform1i("light_count", count);
-						gDeferredMultiLightProgram.uniform4fv("light[0]", count, (GLfloat*) light);
 						gDeferredMultiLightProgram.uniform4fv("light", count, (GLfloat*) light);
-						gDeferredMultiLightProgram.uniform4fv("light_col[0]", count, (GLfloat*) col);
 						gDeferredMultiLightProgram.uniform4fv("light_col", count, (GLfloat*) col);
 						gDeferredMultiLightProgram.uniform1f("far_z", far_z);
 						far_z = 0.f;
@@ -9371,7 +9467,10 @@ LLCullResult::sg_list_t::iterator LLPipeline::endAlphaGroups()
 
 BOOL LLPipeline::hasRenderType(const U32 type) const
 {
-	return mRenderTypeEnabled[type];
+    // STORM-365 : LLViewerJointAttachment::setAttachmentVisibility() is setting type to 0 to actually mean "do not render"
+    // We then need to test that value here and return FALSE to prevent attachment to render (in mouselook for instance)
+    // TODO: reintroduce RENDER_TYPE_NONE in LLRenderTypeMask and initialize its mRenderTypeEnabled[RENDER_TYPE_NONE] to FALSE explicitely
+	return (type == 0 ? FALSE : mRenderTypeEnabled[type]);
 }
 
 void LLPipeline::setRenderTypeMask(U32 type, ...)

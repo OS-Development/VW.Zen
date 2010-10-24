@@ -2,31 +2,25 @@
  * @file llcofwearables.cpp
  * @brief LLCOFWearables displayes wearables from the current outfit split into three lists (attachments, clothing and body parts)
  *
- * $LicenseInfo:firstyear=2010&license=viewergpl$
- * 
- * Copyright (c) 2010, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2010&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -403,12 +397,20 @@ void LLCOFWearables::refresh()
 
 	mCOFVersion = catp->getVersion();
 
+	// Save current scrollbar position.
+	typedef std::map<LLFlatListView*, LLRect> scroll_pos_map_t;
+	scroll_pos_map_t saved_scroll_pos;
+
+	saved_scroll_pos[mAttachments] = mAttachments->getVisibleContentRect();
+	saved_scroll_pos[mClothing] = mClothing->getVisibleContentRect();
+	saved_scroll_pos[mBodyParts] = mBodyParts->getVisibleContentRect();
+
+	// Save current selection.
 	typedef std::vector<LLSD> values_vector_t;
 	typedef std::map<LLFlatListView*, values_vector_t> selection_map_t;
 
 	selection_map_t preserve_selection;
 
-	// Save current selection
 	mAttachments->getSelectedValues(preserve_selection[mAttachments]);
 	mClothing->getSelectedValues(preserve_selection[mClothing]);
 	mBodyParts->getSelectedValues(preserve_selection[mBodyParts]);
@@ -455,6 +457,15 @@ void LLCOFWearables::refresh()
 		}
 
 		list->setCommitOnSelectionChange(true);
+	}
+
+	// Restore previous scrollbar position.
+	for (scroll_pos_map_t::const_iterator it = saved_scroll_pos.begin(); it != saved_scroll_pos.end(); ++it)
+	{
+		LLFlatListView* list = it->first;
+		LLRect scroll_pos = it->second;
+
+		list->scrollToShowRect(scroll_pos);
 	}
 }
 
@@ -710,6 +721,27 @@ void LLCOFWearables::onListRightClick(LLUICtrl* ctrl, S32 x, S32 y, LLListContex
 			{
 				menu->show(ctrl, selected_uuids, x, y);
 			}
+		}
+	}
+}
+
+void LLCOFWearables::selectClothing(LLWearableType::EType clothing_type)
+{
+	std::vector<LLPanel*> clothing_items;
+
+	mClothing->getItems(clothing_items);
+
+	std::vector<LLPanel*>::iterator it;
+
+	for (it = clothing_items.begin(); it != clothing_items.end(); ++it )
+	{
+		LLPanelClothingListItem* clothing_item = dynamic_cast<LLPanelClothingListItem*>(*it);
+
+		if (clothing_item && clothing_item->getWearableType() == clothing_type)
+		{ // clothing item has specified LLWearableType::EType. Select it and exit.
+
+			mClothing->selectItem(clothing_item);
+			break;
 		}
 	}
 }

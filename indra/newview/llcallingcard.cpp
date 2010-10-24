@@ -2,31 +2,25 @@
  * @file llcallingcard.cpp
  * @brief Implementation of the LLPreviewCallingCard class
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -43,6 +37,7 @@
 //#include <iterator>
 
 #include "indra_constants.h"
+#include "llavatarnamecache.h"
 #include "llcachename.h"
 #include "llstl.h"
 #include "lltimer.h"
@@ -50,6 +45,7 @@
 #include "message.h"
 
 #include "llagent.h"
+#include "llavatarnamecache.h"
 #include "llbutton.h"
 #include "llinventoryobserver.h"
 #include "llinventorymodel.h"
@@ -96,8 +92,10 @@ const F32 OFFLINE_SECONDS = FIND_FREQUENCY + 8.0f;
 // static
 LLAvatarTracker LLAvatarTracker::sInstance;
 
-
-
+static void on_avatar_name_cache_notify(const LLUUID& agent_id,
+										const LLAvatarName& av_name,
+										bool online,
+										LLSD payload);
 
 ///----------------------------------------------------------------------------
 /// Class LLAvatarTracker
@@ -250,7 +248,7 @@ S32 LLAvatarTracker::addBuddyList(const LLAvatarTracker::buddy_map_t& buds)
 	using namespace std;
 
 	U32 new_buddy_count = 0;
-	std::string first,last;
+	std::string full_name;
 	LLUUID agent_id;
 	for(buddy_map_t::const_iterator itr = buds.begin(); itr != buds.end(); ++itr)
 	{
@@ -260,7 +258,8 @@ S32 LLAvatarTracker::addBuddyList(const LLAvatarTracker::buddy_map_t& buds)
 		{
 			++new_buddy_count;
 			mBuddyInfo[agent_id] = (*itr).second;
-			gCacheName->getName(agent_id, first, last);
+			// IDEVO: is this necessary?  name is unused?
+			gCacheName->getFullName(agent_id, full_name);
 			addChangedMask(LLFriendObserver::ADD, agent_id);
 			lldebugs << "Added buddy " << agent_id
 					<< ", " << (mBuddyInfo[agent_id]->isOnline() ? "Online" : "Offline")
@@ -633,12 +632,9 @@ void LLAvatarTracker::processChange(LLMessageSystem* msg)
 			{
 				if((mBuddyInfo[agent_id]->getRightsGrantedFrom() ^  new_rights) & LLRelationship::GRANT_MODIFY_OBJECTS)
 				{
-					std::string name;
 					LLSD args;
-					if(gCacheName->getFullName(agent_id, name))
-					{
-						args["NAME"] = name;
-					}
+					args["NAME"] = LLSLURL("agent", agent_id, "displayname").getSLURLString();
+					
 					LLSD payload;
 					payload["from_id"] = agent_id;
 					if(LLRelationship::GRANT_MODIFY_OBJECTS & new_rights)
@@ -680,8 +676,6 @@ void LLAvatarTracker::processNotify(LLMessageSystem* msg, bool online)
 		{
 			tracking_id = mTrackingData->mAvatarID;
 		}
-		BOOL notify = FALSE;
-		LLSD args;
 		LLSD payload;
 		for(S32 i = 0; i < count; ++i)
 		{
@@ -691,17 +685,6 @@ void LLAvatarTracker::processNotify(LLMessageSystem* msg, bool online)
 			if(info)
 			{
 				setBuddyOnline(agent_id,online);
-				if(chat_notify)
-				{
-					std::string first, last;
-					if(gCacheName->getName(agent_id, first, last))
-					{
-						notify = TRUE;
-						args["FIRST"] = first;
-						args["LAST"] = last;
-					}
-
-				}
 			}
 			else
 			{
@@ -717,35 +700,49 @@ void LLAvatarTracker::processNotify(LLMessageSystem* msg, bool online)
 			// *TODO: get actual inventory id
 			gInventory.addChangedMask(LLInventoryObserver::CALLING_CARD, LLUUID::null);
 		}
-		if(notify)
+		if(chat_notify)
 		{
-			// Popup a notify box with online status of this agent
-			LLNotificationPtr notification;
-
-			if (online)
-			{
-				notification =
-					LLNotificationsUtil::add("FriendOnline",
-											 args,
-											 payload.with("respond_on_mousedown", TRUE),
-											 boost::bind(&LLAvatarActions::startIM, agent_id));
-			}
-			else
-			{
-				notification =
-					LLNotificationsUtil::add("FriendOffline", args, payload);
-			}
-
-			// If there's an open IM session with this agent, send a notification there too.
-			LLUUID session_id = LLIMMgr::computeSessionID(IM_NOTHING_SPECIAL, agent_id);
-			std::string notify_msg = notification->getMessage();
-			LLIMModel::instance().proccessOnlineOfflineNotification(session_id, notify_msg);
+			// Look up the name of this agent for the notification
+			LLAvatarNameCache::get(agent_id,
+				boost::bind(&on_avatar_name_cache_notify,
+					_1, _2, online, payload));
 		}
 
 		mModifyMask |= LLFriendObserver::ONLINE;
 		instance().notifyObservers();
 		gInventory.notifyObservers();
 	}
+}
+
+static void on_avatar_name_cache_notify(const LLUUID& agent_id,
+										const LLAvatarName& av_name,
+										bool online,
+										LLSD payload)
+{
+	// Popup a notify box with online status of this agent
+	// Use display name only because this user is your friend
+	LLSD args;
+	args["NAME"] = av_name.mDisplayName;
+
+	LLNotificationPtr notification;
+	if (online)
+	{
+		notification =
+			LLNotificationsUtil::add("FriendOnline",
+									 args,
+									 payload.with("respond_on_mousedown", TRUE),
+									 boost::bind(&LLAvatarActions::startIM, agent_id));
+	}
+	else
+	{
+		notification =
+			LLNotificationsUtil::add("FriendOffline", args, payload);
+	}
+
+	// If there's an open IM session with this agent, send a notification there too.
+	LLUUID session_id = LLIMMgr::computeSessionID(IM_NOTHING_SPECIAL, agent_id);
+	std::string notify_msg = notification->getMessage();
+	LLIMModel::instance().proccessOnlineOfflineNotification(session_id, notify_msg);
 }
 
 void LLAvatarTracker::formFriendship(const LLUUID& id)
@@ -868,10 +865,9 @@ bool LLCollectProxyBuddies::operator()(const LLUUID& buddy_id, LLRelationship* b
 
 bool LLCollectMappableBuddies::operator()(const LLUUID& buddy_id, LLRelationship* buddy)
 {
-	gCacheName->getName(buddy_id, mFirst, mLast);
-	std::ostringstream fullname;
-	fullname << mFirst << " " << mLast;
-	buddy_map_t::value_type value(fullname.str(), buddy_id);
+	LLAvatarName av_name;
+	LLAvatarNameCache::get( buddy_id, &av_name);
+	buddy_map_t::value_type value(av_name.mDisplayName, buddy_id);
 	if(buddy->isOnline() && buddy->isRightGrantedFrom(LLRelationship::GRANT_MAP_LOCATION))
 	{
 		mMappable.insert(value);
@@ -881,10 +877,8 @@ bool LLCollectMappableBuddies::operator()(const LLUUID& buddy_id, LLRelationship
 
 bool LLCollectOnlineBuddies::operator()(const LLUUID& buddy_id, LLRelationship* buddy)
 {
-	gCacheName->getName(buddy_id, mFirst, mLast);
-	std::ostringstream fullname;
-	fullname << mFirst << " " << mLast;
-	buddy_map_t::value_type value(fullname.str(), buddy_id);
+	gCacheName->getFullName(buddy_id, mFullName);
+	buddy_map_t::value_type value(mFullName, buddy_id);
 	if(buddy->isOnline())
 	{
 		mOnline.insert(value);
@@ -894,10 +888,10 @@ bool LLCollectOnlineBuddies::operator()(const LLUUID& buddy_id, LLRelationship* 
 
 bool LLCollectAllBuddies::operator()(const LLUUID& buddy_id, LLRelationship* buddy)
 {
-	gCacheName->getName(buddy_id, mFirst, mLast);
-	std::ostringstream fullname;
-	fullname << mFirst << " " << mLast;
-	buddy_map_t::value_type value(fullname.str(), buddy_id);
+	LLAvatarName av_name;
+	LLAvatarNameCache::get(buddy_id, &av_name);
+	mFullName = av_name.mDisplayName;
+	buddy_map_t::value_type value(mFullName, buddy_id);
 	if(buddy->isOnline())
 	{
 		mOnline.insert(value);
@@ -908,5 +902,3 @@ bool LLCollectAllBuddies::operator()(const LLUUID& buddy_id, LLRelationship* bud
 	}
 	return true;
 }
-
-

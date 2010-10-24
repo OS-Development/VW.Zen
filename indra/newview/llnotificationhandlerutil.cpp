@@ -2,31 +2,25 @@
  * @file llnotificationofferhandler.cpp
  * @brief Provides set of utility methods for notifications processing.
  *
- * $LicenseInfo:firstyear=2000&license=viewergpl$
- *
- * Copyright (c) 2000-2009, Linden Research, Inc.
- *
+ * $LicenseInfo:firstyear=2000&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
- *
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
- *
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
- *
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * Copyright (C) 2010, Linden Research, Inc.
+ * 
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
+ * 
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -113,8 +107,11 @@ void LLSysHandler::removeExclusiveNotifications(const LLNotificationPtr& notif)
 }
 
 const static std::string GRANTED_MODIFY_RIGHTS("GrantedModifyRights"),
-		REVOKED_MODIFY_RIGHTS("RevokedModifyRights"), OBJECT_GIVE_ITEM(
-				"ObjectGiveItem"), PAYMENT_RECIVED("PaymentRecived"),
+		REVOKED_MODIFY_RIGHTS("RevokedModifyRights"),
+		OBJECT_GIVE_ITEM("ObjectGiveItem"),
+		OBJECT_GIVE_ITEM_UNKNOWN_USER("ObjectGiveItemUnknownUser"),
+						PAYMENT_RECEIVED("PaymentReceived"),
+						PAYMENT_SENT("PaymentSent"),
 						ADD_FRIEND_WITH_MESSAGE("AddFriendWithMessage"),
 						USER_GIVE_ITEM("UserGiveItem"),
 						INVENTORY_ACCEPTED("InventoryAccepted"),
@@ -136,7 +133,8 @@ bool LLHandlerUtil::canLogToIM(const LLNotificationPtr& notification)
 {
 	return GRANTED_MODIFY_RIGHTS == notification->getName()
 			|| REVOKED_MODIFY_RIGHTS == notification->getName()
-			|| PAYMENT_RECIVED == notification->getName()
+			|| PAYMENT_RECEIVED == notification->getName()
+			|| PAYMENT_SENT == notification->getName()
 			|| OFFER_FRIENDSHIP == notification->getName()
 			|| FRIENDSHIP_OFFERED == notification->getName()
 			|| FRIENDSHIP_ACCEPTED == notification->getName()
@@ -317,34 +315,35 @@ void LLHandlerUtil::logToIMP2P(const LLNotificationPtr& notification)
 	logToIMP2P(notification, false);
 }
 
+void log_name_callback(const std::string& full_name, const std::string& from_name, 
+					   const std::string& message, const LLUUID& from_id)
+
+{
+	LLHandlerUtil::logToIM(IM_NOTHING_SPECIAL, full_name, from_name, message,
+					from_id, LLUUID());
+}
+
 // static
 void LLHandlerUtil::logToIMP2P(const LLNotificationPtr& notification, bool to_file_only)
 {
-	const std::string name = LLHandlerUtil::getSubstitutionName(notification);
-
-	const std::string& session_name = notification->getPayload().has(
-			"SESSION_NAME") ? notification->getPayload()["SESSION_NAME"].asString() : name;
-
 	// don't create IM p2p session with objects, it's necessary condition to log
 	if (notification->getName() != OBJECT_GIVE_ITEM)
 	{
 		LLUUID from_id = notification->getPayload()["from_id"];
 
-		//there still appears a log history file with weird name " .txt"
-		if (" " == session_name || "{waiting}" == session_name || "{nobody}" == session_name)
+		if (from_id.isNull())
 		{
-			llwarning("Weird session name (" + session_name + ") for notification " + notification->getName(), 666)
+			llwarns << " from_id for notification " << notification->getName() << " is null " << llendl;
+			return;
 		}
 
 		if(to_file_only)
 		{
-			logToIM(IM_NOTHING_SPECIAL, session_name, "", notification->getMessage(),
-					LLUUID(), LLUUID());
+			gCacheName->get(from_id, false, boost::bind(&log_name_callback, _2, "", notification->getMessage(), LLUUID()));
 		}
 		else
 		{
-			logToIM(IM_NOTHING_SPECIAL, session_name, INTERACTIVE_SYSTEM_FROM, notification->getMessage(),
-					from_id, LLUUID());
+			gCacheName->get(from_id, false, boost::bind(&log_name_callback, _2, INTERACTIVE_SYSTEM_FROM, notification->getMessage(), from_id));
 		}
 	}
 }
@@ -359,7 +358,7 @@ void LLHandlerUtil::logGroupNoticeToIMGroup(
 	if (!gAgent.getGroupData(payload["group_id"].asUUID(), groupData))
 	{
 		llwarns
-						<< "Group notice for unkown group: "
+						<< "Group notice for unknown group: "
 								<< payload["group_id"].asUUID() << llendl;
 		return;
 	}

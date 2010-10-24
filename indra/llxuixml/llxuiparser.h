@@ -2,31 +2,25 @@
  * @file llxuiparser.h
  * @brief Utility functions for handling XUI structures in XML
  *
- * $LicenseInfo:firstyear=2003&license=viewergpl$
- * 
- * Copyright (c) 2003-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2003&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -102,14 +96,12 @@ public:
 
 
 
-class LLXUIParser : public LLInitParam::Parser, public LLSingleton<LLXUIParser>
+class LLXUIParser : public LLInitParam::Parser
 {
 LOG_CLASS(LLXUIParser);
 
-protected:
-	LLXUIParser();
-	friend class LLSingleton<LLXUIParser>;
 public:
+	LLXUIParser();
 	typedef LLInitParam::Parser::name_stack_t name_stack_t;
 
 	/*virtual*/ std::string getCurrentElementName();
@@ -120,42 +112,40 @@ public:
 	void writeXUI(LLXMLNodePtr node, const LLInitParam::BaseBlock& block, const LLInitParam::BaseBlock* diff_block = NULL);
 
 private:
-	typedef std::list<std::pair<std::string, bool> >	token_list_t;
-
-	bool readXUIImpl(LLXMLNodePtr node, const std::string& scope, LLInitParam::BaseBlock& block);
+	bool readXUIImpl(LLXMLNodePtr node, LLInitParam::BaseBlock& block);
 	bool readAttributes(LLXMLNodePtr nodep, LLInitParam::BaseBlock& block);
 
 	//reader helper functions
-	bool readBoolValue(void* val_ptr);
-	bool readStringValue(void* val_ptr);
-	bool readU8Value(void* val_ptr);
-	bool readS8Value(void* val_ptr);
-	bool readU16Value(void* val_ptr);
-	bool readS16Value(void* val_ptr);
-	bool readU32Value(void* val_ptr);
-	bool readS32Value(void* val_ptr);
-	bool readF32Value(void* val_ptr);
-	bool readF64Value(void* val_ptr);
-	bool readColor4Value(void* val_ptr);
-	bool readUIColorValue(void* val_ptr);
-	bool readUUIDValue(void* val_ptr);
-	bool readSDValue(void* val_ptr);
+	static bool readBoolValue(Parser& parser, void* val_ptr);
+	static bool readStringValue(Parser& parser, void* val_ptr);
+	static bool readU8Value(Parser& parser, void* val_ptr);
+	static bool readS8Value(Parser& parser, void* val_ptr);
+	static bool readU16Value(Parser& parser, void* val_ptr);
+	static bool readS16Value(Parser& parser, void* val_ptr);
+	static bool readU32Value(Parser& parser, void* val_ptr);
+	static bool readS32Value(Parser& parser, void* val_ptr);
+	static bool readF32Value(Parser& parser, void* val_ptr);
+	static bool readF64Value(Parser& parser, void* val_ptr);
+	static bool readColor4Value(Parser& parser, void* val_ptr);
+	static bool readUIColorValue(Parser& parser, void* val_ptr);
+	static bool readUUIDValue(Parser& parser, void* val_ptr);
+	static bool readSDValue(Parser& parser, void* val_ptr);
 
 	//writer helper functions
-	bool writeBoolValue(const void* val_ptr, const name_stack_t&);
-	bool writeStringValue(const void* val_ptr, const name_stack_t&);
-	bool writeU8Value(const void* val_ptr, const name_stack_t&);
-	bool writeS8Value(const void* val_ptr, const name_stack_t&);
-	bool writeU16Value(const void* val_ptr, const name_stack_t&);
-	bool writeS16Value(const void* val_ptr, const name_stack_t&);
-	bool writeU32Value(const void* val_ptr, const name_stack_t&);
-	bool writeS32Value(const void* val_ptr, const name_stack_t&);
-	bool writeF32Value(const void* val_ptr, const name_stack_t&);
-	bool writeF64Value(const void* val_ptr, const name_stack_t&);
-	bool writeColor4Value(const void* val_ptr, const name_stack_t&);
-	bool writeUIColorValue(const void* val_ptr, const name_stack_t&);
-	bool writeUUIDValue(const void* val_ptr, const name_stack_t&);
-	bool writeSDValue(const void* val_ptr, const name_stack_t&);
+	static bool writeBoolValue(Parser& parser, const void* val_ptr, const name_stack_t&);
+	static bool writeStringValue(Parser& parser, const void* val_ptr, const name_stack_t&);
+	static bool writeU8Value(Parser& parser, const void* val_ptr, const name_stack_t&);
+	static bool writeS8Value(Parser& parser, const void* val_ptr, const name_stack_t&);
+	static bool writeU16Value(Parser& parser, const void* val_ptr, const name_stack_t&);
+	static bool writeS16Value(Parser& parser, const void* val_ptr, const name_stack_t&);
+	static bool writeU32Value(Parser& parser, const void* val_ptr, const name_stack_t&);
+	static bool writeS32Value(Parser& parser, const void* val_ptr, const name_stack_t&);
+	static bool writeF32Value(Parser& parser, const void* val_ptr, const name_stack_t&);
+	static bool writeF64Value(Parser& parser, const void* val_ptr, const name_stack_t&);
+	static bool writeColor4Value(Parser& parser, const void* val_ptr, const name_stack_t&);
+	static bool writeUIColorValue(Parser& parser, const void* val_ptr, const name_stack_t&);
+	static bool writeUUIDValue(Parser& parser, const void* val_ptr, const name_stack_t&);
+	static bool writeSDValue(Parser& parser, const void* val_ptr, const name_stack_t&);
 
 	LLXMLNodePtr getNode(const name_stack_t& stack);
 
@@ -171,6 +161,78 @@ private:
 	LLXMLNodePtr					mLastWrittenChild;
 	S32								mCurReadDepth;
 	std::string						mCurFileName;
+	std::string						mRootNodeName;
+};
+
+// LLSimpleXUIParser is a streamlined SAX-based XUI parser that does not support localization 
+// or parsing of a tree of independent param blocks, such as child widgets.
+// Use this for reading non-localized files that only need a single param block as a result.
+//
+// NOTE: In order to support nested block parsing, we need callbacks for start element that
+// push new blocks contexts on the mScope stack.
+// NOTE: To support localization without building a DOM, we need to enforce consistent 
+// ordering of child elements from base file to localized diff file.  Then we can use a pair
+// of coroutines to perform matching of xml nodes during parsing.  Not sure if the overhead
+// of coroutines would offset the gain from SAX parsing
+
+class LLSimpleXUIParser : public LLInitParam::Parser
+{
+LOG_CLASS(LLSimpleXUIParser);
+public:
+	typedef LLInitParam::Parser::name_stack_t name_stack_t;
+	typedef LLInitParam::BaseBlock* (*element_start_callback_t)(LLSimpleXUIParser&, const char* block_name);
+
+	LLSimpleXUIParser(element_start_callback_t element_cb = NULL);
+	virtual ~LLSimpleXUIParser();
+
+	/*virtual*/ std::string getCurrentElementName();
+	/*virtual*/ void parserWarning(const std::string& message);
+	/*virtual*/ void parserError(const std::string& message);
+
+	bool readXUI(const std::string& filename, LLInitParam::BaseBlock& block, bool silent=false);
+
+
+private:
+	//reader helper functions
+	static bool readBoolValue(Parser&, void* val_ptr);
+	static bool readStringValue(Parser&, void* val_ptr);
+	static bool readU8Value(Parser&, void* val_ptr);
+	static bool readS8Value(Parser&, void* val_ptr);
+	static bool readU16Value(Parser&, void* val_ptr);
+	static bool readS16Value(Parser&, void* val_ptr);
+	static bool readU32Value(Parser&, void* val_ptr);
+	static bool readS32Value(Parser&, void* val_ptr);
+	static bool readF32Value(Parser&, void* val_ptr);
+	static bool readF64Value(Parser&, void* val_ptr);
+	static bool readColor4Value(Parser&, void* val_ptr);
+	static bool readUIColorValue(Parser&, void* val_ptr);
+	static bool readUUIDValue(Parser&, void* val_ptr);
+	static bool readSDValue(Parser&, void* val_ptr);
+
+private:
+	static void startElementHandler(void *userData, const char *name, const char **atts);
+	static void endElementHandler(void *userData, const char *name);
+	static void characterDataHandler(void *userData, const char *s, int len);
+
+	void startElement(const char *name, const char **atts);
+	void endElement(const char *name);
+	void characterData(const char *s, int len);
+	bool readAttributes(const char **atts);
+	void processText();
+
+	Parser::name_stack_t			mNameStack;
+	struct XML_ParserStruct*		mParser;
+	S32								mLastWriteGeneration;
+	LLXMLNodePtr					mLastWrittenChild;
+	S32								mCurReadDepth;
+	std::string						mCurFileName;
+	std::string						mTextContents;
+	const char*						mCurAttributeValueBegin;
+	std::vector<S32>				mTokenSizeStack;
+	std::vector<std::string>		mScope;
+	element_start_callback_t		mElementCB;
+
+	std::vector<std::pair<LLInitParam::BaseBlock*, S32> > mOutputStack;
 };
 
 

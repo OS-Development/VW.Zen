@@ -3,31 +3,25 @@
  * @author Martin Reddy
  * @brief The base class of text box/editor, providing Url handling support
  *
- * $LicenseInfo:firstyear=2009&license=viewergpl$
- * 
- * Copyright (c) 2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2009&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2009-2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -481,8 +475,8 @@ void LLTextBase::drawCursor()
 			{
 				LLColor4 text_color;
 				const LLFontGL* fontp;
-					text_color = segmentp->getColor();
-					fontp = segmentp->getStyle()->getFont();
+				text_color = segmentp->getColor();
+				fontp = segmentp->getStyle()->getFont();
 				fontp->render(text, mCursorPos, cursor_rect, 
 					LLColor4(1.f - text_color.mV[VRED], 1.f - text_color.mV[VGREEN], 1.f - text_color.mV[VBLUE], alpha),
 					LLFontGL::LEFT, mVAlign,
@@ -1597,7 +1591,10 @@ void LLTextBase::setText(const LLStringExplicit &utf8str, const LLStyle::Params&
 	// appendText modifies mCursorPos...
 	appendText(text, false, input_params);
 	// ...so move cursor to top after appending text
-	startOfDoc();
+	if (!mTrackEnd)
+	{
+		startOfDoc();
+	}
 
 	onValueChange(0, getLength());
 }
@@ -1608,19 +1605,33 @@ std::string LLTextBase::getText() const
 	return getViewModel()->getValue().asString();
 }
 
+// IDEVO - icons can be UI image names or UUID sent from
+// server with avatar display name
+static LLUIImagePtr image_from_icon_name(const std::string& icon_name)
+{
+	if (LLUUID::validate(icon_name))
+	{
+		return LLUI::getUIImageByID( LLUUID(icon_name) );
+	}
+	else
+	{
+		return LLUI::getUIImage(icon_name);
+	}
+}
+
 void LLTextBase::appendTextImpl(const std::string &new_text, const LLStyle::Params& input_params)
 {
 	LLStyle::Params style_params(input_params);
 	style_params.fillFrom(getDefaultStyleParams());
 
 	S32 part = (S32)LLTextParser::WHOLE;
-	if(mParseHTML)
+	if (mParseHTML && !style_params.is_link) // Don't search for URLs inside a link segment (STORM-358).
 	{
 		S32 start=0,end=0;
 		LLUrlMatch match;
 		std::string text = new_text;
 		while ( LLUrlRegistry::instance().findUrl(text, match,
-		        boost::bind(&LLTextBase::replaceUrlLabel, this, _1, _2)) )
+		        boost::bind(&LLTextBase::replaceUrl, this, _1, _2, _3)) )
 		{
 			
 			LLTextUtil::processUrlMatch(&match,this);
@@ -1628,11 +1639,8 @@ void LLTextBase::appendTextImpl(const std::string &new_text, const LLStyle::Para
 			start = match.getStart();
 			end = match.getEnd()+1;
 
-			LLStyle::Params link_params = style_params;
-			link_params.color = match.getColor();
-			link_params.readonly_color =  match.getColor();
-			link_params.font.style("UNDERLINE");
-			link_params.link_href = match.getUrl();
+			LLStyle::Params link_params(style_params);
+			link_params.overwriteFrom(match.getStyle());
 
 			// output the text before the Url
 			if (start > 0)
@@ -1649,26 +1657,20 @@ void LLTextBase::appendTextImpl(const std::string &new_text, const LLStyle::Para
 				std::string subtext=text.substr(0,start);
 				appendAndHighlightText(subtext, part, style_params); 
 			}
-			// output the styled Url (unless we've been asked to suppress hyperlinking)
-			if (match.isLinkDisabled())
+			// output the styled Url
+			appendAndHighlightTextImpl(match.getLabel(), part, link_params, match.underlineOnHoverOnly());
+			
+			// set the tooltip for the Url label
+			if (! match.getTooltip().empty())
 			{
-				appendAndHighlightText(match.getLabel(), part, style_params);
+				segment_set_t::iterator it = getSegIterContaining(getLength()-1);
+				if (it != mSegments.end())
+					{
+						LLTextSegmentPtr segment = *it;
+						segment->setToolTip(match.getTooltip());
+					}
 			}
-			else
-			{
-				appendAndHighlightText(match.getLabel(), part, link_params, match.underlineOnHoverOnly());
 
-				// set the tooltip for the Url label
-				if (! match.getTooltip().empty())
-				{
-					segment_set_t::iterator it = getSegIterContaining(getLength()-1);
-					if (it != mSegments.end())
-						{
-							LLTextSegmentPtr segment = *it;
-							segment->setToolTip(match.getTooltip());
-						}
-				}
-			}
 			// move on to the rest of the text after the Url
 			if (end < (S32)text.length()) 
 			{
@@ -1853,8 +1855,9 @@ void LLTextBase::appendAndHighlightText(const std::string &new_text, S32 highlig
 }
 
 
-void LLTextBase::replaceUrlLabel(const std::string &url,
-								   const std::string &label)
+void LLTextBase::replaceUrl(const std::string &url,
+							const std::string &label,
+							const std::string &icon)
 {
 	// get the full (wide) text for the editor so we can change it
 	LLWString text = getWText();
@@ -1875,13 +1878,28 @@ void LLTextBase::replaceUrlLabel(const std::string &url,
 		seg->setEnd(seg_start + seg_length);
 
 		// if we find a link with our Url, then replace the label
-		if (style->isLink() && style->getLinkHREF() == url)
+		if (style->getLinkHREF() == url)
 		{
 			S32 start = seg->getStart();
 			S32 end = seg->getEnd();
 			text = text.substr(0, start) + wlabel + text.substr(end, text.size() - end + 1);
 			seg->setEnd(start + wlabel.size());
 			modified = true;
+		}
+
+		// Icon might be updated when more avatar or group info
+		// becomes available
+		if (style->isImage() && style->getLinkHREF() == url)
+		{
+			LLUIImagePtr image = image_from_icon_name( icon );
+			if (image)
+			{
+				LLStyle::Params icon_params;
+				icon_params.image = image;
+				LLStyleConstSP new_style(new LLStyle(icon_params));
+				seg->setStyle(new_style);
+				modified = true;
+			}
 		}
 
 		// work out the character offset for the next segment
@@ -1981,8 +1999,8 @@ S32 LLTextBase::getDocIndexFromLocalCoord( S32 local_x, S32 local_y, BOOL round,
 		else if (hit_past_end_of_line && segmentp->getEnd() > line_iter->mDocIndexEnd - 1)	
 		{
 			// segment wraps to next line, so just set doc pos to the end of the line
- 			// segment wraps to next line, so just set doc pos to start of next line (represented by mDocIndexEnd)
- 			pos = llmin(getLength(), line_iter->mDocIndexEnd);
+			// segment wraps to next line, so just set doc pos to start of next line (represented by mDocIndexEnd)
+			pos = llmin(getLength(), line_iter->mDocIndexEnd);
 			break;
 		}
 		start_x += text_width;

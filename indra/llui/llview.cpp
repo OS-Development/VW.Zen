@@ -3,31 +3,25 @@
  * @author James Cook
  * @brief Container for other views, anything that draws.
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -108,11 +102,7 @@ LLView::Params::Params()
 	left_pad("left_pad"),
 	left_delta("left_delta", S32_MAX),
 	from_xui("from_xui", false),
-	user_resize("user_resize"),
-	auto_resize("auto_resize"),
 	needs_translate("translate"),
-	min_width("min_width"),
-	max_width("max_width"),
 	xmlns("xmlns"),
 	xmlns_xsi("xmlns:xsi"),
 	xsi_schemaLocation("xsi:schemaLocation"),
@@ -224,7 +214,7 @@ void LLView::setUseBoundingRect( BOOL use_bounding_rect )
 	}
 }
 
-BOOL LLView::getUseBoundingRect()
+BOOL LLView::getUseBoundingRect() const
 {
 	return mUseBoundingRect;
 }
@@ -1382,12 +1372,12 @@ void LLView::drawDebugRect()
 		// drawing solids requires texturing be disabled
 		gGL.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
 
-		if (mUseBoundingRect)
+		if (getUseBoundingRect())
 		{
 			LLUI::translate((F32)mBoundingRect.mLeft - (F32)mRect.mLeft, (F32)mBoundingRect.mBottom - (F32)mRect.mBottom, 0.f);
 		}
 
-		LLRect debug_rect = mUseBoundingRect ? mBoundingRect : mRect;
+		LLRect debug_rect = getUseBoundingRect() ? mBoundingRect : mRect;
 
 		// draw red rectangle for the border
 		LLColor4 border_color(0.25f, 0.25f, 0.25f, 1.f);
@@ -1585,7 +1575,7 @@ void LLView::updateBoundingRect()
 
 	LLRect cur_rect = mBoundingRect;
 
-	if (mUseBoundingRect)
+	if (getUseBoundingRect())
 	{
 		mBoundingRect = calcBoundingRect();
 	}
@@ -1595,7 +1585,7 @@ void LLView::updateBoundingRect()
 	}
 
 	// give parent view a chance to resize, in case we just moved, for example
-	if (getParent() && getParent()->mUseBoundingRect)
+	if (getParent() && getParent()->getUseBoundingRect())
 	{
 		getParent()->updateBoundingRect();
 	}
@@ -1619,7 +1609,7 @@ LLRect LLView::calcScreenBoundingRect() const
 {
 	LLRect screen_rect;
 	// get bounding rect, if used
-	LLRect bounding_rect = mUseBoundingRect ? mBoundingRect : mRect;
+	LLRect bounding_rect = getUseBoundingRect() ? mBoundingRect : mRect;
 
 	// convert to local coordinates, as defined by mRect
 	bounding_rect.translate(-mRect.mLeft, -mRect.mBottom);
@@ -1704,7 +1694,9 @@ LLView* LLView::getChildView(const std::string& name, BOOL recurse) const
 		child = getDefaultWidget<LLView>(name);
 		if (!child)
 		{
-			 child = LLUICtrlFactory::createDefaultWidget<LLView>(name);
+			LLView::Params view_params;
+			view_params.name = name;
+			child = LLUICtrlFactory::create<LLView>(view_params);
 		}
 	}
 	return child;
@@ -1748,14 +1740,14 @@ LLView* LLView::findChildView(const std::string& name, BOOL recurse) const
 
 BOOL LLView::parentPointInView(S32 x, S32 y, EHitTestType type) const 
 { 
-	return (mUseBoundingRect && type == HIT_TEST_USE_BOUNDING_RECT)
+	return (getUseBoundingRect() && type == HIT_TEST_USE_BOUNDING_RECT)
 		? mBoundingRect.pointInRect( x, y ) 
 		: mRect.pointInRect( x, y ); 
 }
 
 BOOL LLView::pointInView(S32 x, S32 y, EHitTestType type) const 
 { 
-	return (mUseBoundingRect && type == HIT_TEST_USE_BOUNDING_RECT)
+	return (getUseBoundingRect() && type == HIT_TEST_USE_BOUNDING_RECT)
 		? mBoundingRect.pointInRect( x + mRect.mLeft, y + mRect.mBottom ) 
 		: mRect.localPointInRect( x, y ); 
 }

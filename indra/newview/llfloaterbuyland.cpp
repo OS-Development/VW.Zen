@@ -180,9 +180,8 @@ public:
 	void updateNames();
 	// Name cache callback
 	void updateGroupName(const LLUUID& id,
-						 const std::string& first_name,
-						 const std::string& last_name,
-						 BOOL is_group);
+						 const std::string& name,
+						 bool is_group);
 	
 	void refreshUI();
 	
@@ -294,7 +293,6 @@ LLFloaterBuyLandUI::LLFloaterBuyLandUI(const LLSD& key)
 {
 	LLViewerParcelMgr::getInstance()->addObserver(&mParcelSelectionObserver);
 	
-// 	LLUICtrlFactory::getInstance()->buildFloater(sInstance, "floater_buy_land.xml");
 }
 
 LLFloaterBuyLandUI::~LLFloaterBuyLandUI()
@@ -758,6 +756,7 @@ void LLFloaterBuyLandUI::runWebSitePrep(const std::string& password)
 	keywordArgs.appendString(
 		"secureSessionId",
 		gAgent.getSecureSessionID().asString());
+	keywordArgs.appendString("language", LLUI::getLanguage());
 	keywordArgs.appendString("levelId", newLevel);
 	keywordArgs.appendInt("billableArea",
 		mIsForGroup ? 0 : mParcelBillableArea);
@@ -819,28 +818,26 @@ void LLFloaterBuyLandUI::updateNames()
 	}
 	else if (parcelp->getIsGroupOwned())
 	{
-		gCacheName->get(parcelp->getGroupID(), TRUE,
+		gCacheName->getGroup(parcelp->getGroupID(),
 			boost::bind(&LLFloaterBuyLandUI::updateGroupName, this,
-				_1, _2, _3, _4));
+				_1, _2, _3));
 	}
 	else
 	{
-		mParcelSellerName =
-			LLSLURL("agent", parcelp->getOwnerID(), "inspect").getSLURLString();
+		mParcelSellerName = LLSLURL("agent", parcelp->getOwnerID(), "completename").getSLURLString();
 	}
 }
 
 void LLFloaterBuyLandUI::updateGroupName(const LLUUID& id,
-						 const std::string& first_name,
-						 const std::string& last_name,
-						 BOOL is_group)
+						 const std::string& name,
+						 bool is_group)
 {
 	LLParcel* parcelp = mParcel->getParcel();
 	if (parcelp
 		&& parcelp->getGroupID() == id)
 	{
 		// request is current
-		mParcelSellerName = first_name;
+		mParcelSellerName = name;
 	}
 }
 

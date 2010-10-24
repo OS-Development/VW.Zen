@@ -3,30 +3,25 @@
  * @brief LLPluginClassMedia handles a plugin which knows about the "media" message class.
  *
  * @cond
- * $LicenseInfo:firstyear=2008&license=viewergpl$
- *
- * Copyright (c) 2008, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2008&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlife.com/developers/opensource/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at http://secondlife.com/developers/opensource/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  * @endcond
  */
@@ -79,6 +74,7 @@ bool LLPluginClassMedia::init(const std::string &launcher_filename, const std::s
 	
 	// Queue up the media init message -- it will be sent after all the currently queued messages.
 	LLPluginMessage message(LLPLUGIN_MESSAGE_CLASS_MEDIA, "init");
+	message.setValue("target", mTarget);
 	sendMessage(message);
 	
 	mPlugin->init(launcher_filename, plugin_filename, debug);
@@ -148,7 +144,7 @@ void LLPluginClassMedia::reset()
 	mProgressPercent = 0;	
 	mClickURL.clear();
 	mClickTarget.clear();
-	mClickTargetType = TARGET_NONE;
+	mClickUUID.clear();
 	
 	// media_time class
 	mCurrentTime = 0.0f;
@@ -674,6 +670,18 @@ F64 LLPluginClassMedia::getCPUUsage()
 	return result;
 }
 
+void LLPluginClassMedia::sendPickFileResponse(const std::string &file)
+{
+	LLPluginMessage message(LLPLUGIN_MESSAGE_CLASS_MEDIA, "pick_file_response");
+	message.setValue("file", file);
+	if(mPlugin->isBlocked())
+	{
+		// If the plugin sent a blocking pick-file request, the response should unblock it.
+		message.setValueBoolean("blocking_response", true);
+	}
+	sendMessage(message);
+}
+
 void LLPluginClassMedia::cut()
 {
 	LLPluginMessage message(LLPLUGIN_MESSAGE_CLASS_MEDIA, "edit_cut");
@@ -720,24 +728,9 @@ void LLPluginClassMedia::setJavascriptEnabled(const bool enabled)
 	sendMessage(message);
 }
 
-LLPluginClassMedia::ETargetType getTargetTypeFromLLQtWebkit(int target_type)
+void LLPluginClassMedia::setTarget(const std::string &target)
 {
-	// convert a LinkTargetType value from llqtwebkit to an ETargetType
-	// so that we don't expose the llqtwebkit header in viewer code
-	switch (target_type)
-	{
-	case LLQtWebKit::LTT_TARGET_NONE:
-		return LLPluginClassMedia::TARGET_NONE;
-
-	case LLQtWebKit::LTT_TARGET_BLANK:
-		return LLPluginClassMedia::TARGET_BLANK;
-
-	case LLQtWebKit::LTT_TARGET_EXTERNAL:
-		return LLPluginClassMedia::TARGET_EXTERNAL;
-
-	default:
-		return LLPluginClassMedia::TARGET_OTHER;
-	}
+	mTarget = target;
 }
 
 /* virtual */ 
@@ -950,6 +943,10 @@ void LLPluginClassMedia::receivePluginMessage(const LLPluginMessage &message)
 			mMediaName = message.getValue("name");
 			mediaEvent(LLPluginClassMediaOwner::MEDIA_EVENT_NAME_CHANGED);
 		}
+		else if(message_name == "pick_file")
+		{
+			mediaEvent(LLPluginClassMediaOwner::MEDIA_EVENT_PICK_FILE_REQUEST);
+		}
 		else
 		{
 			LL_WARNS("Plugin") << "Unknown " << message_name << " class message: " << message_name << LL_ENDL;
@@ -992,15 +989,13 @@ void LLPluginClassMedia::receivePluginMessage(const LLPluginMessage &message)
 		{
 			mClickURL = message.getValue("uri");
 			mClickTarget = message.getValue("target");
-			U32 target_type = message.getValueU32("target_type");
-			mClickTargetType = ::getTargetTypeFromLLQtWebkit(target_type);
+			mClickUUID = message.getValue("uuid");
 			mediaEvent(LLPluginClassMediaOwner::MEDIA_EVENT_CLICK_LINK_HREF);
 		}
 		else if(message_name == "click_nofollow")
 		{
 			mClickURL = message.getValue("uri");
 			mClickTarget.clear();
-			mClickTargetType = TARGET_NONE;
 			mediaEvent(LLPluginClassMediaOwner::MEDIA_EVENT_CLICK_LINK_NOFOLLOW);
 		}
 		else if(message_name == "cookie_set")
@@ -1009,6 +1004,20 @@ void LLPluginClassMedia::receivePluginMessage(const LLPluginMessage &message)
 			{
 				mOwner->handleCookieSet(this, message.getValue("cookie"));
 			}
+		}
+		else if(message_name == "close_request")
+		{
+			mediaEvent(LLPluginClassMediaOwner::MEDIA_EVENT_CLOSE_REQUEST);
+		}
+		else if(message_name == "geometry_change")
+		{
+			mClickUUID = message.getValue("uuid");
+			mGeometryX = message.getValueS32("x");
+			mGeometryY = message.getValueS32("y");
+			mGeometryWidth = message.getValueS32("width");
+			mGeometryHeight = message.getValueS32("height");
+				
+			mediaEvent(LLPluginClassMediaOwner::MEDIA_EVENT_GEOMETRY_CHANGE);
 		}
 		else
 		{
@@ -1160,6 +1169,25 @@ void LLPluginClassMedia::setBrowserUserAgent(const std::string& user_agent)
 	LLPluginMessage message(LLPLUGIN_MESSAGE_CLASS_MEDIA_BROWSER, "set_user_agent");
 
 	message.setValue("user_agent", user_agent);
+
+	sendMessage(message);
+}
+
+void LLPluginClassMedia::proxyWindowOpened(const std::string &target, const std::string &uuid)
+{
+	LLPluginMessage message(LLPLUGIN_MESSAGE_CLASS_MEDIA_BROWSER, "proxy_window_opened");
+
+	message.setValue("target", target);
+	message.setValue("uuid", uuid);
+
+	sendMessage(message);
+}
+
+void LLPluginClassMedia::proxyWindowClosed(const std::string &uuid)
+{
+	LLPluginMessage message(LLPLUGIN_MESSAGE_CLASS_MEDIA_BROWSER, "proxy_window_closed");
+
+	message.setValue("uuid", uuid);
 
 	sendMessage(message);
 }

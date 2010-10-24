@@ -38,7 +38,7 @@ if(WINDOWS)
         libapr-1.dll
         libaprutil-1.dll
         libapriconv-1.dll
-        libcollada14dom21.dll
+        libcollada14dom21-d.dll
         glod.dll
         )
 
@@ -59,9 +59,10 @@ if(WINDOWS)
       set(release_files ${release_files} libtcmalloc_minimal.dll)
     endif(USE_GOOGLE_PERFTOOLS)
 
-    if (FMOD_SDK_DIR)
-        set(fmod_files fmod.dll)
-    endif (FMOD_SDK_DIR)
+    if (FMOD)
+      set(debug_files ${debug_files} fmod.dll)
+      set(release_files ${release_files} fmod.dll)
+    endif (FMOD)
 
     #*******************************
     # LLKDU
@@ -169,7 +170,8 @@ elseif(DARWIN)
         libaprutil-1.dylib
         libexpat.0.5.0.dylib
         libexpat.dylib
-        libllqtwebkit.dylib
+        libGLOD.dylib
+	libllqtwebkit.dylib
         libndofdev.dylib
         libexception_handler.dylib
        )
@@ -225,6 +227,7 @@ elseif(LINUX)
         libcrypto.so.0.9.7
         libdb-4.2.so
         libexpat.so
+        libexpat.so.1
         libgmock_main.so
         libgmock.so.0
         libgmodule-2.0.so
@@ -235,14 +238,15 @@ elseif(LINUX)
         libopenjpeg.so
         libssl.so
         libstacktrace.so
-        libtcmalloc.so
+        libtcmalloc_minimal.so
+	libtcmalloc_minimal.so.0
         libuuid.so.1
         libssl.so.0.9.7
        )
 
-    if (FMOD_SDK_DIR)
-        set(fmod_files "libfmod-3.75.so")
-    endif (FMOD_SDK_DIR)
+    if (FMOD)
+      set(release_files ${release_files} "libfmod-3.75.so")
+    endif (FMOD)
 
     #*******************************
     # LLKDU
@@ -335,30 +339,6 @@ copy_if_different(
     ${release_files}
     )
 set(third_party_targets ${third_party_targets} ${out_targets})
-
-if (FMOD_SDK_DIR)
-    copy_if_different(
-        ${FMOD_SDK_DIR} 
-        "${CMAKE_CURRENT_BINARY_DIR}/Debug"
-        out_targets 
-        ${fmod_files}
-        )
-    set(all_targets ${all_targets} ${out_targets})
-    copy_if_different(
-        ${FMOD_SDK_DIR} 
-        "${CMAKE_CURRENT_BINARY_DIR}/Release"
-        out_targets 
-        ${fmod_files}
-        )
-    set(all_targets ${all_targets} ${out_targets})
-    copy_if_different(
-        ${FMOD_SDK_DIR} 
-        "${CMAKE_CURRENT_BINARY_DIR}/RelWithDbgInfo"
-        out_targets 
-        ${fmod_files}
-        )
-    set(all_targets ${all_targets} ${out_targets})
-endif (FMOD_SDK_DIR)
 
 #*******************************
 # LLKDU

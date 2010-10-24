@@ -47,6 +47,7 @@
 #include "llinventorymodelbackgroundfetch.h"
 #include "llinventorypanel.h"
 #include "lllandmarkactions.h"
+#include "llmenubutton.h"
 #include "llplacesinventorybridge.h"
 #include "llplacesinventorypanel.h"
 #include "llsidetray.h"
@@ -191,13 +192,14 @@ LLLandmarksPanel::LLLandmarksPanel()
 	,	mLibraryInventoryPanel(NULL)
 	,	mCurrentSelectedList(NULL)
 	,	mListCommands(NULL)
+	,	mGearButton(NULL)
 	,	mGearFolderMenu(NULL)
 	,	mGearLandmarkMenu(NULL)
 {
 	mInventoryObserver = new LLLandmarksPanelObserver(this);
 	gInventory.addObserver(mInventoryObserver);
 
-	LLUICtrlFactory::getInstance()->buildPanel(this, "panel_landmarks.xml");
+	buildFromFile( "panel_landmarks.xml");
 }
 
 LLLandmarksPanel::~LLLandmarksPanel()
@@ -685,7 +687,9 @@ void LLLandmarksPanel::initListCommandsHandlers()
 {
 	mListCommands = getChild<LLPanel>("bottom_panel");
 
-	mListCommands->childSetAction(OPTIONS_BUTTON_NAME, boost::bind(&LLLandmarksPanel::onActionsButtonClick, this));
+	mGearButton = getChild<LLMenuButton>(OPTIONS_BUTTON_NAME);
+	mGearButton->setMouseDownCallback(boost::bind(&LLLandmarksPanel::onActionsButtonClick, this));
+
 	mListCommands->childSetAction(TRASH_BUTTON_NAME, boost::bind(&LLLandmarksPanel::onTrashButtonClick, this));
 
 	LLDragAndDropButton* trash_btn = mListCommands->getChild<LLDragAndDropButton>(TRASH_BUTTON_NAME);
@@ -741,7 +745,7 @@ void LLLandmarksPanel::onActionsButtonClick()
 		}
 	}
 
-	showActionMenu(menu,OPTIONS_BUTTON_NAME);
+	mGearButton->setMenu(menu);
 }
 
 void LLLandmarksPanel::showActionMenu(LLMenuGL* menu, std::string spawning_view_name)
@@ -750,7 +754,10 @@ void LLLandmarksPanel::showActionMenu(LLMenuGL* menu, std::string spawning_view_
 	{
 		menu->buildDrawLabels();
 		menu->updateParent(LLMenuGL::sMenuContainer);
-		LLView* spawning_view = getChild<LLView> (spawning_view_name);
+		menu->arrangeAndClear();
+
+		LLView* spawning_view = getChild<LLView>(spawning_view_name);
+
 		S32 menu_x, menu_y;
 		//show menu in co-ordinates of panel
 		spawning_view->localPointToOtherView(0, spawning_view->getRect().getHeight(), &menu_x, &menu_y, this);
@@ -965,12 +972,32 @@ bool LLLandmarksPanel::isActionEnabled(const LLSD& userdata) const
 			|| "expand"		== command_name
 			)
 	{
-		return canSelectedBeModified(command_name);
+		if (!root_folder_view) return false;
+
+		std::set<LLUUID> selected_uuids = root_folder_view->getSelectionList();
+
+		// Allow to execute the command only if it can be applied to all selected items.
+		for (std::set<LLUUID>::const_iterator iter = selected_uuids.begin(); iter != selected_uuids.end(); ++iter)
+		{
+			LLFolderViewItem* item = root_folder_view->getItemByID(*iter);
+
+			// If no item is found it might be a folder id.
+			if (!item)
+			{
+				item = root_folder_view->getFolderByID(*iter);
+			}
+			if (!item) return false;
+
+			if (!canItemBeModified(command_name, item)) return false;
+		}
+
+		return true;
 	}
 	else if (  "teleport"		== command_name
 			|| "more_info"		== command_name
 			|| "show_on_map"	== command_name
 			|| "copy_slurl"		== command_name
+			|| "rename"			== command_name
 			)
 	{
 		// disable some commands for multi-selection. EXT-1757
@@ -993,13 +1020,16 @@ bool LLLandmarksPanel::isActionEnabled(const LLSD& userdata) const
 
 			// Disable "Show on Map" if landmark loading is in progress.
 			return !gLandmarkList.isAssetInLoadedCallbackMap(asset_uuid);
-		}
-
-		return true;
 	}
 	else if ("rename" == command_name)
 	{
-		return root_folder_view && root_folder_view->getSelectedCount() == 1 && canSelectedBeModified(command_name);
+			LLFolderViewItem* selected_item = getCurSelectedItem();
+			if (!selected_item) return false;
+
+			return canItemBeModified(command_name, selected_item);
+		}
+
+		return true;
 	}
 	else if("category" == command_name)
 	{
@@ -1065,12 +1095,11 @@ Rules:
  4. We can not paste folders from Clipboard (processed by LLFolderView::canPaste())
  5. Check LLFolderView/Inventory Bridges rules
  */
-bool LLLandmarksPanel::canSelectedBeModified(const std::string& command_name) const
+bool LLLandmarksPanel::canItemBeModified(const std::string& command_name, LLFolderViewItem* item) const
 {
 	// validate own rules first
 
-	LLFolderViewItem* selected = getCurSelectedItem();
-	if (!selected) return false;
+	if (!item) return false;
 
 	// nothing can be modified in Library
 	if (mLibraryInventoryPanel == mCurrentSelectedList) return false;
@@ -1078,7 +1107,7 @@ bool LLLandmarksPanel::canSelectedBeModified(const std::string& command_name) co
 	bool can_be_modified = false;
 
 	// landmarks can be modified in any other accordion...
-	if (isLandmarkSelected())
+	if (item->getListener()->getInventoryType() == LLInventoryType::IT_LANDMARK)
 	{
 		can_be_modified = true;
 
@@ -1107,16 +1136,16 @@ bool LLLandmarksPanel::canSelectedBeModified(const std::string& command_name) co
 	}
 	else if ("collapse" == command_name)
 	{
-		return selected->isOpen();
+		return item->isOpen();
 	}
 	else if ("expand" == command_name)
 	{
-		return !selected->isOpen();
+		return !item->isOpen();
 	}
 
 	if (can_be_modified)
 	{
-		LLFolderViewEventListener* listenerp = selected->getListener();
+		LLFolderViewEventListener* listenerp = item->getListener();
 
 		if ("cut" == command_name)
 		{
@@ -1223,7 +1252,12 @@ void LLLandmarksPanel::doProcessParcelInfo(LLLandmark* landmark,
 	landmark->getGlobalPos(landmark_global_pos);
 
 	// let's toggle pick panel into  panel places
-	LLPanel* panel_places =  LLSideTray::getInstance()->getChild<LLPanel>("panel_places");//-> sidebar_places
+	LLPanel* panel_places =  LLSideTray::getInstance()->getPanel("panel_places");//-> sidebar_places
+	if (!panel_places)
+	{
+		llassert(NULL != panel_places);
+		return;
+	}
 	panel_places->addChild(panel_pick);
 	LLRect paren_rect(panel_places->getRect());
 	panel_pick->reshape(paren_rect.getWidth(),paren_rect.getHeight(), TRUE);

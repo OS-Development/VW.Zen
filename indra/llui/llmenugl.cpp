@@ -2,31 +2,25 @@
  * @file llmenugl.cpp
  * @brief LLMenuItemGL base class
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
-  *
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -77,10 +71,6 @@ S32 MENU_BAR_WIDTH = 0;
 /// Local function declarations, constants, enums, and typedefs
 ///============================================================================
 
-const std::string SEPARATOR_NAME("separator");
-const std::string SEPARATOR_LABEL( "-----------" );
-const std::string VERTICAL_SEPARATOR_LABEL( "|" );
-
 const S32 LABEL_BOTTOM_PAD_PIXELS = 2;
 
 const U32 LEFT_PAD_PIXELS = 3;
@@ -99,10 +89,14 @@ const U32 SEPARATOR_HEIGHT_PIXELS = 8;
 const S32 TEAROFF_SEPARATOR_HEIGHT_PIXELS = 10;
 const S32 MENU_ITEM_PADDING = 4;
 
-const std::string BOOLEAN_TRUE_PREFIX( "\xE2\x9C\x94" ); // U+2714 HEAVY CHECK MARK
-const std::string BRANCH_SUFFIX( "\xE2\x96\xB6" ); // U+25B6 BLACK RIGHT-POINTING TRIANGLE
-const std::string ARROW_UP  ("^^^^^^^");
-const std::string ARROW_DOWN("vvvvvvv");
+const std::string SEPARATOR_NAME("separator");
+const std::string SEPARATOR_LABEL( "-----------" );
+const std::string VERTICAL_SEPARATOR_LABEL( "|" );
+
+const std::string LLMenuGL::BOOLEAN_TRUE_PREFIX( "\xE2\x9C\x94" ); // U+2714 HEAVY CHECK MARK
+const std::string LLMenuGL::BRANCH_SUFFIX( "\xE2\x96\xB6" ); // U+25B6 BLACK RIGHT-POINTING TRIANGLE
+const std::string LLMenuGL::ARROW_UP  ("^^^^^^^");
+const std::string LLMenuGL::ARROW_DOWN("vvvvvvv");
 
 const F32 MAX_MOUSE_SLOPE_SUB_MENU = 0.9f;
 
@@ -921,7 +915,7 @@ void LLMenuItemCheckGL::setValue(const LLSD& value)
 	LLUICtrl::setValue(value);
 	if(value.asBoolean())
 	{
-		mDrawBoolLabel = BOOLEAN_TRUE_PREFIX;
+		mDrawBoolLabel = LLMenuGL::BOOLEAN_TRUE_PREFIX;
 	}
 	else
 	{
@@ -954,7 +948,7 @@ void LLMenuItemCheckGL::buildDrawLabel( void )
 	}
 	if(getValue().asBoolean())
 	{
-		mDrawBoolLabel = BOOLEAN_TRUE_PREFIX;
+		mDrawBoolLabel = LLMenuGL::BOOLEAN_TRUE_PREFIX;
 	}
 	else
 	{
@@ -1064,7 +1058,7 @@ void LLMenuItemBranchGL::buildDrawLabel( void )
 	std::string st = mDrawAccelLabel;
 	appendAcceleratorString( st );
 	mDrawAccelLabel = st;
-	mDrawBranchLabel = BRANCH_SUFFIX;
+	mDrawBranchLabel = LLMenuGL::BRANCH_SUFFIX;
 }
 
 void LLMenuItemBranchGL::onCommit( void )
@@ -1854,89 +1848,104 @@ BOOL LLMenuGL::isOpen()
 	}
 }
 
-void LLMenuGL::scrollItemsUp()
+
+
+bool LLMenuGL::scrollItems(EScrollingDirection direction)
 {
-	// Slowing down the items scrolling when arrow button is held 
+	// Slowing down items scrolling when arrow button is held
 	if (mScrollItemsTimer.hasExpired() && NULL != mFirstVisibleItem)
 	{
 		mScrollItemsTimer.setTimerExpirySec(.033f);
 	}
 	else
 	{
-		return;
+		return false;
 	}
 
-	item_list_t::iterator cur_item_iter;
-	item_list_t::iterator prev_item_iter;
-	for (cur_item_iter = mItems.begin(), prev_item_iter = mItems.begin(); cur_item_iter != mItems.end(); cur_item_iter++)
+	switch (direction)
 	{
-		if( (*cur_item_iter) == mFirstVisibleItem)
+	case SD_UP:
+	{
+		item_list_t::iterator cur_item_iter;
+		item_list_t::iterator prev_item_iter;
+		for (cur_item_iter = mItems.begin(), prev_item_iter = mItems.begin(); cur_item_iter != mItems.end(); cur_item_iter++)
 		{
-			break;
+			if( (*cur_item_iter) == mFirstVisibleItem)
+			{
+				break;
+			}
+			if ((*cur_item_iter)->getVisible())
+			{
+				prev_item_iter = cur_item_iter;
+			}
 		}
-		if ((*cur_item_iter)->getVisible())
+
+		if ((*prev_item_iter)->getVisible())
 		{
-			prev_item_iter = cur_item_iter;
+			mFirstVisibleItem = *prev_item_iter;
 		}
+		break;
 	}
-
-	if ((*prev_item_iter)->getVisible())
+	case SD_DOWN:
 	{
-		mFirstVisibleItem = *prev_item_iter;
-	}
-	
-	mNeedsArrange = TRUE;
-	arrangeAndClear();
-}
-
-void LLMenuGL::scrollItemsDown()
-{
-	// Slowing down the items scrolling when arrow button is held 
-	if (mScrollItemsTimer.hasExpired())
-	{
-		mScrollItemsTimer.setTimerExpirySec(.033f);
-	}
-	else
-	{
-		return;
-	}
-	
-	if (NULL == mFirstVisibleItem)
-	{
-		mFirstVisibleItem = *mItems.begin();
-	}
-
-	item_list_t::iterator cur_item_iter;
-	
-	for (cur_item_iter = mItems.begin(); cur_item_iter != mItems.end(); cur_item_iter++)
-	{
-		if( (*cur_item_iter) == mFirstVisibleItem)
+		if (NULL == mFirstVisibleItem)
 		{
-			break;
+			mFirstVisibleItem = *mItems.begin();
 		}
-	}
 
-	item_list_t::iterator next_item_iter;
+		item_list_t::iterator cur_item_iter;
 
-	if (cur_item_iter != mItems.end())
-	{
-		for (next_item_iter = ++cur_item_iter; next_item_iter != mItems.end(); next_item_iter++)
+		for (cur_item_iter = mItems.begin(); cur_item_iter != mItems.end(); cur_item_iter++)
 		{
-			if( (*next_item_iter)->getVisible())
+			if( (*cur_item_iter) == mFirstVisibleItem)
 			{
 				break;
 			}
 		}
-		
-		if (next_item_iter != mItems.end() &&
-		    (*next_item_iter)->getVisible())
+
+		item_list_t::iterator next_item_iter;
+
+		if (cur_item_iter != mItems.end())
 		{
-			mFirstVisibleItem = *next_item_iter;
+			for (next_item_iter = ++cur_item_iter; next_item_iter != mItems.end(); next_item_iter++)
+			{
+				if( (*next_item_iter)->getVisible())
+				{
+					break;
+				}
+			}
+
+			if (next_item_iter != mItems.end() &&
+				(*next_item_iter)->getVisible())
+			{
+				mFirstVisibleItem = *next_item_iter;
+			}
 		}
+		break;
 	}
-	
+	case SD_BEGIN:
+	{
+		mFirstVisibleItem = *mItems.begin();
+		break;
+	}
+	case SD_END:
+	{
+		item_list_t::reverse_iterator first_visible_item_iter = mItems.rend();
+
+		// Advance by mMaxScrollableItems back from the end of the list
+		// to make the last item visible.
+		std::advance(first_visible_item_iter, mMaxScrollableItems);
+		mFirstVisibleItem = *first_visible_item_iter;
+		break;
+	}
+	default:
+		llwarns << "Unknown scrolling direction: " << direction << llendl;
+	}
+
 	mNeedsArrange = TRUE;
 	arrangeAndClear();
+
+	return true;
 }
 
 // rearrange the child rects so they fit the shape of the menu.
@@ -2168,7 +2177,7 @@ void LLMenuGL::arrange( void )
 					LLMenuScrollItem::Params item_params;
 					item_params.name(ARROW_UP);
 					item_params.arrow_type(LLMenuScrollItem::ARROW_UP);
-					item_params.scroll_callback.function(boost::bind(&LLMenuGL::scrollItemsUp, this));
+					item_params.scroll_callback.function(boost::bind(&LLMenuGL::scrollItems, this, SD_UP));
 
 					mArrowUpItem = LLUICtrlFactory::create<LLMenuScrollItem>(item_params);
 					LLUICtrl::addChild(mArrowUpItem);
@@ -2179,7 +2188,7 @@ void LLMenuGL::arrange( void )
 					LLMenuScrollItem::Params item_params;
 					item_params.name(ARROW_DOWN);
 					item_params.arrow_type(LLMenuScrollItem::ARROW_DOWN);
-					item_params.scroll_callback.function(boost::bind(&LLMenuGL::scrollItemsDown, this));
+					item_params.scroll_callback.function(boost::bind(&LLMenuGL::scrollItems, this, SD_DOWN));
 
 					mArrowDownItem = LLUICtrlFactory::create<LLMenuScrollItem>(item_params);
 					LLUICtrl::addChild(mArrowDownItem);				
@@ -2609,14 +2618,8 @@ LLMenuItemGL* LLMenuGL::highlightNextItem(LLMenuItemGL* cur_item, BOOL skip_disa
 		((LLFloater*)getParent())->setFocus(TRUE);
 	}
 
-	item_list_t::iterator cur_item_iter;
-	for (cur_item_iter = mItems.begin(); cur_item_iter != mItems.end(); ++cur_item_iter)
-	{
-		if( (*cur_item_iter) == cur_item)
-		{
-			break;
-		}
-	}
+	// Current item position in the items list
+	item_list_t::iterator cur_item_iter = std::find(mItems.begin(), mItems.end(), cur_item);
 
 	item_list_t::iterator next_item_iter;
 	if (cur_item_iter == mItems.end())
@@ -2627,9 +2630,37 @@ LLMenuItemGL* LLMenuGL::highlightNextItem(LLMenuItemGL* cur_item, BOOL skip_disa
 	{
 		next_item_iter = cur_item_iter;
 		next_item_iter++;
+
+		// First visible item position in the items list
+		item_list_t::iterator first_visible_item_iter = std::find(mItems.begin(), mItems.end(), mFirstVisibleItem);
+
 		if (next_item_iter == mItems.end())
 		{
 			next_item_iter = mItems.begin();
+
+			// If current item is the last in the list, the menu is scrolled to the beginning
+			// and the first item is highlighted.
+			if (mScrollable && !scrollItems(SD_BEGIN))
+			{
+				return NULL;
+			}
+		}
+		// If current item is the last visible, the menu is scrolled one item down
+		// and the next item is highlighted.
+		else if (mScrollable &&
+				 (U32)std::abs(std::distance(first_visible_item_iter, next_item_iter)) >= mMaxScrollableItems)
+		{
+			// Call highlightNextItem() recursively only if the menu was successfully scrolled down.
+			// If scroll timer hasn't expired yet the menu won't be scrolled and calling
+			// highlightNextItem() will result in an endless recursion.
+			if (scrollItems(SD_DOWN))
+			{
+				return highlightNextItem(cur_item, skip_disabled);
+			}
+			else
+			{
+				return NULL;
+			}
 		}
 	}
 
@@ -2687,14 +2718,8 @@ LLMenuItemGL* LLMenuGL::highlightPrevItem(LLMenuItemGL* cur_item, BOOL skip_disa
 		((LLFloater*)getParent())->setFocus(TRUE);
 	}
 
-	item_list_t::reverse_iterator cur_item_iter;
-	for (cur_item_iter = mItems.rbegin(); cur_item_iter != mItems.rend(); ++cur_item_iter)
-	{
-		if( (*cur_item_iter) == cur_item)
-		{
-			break;
-		}
-	}
+	// Current item reverse position from the end of the list
+	item_list_t::reverse_iterator cur_item_iter = std::find(mItems.rbegin(), mItems.rend(), cur_item);
 
 	item_list_t::reverse_iterator prev_item_iter;
 	if (cur_item_iter == mItems.rend())
@@ -2705,9 +2730,37 @@ LLMenuItemGL* LLMenuGL::highlightPrevItem(LLMenuItemGL* cur_item, BOOL skip_disa
 	{
 		prev_item_iter = cur_item_iter;
 		prev_item_iter++;
+
+		// First visible item reverse position in the items list
+		item_list_t::reverse_iterator first_visible_item_iter = std::find(mItems.rbegin(), mItems.rend(), mFirstVisibleItem);
+
 		if (prev_item_iter == mItems.rend())
 		{
 			prev_item_iter = mItems.rbegin();
+
+			// If current item is the first in the list, the menu is scrolled to the end
+			// and the last item is highlighted.
+			if (mScrollable && !scrollItems(SD_END))
+			{
+				return NULL;
+			}
+		}
+		// If current item is the first visible, the menu is scrolled one item up
+		// and the previous item is highlighted.
+		else if (mScrollable &&
+				 std::distance(first_visible_item_iter, cur_item_iter) <= 0)
+		{
+			// Call highlightNextItem() only if the menu was successfully scrolled up.
+			// If scroll timer hasn't expired yet the menu won't be scrolled and calling
+			// highlightNextItem() will result in an endless recursion.
+			if (scrollItems(SD_UP))
+			{
+				return highlightPrevItem(cur_item, skip_disabled);
+			}
+			else
+			{
+				return NULL;
+			}
 		}
 	}
 
@@ -2878,12 +2931,12 @@ BOOL LLMenuGL::handleScrollWheel( S32 x, S32 y, S32 clicks )
 	if( clicks > 0 )
 	{
 		while( clicks-- )
-			scrollItemsDown();
+			scrollItems(SD_DOWN);
 	}
 	else
 	{
 		while( clicks++ )
-			scrollItemsUp();
+			scrollItems(SD_UP);
 	}
 
 	return TRUE;
@@ -3744,8 +3797,7 @@ void LLContextMenuBranch::buildDrawLabel( void )
 	appendAcceleratorString( st );
 	mDrawAccelLabel = st;
 	
-	// No special branch suffix
-	mDrawBranchLabel.clear();
+	mDrawBranchLabel = LLMenuGL::BRANCH_SUFFIX;
 }
 
 void	LLContextMenuBranch::showSubMenu()

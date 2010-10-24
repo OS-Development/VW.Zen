@@ -75,7 +75,40 @@ void LLItemPropertiesObserver::changed(U32 mask)
 	}
 }
 
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Class LLObjectInventoryObserver
+//
+// Helper class to watch for changes in an object inventory.
+// Used to update item properties in LLSidepanelItemInfo.
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+class LLObjectInventoryObserver : public LLVOInventoryListener
+{
+public:
+	LLObjectInventoryObserver(LLSidepanelItemInfo* floater, LLViewerObject* object)
+		: mFloater(floater)
+	{
+		registerVOInventoryListener(object, NULL);
+	}
+	virtual ~LLObjectInventoryObserver()
+	{
+		removeVOInventoryListener();
+	}
+	/*virtual*/ void inventoryChanged(LLViewerObject* object,
+									  LLInventoryObject::object_list_t* inventory,
+									  S32 serial_num,
+									  void* user_data);
+private:
+	LLSidepanelItemInfo* mFloater;
+};
 
+/*virtual*/
+void LLObjectInventoryObserver::inventoryChanged(LLViewerObject* object,
+												 LLInventoryObject::object_list_t* inventory,
+												 S32 serial_num,
+												 void* user_data)
+{
+	mFloater->dirty();
+}
 
 ///----------------------------------------------------------------------------
 /// Class LLSidepanelItemInfo
@@ -86,10 +119,9 @@ static LLRegisterPanelClassWrapper<LLSidepanelItemInfo> t_item_info("sidepanel_i
 // Default constructor
 LLSidepanelItemInfo::LLSidepanelItemInfo()
   : mItemID(LLUUID::null)
+  , mObjectInventoryObserver(NULL)
 {
 	mPropertiesObserver = new LLItemPropertiesObserver(this);
-	
-	//LLUICtrlFactory::getInstance()->buildFloater(this,"floater_inventory_item_properties.xml");
 }
 
 // Destroys the object
@@ -97,6 +129,8 @@ LLSidepanelItemInfo::~LLSidepanelItemInfo()
 {
 	delete mPropertiesObserver;
 	mPropertiesObserver = NULL;
+
+	stopObjectInventoryObserver();
 }
 
 // virtual
@@ -134,6 +168,10 @@ BOOL LLSidepanelItemInfo::postBuild()
 void LLSidepanelItemInfo::setObjectID(const LLUUID& object_id)
 {
 	mObjectID = object_id;
+
+	// Start monitoring changes in the object inventory to update
+	// selected inventory item properties in Item Profile panel. See STORM-148.
+	startObjectInventoryObserver();
 }
 
 void LLSidepanelItemInfo::setItemID(const LLUUID& item_id)
@@ -147,6 +185,8 @@ void LLSidepanelItemInfo::reset()
 
 	mObjectID = LLUUID::null;
 	mItemID = LLUUID::null;
+
+	stopObjectInventoryObserver();
 }
 
 void LLSidepanelItemInfo::refresh()
@@ -275,11 +315,12 @@ void LLSidepanelItemInfo::refreshFromItem(LLViewerInventoryItem* item)
 
 	if (item->getCreatorUUID().notNull())
 	{
-		std::string name;
-		gCacheName->getFullName(item->getCreatorUUID(), name);
+		LLUUID creator_id = item->getCreatorUUID();
+		std::string name =
+			LLSLURL("agent", creator_id, "completename").getSLURLString();
 		getChildView("BtnCreator")->setEnabled(TRUE);
 		getChildView("LabelCreatorTitle")->setEnabled(TRUE);
-		getChildView("LabelCreatorName")->setEnabled(TRUE);
+		getChildView("LabelCreatorName")->setEnabled(FALSE);
 		getChild<LLUICtrl>("LabelCreatorName")->setValue(name);
 	}
 	else
@@ -302,11 +343,12 @@ void LLSidepanelItemInfo::refreshFromItem(LLViewerInventoryItem* item)
 		}
 		else
 		{
-			gCacheName->getFullName(perm.getOwner(), name);
+			LLUUID owner_id = perm.getOwner();
+			name = LLSLURL("agent", owner_id, "completename").getSLURLString();
 		}
 		getChildView("BtnOwner")->setEnabled(TRUE);
 		getChildView("LabelOwnerTitle")->setEnabled(TRUE);
-		getChildView("LabelOwnerName")->setEnabled(TRUE);
+		getChildView("LabelOwnerName")->setEnabled(FALSE);
 		getChild<LLUICtrl>("LabelOwnerName")->setValue(name);
 	}
 	else
@@ -598,6 +640,33 @@ void LLSidepanelItemInfo::refreshFromItem(LLViewerInventoryItem* item)
 	{
 		getChild<LLUICtrl>("Edit Cost")->setValue(llformat("%d",0));
 	}
+}
+
+void LLSidepanelItemInfo::startObjectInventoryObserver()
+{
+	if (!mObjectInventoryObserver)
+	{
+		stopObjectInventoryObserver();
+
+		// Previous object observer should be removed before starting to observe a new object.
+		llassert(mObjectInventoryObserver == NULL);
+	}
+
+	if (mObjectID.isNull())
+	{
+		llwarns << "Empty object id passed to inventory observer" << llendl;
+		return;
+	}
+
+	LLViewerObject* object = gObjectList.findObject(mObjectID);
+
+	mObjectInventoryObserver = new LLObjectInventoryObserver(this, object);
+}
+
+void LLSidepanelItemInfo::stopObjectInventoryObserver()
+{
+	delete mObjectInventoryObserver;
+	mObjectInventoryObserver = NULL;
 }
 
 void LLSidepanelItemInfo::onClickCreator()

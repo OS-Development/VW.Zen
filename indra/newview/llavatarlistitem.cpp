@@ -2,31 +2,25 @@
  * @file llavatarlistitem.cpp
  * @brief avatar list item source file
  *
- * $LicenseInfo:firstyear=2009&license=viewergpl$
- * 
- * Copyright (c) 2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2009&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -41,6 +35,7 @@
 #include "lltextutil.h"
 
 #include "llagent.h"
+#include "llavatarnamecache.h"
 #include "llavatariconctrl.h"
 #include "lloutputmonitorctrl.h"
 
@@ -66,16 +61,22 @@ LLAvatarListItem::LLAvatarListItem(bool not_from_ui_factory/* = true*/)
 	mAvatarIcon(NULL),
 	mAvatarName(NULL),
 	mLastInteractionTime(NULL),
+	mIconPermissionOnline(NULL),
+	mIconPermissionMap(NULL),
+	mIconPermissionEditMine(NULL),
+	mIconPermissionEditTheirs(NULL),
 	mSpeakingIndicator(NULL),
 	mInfoBtn(NULL),
 	mProfileBtn(NULL),
 	mOnlineStatus(E_UNKNOWN),
 	mShowInfoBtn(true),
-	mShowProfileBtn(true)
+	mShowProfileBtn(true),
+	mShowPermissions(false),
+	mHovered(false)
 {
 	if (not_from_ui_factory)
 	{
-		LLUICtrlFactory::getInstance()->buildPanel(this, "panel_avatar_list_item.xml");
+		buildFromFile("panel_avatar_list_item.xml");
 	}
 	// *NOTE: mantipov: do not use any member here. They can be uninitialized here in case instance
 	// is created from the UICtrlFactory
@@ -92,7 +93,16 @@ BOOL  LLAvatarListItem::postBuild()
 	mAvatarIcon = getChild<LLAvatarIconCtrl>("avatar_icon");
 	mAvatarName = getChild<LLTextBox>("avatar_name");
 	mLastInteractionTime = getChild<LLTextBox>("last_interaction");
-	
+
+	mIconPermissionOnline = getChild<LLIconCtrl>("permission_online_icon");
+	mIconPermissionMap = getChild<LLIconCtrl>("permission_map_icon");
+	mIconPermissionEditMine = getChild<LLIconCtrl>("permission_edit_mine_icon");
+	mIconPermissionEditTheirs = getChild<LLIconCtrl>("permission_edit_theirs_icon");
+	mIconPermissionOnline->setVisible(false);
+	mIconPermissionMap->setVisible(false);
+	mIconPermissionEditMine->setVisible(false);
+	mIconPermissionEditTheirs->setVisible(false);
+
 	mSpeakingIndicator = getChild<LLOutputMonitorCtrl>("speaking_indicator");
 	mInfoBtn = getChild<LLButton>("info_btn");
 	mProfileBtn = getChild<LLButton>("profile_btn");
@@ -131,8 +141,10 @@ void LLAvatarListItem::onMouseEnter(S32 x, S32 y, MASK mask)
 	mInfoBtn->setVisible(mShowInfoBtn);
 	mProfileBtn->setVisible(mShowProfileBtn);
 
+	mHovered = true;
 	LLPanel::onMouseEnter(x, y, mask);
 
+	showPermissions(mShowPermissions);
 	updateChildren();
 }
 
@@ -142,8 +154,10 @@ void LLAvatarListItem::onMouseLeave(S32 x, S32 y, MASK mask)
 	mInfoBtn->setVisible(false);
 	mProfileBtn->setVisible(false);
 
+	mHovered = false;
 	LLPanel::onMouseLeave(x, y, mask);
 
+	showPermissions(false);
 	updateChildren();
 }
 
@@ -152,6 +166,12 @@ void LLAvatarListItem::changed(U32 mask)
 {
 	// no need to check mAvatarId for null in this case
 	setOnline(LLAvatarTracker::instance().isBuddyOnline(mAvatarId));
+
+	if (mask & LLFriendObserver::POWERS)
+	{
+		showPermissions(mShowPermissions && mHovered);
+		updateChildren();
+	}
 }
 
 void LLAvatarListItem::setOnline(bool online)
@@ -167,9 +187,14 @@ void LLAvatarListItem::setOnline(bool online)
 	setState(online ? IS_ONLINE : IS_OFFLINE);
 }
 
-void LLAvatarListItem::setName(const std::string& name)
+void LLAvatarListItem::setAvatarName(const std::string& name)
 {
 	setNameInternal(name, mHighlihtSubstring);
+}
+
+void LLAvatarListItem::setAvatarToolTip(const std::string& tooltip)
+{
+	mAvatarName->setToolTip(tooltip);
 }
 
 void LLAvatarListItem::setHighlight(const std::string& highlight)
@@ -230,16 +255,14 @@ void LLAvatarListItem::setAvatarId(const LLUUID& id, const LLUUID& session_id, b
 		mAvatarIcon->setValue(id);
 
 		// Set avatar name.
-		gCacheName->get(id, FALSE, boost::bind(&LLAvatarListItem::onNameCache, this, _2, _3));
+		LLAvatarNameCache::get(id,
+			boost::bind(&LLAvatarListItem::onAvatarNameCache, this, _2));
 	}
 }
 
 void LLAvatarListItem::showLastInteractionTime(bool show)
 {
-	if (show)
-		return;
-
-	mLastInteractionTime->setVisible(false);
+	mLastInteractionTime->setVisible(show);
 	updateChildren();
 }
 
@@ -250,17 +273,11 @@ void LLAvatarListItem::setLastInteractionTime(U32 secs_since)
 
 void LLAvatarListItem::setShowInfoBtn(bool show)
 {
-	// Already done? Then do nothing.
-	if(mShowInfoBtn == show)
-		return;
 	mShowInfoBtn = show;
 }
 
 void LLAvatarListItem::setShowProfileBtn(bool show)
 {
-	// Already done? Then do nothing.
-	if(mShowProfileBtn == show)
-			return;
 	mShowProfileBtn = show;
 }
 
@@ -279,7 +296,9 @@ void LLAvatarListItem::setAvatarIconVisible(bool visible)
 {
 	// Already done? Then do nothing.
 	if (mAvatarIcon->getVisible() == (BOOL)visible)
+	{
 		return;
+	}
 
 	// Show/hide avatar icon.
 	mAvatarIcon->setVisible(visible);
@@ -323,9 +342,20 @@ const LLUUID& LLAvatarListItem::getAvatarId() const
 	return mAvatarId;
 }
 
-const std::string LLAvatarListItem::getAvatarName() const
+std::string LLAvatarListItem::getAvatarName() const
 {
 	return mAvatarName->getValue();
+}
+
+std::string LLAvatarListItem::getAvatarToolTip() const
+{
+	return mAvatarName->getToolTip();
+}
+
+void LLAvatarListItem::updateAvatarName()
+{
+	LLAvatarNameCache::get(getAvatarId(),
+			boost::bind(&LLAvatarListItem::onAvatarNameCache, this, _2));
 }
 
 //== PRIVATE SECITON ==========================================================
@@ -333,13 +363,12 @@ const std::string LLAvatarListItem::getAvatarName() const
 void LLAvatarListItem::setNameInternal(const std::string& name, const std::string& highlight)
 {
 	LLTextUtil::textboxSetHighlightedVal(mAvatarName, mAvatarNameStyle, name, highlight);
-	mAvatarName->setToolTip(name);
 }
 
-void LLAvatarListItem::onNameCache(const std::string& first_name, const std::string& last_name)
+void LLAvatarListItem::onAvatarNameCache(const LLAvatarName& av_name)
 {
-	std::string name = first_name + " " + last_name;
-	setName(name);
+	setAvatarName(av_name.mDisplayName);
+	setAvatarToolTip(av_name.mUsername);
 
 	//requesting the list to resort
 	notifyParent(LLSD().with("sort", LLSD()));
@@ -438,10 +467,22 @@ void LLAvatarListItem::initChildrenWidths(LLAvatarListItem* avatar_item)
 	//info btn width + padding
 	S32 info_btn_width = avatar_item->mProfileBtn->getRect().mLeft - avatar_item->mInfoBtn->getRect().mLeft;
 
-	// last interaction time textbox width + padding
-	S32 last_interaction_time_width = avatar_item->mInfoBtn->getRect().mLeft - avatar_item->mLastInteractionTime->getRect().mLeft;
+	// online permission icon width + padding
+	S32 permission_online_width = avatar_item->mInfoBtn->getRect().mLeft - avatar_item->mIconPermissionOnline->getRect().mLeft;
 
-	// icon width + padding
+	// map permission icon width + padding
+	S32 permission_map_width = avatar_item->mIconPermissionOnline->getRect().mLeft - avatar_item->mIconPermissionMap->getRect().mLeft;
+
+	// edit my objects permission icon width + padding
+	S32 permission_edit_mine_width = avatar_item->mIconPermissionMap->getRect().mLeft - avatar_item->mIconPermissionEditMine->getRect().mLeft;
+
+	// edit their objects permission icon width + padding
+	S32 permission_edit_theirs_width = avatar_item->mIconPermissionEditMine->getRect().mLeft - avatar_item->mIconPermissionEditTheirs->getRect().mLeft;
+
+	// last interaction time textbox width + padding
+	S32 last_interaction_time_width = avatar_item->mIconPermissionEditTheirs->getRect().mLeft - avatar_item->mLastInteractionTime->getRect().mLeft;
+
+	// avatar icon width + padding
 	S32 icon_width = avatar_item->mAvatarName->getRect().mLeft - avatar_item->mAvatarIcon->getRect().mLeft;
 
 	sLeftPadding = avatar_item->mAvatarIcon->getRect().mLeft;
@@ -451,9 +492,14 @@ void LLAvatarListItem::initChildrenWidths(LLAvatarListItem* avatar_item)
 	sChildrenWidths[--index] = icon_width;
 	sChildrenWidths[--index] = 0; // for avatar name we don't need its width, it will be calculated as "left available space"
 	sChildrenWidths[--index] = last_interaction_time_width;
+	sChildrenWidths[--index] = permission_edit_theirs_width;
+	sChildrenWidths[--index] = permission_edit_mine_width;
+	sChildrenWidths[--index] = permission_map_width;
+	sChildrenWidths[--index] = permission_online_width;
 	sChildrenWidths[--index] = info_btn_width;
 	sChildrenWidths[--index] = profile_btn_width;
 	sChildrenWidths[--index] = speaking_indicator_width;
+	llassert(index == 0);
 }
 
 void LLAvatarListItem::updateChildren()
@@ -532,6 +578,27 @@ void LLAvatarListItem::updateChildren()
 	LL_DEBUGS("AvatarItemReshape") << "name rect after: " << name_view_rect << LL_ENDL;
 }
 
+bool LLAvatarListItem::showPermissions(bool visible)
+{
+	const LLRelationship* relation = LLAvatarTracker::instance().getBuddyInfo(getAvatarId());
+	if(relation && visible)
+	{
+		mIconPermissionOnline->setVisible(relation->isRightGrantedTo(LLRelationship::GRANT_ONLINE_STATUS));
+		mIconPermissionMap->setVisible(relation->isRightGrantedTo(LLRelationship::GRANT_MAP_LOCATION));
+		mIconPermissionEditMine->setVisible(relation->isRightGrantedTo(LLRelationship::GRANT_MODIFY_OBJECTS));
+		mIconPermissionEditTheirs->setVisible(relation->isRightGrantedFrom(LLRelationship::GRANT_MODIFY_OBJECTS));
+	}
+	else
+	{
+		mIconPermissionOnline->setVisible(false);
+		mIconPermissionMap->setVisible(false);
+		mIconPermissionEditMine->setVisible(false);
+		mIconPermissionEditTheirs->setVisible(false);
+	}
+
+	return NULL != relation;
+}
+
 LLView* LLAvatarListItem::getItemChildView(EAvatarListItemChildIndex child_view_index)
 {
 	LLView* child_view = mAvatarName;
@@ -548,7 +615,19 @@ LLView* LLAvatarListItem::getItemChildView(EAvatarListItemChildIndex child_view_
 		child_view = mLastInteractionTime;
 		break;
 	case ALIC_SPEAKER_INDICATOR:
-		child_view = mSpeakingIndicator; 
+		child_view = mSpeakingIndicator;
+		break;
+	case ALIC_PERMISSION_ONLINE:
+		child_view = mIconPermissionOnline;
+		break;
+	case ALIC_PERMISSION_MAP:
+		child_view = mIconPermissionMap;
+		break;
+	case ALIC_PERMISSION_EDIT_MINE:
+		child_view = mIconPermissionEditMine;
+		break;
+	case ALIC_PERMISSION_EDIT_THEIRS:
+		child_view = mIconPermissionEditTheirs;
 		break;
 	case ALIC_INFO_BUTTON:
 		child_view = mInfoBtn;

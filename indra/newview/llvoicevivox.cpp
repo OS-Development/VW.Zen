@@ -2,31 +2,25 @@
  * @file LLVivoxVoiceClient.cpp
  * @brief Implementation of LLVivoxVoiceClient class which is the interface to the voice client process.
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2010, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -37,6 +31,8 @@
 
 #include "llsdutil.h"
 
+// Linden library includes
+#include "llavatarnamecache.h"
 #include "llvoavatarself.h"
 #include "llbufferstream.h"
 #include "llfile.h"
@@ -52,6 +48,8 @@
 #include "llviewercontrol.h"
 #include "llkeyboard.h"
 #include "llappviewer.h"	// for gDisconnected, gDisableVoice
+
+// Viewer includes
 #include "llmutelist.h"  // to check for muted avatars
 #include "llagent.h"
 #include "llcachename.h"
@@ -392,7 +390,7 @@ LLVivoxVoiceClient::~LLVivoxVoiceClient()
 {
 }
 
-//----------------------------------------------
+//---------------------------------------------------
 
 void LLVivoxVoiceClient::init(LLPumpIO *pump)
 {
@@ -406,13 +404,26 @@ void LLVivoxVoiceClient::terminate()
 	{
 		logout();
 		connectorShutdown();
-		closeSocket();		// Need to do this now -- bad things happen if the destructor does it later.	
+		closeSocket();		// Need to do this now -- bad things happen if the destructor does it later.
+		cleanUp();
 	}
 	else
 	{
 		killGateway();
 	}
 }
+
+//---------------------------------------------------
+
+void LLVivoxVoiceClient::cleanUp()
+{
+	deleteAllSessions();
+	deleteAllBuddies();
+	deleteAllVoiceFonts();
+	deleteVoiceFontTemplates();
+}
+
+//---------------------------------------------------
 
 const LLVoiceVersionInfo& LLVivoxVoiceClient::getVersion()
 {
@@ -782,14 +793,10 @@ void LLVivoxVoiceClient::stateMachine()
 	{
 		//MARK: stateDisableCleanup
 		case stateDisableCleanup:
-			// Clean up and reset everything. 
+			// Clean up and reset everything.
 			closeSocket();
-			deleteAllSessions();
-			deleteAllBuddies();
-			deleteAllVoiceFonts();
-			deleteVoiceFontTemplates();
+			cleanUp();
 
-			mConnectorHandle.clear();
 			mAccountHandle.clear();
 			mAccountPassword.clear();
 			mVoiceAccountServerURI.clear();
@@ -1681,12 +1688,9 @@ void LLVivoxVoiceClient::stateMachine()
 		//MARK: stateLoggedOut
 		case stateLoggedOut:			// logout response received
 			
-			// Once we're logged out, all these things are invalid.
+			// Once we're logged out, these things are invalid.
 			mAccountHandle.clear();
-			deleteAllSessions();
-			deleteAllBuddies();
-			deleteAllVoiceFonts();
-			deleteVoiceFontTemplates();
+			cleanUp();
 
 			if(mVoiceEnabled && !mRelogRequested)
 			{
@@ -1784,6 +1788,8 @@ void LLVivoxVoiceClient::closeSocket(void)
 {
 	mSocket.reset();
 	mConnected = false;	
+	mConnectorHandle.clear();
+	mAccountHandle.clear();
 }
 
 void LLVivoxVoiceClient::loginSendMessage()
@@ -2376,8 +2382,7 @@ void LLVivoxVoiceClient::giveUp()
 {
 	// All has failed.  Clean up and stop trying.
 	closeSocket();
-	deleteAllSessions();
-	deleteAllBuddies();
+	cleanUp();
 	
 	setState(stateJail);
 }
@@ -2806,12 +2811,16 @@ void LLVivoxVoiceClient::buildLocalAudioUpdates(std::ostringstream &stream)
 
 void LLVivoxVoiceClient::checkFriend(const LLUUID& id)
 {
-	std::string name;
 	buddyListEntry *buddy = findBuddy(id);
 
 	// Make sure we don't add a name before it's been looked up.
-	if(gCacheName->getFullName(id, name))
+	LLAvatarName av_name;
+	if(LLAvatarNameCache::get(id, &av_name))
 	{
+		// *NOTE: For now, we feed legacy names to Vivox because I don't know
+		// if their service can support a mix of new and old clients with
+		// different sorts of names.
+		std::string name = av_name.getLegacyName();
 
 		const LLRelationship* relationInfo = LLAvatarTracker::instance().getBuddyInfo(id);
 		bool canSeeMeOnline = false;
@@ -6363,16 +6372,18 @@ void LLVivoxVoiceClient::notifyFriendObservers()
 
 void LLVivoxVoiceClient::lookupName(const LLUUID &id)
 {
-	BOOL is_group = FALSE;
-	gCacheName->get(id, is_group, &LLVivoxVoiceClient::onAvatarNameLookup);
+	LLAvatarNameCache::get(id,
+		boost::bind(&LLVivoxVoiceClient::onAvatarNameCache,
+			this, _1, _2));
 }
 
-//static
-void LLVivoxVoiceClient::onAvatarNameLookup(const LLUUID& id, const std::string& first, const std::string& last, BOOL is_group)
+void LLVivoxVoiceClient::onAvatarNameCache(const LLUUID& agent_id,
+										   const LLAvatarName& av_name)
 {
-		std::string name = llformat("%s %s", first.c_str(), last.c_str());
-		LLVivoxVoiceClient::getInstance()->avatarNameResolved(id, name);
-	
+	// For Vivox, we use the legacy name because I'm uncertain whether or
+	// not their service can tolerate switching to Username or Display Name
+	std::string legacy_name = av_name.getLegacyName();
+	avatarNameResolved(agent_id, legacy_name);	
 }
 
 void LLVivoxVoiceClient::avatarNameResolved(const LLUUID &id, const std::string &name)

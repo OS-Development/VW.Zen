@@ -13,7 +13,10 @@ else (STANDALONE)
     set(GOOGLE_PERFTOOLS_FOUND "YES")
   endif (WINDOWS)
   if (LINUX)
-    set(TCMALLOC_LIBRARIES tcmalloc)
+    use_prebuilt_binary(tcmalloc)
+    set(TCMALLOC_LIBRARIES 
+	debug tcmalloc_minimal_debug
+	optimized tcmalloc_minimal)
     set(STACKTRACE_LIBRARIES stacktrace)
     set(PROFILER_LIBRARIES profiler)
     set(GOOGLE_PERFTOOLS_INCLUDE_DIR
@@ -33,7 +36,7 @@ if (WINDOWS)
 endif (WINDOWS)
 
 if (USE_GOOGLE_PERFTOOLS)
-  set(TCMALLOC_FLAG -DLL_USE_TCMALLOC=1)
+  set(TCMALLOC_FLAG -ULL_USE_TCMALLOC=1)
   include_directories(${GOOGLE_PERFTOOLS_INCLUDE_DIR})
   set(GOOGLE_PERFTOOLS_LIBRARIES ${TCMALLOC_LIBRARIES} ${STACKTRACE_LIBRARIES} ${PROFILER_LIBRARIES})
 else (USE_GOOGLE_PERFTOOLS)

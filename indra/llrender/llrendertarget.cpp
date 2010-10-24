@@ -2,31 +2,25 @@
  * @file llrendertarget.cpp
  * @brief LLRenderTarget implementation
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -390,8 +384,6 @@ void LLRenderTarget::flush(BOOL fetch_depth)
 	}
 	else
 	{
-#if !LL_DARWIN
-
 		stop_glerror();
 
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
@@ -435,7 +427,6 @@ void LLRenderTarget::flush(BOOL fetch_depth)
 				}
 			}
 		}
-#endif
 
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
 	}
@@ -444,7 +435,6 @@ void LLRenderTarget::flush(BOOL fetch_depth)
 void LLRenderTarget::copyContents(LLRenderTarget& source, S32 srcX0, S32 srcY0, S32 srcX1, S32 srcY1,
 						S32 dstX0, S32 dstY0, S32 dstX1, S32 dstY1, U32 mask, U32 filter)
 {
-#if !LL_DARWIN
 	gGL.flush();
 	if (!source.mFBO || !mFBO)
 	{
@@ -483,14 +473,12 @@ void LLRenderTarget::copyContents(LLRenderTarget& source, S32 srcX0, S32 srcY0, 
 			stop_glerror();
 		}
 	}
-#endif
 }
 
 //static
 void LLRenderTarget::copyContentsToFramebuffer(LLRenderTarget& source, S32 srcX0, S32 srcY0, S32 srcX1, S32 srcY1,
 						S32 dstX0, S32 dstY0, S32 dstX1, S32 dstY1, U32 mask, U32 filter)
 {
-#if !LL_DARWIN
 	if (!source.mFBO)
 	{
 		llerrs << "Cannot copy framebuffer contents for non FBO render targets." << llendl;
@@ -507,7 +495,6 @@ void LLRenderTarget::copyContentsToFramebuffer(LLRenderTarget& source, S32 srcX0
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
 		stop_glerror();
 	}
-#endif
 }
 
 BOOL LLRenderTarget::isComplete() const
@@ -652,7 +639,6 @@ void LLMultisampleBuffer::allocate(U32 resx, U32 resy, U32 color_fmt, BOOL depth
 
 void LLMultisampleBuffer::addColorAttachment(U32 color_fmt)
 {
-#if !LL_DARWIN
 	if (color_fmt == 0)
 	{
 		return;
@@ -682,23 +668,19 @@ void LLMultisampleBuffer::addColorAttachment(U32 color_fmt)
 		{
 		case GL_FRAMEBUFFER_COMPLETE_EXT:
 			break;
-		case GL_FRAMEBUFFER_UNSUPPORTED_EXT:
-			llerrs << "WTF?" << llendl;
-			break;
 		default:
-			llerrs << "WTF?" << llendl;
+			llerrs << "WTF? " << std::hex << status << llendl;
+			break;
 		}
 
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
 	}
 
 	mTex.push_back(tex);
-#endif
 }
 
 void LLMultisampleBuffer::allocateDepth()
 {
-#if !LL_DARWIN
 	glGenRenderbuffersEXT(1, (GLuint* ) &mDepth);
 	glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, mDepth);
 	if (mStencil)
@@ -709,6 +691,5 @@ void LLMultisampleBuffer::allocateDepth()
 	{
 		glRenderbufferStorageMultisampleEXT(GL_RENDERBUFFER_EXT, mSamples, GL_DEPTH_COMPONENT16_ARB, mResX, mResY);	
 	}
-#endif
 }
 

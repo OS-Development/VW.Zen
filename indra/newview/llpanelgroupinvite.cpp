@@ -1,31 +1,25 @@
 /** 
  * @file llpanelgroupinvite.cpp
  *
- * $LicenseInfo:firstyear=2006&license=viewergpl$
- * 
- * Copyright (c) 2006-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2006&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -34,6 +28,7 @@
 #include "llpanelgroupinvite.h"
 
 #include "llagent.h"
+#include "llavatarnamecache.h"
 #include "llfloateravatarpicker.h"
 #include "llbutton.h"
 #include "llcallingcard.h"
@@ -68,9 +63,13 @@ public:
 	static void callbackClickAdd(void* userdata);
 	static void callbackClickRemove(void* userdata);
 	static void callbackSelect(LLUICtrl* ctrl, void* userdata);
-	static void callbackAddUsers(const std::vector<std::string>& names,
-								 const uuid_vec_t& agent_ids,
+	static void callbackAddUsers(const uuid_vec_t& agent_ids,
 								 void* user_data);
+	
+	static void onAvatarNameCache(const LLUUID& agent_id,
+											 const LLAvatarName& av_name,
+											 void* user_data);
+
 	bool inviteOwnerCallback(const LLSD& notification, const LLSD& response);
 
 public:
@@ -293,7 +292,7 @@ void LLPanelGroupInvite::impl::callbackClickAdd(void* userdata)
 		LLFloater* parentp;
 
 		parentp = gFloaterView->getParentFloater(panelp);
-		parentp->addDependentFloater(LLFloaterAvatarPicker::show(boost::bind(impl::callbackAddUsers, _1, _2,
+		parentp->addDependentFloater(LLFloaterAvatarPicker::show(boost::bind(impl::callbackAddUsers, _1,
 																panelp->mImplementation),
 																 TRUE));
 	}
@@ -359,15 +358,37 @@ void LLPanelGroupInvite::impl::callbackClickOK(void* userdata)
 	if ( selfp ) selfp->submitInvitations();
 }
 
+
+
 //static
-void LLPanelGroupInvite::impl::callbackAddUsers(const std::vector<std::string>& names,
-												const uuid_vec_t& ids,
-												void* user_data)
+void LLPanelGroupInvite::impl::callbackAddUsers(const uuid_vec_t& agent_ids, void* user_data)
+{	
+	std::vector<std::string> names;
+	for (S32 i = 0; i < (S32)agent_ids.size(); i++)
+	{
+		LLAvatarNameCache::get(agent_ids[i],
+			boost::bind(&LLPanelGroupInvite::impl::onAvatarNameCache, _1, _2, user_data));
+	}	
+	
+}
+
+void LLPanelGroupInvite::impl::onAvatarNameCache(const LLUUID& agent_id,
+											 const LLAvatarName& av_name,
+											 void* user_data)
 {
 	impl* selfp = (impl*) user_data;
 
-	if ( selfp) selfp->addUsers(names, ids);
+	if (selfp)
+	{
+		std::vector<std::string> names;
+		uuid_vec_t agent_ids;
+		agent_ids.push_back(agent_id);
+		names.push_back(av_name.getCompleteName());
+		
+		selfp->addUsers(names, agent_ids);
+	}
 }
+
 
 LLPanelGroupInvite::LLPanelGroupInvite(const LLUUID& group_id)
 	: LLPanel(),
@@ -375,7 +396,7 @@ LLPanelGroupInvite::LLPanelGroupInvite(const LLUUID& group_id)
 	  mPendingUpdate(FALSE)
 {
 	// Pass on construction of this panel to the control factory.
-	LLUICtrlFactory::getInstance()->buildPanel(this, "panel_group_invite.xml");
+	buildFromFile( "panel_group_invite.xml");
 }
 
 LLPanelGroupInvite::~LLPanelGroupInvite()
@@ -404,16 +425,18 @@ void LLPanelGroupInvite::addUsers(uuid_vec_t& agent_ids)
 	std::vector<std::string> names;
 	for (S32 i = 0; i < (S32)agent_ids.size(); i++)
 	{
+		std::string fullname;
 		LLUUID agent_id = agent_ids[i];
 		LLViewerObject* dest = gObjectList.findObject(agent_id);
-		std::string fullname;
 		if(dest && dest->isAvatar())
 		{
 			LLNameValue* nvfirst = dest->getNVPair("FirstName");
 			LLNameValue* nvlast = dest->getNVPair("LastName");
 			if(nvfirst && nvlast)
 			{
-				fullname = std::string(nvfirst->getString()) + " " + std::string(nvlast->getString());
+				fullname = LLCacheName::buildFullName(
+					nvfirst->getString(), nvlast->getString());
+
 			}
 			if (!fullname.empty())
 			{
@@ -436,8 +459,7 @@ void LLPanelGroupInvite::addUsers(uuid_vec_t& agent_ids)
 				{
 					// actually it should happen, just in case
 					gCacheName->get(LLUUID(agent_id), false, boost::bind(
-							&LLPanelGroupInvite::addUserCallback, this, _1, _2,
-							_3));
+							&LLPanelGroupInvite::addUserCallback, this, _1, _2));
 					// for this special case!
 					//when there is no cached name we should remove resident from agent_ids list to avoid breaking of sequence
 					// removed id will be added in callback
@@ -453,16 +475,16 @@ void LLPanelGroupInvite::addUsers(uuid_vec_t& agent_ids)
 	mImplementation->addUsers(names, agent_ids);
 }
 
-void LLPanelGroupInvite::addUserCallback(const LLUUID& id, const std::string& first_name, const std::string& last_name)
+void LLPanelGroupInvite::addUserCallback(const LLUUID& id, const std::string& full_name)
 {
 	std::vector<std::string> names;
 	uuid_vec_t agent_ids;
-	std::string full_name = first_name + " " + last_name;
 	agent_ids.push_back(id);
-	names.push_back(first_name + " " + last_name);
+	names.push_back(full_name);
 
 	mImplementation->addUsers(names, agent_ids);
 }
+
 void LLPanelGroupInvite::draw()
 {
 	LLPanel::draw();

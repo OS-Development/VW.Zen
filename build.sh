@@ -59,12 +59,13 @@ pre_build()
     -t $variant \
     -G "$cmake_generator" \
    configure \
-    -DGRID:STRING="$viewer_grid"\
+	-DGRID:STRING="$viewer_grid" \
     -DVIEWER_CHANNEL:STRING="$viewer_channel" \
     -DVIEWER_LOGIN_CHANNEL:STRING="$login_channel" \
     -DINSTALL_PROPRIETARY:BOOL=ON \
     -DLOCALIZESETUP:BOOL=ON \
     -DPACKAGE:BOOL=ON
+    -DCMAKE_VERBOSE_MAKEFILE:BOOL=TRUE
   end_section "Pre$variant"
 }
 
@@ -114,11 +115,15 @@ then
   if [ -x "$top/../buildscripts/hg/bin/build.sh" ]
   then
     exec "$top/../buildscripts/hg/bin/build.sh" "$top"
+  elif [ -r "$top/README" ]
+  then
+    cat "$top/README"
+    exit 1
   else
     cat <<EOF
 This script, if called in a development environment, requires that the branch
 independent build script repository be checked out next to this repository.
-This repository is located at http://hg.lindenlab.com/parabuild/buildscripts
+This repository is located at http://hg.secondlife.com/buildscripts
 EOF
     exit 1
   fi
@@ -148,10 +153,14 @@ build_viewer_update_version_manager_version=`scripts/get_version.py --viewer-ver
 cd indra
 succeeded=true
 build_processes=
+last_built_variant=
 for variant in $variants
 do
   eval '$build_'"$variant" || continue
   eval '$build_'"$arch"_"$variant" || continue
+
+  # Only the last built arch is available for upload
+  last_built_variant="$variant"
 
   begin_section "Do$variant"
   build_dir=`build_dir_$arch $variant`
@@ -219,7 +228,10 @@ do
       fi
     else
       begin_section "Build$variant"
-      build "$variant" "$build_dir" >> "$build_log" 2>&1
+      build "$variant" "$build_dir" > "$build_log" 2>&1
+      begin_section Tests
+      grep --line-buffered "^##teamcity" "$build_log"
+      end_section Tests
       if `cat "$build_dir/build_ok"`
       then
         echo so far so good.
@@ -255,6 +267,9 @@ then
     else
       record_failure "Parallel build of \"$variant\" failed."
     fi
+    begin_section Tests
+    tee -a $build_log < "$build_dir/build.log" | grep --line-buffered "^##teamcity"
+    end_section Tests
     end_section "Build$variant"
   done
   end_section WaitParallel
@@ -275,12 +290,17 @@ then
       succeeded=$build_coverity
     else
       upload_item installer "$package" binary/octet-stream
+      upload_item quicklink "$package" binary/octet-stream
 
       # Upload crash reporter files.
-      for symbolfile in $symbolfiles
-      do
-        upload_item symbolfile "$build_dir/$symbolfile" binary/octet-stream
-      done
+      case "$last_built_variant" in
+      Release)
+        for symbolfile in $symbolfiles
+        do
+          upload_item symbolfile "$build_dir/$symbolfile" binary/octet-stream
+        done
+        ;;
+      esac
 
       # Upload stub installers
       upload_stub_installers "$build_dir_stubs"

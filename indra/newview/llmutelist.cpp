@@ -3,31 +3,25 @@
  * @author Richard Nelson, James Cook
  * @brief Management of list of muted players
  *
- * $LicenseInfo:firstyear=2003&license=viewergpl$
- * 
- * Copyright (c) 2003-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2003&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -118,9 +112,8 @@ LLMute::LLMute(const LLUUID& id, const std::string& name, EType type, U32 flags)
 		LLNameValue* lastname = mute_object->getNVPair("LastName");
 		if (firstname && lastname)
 		{
-			mName.assign( firstname->getString() );
-			mName.append(" ");
-			mName.append( lastname->getString() );
+			mName = LLCacheName::buildFullName(
+				firstname->getString(), lastname->getString());
 		}
 		mType = mute_object->isAvatar() ? AGENT : OBJECT;
 	}
@@ -416,7 +409,7 @@ void LLMuteList::updateRemove(const LLMute& mute)
 	gAgent.sendReliableMessage();
 }
 
-void notify_automute_callback(const LLUUID& agent_id, const std::string& first_name, const std::string& last_name, BOOL is_group, LLMuteList::EAutoReason reason)
+void notify_automute_callback(const LLUUID& agent_id, const std::string& full_name, bool is_group, LLMuteList::EAutoReason reason)
 {
 	std::string notif_name;
 	switch (reason)
@@ -434,8 +427,7 @@ void notify_automute_callback(const LLUUID& agent_id, const std::string& first_n
 	}
 
 	LLSD args;
-	args["FIRST"] = first_name;
-	args["LAST"] = last_name;
+	args["NAME"] = full_name;
     
 	LLNotificationPtr notif_ptr = LLNotifications::instance().add(notif_name, args, LLSD());
 	if (notif_ptr)
@@ -450,7 +442,7 @@ void notify_automute_callback(const LLUUID& agent_id, const std::string& first_n
 }
 
 
-BOOL LLMuteList::autoRemove(const LLUUID& agent_id, const EAutoReason reason, const std::string& first_name, const std::string& last_name)
+BOOL LLMuteList::autoRemove(const LLUUID& agent_id, const EAutoReason reason)
 {
 	BOOL removed = FALSE;
 
@@ -460,24 +452,17 @@ BOOL LLMuteList::autoRemove(const LLUUID& agent_id, const EAutoReason reason, co
 		removed = TRUE;
 		remove(automute);
 
-		if (first_name.empty() && last_name.empty())
-		{
-			std::string cache_first, cache_last;
-			if (gCacheName->getName(agent_id, cache_first, cache_last))
+		std::string full_name;
+		if (gCacheName->getFullName(agent_id, full_name))
 			{
 				// name in cache, call callback directly
-				notify_automute_callback(agent_id, cache_first, cache_last, FALSE, reason);
+			notify_automute_callback(agent_id, full_name, false, reason);
 			}
 			else
 			{
 				// not in cache, lookup name from cache
-				gCacheName->get(agent_id, FALSE, boost::bind(&notify_automute_callback, _1, _2, _3, _4, reason));
-			}
-		}
-		else
-		{
-			// call callback directly
-			notify_automute_callback(agent_id, first_name, last_name, FALSE, reason);
+			gCacheName->get(agent_id, false,
+				boost::bind(&notify_automute_callback, _1, _2, _3, reason));
 		}
 	}
 

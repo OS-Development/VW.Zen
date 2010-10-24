@@ -2,31 +2,25 @@
  * @file LLNearbyChat.cpp
  * @brief Nearby chat history scrolling panel implementation
  *
- * $LicenseInfo:firstyear=2009&license=viewergpl$
- * 
- * Copyright (c) 2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2009&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -60,12 +54,6 @@
 #include "lltrans.h"
 
 static const S32 RESIZE_BAR_THICKNESS = 3;
-
-const static std::string IM_TIME("time");
-const static std::string IM_TEXT("message");
-const static std::string IM_FROM("from");
-const static std::string IM_FROM_ID("from_id");
-
 
 LLNearbyChat::LLNearbyChat(const LLSD& key) 
 	: LLDockableFloater(NULL, false, false, key)
@@ -121,7 +109,7 @@ void    LLNearbyChat::applySavedVariables()
 {
 	if (mRectControl.size() > 1)
 	{
-		const LLRect& rect = LLUI::sSettingGroups["floater"]->getRect(mRectControl);
+		const LLRect& rect = LLFloater::getControlGroup()->getRect(mRectControl);
 		if(!rect.isEmpty() && rect.isValid())
 		{
 			reshape(rect.getWidth(), rect.getHeight());
@@ -130,7 +118,7 @@ void    LLNearbyChat::applySavedVariables()
 	}
 
 
-	if(!LLUI::sSettingGroups["floater"]->controlExists(mDocStateControl))
+	if(!LLFloater::getControlGroup()->controlExists(mDocStateControl))
 	{
 		setDocked(true);
 	}
@@ -138,7 +126,7 @@ void    LLNearbyChat::applySavedVariables()
 	{
 		if (mDocStateControl.size() > 1)
 		{
-			bool dockState = LLUI::sSettingGroups["floater"]->getBOOL(mDocStateControl);
+			bool dockState = LLFloater::getControlGroup()->getBOOL(mDocStateControl);
 			setDocked(dockState);
 		}
 	}
@@ -191,7 +179,7 @@ void	LLNearbyChat::addMessage(const LLChat& chat,bool archive,const LLSD &args)
 
 	if (gSavedPerAccountSettings.getBOOL("LogNearbyChat"))
 	{
-		LLLogChat::saveHistory("chat", chat.mFromName, chat.mFromID, chat.mText);
+		LLLogChat::saveHistory("chat", chat);
 	}
 }
 
@@ -281,8 +269,12 @@ void LLNearbyChat::loadHistory()
 		const LLSD& msg = *it;
 
 		std::string from = msg[IM_FROM];
-		LLUUID from_id = LLUUID::null;
-		if (msg[IM_FROM_ID].isUndefined())
+		LLUUID from_id;
+		if (msg[IM_FROM_ID].isDefined())
+		{
+			from_id = msg[IM_FROM_ID].asUUID();
+		}
+		else
 		{
 			gCacheName->getUUID(from, from_id);
 		}
@@ -294,11 +286,14 @@ void LLNearbyChat::loadHistory()
 		chat.mTimeStr = msg[IM_TIME].asString();
 		chat.mChatStyle = CHAT_STYLE_HISTORY;
 
-		chat.mSourceType = CHAT_SOURCE_AGENT;
-		if (from_id.isNull() && SYSTEM_FROM == from)
+		if (msg.has(IM_SOURCE_TYPE))
+		{
+			S32 source_type = msg[IM_SOURCE_TYPE].asInteger();
+			chat.mSourceType = (EChatSourceType)source_type;
+		}
+		else if (from_id.isNull() && SYSTEM_FROM == from)
 		{	
 			chat.mSourceType = CHAT_SOURCE_SYSTEM;
-			
 		}
 		else if (from_id.isNull())
 		{

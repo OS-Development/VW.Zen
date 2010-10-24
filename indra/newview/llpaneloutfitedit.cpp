@@ -2,31 +2,25 @@
  * @file llpaneloutfitedit.cpp
  * @brief Displays outfit edit information in Side Tray.
  *
- * $LicenseInfo:firstyear=2009&license=viewergpl$
- * 
- * Copyright (c) 2004-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2009&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -62,6 +56,7 @@
 #include "llinventorymodel.h"
 #include "llinventorymodelbackgroundfetch.h"
 #include "llloadingindicator.h"
+#include "llmenubutton.h"
 #include "llpaneloutfitsinventory.h"
 #include "lluiconstants.h"
 #include "llsaveoutfitcombobtn.h"
@@ -409,7 +404,9 @@ LLPanelOutfitEdit::LLPanelOutfitEdit()
 	mAddWearablesPanel(NULL),
 	mFolderViewFilterCmbBox(NULL),
 	mListViewFilterCmbBox(NULL),
-	mPlusBtn(NULL)
+	mPlusBtn(NULL),
+	mWearablesGearMenuBtn(NULL),
+	mGearMenuBtn(NULL)
 {
 	mSavedFolderState = new LLSaveFolderState();
 	mSavedFolderState->setApply(FALSE);
@@ -484,14 +481,15 @@ BOOL LLPanelOutfitEdit::postBuild()
 	childSetCommitCallback("folder_view_btn", boost::bind(&LLPanelOutfitEdit::saveListSelection, this), NULL);
 	childSetCommitCallback("list_view_btn", boost::bind(&LLPanelOutfitEdit::showWearablesListView, this), NULL);
 	childSetCommitCallback("list_view_btn", boost::bind(&LLPanelOutfitEdit::saveListSelection, this), NULL);
-	childSetCommitCallback("wearables_gear_menu_btn", boost::bind(&LLPanelOutfitEdit::onGearButtonClick, this, _1), NULL);
-	childSetCommitCallback("gear_menu_btn", boost::bind(&LLPanelOutfitEdit::onGearButtonClick, this, _1), NULL);
 	childSetCommitCallback("shop_btn_1", boost::bind(&LLPanelOutfitEdit::onShopButtonClicked, this), NULL);
 	childSetCommitCallback("shop_btn_2", boost::bind(&LLPanelOutfitEdit::onShopButtonClicked, this), NULL);
 
 	setVisibleCallback(boost::bind(&LLPanelOutfitEdit::onVisibilityChange, this, _2));
 
-	mCOFWearables = getChild<LLCOFWearables>("cof_wearables_list");
+	mWearablesGearMenuBtn = getChild<LLMenuButton>("wearables_gear_menu_btn");
+	mGearMenuBtn = getChild<LLMenuButton>("gear_menu_btn");
+
+	mCOFWearables = findChild<LLCOFWearables>("cof_wearables_list");
 	mCOFWearables->setCommitCallback(boost::bind(&LLPanelOutfitEdit::filterWearablesBySelectedItem, this));
 
 	mCOFWearables->getCOFCallbacks().mAddWearable = boost::bind(&LLPanelOutfitEdit::onAddWearableClicked, this);
@@ -562,6 +560,13 @@ BOOL LLPanelOutfitEdit::postBuild()
 	mWearableItemsList->setDoubleClickCallback(boost::bind(&LLPanelOutfitEdit::onPlusBtnClicked, this));
 
 	mWearableItemsList->setComparator(mWearableListViewItemsComparator);
+
+	// Creating "Add Wearables" panel gear menu after initialization of mWearableItemsList and mInventoryItemsPanel.
+	mAddWearablesGearMenu = LLAddWearablesGearMenu::create(mWearableItemsList, mInventoryItemsPanel);
+	mWearablesGearMenuBtn->setMenu(mAddWearablesGearMenu);
+
+	mGearMenu = LLPanelOutfitEditGearMenu::create();
+	mGearMenuBtn->setMenu(mGearMenu);
 
 	mSaveComboBtn.reset(new LLSaveOutfitComboBtn(this));
 	return TRUE;
@@ -917,8 +922,14 @@ LLWearableType::EType LLPanelOutfitEdit::getWearableTypeByItemUUID(const LLUUID&
 void LLPanelOutfitEdit::onRemoveFromOutfitClicked(void)
 {
 	LLUUID id_to_remove = mCOFWearables->getSelectedUUID();
+	LLWearableType::EType type = getWearableTypeByItemUUID(id_to_remove);
 	
 	LLAppearanceMgr::getInstance()->removeItemFromAvatar(id_to_remove);
+
+	if (!mCOFWearables->getSelectedItem())
+	{
+		mCOFWearables->selectClothing(type);
+	}
 }
 
 
@@ -1013,6 +1024,10 @@ void LLPanelOutfitEdit::filterWearablesBySelectedItem(void)
 	//                                                        |      filter_type = expanded accordion_type
 	if (nothing_selected)
 	{
+		if (mInventoryItemsPanel->getVisible())
+		{
+			return;
+		}
 		showWearablesListView();
 
 		//selected accordion tab is more priority than expanded tab
@@ -1057,6 +1072,12 @@ void LLPanelOutfitEdit::filterWearablesBySelectedItem(void)
 	//resetting selection if more than one item is selected
 	if (more_than_one_selected)
 	{
+		if (mInventoryItemsPanel->getVisible())
+		{
+			applyFolderViewFilter(FVIT_ALL);
+			return;
+		}
+
 		showWearablesListView();
 		applyListViewFilter(LVIT_ALL);
 		return;
@@ -1066,6 +1087,12 @@ void LLPanelOutfitEdit::filterWearablesBySelectedItem(void)
 	//filter wearables by a type represented by a dummy item
 	if (one_selected && is_dummy_item)
 	{
+		if (mInventoryItemsPanel->getVisible())
+		{
+			applyFolderViewFilter(FVIT_WEARABLE);
+			return;
+		}
+
 		onAddWearableClicked();
 		return;
 	}
@@ -1073,6 +1100,11 @@ void LLPanelOutfitEdit::filterWearablesBySelectedItem(void)
 	LLViewerInventoryItem* item = gInventory.getItem(ids[0]);
 	if (!item && ids[0].notNull())
 	{
+		if (mInventoryItemsPanel->getVisible())
+		{
+			applyFolderViewFilter(FVIT_ALL);
+			return;
+		}
 		//Inventory misses an item with non-zero id
 		showWearablesListView();
 		applyListViewFilter(LVIT_ALL);
@@ -1083,12 +1115,22 @@ void LLPanelOutfitEdit::filterWearablesBySelectedItem(void)
 	{
 		if (item->isWearableType())
 		{
+			if (mInventoryItemsPanel->getVisible())
+			{
+				applyFolderViewFilter(FVIT_WEARABLE);
+				return;
+			}
 			//single clothing or bodypart item is selected
 			showFilteredWearablesListView(item->getWearableType());
 			return;
 		}
 		else
 		{
+			if (mInventoryItemsPanel->getVisible())
+			{
+				applyFolderViewFilter(FVIT_ATTACHMENT);
+				return;
+			}
 			//attachment is selected
 			showWearablesListView();
 			applyListViewFilter(LVIT_ATTACHMENT);
@@ -1223,37 +1265,6 @@ void LLPanelOutfitEdit::resetAccordionState()
 	{
 		llwarns << "mCOFWearables is NULL" << llendl;
 	}
-}
-
-void LLPanelOutfitEdit::onGearButtonClick(LLUICtrl* clicked_button)
-{
-	LLMenuGL* menu = NULL;
-
-	if (mAddWearablesPanel->getVisible())
-	{
-		if (!mAddWearablesGearMenu)
-		{
-			mAddWearablesGearMenu = LLAddWearablesGearMenu::create(mWearableItemsList, mInventoryItemsPanel);
-		}
-
-		menu = mAddWearablesGearMenu;
-	}
-	else
-	{
-		if (!mGearMenu)
-		{
-			mGearMenu = LLPanelOutfitEditGearMenu::create();
-		}
-
-		menu = mGearMenu;
-	}
-
-	if (!menu) return;
-
-	menu->arrangeAndClear(); // update menu height
-	S32 menu_y = menu->getRect().getHeight() + clicked_button->getRect().getHeight();
-	menu->buildDrawLabels();
-	LLMenuGL::showPopup(clicked_button, menu, 0, menu_y);
 }
 
 void LLPanelOutfitEdit::onAddMoreButtonClicked()

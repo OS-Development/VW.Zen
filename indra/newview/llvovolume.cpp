@@ -2,31 +2,25 @@
  * @file llvovolume.cpp
  * @brief LLVOVolume class implementation
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -946,7 +940,6 @@ BOOL LLVOVolume::setVolume(const LLVolumeParams &params, const S32 detail, bool 
 
 	BOOL is404 = FALSE;
 
-#if LL_MESH_ENABLED
 	if (isSculpted())
 	{
 		// if it's a mesh
@@ -966,7 +959,6 @@ BOOL LLVOVolume::setVolume(const LLVolumeParams &params, const S32 detail, bool 
 			}
 		}
 	}
-#endif
 
 	// Check if we need to change implementations
 	bool is_flexible = (volume_params.getPathParams().getCurveType() == LL_PCODE_PATH_FLEXIBLE);
@@ -1015,7 +1007,6 @@ BOOL LLVOVolume::setVolume(const LLVolumeParams &params, const S32 detail, bool 
 		if (isSculpted())
 		{
 			updateSculptTexture();
-#if LL_MESH_ENABLED
 			// if it's a mesh
 			if ((volume_params.getSculptType() & LL_SCULPT_TYPE_MASK) == LL_SCULPT_TYPE_MESH)
 			{
@@ -1031,7 +1022,6 @@ BOOL LLVOVolume::setVolume(const LLVolumeParams &params, const S32 detail, bool 
 				}
 			}
 			else // otherwise is sculptie
-#endif
 			{
 				if (mSculptTexture.notNull())
 				{
@@ -1358,9 +1348,12 @@ BOOL LLVOVolume::genBBoxes(BOOL force_global)
 
 	LLVector4a min,max;
 
+	min.clear();
+	max.clear();
+
 	BOOL rebuild = mDrawable->isState(LLDrawable::REBUILD_VOLUME | LLDrawable::REBUILD_POSITION | LLDrawable::REBUILD_RIGGED);
 
-	bool rigged = false;
+//	bool rigged = false;
 	LLVolume* volume = mRiggedVolume;
 	if (!volume)
 	{
@@ -2725,7 +2718,6 @@ BOOL LLVOVolume::isSculpted() const
 
 BOOL LLVOVolume::isMesh() const
 {
-#if LL_MESH_ENABLED
 	if (isSculpted())
 	{
 		LLSculptParams *sculpt_params = (LLSculptParams *)getParameterEntry(LLNetworkData::PARAMS_SCULPT);
@@ -2737,8 +2729,6 @@ BOOL LLVOVolume::isMesh() const
 			return TRUE;	
 		}
 	}
-#endif
-
 
 	return FALSE;
 }
@@ -3211,6 +3201,35 @@ U32 LLVOVolume::getRenderCost(texture_cost_t &textures) const
 
 }
 
+F32 LLVOVolume::getStreamingCost()
+{
+	if (isMesh())
+	{	
+		const LLSD& header = gMeshRepo.getMeshHeader(getVolume()->getParams().getSculptID());
+
+		F32 radius = getScale().length();
+		
+		return LLMeshRepository::getStreamingCost(header, radius);
+	}
+		
+	return 0.f;
+}
+
+U32 LLVOVolume::getTriangleCount()
+{
+	U32 count = 0;
+	LLVolume* volume = getVolume();
+	if (volume)
+	{
+		for (S32 i = 0; i < volume->getNumVolumeFaces(); ++i)
+		{
+			count += volume->getVolumeFace(i).mNumIndices/3;
+		}
+	}
+
+	return count;
+}
+
 //static
 void LLVOVolume::preUpdateGeom()
 {
@@ -3258,7 +3277,6 @@ F32 LLVOVolume::getBinRadius()
 	
 	F32 scale = 1.f;
 
-#if LL_MESH_ENABLED
 	if (isSculpted())
 	{
 		LLSculptParams *sculpt_params = (LLSculptParams *)getParameterEntry(LLNetworkData::PARAMS_SCULPT);
@@ -3280,7 +3298,6 @@ F32 LLVOVolume::getBinRadius()
 			scale = 1.f/llmax(vert_count/1024.f, 1.f);
 		}
 	}
-#endif
 
 	const LLVector4a* ext = mDrawable->getSpatialExtents();
 	
@@ -3912,7 +3929,6 @@ void LLVolumeGeometryManager::getGeometry(LLSpatialGroup* group)
 static LLFastTimer::DeclareTimer FTM_REBUILD_VOLUME_VB("Volume");
 static LLFastTimer::DeclareTimer FTM_REBUILD_VBO("VBO Rebuilt");
 
-#if LL_MESH_ENABLED
 static LLDrawPoolAvatar* get_avatar_drawpool(LLViewerObject* vobj)
 {
 	LLVOAvatar* avatar = vobj->getAvatar();
@@ -3939,7 +3955,6 @@ static LLDrawPoolAvatar* get_avatar_drawpool(LLViewerObject* vobj)
 
 	return NULL;
 }
-#endif		
 
 void LLVolumeGeometryManager::rebuildGeom(LLSpatialGroup* group)
 {
@@ -4006,11 +4021,9 @@ void LLVolumeGeometryManager::rebuildGeom(LLSpatialGroup* group)
 
 		drawablep->clearState(LLDrawable::HAS_ALPHA);
 
-#if LL_MESH_ENABLED
 		bool rigged = vobj->isAttachment() && 
 					vobj->isMesh() && 
 					gMeshRepo.getSkinInfo(vobj->getVolume()->getParams().getSculptID());
-#endif
 
 		bool bake_sunlight = LLPipeline::sBakeSunlight && drawablep->isStatic();
 
@@ -4023,7 +4036,6 @@ void LLVolumeGeometryManager::rebuildGeom(LLSpatialGroup* group)
 			drawablep->updateFaceSize(i);
 			LLFace* facep = drawablep->getFace(i);
 
-#if LL_MESH_ENABLED
 			if (rigged) 
 			{
 				if (!facep->isState(LLFace::RIGGED))
@@ -4037,6 +4049,32 @@ void LLVolumeGeometryManager::rebuildGeom(LLSpatialGroup* group)
 				
 				//get drawpool of avatar with rigged face
 				LLDrawPoolAvatar* pool = get_avatar_drawpool(vobj);
+				
+				//Determine if we've received skininfo that contains an
+				//alternate bind matrix - if it does then apply the translational component
+				//to the joints of the avatar.
+				const LLVOAvatar* pAvatarVO = vobj->getAvatar();
+				if ( pAvatarVO )
+				{
+					const LLMeshSkinInfo*  pSkinData = gMeshRepo.getSkinInfo( vobj->getVolume()->getParams().getSculptID() );
+					if ( pSkinData )
+					{
+						const int bindCnt = pSkinData->mAlternateBindMatrix.size();
+						if ( bindCnt > 0 )
+						{					
+							const int jointCnt = pSkinData->mJointNames.size();
+							for ( int i=0; i<jointCnt; ++i )
+							{
+								std::string lookingForJoint = pSkinData->mJointNames[i].c_str();
+								LLJoint* pJoint = vobj->getAvatar()->getJoint( lookingForJoint );
+								if ( pJoint )
+								{   
+									pJoint->storeCurrentXform( pSkinData->mAlternateBindMatrix[i].getTranslation() );												
+								}
+							}
+						}
+					}
+				}
 				
 				if (pool)
 				{
@@ -4129,7 +4167,6 @@ void LLVolumeGeometryManager::rebuildGeom(LLSpatialGroup* group)
 					facep->clearState(LLFace::RIGGED);
 				}
 			}
-#endif
 
 			if (cur_total > max_total || facep->getIndicesCount() <= 0 || facep->getGeomCount() <= 0)
 			{

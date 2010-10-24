@@ -2,31 +2,25 @@
  * @file llfloatermediabrowser.h
  * @brief media browser floater - uses embedded media browser control
  *
- * $LicenseInfo:firstyear=2006&license=viewergpl$
- * 
- * Copyright (c) 2006-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2006&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -39,23 +33,30 @@
 
 class LLComboBox;
 class LLMediaCtrl;
+class LLNotification;
 
 class LLFloaterMediaBrowser : 
 	public LLFloater, 
 	public LLViewerMediaObserver
 {
 public:
+    LOG_CLASS(LLFloaterMediaBrowser);
 	LLFloaterMediaBrowser(const LLSD& key);
 
+	static void create(const std::string &url, const std::string& target, const std::string& uuid = LLStringUtil::null);
+
+	static void closeRequest(const std::string &uuid);
+	static void geometryChanged(const std::string &uuid, S32 x, S32 y, S32 width, S32 height);
+	void geometryChanged(S32 x, S32 y, S32 width, S32 height);
+	
 	/*virtual*/ BOOL postBuild();
 	/*virtual*/ void onClose(bool app_quitting);
 	/*virtual*/ void draw();
-	/*virtual*/ void onOpen(const LLSD& key);
 
 	// inherited from LLViewerMediaObserver
 	/*virtual*/ void handleMediaEvent(LLPluginClassMedia* self, EMediaEvent event);
 
-	void openMedia(const std::string& media_url);
+	void openMedia(const std::string& media_url, const std::string& target);
 	void buildURLHistory();
 	std::string getSupportURL();
 	void setCurrentURL(const std::string& url);
@@ -77,6 +78,8 @@ private:
 	LLMediaCtrl* mBrowser;
 	LLComboBox* mAddressCombo;
 	std::string mCurrentURL;
+	boost::shared_ptr<LLNotification> mCurNotification;
+	std::string mUUID;
 };
 
 #endif  // LL_LLFLOATERMEDIABROWSER_H

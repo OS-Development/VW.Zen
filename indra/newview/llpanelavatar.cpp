@@ -2,31 +2,25 @@
  * @file llpanelavatar.cpp
  * @brief LLPanelAvatar and related class implementations
  *
- * $LicenseInfo:firstyear=2004&license=viewergpl$
- * 
- * Copyright (c) 2004-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2004&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -50,7 +44,7 @@
 #include "llfloaterreg.h"
 #include "llnotificationsutil.h"
 #include "llvoiceclient.h"
-#include "llnamebox.h"
+#include "lltextbox.h"
 #include "lltrans.h"
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -224,13 +218,8 @@ void LLPanelAvatarNotes::rightsConfirmationCallback(const LLSD& notification,
 
 void LLPanelAvatarNotes::confirmModifyRights(bool grant, S32 rights)
 {
-	std::string first, last;
 	LLSD args;
-	if (gCacheName->getName(getAvatarId(), first, last))
-	{
-		args["FIRST_NAME"] = first;
-		args["LAST_NAME"] = last;
-	}
+	args["NAME"] = LLSLURL("agent", getAvatarId(), "displayname").getSLURLString();
 
 	if (grant)
 	{
@@ -568,8 +557,7 @@ void LLPanelAvatarProfile::resetData()
 	getChild<LLUICtrl>("homepage_edit")->setValue(LLStringUtil::null);
 	getChild<LLUICtrl>("register_date")->setValue(LLStringUtil::null);
 	getChild<LLUICtrl>("acc_status_text")->setValue(LLStringUtil::null);
-	getChild<LLUICtrl>("partner_text")->setTextArg("[FIRST]", LLStringUtil::null);
-	getChild<LLUICtrl>("partner_text")->setTextArg("[LAST]", LLStringUtil::null);
+	getChild<LLUICtrl>("partner_text")->setValue(LLStringUtil::null);
 }
 
 void LLPanelAvatarProfile::processProperties(void* data, EAvatarProcessorType type)
@@ -660,15 +648,14 @@ void LLPanelAvatarProfile::fillCommonData(const LLAvatarData* avatar_data)
 
 void LLPanelAvatarProfile::fillPartnerData(const LLAvatarData* avatar_data)
 {
-	LLNameBox* name_box = getChild<LLNameBox>("partner_text");
+	LLTextBox* partner_text = getChild<LLTextBox>("partner_text");
 	if (avatar_data->partner_id.notNull())
 	{
-		name_box->setNameID(avatar_data->partner_id, FALSE);
+		partner_text->setText(LLSLURL("agent", avatar_data->partner_id, "inspect").getSLURLString());
 	}
 	else
 	{
-		name_box->setNameID(LLUUID::null, FALSE);
-		name_box->setText(getString("no_partner_text"));
+		partner_text->setText(getString("no_partner_text"));
 	}
 }
 
