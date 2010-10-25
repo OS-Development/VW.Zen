@@ -368,6 +368,18 @@ void LLImageGL::restoreGL()
 	}
 }
 
+//static 
+void LLImageGL::dirtyTexOptions()
+{
+	for (std::set<LLImageGL*>::iterator iter = sImageList.begin();
+		 iter != sImageList.end(); iter++)
+	{
+		LLImageGL* glimage = *iter;
+		glimage->mTexOptionsDirty = true;
+		stop_glerror();
+	}
+	
+}
 //----------------------------------------------------------------------------
 
 //for server side use only.
@@ -1701,6 +1713,7 @@ void LLImageGL::analyzeAlpha(const void* data_in, U32 w, U32 h)
 				alphatotal += asum;
 				sample[asum/(16*4)] += 4;
 			}
+			
 			
 			rowstart += 2 * w * mAlphaStride;
 		}
