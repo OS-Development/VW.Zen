@@ -405,6 +405,7 @@ LLPanelOutfitEdit::LLPanelOutfitEdit()
 	mAddWearablesPanel(NULL),
 	mFolderViewFilterCmbBox(NULL),
 	mListViewFilterCmbBox(NULL),
+	mWearableListManager(NULL),
 	mPlusBtn(NULL),
 	mWearablesGearMenuBtn(NULL),
 	mGearMenuBtn(NULL)
@@ -432,6 +433,7 @@ LLPanelOutfitEdit::LLPanelOutfitEdit()
 
 LLPanelOutfitEdit::~LLPanelOutfitEdit()
 {
+	delete mWearableListManager;
 	delete mSavedFolderState;
 
 	delete mCOFDragAndDropObserver;
