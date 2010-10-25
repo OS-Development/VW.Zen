@@ -31,54 +31,31 @@
  */
 
 #include "llviewerprecompiledheaders.h"
-
 #include "llpreviewgesture.h"
 
-#include <algorithm>
-
-// libraries
-#include "lldatapacker.h"
-#include "lldarray.h"
-#include "llstring.h"
-#include "lldir.h"
-#include "llfloaterreg.h"
-#include "llinventoryfunctions.h"
-#include "llinventorymodelbackgroundfetch.h"
-#include "llmultigesture.h"
-#include "llnotificationsutil.h"
-#include "llvfile.h"
-
-// newview
-#include "llagent.h"		// todo: remove
+#include "llagent.h"
+#include "llanimstatelabels.h"
 #include "llanimationstates.h"
+#include "llappviewer.h"			// gVFS
 #include "llassetuploadresponders.h"
-#include "llbutton.h"
 #include "llcheckboxctrl.h"
 #include "llcombobox.h"
 #include "lldelayedgestureerror.h"
-#include "llfloatergesture.h" // for some label constants
+#include "llfloaterreg.h"
 #include "llgesturemgr.h"
+#include "llinventorydefines.h"
+#include "llinventoryfunctions.h"
 #include "llinventorymodel.h"
-#include "llkeyboard.h"
-#include "lllineeditor.h"
+#include "llinventorymodelbackgroundfetch.h"
+#include "llmultigesture.h"
+#include "llnotificationsutil.h"
 #include "llradiogroup.h"
-#include "llscrolllistctrl.h"
-#include "llscrolllistitem.h"
-#include "llscrolllistcell.h"
-#include "lltextbox.h"
-#include "lluictrlfactory.h"
-#include "llviewerinventory.h"
-#include "llviewerobject.h"
+#include "llresmgr.h"
+#include "lltrans.h"
+#include "llvfile.h"
 #include "llviewerobjectlist.h"
 #include "llviewerregion.h"
 #include "llviewerstats.h"
-#include "llviewerwindow.h"		// busycount
-#include "llvoavatarself.h"
-#include "llappviewer.h"			// gVFS
-#include "llanimstatelabels.h"
-#include "llresmgr.h"
-#include "lltrans.h"
-
 
 std::string NONE_LABEL;
 std::string SHIFT_LABEL;
@@ -140,7 +117,7 @@ LLPreviewGesture* LLPreviewGesture::show(const LLUUID& item_id, const LLUUID& ob
 
 	// this will call refresh when we have everything.
 	LLViewerInventoryItem* item = (LLViewerInventoryItem*)preview->getItem();
-	if (item && !item->isComplete())
+	if (item && !item->isFinished())
 	{
 		LLInventoryGestureAvailable* observer;
 		observer = new LLInventoryGestureAvailable();
@@ -505,11 +482,11 @@ BOOL LLPreviewGesture::postBuild()
 
 	if (item) 
 	{
-		childSetText("desc", item->getDescription());
-		childSetPrevalidate("desc", &LLTextValidate::validateASCIIPrintableNoPipe);
+		getChild<LLUICtrl>("desc")->setValue(item->getDescription());
+		getChild<LLLineEditor>("desc")->setPrevalidate(&LLTextValidate::validateASCIIPrintableNoPipe);
 		
-		childSetText("name", item->getName());
-		childSetPrevalidate("name", &LLTextValidate::validateASCIIPrintableNoPipe);
+		getChild<LLUICtrl>("name")->setValue(item->getName());
+		getChild<LLLineEditor>("name")->setPrevalidate(&LLTextValidate::validateASCIIPrintableNoPipe);
 	}
 
 	return LLPreview::postBuild();
@@ -647,11 +624,11 @@ void LLPreviewGesture::refresh()
 	LLPreview::refresh();
 	// If previewing or item is incomplete, all controls are disabled
 	LLViewerInventoryItem* item = (LLViewerInventoryItem*)getItem();
-	bool is_complete = (item && item->isComplete()) ? true : false;
+	bool is_complete = (item && item->isFinished()) ? true : false;
 	if (mPreviewGesture || !is_complete)
 	{
 		
-		childSetEnabled("desc", FALSE);
+		getChildView("desc")->setEnabled(FALSE);
 		//mDescEditor->setEnabled(FALSE);
 		mTriggerEditor->setEnabled(FALSE);
 		mReplaceText->setEnabled(FALSE);
@@ -682,7 +659,7 @@ void LLPreviewGesture::refresh()
 
 	BOOL modifiable = item->getPermissions().allowModifyBy(gAgent.getID());
 
-	childSetEnabled("desc", modifiable);
+	getChildView("desc")->setEnabled(modifiable);
 	mTriggerEditor->setEnabled(TRUE);
 	mLibraryList->setEnabled(modifiable);
 	mStepList->setEnabled(modifiable);
@@ -831,7 +808,9 @@ void LLPreviewGesture::loadAsset()
 	const LLInventoryItem* item = getItem();
 	if (!item) 
 	{
-		mAssetStatus = PREVIEW_ASSET_ERROR;
+		// Don't set asset status here; we may not have set the item id yet
+		// (e.g. when this gets called initially)
+		//mAssetStatus = PREVIEW_ASSET_ERROR;
 		return;
 	}
 
@@ -897,6 +876,7 @@ void LLPreviewGesture::onLoadComplete(LLVFS *vfs,
 
 				self->mDirty = FALSE;
 				self->refresh();
+				self->refreshFromItem(); // to update description and title
 			}
 			else
 			{
@@ -1645,7 +1625,17 @@ std::string LLPreviewGesture::getLabel(std::vector<std::string> labels)
 		result=LLTrans::getString("AnimFlagStart");
 	}
 
-	result.append(v_labels[1]);
+	// lets localize action value
+	std::string action = v_labels[1];
+	if ("None" == action)
+	{
+		action = LLTrans::getString("GestureActionNone");
+	}
+	else if ("until animations are done" == action)
+	{
+		action = LLFloaterReg::getInstance("preview_gesture")->getChild<LLCheckBoxCtrl>("wait_anim_check")->getLabel();
+	}
+	result.append(action);
 	return result;
 	
 }

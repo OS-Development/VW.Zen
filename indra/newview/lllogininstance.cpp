@@ -48,13 +48,17 @@
 // newview
 #include "llviewernetwork.h"
 #include "llviewercontrol.h"
-#include "llurlsimstring.h"
+#include "llslurl.h"
+#include "llstartup.h"
 #include "llfloaterreg.h"
 #include "llnotifications.h"
 #include "llwindow.h"
 #if LL_LINUX || LL_SOLARIS
 #include "lltrans.h"
 #endif
+#include "llsecapi.h"
+#include "llstartup.h"
+#include "llmachineid.h"
 
 static const char * const TOS_REPLY_PUMP = "lllogininstance_tos_callback";
 static const char * const TOS_LISTENER_NAME = "lllogininstance_tos";
@@ -83,14 +87,14 @@ LLLoginInstance::~LLLoginInstance()
 {
 }
 
-void LLLoginInstance::connect(const LLSD& credentials)
+void LLLoginInstance::connect(LLPointer<LLCredential> credentials)
 {
 	std::vector<std::string> uris;
-	LLViewerLogin::getInstance()->getLoginURIs(uris);
+	LLGridManager::getInstance()->getLoginURIs(uris);
 	connect(uris.front(), credentials);
 }
 
-void LLLoginInstance::connect(const std::string& uri, const LLSD& credentials)
+void LLLoginInstance::connect(const std::string& uri, LLPointer<LLCredential> credentials)
 {
 	mAttemptComplete = false; // Reset attempt complete at this point!
 	constructAuthParams(credentials);
@@ -102,7 +106,7 @@ void LLLoginInstance::reconnect()
 	// Sort of like connect, only using the pre-existing
 	// request params.
 	std::vector<std::string> uris;
-	LLViewerLogin::getInstance()->getLoginURIs(uris);
+	LLGridManager::getInstance()->getLoginURIs(uris);
 	mLoginModule->connect(uris.front(), mRequestData);
 }
 
@@ -118,7 +122,7 @@ LLSD LLLoginInstance::getResponse()
 	return mResponseData; 
 }
 
-void LLLoginInstance::constructAuthParams(const LLSD& credentials)
+void LLLoginInstance::constructAuthParams(LLPointer<LLCredential> user_credential)
 {
 	// Set up auth request options.
 //#define LL_MINIMIAL_REQUESTED_OPTIONS
@@ -145,8 +149,11 @@ void LLLoginInstance::constructAuthParams(const LLSD& credentials)
 	requested_options.append("adult_compliant"); 
 	//requested_options.append("inventory-targets");
 	requested_options.append("buddy-list");
+	requested_options.append("newuser-config");
 	requested_options.append("ui-config");
 #endif
+	requested_options.append("map-server-url");	
+	requested_options.append("voice-config");
 	requested_options.append("tutorial_setting");
 	requested_options.append("login-flags");
 	requested_options.append("global-textures");
@@ -155,26 +162,28 @@ void LLLoginInstance::constructAuthParams(const LLSD& credentials)
 		gSavedSettings.setBOOL("UseDebugMenus", TRUE);
 		requested_options.append("god-connect");
 	}
-
-	char hashed_mac_string[MD5HEX_STR_SIZE];		/* Flawfinder: ignore */
-	LLMD5 hashed_mac;
-	hashed_mac.update( gMACAddress, MAC_ADDRESS_BYTES );
-	hashed_mac.finalize();
-	hashed_mac.hex_digest(hashed_mac_string);
-
-	// prepend "$1$" to the password to indicate its the md5'd version.
-	std::string dpasswd("$1$");
-	dpasswd.append(credentials["passwd"].asString());
-
+	
 	// (re)initialize the request params with creds.
-	LLSD request_params(credentials);
-	request_params["passwd"] = dpasswd;
+	LLSD request_params = user_credential->getLoginParams();
+
+	char hashed_unique_id_string[MD5HEX_STR_SIZE];		/* Flawfinder: ignore */
+	LLMD5 hashed_unique_id;
+	unsigned char unique_id[MAC_ADDRESS_BYTES];
+	if(LLUUID::getNodeID(unique_id) == 0) {
+		if(LLMachineID::getUniqueID(unique_id, sizeof(unique_id)) == 0) {
+			llerrs << "Failed to get an id; cannot uniquely identify this machine." << llendl;
+		}
+	}
+	hashed_unique_id.update(unique_id, MAC_ADDRESS_BYTES);
+	hashed_unique_id.finalize();
+	hashed_unique_id.hex_digest(hashed_unique_id_string);
+	
 	request_params["start"] = construct_start_string();
 	request_params["skipoptional"] = mSkipOptionalUpdate;
 	request_params["agree_to_tos"] = false; // Always false here. Set true in 
 	request_params["read_critical"] = false; // handleTOSResponse
 	request_params["last_exec_event"] = mLastExecEvent;
-	request_params["mac"] = hashed_mac_string;
+	request_params["mac"] = hashed_unique_id_string;
 	request_params["version"] = gCurrentVersion; // Includes channel name
 	request_params["channel"] = gSavedSettings.getString("VersionChannelName");
 	request_params["id0"] = mSerialNumber;
@@ -247,6 +256,15 @@ void LLLoginInstance::handleLoginFailure(const LLSD& event)
 			LLSD data(LLSD::emptyMap());
 			data["message"] = message_response;
 			data["reply_pump"] = TOS_REPLY_PUMP;
+			if(response.has("error_code"))
+			{
+				data["error_code"] = response["error_code"];
+			}
+			if(response.has("certificate"))
+			{
+				data["certificate"] = response["certificate"];
+			}
+			
 			LLFloaterReg::showInstance("message_critical", data);
 			LLEventPumps::instance().obtain(TOS_REPLY_PUMP)
 				.listen(TOS_LISTENER_NAME,
@@ -352,20 +370,18 @@ void LLLoginInstance::updateApp(bool mandatory, const std::string& auth_msg)
 	payload["mandatory"] = mandatory;
 
 /*
- We're constructing one of the following 6 strings here:
+ We're constructing one of the following 9 strings here:
 	 "DownloadWindowsMandatory"
 	 "DownloadWindowsReleaseForDownload"
 	 "DownloadWindows"
 	 "DownloadMacMandatory"
 	 "DownloadMacReleaseForDownload"
 	 "DownloadMac"
+	 "DownloadLinuxMandatory"
+	 "DownloadLinuxReleaseForDownload"
+	 "DownloadLinux"
  
  I've called them out explicitly in this comment so that they can be grepped for.
- 
- Also, we assume that if we're not Windows we're Mac. If we ever intend to support 
- Linux with autoupdate, this should be an explicit #elif LL_DARWIN, but 
- we'd rather deliver the wrong message than no message, so until Linux is supported
- we'll leave it alone.
  */
 	std::string notification_name = "Download";
 	
@@ -454,20 +470,31 @@ bool LLLoginInstance::updateDialogCallback(const LLSD& notification, const LLSD&
 std::string construct_start_string()
 {
 	std::string start;
-	if (LLURLSimString::parse())
+	LLSLURL start_slurl = LLStartUp::getStartSLURL();
+	switch(start_slurl.getType())
 	{
-		// a startup URL was specified
-		std::string unescaped_start = 
+		case LLSLURL::LOCATION:
+		{
+			// a startup URL was specified
+			LLVector3 position = start_slurl.getPosition();
+			std::string unescaped_start = 
 			STRINGIZE(  "uri:" 
-						<< LLURLSimString::sInstance.mSimName << "&" 
-						<< LLURLSimString::sInstance.mX << "&" 
-						<< LLURLSimString::sInstance.mY << "&" 
-						<< LLURLSimString::sInstance.mZ);
-		start = xml_escape_string(unescaped_start);
-	}
-	else
-	{
-		start = gSavedSettings.getString("LoginLocation");
+					  << start_slurl.getRegion() << "&" 
+						<< position[VX] << "&" 
+						<< position[VY] << "&" 
+						<< position[VZ]);
+			start = xml_escape_string(unescaped_start);
+			break;
+		}
+		case LLSLURL::HOME_LOCATION:
+		{
+			start = "home";
+			break;
+		}
+		default:
+		{
+			start = "last";
+		}
 	}
 	return start;
 }

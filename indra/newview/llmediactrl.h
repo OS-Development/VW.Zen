@@ -63,6 +63,8 @@ public:
 								texture_height;
 		
 		Optional<LLUIColor>		caret_color;
+
+		Optional<std::string>	initial_mime_type;
 		
 		Params();
 	};
@@ -99,8 +101,6 @@ public:
 		void navigateToLocalPage( const std::string& subdir, const std::string& filename_in );
 		bool canNavigateBack();
 		bool canNavigateForward();
-		void setOpenInExternalBrowser( bool valIn );
-		void setOpenInInternalBrowser( bool valIn );
 		std::string getCurrentNavUrl();
 
 		// By default, we do not handle "secondlife:///app/" SLURLs, because
@@ -111,7 +111,7 @@ public:
 		// because we control the page content.  See DEV-9530.  JC.
 		void setTrusted( bool valIn );
 
-		void setHomePageUrl( const std::string urlIn );
+		void setHomePageUrl( const std::string& urlIn, const std::string& mime_type = LLStringUtil::null );
 		std::string getHomePageUrl();
 
 		// set/clear URL to visit when a 404 page is reached
@@ -162,26 +162,20 @@ public:
 		// Incoming media event dispatcher
 		virtual void handleMediaEvent(LLPluginClassMedia* self, EMediaEvent event);
 
-		// handlers for individual events (could be done inside the switch in handleMediaEvent, they're just individual functions for clarity)
-		void onClickLinkHref( LLPluginClassMedia* self );
-		
 	protected:
 		void convertInputCoords(S32& x, S32& y);
 
 	private:
 		void onVisibilityChange ( const LLSD& new_visibility );
-		static bool onClickLinkExternalTarget( const LLSD&, const LLSD& );
-		static void clickLinkWithTarget(const std::string& url, const S32& target_type );
 
 		const S32 mTextureDepthBytes;
 		LLUUID mMediaTextureID;
 		LLViewBorder* mBorder;
 		bool mFrequentUpdates;
 		bool mForceUpdate;
-		bool mOpenLinksInExternalBrowser;
-		bool mOpenLinksInInternalBrowser;
 		bool mTrusted;
 		std::string mHomePageUrl;
+		std::string mHomePageMimeType;
 		std::string mCurrentNavUrl;
 		bool mIgnoreUIScale;
 		bool mAlwaysRefresh;

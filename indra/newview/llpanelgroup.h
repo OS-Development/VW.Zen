@@ -37,11 +37,12 @@
 #include "lltimer.h"
 #include "llvoiceclient.h"
 
-struct LLOfferInfo;
+class LLOfferInfo;
 
 const S32 UPDATE_MEMBERS_PER_FRAME = 500;
 
 // Forward declares
+class LLAccordionCtrl;
 class LLPanelGroupTab;
 class LLTabContainer;
 class LLAgent;
@@ -95,9 +96,6 @@ public:
 						   LLOfferInfo* inventory_offer);
 
 
-	bool	notifyChildren		(const LLSD& info);
-	bool	handleNotifyCallback(const LLSD&, const LLSD&);
-
 protected:
 	virtual void update(LLGroupChange gc);
 
@@ -105,6 +103,7 @@ protected:
 	void onBackBtnClick();
 	void onBtnJoin();
 	void onBtnCancel();
+	void onVisibilityChange(const LLSD &in_visible_chain, LLAccordionCtrl* accordion_ctrl);
 
 	static void onBtnApply(void*);
 	static void onBtnRefresh(void*);
@@ -117,9 +116,6 @@ protected:
 
 protected:
 	bool	apply(LLPanelGroupTab* tab);
-	bool	canClose();
-
-	bool	mShowingNotifyDialog;
 
 	LLTimer mRefreshTimer;
 
@@ -132,7 +128,6 @@ protected:
 
 	LLButton*		mButtonJoin;
 	LLUICtrl*		mJoinText;
-
 };
 
 class LLPanelGroupTab : public LLPanel

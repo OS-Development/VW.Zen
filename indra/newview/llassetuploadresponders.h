@@ -34,6 +34,7 @@
 #define LL_LLASSETUPLOADRESPONDER_H
 
 #include "llhttpclient.h"
+#include "llvolume.h" //for LL_MESH_ENABLED
 
 // Abstract class for supporting asset upload
 // via capabilities
@@ -61,7 +62,7 @@ protected:
 	std::string mFileName;
 };
 
-
+#if LL_MESH_ENABLED
 // TODO*: Remove this once deprecated
 class LLNewAgentInventoryResponder : public LLAssetUploadResponder
 {
@@ -96,7 +97,6 @@ public:
 		const std::string& file_name,
 		LLAssetType::EType asset_type,
 		const LLSD& inventory_info);
-
 	virtual ~LLNewAgentInventoryVariablePriceResponder();
 
 	void errorWithContent(
@@ -116,8 +116,9 @@ private:
 	class Impl;
 	Impl* mImpl;
 };
+#endif
 
-class LLBakedUploadData;
+struct LLBakedUploadData;
 class LLSendTexLayerResponder : public LLAssetUploadResponder
 {
 public:

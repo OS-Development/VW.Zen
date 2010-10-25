@@ -42,7 +42,6 @@
 #include "lldrawpoolavatar.h"
 #include "llface.h"
 //#include "llfirstuse.h"
-#include "llfloatercustomize.h"
 #include "llfloatertools.h"
 #include "llresmgr.h"
 #include "lltoolmgr.h"
@@ -76,7 +75,6 @@ LLMorphView::LLMorphView(const LLMorphView::Params& p)
 	mOldCameraNearClip( 0.f ),
 	mCameraPitch( 0.f ),
 	mCameraYaw( 0.f ),
-	mCameraDist( -1.f ),
 	mCameraDrivenByKeys( FALSE )
 {}
 
@@ -87,7 +85,6 @@ void	LLMorphView::initialize()
 {
 	mCameraPitch = 0.f;
 	mCameraYaw = 0.f;
-	mCameraDist = -1.f;
 
 	if (!isAgentAvatarValid() || gAgentAvatarp->isDead())
 	{
@@ -131,14 +128,7 @@ void LLMorphView::setVisible(BOOL visible)
 
 		if (visible)
 		{
-			llassert( !gFloaterCustomize );
-			gFloaterCustomize = new LLFloaterCustomize();
-			gFloaterCustomize->fetchInventory();
-			gFloaterCustomize->openFloater();
-
-			// Must do this _after_ gFloaterView is initialized.
-			gFloaterCustomize->switchToDefaultSubpart();
-
+			// TODO: verify some user action has already opened outfit editor? - Nyx
 			initialize();
 
 			// First run dialog
@@ -146,13 +136,7 @@ void LLMorphView::setVisible(BOOL visible)
 		}
 		else
 		{
-			if( gFloaterCustomize )
-			{
-				gFloaterView->removeChild( gFloaterCustomize );
-				delete gFloaterCustomize;
-				gFloaterCustomize = NULL;
-			}
-
+			// TODO: verify some user action has already closed outfit editor ? - Nyx
 			shutdown();
 		}
 	}

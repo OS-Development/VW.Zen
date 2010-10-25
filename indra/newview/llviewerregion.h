@@ -99,9 +99,8 @@ public:
 	~LLViewerRegion();
 
 	// Call this after you have the region name and handle.
-	void loadCache();
-
-	void saveCache();
+	void loadObjectCache();
+	void saveObjectCache();
 
 	void sendMessage(); // Send the current message to this region's simulator
 	void sendReliableMessage(); // Send the current message to this region's simulator
@@ -203,6 +202,9 @@ public:
 
 	// Returns "M", "PG", "A" etc.
 	static std::string accessToShortString(U8 sim_access);
+
+	// Return access icon name
+	static std::string getAccessIcon(U8 sim_access);
 	
 	// helper function which just makes sure all interested parties
 	// can process the message.
@@ -288,6 +290,7 @@ public:
 	friend std::ostream& operator<<(std::ostream &s, const LLViewerRegion &region);
     /// implements LLCapabilityProvider
     virtual std::string getDescription() const;
+	std::string getHttpUrl() const { return mHttpUrl ;}
 
 	LLSpatialPartition* getSpatialPartition(U32 type);
 public:
@@ -326,6 +329,9 @@ public:
 	LLDynamicArray<LLUUID> mMapAvatarIDs;
 
 private:
+	// determine the cache filename for the region from the region handle
+	const std::string getObjectCacheFilename(U64 mHandle) const;
+
 	// The surfaces and other layers
 	LLSurface*	mLandp;
 
@@ -380,6 +386,7 @@ private:
 	std::string mColoName;
 	std::string mProductSKU;
 	std::string mProductName;
+	std::string mHttpUrl ;
 	
 	
 	// Maps local ids to cache entries.
@@ -399,7 +406,7 @@ private:
 	// Cache ID is unique per-region, across renames, moving locations,
 	// etc.
 	LLUUID mCacheID;
-	
+
 	typedef std::map<std::string, std::string> CapabilityMap;
 	CapabilityMap mCapabilities;
 	

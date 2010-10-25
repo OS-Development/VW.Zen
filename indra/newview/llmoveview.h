@@ -51,11 +51,10 @@ class LLFloaterMove
 
 private:
 	LLFloaterMove(const LLSD& key);
-	~LLFloaterMove() {}
+	~LLFloaterMove();
 public:
 
 	/*virtual*/	BOOL	postBuild();
-	/*virtual*/ void	setEnabled(BOOL enabled);
 	/*virtual*/ void	setVisible(BOOL visible);
 	static F32	getYawRate(F32 time);
 	static void setFlyingMode(BOOL fly);
@@ -88,7 +87,6 @@ private:
 	void onFlyButtonClick();
 	void initMovementMode();
 	void setMovementMode(const EMovementMode mode);
-	void showFlyControls(bool bShow);
 	void initModeTooltips();
 	void setModeTooltip(const EMovementMode mode);
 	void setModeTitle(const EMovementMode mode);
@@ -102,6 +100,8 @@ public:
 
 	LLJoystickAgentTurn*	mForwardButton;
 	LLJoystickAgentTurn*	mBackwardButton;
+	LLJoystickAgentSlide*	mSlideLeftButton;
+	LLJoystickAgentSlide*	mSlideRightButton;
 	LLButton*				mTurnLeftButton;
 	LLButton*				mTurnRightButton;
 	LLButton*				mMoveUpButton;

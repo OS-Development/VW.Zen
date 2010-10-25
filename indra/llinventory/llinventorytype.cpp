@@ -90,7 +90,6 @@ LLInventoryDictionary::LLInventoryDictionary()
 	addEntry(LLInventoryType::IT_ANIMATION,           new InventoryEntry("animation", "animation",     1, LLAssetType::AT_ANIMATION));  
 	addEntry(LLInventoryType::IT_GESTURE,             new InventoryEntry("gesture",   "gesture",       1, LLAssetType::AT_GESTURE)); 
 	addEntry(LLInventoryType::IT_MESH,                new InventoryEntry("mesh",      "mesh",          1, LLAssetType::AT_MESH));
-
 }
 
 
@@ -150,7 +149,6 @@ DEFAULT_ASSET_FOR_INV_TYPE[LLAssetType::AT_COUNT] =
 	LLInventoryType::IT_NONE,			// AT_NONE
 	LLInventoryType::IT_NONE,			// AT_NONE
 	LLInventoryType::IT_NONE,			// AT_NONE
-	
 	LLInventoryType::IT_MESH            // AT_MESH
 };
 
@@ -210,6 +208,10 @@ bool LLInventoryType::cannotRestrictPermissions(LLInventoryType::EType type)
 bool inventory_and_asset_types_match(LLInventoryType::EType inventory_type,
 									 LLAssetType::EType asset_type)
 {
+	// Links can be of any inventory type.
+	if (LLAssetType::lookupIsLinkType(asset_type))
+		return true;
+
 	const InventoryEntry *entry = LLInventoryDictionary::getInstance()->lookup(inventory_type);
 	if (!entry) return false;
 

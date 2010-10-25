@@ -130,12 +130,11 @@ LLToastGroupNotifyPanel::LLToastGroupNotifyPanel(LLNotificationPtr& notification
 		pAttachLink->setValue(payload["inventory_name"]);
 
 		mInventoryOffer = new LLOfferInfo(payload["inventory_offer"]);
-		childSetActionTextbox("attachment", boost::bind(
+		getChild<LLTextBox>("attachment")->setClickedCallback(boost::bind(
 				&LLToastGroupNotifyPanel::onClickAttachment, this));
 
-		LLUIImagePtr attachIconImg = get_item_icon(mInventoryOffer->mType,
-												LLInventoryType::IT_TEXTURE,
-												0, FALSE);
+		LLUIImagePtr attachIconImg = LLInventoryIcon::getIcon(mInventoryOffer->mType,
+												LLInventoryType::IT_TEXTURE);
 		pAttachIcon->setValue(attachIconImg->getName());
 	}
 

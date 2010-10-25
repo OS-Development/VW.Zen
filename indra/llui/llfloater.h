@@ -110,7 +110,8 @@ public:
 								save_rect,
 								save_visibility,
 								save_dock_state,
-								can_dock;
+								can_dock,
+								open_centered;
 		Optional<S32>			header_height,
 								legacy_header_height; // HACK see initFromXML()
 
@@ -148,7 +149,7 @@ public:
 	static void setupParamsForExport(Params& p, LLView* parent);
 
 	void initFromParams(const LLFloater::Params& p);
-	bool initFloaterXML(LLXMLNodePtr node, LLView *parent, LLXMLNodePtr output_node = NULL);
+	bool initFloaterXML(LLXMLNodePtr node, LLView *parent, const std::string& filename, LLXMLNodePtr output_node = NULL);
 
 	/*virtual*/ void handleReshape(const LLRect& new_rect, bool by_user = false);
 	/*virtual*/ BOOL canSnapTo(const LLView* other_view);
@@ -307,7 +308,7 @@ protected:
 	BOOL			getAutoFocus() const { return mAutoFocus; }
 	LLDragHandle*	getDragHandle() const { return mDragHandle; }
 
-	void			destroy() { die(); } // Don't call this directly.  You probably want to call closeFloater()
+	void			destroy(); // Don't call this directly.  You probably want to call closeFloater()
 
 	virtual	void	onClickCloseBtn();
 
@@ -373,6 +374,7 @@ private:
 	BOOL			mCanClose;
 	BOOL			mDragOnLeft;
 	BOOL			mResizable;
+	bool			mOpenCentered;
 	
 	S32				mMinWidth;
 	S32				mMinHeight;
@@ -432,11 +434,15 @@ private:
 
 class LLFloaterView : public LLUICtrl
 {
+public:
+	struct Params : public LLInitParam::Block<Params, LLUICtrl::Params>{};
+
 protected:
 	LLFloaterView (const Params& p);
 	friend class LLUICtrlFactory;
 
 public:
+
 	/*virtual*/ void reshape(S32 width, S32 height, BOOL called_from_parent = TRUE);
 	void reshapeFloater(S32 width, S32 height, BOOL called_from_parent, BOOL adjust_vertical);
 
@@ -449,6 +455,7 @@ public:
 	// Given a child of gFloaterView, make sure this view can fit entirely onscreen.
 	void			adjustToFitScreen(LLFloater* floater, BOOL allow_partial_outside);
 
+	void			setMinimizePositionVerticalOffset(S32 offset) { mMinimizePositionVOffset = offset; }
 	void			getMinimizePosition( S32 *left, S32 *bottom);
 	void			restoreAll();		// un-minimize all floaters
 	typedef std::set<LLView*> skip_list_t;
@@ -465,6 +472,7 @@ public:
 	// attempt to close all floaters
 	void			closeAllChildren(bool app_quitting);
 	BOOL			allChildrenClosed();
+	void			shiftFloaters(S32 x_offset, S32 y_offset);
 
 	LLFloater* getFrontmost() const;
 	LLFloater* getBackmost() const;
@@ -484,6 +492,7 @@ private:
 	BOOL			mFocusCycleMode;
 	S32				mSnapOffsetBottom;
 	S32				mSnapOffsetRight;
+	S32				mMinimizePositionVOffset;
 };
 
 //

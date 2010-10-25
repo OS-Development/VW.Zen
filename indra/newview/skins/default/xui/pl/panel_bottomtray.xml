@@ -1,11 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <panel name="bottom_tray">
-	<string name="SpeakBtnToolTip">
-		Włącza/Wyłącza mikrofon
-	</string>
-	<string name="VoiceControlBtnToolTip">
-		Pokazuje/Ukrywa panel kontroli głosu
-	</string>
+	<string name="SpeakBtnToolTip" value="Włącza/wyłącza mikrofon"/>
+	<string name="VoiceControlBtnToolTip" value="Pokazuje/Ukrywa panel kontroli głosu"/>
 	<layout_stack name="toolbar_stack">
 		<layout_panel name="speak_panel">
 			<talk_button name="talk">
@@ -13,16 +9,31 @@
 			</talk_button>
 		</layout_panel>
 		<layout_panel name="gesture_panel">
-			<gesture_combo_list label="Gestury" name="Gesture" tool_tip="Pokazuje/Ukrywa gestury"/>
+			<gesture_combo_list label="Gesturki" name="Gesture" tool_tip="Pokazuje/Ukrywa gesturki"/>
 		</layout_panel>
 		<layout_panel name="movement_panel">
-			<button label="Ruch" name="movement_btn" tool_tip="Pokaż/Ukryj Ustawienia Ruchu"/>
+			<button label="Ruch" name="movement_btn" tool_tip="Pokaż/Ukryj ustawienia ruchu"/>
 		</layout_panel>
 		<layout_panel name="cam_panel">
-			<button label="Widok" name="camera_btn" tool_tip="Pokaż/Ukryj Ustawienia Kamery"/>
+			<button label="Widok" name="camera_btn" tool_tip="Pokaż/Ukryj ustawienia kamery"/>
 		</layout_panel>
 		<layout_panel name="snapshot_panel">
-			<button label="" name="snapshots" tool_tip="Zrób Zdjęcie"/>
+			<button label="" name="snapshots" tool_tip="Zrób zdjęcie"/>
+		</layout_panel>
+		<layout_panel name="sidebar_btn_panel">
+			<button label="Schowek" name="sidebar_btn" tool_tip="Pokazuje/ukrywa schowek"/>
+		</layout_panel>
+		<layout_panel name="build_btn_panel">
+			<button label="Buduj" name="build_btn" tool_tip="Pokazuje/ukrywa narzędzia budowania"/>
+		</layout_panel>
+		<layout_panel name="search_btn_panel">
+			<button label="Szukaj" name="search_btn" tool_tip="Pokazuje/ukrywa Szukaj"/>
+		</layout_panel>
+		<layout_panel name="world_map_btn_panel">
+			<button label="Mapa" name="world_map_btn" tool_tip="Pokazuje/ukrywa Mapę Świata"/>
+		</layout_panel>
+		<layout_panel name="mini_map_btn_panel">
+			<button label="Mini-Mapa" name="mini_map_btn" tool_tip="Pokazuje/ukrywa Mini-Mapę"/>
 		</layout_panel>
 		<layout_panel name="im_well_panel">
 			<chiclet_im_well name="im_well">

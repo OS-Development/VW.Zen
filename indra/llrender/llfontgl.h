@@ -95,8 +95,24 @@ public:
 
 	BOOL loadFace(const std::string& filename, F32 point_size, const F32 vert_dpi, const F32 horz_dpi, const S32 components, BOOL is_fallback);
 
-	S32 render(const LLWString &text, S32 begin_offset, F32 x, F32 y, const LLColor4 &color, HAlign halign = LEFT,  VAlign valign = BASELINE, U8 style = NORMAL,
-	           ShadowType shadow = NO_SHADOW, S32 max_chars = S32_MAX, S32 max_pixels = S32_MAX, F32* right_x=NULL, BOOL use_ellipses = FALSE) const;
+	S32 render(const LLWString &text, S32 begin_offset, 
+				const LLRect& rect, 
+				const LLColor4 &color, 
+				HAlign halign = LEFT,  VAlign valign = BASELINE, 
+				U8 style = NORMAL, ShadowType shadow = NO_SHADOW, 
+				S32 max_chars = S32_MAX,
+				F32* right_x=NULL, 
+				BOOL use_ellipses = FALSE) const;
+
+	S32 render(const LLWString &text, S32 begin_offset, 
+				F32 x, F32 y, 
+				const LLColor4 &color, 
+				HAlign halign = LEFT,  VAlign valign = BASELINE, 
+				U8 style = NORMAL, ShadowType shadow = NO_SHADOW, 
+				S32 max_chars = S32_MAX, S32 max_pixels = S32_MAX, 
+				F32* right_x=NULL, 
+				BOOL use_ellipses = FALSE) const;
+
 	S32 render(const LLWString &text, S32 begin_offset, F32 x, F32 y, const LLColor4 &color) const;
 
 	// renderUTF8 does a conversion, so is slower!
@@ -201,8 +217,8 @@ private:
 	LLFontDescriptor mFontDescriptor;
 	LLPointer<LLFontFreetype> mFontFreetype;
 
-	void renderQuad(const LLRectf& screen_rect, const LLRectf& uv_rect, F32 slant_amt) const;
-	void drawGlyph(const LLRectf& screen_rect, const LLRectf& uv_rect, const LLColor4& color, U8 style, ShadowType shadow, F32 drop_shadow_fade) const;
+	void renderQuad(LLVector3* vertex_out, LLVector2* uv_out, LLColor4U* colors_out, const LLRectf& screen_rect, const LLRectf& uv_rect, const LLColor4U& color, F32 slant_amt) const;
+	void drawGlyph(S32& glyph_count, LLVector3* vertex_out, LLVector2* uv_out, LLColor4U* colors_out, const LLRectf& screen_rect, const LLRectf& uv_rect, const LLColor4U& color, U8 style, ShadowType shadow, F32 drop_shadow_fade) const;
 
 	// Registry holds all instantiated fonts.
 	static LLFontRegistry* sFontRegistry;

@@ -169,7 +169,7 @@ void LLTeleportHistoryFlatItem::setValue(const LLSD& value)
 {
 	if (!value.isMap()) return;;
 	if (!value.has("selected")) return;
-	childSetVisible("selected_icon", value["selected"]);
+	getChildView("selected_icon")->setVisible( value["selected"]);
 }
 
 void LLTeleportHistoryFlatItem::setHighlightedText(const std::string& text)
@@ -193,7 +193,7 @@ void LLTeleportHistoryFlatItem::updateTitle()
 
 void LLTeleportHistoryFlatItem::onMouseEnter(S32 x, S32 y, MASK mask)
 {
-	childSetVisible("hovered_icon", true);
+	getChildView("hovered_icon")->setVisible( true);
 	mProfileBtn->setVisible(true);
 
 	LLPanel::onMouseEnter(x, y, mask);
@@ -201,7 +201,7 @@ void LLTeleportHistoryFlatItem::onMouseEnter(S32 x, S32 y, MASK mask)
 
 void LLTeleportHistoryFlatItem::onMouseLeave(S32 x, S32 y, MASK mask)
 {
-	childSetVisible("hovered_icon", false);
+	getChildView("hovered_icon")->setVisible( false);
 	mProfileBtn->setVisible(false);
 
 	LLPanel::onMouseLeave(x, y, mask);
@@ -477,6 +477,12 @@ void LLTeleportHistoryPanel::onSearchEdit(const std::string& string)
 }
 
 // virtual
+bool LLTeleportHistoryPanel::isSingleItemSelected()
+{
+	return mLastSelectedFlatlList && mLastSelectedFlatlList->getSelectedItem();
+}
+
+// virtual
 void LLTeleportHistoryPanel::onShowOnMap()
 {
 	if (!mLastSelectedFlatlList)
@@ -494,6 +500,20 @@ void LLTeleportHistoryPanel::onShowOnMap()
 		LLFloaterWorldMap::getInstance()->trackLocation(global_pos);
 		LLFloaterReg::showInstance("world_map", "center");
 	}
+}
+
+//virtual
+void LLTeleportHistoryPanel::onShowProfile()
+{
+	if (!mLastSelectedFlatlList)
+		return;
+
+	LLTeleportHistoryFlatItem* itemp = dynamic_cast<LLTeleportHistoryFlatItem *> (mLastSelectedFlatlList->getSelectedItem());
+
+	if(!itemp)
+		return;
+
+	LLTeleportHistoryFlatItem::showPlaceInfoPanel(itemp->getIndex());
 }
 
 // virtual
@@ -543,6 +563,7 @@ void LLTeleportHistoryPanel::updateVerbs()
 	if (!mLastSelectedFlatlList)
 	{
 		mTeleportBtn->setEnabled(false);
+		mShowProfile->setEnabled(false);
 		mShowOnMapBtn->setEnabled(false);
 		return;
 	}
@@ -550,6 +571,7 @@ void LLTeleportHistoryPanel::updateVerbs()
 	LLTeleportHistoryFlatItem* itemp = dynamic_cast<LLTeleportHistoryFlatItem *> (mLastSelectedFlatlList->getSelectedItem());
 
 	mTeleportBtn->setEnabled(NULL != itemp);
+	mShowProfile->setEnabled(NULL != itemp);
 	mShowOnMapBtn->setEnabled(NULL != itemp);
 }
 
@@ -626,16 +648,18 @@ void LLTeleportHistoryPanel::refresh()
 	LLDate tab_boundary_date =  LLDate::now();
 
 	LLFlatListView* curr_flat_view = NULL;
+	std::string filter_string = sFilterSubString;
+	LLStringUtil::toUpper(filter_string);
 
 	U32 added_items = 0;
 	while (mCurrentItem >= 0)
 	{
 		// Filtering
-		if (!sFilterSubString.empty())
+		if (!filter_string.empty())
 		{
 			std::string landmark_title(items[mCurrentItem].mTitle);
 			LLStringUtil::toUpper(landmark_title);
-			if( std::string::npos == landmark_title.find(sFilterSubString) )
+			if( std::string::npos == landmark_title.find(filter_string) )
 			{
 				mCurrentItem--;
 				continue;
@@ -684,7 +708,7 @@ void LLTeleportHistoryPanel::refresh()
 				.getFlatItemForPersistentItem(&mContextMenu,
 											  items[mCurrentItem],
 											  mCurrentItem,
-											  sFilterSubString);
+											  filter_string);
 			if ( !curr_flat_view->addItem(item, LLUUID::null, ADD_BOTTOM, false) )
 				llerrs << "Couldn't add flat item to teleport history." << llendl;
 			if (mLastSelectedItemIndex == mCurrentItem)
@@ -706,6 +730,8 @@ void LLTeleportHistoryPanel::refresh()
 			fv->notify(LLSD().with("rearrange", LLSD()));
 		}
 	}
+
+	mHistoryAccordion->setFilterSubString(sFilterSubString);
 
 	mHistoryAccordion->arrange();
 

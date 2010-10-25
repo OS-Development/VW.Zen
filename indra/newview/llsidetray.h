@@ -54,13 +54,13 @@ public:
 	:	public LLInitParam::Block<Params, LLPanel::Params>
 	{
 		// initial state
-		Optional<bool>		collapsed;
-		Optional<std::string>		tab_btn_image_normal;
-		Optional<std::string>		tab_btn_image_selected;
+		Optional<bool>				collapsed;
+		Optional<LLUIImage*>		tab_btn_image_normal,
+									tab_btn_image_selected;
 		
-		Optional<S32>				default_button_width;
-		Optional<S32>				default_button_height;
-		Optional<S32>				default_button_margin;
+		Optional<S32>				default_button_width,
+									default_button_height,
+									default_button_margin;
 		
 		Params();
 	};
@@ -68,7 +68,7 @@ public:
 	static LLSideTray*	getInstance		();
 	static bool			instanceCreated	();
 protected:
-	LLSideTray(Params& params);
+	LLSideTray(const Params& params);
 	typedef std::vector<LLSideTrayTab*> child_vector_t;
 	typedef child_vector_t::iterator					child_vector_iter_t;
 	typedef child_vector_t::const_iterator  			child_vector_const_iter_t;
@@ -94,7 +94,7 @@ public:
 	 * if no such tab - return NULL, otherwise a pointer to the panel
 	 * Pass params as array, or they may be overwritten(example - params["name"]="nearby")
 	 */
-	LLPanel*	showPanel		(const std::string& panel_name, const LLSD& params);
+	LLPanel*	showPanel		(const std::string& panel_name, const LLSD& params = LLSD());
 
 	/**
 	 * Toggling Side Tray tab which contains "sub_panel" child of "panel_name" panel.
@@ -102,7 +102,7 @@ public:
 	 * otherwise Side Tray is collapsed.
 	 * params are passed to "panel_name" panel onOpen().
 	 */
-	void		togglePanel		(LLPanel* &sub_panel, const std::string& panel_name, const LLSD& params);
+	void		togglePanel		(LLPanel* &sub_panel, const std::string& panel_name, const LLSD& params = LLSD());
 
 	/*
 	 * get the panel (don't show it or do anything else with it)
@@ -159,6 +159,10 @@ public:
 	
 	void		updateSidetrayVisibility();
 
+	commit_signal_t& getCollapseSignal() { return mCollapseSignal; }
+
+	void		handleLoginComplete();
+
 protected:
 	LLSideTrayTab* getTab		(const std::string& name);
 
@@ -187,6 +191,8 @@ private:
 	child_vector_t					mTabs;
 	LLSideTrayTab*					mActiveTab;	
 	
+	commit_signal_t					mCollapseSignal;
+
 	LLButton*						mCollapseButton;
 	bool							mCollapsed;
 	

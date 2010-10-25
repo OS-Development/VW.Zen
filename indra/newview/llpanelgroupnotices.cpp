@@ -38,12 +38,12 @@
 
 #include "llinventory.h"
 #include "llviewerinventory.h"
+#include "llinventorydefines.h"
 #include "llinventoryfunctions.h"
 #include "llinventorymodel.h"
 #include "llfloaterinventory.h"
 #include "llagent.h"
 #include "llagentui.h"
-#include "lltooldraganddrop.h"
 
 #include "lllineeditor.h"
 #include "lltexteditor.h"
@@ -59,6 +59,7 @@
 #include "llviewerwindow.h"
 #include "llviewermessage.h"
 #include "llnotificationsutil.h"
+#include "llgiveinventory.h"
 
 static LLRegisterPanelClassWrapper<LLPanelGroupNotices> t_panel_group_notices("panel_group_notices");
 
@@ -158,11 +159,13 @@ BOOL LLGroupDropTarget::handleDragAndDrop(S32 x, S32 y, MASK mask, BOOL drop,
 		case DAD_ANIMATION:
 		case DAD_GESTURE:
 		case DAD_CALLINGCARD:
+#if LL_MESH_ENABLED
 		case DAD_MESH:
+#endif
 		{
 			LLViewerInventoryItem* inv_item = (LLViewerInventoryItem*)cargo_data;
 			if(gInventory.getItem(inv_item->getUUID())
-				&& LLToolDragAndDrop::isInventoryGroupGiveAcceptable(inv_item))
+				&& LLGiveInventory::isInventoryGroupGiveAcceptable(inv_item))
 			{
 				// *TODO: get multiple object transfers working
 				*accept = ACCEPT_YES_COPY_SINGLE;
@@ -330,12 +333,12 @@ void LLPanelGroupNotices::setItem(LLPointer<LLInventoryItem> inv_item)
 	mInventoryItem = inv_item;
 
 	BOOL item_is_multi = FALSE;
-	if ( inv_item->getFlags() & LLInventoryItem::II_FLAGS_OBJECT_HAS_MULTIPLE_ITEMS )
+	if ( inv_item->getFlags() & LLInventoryItemFlags::II_FLAGS_OBJECT_HAS_MULTIPLE_ITEMS )
 	{
 		item_is_multi = TRUE;
 	};
 
-	std::string icon_name = get_item_icon_name(inv_item->getType(),
+	std::string icon_name = LLInventoryIcon::getIconName(inv_item->getType(),
 										inv_item->getInventoryType(),
 										inv_item->getFlags(),
 										item_is_multi );
@@ -517,6 +520,11 @@ void LLPanelGroupNotices::processNotices(LLMessageSystem* msg)
 
 	mNoticesList->setEnabled(TRUE);
 
+	//save sort state and set unsorted state to prevent unnecessary 
+	//sorting while adding notices
+	bool save_sort = mNoticesList->isSorted();
+	mNoticesList->setNeedsSort(false);
+
 	for (;i<count;++i)
 	{
 		msg->getUUID("Data","NoticeID",id,i);
@@ -527,6 +535,13 @@ void LLPanelGroupNotices::processNotices(LLMessageSystem* msg)
 			mNoticesList->setEnabled(FALSE);
 			return;
 		}
+
+		//with some network delays we can receive notice list more then once...
+		//so add only unique notices
+		S32 pos = mNoticesList->getItemIndex(id);
+
+		if(pos!=-1)//if items with this ID already in the list - skip it
+			continue;
 			
 		msg->getString("Data","Subject",subj,i);
 		msg->getString("Data","FromName",name,i);
@@ -540,9 +555,9 @@ void LLPanelGroupNotices::processNotices(LLMessageSystem* msg)
 		row["columns"][0]["column"] = "icon";
 		if (has_attachment)
 		{
-			std::string icon_name = get_item_icon_name(
+			std::string icon_name = LLInventoryIcon::getIconName(
 									(LLAssetType::EType)asset_type,
-									LLInventoryType::IT_NONE,FALSE, FALSE);
+									LLInventoryType::IT_NONE);
 			row["columns"][0]["type"] = "icon";
 			row["columns"][0]["value"] = icon_name;
 		}
@@ -562,6 +577,7 @@ void LLPanelGroupNotices::processNotices(LLMessageSystem* msg)
 		mNoticesList->addElement(row, ADD_BOTTOM);
 	}
 
+	mNoticesList->setNeedsSort(save_sort);
 	mNoticesList->updateSort();
 }
 
@@ -607,9 +623,8 @@ void LLPanelGroupNotices::showNotice(const std::string& subject,
 	{
 		mInventoryOffer = inventory_offer;
 
-		std::string icon_name = get_item_icon_name(mInventoryOffer->mType,
-												LLInventoryType::IT_TEXTURE,
-												0, FALSE);
+		std::string icon_name = LLInventoryIcon::getIconName(mInventoryOffer->mType,
+												LLInventoryType::IT_TEXTURE);
 
 		mViewInventoryIcon->setValue(icon_name);
 		mViewInventoryIcon->setVisible(TRUE);
@@ -656,6 +671,9 @@ void LLPanelGroupNotices::setGroupID(const LLUUID& id)
 
 	if(mViewMessage) 
 		mViewMessage->clear();
+
+	if(mViewInventoryName)
+		mViewInventoryName->clear();
 	
 	activate();
 }

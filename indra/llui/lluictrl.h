@@ -47,14 +47,10 @@
 const BOOL TAKE_FOCUS_YES = TRUE;
 const BOOL TAKE_FOCUS_NO  = FALSE;
 
-// NOTE: the LLFocusableElement class declaration has been moved from here to llfocusmgr.h.
-
 class LLUICtrl
 	: public LLView, public boost::signals2::trackable
 {
 public:
-
-
 	typedef boost::function<void (LLUICtrl* ctrl, const LLSD& param)> commit_callback_t;
 	typedef boost::signals2::signal<void (LLUICtrl* ctrl, const LLSD& param)> commit_signal_t;
 	// *TODO: add xml support for this type of signal in the future
@@ -111,8 +107,8 @@ public:
 										commit_callback;
 		Optional<EnableCallbackParam>	validate_callback;
 		
-		Optional<CommitCallbackParam>	mouseenter_callback;
-		Optional<CommitCallbackParam>	mouseleave_callback;
+		Optional<CommitCallbackParam>	mouseenter_callback,
+										mouseleave_callback;
 		
 		Optional<std::string>			control_name;
 		Optional<EnableControls>		enabled_controls;
@@ -151,8 +147,6 @@ public:
 	// LLView interface
 	/*virtual*/ BOOL	setLabelArg( const std::string& key, const LLStringExplicit& text );
 	/*virtual*/ BOOL	isCtrl() const;
-	/*virtual*/ void	setTentative(BOOL b);
-	/*virtual*/ BOOL	getTentative() const;
 	/*virtual*/ void	onMouseEnter(S32 x, S32 y, MASK mask);
 	/*virtual*/ void	onMouseLeave(S32 x, S32 y, MASK mask);
 	/*virtual*/ BOOL	canFocusChildren() const;
@@ -184,6 +178,8 @@ public:
 	void setMakeVisibleControlVariable(LLControlVariable* control);
 	void setMakeInvisibleControlVariable(LLControlVariable* control);
 
+	virtual void	setTentative(BOOL b);
+	virtual BOOL	getTentative() const;
 	virtual void	setValue(const LLSD& value);
 	virtual LLSD	getValue() const;
     /// When two widgets are displaying the same data (e.g. during a skin

@@ -2064,6 +2064,11 @@ version 2.0
     {
 		ExtraPhysics        Variable
 		{   PhysicsShapeType U8     }
+        {   Density          F32    }
+        {   Friction         F32    }
+        {   Restitution      F32    }
+        {   GravityMultiplier    F32    }
+
 	}
 }
 

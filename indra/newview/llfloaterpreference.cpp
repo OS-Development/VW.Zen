@@ -70,6 +70,7 @@
 #include "llscrolllistctrl.h"
 #include "llscrolllistitem.h"
 #include "llsliderctrl.h"
+#include "llsidetray.h"
 #include "lltabcontainer.h"
 #include "lltrans.h"
 #include "llviewercontrol.h"
@@ -107,6 +108,8 @@
 #include "llpluginclassmedia.h"
 #include "llteleporthistorystorage.h"
 
+#include "lllogininstance.h"        // to check if logged in yet
+
 const F32 MAX_USER_FAR_CLIP = 512.f;
 const F32 MIN_USER_FAR_CLIP = 64.f;
 
@@ -141,7 +144,7 @@ LLVoiceSetKeyDialog::LLVoiceSetKeyDialog(const LLSD& key)
 BOOL LLVoiceSetKeyDialog::postBuild()
 {
 	childSetAction("Cancel", onCancel, this);
-	childSetFocus("Cancel");
+	getChild<LLUICtrl>("Cancel")->setFocus(TRUE);
 	
 	gFocusMgr.setKeystrokesOnly(TRUE);
 	
@@ -182,7 +185,6 @@ void LLVoiceSetKeyDialog::onCancel(void* user_data)
 // if creating/destroying these is too slow, we'll need to create
 // a static member and update all our static callbacks
 
-void handleNameTagOptionChanged(const LLSD& newvalue);	
 bool callback_clear_browser_cache(const LLSD& notification, const LLSD& response);
 
 //bool callback_skip_dialogs(const LLSD& notification, const LLSD& response, LLFloaterPreference* floater);
@@ -216,15 +218,6 @@ bool callback_clear_browser_cache(const LLSD& notification, const LLSD& response
 	}
 	
 	return false;
-}
-
-void handleNameTagOptionChanged(const LLSD& newvalue)
-{
-	S32 name_tag_option = S32(newvalue);
-	if(name_tag_option==2)
-	{
-		gSavedSettings.setBOOL("SmallAvatarNames", TRUE);
-	}
 }
 
 /*bool callback_skip_dialogs(const LLSD& notification, const LLSD& response, LLFloaterPreference* floater)
@@ -317,10 +310,9 @@ LLFloaterPreference::LLFloaterPreference(const LLSD& key)
 	mCommitCallbackRegistrar.add("Pref.applyUIColor",			boost::bind(&LLFloaterPreference::applyUIColor, this ,_1, _2));
 	mCommitCallbackRegistrar.add("Pref.getUIColor",				boost::bind(&LLFloaterPreference::getUIColor, this ,_1, _2));
 	mCommitCallbackRegistrar.add("Pref.MaturitySettings",		boost::bind(&LLFloaterPreference::onChangeMaturity, this));
+	mCommitCallbackRegistrar.add("Pref.BlockList",				boost::bind(&LLFloaterPreference::onClickBlockList, this));
 
 	sSkin = gSavedSettings.getString("SkinCurrent");
-	
-	gSavedSettings.getControl("AvatarNameTagMode")->getCommitSignal()->connect(boost::bind(&handleNameTagOptionChanged,  _2));
 }
 
 BOOL LLFloaterPreference::postBuild()
@@ -336,13 +328,30 @@ BOOL LLFloaterPreference::postBuild()
 	LLTabContainer* tabcontainer = getChild<LLTabContainer>("pref core");
 	if (!tabcontainer->selectTab(gSavedSettings.getS32("LastPrefTab")))
 		tabcontainer->selectFirstTab();
-	S32 show_avatar_nametag_options = gSavedSettings.getS32("AvatarNameTagMode");
-	handleNameTagOptionChanged(LLSD(show_avatar_nametag_options));
 
 	std::string cache_location = gDirUtilp->getExpandedFilename(LL_PATH_CACHE, "");
-	childSetText("cache_location", cache_location);
+	getChild<LLUICtrl>("cache_location")->setValue(cache_location);
+
+	// if floater is opened before login set default localized busy message
+	if (LLStartUp::getStartupState() < STATE_STARTED)
+	{
+		gSavedPerAccountSettings.setString("BusyModeResponse", LLTrans::getString("BusyModeResponseDefault"));
+	}
 
 	return TRUE;
+}
+
+void LLFloaterPreference::onBusyResponseChanged()
+{
+	// set "BusyResponseChanged" TRUE if user edited message differs from default, FALSE otherwise
+	if(LLTrans::getString("BusyModeResponseDefault") != getChild<LLUICtrl>("busy_response")->getValue().asString())
+	{
+		gSavedPerAccountSettings.setBOOL("BusyResponseChanged", TRUE );
+	}
+	else
+	{
+		gSavedPerAccountSettings.setBOOL("BusyResponseChanged", FALSE );
+	}
 }
 
 LLFloaterPreference::~LLFloaterPreference()
@@ -417,28 +426,28 @@ void LLFloaterPreference::apply()
 	fov_slider->setMaxValue(LLViewerCamera::getInstance()->getMaxView());
 	
 	std::string cache_location = gDirUtilp->getExpandedFilename(LL_PATH_CACHE, "");
-	childSetText("cache_location", cache_location);		
+	getChild<LLUICtrl>("cache_location")->setValue(cache_location);		
 	
-	LLViewerMedia::setCookiesEnabled(childGetValue("cookies_enabled"));
+	LLViewerMedia::setCookiesEnabled(getChild<LLUICtrl>("cookies_enabled")->getValue());
 	
 	if(hasChild("web_proxy_enabled") &&hasChild("web_proxy_editor") && hasChild("web_proxy_port"))
 	{
-		bool proxy_enable = childGetValue("web_proxy_enabled");
-		std::string proxy_address = childGetValue("web_proxy_editor");
-		int proxy_port = childGetValue("web_proxy_port");
+		bool proxy_enable = getChild<LLUICtrl>("web_proxy_enabled")->getValue();
+		std::string proxy_address = getChild<LLUICtrl>("web_proxy_editor")->getValue();
+		int proxy_port = getChild<LLUICtrl>("web_proxy_port")->getValue();
 		LLViewerMedia::setProxyConfig(proxy_enable, proxy_address, proxy_port);
 	}
 	
 //	LLWString busy_response = utf8str_to_wstring(getChild<LLUICtrl>("busy_response")->getValue().asString());
 //	LLWStringUtil::replaceTabsWithSpaces(busy_response, 4);
 
-	gSavedSettings.setBOOL("PlainTextChatHistory", childGetValue("plain_text_chat_history").asBoolean());
+	gSavedSettings.setBOOL("PlainTextChatHistory", getChild<LLUICtrl>("plain_text_chat_history")->getValue().asBoolean());
 	
 	if(mGotPersonalInfo)
 	{ 
 //		gSavedSettings.setString("BusyModeResponse2", std::string(wstring_to_utf8str(busy_response)));
-		bool new_im_via_email = childGetValue("send_im_to_email").asBoolean();
-		bool new_hide_online = childGetValue("online_visibility").asBoolean();		
+		bool new_im_via_email = getChild<LLUICtrl>("send_im_to_email")->getValue().asBoolean();
+		bool new_hide_online = getChild<LLUICtrl>("online_visibility")->getValue().asBoolean();		
 	
 		if((new_im_via_email != mOriginalIMViaEmail)
 			||(new_hide_online != mOriginalHideOnlineStatus))
@@ -458,8 +467,6 @@ void LLFloaterPreference::apply()
 			gAgent.sendAgentUpdateUserInfo(new_im_via_email,mDirectoryVisibility);
 		}
 	}
-
-	applyResolution();
 }
 
 void LLFloaterPreference::cancel()
@@ -499,6 +506,22 @@ void LLFloaterPreference::cancel()
 
 void LLFloaterPreference::onOpen(const LLSD& key)
 {
+	// this variable and if that follows it are used to properly handle busy mode response message
+	static bool initialized = FALSE;
+	// if user is logged in and we haven't initialized busy_response yet, do it
+	if (!initialized && LLStartUp::getStartupState() == STATE_STARTED)
+	{
+		// Special approach is used for busy response localization, because "BusyModeResponse" is
+		// in non-localizable xml, and also because it may be changed by user and in this case it shouldn't be localized.
+		// To keep track of whether busy response is default or changed by user additional setting BusyResponseChanged
+		// was added into per account settings.
+
+		// initialization should happen once,so setting variable to TRUE
+		initialized = TRUE;
+		// this connection is needed to properly set "BusyResponseChanged" setting when user makes changes in
+		// busy response message.
+		gSavedPerAccountSettings.getControl("BusyModeResponse")->getSignal()->connect(boost::bind(&LLFloaterPreference::onBusyResponseChanged, this));
+	}
 	gAgent.sendAgentUserInfoRequest();
 
 	/////////////////////////// From LLPanelGeneral //////////////////////////
@@ -513,20 +536,22 @@ void LLFloaterPreference::onOpen(const LLSD& key)
 	if (can_choose_maturity)
 	{		
 		// if they're not adult or a god, they shouldn't see the adult selection, so delete it
-		if (!gAgent.isAdult() && !gAgent.isGodlike())
+		if (!gAgent.isAdult() && !gAgent.isGodlikeWithoutAdminMenuFakery())
 		{
-			// we're going to remove the adult entry from the combo. This obviously depends
-			// on the order of items in the XML file, but there doesn't seem to be a reasonable
-			// way to depend on the field in XML called 'name'.
-			maturity_combo->remove(0);
+			// we're going to remove the adult entry from the combo
+			LLScrollListCtrl* maturity_list = maturity_combo->findChild<LLScrollListCtrl>("ComboBox");
+			if (maturity_list)
+			{
+				maturity_list->deleteItems(LLSD(SIM_ACCESS_ADULT));
+			}
 		}
-		childSetVisible("maturity_desired_combobox", true);
-		childSetVisible("maturity_desired_textbox", false);		
+		getChildView("maturity_desired_combobox")->setVisible( true);
+		getChildView("maturity_desired_textbox")->setVisible( false);
 	}
 	else
 	{
-		childSetText("maturity_desired_textbox",  maturity_combo->getSelectedItemLabel());
-		childSetVisible("maturity_desired_combobox", false);
+		getChild<LLUICtrl>("maturity_desired_textbox")->setValue(maturity_combo->getSelectedItemLabel());
+		getChildView("maturity_desired_combobox")->setVisible( false);
 	}
 
 	// Display selected maturity icons.
@@ -549,6 +574,16 @@ void LLFloaterPreference::onVertexShaderEnable()
 {
 	refreshEnabledGraphics();
 }
+
+//static
+void LLFloaterPreference::initBusyResponse()
+	{
+		if (!gSavedPerAccountSettings.getBOOL("BusyResponseChanged"))
+		{
+			//LLTrans::getString("BusyModeResponseDefault") is used here for localization (EXT-5885)
+			gSavedPerAccountSettings.setString("BusyModeResponse", LLTrans::getString("BusyModeResponseDefault"));
+		}
+	}
 
 void LLFloaterPreference::setHardwareDefaults()
 {
@@ -609,7 +644,7 @@ void LLFloaterPreference::onBtnOK()
 		llinfos << "Can't close preferences!" << llendl;
 	}
 
-	LLPanelLogin::refreshLocation( false );
+	LLPanelLogin::updateLocationCombo( false );
 }
 
 // static 
@@ -626,7 +661,7 @@ void LLFloaterPreference::onBtnApply( )
 	apply();
 	saveSettings();
 
-	LLPanelLogin::refreshLocation( false );
+	LLPanelLogin::updateLocationCombo( false );
 }
 
 // static 
@@ -872,24 +907,30 @@ void LLFloaterPreference::refreshEnabledState()
 	//Deferred/SSAO/Shadows
 	LLCheckBoxCtrl* ctrl_deferred = getChild<LLCheckBoxCtrl>("UseLightShaders");
 	if (LLFeatureManager::getInstance()->isFeatureAvailable("RenderUseFBO") &&
+	    LLFeatureManager::getInstance()->isFeatureAvailable("RenderDeferred") &&
 		shaders)
 	{
-		BOOL enabled = ctrl_wind_light->get() ? TRUE : FALSE;
+		BOOL enabled = (ctrl_wind_light->get()) ? TRUE : FALSE;
 
 		ctrl_deferred->setEnabled(enabled);
 	
 		LLCheckBoxCtrl* ctrl_ssao = getChild<LLCheckBoxCtrl>("UseSSAO");
 		LLComboBox* ctrl_shadow = getChild<LLComboBox>("ShadowDetail");
 
-		enabled = enabled && (ctrl_deferred->get() ? TRUE : FALSE);
+		enabled = enabled && LLFeatureManager::getInstance()->isFeatureAvailable("RenderDeferredSSAO") && (ctrl_deferred->get() ? TRUE : FALSE);
 		
 		ctrl_ssao->setEnabled(enabled);
+
+		enabled = enabled && LLFeatureManager::getInstance()->isFeatureAvailable("RenderShadowDetail");
+
 		ctrl_shadow->setEnabled(enabled);
 	}
 
 
 	// now turn off any features that are unavailable
 	disableUnavailableSettings();
+
+	getChildView("block_list")->setEnabled(LLLoginInstance::getInstance()->authSuccess());
 }
 
 void LLFloaterPreference::disableUnavailableSettings()
@@ -948,7 +989,34 @@ void LLFloaterPreference::disableUnavailableSettings()
 		ctrl_deferred->setEnabled(FALSE);
 		ctrl_deferred->setValue(FALSE);
 	}
+
+	// disabled deferred
+	if(!LLFeatureManager::getInstance()->isFeatureAvailable("RenderDeferred"))
+	{
+		ctrl_shadows->setEnabled(FALSE);
+		ctrl_shadows->setValue(0);
+		
+		ctrl_ssao->setEnabled(FALSE);
+		ctrl_ssao->setValue(FALSE);
+
+		ctrl_deferred->setEnabled(FALSE);
+		ctrl_deferred->setValue(FALSE);
+	}
 	
+	// disabled deferred SSAO
+	if(!LLFeatureManager::getInstance()->isFeatureAvailable("RenderDeferredSSAO"))
+	{
+		ctrl_ssao->setEnabled(FALSE);
+		ctrl_ssao->setValue(FALSE);
+	}
+	
+	// disabled deferred shadows
+	if(!LLFeatureManager::getInstance()->isFeatureAvailable("RenderShadowDetail"))
+	{
+		ctrl_shadows->setEnabled(FALSE);
+		ctrl_shadows->setValue(0);
+	}
+
 	// disabled reflections
 	if(!LLFeatureManager::getInstance()->isFeatureAvailable("RenderReflectionDetail"))
 	{
@@ -1022,18 +1090,6 @@ void LLFloaterPreference::onChangeQuality(const LLSD& data)
 	refresh();
 }
 
-// static
-// DEV-24146 -  needs to be removed at a later date. jan-2009
-void LLFloaterPreference::cleanupBadSetting()
-{
-	if (gSavedPerAccountSettings.getString("BusyModeResponse2") == "|TOKEN COPY BusyModeResponse|")
-	{
-		llwarns << "cleaning old BusyModeResponse" << llendl;
-		//LLTrans::getString("BusyModeResponseDefault") is used here for localization (EXT-5885)
-		gSavedPerAccountSettings.setString("BusyModeResponse2", LLTrans::getString("BusyModeResponseDefault"));
-	}
-}
-
 void LLFloaterPreference::onClickSetKey()
 {
 	LLVoiceSetKeyDialog* dialog = LLFloaterReg::showTypedInstance<LLVoiceSetKeyDialog>("voice_set_key", LLSD(), TRUE);
@@ -1045,7 +1101,7 @@ void LLFloaterPreference::onClickSetKey()
 
 void LLFloaterPreference::setKey(KEY key)
 {
-	childSetValue("modifier_combo", LLKeyboard::stringFromKey(key));
+	getChild<LLUICtrl>("modifier_combo")->setValue(LLKeyboard::stringFromKey(key));
 	// update the control right away since we no longer wait for apply
 	getChild<LLUICtrl>("modifier_combo")->onCommit();
 }
@@ -1145,10 +1201,8 @@ void LLFloaterPreference::onClickLogPath()
 	{
 		return; //Canceled!
 	}
-	std::string chat_log_dir = picker.getDirName();
-	std::string chat_log_top_folder= gDirUtilp->getBaseFileName(chat_log_dir);
-	gSavedPerAccountSettings.setString("InstantMessageLogPath",chat_log_dir);
-	gSavedPerAccountSettings.setString("InstantMessageLogFolder",chat_log_top_folder);
+
+	gSavedPerAccountSettings.setString("InstantMessageLogPath", picker.getDirName());
 }
 
 void LLFloaterPreference::setPersonalInfo(const std::string& visibility, bool im_via_email, const std::string& email)
@@ -1160,46 +1214,46 @@ void LLFloaterPreference::setPersonalInfo(const std::string& visibility, bool im
 	if(visibility == VISIBILITY_DEFAULT)
 	{
 		mOriginalHideOnlineStatus = false;
-		childEnable("online_visibility"); 	 
+		getChildView("online_visibility")->setEnabled(TRUE); 	 
 	}
 	else if(visibility == VISIBILITY_HIDDEN)
 	{
 		mOriginalHideOnlineStatus = true;
-		childEnable("online_visibility"); 	 
+		getChildView("online_visibility")->setEnabled(TRUE); 	 
 	}
 	else
 	{
 		mOriginalHideOnlineStatus = true;
 	}
 	
-	childEnable("include_im_in_chat_history");
-	childEnable("show_timestamps_check_im");
-	childEnable("friends_online_notify_checkbox");
+	getChildView("include_im_in_chat_history")->setEnabled(TRUE);
+	getChildView("show_timestamps_check_im")->setEnabled(TRUE);
+	getChildView("friends_online_notify_checkbox")->setEnabled(TRUE);
 	
-	childSetValue("online_visibility", mOriginalHideOnlineStatus); 	 
-	childSetLabelArg("online_visibility", "[DIR_VIS]", mDirectoryVisibility);
-	childEnable("send_im_to_email");
-	childSetValue("send_im_to_email", im_via_email);
-	childEnable("plain_text_chat_history");
-	childSetValue("plain_text_chat_history", gSavedSettings.getBOOL("PlainTextChatHistory"));
-	childEnable("log_instant_messages");
-//	childEnable("log_chat");
-//	childEnable("busy_response");
-//	childEnable("log_instant_messages_timestamp");
-//	childEnable("log_chat_timestamp");
-	childEnable("log_chat_IM");
-	childEnable("log_date_timestamp");
+	getChild<LLUICtrl>("online_visibility")->setValue(mOriginalHideOnlineStatus); 	 
+	getChild<LLUICtrl>("online_visibility")->setLabelArg("[DIR_VIS]", mDirectoryVisibility);
+	getChildView("send_im_to_email")->setEnabled(TRUE);
+	getChild<LLUICtrl>("send_im_to_email")->setValue(im_via_email);
+	getChildView("plain_text_chat_history")->setEnabled(TRUE);
+	getChild<LLUICtrl>("plain_text_chat_history")->setValue(gSavedSettings.getBOOL("PlainTextChatHistory"));
+	getChildView("log_instant_messages")->setEnabled(TRUE);
+//	getChildView("log_chat")->setEnabled(TRUE);
+//	getChildView("busy_response")->setEnabled(TRUE);
+//	getChildView("log_instant_messages_timestamp")->setEnabled(TRUE);
+//	getChildView("log_chat_timestamp")->setEnabled(TRUE);
+	getChildView("log_chat_IM")->setEnabled(TRUE);
+	getChildView("log_date_timestamp")->setEnabled(TRUE);
 	
-//	childSetText("busy_response", gSavedSettings.getString("BusyModeResponse2"));
+//	getChild<LLUICtrl>("busy_response")->setValue(gSavedSettings.getString("BusyModeResponse2"));
 	
-	childEnable("log_nearby_chat");
-	childEnable("log_instant_messages");
-	childEnable("show_timestamps_check_im");
-	childDisable("log_path_string");// LineEditor becomes readonly in this case.
-	childEnable("log_path_button");
+	getChildView("log_nearby_chat")->setEnabled(TRUE);
+	getChildView("log_instant_messages")->setEnabled(TRUE);
+	getChildView("show_timestamps_check_im")->setEnabled(TRUE);
+	getChildView("log_path_string")->setEnabled(FALSE);// LineEditor becomes readonly in this case.
+	getChildView("log_path_button")->setEnabled(TRUE);
 	
 	std::string display_email(email);
-	childSetText("email_address",display_email);
+	getChild<LLUICtrl>("email_address")->setValue(display_email);
 
 }
 
@@ -1244,31 +1298,6 @@ void LLFloaterPreference::updateSliderText(LLSliderCtrl* ctrl, LLTextBox* text_b
 	}
 }
 
-void LLFloaterPreference::applyResolution()
-{
-	gGL.flush();
-	
-	// Screen resolution
-	S32 num_resolutions;
-	LLWindow::LLWindowResolution* supported_resolutions = 
-	gViewerWindow->getWindow()->getSupportedResolutions(num_resolutions);
-	S32 resIndex = getChild<LLComboBox>("fullscreen combo")->getCurrentIndex();
-	if (resIndex == -1)
-	{
-		// use highest resolution if nothing selected
-		resIndex = num_resolutions - 1;
-	}
-	gSavedSettings.setS32("FullScreenWidth", supported_resolutions[resIndex].mWidth);
-	gSavedSettings.setS32("FullScreenHeight", supported_resolutions[resIndex].mHeight);
-	
-	gViewerWindow->requestResolutionUpdate(gSavedSettings.getBOOL("WindowFullScreen"));
-	
-	send_agent_update(TRUE);
-	
-	// Update enable/disable
-	refresh();
-}
-
 void LLFloaterPreference::onChangeMaturity()
 {
 	U8 sim_access = gSavedSettings.getU32("PreferredMaturity");
@@ -1281,6 +1310,17 @@ void LLFloaterPreference::onChangeMaturity()
 															|| sim_access == SIM_ACCESS_ADULT);
 
 	getChild<LLIconCtrl>("rating_icon_adult")->setVisible(sim_access == SIM_ACCESS_ADULT);
+}
+
+// FIXME: this will stop you from spawning the sidetray from preferences dialog on login screen
+// but the UI for this will still be enabled
+void LLFloaterPreference::onClickBlockList()
+{
+	// don't create side tray on demand
+	if (LLSideTray::instanceCreated())
+	{
+		LLSideTray::getInstance()->showPanel("panel_block_list_sidetray");
+	}
 }
 
 
@@ -1312,8 +1352,8 @@ BOOL LLPanelPreference::postBuild()
 	if(hasChild("voice_unavailable"))
 	{
 		BOOL voice_disabled = gSavedSettings.getBOOL("CmdLineDisableVoice");
-		childSetVisible("voice_unavailable", voice_disabled);
-		childSetVisible("enable_voice_check", !voice_disabled);
+		getChildView("voice_unavailable")->setVisible( voice_disabled);
+		getChildView("enable_voice_check")->setVisible( !voice_disabled);
 	}
 	
 	//////////////////////PanelSkins ///////////////////
@@ -1333,8 +1373,8 @@ BOOL LLPanelPreference::postBuild()
 
 	if(hasChild("online_visibility") && hasChild("send_im_to_email"))
 	{
-		childSetText("email_address",getString("log_in_to_change") );
-//		childSetText("busy_response", getString("log_in_to_change"));		
+		getChild<LLUICtrl>("email_address")->setValue(getString("log_in_to_change") );
+//		getChild<LLUICtrl>("busy_response")->setValue(getString("log_in_to_change"));		
 	}
 	
 	//////////////////////PanelPrivacy ///////////////////
@@ -1358,9 +1398,9 @@ BOOL LLPanelPreference::postBuild()
 	if (hasChild("modifier_combo"))
 	{
 		//localizing if push2talk button is set to middle mouse
-		if (MIDDLE_MOUSE_CV == childGetValue("modifier_combo").asString())
+		if (MIDDLE_MOUSE_CV == getChild<LLUICtrl>("modifier_combo")->getValue().asString())
 		{
-			childSetValue("modifier_combo", getString("middle_mouse"));
+			getChild<LLUICtrl>("modifier_combo")->setValue(getString("middle_mouse"));
 		}
 	}
 

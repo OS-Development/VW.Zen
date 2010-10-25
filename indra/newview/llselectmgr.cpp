@@ -1100,8 +1100,8 @@ void LLSelectMgr::getGrid(LLVector3& origin, LLQuaternion &rotation, LLVector3 &
 		mGridRotation = first_grid_object->getRenderRotation();
 		LLVector3 first_grid_obj_pos = first_grid_object->getRenderPosition();
 
-		LLVector3 min_extents(F32_MAX, F32_MAX, F32_MAX);
-		LLVector3 max_extents(-F32_MAX, -F32_MAX, -F32_MAX);
+		LLVector4a min_extents(F32_MAX);
+		LLVector4a max_extents(-F32_MAX);
 		BOOL grid_changed = FALSE;
 		for (LLObjectSelection::iterator iter = mGridObjects.begin();
 			 iter != mGridObjects.end(); ++iter)
@@ -1110,7 +1110,7 @@ void LLSelectMgr::getGrid(LLVector3& origin, LLQuaternion &rotation, LLVector3 &
 			LLDrawable* drawable = object->mDrawable;
 			if (drawable)
 			{
-				const LLVector3* ext = drawable->getSpatialExtents();
+				const LLVector4a* ext = drawable->getSpatialExtents();
 				update_min_max(min_extents, max_extents, ext[0]);
 				update_min_max(min_extents, max_extents, ext[1]);
 				grid_changed = TRUE;
@@ -1118,13 +1118,19 @@ void LLSelectMgr::getGrid(LLVector3& origin, LLQuaternion &rotation, LLVector3 &
 		}
 		if (grid_changed)
 		{
-			mGridOrigin = lerp(min_extents, max_extents, 0.5f);
+			LLVector4a center, size;
+			center.setAdd(min_extents, max_extents);
+			center.mul(0.5f);
+			size.setSub(max_extents, min_extents);
+			size.mul(0.5f);
+
+			mGridOrigin.set(center.getF32ptr());
 			LLDrawable* drawable = first_grid_object->mDrawable;
 			if (drawable && drawable->isActive())
 			{
 				mGridOrigin = mGridOrigin * first_grid_object->getRenderMatrix();
 			}
-			mGridScale = (max_extents - min_extents) * 0.5f;
+			mGridScale.set(size.getF32ptr());
 		}
 	}
 	else // GRID_MODE_WORLD or just plain default
@@ -2435,7 +2441,7 @@ BOOL LLSelectMgr::selectGetCreator(LLUUID& result_id, std::string& name)
 	
 	if (identical)
 	{
-		name = LLSLURL::buildCommand("agent", first_id, "inspect");
+		name = LLSLURL("agent", first_id, "inspect").getSLURLString();
 	}
 	else
 	{
@@ -2494,11 +2500,11 @@ BOOL LLSelectMgr::selectGetOwner(LLUUID& result_id, std::string& name)
 		BOOL public_owner = (first_id.isNull() && !first_group_owned);
 		if (first_group_owned)
 		{
-			name = LLSLURL::buildCommand("group", first_id, "inspect");
+			name = LLSLURL("group", first_id, "inspect").getSLURLString();
 		}
 		else if(!public_owner)
 		{
-			name = LLSLURL::buildCommand("agent", first_id, "inspect");
+			name = LLSLURL("agent", first_id, "inspect").getSLURLString();
 		}
 		else
 		{
@@ -2558,7 +2564,7 @@ BOOL LLSelectMgr::selectGetLastOwner(LLUUID& result_id, std::string& name)
 		BOOL public_owner = (first_id.isNull());
 		if(!public_owner)
 		{
-			name = LLSLURL::buildCommand("agent", first_id, "inspect");
+			name = LLSLURL("agent", first_id, "inspect").getSLURLString();
 		}
 		else
 		{
@@ -3537,7 +3543,7 @@ void LLSelectMgr::deselectAllIfTooFar()
 		{
 			if (mDebugSelectMgr)
 			{
-				llinfos << "Selection manager: auto-deselecting, select_dist = " << fsqrtf(select_dist_sq) << llendl;
+				llinfos << "Selection manager: auto-deselecting, select_dist = " << (F32) sqrt(select_dist_sq) << llendl;
 				llinfos << "agent pos global = " << gAgent.getPositionGlobal() << llendl;
 				llinfos << "selection pos global = " << selectionCenter << llendl;
 			}
@@ -3615,7 +3621,7 @@ void LLSelectMgr::selectionSetObjectSaleInfo(const LLSaleInfo& sale_info)
 // Attachments
 //----------------------------------------------------------------------
 
-void LLSelectMgr::sendAttach(U8 attachment_point)
+void LLSelectMgr::sendAttach(U8 attachment_point, bool replace)
 {
 	LLViewerObject* attach_object = mSelectedObjects->getFirstRootObject();
 
@@ -3624,14 +3630,18 @@ void LLSelectMgr::sendAttach(U8 attachment_point)
 		return;
 	}
 
-#if ENABLE_MULTIATTACHMENTS
-	attachment_point |= ATTACHMENT_ADD;
-#endif
 	BOOL build_mode = LLToolMgr::getInstance()->inEdit();
 	// Special case: Attach to default location for this object.
 	if (0 == attachment_point ||
 		get_if_there(gAgentAvatarp->mAttachmentPoints, (S32)attachment_point, (LLViewerJointAttachment*)NULL))
 	{
+		if (!replace || attachment_point != 0)
+		{
+			// If we know the attachment point then we got here by clicking an
+			// "Attach to..." context menu item, so we should add, not replace.
+			attachment_point |= ATTACHMENT_ADD;
+		}
+
 		sendListToRegions(
 			"ObjectAttach",
 			packAgentIDAndSessionAndAttachment, 
@@ -3931,15 +3941,30 @@ void LLSelectMgr::selectionUpdateCastShadows(BOOL cast_shadows)
 	getSelection()->applyToObjects(&func);	
 }
 
-struct LLSelectMgrApplyPhysicsShapeType : public LLSelectedObjectFunctor
+struct LLSelectMgrApplyPhysicsParam : public LLSelectedObjectFunctor
 {
-	LLSelectMgrApplyPhysicsShapeType(U8 value) : mValue(value) {}
-	U8 mValue;
+	LLSelectMgrApplyPhysicsParam(U8 type, F32 gravity, F32 friction, 
+									F32 density, F32 restitution) :
+		mType(type),
+		mGravity(gravity),
+		mFriction(friction),
+		mDensity(density),
+		mRestitution(restitution)
+	{}
+	U8 mType;
+	F32 mGravity;
+	F32 mFriction;
+	F32 mDensity;
+	F32 mRestitution;
 	virtual bool apply(LLViewerObject* object)
 	{
 		if ( object->permModify() ) 	// preemptive permissions check
 		{
-			object->setPhysicsShapeType( mValue );
+			object->setPhysicsShapeType( mType );
+			object->setPhysicsGravity(mGravity);
+			object->setPhysicsFriction(mFriction);
+			object->setPhysicsDensity(mDensity);
+			object->setPhysicsRestitution(mRestitution);
 			object->updateFlags();
 		}
 		return true;
@@ -3947,10 +3972,11 @@ struct LLSelectMgrApplyPhysicsShapeType : public LLSelectedObjectFunctor
 };
 
 
-void LLSelectMgr::selectionUpdatePhysicsShapeType(U8 type)
+void LLSelectMgr::selectionUpdatePhysicsParam(U8 type, F32 gravity, F32 friction, 
+											  F32 density, F32 restitution)
 {
 	llwarns << "physics shape type ->" << (U32)type << llendl;
-	LLSelectMgrApplyPhysicsShapeType func(type);
+	LLSelectMgrApplyPhysicsParam func(type, gravity, friction, density, restitution);
 	getSelection()->applyToObjects(&func);	
 }
 
@@ -6159,30 +6185,56 @@ S32 LLObjectSelection::getObjectCount(BOOL mesh_adjust)
 	cleanupNodes();
 	S32 count = mList.size();
 
-	if (mesh_adjust)
-	{
-		for (list_t::iterator iter = mList.begin(); iter != mList.end(); ++iter)
-		{
-			LLSelectNode* node = *iter;
-			LLViewerObject* object = node->getObject();
-			
-			if (object && object->getVolume())
-			{
-				LLVOVolume* vobj = (LLVOVolume*) object;
-				if (vobj->isMesh())
-				{
-					LLUUID mesh_id = vobj->getVolume()->getParams().getSculptID();
-					U32 cost = gMeshRepo.getResourceCost(mesh_id);
-					count += cost-1;
-				}
-			}
-
-		}
-	}
-
 	return count;
 }
 
+F32 LLObjectSelection::getSelectedObjectCost()
+{
+	cleanupNodes();
+	F32 cost = 0.f;
+
+	for (list_t::iterator iter = mList.begin(); iter != mList.end(); ++iter)
+	{
+		LLSelectNode* node = *iter;
+		LLViewerObject* object = node->getObject();
+		
+		if (object)
+		{
+			cost += object->getObjectCost();
+		}
+	}
+
+	return cost;
+}
+
+F32 LLObjectSelection::getSelectedLinksetCost()
+{
+	cleanupNodes();
+	F32 cost = 0.f;
+
+	std::set<LLViewerObject*> me_roots;
+
+	for (list_t::iterator iter = mList.begin(); iter != mList.end(); ++iter)
+	{
+		LLSelectNode* node = *iter;
+		LLViewerObject* object = node->getObject();
+		
+		if (object)
+		{
+			LLViewerObject* root = static_cast<LLViewerObject*>(object->getRoot());
+			if (root)
+			{
+				if (me_roots.find(root) == me_roots.end())
+				{
+					me_roots.insert(root);
+					cost += root->getLinksetCost();
+				}
+			}
+		}
+	}
+
+	return cost;
+}
 
 //-----------------------------------------------------------------------------
 // getTECount()

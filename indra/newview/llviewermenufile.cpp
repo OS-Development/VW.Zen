@@ -39,7 +39,7 @@
 #include "llagentcamera.h"
 #include "llfilepicker.h"
 #include "llfloaterreg.h"
-#include "llfloaterbuycurrency.h"
+#include "llbuycurrencyhtml.h"
 #include "llfloaterimportcollada.h"
 #include "llfloatermodelpreview.h"
 #include "llfloatersnapshot.h"
@@ -66,6 +66,7 @@
 #include "llappviewer.h"
 #include "lluploaddialog.h"
 #include "lltrans.h"
+#include "llfloaterbuycurrency.h"
 #include "llfloaterimportcollada.h"
 
 // linden libraries
@@ -98,6 +99,14 @@ class LLFileEnableUploadModel : public view_listener_t
 	bool handleEvent(const LLSD& userdata)
 	{
 		return true;
+	}
+};
+
+class LLMeshEnabled : public view_listener_t
+{
+	bool handleEvent(const LLSD& userdata)
+	{
+		return gSavedSettings.getBOOL("MeshEnabled");
 	}
 };
 
@@ -341,6 +350,7 @@ class LLFileUploadImage : public view_listener_t
 	}
 };
 
+#if LL_MESH_ENABLED
 class LLFileUploadScene : public view_listener_t
 {
 	bool handleEvent(const LLSD& userdata)
@@ -367,6 +377,7 @@ class LLFileUploadModel : public view_listener_t
 		return TRUE;
 	}
 };
+#endif
 	
 class LLFileUploadSound : public view_listener_t
 {
@@ -531,7 +542,6 @@ class LLFileTakeSnapshotToDisk : public view_listener_t
 		{
 			gViewerWindow->playSnapshotAnimAndSound();
 			
-			LLImageBase::setSizeOverride(TRUE);
 			LLPointer<LLImageFormatted> formatted;
 			switch(LLFloaterSnapshot::ESnapshotFormat(gSavedSettings.getS32("SnapshotFormat")))
 			{
@@ -546,12 +556,12 @@ class LLFileTakeSnapshotToDisk : public view_listener_t
 				break;
 			  default: 
 				llwarns << "Unknown Local Snapshot format" << llendl;
-				LLImageBase::setSizeOverride(FALSE);
 				return true;
 			}
 
+			formatted->enableOverSize() ;
 			formatted->encode(raw, 0);
-			LLImageBase::setSizeOverride(FALSE);
+			formatted->disableOverSize() ;
 			gViewerWindow->saveImageNumbered(formatted);
 		}
 		return true;
@@ -955,7 +965,7 @@ void upload_done_callback(
 					LLStringUtil::format_map_t args;
 					args["NAME"] = data->mAssetInfo.getName();
 					args["AMOUNT"] = llformat("%d", expected_upload_cost);
-					LLFloaterBuyCurrency::buyCurrency(LLTrans::getString("UploadingCosts", args), expected_upload_cost);
+					LLBuyCurrencyHTML::openCurrencyFloater( LLTrans::getString("UploadingCosts", args), expected_upload_cost );
 					is_balance_sufficient = FALSE;
 				}
 				else if(region)
@@ -1118,6 +1128,11 @@ void upload_new_resource(
 	S32 expected_upload_cost,
 	void *userdata)
 {
+	if(gDisconnected)
+	{
+		return ;
+	}
+	
 	LLAssetID uuid = 
 		upload_new_resource_prep(
 			tid,
@@ -1126,6 +1141,41 @@ void upload_new_resource(
 			name,
 			display_name,
 			desc);
+	
+	if( LLAssetType::AT_SOUND == asset_type )
+	{
+		LLViewerStats::getInstance()->incStat(LLViewerStats::ST_UPLOAD_SOUND_COUNT );
+	}
+	else
+	if( LLAssetType::AT_TEXTURE == asset_type )
+	{
+		LLViewerStats::getInstance()->incStat(LLViewerStats::ST_UPLOAD_TEXTURE_COUNT );
+	}
+	else
+	if( LLAssetType::AT_ANIMATION == asset_type)
+	{
+		LLViewerStats::getInstance()->incStat(LLViewerStats::ST_UPLOAD_ANIM_COUNT );
+	}
+
+	if(LLInventoryType::IT_NONE == inv_type)
+	{
+		inv_type = LLInventoryType::defaultForAssetType(asset_type);
+	}
+	LLStringUtil::stripNonprintable(name);
+	LLStringUtil::stripNonprintable(desc);
+	if(name.empty())
+	{
+		name = "(No Name)";
+	}
+	if(desc.empty())
+	{
+		desc = "(No Description)";
+	}
+	
+	// At this point, we're ready for the upload.
+	std::string upload_message = "Uploading...\n\n";
+	upload_message.append(display_name);
+	LLUploadDialog::modalUploadDialog(upload_message);
 
 	llinfos << "*** Uploading: " << llendl;
 	llinfos << "Type: " << LLAssetType::lookup(asset_type) << llendl;
@@ -1136,6 +1186,7 @@ void upload_new_resource(
 	lldebugs << "Folder: " << gInventory.findCategoryUUIDForType((destination_folder_type == LLFolderType::FT_NONE) ? LLFolderType::assetTypeToFolderType(asset_type) : destination_folder_type) << llendl;
 	lldebugs << "Asset Type: " << LLAssetType::lookup(asset_type) << llendl;
 
+#if LL_MESH_ENABLED
 	std::string url = gAgent.getRegion()->getCapability(
 		"NewFileAgentInventory");
 
@@ -1161,8 +1212,11 @@ void upload_new_resource(
 				body,
 				uuid,
 				asset_type));
+
+		LLHTTPClient::post(url, body, new LLNewAgentInventoryResponder(body, uuid, asset_type));
 	}
 	else
+#endif
 	{
 		llinfos << "NewAgentInventory capability not found, new agent inventory via asset system." << llendl;
 		// check for adequate funds
@@ -1176,8 +1230,9 @@ void upload_new_resource(
 			{
 				// insufficient funds, bail on this upload
 				LLStringUtil::format_map_t args;
+				args["NAME"] = name;
 				args["AMOUNT"] = llformat("%d", expected_upload_cost);
-				LLFloaterBuyCurrency::buyCurrency(LLTrans::getString("uploading_costs", args), expected_upload_cost);
+				LLBuyCurrencyHTML::openCurrencyFloater( LLTrans::getString("UploadingCosts", args), expected_upload_cost );
 				return;
 			}
 		}
@@ -1209,6 +1264,7 @@ void upload_new_resource(
 	}
 }
 
+#if LL_MESH_ENABLED
 BOOL upload_new_variable_price_resource(
 	const LLTransactionID &tid, 
 	LLAssetType::EType asset_type,
@@ -1280,11 +1336,12 @@ BOOL upload_new_variable_price_resource(
 		return FALSE;
 	}
 }
+#endif
 
 LLAssetID generate_asset_id_for_new_upload(const LLTransactionID& tid)
 {
 	if ( gDisconnected )
-	{
+	{	
 		LLAssetID rv;
 
 		rv.setNull();
@@ -1350,8 +1407,10 @@ void init_menu_file()
 	view_listener_t::addCommit(new LLFileUploadImage(), "File.UploadImage");
 	view_listener_t::addCommit(new LLFileUploadSound(), "File.UploadSound");
 	view_listener_t::addCommit(new LLFileUploadAnim(), "File.UploadAnim");
+#if LL_MESH_ENABLED
 	view_listener_t::addCommit(new LLFileUploadModel(), "File.UploadModel");
 	view_listener_t::addCommit(new LLFileUploadScene(), "File.UploadScene");
+#endif
 	view_listener_t::addCommit(new LLFileUploadBulk(), "File.UploadBulk");
 	view_listener_t::addCommit(new LLFileCloseWindow(), "File.CloseWindow");
 	view_listener_t::addCommit(new LLFileCloseAllWindows(), "File.CloseAllWindows");
@@ -1362,6 +1421,7 @@ void init_menu_file()
 
 	view_listener_t::addEnable(new LLFileEnableUpload(), "File.EnableUpload");
 	view_listener_t::addEnable(new LLFileEnableUploadModel(), "File.EnableUploadModel");
-	
+	view_listener_t::addMenu(new LLMeshEnabled(), "File.MeshEnabled");
+
 	// "File.SaveTexture" moved to llpanelmaininventory so that it can be properly handled.
 }

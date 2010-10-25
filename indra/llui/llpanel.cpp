@@ -508,16 +508,19 @@ BOOL LLPanel::initPanelXML(LLXMLNodePtr node, LLView *parent, LLXMLNodePtr outpu
 		if (xml_filename.empty())
 		{
 			node->getAttributeString("filename", xml_filename);
+			setXMLFilename(xml_filename);
 		}
 
 		if (!xml_filename.empty())
 		{
+			LLUICtrlFactory::instance().pushFileName(xml_filename);
+
 			LLFastTimer timer(FTM_EXTERNAL_PANEL_LOAD);
 			if (output_node)
 			{
 				//if we are exporting, we want to export the current xml
 				//not the referenced xml
-				LLXUIParser::instance().readXUI(node, params, xml_filename);
+				LLXUIParser::instance().readXUI(node, params, LLUICtrlFactory::getInstance()->getCurFileName());
 				Params output_params(params);
 				setupParamsForExport(output_params, parent);
 				output_node->setName(node->getName()->mString);
@@ -533,13 +536,13 @@ BOOL LLPanel::initPanelXML(LLXMLNodePtr node, LLView *parent, LLXMLNodePtr outpu
 				return FALSE;
 			}
 
-			LLXUIParser::instance().readXUI(referenced_xml, params, xml_filename);
+			LLXUIParser::instance().readXUI(referenced_xml, params, LLUICtrlFactory::getInstance()->getCurFileName());
 
 			// add children using dimensions from referenced xml for consistent layout
 			setShape(params.rect);
 			LLUICtrlFactory::createChildren(this, referenced_xml, child_registry_t::instance());
 
-			setXMLFilename(xml_filename);
+			LLUICtrlFactory::instance().popFileName();
 		}
 
 		// ask LLUICtrlFactory for filename, since xml_filename might be empty
@@ -658,7 +661,7 @@ void LLPanel::childSetEnabled(const std::string& id, bool enabled)
 
 void LLPanel::childSetTentative(const std::string& id, bool tentative)
 {
-	LLView* child = findChild<LLView>(id);
+	LLUICtrl* child = findChild<LLUICtrl>(id);
 	if (child)
 	{
 		child->setTentative(tentative);
@@ -857,13 +860,16 @@ LLPanel *LLPanel::childGetVisibleTab(const std::string& id) const
 	return NULL;
 }
 
-static LLPanel *childGetVisibleTabWithHelp(LLView *parent)
+LLPanel* LLPanel::childGetVisibleTabWithHelp()
 {
 	LLView *child;
 
-	// look through immediate children first for an active tab with help
-	for (child = parent->getFirstChild(); child; child = parent->findNextSibling(child))
+	bfs_tree_iterator_t it = beginTreeBFS();
+	// skip ourselves
+	++it;
+	for (; it != endTreeBFS(); ++it)
 	{
+		child = *it;
 		LLPanel *curTabPanel = NULL;
 
 		// do we have a tab container?
@@ -887,36 +893,21 @@ static LLPanel *childGetVisibleTabWithHelp(LLView *parent)
 		}
 	}
 
-	// then try a bit harder and recurse through all children
-	for (child = parent->getFirstChild(); child; child = parent->findNextSibling(child))
-	{
-		if (child->getVisible())
-		{
-			LLPanel* tab = ::childGetVisibleTabWithHelp(child);
-			if (tab)
-			{
-				return tab;
-			}
-		}
-	}
-
 	// couldn't find any active tabs with a help topic string
 	return NULL;
 }
 
-LLPanel *LLPanel::childGetVisibleTabWithHelp()
-{
-	// find a visible tab with a help topic (to determine help context)
-	return ::childGetVisibleTabWithHelp(this);
-}
 
-static LLPanel *childGetVisiblePanelWithHelp(LLView *parent)
+LLPanel *LLPanel::childGetVisiblePanelWithHelp()
 {
 	LLView *child;
 
-	// look through immediate children first for an active panel with help
-	for (child = parent->getFirstChild(); child; child = parent->findNextSibling(child))
+	bfs_tree_iterator_t it = beginTreeBFS();
+	// skip ourselves
+	++it;
+	for (; it != endTreeBFS(); ++it)
 	{
+		child = *it;
 		// do we have a panel with a help topic?
 		LLPanel *panel = dynamic_cast<LLPanel *>(child);
 		if (panel && panel->getVisible() && !panel->getHelpTopic().empty())
@@ -925,38 +916,18 @@ static LLPanel *childGetVisiblePanelWithHelp(LLView *parent)
 		}
 	}
 
-	// then try a bit harder and recurse through all children
-	for (child = parent->getFirstChild(); child; child = parent->findNextSibling(child))
-	{
-		if (child->getVisible())
-		{
-			LLPanel* panel = ::childGetVisiblePanelWithHelp(child);
-			if (panel)
-			{
-				return panel;
-			}
-		}
-	}
-
 	// couldn't find any active panels with a help topic string
 	return NULL;
 }
 
-LLPanel *LLPanel::childGetVisiblePanelWithHelp()
+void LLPanel::childSetAction(const std::string& id, const commit_signal_t::slot_type& function)
 {
-	// find a visible tab with a help topic (to determine help context)
-	return ::childGetVisiblePanelWithHelp(this);
-}
-
-void LLPanel::childSetPrevalidate(const std::string& id, bool (*func)(const LLWString &) )
-{
-	LLLineEditor* child = findChild<LLLineEditor>(id);
-	if (child)
+	LLButton* button = findChild<LLButton>(id);
+	if (button)
 	{
-		child->setPrevalidate(func);
+		button->setClickedCallback(function);
 	}
 }
-
 
 void LLPanel::childSetAction(const std::string& id, boost::function<void(void*)> function, void* value)
 {

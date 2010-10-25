@@ -96,6 +96,7 @@ public:
 		Mandatory<LLPanel*>	    parent_panel;
 		Optional<LLUUID>        task_id;
 		Optional<std::string>   title;
+		Optional<bool>			use_label_suffix;
 	};
 	LLFolderView(const Params&);
 	virtual ~LLFolderView( void );
@@ -164,7 +165,7 @@ public:
 
 	virtual S32 extendSelection(LLFolderViewItem* selection, LLFolderViewItem* last_selected, LLDynamicArray<LLFolderViewItem*>& items);
 
-	virtual BOOL getSelectionList(std::set<LLUUID> &selection) const;
+	virtual std::set<LLUUID> getSelectionList() const;
 
 	// make sure if ancestor is selected, descendents are not
 	void sanitizeSelection();
@@ -230,6 +231,7 @@ public:
 								   EAcceptance* accept,
 								   std::string& tooltip_msg);
 	/*virtual*/ void reshape(S32 width, S32 height, BOOL called_from_parent = TRUE);
+	/*virtual*/ void onMouseLeave(S32 x, S32 y, MASK mask) { setShowSelectionContext(FALSE); }
 	virtual void draw();
 	virtual void deleteAllChildren();
 
@@ -260,6 +262,8 @@ public:
 	BOOL needsAutoSelect() { return mNeedsAutoSelect && !mAutoSelectOverride; }
 	BOOL needsAutoRename() { return mNeedsAutoRename; }
 	void setNeedsAutoRename(BOOL val) { mNeedsAutoRename = val; }
+	void setPinningSelectedItem(BOOL val) { mPinningSelectedItem = val; }
+	void setAutoSelectOverride(BOOL val) { mAutoSelectOverride = val; }
 
 	void setCallbackRegistrar(LLUICtrl::CommitCallbackRegistry::ScopedRegistrar* registrar) { mCallbackRegistrar = registrar; }
 
@@ -270,8 +274,8 @@ public:
 	void dumpSelectionInformation();
 
 	virtual S32	notify(const LLSD& info) ;
-	void setEnableScroll(bool enable_scroll) { mEnableScroll = enable_scroll; }
 	
+	bool useLabelSuffix() { return mUseLabelSuffix; }
 private:
 	void updateRenamerPosition();
 
@@ -279,7 +283,7 @@ protected:
 	LLScrollContainer* mScrollContainer;  // NULL if this is not a child of a scroll container.
 
 	void commitRename( const LLSD& data );
-	static void onRenamerLost( LLFocusableElement* renamer);
+	void onRenamerLost();
 
 	void finishRenamingItem( void );
 	void closeRenamer( void );
@@ -287,6 +291,10 @@ protected:
 	bool selectFirstItem();
 	bool selectLastItem();
 	
+	BOOL addNoOptions(LLMenuGL* menu) const;
+
+	void onItemsRemovalConfirmation(const LLSD& notification, const LLSD& response);
+
 protected:
 	LLHandle<LLView>					mPopupMenuHandle;
 	
@@ -302,12 +310,12 @@ protected:
 	LLLineEditor*					mRenamer;
 
 	BOOL							mNeedsScroll;
-	bool							mEnableScroll;
 	BOOL							mPinningSelectedItem;
 	LLRect							mScrollConstraintRect;
 	BOOL							mNeedsAutoSelect;
 	BOOL							mAutoSelectOverride;
 	BOOL							mNeedsAutoRename;
+	bool							mUseLabelSuffix;
 	
 	BOOL							mDebugFilters;
 	U32								mSortOrder;

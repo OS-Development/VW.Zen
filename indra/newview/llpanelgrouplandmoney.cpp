@@ -236,6 +236,7 @@ public:
 
 	std::string mCantViewParcelsText;
 	std::string mCantViewAccountsText;
+	std::string mEmptyParcelsText;
 };
 
 //*******************************************
@@ -370,7 +371,7 @@ void LLPanelGroupLandMoney::impl::setYourContributionTextField(int contrib)
 
 void LLPanelGroupLandMoney::impl::setYourMaxContributionTextBox(int max)
 {
-	mPanel.childSetTextArg("your_contribution_max_value", "[AMOUNT]", llformat("%d", max));
+	mPanel.getChild<LLUICtrl>("your_contribution_max_value")->setTextArg("[AMOUNT]", llformat("%d", max));
 }
 
 //static
@@ -432,14 +433,14 @@ void LLPanelGroupLandMoney::impl::processGroupLand(LLMessageSystem* msg)
 			
 			S32 total_contribution;
 			msg->getS32("QueryData", "ActualArea", total_contribution, 0);
-			mPanel.childSetTextArg("total_contributed_land_value", "[AREA]", llformat("%d", total_contribution));
+			mPanel.getChild<LLUICtrl>("total_contributed_land_value")->setTextArg("[AREA]", llformat("%d", total_contribution));
 
 			S32 committed;
 			msg->getS32("QueryData", "BillableArea", committed, 0);
-			mPanel.childSetTextArg("total_land_in_use_value", "[AREA]", llformat("%d", committed));
+			mPanel.getChild<LLUICtrl>("total_land_in_use_value")->setTextArg("[AREA]", llformat("%d", committed));
 			
 			S32 available = total_contribution - committed;
-			mPanel.childSetTextArg("land_available_value", "[AREA]", llformat("%d", available));
+			mPanel.getChild<LLUICtrl>("land_available_value")->setTextArg("[AREA]", llformat("%d", available));
 
 			if ( mGroupOverLimitTextp && mGroupOverLimitIconp )
 			{
@@ -452,6 +453,7 @@ void LLPanelGroupLandMoney::impl::processGroupLand(LLMessageSystem* msg)
 		// This power was removed to make group roles simpler
 		//if ( !gAgent.hasPowerInGroup(mGroupID, GP_LAND_VIEW_OWNED) ) return;
 		if (!gAgent.isInGroup(mPanel.mGroupID)) return;
+		mGroupParcelsp->setCommentText(mEmptyParcelsText);
 
 		std::string name;
 		std::string desc;
@@ -696,6 +698,7 @@ BOOL LLPanelGroupLandMoney::postBuild()
 
 	mImplementationp->mCantViewParcelsText = getString("cant_view_group_land_text");
 	mImplementationp->mCantViewAccountsText = getString("cant_view_group_accounting_text");
+	mImplementationp->mEmptyParcelsText = getString("epmty_view_group_land_text");
 	
 	if ( mImplementationp->mMapButtonp )
 	{
@@ -1429,10 +1432,10 @@ void LLGroupMoneyPlanningTabEventHandler::processReply(LLMessageSystem* msg,
 // 	text.append(llformat( "%-24s %6d      %6d \n", LLTrans::getString("GroupMoneyDebits").c_str(), total_debits, (S32)floor((F32)total_debits/(F32)non_exempt_members)));
 // 	text.append(llformat( "%-24s %6d      %6d \n", LLTrans::getString("GroupMoneyTotal").c_str(), total_credits + total_debits,  (S32)floor((F32)(total_credits + total_debits)/(F32)non_exempt_members)));
 
-	text.append( "                      Group\n");
-	text.append(llformat( "%-24s %6d\n", "Credits", total_credits));
-	text.append(llformat( "%-24s %6d\n", "Debits", total_debits));
-	text.append(llformat( "%-24s %6d\n", "Total", total_credits + total_debits));
+	text.append(llformat( "%s\n", LLTrans::getString("GroupColumn").c_str()));
+	text.append(llformat( "%-24s %6d\n", LLTrans::getString("GroupMoneyCredits").c_str(), total_credits));
+	text.append(llformat( "%-24s %6d\n", LLTrans::getString("GroupMoneyDebits").c_str(), total_debits));
+	text.append(llformat( "%-24s %6d\n", LLTrans::getString("GroupMoneyTotal").c_str(), total_credits + total_debits));
 	
 	if ( mImplementationp->mTextEditorp )
 	{
@@ -1600,7 +1603,7 @@ void LLPanelGroupLandMoney::setGroupID(const LLUUID& id)
 		mImplementationp->mMoneySalesTabEHp->setGroupID(mGroupID);
 	}
 
-	mImplementationp->mBeenActivated = true;
+	mImplementationp->mBeenActivated = false;
 
 	activate();
 }

@@ -65,6 +65,11 @@ public:
 	void onAddNotification(const LLUUID& notification_id);
 
 	/**
+	 * Removes notification.
+	 */
+	void removeNotification(const LLUUID& notification_id);
+
+	/**
 	 * Handles notification removal.
 	 * Removes script notification toast, removes script chiclet, closes script floater
 	 */
@@ -98,6 +103,8 @@ public:
 	void saveFloaterPosition(const LLUUID& object_id, const FloaterPositionInfo& fpi);
 
 	bool getFloaterPosition(const LLUUID& object_id, FloaterPositionInfo& fpi);
+
+	void setFloaterVisible(const LLUUID& notification_id, bool visible);
 
 protected:
 

@@ -83,6 +83,16 @@ LLFloaterMove::LLFloaterMove(const LLSD& key)
 {
 }
 
+LLFloaterMove::~LLFloaterMove()
+{
+	// Ensure LLPanelStandStopFlying panel is not among floater's children. See EXT-8458.
+	setVisible(FALSE);
+
+	// Otherwise it can be destroyed and static pointer in LLPanelStandStopFlying::getInstance() will become invalid.
+	// Such situation was possible when LLFloaterReg returns "dead" instance of floater.
+	// Should not happen after LLFloater::destroy was modified to remove "dead" instances from LLFloaterReg.
+}
+
 // virtual
 BOOL LLFloaterMove::postBuild()
 {
@@ -91,11 +101,19 @@ BOOL LLFloaterMove::postBuild()
 	
 	LLDockableFloater::postBuild();
 	
+	// Code that implements floater buttons toggling when user moves via keyboard is located in LLAgent::propagate()
+
 	mForwardButton = getChild<LLJoystickAgentTurn>("forward btn"); 
 	mForwardButton->setHeldDownDelay(MOVE_BUTTON_DELAY);
 
 	mBackwardButton = getChild<LLJoystickAgentTurn>("backward btn"); 
 	mBackwardButton->setHeldDownDelay(MOVE_BUTTON_DELAY);
+
+	mSlideLeftButton = getChild<LLJoystickAgentSlide>("move left btn");
+	mSlideLeftButton->setHeldDownDelay(MOVE_BUTTON_DELAY);
+
+	mSlideRightButton = getChild<LLJoystickAgentSlide>("move right btn");
+	mSlideRightButton->setHeldDownDelay(MOVE_BUTTON_DELAY);
 
 	mTurnLeftButton = getChild<LLButton>("turn left btn"); 
 	mTurnLeftButton->setHeldDownDelay(MOVE_BUTTON_DELAY);
@@ -125,8 +143,6 @@ BOOL LLFloaterMove::postBuild()
 	btn = getChild<LLButton>("mode_fly_btn");
 	btn->setCommitCallback(boost::bind(&LLFloaterMove::onFlyButtonClick, this));
 
-	showFlyControls(false);
-
 	initModeTooltips();
 
 	initModeButtonMap();
@@ -136,18 +152,6 @@ BOOL LLFloaterMove::postBuild()
 	LLViewerParcelMgr::getInstance()->addAgentParcelChangedCallback(LLFloaterMove::sUpdateFlyingStatus);
 
 	return TRUE;
-}
-
-// virtual
-void LLFloaterMove::setEnabled(BOOL enabled)
-{
-	//we need to enable/disable only buttons, EXT-1061.
-
-	// is called before postBuild() - use findChild here.
-	LLPanel *panel_actions = findChild<LLPanel>("panel_actions");
-	if (panel_actions) panel_actions->setEnabled(enabled);
-
-	showModeButtons(enabled);
 }
 
 // *NOTE: we assume that setVisible() is called on floater close.
@@ -200,7 +204,12 @@ void LLFloaterMove::setFlyingMode(BOOL fly)
 	if (instance)
 	{
 		instance->setFlyingModeImpl(fly);
-		instance->showModeButtons(!fly);
+		LLVOAvatarSelf* avatar_object = gAgentAvatarp;
+		bool is_sitting = avatar_object
+			&& (avatar_object->getRegion() != NULL)
+			&& (!avatar_object->isDead())
+			&& avatar_object->isSitting();
+		instance->showModeButtons(!fly && !is_sitting);
 	}
 	if (fly)
 	{
@@ -340,16 +349,9 @@ void LLFloaterMove::setMovementMode(const EMovementMode mode)
 
 void LLFloaterMove::updateButtonsWithMovementMode(const EMovementMode newMode)
 {
-	showFlyControls(MM_FLY == newMode);
 	setModeTooltip(newMode);
 	setModeButtonToggleState(newMode);
 	setModeTitle(newMode);
-}
-
-void LLFloaterMove::showFlyControls(bool bShow)
-{
-	mMoveUpButton->setVisible(bShow);
-	mMoveDownButton->setVisible(bShow);
 }
 
 void LLFloaterMove::initModeTooltips()
@@ -357,16 +359,28 @@ void LLFloaterMove::initModeTooltips()
 	control_tooltip_map_t walkTipMap;
 	walkTipMap.insert(std::make_pair(mForwardButton, getString("walk_forward_tooltip")));
 	walkTipMap.insert(std::make_pair(mBackwardButton, getString("walk_back_tooltip")));
+	walkTipMap.insert(std::make_pair(mSlideLeftButton, getString("walk_left_tooltip")));
+	walkTipMap.insert(std::make_pair(mSlideRightButton, getString("walk_right_tooltip")));
+	walkTipMap.insert(std::make_pair(mMoveUpButton, getString("jump_tooltip")));
+	walkTipMap.insert(std::make_pair(mMoveDownButton, getString("crouch_tooltip")));
 	mModeControlTooltipsMap[MM_WALK] = walkTipMap;
 
 	control_tooltip_map_t runTipMap;
 	runTipMap.insert(std::make_pair(mForwardButton, getString("run_forward_tooltip")));
 	runTipMap.insert(std::make_pair(mBackwardButton, getString("run_back_tooltip")));
+	runTipMap.insert(std::make_pair(mSlideLeftButton, getString("run_left_tooltip")));
+	runTipMap.insert(std::make_pair(mSlideRightButton, getString("run_right_tooltip")));
+	runTipMap.insert(std::make_pair(mMoveUpButton, getString("jump_tooltip")));
+	runTipMap.insert(std::make_pair(mMoveDownButton, getString("crouch_tooltip")));
 	mModeControlTooltipsMap[MM_RUN] = runTipMap;
 
 	control_tooltip_map_t flyTipMap;
 	flyTipMap.insert(std::make_pair(mForwardButton, getString("fly_forward_tooltip")));
 	flyTipMap.insert(std::make_pair(mBackwardButton, getString("fly_back_tooltip")));
+	flyTipMap.insert(std::make_pair(mSlideLeftButton, getString("fly_left_tooltip")));
+	flyTipMap.insert(std::make_pair(mSlideRightButton, getString("fly_right_tooltip")));
+	flyTipMap.insert(std::make_pair(mMoveUpButton, getString("fly_up_tooltip")));
+	flyTipMap.insert(std::make_pair(mMoveDownButton, getString("fly_down_tooltip")));
 	mModeControlTooltipsMap[MM_FLY] = flyTipMap;
 
 	setModeTooltip(MM_WALK);
@@ -390,7 +404,7 @@ void LLFloaterMove::initMovementMode()
 
 	if (isAgentAvatarValid())
 	{
-		setEnabled(!gAgentAvatarp->isSitting());
+		showModeButtons(!gAgentAvatarp->isSitting());
 	}
 }
 
@@ -460,8 +474,7 @@ void LLFloaterMove::sUpdateFlyingStatus()
 
 void LLFloaterMove::showModeButtons(BOOL bShow)
 {
-	// is called from setEnabled so can be called before postBuild(), check mModeActionsPanel agains to NULL
-	if (NULL == mModeActionsPanel || mModeActionsPanel->getVisible() == bShow)
+	if (mModeActionsPanel->getVisible() == bShow)
 		return;
 	mModeActionsPanel->setVisible(bShow);
 }
@@ -472,11 +485,13 @@ void LLFloaterMove::enableInstance(BOOL bEnable)
 	LLFloaterMove* instance = LLFloaterReg::findTypedInstance<LLFloaterMove>("moveview");
 	if (instance)
 	{
-		instance->setEnabled(bEnable);
-
 		if (gAgent.getFlying())
 		{
 			instance->showModeButtons(FALSE);
+		}
+		else
+		{
+			instance->showModeButtons(bEnable);
 		}
 	}
 }
@@ -696,6 +711,7 @@ void LLPanelStandStopFlying::onStandButtonClick()
 	gAgent.setControlFlags(AGENT_CONTROL_STAND_UP);
 
 	setFocus(FALSE); // EXT-482
+	mStandButton->setVisible(FALSE); // force visibility changing to avoid seeing Stand & Move buttons at once.
 }
 
 void LLPanelStandStopFlying::onStopFlyingButtonClick()

@@ -40,6 +40,49 @@
 
 /********************************************************************************
  **                                                                            **
+ **                    MISCELLANEOUS GLOBAL FUNCTIONS
+ **/
+
+// Is this item or its baseitem is worn, attached, etc...
+BOOL get_is_item_worn(const LLUUID& id);
+
+// Could this item be worn (correct type + not already being worn)
+BOOL get_can_item_be_worn(const LLUUID& id);
+
+BOOL get_is_item_removable(const LLInventoryModel* model, const LLUUID& id);
+
+BOOL get_is_category_removable(const LLInventoryModel* model, const LLUUID& id);
+
+BOOL get_is_category_renameable(const LLInventoryModel* model, const LLUUID& id);
+
+void show_item_profile(const LLUUID& item_uuid);
+void show_task_item_profile(const LLUUID& item_uuid, const LLUUID& object_id);
+
+void show_item_original(const LLUUID& item_uuid);
+
+void change_item_parent(LLInventoryModel* model,
+									 LLViewerInventoryItem* item,
+									 const LLUUID& new_parent_id,
+									 BOOL restamp);
+
+void change_category_parent(LLInventoryModel* model,
+	LLViewerInventoryCategory* cat,
+	const LLUUID& new_parent_id,
+	BOOL restamp);
+
+void remove_category(LLInventoryModel* model, const LLUUID& cat_id);
+
+void rename_category(LLInventoryModel* model, const LLUUID& cat_id, const std::string& new_name);
+
+// Generates a string containing the path to the item specified by item_id.
+void append_path(const LLUUID& id, std::string& path);
+
+/**                    Miscellaneous global functions
+ **                                                                            **
+ *******************************************************************************/
+
+/********************************************************************************
+ **                                                                            **
  **                    INVENTORY COLLECTOR FUNCTIONS
  **/
 
@@ -52,16 +95,14 @@
 // and override the () operator to return TRUE if you want to collect
 // the category or item passed in.
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
 class LLInventoryCollectFunctor
 {
 public:
 	virtual ~LLInventoryCollectFunctor(){};
 	virtual bool operator()(LLInventoryCategory* cat, LLInventoryItem* item) = 0;
 
-	static bool itemTransferCommonlyAllowed(LLInventoryItem* item);
+	static bool itemTransferCommonlyAllowed(const LLInventoryItem* item);
 };
-
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Class LLAssetIDMatches
@@ -116,19 +157,36 @@ protected:
 	LLAssetType::EType mType;
 };
 
-
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Class LLIsNotType
 //
 // Implementation of a LLInventoryCollectFunctor which returns FALSE if the
 // type is the type passed in during construction, otherwise false.
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
 class LLIsNotType : public LLInventoryCollectFunctor
 {
 public:
 	LLIsNotType(LLAssetType::EType type) : mType(type) {}
 	virtual ~LLIsNotType() {}
+	virtual bool operator()(LLInventoryCategory* cat,
+							LLInventoryItem* item);
+protected:
+	LLAssetType::EType mType;
+};
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Class LLIsOfAssetType
+//
+// Implementation of a LLInventoryCollectFunctor which returns TRUE if
+// the item or category is of asset type passed in during construction.
+// Link types are treated as links, not as the types they point to.
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+class LLIsOfAssetType : public LLInventoryCollectFunctor
+{
+public:
+	LLIsOfAssetType(LLAssetType::EType type) : mType(type) {}
+	virtual ~LLIsOfAssetType() {}
 	virtual bool operator()(LLInventoryCategory* cat,
 							LLInventoryItem* item);
 protected:
@@ -156,7 +214,6 @@ protected:
 // Simple class that collects calling cards that are not null, and not
 // the agent. Duplicates are possible.
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
 class LLBuddyCollector : public LLInventoryCollectFunctor
 {
 public:
@@ -172,7 +229,6 @@ public:
 // Simple class that collects calling cards that are not null, and not
 // the agent. Duplicates are discarded.
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
 class LLUniqueBuddyCollector : public LLInventoryCollectFunctor
 {
 public:
@@ -202,13 +258,11 @@ protected:
 	LLUUID mBuddyID;
 };
 
-
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Class LLNameCategoryCollector
 //
 // Collects categories based on case-insensitive match of prefix
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
 class LLNameCategoryCollector : public LLInventoryCollectFunctor
 {
 public:
@@ -236,6 +290,62 @@ public:
 };
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Class LLFindByMask
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+class LLFindByMask : public LLInventoryCollectFunctor
+{
+public:
+	LLFindByMask(U64 mask)
+		: mFilterMask(mask)
+	{}
+
+	virtual bool operator()(LLInventoryCategory* cat, LLInventoryItem* item)
+	{
+		//converting an inventory type to a bitmap filter mask
+		if(item && (mFilterMask & (1LL << item->getInventoryType())) )
+		{
+			return true;
+		}
+
+		return false;
+	}
+
+private:
+	U64 mFilterMask;
+};
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Class LLFindNonLinksByMask
+//
+//
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+class LLFindNonLinksByMask : public LLInventoryCollectFunctor
+{
+public:
+	LLFindNonLinksByMask(U64 mask)
+		: mFilterMask(mask)
+	{}
+
+	virtual bool operator()(LLInventoryCategory* cat, LLInventoryItem* item)
+	{
+		if(item && !item->getIsLinkType() && (mFilterMask & (1LL << item->getInventoryType())) )
+		{
+			return true;
+		}
+
+		return false;
+	}
+
+	void setFilterMask(U64 mask)
+	{
+		mFilterMask = mask;
+	}
+
+private:
+	U64 mFilterMask;
+};
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Class LLFindWearables
 //
 // Collects wearables based on item type.
@@ -247,6 +357,67 @@ public:
 	virtual ~LLFindWearables() {}
 	virtual bool operator()(LLInventoryCategory* cat,
 							LLInventoryItem* item);
+};
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Class LLFindWearablesEx
+//
+// Collects wearables based on given criteria.
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+class LLFindWearablesEx : public LLInventoryCollectFunctor
+{
+public:
+	LLFindWearablesEx(bool is_worn, bool include_body_parts = true);
+	virtual bool operator()(LLInventoryCategory* cat, LLInventoryItem* item);
+private:
+	bool mIncludeBodyParts;
+	bool mIsWorn;
+};
+
+//Inventory collect functor collecting wearables of a specific wearable type
+class LLFindWearablesOfType : public LLInventoryCollectFunctor
+{
+public:
+	LLFindWearablesOfType(LLWearableType::EType type) : mWearableType(type) {}
+	virtual ~LLFindWearablesOfType() {}
+	virtual bool operator()(LLInventoryCategory* cat, LLInventoryItem* item);
+	void setType(LLWearableType::EType type);
+
+private:
+	LLWearableType::EType mWearableType;
+};
+
+/** Filter out wearables-links */
+class LLFindActualWearablesOfType : public LLFindWearablesOfType
+{
+public:
+	LLFindActualWearablesOfType(LLWearableType::EType type) : LLFindWearablesOfType(type) {}
+	virtual ~LLFindActualWearablesOfType() {}
+	virtual bool operator()(LLInventoryCategory* cat, LLInventoryItem* item)
+	{
+		if (item && item->getIsLinkType()) return false;
+		return LLFindWearablesOfType::operator()(cat, item);
+	}
+};
+
+/* Filters out items of a particular asset type */
+class LLIsTypeActual : public LLIsType
+{
+public:
+	LLIsTypeActual(LLAssetType::EType type) : LLIsType(type) {}
+	virtual ~LLIsTypeActual() {}
+	virtual bool operator()(LLInventoryCategory* cat, LLInventoryItem* item)
+	{
+		if (item && item->getIsLinkType()) return false;
+		return LLIsType::operator()(cat, item);
+	}
+};
+
+// Collect non-removable folders and items.
+class LLFindNonRemovableObjects : public LLInventoryCollectFunctor
+{
+public:
+	virtual bool operator()(LLInventoryCategory* cat, LLInventoryItem* item);
 };
 
 /**                    Inventory Collector Functions
@@ -270,7 +441,7 @@ public:
 	virtual void doItem(LLFolderViewItem* item);
 	BOOL wasItemSelected() { return mItemSelected; }
 protected:
-	BOOL	mItemSelected;
+	BOOL mItemSelected;
 };
 
 class LLOpenFilteredFolders : public LLFolderViewFunctor
@@ -304,19 +475,6 @@ public:
 	virtual void doFolder(LLFolderViewFolder* folder);
 	virtual void doItem(LLFolderViewItem* item);
 };
-
-const std::string& get_item_icon_name(LLAssetType::EType asset_type,
-									  LLInventoryType::EType inventory_type,
-									  U32 attachment_point, 
-									  BOOL item_is_multi );
-
-LLUIImagePtr get_item_icon(LLAssetType::EType asset_type,
-						   LLInventoryType::EType inventory_type,
-						   U32 attachment_point, 
-						   BOOL item_is_multi );
-
-// Is this item or its baseitem is worn, attached, etc...
-BOOL get_is_item_worn(const LLUUID& id);
 
 #endif // LL_LLINVENTORYFUNCTIONS_H
 

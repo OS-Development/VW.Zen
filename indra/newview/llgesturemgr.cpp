@@ -73,7 +73,6 @@ LLGestureMgr::LLGestureMgr()
 	mActive(),
 	mLoadingCount(0)
 {
-	mRetryIfMissing = true;
 	gInventory.addObserver(this);
 }
 
@@ -100,7 +99,7 @@ void LLGestureMgr::init()
 
 void LLGestureMgr::changed(U32 mask) 
 { 
-	LLInventoryFetchObserver::changed(mask);
+	LLInventoryFetchItemsObserver::changed(mask);
 
 	if (mask & LLInventoryObserver::GESTURE)
 	{
@@ -140,6 +139,8 @@ void LLGestureMgr::activateGesture(const LLUUID& item_id)
 {
 	LLViewerInventoryItem* item = gInventory.getItem(item_id);
 	if (!item) return;
+	if (item->getType() != LLAssetType::AT_GESTURE)
+		return;
 
 	LLUUID asset_id = item->getAssetUUID();
 
@@ -1031,9 +1032,8 @@ void LLGestureMgr::onLoadComplete(LLVFS *vfs,
 			else
 			{
 				// Watch this item and set gesture name when item exists in inventory
-				item_ref_t ids;
-				ids.push_back(item_id);
-				self.fetchItems(ids);
+				self.setFetchID(item_id);
+				self.startFetch();
 			}
 			self.mActive[item_id] = gesture;
 
@@ -1174,12 +1174,11 @@ void LLGestureMgr::notifyObservers()
 {
 	lldebugs << "LLGestureMgr::notifyObservers" << llendl;
 
-	std::vector<LLGestureManagerObserver*> observers = mObservers;
-
-	std::vector<LLGestureManagerObserver*>::iterator it;
-	for (it = observers.begin(); it != observers.end(); ++it)
+	for(std::vector<LLGestureManagerObserver*>::iterator iter = mObservers.begin(); 
+		iter != mObservers.end(); 
+		++iter)
 	{
-		LLGestureManagerObserver* observer = *it;
+		LLGestureManagerObserver* observer = (*iter);
 		observer->changed();
 	}
 }

@@ -16,7 +16,8 @@
    follows="top|left"
    height="15"
    left="10"
-   name="controls_label">
+   name="controls_label" 
+   text_readonly_color="LabelDisabledColor">
     Controls:
   </text>
   <combo_box
@@ -42,10 +43,12 @@
 
   <text 
    bottom_delta="-50" 
+   enabled="false"
    follows="top|left" 
    height="15" 
    left="10" 
-   enabled="false">
+   name="owner_label" 
+   text_readonly_color="LabelDisabledColor">
     Owner
   </text>
   
@@ -79,10 +82,12 @@
 
   <text 
    bottom_delta="-36" 
+   enabled="false"
    follows="top|left" 
    height="15" 
-   left="10" 
-   enabled="false">
+   left="10"
+   name="group_label" 
+   text_readonly_color="LabelDisabledColor">
     Group:
   </text>
   
@@ -93,6 +98,7 @@
    font="SansSerif"
    height="20" left="60" 
    name="perms_group_name"
+   text_readonly_color="LabelDisabledColor"
    value ="" 
    width="200" />
    
@@ -126,10 +132,12 @@
 
   <text 
    bottom_delta="-36" 
+   enabled="false"
    follows="top|left" 
    height="15" 
    left="10" 
-   enabled="false">
+   name="anyone_label" 
+   text_readonly_color="LabelDisabledColor">
     Anyone
   </text>
   

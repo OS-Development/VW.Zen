@@ -149,7 +149,6 @@ BOOL LLChatBar::handleKeyHere( KEY key, MASK mask )
 {
 	BOOL handled = FALSE;
 
-	// ALT-RETURN is reserved for windowed/fullscreen toggle
 	if( KEY_RETURN == key )
 	{
 		if (mask == MASK_CONTROL)
@@ -192,7 +191,7 @@ void LLChatBar::refresh()
 		gAgent.stopTyping();
 	}
 
-	childSetEnabled("Say", mInputEditor->getText().size() > 0);
+	getChildView("Say")->setEnabled(mInputEditor->getText().size() > 0);
 
 }
 
@@ -394,7 +393,7 @@ void LLChatBar::sendChat( EChatType type )
 		}
 	}
 
-	childSetValue("Chat Editor", LLStringUtil::null);
+	getChild<LLUICtrl>("Chat Editor")->setValue(LLStringUtil::null);
 
 	gAgent.stopTyping();
 

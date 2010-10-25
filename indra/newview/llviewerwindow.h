@@ -262,10 +262,6 @@ public:
 	// Is window of our application frontmost?
 	BOOL			getActive() const			{ return mActive; }
 
-	void			getTargetWindow(BOOL& fullscreen, S32& width, S32& height) const;
-		// The 'target' is where the user wants the window to be. It may not be
-		// there yet, because we may be supressing fullscreen prior to login.
-
 	const std::string&	getInitAlert() { return mInitAlert; }
 	
 	//
@@ -361,7 +357,9 @@ public:
 									LLVector3 *intersection = NULL,
 									LLVector2 *uv = NULL,
 									LLVector3 *normal = NULL,
-									LLVector3 *binormal = NULL);
+									LLVector3 *binormal = NULL,
+									LLVector3* start = NULL,
+									LLVector3* end = NULL);
 	
 	
 	// Returns a pointer to the last object hit
@@ -380,17 +378,12 @@ public:
 	// Prints window implementation details
 	void			dumpState();
 
-	// Request display setting changes	
-	void			toggleFullscreen(BOOL show_progress);
-
 	// handle shutting down GL and bringing it back up
-	void			requestResolutionUpdate(bool fullscreen_checked);
-	void			requestResolutionUpdate(); // doesn't affect fullscreen
-	BOOL			checkSettings();
+	void			requestResolutionUpdate();
+	void			checkSettings();
 	void			restartDisplay(BOOL show_progress_bar);
-	BOOL			changeDisplaySettings(BOOL fullscreen, LLCoordScreen size, BOOL disable_vsync, BOOL show_progress_bar);
+	BOOL			changeDisplaySettings(LLCoordScreen size, BOOL disable_vsync, BOOL show_progress_bar);
 	BOOL			getIgnoreDestroyWindow() { return mIgnoreActivate; }
-	F32				getDisplayAspectRatio() const;
 	F32				getWorldViewAspectRatio() const;
 	const LLVector2& getDisplayScale() const { return mDisplayScale; }
 	void			calcDisplayScale();
@@ -415,8 +408,6 @@ public:
 
 protected:
 	BOOL			mActive;
-	BOOL			mWantFullscreen;
-	BOOL			mShowFullscreenProgress;
 
 	LLRect			mWindowRectRaw;				// whole window, including UI
 	LLRect			mWindowRectScaled;			// whole window, scaled by UI size
@@ -470,7 +461,6 @@ protected:
 	
 	bool			mResDirty;
 	bool			mStatesDirty;
-	bool			mIsFullscreenChecked; // Did the user check the fullscreen checkbox in the display settings
 	U32			mCurrResolutionIndex;
 
     boost::scoped_ptr<LLViewerWindowListener> mViewerWindowListener;
@@ -507,6 +497,8 @@ extern LLVector2        gDebugRaycastTexCoord;
 extern LLVector3        gDebugRaycastNormal;
 extern LLVector3        gDebugRaycastBinormal;
 extern S32				gDebugRaycastFaceHit;
+extern LLVector3		gDebugRaycastStart;
+extern LLVector3		gDebugRaycastEnd;
 
 extern S32 CHAT_BAR_HEIGHT; 
 

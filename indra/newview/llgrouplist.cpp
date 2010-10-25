@@ -39,13 +39,13 @@
 #include "lliconctrl.h"
 #include "llmenugl.h"
 #include "lltextbox.h"
+#include "lltextutil.h"
 #include "lltrans.h"
 
 // newview
 #include "llagent.h"
 #include "llgroupactions.h"
 #include "llfloaterreg.h"
-#include "lltextutil.h"
 #include "llviewercontrol.h"	// for gSavedSettings
 #include "llviewermenu.h"		// for gMenuHolder
 #include "llvoiceclient.h"
@@ -71,18 +71,10 @@ public:
 
 static const LLGroupComparator GROUP_COMPARATOR;
 
-LLGroupList::Params::Params()
-: no_groups_msg("no_groups_msg")
-, no_filtered_groups_msg("no_filtered_groups_msg")
-{
-	
-}
 
 LLGroupList::LLGroupList(const Params& p)
-:	LLFlatListView(p)
+:	LLFlatListViewEx(p)
 	, mDirty(true) // to force initial update
-	, mNoFilteredGroupsMsg(p.no_filtered_groups_msg)
-	, mNoGroupsMsg(p.no_groups_msg)
 {
 	// Listen for agent group changes.
 	gAgent.addListener(this, "new group");
@@ -139,9 +131,15 @@ BOOL LLGroupList::handleRightMouseDown(S32 x, S32 y, MASK mask)
 
 void LLGroupList::setNameFilter(const std::string& filter)
 {
-	if (mNameFilter != filter)
+	std::string filter_upper = filter;
+	LLStringUtil::toUpper(filter_upper);
+	if (mNameFilter != filter_upper)
 	{
-		mNameFilter = filter;
+		mNameFilter = filter_upper;
+
+		// set no items message depend on filter state
+		updateNoItemsMessage(filter);
+
 		setDirty();
 	}
 }
@@ -158,18 +156,6 @@ void LLGroupList::refresh()
 	S32					count			= gAgent.mGroups.count();
 	LLUUID				id;
 	bool				have_filter		= !mNameFilter.empty();
-
-	// set no items message depend on filter state & total count of groups
-	if (have_filter)
-	{
-		// groups were filtered
-		setNoItemsCommentText(mNoFilteredGroupsMsg);
-	}
-	else if (0 == count)
-	{
-		// user is not a member of any group
-		setNoItemsCommentText(mNoGroupsMsg);
-	}
 
 	clear();
 
@@ -226,8 +212,8 @@ void LLGroupList::addNewItem(const LLUUID& id, const std::string& name, const LL
 	item->setName(name, mNameFilter);
 	item->setGroupIconID(icon_id);
 
-	item->childSetVisible("info_btn", false);
-	item->childSetVisible("profile_btn", false);
+	item->getChildView("info_btn")->setVisible( false);
+	item->getChildView("profile_btn")->setVisible( false);
 	item->setGroupIconVisible(mShowIcons);
 
 	addItem(item, id, pos);
@@ -287,7 +273,7 @@ bool LLGroupList::onContextMenuItemEnable(const LLSD& userdata)
 		return gAgent.getGroupID() != selected_group_id;
 
 	if (userdata.asString() == "call")
-		return real_group_selected && LLVoiceClient::voiceEnabled()&&gVoiceClient->voiceWorking();
+	  return real_group_selected && LLVoiceClient::getInstance()->voiceEnabled() && LLVoiceClient::getInstance()->isVoiceWorking();
 
 	return real_group_selected;
 }
@@ -337,16 +323,16 @@ void LLGroupListItem::setValue( const LLSD& value )
 {
 	if (!value.isMap()) return;
 	if (!value.has("selected")) return;
-	childSetVisible("selected_icon", value["selected"]);
+	getChildView("selected_icon")->setVisible( value["selected"]);
 }
 
 void LLGroupListItem::onMouseEnter(S32 x, S32 y, MASK mask)
 {
-	childSetVisible("hovered_icon", true);
+	getChildView("hovered_icon")->setVisible( true);
 	if (mGroupID.notNull()) // don't show the info button for the "none" group
 	{
 		mInfoBtn->setVisible(true);
-		childSetVisible("profile_btn", true);
+		getChildView("profile_btn")->setVisible( true);
 	}
 
 	LLPanel::onMouseEnter(x, y, mask);
@@ -354,9 +340,9 @@ void LLGroupListItem::onMouseEnter(S32 x, S32 y, MASK mask)
 
 void LLGroupListItem::onMouseLeave(S32 x, S32 y, MASK mask)
 {
-	childSetVisible("hovered_icon", false);
+	getChildView("hovered_icon")->setVisible( false);
 	mInfoBtn->setVisible(false);
-	childSetVisible("profile_btn", false);
+	getChildView("profile_btn")->setVisible( false);
 
 	LLPanel::onMouseLeave(x, y, mask);
 }

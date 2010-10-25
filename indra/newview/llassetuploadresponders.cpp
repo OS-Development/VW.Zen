@@ -37,8 +37,9 @@
 // viewer includes
 #include "llagent.h"
 #include "llcompilequeue.h"
-#include "llfloaterbuycurrency.h"
+#include "llbuycurrencyhtml.h"
 #include "llfilepicker.h"
+#include "llinventorydefines.h"
 #include "llinventoryobserver.h"
 #include "llinventorypanel.h"
 #include "llfloaterimportcollada.h"
@@ -144,7 +145,7 @@ void on_new_single_inventory_upload_complete(
 			item_name,
 			item_description,
 			LLSaleInfo::DEFAULT,
-			LLInventoryItem::II_FLAGS_NONE,
+			LLInventoryItemFlags::II_FLAGS_NONE,
 			creation_date_now);
 
 		gInventory.updateItem(item);
@@ -289,7 +290,7 @@ void LLAssetUploadResponder::uploadFailure(const LLSD& content)
 		S32 price = LLGlobalEconomy::Singleton::getInstance()->getPriceUpload();
 		LLStringUtil::format_map_t args;
 		args["AMOUNT"] = llformat("%d", price);
-		LLFloaterBuyCurrency::buyCurrency(LLTrans::getString("uploading_costs", args), price);
+		LLBuyCurrencyHTML::openCurrencyFloater( LLTrans::getString("uploading_costs", args), price );
 	}
 	else
 	{
@@ -304,6 +305,7 @@ void LLAssetUploadResponder::uploadComplete(const LLSD& content)
 {
 }
 
+#if LL_MESH_ENABLED
 LLNewAgentInventoryResponder::LLNewAgentInventoryResponder(
 	const LLSD& post_data,
 	const LLUUID& vfile_id,
@@ -425,6 +427,7 @@ void LLNewAgentInventoryResponder::uploadComplete(const LLSD& content)
 
 	LLImportColladaAssetCache::getInstance()->assetUploaded(mVFileID, content["new_asset"], TRUE);
 }
+#endif
 
 LLSendTexLayerResponder::LLSendTexLayerResponder(const LLSD& post_data,
 												 const LLUUID& vfile_id,
@@ -674,6 +677,7 @@ void LLUpdateTaskInventoryResponder::uploadComplete(const LLSD& content)
 }
 
 
+#if LL_MESH_ENABLED
 /////////////////////////////////////////////////////
 // LLNewAgentInventoryVariablePriceResponder::Impl //
 /////////////////////////////////////////////////////
@@ -1141,3 +1145,5 @@ void LLNewAgentInventoryVariablePriceResponder::showConfirmationDialog(
 				boost::intrusive_ptr<LLNewAgentInventoryVariablePriceResponder>(this)));
 	}
 }
+#endif
+

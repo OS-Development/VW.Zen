@@ -143,14 +143,13 @@ public:
 									left_pad,	// from last right to my left
 									left_delta;	// from last left to my left
 								
-		Optional<bool>				center_horiz,
-									center_vert;
-
 		// these are nested attributes for LLLayoutPanel
 		//FIXME: get parent context involved in parsing traversal
 		Ignored						user_resize,
 									auto_resize,
 									needs_translate,
+									min_width,
+									max_width,
 									xmlns,
 									xmlns_xsi,
 									xsi_schemaLocation,
@@ -266,7 +265,7 @@ public:
 
 	virtual BOOL	postBuild() { return TRUE; }
 
-	child_tab_order_t getCtrlOrder() const		{ return mCtrlOrder; }
+	const child_tab_order_t& getCtrlOrder() const		{ return mCtrlOrder; }
 	ctrl_list_t getCtrlList() const;
 	ctrl_list_t getCtrlListSorted() const;
 	
@@ -274,7 +273,6 @@ public:
 	S32 getDefaultTabGroup() const				{ return mDefaultTabGroup; }
 	S32 getLastTabGroup()						{ return mLastTabGroup; }
 
-	bool        trueToRoot(const boost::function<bool (const LLView*)>& predicate) const;
 	BOOL		isInVisibleChain() const;
 	BOOL		isInEnabledChain() const;
 
@@ -290,12 +288,10 @@ public:
 	// children, etc.
 	virtual void deleteAllChildren();
 
-	virtual void	setTentative(BOOL b);
-	virtual BOOL	getTentative() const;
 	void 	setAllChildrenEnabled(BOOL b);
 
 	virtual void	setVisible(BOOL visible);
-	BOOL			getVisible() const			{ return mVisible; }
+	const BOOL&		getVisible() const			{ return mVisible; }
 	virtual void	setEnabled(BOOL enabled);
 	BOOL			getEnabled() const			{ return mEnabled; }
 	/// 'available' in this context means 'visible and enabled': in other
@@ -311,7 +307,8 @@ public:
 
 	void			pushVisible(BOOL visible)	{ mLastVisible = mVisible; setVisible(visible); }
 	void			popVisible()				{ setVisible(mLastVisible); }
-	
+	BOOL			getLastVisible()	const	{ return mLastVisible; }
+
 	LLHandle<LLView>	getHandle()				{ mHandle.bind(this); return mHandle; }
 
 	U32			getFollows() const				{ return mReshapeFlags; }
@@ -356,6 +353,10 @@ public:
 	typedef LLTreeDFSPostIter<LLView, child_list_const_iter_t> tree_post_iterator_t;
 	tree_post_iterator_t beginTreeDFSPost();
 	tree_post_iterator_t endTreeDFSPost();
+
+	typedef LLTreeBFSIter<LLView, child_list_const_iter_t> bfs_tree_iterator_t;
+	bfs_tree_iterator_t beginTreeBFS();
+	bfs_tree_iterator_t endTreeBFS();
 
 
 	typedef LLTreeDownIter<LLView> root_to_view_iterator_t;
@@ -555,11 +556,13 @@ private:
 	LLView*		mParentView;
 	child_list_t mChildList;
 
-	std::string	mName;
 	// location in pixels, relative to surrounding structure, bottom,left=0,0
+	BOOL		mVisible;
 	LLRect		mRect;
 	LLRect		mBoundingRect;
+	
 	std::string mLayout;
+	std::string	mName;
 	
 	U32			mReshapeFlags;
 
@@ -580,8 +583,6 @@ private:
 
 	LLRootHandle<LLView> mHandle;
 	BOOL		mLastVisible;
-
-	BOOL		mVisible;
 
 	S32			mNextInsertionOrdinal;
 
@@ -620,12 +621,13 @@ public:
 class LLCompareByTabOrder
 {
 public:
-	LLCompareByTabOrder(LLView::child_tab_order_t order) : mTabOrder(order) {}
+	LLCompareByTabOrder(const LLView::child_tab_order_t& order) : mTabOrder(order) {}
 	virtual ~LLCompareByTabOrder() {}
 	bool operator() (const LLView* const a, const LLView* const b) const;
 private:
 	virtual bool compareTabOrders(const LLView::tab_order_t & a, const LLView::tab_order_t & b) const { return a < b; }
-	LLView::child_tab_order_t mTabOrder;
+	// ok to store a reference, as this should only be allocated on stack during view query operations
+	const LLView::child_tab_order_t& mTabOrder;
 };
 
 template <class T> T* LLView::getChild(const std::string& name, BOOL recurse) const
@@ -637,7 +639,7 @@ template <class T> T* LLView::getChild(const std::string& name, BOOL recurse) co
 		// did we find *something* with that name?
 		if (child)
 		{
-			llwarns << "Found child named " << name << " but of wrong type " << typeid(*child).name() << ", expecting " << typeid(T*).name() << llendl;
+			llwarns << "Found child named \"" << name << "\" but of wrong type " << typeid(*child).name() << ", expecting " << typeid(T*).name() << llendl;
 		}
 		result = getDefaultWidget<T>(name);
 		if (!result)

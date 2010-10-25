@@ -93,7 +93,7 @@ public:
 		payload["object_id"] = object_id;
 		payload["owner_id"] = query_map["owner"];
 		payload["name"] = query_map["name"];
-		payload["slurl"] = query_map["slurl"];
+		payload["slurl"] = LLWeb::escapeURL(query_map["slurl"]);
 		payload["group_owned"] = query_map["groupowned"];
 		LLFloaterReg::showInstance("inspect_remote_object", payload);
 		return true;
@@ -109,6 +109,12 @@ public:
 		LLChatHistoryHeader* pInstance = new LLChatHistoryHeader;
 		LLUICtrlFactory::getInstance()->buildPanel(pInstance, file_name);	
 		return pInstance;
+	}
+
+	~LLChatHistoryHeader()
+	{
+		// Detach the info button so that it doesn't get destroyed (EXT-8463).
+		hideInfoCtrl();
 	}
 
 	BOOL handleMouseUp(S32 x, S32 y, MASK mask)
@@ -243,7 +249,7 @@ public:
 		gCacheName->get(mAvatarID, FALSE, boost::bind(&LLChatHistoryHeader::nameUpdatedCallback, this, _1, _2, _3, _4));
 
 		//*TODO overly defensive thing, source type should be maintained out there
-		if((chat.mFromID.isNull() && chat.mFromName.empty()) || chat.mFromName == SYSTEM_FROM)
+		if((chat.mFromID.isNull() && chat.mFromName.empty()) || chat.mFromName == SYSTEM_FROM && chat.mFromID.isNull())
 		{
 			mSourceType = CHAT_SOURCE_SYSTEM;
 		}
@@ -382,8 +388,18 @@ protected:
 				
 		if (!sInfoCtrl)
 		{
+			// *TODO: Delete the button at exit.
 			sInfoCtrl = LLUICtrlFactory::createFromFile<LLUICtrl>("inspector_info_ctrl.xml", NULL, LLPanel::child_registry_t::instance());
-			sInfoCtrl->setCommitCallback(boost::bind(&LLChatHistoryHeader::onClickInfoCtrl, sInfoCtrl));
+			if (sInfoCtrl)
+			{
+				sInfoCtrl->setCommitCallback(boost::bind(&LLChatHistoryHeader::onClickInfoCtrl, sInfoCtrl));
+			}
+		}
+
+		if (!sInfoCtrl)
+		{
+			llassert(sInfoCtrl != NULL);
+			return;
 		}
 
 		LLTextBase* name = getChild<LLTextBase>("user_name");
@@ -557,6 +573,14 @@ void LLChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
 {
 	bool use_plain_text_chat_history = args["use_plain_text_chat_history"].asBoolean();
 
+	llassert(mEditor);
+	if (!mEditor)
+	{
+		return;
+	}
+
+	mEditor->setPlainText(use_plain_text_chat_history);
+
 	if (!mEditor->scrolledToEnd() && chat.mFromID != gAgent.getID() && !chat.mFromName.empty())
 	{
 		mUnreadChatSources.insert(chat.mFromName);
@@ -632,7 +656,14 @@ void LLChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
 
 	if (use_plain_text_chat_history)
 	{
-		mEditor->appendText("[" + chat.mTimeStr + "] ", mEditor->getText().size() != 0, style_params);
+		LLStyle::Params timestamp_style(style_params);
+		if (!message_from_log)
+		{
+			LLColor4 timestamp_color = LLUIColorTable::instance().getColor("ChatTimestampColor");
+			timestamp_style.color(timestamp_color);
+			timestamp_style.readonly_color(timestamp_color);
+		}
+		mEditor->appendText("[" + chat.mTimeStr + "] ", mEditor->getText().size() != 0, timestamp_style);
 
 		if (utf8str_trim(chat.mFromName).size() != 0)
 		{
@@ -640,22 +671,21 @@ void LLChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
 			if ( chat.mSourceType == CHAT_SOURCE_OBJECT && chat.mFromID.notNull())
 			{
 				// for object IMs, create a secondlife:///app/objectim SLapp
-				std::string url = LLSLURL::buildCommand("objectim", chat.mFromID, "");
+				std::string url = LLSLURL("objectim", chat.mFromID, "").getSLURLString();
 				url += "?name=" + chat.mFromName;
-				url += "&owner=" + args["owner_id"].asString();
+				url += "&owner=" + chat.mOwnerID.asString();
 
 				std::string slurl = args["slurl"].asString();
 				if (slurl.empty())
 				{
-					LLViewerRegion *region = LLWorld::getInstance()->getRegionFromPosAgent(chat.mPosAgent);
-					if (region)
-					{
-						S32 x, y, z;
-						LLSLURL::globalPosToXYZ(LLVector3d(chat.mPosAgent), x, y, z);
-						slurl = region->getName() + llformat("/%d/%d/%d", x, y, z);
-					}
+				    LLViewerRegion *region = LLWorld::getInstance()->getRegionFromPosAgent(chat.mPosAgent);
+				    if(region)
+				      {
+					LLSLURL region_slurl(region->getName(), chat.mPosAgent);
+					slurl = region_slurl.getLocationString();
+				      }
 				}
-				url += "&slurl=" + slurl;
+				url += "&slurl=" + LLURI::escape(slurl);
 
 				// set the link for the object name to be the objectim SLapp
 				// (don't let object names with hyperlinks override our objectim Url)
@@ -669,8 +699,9 @@ void LLChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
 			{
 				LLStyle::Params link_params(style_params);
 				link_params.overwriteFrom(LLStyleMap::instance().lookupAgent(chat.mFromID));
-				// Convert the name to a hotlink and add to message.
-				mEditor->appendText(chat.mFromName + delimiter, false, link_params);
+				// Add link to avatar's inspector and delimiter to message.
+				mEditor->appendText(link_params.link_href, false, style_params);
+				mEditor->appendText(delimiter, false, style_params);
 			}
 			else
 			{
@@ -729,7 +760,7 @@ void LLChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
 		mIsLastMessageFromLog = message_from_log;
 	}
 
-   if (chat.mNotifId.notNull())
+	if (chat.mNotifId.notNull())
 	{
 		LLNotificationPtr notification = LLNotificationsUtil::find(chat.mNotifId);
 		if (notification != NULL)
@@ -821,6 +852,7 @@ void LLChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
 		
 		mEditor->appendText(message, FALSE, style_params);
 	}
+
 	mEditor->blockUndo();
 
 	// automatically scroll to end when receiving chat from myself
@@ -839,13 +871,4 @@ void LLChatHistory::draw()
 	}
 
 	LLUICtrl::draw();
-}
-
-void LLChatHistory::reshape(S32 width, S32 height, BOOL called_from_parent)
-{
-	bool is_scrolled_to_end = mEditor->scrolledToEnd();
-	LLUICtrl::reshape( width, height, called_from_parent );
-	// update scroll
-	if (is_scrolled_to_end)
-		mEditor->setCursorAndScrollToEnd();
 }

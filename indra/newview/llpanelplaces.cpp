@@ -54,6 +54,7 @@
 #include "llagent.h"
 #include "llagentpicksinfo.h"
 #include "llavatarpropertiesprocessor.h"
+#include "llcommandhandler.h"
 #include "llfloaterworldmap.h"
 #include "llinventorybridge.h"
 #include "llinventoryobserver.h"
@@ -66,6 +67,7 @@
 #include "llpanelplaceprofile.h"
 #include "llpanelteleporthistory.h"
 #include "llremoteparcelrequest.h"
+#include "llsidetray.h"
 #include "llteleporthistorystorage.h"
 #include "lltoggleablemenu.h"
 #include "llviewerinventory.h"
@@ -75,6 +77,7 @@
 #include "llviewerregion.h"
 #include "llviewerwindow.h"
 
+// Constants
 static const S32 LANDMARK_FOLDERS_MENU_WIDTH = 250;
 static const F32 PLACE_INFO_UPDATE_INTERVAL = 3.0;
 static const std::string AGENT_INFO_TYPE			= "agent";
@@ -82,6 +85,40 @@ static const std::string CREATE_LANDMARK_INFO_TYPE	= "create_landmark";
 static const std::string LANDMARK_INFO_TYPE			= "landmark";
 static const std::string REMOTE_PLACE_INFO_TYPE		= "remote_place";
 static const std::string TELEPORT_HISTORY_INFO_TYPE	= "teleport_history";
+
+// Support for secondlife:///app/parcel/{UUID}/about SLapps
+class LLParcelHandler : public LLCommandHandler
+{
+public:
+	// requires trusted browser to trigger
+	LLParcelHandler() : LLCommandHandler("parcel", UNTRUSTED_THROTTLE) { }
+	bool handle(const LLSD& params, const LLSD& query_map,
+				LLMediaCtrl* web)
+	{
+		if (params.size() < 2)
+		{
+			return false;
+		}
+		LLUUID parcel_id;
+		if (!parcel_id.set(params[0], FALSE))
+		{
+			return false;
+		}
+		if (params[1].asString() == "about")
+		{
+			if (parcel_id.notNull())
+			{
+				LLSD key;
+				key["type"] = "remote_place";
+				key["id"] = parcel_id;
+				LLSideTray::getInstance()->showPanel("panel_places", key);
+				return true;
+			}
+		}
+		return false;
+	}
+};
+LLParcelHandler gParcelHandler;
 
 // Helper functions
 static bool is_agent_in_selected_parcel(LLParcel* parcel);
@@ -251,6 +288,9 @@ BOOL LLPanelPlaces::postBuild()
 
 	mOverflowBtn = getChild<LLButton>("overflow_btn");
 	mOverflowBtn->setClickedCallback(boost::bind(&LLPanelPlaces::onOverflowButtonClicked, this));
+
+	mPlaceInfoBtn = getChild<LLButton>("profile_btn");
+	mPlaceInfoBtn->setClickedCallback(boost::bind(&LLPanelPlaces::onProfileButtonClicked, this));
 
 	LLUICtrl::CommitCallbackRegistry::ScopedRegistrar registrar;
 	registrar.add("Places.OverflowMenu.Action",  boost::bind(&LLPanelPlaces::onOverflowMenuItemClicked, this, _2));
@@ -525,8 +565,7 @@ void LLPanelPlaces::onFilterEdit(const std::string& search_string, bool force_fi
 		std::string string = search_string;
 
 		// Searches are case-insensitive
-		LLStringUtil::toUpper(string);
-		LLStringUtil::trimHead(string);
+		// but we don't convert the typed string to upper-case so that it can be fed to the web search as-is.
 
 		mActivePanel->onSearchEdit(string);
 	}
@@ -613,8 +652,21 @@ void LLPanelPlaces::onShowOnMapButtonClicked()
 	}
 	else
 	{
-		if (mActivePanel)
+		if (mActivePanel && mActivePanel->isSingleItemSelected())
+		{
 			mActivePanel->onShowOnMap();
+		}
+		else
+		{
+			LLFloaterWorldMap* worldmap_instance = LLFloaterWorldMap::getInstance();
+			LLVector3d global_pos = gAgent.getPositionGlobal();
+
+			if (!global_pos.isExactlyZero() && worldmap_instance)
+			{
+				worldmap_instance->trackLocation(global_pos);
+				LLFloaterReg::showInstance("world_map", "center");
+			}
+		}
 	}
 }
 
@@ -703,8 +755,8 @@ void LLPanelPlaces::onOverflowButtonClicked()
 	bool is_agent_place_info_visible = mPlaceInfoType == AGENT_INFO_TYPE;
 
 	if ((is_agent_place_info_visible ||
-		 mPlaceInfoType == "remote_place" ||
-		 mPlaceInfoType == "teleport_history") && mPlaceMenu != NULL)
+		 mPlaceInfoType == REMOTE_PLACE_INFO_TYPE ||
+		 mPlaceInfoType == TELEPORT_HISTORY_INFO_TYPE) && mPlaceMenu != NULL)
 	{
 		menu = mPlaceMenu;
 
@@ -743,6 +795,14 @@ void LLPanelPlaces::onOverflowButtonClicked()
 	menu->updateParent(LLMenuGL::sMenuContainer);
 	LLRect rect = mOverflowBtn->getRect();
 	LLMenuGL::showPopup(this, menu, rect.mRight, rect.mTop);
+}
+
+void LLPanelPlaces::onProfileButtonClicked()
+{
+	if (!mActivePanel)
+		return;
+
+	mActivePanel->onShowProfile();
 }
 
 bool LLPanelPlaces::onOverflowMenuItemEnable(const LLSD& param)
@@ -1015,7 +1075,7 @@ void LLPanelPlaces::showAddedLandmarkInfo(const uuid_vec_t& items)
 		 ++item_iter)
 	{
 		const LLUUID& item_id = (*item_iter);
-		if(!highlight_offered_item(item_id))
+		if(!highlight_offered_object(item_id))
 		{
 			continue;
 		}
@@ -1060,11 +1120,14 @@ void LLPanelPlaces::updateVerbs()
 	mSaveBtn->setVisible(isLandmarkEditModeOn);
 	mCancelBtn->setVisible(isLandmarkEditModeOn);
 	mCloseBtn->setVisible(is_create_landmark_visible && !isLandmarkEditModeOn);
+	mPlaceInfoBtn->setVisible(!is_place_info_visible && !is_create_landmark_visible && !isLandmarkEditModeOn);
 
-	mShowOnMapBtn->setEnabled(!is_create_landmark_visible && !isLandmarkEditModeOn && have_3d_pos);
+	mPlaceInfoBtn->setEnabled(!is_create_landmark_visible && !isLandmarkEditModeOn && have_3d_pos);
 
 	if (is_place_info_visible)
 	{
+		mShowOnMapBtn->setEnabled(have_3d_pos);
+
 		if (is_agent_place_info_visible)
 		{
 			// We don't need to teleport to the current location

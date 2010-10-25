@@ -123,6 +123,11 @@ public:
 			// Used internally to set the url for debugging later.
 			void setURL(const std::string& url);
 
+			virtual bool followRedir() 
+			{
+				return false;
+			}
+
 	public: /* but not really -- don't touch this */
 		U32 mReferenceCount;
 
@@ -158,16 +163,6 @@ public:
 	static const std::string& getCAPath() { return sCAPath; }
 
 	/**
-	 * @ brief Set flag controlling whether to verify HTTPS certs.
-	 */
-	static void setSSLVerify(bool verify);
-
-	/**
-	 * @ brief Get flag controlling whether to verify HTTPS certs.
-	 */
-	static bool getSSLVerify();
-
-	/**
 	 * @ brief Initialize LLCurl class
 	 */
 	static void initClass();
@@ -192,7 +187,7 @@ public:
 private:
 	static std::string sCAPath;
 	static std::string sCAFile;
-	static bool sSSLVerify;
+	static const unsigned int MAX_REDIRECTS;
 };
 
 namespace boost
@@ -243,6 +238,7 @@ public:
 	void setHeaderCallback(curl_header_callback callback, void* userdata);
 	void setWriteCallback(curl_write_callback callback, void* userdata);
 	void setReadCallback(curl_read_callback callback, void* userdata);
+	void setSSLCtxCallback(curl_ssl_ctx_callback callback, void* userdata);
 	void slist_append(const char* str);
 	void sendRequest(const std::string& url);
 	void requestComplete();

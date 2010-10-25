@@ -44,10 +44,11 @@
 
 #include "llagent.h"			// for agent id
 #include "llcheckboxctrl.h"
+#include "llinventorydefines.h"
 #include "llinventoryfunctions.h"
 #include "llinventorymodel.h"	// for gInventory
 #include "llfloaterreg.h"
-#include "llfloaterinventory.h"	// for get_item_icon
+#include "llfloaterinventory.h"	// for LLInventoryIcon::getIcon
 #include "llnotificationsutil.h"
 #include "llselectmgr.h"
 #include "llscrolllistctrl.h"
@@ -68,9 +69,9 @@ BOOL LLFloaterBuyContents::postBuild()
 	getChild<LLUICtrl>("cancel_btn")->setCommitCallback( boost::bind(&LLFloaterBuyContents::onClickCancel, this));
 	getChild<LLUICtrl>("buy_btn")->setCommitCallback( boost::bind(&LLFloaterBuyContents::onClickBuy, this));
 
-	childDisable("item_list");
-	childDisable("buy_btn");
-	childDisable("wear_check");
+	getChildView("item_list")->setEnabled(FALSE);
+	getChildView("buy_btn")->setEnabled(FALSE);
+	getChildView("wear_check")->setEnabled(FALSE);
 
 	setDefaultBtn("cancel_btn"); // to avoid accidental buy (SL-43130)
 
@@ -128,9 +129,9 @@ void LLFloaterBuyContents::show(const LLSaleInfo& sale_info)
 		gCacheName->getGroupName(owner_id, owner_name);
 	}
 
-	floater->childSetTextArg("contains_text", "[NAME]", node->mName);
-	floater->childSetTextArg("buy_text", "[AMOUNT]", llformat("%d", sale_info.getSalePrice()));
-	floater->childSetTextArg("buy_text", "[NAME]", owner_name);
+	floater->getChild<LLUICtrl>("contains_text")->setTextArg("[NAME]", node->mName);
+	floater->getChild<LLUICtrl>("buy_text")->setTextArg("[AMOUNT]", llformat("%d", sale_info.getSalePrice()));
+	floater->getChild<LLUICtrl>("buy_text")->setTextArg("[NAME]", owner_name);
 
 	// Must do this after the floater is created, because
 	// sometimes the inventory is already there and 
@@ -142,7 +143,7 @@ void LLFloaterBuyContents::show(const LLSaleInfo& sale_info)
 
 
 void LLFloaterBuyContents::inventoryChanged(LLViewerObject* obj,
-											InventoryObjectList* inv,
+											LLInventoryObject::object_list_t* inv,
 								 S32 serial_num,
 								 void* data)
 {
@@ -168,7 +169,7 @@ void LLFloaterBuyContents::inventoryChanged(LLViewerObject* obj,
 	}
 
 	// default to turning off the buy button.
-	childDisable("buy_btn");
+	getChildView("buy_btn")->setEnabled(FALSE);
 
 	LLUUID owner_id;
 	BOOL is_group_owned;
@@ -176,8 +177,8 @@ void LLFloaterBuyContents::inventoryChanged(LLViewerObject* obj,
 	LLInventoryType::EType inv_type;
 	S32 wearable_count = 0;
 	
-	InventoryObjectList::const_iterator it = inv->begin();
-	InventoryObjectList::const_iterator end = inv->end();
+	LLInventoryObject::object_list_t::const_iterator it = inv->begin();
+	LLInventoryObject::object_list_t::const_iterator end = inv->end();
 
 	for ( ; it != end; ++it )
 	{
@@ -209,18 +210,18 @@ void LLFloaterBuyContents::inventoryChanged(LLViewerObject* obj,
 
 		// There will be at least one item shown in the display, so go
 		// ahead and enable the buy button.
-		childEnable("buy_btn");
+		getChildView("buy_btn")->setEnabled(TRUE);
 
 		// Create the line in the list
 		LLSD row;
 
 		BOOL item_is_multi = FALSE;
-		if ( inv_item->getFlags() & LLInventoryItem::II_FLAGS_LANDMARK_VISITED )
+		if ( inv_item->getFlags() & LLInventoryItemFlags::II_FLAGS_LANDMARK_VISITED )
 		{
 			item_is_multi = TRUE;
 		}
 
-		std::string icon_name = get_item_icon_name(inv_item->getType(), 
+		std::string icon_name = LLInventoryIcon::getIconName(inv_item->getType(), 
 								 inv_item->getInventoryType(),
 								 inv_item->getFlags(),
 								 item_is_multi);
@@ -255,8 +256,8 @@ void LLFloaterBuyContents::inventoryChanged(LLViewerObject* obj,
 
 	if (wearable_count > 0)
 	{
-		childEnable("wear_check");
-		childSetValue("wear_check", LLSD(false) );
+		getChildView("wear_check")->setEnabled(TRUE);
+		getChild<LLUICtrl>("wear_check")->setValue(LLSD(false) );
 	}
 	
 	removeVOInventoryListener();
@@ -267,7 +268,7 @@ void LLFloaterBuyContents::onClickBuy()
 {
 	// Make sure this wasn't selected through other mechanisms 
 	// (ie, being the default button and pressing enter.
-	if(!childIsEnabled("buy_btn"))
+	if(!getChildView("buy_btn")->getEnabled())
 	{
 		// We shouldn't be enabled.  Just close.
 		closeFloater();
@@ -275,7 +276,7 @@ void LLFloaterBuyContents::onClickBuy()
 	}
 
 	// We may want to wear this item
-	if (childGetValue("wear_check"))
+	if (getChild<LLUICtrl>("wear_check")->getValue())
 	{
 		LLInventoryState::sWearNewClothing = TRUE;
 	}

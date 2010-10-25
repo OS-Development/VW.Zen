@@ -32,6 +32,7 @@
 
 #include "llviewerprecompiledheaders.h"
 #include "llscriptfloater.h"
+#include "llagentcamera.h"
 
 #include "llbottomtray.h"
 #include "llchannelmanager.h"
@@ -71,6 +72,7 @@ LLScriptFloater::LLScriptFloater(const LLSD& key)
 {
 	setMouseDownCallback(boost::bind(&LLScriptFloater::onMouseDown, this));
 	setOverlapsScreenChannel(true);
+	mIsDockedStateForcedCallback = boost::bind(&LLAgentCamera::cameraMouselook, &gAgentCamera);
 }
 
 bool LLScriptFloater::toggle(const LLUUID& notification_id)
@@ -176,7 +178,15 @@ void LLScriptFloater::onClose(bool app_quitting)
 
 	if(getNotificationId().notNull())
 	{
-		LLScriptFloaterManager::getInstance()->onRemoveNotification(getNotificationId());
+		// we shouldn't kill notification on exit since it may be used as persistent.
+		if (app_quitting)
+		{
+			LLScriptFloaterManager::getInstance()->onRemoveNotification(getNotificationId());
+		}
+		else
+		{
+			LLScriptFloaterManager::getInstance()->removeNotification(getNotificationId());
+		}
 	}
 }
 
@@ -352,7 +362,7 @@ void LLScriptFloaterManager::onAddNotification(const LLUUID& notification_id)
 				set_new_message |= !floater->hasFocus();
 			}
 
-			onRemoveNotification(it->first);
+			removeNotification(it->first);
 		}
 	}
 
@@ -379,6 +389,17 @@ void LLScriptFloaterManager::onAddNotification(const LLUUID& notification_id)
 	toggleScriptFloater(notification_id, set_new_message);
 }
 
+void LLScriptFloaterManager::removeNotification(const LLUUID& notification_id)
+{
+	LLNotificationPtr notification = LLNotifications::instance().find(notification_id);
+	if (notification != NULL && !notification->isCancelled())
+	{
+		LLNotificationsUtil::cancel(notification);
+	}
+
+	onRemoveNotification(notification_id);
+}
+
 void LLScriptFloaterManager::onRemoveNotification(const LLUUID& notification_id)
 {
 	if(notification_id.isNull())
@@ -392,6 +413,8 @@ void LLScriptFloaterManager::onRemoveNotification(const LLUUID& notification_id)
 
 	LLIMWellWindow::getInstance()->removeObjectRow(notification_id);
 
+	mNotifications.erase(notification_id);
+
 	// close floater
 	LLScriptFloater* floater = LLFloaterReg::findTypedInstance<LLScriptFloater>("script_floater", notification_id);
 	if(floater)
@@ -400,8 +423,6 @@ void LLScriptFloaterManager::onRemoveNotification(const LLUUID& notification_id)
 		floater->setNotificationId(LLUUID::null);
 		floater->closeFloater();
 	}
-
-	mNotifications.erase(notification_id);
 }
 
 void LLScriptFloaterManager::toggleScriptFloater(const LLUUID& notification_id, bool set_new_message)
@@ -482,7 +503,7 @@ std::string LLScriptFloaterManager::getObjectName(const LLUUID& notification_id)
 		text = notification->getSubstitutions()["OBJECTNAME"].asString();
 		break;
 	case LLScriptFloaterManager::OBJ_GIVE_INVENTORY:
-		text = notification->getSubstitutions()["NAME"].asString();
+		text = notification->getSubstitutions()["OBJECTFROMNAME"].asString();
 		break;
 	default:
 		text = LLTrans::getString("object");
@@ -537,6 +558,16 @@ bool LLScriptFloaterManager::getFloaterPosition(const LLUUID& object_id, Floater
 		return true;
 	}
 	return false;
+}
+
+void LLScriptFloaterManager::setFloaterVisible(const LLUUID& notification_id, bool visible)
+{
+	LLScriptFloater* floater = LLFloaterReg::findTypedInstance<LLScriptFloater>(
+		"script_floater", notification_id);
+	if(floater)
+	{
+		floater->setVisible(visible);
+	}
 }
 
 // EOF

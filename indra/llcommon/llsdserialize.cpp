@@ -2030,6 +2030,7 @@ std::string zip_llsd(LLSD& data)
 	{
 		delete [] output;
 		llwarns << "Failed to compress LLSD block." << llendl;
+		return std::string();
 	}
 
 	std::string::size_type size = source.size()-strm.avail_out;
@@ -2121,6 +2122,7 @@ bool unzip_llsd(LLSD& data, std::istream& is, S32 size)
 		if (!LLSDSerialize::deserialize(data, istr, cur_size))
 		{
 			llwarns << "Failed to unzip LLSD block" << llendl;
+			free(result);
 			return false;
 		}
 	}

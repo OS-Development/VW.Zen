@@ -31,7 +31,6 @@
 
 #include "llviewerprecompiledheaders.h"
 
-//LLPanelPrimMediaControls
 #include "llagent.h"
 #include "llagentcamera.h"
 #include "llparcel.h"
@@ -65,8 +64,8 @@
 #include "llvovolume.h"
 #include "llweb.h"
 #include "llwindow.h"
-
 #include "llfloatertools.h"  // to enable hide if build tools are up
+#include "llvector4a.h"
 
 // Functions pulled from pipeline.cpp
 glh::matrix4f glh_get_current_modelview();
@@ -352,6 +351,11 @@ void LLPanelPrimMediaControls::updateShape()
 		mHomeCtrl->setEnabled(has_focus && can_navigate);
 		LLPluginClassMediaOwner::EMediaStatus result = ((media_impl != NULL) && media_impl->hasMedia()) ? media_plugin->getStatus() : LLPluginClassMediaOwner::MEDIA_NONE;
 		
+		mVolumeCtrl->setVisible(has_focus);
+		mVolumeCtrl->setEnabled(has_focus);
+		mVolumeSliderCtrl->setEnabled(has_focus && shouldVolumeSliderBeVisible());
+		mVolumeSliderCtrl->setVisible(has_focus && shouldVolumeSliderBeVisible());
+
 		if(media_plugin && media_plugin->pluginSupportsMediaTime())
 		{
 			mReloadCtrl->setEnabled(false);
@@ -464,11 +468,15 @@ void LLPanelPrimMediaControls::updateShape()
 			mSkipBackCtrl->setVisible(FALSE);
 			mSkipBackCtrl->setEnabled(FALSE);
 			
-			mVolumeCtrl->setVisible(FALSE);
-			mVolumeSliderCtrl->setVisible(FALSE);
-			mVolumeCtrl->setEnabled(FALSE);
-			mVolumeSliderCtrl->setEnabled(FALSE);
-			
+			if(media_impl->getVolume() <= 0.0)
+			{
+				mMuteBtn->setToggleState(true);
+			}
+			else
+			{
+				mMuteBtn->setToggleState(false);
+			}
+
 			if (mMediaPanelScroll)
 			{
 				mMediaPanelScroll->setVisible(has_focus);
@@ -567,7 +575,9 @@ void LLPanelPrimMediaControls::updateShape()
 		{
 			const LLVolumeFace& vf = volume->getVolumeFace(mTargetObjectFace);
 			
-			const LLVector3* ext = vf.mExtents;
+			LLVector3 ext[2];
+			ext[0].set(vf.mExtents[0].getF32ptr());
+			ext[1].set(vf.mExtents[1].getF32ptr());
 			
 			LLVector3 center = (ext[0]+ext[1])*0.5f;
 			LLVector3 size = (ext[1]-ext[0])*0.5f;
@@ -978,6 +988,13 @@ void LLPanelPrimMediaControls::onClickZoom()
 
 void LLPanelPrimMediaControls::nextZoomLevel()
 {
+	LLViewerObject* objectp = getTargetObject();
+	if(objectp && objectp->isHUDAttachment())
+	{
+		// Never allow zooming on HUD attachments.
+		return;
+	}
+	
 	int index = 0;
 	while (index < kNumZoomLevels)
 	{

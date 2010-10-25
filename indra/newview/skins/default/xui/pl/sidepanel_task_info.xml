@@ -37,7 +37,7 @@
 		Sprzedaż mieszana
 	</panel.string>
 	<text name="title" value="Profil Obiektu"/>
-	<text name="where" value="(w świecie)"/>
+	<text name="where" value="(W Świecie)"/>
 	<panel label="" name="properties_panel">
 		<text name="Name:">
 			Nazwa:
@@ -83,7 +83,7 @@
 			<check_box label="Kopiuj" name="checkbox allow everyone copy"/>
 			<check_box label="Przesuń" name="checkbox allow everyone move"/>
 			<text name="GroupLabel">
-				Groupie:
+				Grupie:
 			</text>
 			<check_box label="Udostępnij" name="checkbox share with group" tool_tip="Udostępnij prawa do modyfikacji tego obiektu wszystkim członkom, którzy posiadają przywilej modyfikacji obiektów grupy. By ograniczyć, przypisz obiekt do grupy."/>
 			<text name="NextOwnerLabel">

@@ -35,6 +35,7 @@
 #include "llpreviewnotecard.h"
 
 #include "llinventory.h"
+#include "llinventoryfunctions.h" // for change_item_parent()
 
 #include "llagent.h"
 #include "llassetuploadresponders.h"
@@ -42,6 +43,7 @@
 #include "llviewerwindow.h"
 #include "llbutton.h"
 #include "llfloaterreg.h"
+#include "llinventorydefines.h"
 #include "llinventorymodel.h"
 #include "lllineeditor.h"
 #include "llnotificationsutil.h"
@@ -89,14 +91,20 @@ BOOL LLPreviewNotecard::postBuild()
 	ed->makePristine();
 
 	childSetAction("Save", onClickSave, this);
-	childSetVisible("lock", FALSE);	
+	getChildView("lock")->setVisible( FALSE);	
+
+	childSetAction("Delete", onClickDelete, this);
+	getChildView("Delete")->setEnabled(false);
 
 	const LLInventoryItem* item = getItem();
 
 	childSetCommitCallback("desc", LLPreview::onText, this);
 	if (item)
-		childSetText("desc", item->getDescription());
-	childSetPrevalidate("desc", &LLTextValidate::validateASCIIPrintableNoPipe);
+	{
+		getChild<LLUICtrl>("desc")->setValue(item->getDescription());
+		getChildView("Delete")->setEnabled(true);
+	}
+	getChild<LLLineEditor>("desc")->setPrevalidate(&LLTextValidate::validateASCIIPrintableNoPipe);
 
 	return LLPreview::postBuild();
 }
@@ -112,10 +120,10 @@ void LLPreviewNotecard::setEnabled( BOOL enabled )
 
 	LLViewerTextEditor* editor = getChild<LLViewerTextEditor>("Notecard Editor");
 
-	childSetEnabled("Notecard Editor", enabled);
-	childSetVisible("lock", !enabled);
-	childSetEnabled("desc", enabled);
-	childSetEnabled("Save", enabled && editor && (!editor->isPristine()));
+	getChildView("Notecard Editor")->setEnabled(enabled);
+	getChildView("lock")->setVisible( !enabled);
+	getChildView("desc")->setEnabled(enabled);
+	getChildView("Save")->setEnabled(enabled && editor && (!editor->isPristine()));
 }
 
 
@@ -124,7 +132,7 @@ void LLPreviewNotecard::draw()
 	LLViewerTextEditor* editor = getChild<LLViewerTextEditor>("Notecard Editor");
 	BOOL changed = !editor->isPristine();
 
-	childSetEnabled("Save", changed && getEnabled());
+	getChildView("Save")->setEnabled(changed && getEnabled());
 	
 	LLPreview::draw();
 }
@@ -275,7 +283,7 @@ void LLPreviewNotecard::loadAsset()
 								GP_OBJECT_MANIPULATE))
 		{
 			editor->setEnabled(FALSE);
-			childSetVisible("lock", TRUE);
+			getChildView("lock")->setVisible( TRUE);
 		}
 	}
 	else
@@ -373,6 +381,17 @@ void LLPreviewNotecard::onClickSave(void* user_data)
 	}
 }
 
+
+// static
+void LLPreviewNotecard::onClickDelete(void* user_data)
+{
+	LLPreviewNotecard* preview = (LLPreviewNotecard*)user_data;
+	if(preview)
+	{
+		preview->deleteNotecard();
+	}
+}
+
 struct LLSaveNotecardInfo
 {
 	LLPreviewNotecard* mSelf;
@@ -463,6 +482,18 @@ bool LLPreviewNotecard::saveIfNeeded(LLInventoryItem* copyitem)
 		}
 	}
 	return true;
+}
+
+void LLPreviewNotecard::deleteNotecard()
+{
+	LLViewerInventoryItem* item = gInventory.getItem(mItemUUID);
+	if (item != NULL)
+	{
+		const LLUUID trash_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_TRASH);
+		change_item_parent(&gInventory, item, trash_id, FALSE);
+	}
+
+	closeFloater();
 }
 
 // static

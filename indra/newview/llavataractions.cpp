@@ -35,6 +35,8 @@
 
 #include "llavataractions.h"
 
+#include "boost/lambda/lambda.hpp"	// for lambda::constant
+
 #include "llsd.h"
 #include "lldarray.h"
 #include "llnotifications.h"
@@ -46,14 +48,19 @@
 #include "llappviewer.h"		// for gLastVersionChannel
 #include "llcachename.h"
 #include "llcallingcard.h"		// for LLAvatarTracker
+#include "llfloateravatarpicker.h"	// for LLFloaterAvatarPicker
 #include "llfloatergroupinvite.h"
 #include "llfloatergroups.h"
 #include "llfloaterreg.h"
 #include "llfloaterpay.h"
 #include "llfloaterworldmap.h"
+#include "llgiveinventory.h"
 #include "llinventorymodel.h"	// for gInventory.findCategoryUUIDForType
+#include "llinventorypanel.h"
 #include "llimview.h"			// for gIMMgr
 #include "llmutelist.h"
+#include "llnotificationsutil.h"	// for LLNotificationsUtil
+#include "llpaneloutfitedit.h"
 #include "llrecentpeople.h"
 #include "llsidetray.h"
 #include "lltrans.h"
@@ -282,7 +289,7 @@ bool LLAvatarActions::isCalling(const LLUUID &id)
 //static
 bool LLAvatarActions::canCall()
 {
-		return LLVoiceClient::voiceEnabled() && gVoiceClient->voiceWorking();
+		return LLVoiceClient::getInstance()->voiceEnabled() && LLVoiceClient::getInstance()->isVoiceWorking();
 }
 
 // static
@@ -423,6 +430,252 @@ void LLAvatarActions::share(const LLUUID& id)
 		// we should always get here, but check to verify anyways
 		LLIMModel::getInstance()->addMessage(session_id, SYSTEM_FROM, LLUUID::null, LLTrans::getString("share_alert"), false);
 	}
+}
+
+namespace action_give_inventory
+{
+	typedef std::set<LLUUID> uuid_set_t;
+
+	/**
+	 * Returns a pointer to 'Add More' inventory panel of Edit Outfit SP.
+	 */
+	static LLInventoryPanel* get_outfit_editor_inventory_panel()
+	{
+		LLPanelOutfitEdit* panel_outfit_edit = dynamic_cast<LLPanelOutfitEdit*>(LLSideTray::getInstance()->getPanel("panel_outfit_edit"));
+		if (NULL == panel_outfit_edit) return NULL;
+
+		LLInventoryPanel* inventory_panel = panel_outfit_edit->findChild<LLInventoryPanel>("folder_view");
+		return inventory_panel;
+	}
+
+	/**
+	 * Checks My Inventory visibility.
+	 */
+	static bool is_give_inventory_acceptable()
+	{
+		LLInventoryPanel* active_panel = LLInventoryPanel::getActiveInventoryPanel(FALSE);
+		if (!active_panel)
+		{
+			active_panel = get_outfit_editor_inventory_panel();
+			if (!active_panel) return false;
+		}
+
+		// check selection in the panel
+		const uuid_set_t inventory_selected_uuids = active_panel->getRootFolder()->getSelectionList();
+		if (inventory_selected_uuids.empty()) return false; // nothing selected
+
+		bool acceptable = false;
+		uuid_set_t::const_iterator it = inventory_selected_uuids.begin();
+		const uuid_set_t::const_iterator it_end = inventory_selected_uuids.end();
+		for (; it != it_end; ++it)
+		{
+			LLViewerInventoryCategory* inv_cat = gInventory.getCategory(*it);
+			// any category can be offered.
+			if (inv_cat)
+			{
+				acceptable = true;
+				continue;
+			}
+
+			LLViewerInventoryItem* inv_item = gInventory.getItem(*it);
+			// check if inventory item can be given
+			if (LLGiveInventory::isInventoryGiveAcceptable(inv_item))
+			{
+				acceptable = true;
+				continue;
+			}
+
+			// there are neither item nor category in inventory
+			acceptable = false;
+			break;
+		}
+		return acceptable;
+	}
+
+	static void build_residents_string(const std::vector<std::string>& avatar_names, std::string& residents_string)
+	{
+		llassert(avatar_names.size() > 0);
+
+		const std::string& separator = LLTrans::getString("words_separator");
+		for (std::vector<std::string>::const_iterator it = avatar_names.begin(); ; )
+		{
+			residents_string.append(*it);
+			if	(++it == avatar_names.end())
+			{
+				break;
+			}
+			residents_string.append(separator);
+		}
+	}
+
+	static void build_items_string(const uuid_set_t& inventory_selected_uuids , std::string& items_string)
+	{
+		llassert(inventory_selected_uuids.size() > 0);
+
+		const std::string& separator = LLTrans::getString("words_separator");
+		for (uuid_set_t::const_iterator it = inventory_selected_uuids.begin(); ; )
+		{
+			LLViewerInventoryCategory* inv_cat = gInventory.getCategory(*it);
+			if (NULL != inv_cat)
+			{
+				items_string = inv_cat->getName();
+				break;
+			}
+			LLViewerInventoryItem* inv_item = gInventory.getItem(*it);
+			if (NULL != inv_item)
+			{
+				items_string.append(inv_item->getName());
+			}
+			if(++it == inventory_selected_uuids.end())
+			{
+				break;
+			}
+			items_string.append(separator);
+		}
+	}
+
+	struct LLShareInfo : public LLSingleton<LLShareInfo>
+	{
+		std::vector<std::string> mAvatarNames;
+		uuid_vec_t mAvatarUuids;
+	};
+
+	static void give_inventory_cb(const LLSD& notification, const LLSD& response)
+	{
+		S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
+		// if Cancel pressed
+		if (option == 1)
+		{
+			return;
+		}
+
+		LLInventoryPanel* active_panel = LLInventoryPanel::getActiveInventoryPanel(FALSE);
+		if (!active_panel)
+		{
+			active_panel = get_outfit_editor_inventory_panel();
+			if (!active_panel) return;
+		}
+
+		const uuid_set_t inventory_selected_uuids = active_panel->getRootFolder()->getSelectionList();
+		if (inventory_selected_uuids.empty())
+		{
+			return;
+		}
+
+		S32 count = LLShareInfo::instance().mAvatarNames.size();
+		bool shared = false;
+
+		// iterate through avatars
+		for(S32 i = 0; i < count; ++i)
+		{
+			const LLUUID& avatar_uuid = LLShareInfo::instance().mAvatarUuids[i];
+
+			// We souldn't open IM session, just calculate session ID for logging purpose. See EXT-6710
+			const LLUUID session_id = gIMMgr->computeSessionID(IM_NOTHING_SPECIAL, avatar_uuid);
+
+			uuid_set_t::const_iterator it = inventory_selected_uuids.begin();
+			const uuid_set_t::const_iterator it_end = inventory_selected_uuids.end();
+
+			const std::string& separator = LLTrans::getString("words_separator");
+			std::string noncopy_item_names;
+			LLSD noncopy_items = LLSD::emptyArray();
+			// iterate through selected inventory objects
+			for (; it != it_end; ++it)
+			{
+				LLViewerInventoryCategory* inv_cat = gInventory.getCategory(*it);
+				if (inv_cat)
+				{
+					LLGiveInventory::doGiveInventoryCategory(avatar_uuid, inv_cat, session_id);
+					shared = true;
+					break;
+				}
+				LLViewerInventoryItem* inv_item = gInventory.getItem(*it);
+				if (!inv_item->getPermissions().allowCopyBy(gAgentID))
+				{
+					if (!noncopy_item_names.empty())
+					{
+						noncopy_item_names.append(separator);
+					}
+					noncopy_item_names.append(inv_item->getName());
+					noncopy_items.append(*it);
+				}
+				else
+				{
+					LLGiveInventory::doGiveInventoryItem(avatar_uuid, inv_item, session_id);
+					shared = true;
+				}
+			}
+			if (noncopy_items.beginArray() != noncopy_items.endArray())
+			{
+				LLSD substitutions;
+				substitutions["ITEMS"] = noncopy_item_names;
+				LLSD payload;
+				payload["agent_id"] = avatar_uuid;
+				payload["items"] = noncopy_items;
+				LLNotificationsUtil::add("CannotCopyWarning", substitutions, payload,
+					&LLGiveInventory::handleCopyProtectedItem);
+				break;
+			}
+		}
+		if (shared)
+		{
+			LLFloaterReg::hideInstance("avatar_picker");
+			LLNotificationsUtil::add("ItemsShared");
+		}
+	}
+
+	/**
+	 * Performs "give inventory" operations for provided avatars.
+	 *
+	 * Sends one requests to give all selected inventory items for each passed avatar.
+	 * Avatars are represent by two vectors: names and UUIDs which must be sychronized with each other.
+	 *
+	 * @param avatar_names - avatar names request to be sent.
+	 * @param avatar_uuids - avatar names request to be sent.
+	 */
+	static void give_inventory(const std::vector<std::string>& avatar_names, const uuid_vec_t& avatar_uuids)
+	{
+		llassert(avatar_names.size() == avatar_uuids.size());
+
+
+		LLInventoryPanel* active_panel = LLInventoryPanel::getActiveInventoryPanel(FALSE);
+		if (!active_panel)
+		{
+			active_panel = get_outfit_editor_inventory_panel();
+			if (!active_panel) return;
+		}
+
+		const uuid_set_t inventory_selected_uuids = active_panel->getRootFolder()->getSelectionList();
+		if (inventory_selected_uuids.empty())
+		{
+			return;
+		}
+
+		std::string residents;
+		build_residents_string(avatar_names, residents);
+
+		std::string items;
+		build_items_string(inventory_selected_uuids, items);
+
+		LLSD substitutions;
+		substitutions["RESIDENTS"] = residents;
+		substitutions["ITEMS"] = items;
+		LLShareInfo::instance().mAvatarNames = avatar_names;
+		LLShareInfo::instance().mAvatarUuids = avatar_uuids;
+		LLNotificationsUtil::add("ShareItemsConfirmation", substitutions, LLSD(), &give_inventory_cb);
+	}
+}
+
+//static
+void LLAvatarActions::shareWithAvatars()
+{
+	using namespace action_give_inventory;
+
+	LLFloaterAvatarPicker* picker =
+		LLFloaterAvatarPicker::show(boost::bind(give_inventory, _1, _2), TRUE, FALSE);
+	picker->setOkBtnEnableCb(boost::bind(is_give_inventory_acceptable));
+	picker->openFriendsTab();
+	LLNotificationsUtil::add("ShareNotification");
 }
 
 // static

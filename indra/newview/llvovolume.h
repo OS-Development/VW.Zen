@@ -66,7 +66,7 @@ public:
 	virtual void onSetVolume(const LLVolumeParams &volume_params, const S32 detail) = 0;
 	virtual void onSetScale(const LLVector3 &scale, BOOL damped) = 0;
 	virtual void onParameterChanged(U16 param_type, LLNetworkData *data, BOOL in_use, bool local_origin) = 0;
-	virtual void onShift(const LLVector3 &shift_vector) = 0;
+	virtual void onShift(const LLVector4a &shift_vector) = 0;
 	virtual bool isVolumeUnique() const = 0; // Do we need a unique LLVolume instance?
 	virtual bool isVolumeGlobal() const = 0; // Are we in global space?
 	virtual bool isActive() const = 0; // Is this object currently active?
@@ -145,7 +145,7 @@ public:
 
 				void	markForUpdate(BOOL priority)			{ LLViewerObject::markForUpdate(priority); mVolumeChanged = TRUE; }
 
-	/*virtual*/ void	onShift(const LLVector3 &shift_vector); // Called when the drawable shifts
+	/*virtual*/ void	onShift(const LLVector4a &shift_vector); // Called when the drawable shifts
 
 	/*virtual*/ void	parameterChanged(U16 param_type, bool local_origin);
 	/*virtual*/ void	parameterChanged(U16 param_type, LLNetworkData* data, BOOL in_use, bool local_origin);
@@ -201,7 +201,7 @@ public:
 				void	regenFaces();
 				BOOL	genBBoxes(BOOL force_global);
 				void	preRebuild();
-	virtual		void	updateSpatialExtents(LLVector3& min, LLVector3& max);
+	virtual		void	updateSpatialExtents(LLVector4a& min, LLVector4a& max);
 	virtual		F32		getBinRadius();
 	
 	virtual U32 getPartitionType() const;
@@ -283,6 +283,10 @@ public:
 
 	// Returns the "last fetched" media version, or -1 if not fetched yet
 	S32 getLastFetchedMediaVersion() const { return mLastFetchedMediaVersion; }
+
+	void addMDCImpl() { ++mMDCImplCount; }
+	void removeMDCImpl() { --mMDCImplCount; }
+	S32 getMDCImplCount() { return mMDCImplCount; }
 	
 protected:
 	S32	computeLODDetail(F32	distance, F32 radius);
@@ -316,6 +320,7 @@ private:
 	media_list_t mMediaImplList;
 	S32			mLastFetchedMediaVersion; // as fetched from the server, starts as -1
 	S32 mIndexInTex;
+	S32 mMDCImplCount;
 	// statics
 public:
 	static F32 sLODSlopDistanceFactor;// Changing this to zero, effectively disables the LOD transition slop 

@@ -77,7 +77,6 @@ private:
 	static void onFocusEdit(LLFocusableElement* ctrl, void* data);
 	static void onCommitAny(LLUICtrl* ctrl, void* data);
 	static void onCommitUserOnly(LLUICtrl* ctrl, void* data);
-	static void onCommitTitle(LLUICtrl* ctrl, void* data);
 	static void onCommitEnrollment(LLUICtrl* ctrl, void* data);
 	static void onClickInfo(void* userdata);
 	static void onReceiveNotices(LLUICtrl* ctrl, void* data);
@@ -95,7 +94,6 @@ private:
 	BOOL			mChanged;
 	BOOL			mFirstUse;
 	std::string		mIncompleteMemberDataStr;
-	LLUUID			mDefaultIconID;
 
 	// Group information (include any updates in updateChanged)
 	LLLineEditor		*mGroupNameEditor;

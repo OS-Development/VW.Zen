@@ -64,6 +64,7 @@
 #include "llworld.h"
 #include "llfeaturemanager.h"
 #include "llviewernetwork.h"
+#include "llmeshrepository.h" //for LLMeshRepository::sBytesReceived
 
 
 class StatAttributes
@@ -280,6 +281,8 @@ LLViewerStats::LLViewerStats() :
 	{
 		mStats[ST_HAS_BAD_TIMER] = 1.0;
 	}	
+	
+	mAgentPositionSnaps.reset();
 }
 
 LLViewerStats::~LLViewerStats()
@@ -299,6 +302,8 @@ void LLViewerStats::resetStats()
 	LLViewerStats::getInstance()->mPacketsOutStat.reset();
 	LLViewerStats::getInstance()->mFPSStat.reset();
 	LLViewerStats::getInstance()->mTexturePacketsStat.reset();
+	
+	LLViewerStats::getInstance()->mAgentPositionSnaps.reset();
 }
 
 
@@ -393,6 +398,10 @@ void LLViewerStats::addToMessage(LLSD &body) const
 					<< llendl;
 		}
 	}
+	
+	body["AgentPositionSnaps"] = mAgentPositionSnaps.getData();
+	llinfos << "STAT: AgentPositionSnaps: Mean = " << mAgentPositionSnaps.getMean() << "; StdDev = " << mAgentPositionSnaps.getStdDev() 
+			<< "; Count = " << mAgentPositionSnaps.getCount() << llendl;
 }
 
 // static
@@ -768,9 +777,11 @@ void send_stats()
 	system["ram"] = (S32) gSysMemory.getPhysicalMemoryKB();
 	system["os"] = LLAppViewer::instance()->getOSInfo().getOSStringSimple();
 	system["cpu"] = gSysCPU.getCPUString();
+	unsigned char MACAddress[MAC_ADDRESS_BYTES];
+	LLUUID::getNodeID(MACAddress);
 	std::string macAddressString = llformat("%02x-%02x-%02x-%02x-%02x-%02x",
-											gMACAddress[0],gMACAddress[1],gMACAddress[2],
-											gMACAddress[3],gMACAddress[4],gMACAddress[5]);
+											MACAddress[0],MACAddress[1],MACAddress[2],
+											MACAddress[3],MACAddress[4],MACAddress[5]);
 	system["mac_address"] = macAddressString;
 	system["serial_number"] = LLAppViewer::instance()->getSerialNumber();
 	std::string gpu_desc = llformat(
@@ -789,6 +800,7 @@ void send_stats()
 	download["world_kbytes"] = gTotalWorldBytes / 1024.0;
 	download["object_kbytes"] = gTotalObjectBytes / 1024.0;
 	download["texture_kbytes"] = gTotalTextureBytes / 1024.0;
+	download["mesh_kbytes"] = LLMeshRepository::sBytesReceived/1024.0;
 
 	LLSD &in = body["stats"]["net"]["in"];
 

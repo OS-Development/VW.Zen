@@ -33,6 +33,7 @@
 #include "llviewerprecompiledheaders.h"
 
 #include "llagent.h"
+#include "llagentcamera.h"
 #include "llviewermedia.h"
 #include "llviewermediafocus.h"
 #include "llmimetypes.h"
@@ -55,6 +56,7 @@
 #include "llvoavatar.h"
 #include "llvoavatarself.h"
 #include "llviewerregion.h"
+#include "llwebsharing.h"	// For LLWebSharing::setOpenIDCookie(), *TODO: find a better way to do this!
 
 #include "llevent.h"		// LLSimpleListener
 #include "llnotificationsutil.h"
@@ -732,10 +734,17 @@ static bool proximity_comparitor(const LLViewerMediaImpl* i1, const LLViewerMedi
 	}
 }
 
+static LLFastTimer::DeclareTimer FTM_MEDIA_UPDATE("Update Media");
+
 //////////////////////////////////////////////////////////////////////////////////////////
 // static
 void LLViewerMedia::updateMedia(void *dummy_arg)
 {
+	LLFastTimer t1(FTM_MEDIA_UPDATE);
+	
+	// Enable/disable the plugin read thread
+	LLPluginProcessParent::setUseReadThread(gSavedSettings.getBOOL("PluginUseReadThread"));
+	
 	sAnyMediaShowing = false;
 	sUpdatedCookies = getCookieStore()->getChangedCookies();
 	if(!sUpdatedCookies.empty())
@@ -755,7 +764,7 @@ void LLViewerMedia::updateMedia(void *dummy_arg)
 	}
 		
 	// Sort the static instance list using our interest criteria
-	std::stable_sort(sViewerMediaImplList.begin(), sViewerMediaImplList.end(), priorityComparitor);
+	sViewerMediaImplList.sort(priorityComparitor);
 
 	// Go through the list again and adjust according to priority.
 	iter = sViewerMediaImplList.begin();
@@ -856,7 +865,7 @@ void LLViewerMedia::updateMedia(void *dummy_arg)
 				
 				// Set the low priority size for downsampling to approximately the size the texture is displayed at.
 				{
-					F32 approximate_interest_dimension = fsqrtf(pimpl->getInterest());
+					F32 approximate_interest_dimension = (F32) sqrt(pimpl->getInterest());
 					
 					pimpl->setLowPrioritySizeLimit(llround(approximate_interest_dimension));
 				}
@@ -1286,7 +1295,33 @@ void LLViewerMedia::setOpenIDCookie()
 {
 	if(!sOpenIDCookie.empty())
 	{
-		getCookieStore()->setCookiesFromHost(sOpenIDCookie, sOpenIDURL.mAuthority);
+		// The LLURL can give me the 'authority', which is of the form: [username[:password]@]hostname[:port]
+		// We want just the hostname for the cookie code, but LLURL doesn't seem to have a way to extract that.
+		// We therefore do it here.
+		std::string authority = sOpenIDURL.mAuthority;
+		std::string::size_type host_start = authority.find('@'); 
+		if(host_start == std::string::npos)
+		{
+			// no username/password
+			host_start = 0;
+		}
+		else
+		{
+			// Hostname starts after the @. 
+			// (If the hostname part is empty, this may put host_start at the end of the string.  In that case, it will end up passing through an empty hostname, which is correct.)
+			++host_start;
+		}
+		std::string::size_type host_end = authority.rfind(':'); 
+		if((host_end == std::string::npos) || (host_end < host_start))
+		{
+			// no port
+			host_end = authority.size();
+		}
+		
+		getCookieStore()->setCookiesFromHost(sOpenIDCookie, authority.substr(host_start, host_end - host_start));
+
+		// *HACK: Doing this here is nasty, find a better way.
+		LLWebSharing::instance().setOpenIDCookie(sOpenIDCookie);
 	}
 }
 
@@ -1473,11 +1508,6 @@ LLViewerMediaImpl::LLViewerMediaImpl(	  const LLUUID& texture_id,
 //////////////////////////////////////////////////////////////////////////////////////////
 LLViewerMediaImpl::~LLViewerMediaImpl()
 {
-	if( gEditMenuHandler == this )
-	{
-		gEditMenuHandler = NULL;
-	}
-	
 	destroyMediaSource();
 	
 	LLViewerMediaTexture::removeMediaImplFromTexture(mTextureId) ;
@@ -1560,6 +1590,7 @@ void LLViewerMediaImpl::destroyMediaSource()
 	
 	if(mMediaSource)
 	{
+		mMediaSource->setDeleteOK(true) ;
 		delete mMediaSource;
 		mMediaSource = NULL;
 	}	
@@ -1711,7 +1742,7 @@ bool LLViewerMediaImpl::initializePlugin(const std::string& media_type)
 		}
 				
 		mMediaSource = media_source;
-
+		mMediaSource->setDeleteOK(false) ;
 		updateVolume();
 
 		return true;
@@ -1749,29 +1780,22 @@ void LLViewerMediaImpl::loadURI()
 		llinfos << "Asking media source to load URI: " << uri << llendl;
 		
 		mMediaSource->loadURI( uri );
-
+		
+		// A non-zero mPreviousMediaTime means that either this media was previously unloaded by the priority code while playing/paused, 
+		// or a seek happened before the media loaded.  In either case, seek to the saved time.
+		if(mPreviousMediaTime != 0.0f)
+		{
+			seek(mPreviousMediaTime);
+		}
+			
 		if(mPreviousMediaState == MEDIA_PLAYING)
 		{
 			// This media was playing before this instance was unloaded.
-
-			if(mPreviousMediaTime != 0.0f)
-			{
-				// Seek back to where we left off, if possible.
-				seek(mPreviousMediaTime);
-			}
-			
 			start();
 		}
 		else if(mPreviousMediaState == MEDIA_PAUSED)
 		{
 			// This media was paused before this instance was unloaded.
-
-			if(mPreviousMediaTime != 0.0f)
-			{
-				// Seek back to where we left off, if possible.
-				seek(mPreviousMediaTime);
-			}
-			
 			pause();
 		}
 		else
@@ -1830,6 +1854,10 @@ void LLViewerMediaImpl::pause()
 	{
 		mMediaSource->pause();
 	}
+	else
+	{
+		mPreviousMediaState = MEDIA_PAUSED;
+	}
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1839,6 +1867,10 @@ void LLViewerMediaImpl::start()
 	{
 		mMediaSource->start();
 	}
+	else
+	{
+		mPreviousMediaState = MEDIA_PLAYING;
+	}
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1847,6 +1879,11 @@ void LLViewerMediaImpl::seek(F32 time)
 	if(mMediaSource)
 	{
 		mMediaSource->seek(time);
+	}
+	else
+	{
+		// Save the seek time to be set when the media is loaded.
+		mPreviousMediaTime = time;
 	}
 }
 
@@ -1896,7 +1933,28 @@ void LLViewerMediaImpl::updateVolume()
 {
 	if(mMediaSource)
 	{
-		mMediaSource->setVolume(mRequestedVolume * LLViewerMedia::getVolume());
+		// always scale the volume by the global media volume 
+		F32 volume = mRequestedVolume * LLViewerMedia::getVolume();
+
+		if (mProximityCamera > 0) 
+		{
+			if (mProximityCamera > gSavedSettings.getF32("MediaRollOffMax"))
+			{
+				volume = 0;
+			}
+			else if (mProximityCamera > gSavedSettings.getF32("MediaRollOffMin"))
+			{
+				// attenuated_volume = 1 / (roll_off_rate * (d - min))^2
+				// the +1 is there so that for distance 0 the volume stays the same
+				F64 adjusted_distance = mProximityCamera - gSavedSettings.getF32("MediaRollOffMin");
+				F64 attenuation = 1.0 + (gSavedSettings.getF32("MediaRollOffRate") * adjusted_distance);
+				attenuation = 1.0 / (attenuation * attenuation);
+				// the attenuation multiplier should never be more than one since that would increase volume
+				volume = volume * llmin(1.0, attenuation);
+			}
+		}
+
+		mMediaSource->setVolume(volume);
 	}
 }
 
@@ -2138,7 +2196,8 @@ void LLViewerMediaImpl::navigateReload()
 //////////////////////////////////////////////////////////////////////////////////////////
 void LLViewerMediaImpl::navigateHome()
 {
-	navigateTo(mHomeURL, "", true, false);
+	bool rediscover_mimetype = mHomeMimeType.empty();
+	navigateTo(mHomeURL, mHomeMimeType, rediscover_mimetype, false);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -2227,7 +2286,7 @@ void LLViewerMediaImpl::navigateInternal()
 	// This helps in supporting legacy media content where the server the media resides on returns a bogus MIME type
 	// but the parcel owner has correctly set the MIME type in the parcel media settings.
 	
-	if(!mMimeType.empty() && (mMimeType != "none/none"))
+	if(!mMimeType.empty() && (mMimeType != LLMIMETypes::getDefaultMimeType()))
 	{
 		std::string plugin_basename = LLMIMETypes::implType(mMimeType);
 		if(!plugin_basename.empty())
@@ -2250,6 +2309,8 @@ void LLViewerMediaImpl::navigateInternal()
 			// which is really not what we want.
 			LLSD headers = LLSD::emptyMap();
 			headers["Accept"] = "*/*";
+			// Allow cookies in the response, to prevent a redirect loop when accessing join.secondlife.com
+			headers["Cookie"] = "";
 			LLHTTPClient::getHeaderOnly( mMediaURL, new LLMimeDiscoveryResponder(this), headers, 10.0f);
 		}
 		else if("data" == scheme || "file" == scheme || "about" == scheme)
@@ -2409,6 +2470,8 @@ void LLViewerMediaImpl::update()
 	}
 	else
 	{
+		updateVolume();
+
 		// If we didn't just create the impl, it may need to get cookie updates.
 		if(!sUpdatedCookies.empty())
 		{
@@ -2758,6 +2821,33 @@ void LLViewerMediaImpl::handleMediaEvent(LLPluginClassMedia* plugin, LLPluginCla
 
 		}
 		break;
+		case MEDIA_EVENT_CLICK_LINK_HREF:
+		{
+			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_CLICK_LINK_HREF, target is \"" << plugin->getClickTarget() << "\", uri is " << plugin->getClickURL() << LL_ENDL;
+			// retrieve the event parameters
+			std::string url = plugin->getClickURL();
+			U32 target_type = plugin->getClickTargetType();
+			
+			switch (target_type)
+			{
+			case LLPluginClassMedia::TARGET_EXTERNAL:
+				// force url to external browser
+				LLWeb::loadURLExternal(url);
+				break;
+			case LLPluginClassMedia::TARGET_BLANK:
+				// open in SL media browser or external browser based on user pref
+				LLWeb::loadURL(url);
+				break;
+			case LLPluginClassMedia::TARGET_NONE:
+				// ignore this click and let media plugin handle it
+				break;
+			case LLPluginClassMedia::TARGET_OTHER:
+				LL_WARNS("LinkTarget") << "Unsupported link target type" << LL_ENDL;
+				break;
+			default: break;
+			}
+		};
+		break;
 		case MEDIA_EVENT_PLUGIN_FAILED_LAUNCH:
 		{
 			// The plugin failed to load properly.  Make sure the timer doesn't retry.
@@ -2829,14 +2919,23 @@ void LLViewerMediaImpl::handleMediaEvent(LLPluginClassMedia* plugin, LLPluginCla
 		{
 			LL_DEBUGS("Media") << "MEDIA_EVENT_NAVIGATE_COMPLETE, uri is: " << plugin->getNavigateURI() << LL_ENDL;
 
+			std::string url = plugin->getNavigateURI();
 			if(getNavState() == MEDIANAVSTATE_BEGUN)
 			{
-				mCurrentMediaURL = plugin->getNavigateURI();
-				setNavState(MEDIANAVSTATE_COMPLETE_BEFORE_LOCATION_CHANGED);
+				if(mCurrentMediaURL == url)
+				{
+					// This is a navigate that takes us to the same url as the previous navigate.
+					setNavState(MEDIANAVSTATE_COMPLETE_BEFORE_LOCATION_CHANGED_SPURIOUS);
+				}
+				else
+				{
+					mCurrentMediaURL = url;
+					setNavState(MEDIANAVSTATE_COMPLETE_BEFORE_LOCATION_CHANGED);
+				}
 			}
 			else if(getNavState() == MEDIANAVSTATE_SERVER_BEGUN)
 			{
-				mCurrentMediaURL = plugin->getNavigateURI();
+				mCurrentMediaURL = url;
 				setNavState(MEDIANAVSTATE_SERVER_COMPLETE_BEFORE_LOCATION_CHANGED);
 			}
 			else
@@ -2850,14 +2949,24 @@ void LLViewerMediaImpl::handleMediaEvent(LLPluginClassMedia* plugin, LLPluginCla
 		{
 			LL_DEBUGS("Media") << "MEDIA_EVENT_LOCATION_CHANGED, uri is: " << plugin->getLocation() << LL_ENDL;
 
+			std::string url = plugin->getLocation();
+
 			if(getNavState() == MEDIANAVSTATE_BEGUN)
 			{
-				mCurrentMediaURL = plugin->getLocation();
-				setNavState(MEDIANAVSTATE_FIRST_LOCATION_CHANGED);
+				if(mCurrentMediaURL == url)
+				{
+					// This is a navigate that takes us to the same url as the previous navigate.
+					setNavState(MEDIANAVSTATE_FIRST_LOCATION_CHANGED_SPURIOUS);
+				}
+				else
+				{
+					mCurrentMediaURL = url;
+					setNavState(MEDIANAVSTATE_FIRST_LOCATION_CHANGED);
+				}
 			}
 			else if(getNavState() == MEDIANAVSTATE_SERVER_BEGUN)
 			{
-				mCurrentMediaURL = plugin->getLocation();
+				mCurrentMediaURL = url;
 				setNavState(MEDIANAVSTATE_SERVER_FIRST_LOCATION_CHANGED);
 			}
 			else
@@ -2970,11 +3079,25 @@ void LLViewerMediaImpl::calculateInterest()
 	
 	// Calculate distance from the avatar, for use in the proximity calculation.
 	mProximityDistance = 0.0f;
+	mProximityCamera = 0.0f;
 	if(!mObjectList.empty())
 	{
 		// Just use the first object in the list.  We could go through the list and find the closest object, but this should work well enough.
-		LLVector3d global_delta = gAgent.getPositionGlobal() - (*mObjectList.begin())->getPositionGlobal();
-		mProximityDistance = global_delta.magVecSquared();  // use distance-squared because it's cheaper and sorts the same.
+		std::list< LLVOVolume* >::iterator iter = mObjectList.begin() ;
+		LLVOVolume* objp = *iter ;
+		llassert_always(objp != NULL) ;
+		
+		// The distance calculation is invalid for HUD attachments -- leave both mProximityDistance and mProximityCamera at 0 for them.
+		if(!objp->isHUDAttachment())
+		{
+			LLVector3d obj_global = objp->getPositionGlobal() ;
+			LLVector3d agent_global = gAgent.getPositionGlobal() ;
+			LLVector3d global_delta = agent_global - obj_global ;
+			mProximityDistance = global_delta.magVecSquared();  // use distance-squared because it's cheaper and sorts the same.
+
+			LLVector3d camera_delta = gAgentCamera.getCameraPositionGlobal() - obj_global;
+			mProximityCamera = camera_delta.magVec();
+		}
 	}
 	
 	if(mNeedsMuteCheck)
@@ -3127,7 +3250,9 @@ void LLViewerMediaImpl::setNavState(EMediaNavState state)
 		case MEDIANAVSTATE_NONE: LL_DEBUGS("Media") << "Setting nav state to MEDIANAVSTATE_NONE" << llendl; break;
 		case MEDIANAVSTATE_BEGUN: LL_DEBUGS("Media") << "Setting nav state to MEDIANAVSTATE_BEGUN" << llendl; break;
 		case MEDIANAVSTATE_FIRST_LOCATION_CHANGED: LL_DEBUGS("Media") << "Setting nav state to MEDIANAVSTATE_FIRST_LOCATION_CHANGED" << llendl; break;
+		case MEDIANAVSTATE_FIRST_LOCATION_CHANGED_SPURIOUS: LL_DEBUGS("Media") << "Setting nav state to MEDIANAVSTATE_FIRST_LOCATION_CHANGED_SPURIOUS" << llendl; break;
 		case MEDIANAVSTATE_COMPLETE_BEFORE_LOCATION_CHANGED: LL_DEBUGS("Media") << "Setting nav state to MEDIANAVSTATE_COMPLETE_BEFORE_LOCATION_CHANGED" << llendl; break;
+		case MEDIANAVSTATE_COMPLETE_BEFORE_LOCATION_CHANGED_SPURIOUS: LL_DEBUGS("Media") << "Setting nav state to MEDIANAVSTATE_COMPLETE_BEFORE_LOCATION_CHANGED_SPURIOUS" << llendl; break;
 		case MEDIANAVSTATE_SERVER_SENT: LL_DEBUGS("Media") << "Setting nav state to MEDIANAVSTATE_SERVER_SENT" << llendl; break;
 		case MEDIANAVSTATE_SERVER_BEGUN: LL_DEBUGS("Media") << "Setting nav state to MEDIANAVSTATE_SERVER_BEGUN" << llendl; break;
 		case MEDIANAVSTATE_SERVER_FIRST_LOCATION_CHANGED: LL_DEBUGS("Media") << "Setting nav state to MEDIANAVSTATE_SERVER_FIRST_LOCATION_CHANGED" << llendl; break;
@@ -3251,8 +3376,9 @@ bool LLViewerMediaImpl::shouldShowBasedOnClass() const
 	//	" outside = " << (!inside_parcel && gSavedSettings.getBOOL(LLViewerMedia::SHOW_MEDIA_OUTSIDE_PARCEL_SETTING)) << llendl;
 	
 	// If it has focus, we should show it
-	if (hasFocus())
-		return true;
+	// This is incorrect, and causes EXT-6750 (disabled attachment media still plays)
+//	if (hasFocus())
+//		return true;
 	
 	// If it is attached to an avatar and the pref is off, we shouldn't show it
 	if (attached_to_another_avatar)

@@ -35,6 +35,7 @@
 #include "lltextbox.h"
 
 #include "llagentcamera.h"
+#include "llappviewer.h"
 #include "llbottomtray.h"
 #include "llsidetray.h"
 #include "llviewerwindow.h"
@@ -48,12 +49,15 @@
 #include "llfloater.h" //for gFloaterView
 #include "lliconctrl.h"//for OpenClose tab icon
 #include "llsidetraypanelcontainer.h"
+#include "llscreenchannel.h"
+#include "llchannelmanager.h"
 #include "llwindow.h"//for SetCursor
 #include "lltransientfloatermgr.h"
 
 //#include "llscrollcontainer.h"
 
 using namespace std;
+using namespace LLNotificationsUI;
 
 static LLRootViewRegistry::Register<LLSideTray>	t1("side_tray");
 static LLDefaultChildRegistry::Register<LLSideTrayTab>	t2("sidetray_tab");
@@ -226,15 +230,15 @@ LLSideTrayTab*  LLSideTrayTab::createInstance	()
 
 LLSideTray::Params::Params()
 :	collapsed("collapsed",false),
-	tab_btn_image_normal("tab_btn_image","sidebar_tab_left.tga"),
-	tab_btn_image_selected("tab_btn_image_selected","button_enabled_selected_32x128.tga"),
+	tab_btn_image_normal("tab_btn_image",LLUI::getUIImage("sidebar_tab_left.tga")),
+	tab_btn_image_selected("tab_btn_image_selected",LLUI::getUIImage("button_enabled_selected_32x128.tga")),
 	default_button_width("tab_btn_width",32),
 	default_button_height("tab_btn_height",32),
 	default_button_margin("tab_btn_margin",0)
 {}
 
 //virtual 
-LLSideTray::LLSideTray(Params& params)
+LLSideTray::LLSideTray(const Params& params)
 	   : LLPanel(params)
 	    ,mActiveTab(0)
 		,mCollapsed(false)
@@ -272,7 +276,26 @@ BOOL LLSideTray::postBuild()
 		collapseSideBar();
 
 	setMouseOpaque(false);
+
+	LLAppViewer::instance()->setOnLoginCompletedCallback(boost::bind(&LLSideTray::handleLoginComplete, this));
+
+	//EXT-8045
+	//connect all already created channels to reflect sidetray collapse/expand
+	std::vector<LLChannelManager::ChannelElem>& channels = LLChannelManager::getInstance()->getChannelList();
+	for(std::vector<LLChannelManager::ChannelElem>::iterator it = channels.begin();it!=channels.end();++it)
+	{
+		if ((*it).channel)
+		{
+			getCollapseSignal().connect(boost::bind(&LLScreenChannelBase::resetPositionAndSize, (*it).channel, _2));
+		}
+	}
 	return true;
+}
+
+void LLSideTray::handleLoginComplete()
+{
+	//reset tab to "home" tab if it was changesd during login process
+	selectTabByName("sidebar_home");
 }
 
 LLSideTrayTab* LLSideTray::getTab(const std::string& name)
@@ -350,10 +373,10 @@ LLButton* LLSideTray::createButton	(const std::string& name,const std::string& i
 	bparams.follows.flags (FOLLOWS_LEFT | FOLLOWS_TOP);
 	bparams.rect (rect);
 	bparams.tab_stop(false);
-	bparams.image_unselected.name(sidetray_params.tab_btn_image_normal);
-	bparams.image_selected.name(sidetray_params.tab_btn_image_selected);
-	bparams.image_disabled.name(sidetray_params.tab_btn_image_normal);
-	bparams.image_disabled_selected.name(sidetray_params.tab_btn_image_selected);
+	bparams.image_unselected(sidetray_params.tab_btn_image_normal);
+	bparams.image_selected(sidetray_params.tab_btn_image_selected);
+	bparams.image_disabled(sidetray_params.tab_btn_image_normal);
+	bparams.image_disabled_selected(sidetray_params.tab_btn_image_selected);
 
 	LLButton* button = LLUICtrlFactory::create<LLButton> (bparams);
 	button->setLabel(name);
@@ -469,6 +492,9 @@ void LLSideTray::reflectCollapseChange()
 	}
 
 	gFloaterView->refresh();
+	
+	LLSD new_value = mCollapsed;
+	mCollapseSignal(this,new_value);
 }
 
 void LLSideTray::arrange()
@@ -546,7 +572,6 @@ void LLSideTray::collapseSideBar()
 	//mActiveTab->setVisible(FALSE);
 	reflectCollapseChange();
 	setFocus( FALSE );
-
 }
 
 void LLSideTray::expandSideBar()
@@ -571,7 +596,6 @@ void LLSideTray::expandSideBar()
 		LLButton* btn = btn_it->second;
 		btn->setImageOverlay( mActiveTab->mImageSelected  );
 	}
-
 }
 
 void LLSideTray::highlightFocused()
@@ -638,6 +662,7 @@ LLPanel*	LLSideTray::showPanel		(const std::string& panel_name, const LLSD& para
 			{
 				panel->onOpen(params);
 			}
+
 			return panel;
 		}
 	}
@@ -719,11 +744,6 @@ bool		LLSideTray::isPanelActive(const std::string& panel_name)
 	if (!panel) return false;
 	return (panel->getName() == panel_name);
 }
-
-
-// *TODO: Eliminate magic constants.
-static const S32	fake_offset = 132;
-static const S32	fake_top_offset = 18;
 
 void	LLSideTray::updateSidetrayVisibility()
 {

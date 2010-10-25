@@ -88,7 +88,7 @@ typedef enum e_object_update_type
 
 // callback typedef for inventory
 typedef void (*inventory_callback)(LLViewerObject*,
-								   InventoryObjectList*,
+								   LLInventoryObject::object_list_t*,
 								   S32 serial_num,
 								   void*);
 
@@ -181,6 +181,7 @@ public:
 	void			setOnActiveList(BOOL on_active)		{ mOnActiveList = on_active; }
 
 	virtual BOOL	isAttachment() const { return FALSE; }
+	virtual LLVOAvatar* getAvatar() const;  //get the avatar this object is attached to, or NULL if object is not an attachment
 	virtual BOOL	isHUDAttachment() const { return FALSE; }
 	virtual void 	updateRadius() {};
 	virtual F32 	getVObjRadius() const; // default implemenation is mDrawable->getRadius()
@@ -333,6 +334,12 @@ public:
 	
 	virtual void setScale(const LLVector3 &scale, BOOL damped = FALSE);
 
+	void setObjectCost(F32 cost);
+	F32 getObjectCost();
+	void setLinksetCost(F32 cost);
+	F32 getLinksetCost();
+	
+
 	void sendShapeUpdate();
 
 	U8 getState()							{ return mState; }
@@ -372,7 +379,7 @@ public:
 
 	void markForUpdate(BOOL priority);
 	void updateVolume(const LLVolumeParams& volume_params);
-	virtual	void updateSpatialExtents(LLVector3& min, LLVector3& max);
+	virtual	void updateSpatialExtents(LLVector4a& min, LLVector4a& max);
 	virtual F32 getBinRadius();
 	
 	LLBBox				getBoundingBoxAgent() const;
@@ -385,7 +392,7 @@ public:
 	void clearDrawableState(U32 state, BOOL recursive = TRUE);
 
 	// Called when the drawable shifts
-	virtual void onShift(const LLVector3 &shift_vector)	{ }
+	virtual void onShift(const LLVector4a &shift_vector)	{ }
 		
 	//////////////////////////////////////
 	//
@@ -410,7 +417,7 @@ public:
 	void updateInventory(LLViewerInventoryItem* item, U8 key, bool is_new);
 	void updateInventoryLocal(LLInventoryItem* item, U8 key); // Update without messaging.
 	LLInventoryObject* getInventoryObject(const LLUUID& item_id);
-	void getInventoryContents(InventoryObjectList& objects);
+	void getInventoryContents(LLInventoryObject::object_list_t& objects);
 	LLInventoryObject* getInventoryRoot();
 	LLViewerInventoryItem* getInventoryItemByAsset(const LLUUID& asset_id);
 	S16 getInventorySerial() const { return mInventorySerialNum; }
@@ -461,6 +468,10 @@ public:
 	inline BOOL		flagObjectMove() const			{ return ((mFlags & FLAGS_OBJECT_MOVE) != 0); }
 
 	inline U8       getPhysicsShapeType() const     { return mPhysicsShapeType; }
+	inline F32      getPhysicsGravity() const       { return mPhysicsGravity; }
+	inline F32      getPhysicsFriction() const      { return mPhysicsFriction; }
+	inline F32      getPhysicsDensity() const       { return mPhysicsDensity; }
+	inline F32      getPhysicsRestitution() const   { return mPhysicsRestitution; }
 	
 	bool getIncludeInSearch() const;
 	void setIncludeInSearch(bool include_in_search);
@@ -478,6 +489,10 @@ public:
 	void updateFlags();
 	BOOL setFlags(U32 flag, BOOL state);
 	void setPhysicsShapeType(U8 type);
+	void setPhysicsGravity(F32 gravity);
+	void setPhysicsFriction(F32 friction);
+	void setPhysicsDensity(F32 density);
+	void setPhysicsRestitution(F32 restitution);
 	
 	virtual void dump() const;
 	static U32		getNumZombieObjects()			{ return sNumZombieObjects; }
@@ -559,6 +574,11 @@ public:
 
 	// Sent to sim in UPDATE_FLAGS, received in ObjectPhysicsProperties
 	U8              mPhysicsShapeType;
+	F32             mPhysicsGravity;
+	F32             mPhysicsFriction;
+	F32             mPhysicsDensity;
+	F32             mPhysicsRestitution;
+	
 
 	// Pipeline classes
 	LLPointer<LLDrawable> mDrawable;
@@ -636,7 +656,7 @@ protected:
 	F32				mPixelArea; // Apparent area in pixels
 
 	// This is the object's inventory from the viewer's perspective.
-	InventoryObjectList* mInventory;
+	LLInventoryObject::object_list_t* mInventory;
 	class LLInventoryCallbackInfo
 	{
 	public:
@@ -667,6 +687,9 @@ protected:
 	U8				mState;	// legacy
 	LLViewerObjectMedia* mMedia;	// NULL if no media associated
 	U8 mClickAction;
+	F32 mObjectCost; //resource cost of this object or -1 if unknown
+	F32 mLinksetCost;
+	bool mCostStale;
 
 	static			U32			sNumZombieObjects;			// Objects which are dead, but not deleted
 
@@ -685,11 +708,15 @@ protected:
 private:	
 	static S32 sNumObjects;
 
+	//--------------------------------------------------------------------
+	// For objects that are attachments
+	//--------------------------------------------------------------------
 public:
-	const LLUUID &getItemID() const { return mAttachmentItemID; }
-	void setItemID(const LLUUID &id) { mAttachmentItemID = id; }
+	const LLUUID &getAttachmentItemID() const;
+	void setAttachmentItemID(const LLUUID &id);
+	const LLUUID &extractAttachmentItemID(); // find&set the inventory item ID of the attached object
 private:
-	LLUUID mAttachmentItemID; // ItemID when item is in user inventory.
+	LLUUID mAttachmentItemID; // ItemID of the associated object is in user inventory.
 };
 
 ///////////////////

@@ -1,3 +1,4 @@
+
 /** 
  * @file llbutton.cpp
  * @brief LLButton base class
@@ -119,6 +120,7 @@ LLButton::LLButton(const LLButton::Params& p)
 	mFlashing( FALSE ),
 	mCurGlowStrength(0.f),
 	mNeedsHighlight(FALSE),
+	mMouseOver(false),
 	mUnselectedLabel(p.label()),
 	mSelectedLabel(p.label_selected()),
 	mGLFont(p.font),
@@ -128,6 +130,7 @@ LLButton::LLButton(const LLButton::Params& p)
 	mImageSelected(p.image_selected),
 	mImageDisabled(p.image_disabled),
 	mImageDisabledSelected(p.image_disabled_selected),
+	mImageFlash(p.image_flash),
 	mImagePressed(p.image_pressed),
 	mImagePressedSelected(p.image_pressed_selected),
 	mImageHoverSelected(p.image_hover_selected),
@@ -502,7 +505,11 @@ void LLButton::onMouseEnter(S32 x, S32 y, MASK mask)
 	LLUICtrl::onMouseEnter(x, y, mask);
 
 	if (isInEnabledChain())
+	{
 		mNeedsHighlight = TRUE;
+	}
+
+	mMouseOver = true;
 }
 
 void LLButton::onMouseLeave(S32 x, S32 y, MASK mask)
@@ -510,6 +517,7 @@ void LLButton::onMouseLeave(S32 x, S32 y, MASK mask)
 	LLUICtrl::onMouseLeave(x, y, mask);
 
 	mNeedsHighlight = FALSE;
+	mMouseOver = true;
 }
 
 void LLButton::setHighlight(bool b)
@@ -563,14 +571,10 @@ void LLButton::draw()
 	}
 
 	// Unselected image assignments
-	S32 local_mouse_x;
-	S32 local_mouse_y;
-	LLUI::getMousePositionLocal(this, &local_mouse_x, &local_mouse_y);
-
 	bool enabled = isInEnabledChain();
 
 	bool pressed = pressed_by_keyboard 
-					|| (hasMouseCapture() && pointInView(local_mouse_x, local_mouse_y))
+					|| (hasMouseCapture() && mMouseOver)
 					|| mForcePressedState;
 	bool selected = getToggleState();
 	
@@ -635,14 +639,24 @@ void LLButton::draw()
 
 	if (mFlashing)
 	{
-		LLColor4 flash_color = mFlashBgColor.get();
-		use_glow_effect = TRUE;
-		glow_type = LLRender::BT_ALPHA; // blend the glow
-
-		if (mNeedsHighlight) // highlighted AND flashing
-			glow_color = (glow_color*0.5f + flash_color*0.5f) % 2.0f; // average between flash and highlight colour, with sum of the opacity
+		// if button should flash and we have icon for flashing, use it as image for button
+		if(flash && mImageFlash)
+		{
+			// setting flash to false to avoid its further influence on glow
+			flash = false;
+			imagep = mImageFlash;
+		}
+		// else use usual flashing via flash_color
 		else
-			glow_color = flash_color;
+		{
+			LLColor4 flash_color = mFlashBgColor.get();
+			use_glow_effect = TRUE;
+			glow_type = LLRender::BT_ALPHA; // blend the glow
+			if (mNeedsHighlight) // highlighted AND flashing
+				glow_color = (glow_color*0.5f + flash_color*0.5f) % 2.0f; // average between flash and highlight colour, with sum of the opacity
+			else
+				glow_color = flash_color;
+		}
 	}
 
 	if (mNeedsHighlight && !imagep)
@@ -824,7 +838,7 @@ void LLButton::draw()
 			x = text_right;
 			break;
 		case LLFontGL::HCENTER:
-			x = getRect().getWidth() / 2;
+			x = text_left + (text_width / 2);
 			break;
 		case LLFontGL::LEFT:
 		default:
@@ -1003,6 +1017,11 @@ void LLButton::setImageDisabledSelected(LLPointer<LLUIImage> image)
 	mFadeWhenDisabled = TRUE;
 }
 
+void LLButton::setImagePressed(LLPointer<LLUIImage> image)
+{
+	mImagePressed = image;
+}
+
 void LLButton::setImageHoverSelected(LLPointer<LLUIImage> image)
 {
 	mImageHoverSelected = image;
@@ -1011,6 +1030,11 @@ void LLButton::setImageHoverSelected(LLPointer<LLUIImage> image)
 void LLButton::setImageHoverUnselected(LLPointer<LLUIImage> image)
 {
 	mImageHoverUnselected = image;
+}
+
+void LLButton::setImageFlash(LLPointer<LLUIImage> image)
+{
+	mImageFlash = image;
 }
 
 void LLButton::setImageOverlay(const std::string& image_name, LLFontGL::HAlign alignment, const LLColor4& color)
@@ -1140,4 +1164,11 @@ void LLButton::resetMouseDownTimer()
 {
 	mMouseDownTimer.stop();
 	mMouseDownTimer.reset();
+}
+
+
+BOOL LLButton::handleDoubleClick(S32 x, S32 y, MASK mask)
+{
+	// just treat a double click as a second click
+	return handleMouseDown(x, y, mask);
 }

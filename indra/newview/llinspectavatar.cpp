@@ -58,6 +58,7 @@
 #include "llfloaterreg.h"
 #include "llmenubutton.h"
 #include "lltooltip.h"	// positionViewNearMouse()
+#include "lltrans.h"
 #include "lluictrl.h"
 
 #include "llavatariconctrl.h"
@@ -370,7 +371,7 @@ void LLInspectAvatar::requestUpdate()
 	//remove avatar id from cache to get fresh info
 	LLAvatarIconIDCache::getInstance()->remove(mAvatarID);
 
-	childSetValue("avatar_icon", LLSD(mAvatarID) );
+	getChild<LLUICtrl>("avatar_icon")->setValue(LLSD(mAvatarID) );
 
 	gCacheName->get(mAvatarID, FALSE,
 		boost::bind(&LLInspectAvatar::nameUpdatedCallback,
@@ -380,7 +381,11 @@ void LLInspectAvatar::requestUpdate()
 void LLInspectAvatar::processAvatarData(LLAvatarData* data)
 {
 	LLStringUtil::format_map_t args;
-	args["[BORN_ON]"] = data->born_on;
+	{
+		std::string birth_date = LLTrans::getString("AvatarBirthDateFormat");
+		LLStringUtil::format(birth_date, LLSD().with("datetime", (S32) data->born_on.secondsSinceEpoch()));
+		args["[BORN_ON]"] = birth_date;
+	}
 	args["[AGE]"] = LLDateUtil::ageFromDate(data->born_on, LLDate::now());
 	args["[SL_PROFILE]"] = data->about_text;
 	args["[RW_PROFILE"] = data->fl_about_text;
@@ -536,8 +541,7 @@ void LLInspectAvatar::toggleSelectedVoice(bool enabled)
 
 void LLInspectAvatar::updateVolumeSlider()
 {
-
-	bool voice_enabled = gVoiceClient->getVoiceEnabled(mAvatarID);
+	bool voice_enabled = LLVoiceClient::getInstance()->getVoiceEnabled(mAvatarID);
 
 	// Do not display volume slider and mute button if it 
 	// is ourself or we are not in a voice channel together
@@ -567,6 +571,7 @@ void LLInspectAvatar::updateVolumeSlider()
 		volume_slider->setEnabled( !is_muted );
 
 		F32 volume;
+		
 		if (is_muted)
 		{
 			// it's clearer to display their volume as zero
@@ -575,7 +580,7 @@ void LLInspectAvatar::updateVolumeSlider()
 		else
 		{
 			// actual volume
-			volume = gVoiceClient->getUserVolume(mAvatarID);
+			volume = LLVoiceClient::getInstance()->getUserVolume(mAvatarID);
 		}
 		volume_slider->setValue( (F64)volume );
 	}
@@ -604,7 +609,7 @@ void LLInspectAvatar::onClickMuteVolume()
 void LLInspectAvatar::onVolumeChange(const LLSD& data)
 {
 	F32 volume = (F32)data.asReal();
-	gVoiceClient->setUserVolume(mAvatarID, volume);
+	LLVoiceClient::getInstance()->setUserVolume(mAvatarID, volume);
 }
 
 void LLInspectAvatar::nameUpdatedCallback(
@@ -616,7 +621,7 @@ void LLInspectAvatar::nameUpdatedCallback(
 	if (id == mAvatarID)
 	{
 		mAvatarName = first + " " + last;
-		childSetValue("user_name", LLSD(mAvatarName) );
+		getChild<LLUICtrl>("user_name")->setValue(LLSD(mAvatarName) );
 	}
 }
 

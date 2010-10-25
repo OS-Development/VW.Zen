@@ -169,6 +169,7 @@ LLFloater::Params::Params()
 	save_rect("save_rect", false),
 	save_visibility("save_visibility", false),
 	can_dock("can_dock", false),
+	open_centered("open_centered", false),
 	header_height("header_height", 0),
 	legacy_header_height("legacy_header_height", 0),
 	close_image("close_image"),
@@ -329,6 +330,7 @@ void LLFloater::addDragHandle()
 		addChild(mDragHandle);
 	}
 	layoutDragHandle();
+	applyTitle();
 }
 
 void LLFloater::layoutDragHandle()
@@ -345,9 +347,8 @@ void LLFloater::layoutDragHandle()
 	{
 		rect = getLocalRect();
 	}
-	mDragHandle->setRect(rect);
+	mDragHandle->setShape(rect);
 	updateTitleButtons();
-	applyTitle();
 }
 
 void LLFloater::addResizeCtrls()
@@ -448,6 +449,14 @@ void LLFloater::enableResizeCtrls(bool enable)
 		mResizeHandle[i]->setVisible(enable);
 		mResizeHandle[i]->setEnabled(enable);
 	}
+}
+
+void LLFloater::destroy()
+{
+	// LLFloaterReg should be synchronized with "dead" floater to avoid returning dead instance before
+	// it was deleted via LLMortician::updateClass(). See EXT-8458.
+	LLFloaterReg::removeInstance(mInstanceName, mKey);
+	die();
 }
 
 // virtual
@@ -563,6 +572,7 @@ void LLFloater::handleVisibilityChange ( BOOL new_visibility )
 
 void LLFloater::openFloater(const LLSD& key)
 {
+	llinfos << "Opening floater " << getName() << llendl;
 	mKey = key; // in case we need to open ourselves again
 	
 	if (getSoundFlags() != SILENT 
@@ -603,6 +613,7 @@ void LLFloater::openFloater(const LLSD& key)
 
 void LLFloater::closeFloater(bool app_quitting)
 {
+	llinfos << "Closing floater " << getName() << llendl;
 	if (app_quitting)
 	{
 		LLFloater::sQuitting = true;
@@ -761,6 +772,13 @@ void    LLFloater::applySavedVariables()
 
 void LLFloater::applyRectControl()
 {
+	// first, center on screen if requested	
+	if (mOpenCentered)
+	{
+		center();
+	}
+
+	// override center if we have saved rect control
 	if (mRectControl.size() > 1)
 	{
 		const LLRect& rect = LLUI::sSettingGroups["floater"]->getRect(mRectControl);
@@ -799,6 +817,11 @@ void LLFloater::applyTitle()
 	else
 	{
 		mDragHandle->setTitle ( mTitle );
+	}
+
+	if (getHost())
+	{
+		getHost()->updateFloaterTitle(this);	
 	}
 }
 
@@ -1786,13 +1809,16 @@ void LLFloater::updateTitleButtons()
 					llround((F32)floater_close_box_size * mButtonScale));
 			}
 
-			if(!buttons_rect.isValid())
+			// first time here, init 'buttons_rect'
+			if(1 == button_count)
 			{
 				buttons_rect = btn_rect;
 			}
 			else
 			{
-				mDragOnLeft ? buttons_rect.mRight + btn_rect.mRight : 
+				// if mDragOnLeft=true then buttons are on top-left side vertically aligned
+				// title is not displayed in this case, calculating 'buttons_rect' for future use
+				mDragOnLeft ? buttons_rect.mBottom -= btn_rect.mBottom : 
 					buttons_rect.mLeft = btn_rect.mLeft;
 			}
 			mButtons[i]->setRect(btn_rect);
@@ -2259,6 +2285,7 @@ void LLFloaterView::getMinimizePosition(S32 *left, S32 *bottom)
 	S32 floater_header_size = default_params.header_height;
 	static LLUICachedControl<S32> minimized_width ("UIMinimizedWidth", 0);
 	LLRect snap_rect_local = getLocalSnapRect();
+	snap_rect_local.mTop += mMinimizePositionVOffset;
 	for(S32 col = snap_rect_local.mLeft;
 		col < snap_rect_local.getWidth() - minimized_width;
 		col += minimized_width)
@@ -2354,6 +2381,19 @@ BOOL LLFloaterView::allChildrenClosed()
 		}
 	}
 	return true;
+}
+
+void LLFloaterView::shiftFloaters(S32 x_offset, S32 y_offset)
+{
+	for (child_list_const_iter_t it = getChildList()->begin(); it != getChildList()->end(); ++it)
+	{
+		LLFloater* floaterp = dynamic_cast<LLFloater*>(*it);
+
+		if (floaterp && floaterp->isMinimized())
+		{
+			floaterp->translate(x_offset, y_offset);
+		}
+	}
 }
 
 void LLFloaterView::refresh()
@@ -2506,7 +2546,7 @@ LLFloater *LLFloaterView::getBackmost() const
 
 void LLFloaterView::syncFloaterTabOrder()
 {
-	// look for a visible modal dialog, starting from first (should be only one)
+	// look for a visible modal dialog, starting from first
 	LLModalDialog* modal_dialog = NULL;
 	for ( child_list_const_iter_t child_it = getChildList()->begin(); child_it != getChildList()->end(); ++child_it)
 	{
@@ -2706,6 +2746,7 @@ void LLFloater::initFromParams(const LLFloater::Params& p)
 	mLegacyHeaderHeight = p.legacy_header_height;
 	mSingleInstance = p.single_instance;
 	mAutoTile = p.auto_tile;
+	mOpenCentered = p.open_centered;
 
 	if (p.save_rect)
 	{
@@ -2735,10 +2776,10 @@ void LLFloater::initFromParams(const LLFloater::Params& p)
 
 LLFastTimer::DeclareTimer POST_BUILD("Floater Post Build");
 
-bool LLFloater::initFloaterXML(LLXMLNodePtr node, LLView *parent, LLXMLNodePtr output_node)
+bool LLFloater::initFloaterXML(LLXMLNodePtr node, LLView *parent, const std::string& filename, LLXMLNodePtr output_node)
 {
 	Params params(LLUICtrlFactory::getDefaultParams<LLFloater>());
-	LLXUIParser::instance().readXUI(node, params); // *TODO: Error checking
+	LLXUIParser::instance().readXUI(node, params, filename); // *TODO: Error checking
 
 	if (output_node)
 	{

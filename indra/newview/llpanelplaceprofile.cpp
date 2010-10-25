@@ -50,7 +50,7 @@
 #include "llagentui.h"
 #include "llappviewer.h"
 #include "llcallbacklist.h"
-#include "llfloaterbuycurrency.h"
+#include "llbuycurrencyhtml.h"
 #include "llstatusbar.h"
 #include "llviewercontrol.h"
 #include "llviewerparcelmgr.h"
@@ -79,12 +79,15 @@ LLPanelPlaceProfile::LLPanelPlaceProfile()
 :	LLPanelPlaceInfo(),
 	mForSalePanel(NULL),
 	mYouAreHerePanel(NULL),
-	mSelectedParcelID(-1)
+	mSelectedParcelID(-1),
+	mAccordionCtrl(NULL)
 {}
 
 // virtual
 LLPanelPlaceProfile::~LLPanelPlaceProfile()
-{}
+{
+	gIdleCallbacks.deleteFunction(&LLPanelPlaceProfile::updateYouAreHereBanner, this);
+}
 
 // virtual
 BOOL LLPanelPlaceProfile::postBuild()
@@ -137,6 +140,7 @@ BOOL LLPanelPlaceProfile::postBuild()
 	mSubdivideText = getChild<LLTextEditor>("subdivide");
 	mResaleText = getChild<LLTextEditor>("resale");
 	mSaleToText = getChild<LLTextBox>("sale_to");
+	mAccordionCtrl = getChild<LLAccordionCtrl>("advanced_info_accordion");
 
 	icon_pg = getString("icon_PG");
 	icon_m = getString("icon_M");
@@ -275,6 +279,11 @@ void LLPanelPlaceProfile::handleVisibilityChange(BOOL new_visibility)
 		{
 			parcel_mgr->deselectUnused();
 		}
+	}
+
+	if (mAccordionCtrl != NULL)
+	{
+		mAccordionCtrl->expandDefaultTab();
 	}
 }
 
@@ -573,7 +582,7 @@ void LLPanelPlaceProfile::onForSaleBannerClick()
 			{
 				LLStringUtil::format_map_t args;
 				args["AMOUNT"] = llformat("%d", price);
-				LLFloaterBuyCurrency::buyCurrency(LLTrans::getString("buying_selected_land", args), price);
+				LLBuyCurrencyHTML::openCurrencyFloater( LLTrans::getString("buying_selected_land", args), price );
 			}
 			else
 			{

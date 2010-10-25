@@ -44,6 +44,7 @@ class LLParcelSelection;
 class LLObjectSelection;
 class LLSelectNode;
 
+void initialize_edit_menu();
 void init_menus();
 void cleanup_menus();
 
@@ -52,6 +53,7 @@ void toggle_debug_menus(void*);
 void show_context_menu( S32 x, S32 y, MASK mask );
 void show_build_mode_context_menu(S32 x, S32 y, MASK mask);
 void show_navbar_context_menu(LLView* ctrl, S32 x, S32 y);
+void show_topinfobar_context_menu(LLView* ctrl, S32 x, S32 y);
 BOOL enable_save_into_inventory(void*);
 void handle_reset_view();
 void handle_cut(void*);
@@ -157,6 +159,7 @@ extern const std::string SAVE_INTO_INVENTORY;
 
 extern LLMenuBarGL*		gMenuBarView;
 //extern LLView*			gMenuBarHolder;
+extern LLMenuGL*		gEditMenu;
 extern LLMenuGL*		gPopupMenuView;
 extern LLViewerMenuHolderGL*	gMenuHolder;
 extern LLMenuBarGL*		gLoginMenuBarView;

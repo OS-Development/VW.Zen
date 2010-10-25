@@ -73,6 +73,7 @@ private:
 	} ESortOrder;
 
 	// methods indirectly called by the updaters
+	void					updateFriendListHelpText();
 	void					updateFriendList();
 	void					updateNearbyList();
 	void					updateRecentList();
@@ -89,10 +90,6 @@ private:
 	void					buttonSetAction(const std::string& btn_name, const commit_signal_t::slot_type& cb);
 	void					showGroupMenu(LLMenuGL* menu);
 	void					setSortOrder(LLAvatarList* list, ESortOrder order, bool save = true);
-
-	void					onVisibilityChange( const LLSD& new_visibility);
-
-	void					reSelectedCurrentTab();
 
 	// UI callbacks
 	void					onFilterEdit(const std::string& search_string);
@@ -168,6 +165,7 @@ private:
 	Updater*				mRecentListUpdater;
 
 	std::string				mFilterSubString;
+	std::string				mFilterSubStringOrig;
 };
 
 #endif //LL_LLPANELPEOPLE_H

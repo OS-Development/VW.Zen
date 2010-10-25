@@ -107,12 +107,12 @@ LLView::Params::Params()
 	top_delta("top_delta", S32_MAX),
 	left_pad("left_pad"),
 	left_delta("left_delta", S32_MAX),
-	center_horiz("center_horiz", false),
-	center_vert("center_vert", false),
 	from_xui("from_xui", false),
 	user_resize("user_resize"),
 	auto_resize("auto_resize"),
 	needs_translate("translate"),
+	min_width("min_width"),
+	max_width("max_width"),
 	xmlns("xmlns"),
 	xmlns_xsi("xmlns:xsi"),
 	xsi_schemaLocation("xsi:schemaLocation"),
@@ -123,7 +123,8 @@ LLView::Params::Params()
 }
 
 LLView::LLView(const LLView::Params& p)
-:	mName(p.name),
+:	mVisible(p.visible),
+	mName(p.name),
 	mParentView(NULL),
 	mReshapeFlags(FOLLOWS_NONE),
 	mFromXUI(p.from_xui),
@@ -132,7 +133,6 @@ LLView::LLView(const LLView::Params& p)
 	mNextInsertionOrdinal(0),
 	mHoverCursor(getCursorFromString(p.hover_cursor)),
 	mEnabled(p.enabled),
-	mVisible(p.visible),
 	mMouseOpaque(p.mouse_opaque),
 	mSoundFlags(p.sound_flags),
 	mUseBoundingRect(p.use_bounding_rect),
@@ -403,45 +403,46 @@ bool LLCompareByTabOrder::operator() (const LLView* const a, const LLView* const
 	return (a_score == b_score) ? a < b : a_score < b_score;
 }
 
-bool LLView::trueToRoot(const boost::function<bool (const LLView*)>& predicate) const
-{
-	const LLView* cur_view = this;
-	while(cur_view)
-	{
-		if(!predicate(cur_view))
-		{
-			return false;
-		}
-		cur_view = cur_view->getParent();
-	}
-	return true;
-}
-
 BOOL LLView::isInVisibleChain() const
 {
-	return trueToRoot(&LLView::getVisible);
+	BOOL visible = TRUE;
+
+	const LLView* viewp = this;
+	while(viewp)
+	{
+		if (!viewp->getVisible())
+		{
+			visible = FALSE;
+			break;
+		}
+		viewp = viewp->getParent();
+	}
+	
+	return visible;
 }
 
 BOOL LLView::isInEnabledChain() const
 {
-	return trueToRoot(&LLView::getEnabled);
+	BOOL enabled = TRUE;
+
+	const LLView* viewp = this;
+	while(viewp)
+	{
+		if (!viewp->getEnabled())
+		{
+			enabled = FALSE;
+			break;
+		}
+		viewp = viewp->getParent();
+	}
+	
+	return enabled;
 }
 
 // virtual
 BOOL LLView::canFocusChildren() const
 {
 	return TRUE;
-}
-
-//virtual
-void LLView::setTentative(BOOL b)
-{
-}
-
-//virtual
-BOOL LLView::getTentative() const
-{
-	return FALSE;
 }
 
 //virtual
@@ -1309,7 +1310,13 @@ void LLView::drawChildren()
 {
 	if (!mChildList.empty())
 	{
-		LLRect rootRect = getRootView()->getRect();
+		static const LLRect* rootRect = NULL;
+		
+		if (!mParentView)
+		{
+			rootRect = &mRect;
+		}
+
 		LLRect screenRect;
 
 		++sDepth;
@@ -1323,7 +1330,7 @@ void LLView::drawChildren()
 			{
 				// Only draw views that are within the root view
 				localRectToScreen(viewp->getRect(),&screenRect);
-				if ( rootRect.overlaps(screenRect)  && LLUI::sDirtyRect.overlaps(screenRect))
+				if ( rootRect->overlaps(screenRect)  && LLUI::sDirtyRect.overlaps(screenRect))
 				{
 					LLUI::pushMatrix();
 					{
@@ -2499,7 +2506,6 @@ void LLView::applyXUILayout(LLView::Params& p, LLView* parent)
 		p.layout = parent->getLayout();
 	}
 
-
 	if (parent)
 	{
 		LLRect parent_rect = parent->getLocalRect();
@@ -2507,59 +2513,20 @@ void LLView::applyXUILayout(LLView::Params& p, LLView* parent)
 		LLRect last_rect = parent->getLocalRect();
 
 		bool layout_topleft = (p.layout() == "topleft");
+
+		// convert negative or centered coordinates to parent relative values
+		// Note: some of this logic matches the logic in TypedParam<LLRect>::setValueFromBlock()
+		if (p.rect.left.isProvided() && p.rect.left < 0) p.rect.left = p.rect.left + parent_rect.getWidth();
+		if (p.rect.right.isProvided() && p.rect.right < 0) p.rect.right = p.rect.right + parent_rect.getWidth();
+		if (p.rect.bottom.isProvided() && p.rect.bottom < 0) p.rect.bottom = p.rect.bottom + parent_rect.getHeight();
+		if (p.rect.top.isProvided() && p.rect.top < 0) p.rect.top = p.rect.top + parent_rect.getHeight();
+
 		if (layout_topleft)
 		{
 			//invert top to bottom
 			if (p.rect.top.isProvided()) p.rect.top = parent_rect.getHeight() - p.rect.top;
 			if (p.rect.bottom.isProvided()) p.rect.bottom = parent_rect.getHeight() - p.rect.bottom;
 		}
-
-		// convert negative or centered coordinates to parent relative values
-		// Note: some of this logic matches the logic in TypedParam<LLRect>::setValueFromBlock()
-
-		if (p.center_horiz)
-		{
-			if (p.rect.left.isProvided() && p.rect.right.isProvided())
-			{
-				S32 width = p.rect.right - p.rect.left;
-				width = llmax(width, 0);
-				S32 offset = parent_rect.getWidth()/2 - width/2;
-				p.rect.left = p.rect.left + offset;
-				p.rect.right = p.rect.right + offset;
-			}
-			else
-			{
-				p.rect.left = p.rect.left + parent_rect.getWidth()/2 - p.rect.width/2;
-				p.rect.right.setProvided(false); // recalculate the right
-			}
-		}
-		else
-		{
-			if (p.rect.left.isProvided() && p.rect.left < 0) p.rect.left = p.rect.left + parent_rect.getWidth();
-			if (p.rect.right.isProvided() && p.rect.right < 0) p.rect.right = p.rect.right + parent_rect.getWidth();
-		}
-		if (p.center_vert)
-		{
-			if (p.rect.bottom.isProvided() && p.rect.top.isProvided())
-			{
-				S32 height = p.rect.top - p.rect.bottom;
-				height = llmax(height, 0);
-				S32 offset = parent_rect.getHeight()/2 - height/2;
-				p.rect.bottom = p.rect.bottom + offset;
-				p.rect.top = p.rect.top + offset;
-			}
-			else
-			{
-				p.rect.bottom = p.rect.bottom + parent_rect.getHeight()/2 - p.rect.height/2;
-				p.rect.top.setProvided(false); // recalculate the top
-			}
-		}
-		else
-		{
-			if (p.rect.bottom.isProvided() && p.rect.bottom < 0) p.rect.bottom = p.rect.bottom + parent_rect.getHeight();
-			if (p.rect.top.isProvided() && p.rect.top < 0) p.rect.top = p.rect.top + parent_rect.getHeight();
-		}
-
 
 		// DEPRECATE: automatically fall back to height of MIN_WIDGET_HEIGHT pixels
 		if (!p.rect.height.isProvided() && !p.rect.top.isProvided() && p.rect.height == 0)
@@ -2822,6 +2789,19 @@ LLView::tree_post_iterator_t LLView::endTreeDFSPost()
 { 
 	// an empty iterator is an "end" iterator
 	return tree_post_iterator_t();
+}
+
+LLView::bfs_tree_iterator_t LLView::beginTreeBFS() 
+{ 
+	return bfs_tree_iterator_t(this, 
+							boost::bind(boost::mem_fn(&LLView::beginChild), _1), 
+							boost::bind(boost::mem_fn(&LLView::endChild), _1)); 
+}
+
+LLView::bfs_tree_iterator_t LLView::endTreeBFS() 
+{ 
+	// an empty iterator is an "end" iterator
+	return bfs_tree_iterator_t();
 }
 
 

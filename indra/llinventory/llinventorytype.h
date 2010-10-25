@@ -67,7 +67,6 @@ public:
 		IT_WEARABLE = 18,
 		IT_ANIMATION = 19,
 		IT_GESTURE = 20,
-
 		IT_MESH = 22,
 		IT_COUNT = 23,
 
@@ -77,7 +76,6 @@ public:
 	// machine transation between type and strings
 	static EType lookup(const std::string& name);
 	static const std::string &lookup(EType type);
-
 	// translation from a type to a human readable form.
 	static const std::string &lookupHumanReadable(EType type);
 

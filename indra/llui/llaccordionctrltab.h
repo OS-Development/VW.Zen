@@ -37,6 +37,7 @@
 #include "llrect.h"
 #include "lluictrl.h"
 #include "lluicolor.h"
+#include "llstyle.h"
 
 class LLUICtrlFactory;
 class LLUIImage;
@@ -88,6 +89,8 @@ public:
 
 		Optional<bool>			fit_panel;
 
+		Optional<bool>			selection_enabled;
+
 		Optional<S32>			padding_left;
 		Optional<S32>			padding_right;
 		Optional<S32>			padding_top;
@@ -112,6 +115,22 @@ public:
 	//set LLAccordionCtrlTab panel
 	void		setAccordionView(LLView* panel);
 	LLView*		getAccordionView() { return mContainerPanel; };
+
+	std::string getTitle() const;
+
+	// Set text and highlight substring in LLAccordionCtrlTabHeader
+	void setTitle(const std::string& title, const std::string& hl = LLStringUtil::null);
+
+	// Set text font style in LLAccordionCtrlTabHeader
+	void setTitleFontStyle(std::string style);
+
+	// Set text color in LLAccordionCtrlTabHeader
+	void setTitleColor(LLUIColor color);
+
+	boost::signals2::connection setFocusReceivedCallback(const focus_signal_t::slot_type& cb);
+	boost::signals2::connection setFocusLostCallback(const focus_signal_t::slot_type& cb);
+
+	void setSelected(bool is_selected);
 
 	bool getCollapsible() {return mCollapsible;};
 
@@ -142,15 +161,24 @@ public:
 	// Call reshape after changing size
 	virtual void reshape(S32 width, S32 height, BOOL called_from_parent = TRUE);
 
+	/**
+	 * Raises notifyParent event with "child_visibility_change" = new_visibility
+	 */
+	void handleVisibilityChange(BOOL new_visibility);
+
 	// Changes expand/collapse state and triggers expand/collapse callbacks
 	virtual BOOL handleMouseDown(S32 x, S32 y, MASK mask);
 
 	virtual BOOL handleMouseUp(S32 x, S32 y, MASK mask);
 	virtual BOOL handleKey(KEY key, MASK mask, BOOL called_from_parent);
 
+	virtual BOOL handleToolTip(S32 x, S32 y, MASK mask);
+	virtual BOOL handleScrollWheel( S32 x, S32 y, S32 clicks );
+
+
 	virtual bool addChild(LLView* child, S32 tab_group);
 
-	bool isExpanded() { return mDisplayChildren; }
+	bool isExpanded() const { return mDisplayChildren; }
 
 	S32 getHeaderHeight();
 
@@ -171,6 +199,7 @@ public:
 	void showAndFocusHeader();
 
 	void setFitPanel( bool fit ) { mFitPanel = true; }
+	bool getFitParent() const { return mFitPanel; }
 
 protected:
 	void adjustContainerPanel	(const LLRect& child_rect);
@@ -189,6 +218,10 @@ protected:
 	void drawChild(const LLRect& root_rect,LLView* child);
 
 	LLView* findContainerView	();
+
+	void selectOnFocusReceived();
+	void deselectOnFocusLost();
+
 private:
 
 	class LLAccordionCtrlTabHeader;
@@ -208,6 +241,8 @@ private:
 
 	bool mStoredOpenCloseState;
 	bool mWasStateStored;
+
+	bool mSelectionEnabled;
 
 	LLScrollbar*	mScrollbar;
 	LLView*			mContainerPanel;

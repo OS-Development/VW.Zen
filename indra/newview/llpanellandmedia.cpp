@@ -145,19 +145,19 @@ void LLPanelLandMedia::refresh()
 		mMediaURLEdit->setText(parcel->getMediaURL());
 		mMediaURLEdit->setEnabled( FALSE );
 
-		childSetText("current_url", parcel->getMediaCurrentURL());
+		getChild<LLUICtrl>("current_url")->setValue(parcel->getMediaCurrentURL());
 
 		mMediaDescEdit->setText(parcel->getMediaDesc());
 		mMediaDescEdit->setEnabled( can_change_media );
 
 		std::string mime_type = parcel->getMediaType();
-		if (mime_type.empty())
+		if (mime_type.empty() || mime_type == LLMIMETypes::getDefaultMimeType())
 		{
-			mime_type = "none/none";
+			mime_type = LLMIMETypes::getDefaultMimeTypeTranslation();
 		}
 		setMediaType(mime_type);
 		mMediaTypeCombo->setEnabled( can_change_media );
-		childSetText("mime_type", mime_type);
+		getChild<LLUICtrl>("mime_type")->setValue(mime_type);
 
 		mMediaUrlCheck->set( parcel->getObscureMedia() );
 		mMediaUrlCheck->setEnabled( can_change_media );
@@ -218,7 +218,7 @@ void LLPanelLandMedia::refresh()
 
 void LLPanelLandMedia::populateMIMECombo()
 {
-	std::string default_mime_type = "none/none";
+	std::string default_mime_type = LLMIMETypes::getDefaultMimeType();
 	std::string default_label;
 	LLMIMETypes::mime_widget_set_map_t::const_iterator it;
 	for (it = LLMIMETypes::sWidgetMap.begin(); it != LLMIMETypes::sWidgetMap.end(); ++it)
@@ -235,8 +235,7 @@ void LLPanelLandMedia::populateMIMECombo()
 			mMediaTypeCombo->add(info.mLabel, mime_type);
 		}
 	}
-	// *TODO: The sort order is based on std::map key, which is
-	// ASCII-sorted and is wrong in other languages.  TRANSLATE
+
 	mMediaTypeCombo->add( default_label, default_mime_type, ADD_BOTTOM );
 }
 
@@ -248,7 +247,15 @@ void LLPanelLandMedia::setMediaType(const std::string& mime_type)
 
 	std::string media_key = LLMIMETypes::widgetType(mime_type);
 	mMediaTypeCombo->setValue(media_key);
-	childSetText("mime_type", mime_type);
+
+	std::string mime_str = mime_type;
+	if(LLMIMETypes::getDefaultMimeType() == mime_type)
+	{
+		// Instead of showing predefined "none/none" we are going to show something 
+		// localizable - "none" for example (see EXT-6542)
+		mime_str = LLMIMETypes::getDefaultMimeTypeTranslation();
+	}
+	getChild<LLUICtrl>("mime_type")->setValue(mime_str);
 }
 
 void LLPanelLandMedia::setMediaURL(const std::string& media_url)
@@ -262,7 +269,7 @@ void LLPanelLandMedia::setMediaURL(const std::string& media_url)
 
 	mMediaURLEdit->onCommit();
 	// LLViewerParcelMedia::sendMediaNavigateMessage(media_url);
-	childSetText("current_url", media_url);
+	getChild<LLUICtrl>("current_url")->setValue(media_url);
 }
 std::string LLPanelLandMedia::getMediaURL()
 {
@@ -273,11 +280,11 @@ std::string LLPanelLandMedia::getMediaURL()
 void LLPanelLandMedia::onCommitType(LLUICtrl *ctrl, void *userdata)
 {
 	LLPanelLandMedia *self = (LLPanelLandMedia *)userdata;
-	std::string current_type = LLMIMETypes::widgetType(self->childGetText("mime_type"));
+	std::string current_type = LLMIMETypes::widgetType(self->getChild<LLUICtrl>("mime_type")->getValue().asString());
 	std::string new_type = self->mMediaTypeCombo->getValue();
 	if(current_type != new_type)
 	{
-		self->childSetText("mime_type", LLMIMETypes::findDefaultMimeType(new_type));
+		self->getChild<LLUICtrl>("mime_type")->setValue(LLMIMETypes::findDefaultMimeType(new_type));
 	}
 	onCommitAny(ctrl, userdata);
 
@@ -297,7 +304,7 @@ void LLPanelLandMedia::onCommitAny(LLUICtrl*, void *userdata)
 	// Extract data from UI
 	std::string media_url	= self->mMediaURLEdit->getText();
 	std::string media_desc	= self->mMediaDescEdit->getText();
-	std::string mime_type	= self->childGetText("mime_type");
+	std::string mime_type	= self->getChild<LLUICtrl>("mime_type")->getValue().asString();
 	U8 media_auto_scale		= self->mMediaAutoScaleCheck->get();
 	U8 media_loop           = self->mMediaLoopCheck->get();
 	U8 obscure_media		= self->mMediaUrlCheck->get();
@@ -306,7 +313,7 @@ void LLPanelLandMedia::onCommitAny(LLUICtrl*, void *userdata)
 	LLUUID media_id			= self->mMediaTextureCtrl->getImageAssetID();
 
 
-	self->childSetText("mime_type", mime_type);
+	self->getChild<LLUICtrl>("mime_type")->setValue(mime_type);
 
 	// Remove leading/trailing whitespace (common when copying/pasting)
 	LLStringUtil::trim(media_url);
@@ -347,7 +354,7 @@ void LLPanelLandMedia::onResetBtn(void *userdata)
 	LLParcel* parcel = self->mParcel->getParcel();
 	// LLViewerMedia::navigateHome();
 	self->refresh();
-	self->childSetText("current_url", parcel->getMediaURL());
+	self->getChild<LLUICtrl>("current_url")->setValue(parcel->getMediaURL());
 	// LLViewerParcelMedia::sendMediaNavigateMessage(parcel->getMediaURL());
 
 }

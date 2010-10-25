@@ -40,6 +40,7 @@
 #include "llerror.h"
 #include "llfloaterreg.h"
 #include "llfontgl.h"
+#include "llinventorydefines.h"
 #include "llmaterialtable.h"
 #include "llpermissionsflags.h"
 #include "llrect.h"
@@ -112,7 +113,7 @@ void LLPanelContents::getState(LLViewerObject *objectp )
 {
 	if( !objectp )
 	{
-		childSetEnabled("button new script",FALSE);
+		getChildView("button new script")->setEnabled(FALSE);
 		return;
 	}
 
@@ -126,7 +127,7 @@ void LLPanelContents::getState(LLViewerObject *objectp )
 	BOOL all_volume = LLSelectMgr::getInstance()->selectionAllPCode( LL_PCODE_VOLUME );
 
 	// Edit script button - ok if object is editable and there's an unambiguous destination for the object.
-	childSetEnabled("button new script",
+	getChildView("button new script")->setEnabled(
 		editable &&
 		all_volume &&
 		((LLSelectMgr::getInstance()->getSelection()->getRootObjectCount() == 1)
@@ -180,7 +181,7 @@ void LLPanelContents::onClickNewScript(void *userdata)
 				LLTrans::getString("PanelContentsNewScript"),
 				desc,
 				LLSaleInfo::DEFAULT,
-				LLViewerInventoryItem::II_FLAGS_NONE,
+				LLInventoryItemFlags::II_FLAGS_NONE,
 				time_corrected());
 		object->saveScript(new_item, TRUE, true);
 

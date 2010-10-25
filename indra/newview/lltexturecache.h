@@ -110,7 +110,8 @@ public:
 	/*virtual*/ S32 update(U32 max_time_ms);	
 	
 	void purgeCache(ELLPath location);
-	S64 initCache(ELLPath location, S64 maxsize, BOOL read_only);
+	void setReadOnly(BOOL read_only) ;
+	S64 initCache(ELLPath location, S64 maxsize, BOOL disable_texture_cache);
 
 	handle_t readFromCache(const std::string& local_filename, const LLUUID& id, U32 priority, S32 offset, S32 size,
 						   ReadResponder* responder);
@@ -143,7 +144,6 @@ public:
 
 protected:
 	// Accessed by LLTextureCacheWorker
-	bool updateTextureEntryList(const LLUUID& id, S32 size);
 	std::string getLocalFileName(const LLUUID& id);
 	std::string getTextureFileName(const LLUUID& id);
 	void addCompleted(Responder* responder, bool success);
@@ -154,6 +154,7 @@ protected:
 private:
 	void setDirNames(ELLPath location);
 	void readHeaderCache();
+	void clearCorruptedCache();
 	void purgeAllTextures(bool purge_directories);
 	void purgeTextures(bool validate);
 	LLAPRFile* openHeaderEntriesFile(bool readonly, S32 offset);
@@ -161,16 +162,16 @@ private:
 	void readEntriesHeader();
 	void writeEntriesHeader();
 	S32 openAndReadEntry(const LLUUID& id, Entry& entry, bool create);
-	void updateEntry(S32 idx, Entry& entry, S32 new_image_size, S32 new_body_size);
+	bool updateEntry(S32& idx, Entry& entry, S32 new_image_size, S32 new_body_size);
 	void updateEntryTimeStamp(S32 idx, Entry& entry) ;
 	U32 openAndReadEntries(std::vector<Entry>& entries);
 	void writeEntriesAndClose(const std::vector<Entry>& entries);
-	void readEntryFromHeaderImmediately(S32 idx, Entry& entry) ;
-	void writeEntryToHeaderImmediately(S32 idx, Entry& entry, bool write_header = false) ;
+	void readEntryFromHeaderImmediately(S32& idx, Entry& entry) ;
+	void writeEntryToHeaderImmediately(S32& idx, Entry& entry, bool write_header = false) ;
 	void removeEntry(S32 idx, Entry& entry, std::string& filename);
 	void removeCachedTexture(const LLUUID& id) ;
-	S32 getHeaderCacheEntry(const LLUUID& id, S32& imagesize);
-	S32 setHeaderCacheEntry(const LLUUID& id, S32 imagesize);
+	S32 getHeaderCacheEntry(const LLUUID& id, Entry& entry);
+	S32 setHeaderCacheEntry(const LLUUID& id, Entry& entry, S32 imagesize, S32 datasize);
 	void writeUpdatedEntries() ;
 	void updatedHeaderEntriesFile() ;
 	void lockHeaders() { mHeaderMutex.lock(); }

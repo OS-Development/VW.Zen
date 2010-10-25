@@ -478,7 +478,7 @@ LLViewerFetchedTexture* LLViewerTextureList::createImage(const LLUUID &image_id,
 	}
 	else
 	{
-		//by default, the texure can not be removed from memory even if it is not used.
+		//by default, the texture can not be removed from memory even if it is not used.
 		//here turn this off
 		//if this texture should be set to NO_DELETE, call setNoDelete() afterwards.
 		imagep->forceActive() ;
@@ -853,14 +853,14 @@ F32 LLViewerTextureList::updateImagesFetchTextures(F32 max_time)
 		}
 		min_count--;
 	}
-	if (fetch_count == 0)
-	{
-		gDebugTimers[0].pause();
-	}
-	else
-	{
-		gDebugTimers[0].unpause();
-	}
+	//if (fetch_count == 0)
+	//{
+	//	gDebugTimers[0].pause();
+	//}
+	//else
+	//{
+	//	gDebugTimers[0].unpause();
+	//}
 	return image_op_timer.getElapsedTimeF32();
 }
 
@@ -1219,7 +1219,7 @@ void LLViewerTextureList::receiveImageHeader(LLMessageSystem *msg, void **user_d
 		delete [] data;
 		return;
 	}
-	image->getLastPacketTimer()->reset();
+	//image->getLastPacketTimer()->reset();
 	bool res = LLAppViewer::getTextureFetch()->receiveImageHeader(msg->getSender(), id, codec, packets, totalbytes, data_size, data);
 	if (!res)
 	{
@@ -1283,7 +1283,7 @@ void LLViewerTextureList::receiveImagePacket(LLMessageSystem *msg, void **user_d
 		delete [] data;
 		return;
 	}
-	image->getLastPacketTimer()->reset();
+	//image->getLastPacketTimer()->reset();
 	bool res = LLAppViewer::getTextureFetch()->receiveImagePacket(msg->getSender(), id, packet_num, data_size, data);
 	if (!res)
 	{
@@ -1402,12 +1402,17 @@ LLUIImagePtr LLUIImageList::loadUIImage(LLViewerFetchedTexture* imagep, const st
 	mUIImages.insert(std::make_pair(name, new_imagep));
 	mUITextureList.push_back(imagep);
 
-	LLUIImageLoadData* datap = new LLUIImageLoadData;
-	datap->mImageName = name;
-	datap->mImageScaleRegion = scale_rect;
+	//Note:
+	//Some other textures such as ICON also through this flow to be fetched.
+	//But only UI textures need to set this callback.
+	if(imagep->getBoostLevel() == LLViewerTexture::BOOST_UI)
+	{
+		LLUIImageLoadData* datap = new LLUIImageLoadData;
+		datap->mImageName = name;
+		datap->mImageScaleRegion = scale_rect;
 
-	imagep->setLoadedCallback(onUIImageLoaded, 0, FALSE, FALSE, datap);
-
+		imagep->setLoadedCallback(onUIImageLoaded, 0, FALSE, FALSE, datap, NULL);
+	}
 	return new_imagep;
 }
 

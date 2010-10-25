@@ -417,7 +417,11 @@ apr_pool_t* LLAPRFile::getAPRFilePool(apr_pool_t* pool)
 // File I/O
 S32 LLAPRFile::read(void *buf, S32 nbytes)
 {
-	llassert_always(mFile) ;
+	if(!mFile) 
+	{
+		llwarns << "apr mFile is removed by somebody else. Can not read." << llendl ;
+		return 0;
+	}
 	
 	apr_size_t sz = nbytes;
 	apr_status_t s = apr_file_read(mFile, buf, &sz);
@@ -435,7 +439,11 @@ S32 LLAPRFile::read(void *buf, S32 nbytes)
 
 S32 LLAPRFile::write(const void *buf, S32 nbytes)
 {
-	llassert_always(mFile) ;
+	if(!mFile) 
+	{
+		llwarns << "apr mFile is removed by somebody else. Can not write." << llendl ;
+		return 0;
+	}
 	
 	apr_size_t sz = nbytes;
 	apr_status_t s = apr_file_write(mFile, buf, &sz);
@@ -543,14 +551,13 @@ S32 LLAPRFile::readEx(const std::string& filename, void *buf, S32 offset, S32 nb
 		return 0;
 	}
 
-	S32 off;
-	if (offset < 0)
-		off = LLAPRFile::seek(file_handle, APR_END, 0);
-	else
-		off = LLAPRFile::seek(file_handle, APR_SET, offset);
+	llassert(offset >= 0);
+
+	if (offset > 0)
+		offset = LLAPRFile::seek(file_handle, APR_SET, offset);
 	
 	apr_size_t bytes_read;
-	if (off < 0)
+	if (offset < 0)
 	{
 		bytes_read = 0;
 	}

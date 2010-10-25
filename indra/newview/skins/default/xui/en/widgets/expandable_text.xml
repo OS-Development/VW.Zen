@@ -2,15 +2,15 @@
 <expandable_text
  max_height="300" >
  <textbox
-  allow_html="true"
+  parse_urls="true"
   allow_scroll="true"
   bg_visible="false"
-  label="More" 
   follows="left|top|right"
   name="text"
   read_only="true"
   use_ellipses="true"
   word_wrap="true"
+  show_context_menu="true"
   tab_stop="true"
   v_pad="3"
   h_pad="4" >

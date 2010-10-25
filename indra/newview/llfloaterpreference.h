@@ -80,6 +80,9 @@ public:
 	// refresh all the graphics preferences menus
 	static void refreshEnabledGraphics();
 	
+	// translate user's busy response message according to current locale if message is default, otherwise do nothing
+	static void initBusyResponse();
+
 protected:	
 	void		onBtnOK();
 	void		onBtnCancel();
@@ -87,6 +90,9 @@ protected:
 
 	void		onClickBrowserClearCache();
 
+	// set value of "BusyResponseChanged" in account settings depending on whether busy response
+	// string differs from default after user changes.
+	void onBusyResponseChanged();
 	// if the custom settings box is clicked
 	void onChangeCustom();
 	void updateMeterText(LLUICtrl* ctrl);
@@ -135,12 +141,12 @@ public:
 	void onCommitMusicEnabled();
 	void applyResolution();
 	void onChangeMaturity();
+	void onClickBlockList();
 	void applyUIColor(LLUICtrl* ctrl, const LLSD& param);
 	void getUIColor(LLUICtrl* ctrl, const LLSD& param);
 	
 	void buildPopupLists();
 	static void refreshSkin(void* data);
-	static void cleanupBadSetting();
 private:
 	static std::string sSkin;
 	bool mGotPersonalInfo;

@@ -45,7 +45,6 @@
 #include "llchannelmanager.h"
 #include "llconsole.h"
 #include "llfloatercamera.h"
-#include "llfloatercustomize.h"
 #include "llfloaterreg.h"
 #include "llfloatertools.h"
 #include "llgroupactions.h"
@@ -58,6 +57,7 @@
 #include "llnavigationbar.h" // to show/hide navigation bar when changing mouse look state
 #include "llnearbychatbar.h"
 #include "llnotificationsutil.h"
+#include "llpaneltopinfobar.h"
 #include "llparcel.h"
 #include "llrendersphere.h"
 #include "llsdutil.h"
@@ -73,6 +73,7 @@
 #include "llviewerdisplay.h"
 #include "llviewerjoystick.h"
 #include "llviewermediafocus.h"
+#include "llviewermenu.h"
 #include "llviewerobjectlist.h"
 #include "llviewerparcelmgr.h"
 #include "llviewerstats.h"
@@ -1209,7 +1210,7 @@ void LLAgent::startAutoPilotGlobal(const LLVector3d &target_global, const std::s
 	else
 	{
 		// Guess at a reasonable stop distance.
-		mAutoPilotStopDistance = fsqrtf( distance );
+		mAutoPilotStopDistance = (F32) sqrt( distance );
 		if (mAutoPilotStopDistance < 0.5f) 
 		{
 			mAutoPilotStopDistance = 0.5f;
@@ -1226,7 +1227,10 @@ void LLAgent::startAutoPilotGlobal(const LLVector3d &target_global, const std::s
 	if ( distance > 1.f && heightDelta > (sqrtf(mAutoPilotStopDistance) + 1.f))
 	{
 		setFlying(TRUE);
-		mAutoPilotFlyOnStop = TRUE;
+		// Do not force flying for "Sit" behavior to prevent flying after pressing "Stand"
+		// from an object. See EXT-1655.
+		if ("Sit" != mAutoPilotBehaviorName)
+			mAutoPilotFlyOnStop = TRUE;
 	}
 
 	mAutoPilot = TRUE;
@@ -1295,6 +1299,13 @@ void LLAgent::stopAutoPilot(BOOL user_cancel)
 		{
 			resetAxes(mAutoPilotTargetFacing);
 		}
+		// Restore previous flying state before invoking mAutoPilotFinishedCallback to allow
+		// callback function to change the flying state (like in near_sit_down_point()).
+		// If the user cancelled, don't change the fly state
+		if (!user_cancel)
+		{
+			setFlying(mAutoPilotFlyOnStop);
+		}
 		//NB: auto pilot can terminate for a reason other than reaching the destination
 		if (mAutoPilotFinishedCallback)
 		{
@@ -1302,11 +1313,6 @@ void LLAgent::stopAutoPilot(BOOL user_cancel)
 		}
 		mLeaderID = LLUUID::null;
 
-		// If the user cancelled, don't change the fly state
-		if (!user_cancel)
-		{
-			setFlying(mAutoPilotFlyOnStop);
-		}
 		setControlFlags(AGENT_CONTROL_STOP);
 
 		if (user_cancel && !mAutoPilotBehaviorName.empty())
@@ -1490,6 +1496,8 @@ void LLAgent::propagate(const F32 dt)
 		floater_move->mBackwardButton  ->setToggleState( gAgentCamera.getAtKey() < 0 || gAgentCamera.getWalkKey() < 0 );
 		floater_move->mTurnLeftButton  ->setToggleState( gAgentCamera.getYawKey() > 0.f );
 		floater_move->mTurnRightButton ->setToggleState( gAgentCamera.getYawKey() < 0.f );
+		floater_move->mSlideLeftButton  ->setToggleState( gAgentCamera.getLeftKey() > 0.f );
+		floater_move->mSlideRightButton ->setToggleState( gAgentCamera.getLeftKey() < 0.f );
 		floater_move->mMoveUpButton    ->setToggleState( gAgentCamera.getUpKey() > 0 );
 		floater_move->mMoveDownButton  ->setToggleState( gAgentCamera.getUpKey() < 0 );
 	}
@@ -1686,6 +1694,11 @@ void LLAgent::endAnimationUpdateUI()
 		LLNavigationBar::getInstance()->setVisible(TRUE);
 		gStatusBar->setVisibleForMouselook(true);
 
+		if (gSavedSettings.getBOOL("ShowMiniLocationPanel"))
+		{
+			LLPanelTopInfoBar::getInstance()->setVisible(TRUE);
+		}
+
 		LLBottomTray::getInstance()->onMouselookModeOut();
 
 		LLSideTray::getInstance()->getButtonsPanel()->setVisible(TRUE);
@@ -1772,6 +1785,8 @@ void LLAgent::endAnimationUpdateUI()
 			
 		}
 		gAgentCamera.setLookAt(LOOKAT_TARGET_CLEAR);
+
+		LLFloaterCamera::onAvatarEditingAppearance(false);
 	}
 
 	//---------------------------------------------------------------------
@@ -1783,6 +1798,8 @@ void LLAgent::endAnimationUpdateUI()
 		gMenuBarView->setVisible(FALSE);
 		LLNavigationBar::getInstance()->setVisible(FALSE);
 		gStatusBar->setVisibleForMouselook(false);
+
+		LLPanelTopInfoBar::getInstance()->setVisible(FALSE);
 
 		LLBottomTray::getInstance()->onMouselookModeIn();
 
@@ -1876,6 +1893,8 @@ void LLAgent::endAnimationUpdateUI()
 		{
 			mPauseRequest = gAgentAvatarp->requestPause();
 		}
+
+		LLFloaterCamera::onAvatarEditingAppearance(true);
 	}
 
 	if (isAgentAvatarValid())
@@ -3060,7 +3079,7 @@ void LLAgent::processAgentCachedTextureResponse(LLMessageSystem *mesgsys, void *
 		return;
 	}
 
-	if (gAgentCamera.cameraCustomizeAvatar())
+	if (isAgentAvatarValid() && !gAgentAvatarp->isUsingBakedTextures())
 	{
 		// ignore baked textures when in customize mode
 		return;
@@ -3081,21 +3100,30 @@ void LLAgent::processAgentCachedTextureResponse(LLMessageSystem *mesgsys, void *
 		mesgsys->getUUIDFast(_PREHASH_WearableData, _PREHASH_TextureID, texture_id, texture_block);
 		mesgsys->getU8Fast(_PREHASH_WearableData, _PREHASH_TextureIndex, texture_index, texture_block);
 
-		if ((S32)texture_index < BAKED_NUM_INDICES 
-			&& gAgentQueryManager.mActiveCacheQueries[texture_index] == query_id)
-		{
-			if (texture_id.notNull())
+
+		if ((S32)texture_index < TEX_NUM_INDICES )
+		{	
+			const LLVOAvatarDictionary::TextureEntry *texture_entry = LLVOAvatarDictionary::instance().getTexture((ETextureIndex)texture_index);
+			if (texture_entry)
 			{
-				//llinfos << "Received cached texture " << (U32)texture_index << ": " << texture_id << llendl;
-				gAgentAvatarp->setCachedBakedTexture(LLVOAvatarDictionary::bakedToLocalTextureIndex((EBakedTextureIndex)texture_index), texture_id);
-				//gAgentAvatarp->setTETexture( LLVOAvatar::sBakedTextureIndices[texture_index], texture_id );
-				gAgentQueryManager.mActiveCacheQueries[texture_index] = 0;
-				num_results++;
-			}
-			else
-			{
-				// no cache of this bake. request upload.
-				gAgentAvatarp->requestLayerSetUpload((EBakedTextureIndex)texture_index);
+				EBakedTextureIndex baked_index = texture_entry->mBakedTextureIndex;
+
+				if (gAgentQueryManager.mActiveCacheQueries[baked_index] == query_id)
+				{
+					if (texture_id.notNull())
+					{
+						//llinfos << "Received cached texture " << (U32)texture_index << ": " << texture_id << llendl;
+						gAgentAvatarp->setCachedBakedTexture((ETextureIndex)texture_index, texture_id);
+						//gAgentAvatarp->setTETexture( LLVOAvatar::sBakedTextureIndices[texture_index], texture_id );
+						gAgentQueryManager.mActiveCacheQueries[baked_index] = 0;
+						num_results++;
+					}
+					else
+					{
+						// no cache of this bake. request upload.
+						gAgentAvatarp->requestLayerSetUpload(baked_index);
+					}
+				}
 			}
 		}
 	}
@@ -3210,6 +3238,9 @@ bool LLAgent::teleportCore(bool is_local)
 	// hide land floater too - it'll be out of date
 	LLFloaterReg::hideInstance("about_land");
 
+	// hide the search floater (EXT-8276)
+	LLFloaterReg::hideInstance("search");
+
 	LLViewerParcelMgr::getInstance()->deselectLand();
 	LLViewerMediaFocus::getInstance()->clearFocus();
 
@@ -3231,7 +3262,7 @@ bool LLAgent::teleportCore(bool is_local)
 	
 	// MBW -- Let the voice client know a teleport has begun so it can leave the existing channel.
 	// This was breaking the case of teleporting within a single sim.  Backing it out for now.
-//	gVoiceClient->leaveChannel();
+//	LLVoiceClient::getInstance()->leaveChannel();
 	
 	return true;
 }
@@ -3375,10 +3406,13 @@ void LLAgent::setTeleportState(ETeleportState state)
 	if (mTeleportState == TELEPORT_MOVING)
 	{
 		// We're outa here. Save "back" slurl.
-		mTeleportSourceSLURL = LLAgentUI::buildSLURL();
+		LLAgentUI::buildSLURL(mTeleportSourceSLURL);
 	}
 	else if(mTeleportState == TELEPORT_ARRIVING)
 	{
+		// First two position updates after a teleport tend to be weird
+		LLViewerStats::getInstance()->mAgentPositionSnaps.mCountOfNextUpdatesToIgnore = 2;
+
 		// Let the interested parties know we've teleported.
 		LLViewerParcelMgr::getInstance()->onTeleportFinished(false, getPositionGlobal());
 	}
@@ -3514,11 +3548,10 @@ void LLAgent::sendAgentSetAppearance()
 {
 	if (!isAgentAvatarValid()) return;
 
-	if (gAgentQueryManager.mNumPendingQueries > 0 && !gAgentCamera.cameraCustomizeAvatar()) 
+	if (gAgentQueryManager.mNumPendingQueries > 0 && (isAgentAvatarValid() && gAgentAvatarp->isUsingBakedTextures())) 
 	{
 		return;
 	}
-
 
 	llinfos << "TAT: Sent AgentSetAppearance: " << gAgentAvatarp->getBakedStatusForPrintout() << llendl;
 	//dumpAvatarTEs( "sendAgentSetAppearance()" );
@@ -3551,7 +3584,7 @@ void LLAgent::sendAgentSetAppearance()
 		const ETextureIndex texture_index = LLVOAvatarDictionary::bakedToLocalTextureIndex((EBakedTextureIndex)baked_index);
 
 		// if we're not wearing a skirt, we don't need the texture to be baked
-		if (texture_index == TEX_SKIRT_BAKED && !gAgentAvatarp->isWearingWearableType(WT_SKIRT))
+		if (texture_index == TEX_SKIRT_BAKED && !gAgentAvatarp->isWearingWearableType(LLWearableType::WT_SKIRT))
 		{
 			continue;
 		}
@@ -3570,29 +3603,21 @@ void LLAgent::sendAgentSetAppearance()
 		llinfos << "TAT: Sending cached texture data" << llendl;
 		for (U8 baked_index = 0; baked_index < BAKED_NUM_INDICES; baked_index++)
 		{
-			const LLVOAvatarDictionary::BakedEntry *baked_dict = LLVOAvatarDictionary::getInstance()->getBakedTexture((EBakedTextureIndex)baked_index);
-			LLUUID hash;
-			for (U8 i=0; i < baked_dict->mWearables.size(); i++)
+			BOOL generate_valid_hash = TRUE;
+			if (isAgentAvatarValid() && !gAgentAvatarp->isBakedTextureFinal((LLVOAvatarDefines::EBakedTextureIndex)baked_index))
 			{
-				// EWearableType wearable_type = gBakedWearableMap[baked_index][wearable_num];
-				const EWearableType wearable_type = baked_dict->mWearables[i];
-				// MULTI-WEARABLE: fixed to 0th - extend to everything once messaging works.
-				const LLWearable* wearable = gAgentWearables.getWearable(wearable_type,0);
-				if (wearable)
-				{
-					hash ^= wearable->getAssetID();
-				}
+				generate_valid_hash = FALSE;
+				llinfos << "Not caching baked texture upload for " << (U32)baked_index << " due to being uploaded at low resolution." << llendl;
 			}
+
+			const LLUUID hash = gAgentWearables.computeBakedTextureHash((EBakedTextureIndex) baked_index, generate_valid_hash);
 			if (hash.notNull())
 			{
-				hash ^= baked_dict->mWearablesHashID;
+				ETextureIndex texture_index = LLVOAvatarDictionary::bakedToLocalTextureIndex((EBakedTextureIndex) baked_index);
+				msg->nextBlockFast(_PREHASH_WearableData);
+				msg->addUUIDFast(_PREHASH_CacheID, hash);
+				msg->addU8Fast(_PREHASH_TextureIndex, (U8)texture_index);
 			}
-
-			const ETextureIndex texture_index = LLVOAvatarDictionary::bakedToLocalTextureIndex((EBakedTextureIndex)baked_index);
-
-			msg->nextBlockFast(_PREHASH_WearableData);
-			msg->addUUIDFast(_PREHASH_CacheID, hash);
-			msg->addU8Fast(_PREHASH_TextureIndex, (U8)texture_index);
 		}
 		msg->nextBlockFast(_PREHASH_ObjectData);
 		gAgentAvatarp->sendAppearanceMessage( gMessageSystem );
@@ -3612,7 +3637,7 @@ void LLAgent::sendAgentSetAppearance()
 		 param;
 		 param = (LLViewerVisualParam*)gAgentAvatarp->getNextVisualParam())
 	{
-		if (param->getGroup() == VISUAL_PARAM_GROUP_TWEAKABLE)
+		if (param->getGroup() == VISUAL_PARAM_GROUP_TWEAKABLE) // do not transmit params of group VISUAL_PARAM_GROUP_TWEAKABLE_NO_TRANSMIT
 		{
 			msg->nextBlockFast(_PREHASH_VisualParam );
 			

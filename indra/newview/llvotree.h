@@ -59,6 +59,7 @@ public:
 	// Initialize data that's only inited once per class.
 	static void initClass();
 	static void cleanupClass();
+	static bool isTreeRenderingStopped();
 
 	/*virtual*/ U32 processUpdateMessage(LLMessageSystem *mesgsys,
 											void **user_data,
@@ -73,7 +74,7 @@ public:
 
 	/*virtual*/ LLDrawable* createDrawable(LLPipeline *pipeline);
 	/*virtual*/ BOOL		updateGeometry(LLDrawable *drawable);
-	/*virtual*/ void		updateSpatialExtents(LLVector3 &min, LLVector3 &max);
+	/*virtual*/ void		updateSpatialExtents(LLVector4a &min, LLVector4a &max);
 
 	virtual U32 getPartitionType() const;
 
@@ -152,6 +153,7 @@ public:
 	};
 
 	static F32 sTreeFactor;			// Tree level of detail factor
+	static const S32 sMAX_NUM_TREE_LOD_LEVELS ;
 
 	friend class LLDrawPoolTree;
 protected:

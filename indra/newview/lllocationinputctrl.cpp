@@ -38,6 +38,7 @@
 // common includes
 #include "llbutton.h"
 #include "llfocusmgr.h"
+#include "llhelp.h"
 #include "llmenugl.h"
 #include "llparcel.h"
 #include "llstring.h"
@@ -177,6 +178,7 @@ static LLDefaultChildRegistry::Register<LLLocationInputCtrl> r("location_input")
 LLLocationInputCtrl::Params::Params()
 :	icon_maturity_general("icon_maturity_general"),
 	icon_maturity_adult("icon_maturity_adult"),
+	icon_maturity_moderate("icon_maturity_moderate"),
 	add_landmark_image_enabled("add_landmark_image_enabled"),
 	add_landmark_image_disabled("add_landmark_image_disabled"),
 	add_landmark_image_hover("add_landmark_image_hover"),
@@ -186,14 +188,15 @@ LLLocationInputCtrl::Params::Params()
 	add_landmark_button("add_landmark_button"),
 	for_sale_button("for_sale_button"),
 	info_button("info_button"),
-	maturity_icon("maturity_icon"),
+	maturity_button("maturity_button"),
 	voice_icon("voice_icon"),
 	fly_icon("fly_icon"),
 	push_icon("push_icon"),
 	build_icon("build_icon"),
 	scripts_icon("scripts_icon"),
 	damage_icon("damage_icon"),
-	damage_text("damage_text")
+	damage_text("damage_text"),
+	maturity_help_topic("maturity_help_topic")
 {
 }
 
@@ -208,7 +211,9 @@ LLLocationInputCtrl::LLLocationInputCtrl(const LLLocationInputCtrl::Params& p)
 	mLandmarkImageOn(NULL),
 	mLandmarkImageOff(NULL),
 	mIconMaturityGeneral(NULL),
-	mIconMaturityAdult(NULL)
+	mIconMaturityAdult(NULL),
+	mIconMaturityModerate(NULL),
+	mMaturityHelpTopic(p.maturity_help_topic)
 {
 	// Lets replace default LLLineEditor with LLLocationLineEditor
 	// to make needed escaping while copying and cutting url
@@ -226,8 +231,7 @@ LLLocationInputCtrl::LLLocationInputCtrl(const LLLocationInputCtrl::Params& p)
 	params.rect(text_entry_rect);
 	params.default_text(LLStringUtil::null);
 	params.max_length_bytes(p.max_chars);
-	params.keystroke_callback(boost::bind(&LLComboBox::onTextEntry, this, _1));
-	params.handle_edit_keys_directly(true);
+	params.keystroke_callback(boost::bind(&LLLocationInputCtrl::onTextEntry, this, _1));
 	params.commit_on_focus_lost(false);
 	params.follows.flags(FOLLOWS_ALL);
 	mTextEntry = LLUICtrlFactory::create<LLURLLineEditor>(params);
@@ -277,10 +281,15 @@ LLLocationInputCtrl::LLLocationInputCtrl(const LLLocationInputCtrl::Params& p)
 	{
 		mIconMaturityAdult = p.icon_maturity_adult;
 	}
+	if(p.icon_maturity_moderate())
+	{
+		mIconMaturityModerate = p.icon_maturity_moderate;
+	}
 
-	LLIconCtrl::Params maturity_icon = p.maturity_icon;
-	mMaturityIcon = LLUICtrlFactory::create<LLIconCtrl>(maturity_icon);
-	addChild(mMaturityIcon);
+	LLButton::Params maturity_button = p.maturity_button;
+	mMaturityButton = LLUICtrlFactory::create<LLButton>(maturity_button);
+	addChild(mMaturityButton);
+	mMaturityButton->setClickedCallback(boost::bind(&LLLocationInputCtrl::onMaturityButtonClicked, this));
 
 	LLButton::Params for_sale_button = p.for_sale_button;
 	for_sale_button.tool_tip = LLTrans::getString("LocationCtrlForSaleTooltip");
@@ -391,8 +400,8 @@ LLLocationInputCtrl::LLLocationInputCtrl(const LLLocationInputCtrl::Params& p)
 
 	mAddLandmarkTooltip = LLTrans::getString("LocationCtrlAddLandmarkTooltip");
 	mEditLandmarkTooltip = LLTrans::getString("LocationCtrlEditLandmarkTooltip");
-	getChild<LLView>("Location History")->setToolTip(LLTrans::getString("LocationCtrlComboBtnTooltip"));
-	getChild<LLView>("Place Information")->setToolTip(LLTrans::getString("LocationCtrlInfoBtnTooltip"));
+	mButton->setToolTip(LLTrans::getString("LocationCtrlComboBtnTooltip"));
+	mInfoBtn->setToolTip(LLTrans::getString("LocationCtrlInfoBtnTooltip"));
 }
 
 LLLocationInputCtrl::~LLLocationInputCtrl()
@@ -475,13 +484,16 @@ void LLLocationInputCtrl::onTextEntry(LLLineEditor* line_editor)
 	KEY key = gKeyboard->currentKey();
 	MASK mask = gKeyboard->currentMask(TRUE);
 
+	// Typing? (moving cursor should not affect showing the list)
+	bool typing = mask != MASK_CONTROL && key != KEY_LEFT && key != KEY_RIGHT && key != KEY_HOME && key != KEY_END;
+	bool pasting = mask == MASK_CONTROL && key == 'V';
+
 	if (line_editor->getText().empty())
 	{
 		prearrangeList(); // resets filter
 		hideList();
 	}
-	// Typing? (moving cursor should not affect showing the list)
-	else if (mask != MASK_CONTROL && key != KEY_LEFT && key != KEY_RIGHT && key != KEY_HOME && key != KEY_END)
+	else if (typing || pasting)
 	{
 		prearrangeList(line_editor->getText());
 		if (mList->getItemCount() != 0)
@@ -577,7 +589,7 @@ void LLLocationInputCtrl::reshape(S32 width, S32 height, BOOL called_from_parent
 
 	if (isHumanReadableLocationVisible)
 	{
-		refreshMaturityIcon();
+		refreshMaturityButton();
 	}
 }
 
@@ -612,6 +624,11 @@ void LLLocationInputCtrl::onAddLandmarkButtonClicked()
 void LLLocationInputCtrl::onAgentParcelChange()
 {
 	refresh();
+}
+
+void LLLocationInputCtrl::onMaturityButtonClicked()
+{
+	LLUI::sHelpImpl->showTopic(mMaturityHelpTopic);
 }
 
 void LLLocationInputCtrl::onLandmarkLoaded(LLLandmark* lm)
@@ -669,9 +686,8 @@ void LLLocationInputCtrl::onLocationPrearrange(const LLSD& data)
 				value["item_type"] = TELEPORT_HISTORY;
 				value["global_pos"] = result->mGlobalPos.getValue();
 				std::string region_name = result->mTitle.substr(0, result->mTitle.find(','));
-				//TODO*: add slurl to teleportitem or parse region name from title
-				value["tooltip"] = LLSLURL::buildSLURLfromPosGlobal(region_name,
-						result->mGlobalPos,	false);
+				//TODO*: add Surl to teleportitem or parse region name from title
+				value["tooltip"] = LLSLURL(region_name, result->mGlobalPos).getSLURLString();
 				add(result->getTitle(), value); 
 			}
 			result = std::find_if(result + 1, th_items.end(), boost::bind(
@@ -737,7 +753,7 @@ void LLLocationInputCtrl::refreshLocation()
 	setText(location_name);
 	isHumanReadableLocationVisible = true;
 
-	refreshMaturityIcon();
+	refreshMaturityButton();
 }
 
 // returns new right edge
@@ -853,37 +869,54 @@ void LLLocationInputCtrl::refreshHealth()
 	}
 }
 
-void LLLocationInputCtrl::refreshMaturityIcon()
+void LLLocationInputCtrl::refreshMaturityButton()
 {
 	// Updating maturity rating icon.
 	LLViewerRegion* region = gAgent.getRegion();
 	if (!region)
 		return;
 
+	bool button_visible = true;
+	LLPointer<LLUIImage> rating_image = NULL;
+	std::string rating_tooltip;
+
 	U8 sim_access = region->getSimAccess();
 	switch(sim_access)
 	{
 	case SIM_ACCESS_PG:
-		mMaturityIcon->setValue(mIconMaturityGeneral->getName());
-		mMaturityIcon->setVisible(TRUE);
+		rating_image = mIconMaturityGeneral;
+		rating_tooltip = LLTrans::getString("LocationCtrlGeneralIconTooltip");
 		break;
 
 	case SIM_ACCESS_ADULT:
-		mMaturityIcon->setValue(mIconMaturityAdult->getName());
-		mMaturityIcon->setVisible(TRUE);
+		rating_image = mIconMaturityAdult;
+		rating_tooltip = LLTrans::getString("LocationCtrlAdultIconTooltip");
+		break;
+
+	case SIM_ACCESS_MATURE:
+		rating_image = mIconMaturityModerate;
+		rating_tooltip = LLTrans::getString("LocationCtrlModerateIconTooltip");
 		break;
 
 	default:
-		mMaturityIcon->setVisible(FALSE);
+		button_visible = false;
+		break;
 	}
 
-	if (mMaturityIcon->getVisible())
+	mMaturityButton->setVisible(button_visible);
+	mMaturityButton->setToolTip(rating_tooltip);
+	if(rating_image)
 	{
-		positionMaturityIcon();
+		mMaturityButton->setImageUnselected(rating_image);
+		mMaturityButton->setImagePressed(rating_image);
+	}
+	if (mMaturityButton->getVisible())
+	{
+		positionMaturityButton();
 	}
 }
 
-void LLLocationInputCtrl::positionMaturityIcon()
+void LLLocationInputCtrl::positionMaturityButton()
 {
 	const LLFontGL* font = mTextEntry->getFont();
 	if (!font)
@@ -895,11 +928,11 @@ void LLLocationInputCtrl::positionMaturityIcon()
 	// Calculate the right edge of rendered text + a whitespace.
 	left_pad = left_pad + font->getWidth(mTextEntry->getText()) + font->getWidth(" ");
 
-	LLRect rect = mMaturityIcon->getRect();
-	mMaturityIcon->setRect(rect.setOriginAndSize(left_pad, rect.mBottom, rect.getWidth(), rect.getHeight()));
+	LLRect rect = mMaturityButton->getRect();
+	mMaturityButton->setRect(rect.setOriginAndSize(left_pad, rect.mBottom, rect.getWidth(), rect.getHeight()));
 
 	// Hide icon if it text area is not width enough to display it, show otherwise.
-	mMaturityIcon->setVisible(rect.mRight < mTextEntry->getRect().getWidth() - right_pad);
+	mMaturityButton->setVisible(rect.mRight < mTextEntry->getRect().getWidth() - right_pad);
 }
 
 void LLLocationInputCtrl::rebuildLocationHistory(const std::string& filter)
@@ -936,7 +969,12 @@ void LLLocationInputCtrl::focusTextEntry()
 	// if the "select_on_focus" parameter is true it places the cursor
 	// at the beginning (after selecting text), thus screwing up updateSelection().
 	if (mTextEntry)
+	{
 		gFocusMgr.setKeyboardFocus(mTextEntry);
+
+		// Enable the text entry to handle accelerator keys (EXT-8104).
+		LLEditMenuHandler::gEditMenuHandler = mTextEntry;
+	}
 }
 
 void LLLocationInputCtrl::enableAddLandmarkButton(bool val)
@@ -1012,10 +1050,12 @@ void LLLocationInputCtrl::changeLocationPresentation()
 	if(!mTextEntry->hasSelection() && text == mHumanReadableLocation)
 	{
 		//needs unescaped one
-		mTextEntry->setText(LLAgentUI::buildSLURL(false));
+		LLSLURL slurl;
+		LLAgentUI::buildSLURL(slurl, false);
+		mTextEntry->setText(LLURI::unescape(slurl.getSLURLString()));
 		mTextEntry->selectAll();
 
-		mMaturityIcon->setVisible(FALSE);
+		mMaturityButton->setVisible(FALSE);
 
 		isHumanReadableLocationVisible = false;
 	}

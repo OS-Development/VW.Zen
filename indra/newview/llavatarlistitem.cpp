@@ -1,6 +1,6 @@
 /** 
  * @file llavatarlistitem.cpp
- * @avatar list item source file
+ * @brief avatar list item source file
  *
  * $LicenseInfo:firstyear=2009&license=viewergpl$
  * 
@@ -36,12 +36,13 @@
 #include "llavataractions.h"
 #include "llavatarlistitem.h"
 
-#include "llfloaterreg.h"
-#include "llagent.h"
-#include "lloutputmonitorctrl.h"
-#include "llavatariconctrl.h"
-#include "lltextutil.h"
 #include "llbutton.h"
+#include "llfloaterreg.h"
+#include "lltextutil.h"
+
+#include "llagent.h"
+#include "llavatariconctrl.h"
+#include "lloutputmonitorctrl.h"
 
 bool LLAvatarListItem::sStaticInitialized = false;
 S32 LLAvatarListItem::sLeftPadding = 0;
@@ -126,7 +127,7 @@ S32 LLAvatarListItem::notifyParent(const LLSD& info)
 
 void LLAvatarListItem::onMouseEnter(S32 x, S32 y, MASK mask)
 {
-	childSetVisible("hovered_icon", true);
+	getChildView("hovered_icon")->setVisible( true);
 	mInfoBtn->setVisible(mShowInfoBtn);
 	mProfileBtn->setVisible(mShowProfileBtn);
 
@@ -137,7 +138,7 @@ void LLAvatarListItem::onMouseEnter(S32 x, S32 y, MASK mask)
 
 void LLAvatarListItem::onMouseLeave(S32 x, S32 y, MASK mask)
 {
-	childSetVisible("hovered_icon", false);
+	getChildView("hovered_icon")->setVisible( false);
 	mInfoBtn->setVisible(false);
 	mProfileBtn->setVisible(false);
 
@@ -212,21 +213,25 @@ void LLAvatarListItem::setState(EItemState item_style)
 	mAvatarIcon->setColor(item_icon_color_map[item_style]);
 }
 
-void LLAvatarListItem::setAvatarId(const LLUUID& id, const LLUUID& session_id, bool ignore_status_changes)
+void LLAvatarListItem::setAvatarId(const LLUUID& id, const LLUUID& session_id, bool ignore_status_changes/* = false*/, bool is_resident/* = true*/)
 {
 	if (mAvatarId.notNull())
 		LLAvatarTracker::instance().removeParticularFriendObserver(mAvatarId, this);
 
 	mAvatarId = id;
-	mAvatarIcon->setValue(id);
 	mSpeakingIndicator->setSpeakerId(id, session_id);
 
 	// We'll be notified on avatar online status changes
 	if (!ignore_status_changes && mAvatarId.notNull())
 		LLAvatarTracker::instance().addParticularFriendObserver(mAvatarId, this);
 
-	// Set avatar name.
-	gCacheName->get(id, FALSE, boost::bind(&LLAvatarListItem::onNameCache, this, _2, _3));
+	if (is_resident)
+	{
+		mAvatarIcon->setValue(id);
+
+		// Set avatar name.
+		gCacheName->get(id, FALSE, boost::bind(&LLAvatarListItem::onNameCache, this, _2, _3));
+	}
 }
 
 void LLAvatarListItem::showLastInteractionTime(bool show)
@@ -310,7 +315,7 @@ void LLAvatarListItem::setValue( const LLSD& value )
 {
 	if (!value.isMap()) return;;
 	if (!value.has("selected")) return;
-	childSetVisible("selected_icon", value["selected"]);
+	getChildView("selected_icon")->setVisible( value["selected"]);
 }
 
 const LLUUID& LLAvatarListItem::getAvatarId() const

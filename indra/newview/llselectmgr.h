@@ -258,7 +258,6 @@ public:
 	LLObjectSelection();
 
 	void updateEffects();
-	void cleanupNodes();
 
 	BOOL isEmpty() const;
 
@@ -282,16 +281,14 @@ public:
 	template <typename T> bool getSelectedTEValue(LLSelectedTEGetFunctor<T>* func, T& res);
 	template <typename T> bool isMultipleTEValue(LLSelectedTEGetFunctor<T>* func, const T& ignore_value);
 	
-	void addNode(LLSelectNode *nodep);
-	void addNodeAtEnd(LLSelectNode *nodep);
-	void moveNodeToFront(LLSelectNode *nodep);
-	void removeNode(LLSelectNode *nodep);
-	void deleteAllNodes();			// Delete all nodes
 	S32 getNumNodes();
 	LLSelectNode* findNode(LLViewerObject* objectp);
 
 	// count members
 	S32 getObjectCount(BOOL mesh_adjust = FALSE);
+	F32 getSelectedObjectCost();
+	F32 getSelectedLinksetCost();
+
 	S32 getTECount();
 	S32 getRootObjectCount();
 
@@ -312,6 +309,15 @@ public:
 	bool applyToNodes(LLSelectedNodeFunctor* func, bool firstonly = false);
 
 	ESelectType getSelectType() const { return mSelectType; }
+
+private:
+	void addNode(LLSelectNode *nodep);
+	void addNodeAtEnd(LLSelectNode *nodep);
+	void moveNodeToFront(LLSelectNode *nodep);
+	void removeNode(LLSelectNode *nodep);
+	void deleteAllNodes();
+	void cleanupNodes();
+
 
 private:
 	list_t mList;
@@ -482,9 +488,10 @@ public:
 	void saveSelectedObjectTextures();
 
 	void selectionUpdatePhysics(BOOL use_physics);
+	void selectionUpdatePhysicsParam(U8 type, F32 gravity, F32 friction, 
+										F32 density, F32 restitution);
 	void selectionUpdateTemporary(BOOL is_temporary);
 	void selectionUpdatePhantom(BOOL is_ghost);
-	void selectionUpdatePhysicsShapeType(U8 type);
 	void selectionUpdateCastShadows(BOOL cast_shadows);
 	void selectionDump();
 
@@ -611,7 +618,7 @@ public:
 	// verification only, if it doesn't match region info then sale is
 	// canceled
 	void sendBuy(const LLUUID& buyer_id, const LLUUID& category_id, const LLSaleInfo sale_info);
-	void sendAttach(U8 attachment_point);
+	void sendAttach(U8 attachment_point, bool replace);
 	void sendDetach();
 	void sendDropAttachment();
 	void sendLink();

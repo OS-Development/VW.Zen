@@ -43,6 +43,7 @@
 #include "llhudtext.h"
 #include "llmapimagetype.h"
 #include "lltracker.h"
+#include "llslurl.h"
 
 class LLEventInfo;
 class LLFriendObserver;
@@ -111,7 +112,7 @@ public:
 
 	// teleport to the tracked item, if there is one
 	void			teleport();
-
+	void			onChangeMaturity();
 protected:	
 	void			onGoHome();
 
@@ -122,7 +123,7 @@ protected:
 	void		    onAvatarComboCommit();
 
 	void			onComboTextEntry( );
-	void			onSearchTextEntry( LLLineEditor* ctrl );
+	void			onSearchTextEntry( );
 
 	void			onClearBtn();
 	void			onClickTeleportBtn();
@@ -148,6 +149,7 @@ protected:
 	void			updateSearchEnabled();
 	void			onLocationFocusChanged( LLFocusableElement* ctrl );
 	void		    onLocationCommit();
+	void			onCoordinatesCommit();
 	void		    onCommitSearchResult();
 
 	void			cacheLandmarkPosition();
@@ -158,6 +160,12 @@ private:
 	// Ties to LLWorldMapView::sMapScale, in pixels per region
 	F32						mCurZoomVal;
 	LLFrameTimer			mZoomTimer;
+
+	// update display of teleport destination coordinates - pos is in global coordinates
+	void updateTeleportCoordsDisplay( const LLVector3d& pos );
+
+	// enable/disable teleport destination coordinates 
+	void enableTeleportCoordsDisplay( bool enabled );
 
 	LLDynamicArray<LLUUID>	mLandmarkAssetIDList;
 	LLDynamicArray<LLUUID>	mLandmarkItemIDList;
@@ -183,7 +191,7 @@ private:
 	LLTracker::ETrackingStatus mTrackedStatus;
 	std::string				mTrackedSimName;
 	std::string				mTrackedAvatarName;
-	std::string				mSLURL;
+	LLSLURL  				mSLURL;
 };
 
 extern LLFloaterWorldMap* gFloaterWorldMap;

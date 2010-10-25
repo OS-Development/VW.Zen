@@ -161,8 +161,7 @@ BOOL LLInspectObject::postBuild(void)
 
 	// Hide floater when name links clicked
 	LLTextBox* textbox = getChild<LLTextBox>("object_creator");
-	textbox->mURLClickSignal.connect(
-		boost::bind(&LLInspectObject::closeFloater, this, false) );
+	textbox->setURLClickedCallback(boost::bind(&LLInspectObject::closeFloater, this, false) );
 
 	// Hook up functionality
 	getChild<LLUICtrl>("buy_btn")->setCommitCallback(
@@ -480,7 +479,7 @@ void LLInspectObject::updateCreator(LLSelectNode* nodep)
 		// Objects cannot be created by a group, so use agent URL format
 		LLUUID creator_id = nodep->mPermissions->getCreator();
 		std::string creator_url =
-			LLSLURL::buildCommand("agent", creator_id, "about");
+			LLSLURL("agent", creator_id, "about").getSLURLString();
 		args["[CREATOR]"] = creator_url;
 				
 		// created by one user but owned by another
@@ -490,12 +489,12 @@ void LLInspectObject::updateCreator(LLSelectNode* nodep)
 		if (group_owned)
 		{
 			owner_id = nodep->mPermissions->getGroup();
-			owner_url =	LLSLURL::buildCommand("group", owner_id, "about");
+			owner_url =	LLSLURL("group", owner_id, "about").getSLURLString();
 		}
 		else
 		{
 			owner_id = nodep->mPermissions->getOwner();
-			owner_url =	LLSLURL::buildCommand("agent", owner_id, "about");
+			owner_url =	LLSLURL("agent", owner_id, "about").getSLURLString();
 		}
 		args["[OWNER]"] = owner_url;
 		

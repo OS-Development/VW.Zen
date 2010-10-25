@@ -51,6 +51,8 @@
                  parameter="" />
                 <menu_item_call.on_enable
                  function="File.EnableUploadModel" />
+                <menu_item_call.on_visible
+                function="File.MeshEnabled"/>
                 </menu_item_call>
                 <menu_item_call
                  label="Bulk (L$[COST] per file)..."
@@ -60,8 +62,13 @@
                      function="File.UploadBulk"
                      parameter="" />
                 </menu_item_call>
-                <menu_item_separator
-                 layout="topleft" />
+	            <menu_item_call
+	             label="Set Default Upload Permissions"
+	             name="perm prefs">
+	                <menu_item_call.on_click
+	                 function="Floater.Toggle"
+	                 parameter="perm_prefs" />
+	            </menu_item_call>
             </menu>
 
             <menu_item_call

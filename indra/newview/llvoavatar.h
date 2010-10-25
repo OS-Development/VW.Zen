@@ -1,6 +1,6 @@
 /**
  * @file llvoavatar.h
- * @brief Declaration of LLVOAvatar class which is a derivation fo
+ * @brief Declaration of LLVOAvatar class which is a derivation of
  * LLViewerObject
  *
  * $LicenseInfo:firstyear=2001&license=viewergpl$
@@ -71,9 +71,10 @@ class LLTexGlobalColor;
 class LLVOAvatarBoneInfo;
 class LLVOAvatarSkeletonInfo;
 
-//------------------------------------------------------------------------
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // LLVOAvatar
-//------------------------------------------------------------------------
+// 
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 class LLVOAvatar :
 	public LLViewerObject,
 	public LLCharacter
@@ -127,7 +128,7 @@ public:
 	virtual BOOL   	 	 	isActive() const; // Whether this object needs to do an idleUpdate.
 	virtual void   	 	 	updateTextures();
 	virtual S32    	 	 	setTETexture(const U8 te, const LLUUID& uuid); // If setting a baked texture, need to request it from a non-local sim.
-	virtual void   	 	 	onShift(const LLVector3& shift_vector);
+	virtual void   	 	 	onShift(const LLVector4a& shift_vector);
 	virtual U32    	 	 	getPartitionType() const;
 	virtual const  	 	 	LLVector3 getRenderPosition() const;
 	virtual void   	 	 	updateDrawable(BOOL force_damped);
@@ -135,16 +136,16 @@ public:
 	virtual BOOL   	 	 	updateGeometry(LLDrawable *drawable);
 	virtual void   	 	 	setPixelAreaAndAngle(LLAgent &agent);
 	virtual void   	 	 	updateRegion(LLViewerRegion *regionp);
-	virtual void   	 	 	updateSpatialExtents(LLVector3& newMin, LLVector3 &newMax);
-	virtual void   	 	 	getSpatialExtents(LLVector3& newMin, LLVector3& newMax);
+	virtual void   	 	 	updateSpatialExtents(LLVector4a& newMin, LLVector4a &newMax);
+	virtual void   	 	 	getSpatialExtents(LLVector4a& newMin, LLVector4a& newMax);
 	virtual BOOL   	 	 	lineSegmentIntersect(const LLVector3& start, const LLVector3& end,
-													 S32 face = -1,                    // which face to check, -1 = ALL_SIDES
-													 BOOL pick_transparent = FALSE,
-													 S32* face_hit = NULL,             // which face was hit
-													 LLVector3* intersection = NULL,   // return the intersection point
-													 LLVector2* tex_coord = NULL,      // return the texture coordinates of the intersection point
-													 LLVector3* normal = NULL,         // return the surface normal at the intersection point
-													 LLVector3* bi_normal = NULL);     // return the surface bi-normal at the intersection point
+												 S32 face = -1,                    // which face to check, -1 = ALL_SIDES
+												 BOOL pick_transparent = FALSE,
+												 S32* face_hit = NULL,             // which face was hit
+												 LLVector3* intersection = NULL,   // return the intersection point
+												 LLVector2* tex_coord = NULL,      // return the texture coordinates of the intersection point
+												 LLVector3* normal = NULL,         // return the surface normal at the intersection point
+												 LLVector3* bi_normal = NULL);     // return the surface bi-normal at the intersection point
 
 	//--------------------------------------------------------------------
 	// LLCharacter interface and related
@@ -157,12 +158,14 @@ public:
 	virtual LLJoint*		getCharacterJoint(U32 num);
 	virtual BOOL			allocateCharacterJoints(U32 num);
 
+	virtual LLUUID			remapMotionID(const LLUUID& id);
 	virtual BOOL			startMotion(const LLUUID& id, F32 time_offset = 0.f);
 	virtual BOOL			stopMotion(const LLUUID& id, BOOL stop_immediate = FALSE);
 	virtual void			stopMotionFromSource(const LLUUID& source_id);
 	virtual void			requestStopMotion(LLMotion* motion);
 	LLMotion*				findMotion(const LLUUID& id) const;
 	void					startDefaultMotions();
+	void					dumpAnimationState();
 
 	virtual LLJoint*		getJoint(const std::string &name);
 	virtual LLJoint*     	getRootJoint() { return &mRoot; }
@@ -220,8 +223,8 @@ public:
 public:
 	static S32		sRenderName;
 	static BOOL		sRenderGroupTitles;
-	static S32		sMaxVisible;
-	static F32		sRenderDistance; //distance at which avatars will render (affected by control "RenderAvatarMaxVisible")
+	static U32		sMaxVisible; //(affected by control "RenderAvatarMaxVisible")
+	static F32		sRenderDistance; //distance at which avatars will render.
 	static BOOL		sShowAnimationDebug; // show animation debug info
 	static BOOL		sUseImpostors; //use impostors for far away avatars
 	static BOOL		sShowFootPlane;	// show foot collision plane reported by server
@@ -246,8 +249,10 @@ public:
 	//--------------------------------------------------------------------
 public:
 	BOOL			isFullyLoaded() const;
+	bool visualParamWeightsAreDefault();
 protected:
-	virtual BOOL	updateIsFullyLoaded();
+	virtual BOOL	getIsCloud();
+	BOOL			updateIsFullyLoaded();
 	BOOL			processFullyLoadedChange(bool loading);
 	void			updateRuthTimer(bool loading);
 	F32 			calcMorphAmount();
@@ -258,6 +263,8 @@ private:
 	S32				mFullyLoadedFrameCounter;
 	LLFrameTimer	mFullyLoadedTimer;
 	LLFrameTimer	mRuthTimer;
+protected:
+	LLFrameTimer    mInvisibleTimer;
 	
 /**                    State
  **                                                                            **
@@ -335,10 +342,11 @@ private:
  **/
 
 public:
-	U32 		renderFootShadows();
 	U32 		renderImpostor(LLColor4U color = LLColor4U(255,255,255,255), S32 diffuse_channel = 0);
 	U32 		renderRigid();
 	U32 		renderSkinned(EAvatarRenderPass pass);
+	F32			getLastSkinTime() { return mLastSkinTime; }
+	U32			renderSkinnedAttachments();
 	U32 		renderTransparent(BOOL first_pass);
 	void 		renderCollisionVolumes();
 	static void	deleteCachedImages(bool clearAll=true);
@@ -350,6 +358,8 @@ private:
 	bool		shouldAlphaMask();
 
 	BOOL 		mNeedsSkin; // avatar has been animated and verts have not been updated
+	F32			mLastSkinTime; //value of gFrameTimeSeconds at last skin update
+
 	S32	 		mUpdatePeriod;
 	S32  		mNumInitFaces; //number of faces generated when creating the avatar drawable, does not inculde splitted faces due to long vertex buffer.
 
@@ -389,7 +399,7 @@ public:
 	BOOL 	    needsImpostorUpdate() const;
 	const LLVector3& getImpostorOffset() const;
 	const LLVector2& getImpostorDim() const;
-	void 		getImpostorValues(LLVector3* extents, LLVector3& angle, F32& distance) const;
+	void 		getImpostorValues(LLVector4a* extents, LLVector3& angle, F32& distance) const;
 	void 		cacheImpostorValues();
 	void 		setImpostorDim(const LLVector2& dim);
 	static void	resetImpostors();
@@ -400,7 +410,7 @@ private:
 	LLVector3	mImpostorOffset;
 	LLVector2	mImpostorDim;
 	BOOL		mNeedsAnimUpdate;
-	LLVector3	mImpostorExtents[2];
+	LLVector4a*	mImpostorExtents;
 	LLVector3	mImpostorAngle;
 	F32			mImpostorDistance;
 	F32			mImpostorPixelArea;
@@ -460,7 +470,9 @@ public:
 	//--------------------------------------------------------------------
 public:
 	virtual BOOL    isTextureDefined(LLVOAvatarDefines::ETextureIndex type, U32 index = 0) const;
-	BOOL			isTextureVisible(LLVOAvatarDefines::ETextureIndex index) const;
+	virtual BOOL	isTextureVisible(LLVOAvatarDefines::ETextureIndex type, U32 index = 0) const;
+	virtual BOOL	isTextureVisible(LLVOAvatarDefines::ETextureIndex type, LLWearable *wearable) const;
+
 protected:
 	BOOL			isFullyBaked();
 	static BOOL		areAllNearbyInstancesBaked(S32& grey_avatars);
@@ -492,7 +504,8 @@ protected:
 	};
 	typedef std::vector<BakedTextureData> 	bakedtexturedata_vec_t;
 	bakedtexturedata_vec_t 					mBakedTextureDatas;
-
+	LLLoadedCallbackEntry::source_callback_list_t mCallbackTextureList ; 
+	BOOL mLoadedCallbacksPaused;
 	//--------------------------------------------------------------------
 	// Local Textures
 	//--------------------------------------------------------------------
@@ -512,7 +525,7 @@ private:
 	virtual const LLTextureEntry* getTexEntry(const U8 te_num) const;
 	virtual void setTexEntry(const U8 index, const LLTextureEntry &te);
 
-
+	void checkTextureLoading() ;
 	//--------------------------------------------------------------------
 	// Layers
 	//--------------------------------------------------------------------
@@ -569,7 +582,8 @@ protected:
 	void 			releaseMeshData();
 	virtual void restoreMeshData();
 private:
-	BOOL 			mDirtyMesh;
+	void 			dirtyMesh(S32 priority); // Dirty the avatar mesh, with priority
+	S32 			mDirtyMesh; // 0 -- not dirty, 1 -- morphed, 2 -- LOD
 	BOOL			mMeshTexturesDirty;
 
 	typedef std::multimap<std::string, LLPolyMesh*> polymesh_map_t;
@@ -601,8 +615,9 @@ public:
 	// Appearance morphing
 	//--------------------------------------------------------------------
 public:
-	BOOL			mAppearanceAnimating;
+	BOOL			getIsAppearanceAnimating() const { return mAppearanceAnimating; }
 private:
+	BOOL			mAppearanceAnimating;
 	LLFrameTimer	mAppearanceMorphTimer;
 	F32				mLastAppearanceBlendTime;
 
@@ -644,7 +659,7 @@ public:
  **/
 
 public:
-	virtual BOOL			isWearingWearableType(EWearableType type ) const;
+	virtual BOOL			isWearingWearableType(LLWearableType::EType type ) const;
 	
 	//--------------------------------------------------------------------
 	// Attachments
@@ -676,6 +691,7 @@ public:
 	void 				rebuildHUD();
 	void 				resetHUDAttachments();
 	BOOL				canAttachMoreObjects() const;
+	BOOL				canAttachMoreObjects(U32 n) const;
 protected:
 	U32					getNumAttachments() const; // O(N), not O(1)
 
@@ -828,6 +844,7 @@ private:
 	BOOL	  		mNameBusy;
 	BOOL	  		mNameMute;
 	BOOL      		mNameAppearance;
+	BOOL      		mNameCloud;
 	BOOL      		mRenderGroupTitles;
 
 	//--------------------------------------------------------------------
@@ -857,7 +874,7 @@ private:
 public:
 	// Responsible for detecting the user's voice signal (and when the
 	// user speaks, it puts a voice symbol over the avatar's head) and gesticulations
-	LLVoiceVisualizer*  mVoiceVisualizer;
+	LLPointer<LLVoiceVisualizer>  mVoiceVisualizer;
 	int					mCurrentGesticulationLevel;
 
 	//--------------------------------------------------------------------
@@ -889,6 +906,9 @@ private:
  **                    DIAGNOSTICS
  **/
 	
+	//--------------------------------------------------------------------
+	// General
+	//--------------------------------------------------------------------
 public:
 	static void			dumpArchetypeXML(void*);
 	static void			dumpBakedStatus();
@@ -907,6 +927,16 @@ private:
 	F32					mMaxPixelArea;
 	F32					mAdjustedPixelArea;
 	std::string  		mDebugText;
+
+
+	//--------------------------------------------------------------------
+	// Avatar Rez Metrics
+	//--------------------------------------------------------------------
+public:
+	F32				debugGetExistenceTimeElapsedF32() const { return mDebugExistenceTimer.getElapsedTimeF32(); }
+protected:
+	LLFrameTimer	mRuthDebugTimer; // For tracking how long it takes for av to rez
+	LLFrameTimer	mDebugExistenceTimer; // Debugging for how long the avatar has been in memory.
 
 /**                    Diagnostics
  **                                                                            **
@@ -1024,15 +1054,7 @@ protected: // Shared with LLVOAvatarSelf
  *******************************************************************************/
 
 }; // LLVOAvatar
-
-//------------------------------------------------------------------------
-// Inlines
-//------------------------------------------------------------------------
-inline BOOL LLVOAvatar::isTextureVisible(LLVOAvatarDefines::ETextureIndex te) const
-{
-	return ((isTextureDefined(te) || isSelf())
-			&& (getTEImage(te)->getID() != IMG_INVISIBLE 
-				|| LLDrawPoolAlpha::sShowDebugAlpha));
-}
+extern const F32 SELF_ADDITIONAL_PRI;
+extern const S32 MAX_TEXTURE_VIRTURE_SIZE_RESET_INTERVAL;
 
 #endif // LL_VO_AVATAR_H

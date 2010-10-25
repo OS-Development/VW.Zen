@@ -72,7 +72,7 @@ void LLURLLineEditor::cut()
 		if( need_to_rollback )
 		{
 			rollback.doRollback( this );
-			reportBadKeystroke();
+			LLUI::reportBadKeystroke();
 		}
 		else
 		if( mKeystrokeCallback )
@@ -89,15 +89,11 @@ void LLURLLineEditor::copyEscapedURLToClipboard()
 
 	const std::string unescaped_text = wstring_to_utf8str(mText.getWString().substr(left_pos, length));
 	LLWString text_to_copy;
-	if (LLSLURL::isSLURL(unescaped_text))
+	// *HACK: Because LLSLURL is currently broken we cannot use it to check if unescaped_text is a valid SLURL (see EXT-8335).
+	if (LLStringUtil::startsWith(unescaped_text, "http://")) // SLURL
 		text_to_copy = utf8str_to_wstring(LLWeb::escapeURL(unescaped_text));
-	else
+	else // human-readable location
 		text_to_copy = utf8str_to_wstring(unescaped_text);
 		
 	gClipboard.copyFromString( text_to_copy );
-}
-// Makes UISndBadKeystroke sound
-void LLURLLineEditor::reportBadKeystroke()
-{
-	make_ui_sound("UISndBadKeystroke");
 }

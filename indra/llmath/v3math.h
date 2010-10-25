@@ -36,7 +36,6 @@
 #include "llerror.h"
 #include "llmath.h"
 
-
 #include "llsd.h"
 class LLVector2;
 class LLVector4;
@@ -283,7 +282,7 @@ inline void	LLVector3::setVec(const F32 *vec)
 
 inline F32 LLVector3::normalize(void)
 {
-	F32 mag = fsqrtf(mV[0]*mV[0] + mV[1]*mV[1] + mV[2]*mV[2]);
+	F32 mag = (F32) sqrt(mV[0]*mV[0] + mV[1]*mV[1] + mV[2]*mV[2]);
 	F32 oomag;
 
 	if (mag > FP_MAG_THRESHOLD)
@@ -306,7 +305,7 @@ inline F32 LLVector3::normalize(void)
 // deprecated
 inline F32 LLVector3::normVec(void)
 {
-	F32 mag = fsqrtf(mV[0]*mV[0] + mV[1]*mV[1] + mV[2]*mV[2]);
+	F32 mag = (F32) sqrt(mV[0]*mV[0] + mV[1]*mV[1] + mV[2]*mV[2]);
 	F32 oomag;
 
 	if (mag > FP_MAG_THRESHOLD)
@@ -330,7 +329,7 @@ inline F32 LLVector3::normVec(void)
 
 inline F32	LLVector3::length(void) const
 {
-	return fsqrtf(mV[0]*mV[0] + mV[1]*mV[1] + mV[2]*mV[2]);
+	return (F32) sqrt(mV[0]*mV[0] + mV[1]*mV[1] + mV[2]*mV[2]);
 }
 
 inline F32	LLVector3::lengthSquared(void) const
@@ -340,7 +339,7 @@ inline F32	LLVector3::lengthSquared(void) const
 
 inline F32	LLVector3::magVec(void) const
 {
-	return fsqrtf(mV[0]*mV[0] + mV[1]*mV[1] + mV[2]*mV[2]);
+	return (F32) sqrt(mV[0]*mV[0] + mV[1]*mV[1] + mV[2]*mV[2]);
 }
 
 inline F32	LLVector3::magVecSquared(void) const
@@ -474,7 +473,7 @@ inline F32	dist_vec(const LLVector3 &a, const LLVector3 &b)
 	F32 x = a.mV[0] - b.mV[0];
 	F32 y = a.mV[1] - b.mV[1];
 	F32 z = a.mV[2] - b.mV[2];
-	return fsqrtf( x*x + y*y + z*z );
+	return (F32) sqrt( x*x + y*y + z*z );
 }
 
 inline F32	dist_vec_squared(const LLVector3 &a, const LLVector3 &b)
@@ -528,6 +527,21 @@ inline void update_min_max(LLVector3& min, LLVector3& max, const LLVector3& pos)
 		if (max.mV[i] < pos.mV[i])
 		{
 			max.mV[i] = pos.mV[i];
+		}
+	}
+}
+
+inline void update_min_max(LLVector3& min, LLVector3& max, const F32* pos)
+{
+	for (U32 i = 0; i < 3; i++)
+	{
+		if (min.mV[i] > pos[i])
+		{
+			min.mV[i] = pos[i];
+		}
+		if (max.mV[i] < pos[i])
+		{
+			max.mV[i] = pos[i];
 		}
 	}
 }

@@ -92,8 +92,7 @@ LLPanelGroup::LLPanelGroup()
 :	LLPanel(),
 	LLGroupMgrObserver( LLUUID() ),
 	mSkipRefresh(FALSE),
-	mButtonJoin(NULL),
-	mShowingNotifyDialog(false)
+	mButtonJoin(NULL)
 {
 	// Set up the factory callbacks.
 	// Roles sub tabs
@@ -183,6 +182,11 @@ BOOL LLPanelGroup::postBuild()
 	LLPanelGroupTab* panel_notices = findChild<LLPanelGroupTab>("group_notices_tab_panel");
 	LLPanelGroupTab* panel_land = findChild<LLPanelGroupTab>("group_land_tab_panel");
 
+	if (LLAccordionCtrl* accordion_ctrl = getChild<LLAccordionCtrl>("groups_accordion"))
+	{
+		setVisibleCallback(boost::bind(&LLPanelGroup::onVisibilityChange, this, _2, accordion_ctrl));
+	}
+
 	if(panel_general)	mTabs.push_back(panel_general);
 	if(panel_roles)		mTabs.push_back(panel_roles);
 	if(panel_notices)	mTabs.push_back(panel_notices);
@@ -201,7 +205,7 @@ BOOL LLPanelGroup::postBuild()
 		mJoinText = panel_general->getChild<LLUICtrl>("join_cost_text");
 	}
 
-	gVoiceClient->addObserver(this);
+	LLVoiceClient::getInstance()->addObserver(this);
 	
 	return TRUE;
 }
@@ -306,6 +310,13 @@ void LLPanelGroup::onBtnCancel()
 	onBackBtnClick();
 }
 
+void LLPanelGroup::onVisibilityChange(const LLSD &in_visible_chain, LLAccordionCtrl* accordion_ctrl)
+{
+	if (in_visible_chain.asBoolean() && accordion_ctrl != NULL)
+	{
+		accordion_ctrl->expandDefaultTab();
+	}
+}
 
 void LLPanelGroup::changed(LLGroupChange gc)
 {
@@ -322,7 +333,7 @@ void LLPanelGroup::onChange(EStatusType status, const std::string &channelURI, b
 		return;
 	}
 
-	childSetEnabled("btn_call", LLVoiceClient::voiceEnabled() && gVoiceClient->voiceWorking());
+	childSetEnabled("btn_call", LLVoiceClient::getInstance()->voiceEnabled() && LLVoiceClient::getInstance()->isVoiceWorking());
 }
 
 void LLPanelGroup::notifyObservers()
@@ -414,19 +425,14 @@ void LLPanelGroup::setGroupID(const LLUUID& group_id)
 
 	getChild<LLUICtrl>("prepend_founded_by")->setVisible(!is_null_group_id);
 
-	LLAccordionCtrl* tab_ctrl = findChild<LLAccordionCtrl>("group_accordion");
-	if(tab_ctrl)
-		tab_ctrl->reset();
+	LLAccordionCtrl* tab_ctrl = getChild<LLAccordionCtrl>("groups_accordion");
+	tab_ctrl->reset();
 
-	LLAccordionCtrlTab* tab_general = findChild<LLAccordionCtrlTab>("group_general_tab");
-	LLAccordionCtrlTab* tab_roles = findChild<LLAccordionCtrlTab>("group_roles_tab");
-	LLAccordionCtrlTab* tab_notices = findChild<LLAccordionCtrlTab>("group_notices_tab");
-	LLAccordionCtrlTab* tab_land = findChild<LLAccordionCtrlTab>("group_land_tab");
+	LLAccordionCtrlTab* tab_general = getChild<LLAccordionCtrlTab>("group_general_tab");
+	LLAccordionCtrlTab* tab_roles = getChild<LLAccordionCtrlTab>("group_roles_tab");
+	LLAccordionCtrlTab* tab_notices = getChild<LLAccordionCtrlTab>("group_notices_tab");
+	LLAccordionCtrlTab* tab_land = getChild<LLAccordionCtrlTab>("group_land_tab");
 
-
-	if(!tab_general || !tab_roles || !tab_notices || !tab_land)
-		return;
-	
 	if(mButtonJoin)
 		mButtonJoin->setVisible(false);
 
@@ -487,6 +493,8 @@ void LLPanelGroup::setGroupID(const LLUUID& group_id)
 			button_chat->setVisible(is_member);
 	}
 
+	tab_ctrl->arrange();
+
 	reposButtons();
 	update(GC_ALL);//show/hide "join" button if data is already ready
 }
@@ -537,6 +545,7 @@ void LLPanelGroup::draw()
 	{
 		mRefreshTimer.stop();
 		childEnable("btn_refresh");
+		childEnable("groups_accordion");
 	}
 
 	LLButton* button_apply = findChild<LLButton>("btn_apply");
@@ -565,6 +574,8 @@ void LLPanelGroup::refreshData()
 	
 	// 5 second timeout
 	childDisable("btn_refresh");
+	childDisable("groups_accordion");
+
 	mRefreshTimer.start();
 	mRefreshTimer.setTimerExpirySec(5);
 }
@@ -629,69 +640,4 @@ void LLPanelGroup::showNotice(const std::string& subject,
 
 }
 
-bool	LLPanelGroup::canClose()
-{
-	if(getVisible() == false)
-		return true;
-
-	bool need_save = false;
-	std::string mesg;
-	for(std::vector<LLPanelGroupTab* >::iterator it = mTabs.begin();it!=mTabs.end();++it)
-		if(need_save|=(*it)->needsApply(mesg))
-			break;
-	if(!need_save)
-		return false;
-	// If no message was provided, give a generic one.
-	if (mesg.empty())
-	{
-		mesg = mDefaultNeedsApplyMesg;
-	}
-	// Create a notify box, telling the user about the unapplied tab.
-	LLSD args;
-	args["NEEDS_APPLY_MESSAGE"] = mesg;
-	args["WANT_APPLY_MESSAGE"] = mWantApplyMesg;
-
-	LLNotificationsUtil::add("SaveChanges", args, LLSD(), boost::bind(&LLPanelGroup::handleNotifyCallback,this, _1, _2));
-
-	mShowingNotifyDialog = true;
-
-	return false;
-}
-
-bool	LLPanelGroup::notifyChildren(const LLSD& info)
-{
-	if(info.has("request") && mID.isNull() )
-	{
-		std::string str_action = info["request"];
-
-		if (str_action == "quit" )
-		{
-			canClose();
-			return true;
-		}
-		if(str_action == "wait_quit")
-			return mShowingNotifyDialog;
-	}
-	return false;
-}
-bool LLPanelGroup::handleNotifyCallback(const LLSD& notification, const LLSD& response)
-{
-	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
-	mShowingNotifyDialog = false;
-	switch (option)
-	{
-	case 0: // "Apply Changes"
-		apply();
-		break;
-	case 1: // "Ignore Changes"
-		break;
-	case 2: // "Cancel"
-	default:
-		// Do nothing.  The user is canceling the action.
-		// If we were quitting, we didn't really mean it.
-		LLAppViewer::instance()->abortQuit();
-		break;
-	}
-	return false;
-}
 

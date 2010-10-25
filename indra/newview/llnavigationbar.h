@@ -87,9 +87,10 @@ protected:
  * Web browser-like navigation bar.
  */ 
 class LLNavigationBar
-	:	public LLPanel, public LLSingleton<LLNavigationBar>
+	:	public LLPanel, public LLSingleton<LLNavigationBar>, private LLDestroyClass<LLNavigationBar>
 {
 	LOG_CLASS(LLNavigationBar);
+	friend class LLDestroyClass<LLNavigationBar>;
 	
 public:
 	LLNavigationBar();
@@ -110,6 +111,8 @@ public:
 	int getDefFavBarHeight();
 	
 private:
+	// the distance between navigation panel and favorites panel in pixels
+	const static S32 FAVBAR_TOP_PADDING = 10;
 
 	void rebuildTeleportHistoryMenu();
 	void showTeleportHistoryMenu(LLUICtrl* btn_ctrl);
@@ -135,6 +138,14 @@ private:
 			const LLUUID& snapshot_id, bool teleport);
 
 	void fillSearchComboBox();
+
+	static void destroyClass()
+	{
+		if (LLNavigationBar::instanceExists())
+		{
+			LLNavigationBar::getInstance()->setEnabled(FALSE);
+		}
+	}
 
 	LLMenuGL*					mTeleportHistoryMenu;
 	LLPullButton*				mBtnBack;

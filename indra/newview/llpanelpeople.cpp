@@ -272,6 +272,7 @@ public:
 	friend class LLInventoryFriendCardObserver;
 	LLFriendListUpdater(callback_t cb)
 	:	LLAvatarListUpdater(cb, FRIEND_LIST_UPDATE_TIMEOUT)
+	,	mIsActive(false)
 	{
 		LLAvatarTracker::instance().addObserver(this);
 
@@ -290,9 +291,12 @@ public:
 
 	/*virtual*/ void changed(U32 mask)
 	{
-		// events can arrive quickly in bulk - we need not process EVERY one of them -
-		// so we wait a short while to let others pile-in, and process them in aggregate.
-		mEventTimer.start();
+		if (mIsActive)
+		{
+			// events can arrive quickly in bulk - we need not process EVERY one of them -
+			// so we wait a short while to let others pile-in, and process them in aggregate.
+			mEventTimer.start();
+		}
 
 		// save-up all the mask-bits which have come-in
 		mMask |= mask;
@@ -301,8 +305,12 @@ public:
 
 	/*virtual*/ BOOL tick()
 	{
+		if (!mIsActive) return FALSE;
+
 		if (mMask & (LLFriendObserver::ADD | LLFriendObserver::REMOVE | LLFriendObserver::ONLINE))
+		{
 			updateList();
+		}
 
 		// Stop updates.
 		mEventTimer.stop();
@@ -311,9 +319,20 @@ public:
 		return FALSE;
 	}
 
+	// virtual
+	void setActive(bool active)
+	{
+		mIsActive = active;
+		if (active)
+		{
+			tick();
+		}
+	}
+
 private:
 	U32 mMask;
 	LLInventoryFriendCardObserver* mInvObserver;
+	bool mIsActive;
 
 	/**
 	 *	This class is intended for updating Friend List when Inventory Friend Card is added/removed.
@@ -443,6 +462,7 @@ public:
 LLPanelPeople::LLPanelPeople()
 	:	LLPanel(),
 		mFilterSubString(LLStringUtil::null),
+		mFilterSubStringOrig(LLStringUtil::null),
 		mFilterEditor(NULL),
 		mTabContainer(NULL),
 		mOnlineFriendList(NULL),
@@ -495,32 +515,39 @@ void LLPanelPeople::onFriendsAccordionExpandedCollapsed(LLUICtrl* ctrl, const LL
 
 BOOL LLPanelPeople::postBuild()
 {
-	setVisibleCallback(boost::bind(&LLPanelPeople::onVisibilityChange, this, _2));
-	
 	mFilterEditor = getChild<LLFilterEditor>("filter_input");
 	mFilterEditor->setCommitCallback(boost::bind(&LLPanelPeople::onFilterEdit, this, _2));
 
 	mTabContainer = getChild<LLTabContainer>("tabs");
 	mTabContainer->setCommitCallback(boost::bind(&LLPanelPeople::onTabSelected, this, _2));
 
-	mOnlineFriendList = getChild<LLPanel>(FRIENDS_TAB_NAME)->getChild<LLAvatarList>("avatars_online");
-	mAllFriendList = getChild<LLPanel>(FRIENDS_TAB_NAME)->getChild<LLAvatarList>("avatars_all");
+	LLPanel* friends_tab = getChild<LLPanel>(FRIENDS_TAB_NAME);
+	// updater is active only if panel is visible to user.
+	friends_tab->setVisibleCallback(boost::bind(&Updater::setActive, mFriendListUpdater, _2));
+	mOnlineFriendList = friends_tab->getChild<LLAvatarList>("avatars_online");
+	mAllFriendList = friends_tab->getChild<LLAvatarList>("avatars_all");
 	mOnlineFriendList->setNoItemsCommentText(getString("no_friends_online"));
 	mOnlineFriendList->setShowIcons("FriendsListShowIcons");
 	mAllFriendList->setNoItemsCommentText(getString("no_friends"));
 	mAllFriendList->setShowIcons("FriendsListShowIcons");
 
-	mNearbyList = getChild<LLPanel>(NEARBY_TAB_NAME)->getChild<LLAvatarList>("avatar_list");
+	LLPanel* nearby_tab = getChild<LLPanel>(NEARBY_TAB_NAME);
+	nearby_tab->setVisibleCallback(boost::bind(&Updater::setActive, mNearbyListUpdater, _2));
+	mNearbyList = nearby_tab->getChild<LLAvatarList>("avatar_list");
 	mNearbyList->setNoItemsCommentText(getString("no_one_near"));
+	mNearbyList->setNoItemsMsg(getString("no_one_near"));
+	mNearbyList->setNoFilteredItemsMsg(getString("no_one_filtered_near"));
 	mNearbyList->setShowIcons("NearbyListShowIcons");
 
 	mRecentList = getChild<LLPanel>(RECENT_TAB_NAME)->getChild<LLAvatarList>("avatar_list");
-	mRecentList->setNoItemsCommentText(getString("no_people"));
+	mRecentList->setNoItemsCommentText(getString("no_recent_people"));
+	mRecentList->setNoItemsMsg(getString("no_recent_people"));
+	mRecentList->setNoFilteredItemsMsg(getString("no_filtered_recent_people"));
 	mRecentList->setShowIcons("RecentListShowIcons");
 
 	mGroupList = getChild<LLGroupList>("group_list");
-	mGroupList->setNoGroupsMsg(getString("no_groups_msg"));
-	mGroupList->setNoFilteredGroupsMsg(getString("no_filtered_groups_msg"));
+	mGroupList->setNoItemsMsg(getString("no_groups_msg"));
+	mGroupList->setNoFilteredItemsMsg(getString("no_filtered_groups_msg"));
 
 	mNearbyList->setContextMenu(&LLPanelPeopleMenus::gNearbyMenu);
 	mRecentList->setContextMenu(&LLPanelPeopleMenus::gNearbyMenu);
@@ -619,7 +646,7 @@ BOOL LLPanelPeople::postBuild()
 	if(recent_view_sort)
 		mRecentViewSortMenuHandle  = recent_view_sort->getHandle();
 
-	gVoiceClient->addObserver(this);
+	LLVoiceClient::getInstance()->addObserver(this);
 
 	// call this method in case some list is empty and buttons can be in inconsistent state
 	updateButtons();
@@ -641,6 +668,25 @@ void LLPanelPeople::onChange(EStatusType status, const std::string &channelURI, 
 	updateButtons();
 }
 
+void LLPanelPeople::updateFriendListHelpText()
+{
+	// show special help text for just created account to help finding friends. EXT-4836
+	static LLTextBox* no_friends_text = getChild<LLTextBox>("no_friends_help_text");
+
+	// Seems sometimes all_friends can be empty because of issue with Inventory loading (clear cache, slow connection...)
+	// So, lets check all lists to avoid overlapping the text with online list. See EXT-6448.
+	bool any_friend_exists = mAllFriendList->filterHasMatches() || mOnlineFriendList->filterHasMatches();
+	no_friends_text->setVisible(!any_friend_exists);
+	if (no_friends_text->getVisible())
+	{
+		//update help text for empty lists
+		std::string message_name = mFilterSubString.empty() ? "no_friends_msg" : "no_filtered_friends_msg";
+		LLStringUtil::format_map_t args;
+		args["[SEARCH_TERM]"] = LLURI::escape(mFilterSubStringOrig);
+		no_friends_text->setText(getString(message_name, args));
+	}
+}
+
 void LLPanelPeople::updateFriendList()
 {
 	if (!mOnlineFriendList || !mAllFriendList)
@@ -652,8 +698,8 @@ void LLPanelPeople::updateFriendList()
 	av_tracker.copyBuddyList(all_buddies);
 
 	// save them to the online and all friends vectors
-	LLAvatarList::uuid_vector_t& online_friendsp = mOnlineFriendList->getIDs();
-	LLAvatarList::uuid_vector_t& all_friendsp = mAllFriendList->getIDs();
+	uuid_vec_t& online_friendsp = mOnlineFriendList->getIDs();
+	uuid_vec_t& all_friendsp = mAllFriendList->getIDs();
 
 	all_friendsp.clear();
 	online_friendsp.clear();
@@ -679,14 +725,6 @@ void LLPanelPeople::updateFriendList()
 		if (av_tracker.isBuddyOnline(buddy_id))
 			online_friendsp.push_back(buddy_id);
 	}
-
-	// show special help text for just created account to help found friends. EXT-4836
-	static LLTextBox* no_friends_text = getChild<LLTextBox>("no_friends_msg");
-
-	// Seems sometimes all_friends can be empty because of issue with Inventory loading (clear cache, slow connection...)
-	// So, lets check all lists to avoid overlapping the text with online list. See EXT-6448.
-	bool any_friend_exists = (all_friendsp.size() > 0) || (online_friendsp.size() > 0);
-	no_friends_text->setVisible(!any_friend_exists);
 
 	/*
 	 * Avatarlists  will be hidden by showFriendsAccordionsIfNeeded(), if they do not have items.
@@ -746,7 +784,7 @@ void LLPanelPeople::buttonSetAction(const std::string& btn_name, const commit_si
 
 bool LLPanelPeople::isFriendOnline(const LLUUID& id)
 {
-	LLAvatarList::uuid_vector_t ids = mOnlineFriendList->getIDs();
+	uuid_vec_t ids = mOnlineFriendList->getIDs();
 	return std::find(ids.begin(), ids.end(), id) != ids.end();
 }
 
@@ -784,8 +822,8 @@ void LLPanelPeople::updateButtons()
 		}
 
 		LLPanel* groups_panel = mTabContainer->getCurrentPanel();
-		groups_panel->childSetEnabled("activate_btn",	item_selected && !cur_group_active); // "none" or a non-active group selected
-		groups_panel->childSetEnabled("minus_btn",		item_selected && selected_id.notNull());
+		groups_panel->getChildView("activate_btn")->setEnabled(item_selected && !cur_group_active); // "none" or a non-active group selected
+		groups_panel->getChildView("minus_btn")->setEnabled(item_selected && selected_id.notNull());
 	}
 	else
 	{
@@ -801,15 +839,15 @@ void LLPanelPeople::updateButtons()
 		LLPanel* cur_panel = mTabContainer->getCurrentPanel();
 		if (cur_panel)
 		{
-			cur_panel->childSetEnabled("add_friend_btn", !is_friend);
+			cur_panel->getChildView("add_friend_btn")->setEnabled(!is_friend);
 			if (friends_tab_active)
 			{
-				cur_panel->childSetEnabled("del_btn", multiple_selected);
+				cur_panel->getChildView("del_btn")->setEnabled(multiple_selected);
 			}
 		}
 	}
 
-	bool enable_calls = gVoiceClient->voiceWorking() && gVoiceClient->voiceEnabled();
+	bool enable_calls = LLVoiceClient::getInstance()->isVoiceWorking() && LLVoiceClient::getInstance()->voiceEnabled();
 
 	buttonSetEnabled("teleport_btn",		friends_tab_active && item_selected && isFriendOnline(selected_uuids.front()));
 	buttonSetEnabled("view_profile_btn",	item_selected);
@@ -939,28 +977,6 @@ void LLPanelPeople::setSortOrder(LLAvatarList* list, ESortOrder order, bool save
 	}
 }
 
-void LLPanelPeople::onVisibilityChange(const LLSD& new_visibility)
-{
-	if (new_visibility.asBoolean() == FALSE)
-	{
-		// Don't update anything while we're invisible.
-		mNearbyListUpdater->setActive(FALSE);
-	}
-	else
-	{
-		reSelectedCurrentTab();
-	}
-}
-
-// Make the tab-container re-select current tab
-// for onTabSelected() callback to get called.
-// (currently this is needed to reactivate nearby list updates
-// when we get visible)
-void LLPanelPeople::reSelectedCurrentTab()
-{
-	mTabContainer->selectTab(mTabContainer->getCurrentPanelIndex());
-}
-
 bool LLPanelPeople::isRealGroup()
 {
 	return getCurrentItemID() != LLUUID::null;
@@ -968,10 +984,11 @@ bool LLPanelPeople::isRealGroup()
 
 void LLPanelPeople::onFilterEdit(const std::string& search_string)
 {
-	std::string search_upper = search_string;
+	mFilterSubStringOrig = search_string;
+	LLStringUtil::trimHead(mFilterSubStringOrig);
 	// Searches are case-insensitive
+	std::string search_upper = mFilterSubStringOrig;
 	LLStringUtil::toUpper(search_upper);
-	LLStringUtil::trimHead(search_upper);
 
 	if (mFilterSubString == search_upper)
 		return;
@@ -986,11 +1003,11 @@ void LLPanelPeople::onFilterEdit(const std::string& search_string)
 
 
 	// Apply new filter.
-	mNearbyList->setNameFilter(mFilterSubString);
-	mOnlineFriendList->setNameFilter(mFilterSubString);
-	mAllFriendList->setNameFilter(mFilterSubString);
-	mRecentList->setNameFilter(mFilterSubString);
-	mGroupList->setNameFilter(mFilterSubString);
+	mNearbyList->setNameFilter(mFilterSubStringOrig);
+	mOnlineFriendList->setNameFilter(mFilterSubStringOrig);
+	mAllFriendList->setNameFilter(mFilterSubStringOrig);
+	mRecentList->setNameFilter(mFilterSubStringOrig);
+	mGroupList->setNameFilter(mFilterSubStringOrig);
 
 	setAccordionCollapsedByUser("tab_online", false);
 	setAccordionCollapsedByUser("tab_all", false);
@@ -1007,7 +1024,6 @@ void LLPanelPeople::onFilterEdit(const std::string& search_string)
 void LLPanelPeople::onTabSelected(const LLSD& param)
 {
 	std::string tab_name = getChild<LLPanel>(param.asString())->getName();
-	mNearbyListUpdater->setActive(tab_name == NEARBY_TAB_NAME);
 	updateButtons();
 
 	showFriendsAccordionsIfNeeded();
@@ -1371,8 +1387,6 @@ void	LLPanelPeople::onOpen(const LLSD& key)
 	
 	if (!tab_name.empty())
 		mTabContainer->selectTabByName(tab_name);
-	else
-		reSelectedCurrentTab();
 }
 
 bool LLPanelPeople::notifyChildren(const LLSD& info)
@@ -1432,6 +1446,11 @@ void LLPanelPeople::showFriendsAccordionsIfNeeded()
 		// Rearrange accordions
 		LLAccordionCtrl* accordion = getChild<LLAccordionCtrl>("friends_accordion");
 		accordion->arrange();
+
+		// *TODO: new no_matched_tabs_text attribute was implemented in accordion (EXT-7368).
+		// this code should be refactored to use it
+		// keep help text in a synchronization with accordions visibility.
+		updateFriendListHelpText();
 	}
 }
 

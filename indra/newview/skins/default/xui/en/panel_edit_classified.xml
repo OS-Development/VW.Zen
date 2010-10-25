@@ -24,15 +24,16 @@
  </string>
   <button
      follows="top|right"
-     height="23"
-     image_overlay="BackArrow_Off"
+     height="24"
+     image_hover_unselected="BackButton_Over"
+     image_pressed="BackButton_Press"
+     image_unselected="BackButton_Off"
      layout="topleft"
      name="back_btn"
-     picture_style="true"
-     left="12"
+     left="10"
      tab_stop="false"
      top="2"
-     width="23" />
+     width="30" />
    <text
      type="string"
      length="1"
@@ -40,7 +41,7 @@
      font="SansSerifHugeBold"
      height="26"
      layout="topleft"
-     left_pad="10"
+     left_pad="4"
      name="title"
      text_color="LtGray"
      top="0"
@@ -77,6 +78,7 @@
          top="10"
          width="272">
       <texture_picker
+       fallback_image="default_land_picture.j2c"
        follows="left|top|right"
        height="197"
        width="272"
@@ -252,9 +254,16 @@
                  width="20"/>
             </icons_combo_box.item>
         </icons_combo_box>
+        <check_box
+         height="16"
+         label="Auto renew each week"
+         layout="topleft"
+         left="10"
+         name="auto_renew"
+         top_pad="15"
+         width="250" />
         <text
          follows="left|top"
-         font.style="BOLD"
          height="10"
          layout="topleft"
          left="10"
@@ -281,14 +290,6 @@
          top_pad="5"
          tool_tip="Price for listing."
          width="105" />
-        <check_box
-         height="16"
-         label="Auto renew each week"
-         layout="topleft"
-         left="10"
-         name="auto_renew"
-         top_pad="15"
-         width="250" />
      </panel>
     </scroll_container>
     <panel
