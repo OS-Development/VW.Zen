@@ -26,7 +26,9 @@
 #include "linden_common.h"
 #include <boost/format.hpp>
 #include "llhttpclient.h"
+#include "llsd.h"
 #include "llupdatechecker.h"
+#include "lluri.h"
 
 
 class LLUpdateChecker::Implementation:
@@ -35,6 +37,7 @@ class LLUpdateChecker::Implementation:
 public:
 	
 	Implementation(Client & client);
+	~Implementation();
 	void check(std::string const & host, std::string channel, std::string version);
 	
 	// Responder:
@@ -49,6 +52,7 @@ private:
 	Client & mClient;
 	LLHTTPClient mHttpClient;
 	bool mInProgress;
+	LLHTTPClient::ResponderPtr mMe;
 	std::string mVersion;
 	
 	LOG_CLASS(LLUpdateChecker::Implementation);
@@ -80,21 +84,28 @@ void LLUpdateChecker::check(std::string const & host, std::string channel, std::
 
 LLUpdateChecker::Implementation::Implementation(LLUpdateChecker::Client & client):
 	mClient(client),
-	mInProgress(false)
+	mInProgress(false),
+	mMe(this)
 {
 	; // No op.
 }
 
 
+LLUpdateChecker::Implementation::~Implementation()
+{
+	mMe.reset(0);
+}
+
+
 void LLUpdateChecker::Implementation::check(std::string const & host, std::string channel, std::string version)
 {
-	llassert(!mInProgress);
+	// llassert(!mInProgress);
 		
 	mInProgress = true;
 	mVersion = version;
 	std::string checkUrl = buildUrl(host, channel, version);
 	LL_INFOS("UpdateCheck") << "checking for updates at " << checkUrl << llendl;
-	mHttpClient.get(checkUrl, this);
+	mHttpClient.get(checkUrl, mMe);
 }
 
 void LLUpdateChecker::Implementation::completed(U32 status,
@@ -105,12 +116,16 @@ void LLUpdateChecker::Implementation::completed(U32 status,
 	
 	if(status != 200) {
 		LL_WARNS("UpdateCheck") << "html error " << status << " (" << reason << ")" << llendl;
+		mClient.error(reason);
 	} else if(!content["valid"].asBoolean()) {
 		LL_INFOS("UpdateCheck") << "version invalid" << llendl;
+		mClient.requiredUpdate(content["latest_version"].asString());
 	} else if(content["latest_version"].asString() != mVersion) {
 		LL_INFOS("UpdateCheck") << "newer version " << content["latest_version"].asString() << " available" << llendl;
+		mClient.optionalUpdate(content["latest_version"].asString());
 	} else {
 		LL_INFOS("UpdateCheck") << "up to date" << llendl;
+		mClient.upToDate();
 	}
 }
 
@@ -124,8 +139,10 @@ void LLUpdateChecker::Implementation::error(U32 status, const std::string & reas
 
 std::string LLUpdateChecker::Implementation::buildUrl(std::string const & host, std::string channel, std::string version)
 {	
-	static boost::format urlFormat("%s/version/%s/%s");
-	urlFormat % host % channel % version;
-	return urlFormat.str();
+	LLSD path;
+	path.append("version");
+	path.append(channel);
+	path.append(version);
+	return LLURI::buildHTTP(host, path).asString();
 }
 
