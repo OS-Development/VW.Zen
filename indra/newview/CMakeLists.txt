@@ -64,6 +64,7 @@ include_directories(
     ${LSCRIPT_INCLUDE_DIRS}
     ${LSCRIPT_INCLUDE_DIRS}/lscript_compile
     ${LLLOGIN_INCLUDE_DIRS}
+    ${UPDATER_INCLUDE_DIRS}
     )
 
 set(viewer_SOURCE_FILES
@@ -1679,6 +1680,7 @@ target_link_libraries(${VIEWER_BINARY_NAME}
     ${OPENSSL_LIBRARIES}
     ${CRYPTO_LIBRARIES}
     ${LLLOGIN_LIBRARIES}
+    ${UPDATER_LIBRARIES}
     ${GOOGLE_PERFTOOLS_LIBRARIES}
     )
 
@@ -1856,6 +1858,7 @@ if (LL_TESTS)
     llmediadataclient.cpp
     lllogininstance.cpp
     llviewerhelputil.cpp
+    llversioninfo.cpp
   )
 
   ##################################################
