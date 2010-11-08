@@ -121,6 +121,55 @@ static bool handleSetShaderChanged(const LLSD& newvalue)
 	return true;
 }
 
+static bool handleLightingDetailChanged(const LLSD& newvalue)
+{
+	if (gPipeline.isInit())
+	{
+		gPipeline.setLightingDetail(-1);
+	}
+	return true;
+}
+
+
+static bool handleRenderPerfTestChanged(const LLSD& newvalue)
+{
+	bool status = !newvalue.asBoolean();
+	if (!status)
+	{
+		gPipeline.clearRenderTypeMask(LLPipeline::RENDER_TYPE_WL_SKY,
+									  LLPipeline::RENDER_TYPE_GROUND,
+									  LLPipeline::RENDER_TYPE_TERRAIN,
+									  LLPipeline::RENDER_TYPE_GRASS,
+									  LLPipeline::RENDER_TYPE_TREE,
+									  LLPipeline::RENDER_TYPE_WATER,
+									  LLPipeline::RENDER_TYPE_PASS_GRASS,
+									  LLPipeline::RENDER_TYPE_HUD,
+									  LLPipeline::RENDER_TYPE_PARTICLES,
+									  LLPipeline::RENDER_TYPE_CLOUDS,
+									  LLPipeline::RENDER_TYPE_HUD_PARTICLES,
+									  LLPipeline::END_RENDER_TYPES); 
+		gPipeline.setRenderDebugFeatureControl(LLPipeline::RENDER_DEBUG_FEATURE_UI, false);
+	}
+	else 
+	{
+		gPipeline.setRenderTypeMask(LLPipeline::RENDER_TYPE_WL_SKY,
+									  LLPipeline::RENDER_TYPE_GROUND,
+									  LLPipeline::RENDER_TYPE_TERRAIN,
+									  LLPipeline::RENDER_TYPE_GRASS,
+									  LLPipeline::RENDER_TYPE_TREE,
+									  LLPipeline::RENDER_TYPE_WATER,
+									  LLPipeline::RENDER_TYPE_PASS_GRASS,
+									  LLPipeline::RENDER_TYPE_HUD,
+									  LLPipeline::RENDER_TYPE_PARTICLES,
+									  LLPipeline::RENDER_TYPE_CLOUDS,
+									  LLPipeline::RENDER_TYPE_HUD_PARTICLES,
+									  LLPipeline::END_RENDER_TYPES);
+		gPipeline.setRenderDebugFeatureControl(LLPipeline::RENDER_DEBUG_FEATURE_UI, true);
+	}
+
+	return true;
+}
+
 static bool handleReleaseGLBufferChanged(const LLSD& newvalue)
 {
 	if (gPipeline.isInit())
@@ -498,7 +547,12 @@ void settings_setup_listeners()
 	gSavedSettings.getControl("RenderTerrainDetail")->getSignal()->connect(boost::bind(&handleTerrainDetailChanged, _2));
 	gSavedSettings.getControl("RenderUseTriStrips")->getSignal()->connect(boost::bind(&handleResetVertexBuffersChanged, _2));
 	gSavedSettings.getControl("RenderAnimateTrees")->getSignal()->connect(boost::bind(&handleResetVertexBuffersChanged, _2));
+	gSavedSettings.getControl("RenderBakeSunlight")->getSignal()->connect(boost::bind(&handleResetVertexBuffersChanged, _2));
+	gSavedSettings.getControl("RenderNoAlpha")->getSignal()->connect(boost::bind(&handleResetVertexBuffersChanged, _2));
+	gSavedSettings.getControl("RenderShaderLightingMaxLevel")->getSignal()->connect(boost::bind(&handleSetShaderChanged, _2));
+	gSavedSettings.getControl("RenderLocalLights")->getSignal()->connect(boost::bind(&handleLightingDetailChanged, _2));
 	gSavedSettings.getControl("RenderAvatarVP")->getSignal()->connect(boost::bind(&handleSetShaderChanged, _2));
+	gSavedSettings.getControl("RenderPerformanceTest")->getSignal()->connect(boost::bind(&handleRenderPerfTestChanged, _2));
 	gSavedSettings.getControl("VertexShaderEnable")->getSignal()->connect(boost::bind(&handleSetShaderChanged, _2));
 	gSavedSettings.getControl("RenderUIBuffer")->getSignal()->connect(boost::bind(&handleReleaseGLBufferChanged, _2));
 	gSavedSettings.getControl("RenderSpecularResX")->getSignal()->connect(boost::bind(&handleReleaseGLBufferChanged, _2));

@@ -53,7 +53,7 @@
 
 namespace po = boost::program_options;
 
-// *NOTE:MEP - Currently the boost object reside in file scope.
+// *NTOE:MEP - Currently the boost object reside in file scope. 
 // This has a couple of negatives, they are always around and 
 // there can be only one instance of each. 
 // The plus is that the boost-ly-ness of this implementation is 
@@ -156,12 +156,6 @@ public:
         return mIsComposing;
     }
 
-	// Needed for boost 1.42
-	virtual bool is_required() const
-	{
-		return false; // All our command line options are optional.
-	}
-
     virtual bool apply_default(boost::any& value_store) const
     {
         return false; // No defaults.
@@ -175,6 +169,7 @@ public:
         {
            mNotifyCallback(*value);
         }
+
     }
 
 protected:
