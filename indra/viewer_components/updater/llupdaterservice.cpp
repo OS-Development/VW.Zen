@@ -31,18 +31,30 @@
 #include "llupdaterservice.h"
 #include "llupdatechecker.h"
 
-#include "llpluginprocessparent.h"
 #include <boost/scoped_ptr.hpp>
 #include <boost/weak_ptr.hpp>
+#include "lldir.h"
+#include "llsdserialize.h"
+#include "llfile.h"
 
 #if LL_WINDOWS
 #pragma warning (disable : 4355) // 'this' used in initializer list: yes, intentionally
 #endif
 
-boost::weak_ptr<LLUpdaterServiceImpl> gUpdater;
+
+namespace 
+{
+	boost::weak_ptr<LLUpdaterServiceImpl> gUpdater;
+
+	const std::string UPDATE_MARKER_FILENAME("SecondLifeUpdateReady.xml");
+	std::string update_marker_path()
+	{
+		return gDirUtilp->getExpandedFilename(LL_PATH_LOGS, 
+											  UPDATE_MARKER_FILENAME);
+	}
+}
 
 class LLUpdaterServiceImpl : 
-	public LLPluginProcessParentOwner,
 	public LLUpdateChecker::Client,
 	public LLUpdateDownloader::Client
 {
@@ -56,13 +68,12 @@ class LLUpdaterServiceImpl :
 	
 	unsigned int mCheckPeriod;
 	bool mIsChecking;
-	boost::scoped_ptr<LLPluginProcessParent> mPlugin;
 	
 	LLUpdateChecker mUpdateChecker;
 	LLUpdateDownloader mUpdateDownloader;
 	LLTimer mTimer;
 
-	void retry(void);
+	LLUpdaterService::app_exit_callback_t mAppExitCallback;
 	
 	LOG_CLASS(LLUpdaterServiceImpl);
 	
@@ -70,13 +81,7 @@ public:
 	LLUpdaterServiceImpl();
 	virtual ~LLUpdaterServiceImpl();
 
-	// LLPluginProcessParentOwner interfaces
-	virtual void receivePluginMessage(const LLPluginMessage &message);
-	virtual bool receivePluginMessageEarly(const LLPluginMessage &message);
-	virtual void pluginLaunchFailed();
-	virtual void pluginDied();
-
-	void setParams(const std::string& protocol_version,
+	void initialize(const std::string& protocol_version,
 				   const std::string& url, 
 				   const std::string& path,
 				   const std::string& channel,
@@ -88,6 +93,11 @@ public:
 	void stopChecking();
 	bool isChecking();
 	
+	void setAppExitCallback(LLUpdaterService::app_exit_callback_t aecb) { mAppExitCallback = aecb;}
+
+	bool checkForInstall(); // Test if a local install is ready.
+	bool checkForResume(); // Test for resumeable d/l.
+
 	// LLUpdateChecker::Client:
 	virtual void error(std::string const & message);
 	virtual void optionalUpdate(std::string const & newVersion,
@@ -99,10 +109,14 @@ public:
 	virtual void upToDate(void);
 	
 	// LLUpdateDownloader::Client
-	void downloadComplete(LLSD const & data) { retry(); }
-	void downloadError(std::string const & message) { retry(); }	
+	void downloadComplete(LLSD const & data);
+	void downloadError(std::string const & message);
 
 	bool onMainLoop(LLSD const & event);	
+
+private:
+	void retry(void);
+
 };
 
 const std::string LLUpdaterServiceImpl::sListenerName = "LLUpdaterServiceImpl";
@@ -110,12 +124,9 @@ const std::string LLUpdaterServiceImpl::sListenerName = "LLUpdaterServiceImpl";
 LLUpdaterServiceImpl::LLUpdaterServiceImpl() :
 	mIsChecking(false),
 	mCheckPeriod(0),
-	mPlugin(0),
 	mUpdateChecker(*this),
 	mUpdateDownloader(*this)
 {
-	// Create the plugin parent, this is the owner.
-	mPlugin.reset(new LLPluginProcessParent(this));
 }
 
 LLUpdaterServiceImpl::~LLUpdaterServiceImpl()
@@ -124,26 +135,8 @@ LLUpdaterServiceImpl::~LLUpdaterServiceImpl()
 	LLEventPumps::instance().obtain("mainloop").stopListening(sListenerName);
 }
 
-// LLPluginProcessParentOwner interfaces
-void LLUpdaterServiceImpl::receivePluginMessage(const LLPluginMessage &message)
-{
-}
-
-bool LLUpdaterServiceImpl::receivePluginMessageEarly(const LLPluginMessage &message) 
-{
-	return false;
-};
-
-void LLUpdaterServiceImpl::pluginLaunchFailed() 
-{
-};
-
-void LLUpdaterServiceImpl::pluginDied() 
-{
-};
-
-void LLUpdaterServiceImpl::setParams(const std::string& protocol_version,
-									 const std::string& url, 
+void LLUpdaterServiceImpl::initialize(const std::string& protocol_version,
+									  const std::string& url, 
 									 const std::string& path,
 									 const std::string& channel,
 									 const std::string& version)
@@ -159,6 +152,12 @@ void LLUpdaterServiceImpl::setParams(const std::string& protocol_version,
 	mPath = path;
 	mChannel = channel;
 	mVersion = version;
+
+	// Check to see if an install is ready.
+	if(!checkForInstall())
+	{
+		checkForResume();
+	}	
 }
 
 void LLUpdaterServiceImpl::setCheckPeriod(unsigned int seconds)
@@ -176,7 +175,7 @@ void LLUpdaterServiceImpl::startChecking()
 				"LLUpdaterService::startCheck().");
 		}
 		mIsChecking = true;
-		
+	
 		mUpdateChecker.check(mProtocolVersion, mUrl, mPath, mChannel, mVersion);
 	}
 }
@@ -192,6 +191,45 @@ void LLUpdaterServiceImpl::stopChecking()
 bool LLUpdaterServiceImpl::isChecking()
 {
 	return mIsChecking;
+}
+
+bool LLUpdaterServiceImpl::checkForInstall()
+{
+	bool result = false; // return true if install is found.
+
+	llifstream update_marker(update_marker_path(), 
+							 std::ios::in | std::ios::binary);
+
+	if(update_marker.is_open())
+	{
+		// Found an update info - now lets see if its valid.
+		LLSD update_info;
+		LLSDSerialize::fromXMLDocument(update_info, update_marker);
+
+		// Get the path to the installer file.
+		LLSD path = update_info.get("path");
+		if(path.isDefined() && !path.asString().empty())
+		{
+			// install!
+		}
+
+		update_marker.close();
+		LLFile::remove(update_marker_path());
+		result = true;
+	}
+	return result;
+}
+
+bool LLUpdaterServiceImpl::checkForResume()
+{
+	bool result = false;
+	llstat stat_info;
+	if(0 == LLFile::stat(mUpdateDownloader.downloadMarkerPath(), &stat_info))
+	{
+		mUpdateDownloader.resume();
+		result = true;
+	}
+	return false;
 }
 
 void LLUpdaterServiceImpl::error(std::string const & message)
@@ -216,6 +254,24 @@ void LLUpdaterServiceImpl::requiredUpdate(std::string const & newVersion,
 void LLUpdaterServiceImpl::upToDate(void)
 {
 	retry();
+}
+
+void LLUpdaterServiceImpl::downloadComplete(LLSD const & data) 
+{ 
+	// Save out the download data to the SecondLifeUpdateReady
+	// marker file.
+	llofstream update_marker(update_marker_path());
+	LLSDSerialize::toPrettyXML(data, update_marker);
+
+	// Stop checking.
+	stopChecking();
+
+	// Wait for restart...?
+}
+
+void LLUpdaterServiceImpl::downloadError(std::string const & message) 
+{ 
+	retry(); 
 }
 
 void LLUpdaterServiceImpl::retry(void)
@@ -263,13 +319,13 @@ LLUpdaterService::~LLUpdaterService()
 {
 }
 
-void LLUpdaterService::setParams(const std::string& protocol_version,
+void LLUpdaterService::initialize(const std::string& protocol_version,
 								 const std::string& url, 
 								 const std::string& path,
 								 const std::string& channel,
 								 const std::string& version)
 {
-	mImpl->setParams(protocol_version, url, path, channel, version);
+	mImpl->initialize(protocol_version, url, path, channel, version);
 }
 
 void LLUpdaterService::setCheckPeriod(unsigned int seconds)
@@ -290,4 +346,9 @@ void LLUpdaterService::stopChecking()
 bool LLUpdaterService::isChecking()
 {
 	return mImpl->isChecking();
+}
+
+void LLUpdaterService::setImplAppExitCallback(LLUpdaterService::app_exit_callback_t aecb)
+{
+	return mImpl->setAppExitCallback(aecb);
 }
