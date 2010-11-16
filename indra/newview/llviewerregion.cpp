@@ -165,7 +165,7 @@ public:
 				mRegion->showReleaseNotes();
 			}
 		}
-
+		
 		mRegion->setCapabilitiesReceived(true);
 
 		if (STATE_SEED_GRANTED_WAIT == LLStartUp::getStartupState())
@@ -1400,6 +1400,7 @@ void LLViewerRegion::setSeedCapability(const std::string& url)
 	capabilityNames.append("SendUserReportWithScreenshot");
 	capabilityNames.append("ServerReleaseNotes");
 	capabilityNames.append("SetDisplayName");
+	capabilityNames.append("SimConsole");
 	capabilityNames.append("StartGroupProposal");
 	capabilityNames.append("TextureStats");
 	capabilityNames.append("UntrustedSimulatorMessage");
