@@ -34,6 +34,7 @@
 #include "llnotifications.h"
 #include "llviewertexteditor.h"
 
+#include "llavatarnamecache.h"
 #include "lluiconstants.h"
 #include "llui.h"
 #include "llviewercontrol.h"

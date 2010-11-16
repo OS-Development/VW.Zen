@@ -39,6 +39,7 @@
      width="260"
      word_wrap="true" >
     </text_editor>
+     parse_urls="false"
     <button
      top="110"
      follows="top|left"
