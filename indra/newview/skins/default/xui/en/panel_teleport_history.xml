@@ -157,7 +157,7 @@
      left="3"
      name="bottom_panel"
      width="313">
-        <button
+        <menu_button
          follows="bottom|left"
          tool_tip="Show additional options"
          height="25"
@@ -171,7 +171,7 @@
          top="1"
          width="31" />
         <icon
-         follows="bottom|left"
+         follows="bottom|left|right"
          height="25"
          image_name="Toolbar_Right_Off"
          layout="topleft"

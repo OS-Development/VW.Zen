@@ -2,31 +2,25 @@
  * @file lltoolpie.cpp
  * @brief LLToolPie class implementation
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -40,6 +34,7 @@
 
 #include "llagent.h"
 #include "llagentcamera.h"
+#include "llavatarnamecache.h"
 #include "llviewercontrol.h"
 #include "llfocusmgr.h"
 //#include "llfirstuse.h"
@@ -625,6 +620,25 @@ BOOL LLToolPie::handleDoubleClick(S32 x, S32 y, MASK mask)
 			return TRUE;
 		}
 	}
+	else if (gSavedSettings.getBOOL("DoubleClickTeleport"))
+	{
+		LLViewerObject* objp = mPick.getObject();
+		LLViewerObject* parentp = objp ? objp->getRootEdit() : NULL;
+
+		bool is_in_world = mPick.mObjectID.notNull() && objp && !objp->isHUDAttachment();
+		bool is_land = mPick.mPickType == LLPickInfo::PICK_LAND;
+		bool pos_non_zero = !mPick.mPosGlobal.isExactlyZero();
+		bool has_touch_handler = (objp && objp->flagHandleTouch()) || (parentp && parentp->flagHandleTouch());
+		bool has_click_action = final_click_action(objp);
+
+		if (pos_non_zero && (is_land || (is_in_world && !has_touch_handler && !has_click_action)))
+		{
+			LLVector3d pos = mPick.mPosGlobal;
+			pos.mdV[VZ] += gAgentAvatarp->getPelvisToFoot();
+			gAgent.teleportViaLocationLookAt(pos);
+			return TRUE;
+		}
+	}
 
 	return FALSE;
 }
@@ -861,23 +875,40 @@ BOOL LLToolPie::handleTooltipObject( LLViewerObject* hover_object, std::string l
 			|| !existing_inspector->getVisible()
 			|| existing_inspector->getKey()["avatar_id"].asUUID() != hover_object->getID())
 		{
-			std::string avatar_name;
+			// IDEVO: try to get display name + username
+			std::string final_name;
+			std::string full_name;
+			if (!gCacheName->getFullName(hover_object->getID(), full_name))
+			{
 			LLNameValue* firstname = hover_object->getNVPair("FirstName");
 			LLNameValue* lastname =  hover_object->getNVPair("LastName");
 			if (firstname && lastname)
 			{
-				avatar_name = llformat("%s %s", firstname->getString(), lastname->getString());
+					full_name = LLCacheName::buildFullName(
+						firstname->getString(), lastname->getString());
+				}
+				else
+				{
+					full_name = LLTrans::getString("TooltipPerson");
+				}
+			}
+
+			LLAvatarName av_name;
+			if (LLAvatarNameCache::useDisplayNames() && 
+				LLAvatarNameCache::get(hover_object->getID(), &av_name))
+			{
+				final_name = av_name.getCompleteName();
 			}
 			else
 			{
-				avatar_name = LLTrans::getString("TooltipPerson");
+				final_name = full_name;
 			}
-			
+
 			// *HACK: We may select this object, so pretend it was clicked
 			mPick = mHoverPick;
 			LLInspector::Params p;
 			p.fillFrom(LLUICtrlFactory::instance().getDefaultParams<LLInspector>());
-			p.message(avatar_name);
+			p.message(final_name);
 			p.image.name("Inspector_I");
 			p.click_callback(boost::bind(showAvatarInspector, hover_object->getID()));
 			p.visible_time_near(6.f);

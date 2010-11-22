@@ -2,31 +2,25 @@
  * @file llviewerobject.h
  * @brief Description of LLViewerObject class, which is the base class for most objects in the viewer.
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -37,7 +31,6 @@
 
 #include "llassetstorage.h"
 #include "lldarrayptr.h"
-#include "llhudtext.h"
 #include "llhudicon.h"
 #include "llinventory.h"
 #include "llrefcount.h"
@@ -60,6 +53,7 @@ class LLColor4;
 class LLFrameTimer;
 class LLDrawable;
 class LLHost;
+class LLHUDText;
 class LLWorld;
 class LLNameValue;
 class LLNetMap;
@@ -137,7 +131,7 @@ public:
 
 	typedef const child_list_t const_child_list_t;
 
-	LLViewerObject(const LLUUID &id, const LLPCode type, LLViewerRegion *regionp, BOOL is_global = FALSE);
+	LLViewerObject(const LLUUID &id, const LLPCode pcode, LLViewerRegion *regionp, BOOL is_global = FALSE);
 	MEM_TYPE_NEW(LLMemType::MTYPE_OBJECT);
 
 	virtual void markDead();				// Mark this object as dead, and clean up its references
@@ -334,11 +328,20 @@ public:
 	
 	virtual void setScale(const LLVector3 &scale, BOOL damped = FALSE);
 
+	virtual F32 getStreamingCost();
+	virtual U32 getTriangleCount();
+
 	void setObjectCost(F32 cost);
 	F32 getObjectCost();
+	
 	void setLinksetCost(F32 cost);
 	F32 getLinksetCost();
 	
+	void setPhysicsCost(F32 cost);
+	F32 getPhysicsCost();
+	
+	void setLinksetPhysicsCost(F32 cost);
+	F32 getLinksetPhysicsCost();
 
 	void sendShapeUpdate();
 
@@ -467,7 +470,7 @@ public:
 	inline BOOL		flagCameraDecoupled() const		{ return ((mFlags & FLAGS_CAMERA_DECOUPLED) != 0); }
 	inline BOOL		flagObjectMove() const			{ return ((mFlags & FLAGS_OBJECT_MOVE) != 0); }
 
-	inline U8       getPhysicsShapeType() const     { return mPhysicsShapeType; }
+	U8       getPhysicsShapeType() const;
 	inline F32      getPhysicsGravity() const       { return mPhysicsGravity; }
 	inline F32      getPhysicsFriction() const      { return mPhysicsFriction; }
 	inline F32      getPhysicsDensity() const       { return mPhysicsDensity; }
@@ -543,16 +546,23 @@ public:
 	{
 		LL_VO_CLOUDS =				LL_PCODE_APP | 0x20,
 		LL_VO_SURFACE_PATCH =		LL_PCODE_APP | 0x30,
-		//LL_VO_STARS =				LL_PCODE_APP | 0x40,
+		LL_VO_WL_SKY =				LL_PCODE_APP | 0x40,
 		LL_VO_SQUARE_TORUS =		LL_PCODE_APP | 0x50,
 		LL_VO_SKY =					LL_PCODE_APP | 0x60,
-		LL_VO_WATER =				LL_PCODE_APP | 0x70,
-		LL_VO_GROUND =				LL_PCODE_APP | 0x80,
-		LL_VO_PART_GROUP =			LL_PCODE_APP | 0x90,
-		LL_VO_TRIANGLE_TORUS =		LL_PCODE_APP | 0xa0,
-		LL_VO_WL_SKY =				LL_PCODE_APP | 0xb0, // should this be moved to 0x40?
+		LL_VO_VOID_WATER =			LL_PCODE_APP | 0x70,
+		LL_VO_WATER =				LL_PCODE_APP | 0x80,
+		LL_VO_GROUND =				LL_PCODE_APP | 0x90,
+		LL_VO_PART_GROUP =			LL_PCODE_APP | 0xa0,
+		LL_VO_TRIANGLE_TORUS =		LL_PCODE_APP | 0xb0,
 		LL_VO_HUD_PART_GROUP =		LL_PCODE_APP | 0xc0,
 	} EVOType;
+
+	typedef enum e_physics_shape_types
+	{
+		PHYSICS_SHAPE_PRIM = 0,
+		PHYSICS_SHAPE_NONE,
+		PHYSICS_SHAPE_CONVEX_HULL,
+	} EPhysicsShapeType;
 
 	LLUUID			mID;
 
@@ -689,7 +699,11 @@ protected:
 	U8 mClickAction;
 	F32 mObjectCost; //resource cost of this object or -1 if unknown
 	F32 mLinksetCost;
+	F32 mPhysicsCost;
+	F32 mLinksetPhysicsCost;
+
 	bool mCostStale;
+	mutable bool mPhysicsShapeUnknown;
 
 	static			U32			sNumZombieObjects;			// Objects which are dead, but not deleted
 
@@ -753,8 +767,8 @@ public:
 class LLAlphaObject : public LLViewerObject
 {
 public:
-	LLAlphaObject(const LLUUID &id, const LLPCode type, LLViewerRegion *regionp)
-	: LLViewerObject(id,type,regionp) 
+	LLAlphaObject(const LLUUID &id, const LLPCode pcode, LLViewerRegion *regionp)
+	: LLViewerObject(id,pcode,regionp) 
 	{ mDepth = 0.f; }
 
 	virtual F32 getPartSize(S32 idx);
@@ -771,8 +785,8 @@ public:
 class LLStaticViewerObject : public LLViewerObject
 {
 public:
-	LLStaticViewerObject(const LLUUID& id, const LLPCode type, LLViewerRegion* regionp, BOOL is_global = FALSE)
-		: LLViewerObject(id,type,regionp, is_global)
+	LLStaticViewerObject(const LLUUID& id, const LLPCode pcode, LLViewerRegion* regionp, BOOL is_global = FALSE)
+		: LLViewerObject(id,pcode,regionp, is_global)
 	{ }
 
 	virtual void updateDrawable(BOOL force_damped);

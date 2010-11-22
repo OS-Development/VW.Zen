@@ -2,31 +2,25 @@
  * @file llrendertarget.cpp
  * @brief LLRenderTarget implementation
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -56,7 +50,7 @@ void check_framebuffer_status()
 	}
 }
 
-BOOL LLRenderTarget::sUseFBO = FALSE;
+bool LLRenderTarget::sUseFBO = false;
 
 LLRenderTarget::LLRenderTarget() :
 	mResX(0),
@@ -65,8 +59,8 @@ LLRenderTarget::LLRenderTarget() :
 	mFBO(0),
 	mDepth(0),
 	mStencil(0),
-	mUseDepth(FALSE),
-	mRenderDepth(FALSE),
+	mUseDepth(false),
+	mRenderDepth(false),
 	mUsage(LLTexUnit::TT_TEXTURE),
 	mSamples(0),
 	mSampleBuffer(NULL)
@@ -84,7 +78,7 @@ void LLRenderTarget::setSampleBuffer(LLMultisampleBuffer* buffer)
 	mSampleBuffer = buffer;
 }
 
-void LLRenderTarget::allocate(U32 resx, U32 resy, U32 color_fmt, BOOL depth, BOOL stencil, LLTexUnit::eTextureType usage, BOOL use_fbo)
+void LLRenderTarget::allocate(U32 resx, U32 resy, U32 color_fmt, bool depth, bool stencil, LLTexUnit::eTextureType usage, bool use_fbo)
 {
 	stop_glerror();
 	mResX = resx;
@@ -215,6 +209,16 @@ void LLRenderTarget::shareDepthBuffer(LLRenderTarget& target)
 		llerrs << "Cannot share depth buffer between non FBO render targets." << llendl;
 	}
 
+	if (target.mDepth)
+	{
+		llerrs << "Attempting to override existing depth buffer.  Detach existing buffer first." << llendl;
+	}
+
+	if (target.mUseDepth)
+	{
+		llerrs << "Attempting to override existing shared depth buffer. Detach existing buffer first." << llendl;
+	}
+
 	if (mDepth)
 	{
 		stop_glerror();
@@ -227,37 +231,21 @@ void LLRenderTarget::shareDepthBuffer(LLRenderTarget& target)
 			stop_glerror();
 			glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_STENCIL_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, mDepth);			
 			stop_glerror();
+			target.mStencil = true;
 		}
 		else
 		{
 			glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, LLTexUnit::getInternalType(mUsage), mDepth, 0);
 			stop_glerror();
-			if (mStencil)
-			{
-				glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_STENCIL_ATTACHMENT_EXT, LLTexUnit::getInternalType(mUsage), mDepth, 0);
-				stop_glerror();
-			}
 		}
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
 
-		target.mUseDepth = TRUE;
+		target.mUseDepth = true;
 	}
 }
 
 void LLRenderTarget::release()
 {
-	if (mFBO)
-	{
-		glDeleteFramebuffersEXT(1, (GLuint *) &mFBO);
-		mFBO = 0;
-	}
-
-	if (mTex.size() > 0)
-	{
-		LLImageGL::deleteTextures(mTex.size(), &mTex[0]);
-		mTex.clear();
-	}
-
 	if (mDepth)
 	{
 		if (mStencil)
@@ -271,6 +259,33 @@ void LLRenderTarget::release()
 			stop_glerror();
 		}
 		mDepth = 0;
+	}
+	else if (mUseDepth && mFBO)
+	{ //detach shared depth buffer
+		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, mFBO);
+		if (mStencil)
+		{ //attached as a renderbuffer
+			glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, 0);
+			glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_STENCIL_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, 0);
+			mStencil = false;
+		}
+		else
+		{ //attached as a texture
+			glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, LLTexUnit::getInternalType(mUsage), 0, 0);
+		}
+		mUseDepth = false;
+	}
+
+	if (mFBO)
+	{
+		glDeleteFramebuffersEXT(1, (GLuint *) &mFBO);
+		mFBO = 0;
+	}
+
+	if (mTex.size() > 0)
+	{
+		LLImageGL::deleteTextures(mTex.size(), &mTex[0]);
+		mTex.clear();
 	}
 
 	mSampleBuffer = NULL;
@@ -355,19 +370,19 @@ U32 LLRenderTarget::getTexture(U32 attachment) const
 	{
 		llerrs << "Invalid attachment index." << llendl;
 	}
+	if (mTex.empty())
+	{
+		return 0;
+	}
 	return mTex[attachment];
 }
 
 void LLRenderTarget::bindTexture(U32 index, S32 channel)
 {
-	if (index > mTex.size()-1)
-	{
-		llerrs << "Invalid attachment index." << llendl;
-	}
-	gGL.getTexUnit(channel)->bindManual(mUsage, mTex[index]);
+	gGL.getTexUnit(channel)->bindManual(mUsage, getTexture(index));
 }
 
-void LLRenderTarget::flush(BOOL fetch_depth)
+void LLRenderTarget::flush(bool fetch_depth)
 {
 	gGL.flush();
 	if (!mFBO)
@@ -390,8 +405,6 @@ void LLRenderTarget::flush(BOOL fetch_depth)
 	}
 	else
 	{
-#if !LL_DARWIN
-
 		stop_glerror();
 
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
@@ -435,7 +448,6 @@ void LLRenderTarget::flush(BOOL fetch_depth)
 				}
 			}
 		}
-#endif
 
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
 	}
@@ -444,7 +456,6 @@ void LLRenderTarget::flush(BOOL fetch_depth)
 void LLRenderTarget::copyContents(LLRenderTarget& source, S32 srcX0, S32 srcY0, S32 srcX1, S32 srcY1,
 						S32 dstX0, S32 dstY0, S32 dstX1, S32 dstY1, U32 mask, U32 filter)
 {
-#if !LL_DARWIN
 	gGL.flush();
 	if (!source.mFBO || !mFBO)
 	{
@@ -483,14 +494,12 @@ void LLRenderTarget::copyContents(LLRenderTarget& source, S32 srcX0, S32 srcY0, 
 			stop_glerror();
 		}
 	}
-#endif
 }
 
 //static
 void LLRenderTarget::copyContentsToFramebuffer(LLRenderTarget& source, S32 srcX0, S32 srcY0, S32 srcX1, S32 srcY1,
 						S32 dstX0, S32 dstY0, S32 dstX1, S32 dstY1, U32 mask, U32 filter)
 {
-#if !LL_DARWIN
 	if (!source.mFBO)
 	{
 		llerrs << "Cannot copy framebuffer contents for non FBO render targets." << llendl;
@@ -507,12 +516,11 @@ void LLRenderTarget::copyContentsToFramebuffer(LLRenderTarget& source, S32 srcX0
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
 		stop_glerror();
 	}
-#endif
 }
 
-BOOL LLRenderTarget::isComplete() const
+bool LLRenderTarget::isComplete() const
 {
-	return (!mTex.empty() || mDepth) ? TRUE : FALSE;
+	return (!mTex.empty() || mDepth) ? true : false;
 }
 
 void LLRenderTarget::getViewport(S32* viewport)
@@ -533,10 +541,10 @@ LLMultisampleBuffer::LLMultisampleBuffer()
 
 LLMultisampleBuffer::~LLMultisampleBuffer()
 {
-	releaseSampleBuffer();
+	release();
 }
 
-void LLMultisampleBuffer::releaseSampleBuffer()
+void LLMultisampleBuffer::release()
 {
 	if (mFBO)
 	{
@@ -586,12 +594,12 @@ void LLMultisampleBuffer::bindTarget(LLRenderTarget* ref)
 	sBoundTarget = this;
 }
 
-void LLMultisampleBuffer::allocate(U32 resx, U32 resy, U32 color_fmt, BOOL depth, BOOL stencil,  LLTexUnit::eTextureType usage, BOOL use_fbo )
+void LLMultisampleBuffer::allocate(U32 resx, U32 resy, U32 color_fmt, bool depth, bool stencil,  LLTexUnit::eTextureType usage, bool use_fbo )
 {
 	allocate(resx,resy,color_fmt,depth,stencil,usage,use_fbo,2);
 }
 
-void LLMultisampleBuffer::allocate(U32 resx, U32 resy, U32 color_fmt, BOOL depth, BOOL stencil,  LLTexUnit::eTextureType usage, BOOL use_fbo, U32 samples )
+void LLMultisampleBuffer::allocate(U32 resx, U32 resy, U32 color_fmt, bool depth, bool stencil,  LLTexUnit::eTextureType usage, bool use_fbo, U32 samples )
 {
 	stop_glerror();
 	mResX = resx;
@@ -601,7 +609,7 @@ void LLMultisampleBuffer::allocate(U32 resx, U32 resy, U32 color_fmt, BOOL depth
 	mUseDepth = depth;
 	mStencil = stencil;
 
-	releaseSampleBuffer();
+	release();
 
 	if (!gGLManager.mHasFramebufferMultisample)
 	{
@@ -638,11 +646,9 @@ void LLMultisampleBuffer::allocate(U32 resx, U32 resy, U32 color_fmt, BOOL depth
 			{
 				glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_STENCIL_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, mDepth);			
 			}
-			glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
 		}
-		
+	
 		stop_glerror();
-
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
 		stop_glerror();
 	}
@@ -652,7 +658,6 @@ void LLMultisampleBuffer::allocate(U32 resx, U32 resy, U32 color_fmt, BOOL depth
 
 void LLMultisampleBuffer::addColorAttachment(U32 color_fmt)
 {
-#if !LL_DARWIN
 	if (color_fmt == 0)
 	{
 		return;
@@ -682,23 +687,19 @@ void LLMultisampleBuffer::addColorAttachment(U32 color_fmt)
 		{
 		case GL_FRAMEBUFFER_COMPLETE_EXT:
 			break;
-		case GL_FRAMEBUFFER_UNSUPPORTED_EXT:
-			llerrs << "WTF?" << llendl;
-			break;
 		default:
-			llerrs << "WTF?" << llendl;
+			llerrs << "WTF? " << std::hex << status << llendl;
+			break;
 		}
 
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
 	}
 
 	mTex.push_back(tex);
-#endif
 }
 
 void LLMultisampleBuffer::allocateDepth()
 {
-#if !LL_DARWIN
 	glGenRenderbuffersEXT(1, (GLuint* ) &mDepth);
 	glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, mDepth);
 	if (mStencil)
@@ -709,6 +710,5 @@ void LLMultisampleBuffer::allocateDepth()
 	{
 		glRenderbufferStorageMultisampleEXT(GL_RENDERBUFFER_EXT, mSamples, GL_DEPTH_COMPONENT16_ARB, mResX, mResY);	
 	}
-#endif
 }
 

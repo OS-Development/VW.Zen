@@ -2,31 +2,25 @@
  * @file llappearancemgr.cpp
  * @brief Manager for initiating appearance changes on the viewer
  *
- * $LicenseInfo:firstyear=2004&license=viewergpl$
- * 
- * Copyright (c) 2004-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2004&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -37,6 +31,7 @@
 #include "llagentcamera.h"
 #include "llagentwearables.h"
 #include "llappearancemgr.h"
+#include "llattachmentsmgr.h"
 #include "llcommandhandler.h"
 #include "lleventtimer.h"
 #include "llgesturemgr.h"
@@ -2209,12 +2204,11 @@ void LLAppearanceMgr::updateIsDirty()
 		base_outfit = catp->getUUID();
 	}
 
-	if(base_outfit.isNull())
-	{
-		// no outfit link found, display "unsaved outfit"
-		mOutfitIsDirty = true;
-	}
-	else
+	// Set dirty to "false" if no base outfit found to disable "Save"
+	// and leave only "Save As" enabled in My Outfits.
+	mOutfitIsDirty = false;
+
+	if (base_outfit.notNull())
 	{
 		LLIsOfAssetType collector = LLIsOfAssetType(LLAssetType::AT_LINK);
 
@@ -2253,8 +2247,6 @@ void LLAppearanceMgr::updateIsDirty()
 				return;
 			}
 		}
-
-		mOutfitIsDirty = false;
 	}
 }
 
@@ -2313,12 +2305,17 @@ bool LLAppearanceMgr::updateBaseOutfit()
 
 void LLAppearanceMgr::divvyWearablesByType(const LLInventoryModel::item_array_t& items, wearables_by_type_t& items_by_type)
 {
-	items_by_type.reserve(LLWearableType::WT_COUNT);
+	items_by_type.resize(LLWearableType::WT_COUNT);
 	if (items.empty()) return;
 
 	for (S32 i=0; i<items.count(); i++)
 	{
 		LLViewerInventoryItem *item = items.get(i);
+		if (!item)
+		{
+			LL_WARNS("Appearance") << "NULL item found" << llendl;
+			continue;
+		}
 		// Ignore non-wearables.
 		if (!item->isWearableType())
 			continue;
@@ -2341,6 +2338,7 @@ std::string build_order_string(LLWearableType::EType type, U32 i)
 
 struct WearablesOrderComparator
 {
+	LOG_CLASS(WearablesOrderComparator);
 	WearablesOrderComparator(const LLWearableType::EType type)
 	{
 		mControlSize = build_order_string(type, 0).size();
@@ -2634,6 +2632,7 @@ void LLAppearanceMgr::dumpItemArray(const LLInventoryModel::item_array_t& items,
 LLAppearanceMgr::LLAppearanceMgr():
 	mAttachmentInvLinkEnabled(false),
 	mOutfitIsDirty(false),
+	mOutfitLocked(false),
 	mIsInUpdateAppearanceFromCOF(false)
 {
 	LLOutfitObserver& outfit_observer = LLOutfitObserver::instance();
@@ -2644,6 +2643,8 @@ LLAppearanceMgr::LLAppearanceMgr():
 
 	mUnlockOutfitTimer.reset(new LLOutfitUnLockTimer(gSavedSettings.getS32(
 			"OutfitOperationsTimeout")));
+
+	gIdleCallbacks.addFunction(&LLAttachmentsMgr::onIdle,NULL);
 }
 
 LLAppearanceMgr::~LLAppearanceMgr()

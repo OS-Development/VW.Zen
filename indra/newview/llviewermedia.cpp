@@ -2,31 +2,25 @@
  * @file llviewermedia.cpp
  * @brief Client interface to the media engine
  *
- * $LicenseInfo:firstyear=2007&license=viewergpl$
- * 
- * Copyright (c) 2007-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2007&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -57,6 +51,7 @@
 #include "llvoavatarself.h"
 #include "llviewerregion.h"
 #include "llwebsharing.h"	// For LLWebSharing::setOpenIDCookie(), *TODO: find a better way to do this!
+#include "llfilepicker.h"
 
 #include "llevent.h"		// LLSimpleListener
 #include "llnotificationsutil.h"
@@ -65,6 +60,8 @@
 #include "llmutelist.h"
 //#include "llfirstuse.h"
 #include "llwindow.h"
+
+#include "llfloatermediabrowser.h"	// for handling window close requests and geometry change requests in media browser windows.
 
 #include <boost/bind.hpp>	// for SkinFolder listener
 #include <boost/signals2.hpp>
@@ -1371,6 +1368,38 @@ void LLViewerMedia::openIDCookieResponse(const std::string &cookie)
 	setOpenIDCookie();
 }
 
+/////////////////////////////////////////////////////////////////////////////////////////
+// static
+void LLViewerMedia::proxyWindowOpened(const std::string &target, const std::string &uuid)
+{
+	if(uuid.empty())
+		return;
+		
+	for (impl_list::iterator iter = sViewerMediaImplList.begin(); iter != sViewerMediaImplList.end(); iter++)
+	{
+		if((*iter)->mMediaSource && (*iter)->mMediaSource->pluginSupportsMediaBrowser())
+		{
+			(*iter)->mMediaSource->proxyWindowOpened(target, uuid);
+		}
+	}
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// static
+void LLViewerMedia::proxyWindowClosed(const std::string &uuid)
+{
+	if(uuid.empty())
+		return;
+
+	for (impl_list::iterator iter = sViewerMediaImplList.begin(); iter != sViewerMediaImplList.end(); iter++)
+	{
+		if((*iter)->mMediaSource && (*iter)->mMediaSource->pluginSupportsMediaBrowser())
+		{
+			(*iter)->mMediaSource->proxyWindowClosed(uuid);
+		}
+	}
+}
+
 bool LLViewerMedia::hasInWorldMedia()
 {
 	if (sInWorldMediaDisabled) return false;
@@ -1604,7 +1633,7 @@ void LLViewerMediaImpl::setMediaType(const std::string& media_type)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 /*static*/
-LLPluginClassMedia* LLViewerMediaImpl::newSourceFromMediaType(std::string media_type, LLPluginClassMediaOwner *owner /* may be NULL */, S32 default_width, S32 default_height)
+LLPluginClassMedia* LLViewerMediaImpl::newSourceFromMediaType(std::string media_type, LLPluginClassMediaOwner *owner /* may be NULL */, S32 default_width, S32 default_height, const std::string target)
 {
 	std::string plugin_basename = LLMIMETypes::implType(media_type);
 	
@@ -1660,7 +1689,9 @@ LLPluginClassMedia* LLViewerMediaImpl::newSourceFromMediaType(std::string media_
 			// collect 'javascript enabled' setting from prefs and send to embedded browser
 			bool javascript_enabled = gSavedSettings.getBOOL( "BrowserJavascriptEnabled" );
 			media_source->setJavascriptEnabled( javascript_enabled );
-
+			
+			media_source->setTarget(target);
+			
 			if (media_source->init(launcher_name, plugin_name, gSavedSettings.getBOOL("PluginAttachDebuggerToPlugins")))
 			{
 				return media_source;
@@ -1711,7 +1742,7 @@ bool LLViewerMediaImpl::initializePlugin(const std::string& media_type)
 	// Save the MIME type that really caused the plugin to load
 	mCurrentMimeType = mMimeType;
 
-	LLPluginClassMedia* media_source = newSourceFromMediaType(mMimeType, this, mMediaWidth, mMediaHeight);
+	LLPluginClassMedia* media_source = newSourceFromMediaType(mMimeType, this, mMediaWidth, mMediaHeight, mTarget);
 	
 	if (media_source)
 	{
@@ -2811,6 +2842,7 @@ bool LLViewerMediaImpl::isPlayable() const
 //////////////////////////////////////////////////////////////////////////////////////////
 void LLViewerMediaImpl::handleMediaEvent(LLPluginClassMedia* plugin, LLPluginClassMediaOwner::EMediaEvent event)
 {
+	bool pass_through = true;
 	switch(event)
 	{
 		case MEDIA_EVENT_CLICK_LINK_NOFOLLOW:
@@ -2824,28 +2856,6 @@ void LLViewerMediaImpl::handleMediaEvent(LLPluginClassMedia* plugin, LLPluginCla
 		case MEDIA_EVENT_CLICK_LINK_HREF:
 		{
 			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_CLICK_LINK_HREF, target is \"" << plugin->getClickTarget() << "\", uri is " << plugin->getClickURL() << LL_ENDL;
-			// retrieve the event parameters
-			std::string url = plugin->getClickURL();
-			U32 target_type = plugin->getClickTargetType();
-			
-			switch (target_type)
-			{
-			case LLPluginClassMedia::TARGET_EXTERNAL:
-				// force url to external browser
-				LLWeb::loadURLExternal(url);
-				break;
-			case LLPluginClassMedia::TARGET_BLANK:
-				// open in SL media browser or external browser based on user pref
-				LLWeb::loadURL(url);
-				break;
-			case LLPluginClassMedia::TARGET_NONE:
-				// ignore this click and let media plugin handle it
-				break;
-			case LLPluginClassMedia::TARGET_OTHER:
-				LL_WARNS("LinkTarget") << "Unsupported link target type" << LL_ENDL;
-				break;
-			default: break;
-			}
 		};
 		break;
 		case MEDIA_EVENT_PLUGIN_FAILED_LAUNCH:
@@ -2977,13 +2987,70 @@ void LLViewerMediaImpl::handleMediaEvent(LLPluginClassMedia* plugin, LLPluginCla
 		}
 		break;
 
+		case LLViewerMediaObserver::MEDIA_EVENT_PICK_FILE_REQUEST:
+		{
+			// Display a file picker
+			std::string response;
+			
+			LLFilePicker& picker = LLFilePicker::instance();
+			if (!picker.getOpenFile(LLFilePicker::FFLOAD_ALL))
+			{
+				// The user didn't pick a file -- the empty response string will indicate this.
+			}
+			
+			response = picker.getFirstFile();
+			
+			plugin->sendPickFileResponse(response);
+		}
+		break;
 		
+		case LLViewerMediaObserver::MEDIA_EVENT_CLOSE_REQUEST:
+		{
+			std::string uuid = plugin->getClickUUID();
+
+			llinfos << "MEDIA_EVENT_CLOSE_REQUEST for uuid " << uuid << llendl;
+
+			if(uuid.empty())
+			{
+				// This close request is directed at this instance, let it fall through.
+			}
+			else
+			{
+				// This close request is directed at another instance
+				pass_through = false;
+				LLFloaterMediaBrowser::closeRequest(uuid);
+			}
+		}
+		break;
+
+		case LLViewerMediaObserver::MEDIA_EVENT_GEOMETRY_CHANGE:
+		{
+			std::string uuid = plugin->getClickUUID();
+
+			llinfos << "MEDIA_EVENT_GEOMETRY_CHANGE for uuid " << uuid << llendl;
+
+			if(uuid.empty())
+			{
+				// This geometry change request is directed at this instance, let it fall through.
+			}
+			else
+			{
+				// This request is directed at another instance
+				pass_through = false;
+				LLFloaterMediaBrowser::geometryChanged(uuid, plugin->getGeometryX(), plugin->getGeometryY(), plugin->getGeometryWidth(), plugin->getGeometryHeight());
+			}
+		}
+		break;
+
 		default:
 		break;
 	}
 
-	// Just chain the event to observers.
-	emitEvent(plugin, event);
+	if(pass_through)
+	{
+		// Just chain the event to observers.
+		emitEvent(plugin, event);
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////

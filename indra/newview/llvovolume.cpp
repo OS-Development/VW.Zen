@@ -2,31 +2,25 @@
  * @file llvovolume.cpp
  * @brief LLVOVolume class implementation
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -41,9 +35,11 @@
 #include "llviewercontrol.h"
 #include "lldir.h"
 #include "llflexibleobject.h"
+#include "llfloatertools.h"
 #include "llmaterialtable.h"
 #include "llprimitive.h"
 #include "llvolume.h"
+#include "llvolumeoctree.h"
 #include "llvolumemgr.h"
 #include "llvolumemessage.h"
 #include "material_codes.h"
@@ -70,13 +66,13 @@
 #include "llselectmgr.h"
 #include "pipeline.h"
 #include "llsdutil.h"
+#include "llmatrix4a.h"
 #include "llmediaentry.h"
 #include "llmediadataclient.h"
 #include "llmeshrepository.h"
 #include "llagent.h"
 #include "llviewermediafocus.h"
 #include "llvoavatar.h"
-
 
 const S32 MIN_QUIET_FRAMES_COALESCE = 30;
 const F32 FORCE_SIMPLE_RENDER_AREA = 512.f;
@@ -943,7 +939,6 @@ BOOL LLVOVolume::setVolume(const LLVolumeParams &params, const S32 detail, bool 
 
 	BOOL is404 = FALSE;
 
-#if LL_MESH_ENABLED
 	if (isSculpted())
 	{
 		// if it's a mesh
@@ -963,7 +958,6 @@ BOOL LLVOVolume::setVolume(const LLVolumeParams &params, const S32 detail, bool 
 			}
 		}
 	}
-#endif
 
 	// Check if we need to change implementations
 	bool is_flexible = (volume_params.getPathParams().getCurveType() == LL_PCODE_PATH_FLEXIBLE);
@@ -1012,7 +1006,6 @@ BOOL LLVOVolume::setVolume(const LLVolumeParams &params, const S32 detail, bool 
 		if (isSculpted())
 		{
 			updateSculptTexture();
-#if LL_MESH_ENABLED
 			// if it's a mesh
 			if ((volume_params.getSculptType() & LL_SCULPT_TYPE_MASK) == LL_SCULPT_TYPE_MESH)
 			{
@@ -1028,7 +1021,6 @@ BOOL LLVOVolume::setVolume(const LLVolumeParams &params, const S32 detail, bool 
 				}
 			}
 			else // otherwise is sculptie
-#endif
 			{
 				if (mSculptTexture.notNull())
 				{
@@ -1355,7 +1347,17 @@ BOOL LLVOVolume::genBBoxes(BOOL force_global)
 
 	LLVector4a min,max;
 
-	BOOL rebuild = mDrawable->isState(LLDrawable::REBUILD_VOLUME | LLDrawable::REBUILD_POSITION);
+	min.clear();
+	max.clear();
+
+	BOOL rebuild = mDrawable->isState(LLDrawable::REBUILD_VOLUME | LLDrawable::REBUILD_POSITION | LLDrawable::REBUILD_RIGGED);
+
+//	bool rigged = false;
+	LLVolume* volume = mRiggedVolume;
+	if (!volume)
+	{
+		volume = getVolume();
+	}
 
 	for (S32 i = 0; i < getVolume()->getNumVolumeFaces(); i++)
 	{
@@ -1364,7 +1366,7 @@ BOOL LLVOVolume::genBBoxes(BOOL force_global)
 		{
 			continue;
 		}
-		res &= face->genVolumeBBoxes(*getVolume(), i,
+		res &= face->genVolumeBBoxes(*volume, i,
 										mRelativeXform, mRelativeXformInvTrans,
 										(mVolumeImpl && mVolumeImpl->isVolumeGlobal()) || force_global);
 		
@@ -1415,7 +1417,21 @@ void LLVOVolume::updateRelativeXform()
 	
 	LLDrawable* drawable = mDrawable;
 	
-	if (drawable->isActive())
+	if (drawable->isState(LLDrawable::RIGGED) && mRiggedVolume.notNull())
+	{ //rigged volume (which is in agent space) is used for generating bounding boxes etc
+	  //inverse of render matrix should go to partition space
+		mRelativeXform = getRenderMatrix();
+
+		F32* dst = (F32*) mRelativeXformInvTrans.mMatrix;
+		F32* src = (F32*) mRelativeXform.mMatrix;
+		dst[0] = src[0]; dst[1] = src[1]; dst[2] = src[2];
+		dst[3] = src[4]; dst[4] = src[5]; dst[5] = src[6];
+		dst[6] = src[8]; dst[7] = src[9]; dst[8] = src[10];
+		
+		mRelativeXform.invert();
+		mRelativeXformInvTrans.transpose();
+	}
+	else if (drawable->isActive())
 	{				
 		// setup relative transforms
 		LLQuaternion delta_rot;
@@ -1497,11 +1513,22 @@ void LLVOVolume::updateRelativeXform()
 
 static LLFastTimer::DeclareTimer FTM_GEN_FLEX("Generate Flexies");
 static LLFastTimer::DeclareTimer FTM_UPDATE_PRIMITIVES("Update Primitives");
+static LLFastTimer::DeclareTimer FTM_UPDATE_RIGGED_VOLUME("Update Rigged");
 
 BOOL LLVOVolume::updateGeometry(LLDrawable *drawable)
 {
 	LLFastTimer t(FTM_UPDATE_PRIMITIVES);
 	
+	if (mDrawable->isState(LLDrawable::REBUILD_RIGGED))
+	{
+		{
+			LLFastTimer t(FTM_UPDATE_RIGGED_VOLUME);
+			updateRiggedVolume();
+		}
+		genBBoxes(FALSE);
+		mDrawable->clearState(LLDrawable::REBUILD_RIGGED);
+	}
+
 	if (mVolumeImpl != NULL)
 	{
 		BOOL res;
@@ -1597,7 +1624,7 @@ BOOL LLVOVolume::updateGeometry(LLDrawable *drawable)
 	{
 		LLPipeline::sCompiles++;
 	}
-	
+		
 	mVolumeChanged = FALSE;
 	mLODChanged = FALSE;
 	mSculptChanged = FALSE;
@@ -2690,7 +2717,6 @@ BOOL LLVOVolume::isSculpted() const
 
 BOOL LLVOVolume::isMesh() const
 {
-#if LL_MESH_ENABLED
 	if (isSculpted())
 	{
 		LLSculptParams *sculpt_params = (LLSculptParams *)getParameterEntry(LLNetworkData::PARAMS_SCULPT);
@@ -2702,8 +2728,6 @@ BOOL LLVOVolume::isMesh() const
 			return TRUE;	
 		}
 	}
-#endif
-
 
 	return FALSE;
 }
@@ -2724,6 +2748,11 @@ BOOL LLVOVolume::isVolumeGlobal() const
 	{
 		return mVolumeImpl->isVolumeGlobal() ? TRUE : FALSE;
 	}
+	else if (mRiggedVolume.notNull())
+	{
+		return TRUE;
+	}
+
 	return FALSE;
 }
 
@@ -2872,17 +2901,30 @@ const LLMatrix4 LLVOVolume::getRenderMatrix() const
 // total cost is returned value + 5 * size of the resulting set.
 // Cannot include cost of textures, as they may be re-used in linked
 // children, and cost should only be increased for unique textures  -Nyx
-U32 LLVOVolume::getRenderCost(std::set<LLUUID> &textures) const
+U32 LLVOVolume::getRenderCost(texture_cost_t &textures) const
 {
 	// base cost of each prim should be 10 points
 	static const U32 ARC_PRIM_COST = 10;
+	
+	// get access to params we'll need at various points
+	LLVolumeParams volume_params = getVolume()->getParams();
+	LLPathParams path_params = volume_params.getPathParams();
+	LLProfileParams profile_params = volume_params.getProfileParams();
+
 	// per-prim costs
 	static const U32 ARC_INVISI_COST = 1;
-	static const U32 ARC_SHINY_COST = 1;
-	static const U32 ARC_GLOW_COST = 1;
-	static const U32 ARC_FLEXI_COST = 8;
-	static const U32 ARC_PARTICLE_COST = 16;
-	static const U32 ARC_BUMP_COST = 4;
+	static const U32 ARC_PARTICLE_COST = 100;
+	static const U32 ARC_CUT_COST = 1;
+	static const U32 ARC_TEXTURE_COST = 5;
+
+	// per-prim multipliers
+	static const U32 ARC_HOLLOW_MULT = 2;
+	static const U32 ARC_CIRC_PROF_MULT = 2;
+	static const U32 ARC_CIRC_PATH_MULT = 2;
+	static const U32 ARC_GLOW_MULT = 2;
+	static const U32 ARC_BUMP_MULT = 2;
+	static const U32 ARC_FLEXI_MULT = 4;
+	static const U32 ARC_SHINY_MULT = 2;
 
 	// per-face costs
 	static const U32 ARC_PLANAR_COST = 1;
@@ -2898,9 +2940,68 @@ U32 LLVOVolume::getRenderCost(std::set<LLUUID> &textures) const
 	U32 flexi = 0;
 	U32 animtex = 0;
 	U32 particles = 0;
-	U32 scale = 0;
 	U32 bump = 0;
 	U32 planar = 0;
+	U32 cuts = 0;
+	U32 hollow = 0;
+	U32 circular_profile = 0;
+	U32 circular_path = 0;
+
+	// these multipliers are variable and can be floating point
+	F32 scale = 0.f;
+	F32 twist = 0.f; 
+	F32 revolutions = 0.f;
+
+
+	const LLDrawable* drawablep = mDrawable;
+
+	if (isSculpted())
+	{
+		if (isMesh())
+		{
+			// base cost is dependent on mesh complexity
+			// note that 3 is the highest LOD as of the time of this coding.
+			S32 size = gMeshRepo.getMeshSize(volume_params.getSculptID(),3);
+			if ( size > 0)
+			{
+				if (gMeshRepo.getSkinInfo(volume_params.getSculptID()))
+				{
+					// weighted attachment - 1 point for every 3 bytes
+					shame = (U32)(size / 3.f);
+				}
+				else
+				{
+					// non-weighted attachment - 1 point for every 4 bytes
+					shame = (U32)(size / 4.f);
+				}
+
+				if (shame == 0)
+				{
+					// someone made a really tiny mesh. 
+					shame = 1;
+				}
+			}
+			else
+			{
+				// something went wrong - user should know their content isn't render-free
+				return 0;
+			}
+		}
+		else
+		{
+			const LLSculptParams *sculpt_params = (LLSculptParams *) getParameterEntry(LLNetworkData::PARAMS_SCULPT);
+			LLUUID sculpt_id = sculpt_params->getSculptTexture();
+			if (textures.find(sculpt_id) == textures.end())
+			{
+				LLViewerFetchedTexture *texture = LLViewerTextureManager::getFetchedTexture(sculpt_id);
+				if (texture)
+				{
+					S32 texture_cost = (S32)(ARC_TEXTURE_COST * (texture->getFullHeight() / 128.f + texture->getFullWidth() / 128.f + 1));
+					textures.insert(texture_cost_t::value_type(sculpt_id, texture_cost));
+				}
+			}
+		}
+	}
 
 	if (isFlexible())
 	{
@@ -2912,15 +3013,67 @@ U32 LLVOVolume::getRenderCost(std::set<LLUUID> &textures) const
 	}
 
 	const LLVector3& sc = getScale();
-	scale += (U32) sc.mV[0] + (U32) sc.mV[1] + (U32) sc.mV[2];
-
-	const LLDrawable* drawablep = mDrawable;
-
-	if (isSculpted())
+	scale += sc.mV[0] + sc.mV[1] + sc.mV[2];
+	if (scale > 4.f)
 	{
-		const LLSculptParams *sculpt_params = (LLSculptParams *) getParameterEntry(LLNetworkData::PARAMS_SCULPT);
-		LLUUID sculpt_id = sculpt_params->getSculptTexture();
-		textures.insert(sculpt_id);
+		// scale is a multiplier, cap it at 4.
+		scale = 4.f;
+	}
+
+	// add points for cut prims
+	if (path_params.getBegin() != 0.f || path_params.getEnd() != 1.f)
+	{
+		++cuts;
+	}
+
+	if (profile_params.getBegin() != 0.f || profile_params.getEnd() != 1.f)
+	{
+		++cuts;
+	}
+
+	// double cost for hollow prims / sculpties
+	if (volume_params.getHollow() != 0.f)
+	{
+		hollow = 1;
+	}
+
+	F32 twist_mag = path_params.getTwistBegin() - path_params.getTwistEnd();
+	if (twist_mag < 0)
+	{
+		twist_mag *= -1.f;
+	}
+
+	// note magnitude of twist is [-1.f, 1.f]. which translates to [-180, 180] degrees.
+	// scale to degrees / 90 by multiplying by 2.
+	twist = twist_mag * 2.f;
+
+	// multiply by the number of revolutions in the prim. cap at 4.
+	revolutions = path_params.getRevolutions();
+	if (revolutions > 4.f)
+	{
+		revolutions = 4.f;
+	}
+
+	// double cost for circular profiles / sculpties
+	if (profile_params.getCurveType() == LL_PCODE_PROFILE_CIRCLE ||
+		profile_params.getCurveType() == LL_PCODE_PROFILE_CIRCLE_HALF)
+	{
+		circular_profile = 1;
+	}
+
+	// double cost for circular paths / sculpties
+	if (path_params.getCurveType() == LL_PCODE_PATH_CIRCLE ||
+		path_params.getCurveType() == LL_PCODE_PATH_CIRCLE2)
+	{
+		circular_path = 1;
+	}
+
+	// treat sculpties as hollow prims with circular paths & profiles
+	if (isSculpted() && !isMesh())
+	{
+		hollow = 1;
+		circular_profile = 1;
+		circular_path = 1;
 	}
 
 	for (S32 i = 0; i < drawablep->getNumFaces(); ++i)
@@ -2931,7 +3084,11 @@ U32 LLVOVolume::getRenderCost(std::set<LLUUID> &textures) const
 
 		if (img)
 		{
-			textures.insert(img->getID());
+			if (textures.find(img->getID()) == textures.end())
+			{
+				S32 texture_cost = (S32)(ARC_TEXTURE_COST * (img->getFullHeight() / 128.f + img->getFullWidth() / 128.f + 1));
+				textures.insert(texture_cost_t::value_type(img->getID(), texture_cost));
+			}
 		}
 
 		if (face->getPoolType() == LLDrawPool::POOL_ALPHA)
@@ -2940,21 +3097,24 @@ U32 LLVOVolume::getRenderCost(std::set<LLUUID> &textures) const
 		}
 		else if (img && img->getPrimaryFormat() == GL_ALPHA)
 		{
-			invisi = 1;
+			invisi++;
 		}
 
 		if (te)
 		{
 			if (te->getBumpmap())
 			{
+				// bump is a multiplier, don't add per-face
 				bump = 1;
 			}
 			if (te->getShiny())
 			{
+				// shiny is a multiplier, don't add per-face
 				shiny = 1;
 			}
 			if (te->getGlow() > 0.f)
 			{
+				// glow is a multiplier, don't add per-face
 				glow = 1;
 			}
 			if (face->mTextureMatrix != NULL)
@@ -2968,37 +3128,99 @@ U32 LLVOVolume::getRenderCost(std::set<LLUUID> &textures) const
 		}
 	}
 
+	// shame currently has the "base" cost of 10 for normal prims, variable for mesh
 
-	shame += invisi * ARC_INVISI_COST;
-	shame += shiny * ARC_SHINY_COST;
-	shame += glow * ARC_GLOW_COST;
-	shame += alpha * ARC_ALPHA_COST;
-	shame += flexi * ARC_FLEXI_COST;
-	shame += animtex * ARC_ANIM_TEX_COST;
-	shame += particles * ARC_PARTICLE_COST;
-	shame += bump * ARC_BUMP_COST;
+	// add modifier settings
+	shame += cuts * ARC_CUT_COST;
 	shame += planar * ARC_PLANAR_COST;
-	shame += scale;
+	shame += animtex * ARC_ANIM_TEX_COST;
+	shame += alpha * ARC_ALPHA_COST;
+	shame += invisi * ARC_INVISI_COST;
 
-	LLViewerObject::const_child_list_t& child_list = getChildren();
-	for (LLViewerObject::child_list_t::const_iterator iter = child_list.begin();
-		 iter != child_list.end(); 
-		 ++iter)
+	// multiply shame by multipliers
+	if (hollow)
 	{
-		const LLViewerObject* child_objectp = *iter;
-		const LLDrawable* child_drawablep = child_objectp->mDrawable;
-		if (child_drawablep)
+		shame *= hollow * ARC_HOLLOW_MULT;
+	}
+
+	if (circular_profile)
+	{
+		shame *= circular_profile * ARC_CIRC_PROF_MULT;
+	}
+
+	if (circular_path)
+	{
+		shame *= circular_path * ARC_CIRC_PATH_MULT;
+	}
+
+	if (glow)
+	{
+		shame *= glow * ARC_GLOW_MULT;
+	}
+
+	if (bump)
+	{
+		shame *= bump * ARC_BUMP_MULT;
+	}
+
+	if (flexi)
+	{
+		shame *= flexi * ARC_FLEXI_MULT;
+	}
+
+	if (shiny)
+	{
+		shame *= shiny * ARC_SHINY_MULT;
+	}
+
+	if (twist > 1.f)
+	{
+		shame = (U32)(shame * twist);
+	}
+
+	if (scale > 1.f)
+	{
+		shame = (U32)(shame *scale);
+	}
+
+	if (revolutions > 1.f)
+	{
+		shame = (U32)(shame * revolutions);
+	}
+
+	// add additional costs
+	shame += particles * ARC_PARTICLE_COST;
+
+	return shame;
+}
+
+F32 LLVOVolume::getStreamingCost()
+{
+	if (isMesh())
+	{	
+		const LLSD& header = gMeshRepo.getMeshHeader(getVolume()->getParams().getSculptID());
+
+		F32 radius = getScale().length();
+		
+		return LLMeshRepository::getStreamingCost(header, radius);
+	}
+		
+	return 0.f;
+}
+
+U32 LLVOVolume::getTriangleCount()
+{
+	U32 count = 0;
+	LLVolume* volume = getVolume();
+	if (volume)
+	{
+		for (S32 i = 0; i < volume->getNumVolumeFaces(); ++i)
 		{
-			const LLVOVolume* child_volumep = child_drawablep->getVOVolume();
-			if (child_volumep)
-			{
-				shame += child_volumep->getRenderCost(textures);
-			}
+			count += volume->getVolumeFace(i).mNumIndices/3;
 		}
 	}
 
-	return shame;
-
+	return count;
 }
 
 //static
@@ -3048,7 +3270,6 @@ F32 LLVOVolume::getBinRadius()
 	
 	F32 scale = 1.f;
 
-#if LL_MESH_ENABLED
 	if (isSculpted())
 	{
 		LLSculptParams *sculpt_params = (LLSculptParams *)getParameterEntry(LLNetworkData::PARAMS_SCULPT);
@@ -3070,7 +3291,6 @@ F32 LLVOVolume::getBinRadius()
 			scale = 1.f/llmax(vert_count/1024.f, 1.f);
 		}
 	}
-#endif
 
 	const LLVector4a* ext = mDrawable->getSpatialExtents();
 	
@@ -3220,12 +3440,37 @@ BOOL LLVOVolume::lineSegmentIntersect(const LLVector3& start, const LLVector3& e
 	BOOL ret = FALSE;
 
 	LLVolume* volume = getVolume();
+
+	bool transform = true;
+
+	if (mDrawable->isState(LLDrawable::RIGGED))
+	{
+		if (LLFloater::isVisible(gFloaterTools) && getAvatar()->isSelf())
+		{
+			gPipeline.markRebuild(mDrawable, LLDrawable::REBUILD_RIGGED, TRUE);
+			volume = mRiggedVolume;
+			transform = false;
+		}
+		else
+		{ //cannot pick rigged attachments on other avatars or when not in build mode
+			return FALSE;
+		}
+	}
+	
 	if (volume)
 	{	
 		LLVector3 v_start, v_end, v_dir;
 	
-		v_start = agentPositionToVolume(start);
-		v_end = agentPositionToVolume(end);
+		if (transform)
+		{
+			v_start = agentPositionToVolume(start);
+			v_end = agentPositionToVolume(end);
+		}
+		else
+		{
+			v_start = start;
+			v_end = end;
+		}
 		
 		LLVector3 p;
 		LLVector3 n;
@@ -3285,18 +3530,40 @@ BOOL LLVOVolume::lineSegmentIntersect(const LLVector3& start, const LLVector3& e
 					
 					if (intersection != NULL)
 					{
-						*intersection = volumePositionToAgent(p);  // must map back to agent space
+						if (transform)
+						{
+							*intersection = volumePositionToAgent(p);  // must map back to agent space
+						}
+						else
+						{
+							*intersection = p;
+						}
 					}
 
 					if (normal != NULL)
 					{
-						*normal = volumeDirectionToAgent(n);
+						if (transform)
+						{
+							*normal = volumeDirectionToAgent(n);
+						}
+						else
+						{
+							*normal = n;
+						}
+
 						(*normal).normVec();
 					}
 
 					if (bi_normal != NULL)
 					{
-						*bi_normal = volumeDirectionToAgent(bn);
+						if (transform)
+						{
+							*bi_normal = volumeDirectionToAgent(bn);
+						}
+						else
+						{
+							*bi_normal = bn;
+						}
 						(*bi_normal).normVec();
 					}
 
@@ -3312,6 +3579,201 @@ BOOL LLVOVolume::lineSegmentIntersect(const LLVector3& start, const LLVector3& e
 	}
 		
 	return ret;
+}
+
+bool LLVOVolume::treatAsRigged()
+{
+	return LLFloater::isVisible(gFloaterTools) && 
+			isAttachment() && 
+			getAvatar() &&
+			getAvatar()->isSelf() &&
+			mDrawable.notNull() &&
+			mDrawable->isState(LLDrawable::RIGGED);
+}
+
+LLRiggedVolume* LLVOVolume::getRiggedVolume()
+{
+	return mRiggedVolume;
+}
+
+void LLVOVolume::clearRiggedVolume()
+{
+	if (mRiggedVolume.notNull())
+	{
+		mRiggedVolume = NULL;
+		updateRelativeXform();
+	}
+}
+
+void LLVOVolume::updateRiggedVolume()
+{
+	//Update mRiggedVolume to match current animation frame of avatar. 
+	//Also update position/size in octree.  
+
+	if (!treatAsRigged())
+	{
+		clearRiggedVolume();
+		
+		return;
+	}
+
+	LLVolume* volume = getVolume();
+
+	const LLMeshSkinInfo* skin = gMeshRepo.getSkinInfo(volume->getParams().getSculptID());
+
+	if (!skin)
+	{
+		clearRiggedVolume();
+		return;
+	}
+
+	LLVOAvatar* avatar = getAvatar();
+
+	if (!avatar)
+	{
+		clearRiggedVolume();
+		return;
+	}
+
+	if (!mRiggedVolume)
+	{
+		LLVolumeParams p;
+		mRiggedVolume = new LLRiggedVolume(p);
+		updateRelativeXform();
+	}
+
+	mRiggedVolume->update(skin, avatar, volume);
+
+}
+
+static LLFastTimer::DeclareTimer FTM_SKIN_RIGGED("Skin");
+static LLFastTimer::DeclareTimer FTM_RIGGED_OCTREE("Octree");
+
+void LLRiggedVolume::update(const LLMeshSkinInfo* skin, LLVOAvatar* avatar, const LLVolume* volume)
+{
+	bool copy = false;
+	if (volume->getNumVolumeFaces() != getNumVolumeFaces())
+	{ 
+		copy = true;
+	}
+
+	for (S32 i = 0; i < volume->getNumVolumeFaces() && !copy; ++i)
+	{
+		const LLVolumeFace& src_face = volume->getVolumeFace(i);
+		const LLVolumeFace& dst_face = getVolumeFace(i);
+
+		if (src_face.mNumIndices != dst_face.mNumIndices ||
+			src_face.mNumVertices != dst_face.mNumVertices)
+		{
+			copy = true;
+		}
+	}
+
+	if (copy)
+	{
+		copyVolumeFaces(volume);	
+	}
+
+	//build matrix palette
+	LLMatrix4a mp[64];
+	LLMatrix4* mat = (LLMatrix4*) mp;
+	
+	for (U32 j = 0; j < skin->mJointNames.size(); ++j)
+	{
+		LLJoint* joint = avatar->getJoint(skin->mJointNames[j]);
+		if (joint)
+		{
+			mat[j] = skin->mInvBindMatrix[j];
+			mat[j] *= joint->getWorldMatrix();
+		}
+	}
+
+	for (S32 i = 0; i < volume->getNumVolumeFaces(); ++i)
+	{
+		const LLVolumeFace& vol_face = volume->getVolumeFace(i);
+		
+		LLVolumeFace& dst_face = mVolumeFaces[i];
+		
+		LLVector4a* weight = vol_face.mWeights;
+
+		LLMatrix4a bind_shape_matrix;
+		bind_shape_matrix.loadu(skin->mBindShapeMatrix);
+
+		LLVector4a* pos = dst_face.mPositions;
+
+		{
+			LLFastTimer t(FTM_SKIN_RIGGED);
+
+			for (U32 j = 0; j < dst_face.mNumVertices; ++j)
+			{
+				LLMatrix4a final_mat;
+				final_mat.clear();
+
+				S32 idx[4];
+
+				LLVector4 wght;
+
+				F32 scale = 0.f;
+				for (U32 k = 0; k < 4; k++)
+				{
+					F32 w = weight[j][k];
+
+					idx[k] = (S32) floorf(w);
+					wght[k] = w - floorf(w);
+					scale += wght[k];
+				}
+
+				wght *= 1.f/scale;
+
+				for (U32 k = 0; k < 4; k++)
+				{
+					F32 w = wght[k];
+
+					LLMatrix4a src;
+					src.setMul(mp[idx[k]], w);
+
+					final_mat.add(src);
+				}
+
+				
+				LLVector4a& v = vol_face.mPositions[j];
+				LLVector4a t;
+				LLVector4a dst;
+				bind_shape_matrix.affineTransform(v, t);
+				final_mat.affineTransform(t, dst);
+				pos[j] = dst;
+			}
+
+			//update bounding box
+			LLVector4a& min = dst_face.mExtents[0];
+			LLVector4a& max = dst_face.mExtents[1];
+
+			min = pos[0];
+			max = pos[1];
+
+			for (U32 j = 1; j < dst_face.mNumVertices; ++j)
+			{
+				min.setMin(min, pos[j]);
+				max.setMax(max, pos[j]);
+			}
+
+			dst_face.mCenter->setAdd(dst_face.mExtents[0], dst_face.mExtents[1]);
+			dst_face.mCenter->mul(0.5f);
+
+		}
+
+		{
+			LLFastTimer t(FTM_RIGGED_OCTREE);
+			delete dst_face.mOctree;
+			dst_face.mOctree = NULL;
+
+			LLVector4a size;
+			size.setSub(dst_face.mExtents[1], dst_face.mExtents[0]);
+			size.splat(size.getLength3().getF32()*0.5f);
+			
+			dst_face.createOctree(1.f);
+		}
+	}
 }
 
 U32 LLVOVolume::getPartitionType() const
@@ -3460,7 +3922,6 @@ void LLVolumeGeometryManager::getGeometry(LLSpatialGroup* group)
 static LLFastTimer::DeclareTimer FTM_REBUILD_VOLUME_VB("Volume");
 static LLFastTimer::DeclareTimer FTM_REBUILD_VBO("VBO Rebuilt");
 
-#if LL_MESH_ENABLED
 static LLDrawPoolAvatar* get_avatar_drawpool(LLViewerObject* vobj)
 {
 	LLVOAvatar* avatar = vobj->getAvatar();
@@ -3487,7 +3948,6 @@ static LLDrawPoolAvatar* get_avatar_drawpool(LLViewerObject* vobj)
 
 	return NULL;
 }
-#endif		
 
 void LLVolumeGeometryManager::rebuildGeom(LLSpatialGroup* group)
 {
@@ -3548,19 +4008,25 @@ void LLVolumeGeometryManager::rebuildGeom(LLSpatialGroup* group)
 		}
 
 		LLVOVolume* vobj = drawablep->getVOVolume();
+
+		if (vobj->getVolume() && vobj->getVolume()->isTetrahedron())
+		{
+			continue;
+		}
+
 		llassert_always(vobj);
 		vobj->updateTextureVirtualSize();
 		vobj->preRebuild();
 
 		drawablep->clearState(LLDrawable::HAS_ALPHA);
 
-#if LL_MESH_ENABLED
 		bool rigged = vobj->isAttachment() && 
 					vobj->isMesh() && 
 					gMeshRepo.getSkinInfo(vobj->getVolume()->getParams().getSculptID());
-#endif
 
 		bool bake_sunlight = LLPipeline::sBakeSunlight && drawablep->isStatic();
+
+		bool is_rigged = false;
 
 		//for each face
 		for (S32 i = 0; i < drawablep->getNumFaces(); i++)
@@ -3569,7 +4035,6 @@ void LLVolumeGeometryManager::rebuildGeom(LLSpatialGroup* group)
 			drawablep->updateFaceSize(i);
 			LLFace* facep = drawablep->getFace(i);
 
-#if LL_MESH_ENABLED
 			if (rigged) 
 			{
 				if (!facep->isState(LLFace::RIGGED))
@@ -3577,12 +4042,64 @@ void LLVolumeGeometryManager::rebuildGeom(LLSpatialGroup* group)
 					facep->mVertexBuffer = NULL;
 					facep->mLastVertexBuffer = NULL;
 				}
-				
+		
 				facep->setState(LLFace::RIGGED);
+				is_rigged = true;
 				
 				//get drawpool of avatar with rigged face
 				LLDrawPoolAvatar* pool = get_avatar_drawpool(vobj);
 				
+				//Determine if we've received skininfo that contains an
+				//alternate bind matrix - if it does then apply the translational component
+				//to the joints of the avatar.
+				LLVOAvatar* pAvatarVO = vobj->getAvatar();
+				bool pelvisGotSet = false;
+
+				if ( pAvatarVO )
+				{
+					const LLMeshSkinInfo*  pSkinData = gMeshRepo.getSkinInfo( vobj->getVolume()->getParams().getSculptID() );
+				
+					if ( pSkinData )
+					{
+						const int bindCnt = pSkinData->mAlternateBindMatrix.size();								
+						if ( bindCnt > 0 )
+						{					
+							const int jointCnt = pSkinData->mJointNames.size();
+							for ( int i=0; i<jointCnt; ++i )
+							{
+								std::string lookingForJoint = pSkinData->mJointNames[i].c_str();
+								LLJoint* pJoint = pAvatarVO->getJoint( lookingForJoint );
+								if ( pJoint )
+								{   									
+									const LLVector3& jointPos = pSkinData->mAlternateBindMatrix[i].getTranslation();									
+									//If joint is a pelvis then handle by setting avPos+offset								
+									if ( lookingForJoint == "mPelvis" )
+									{	
+										//Apply av pos + offset 
+										if ( !pAvatarVO->hasPelvisOffset() )
+										{										
+											pAvatarVO->setPelvisOffset( true, jointPos );
+											//Trigger to rebuild viewer AV
+											pelvisGotSet = true;											
+										}										
+									}
+									else
+									{
+										//Straight set for ALL joints except pelvis
+										pJoint->storeCurrentXform( jointPos );																					
+									}									
+								}
+							}
+						}
+					}
+				}
+				//If we've set the pelvis to a new position we need to also rebuild some information that the
+				//viewer does at launch (e.g. body size etc.)
+				if ( pelvisGotSet )
+				{
+					pAvatarVO->postPelvisSetRecalc();
+				}
+
 				if (pool)
 				{
 					const LLTextureEntry* te = facep->getTextureEntry();
@@ -3674,7 +4191,6 @@ void LLVolumeGeometryManager::rebuildGeom(LLSpatialGroup* group)
 					facep->clearState(LLFace::RIGGED);
 				}
 			}
-#endif
 
 			if (cur_total > max_total || facep->getIndicesCount() <= 0 || facep->getGeomCount() <= 0)
 			{
@@ -3787,6 +4303,15 @@ void LLVolumeGeometryManager::rebuildGeom(LLSpatialGroup* group)
 				facep->mVertexBuffer = NULL;
 				facep->mLastVertexBuffer = NULL;
 			}		
+		}
+
+		if (is_rigged)
+		{
+			drawablep->setState(LLDrawable::RIGGED);
+		}
+		else
+		{
+			drawablep->clearState(LLDrawable::RIGGED);
 		}
 	}
 

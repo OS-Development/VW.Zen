@@ -296,7 +296,7 @@
     <key>multiple</key>		  
     <map>
       <key>desc</key>
-      <string>Allow multple viewers.</string>
+      <string>Allow multiple viewers.</string>
       <key>map-to</key>
       <string>AllowMultipleViewers</string>
     </map>
@@ -389,6 +389,14 @@
       <string>Crashes on startup. For QA use.</string>
       <key>map-to</key>
       <string>CrashOnStartup</string>
+    </map>
+
+    <key>disablecrashlogger</key>
+    <map>
+      <key>desc</key>
+      <string>Disables the crash logger and lets the OS handle crashes</string>
+      <key>map-to</key>
+      <string>DisableCrashLogger</string>
     </map>
 
   </map>

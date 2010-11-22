@@ -2,31 +2,25 @@
  * @file llscreenchannel.cpp
  * @brief Class implements a channel on a screen in which appropriate toasts may appear.
  *
- * $LicenseInfo:firstyear=2000&license=viewergpl$
- * 
- * Copyright (c) 2000-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2000&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -259,8 +253,8 @@ void LLScreenChannel::addToast(const LLToast::Params& p)
 	if(mControlHovering)
 	{
 		new_toast_elem.toast->setOnToastHoverCallback(boost::bind(&LLScreenChannel::onToastHover, this, _1, _2));
-		new_toast_elem.toast->setMouseEnterCallback(boost::bind(&LLScreenChannel::stopFadingToasts, this));
-		new_toast_elem.toast->setMouseLeaveCallback(boost::bind(&LLScreenChannel::startFadingToasts, this));
+		new_toast_elem.toast->setMouseEnterCallback(boost::bind(&LLScreenChannel::stopFadingToast, this, new_toast_elem.toast));
+		new_toast_elem.toast->setMouseLeaveCallback(boost::bind(&LLScreenChannel::startFadingToast, this, new_toast_elem.toast));
 	}
 	
 	if(show_toast)
@@ -345,7 +339,6 @@ void LLScreenChannel::deleteToast(LLToast* toast)
 	if(mHoveredToast == toast)
 	{
 		mHoveredToast  = NULL;
-		startFadingToasts();
 	}
 
 	// close the toast
@@ -376,7 +369,7 @@ void LLScreenChannel::loadStoredToastsToChannel()
 	for(it = mStoredToastList.begin(); it != mStoredToastList.end(); ++it)
 	{
 		(*it).toast->setIsHidden(false);
-		(*it).toast->resetTimer();
+		(*it).toast->startFading();
 		mToastList.push_back((*it));
 	}
 
@@ -401,7 +394,7 @@ void LLScreenChannel::loadStoredToastByNotificationIDToChannel(LLUUID id)
 	}
 
 	toast->setIsHidden(false);
-	toast->resetTimer();
+	toast->startFading();
 	mToastList.push_back((*it));
 
 	redrawToasts();
@@ -484,7 +477,7 @@ void LLScreenChannel::modifyToastByNotificationID(LLUUID id, LLPanel* panel)
 		toast->removeChild(old_panel);
 		delete old_panel;
 		toast->insertPanel(panel);
-		toast->resetTimer();
+		toast->startFading();
 		redrawToasts();
 	}
 }
@@ -595,7 +588,7 @@ void LLScreenChannel::showToastsBottom()
 		mHiddenToastsNum = 0;
 		for(; it != mToastList.rend(); it++)
 		{
-			(*it).toast->stopTimer();
+			(*it).toast->stopFading();
 			(*it).toast->setVisible(FALSE);
 			mHiddenToastsNum++;
 		}
@@ -704,38 +697,23 @@ void LLScreenChannel::closeStartUpToast()
 	}
 }
 
-void LLNotificationsUI::LLScreenChannel::stopFadingToasts()
+void LLNotificationsUI::LLScreenChannel::stopFadingToast(LLToast* toast)
 {
-	if (!mToastList.size()) return;
+	if (!toast || toast != mHoveredToast) return;
 
-	if (!mHoveredToast) return;
-
-	std::vector<ToastElem>::iterator it = mToastList.begin();
-	while (it != mToastList.end())
-	{
-		ToastElem& elem = *it;
-		elem.toast->stopFading();
-		++it;
-	}
+	// Pause fade timer of the hovered toast.
+	toast->stopFading();
 }
 
-void LLNotificationsUI::LLScreenChannel::startFadingToasts()
+void LLNotificationsUI::LLScreenChannel::startFadingToast(LLToast* toast)
 {
-	if (!mToastList.size()) return;
-
-	//because onMouseLeave is processed after onMouseEnter
-	if (isHovering()) return;
-
-	std::vector<ToastElem>::iterator it = mToastList.begin();
-	while (it != mToastList.end())
+	if (!toast || toast == mHoveredToast)
 	{
-		ToastElem& elem = *it;
-		if (elem.toast->getVisible())
-		{
-			elem.toast->startFading();
-		}
-		++it;
+		return;
 	}
+
+	// Reset its fade timer.
+	toast->startFading();
 }
 
 //--------------------------------------------------------------------------

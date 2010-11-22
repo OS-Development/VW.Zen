@@ -2,31 +2,25 @@
  * @file lldrawpoolavatar.cpp
  * @brief LLDrawPoolAvatar class implementation
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -105,7 +99,6 @@ S32 normal_channel = -1;
 S32 specular_channel = -1;
 S32 cube_channel = -1;
 
-#if LL_MESH_ENABLED
 static const U32 rigged_data_mask[] = {
 	LLDrawPoolAvatar::RIGGED_SIMPLE_MASK,
 	LLDrawPoolAvatar::RIGGED_FULLBRIGHT_MASK,
@@ -117,7 +110,6 @@ static const U32 rigged_data_mask[] = {
 	LLDrawPoolAvatar::RIGGED_DEFERRED_BUMP_MASK,						 
 	LLDrawPoolAvatar::RIGGED_DEFERRED_SIMPLE_MASK,
 };
-#endif
 
 
 static LLFastTimer::DeclareTimer FTM_SHADOW_AVATAR("Avatar Shadow");
@@ -198,14 +190,12 @@ void LLDrawPoolAvatar::beginDeferredPass(S32 pass)
 	case 2:
 		beginDeferredSkinned();
 		break;
-#if LL_MESH_ENABLED
 	case 3:
 		beginDeferredRiggedSimple();
 		break;
 	case 4:
 		beginDeferredRiggedBump();
 		break;
-#endif
 	}
 }
 
@@ -232,14 +222,12 @@ void LLDrawPoolAvatar::endDeferredPass(S32 pass)
 	case 2:
 		endDeferredSkinned();
 		break;
-#if LL_MESH_ENABLED
 	case 3:
 		endDeferredRiggedSimple();
 		break;
 	case 4:
 		endDeferredRiggedBump();
 		break;
-#endif
 	}
 }
 
@@ -250,11 +238,7 @@ void LLDrawPoolAvatar::renderDeferred(S32 pass)
 
 S32 LLDrawPoolAvatar::getNumPostDeferredPasses()
 {
-#if LL_MESH_ENABLED
 	return 6;
-#else
-	return 1;
-#endif
 }
 
 void LLDrawPoolAvatar::beginPostDeferredPass(S32 pass)
@@ -264,7 +248,6 @@ void LLDrawPoolAvatar::beginPostDeferredPass(S32 pass)
 	case 0:
 		beginPostDeferredAlpha();
 		break;
-#if LL_MESH_ENABLED
 	case 1:
 		beginRiggedFullbright();
 		break;
@@ -280,7 +263,6 @@ void LLDrawPoolAvatar::beginPostDeferredPass(S32 pass)
 	case 5:
 		beginRiggedGlow();
 		break;
-#endif
 	}
 }
 
@@ -298,7 +280,6 @@ void LLDrawPoolAvatar::beginPostDeferredAlpha()
 	enable_vertex_weighting(sVertexProgram->mAttribute[LLViewerShaderMgr::AVATAR_WEIGHT]);
 }
 
-#if LL_MESH_ENABLED
 void LLDrawPoolAvatar::beginDeferredRiggedAlpha()
 {
 	sVertexProgram = &gDeferredSkinnedAlphaProgram;
@@ -316,7 +297,6 @@ void LLDrawPoolAvatar::endDeferredRiggedAlpha()
 	LLVertexBuffer::sWeight4Loc = -1;
 	sVertexProgram = NULL;
 }
-#endif
 
 void LLDrawPoolAvatar::endPostDeferredPass(S32 pass)
 {
@@ -325,7 +305,6 @@ void LLDrawPoolAvatar::endPostDeferredPass(S32 pass)
 	case 0:
 		endPostDeferredAlpha();
 		break;
-#if LL_MESH_ENABLED
 	case 1:
 		endRiggedFullbright();
 		break;
@@ -341,7 +320,6 @@ void LLDrawPoolAvatar::endPostDeferredPass(S32 pass)
 	case 5:
 		endRiggedGlow();
 		break;
-#endif
 	}
 }
 
@@ -375,11 +353,7 @@ void LLDrawPoolAvatar::renderPostDeferred(S32 pass)
 
 S32 LLDrawPoolAvatar::getNumShadowPasses()
 {
-#if LL_MESH_ENABLED
 	return 2;
-#else
-	return 1;
-#endif
 }
 
 void LLDrawPoolAvatar::beginShadowPass(S32 pass)
@@ -470,7 +444,6 @@ void LLDrawPoolAvatar::renderShadow(S32 pass)
 
 		avatarp->renderSkinned(AVATAR_RENDER_PASS_SINGLE);
 	}
-#if LL_MESH_ENABLED
 	else
 	{
 		renderRigged(avatarp, RIGGED_SIMPLE);
@@ -480,12 +453,10 @@ void LLDrawPoolAvatar::renderShadow(S32 pass)
 		renderRigged(avatarp, RIGGED_SHINY);
 		renderRigged(avatarp, RIGGED_FULLBRIGHT_ALPHA);
 	}
-#endif
 }
 
 S32 LLDrawPoolAvatar::getNumPasses()
 {
-#if LL_MESH_ENABLED
 	if (LLPipeline::sImpostorRender)
 	{
 		return 8;
@@ -494,7 +465,6 @@ S32 LLDrawPoolAvatar::getNumPasses()
 	{
 		return 10;
 	}
-#else
 	if (LLPipeline::sImpostorRender)
 	{
 		return 1;
@@ -503,7 +473,6 @@ S32 LLDrawPoolAvatar::getNumPasses()
 	{
 		return 3;
 	}
-#endif
 }
 
 
@@ -554,7 +523,6 @@ void LLDrawPoolAvatar::beginRenderPass(S32 pass)
 	case 2:
 		beginSkinned();
 		break;
-#if LL_MESH_ENABLED
 	case 3:
 		beginRiggedSimple();
 		break;
@@ -576,7 +544,6 @@ void LLDrawPoolAvatar::beginRenderPass(S32 pass)
 	case 9:
 		beginRiggedGlow();
 		break;
-#endif
 	}
 }
 
@@ -600,7 +567,6 @@ void LLDrawPoolAvatar::endRenderPass(S32 pass)
 	case 2:
 		endSkinned();
 		break;
-#if LL_MESH_ENABLED
 	case 3:
 		endRiggedSimple();
 		break;
@@ -622,7 +588,6 @@ void LLDrawPoolAvatar::endRenderPass(S32 pass)
 	case 9:
 		endRiggedGlow();
 		break;
-#endif
 	}
 }
 
@@ -808,7 +773,6 @@ void LLDrawPoolAvatar::endSkinned()
 	gGL.getTexUnit(0)->activate();
 }
 
-#if LL_MESH_ENABLED
 void LLDrawPoolAvatar::beginRiggedSimple()
 {
 	if (sShaderLevel > 0)
@@ -1056,7 +1020,6 @@ void LLDrawPoolAvatar::endDeferredRiggedBump()
 	sDiffuseChannel = 0;
 	sVertexProgram = NULL;
 }
-#endif
 
 void LLDrawPoolAvatar::beginDeferredSkinned()
 {
@@ -1202,7 +1165,6 @@ void LLDrawPoolAvatar::renderAvatars(LLVOAvatar* single_avatar, S32 pass)
 		return;
 	}
 
-#if LL_MESH_ENABLED
 	if (pass == 3)
 	{
 		if (is_deferred_render)
@@ -1284,7 +1246,6 @@ void LLDrawPoolAvatar::renderAvatars(LLVOAvatar* single_avatar, S32 pass)
 		gGL.setSceneBlendType(LLRender::BT_ALPHA);
 		return;
 	}
-#endif
 	
 	if (sShaderLevel > 0)
 	{
@@ -1322,9 +1283,14 @@ void LLDrawPoolAvatar::renderAvatars(LLVOAvatar* single_avatar, S32 pass)
 	}
 }
 
-#if LL_MESH_ENABLED
 void LLDrawPoolAvatar::updateRiggedFaceVertexBuffer(LLVOAvatar* avatar, LLFace* face, const LLMeshSkinInfo* skin, LLVolume* volume, const LLVolumeFace& vol_face)
 {
+	LLVector4a* weight = vol_face.mWeights;
+	if (!weight)
+	{
+		return;
+	}
+
 	LLVertexBuffer* buffer = face->mVertexBuffer;
 
 	U32 data_mask = 0;
@@ -1403,8 +1369,6 @@ void LLDrawPoolAvatar::updateRiggedFaceVertexBuffer(LLVOAvatar* avatar, LLFace* 
 			}
 		}
 
-		LLVector4a* weight = vol_face.mWeights;
-
 		LLMatrix4a bind_shape_matrix;
 		bind_shape_matrix.loadu(skin->mBindShapeMatrix);
 
@@ -1422,7 +1386,7 @@ void LLDrawPoolAvatar::updateRiggedFaceVertexBuffer(LLVOAvatar* avatar, LLFace* 
 			{
 				F32 w = weight[j][k];
 
-				idx[k] = (S32) floorf(w);
+				idx[k] = llclamp((S32) floorf(w), 0, 63);
 				wght[k] = w - floorf(w);
 				scale += wght[k];
 			}
@@ -1536,11 +1500,7 @@ void LLDrawPoolAvatar::renderRigged(LLVOAvatar* avatar, U32 type, bool glow)
 					skin->mJointNames.size(),
 					FALSE,
 					(GLfloat*) mat[0].mMatrix);
-				LLDrawPoolAvatar::sVertexProgram->uniformMatrix4fv("matrixPalette[0]", 
-					skin->mJointNames.size(),
-					FALSE,
-					(GLfloat*) mat[0].mMatrix);
-
+				
 				stop_glerror();
 			}
 			else
@@ -1627,8 +1587,6 @@ void LLDrawPoolAvatar::renderRiggedGlow(LLVOAvatar* avatar)
 {
 	renderRigged(avatar, RIGGED_GLOW, true);
 }
-#endif
-
 
 
 //-----------------------------------------------------------------------------
@@ -1729,7 +1687,6 @@ LLColor3 LLDrawPoolAvatar::getDebugColor() const
 	return LLColor3(0.f, 1.f, 0.f);
 }
 
-#if LL_MESH_ENABLED
 void LLDrawPoolAvatar::addRiggedFace(LLFace* facep, U32 type)
 {
 	if (facep->mRiggedIndex.empty())
@@ -1784,7 +1741,6 @@ void LLDrawPoolAvatar::removeRiggedFace(LLFace* facep)
 		}
 	}
 }
-#endif
 
 LLVertexBufferAvatar::LLVertexBufferAvatar()
 : LLVertexBuffer(sDataMask, 

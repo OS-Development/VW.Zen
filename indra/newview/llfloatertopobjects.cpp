@@ -2,31 +2,25 @@
  * @file llfloatertopobjects.cpp
  * @brief Shows top colliders, top scripts, etc.
  *
- * $LicenseInfo:firstyear=2005&license=viewergpl$
- * 
- * Copyright (c) 2005-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2005&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -34,7 +28,9 @@
 
 #include "llfloatertopobjects.h"
 
+// library includes
 #include "message.h"
+#include "llavatarnamecache.h"
 #include "llfontgl.h"
 
 #include "llagent.h"
@@ -70,7 +66,6 @@ void LLFloaterTopObjects::show()
 	}
 
 	sInstance = new LLFloaterTopObjects();
-//	LLUICtrlFactory::getInstance()->buildFloater(sInstance, "floater_top_objects.xml");
 	sInstance->center();
 }
 */
@@ -196,37 +191,53 @@ void LLFloaterTopObjects::handleReply(LLMessageSystem *msg, void** data)
 		LLSD element;
 
 		element["id"] = task_id;
-		element["object_name"] = name_buf;
-		element["owner_name"] = owner_buf;
-		element["columns"][0]["column"] = "score";
-		element["columns"][0]["value"] = llformat("%0.3f", score);
-		element["columns"][0]["font"] = "SANSSERIF";
+
+		LLSD columns;
+		columns[0]["column"] = "score";
+		columns[0]["value"] = llformat("%0.3f", score);
+		columns[0]["font"] = "SANSSERIF";
 		
-		element["columns"][1]["column"] = "name";
-		element["columns"][1]["value"] = name_buf;
-		element["columns"][1]["font"] = "SANSSERIF";
-		element["columns"][2]["column"] = "owner";
-		element["columns"][2]["value"] = owner_buf;
-		element["columns"][2]["font"] = "SANSSERIF";
-		element["columns"][3]["column"] = "location";
-		element["columns"][3]["value"] = llformat("<%0.1f,%0.1f,%0.1f>", location_x, location_y, location_z);
-		element["columns"][3]["font"] = "SANSSERIF";
-		element["columns"][4]["column"] = "time";
-		element["columns"][4]["value"] = formatted_time((time_t)time_stamp);
-		element["columns"][4]["font"] = "SANSSERIF";
+		columns[1]["column"] = "name";
+		columns[1]["value"] = name_buf;
+		columns[1]["font"] = "SANSSERIF";
+		
+		// Owner names can have trailing spaces sent from server
+		LLStringUtil::trim(owner_buf);
+		
+		if (LLAvatarNameCache::useDisplayNames())
+		{
+			// ...convert hard-coded name from server to a username
+			// *TODO: Send owner_id from server and look up display name
+			owner_buf = LLCacheName::buildUsername(owner_buf);
+		}
+		else
+		{
+			// ...just strip out legacy "Resident" name
+			owner_buf = LLCacheName::cleanFullName(owner_buf);
+		}
+		columns[2]["column"] = "owner";
+		columns[2]["value"] = owner_buf;
+		columns[2]["font"] = "SANSSERIF";
+
+		columns[3]["column"] = "location";
+		columns[3]["value"] = llformat("<%0.1f,%0.1f,%0.1f>", location_x, location_y, location_z);
+		columns[3]["font"] = "SANSSERIF";
+		columns[4]["column"] = "time";
+		columns[4]["value"] = formatted_time((time_t)time_stamp);
+		columns[4]["font"] = "SANSSERIF";
 
 		if (mCurrentMode == STAT_REPORT_TOP_SCRIPTS
 			&& have_extended_data)
 		{
-			element["columns"][5]["column"] = "mono_time";
-			element["columns"][5]["value"] = llformat("%0.3f", mono_score);
-			element["columns"][5]["font"] = "SANSSERIF";
+			columns[5]["column"] = "mono_time";
+			columns[5]["value"] = llformat("%0.3f", mono_score);
+			columns[5]["font"] = "SANSSERIF";
 
-			element["columns"][6]["column"] = "URLs";
-			element["columns"][6]["value"] = llformat("%d", public_urls);
-			element["columns"][6]["font"] = "SANSSERIF";
+			columns[6]["column"] = "URLs";
+			columns[6]["value"] = llformat("%d", public_urls);
+			columns[6]["font"] = "SANSSERIF";
 		}
-		
+		element["columns"] = columns;
 		list->addElement(element);
 		
 		mObjectListData.append(element);

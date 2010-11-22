@@ -2,31 +2,25 @@
  * @file llpanellogin.cpp
  * @brief Login dialog and logo display
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -193,7 +187,7 @@ LLPanelLogin::LLPanelLogin(const LLRect &rect,
 	// Logo
 	mLogoImage = LLUI::getUIImage("startup_logo");
 
-	LLUICtrlFactory::getInstance()->buildPanel(this, "panel_login.xml");
+	buildFromFile( "panel_login.xml");
 	
 #if USE_VIEWER_AUTH
 	//leave room for the login menu bar
@@ -211,7 +205,6 @@ LLPanelLogin::LLPanelLogin(const LLRect &rect,
 	}
 
 #if !USE_VIEWER_AUTH
-	getChild<LLLineEditor>("username_edit")->setPrevalidate(LLTextValidate::validateASCIIPrintableNoPipe);
 	getChild<LLLineEditor>("password_edit")->setKeystrokeCallback(onPassKey, this);
 
 	// change z sort of clickable text to be behind buttons
@@ -262,13 +255,6 @@ LLPanelLogin::LLPanelLogin(const LLRect &rect,
 	
 	// Clear the browser's cache to avoid any potential for the cache messing up the login screen.
 	web_browser->clearCache();
-
-	// Need to handle login secondlife:///app/ URLs
-	web_browser->setTrusted( true );
-
-	// don't make it a tab stop until SL-27594 is fixed
-	web_browser->setTabStop(FALSE);
-	// web_browser->navigateToLocalPage( "loading", "loading.html" );
 
 	reshapeBrowser();
 
@@ -514,8 +500,16 @@ void LLPanelLogin::setFields(LLPointer<LLCredential> credential,
 	LLSD identifier = credential->getIdentifier();
 	if((std::string)identifier["type"] == "agent") 
 	{
-		sInstance->getChild<LLUICtrl>("username_edit")->setValue((std::string)identifier["first_name"] + " " + 
-								(std::string)identifier["last_name"]);	
+		std::string firstname = identifier["first_name"].asString();
+		std::string lastname = identifier["last_name"].asString();
+	    std::string login_id = firstname;
+	    if (!lastname.empty() && lastname != "Resident")
+	    {
+		    // support traditional First Last name SLURLs
+		    login_id += " ";
+		    login_id += lastname;
+	    }
+		sInstance->getChild<LLUICtrl>("username_edit")->setValue(login_id);	
 	}
 	else if((std::string)identifier["type"] == "account")
 	{
@@ -579,7 +573,8 @@ void LLPanelLogin::getFields(LLPointer<LLCredential>& credential,
 	LL_INFOS2("Credentials", "Authentication") << "retrieving username:" << username << LL_ENDL;
 	// determine if the username is a first/last form or not.
 	size_t separator_index = username.find_first_of(' ');
-	if (separator_index == username.npos)
+	if (separator_index == username.npos
+		&& !LLGridManager::getInstance()->isSystemGrid())
 	{
 		LL_INFOS2("Credentials", "Authentication") << "account: " << username << LL_ENDL;
 		// single username, so this is a 'clear' identifier
@@ -596,9 +591,23 @@ void LLPanelLogin::getFields(LLPointer<LLCredential>& credential,
 	}
 	else
 	{
+		// Be lenient in terms of what separators we allow for two-word names
+		// and allow legacy users to login with firstname.lastname
+		separator_index = username.find_first_of(" ._");
 		std::string first = username.substr(0, separator_index);
-		std::string last = username.substr(separator_index, username.npos);
+		std::string last;
+		if (separator_index != username.npos)
+		{
+			last = username.substr(separator_index+1, username.npos);
 		LLStringUtil::trim(last);
+		}
+		else
+		{
+			// ...on Linden grids, single username users as considered to have
+			// last name "Resident"
+			// *TODO: Make login.cgi support "account_name" like above
+			last = "Resident";
+		}
 		
 		if (last.find_first_of(' ') == last.npos)
 		{
@@ -818,7 +827,7 @@ void LLPanelLogin::loadLoginPage()
 	curl_free(curl_version);
 
 	// Grid
-	char* curl_grid = curl_escape(LLGridManager::getInstance()->getGridLoginID().c_str(), 0);
+	char* curl_grid = curl_escape(LLGridManager::getInstance()->getGridLabel().c_str(), 0);
 	oStr << "&grid=" << curl_grid;
 	curl_free(curl_grid);
 	gViewerWindow->setMenuBackgroundColor(false, !LLGridManager::getInstance()->isInProductionGrid());
@@ -1110,9 +1119,10 @@ void LLPanelLogin::updateServerCombo()
 	{
 		if (!grid_choice->first.empty())
 		{
-			server_choice_combo->add(grid_choice->second, grid_choice->first, ADD_SORTED);
+			server_choice_combo->add(grid_choice->second, grid_choice->first);
 		}
 	}
+	server_choice_combo->sortByName();
 	
 	server_choice_combo->addSeparator(ADD_TOP);
 	

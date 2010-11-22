@@ -22,8 +22,25 @@ python run_build_test.py -DFOO=bar myprog somearg otherarg
 sets environment variable FOO=bar, then runs:
 myprog somearg otherarg
 
-$LicenseInfo:firstyear=2009&license=viewergpl$
-Copyright (c) 2009, Linden Research, Inc.
+$LicenseInfo:firstyear=2009&license=viewerlgpl$
+Second Life Viewer Source Code
+Copyright (C) 2009-2010, Linden Research, Inc.
+
+This library is free software; you can redistribute it and/or
+modify it under the terms of the GNU Lesser General Public
+License as published by the Free Software Foundation;
+version 2.1 of the License only.
+
+This library is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public
+License along with this library; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+
+Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
 $/LicenseInfo$
 """
 
@@ -65,10 +82,24 @@ def main(command, libpath=[], vars={}):
         dirs = os.environ.get(var, "").split(os.pathsep)
         # Append the sequence in libpath
         print "%s += %r" % (var, libpath)
-        dirs.extend(libpath)
+        for dir in libpath:
+            # append system paths at the end
+            if dir in ('/lib', '/usr/lib'):
+                dirs.append(dir)
+            # prepend non-system paths
+            else:
+                dirs.insert(0, dir)
+
+        # Filter out some useless pieces
+        clean_dirs = []
+        for dir in dirs:
+            if dir and dir not in ('', '.'):
+                clean_dirs.append(dir)
+
         # Now rebuild the path string. This way we use a minimum of separators
         # -- and we avoid adding a pointless separator when libpath is empty.
-        os.environ[var] = os.pathsep.join(dirs)
+        os.environ[var] = os.pathsep.join(clean_dirs)
+        print "%s = %r" % (var, os.environ[var])
     # Now handle arbitrary environment variables. The tricky part is ensuring
     # that all the keys and values we try to pass are actually strings.
     if vars:

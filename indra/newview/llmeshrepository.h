@@ -2,31 +2,25 @@
  * @file llmeshrepository.h
  * @brief Client-side repository of mesh assets.
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -38,8 +32,6 @@
 #include "lluuid.h"
 #include "llviewertexture.h"
 #include "llvolume.h"
-
-#if LL_MESH_ENABLED
 
 #define LLCONVEXDECOMPINTER_STATIC 1
 
@@ -134,6 +126,8 @@ public:
 	LLUUID mMeshID;
 	std::vector<std::string> mJointNames;
 	std::vector<LLMatrix4> mInvBindMatrix;
+	std::vector<LLMatrix4> mAlternateBindMatrix;
+	
 	LLMatrix4 mBindShapeMatrix;
 };
 
@@ -142,46 +136,71 @@ class LLMeshDecomposition
 public:
 	LLMeshDecomposition() { }
 
+	void merge(const LLMeshDecomposition* rhs);
+
 	LLUUID mMeshID;
-	LLModel::physics_shape mHull;
+	LLModel::convex_hull_decomposition mHull;
+	LLModel::hull mBaseHull;
 
 	std::vector<LLPointer<LLVertexBuffer> > mMesh;
+	LLPointer<LLVertexBuffer> mBaseHullMesh;
+	LLPointer<LLVertexBuffer> mPhysicsShapeMesh;
 };
 
 class LLPhysicsDecomp : public LLThread
 {
 public:
+
+	typedef std::map<std::string, LLSD> decomp_params;
+
+	class Request : public LLRefCount
+	{
+	public:
+		//input params
+		std::string mStage;
+		std::vector<LLVector3> mPositions;
+		std::vector<U16> mIndices;
+		decomp_params mParams;
+				
+		//output state
+		std::string mStatusMessage;
+		std::vector<LLPointer<LLVertexBuffer> > mHullMesh;
+		LLModel::convex_hull_decomposition mHull;
+		
+		virtual S32 statusCallback(const char* status, S32 p1, S32 p2) = 0;
+		virtual void completed() = 0;
+		virtual void setStatusMessage(const std::string& msg);
+	};
+
 	LLCondition* mSignal;
 	LLMutex* mMutex;
-	
-	LLCDMeshData mMesh;
 	
 	bool mInited;
 	bool mQuitting;
 	bool mDone;
-
-	S32 mContinue;
-	std::string mStatus;
-
-	std::vector<LLVector3> mPositions;
-	std::vector<U16> mIndices;
-
-	S32 mStage;
-
+	
 	LLPhysicsDecomp();
 	~LLPhysicsDecomp();
 
 	void shutdown();
-	void setStatusMessage(std::string msg);
-	
-	void execute(const char* stage, LLModel* mdl);
+		
+	void submitRequest(Request* request);
 	static S32 llcdCallback(const char*, S32, S32);
 	void cancel();
+
+	void setMeshData(LLCDMeshData& mesh);
+	void doDecomposition();
+	void doDecompositionSingleHull();
 
 	virtual void run();
 
 	std::map<std::string, S32> mStageID;
-	LLPointer<LLModel> mModel;
+
+	typedef std::queue<LLPointer<Request> > request_queue;
+	request_queue mRequestQ;
+
+	LLPointer<Request> mCurRequest;
+
 };
 
 class LLMeshRepoThread : public LLThread
@@ -266,7 +285,10 @@ public:
 
 	//set of requested decompositions
 	std::set<LLUUID> mDecompositionRequests;
-	
+
+	//set of requested physics shapes
+	std::set<LLUUID> mPhysicsShapeRequests;
+
 	//queue of completed Decomposition info requests
 	std::queue<LLMeshDecomposition*> mDecompositionQ;
 
@@ -300,6 +322,8 @@ public:
 	bool lodReceived(const LLVolumeParams& mesh_params, S32 lod, U8* data, S32 data_size);
 	bool skinInfoReceived(const LLUUID& mesh_id, U8* data, S32 data_size);
 	bool decompositionReceived(const LLUUID& mesh_id, U8* data, S32 data_size);
+	bool physicsShapeReceived(const LLUUID& mesh_id, U8* data, S32 data_size);
+	const LLSD& getMeshHeader(const LLUUID& mesh_id);
 
 	void notifyLoadedMeshes();
 	S32 getActualMeshLOD(const LLVolumeParams& mesh_params, S32 lod);
@@ -307,6 +331,7 @@ public:
 
 	void loadMeshSkinInfo(const LLUUID& mesh_id);
 	void loadMeshDecomposition(const LLUUID& mesh_id);
+	void loadMeshPhysicsShape(const LLUUID& mesh_id);
 
 	//send request for skin info, returns true if header info exists 
 	//  (should hold onto mesh_id and try again later if header info does not exist)
@@ -315,11 +340,37 @@ public:
 	//send request for decomposition, returns true if header info exists 
 	//  (should hold onto mesh_id and try again later if header info does not exist)
 	bool fetchMeshDecomposition(const LLUUID& mesh_id);
+
+	//send request for PhysicsShape, returns true if header info exists 
+	//  (should hold onto mesh_id and try again later if header info does not exist)
+	bool fetchMeshPhysicsShape(const LLUUID& mesh_id);
+
+
 };
 
 class LLMeshUploadThread : public LLThread 
 {
 public:
+	class DecompRequest : public LLPhysicsDecomp::Request
+	{
+	public:
+		LLPointer<LLModel> mModel;
+		LLPointer<LLModel> mBaseModel;
+
+		LLMeshUploadThread* mThread;
+
+		DecompRequest(LLModel* mdl, LLModel* base_model, LLMeshUploadThread* thread);
+
+		S32 statusCallback(const char* status, S32 p1, S32 p2) { return 1; }
+		void completed();
+	};
+
+	LLPointer<DecompRequest> mFinalDecomp;
+	bool mPhysicsComplete;
+
+	typedef std::map<LLPointer<LLModel>, std::vector<LLVector3> > hull_map;
+	hull_map mHullMap;
+
 	typedef std::vector<LLModelInstance> instance_list;
 	instance_list mInstanceList;
 
@@ -334,6 +385,8 @@ public:
 	bool			mFinished;
 	LLVector3		mOrigin;
 	bool			mUploadTextures;
+	bool			mUploadSkin;
+	bool			mUploadJoints;
 
 	LLHost			mHost;
 	std::string		mUploadObjectAssetCapability;
@@ -348,7 +401,8 @@ public:
 
 	std::map<LLPointer<LLViewerFetchedTexture>, LLTextureUploadData> mTextureMap;
 
-	LLMeshUploadThread(instance_list& data, LLVector3& scale, bool upload_textures);
+	LLMeshUploadThread(instance_list& data, LLVector3& scale, bool upload_textures,
+			bool upload_skin, bool upload_joints);
 	~LLMeshUploadThread();
 
 	void uploadTexture(LLTextureUploadData& data);
@@ -382,6 +436,7 @@ public:
 	static U32 sCacheBytesWritten;
 	static U32 sPeakKbps;
 	
+	static F32 getStreamingCost(const LLSD& header, F32 radius);
 
 	LLMeshRepository();
 
@@ -402,11 +457,15 @@ public:
 	U32 getResourceCost(const LLUUID& mesh_params);
 	const LLMeshSkinInfo* getSkinInfo(const LLUUID& mesh_id);
 	const LLMeshDecomposition* getDecomposition(const LLUUID& mesh_id);
+	void fetchPhysicsShape(const LLUUID& mesh_id);
 
-	void uploadModel(std::vector<LLModelInstance>& data, LLVector3& scale, bool upload_textures);
+	void buildHull(const LLVolumeParams& params, S32 detail);
+	const LLSD& getMeshHeader(const LLUUID& mesh_id);
 
-	
+	void uploadModel(std::vector<LLModelInstance>& data, LLVector3& scale, bool upload_textures,
+			bool upload_skin, bool upload_joints);
 
+	S32 getMeshSize(const LLUUID& mesh_id, S32 lod);
 
 	typedef std::map<LLVolumeParams, std::set<LLUUID> > mesh_load_map;
 	mesh_load_map mLoadingMeshes[4];
@@ -432,6 +491,12 @@ public:
 
 	//list of mesh ids that need to send decomposition fetch requests
 	std::queue<LLUUID> mPendingDecompositionRequests;
+	
+	//list of mesh ids awaiting physics shapes
+	std::set<LLUUID> mLoadingPhysicsShapes;
+
+	//list of mesh ids that need to send physics shape fetch requests
+	std::queue<LLUUID> mPendingPhysicsShapeRequests;
 	
 	U32 mMeshThreadCount;
 
@@ -461,11 +526,11 @@ public:
 	void uploadError(LLSD& args);
 	void updateInventory(inventory_data data);
 
+	std::string mGetMeshCapability;
+
 };
 
 extern LLMeshRepository gMeshRepo;
-
-#endif
 
 #endif
 

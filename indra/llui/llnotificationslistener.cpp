@@ -4,14 +4,32 @@
  * @date   2009-07-08
  * @brief  Implementation for llnotificationslistener.
  * 
- * $LicenseInfo:firstyear=2009&license=viewergpl$
- * Copyright (c) 2009, Linden Research, Inc.
+ * $LicenseInfo:firstyear=2009&license=viewerlgpl$
+ * Second Life Viewer Source Code
+ * Copyright (C) 2010, Linden Research, Inc.
+ * 
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
+ * 
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
 #include "linden_common.h"
 #include "llnotificationslistener.h"
 #include "llnotifications.h"
+#include "llnotificationtemplate.h"
 #include "llsd.h"
 #include "llui.h"
 
@@ -165,7 +183,11 @@ void LLNotificationsListener::ignore(const LLSD& params) const
     if (params["name"].isDefined())
     {
         // ["name"] was passed: ignore just that notification
-        LLUI::sSettingGroups["ignores"]->setBOOL(params["name"], ignore);
+		LLNotificationTemplatePtr templatep = mNotifications.getTemplate(params["name"]);
+		if (templatep)
+		{
+			templatep->mForm->setIgnored(ignore);
+		}
     }
     else
     {

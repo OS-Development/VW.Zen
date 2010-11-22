@@ -2,31 +2,25 @@
  * @file lltoast.h
  * @brief This class implements a placeholder for any notification panel.
  *
- * $LicenseInfo:firstyear=2003&license=viewergpl$
- * 
- * Copyright (c) 2003-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2003&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -55,14 +49,16 @@ class LLToast;
 class LLToastLifeTimer: public LLEventTimer
 {
 public:
-	LLToastLifeTimer(LLToast* toast, F32 period) : mToast(toast), LLEventTimer(period){}
+	LLToastLifeTimer(LLToast* toast, F32 period);
 
 	/*virtual*/
 	BOOL tick();
-	void stop() { mEventTimer.stop(); }
-	void start() { mEventTimer.start(); }
-	void restart() {mEventTimer.reset(); }
-	BOOL getStarted() { return mEventTimer.getStarted(); }
+	void stop();
+	void start();
+	void restart();
+	BOOL getStarted();
+	void setPeriod(F32 period);
+	F32 getRemainingTimeF32();
 
 	LLTimer&  getEventTimer() { return mEventTimer;}
 private :
@@ -86,8 +82,14 @@ public:
 		Optional<LLUUID>				notif_id,	 //notification ID
 										session_id;	 //im session ID
 		Optional<LLNotificationPtr>		notification;
-		Optional<F32>					lifetime_secs,
-										fading_time_secs; // Number of seconds while a toast is fading
+
+		//NOTE: Life time of a toast (i.e. period of time from the moment toast was shown
+		//till the moment when toast was hidden) is the sum of lifetime_secs and fading_time_secs.
+
+		Optional<F32>					lifetime_secs, // Number of seconds while a toast is non-transparent
+										fading_time_secs; // Number of seconds while a toast is transparent
+
+
 		Optional<toast_callback_t>		on_delete_toast,
 										on_mouse_enter;
 		Optional<bool>					can_fade,
@@ -131,10 +133,8 @@ public:
 	LLPanel* getPanel() { return mPanel; }
 	// enable/disable Toast's Hide button
 	void setHideButtonEnabled(bool enabled);
-	// 
-	void resetTimer() { mTimer->start(); }
 	//
-	void stopTimer() { mTimer->stop(); }
+	F32 getTimeLeftToLive();
 	//
 	LLToastLifeTimer* getTimer() { return mTimer.get();}
 	//
@@ -149,6 +149,10 @@ public:
 	/*virtual*/ void onFocusLost();
 
 	/*virtual*/ void onFocusReceived();
+
+	void setLifetime(S32 seconds);
+
+	void setFadingTime(S32 seconds);
 
 	/**
 	 * Returns padding between floater top and wrapper_panel top.
@@ -194,18 +198,24 @@ public:
 
 	virtual S32	notifyParent(const LLSD& info);
 
+	LLHandle<LLToast> getHandle() { mHandle.bind(this); return mHandle; }
+
 private:
 
 	void onToastMouseEnter();
 
 	void onToastMouseLeave();
 
-	void	expire();
+	void expire();
+
+	void setTransparentState(bool transparent);
 
 	LLUUID				mNotificationID;
 	LLUUID				mSessionID;
 	LLNotificationPtr	mNotification;
 
+	LLRootHandle<LLToast>	mHandle;
+		
 	LLPanel* mWrapperPanel;
 
 	// timer counts a lifetime of a toast
@@ -224,6 +234,7 @@ private:
 	bool		mHideBtnPressed;
 	bool		mIsHidden;  // this flag is TRUE when a toast has faded or was hidden with (x) button (EXT-1849)
 	bool		mIsTip;
+	bool		mIsTransparent;
 
 	commit_signal_t mToastMouseEnterSignal;
 	commit_signal_t mToastMouseLeaveSignal;

@@ -2,31 +2,25 @@
  * @file llviewertexturelist.cpp
  * @brief Object for managing the list of images within a region
  *
- * $LicenseInfo:firstyear=2000&license=viewergpl$
- * 
- * Copyright (c) 2000-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2000&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -1167,6 +1161,8 @@ void LLViewerTextureList::updateMaxResidentTexMem(S32 mem)
 // static
 void LLViewerTextureList::receiveImageHeader(LLMessageSystem *msg, void **user_data)
 {
+	static LLCachedControl<bool> log_texture_traffic(gSavedSettings,"LogTextureNetworkTraffic") ;
+
 	LLFastTimer t(FTM_PROCESS_IMAGES);
 	
 	// Receive image header, copy into image object and decompresses 
@@ -1177,14 +1173,16 @@ void LLViewerTextureList::receiveImageHeader(LLMessageSystem *msg, void **user_d
 	char ip_string[256];
 	u32_to_ip_string(msg->getSenderIP(),ip_string);
 	
+	U32 received_size ;
 	if (msg->getReceiveCompressedSize())
 	{
-		gTextureList.sTextureBits += msg->getReceiveCompressedSize() * 8;
+		received_size = msg->getReceiveCompressedSize() ;		
 	}
 	else
 	{
-		gTextureList.sTextureBits += msg->getReceiveSize() * 8;
+		received_size = msg->getReceiveSize() ;		
 	}
+	gTextureList.sTextureBits += received_size * 8;
 	gTextureList.sTexturePackets++;
 	
 	U8 codec;
@@ -1219,6 +1217,11 @@ void LLViewerTextureList::receiveImageHeader(LLMessageSystem *msg, void **user_d
 		delete [] data;
 		return;
 	}
+	if(log_texture_traffic)
+	{
+		gTotalTextureBytesPerBoostLevel[image->getBoostLevel()] += received_size ;
+	}
+
 	//image->getLastPacketTimer()->reset();
 	bool res = LLAppViewer::getTextureFetch()->receiveImageHeader(msg->getSender(), id, codec, packets, totalbytes, data_size, data);
 	if (!res)
@@ -1230,6 +1233,8 @@ void LLViewerTextureList::receiveImageHeader(LLMessageSystem *msg, void **user_d
 // static
 void LLViewerTextureList::receiveImagePacket(LLMessageSystem *msg, void **user_data)
 {
+	static LLCachedControl<bool> log_texture_traffic(gSavedSettings,"LogTextureNetworkTraffic") ;
+
 	LLMemType mt1(LLMemType::MTYPE_APPFMTIMAGE);
 	LLFastTimer t(FTM_PROCESS_IMAGES);
 	
@@ -1242,14 +1247,16 @@ void LLViewerTextureList::receiveImagePacket(LLMessageSystem *msg, void **user_d
 	char ip_string[256];
 	u32_to_ip_string(msg->getSenderIP(),ip_string);
 	
+	U32 received_size ;
 	if (msg->getReceiveCompressedSize())
 	{
-		gTextureList.sTextureBits += msg->getReceiveCompressedSize() * 8;
+		received_size = msg->getReceiveCompressedSize() ;
 	}
 	else
 	{
-		gTextureList.sTextureBits += msg->getReceiveSize() * 8;
+		received_size = msg->getReceiveSize() ;		
 	}
+	gTextureList.sTextureBits += received_size * 8;
 	gTextureList.sTexturePackets++;
 	
 	//llprintline("Start decode, image header...");
@@ -1283,6 +1290,11 @@ void LLViewerTextureList::receiveImagePacket(LLMessageSystem *msg, void **user_d
 		delete [] data;
 		return;
 	}
+	if(log_texture_traffic)
+	{
+		gTotalTextureBytesPerBoostLevel[image->getBoostLevel()] += received_size ;
+	}
+
 	//image->getLastPacketTimer()->reset();
 	bool res = LLAppViewer::getTextureFetch()->receiveImagePacket(msg->getSender(), id, packet_num, data_size, data);
 	if (!res)
@@ -1550,7 +1562,8 @@ bool LLUIImageList::initFromFile()
 	}
 
 	UIImageDeclarations images;
-	LLXUIParser::instance().readXUI(root, images, base_file_path);
+	LLXUIParser parser;
+	parser.readXUI(root, images, base_file_path);
 
 	if (!images.validateBlock()) return false;
 
@@ -1563,8 +1576,8 @@ bool LLUIImageList::initFromFile()
 
 	for (S32 cur_pass = PASS_DECODE_NOW; cur_pass < NUM_PASSES; cur_pass++)
 	{
-		for (LLInitParam::ParamIterator<UIImageDeclaration>::const_iterator image_it = images.textures().begin();
-			image_it != images.textures().end();
+		for (LLInitParam::ParamIterator<UIImageDeclaration>::const_iterator image_it = images.textures.begin();
+			image_it != images.textures.end();
 			++image_it)
 		{
 			std::string file_name = image_it->file_name.isProvided() ? image_it->file_name() : image_it->name();

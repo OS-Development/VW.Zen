@@ -4,31 +4,25 @@
  * @date 2006-10-15
  * @brief Implementation of wrapper around libcurl.
  *
- * $LicenseInfo:firstyear=2006&license=viewergpl$
- * 
- * Copyright (c) 2006-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2006&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -90,6 +84,36 @@ S32 gCurlMultiCount = 0;
 std::vector<LLMutex*> LLCurl::sSSLMutex;
 std::string LLCurl::sCAPath;
 std::string LLCurl::sCAFile;
+
+void check_curl_code(CURLcode code)
+{
+	if (code != CURLE_OK)
+	{
+		// linux appears to throw a curl error once per session for a bad initialization
+		// at a pretty random time (when enabling cookies). Making curl errors non-asserts
+		// for non-windows platforms for now. - Nyx
+		#if LL_WINDOWS
+			llerrs << "curl error detected: " << curl_easy_strerror(code) << llendl;
+		#else
+			llinfos << "curl error detected: " << curl_easy_strerror(code) << llendl;
+		#endif
+	}
+}
+
+void check_curl_multi_code(CURLMcode code) 
+{
+	if (code != CURLM_OK)
+	{
+		// linux appears to throw a curl error once per session for a bad initialization
+		// at a pretty random time (when enabling cookies). Making curl errors non-asserts
+		// for non-windows platforms for now. - Nyx
+		#if LL_WINDOWS
+			llerrs << "curl multi error detected: " << curl_multi_strerror(code) << llendl;
+		#else 
+			llinfos << "curl multi error detected: " << curl_multi_strerror(code) << llendl;
+		#endif
+	}
+}
 
 //static
 void LLCurl::setCAPath(const std::string& path)
@@ -339,8 +363,9 @@ LLCurl::Easy* LLCurl::Easy::getEasy()
 	
 	// set no DNS caching as default for all easy handles. This prevents them adopting a
 	// multi handles cache if they are added to one.
-	curl_easy_setopt(easy->mCurlEasyHandle, CURLOPT_DNS_CACHE_TIMEOUT, 0);
-
+	CURLcode result = curl_easy_setopt(easy->mCurlEasyHandle, CURLOPT_DNS_CACHE_TIMEOUT, 0);
+	check_curl_code(result);
+	
 	++gCurlEasyCount;
 	return easy;
 }
@@ -406,9 +431,9 @@ void LLCurl::Easy::setHeaders()
 
 void LLCurl::Easy::getTransferInfo(LLCurl::TransferInfo* info)
 {
-	curl_easy_getinfo(mCurlEasyHandle, CURLINFO_SIZE_DOWNLOAD, &info->mSizeDownload);
-	curl_easy_getinfo(mCurlEasyHandle, CURLINFO_TOTAL_TIME, &info->mTotalTime);
-	curl_easy_getinfo(mCurlEasyHandle, CURLINFO_SPEED_DOWNLOAD, &info->mSpeedDownload);
+	check_curl_code(curl_easy_getinfo(mCurlEasyHandle, CURLINFO_SIZE_DOWNLOAD, &info->mSizeDownload));
+	check_curl_code(curl_easy_getinfo(mCurlEasyHandle, CURLINFO_TOTAL_TIME, &info->mTotalTime));
+	check_curl_code(curl_easy_getinfo(mCurlEasyHandle, CURLINFO_SPEED_DOWNLOAD, &info->mSpeedDownload));
 }
 
 U32 LLCurl::Easy::report(CURLcode code)
@@ -418,7 +443,7 @@ U32 LLCurl::Easy::report(CURLcode code)
 	
 	if (code == CURLE_OK)
 	{
-		curl_easy_getinfo(mCurlEasyHandle, CURLINFO_RESPONSE_CODE, &responseCode);
+		check_curl_code(curl_easy_getinfo(mCurlEasyHandle, CURLINFO_RESPONSE_CODE, &responseCode));
 		//*TODO: get reason from first line of mHeaderOutput
 	}
 	else
@@ -441,17 +466,20 @@ U32 LLCurl::Easy::report(CURLcode code)
 // Note: these all assume the caller tracks the value (i.e. keeps it persistant)
 void LLCurl::Easy::setopt(CURLoption option, S32 value)
 {
-	curl_easy_setopt(mCurlEasyHandle, option, value);
+	CURLcode result = curl_easy_setopt(mCurlEasyHandle, option, value);
+	check_curl_code(result);
 }
 
 void LLCurl::Easy::setopt(CURLoption option, void* value)
 {
-	curl_easy_setopt(mCurlEasyHandle, option, value);
+	CURLcode result = curl_easy_setopt(mCurlEasyHandle, option, value);
+	check_curl_code(result);
 }
 
 void LLCurl::Easy::setopt(CURLoption option, char* value)
 {
-	curl_easy_setopt(mCurlEasyHandle, option, value);
+	CURLcode result = curl_easy_setopt(mCurlEasyHandle, option, value);
+	check_curl_code(result);
 }
 
 // Note: this copies the string so that the caller does not have to keep it around
@@ -460,7 +488,8 @@ void LLCurl::Easy::setoptString(CURLoption option, const std::string& value)
 	char* tstring = new char[value.length()+1];
 	strcpy(tstring, value.c_str());
 	mStrings.push_back(tstring);
-	curl_easy_setopt(mCurlEasyHandle, option, tstring);
+	CURLcode result = curl_easy_setopt(mCurlEasyHandle, option, tstring);
+	check_curl_code(result);
 }
 
 void LLCurl::Easy::slist_append(const char* str)
@@ -599,12 +628,12 @@ LLCurl::Multi::Multi()
 	  mErrorCount(0)
 {
 	mCurlMultiHandle = curl_multi_init();
-	
 	if (!mCurlMultiHandle)
 	{
 		llwarns << "curl_multi_init() returned NULL! Easy handles: " << gCurlEasyCount << " Multi handles: " << gCurlMultiCount << llendl;
 		mCurlMultiHandle = curl_multi_init();
 	}
+	
 	llassert_always(mCurlMultiHandle);
 	++gCurlMultiCount;
 }
@@ -616,7 +645,7 @@ LLCurl::Multi::~Multi()
 		iter != mEasyActiveList.end(); ++iter)
 	{
 		Easy* easy = *iter;
-		curl_multi_remove_handle(mCurlMultiHandle, easy->getCurlHandle());
+		check_curl_multi_code(curl_multi_remove_handle(mCurlMultiHandle, easy->getCurlHandle()));
 		delete easy;
 	}
 	mEasyActiveList.clear();
@@ -626,7 +655,7 @@ LLCurl::Multi::~Multi()
 	for_each(mEasyFreeList.begin(), mEasyFreeList.end(), DeletePointer());	
 	mEasyFreeList.clear();
 
-	curl_multi_cleanup(mCurlMultiHandle);
+	check_curl_multi_code(curl_multi_cleanup(mCurlMultiHandle));
 	--gCurlMultiCount;
 }
 
@@ -647,8 +676,10 @@ S32 LLCurl::Multi::perform()
 		CURLMcode code = curl_multi_perform(mCurlMultiHandle, &q);
 		if (CURLM_CALL_MULTI_PERFORM != code || q == 0)
 		{
+			check_curl_multi_code(code);
 			break;
 		}
+	
 	}
 	mQueued = q;
 	return q;
@@ -715,11 +746,12 @@ LLCurl::Easy* LLCurl::Multi::allocEasy()
 bool LLCurl::Multi::addEasy(Easy* easy)
 {
 	CURLMcode mcode = curl_multi_add_handle(mCurlMultiHandle, easy->getCurlHandle());
-	if (mcode != CURLM_OK)
-	{
-		llwarns << "Curl Error: " << curl_multi_strerror(mcode) << llendl;
-		return false;
-	}
+	check_curl_multi_code(mcode);
+	//if (mcode != CURLM_OK)
+	//{
+	//	llwarns << "Curl Error: " << curl_multi_strerror(mcode) << llendl;
+	//	return false;
+	//}
 	return true;
 }
 
@@ -740,7 +772,7 @@ void LLCurl::Multi::easyFree(Easy* easy)
 
 void LLCurl::Multi::removeEasy(Easy* easy)
 {
-	curl_multi_remove_handle(mCurlMultiHandle, easy->getCurlHandle());
+	check_curl_multi_code(curl_multi_remove_handle(mCurlMultiHandle, easy->getCurlHandle()));
 	easyFree(easy);
 }
 
@@ -1142,7 +1174,9 @@ void LLCurl::initClass()
 	// Do not change this "unless you are familiar with and mean to control 
 	// internal operations of libcurl"
 	// - http://curl.haxx.se/libcurl/c/curl_global_init.html
-	curl_global_init(CURL_GLOBAL_ALL);
+	CURLcode code = curl_global_init(CURL_GLOBAL_ALL);
+
+	check_curl_code(code);
 	
 	Easy::sHandleMutex = new LLMutex(NULL);
 

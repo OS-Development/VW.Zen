@@ -155,7 +155,7 @@
 	 visiblity_control="ShowAdvancedGraphicsSettings"
      border="false"
 	 follows="top|left"
-     height="283"
+     height="300"
      label="CustomGraphics"
      layout="topleft"
      left="5"
@@ -184,7 +184,17 @@
 		name="BumpShiny"
 		top_pad="7"
 		width="256" />
-		<check_box
+    <check_box
+		control_name="RenderLocalLights"
+		height="16"
+		initial_value="true"
+		label="Local Lights"
+		layout="topleft"
+		left_delta="0"
+		name="LocalLights"
+		top_pad="1"
+		width="256" />
+      <check_box
 		control_name="VertexShaderEnable"
 		height="16"
 		initial_value="true"
@@ -290,7 +300,7 @@
       control_name="RenderReflectionDetail"
       height="23"
       layout="topleft"
-      left_="10"
+      left_delta="10"
       top_pad ="0"
       name="Reflections"
       width="150">

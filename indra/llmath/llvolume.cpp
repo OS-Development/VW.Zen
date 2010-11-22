@@ -2,31 +2,25 @@
 
  * @file llvolume.cpp
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -93,6 +87,19 @@ const F32 SKEW_MAX	=  0.95f;
 
 const F32 SCULPT_MIN_AREA = 0.002f;
 const S32 SCULPT_MIN_AREA_DETAIL = 1;
+
+extern BOOL gDebugGL;
+
+void assert_aligned(void* ptr, U32 alignment)
+{
+#if 0
+	U32 t = (U32) ptr;
+	if (t%alignment != 0)
+	{
+		llerrs << "WTF?" << llendl;
+	}
+#endif
+}
 
 BOOL check_same_clock_dir( const LLVector3& pt1, const LLVector3& pt2, const LLVector3& pt3, const LLVector3& norm)
 {    
@@ -308,22 +315,26 @@ public:
 	}
 
 	virtual void visit(const LLOctreeNode<LLVolumeTriangle>* branch)
-	{
+	{ //this is a depth first traversal, so it's safe to assum all children have complete
+		//bounding data
+
 		LLVolumeOctreeListener* node = (LLVolumeOctreeListener*) branch->getListener(0);
 
 		LLVector4a& min = node->mExtents[0];
 		LLVector4a& max = node->mExtents[1];
 
-		if (branch->getElementCount() != 0)
-		{
+		if (!branch->getData().empty())
+		{ //node has data, find AABB that binds data set
 			const LLVolumeTriangle* tri = *(branch->getData().begin());
-						
+			
+			//initialize min/max to first available vertex
 			min = *(tri->mV[0]);
 			max = *(tri->mV[0]);
 			
 			for (LLOctreeNode<LLVolumeTriangle>::const_element_iter iter = 
 				branch->getData().begin(); iter != branch->getData().end(); ++iter)
-			{
+			{ //for each triangle in node
+
 				//stretch by triangles in node
 				tri = *iter;
 				
@@ -335,33 +346,27 @@ public:
 				max.setMax(max, *tri->mV[1]);
 				max.setMax(max, *tri->mV[2]);
 			}
-
-			for (S32 i = 0; i < branch->getChildCount(); ++i)
-			{  //stretch by child extents
-				LLVolumeOctreeListener* child = (LLVolumeOctreeListener*) branch->getChild(i)->getListener(0);
-				min.setMin(min, child->mExtents[0]);
-				max.setMax(min, child->mExtents[1]);
-			}
 		}
-		else if (branch->getChildCount() != 0)
-		{
+		else if (!branch->getChildren().empty())
+		{ //no data, but child nodes exist
 			LLVolumeOctreeListener* child = (LLVolumeOctreeListener*) branch->getChild(0)->getListener(0);
 
+			//initialize min/max to extents of first child
 			min = child->mExtents[0];
 			max = child->mExtents[1];
-
-			for (S32 i = 1; i < branch->getChildCount(); ++i)
-			{  //stretch by child extents
-				child = (LLVolumeOctreeListener*) branch->getChild(i)->getListener(0);
-				min.setMin(min, child->mExtents[0]);
-				max.setMax(max, child->mExtents[1]);
-			}
 		}
 		else
 		{
 			llerrs << "WTF? Empty leaf" << llendl;
 		}
-		
+
+		for (S32 i = 0; i < branch->getChildCount(); ++i)
+		{  //stretch by child extents
+			LLVolumeOctreeListener* child = (LLVolumeOctreeListener*) branch->getChild(i)->getListener(0);
+			min.setMin(min, child->mExtents[0]);
+			max.setMax(max, child->mExtents[1]);
+		}
+
 		node->mBounds[0].setAdd(min, max);
 		node->mBounds[0].mul(0.5f);
 
@@ -369,7 +374,6 @@ public:
 		node->mBounds[1].mul(0.5f);
 	}
 };
-
 
 //-------------------------------------------------------------------
 // statics
@@ -1820,6 +1824,10 @@ LLVolume::LLVolume(const LLVolumeParams &params, const F32 detail, const BOOL ge
 	mSculptLevel = -2;
 	mIsTetrahedron = FALSE;
 	mLODScaleBias.setVec(1,1,1);
+	mHullPoints = NULL;
+	mHullIndices = NULL;
+	mNumHullPoints = 0;
+	mNumHullIndices = 0;
 
 	// set defaults
 	if (mParams.getPathParams().getCurveType() == LL_PCODE_PATH_FLEXIBLE)
@@ -1871,6 +1879,11 @@ LLVolume::~LLVolume()
 	mPathp = NULL;
 	mProfilep = NULL;
 	mVolumeFaces.clear();
+
+	free(mHullPoints);
+	mHullPoints = NULL;
+	free(mHullIndices);
+	mHullIndices = NULL;
 }
 
 BOOL LLVolume::generate()
@@ -1991,7 +2004,7 @@ void LLVolumeFace::VertexData::init()
 {
 	if (!mData)
 	{
-		mData = (LLVector4a*) ll_aligned_malloc_16(32);
+		mData = (LLVector4a*) malloc(sizeof(LLVector4a)*2);
 	}
 }
 
@@ -2012,7 +2025,7 @@ const LLVolumeFace::VertexData& LLVolumeFace::VertexData::operator=(const LLVolu
 	if (this != &rhs)
 	{
 		init();
-		LLVector4a::memcpyNonAliased16((F32*) mData, (F32*) rhs.mData, 8*sizeof(F32));
+		LLVector4a::memcpyNonAliased16((F32*) mData, (F32*) rhs.mData, 2*sizeof(LLVector4a));
 		mTexCoord = rhs.mTexCoord;
 	}
 	return *this;
@@ -2020,7 +2033,8 @@ const LLVolumeFace::VertexData& LLVolumeFace::VertexData::operator=(const LLVolu
 
 LLVolumeFace::VertexData::~VertexData()
 {
-	ll_aligned_free_16(mData);
+	free(mData);
+	mData = NULL;
 }
 
 LLVector4a& LLVolumeFace::VertexData::getPosition()
@@ -2258,12 +2272,12 @@ bool LLVolume::unpackVolumeFaces(std::istream& is, S32 size)
 					U32 cur_influence = 0;
 					LLVector4 wght(0,0,0,0);
 
-					while (joint != END_INFLUENCES)
+					while (joint != END_INFLUENCES && idx < weights.size())
 					{
 						U16 influence = weights[idx++];
 						influence |= ((U16) weights[idx++] << 8);
 
-						F32 w = llmin((F32) influence / 65535.f, 0.99999f);
+						F32 w = llclamp((F32) influence / 65535.f, 0.f, 0.99999f);
 						wght.mV[cur_influence++] = (F32) joint + w;
 
 						if (cur_influence >= 4)
@@ -2306,12 +2320,6 @@ bool LLVolume::unpackVolumeFaces(std::istream& is, S32 size)
 			pos_range.setSub(max_pos, min_pos);
 			LLVector2 tc_range = max_tc - min_tc;
 
-			LLVector4a& min = face.mExtents[0];
-			LLVector4a& max = face.mExtents[1];
-
-			min.clear();
-			max.clear();
-			
 			LLVector4a* pos_out = face.mPositions;
 			LLVector4a* norm_out = face.mNormals;
 			LLVector2* tc_out = face.mTexCoords;
@@ -2324,17 +2332,6 @@ bool LLVolume::unpackVolumeFaces(std::istream& is, S32 size)
 				pos_out->div(65535.f);
 				pos_out->mul(pos_range);
 				pos_out->add(min_pos);
-
-				if (j == 0)
-				{
-					min = *pos_out;
-					max = min;
-				}
-				else
-				{
-					min.setMin(min, *pos_out);
-					max.setMax(max, *pos_out);
-				}
 
 				pos_out++;
 
@@ -2412,6 +2409,19 @@ bool LLVolume::unpackVolumeFaces(std::istream& is, S32 size)
 				}
 			}
 
+			//calculate bounding box
+			LLVector4a& min = face.mExtents[0];
+			LLVector4a& max = face.mExtents[1];
+
+			min.clear();
+			max.clear();
+			min = max = face.mPositions[0];
+
+			for (S32 i = 1; i < face.mNumVertices; ++i)
+			{
+				min.setMin(min, face.mPositions[i]);
+				max.setMax(max, face.mPositions[i]);
+			}
 		}
 	}
 
@@ -2570,24 +2580,21 @@ void LLVolume::makeTetrahedron()
 	mIsTetrahedron = TRUE;
 }
 
-void LLVolume::copyVolumeFaces(LLVolume* volume)
+void LLVolume::copyVolumeFaces(const LLVolume* volume)
 {
 	mVolumeFaces = volume->mVolumeFaces;
 	mSculptLevel = 0;
 	mIsTetrahedron = FALSE;
 }
 
-
 S32	LLVolume::getNumFaces() const
 {
-#if LL_MESH_ENABLED
 	U8 sculpt_type = (mParams.getSculptType() & LL_SCULPT_TYPE_MASK);
 
 	if (sculpt_type == LL_SCULPT_TYPE_MESH)
 	{
 		return LL_SCULPT_MESH_MAX_FACES;
 	}
-#endif
 
 	return (S32)mProfilep->mFaces.size();
 }
@@ -3037,6 +3044,16 @@ BOOL LLVolume::isFlat(S32 face)
 	return mProfilep->mFaces[face].mFlat;
 }
 
+
+bool LLVolumeParams::isSculpt() const
+{
+	return mSculptID.notNull();
+}
+
+bool LLVolumeParams::isMeshSculpt() const
+{
+	return isSculpt() && ((mSculptType & LL_SCULPT_TYPE_MASK) == LL_SCULPT_TYPE_MESH);
+}
 
 bool LLVolumeParams::operator==(const LLVolumeParams &params) const
 {
@@ -4168,12 +4185,10 @@ void LLVolume::generateSilhouetteVertices(std::vector<LLVector3> &vertices,
 	normals.clear();
 	segments.clear();
 
-#if LL_MESH_ENABLED
 	if ((mParams.getSculptType() & LL_SCULPT_TYPE_MASK) == LL_SCULPT_TYPE_MESH)
 	{
 		return;
 	}
-#endif
 	
 	S32 cur_index = 0;
 	//for each face
@@ -5232,7 +5247,7 @@ LLVolumeFace::LLVolumeFace() :
 	mWeights(NULL),
 	mOctree(NULL)
 {
-	mExtents = (LLVector4a*) ll_aligned_malloc_16(48);
+	mExtents = (LLVector4a*) malloc(sizeof(LLVector4a)*3);
 	mCenter = mExtents+2;
 }
 
@@ -5253,7 +5268,7 @@ LLVolumeFace::LLVolumeFace(const LLVolumeFace& src)
 	mWeights(NULL),
 	mOctree(NULL)
 { 
-	mExtents = (LLVector4a*) ll_aligned_malloc_16(48);
+	mExtents = (LLVector4a*) malloc(sizeof(LLVector4a)*3);
 	mCenter = mExtents+2;
 	*this = src;
 }
@@ -5281,15 +5296,15 @@ LLVolumeFace& LLVolumeFace::operator=(const LLVolumeFace& src)
 
 	freeData();
 	
-	LLVector4a::memcpyNonAliased16((F32*) mExtents, (F32*) src.mExtents, 12*sizeof(F32));
+	LLVector4a::memcpyNonAliased16((F32*) mExtents, (F32*) src.mExtents, 3*sizeof(LLVector4a));
 
 	resizeVertices(src.mNumVertices);
 	resizeIndices(src.mNumIndices);
 
 	if (mNumVertices)
 	{
-		S32 vert_size = mNumVertices*4*sizeof(F32);
-		S32 tc_size = (mNumVertices*8+0xF) & ~0xF;
+		S32 vert_size = mNumVertices*sizeof(LLVector4a);
+		S32 tc_size = (mNumVertices*sizeof(LLVector2)+0xF) & ~0xF;
 			
 		LLVector4a::memcpyNonAliased16((F32*) mPositions, (F32*) src.mPositions, vert_size);
 		LLVector4a::memcpyNonAliased16((F32*) mNormals, (F32*) src.mNormals, vert_size);
@@ -5303,7 +5318,7 @@ LLVolumeFace& LLVolumeFace::operator=(const LLVolumeFace& src)
 		}
 		else
 		{
-			ll_aligned_free_16(mBinormals);
+			free(mBinormals);
 			mBinormals = NULL;
 		}
 
@@ -5314,14 +5329,14 @@ LLVolumeFace& LLVolumeFace::operator=(const LLVolumeFace& src)
 		}
 		else
 		{
-			ll_aligned_free_16(mWeights);
+			free(mWeights);
 			mWeights = NULL;
 		}
 	}
 
 	if (mNumIndices)
 	{
-		S32 idx_size = (mNumIndices*2+0xF) & ~0xF;
+		S32 idx_size = (mNumIndices*sizeof(U16)+0xF) & ~0xF;
 		
 		LLVector4a::memcpyNonAliased16((F32*) mIndices, (F32*) src.mIndices, idx_size);
 	}
@@ -5332,7 +5347,7 @@ LLVolumeFace& LLVolumeFace::operator=(const LLVolumeFace& src)
 
 LLVolumeFace::~LLVolumeFace()
 {
-	ll_aligned_free_16(mExtents);
+	free(mExtents);
 	mExtents = NULL;
 
 	freeData();
@@ -5340,17 +5355,17 @@ LLVolumeFace::~LLVolumeFace()
 
 void LLVolumeFace::freeData()
 {
-	ll_aligned_free_16(mPositions);
+	free(mPositions);
 	mPositions = NULL;
-	ll_aligned_free_16(mNormals);
+	free( mNormals);
 	mNormals = NULL;
-	ll_aligned_free_16(mTexCoords);
+	free(mTexCoords);
 	mTexCoords = NULL;
-	ll_aligned_free_16(mIndices);
+	free(mIndices);
 	mIndices = NULL;
-	ll_aligned_free_16(mBinormals);
+	free(mBinormals);
 	mBinormals = NULL;
-	ll_aligned_free_16(mWeights);
+	free(mWeights);
 	mWeights = NULL;
 
 	delete mOctree;
@@ -5404,13 +5419,14 @@ bool LLVolumeFace::VertexMapData::ComparePosition::operator()(const LLVector3& a
 		return a.mV[1] < b.mV[1];
 	}
 	
-	return a.mV[2] < b.mV[2];			
+	return a.mV[2] < b.mV[2];
 }
 
 void LLVolumeFace::optimize(F32 angle_cutoff)
 {
 	LLVolumeFace new_face;
 
+	//map of points to vector of vertices at that point
 	VertexMapData::PointMap point_map;
 
 	//remove redundant vertices
@@ -5463,56 +5479,73 @@ void LLVolumeFace::optimize(F32 angle_cutoff)
 }
 
 
-void LLVolumeFace::createOctree()
+void LLVolumeFace::createOctree(F32 scaler, const LLVector4a& center, const LLVector4a& size)
 {
-	LLVector4a center;
-	LLVector4a size;
-	center.splat(0.f);
-	size.splat(1.f);
+	if (mOctree)
+	{
+		return;
+	}
 
 	mOctree = new LLOctreeRoot<LLVolumeTriangle>(center, size, NULL);
 	new LLVolumeOctreeListener(mOctree);
 
 	for (U32 i = 0; i < mNumIndices; i+= 3)
-	{
+	{ //for each triangle
 		LLPointer<LLVolumeTriangle> tri = new LLVolumeTriangle();
 				
 		const LLVector4a& v0 = mPositions[mIndices[i]];
 		const LLVector4a& v1 = mPositions[mIndices[i+1]];
 		const LLVector4a& v2 = mPositions[mIndices[i+2]];
 
+		//store pointers to vertex data
 		tri->mV[0] = &v0;
 		tri->mV[1] = &v1;
 		tri->mV[2] = &v2;
 
+		//store indices
 		tri->mIndex[0] = mIndices[i];
 		tri->mIndex[1] = mIndices[i+1];
 		tri->mIndex[2] = mIndices[i+2];
 
+		//get minimum point
 		LLVector4a min = v0;
 		min.setMin(min, v1);
 		min.setMin(min, v2);
 
+		//get maximum point
 		LLVector4a max = v0;
 		max.setMax(max, v1);
 		max.setMax(max, v2);
 
+		//compute center
 		LLVector4a center;
 		center.setAdd(min, max);
 		center.mul(0.5f);
 
-		*tri->mPositionGroup = center;
+		tri->mPositionGroup = center;
 
+		//compute "radius"
 		LLVector4a size;
 		size.setSub(max,min);
 		
-		tri->mRadius = size.getLength3().getF32() * 0.5f;
+		tri->mRadius = size.getLength3().getF32() * scaler;
 		
+		//insert
 		mOctree->insert(tri);
 	}
 
+	//remove unneeded octree layers
+	while (!mOctree->balance())	{ }
+
+	//calculate AABB for each node
 	LLVolumeOctreeRebound rebound(this);
 	rebound.traverse(mOctree);
+
+	if (gDebugGL)
+	{
+		LLVolumeOctreeValidate validate;
+		validate.traverse(mOctree);
+	}
 }
 
 
@@ -6104,6 +6137,14 @@ void LLVolumeFace::createBinormals()
 		LLVector2* tc = (LLVector2*) mTexCoords;
 		LLVector4a* binorm = (LLVector4a*) mBinormals;
 
+		LLVector4a* end = mBinormals+mNumVertices;
+		while (binorm < end)
+		{
+			(*binorm++).clear();
+		}
+
+		binorm = mBinormals;
+
 		for (U32 i = 0; i < mNumIndices/3; i++) 
 		{	//for each triangle
 			const U16& i0 = mIndices[i*3+0];
@@ -6146,21 +6187,24 @@ void LLVolumeFace::createBinormals()
 
 void LLVolumeFace::resizeVertices(S32 num_verts)
 {
-	ll_aligned_free_16(mPositions);
-	ll_aligned_free_16(mNormals);
-	ll_aligned_free_16(mBinormals);
-	ll_aligned_free_16(mTexCoords);
+	free(mPositions);
+	free(mNormals);
+	free(mBinormals);
+	free(mTexCoords);
 
 	mBinormals = NULL;
 
 	if (num_verts)
 	{
-		mPositions = (LLVector4a*) ll_aligned_malloc_16(num_verts*16);
-		mNormals = (LLVector4a*) ll_aligned_malloc_16(num_verts*16);
+		mPositions = (LLVector4a*) malloc(sizeof(LLVector4a)*num_verts);
+		assert_aligned(mPositions, 16);
+		mNormals = (LLVector4a*) malloc(sizeof(LLVector4a)*num_verts);
+		assert_aligned(mNormals, 16);
 
 		//pad texture coordinate block end to allow for QWORD reads
-		S32 size = ((num_verts*8) + 0xF) & ~0xF;
-		mTexCoords = (LLVector2*) ll_aligned_malloc_16(size);
+		S32 size = ((num_verts*sizeof(LLVector2)) + 0xF) & ~0xF;
+		mTexCoords = (LLVector2*) malloc(size);
+		assert_aligned(mTexCoords, 16);
 	}
 	else
 	{
@@ -6181,43 +6225,21 @@ void LLVolumeFace::pushVertex(const LLVector4a& pos, const LLVector4a& norm, con
 {
 	S32 new_verts = mNumVertices+1;
 	S32 new_size = new_verts*16;
-	S32 old_size = mNumVertices*16;
+//	S32 old_size = mNumVertices*16;
 
 	//positions
-	LLVector4a* dst = (LLVector4a*) ll_aligned_malloc_16(new_size);
-	if (mPositions)
-	{
-		LLVector4a::memcpyNonAliased16((F32*) dst, (F32*) mPositions, old_size);
-		ll_aligned_free_16(mPositions);
-	}
-	mPositions = dst;
-
+	mPositions = (LLVector4a*) realloc(mPositions, new_size);
+	
 	//normals
-	dst = (LLVector4a*) ll_aligned_malloc_16(new_size);
-	if (mNormals)
-	{
-		LLVector4a::memcpyNonAliased16((F32*) dst, (F32*) mNormals, old_size);
-		ll_aligned_free_16(mNormals);
-	}
-	mNormals = dst;
-
+	mNormals = (LLVector4a*) realloc(mNormals, new_size);
+	
 	//tex coords
 	new_size = ((new_verts*8)+0xF) & ~0xF;
-	old_size = ((mNumVertices*8)+0xF) & ~0xF;
-
-	dst = (LLVector4a*) ll_aligned_malloc_16(new_size);
-	{
-		LLVector2* dst = (LLVector2*) ll_aligned_malloc_16(new_size);
-		if (mTexCoords)
-		{
-			LLVector4a::memcpyNonAliased16((F32*) dst, (F32*) mTexCoords, old_size);
-			ll_aligned_free_16(mTexCoords);
-		}
-	}
-	mTexCoords = (LLVector2*) dst;
+	mTexCoords = (LLVector2*) realloc(mTexCoords, new_size);
+	
 
 	//just clear binormals
-	ll_aligned_free_16(mBinormals);
+	free(mBinormals);
 	mBinormals = NULL;
 
 	mPositions[mNumVertices] = pos;
@@ -6229,26 +6251,26 @@ void LLVolumeFace::pushVertex(const LLVector4a& pos, const LLVector4a& norm, con
 
 void LLVolumeFace::allocateBinormals(S32 num_verts)
 {
-	ll_aligned_free_16(mBinormals);
-	mBinormals = (LLVector4a*) ll_aligned_malloc_16(num_verts*16);
+	free(mBinormals);
+	mBinormals = (LLVector4a*) malloc(sizeof(LLVector4a)*num_verts);
 }
 
 void LLVolumeFace::allocateWeights(S32 num_verts)
 {
-	ll_aligned_free_16(mWeights);
-	mWeights = (LLVector4a*) ll_aligned_malloc_16(num_verts*16);
+	free(mWeights);
+	mWeights = (LLVector4a*) malloc(sizeof(LLVector4a)*num_verts);
 }
 
 void LLVolumeFace::resizeIndices(S32 num_indices)
 {
-	ll_aligned_free_16(mIndices);
-
+	free(mIndices);
+	
 	if (num_indices)
 	{
 		//pad index block end to allow for QWORD reads
-		S32 size = ((num_indices*2) + 0xF) & ~0xF;
+		S32 size = ((num_indices*sizeof(U16)) + 0xF) & ~0xF;
 		
-		mIndices = (U16*) ll_aligned_malloc_16(size);	
+		mIndices = (U16*) malloc(size);
 	}
 	else
 	{
@@ -6266,13 +6288,7 @@ void LLVolumeFace::pushIndex(const U16& idx)
 	S32 old_size = ((mNumIndices*2)+0xF) & ~0xF;
 	if (new_size != old_size)
 	{
-		U16* dst = (U16*) ll_aligned_malloc_16(new_size);
-		if (mIndices)
-		{
-			LLVector4a::memcpyNonAliased16((F32*) dst, (F32*) mIndices, old_size);
-			ll_aligned_free_16(mIndices);
-		}
-		mIndices = dst;
+		mIndices = (U16*) realloc(mIndices, new_size);
 	}
 	
 	mIndices[mNumIndices++] = idx;
@@ -6313,28 +6329,13 @@ void LLVolumeFace::appendFace(const LLVolumeFace& face, LLMatrix4& mat_in, LLMat
 	}
 
 	//allocate new buffer space
-	LLVector4a* new_pos = (LLVector4a*) ll_aligned_malloc_16(new_count*16);
-	LLVector4a* new_norm = (LLVector4a*) ll_aligned_malloc_16(new_count*16);
-	LLVector2* new_tc = (LLVector2*) ll_aligned_malloc_16((new_count*8+0xF) & ~0xF);
+	mPositions = (LLVector4a*) realloc(mPositions, new_count*sizeof(LLVector4a));
+	assert_aligned(mPositions, 16);
+	mNormals = (LLVector4a*) realloc(mNormals, new_count*sizeof(LLVector4a));
+	assert_aligned(mNormals, 16);
+	mTexCoords = (LLVector2*) realloc(mTexCoords, (new_count*sizeof(LLVector2)+0xF) & ~0xF);
+	assert_aligned(mTexCoords, 16);
 	
-
-	if (mNumVertices > 0)
-	{ //copy old buffers
-		LLVector4a::memcpyNonAliased16((F32*) new_pos, (F32*) mPositions, mNumVertices*4*sizeof(F32));
-		LLVector4a::memcpyNonAliased16((F32*) new_norm, (F32*) mNormals, mNumVertices*4*sizeof(F32));
-		LLVector4a::memcpyNonAliased16((F32*) new_tc, (F32*) mTexCoords, mNumVertices*2*sizeof(F32));
-	}
-
-	//free old buffer space
-	ll_aligned_free_16(mPositions);
-	ll_aligned_free_16(mNormals);
-	ll_aligned_free_16(mTexCoords);
-
-	//point to new buffers
-	mPositions = new_pos;
-	mNormals = new_norm;
-	mTexCoords = new_tc;
-
 	mNumVertices = new_count;
 
 	//get destination address of appended face
@@ -6379,19 +6380,8 @@ void LLVolumeFace::appendFace(const LLVolumeFace& face, LLMatrix4& mat_in, LLMat
 	new_count = mNumIndices + face.mNumIndices;
 
 	//allocate new index buffer
-	U16* new_indices = (U16*) ll_aligned_malloc_16((new_count*2+0xF) & ~0xF);
-	if (mNumIndices > 0)
-	{ //copy old index buffer
-		S32 old_size = (mNumIndices*2+0xF) & ~0xF;
-		LLVector4a::memcpyNonAliased16((F32*) new_indices, (F32*) mIndices, old_size);
-	}
-
-	//free old index buffer
-	ll_aligned_free_16(mIndices);
-
-	//point to new index buffer
-	mIndices = new_indices;
-
+	mIndices = (U16*) realloc(mIndices, (new_count*sizeof(U16)+0xF) & ~0xF);
+	
 	//get destination address into new index buffer
 	U16* dst_idx = mIndices+mNumIndices;
 	mNumIndices = new_count;
@@ -6433,14 +6423,10 @@ BOOL LLVolumeFace::createSide(LLVolume* volume, BOOL partial_build)
 		resizeVertices(num_vertices);
 		resizeIndices(num_indices);
 
-#if LL_MESH_ENABLED
 		if ((volume->getParams().getSculptType() & LL_SCULPT_TYPE_MASK) != LL_SCULPT_TYPE_MESH)
 		{
 			mEdge.resize(num_indices);
 		}
-#else
-		mEdge.resize(num_indices);
-#endif
 	}
 
 	LLVector4a* pos = (LLVector4a*) mPositions;
@@ -6610,6 +6596,12 @@ BOOL LLVolumeFace::createSide(LLVolume* volume, BOOL partial_build)
 				mEdge[cur_edge++] = (mNumS-1)*2*t+s*2;							//top right/bottom left neighbor face	
 			}
 		}
+	}
+
+	//clear normals
+	for (U32 i = 0; i < mNumVertices; i++)
+	{
+		mNormals[i].clear();
 	}
 
 	//generate normals 

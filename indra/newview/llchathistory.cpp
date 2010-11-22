@@ -2,40 +2,36 @@
  * @file llchathistory.cpp
  * @brief LLTextEditor base class
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
 #include "llviewerprecompiledheaders.h"
 
+#include "llchathistory.h"
+
+#include "llavatarnamecache.h"
 #include "llinstantmessage.h"
 
 #include "llimview.h"
-#include "llchathistory.h"
 #include "llcommandhandler.h"
 #include "llpanel.h"
 #include "lluictrlfactory.h"
@@ -58,7 +54,9 @@
 #include "llviewertexteditor.h"
 #include "llworld.h"
 #include "lluiconstants.h"
+#include "llstring.h"
 
+#include "llviewercontrol.h"
 
 #include "llsidetray.h"//for blocked objects panel
 
@@ -104,10 +102,22 @@ LLObjectIMHandler gObjectIMHandler;
 class LLChatHistoryHeader: public LLPanel
 {
 public:
+	LLChatHistoryHeader()
+	:	LLPanel(),
+		mPopupMenuHandleAvatar(),
+		mPopupMenuHandleObject(),
+		mAvatarID(),
+		mSourceType(CHAT_SOURCE_UNKNOWN),
+		mFrom(),
+		mSessionID(),
+		mMinUserNameWidth(0),
+		mUserNameFont(NULL)
+	{}
+
 	static LLChatHistoryHeader* createInstance(const std::string& file_name)
 	{
 		LLChatHistoryHeader* pInstance = new LLChatHistoryHeader;
-		LLUICtrlFactory::getInstance()->buildPanel(pInstance, file_name);	
+		pInstance->buildFromFile(file_name);	
 		return pInstance;
 	}
 
@@ -246,29 +256,80 @@ public:
 		mAvatarID = chat.mFromID;
 		mSessionID = chat.mSessionID;
 		mSourceType = chat.mSourceType;
-		gCacheName->get(mAvatarID, FALSE, boost::bind(&LLChatHistoryHeader::nameUpdatedCallback, this, _1, _2, _3, _4));
 
 		//*TODO overly defensive thing, source type should be maintained out there
 		if((chat.mFromID.isNull() && chat.mFromName.empty()) || chat.mFromName == SYSTEM_FROM && chat.mFromID.isNull())
 		{
 			mSourceType = CHAT_SOURCE_SYSTEM;
-		}
+		}  
 
-		LLTextBox* userName = getChild<LLTextBox>("user_name");
+		mUserNameFont = style_params.font();
+		LLTextBox* user_name = getChild<LLTextBox>("user_name");
+		user_name->setReadOnlyColor(style_params.readonly_color());
+		user_name->setColor(style_params.color());
 
-		userName->setReadOnlyColor(style_params.readonly_color());
-		userName->setColor(style_params.color());
-		
-		userName->setValue(chat.mFromName);
-		mFrom = chat.mFromName;
-		if (chat.mFromName.empty() || CHAT_SOURCE_SYSTEM == mSourceType)
+		if (chat.mFromName.empty()
+			|| mSourceType == CHAT_SOURCE_SYSTEM)
 		{
 			mFrom = LLTrans::getString("SECOND_LIFE");
-			userName->setValue(mFrom);
+			user_name->setValue(mFrom);
+			updateMinUserNameWidth();
+		}
+		else if (mSourceType == CHAT_SOURCE_AGENT
+				 && !mAvatarID.isNull()
+				 && chat.mChatStyle != CHAT_STYLE_HISTORY)
+		{
+			// ...from a normal user, lookup the name and fill in later.
+			// *NOTE: Do not do this for chat history logs, otherwise the viewer
+			// will flood the People API with lookup requests on startup
+
+			// Start with blank so sample data from XUI XML doesn't
+			// flash on the screen
+			user_name->setValue( LLSD() );
+			LLAvatarNameCache::get(mAvatarID,
+				boost::bind(&LLChatHistoryHeader::onAvatarNameCache, this, _1, _2));
+		}
+		else if (chat.mChatStyle == CHAT_STYLE_HISTORY ||
+				 mSourceType == CHAT_SOURCE_AGENT)
+		{
+			//if it's an avatar name with a username add formatting
+			S32 username_start = chat.mFromName.rfind(" (");
+			S32 username_end = chat.mFromName.rfind(')');
+			
+			if (username_start != std::string::npos &&
+				username_end == (chat.mFromName.length() - 1))
+			{
+				mFrom = chat.mFromName.substr(0, username_start);
+				user_name->setValue(mFrom);
+
+				if (gSavedSettings.getBOOL("NameTagShowUsernames"))
+				{
+					std::string username = chat.mFromName.substr(username_start + 2);
+					username = username.substr(0, username.length() - 1);
+					LLStyle::Params style_params_name;
+					LLColor4 userNameColor = LLUIColorTable::instance().getColor("EmphasisColor");
+					style_params_name.color(userNameColor);
+					style_params_name.font.name("SansSerifSmall");
+					style_params_name.font.style("NORMAL");
+					style_params_name.readonly_color(userNameColor);
+					user_name->appendText("  - " + username, FALSE, style_params_name);
+				}
+			}
+			else
+			{
+				mFrom = chat.mFromName;
+				user_name->setValue(mFrom);
+				updateMinUserNameWidth();
+			}
+		}
+		else
+		{
+			// ...from an object, just use name as given
+			mFrom = chat.mFromName;
+			user_name->setValue(mFrom);
+			updateMinUserNameWidth();
 		}
 
-
-		mMinUserNameWidth = style_params.font()->getWidth(userName->getWText().c_str()) + PADDING;
 
 		setTimeField(chat);
 		
@@ -323,12 +384,41 @@ public:
 		LLPanel::draw();
 	}
 
-	void nameUpdatedCallback(const LLUUID& id,const std::string& first,const std::string& last,BOOL is_group)
+	void updateMinUserNameWidth()
 	{
-		if (id != mAvatarID)
-			return;
-		mFrom = first + " " + last;
+		if (mUserNameFont)
+		{
+			LLTextBox* user_name = getChild<LLTextBox>("user_name");
+			const LLWString& text = user_name->getWText();
+			mMinUserNameWidth = mUserNameFont->getWidth(text.c_str()) + PADDING;
+		}
 	}
+
+	void onAvatarNameCache(const LLUUID& agent_id, const LLAvatarName& av_name)
+	{
+		mFrom = av_name.mDisplayName;
+
+		LLTextBox* user_name = getChild<LLTextBox>("user_name");
+		user_name->setValue( LLSD(av_name.mDisplayName ) );
+		user_name->setToolTip( av_name.mUsername );
+
+		if (gSavedSettings.getBOOL("NameTagShowUsernames") && 
+			LLAvatarNameCache::useDisplayNames() &&
+			!av_name.mIsDisplayNameDefault)
+		{
+			LLStyle::Params style_params_name;
+			LLColor4 userNameColor = LLUIColorTable::instance().getColor("EmphasisColor");
+			style_params_name.color(userNameColor);
+			style_params_name.font.name("SansSerifSmall");
+			style_params_name.font.style("NORMAL");
+			style_params_name.readonly_color(userNameColor);
+			user_name->appendText("  - " + av_name.mUsername, FALSE, style_params_name);
+		}
+		setToolTip( av_name.mUsername );
+		// name might have changed, update width
+		updateMinUserNameWidth();
+	}
+
 protected:
 	static const S32 PADDING = 20;
 
@@ -402,7 +492,7 @@ protected:
 			return;
 		}
 
-		LLTextBase* name = getChild<LLTextBase>("user_name");
+		LLTextBox* name = getChild<LLTextBox>("user_name");
 		LLRect sticky_rect = name->getRect();
 		S32 icon_x = llmin(sticky_rect.mLeft + name->getTextBoundingRect().getWidth() + 7, sticky_rect.mRight - 3);
 		sInfoCtrl->setOrigin(icon_x, sticky_rect.getCenterY() - sInfoCtrl->getRect().getHeight() / 2 ) ;
@@ -455,6 +545,7 @@ protected:
 	LLUUID				mSessionID;
 
 	S32					mMinUserNameWidth;
+	const LLFontGL*		mUserNameFont;
 };
 
 LLUICtrl* LLChatHistoryHeader::sInfoCtrl = NULL;
@@ -502,12 +593,17 @@ void LLChatHistory::initFromParams(const LLChatHistory::Params& p)
 	
 	const S32 NEW_TEXT_NOTICE_HEIGHT = 20;
 	
-	LLPanel::Params panel_p;
+	LLLayoutPanel::Params panel_p;
 	panel_p.name = "spacer";
 	panel_p.background_visible = false;
 	panel_p.has_border = false;
 	panel_p.mouse_opaque = false;
-	stackp->addPanel(LLUICtrlFactory::create<LLPanel>(panel_p), 0, 30, S32_MAX, S32_MAX, true, false, LLLayoutStack::ANIMATE);
+	panel_p.min_dim = 30;
+	panel_p.max_dim = S32_MAX;
+	panel_p.auto_resize = true;
+	panel_p.user_resize = false;
+
+	stackp->addPanel(LLUICtrlFactory::create<LLLayoutPanel>(panel_p), LLLayoutStack::ANIMATE);
 
 	panel_p.name = "new_text_notice_holder";
 	LLRect new_text_notice_rect = getLocalRect();
@@ -516,7 +612,10 @@ void LLChatHistory::initFromParams(const LLChatHistory::Params& p)
 	panel_p.background_opaque = true;
 	panel_p.background_visible = true;
 	panel_p.visible = false;
-	mMoreChatPanel = LLUICtrlFactory::create<LLPanel>(panel_p);
+	panel_p.min_dim = 0;
+	panel_p.auto_resize = false;
+	panel_p.user_resize = false;
+	mMoreChatPanel = LLUICtrlFactory::create<LLLayoutPanel>(panel_p);
 	
 	LLTextBox::Params text_p(p.more_chat_text);
 	text_p.rect = mMoreChatPanel->getLocalRect();
@@ -525,7 +624,7 @@ void LLChatHistory::initFromParams(const LLChatHistory::Params& p)
 	mMoreChatText = LLUICtrlFactory::create<LLTextBox>(text_p, mMoreChatPanel);
 	mMoreChatText->setClickedCallback(boost::bind(&LLChatHistory::onClickMoreText, this));
 
-	stackp->addPanel(mMoreChatPanel, 0, 0, S32_MAX, S32_MAX, false, false, LLLayoutStack::ANIMATE);
+	stackp->addPanel(mMoreChatPanel, LLLayoutStack::ANIMATE);
 }
 
 
@@ -691,8 +790,9 @@ void LLChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
 				// (don't let object names with hyperlinks override our objectim Url)
 				LLStyle::Params link_params(style_params);
 				link_params.color.control = "HTMLLinkColor";
+				link_params.is_link = true;
 				link_params.link_href = url;
-				mEditor->appendText("<nolink>" + chat.mFromName + "</nolink>"  + delimiter,
+				mEditor->appendText(chat.mFromName + delimiter,
 									false, link_params);
 			}
 			else if ( chat.mFromName != SYSTEM_FROM && chat.mFromID.notNull() && !message_from_log)
@@ -705,7 +805,7 @@ void LLChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
 			}
 			else
 			{
-				mEditor->appendText(chat.mFromName + delimiter, false, style_params);
+				mEditor->appendText("<nolink>" + chat.mFromName + "</nolink>" + delimiter, false, style_params);
 			}
 		}
 	}
@@ -766,7 +866,7 @@ void LLChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
 		if (notification != NULL)
 		{
 			LLIMToastNotifyPanel* notify_box = new LLIMToastNotifyPanel(
-					notification, chat.mSessionID);
+					notification, chat.mSessionID, LLRect::null, !use_plain_text_chat_history);
 			//we can't set follows in xml since it broke toasts behavior
 			notify_box->setFollowsLeft();
 			notify_box->setFollowsRight();

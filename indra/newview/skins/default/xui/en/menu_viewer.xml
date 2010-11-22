@@ -4,6 +4,7 @@
  follows="left|top|right"
  name="Main Menu">
     <menu
+     create_jump_keys="true"
      label="Me"
      name="Me"
      tear_off="true">
@@ -94,6 +95,7 @@
              parameter="voice_effect" />
         </menu_item_check>
         <menu
+         create_jump_keys="true"
          label="My Status"
          name="Status"
          tear_off="true">
@@ -138,6 +140,7 @@
         </menu_item_call>
     </menu>
     <menu
+     create_jump_keys="true"
      label="Communicate"
      name="Communicate"
      tear_off="true">
@@ -188,6 +191,7 @@
             </menu_item_call>
     </menu>
     <menu
+     create_jump_keys="true"
      label="World"
      name="World"
      tear_off="true">
@@ -666,6 +670,14 @@
 			<menu_item_call.on_enable
                function="Tools.EnableSaveToObjectInventory" />
           </menu_item_call>
+          <menu_item_call
+			 label="Return Object"
+			 name="Return Object back to Owner">
+			<menu_item_call.on_click
+               function="Object.Return" />
+			<menu_item_call.on_enable
+               function="Object.EnableReturn" />
+          </menu_item_call>
 		</menu>
         <menu
            create_jump_keys="true"
@@ -768,6 +780,16 @@
 
           <menu_item_separator/>
 
+                <menu_item_check
+                 label="Show Selection Outlines"
+                 name="Show Selection Outlines">
+                    <menu_item_check.on_check
+                     function="CheckControl"
+                     parameter="RenderHighlightSelections" />
+                    <menu_item_check.on_click
+                     function="ToggleControl"
+                     parameter="RenderHighlightSelections" />
+                </menu_item_check>
                 <menu_item_check
                  label="Show Hidden Selection"
                  name="Show Hidden Selection">
@@ -913,6 +935,7 @@
         </menu>
     </menu>
     <menu
+     create_jump_keys="true"
      label="Help"
      name="Help"
      tear_off="true">
@@ -957,8 +980,17 @@
              function="Floater.Show"
              parameter="sl_about" />
         </menu_item_call>
+        <menu_item_check
+         label="Enable Hints"
+         name="Enable Hints">
+          <on_check
+            control="EnableUIHints"/>
+          <on_click
+            function="ToggleUIHints"/>
+        </menu_item_check>
     </menu>
     <menu
+     create_jump_keys="true"
      label="Advanced"
      name="Advanced"
      tear_off="true"
@@ -1463,6 +1495,7 @@
         <menu_item_separator/>
 
         <menu
+         create_jump_keys="true"
          label="Shortcuts"
          name="Shortcuts"
          tear_off="true"
@@ -1674,8 +1707,8 @@
             </menu_item_call>
             <menu_item_separator
              visible="false"/>
-            <!-- Made invisible to avoid a dissonance: menu item toggle menu where it is located. EXT-8069.
-              Can't be removed to keep sortcut workable.
+            <!-- Made invisible to avoid a dissonance: menu item toggles the menu where it is located. EXT-8069.
+              Can't be removed, to keep shortcut workable.
             -->
             <menu_item_check
              label="Show Advanced Menu"
@@ -2486,6 +2519,18 @@
                  function="ToggleControl"
                  parameter="PingInterpolate" />
             </menu_item_check>
+            <menu_item_check
+             label="Region Debug Console"
+             name="Region Debug Console"
+             shortcut="control|shift|`"
+             use_mac_ctrl="true">
+                <menu_item_check.on_check
+                 function="Floater.Visible"
+                 parameter="region_debug_console" />
+                <menu_item_check.on_click
+                 function="Floater.Toggle"
+                 parameter="region_debug_console" />
+            </menu_item_check>
 
             <menu_item_separator/>
 
@@ -2674,6 +2719,31 @@
                  function="ToggleControl"
                  parameter="DoubleClickAutoPilot" />
             </menu_item_check>
+            <menu_item_check
+             label="Double-Click Teleport"
+             name="DoubleClick Teleport">
+                <menu_item_check.on_check
+                 function="CheckControl"
+                 parameter="DoubleClickTeleport" />
+                <menu_item_check.on_click
+                 function="ToggleControl"
+                 parameter="DoubleClickTeleport" />
+            </menu_item_check>
+ 
+           <menu_item_separator />
+
+            <menu_item_check
+             label="Region Debug Console"
+             name="Region Debug Console"
+             shortcut="control|shift|`"
+             use_mac_ctrl="true">
+                <menu_item_check.on_check
+                 function="Floater.Visible"
+                 parameter="region_debug_console" />
+                <menu_item_check.on_click
+                 function="Floater.Toggle"
+                 parameter="region_debug_console" />
+            </menu_item_check>
 
             <menu_item_separator />
 
@@ -2761,18 +2831,6 @@
                  function="Floater.Show"
                  parameter="font_test" />
             </menu_item_call>
-            <menu_item_call
-             label="Load from XML"
-             name="Load from XML">
-                <menu_item_call.on_click
-                 function="Advanced.LoadUIFromXML" />
-            </menu_item_call>
-            <menu_item_call
-             label="Save to XML"
-             name="Save to XML">
-                <menu_item_call.on_click
-                 function="Advanced.SaveUIToXML" />
-            </menu_item_call>
             <menu_item_check
              label="Show XUI Names"
              name="Show XUI Names">
@@ -2787,6 +2845,12 @@
            name="Send Test IMs">
             <menu_item_call.on_click
              function="Advanced.SendTestIMs" />
+          </menu_item_call>
+          <menu_item_call
+           label="Flush Names Caches"
+           name="Flush Names Caches">
+            <menu_item_call.on_click
+             function="Advanced.FlushNameCaches" />
           </menu_item_call>
         </menu>
         <menu
@@ -3064,15 +3128,6 @@
 
         <menu_item_separator/>
 
-        <menu_item_check
-         label="Show Admin Menu"
-         name="View Admin Options">
-            <menu_item_check.on_check
-             function="Advanced.CheckViewAdminOptions"
-             parameter="ViewAdminOptions" />
-            <menu_item_check.on_click
-             function="Advanced.ToggleViewAdminOptions" />
-        </menu_item_check>
         <menu_item_call
          label="Request Admin Status"
          name="Request Admin Options"
@@ -3097,6 +3152,17 @@
           <menu_item_call.on_enable
              function="File.EnableUploadModel" />
         </menu_item_call>
+        <menu_item_check
+         label="Show Admin Menu"
+         name="View Admin Options">
+            <menu_item_check.on_enable
+             function="Advanced.EnableViewAdminOptions" />
+            <menu_item_check.on_check
+             function="Advanced.CheckViewAdminOptions"
+             parameter="ViewAdminOptions" />
+            <menu_item_check.on_click
+             function="Advanced.ToggleViewAdminOptions" />
+        </menu_item_check>
     </menu>
     <menu
      create_jump_keys="true"

@@ -1,9 +1,11 @@
 /** 
  * @file sunLightF.glsl
  *
- * Copyright (c) 2007-$CurrentYear$, Linden Research, Inc.
- * $License$
+ * $LicenseInfo:firstyear=2007&license=viewerlgpl$
+ * $/LicenseInfo$
  */
+ 
+#version 120
 
 //class 1, no shadow, no SSAO, should never be called
 

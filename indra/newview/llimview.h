@@ -2,31 +2,25 @@
  * @file LLIMMgr.h
  * @brief Container for Instant Messaging
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -41,7 +35,7 @@
 #include "llvoicechannel.h"
 
 
-
+class LLAvatarName;
 class LLFriendObserver;
 class LLCallDialogManager;	
 class LLIMSpeakerMgr;
@@ -90,6 +84,7 @@ public:
 		/** @deprecated */
 		static void chatFromLogFile(LLLogChat::ELogLineType type, const LLSD& msg, void* userdata);
 
+		bool isOutgoingAdHoc();
 		bool isAdHoc();
 		bool isP2P();
 		bool isOtherParticipantAvaline();
@@ -102,6 +97,10 @@ public:
 		//*TODO make private
 		/** ad-hoc sessions involve sophisticated chat history file naming schemes */
 		void buildHistoryFileName();
+
+		void onAvatarNameCache(const LLUUID& avatar_id, const LLAvatarName& av_name);
+
+		void onAdHocNameCache(const LLAvatarName& av_name);
 
 		//*TODO make private
 		static std::string generateHash(const std::set<LLUUID>& sorted_uuids);
@@ -236,7 +235,7 @@ public:
 	 * For an incoming ad-hoc chat - is received from the server and is in a from of "<Avatar's name> Conference"
 	 *	It is updated in LLIMModel::LLIMSession's constructor to localize the "Conference".
 	 */
-	const std::string& getName(const LLUUID& session_id) const;
+	const std::string getName(const LLUUID& session_id) const;
 
 	/** 
 	 * Get number of unread messages in a session with session_id
@@ -278,6 +277,9 @@ public:
 	static void sendTypingState(LLUUID session_id, LLUUID other_participant_id, BOOL typing);
 	static void sendMessage(const std::string& utf8_text, const LLUUID& im_session_id,
 								const LLUUID& other_participant_id, EInstantMessage dialog);
+
+	// Adds people from speakers list (people with whom you are currently speaking) to the Recent People List
+	static void addSpeakersToRecent(const LLUUID& im_session_id);
 
 	void testMessages();
 
@@ -459,7 +461,7 @@ private:
 
 	void processIMTypingCore(const LLIMInfo* im_info, BOOL typing);
 
-	static void onInviteNameLookup(LLSD payload, const LLUUID& id, const std::string& first, const std::string& last, BOOL is_group);
+	static void onInviteNameLookup(LLSD payload, const LLUUID& id, const std::string& name, bool is_group);
 
 	void notifyObserverSessionAdded(const LLUUID& session_id, const std::string& name, const LLUUID& other_participant_id);
 	void notifyObserverSessionRemoved(const LLUUID& session_id);
@@ -541,6 +543,13 @@ public:
 	static void onStartIM(void* user_data);
 
 private:
+	void setCallerName(const std::string& ui_title,
+		const std::string& ui_label,
+		const std::string& call_type);
+	void onAvatarNameCache(const LLUUID& agent_id,
+		const LLAvatarName& av_name,
+		const std::string& call_type);
+
 	/*virtual*/ void onLifetimeExpired();
 	void processCallResponse(S32 response);
 };

@@ -2,31 +2,25 @@
  * @file llpanelgrouproles.cpp
  * @brief Panel for roles information about a particular group.
  *
- * $LicenseInfo:firstyear=2006&license=viewergpl$
- * 
- * Copyright (c) 2006-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2006&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -55,6 +49,7 @@
 #include "llviewertexturelist.h"
 #include "llviewerwindow.h"
 #include "llfocusmgr.h"
+#include "llviewercontrol.h"
 
 #include "roles_constants.h"
 
@@ -748,10 +743,12 @@ LLPanelGroupMembersSubTab::LLPanelGroupMembersSubTab()
 	mHasMatch(FALSE),
 	mNumOwnerAdditions(0)
 {
+	mUdpateSessionID = LLUUID::null;
 }
 
 LLPanelGroupMembersSubTab::~LLPanelGroupMembersSubTab()
 {
+	gSavedSettings.setString("GroupMembersSortOrder", mMembersList->getSortColumnName());
 }
 
 BOOL LLPanelGroupMembersSubTab::postBuildSubTab(LLView* root)
@@ -778,6 +775,17 @@ BOOL LLPanelGroupMembersSubTab::postBuildSubTab(LLView* root)
 	// Show the member's profile on double click.
 	mMembersList->setDoubleClickCallback(onMemberDoubleClick, this);
 	mMembersList->setContextMenu(LLScrollListCtrl::MENU_AVATAR);
+	
+	LLSD row;
+	row["columns"][0]["column"] = "name";
+	row["columns"][1]["column"] = "donated";
+	row["columns"][2]["column"] = "online";
+	mMembersList->addElement(row);
+	std::string order_by = gSavedSettings.getString("GroupMembersSortOrder");
+	if(!order_by.empty())
+	{
+		mMembersList->sortByColumn(order_by, TRUE);
+	}	
 
 	LLButton* button = parent->getChild<LLButton>("member_invite", recurse);
 	if ( button )
@@ -1116,11 +1124,7 @@ void LLPanelGroupMembersSubTab::sendEjectNotifications(const LLUUID& group_id, c
 		for (uuid_vec_t::const_iterator i = selected_members.begin(); i != selected_members.end(); ++i)
 		{
 			LLSD args;
-			std::string name;
-			
-			gCacheName->getFullName(*i, name);
-
-			args["AVATAR_NAME"] = name;
+			args["AVATAR_NAME"] = LLSLURL("agent", *i, "displayname").getSLURLString();
 			args["GROUP_NAME"] = group_data->mName;
 			
 			LLNotifications::instance().add(LLNotification::Params("EjectAvatarFromGroup").substitutions(args));
@@ -1539,6 +1543,10 @@ void LLPanelGroupMembersSubTab::update(LLGroupChange gc)
 		mMemberProgress = gdatap->mMembers.begin();
 		mPendingMemberUpdate = TRUE;
 		mHasMatch = FALSE;
+		// Generate unique ID for current updateMembers()- see onNameCache for details.
+		// Using unique UUID is perhaps an overkill but this way we are perfectly safe
+		// from coincidences.
+		mUdpateSessionID.generate();
 	}
 	else
 	{
@@ -1566,6 +1574,63 @@ void LLPanelGroupMembersSubTab::update(LLGroupChange gc)
 	}
 }
 
+void LLPanelGroupMembersSubTab::addMemberToList(LLUUID id, LLGroupMemberData* data)
+{
+	if (!data) return;
+	LLUIString donated = getString("donation_area");
+	donated.setArg("[AREA]", llformat("%d", data->getContribution()));
+
+	LLSD row;
+	row["id"] = id;
+
+	row["columns"][0]["column"] = "name";
+	// value is filled in by name list control
+
+	row["columns"][1]["column"] = "donated";
+	row["columns"][1]["value"] = donated.getString();
+
+	row["columns"][2]["column"] = "online";
+	row["columns"][2]["value"] = data->getOnlineStatus();
+	row["columns"][2]["font"] = "SANSSERIF_SMALL";
+
+	mMembersList->addElement(row);
+
+	mHasMatch = TRUE;
+}
+
+void LLPanelGroupMembersSubTab::onNameCache(const LLUUID& update_id, const LLUUID& id)
+{
+	// Update ID is used to determine whether member whose id is passed
+	// into onNameCache() was passed after current or previous user-initiated update.
+	// This is needed to avoid probable duplication of members in list after changing filter
+	// or adding of members of another group if gets for their names were called on
+	// previous update. If this id is from get() called from older update,
+	// we do nothing.
+	if (mUdpateSessionID != update_id) return;
+	
+	LLGroupMgrGroupData* gdatap = LLGroupMgr::getInstance()->getGroupData(mGroupID);
+		if (!gdatap) 
+	{
+		llwarns << "LLPanelGroupMembersSubTab::updateMembers() -- No group data!" << llendl;
+		return;
+	}
+	
+	std::string fullname;
+	gCacheName->getFullName(id, fullname);
+
+	LLGroupMemberData* data;
+	// trying to avoid unnecessary hash lookups
+	if (matchesSearchFilter(fullname) && ((data = gdatap->mMembers[id]) != NULL))
+	{
+		addMemberToList(id, data);
+		if(!mMembersList->getEnabled())
+		{
+			mMembersList->setEnabled(TRUE);
+		}
+	}
+	
+}
+
 void LLPanelGroupMembersSubTab::updateMembers()
 {
 	mPendingMemberUpdate = FALSE;
@@ -1590,12 +1655,13 @@ void LLPanelGroupMembersSubTab::updateMembers()
 
 	//cleanup list only for first iretation
 	if(mMemberProgress == gdatap->mMembers.begin())
+	{
 		mMembersList->deleteAllItems();
+	}
 
 
 	LLGroupMgrGroupData::member_list_t::iterator end = gdatap->mMembers.end();
-	LLUIString donated = getString("donation_area");
-
+	
 	S32 i = 0;
 	for( ; mMemberProgress != end && i<UPDATE_MEMBERS_PER_FRAME; 
 			++mMemberProgress, ++i)
@@ -1603,38 +1669,19 @@ void LLPanelGroupMembersSubTab::updateMembers()
 		if (!mMemberProgress->second)
 			continue;
 		// Do filtering on name if it is already in the cache.
-		bool add_member = true;
-
 		std::string fullname;
 		if (gCacheName->getFullName(mMemberProgress->first, fullname))
 		{
-			if ( !matchesSearchFilter(fullname) )
+			if (matchesSearchFilter(fullname))
 			{
-				add_member = false;
+				addMemberToList(mMemberProgress->first, mMemberProgress->second);
 			}
 		}
-
-		if (add_member)
+		else
 		{
-			donated.setArg("[AREA]", llformat("%d", mMemberProgress->second->getContribution()));
-
-			LLSD row;
-			row["id"] = (*mMemberProgress).first;
-
-			row["columns"][0]["column"] = "name";
-			// value is filled in by name list control
-
-			row["columns"][1]["column"] = "donated";
-			row["columns"][1]["value"] = donated.getString();
-
-			row["columns"][2]["column"] = "online";
-			row["columns"][2]["value"] = mMemberProgress->second->getOnlineStatus();
-			row["columns"][2]["font"] = "SANSSERIF_SMALL";
-
-			LLScrollListItem* member = mMembersList->addElement(row);//, ADD_SORTED);
-
-			LLUUID id = member->getUUID();
-			mHasMatch = TRUE;
+			// If name is not cached, onNameCache() should be called when it is cached and add this member to list.
+			gCacheName->get(mMemberProgress->first, FALSE, boost::bind(&LLPanelGroupMembersSubTab::onNameCache,
+																	   this, mUdpateSessionID, _1));
 		}
 	}
 

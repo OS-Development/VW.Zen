@@ -11,31 +11,25 @@
  *		Pre-validation (limit which keys can be used)
  *		Optional line history so previous entries can be recalled by CTRL UP/DOWN
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -65,11 +59,19 @@ public:
 
 	typedef boost::function<void (LLLineEditor* caller)> keystroke_callback_t;
 	
+	struct MaxLength : public LLInitParam::Choice<MaxLength>
+	{
+		Alternative<S32> bytes, chars;
+		
+		MaxLength() : bytes("max_length_bytes", 254),
+					  chars("max_length_chars", 0) 
+		{}
+	};
+
 	struct Params : public LLInitParam::Block<Params, LLUICtrl::Params>
 	{
 		Optional<std::string>			default_text;
-		Optional<S32>					max_length_bytes;
-
+		Optional<MaxLength>				max_length;
 		Optional<keystroke_callback_t>	keystroke_callback;
 
 		Optional<LLTextValidate::validate_func_t, LLTextValidate::ValidateTextNamedFuncs>	prevalidate_callback;
@@ -220,6 +222,7 @@ public:
 	void			setKeystrokeCallback(callback_t callback, void* user_data);
 
 	void			setMaxTextLength(S32 max_text_length);
+	void			setMaxTextChars(S32 max_text_chars);
 	// Manipulate left and right padding for text
 	void getTextPadding(S32 *left, S32 *right);
 	void setTextPadding(S32 left, S32 right);
@@ -283,6 +286,7 @@ protected:
 	LLViewBorder* mBorder;
 	const LLFontGL*	mGLFont;
 	S32			mMaxLengthBytes;			// Max length of the UTF8 string in bytes
+	S32			mMaxLengthChars;			// Maximum number of characters in the string
 	S32			mCursorPos;					// I-beam is just after the mCursorPos-th character.
 	S32			mScrollHPos;				// Horizontal offset from the start of mText.  Used for scrolling.
 	LLFrameTimer mScrollTimer;

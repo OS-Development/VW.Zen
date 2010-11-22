@@ -2,31 +2,25 @@
  * @file lltooldraganddrop.cpp
  * @brief LLToolDragAndDrop class implementation
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -331,9 +325,7 @@ LLToolDragAndDrop::LLDragAndDropDictionary::LLDragAndDropDictionary()
 	addEntry(DAD_ANIMATION, 	new DragAndDropEntry(&LLToolDragAndDrop::dad3dNULL,	&LLToolDragAndDrop::dad3dNULL,					&LLToolDragAndDrop::dad3dGiveInventory,		&LLToolDragAndDrop::dad3dUpdateInventory,			&LLToolDragAndDrop::dad3dNULL));
 	addEntry(DAD_GESTURE, 		new DragAndDropEntry(&LLToolDragAndDrop::dad3dNULL,	&LLToolDragAndDrop::dad3dActivateGesture,		&LLToolDragAndDrop::dad3dGiveInventory,		&LLToolDragAndDrop::dad3dUpdateInventory,			&LLToolDragAndDrop::dad3dNULL));
 	addEntry(DAD_LINK, 			new DragAndDropEntry(&LLToolDragAndDrop::dad3dNULL,	&LLToolDragAndDrop::dad3dNULL,					&LLToolDragAndDrop::dad3dNULL,					&LLToolDragAndDrop::dad3dNULL,						&LLToolDragAndDrop::dad3dNULL));
-#if LL_MESH_ENABLED
 	addEntry(DAD_MESH, 			new DragAndDropEntry(&LLToolDragAndDrop::dad3dNULL,	&LLToolDragAndDrop::dad3dNULL,					&LLToolDragAndDrop::dad3dGiveInventory,		&LLToolDragAndDrop::dad3dMeshObject,			&LLToolDragAndDrop::dad3dNULL));
-#endif
 	// TODO: animation on self could play it?  edit it?
 	// TODO: gesture on self could play it?  edit it?
 };
@@ -1037,7 +1029,6 @@ void LLToolDragAndDrop::dropTextureAllFaces(LLViewerObject* hit_obj,
 	hit_obj->sendTEUpdate();
 }
 
-#if LL_MESH_ENABLED
 void LLToolDragAndDrop::dropMesh(LLViewerObject* hit_obj,
 								 LLInventoryItem* item,
 								 LLToolDragAndDrop::ESource source,
@@ -1062,7 +1053,6 @@ void LLToolDragAndDrop::dropMesh(LLViewerObject* hit_obj,
 	
 	dialog_refresh_all();
 }
-#endif
 
 /*
 void LLToolDragAndDrop::dropTextureOneFaceAvatar(LLVOAvatar* avatar, S32 hit_face, LLInventoryItem* item)
@@ -1483,6 +1473,42 @@ static void give_inventory_cb(const LLSD& notification, const LLSD& response)
 	}
 }
 
+static void show_item_sharing_confirmation(const std::string name,
+					   LLViewerInventoryItem* inv_item,
+					   const LLSD& dest,
+					   const LLUUID& dest_agent,
+					   const LLUUID& session_id = LLUUID::null)
+{
+	if (!inv_item)
+	{
+		llassert(NULL != inv_item);
+		return;
+	}
+
+	LLSD substitutions;
+	substitutions["RESIDENTS"] = name;
+	substitutions["ITEMS"] = inv_item->getName();
+	LLSD payload;
+	payload["agent_id"] = dest_agent;
+	payload["item_id"] = inv_item->getUUID();
+	payload["session_id"] = session_id;
+	payload["d&d_dest"] = dest.asString();
+	LLNotificationsUtil::add("ShareItemsConfirmation", substitutions, payload, &give_inventory_cb);
+}
+
+static void get_name_cb(const LLUUID& id,
+						const std::string& full_name,
+						LLViewerInventoryItem* inv_item,
+						const LLSD& dest,
+						const LLUUID& dest_agent)
+{
+	show_item_sharing_confirmation(full_name,
+								   inv_item,
+								   dest,
+								   id,
+								   LLUUID::null);
+}
+
 // function used as drag-and-drop handler for simple agent give inventory requests
 //static
 bool LLToolDragAndDrop::handleGiveDragAndDrop(LLUUID dest_agent, LLUUID session_id, BOOL drop,
@@ -1505,9 +1531,7 @@ bool LLToolDragAndDrop::handleGiveDragAndDrop(LLUUID dest_agent, LLUUID session_
 	case DAD_ANIMATION:
 	case DAD_GESTURE:
 	case DAD_CALLINGCARD:
-#if LL_MESH_ENABLED
 	case DAD_MESH:
-#endif
 	{
 		LLViewerInventoryItem* inv_item = (LLViewerInventoryItem*)cargo_data;
 		if(gInventory.getItem(inv_item->getUUID())
@@ -1518,20 +1542,28 @@ bool LLToolDragAndDrop::handleGiveDragAndDrop(LLUUID dest_agent, LLUUID session_
 			if(drop)
 			{
 				LLIMModel::LLIMSession * session = LLIMModel::instance().findIMSession(session_id);
+
+				// If no IM session found get the destination agent's name by id.
 				if (NULL == session)
 				{
-					llassert(NULL != session);
-					return false;
+					std::string fullname;
+
+					// If destination agent's name is found in cash proceed to showing the confirmation dialog.
+					// Otherwise set up a callback to show the dialog when the name arrives.
+					if (gCacheName->getFullName(dest_agent, fullname))
+					{
+						show_item_sharing_confirmation(fullname, inv_item, dest, dest_agent, LLUUID::null);
+					}
+					else
+					{
+						gCacheName->get(dest_agent, false, boost::bind(&get_name_cb, _1, _2, inv_item, dest, dest_agent));
+					}
+
+					return true;
 				}
-				LLSD substitutions;
-				substitutions["RESIDENTS"] = session->mName;
-				substitutions["ITEMS"] = inv_item->getName();
-				LLSD payload;
-				payload["agent_id"] = dest_agent;
-				payload["item_id"] = inv_item->getUUID();
-				payload["session_id"] = session_id;
-				payload["d&d_dest"] = dest.asString();
-				LLNotificationsUtil::add("ShareItemsConfirmation", substitutions, payload, &give_inventory_cb);
+
+				// If an IM session with destination agent is found item offer will be logged in this session.
+				show_item_sharing_confirmation(session->mName, inv_item, dest, dest_agent, session_id);
 			}
 		}
 		else
@@ -1864,12 +1896,10 @@ EAcceptance LLToolDragAndDrop::dad3dApplyToObject(
 				dropTextureOneFace(obj, face, item, mSource, mSourceID);
 			}
 		}
-#if LL_MESH_ENABLED
 		else if (cargo_type == DAD_MESH)
 		{
 			dropMesh(obj, item, mSource, mSourceID);
 		}
-#endif
 		else
 		{
 			llwarns << "unsupported asset type" << llendl;
@@ -1894,15 +1924,11 @@ EAcceptance LLToolDragAndDrop::dad3dTextureObject(
 	return dad3dApplyToObject(obj, face, mask, drop, DAD_TEXTURE);
 }
 
-#if LL_MESH_ENABLED
 EAcceptance LLToolDragAndDrop::dad3dMeshObject(
 	LLViewerObject* obj, S32 face, MASK mask, BOOL drop)
 {
 	return dad3dApplyToObject(obj, face, mask, drop, DAD_MESH);
 }
-#endif
-
-
 
 
 /*

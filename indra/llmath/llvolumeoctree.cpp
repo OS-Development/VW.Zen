@@ -2,31 +2,25 @@
 
  * @file llvolumeoctree.cpp
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -84,14 +78,11 @@ BOOL LLLineSegmentBoxIntersect(const LLVector4a& start, const LLVector4a& end, c
 LLVolumeOctreeListener::LLVolumeOctreeListener(LLOctreeNode<LLVolumeTriangle>* node)
 {
 	node->addListener(this);
-
-	mBounds = (LLVector4a*) ll_aligned_malloc_16(sizeof(LLVector4a)*4);
-	mExtents = mBounds+2;
 }
 
 LLVolumeOctreeListener::~LLVolumeOctreeListener()
 {
-	ll_aligned_free_16(mBounds);
+
 }
 	
 void LLVolumeOctreeListener::handleChildAddition(const LLOctreeNode<LLVolumeTriangle>* parent, 
@@ -126,8 +117,8 @@ void LLOctreeTriangleRayIntersect::traverse(const LLOctreeNode<LLVolumeTriangle>
 	const F32* center = vl->mBounds[0].getF32();
 	const F32* size = vl->mBounds[1].getF32();*/
 
-	//if (LLLineSegmentBoxIntersect(mStart.getF32(), mEnd.getF32(), vl->mBounds[0].getF32(), vl->mBounds[1].getF32()))
-	if (LLLineSegmentBoxIntersect(mStart, mEnd, vl->mBounds[0], vl->mBounds[1]))
+	//if (LLLineSegmentBoxIntersect(mStart, mEnd, vl->mBounds[0], vl->mBounds[1]))
+	if (LLLineSegmentBoxIntersect(mStart.getF32ptr(), mEnd.getF32ptr(), vl->mBounds[0].getF32ptr(), vl->mBounds[1].getF32ptr()))
 	{
 		node->accept(this);
 		for (S32 i = 0; i < node->getChildCount(); ++i)
@@ -197,12 +188,69 @@ void LLOctreeTriangleRayIntersect::visit(const LLOctreeNode<LLVolumeTriangle>* n
 
 const LLVector4a& LLVolumeTriangle::getPositionGroup() const
 {
-	return *mPositionGroup;
+	return mPositionGroup;
 }
 
 const F32& LLVolumeTriangle::getBinRadius() const
 {
 	return mRadius;
+}
+
+
+//TEST CODE
+
+void LLVolumeOctreeValidate::visit(const LLOctreeNode<LLVolumeTriangle>* branch)
+{
+	LLVolumeOctreeListener* node = (LLVolumeOctreeListener*) branch->getListener(0);
+
+	//make sure bounds matches extents
+	LLVector4a& min = node->mExtents[0];
+	LLVector4a& max = node->mExtents[1];
+
+	LLVector4a& center = node->mBounds[0];
+	LLVector4a& size = node->mBounds[1];
+
+	LLVector4a test_min, test_max;
+	test_min.setSub(center, size);
+	test_max.setAdd(center, size);
+
+	if (!test_min.equals3(min, 0.001f) ||
+		!test_max.equals3(max, 0.001f))
+	{
+		llerrs << "Bad bounding box data found." << llendl;
+	}
+
+	test_min.sub(LLVector4a(0.001f));
+	test_max.add(LLVector4a(0.001f));
+
+	for (U32 i = 0; i < branch->getChildCount(); ++i)
+	{
+		LLVolumeOctreeListener* child = (LLVolumeOctreeListener*) branch->getChild(i)->getListener(0);
+
+		//make sure all children fit inside this node
+		if (child->mExtents[0].lessThan(test_min).areAnySet(LLVector4Logical::MASK_XYZ) ||
+			child->mExtents[1].greaterThan(test_max).areAnySet(LLVector4Logical::MASK_XYZ))
+		{
+			llerrs << "Child protrudes from bounding box." << llendl;
+		}
+	}
+
+	//children fit, check data
+	for (LLOctreeNode<LLVolumeTriangle>::const_element_iter iter = branch->getData().begin(); 
+			iter != branch->getData().end(); ++iter)
+	{
+		const LLVolumeTriangle* tri = *iter;
+
+		//validate triangle
+		for (U32 i = 0; i < 3; i++)
+		{
+			if (tri->mV[i]->greaterThan(test_max).areAnySet(LLVector4Logical::MASK_XYZ) ||
+				tri->mV[i]->lessThan(test_min).areAnySet(LLVector4Logical::MASK_XYZ))
+			{
+				llerrs << "Triangle protrudes from node." << llendl;
+			}
+		}
+	}
 }
 
 

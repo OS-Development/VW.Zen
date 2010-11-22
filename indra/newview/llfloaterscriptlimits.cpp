@@ -3,37 +3,33 @@
  * @author Gabriel Lee
  * @brief Implementation of the region info and controls floater and panels.
  *
- * $LicenseInfo:firstyear=2004&license=viewergpl$
- * 
- * Copyright (c) 2004-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2004&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
 #include "llviewerprecompiledheaders.h"
 #include "llfloaterscriptlimits.h"
 
+// library includes
+#include "llavatarnamecache.h"
 #include "llsdutil.h"
 #include "llsdutil_math.h"
 #include "message.h"
@@ -121,7 +117,7 @@ BOOL LLFloaterScriptLimits::postBuild()
 		LLPanelScriptLimitsRegionMemory* panel_memory;
 		panel_memory = new LLPanelScriptLimitsRegionMemory;
 		mInfoPanels.push_back(panel_memory);
-		LLUICtrlFactory::getInstance()->buildPanel(panel_memory, "panel_script_limits_region_memory.xml");
+		panel_memory->buildFromFile( "panel_script_limits_region_memory.xml");
 		mTab->addTabPanel(panel_memory);
 	}
 	
@@ -130,7 +126,7 @@ BOOL LLFloaterScriptLimits::postBuild()
 	{
 		LLPanelScriptLimitsAttachment* panel_attachments = new LLPanelScriptLimitsAttachment;
 		mInfoPanels.push_back(panel_attachments);
-		LLUICtrlFactory::getInstance()->buildPanel(panel_attachments, "panel_script_limits_my_avatar.xml");
+		panel_attachments->buildFromFile("panel_script_limits_my_avatar.xml");
 		mTab->addTabPanel(panel_attachments);
 	}
 	
@@ -295,7 +291,7 @@ void fetchScriptLimitsRegionSummaryResponder::result(const LLSD& content_ref)
 		LLTabContainer* tab = instance->getChild<LLTabContainer>("scriptlimits_panels");
 		if(tab)
 		{
-			LLPanelScriptLimitsRegionMemory* panel_memory = (LLPanelScriptLimitsRegionMemory*)tab->getChild<LLPanel>("script_limits_region_memory_panel");
+		LLPanelScriptLimitsRegionMemory* panel_memory = (LLPanelScriptLimitsRegionMemory*)tab->getChild<LLPanel>("script_limits_region_memory_panel");
 			if(panel_memory)
 			{
 				panel_memory->getChild<LLUICtrl>("loading_text")->setValue(LLSD(std::string("")));
@@ -306,9 +302,9 @@ void fetchScriptLimitsRegionSummaryResponder::result(const LLSD& content_ref)
 					btn->setEnabled(true);
 				}
 				
-				panel_memory->setRegionSummary(content);
-			}
-		}
+		panel_memory->setRegionSummary(content);
+	}
+}
 	}
 }
 
@@ -598,17 +594,24 @@ void LLPanelScriptLimitsRegionMemory::setErrorStatus(U32 status, const std::stri
 // callback from the name cache with an owner name to add to the list
 void LLPanelScriptLimitsRegionMemory::onNameCache(
 						 const LLUUID& id,
-						 const std::string& first_name,
-						 const std::string& last_name)
+						 const std::string& full_name)
 {
-	std::string name = first_name + " " + last_name;
-
 	LLScrollListCtrl *list = getChild<LLScrollListCtrl>("scripts_list");	
 	if(!list)
 	{
 		return;
 	}
 	
+	std::string name;
+	if (LLAvatarNameCache::useDisplayNames())
+	{
+		name = LLCacheName::buildUsername(full_name);
+	}
+	else
+	{
+		name = full_name;
+	}
+
 	std::vector<LLSD>::iterator id_itor;
 	for (id_itor = mObjectListItems.begin(); id_itor != mObjectListItems.end(); ++id_itor)
 	{
@@ -674,6 +677,9 @@ void LLPanelScriptLimitsRegionMemory::setRegionDetails(LLSD content)
 			std::string name_buf = content["parcels"][i]["objects"][j]["name"].asString();
 			LLUUID task_id = content["parcels"][i]["objects"][j]["id"].asUUID();
 			LLUUID owner_id = content["parcels"][i]["objects"][j]["owner_id"].asUUID();
+			// This field may not be sent by all server versions, but it's OK if
+			// it uses the LLSD default of false
+			bool is_group_owned = content["parcels"][i]["objects"][j]["is_group_owned"].asBoolean();
 
 			F32 location_x = 0.0f;
 			F32 location_y = 0.0f;
@@ -699,51 +705,69 @@ void LLPanelScriptLimitsRegionMemory::setRegionDetails(LLSD content)
 			// ...and if not use the slightly more painful method of disovery:
 			else
 			{
-				BOOL name_is_cached = gCacheName->getFullName(owner_id, owner_buf);
+				BOOL name_is_cached;
+				if (is_group_owned)
+				{
+					name_is_cached = gCacheName->getGroupName(owner_id, owner_buf);
+				}
+				else
+				{
+					name_is_cached = gCacheName->getFullName(owner_id, owner_buf);  // username
+					if (LLAvatarNameCache::useDisplayNames())
+					{
+						owner_buf = LLCacheName::buildUsername(owner_buf);
+					}
+				}
 				if(!name_is_cached)
 				{
 					if(std::find(names_requested.begin(), names_requested.end(), owner_id) == names_requested.end())
 					{
 						names_requested.push_back(owner_id);
-						gCacheName->get(owner_id, TRUE,
-						boost::bind(&LLPanelScriptLimitsRegionMemory::onNameCache,
-							this, _1, _2, _3));
+						gCacheName->get(owner_id, is_group_owned,  // username
+							boost::bind(&LLPanelScriptLimitsRegionMemory::onNameCache,
+							    this, _1, _2));
 					}
 				}
 			}
 
+			LLScrollListItem::Params item_params;
+			item_params.value = task_id;
+
+			LLScrollListCell::Params cell_params;
+			cell_params.font = LLFontGL::getFontSansSerif();
+
+			cell_params.column = "size";
+			cell_params.value = size;
+			item_params.columns.add(cell_params);
+
+			cell_params.column = "urls";
+			cell_params.value = urls;
+			item_params.columns.add(cell_params);
+
+			cell_params.column = "name";
+			cell_params.value = name_buf;
+			item_params.columns.add(cell_params);
+
+			cell_params.column = "owner";
+			cell_params.value = owner_buf;
+			item_params.columns.add(cell_params);
+
+			cell_params.column = "parcel";
+			cell_params.value = parcel_name;
+			item_params.columns.add(cell_params);
+
+			cell_params.column = "location";
+			cell_params.value = has_locations
+				? llformat("<%0.1f,%0.1f,%0.1f>", location_x, location_y, location_z)
+				: "";
+			item_params.columns.add(cell_params);
+
+			list->addRow(item_params);
+			
 			LLSD element;
+			element["owner_id"] = owner_id;
 
 			element["id"] = task_id;
-			element["columns"][0]["column"] = "size";
-			element["columns"][0]["value"] = llformat("%d", size);
-			element["columns"][0]["font"] = "SANSSERIF";
-			element["columns"][1]["column"] = "urls";
-			element["columns"][1]["value"] = llformat("%d", urls);
-			element["columns"][1]["font"] = "SANSSERIF";
-			element["columns"][2]["column"] = "name";
-			element["columns"][2]["value"] = name_buf;
-			element["columns"][2]["font"] = "SANSSERIF";
-			element["columns"][3]["column"] = "owner";
-			element["columns"][3]["value"] = owner_buf;
-			element["columns"][3]["font"] = "SANSSERIF";
-			element["columns"][4]["column"] = "parcel";
-			element["columns"][4]["value"] = parcel_name;
-			element["columns"][4]["font"] = "SANSSERIF";
-			element["columns"][5]["column"] = "location";
-			if(has_locations)
-			{
-				element["columns"][5]["value"] = llformat("<%0.1f,%0.1f,%0.1f>", location_x, location_y, location_z);
-			}
-			else
-			{
-				element["columns"][5]["value"] = "";
-			}
-			element["columns"][5]["font"] = "SANSSERIF";
-
-			list->addElement(element, ADD_SORTED);
-			
-			element["owner_id"] = owner_id;
 			element["local_id"] = local_id;
 			mObjectListItems.push_back(element);
 		}
@@ -1309,7 +1333,7 @@ void LLPanelScriptLimitsAttachment::setAttachmentSummary(LLSD content)
 
 // static
 void LLPanelScriptLimitsAttachment::onClickRefresh(void* userdata)
-{	
+{
 	LLFloaterScriptLimits* instance = LLFloaterReg::getTypedInstance<LLFloaterScriptLimits>("script_limits");
 	if(instance)
 	{

@@ -1,31 +1,25 @@
 /** 
  * @file llinspectavatar.cpp
  *
- * $LicenseInfo:firstyear=2009&license=viewergpl$
- * 
- * Copyright (c) 2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2009&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -37,6 +31,7 @@
 #include "llagent.h"
 #include "llagentdata.h"
 #include "llavataractions.h"
+#include "llavatarnamecache.h"
 #include "llavatarpropertiesprocessor.h"
 #include "llcallingcard.h"
 #include "lldateutil.h"
@@ -57,6 +52,8 @@
 #include "llfloater.h"
 #include "llfloaterreg.h"
 #include "llmenubutton.h"
+#include "lltextbox.h"
+#include "lltoggleablemenu.h"
 #include "lltooltip.h"	// positionViewNearMouse()
 #include "lltrans.h"
 #include "lluictrl.h"
@@ -143,17 +140,13 @@ private:
 	// Is used to determine if "Add friend" option should be enabled in gear menu
 	bool isNotFriend();
 	
-	// Callback for gCacheName to look up avatar name
-	void nameUpdatedCallback(
-							 const LLUUID& id,
-							 const std::string& first,
-							 const std::string& last,
-							 BOOL is_group);
+	void onAvatarNameCache(const LLUUID& agent_id,
+						   const LLAvatarName& av_name);
 	
 private:
 	LLUUID				mAvatarID;
 	// Need avatar name information to spawn friend add request
-	std::string			mAvatarName;
+	LLAvatarName		mAvatarName;
 	// an in-flight request for avatar properties from LLAvatarPropertiesProcessor
 	// is represented by this object
 	LLFetchAvatarData*	mPropertiesRequest;
@@ -336,6 +329,8 @@ void LLInspectAvatar::requestUpdate()
 
 	// Clear out old data so it doesn't flash between old and new
 	getChild<LLUICtrl>("user_name")->setValue("");
+	getChild<LLUICtrl>("user_name_small")->setValue("");
+	getChild<LLUICtrl>("user_slid")->setValue("");
 	getChild<LLUICtrl>("user_subtitle")->setValue("");
 	getChild<LLUICtrl>("user_details")->setValue("");
 	
@@ -373,9 +368,9 @@ void LLInspectAvatar::requestUpdate()
 
 	getChild<LLUICtrl>("avatar_icon")->setValue(LLSD(mAvatarID) );
 
-	gCacheName->get(mAvatarID, FALSE,
-		boost::bind(&LLInspectAvatar::nameUpdatedCallback,
-			this, _1, _2, _3, _4));
+	LLAvatarNameCache::get(mAvatarID,
+			boost::bind(&LLInspectAvatar::onAvatarNameCache,
+				this, _1, _2));
 }
 
 void LLInspectAvatar::processAvatarData(LLAvatarData* data)
@@ -408,8 +403,8 @@ void LLInspectAvatar::processAvatarData(LLAvatarData* data)
 // if neither the gear menu or self gear menu are open
 void LLInspectAvatar::onMouseLeave(S32 x, S32 y, MASK mask)
 {
-	LLMenuGL* gear_menu = getChild<LLMenuButton>("gear_btn")->getMenu();
-	LLMenuGL* gear_menu_self = getChild<LLMenuButton>("gear_self_btn")->getMenu();
+	LLToggleableMenu* gear_menu = getChild<LLMenuButton>("gear_btn")->getMenu();
+	LLToggleableMenu* gear_menu_self = getChild<LLMenuButton>("gear_self_btn")->getMenu();
 	if ( gear_menu && gear_menu->getVisible() &&
 		 gear_menu_self && gear_menu_self->getVisible() )
 	{
@@ -562,7 +557,7 @@ void LLInspectAvatar::updateVolumeSlider()
 
 		LLUICtrl* mute_btn = getChild<LLUICtrl>("mute_btn");
 
-		bool is_linden = LLStringUtil::endsWith(mAvatarName, " Linden");
+		bool is_linden = LLStringUtil::endsWith(mAvatarName.getLegacyName(), " Linden");
 
 		mute_btn->setEnabled( !is_linden);
 		mute_btn->setValue( is_muted );
@@ -593,7 +588,7 @@ void LLInspectAvatar::onClickMuteVolume()
 	LLMuteList* mute_list = LLMuteList::getInstance();
 	bool is_muted = mute_list->isMuted(mAvatarID, LLMute::flagVoiceChat);
 
-	LLMute mute(mAvatarID, mAvatarName, LLMute::AGENT);
+	LLMute mute(mAvatarID, mAvatarName.getLegacyName(), LLMute::AGENT);
 	if (!is_muted)
 	{
 		mute_list->add(mute, LLMute::flagVoiceChat);
@@ -612,22 +607,36 @@ void LLInspectAvatar::onVolumeChange(const LLSD& data)
 	LLVoiceClient::getInstance()->setUserVolume(mAvatarID, volume);
 }
 
-void LLInspectAvatar::nameUpdatedCallback(
-	const LLUUID& id,
-	const std::string& first,
-	const std::string& last,
-	BOOL is_group)
+void LLInspectAvatar::onAvatarNameCache(
+		const LLUUID& agent_id,
+		const LLAvatarName& av_name)
 {
-	if (id == mAvatarID)
+	if (agent_id == mAvatarID)
 	{
-		mAvatarName = first + " " + last;
-		getChild<LLUICtrl>("user_name")->setValue(LLSD(mAvatarName) );
+		getChild<LLUICtrl>("user_name")->setValue(av_name.mDisplayName);
+		getChild<LLUICtrl>("user_name_small")->setValue(av_name.mDisplayName);
+		getChild<LLUICtrl>("user_slid")->setValue(av_name.mUsername);
+		mAvatarName = av_name;
+		
+		// show smaller display name if too long to display in regular size
+		if (getChild<LLTextBox>("user_name")->getTextPixelWidth() > getChild<LLTextBox>("user_name")->getRect().getWidth())
+		{
+			getChild<LLUICtrl>("user_name_small")->setVisible( true );
+			getChild<LLUICtrl>("user_name")->setVisible( false );
+		}
+		else
+		{
+			getChild<LLUICtrl>("user_name_small")->setVisible( false );
+			getChild<LLUICtrl>("user_name")->setVisible( true );
+
+		}
+
 	}
 }
 
 void LLInspectAvatar::onClickAddFriend()
 {
-	LLAvatarActions::requestFriendshipDialog(mAvatarID, mAvatarName);
+	LLAvatarActions::requestFriendshipDialog(mAvatarID, mAvatarName.getLegacyName());
 	closeFloater();
 }
 
@@ -695,7 +704,7 @@ void LLInspectAvatar::onClickShare()
 
 void LLInspectAvatar::onToggleMute()
 {
-	LLMute mute(mAvatarID, mAvatarName, LLMute::AGENT);
+	LLMute mute(mAvatarID, mAvatarName.getLegacyName(), LLMute::AGENT);
 
 	if (LLMuteList::getInstance()->isMuted(mute.mID, mute.mName))
 	{
@@ -712,7 +721,7 @@ void LLInspectAvatar::onToggleMute()
 
 void LLInspectAvatar::onClickReport()
 {
-	LLFloaterReporter::showFromAvatar(mAvatarID, mAvatarName);
+	LLFloaterReporter::showFromAvatar(mAvatarID, mAvatarName.getCompleteName());
 	closeFloater();
 }
 
@@ -736,17 +745,17 @@ void LLInspectAvatar::onClickZoomIn()
 
 void LLInspectAvatar::onClickFindOnMap()
 {
-	gFloaterWorldMap->trackAvatar(mAvatarID, mAvatarName);
+	gFloaterWorldMap->trackAvatar(mAvatarID, mAvatarName.mDisplayName);
 	LLFloaterReg::showInstance("world_map");
 }
 
 
 bool LLInspectAvatar::enableMute()
 {
-		bool is_linden = LLStringUtil::endsWith(mAvatarName, " Linden");
+		bool is_linden = LLStringUtil::endsWith(mAvatarName.getLegacyName(), " Linden");
 		bool is_self = mAvatarID == gAgent.getID();
 
-		if (!is_linden && !is_self && !LLMuteList::getInstance()->isMuted(mAvatarID, mAvatarName))
+		if (!is_linden && !is_self && !LLMuteList::getInstance()->isMuted(mAvatarID, mAvatarName.getLegacyName()))
 		{
 			return true;
 		}
@@ -758,10 +767,10 @@ bool LLInspectAvatar::enableMute()
 
 bool LLInspectAvatar::enableUnmute()
 {
-		bool is_linden = LLStringUtil::endsWith(mAvatarName, " Linden");
+		bool is_linden = LLStringUtil::endsWith(mAvatarName.getLegacyName(), " Linden");
 		bool is_self = mAvatarID == gAgent.getID();
 
-		if (!is_linden && !is_self && LLMuteList::getInstance()->isMuted(mAvatarID, mAvatarName))
+		if (!is_linden && !is_self && LLMuteList::getInstance()->isMuted(mAvatarID, mAvatarName.getLegacyName()))
 		{
 			return true;
 		}

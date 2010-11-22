@@ -2,31 +2,25 @@
  * @file llfloaterreg.cpp
  * @brief LLFloaterReg Floater Registration Class
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -127,7 +121,7 @@ LLFloater* LLFloaterReg::getInstance(const std::string& name, const LLSD& key)
 
 				res = build_func(key);
 				
-				bool success = LLUICtrlFactory::getInstance()->buildFloater(res, xui_file, NULL);
+				bool success = res->buildFromFile(xui_file, NULL);
 				if (!success)
 				{
 					llwarns << "Failed to build floater type: '" << name << "'." << llendl;
@@ -290,9 +284,9 @@ void LLFloaterReg::showInitialVisibleInstances()
 	{
 		const std::string& name = iter->first;
 		std::string controlname = getVisibilityControlName(name);
-		if (LLUI::sSettingGroups["floater"]->controlExists(controlname))
+		if (LLFloater::getControlGroup()->controlExists(controlname))
 		{
-			BOOL isvis = LLUI::sSettingGroups["floater"]->getBOOL(controlname);
+			BOOL isvis = LLFloater::getControlGroup()->getBOOL(controlname);
 			if (isvis)
 			{
 				showInstance(name, LLSD()); // keyed floaters shouldn't set save_vis to true
@@ -346,7 +340,7 @@ std::string LLFloaterReg::getRectControlName(const std::string& name)
 std::string LLFloaterReg::declareRectControl(const std::string& name)
 {
 	std::string controlname = getRectControlName(name);
-	LLUI::sSettingGroups["floater"]->declareRect(controlname, LLRect(),
+	LLFloater::getControlGroup()->declareRect(controlname, LLRect(),
 												 llformat("Window Position and Size for %s", name.c_str()),
 												 TRUE);
 	return controlname;
@@ -364,7 +358,7 @@ std::string LLFloaterReg::getVisibilityControlName(const std::string& name)
 std::string LLFloaterReg::declareVisibilityControl(const std::string& name)
 {
 	std::string controlname = getVisibilityControlName(name);
-	LLUI::sSettingGroups["floater"]->declareBOOL(controlname, FALSE,
+	LLFloater::getControlGroup()->declareBOOL(controlname, FALSE,
 												 llformat("Window Visibility for %s", name.c_str()),
 												 TRUE);
 	return controlname;
@@ -374,7 +368,7 @@ std::string LLFloaterReg::declareVisibilityControl(const std::string& name)
 std::string LLFloaterReg::declareDockStateControl(const std::string& name)
 {
 	std::string controlname = getDockStateControlName(name);
-	LLUI::sSettingGroups["floater"]->declareBOOL(controlname, TRUE,
+	LLFloater::getControlGroup()->declareBOOL(controlname, TRUE,
 												 llformat("Window Docking state for %s", name.c_str()),
 												 TRUE);
 	return controlname;
@@ -397,11 +391,11 @@ void LLFloaterReg::registerControlVariables()
 	for (build_map_t::iterator iter = sBuildMap.begin(); iter != sBuildMap.end(); ++iter)
 	{
 		const std::string& name = iter->first;
-		if (LLUI::sSettingGroups["floater"]->controlExists(getRectControlName(name)))
+		if (LLFloater::getControlGroup()->controlExists(getRectControlName(name)))
 		{
 			declareRectControl(name);
 		}
-		if (LLUI::sSettingGroups["floater"]->controlExists(getVisibilityControlName(name)))
+		if (LLFloater::getControlGroup()->controlExists(getVisibilityControlName(name)))
 		{
 			declareVisibilityControl(name);
 		}
@@ -425,7 +419,7 @@ void LLFloaterReg::initUICtrlToFloaterVisibilityControl(LLUICtrl* ctrl, const LL
 	// Get the visibility control name for the floater
 	std::string vis_control_name = LLFloaterReg::declareVisibilityControl(sdname.asString());
 	// Set the control value to the floater visibility control (Sets the value as well)
-	ctrl->setControlVariable(LLUI::sSettingGroups["floater"]->getControl(vis_control_name));
+	ctrl->setControlVariable(LLFloater::getControlGroup()->getControl(vis_control_name));
 }
 
 // callback args may use "floatername.key" format

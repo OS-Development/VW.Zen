@@ -3,31 +3,25 @@
  * @author Aaron Brashears
  * @brief Declaration of the region info and controls floater and panels.
  *
- * $LicenseInfo:firstyear=2004&license=viewergpl$
- * 
- * Copyright (c) 2004-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2004&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -40,6 +34,7 @@
 #include "llhost.h"
 #include "llpanel.h"
 
+class LLAvatarName;
 class LLDispatcher;
 class LLLineEditor;
 class LLMessageSystem;
@@ -168,7 +163,7 @@ public:
 protected:
 	virtual BOOL sendUpdate();
 	void onClickKick();
-	void onKickCommit(const std::vector<std::string>& names, const uuid_vec_t& ids);
+	void onKickCommit(const uuid_vec_t& ids);
 	static void onClickKickAll(void* userdata);
 	bool onKickAllCommit(const LLSD& notification, const LLSD& response);
 	static void onClickMessage(void* userdata);
@@ -193,7 +188,7 @@ protected:
 	virtual BOOL sendUpdate();
 
 	void onClickChooseAvatar();
-	void callbackAvatarID(const std::vector<std::string>& names, const uuid_vec_t& ids);
+	void callbackAvatarID(const uuid_vec_t& ids, const std::vector<LLAvatarName> names);
 	static void onClickReturn(void *);
 	bool callbackReturn(const LLSD& notification, const LLSD& response);
 	static void onClickTopColliders(void*);
@@ -284,7 +279,7 @@ public:
 	// Core methods for all above add/remove button clicks
 	static void accessAddCore(U32 operation_flag, const std::string& dialog_name);
 	static bool accessAddCore2(const LLSD& notification, const LLSD& response);
-	static void accessAddCore3(const std::vector<std::string>& names, const uuid_vec_t& ids, void* data);
+	static void accessAddCore3(const uuid_vec_t& ids, void* data);
 
 	static void accessRemoveCore(U32 operation_flag, const std::string& dialog_name, const std::string& list_ctrl_name);
 	static bool accessRemoveCore2(const LLSD& notification, const LLSD& response);
@@ -296,7 +291,7 @@ public:
 	// Send the actual EstateOwnerRequest "estateaccessdelta" message
 	static void sendEstateAccessDelta(U32 flags, const LLUUID& agent_id);
 
-	void onKickUserCommit(const std::vector<std::string>& names, const uuid_vec_t& ids);
+	void onKickUserCommit(const uuid_vec_t& ids);
 	static void onClickMessageEstate(void* data);
 	bool onMessageCommit(const LLSD& notification, const LLSD& response);
 	

@@ -2,31 +2,25 @@
  * @file llface.cpp
  * @brief LLFace class implementation
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -152,8 +146,6 @@ void cylindricalProjection(LLVector2 &tc, const LLVector4a& normal, const LLVect
 
 void LLFace::init(LLDrawable* drawablep, LLViewerObject* objp)
 {
-	mExtents = (LLVector4a*) ll_aligned_malloc_16(sizeof(LLVector4a)*2);
-
 	mLastUpdateTime = gFrameTimeSeconds;
 	mLastMoveTime = 0.f;
 	mLastSkinTime = gFrameTimeSeconds;
@@ -198,18 +190,8 @@ void LLFace::init(LLDrawable* drawablep, LLViewerObject* objp)
 	mHasMedia = FALSE ;
 }
 
-static LLFastTimer::DeclareTimer FTM_DESTROY_FACE("Destroy Face");
-static LLFastTimer::DeclareTimer FTM_DESTROY_TEXTURE("Texture");
-static LLFastTimer::DeclareTimer FTM_DESTROY_DRAWPOOL("Drawpool");
-static LLFastTimer::DeclareTimer FTM_DESTROY_TEXTURE_MATRIX("Texture Matrix");
-static LLFastTimer::DeclareTimer FTM_DESTROY_DRAW_INFO("Draw Info");
-static LLFastTimer::DeclareTimer FTM_DESTROY_ATLAS("Atlas");
-static LLFastTimer::DeclareTimer FTM_FACE_DEREF("Deref");
-
 void LLFace::destroy()
 {
-	LLFastTimer t(FTM_DESTROY_FACE);
-
 	if (gDebugGL)
 	{
 		gPipeline.checkReferences(this);
@@ -217,21 +199,16 @@ void LLFace::destroy()
 
 	if(mTexture.notNull())
 	{
-		LLFastTimer t(FTM_DESTROY_TEXTURE);
 		mTexture->removeFace(this) ;
 	}
 	
 	if (mDrawPoolp)
 	{
-		LLFastTimer t(FTM_DESTROY_DRAWPOOL);
-
-#if LL_MESH_ENABLED
 		if (this->isState(LLFace::RIGGED) && mDrawPoolp->getType() == LLDrawPool::POOL_AVATAR)
 		{
 			((LLDrawPoolAvatar*) mDrawPoolp)->removeRiggedFace(this);
 		}
 		else
-#endif
 		{
 			mDrawPoolp->removeFace(this);
 		}
@@ -241,7 +218,6 @@ void LLFace::destroy()
 
 	if (mTextureMatrix)
 	{
-		LLFastTimer t(FTM_DESTROY_TEXTURE_MATRIX);
 		delete mTextureMatrix;
 		mTextureMatrix = NULL;
 
@@ -256,24 +232,11 @@ void LLFace::destroy()
 		}
 	}
 	
-	{
-		LLFastTimer t(FTM_DESTROY_DRAW_INFO);
-		setDrawInfo(NULL);
-	}
-	
-	{
-		LLFastTimer t(FTM_DESTROY_ATLAS);
-		removeAtlas();
-	}
-	
-	{
-		LLFastTimer t(FTM_FACE_DEREF);
-		mDrawablep = NULL;
-		mVObjp = NULL;
-	}
-
-	ll_aligned_free_16(mExtents);
-	mExtents = NULL;
+	setDrawInfo(NULL);
+	removeAtlas();
+		
+	mDrawablep = NULL;
+	mVObjp = NULL;
 }
 
 
@@ -580,8 +543,36 @@ void LLFace::renderSelected(LLViewerTexture *imagep, const LLColor4& color)
 		}
 
 		glColor4fv(color.mV);
-		mVertexBuffer->setBuffer(LLVertexBuffer::MAP_VERTEX | LLVertexBuffer::MAP_TEXCOORD0);
-		mVertexBuffer->draw(LLRender::TRIANGLES, mIndicesCount, mIndicesIndex);
+	
+		if (mDrawablep->isState(LLDrawable::RIGGED))
+		{
+			LLVOVolume* volume = mDrawablep->getVOVolume();
+			if (volume)
+			{
+				LLRiggedVolume* rigged = volume->getRiggedVolume();
+				if (rigged)
+				{
+					LLGLEnable offset(GL_POLYGON_OFFSET_FILL);
+					glPolygonOffset(-1.f, -1.f);
+					glMultMatrixf((F32*) volume->getRelativeXform().mMatrix);
+					const LLVolumeFace& vol_face = rigged->getVolumeFace(getTEOffset());
+					LLVertexBuffer::unbind();
+					glVertexPointer(3, GL_FLOAT, 16, vol_face.mPositions);
+					if (vol_face.mTexCoords)
+					{
+						glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+						glTexCoordPointer(2, GL_FLOAT, 8, vol_face.mTexCoords);
+					}
+					glDrawElements(GL_TRIANGLES, vol_face.mNumIndices, GL_UNSIGNED_SHORT, vol_face.mIndices);
+					glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+				}
+			}
+		}
+		else
+		{
+			mVertexBuffer->setBuffer(LLVertexBuffer::MAP_VERTEX | LLVertexBuffer::MAP_TEXCOORD0);
+			mVertexBuffer->draw(LLRender::TRIANGLES, mIndicesCount, mIndicesIndex);
+		}
 
 		gGL.popMatrix();
 	}
@@ -744,7 +735,7 @@ BOOL LLFace::genVolumeBBoxes(const LLVolume &volume, S32 f,
 	LLMemType mt1(LLMemType::MTYPE_DRAWABLE);
 
 	//get bounding box
-	if (mDrawablep->isState(LLDrawable::REBUILD_VOLUME | LLDrawable::REBUILD_POSITION))
+	if (mDrawablep->isState(LLDrawable::REBUILD_VOLUME | LLDrawable::REBUILD_POSITION | LLDrawable::REBUILD_RIGGED))
 	{
 		//VECTORIZE THIS
 		LLMatrix4a mat_vert;
@@ -928,6 +919,77 @@ LLVector2 LLFace::surfaceToTexture(LLVector2 surface_coord, LLVector3 position, 
 
 	
 	return tc;
+}
+
+// Returns scale compared to default texgen, and face orientation as calculated
+// by planarProjection(). This is needed to match planar texgen parameters.
+void LLFace::getPlanarProjectedParams(LLQuaternion* face_rot, LLVector3* face_pos, F32* scale) const
+{
+	const LLMatrix4& vol_mat = getWorldMatrix();
+	const LLVolumeFace& vf = getViewerObject()->getVolume()->getVolumeFace(mTEOffset);
+	const LLVector4a& normal4a = vf.mNormals[0];
+	const LLVector4a& binormal4a = vf.mBinormals[0];
+	LLVector2 projected_binormal;
+	planarProjection(projected_binormal, normal4a, *vf.mCenter, binormal4a);
+	projected_binormal -= LLVector2(0.5f, 0.5f); // this normally happens in xform()
+	*scale = projected_binormal.length();
+	// rotate binormal to match what planarProjection() thinks it is,
+	// then find rotation from that:
+	projected_binormal.normalize();
+	F32 ang = acos(projected_binormal.mV[VY]);
+	ang = (projected_binormal.mV[VX] < 0.f) ? -ang : ang;
+
+	//VECTORIZE THIS
+	LLVector3 binormal(binormal4a.getF32ptr());
+	LLVector3 normal(normal4a.getF32ptr());
+	binormal.rotVec(ang, normal);
+	LLQuaternion local_rot( binormal % normal, binormal, normal );
+	*face_rot = local_rot * vol_mat.quaternion();
+	*face_pos = vol_mat.getTranslation();
+}
+
+// Returns the necessary texture transform to align this face's TE to align_to's TE
+bool LLFace::calcAlignedPlanarTE(const LLFace* align_to,  LLVector2* res_st_offset, 
+								 LLVector2* res_st_scale, F32* res_st_rot) const
+{
+	if (!align_to)
+	{
+		return false;
+	}
+	const LLTextureEntry *orig_tep = align_to->getTextureEntry();
+	if ((orig_tep->getTexGen() != LLTextureEntry::TEX_GEN_PLANAR) ||
+		(getTextureEntry()->getTexGen() != LLTextureEntry::TEX_GEN_PLANAR))
+	{
+		return false;
+	}
+
+	LLVector3 orig_pos, this_pos;
+	LLQuaternion orig_face_rot, this_face_rot;
+	F32 orig_proj_scale, this_proj_scale;
+	align_to->getPlanarProjectedParams(&orig_face_rot, &orig_pos, &orig_proj_scale);
+	getPlanarProjectedParams(&this_face_rot, &this_pos, &this_proj_scale);
+
+	// The rotation of "this face's" texture:
+	LLQuaternion orig_st_rot = LLQuaternion(orig_tep->getRotation(), LLVector3::z_axis) * orig_face_rot;
+	LLQuaternion this_st_rot = orig_st_rot * ~this_face_rot;
+	F32 x_ang, y_ang, z_ang;
+	this_st_rot.getEulerAngles(&x_ang, &y_ang, &z_ang);
+	*res_st_rot = z_ang;
+
+	// Offset and scale of "this face's" texture:
+	LLVector3 centers_dist = (this_pos - orig_pos) * ~orig_st_rot;
+	LLVector3 st_scale(orig_tep->mScaleS, orig_tep->mScaleT, 1.f);
+	st_scale *= orig_proj_scale;
+	centers_dist.scaleVec(st_scale);
+	LLVector2 orig_st_offset(orig_tep->mOffsetS, orig_tep->mOffsetT);
+
+	*res_st_offset = orig_st_offset + (LLVector2)centers_dist;
+	res_st_offset->mV[VX] -= (S32)res_st_offset->mV[VX];
+	res_st_offset->mV[VY] -= (S32)res_st_offset->mV[VY];
+
+	st_scale /= this_proj_scale;
+	*res_st_scale = (LLVector2)st_scale;
+	return true;
 }
 
 void LLFace::updateRebuildFlags()
@@ -1591,12 +1653,21 @@ BOOL LLFace::getGeometryVolume(const LLVolume& volume,
 	{
 		LLVector4a src;
 
-		src.splat(reinterpret_cast<F32&>(color.mAll));
+		U32 vec[4];
+		vec[0] = vec[1] = vec[2] = vec[3] = color.mAll;
+		
+		src.loadua((F32*) vec);
 
-		F32* dst = (F32*) colors.get();
-		for (S32 i = 0; i < num_vertices; i+=4)
+		LLVector4a* dst = (LLVector4a*) colors.get();
+		S32 num_vecs = num_vertices/4;
+		if (num_vertices%4 > 0)
+		{
+			++num_vecs;
+		}
+
+		for (S32 i = 0; i < num_vecs; i++)
 		{	
-			LLVector4a::copy4a(dst+i, (F32*) &src);
+			dst[i] = src;
 		}
 	}
 

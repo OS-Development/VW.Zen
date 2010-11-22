@@ -2,31 +2,25 @@
  * @file llbutton.cpp
  * @brief LLButton base class
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -35,7 +29,7 @@
 #include "llmenubutton.h"
 
 // Linden library includes
-#include "llmenugl.h"
+#include "lltoggleablemenu.h"
 #include "llstring.h"
 #include "v4color.h"
 
@@ -50,58 +44,77 @@ LLMenuButton::Params::Params()
 
 LLMenuButton::LLMenuButton(const LLMenuButton::Params& p)
 :	LLButton(p),
-	mMenu(NULL),
-	mMenuVisibleLastFrame(false)
+	mIsMenuShown(false),
+	mMenuPosition(MP_BOTTOM_LEFT)
 {
 	std::string menu_filename = p.menu_filename;
 
 	if (!menu_filename.empty())
 	{
-		mMenu = LLUICtrlFactory::getInstance()->createFromFile<LLMenuGL>(menu_filename, LLMenuGL::sMenuContainer, LLMenuHolderGL::child_registry_t::instance());
-		if (!mMenu)
+		LLToggleableMenu* menu = LLUICtrlFactory::getInstance()->createFromFile<LLToggleableMenu>(menu_filename, LLMenuGL::sMenuContainer, LLMenuHolderGL::child_registry_t::instance());
+		if (!menu)
 		{
 			llwarns << "Error loading menu_button menu" << llendl;
+			return;
 		}
+
+		menu->setVisibilityChangeCallback(boost::bind(&LLMenuButton::onMenuVisibilityChange, this, _2));
+
+		mMenuHandle = menu->getHandle();
+
+		updateMenuOrigin();
 	}
 }
 
-void LLMenuButton::toggleMenu()
+boost::signals2::connection LLMenuButton::setMouseDownCallback( const mouse_signal_t::slot_type& cb )
 {
-    if(!mMenu)
-		return;
+	return LLUICtrl::setMouseDownCallback(cb);
+}
 
-	if (mMenu->getVisible() || mMenuVisibleLastFrame)
+void LLMenuButton::hideMenu()
+{
+	if(mMenuHandle.isDead()) return;
+
+	LLToggleableMenu* menu = dynamic_cast<LLToggleableMenu*>(mMenuHandle.get());
+	if (menu)
 	{
-		mMenu->setVisible(FALSE);
-	}
-	else
-	{
-	    LLRect rect = getRect();
-		//mMenu->needsArrange(); //so it recalculates the visible elements
-		LLMenuGL::showPopup(getParent(), mMenu, rect.mLeft, rect.mBottom);
+		menu->setVisible(FALSE);
 	}
 }
 
-
-void LLMenuButton::hideMenu() 
-{ 
-	if(!mMenu)
-		return;
-	mMenu->setVisible(FALSE); 
+LLToggleableMenu* LLMenuButton::getMenu()
+{
+	return dynamic_cast<LLToggleableMenu*>(mMenuHandle.get());
 }
 
+void LLMenuButton::setMenu(LLToggleableMenu* menu, EMenuPosition position /*MP_TOP_LEFT*/)
+{
+	if (!menu) return;
+
+	mMenuHandle = menu->getHandle();
+	mMenuPosition = position;
+
+	menu->setVisibilityChangeCallback(boost::bind(&LLMenuButton::onMenuVisibilityChange, this, _2));
+}
 
 BOOL LLMenuButton::handleKeyHere(KEY key, MASK mask )
 {
+	if (mMenuHandle.isDead()) return FALSE;
+
 	if( KEY_RETURN == key && mask == MASK_NONE && !gKeyboard->getKeyRepeated(key))
 	{
+		// *HACK: We emit the mouse down signal to fire the callback bound to the
+		// menu emerging event before actually displaying the menu. See STORM-263.
+		LLUICtrl::handleMouseDown(-1, -1, MASK_NONE);
+
 		toggleMenu();
 		return TRUE;
 	}
 
-	if (mMenu && mMenu->getVisible() && key == KEY_ESCAPE && mask == MASK_NONE)
+	LLToggleableMenu* menu = dynamic_cast<LLToggleableMenu*>(mMenuHandle.get());
+	if (menu && menu->getVisible() && key == KEY_ESCAPE && mask == MASK_NONE)
 	{
-		mMenu->setVisible(FALSE);
+		menu->setVisible(FALSE);
 		return TRUE;
 	}
 	
@@ -110,34 +123,77 @@ BOOL LLMenuButton::handleKeyHere(KEY key, MASK mask )
 
 BOOL LLMenuButton::handleMouseDown(S32 x, S32 y, MASK mask)
 {
-	if (hasTabStop() && !getIsChrome())
-	{
-		setFocus(TRUE);
-	}
+	LLButton::handleMouseDown(x, y, mask);
 
 	toggleMenu();
 	
-	if (getSoundFlags() & MOUSE_DOWN)
-	{
-		make_ui_sound("UISndClick");
-	}
-
 	return TRUE;
 }
 
-void LLMenuButton::draw()
+void LLMenuButton::toggleMenu()
 {
-	//we save this off so next frame when we try to close it by 
-	//button click, and it hides menus before we get to it, we know
-	mMenuVisibleLastFrame = mMenu && mMenu->getVisible();
-	
-	if (mMenuVisibleLastFrame)
+	if(mMenuHandle.isDead()) return;
+
+	LLToggleableMenu* menu = dynamic_cast<LLToggleableMenu*>(mMenuHandle.get());
+	if (!menu) return;
+
+	// Store the button rectangle to toggle menu visibility if a mouse event
+	// occurred inside or outside the button rect.
+	menu->setButtonRect(this);
+
+	if (!menu->toggleVisibility() && mIsMenuShown)
 	{
-		setForcePressedState(true);
+		setForcePressedState(false);
+		mIsMenuShown = false;
 	}
+	else
+	{
+		menu->buildDrawLabels();
+		menu->arrangeAndClear();
+		menu->updateParent(LLMenuGL::sMenuContainer);
 
-	LLButton::draw();
+		updateMenuOrigin();
 
-	setForcePressedState(false);
+		LLMenuGL::showPopup(getParent(), menu, mX, mY);
+
+		setForcePressedState(true);
+		mIsMenuShown = true;
+	}
 }
 
+void LLMenuButton::updateMenuOrigin()
+{
+	if (mMenuHandle.isDead()) return;
+
+	LLRect rect = getRect();
+
+	switch (mMenuPosition)
+	{
+		case MP_TOP_LEFT:
+		{
+			mX = rect.mLeft;
+			mY = rect.mTop + mMenuHandle.get()->getRect().getHeight();
+			break;
+		}
+		case MP_BOTTOM_LEFT:
+		{
+			mX = rect.mLeft;
+			mY = rect.mBottom;
+			break;
+		}
+	}
+}
+
+void LLMenuButton::onMenuVisibilityChange(const LLSD& param)
+{
+	bool new_visibility = param["visibility"].asBoolean();
+	bool is_closed_by_button_click = param["closed_by_button_click"].asBoolean();
+
+	// Reset the button "pressed" state only if the menu is shown by this particular
+	// menu button (not any other control) and is not being closed by a click on the button.
+	if (!new_visibility && !is_closed_by_button_click && mIsMenuShown)
+	{
+		setForcePressedState(false);
+		mIsMenuShown = false;
+	}
+}

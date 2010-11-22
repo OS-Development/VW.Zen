@@ -3,31 +3,25 @@
  * @brief Video-consuming static GStreamer plugin for gst-to-LLMediaImpl
  *
  * @cond
- * $LicenseInfo:firstyear=2007&license=viewergpl$
- * 
- * Copyright (c) 2007-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2007&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  * @endcond
  */
@@ -54,7 +48,7 @@ GST_DEBUG_CATEGORY_STATIC (gst_slvideo_debug);
 #define SLV_ALLCAPS GST_VIDEO_CAPS_RGBx SLV_SIZECAPS
 
 static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE (
-    "sink",
+    (gchar*)"sink",
     GST_PAD_SINK,
     GST_PAD_ALWAYS,
     GST_STATIC_CAPS (SLV_ALLCAPS)
@@ -514,18 +508,18 @@ plugin_init (GstPlugin * plugin)
    some g++ versions buggily avoid __attribute__((constructor)) functions -
    so we provide an explicit plugin init function.
  */
+#define PACKAGE (gchar*)"packagehack"
+// this macro quietly refers to PACKAGE internally
+GST_PLUGIN_DEFINE (GST_VERSION_MAJOR,
+		   GST_VERSION_MINOR,
+		   (gchar*)"private-slvideoplugin", 
+		   (gchar*)"SL Video sink plugin",
+		   plugin_init, (gchar*)"1.0", (gchar*)"LGPL",
+		   (gchar*)"Second Life",
+		   (gchar*)"http://www.secondlife.com/");
+#undef PACKAGE
 void gst_slvideo_init_class (void)
 {
-#define PACKAGE "packagehack"
-	// this macro quietly refers to PACKAGE internally
-	static GST_PLUGIN_DEFINE (GST_VERSION_MAJOR,
-				  GST_VERSION_MINOR,
-				  "private-slvideoplugin", 
-				  "SL Video sink plugin",
-				  plugin_init, "0.1", GST_LICENSE_UNKNOWN,
-				  "Second Life",
-				  "http://www.secondlife.com/");
-#undef PACKAGE
 	ll_gst_plugin_register_static (&gst_plugin_desc);
 	DEBUGMSG("CLASS INIT");
 }

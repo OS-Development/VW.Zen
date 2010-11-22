@@ -2,31 +2,25 @@
  * @file lldrawable.cpp
  * @brief LLDrawable class implementation
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -95,9 +89,6 @@ void LLDrawable::incrementVisible()
 
 void LLDrawable::init()
 {
-	mExtents = (LLVector4a*) ll_aligned_malloc_32(sizeof(LLVector4a)*3);
-	mPositionGroup = mExtents + 2;
-
 	// mXform
 	mParent = NULL;
 	mRenderType = 0;
@@ -150,8 +141,6 @@ void LLDrawable::destroy()
 		llinfos << "- Zombie drawables: " << sNumZombieDrawables << llendl;
 	}*/	
 
-	ll_aligned_free_32(mExtents);
-	mExtents = mPositionGroup = NULL;
 }
 
 void LLDrawable::markDead()
@@ -187,6 +176,11 @@ LLVOVolume* LLDrawable::getVOVolume() const
 	{
 		return NULL;
 	}
+}
+
+const LLMatrix4& LLDrawable::getRenderMatrix() const
+{ 
+	return isRoot() ? getWorldMatrix() : getParent()->getWorldMatrix();
 }
 
 BOOL LLDrawable::isLight() const
@@ -387,6 +381,7 @@ void LLDrawable::makeActive()
 	{
 		U32 pcode = mVObjp->getPCode();
 		if (pcode == LLViewerObject::LL_VO_WATER ||
+			pcode == LLViewerObject::LL_VO_VOID_WATER ||
 			pcode == LLViewerObject::LL_VO_SURFACE_PATCH ||
 			pcode == LLViewerObject::LL_VO_PART_GROUP ||
 			pcode == LLViewerObject::LL_VO_HUD_PART_GROUP ||
@@ -713,8 +708,7 @@ void LLDrawable::updateDistance(LLCamera& camera, bool force_update)
 		LLVOVolume* volume = getVOVolume();
 		if (volume)
 		{
-			volume->updateRelativeXform();
-			pos = volume->getRelativeXform().getTranslation();
+			pos.set(getPositionGroup().getF32ptr());
 			if (isStatic())
 			{
 				pos += volume->getRegion()->getOriginAgent();
@@ -837,7 +831,7 @@ void LLDrawable::shiftPos(const LLVector4a &shift_vector)
 		
 		mExtents[0].add(shift_vector);
 		mExtents[1].add(shift_vector);
-		mPositionGroup->add(shift_vector);
+		mPositionGroup.add(shift_vector);
 	}
 	else if (mSpatialBridge)
 	{
@@ -847,7 +841,7 @@ void LLDrawable::shiftPos(const LLVector4a &shift_vector)
 	{
 		mExtents[0].add(shift_vector);
 		mExtents[1].add(shift_vector);
-		mPositionGroup->add(shift_vector);
+		mPositionGroup.add(shift_vector);
 	}
 	
 	mVObjp->onShift(shift_vector);
@@ -878,7 +872,7 @@ void LLDrawable::setSpatialExtents(const LLVector4a& min, const LLVector4a& max)
 
 void LLDrawable::setPositionGroup(const LLVector4a& pos)
 {
-	*mPositionGroup = pos;
+	mPositionGroup = pos;
 }
 
 void LLDrawable::updateSpatialExtents()
@@ -892,7 +886,7 @@ void LLDrawable::updateSpatialExtents()
 	
 	if (mSpatialBridge.notNull())
 	{
-		mPositionGroup->splat(0.f);
+		mPositionGroup.splat(0.f);
 	}
 }
 
@@ -1161,8 +1155,8 @@ void LLSpatialBridge::updateSpatialExtents()
 	diagonal.setSub(newMax, newMin);
 	mRadius = diagonal.getLength3().getF32() * 0.5f;
 	
-	mPositionGroup->setAdd(newMin,newMax);
-	mPositionGroup->mul(0.5f);
+	mPositionGroup.setAdd(newMin,newMax);
+	mPositionGroup.mul(0.5f);
 	updateBinRadius();
 }
 
@@ -1431,7 +1425,7 @@ void LLSpatialBridge::shiftPos(const LLVector4a& vec)
 {
 	mExtents[0].add(vec);
 	mExtents[1].add(vec);
-	mPositionGroup->add(vec);
+	mPositionGroup.add(vec);
 }
 
 void LLSpatialBridge::cleanupReferences()

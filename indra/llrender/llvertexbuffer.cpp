@@ -2,31 +2,25 @@
  * @file llvertexbuffer.cpp
  * @brief LLVertexBuffer implementation
  *
- * $LicenseInfo:firstyear=2003&license=viewergpl$
- * 
- * Copyright (c) 2003-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2003&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -34,7 +28,7 @@
 #include "llmemory.h"
 
 #include <boost/static_assert.hpp>
-
+#include "llsys.h"
 #include "llvertexbuffer.h"
 // #include "llrender.h"
 #include "llglheaders.h"
@@ -603,7 +597,7 @@ void LLVertexBuffer::createGLBuffer()
 	{
 		static int gl_buffer_idx = 0;
 		mGLBuffer = ++gl_buffer_idx;
-		mMappedData = (U8*) ll_aligned_malloc_16(size);
+		mMappedData = (U8*) malloc(size);
 	}
 }
 
@@ -637,7 +631,7 @@ void LLVertexBuffer::createGLIndices()
 	}
 	else
 	{
-		mMappedIndexData = (U8*) ll_aligned_malloc_16(size);
+		mMappedIndexData = (U8*) malloc(size);
 		static int gl_buffer_idx = 0;
 		mGLIndices = ++gl_buffer_idx;
 	}
@@ -658,7 +652,7 @@ void LLVertexBuffer::destroyGLBuffer()
 		}
 		else
 		{
-			ll_aligned_free_16(mMappedData);
+			free(mMappedData);
 			mMappedData = NULL;
 			mEmpty = TRUE;
 		}
@@ -685,7 +679,7 @@ void LLVertexBuffer::destroyGLIndices()
 		}
 		else
 		{
-			ll_aligned_free_16(mMappedIndexData);
+			free(mMappedIndexData);
 			mMappedIndexData = NULL;
 			mEmpty = TRUE;
 		}
@@ -818,8 +812,8 @@ void LLVertexBuffer::resizeBuffer(S32 newnverts, S32 newnindices)
 			{
 				if (!useVBOs())
 				{
-					ll_aligned_free_16(mMappedData);
-					mMappedData = (U8*) ll_aligned_malloc_16(newsize);
+					free(mMappedData);
+					mMappedData = (U8*) malloc(newsize);
 				}
 				mResized = TRUE;
 			}
@@ -839,8 +833,8 @@ void LLVertexBuffer::resizeBuffer(S32 newnverts, S32 newnindices)
 			{
 				if (!useVBOs())
 				{
-					ll_aligned_free_16(mMappedIndexData);
-					mMappedIndexData = (U8*) ll_aligned_malloc_16(new_index_size);
+					free(mMappedIndexData);
+					mMappedIndexData = (U8*) malloc(new_index_size);
 				}
 				mResized = TRUE;
 			}
@@ -915,6 +909,14 @@ U8* LLVertexBuffer::mapBuffer(S32 access)
 
 		if (!mMappedData)
 		{
+			log_glerror();
+
+			//check the availability of memory
+			U32 avail_phy_mem, avail_vir_mem;
+			LLMemoryInfo::getAvailableMemoryKB(avail_phy_mem, avail_vir_mem) ;
+			llinfos << "Available physical mwmory(KB): " << avail_phy_mem << llendl ; 
+			llinfos << "Available virtual memory(KB): " << avail_vir_mem << llendl;
+
 			//--------------------
 			//print out more debug info before crash
 			llinfos << "vertex buffer size: (num verts : num indices) = " << getNumVerts() << " : " << getNumIndices() << llendl ;
@@ -936,6 +938,8 @@ U8* LLVertexBuffer::mapBuffer(S32 access)
 
 		if (!mMappedIndexData)
 		{
+			log_glerror();
+
 			GLint buff;
 			glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING_ARB, &buff);
 			if ((GLuint)buff != mGLIndices)

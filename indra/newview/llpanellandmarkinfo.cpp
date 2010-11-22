@@ -2,31 +2,25 @@
  * @file llpanellandmarkinfo.cpp
  * @brief Displays landmark info in Side Tray.
  *
- * $LicenseInfo:firstyear=2009&license=viewergpl$
- *
- * Copyright (c) 2009, Linden Research, Inc.
- *
+ * $LicenseInfo:firstyear=2009&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
- *
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
- *
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
- *
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * Copyright (C) 2010, Linden Research, Inc.
+ * 
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
+ * 
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -45,6 +39,7 @@
 #include "llagent.h"
 #include "llagentui.h"
 #include "lllandmarkactions.h"
+#include "llslurl.h"
 #include "llviewerinventory.h"
 #include "llviewerparcelmgr.h"
 #include "llviewerregion.h"
@@ -252,13 +247,10 @@ void LLPanelLandmarkInfo::displayItemInfo(const LLInventoryItem* pItem)
 	//////////////////
 	if (pItem->getCreatorUUID().notNull())
 	{
-		std::string name;
+		// IDEVO
 		LLUUID creator_id = pItem->getCreatorUUID();
-		if (!gCacheName->getFullName(creator_id, name))
-		{
-			gCacheName->get(creator_id, FALSE,
-							boost::bind(&LLPanelPlaceInfo::nameUpdatedCallback, mCreator, _2, _3));
-		}
+		std::string name =
+			LLSLURL("agent", creator_id, "inspect").getSLURLString();
 		mCreator->setText(name);
 	}
 	else
@@ -275,20 +267,12 @@ void LLPanelLandmarkInfo::displayItemInfo(const LLInventoryItem* pItem)
 		if (perm.isGroupOwned())
 		{
 			LLUUID group_id = perm.getGroup();
-			if (!gCacheName->getGroupName(group_id, name))
-			{
-				gCacheName->get(group_id, TRUE,
-								boost::bind(&LLPanelPlaceInfo::nameUpdatedCallback, mOwner, _2, _3));
-			}
+			name = LLSLURL("group", group_id, "inspect").getSLURLString();
 		}
 		else
 		{
 			LLUUID owner_id = perm.getOwner();
-			if (!gCacheName->getFullName(owner_id, name))
-			{
-				gCacheName->get(owner_id, FALSE,
-								boost::bind(&LLPanelPlaceInfo::nameUpdatedCallback, mOwner, _2, _3));
-			}
+			name = LLSLURL("agent", owner_id, "inspect").getSLURLString();
 		}
 		mOwner->setText(name);
 	}

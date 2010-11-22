@@ -2,31 +2,25 @@
  * @file llgl.cpp
  * @brief LLGL implementation
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -616,41 +610,46 @@ void LLGLManager::shutdownGL()
 void LLGLManager::initExtensions()
 {
 #if LL_MESA_HEADLESS
-# if GL_ARB_multitexture
+# ifdef GL_ARB_multitexture
 	mHasMultitexture = TRUE;
 # else
 	mHasMultitexture = FALSE;
 # endif
-# if GL_ARB_texture_env_combine
+# ifdef GL_ARB_texture_env_combine
 	mHasARBEnvCombine = TRUE;	
 # else
 	mHasARBEnvCombine = FALSE;
 # endif
-# if GL_ARB_texture_compression
+# ifdef GL_ARB_texture_compression
 	mHasCompressedTextures = TRUE;
 # else
 	mHasCompressedTextures = FALSE;
 # endif
-# if GL_ARB_vertex_buffer_object
+# ifdef GL_ARB_vertex_buffer_object
 	mHasVertexBufferObject = TRUE;
 # else
 	mHasVertexBufferObject = FALSE;
 # endif
-# if GL_EXT_framebuffer_object
+# ifdef GL_EXT_framebuffer_object
 	mHasFramebufferObject = TRUE;
 # else
 	mHasFramebufferObject = FALSE;
 # endif
-# if GL_EXT_framebuffer_multisample
+# ifdef GL_EXT_framebuffer_multisample
 	mHasFramebufferMultisample = TRUE;
 # else
 	mHasFramebufferMultisample = FALSE;
 # endif
-# if GL_ARB_draw_buffers
+# ifdef GL_ARB_draw_buffers
 	mHasDrawBuffers = TRUE;
 #else
 	mHasDrawBuffers = FALSE;
 # endif
+# if defined(GL_NV_depth_clamp) || defined(GL_ARB_depth_clamp)
+	mHasDepthClamp = TRUE;
+#else
+	mHasDepthClamp = FALSE;
+#endif
 # if GL_EXT_blend_func_separate
 	mHasBlendFuncSeparate = TRUE;
 #else
@@ -677,6 +676,7 @@ void LLGLManager::initExtensions()
 	mHasCompressedTextures = glh_init_extensions("GL_ARB_texture_compression");
 	mHasOcclusionQuery = ExtensionExists("GL_ARB_occlusion_query", gGLHExts.mSysExts);
 	mHasVertexBufferObject = ExtensionExists("GL_ARB_vertex_buffer_object", gGLHExts.mSysExts);
+	mHasDepthClamp = ExtensionExists("GL_ARB_depth_clamp", gGLHExts.mSysExts) || ExtensionExists("GL_NV_depth_clamp", gGLHExts.mSysExts);
 	// mask out FBO support when packed_depth_stencil isn't there 'cause we need it for LLRenderTarget -Brad
 	mHasFramebufferObject = ExtensionExists("GL_EXT_framebuffer_object", gGLHExts.mSysExts)
 		&& ExtensionExists("GL_EXT_packed_depth_stencil", gGLHExts.mSysExts);
@@ -700,6 +700,7 @@ void LLGLManager::initExtensions()
 	if (getenv("LL_GL_NOEXT"))
 	{
 		//mHasMultitexture = FALSE; // NEEDED!
+		mHasDepthClamp = FALSE;
 		mHasARBEnvCombine = FALSE;
 		mHasCompressedTextures = FALSE;
 		mHasVertexBufferObject = FALSE;
@@ -761,6 +762,7 @@ void LLGLManager::initExtensions()
 		if (strchr(blacklist,'s')) mHasFramebufferMultisample = FALSE;
 		if (strchr(blacklist,'t')) mHasTextureRectangle = FALSE;
 		if (strchr(blacklist,'u')) mHasBlendFuncSeparate = FALSE;//S
+		if (strchr(blacklist,'v')) mHasDepthClamp = FALSE;
 		
 	}
 #endif // LL_LINUX || LL_SOLARIS
@@ -1051,6 +1053,33 @@ void rotate_quat(LLQuaternion& rotation)
 void flush_glerror()
 {
 	glGetError();
+}
+
+//this function outputs gl error to the log file, does not crash the code.
+void log_glerror()
+{
+	if (LL_UNLIKELY(!gGLManager.mInited))
+	{
+		return ;
+	}
+	//  Create or update texture to be used with this data 
+	GLenum error;
+	error = glGetError();
+	while (LL_UNLIKELY(error))
+	{
+		GLubyte const * gl_error_msg = gluErrorString(error);
+		if (NULL != gl_error_msg)
+		{
+			llwarns << "GL Error: " << error << " GL Error String: " << gl_error_msg << llendl ;			
+		}
+		else
+		{
+			// gluErrorString returns NULL for some extensions' error codes.
+			// you'll probably have to grep for the number in glext.h.
+			llwarns << "GL Error: UNKNOWN 0x" << std::hex << error << std::dec << llendl;
+		}
+		error = glGetError();
+	}
 }
 
 void do_assert_glerror()
@@ -2043,7 +2072,7 @@ void LLGLDepthTest::checkState()
 	}
 }
 
-LLGLClampToFarClip::LLGLClampToFarClip(glh::matrix4f P)
+LLGLSquashToFarClip::LLGLSquashToFarClip(glh::matrix4f P)
 {
 	for (U32 i = 0; i < 4; i++)
 	{
@@ -2056,7 +2085,7 @@ LLGLClampToFarClip::LLGLClampToFarClip(glh::matrix4f P)
 	glMatrixMode(GL_MODELVIEW);
 }
 
-LLGLClampToFarClip::~LLGLClampToFarClip()
+LLGLSquashToFarClip::~LLGLSquashToFarClip()
 {
 	glMatrixMode(GL_PROJECTION);
 	glPopMatrix();

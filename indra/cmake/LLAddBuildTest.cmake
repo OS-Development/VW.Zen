@@ -107,7 +107,7 @@ INCLUDE(GoogleMock)
 
     # Setup target
     ADD_EXECUTABLE(PROJECT_${project}_TEST_${name} ${${name}_test_SOURCE_FILES})
-    SET_TARGET_PROPERTIES(PROJECT_${project}_TEST_${name} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${EXE_STAGING_DIR})
+    SET_TARGET_PROPERTIES(PROJECT_${project}_TEST_${name} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${EXE_STAGING_DIR}")
 
     #
     # Per-codefile additional / external project dep and lib dep property extraction
@@ -196,7 +196,7 @@ FUNCTION(LL_ADD_INTEGRATION_TEST
     message(STATUS "ADD_EXECUTABLE(INTEGRATION_TEST_${testname} ${source_files})")
   endif(TEST_DEBUG)
   ADD_EXECUTABLE(INTEGRATION_TEST_${testname} ${source_files})
-  SET_TARGET_PROPERTIES(INTEGRATION_TEST_${testname} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${EXE_STAGING_DIR})
+  SET_TARGET_PROPERTIES(INTEGRATION_TEST_${testname} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${EXE_STAGING_DIR}")
 
   # Add link deps to the executable
   if(TEST_DEBUG)
@@ -256,6 +256,10 @@ MACRO(SET_TEST_PATH LISTVAR)
     set(${LISTVAR} ${SHARED_LIB_STAGING_DIR}/${CMAKE_CFG_INTDIR}/Resources ${SHARED_LIB_STAGING_DIR}/Release/Resources /usr/lib)
   ELSE(WINDOWS)
     # Linux uses a single staging directory anyway.
-    set(${LISTVAR} ${SHARED_LIB_STAGING_DIR} /usr/lib)
+    IF (STANDALONE)
+      set(${LISTVAR} ${CMAKE_BINARY_DIR}/llcommon /usr/lib /usr/local/lib)
+    ELSE (STANDALONE)
+      set(${LISTVAR} ${SHARED_LIB_STAGING_DIR} /usr/lib)
+    ENDIF (STANDALONE)
   ENDIF(WINDOWS)
 ENDMACRO(SET_TEST_PATH)

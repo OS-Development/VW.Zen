@@ -2,31 +2,25 @@
  * @file lltoast.cpp
  * @brief This class implements a placeholder for any notification panel.
  *
- * $LicenseInfo:firstyear=2000&license=viewergpl$
- * 
- * Copyright (c) 2000-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2000&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -41,6 +35,13 @@
 
 using namespace LLNotificationsUI;
 
+//--------------------------------------------------------------------------
+LLToastLifeTimer::LLToastLifeTimer(LLToast* toast, F32 period)
+	: mToast(toast),
+	  LLEventTimer(period)
+{
+}
+
 /*virtual*/
 BOOL LLToastLifeTimer::tick()
 {
@@ -49,6 +50,38 @@ BOOL LLToastLifeTimer::tick()
 		mToast->expire();
 	}
 	return FALSE;
+}
+
+void LLToastLifeTimer::stop()
+{
+	mEventTimer.stop();
+}
+
+void LLToastLifeTimer::start()
+{
+	mEventTimer.start();
+}
+
+void LLToastLifeTimer::restart()
+{
+	mEventTimer.reset();
+}
+
+BOOL LLToastLifeTimer::getStarted()
+{
+	return mEventTimer.getStarted();
+}
+
+void LLToastLifeTimer::setPeriod(F32 period)
+{
+	mPeriod = period;
+}
+
+F32 LLToastLifeTimer::getRemainingTimeF32()
+{
+	F32 et = mEventTimer.getElapsedTimeF32();
+	if (!getStarted() || et > mPeriod) return 0.0f;
+	return mPeriod - et;
 }
 
 //--------------------------------------------------------------------------
@@ -79,11 +112,12 @@ LLToast::LLToast(const LLToast::Params& p)
 	mIsHidden(false),
 	mHideBtnPressed(false),
 	mIsTip(p.is_tip),
-	mWrapperPanel(NULL)
+	mWrapperPanel(NULL),
+	mIsTransparent(false)
 {
 	mTimer.reset(new LLToastLifeTimer(this, p.lifetime_secs));
 
-	LLUICtrlFactory::getInstance()->buildFloater(this, "panel_toast.xml", NULL);
+	buildFromFile("panel_toast.xml", NULL);
 
 	setCanDrag(FALSE);
 
@@ -108,6 +142,7 @@ LLToast::LLToast(const LLToast::Params& p)
 	if(!p.on_delete_toast().empty())
 		mOnDeleteToastSignal.connect(p.on_delete_toast());
 
+	// *TODO: This signal doesn't seem to be used at all.
 	if(!p.on_mouse_enter().empty())
 		mOnMouseEnterSignal.connect(p.on_mouse_enter());
 }
@@ -148,6 +183,7 @@ LLToast::~LLToast()
 void LLToast::hide()
 {
 	setVisible(FALSE);
+	setTransparentState(false);
 	mTimer->stop();
 	mIsHidden = true;
 	mOnFadeSignal(this); 
@@ -169,6 +205,16 @@ void LLToast::onFocusReceived()
 		// Lets make wrapper panel behave like a floater
 		setBackgroundOpaque(TRUE);
 	}
+}
+
+void LLToast::setLifetime(S32 seconds)
+{
+	mToastLifetime = seconds;
+}
+
+void LLToast::setFadingTime(S32 seconds)
+{
+	mToastFadingTime = seconds;
 }
 
 S32 LLToast::getTopPad()
@@ -200,13 +246,46 @@ void LLToast::setCanFade(bool can_fade)
 //--------------------------------------------------------------------------
 void LLToast::expire()
 {
-	// if toast has fade property - hide it
-	if(mCanFade)
+	if (mCanFade)
 	{
-		hide();
+		if (mIsTransparent)
+		{
+			hide();
+		}
+		else
+		{
+			setTransparentState(true);
+			mTimer->restart();
+		}
 	}
 }
 
+void LLToast::setTransparentState(bool transparent)
+{
+	setBackgroundOpaque(!transparent);
+	mIsTransparent = transparent;
+
+	if (transparent)
+	{
+		mTimer->setPeriod(mToastFadingTime);
+	}
+	else
+	{
+		mTimer->setPeriod(mToastLifetime);
+	}
+}
+
+F32 LLToast::getTimeLeftToLive()
+{
+	F32 time_to_live = mTimer->getRemainingTimeF32();
+
+	if (!mIsTransparent)
+	{
+		time_to_live += mToastFadingTime;
+	}
+
+	return time_to_live;
+}
 //--------------------------------------------------------------------------
 
 void LLToast::reshapeToPanel()
@@ -250,13 +329,6 @@ void LLToast::draw()
 			drawChild(mHideBtn);
 		}
 	}
-
-	// if timer started and remaining time <= fading time
-	if (mTimer->getStarted() && (mToastLifetime
-			- mTimer->getEventTimer().getElapsedTimeF32()) <= mToastFadingTime)
-	{
-		setBackgroundOpaque(FALSE);
-	}
 }
 
 //--------------------------------------------------------------------------
@@ -269,6 +341,11 @@ void LLToast::setVisible(BOOL show)
 		// (EXT-1849) according to this bug a toast can be resurrected from
 		// invisible state if it faded during a teleportation
 		// then it fades a second time and causes a crash
+		return;
+	}
+
+	if (show && getVisible())
+	{
 		return;
 	}
 
@@ -377,7 +454,8 @@ void LLNotificationsUI::LLToast::stopFading()
 {
 	if(mCanFade)
 	{
-		stopTimer();
+		setTransparentState(false);
+		mTimer->stop();
 	}
 }
 
@@ -385,7 +463,8 @@ void LLNotificationsUI::LLToast::startFading()
 {
 	if(mCanFade)
 	{
-		resetTimer();
+		setTransparentState(false);
+		mTimer->start();
 	}
 }
 

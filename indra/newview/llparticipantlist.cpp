@@ -2,31 +2,25 @@
  * @file llparticipantlist.cpp
  * @brief LLParticipantList intended to update view(LLAvatarList) according to incoming messages
  *
- * $LicenseInfo:firstyear=2009&license=viewergpl$
- * 
- * Copyright (c) 2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2009&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -203,17 +197,20 @@ private:
 	uuid_set_t mAvalineCallers;
 };
 
-LLParticipantList::LLParticipantList(LLSpeakerMgr* data_source, LLAvatarList* avatar_list,  bool use_context_menu/* = true*/,
-		bool exclude_agent /*= true*/, bool can_toggle_icons /*= true*/):
+LLParticipantList::LLParticipantList(LLSpeakerMgr* data_source, 
+									 LLAvatarList* avatar_list,
+									 bool use_context_menu/* = true*/,
+									 bool exclude_agent /*= true*/, 
+									 bool can_toggle_icons /*= true*/) :
 	mSpeakerMgr(data_source),
 	mAvatarList(avatar_list),
-	mSortOrder(E_SORT_BY_NAME)
-,	mParticipantListMenu(NULL)
-,	mExcludeAgent(exclude_agent)
-,	mValidateSpeakerCallback(NULL)
+	mParticipantListMenu(NULL),
+	mExcludeAgent(exclude_agent),
+	mValidateSpeakerCallback(NULL)
 {
+
 	mAvalineUpdater = new LLAvalineUpdater(boost::bind(&LLParticipantList::onAvalineCallerFound, this, _1),
-		boost::bind(&LLParticipantList::onAvalineCallerRemoved, this, _1));
+										   boost::bind(&LLParticipantList::onAvalineCallerRemoved, this, _1));
 
 	mSpeakerAddListener = new SpeakerAddListener(*this);
 	mSpeakerRemoveListener = new SpeakerRemoveListener(*this);
@@ -337,11 +334,18 @@ void LLParticipantList::onAvatarListRefreshed(LLUICtrl* ctrl, const LLSD& param)
 			if ( item )
 			{
 				std::string name = item->getAvatarName();
+				std::string tooltip = item->getAvatarToolTip();
 				size_t found = name.find(moderator_indicator);
 				if (found != std::string::npos)
 				{
 					name.erase(found, moderator_indicator_len);
-					item->setName(name);
+					item->setAvatarName(name);
+				}
+				found = tooltip.find(moderator_indicator);
+				if (found != tooltip.npos)
+				{
+					tooltip.erase(found, moderator_indicator_len);
+					item->setAvatarToolTip(tooltip);
 				}
 			}
 		}
@@ -357,12 +361,20 @@ void LLParticipantList::onAvatarListRefreshed(LLUICtrl* ctrl, const LLSD& param)
 			if ( item )
 			{
 				std::string name = item->getAvatarName();
+				std::string tooltip = item->getAvatarToolTip();
 				size_t found = name.find(moderator_indicator);
 				if (found == std::string::npos)
 				{
 					name += " ";
 					name += moderator_indicator;
-					item->setName(name);
+					item->setAvatarName(name);
+				}
+				found = tooltip.find(moderator_indicator);
+				if (found == std::string::npos)
+				{
+					tooltip += " ";
+					tooltip += moderator_indicator;
+					item->setAvatarToolTip(tooltip);
 				}
 			}
 		}
@@ -384,15 +396,15 @@ void LLParticipantList::onAvatarListRefreshed(LLUICtrl* ctrl, const LLSD& param)
 }
 
 /*
-Seems this method is not necessary after onAvalineCallerRemoved was implemented;
+  Seems this method is not necessary after onAvalineCallerRemoved was implemented;
 
-It does nothing because list item is always created with correct class type for Avaline caller.
-For now Avaline Caller is removed from the LLSpeakerMgr List when it is removed from the Voice Client
-session.
-This happens in two cases: if Avaline Caller ends call itself or if Resident ends group call.
+  It does nothing because list item is always created with correct class type for Avaline caller.
+  For now Avaline Caller is removed from the LLSpeakerMgr List when it is removed from the Voice Client
+  session.
+  This happens in two cases: if Avaline Caller ends call itself or if Resident ends group call.
 
-Probably Avaline caller should be removed from the LLSpeakerMgr list ONLY if it ends call itself.
-Asked in EXT-4301.
+  Probably Avaline caller should be removed from the LLSpeakerMgr list ONLY if it ends call itself.
+  Asked in EXT-4301.
 */
 void LLParticipantList::onAvalineCallerFound(const LLUUID& participant_id)
 {
@@ -434,16 +446,19 @@ void LLParticipantList::onAvalineCallerRemoved(const LLUUID& participant_id)
 
 void LLParticipantList::setSortOrder(EParticipantSortOrder order)
 {
-	if ( mSortOrder != order )
+	const U32 speaker_sort_order = gSavedSettings.getU32("SpeakerParticipantDefaultOrder");
+
+	if ( speaker_sort_order != order )
 	{
-		mSortOrder = order;
+		gSavedSettings.setU32("SpeakerParticipantDefaultOrder", (U32)order);
 		sort();
 	}
 }
 
-LLParticipantList::EParticipantSortOrder LLParticipantList::getSortOrder()
+const LLParticipantList::EParticipantSortOrder LLParticipantList::getSortOrder() const
 {
-	return mSortOrder;
+	const U32 speaker_sort_order = gSavedSettings.getU32("SpeakerParticipantDefaultOrder");
+	return EParticipantSortOrder(speaker_sort_order);
 }
 
 void LLParticipantList::setValidateSpeakerCallback(validate_speaker_callback_t cb)
@@ -542,28 +557,29 @@ void LLParticipantList::sort()
 	if ( !mAvatarList )
 		return;
 
-	switch ( mSortOrder ) {
-	case E_SORT_BY_NAME :
-		// if mExcludeAgent == true , then no need to keep agent on top of the list
-		if(mExcludeAgent)
-		{
-			mAvatarList->sortByName();
-		}
-		else
-		{
-			mAvatarList->setComparator(&AGENT_ON_TOP_NAME_COMPARATOR);
+	switch ( getSortOrder() ) 
+	{
+		case E_SORT_BY_NAME :
+			// if mExcludeAgent == true , then no need to keep agent on top of the list
+			if(mExcludeAgent)
+			{
+				mAvatarList->sortByName();
+			}
+			else
+			{
+				mAvatarList->setComparator(&AGENT_ON_TOP_NAME_COMPARATOR);
+				mAvatarList->sort();
+			}
+			break;
+		case E_SORT_BY_RECENT_SPEAKERS:
+			if (mSortByRecentSpeakers.isNull())
+				mSortByRecentSpeakers = new LLAvatarItemRecentSpeakerComparator(*this);
+			mAvatarList->setComparator(mSortByRecentSpeakers.get());
 			mAvatarList->sort();
-		}
-		break;
-	case E_SORT_BY_RECENT_SPEAKERS:
-		if (mSortByRecentSpeakers.isNull())
-			mSortByRecentSpeakers = new LLAvatarItemRecentSpeakerComparator(*this);
-		mAvatarList->setComparator(mSortByRecentSpeakers.get());
-		mAvatarList->sort();
-		break;
-	default :
-		llwarns << "Unrecognized sort order for " << mAvatarList->getName() << llendl;
-		return;
+			break;
+		default :
+			llwarns << "Unrecognized sort order for " << mAvatarList->getName() << llendl;
+			return;
 	}
 }
 
@@ -636,7 +652,7 @@ bool LLParticipantList::SpeakerClearListener::handleEvent(LLPointer<LLOldEvents:
 //
 bool LLParticipantList::SpeakerModeratorUpdateListener::handleEvent(LLPointer<LLOldEvents::LLEvent> event, const LLSD& userdata)
 {
-		return mParent.onModeratorUpdateEvent(event, userdata);
+	return mParent.onModeratorUpdateEvent(event, userdata);
 }
 
 bool LLParticipantList::SpeakerMuteListener::handleEvent(LLPointer<LLOldEvents::LLEvent> event, const LLSD& userdata)
@@ -858,7 +874,7 @@ void LLParticipantList::LLParticipantListMenu::confirmMuteAllCallback(const LLSD
 	const LLUUID& session_id = payload["session_id"];
 
 	LLIMSpeakerMgr * speaker_manager = dynamic_cast<LLIMSpeakerMgr*> (
-			LLIMModel::getInstance()->getSpeakerManager(session_id));
+		LLIMModel::getInstance()->getSpeakerManager(session_id));
 	if (speaker_manager)
 	{
 		speaker_manager->moderateVoiceAllParticipants(false);
@@ -916,9 +932,9 @@ bool LLParticipantList::LLParticipantListMenu::enableContextMenuItem(const LLSD&
 }
 
 /*
-Processed menu items with such parameters:
-	can_allow_text_chat
-	can_moderate_voice
+  Processed menu items with such parameters:
+  can_allow_text_chat
+  can_moderate_voice
 */
 bool LLParticipantList::LLParticipantListMenu::enableModerateContextMenuItem(const LLSD& userdata)
 {
@@ -969,11 +985,11 @@ bool LLParticipantList::LLParticipantListMenu::checkContextMenuItem(const LLSD& 
 	}
 	else if(item == "is_sorted_by_name")
 	{
-		return E_SORT_BY_NAME == mParent.mSortOrder;
+		return E_SORT_BY_NAME == mParent.getSortOrder();
 	}
 	else if(item == "is_sorted_by_recent_speakers")
 	{
-		return E_SORT_BY_RECENT_SPEAKERS == mParent.mSortOrder;
+		return E_SORT_BY_RECENT_SPEAKERS == mParent.getSortOrder();
 	}
 
 	return false;

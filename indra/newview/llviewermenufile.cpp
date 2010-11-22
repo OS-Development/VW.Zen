@@ -2,31 +2,25 @@
  * @file llviewermenufile.cpp
  * @brief "File" menu in the main menu bar.
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -40,7 +34,6 @@
 #include "llfilepicker.h"
 #include "llfloaterreg.h"
 #include "llbuycurrencyhtml.h"
-#include "llfloaterimportcollada.h"
 #include "llfloatermodelpreview.h"
 #include "llfloatersnapshot.h"
 #include "llimage.h"
@@ -67,7 +60,6 @@
 #include "lluploaddialog.h"
 #include "lltrans.h"
 #include "llfloaterbuycurrency.h"
-#include "llfloaterimportcollada.h"
 
 // linden libraries
 #include "llassetuploadresponders.h"
@@ -350,20 +342,6 @@ class LLFileUploadImage : public view_listener_t
 	}
 };
 
-#if LL_MESH_ENABLED
-class LLFileUploadScene : public view_listener_t
-{
-	bool handleEvent(const LLSD& userdata)
-	{
-		std::string filename = upload_pick((void *)LLFilePicker::FFLOAD_COLLADA);
-		if (!filename.empty())
-		{
-			LLImportCollada::getInstance()->importFile(filename);
-		}
-		return TRUE;
-	}
-};
-
 class LLFileUploadModel : public view_listener_t
 {
 	bool handleEvent(const LLSD& userdata)
@@ -377,7 +355,6 @@ class LLFileUploadModel : public view_listener_t
 		return TRUE;
 	}
 };
-#endif
 	
 class LLFileUploadSound : public view_listener_t
 {
@@ -1186,7 +1163,6 @@ void upload_new_resource(
 	lldebugs << "Folder: " << gInventory.findCategoryUUIDForType((destination_folder_type == LLFolderType::FT_NONE) ? LLFolderType::assetTypeToFolderType(asset_type) : destination_folder_type) << llendl;
 	lldebugs << "Asset Type: " << LLAssetType::lookup(asset_type) << llendl;
 
-#if LL_MESH_ENABLED
 	std::string url = gAgent.getRegion()->getCapability(
 		"NewFileAgentInventory");
 
@@ -1212,11 +1188,8 @@ void upload_new_resource(
 				body,
 				uuid,
 				asset_type));
-
-		LLHTTPClient::post(url, body, new LLNewAgentInventoryResponder(body, uuid, asset_type));
 	}
 	else
-#endif
 	{
 		llinfos << "NewAgentInventory capability not found, new agent inventory via asset system." << llendl;
 		// check for adequate funds
@@ -1264,7 +1237,6 @@ void upload_new_resource(
 	}
 }
 
-#if LL_MESH_ENABLED
 BOOL upload_new_variable_price_resource(
 	const LLTransactionID &tid, 
 	LLAssetType::EType asset_type,
@@ -1336,7 +1308,6 @@ BOOL upload_new_variable_price_resource(
 		return FALSE;
 	}
 }
-#endif
 
 LLAssetID generate_asset_id_for_new_upload(const LLTransactionID& tid)
 {
@@ -1407,10 +1378,7 @@ void init_menu_file()
 	view_listener_t::addCommit(new LLFileUploadImage(), "File.UploadImage");
 	view_listener_t::addCommit(new LLFileUploadSound(), "File.UploadSound");
 	view_listener_t::addCommit(new LLFileUploadAnim(), "File.UploadAnim");
-#if LL_MESH_ENABLED
 	view_listener_t::addCommit(new LLFileUploadModel(), "File.UploadModel");
-	view_listener_t::addCommit(new LLFileUploadScene(), "File.UploadScene");
-#endif
 	view_listener_t::addCommit(new LLFileUploadBulk(), "File.UploadBulk");
 	view_listener_t::addCommit(new LLFileCloseWindow(), "File.CloseWindow");
 	view_listener_t::addCommit(new LLFileCloseAllWindows(), "File.CloseAllWindows");

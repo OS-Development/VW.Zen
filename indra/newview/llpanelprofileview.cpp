@@ -2,40 +2,36 @@
 * @file llpanelprofileview.cpp
 * @brief Side tray "Profile View" panel
 *
-* $LicenseInfo:firstyear=2009&license=viewergpl$
-* 
-* Copyright (c) 2009, Linden Research, Inc.
-* 
+* $LicenseInfo:firstyear=2009&license=viewerlgpl$
 * Second Life Viewer Source Code
-* The source code in this file ("Source Code") is provided by Linden Lab
-* to you under the terms of the GNU General Public License, version 2.0
-* ("GPL"), unless you have obtained a separate licensing agreement
-* ("Other License"), formally executed by you and Linden Lab.  Terms of
-* the GPL can be found in doc/GPL-license.txt in this distribution, or
-* online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+* Copyright (C) 2010, Linden Research, Inc.
 * 
-* There are special exceptions to the terms and conditions of the GPL as
-* it is applied to this Source Code. View the full text of the exception
-* in the file doc/FLOSS-exception.txt in this software distribution, or
-* online at
-* http://secondlifegrid.net/programs/open_source/licensing/flossexception
+* This library is free software; you can redistribute it and/or
+* modify it under the terms of the GNU Lesser General Public
+* License as published by the Free Software Foundation;
+* version 2.1 of the License only.
 * 
-* By copying, modifying or distributing this software, you acknowledge
-* that you have read and understood your obligations described above,
-* and agree to abide by those obligations.
+* This library is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+* Lesser General Public License for more details.
 * 
-* ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
-* WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
-* COMPLETENESS OR PERFORMANCE.
+* You should have received a copy of the GNU Lesser General Public
+* License along with this library; if not, write to the Free Software
+* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+* 
+* Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
 * $/LicenseInfo$
 */
 
 #include "llviewerprecompiledheaders.h"
 
-#include "llavatarconstants.h"
-#include "lluserrelations.h"
-
 #include "llpanelprofileview.h"
+
+#include "llavatarconstants.h"
+#include "llavatarnamecache.h"	// IDEVO
+#include "llclipboard.h"
+#include "lluserrelations.h"
 
 #include "llavatarpropertiesprocessor.h"
 #include "llcallingcard.h"
@@ -104,11 +100,15 @@ void LLPanelProfileView::onOpen(const LLSD& key)
 	if(id.notNull() && getAvatarId() != id)
 	{
 		setAvatarId(id);
+
+		// clear name fields, which might have old data
+		getChild<LLUICtrl>("user_name")->setValue( LLSD() );
+		getChild<LLUICtrl>("user_slid")->setValue( LLSD() );
 	}
 
 	// Update the avatar name.
-	gCacheName->get(getAvatarId(), FALSE,
-		boost::bind(&LLPanelProfileView::onAvatarNameCached, this, _1, _2, _3, _4));
+	LLAvatarNameCache::get(getAvatarId(),
+		boost::bind(&LLPanelProfileView::onAvatarNameCache, this, _1, _2));
 
 	updateOnlineStatus();
 
@@ -120,7 +120,7 @@ BOOL LLPanelProfileView::postBuild()
 {
 	LLPanelProfile::postBuild();
 
-	getTabContainer()[PANEL_NOTES] = getChild<LLPanelAvatarNotes>(PANEL_NOTES);
+	getTabContainer()[PANEL_NOTES] = findChild<LLPanelAvatarNotes>(PANEL_NOTES);
 	
 	//*TODO remove this, according to style guide we don't use status combobox
 	getTabContainer()[PANEL_PROFILE]->getChildView("online_me_status_text")->setVisible( FALSE);
@@ -130,7 +130,8 @@ BOOL LLPanelProfileView::postBuild()
 	mStatusText->setVisible(false);
 
 	childSetCommitCallback("back",boost::bind(&LLPanelProfileView::onBackBtnClick,this),NULL);
-	
+	childSetCommitCallback("copy_to_clipboard",boost::bind(&LLPanelProfileView::onCopyToClipboard,this),NULL);
+		
 	return TRUE;
 }
 
@@ -148,6 +149,12 @@ void LLPanelProfileView::onBackBtnClick()
 	{
 		parent->openPreviousPanel();
 	}
+}
+
+void LLPanelProfileView::onCopyToClipboard()
+{
+	std::string name = getChild<LLUICtrl>("user_name")->getValue().asString() + " (" + getChild<LLUICtrl>("user_slid")->getValue().asString() + ")";
+	gClipboard.copyFromString(utf8str_to_wstring(name));
 }
 
 bool LLPanelProfileView::isGrantedToSeeOnlineStatus()
@@ -198,10 +205,43 @@ void LLPanelProfileView::processOnlineStatus(bool online)
 	mStatusText->setValue(status);
 }
 
-void LLPanelProfileView::onAvatarNameCached(const LLUUID& id, const std::string& first_name, const std::string& last_name, BOOL is_group)
+void LLPanelProfileView::onAvatarNameCache(const LLUUID& agent_id,
+										   const LLAvatarName& av_name)
 {
-	llassert(getAvatarId() == id);
-	getChild<LLUICtrl>("user_name", FALSE)->setValue(first_name + " " + last_name);
+	getChild<LLUICtrl>("user_name")->setValue( av_name.mDisplayName );
+	getChild<LLUICtrl>("user_name_small")->setValue( av_name.mDisplayName );
+	getChild<LLUICtrl>("user_slid")->setValue( av_name.mUsername );
+
+	// show smaller display name if too long to display in regular size
+	if (getChild<LLTextBox>("user_name")->getTextPixelWidth() > getChild<LLTextBox>("user_name")->getRect().getWidth())
+	{
+		getChild<LLUICtrl>("user_name_small")->setVisible( true );
+		getChild<LLUICtrl>("user_name")->setVisible( false );
+	}
+	else
+	{
+		getChild<LLUICtrl>("user_name_small")->setVisible( false );
+		getChild<LLUICtrl>("user_name")->setVisible( true );
+	}
+
+	if (LLAvatarNameCache::useDisplayNames())
+	{
+		getChild<LLUICtrl>("user_label")->setVisible( true );
+		getChild<LLUICtrl>("user_slid")->setVisible( true );
+		getChild<LLUICtrl>("display_name_label")->setVisible( true );
+		getChild<LLUICtrl>("copy_to_clipboard")->setVisible( true );
+		getChild<LLUICtrl>("copy_to_clipboard")->setEnabled( true );
+		getChild<LLUICtrl>("solo_username_label")->setVisible( false );
+	}
+	else
+	{
+		getChild<LLUICtrl>("user_label")->setVisible( false );
+		getChild<LLUICtrl>("user_slid")->setVisible( false );
+		getChild<LLUICtrl>("display_name_label")->setVisible( false );
+		getChild<LLUICtrl>("copy_to_clipboard")->setVisible( false );
+		getChild<LLUICtrl>("copy_to_clipboard")->setEnabled( false );
+		getChild<LLUICtrl>("solo_username_label")->setVisible( true );
+	}
 }
 
 // EOF

@@ -3,31 +3,25 @@
  * @author Aaron Brashears
  * @brief Implementation of the region info and controls floater and panels.
  *
- * $LicenseInfo:firstyear=2004&license=viewergpl$
- * 
- * Copyright (c) 2004-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2004&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -49,6 +43,7 @@
 
 #include "llagent.h"
 #include "llappviewer.h"
+#include "llavatarname.h"
 #include "llfloateravatarpicker.h"
 #include "llbutton.h" 
 #include "llcheckboxctrl.h"
@@ -167,7 +162,6 @@ LLUUID LLFloaterRegionInfo::sRequestInvoice;
 LLFloaterRegionInfo::LLFloaterRegionInfo(const LLSD& seed)
 	: LLFloater(seed)
 {
-	//LLUICtrlFactory::getInstance()->buildFloater(this, "floater_region_info.xml", FALSE);
 }
 
 BOOL LLFloaterRegionInfo::postBuild()
@@ -180,32 +174,32 @@ BOOL LLFloaterRegionInfo::postBuild()
 	mInfoPanels.push_back(panel);
 	panel->getCommitCallbackRegistrar().add("RegionInfo.ManageTelehub",	boost::bind(&LLPanelRegionInfo::onClickManageTelehub, panel));
 	
-	LLUICtrlFactory::getInstance()->buildPanel(panel, "panel_region_general.xml");
+	panel->buildFromFile("panel_region_general.xml");
 	mTab->addTabPanel(LLTabContainer::TabPanelParams().panel(panel).select_tab(true));
 
 	panel = new LLPanelRegionDebugInfo;
 	mInfoPanels.push_back(panel);
-	LLUICtrlFactory::getInstance()->buildPanel(panel, "panel_region_debug.xml");
+	panel->buildFromFile("panel_region_debug.xml");
 	mTab->addTabPanel(panel);
 
 	panel = new LLPanelRegionTextureInfo;
 	mInfoPanels.push_back(panel);
-	LLUICtrlFactory::getInstance()->buildPanel(panel, "panel_region_texture.xml");
+	panel->buildFromFile("panel_region_texture.xml");
 	mTab->addTabPanel(panel);
 
 	panel = new LLPanelRegionTerrainInfo;
 	mInfoPanels.push_back(panel);
-	LLUICtrlFactory::getInstance()->buildPanel(panel, "panel_region_terrain.xml");
+	panel->buildFromFile("panel_region_terrain.xml");
 	mTab->addTabPanel(panel);
 
 	panel = new LLPanelEstateInfo;
 	mInfoPanels.push_back(panel);
-	LLUICtrlFactory::getInstance()->buildPanel(panel, "panel_region_estate.xml");
+	panel->buildFromFile("panel_region_estate.xml");
 	mTab->addTabPanel(panel);
 
 	panel = new LLPanelEstateCovenant;
 	mInfoPanels.push_back(panel);
-	LLUICtrlFactory::getInstance()->buildPanel(panel, "panel_region_covenant.xml");
+	panel->buildFromFile("panel_region_covenant.xml");
 	mTab->addTabPanel(panel);
 
 	gMessageSystem->setHandlerFunc(
@@ -606,13 +600,13 @@ void LLPanelRegionGeneralInfo::onClickKick()
 	// this depends on the grandparent view being a floater
 	// in order to set up floater dependency
 	LLFloater* parent_floater = gFloaterView->getParentFloater(this);
-	LLFloater* child_floater = LLFloaterAvatarPicker::show(boost::bind(&LLPanelRegionGeneralInfo::onKickCommit, this, _1,_2), FALSE, TRUE);
+	LLFloater* child_floater = LLFloaterAvatarPicker::show(boost::bind(&LLPanelRegionGeneralInfo::onKickCommit, this, _1), FALSE, TRUE);
 	parent_floater->addDependentFloater(child_floater);
 }
 
-void LLPanelRegionGeneralInfo::onKickCommit(const std::vector<std::string>& names, const uuid_vec_t& ids)
+void LLPanelRegionGeneralInfo::onKickCommit(const uuid_vec_t& ids)
 {
-	if (names.empty() || ids.empty()) return;
+	if (ids.empty()) return;
 	if(ids[0].notNull())
 	{
 		strings_t strings;
@@ -848,11 +842,11 @@ void LLPanelRegionDebugInfo::onClickChooseAvatar()
 }
 
 
-void LLPanelRegionDebugInfo::callbackAvatarID(const std::vector<std::string>& names, const uuid_vec_t& ids)
+void LLPanelRegionDebugInfo::callbackAvatarID(const uuid_vec_t& ids, const std::vector<LLAvatarName> names)
 {
 	if (ids.empty() || names.empty()) return;
 	mTargetAvatar = ids[0];
-	getChild<LLUICtrl>("target_avatar_name")->setValue(LLSD(names[0]));
+	getChild<LLUICtrl>("target_avatar_name")->setValue(LLSD(names[0].getCompleteName()));
 	refreshFromRegion( gAgent.getRegion() );
 }
 
@@ -1519,24 +1513,17 @@ void LLPanelEstateInfo::onClickKickUser()
 	// this depends on the grandparent view being a floater
 	// in order to set up floater dependency
 	LLFloater* parent_floater = gFloaterView->getParentFloater(this);
-	LLFloater* child_floater = LLFloaterAvatarPicker::show(boost::bind(&LLPanelEstateInfo::onKickUserCommit, this, _1, _2), FALSE, TRUE);
+	LLFloater* child_floater = LLFloaterAvatarPicker::show(boost::bind(&LLPanelEstateInfo::onKickUserCommit, this, _1), FALSE, TRUE);
 	parent_floater->addDependentFloater(child_floater);
 }
 
-void LLPanelEstateInfo::onKickUserCommit(const std::vector<std::string>& names, const uuid_vec_t& ids)
+void LLPanelEstateInfo::onKickUserCommit(const uuid_vec_t& ids)
 {
-	if (names.empty() || ids.empty()) return;
+	if (ids.empty()) return;
 	
-	//check to make sure there is one valid user and id
-	if( (ids[0].isNull()) ||
-		(names[0].length() == 0) )
-	{
-		return;
-	}
-
 	//Bring up a confirmation dialog
 	LLSD args;
-	args["EVIL_USER"] = names[0];
+	args["EVIL_USER"] = LLSLURL("agent", ids[0], "completename").getSLURLString();
 	LLSD payload;
 	payload["agent_id"] = ids[0];
 	LLNotificationsUtil::add("EstateKickUser", args, payload, boost::bind(&LLPanelEstateInfo::kickUserConfirm, this, _1, _2));
@@ -1702,12 +1689,12 @@ bool LLPanelEstateInfo::accessAddCore2(const LLSD& notification, const LLSD& res
 
 	LLEstateAccessChangeInfo* change_info = new LLEstateAccessChangeInfo(notification["payload"]);
 	// avatar picker yes multi-select, yes close-on-select
-	LLFloaterAvatarPicker::show(boost::bind(&LLPanelEstateInfo::accessAddCore3, _1, _2, (void*)change_info), TRUE, TRUE);
+	LLFloaterAvatarPicker::show(boost::bind(&LLPanelEstateInfo::accessAddCore3, _1, (void*)change_info), TRUE, TRUE);
 	return false;
 }
 
 // static
-void LLPanelEstateInfo::accessAddCore3(const std::vector<std::string>& names, const uuid_vec_t& ids, void* data)
+void LLPanelEstateInfo::accessAddCore3(const uuid_vec_t& ids, void* data)
 {
 	LLEstateAccessChangeInfo* change_info = (LLEstateAccessChangeInfo*)data;
 	if (!change_info) return;
@@ -1963,8 +1950,15 @@ void LLPanelEstateInfo::updateControls(LLViewerRegion* region)
 	getChildView("remove_allowed_avatar_btn")->setEnabled(god || owner || manager);
 	getChildView("add_allowed_group_btn")->setEnabled(god || owner || manager);
 	getChildView("remove_allowed_group_btn")->setEnabled(god || owner || manager);
-	getChildView("add_banned_avatar_btn")->setEnabled(god || owner || manager);
-	getChildView("remove_banned_avatar_btn")->setEnabled(god || owner || manager);
+
+	// Can't ban people from mainland, orientation islands, etc. because this
+	// creates much network traffic and server load.
+	// Disable their accounts in CSR tool instead.
+	bool linden_estate = (getEstateID() <= ESTATE_LAST_LINDEN);
+	bool enable_ban = (god || owner || manager) && !linden_estate;
+	getChildView("add_banned_avatar_btn")->setEnabled(enable_ban);
+	getChildView("remove_banned_avatar_btn")->setEnabled(enable_ban);
+
 	getChildView("message_estate_btn")->setEnabled(god || owner || manager);
 	getChildView("kick_user_from_estate_btn")->setEnabled(god || owner || manager);
 

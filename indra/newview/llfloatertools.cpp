@@ -2,31 +2,25 @@
  * @file llfloatertools.cpp
  * @brief The edit tools, including move, position, land, etc.
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -356,7 +350,6 @@ LLFloaterTools::LLFloaterTools(const LLSD& key)
 	mFactoryMap["Contents"] = LLCallbackMap(createPanelContents, this);//LLPanelContents
 	mFactoryMap["land info panel"] = LLCallbackMap(createPanelLandInfo, this);//LLPanelLandInfo
 	
-	//Called from floater reg: LLUICtrlFactory::getInstance()->buildFloater(this,"floater_tools.xml",FALSE);
 	mCommitCallbackRegistrar.add("BuildTool.setTool",			boost::bind(&LLFloaterTools::setTool,this, _2));
 	mCommitCallbackRegistrar.add("BuildTool.commitZoom",		boost::bind(&commit_slider_zoom, _1));
 	mCommitCallbackRegistrar.add("BuildTool.commitRadioFocus",	boost::bind(&commit_radio_group_focus, _1));
@@ -435,6 +428,10 @@ void LLFloaterTools::refresh()
 		LLSelectMgr::getInstance()->getSelection()->getSelectedObjectCost();
 	F32 link_cost =
 		LLSelectMgr::getInstance()->getSelection()->getSelectedLinksetCost();
+	F32 obj_physics_cost =
+		LLSelectMgr::getInstance()->getSelection()->getSelectedPhysicsCost();
+	F32 link_physics_cost =
+		LLSelectMgr::getInstance()->getSelection()->getSelectedLinksetPhysicsCost();
 
 	// Update the text for the counts
 	childSetTextArg(
@@ -444,17 +441,17 @@ void LLFloaterTools::refresh()
 	childSetTextArg("object_count", "[COUNT]", object_count_string);
 
 	// Update the text for the resource costs
-	childSetTextArg(
-		"linked_set_cost",
-		"[COST]",
-		llformat("%.1f", link_cost));
+	childSetTextArg("linked_set_cost","[COST]",llformat("%.1f", link_cost));
 	childSetTextArg("object_cost", "[COST]", llformat("%.1f", obj_cost));
+	childSetTextArg("linked_set_cost","[PHYSICS]",llformat("%.1f", link_physics_cost));
+	childSetTextArg("object_cost", "[PHYSICS]", llformat("%.1f", obj_physics_cost));
 
 	// Display rendering cost if needed
 	if (sShowObjectCost)
 	{
 		std::string prim_cost_string;
-		LLResMgr::getInstance()->getIntegerString(prim_cost_string, calcRenderCost());
+		S32 cost = LLSelectMgr::getInstance()->getSelection()->getSelectedObjectRenderCost();
+		LLResMgr::getInstance()->getIntegerString(prim_cost_string, cost);
 		getChild<LLUICtrl>("RenderingCost")->setTextArg("[COUNT]", prim_cost_string);
 	}
 
@@ -1002,32 +999,6 @@ void LLFloaterTools::onClickGridOptions()
 	LLFloaterReg::showInstance("build_options");
 	// RN: this makes grid options dependent on build tools window
 	//floaterp->addDependentFloater(LLFloaterBuildOptions::getInstance(), FALSE);
-}
-
-S32 LLFloaterTools::calcRenderCost()
-{
-	S32 cost = 0;
-	std::set<LLUUID> textures;
-
-	for (LLObjectSelection::iterator selection_iter = LLSelectMgr::getInstance()->getSelection()->begin();
-		  selection_iter != LLSelectMgr::getInstance()->getSelection()->end();
-		  ++selection_iter)
-	{
-		LLSelectNode *select_node = *selection_iter;
-		if (select_node)
-		{
-			LLVOVolume *viewer_volume = (LLVOVolume*)select_node->getObject();
-			if (viewer_volume)
-			{
-				cost += viewer_volume->getRenderCost(textures);
-				cost += textures.size() * LLVOVolume::ARC_TEXTURE_COST;
-				textures.clear();
-			}
-		}
-	}
-
-
-	return cost;
 }
 
 // static

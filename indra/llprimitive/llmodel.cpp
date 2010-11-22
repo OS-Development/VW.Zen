@@ -2,30 +2,25 @@
  * @file llmodel.cpp
  * @brief Model handling implementation
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2007, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlife.com/developers/opensource/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at http://secondlife.com/developers/opensource/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -47,7 +42,6 @@
 #endif
 
 
-#if LL_MESH_ENABLED
 
 std::string model_names[] =
 {
@@ -126,7 +120,7 @@ void load_face_from_dom_inputs(LLVolumeFace& face, const domInputLocalOffset_Arr
 			{
 				LLVector4a* norm = (LLVector4a*) face.mNormals + (j-min_idx);
 				norm->set(n[j*3+0], n[j*3+1], n[j*3+2]);
-				norm->normalize3fast();
+				norm->normalize3();
 			}
 		}
 		else if (strcmp(COMMON_PROFILE_INPUT_TEXCOORD, inputs[j]->getSemantic()) == 0)
@@ -668,12 +662,18 @@ void load_face_from_dom_polygons(std::vector<LLVolumeFace>& face_list, std::vect
 		}
 	}
 
+	if (cur_idx != vert_idx.size())
+	{
+		llerrs << "WTF?" << llendl;
+	}
+
 	//build vertex array from map
-	verts.resize(vert_idx.size());
+	std::vector<LLVolumeFace::VertexData> new_verts;
+	new_verts.resize(vert_idx.size());
 
 	for (std::map<LLVolumeFace::VertexData, U32>::iterator iter = vert_idx.begin(); iter != vert_idx.end(); ++iter)
 	{
-		verts[iter->second] = iter->first;
+		new_verts[iter->second] = iter->first;
 		update_min_max(face.mExtents[0], face.mExtents[1], iter->first.getPosition());
 	}
 
@@ -685,8 +685,14 @@ void load_face_from_dom_polygons(std::vector<LLVolumeFace>& face_list, std::vect
 		indices[i] = vert_idx[verts[i]];
 	}
 
+	// DEBUG just build an expanded triangle list
+	/*for (U32 i = 0; i < verts.size(); ++i)
+	{
+		indices.push_back((U16) i);
+		update_min_max(face.mExtents[0], face.mExtents[1], verts[i].getPosition());
+	}*/
 
-    if (!verts.empty())
+    if (!new_verts.empty())
 	{
 		std::string material;
 
@@ -697,7 +703,7 @@ void load_face_from_dom_polygons(std::vector<LLVolumeFace>& face_list, std::vect
 
 		materials.push_back(material);
 		face_list.push_back(face);
-		face_list.rbegin()->fillFromLegacyData(verts, indices);
+		face_list.rbegin()->fillFromLegacyData(new_verts, indices);
 	}
 }
 
@@ -875,6 +881,14 @@ void LLModel::optimizeVolumeFaces()
 #endif
 }
 
+// Shrink the model to fit
+// on a 1x1x1 cube centered at the origin.
+// The positions and extents
+// multiplied by  mNormalizedScale
+// and offset by mNormalizedTranslation
+// to be the "original" extents and position.
+// Also, the positions will fit
+// within the unit cube.
 void LLModel::normalizeVolumeFaces()
 {
 
@@ -891,6 +905,10 @@ void LLModel::normalizeVolumeFaces()
 			llerrs << "WTF?" << llendl;
 		}
 
+		// For all of the volume faces
+		// in the model, loop over
+		// them and see what the extents
+		// of the volume along each axis.
 		min = mVolumeFaces[0].mExtents[0];
 		max = mVolumeFaces[0].mExtents[1];
 
@@ -907,32 +925,55 @@ void LLModel::normalizeVolumeFaces()
 			update_min_max(min, max, face.mExtents[1]);
 		}
 
+		// Now that we have the extents of the model
+		// we can compute the offset needed to center
+		// the model at the origin.
+
+		// Compute center of the model
+		// and make it negative to get translation
+		// needed to center at origin.
 		LLVector4a trans;
 		trans.setAdd(min, max);
 		trans.mul(-0.5f);
+
+		// Compute the total size along all
+		// axes of the model.
 		LLVector4a size;
 		size.setSub(max, min);
 
+		// To make the model fit within
+		// the unit cube with only the largest
+		// dimensions fitting on the surface of the cube,
+		// calculate the largest extent on any axis
 		F32 scale = 1.f/llmax(llmax(size[0], size[1]), size[2]);
 
 		for (U32 i = 0; i < mVolumeFaces.size(); ++i)
 		{
 			LLVolumeFace& face = mVolumeFaces[i];
-				
+
+			// We shrink the extents so
+			// that they fall within
+			// the unit cube.
 			face.mExtents[0].add(trans);
 			face.mExtents[0].mul(scale);
 
 			face.mExtents[1].add(trans);
 			face.mExtents[1].mul(scale);
 
+			// For all the positions, we scale
+			// the positions to fit within the unit cube.
 			LLVector4a* pos = (LLVector4a*) face.mPositions;
 			for (U32 j = 0; j < face.mNumVertices; ++j)
 			{
-				pos[j].add(trans);
+			 	pos[j].add(trans);
 				pos[j].mul(scale);
 			}
 		}
 
+		// mNormalizedScale is the scale at which
+		// we would need to multiply the model
+		// by to get the original size of the
+		// model instead of the normalized size.
 		mNormalizedScale = LLVector3(1,1,1) / scale;
 		mNormalizedTranslation.set(trans.getF32ptr());
 		mNormalizedTranslation *= -1.f; 
@@ -950,13 +991,14 @@ void LLModel::setNumVolumeFaces(S32 count)
 	mVolumeFaces.resize(count);
 }
 
-void LLModel::setVolumeFaceData(S32 f, 
-								LLStrider<LLVector3> pos, 
-								LLStrider<LLVector3> norm, 
-								LLStrider<LLVector2> tc, 
-								LLStrider<U16> ind, 
-								U32 num_verts, 
-								U32 num_indices)
+void LLModel::setVolumeFaceData(
+	S32 f, 
+	LLStrider<LLVector3> pos, 
+	LLStrider<LLVector3> norm, 
+	LLStrider<LLVector2> tc, 
+	LLStrider<U16> ind, 
+	U32 num_verts, 
+	U32 num_indices)
 {
 	LLVolumeFace& face = mVolumeFaces[f];
 
@@ -1020,9 +1062,9 @@ void LLModel::addFace(const LLVolumeFace& face)
 }
 
 
-void LLModel::smoothNormals(F32 angle_cutoff)
+void LLModel::generateNormals(F32 angle_cutoff)
 {
-	//smooth normals for all faces by:
+	//generate normals for all faces by:
 	// 1 - Create faceted copy of face with no texture coordinates
 	// 2 - Weld vertices in faceted copy that are shared between triangles with less than "angle_cutoff" difference between normals
 	// 3 - Generate smoothed set of normals based on welding results
@@ -1035,6 +1077,12 @@ void LLModel::smoothNormals(F32 angle_cutoff)
 	{
 		LLVolumeFace& vol_face = mVolumeFaces[j];
 
+		if (vol_face.mNumIndices > 65535)
+		{
+			llwarns << "Too many vertices for normal generation to work." << llendl;
+			continue;
+		}
+
 		//create faceted copy of current face with no texture coordinates (step 1)
 		LLVolumeFace faceted;
 
@@ -1042,16 +1090,16 @@ void LLModel::smoothNormals(F32 angle_cutoff)
 		//LLVector4a* src_norm = (LLVector4a*) vol_face.mNormals;
 
 
-		//bake out triangles into temporary face, clearing normals and texture coordinates
+		faceted.resizeVertices(vol_face.mNumIndices);
+		faceted.resizeIndices(vol_face.mNumIndices);
+		//bake out triangles into temporary face, clearing texture coordinates
 		for (U32 i = 0; i < vol_face.mNumIndices; ++i)
 		{
 			U32 idx = vol_face.mIndices[i];
-			LLVolumeFace::VertexData v;
-			v.setPosition(src_pos[idx]); 
-			v.getNormal().clear();
-			v.mTexCoord.clear();
-			faceted.pushVertex(v);
-			faceted.pushIndex(i);
+		
+			faceted.mPositions[i] = src_pos[idx];
+			faceted.mTexCoords[i] = LLVector2(0,0);
+			faceted.mIndices[i] = i;
 		}
 
 		//generate normals for temporary face
@@ -1074,7 +1122,7 @@ void LLModel::smoothNormals(F32 angle_cutoff)
 			rhs.setSub(p2, p0);
 
 			n0.setCross3(lhs, rhs);
-			n0.normalize3fast();
+			n0.normalize3();
 			n1 = n0;
 			n2 = n0;
 		}
@@ -1120,7 +1168,7 @@ void LLModel::smoothNormals(F32 angle_cutoff)
 
 		for (U32 i = 0; i < faceted.mNumVertices; ++i)
 		{
-			faceted.mNormals[i].normalize3fast();
+			faceted.mNormals[i].normalize3();
 
 			LLVolumeFace::VertexMapData v;
 			v.setPosition(faceted.mPositions[i]);
@@ -1133,16 +1181,17 @@ void LLModel::smoothNormals(F32 angle_cutoff)
 		LLVolumeFace new_face;
 
 		//bake out triangles into new face
+		new_face.resizeIndices(vol_face.mNumIndices);
+		new_face.resizeVertices(vol_face.mNumIndices);
+		
 		for (U32 i = 0; i < vol_face.mNumIndices; ++i)
 		{
 			U32 idx = vol_face.mIndices[i];
 			LLVolumeFace::VertexData v;
-			v.setPosition(vol_face.mPositions[idx]);
-			v.setNormal(vol_face.mNormals[idx]);
-			v.mTexCoord = vol_face.mTexCoords[idx];
-
-			new_face.pushVertex(v);
-			new_face.pushIndex(i);
+			new_face.mPositions[i] = vol_face.mPositions[idx];
+			new_face.mNormals[i].clear();
+			new_face.mTexCoords[i] = vol_face.mTexCoords[idx];
+			new_face.mIndices[i] = i;
 		}
 
 		//generate normals for new face
@@ -1165,7 +1214,7 @@ void LLModel::smoothNormals(F32 angle_cutoff)
 			rhs.setSub(p2, p0);
 
 			n0.setCross3(lhs, rhs);
-			n0.normalize3fast();
+			n0.normalize3();
 			n1 = n0;
 			n2 = n0;
 		}
@@ -1276,11 +1325,63 @@ LLModel* LLModel::loadModelFromDomMesh(domMesh *mesh)
 }
 
 //static 
-LLSD LLModel::writeModel(std::string filename, LLModel* physics, LLModel* high, LLModel* medium, LLModel* low, LLModel* impostor, LLModel::physics_shape& decomp, BOOL nowrite)
+LLSD LLModel::writeModel(
+	std::string filename,
+	LLModel* physics,
+	LLModel* high,
+	LLModel* medium,
+	LLModel* low,
+	LLModel* impostor,
+	const convex_hull_decomposition& decomp,
+	BOOL upload_skin,
+	BOOL upload_joints,
+	BOOL nowrite)
 {
-	std::ofstream os(filename.c_str(), std::ofstream::out | std::ofstream::binary);
+	LLModel::hull dummy_hull;
+	return writeModel(
+		filename,
+		physics,
+		high,
+		medium,
+		low,
+		impostor,
+		decomp,
+		dummy_hull,
+		upload_skin,
+		upload_joints,
+		nowrite);
+}
 
-	LLSD header = writeModel(os, physics, high, medium, low, impostor, decomp, nowrite);
+//static 
+LLSD LLModel::writeModel(
+	std::string filename,
+	LLModel* physics,
+	LLModel* high,
+	LLModel* medium,
+	LLModel* low,
+	LLModel* impostor,
+	const convex_hull_decomposition& decomp,
+	const hull& base_hull,
+	BOOL upload_skin,
+	BOOL upload_joints,
+	BOOL nowrite)
+{
+	std::ofstream os(
+		filename.c_str(),
+		std::ofstream::out | std::ofstream::binary);
+
+	LLSD header = writeModel(
+		os,
+		physics,
+		high,
+		medium,
+		low,
+		impostor,
+		decomp,
+		base_hull,
+		upload_skin,
+		upload_joints,
+		nowrite);
 
 	os.close();
 
@@ -1288,7 +1389,18 @@ LLSD LLModel::writeModel(std::string filename, LLModel* physics, LLModel* high, 
 }
 
 //static
-LLSD LLModel::writeModel(std::ostream& ostr, LLModel* physics, LLModel* high, LLModel* medium, LLModel* low, LLModel* impostor, LLModel::physics_shape& decomp, BOOL nowrite)
+LLSD LLModel::writeModel(
+	std::ostream& ostr,
+	LLModel* physics,
+	LLModel* high,
+	LLModel* medium,
+	LLModel* low,
+	LLModel* impostor,
+	const convex_hull_decomposition& decomp,
+	const hull& base_hull,
+	BOOL upload_skin,
+	BOOL upload_joints,
+	BOOL nowrite)
 {
 	LLSD mdl;
 
@@ -1301,7 +1413,7 @@ LLSD LLModel::writeModel(std::ostream& ostr, LLModel* physics, LLModel* high, LL
 		physics
 	};
 
-	bool skinning = high && !high->mSkinWeights.empty();
+	bool skinning = upload_skin && high && !high->mSkinWeights.empty();
 
 	if (skinning)
 	{ //write skinning block
@@ -1330,17 +1442,44 @@ LLSD LLModel::writeModel(std::ostream& ostr, LLModel* physics, LLModel* high, LL
 				mdl["skin"]["bind_shape_matrix"][i*4+j] = high->mBindShapeMatrix.mMatrix[i][j];
 			}
 		}
+		
+		if ( upload_joints && high->mAlternateBindMatrix.size() > 0 )
+		{
+			for (U32 i = 0; i < high->mJointList.size(); ++i)
+			{
+				for (U32 j = 0; j < 4; j++)
+				{
+					for (U32 k = 0; k < 4; k++)
+					{
+						mdl["skin"]["alt_inverse_bind_matrix"][i][j*4+k] = high->mAlternateBindMatrix[i].mMatrix[j][k]; 
+					}
+				}
+			}
+		}
+		
 	}
 
-	if (!decomp.empty())
+	if (!decomp.empty() || !base_hull.empty())
 	{
 		//write decomposition block
 		// ["decomposition"]["HullList"] -- list of 8 bit integers, each entry represents a hull with specified number of points
 		// ["decomposition"]["PositionDomain"]["Min"/"Max"]
 		// ["decomposition"]["Position"] -- list of 16-bit integers to be decoded to given domain, encoded 3D points
-	
+		// ["decomposition"]["Hull"] -- list of 16-bit integers to be decoded to given domain, encoded 3D points representing a single hull approximation of given shape
+		
+		
 		//get minimum and maximum
-		LLVector3 min = decomp[0][0];
+		LLVector3 min;
+		
+		if (decomp.empty())
+		{
+			min = base_hull[0];
+		}
+		else
+		{
+			min = decomp[0][0];
+		}
+
 		LLVector3 max = min;
 
 		LLSD::Binary hulls(decomp.size());
@@ -1351,31 +1490,73 @@ LLSD LLModel::writeModel(std::ostream& ostr, LLModel* physics, LLModel* high, LL
 		{
 			U32 size = decomp[i].size();
 			total += size;
-			hulls[i] = (U8) size;
+			hulls[i] = (U8) (size);
 
 			for (U32 j = 0; j < decomp[i].size(); ++j)
 			{
 				update_min_max(min, max, decomp[i][j]);
 			}
+
+		}
+
+		for (U32 i = 0; i < base_hull.size(); ++i)
+		{
+			update_min_max(min, max, base_hull[i]);	
 		}
 
 		mdl["decomposition"]["Min"] = min.getValue();
 		mdl["decomposition"]["Max"] = max.getValue();
-		mdl["decomposition"]["HullList"] = hulls;
-		
-		LLSD::Binary p(total*3*2);
 
-		LLVector3 range = max-min;
-
-		U32 vert_idx = 0;
-		for (U32 i = 0; i < decomp.size(); ++i)
+		if (!hulls.empty())
 		{
-			for (U32 j = 0; j < decomp[i].size(); ++j)
+			mdl["decomposition"]["HullList"] = hulls;
+		}
+
+		if (total > 0)
+		{
+			LLSD::Binary p(total*3*2);
+
+			LLVector3 range = max-min;
+
+			U32 vert_idx = 0;
+			for (U32 i = 0; i < decomp.size(); ++i)
+			{
+				for (U32 j = 0; j < decomp[i].size(); ++j)
+				{
+					for (U32 k = 0; k < 3; k++)
+					{
+						//convert to 16-bit normalized across domain
+						U16 val = (U16) (((decomp[i][j].mV[k]-min.mV[k])/range.mV[k])*65535);
+
+						U8* buff = (U8*) &val;
+						//write to binary buffer
+						p[vert_idx++] = buff[0];
+						p[vert_idx++] = buff[1];
+
+						if (vert_idx > p.size())
+						{
+							llerrs << "WTF?" << llendl;
+						}
+					}
+				}
+			}
+
+			mdl["decomposition"]["Position"] = p;
+		}
+
+		if (!base_hull.empty())
+		{
+			LLSD::Binary p(base_hull.size()*3*2);
+
+			LLVector3 range = max-min;
+
+			U32 vert_idx = 0;
+			for (U32 j = 0; j < base_hull.size(); ++j)
 			{
 				for (U32 k = 0; k < 3; k++)
 				{
 					//convert to 16-bit normalized across domain
-					U16 val = (U16) (((decomp[i][j].mV[k]-min.mV[k])/range.mV[k])*65535);
+					U16 val = (U16) (((base_hull[j].mV[k]-min.mV[k])/range.mV[k])*65535);
 
 					U8* buff = (U8*) &val;
 					//write to binary buffer
@@ -1388,9 +1569,9 @@ LLSD LLModel::writeModel(std::ostream& ostr, LLModel* physics, LLModel* high, LL
 					}
 				}
 			}
+			
+			mdl["decomposition"]["Hull"] = p;
 		}
-
-		mdl["decomposition"]["Position"] = p;
 	}
 
 	for (U32 idx = 0; idx < MODEL_NAMES_LENGTH; ++idx)
@@ -1633,7 +1814,7 @@ LLSD LLModel::writeModelToStream(std::ostream& ostr, LLSD& mdl, BOOL nowrite)
 
 	if (!nowrite)
 	{
-		LLSDSerialize::serialize(header, ostr, LLSDSerialize::LLSD_BINARY);
+		LLSDSerialize::toBinary(header, ostr);
 
 		if (!skin.empty())
 		{ //write skin block
@@ -1697,5 +1878,30 @@ LLModel::weight_list& LLModel::getJointInfluences(const LLVector3& pos)
 	}					
 }
 
-#endif
+void LLModel::setConvexHullDecomposition(
+	const LLModel::convex_hull_decomposition& decomp)
+{
+	mConvexHullDecomp = decomp;
+
+	mHullCenter.resize(mConvexHullDecomp.size());
+	mHullPoints = 0;
+	mCenterOfHullCenters.clear();
+
+	for (U32 i = 0; i < decomp.size(); ++i)
+	{
+		LLVector3 cur_center;
+
+		for (U32 j = 0; j < decomp[i].size(); ++j)
+		{
+			cur_center += decomp[i][j];
+		}
+		mCenterOfHullCenters += cur_center;
+		cur_center *= 1.f/decomp[i].size();
+		mHullCenter[i] = cur_center;
+		mHullPoints += decomp[i].size();
+	}
+
+	mCenterOfHullCenters *= 1.f / mHullPoints;
+}
+
 

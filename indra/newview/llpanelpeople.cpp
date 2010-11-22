@@ -2,43 +2,40 @@
  * @file llpanelpeople.cpp
  * @brief Side tray "People" panel
  *
- * $LicenseInfo:firstyear=2009&license=viewergpl$
- * 
- * Copyright (c) 2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2009&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
 #include "llviewerprecompiledheaders.h"
 
 // libs
+#include "llavatarname.h"
 #include "llfloaterreg.h"
+#include "llmenubutton.h"
 #include "llmenugl.h"
 #include "llnotificationsutil.h"
 #include "lleventtimer.h"
 #include "llfiltereditor.h"
 #include "lltabcontainer.h"
+#include "lltoggleablemenu.h"
 #include "lluictrlfactory.h"
 
 #include "llpanelpeople.h"
@@ -469,7 +466,11 @@ LLPanelPeople::LLPanelPeople()
 		mAllFriendList(NULL),
 		mNearbyList(NULL),
 		mRecentList(NULL),
-		mGroupList(NULL)
+		mGroupList(NULL),
+		mNearbyGearButton(NULL),
+		mFriendsGearButton(NULL),
+		mGroupsGearButton(NULL),
+		mRecentGearButton(NULL)
 {
 	mFriendListUpdater = new LLFriendListUpdater(boost::bind(&LLPanelPeople::updateFriendList,	this));
 	mNearbyListUpdater = new LLNearbyListUpdater(boost::bind(&LLPanelPeople::updateNearbyList,	this));
@@ -528,8 +529,10 @@ BOOL LLPanelPeople::postBuild()
 	mAllFriendList = friends_tab->getChild<LLAvatarList>("avatars_all");
 	mOnlineFriendList->setNoItemsCommentText(getString("no_friends_online"));
 	mOnlineFriendList->setShowIcons("FriendsListShowIcons");
+	mOnlineFriendList->showPermissions("FriendsListShowPermissions");
 	mAllFriendList->setNoItemsCommentText(getString("no_friends"));
 	mAllFriendList->setShowIcons("FriendsListShowIcons");
+	mAllFriendList->showPermissions("FriendsListShowPermissions");
 
 	LLPanel* nearby_tab = getChild<LLPanel>(NEARBY_TAB_NAME);
 	nearby_tab->setVisibleCallback(boost::bind(&Updater::setActive, mNearbyListUpdater, _2));
@@ -603,11 +606,6 @@ BOOL LLPanelPeople::postBuild()
 	buttonSetAction("teleport_btn",		boost::bind(&LLPanelPeople::onTeleportButtonClicked,	this));
 	buttonSetAction("share_btn",		boost::bind(&LLPanelPeople::onShareButtonClicked,		this));
 
-	getChild<LLPanel>(NEARBY_TAB_NAME)->childSetAction("nearby_view_sort_btn",boost::bind(&LLPanelPeople::onNearbyViewSortButtonClicked,		this));
-	getChild<LLPanel>(RECENT_TAB_NAME)->childSetAction("recent_viewsort_btn",boost::bind(&LLPanelPeople::onRecentViewSortButtonClicked,			this));
-	getChild<LLPanel>(FRIENDS_TAB_NAME)->childSetAction("friends_viewsort_btn",boost::bind(&LLPanelPeople::onFriendsViewSortButtonClicked,		this));
-	getChild<LLPanel>(GROUP_TAB_NAME)->childSetAction("groups_viewsort_btn",boost::bind(&LLPanelPeople::onGroupsViewSortButtonClicked,		this));
-
 	// Must go after setting commit callback and initializing all pointers to children.
 	mTabContainer->selectTabByName(NEARBY_TAB_NAME);
 
@@ -627,24 +625,41 @@ BOOL LLPanelPeople::postBuild()
 	enable_registrar.add("People.Recent.ViewSort.CheckItem",	boost::bind(&LLPanelPeople::onRecentViewSortMenuItemCheck,	this, _2));
 	enable_registrar.add("People.Nearby.ViewSort.CheckItem",	boost::bind(&LLPanelPeople::onNearbyViewSortMenuItemCheck,	this, _2));
 
+	mNearbyGearButton = getChild<LLMenuButton>("nearby_view_sort_btn");
+	mFriendsGearButton = getChild<LLMenuButton>("friends_viewsort_btn");
+	mGroupsGearButton = getChild<LLMenuButton>("groups_viewsort_btn");
+	mRecentGearButton = getChild<LLMenuButton>("recent_viewsort_btn");
+
 	LLMenuGL* plus_menu  = LLUICtrlFactory::getInstance()->createFromFile<LLMenuGL>("menu_group_plus.xml",  gMenuHolder, LLViewerMenuHolderGL::child_registry_t::instance());
 	mGroupPlusMenuHandle  = plus_menu->getHandle();
 
-	LLMenuGL* nearby_view_sort  = LLUICtrlFactory::getInstance()->createFromFile<LLMenuGL>("menu_people_nearby_view_sort.xml",  gMenuHolder, LLViewerMenuHolderGL::child_registry_t::instance());
+	LLToggleableMenu* nearby_view_sort  = LLUICtrlFactory::getInstance()->createFromFile<LLToggleableMenu>("menu_people_nearby_view_sort.xml",  gMenuHolder, LLViewerMenuHolderGL::child_registry_t::instance());
 	if(nearby_view_sort)
+	{
 		mNearbyViewSortMenuHandle  = nearby_view_sort->getHandle();
+		mNearbyGearButton->setMenu(nearby_view_sort);
+	}
 
-	LLMenuGL* friend_view_sort  = LLUICtrlFactory::getInstance()->createFromFile<LLMenuGL>("menu_people_friends_view_sort.xml",  gMenuHolder, LLViewerMenuHolderGL::child_registry_t::instance());
+	LLToggleableMenu* friend_view_sort  = LLUICtrlFactory::getInstance()->createFromFile<LLToggleableMenu>("menu_people_friends_view_sort.xml",  gMenuHolder, LLViewerMenuHolderGL::child_registry_t::instance());
 	if(friend_view_sort)
+	{
 		mFriendsViewSortMenuHandle  = friend_view_sort->getHandle();
+		mFriendsGearButton->setMenu(friend_view_sort);
+	}
 
-	LLMenuGL* group_view_sort  = LLUICtrlFactory::getInstance()->createFromFile<LLMenuGL>("menu_people_groups_view_sort.xml",  gMenuHolder, LLViewerMenuHolderGL::child_registry_t::instance());
+	LLToggleableMenu* group_view_sort  = LLUICtrlFactory::getInstance()->createFromFile<LLToggleableMenu>("menu_people_groups_view_sort.xml",  gMenuHolder, LLViewerMenuHolderGL::child_registry_t::instance());
 	if(group_view_sort)
+	{
 		mGroupsViewSortMenuHandle  = group_view_sort->getHandle();
+		mGroupsGearButton->setMenu(group_view_sort);
+	}
 
-	LLMenuGL* recent_view_sort  = LLUICtrlFactory::getInstance()->createFromFile<LLMenuGL>("menu_people_recent_view_sort.xml",  gMenuHolder, LLViewerMenuHolderGL::child_registry_t::instance());
+	LLToggleableMenu* recent_view_sort  = LLUICtrlFactory::getInstance()->createFromFile<LLToggleableMenu>("menu_people_recent_view_sort.xml",  gMenuHolder, LLViewerMenuHolderGL::child_registry_t::instance());
 	if(recent_view_sort)
+	{
 		mRecentViewSortMenuHandle  = recent_view_sort->getHandle();
+		mRecentGearButton->setMenu(recent_view_sort);
+	}
 
 	LLVoiceClient::getInstance()->addObserver(this);
 
@@ -782,12 +797,6 @@ void LLPanelPeople::buttonSetAction(const std::string& btn_name, const commit_si
 	button->setClickedCallback(cb);
 }
 
-bool LLPanelPeople::isFriendOnline(const LLUUID& id)
-{
-	uuid_vec_t ids = mOnlineFriendList->getIDs();
-	return std::find(ids.begin(), ids.end(), id) != ids.end();
-}
-
 void LLPanelPeople::updateButtons()
 {
 	std::string cur_tab		= getActiveTabName();
@@ -849,11 +858,11 @@ void LLPanelPeople::updateButtons()
 
 	bool enable_calls = LLVoiceClient::getInstance()->isVoiceWorking() && LLVoiceClient::getInstance()->voiceEnabled();
 
-	buttonSetEnabled("teleport_btn",		friends_tab_active && item_selected && isFriendOnline(selected_uuids.front()));
-	buttonSetEnabled("view_profile_btn",	item_selected);
-	buttonSetEnabled("im_btn",				multiple_selected); // allow starting the friends conference for multiple selection
-	buttonSetEnabled("call_btn",			multiple_selected && enable_calls);
-	buttonSetEnabled("share_btn",			item_selected); // not implemented yet
+	buttonSetEnabled("view_profile_btn",item_selected);
+	buttonSetEnabled("share_btn",		item_selected);
+	buttonSetEnabled("im_btn",			multiple_selected); // allow starting the friends conference for multiple selection
+	buttonSetEnabled("call_btn",		multiple_selected && enable_calls);
+	buttonSetEnabled("teleport_btn",	multiple_selected && LLAvatarActions::canOfferTeleport(selected_uuids));
 
 	bool none_group_selected = item_selected && selected_id.isNull();
 	buttonSetEnabled("group_info_btn", !none_group_selected);
@@ -920,7 +929,7 @@ void LLPanelPeople::showGroupMenu(LLMenuGL* menu)
 
 	// Calculate its coordinates.
 	// (assumes that groups panel is the current tab)
-	LLPanel* bottom_panel = mTabContainer->getCurrentPanel()->getChild<LLPanel>("bottom_panel"); 
+	LLPanel* bottom_panel = mTabContainer->getCurrentPanel()->getChild<LLPanel>("bottom_panel");
 	LLPanel* parent_panel = mTabContainer->getCurrentPanel();
 	menu->arrangeAndClear();
 	S32 menu_height = menu->getRect().getHeight();
@@ -1160,12 +1169,10 @@ void LLPanelPeople::onActivateButtonClicked()
 }
 
 // static
-void LLPanelPeople::onAvatarPicked(
-		const std::vector<std::string>& names,
-		const uuid_vec_t& ids)
+void LLPanelPeople::onAvatarPicked(const uuid_vec_t& ids, const std::vector<LLAvatarName> names)
 {
 	if (!names.empty() && !ids.empty())
-		LLAvatarActions::requestFriendshipDialog(ids[0], names[0]);
+		LLAvatarActions::requestFriendshipDialog(ids[0], names[0].getCompleteName());
 }
 
 void LLPanelPeople::onGroupPlusButtonClicked()
@@ -1216,6 +1223,14 @@ void LLPanelPeople::onFriendsViewSortMenuItemClicked(const LLSD& userdata)
 	{
 		mAllFriendList->toggleIcons();
 		mOnlineFriendList->toggleIcons();
+	}
+	else if (chosen_item == "view_permissions")
+	{
+		bool show_permissions = !gSavedSettings.getBOOL("FriendsListShowPermissions");
+		gSavedSettings.setBOOL("FriendsListShowPermissions", show_permissions);
+
+		mAllFriendList->showPermissions(show_permissions);
+		mOnlineFriendList->showPermissions(show_permissions);
 	}
 }
 
@@ -1334,7 +1349,9 @@ void LLPanelPeople::onGroupCallButtonClicked()
 
 void LLPanelPeople::onTeleportButtonClicked()
 {
-	LLAvatarActions::offerTeleport(getCurrentItemID());
+	uuid_vec_t selected_uuids;
+	getCurrentItemIDs(selected_uuids);
+	LLAvatarActions::offerTeleport(selected_uuids);
 }
 
 void LLPanelPeople::onShareButtonClicked()
@@ -1345,38 +1362,6 @@ void LLPanelPeople::onShareButtonClicked()
 void LLPanelPeople::onMoreButtonClicked()
 {
 	// *TODO: not implemented yet
-}
-
-void LLPanelPeople::onFriendsViewSortButtonClicked()
-{
-	LLMenuGL* menu = (LLMenuGL*)mFriendsViewSortMenuHandle.get();
-	if (!menu)
-		return;
-	showGroupMenu(menu);
-}
-
-void LLPanelPeople::onGroupsViewSortButtonClicked()
-{
-	LLMenuGL* menu = (LLMenuGL*)mGroupsViewSortMenuHandle.get();
-	if (!menu)
-		return;
-	showGroupMenu(menu);
-}
-
-void LLPanelPeople::onRecentViewSortButtonClicked()
-{
-	LLMenuGL* menu = (LLMenuGL*)mRecentViewSortMenuHandle.get();
-	if (!menu)
-		return;
-	showGroupMenu(menu);
-}
-
-void LLPanelPeople::onNearbyViewSortButtonClicked()
-{
-	LLMenuGL* menu = (LLMenuGL*)mNearbyViewSortMenuHandle.get();
-	if (!menu)
-		return;
-	showGroupMenu(menu);
 }
 
 void	LLPanelPeople::onOpen(const LLSD& key)

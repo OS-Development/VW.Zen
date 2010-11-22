@@ -2,31 +2,25 @@
 * @file llstatusbar.cpp
 * @brief LLStatusBar class implementation
 *
-* $LicenseInfo:firstyear=2002&license=viewergpl$
-* 
-* Copyright (c) 2002-2009, Linden Research, Inc.
-* 
+* $LicenseInfo:firstyear=2002&license=viewerlgpl$
 * Second Life Viewer Source Code
-* The source code in this file ("Source Code") is provided by Linden Lab
-* to you under the terms of the GNU General Public License, version 2.0
-* ("GPL"), unless you have obtained a separate licensing agreement
-* ("Other License"), formally executed by you and Linden Lab.  Terms of
-* the GPL can be found in doc/GPL-license.txt in this distribution, or
-* online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+* Copyright (C) 2010, Linden Research, Inc.
 * 
-* There are special exceptions to the terms and conditions of the GPL as
-* it is applied to this Source Code. View the full text of the exception
-* in the file doc/FLOSS-exception.txt in this software distribution, or
-* online at
-* http://secondlifegrid.net/programs/open_source/licensing/flossexception
+* This library is free software; you can redistribute it and/or
+* modify it under the terms of the GNU Lesser General Public
+* License as published by the Free Software Foundation;
+* version 2.1 of the License only.
 * 
-* By copying, modifying or distributing this software, you acknowledge
-* that you have read and understood your obligations described above,
-* and agree to abide by those obligations.
+* This library is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+* Lesser General Public License for more details.
 * 
-* ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
-* WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
-* COMPLETENESS OR PERFORMANCE.
+* You should have received a copy of the GNU Lesser General Public
+* License along with this library; if not, write to the Free Software
+* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+* 
+* Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
 * $/LicenseInfo$
 */
 
@@ -39,6 +33,7 @@
 #include "llagentcamera.h"
 #include "llbutton.h"
 #include "llcommandhandler.h"
+#include "llfirstuse.h"
 #include "llviewercontrol.h"
 #include "llfloaterbuycurrency.h"
 #include "llbuycurrencyhtml.h"
@@ -47,6 +42,7 @@
 #include "llpanelvolumepulldown.h"
 #include "llfloaterregioninfo.h"
 #include "llfloaterscriptdebug.h"
+#include "llhints.h"
 #include "llhudicon.h"
 #include "llnavigationbar.h"
 #include "llkeyboard.h"
@@ -113,10 +109,6 @@ const S32 TEXT_HEIGHT = 18;
 
 static void onClickVolume(void*);
 
-std::vector<std::string> LLStatusBar::sDays;
-std::vector<std::string> LLStatusBar::sMonths;
-const U32 LLStatusBar::MAX_DATE_STRING_LENGTH = 2000;
-
 LLStatusBar::LLStatusBar(const LLRect& rect)
 :	LLPanel(),
 	mTextTime(NULL),
@@ -133,14 +125,10 @@ LLStatusBar::LLStatusBar(const LLRect& rect)
 	// status bar can possible overlay menus?
 	setMouseOpaque(FALSE);
 
-	// size of day of the weeks and year
-	sDays.reserve(7);
-	sMonths.reserve(12);
-
 	mBalanceTimer = new LLFrameTimer();
 	mHealthTimer = new LLFrameTimer();
 
-	LLUICtrlFactory::getInstance()->buildPanel(this,"panel_status_bar.xml");
+	buildFromFile("panel_status_bar.xml");
 }
 
 LLStatusBar::~LLStatusBar()
@@ -175,9 +163,6 @@ BOOL LLStatusBar::postBuild()
 {
 	gMenuBarView->setRightMouseDownCallback(boost::bind(&show_navbar_context_menu, _1, _2, _3));
 
-	// build date necessary data (must do after panel built)
-	setupDate();
-
 	mTextTime = getChild<LLTextBox>("TimeText" );
 	
 	getChild<LLUICtrl>("buyL")->setCommitCallback(
@@ -190,6 +175,8 @@ BOOL LLStatusBar::postBuild()
 	mMediaToggle = getChild<LLButton>("media_toggle_btn");
 	mMediaToggle->setClickedCallback( &LLStatusBar::onClickMediaToggle, this );
 	mMediaToggle->setMouseEnterCallback(boost::bind(&LLStatusBar::onMouseEnterNearbyMedia, this));
+
+	LLHints::registerHintTarget("linden_balance", getChild<LLView>("balance_bg")->getHandle());
 
 	gSavedSettings.getControl("MuteAudio")->getSignal()->connect(boost::bind(&LLStatusBar::onVolumeChanged, this, _2));
 
@@ -229,8 +216,6 @@ BOOL LLStatusBar::postBuild()
 	mSGPacketLoss->setPrecision(1);
 	mSGPacketLoss->mPerSec = FALSE;
 	addChild(mSGPacketLoss);
-
-	getChild<LLTextBox>("stat_btn")->setClickedCallback(onClickStatGraph);
 
 	mPanelVolumePulldown = new LLPanelVolumePulldown();
 	addChild(mPanelVolumePulldown);
@@ -338,6 +323,11 @@ void LLStatusBar::creditBalance(S32 credit)
 
 void LLStatusBar::setBalance(S32 balance)
 {
+	if (balance > getBalance() && getBalance() != 0)
+	{
+		LLFirstUse::receiveLindens();
+	}
+
 	std::string money_str = LLResMgr::getInstance()->getMonetaryString( balance );
 
 	LLTextBox* balance_box = getChild<LLTextBox>("balance");
@@ -460,6 +450,7 @@ void LLStatusBar::onClickBuyCurrency()
 	// open a currency floater - actual one open depends on 
 	// value specified in settings.xml
 	LLBuyCurrencyHTML::openCurrencyFloater();
+	LLFirstUse::receiveLindens(false);
 }
 
 void LLStatusBar::onMouseEnterVolume()
@@ -521,75 +512,6 @@ void LLStatusBar::onClickMediaToggle(void* data)
 	// "Selected" means it was showing the "play" icon (so media was playing), and now it shows "pause", so turn off media
 	bool enable = ! status_bar->mMediaToggle->getValue();
 	LLViewerMedia::setAllMediaEnabled(enable);
-}
-
-// sets the static variables necessary for the date
-void LLStatusBar::setupDate()
-{
-	// fill the day array with what's in the xui
-	std::string day_list = getString("StatBarDaysOfWeek");
-	size_t length = day_list.size();
-	
-	// quick input check
-	if(length < MAX_DATE_STRING_LENGTH)
-	{
-		// tokenize it and put it in the array
-		std::string cur_word;
-		for(size_t i = 0; i < length; ++i)
-		{
-			if(day_list[i] == ':')
-			{
-				sDays.push_back(cur_word);
-				cur_word.clear();
-			}
-			else
-			{
-				cur_word.append(1, day_list[i]);
-			}
-		}
-		sDays.push_back(cur_word);
-	}
-	
-	// fill the day array with what's in the xui	
-	std::string month_list = getString( "StatBarMonthsOfYear" );
-	length = month_list.size();
-	
-	// quick input check
-	if(length < MAX_DATE_STRING_LENGTH)
-	{
-		// tokenize it and put it in the array
-		std::string cur_word;
-		for(size_t i = 0; i < length; ++i)
-		{
-			if(month_list[i] == ':')
-			{
-				sMonths.push_back(cur_word);
-				cur_word.clear();
-			}
-			else
-			{
-				cur_word.append(1, month_list[i]);
-			}
-		}
-		sMonths.push_back(cur_word);
-	}
-	
-	// make sure we have at least 7 days and 12 months
-	if(sDays.size() < 7)
-	{
-		sDays.resize(7);
-	}
-	
-	if(sMonths.size() < 12)
-	{
-		sMonths.resize(12);
-	}
-}
-
-// static
-void LLStatusBar::onClickStatGraph(void* data)
-{
-	LLFloaterReg::showInstance("lagmeter");
 }
 
 BOOL can_afford_transaction(S32 cost)

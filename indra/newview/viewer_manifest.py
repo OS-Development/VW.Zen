@@ -4,31 +4,25 @@
 # @brief Description of all installer viewer files, and methods for packaging
 #        them into installers for all supported platforms.
 #
-# $LicenseInfo:firstyear=2006&license=viewergpl$
-# 
-# Copyright (c) 2006-2009, Linden Research, Inc.
-# 
+# $LicenseInfo:firstyear=2006&license=viewerlgpl$
 # Second Life Viewer Source Code
-# The source code in this file ("Source Code") is provided by Linden Lab
-# to you under the terms of the GNU General Public License, version 2.0
-# ("GPL"), unless you have obtained a separate licensing agreement
-# ("Other License"), formally executed by you and Linden Lab.  Terms of
-# the GPL can be found in doc/GPL-license.txt in this distribution, or
-# online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+# Copyright (C) 2010, Linden Research, Inc.
 # 
-# There are special exceptions to the terms and conditions of the GPL as
-# it is applied to this Source Code. View the full text of the exception
-# in the file doc/FLOSS-exception.txt in this software distribution, or
-# online at
-# http://secondlifegrid.net/programs/open_source/licensing/flossexception
+# This library is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Lesser General Public
+# License as published by the Free Software Foundation;
+# version 2.1 of the License only.
 # 
-# By copying, modifying or distributing this software, you acknowledge
-# that you have read and understood your obligations described above,
-# and agree to abide by those obligations.
+# This library is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
 # 
-# ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
-# WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
-# COMPLETENESS OR PERFORMANCE.
+# You should have received a copy of the GNU Lesser General Public
+# License along with this library; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+# 
+# Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
 # $/LicenseInfo$
 import sys
 import os.path
@@ -280,11 +274,22 @@ class WindowsManifest(ViewerManifest):
 
             # Mesh 3rd party libs needed for auto LOD and collada reading
             try:
-                self.path("libcollada14dom21.dll")
+                if self.args['configuration'].lower() == 'debug':
+                    self.path("libcollada14dom21-d.dll")
+                else:
+                    self.path("libcollada14dom21.dll")
+                    
                 self.path("glod.dll")
             except RuntimeError, err:
                 print err.message
                 print "Skipping COLLADA and GLOD libraries (assumming linked statically)"
+
+
+            # Get fmod dll, continue if missing
+            try:
+                self.path("fmod.dll")
+            except:
+                print "Skipping fmod.dll"
 
             # For textures
             if self.args['configuration'].lower() == 'debug':
@@ -325,13 +330,11 @@ class WindowsManifest(ViewerManifest):
 
         self.path(src="licenses-win32.txt", dst="licenses.txt")
         self.path("featuretable.txt")
+        self.path("featuretable_xp.txt")
 
         # For use in crash reporting (generates minidumps)
         self.path("dbghelp.dll")
 
-        # For using FMOD for sound... DJS
-        self.path("fmod.dll")
-       
         self.enable_no_crt_manifest_check()
 
         # Media plugins - QuickTime
@@ -653,6 +656,8 @@ class DarwinManifest(ViewerManifest):
                                     "libaprutil-1.0.3.8.dylib",
                                     "libexpat.0.5.0.dylib",
                                     "libexception_handler.dylib",
+                                    "libGLOD.dylib",
+                                    "libcollada14dom.dylib"
                                     ):
                         self.path(os.path.join(libdir, libfile), libfile)
 
@@ -676,6 +681,8 @@ class DarwinManifest(ViewerManifest):
                                     "libaprutil-1.0.3.8.dylib",
                                     "libexpat.0.5.0.dylib",
                                     "libexception_handler.dylib",
+                                    "libGLOD.dylib",
+				    "libcollada14dom.dylib"
                                     ):
                         target_lib = os.path.join('../../..', libfile)
                         self.run_command("ln -sf %(target)r %(link)r" % 
@@ -928,19 +935,21 @@ class Linux_i686Manifest(LinuxManifest):
             self.path("libdb-4.2.so")
             self.path("libcrypto.so.0.9.7")
             self.path("libexpat.so.1")
+            self.path("libglod.so")
             self.path("libssl.so.0.9.7")
-            self.path("libuuid.so.1")
             self.path("libSDL-1.2.so.0")
             self.path("libELFIO.so")
             self.path("libopenjpeg.so.1.3.0", "libopenjpeg.so.1.3")
             self.path("libalut.so")
             self.path("libopenal.so", "libopenal.so.1")
             self.path("libopenal.so", "libvivoxoal.so.1") # vivox's sdk expects this soname
+            self.path("libtcmalloc_minimal.so", "libtcmalloc_minimal.so") #formerly called google perf tools
+            self.path("libtcmalloc_minimal.so.0", "libtcmalloc_minimal.so.0") #formerly called google perf tools
             try:
-                    self.path("libkdu_v42R.so", "libkdu.so")
+                    self.path("libkdu.so")
                     pass
             except:
-                    print "Skipping libkdu_v42R.so - not found"
+                    print "Skipping libkdu.so - not found"
                     pass
             try:
                     self.path("libfmod-3.75.so")
@@ -962,9 +971,12 @@ class Linux_i686Manifest(LinuxManifest):
                     self.path("libvivoxplatform.so")
                     self.end_prefix("lib")
 
-        if self.args['buildtype'].lower() == 'release' and self.is_packaging_viewer():
-            print "* Going strip-crazy on the packaged binaries, since this is a RELEASE build"
-            self.run_command("find %(d)r/bin %(d)r/lib -type f | xargs --no-run-if-empty strip -S" % {'d': self.get_dst_prefix()} ) # makes some small assumptions about our packaged dir structure
+class Linux_x86_64Manifest(LinuxManifest):
+    def construct(self):
+        super(Linux_x86_64Manifest, self).construct()
+
+        # support file for valgrind debug tool
+        self.path("secondlife-i686.supp")
 
 ################################################################
 

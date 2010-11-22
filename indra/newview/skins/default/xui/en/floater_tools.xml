@@ -253,9 +253,9 @@
      height="28"
 	 control_name="EditLinkedParts"
      label="Edit linked"
-     layout="topleft"     
+     layout="topleft"
      name="checkbox edit linked parts"
-     top_pad="0">
+     top_pad="2">
 		  <check_box.commit_callback
 			function="BuildTool.selectComponent"/>
 	</check_box>
@@ -267,7 +267,7 @@
    left="13"
    name="RenderingCost"
    tool_tip="Shows the rendering cost calculated for this object"
-   top_pad="2"
+   top_pad="0"
    type="string"
    width="100">
    þ: [COUNT]
@@ -747,8 +747,9 @@
 	 top_delta="0"
      right="-10"
      name="linked_set_cost"
+     tool_tip="Cost of currently selected linked sets as [prims],[physics complexity]" 
      width="80">
-        Cost: [COST]
+        Cost: [COST] / [PHYSICS]
     </text>
     <text
     text_color="LtGray_50"
@@ -757,7 +758,7 @@
      follows="left|top"
      halign="right"
      layout="topleft"
-	 top_pad="5"
+     top_pad="5"
      right="-100"
      name="object_count"
      width="80">
@@ -773,8 +774,9 @@
 	 top_delta="0"
      right="-10"
      name="object_cost"
+     tool_tip="Cost of currently selected objects as [prims] / [physics complexity]"
      width="80">
-        Cost: [COST]
+        Cost: [COST] / [PHYSICS]
     </text>
     <!-- <text -->
     <!-- text_color="LtGray_50" -->
@@ -812,7 +814,7 @@
      tab_min_width="40"
      tab_position="top"
      tab_height="25"
-     top="170"
+     top="173"
      width="295">
 	<panel
 	 border="false"
@@ -824,7 +826,7 @@
 	 name="General"
 	 top="16"
 	 width="295">
-<panel.string
+	 <panel.string
 	  name="text deed continued">
 		Deed
 	 </panel.string>
@@ -885,7 +887,7 @@
              follows="left|top|right"
              height="19"
              left_pad="0"
-             max_length="63"
+             max_length_bytes="63"
              name="Object Name"
              select_on_focus="true"
              top_delta="0"
@@ -903,7 +905,7 @@
              follows="left|top|right"
              height="19"
              left_pad="0"
-             max_length="127"
+             max_length_bytes="127"
              name="Object Description"
              select_on_focus="true"
              top_delta="0"
@@ -916,19 +918,23 @@
              height="19"
              layout="topleft"
              name="Creator:"
+             top_pad="7"
              width="90">
                 Creator:
             </text>
+            <!-- *NOTE: Intentionally wide for long names -->
             <text
              type="string"
              length="1"
              follows="left|top"
              left_pad="0"
-             height="19"
+             height="30"
              layout="topleft"
              name="Creator Name"
-             width="175">
-                Esbee Linden
+             top_delta="0"
+             width="190"
+             word_wrap="true">
+                Mrs. Esbee Linden (esbee.linden)
             </text>
             <text
              type="string"
@@ -938,19 +944,23 @@
              height="19"
              layout="topleft"
              name="Owner:"
+             top_pad="3"
              width="90">
                 Owner:
             </text>
+            <!-- *NOTE: Intentionally wide for long names -->
             <text
              type="string"
              length="1"
              follows="left|top"
-             height="19"
+             height="30"
              layout="topleft"
              name="Owner Name"
              left_pad="0"
-             width="175">
-                Erica Linden
+             top_delta="0"
+             width="190"
+             word_wrap="true">
+                Mrs. Erica "Moose" Linden (erica.linden)
             </text>
            <text
              type="string"
@@ -960,7 +970,7 @@
              left="10"
              height="18"
              name="Group:"
-             top_pad="4"
+             top_pad="7"
              width="75">
                 Group:
             </text>
@@ -1011,7 +1021,7 @@
              top_pad="10"
              left="10"
              name="label click action"
-             width="98">
+             width="118">
                 Click to:
             </text>
             <combo_box
@@ -1019,7 +1029,7 @@
              height="23"
              layout="topleft"
              name="clickaction"
-             width="168"
+             width="148"
              left_pad="0">
                 <combo_box.item
                  label="Touch  (default)"
@@ -1114,8 +1124,8 @@ even though the user gets a free copy.
          bg_alpha_color="DkGray"
          name="perms_build"
          left="0"
-         top="241"
-         height="130"
+         top_pad="4"
+         height="105"
          width="290">
             <text
              type="string"
@@ -1186,14 +1196,16 @@ even though the user gets a free copy.
              top_delta="0"
              tool_tip="Next owner can give away or resell this object"
              width="100" />
+<!-- *NOTE: These "B/O/G/E/N/F fields may overlap "perm_modify" above, 
+     but that's OK, this is used only for debugging. -->
             <text
              type="string"
              text_color="EmphasisColor"
              length="1"
-             top_pad="5"
+             top="9"
              follows="left|top"
              layout="topleft"
-             left="10"
+             left="230"
              name="B:"
              height="10"
              width="80">
@@ -1205,7 +1217,8 @@ even though the user gets a free copy.
              length="1"
              follows="left|top"
              layout="topleft"
-             left_pad="0"
+             left_delta="0"
+             top_pad="2"
              name="O:"
              height="10"
              width="80">
@@ -1217,7 +1230,8 @@ even though the user gets a free copy.
              length="1"
              follows="left|top"
              layout="topleft"
-             left_pad="0"
+             left_delta="0"
+             top_pad="2"
              name="G:"
              height="10"
              width="80">
@@ -1228,7 +1242,7 @@ even though the user gets a free copy.
              text_color="White"
              length="1"
              follows="left|top"
-             left="10"
+             left_delta="0"
              top_pad="2"
              layout="topleft"
              name="E:"
@@ -1242,7 +1256,8 @@ even though the user gets a free copy.
              length="1"
              follows="left|top"
              layout="topleft"
-             left_pad="0"
+             left_delta="0"
+             top_pad="2"
              name="N:"
              height="10"
              width="80">
@@ -1254,7 +1269,8 @@ even though the user gets a free copy.
              length="1"
              follows="left|top"
              layout="topleft"
-             left_pad="0"
+             left_delta="0"
+             top_pad="2"
              name="F:"
              height="10"
              width="80">
@@ -1262,6 +1278,7 @@ even though the user gets a free copy.
             </text>
         </panel>
       </panel>
+      <!-- Object tab -->
       <panel
          border="false"
          follows="all"
@@ -1384,7 +1401,7 @@ even though the user gets a free copy.
              label_width="10"
              layout="topleft"
              left_delta="0"
-             max_val="10"
+             max_val="64"
              min_val="0.01"
              name="Scale X"
              text_enabled_color="1 1 1 1"
@@ -1399,7 +1416,7 @@ even though the user gets a free copy.
              label_width="10"
              layout="topleft"
              left_delta="0"
-             max_val="10"
+             max_val="64"
              min_val="0.01"
              name="Scale Y"
              text_enabled_color="1 1 1 1"
@@ -1414,7 +1431,7 @@ even though the user gets a free copy.
              label_width="10"
              layout="topleft"
              left_delta="0"
-             max_val="10"
+             max_val="64"
              min_val="0.01"
              name="Scale Z"
              text_enabled_color="1 1 1 1"
@@ -1524,7 +1541,7 @@ even though the user gets a free copy.
              layout="topleft"
              left="10"
              min_val="-1"
-             max_val="10"
+             max_val="28"
              name="Physics Gravity"
              top_pad="10"
              width="128" />
@@ -1563,8 +1580,8 @@ even though the user gets a free copy.
              label_width="70"
              layout="topleft"
              left_delta="0"
-             max_val="10"
-             min_val="0"
+             max_val="22587"
+             min_val="1"
              name="Physics Density"
              top_pad="4"
              width="128" />
@@ -2163,6 +2180,10 @@ even though the user gets a free copy.
                  label="Cylinder"
                  name="Cylinder"
                  value="Cylinder" />
+              <combo_box.item
+                 label="Mesh"
+                 name="Mesh"
+                 value="Mesh" />
             </combo_box>
         </panel>
         <panel
@@ -2181,12 +2202,13 @@ even though the user gets a free copy.
              type="string"
              length="1"
              follows="left|top"
-             height="10"
+             height="20"
              layout="topleft"
              left="10"
              name="select_single"
              top="5"
-             width="252">
+             width="252"
+             word_wrap="true">
                 Select only one primitive to edit features.
             </text>
             <text
@@ -2208,7 +2230,7 @@ even though the user gets a free copy.
              left="10"
              name="Flexible1D Checkbox Ctrl"
              tool_tip="Allows object to flex about the Z axis (Client-side only)"
-             top_pad="10"
+             top_pad="20"
              width="121" />
             <spinner
              follows="left|top"
@@ -2567,7 +2589,7 @@ even though the user gets a free copy.
              name="label shininess"
              left_pad="4"
              text_readonly_color="LabelDisabledColor"
-             top_pad="-36"
+             top_pad="-37"
              width="90">
                 Shininess
             </text>
@@ -2604,7 +2626,7 @@ even though the user gets a free copy.
              left_pad="4"
              name="label bumpiness"
              text_readonly_color="LabelDisabledColor"
-             top_pad="-36"
+             top_pad="-37"
              width="90">
                 Bumpiness
             </text>
@@ -2697,7 +2719,7 @@ even though the user gets a free copy.
              height="16"
              layout="topleft"
              left="10"
-             max_length="63"
+             max_length_bytes="63"
              name="Home Url"
              select_on_focus="true"
              top="134"
@@ -2722,6 +2744,17 @@ even though the user gets a free copy.
              top_delta="-4"
              width="120" />
 -->
+            <check_box
+             follows="top|left"
+             height="16"
+             initial_value="false"
+             label="Align planar faces"
+             layout="topleft"
+             left="17"
+             name="checkbox planar align"
+             tool_tip="Align textures on all selected faces with the last selected face. Requires Planar texture mapping."
+             top_delta="26"
+             width="140" />
             <text
              type="string"
              length="1"
@@ -2731,8 +2764,8 @@ even though the user gets a free copy.
              left="10"
              name="rpt"
              text_readonly_color="LabelDisabledColor"
-             top_pad="4"
-             width="200">
+             top_pad="2"
+             width="140">
                 Repeats / Face
             </text>
             <spinner
@@ -2745,7 +2778,7 @@ even though the user gets a free copy.
              left="20"
              max_val="100"
              name="TexScaleU"
-             top_pad="6"
+             top_pad="5"
              width="185" />
             <check_box
              height="19"
@@ -2855,7 +2888,7 @@ even though the user gets a free copy.
          bg_alpha_color="DkGray"
          name="Add_Media"
          left="0"
-         height="63"
+         height="47"
          width="290">
             <text
              type="string"
@@ -2941,8 +2974,9 @@ even though the user gets a free copy.
 			 label="Align"
 			 label_selected="Align Media"
 			 layout="topleft"
-			 right="-10"
+			 right="-16"
 			 name="button align"
+			 top_delta="-4"
 			 tool_tip="Align media texture (must load first)"
 			 width="80" />
 		</panel>
@@ -3121,4 +3155,5 @@ even though the user gets a free copy.
          top_pad="4"
          width="125" />
  </panel>
+<!-- end of tabs -->
 </floater>

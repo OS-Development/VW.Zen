@@ -2,31 +2,25 @@
  * @file lllineeditor.cpp
  * @brief LLLineEditor base class
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -84,7 +78,7 @@ template class LLLineEditor* LLView::getChild<class LLLineEditor>(
 //
 
 LLLineEditor::Params::Params()
-:	max_length_bytes("max_length", 254),
+:	max_length(""),
     keystroke_callback("keystroke_callback"),
 	prevalidate_callback("prevalidate_callback"),
 	background_image("background_image"),
@@ -114,7 +108,8 @@ LLLineEditor::Params::Params()
 
 LLLineEditor::LLLineEditor(const LLLineEditor::Params& p)
 :	LLUICtrl(p),
-	mMaxLengthBytes(p.max_length_bytes),
+	mMaxLengthBytes(p.max_length.bytes),
+	mMaxLengthChars(p.max_length.chars),
 	mCursorPos( 0 ),
 	mScrollHPos( 0 ),
 	mTextPadLeft(p.text_pad_left),
@@ -319,6 +314,12 @@ void LLLineEditor::setMaxTextLength(S32 max_text_length)
 	mMaxLengthBytes = max_len;
 } 
 
+void LLLineEditor::setMaxTextChars(S32 max_text_chars)
+{
+	S32 max_chars = llmax(0, max_text_chars);
+	mMaxLengthChars = max_chars;
+} 
+
 void LLLineEditor::getTextPadding(S32 *left, S32 *right)
 {
 	*left = mTextPadLeft;
@@ -363,6 +364,16 @@ void LLLineEditor::setText(const LLStringExplicit &new_text)
 		truncated_utf8 = utf8str_truncate(new_text, mMaxLengthBytes);
 	}
 	mText.assign(truncated_utf8);
+
+	if (mMaxLengthChars)
+	{
+		LLWString truncated_wstring = utf8str_to_wstring(truncated_utf8);
+		if (truncated_wstring.size() > (U32)mMaxLengthChars)
+		{
+			truncated_wstring = truncated_wstring.substr(0, mMaxLengthChars);
+		}
+		mText.assign(wstring_to_utf8str(truncated_wstring));
+	}
 
 	if (all_selected)
 	{
@@ -808,6 +819,7 @@ void LLLineEditor::addChar(const llwchar uni_char)
 	}
 
 	S32 cur_bytes = mText.getString().size();
+
 	S32 new_bytes = wchar_utf8_length(new_c);
 
 	BOOL allow_char = TRUE;
@@ -816,6 +828,14 @@ void LLLineEditor::addChar(const llwchar uni_char)
 	if ((new_bytes + cur_bytes) > mMaxLengthBytes)
 	{
 		allow_char = FALSE;
+	}
+	else if (mMaxLengthChars)
+	{
+		S32 wide_chars = mText.getWString().size();
+		if ((wide_chars + 1) > mMaxLengthChars)
+		{
+			allow_char = FALSE;
+		}
 	}
 
 	if (allow_char)
@@ -1117,7 +1137,19 @@ void LLLineEditor::pasteHelper(bool is_primary)
 				clean_string = clean_string.substr(0, wchars_that_fit);
 				LLUI::reportBadKeystroke();
 			}
- 
+
+			if (mMaxLengthChars)
+			{
+				U32 available_chars = mMaxLengthChars - mText.getWString().size();
+		
+				if (available_chars < clean_string.size())
+				{
+					clean_string = clean_string.substr(0, available_chars);
+				}
+
+				LLUI::reportBadKeystroke();
+			}
+
 			mText.insert(getCursor(), clean_string);
 			setCursor( getCursor() + (S32)clean_string.length() );
 			deselect();
@@ -1276,12 +1308,12 @@ BOOL LLLineEditor::handleSpecialKey(KEY key, MASK mask)
 
 	// handle ctrl-uparrow if we have a history enabled line editor.
 	case KEY_UP:
-		if( mHaveHistory && ( MASK_CONTROL == mask ) )
+		if( mHaveHistory && ((mIgnoreArrowKeys == false) || ( MASK_CONTROL == mask )) )
 		{
 			if( mCurrentHistoryLine > mLineHistory.begin() )
 			{
 				mText.assign( *(--mCurrentHistoryLine) );
-				setCursor(llmin((S32)mText.length(), getCursor()));
+				setCursorToEnd();
 			}
 			else
 			{
@@ -1291,14 +1323,14 @@ BOOL LLLineEditor::handleSpecialKey(KEY key, MASK mask)
 		}
 		break;
 
-	// handle ctrl-downarrow if we have a history enabled line editor
+	// handle [ctrl]-downarrow if we have a history enabled line editor
 	case KEY_DOWN:
-		if( mHaveHistory  && ( MASK_CONTROL == mask ) )
+		if( mHaveHistory  && ((mIgnoreArrowKeys == false) || ( MASK_CONTROL == mask )) )
 		{
 			if( !mLineHistory.empty() && mCurrentHistoryLine < mLineHistory.end() - 1 )
 			{
 				mText.assign( *(++mCurrentHistoryLine) );
-				setCursor(llmin((S32)mText.length(), getCursor()));
+				setCursorToEnd();
 			}
 			else
 			{

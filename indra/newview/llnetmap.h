@@ -2,31 +2,25 @@
  * @file llnetmap.h
  * @brief A little map of the world with network information
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -43,8 +37,8 @@
 class LLColor4U;
 class LLCoordGL;
 class LLImageRaw;
-class LLTextBox;
 class LLViewerTexture;
+class LLFloaterMap;
 
 class LLNetMap : public LLUICtrl
 {
@@ -62,6 +56,7 @@ public:
 protected:
 	LLNetMap (const Params & p);
 	friend class LLUICtrlFactory;
+	friend class LLFloaterMap;
 
 public:
 	virtual ~LLNetMap();
@@ -72,17 +67,17 @@ public:
 
 	/*virtual*/ void	draw();
 	/*virtual*/ BOOL	handleScrollWheel(S32 x, S32 y, S32 clicks);
+	/*virtual*/ BOOL	handleMouseDown(S32 x, S32 y, MASK mask);
+	/*virtual*/ BOOL	handleMouseUp(S32 x, S32 y, MASK mask);
+	/*virtual*/ BOOL	handleHover( S32 x, S32 y, MASK mask );
 	/*virtual*/ BOOL	handleToolTip( S32 x, S32 y, MASK mask);
 	/*virtual*/ void	reshape(S32 width, S32 height, BOOL called_from_parent = TRUE);
 	
 	void			setScale( F32 scale );
 	void			setToolTipMsg(const std::string& msg) { mToolTipMsg = msg; }
 	void			renderScaledPointGlobal( const LLVector3d& pos, const LLColor4U &color, F32 radius );
-	
-private:
-	void			translatePan( F32 delta_x, F32 delta_y );
-	void			setPan( F32 x, F32 y )			{ mTargetPanX = x; mTargetPanY = y; }
 
+private:
 	const LLVector3d& getObjectImageCenterGlobal()	{ return mObjectImageCenterGlobal; }
 	void 			renderPoint(const LLVector3 &pos, const LLColor4U &color, 
 								S32 diameter, S32 relative_height = 0);
@@ -93,10 +88,16 @@ private:
 	void			drawTracking( const LLVector3d& pos_global, 
 								  const LLColor4& color,
 								  BOOL draw_arrow = TRUE);
-	
+	BOOL			handleToolTipAgent(const LLUUID& avatar_id);
+	static void		showAvatarInspector(const LLUUID& avatar_id);
+
 	void			createObjectImage();
 
+	static bool		outsideSlop(S32 x, S32 y, S32 start_x, S32 start_y, S32 slop);
+
 private:
+	bool			mUpdateNow;
+
 	LLUIColor		mBackgroundColor;
 
 	F32				mScale;					// Size of a region in pixels
@@ -104,11 +105,13 @@ private:
 	F32				mObjectMapTPM;			// texels per meter on map
 	F32				mObjectMapPixels;		// Width of object map in pixels
 	F32				mDotRadius;				// Size of avatar markers
-	F32				mTargetPanX;
-	F32				mTargetPanY;
-	F32				mCurPanX;
-	F32				mCurPanY;
-	BOOL			mUpdateNow;
+
+	bool			mPanning;			// map is being dragged
+	LLVector2		mTargetPan;
+	LLVector2		mCurPan;
+	LLVector2		mStartPan;		// pan offset at start of drag
+	LLCoordGL		mMouseDown;			// pointer position at start of drag
+
 	LLVector3d		mObjectImageCenterGlobal;
 	LLPointer<LLImageRaw> mObjectRawImagep;
 	LLPointer<LLViewerTexture>	mObjectImagep;
