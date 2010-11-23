@@ -362,8 +362,8 @@ void LLViewerShaderMgr::setShaders()
 	}
 	else
 	{
-			LLPipeline::sRenderGlow = 
-			LLPipeline::sWaterReflections = FALSE;
+		LLPipeline::sRenderGlow = FALSE;
+		LLPipeline::sWaterReflections = FALSE;
 	}
 	
 	//hack to reset buffers that change behavior with shaders
@@ -1225,6 +1225,16 @@ BOOL LLViewerShaderMgr::loadShadersDeferred()
 		success = gDeferredAvatarAlphaProgram.createShader(&mAvatarAttribs, &mAvatarUniforms);
 	}
 
+	if (success)
+	{
+		gDeferredPostProgram.mName = "Deferred Post Shader";
+		gDeferredPostProgram.mShaderFiles.clear();
+		gDeferredPostProgram.mShaderFiles.push_back(make_pair("deferred/postDeferredV.glsl", GL_VERTEX_SHADER_ARB));
+		gDeferredPostProgram.mShaderFiles.push_back(make_pair("deferred/postDeferredF.glsl", GL_FRAGMENT_SHADER_ARB));
+		gDeferredPostProgram.mShaderLevel = mVertexShaderLevel[SHADER_DEFERRED];
+		success = gDeferredPostProgram.createShader(NULL, NULL);
+	}
+
 	if (mVertexShaderLevel[SHADER_DEFERRED] > 1)
 	{
 		if (success)
@@ -1240,15 +1250,7 @@ BOOL LLViewerShaderMgr::loadShadersDeferred()
 
 	if (mVertexShaderLevel[SHADER_DEFERRED] > 2)
 	{
-		if (success)
-		{
-			gDeferredPostProgram.mName = "Deferred Post Shader";
-			gDeferredPostProgram.mShaderFiles.clear();
-			gDeferredPostProgram.mShaderFiles.push_back(make_pair("deferred/postDeferredV.glsl", GL_VERTEX_SHADER_ARB));
-			gDeferredPostProgram.mShaderFiles.push_back(make_pair("deferred/postDeferredF.glsl", GL_FRAGMENT_SHADER_ARB));
-			gDeferredPostProgram.mShaderLevel = mVertexShaderLevel[SHADER_DEFERRED];
-			success = gDeferredPostProgram.createShader(NULL, NULL);
-		}
+		
 
 		if (success)
 		{

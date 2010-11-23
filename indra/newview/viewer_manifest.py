@@ -657,6 +657,7 @@ class DarwinManifest(ViewerManifest):
                                     "libexpat.0.5.0.dylib",
                                     "libexception_handler.dylib",
                                     "libGLOD.dylib",
+                                    "libcollada14dom.dylib"
                                     ):
                         self.path(os.path.join(libdir, libfile), libfile)
 
@@ -681,6 +682,7 @@ class DarwinManifest(ViewerManifest):
                                     "libexpat.0.5.0.dylib",
                                     "libexception_handler.dylib",
                                     "libGLOD.dylib",
+				    "libcollada14dom.dylib"
                                     ):
                         target_lib = os.path.join('../../..', libfile)
                         self.run_command("ln -sf %(target)r %(link)r" % 

@@ -146,8 +146,6 @@ void cylindricalProjection(LLVector2 &tc, const LLVector4a& normal, const LLVect
 
 void LLFace::init(LLDrawable* drawablep, LLViewerObject* objp)
 {
-	mExtents = (LLVector4a*) ll_aligned_malloc_16(sizeof(LLVector4a)*2);
-
 	mLastUpdateTime = gFrameTimeSeconds;
 	mLastMoveTime = 0.f;
 	mLastSkinTime = gFrameTimeSeconds;
@@ -239,9 +237,6 @@ void LLFace::destroy()
 		
 	mDrawablep = NULL;
 	mVObjp = NULL;
-	
-	ll_aligned_free_16(mExtents);
-	mExtents = NULL;
 }
 
 
@@ -1658,12 +1653,21 @@ BOOL LLFace::getGeometryVolume(const LLVolume& volume,
 	{
 		LLVector4a src;
 
-		src.splat(reinterpret_cast<F32&>(color.mAll));
+		U32 vec[4];
+		vec[0] = vec[1] = vec[2] = vec[3] = color.mAll;
+		
+		src.loadua((F32*) vec);
 
-		F32* dst = (F32*) colors.get();
-		for (S32 i = 0; i < num_vertices; i+=4)
+		LLVector4a* dst = (LLVector4a*) colors.get();
+		S32 num_vecs = num_vertices/4;
+		if (num_vertices%4 > 0)
+		{
+			++num_vecs;
+		}
+
+		for (S32 i = 0; i < num_vecs; i++)
 		{	
-			LLVector4a::copy4a(dst+i, (F32*) &src);
+			dst[i] = src;
 		}
 	}
 

@@ -174,6 +174,7 @@ elseif(DARWIN)
 	libllqtwebkit.dylib
         libndofdev.dylib
         libexception_handler.dylib
+	libcollada14dom.dylib
        )
 
     # fmod is statically linked on darwin
@@ -241,7 +242,7 @@ elseif(LINUX)
         libtcmalloc_minimal.so
 	libtcmalloc_minimal.so.0
         libuuid.so.1
-        libssl.so.0.9.7
+	libssl.so.0.9.7
        )
 
     if (FMOD)
@@ -294,7 +295,7 @@ copy_if_different(
     ${vivox_src_dir}
     "${SHARED_LIB_STAGING_DIR_DEBUG}"
     out_targets 
-   ${vivox_files}
+    ${vivox_files}
     )
 set(third_party_targets ${third_party_targets} ${out_targets})
 
@@ -375,7 +376,9 @@ if(NOT EXISTS ${internal_llkdu_path})
 endif (NOT EXISTS ${internal_llkdu_path})
 
 
-add_custom_target(stage_third_party_libs ALL
-  DEPENDS 
-    ${third_party_targets}
-  )
+if(NOT STANDALONE)
+  add_custom_target(
+      stage_third_party_libs ALL
+      DEPENDS ${third_party_targets}
+      )
+endif(NOT STANDALONE)

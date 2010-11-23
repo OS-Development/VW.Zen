@@ -682,12 +682,12 @@ LLVOAvatar::LLVOAvatar(const LLUUID& id,
 	mPreviousFullyLoaded(FALSE),
 	mFullyLoadedInitialized(FALSE),
 	mSupportsAlphaLayers(FALSE),
-	mLoadedCallbacksPaused(FALSE)
+	mLoadedCallbacksPaused(FALSE),
+	mHasPelvisOffset( FALSE )
 {
 	LLMemType mt(LLMemType::MTYPE_AVATAR);
 	//VTResume();  // VTune
-	mImpostorExtents = (LLVector4a*) ll_aligned_malloc_16(32);
-
+	
 	// mVoiceVisualizer is created by the hud effects manager and uses the HUD Effects pipeline
 	const BOOL needsSendToSim = false; // currently, this HUD effect doesn't need to pack and unpack data to do its job
 	mVoiceVisualizer = ( LLVoiceVisualizer *)LLHUDManager::getInstance()->createViewerEffect( LLHUDObject::LL_HUD_EFFECT_VOICE_VISUALIZER, needsSendToSim );
@@ -758,6 +758,7 @@ LLVOAvatar::LLVOAvatar(const LLUUID& id,
 	mRuthTimer.reset();
 	mRuthDebugTimer.reset();
 	mDebugExistenceTimer.reset();
+	mPelvisOffset = LLVector3(0.0f,0.0f,0.0f);
 }
 
 //------------------------------------------------------------------------
@@ -833,9 +834,6 @@ LLVOAvatar::~LLVOAvatar()
 	
 	mAnimationSources.clear();
 	LLLoadedCallbackEntry::cleanUpCallbackList(&mCallbackTextureList) ;
-
-	ll_aligned_free_16(mImpostorExtents);
-	mImpostorExtents = NULL;
 
 	lldebugs << "LLVOAvatar Destructor end" << llendl;
 }
@@ -3450,7 +3448,14 @@ BOOL LLVOAvatar::updateCharacter(LLAgent &agent)
 
 		if (isSelf())
 		{
-			gAgent.setPositionAgent(getRenderPosition());
+			if ( !mHasPelvisOffset )
+			{
+				gAgent.setPositionAgent(getRenderPosition());
+			}
+			else 
+			{
+				gAgent.setPositionAgent( getRenderPosition() + mPelvisOffset );
+			}
 		}
 
 		root_pos = gAgent.getPosGlobalFromAgent(getRenderPosition());
@@ -3469,14 +3474,21 @@ BOOL LLVOAvatar::updateCharacter(LLAgent &agent)
 		// correct for the fact that the pelvis is not necessarily the center 
 		// of the agent's physical representation
 		root_pos.mdV[VZ] -= (0.5f * mBodySize.mV[VZ]) - mPelvisToFoot;
-		
 
 		LLVector3 newPosition = gAgent.getPosAgentFromGlobal(root_pos);
 
 		if (newPosition != mRoot.getXform()->getWorldPosition())
 		{		
-			mRoot.touch();
-			mRoot.setWorldPosition(newPosition ); // regular update
+			if ( !mHasPelvisOffset )
+			{
+				mRoot.touch();
+				mRoot.setWorldPosition( newPosition ); // regular update				
+			}
+			else 
+			{
+				mRoot.touch();
+				mRoot.setWorldPosition( newPosition + mPelvisOffset ); 
+			}
 		}
 
 
@@ -3777,7 +3789,27 @@ void LLVOAvatar::updateHeadOffset()
 		mHeadOffset = lerp(midEyePt, mHeadOffset,  u);
 	}
 }
-
+//------------------------------------------------------------------------
+// setPelvisOffset
+//------------------------------------------------------------------------
+void LLVOAvatar::setPelvisOffset( bool hasOffset, const LLVector3& offsetAmount ) 
+{
+	mHasPelvisOffset = hasOffset;
+	if ( mHasPelvisOffset )
+	{
+		mPelvisOffset = offsetAmount;
+	}
+}
+//------------------------------------------------------------------------
+// postPelvisSetRecalc
+//------------------------------------------------------------------------
+void LLVOAvatar::postPelvisSetRecalc( void )
+{
+	computeBodySize(); 
+	mRoot.updateWorldMatrixChildren();
+	dirtyMesh();
+	updateHeadOffset();
+}
 //------------------------------------------------------------------------
 // updateVisibility()
 //------------------------------------------------------------------------
@@ -4915,6 +4947,7 @@ void LLVOAvatar::resetJointPositions( void )
 	{
 		mSkeleton[i].restoreOldXform();
 	}
+	mHasPelvisOffset = false;
 }
 //-----------------------------------------------------------------------------
 // resetJointPositionsToDefault
@@ -4945,6 +4978,9 @@ void LLVOAvatar::resetJointPositionsToDefault( void )
 			pJoint->restoreToDefaultXform();
 		}
 	}
+	//make sure we don't apply the joint offset
+	mHasPelvisOffset = false;
+	postPelvisSetRecalc();
 }
 
 

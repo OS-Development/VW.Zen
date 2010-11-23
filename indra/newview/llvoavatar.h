@@ -33,6 +33,8 @@
 #include <string>
 #include <vector>
 
+#include <boost/signals2.hpp>
+
 #include "imageids.h"			// IMG_INVISIBLE
 #include "llchat.h"
 #include "lldrawpoolalpha.h"
@@ -71,7 +73,8 @@ class LLVOAvatarSkeletonInfo;
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 class LLVOAvatar :
 	public LLViewerObject,
-	public LLCharacter
+	public LLCharacter,
+	public boost::signals2::trackable
 {
 public:
 	friend class LLVOAvatarSelf;
@@ -195,6 +198,10 @@ public:
 public:
 	virtual bool 	isSelf() const { return false; } // True if this avatar is for this viewer's agent
 	bool isBuilt() const { return mIsBuilt; }
+
+private: //aligned members
+	LLVector4a	mImpostorExtents[2];
+
 private:
 	BOOL			mSupportsAlphaLayers; // For backwards compatibility, TRUE for 1.23+ clients
 
@@ -283,6 +290,13 @@ protected:
 public:
 	void				updateHeadOffset();
 	F32					getPelvisToFoot() const { return mPelvisToFoot; }
+	void				setPelvisOffset( bool hasOffset, const LLVector3& translation ) ;
+	bool				hasPelvisOffset( void ) { return mHasPelvisOffset; }
+	void				postPelvisSetRecalc( void );
+
+	bool				mHasPelvisOffset;
+	LLVector3			mPelvisOffset;
+
 
 	LLVector3			mHeadOffset; // current head position
 	LLViewerJoint		mRoot;
@@ -415,7 +429,6 @@ private:
 	LLVector3	mImpostorOffset;
 	LLVector2	mImpostorDim;
 	BOOL		mNeedsAnimUpdate;
-	LLVector4a*	mImpostorExtents;
 	LLVector3	mImpostorAngle;
 	F32			mImpostorDistance;
 	F32			mImpostorPixelArea;

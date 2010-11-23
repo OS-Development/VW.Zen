@@ -236,7 +236,7 @@ void LLSpatialGroup::buildOcclusion()
 {
 	if (!mOcclusionVerts)
 	{
-		mOcclusionVerts = (LLVector4a*) ll_aligned_malloc_16(sizeof(LLVector4a)*8);
+		mOcclusionVerts = new LLVector4a[8];
 	}
 
 	LLVector4a fudge;
@@ -339,14 +339,12 @@ LLSpatialGroup::~LLSpatialGroup()
 		sQueryPool.release(mOcclusionQuery[LLViewerCamera::sCurCameraID]);
 	}
 
-	ll_aligned_free_16(mOcclusionVerts);
+	delete [] mOcclusionVerts;
 	mOcclusionVerts = NULL;
 
 	LLMemType mt(LLMemType::MTYPE_SPACE_PARTITION);
 	clearDrawMap();
 	clearAtlasList() ;
-
-	ll_aligned_free_16(mBounds);
 }
 
 BOOL LLSpatialGroup::hasAtlas(LLTextureAtlas* atlasp)
@@ -1161,17 +1159,10 @@ LLSpatialGroup::LLSpatialGroup(OctreeNode* node, LLSpatialPartition* part) :
 	sNodeCount++;
 	LLMemType mt(LLMemType::MTYPE_SPACE_PARTITION);
 
-	mBounds = (LLVector4a*) ll_aligned_malloc_16(sizeof(LLVector4a) * V4_COUNT);
-	mExtents = mBounds + EXTENTS;
-	mObjectBounds = mBounds + OBJECT_BOUNDS;
-	mObjectExtents = mBounds + OBJECT_EXTENTS;
-	mViewAngle = mBounds+VIEW_ANGLE;
-	mLastUpdateViewAngle = mBounds+LAST_VIEW_ANGLE;
-
-	mViewAngle->splat(0.f);
-	mLastUpdateViewAngle->splat(-1.f);
+	mViewAngle.splat(0.f);
+	mLastUpdateViewAngle.splat(-1.f);
 	mExtents[0] = mExtents[1] = mObjectBounds[0] = mObjectBounds[0] = mObjectBounds[1] = 
-		mObjectExtents[0] = mObjectExtents[1] = *mViewAngle;
+		mObjectExtents[0] = mObjectExtents[1] = mViewAngle;
 
 	sg_assert(mOctreeNode->getListenerCount() == 0);
 	mOctreeNode->addListener(this);
@@ -1247,12 +1238,12 @@ F32 LLSpatialPartition::calcDistance(LLSpatialGroup* group, LLCamera& camera)
 				LLVector4a view_angle = eye;
 
 				LLVector4a diff;
-				diff.setSub(view_angle, *group->mLastUpdateViewAngle);
+				diff.setSub(view_angle, group->mLastUpdateViewAngle);
 
 				if (diff.getLength3().getF32() > 0.64f)
 				{
-					*group->mViewAngle = view_angle;
-					*group->mLastUpdateViewAngle = view_angle;
+					group->mViewAngle = view_angle;
+					group->mLastUpdateViewAngle = view_angle;
 					//for occasional alpha sorting within the group
 					//NOTE: If there is a trivial way to detect that alpha sorting here would not change the render order,
 					//not setting this node to dirty would be a very good thing
@@ -1432,7 +1423,7 @@ void LLSpatialGroup::destroyGL()
 		}
 	}
 
-	ll_aligned_free_16(mOcclusionVerts);
+	delete [] mOcclusionVerts;
 	mOcclusionVerts = NULL;
 
 	for (LLSpatialGroup::element_iter i = getData().begin(); i != getData().end(); ++i)
@@ -1564,7 +1555,9 @@ void LLSpatialGroup::doOcclusion(LLCamera* camera)
 {
 	if (mSpatialPartition->isOcclusionEnabled() && LLPipeline::sUseOcclusion > 1)
 	{
-		if (earlyFail(camera, this))
+		// Don't cull hole/edge water, unless we have the GL_ARB_depth_clamp extension
+		if ((mSpatialPartition->mDrawableType == LLDrawPool::POOL_VOIDWATER && !gGLManager.mHasDepthClamp) ||
+			earlyFail(camera, this))
 		{
 			setOcclusionState(LLSpatialGroup::DISCARD_QUERY);
 			assert_states_valid(this);
@@ -1585,7 +1578,18 @@ void LLSpatialGroup::doOcclusion(LLCamera* camera)
 				{
 					buildOcclusion();
 				}
-
+				
+				// Depth clamp all water to avoid it being culled as a result of being
+				// behind the far clip plane, and in the case of edge water to avoid
+				// it being culled while still visible.
+				bool const use_depth_clamp = gGLManager.mHasDepthClamp &&
+											(mSpatialPartition->mDrawableType == LLDrawPool::POOL_WATER ||
+											mSpatialPartition->mDrawableType == LLDrawPool::POOL_VOIDWATER);
+				if (use_depth_clamp)
+				{
+					glEnable(GL_DEPTH_CLAMP);
+				}
+				
 				glBeginQueryARB(GL_SAMPLES_PASSED_ARB, mOcclusionQuery[LLViewerCamera::sCurCameraID]);					
 				glVertexPointer(3, GL_FLOAT, 16, mOcclusionVerts);
 				if (camera->getOrigin().isExactlyZero())
@@ -1601,6 +1605,11 @@ void LLSpatialGroup::doOcclusion(LLCamera* camera)
 								GL_UNSIGNED_BYTE, get_box_fan_indices(camera, mBounds[0]));
 				}
 				glEndQueryARB(GL_SAMPLES_PASSED_ARB);
+				
+				if (use_depth_clamp)
+				{
+					glDisable(GL_DEPTH_CLAMP);
+				}
 			}
 
 			setOcclusionState(LLSpatialGroup::QUERY_PENDING);
@@ -2660,9 +2669,10 @@ void renderBoundingBox(LLDrawable* drawable, BOOL set_color = TRUE)
 						gGL.color4f(0.5f,0.5f,0.5f,1.0f);
 						break;
 				case LLViewerObject::LL_VO_PART_GROUP:
-			case LLViewerObject::LL_VO_HUD_PART_GROUP:
+				case LLViewerObject::LL_VO_HUD_PART_GROUP:
 						gGL.color4f(0,0,1,1);
 						break;
+				case LLViewerObject::LL_VO_VOID_WATER:
 				case LLViewerObject::LL_VO_WATER:
 						gGL.color4f(0,0.5f,1,1);
 						break;
@@ -4168,8 +4178,7 @@ LLDrawInfo::LLDrawInfo(U16 start, U16 end, U32 count, U32 offset,
 	mDrawMode(LLRender::TRIANGLES)
 {
 	mVertexBuffer->validateRange(mStart, mEnd, mCount, mOffset);
-	mExtents = (LLVector4a*) ll_aligned_malloc_16(sizeof(LLVector4a)*2);
-
+	
 	mDebugColor = (rand() << 16) + rand();
 }
 
@@ -4189,8 +4198,6 @@ LLDrawInfo::~LLDrawInfo()
 	{
 		gPipeline.checkReferences(this);
 	}
-
-	ll_aligned_free_16(mExtents);
 }
 
 void LLDrawInfo::validate()
