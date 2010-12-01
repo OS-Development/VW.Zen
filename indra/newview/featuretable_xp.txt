@@ -459,6 +459,7 @@ RenderAvatarCloth			0	0
 
 list ATI
 RenderUseStreamVBO			1	0
+RenderAvatarVP				1	0
 
 /// Tweaked NVIDIA
 
