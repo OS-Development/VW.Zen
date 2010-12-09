@@ -118,7 +118,7 @@ public:
 protected:
 	LLSideTrayTab(const Params& params);
 	
-	void			dock();
+	void			dock(LLFloater* floater_tab);
 	void			undock(LLFloater* floater_tab);
 
 	LLSideTray*		getSideTray();
@@ -259,7 +259,7 @@ void LLSideTrayTab::toggleTabDocked()
 
 	if (docking)
 	{
-		dock();
+		dock(floater_tab);
 	}
 	else
 	{
@@ -271,10 +271,13 @@ void LLSideTrayTab::toggleTabDocked()
 	LLFloaterReg::toggleInstance("side_bar_tab", tab_name);
 }
 
-void LLSideTrayTab::dock()
+void LLSideTrayTab::dock(LLFloater* floater_tab)
 {
 	LLSideTray* side_tray = getSideTray();
 	if (!side_tray) return;
+
+	// Before docking the tab, reset its (and its children's) transparency to default (STORM-688).
+	floater_tab->updateTransparency(TT_DEFAULT);
 
 	if (!side_tray->addTab(this))
 	{
@@ -298,7 +301,11 @@ static void on_minimize(LLSidepanelAppearance* panel, LLSD minimized)
 {
 	if (!panel) return;
 	bool visible = !minimized.asBoolean();
-	panel->updateToVisibility(LLSD(visible));	
+	LLSD visibility;
+	visibility["visible"] = visible;
+	// Do not reset accordion state on minimize (STORM-375)
+	visibility["reset_accordion"] = false;
+	panel->updateToVisibility(visibility);
 }
 
 void LLSideTrayTab::undock(LLFloater* floater_tab)
@@ -1028,7 +1035,8 @@ void LLSideTray::arrange()
 	}
 
 	// The tab buttons should be shown only if there is at least one non-detached tab.
-	mButtonsPanel->setVisible(hasTabs());
+	// Also hide them in mouse-look mode.
+	mButtonsPanel->setVisible(hasTabs() && !gAgentCamera.cameraMouselook());
 }
 
 // Detach those tabs that were detached when the viewer exited last time.
