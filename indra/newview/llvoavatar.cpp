@@ -3056,7 +3056,7 @@ void LLVOAvatar::idleUpdateNameTagText(BOOL new_name)
 				std::deque<LLChat>::iterator chat_iter = mChats.begin();
 				mNameText->clearString();
 
-		LLColor4 new_chat = LLUIColorTable::instance().getColor( "NameTagChat" );
+				LLColor4 new_chat = LLUIColorTable::instance().getColor( isSelf() ? "UserChatColor" : "AgentChatColor" );
 				LLColor4 normal_chat = lerp(new_chat, LLColor4(0.8f, 0.8f, 0.8f, 1.f), 0.7f);
 				LLColor4 old_chat = lerp(normal_chat, LLColor4(0.6f, 0.6f, 0.6f, 1.f), 0.7f);
 				if (mTyping && mChats.size() >= MAX_BUBBLE_CHAT_UTTERANCES) 
@@ -4946,6 +4946,7 @@ void LLVOAvatar::resetJointPositions( void )
 	for(S32 i = 0; i < (S32)mNumJoints; ++i)
 	{
 		mSkeleton[i].restoreOldXform();
+		mSkeleton[i].setId( LLUUID::null );
 	}
 	mHasPelvisOffset = false;
 }
@@ -4972,6 +4973,7 @@ void LLVOAvatar::resetJointPositionsToDefault( void )
 	for( S32 i = 0; i < (S32)mNumJoints; ++i )
 	{
 		LLJoint* pJoint = (LLJoint*)&mSkeleton[i];
+		pJoint->setId( LLUUID::null );
 		//restore joints to default positions, however skip over the pelvis
 		if ( pJoint && pPelvis != pJoint )
 		{
@@ -5974,6 +5976,24 @@ void LLVOAvatar::resetHUDAttachments()
 	}
 }
 
+void LLVOAvatar::rebuildRiggedAttachments( void )
+{
+	for ( attachment_map_t::iterator iter = mAttachmentPoints.begin(); iter != mAttachmentPoints.end(); ++iter )
+	{
+		LLViewerJointAttachment* pAttachment = iter->second;
+		LLViewerJointAttachment::attachedobjs_vec_t::iterator attachmentIterEnd = pAttachment->mAttachedObjects.end();
+		
+		for ( LLViewerJointAttachment::attachedobjs_vec_t::iterator attachmentIter = pAttachment->mAttachedObjects.begin();
+			 attachmentIter != attachmentIterEnd; ++attachmentIter)
+		{
+			const LLViewerObject* pAttachedObject =  *attachmentIter;
+			if ( pAttachment && pAttachedObject->mDrawable.notNull() )
+			{
+				gPipeline.markRebuild(pAttachedObject->mDrawable);
+			}
+		}
+	}
+}
 //-----------------------------------------------------------------------------
 // detachObject()
 //-----------------------------------------------------------------------------

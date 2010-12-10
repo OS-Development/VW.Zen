@@ -34,6 +34,7 @@
 #include "llmeshrepository.h"
 #include "llmodel.h"
 #include "llthread.h"
+#include "llviewermenufile.h"
 
 class LLComboBox;
 class LLJoint;
@@ -62,6 +63,7 @@ public:
 		GENERATING_VERTEX_BUFFERS,
 		GENERATING_LOD,
 		DONE,
+		ERROR_PARSING, //basically loading failed
 	} eLoadState;
 
 	U32 mState;
@@ -105,7 +107,9 @@ public:
 	void extractTranslation( domTranslate* pTranslate, LLMatrix4& transform );
 	void extractTranslationViaElement( daeElement* pTranslateElement, LLMatrix4& transform );
 	
-
+	void setLoadState( U32 state ) { mState = state; }
+	U32 getLoadState( void ) { return mState; }
+	
 	//map of avatar joints as named in COLLADA assets to internal joint names
 	std::map<std::string, std::string> mJointMap;
 };
@@ -203,7 +207,6 @@ protected:
 	S32				mLastMouseY;
 	LLRect			mPreviewRect;
 	U32				mGLName;
-	BOOL			mLoading;
 	static S32		sUploadAmount;
 	
 	LLPointer<DecompRequest> mCurRequest;
@@ -218,11 +221,23 @@ protected:
 	
 };
 
+class LLMeshFilePicker : public LLFilePickerThread
+{
+public:
+	LLMeshFilePicker(LLModelPreview* mp, S32 lod);
+	virtual void notify(const std::string& filename);
+
+private:
+	LLModelPreview* mMP;
+	S32 mLOD;
+};
+
+
 class LLModelPreview : public LLViewerDynamicTexture, public LLMutex
 {
  public:
 	
-	 LLModelPreview(S32 width, S32 height, LLFloaterModelPreview* fmp);
+	 LLModelPreview(S32 width, S32 height, LLFloater* fmp);
 	virtual ~LLModelPreview();
 
 	void resetPreviewTarget();
@@ -252,15 +267,18 @@ class LLModelPreview : public LLViewerDynamicTexture, public LLMutex
 	void clearIncompatible(S32 lod);
 	void updateStatusMessages();
 	bool containsRiggedAsset( void );
+	void setAspect(F32 aspect) { mAspect = aspect; };
+	//void setLoading(bool loading) { mLoading = loading; };
 
 	static void	textureLoadedCallback( BOOL success, LLViewerFetchedTexture *src_vi, LLImageRaw* src, LLImageRaw* src_aux, S32 discard_level, BOOL final, void* userdata );
 
  protected:
 	friend class LLFloaterModelPreview;
+	friend class LLFloaterModelWizard;
 	friend class LLFloaterModelPreview::DecompRequest;
 	friend class LLPhysicsDecomp;
 
-	LLFloaterModelPreview* mFMP;
+	LLFloater* mFMP;
 
 	BOOL        mNeedsUpdate;
 	bool		mDirty;
@@ -276,6 +294,8 @@ class LLModelPreview : public LLViewerDynamicTexture, public LLMutex
 	S32			mPreviewLOD;
 	U32			mResourceCost;
 	std::string mLODFile[LLModel::NUM_LODS];
+	F32         mAspect;
+	bool		mLoading;
 
 	//GLOD object parameters (must rebuild object if these change)
 	F32 mBuildShareTolerance;

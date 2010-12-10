@@ -108,11 +108,12 @@ const S32 PREVIEW_RESIZE_HANDLE_SIZE = S32(RESIZE_HANDLE_WIDTH * OO_SQRT2) + PRE
 const S32 PREVIEW_HPAD = PREVIEW_RESIZE_HANDLE_SIZE;
 const S32 PREF_BUTTON_HEIGHT = 16 + 7 + 16;
 const S32 PREVIEW_TEXTURE_HEIGHT = 300;
+const S32 NUM_LOD = 4;
 
 void drawBoxOutline(const LLVector3& pos, const LLVector3& size);
 
 
-std::string lod_name[] = 
+std::string lod_name[NUM_LOD+1] = 
 {
 	"lowest",
 	"low",
@@ -121,7 +122,7 @@ std::string lod_name[] =
 	"I went off the end of the lod_name array.  Me so smart."
 };
 	
-std::string lod_triangles_name[] =
+std::string lod_triangles_name[NUM_LOD+1] =
 {
 	"lowest_triangles",
 	"low_triangles",
@@ -130,7 +131,7 @@ std::string lod_triangles_name[] =
 	"I went off the end of the lod_triangles_name array.  Me so smart."
 };
 
-std::string lod_vertices_name[] =
+std::string lod_vertices_name[NUM_LOD+1] =
 {
 	"lowest_vertices",
 	"low_vertices",
@@ -139,7 +140,7 @@ std::string lod_vertices_name[] =
 	"I went off the end of the lod_vertices_name array.  Me so smart."
 };
 
-std::string lod_status_name[] =
+std::string lod_status_name[NUM_LOD+1] =
 {
 	"lowest_status",
 	"low_status",
@@ -148,7 +149,7 @@ std::string lod_status_name[] =
 	"I went off the end of the lod_status_name array.  Me so smart."
 };
 
-std::string lod_icon_name[] = 
+std::string lod_icon_name[NUM_LOD+1] = 
 {
 	"status_icon_lowest",
 	"status_icon_low",
@@ -157,7 +158,7 @@ std::string lod_icon_name[] =
 	"I went off the end of the lod_status_name array.  Me so smart."
 };
 
-std::string lod_status_image[] = 
+std::string lod_status_image[NUM_LOD+1] = 
 {
 	"ModelImport_Status_Good",
 	"ModelImport_Status_Warning",
@@ -165,7 +166,7 @@ std::string lod_status_image[] =
 	"I went off the end of the lod_status_image array.  Me so smart."
 };
 
-std::string lod_label_name[] =
+std::string lod_label_name[NUM_LOD+1] =
 {
 	"lowest_label",
 	"low_label",
@@ -233,24 +234,18 @@ BOOL stop_gloderror()
 	return FALSE;
 }
 
-class LLMeshFilePicker : public LLFilePickerThread
-{
-public:
-	LLFloaterModelPreview* mFMP;
-	S32 mLOD;
 	
-	LLMeshFilePicker(LLFloaterModelPreview* fmp, S32 lod)
+LLMeshFilePicker::LLMeshFilePicker(LLModelPreview* mp, S32 lod)
 	: LLFilePickerThread(LLFilePicker::FFLOAD_COLLADA)
 	{
-		mFMP = fmp;
+		mMP = mp;
 		mLOD = lod;
 	}
-	
-	virtual void notify(const std::string& filename)
-	{
-		mFMP->mModelPreview->loadModel(mFile, mLOD);
-	}
-};
+
+void LLMeshFilePicker::notify(const std::string& filename)
+{
+	mMP->loadModel(mFile, mLOD);
+}
 
 
 //-----------------------------------------------------------------------------
@@ -263,7 +258,6 @@ LLFloater(key)
 	mLastMouseX = 0;
 	mLastMouseY = 0;
 	mGLName = 0;
-	mLoading = FALSE;
 }
 
 //-----------------------------------------------------------------------------
@@ -312,7 +306,8 @@ BOOL LLFloaterModelPreview::postBuild()
 	
 	childDisable("upload_skin");
 	childDisable("upload_joints");
-
+	childDisable("ok_btn"); 
+	
 	mViewOptionMenuButton = getChild<LLMenuButton>("options_gear_btn");
 
 	mCommitCallbackRegistrar.add("ModelImport.ViewOption.Action", boost::bind(&LLFloaterModelPreview::onViewOptionChecked, this, _2));
@@ -332,6 +327,7 @@ BOOL LLFloaterModelPreview::postBuild()
 	
 	mModelPreview = new LLModelPreview(512, 512, this);
 	mModelPreview->setPreviewTarget(16.f);
+	mModelPreview->setAspect((F32) mPreviewRect.getWidth()/mPreviewRect.getHeight());
 	
 	//set callbacks for left click on line editor rows
 	for (U32 i = 0; i <= LLModel::LOD_HIGH; i++)
@@ -422,7 +418,7 @@ void LLFloaterModelPreview::setViewOption(const std::string& option, bool value)
 
 void LLFloaterModelPreview::loadModel(S32 lod)
 {
-	mLoading = TRUE;
+	mModelPreview->mLoading = true;
 	
 	(new LLMeshFilePicker(this, lod))->getFile();
 }
@@ -486,6 +482,7 @@ void LLFloaterModelPreview::onPreviewLODCommit(LLUICtrl* ctrl, void* userdata)
 	{
 		which_mode = iface->getFirstSelectedIndex();
 	}
+	which_mode = (NUM_LOD-1)-which_mode; // combo box list of lods is in reverse order
 	fp->mModelPreview->setPreviewLOD(which_mode);
 }
 
@@ -533,7 +530,7 @@ void LLFloaterModelPreview::draw()
 	
 	mModelPreview->update();
 	
-	if (!mLoading)
+	if (!mModelPreview->mLoading)
 	{
 		childSetTextArg("status", "[STATUS]", getString("status_idle"));
 	}
@@ -1594,9 +1591,11 @@ void LLModelLoader::run()
 		}
 		
 		daeElement* scene = root->getDescendant("visual_scene");
+		
 		if (!scene)
 		{
 			llwarns << "document has no visual_scene" << llendl;
+			setLoadState( ERROR_PARSING );
 			return;
 		}
 		
@@ -2003,7 +2002,7 @@ LLColor4 LLModelLoader::getDaeColor(daeElement* element)
 // LLModelPreview
 //-----------------------------------------------------------------------------
 
-LLModelPreview::LLModelPreview(S32 width, S32 height, LLFloaterModelPreview* fmp) 
+LLModelPreview::LLModelPreview(S32 width, S32 height, LLFloater* fmp) 
 : LLViewerDynamicTexture(width, height, 3, ORDER_MIDDLE, FALSE), LLMutex(NULL)
 {
 	mNeedsUpdate = TRUE;
@@ -2017,6 +2016,7 @@ LLModelPreview::LLModelPreview(S32 width, S32 height, LLFloaterModelPreview* fmp
 	mMaxTriangleLimit = 0;
 	mDirty = false;
 	mGenLOD = false;
+	mLoading = false;
 	
 	mBuildShareTolerance = 0.f;
 	mBuildQueueMode = GLOD_QUEUE_GREEDY;
@@ -2043,6 +2043,11 @@ LLModelPreview::~LLModelPreview()
 U32 LLModelPreview::calcResourceCost()
 {
 	rebuildUploadData();
+
+	if ( mModelLoader->getLoadState() != LLModelLoader::ERROR_PARSING )
+	{
+		mFMP->childEnable("ok_btn");
+	}
 	
 	U32 cost = 0;
 	std::set<LLModel*> accounted;
@@ -2136,6 +2141,11 @@ void LLModelPreview::rebuildUploadData()
 	scale_mat.initScale(LLVector3(scale, scale, scale));
 	
 	F32 max_scale = 0.f;
+	
+	if ( mBaseScene.size() > 0 )
+	{
+		mFMP->childEnable("ok_btn");
+	}
 	
 	for (LLModelLoader::scene::iterator iter = mBaseScene.begin(); iter != mBaseScene.end(); ++iter)
 	{ //for each transform in scene
@@ -2245,7 +2255,7 @@ void LLModelPreview::loadModel(std::string filename, S32 lod)
 			mFMP->closeFloater(false);
 		}
 		
-		mFMP->mLoading = false;
+		mLoading = false;
 		return;
 	}
 	
@@ -2277,6 +2287,11 @@ void LLModelPreview::loadModel(std::string filename, S32 lod)
 	
 	setPreviewLOD(lod);
 
+	if ( mModelLoader->getLoadState() == LLModelLoader::ERROR_PARSING )
+	{
+		mFMP->childDisable("ok_btn");
+	}
+	
 	if (lod == mPreviewLOD)
 	{
 		mFMP->childSetText("lod_file", mLODFile[mPreviewLOD]);
@@ -2368,7 +2383,7 @@ void LLModelPreview::loadModelCallback(S32 lod)
 		resetPreviewTarget();
 	}
 	
-	mFMP->mLoading = FALSE;
+	mLoading = false;
 	refresh();
 }
 
@@ -3181,7 +3196,9 @@ void LLModelPreview::updateStatusMessages()
 		}
 	}
 	
-	if (upload_ok)
+	bool errorStateFromLoader = mModelLoader->getLoadState() == LLModelLoader::ERROR_PARSING ? true : false;
+			
+	if ( upload_ok && !errorStateFromLoader )
 	{
 		mFMP->childEnable("ok_btn");
 	}
@@ -3640,9 +3657,7 @@ BOOL LLModelPreview::render()
 	
 	glClear(GL_DEPTH_BUFFER_BIT);
 	
-	F32 aspect = (F32) mFMP->mPreviewRect.getWidth()/mFMP->mPreviewRect.getHeight();
-
-	LLViewerCamera::getInstance()->setAspect(aspect);
+	LLViewerCamera::getInstance()->setAspect(mAspect);
 	LLViewerCamera::getInstance()->setView(LLViewerCamera::getInstance()->getDefaultFOV() / mCameraZoom);
 	
 	LLVector3 offset = mCameraOffset;
@@ -4059,7 +4074,7 @@ void LLModelPreview::setPreviewLOD(S32 lod)
 		mPreviewLOD = lod;
 		
 		LLComboBox* combo_box = mFMP->getChild<LLComboBox>("preview_lod_combo");
-		combo_box->setCurrentByIndex(mPreviewLOD);
+		combo_box->setCurrentByIndex((NUM_LOD-1)-mPreviewLOD); // combo box list of lods is in reverse order
 		mFMP->childSetTextArg("lod_table_footer", "[DETAIL]", mFMP->getString(lod_name[mPreviewLOD]));
 		mFMP->childSetText("lod_file", mLODFile[mPreviewLOD]);
 
@@ -4188,4 +4203,3 @@ void LLFloaterModelPreview::DecompRequest::completed()
 		sInstance->mCurRequest = NULL;
 	}
 }
-
