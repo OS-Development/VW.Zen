@@ -80,6 +80,7 @@
 #include "llfeaturemanager.h"
 #include "llurlmatch.h"
 #include "lltextutil.h"
+#include "lllogininstance.h"
 
 #include "llweb.h"
 #include "llsecondlifeurls.h"
@@ -590,10 +591,14 @@ LLAppViewer::LLAppViewer() :
 	setupErrorHandling();
 	sInstance = this;
 	gLoggedInTime.stop();
+	
+	LLLoginInstance::instance().setUpdaterService(mUpdater.get());
 }
 
 LLAppViewer::~LLAppViewer()
 {
+	LLLoginInstance::instance().setUpdaterService(0);
+	
 	destroyMainloopTimeout();
 
 	// If we got to this destructor somehow, the app didn't hang.
@@ -2389,26 +2394,111 @@ bool LLAppViewer::initConfiguration()
 }
 
 namespace {
-    // *TODO - decide if there's a better place for this function.
+    // *TODO - decide if there's a better place for these functions.
     // do we need a file llupdaterui.cpp or something? -brad
+
+	void apply_update_callback(LLSD const & notification, LLSD const & response)
+	{
+		lldebugs << "LLUpdate user response: " << response << llendl;
+		if(response["OK_okcancelbuttons"].asBoolean())
+		{
+			llinfos << "LLUpdate restarting viewer" << llendl;
+			static const bool install_if_ready = true;
+			// *HACK - this lets us launch the installer immediately for now
+			LLUpdaterService().startChecking(install_if_ready);
+		}
+	}
+	
+	void apply_update_ok_callback(LLSD const & notification, LLSD const & response)
+	{
+		llinfos << "LLUpdate restarting viewer" << llendl;
+		static const bool install_if_ready = true;
+		// *HACK - this lets us launch the installer immediately for now
+		LLUpdaterService().startChecking(install_if_ready);
+	}
+	
+	void on_update_downloaded(LLSD const & data)
+	{
+		std::string notification_name;
+		void (*apply_callback)(LLSD const &, LLSD const &) = NULL;
+
+		if(data["required"].asBoolean())
+		{
+			apply_callback = &apply_update_ok_callback;
+			if(LLStartUp::getStartupState() <= STATE_LOGIN_WAIT)
+			{
+				// The user never saw the progress bar.
+				notification_name = "RequiredUpdateDownloadedVerboseDialog";
+			}
+			else
+			{
+				notification_name = "RequiredUpdateDownloadedDialog";
+			}
+		}
+		else
+		{
+			apply_callback = &apply_update_callback;
+			if(LLStartUp::getStartupState() < STATE_STARTED)
+			{
+				// CHOP-262 we need to use a different notification
+				// method prior to login.
+				notification_name = "DownloadBackgroundDialog";
+			}
+			else
+			{
+				notification_name = "DownloadBackgroundTip";
+			}
+		}
+
+		LLSD substitutions;
+		substitutions["VERSION"] = data["version"];
+
+		// truncate version at the rightmost '.' 
+		std::string version_short(data["version"]);
+		size_t short_length = version_short.rfind('.');
+		if (short_length != std::string::npos)
+		{
+			version_short.resize(short_length);
+		}
+
+		LLUIString relnotes_url("[RELEASE_NOTES_BASE_URL][CHANNEL_URL]/[VERSION_SHORT]");
+		relnotes_url.setArg("[VERSION_SHORT]", version_short);
+
+		// *TODO thread the update service's response through to this point
+		std::string const & channel = LLVersionInfo::getChannel();
+		boost::shared_ptr<char> channel_escaped(curl_escape(channel.c_str(), channel.size()), &curl_free);
+
+		relnotes_url.setArg("[CHANNEL_URL]", channel_escaped.get());
+		relnotes_url.setArg("[RELEASE_NOTES_BASE_URL]", LLTrans::getString("RELEASE_NOTES_BASE_URL"));
+		substitutions["RELEASE_NOTES_FULL_URL"] = relnotes_url.getString();
+
+		LLNotificationsUtil::add(notification_name, substitutions, LLSD(), apply_callback);
+	}
+	
     bool notify_update(LLSD const & evt)
     {
+		std::string notification_name;
 		switch (evt["type"].asInteger())
 		{
 			case LLUpdaterService::DOWNLOAD_COMPLETE:
-				LLNotificationsUtil::add("DownloadBackground");
+				on_update_downloaded(evt);
 				break;
 			case LLUpdaterService::INSTALL_ERROR:
 				LLNotificationsUtil::add("FailedUpdateInstall");
 				break;
 			default:
-				llinfos << "unhandled update event " << evt << llendl;
 				break;
 		}
 
 		// let others also handle this event by default
         return false;
     }
+	
+	bool on_bandwidth_throttle(LLUpdaterService * updater, LLSD const & evt)
+	{
+		updater->setBandwidthLimit(evt.asInteger() * (1024/8));
+		return false; // Let others receive this event.
+	};
 };
 
 void LLAppViewer::initUpdater()
@@ -2431,7 +2521,10 @@ void LLAppViewer::initUpdater()
 						 channel, 
 						 version);
  	mUpdater->setCheckPeriod(check_period);
-	if(gSavedSettings.getBOOL("UpdaterServiceActive"))
+	mUpdater->setBandwidthLimit((int)gSavedSettings.getF32("UpdaterMaximumBandwidth") * (1024/8));
+	gSavedSettings.getControl("UpdaterMaximumBandwidth")->getSignal()->
+		connect(boost::bind(&on_bandwidth_throttle, mUpdater.get(), _2));
+	if(gSavedSettings.getU32("UpdaterServiceSetting"))
 	{
 		bool install_if_ready = true;
 		mUpdater->startChecking(install_if_ready);
@@ -2858,8 +2951,10 @@ void LLAppViewer::handleViewerCrash()
 		pApp->removeMarkerFile(false);
 	}
 	
+#if LL_SEND_CRASH_REPORTS
 	// Call to pure virtual, handled by platform specific llappviewer instance.
 	pApp->handleCrashReporting(); 
+#endif
     
 	return;
 }
