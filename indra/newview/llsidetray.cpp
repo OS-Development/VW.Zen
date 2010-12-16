@@ -159,8 +159,6 @@ LLSideTrayTab::LLSideTrayTab(const Params& p)
 	mDescription(p.description),
 	mMainPanel(NULL)
 {
-	// Necessary for focus movement among child controls
-	setFocusRoot(TRUE);
 }
 
 LLSideTrayTab::~LLSideTrayTab()
@@ -301,7 +299,11 @@ static void on_minimize(LLSidepanelAppearance* panel, LLSD minimized)
 {
 	if (!panel) return;
 	bool visible = !minimized.asBoolean();
-	panel->updateToVisibility(LLSD(visible));	
+	LLSD visibility;
+	visibility["visible"] = visible;
+	// Do not reset accordion state on minimize (STORM-375)
+	visibility["reset_accordion"] = false;
+	panel->updateToVisibility(visibility);
 }
 
 void LLSideTrayTab::undock(LLFloater* floater_tab)
@@ -913,7 +915,6 @@ void	LLSideTray::createButtons	()
 		}
 	}
 	LLHints::registerHintTarget("inventory_btn", mTabButtons["sidebar_inventory"]->getHandle());
-	LLHints::registerHintTarget("dest_guide_btn", mTabButtons["sidebar_places"]->getHandle());
 }
 
 void		LLSideTray::processTriState ()
