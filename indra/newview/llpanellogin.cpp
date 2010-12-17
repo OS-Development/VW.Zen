@@ -163,8 +163,6 @@ LLPanelLogin::LLPanelLogin(const LLRect &rect,
 	mHtmlAvailable( TRUE ),
 	mListener(new LLPanelLoginListener(this))
 {
-	setFocusRoot(TRUE);
-
 	setBackgroundVisible(FALSE);
 	setBackgroundOpaque(TRUE);
 
@@ -181,8 +179,11 @@ LLPanelLogin::LLPanelLogin(const LLRect &rect,
 	mPasswordModified = FALSE;
 	LLPanelLogin::sInstance = this;
 
-	// add to front so we are the bottom-most child
-	gViewerWindow->getRootView()->addChildInBack(this);
+	LLView* login_holder = gViewerWindow->getLoginPanelHolder();
+	if (login_holder)
+	{
+		login_holder->addChild(this);
+	}
 
 	// Logo
 	mLogoImage = LLUI::getUIImage("startup_logo");
@@ -230,7 +231,7 @@ LLPanelLogin::LLPanelLogin(const LLRect &rect,
 
 	getChild<LLPanel>("login")->setDefaultBtn("connect_btn");
 
-	std::string channel = gSavedSettings.getString("VersionChannelName");
+	std::string channel = LLVersionInfo::getChannel();
 	std::string version = llformat("%s (%d)",
 								   LLVersionInfo::getShortVersion().c_str(),
 								   LLVersionInfo::getBuild());
@@ -761,7 +762,7 @@ void LLPanelLogin::closePanel()
 {
 	if (sInstance)
 	{
-		gViewerWindow->getRootView()->removeChild( LLPanelLogin::sInstance );
+		LLPanelLogin::sInstance->getParent()->removeChild( LLPanelLogin::sInstance );
 
 		delete sInstance;
 		sInstance = NULL;
@@ -817,7 +818,7 @@ void LLPanelLogin::loadLoginPage()
 								   LLVersionInfo::getShortVersion().c_str(),
 								   LLVersionInfo::getBuild());
 
-	char* curl_channel = curl_escape(gSavedSettings.getString("VersionChannelName").c_str(), 0);
+	char* curl_channel = curl_escape(LLVersionInfo::getChannel().c_str(), 0);
 	char* curl_version = curl_escape(version.c_str(), 0);
 
 	oStr << "&channel=" << curl_channel;

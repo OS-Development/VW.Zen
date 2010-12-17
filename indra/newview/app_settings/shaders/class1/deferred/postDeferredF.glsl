@@ -17,6 +17,10 @@ uniform sampler2D bloomMap;
 
 uniform float depth_cutoff;
 uniform float norm_cutoff;
+uniform float focal_distance;
+uniform float blur_constant;
+uniform float tan_pixel_angle;
+uniform float magnification;
 
 uniform mat4 inv_proj;
 uniform vec2 screen_res;
@@ -32,55 +36,92 @@ float getDepth(vec2 pos_screen)
 	return p.z/p.w;
 }
 
+void dofSample(inout vec4 diff, inout float w, float fd, float x, float y)
+{
+	vec2 tc = vary_fragcoord.xy+vec2(x,y);
+	float d = getDepth(tc);
+	
+	float wg = 1.0;
+	//if (d < fd)
+	//{
+	//	diff += texture2DRect(diffuseRect, tc);
+	//	w = 1.0;
+	//}
+	if (d > fd)
+	{
+		wg = max(d/fd, 0.1);
+	}
+	
+	diff += texture2DRect(diffuseRect, tc+vec2(0.5,0.5))*wg*0.25;
+	diff += texture2DRect(diffuseRect, tc+vec2(-0.5,0.5))*wg*0.25;
+	diff += texture2DRect(diffuseRect, tc+vec2(0.5,-0.5))*wg*0.25;
+	diff += texture2DRect(diffuseRect, tc+vec2(-0.5,-0.5))*wg*0.25;
+	w += wg;
+}
+
+void dofSampleNear(inout vec4 diff, inout float w, float x, float y)
+{
+	vec2 tc = vary_fragcoord.xy+vec2(x,y);
+		
+	diff += texture2DRect(diffuseRect, tc);
+	w += 1.0;
+}
+
 void main() 
 {
 	vec3 norm = texture2DRect(normalMap, vary_fragcoord.xy).xyz;
 	norm = vec3((norm.xy-0.5)*2.0,norm.z); // unpack norm
-	float depth = getDepth(vary_fragcoord.xy);
+	
 	
 	vec2 tc = vary_fragcoord.xy;
 	
 	float sc = 0.75;
 	
-	vec2 de;
-	de.x = (depth-getDepth(tc+vec2(sc, sc))) + (depth-getDepth(tc+vec2(-sc, -sc)));
-	de.y = (depth-getDepth(tc+vec2(-sc, sc))) + (depth-getDepth(tc+vec2(sc, -sc)));
-	de /= depth;
-	de *= de;
-	de = step(depth_cutoff, de);
-	
-	vec2 ne;
-	vec3 nexnorm = texture2DRect(normalMap, tc+vec2(-sc,-sc)).rgb;
-	nexnorm = vec3((nexnorm.xy-0.5)*2.0,nexnorm.z); // unpack norm
-	ne.x = dot(nexnorm, norm);
-	vec3 neynorm = texture2DRect(normalMap, tc+vec2(sc,sc)).rgb;
-	neynorm = vec3((neynorm.xy-0.5)*2.0,neynorm.z); // unpack norm
-	ne.y = dot(neynorm, norm);
-	
-	ne = 1.0-ne;
-	
-	ne = step(norm_cutoff, ne);
-	
-	float edge_weight = clamp(dot(de,de)+dot(ne,ne), 0.0, 1.0);
-	//edge_weight *= 0.0;
-	
-	vec4 bloom = texture2D(bloomMap, vary_fragcoord.xy/screen_res);
+	float depth;
+	depth = getDepth(tc);
+		
 	vec4 diff = texture2DRect(diffuseRect, vary_fragcoord.xy);
-	diff += texture2DRect(diffuseRect, vary_fragcoord.xy+vec2(1,1))*edge_weight;
-	diff += texture2DRect(diffuseRect, vary_fragcoord.xy+vec2(-1,-1))*edge_weight;
-	diff += texture2DRect(diffuseRect, vary_fragcoord.xy+vec2(-1,1))*edge_weight;
-	diff += texture2DRect(diffuseRect, vary_fragcoord.xy+vec2(1,-1))*edge_weight;
-	diff += texture2DRect(diffuseRect, vary_fragcoord.xy+vec2(-1,0))*edge_weight;
-	diff += texture2DRect(diffuseRect, vary_fragcoord.xy+vec2(1,0))*edge_weight;
-	diff += texture2DRect(diffuseRect, vary_fragcoord.xy+vec2(0,1))*edge_weight;
-	diff += texture2DRect(diffuseRect, vary_fragcoord.xy+vec2(0,-1))*edge_weight;
 	
-	diff /= 1.0+edge_weight*8.0;
-	
-	vec4 blur = texture2DRect(edgeMap, vary_fragcoord.xy);
-	
-	//gl_FragColor = vec4(edge_weight,edge_weight,edge_weight, 1.0);
+	{ //pixel is behind far focal plane
+		float w = 1.0;
+		
+		sc = (abs(depth-focal_distance)/-depth)*blur_constant;
+		
+		sc /= magnification;
+		
+		// tan_pixel_angle = pixel_length/-depth;
+		float pixel_length =  tan_pixel_angle*-focal_distance;
+		
+		sc = sc/pixel_length;
+		
+		//diff.r = sc;
+		
+		sc = min(abs(sc), 8.0);
+		
+		//sc = 4.0;
+		
+		float fd = depth*0.5f;
+		
+		while (sc > 1.0)
+		{
+			dofSample(diff,w, fd, sc,sc);
+			dofSample(diff,w, fd, -sc,sc);
+			dofSample(diff,w, fd, sc,-sc);
+			dofSample(diff,w, fd, -sc,-sc);
+			
+			sc -= 0.5;
+			float sc2 = sc*1.414;
+			dofSample(diff,w, fd, 0,sc2);
+			dofSample(diff,w, fd, 0,-sc2);
+			dofSample(diff,w, fd, -sc2,0);
+			dofSample(diff,w, fd, sc2,0);
+			sc -= 0.5;
+		}
+		
+		diff /= w;
+	}
+		
+	vec4 bloom = texture2D(bloomMap, vary_fragcoord.xy/screen_res);
 	gl_FragColor = diff + bloom;
-	//gl_FragColor.r = edge_weight;
 	
 }

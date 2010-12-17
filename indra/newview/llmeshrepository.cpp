@@ -108,47 +108,6 @@ U32 get_volume_memory_size(const LLVolume* volume)
 	return indices*2+vertices*11+sizeof(LLVolume)+sizeof(LLVolumeFace)*volume->getNumVolumeFaces();
 }
 
-std::string scrub_host_name(std::string http_url)
-{ //curl loves to abuse the DNS cache, so scrub host names out of urls where trivial to prevent DNS timeouts
-
-	if (http_url.empty())
-	{
-		return http_url;
-	}
-	// Not safe to scrub amazon paths
-	if (http_url.find("s3.amazonaws.com") != std::string::npos)
-	{
-		return http_url;
-	}
-	std::string::size_type begin_host = http_url.find("://")+3;
-	std::string host_string = http_url.substr(begin_host);
-	
-	std::string::size_type end_host = host_string.find(":");
-	if (end_host == std::string::npos)
-	{
-		end_host = host_string.find("/");
-	}
-	
-	host_string = host_string.substr(0, end_host);
-	
-	std::string::size_type idx = http_url.find(host_string);
-	
-	hostent* ent = gethostbyname(host_string.c_str());
-	
-	if (ent && ent->h_length > 0)
-	{
-		U8* addr = (U8*) ent->h_addr_list[0];
-		
-		std::string ip_string = llformat("%d.%d.%d.%d", addr[0], addr[1], addr[2], addr[3]);
-		if (!ip_string.empty() && !host_string.empty() && idx != std::string::npos)
-		{
-			http_url.replace(idx, host_string.length(), ip_string);
-		}
-	}
-	
-	return http_url;
-}
-
 LLVertexBuffer* get_vertex_buffer_from_mesh(LLCDMeshData& mesh, F32 scale = 1.f)
 {
 	LLVertexBuffer* buff = new LLVertexBuffer(LLVertexBuffer::MAP_VERTEX | LLVertexBuffer::MAP_NORMAL, 0);
@@ -828,7 +787,7 @@ bool LLMeshRepoThread::fetchMeshDecomposition(const LLUUID& mesh_id)
 			{
 				++sActiveLODRequests;
 				LLMeshRepository::sHTTPRequestCount++;
-				mCurlRequest->getByteRange(constructUrl(mesh_id), headers, offset, size,
+				mCurlRequest->getByteRange(http_url, headers, offset, size,
 										   new LLMeshDecompositionResponder(mesh_id, offset, size));
 			}
 		}
@@ -900,7 +859,7 @@ bool LLMeshRepoThread::fetchMeshPhysicsShape(const LLUUID& mesh_id)
 			{
 				++sActiveLODRequests;
 				LLMeshRepository::sHTTPRequestCount++;
-				mCurlRequest->getByteRange(constructUrl(mesh_id), headers, offset, size,
+				mCurlRequest->getByteRange(http_url, headers, offset, size,
 										   new LLMeshPhysicsShapeResponder(mesh_id, offset, size));
 			}
 		}
@@ -1424,9 +1383,6 @@ LLMeshUploadThread::LLMeshUploadThread(LLMeshUploadThread::instance_list& data, 
 	
 	mUploadObjectAssetCapability = gAgent.getRegion()->getCapability("UploadObjectAsset");
 	mNewInventoryCapability = gAgent.getRegion()->getCapability("NewFileAgentInventoryVariablePrice");
-
-	//mUploadObjectAssetCapability = scrub_host_name(mUploadObjectAssetCapability);
-	//mNewInventoryCapability = scrub_host_name(mNewInventoryCapability);
 
 	mOrigin += gAgent.getAtAxis() * scale.magVec();
 }
@@ -2321,7 +2277,6 @@ void LLMeshRepository::notifyLoadedMeshes()
 			region_name = gAgent.getRegion()->getName();
 		
 			mGetMeshCapability = gAgent.getRegion()->getCapability("GetMesh");
-			mGetMeshCapability = scrub_host_name(mGetMeshCapability);
 		}
 	}
 
@@ -2665,6 +2620,12 @@ void LLMeshRepository::buildHull(const LLVolumeParams& params, S32 detail)
 	}
 
 	LLPrimitive::sVolumeManager->unrefVolume(volume);
+}
+
+bool LLMeshRepository::hasPhysicsShape(const LLUUID& mesh_id)
+{
+	LLSD mesh = mThread->getMeshHeader(mesh_id);
+	return mesh.has("physics_shape") && mesh["physics_shape"].has("size") && (mesh["physics_shape"]["size"].asInteger() > 0);
 }
 
 const LLSD& LLMeshRepository::getMeshHeader(const LLUUID& mesh_id)
@@ -3021,7 +2982,6 @@ void LLMeshUploadThread::priceResult(LLMeshUploadData& data, const LLSD& content
 {
 	mPendingCost += content["upload_price"].asInteger();
 	data.mRSVP = content["rsvp"].asString();
-	data.mRSVP = scrub_host_name(data.mRSVP);
 
 	mConfirmedQ.push(data);
 }
@@ -3030,7 +2990,6 @@ void LLMeshUploadThread::priceResult(LLTextureUploadData& data, const LLSD& cont
 {
 	mPendingCost += content["upload_price"].asInteger();
 	data.mRSVP = content["rsvp"].asString();
-	data.mRSVP = scrub_host_name(data.mRSVP);
 
 	mConfirmedTextureQ.push(data);
 }

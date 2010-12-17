@@ -53,7 +53,7 @@
 
 namespace po = boost::program_options;
 
-// *NTOE:MEP - Currently the boost object reside in file scope. 
+// *NOTE:MEP - Currently the boost object reside in file scope.
 // This has a couple of negatives, they are always around and 
 // there can be only one instance of each. 
 // The plus is that the boost-ly-ness of this implementation is 
@@ -156,6 +156,12 @@ public:
         return mIsComposing;
     }
 
+	// Needed for boost 1.42
+	virtual bool is_required() const
+	{
+		return false; // All our command line options are optional.
+	}
+
     virtual bool apply_default(boost::any& value_store) const
     {
         return false; // No defaults.
@@ -169,7 +175,6 @@ public:
         {
            mNotifyCallback(*value);
         }
-
     }
 
 protected:
@@ -340,7 +345,10 @@ bool LLCommandLineParser::parseCommandLine(int argc, char **argv)
 bool LLCommandLineParser::parseCommandLineString(const std::string& str)
 {
     // Split the string content into tokens
-    boost::escaped_list_separator<char> sep("\\", "\r\n ", "\"'");
+	const char* escape_chars = "\\";
+	const char* separator_chars = "\r\n ";
+	const char* quote_chars = "\"'";
+    boost::escaped_list_separator<char> sep(escape_chars, separator_chars, quote_chars);
     boost::tokenizer< boost::escaped_list_separator<char> > tok(str, sep);
     std::vector<std::string> tokens;
     // std::copy(tok.begin(), tok.end(), std::back_inserter(tokens));

@@ -264,7 +264,6 @@ public:
 	void renderDebug();
 	void renderPhysicsDisplay();
 
-	void renderForSelect(std::set<LLViewerObject*>& objects, BOOL render_transparent, const LLRect& screen_rect);
 	void rebuildPools(); // Rebuild pools
 
 	void findReferences(LLDrawable *drawablep);	// Find the lists which have references to this object
@@ -279,6 +278,7 @@ public:
 	void enableLightsStatic();
 	void enableLightsDynamic();
 	void enableLightsAvatar();
+	void enableLightsPreview();
 	void enableLightsAvatarEdit(const LLColor4& color);
 	void enableLightsFullbright(const LLColor4& color);
 	void disableLights();
@@ -742,7 +742,6 @@ void render_bbox(const LLVector3 &min, const LLVector3 &max);
 void render_hud_elements();
 
 extern LLPipeline gPipeline;
-extern BOOL gRenderForSelect;
 extern BOOL gDebugPipeline;
 extern const LLMatrix4* gGLLastMatrix;
 

@@ -27,6 +27,7 @@
 
 #include "linden_common.h"
 #include "llurlentry.h"
+#include "lluictrl.h"
 #include "lluri.h"
 #include "llurlmatch.h"
 #include "llurlregistry.h"
@@ -167,6 +168,15 @@ void LLUrlEntryBase::callObservers(const std::string &id,
 	}
 }
 
+/// is this a match for a URL that should not be hyperlinked?
+bool LLUrlEntryBase::isLinkDisabled() const
+{
+	// this allows us to have a global setting to turn off text hyperlink highlighting/action
+	bool globally_disabled = LLUI::sSettingGroups["config"]->getBOOL("DisableTextHyperlinkActions");
+
+	return globally_disabled;
+}
+
 static std::string getStringAfterToken(const std::string str, const std::string token)
 {
 	size_t pos = str.find(token);
@@ -209,7 +219,13 @@ LLUrlEntryHTTPLabel::LLUrlEntryHTTPLabel()
 
 std::string LLUrlEntryHTTPLabel::getLabel(const std::string &url, const LLUrlLabelCallback &cb)
 {
-	return getLabelFromWikiLink(url);
+	std::string label = getLabelFromWikiLink(url);
+	return (!LLUrlRegistry::instance().hasUrl(label)) ? label : getUrl(url);
+}
+
+std::string LLUrlEntryHTTPLabel::getTooltip(const std::string &string) const
+{
+	return getUrl(string);
 }
 
 std::string LLUrlEntryHTTPLabel::getUrl(const std::string &string) const
@@ -450,8 +466,8 @@ std::string LLUrlEntryAgent::getLabel(const std::string &url, const LLUrlLabelCa
 LLStyle::Params LLUrlEntryAgent::getStyle() const
 {
 	LLStyle::Params style_params = LLUrlEntryBase::getStyle();
-	style_params.color = LLUIColorTable::instance().getColor("AgentLinkColor");
-	style_params.readonly_color = LLUIColorTable::instance().getColor("AgentLinkColor");
+	style_params.color = LLUIColorTable::instance().getColor("HTMLLinkColor");
+	style_params.readonly_color = LLUIColorTable::instance().getColor("HTMLLinkColor");
 	return style_params;
 }
 

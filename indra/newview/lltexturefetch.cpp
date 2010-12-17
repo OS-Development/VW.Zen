@@ -51,8 +51,6 @@
 #include "llviewerstats.h"
 #include "llworld.h"
 
-std::string scrub_host_name(std::string http_url);
-
 //////////////////////////////////////////////////////////////////////////////
 class LLTextureFetchWorker : public LLWorkerClass
 {
@@ -914,7 +912,7 @@ bool LLTextureFetchWorker::doWork(S32 param)
 				// Will call callbackHttpGet when curl request completes
 				std::vector<std::string> headers;
 				headers.push_back("Accept: image/x-j2c");
-				res = mFetcher->mCurlGetRequest->getByteRange(scrub_host_name(mUrl), headers, offset, mRequestedSize,
+				res = mFetcher->mCurlGetRequest->getByteRange(mUrl, headers, offset, mRequestedSize,
 															  new HTTPGetResponder(mFetcher, mID, LLTimer::getTotalTime(), mRequestedSize, offset, true));
 			}
 			if (!res)
@@ -1576,7 +1574,6 @@ bool LLTextureFetch::createRequest(const std::string& url, const LLUUID& id, con
 	if (!url.empty() && (!exten.empty() && LLImageBase::getCodecFromExtension(exten) != IMG_CODEC_J2C))
 	{
 		// Only do partial requests for J2C at the moment
-		//llinfos << "Merov : LLTextureFetch::createRequest(), blocking fetch on " << url << llendl;
 		desired_size = MAX_IMAGE_DATA_SIZE;
 		desired_discard = 0;
 	}

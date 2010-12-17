@@ -94,6 +94,8 @@ public:
 
 	virtual LLUUID	getID(const std::string &string) const { return LLUUID::null; }
 
+	bool isLinkDisabled() const;
+
 protected:
 	std::string getIDStringFromUrl(const std::string &url) const;
 	std::string escapeUrl(const std::string &url) const;
@@ -133,6 +135,7 @@ class LLUrlEntryHTTPLabel : public LLUrlEntryBase
 public:
 	LLUrlEntryHTTPLabel();
 	/*virtual*/ std::string getLabel(const std::string &url, const LLUrlLabelCallback &cb);
+	/*virtual*/ std::string getTooltip(const std::string &string) const;
 	/*virtual*/ std::string getUrl(const std::string &string) const;
 };
 
@@ -182,7 +185,7 @@ private:
 /// secondlife:///app/agent/0e346d8b-4433-4d66-a6b0-fd37083abc4c/(completename|displayname|username)
 /// that displays various forms of user name
 /// This is a base class for the various implementations of name display
-class LLUrlEntryAgentName : public LLUrlEntryBase
+class LLUrlEntryAgentName : public LLUrlEntryBase, public boost::signals2::trackable
 {
 public:
 	LLUrlEntryAgentName();

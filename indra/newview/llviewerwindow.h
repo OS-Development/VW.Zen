@@ -288,6 +288,7 @@ public:
 	LLView*			getNonSideTrayView() { return mNonSideTrayView.get(); }
 	LLView*			getFloaterViewHolder() { return mFloaterViewHolder.get(); }
 	LLView*			getHintHolder() { return mHintHolder.get(); }
+	LLView*			getLoginPanelHolder() { return mLoginPanelHolder.get(); }
 	BOOL			handleKey(KEY key, MASK mask);
 	void			handleScrollWheel	(S32 clicks);
 
@@ -316,8 +317,7 @@ public:
 	typedef enum
 	{
 		SNAPSHOT_TYPE_COLOR,
-		SNAPSHOT_TYPE_DEPTH,
-		SNAPSHOT_TYPE_OBJECT_ID
+		SNAPSHOT_TYPE_DEPTH
 	} ESnapshotType;
 	BOOL			saveSnapshot(const std::string&  filename, S32 image_width, S32 image_height, BOOL show_ui = TRUE, BOOL do_rebuild = FALSE, ESnapshotType type = SNAPSHOT_TYPE_COLOR);
 	BOOL			rawSnapshot(LLImageRaw *raw, S32 image_width, S32 image_height, BOOL keep_window_aspect = TRUE, BOOL is_texture = FALSE,
@@ -450,6 +450,7 @@ protected:
 	LLHandle<LLView> mNonSideTrayView;		// parent of world view + bottom bar, etc...everything but the side tray
 	LLHandle<LLView> mFloaterViewHolder;	// container for floater_view
 	LLHandle<LLView> mHintHolder;			// container for hints
+	LLHandle<LLView> mLoginPanelHolder;		// container for login panel
 	LLPopupView*	mPopupView;			// container for transient popups
 	
 	class LLDebugText* mDebugText; // Internal class for debug text

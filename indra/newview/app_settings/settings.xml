@@ -1,5 +1,6 @@
 <?xml version="1.0" ?>
-<llsd>
+<llsd xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:noNamespaceSchemaLocation="llsd.xsd">
 <map>
 	<key>CrashHostUrl</key>
     <map>
@@ -34,6 +35,17 @@
       <string>Boolean</string>
       <key>Value</key>
       <integer>0</integer>
+    </map>
+    <key>ActiveFloaterTransparency</key>
+    <map>
+      <key>Comment</key>
+      <string>Transparency of active floaters (floaters that have focus)</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>F32</string>
+      <key>Value</key>
+      <real>0.95</real>
     </map>
     <key>AdvanceSnapshot</key>
     <map>
@@ -595,6 +607,17 @@
       <string>U32</string>
       <key>Value</key>
       <integer>2</integer>
+    </map>
+    <key>AvatarPickerURL</key>
+    <map>
+      <key>Comment</key>
+      <string>Avatar picker contents</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>String</string>
+      <key>Value</key>
+      <string>http://interest.secondlife.com/viewer/avatar</string>
     </map>
     <key>AvatarBakedTextureUploadTimeout</key>
     <map>
@@ -1161,13 +1184,13 @@
     <key>CacheNumberOfRegionsForObjects</key>
     <map>
       <key>Comment</key>
-      <string>Controls number of regions to be cached for objects, ranges from 16 to 128.</string>
+      <string>Controls number of regions to be cached for objects.</string>
       <key>Persist</key>
       <integer>1</integer>
       <key>Type</key>
       <string>U32</string>
       <key>Value</key>
-      <integer>128</integer>
+      <integer>20000</integer>
     </map>
     <key>CacheSize</key>
     <map>
@@ -1332,7 +1355,56 @@
       <key>Value</key>
       <integer>0</integer>
     </map>
-    <key>CertStore</key>
+
+  <key>CameraFNumber</key>
+  <map>
+    <key>Comment</key>
+    <string>Camera f-number value for DoF effect</string>
+    <key>Persist</key>
+    <integer>1</integer>
+    <key>Type</key>
+    <string>F32</string>
+    <key>Value</key>
+    <real>9.0</real>
+  </map>
+
+  <key>CameraFocalLength</key>
+  <map>
+    <key>Comment</key>
+    <string>Camera focal length for DoF effect (in millimeters)</string>
+    <key>Persist</key>
+    <integer>1</integer>
+    <key>Type</key>
+    <string>F32</string>
+    <key>Value</key>
+    <real>50</real>
+  </map>
+
+  <key>CameraFieldOfView</key>
+  <map>
+    <key>Comment</key>
+    <string>Vertical camera field of view for DoF effect (in degrees)</string>
+    <key>Persist</key>
+    <integer>1</integer>
+    <key>Type</key>
+    <string>F32</string>
+    <key>Value</key>
+    <real>60.0</real>
+  </map>
+
+  <key>CameraAspectRatio</key>
+  <map>
+    <key>Comment</key>
+    <string>Camera aspect ratio for DoF effect</string>
+    <key>Persist</key>
+    <integer>1</integer>
+    <key>Type</key>
+    <string>F32</string>
+    <key>Value</key>
+    <real>1.5</real>
+  </map>
+
+  <key>CertStore</key>
     <map>
       <key>Comment</key>
       <string>Specifies the Certificate Store for certificate trust verification</string>
@@ -1353,6 +1425,17 @@
       <string>Boolean</string>
       <key>Value</key>
       <integer>1</integer>
+    </map>
+    <key>LetterKeysFocusChatBar</key>
+    <map>
+      <key>Comment</key>
+      <string>When printable characters keys (possibly with Shift held) are pressed, the chatbar takes focus</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>S32</string>
+      <key>Value</key>
+      <integer>0</integer>
     </map>
     <key>ChatBubbleOpacity</key>
     <map>
@@ -2545,7 +2628,18 @@
       <key>Value</key>
       <integer>10</integer>
     </map>
-    <key>DisableCameraConstraints</key>
+    <key>DestinationGuideURL</key>
+    <map>
+      <key>Comment</key>
+      <string>Destination guide contents</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>String</string>
+      <key>Value</key>
+      <string>http://www.secondlife.com</string>
+    </map>
+  <key>DisableCameraConstraints</key>
     <map>
       <key>Comment</key>
       <string>Disable the normal bounds put on the camera by avatar position</string>
@@ -2567,10 +2661,32 @@
       <key>Value</key>
       <integer>0</integer>
     </map>
+    <key>DisableExternalBrowser</key>
+    <map>
+      <key>Comment</key>
+      <string>Disable opening an external browser.</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>0</integer>
+    </map>
     <key>DisableRendering</key>
     <map>
       <key>Comment</key>
       <string>Disable GL rendering and GUI (load testing)</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>0</integer>
+    </map>
+    <key>DisableTextHyperlinkActions</key>
+    <map>
+      <key>Comment</key>
+      <string>Disable highlighting and linking of URLs in XUI text boxes</string>
       <key>Persist</key>
       <integer>1</integer>
       <key>Type</key>
@@ -2721,6 +2837,28 @@
       <key>Value</key>
       <integer>1</integer>
     </map>
+    <key>ClickActionBuyEnabled</key>
+    <map>
+      <key>Comment</key>
+      <string>Enable click to buy actions in tool pie menu</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>1</integer>
+    </map>
+    <key>ClickActionPayEnabled</key>
+    <map>
+      <key>Comment</key>
+      <string>Enable click to pay actions in tool pie menu</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>1</integer>
+    </map>
     <key>DoubleClickAutoPilot</key>
     <map>
       <key>Comment</key>
@@ -2857,6 +2995,39 @@
       <map>
       <key>Comment</key>
       <string>1 = normal behavior, 0 = disable display of swirling lights when scripts communicate</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>1</integer>
+    </map>
+    <key>EnableGrab</key>
+    <map>
+      <key>Comment</key>
+      <string>Use Ctrl+mouse to grab and manipulate objects</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>1</integer>
+    </map>
+    <key>EnableAltZoom</key>
+    <map>
+      <key>Comment</key>
+      <string>Use Alt+mouse to look at and zoom in on objects</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>1</integer>
+    </map>
+    <key>EnableMouselook</key>
+    <map>
+      <key>Comment</key>
+      <string>Allow first person perspective and mouse control of camera</string>
       <key>Persist</key>
       <integer>1</integer>
       <key>Type</key>
@@ -3557,72 +3728,6 @@
       <key>Value</key>
       <real>0.5</real>
     </map>
-    <key>FontMonospace</key>
-    <map>
-      <key>Comment</key>
-      <string>Name of monospace font that definitely exists (Truetype file name)</string>
-      <key>Persist</key>
-      <integer>0</integer>
-      <key>Type</key>
-      <string>String</string>
-      <key>Value</key>
-      <string>DejaVuSansMono.ttf</string>
-    </map>
-    <key>FontSansSerif</key>
-    <map>
-      <key>Comment</key>
-      <string>Name of primary sans-serif font that definitely exists (Truetype file name)</string>
-      <key>Persist</key>
-      <integer>0</integer>
-      <key>Type</key>
-      <string>String</string>
-      <key>Value</key>
-      <string>MtBkLfRg.ttf</string>
-    </map>
-    <key>FontSansSerifBundledFallback</key>
-    <map>
-      <key>Comment</key>
-      <string>Name of secondary sans-serif font that definitely exists (Truetype file name)</string>
-      <key>Persist</key>
-      <integer>0</integer>
-      <key>Type</key>
-      <string>String</string>
-      <key>Value</key>
-      <string>DejaVuSansCondensed.ttf</string>
-    </map>
-    <key>FontSansSerifBold</key>
-    <map>
-      <key>Comment</key>
-      <string>Name of bold font (Truetype file name)</string>
-      <key>Persist</key>
-      <integer>0</integer>
-      <key>Type</key>
-      <string>String</string>
-      <key>Value</key>
-      <string>MtBdLfRg.ttf</string>
-    </map>
-    <key>FontSansSerifFallback</key>
-    <map>
-      <key>Comment</key>
-      <string>Name of sans-serif font (Truetype file name)</string>
-      <key>Persist</key>
-      <integer>0</integer>
-      <key>Type</key>
-      <string>String</string>
-      <key>Value</key>
-      <string />
-    </map>
-    <key>FontSansSerifFallbackScale</key>
-    <map>
-      <key>Comment</key>
-      <string>Scale of fallback font relative to huge font (fraction of huge font size)</string>
-      <key>Persist</key>
-      <integer>1</integer>
-      <key>Type</key>
-      <string>F32</string>
-      <key>Value</key>
-      <real>1.0</real>
-    </map>
     <key>FontScreenDPI</key>
     <map>
       <key>Comment</key>
@@ -3633,61 +3738,6 @@
       <string>F32</string>
       <key>Value</key>
       <real>96.0</real>
-    </map>
-    <key>FontSizeHuge</key>
-    <map>
-      <key>Comment</key>
-      <string>Size of huge font (points, or 1/72 of an inch)</string>
-      <key>Persist</key>
-      <integer>1</integer>
-      <key>Type</key>
-      <string>F32</string>
-      <key>Value</key>
-      <real>16.0</real>
-    </map>
-    <key>FontSizeLarge</key>
-    <map>
-      <key>Comment</key>
-      <string>Size of large font (points, or 1/72 of an inch)</string>
-      <key>Persist</key>
-      <integer>1</integer>
-      <key>Type</key>
-      <string>F32</string>
-      <key>Value</key>
-      <real>12.0</real>
-    </map>
-    <key>FontSizeMedium</key>
-    <map>
-      <key>Comment</key>
-      <string>Size of medium font (points, or 1/72 of an inch)</string>
-      <key>Persist</key>
-      <integer>1</integer>
-      <key>Type</key>
-      <string>F32</string>
-      <key>Value</key>
-      <real>10.0</real>
-    </map>
-    <key>FontSizeMonospace</key>
-    <map>
-      <key>Comment</key>
-      <string>Size of monospaced font (points, or 1/72 of an inch)</string>
-      <key>Persist</key>
-      <integer>1</integer>
-      <key>Type</key>
-      <string>F32</string>
-      <key>Value</key>
-      <real>8.1</real>
-    </map>
-    <key>FontSizeSmall</key>
-    <map>
-      <key>Comment</key>
-      <string>Size of small font (points, or 1/72 of an inch)</string>
-      <key>Persist</key>
-      <integer>1</integer>
-      <key>Type</key>
-      <string>F32</string>
-      <key>Value</key>
-      <real>9.0</real>
     </map>
     <key>ForceAssetFail</key>
     <map>
@@ -3881,7 +3931,7 @@
       <key>Comment</key>
       <string>URL pattern for help page; arguments will be encoded; see llviewerhelp.cpp:buildHelpURL for arguments</string>
       <key>Persist</key>
-      <integer>0</integer>
+      <integer>1</integer>
       <key>Type</key>
       <string>String</string>
       <key>Value</key>
@@ -3931,6 +3981,17 @@
       <key>Value</key>
       <integer>0</integer>
     </map>	
+    <key>HostID</key>
+    <map>
+      <key>Comment</key>
+      <string>Machine identifier for hosted Second Life instances</string>
+      <key>Persist</key>
+      <integer>0</integer>
+      <key>Type</key>
+      <string>String</string>
+      <key>Value</key>
+      <string />
+    </map>
     <key>HtmlHelpLastPage</key>
     <map>
       <key>Comment</key>
@@ -3969,7 +4030,7 @@
       <key>Comment</key>
       <string>Ignore all notifications so we never need user input on them.</string>
       <key>Persist</key>
-      <integer>0</integer>
+      <integer>1</integer>
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
@@ -3996,6 +4057,17 @@
       <string>Boolean</string>
       <key>Value</key>
       <integer>1</integer>
+    </map>
+    <key>InactiveFloaterTransparency</key>
+    <map>
+      <key>Comment</key>
+      <string>Transparency of inactive floaters (floaters that have no focus)</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>F32</string>
+      <key>Value</key>
+      <real>0.65</real>
     </map>
     <key>InBandwidth</key>
     <map>
@@ -4591,6 +4663,17 @@
       <string>S32</string>
       <key>Value</key>
       <integer>0</integer>
+    </map>
+    <key>LocalFileSystemBrowsingEnabled</key>
+    <map>
+      <key>Comment</key>
+      <string>Enable/disable access to the local file system via the file picker</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>1</integer>
     </map>
   <key>LoginSRVTimeout</key>
   <map>
@@ -5218,61 +5301,6 @@
       <string>F32</string>
       <key>Value</key>
       <real>60.0</real>
-    </map>
-    <key>MeanCollisionBump</key>
-    <map>
-      <key>Comment</key>
-      <string>You have experienced an abuse of being bumped by an object or avatar</string>
-      <key>Persist</key>
-      <integer>1</integer>
-      <key>Type</key>
-      <string>Boolean</string>
-      <key>Value</key>
-      <integer>0</integer>
-    </map>
-    <key>MeanCollisionPhysical</key>
-    <map>
-      <key>Comment</key>
-      <string>You have experienced an abuse from a physical object</string>
-      <key>Persist</key>
-      <integer>1</integer>
-      <key>Type</key>
-      <string>Boolean</string>
-      <key>Value</key>
-      <integer>0</integer>
-    </map>
-    <key>MeanCollisionPushObject</key>
-    <map>
-      <key>Comment</key>
-      <string>You have experienced an abuse of being pushed by a scripted object</string>
-      <key>Persist</key>
-      <integer>1</integer>
-      <key>Type</key>
-      <string>Boolean</string>
-      <key>Value</key>
-      <integer>0</integer>
-    </map>
-    <key>MeanCollisionScripted</key>
-    <map>
-      <key>Comment</key>
-      <string>You have experienced an abuse from a scripted object</string>
-      <key>Persist</key>
-      <integer>1</integer>
-      <key>Type</key>
-      <string>Boolean</string>
-      <key>Value</key>
-      <integer>0</integer>
-    </map>
-    <key>MeanCollisionSelected</key>
-    <map>
-      <key>Comment</key>
-      <string>You have experienced an abuse of being pushed via a selected object</string>
-      <key>Persist</key>
-      <integer>1</integer>
-      <key>Type</key>
-      <string>Boolean</string>
-      <key>Value</key>
-      <integer>0</integer>
     </map>
   <key>MediaControlFadeTime</key>
   <map>
@@ -6419,7 +6447,177 @@
       <key>Value</key>
 	  <integer>13</integer>
     </map>
-	<key>PrimMediaMasterEnabled</key>
+
+  <key>PreviewAmbientColor</key>
+  <map>
+    <key>Comment</key>
+    <string>Ambient color of preview render.</string>
+    <key>Persist</key>
+    <integer>1</integer>
+    <key>Type</key>
+    <string>Color4</string>
+    <key>Value</key>
+    <array>
+      <real>0.0</real>
+      <real>0.0</real>
+      <real>0.0</real>
+      <real>1.0</real>
+    </array>
+  </map>
+
+
+  <key>PreviewDiffuse0</key>
+  <map>
+    <key>Comment</key>
+    <string>Diffise color of preview light 0.</string>
+    <key>Persist</key>
+    <integer>1</integer>
+    <key>Type</key>
+    <string>Color4</string>
+    <key>Value</key>
+    <array>
+      <real>1.0</real>
+      <real>1.0</real>
+      <real>1.0</real>
+      <real>1.0</real>
+    </array>
+  </map>
+
+  <key>PreviewDiffuse1</key>
+  <map>
+    <key>Comment</key>
+    <string>Diffise color of preview light 1.</string>
+    <key>Persist</key>
+    <integer>1</integer>
+    <key>Type</key>
+    <string>Color4</string>
+    <key>Value</key>
+    <array>
+      <real>0.25</real>
+      <real>0.25</real>
+      <real>0.25</real>
+      <real>1.0</real>
+    </array>
+  </map>
+
+  <key>PreviewDiffuse2</key>
+  <map>
+    <key>Comment</key>
+    <string>Diffise color of preview light 2.</string>
+    <key>Persist</key>
+    <integer>1</integer>
+    <key>Type</key>
+    <string>Color4</string>
+    <key>Value</key>
+    <array>
+      <real>1.0</real>
+      <real>1.0</real>
+      <real>1.0</real>
+      <real>1.0</real>
+    </array>
+  </map>
+
+  <key>PreviewSpecular0</key>
+  <map>
+    <key>Comment</key>
+    <string>Diffise color of preview light 0.</string>
+    <key>Persist</key>
+    <integer>1</integer>
+    <key>Type</key>
+    <string>Color4</string>
+    <key>Value</key>
+    <array>
+      <real>1.0</real>
+      <real>1.0</real>
+      <real>1.0</real>
+      <real>1.0</real>
+    </array>
+  </map>
+
+  <key>PreviewSpecular1</key>
+  <map>
+    <key>Comment</key>
+    <string>Diffise color of preview light 1.</string>
+    <key>Persist</key>
+    <integer>1</integer>
+    <key>Type</key>
+    <string>Color4</string>
+    <key>Value</key>
+    <array>
+      <real>1.0</real>
+      <real>1.0</real>
+      <real>1.0</real>
+      <real>1.0</real>
+    </array>
+  </map>
+
+  <key>PreviewSpecular2</key>
+  <map>
+    <key>Comment</key>
+    <string>Diffise color of preview light 2.</string>
+    <key>Persist</key>
+    <integer>1</integer>
+    <key>Type</key>
+    <string>Color4</string>
+    <key>Value</key>
+    <array>
+      <real>1.0</real>
+      <real>1.0</real>
+      <real>1.0</real>
+      <real>1.0</real>
+    </array>
+  </map>
+
+
+  <key>PreviewDirection0</key>
+  <map>
+    <key>Comment</key>
+    <string>Direction of light 0 for preview render.</string>
+    <key>Persist</key>
+    <integer>1</integer>
+    <key>Type</key>
+    <string>Vector3</string>
+    <key>Value</key>
+    <array>
+      <real>-0.75</real>
+      <real>1</real>
+      <real>1.0</real>
+    </array>
+  </map>
+
+  <key>PreviewDirection1</key>
+  <map>
+    <key>Comment</key>
+    <string>Direction of light 1 for preview render.</string>
+    <key>Persist</key>
+    <integer>1</integer>
+    <key>Type</key>
+    <string>Vector3</string>
+    <key>Value</key>
+    <array>
+      <real>0.5</real>
+      <real>-0.6</real>
+      <real>0.4</real>
+    </array>
+  </map>
+  
+  <key>PreviewDirection2</key>
+  <map>
+    <key>Comment</key>
+    <string>Direction of light 2 for preview render.</string>
+    <key>Persist</key>
+    <integer>1</integer>
+    <key>Type</key>
+    <string>Vector3</string>
+    <key>Value</key>
+    <array>
+      <real>0.5</real>
+      <real>-0.8</real>
+      <real>0.3</real>
+    </array>
+  </map>
+
+  <key>PrimMediaMasterEnabled</key>
 	<map>
 	  <key>Comment</key>
       <string>Whether or not Media on a Prim is enabled.</string>
@@ -6616,6 +6814,28 @@
       <string>F32</string>
       <key>Value</key>
       <real>0.0</real>
+    </map>
+    <key>QuitAfterSecondsOfAFK</key>
+    <map>
+      <key>Comment</key>
+      <string>The duration allowed after being AFK before quitting.</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>F32</string>
+      <key>Value</key>
+      <real>0.0</real>
+    </map>
+    <key>QuitOnLoginActivated</key>
+    <map>
+      <key>Comment</key>
+      <string>Quit if login page is activated (used when auto login is on and users must not be able to login manually)</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>0</integer>
     </map>
     <key>RadioLandBrushAction</key>
     <map>
@@ -7922,17 +8142,6 @@
       <key>Value</key>
       <integer>1</integer>
     </map>
-    <key>RenderFastUI</key>
-    <map>
-      <key>Comment</key>
-      <string>[NOT USED]</string>
-      <key>Persist</key>
-      <integer>1</integer>
-      <key>Type</key>
-      <string>Boolean</string>
-      <key>Value</key>
-      <integer>0</integer>
-    </map>
     <key>RenderFlexTimeFactor</key>
     <map>
       <key>Comment</key>
@@ -8448,6 +8657,28 @@
       <key>Value</key>
       <real>1.0</real>
     </map>
+    <key>RenderTrackerBeacon</key>
+    <map>
+      <key>Comment</key>
+      <string>Display tracking arrow and beacon to target avatar, teleport destination</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>1</integer>
+    </map>
+	<key>RenderTransparentWater</key>
+	<map>
+	  <key>Comment</key>
+	  <string>Render water as transparent.  Setting to false renders water as opaque with a simple texture applied.</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>1</integer>
+	</map>
     <key>RenderTreeLODFactor</key>
     <map>
       <key>Comment</key>
@@ -8491,17 +8722,6 @@
       <string>Boolean</string>
       <key>Value</key>
       <integer>0</integer>
-    </map>
-    <key>RenderUseFBO</key>
-    <map>
-      <key>Comment</key>
-      <string>Whether we want to use GL_EXT_framebuffer_objects.</string>
-      <key>Persist</key>
-      <integer>1</integer>
-      <key>Type</key>
-      <string>Boolean</string>
-      <key>Value</key>
-      <integer>1</integer>
     </map>
   <key>RenderUseTriStrips</key>
   <map>
@@ -8635,6 +8855,17 @@
       <key>Value</key>
       <integer>512</integer>
     </map>
+    <key>RenderParcelSelection</key>
+    <map>
+      <key>Comment</key>
+      <string>Display selected parcel outline</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>1</integer>
+    </map>
     <key>RotateRight</key>
     <map>
       <key>Comment</key>
@@ -8766,6 +8997,17 @@
       <string>Boolean</string>
       <key>Value</key>
       <integer>0</integer>
+    </map>
+    <key>ScriptsCanShowUI</key>
+    <map>
+      <key>Comment</key>
+      <string>Allow LSL calls (such as LLMapDestination) to spawn viewer UI</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>1</integer>
     </map>
     <key>SecondLifeEnterprise</key>
     <map>
@@ -11231,7 +11473,62 @@
       <key>Value</key>
       <integer>15</integer>
     </map>
-	<key>UploadBakedTexOld</key>
+    <key>UpdaterServiceActive</key>
+    <map>
+      <key>Comment</key>
+      <string>Enable or disable the updater service.</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>1</integer>
+    </map>
+    <key>UpdaterServiceCheckPeriod</key>
+    <map>
+      <key>Comment</key>
+      <string>Default period between update checking.</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>U32</string>
+      <key>Value</key>
+      <integer>3600</integer>
+    </map>
+    <key>UpdaterServiceURL</key>
+    <map>
+      <key>Comment</key>
+      <string>Default location for the updater service.</string>
+      <key>Persist</key>
+      <integer>0</integer>
+      <key>Type</key>
+      <string>String</string>
+      <key>Value</key>
+      <string>https://update.secondlife.com</string>
+    </map>
+    <key>UpdaterServicePath</key>
+    <map>
+      <key>Comment</key>
+      <string>Path on the update server host.</string>
+      <key>Persist</key>
+      <integer>0</integer>
+      <key>Type</key>
+      <string>String</string>
+      <key>Value</key>
+      <string>update</string>
+    </map>
+    <key>UpdaterServiceProtocolVersion</key>
+    <map>
+      <key>Comment</key>
+      <string>The update protocol version to use.</string>
+      <key>Persist</key>
+      <integer>0</integer>
+      <key>Type</key>
+      <string>String</string>
+      <key>Value</key>
+      <string>v1.0</string>
+    </map>
+    <key>UploadBakedTexOld</key>
     <map>
       <key>Comment</key>
       <string>Forces the baked texture pipeline to upload using the old method.</string>
@@ -11551,6 +11848,28 @@
       <key>Value</key>
       <integer>1</integer>
     </map>
+    <key>InterpolationTime</key>
+    <map>
+      <key>Comment</key>
+      <string>How long to extrapolate object motion after last packet received</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>F32</string>
+      <key>Value</key>
+      <integer>3.0</integer>
+    </map>
+    <key>InterpolationPhaseOut</key>
+    <map>
+      <key>Comment</key>
+      <string>Seconds to phase out interpolated motion</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>F32</string>
+      <key>Value</key>
+      <integer>1.0</integer>
+    </map>
     <key>VerboseLogs</key>
     <map>
       <key>Comment</key>
@@ -11561,17 +11880,6 @@
       <string>Boolean</string>
       <key>Value</key>
       <integer>0</integer>
-    </map>
-    <key>VersionChannelName</key>
-    <map>
-      <key>Comment</key>
-      <string>Versioning Channel Name.</string>
-      <key>Persist</key>
-      <integer>0</integer>
-      <key>Type</key>
-      <string>String</string>
-      <key>Value</key>
-      <string>Second Life Release</string>
     </map>
     <key>VertexShaderEnable</key>
     <map>
@@ -11665,6 +11973,28 @@
     <map>
       <key>Comment</key>
       <string>Only accept voice calls from residents on your friends list</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>0</integer>
+    </map>
+    <key>VoiceCallsRejectAll</key>
+    <map>
+      <key>Comment</key>
+      <string>Silently reject all incoming voice calls.</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>0</integer>
+    </map>
+    <key>VoiceDisableMic</key>
+    <map>
+      <key>Comment</key>
+      <string>Completely disable the ability to open the mic.</string>
       <key>Persist</key>
       <integer>1</integer>
       <key>Type</key>
@@ -11980,6 +12310,17 @@
       <key>Value</key>
       <integer>1</integer>
     </map>
+    <key>WindowFullScreen</key>
+    <map>
+      <key>Comment</key>
+      <string>SL viewer window full screen</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>0</integer>
+    </map>
     <key>WindowHeight</key>
     <map>
       <key>Comment</key>
@@ -12046,10 +12387,10 @@
       <key>Value</key>
       <real>150000.0</real>
     </map>
-    <key>XUIEditor</key>
+    <key>ExternalEditor</key>
     <map>
       <key>Comment</key>
-      <string>Path to program used to edit XUI files</string>
+      <string>Path to program used to edit LSL scripts and XUI files, e.g.: /usr/bin/gedit --new-window "%s"</string>
       <key>Persist</key>
       <integer>1</integer>
       <key>Type</key>
@@ -12277,6 +12618,7 @@
       <key>Comment</key>
       <string>Maximum texture width for user uploaded textures</string>
       <key>Persist</key>
+      <integer>1</integer>
       <key>Type</key>
       <string>S32</string>
       <key>Value</key>
@@ -12316,6 +12658,7 @@
       <key>Value</key>
       <array>
 	      <string>snapshot</string>
+	      <string>postcard</string>
 	      <string>mini_map</string>
       </array>
     </map>
@@ -12378,6 +12721,17 @@
     <map>
       <key>Comment</key>
       <string>Number of seconds to wait before telling resident about destination guide.</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>F32</string>
+      <key>Value</key>
+      <real>1200.0</real>
+    </map>
+    <key>AvatarPickerHintTimeout</key>
+    <map>
+      <key>Comment</key>
+      <string>Number of seconds to wait before telling resident about avatar picker.</string>
       <key>Persist</key>
       <integer>1</integer>
       <key>Type</key>

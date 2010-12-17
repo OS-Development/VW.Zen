@@ -7,8 +7,9 @@ macro (check_message_template _target)
       TARGET ${_target}
       POST_BUILD
       COMMAND ${PYTHON_EXECUTABLE}
-      ARGS ${SCRIPTS_DIR}/template_verifier.py
-           --mode=development --cache_master
-      COMMENT "Verifying message template"
+      ARGS ${SCRIPTS_DIR}/md5check.py
+           0441fea513458ade4b81607acf481692
+           ${SCRIPTS_DIR}/messages/message_template.msg
+      COMMENT "Verifying message template - See http://wiki.secondlife.com/wiki/Template_verifier.py"
       )
 endmacro (check_message_template)

@@ -517,8 +517,6 @@ class LLFileTakeSnapshotToDisk : public view_listener_t
 									   gSavedSettings.getBOOL("RenderUIInSnapshot"),
 									   FALSE))
 		{
-			gViewerWindow->playSnapshotAnimAndSound();
-			
 			LLPointer<LLImageFormatted> formatted;
 			switch(LLFloaterSnapshot::ESnapshotFormat(gSavedSettings.getS32("SnapshotFormat")))
 			{
@@ -623,7 +621,7 @@ LLUUID upload_new_resource(
 				"No file extension for the file: '%s'\nPlease make sure the file has a correct file extension",
 				short_name.c_str());
 		args["FILE"] = short_name;
- 		upload_error(error_message, "NofileExtension", filename, args);
+ 		upload_error(error_message, "NoFileExtension", filename, args);
 		return LLUUID();
 	}
 	else if( exten == "bmp")
