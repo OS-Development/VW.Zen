@@ -94,8 +94,7 @@
 #include "lltoggleablemenu.h"
 #include "llvfile.h"
 #include "llvfs.h"
-
-
+#include "llcallbacklist.h"
 
 #include "glod/glod.h"
 
@@ -1600,8 +1599,8 @@ void LLModelLoader::run()
 		}
 		
 		processElement(scene);
-		
-		mPreview->loadModelCallback(mLod);
+
+		doOnIdleOneTime(boost::bind(&LLModelPreview::loadModelCallback,mPreview,mLod));
 	}
 }
 
@@ -2053,6 +2052,8 @@ LLModelPreview::~LLModelPreview()
 
 U32 LLModelPreview::calcResourceCost()
 {
+	assert_main_thread();
+	
 	rebuildUploadData();
 
 	if ( mModelLoader->getLoadState() != LLModelLoader::ERROR_PARSING )
@@ -2134,6 +2135,8 @@ U32 LLModelPreview::calcResourceCost()
 
 void LLModelPreview::rebuildUploadData()
 {
+	assert_main_thread();
+	
 	mUploadData.clear();
 	mTextureSet.clear();
 	
@@ -2256,6 +2259,8 @@ void LLModelPreview::clearModel(S32 lod)
 
 void LLModelPreview::loadModel(std::string filename, S32 lod)
 {
+	assert_main_thread();
+	
 	LLMutexLock lock(this);
 	
 	if (mModelLoader)
@@ -2311,6 +2316,8 @@ void LLModelPreview::loadModel(std::string filename, S32 lod)
 
 void LLModelPreview::setPhysicsFromLOD(S32 lod)
 {
+	assert_main_thread();
+	
 	if (lod >= 0 && lod <= 3)
 	{
 		mModel[LLModel::LOD_PHYSICS] = mModel[lod];
@@ -2366,7 +2373,9 @@ void LLModelPreview::clearGLODGroup()
 }
 
 void LLModelPreview::loadModelCallback(S32 lod)
-{ //NOT the main thread
+{
+	assert_main_thread();
+
 	LLMutexLock lock(this);
 	if (!mModelLoader)
 	{
@@ -2421,6 +2430,8 @@ void LLModelPreview::resetPreviewTarget()
 
 void LLModelPreview::generateNormals()
 {
+	assert_main_thread();
+	
 	S32 which_lod = mPreviewLOD;
 	
 	
@@ -3063,6 +3074,8 @@ void LLModelPreview::genLODs(S32 which_lod)
 
 void LLModelPreview::updateStatusMessages()
 {
+	assert_main_thread();
+	
 	//triangle/vertex/submesh count for each mesh asset for each lod
 	std::vector<S32> tris[LLModel::NUM_LODS];
 	std::vector<S32> verts[LLModel::NUM_LODS];
@@ -3576,6 +3589,8 @@ void LLModelPreview::update()
 //-----------------------------------------------------------------------------
 BOOL LLModelPreview::render()
 {
+	assert_main_thread();
+	
 	LLMutexLock lock(this);
 	mNeedsUpdate = FALSE;
 	
@@ -4141,6 +4156,8 @@ void LLModelPreview::setPreviewLOD(S32 lod)
 //static 
 void LLFloaterModelPreview::onBrowseLOD(void* data)
 {
+	assert_main_thread();
+	
 	LLFloaterModelPreview* mp = (LLFloaterModelPreview*) data;
 	mp->loadModel(mp->mModelPreview->mPreviewLOD);
 }
@@ -4148,6 +4165,8 @@ void LLFloaterModelPreview::onBrowseLOD(void* data)
 //static
 void LLFloaterModelPreview::onUpload(void* user_data)
 {
+	assert_main_thread();
+	
 	LLFloaterModelPreview* mp = (LLFloaterModelPreview*) user_data;
 
 	mp->mModelPreview->rebuildUploadData();
