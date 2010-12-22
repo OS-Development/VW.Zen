@@ -35,6 +35,7 @@ set(cmake_SOURCE_FILES
     FindXmlRpcEpi.cmake
     FMOD.cmake
     FreeType.cmake
+    GLOD.cmake
     GStreamer010Plugin.cmake
     GooglePerfTools.cmake
     JPEG.cmake
@@ -42,6 +43,7 @@ set(cmake_SOURCE_FILES
     LLAudio.cmake
     LLCharacter.cmake
     LLCommon.cmake
+    LLConvexDecomposition.cmake
     LLCrashLogger.cmake
     LLDatabase.cmake
     LLImage.cmake

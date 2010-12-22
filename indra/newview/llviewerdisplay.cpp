@@ -834,6 +834,7 @@ void display(BOOL rebuild, F32 zoom_factor, int subfield, BOOL for_snapshot)
 		if (to_texture)
 		{
 			gGL.setColorMask(true, true);
+					
 			if (LLPipeline::sRenderDeferred && !LLPipeline::sUnderWaterRender)
 			{
 				gPipeline.mDeferredScreen.bindTarget();
@@ -886,10 +887,26 @@ void display(BOOL rebuild, F32 zoom_factor, int subfield, BOOL for_snapshot)
 			if (LLPipeline::sRenderDeferred && !LLPipeline::sUnderWaterRender)
 			{
 				gPipeline.mDeferredScreen.flush();
+				if(LLRenderTarget::sUseFBO)
+				{
+					LLRenderTarget::copyContentsToFramebuffer(gPipeline.mDeferredScreen, 0, 0, gPipeline.mDeferredScreen.getWidth(), 
+															  gPipeline.mDeferredScreen.getHeight(), 0, 0, 
+															  gPipeline.mDeferredScreen.getWidth(), 
+															  gPipeline.mDeferredScreen.getHeight(), 
+															  GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+				}
 			}
 			else
 			{
 				gPipeline.mScreen.flush();
+				if(LLRenderTarget::sUseFBO)
+				{				
+					LLRenderTarget::copyContentsToFramebuffer(gPipeline.mScreen, 0, 0, gPipeline.mScreen.getWidth(), 
+															  gPipeline.mScreen.getHeight(), 0, 0, 
+															  gPipeline.mScreen.getWidth(), 
+															  gPipeline.mScreen.getHeight(), 
+															  GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+				}
 			}
 		}
 
@@ -907,9 +924,11 @@ void display(BOOL rebuild, F32 zoom_factor, int subfield, BOOL for_snapshot)
 			render_ui();
 		}
 
-		gPipeline.rebuildGroups();
-
+		
 		LLSpatialGroup::sNoDelete = FALSE;
+		gPipeline.clearReferences();
+
+		gPipeline.rebuildGroups();
 	}
 
 	LLAppViewer::instance()->pingMainloopTimeout("Display:FrameStats");
@@ -1007,6 +1026,7 @@ void render_hud_attachments()
 		gPipeline.renderGeom(hud_cam);
 
 		LLSpatialGroup::sNoDelete = FALSE;
+		gPipeline.clearReferences();
 
 		render_hud_elements();
 
