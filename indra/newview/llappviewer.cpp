@@ -44,6 +44,7 @@
 #include "llagentwearables.h"
 #include "llwindow.h"
 #include "llviewerstats.h"
+#include "llviewerstatsrecorder.h"
 #include "llmd5.h"
 #include "llpumpio.h"
 #include "llmimetypes.h"
@@ -660,6 +661,10 @@ bool LLAppViewer::init()
 
     mAlloc.setProfilingEnabled(gSavedSettings.getBOOL("MemProfiling"));
 
+#if LL_RECORD_VIEWER_STATS
+	LLViewerStatsRecorder::initClass();
+#endif
+
     // *NOTE:Mani - LLCurl::initClass is not thread safe. 
     // Called before threads are created.
     LLCurl::initClass();
@@ -982,6 +987,8 @@ bool LLAppViewer::init()
 	}
 
 	LLAgentLanguage::init();
+
+
 
 	return true;
 }
@@ -1702,6 +1709,10 @@ bool LLAppViewer::cleanup()
 			gDirUtilp->getExpandedFilename(LL_PATH_LOGS, report_name));
 	}
 	LLMetricPerformanceTesterBasic::cleanClass() ;
+
+#if LL_RECORD_VIEWER_STATS
+	LLViewerStatsRecorder::cleanupClass();
+#endif
 
 	llinfos << "Cleaning up Media and Textures" << llendflush;
 
