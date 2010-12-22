@@ -1396,6 +1396,7 @@ LLMeshUploadThread::DecompRequest::DecompRequest(LLModel* mdl, LLModel* base_mod
 {
 	mStage = "single_hull";
 	mModel = mdl;
+	mDecompID = &mdl->mDecompID;
 	mBaseModel = base_model;
 	mThread = thread;
 	
@@ -2280,6 +2281,9 @@ void LLMeshRepository::notifyLoadedMeshes()
 			mInventoryQ.pop();
 		}
 	}
+
+	//call completed callbacks on finished decompositions
+	mDecompThread->notifyCompleted();
 	
 	if (!mThread->mWaiting)
 	{ //curl thread is churning, wait for it to go idle
@@ -3246,9 +3250,8 @@ void LLPhysicsDecomp::doDecomposition()
 		mCurRequest->mHullMesh.clear();
 
 		mCurRequest->setStatusMessage("FAIL");
-		mCurRequest->completed();
-				
-		mCurRequest = NULL;
+		
+		completeCurrent();
 	}
 	else
 	{
@@ -3299,12 +3302,32 @@ void LLPhysicsDecomp::doDecomposition()
 			LLMutexLock lock(mMutex);
 
 			mCurRequest->setStatusMessage("FAIL");
-			mCurRequest->completed();
-					
-			mCurRequest = NULL;
+			completeCurrent();						
 		}
 	}
 }
+
+void LLPhysicsDecomp::completeCurrent()
+{
+	LLMutexLock lock(mMutex);
+	mCompletedQ.push(mCurRequest);
+	mCurRequest = NULL;
+}
+
+void LLPhysicsDecomp::notifyCompleted()
+{
+	if (!mCompletedQ.empty())
+	{
+		LLMutexLock lock(mMutex);
+		while (!mCompletedQ.empty())
+		{
+			Request* req = mCompletedQ.front();
+			req->completed();
+			mCompletedQ.pop();
+		}
+	}
+}
+
 
 void make_box(LLPhysicsDecomp::Request * request)
 {
@@ -3423,18 +3446,17 @@ void LLPhysicsDecomp::doDecompositionSingleHull()
 
 
 	{
-		LLMutexLock lock(mMutex);
-		mCurRequest->completed();
-		mCurRequest = NULL;
+		completeCurrent();
+		
 	}
 }
 
+
 void LLPhysicsDecomp::run()
 {
-	LLConvexDecomposition::getInstance()->initThread();
-	mInited = true;
-
 	LLConvexDecomposition* decomp = LLConvexDecomposition::getInstance();
+	decomp->initThread();
+	mInited = true;
 
 	static const LLCDStageData* stages = NULL;
 	static S32 num_stages = 0;
@@ -3460,6 +3482,13 @@ void LLPhysicsDecomp::run()
 				mRequestQ.pop();
 			}
 
+			S32& id = *(mCurRequest->mDecompID);
+			if (id == -1)
+			{
+				decomp->genDecomposition(id);
+			}
+			decomp->bindDecomposition(id);
+
 			if (mCurRequest->mStage == "single_hull")
 			{
 				doDecompositionSingleHull();
@@ -3471,7 +3500,7 @@ void LLPhysicsDecomp::run()
 		}
 	}
 
-	LLConvexDecomposition::getInstance()->quitThread();
+	decomp->quitThread();
 	
 	//delete mSignal;
 	delete mMutex;
