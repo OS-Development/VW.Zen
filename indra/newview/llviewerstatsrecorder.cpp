@@ -26,43 +26,83 @@
 
 #include "llviewerprecompiledheaders.h"
 #include "llviewerstatsrecorder.h"
+
+#if LL_RECORD_VIEWER_STATS
+
 #include "llfile.h"
 #include "llviewerregion.h"
 #include "llviewerobject.h"
 
+
+// To do - something using region name or global position
+#if LL_WINDOWS
+	static const std::string STATS_FILE_NAME("C:\\ViewerObjectCacheStats.csv");
+#else
+	static const std::string STATS_FILE_NAME("/tmp/viewerstats.csv");
+#endif
+
+LLViewerStatsRecorder* LLViewerStatsRecorder::sInstance = NULL;
 LLViewerStatsRecorder::LLViewerStatsRecorder() :
 	mObjectCacheFile(NULL),
-	mTimer()
+	mTimer(),
+	mRegionp(NULL),
+	mStartTime(0.f),
+	mProcessingTime(0.f)
 {
-	mStartTime = LLTimer::getTotalTime();
+	if (NULL != sInstance)
+	{
+		llerrs << "Attempted to create multiple instances of LLViewerStatsRecorder!" << llendl;
+	}
+	sInstance = this;
+	clearStats();
 }
 
 LLViewerStatsRecorder::~LLViewerStatsRecorder()
 {
-	LLFile::close(mObjectCacheFile);
-	mObjectCacheFile = NULL;
+	if (mObjectCacheFile != NULL)
+	{
+		LLFile::close(mObjectCacheFile);
+		mObjectCacheFile = NULL;
+	}
+}
+
+// static
+void LLViewerStatsRecorder::initClass()
+{
+	sInstance = new LLViewerStatsRecorder();
+}
+
+// static
+void LLViewerStatsRecorder::cleanupClass()
+{
+	delete sInstance;
+	sInstance = NULL;
 }
 
 
 void LLViewerStatsRecorder::initStatsRecorder(LLViewerRegion *regionp)
 {
-	// To do - something using region name or global position
-#if LL_WINDOWS
-	std::string stats_file_name("C:\\ViewerObjectCacheStats.csv");
-#else
-	std::string stats_file_name("/tmp/viewerstats.csv");
-#endif
-
 	if (mObjectCacheFile == NULL)
 	{
-		mObjectCacheFile = LLFile::fopen(stats_file_name, "wb");
+		mStartTime = LLTimer::getTotalTime();
+		mObjectCacheFile = LLFile::fopen(STATS_FILE_NAME, "wb");
 		if (mObjectCacheFile)
 		{	// Write column headers
 			std::ostringstream data_msg;
-			data_msg << "Time, "
-				<< "Hits, "
-				<< "Misses, "
-				<< "Objects "
+			data_msg << "EventTime, "
+				<< "ProcessingTime, "
+				<< "CacheHits, "
+				<< "CacheFullMisses, "
+				<< "CacheCrcMisses, "
+				<< "FullUpdates, "
+				<< "TerseUpdates, "
+				<< "CacheMissRequests, "
+				<< "CacheMissResponses, "
+				<< "CacheUpdateDupes, "
+				<< "CacheUpdateChanges, "
+				<< "CacheUpdateAdds, "
+				<< "CacheUpdateReplacements, "
+				<< "UpdateFailures"
 				<< "\n";
 
 			fwrite(data_msg.str().c_str(), 1, data_msg.str().size(), mObjectCacheFile );
@@ -70,52 +110,149 @@ void LLViewerStatsRecorder::initStatsRecorder(LLViewerRegion *regionp)
 	}
 }
 
+void LLViewerStatsRecorder::beginObjectUpdateEvents(LLViewerRegion *regionp)
+{
+	initStatsRecorder(regionp);
+	mRegionp = regionp;
+	mProcessingTime = LLTimer::getTotalTime();
+	clearStats();
+}
 
-void LLViewerStatsRecorder::initCachedObjectUpdate(LLViewerRegion *regionp)
+void LLViewerStatsRecorder::clearStats()
 {
 	mObjectCacheHitCount = 0;
-	mObjectCacheMissCount = 0;
+	mObjectCacheMissFullCount = 0;
+	mObjectCacheMissCrcCount = 0;
+	mObjectFullUpdates = 0;
+	mObjectTerseUpdates = 0;
+	mObjectCacheMissRequests = 0;
+	mObjectCacheMissResponses = 0;
+	mObjectCacheUpdateDupes = 0;
+	mObjectCacheUpdateChanges = 0;
+	mObjectCacheUpdateAdds = 0;
+	mObjectCacheUpdateReplacements = 0;
+	mObjectUpdateFailures = 0;
 }
 
 
-void LLViewerStatsRecorder::recordCachedObjectEvent(LLViewerRegion *regionp, U32 local_id, LLViewerObject * objectp)
+void LLViewerStatsRecorder::recordObjectUpdateFailure(U32 local_id, const EObjectUpdateType update_type)
 {
-	if (objectp)
+	mObjectUpdateFailures++;
+}
+
+void LLViewerStatsRecorder::recordCacheMissEvent(U32 local_id, const EObjectUpdateType update_type, U8 cache_miss_type)
+{
+	if (LLViewerRegion::CACHE_MISS_TYPE_FULL == cache_miss_type)
 	{
-		mObjectCacheHitCount++;
+		mObjectCacheMissFullCount++;
 	}
 	else
-	{	// no object, must be a miss
-		mObjectCacheMissCount++;
+	{
+		mObjectCacheMissCrcCount++;
 	}
 }
 
-void LLViewerStatsRecorder::closeCachedObjectUpdate(LLViewerRegion *regionp)
+void LLViewerStatsRecorder::recordObjectUpdateEvent(U32 local_id, const EObjectUpdateType update_type, LLViewerObject * objectp)
 {
-	llinfos << "ILX: " << mObjectCacheHitCount 
-		<< " hits " 
-		<< mObjectCacheMissCount << " misses"
+	switch (update_type)
+	{
+	case OUT_FULL:
+		mObjectFullUpdates++;
+		break;
+	case OUT_TERSE_IMPROVED:
+		mObjectTerseUpdates++;
+		break;
+	case OUT_FULL_COMPRESSED:
+		mObjectCacheMissResponses++;
+		break;
+	case OUT_FULL_CACHED:
+		mObjectCacheHitCount++;
+		break;
+	default:
+		llwarns << "Unknown update_type" << llendl;
+		break;
+	};
+}
+
+void LLViewerStatsRecorder::recordCacheFullUpdate(U32 local_id, const EObjectUpdateType update_type, LLViewerRegion::eCacheUpdateResult update_result, LLViewerObject* objectp)
+{
+	switch (update_result)
+	{
+		case LLViewerRegion::CACHE_UPDATE_DUPE:
+			mObjectCacheUpdateDupes++;
+			break;
+		case LLViewerRegion::CACHE_UPDATE_CHANGED:
+			mObjectCacheUpdateChanges++;
+			break;
+		case LLViewerRegion::CACHE_UPDATE_ADDED:
+			mObjectCacheUpdateAdds++;
+			break;
+		case LLViewerRegion::CACHE_UPDATE_REPLACED:
+			mObjectCacheUpdateReplacements++;
+			break;
+		default:
+			llwarns << "Unknown update_result type" << llendl;
+			break;
+	};
+}
+
+void LLViewerStatsRecorder::recordRequestCacheMissesEvent(S32 count)
+{
+	mObjectCacheMissRequests += count;
+}
+
+void LLViewerStatsRecorder::endObjectUpdateEvents()
+{
+	llinfos << "ILX: " 
+		<< mObjectCacheHitCount << " hits, " 
+		<< mObjectCacheMissFullCount << " full misses, "
+		<< mObjectCacheMissCrcCount << " crc misses, "
+		<< mObjectFullUpdates << " full updates, "
+		<< mObjectTerseUpdates << " terse updates, "
+		<< mObjectCacheMissRequests << " cache miss requests, "
+		<< mObjectCacheMissResponses << " cache miss responses, "
+		<< mObjectCacheUpdateDupes << " cache update dupes, "
+		<< mObjectCacheUpdateChanges << " cache update changes, "
+		<< mObjectCacheUpdateAdds << " cache update adds, "
+		<< mObjectCacheUpdateReplacements << " cache update replacements, "
+		<< mObjectUpdateFailures << " update failures"
 		<< llendl;
 
-	S32 total_objects = mObjectCacheHitCount + mObjectCacheMissCount;
+	S32 total_objects = mObjectCacheHitCount + mObjectCacheMissCrcCount + mObjectCacheMissFullCount + mObjectFullUpdates + mObjectTerseUpdates + mObjectCacheMissRequests + mObjectCacheMissResponses + mObjectCacheUpdateDupes + mObjectCacheUpdateChanges + mObjectCacheUpdateAdds + mObjectCacheUpdateReplacements + mObjectUpdateFailures;
 	if (mObjectCacheFile != NULL &&
 		total_objects > 0)
 	{
 		std::ostringstream data_msg;
-		F32 now32 = (F32) ((LLTimer::getTotalTime() - mStartTime) / 1000.0);
+		F32 processing32 = (F32) ((LLTimer::getTotalTime() - mProcessingTime) / 1000.0);
 
-		data_msg << now32
+		data_msg << getTimeSinceStart()
+			<< ", " << processing32
 			<< ", " << mObjectCacheHitCount
-			<< ", " << mObjectCacheMissCount
-			<< ", " << total_objects
+			<< ", " << mObjectCacheMissFullCount
+			<< ", " << mObjectCacheMissCrcCount
+			<< ", " << mObjectFullUpdates
+			<< ", " << mObjectTerseUpdates
+			<< ", " << mObjectCacheMissRequests
+			<< ", " << mObjectCacheMissResponses
+			<< ", " << mObjectCacheUpdateDupes
+			<< ", " << mObjectCacheUpdateChanges
+			<< ", " << mObjectCacheUpdateAdds
+			<< ", " << mObjectCacheUpdateReplacements
+			<< ", " << mObjectUpdateFailures
 			<< "\n";
 
 		fwrite(data_msg.str().c_str(), 1, data_msg.str().size(), mObjectCacheFile );
 	}
 
-	mObjectCacheHitCount = 0;
-	mObjectCacheMissCount = 0;
+	clearStats();
 }
+
+F32 LLViewerStatsRecorder::getTimeSinceStart()
+{
+	return (F32) ((LLTimer::getTotalTime() - mStartTime) / 1000.0);
+}
+
+#endif
 
 
 
