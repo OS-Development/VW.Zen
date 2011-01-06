@@ -65,6 +65,7 @@ public:
 	static void 	onCommitPhysics(		LLUICtrl* ctrl, void* userdata);
 	static void 	onCommitTemporary(		LLUICtrl* ctrl, void* userdata);
 	static void 	onCommitPhantom(		LLUICtrl* ctrl, void* userdata);
+	static void     onCommitPhysicsParam(       LLUICtrl* ctrl, void* userdata);
 	static void 	onCommitCastShadows(	LLUICtrl* ctrl, void* userdata);
 
 	static void 	onCommitParametric(LLUICtrl* ctrl, void* userdata);
@@ -87,6 +88,7 @@ protected:
 	void			sendIsPhysical();
 	void			sendIsTemporary();
 	void			sendIsPhantom();
+	void            sendPhysicsParam();
 	void			sendCastShadows();
 	void            sendSculpt();
 	
@@ -158,6 +160,12 @@ protected:
 	LLCheckBoxCtrl	*mCheckTemporary;
 	LLCheckBoxCtrl	*mCheckPhantom;
 	LLCheckBoxCtrl	*mCheckCastShadows;
+
+	LLComboBox*     mComboPhysicsShapeType;
+	LLSpinCtrl*     mSpinPhysicsGravity;
+	LLSpinCtrl*     mSpinPhysicsFriction;
+	LLSpinCtrl*     mSpinPhysicsDensity;
+	LLSpinCtrl*     mSpinPhysicsRestitution;
 
 	LLTextureCtrl   *mCtrlSculptTexture;
 	LLTextBox       *mLabelSculptType;

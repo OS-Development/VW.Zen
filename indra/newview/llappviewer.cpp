@@ -45,6 +45,7 @@
 #include "llwindow.h"
 #include "llviewerstats.h"
 #include "llmd5.h"
+#include "llmeshrepository.h"
 #include "llpumpio.h"
 #include "llmimetypes.h"
 #include "llslurl.h"
@@ -74,6 +75,8 @@
 #include "llteleporthistory.h"
 #include "lllocationhistory.h"
 #include "llfasttimerview.h"
+#include "llvector4a.h"
+#include "llviewermenufile.h"
 #include "llvoicechannel.h"
 #include "llvoavatarself.h"
 #include "llsidetray.h"
@@ -199,7 +202,6 @@
 // Include for security api initialization
 #include "llsecapi.h"
 #include "llmachineid.h"
-
 #include "llmainlooprepeater.h"
 
 // *FIX: These extern globals should be cleaned up.
@@ -305,7 +307,7 @@ BOOL gLogoutInProgress = FALSE;
 
 ////////////////////////////////////////////////////////////
 // Internal globals... that should be removed.
-static std::string gArgs;
+static std::string gArgs = "Mesh Beta";
 
 const std::string MARKER_FILE_NAME("SecondLife.exec_marker");
 const std::string ERROR_MARKER_FILE_NAME("SecondLife.error_marker");
@@ -477,7 +479,7 @@ static void settings_to_globals()
 
 static void settings_modify()
 {
-	LLRenderTarget::sUseFBO				= gSavedSettings.getBOOL("RenderUseFBO");
+	LLRenderTarget::sUseFBO				= gSavedSettings.getBOOL("RenderDeferred");
 	LLVOAvatar::sUseImpostors			= gSavedSettings.getBOOL("RenderUseImpostors");
 	LLVOSurfacePatch::sLODFactor		= gSavedSettings.getF32("RenderTerrainLODFactor");
 	LLVOSurfacePatch::sLODFactor *= LLVOSurfacePatch::sLODFactor; //square lod factor to get exponential range of [1,4]
@@ -528,7 +530,7 @@ public:
 	std::string mFile;
 
 	LLFastTimerLogThread(std::string& test_name) : LLThread("fast timer log")
-	{
+ 	{
 		std::string file_name = test_name + std::string(".slp");
 		mFile = gDirUtilp->getExpandedFilename(LL_PATH_LOGS, file_name);
 	}
@@ -546,7 +548,6 @@ public:
 
 		os.close();
 	}
-
 };
 
 //virtual
@@ -628,6 +629,9 @@ bool LLAppViewer::init()
 	// we run the "program crashed last time" error handler below.
 	//
 	LLFastTimer::reset();
+
+	// initialize SSE options
+	LLVector4a::initClass();
 
 	// Need to do this initialization before we do anything else, since anything
 	// that touches files should really go through the lldir API
@@ -841,7 +845,7 @@ bool LLAppViewer::init()
 	
 	// Initialize the repeater service.
 	LLMainLoopRepeater::instance().start();
-	
+
 	//
 	// Initialize the window
 	//
@@ -944,7 +948,7 @@ bool LLAppViewer::init()
 	gDebugInfo["GraphicsCard"] = LLFeatureManager::getInstance()->getGPUString();
 
 	// Save the current version to the prefs file
-	gSavedSettings.setString("LastRunVersion", 
+	gSavedSettings.setString("LastRunVersion",
 							 LLVersionInfo::getChannelAndVersion());
 
 	gSimLastTime = gRenderStartTime.getElapsedTimeF32();
@@ -1020,7 +1024,7 @@ bool LLAppViewer::mainLoop()
 	gServicePump = new LLPumpIO(gAPRPoolp);
 	LLHTTPClient::setPump(*gServicePump);
 	LLCurl::setCAFile(gDirUtilp->getCAFile());
-	
+
 	// Note: this is where gLocalSpeakerMgr and gActiveSpeakerMgr used to be instantiated.
 
 	LLVoiceChannel::initClass();
@@ -1264,6 +1268,7 @@ bool LLAppViewer::mainLoop()
 						break;
 					}
 				}
+				gMeshRepo.update() ;
 
 				if(!total_work_pending) //pause texture fetching threads if nothing to process.
 				{
@@ -1369,6 +1374,20 @@ bool LLAppViewer::cleanup()
 	// workaround for DEV-35406 crash on shutdown
 	LLEventPumps::instance().reset();
 
+	if (LLFastTimerView::sAnalyzePerformance)
+	{
+		llinfos << "Analyzing performance" << llendl;
+		std::string baseline_name = LLFastTimer::sLogName + "_baseline.slp";
+		std::string current_name  = LLFastTimer::sLogName + ".slp"; 
+		std::string report_name   = LLFastTimer::sLogName + "_report.csv";
+
+		LLFastTimerView::doAnalysis(
+			gDirUtilp->getExpandedFilename(LL_PATH_LOGS, baseline_name),
+			gDirUtilp->getExpandedFilename(LL_PATH_LOGS, current_name),
+			gDirUtilp->getExpandedFilename(LL_PATH_LOGS, report_name));		
+	}
+	LLMetricPerformanceTesterBasic::cleanClass();
+
 	// remove any old breakpad minidump files from the log directory
 	if (! isError())
 	{
@@ -1416,6 +1435,9 @@ bool LLAppViewer::cleanup()
 	LLError::logToFixedBuffer(NULL);
 
 	llinfos << "Cleaning Up" << llendflush;
+
+	// shut down mesh streamer
+	gMeshRepo.shutdown();
 
 	// Must clean up texture references before viewer window is destroyed.
 	if(LLHUDManager::instanceExists())
@@ -1685,6 +1707,8 @@ bool LLAppViewer::cleanup()
 	sTextureFetch->shutDownTextureCacheThread() ;
 	sTextureFetch->shutDownImageDecodeThread() ;
 
+	LLFilePickerThread::cleanupClass();
+
 	delete sTextureCache;
     sTextureCache = NULL;
 	delete sTextureFetch;
@@ -1706,7 +1730,8 @@ bool LLAppViewer::cleanup()
 			gDirUtilp->getExpandedFilename(LL_PATH_LOGS, baseline_name),
 			gDirUtilp->getExpandedFilename(LL_PATH_LOGS, current_name),
 			gDirUtilp->getExpandedFilename(LL_PATH_LOGS, report_name));
-	}
+	}	
+
 	LLMetricPerformanceTesterBasic::cleanClass() ;
 
 	llinfos << "Cleaning up Media and Textures" << llendflush;
@@ -1827,6 +1852,11 @@ bool LLAppViewer::initThreads()
 		mFastTimerLogThread = new LLFastTimerLogThread(LLFastTimer::sLogName);
 		mFastTimerLogThread->start();
 	}
+
+	// Mesh streaming and caching
+	gMeshRepo.init();
+
+	LLFilePickerThread::initClass();
 
 	// *FIX: no error handling here!
 	return true;
@@ -2023,6 +2053,8 @@ bool LLAppViewer::initConfiguration()
 	gSavedSettings.setString("ClientSettingsFile", 
         gDirUtilp->getExpandedFilename(LL_PATH_USER_SETTINGS, getSettingsFilename("Default", "Global")));
 
+	gSavedSettings.setString("VersionChannelName", LLVersionInfo::getChannel());
+
 #ifndef	LL_RELEASE_FOR_DOWNLOAD
 	// provide developer build only overrides for these control variables that are not
 	// persisted to settings.xml
@@ -2167,7 +2199,6 @@ bool LLAppViewer::initConfiguration()
     {
 		LLVersionInfo::resetChannel(clp.getOption("channel")[0]);
 	}
-	
 
 	// If we have specified crash on startup, set the global so we'll trigger the crash at the right time
 	if(clp.hasOption("crashonstartup"))
@@ -2178,12 +2209,12 @@ bool LLAppViewer::initConfiguration()
 	if (clp.hasOption("logperformance"))
 	{
 		LLFastTimer::sLog = TRUE;
-		LLFastTimer::sLogName = std::string("performance");
+		LLFastTimer::sLogName = std::string("performance");		
 	}
 	
 	if (clp.hasOption("logmetrics"))
-	{
-		LLFastTimer::sMetricLog = TRUE ;
+ 	{
+ 		LLFastTimer::sMetricLog = TRUE ;
 		// '--logmetrics' can be specified with a named test metric argument so the data gathering is done only on that test
 		// In the absence of argument, every metric is gathered (makes for a rather slow run and hard to decipher report...)
 		std::string test_name = clp.getOption("logmetrics")[0];
@@ -2197,7 +2228,7 @@ bool LLAppViewer::initConfiguration()
 		{
 			LLFastTimer::sLogName = test_name;
 		}
-	}
+ 	}
 
 	if (clp.hasOption("graphicslevel"))
 	{
@@ -2439,7 +2470,7 @@ bool LLAppViewer::initConfiguration()
 
 namespace {
     // *TODO - decide if there's a better place for these functions.
-    // do we need a file llupdaterui.cpp or something? -brad
+	// do we need a file llupdaterui.cpp or something? -brad
 
 	void apply_update_callback(LLSD const & notification, LLSD const & response)
 	{
@@ -2524,8 +2555,8 @@ namespace {
 		LLAppViewer::instance()->forceQuit();
 	}
 	
-    bool notify_update(LLSD const & evt)
-    {
+	bool notify_update(LLSD const & evt)
+	{
 		std::string notification_name;
 		switch (evt["type"].asInteger())
 		{
@@ -2544,8 +2575,8 @@ namespace {
 		}
 
 		// let others also handle this event by default
-        return false;
-    }
+		return false;
+	}
 	
 	bool on_bandwidth_throttle(LLUpdaterService * updater, LLSD const & evt)
 	{
@@ -2689,6 +2720,7 @@ bool LLAppViewer::initWindow()
 		gSavedSettings.saveToFile( gSavedSettings.getString("ClientSettingsFile"), TRUE );
 	
 		gPipeline.init();
+		
 		stop_glerror();
 		gViewerWindow->initGLDefaults();
 
@@ -2752,7 +2784,7 @@ void LLAppViewer::cleanupSavedSettings()
 		if (!maximized)
 		{
 			LLCoordScreen window_pos;
-
+			
 			if (gViewerWindow->mWindow->getPosition(&window_pos))
 			{
 				gSavedSettings.setS32("WindowX", window_pos.mX);
@@ -2841,6 +2873,8 @@ void LLAppViewer::writeSystemInfo()
 	LL_INFOS("SystemInfo") << "Memory info:\n" << gSysMemory << LL_ENDL;
 	LL_INFOS("SystemInfo") << "OS: " << getOSInfo().getOSStringSimple() << LL_ENDL;
 	LL_INFOS("SystemInfo") << "OS info: " << getOSInfo() << LL_ENDL;
+
+	LL_INFOS("SystemInfo") << "Timers: " << LLFastTimer::sClockType << LL_ENDL;
 
 	writeDebugInfo(); // Save out debug_info.log early, in case of crash.
 }
@@ -3797,6 +3831,8 @@ static LLFastTimer::DeclareTimer FTM_OBJECTLIST_UPDATE("Update Objectlist");
 static LLFastTimer::DeclareTimer FTM_REGION_UPDATE("Update Region");
 static LLFastTimer::DeclareTimer FTM_WORLD_UPDATE("Update World");
 static LLFastTimer::DeclareTimer FTM_NETWORK("Network");
+static LLFastTimer::DeclareTimer FTM_AGENT_NETWORK("Agent Network");
+static LLFastTimer::DeclareTimer FTM_VLMANAGER("VL Manager");
 
 ///////////////////////////////////////////////////////
 // idle()
@@ -3817,6 +3853,8 @@ void LLAppViewer::idle()
 	LLEventTimer::updateClass();
 	LLCriticalDamp::updateInterpolants();
 	LLMortician::updateClass();
+	LLFilePickerThread::clearDead();  //calls LLFilePickerThread::notify()
+
 	F32 dt_raw = idle_timer.getElapsedTimeAndResetF32();
 
 	// Cap out-of-control frame times
@@ -4397,6 +4435,11 @@ static F32 CheckMessagesMaxTime = CHECK_MESSAGES_DEFAULT_MAX_TIME;
 #endif
 
 static LLFastTimer::DeclareTimer FTM_IDLE_NETWORK("Idle Network");
+static LLFastTimer::DeclareTimer FTM_MESSAGE_ACKS("Message Acks");
+static LLFastTimer::DeclareTimer FTM_RETRANSMIT("Retransmit");
+static LLFastTimer::DeclareTimer FTM_TIMEOUT_CHECK("Timeout Check");
+static LLFastTimer::DeclareTimer FTM_DYNAMIC_THROTTLE("Dynamic Throttle");
+static LLFastTimer::DeclareTimer FTM_CHECK_REGION_CIRCUIT("Check Region Circuit");
 
 void LLAppViewer::idleNetwork()
 {

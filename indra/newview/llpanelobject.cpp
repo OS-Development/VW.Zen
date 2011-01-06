@@ -67,6 +67,7 @@
 #include "pipeline.h"
 #include "llviewercontrol.h"
 #include "lluictrlfactory.h"
+#include "llmeshrepository.h"
 //#include "llfirstuse.h"
 
 #include "lldrawpool.h"
@@ -132,6 +133,26 @@ BOOL	LLPanelObject::postBuild()
 	mCheckPhantom = getChild<LLCheckBoxCtrl>("Phantom Checkbox Ctrl");
 	childSetCommitCallback("Phantom Checkbox Ctrl",onCommitPhantom,this);
 	
+	// PhysicsShapeType combobox
+	mComboPhysicsShapeType = getChild<LLComboBox>("Physics Shape Type Combo Ctrl");
+	childSetCommitCallback("Physics Shape Type Combo Ctrl", onCommitPhysicsParam, this);
+
+	// PhysicsGravity
+	mSpinPhysicsGravity = getChild<LLSpinCtrl>("Physics Gravity");
+	childSetCommitCallback("Physics Gravity", onCommitPhysicsParam, this);
+
+	// PhysicsFriction
+	mSpinPhysicsFriction = getChild<LLSpinCtrl>("Physics Friction");
+	childSetCommitCallback("Physics Friction", onCommitPhysicsParam, this);
+	
+	// PhysicsDensity
+	mSpinPhysicsDensity = getChild<LLSpinCtrl>("Physics Density");
+	childSetCommitCallback("Physics Density", onCommitPhysicsParam, this);
+
+	// PhysicsRestitution
+	mSpinPhysicsRestitution = getChild<LLSpinCtrl>("Physics Restitution");
+	childSetCommitCallback("Physics Restitution", onCommitPhysicsParam, this);
+
 	// Position
 	mLabelPosition = getChild<LLTextBox>("label position");
 	mCtrlPosX = getChild<LLSpinCtrl>("Pos X");
@@ -519,6 +540,19 @@ void LLPanelObject::getState( )
 	mCheckPhantom->set( mIsPhantom );
 	mCheckPhantom->setEnabled( roots_selected>0 && editable && !is_flexible );
 
+	
+	mSpinPhysicsGravity->set(objectp->getPhysicsGravity());
+	mSpinPhysicsGravity->setEnabled(editable);
+
+	mSpinPhysicsFriction->set(objectp->getPhysicsFriction());
+	mSpinPhysicsFriction->setEnabled(editable);
+	
+	mSpinPhysicsDensity->set(objectp->getPhysicsDensity());
+	mSpinPhysicsDensity->setEnabled(editable);
+	
+	mSpinPhysicsRestitution->set(objectp->getPhysicsRestitution());
+	mSpinPhysicsRestitution->setEnabled(editable);
+
 #if 0 // 1.9.2
 	mCastShadows = root_objectp->flagCastShadows();
 	mCheckCastShadows->set( mCastShadows );
@@ -569,6 +603,7 @@ void LLPanelObject::getState( )
 	BOOL enabled = FALSE;
 	BOOL hole_enabled = FALSE;
 	F32 scale_x=1.f, scale_y=1.f;
+	BOOL isMesh = FALSE;
 	
 	if( !objectp || !objectp->getVolume() || !editable || !single_volume)
 	{
@@ -599,10 +634,9 @@ void LLPanelObject::getState( )
 		// Only allowed to change these parameters for objects
 		// that you have permissions on AND are not attachments.
 		enabled = root_objectp->permModify();
-
-		const LLVolumeParams &volume_params = objectp->getVolume()->getParams();
-
+		
 		// Volume type
+		const LLVolumeParams &volume_params = objectp->getVolume()->getParams();
 		U8 path = volume_params.getPathParams().getCurveType();
 		U8 profile_and_hole = volume_params.getProfileParams().getCurveType();
 		U8 profile	= profile_and_hole & LL_PCODE_PROFILE_MASK;
@@ -833,7 +867,7 @@ void LLPanelObject::getState( )
 		}
 		mSpinSkew->set( skew );
 	}
-
+	
 	// Compute control visibility, label names, and twist range.
 	// Start with defaults.
 	BOOL cut_visible                = TRUE;
@@ -1097,6 +1131,10 @@ void LLPanelObject::getState( )
 	mCtrlSculptInvert->setVisible(sculpt_texture_visible);
 
 
+	// update the physics shape combo to include allowed physics shapes
+	mComboPhysicsShapeType->removeall();
+	mComboPhysicsShapeType->add(getString("None"), LLSD(1));
+	
 	// sculpt texture
 
 	if (selected_item == MI_SCULPT)
@@ -1128,6 +1166,7 @@ void LLPanelObject::getState( )
 			U8 sculpt_stitching = sculpt_type & LL_SCULPT_TYPE_MASK;
 			BOOL sculpt_invert = sculpt_type & LL_SCULPT_FLAG_INVERT;
 			BOOL sculpt_mirror = sculpt_type & LL_SCULPT_FLAG_MIRROR;
+			isMesh = (sculpt_stitching == LL_SCULPT_TYPE_MESH);
 			
 			if (mCtrlSculptType)
 			{
@@ -1138,26 +1177,47 @@ void LLPanelObject::getState( )
 			if (mCtrlSculptMirror)
 			{
 				mCtrlSculptMirror->set(sculpt_mirror);
-				mCtrlSculptMirror->setEnabled(editable);
+				mCtrlSculptMirror->setEnabled(editable && (sculpt_stitching != LL_SCULPT_TYPE_MESH));
 			}
 
 			if (mCtrlSculptInvert)
 			{
 				mCtrlSculptInvert->set(sculpt_invert);
-				mCtrlSculptInvert->setEnabled(editable);
+				mCtrlSculptInvert->setEnabled(editable && (!isMesh));
 			}
 
 			if (mLabelSculptType)
 			{
 				mLabelSculptType->setEnabled(TRUE);
 			}
+			
 		}
 	}
 	else
 	{
-		mSculptTextureRevert = LLUUID::null;
+		mSculptTextureRevert = LLUUID::null;		
 	}
 
+	if(isMesh && objectp)
+	{
+		const LLVolumeParams &volume_params = objectp->getVolume()->getParams();
+		LLUUID mesh_id = volume_params.getSculptID();
+		if(gMeshRepo.hasPhysicsShape(mesh_id))
+		{
+			// if a mesh contains an uploaded or decomposed physics mesh,
+			// allow 'Prim'
+			mComboPhysicsShapeType->add(getString("Prim"), LLSD(0));			
+		}
+	}
+	else
+	{
+		// simple prims always allow physics shape prim
+		mComboPhysicsShapeType->add(getString("Prim"), LLSD(0));	
+	}
+	mComboPhysicsShapeType->add(getString("Convex Hull"), LLSD(2));	
+	mComboPhysicsShapeType->setValue(LLSD(objectp->getPhysicsShapeType()));
+	mComboPhysicsShapeType->setEnabled(editable);
+										
 	
 	//----------------------------------------------------------------------------
 
@@ -1219,6 +1279,37 @@ void LLPanelObject::sendIsPhantom()
 	{
 		llinfos << "update phantom not changed" << llendl;
 	}
+}
+
+#include "llsdutil.h"
+class CostResponder : public LLHTTPClient::Responder
+{
+public:
+	CostResponder(U32 id) { mID = id; }
+	virtual void result(const LLSD& content) { llinfos << ll_pretty_print_sd(content) << llendl; }
+
+	U32 mID;
+};
+
+void LLPanelObject::sendPhysicsParam()
+{
+	LLSD physicsType = mComboPhysicsShapeType->getValue();
+	
+	U8 type = physicsType.asInteger();
+	F32 gravity = mSpinPhysicsGravity->get();
+	F32 friction = mSpinPhysicsFriction->get();
+	F32 density = mSpinPhysicsDensity->get();
+	F32 restitution = mSpinPhysicsRestitution->get();
+	
+	LLSelectMgr::getInstance()->selectionUpdatePhysicsParam(type, gravity, friction, 
+																density, restitution);
+
+	std::string url = gAgent.getRegion()->getCapability("GetObjectCost");
+	LLSD body = LLSD::emptyArray();
+	
+	body.append(LLSelectMgr::getInstance()->getSelection()->getFirstObject()->getID());
+	
+	LLHTTPClient::post( url, body, new CostResponder(body[0].asInteger()) );
 }
 
 void LLPanelObject::sendCastShadows()
@@ -1786,6 +1877,17 @@ void LLPanelObject::sendSculpt()
 	if (mCtrlSculptType)
 		sculpt_type |= mCtrlSculptType->getCurrentIndex();
 
+	bool enabled = sculpt_type != LL_SCULPT_TYPE_MESH;
+
+	if (mCtrlSculptMirror)
+	{
+		mCtrlSculptMirror->setEnabled(enabled ? TRUE : FALSE);
+	}
+	if (mCtrlSculptInvert)
+	{
+		mCtrlSculptInvert->setEnabled(enabled ? TRUE : FALSE);
+	}
+	
 	if ((mCtrlSculptMirror) && (mCtrlSculptMirror->get()))
 		sculpt_type |= LL_SCULPT_FLAG_MIRROR;
 
@@ -1894,6 +1996,12 @@ void LLPanelObject::clearCtrls()
 	mCheckTemporary	->setEnabled( FALSE );
 	mCheckPhantom	->set(FALSE);
 	mCheckPhantom	->setEnabled( FALSE );
+	
+	mSpinPhysicsGravity->setEnabled(FALSE);
+	mSpinPhysicsFriction->setEnabled(FALSE);
+	mSpinPhysicsDensity->setEnabled(FALSE);
+	mSpinPhysicsRestitution->setEnabled(FALSE);
+							 
 #if 0 // 1.9.2
 	mCheckCastShadows->set(FALSE);
 	mCheckCastShadows->setEnabled( FALSE );
@@ -1984,6 +2092,13 @@ void LLPanelObject::onCommitPhantom( LLUICtrl* ctrl, void* userdata )
 {
 	LLPanelObject* self = (LLPanelObject*) userdata;
 	self->sendIsPhantom();
+}
+
+// static
+void LLPanelObject::onCommitPhysicsParam(LLUICtrl* ctrl, void* userdata )
+{
+	LLPanelObject* self = (LLPanelObject*) userdata;
+	self->sendPhysicsParam();
 }
 
 // static
