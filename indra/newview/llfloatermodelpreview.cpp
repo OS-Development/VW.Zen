@@ -379,7 +379,8 @@ LLFloaterModelPreview::~LLFloaterModelPreview()
 {
 	sInstance = NULL;
 
-	if ( mModelPreview->mModelLoader->mResetJoints )
+	const LLModelLoader *model_loader = mModelPreview->mModelLoader;
+	if (model_loader && model_loader->mResetJoints)
 	{
 		gAgentAvatarp->resetJointPositions();
 	}
@@ -2391,11 +2392,9 @@ void LLModelPreview::loadModel(std::string filename, S32 lod)
 
 	LLMutexLock lock(this);
 
-	if (mModelLoader)
-	{
-		delete mModelLoader;
-		mModelLoader = NULL;
-	}
+	// This triggers if you bring up the file picker and then hit CANCEL.
+	// Just use the previous model (if any) and ignore that you brought up
+	// the file picker.
 
 	if (filename.empty())
 	{
@@ -2404,10 +2403,15 @@ void LLModelPreview::loadModel(std::string filename, S32 lod)
 			// this is the initial file picking. Close the whole floater
 			// if we don't have a base model to show for high LOD.
 			mFMP->closeFloater(false);
+			mLoading = false;
 		}
-
-		mLoading = false;
 		return;
+	}
+
+	if (mModelLoader)
+	{
+		delete mModelLoader;
+		mModelLoader = NULL;
 	}
 
 	mLODFile[lod] = filename;
