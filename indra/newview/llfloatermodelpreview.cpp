@@ -2566,6 +2566,8 @@ void LLModelPreview::loadModelCallback(S32 lod)
 
 	mLoading = false;
 	refresh();
+
+	mModelLoadedSignal();
 }
 
 void LLModelPreview::resetPreviewTarget()
