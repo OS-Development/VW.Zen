@@ -406,6 +406,7 @@ set(viewer_SOURCE_FILES
     llsecapi.cpp
     llsechandler_basic.cpp
     llselectmgr.cpp
+    llshareavatarhandler.cpp
     llsidepanelappearance.cpp
     llsidepanelinventory.cpp
     llsidepanelinventorysubpanel.cpp
@@ -547,6 +548,7 @@ set(viewer_SOURCE_FILES
     llvoclouds.cpp
     llvograss.cpp
     llvoground.cpp
+    llvoicecallhandler.cpp
     llvoicechannel.cpp
     llvoiceclient.cpp
     llvoicevisualizer.cpp
@@ -1855,29 +1857,29 @@ if (PACKAGE)
   endif (LINUX)
 
   if(RELEASE_CRASH_REPORTING OR NON_RELEASE_CRASH_REPORTING)
-    if(CMAKE_CFG_INTDIR STREQUAL ".")
+  if(CMAKE_CFG_INTDIR STREQUAL ".")
       set(LLBUILD_CONFIG ${CMAKE_BUILD_TYPE})
-    else(CMAKE_CFG_INTDIR STREQUAL ".")
+  else(CMAKE_CFG_INTDIR STREQUAL ".")
       # set LLBUILD_CONFIG to be a shell variable evaluated at build time
       # reflecting the configuration we are currently building.
       set(LLBUILD_CONFIG ${CMAKE_CFG_INTDIR})
-    endif(CMAKE_CFG_INTDIR STREQUAL ".")
-    add_custom_command(OUTPUT "${VIEWER_SYMBOL_FILE}"
-      COMMAND "${PYTHON_EXECUTABLE}"
-      ARGS
-        "${CMAKE_CURRENT_SOURCE_DIR}/generate_breakpad_symbols.py"
-        "${LLBUILD_CONFIG}"
-        "${VIEWER_DIST_DIR}"
-        "${VIEWER_EXE_GLOBS}"
-        "${VIEWER_LIB_GLOB}"
-        "${LIBS_PREBUILT_DIR}/${LL_ARCH_DIR}/bin/dump_syms"
-        "${VIEWER_SYMBOL_FILE}"
-        DEPENDS generate_breakpad_symbols.py
+  endif(CMAKE_CFG_INTDIR STREQUAL ".")
+  add_custom_command(OUTPUT "${VIEWER_SYMBOL_FILE}"
+    COMMAND "${PYTHON_EXECUTABLE}"
+    ARGS
+      "${CMAKE_CURRENT_SOURCE_DIR}/generate_breakpad_symbols.py"
+      "${LLBUILD_CONFIG}"
+      "${VIEWER_DIST_DIR}"
+      "${VIEWER_EXE_GLOBS}"
+      "${VIEWER_LIB_GLOB}"
+      "${LIBS_PREBUILT_DIR}/${LL_ARCH_DIR}/bin/dump_syms"
+      "${VIEWER_SYMBOL_FILE}"
+    DEPENDS generate_breakpad_symbols.py
         VERBATIM)
 
-    add_custom_target(generate_breakpad_symbols DEPENDS "${VIEWER_SYMBOL_FILE}")
-    add_dependencies(generate_breakpad_symbols "${VIEWER_BINARY_NAME}" "${VIEWER_COPY_MANIFEST}")
-    add_dependencies(package generate_breakpad_symbols)
+  add_custom_target(generate_breakpad_symbols DEPENDS "${VIEWER_SYMBOL_FILE}")
+  add_dependencies(generate_breakpad_symbols "${VIEWER_BINARY_NAME}" "${VIEWER_COPY_MANIFEST}")
+  add_dependencies(package generate_breakpad_symbols)
   endif(RELEASE_CRASH_REPORTING OR NON_RELEASE_CRASH_REPORTING)
 endif (PACKAGE)
 
@@ -1893,6 +1895,8 @@ if (LL_TESTS)
     llremoteparcelrequest.cpp
     llviewerhelputil.cpp
     llversioninfo.cpp
+    llworldmap.cpp
+    llworldmipmap.cpp
   )
 
   ##################################################
@@ -1980,8 +1984,6 @@ if (LL_TESTS)
 
   #ADD_VIEWER_BUILD_TEST(llmemoryview viewer)
   #ADD_VIEWER_BUILD_TEST(llagentaccess viewer)
-  #ADD_VIEWER_BUILD_TEST(llworldmap viewer)
-  #ADD_VIEWER_BUILD_TEST(llworldmipmap viewer)
   #ADD_VIEWER_BUILD_TEST(lltextureinfo viewer)
   #ADD_VIEWER_BUILD_TEST(lltextureinfodetails viewer)
   #ADD_VIEWER_BUILD_TEST(lltexturestatsuploader viewer)

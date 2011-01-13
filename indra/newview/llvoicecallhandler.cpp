@@ -1,8 +1,8 @@
-/** 
- * @file lldir_win32.h
- * @brief Definition of directory utilities class for windows
+ /** 
+ * @file llvoicecallhandler.cpp
+ * @brief slapp to handle avatar to avatar voice call.
  *
- * $LicenseInfo:firstyear=2000&license=viewerlgpl$
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
  * Copyright (C) 2010, Linden Research, Inc.
  * 
@@ -24,32 +24,38 @@
  * $/LicenseInfo$
  */
 
-#ifndef LL_LLDIR_WIN32_H
-#define LL_LLDIR_WIN32_H
+#include "llviewerprecompiledheaders.h"
+#include "llcommandhandler.h" 
+#include "llavataractions.h"
 
-#include "lldir.h"
-
-class LLDir_Win32 : public LLDir
+class LLVoiceCallAvatarHandler : public LLCommandHandler
 {
-public:
-	LLDir_Win32();
-	virtual ~LLDir_Win32();
-
-	/*virtual*/ void initAppDirs(const std::string &app_name,
-		const std::string& app_read_only_data_dir);
-
-	/*virtual*/ std::string getCurPath();
-	/*virtual*/ U32 countFilesInDir(const std::string &dirname, const std::string &mask);
-	/*virtual*/ BOOL fileExists(const std::string &filename) const;
-
-	/*virtual*/ std::string getLLPluginLauncher();
-	/*virtual*/ std::string getLLPluginFilename(std::string base_name);
-
-private:
-	void* mDirSearch_h;
-	llutf16string mCurrentDir;
+public: 
+	// requires trusted browser to trigger
+	LLVoiceCallAvatarHandler() : LLCommandHandler("voicecallavatar", UNTRUSTED_THROTTLE) 
+	{ 
+	}
+	
+	bool handle(const LLSD& params, const LLSD& query_map, LLMediaCtrl* web)
+	{
+		//Make sure we have some parameters
+		if (params.size() == 0)
+		{
+			return false;
+		}
+		
+		//Get the ID
+		LLUUID id;
+		if (!id.set( params[0], FALSE ))
+		{
+			return false;
+		}
+		
+		//instigate call with this avatar
+		LLAvatarActions::startCall( id );		
+		return true;
+	}
 };
 
-#endif // LL_LLDIR_WIN32_H
-
+LLVoiceCallAvatarHandler gVoiceCallAvatarHandler;
 
