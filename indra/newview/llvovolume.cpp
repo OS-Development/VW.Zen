@@ -857,7 +857,8 @@ void LLVOVolume::updateTextureVirtualSize()
 
 BOOL LLVOVolume::isActive() const
 {
-	return !mStatic || mTextureAnimp || (mVolumeImpl && mVolumeImpl->isActive());
+	return !mStatic || mTextureAnimp || (mVolumeImpl && mVolumeImpl->isActive()) || 
+		(mDrawable.notNull() && mDrawable->isActive());
 }
 
 BOOL LLVOVolume::setMaterial(const U8 material)
@@ -931,9 +932,9 @@ LLDrawable *LLVOVolume::createDrawable(LLPipeline *pipeline)
 	return mDrawable;
 }
 
-BOOL LLVOVolume::setVolume(const LLVolumeParams &params, const S32 detail, bool unique_volume)
+BOOL LLVOVolume::setVolume(const LLVolumeParams &params_in, const S32 detail, bool unique_volume)
 {
-	LLVolumeParams volume_params = params;
+	LLVolumeParams volume_params = params_in;
 
 	S32 lod = mLOD;
 
@@ -945,7 +946,7 @@ BOOL LLVOVolume::setVolume(const LLVolumeParams &params, const S32 detail, bool 
 		if ((volume_params.getSculptType() & LL_SCULPT_TYPE_MASK) == LL_SCULPT_TYPE_MESH)
 		{ //meshes might not have all LODs, get the force detail to best existing LOD
 
-			LLUUID mesh_id = params.getSculptID();
+			LLUUID mesh_id = volume_params.getSculptID();
 
 			//profile and path params don't matter for meshes
 			volume_params.setType(LL_PCODE_PROFILE_SQUARE, LL_PCODE_PATH_LINE);
@@ -1019,6 +1020,7 @@ BOOL LLVOVolume::setVolume(const LLVolumeParams &params, const S32 detail, bool 
 						LLPrimitive::setVolume(volume_params, available_lod);
 					}
 				}
+				
 			}
 			else // otherwise is sculptie
 			{
@@ -1031,6 +1033,7 @@ BOOL LLVOVolume::setVolume(const LLVolumeParams &params, const S32 detail, bool 
 
 		return TRUE;
 	}
+
 	return FALSE;
 }
 
@@ -3279,28 +3282,6 @@ F32 LLVOVolume::getBinRadius()
 	
 	F32 scale = 1.f;
 
-	if (isSculpted())
-	{
-		LLSculptParams *sculpt_params = (LLSculptParams *)getParameterEntry(LLNetworkData::PARAMS_SCULPT);
-		LLUUID id =  sculpt_params->getSculptTexture();
-		U8 sculpt_type = sculpt_params->getSculptType();
-
-		if ((sculpt_type & LL_SCULPT_TYPE_MASK) == LL_SCULPT_TYPE_MESH)
-			// mesh is a mesh
-		{
-			LLVolume* volume = getVolume();
-			U32 vert_count = 0;
-
-			for (S32 i = 0; i < volume->getNumVolumeFaces(); ++i)
-			{
-				const LLVolumeFace& face = volume->getVolumeFace(i);
-				vert_count += face.mNumVertices;
-			}
-
-			scale = 1.f/llmax(vert_count/1024.f, 1.f);
-		}
-	}
-
 	const LLVector4a* ext = mDrawable->getSpatialExtents();
 	
 	BOOL shrink_wrap = mDrawable->isAnimating();
@@ -4068,39 +4049,44 @@ void LLVolumeGeometryManager::rebuildGeom(LLSpatialGroup* group)
 				{
 					LLUUID currentId = vobj->getVolume()->getParams().getSculptID();
 					const LLMeshSkinInfo*  pSkinData = gMeshRepo.getSkinInfo( currentId );
-				
+					
 					if ( pSkinData )
 					{
 						const int bindCnt = pSkinData->mAlternateBindMatrix.size();								
 						if ( bindCnt > 0 )
 						{					
 							const int jointCnt = pSkinData->mJointNames.size();
-							for ( int i=0; i<jointCnt; ++i )
+							bool fullRig = (jointCnt>=20) ? true : false;
+							if ( fullRig )
 							{
-								std::string lookingForJoint = pSkinData->mJointNames[i].c_str();
-								LLJoint* pJoint = pAvatarVO->getJoint( lookingForJoint );
-								if ( pJoint && pJoint->getId() != currentId )
-								{   									
-									pJoint->setId( currentId );
-									const LLVector3& jointPos = pSkinData->mAlternateBindMatrix[i].getTranslation();									
-									//If joint is a pelvis then handle by setting avPos+offset								
-									if ( lookingForJoint == "mPelvis" )
-									{	
-										//Apply av pos + offset 
-										if ( !pAvatarVO->hasPelvisOffset() )
-										{										
-											pAvatarVO->setPelvisOffset( true, jointPos );
-											//Trigger to rebuild viewer AV
-											pelvisGotSet = true;											
-										}										
+								for ( int i=0; i<jointCnt; ++i )
+								{
+									std::string lookingForJoint = pSkinData->mJointNames[i].c_str();
+									//llinfos<<"joint name "<<lookingForJoint.c_str()<<llendl;
+									LLJoint* pJoint = pAvatarVO->getJoint( lookingForJoint );
+									if ( pJoint && pJoint->getId() != currentId )
+									{   									
+										pJoint->setId( currentId );
+										const LLVector3& jointPos = pSkinData->mAlternateBindMatrix[i].getTranslation();									
+										//If joint is a pelvis then handle by setting avPos+offset								
+										if ( lookingForJoint == "mPelvis" )
+										{	
+											//Apply av pos + offset 
+											if ( !pAvatarVO->hasPelvisOffset() )
+											{										
+												pAvatarVO->setPelvisOffset( true, jointPos );
+												//Trigger to rebuild viewer AV
+												pelvisGotSet = true;											
+											}										
+										}
+										else
+										{
+											//Straight set for ALL joints except pelvis
+											pJoint->storeCurrentXform( jointPos );																					
+										}									
 									}
-									else
-									{
-										//Straight set for ALL joints except pelvis
-										pJoint->storeCurrentXform( jointPos );																					
-									}									
 								}
-							}
+							}							
 						}
 					}
 				}
@@ -4388,6 +4374,7 @@ void LLVolumeGeometryManager::rebuildMesh(LLSpatialGroup* group)
 			{
 				LLVOVolume* vobj = drawablep->getVOVolume();
 				vobj->preRebuild();
+
 				LLVolume* volume = vobj->getVolume();
 				for (S32 i = 0; i < drawablep->getNumFaces(); ++i)
 				{

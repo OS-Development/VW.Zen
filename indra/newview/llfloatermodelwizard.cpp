@@ -30,15 +30,17 @@
 
 #include "llbutton.h"
 #include "lldrawable.h"
+#include "llcheckboxctrl.h"
 #include "llcombobox.h"
 #include "llfloater.h"
 #include "llfloatermodelwizard.h"
 #include "llfloatermodelpreview.h"
 #include "llfloaterreg.h"
-#include "llslider.h"
+#include "llsliderctrl.h"
 #include "lltoolmgr.h"
 #include "llviewerwindow.h"
 
+LLFloaterModelWizard* LLFloaterModelWizard::sInstance = NULL;
 
 static	const std::string stateNames[]={
 	"choose_file",
@@ -50,43 +52,130 @@ static	const std::string stateNames[]={
 LLFloaterModelWizard::LLFloaterModelWizard(const LLSD& key)
 	: LLFloater(key)
 {
-}
+	mLastEnabledState = CHOOSE_FILE;
+	sInstance = this;
 
+	mCommitCallbackRegistrar.add("Wizard.Choose", boost::bind(&LLFloaterModelWizard::setState, this, CHOOSE_FILE));
+	mCommitCallbackRegistrar.add("Wizard.Optimize", boost::bind(&LLFloaterModelWizard::setState, this, OPTIMIZE));
+	mCommitCallbackRegistrar.add("Wizard.Physics", boost::bind(&LLFloaterModelWizard::setState, this, PHYSICS));
+	mCommitCallbackRegistrar.add("Wizard.Review", boost::bind(&LLFloaterModelWizard::setState, this, REVIEW));
+	mCommitCallbackRegistrar.add("Wizard.Upload", boost::bind(&LLFloaterModelWizard::setState, this, UPLOAD));
+}
+LLFloaterModelWizard::~LLFloaterModelWizard()
+{
+	sInstance = NULL;
+}
 void LLFloaterModelWizard::setState(int state)
 {
+
 	mState = state;
-	setButtons(state);
 
 	for(size_t t=0; t<LL_ARRAY_SIZE(stateNames); ++t)
 	{
-		LLView *view = getChild<LLView>(stateNames[t]+"_panel");
+		LLView *view = getChildView(stateNames[t]+"_panel");
 		if (view) 
 		{
 			view->setVisible(state == (int) t ? TRUE : FALSE);
 		}
 	}
 
+	if (state == CHOOSE_FILE)
+	{
+		mModelPreview->mViewOption["show_physics"] = false;
+
+		getChildView("close")->setVisible(false);
+		getChildView("back")->setVisible(true);
+		getChildView("back")->setEnabled(false);
+		getChildView("next")->setVisible(true);
+		getChildView("upload")->setVisible(false);
+		getChildView("cancel")->setVisible(true);
+	}
+
 	if (state == OPTIMIZE)
 	{
-		mModelPreview->genLODs(-1);
+		if (mLastEnabledState < state)
+		{			
+			mModelPreview->genLODs(-1);
+		}
+
+		mModelPreview->mViewOption["show_physics"] = false;
+
+		getChildView("back")->setVisible(true);
+		getChildView("back")->setEnabled(true);
+		getChildView("close")->setVisible(false);
+		getChildView("next")->setVisible(true);
+		getChildView("upload")->setVisible(false);
+		getChildView("cancel")->setVisible(true);
 	}
+
+	if (state == PHYSICS)
+	{
+		if (mLastEnabledState < state)
+		{
+			mModelPreview->setPhysicsFromLOD(1);
+		}
+
+		mModelPreview->mViewOption["show_physics"] = true;
+
+		getChildView("next")->setVisible(true);
+		getChildView("upload")->setVisible(false);
+		getChildView("close")->setVisible(false);
+		getChildView("back")->setVisible(true);
+		getChildView("back")->setEnabled(true);
+		getChildView("cancel")->setVisible(true);
+	}
+
+	if (state == REVIEW)
+	{
+		if (mLastEnabledState < state)
+		{
+			executePhysicsStage("Decompose");
+		}
+		
+		mModelPreview->mViewOption["show_physics"] = true;
+
+		getChildView("close")->setVisible(false);
+		getChildView("next")->setVisible(false);
+		getChildView("back")->setVisible(true);
+		getChildView("back")->setEnabled(true);
+		getChildView("upload")->setVisible(true);
+		getChildView("cancel")->setVisible(true);
+	}
+
+	if (state == UPLOAD)
+	{
+		getChildView("close")->setVisible(true);
+		getChildView("next")->setVisible(false);
+		getChildView("back")->setVisible(false);
+		getChildView("upload")->setVisible(false);
+		getChildView("cancel")->setVisible(false);
+	}
+
+	updateButtons();
 }
 
-void LLFloaterModelWizard::setButtons(int state)
+
+
+void LLFloaterModelWizard::updateButtons()
 {
+	if (mLastEnabledState < mState)
+	{
+		mLastEnabledState = mState;
+	}
+
 	for(size_t i=0; i<LL_ARRAY_SIZE(stateNames); ++i)
 	{
 		LLButton *button = getChild<LLButton>(stateNames[i]+"_btn");
 
-		if (i < state)
-		{
-			button->setEnabled(TRUE);
-			button->setToggleState(FALSE);
-		}
-		else if (i == state)
+		if (i == mState)
 		{
 			button->setEnabled(TRUE);
 			button->setToggleState(TRUE);
+		}
+		else if (i <= mLastEnabledState)
+		{
+			button->setEnabled(TRUE);
+			button->setToggleState(FALSE);
 		}
 		else
 		{
@@ -227,32 +316,191 @@ BOOL LLFloaterModelWizard::handleScrollWheel(S32 x, S32 y, S32 clicks)
 	return TRUE;
 }
 
+void LLFloaterModelWizard::initDecompControls()
+{
+	LLSD key;
+
+	static const LLCDStageData* stage = NULL;
+	static S32 stage_count = 0;
+
+	if (!stage && LLConvexDecomposition::getInstance() != NULL)
+	{
+		stage_count = LLConvexDecomposition::getInstance()->getStages(&stage);
+	}
+
+	static const LLCDParam* param = NULL;
+	static S32 param_count = 0;
+	if (!param && LLConvexDecomposition::getInstance() != NULL)
+	{
+		param_count = LLConvexDecomposition::getInstance()->getParameters(&param);
+	}
+
+	for (S32 j = stage_count-1; j >= 0; --j)
+	{
+		gMeshRepo.mDecompThread->mStageID[stage[j].mName] = j;
+		// protected against stub by stage_count being 0 for stub above
+		LLConvexDecomposition::getInstance()->registerCallback(j, LLPhysicsDecomp::llcdCallback);
+
+		for (S32 i = 0; i < param_count; ++i)
+		{
+			if (param[i].mStage != j)
+			{
+				continue;
+			}
+
+			std::string name(param[i].mName ? param[i].mName : "");
+			std::string description(param[i].mDescription ? param[i].mDescription : "");
+
+			if (param[i].mType == LLCDParam::LLCD_FLOAT)
+			{
+				mDecompParams[param[i].mName] = LLSD(param[i].mDefault.mFloat);
+			}
+			else if (param[i].mType == LLCDParam::LLCD_INTEGER)
+			{
+				mDecompParams[param[i].mName] = LLSD(param[i].mDefault.mIntOrEnumValue);
+			}
+			else if (param[i].mType == LLCDParam::LLCD_BOOLEAN)
+			{
+				mDecompParams[param[i].mName] = LLSD(param[i].mDefault.mBool);
+			}
+			else if (param[i].mType == LLCDParam::LLCD_ENUM)
+			{
+				mDecompParams[param[i].mName] = LLSD(param[i].mDefault.mIntOrEnumValue);
+			}
+		}
+	}
+
+	mDecompParams["Simplify Method"] = 0; // set it to retain %
+}
+
+//static
+void LLFloaterModelWizard::executePhysicsStage(std::string stage_name)
+{
+	if (sInstance)
+	{
+		F64 physics_accuracy = sInstance->getChild<LLSliderCtrl>("physics_slider")->getValue().asReal();
+
+		sInstance->mDecompParams["Retain%"] = physics_accuracy;
+
+		if (!sInstance->mCurRequest.empty())
+		{
+			llinfos << "Decomposition request still pending." << llendl;
+			return;
+		}
+
+		if (sInstance->mModelPreview)
+		{
+			for (S32 i = 0; i < sInstance->mModelPreview->mModel[LLModel::LOD_PHYSICS].size(); ++i)
+			{
+				LLModel* mdl = sInstance->mModelPreview->mModel[LLModel::LOD_PHYSICS][i];
+				DecompRequest* request = new DecompRequest(stage_name, mdl);
+				sInstance->mCurRequest.insert(request);
+				gMeshRepo.mDecompThread->submitRequest(request);
+			}
+		}
+	}
+}
+
+LLFloaterModelWizard::DecompRequest::DecompRequest(const std::string& stage, LLModel* mdl)
+{
+	mStage = stage;
+	mContinue = 1;
+	mModel = mdl;
+	mDecompID = &mdl->mDecompID;
+	mParams = sInstance->mDecompParams;
+
+	//copy out positions and indices
+	if (mdl)
+	{
+		U16 index_offset = 0;
+
+		mPositions.clear();
+		mIndices.clear();
+
+		//queue up vertex positions and indices
+		for (S32 i = 0; i < mdl->getNumVolumeFaces(); ++i)
+		{
+			const LLVolumeFace& face = mdl->getVolumeFace(i);
+			if (mPositions.size() + face.mNumVertices > 65535)
+			{
+				continue;
+			}
+
+			for (U32 j = 0; j < face.mNumVertices; ++j)
+			{
+				mPositions.push_back(LLVector3(face.mPositions[j].getF32ptr()));
+			}
+
+			for (U32 j = 0; j < face.mNumIndices; ++j)
+			{
+				mIndices.push_back(face.mIndices[j]+index_offset);
+			}
+
+			index_offset += face.mNumVertices;
+		}
+	}
+}
+
+
+S32 LLFloaterModelWizard::DecompRequest::statusCallback(const char* status, S32 p1, S32 p2)
+{
+	setStatusMessage(llformat("%s: %d/%d", status, p1, p2));
+
+	return mContinue;
+}
+
+void LLFloaterModelWizard::DecompRequest::completed()
+{ //called from the main thread
+	mModel->setConvexHullDecomposition(mHull);
+
+	if (sInstance)
+	{
+		if (sInstance->mModelPreview)
+		{
+			sInstance->mModelPreview->mPhysicsMesh[mModel] = mHullMesh;
+			sInstance->mModelPreview->mDirty = true;
+			LLFloaterModelWizard::sInstance->mModelPreview->refresh();
+		}
+
+		sInstance->mCurRequest.erase(this);
+	}
+
+	if (mStage == "Decompose")
+	{
+		executePhysicsStage("Simplify");
+	}
+}
+
 
 BOOL LLFloaterModelWizard::postBuild()
 {
-	LLView* preview_panel = getChild<LLView>("preview_panel");
+	LLView* preview_panel = getChildView("preview_panel");
 
 	childSetValue("import_scale", (F32) 0.67335826);
 
 	getChild<LLUICtrl>("browse")->setCommitCallback(boost::bind(&LLFloaterModelWizard::loadModel, this));
+	//getChild<LLUICtrl>("lod_file")->setCommitCallback(boost::bind(&LLFloaterModelWizard::loadModel, this));
 	getChild<LLUICtrl>("cancel")->setCommitCallback(boost::bind(&LLFloaterModelWizard::onClickCancel, this));
+	getChild<LLUICtrl>("close")->setCommitCallback(boost::bind(&LLFloaterModelWizard::onClickCancel, this));
 	getChild<LLUICtrl>("back")->setCommitCallback(boost::bind(&LLFloaterModelWizard::onClickBack, this));
 	getChild<LLUICtrl>("next")->setCommitCallback(boost::bind(&LLFloaterModelWizard::onClickNext, this));
-	childSetCommitCallback("preview_lod_combo", onPreviewLODCommit, this);
+	getChild<LLUICtrl>("preview_lod_combo")->setCommitCallback(boost::bind(&LLFloaterModelWizard::onPreviewLODCommit, this, _1));
 	getChild<LLUICtrl>("accuracy_slider")->setCommitCallback(boost::bind(&LLFloaterModelWizard::onAccuracyPerformance, this, _2));
-
-	childSetAction("ok_btn", onUpload, this);
+	getChild<LLUICtrl>("upload")->setCommitCallback(boost::bind(&LLFloaterModelWizard::onUpload, this));
+	getChild<LLUICtrl>("physics_slider")->setCommitCallback(boost::bind(&LLFloaterModelWizard::onPhysicsChanged, this));
 
 	LLUICtrl::EnableCallbackRegistry::ScopedRegistrar enable_registrar;
 	
 	enable_registrar.add("Next.OnEnable", boost::bind(&LLFloaterModelWizard::onEnableNext, this));
 	enable_registrar.add("Back.OnEnable", boost::bind(&LLFloaterModelWizard::onEnableBack, this));
 
-	
+
 	mPreviewRect = preview_panel->getRect();
 	
 	mModelPreview = new LLModelPreview(512, 512, this);
 	mModelPreview->setPreviewTarget(16.f);
+	mModelPreview->setDetailsCallback(boost::bind(&LLFloaterModelWizard::setDetails, this, _1, _2, _3, _4, _5));
+	mModelPreview->setModelLoadedCallback(boost::bind(&LLFloaterModelWizard::modelLoadedCallback, this));
 
 	center();
 
@@ -262,21 +510,52 @@ BOOL LLFloaterModelWizard::postBuild()
 	childSetTextArg("import_dimensions", "[Y]", LLStringUtil::null);
 	childSetTextArg("import_dimensions", "[Z]", LLStringUtil::null);
 
+	initDecompControls();
+
 	return TRUE;
 }
 
-void LLFloaterModelWizard::onUpload(void* user_data)
+
+void LLFloaterModelWizard::setDetails(F32 x, F32 y, F32 z, F32 streaming_cost, F32 physics_cost)
 {
-	LLFloaterModelWizard* mp = (LLFloaterModelWizard*) user_data;
-	
-	mp->mModelPreview->rebuildUploadData();
-	
-	gMeshRepo.uploadModel(mp->mModelPreview->mUploadData, mp->mModelPreview->mPreviewScale, 
-						  mp->childGetValue("upload_textures").asBoolean(), mp->childGetValue("upload_skin"), mp->childGetValue("upload_joints"));
-	
-	mp->closeFloater(false);
+	// iterate through all the panels, setting the dimensions
+	for(size_t t=0; t<LL_ARRAY_SIZE(stateNames); ++t)
+	{
+		LLPanel *panel = getChild<LLPanel>(stateNames[t]+"_panel");
+		if (panel) 
+		{
+			panel->childSetText("dimension_x", llformat("%.1f", x));
+			panel->childSetText("dimension_y", llformat("%.1f", y));
+			panel->childSetText("dimension_z", llformat("%.1f", z));
+			panel->childSetTextArg("streaming cost", "[COST]", llformat("%.3f", streaming_cost));
+			panel->childSetTextArg("physics cost", "[COST]", llformat("%.3f", physics_cost));	
+		}
+	}
 }
 
+void LLFloaterModelWizard::modelLoadedCallback()
+{
+	mLastEnabledState = CHOOSE_FILE;
+	getChild<LLCheckBoxCtrl>("confirm_checkbox")->set(FALSE);
+	updateButtons();
+}
+
+void LLFloaterModelWizard::onPhysicsChanged()
+{
+	mLastEnabledState = PHYSICS;
+	updateButtons();
+}
+
+void LLFloaterModelWizard::onUpload()
+{	
+	mModelPreview->rebuildUploadData();
+	
+	gMeshRepo.uploadModel(mModelPreview->mUploadData, mModelPreview->mPreviewScale, 
+						  childGetValue("upload_textures").asBoolean(), childGetValue("upload_skin"), childGetValue("upload_joints"));
+	
+	setState(UPLOAD);
+	
+}
 
 void LLFloaterModelWizard::onAccuracyPerformance(const LLSD& data)
 {
@@ -287,11 +566,10 @@ void LLFloaterModelWizard::onAccuracyPerformance(const LLSD& data)
 	mModelPreview->refresh();
 }
 
-void LLFloaterModelWizard::onPreviewLODCommit(LLUICtrl* ctrl, void* userdata)
+
+void LLFloaterModelWizard::onPreviewLODCommit(LLUICtrl* ctrl)
 {
-	LLFloaterModelWizard *fp =(LLFloaterModelWizard *)userdata;
-	
-	if (!fp->mModelPreview)
+	if (!mModelPreview)
 	{
 		return;
 	}
@@ -302,11 +580,33 @@ void LLFloaterModelWizard::onPreviewLODCommit(LLUICtrl* ctrl, void* userdata)
 	
 	which_mode = (NUM_LOD-1)-combo->getFirstSelectedIndex(); // combo box list of lods is in reverse order
 
-	fp->mModelPreview->setPreviewLOD(which_mode);
+	mModelPreview->setPreviewLOD(which_mode);
+}
+
+void LLFloaterModelWizard::refresh()
+{
+	if (mState == CHOOSE_FILE)
+	{
+		bool model_loaded = false;
+
+		if (mModelPreview && mModelPreview->mModelLoader && mModelPreview->mModelLoader->getLoadState() == LLModelLoader::DONE)
+		{
+			model_loaded = true;
+		}
+		
+		getChildView("next")->setEnabled(model_loaded);
+	}
+	if (mState == REVIEW)
+	{
+		getChildView("upload")->setEnabled(getChild<LLCheckBoxCtrl>("confirm_checkbox")->getValue().asBoolean());
+	}
+
 }
 
 void LLFloaterModelWizard::draw()
 {
+	refresh();
+
 	LLFloater::draw();
 	LLRect r = getRect();
 	
@@ -318,8 +618,8 @@ void LLFloaterModelWizard::draw()
 		
 		gGL.getTexUnit(0)->bind(mModelPreview);
 		
-		LLView *view = getChild<LLView>(stateNames[mState]+"_panel");
-		LLView* preview_panel = view->getChild<LLView>("preview_panel");
+		LLView *view = getChildView(stateNames[mState]+"_panel");
+		LLView* preview_panel = view->getChildView("preview_panel");
 
 		LLRect rect = preview_panel->getRect();
 		if (rect != mPreviewRect)

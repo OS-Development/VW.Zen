@@ -169,6 +169,7 @@ public:
 	
 	void					resetJointPositions( void );
 	void					resetJointPositionsToDefault( void );
+	void					resetSpecificJointPosition( const std::string& name );
 	
 	virtual const char*		getAnimationPrefix() { return "avatar"; }
 	virtual const LLUUID&   getID();
@@ -686,6 +687,7 @@ public:
 	void 				clampAttachmentPositions();
 	virtual const LLViewerJointAttachment* attachObject(LLViewerObject *viewer_object);
 	virtual BOOL 		detachObject(LLViewerObject *viewer_object);
+	void				cleanupAttachedMesh( LLViewerObject* pVO );
 	static LLVOAvatar*  findAvatarFromAttachment(LLViewerObject* obj);
 protected:
 	LLViewerJointAttachment* getTargetAttachmentPoint(LLViewerObject* viewer_object);

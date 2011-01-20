@@ -23,7 +23,7 @@
     Name:
   </text>
   <line_editor bottom_delta="20" follows="top|left|right" height="19" 
-	     name="description_form" width="290" />
+	     name="description_form" prevalidate_callback="ascii" width="290" />
   
   <text bottom_delta="20" left="15" follows="left|top" height="15" name="lod_label">
     Preview:
@@ -136,9 +136,9 @@
       </text>
 
       <icon height="16" width="16" left="20" follows="left|top" name="lod_status_message_icon"/>
-      <text left_pad="5" width="200" height="15" follows="left|top" name="lod_status_message_text"/>
-        
-      <text top_pad="10" left="10" height="15" follows="left|top">
+      <text left_pad="5" width="200" height="28" follows="left|top" top_pad="-15" wrap="true" name="lod_status_message_text"/>
+
+      <text top_pad="-3" left="10" height="15" follows="left|top">
         Mesh
       </text>
 
@@ -169,11 +169,11 @@
         Queue Mode:
       </text>
       <combo_box follows="top|left" name="build_operator" top_pad="5" left="45" width="100" height="20">
-        <combo_item name="half_edge_collapse">
-          Half Edge Collapse
-        </combo_item>
         <combo_item name="edge_collapse">
           Edge Collapse
+        </combo_item>
+        <combo_item name="half_edge_collapse">
+          Half Edge Collapse
         </combo_item>
       </combo_box>
 
@@ -205,7 +205,7 @@
           Lock
         </combo_item>
       </combo_box>
-      <spinner follows="left|top" name="share_tolerance" left_pad="5" width="100" height="20"/>
+      <spinner follows="left|top" name="share_tolerance" left_pad="5" width="100" decimal_digits="5" initial_value="0.00001" height="20"/>
              
       <text left="10" top_pad="35" follows="top|left" width="240" height="15">
         Generate Normals
@@ -229,7 +229,7 @@
         left="0"
         top="0"
         width="300"
-        height="80"
+        height="65"
         visible="true"
         border="true"
         bevel_style="none" bg_alpha_color="0 0 0 0" bg_opaque_color="0 0 0 0.3">
@@ -295,6 +295,7 @@
         <check_box name="Close Holes (Slow)" follows="top|left" top_pad="10" height="15" label="Close Holes (slow)"/>
                 
         <button left="200" bottom_delta="0" width="90" follows="top|left" label="Analyze" name="Decompose" height="20"/>
+        <button left="200" bottom_delta="0" width="90" follows="top|left" label="Cancel" name="decompose_cancel" visble="false" height="20"/>
       </panel>
       
 
@@ -324,6 +325,7 @@
         <slider name="Detail Scale" label="Detail Scale:" label_width="120" width="270" follows="top|left" top_pad="10" height="20"/>
         <slider name="Retain%" label="Retain:" label_width="120" width="270" follows="top|left" bottom_delta="0" left_delta="0" visible="false" height="20"/>
         <button left="190" width="90" follows="top|left" label="Simplify" name="Simplify" height="20"/>
+        <button left="190" bottom_delta="0" width="90" follows="top|left" label="Cancel" name="simplify_cancel" height="20"/>
         
       </panel>
 

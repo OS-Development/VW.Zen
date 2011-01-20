@@ -26,20 +26,53 @@
 #ifndef LLFLOATERMODELWIZARD_H
 #define LLFLOATERMODELWIZARD_H
 
+
+#include "llmeshrepository.h"
+#include "llmodel.h"
+#include "llthread.h"
+
+
 class LLModelPreview;
+
 
 class LLFloaterModelWizard : public LLFloater
 {
 public:
+	
+	class DecompRequest : public LLPhysicsDecomp::Request
+	{
+	public:
+		S32 mContinue;
+		LLPointer<LLModel> mModel;
+		
+		DecompRequest(const std::string& stage, LLModel* mdl);
+		virtual S32 statusCallback(const char* status, S32 p1, S32 p2);
+		virtual void completed();
+		
+	};
+	
+	static LLFloaterModelWizard* sInstance;
+
 	LLFloaterModelWizard(const LLSD& key);
-	virtual ~LLFloaterModelWizard() {};
+	virtual ~LLFloaterModelWizard();
 	/*virtual*/	BOOL	postBuild();
 	void			draw();
+	void            refresh();
 	
 	BOOL handleMouseDown(S32 x, S32 y, MASK mask);
 	BOOL handleMouseUp(S32 x, S32 y, MASK mask);
 	BOOL handleHover(S32 x, S32 y, MASK mask);
 	BOOL handleScrollWheel(S32 x, S32 y, S32 clicks); 
+
+	void setDetails(F32 x, F32 y, F32 z, F32 streaming_cost, F32 physics_cost);
+	void modelLoadedCallback();
+	void onPhysicsChanged();
+	void initDecompControls();
+	
+	LLPhysicsDecomp::decomp_params mDecompParams;
+	std::set<LLPointer<DecompRequest> > mCurRequest;
+	std::string mStatusMessage;
+	static void executePhysicsStage(std::string stage_name);
 
 private:
 	enum EWizardState
@@ -52,16 +85,16 @@ private:
 	};
 
 	void setState(int state);
-	void setButtons(int state);
+	void updateButtons();
 	void onClickCancel();
 	void onClickBack();
 	void onClickNext();
 	bool onEnableNext();
 	bool onEnableBack();
 	void loadModel();
-	static void	onPreviewLODCommit(LLUICtrl*,void*);
+	void onPreviewLODCommit(LLUICtrl*);
 	void onAccuracyPerformance(const LLSD& data);
-	static void onUpload(void* data);
+	void onUpload();
 
 	LLModelPreview*	mModelPreview;
 	LLRect			mPreviewRect;
@@ -69,6 +102,8 @@ private:
 
 	S32				mLastMouseX;
 	S32				mLastMouseY;
+
+	U32			    mLastEnabledState;
 
 
 };
