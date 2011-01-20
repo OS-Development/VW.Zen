@@ -222,9 +222,9 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>ab6246b72141f39804c67f4536f1cece</string>
+              <string>445c558d312a195f015eab324af5aba9</string>
               <key>url</key>
-              <string>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/curl-7.20.1-darwin-20101004.tar.bz2</string>
+              <string>http://automated-builds-secondlife-com.s3.amazonaws.com/hg/repo/3p-curl/rev/219358/arch/Darwin/installer/curl-7.21.1-darwin-20110120.tar.bz2</string>
             </map>
             <key>name</key>
             <string>darwin</string>
@@ -234,9 +234,9 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>a9b82d81b483f5e40a3058d165f1aff2</string>
+              <string>f862e4a9f65f2d57c7bd0815302b021c</string>
               <key>url</key>
-              <string>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/curl-7.20.1-linux-20100929.tar.bz2</string>
+              <string>http://automated-builds-secondlife-com.s3.amazonaws.com/hg/repo/3p-curl/rev/219358/arch/Linux/installer/curl-7.21.1-linux-20110120.tar.bz2</string>
             </map>
             <key>name</key>
             <string>linux</string>
@@ -246,9 +246,9 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>a3494e2560b7fe32b25cb19041ba4e2a</string>
+              <string>f57a98c83ae6f62655c78f158ee93fc6</string>
               <key>url</key>
-              <string>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/curl-7.20.1-windows-20101001a.tar.bz2</string>
+              <string>http://automated-builds-secondlife-com.s3.amazonaws.com/hg/repo/3p-curl/rev/219358/arch/CYGWIN/installer/curl-7.21.1-windows-20110120.tar.bz2</string>
             </map>
             <key>name</key>
             <string>windows</string>
@@ -1344,7 +1344,7 @@
         <key>license_file</key>
         <string>LICENSES/slvoice.txt</string>
         <key>name</key>
-        <string>vivox</string>
+        <string>slvoice</string>
         <key>platforms</key>
         <map>
           <key>darwin</key>
@@ -1352,9 +1352,9 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>8f517d790d2ec9888c5688e9950fc2d5</string>
+              <string>e19576af3c0affc71293d8f0bcce2606</string>
               <key>url</key>
-              <string>http://viewer-source-downloads.s3.amazonaws.com/install_pkgs/vivox-3.1.0001.8821-darwin-20101018.tar.bz2</string>
+              <string> http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/slvoice-3.2.0002.9361-darwin-20110120.tar.bz2</string>
             </map>
             <key>name</key>
             <string>darwin</string>
