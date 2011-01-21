@@ -656,6 +656,13 @@ void LLFloaterPreference::onOpen(const LLSD& key)
 		getChildView("maturity_desired_combobox")->setVisible( false);
 	}
 
+	bool enable_mesh = gSavedSettings.getBOOL("MeshEnabled");
+
+	getChildView("UseLightShaders")->setVisible(enable_mesh);
+	getChildView("UseSSAO")->setVisible(enable_mesh);
+	getChildView("shadows_label")->setVisible(enable_mesh);
+	getChildView("ShadowDetail")->setVisible(enable_mesh);
+
 	if (LLStartUp::getStartupState() == STATE_STARTED)
 	{
 		mFavoritesRecordMayExist = gSavedPerAccountSettings.getBOOL("ShowFavoritesOnLogin");
@@ -1036,8 +1043,7 @@ void LLFloaterPreference::refreshEnabledState()
 
 	//Deferred/SSAO/Shadows
 	LLCheckBoxCtrl* ctrl_deferred = getChild<LLCheckBoxCtrl>("UseLightShaders");
-	if (LLFeatureManager::getInstance()->isFeatureAvailable("RenderUseFBO") &&
-	    LLFeatureManager::getInstance()->isFeatureAvailable("RenderDeferred") &&
+	if (LLFeatureManager::getInstance()->isFeatureAvailable("RenderDeferred") &&
 		shaders)
 	{
 		BOOL enabled = (ctrl_wind_light->get()) ? TRUE : FALSE;

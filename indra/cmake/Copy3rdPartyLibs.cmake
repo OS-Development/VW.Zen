@@ -38,6 +38,8 @@ if(WINDOWS)
         libapr-1.dll
         libaprutil-1.dll
         libapriconv-1.dll
+        libcollada14dom21-d.dll
+        glod.dll
         )
 
     # *TODO - update this to use LIBS_PREBUILT_DIR and LL_ARCH_DIR variables
@@ -48,6 +50,8 @@ if(WINDOWS)
         libapr-1.dll
         libaprutil-1.dll
         libapriconv-1.dll
+        libcollada14dom21.dll
+        glod.dll
         )
 
     if(USE_GOOGLE_PERFTOOLS)
@@ -150,9 +154,11 @@ elseif(DARWIN)
         libaprutil-1.dylib
         libexpat.0.5.0.dylib
         libexpat.dylib
-        libllqtwebkit.dylib
+        libGLOD.dylib
+	libllqtwebkit.dylib
         libndofdev.dylib
         libexception_handler.dylib
+	libcollada14dom.dylib
        )
 
     # fmod is statically linked on darwin
@@ -202,9 +208,10 @@ elseif(LINUX)
         libopenjpeg.so
         libssl.so
         libstacktrace.so
-        libtcmalloc.so
+        libtcmalloc_minimal.so
+	libtcmalloc_minimal.so.0
         libuuid.so.1
-        libssl.so.0.9.7
+	libssl.so.0.9.7
        )
 
     if (FMOD)
