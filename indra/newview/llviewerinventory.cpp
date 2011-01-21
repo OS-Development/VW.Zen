@@ -367,11 +367,11 @@ void LLViewerInventoryItem::fetchFromServer(void) const
 		{
 		  if(gAgent.getID() != mPermissions.getOwner())
 		    {
-		      url = region->getCapability("FetchLib");
+		      url = region->getCapability("FetchLib2");
 		    }
 		  else
 		    {	
-		      url = region->getCapability("FetchInventory");
+		      url = region->getCapability("FetchInventory2");
 		    }
 		}
 		else
@@ -649,7 +649,7 @@ bool LLViewerInventoryCategory::fetch()
 		std::string url;
 		if (gAgent.getRegion())
 		{
-			url = gAgent.getRegion()->getCapability("WebFetchInventoryDescendents");
+			url = gAgent.getRegion()->getCapability("FetchInventoryDescendents2");
 		}
 		else
 		{
@@ -661,7 +661,7 @@ bool LLViewerInventoryCategory::fetch()
 		}
 		else
 		{	//Deprecated, but if we don't have a capability, use the old system.
-			llinfos << "WebFetchInventoryDescendents capability not found.  Using deprecated UDP message." << llendl;
+			llinfos << "FetchInventoryDescendents2 capability not found.  Using deprecated UDP message." << llendl;
 			LLMessageSystem* msg = gMessageSystem;
 			msg->newMessage("FetchInventoryDescendents");
 			msg->nextBlock("AgentData");
