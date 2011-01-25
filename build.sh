@@ -22,7 +22,7 @@ build_dir_Darwin()
 
 build_dir_Linux()
 {
-  echo build-linux-i686-$(echo $1 | tr A-Z a-z)
+  echo build-linux-i686
 }
 
 build_dir_CYGWIN()
@@ -61,7 +61,7 @@ build()
   if $build_viewer
   then
     begin_section "Viewer$variant"
-    if "$AUTOBUILD" build -c $variant --no-configure
+    if "$AUTOBUILD" build -c $variant
     then
       echo true >"$build_dir"/build_ok
     else
