@@ -475,13 +475,12 @@ static void settings_to_globals()
 	gDebugWindowProc = gSavedSettings.getBOOL("DebugWindowProc");
 	gShowObjectUpdates = gSavedSettings.getBOOL("ShowObjectUpdates");
 	LLWorldMapView::sMapScale = gSavedSettings.getF32("MapScale");
-
-	LLCubeMap::sUseCubeMaps = LLFeatureManager::getInstance()->isFeatureAvailable("RenderCubeMap");
 }
 
 static void settings_modify()
 {
 	LLRenderTarget::sUseFBO				= gSavedSettings.getBOOL("RenderDeferred");
+	LLPipeline::sRenderDeferred			= gSavedSettings.getBOOL("RenderDeferred");
 	LLVOAvatar::sUseImpostors			= gSavedSettings.getBOOL("RenderUseImpostors");
 	LLVOSurfacePatch::sLODFactor		= gSavedSettings.getF32("RenderTerrainLODFactor");
 	LLVOSurfacePatch::sLODFactor *= LLVOSurfacePatch::sLODFactor; //square lod factor to get exponential range of [1,4]
@@ -858,6 +857,9 @@ bool LLAppViewer::init()
 	gGLActive = TRUE;
 	initWindow();
 
+	// initWindow also initializes the Feature List, so now we can initialize this global.
+	LLCubeMap::sUseCubeMaps = LLFeatureManager::getInstance()->isFeatureAvailable("RenderCubeMap");
+
 	// call all self-registered classes
 	LLInitClassList::instance().fireCallbacks();
 
@@ -890,6 +892,18 @@ bool LLAppViewer::init()
 		// all hell breaks lose.
 		OSMessageBox(
 			LLNotifications::instance().getGlobalString("UnsupportedGLRequirements"),
+			LLStringUtil::null,
+			OSMB_OK);
+		return 0;
+	}
+
+	// Without SSE2 support we will crash almost immediately, warn here.
+	if (!gSysCPU.hasSSE2())
+	{	
+		// can't use an alert here since we're exiting and
+		// all hell breaks lose.
+		OSMessageBox(
+			LLNotifications::instance().getGlobalString("UnsupportedCPUSSE2"),
 			LLStringUtil::null,
 			OSMB_OK);
 		return 0;
@@ -1300,7 +1314,7 @@ bool LLAppViewer::mainLoop()
 				resumeMainloopTimeout();
 	
 				pingMainloopTimeout("Main:End");
-			}			
+			}	
 		}
 		catch(std::bad_alloc)
 		{			
@@ -1415,16 +1429,6 @@ bool LLAppViewer::cleanup()
 		rv = apr_dso_unload(*i);
 	}
 	mPlugins.clear();
-
-	//----------------------------------------------
-	//this test code will be removed after the test
-	//test manual call stack tracer
-	if(gSavedSettings.getBOOL("QAMode"))
-	{
-		LLError::LLCallStacks::print() ;
-	}
-	//end of the test code
-	//----------------------------------------------
 
 	//flag all elements as needing to be destroyed immediately
 	// to ensure shutdown order
@@ -1812,6 +1816,8 @@ bool LLAppViewer::cleanup()
 	LLMainLoopRepeater::instance().stop();
 
 	ll_close_fail_log();
+
+	MEM_TRACK_RELEASE
 
     llinfos << "Goodbye!" << llendflush;
 
@@ -2511,15 +2517,23 @@ namespace {
 
 		if(data["required"].asBoolean())
 		{
-			apply_callback = &apply_update_ok_callback;
 			if(LLStartUp::getStartupState() <= STATE_LOGIN_WAIT)
 			{
 				// The user never saw the progress bar.
+				apply_callback = &apply_update_ok_callback;
 				notification_name = "RequiredUpdateDownloadedVerboseDialog";
+			}
+			else if(LLStartUp::getStartupState() < STATE_WORLD_INIT)
+			{
+				// The user is logging in but blocked.
+				apply_callback = &apply_update_ok_callback;
+				notification_name = "RequiredUpdateDownloadedDialog";
 			}
 			else
 			{
-				notification_name = "RequiredUpdateDownloadedDialog";
+				// The user is already logged in; treat like an optional update.
+				apply_callback = &apply_update_callback;
+				notification_name = "DownloadBackgroundTip";
 			}
 		}
 		else
@@ -3110,35 +3124,32 @@ void LLAppViewer::initMarkerFile()
 	std::string llerror_marker_file = gDirUtilp->getExpandedFilename(LL_PATH_LOGS, LLERROR_MARKER_FILE_NAME);
 	std::string error_marker_file = gDirUtilp->getExpandedFilename(LL_PATH_LOGS, ERROR_MARKER_FILE_NAME);
 
-	
 	if (LLAPRFile::isExist(mMarkerFileName, NULL, LL_APR_RB) && !anotherInstanceRunning())
 	{
 		gLastExecEvent = LAST_EXEC_FROZE;
 		LL_INFOS("MarkerFile") << "Exec marker found: program froze on previous execution" << LL_ENDL;
 	}    
-    
 	if(LLAPRFile::isExist(logout_marker_file, NULL, LL_APR_RB))
 	{
-		LL_INFOS("MarkerFile") << "Last exec LLError crashed, setting LastExecEvent to " << LAST_EXEC_LLERROR_CRASH << LL_ENDL;
 		gLastExecEvent = LAST_EXEC_LOGOUT_FROZE;
+		LL_INFOS("MarkerFile") << "Last exec LLError crashed, setting LastExecEvent to " << gLastExecEvent << LL_ENDL;
+		LLAPRFile::remove(logout_marker_file);
 	}
 	if(LLAPRFile::isExist(llerror_marker_file, NULL, LL_APR_RB))
 	{
-		llinfos << "Last exec LLError crashed, setting LastExecEvent to " << LAST_EXEC_LLERROR_CRASH << llendl;
 		if(gLastExecEvent == LAST_EXEC_LOGOUT_FROZE) gLastExecEvent = LAST_EXEC_LOGOUT_CRASH;
 		else gLastExecEvent = LAST_EXEC_LLERROR_CRASH;
+		LL_INFOS("MarkerFile") << "Last exec LLError crashed, setting LastExecEvent to " << gLastExecEvent << LL_ENDL;
+		LLAPRFile::remove(llerror_marker_file);
 	}
 	if(LLAPRFile::isExist(error_marker_file, NULL, LL_APR_RB))
 	{
-		LL_INFOS("MarkerFile") << "Last exec crashed, setting LastExecEvent to " << LAST_EXEC_OTHER_CRASH << LL_ENDL;
 		if(gLastExecEvent == LAST_EXEC_LOGOUT_FROZE) gLastExecEvent = LAST_EXEC_LOGOUT_CRASH;
 		else gLastExecEvent = LAST_EXEC_OTHER_CRASH;
+		LL_INFOS("MarkerFile") << "Last exec crashed, setting LastExecEvent to " << gLastExecEvent << LL_ENDL;
+		LLAPRFile::remove(error_marker_file);
 	}
-	
-	LLAPRFile::remove(logout_marker_file);
-	LLAPRFile::remove(llerror_marker_file);
-	LLAPRFile::remove(error_marker_file);
-	
+
 	// No new markers if another instance is running.
 	if(anotherInstanceRunning()) 
 	{
@@ -3780,6 +3791,7 @@ void LLAppViewer::loadNameCache()
 	// display names cache
 	std::string filename =
 		gDirUtilp->getExpandedFilename(LL_PATH_CACHE, "avatar_name_cache.xml");
+	LL_INFOS("AvNameCache") << filename << LL_ENDL;
 	llifstream name_cache_stream(filename);
 	if(name_cache_stream.is_open())
 	{
