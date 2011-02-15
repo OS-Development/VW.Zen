@@ -65,6 +65,7 @@ public:
 	static void 	onCommitPhysics(		LLUICtrl* ctrl, void* userdata);
 	static void 	onCommitTemporary(		LLUICtrl* ctrl, void* userdata);
 	static void 	onCommitPhantom(		LLUICtrl* ctrl, void* userdata);
+	static void     onCommitPhysicsParam(       LLUICtrl* ctrl, void* userdata);
 	static void 	onCommitCastShadows(	LLUICtrl* ctrl, void* userdata);
 
 	static void 	onCommitParametric(LLUICtrl* ctrl, void* userdata);
@@ -80,6 +81,7 @@ public:
 	
 protected:
 	void			getState();
+	void			refreshCost();
 
 	void			sendRotation(BOOL btn_down);
 	void			sendScale(BOOL btn_down);
@@ -87,6 +89,12 @@ protected:
 	void			sendIsPhysical();
 	void			sendIsTemporary();
 	void			sendIsPhantom();
+	void            sendPhysicsShapeType(LLUICtrl* ctrl, void* userdata);
+	void            sendPhysicsGravity(LLUICtrl* ctrl, void* userdata);
+	void            sendPhysicsFriction(LLUICtrl* ctrl, void* userdata);
+	void            sendPhysicsRestitution(LLUICtrl* ctrl, void* userdata);
+	void            sendPhysicsDensity(LLUICtrl* ctrl, void* userdata);
+
 	void			sendCastShadows();
 	void            sendSculpt();
 	
@@ -158,6 +166,12 @@ protected:
 	LLCheckBoxCtrl	*mCheckTemporary;
 	LLCheckBoxCtrl	*mCheckPhantom;
 	LLCheckBoxCtrl	*mCheckCastShadows;
+
+	LLComboBox*     mComboPhysicsShapeType;
+	LLSpinCtrl*     mSpinPhysicsGravity;
+	LLSpinCtrl*     mSpinPhysicsFriction;
+	LLSpinCtrl*     mSpinPhysicsDensity;
+	LLSpinCtrl*     mSpinPhysicsRestitution;
 
 	LLTextureCtrl   *mCtrlSculptTexture;
 	LLTextBox       *mLabelSculptType;
