@@ -33,6 +33,7 @@
 #include "llglheaders.h"
 #include "llmemtype.h"
 #include "llrender.h"
+#include "llmemory.h"
 
 //============================================================================
 
@@ -903,11 +904,8 @@ U8* LLVertexBuffer::mapVertexBuffer(S32 type, S32 access)
 			log_glerror();
 
 			//check the availability of memory
-			U32 avail_phy_mem, avail_vir_mem;
-			LLMemoryInfo::getAvailableMemoryKB(avail_phy_mem, avail_vir_mem) ;
-			llinfos << "Available physical mwmory(KB): " << avail_phy_mem << llendl ; 
-			llinfos << "Available virtual memory(KB): " << avail_vir_mem << llendl;
-
+			LLMemory::logMemoryInfo(TRUE) ; 
+			
 			if(!sDisableVBOMapping)
 			{
 				//--------------------
@@ -974,6 +972,7 @@ U8* LLVertexBuffer::mapIndexBuffer(S32 access)
 		if (!mMappedIndexData)
 		{
 			log_glerror();
+			LLMemory::logMemoryInfo(TRUE) ;
 
 			if(!sDisableVBOMapping)
 			{
