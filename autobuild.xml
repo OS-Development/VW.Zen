@@ -426,9 +426,9 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>b9fa0ef683657090ae66663863ebba74</string>
+              <string>d9a9a6ad86895353bcd63374a4c1a91d</string>
               <key>url</key>
-              <string>http://s3-proxy.lindenlab.com/private-builds-secondlife-com/hg/repo/merov_fmod-autobuild/rev/219050/arch/CYGWIN/installer/fmod-3.75-windows-20110113.tar.bz2</string>
+              <string>http://s3-proxy.lindenlab.com/private-builds-secondlife-com/hg/repo/3p-fmod-private/rev/221852/arch/CYGWIN/installer/fmod-3.75-windows-20110222.tar.bz2</string>
             </map>
             <key>name</key>
             <string>windows</string>
@@ -718,7 +718,7 @@
         <key>license</key>
         <string>bsd</string>
         <key>license_file</key>
-        <string>LICENSES/googlemock.txt</string>
+        <string>LICENSES/gmock.txt</string>
         <key>name</key>
         <string>googlemock</string>
         <key>platforms</key>
@@ -752,9 +752,9 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>ec7f12a339ad8c5628db8f8f8fbfe77f</string>
+              <string>212701468920519f3989677cea9ca4f1</string>
               <key>url</key>
-              <string>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/googlemock-1.1.0-windows-20101001a.tar.bz2</string>
+              <string>http://automated-builds-secondlife-com.s3.amazonaws.com/hg/repo/3p-google-mock/rev/222036/arch/CYGWIN/installer/gmock-1.5.0-windows-20110224.tar.bz2</string>
             </map>
             <key>name</key>
             <string>windows</string>
@@ -956,9 +956,9 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>0c7b5596c27f511d4957abe35f7f8dee</string>
+              <string>6cd9f36465ef73a3df34bf2b3bba2ced</string>
               <key>url</key>
-              <string>scp:install-packages.lindenlab.com:/local/www/install-packages/doc/kdu-6.4.1-windows-20110113.tar.bz2</string>
+              <string>http://s3-proxy.lindenlab.com/private-builds-secondlife-com/hg/repo/3p-kdu-private/rev/221672/arch/CYGWIN/installer/kdu-6.4.1-windows-20110218.tar.bz2</string>
             </map>
             <key>name</key>
             <string>windows</string>
@@ -1138,7 +1138,7 @@
         <key>license</key>
         <string>linden</string>
         <key>license_file</key>
-        <string>LICENSES/ndofdev.txt</string>
+        <string>LICENSES/libndofdev.txt</string>
         <key>name</key>
         <string>ndofdev</string>
         <key>platforms</key>
@@ -1172,9 +1172,9 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>9d4f6c042c27fdab81e00238af7e55f0</string>
+              <string>3a4bec9562ed6ac53e85abcb1afc5fc0</string>
               <key>url</key>
-              <string>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/ndofdev-windows-20101001a.tar.bz2</string>
+              <string>http://automated-builds-secondlife-com.s3.amazonaws.com/hg/repo/3p-libndofdev/rev/221922/arch/CYGWIN/installer/libndofdev-0.1-windows-20110223.tar.bz2</string>
             </map>
             <key>name</key>
             <string>windows</string>
@@ -1478,7 +1478,7 @@
         <key>license</key>
         <string>xmlrpc-epi</string>
         <key>license_file</key>
-        <string>LICENSES/xmlrpc.txt</string>
+        <string>LICENSES/xmlrpc-epi.txt</string>
         <key>name</key>
         <string>xmlrpc-epi</string>
         <key>platforms</key>
@@ -1512,9 +1512,9 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>ea06e2f1c1ed59a2d2b6cdb6f459d1c0</string>
+              <string>5181d1a8f2516928ac064d72acf164a4</string>
               <key>url</key>
-              <string>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/xmlrpc-epi-0.51-windows-20101001a.tar.bz2</string>
+              <string>http://automated-builds-secondlife-com.s3.amazonaws.com/hg/repo/3p-xmlrpc-epi/rev/222021/arch/CYGWIN/installer/xmlrpc_epi-0.54.1-windows-20110224.tar.bz2</string>
             </map>
             <key>name</key>
             <string>windows</string>
