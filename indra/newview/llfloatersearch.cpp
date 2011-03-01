@@ -103,14 +103,14 @@ BOOL LLFloaterSearch::postBuild()
 
 void LLFloaterSearch::onOpen(const LLSD& key)
 {
-	search(key);
-}
+	if ( (key.has("category")) || ((mBrowser) && (mBrowser->getCurrentNavUrl().empty())) )
+	{
+		// new search triggered - blank the page while loading, instead of
+		//  temporarily showing stale results
+		mBrowser->navigateTo("about:blank");
 
-void LLFloaterSearch::onClose(bool app_quitting)
-{
-	// tear down the web view so we don't show the previous search
-	// result when the floater is opened next time
-	destroy();
+		search(key);
+	}
 }
 
 void LLFloaterSearch::handleMediaEvent(LLPluginClassMedia *self, EMediaEvent event)
