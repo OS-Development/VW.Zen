@@ -27,7 +27,7 @@ build_dir_Linux()
 
 build_dir_CYGWIN()
 {
-  echo build-vc80
+  echo build-vc100
 }
 
 installer_Darwin()
@@ -141,6 +141,10 @@ fi
 # load autbuild provided shell functions and variables
 eval "$("$AUTOBUILD" source_environment)"
 
+# dump environment variables for debugging
+env|sort
+
+
 # Install packages.
 "$AUTOBUILD" install --skip-license-check
 
@@ -161,6 +165,8 @@ do
   build_dir_stubs="$build_dir/win_setup/$variant"
   rm -rf "$build_dir"
   mkdir -p "$build_dir"
+  mkdir -p "$build_dir/tmp"
+  export TMP="$build_dir/tmp"
   if pre_build "$variant" "$build_dir" >> "$build_log" 2>&1
   then
     if $build_link_parallel
