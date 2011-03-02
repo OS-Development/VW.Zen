@@ -896,9 +896,9 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>db7826354e60fb4ae14bf40258c088af</string>
+              <string>7e6b2fc7ad4e12d94d01cc49c22c6f67</string>
               <key>url</key>
-              <string>http://automated-builds-secondlife-com.s3.amazonaws.com/hg/repo/3p-jsoncpp/rev/220079/arch/Linux/installer/jsoncpp-0.5.0-linux-20110131.tar.bz2</string>
+              <string>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/jsoncpp-svn-r69-linux-20101013.tar.bz2</string>
             </map>
             <key>name</key>
             <string>linux</string>
@@ -1961,6 +1961,7 @@
                 <array>
                   <string>/build</string>
                   <string>"/cfg=Release|Win32"</string>
+		  <string>"/CL_ADD=/m:1"</string>
                 </array>
               </map>
               <key>configure</key>
