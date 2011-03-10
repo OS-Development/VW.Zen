@@ -174,7 +174,6 @@ std::string lod_label_name[NUM_LOD+1] =
 	"I went off the end of the lod_label_name array.  Me so smart."
 };
 
-
 bool validate_face(const LLVolumeFace& face)
 {
 	for (U32 i = 0; i < face.mNumIndices; ++i)
@@ -603,13 +602,13 @@ void LLFloaterModelPreview::draw()
 		gGL.begin( LLRender::QUADS );
 		{
 			gGL.texCoord2f(0.f, 1.f);
-			gGL.vertex2i(mPreviewRect.mLeft, mPreviewRect.mTop);
+			gGL.vertex2i(mPreviewRect.mLeft, mPreviewRect.mTop-1);
 			gGL.texCoord2f(0.f, 0.f);
 			gGL.vertex2i(mPreviewRect.mLeft, mPreviewRect.mBottom);
 			gGL.texCoord2f(1.f, 0.f);
-			gGL.vertex2i(mPreviewRect.mRight, mPreviewRect.mBottom);
+			gGL.vertex2i(mPreviewRect.mRight-1, mPreviewRect.mBottom);
 			gGL.texCoord2f(1.f, 1.f);
-			gGL.vertex2i(mPreviewRect.mRight, mPreviewRect.mTop);
+			gGL.vertex2i(mPreviewRect.mRight-1, mPreviewRect.mTop-1);
 		}
 		gGL.end();
 
@@ -774,11 +773,13 @@ void LLFloaterModelPreview::onPhysicsStageExecute(LLUICtrl* ctrl, void* data)
 
 		if (stage == "Decompose")
 		{
+			sInstance->setStatusMessage(sInstance->getString("decomposing"));
 			sInstance->childSetVisible("Decompose", false);
 			sInstance->childSetVisible("decompose_cancel", true);
 		}
 		else if (stage == "Simplify")
 		{
+			sInstance->setStatusMessage(sInstance->getString("simplifying"));
 			sInstance->childSetVisible("Simplify", false);
 			sInstance->childSetVisible("simplify_cancel", true);
 		}
@@ -824,6 +825,8 @@ void LLFloaterModelPreview::onPhysicsStageCancel(LLUICtrl* ctrl, void*data)
 		    DecompRequest* req = *iter;
 		    req->mContinue = 0;
 		}
+
+		sInstance->mCurRequest.clear();
 	}
 }
 
@@ -1675,8 +1678,40 @@ void LLModelLoader::run()
 
 		processElement(scene);
 		
+		handlePivotPoint( root );
+		
 		doOnIdleOneTime(boost::bind(&LLModelPreview::loadModelCallback,mPreview,mLod));
 	}
+}
+
+void LLModelLoader::handlePivotPoint( daeElement* pRoot )
+{
+	//Import an optional pivot point - a pivot point is just a node in the visual scene named "AssetPivot"
+	//If no assetpivot is found then the asset will use the SL default
+	daeElement* pScene = pRoot->getDescendant("visual_scene");
+	if ( pScene )
+	{
+		daeTArray< daeSmartRef<daeElement> > children = pScene->getChildren();
+		S32 childCount = children.getCount();
+		for (S32 i = 0; i < childCount; ++i)
+		{
+			domNode* pNode = daeSafeCast<domNode>(children[i]);
+			if ( pNode && isNodeAPivotPoint( pNode ) )
+			{
+				LLMatrix4 workingTransform;
+				daeSIDResolver nodeResolver( pNode, "./translate" );
+				domTranslate* pTranslate = daeSafeCast<domTranslate>( nodeResolver.getElement() );
+				//Translation via SID was successful
+				//todo#extract via element as well
+				if ( pTranslate )
+				{
+					extractTranslation( pTranslate, workingTransform );
+					mPreview->setModelPivot( workingTransform.getTranslation() );
+					mPreview->setHasPivot( true );
+				}					
+			}
+		}
+	} 
 }
 
 bool LLModelLoader::doesJointArrayContainACompleteRig( const std::vector<std::string> &jointListFromModel )
@@ -1752,6 +1787,25 @@ bool LLModelLoader::isNodeAJoint( domNode* pNode )
 	}
 
 	return false;
+}
+
+bool LLModelLoader::isNodeAPivotPoint( domNode* pNode )
+{
+	bool result = false;
+	
+	if ( pNode && pNode->getName() )
+	{
+		std::string name = pNode->getName();
+		if ( name == "AssetPivot" )
+		{
+			result = true;
+		}
+		else
+		{
+			result = false;
+		}
+	}	
+	return result;
 }
 
 void LLModelLoader::extractTranslation( domTranslate* pTranslate, LLMatrix4& transform )
@@ -2181,10 +2235,18 @@ LLModelPreview::LLModelPreview(S32 width, S32 height, LLFloater* fmp)
 	mBuildBorderMode = GLOD_BORDER_UNLOCK;
 	mBuildOperator = GLOD_OPERATOR_EDGE_COLLAPSE;
 
+	for (U32 i = 0; i < LLModel::NUM_LODS; ++i)
+	{
+		mRequestedTriangleCount[i] = 0;
+	}
+
 	mViewOption["show_textures"] = false;
 
 	mFMP = fmp;
 
+	mHasPivot = false;
+	mModelPivot = LLVector3( 0.0f, 0.0f, 0.0f );
+	
 	glodInit();
 }
 
@@ -2292,6 +2354,28 @@ void LLFloaterModelPreview::setDetails(F32 x, F32 y, F32 z, F32 streaming_cost, 
 	childSetTextArg("physics cost", "[COST]", llformat("%.3f", physics_cost));	
 }
 
+void LLModelPreview::alterModelsPivot( void )
+{
+	for (LLModelLoader::model_list::iterator iter = mBaseModel.begin(); iter != mBaseModel.end(); ++iter)
+	{
+		if ( *iter )
+		{
+			(*iter)->offsetMesh( mModelPivot );
+		}
+	}
+	
+	for ( int i=0;i<LLModel::NUM_LODS;++i )
+	{
+		for (LLModelLoader::model_list::iterator iter = mModel[i].begin(); iter != mModel[i].end(); ++iter)
+		{
+			if ( *iter )
+			{
+				(*iter)->offsetMesh( mModelPivot );
+			}
+		}
+	}
+}
+
 void LLModelPreview::rebuildUploadData()
 {
 	assert_main_thread();
@@ -2347,6 +2431,7 @@ void LLModelPreview::rebuildUploadData()
 			LLModelInstance instance = *model_iter;
 
 			LLModel* base_model = instance.mModel;
+			
 			if (base_model)
 			{
 				base_model->mRequestedLabel = requested_name;
@@ -2702,9 +2787,7 @@ void LLModelPreview::genLODs(S32 which_lod, U32 decimation, bool enforce_tri_lim
 		lod_mode = GLOD_TRIANGLE_BUDGET;
 		if (which_lod != -1)
 		{
-			//SH-632 take budget as supplied limit+1 to prevent GLOD from creating a smaller
-			//decimation when the given decimation is possible
-			limit = mFMP->childGetValue("lod_triangle_limit").asInteger(); //+1;
+			limit = mFMP->childGetValue("lod_triangle_limit").asInteger();
 		}
 	}
 	else
@@ -2863,13 +2946,6 @@ void LLModelPreview::genLODs(S32 which_lod, U32 decimation, bool enforce_tri_lim
 	{
 		start = end = which_lod;
 	}
-	else
-	{
-		//SH-632 -- incremenet triangle count to avoid removing any triangles from
-		//highest LoD when auto-generating LoD
-		triangle_count++;
-	}
-
 
 	mMaxTriangleLimit = base_triangle_count;
 
@@ -2905,20 +2981,32 @@ void LLModelPreview::genLODs(S32 which_lod, U32 decimation, bool enforce_tri_lim
 		U32 actual_verts = 0;
 		U32 submeshes = 0;
 
+		mRequestedTriangleCount[lod] = triangle_count;
+
 		glodGroupParameteri(mGroup, GLOD_ADAPT_MODE, lod_mode);
 		stop_gloderror();
 
 		glodGroupParameteri(mGroup, GLOD_ERROR_MODE, GLOD_OBJECT_SPACE_ERROR);
 		stop_gloderror();
 
-		glodGroupParameteri(mGroup, GLOD_MAX_TRIANGLES, triangle_count);
+		glodGroupParameterf(mGroup, GLOD_OBJECT_SPACE_ERROR_THRESHOLD, lod_error_threshold);
 		stop_gloderror();
 
-		glodGroupParameterf(mGroup, GLOD_OBJECT_SPACE_ERROR_THRESHOLD, lod_error_threshold);
+		glodGroupParameteri(mGroup, GLOD_MAX_TRIANGLES, 0);
 		stop_gloderror();
 
 		glodAdaptGroup(mGroup);
 		stop_gloderror();
+
+		if (lod_mode == GLOD_TRIANGLE_BUDGET)
+		{ //SH-632 Always adapt to 0 before adapting to actual desired amount, and always
+			//add 1 to desired amount to avoid decimating below desired amount
+			glodGroupParameteri(mGroup, GLOD_MAX_TRIANGLES, triangle_count+1);
+			stop_gloderror();
+
+			glodAdaptGroup(mGroup);
+			stop_gloderror();
+		}
 
 		for (U32 mdl_idx = 0; mdl_idx < mBaseModel.size(); ++mdl_idx)
 		{
@@ -3386,7 +3474,7 @@ void LLModelPreview::updateStatusMessages()
 				LLSpinCtrl* limit = mFMP->getChild<LLSpinCtrl>("lod_triangle_limit");
 
 				limit->setMaxValue(mMaxTriangleLimit);
-				limit->setValue(total_tris[mPreviewLOD]);
+				limit->setValue(mRequestedTriangleCount[mPreviewLOD]);
 
 				if (lod_mode == 0)
 				{
@@ -3394,6 +3482,7 @@ void LLModelPreview::updateStatusMessages()
 					threshold->setVisible(false);
 
 					limit->setMaxValue(mMaxTriangleLimit);
+					limit->setIncrement(mMaxTriangleLimit/32);
 				}
 				else
 				{
@@ -3441,6 +3530,7 @@ void LLModelPreview::genBuffers(S32 lod, bool include_skin_weights)
 	U32 vertex_count = 0;
 	U32 mesh_count = 0;
 
+	
 	LLModelLoader::model_list* model = NULL;
 
 	if (lod < 0 || lod > 4)
@@ -3617,7 +3707,7 @@ BOOL LLModelPreview::render()
 		gGL.pushMatrix();
 		glLoadIdentity();
 
-		gGL.color4f(0.15f, 0.2f, 0.3f, 1.f);
+		gGL.color4f(0.169f, 0.169f, 0.169f, 1.f);
 
 		gl_rect_2d_simple( width, height );
 
@@ -4085,6 +4175,10 @@ void LLModelPreview::setPreviewLOD(S32 lod)
 		mFMP->childSetTextArg("lod_table_footer", "[DETAIL]", mFMP->getString(lod_name[mPreviewLOD]));
 		mFMP->childSetText("lod_file", mLODFile[mPreviewLOD]);
 
+		// the wizard has two lod drop downs
+		LLComboBox* combo_box2 = mFMP->getChild<LLComboBox>("preview_lod_combo2");
+		combo_box2->setCurrentByIndex((NUM_LOD-1)-mPreviewLOD); // combo box list of lods is in reverse order
+
 		LLColor4 highlight_color = LLUIColorTable::instance().getColor("MeshImportTableHighlightColor");
 		LLColor4 normal_color = LLUIColorTable::instance().getColor("MeshImportTableNormalColor");
 
@@ -4125,6 +4219,11 @@ void LLFloaterModelPreview::onUpload(void* user_data)
 
 	LLFloaterModelPreview* mp = (LLFloaterModelPreview*) user_data;
 
+	if ( mp && mp->mModelPreview->mHasPivot )
+	{
+		mp->mModelPreview->alterModelsPivot();
+	}
+	
 	mp->mModelPreview->rebuildUploadData();
 
 	gMeshRepo.uploadModel(mp->mModelPreview->mUploadData, mp->mModelPreview->mPreviewScale,
@@ -4215,10 +4314,13 @@ void LLFloaterModelPreview::setStatusMessage(const std::string& msg)
 
 S32 LLFloaterModelPreview::DecompRequest::statusCallback(const char* status, S32 p1, S32 p2)
 {
-	setStatusMessage(llformat("%s: %d/%d", status, p1, p2));
-	if (LLFloaterModelPreview::sInstance)
+	if (mContinue)
 	{
-		LLFloaterModelPreview::sInstance->setStatusMessage(mStatusMessage);
+		setStatusMessage(llformat("%s: %d/%d", status, p1, p2));
+		if (LLFloaterModelPreview::sInstance)
+		{
+			LLFloaterModelPreview::sInstance->setStatusMessage(mStatusMessage);
+		}
 	}
 
 	return mContinue;
@@ -4226,20 +4328,27 @@ S32 LLFloaterModelPreview::DecompRequest::statusCallback(const char* status, S32
 
 void LLFloaterModelPreview::DecompRequest::completed()
 { //called from the main thread
-	mModel->setConvexHullDecomposition(mHull);
-
-	if (sInstance)
+	if (mContinue)
 	{
-		if (mContinue)
-		{
-			if (sInstance->mModelPreview)
-			{
-				sInstance->mModelPreview->mPhysicsMesh[mModel] = mHullMesh;
-				sInstance->mModelPreview->mDirty = true;
-				LLFloaterModelPreview::sInstance->mModelPreview->refresh();
-			}
-		}
+		mModel->setConvexHullDecomposition(mHull);
 
-		sInstance->mCurRequest.erase(this);
+		if (sInstance)
+		{
+			if (mContinue)
+			{
+				if (sInstance->mModelPreview)
+				{
+					sInstance->mModelPreview->mPhysicsMesh[mModel] = mHullMesh;
+					sInstance->mModelPreview->mDirty = true;
+					LLFloaterModelPreview::sInstance->mModelPreview->refresh();
+				}
+			}
+
+			sInstance->mCurRequest.erase(this);
+		}
+	}
+	else if (sInstance)
+	{
+		llassert(sInstance->mCurRequest.find(this) == sInstance->mCurRequest.end());
 	}
 }
