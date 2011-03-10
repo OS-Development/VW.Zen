@@ -426,9 +426,9 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>4521b86ff92c3843e47a58b38e76e667</string>
+              <string>61ead113e6479452e6b690c84b4e9d30</string>
               <key>url</key>
-              <string>scp:install-packages.lindenlab.com:/local/www/install-packages/doc/fmod-3.75-darwin-20101004.tar.bz2</string>
+              <string>http://s3-proxy.lindenlab.com/private-builds-secondlife-com/hg/repo/3p-fmod-private/rev/221852/arch/Darwin/installer/fmod-3.75-darwin-20110222.tar.bz2</string>
             </map>
             <key>name</key>
             <string>darwin</string>
@@ -618,9 +618,9 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>c3bfca7ad2eb90ea33f3fd6f974ca394</string>
+              <string>2bb7adabbd1fe2c7f99ddc4240842cc4</string>
               <key>url</key>
-              <string>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/glui-2.36-darwin-20101004.tar.bz2</string>
+              <string>http://automated-builds-secondlife-com.s3.amazonaws.com/hg/repo/3p-glui/rev/221069/arch/Darwin/installer/glui-2.36-darwin-20110309.tar.bz2</string>
             </map>
             <key>name</key>
             <string>darwin</string>
@@ -704,9 +704,9 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>5937f12de19ce4fa394048f22557b6c5</string>
+              <string>21babc394dbf8572830f2e85adec7b9f</string>
               <key>url</key>
-              <string> http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/google_breakpad-0.0.0-rev599-darwin-20110119.tar.bz2</string>
+              <string>http://automated-builds-secondlife-com.s3.amazonaws.com/hg/repo/3p-google-breakpad/rev/220211/arch/Darwin/installer/google_breakpad-0.0.0-rev599-darwin-20110202.tar.bz2</string>
             </map>
             <key>name</key>
             <string>darwin</string>
@@ -956,9 +956,9 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>408f1375f5a4d864cfb47b36c8ab6052</string>
+              <string>d91e1f483209cd3eba04135c6a59e829</string>
               <key>url</key>
-              <string>scp:install-packages.lindenlab.com:/local/www/install-packages/doc/kdu-6.4.1-darwin-20110112.tar.bz2</string>
+              <string>http://s3-proxy.lindenlab.com/private-builds-secondlife-com/hg/repo/3p-kdu-private/rev/221672/arch/Darwin/installer/kdu-6.4.1-darwin-20110218.tar.bz2</string>
             </map>
             <key>name</key>
             <string>darwin</string>
@@ -1100,9 +1100,9 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>d3890220418a66607569fe406ebe24c7</string>
+              <string>0326cb770c7ff995cf822fb330ae9d0c</string>
               <key>url</key>
-              <string>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/llqtwebkit-4.7.1-darwin-20110113.tar.bz2</string>
+              <string>http://automated-builds-secondlife-com.s3.amazonaws.com/hg/repo/3p-llqtwebkit/rev/223111/arch/Darwin/installer/llqtwebkit-4.7.1-darwin-20110308.tar.bz2</string>
             </map>
             <key>name</key>
             <string>darwin</string>
@@ -1172,9 +1172,9 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>d56bb37233e6f1308fb0a5b8e37a2429</string>
+              <string>674d37d2ba76a2df7f18c47bf50b5d03</string>
               <key>url</key>
-              <string>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/ndofdev-darwin-20101004.tar.bz2</string>
+              <string>http://automated-builds-secondlife-com.s3.amazonaws.com/hg/repo/3p-libndofdev/rev/223177/arch/Darwin/installer/libndofdev-0.1-darwin-20110308.tar.bz2</string>
             </map>
             <key>name</key>
             <string>darwin</string>
