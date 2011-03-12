@@ -107,6 +107,7 @@ with the same filename but different name
   <texture name="ComboButton_Selected" file_name="widgets/ComboButton_Selected.png" preload="true" scale.left="2" scale.top="19" scale.right="18" scale.bottom="2" />
   <texture name="ComboButton_UpSelected" file_name="widgets/ComboButton_UpSelected.png" preload="true" scale.left="2" scale.top="19" scale.right="18" scale.bottom="2" />
   <texture name="ComboButton_Up_On_Selected" file_name="widgets/ComboButton_Up_On_Selected.png" preload="true" scale.left="2" scale.top="19" scale.right="18" scale.bottom="2" />
+  <texture name="ComboButton_On" file_name="widgets/ComboButton_On.png" preload="true" scale.left="2" scale.top="19" scale.right="18" scale.bottom="2" />
   <texture name="ComboButton_Off" file_name="widgets/ComboButton_Off.png" preload="true" scale.left="2" scale.top="19" scale.right="18" scale.bottom="2" />
   <texture name="ComboButton_UpOff" file_name="widgets/ComboButton_UpOff.png" preload="true" scale.left="2" scale.top="19" scale.right="18" scale.bottom="2" />
   <texture name="Container" file_name="containers/Container.png" preload="false" />
@@ -114,6 +115,7 @@ with the same filename but different name
   
   <texture name="DisclosureArrow_Opened_Off" file_name="widgets/DisclosureArrow_Opened_Off.png" preload="true" />
 
+  <texture name="ChatBarHandle" file_name="bottomtray/ChatBarHandle.png" preload="false" />
   <texture name="DownArrow" file_name="bottomtray/DownArrow.png" preload="false" />
   <texture name="DownArrow_Off" file_name="icons/DownArrow_Off.png" preload="false" />
   <texture name="Dragbar" file_name="windows/Dragbar.png" preload="false" scale.left="35" scale.top="5" scale.right="29" scale.bottom="5" />

@@ -775,6 +775,7 @@ bool idle_startup()
 		gViewerWindow->setNormalControlsVisible( FALSE );	
 		gLoginMenuBarView->setVisible( TRUE );
 		gLoginMenuBarView->setEnabled( TRUE );
+		show_debug_menus();
 
 		// Hide the splash screen
 		LLSplashScreen::hide();
@@ -981,7 +982,6 @@ bool idle_startup()
 			login->setSkipOptionalUpdate(true);
 		}
 
-		login->setUserInteraction(show_connect_box);
 		login->setSerialNumber(LLAppViewer::instance()->getSerialNumber());
 		login->setLastExecEvent(gLastExecEvent);
 		login->setUpdaterLauncher(boost::bind(&LLAppViewer::launchUpdater, LLAppViewer::instance()));

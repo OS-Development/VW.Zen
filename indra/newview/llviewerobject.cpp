@@ -210,7 +210,6 @@ LLViewerObject::LLViewerObject(const LLUUID &id, const LLPCode pcode, LLViewerRe
 	mLastInterpUpdateSecs(0.f),
 	mLastMessageUpdateSecs(0.f),
 	mLatestRecvPacketID(0),
-	mCircuitPacketCount(0),
 	mData(NULL),
 	mAudioSourcep(NULL),
 	mAudioGain(1.f),
@@ -478,7 +477,6 @@ void LLViewerObject::initVOClasses()
 	llinfos << "Viewer Object size: " << sizeof(LLViewerObject) << llendl;
 	LLVOGrass::initClass();
 	LLVOWater::initClass();
-	LLVOSky::initClass();
 	LLVOVolume::initClass();
 }
 
@@ -1884,7 +1882,6 @@ U32 LLViewerObject::processUpdateMessage(LLMessageSystem *mesgsys,
 	}
 
 	mLatestRecvPacketID = packet_id;
-	mCircuitPacketCount = 0;
 
 	// Set the change flags for scale
 	if (new_scale != getScale())
@@ -2207,7 +2204,8 @@ void LLViewerObject::interpolateLinearMotion(const F64 & time, const F32 & dt)
 		LLVector3 new_pos = (vel + (0.5f * (dt-PHYSICS_TIMESTEP)) * accel) * dt;	
 		LLVector3 new_v = accel * dt;
 
-		if (time_since_last_update > sPhaseOutUpdateInterpolationTime)
+		if (time_since_last_update > sPhaseOutUpdateInterpolationTime &&
+			sPhaseOutUpdateInterpolationTime > 0.0)
 		{	// Haven't seen a viewer update in a while, check to see if the ciruit is still active
 			if (mRegionp)
 			{	// The simulator will NOT send updates if the object continues normally on the path
@@ -2216,9 +2214,12 @@ void LLViewerObject::interpolateLinearMotion(const F64 & time, const F32 & dt)
 				LLCircuitData *cdp = gMessageSystem->mCircuitInfo.findCircuit( mRegionp->getHost() );
 				if (cdp)
 				{
+					// Find out how many seconds since last packet arrived on the circuit
+					F64 time_since_last_packet = LLMessageSystem::getMessageTimeSeconds() - cdp->getLastPacketInTime();
+
 					if (!cdp->isAlive() ||		// Circuit is dead or blocked
 						 cdp->isBlocked() ||	// or doesn't seem to be getting any packets
-						 (mCircuitPacketCount > 0 && mCircuitPacketCount == cdp->getPacketsIn()))
+						 (time_since_last_packet > sPhaseOutUpdateInterpolationTime))
 					{
 						// Start to reduce motion interpolation since we haven't seen a server update in a while
 						F64 time_since_last_interpolation = time - mLastInterpUpdateSecs;
@@ -2249,9 +2250,6 @@ void LLViewerObject::interpolateLinearMotion(const F64 & time, const F32 & dt)
 						new_pos = new_pos * ((F32) phase_out);
 						new_v = new_v * ((F32) phase_out);
 					}
-
-					// Save current circuit packet count to see if it changes 
-					mCircuitPacketCount = cdp->getPacketsIn();
 				}
 			}
 		}
@@ -3010,6 +3008,8 @@ void LLViewerObject::setScale(const LLVector3 &scale, BOOL damped)
 		{
 			if (!mOnMap)
 			{
+				llassert_always(LLWorld::getInstance()->getRegionFromHandle(getRegion()->getHandle()));
+
 				gObjectList.addToMap(this);
 				mOnMap = TRUE;
 			}
@@ -3537,8 +3537,8 @@ void LLViewerObject::setPositionParent(const LLVector3 &pos_parent, BOOL damped)
 	// Set position relative to parent, if no parent, relative to region
 	if (!isRoot())
 	{
-		LLViewerObject::setPosition(pos_parent);
-		updateDrawable(damped);
+		LLViewerObject::setPosition(pos_parent, damped);
+		//updateDrawable(damped);
 	}
 	else
 	{
@@ -3579,6 +3579,7 @@ void LLViewerObject::setPositionEdit(const LLVector3 &pos_edit, BOOL damped)
 		LLVector3 position_offset = getPosition() * getParent()->getRotation();
 
 		((LLViewerObject *)getParent())->setPositionEdit(pos_edit - position_offset);
+		updateDrawable(damped);
 	}
 	else if (isJointChild())
 	{
@@ -3587,15 +3588,14 @@ void LLViewerObject::setPositionEdit(const LLVector3 &pos_edit, BOOL damped)
 		LLQuaternion inv_parent_rot = parent->getRotation();
 		inv_parent_rot.transQuat();
 		LLVector3 pos_parent = (pos_edit - parent->getPositionRegion()) * inv_parent_rot;
-		LLViewerObject::setPosition(pos_parent);
+		LLViewerObject::setPosition(pos_parent, damped);
 	}
 	else
 	{
-		LLViewerObject::setPosition(pos_edit);
+		LLViewerObject::setPosition(pos_edit, damped);
 		mPositionRegion = pos_edit;
 		mPositionAgent = mRegionp->getPosAgentFromRegion(mPositionRegion);
-	}
-	updateDrawable(damped);
+	}	
 }
 
 
@@ -5105,7 +5105,6 @@ void LLViewerObject::setRegion(LLViewerRegion *regionp)
 	}
 	
 	mLatestRecvPacketID = 0;
-	mCircuitPacketCount = 0;
 	mRegionp = regionp;
 
 	for (child_list_t::iterator i = mChildList.begin(); i != mChildList.end(); ++i)

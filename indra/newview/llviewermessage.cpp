@@ -171,31 +171,6 @@ const BOOL SCRIPT_QUESTION_IS_CAUTION[SCRIPT_PERMISSION_EOF] =
 	FALSE	// ControlYourCamera
 };
 
-// Extract channel and version from a string like "SL Web Viewer Beta 10.11.29.215604".
-// (channel: "SL Web Viewer Beta", version: "10.11.29.215604")
-static bool parse_version_info(const std::string& version_info, std::string& channel, std::string& ver)
-{
-	size_t last_space = version_info.rfind(" ");
-	channel = version_info;
-
-	if (last_space != std::string::npos)
-	{
-		try
-		{
-			ver = version_info.substr(last_space + 1);
-			channel.replace(last_space, ver.length() + 1, ""); // strip version
-		}
-		catch (std::out_of_range)
-		{
-			return false;
-		}
-
-		return true;
-	}
-
-	return false;
-}
-
 bool friendship_offer_callback(const LLSD& notification, const LLSD& response)
 {
 	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
@@ -2746,6 +2721,14 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 				LLSD args;
 				args["slurl"] = location;
 				args["type"] = LLNotificationsUI::NT_NEARBYCHAT;
+
+				// Look for IRC-style emotes here so object name formatting is correct
+				std::string prefix = message.substr(0, 4);
+				if (prefix == "/me " || prefix == "/me'")
+				{
+					chat.mChatStyle = CHAT_STYLE_IRC;
+				}
+
 				LLNotificationsUI::LLNotificationManager::instance().onChat(chat, args);
 			}
 
@@ -3778,8 +3761,19 @@ void process_agent_movement_complete(LLMessageSystem* msg, void**)
 	}
 	else
 	{
-		// This is likely just the initial logging in phase.
+		// This is initial log-in or a region crossing
 		gAgent.setTeleportState( LLAgent::TELEPORT_NONE );
+
+		if(LLStartUp::getStartupState() < STATE_STARTED)
+		{	// This is initial log-in, not a region crossing:
+			// Set the camera looking ahead of the AV so send_agent_update() below 
+			// will report the correct location to the server.
+			LLVector3 look_at_point = look_at;
+			look_at_point = agent_pos + look_at_point.rotVec(gAgent.getQuat());
+
+			static LLVector3 up_direction(0.0f, 0.0f, 1.0f);
+			LLViewerCamera::getInstance()->lookAt(agent_pos, look_at_point, up_direction);
+		}
 	}
 
 	if ( LLTracker::isTracking(NULL) )
@@ -3846,31 +3840,6 @@ void process_agent_movement_complete(LLMessageSystem* msg, void**)
 	if (gLastVersionChannel == version_channel)
 	{
 		return;
-	}
-
-	if (!gLastVersionChannel.empty())
-	{
-		std::string url = regionp->getCapability("ServerReleaseNotes");
-		if (url.empty())
-		{
-			// The capability hasn't arrived yet or is not supported,
-			// fall back to parsing server version channel.
-			std::string channel, ver;
-			if (!parse_version_info(version_channel, channel, ver))
-			{
-				llwarns << "Failed to parse server version channel (" << version_channel << ")" << llendl;
-			}
-
-			url = gSavedSettings.getString("ReleaseNotesURL");
-			LLSD args;
-			args["CHANNEL"] = LLWeb::escapeURL(channel);
-			args["VERSION"] = LLWeb::escapeURL(ver);
-			LLStringUtil::format(url, args);
-		}
-
-		LLSD args;
-		args["URL"] = url;
-		LLNotificationsUtil::add("ServerVersionChanged", args);
 	}
 
 	gLastVersionChannel = version_channel;

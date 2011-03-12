@@ -54,6 +54,7 @@
 #include "llgroupactions.h"
 #include "llgrouplist.h"
 #include "llinventoryobserver.h"
+#include "llnetmap.h"
 #include "llpanelpeoplemenus.h"
 #include "llsidetray.h"
 #include "llsidetraypanelcontainer.h"
@@ -383,6 +384,16 @@ private:
 		{
 			lldebugs << "Inventory changed: " << mask << llendl;
 
+			static bool synchronize_friends_folders = true;
+			if (synchronize_friends_folders)
+			{
+				// Checks whether "Friends" and "Friends/All" folders exist in "Calling Cards" folder,
+				// fetches their contents if needed and synchronizes it with buddies list.
+				// If the folders are not found they are created.
+				LLFriendCardsManager::instance().syncFriendCardsFolders();
+				synchronize_friends_folders = false;
+			}
+
 			// *NOTE: deleting of InventoryItem is performed via moving to Trash. 
 			// That means LLInventoryObserver::STRUCTURE is present in MASK instead of LLInventoryObserver::REMOVE
 			if ((CALLINGCARD_ADDED & mask) == CALLINGCARD_ADDED)
@@ -494,7 +505,8 @@ LLPanelPeople::LLPanelPeople()
 		mNearbyGearButton(NULL),
 		mFriendsGearButton(NULL),
 		mGroupsGearButton(NULL),
-		mRecentGearButton(NULL)
+		mRecentGearButton(NULL),
+		mMiniMap(NULL)
 {
 	mFriendListUpdater = new LLFriendListUpdater(boost::bind(&LLPanelPeople::updateFriendList,	this));
 	mNearbyListUpdater = new LLNearbyListUpdater(boost::bind(&LLPanelPeople::updateNearbyList,	this));
@@ -567,6 +579,9 @@ BOOL LLPanelPeople::postBuild()
 	mNearbyList->setNoItemsMsg(getString("no_one_near"));
 	mNearbyList->setNoFilteredItemsMsg(getString("no_one_filtered_near"));
 	mNearbyList->setShowIcons("NearbyListShowIcons");
+	mMiniMap = (LLNetMap*)getChildView("Net Map",true);
+	mMiniMap->setToolTipMsg(gSavedSettings.getBOOL("DoubleClickTeleport") ? 
+		getString("AltMiniMapToolTipMsg") :	getString("MiniMapToolTipMsg"));
 
 	mRecentList = getChild<LLPanel>(RECENT_TAB_NAME)->getChild<LLAvatarList>("avatar_list");
 	mRecentList->setNoItemsCommentText(getString("no_recent_people"));
@@ -745,18 +760,23 @@ void LLPanelPeople::updateFriendList()
 	all_friendsp.clear();
 	online_friendsp.clear();
 
-	LLFriendCardsManager::folderid_buddies_map_t listMap;
+	uuid_vec_t buddies_uuids;
+	LLAvatarTracker::buddy_map_t::const_iterator buddies_iter;
 
-	// *NOTE: For now collectFriendsLists returns data only for Friends/All folder. EXT-694.
-	LLFriendCardsManager::instance().collectFriendsLists(listMap);
-	if (listMap.size() > 0)
+	// Fill the avatar list with friends UUIDs
+	for (buddies_iter = all_buddies.begin(); buddies_iter != all_buddies.end(); ++buddies_iter)
 	{
-		lldebugs << "Friends Cards were found, count: " << listMap.begin()->second.size() << llendl;
-		all_friendsp = listMap.begin()->second;
+		buddies_uuids.push_back(buddies_iter->first);
+	}
+
+	if (buddies_uuids.size() > 0)
+	{
+		lldebugs << "Friends added to the list: " << buddies_uuids.size() << llendl;
+		all_friendsp = buddies_uuids;
 	}
 	else
 	{
-		lldebugs << "Friends Cards were not found" << llendl;
+		lldebugs << "No friends found" << llendl;
 	}
 
 	LLAvatarTracker::buddy_map_t::const_iterator buddy_it = all_buddies.begin();
@@ -1088,6 +1108,12 @@ void LLPanelPeople::onAvatarListDoubleClicked(LLUICtrl* ctrl)
 
 void LLPanelPeople::onAvatarListCommitted(LLAvatarList* list)
 {
+	if (getActiveTabName() == NEARBY_TAB_NAME)
+	{
+		uuid_vec_t selected_uuids;
+		getCurrentItemIDs(selected_uuids);
+		mMiniMap->setSelected(selected_uuids);
+	} else
 	// Make sure only one of the friends lists (online/all) has selection.
 	if (getActiveTabName() == FRIENDS_TAB_NAME)
 	{
