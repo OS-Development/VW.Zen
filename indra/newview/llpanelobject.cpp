@@ -67,6 +67,7 @@
 #include "pipeline.h"
 #include "llviewercontrol.h"
 #include "lluictrlfactory.h"
+#include "llmeshrepository.h"
 //#include "llfirstuse.h"
 
 #include "lldrawpool.h"
@@ -132,6 +133,27 @@ BOOL	LLPanelObject::postBuild()
 	mCheckPhantom = getChild<LLCheckBoxCtrl>("Phantom Checkbox Ctrl");
 	childSetCommitCallback("Phantom Checkbox Ctrl",onCommitPhantom,this);
 	
+	// PhysicsShapeType combobox
+	mComboPhysicsShapeType = getChild<LLComboBox>("Physics Shape Type Combo Ctrl");
+	mComboPhysicsShapeType->setCommitCallback(boost::bind(&LLPanelObject::sendPhysicsShapeType, this, _1, mComboPhysicsShapeType));
+	
+	// PhysicsGravity
+	mSpinPhysicsGravity = getChild<LLSpinCtrl>("Physics Gravity");
+	mSpinPhysicsGravity->setCommitCallback(boost::bind(&LLPanelObject::sendPhysicsGravity, this, _1, mSpinPhysicsGravity));
+
+	// PhysicsFriction
+	mSpinPhysicsFriction = getChild<LLSpinCtrl>("Physics Friction");
+	mSpinPhysicsFriction->setCommitCallback(boost::bind(&LLPanelObject::sendPhysicsFriction, this, _1, mSpinPhysicsFriction));
+
+	// PhysicsDensity
+	mSpinPhysicsDensity = getChild<LLSpinCtrl>("Physics Density");
+	mSpinPhysicsDensity->setCommitCallback(boost::bind(&LLPanelObject::sendPhysicsDensity, this, _1, mSpinPhysicsDensity));
+
+	// PhysicsRestitution
+	mSpinPhysicsRestitution = getChild<LLSpinCtrl>("Physics Restitution");
+	mSpinPhysicsRestitution->setCommitCallback(boost::bind(&LLPanelObject::sendPhysicsRestitution, this, _1, mSpinPhysicsRestitution));
+
+
 	// Position
 	mLabelPosition = getChild<LLTextBox>("label position");
 	mCtrlPosX = getChild<LLSpinCtrl>("Pos X");
@@ -519,6 +541,19 @@ void LLPanelObject::getState( )
 	mCheckPhantom->set( mIsPhantom );
 	mCheckPhantom->setEnabled( roots_selected>0 && editable && !is_flexible );
 
+	
+	mSpinPhysicsGravity->set(objectp->getPhysicsGravity());
+	mSpinPhysicsGravity->setEnabled(editable);
+
+	mSpinPhysicsFriction->set(objectp->getPhysicsFriction());
+	mSpinPhysicsFriction->setEnabled(editable);
+	
+	mSpinPhysicsDensity->set(objectp->getPhysicsDensity());
+	mSpinPhysicsDensity->setEnabled(editable);
+	
+	mSpinPhysicsRestitution->set(objectp->getPhysicsRestitution());
+	mSpinPhysicsRestitution->setEnabled(editable);
+
 #if 0 // 1.9.2
 	mCastShadows = root_objectp->flagCastShadows();
 	mCheckCastShadows->set( mCastShadows );
@@ -569,6 +604,7 @@ void LLPanelObject::getState( )
 	BOOL enabled = FALSE;
 	BOOL hole_enabled = FALSE;
 	F32 scale_x=1.f, scale_y=1.f;
+	BOOL isMesh = FALSE;
 	
 	if( !objectp || !objectp->getVolume() || !editable || !single_volume)
 	{
@@ -599,10 +635,9 @@ void LLPanelObject::getState( )
 		// Only allowed to change these parameters for objects
 		// that you have permissions on AND are not attachments.
 		enabled = root_objectp->permModify();
-
-		const LLVolumeParams &volume_params = objectp->getVolume()->getParams();
-
+		
 		// Volume type
+		const LLVolumeParams &volume_params = objectp->getVolume()->getParams();
 		U8 path = volume_params.getPathParams().getCurveType();
 		U8 profile_and_hole = volume_params.getProfileParams().getCurveType();
 		U8 profile	= profile_and_hole & LL_PCODE_PROFILE_MASK;
@@ -833,7 +868,7 @@ void LLPanelObject::getState( )
 		}
 		mSpinSkew->set( skew );
 	}
-
+	
 	// Compute control visibility, label names, and twist range.
 	// Start with defaults.
 	BOOL cut_visible                = TRUE;
@@ -1097,6 +1132,10 @@ void LLPanelObject::getState( )
 	mCtrlSculptInvert->setVisible(sculpt_texture_visible);
 
 
+	// update the physics shape combo to include allowed physics shapes
+	mComboPhysicsShapeType->removeall();
+	mComboPhysicsShapeType->add(getString("None"), LLSD(1));
+	
 	// sculpt texture
 
 	if (selected_item == MI_SCULPT)
@@ -1128,6 +1167,7 @@ void LLPanelObject::getState( )
 			U8 sculpt_stitching = sculpt_type & LL_SCULPT_TYPE_MASK;
 			BOOL sculpt_invert = sculpt_type & LL_SCULPT_FLAG_INVERT;
 			BOOL sculpt_mirror = sculpt_type & LL_SCULPT_FLAG_MIRROR;
+			isMesh = (sculpt_stitching == LL_SCULPT_TYPE_MESH);
 			
 			if (mCtrlSculptType)
 			{
@@ -1151,13 +1191,34 @@ void LLPanelObject::getState( )
 			{
 				mLabelSculptType->setEnabled(TRUE);
 			}
+			
 		}
 	}
 	else
 	{
-		mSculptTextureRevert = LLUUID::null;
+		mSculptTextureRevert = LLUUID::null;		
 	}
 
+	if(isMesh && objectp)
+	{
+		const LLVolumeParams &volume_params = objectp->getVolume()->getParams();
+		LLUUID mesh_id = volume_params.getSculptID();
+		if(gMeshRepo.hasPhysicsShape(mesh_id))
+		{
+			// if a mesh contains an uploaded or decomposed physics mesh,
+			// allow 'Prim'
+			mComboPhysicsShapeType->add(getString("Prim"), LLSD(0));			
+		}
+	}
+	else
+	{
+		// simple prims always allow physics shape prim
+		mComboPhysicsShapeType->add(getString("Prim"), LLSD(0));	
+	}
+	mComboPhysicsShapeType->add(getString("Convex Hull"), LLSD(2));	
+	mComboPhysicsShapeType->setValue(LLSD(objectp->getPhysicsShapeType()));
+	mComboPhysicsShapeType->setEnabled(editable);
+										
 	
 	//----------------------------------------------------------------------------
 
@@ -1218,6 +1279,48 @@ void LLPanelObject::sendIsPhantom()
 	else
 	{
 		llinfos << "update phantom not changed" << llendl;
+	}
+}
+
+void LLPanelObject::sendPhysicsShapeType(LLUICtrl* ctrl, void* userdata)
+{
+	U8 type = ctrl->getValue().asInteger();
+	LLSelectMgr::getInstance()->selectionSetPhysicsType(type);
+
+	refreshCost();
+}
+
+void LLPanelObject::sendPhysicsGravity(LLUICtrl* ctrl, void* userdata)
+{
+	F32 val = ctrl->getValue().asReal();
+	LLSelectMgr::getInstance()->selectionSetGravity(val);
+}
+
+void LLPanelObject::sendPhysicsFriction(LLUICtrl* ctrl, void* userdata)
+{
+	F32 val = ctrl->getValue().asReal();
+	LLSelectMgr::getInstance()->selectionSetFriction(val);
+}
+
+void LLPanelObject::sendPhysicsRestitution(LLUICtrl* ctrl, void* userdata)
+{
+	F32 val = ctrl->getValue().asReal();
+	LLSelectMgr::getInstance()->selectionSetRestitution(val);
+}
+
+void LLPanelObject::sendPhysicsDensity(LLUICtrl* ctrl, void* userdata)
+{
+	F32 val = ctrl->getValue().asReal();
+	LLSelectMgr::getInstance()->selectionSetDensity(val);
+}
+
+void LLPanelObject::refreshCost()
+{
+	LLViewerObject* obj = LLSelectMgr::getInstance()->getSelection()->getFirstObject();
+	
+	if (obj)
+	{
+		obj->getObjectCost();
 	}
 }
 
@@ -1786,6 +1889,17 @@ void LLPanelObject::sendSculpt()
 	if (mCtrlSculptType)
 		sculpt_type |= mCtrlSculptType->getCurrentIndex();
 
+	bool enabled = sculpt_type != LL_SCULPT_TYPE_MESH;
+
+	if (mCtrlSculptMirror)
+	{
+		mCtrlSculptMirror->setEnabled(enabled ? TRUE : FALSE);
+	}
+	if (mCtrlSculptInvert)
+	{
+		mCtrlSculptInvert->setEnabled(enabled ? TRUE : FALSE);
+	}
+	
 	if ((mCtrlSculptMirror) && (mCtrlSculptMirror->get()))
 		sculpt_type |= LL_SCULPT_FLAG_MIRROR;
 
@@ -1807,6 +1921,34 @@ void LLPanelObject::refresh()
 	if (mRootObject.notNull() && mRootObject->isDead())
 	{
 		mRootObject = NULL;
+	}
+	
+	bool enable_mesh = gSavedSettings.getBOOL("MeshEnabled") && 
+					   !gAgent.getRegion()->getCapability("GetMesh").empty();
+
+	getChildView("label physicsshapetype")->setVisible(enable_mesh);
+	getChildView("Physics Shape Type Combo Ctrl")->setVisible(enable_mesh);
+	getChildView("Physics Gravity")->setVisible(enable_mesh);
+	getChildView("Physics Material Override")->setVisible(enable_mesh);
+	getChildView("Physics Friction")->setVisible(enable_mesh);
+	getChildView("Physics Density")->setVisible(enable_mesh);
+	getChildView("Physics Restitution")->setVisible(enable_mesh);
+
+	F32 max_scale = get_default_max_prim_scale(LLPickInfo::isFlora(mObject));
+
+	getChild<LLSpinCtrl>("Scale X")->setMaxValue(max_scale);
+	getChild<LLSpinCtrl>("Scale Y")->setMaxValue(max_scale);
+	getChild<LLSpinCtrl>("Scale Z")->setMaxValue(max_scale);
+
+	LLComboBox* sculpt_combo = getChild<LLComboBox>("sculpt type control");
+	BOOL found = sculpt_combo->itemExists("Mesh");
+	if (enable_mesh && !found)
+	{
+		sculpt_combo->add("Mesh");
+	}
+	else if (!enable_mesh && found)
+	{
+		sculpt_combo->remove("Mesh");
 	}
 }
 
@@ -1894,6 +2036,12 @@ void LLPanelObject::clearCtrls()
 	mCheckTemporary	->setEnabled( FALSE );
 	mCheckPhantom	->set(FALSE);
 	mCheckPhantom	->setEnabled( FALSE );
+	
+	mSpinPhysicsGravity->setEnabled(FALSE);
+	mSpinPhysicsFriction->setEnabled(FALSE);
+	mSpinPhysicsDensity->setEnabled(FALSE);
+	mSpinPhysicsRestitution->setEnabled(FALSE);
+							 
 #if 0 // 1.9.2
 	mCheckCastShadows->set(FALSE);
 	mCheckCastShadows->setEnabled( FALSE );
