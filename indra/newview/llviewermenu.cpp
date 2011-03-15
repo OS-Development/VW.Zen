@@ -843,9 +843,9 @@ class LLAdvancedCheckFeature : public view_listener_t
 }
 };
 
-void LLDestinationAndAvatarShow(const LLSD& value)
+void toggle_destination_and_avatar_picker(const LLSD& show)
 {
-	S32 panel_idx = value.isDefined() ? value.asInteger() : -1;
+	S32 panel_idx = show.isDefined() ? show.asInteger() : -1;
 	LLView* container = gViewerWindow->getRootView()->getChildView("avatar_picker_and_destination_guide_container");
 	LLMediaCtrl* destinations = container->findChild<LLMediaCtrl>("destination_guide_contents");
 	LLMediaCtrl* avatar_picker = container->findChild<LLMediaCtrl>("avatar_picker_contents");
@@ -862,7 +862,6 @@ void LLDestinationAndAvatarShow(const LLSD& value)
 		container->setVisible(true);
 		destinations->setVisible(false);
 		avatar_picker->setVisible(true);
-		LLFirstUse::notUsingAvatarPicker(false);
 		break;
 	default:
 		container->setVisible(false);
@@ -870,6 +869,8 @@ void LLDestinationAndAvatarShow(const LLSD& value)
 		avatar_picker->setVisible(false);
 		break;
 	}
+
+	gViewerWindow->getRootView()->getChildView("bottom_tray")->getChild<LLUICtrl>("avatar_and_destination_btns")->setValue(show);
 };
 
 
@@ -5542,20 +5543,42 @@ class LLShowHelp : public view_listener_t
 	}
 };
 
+class LLToggleHelp : public view_listener_t
+{
+	bool handleEvent(const LLSD& userdata)
+	{
+		LLFloater* help_browser = (LLFloaterReg::findInstance("help_browser"));
+		if (help_browser && help_browser->isInVisibleChain())
+		{
+			help_browser->closeFloater();
+		}
+		else
+		{
+			std::string help_topic = userdata.asString();
+			LLViewerHelp* vhelp = LLViewerHelp::getInstance();
+			vhelp->showTopic(help_topic);
+		}
+		return true;
+	}
+};
+
 class LLShowSidetrayPanel : public view_listener_t
 {
 	bool handleEvent(const LLSD& userdata)
 	{
 		std::string panel_name = userdata.asString();
-		// Toggle the panel
-		if (!LLSideTray::getInstance()->isPanelActive(panel_name))
+
+		LLPanel* panel = LLSideTray::getInstance()->getPanel(panel_name);
+		if (panel)
 		{
-			// LLFloaterInventory::showAgentInventory();
-			LLSideTray::getInstance()->showPanel(panel_name, LLSD());
-		}
-		else
-		{
-			LLSideTray::getInstance()->collapseSideBar();
+			if (panel->isInVisibleChain())
+			{
+				LLSideTray::getInstance()->hidePanel(panel_name);
+			}
+			else
+			{
+				LLSideTray::getInstance()->showPanel(panel_name);
+			}
 		}
 		return true;
 	}
@@ -5679,6 +5702,44 @@ class LLShowAgentProfile : public view_listener_t
 		if (avatar)
 		{
 			LLAvatarActions::showProfile(avatar->getID());
+		}
+		return true;
+	}
+};
+
+class LLToggleAgentProfile : public view_listener_t
+{
+	bool handleEvent(const LLSD& userdata)
+	{
+		LLUUID agent_id;
+		if (userdata.asString() == "agent")
+		{
+			agent_id = gAgent.getID();
+		}
+		else if (userdata.asString() == "hit object")
+		{
+			LLViewerObject* objectp = LLSelectMgr::getInstance()->getSelection()->getPrimaryObject();
+			if (objectp)
+			{
+				agent_id = objectp->getID();
+			}
+		}
+		else
+		{
+			agent_id = userdata.asUUID();
+		}
+
+		LLVOAvatar* avatar = find_avatar_from_object(agent_id);
+		if (avatar)
+		{
+			if (!LLAvatarActions::profileVisible(avatar->getID()))
+			{
+				LLAvatarActions::showProfile(avatar->getID());
+			}
+			else
+			{
+				LLAvatarActions::hideProfile(avatar->getID());
+			}
 		}
 		return true;
 	}
@@ -8078,8 +8139,10 @@ void initialize_menus()
 	commit.add("ReportAbuse", boost::bind(&handle_report_abuse));
 	commit.add("BuyCurrency", boost::bind(&handle_buy_currency));
 	view_listener_t::addMenu(new LLShowHelp(), "ShowHelp");
+	view_listener_t::addMenu(new LLToggleHelp(), "ToggleHelp");
 	view_listener_t::addMenu(new LLPromptShowURL(), "PromptShowURL");
 	view_listener_t::addMenu(new LLShowAgentProfile(), "ShowAgentProfile");
+	view_listener_t::addMenu(new LLToggleAgentProfile(), "ToggleAgentProfile");
 	view_listener_t::addMenu(new LLToggleControl(), "ToggleControl");
 	view_listener_t::addMenu(new LLCheckControl(), "CheckControl");
 	view_listener_t::addMenu(new LLGoToObject(), "GoToObject");
@@ -8100,5 +8163,5 @@ void initialize_menus()
 
 	view_listener_t::addMenu(new LLToggleUIHints(), "ToggleUIHints");
 
-	commit.add("DestinationAndAvatar.show", boost::bind(&LLDestinationAndAvatarShow, _2));
+	commit.add("DestinationAndAvatar.show", boost::bind(&toggle_destination_and_avatar_picker, _2));
 }
