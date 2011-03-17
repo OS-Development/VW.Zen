@@ -53,6 +53,7 @@ viewer-pre-beta.login_channel = "Second Life Beta Viewer"
 viewer-pre-beta.build_debug_release_separately = true
 viewer-pre-beta.build_viewer_update_version_manager = true
 
+
 # ========================================
 # Viewer Release
 # ========================================
