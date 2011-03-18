@@ -51,7 +51,7 @@ pre_build()
 {
   local variant="$1"
   begin_section "Pre$variant"
-    "$AUTOBUILD" configure -c $variant -- -DPACKAGE:BOOL=ON -DRELEASE_CRASH_REPORTING:BOOL=ON -DUSE_PRECOMPILED_HEADERS=FALSE
+    "$AUTOBUILD" configure -c $variant -- -DPACKAGE:BOOL=ON -DRELEASE_CRASH_REPORTING:BOOL=ON -DUSE_PRECOMPILED_HEADERS=FALSE -DVIEWER_CHANNEL:STRING="$viewer_channel"
   end_section "Pre$variant"
 }
 
@@ -248,6 +248,7 @@ then
       succeeded=$build_coverity
     else
       upload_item installer "$package" binary/octet-stream
+      upload_item quicklink "$package" binary/octet-stream
 
       # Upload crash reporter files.
       case "$last_built_variant" in
