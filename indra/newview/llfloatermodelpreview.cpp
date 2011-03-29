@@ -392,7 +392,7 @@ LLFloaterModelPreview::~LLFloaterModelPreview()
 	
 	if ( mModelPreview )
 	{
-		delete mModelPreview;
+	delete mModelPreview;
 	}
 
 	if (mGLName)
@@ -1882,7 +1882,7 @@ void LLModelLoader::loadModelCallback()
 {
 	if (mPreview)
 	{
-		mPreview->loadModelCallback(mLod);
+		mPreview->loadModelCallback(mLod);	
 	}
 
 	while (!isStopped())
@@ -2463,7 +2463,7 @@ LLModelPreview::LLModelPreview(S32 width, S32 height, LLFloater* fmp)
 LLModelPreview::~LLModelPreview()
 {
 	if (mModelLoader)
-	{	
+	{
 		delete mModelLoader;
 		mModelLoader->mPreview = NULL;
 	}
@@ -2946,7 +2946,7 @@ void LLModelPreview::loadModelCallback(S32 lod)
 							mModel[lod].resize(idx+1);
 						}
 
-						mModel[lod][idx] = list_iter->mModel;
+						mModel[lod][idx] = list_iter->mModel;	
 						if (!list_iter->mModel->mSkinWeights.empty())
 						{
 							skin_weights = true;
@@ -4244,9 +4244,9 @@ BOOL LLModelPreview::render()
 						glColor4fv(instance.mMaterial[i].mDiffuseColor.mV);
 						if (i < instance.mMaterial.size() && instance.mMaterial[i].mDiffuseMap.notNull())
 						{
-							gGL.getTexUnit(0)->bind(instance.mMaterial[i].mDiffuseMap, true);
 							if (instance.mMaterial[i].mDiffuseMap->getDiscardLevel() > -1)
 							{
+								gGL.getTexUnit(0)->bind(instance.mMaterial[i].mDiffuseMap, true);
 								mTextureSet.insert(instance.mMaterial[i].mDiffuseMap.get());
 							}
 						}
@@ -4331,9 +4331,9 @@ BOOL LLModelPreview::render()
 									hull_colors.push_back(LLColor4U(rand()%128+127, rand()%128+127, rand()%128+127, 255));
 								}
 
-								glColor4ubv(hull_colors[i].mV);
+									glColor4ubv(hull_colors[i].mV);
 								LLVertexBuffer::drawArrays(LLRender::TRIANGLES, physics.mMesh[i].mPositions, physics.mMesh[i].mNormals);
-								
+
 								if (explode > 0.f)
 								{
 									gGL.popMatrix();
