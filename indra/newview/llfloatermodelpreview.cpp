@@ -111,6 +111,8 @@ const S32 PREVIEW_HPAD = PREVIEW_RESIZE_HANDLE_SIZE;
 const S32 PREF_BUTTON_HEIGHT = 16 + 7 + 16;
 const S32 PREVIEW_TEXTURE_HEIGHT = 300;
 
+const F32 MAXIMUM_PIVOT_OFFSET = 64.0f;
+
 void drawBoxOutline(const LLVector3& pos, const LLVector3& size);
 
 
@@ -384,7 +386,8 @@ LLFloaterModelPreview::~LLFloaterModelPreview()
 	sInstance = NULL;
 
 	const LLModelLoader *model_loader = mModelPreview->mModelLoader;
-	if (model_loader && model_loader->mResetJoints)
+	
+	if ( mModelPreview && mModelPreview->getResetJointFlag() )
 	{
 		gAgentAvatarp->resetJointPositions();
 	}
@@ -990,7 +993,7 @@ void LLFloaterModelPreview::onMouseCaptureLostModelPreview(LLMouseHandler* handl
 // LLModelLoader
 //-----------------------------------------------------------------------------
 LLModelLoader::LLModelLoader(std::string filename, S32 lod, LLModelPreview* preview)
-: LLThread("Model Loader"), mFilename(filename), mLod(lod), mPreview(preview), mFirstTransform(TRUE), mResetJoints( FALSE )
+: LLThread("Model Loader"), mFilename(filename), mLod(lod), mPreview(preview), mFirstTransform(TRUE)
 {
 	mJointMap["mPelvis"] = "mPelvis";
 	mJointMap["mTorso"] = "mTorso";
@@ -1564,14 +1567,14 @@ bool LLModelLoader::doLoadModel()
 						mPreview->setRigValid( doesJointArrayContainACompleteRig( model->mSkinInfo.mJointNames ) );
 						if ( !skeletonWithNoRootNode && !model->mSkinInfo.mJointNames.empty() && mPreview->isRigValid() ) 
 						{
-							mResetJoints = true;
+							mPreview->setResetJointFlag( true );
 						}
 						
 						if ( !missingSkeletonOrScene )
 						{
 							//Set the joint translations on the avatar - if it's a full mapping
 							//The joints are reset in the dtor
-							if ( mResetJoints )
+							if ( mPreview->getResetJointFlag() )
 							{	
 								std::map<std::string, std::string> :: const_iterator masterJointIt = mJointMap.begin();
 								std::map<std::string, std::string> :: const_iterator masterJointItEnd = mJointMap.end();
@@ -1882,7 +1885,7 @@ void LLModelLoader::loadModelCallback()
 {
 	if (mPreview)
 	{
-		mPreview->loadModelCallback(mLod);
+		mPreview->loadModelCallback(mLod);	
 	}
 
 	while (!isStopped())
@@ -1921,8 +1924,19 @@ void LLModelLoader::handlePivotPoint( daeElement* pRoot )
 				if ( pTranslate )
 				{
 					extractTranslation( pTranslate, workingTransform );
-					mPreview->setModelPivot( workingTransform.getTranslation() );
-					mPreview->setHasPivot( true );
+					LLVector3 pivotTrans = workingTransform.getTranslation();
+					if ( pivotTrans[VX] > MAXIMUM_PIVOT_OFFSET || pivotTrans[VX] < -MAXIMUM_PIVOT_OFFSET || 
+						 pivotTrans[VY] > MAXIMUM_PIVOT_OFFSET || pivotTrans[VY] < -MAXIMUM_PIVOT_OFFSET || 
+						 pivotTrans[VZ] > MAXIMUM_PIVOT_OFFSET || pivotTrans[VZ] < -MAXIMUM_PIVOT_OFFSET ) 
+					{
+						llwarns<<"Asset Pivot Node contains an offset that is too large - values should be within (-"<<MAXIMUM_PIVOT_OFFSET<<","<<MAXIMUM_PIVOT_OFFSET<<")."<<llendl;
+						mPreview->setHasPivot( false );
+					}
+					else
+					{
+						mPreview->setModelPivot( pivotTrans );
+						mPreview->setHasPivot( true );					
+					}
 				}					
 			}
 		}
@@ -2433,6 +2447,7 @@ LLModelPreview::LLModelPreview(S32 width, S32 height, LLFloater* fmp)
 : LLViewerDynamicTexture(width, height, 3, ORDER_MIDDLE, FALSE), LLMutex(NULL)
 , mPelvisZOffset( 0.0f )
 , mRigValid( false )
+, mResetJoints( false )
 {
 	mNeedsUpdate = TRUE;
 	mCameraDistance = 0.f;
@@ -2471,7 +2486,7 @@ LLModelPreview::LLModelPreview(S32 width, S32 height, LLFloater* fmp)
 LLModelPreview::~LLModelPreview()
 {
 	if (mModelLoader)
-	{	
+	{
 		delete mModelLoader;
 		mModelLoader->mPreview = NULL;
 	}
@@ -2530,18 +2545,27 @@ U32 LLModelPreview::calcResourceCost()
 			instance.mLOD[LLModel::LOD_PHYSICS] ?
 			instance.mLOD[LLModel::LOD_PHYSICS]->mPhysics :
 			instance.mModel->mPhysics;
+			
+			//update instance skin info for each lods pelvisZoffset 
+			for ( int j=0; j<LLModel::NUM_LODS; ++j )
+			{	
+				if ( instance.mLOD[j] )
+				{
+					instance.mLOD[j]->mSkinInfo.mPelvisOffset = mPelvisZOffset;
+				}
+			}
 
 			std::stringstream ostr;
 			LLSD ret = LLModel::writeModel(ostr,
-										   instance.mLOD[4],
-										   instance.mLOD[3],
-										   instance.mLOD[2],
-										   instance.mLOD[1],
-										   instance.mLOD[0],
-										   decomp,
-										   mFMP->childGetValue("upload_skin").asBoolean(),
-										   mFMP->childGetValue("upload_joints").asBoolean(),
-										   TRUE);
+					   instance.mLOD[4],
+					   instance.mLOD[3],
+					   instance.mLOD[2],
+					   instance.mLOD[1],
+					   instance.mLOD[0],
+					   decomp,
+					   mFMP->childGetValue("upload_skin").asBoolean(),
+					   mFMP->childGetValue("upload_joints").asBoolean(),
+					   TRUE);
 			cost += gMeshRepo.calcResourceCost(ret);
 
 			num_hulls += decomp.mHull.size();
@@ -2724,6 +2748,11 @@ void LLModelPreview::saveUploadData(bool save_skinweights, bool save_joint_posit
 
 void LLModelPreview::saveUploadData(const std::string& filename, bool save_skinweights, bool save_joint_positions)
 {
+	if (!gSavedSettings.getBOOL("MeshImportUseSLM"))
+	{
+		return;
+	}
+
 	std::set<LLPointer<LLModel> > meshes;
 	std::map<LLModel*, std::string> mesh_binary;
 
@@ -2954,7 +2983,7 @@ void LLModelPreview::loadModelCallback(S32 lod)
 							mModel[lod].resize(idx+1);
 						}
 
-						mModel[lod][idx] = list_iter->mModel;
+						mModel[lod][idx] = list_iter->mModel;	
 						if (!list_iter->mModel->mSkinWeights.empty())
 						{
 							skin_weights = true;
@@ -4252,9 +4281,9 @@ BOOL LLModelPreview::render()
 						glColor4fv(instance.mMaterial[i].mDiffuseColor.mV);
 						if (i < instance.mMaterial.size() && instance.mMaterial[i].mDiffuseMap.notNull())
 						{
-							gGL.getTexUnit(0)->bind(instance.mMaterial[i].mDiffuseMap, true);
 							if (instance.mMaterial[i].mDiffuseMap->getDiscardLevel() > -1)
 							{
+								gGL.getTexUnit(0)->bind(instance.mMaterial[i].mDiffuseMap, true);
 								mTextureSet.insert(instance.mMaterial[i].mDiffuseMap.get());
 							}
 						}
@@ -4339,9 +4368,9 @@ BOOL LLModelPreview::render()
 									hull_colors.push_back(LLColor4U(rand()%128+127, rand()%128+127, rand()%128+127, 255));
 								}
 
-								glColor4ubv(hull_colors[i].mV);
+									glColor4ubv(hull_colors[i].mV);
 								LLVertexBuffer::drawArrays(LLRender::TRIANGLES, physics.mMesh[i].mPositions, physics.mMesh[i].mNormals);
-								
+
 								if (explode > 0.f)
 								{
 									gGL.popMatrix();
