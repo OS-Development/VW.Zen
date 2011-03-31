@@ -67,7 +67,8 @@ elseif (LINUX)
         QtNetwork
         QtGui
         QtCore
-        jscore
+        qgif
+        qjpeg
         jpeg
         fontconfig
         X11
