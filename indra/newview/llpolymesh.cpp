@@ -610,34 +610,34 @@ BOOL LLPolyMeshSharedData::loadMesh( const std::string& fileName )
 				if (!strcmp(morphName, "Big_Belly_Torso"))
 				{
 					mMorphData.insert(clone_morph_param(morph_data,
-									    LLVector3(0,0,0.05f),
-									    "Belly_Torso_Physics_UpDown_Driven"));
+									    LLVector3(0,0,0.03f),
+									    "Belly_Physics_Torso_UpDown_Driven"));
 				}
 
 				if (!strcmp(morphName, "Big_Belly_Legs"))
 				{
 					mMorphData.insert(clone_morph_param(morph_data,
-									    LLVector3(0,0,0.05f),
-									    "Belly_Legs_Physics_UpDown_Driven"));
+									    LLVector3(0,0,0.03f),
+									    "Belly_Physics_Legs_UpDown_Driven"));
 				}
 
 				if (!strcmp(morphName, "skirt_belly"))
 				{
 					mMorphData.insert(clone_morph_param(morph_data,
-									    LLVector3(0,0,0.05f),
-									    "Belly_Skirt_Physics_UpDown_Driven"));
+									    LLVector3(0,0,0.03f),
+									    "Belly_Physics_Skirt_UpDown_Driven"));
 				}
 
 				if (!strcmp(morphName, "Small_Butt"))
 				{
 					mMorphData.insert(clone_morph_param(morph_data,
-									    LLVector3(0,0,0.01f),
+									    LLVector3(0,0,0.015f),
 									    "Butt_Physics_UpDown_Driven"));
 				}
 				if (!strcmp(morphName, "Small_Butt"))
 				{
 					mMorphData.insert(clone_morph_param(morph_data,
-									    LLVector3(0,0.01f,0),
+									    LLVector3(0,0.015f,0),
 									    "Butt_Physics_LeftRight_Driven"));
 				}
 			}
