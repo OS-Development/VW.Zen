@@ -1637,8 +1637,6 @@ if (WINDOWS)
         # sorted out on the parabuild cluster...
         #${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/event_host.tar.bz2)
 
-      check_message_template(package)
-
     endif (PACKAGE)
 endif (WINDOWS)
 
@@ -1760,7 +1758,7 @@ if (LINUX)
       ${COPY_INPUT_DEPENDENCIES}
     COMMENT "Performing viewer_manifest copy"
     )
-
+    
   add_custom_target(copy_l_viewer_manifest ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/.${product}.copy_touched) 
 
   if (PACKAGE)
@@ -1807,7 +1805,6 @@ if (DARWIN)
 
   if (PACKAGE)
       add_custom_target(package ALL DEPENDS ${VIEWER_BINARY_NAME}) 
-      check_message_template(package)
 
       add_custom_command(
         TARGET package POST_BUILD
@@ -1992,4 +1989,5 @@ if (LL_TESTS)
 
 endif (LL_TESTS)
 
+check_message_template(${VIEWER_BINARY_NAME})
 
