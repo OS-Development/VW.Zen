@@ -1,6 +1,7 @@
 # -*- cmake -*-
 include(LLTestCommand)
 include(GoogleMock)
+include(Tut)
 
 MACRO(LL_ADD_PROJECT_UNIT_TESTS project sources)
   # Given a project name and a list of sourcefiles (with optional properties on each),
@@ -56,11 +57,6 @@ INCLUDE(GoogleMock)
   SET(alltest_HEADER_FILES
     ${CMAKE_SOURCE_DIR}/test/test.h
     )
-
-  # Use the default flags
-  if (LINUX)
-    SET(CMAKE_EXE_LINKER_FLAGS "")
-  endif (LINUX)
 
   # start the source test executable definitions
   SET(${project}_TEST_OUTPUT "")

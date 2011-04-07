@@ -111,6 +111,7 @@ public:
 
 	void resetVertexBuffers(LLDrawable* drawable);
 	void setUseVBO(BOOL use_vbo);
+	void setDisableVBOMapping(BOOL no_vbo_mapping);
 	void generateImpostor(LLVOAvatar* avatar);
 	void bindScreenToTexture();
 	void renderBloom(BOOL for_snapshot, F32 zoom_factor = 1.f, int subfield = 0);
@@ -310,6 +311,10 @@ public:
 	static void setRenderSoundBeacons(BOOL val);
 	static void toggleRenderSoundBeacons(void* data);
 	static BOOL getRenderSoundBeacons(void* data);
+
+	static void setRenderMOAPBeacons(BOOL val);
+	static void toggleRenderMOAPBeacons(void * data);
+	static BOOL getRenderMOAPBeacons(void * data);
 
 	static void setRenderPhysicalBeacons(BOOL val);
 	static void toggleRenderPhysicalBeacons(void* data);
@@ -697,6 +702,7 @@ protected:
 	S32						mLightingDetail;
 		
 	static BOOL				sRenderPhysicalBeacons;
+	static BOOL				sRenderMOAPBeacons;
 	static BOOL				sRenderScriptedTouchBeacons;
 	static BOOL				sRenderScriptedBeacons;
 	static BOOL				sRenderParticleBeacons;

@@ -1200,6 +1200,7 @@ void LLFloaterPreference::refresh()
 	updateSliderText(getChild<LLSliderCtrl>("FlexibleMeshDetail",	true), getChild<LLTextBox>("FlexibleMeshDetailText",	true));
 	updateSliderText(getChild<LLSliderCtrl>("TreeMeshDetail",		true), getChild<LLTextBox>("TreeMeshDetailText",		true));
 	updateSliderText(getChild<LLSliderCtrl>("AvatarMeshDetail",		true), getChild<LLTextBox>("AvatarMeshDetailText",		true));
+	updateSliderText(getChild<LLSliderCtrl>("AvatarPhysicsDetail",	true), getChild<LLTextBox>("AvatarPhysicsDetailText",		true));
 	updateSliderText(getChild<LLSliderCtrl>("TerrainMeshDetail",	true), getChild<LLTextBox>("TerrainMeshDetailText",		true));
 	updateSliderText(getChild<LLSliderCtrl>("RenderPostProcess",	true), getChild<LLTextBox>("PostProcessText",			true));
 	updateSliderText(getChild<LLSliderCtrl>("SkyMeshDetail",		true), getChild<LLTextBox>("SkyMeshDetailText",			true));
@@ -1539,6 +1540,7 @@ LLPanelPreference::LLPanelPreference()
 : LLPanel()
 {
 	mCommitCallbackRegistrar.add("Pref.setControlFalse",	boost::bind(&LLPanelPreference::setControlFalse,this, _2));
+	mCommitCallbackRegistrar.add("Pref.updateMediaAutoPlayCheckbox",	boost::bind(&LLPanelPreference::updateMediaAutoPlayCheckbox, this, _1));
 }
 
 //virtual
@@ -1698,6 +1700,21 @@ void LLPanelPreference::setControlFalse(const LLSD& user_data)
 	
 	if (control)
 		control->set(LLSD(FALSE));
+}
+
+void LLPanelPreference::updateMediaAutoPlayCheckbox(LLUICtrl* ctrl)
+{
+	std::string name = ctrl->getName();
+
+	// Disable "Allow Media to auto play" only when both
+	// "Streaming Music" and "Media" are unchecked. STORM-513.
+	if ((name == "enable_music") || (name == "enable_media"))
+	{
+		bool music_enabled = getChild<LLCheckBoxCtrl>("enable_music")->get();
+		bool media_enabled = getChild<LLCheckBoxCtrl>("enable_media")->get();
+
+		getChild<LLCheckBoxCtrl>("media_auto_play_btn")->setEnabled(music_enabled || media_enabled);
+	}
 }
 
 static LLRegisterPanelClassWrapper<LLPanelPreferenceGraphics> t_pref_graph("panel_preference_graphics");

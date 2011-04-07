@@ -164,6 +164,12 @@ static bool handleAvatarLODChanged(const LLSD& newvalue)
 	return true;
 }
 
+static bool handleAvatarPhysicsLODChanged(const LLSD& newvalue)
+{
+	LLVOAvatar::sPhysicsLODFactor = (F32) newvalue.asReal();
+	return true;
+}
+
 static bool handleAvatarMaxVisibleChanged(const LLSD& newvalue)
 {
 	LLVOAvatar::sMaxVisible = (U32) newvalue.asInteger();
@@ -305,6 +311,15 @@ static bool handleRenderUseVBOChanged(const LLSD& newvalue)
 	if (gPipeline.isInit())
 	{
 		gPipeline.setUseVBO(newvalue.asBoolean());
+	}
+	return true;
+}
+
+static bool handleRenderUseVBOMappingChanged(const LLSD& newvalue)
+{
+	if (gPipeline.isInit())
+	{
+		gPipeline.setDisableVBOMapping(newvalue.asBoolean());
 	}
 	return true;
 }
@@ -543,6 +558,7 @@ void settings_setup_listeners()
 	gSavedSettings.getControl("RenderAvatarMaxVisible")->getSignal()->connect(boost::bind(&handleAvatarMaxVisibleChanged, _2));
 	gSavedSettings.getControl("RenderVolumeLODFactor")->getSignal()->connect(boost::bind(&handleVolumeLODChanged, _2));
 	gSavedSettings.getControl("RenderAvatarLODFactor")->getSignal()->connect(boost::bind(&handleAvatarLODChanged, _2));
+	gSavedSettings.getControl("RenderAvatarPhysicsLODFactor")->getSignal()->connect(boost::bind(&handleAvatarPhysicsLODChanged, _2));
 	gSavedSettings.getControl("RenderTerrainLODFactor")->getSignal()->connect(boost::bind(&handleTerrainLODChanged, _2));
 	gSavedSettings.getControl("RenderTreeLODFactor")->getSignal()->connect(boost::bind(&handleTreeLODChanged, _2));
 	gSavedSettings.getControl("RenderFlexTimeFactor")->getSignal()->connect(boost::bind(&handleFlexLODChanged, _2));
@@ -589,6 +605,7 @@ void settings_setup_listeners()
 	gSavedSettings.getControl("MuteAmbient")->getSignal()->connect(boost::bind(&handleAudioVolumeChanged, _2));
 	gSavedSettings.getControl("MuteUI")->getSignal()->connect(boost::bind(&handleAudioVolumeChanged, _2));
 	gSavedSettings.getControl("RenderVBOEnable")->getSignal()->connect(boost::bind(&handleRenderUseVBOChanged, _2));
+	gSavedSettings.getControl("RenderVBOMappingDisable")->getSignal()->connect(boost::bind(&handleRenderUseVBOMappingChanged, _2));
 	gSavedSettings.getControl("RenderUseStreamVBO")->getSignal()->connect(boost::bind(&handleResetVertexBuffersChanged, _2));
 	gSavedSettings.getControl("WLSkyDetail")->getSignal()->connect(boost::bind(&handleWLSkyDetailChanged, _2));
 	gSavedSettings.getControl("NumpadControl")->getSignal()->connect(boost::bind(&handleNumpadControlChanged, _2));

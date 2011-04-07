@@ -53,12 +53,14 @@
 #include "llwebsharing.h"	// For LLWebSharing::setOpenIDCookie(), *TODO: find a better way to do this!
 #include "llfilepicker.h"
 #include "llnotifications.h"
-
+#include "lldir.h"
 #include "llevent.h"		// LLSimpleListener
 #include "llnotificationsutil.h"
 #include "lluuid.h"
 #include "llkeyboard.h"
 #include "llmutelist.h"
+#include "llpanelprofile.h"
+#include "llappviewer.h"
 //#include "llfirstuse.h"
 #include "llwindow.h"
 
@@ -291,6 +293,43 @@ public:
 	}
 
 };
+
+class LLViewerMediaWebProfileResponder : public LLHTTPClient::Responder
+{
+LOG_CLASS(LLViewerMediaWebProfileResponder);
+public:
+	LLViewerMediaWebProfileResponder(std::string host)
+	{
+		mHost = host;
+	}
+
+	~LLViewerMediaWebProfileResponder()
+	{
+	}
+
+	/* virtual */ void completedHeader(U32 status, const std::string& reason, const LLSD& content)
+	{
+		LL_WARNS("MediaAuth") << "status = " << status << ", reason = " << reason << LL_ENDL;
+		LL_WARNS("MediaAuth") << content << LL_ENDL;
+
+		std::string cookie = content["set-cookie"].asString();
+
+		LLViewerMedia::getCookieStore()->setCookiesFromHost(cookie, mHost);
+	}
+
+	 void completedRaw(
+		U32 status,
+		const std::string& reason,
+		const LLChannelDescriptors& channels,
+		const LLIOPipe::buffer_ptr_t& buffer)
+	{
+		// This is just here to disable the default behavior (attempting to parse the response as llsd).
+		// We don't care about the content of the response, only the set-cookie header.
+	}
+
+	std::string mHost;
+};
+
 
 LLPluginCookieStore *LLViewerMedia::sCookieStore = NULL;
 LLURL LLViewerMedia::sOpenIDURL;
@@ -1351,6 +1390,19 @@ void LLViewerMedia::setOpenIDCookie()
 
 		// *HACK: Doing this here is nasty, find a better way.
 		LLWebSharing::instance().setOpenIDCookie(sOpenIDCookie);
+
+		// Do a web profile get so we can store the cookie 
+		LLSD headers = LLSD::emptyMap();
+		headers["Accept"] = "*/*";
+		headers["Cookie"] = sOpenIDCookie;
+		headers["User-Agent"] = getCurrentUserAgent();
+
+		std::string profile_url = getProfileURL("");
+		LLURL raw_profile_url( profile_url.c_str() );
+
+		LLHTTPClient::get(profile_url,  
+			new LLViewerMediaWebProfileResponder(raw_profile_url.getAuthority()),
+			headers);
 	}
 }
 
@@ -1766,7 +1818,8 @@ LLPluginClassMedia* LLViewerMediaImpl::newSourceFromMediaType(std::string media_
 			
 			media_source->setTarget(target);
 			
-			if (media_source->init(launcher_name, plugin_name, gSavedSettings.getBOOL("PluginAttachDebuggerToPlugins")))
+			const std::string plugin_dir = gDirUtilp->getLLPluginDir();
+			if (media_source->init(launcher_name, plugin_dir, plugin_name, gSavedSettings.getBOOL("PluginAttachDebuggerToPlugins")))
 			{
 				return media_source;
 			}
@@ -1832,15 +1885,11 @@ bool LLViewerMediaImpl::initializePlugin(const std::string& media_type)
 			media_source->ignore_ssl_cert_errors(true);
 		}
 
-		// start by assuming the default CA file will be used
-		std::string ca_path = gDirUtilp->getExpandedFilename( LL_PATH_APP_SETTINGS, "lindenlab.pem" );
-	
-		// default turned off so pick up the user specified path
-		if( ! gSavedSettings.getBOOL("BrowserUseDefaultCAFile"))
-		{
-			ca_path = gSavedSettings.getString("BrowserCAFilePath");
-		}
-		// set the path to the CA.pem file
+		// the correct way to deal with certs it to load ours from CA.pem and append them to the ones
+		// Qt/WebKit loads from your system location.
+		// Note: This needs the new CA.pem file with the Equifax Secure Certificate Authority 
+		// cert at the bottom: (MIIDIDCCAomgAwIBAgIENd70zzANBg)
+		std::string ca_path = gDirUtilp->getExpandedFilename( LL_PATH_APP_SETTINGS, "CA.pem" );
 		media_source->addCertificateFilePath( ca_path );
 
 		media_source->proxy_setup(gSavedSettings.getBOOL("BrowserProxyEnabled"), gSavedSettings.getString("BrowserProxyAddress"), gSavedSettings.getS32("BrowserProxyPort"));

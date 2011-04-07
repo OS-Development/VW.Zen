@@ -98,11 +98,6 @@ LLWorld::LLWorld() :
 		mEdgeWaterObjects[i] = NULL;
 	}
 
-	if (gNoRender)
-	{
-		return;
-	}
-
 	LLPointer<LLImageRaw> raw = new LLImageRaw(1,1,4);
 	U8 *default_texture = raw->getData();
 	*(default_texture++) = MAX_WATER_COLOR.mV[0];
@@ -281,6 +276,10 @@ void LLWorld::removeRegion(const LLHost &host)
 	delete regionp;
 
 	updateWaterObjects();
+
+	//double check all objects of this region are removed.
+	gObjectList.clearAllMapObjectsInRegion(regionp) ;
+	//llassert_always(!gObjectList.hasMapObjectInRegion(regionp)) ;
 }
 
 
@@ -622,10 +621,7 @@ void LLWorld::updateVisibilities()
 		if (LLViewerCamera::getInstance()->sphereInFrustum(regionp->getCenterAgent(), radius))
 		{
 			regionp->calculateCameraDistance();
-			if (!gNoRender)
-			{
-				regionp->getLand().updatePatchVisibilities(gAgent);
-			}
+			regionp->getLand().updatePatchVisibilities(gAgent);
 		}
 		else
 		{
@@ -1468,6 +1464,42 @@ void LLWorld::getAvatars(uuid_vec_t* avatar_ids, std::vector<LLVector3d>* positi
 				if(avatar_ids != NULL)
 				{
 					avatar_ids->push_back(regionp->mMapAvatarIDs.get(i));
+				}
+			}
+		}
+	}
+	// retrieve the list of close avatars from viewer objects as well
+	// for when we are above 1000m, only do this when we are retrieving
+	// uuid's too as there could be duplicates
+	if(avatar_ids != NULL)
+	{
+		for (std::vector<LLCharacter*>::iterator iter = LLCharacter::sInstances.begin();
+			iter != LLCharacter::sInstances.end(); ++iter)
+		{
+			LLVOAvatar* pVOAvatar = (LLVOAvatar*) *iter;
+			if(pVOAvatar->isDead() || pVOAvatar->isSelf())
+				continue;
+			LLUUID uuid = pVOAvatar->getID();
+			if(uuid.isNull())
+				continue;
+			LLVector3d pos_global = pVOAvatar->getPositionGlobal();
+			if(dist_vec(pos_global, relative_to) <= radius)
+			{
+				bool found = false;
+				uuid_vec_t::iterator sel_iter = avatar_ids->begin();
+				for (; sel_iter != avatar_ids->end(); sel_iter++)
+				{
+					if(*sel_iter == uuid)
+					{
+						found = true;
+						break;
+					}
+				}
+				if(!found)
+				{
+					if(positions != NULL)
+						positions->push_back(pos_global);
+					avatar_ids->push_back(uuid);
 				}
 			}
 		}

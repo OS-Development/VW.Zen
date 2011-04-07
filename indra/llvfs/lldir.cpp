@@ -101,10 +101,18 @@ S32 LLDir::deleteFilesInDir(const std::string &dirname, const std::string &mask)
 		{
 			if (0 != LLFile::remove(fullpath))
 			{
+				retry_count++;
 				result = errno;
 				llwarns << "Problem removing " << fullpath << " - errorcode: "
 						<< result << " attempt " << retry_count << llendl;
-				ms_sleep(1000);
+
+				if(retry_count >= 5)
+				{
+					llwarns << "Failed to remove " << fullpath << llendl ;
+					return count ;
+				}
+
+				ms_sleep(100);
 			}
 			else
 			{
@@ -113,8 +121,7 @@ S32 LLDir::deleteFilesInDir(const std::string &dirname, const std::string &mask)
 					llwarns << "Successfully removed " << fullpath << llendl;
 				}
 				break;
-			}
-			retry_count++;
+			}			
 		}
 		count++;
 	}
@@ -142,7 +149,11 @@ const std::string LLDir::findFile(const std::string& filename, const std::vector
 	{
 		if (!search_path_iter->empty())
 		{
-			std::string filename_and_path = (*search_path_iter) + getDirDelimiter() + filename;
+			std::string filename_and_path = (*search_path_iter);
+			if (!filename.empty())
+			{
+				filename_and_path += getDirDelimiter() + filename;
+			}
 			if (fileExists(filename_and_path))
 			{
 				return filename_and_path;

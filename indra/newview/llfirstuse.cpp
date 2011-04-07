@@ -78,6 +78,12 @@ void LLFirstUse::otherAvatarChatFirst(bool enable)
 }
 
 // static
+void LLFirstUse::speak(bool enable)
+{
+	firstUseNotification("FirstSpeak", enable, "HintSpeak", LLSD(), LLSD().with("target", "speak_btn").with("direction", "top"));
+}
+
+// static
 void LLFirstUse::sit(bool enable)
 {
 	firstUseNotification("FirstSit", enable, "HintSit", LLSD(), LLSD().with("target", "stand_btn").with("direction", "top"));
@@ -102,13 +108,6 @@ void LLFirstUse::notUsingDestinationGuide(bool enable)
 	// not doing this yet
 	firstUseNotification("FirstNotUseDestinationGuide", enable, "HintDestinationGuide", LLSD(), LLSD().with("target", "dest_guide_btn").with("direction", "top"));
 }
-
-void LLFirstUse::notUsingAvatarPicker(bool enable)
-{
-	// not doing this yet
-	firstUseNotification("FirstNotUseAvatarPicker", enable, "HintAvatarPicker", LLSD(), LLSD().with("target", "avatar_picker_btn").with("direction", "top"));
-}
-
 
 // static
 void LLFirstUse::notUsingSidePanel(bool enable)
