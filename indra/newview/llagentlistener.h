@@ -34,21 +34,33 @@
 
 class LLAgent;
 class LLSD;
+class LLViewerObject; 
+class LLVector3d;
 
 class LLAgentListener : public LLEventAPI
 {
 public:
-	LLAgentListener(LLAgent &agent);
+    LLAgentListener(LLAgent &agent);
 
 private:
-	void requestTeleport(LLSD const & event_data) const;
-	void requestSit(LLSD const & event_data) const;
-	void requestStand(LLSD const & event_data) const;
-	void resetAxes(const LLSD& event) const;
-	void getAxes(const LLSD& event) const;
+    void requestTeleport(LLSD const & event_data) const;
+    void requestSit(LLSD const & event_data) const;
+    void requestStand(LLSD const & event_data) const;
+    void requestTouch(LLSD const & event_data) const;
+    void resetAxes(const LLSD& event) const;
+    void getAxes(const LLSD& event) const;
+    void getPosition(const LLSD& event) const;
+    void startAutoPilot(const LLSD& event);
+    void getAutoPilot(const LLSD& event) const;
+    void startFollowPilot(const LLSD& event);
+    void setAutoPilotTarget(const LLSD& event) const;
+    void stopAutoPilot(const LLSD& event) const;
+
+	LLViewerObject * findObjectClosestTo( const LLVector3 & position ) const;
 
 private:
-	LLAgent & mAgent;
+    LLAgent &	mAgent;
+	LLUUID		mFollowTarget;
 };
 
 #endif // LL_LLAGENTLISTENER_H
