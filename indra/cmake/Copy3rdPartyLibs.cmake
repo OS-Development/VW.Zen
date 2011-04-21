@@ -211,6 +211,7 @@ elseif(DARWIN)
         libexpat.dylib
         libGLOD.dylib
 	libllqtwebkit.dylib
+	libminizip.a
         libndofdev.dylib
         libexception_handler.dylib
 	libcollada14dom.dylib
