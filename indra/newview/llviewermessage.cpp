@@ -5523,7 +5523,11 @@ void process_alert_core(const std::string& message, BOOL modal)
 	{
 		LLSD args;
 		std::string new_msg =LLNotifications::instance().getGlobalString(message);
-		args["MESSAGE"] = new_msg;
+
+		std::string localized_msg;
+		bool is_message_localized = LLTrans::findString(localized_msg, new_msg);
+
+		args["MESSAGE"] = is_message_localized ? localized_msg : new_msg;
 		LLNotificationsUtil::add("SystemMessageTip", args);
 	}
 }
@@ -6461,9 +6465,12 @@ void process_script_dialog(LLMessageSystem* msg, void**)
 	LLSD payload;
 
 	LLUUID object_id;
-	msg->getUUID("Data", "ObjectID", object_id);
+    LLUUID owner_id;
 
-	if (LLMuteList::getInstance()->isMuted(object_id))
+	msg->getUUID("Data", "ObjectID", object_id);
+    msg->getUUID("OwnerData", "OwnerID", owner_id);
+
+	if (LLMuteList::getInstance()->isMuted(object_id) || LLMuteList::getInstance()->isMuted(owner_id))
 	{
 		return;
 	}
