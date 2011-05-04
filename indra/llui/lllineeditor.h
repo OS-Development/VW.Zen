@@ -85,7 +85,8 @@ public:
 		Optional<bool>					select_on_focus,
 										revert_on_esc,
 										commit_on_focus_lost,
-										ignore_tab;
+										ignore_tab,
+										is_password;
 
 		// colors
 		Optional<LLUIColor>				cursor_color,
@@ -200,6 +201,7 @@ public:
 	const LLColor4& getTentativeFgColor() const { return mTentativeFgColor.get(); }
 
 	const LLFontGL* getFont() const { return mGLFont; }
+	void setFont(const LLFontGL* font);
 
 	void			setIgnoreArrowKeys(BOOL b)		{ mIgnoreArrowKeys = b; }
 	void			setIgnoreTab(BOOL b)			{ mIgnoreTab = b; }
@@ -336,7 +338,7 @@ protected:
 	std::vector<S32> mPreeditPositions;
 	LLPreeditor::standouts_t mPreeditStandouts;
 
-	LLHandle<LLView> mContextMenuHandle;
+	LLHandle<LLContextMenu> mContextMenuHandle;
 
 private:
 	// Instances that by default point to the statics but can be overidden in XML.

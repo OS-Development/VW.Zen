@@ -115,12 +115,6 @@
      name="AlertCautionTextColor"
      reference="LtYellow" />
     <color
-     name="AgentLinkColor"
-     reference="EmphasisColor" />
-    <color
-     name="AlertTextColor"
-     value="0.58 0.66 0.84 1" />
-    <color
      name="AvatarListItemIconDefaultColor"
      reference="White" />
     <color
@@ -138,9 +132,6 @@
     <color
      name="AvatarListItemIconVoiceLeftColor"
      reference="AvatarListItemIconOfflineColor" />
-    <color
-     name="BackgroundChatColor"
-     reference="DkGray_66" />
     <color
      name="ButtonBorderColor"
      reference="Unused?" />
@@ -352,9 +343,6 @@
      name="GridlineShadowColor"
      value="0 0 0 0.31" />
     <color
-     name="GroupLinkColor"
-     reference="White" />
-    <color
      name="GroupNotifyBoxColor"
      value="0.3344 0.5456 0.5159 1" />
     <color
@@ -399,9 +387,6 @@
     <color
      name="HighlightParentColor"
      value="0.67 0.83 0.96 1" />
-    <color
-     name="IMChatColor"
-     reference="LtGray" />
     <color
      name="IMHistoryBgColor"
      reference="Unused?" />
@@ -767,9 +752,6 @@
      name="SysWellItemSelected"
      value="0.3 0.3 0.3 1.0" />
     <color
-     name="ChatToastAgentNameColor"
-     reference="EmphasisColor" />
-    <color
     name="ColorSwatchBorderColor"
     value="0.45098 0.517647 0.607843 1"/>
     <color
@@ -778,4 +760,21 @@
     <color
      name="MenuBarProjectBgColor"
      reference="MdBlue" />
+  
+    <!-- Generic color names (legacy) -->
+  <color
+    name="white"
+    value="1 1 1 1"/>
+  <color
+    name="black"
+    value="0 0 0 1"/>
+  <color
+    name="red"
+    value="1 0 0 1"/>
+  <color
+    name="green"
+    value="0 1 0 1"/>
+  <color
+    name="blue"
+    value="0 0 1 1"/>
 </colors>

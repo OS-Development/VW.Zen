@@ -57,9 +57,12 @@
 BOOL gDebugSession = FALSE;
 BOOL gDebugGL = FALSE;
 BOOL gClothRipple = FALSE;
-BOOL gNoRender = FALSE;
+BOOL gHeadlessClient = FALSE;
 BOOL gGLActive = FALSE;
 
+static const std::string HEADLESS_VENDOR_STRING("Linden Lab");
+static const std::string HEADLESS_RENDERER_STRING("Headless");
+static const std::string HEADLESS_VERSION_STRING("1.0");
 
 std::ofstream gFailLog;
 
@@ -538,9 +541,19 @@ void LLGLManager::setToDebugGPU()
 
 void LLGLManager::getGLInfo(LLSD& info)
 {
-	info["GLInfo"]["GLVendor"] = std::string((const char *)glGetString(GL_VENDOR));
-	info["GLInfo"]["GLRenderer"] = std::string((const char *)glGetString(GL_RENDERER));
-	info["GLInfo"]["GLVersion"] = std::string((const char *)glGetString(GL_VERSION));
+	if (gHeadlessClient)
+	{
+		info["GLInfo"]["GLVendor"] = HEADLESS_VENDOR_STRING;
+		info["GLInfo"]["GLRenderer"] = HEADLESS_RENDERER_STRING;
+		info["GLInfo"]["GLVersion"] = HEADLESS_VERSION_STRING;
+		return;
+	}
+	else
+	{
+		info["GLInfo"]["GLVendor"] = std::string((const char *)glGetString(GL_VENDOR));
+		info["GLInfo"]["GLRenderer"] = std::string((const char *)glGetString(GL_RENDERER));
+		info["GLInfo"]["GLVersion"] = std::string((const char *)glGetString(GL_VERSION));
+	}
 
 #if !LL_MESA_HEADLESS
 	std::string all_exts = ll_safe_string((const char *)gGLHExts.mSysExts);
@@ -556,14 +569,22 @@ void LLGLManager::getGLInfo(LLSD& info)
 std::string LLGLManager::getGLInfoString()
 {
 	std::string info_str;
-	std::string all_exts, line;
 
-	info_str += std::string("GL_VENDOR      ") + ll_safe_string((const char *)glGetString(GL_VENDOR)) + std::string("\n");
-	info_str += std::string("GL_RENDERER    ") + ll_safe_string((const char *)glGetString(GL_RENDERER)) + std::string("\n");
-	info_str += std::string("GL_VERSION     ") + ll_safe_string((const char *)glGetString(GL_VERSION)) + std::string("\n");
+	if (gHeadlessClient)
+	{
+		info_str += std::string("GL_VENDOR      ") + HEADLESS_VENDOR_STRING + std::string("\n");
+		info_str += std::string("GL_RENDERER    ") + HEADLESS_RENDERER_STRING + std::string("\n");
+		info_str += std::string("GL_VERSION     ") + HEADLESS_VERSION_STRING + std::string("\n");
+	}
+	else
+	{
+		info_str += std::string("GL_VENDOR      ") + ll_safe_string((const char *)glGetString(GL_VENDOR)) + std::string("\n");
+		info_str += std::string("GL_RENDERER    ") + ll_safe_string((const char *)glGetString(GL_RENDERER)) + std::string("\n");
+		info_str += std::string("GL_VERSION     ") + ll_safe_string((const char *)glGetString(GL_VERSION)) + std::string("\n");
+	}
 
 #if !LL_MESA_HEADLESS 
-	all_exts = (const char *)gGLHExts.mSysExts;
+	std::string all_exts= ll_safe_string(((const char *)gGLHExts.mSysExts));
 	LLStringUtil::replaceChar(all_exts, ' ', '\n');
 	info_str += std::string("GL_EXTENSIONS:\n") + all_exts + std::string("\n");
 #endif
@@ -573,15 +594,21 @@ std::string LLGLManager::getGLInfoString()
 
 void LLGLManager::printGLInfoString()
 {
-	std::string info_str;
-	std::string all_exts, line;
-	
-	LL_INFOS("RenderInit") << "GL_VENDOR:     " << ((const char *)glGetString(GL_VENDOR)) << LL_ENDL;
-	LL_INFOS("RenderInit") << "GL_RENDERER:   " << ((const char *)glGetString(GL_RENDERER)) << LL_ENDL;
-	LL_INFOS("RenderInit") << "GL_VERSION:    " << ((const char *)glGetString(GL_VERSION)) << LL_ENDL;
+	if (gHeadlessClient)
+	{
+		LL_INFOS("RenderInit") << "GL_VENDOR:     " << HEADLESS_VENDOR_STRING << LL_ENDL;
+		LL_INFOS("RenderInit") << "GL_RENDERER:   " << HEADLESS_RENDERER_STRING << LL_ENDL;
+		LL_INFOS("RenderInit") << "GL_VERSION:    " << HEADLESS_VERSION_STRING << LL_ENDL;
+	}
+	else
+	{
+		LL_INFOS("RenderInit") << "GL_VENDOR:     " << ((const char *)glGetString(GL_VENDOR)) << LL_ENDL;
+		LL_INFOS("RenderInit") << "GL_RENDERER:   " << ((const char *)glGetString(GL_RENDERER)) << LL_ENDL;
+		LL_INFOS("RenderInit") << "GL_VERSION:    " << ((const char *)glGetString(GL_VERSION)) << LL_ENDL;
+	}
 
 #if !LL_MESA_HEADLESS
-	all_exts = std::string(gGLHExts.mSysExts);
+	std::string all_exts= ll_safe_string(((const char *)gGLHExts.mSysExts));
 	LLStringUtil::replaceChar(all_exts, ' ', '\n');
 	LL_DEBUGS("RenderInit") << "GL_EXTENSIONS:\n" << all_exts << LL_ENDL;
 #endif
@@ -590,7 +617,14 @@ void LLGLManager::printGLInfoString()
 std::string LLGLManager::getRawGLString()
 {
 	std::string gl_string;
-	gl_string = ll_safe_string((char*)glGetString(GL_VENDOR)) + " " + ll_safe_string((char*)glGetString(GL_RENDERER));
+	if (gHeadlessClient)
+	{
+		gl_string = HEADLESS_VENDOR_STRING + " " + HEADLESS_RENDERER_STRING;
+	}
+	else
+	{
+		gl_string = ll_safe_string((char*)glGetString(GL_VENDOR)) + " " + ll_safe_string((char*)glGetString(GL_RENDERER));
+	}
 	return gl_string;
 }
 
@@ -610,46 +644,51 @@ void LLGLManager::shutdownGL()
 void LLGLManager::initExtensions()
 {
 #if LL_MESA_HEADLESS
-# if GL_ARB_multitexture
+# ifdef GL_ARB_multitexture
 	mHasMultitexture = TRUE;
 # else
 	mHasMultitexture = FALSE;
-# endif
-# if GL_ARB_texture_env_combine
+# endif // GL_ARB_multitexture
+# ifdef GL_ARB_texture_env_combine
 	mHasARBEnvCombine = TRUE;	
 # else
 	mHasARBEnvCombine = FALSE;
-# endif
-# if GL_ARB_texture_compression
+# endif // GL_ARB_texture_env_combine
+# ifdef GL_ARB_texture_compression
 	mHasCompressedTextures = TRUE;
 # else
 	mHasCompressedTextures = FALSE;
-# endif
-# if GL_ARB_vertex_buffer_object
+# endif // GL_ARB_texture_compression
+# ifdef GL_ARB_vertex_buffer_object
 	mHasVertexBufferObject = TRUE;
 # else
 	mHasVertexBufferObject = FALSE;
-# endif
-# if GL_EXT_framebuffer_object
+# endif // GL_ARB_vertex_buffer_object
+# ifdef GL_EXT_framebuffer_object
 	mHasFramebufferObject = TRUE;
 # else
 	mHasFramebufferObject = FALSE;
-# endif
-# if GL_EXT_framebuffer_multisample
+# endif // GL_EXT_framebuffer_object
+# ifdef GL_EXT_framebuffer_multisample
 	mHasFramebufferMultisample = TRUE;
 # else
 	mHasFramebufferMultisample = FALSE;
-# endif
-# if GL_ARB_draw_buffers
+# endif // GL_EXT_framebuffer_multisample
+# ifdef GL_ARB_draw_buffers
 	mHasDrawBuffers = TRUE;
 #else
 	mHasDrawBuffers = FALSE;
-# endif
+# endif // GL_ARB_draw_buffers
+# if defined(GL_NV_depth_clamp) || defined(GL_ARB_depth_clamp)
+	mHasDepthClamp = TRUE;
+#else
+	mHasDepthClamp = FALSE;
+#endif // defined(GL_NV_depth_clamp) || defined(GL_ARB_depth_clamp)
 # if GL_EXT_blend_func_separate
 	mHasBlendFuncSeparate = TRUE;
 #else
 	mHasBlendFuncSeparate = FALSE;
-# endif
+# endif // GL_EXT_blend_func_separate
 	mHasMipMapGeneration = FALSE;
 	mHasSeparateSpecularColor = FALSE;
 	mHasAnisotropic = FALSE;
@@ -671,6 +710,7 @@ void LLGLManager::initExtensions()
 	mHasCompressedTextures = glh_init_extensions("GL_ARB_texture_compression");
 	mHasOcclusionQuery = ExtensionExists("GL_ARB_occlusion_query", gGLHExts.mSysExts);
 	mHasVertexBufferObject = ExtensionExists("GL_ARB_vertex_buffer_object", gGLHExts.mSysExts);
+	mHasDepthClamp = ExtensionExists("GL_ARB_depth_clamp", gGLHExts.mSysExts) || ExtensionExists("GL_NV_depth_clamp", gGLHExts.mSysExts);
 	// mask out FBO support when packed_depth_stencil isn't there 'cause we need it for LLRenderTarget -Brad
 	mHasFramebufferObject = ExtensionExists("GL_EXT_framebuffer_object", gGLHExts.mSysExts)
 		&& ExtensionExists("GL_EXT_packed_depth_stencil", gGLHExts.mSysExts);
@@ -694,6 +734,7 @@ void LLGLManager::initExtensions()
 	if (getenv("LL_GL_NOEXT"))
 	{
 		//mHasMultitexture = FALSE; // NEEDED!
+		mHasDepthClamp = FALSE;
 		mHasARBEnvCombine = FALSE;
 		mHasCompressedTextures = FALSE;
 		mHasVertexBufferObject = FALSE;
@@ -755,6 +796,7 @@ void LLGLManager::initExtensions()
 		if (strchr(blacklist,'s')) mHasFramebufferMultisample = FALSE;
 		if (strchr(blacklist,'t')) mHasTextureRectangle = FALSE;
 		if (strchr(blacklist,'u')) mHasBlendFuncSeparate = FALSE;//S
+		if (strchr(blacklist,'v')) mHasDepthClamp = FALSE;
 		
 	}
 #endif // LL_LINUX || LL_SOLARIS
@@ -1047,6 +1089,33 @@ void flush_glerror()
 	glGetError();
 }
 
+//this function outputs gl error to the log file, does not crash the code.
+void log_glerror()
+{
+	if (LL_UNLIKELY(!gGLManager.mInited))
+	{
+		return ;
+	}
+	//  Create or update texture to be used with this data 
+	GLenum error;
+	error = glGetError();
+	while (LL_UNLIKELY(error))
+	{
+		GLubyte const * gl_error_msg = gluErrorString(error);
+		if (NULL != gl_error_msg)
+		{
+			llwarns << "GL Error: " << error << " GL Error String: " << gl_error_msg << llendl ;			
+		}
+		else
+		{
+			// gluErrorString returns NULL for some extensions' error codes.
+			// you'll probably have to grep for the number in glext.h.
+			llwarns << "GL Error: UNKNOWN 0x" << std::hex << error << std::dec << llendl;
+		}
+		error = glGetError();
+	}
+}
+
 void do_assert_glerror()
 {
 	if (LL_UNLIKELY(!gGLManager.mInited))
@@ -1110,7 +1179,7 @@ void assert_glerror()
 		}
 	}
 
-	if (!gNoRender && gDebugGL) 
+	if (gDebugGL) 
 	{
 		do_assert_glerror();
 	}
@@ -2037,7 +2106,7 @@ void LLGLDepthTest::checkState()
 	}
 }
 
-LLGLClampToFarClip::LLGLClampToFarClip(glh::matrix4f P)
+LLGLSquashToFarClip::LLGLSquashToFarClip(glh::matrix4f P)
 {
 	for (U32 i = 0; i < 4; i++)
 	{
@@ -2050,7 +2119,7 @@ LLGLClampToFarClip::LLGLClampToFarClip(glh::matrix4f P)
 	glMatrixMode(GL_MODELVIEW);
 }
 
-LLGLClampToFarClip::~LLGLClampToFarClip()
+LLGLSquashToFarClip::~LLGLSquashToFarClip()
 {
 	glMatrixMode(GL_PROJECTION);
 	glPopMatrix();

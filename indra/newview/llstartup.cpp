@@ -139,6 +139,7 @@
 #include "lltrans.h"
 #include "llui.h"
 #include "llurldispatcher.h"
+#include "llurlentry.h"
 #include "llslurl.h"
 #include "llurlhistory.h"
 #include "llurlwhitelist.h"
@@ -198,6 +199,7 @@
 // exported globals
 //
 bool gAgentMovementCompleted = false;
+S32  gMaxAgentGroups;
 
 std::string SCREEN_HOME_FILENAME = "screen_home.bmp";
 std::string SCREEN_LAST_FILENAME = "screen_last.bmp";
@@ -232,6 +234,8 @@ static LLHost gFirstSim;
 static std::string gFirstSimSeedCap;
 static LLVector3 gAgentStartLookAt(1.0f, 0.f, 0.f);
 static std::string gAgentStartLocation = "safe";
+static bool mLoginStatePastUI = false;
+
 
 boost::scoped_ptr<LLEventPump> LLStartUp::sStateWatcher(new LLEventStream("StartupState"));
 boost::scoped_ptr<LLStartupListener> LLStartUp::sListener(new LLStartupListener());
@@ -350,11 +354,8 @@ bool idle_startup()
 
 	LLStringUtil::setLocale (LLTrans::getString(system));
 
-	if (!gNoRender)
-	{
-		//note: Removing this line will cause incorrect button size in the login screen. -- bao.
-		gTextureList.updateImages(0.01f) ;
-	}
+	//note: Removing this line will cause incorrect button size in the login screen. -- bao.
+	gTextureList.updateImages(0.01f) ;
 
 	if ( STATE_FIRST == LLStartUp::getStartupState() )
 	{
@@ -669,6 +670,7 @@ bool idle_startup()
 		{
 			gUserCredential = gLoginHandler.initializeLoginInfo();
 		}
+		// Previous initializeLoginInfo may have generated user credentials.  Re-check them.
 		if (gUserCredential.isNull())
 		{
 			show_connect_box = TRUE;
@@ -705,10 +707,20 @@ bool idle_startup()
 	if (STATE_LOGIN_SHOW == LLStartUp::getStartupState())
 	{
 		LL_DEBUGS("AppInit") << "Initializing Window" << LL_ENDL;
-		
+
+		// if we've gone backwards in the login state machine, to this state where we show the UI
+		// AND the debug setting to exit in this case is true, then go ahead and bail quickly
+		if ( mLoginStatePastUI && gSavedSettings.getBOOL("QuitOnLoginActivated") )
+		{
+			// no requirement for notification here - just exit
+			LLAppViewer::instance()->earlyExitNoNotify();
+		}
+
 		gViewerWindow->getWindow()->setCursor(UI_CURSOR_ARROW);
 
 		timeout_count = 0;
+
+		initialize_edit_menu();
 
 		if (show_connect_box)
 		{
@@ -719,14 +731,12 @@ bool idle_startup()
 			{                                                                                                      
 				gUserCredential = gLoginHandler.initializeLoginInfo();                 
 			}     
-			if (gNoRender)
+			if (gHeadlessClient)
 			{
-				LL_ERRS("AppInit") << "Need to autologin or use command line with norender!" << LL_ENDL;
+				LL_WARNS("AppInit") << "Waiting at connection box in headless client.  Did you mean to add autologin params?" << LL_ENDL;
 			}
 			// Make sure the process dialog doesn't hide things
 			gViewerWindow->setShowProgress(FALSE);
-
-			initialize_edit_menu();
 
 			// Show the login dialog
 			login_show();
@@ -736,8 +746,6 @@ bool idle_startup()
 				LLPanelLogin::setFields( gUserCredential, gRememberPassword);                                  
 			}     
 			LLPanelLogin::giveFocus();
-
-			gSavedSettings.setBOOL("FirstRunThisInstall", FALSE);
 
 			LLStartUp::setStartupState( STATE_LOGIN_WAIT );		// Wait for user input
 		}
@@ -763,6 +771,7 @@ bool idle_startup()
 		gViewerWindow->setNormalControlsVisible( FALSE );	
 		gLoginMenuBarView->setVisible( TRUE );
 		gLoginMenuBarView->setEnabled( TRUE );
+		show_debug_menus();
 
 		// Hide the splash screen
 		LLSplashScreen::hide();
@@ -783,6 +792,11 @@ bool idle_startup()
 
 	if (STATE_LOGIN_WAIT == LLStartUp::getStartupState())
 	{
+		// when we get to this state, we've already been past the login UI
+		// (possiblely automatically) - flag this so we can test in the 
+		// STATE_LOGIN_SHOW state if we've gone backwards
+		mLoginStatePastUI = true;
+
 		// Don't do anything.  Wait for the login view to call the login_callback,
 		// which will push us to the next state.
 
@@ -808,6 +822,11 @@ bool idle_startup()
 			// HACK: Try to make not jump on login
 			gKeyboard->resetKeys();
 		}
+
+		// when we get to this state, we've already been past the login UI
+		// (possiblely automatically) - flag this so we can test in the 
+		// STATE_LOGIN_SHOW state if we've gone backwards
+		mLoginStatePastUI = true;
 
 		// save the credentials                                                                                        
 		std::string userid = "unknown";                                                                                
@@ -919,10 +938,7 @@ bool idle_startup()
 
 		gViewerWindow->getWindow()->setCursor(UI_CURSOR_WAIT);
 
-		if (!gNoRender)
-		{
-			init_start_screen(agent_location_id);
-		}
+		init_start_screen(agent_location_id);
 
 		// Display the startup progress bar.
 		gViewerWindow->setShowProgress(TRUE);
@@ -953,13 +969,7 @@ bool idle_startup()
 		// Setting initial values...
 		LLLoginInstance* login = LLLoginInstance::getInstance();
 		login->setNotificationsInterface(LLNotifications::getInstance());
-		if(gNoRender)
-		{
-			// HACK, skip optional updates if you're running drones
-			login->setSkipOptionalUpdate(true);
-		}
 
-		login->setUserInteraction(show_connect_box);
 		login->setSerialNumber(LLAppViewer::instance()->getSerialNumber());
 		login->setLastExecEvent(gLastExecEvent);
 		login->setUpdaterLauncher(boost::bind(&LLAppViewer::launchUpdater, LLAppViewer::instance()));
@@ -1244,14 +1254,11 @@ bool idle_startup()
 		gLoginMenuBarView->setVisible( FALSE );
 		gLoginMenuBarView->setEnabled( FALSE );
 
-		if (!gNoRender)
-		{
-			// direct logging to the debug console's line buffer
-			LLError::logToFixedBuffer(gDebugView->mDebugConsolep);
-			
-			// set initial visibility of debug console
-			gDebugView->mDebugConsolep->setVisible(gSavedSettings.getBOOL("ShowDebugConsole"));
-		}
+		// direct logging to the debug console's line buffer
+		LLError::logToFixedBuffer(gDebugView->mDebugConsolep);
+		
+		// set initial visibility of debug console
+		gDebugView->mDebugConsolep->setVisible(gSavedSettings.getBOOL("ShowDebugConsole"));
 
 		//
 		// Set message handlers
@@ -1279,7 +1286,7 @@ bool idle_startup()
 
 		//gCacheName is required for nearby chat history loading
 		//so I just moved nearby history loading a few states further
-		if (!gNoRender && gSavedPerAccountSettings.getBOOL("LogShowHistory"))
+		if (gSavedPerAccountSettings.getBOOL("LogShowHistory"))
 		{
 			LLNearbyChat* nearby_chat = LLNearbyChat::getInstance();
 			if (nearby_chat) nearby_chat->loadHistory();
@@ -1331,18 +1338,15 @@ bool idle_startup()
 		gAgentCamera.resetCamera();
 
 		// Initialize global class data needed for surfaces (i.e. textures)
-		if (!gNoRender)
-		{
-			LL_DEBUGS("AppInit") << "Initializing sky..." << LL_ENDL;
-			// Initialize all of the viewer object classes for the first time (doing things like texture fetches.
-			LLGLState::checkStates();
-			LLGLState::checkTextureChannels();
+		LL_DEBUGS("AppInit") << "Initializing sky..." << LL_ENDL;
+		// Initialize all of the viewer object classes for the first time (doing things like texture fetches.
+		LLGLState::checkStates();
+		LLGLState::checkTextureChannels();
 
-			gSky.init(initial_sun_direction);
+		gSky.init(initial_sun_direction);
 
-			LLGLState::checkStates();
-			LLGLState::checkTextureChannels();
-		}
+		LLGLState::checkStates();
+		LLGLState::checkTextureChannels();
 
 		LL_DEBUGS("AppInit") << "Decoding images..." << LL_ENDL;
 		// For all images pre-loaded into viewer cache, decode them.
@@ -1682,9 +1686,6 @@ bool idle_startup()
 			// Set the show start location to true, now that the user has logged
 			// on with this install.
 			gSavedSettings.setBOOL("ShowStartLocation", TRUE);
-			
-			LLSideTray::getInstance()->showPanel("panel_home", LLSD());
-
 		}
 
 		// We're successfully logged in.
@@ -1705,46 +1706,43 @@ bool idle_startup()
 			LLUIColorTable::instance().saveUserSettings();
 		};
 
-		if (!gNoRender)
+		// JC: Initializing audio requests many sounds for download.
+		init_audio();
+
+		// JC: Initialize "active" gestures.  This may also trigger
+		// many gesture downloads, if this is the user's first
+		// time on this machine or -purge has been run.
+		LLSD gesture_options 
+			= LLLoginInstance::getInstance()->getResponse("gestures");
+		if (gesture_options.isDefined())
 		{
-			// JC: Initializing audio requests many sounds for download.
-			init_audio();
-
-			// JC: Initialize "active" gestures.  This may also trigger
-			// many gesture downloads, if this is the user's first
-			// time on this machine or -purge has been run.
-			LLSD gesture_options 
-				= LLLoginInstance::getInstance()->getResponse("gestures");
-			if (gesture_options.isDefined())
+			LL_DEBUGS("AppInit") << "Gesture Manager loading " << gesture_options.size()
+				<< LL_ENDL;
+			uuid_vec_t item_ids;
+			for(LLSD::array_const_iterator resp_it = gesture_options.beginArray(),
+				end = gesture_options.endArray(); resp_it != end; ++resp_it)
 			{
-				LL_DEBUGS("AppInit") << "Gesture Manager loading " << gesture_options.size()
-					<< LL_ENDL;
-				uuid_vec_t item_ids;
-				for(LLSD::array_const_iterator resp_it = gesture_options.beginArray(),
-					end = gesture_options.endArray(); resp_it != end; ++resp_it)
-				{
-					// If the id is not specifed in the LLSD,
-					// the LLSD operator[]() will return a null LLUUID. 
-					LLUUID item_id = (*resp_it)["item_id"];
-					LLUUID asset_id = (*resp_it)["asset_id"];
+				// If the id is not specifed in the LLSD,
+				// the LLSD operator[]() will return a null LLUUID. 
+				LLUUID item_id = (*resp_it)["item_id"];
+				LLUUID asset_id = (*resp_it)["asset_id"];
 
-					if (item_id.notNull() && asset_id.notNull())
-					{
-						// Could schedule and delay these for later.
-						const BOOL no_inform_server = FALSE;
-						const BOOL no_deactivate_similar = FALSE;
-						LLGestureMgr::instance().activateGestureWithAsset(item_id, asset_id,
-											 no_inform_server,
-											 no_deactivate_similar);
-						// We need to fetch the inventory items for these gestures
-						// so we have the names to populate the UI.
-						item_ids.push_back(item_id);
-					}
+				if (item_id.notNull() && asset_id.notNull())
+				{
+					// Could schedule and delay these for later.
+					const BOOL no_inform_server = FALSE;
+					const BOOL no_deactivate_similar = FALSE;
+					LLGestureMgr::instance().activateGestureWithAsset(item_id, asset_id,
+										 no_inform_server,
+										 no_deactivate_similar);
+					// We need to fetch the inventory items for these gestures
+					// so we have the names to populate the UI.
+					item_ids.push_back(item_id);
 				}
-				// no need to add gesture to inventory observer, it's already made in constructor 
-				LLGestureMgr::instance().setFetchIDs(item_ids);
-				LLGestureMgr::instance().startFetch();
 			}
+			// no need to add gesture to inventory observer, it's already made in constructor 
+			LLGestureMgr::instance().setFetchIDs(item_ids);
+			LLGestureMgr::instance().startFetch();
 		}
 		gDisplaySwapBuffers = TRUE;
 
@@ -1764,13 +1762,6 @@ bool idle_startup()
 		// TODO: Put this into RegisterNewAgent
 		// JC - 7/20/2002
 		gViewerWindow->sendShapeToSim();
-
-		
-		// Ignore stipend information for now.  Money history is on the web site.
-		// if needed, show the L$ history window
-		//if (stipend_since_login && !gNoRender)
-		//{
-		//}
 
 		// The reason we show the alert is because we want to
 		// reduce confusion for when you log in and your provided
@@ -2700,7 +2691,7 @@ bool LLStartUp::dispatchURL()
 			|| (dx*dx > SLOP*SLOP)
 			|| (dy*dy > SLOP*SLOP) )
 		{
-			LLURLDispatcher::dispatch(getStartSLURL().getSLURLString(), 
+			LLURLDispatcher::dispatch(getStartSLURL().getSLURLString(), "clicked",
 						  NULL, false);
 		}
 		return true;
@@ -2861,9 +2852,17 @@ bool process_login_success_response()
 	if(!text.empty()) gAgentID.set(text);
 	gDebugInfo["AgentID"] = text;
 	
+	// Agent id needed for parcel info request in LLUrlEntryParcel
+	// to resolve parcel name.
+	LLUrlEntryParcel::setAgentID(gAgentID);
+
 	text = response["session_id"].asString();
 	if(!text.empty()) gAgentSessionID.set(text);
 	gDebugInfo["SessionID"] = text;
+
+	// Session id needed for parcel info request in LLUrlEntryParcel
+	// to resolve parcel name.
+	LLUrlEntryParcel::setSessionID(gAgentSessionID);
 	
 	text = response["secure_session_id"].asString();
 	if(!text.empty()) gAgent.mSecureSessionID.set(text);
@@ -3074,7 +3073,16 @@ bool process_login_success_response()
 	std::string map_server_url = response["map-server-url"];
 	if(!map_server_url.empty())
 	{
-		gSavedSettings.setString("MapServerURL", map_server_url); 
+		// We got an answer from the grid -> use that for map for the current session
+		gSavedSettings.setString("CurrentMapServerURL", map_server_url); 
+		LL_INFOS("LLStartup") << "map-server-url : we got an answer from the grid : " << map_server_url << LL_ENDL;
+	}
+	else
+	{
+		// No answer from the grid -> use the default setting for current session 
+		map_server_url = gSavedSettings.getString("MapServerURL"); 
+		gSavedSettings.setString("CurrentMapServerURL", map_server_url); 
+		LL_INFOS("LLStartup") << "map-server-url : no map-server-url answer, we use the default setting for the map : " << map_server_url << LL_ENDL;
 	}
 	
 	// Default male and female avatars allowing the user to choose their avatar on first login.
@@ -3151,6 +3159,18 @@ bool process_login_success_response()
 		LLViewerMedia::openIDSetup(openid_url, openid_token);
 	}
 
+	if(response.has("max-agent-groups")) {		
+		std::string max_agent_groups(response["max-agent-groups"]);
+		gMaxAgentGroups = atoi(max_agent_groups.c_str());
+		LL_INFOS("LLStartup") << "gMaxAgentGroups read from login.cgi: "
+							  << gMaxAgentGroups << LL_ENDL;
+	}
+	else {
+		gMaxAgentGroups = DEFAULT_MAX_AGENT_GROUPS;
+		LL_INFOS("LLStartup") << "using gMaxAgentGroups default: "
+							  << gMaxAgentGroups << LL_ENDL;
+	}
+		
 	bool success = false;
 	// JC: gesture loading done below, when we have an asset system
 	// in place.  Don't delete/clear gUserCredentials until then.
@@ -3168,7 +3188,7 @@ bool process_login_success_response()
 
 void transition_back_to_login_panel(const std::string& emsg)
 {
-	if (gNoRender)
+	if (gHeadlessClient && gSavedSettings.getBOOL("AutoLogin"))
 	{
 		LL_WARNS("AppInit") << "Failed to login!" << LL_ENDL;
 		LL_WARNS("AppInit") << emsg << LL_ENDL;

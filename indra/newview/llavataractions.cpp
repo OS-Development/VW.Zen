@@ -47,6 +47,7 @@
 #include "llfloatergroups.h"
 #include "llfloaterreg.h"
 #include "llfloaterpay.h"
+#include "llfloaterwebcontent.h"
 #include "llfloaterworldmap.h"
 #include "llgiveinventory.h"
 #include "llinventorybridge.h"
@@ -56,9 +57,11 @@
 #include "llmutelist.h"
 #include "llnotificationsutil.h"	// for LLNotificationsUtil
 #include "llpaneloutfitedit.h"
+#include "llpanelprofile.h"
 #include "llrecentpeople.h"
 #include "llsidetray.h"
 #include "lltrans.h"
+#include "llviewercontrol.h"
 #include "llviewerobjectlist.h"
 #include "llviewermessage.h"	// for handle_lure
 #include "llviewerregion.h"
@@ -276,7 +279,7 @@ bool LLAvatarActions::isCalling(const LLUUID &id)
 //static
 bool LLAvatarActions::canCall()
 {
-		return LLVoiceClient::getInstance()->voiceEnabled() && LLVoiceClient::getInstance()->isVoiceWorking();
+	return LLVoiceClient::getInstance()->voiceEnabled() && LLVoiceClient::getInstance()->isVoiceWorking();
 }
 
 // static
@@ -297,25 +300,45 @@ void LLAvatarActions::startConference(const uuid_vec_t& ids)
 	make_ui_sound("UISndStartIM");
 }
 
+static void on_avatar_name_show_profile(const LLUUID& agent_id, const LLAvatarName& av_name)
+{
+	std::string username = av_name.mUsername;
+	if (username.empty())
+	{
+		username = LLCacheName::buildUsername(av_name.mDisplayName);
+	}
+	
+	llinfos << "opening web profile for " << username << llendl;		
+	std::string url = getProfileURL(username);
+
+	// PROFILES: open in webkit window
+	LLWeb::loadWebURLInternal(url, "", agent_id.asString());
+}
+
 // static
 void LLAvatarActions::showProfile(const LLUUID& id)
 {
 	if (id.notNull())
 	{
-		LLSD params;
-		params["id"] = id;
-		params["open_tab_name"] = "panel_profile";
+		LLAvatarNameCache::get(id, boost::bind(&on_avatar_name_show_profile, _1, _2));
+	}
+}
 
-		//Show own profile
-		if(gAgent.getID() == id)
-		{
-			LLSideTray::getInstance()->showPanel("panel_me", params);
-		}
-		//Show other user profile
-		else
-		{
-			LLSideTray::getInstance()->showPanel("panel_profile_view", params);
-		}
+//static 
+bool LLAvatarActions::profileVisible(const LLUUID& id)
+{
+	LLFloaterWebContent *browser = dynamic_cast<LLFloaterWebContent*> (LLFloaterReg::findInstance("web_content", id.asString()));
+	return browser && browser->isShown();
+}
+
+
+//static 
+void LLAvatarActions::hideProfile(const LLUUID& id)
+{
+	LLFloaterWebContent *browser = dynamic_cast<LLFloaterWebContent*> (LLFloaterReg::findInstance("web_content", id.asString()));
+	if (browser)
+	{
+		browser->closeFloater();
 	}
 }
 

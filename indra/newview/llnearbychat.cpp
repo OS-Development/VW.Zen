@@ -250,9 +250,13 @@ void LLNearbyChat::getAllowedRect(LLRect& rect)
 void LLNearbyChat::updateChatHistoryStyle()
 {
 	mChatHistory->clear();
+
+	LLSD do_not_log;
+	do_not_log["do_not_log"] = true;
 	for(std::vector<LLChat>::iterator it = mMessageArchive.begin();it!=mMessageArchive.end();++it)
 	{
-		addMessage(*it,false);
+		// Update the messages without re-writing them to a log file.
+		addMessage(*it,false, do_not_log);
 	}
 }
 
@@ -364,4 +368,17 @@ BOOL	LLNearbyChat::handleMouseDown(S32 x, S32 y, MASK mask)
 	if(mChatHistory)
 		mChatHistory->setFocus(TRUE);
 	return LLDockableFloater::handleMouseDown(x, y, mask);
+}
+
+void LLNearbyChat::draw()
+{
+	// *HACK: Update transparency type depending on whether our children have focus.
+	// This is needed because this floater is chrome and thus cannot accept focus, so
+	// the transparency type setting code from LLFloater::setFocus() isn't reached.
+	if (getTransparencyType() != TT_DEFAULT)
+	{
+		setTransparencyType(hasFocus() ? TT_ACTIVE : TT_INACTIVE);
+	}
+
+	LLDockableFloater::draw();
 }

@@ -150,11 +150,11 @@ LLDir_Mac::LLDir_Mac()
 		CFURLRef resourcesURLRef = CFBundleCopyResourcesDirectoryURL(mainBundleRef);
 		CFURLRefToLLString(resourcesURLRef, mAppRODataDir, true);
 		
-		U32 indra_pos = mExecutableDir.find("/indra");
-		if (indra_pos != std::string::npos)
+		U32 build_dir_pos = mExecutableDir.rfind("/build-darwin-");
+		if (build_dir_pos != std::string::npos)
 		{
 			// ...we're in a dev checkout
-			mSkinBaseDir = mExecutableDir.substr(0, indra_pos)
+			mSkinBaseDir = mExecutableDir.substr(0, build_dir_pos)
 				+ "/indra/newview/skins";
 			llinfos << "Running in dev checkout with mSkinBaseDir "
 				<< mSkinBaseDir << llendl;
@@ -259,8 +259,7 @@ U32 LLDir_Mac::countFilesInDir(const std::string &dirname, const std::string &ma
 }
 
 // get the next file in the directory
-// automatically wrap if we've hit the end
-BOOL LLDir_Mac::getNextFileInDir(const std::string &dirname, const std::string &mask, std::string &fname, BOOL wrap)
+BOOL LLDir_Mac::getNextFileInDir(const std::string &dirname, const std::string &mask, std::string &fname)
 {
 	glob_t g;
 	BOOL result = FALSE;
@@ -292,11 +291,6 @@ BOOL LLDir_Mac::getNextFileInDir(const std::string &dirname, const std::string &
 	
 			mCurrentDirIndex++;
 	
-			if((mCurrentDirIndex >= g.gl_pathc) && wrap)
-			{
-				mCurrentDirIndex = 0;
-			}
-			
 			if(mCurrentDirIndex < g.gl_pathc)
 			{
 //				llinfos << "getNextFileInDir: returning number " << mCurrentDirIndex << ", path is " << g.gl_pathv[mCurrentDirIndex] << llendl;
@@ -323,41 +317,7 @@ BOOL LLDir_Mac::getNextFileInDir(const std::string &dirname, const std::string &
 	return(result);
 }
 
-// get a random file in the directory
-void LLDir_Mac::getRandomFileInDir(const std::string &dirname, const std::string &mask, std::string &fname)
-{
-	S32 which_file;
-	glob_t g;
-	fname = "";
-	
-	std::string tmp_str;
-	tmp_str = dirname;
-	tmp_str += mask;
-	
-	if(glob(tmp_str.c_str(), GLOB_NOSORT, NULL, &g) == 0)
-	{
-		if(g.gl_pathc > 0)
-		{
-			
-			which_file = ll_rand(g.gl_pathc);
-	
-//			llinfos << "getRandomFileInDir: returning number " << which_file << ", path is " << g.gl_pathv[which_file] << llendl;
-			// The API wants just the filename, not the full path.
-			//fname = g.gl_pathv[which_file];
 
-			char *s = strrchr(g.gl_pathv[which_file], '/');
-			
-			if(s == NULL)
-				s = g.gl_pathv[which_file];
-			else if(s[0] == '/')
-				s++;
-				
-			fname = s;
-		}
-		
-		globfree(&g);
-	}
-}
 
 S32 LLDir_Mac::deleteFilesInDir(const std::string &dirname, const std::string &mask)
 {

@@ -56,6 +56,7 @@
 #include "llrootview.h"
 #include "llspeakers.h"
 #include "llsidetray.h"
+#include "llviewerchat.h"
 
 
 static const S32 RECT_PADDING_NOT_INIT = -1;
@@ -266,7 +267,9 @@ BOOL LLIMFloater::postBuild()
 	mInputEditor->setMaxTextLength(1023);
 	// enable line history support for instant message bar
 	mInputEditor->setEnableLineHistory(TRUE);
-	
+
+	LLFontGL* font = LLViewerChat::getChatFont();
+	mInputEditor->setFont(font);	
 	
 	mInputEditor->setFocusReceivedCallback( boost::bind(onInputEditorFocusReceived, _1, this) );
 	mInputEditor->setFocusLostCallback( boost::bind(onInputEditorFocusLost, _1, this) );
@@ -470,7 +473,7 @@ LLIMFloater* LLIMFloater::show(const LLUUID& session_id)
 }
 
 //static
-bool LLIMFloater::resetAllowedRectPadding(const LLSD& newvalue)
+bool LLIMFloater::resetAllowedRectPadding()
 {
 	//reset allowed rect right padding if "SidebarCameraMovement" option 
 	//or sidebar state changed
@@ -482,10 +485,10 @@ void LLIMFloater::getAllowedRect(LLRect& rect)
 {
 	if (sAllowedRectRightPadding == RECT_PADDING_NOT_INIT) //wasn't initialized
 	{
-		gSavedSettings.getControl("SidebarCameraMovement")->getSignal()->connect(boost::bind(&LLIMFloater::resetAllowedRectPadding, _2));
+		gSavedSettings.getControl("SidebarCameraMovement")->getSignal()->connect(boost::bind(&LLIMFloater::resetAllowedRectPadding));
 
 		LLSideTray*	side_bar = LLSideTray::getInstance();
-		side_bar->getCollapseSignal().connect(boost::bind(&LLIMFloater::resetAllowedRectPadding, _2));
+		side_bar->setVisibleWidthChangeCallback(boost::bind(&LLIMFloater::resetAllowedRectPadding));
 		sAllowedRectRightPadding = RECT_PADDING_NEED_RECALC;
 	}
 
@@ -500,10 +503,7 @@ void LLIMFloater::getAllowedRect(LLRect& rect)
 
 		if (gSavedSettings.getBOOL("SidebarCameraMovement") == FALSE)
 		{
-			LLSideTray*	side_bar = LLSideTray::getInstance();
-
-			if (side_bar->getVisible() && !side_bar->getCollapsed())
-				sAllowedRectRightPadding += side_bar->getRect().getWidth();
+			sAllowedRectRightPadding += LLSideTray::getInstance()->getVisibleWidth();
 		}
 	}
 	rect.mRight -= sAllowedRectRightPadding;
@@ -680,8 +680,6 @@ void LLIMFloater::updateMessages()
 
 	if (messages.size())
 	{
-//		LLUIColor chat_color = LLUIColorTable::instance().getColor("IMChatColor");
-
 		LLSD chat_args;
 		chat_args["use_plain_text_chat_history"] = use_plain_text_chat_history;
 
@@ -896,6 +894,7 @@ void LLIMFloater::updateChatHistoryStyle()
 
 void LLIMFloater::processChatHistoryStyleUpdate(const LLSD& newvalue)
 {
+	LLFontGL* font = LLViewerChat::getChatFont();
 	LLFloaterReg::const_instance_list_t& inst_list = LLFloaterReg::getFloaterList("impanel");
 	for (LLFloaterReg::const_instance_list_t::const_iterator iter = inst_list.begin();
 		 iter != inst_list.end(); ++iter)
@@ -904,6 +903,7 @@ void LLIMFloater::processChatHistoryStyleUpdate(const LLSD& newvalue)
 		if (floater)
 		{
 			floater->updateChatHistoryStyle();
+			floater->mInputEditor->setFont(font);
 		}
 	}
 
