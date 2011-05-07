@@ -850,7 +850,7 @@ LLParcel* LLViewerParcelMgr::getCollisionParcel() const
 
 void LLViewerParcelMgr::render()
 {
-	if (mSelected && mRenderSelection)
+	if (mSelected && mRenderSelection && gSavedSettings.getBOOL("RenderParcelSelection"))
 	{
 		// Rendering is done in agent-coordinates, so need to supply
 		// an appropriate offset to the render code.
@@ -1383,11 +1383,6 @@ void LLViewerParcelMgr::setHoverParcel(const LLVector3d& pos)
 // static
 void LLViewerParcelMgr::processParcelOverlay(LLMessageSystem *msg, void **user)
 {
-	if (gNoRender)
-	{
-		return;
-	}
-
 	// Extract the packed overlay information
 	S32 packed_overlay_size = msg->getSizeFast(_PREHASH_ParcelData, _PREHASH_Data);
 
@@ -1784,8 +1779,7 @@ void LLViewerParcelMgr::processParcelProperties(LLMessageSystem *msg, void **use
 
 void optionally_start_music(const std::string& music_url)
 {
-	if (gSavedSettings.getBOOL("AudioStreamingMusic") &&
-	    gSavedSettings.getBOOL("AudioStreamingMedia"))
+	if (gSavedSettings.getBOOL("AudioStreamingMusic"))
 	{
 		// only play music when you enter a new parcel if the UI control for this
 		// was not *explicitly* stopped by the user. (part of SL-4878)

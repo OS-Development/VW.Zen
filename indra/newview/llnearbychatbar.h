@@ -46,6 +46,8 @@ public:
 	{
 		Optional<LLBottomtrayButton::Params>			combo_button;
 		Optional<LLScrollListCtrl::Params>	combo_list;
+		Optional<bool>						get_more,
+											view_all;
 		
 		Params();
 	};
@@ -56,6 +58,8 @@ protected:
 	LLGestureComboList(const Params&);
 	std::vector<LLMultiGesture*> mGestures;
 	std::string mLabel;
+	bool			mShowViewAll;
+	bool			mShowGetMore;
 	LLSD::Integer mViewAllItemIndex;
 	LLSD::Integer mGetMoreItemIndex;
 
@@ -67,6 +71,8 @@ public:
 	virtual void	showList();
 	virtual void	hideList();
 	virtual BOOL	handleKeyHere(KEY key, MASK mask);
+
+	virtual void	draw();
 
 	S32				getCurrentIndex() const;
 	void			onItemSelected(const LLSD& data);
@@ -121,6 +127,7 @@ protected:
 
 	void sendChat( EChatType type );
 	void onChatBoxCommit();
+	void onChatFontChange(LLFontGL* fontp);
 
 	static LLWString stripChannelNumber(const LLWString &mesg, S32* channel);
 	EChatType processChatTypeTriggers(EChatType type, std::string &str);

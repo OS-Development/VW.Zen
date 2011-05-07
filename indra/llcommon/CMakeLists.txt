@@ -12,6 +12,7 @@ include(LLSharedLibs)
 include(GoogleBreakpad)
 include(GooglePerfTools)
 include(Copy3rdPartyLibs)
+include(ZLIB)
 
 include_directories(
     ${EXPAT_INCLUDE_DIRS}
@@ -62,6 +63,7 @@ set(llcommon_SOURCE_FILES
     llformat.cpp
     llframetimer.cpp
     llheartbeat.cpp
+    llinstancetracker.cpp
     llliveappconfig.cpp
     lllivefile.cpp
     lllog.cpp
@@ -70,6 +72,7 @@ set(llcommon_SOURCE_FILES
     llmemorystream.cpp
     llmemtype.cpp
     llmetrics.cpp
+    llmetricperformancetester.cpp
     llmortician.cpp
     lloptioninterface.cpp
     llptrto.cpp 
@@ -92,6 +95,7 @@ set(llcommon_SOURCE_FILES
     llstringtable.cpp
     llsys.cpp
     llthread.cpp
+    llthreadsafequeue.cpp
     lltimer.cpp
     lluri.cpp
     lluuid.cpp
@@ -186,6 +190,7 @@ set(llcommon_HEADER_FILES
     llmemorystream.h
     llmemtype.h
     llmetrics.h
+    llmetricperformancetester.h
     llmortician.h
     llnametable.h
     lloptioninterface.h
@@ -223,6 +228,7 @@ set(llcommon_HEADER_FILES
     llstringtable.h
     llsys.h
     llthread.h
+    llthreadsafequeue.h
     lltimer.h
     lltreeiterators.h
     lluri.h
@@ -262,6 +268,10 @@ if(LLCOMMON_LINK_SHARED)
       add_definitions(-fPIC)
     endif(WINDOWS)
   endif(NOT WORD_SIZE EQUAL 32)
+  if(WINDOWS)
+    # always generate llcommon.pdb, even for "Release" builds
+    set_target_properties(llcommon PROPERTIES LINK_FLAGS "/DEBUG")
+  endif(WINDOWS)
   ll_stage_sharedlib(llcommon)
 else(LLCOMMON_LINK_SHARED)
     add_library (llcommon ${llcommon_SOURCE_FILES})
@@ -309,6 +319,7 @@ if (LL_TESTS)
   LL_ADD_INTEGRATION_TEST(lluri "" "${test_libs}")
   LL_ADD_INTEGRATION_TEST(reflection "" "${test_libs}")
   LL_ADD_INTEGRATION_TEST(stringize "" "${test_libs}")
+  LL_ADD_INTEGRATION_TEST(lleventdispatcher "" "${test_libs}")
 
   # *TODO - reenable these once tcmalloc libs no longer break the build.
   #ADD_BUILD_TEST(llallocator llcommon)

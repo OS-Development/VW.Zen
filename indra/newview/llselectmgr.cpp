@@ -65,6 +65,7 @@
 #include "llinventorymodel.h"
 #include "llmenugl.h"
 #include "llmutelist.h"
+#include "llnotificationsutil.h"
 #include "llsidepaneltaskinfo.h"
 #include "llslurl.h"
 #include "llstatusbar.h"
@@ -516,17 +517,15 @@ BOOL LLSelectMgr::removeObjectFromSelections(const LLUUID &id)
 {
 	BOOL object_found = FALSE;
 	LLTool *tool = NULL;
-	if (!gNoRender)
-	{
-		tool = LLToolMgr::getInstance()->getCurrentTool();
 
-		// It's possible that the tool is editing an object that is not selected
-		LLViewerObject* tool_editing_object = tool->getEditingObject();
-		if( tool_editing_object && tool_editing_object->mID == id)
-		{
-			tool->stopEditing();
-			object_found = TRUE;
-		}
+	tool = LLToolMgr::getInstance()->getCurrentTool();
+
+	// It's possible that the tool is editing an object that is not selected
+	LLViewerObject* tool_editing_object = tool->getEditingObject();
+	if( tool_editing_object && tool_editing_object->mID == id)
+	{
+		tool->stopEditing();
+		object_found = TRUE;
 	}
 
 	// Iterate through selected objects list and kill the object
@@ -560,6 +559,103 @@ BOOL LLSelectMgr::removeObjectFromSelections(const LLUUID &id)
 	}
 
 	return object_found;
+}
+
+bool LLSelectMgr::linkObjects()
+{
+	if (!LLSelectMgr::getInstance()->selectGetAllRootsValid())
+	{
+		LLNotificationsUtil::add("UnableToLinkWhileDownloading");
+		return true;
+	}
+
+	S32 object_count = LLSelectMgr::getInstance()->getSelection()->getObjectCount();
+	if (object_count > MAX_CHILDREN_PER_TASK + 1)
+	{
+		LLSD args;
+		args["COUNT"] = llformat("%d", object_count);
+		int max = MAX_CHILDREN_PER_TASK+1;
+		args["MAX"] = llformat("%d", max);
+		LLNotificationsUtil::add("UnableToLinkObjects", args);
+		return true;
+	}
+
+	if (LLSelectMgr::getInstance()->getSelection()->getRootObjectCount() < 2)
+	{
+		LLNotificationsUtil::add("CannotLinkIncompleteSet");
+		return true;
+	}
+
+	if (!LLSelectMgr::getInstance()->selectGetRootsModify())
+	{
+		LLNotificationsUtil::add("CannotLinkModify");
+		return true;
+	}
+
+	LLUUID owner_id;
+	std::string owner_name;
+	if (!LLSelectMgr::getInstance()->selectGetOwner(owner_id, owner_name))
+	{
+		// we don't actually care if you're the owner, but novices are
+		// the most likely to be stumped by this one, so offer the
+		// easiest and most likely solution.
+		LLNotificationsUtil::add("CannotLinkDifferentOwners");
+		return true;
+	}
+
+	LLSelectMgr::getInstance()->sendLink();
+
+	return true;
+}
+
+bool LLSelectMgr::unlinkObjects()
+{
+	LLSelectMgr::getInstance()->sendDelink();
+	return true;
+}
+
+// in order to link, all objects must have the same owner, and the
+// agent must have the ability to modify all of the objects. However,
+// we're not answering that question with this method. The question
+// we're answering is: does the user have a reasonable expectation
+// that a link operation should work? If so, return true, false
+// otherwise. this allows the handle_link method to more finely check
+// the selection and give an error message when the uer has a
+// reasonable expectation for the link to work, but it will fail.
+bool LLSelectMgr::enableLinkObjects()
+{
+	bool new_value = false;
+	// check if there are at least 2 objects selected, and that the
+	// user can modify at least one of the selected objects.
+
+	// in component mode, can't link
+	if (!gSavedSettings.getBOOL("EditLinkedParts"))
+	{
+		if(LLSelectMgr::getInstance()->selectGetAllRootsValid() && LLSelectMgr::getInstance()->getSelection()->getRootObjectCount() >= 2)
+		{
+			struct f : public LLSelectedObjectFunctor
+			{
+				virtual bool apply(LLViewerObject* object)
+				{
+					return object->permModify();
+				}
+			} func;
+			const bool firstonly = true;
+			new_value = LLSelectMgr::getInstance()->getSelection()->applyToRootObjects(&func, firstonly);
+		}
+	}
+	return new_value;
+}
+
+bool LLSelectMgr::enableUnlinkObjects()
+{
+	LLViewerObject* first_editable_object = LLSelectMgr::getInstance()->getSelection()->getFirstEditableObject();
+
+	bool new_value = LLSelectMgr::getInstance()->selectGetAllRootsValid() &&
+		first_editable_object &&
+		!first_editable_object->isAttachment();
+
+	return new_value;
 }
 
 void LLSelectMgr::deselectObjectAndFamily(LLViewerObject* object, BOOL send_to_sim, BOOL include_entire_object)
@@ -6472,26 +6568,27 @@ bool LLSelectMgr::selectionMove(const LLVector3& displ,
 	if (update_position)
 	{
 		// calculate the distance of the object closest to the camera origin
-		F32 min_dist = 1e+30f;
+		F32 min_dist_squared = F32_MAX; // value will be overridden in the loop
+		
 		LLVector3 obj_pos;
 		for (LLObjectSelection::root_iterator it = getSelection()->root_begin();
 			 it != getSelection()->root_end(); ++it)
 		{
 			obj_pos = (*it)->getObject()->getPositionEdit();
 			
-			F32 obj_dist = dist_vec(obj_pos, LLViewerCamera::getInstance()->getOrigin());
-			if (obj_dist < min_dist)
+			F32 obj_dist_squared = dist_vec_squared(obj_pos, LLViewerCamera::getInstance()->getOrigin());
+			if (obj_dist_squared < min_dist_squared)
 			{
-				min_dist = obj_dist;
+				min_dist_squared = obj_dist_squared;
 			}
 		}
 		
-		// factor the distance inside the displacement vector. This will get us
+		// factor the distance into the displacement vector. This will get us
 		// equally visible movements for both close and far away selections.
-		min_dist = sqrt(min_dist) / 2;
-		displ_global.setVec(displ.mV[0]*min_dist, 
-							displ.mV[1]*min_dist, 
-							displ.mV[2]*min_dist);
+		F32 min_dist = sqrt(fsqrtf(min_dist_squared)) / 2;
+		displ_global.setVec(displ.mV[0] * min_dist,
+							displ.mV[1] * min_dist,
+							displ.mV[2] * min_dist);
 
 		// equates to: Displ_global = Displ * M_cam_axes_in_global_frame
 		displ_global = LLViewerCamera::getInstance()->rotateToAbsolute(displ_global);

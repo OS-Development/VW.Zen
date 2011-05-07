@@ -181,8 +181,8 @@ void LLInventoryModelBackgroundFetch::backgroundFetch()
 	if (mBackgroundFetchActive && gAgent.getRegion())
 	{
 		// If we'll be using the capability, we'll be sending batches and the background thing isn't as important.
-		std::string url = gAgent.getRegion()->getCapability("WebFetchInventoryDescendents");   
-		if (!url.empty()) 
+		std::string url = gAgent.getRegion()->getCapability("FetchInventoryDescendents2");   
+		if (gSavedSettings.getBOOL("UseHTTPInventory") && !url.empty()) 
 		{
 			bulkFetch(url);
 			return;
@@ -388,7 +388,7 @@ void LLInventoryModelFetchDescendentsResponder::result(const LLSD& content)
                         titem->setParent(lost_uuid);
                         titem->updateParentOnServer(FALSE);
                         gInventory.updateItem(titem);
-                        gInventory.notifyObservers("fetchDescendents");
+                        gInventory.notifyObservers();
                         
                     }
                 }
@@ -464,7 +464,7 @@ void LLInventoryModelFetchDescendentsResponder::result(const LLSD& content)
 		fetcher->setAllFoldersFetched();
 	}
 	
-	gInventory.notifyObservers("fetchDescendents");
+	gInventory.notifyObservers();
 }
 
 // If we get back an error (not found, etc...), handle it here.
@@ -496,7 +496,7 @@ void LLInventoryModelFetchDescendentsResponder::error(U32 status, const std::str
 			fetcher->setAllFoldersFetched();
 		}
 	}
-	gInventory.notifyObservers("fetchDescendents");
+	gInventory.notifyObservers();
 }
 
 BOOL LLInventoryModelFetchDescendentsResponder::getIsRecursive(const LLUUID& cat_id) const
@@ -604,7 +604,7 @@ void LLInventoryModelBackgroundFetch::bulkFetch(std::string url)
 		}
 		if (body_lib["folders"].size())
 		{
-			std::string url_lib = gAgent.getRegion()->getCapability("FetchLibDescendents");
+			std::string url_lib = gAgent.getRegion()->getCapability("FetchLibDescendents2");
 			
 			LLInventoryModelFetchDescendentsResponder *fetcher = new LLInventoryModelFetchDescendentsResponder(body_lib, recursive_cats);
 			LLHTTPClient::post(url_lib, body_lib, fetcher, 300.0);

@@ -54,7 +54,7 @@ LLViewerWindowListener::LLViewerWindowListener(LLViewerWindow* llviewerwindow):
 //  saveSnapshotArgs["type"] = LLSD::String();
     add("saveSnapshot",
         "Save screenshot: [\"filename\"], [\"width\"], [\"height\"], [\"showui\"], [\"rebuild\"], [\"type\"]\n"
-        "type: \"COLOR\", \"DEPTH\", \"OBJECT_ID\"\n"
+        "type: \"COLOR\", \"DEPTH\"\n"
         "Post on [\"reply\"] an event containing [\"ok\"]",
         &LLViewerWindowListener::saveSnapshot,
         saveSnapshotArgs);
@@ -65,13 +65,11 @@ LLViewerWindowListener::LLViewerWindowListener(LLViewerWindow* llviewerwindow):
 
 void LLViewerWindowListener::saveSnapshot(const LLSD& event) const
 {
-    LLReqID reqid(event);
     typedef std::map<LLSD::String, LLViewerWindow::ESnapshotType> TypeMap;
     TypeMap types;
 #define tp(name) types[#name] = LLViewerWindow::SNAPSHOT_TYPE_##name
     tp(COLOR);
     tp(DEPTH);
-    tp(OBJECT_ID);
 #undef  tp
     // Our add() call should ensure that the incoming LLSD does in fact
     // contain our required arguments. Deal with the optional ones.
@@ -99,9 +97,7 @@ void LLViewerWindowListener::saveSnapshot(const LLSD& event) const
         type = found->second;
     }
     bool ok = mViewerWindow->saveSnapshot(event["filename"], width, height, showui, rebuild, type);
-    LLSD response(reqid.makeResponse());
-    response["ok"] = ok;
-    LLEventPumps::instance().obtain(event["reply"]).post(response);
+    sendReply(LLSDMap("ok", ok), event);
 }
 
 void LLViewerWindowListener::requestReshape(LLSD const & event_data) const

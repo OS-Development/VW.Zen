@@ -40,6 +40,7 @@
 #include "v4math.h"
 #include "llplane.h"
 #include "llgltypes.h"
+#include "llinstancetracker.h"
 
 #include "llglheaders.h"
 #include "glh/glh_linear.h"
@@ -92,6 +93,7 @@ public:
 	BOOL mHasOcclusionQuery;
 	BOOL mHasPointParameters;
 	BOOL mHasDrawBuffers;
+	BOOL mHasDepthClamp;
 	BOOL mHasTextureRectangle;
 
 	// Other extensions.
@@ -157,6 +159,7 @@ void rotate_quat(LLQuaternion& rotation);
 
 void flush_glerror(); // Flush GL errors when we know we're handling them correctly.
 
+void log_glerror();
 void assert_glerror();
 
 void clear_glerror();
@@ -315,20 +318,22 @@ private:
   leaves this class.
   Does not stack.
 */
-class LLGLClampToFarClip
+class LLGLSquashToFarClip
 {
 public:
-	LLGLClampToFarClip(glh::matrix4f projection);
-	~LLGLClampToFarClip();
+	LLGLSquashToFarClip(glh::matrix4f projection);
+	~LLGLSquashToFarClip();
 };
 
 /*
 	Generic pooling scheme for things which use GL names (used for occlusion queries and vertex buffer objects).
 	Prevents thrashing of GL name caches by avoiding calls to glGenFoo and glDeleteFoo.
 */
-class LLGLNamePool
+class LLGLNamePool : public LLInstanceTracker<LLGLNamePool>
 {
 public:
+	typedef LLInstanceTracker<LLGLNamePool> tracker_t;
+
 	struct NameEntry
 	{
 		GLuint name;
@@ -355,13 +360,11 @@ public:
 	GLuint allocate();
 	void release(GLuint name);
 	
-	static void registerPool(LLGLNamePool* pool);
 	static void upkeepPools();
 	static void cleanupPools();
 
 protected:
 	typedef std::vector<LLGLNamePool*> pool_list_t;
-	static pool_list_t sInstances;
 	
 	virtual GLuint allocateName() = 0;
 	virtual void releaseName(GLuint name) = 0;
@@ -413,7 +416,7 @@ void set_binormals(const S32 index, const U32 stride, const LLVector3 *binormals
 void parse_gl_version( S32* major, S32* minor, S32* release, std::string* vendor_specific );
 
 extern BOOL gClothRipple;
-extern BOOL gNoRender;
+extern BOOL gHeadlessClient;
 extern BOOL gGLActive;
 
 #endif // LL_LLGL_H

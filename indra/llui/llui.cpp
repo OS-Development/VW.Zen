@@ -61,6 +61,8 @@
 // for XUIParse
 #include "llquaternion.h"
 #include <boost/tokenizer.hpp>
+#include <boost/algorithm/string/find_iterator.hpp>
+#include <boost/algorithm/string/finder.hpp>
 
 //
 // Globals
@@ -950,7 +952,7 @@ void gl_ring( F32 radius, F32 width, const LLColor4& center_color, const LLColor
 }
 
 // Draw gray and white checkerboard with black border
-void gl_rect_2d_checkerboard(const LLRect& rect)
+void gl_rect_2d_checkerboard(const LLRect& rect, GLfloat alpha)
 {
 	// Initialize the first time this is called.
 	const S32 PIXELS = 32;
@@ -971,11 +973,11 @@ void gl_rect_2d_checkerboard(const LLRect& rect)
 	gGL.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
 
 	// ...white squares
-	gGL.color3f( 1.f, 1.f, 1.f );
+	gGL.color4f( 1.f, 1.f, 1.f, alpha );
 	gl_rect_2d(rect);
 
 	// ...gray squares
-	gGL.color3f( .7f, .7f, .7f );
+	gGL.color4f( .7f, .7f, .7f, alpha );
 	gGL.flush();
 	glPolygonStipple( checkerboard );
 
@@ -1596,23 +1598,25 @@ void LLUI::initClass(const settings_map_t& settings,
 	sWindow = NULL; // set later in startup
 	LLFontGL::sShadowColor = LLUIColorTable::instance().getColor("ColorDropShadow");
 
+	LLUICtrl::CommitCallbackRegistry::Registrar& reg = LLUICtrl::CommitCallbackRegistry::defaultRegistrar();
+
 	// Callbacks for associating controls with floater visibilty:
-	LLUICtrl::CommitCallbackRegistry::defaultRegistrar().add("Floater.Toggle", boost::bind(&LLFloaterReg::toggleFloaterInstance, _2));
-	LLUICtrl::CommitCallbackRegistry::defaultRegistrar().add("Floater.Show", boost::bind(&LLFloaterReg::showFloaterInstance, _2));
-	LLUICtrl::CommitCallbackRegistry::defaultRegistrar().add("Floater.Hide", boost::bind(&LLFloaterReg::hideFloaterInstance, _2));
-	LLUICtrl::CommitCallbackRegistry::defaultRegistrar().add("Floater.InitToVisibilityControl", boost::bind(&LLFloaterReg::initUICtrlToFloaterVisibilityControl, _1, _2));
+	reg.add("Floater.Toggle", boost::bind(&LLFloaterReg::toggleFloaterInstance, _2));
+	reg.add("Floater.Show", boost::bind(&LLFloaterReg::showFloaterInstance, _2));
+	reg.add("Floater.Hide", boost::bind(&LLFloaterReg::hideFloaterInstance, _2));
+	reg.add("Floater.InitToVisibilityControl", boost::bind(&LLFloaterReg::initUICtrlToFloaterVisibilityControl, _1, _2));
 	
 	// Button initialization callback for toggle buttons
-	LLUICtrl::CommitCallbackRegistry::defaultRegistrar().add("Button.SetFloaterToggle", boost::bind(&LLButton::setFloaterToggle, _1, _2));
+	reg.add("Button.SetFloaterToggle", boost::bind(&LLButton::setFloaterToggle, _1, _2));
 	
 	// Button initialization callback for toggle buttons on dockale floaters
-	LLUICtrl::CommitCallbackRegistry::defaultRegistrar().add("Button.SetDockableFloaterToggle", boost::bind(&LLButton::setDockableFloaterToggle, _1, _2));
+	reg.add("Button.SetDockableFloaterToggle", boost::bind(&LLButton::setDockableFloaterToggle, _1, _2));
 
 	// Display the help topic for the current context
-	LLUICtrl::CommitCallbackRegistry::defaultRegistrar().add("Button.ShowHelp", boost::bind(&LLButton::showHelp, _1, _2));
+	reg.add("Button.ShowHelp", boost::bind(&LLButton::showHelp, _1, _2));
 
 	// Currently unused, but kept for reference:
-	LLUICtrl::CommitCallbackRegistry::defaultRegistrar().add("Button.ToggleFloater", boost::bind(&LLButton::toggleFloaterAndSetToggleState, _1, _2));
+	reg.add("Button.ToggleFloater", boost::bind(&LLButton::toggleFloaterAndSetToggleState, _1, _2));
 	
 	// Used by menus along with Floater.Toggle to display visibility as a checkmark
 	LLUICtrl::EnableCallbackRegistry::defaultRegistrar().add("Floater.Visible", boost::bind(&LLFloaterReg::floaterInstanceVisible, _2));
@@ -1620,7 +1624,10 @@ void LLUI::initClass(const settings_map_t& settings,
 
 void LLUI::cleanupClass()
 {
+	if(sImageProvider)
+	{
 	sImageProvider->cleanUp();
+}
 }
 
 void LLUI::setPopupFuncs(const add_popup_t& add_popup, const remove_popup_t& remove_popup,  const clear_popups_t& clear_popups)
@@ -2015,51 +2022,89 @@ void LLUI::positionViewNearMouse(LLView* view, S32 spawn_x, S32 spawn_y)
 	view->translateIntoRectWithExclusion( virtual_window_rect, mouse_rect, FALSE );
 }
 
+LLView* LLUI::resolvePath(LLView* context, const std::string& path)
+{
+	// Nothing about resolvePath() should require non-const LLView*. If caller
+	// wants non-const, call the const flavor and then cast away const-ness.
+	return const_cast<LLView*>(resolvePath(const_cast<const LLView*>(context), path));
+}
+
+const LLView* LLUI::resolvePath(const LLView* context, const std::string& path)
+{
+	// Create an iterator over slash-separated parts of 'path'. Dereferencing
+	// this iterator returns an iterator_range over the substring. Unlike
+	// LLStringUtil::getTokens(), this split_iterator doesn't combine adjacent
+	// delimiters: leading/trailing slash produces an empty substring, double
+	// slash produces an empty substring. That's what we need.
+	boost::split_iterator<std::string::const_iterator> ti(path, boost::first_finder("/")), tend;
+
+	if (ti == tend)
+	{
+		// 'path' is completely empty, no navigation
+		return context;
+	}
+
+	// leading / means "start at root"
+	if (ti->empty())
+	{
+		context = getRootView();
+		++ti;
+	}
+
+	bool recurse = false;
+	for (; ti != tend && context; ++ti)
+	{
+		if (ti->empty()) 
+		{
+			recurse = true;
+		}
+		else
+		{
+			std::string part(ti->begin(), ti->end());
+			context = context->findChildView(part, recurse);
+			recurse = false;
+		}
+	}
+
+	return context;
+}
+
 
 // LLLocalClipRect and LLScreenClipRect moved to lllocalcliprect.h/cpp
 
 namespace LLInitParam
 {
-	TypedParam<LLUIColor >::TypedParam(BlockDescriptor& descriptor, const char* name, const LLUIColor& value, ParamDescriptor::validation_func_t func, S32 min_count, S32 max_count)
-	:	super_t(descriptor, name, value, func, min_count, max_count),
+	ParamValue<LLUIColor, TypeValues<LLUIColor> >::ParamValue(const LLUIColor& color)
+	:	super_t(color),
 		red("red"),
 		green("green"),
 		blue("blue"),
 		alpha("alpha"),
 		control("")
 	{
-		setBlockFromValue();
+		updateBlockFromValue();
 	}
 
-	void TypedParam<LLUIColor>::setValueFromBlock() const
+	void ParamValue<LLUIColor, TypeValues<LLUIColor> >::updateValueFromBlock()
 	{
 		if (control.isProvided())
 		{
-			mData.mValue = LLUIColorTable::instance().getColor(control);
+			updateValue(LLUIColorTable::instance().getColor(control));
 		}
 		else
 		{
-			mData.mValue = LLColor4(red, green, blue, alpha);
+			updateValue(LLColor4(red, green, blue, alpha));
 		}
 	}
 	
-	void TypedParam<LLUIColor>::setBlockFromValue()
+	void ParamValue<LLUIColor, TypeValues<LLUIColor> >::updateBlockFromValue()
 	{
-		LLColor4 color = mData.mValue.get();
+		LLColor4 color = getValue();
 		red.set(color.mV[VRED], false);
 		green.set(color.mV[VGREEN], false);
 		blue.set(color.mV[VBLUE], false);
 		alpha.set(color.mV[VALPHA], false);
 		control.set("", false);
-	}
-
-	void TypeValues<LLUIColor>::declareValues()
-	{
-		declare("white", LLColor4::white);
-		declare("black", LLColor4::black);
-		declare("red", LLColor4::red);
-		declare("green", LLColor4::green);
-		declare("blue", LLColor4::blue);
 	}
 
 	bool ParamCompare<const LLFontGL*, false>::equals(const LLFontGL* a, const LLFontGL* b)
@@ -2068,23 +2113,26 @@ namespace LLInitParam
 			&& !(b->getFontDesc() < a->getFontDesc());
 	}
 
-	TypedParam<const LLFontGL*>::TypedParam(BlockDescriptor& descriptor, const char* _name, const LLFontGL*const value, ParamDescriptor::validation_func_t func, S32 min_count, S32 max_count)
-	:	super_t(descriptor, _name, value, func, min_count, max_count),
+	ParamValue<const LLFontGL*, TypeValues<const LLFontGL*> >::ParamValue(const LLFontGL* fontp)
+	:	super_t(fontp),
 		name("name"),
 		size("size"),
 		style("style")
 	{
-		setBlockFromValue();
+		if (!fontp)
+		{
+			updateValue(LLFontGL::getFontDefault());
+		}
 		addSynonym(name, "");
-		setBlockFromValue();
+		updateBlockFromValue();
 	}
 
-	void TypedParam<const LLFontGL*>::setValueFromBlock() const
+	void ParamValue<const LLFontGL*, TypeValues<const LLFontGL*> >::updateValueFromBlock()
 	{
 		const LLFontGL* res_fontp = LLFontGL::getFontByName(name);
 		if (res_fontp)
 		{
-			mData.mValue = res_fontp;
+			updateValue(res_fontp);
 			return;
 		}
 
@@ -2094,22 +2142,26 @@ namespace LLInitParam
 		const LLFontGL* fontp = LLFontGL::getFont(desc);
 		if (fontp)
 		{
-			mData.mValue = fontp;
-		}		
+			updateValue(fontp);
+		}
+		else
+		{
+			updateValue(LLFontGL::getFontDefault());
+		}
 	}
 	
-	void TypedParam<const LLFontGL*>::setBlockFromValue()
+	void ParamValue<const LLFontGL*, TypeValues<const LLFontGL*> >::updateBlockFromValue()
 	{
-		if (mData.mValue)
+		if (getValue())
 		{
-			name.set(LLFontGL::nameFromFont(mData.mValue), false);
-			size.set(LLFontGL::sizeFromFont(mData.mValue), false);
-			style.set(LLFontGL::getStringFromStyle(mData.mValue->getFontDesc().getStyle()), false);
+			name.set(LLFontGL::nameFromFont(getValue()), false);
+			size.set(LLFontGL::sizeFromFont(getValue()), false);
+			style.set(LLFontGL::getStringFromStyle(getValue()->getFontDesc().getStyle()), false);
 		}
 	}
 
-	TypedParam<LLRect>::TypedParam(BlockDescriptor& descriptor, const char* name, const LLRect& value, ParamDescriptor::validation_func_t func, S32 min_count, S32 max_count)
-	:	super_t(descriptor, name, value, func, min_count, max_count),
+	ParamValue<LLRect, TypeValues<LLRect> >::ParamValue(const LLRect& rect)
+	:	super_t(rect),
 		left("left"),
 		top("top"),
 		right("right"),
@@ -2117,10 +2169,10 @@ namespace LLInitParam
 		width("width"),
 		height("height")
 	{
-		setBlockFromValue();
+		updateBlockFromValue();
 	}
 
-	void TypedParam<LLRect>::setValueFromBlock() const
+	void ParamValue<LLRect, TypeValues<LLRect> >::updateValueFromBlock()
 	{
 		LLRect rect;
 
@@ -2181,40 +2233,41 @@ namespace LLInitParam
 			rect.mBottom = bottom;
 			rect.mTop = top;
 		}
-		mData.mValue = rect;
+		updateValue(rect);
 	}
 	
-	void TypedParam<LLRect>::setBlockFromValue()
+	void ParamValue<LLRect, TypeValues<LLRect> >::updateBlockFromValue()
 	{
 		// because of the ambiguity in specifying a rect by position and/or dimensions
 		// we clear the "provided" flag so that values from xui/etc have priority
 		// over those calculated from the rect object
 
-		left.set(mData.mValue.mLeft, false);
-		right.set(mData.mValue.mRight, false);
-		bottom.set(mData.mValue.mBottom, false);
-		top.set(mData.mValue.mTop, false);
-		width.set(mData.mValue.getWidth(), false);
-		height.set(mData.mValue.getHeight(), false);
+		LLRect& value = getValue();
+		left.set(value.mLeft, false);
+		right.set(value.mRight, false);
+		bottom.set(value.mBottom, false);
+		top.set(value.mTop, false);
+		width.set(value.getWidth(), false);
+		height.set(value.getHeight(), false);
 	}
 
-	TypedParam<LLCoordGL>::TypedParam(BlockDescriptor& descriptor, const char* name, LLCoordGL value, ParamDescriptor::validation_func_t func, S32 min_count, S32 max_count)
-	:	super_t(descriptor, name, value, func, min_count, max_count),
+	ParamValue<LLCoordGL, TypeValues<LLCoordGL> >::ParamValue(const LLCoordGL& coord)
+	:	super_t(coord),
 		x("x"),
 		y("y")
 	{
-		setBlockFromValue();
+		updateBlockFromValue();
 	}
 
-	void TypedParam<LLCoordGL>::setValueFromBlock() const
+	void ParamValue<LLCoordGL, TypeValues<LLCoordGL> >::updateValueFromBlock()
 	{
-		mData.mValue.set(x, y);
+		updateValue(LLCoordGL(x, y));
 	}
 	
-	void TypedParam<LLCoordGL>::setBlockFromValue()
+	void ParamValue<LLCoordGL, TypeValues<LLCoordGL> >::updateBlockFromValue()
 	{
-		x.set(mData.mValue.mX, false);
-		y.set(mData.mValue.mY, false);
+		x.set(getValue().mX, false);
+		y.set(getValue().mY, false);
 	}
 
 
