@@ -58,6 +58,8 @@
 #include "llworld.h"
 #include "material_codes.h"
 #include "pipeline.h"
+#include "llinventorymodel.h"
+#include "llfoldertype.h"
 
 #ifndef LL_WINDOWS
 #include "netdb.h"
@@ -476,6 +478,25 @@ public:
 		mThread->mPendingUploads--;
 		mThread->mFinished = true;
 	}
+};
+
+class LLWholeModelFeeResponder: public LLCurl::Responder
+{
+	LLMeshUploadThread* mThread;
+public:
+	LLWholeModelFeeResponder(LLMeshUploadThread* thread):
+		mThread(thread)
+	{
+	}
+	virtual void completedRaw(U32 status, const std::string& reason,
+							  const LLChannelDescriptors& channels,
+							  const LLIOPipe::buffer_ptr_t& buffer)
+	{
+		assert_main_thread();
+		llinfos << "completed" << llendl;
+		mThread->mPendingUploads--;
+	}
+	
 };
 
 LLMeshRepoThread::LLMeshRepoThread()
@@ -1239,6 +1260,7 @@ LLMeshUploadThread::LLMeshUploadThread(LLMeshUploadThread::instance_list& data, 
 	
 	mUploadObjectAssetCapability = gAgent.getRegion()->getCapability("UploadObjectAsset");
 	mNewInventoryCapability = gAgent.getRegion()->getCapability("NewFileAgentInventoryVariablePrice");
+	mWholeModelUploadCapability = gAgent.getRegion()->getCapability("NewFileAgentInventory");
 
 	mOrigin += gAgent.getAtAxis() * scale.magVec();
 }
@@ -1329,6 +1351,192 @@ BOOL LLMeshUploadThread::isDiscarded()
 }
 
 void LLMeshUploadThread::run()
+{
+	if (gSavedSettings.getBOOL("MeshUseWholeModelUpload"))
+	{
+		doWholeModelUpload();
+	}
+	else
+	{
+		doIterativeUpload();
+	}
+}
+
+void dumpLLSDToFile(LLSD& content, std::string& filename)
+{
+	std::ofstream of(filename);
+	LLSDSerialize::toPrettyXML(content,of);
+}
+
+LLSD LLMeshUploadThread::wholeModelToLLSD(bool include_textures)
+{
+	// TODO where do textures go?
+	
+	LLSD result;
+
+	result["folder_id"] = gInventory.findCategoryUUIDForType(LLFolderType::FT_OBJECT);
+	result["asset_type"] = "mesh";
+	result["inventory_type"] = "object";
+	result["name"] = "your name here";
+	result["description"] = "your description here";
+
+	LLSD res;
+	res["mesh_list"] = LLSD::emptyArray();
+	res["texture_list"] = LLSD::emptyArray();
+	S32 mesh_num = 0;
+	S32 texture_num = 0;
+	
+	std::set<LLViewerTexture* > textures;
+
+	for (instance_map::iterator iter = mInstance.begin(); iter != mInstance.end(); ++iter)
+	{
+		LLMeshUploadData data;
+		data.mBaseModel = iter->first;
+
+		LLModelInstance& instance = *(iter->second.begin());
+
+		for (S32 i = 0; i < 5; i++)
+		{
+			data.mModel[i] = instance.mLOD[i];
+		}
+
+		std::stringstream ostr;
+
+		LLModel::Decomposition& decomp =
+			data.mModel[LLModel::LOD_PHYSICS].notNull() ? 
+			data.mModel[LLModel::LOD_PHYSICS]->mPhysics : 
+			data.mBaseModel->mPhysics;
+
+		decomp.mBaseHull = mHullMap[data.mBaseModel];
+
+		LLModel::writeModel(
+			ostr,  
+			data.mModel[LLModel::LOD_PHYSICS],
+			data.mModel[LLModel::LOD_HIGH],
+			data.mModel[LLModel::LOD_MEDIUM],
+			data.mModel[LLModel::LOD_LOW],
+			data.mModel[LLModel::LOD_IMPOSTOR], 
+			decomp,
+			mUploadSkin,
+			mUploadJoints);
+
+		data.mAssetData = ostr.str();
+
+		LLSD mesh_entry;
+
+		// TODO - correct coords based on instance.mTransform.
+		mesh_entry["coords"]["x"] = 1.0;
+		mesh_entry["coords"]["y"] = 1.0;
+		mesh_entry["coords"]["z"] = 1.0;
+		mesh_entry["coords"]["rot_x"] = 1.0;
+		mesh_entry["coords"]["rot_y"] = 1.0;
+		mesh_entry["coords"]["rot_z"] = 1.0;
+		mesh_entry["mesh_data"] = "RESTORE_ME"; //ostr.str();
+
+		res["mesh_list"][mesh_num] = mesh_entry;
+		
+		if (mUploadTextures)
+		{
+			for (std::vector<LLImportMaterial>::iterator material_iter = instance.mMaterial.begin();
+				material_iter != instance.mMaterial.end(); ++material_iter)
+			{
+
+				if (textures.find(material_iter->mDiffuseMap.get()) == textures.end())
+				{
+					textures.insert(material_iter->mDiffuseMap.get());
+
+					std::stringstream ostr;
+					if (include_textures) // otherwise data is blank.
+					{
+						LLTextureUploadData data(material_iter->mDiffuseMap.get(), material_iter->mDiffuseMapLabel);
+						if (!data.mTexture->isRawImageValid())
+						{
+							data.mTexture->reloadRawImage(data.mTexture->getDiscardLevel());
+						}
+						
+						LLPointer<LLImageJ2C> upload_file =
+							LLViewerTextureList::convertToUploadFile(data.mTexture->getRawImage());
+						ostr.write((const char*) upload_file->getData(), upload_file->getDataSize());
+					}
+					LLSD texture_entry;
+					texture_entry["texture_data"] = ostr.str();
+					res["texture_list"][texture_num] = texture_entry;
+					texture_num++;
+				}
+			}
+		}
+
+		mesh_num++;
+	}
+
+	result["asset_resources"] = res;
+#if 0	
+	dumpLLSDToFile(result,std::string("whole_model.xml"));
+#endif
+	
+	return result;
+}
+
+void LLMeshUploadThread::doWholeModelUpload()
+{
+	mCurlRequest = new LLCurlRequest();	
+
+	// Queue up models for hull generation (viewer-side)
+	for (instance_map::iterator iter = mInstance.begin(); iter != mInstance.end(); ++iter)
+	{
+		LLMeshUploadData data;
+		data.mBaseModel = iter->first;
+
+		LLModelInstance& instance = *(iter->second.begin());
+
+		for (S32 i = 0; i < 5; i++)
+		{
+			data.mModel[i] = instance.mLOD[i];
+		}
+
+		//queue up models for hull generation
+		LLModel* physics = NULL;
+
+		if (data.mModel[LLModel::LOD_PHYSICS].notNull())
+		{
+			physics = data.mModel[LLModel::LOD_PHYSICS];
+		}
+		else if (data.mModel[LLModel::LOD_MEDIUM].notNull())
+		{
+			physics = data.mModel[LLModel::LOD_MEDIUM];
+		}
+		else
+		{
+			physics = data.mModel[LLModel::LOD_HIGH];
+		}
+
+		if (!physics)
+		{
+			llerrs << "WTF?" << llendl;
+		}
+
+		DecompRequest* request = new DecompRequest(physics, data.mBaseModel, this);
+		gMeshRepo.mDecompThread->submitRequest(request);
+	}
+
+	while (!mPhysicsComplete)
+	{
+		apr_sleep(100);
+	}
+
+	bool do_include_textures = false; // not needed for initial cost/validation check.
+	LLSD model_data = wholeModelToLLSD(do_include_textures);
+
+	mPendingUploads++;
+	LLCurlRequest::headers_t headers;
+	mCurlRequest->post(mWholeModelUploadCapability, headers, model_data.asString(),
+					   new LLWholeModelFeeResponder(this));
+
+	// Currently a no-op.
+	mFinished = true;
+}
+
+void LLMeshUploadThread::doIterativeUpload()
 {
 	if(isDiscarded())
 	{

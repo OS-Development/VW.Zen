@@ -387,6 +387,7 @@ public:
 	LLHost			mHost;
 	std::string		mUploadObjectAssetCapability;
 	std::string		mNewInventoryCapability;
+	std::string		mWholeModelUploadCapability;
 
 	std::queue<LLMeshUploadData> mUploadQ;
 	std::queue<LLMeshUploadData> mConfirmedQ;
@@ -420,6 +421,11 @@ public:
 	void preStart();
 	void discard() ;
 	BOOL isDiscarded();
+
+	void doWholeModelUpload();
+	void doIterativeUpload();
+
+	LLSD wholeModelToLLSD(bool include_textures);
 };
 
 class LLMeshRepository
