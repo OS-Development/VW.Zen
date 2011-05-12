@@ -78,7 +78,6 @@
 #include "llvoicechannel.h"
 #include "llvoavatarself.h"
 #include "llsidetray.h"
-#include "llfeaturemanager.h"
 #include "llurlmatch.h"
 #include "lltextutil.h"
 #include "lllogininstance.h"
@@ -756,7 +755,7 @@ bool LLAppViewer::init()
 	
 	//
 	// Various introspection concerning the libs we're using - particularly
-        // the libs involved in getting to a full login screen.
+	// the libs involved in getting to a full login screen.
 	//
 	LL_INFOS("InitInfo") << "J2C Engine is: " << LLImageJ2C::getEngineInfo() << LL_ENDL;
 	LL_INFOS("InitInfo") << "libcurl version is: " << LLCurl::getVersionString() << LL_ENDL;
@@ -2468,6 +2467,14 @@ bool LLAppViewer::initConfiguration()
 		}
 	}
 
+	// If automatic login from command line with --login switch
+	// init StartSLURL location. In interactive login, LLPanelLogin
+	// will take care of it.
+	if ((clp.hasOption("login") || clp.hasOption("autologin")) && !clp.hasOption("url") && !clp.hasOption("slurl"))
+	{
+		LLStartUp::setStartSLURL(LLSLURL(gSavedSettings.getString("LoginLocation")));
+	}
+
 	if (!gSavedSettings.getBOOL("AllowMultipleViewers"))
 	{
 	    //
@@ -2732,6 +2739,20 @@ void LLAppViewer::checkForCrash(void)
     
 }
 
+//
+// This function decides whether the client machine meets the minimum requirements to
+// run in a maximized window, per the consensus of davep, boa and nyx on 3/30/2011.
+//
+bool LLAppViewer::meetsRequirementsForMaximizedStart()
+{
+	bool maximizedOk = (LLFeatureManager::getInstance()->getGPUClass() >= GPU_CLASS_2);
+
+	const U32 one_gigabyte_kb = 1024 * 1024;
+	maximizedOk &= (gSysMemory.getPhysicalMemoryKB() >= one_gigabyte_kb);
+
+	return maximizedOk;
+}
+
 bool LLAppViewer::initWindow()
 {
 	LL_INFOS("AppInit") << "Initializing window..." << LL_ENDL;
@@ -2751,7 +2772,8 @@ bool LLAppViewer::initWindow()
 	const S32 NEVER_SUBMIT_REPORT = 2;
 	bool use_watchdog = false;
 	int watchdog_enabled_setting = gSavedSettings.getS32("WatchdogEnabled");
-	if(watchdog_enabled_setting == -1){
+	if(watchdog_enabled_setting == -1)
+	{
 		use_watchdog = !LLFeatureManager::getInstance()->isFeatureAvailable("WatchdogDisabled");
 	}
 	else
@@ -2797,6 +2819,21 @@ bool LLAppViewer::initWindow()
 	if(gCrashOnStartup)
 	{
 		LLAppViewer::instance()->forceErrorLLError();
+	}
+
+	//
+	// Determine if the window should start maximized on initial run based
+	// on graphics capability
+	//
+	if (gSavedSettings.getBOOL("FirstLoginThisInstall") && meetsRequirementsForMaximizedStart())
+	{
+		LL_INFOS("AppInit") << "This client met the requirements for a maximized initial screen." << LL_ENDL;
+		gSavedSettings.setBOOL("WindowMaximized", TRUE);
+	}
+
+	if (gSavedSettings.getBOOL("WindowMaximized"))
+	{
+		gViewerWindow->mWindow->maximize();
 	}
 
 	LLUI::sWindow = gViewerWindow->getWindow();
@@ -3494,10 +3531,10 @@ bool LLAppViewer::initCache()
 	LLAppViewer::getTextureCache()->setReadOnly(read_only) ;
 	LLVOCache::getInstance()->setReadOnly(read_only);
 
-	BOOL texture_cache_mismatch = FALSE ;
+	bool texture_cache_mismatch = false;
 	if (gSavedSettings.getS32("LocalCacheVersion") != LLAppViewer::getTextureCacheVersion()) 
 	{
-		texture_cache_mismatch = TRUE ;
+		texture_cache_mismatch = true;
 		if(!read_only) 
 		{
 			gSavedSettings.setS32("LocalCacheVersion", LLAppViewer::getTextureCacheVersion());
@@ -3511,7 +3548,9 @@ bool LLAppViewer::initCache()
 			gSavedSettings.getBOOL("PurgeCacheOnNextStartup"))
 		{
 			gSavedSettings.setBOOL("PurgeCacheOnNextStartup", false);
-		mPurgeCache = true;
+			mPurgeCache = true;
+			// STORM-1141 force purgeAllTextures to get called to prevent a crash here. -brad
+			texture_cache_mismatch = true;
 		}
 	
 		// We have moved the location of the cache directory over time.
