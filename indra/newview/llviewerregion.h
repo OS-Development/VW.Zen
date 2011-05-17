@@ -30,6 +30,7 @@
 // A ViewerRegion is a class that contains a bunch of objects and surfaces
 // that are in to a particular region.
 #include <string>
+#include <boost/signals2.hpp>
 
 #include "lldarray.h"
 #include "llwind.h"
@@ -89,6 +90,8 @@ public:
 		PARTITION_NONE,
 		NUM_PARTITIONS
 	} eObjectPartitions;
+
+	typedef boost::signals2::signal<void(const LLUUID& region_id)> caps_received_signal_t;
 
 	LLViewerRegion(const U64 &handle,
 				   const LLHost &host,
@@ -237,6 +240,7 @@ public:
 	// has region received its final (not seed) capability list?
 	bool capabilitiesReceived() const;
 	void setCapabilitiesReceived(bool received);
+	boost::signals2::connection setCapabilitiesReceivedCallback(const caps_received_signal_t::slot_type& cb);
 
 	static bool isSpecialCapabilityName(const std::string &name);
 	void logActiveCapabilities() const;
@@ -398,6 +402,7 @@ private:
 
 	bool	mAlive;					// can become false if circuit disconnects
 	bool	mCapabilitiesReceived;
+	caps_received_signal_t mCapabilitiesReceivedSignal;
 
 	BOOL mReleaseNotesRequested;
 };
