@@ -760,6 +760,9 @@
     <color
      name="MenuBarProjectBgColor"
      reference="MdBlue" />
+    <color
+     name="DirectChatColor"
+     reference="LtOrange" />
   
     <!-- Generic color names (legacy) -->
   <color
