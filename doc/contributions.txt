@@ -158,6 +158,7 @@ Ann Congrejo
 Ansariel Hiller
 	STORM-1101
 Ardy Lay
+	STORM-859
 	VWR-19499
 	VWR-24917
 Argent Stonecutter
@@ -196,6 +197,7 @@ blino Nakamura
 Boroondas Gupte
 	OPEN-29
 	OPEN-39
+	OPEN-39
 	SNOW-278
 	SNOW-503
 	SNOW-510
@@ -204,6 +206,7 @@ Boroondas Gupte
 	SNOW-624
 	SNOW-737
 	STORM-318
+	STORM-1182
 	VWR-233
 	VWR-20583
 	VWR-20891
@@ -243,6 +246,7 @@ Coaldust Numbers
 Cron Stardust
 	VWR-10579
 	VWR-25120
+	STORM-1075
 Cypren Christenson
 	STORM-417
 Dale Glass
@@ -361,6 +365,9 @@ Ian Kas
 	[NO JIRA] (Ukranian localization)
 	CT-322
 	CT-325
+Ima Mechanique
+	OPEN-50
+	OPEN-61
 Irene Muni
 	CT-324
 	CT-352
@@ -413,6 +420,7 @@ Jonathan Yap
 	VWR-17801
 	VWR-24347
 	STORM-975
+	STORM-990
 	STORM-1019
 	STORM-844
 	STORM-643
@@ -424,6 +432,10 @@ Jonathan Yap
 	STORM-1094
 	STORM-1077
 	STORM-953
+	STORM-1128
+	STORM-956
+	STORM-1095
+	STORM-1236
 Kage Pixel
 	VWR-11
 Ken March
@@ -588,7 +600,7 @@ Nicholaz Beresford
 	VWR-2684
 Nicky Perian
 	OPEN-1
-	OPEN-1087
+	STORM-1087
 	STORM-1090
 Nounouch Hapmouche
 	VWR-238
@@ -660,6 +672,8 @@ Robin Cornelius
 	STORM-422
 	STORM-960
 	STORM-1019
+	STORM-1095
+	STORM-1128
 	VWR-2488
 	VWR-9557
 	VWR-10579
@@ -710,6 +724,7 @@ Shawn Kaufmat
 	SNOW-240
 Siana Gearz
 	STORM-960
+	STORM-1088
 SignpostMarv Martin
 	VWR-153
 	VWR-154
@@ -796,6 +811,7 @@ Thickbrick Sleaford
 	VWR-13483
 	VWR-13947
 	VWR-24420
+	STORM-956
 	STORM-1147
 Thraxis Epsilon
 	SVC-371
@@ -803,7 +819,9 @@ Thraxis Epsilon
 tiamat bingyi
 	CT-246
 Tofu Buzzard
+	CTS-411
 	STORM-546
+	VWR-24509
 TraductoresAnonimos Alter
 	CT-324
 Tue Torok
@@ -872,6 +890,7 @@ WolfPup Lowenhar
 	STORM-674
 	STORM-776
 	STORM-825
+	STORM-859
 	STORM-1098
 	VWR-20741
 	VWR-20933

@@ -42,9 +42,13 @@ installer_Linux()
 
 installer_CYGWIN()
 {
-  d=$(build_dir_CYGWIN ${last_built_variant:-Release})
-  p=$(sed 's:.*=::' "$d/newview/${last_built_variant:-Release}/touched.bat")
-  echo "$d/newview/${last_built_variant:-Release}/$p"
+  v=${last_built_variant:-Release}
+  d=$(build_dir_CYGWIN $v)
+  if [ -r "$d/newview/$v/touched.bat" ]
+  then
+    p=$(sed 's:.*=::' "$d/newview/$v/touched.bat")
+    echo "$d/newview/$v/$p"
+  fi
 }
 
 pre_build()
@@ -58,7 +62,6 @@ pre_build()
     "$AUTOBUILD" configure -c $variant -- \
      -DPACKAGE:BOOL=ON \
      -DRELEASE_CRASH_REPORTING:BOOL=ON \
-     -DUSE_PRECOMPILED_HEADERS=FALSE \
      -DVIEWER_CHANNEL:STRING="\"$viewer_channel\"" \
      -DVIEWER_LOGIN_CHANNEL:STRING="\"$viewer_login_channel\"" \
      -DGRID:STRING="\"$viewer_grid\"" \
@@ -118,12 +121,14 @@ eval '$build_'"$arch" || pass
 # File no longer exists in code-sep branch, so let's make sure it exists in order to use it.
 if test -f scripts/update_version_files.py ; then
   begin_section UpdateVer
-  python scripts/update_version_files.py \
-          --channel="$viewer_channel" \
-          --server_channel="$server_channel" \
-          --revision=$revision \
-            --verbose \
+  eval $(python scripts/update_version_files.py \
+                --channel="$viewer_channel" \
+                --server_channel="$server_channel" \
+                --revision=$revision \
+                --verbose \
+         | sed -n -e "s,Setting viewer channel/version: '\([^']*\)' / '\([^']*\)',VIEWER_CHANNEL='\1';VIEWER_VERSION='\2',p")\
   || fail update_version_files.py
+  echo "{\"Type\":\"viewer\",\"Version\":\"${VIEWER_VERSION}\"}" > summary.json
   end_section UpdateVer
 fi
 
@@ -261,6 +266,7 @@ then
     else
       upload_item installer "$package" binary/octet-stream
       upload_item quicklink "$package" binary/octet-stream
+      [ -f summary.json ] && upload_item installer summary.json text/plain
 
       # Upload crash reporter files.
       case "$last_built_variant" in
