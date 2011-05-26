@@ -102,6 +102,7 @@
 #include "lltrans.h"
 #include "llsdutil.h"
 #include "llmediaentry.h"
+#include "llaccountingquota.h"
 
 //#define DEBUG_UPDATE_TYPE
 
@@ -1893,7 +1894,7 @@ U32 LLViewerObject::processUpdateMessage(LLMessageSystem *mesgsys,
 	//
 	//
 
-	// WTF?   If we're going to skip this message, why are we 
+	// If we're going to skip this message, why are we 
 	// doing all the parenting, etc above?
 	U32 packet_id = mesgsys->getCurrentRecvPacketID(); 
 	if (packet_id < mLatestRecvPacketID && 
@@ -5282,7 +5283,7 @@ bool LLViewerObject::specialHoverCursor() const
 			|| (mClickAction != 0);
 }
 
-void LLViewerObject::updateFlags()
+void LLViewerObject::updateFlags(BOOL physics_changed)
 {
 	LLViewerRegion* regionp = getRegion();
 	if(!regionp) return;
@@ -5295,12 +5296,15 @@ void LLViewerObject::updateFlags()
 	gMessageSystem->addBOOL("IsTemporary", flagTemporaryOnRez() );
 	gMessageSystem->addBOOL("IsPhantom", flagPhantom() );
 	gMessageSystem->addBOOL("CastsShadows", flagCastShadows() );
-	gMessageSystem->nextBlock("ExtraPhysics");
-	gMessageSystem->addU8("PhysicsShapeType", getPhysicsShapeType() );
-	gMessageSystem->addF32("Density", getPhysicsDensity() );
-	gMessageSystem->addF32("Friction", getPhysicsFriction() );
-	gMessageSystem->addF32("Restitution", getPhysicsRestitution() );
-	gMessageSystem->addF32("GravityMultiplier", getPhysicsGravity() );
+	if (physics_changed)
+	{
+		gMessageSystem->nextBlock("ExtraPhysics");
+		gMessageSystem->addU8("PhysicsShapeType", getPhysicsShapeType() );
+		gMessageSystem->addF32("Density", getPhysicsDensity() );
+		gMessageSystem->addF32("Friction", getPhysicsFriction() );
+		gMessageSystem->addF32("Restitution", getPhysicsRestitution() );
+		gMessageSystem->addF32("GravityMultiplier", getPhysicsGravity() );
+	}
 	gMessageSystem->sendReliable( regionp->getHost() );
 }
 
@@ -5699,3 +5703,10 @@ public:
 
 LLHTTPRegistration<ObjectPhysicsProperties>
 	gHTTPRegistrationObjectPhysicsProperties("/message/ObjectPhysicsProperties");
+
+
+void LLViewerObject::updateQuota( const SelectionQuota& quota )
+{
+	//update quotas
+	mSelectionQuota = quota;
+}

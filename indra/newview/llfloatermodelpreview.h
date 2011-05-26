@@ -199,6 +199,8 @@ protected:
 	static void		onUploadJointsCommit(LLUICtrl*,void*);
 	static void		onUploadSkinCommit(LLUICtrl*,void*);
 	
+	static void		onPhysicsLoadRadioCommit(LLUICtrl*,void *data);
+
 	static void		onPreviewLODCommit(LLUICtrl*,void*);
 	
 	static void		onGenerateNormalsCommit(LLUICtrl*,void*);
@@ -341,6 +343,9 @@ public:
 	
 	LLVector3 getTranslationForJointOffset( std::string joint );
 
+	void		createPreviewAvatar( void );
+	LLVOAvatar* getPreviewAvatar( void ) { return mPreviewAvatar; }
+
  protected:
 	friend class LLModelLoader;
 	friend class LLFloaterModelPreview;
@@ -373,13 +378,20 @@ public:
 	std::map<std::string, bool> mViewOption;
 
 	//GLOD object parameters (must rebuild object if these change)
+	bool mLODFrozen;
 	F32 mBuildShareTolerance;
 	U32 mBuildQueueMode;
 	U32 mBuildOperator;
 	U32 mBuildBorderMode;
+	U32 mRequestedLoDMode[LLModel::NUM_LODS];
 	S32 mRequestedTriangleCount[LLModel::NUM_LODS];
+	F32 mRequestedErrorThreshold[LLModel::NUM_LODS];
+	U32 mRequestedBuildOperator[LLModel::NUM_LODS];
+	U32 mRequestedQueueMode[LLModel::NUM_LODS];
+	U32 mRequestedBorderMode[LLModel::NUM_LODS];
+	F32 mRequestedShareTolerance[LLModel::NUM_LODS];
+	F32 mRequestedCreaseAngle[LLModel::NUM_LODS];
 
-	
 	LLModelLoader* mModelLoader;
 
 	LLModelLoader::scene mScene[LLModel::NUM_LODS];
@@ -415,6 +427,7 @@ public:
 	std::deque<std::string> mMasterLegacyJointList;
 	std::deque<std::string> mJointsFromNode;
 	JointTransformMap		mJointTransformMap;
+	LLPointer<LLVOAvatar>	mPreviewAvatar;
 };
 
 #endif  // LL_LLFLOATERMODELPREVIEW_H

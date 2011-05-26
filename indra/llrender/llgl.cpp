@@ -178,6 +178,12 @@ PFNGLBLITFRAMEBUFFERPROC glBlitFramebuffer = NULL;
 PFNGLRENDERBUFFERSTORAGEMULTISAMPLEPROC glRenderbufferStorageMultisample = NULL;
 PFNGLFRAMEBUFFERTEXTURELAYERPROC glFramebufferTextureLayer = NULL;
 
+//GL_ARB_texture_multisample
+PFNGLTEXIMAGE2DMULTISAMPLEPROC glTexImage2DMultisample;
+PFNGLTEXIMAGE3DMULTISAMPLEPROC glTexImage3DMultisample;
+PFNGLGETMULTISAMPLEFVPROC glGetMultisamplefv;
+PFNGLSAMPLEMASKIPROC glSampleMaski;
+
 // GL_EXT_blend_func_separate
 PFNGLBLENDFUNCSEPARATEEXTPROC glBlendFuncSeparateEXT = NULL;
 
@@ -321,6 +327,7 @@ LLGLManager::LLGLManager() :
 	mHasMipMapGeneration(FALSE),
 	mHasCompressedTextures(FALSE),
 	mHasFramebufferObject(FALSE),
+	mMaxSamples(0),
 	mHasBlendFuncSeparate(FALSE),
 
 	mHasVertexBufferObject(FALSE),
@@ -328,11 +335,17 @@ LLGLManager::LLGLManager() :
 	mHasShaderObjects(FALSE),
 	mHasVertexShader(FALSE),
 	mHasFragmentShader(FALSE),
+	mNumTextureImageUnits(0),
 	mHasOcclusionQuery(FALSE),
 	mHasOcclusionQuery2(FALSE),
 	mHasPointParameters(FALSE),
 	mHasDrawBuffers(FALSE),
 	mHasTextureRectangle(FALSE),
+	mHasTextureMultisample(FALSE),
+	mMaxSampleMaskWords(0),
+	mMaxColorTextureSamples(0),
+	mMaxDepthTextureSamples(0),
+	mMaxIntegerSamples(0),
 
 	mHasAnisotropic(FALSE),
 	mHasARBEnvCombine(FALSE),
@@ -534,6 +547,26 @@ bool LLGLManager::initGL()
 		return false;
 	}
 	
+	if (mHasFragmentShader)
+	{
+		GLint num_tex_image_units;
+		glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS_ARB, &num_tex_image_units);
+		mNumTextureImageUnits = num_tex_image_units;
+	}
+
+	if (mHasTextureMultisample)
+	{
+		glGetIntegerv(GL_MAX_COLOR_TEXTURE_SAMPLES, &mMaxColorTextureSamples);
+		glGetIntegerv(GL_MAX_DEPTH_TEXTURE_SAMPLES, &mMaxDepthTextureSamples);
+		glGetIntegerv(GL_MAX_INTEGER_SAMPLES, &mMaxIntegerSamples);
+		glGetIntegerv(GL_MAX_SAMPLE_MASK_WORDS, &mMaxSampleMaskWords);
+	}
+
+	if (mHasFramebufferObject)
+	{
+		glGetIntegerv(GL_MAX_SAMPLES, &mMaxSamples);
+	}
+	
 	setToDebugGPU();
 
 	initGLStates();
@@ -640,6 +673,14 @@ std::string LLGLManager::getRawGLString()
 	return gl_string;
 }
 
+U32 LLGLManager::getNumFBOFSAASamples(U32 samples)
+{
+	samples = llmin(samples, (U32) mMaxColorTextureSamples);
+	samples = llmin(samples, (U32) mMaxDepthTextureSamples);
+	samples = llmin(samples, (U32) 4);
+	return samples;
+}
+
 void LLGLManager::shutdownGL()
 {
 	if (mInited)
@@ -734,6 +775,7 @@ void LLGLManager::initExtensions()
 	mHasDrawBuffers = ExtensionExists("GL_ARB_draw_buffers", gGLHExts.mSysExts);
 	mHasBlendFuncSeparate = ExtensionExists("GL_EXT_blend_func_separate", gGLHExts.mSysExts);
 	mHasTextureRectangle = ExtensionExists("GL_ARB_texture_rectangle", gGLHExts.mSysExts);
+	mHasTextureMultisample = ExtensionExists("GL_ARB_texture_multisample", gGLHExts.mSysExts);
 #if !LL_DARWIN
 	mHasPointParameters = !mIsATI && ExtensionExists("GL_ARB_point_parameters", gGLHExts.mSysExts);
 #endif
@@ -878,11 +920,13 @@ void LLGLManager::initExtensions()
 		LL_INFOS("RenderInit") << "Disabling mip-map generation for Intel GPUs" << LL_ENDL;
 		mHasMipMapGeneration = FALSE;
 	}
+#if !LL_DARWIN
 	if (mIsATI && mHasMipMapGeneration)
 	{
 		LL_INFOS("RenderInit") << "Disabling mip-map generation for ATI GPUs (performance opt)" << LL_ENDL;
 		mHasMipMapGeneration = FALSE;
 	}
+#endif
 	
 	// Misc
 	glGetIntegerv(GL_MAX_ELEMENTS_VERTICES, (GLint*) &mGLMaxVertexRange);
@@ -943,6 +987,13 @@ void LLGLManager::initExtensions()
 	{
 		glBlendFuncSeparateEXT = (PFNGLBLENDFUNCSEPARATEEXTPROC) GLH_EXT_GET_PROC_ADDRESS("glBlendFuncSeparateEXT");
 	}
+	if (mHasTextureMultisample)
+	{
+		glTexImage2DMultisample = (PFNGLTEXIMAGE2DMULTISAMPLEPROC) GLH_EXT_GET_PROC_ADDRESS("glTexImage2DMultisample");
+		glTexImage3DMultisample = (PFNGLTEXIMAGE3DMULTISAMPLEPROC) GLH_EXT_GET_PROC_ADDRESS("glTexImage3DMultisample");
+		glGetMultisamplefv = (PFNGLGETMULTISAMPLEFVPROC) GLH_EXT_GET_PROC_ADDRESS("glGetMultisamplefv");
+		glSampleMaski = (PFNGLSAMPLEMASKIPROC) GLH_EXT_GET_PROC_ADDRESS("glSampleMaski");
+	}	
 #if (!LL_LINUX && !LL_SOLARIS) || LL_LINUX_NV_GL_HEADERS
 	// This is expected to be a static symbol on Linux GL implementations, except if we use the nvidia headers - bah
 	glDrawRangeElements = (PFNGLDRAWRANGEELEMENTSPROC)GLH_EXT_GET_PROC_ADDRESS("glDrawRangeElements");
@@ -1374,7 +1425,8 @@ void LLGLState::checkTextureChannels(const std::string& msg)
 		"GL_TEXTURE_GEN_T",
 		"GL_TEXTURE_GEN_Q",
 		"GL_TEXTURE_GEN_R",
-		"GL_TEXTURE_RECTANGLE_ARB"
+		"GL_TEXTURE_RECTANGLE_ARB",
+		"GL_TEXTURE_2D_MULTISAMPLE"
 	};
 
 	static GLint value[] =
@@ -1387,7 +1439,8 @@ void LLGLState::checkTextureChannels(const std::string& msg)
 		GL_TEXTURE_GEN_T,
 		GL_TEXTURE_GEN_Q,
 		GL_TEXTURE_GEN_R,
-		GL_TEXTURE_RECTANGLE_ARB
+		GL_TEXTURE_RECTANGLE_ARB,
+		GL_TEXTURE_2D_MULTISAMPLE
 	};
 
 	GLint stackDepth = 0;
@@ -1427,11 +1480,16 @@ void LLGLState::checkTextureChannels(const std::string& msg)
 				gFailLog << "Texture matrix in channel " << i << " corrupt." << std::endl;
 			}
 		}
-
-		
+				
 		for (S32 j = (i == 0 ? 1 : 0); 
-			j < (gGLManager.mHasTextureRectangle ? 9 : 8); j++)
+			j < 9; j++)
 		{
+			if (j == 8 && !gGLManager.mHasTextureRectangle ||
+				j == 9 && !gGLManager.mHasTextureMultisample)
+			{
+				continue;
+			}
+				
 			if (glIsEnabled(value[j]))
 			{
 				error = TRUE;
