@@ -61,6 +61,7 @@
 #include <map>
 #include <cstring>
 
+#define TMP_WL_REMOVE_CLOUDS /* disables code for classic clouds */
 
 //
 // Globals
@@ -657,6 +658,7 @@ void LLWorld::updateParticles()
 	LLViewerPartSim::getInstance()->updateSimulation();
 }
 
+#ifndef TMP_WL_REMOVE_CLOUDS
 
 void LLWorld::renderPropertyLines()
 {
