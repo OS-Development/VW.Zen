@@ -17,6 +17,7 @@ include(JsonCpp)
 include(LLAudio)
 include(LLCharacter)
 include(LLCommon)
+include(LLConvexDecomposition)
 include(LLImage)
 include(LLImageJ2COJ)
 include(LLInventory)
@@ -40,14 +41,17 @@ include(UnixInstall)
 include(LLKDU)
 include(ViewerMiscLibs)
 include(LLLogin)
+include(GLOD)
 include(CMakeCopyIfDifferent)
 
 include_directories(
     ${DBUSGLIB_INCLUDE_DIRS}
     ${JSONCPP_INCLUDE_DIRS}
+    ${GLOD_INCLUDE_DIR}
     ${LLAUDIO_INCLUDE_DIRS}
     ${LLCHARACTER_INCLUDE_DIRS}
     ${LLCOMMON_INCLUDE_DIRS}
+    ${LLCONVEXDECOMP_INCLUDE_DIRS}
     ${FMOD_INCLUDE_DIR}
     ${LLIMAGE_INCLUDE_DIRS}
     ${LLKDU_INCLUDE_DIRS}
@@ -66,10 +70,13 @@ include_directories(
     ${LSCRIPT_INCLUDE_DIRS}/lscript_compile
     ${LLLOGIN_INCLUDE_DIRS}
     ${UPDATER_INCLUDE_DIRS}
+    ${LIBS_PREBUILT_DIR}/include/collada
     ${OPENAL_LIB_INCLUDE_DIRS}
+    ${LIBS_PREBUILT_DIR}/include/collada/1.4
     )
 
 set(viewer_SOURCE_FILES
+    groupchatlistener.cpp
     llagent.cpp
     llagentaccess.cpp
     llagentcamera.cpp
@@ -112,7 +119,6 @@ set(viewer_SOURCE_FILES
     llchiclet.cpp
     llclassifiedinfo.cpp
     llclassifiedstatsresponder.cpp
-    llcloud.cpp
     llcofwearables.cpp
     llcolorswatch.cpp
     llcommanddispatcherlistener.cpp
@@ -202,6 +208,8 @@ set(viewer_SOURCE_FILES
     llfloatermediabrowser.cpp
     llfloatermediasettings.cpp
     llfloatermemleak.cpp
+    llfloatermodelpreview.cpp
+    llfloatermodelwizard.cpp
     llfloaternamedesc.cpp
     llfloaternotificationsconsole.cpp
     llfloateropenobject.cpp
@@ -306,6 +314,7 @@ set(viewer_SOURCE_FILES
     llmediadataclient.cpp
     llmemoryview.cpp
     llmenucommands.cpp
+    llmeshrepository.cpp
     llmimetypes.cpp
     llmorphview.cpp
     llmoveview.cpp
@@ -389,6 +398,7 @@ set(viewer_SOURCE_FILES
     llparticipantlist.cpp
     llpatchvertexarray.cpp
     llphysicsmotion.cpp
+    llphysicsshapebuilderutil.cpp
     llplacesinventorybridge.cpp
     llplacesinventorypanel.cpp
     llpopupview.cpp
@@ -408,6 +418,7 @@ set(viewer_SOURCE_FILES
     llremoteparcelrequest.cpp
     llsavedsettingsglue.cpp
     llsaveoutfitcombobtn.cpp
+    llsceneview.cpp
     llscreenchannel.cpp
     llscriptfloater.cpp
     llscrollingpanelparam.cpp
@@ -621,6 +632,7 @@ endif (LINUX)
 set(viewer_HEADER_FILES
     CMakeLists.txt
     ViewerInstall.cmake
+    groupchatlistener.h
     llagent.h
     llagentaccess.h
     llagentcamera.h
@@ -664,7 +676,6 @@ set(viewer_HEADER_FILES
     llchiclet.h
     llclassifiedinfo.h
     llclassifiedstatsresponder.h
-    llcloud.h
     llcofwearables.h
     llcolorswatch.h
     llcommanddispatcherlistener.h
@@ -755,6 +766,8 @@ set(viewer_HEADER_FILES
     llfloatermediabrowser.h
     llfloatermediasettings.h
     llfloatermemleak.h
+    llfloatermodelpreview.h
+    llfloatermodelwizard.h
     llfloaternamedesc.h
     llfloaternotificationsconsole.h
     llfloateropenobject.h
@@ -859,6 +872,7 @@ set(viewer_HEADER_FILES
     llmediadataclient.h
     llmemoryview.h
     llmenucommands.h
+    llmeshrepository.h
     llmimetypes.h
     llmorphview.h
     llmoveview.h
@@ -936,6 +950,7 @@ set(viewer_HEADER_FILES
     llparticipantlist.h
     llpatchvertexarray.h
     llphysicsmotion.h
+    llphysicsshapebuilderutil.h
     llplacesinventorybridge.h
     llplacesinventorypanel.h
     llpolymesh.h
@@ -957,6 +972,7 @@ set(viewer_HEADER_FILES
     llrootview.h
     llsavedsettingsglue.h
     llsaveoutfitcombobtn.h
+    llsceneview.h
     llscreenchannel.h
     llscriptfloater.h
     llscrollingpanelparam.h
@@ -1457,11 +1473,11 @@ set(PACKAGE ON CACHE BOOL
     "Add a package target that builds an installer package.")
 
 if (WINDOWS)
-    set_target_properties(${VIEWER_BINARY_NAME}
+	set_target_properties(${VIEWER_BINARY_NAME}
         PROPERTIES
         # *TODO -reenable this once we get server usage sorted out
         #LINK_FLAGS "/debug /NODEFAULTLIB:LIBCMT /SUBSYSTEM:WINDOWS /INCLUDE:\"__tcmalloc\""
-        LINK_FLAGS "/debug /NODEFAULTLIB:LIBCMT /SUBSYSTEM:WINDOWS"
+        LINK_FLAGS "/debug /NODEFAULTLIB:LIBCMT /SUBSYSTEM:WINDOWS /INCLUDE:__tcmalloc"
         LINK_FLAGS_DEBUG "/NODEFAULTLIB:\"LIBCMT;LIBCMTD;MSVCRT\" /INCREMENTAL:NO"
         LINK_FLAGS_RELEASE ""
         )
@@ -1500,6 +1516,12 @@ if (WINDOWS)
       ${SHARED_LIB_STAGING_DIR}/${CMAKE_CFG_INTDIR}/libapr-1.dll
       ${SHARED_LIB_STAGING_DIR}/${CMAKE_CFG_INTDIR}/libaprutil-1.dll
       ${SHARED_LIB_STAGING_DIR}/${CMAKE_CFG_INTDIR}/libapriconv-1.dll
+      ${SHARED_LIB_STAGING_DIR}/Release/glod.dll
+      ${SHARED_LIB_STAGING_DIR}/RelWithDebInfo/glod.dll
+      ${SHARED_LIB_STAGING_DIR}/Debug/glod.dll
+      ${SHARED_LIB_STAGING_DIR}/Release/libcollada14dom22.dll
+      ${SHARED_LIB_STAGING_DIR}/RelWithDebInfo/libcollada14dom22.dll
+      ${SHARED_LIB_STAGING_DIR}/Debug/libcollada14dom22-d.dll
       ${SHARED_LIB_STAGING_DIR}/Release/openjpeg.dll
       ${SHARED_LIB_STAGING_DIR}/RelWithDebInfo/openjpeg.dll
       ${SHARED_LIB_STAGING_DIR}/Debug/openjpegd.dll
@@ -1672,6 +1694,7 @@ endif (WINDOWS)
 # that they depend upon. -brad
 target_link_libraries(${VIEWER_BINARY_NAME}
     ${UPDATER_LIBRARIES}
+	${GOOGLE_PERFTOOLS_LIBRARIES}
     ${LLAUDIO_LIBRARIES}
     ${LLCHARACTER_LIBRARIES}
     ${LLIMAGE_LIBRARIES}
@@ -1696,6 +1719,7 @@ target_link_libraries(${VIEWER_BINARY_NAME}
     ${DBUSGLIB_LIBRARIES}
     ${OPENGL_LIBRARIES}
     ${FMODWRAPPER_LIBRARY} # must come after LLAudio
+    ${GLOD_LIBRARIES}
     ${OPENGL_LIBRARIES}
     ${JSONCPP_LIBRARIES}
     ${SDL_LIBRARY}
@@ -1707,7 +1731,8 @@ target_link_libraries(${VIEWER_BINARY_NAME}
     ${OPENSSL_LIBRARIES}
     ${CRYPTO_LIBRARIES}
     ${LLLOGIN_LIBRARIES}
-    ${GOOGLE_PERFTOOLS_LIBRARIES}
+    ${LLCONVEXDECOMP_LIBRARY}
+    ${TCMALLOC_LIBRARIES}
     )
 
 if (USE_KDU)
@@ -1763,6 +1788,8 @@ if (LINUX)
         ${COPY_INPUT_DEPENDENCIES}
       )
 
+  if (PACKAGE)
+  endif (PACKAGE)
   add_custom_command(
     OUTPUT  ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/.${product}.copy_touched
     COMMAND ${PYTHON_EXECUTABLE}
