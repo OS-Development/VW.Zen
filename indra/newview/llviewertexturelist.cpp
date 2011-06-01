@@ -88,15 +88,16 @@ LLViewerTextureList::LLViewerTextureList()
 {
 }
 
-void LLViewerTextureList::init()
+void LLViewerTextureList::start()
 {
 	sRenderThreadID = LLThread::currentID() ;
-
+	
 	mInitialized = TRUE ;
 	sNumImages = 0;
-	mMaxResidentTexMemInMegaBytes = 0;
-	mMaxTotalTextureMemInMegaBytes = 0 ;
-	
+}
+
+void LLViewerTextureList::init()
+{			
 	mUpdateStats = TRUE;
 	
 	// Update how much texture RAM we're allowed to use.
@@ -835,7 +836,7 @@ F32 LLViewerTextureList::updateImagesFetchTextures(F32 max_time)
 	for (entries_list_t::iterator iter3 = entries.begin();
 		 iter3 != entries.end(); )
 	{
-		LLPointer<LLViewerFetchedTexture> imagep = *iter3++;
+		LLViewerFetchedTexture* imagep = *iter3++;
 		
 		bool fetching = imagep->updateFetch();
 		if (fetching)
