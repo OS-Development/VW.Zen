@@ -1193,11 +1193,11 @@ bool LLAppViewer::mainLoop()
 				// Scan keyboard for movement keys.  Command keys and typing
 				// are handled by windows callbacks.  Don't do this until we're
 				// done initializing.  JC
-				if (gViewerWindow->mWindow->getVisible() 
+				if ((gHeadlessClient || gViewerWindow->mWindow->getVisible())
 					&& gViewerWindow->getActive()
 					&& !gViewerWindow->mWindow->getMinimized()
 					&& LLStartUp::getStartupState() == STATE_STARTED
-					&& !gViewerWindow->getShowProgress()
+					&& (gHeadlessClient || !gViewerWindow->getShowProgress())
 					&& !gFocusMgr.focusLocked())
 				{
 					LLMemType mjk(LLMemType::MTYPE_JOY_KEY);
@@ -2516,7 +2516,8 @@ bool LLAppViewer::initConfiguration()
 	// it relies on checking a marker file which will not work when running
 	// out of different directories
 
-	if (LLStartUp::getStartSLURL().isValid())
+	if (LLStartUp::getStartSLURL().isValid() &&
+		(gSavedSettings.getBOOL("SLURLPassToOtherInstance")))
 	{
 		if (sendURLToOtherInstance(LLStartUp::getStartSLURL().getSLURLString()))
 		{
@@ -3750,14 +3751,12 @@ bool LLAppViewer::initCache()
 		dir = gDirUtilp->getExpandedFilename(LL_PATH_CACHE,"");
 
 		std::string mask;
-		mask = gDirUtilp->getDirDelimiter();
-		mask += VFS_DATA_FILE_BASE;
+		mask = VFS_DATA_FILE_BASE;
 		mask += "*";
 
 		gDirUtilp->deleteFilesInDir(dir, mask);
 
-		mask = gDirUtilp->getDirDelimiter();
-		mask += VFS_INDEX_FILE_BASE;
+		mask = VFS_INDEX_FILE_BASE;
 		mask += "*";
 
 		gDirUtilp->deleteFilesInDir(dir, mask);
@@ -3823,11 +3822,11 @@ bool LLAppViewer::initCache()
 
 void LLAppViewer::purgeCache()
 {
-	LL_INFOS("AppCache") << "Purging Cache and Texture Cache..." << llendl;
+	LL_INFOS("AppCache") << "Purging Cache and Texture Cache..." << LL_ENDL;
 	LLAppViewer::getTextureCache()->purgeCache(LL_PATH_CACHE);
 	LLVOCache::getInstance()->removeCache(LL_PATH_CACHE);
-	std::string mask = gDirUtilp->getDirDelimiter() + "*.*";
-	gDirUtilp->deleteFilesInDir(gDirUtilp->getExpandedFilename(LL_PATH_CACHE,""),mask);
+	std::string mask = "*.*";
+	gDirUtilp->deleteFilesInDir(gDirUtilp->getExpandedFilename(LL_PATH_CACHE, ""), mask);
 }
 
 std::string LLAppViewer::getSecondLifeTitle() const
