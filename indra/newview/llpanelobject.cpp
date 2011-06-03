@@ -64,7 +64,6 @@
 #include "pipeline.h"
 #include "llviewercontrol.h"
 #include "lluictrlfactory.h"
-#include "llmeshrepository.h"
 //#include "llfirstuse.h"
 
 #include "lldrawpool.h"
@@ -1741,23 +1740,11 @@ void LLPanelObject::refresh()
 		mRootObject = NULL;
 	}
 	
-	bool enable_mesh = gMeshRepo.meshRezEnabled();
-
 	F32 max_scale = get_default_max_prim_scale(LLPickInfo::isFlora(mObject));
 
 	getChild<LLSpinCtrl>("Scale X")->setMaxValue(max_scale);
 	getChild<LLSpinCtrl>("Scale Y")->setMaxValue(max_scale);
 	getChild<LLSpinCtrl>("Scale Z")->setMaxValue(max_scale);
-
-	BOOL found = mCtrlSculptType->itemExists("Mesh");
-	if (enable_mesh && !found)
-	{
-		mCtrlSculptType->add("Mesh");
-	}
-	else if (!enable_mesh && found)
-	{
-		mCtrlSculptType->remove("Mesh");
-	}
 }
 
 

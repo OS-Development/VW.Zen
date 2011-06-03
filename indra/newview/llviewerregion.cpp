@@ -1495,6 +1495,8 @@ void LLViewerRegion::setSeedCapability(const std::string& url)
 
 	LLSD capabilityNames = LLSD::emptyArray();
 	
+	capabilityNames.append("AccountingParcel");
+	capabilityNames.append("AccountingSelection");
 	capabilityNames.append("AttachmentResources");
 	capabilityNames.append("AvatarPickerSearch");
 	capabilityNames.append("ChatSessionRequest");
@@ -1561,9 +1563,6 @@ void LLViewerRegion::setSeedCapability(const std::string& url)
 	capabilityNames.append("ViewerMetrics");
 	capabilityNames.append("ViewerStartAuction");
 	capabilityNames.append("ViewerStats");
-	//prep# Finalize these!!!!!!!!!
-	capabilityNames.append("AccountingParcel");
-	capabilityNames.append("AccountingSelection");
 	
 	// Please add new capabilities alphabetically to reduce
 	// merge conflicts.
