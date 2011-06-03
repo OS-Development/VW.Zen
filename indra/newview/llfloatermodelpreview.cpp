@@ -413,14 +413,16 @@ BOOL LLFloaterModelPreview::postBuild()
 	childSetCommitCallback("pelvis_offset", onPelvisOffsetCommit, this);
 
 	childSetCommitCallback("lod_file_or_limit", refresh, this);
-	childSetCommitCallback("physics_load_radio", refresh, this);
+	childSetCommitCallback("physics_load_radio", onPhysicsLoadRadioCommit, this);
 	//childSetCommitCallback("physics_optimize", refresh, this);
 	//childSetCommitCallback("physics_use_hull", refresh, this);
 
 	childDisable("upload_skin");
 	childDisable("upload_joints");
-
+	
 	childDisable("ok_btn");
+
+	childSetCommitCallback("confirm_checkbox", refresh, this);
 
 	mViewOptionMenuButton = getChild<LLMenuButton>("options_gear_btn");
 
@@ -566,6 +568,29 @@ void LLFloaterModelPreview::onPelvisOffsetCommit( LLUICtrl*, void* userdata )
 	}
 	fp->mModelPreview->calcResourceCost();
 	fp->mModelPreview->refresh();
+}
+
+//static
+void LLFloaterModelPreview::onPhysicsLoadRadioCommit( LLUICtrl*, void *userdata)
+{
+	LLFloaterModelPreview* fmp = LLFloaterModelPreview::sInstance;
+	if (fmp)
+	{
+		if (fmp->childGetValue("physics_use_lod").asBoolean())
+		{
+			onPhysicsUseLOD(NULL,NULL);
+		}
+		if (fmp->childGetValue("physics_load_from_file").asBoolean())
+		{
+			
+		}
+		LLModelPreview *model_preview = fmp->mModelPreview;
+		if (model_preview)
+		{
+			model_preview->refresh();
+			model_preview->updateStatusMessages();
+		}
+	}
 }
 
 //static
@@ -1733,7 +1758,7 @@ bool LLModelLoader::doLoadModel()
 											{
 												if (pos.getCount() <= j+2)
 												{
-													llerrs << "WTF?" << llendl;
+													llerrs << "Invalid position array size." << llendl;
 												}
 												
 												LLVector3 v(pos[j], pos[j+1], pos[j+2]);
@@ -2395,8 +2420,11 @@ void LLModelLoader::processElement(daeElement* element)
 	{
 		domFloat3 dom_value = scale->getValue();
 
+
+		LLVector3 scale_vector = LLVector3(dom_value[0], dom_value[1], dom_value[2]);
+		scale_vector.abs(); // Set all values positive, since we don't currently support mirrored meshes
 		LLMatrix4 scaling;
-		scaling.initScale(LLVector3(dom_value[0], dom_value[1], dom_value[2]));
+		scaling.initScale(scale_vector);
 
 		scaling *= mTransform;
 		mTransform = scaling;
@@ -2774,7 +2802,8 @@ U32 LLModelPreview::calcResourceCost()
 
 	if (mFMP && mModelLoader)
 	{
-		if ( getLoadState() < LLModelLoader::ERROR_PARSING )
+		const BOOL confirmed_checkbox = mFMP->getChild<LLCheckBoxCtrl>("confirm_checkbox")->getValue().asBoolean();
+		if ( getLoadState() < LLModelLoader::ERROR_PARSING && confirmed_checkbox )
 		{
 			mFMP->childEnable("ok_btn");
 		}
@@ -2916,7 +2945,8 @@ void LLModelPreview::rebuildUploadData()
 
 	F32 max_scale = 0.f;
 
-	if ( mBaseScene.size() > 0 )
+	const BOOL confirmed_checkbox = mFMP->getChild<LLCheckBoxCtrl>("confirm_checkbox")->getValue().asBoolean();
+	if ( mBaseScene.size() > 0 && confirmed_checkbox )
 	{
 		mFMP->childEnable("ok_btn");
 	}
@@ -3320,6 +3350,8 @@ void LLModelPreview::loadModelCallback(S32 lod)
 	}
 
 	mLoading = false;
+	if (mFMP)
+		mFMP->getChild<LLCheckBoxCtrl>("confirm_checkbox")->set(FALSE);
 	refresh();
 
 	mModelLoadedSignal();
@@ -4006,7 +4038,8 @@ void LLModelPreview::updateStatusMessages()
 		}
 	}
 	
-	if ( upload_ok && !errorStateFromLoader && skinAndRigOk && !has_degenerate)
+	const BOOL confirmed_checkbox = mFMP->getChild<LLCheckBoxCtrl>("confirm_checkbox")->getValue().asBoolean();
+	if ( upload_ok && !errorStateFromLoader && skinAndRigOk && !has_degenerate && confirmed_checkbox)
 	{
 		mFMP->childEnable("ok_btn");
 	}
@@ -4368,11 +4401,7 @@ void LLModelPreview::genBuffers(S32 lod, bool include_skin_weights)
 					const LLModel::weight_list& weight_list = base_mdl->getJointInfluences(pos);
 
 					LLVector4 w(0,0,0,0);
-					if (weight_list.size() > 4)
-					{
-						llerrs << "WTF?" << llendl;
-					}
-
+					
 					for (U32 i = 0; i < weight_list.size(); ++i)
 					{
 						F32 wght = llmin(weight_list[i].mWeight, 0.999999f);

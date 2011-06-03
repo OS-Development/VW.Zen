@@ -717,10 +717,7 @@ void LLMeshRepoThread::loadMeshLOD(const LLVolumeParams& mesh_params, S32 lod)
 		if (pending != mPendingLOD.end())
 		{ //append this lod request to existing header request
 			pending->second.push_back(lod);
-			if (pending->second.size() > 4)
-			{
-				llerrs << "WTF?" << llendl;
-			} 
+			llassert(pending->second.size() <= LLModel::NUM_LODS)
 		}
 		else
 		{ //if no header request is pending, fetch header
@@ -1367,11 +1364,8 @@ void LLMeshUploadThread::DecompRequest::completed()
 		mThread->mPhysicsComplete = true;
 	}
 
-	if (mHull.size() != 1)
-	{
-		llerrs << "WTF?" << llendl;
-	}
-
+	llassert(mHull.size() == 1);
+	
 	mThread->mHullMap[mBaseModel] = mHull[0];
 }
 
@@ -1625,11 +1619,8 @@ void LLMeshUploadThread::doWholeModelUpload()
 			physics = data.mModel[LLModel::LOD_HIGH];
 		}
 
-		if (!physics)
-		{
-			llerrs << "WTF?" << llendl;
-		}
-
+		llassert(physics != NULL);
+		
 		DecompRequest* request = new DecompRequest(physics, data.mBaseModel, this);
 		gMeshRepo.mDecompThread->submitRequest(request);
 	}
@@ -1723,7 +1714,13 @@ void LLMeshUploadThread::doIterativeUpload()
 		}
 
 		//queue up models for hull generation
-		DecompRequest* request = new DecompRequest(data.mModel[LLModel::LOD_HIGH], data.mBaseModel, this);
+		LLModel* physics = data.mModel[LLModel::LOD_PHYSICS];
+		if (physics == NULL)
+		{ //no physics model available, use high lod
+			physics = data.mModel[LLModel::LOD_HIGH];
+		}
+		
+		DecompRequest* request = new DecompRequest(physics, data.mBaseModel, this);
 		gMeshRepo.mDecompThread->submitRequest(request);
 	}
 
@@ -2475,10 +2472,6 @@ S32 LLMeshRepository::loadMesh(LLVOVolume* vobj, const LLVolumeParams& mesh_para
 				group->derefLOD(lod);
 			}
 		}
-		else
-		{
-			llerrs << "WTF?" << llendl;
-		}
 	}
 
 	return detail;
@@ -2658,6 +2651,20 @@ void LLMeshRepository::notifyLoadedMeshes()
 void LLMeshRepository::notifySkinInfoReceived(LLMeshSkinInfo& info)
 {
 	mSkinMap[info.mMeshID] = info;
+
+	skin_load_map::iterator iter = mLoadingSkins.find(info.mMeshID);
+	if (iter != mLoadingSkins.end())
+	{
+		for (std::set<LLUUID>::iterator obj_id = iter->second.begin(); obj_id != iter->second.end(); ++obj_id)
+		{
+			LLVOVolume* vobj = (LLVOVolume*) gObjectList.findObject(*obj_id);
+			if (vobj)
+			{
+				vobj->notifyMeshLoaded();
+			}
+		}
+	}
+
 	mLoadingSkins.erase(info.mMeshID);
 }
 
@@ -2773,7 +2780,7 @@ U32 LLMeshRepository::getResourceCost(const LLUUID& mesh_id)
 	return mThread->getResourceCost(mesh_id);
 }
 
-const LLMeshSkinInfo* LLMeshRepository::getSkinInfo(const LLUUID& mesh_id)
+const LLMeshSkinInfo* LLMeshRepository::getSkinInfo(const LLUUID& mesh_id, LLVOVolume* requesting_obj)
 {
 	if (mesh_id.notNull())
 	{
@@ -2787,12 +2794,12 @@ const LLMeshSkinInfo* LLMeshRepository::getSkinInfo(const LLUUID& mesh_id)
 		{
 			LLMutexLock lock(mMeshMutex);
 			//add volume to list of loading meshes
-			std::set<LLUUID>::iterator iter = mLoadingSkins.find(mesh_id);
+			skin_load_map::iterator iter = mLoadingSkins.find(mesh_id);
 			if (iter == mLoadingSkins.end())
 			{ //no request pending for this skin info
-				mLoadingSkins.insert(mesh_id);
 				mPendingSkinRequests.push(mesh_id);
 			}
+			mLoadingSkins[mesh_id].insert(requesting_obj->getID());
 		}
 	}
 
@@ -3163,11 +3170,8 @@ LLSD LLMeshUploadThread::createObject(LLModelInstance& instance)
 {
 	LLMatrix4 transformation = instance.mTransform;
 
-	if (instance.mMeshID.isNull())
-	{
-		llerrs << "WTF?" << llendl;
-	}
-
+	llassert(instance.mMeshID.notNull());
+	
 	// check for reflection
 	BOOL reflected = (transformation.determinant() < 0);
 
@@ -3507,6 +3511,12 @@ void LLPhysicsDecomp::doDecomposition()
 	LLCDMeshData mesh;
 	S32 stage = mStageID[mCurRequest->mStage];
 
+	if (LLConvexDecomposition::getInstance() == NULL)
+	{
+		// stub library. do nothing.
+		return;
+	}
+
 	//load data intoLLCD
 	if (stage == 0)
 	{
@@ -3555,11 +3565,6 @@ void LLPhysicsDecomp::doDecomposition()
 		else if (param->mType == LLCDParam::LLCD_BOOLEAN)
 		{
 			ret = LLConvexDecomposition::getInstance()->setParam(param->mName, value.asBoolean());
-		}
-
-		if (ret)
-		{
-			llerrs << "WTF?" << llendl;
 		}
 	}
 
@@ -3707,6 +3712,12 @@ void LLPhysicsDecomp::doDecompositionSingleHull()
 	
 	LLConvexDecomposition* decomp = LLConvexDecomposition::getInstance();
 
+	if (decomp == NULL)
+	{
+		//stub. do nothing.
+		return;
+	}
+
 	for (S32 i = 0; i < param_count; ++i)
 	{
 		decomp->setParam(params[i].mName, params[i].mDefault.mIntOrEnumValue);
@@ -3786,6 +3797,14 @@ void LLPhysicsDecomp::doDecompositionSingleHull()
 void LLPhysicsDecomp::run()
 {
 	LLConvexDecomposition* decomp = LLConvexDecomposition::getInstance();
+	if (decomp == NULL)
+	{
+		// stub library. Set init to true so the main thread
+		// doesn't wait for this to finish.
+		mInited = true;
+		return;
+	}
+
 	decomp->initThread();
 	mInited = true;
 
