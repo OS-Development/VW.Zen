@@ -69,6 +69,7 @@
 #include "llspatialpartition.h"
 #include "stringize.h"
 #include "llviewercontrol.h"
+#include "llsdserialize.h"
 
 #ifdef LL_WINDOWS
 	#pragma warning(disable:4355)
@@ -1140,6 +1141,20 @@ void LLViewerRegion::getInfo(LLSD& info)
 	info["Region"]["Handle"]["y"] = (LLSD::Integer)y;
 }
 
+void LLViewerRegion::getSimulatorFeatures(LLSD& sim_features)
+{
+	sim_features = mSimulatorFeatures;
+}
+
+void LLViewerRegion::setSimulatorFeatures(const LLSD& sim_features)
+{
+	std::stringstream str;
+	
+	LLSDSerialize::toPrettyXML(sim_features, str);
+	llinfos << str.str() << llendl;
+	mSimulatorFeatures = sim_features;
+}
+
 LLViewerRegion::eCacheUpdateResult LLViewerRegion::cacheFullUpdate(LLViewerObject* objectp, LLDataPackerBinaryBuffer &dp)
 {
 	U32 local_id = objectp->getLocalID();
@@ -1511,7 +1526,6 @@ void LLViewerRegion::setSeedCapability(const std::string& url)
 	capabilityNames.append("MapLayer");
 	capabilityNames.append("MapLayerGod");
 	capabilityNames.append("NewFileAgentInventory");
-	// mesh *TODO: Use SimulatorFeatures cap to get this info instead.
 	capabilityNames.append("ObjectAdd");
 	capabilityNames.append("ParcelPropertiesUpdate");
 	capabilityNames.append("ParcelMediaURLFilterList");
@@ -1556,6 +1570,42 @@ void LLViewerRegion::setSeedCapability(const std::string& url)
 	LLHTTPClient::post(url, capabilityNames, mImpl->mHttpResponderPtr);
 }
 
+class SimulatorFeaturesReceived : public LLHTTPClient::Responder
+{
+	LOG_CLASS(SimulatorFeaturesReceived);
+public:
+    SimulatorFeaturesReceived(LLViewerRegion* region)
+	: mRegion(region)
+    { }
+	
+	
+    void error(U32 statusNum, const std::string& reason)
+    {
+		LL_WARNS2("AppInit", "SimulatorFeatures") << statusNum << ": " << reason << LL_ENDL;
+    }
+	
+    void result(const LLSD& content)
+    {
+		if(!mRegion) //region is removed or responder is not created.
+		{
+			return ;
+		}
+		
+		mRegion->setSimulatorFeatures(content);
+	}
+	
+    static boost::intrusive_ptr<SimulatorFeaturesReceived> build(
+																 LLViewerRegion* region)
+    {
+		return boost::intrusive_ptr<SimulatorFeaturesReceived>(
+															   new SimulatorFeaturesReceived(region));
+    }
+	
+private:
+	LLViewerRegion* mRegion;
+};
+
+
 void LLViewerRegion::setCapability(const std::string& name, const std::string& url)
 {
 	if(name == "EventQueueGet")
@@ -1567,6 +1617,11 @@ void LLViewerRegion::setCapability(const std::string& name, const std::string& u
 	else if(name == "UntrustedSimulatorMessage")
 	{
 		LLHTTPSender::setSender(mImpl->mHost, new LLCapHTTPSender(url));
+	}
+	else if (name == "SimulatorFeatures")
+	{
+		// kick off a request for simulator features
+		LLHTTPClient::get(url, new SimulatorFeaturesReceived(this));
 	}
 	else
 	{
@@ -1660,4 +1715,5 @@ std::string LLViewerRegion::getDescription() const
 {
     return stringize(*this);
 }
+
 
