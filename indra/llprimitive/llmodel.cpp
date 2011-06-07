@@ -1419,8 +1419,9 @@ LLSD LLModel::writeModel(
 			for (S32 i = 0; i < model[idx]->getNumVolumeFaces(); ++i)
 			{ //for each face
 				const LLVolumeFace& face = model[idx]->getVolumeFace(i);
-				if (!face.mNumVertices)
+				if (face.mNumVertices < 3)
 				{ //don't export an empty face
+					mdl[model_names[idx]][i]["NoGeometry"] = true;
 					continue;
 				}
 				LLSD::Binary verts(face.mNumVertices*3*2);
@@ -2236,7 +2237,7 @@ LLSD LLModel::Decomposition::asLLSD() const
 		{
 			for (U32 k = 0; k < 3; k++)
 			{
-				llassert(mBaseHull[j].mV[k] <= 0.50001f && mBaseHull[j].mV[k] >= -0.50001f);
+				llassert(mBaseHull[j].mV[k] <= 0.501f && mBaseHull[j].mV[k] >= -0.501f);
 
 				//convert to 16-bit normalized across domain
 				U16 val = (U16) (((mBaseHull[j].mV[k]-min.mV[k])/range.mV[k])*65535);
