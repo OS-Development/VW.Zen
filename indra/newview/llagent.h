@@ -29,14 +29,13 @@
 
 #include "indra_constants.h"
 #include "llevent.h" 				// LLObservable base class
-#include "llagentaccess.h"
 #include "llagentconstants.h"
 #include "llagentdata.h" 			// gAgentID, gAgentSessionID
-#include "llcharacter.h" 			// LLAnimPauseRequest
-#include "llpointer.h"
-#include "lluicolor.h"
+#include "llcharacter.h"
+#include "llcoordframe.h"			// for mFrameAgent
 #include "llvoavatardefines.h"
-#include "llslurl.h"
+
+#include <boost/signals2.hpp>
 
 extern const BOOL 	ANIMATE;
 extern const U8 	AGENT_STATE_TYPING;  // Typing indication
@@ -53,6 +52,10 @@ class LLFriendObserver;
 class LLPickInfo;
 class LLViewerObject;
 class LLAgentDropGroupViewerNode;
+class LLAgentAccess;
+class LLSLURL;
+class LLPauseRequestHandle;
+class LLUIColor;
 
 //--------------------------------------------------------------------
 // Types
@@ -76,6 +79,8 @@ struct LLGroupData
 };
 
 class LLAgentListener;
+
+class LLAgentImpl;
 
 //------------------------------------------------------------------------
 // LLAgent
@@ -264,6 +269,7 @@ public:
 private:
 	LLFrameTimer	mFidgetTimer;
 	LLFrameTimer	mFocusObjectFadeTimer;
+	LLFrameTimer	mMoveTimer;
 	F32				mNextFidgetTime;
 	S32				mCurrentFidget;
 
@@ -339,6 +345,7 @@ public:
 private:
 	bool 			mbAlwaysRun; 			// Should the avatar run by default rather than walk?
 	bool 			mbRunning;				// Is the avatar trying to run right now?
+	bool			mbTeleportKeepsLookAt;	// Try to keep look-at after teleport is complete
 
 	//--------------------------------------------------------------------
 	// Sit and stand
@@ -357,14 +364,6 @@ public:
 	BOOL			getBusy() const;
 private:
 	BOOL			mIsBusy;
-
-	//--------------------------------------------------------------------
-	// Jump
-	//--------------------------------------------------------------------
-public:
-	BOOL			getJump() const	{ return mbJump; }
-private:
-	BOOL 			mbJump;
 
 	//--------------------------------------------------------------------
 	// Grab
@@ -415,9 +414,15 @@ public:
 	BOOL			getCustomAnim() const { return mCustomAnim; }
 	void			setCustomAnim(BOOL anim) { mCustomAnim = anim; }
 	
+	typedef boost::signals2::signal<void ()> camera_signal_t;
+	boost::signals2::connection setMouselookModeInCallback( const camera_signal_t::slot_type& cb );
+	boost::signals2::connection setMouselookModeOutCallback( const camera_signal_t::slot_type& cb );
+
 private:
+	camera_signal_t* mMouselookModeInSignal;
+	camera_signal_t* mMouselookModeOutSignal;
 	BOOL            mCustomAnim; 		// Current animation is ANIM_AGENT_CUSTOMIZE ?
-	LLAnimPauseRequest mPauseRequest;
+	LLPointer<LLPauseRequestHandle> mPauseRequest;
 	BOOL			mViewsPushed; 		// Keep track of whether or not we have pushed views
 	
 /**                    Animation
@@ -464,19 +469,29 @@ public:
 public:
 	BOOL			getAutoPilot() const				{ return mAutoPilot; }
 	LLVector3d		getAutoPilotTargetGlobal() const 	{ return mAutoPilotTargetGlobal; }
+	LLUUID			getAutoPilotLeaderID() const		{ return mLeaderID; }
+	F32				getAutoPilotStopDistance() const	{ return mAutoPilotStopDistance; }
+	F32				getAutoPilotTargetDist() const		{ return mAutoPilotTargetDist; }
+	BOOL			getAutoPilotUseRotation() const		{ return mAutoPilotUseRotation; }
+	LLVector3		getAutoPilotTargetFacing() const	{ return mAutoPilotTargetFacing; }
+	F32				getAutoPilotRotationThreshold() const	{ return mAutoPilotRotationThreshold; }
+	std::string		getAutoPilotBehaviorName() const	{ return mAutoPilotBehaviorName; }
+
 	void			startAutoPilotGlobal(const LLVector3d &pos_global, 
 										 const std::string& behavior_name = std::string(), 
 										 const LLQuaternion *target_rotation = NULL, 
 										 void (*finish_callback)(BOOL, void *) = NULL, void *callback_data = NULL, 
-										 F32 stop_distance = 0.f, F32 rotation_threshold = 0.03f);
-	void 			startFollowPilot(const LLUUID &leader_id);
+										 F32 stop_distance = 0.f, F32 rotation_threshold = 0.03f,
+										 BOOL allow_flying = TRUE);
+	void 			startFollowPilot(const LLUUID &leader_id, BOOL allow_flying = TRUE, F32 stop_distance = 0.5f);
 	void			stopAutoPilot(BOOL user_cancel = FALSE);
-	void 			setAutoPilotGlobal(const LLVector3d &pos_global);
+	void 			setAutoPilotTargetGlobal(const LLVector3d &target_global);
 	void			autoPilot(F32 *delta_yaw); 			// Autopilot walking action, angles in radians
 	void			renderAutoPilotTarget();
 private:
 	BOOL			mAutoPilot;
 	BOOL			mAutoPilotFlyOnStop;
+	BOOL			mAutoPilotAllowFlying;
 	LLVector3d		mAutoPilotTargetGlobal;
 	F32				mAutoPilotStopDistance;
 	BOOL			mAutoPilotUseRotation;
@@ -506,30 +521,34 @@ public:
 		TELEPORT_REQUESTED = 2,		// Waiting for source simulator to respond
 		TELEPORT_MOVING = 3,		// Viewer has received destination location from source simulator
 		TELEPORT_START_ARRIVAL = 4,	// Transition to ARRIVING.  Viewer has received avatar update, etc., from destination simulator
-		TELEPORT_ARRIVING = 5		// Make the user wait while content "pre-caches"
+		TELEPORT_ARRIVING = 5,		// Make the user wait while content "pre-caches"
+		TELEPORT_LOCAL = 6			// Teleporting in-sim without showing the progress screen
 	};
 
 public:
 	static void 	parseTeleportMessages(const std::string& xml_filename);
-	const void getTeleportSourceSLURL(LLSLURL& slurl) const { slurl = mTeleportSourceSLURL; }
+	const void getTeleportSourceSLURL(LLSLURL& slurl) const;
 public:
 	// ! TODO ! Define ERROR and PROGRESS enums here instead of exposing the mappings.
 	static std::map<std::string, std::string> sTeleportErrorMessages;
 	static std::map<std::string, std::string> sTeleportProgressMessages;
 private:
-	LLSLURL	mTeleportSourceSLURL; 			// SLURL where last TP began
+	LLSLURL * mTeleportSourceSLURL; 			// SLURL where last TP began
 
 	//--------------------------------------------------------------------
 	// Teleport Actions
 	//--------------------------------------------------------------------
 public:
 	void 			teleportRequest(const U64& region_handle,
-									const LLVector3& pos_local);			// Go to a named location home
+									const LLVector3& pos_local,				// Go to a named location home
+									bool look_at_from_camera = false);
 	void 			teleportViaLandmark(const LLUUID& landmark_id);			// Teleport to a landmark
 	void 			teleportHome()	{ teleportViaLandmark(LLUUID::null); }	// Go home
 	void 			teleportViaLure(const LLUUID& lure_id, BOOL godlike);	// To an invited location
 	void 			teleportViaLocation(const LLVector3d& pos_global);		// To a global location - this will probably need to be deprecated
+	void			teleportViaLocationLookAt(const LLVector3d& pos_global);// To a global location, preserving camera rotation
 	void 			teleportCancel();										// May or may not be allowed by server
+	bool			getTeleportKeepsLookAt() { return mbTeleportKeepsLookAt; } // Whether look-at reset after teleport
 protected:
 	bool 			teleportCore(bool is_local = false); 					// Stuff for all teleports; returns true if the teleport can proceed
 
@@ -573,7 +592,7 @@ public:
 	// ! BACKWARDS COMPATIBILITY ! This function can go away after the AO transition (see llstartup.cpp).
 	void 			setAOTransition();
 private:
-	LLAgentAccess 	mAgentAccess;
+	LLAgentAccess * mAgentAccess;
 	
 	//--------------------------------------------------------------------
 	// God
@@ -653,7 +672,7 @@ public:
 	const LLColor4	&getEffectColor();
 	void			setEffectColor(const LLColor4 &color);
 private:
-	LLUIColor 		mEffectColor;
+	LLUIColor * mEffectColor;
 
 /**                    Rendering
  **                                                                            **

@@ -72,6 +72,10 @@
         Editing Tattoo
     </string>
     <string
+     name="edit_physics_title">
+        Editing Physics
+    </string>
+    <string
      name="shape_desc_text">
         Shape:
     </string>
@@ -131,6 +135,10 @@
      name="tattoo_desc_text">
         Tattoo:
     </string>
+    <string
+     name="physics_desc_text">
+        Physics:
+    </string>
     <!-- Default width of the button should be to show it without label.
      Button will be extedned in code to show whole label when wearable is being changed.
     -->
@@ -147,7 +155,8 @@
      pad_left="24"
      tool_tip="Return to Edit Outfit"
      top="3"
-     width="30" />
+     width="30"
+     use_draw_context_alpha="false" />
     <text
      follows="top|left|right"
      font="SansSerifHugeBold"
@@ -187,7 +196,7 @@
          width="150" />
         <radio_group
          control_name="AvatarSex"
-         follows="left|top|right"
+         follows="top|right"
          height="20"
          layout="topleft"
          left="210"
@@ -217,6 +226,7 @@
         </radio_group>
         <!--  graphical labels for the radio buttons above -->
         <icon
+         follows="top|right"
          height="16"
          image_name="icons/Male.png"
          layout="topleft"
@@ -226,6 +236,7 @@
          top="7"
          width="16" />
         <icon
+         follows="top|right"
          height="16"
          image_name="icons/Female.png"
          layout="topleft"
@@ -239,7 +250,7 @@
          height="23"
          layout="topleft"
          left="10"
-         max_length="63"
+         max_length_bytes="63"
          name="description"
          prevalidate_callback="ascii"
          select_on_focus="true"
@@ -407,6 +418,16 @@
          top="8"
          visible="false"
          width="333" />
+        <panel
+         filename="panel_edit_physics.xml"
+         follows="all"
+         height="425"
+         layout="topleft"
+         left="0"
+         name="edit_physics_panel"
+         top="8"
+         visible="false"
+         width="333" />
     </panel>
     <panel
      follows="bottom|left|right"
@@ -416,22 +437,56 @@
      name="button_panel"
      top_pad="6"
      width="333">
-        <button
-         follows="bottomleft"
+        <layout_stack
+         follows="bottom|left|right"
          height="23"
-         label="Save As"
          layout="topleft"
-         left="8"
-         name="save_as_button"
+         mouse_opaque="false"
+         name="button_panel_ls"
+         left="0"
+         orientation="horizontal"
          top="0"
-         width="153" />
-        <button
-         follows="bottomleft"
-         height="23"
-         label="Undo Changes"
-         layout="topleft"
-         left_pad="7"
-         name="revert_button"
-         width="152" />
+         width="333">	
+            <layout_panel
+             follows="bottom|left|right"
+             height="23"
+             layout="bottomleft"
+             left="0"			
+             mouse_opaque="false"
+             name="save_as_btn_lp"
+             user_resize="false" 
+             auto_resize="true"
+             width="154">
+                <button
+                 follows="bottom|left|right"
+                 height="23"
+                 label="Save As"
+                 layout="topleft"
+                 left="1"
+                 name="save_as_button"
+                 top="0"
+                 width="153" />
+            </layout_panel>
+            <layout_panel
+             follows="bottom|left|right"
+             height="23"
+             layout="bottomleft"
+             left_pad="3"			
+             mouse_opaque="false"
+             name="revert_btn_lp"
+             user_resize="false" 
+             auto_resize="true"
+             width="152">
+                <button
+                 follows="bottom|left|right"
+                 height="23"
+                 label="Undo Changes"
+                 layout="topleft"
+                 left="1"
+                 name="revert_button"
+                 top="0"
+                 width="148" />
+            </layout_panel>
+        </layout_stack>
     </panel>
 </panel>

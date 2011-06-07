@@ -31,6 +31,7 @@
 #include "llagentcamera.h"
 #include "llagentwearables.h"
 #include "llappearancemgr.h"
+#include "llattachmentsmgr.h"
 #include "llcommandhandler.h"
 #include "lleventtimer.h"
 #include "llgesturemgr.h"
@@ -109,6 +110,12 @@ public:
 	{
 		// support secondlife:///app/appearance/show, but for now we just
 		// make all secondlife:///app/appearance SLapps behave this way
+		if (!LLUI::sSettingGroups["config"]->getBOOL("EnableAppearance"))
+		{
+			LLNotificationsUtil::add("NoAppearance", LLSD(), LLSD(), std::string("SwitchToStandardSkinAndQuit"));
+			return true;
+		}
+
 		LLSideTray::getInstance()->showPanel("sidepanel_appearance", LLSD());
 		return true;
 	}
@@ -1299,8 +1306,16 @@ bool LLAppearanceMgr::getCanReplaceCOF(const LLUUID& outfit_cat_id)
 		return false;
 	}
 
-	// Check whether the outfit contains the full set of body parts (shape+skin+hair+eyes).
-	return getCanMakeFolderIntoOutfit(outfit_cat_id);
+	// Check whether the outfit contains any wearables we aren't wearing already (STORM-702).
+	LLInventoryModel::cat_array_t cats;
+	LLInventoryModel::item_array_t items;
+	LLFindWearablesEx is_worn(/*is_worn=*/ false, /*include_body_parts=*/ true);
+	gInventory.collectDescendentsIf(outfit_cat_id,
+		cats,
+		items,
+		LLInventoryModel::EXCLUDE_TRASH,
+		is_worn);
+	return items.size() > 0;
 }
 
 void LLAppearanceMgr::purgeBaseOutfitLink(const LLUUID& category)
@@ -2203,12 +2218,11 @@ void LLAppearanceMgr::updateIsDirty()
 		base_outfit = catp->getUUID();
 	}
 
-	if(base_outfit.isNull())
-	{
-		// no outfit link found, display "unsaved outfit"
-		mOutfitIsDirty = true;
-	}
-	else
+	// Set dirty to "false" if no base outfit found to disable "Save"
+	// and leave only "Save As" enabled in My Outfits.
+	mOutfitIsDirty = false;
+
+	if (base_outfit.notNull())
 	{
 		LLIsOfAssetType collector = LLIsOfAssetType(LLAssetType::AT_LINK);
 
@@ -2247,8 +2261,6 @@ void LLAppearanceMgr::updateIsDirty()
 				return;
 			}
 		}
-
-		mOutfitIsDirty = false;
 	}
 }
 
@@ -2439,6 +2451,12 @@ public:
 
 	virtual ~LLShowCreatedOutfit()
 	{
+		if (!LLApp::isRunning())
+		{
+			llwarns << "called during shutdown, skipping" << llendl;
+			return;
+		}
+
 		LLSD key;
 		
 		//EXT-7727. For new accounts LLShowCreatedOutfit is created during login process
@@ -2634,6 +2652,7 @@ void LLAppearanceMgr::dumpItemArray(const LLInventoryModel::item_array_t& items,
 LLAppearanceMgr::LLAppearanceMgr():
 	mAttachmentInvLinkEnabled(false),
 	mOutfitIsDirty(false),
+	mOutfitLocked(false),
 	mIsInUpdateAppearanceFromCOF(false)
 {
 	LLOutfitObserver& outfit_observer = LLOutfitObserver::instance();
@@ -2644,6 +2663,8 @@ LLAppearanceMgr::LLAppearanceMgr():
 
 	mUnlockOutfitTimer.reset(new LLOutfitUnLockTimer(gSavedSettings.getS32(
 			"OutfitOperationsTimeout")));
+
+	gIdleCallbacks.addFunction(&LLAttachmentsMgr::onIdle,NULL);
 }
 
 LLAppearanceMgr::~LLAppearanceMgr()
@@ -2750,75 +2771,6 @@ BOOL LLAppearanceMgr::getIsProtectedCOFItem(const LLUUID& obj_id) const
 
 	return FALSE;
 	*/
-}
-
-// Shim class to allow arbitrary boost::bind
-// expressions to be run as one-time idle callbacks.
-//
-// TODO: rework idle function spec to take a boost::function in the first place.
-class OnIdleCallbackOneTime
-{
-public:
-	OnIdleCallbackOneTime(nullary_func_t callable):
-		mCallable(callable)
-	{
-	}
-	static void onIdle(void *data)
-	{
-		gIdleCallbacks.deleteFunction(onIdle, data);
-		OnIdleCallbackOneTime* self = reinterpret_cast<OnIdleCallbackOneTime*>(data);
-		self->call();
-		delete self;
-	}
-	void call()
-	{
-		mCallable();
-	}
-private:
-	nullary_func_t mCallable;
-};
-
-void doOnIdleOneTime(nullary_func_t callable)
-{
-	OnIdleCallbackOneTime* cb_functor = new OnIdleCallbackOneTime(callable);
-	gIdleCallbacks.addFunction(&OnIdleCallbackOneTime::onIdle,cb_functor);
-}
-
-// Shim class to allow generic boost functions to be run as
-// recurring idle callbacks.  Callable should return true when done,
-// false to continue getting called.
-//
-// TODO: rework idle function spec to take a boost::function in the first place.
-class OnIdleCallbackRepeating
-{
-public:
-	OnIdleCallbackRepeating(bool_func_t callable):
-		mCallable(callable)
-	{
-	}
-	// Will keep getting called until the callable returns true.
-	static void onIdle(void *data)
-	{
-		OnIdleCallbackRepeating* self = reinterpret_cast<OnIdleCallbackRepeating*>(data);
-		bool done = self->call();
-		if (done)
-		{
-			gIdleCallbacks.deleteFunction(onIdle, data);
-			delete self;
-		}
-	}
-	bool call()
-	{
-		return mCallable();
-	}
-private:
-	bool_func_t mCallable;
-};
-
-void doOnIdleRepeating(bool_func_t callable)
-{
-	OnIdleCallbackRepeating* cb_functor = new OnIdleCallbackRepeating(callable);
-	gIdleCallbacks.addFunction(&OnIdleCallbackRepeating::onIdle,cb_functor);
 }
 
 class CallAfterCategoryFetchStage2: public LLInventoryFetchItemsObserver
@@ -2940,3 +2892,35 @@ void wear_multiple(const uuid_vec_t& ids, bool replace)
 	}
 }
 
+// SLapp for easy-wearing of a stock (library) avatar
+//
+class LLWearFolderHandler : public LLCommandHandler
+{
+public:
+	// not allowed from outside the app
+	LLWearFolderHandler() : LLCommandHandler("wear_folder", UNTRUSTED_BLOCK) { }
+
+	bool handle(const LLSD& tokens, const LLSD& query_map,
+				LLMediaCtrl* web)
+	{
+		LLPointer<LLInventoryCategory> category = new LLInventoryCategory(query_map["folder_id"],
+																		  LLUUID::null,
+																		  LLFolderType::FT_CLOTHING,
+																		  "Quick Appearance");
+		LLSD::UUID folder_uuid = query_map["folder_id"].asUUID();
+		if ( gInventory.getCategory( folder_uuid ) != NULL )
+		{
+			LLAppearanceMgr::getInstance()->wearInventoryCategory(category, true, false);
+
+			// *TODOw: This may not be necessary if initial outfit is chosen already -- josh
+			gAgent.setGenderChosen(TRUE);
+		}
+
+		// release avatar picker keyboard focus
+		gFocusMgr.setKeyboardFocus( NULL );
+
+		return true;
+	}
+};
+
+LLWearFolderHandler gWearFolderHandler;

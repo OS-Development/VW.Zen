@@ -102,11 +102,8 @@ LLView::Params::Params()
 	left_pad("left_pad"),
 	left_delta("left_delta", S32_MAX),
 	from_xui("from_xui", false),
-	user_resize("user_resize"),
-	auto_resize("auto_resize"),
+	focus_root("focus_root", false),
 	needs_translate("translate"),
-	min_width("min_width"),
-	max_width("max_width"),
 	xmlns("xmlns"),
 	xmlns_xsi("xmlns:xsi"),
 	xsi_schemaLocation("xsi:schemaLocation"),
@@ -117,16 +114,16 @@ LLView::Params::Params()
 }
 
 LLView::LLView(const LLView::Params& p)
-:	mName(p.name),
+:	mVisible(p.visible),
+	mName(p.name),
 	mParentView(NULL),
 	mReshapeFlags(FOLLOWS_NONE),
 	mFromXUI(p.from_xui),
-	mIsFocusRoot(FALSE),
+	mIsFocusRoot(p.focus_root),
 	mLastVisible(FALSE),
 	mNextInsertionOrdinal(0),
 	mHoverCursor(getCursorFromString(p.hover_cursor)),
 	mEnabled(p.enabled),
-	mVisible(p.visible),
 	mMouseOpaque(p.mouse_opaque),
 	mSoundFlags(p.sound_flags),
 	mUseBoundingRect(p.use_bounding_rect),
@@ -167,8 +164,6 @@ LLView::~LLView()
 
 	if (mDefaultWidgets)
 	{
-		std::for_each(mDefaultWidgets->begin(), mDefaultWidgets->end(),
-					  DeletePairedPointer());
 		delete mDefaultWidgets;
 		mDefaultWidgets = NULL;
 	}
@@ -218,7 +213,7 @@ void LLView::setUseBoundingRect( BOOL use_bounding_rect )
 	}
 }
 
-BOOL LLView::getUseBoundingRect()
+BOOL LLView::getUseBoundingRect() const
 {
 	return mUseBoundingRect;
 }
@@ -343,7 +338,7 @@ void LLView::removeChild(LLView* child)
 	}
 	else
 	{
-		llerrs << "LLView::removeChild called with non-child" << llendl;
+		llwarns << child->getName() << "is not a child of " << getName() << llendl;
 	}
 	updateBoundingRect();
 }
@@ -1304,7 +1299,13 @@ void LLView::drawChildren()
 {
 	if (!mChildList.empty())
 	{
-		LLRect rootRect = getRootView()->getRect();
+		static const LLRect* rootRect = NULL;
+		
+		if (!mParentView)
+		{
+			rootRect = &mRect;
+		}
+
 		LLRect screenRect;
 
 		++sDepth;
@@ -1318,7 +1319,7 @@ void LLView::drawChildren()
 			{
 				// Only draw views that are within the root view
 				localRectToScreen(viewp->getRect(),&screenRect);
-				if ( rootRect.overlaps(screenRect)  && LLUI::sDirtyRect.overlaps(screenRect))
+				if ( rootRect->overlaps(screenRect)  && LLUI::sDirtyRect.overlaps(screenRect))
 				{
 					LLUI::pushMatrix();
 					{
@@ -1370,12 +1371,12 @@ void LLView::drawDebugRect()
 		// drawing solids requires texturing be disabled
 		gGL.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
 
-		if (mUseBoundingRect)
+		if (getUseBoundingRect())
 		{
 			LLUI::translate((F32)mBoundingRect.mLeft - (F32)mRect.mLeft, (F32)mBoundingRect.mBottom - (F32)mRect.mBottom, 0.f);
 		}
 
-		LLRect debug_rect = mUseBoundingRect ? mBoundingRect : mRect;
+		LLRect debug_rect = getUseBoundingRect() ? mBoundingRect : mRect;
 
 		// draw red rectangle for the border
 		LLColor4 border_color(0.25f, 0.25f, 0.25f, 1.f);
@@ -1573,7 +1574,7 @@ void LLView::updateBoundingRect()
 
 	LLRect cur_rect = mBoundingRect;
 
-	if (mUseBoundingRect)
+	if (getUseBoundingRect())
 	{
 		mBoundingRect = calcBoundingRect();
 	}
@@ -1583,7 +1584,7 @@ void LLView::updateBoundingRect()
 	}
 
 	// give parent view a chance to resize, in case we just moved, for example
-	if (getParent() && getParent()->mUseBoundingRect)
+	if (getParent() && getParent()->getUseBoundingRect())
 	{
 		getParent()->updateBoundingRect();
 	}
@@ -1607,7 +1608,7 @@ LLRect LLView::calcScreenBoundingRect() const
 {
 	LLRect screen_rect;
 	// get bounding rect, if used
-	LLRect bounding_rect = mUseBoundingRect ? mBoundingRect : mRect;
+	LLRect bounding_rect = getUseBoundingRect() ? mBoundingRect : mRect;
 
 	// convert to local coordinates, as defined by mRect
 	bounding_rect.translate(-mRect.mLeft, -mRect.mBottom);
@@ -1686,16 +1687,7 @@ BOOL LLView::hasChild(const std::string& childname, BOOL recurse) const
 //-----------------------------------------------------------------------------
 LLView* LLView::getChildView(const std::string& name, BOOL recurse) const
 {
-	LLView* child = findChildView(name, recurse);
-	if (!child)
-	{
-		child = getDefaultWidget<LLView>(name);
-		if (!child)
-		{
-			 child = LLUICtrlFactory::createDefaultWidget<LLView>(name);
-		}
-	}
-	return child;
+	return getChild<LLView>(name, recurse);
 }
 
 static LLFastTimer::DeclareTimer FTM_FIND_VIEWS("Find Widgets");
@@ -1736,14 +1728,14 @@ LLView* LLView::findChildView(const std::string& name, BOOL recurse) const
 
 BOOL LLView::parentPointInView(S32 x, S32 y, EHitTestType type) const 
 { 
-	return (mUseBoundingRect && type == HIT_TEST_USE_BOUNDING_RECT)
+	return (getUseBoundingRect() && type == HIT_TEST_USE_BOUNDING_RECT)
 		? mBoundingRect.pointInRect( x, y ) 
 		: mRect.pointInRect( x, y ); 
 }
 
 BOOL LLView::pointInView(S32 x, S32 y, EHitTestType type) const 
 { 
-	return (mUseBoundingRect && type == HIT_TEST_USE_BOUNDING_RECT)
+	return (getUseBoundingRect() && type == HIT_TEST_USE_BOUNDING_RECT)
 		? mBoundingRect.pointInRect( x + mRect.mLeft, y + mRect.mBottom ) 
 		: mRect.localPointInRect( x, y ); 
 }
@@ -1972,7 +1964,7 @@ void LLView::centerWithin(const LLRect& bounds)
 	translate( left - getRect().mLeft, bottom - getRect().mBottom );
 }
 
-BOOL LLView::localPointToOtherView( S32 x, S32 y, S32 *other_x, S32 *other_y, LLView* other_view) const
+BOOL LLView::localPointToOtherView( S32 x, S32 y, S32 *other_x, S32 *other_y, const LLView* other_view) const
 {
 	const LLView* cur_view = this;
 	const LLView* root_view = NULL;
@@ -2015,7 +2007,7 @@ BOOL LLView::localPointToOtherView( S32 x, S32 y, S32 *other_x, S32 *other_y, LL
 	return FALSE;
 }
 
-BOOL LLView::localRectToOtherView( const LLRect& local, LLRect* other, LLView* other_view ) const
+BOOL LLView::localRectToOtherView( const LLRect& local, LLRect* other, const LLView* other_view ) const
 {
 	LLRect cur_rect = local;
 	const LLView* cur_view = this;
@@ -2806,11 +2798,14 @@ LLView::root_to_view_iterator_t LLView::endRootToView()
 
 // only create maps on demand, as they incur heap allocation/deallocation cost
 // when a view is constructed/deconstructed
-LLView::default_widget_map_t& LLView::getDefaultWidgetMap() const
+LLView& LLView::getDefaultWidgetContainer() const
 {
 	if (!mDefaultWidgets)
 	{
-		mDefaultWidgets = new default_widget_map_t();
+		LLView::Params p;
+		p.name = "default widget container";
+		p.visible = false; // ensures default widgets can't steal focus, etc.
+		mDefaultWidgets = new LLView(p);
 	}
 	return *mDefaultWidgets;
 }

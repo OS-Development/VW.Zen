@@ -51,14 +51,23 @@
 #include "llvoavatarself.h"
 #include "llviewerregion.h"
 #include "llwebsharing.h"	// For LLWebSharing::setOpenIDCookie(), *TODO: find a better way to do this!
-
+#include "llfilepicker.h"
+#include "llnotifications.h"
+#include "lldir.h"
+#include "lldiriterator.h"
 #include "llevent.h"		// LLSimpleListener
 #include "llnotificationsutil.h"
 #include "lluuid.h"
 #include "llkeyboard.h"
 #include "llmutelist.h"
+#include "llpanelprofile.h"
+#include "llappviewer.h"
+#include "lllogininstance.h" 
 //#include "llfirstuse.h"
 #include "llwindow.h"
+
+#include "llfloatermediabrowser.h"	// for handling window close requests and geometry change requests in media browser windows.
+#include "llfloaterwebcontent.h"	// for handling window close requests and geometry change requests in media browser windows.
 
 #include <boost/bind.hpp>	// for SkinFolder listener
 #include <boost/signals2.hpp>
@@ -287,9 +296,47 @@ public:
 
 };
 
+class LLViewerMediaWebProfileResponder : public LLHTTPClient::Responder
+{
+LOG_CLASS(LLViewerMediaWebProfileResponder);
+public:
+	LLViewerMediaWebProfileResponder(std::string host)
+	{
+		mHost = host;
+	}
+
+	~LLViewerMediaWebProfileResponder()
+	{
+	}
+
+	/* virtual */ void completedHeader(U32 status, const std::string& reason, const LLSD& content)
+	{
+		LL_WARNS("MediaAuth") << "status = " << status << ", reason = " << reason << LL_ENDL;
+		LL_WARNS("MediaAuth") << content << LL_ENDL;
+
+		std::string cookie = content["set-cookie"].asString();
+
+		LLViewerMedia::getCookieStore()->setCookiesFromHost(cookie, mHost);
+	}
+
+	 void completedRaw(
+		U32 status,
+		const std::string& reason,
+		const LLChannelDescriptors& channels,
+		const LLIOPipe::buffer_ptr_t& buffer)
+	{
+		// This is just here to disable the default behavior (attempting to parse the response as llsd).
+		// We don't care about the content of the response, only the set-cookie header.
+	}
+
+	std::string mHost;
+};
+
+
 LLPluginCookieStore *LLViewerMedia::sCookieStore = NULL;
 LLURL LLViewerMedia::sOpenIDURL;
 std::string LLViewerMedia::sOpenIDCookie;
+LLPluginClassMedia* LLViewerMedia::sSpareBrowserMediaSource = NULL;
 static LLViewerMedia::impl_list sViewerMediaImplList;
 static LLViewerMedia::impl_id_map sViewerMediaTextureIDMap;
 static LLTimer sMediaCreateTimer;
@@ -489,7 +536,7 @@ std::string LLViewerMedia::getCurrentUserAgent()
 
 	// Just in case we need to check browser differences in A/B test
 	// builds.
-	std::string channel = gSavedSettings.getString("VersionChannelName");
+	std::string channel = LLVersionInfo::getChannel();
 
 	// append our magic version number string to the browser user agent id
 	// See the HTTP 1.0 and 1.1 specifications for allowed formats:
@@ -739,6 +786,9 @@ void LLViewerMedia::updateMedia(void *dummy_arg)
 	// Enable/disable the plugin read thread
 	LLPluginProcessParent::setUseReadThread(gSavedSettings.getBOOL("PluginUseReadThread"));
 	
+	// HACK: we always try to keep a spare running webkit plugin around to improve launch times.
+	createSpareBrowserMediaSource();
+	
 	sAnyMediaShowing = false;
 	sUpdatedCookies = getCookieStore()->getChangedCookies();
 	if(!sUpdatedCookies.empty())
@@ -755,6 +805,12 @@ void LLViewerMedia::updateMedia(void *dummy_arg)
 		LLViewerMediaImpl* pimpl = *iter++;
 		pimpl->update();
 		pimpl->calculateInterest();
+	}
+	
+	// Let the spare media source actually launch
+	if(sSpareBrowserMediaSource)
+	{
+		sSpareBrowserMediaSource->idle();
 	}
 		
 	// Sort the static instance list using our interest criteria
@@ -859,7 +915,7 @@ void LLViewerMedia::updateMedia(void *dummy_arg)
 				
 				// Set the low priority size for downsampling to approximately the size the texture is displayed at.
 				{
-					F32 approximate_interest_dimension = fsqrtf(pimpl->getInterest());
+					F32 approximate_interest_dimension = (F32) sqrt(pimpl->getInterest());
 					
 					pimpl->setLowPrioritySizeLimit(llround(approximate_interest_dimension));
 				}
@@ -1031,6 +1087,26 @@ bool LLViewerMedia::isParcelAudioPlaying()
 	return (LLViewerMedia::hasParcelAudio() && gAudiop && LLAudioEngine::AUDIO_PLAYING == gAudiop->isInternetStreamPlaying());
 }
 
+void LLViewerMedia::onAuthSubmit(const LLSD& notification, const LLSD& response)
+{
+	LLViewerMediaImpl *impl = LLViewerMedia::getMediaImplFromTextureID(notification["payload"]["media_id"]);
+	if(impl)
+	{
+		LLPluginClassMedia* media = impl->getMediaPlugin();
+		if(media)
+		{
+			if (response["ok"])
+			{
+				media->sendAuthResponse(true, response["username"], response["password"]);
+			}
+			else
+			{
+				media->sendAuthResponse(false, "", "");
+			}
+		}
+	}
+}
+
 /////////////////////////////////////////////////////////////////////////////////////////
 // static
 void LLViewerMedia::clearAllCookies()
@@ -1080,7 +1156,8 @@ void LLViewerMedia::clearAllCookies()
 	}
 	
 	// the hard part: iterate over all user directories and delete the cookie file from each one
-	while(gDirUtilp->getNextFileInDir(base_dir, "*_*", filename, false))
+	LLDirIterator dir_iter(base_dir, "*_*");
+	while (dir_iter.next(filename))
 	{
 		target = base_dir;
 		target += filename;
@@ -1316,6 +1393,19 @@ void LLViewerMedia::setOpenIDCookie()
 
 		// *HACK: Doing this here is nasty, find a better way.
 		LLWebSharing::instance().setOpenIDCookie(sOpenIDCookie);
+
+		// Do a web profile get so we can store the cookie 
+		LLSD headers = LLSD::emptyMap();
+		headers["Accept"] = "*/*";
+		headers["Cookie"] = sOpenIDCookie;
+		headers["User-Agent"] = getCurrentUserAgent();
+
+		std::string profile_url = getProfileURL("");
+		LLURL raw_profile_url( profile_url.c_str() );
+
+		LLHTTPClient::get(profile_url,  
+			new LLViewerMediaWebProfileResponder(raw_profile_url.getAuthority()),
+			headers);
 	}
 }
 
@@ -1364,6 +1454,64 @@ void LLViewerMedia::openIDCookieResponse(const std::string &cookie)
 
 	setOpenIDCookie();
 }
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// static
+void LLViewerMedia::proxyWindowOpened(const std::string &target, const std::string &uuid)
+{
+	if(uuid.empty())
+		return;
+		
+	for (impl_list::iterator iter = sViewerMediaImplList.begin(); iter != sViewerMediaImplList.end(); iter++)
+	{
+		if((*iter)->mMediaSource && (*iter)->mMediaSource->pluginSupportsMediaBrowser())
+		{
+			(*iter)->mMediaSource->proxyWindowOpened(target, uuid);
+		}
+	}
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// static
+void LLViewerMedia::proxyWindowClosed(const std::string &uuid)
+{
+	if(uuid.empty())
+		return;
+
+	for (impl_list::iterator iter = sViewerMediaImplList.begin(); iter != sViewerMediaImplList.end(); iter++)
+	{
+		if((*iter)->mMediaSource && (*iter)->mMediaSource->pluginSupportsMediaBrowser())
+		{
+			(*iter)->mMediaSource->proxyWindowClosed(uuid);
+		}
+	}
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// static
+void LLViewerMedia::createSpareBrowserMediaSource()
+{
+	// If we don't have a spare browser media source, create one.
+	// However, if PluginAttachDebuggerToPlugins is set then don't spawn a spare
+	// SLPlugin process in order to not be confused by an unrelated gdb terminal
+	// popping up at the moment we start a media plugin.
+	if (!sSpareBrowserMediaSource && !gSavedSettings.getBOOL("PluginAttachDebuggerToPlugins"))
+	{
+		// The null owner will keep the browser plugin from fully initializing 
+		// (specifically, it keeps LLPluginClassMedia from negotiating a size change, 
+		// which keeps MediaPluginWebkit::initBrowserWindow from doing anything until we have some necessary data, like the background color)
+		sSpareBrowserMediaSource = LLViewerMediaImpl::newSourceFromMediaType("text/html", NULL, 0, 0);
+	}
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// static
+LLPluginClassMedia* LLViewerMedia::getSpareBrowserMediaSource() 
+{
+	LLPluginClassMedia* result = sSpareBrowserMediaSource;
+	sSpareBrowserMediaSource = NULL;
+	return result; 
+};
 
 bool LLViewerMedia::hasInWorldMedia()
 {
@@ -1598,9 +1746,25 @@ void LLViewerMediaImpl::setMediaType(const std::string& media_type)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 /*static*/
-LLPluginClassMedia* LLViewerMediaImpl::newSourceFromMediaType(std::string media_type, LLPluginClassMediaOwner *owner /* may be NULL */, S32 default_width, S32 default_height)
+LLPluginClassMedia* LLViewerMediaImpl::newSourceFromMediaType(std::string media_type, LLPluginClassMediaOwner *owner /* may be NULL */, S32 default_width, S32 default_height, const std::string target)
 {
 	std::string plugin_basename = LLMIMETypes::implType(media_type);
+	LLPluginClassMedia* media_source = NULL;
+	
+	// HACK: we always try to keep a spare running webkit plugin around to improve launch times.
+	// If a spare was already created before PluginAttachDebuggerToPlugins was set, don't use it.
+	if(plugin_basename == "media_plugin_webkit" && !gSavedSettings.getBOOL("PluginAttachDebuggerToPlugins"))
+	{
+		media_source = LLViewerMedia::getSpareBrowserMediaSource();
+		if(media_source)
+		{
+			media_source->setOwner(owner);
+			media_source->setTarget(target);
+			media_source->setSize(default_width, default_height);
+						
+			return media_source;
+		}
+	}
 	
 	if(plugin_basename.empty())
 	{
@@ -1638,7 +1802,7 @@ LLPluginClassMedia* LLViewerMediaImpl::newSourceFromMediaType(std::string media_
 		}
 		else
 		{
-			LLPluginClassMedia* media_source = new LLPluginClassMedia(owner);
+			media_source = new LLPluginClassMedia(owner);
 			media_source->setSize(default_width, default_height);
 			media_source->setUserDataPath(user_data_path);
 			media_source->setLanguageCode(LLUI::getLanguage());
@@ -1654,8 +1818,11 @@ LLPluginClassMedia* LLViewerMediaImpl::newSourceFromMediaType(std::string media_
 			// collect 'javascript enabled' setting from prefs and send to embedded browser
 			bool javascript_enabled = gSavedSettings.getBOOL( "BrowserJavascriptEnabled" );
 			media_source->setJavascriptEnabled( javascript_enabled );
-
-			if (media_source->init(launcher_name, plugin_name, gSavedSettings.getBOOL("PluginAttachDebuggerToPlugins")))
+			
+			media_source->setTarget(target);
+			
+			const std::string plugin_dir = gDirUtilp->getLLPluginDir();
+			if (media_source->init(launcher_name, plugin_dir, plugin_name, gSavedSettings.getBOOL("PluginAttachDebuggerToPlugins")))
 			{
 				return media_source;
 			}
@@ -1705,7 +1872,7 @@ bool LLViewerMediaImpl::initializePlugin(const std::string& media_type)
 	// Save the MIME type that really caused the plugin to load
 	mCurrentMimeType = mMimeType;
 
-	LLPluginClassMedia* media_source = newSourceFromMediaType(mMimeType, this, mMediaWidth, mMediaHeight);
+	LLPluginClassMedia* media_source = newSourceFromMediaType(mMimeType, this, mMediaWidth, mMediaHeight, mTarget);
 	
 	if (media_source)
 	{
@@ -1716,6 +1883,18 @@ bool LLViewerMediaImpl::initializePlugin(const std::string& media_type)
 		media_source->focus(mHasFocus);
 		media_source->setBackgroundColor(mBackgroundColor);
 		
+		if(gSavedSettings.getBOOL("BrowserIgnoreSSLCertErrors"))
+		{
+			media_source->ignore_ssl_cert_errors(true);
+		}
+
+		// the correct way to deal with certs it to load ours from CA.pem and append them to the ones
+		// Qt/WebKit loads from your system location.
+		// Note: This needs the new CA.pem file with the Equifax Secure Certificate Authority 
+		// cert at the bottom: (MIIDIDCCAomgAwIBAgIENd70zzANBg)
+		std::string ca_path = gDirUtilp->getExpandedFilename( LL_PATH_APP_SETTINGS, "CA.pem" );
+		media_source->addCertificateFilePath( ca_path );
+
 		media_source->proxy_setup(gSavedSettings.getBOOL("BrowserProxyEnabled"), gSavedSettings.getString("BrowserProxyAddress"), gSavedSettings.getS32("BrowserProxyPort"));
 		
 		if(mClearCache)
@@ -1809,6 +1988,18 @@ void LLViewerMediaImpl::setSize(int width, int height)
 	{
 		mMediaSource->setSize(width, height);
 	}
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+void LLViewerMediaImpl::showNotification(LLNotificationPtr notify)
+{
+	mNotification = notify;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+void LLViewerMediaImpl::hideNotification()
+{
+	mNotification.reset();
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -2153,6 +2344,65 @@ BOOL LLViewerMediaImpl::handleMouseUp(S32 x, S32 y, MASK mask)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
+void LLViewerMediaImpl::updateJavascriptObject()
+{
+	if ( mMediaSource )
+	{
+		// flag to expose this information to internal browser or not.
+		bool expose_javascript_object = gSavedSettings.getBOOL("BrowserEnableJSObject");
+		mMediaSource->jsExposeObjectEvent( expose_javascript_object );
+
+		// indicate if the values we have are valid (currently do this blanket-fashion for
+		// everything depending on whether you are logged in or not - this may require a 
+		// more granular approach once variables are added that ARE valid before login
+		bool logged_in = LLLoginInstance::getInstance()->authSuccess();
+		mMediaSource->jsValuesValidEvent( logged_in );
+
+		// current location within a region
+		LLVector3 agent_pos = gAgent.getPositionAgent();
+		double x = agent_pos.mV[ VX ];
+		double y = agent_pos.mV[ VY ];
+		double z = agent_pos.mV[ VZ ];
+		mMediaSource->jsAgentLocationEvent( x, y, z );
+
+		// current location within the grid
+		LLVector3d agent_pos_global = gAgent.getLastPositionGlobal();
+		double global_x = agent_pos_global.mdV[ VX ];
+		double global_y = agent_pos_global.mdV[ VY ];
+		double global_z = agent_pos_global.mdV[ VZ ];
+		mMediaSource->jsAgentGlobalLocationEvent( global_x, global_y, global_z );
+
+		// current agent orientation
+		double rotation = atan2( gAgent.getAtAxis().mV[VX], gAgent.getAtAxis().mV[VY] );
+		double angle = rotation * RAD_TO_DEG;
+		if ( angle < 0.0f ) angle = 360.0f + angle;	// TODO: has to be a better way to get orientation!
+		mMediaSource->jsAgentOrientationEvent( angle );
+
+		// current region agent is in
+		std::string region_name("");
+		LLViewerRegion* region = gAgent.getRegion();
+		if ( region )
+		{
+			region_name = region->getName();
+		};
+		mMediaSource->jsAgentRegionEvent( region_name );
+
+		// language code the viewer is set to
+		mMediaSource->jsAgentLanguageEvent( LLUI::getLanguage() );
+
+		// maturity setting the agent has selected
+		if ( gAgent.prefersAdult() )
+			mMediaSource->jsAgentMaturityEvent( "GMA" );	// Adult means see adult, mature and general content
+		else
+		if ( gAgent.prefersMature() )
+			mMediaSource->jsAgentMaturityEvent( "GM" );	// Mature means see mature and general content
+		else
+		if ( gAgent.prefersPG() )
+			mMediaSource->jsAgentMaturityEvent( "G" );	// PG means only see General content
+	}
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
 std::string LLViewerMediaImpl::getName() const 
 { 
 	if (mMediaSource)
@@ -2355,23 +2605,7 @@ bool LLViewerMediaImpl::handleKeyHere(KEY key, MASK mask)
 		// Menu keys should be handled by the menu system and not passed to UI elements, but this is how LLTextEditor and LLLineEditor do it...
 		if( MASK_CONTROL & mask )
 		{
-			if( 'C' == key )
-			{
-				mMediaSource->copy();
-				result = true;
-			}
-			else
-			if( 'V' == key )
-			{
-				mMediaSource->paste();
-				result = true;
-			}
-			else
-			if( 'X' == key )
-			{
-				mMediaSource->cut();
-				result = true;
-			}
+			result = true;
 		}
 		
 		if(!result)
@@ -2465,6 +2699,9 @@ void LLViewerMediaImpl::update()
 	else
 	{
 		updateVolume();
+
+		// TODO: this is updated every frame - is this bad?
+		updateJavascriptObject();
 
 		// If we didn't just create the impl, it may need to get cookie updates.
 		if(!sUpdatedCookies.empty())
@@ -2805,41 +3042,20 @@ bool LLViewerMediaImpl::isPlayable() const
 //////////////////////////////////////////////////////////////////////////////////////////
 void LLViewerMediaImpl::handleMediaEvent(LLPluginClassMedia* plugin, LLPluginClassMediaOwner::EMediaEvent event)
 {
+	bool pass_through = true;
 	switch(event)
 	{
 		case MEDIA_EVENT_CLICK_LINK_NOFOLLOW:
 		{
 			LL_DEBUGS("Media") << "MEDIA_EVENT_CLICK_LINK_NOFOLLOW, uri is: " << plugin->getClickURL() << LL_ENDL; 
 			std::string url = plugin->getClickURL();
-			LLURLDispatcher::dispatch(url, NULL, mTrustedBrowser);
-
+			std::string nav_type = plugin->getClickNavType();
+			LLURLDispatcher::dispatch(url, nav_type, NULL, mTrustedBrowser);
 		}
 		break;
 		case MEDIA_EVENT_CLICK_LINK_HREF:
 		{
 			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_CLICK_LINK_HREF, target is \"" << plugin->getClickTarget() << "\", uri is " << plugin->getClickURL() << LL_ENDL;
-			// retrieve the event parameters
-			std::string url = plugin->getClickURL();
-			U32 target_type = plugin->getClickTargetType();
-			
-			switch (target_type)
-			{
-			case LLPluginClassMedia::TARGET_EXTERNAL:
-				// force url to external browser
-				LLWeb::loadURLExternal(url);
-				break;
-			case LLPluginClassMedia::TARGET_BLANK:
-				// open in SL media browser or external browser based on user pref
-				LLWeb::loadURL(url);
-				break;
-			case LLPluginClassMedia::TARGET_NONE:
-				// ignore this click and let media plugin handle it
-				break;
-			case LLPluginClassMedia::TARGET_OTHER:
-				LL_WARNS("LinkTarget") << "Unsupported link target type" << LL_ENDL;
-				break;
-			default: break;
-			}
 		};
 		break;
 		case MEDIA_EVENT_PLUGIN_FAILED_LAUNCH:
@@ -2897,6 +3113,7 @@ void LLViewerMediaImpl::handleMediaEvent(LLPluginClassMedia* plugin, LLPluginCla
 		case LLViewerMediaObserver::MEDIA_EVENT_NAVIGATE_BEGIN:
 		{
 			LL_DEBUGS("Media") << "MEDIA_EVENT_NAVIGATE_BEGIN, uri is: " << plugin->getNavigateURI() << LL_ENDL;
+			hideNotification();
 
 			if(getNavState() == MEDIANAVSTATE_SERVER_SENT)
 			{
@@ -2971,13 +3188,91 @@ void LLViewerMediaImpl::handleMediaEvent(LLPluginClassMedia* plugin, LLPluginCla
 		}
 		break;
 
-		
+		case LLViewerMediaObserver::MEDIA_EVENT_PICK_FILE_REQUEST:
+		{
+			// Display a file picker
+			std::string response;
+			
+			LLFilePicker& picker = LLFilePicker::instance();
+			if (!picker.getOpenFile(LLFilePicker::FFLOAD_ALL))
+			{
+				// The user didn't pick a file -- the empty response string will indicate this.
+			}
+			
+			response = picker.getFirstFile();
+			
+			plugin->sendPickFileResponse(response);
+		}
+		break;
+
+
+		case LLViewerMediaObserver::MEDIA_EVENT_AUTH_REQUEST:
+		{
+			LLNotification::Params auth_request_params;
+			auth_request_params.name = "AuthRequest";
+
+			// pass in host name and realm for site (may be zero length but will always exist)
+			LLSD args;
+			LLURL raw_url( plugin->getAuthURL().c_str() );
+			args["HOST_NAME"] = raw_url.getAuthority();
+			args["REALM"] = plugin->getAuthRealm();
+			auth_request_params.substitutions = args;
+
+			auth_request_params.payload = LLSD().with("media_id", mTextureId);
+			auth_request_params.functor.function = boost::bind(&LLViewerMedia::onAuthSubmit, _1, _2);
+			LLNotifications::instance().add(auth_request_params);
+		};
+		break;
+
+		case LLViewerMediaObserver::MEDIA_EVENT_CLOSE_REQUEST:
+		{
+			std::string uuid = plugin->getClickUUID();
+
+			llinfos << "MEDIA_EVENT_CLOSE_REQUEST for uuid " << uuid << llendl;
+
+			if(uuid.empty())
+			{
+				// This close request is directed at this instance, let it fall through.
+			}
+			else
+			{
+				// This close request is directed at another instance
+				pass_through = false;
+				LLFloaterMediaBrowser::closeRequest(uuid);
+				LLFloaterWebContent::closeRequest(uuid);
+			}
+		}
+		break;
+
+		case LLViewerMediaObserver::MEDIA_EVENT_GEOMETRY_CHANGE:
+		{
+			std::string uuid = plugin->getClickUUID();
+
+			llinfos << "MEDIA_EVENT_GEOMETRY_CHANGE for uuid " << uuid << llendl;
+
+			if(uuid.empty())
+			{
+				// This geometry change request is directed at this instance, let it fall through.
+			}
+			else
+			{
+				// This request is directed at another instance
+				pass_through = false;
+				LLFloaterMediaBrowser::geometryChanged(uuid, plugin->getGeometryX(), plugin->getGeometryY(), plugin->getGeometryWidth(), plugin->getGeometryHeight());
+				LLFloaterWebContent::geometryChanged(uuid, plugin->getGeometryX(), plugin->getGeometryY(), plugin->getGeometryWidth(), plugin->getGeometryHeight());
+			}
+		}
+		break;
+
 		default:
 		break;
 	}
 
-	// Just chain the event to observers.
-	emitEvent(plugin, event);
+	if(pass_through)
+	{
+		// Just chain the event to observers.
+		emitEvent(plugin, event);
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -3446,6 +3741,11 @@ bool LLViewerMediaImpl::isInAgentParcel() const
 		}
 	}
 	return result;
+}
+
+LLNotificationPtr LLViewerMediaImpl::getCurrentNotification() const
+{
+	return mNotification;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

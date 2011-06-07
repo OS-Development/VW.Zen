@@ -76,6 +76,7 @@ LLToastAlertPanel::LLToastAlertPanel( LLNotificationPtr notification, bool modal
 	LLNotificationFormPtr form = mNotification->getForm();
 	std::string edit_text_name;
 	std::string edit_text_contents;
+	S32 edit_text_max_chars = 0;
 	bool is_password = false;
 
 	LLToastPanel::setBackgroundVisible(FALSE);
@@ -115,6 +116,7 @@ LLToastAlertPanel::LLToastAlertPanel( LLNotificationPtr notification, bool modal
 		{
 			edit_text_contents = (*it)["value"].asString();
 			edit_text_name = (*it)["name"].asString();
+			edit_text_max_chars = (*it)["max_length_chars"].asInteger();
 		}
 		else if (type == "password")
 		{
@@ -218,7 +220,6 @@ LLToastAlertPanel::LLToastAlertPanel( LLNotificationPtr notification, bool modal
 	}
 
 	static LLUIColor alert_caution_text_color = LLUIColorTable::instance().getColor("AlertCautionTextColor");
-	static LLUIColor alert_text_color = LLUIColorTable::instance().getColor("AlertTextColor");
 	if (mCaution)
 	{
 		LLIconCtrl* icon = LLUICtrlFactory::getInstance()->createFromFile<LLIconCtrl>("alert_icon.xml", this, LLPanel::child_registry_t::instance());
@@ -230,10 +231,6 @@ LLToastAlertPanel::LLToastAlertPanel( LLNotificationPtr notification, bool modal
 		
 		msg_x += 32 + HPAD;
 		msg_box->setColor( alert_caution_text_color );
-	}
-	else
-	{
-		msg_box->setColor( alert_text_color );
 	}
 
 	LLRect rect;
@@ -253,6 +250,7 @@ LLToastAlertPanel::LLToastAlertPanel( LLNotificationPtr notification, bool modal
 			mLineEditor->setName(edit_text_name);
 			mLineEditor->reshape(leditor_rect.getWidth(), leditor_rect.getHeight());
 			mLineEditor->setRect(leditor_rect);
+			mLineEditor->setMaxTextChars(edit_text_max_chars);
 			mLineEditor->setText(edit_text_contents);
 
 			// decrease limit of line editor of teleport offer dialog to avoid truncation of

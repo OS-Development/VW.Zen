@@ -1,25 +1,25 @@
-/** 
+/**
  * @file llnamelistctrl.h
  * @brief A list of names, automatically refreshing from the name cache.
  *
  * $LicenseInfo:firstyear=2003&license=viewerlgpl$
  * Second Life Viewer Source Code
  * Copyright (C) 2010, Linden Research, Inc.
- * 
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation;
  * version 2.1 of the License only.
- * 
+ *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
- * 
+ *
  * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
@@ -31,6 +31,7 @@
 
 #include "llscrolllistctrl.h"
 
+class LLAvatarName;
 
 class LLNameListCtrl
 :	public LLScrollListCtrl, public LLInstanceTracker<LLNameListCtrl>
@@ -57,7 +58,7 @@ public:
 		NameItem()
 		:	name("name"),
 			target("target", INDIVIDUAL)
-		{}		
+		{}
 	};
 
 	struct NameColumn : public LLInitParam::Choice<NameColumn>
@@ -74,6 +75,7 @@ public:
 	{
 		Optional<NameColumn>	name_column;
 		Optional<bool>	allow_calling_card_drop;
+		Optional<bool>			short_names;
 		Params();
 	};
 
@@ -81,7 +83,7 @@ protected:
 	LLNameListCtrl(const Params&);
 	friend class LLUICtrlFactory;
 public:
-	// Add a user to the list by name.  It will be added, the name 
+	// Add a user to the list by name.  It will be added, the name
 	// requested from the cache, and updated as necessary.
 	void addNameItem(const LLUUID& agent_id, EAddPosition pos = ADD_BOTTOM,
 					 BOOL enabled = TRUE, const std::string& suffix = LLStringUtil::null);
@@ -90,7 +92,7 @@ public:
 	/*virtual*/ LLScrollListItem* addElement(const LLSD& element, EAddPosition pos = ADD_BOTTOM, void* userdata = NULL);
 	LLScrollListItem* addNameItemRow(const NameItem& value, EAddPosition pos = ADD_BOTTOM, const std::string& suffix = LLStringUtil::null);
 
-	// Add a user to the list by name.  It will be added, the name 
+	// Add a user to the list by name.  It will be added, the name
 	// requested from the cache, and updated as necessary.
 	void addGroupNameItem(const LLUUID& group_id, EAddPosition pos = ADD_BOTTOM,
 						  BOOL enabled = TRUE);
@@ -98,11 +100,6 @@ public:
 
 
 	void removeNameItem(const LLUUID& agent_id);
-
-	void refresh(const LLUUID& id, const std::string& first, const std::string& last, BOOL is_group);
-
-	static void refreshAll(const LLUUID& id, const std::string& firstname,
-						   const std::string& lastname, BOOL is_group);
 
 	// LLView interface
 	/*virtual*/ BOOL	handleDragAndDrop(S32 x, S32 y, MASK mask,
@@ -118,16 +115,18 @@ public:
 	/*virtual*/ void	mouseOverHighlightNthItem( S32 index );
 private:
 	void showInspector(const LLUUID& avatar_id, bool is_group);
+	void onAvatarNameCache(const LLUUID& agent_id, const LLAvatarName& av_name);
 
 private:
 	S32    			mNameColumnIndex;
 	std::string		mNameColumn;
 	BOOL			mAllowCallingCardDrop;
+	bool			mShortNames;  // display name only, no SLID
 };
 
 /**
  * LLNameListCtrl item
- * 
+ *
  * We don't use LLScrollListItem to be able to override getUUID(), which is needed
  * because the name list item value is not simply an UUID but a map (uuid, is_group).
  */

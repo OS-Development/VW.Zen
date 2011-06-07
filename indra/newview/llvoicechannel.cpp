@@ -412,6 +412,7 @@ void LLVoiceChannel::doSetState(const EState& new_state)
 {
 	EState old_state = mState;
 	mState = new_state;
+
 	if (!mStateChangedCallback.empty())
 		mStateChangedCallback(old_state, mState, mCallDirection, mCallEndedByAgent);
 }
@@ -497,14 +498,28 @@ void LLVoiceChannelGroup::activate()
 			mURI,
 			mCredentials);
 
-#if 0 // *TODO
 		if (!gAgent.isInGroup(mSessionID)) // ad-hoc channel
 		{
-			// Add the party to the list of people with which we've recently interacted.
-			for (/*people in the chat*/)
-				LLRecentPeople::instance().add(buddy_id);
+			LLIMModel::LLIMSession* session = LLIMModel::getInstance()->findIMSession(mSessionID);
+			// Adding ad-hoc call participants to Recent People List.
+			// If it's an outgoing ad-hoc, we can use mInitialTargetIDs that holds IDs of people we
+			// called(both online and offline) as source to get people for recent (STORM-210).
+			if (session->isOutgoingAdHoc())
+			{
+				for (uuid_vec_t::iterator it = session->mInitialTargetIDs.begin();
+					it!=session->mInitialTargetIDs.end();++it)
+				{
+					const LLUUID id = *it;
+					LLRecentPeople::instance().add(id);
+				}
+			}
+			// If this ad-hoc is incoming then trying to get ids of people from mInitialTargetIDs
+			// would lead to EXT-8246. So in this case we get them from speakers list.
+			else
+			{
+				LLIMModel::addSpeakersToRecent(mSessionID);
+			}
 		}
-#endif
 
 		//Mic default state is OFF on initiating/joining Ad-Hoc/Group calls
 		if (LLVoiceClient::getInstance()->getUserPTTState() && LLVoiceClient::getInstance()->getPTTIsToggle())
@@ -832,14 +847,19 @@ void LLVoiceChannelP2P::activate()
 		// otherwise answering the call
 		else
 		{
-			LLVoiceClient::getInstance()->answerInvite(mSessionHandle);
-			
+			if (!LLVoiceClient::getInstance()->answerInvite(mSessionHandle))
+			{
+				mCallEndedByAgent = false;
+				mSessionHandle.clear();
+				handleError(ERROR_UNKNOWN);
+				return;
+			}
 			// using the session handle invalidates it.  Clear it out here so we can't reuse it by accident.
 			mSessionHandle.clear();
 		}
 
 		// Add the party to the list of people with which we've recently interacted.
-		LLRecentPeople::instance().add(mOtherUserID);
+		addToTheRecentPeopleList();
 
 		//Default mic is ON on initiating/joining P2P calls
 		if (!LLVoiceClient::getInstance()->getUserPTTState() && LLVoiceClient::getInstance()->getPTTIsToggle())
@@ -923,4 +943,26 @@ void LLVoiceChannelP2P::setState(EState state)
 	}
 
 	LLVoiceChannel::setState(state);
+}
+
+void LLVoiceChannelP2P::addToTheRecentPeopleList()
+{
+	bool avaline_call = LLIMModel::getInstance()->findIMSession(mSessionID)->isAvalineSessionType();
+	
+	if (avaline_call)
+	{
+		LLSD call_data;
+		std::string call_number = LLVoiceChannel::getSessionName();
+		
+		call_data["avaline_call"]	= true;
+		call_data["session_id"]		= mSessionID;
+		call_data["call_number"]	= call_number;
+		call_data["date"]			= LLDate::now();
+		
+		LLRecentPeople::instance().add(mOtherUserID, call_data);
+	}
+	else
+	{
+		LLRecentPeople::instance().add(mOtherUserID);
+	}
 }

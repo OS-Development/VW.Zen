@@ -88,7 +88,7 @@ bool LLScriptHandler::processNotification(const LLSD& notify)
 		initChannel();
 	}
 	
-	if(notify["sigtype"].asString() == "add" || notify["sigtype"].asString() == "change")
+	if(notify["sigtype"].asString() == "add")
 	{
 		if (LLHandlerUtil::canLogToIM(notification))
 		{
@@ -130,7 +130,7 @@ bool LLScriptHandler::processNotification(const LLSD& notify)
 			mChannel->killToastByNotificationID(notification->getID());
 		}
 	}
-	return true;
+	return false;
 }
 
 //--------------------------------------------------------------------------

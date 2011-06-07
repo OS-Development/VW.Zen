@@ -25,7 +25,7 @@
  */
 
 #include "llviewerprecompiledheaders.h"
-
+#include "lltooltip.h"
 
 #include "llmediactrl.h"
 
@@ -38,16 +38,27 @@
 #include "llviewermedia.h"
 #include "llviewertexture.h"
 #include "llviewerwindow.h"
-#include "llnotificationsutil.h"
 #include "llweb.h"
 #include "llrender.h"
 #include "llpluginclassmedia.h"
 #include "llslurl.h"
 #include "lluictrlfactory.h"	// LLDefaultChildRegistry
 #include "llkeyboard.h"
+#include "llviewermenu.h"
 
 // linden library includes
 #include "llfocusmgr.h"
+#include "llsdutil.h"
+#include "lllayoutstack.h"
+#include "lliconctrl.h"
+#include "lltextbox.h"
+#include "llbutton.h"
+#include "llcheckboxctrl.h"
+#include "llnotifications.h"
+#include "lllineeditor.h"
+#include "llfloatermediabrowser.h"
+#include "llfloaterwebcontent.h"
+#include "llwindowshade.h"
 
 extern BOOL gRestoreGL;
 
@@ -57,38 +68,44 @@ LLMediaCtrl::Params::Params()
 :	start_url("start_url"),
 	border_visible("border_visible", true),
 	ignore_ui_scale("ignore_ui_scale", true),
-	hide_loading("hide_loading", false),
 	decouple_texture_size("decouple_texture_size", false),
 	texture_width("texture_width", 1024),
 	texture_height("texture_height", 1024),
 	caret_color("caret_color"),
-	initial_mime_type("initial_mime_type")
+	initial_mime_type("initial_mime_type"),
+	error_page_url("error_page_url"),
+	media_id("media_id"),
+	trusted_content("trusted_content", false),
+	focus_on_click("focus_on_click", true)
 {
 	tab_stop(false);
 }
 
 LLMediaCtrl::LLMediaCtrl( const Params& p) :
 	LLPanel( p ),
+	LLInstanceTracker<LLMediaCtrl, LLUUID>(LLUUID::generateNewID()),
 	mTextureDepthBytes( 4 ),
 	mBorder(NULL),
 	mFrequentUpdates( true ),
 	mForceUpdate( false ),
 	mHomePageUrl( "" ),
-	mTrusted(false),
 	mIgnoreUIScale( true ),
 	mAlwaysRefresh( false ),
 	mMediaSource( 0 ),
-	mTakeFocusOnClick( true ),
+	mTakeFocusOnClick( p.focus_on_click ),
 	mCurrentNavUrl( "" ),
 	mStretchToFill( true ),
 	mMaintainAspectRatio ( true ),
-	mHideLoading (false),
-	mHidingInitialLoad (false),
 	mDecoupleTextureSize ( false ),
 	mTextureWidth ( 1024 ),
 	mTextureHeight ( 1024 ),
 	mClearCache(false),
-	mHomePageMimeType(p.initial_mime_type)
+	mHomePageMimeType(p.initial_mime_type),
+	mErrorPageURL(p.error_page_url),
+	mTrusted(p.trusted_content),
+	mWindowShade(NULL),
+	mHoverTextChanged(false),
+	mContextMenu(NULL)
 {
 	{
 		LLColor4 color = p.caret_color().get();
@@ -100,8 +117,6 @@ LLMediaCtrl::LLMediaCtrl( const Params& p) :
 	setHomePageUrl(p.start_url, p.initial_mime_type);
 	
 	setBorderVisible(p.border_visible);
-	
-	mHideLoading = p.hide_loading;
 	
 	setDecoupleTextureSize(p.decouple_texture_size);
 	
@@ -117,7 +132,7 @@ LLMediaCtrl::LLMediaCtrl( const Params& p) :
 		setTextureSize(screen_width, screen_height);
 	}
 	
-	mMediaTextureID.generate();
+	mMediaTextureID = getKey();
 	
 	// We don't need to create the media source up front anymore unless we have a non-empty home URL to navigate to.
 	if(!mHomePageUrl.empty())
@@ -131,11 +146,8 @@ LLMediaCtrl::LLMediaCtrl( const Params& p) :
 //	addChild( mBorder );
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// note: this is now a singleton and destruction happens via initClass() now
 LLMediaCtrl::~LLMediaCtrl()
 {
-
 	if (mMediaSource)
 	{
 		mMediaSource->remObserver( this );
@@ -161,25 +173,23 @@ void LLMediaCtrl::setTakeFocusOnClick( bool take_focus )
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void LLMediaCtrl::setTrusted( bool valIn )
-{
-	if(mMediaSource)
-	{
-		mMediaSource->setTrustedBrowser(valIn);
-	}
-	mTrusted = valIn;
-}
-
-////////////////////////////////////////////////////////////////////////////////
 //
 BOOL LLMediaCtrl::handleHover( S32 x, S32 y, MASK mask )
 {
+	if (LLPanel::handleHover(x, y, mask)) return TRUE;
 	convertInputCoords(x, y);
 
 	if (mMediaSource)
 	{
 		mMediaSource->mouseMove(x, y, mask);
 		gViewerWindow->setCursor(mMediaSource->getLastSetCursor());
+	}
+	
+	// TODO: Is this the right way to handle hover text changes driven by the plugin?
+	if(mHoverTextChanged)
+	{
+		mHoverTextChanged = false;
+		handleToolTip(x, y, mask);
 	}
 
 	return TRUE;
@@ -189,8 +199,38 @@ BOOL LLMediaCtrl::handleHover( S32 x, S32 y, MASK mask )
 //
 BOOL LLMediaCtrl::handleScrollWheel( S32 x, S32 y, S32 clicks )
 {
+	if (LLPanel::handleScrollWheel(x, y, clicks)) return TRUE;
 	if (mMediaSource && mMediaSource->hasMedia())
 		mMediaSource->getMediaPlugin()->scrollEvent(0, clicks, gKeyboard->currentMask(TRUE));
+
+	return TRUE;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//	virtual 
+BOOL LLMediaCtrl::handleToolTip(S32 x, S32 y, MASK mask)
+{
+	std::string hover_text;
+	
+	if (mMediaSource && mMediaSource->hasMedia())
+		hover_text = mMediaSource->getMediaPlugin()->getHoverText();
+	
+	if(hover_text.empty())
+	{
+		return FALSE;
+	}
+	else
+	{
+		S32 screen_x, screen_y;
+
+		localPointToScreen(x, y, &screen_x, &screen_y);
+		LLRect sticky_rect_screen;
+		sticky_rect_screen.setCenterAndSize(screen_x, screen_y, 20, 20);
+
+		LLToolTipMgr::instance().show(LLToolTip::Params()
+			.message(hover_text)
+			.sticky_rect(sticky_rect_screen));		
+	}
 
 	return TRUE;
 }
@@ -199,19 +239,12 @@ BOOL LLMediaCtrl::handleScrollWheel( S32 x, S32 y, S32 clicks )
 //
 BOOL LLMediaCtrl::handleMouseUp( S32 x, S32 y, MASK mask )
 {
+	if (LLPanel::handleMouseUp(x, y, mask)) return TRUE;
 	convertInputCoords(x, y);
 
 	if (mMediaSource)
 	{
 		mMediaSource->mouseUp(x, y, mask);
-
-		// *HACK: LLMediaImplLLMozLib automatically takes focus on mouseup,
-		// in addition to the onFocusReceived() call below.  Undo this. JC
-		if (!mTakeFocusOnClick)
-		{
-			mMediaSource->focus(false);
-			gViewerWindow->focusClient();
-		}
 	}
 	
 	gFocusMgr.setMouseCapture( NULL );
@@ -223,6 +256,7 @@ BOOL LLMediaCtrl::handleMouseUp( S32 x, S32 y, MASK mask )
 //
 BOOL LLMediaCtrl::handleMouseDown( S32 x, S32 y, MASK mask )
 {
+	if (LLPanel::handleMouseDown(x, y, mask)) return TRUE;
 	convertInputCoords(x, y);
 
 	if (mMediaSource)
@@ -242,6 +276,7 @@ BOOL LLMediaCtrl::handleMouseDown( S32 x, S32 y, MASK mask )
 //
 BOOL LLMediaCtrl::handleRightMouseUp( S32 x, S32 y, MASK mask )
 {
+	if (LLPanel::handleRightMouseUp(x, y, mask)) return TRUE;
 	convertInputCoords(x, y);
 
 	if (mMediaSource)
@@ -266,16 +301,25 @@ BOOL LLMediaCtrl::handleRightMouseUp( S32 x, S32 y, MASK mask )
 //
 BOOL LLMediaCtrl::handleRightMouseDown( S32 x, S32 y, MASK mask )
 {
-	convertInputCoords(x, y);
+	if (LLPanel::handleRightMouseDown(x, y, mask)) return TRUE;
+
+	S32 media_x = x, media_y = y;
+	convertInputCoords(media_x, media_y);
 
 	if (mMediaSource)
-		mMediaSource->mouseDown(x, y, mask, 1);
+		mMediaSource->mouseDown(media_x, media_y, mask, 1);
 	
 	gFocusMgr.setMouseCapture( this );
 
 	if (mTakeFocusOnClick)
 	{
 		setFocus( TRUE );
+	}
+
+	if (mContextMenu)
+	{
+		mContextMenu->show(x, y);
+		LLMenuGL::showPopup(this, mContextMenu, x, y);
 	}
 
 	return TRUE;
@@ -285,6 +329,7 @@ BOOL LLMediaCtrl::handleRightMouseDown( S32 x, S32 y, MASK mask )
 //
 BOOL LLMediaCtrl::handleDoubleClick( S32 x, S32 y, MASK mask )
 {
+	if (LLPanel::handleDoubleClick(x, y, mask)) return TRUE;
 	convertInputCoords(x, y);
 
 	if (mMediaSource)
@@ -339,6 +384,8 @@ void LLMediaCtrl::onFocusLost()
 //
 BOOL LLMediaCtrl::postBuild ()
 {
+	mContextMenu = LLUICtrlFactory::getInstance()->createFromFile<LLContextMenu>(
+		"menu_media_ctrl.xml", LLMenuGL::sMenuContainer, LLViewerMenuHolderGL::child_registry_t::instance());
 	setVisibleCallback(boost::bind(&LLMediaCtrl::onVisibilityChange, this, _2));
 	return TRUE;
 }
@@ -353,6 +400,9 @@ BOOL LLMediaCtrl::handleKeyHere( KEY key, MASK mask )
 	{
 		result = mMediaSource->handleKeyHere(key, mask);
 	}
+	
+	if ( ! result )
+		result = LLPanel::handleKeyHere(key, mask);
 		
 	return result;
 }
@@ -378,6 +428,9 @@ BOOL LLMediaCtrl::handleUnicodeCharHere(llwchar uni_char)
 	{
 		result = mMediaSource->handleUnicodeCharHere(uni_char);
 	}
+
+	if ( ! result )
+		result = LLPanel::handleUnicodeCharHere(uni_char);
 
 	return result;
 }
@@ -454,22 +507,6 @@ bool LLMediaCtrl::canNavigateForward()
 		return mMediaSource->canNavigateForward();
 	else
 		return false;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-//
-void LLMediaCtrl::set404RedirectUrl( std::string redirect_url )
-{
-	if(mMediaSource && mMediaSource->hasMedia())
-		mMediaSource->getMediaPlugin()->set_status_redirect( 404, redirect_url );
-}
-
-////////////////////////////////////////////////////////////////////////////////
-//
-void LLMediaCtrl::clr404RedirectUrl()
-{
-	if(mMediaSource && mMediaSource->hasMedia())
-		mMediaSource->getMediaPlugin()->set_status_redirect(404, "");
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -572,6 +609,25 @@ void LLMediaCtrl::setHomePageUrl( const std::string& urlIn, const std::string& m
 	}
 }
 
+void LLMediaCtrl::setTarget(const std::string& target)
+{
+	mTarget = target;
+	if (mMediaSource)
+	{
+		mMediaSource->setTarget(mTarget);
+	}
+}
+
+void LLMediaCtrl::setErrorPageURL(const std::string& url)
+{
+	mErrorPageURL = url;
+}
+
+const std::string& LLMediaCtrl::getErrorPageURL()
+{
+	return mErrorPageURL;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 //
 bool LLMediaCtrl::setCaretColor(unsigned int red, unsigned int green, unsigned int blue)
@@ -613,6 +669,7 @@ bool LLMediaCtrl::ensureMediaSourceExists()
 		{
 			mMediaSource->setUsedInUI(true);
 			mMediaSource->setHomeURL(mHomePageUrl, mHomePageMimeType);
+			mMediaSource->setTarget(mTarget);
 			mMediaSource->setVisible( getVisible() );
 			mMediaSource->addObserver( this );
 			mMediaSource->setBackgroundColor( getBackgroundColor() );
@@ -621,11 +678,6 @@ bool LLMediaCtrl::ensureMediaSourceExists()
 			{
 				mMediaSource->clearCache();
 				mClearCache = false;
-			}
-			
-			if(mHideLoading)
-			{
-				mHidingInitialLoad = true;
 			}
 		}
 		else
@@ -694,11 +746,11 @@ void LLMediaCtrl::draw()
 		}
 	}
 	
-	if(mHidingInitialLoad)
-	{
-		// If we're hiding loading, don't draw at all.
-		draw_media = false;
-	}
+//	if(mHidingInitialLoad)
+//	{
+//		// If we're hiding loading, don't draw at all.
+//		draw_media = false;
+//	}
 	
 	bool background_visible = isBackgroundVisible();
 	bool background_opaque = isBackgroundOpaque();
@@ -824,7 +876,6 @@ void LLMediaCtrl::draw()
 	if ( mBorder && mBorder->getVisible() )
 		mBorder->setKeyboardFocusHighlight( gFocusMgr.childHasKeyboardFocus( this ) );
 
-	
 	LLPanel::draw();
 
 	// Restore the previous values
@@ -890,6 +941,7 @@ void LLMediaCtrl::handleMediaEvent(LLPluginClassMedia* self, EMediaEvent event)
 		case MEDIA_EVENT_NAVIGATE_BEGIN:
 		{
 			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_NAVIGATE_BEGIN, url is " << self->getNavigateURI() << LL_ENDL;
+			hideNotification();
 		};
 		break;
 		
@@ -921,12 +973,40 @@ void LLMediaCtrl::handleMediaEvent(LLPluginClassMedia* self, EMediaEvent event)
 		};
 		break;
 
+		case MEDIA_EVENT_NAVIGATE_ERROR_PAGE:
+		{
+			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_NAVIGATE_ERROR_PAGE" << LL_ENDL;
+			if ( mErrorPageURL.length() > 0 )
+			{
+				navigateTo(mErrorPageURL, "text/html");
+			};
+		};
+		break;
+
 		case MEDIA_EVENT_CLICK_LINK_HREF:
 		{
 			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_CLICK_LINK_HREF, target is \"" << self->getClickTarget() << "\", uri is " << self->getClickURL() << LL_ENDL;
+			// retrieve the event parameters
+			std::string url = self->getClickURL();
+			std::string target = self->getClickTarget();
+			std::string uuid = self->getClickUUID();
+
+			LLNotification::Params notify_params;
+			notify_params.name = "PopupAttempt";
+			notify_params.payload = LLSD().with("target", target).with("url", url).with("uuid", uuid).with("media_id", mMediaTextureID);
+			notify_params.functor.function = boost::bind(&LLMediaCtrl::onPopup, this, _1, _2);
+
+			if (mTrusted)
+			{
+				LLNotifications::instance().forceResponse(notify_params, 0);
+			}
+			else
+			{
+				LLNotifications::instance().add(notify_params);
+			}
+			break;
 		};
-		break;
-		
+
 		case MEDIA_EVENT_CLICK_LINK_NOFOLLOW:
 		{
 			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_CLICK_LINK_NOFOLLOW, uri is " << self->getClickURL() << LL_ENDL;
@@ -950,6 +1030,49 @@ void LLMediaCtrl::handleMediaEvent(LLPluginClassMedia* self, EMediaEvent event)
 			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_NAME_CHANGED" << LL_ENDL;
 		};
 		break;
+		
+		case MEDIA_EVENT_CLOSE_REQUEST:
+		{
+			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_CLOSE_REQUEST" << LL_ENDL;
+		}
+		break;
+		
+		case MEDIA_EVENT_PICK_FILE_REQUEST:
+		{
+			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_PICK_FILE_REQUEST" << LL_ENDL;
+		}
+		break;
+		
+		case MEDIA_EVENT_GEOMETRY_CHANGE:
+		{
+			LL_DEBUGS("Media") << "Media event:  MEDIA_EVENT_GEOMETRY_CHANGE, uuid is " << self->getClickUUID() << LL_ENDL;
+		}
+		break;
+
+		case MEDIA_EVENT_AUTH_REQUEST:
+		{
+			LLNotification::Params auth_request_params;
+			auth_request_params.name = "AuthRequest";
+
+			// pass in host name and realm for site (may be zero length but will always exist)
+			LLSD args;
+			LLURL raw_url( self->getAuthURL().c_str() );
+			args["HOST_NAME"] = raw_url.getAuthority();
+			args["REALM"] = self->getAuthRealm();
+			auth_request_params.substitutions = args;
+
+			auth_request_params.payload = LLSD().with("media_id", mMediaTextureID);
+			auth_request_params.functor.function = boost::bind(&LLViewerMedia::onAuthSubmit, _1, _2);
+			LLNotifications::instance().add(auth_request_params);
+		};
+		break;
+
+		case MEDIA_EVENT_LINK_HOVERED:
+		{
+			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_LINK_HOVERED, hover text is: " << self->getHoverText() << LL_ENDL;
+			mHoverTextChanged = true;
+		};
+		break;
 	};
 
 	// chain all events to any potential observers of this object.
@@ -963,3 +1086,89 @@ std::string LLMediaCtrl::getCurrentNavUrl()
 	return mCurrentNavUrl;
 }
 
+void LLMediaCtrl::onPopup(const LLSD& notification, const LLSD& response)
+{
+	if (response["open"])
+	{
+		// name of default floater to open
+		std::string floater_name = "media_browser";
+
+		// look for parent floater name
+		if ( gFloaterView )
+		{
+			if ( gFloaterView->getParentFloater(this) )
+			{
+				floater_name = gFloaterView->getParentFloater(this)->getInstanceName();
+			}
+			else
+			{
+				lldebugs << "No gFloaterView->getParentFloater(this) for onPopuup()" << llendl;
+			};
+		}
+		else
+		{
+			lldebugs << "No gFloaterView for onPopuup()" << llendl;
+		};
+
+		// (for now) open web content floater if that's our parent, otherwise, open the current media floater
+		// (this will change soon)
+		if ( floater_name == "web_content" )
+		{
+			LLWeb::loadWebURL(notification["payload"]["url"], notification["payload"]["target"], notification["payload"]["uuid"]);
+		}
+		else
+		{
+			LLWeb::loadURL(notification["payload"]["url"], notification["payload"]["target"], notification["payload"]["uuid"]);
+		}
+	}
+	else
+	{
+		// Make sure the opening instance knows its window open request was denied, so it can clean things up.
+		LLViewerMedia::proxyWindowClosed(notification["payload"]["uuid"]);
+	}
+}
+
+void LLMediaCtrl::showNotification(LLNotificationPtr notify)
+{
+	delete mWindowShade;
+
+	LLWindowShade::Params params;
+	params.name = "notification_shade";
+	params.rect = getLocalRect();
+	params.follows.flags = FOLLOWS_ALL;
+	params.notification = notify;
+	params.modal = true;
+	//HACK: don't hardcode this
+	if (notify->getIcon() == "Popup_Caution")
+	{
+		params.bg_image.name = "Yellow_Gradient";
+		params.text_color = LLColor4::black;
+	}
+	else
+	//HACK: another one since XUI doesn't support what we need right now
+	if (notify->getName() == "AuthRequest")
+	{
+		params.bg_image.name = "Yellow_Gradient";
+		params.text_color = LLColor4::black;
+		params.can_close = false;
+	}
+	else
+	{
+		//HACK: make this a property of the notification itself, "cancellable"
+		params.can_close = false;
+		params.text_color.control = "LabelTextColor";
+	}
+
+	mWindowShade = LLUICtrlFactory::create<LLWindowShade>(params);
+
+	addChild(mWindowShade);
+	mWindowShade->show();
+}
+
+void LLMediaCtrl::hideNotification()
+{
+	if (mWindowShade)
+	{
+		mWindowShade->hide();
+	}
+}

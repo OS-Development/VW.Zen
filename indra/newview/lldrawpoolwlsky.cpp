@@ -192,7 +192,7 @@ void LLDrawPoolWLSky::renderSkyClouds(F32 camHeightLocal) const
 				&gWLCloudProgram;
 
 		LLGLEnable blend(GL_BLEND);
-		LLGLSBlendFunc blendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		gGL.setSceneBlendType(LLRender::BT_ALPHA);
 		gGL.setAlphaRejectSettings(LLRender::CF_DEFAULT);
 
 		gGL.getTexUnit(0)->bind(sCloudNoiseTexture);
@@ -260,7 +260,7 @@ void LLDrawPoolWLSky::render(S32 pass)
 	LLGLDepthTest depth(GL_TRUE, GL_FALSE);
 	LLGLDisable clip(GL_CLIP_PLANE0);
 
-	LLGLClampToFarClip far_clip(glh_get_current_projection());
+	LLGLSquashToFarClip far_clip(glh_get_current_projection());
 
 	renderSkyHaze(camHeightLocal);
 

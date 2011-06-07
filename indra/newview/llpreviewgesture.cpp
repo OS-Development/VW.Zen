@@ -34,6 +34,7 @@
 #include "llassetuploadresponders.h"
 #include "llcheckboxctrl.h"
 #include "llcombobox.h"
+#include "lldatapacker.h"
 #include "lldelayedgestureerror.h"
 #include "llfloaterreg.h"
 #include "llgesturemgr.h"
@@ -311,9 +312,6 @@ LLPreviewGesture::LLPreviewGesture(const LLSD& key)
 	NONE_LABEL =  LLTrans::getString("---");
 	SHIFT_LABEL = LLTrans::getString("KBShift");
 	CTRL_LABEL = LLTrans::getString("KBCtrl");
-	
-	//Called from floater reg: LLUICtrlFactory::getInstance()->buildFloater(this, "floater_preview_gesture.xml", FALSE);
-
 }
 
 
@@ -1600,7 +1598,7 @@ std::string LLPreviewGesture::getLabel(std::vector<std::string> labels)
 	
 	if(v_labels[0]=="Chat")
 	{
-		result=LLTrans::getString("Chat");
+		result=LLTrans::getString("Chat Message");
 	}
     else if(v_labels[0]=="Sound")	
 	{

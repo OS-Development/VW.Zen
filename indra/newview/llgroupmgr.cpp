@@ -52,6 +52,7 @@
 #include <boost/regex.hpp>
 
 #if LL_MSVC
+#pragma warning(push)   
 // disable boost::lexical_cast warning
 #pragma warning (disable:4702)
 #endif
@@ -1175,8 +1176,8 @@ void LLGroupMgr::processGroupRoleMembersReply(LLMessageSystem* msg, void** data)
 				}
 				else
 				{
-					if (!rd) llwarns << "Received role data for unkown role " << role_id << " in group " << group_id << llendl;
-					if (!md) llwarns << "Received role data for unkown member " << member_id << " in group " << group_id << llendl;
+					if (!rd) llwarns << "Received role data for unknown role " << role_id << " in group " << group_id << llendl;
+					if (!md) llwarns << "Received role data for unknown member " << member_id << " in group " << group_id << llendl;
 				}
 			}
 		}

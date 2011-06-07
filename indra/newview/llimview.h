@@ -35,7 +35,7 @@
 #include "llvoicechannel.h"
 
 
-
+class LLAvatarName;
 class LLFriendObserver;
 class LLCallDialogManager;	
 class LLIMSpeakerMgr;
@@ -62,7 +62,7 @@ class LLIMModel :  public LLSingleton<LLIMModel>
 {
 public:
 
-	struct LLIMSession
+	struct LLIMSession : public boost::signals2::trackable
 	{
 		typedef enum e_session_type
 		{   // for now we have 4 predefined types for a session
@@ -84,6 +84,7 @@ public:
 		/** @deprecated */
 		static void chatFromLogFile(LLLogChat::ELogLineType type, const LLSD& msg, void* userdata);
 
+		bool isOutgoingAdHoc();
 		bool isAdHoc();
 		bool isP2P();
 		bool isOtherParticipantAvaline();
@@ -96,9 +97,6 @@ public:
 		//*TODO make private
 		/** ad-hoc sessions involve sophisticated chat history file naming schemes */
 		void buildHistoryFileName();
-
-		//*TODO make private
-		static std::string generateHash(const std::set<LLUUID>& sorted_uuids);
 
 		LLUUID mSessionID;
 		std::string mName;
@@ -134,6 +132,11 @@ public:
 
 		//if IM session is created for a voice call
 		bool mStartedAsIMCall;
+
+	private:
+		void onAdHocNameCache(const LLAvatarName& av_name);
+
+		static std::string generateHash(const std::set<LLUUID>& sorted_uuids);
 	};
 	
 
@@ -230,7 +233,7 @@ public:
 	 * For an incoming ad-hoc chat - is received from the server and is in a from of "<Avatar's name> Conference"
 	 *	It is updated in LLIMModel::LLIMSession's constructor to localize the "Conference".
 	 */
-	const std::string& getName(const LLUUID& session_id) const;
+	const std::string getName(const LLUUID& session_id) const;
 
 	/** 
 	 * Get number of unread messages in a session with session_id
@@ -273,6 +276,9 @@ public:
 	static void sendMessage(const std::string& utf8_text, const LLUUID& im_session_id,
 								const LLUUID& other_participant_id, EInstantMessage dialog);
 
+	// Adds people from speakers list (people with whom you are currently speaking) to the Recent People List
+	static void addSpeakersToRecent(const LLUUID& im_session_id);
+
 	void testMessages();
 
 	/**
@@ -285,12 +291,7 @@ private:
 	/**
 	 * Add message to a list of message associated with session specified by session_id
 	 */
-	bool addToHistory(const LLUUID& session_id, const std::string& from, const LLUUID& from_id, const std::string& utf8_text); 
-
-	/**
-	 * Save an IM message into a file
-	 */
-	bool logToFile(const LLUUID& session_id, const std::string& from, const LLUUID& from_id, const std::string& utf8_text);
+	bool addToHistory(const LLUUID& session_id, const std::string& from, const LLUUID& from_id, const std::string& utf8_text);
 };
 
 class LLIMSessionObserver
@@ -453,7 +454,7 @@ private:
 
 	void processIMTypingCore(const LLIMInfo* im_info, BOOL typing);
 
-	static void onInviteNameLookup(LLSD payload, const LLUUID& id, const std::string& first, const std::string& last, BOOL is_group);
+	static void onInviteNameLookup(LLSD payload, const LLUUID& id, const std::string& name, bool is_group);
 
 	void notifyObserverSessionAdded(const LLUUID& session_id, const std::string& name, const LLUUID& other_participant_id);
 	void notifyObserverSessionRemoved(const LLUUID& session_id);
@@ -534,9 +535,16 @@ public:
 	static void onReject(void* user_data);
 	static void onStartIM(void* user_data);
 
+	static void processCallResponse(S32 response, const LLSD& payload);
 private:
+	void setCallerName(const std::string& ui_title,
+		const std::string& ui_label,
+		const std::string& call_type);
+	void onAvatarNameCache(const LLUUID& agent_id,
+		const LLAvatarName& av_name,
+		const std::string& call_type);
+
 	/*virtual*/ void onLifetimeExpired();
-	void processCallResponse(S32 response);
 };
 
 class LLOutgoingCallDialog : public LLCallDialog

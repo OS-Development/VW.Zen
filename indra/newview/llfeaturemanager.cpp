@@ -67,8 +67,8 @@ const char FEATURE_TABLE_VER_FILENAME[] = "featuretable_linux.%s.txt";
 const char FEATURE_TABLE_FILENAME[] = "featuretable_solaris.txt";
 const char FEATURE_TABLE_VER_FILENAME[] = "featuretable_solaris.%s.txt";
 #else
-const char FEATURE_TABLE_FILENAME[] = "featuretable.txt";
-const char FEATURE_TABLE_VER_FILENAME[] = "featuretable.%s.txt";
+const char FEATURE_TABLE_FILENAME[] = "featuretable%s.txt";
+const char FEATURE_TABLE_VER_FILENAME[] = "featuretable%s.%s.txt";
 #endif
 
 const char GPU_TABLE_FILENAME[] = "gpu_table.txt";
@@ -203,7 +203,7 @@ BOOL LLFeatureManager::maskFeatures(const std::string& name)
  		LL_DEBUGS("RenderInit") << "Unknown feature mask " << name << LL_ENDL;
 		return FALSE;
 	}
-	LL_DEBUGS("RenderInit") << "Applying Feature Mask: " << name << LL_ENDL;
+	LL_INFOS("RenderInit") << "Applying GPU Feature list: " << name << LL_ENDL;
 	return maskList(*maskp);
 }
 
@@ -220,10 +220,30 @@ BOOL LLFeatureManager::loadFeatureTables()
 	// first table is install with app
 	std::string app_path = gDirUtilp->getAppRODataDir();
 	app_path += gDirUtilp->getDirDelimiter();
-	app_path += FEATURE_TABLE_FILENAME;
 
+	std::string filename;
+	std::string http_filename; 
+#if LL_WINDOWS
+	std::string os_string = LLAppViewer::instance()->getOSInfo().getOSStringSimple();
+	if (os_string.find("Microsoft Windows XP") == 0)
+	{
+		filename = llformat(FEATURE_TABLE_FILENAME, "_xp");
+		http_filename = llformat(FEATURE_TABLE_VER_FILENAME, "_xp", LLVersionInfo::getVersion().c_str());
+	}
+	else
+	{
+		filename = llformat(FEATURE_TABLE_FILENAME, "");
+		http_filename = llformat(FEATURE_TABLE_VER_FILENAME, "", LLVersionInfo::getVersion().c_str());
+	}
+#else
+	filename = FEATURE_TABLE_FILENAME;
+	http_filename = llformat(FEATURE_TABLE_VER_FILENAME, LLVersionInfo::getVersion().c_str());
+#endif
+
+	app_path += filename;
+
+	
 	// second table is downloaded with HTTP
-	std::string http_filename = llformat(FEATURE_TABLE_VER_FILENAME, LLVersionInfo::getVersion().c_str());
 	std::string http_path = gDirUtilp->getExpandedFilename(LL_PATH_USER_SETTINGS, http_filename);
 
 	// use HTTP table if it exists
@@ -270,22 +290,13 @@ BOOL LLFeatureManager::parseFeatureTable(std::string filename)
 	mTableVersion = version;
 
 	LLFeatureList *flp = NULL;
-	while (!file.eof() && file.good())
+	while (file >> name)
 	{
 		char buffer[MAX_STRING];		 /*Flawfinder: ignore*/
-
-		file >> name;
 		
 		if (name.substr(0,2) == "//")
 		{
 			// This is a comment.
-			file.getline(buffer, MAX_STRING);
-			continue;
-		}
-
-		if (name.empty())
-		{
-			// This is a blank line
 			file.getline(buffer, MAX_STRING);
 			continue;
 		}
@@ -367,13 +378,16 @@ void LLFeatureManager::parseGPUTable(std::string filename)
 		return;
 	}
 
-	std::string renderer = gGLManager.getRawGLString();
+	std::string rawRenderer = gGLManager.getRawGLString();
+	std::string renderer = rawRenderer;
 	for (std::string::iterator i = renderer.begin(); i != renderer.end(); ++i)
 	{
 		*i = tolower(*i);
 	}
-	
-	while (!file.eof())
+
+	bool gpuFound;
+	U32 lineNumber;
+	for (gpuFound = false, lineNumber = 0; !gpuFound && !file.eof(); lineNumber++)
 	{
 		char buffer[MAX_STRING];		 /*Flawfinder: ignore*/
 		buffer[0] = 0;
@@ -420,6 +434,7 @@ void LLFeatureManager::parseGPUTable(std::string filename)
 
 		if (label.empty() || expr.empty() || cls.empty() || supported.empty())
 		{
+			LL_WARNS("RenderInit") << "invald gpu_table.txt:" << lineNumber << ": '" << buffer << "'" << LL_ENDL;
 			continue;
 		}
 	
@@ -433,18 +448,26 @@ void LLFeatureManager::parseGPUTable(std::string filename)
 		if(boost::regex_search(renderer, re))
 		{
 			// if we found it, stop!
-			file.close();
-			LL_INFOS("RenderInit") << "GPU is " << label << llendl;
+			gpuFound = true;
 			mGPUString = label;
 			mGPUClass = (EGPUClass) strtol(cls.c_str(), NULL, 10);
 			mGPUSupported = (BOOL) strtol(supported.c_str(), NULL, 10);
-			file.close();
-			return;
 		}
 	}
 	file.close();
 
-	LL_WARNS("RenderInit") << "Couldn't match GPU to a class: " << gGLManager.getRawGLString() << LL_ENDL;
+	if ( gpuFound )
+	{
+		LL_INFOS("RenderInit") << "GPU '" << rawRenderer << "' recognized as '" << mGPUString << "'" << LL_ENDL;
+		if (!mGPUSupported)
+		{
+			LL_INFOS("RenderInit") << "GPU '" << mGPUString << "' is not supported." << LL_ENDL;
+		}
+	}
+	else
+	{
+		LL_WARNS("RenderInit") << "GPU '" << rawRenderer << "' not recognized" << LL_ENDL;
+	}
 }
 
 // responder saves table into file
@@ -488,7 +511,35 @@ private:
 	std::string mFilename;
 };
 
-void fetch_table(std::string table)
+void fetch_feature_table(std::string table)
+{
+	const std::string base       = gSavedSettings.getString("FeatureManagerHTTPTable");
+
+#if LL_WINDOWS
+	std::string os_string = LLAppViewer::instance()->getOSInfo().getOSStringSimple();
+	std::string filename;
+	if (os_string.find("Microsoft Windows XP") == 0)
+	{
+		filename = llformat(table.c_str(), "_xp", LLVersionInfo::getVersion().c_str());
+	}
+	else
+	{
+		filename = llformat(table.c_str(), "", LLVersionInfo::getVersion().c_str());
+	}
+#else
+	const std::string filename   = llformat(table.c_str(), LLVersionInfo::getVersion().c_str());
+#endif
+
+	const std::string url        = base + "/" + filename;
+
+	const std::string path       = gDirUtilp->getExpandedFilename(LL_PATH_USER_SETTINGS, filename);
+
+	llinfos << "LLFeatureManager fetching " << url << " into " << path << llendl;
+	
+	LLHTTPClient::get(url, new LLHTTPFeatureTableResponder(path));
+}
+
+void fetch_gpu_table(std::string table)
 {
 	const std::string base       = gSavedSettings.getString("FeatureManagerHTTPTable");
 
@@ -506,8 +557,8 @@ void fetch_table(std::string table)
 // fetch table(s) from a website (S3)
 void LLFeatureManager::fetchHTTPTables()
 {
-	fetch_table(FEATURE_TABLE_VER_FILENAME);
-	fetch_table(GPU_TABLE_VER_FILENAME);
+	fetch_feature_table(FEATURE_TABLE_VER_FILENAME);
+	fetch_gpu_table(GPU_TABLE_VER_FILENAME);
 }
 
 
@@ -690,6 +741,10 @@ void LLFeatureManager::applyBaseMasks()
 	{
 		maskFeatures("ATI");
 	}
+	if (gGLManager.mHasATIMemInfo && gGLManager.mVRAM < 256)
+	{
+		maskFeatures("ATIVramLT256");
+	}
 	if (gGLManager.mATIOldDriver)
 	{
 		maskFeatures("ATIOldDriver");
@@ -705,6 +760,14 @@ void LLFeatureManager::applyBaseMasks()
 	if (gGLManager.mGLVersion < 1.5f)
 	{
 		maskFeatures("OpenGLPre15");
+	}
+	if (gGLManager.mGLVersion < 3.f)
+	{
+		maskFeatures("OpenGLPre30");
+	}
+	if (gGLManager.mNumTextureImageUnits <= 8)
+	{
+		maskFeatures("TexUnit8orLess");
 	}
 
 	// now mask by gpu string

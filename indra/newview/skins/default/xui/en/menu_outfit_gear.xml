@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
-<menu
+<toggleable_menu
  layout="topleft"
  visible="false"
  name="Gear Outfit">
@@ -133,6 +133,14 @@
                      parameter="alpha" />
                 </menu_item_call>
                 <menu_item_call
+                 label="New Physics"
+                 layout="topleft"
+                 name="New Physics">
+                    <menu_item_call.on_click
+                     function="Gear.Create"
+                     parameter="physics" />
+                </menu_item_call>
+                <menu_item_call
                  label="New Tattoo"
                  layout="topleft"
                  name="New Tattoo">
@@ -212,4 +220,4 @@
          function="Gear.OnVisible"
          parameter="delete" />
     </menu_item_call>
-</menu>
+</toggleable_menu>

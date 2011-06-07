@@ -33,6 +33,7 @@
 #include "llagentcamera.h"
 #include "llbutton.h"
 #include "llcommandhandler.h"
+#include "llfirstuse.h"
 #include "llviewercontrol.h"
 #include "llfloaterbuycurrency.h"
 #include "llbuycurrencyhtml.h"
@@ -41,6 +42,7 @@
 #include "llpanelvolumepulldown.h"
 #include "llfloaterregioninfo.h"
 #include "llfloaterscriptdebug.h"
+#include "llhints.h"
 #include "llhudicon.h"
 #include "llnavigationbar.h"
 #include "llkeyboard.h"
@@ -107,16 +109,13 @@ const S32 TEXT_HEIGHT = 18;
 
 static void onClickVolume(void*);
 
-std::vector<std::string> LLStatusBar::sDays;
-std::vector<std::string> LLStatusBar::sMonths;
-const U32 LLStatusBar::MAX_DATE_STRING_LENGTH = 2000;
-
 LLStatusBar::LLStatusBar(const LLRect& rect)
 :	LLPanel(),
 	mTextTime(NULL),
 	mSGBandwidth(NULL),
 	mSGPacketLoss(NULL),
 	mBtnVolume(NULL),
+	mBoxBalance(NULL),
 	mBalance(0),
 	mHealth(100),
 	mSquareMetersCredit(0),
@@ -127,14 +126,10 @@ LLStatusBar::LLStatusBar(const LLRect& rect)
 	// status bar can possible overlay menus?
 	setMouseOpaque(FALSE);
 
-	// size of day of the weeks and year
-	sDays.reserve(7);
-	sMonths.reserve(12);
-
 	mBalanceTimer = new LLFrameTimer();
 	mHealthTimer = new LLFrameTimer();
 
-	LLUICtrlFactory::getInstance()->buildPanel(this,"panel_status_bar.xml");
+	buildFromFile("panel_status_bar.xml");
 }
 
 LLStatusBar::~LLStatusBar()
@@ -169,13 +164,13 @@ BOOL LLStatusBar::postBuild()
 {
 	gMenuBarView->setRightMouseDownCallback(boost::bind(&show_navbar_context_menu, _1, _2, _3));
 
-	// build date necessary data (must do after panel built)
-	setupDate();
-
 	mTextTime = getChild<LLTextBox>("TimeText" );
 	
 	getChild<LLUICtrl>("buyL")->setCommitCallback(
 		boost::bind(&LLStatusBar::onClickBuyCurrency, this));
+
+	mBoxBalance = getChild<LLTextBox>("balance");
+	mBoxBalance->setClickedCallback( &LLStatusBar::onClickBalance, this );
 
 	mBtnVolume = getChild<LLButton>( "volume_btn" );
 	mBtnVolume->setClickedCallback( onClickVolume, this );
@@ -184,6 +179,8 @@ BOOL LLStatusBar::postBuild()
 	mMediaToggle = getChild<LLButton>("media_toggle_btn");
 	mMediaToggle->setClickedCallback( &LLStatusBar::onClickMediaToggle, this );
 	mMediaToggle->setMouseEnterCallback(boost::bind(&LLStatusBar::onMouseEnterNearbyMedia, this));
+
+	LLHints::registerHintTarget("linden_balance", getChild<LLView>("balance_bg")->getHandle());
 
 	gSavedSettings.getControl("MuteAudio")->getSignal()->connect(boost::bind(&LLStatusBar::onVolumeChanged, this, _2));
 
@@ -223,8 +220,6 @@ BOOL LLStatusBar::postBuild()
 	mSGPacketLoss->setPrecision(1);
 	mSGPacketLoss->mPerSec = FALSE;
 	addChild(mSGPacketLoss);
-
-	getChild<LLTextBox>("stat_btn")->setClickedCallback(onClickStatGraph);
 
 	mPanelVolumePulldown = new LLPanelVolumePulldown();
 	addChild(mPanelVolumePulldown);
@@ -313,6 +308,7 @@ void LLStatusBar::setVisibleForMouselook(bool visible)
 {
 	mTextTime->setVisible(visible);
 	getChild<LLUICtrl>("balance_bg")->setVisible(visible);
+	mBoxBalance->setVisible(visible);
 	mBtnVolume->setVisible(visible);
 	mMediaToggle->setVisible(visible);
 	mSGBandwidth->setVisible(visible);
@@ -332,18 +328,22 @@ void LLStatusBar::creditBalance(S32 credit)
 
 void LLStatusBar::setBalance(S32 balance)
 {
+	if (balance > getBalance() && getBalance() != 0)
+	{
+		LLFirstUse::receiveLindens();
+	}
+
 	std::string money_str = LLResMgr::getInstance()->getMonetaryString( balance );
 
-	LLTextBox* balance_box = getChild<LLTextBox>("balance");
 	LLStringUtil::format_map_t string_args;
 	string_args["[AMT]"] = llformat("%s", money_str.c_str());
 	std::string label_str = getString("buycurrencylabel", string_args);
-	balance_box->setValue(label_str);
+	mBoxBalance->setValue(label_str);
 
 	// Resize the L$ balance background to be wide enough for your balance plus the buy button
 	{
 		const S32 HPAD = 24;
-		LLRect balance_rect = balance_box->getTextBoundingRect();
+		LLRect balance_rect = mBoxBalance->getTextBoundingRect();
 		LLRect buy_rect = getChildView("buyL")->getRect();
 		LLView* balance_bg_view = getChildView("balance_bg");
 		LLRect balance_bg_rect = balance_bg_view->getRect();
@@ -454,6 +454,7 @@ void LLStatusBar::onClickBuyCurrency()
 	// open a currency floater - actual one open depends on 
 	// value specified in settings.xml
 	LLBuyCurrencyHTML::openCurrencyFloater();
+	LLFirstUse::receiveLindens(false);
 }
 
 void LLStatusBar::onMouseEnterVolume()
@@ -509,81 +510,20 @@ static void onClickVolume(void* data)
 }
 
 //static 
+void LLStatusBar::onClickBalance(void* )
+{
+	// Force a balance request message:
+	LLStatusBar::sendMoneyBalanceRequest();
+	// The refresh of the display (call to setBalance()) will be done by process_money_balance_reply()
+}
+
+//static 
 void LLStatusBar::onClickMediaToggle(void* data)
 {
 	LLStatusBar *status_bar = (LLStatusBar*)data;
 	// "Selected" means it was showing the "play" icon (so media was playing), and now it shows "pause", so turn off media
 	bool enable = ! status_bar->mMediaToggle->getValue();
 	LLViewerMedia::setAllMediaEnabled(enable);
-}
-
-// sets the static variables necessary for the date
-void LLStatusBar::setupDate()
-{
-	// fill the day array with what's in the xui
-	std::string day_list = getString("StatBarDaysOfWeek");
-	size_t length = day_list.size();
-	
-	// quick input check
-	if(length < MAX_DATE_STRING_LENGTH)
-	{
-		// tokenize it and put it in the array
-		std::string cur_word;
-		for(size_t i = 0; i < length; ++i)
-		{
-			if(day_list[i] == ':')
-			{
-				sDays.push_back(cur_word);
-				cur_word.clear();
-			}
-			else
-			{
-				cur_word.append(1, day_list[i]);
-			}
-		}
-		sDays.push_back(cur_word);
-	}
-	
-	// fill the day array with what's in the xui	
-	std::string month_list = getString( "StatBarMonthsOfYear" );
-	length = month_list.size();
-	
-	// quick input check
-	if(length < MAX_DATE_STRING_LENGTH)
-	{
-		// tokenize it and put it in the array
-		std::string cur_word;
-		for(size_t i = 0; i < length; ++i)
-		{
-			if(month_list[i] == ':')
-			{
-				sMonths.push_back(cur_word);
-				cur_word.clear();
-			}
-			else
-			{
-				cur_word.append(1, month_list[i]);
-			}
-		}
-		sMonths.push_back(cur_word);
-	}
-	
-	// make sure we have at least 7 days and 12 months
-	if(sDays.size() < 7)
-	{
-		sDays.resize(7);
-	}
-	
-	if(sMonths.size() < 12)
-	{
-		sMonths.resize(12);
-	}
-}
-
-// static
-void LLStatusBar::onClickStatGraph(void* data)
-{
-	LLFloaterReg::showInstance("lagmeter");
 }
 
 BOOL can_afford_transaction(S32 cost)

@@ -31,7 +31,6 @@
 
 #include "llassetstorage.h"
 #include "lldarrayptr.h"
-#include "llhudtext.h"
 #include "llhudicon.h"
 #include "llinventory.h"
 #include "llrefcount.h"
@@ -44,6 +43,7 @@
 #include "v3dmath.h"
 #include "v3math.h"
 #include "llvertexbuffer.h"
+#include "llaccountingquota.h"
 
 class LLAgent;			// TODO: Get rid of this.
 class LLAudioSource;
@@ -54,6 +54,7 @@ class LLColor4;
 class LLFrameTimer;
 class LLDrawable;
 class LLHost;
+class LLHUDText;
 class LLWorld;
 class LLNameValue;
 class LLNetMap;
@@ -77,6 +78,7 @@ typedef enum e_object_update_type
 	OUT_TERSE_IMPROVED,
 	OUT_FULL_COMPRESSED,
 	OUT_FULL_CACHED,
+	OUT_UNKNOWN,
 } EObjectUpdateType;
 
 
@@ -131,7 +133,7 @@ public:
 
 	typedef const child_list_t const_child_list_t;
 
-	LLViewerObject(const LLUUID &id, const LLPCode type, LLViewerRegion *regionp, BOOL is_global = FALSE);
+	LLViewerObject(const LLUUID &id, const LLPCode pcode, LLViewerRegion *regionp, BOOL is_global = FALSE);
 	MEM_TYPE_NEW(LLMemType::MTYPE_OBJECT);
 
 	virtual void markDead();				// Mark this object as dead, and clean up its references
@@ -175,6 +177,7 @@ public:
 	void			setOnActiveList(BOOL on_active)		{ mOnActiveList = on_active; }
 
 	virtual BOOL	isAttachment() const { return FALSE; }
+	virtual LLVOAvatar* getAvatar() const;  //get the avatar this object is attached to, or NULL if object is not an attachment
 	virtual BOOL	isHUDAttachment() const { return FALSE; }
 	virtual void 	updateRadius() {};
 	virtual F32 	getVObjRadius() const; // default implemenation is mDrawable->getRadius()
@@ -223,15 +226,13 @@ public:
 
 	virtual BOOL isFlexible() const					{ return FALSE; }
 	virtual BOOL isSculpted() const 				{ return FALSE; }
+	virtual BOOL isMesh() const						{ return FALSE; }
 	virtual BOOL hasLightTexture() const			{ return FALSE; }
 
 	// This method returns true if the object is over land owned by
-	// the agent.
-	BOOL isOverAgentOwnedLand() const;
-
-	// True if over land owned by group of which the agent is
-	// either officer or member.
-	BOOL isOverGroupOwnedLand() const;
+	// the agent, one of its groups, or it encroaches and 
+	// anti-encroachment is enabled
+	bool isReturnable();
 
 	/*
 	// This method will scan through this object, and then query the
@@ -326,6 +327,22 @@ public:
 	
 	virtual void setScale(const LLVector3 &scale, BOOL damped = FALSE);
 
+	virtual F32 getStreamingCost(S32* bytes = NULL, S32* visible_bytes = NULL);
+	virtual U32 getTriangleCount();
+	virtual U32 getHighLODTriangleCount();
+
+	void setObjectCost(F32 cost);
+	F32 getObjectCost();
+	
+	void setLinksetCost(F32 cost);
+	F32 getLinksetCost();
+	
+	void setPhysicsCost(F32 cost);
+	F32 getPhysicsCost();
+	
+	void setLinksetPhysicsCost(F32 cost);
+	F32 getLinksetPhysicsCost();
+
 	void sendShapeUpdate();
 
 	U8 getState()							{ return mState; }
@@ -365,7 +382,7 @@ public:
 
 	void markForUpdate(BOOL priority);
 	void updateVolume(const LLVolumeParams& volume_params);
-	virtual	void updateSpatialExtents(LLVector3& min, LLVector3& max);
+	virtual	void updateSpatialExtents(LLVector4a& min, LLVector4a& max);
 	virtual F32 getBinRadius();
 	
 	LLBBox				getBoundingBoxAgent() const;
@@ -378,7 +395,7 @@ public:
 	void clearDrawableState(U32 state, BOOL recursive = TRUE);
 
 	// Called when the drawable shifts
-	virtual void onShift(const LLVector3 &shift_vector)	{ }
+	virtual void onShift(const LLVector4a &shift_vector)	{ }
 		
 	//////////////////////////////////////
 	//
@@ -453,6 +470,12 @@ public:
 	inline BOOL		flagCameraDecoupled() const		{ return ((mFlags & FLAGS_CAMERA_DECOUPLED) != 0); }
 	inline BOOL		flagObjectMove() const			{ return ((mFlags & FLAGS_OBJECT_MOVE) != 0); }
 
+	U8       getPhysicsShapeType() const;
+	inline F32      getPhysicsGravity() const       { return mPhysicsGravity; }
+	inline F32      getPhysicsFriction() const      { return mPhysicsFriction; }
+	inline F32      getPhysicsDensity() const       { return mPhysicsDensity; }
+	inline F32      getPhysicsRestitution() const   { return mPhysicsRestitution; }
+	
 	bool getIncludeInSearch() const;
 	void setIncludeInSearch(bool include_in_search);
 
@@ -464,10 +487,15 @@ public:
 	bool specialHoverCursor() const;	// does it have a special hover cursor?
 
 	void			setRegion(LLViewerRegion *regionp);
-	virtual void	updateRegion(LLViewerRegion *regionp) {}
+	virtual void	updateRegion(LLViewerRegion *regionp);
 
-	void updateFlags();
+	void updateFlags(BOOL physics_changed = FALSE);
 	BOOL setFlags(U32 flag, BOOL state);
+	void setPhysicsShapeType(U8 type);
+	void setPhysicsGravity(F32 gravity);
+	void setPhysicsFriction(F32 friction);
+	void setPhysicsDensity(F32 density);
+	void setPhysicsRestitution(F32 restitution);
 	
 	virtual void dump() const;
 	static U32		getNumZombieObjects()			{ return sNumZombieObjects; }
@@ -510,6 +538,9 @@ private:
     // and the update wasn't due to this agent's last action.
     U32 checkMediaURL(const std::string &media_url);
 	
+	// Motion prediction between updates
+	void interpolateLinearMotion(const F64 & time, const F32 & dt);
+
 public:
 	//
 	// Viewer-side only types - use the LL_PCODE_APP mask.
@@ -518,16 +549,23 @@ public:
 	{
 		LL_VO_CLOUDS =				LL_PCODE_APP | 0x20,
 		LL_VO_SURFACE_PATCH =		LL_PCODE_APP | 0x30,
-		//LL_VO_STARS =				LL_PCODE_APP | 0x40,
+		LL_VO_WL_SKY =				LL_PCODE_APP | 0x40,
 		LL_VO_SQUARE_TORUS =		LL_PCODE_APP | 0x50,
 		LL_VO_SKY =					LL_PCODE_APP | 0x60,
-		LL_VO_WATER =				LL_PCODE_APP | 0x70,
-		LL_VO_GROUND =				LL_PCODE_APP | 0x80,
-		LL_VO_PART_GROUP =			LL_PCODE_APP | 0x90,
-		LL_VO_TRIANGLE_TORUS =		LL_PCODE_APP | 0xa0,
-		LL_VO_WL_SKY =				LL_PCODE_APP | 0xb0, // should this be moved to 0x40?
+		LL_VO_VOID_WATER =			LL_PCODE_APP | 0x70,
+		LL_VO_WATER =				LL_PCODE_APP | 0x80,
+		LL_VO_GROUND =				LL_PCODE_APP | 0x90,
+		LL_VO_PART_GROUP =			LL_PCODE_APP | 0xa0,
+		LL_VO_TRIANGLE_TORUS =		LL_PCODE_APP | 0xb0,
 		LL_VO_HUD_PART_GROUP =		LL_PCODE_APP | 0xc0,
 	} EVOType;
+
+	typedef enum e_physics_shape_types
+	{
+		PHYSICS_SHAPE_PRIM = 0,
+		PHYSICS_SHAPE_NONE,
+		PHYSICS_SHAPE_CONVEX_HULL,
+	} EPhysicsShapeType;
 
 	LLUUID			mID;
 
@@ -546,6 +584,14 @@ public:
 
 	// Grabbed from UPDATE_FLAGS
 	U32				mFlags;
+
+	// Sent to sim in UPDATE_FLAGS, received in ObjectPhysicsProperties
+	U8              mPhysicsShapeType;
+	F32             mPhysicsGravity;
+	F32             mPhysicsFriction;
+	F32             mPhysicsDensity;
+	F32             mPhysicsRestitution;
+	
 
 	// Pipeline classes
 	LLPointer<LLDrawable> mDrawable;
@@ -598,7 +644,11 @@ protected:
 	void unpackParticleSource(LLDataPacker &dp, const LLUUID& owner_id);
 	void deleteParticleSource();
 	void setParticleSource(const LLPartSysData& particle_parameters, const LLUUID& owner_id);
-
+	
+public:
+	void  updateQuota(  const SelectionQuota& quota );
+	const SelectionQuota& getQuota( void ) { return mSelectionQuota; }
+	
 private:
 	void setNameValueList(const std::string& list);		// clears nv pairs and then individually adds \n separated NV pairs from \0 terminated string
 	void deleteTEImages(); // correctly deletes list of images
@@ -612,6 +662,7 @@ protected:
 	F64				mLastInterpUpdateSecs;			// Last update for purposes of interpolation
 	F64				mLastMessageUpdateSecs;			// Last update from a message from the simulator
 	TPACKETID		mLatestRecvPacketID;			// Latest time stamp on message from simulator
+
 	// extra data sent from the sim...currently only used for tree species info
 	U8* mData;
 
@@ -654,6 +705,15 @@ protected:
 	U8				mState;	// legacy
 	LLViewerObjectMedia* mMedia;	// NULL if no media associated
 	U8 mClickAction;
+	F32 mObjectCost; //resource cost of this object or -1 if unknown
+	F32 mLinksetCost;
+	F32 mPhysicsCost;
+	F32 mLinksetPhysicsCost;
+
+	SelectionQuota mSelectionQuota;
+	
+	bool mCostStale;
+	mutable bool mPhysicsShapeUnknown;
 
 	static			U32			sNumZombieObjects;			// Objects which are dead, but not deleted
 
@@ -669,8 +729,20 @@ protected:
 	mutable LLVector3		mPositionRegion;
 	mutable LLVector3		mPositionAgent;
 
+	static void setPhaseOutUpdateInterpolationTime(F32 value)	{ sPhaseOutUpdateInterpolationTime = (F64) value;	}
+	static void setMaxUpdateInterpolationTime(F32 value)		{ sMaxUpdateInterpolationTime = (F64) value;	}
+
+	static void	setVelocityInterpolate(BOOL value)		{ sVelocityInterpolate = value;	}
+	static void	setPingInterpolate(BOOL value)			{ sPingInterpolate = value;	}
+
 private:	
 	static S32 sNumObjects;
+
+	static F64 sPhaseOutUpdateInterpolationTime;	// For motion interpolation
+	static F64 sMaxUpdateInterpolationTime;			// For motion interpolation
+
+	static BOOL sVelocityInterpolate;
+	static BOOL sPingInterpolate;
 
 	//--------------------------------------------------------------------
 	// For objects that are attachments
@@ -679,8 +751,15 @@ public:
 	const LLUUID &getAttachmentItemID() const;
 	void setAttachmentItemID(const LLUUID &id);
 	const LLUUID &extractAttachmentItemID(); // find&set the inventory item ID of the attached object
+	EObjectUpdateType getLastUpdateType() const;
+	void setLastUpdateType(EObjectUpdateType last_update_type);
+	BOOL getLastUpdateCached() const;
+	void setLastUpdateCached(BOOL last_update_cached);
+
 private:
 	LLUUID mAttachmentItemID; // ItemID of the associated object is in user inventory.
+	EObjectUpdateType	mLastUpdateType;
+	BOOL	mLastUpdateCached;
 };
 
 ///////////////////
@@ -717,8 +796,8 @@ public:
 class LLAlphaObject : public LLViewerObject
 {
 public:
-	LLAlphaObject(const LLUUID &id, const LLPCode type, LLViewerRegion *regionp)
-	: LLViewerObject(id,type,regionp) 
+	LLAlphaObject(const LLUUID &id, const LLPCode pcode, LLViewerRegion *regionp)
+	: LLViewerObject(id,pcode,regionp) 
 	{ mDepth = 0.f; }
 
 	virtual F32 getPartSize(S32 idx);
@@ -735,14 +814,12 @@ public:
 class LLStaticViewerObject : public LLViewerObject
 {
 public:
-	LLStaticViewerObject(const LLUUID& id, const LLPCode type, LLViewerRegion* regionp, BOOL is_global = FALSE)
-		: LLViewerObject(id,type,regionp, is_global)
+	LLStaticViewerObject(const LLUUID& id, const LLPCode pcode, LLViewerRegion* regionp, BOOL is_global = FALSE)
+		: LLViewerObject(id,pcode,regionp, is_global)
 	{ }
 
 	virtual void updateDrawable(BOOL force_damped);
 };
 
-extern BOOL gVelocityInterpolate;
-extern BOOL gPingInterpolate;
 
 #endif

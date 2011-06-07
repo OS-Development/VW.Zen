@@ -39,7 +39,9 @@
 #include "llvoavatarself.h" // to check gAgentAvatarp->isSitting()
 #include "llbottomtray.h"
 #include "llbutton.h"
+#include "llfirstuse.h"
 #include "llfloaterreg.h"
+#include "llhints.h"
 #include "lljoystickbutton.h"
 #include "lluictrlfactory.h"
 #include "llviewerwindow.h"
@@ -92,6 +94,7 @@ BOOL LLFloaterMove::postBuild()
 {
 	setIsChrome(TRUE);
 	setTitleVisible(TRUE); // restore title visibility after chrome applying
+	updateTransparency(TT_ACTIVE); // force using active floater transparency (STORM-730)
 	
 	LLDockableFloater::postBuild();
 	
@@ -161,6 +164,7 @@ void LLFloaterMove::setVisible(BOOL visible)
 
 	if (visible)
 	{
+		LLFirstUse::notMoving(false);
 		// Attach the Stand/Stop Flying panel.
 		LLPanelStandStopFlying* ssf_panel = LLPanelStandStopFlying::getInstance();
 		ssf_panel->reparent(this);
@@ -445,17 +449,20 @@ void LLFloaterMove::updatePosition()
 	LLBottomTray* tray = LLBottomTray::getInstance();
 	if (!tray) return;
 
-	LLButton* movement_btn = tray->getChild<LLButton>(BOTTOM_TRAY_BUTTON_NAME);
+	LLButton* movement_btn = tray->findChild<LLButton>(BOTTOM_TRAY_BUTTON_NAME);
 
-	//align centers of a button and a floater
-	S32 x = movement_btn->calcScreenRect().getCenterX() - getRect().getWidth()/2;
-
-	S32 y = 0;
-	if (!mModeActionsPanel->getVisible())
+	if (movement_btn)
 	{
-		y = mModeActionsPanel->getRect().getHeight();
+		//align centers of a button and a floater
+		S32 x = movement_btn->calcScreenRect().getCenterX() - getRect().getWidth()/2;
+
+		S32 y = 0;
+		if (!mModeActionsPanel->getVisible())
+		{
+			y = mModeActionsPanel->getRect().getHeight();
+		}
+		setOrigin(x, y);
 	}
-	setOrigin(x, y);
 }
 
 //static
@@ -549,7 +556,7 @@ LLPanelStandStopFlying::LLPanelStandStopFlying() :
 }
 
 // static
-inline LLPanelStandStopFlying* LLPanelStandStopFlying::getInstance()
+LLPanelStandStopFlying* LLPanelStandStopFlying::getInstance()
 {
 	static LLPanelStandStopFlying* panel = getStandStopFlyingPanel();
 	return panel;
@@ -560,6 +567,11 @@ void LLPanelStandStopFlying::setStandStopFlyingMode(EStandStopFlyingMode mode)
 {
 	LLPanelStandStopFlying* panel = getInstance();
 
+	if (mode == SSFM_STAND)
+	{
+		LLFirstUse::sit();
+		LLFirstUse::notMoving(false);
+	}
 	panel->mStandButton->setVisible(SSFM_STAND == mode);
 	panel->mStopFlyingButton->setVisible(SSFM_STOP_FLYING == mode);
 
@@ -590,6 +602,7 @@ BOOL LLPanelStandStopFlying::postBuild()
 	mStandButton->setCommitCallback(boost::bind(&LLPanelStandStopFlying::onStandButtonClick, this));
 	mStandButton->setCommitCallback(boost::bind(&LLFloaterMove::enableInstance, TRUE));
 	mStandButton->setVisible(FALSE);
+	LLHints::registerHintTarget("stand_btn", mStandButton->getHandle());
 	
 	mStopFlyingButton = getChild<LLButton>("stop_fly_btn");
 	//mStopFlyingButton->setCommitCallback(boost::bind(&LLFloaterMove::setFlyingMode, FALSE));
@@ -688,7 +701,7 @@ void LLPanelStandStopFlying::reparent(LLFloaterMove* move_view)
 LLPanelStandStopFlying* LLPanelStandStopFlying::getStandStopFlyingPanel()
 {
 	LLPanelStandStopFlying* panel = new LLPanelStandStopFlying();
-	LLUICtrlFactory::getInstance()->buildPanel(panel, "panel_stand_stop_flying.xml");
+	panel->buildFromFile("panel_stand_stop_flying.xml");
 
 	panel->setVisible(FALSE);
 	//LLUI::getRootView()->addChild(panel);
@@ -701,6 +714,8 @@ LLPanelStandStopFlying* LLPanelStandStopFlying::getStandStopFlyingPanel()
 
 void LLPanelStandStopFlying::onStandButtonClick()
 {
+	LLFirstUse::sit(false);
+
 	LLSelectMgr::getInstance()->deselectAllForStandingUp();
 	gAgent.setControlFlags(AGENT_CONTROL_STAND_UP);
 
@@ -724,10 +739,18 @@ void LLPanelStandStopFlying::updatePosition()
 	LLBottomTray* tray = LLBottomTray::getInstance();
 	if (!tray || mAttached) return;
 
-	LLButton* movement_btn = tray->getChild<LLButton>(BOTTOM_TRAY_BUTTON_NAME);
+	LLButton* movement_btn = tray->findChild<LLButton>(BOTTOM_TRAY_BUTTON_NAME);
 
-	// Align centers of the button and the panel.
-	S32 x = movement_btn->calcScreenRect().getCenterX() - getRect().getWidth()/2;
+	S32 x = 0;
+	if (movement_btn)
+	{
+		// Align centers of the button and the panel.
+		x = movement_btn->calcScreenRect().getCenterX() - getRect().getWidth()/2;
+	}
+	else
+	{
+		x = tray->calcScreenRect().getCenterX() - getRect().getWidth()/2;
+	}
 	setOrigin(x, 0);
 }
 

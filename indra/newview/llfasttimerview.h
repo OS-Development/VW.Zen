@@ -37,17 +37,18 @@ public:
 	
 	static BOOL sAnalyzePerformance;
 
+	static void outputAllMetrics();
 	static void doAnalysis(std::string baseline, std::string target, std::string output);
 
 private:
 	static void doAnalysisDefault(std::string baseline, std::string target, std::string output) ;
-	static void doAnalysisMetrics(std::string baseline, std::string target, std::string output) ;
-	static LLSD analyzeMetricPerformanceLog(std::istream& is) ;
 	static LLSD analyzePerformanceLogDefault(std::istream& is) ;
+	static void exportCharts(const std::string& base, const std::string& target);
 
 public:
 
 	virtual BOOL handleMouseDown(S32 x, S32 y, MASK mask);
+	virtual BOOL handleDoubleClick(S32 x, S32 y, MASK mask);
 	virtual BOOL handleRightMouseDown(S32 x, S32 y, MASK mask);
 	virtual BOOL handleMouseUp(S32 x, S32 y, MASK mask);
 	virtual BOOL handleHover(S32 x, S32 y, MASK mask);

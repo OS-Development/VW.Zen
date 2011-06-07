@@ -4,7 +4,7 @@
  *
  * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * Copyright (C) 2010, Linden Research, Inc.
+ * Copyright (C) 2002-2010, Linden Research, Inc.
  * 
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -24,9 +24,6 @@
  * $/LicenseInfo$
  */
 
-// llhudobject.cpp
-// Copyright 2002, Linden Research, Inc.
-
 #include "llviewerprecompiledheaders.h"
 
 #include "llhudobject.h"
@@ -35,10 +32,11 @@
 #include "llhudtext.h"
 #include "llhudicon.h"
 #include "llhudeffectbeam.h"
+#include "llhudeffectblob.h"
 #include "llhudeffecttrail.h"
 #include "llhudeffectlookat.h"
 #include "llhudeffectpointat.h"
-
+#include "llhudnametag.h"
 #include "llvoicevisualizer.h"
 
 #include "llagent.h"
@@ -66,7 +64,6 @@ LLHUDObject::LLHUDObject(const U8 type) :
 	mVisible = TRUE;
 	mType = type;
 	mDead = FALSE;
-	mOnHUDAttachment = FALSE;
 }
 
 LLHUDObject::~LLHUDObject()
@@ -144,6 +141,9 @@ LLHUDObject *LLHUDObject::addHUDObject(const U8 type)
 		break;
 	case LL_HUD_ICON:
 		hud_objectp = new LLHUDIcon(type);
+		break;
+	case LL_HUD_NAME_TAG:
+		hud_objectp = new LLHUDNameTag(type);
 		break;
 	default:
 		llwarns << "Unknown type of hud object:" << (U32) type << llendl;
@@ -238,6 +238,9 @@ LLHUDEffect *LLHUDObject::addHUDEffect(const U8 type)
 	case LL_HUD_EFFECT_POINTAT:
 		hud_objectp = new LLHUDEffectPointAt(type);
 		break;
+	case LL_HUD_EFFECT_BLOB:
+		hud_objectp = new LLHUDEffectBlob(type);
+		break;
 	default:
 		llwarns << "Unknown type of hud effect:" << (U32) type << llendl;
 	}
@@ -257,6 +260,7 @@ void LLHUDObject::updateAll()
 	LLFastTimer ftm(FTM_HUD_UPDATE);
 	LLHUDText::updateAll();
 	LLHUDIcon::updateAll();
+	LLHUDNameTag::updateAll();
 	sortObjects();
 }
 
@@ -284,7 +288,7 @@ void LLHUDObject::renderAll()
 }
 
 // static
-void LLHUDObject::renderAllForSelect()
+void LLHUDObject::renderAllForTimer()
 {
 	LLHUDObject *hud_objp;
 	
@@ -299,9 +303,17 @@ void LLHUDObject::renderAllForSelect()
 		}
 		else if (hud_objp->isVisible())
 		{
-			hud_objp->renderForSelect();
+			hud_objp->renderForTimer();
 		}
 	}
+}
+
+// static
+void LLHUDObject::reshapeAll()
+{
+	// only hud objects that use fonts care about window size/scale changes
+	LLHUDText::reshape();
+	LLHUDNameTag::reshape();
 }
 
 // static

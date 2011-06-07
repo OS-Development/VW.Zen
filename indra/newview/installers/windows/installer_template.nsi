@@ -45,14 +45,14 @@ RequestExecutionLevel admin	; on Vista we must be admin because we write to Prog
 # *TODO: Move these into the language files themselves
 LangString LanguageCode ${LANG_DANISH}   "da"
 LangString LanguageCode ${LANG_GERMAN}   "de"
-Langstring LanguageCode ${LANG_ENGLISH}  "en"
+LangString LanguageCode ${LANG_ENGLISH}  "en"
 LangString LanguageCode ${LANG_SPANISH}  "es"
 LangString LanguageCode ${LANG_FRENCH}   "fr"
 LangString LanguageCode ${LANG_JAPANESE} "ja"
 LangString LanguageCode ${LANG_ITALIAN}  "it"
 LangString LanguageCode ${LANG_KOREAN}   "ko"
 LangString LanguageCode ${LANG_DUTCH}    "nl"
-LangString LanguageCode ${LANG_POLISH}   "da"
+LangString LanguageCode ${LANG_POLISH}   "pl"
 LangString LanguageCode ${LANG_PORTUGUESEBR} "pt"
 LangString LanguageCode ${LANG_SIMPCHINESE}  "zh"
 
@@ -85,6 +85,8 @@ AutoCloseWindow true					; after all files install, close window
 InstallDir "$PROGRAMFILES\${INSTNAME}"
 InstallDirRegKey HKEY_LOCAL_MACHINE "SOFTWARE\Linden Research, Inc.\${INSTNAME}" ""
 DirText $(DirectoryChooseTitle) $(DirectoryChooseSetup)
+Page directory dirPre
+Page instfiles
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Variables
@@ -95,6 +97,8 @@ Var INSTFLAGS
 Var INSTSHORTCUT
 Var COMMANDLINE         ; command line passed to this installer, set in .onInit
 Var SHORTCUT_LANG_PARAM ; "--set InstallLanguage de", passes language to viewer
+Var SKIP_DIALOGS        ; set from command line in  .onInit. autoinstall 
+                        ; GUI and the defaults.
 
 ;;; Function definitions should go before file includes, because calls to
 ;;; DLLs like LangDLL trigger an implicit file include, so if that call is at
@@ -110,6 +114,9 @@ Var SHORTCUT_LANG_PARAM ; "--set InstallLanguage de", passes language to viewer
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Function .onInstSuccess
     Push $R0	# Option value, unused
+
+    StrCmp $SKIP_DIALOGS "true" label_launch 
+
     ${GetOptions} $COMMANDLINE "/AUTOSTART" $R0
     # If parameter was there (no error) just launch
     # Otherwise ask
@@ -128,6 +135,13 @@ label_no_launch:
 	Pop $R0
 FunctionEnd
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Pre-directory page callback
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Function dirPre
+    StrCmp $SKIP_DIALOGS "true" 0 +2
+	Abort
+FunctionEnd    
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Make sure we're not on Windows 98 / ME
@@ -145,7 +159,8 @@ Function CheckWindowsVersion
 	StrCmp $R0 "NT" win_ver_bad
 	Return
 win_ver_bad:
-	MessageBox MB_YESNO $(CheckWindowsVersionMB) IDNO win_ver_abort
+	StrCmp $SKIP_DIALOGS "true" +2 ; If skip_dialogs is set just install
+            MessageBox MB_YESNO $(CheckWindowsVersionMB) IDNO win_ver_abort
 	Return
 win_ver_abort:
 	Quit
@@ -184,17 +199,36 @@ FunctionEnd
 ; If it has, allow user to bail out of install process.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Function CheckIfAlreadyCurrent
-  Push $0
-	ReadRegStr $0 HKEY_LOCAL_MACHINE "SOFTWARE\Linden Research, Inc.\$INSTPROG" "Version"
-    StrCmp $0 ${VERSION_LONG} 0 DONE
-	MessageBox MB_OKCANCEL $(CheckIfCurrentMB) /SD IDOK IDOK DONE
+    Push $0
+    ReadRegStr $0 HKEY_LOCAL_MACHINE "SOFTWARE\Linden Research, Inc.\$INSTPROG" "Version"
+    StrCmp $0 ${VERSION_LONG} 0 continue_install
+    StrCmp $SKIP_DIALOGS "true" continue_install
+    MessageBox MB_OKCANCEL $(CheckIfCurrentMB) /SD IDOK IDOK continue_install
     Quit
-
-  DONE:
+continue_install:
     Pop $0
     Return
 FunctionEnd
 	
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Checks for CPU valid (must have SSE2 support)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Function CheckCPUFlags
+    Call GetWindowsVersion
+    Pop $R0
+    StrCmp $R0 "2000" OK_SSE  ; sse check not available on win2k.
+
+    Push $1
+    System::Call 'kernel32::IsProcessorFeaturePresent(i) i(10) .r1'
+    IntCmp $1 1 OK_SSE
+    MessageBox MB_OKCANCEL $(MissingSSE2) /SD IDOK IDOK OK_SSE
+    Quit
+
+  OK_SSE:
+    Pop $1
+    Return
+FunctionEnd
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Close the program, if running. Modifies no variables.
 ; Allows user to bail out of install process.
@@ -203,7 +237,9 @@ Function CloseSecondLife
   Push $0
   FindWindow $0 "Second Life" ""
   IntCmp $0 0 DONE
-  MessageBox MB_OKCANCEL $(CloseSecondLifeInstMB) IDOK CLOSE IDCANCEL CANCEL_INSTALL
+  
+  StrCmp $SKIP_DIALOGS "true" CLOSE
+    MessageBox MB_OKCANCEL $(CloseSecondLifeInstMB) IDOK CLOSE IDCANCEL CANCEL_INSTALL
 
   CANCEL_INSTALL:
     Quit
@@ -659,23 +695,29 @@ FunctionEnd
 Function .onInit
     Push $0
     ${GetParameters} $COMMANDLINE              ; get our command line
+
+    ${GetOptions} $COMMANDLINE "/SKIP_DIALOGS" $0   
+    IfErrors +2 0 ; If error jump past setting SKIP_DIALOGS
+        StrCpy $SKIP_DIALOGS "true"
+
     ${GetOptions} $COMMANDLINE "/LANGID=" $0   ; /LANGID=1033 implies US English
     ; If no language (error), then proceed
-    IfErrors lbl_check_silent
+    IfErrors lbl_configure_default_lang
     ; No error means we got a language, so use it
     StrCpy $LANGUAGE $0
     Goto lbl_return
 
-lbl_check_silent:
-    ; For silent installs, no language prompt, use default
-    IfSilent lbl_return
-    
-	; If we currently have a version of SL installed, default to the language of that install
+lbl_configure_default_lang:
+    ; If we currently have a version of SL installed, default to the language of that install
     ; Otherwise don't change $LANGUAGE and it will default to the OS UI language.
-	ReadRegStr $0 HKEY_LOCAL_MACHINE "SOFTWARE\Linden Research, Inc.\${INSTNAME}" "InstallerLanguage"
-    IfErrors lbl_build_menu
+    ReadRegStr $0 HKEY_LOCAL_MACHINE "SOFTWARE\Linden Research, Inc.\${INSTNAME}" "InstallerLanguage"
+    IfErrors +2 0 ; If error skip the copy instruction 
 	StrCpy $LANGUAGE $0
 
+    ; For silent installs, no language prompt, use default
+    IfSilent lbl_return
+    StrCmp $SKIP_DIALOGS "true" lbl_return
+  
 lbl_build_menu:
 	Push ""
     # Use separate file so labels can be UTF-16 but we can still merge changes
@@ -721,6 +763,7 @@ StrCpy $INSTEXE "${INSTEXE}"
 StrCpy $INSTSHORTCUT "${SHORTCUT}"
 
 Call CheckWindowsVersion		; warn if on Windows 98/ME
+Call CheckCPUFlags			; Make sure we have SSE2 support
 Call CheckIfAdministrator		; Make sure the user can install/uninstall
 Call CheckIfAlreadyCurrent		; Make sure that we haven't already installed this version
 Call CloseSecondLife			; Make sure we're not running

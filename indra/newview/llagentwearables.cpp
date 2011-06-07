@@ -821,7 +821,7 @@ void LLAgentWearables::popWearable(const LLWearableType::EType type, U32 index)
 	}
 }
 
-U32	LLAgentWearables::getWearableIndex(LLWearable *wearable)
+U32	LLAgentWearables::getWearableIndex(const LLWearable *wearable) const
 {
 	if (wearable == NULL)
 	{
@@ -1619,11 +1619,14 @@ void LLAgentWearables::queryWearableCache()
 
 		gAgentQueryManager.mActiveCacheQueries[baked_index] = gAgentQueryManager.mWearablesCacheQueryID;
 	}
-
-	llinfos << "Requesting texture cache entry for " << num_queries << " baked textures" << llendl;
-	gMessageSystem->sendReliable(gAgent.getRegion()->getHost());
-	gAgentQueryManager.mNumPendingQueries++;
-	gAgentQueryManager.mWearablesCacheQueryID++;
+	//VWR-22113: gAgent.getRegion() can return null if invalid, seen here on logout
+	if(gAgent.getRegion())
+	{
+		llinfos << "Requesting texture cache entry for " << num_queries << " baked textures" << llendl;
+		gMessageSystem->sendReliable(gAgent.getRegion()->getHost());
+		gAgentQueryManager.mNumPendingQueries++;
+		gAgentQueryManager.mWearablesCacheQueryID++;
+	}
 }
 
 LLUUID LLAgentWearables::computeBakedTextureHash(LLVOAvatarDefines::EBakedTextureIndex baked_index,
@@ -1879,7 +1882,7 @@ void LLAgentWearables::userAttachMultipleAttachments(LLInventoryModel::item_arra
 		msg->nextBlockFast(_PREHASH_ObjectData );
 		msg->addUUIDFast(_PREHASH_ItemID, item->getLinkedUUID());
 		msg->addUUIDFast(_PREHASH_OwnerID, item->getPermissions().getOwner());
-		msg->addU8Fast(_PREHASH_AttachmentPt, 0 );	// Wear at the previous or default attachment point
+		msg->addU8Fast(_PREHASH_AttachmentPt, 0 | ATTACHMENT_ADD);	// Wear at the previous or default attachment point
 		pack_permissions_slam(msg, item->getFlags(), item->getPermissions());
 		msg->addStringFast(_PREHASH_Name, item->getName());
 		msg->addStringFast(_PREHASH_Description, item->getDescription());
@@ -2042,8 +2045,9 @@ void LLAgentWearables::editWearable(const LLUUID& item_id)
 		return;
 	}
 
+	const BOOL disable_camera_switch = LLWearableType::getDisableCameraSwitch(wearable->getType());
 	LLPanel* panel = LLSideTray::getInstance()->getPanel("sidepanel_appearance");
-	LLSidepanelAppearance::editWearable(wearable, panel);
+	LLSidepanelAppearance::editWearable(wearable, panel, disable_camera_switch);
 }
 
 // Request editing the item after it gets worn.

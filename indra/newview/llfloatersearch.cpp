@@ -31,6 +31,7 @@
 #include "llfloaterreg.h"
 #include "llfloatersearch.h"
 #include "llmediactrl.h"
+#include "llnotificationsutil.h"
 #include "lllogininstance.h"
 #include "lluri.h"
 #include "llagent.h"
@@ -46,6 +47,12 @@ public:
 	LLSearchHandler() : LLCommandHandler("search", UNTRUSTED_THROTTLE) { }
 	bool handle(const LLSD& tokens, const LLSD& query_map, LLMediaCtrl* web)
 	{
+		if (!LLUI::sSettingGroups["config"]->getBOOL("EnableSearch"))
+		{
+			LLNotificationsUtil::add("NoSearch", LLSD(), LLSD(), std::string("SwitchToStandardSkinAndQuit"));
+			return true;
+		}
+
 		const size_t parts = tokens.size();
 
 		// get the (optional) category for the search
@@ -96,11 +103,7 @@ LLFloaterSearch::LLFloaterSearch(const LLSD& key) :
 BOOL LLFloaterSearch::postBuild()
 {
 	mBrowser = getChild<LLMediaCtrl>("browser");
-	if (mBrowser)
-	{
-		mBrowser->addObserver(this);
-		mBrowser->setTrusted(true);
-	}
+	mBrowser->addObserver(this);
 
 	return TRUE;
 }
@@ -204,5 +207,5 @@ void LLFloaterSearch::search(const LLSD &key)
 	url = LLWeb::expandURLSubstitutions(url, subs);
 
 	// and load the URL in the web view
-	mBrowser->navigateTo(url);
+	mBrowser->navigateTo(url, "text/html");
 }

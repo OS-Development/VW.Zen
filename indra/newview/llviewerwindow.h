@@ -38,13 +38,12 @@
 
 #include "v3dmath.h"
 #include "v2math.h"
+#include "llcursortypes.h"
 #include "llwindowcallbacks.h"
 #include "lltimer.h"
 #include "llstat.h"
 #include "llmousehandler.h"
-#include "llcursortypes.h"
 #include "llhandle.h"
-#include "llimage.h"
 
 #include <boost/function.hpp>
 #include <boost/signals2.hpp>
@@ -59,6 +58,7 @@ class LLTool;
 class LLVelocityBar;
 class LLPanel;
 class LLImageRaw;
+class LLImageFormatted;
 class LLHUDIcon;
 class LLWindow;
 class LLRootView;
@@ -186,11 +186,6 @@ public:
 	/*virtual*/ std::string translateString(const char* tag,
 					const std::map<std::string, std::string>& args);
 	
-	// signal on bottom tray width changed
-	typedef boost::function<void (void)> bottom_tray_callback_t;
-	typedef boost::signals2::signal<void (void)> bottom_tray_signal_t;
-	bottom_tray_signal_t mOnBottomTrayWidthChanged;
-	boost::signals2::connection setOnBottomTrayWidthChanged(bottom_tray_callback_t cb) { return mOnBottomTrayWidthChanged.connect(cb); }
 	// signal on update of WorldView rect
 	typedef boost::function<void (LLRect old_world_rect, LLRect new_world_rect)> world_rect_callback_t;
 	typedef boost::signals2::signal<void (LLRect old_world_rect, LLRect new_world_rect)> world_rect_signal_t;
@@ -271,7 +266,6 @@ public:
 													
 	void			setShowProgress(const BOOL show);
 	BOOL			getShowProgress() const;
-	void			moveProgressViewToFront();
 	void			setProgressString(const std::string& string);
 	void			setProgressPercent(const F32 percent);
 	void			setProgressMessage(const std::string& msg);
@@ -288,6 +282,8 @@ public:
 	void			updateWorldViewRect(bool use_full_window=false);
 	LLView*			getNonSideTrayView() { return mNonSideTrayView.get(); }
 	LLView*			getFloaterViewHolder() { return mFloaterViewHolder.get(); }
+	LLView*			getHintHolder() { return mHintHolder.get(); }
+	LLView*			getLoginPanelHolder() { return mLoginPanelHolder.get(); }
 	BOOL			handleKey(KEY key, MASK mask);
 	void			handleScrollWheel	(S32 clicks);
 
@@ -316,8 +312,7 @@ public:
 	typedef enum
 	{
 		SNAPSHOT_TYPE_COLOR,
-		SNAPSHOT_TYPE_DEPTH,
-		SNAPSHOT_TYPE_OBJECT_ID
+		SNAPSHOT_TYPE_DEPTH
 	} ESnapshotType;
 	BOOL			saveSnapshot(const std::string&  filename, S32 image_width, S32 image_height, BOOL show_ui = TRUE, BOOL do_rebuild = FALSE, ESnapshotType type = SNAPSHOT_TYPE_COLOR);
 	BOOL			rawSnapshot(LLImageRaw *raw, S32 image_width, S32 image_height, BOOL keep_window_aspect = TRUE, BOOL is_texture = FALSE,
@@ -351,7 +346,9 @@ public:
 									LLVector3 *intersection = NULL,
 									LLVector2 *uv = NULL,
 									LLVector3 *normal = NULL,
-									LLVector3 *binormal = NULL);
+									LLVector3 *binormal = NULL,
+									LLVector3* start = NULL,
+									LLVector3* end = NULL);
 	
 	
 	// Returns a pointer to the last object hit
@@ -447,6 +444,8 @@ protected:
 	LLHandle<LLView> mWorldViewPlaceholder;	// widget that spans the portion of screen dedicated to rendering the 3d world
 	LLHandle<LLView> mNonSideTrayView;		// parent of world view + bottom bar, etc...everything but the side tray
 	LLHandle<LLView> mFloaterViewHolder;	// container for floater_view
+	LLHandle<LLView> mHintHolder;			// container for hints
+	LLHandle<LLView> mLoginPanelHolder;		// container for login panel
 	LLPopupView*	mPopupView;			// container for transient popups
 	
 	class LLDebugText* mDebugText; // Internal class for debug text
@@ -468,12 +467,6 @@ private:
 	LLPointer<LLViewerObject>	mDragHoveredObject;
 };
 
-void toggle_flying(void*);
-void toggle_first_person();
-void toggle_build(void*);
-void reset_viewer_state_on_sim(void);
-void update_saved_window_size(const std::string& control,S32 delta_width, S32 delta_height);
-
 //
 // Globals
 //
@@ -489,8 +482,8 @@ extern LLVector2        gDebugRaycastTexCoord;
 extern LLVector3        gDebugRaycastNormal;
 extern LLVector3        gDebugRaycastBinormal;
 extern S32				gDebugRaycastFaceHit;
-
-extern S32 CHAT_BAR_HEIGHT; 
+extern LLVector3		gDebugRaycastStart;
+extern LLVector3		gDebugRaycastEnd;
 
 extern BOOL			gDisplayCameraPos;
 extern BOOL			gDisplayWindInfo;

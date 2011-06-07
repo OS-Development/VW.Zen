@@ -48,6 +48,7 @@
 #include "llagent.h"
 #include "llagentcamera.h"
 #include "llviewercontrol.h"
+#include "llversioninfo.h"
 #include "llfloatertools.h"
 #include "lldebugview.h"
 #include "llfasttimerview.h"
@@ -58,6 +59,7 @@
 #include "llworld.h"
 #include "llfeaturemanager.h"
 #include "llviewernetwork.h"
+#include "llmeshrepository.h" //for LLMeshRepository::sBytesReceived
 
 
 class StatAttributes
@@ -558,7 +560,7 @@ F32		gWorstLandCompression = 0.f, gWorstWaterCompression = 0.f;
 U32		gTotalWorldBytes = 0, gTotalObjectBytes = 0, gTotalTextureBytes = 0, gSimPingCount = 0;
 U32		gObjectBits = 0;
 F32		gAvgSimPing = 0.f;
-
+U32     gTotalTextureBytesPerBoostLevel[LLViewerTexture::MAX_GL_IMAGE_CATEGORY] = {0};
 
 extern U32  gVisCompared;
 extern U32  gVisTested;
@@ -710,7 +712,7 @@ void send_stats()
 	// but that day is not today.
 
 	// Only send stats if the agent is connected to a region.
-	if (!gAgent.getRegion() || gNoRender)
+	if (!gAgent.getRegion())
 	{
 		return;
 	}
@@ -749,7 +751,7 @@ void send_stats()
 
 	// send fps only for time app spends in foreground
 	agent["fps"] = (F32)gForegroundFrameCount / gForegroundTime.getElapsedTimeF32();
-	agent["version"] = gCurrentVersion;
+	agent["version"] = LLVersionInfo::getChannelAndVersion();
 	std::string language = LLUI::getLanguage();
 	agent["language"] = language;
 	
@@ -793,6 +795,7 @@ void send_stats()
 	download["world_kbytes"] = gTotalWorldBytes / 1024.0;
 	download["object_kbytes"] = gTotalObjectBytes / 1024.0;
 	download["texture_kbytes"] = gTotalTextureBytes / 1024.0;
+	download["mesh_kbytes"] = LLMeshRepository::sBytesReceived/1024.0;
 
 	LLSD &in = body["stats"]["net"]["in"];
 
@@ -847,6 +850,11 @@ void send_stats()
 
 	llinfos << "Misc Stats: int_1: " << misc["int_1"] << " int_2: " << misc["int_2"] << llendl;
 	llinfos << "Misc Stats: string_1: " << misc["string_1"] << " string_2: " << misc["string_2"] << llendl;
+
+	body["DisplayNamesEnabled"] = gSavedSettings.getBOOL("UseDisplayNames");
+	body["DisplayNamesShowUsername"] = gSavedSettings.getBOOL("NameTagShowUsernames");
+	
+	body["MinimalSkin"] = !gSavedSettings.getString("SessionSettingsFile").empty();
 	
 	LLViewerStats::getInstance()->addToMessage(body);
 	LLHTTPClient::post(url, body, new ViewerStatsResponder());

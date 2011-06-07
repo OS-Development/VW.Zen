@@ -63,6 +63,8 @@ void LLDrawPoolSky::prerender()
 
 void LLDrawPoolSky::render(S32 pass)
 {
+	gGL.flush();
+
 	if (mDrawFace.empty())
 	{
 		return;
@@ -97,7 +99,7 @@ void LLDrawPoolSky::render(S32 pass)
 
 	LLGLDepthTest gls_depth(GL_TRUE, GL_FALSE);
 
-	LLGLClampToFarClip far_clip(glh_get_current_projection());
+	LLGLSquashToFarClip far_clip(glh_get_current_projection());
 
 	LLGLEnable fog_enable( (mVertexShaderLevel < 1 && LLViewerCamera::getInstance()->cameraUnderWater()) ? GL_FOG : 0);
 
@@ -111,12 +113,13 @@ void LLDrawPoolSky::render(S32 pass)
 
 	S32 face_count = (S32)mDrawFace.size();
 
+	LLVertexBuffer::unbind();
+	glColor4f(1,1,1,1);
+
 	for (S32 i = 0; i < llmin(6, face_count); ++i)
 	{
 		renderSkyCubeFace(i);
 	}
-
-	LLGLEnable blend(GL_BLEND);
 
 	glPopMatrix();
 }
@@ -141,10 +144,6 @@ void LLDrawPoolSky::renderSkyCubeFace(U8 side)
 		glColor4f(1, 1, 1, LLSkyTex::getInterpVal()); // lighting is disabled
 		face.renderIndexed();
 	}
-}
-
-void LLDrawPoolSky::renderForSelect()
-{
 }
 
 void LLDrawPoolSky::endRenderPass( S32 pass )

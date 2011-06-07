@@ -34,7 +34,7 @@
 #include "llpermissions.h"
 #include "lltimer.h"
 #include "v3math.h"
-
+#include "llaccountingquota.h"
 
 // Grid out of which parcels taken is stepped every 4 meters.
 const F32 PARCEL_GRID_STEP_METERS	= 4.f;
@@ -165,6 +165,7 @@ public:
 		C_SHOPPING,
 		C_STAGE,
 		C_OTHER,
+		C_RENTAL,
 		C_COUNT,
 		C_ANY = -1		// only useful in queries
 	};
@@ -238,8 +239,6 @@ public:
 	void	setMediaID(const LLUUID& id) { mMediaID = id; }
 	void	setMediaAutoScale ( U8 flagIn ) { mMediaAutoScale = flagIn; }
 	void    setMediaLoop (U8 loop) { mMediaLoop = loop; }
-	void	setObscureMedia( U8 flagIn ) { mObscureMedia = flagIn; }
-	void	setObscureMusic( U8 flagIn ) { mObscureMusic = flagIn; }
 	void setMediaWidth(S32 width);
 	void setMediaHeight(S32 height);
 	void setMediaCurrentURL(const std::string& url);
@@ -346,8 +345,6 @@ public:
 	U8				getMediaAutoScale() const	{ return mMediaAutoScale; }
 	U8              getMediaLoop() const        { return mMediaLoop; }
 	const std::string&  getMediaCurrentURL() const { return mMediaCurrentURL; }
-	U8				getObscureMedia() const		{ return mObscureMedia; }
-	U8				getObscureMusic() const		{ return mObscureMusic; }
 	U8              getMediaURLFilterEnable() const   { return mMediaURLFilterEnable; }
 	LLSD            getMediaURLFilterList() const     { return mMediaURLFilterList; }
 	U8              getMediaAllowNavigate() const { return mMediaAllowNavigate; }
@@ -589,7 +586,11 @@ public:
 	LLUUID	getPreviousOwnerID() const		{ return mPreviousOwnerID; }
 	BOOL	getPreviouslyGroupOwned() const	{ return mPreviouslyGroupOwned; }
 	BOOL	getSellWithObjects() const		{ return (mParcelFlags & PF_SELL_PARCEL_OBJECTS) ? TRUE : FALSE; }
-
+	
+	
+			void		 updateQuota( const LLUUID& objectId, const ParcelQuota& quota );
+	const	ParcelQuota& getQuota( void ) { return mQuota; }	
+	
 protected:
 	LLUUID mID;
 	LLUUID				mOwnerID;
@@ -636,8 +637,6 @@ protected:
 	U8					mMediaAutoScale;
 	U8                  mMediaLoop;
 	std::string         mMediaCurrentURL;
-	U8					mObscureMedia;
-	U8					mObscureMusic;
 	LLUUID				mMediaID;
 	U8                  mMediaURLFilterEnable;
 	LLSD                mMediaURLFilterList;
@@ -662,8 +661,9 @@ protected:
 	BOOL				mRegionPushOverride;
 	BOOL				mRegionDenyAnonymousOverride;
 	BOOL				mRegionDenyAgeUnverifiedOverride;
-
-
+	
+	ParcelQuota			mQuota;
+	
 public:
 	// HACK, make private
 	S32					mLocalID;

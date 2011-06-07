@@ -22,13 +22,13 @@
      left="10"
      name="KeyFramePresetsText"
      top="34"
-     width="85">
+     width="135">
         Sky Presets:
     </text>
     <combo_box
      height="23"
      layout="topleft"
-     left_delta="85"
+     left_delta="135"
      name="WLPresetsCombo"
      top_delta="-4"
      width="150" />
@@ -594,6 +594,7 @@
              left_delta="14"
              top_pad="10"
              name="SkyDayCycle"
+             use_draw_context_alpha="false"
              width="148" />
             <slider
              control_name="WLSunAngle"

@@ -34,6 +34,7 @@
      mouse_opaque="true"
      left="5"
      top="2"
+     use_draw_context_alpha="false"
      width="20" />
    <text
      parse_urls="false"
@@ -55,17 +56,19 @@
      left_pad="3"
      right="-31"
      name="info_btn"
+     tab_stop="false"
      top_delta="-2"
      width="16" />
    <!--*TODO: Should only appear on rollover-->
     <button
      follows="right"
      height="20"
-     image_overlay="ForwardArrow_Off"
+     image_overlay="Web_Profile_Off"
      layout="topleft"
      left_pad="5"
      right="-3"
      name="profile_btn"
+     tab_stop="false"
      tool_tip="View profile"
      top_delta="-2"
      width="20" />

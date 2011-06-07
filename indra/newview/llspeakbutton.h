@@ -33,6 +33,7 @@
 class LLCallFloater;
 class LLButton;
 class LLOutputMonitorCtrl;
+class LLBottomtrayButton;
 
 /*
  * Button displaying voice chat status. Displays voice chat options when
@@ -44,22 +45,15 @@ public:
 
 	struct Params :	public LLInitParam::Block<Params, LLUICtrl::Params>
 	{
-		Optional<LLButton::Params>
-			speak_button,
-			show_button;
-
+		Optional<LLButton::Params> speak_button;
+		Optional<LLBottomtrayButton::Params> show_button;
 		Optional<LLOutputMonitorCtrl::Params> monitor;
 
 		Params();
 	};
 
 	/*virtual*/ ~LLSpeakButton();
-	/*virtual*/ void draw();
 	
-	// methods for enabling/disabling right and left parts of speak button separately(EXT-4648)
-	void setSpeakBtnEnabled(bool enabled);
-	void setFlyoutBtnEnabled(bool enabled);
-
 	// *HACK: Need to put tooltips in a translatable location,
 	// the panel that contains this button.
 	void setSpeakToolTip(const std::string& msg);
@@ -86,7 +80,7 @@ protected:
 
 private:
 	LLButton*	mSpeakBtn;
-	LLButton*	mShowBtn;
+	LLBottomtrayButton*	mShowBtn;
 	LLHandle<LLFloater> mPrivateCallPanel;
 	LLOutputMonitorCtrl* mOutputMonitor;
 };

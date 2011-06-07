@@ -34,6 +34,7 @@
 #include "stdtypes.h"
 #include "llcoord.h"
 #include "llfontgl.h"
+#include "llhandle.h"
 #include "llmortician.h"
 #include "llmousehandler.h"
 #include "llstring.h"
@@ -116,7 +117,8 @@ public:
 									visible,
 									mouse_opaque,
 									use_bounding_rect,
-									from_xui;
+									from_xui,
+									focus_root;
 
 		Optional<S32>				tab_group,
 									default_tab_group;
@@ -128,26 +130,22 @@ public:
 
 		Optional<std::string>		layout;
 		Optional<LLRect>			rect;
+
 		// Historical bottom-left layout used bottom_delta and left_delta
 		// for relative positioning.  New layout "topleft" prefers specifying
 		// based on top edge.
-		Optional<S32>				bottom_delta,	// deprecated
-									top_pad,	// from last bottom to my top
-									top_delta,	// from last top to my top
-									left_pad,	// from last right to my left
-									left_delta;	// from last left to my left
-								
-		// these are nested attributes for LLLayoutPanel
+		Optional<S32>				bottom_delta,	// from last bottom to my bottom
+									top_pad,		// from last bottom to my top
+									top_delta,		// from last top to my top
+									left_pad,		// from last right to my left
+									left_delta;		// from last left to my left
+
 		//FIXME: get parent context involved in parsing traversal
-		Ignored						user_resize,
-									auto_resize,
-									needs_translate,
-									min_width,
-									max_width,
-									xmlns,
-									xmlns_xsi,
-									xsi_schemaLocation,
-									xsi_type;
+		Ignored						needs_translate,	// cue for translation tools
+									xmlns,				// xml namespace
+									xmlns_xsi,			// xml namespace
+									xsi_schemaLocation,	// xml schema
+									xsi_type;			// xml schema type
 
 		Params();
 	};
@@ -238,7 +236,7 @@ public:
 	void        setSoundFlags(U8 flags)			{ mSoundFlags = flags; }
 	void		setName(std::string name)			{ mName = name; }
 	void		setUseBoundingRect( BOOL use_bounding_rect );
-	BOOL		getUseBoundingRect();
+	BOOL		getUseBoundingRect() const;
 
 	ECursorType	getHoverCursor() { return mHoverCursor; }
 
@@ -277,6 +275,11 @@ public:
 	BOOL focusNextRoot();
 	BOOL focusPrevRoot();
 
+	// Normally we want the app menus to get priority on accelerated keys
+	// However, sometimes we want to give specific views a first chance
+	// iat handling them. (eg. the script editor)
+	virtual bool	hasAccelerators() const { return false; };
+
 	// delete all children. Override this function if you need to
 	// perform any extra clean up such as cached pointers to selected
 	// children, etc.
@@ -285,7 +288,7 @@ public:
 	void 	setAllChildrenEnabled(BOOL b);
 
 	virtual void	setVisible(BOOL visible);
-	BOOL			getVisible() const			{ return mVisible; }
+	const BOOL&		getVisible() const			{ return mVisible; }
 	virtual void	setEnabled(BOOL enabled);
 	BOOL			getEnabled() const			{ return mEnabled; }
 	/// 'available' in this context means 'visible and enabled': in other
@@ -404,21 +407,16 @@ public:
 	BOOL blockMouseEvent(S32 x, S32 y) const;
 
 	// See LLMouseHandler virtuals for screenPointToLocal and localPointToScreen
-	BOOL localPointToOtherView( S32 x, S32 y, S32 *other_x, S32 *other_y, LLView* other_view) const;
-	BOOL localRectToOtherView( const LLRect& local, LLRect* other, LLView* other_view ) const;
+	BOOL localPointToOtherView( S32 x, S32 y, S32 *other_x, S32 *other_y, const LLView* other_view) const;
+	BOOL localRectToOtherView( const LLRect& local, LLRect* other, const LLView* other_view ) const;
 	void screenRectToLocal( const LLRect& screen, LLRect* local ) const;
 	void localRectToScreen( const LLRect& local, LLRect* screen ) const;
 	
 	LLControlVariable *findControl(const std::string& name);
 
-    // Moved setValue(), getValue(), setControlValue(), setControlName(),
-    // controlListener() to LLUICtrl because an LLView is NOT assumed to
-    // contain a value. If that's what you want, use LLUICtrl instead.
-//	virtual bool	handleEvent(LLPointer<LLEvent> event, const LLSD& userdata);
-
 	const child_list_t*	getChildList() const { return &mChildList; }
-	const child_list_const_iter_t	beginChild()  { return mChildList.begin(); }
-	const child_list_const_iter_t	endChild()  { return mChildList.end(); }
+	child_list_const_iter_t	beginChild() const { return mChildList.begin(); }
+	child_list_const_iter_t	endChild() const { return mChildList.end(); }
 
 	// LLMouseHandler functions
 	//  Default behavior is to pass events to children
@@ -465,12 +463,8 @@ public:
 
 	template <class T> T* getDefaultWidget(const std::string& name) const
 	{
-		default_widget_map_t::const_iterator found_it = getDefaultWidgetMap().find(name);
-		if (found_it == getDefaultWidgetMap().end())
-		{
-			return NULL;
-		}
-		return dynamic_cast<T*>(found_it->second);
+		LLView* widgetp = getDefaultWidgetContainer().findChildView(name);
+		return dynamic_cast<T*>(widgetp);
 	}
 
 	//////////////////////////////////////////////
@@ -550,11 +544,13 @@ private:
 	LLView*		mParentView;
 	child_list_t mChildList;
 
-	std::string	mName;
 	// location in pixels, relative to surrounding structure, bottom,left=0,0
+	BOOL		mVisible;
 	LLRect		mRect;
 	LLRect		mBoundingRect;
+	
 	std::string mLayout;
+	std::string	mName;
 	
 	U32			mReshapeFlags;
 
@@ -576,17 +572,15 @@ private:
 	LLRootHandle<LLView> mHandle;
 	BOOL		mLastVisible;
 
-	BOOL		mVisible;
-
 	S32			mNextInsertionOrdinal;
 
 	static LLWindow* sWindow;	// All root views must know about their window.
 
 	typedef std::map<std::string, LLView*> default_widget_map_t;
 	// allocate this map no demand, as it is rarely needed
-	mutable default_widget_map_t* mDefaultWidgets;
+	mutable LLView* mDefaultWidgets;
 
-	default_widget_map_t& getDefaultWidgetMap() const;
+	LLView& getDefaultWidgetContainer() const;
 
 public:
 	// Depth in view hierarchy during rendering
@@ -653,7 +647,7 @@ template <class T> T* LLView::getChild(const std::string& name, BOOL recurse) co
 				return NULL;
 			}
 
-			getDefaultWidgetMap()[name] = result;
+			getDefaultWidgetContainer().addChild(result);
 		}
 	}
 	return result;

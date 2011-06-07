@@ -224,7 +224,7 @@ LLFolderView::LLFolderView(const Params& p)
 	params.name("ren");
 	params.rect(rect);
 	params.font(getLabelFontForStyle(LLFontGL::NORMAL));
-	params.max_length_bytes(DB_INV_ITEM_NAME_STR_LEN);
+	params.max_length.bytes(DB_INV_ITEM_NAME_STR_LEN);
 	params.commit_callback.function(boost::bind(&LLFolderView::commitRename, this, _2));
 	params.prevalidate_callback(&LLTextValidate::validateASCIIPrintableNoPipe);
 	params.commit_on_focus_lost(true);
@@ -301,18 +301,6 @@ BOOL LLFolderView::canFocusChildren() const
 	return FALSE;
 }
 
-void LLFolderView::checkTreeResortForModelChanged()
-{
-	if (mSortOrder & LLInventoryFilter::SO_DATE && !(mSortOrder & LLInventoryFilter::SO_FOLDERS_BY_NAME))
-	{
-		// This is the case where something got added or removed.  If we are date sorting
-		// everything including folders, then we need to rebuild the whole tree.
-		// Just set to something not SO_DATE to force the folder most resent date resort.
-		mSortOrder = mSortOrder & ~LLInventoryFilter::SO_DATE;
-		setSortOrder(mSortOrder | LLInventoryFilter::SO_DATE);
-	}
-}
-
 static LLFastTimer::DeclareTimer FTM_SORT("Sort Inventory");
 
 void LLFolderView::setSortOrder(U32 order)
@@ -349,6 +337,10 @@ BOOL LLFolderView::addFolder( LLFolderViewFolder* folder)
 	else
 	{
 		mFolders.insert(mFolders.begin(), folder);
+	}
+	if (folder->numSelected())
+	{
+		recursiveIncrementNumDescendantsSelected(folder->numSelected());
 	}
 	folder->setShowLoadStatus(true);
 	folder->setOrigin(0, 0);
@@ -692,29 +684,24 @@ BOOL LLFolderView::changeSelection(LLFolderViewItem* selection, BOOL selected)
 	return rv;
 }
 
-S32 LLFolderView::extendSelection(LLFolderViewItem* selection, LLFolderViewItem* last_selected, LLDynamicArray<LLFolderViewItem*>& items)
+void LLFolderView::extendSelection(LLFolderViewItem* selection, LLFolderViewItem* last_selected, LLDynamicArray<LLFolderViewItem*>& items)
 {
-	S32 rv = 0;
-
 	// now store resulting selection
 	if (mAllowMultiSelect)
 	{
 		LLFolderViewItem *cur_selection = getCurSelectedItem();
-		rv = LLFolderViewFolder::extendSelection(selection, cur_selection, items);
+		LLFolderViewFolder::extendSelection(selection, cur_selection, items);
 		for (S32 i = 0; i < items.count(); i++)
 		{
 			addToSelectionList(items[i]);
-			rv++;
 		}
 	}
 	else
 	{
 		setSelection(selection, FALSE, FALSE);
-		rv++;
 	}
 
 	mSignalSelectCallback = SIGNAL_KEYBOARD_FOCUS;
-	return rv;
 }
 
 void LLFolderView::sanitizeSelection()
@@ -1855,31 +1842,9 @@ BOOL LLFolderView::handleRightMouseDown( S32 x, S32 y, MASK mask )
 	{
 		if (mCallbackRegistrar)
 			mCallbackRegistrar->pushScope();
-		//menu->empty();
-		const LLView::child_list_t *list = menu->getChildList();
 
-		LLView::child_list_t::const_iterator menu_itor;
-		for (menu_itor = list->begin(); menu_itor != list->end(); ++menu_itor)
-		{
-			(*menu_itor)->setVisible(FALSE);
-			(*menu_itor)->pushVisible(TRUE);
-			(*menu_itor)->setEnabled(TRUE);
-		}
-		
-		// Successively filter out invalid options
-
-		U32 flags = FIRST_SELECTED_ITEM;
-		for (selected_items_t::iterator item_itor = mSelectedItems.begin(); 
-			 item_itor != mSelectedItems.end(); 
-			 ++item_itor)
-		{
-			LLFolderViewItem* selected_item = (*item_itor);
-			selected_item->buildContextMenu(*menu, flags);
-			flags = 0x0;
-		}
+		updateMenuOptions(menu);
 	   
-		addNoOptions(menu);
-
 		menu->updateParent(LLMenuGL::sMenuContainer);
 		LLMenuGL::showPopup(this, menu, x, y);
 		if (mCallbackRegistrar)
@@ -1972,7 +1937,11 @@ void LLFolderView::scrollToShowSelection()
 {
 	// If items are filtered while background fetch is in progress
 	// scrollbar resets to the first filtered item. See EXT-3981.
-	if (!LLInventoryModelBackgroundFetch::instance().backgroundFetchActive() && mSelectedItems.size())
+	// However we allow scrolling for folder views with mAutoSelectOverride
+	// (used in Places SP) as an exception because the selection in them
+	// is not reset during items filtering. See STORM-133.
+	if ( (!LLInventoryModelBackgroundFetch::instance().backgroundFetchActive() || mAutoSelectOverride)
+			&& mSelectedItems.size() )
 	{
 		mNeedsScroll = TRUE;
 	}
@@ -2362,6 +2331,45 @@ void LLFolderView::updateRenamerPosition()
 	}
 }
 
+// Update visibility and availability (i.e. enabled/disabled) of context menu items.
+void LLFolderView::updateMenuOptions(LLMenuGL* menu)
+{
+	const LLView::child_list_t *list = menu->getChildList();
+
+	LLView::child_list_t::const_iterator menu_itor;
+	for (menu_itor = list->begin(); menu_itor != list->end(); ++menu_itor)
+	{
+		(*menu_itor)->setVisible(FALSE);
+		(*menu_itor)->pushVisible(TRUE);
+		(*menu_itor)->setEnabled(TRUE);
+	}
+
+	// Successively filter out invalid options
+
+	U32 flags = FIRST_SELECTED_ITEM;
+	for (selected_items_t::iterator item_itor = mSelectedItems.begin();
+			item_itor != mSelectedItems.end();
+			++item_itor)
+	{
+		LLFolderViewItem* selected_item = (*item_itor);
+		selected_item->buildContextMenu(*menu, flags);
+		flags = 0x0;
+	}
+
+	addNoOptions(menu);
+}
+
+// Refresh the context menu (that is already shown).
+void LLFolderView::updateMenu()
+{
+	LLMenuGL* menu = (LLMenuGL*)mPopupMenuHandle.get();
+	if (menu && menu->getVisible())
+	{
+		updateMenuOptions(menu);
+		menu->needsArrange(); // update menu height if needed
+	}
+}
+
 bool LLFolderView::selectFirstItem()
 {
 	for (folders_t::iterator iter = mFolders.begin();
@@ -2426,6 +2434,7 @@ S32	LLFolderView::notify(const LLSD& info)
 		{
 			setFocus(true);
 			selectFirstItem();
+			scrollToShowSelection();
 			return 1;
 
 		}
@@ -2433,6 +2442,7 @@ S32	LLFolderView::notify(const LLSD& info)
 		{
 			setFocus(true);
 			selectLastItem();
+			scrollToShowSelection();
 			return 1;
 		}
 	}

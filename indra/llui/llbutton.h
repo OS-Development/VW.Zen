@@ -27,7 +27,6 @@
 #ifndef LL_LLBUTTON_H
 #define LL_LLBUTTON_H
 
-#include "lluuid.h"
 #include "llcontrol.h"
 #include "lluictrl.h"
 #include "v4color.h"
@@ -53,6 +52,8 @@ S32 round_up(S32 grid, S32 value);
 
 
 class LLUICtrlFactory;
+class LLUIImage;
+class LLUUID;
 
 //
 // Classes
@@ -123,6 +124,8 @@ public:
 		
 		Optional<F32>				hover_glow_amount;
 		Optional<TimeIntervalParam>	held_down_delay;
+
+		Optional<bool>			use_draw_context_alpha;
 
 		Params();
 	};
@@ -338,6 +341,8 @@ private:
 	S32							mImageOverlayTopPad;
 	S32							mImageOverlayBottomPad;
 
+	bool						mUseDrawContextAlpha;
+
 	/*
 	 * Space between image_overlay and label
 	 */
@@ -350,7 +355,6 @@ private:
 	BOOL						mCommitOnReturn;
 	BOOL						mFadeWhenDisabled;
 	bool						mForcePressedState;
-	bool						mMouseOver;
 
 	LLFrameTimer				mFlashingTimer;
 };

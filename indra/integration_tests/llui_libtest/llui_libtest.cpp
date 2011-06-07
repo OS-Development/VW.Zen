@@ -33,6 +33,7 @@
 // linden library includes
 #include "llcontrol.h"		// LLControlGroup
 #include "lldir.h"
+#include "lldiriterator.h"
 #include "llerrorcontrol.h"
 #include "llfloater.h"
 #include "llfontfreetype.h"
@@ -174,7 +175,9 @@ void export_test_floaters()
 	std::string delim = gDirUtilp->getDirDelimiter();
 	std::string xui_dir = get_xui_dir() + "en" + delim;
 	std::string filename;
-	while (gDirUtilp->getNextFileInDir(xui_dir, "floater_test_*.xml", filename, false))
+
+	LLDirIterator iter(xui_dir, "floater_test_*.xml");
+	while (iter.next(filename))
 	{
 		if (filename.find("_new.xml") != std::string::npos)
 		{
@@ -185,10 +188,9 @@ void export_test_floaters()
 		// Build a floater and output new attributes
 		LLXMLNodePtr output_node = new LLXMLNode();
 		LLFloater* floater = new LLFloater(LLSD());
-		LLUICtrlFactory::getInstance()->buildFloater(floater,
-													 filename,
-												//	 FALSE,	// don't open floater
-													 output_node);
+		floater->buildFromFile(	filename,
+								//	 FALSE,	// don't open floater
+								output_node);
 		std::string out_filename = xui_dir + filename;
 		std::string::size_type extension_pos = out_filename.rfind(".xml");
 		out_filename.resize(extension_pos);

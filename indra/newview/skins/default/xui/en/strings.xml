@@ -58,6 +58,83 @@
 	<string name="Quit">Quit</string>
 	<string name="create_account_url">http://join.secondlife.com/</string>
 
+	<string name="LoginFailedViewerNotPermitted">
+The viewer you are using can no longer access Second Life. Please visit the following page to download a new viewer:
+http://secondlife.com/download
+
+For more information, see our FAQ below:
+http://secondlife.com/viewer-access-faq</string>
+	<string name="LoginIntermediateOptionalUpdateAvailable">Optional viewer update available: [VERSION]</string>
+	<string name="LoginFailedRequiredUpdate">Required viewer update: [VERSION]</string>
+	<string name="LoginFailedAlreadyLoggedIn">This agent is already logged in.
+</string>
+	<string name="LoginFailedAuthenticationFailed">Sorry! We couldn't log you in.
+Please check to make sure you entered the right
+    * Username (like bobsmith12 or steller.sunshine)
+    * Password
+Also, please make sure your Caps Lock key is off.</string>
+	<string name="LoginFailedPasswordChanged">As a security precaution your password has been changed.
+Please go to your account page at http://secondlife.com/password
+and answer the security question to reset your password.
+We are very sorry for the inconvenience.</string>
+	<string name="LoginFailedPasswordReset">We made some changes to our system and you will need to reset your password.
+Please go to your account page at http://secondlife.com/password
+and answer the security question to reset your password.
+We are very sorry for the inconvenience.</string>
+	<string name="LoginFailedEmployeesOnly">Second Life is temporarily closed for maintenance.
+Logins are currently restricted to employees only.
+Check www.secondlife.com/status for updates.</string>
+	<string name="LoginFailedPremiumOnly">Second Life logins are temporarily restricted in order to make sure that those in-world have the best possible experience.
+	 	
+People with free accounts will not be able to access Second Life during this time, to make room for those who have paid for Second Life.</string>
+	<string name="LoginFailedComputerProhibited">Second Life cannot be accessed from this computer.
+If you feel this is an error, please contact
+support@secondlife.com.</string>
+	<string name="LoginFailedAcountSuspended">Your account is not accessible until
+[TIME] Pacific Time.</string>
+	<string name="LoginFailedAccountDisabled">We are unable to complete your request at this time.
+Please contact Second Life support for assistance at http://secondlife.com/support.
+If you are unable to change your password, please call (866) 476-9763.</string>
+	<string name="LoginFailedTransformError">Data inconsistency found during login.
+Please contact support@secondlife.com.</string>
+	<string name="LoginFailedAccountMaintenance">Your account is undergoing minor maintenance.
+Your account is not accessible until
+[TIME] Pacific Time.
+If you feel this is an error, please contact support@secondlife.com.</string>
+	<string name="LoginFailedPendingLogoutFault">Request for logout responded with a fault from simulator.</string>
+	<string name="LoginFailedPendingLogout">The system is logging you out right now.
+Your Account will not be available until
+[TIME] Pacific Time.</string>
+	<string name="LoginFailedUnableToCreateSession">Unable to create valid session.</string>
+	<string name="LoginFailedUnableToConnectToSimulator">Unable to connect to a simulator.</string>
+	<string name="LoginFailedRestrictedHours">Your account can only access Second Life
+between [START] and [END] Pacific Time.
+Please come back during those hours.
+If you feel this is an error, please contact support@secondlife.com.</string>
+	<string name="LoginFailedIncorrectParameters">Incorrect parameters.
+If you feel this is an error, please contact support@secondlife.com.</string>
+	<string name="LoginFailedFirstNameNotAlphanumeric">First name parameter must be alphanumeric.
+If you feel this is an error, please contact support@secondlife.com.</string>
+	<string name="LoginFailedLastNameNotAlphanumeric">Last name parameter must be alphanumeric.
+If you feel this is an error, please contact support@secondlife.com.</string>
+	<string name="LogoutFailedRegionGoingOffline">Region is going offline.
+Please try logging in again in a minute.</string>
+	<string name="LogoutFailedAgentNotInRegion">Agent not in region.
+Please try logging in again in a minute.</string>
+	<string name="LogoutFailedPendingLogin">The region was logging in another session.
+Please try logging in again in a minute.</string>
+	<string name="LogoutFailedLoggingOut">The region was logging out the previous session.
+Please try logging in again in a minute.</string>
+	<string name="LogoutFailedStillLoggingOut">The region is still logging out the previous session.
+Please try logging in again in a minute.</string>
+	<string name="LogoutSucceeded">Region has logged out last session.
+Please try logging in again in a minute.</string>
+	<string name="LogoutFailedLogoutBegun">Region has begun the logout process.
+Please try logging in again in a minute.</string>
+	<string name="LoginFailedLoggingOutSession">The system has begun logging out your last session.
+Please try logging in again in a minute.</string>
+
+
 	<!-- Disconnection -->
 	<string name="AgentLostConnection">This region may be experiencing trouble.  Please check your connection to the Internet.</string>
 	<string name="SavingSettings">Saving your settings...</string>
@@ -89,6 +166,7 @@
 	<string name="TooltipHttpUrl">Click to view this web page</string>
 	<string name="TooltipSLURL">Click to view this location's information</string>
 	<string name="TooltipAgentUrl">Click to view this Resident's profile</string>
+  <string name="TooltipAgentInspect">Learn more about this Resident</string>
 	<string name="TooltipAgentMute">Click to mute this Resident</string>
 	<string name="TooltipAgentUnmute">Click to unmute this Resident</string>
 	<string name="TooltipAgentIM">Click to IM this Resident</string>
@@ -197,6 +275,7 @@
 	<string name="favorite">favorite</string>
 	<string name="symbolic link">link</string>
 	<string name="symbolic folder link">folder link</string>
+  <string name="mesh">mesh</string>
 
 	<!-- llvoavatar. Displayed in the avatar chat bubble -->
 	<string name="AvatarEditingAppearance">(Editing Appearance)</string>
@@ -321,6 +400,8 @@
 
 	<!-- For land type back from the simulator -->
 	<string name="Estate / Full Region">Estate / Full Region</string>
+	<string name="Estate / Homestead">Estate / Homestead</string>
+	<string name="Mainland / Homestead">Mainland / Homestead</string>
 	<string name="Mainland / Full Region">Mainland / Full Region</string>
 
 	<!-- File load/save dialogs -->
@@ -335,7 +416,7 @@
 	<string name="avi_movie_file">AVI Movie File</string>
 	<string name="xaf_animation_file">XAF Anim File</string>
 	<string name="xml_file">XML File</string>
-	<string name="dot_raw_file">RAW File</string>
+	<string name="raw_file">RAW File</string>
 	<string name="compressed_image_files">Compressed Images</string>
 	<string name="load_files">Load Files</string>
 	<string name="choose_the_directory">Choose Directory</string>
@@ -1713,8 +1794,8 @@ integer llGetRegionAgentCount()
 Returns the number of avatars in the region
 	</string>
 	<string name="LSLTipText_llTextBox" translate="false">
-llTextBox(key avatar, string message, integer chat_channel
-Shows a dialog box on the avatar&apos;s screen with the message.
+llTextBox(key avatar, string message, integer chat_channel)
+Shows a window on the avatar&apos;s screen with the message.
 It contains a text box for input, and if entered that text is chatted on chat_channel.
 	</string>
 	<string name="LSLTipText_llGetAgentLanguage" translate="false">
@@ -1790,6 +1871,52 @@ Returns the media params for a particular face on an object, given the desired l
 llClearPrimMedia(integer face)
 Clears (deletes) the media and all params from the given face.
   </string>
+<string name="LSLTipText_llSetLinkPrimitiveParamsFast" translate="false">
+llSetLinkPrimitiveParamsFast(integer linknumber,list rules)
+Set primitive parameters for linknumber based on rules.
+</string>
+<string name="LSLTipText_llGetLinkPrimitiveParams" translate="false">
+llGetLinkPrimitiveParams(integer linknumber,list rules)
+Get primitive parameters for linknumber based on rules.
+</string>
+<string name="LSLTipText_llLinkParticleSystem" translate="false">
+llLinkParticleSystem(integer linknumber,list rules)
+Creates a particle system based on rules.  Empty list removes particle system from object.
+List format is [ rule1, data1, rule2, data2 . . . rulen, datan ].
+</string>
+<string name="LSLTipText_llSetLinkTextureAnim" translate="false">
+llSetLinkTextureAnim(integer link, integer mode, integer face, integer sizex, integer sizey, float start, float length, float rate)
+Animate the texture on the specified prim's face/faces.
+</string>
+<string name="LSLTipText_llGetLinkNumberOfSides" translate="false">
+integer llGetLinkNumberOfSides(integer link)
+Returns the number of sides of the specified linked prim.
+</string>
+<string name="LSLTipText_llGetUsername" translate="false">
+string llGetUsername(key id)
+Returns the single-word username of an avatar, iff the avatar is in the current region, otherwise the empty string.
+</string>
+<string name="LSLTipText_llRequestUsername" translate="false">
+key llRequestUsername(key id)
+Requests single-word username of an avatar.  When data is available the dataserver event will be raised.
+</string>
+<string name="LSLTipText_llGetDisplayName" translate="false">
+  string llGetDisplayName(key id)
+  Returns the name of an avatar, iff the avatar is in the current simulator, and the name has been cached, otherwise the same as llGetUsername.  Use llRequestDisplayName if you absolutely must have the display name.
+</string>
+<string name="LSLTipText_llRequestDisplayName" translate="false">
+key llRequestDisplayName(key id)
+Requests name of an avatar.  When data is available the dataserver event will be raised.
+</string>
+<string name="LSLTipText_llRegionSayTo" translate="false">
+llRegionSayTo(key target, integer channel, string msg)
+Sends msg on channel (not DEBUG_CHANNEL) directly to prim or avatar target anywhere within the region
+</string>
+<string name="LSLTipText_llGetEnv" translate="false">
+llGetEnv(string name)
+Returns a string with the requested data about the region
+</string>
+
 
   <!-- Avatar busy/away mode -->
 	<string name="AvatarSetNotAway">Not Away</string>
@@ -1813,6 +1940,7 @@ Clears (deletes) the media and all params from the given face.
 	<string name="skirt">Skirt</string>
 	<string name="alpha">Alpha</string>
 	<string name="tattoo">Tattoo</string>
+  <string name="physics">Physics</string>
   <string name="invalid">invalid</string>
   <string name="none">none</string>
   
@@ -1828,6 +1956,7 @@ Clears (deletes) the media and all params from the given face.
 	<string name="skirt_not_worn">Skirt not worn</string>
 	<string name="alpha_not_worn">Alpha not worn</string>
 	<string name="tattoo_not_worn">Tattoo not worn</string>
+  <string name="physics_not_worn">Physics not worn</string>
 	<string name="invalid_not_worn">invalid</string>
 
 	<!-- Create new wearable of the specified type -->
@@ -1846,6 +1975,7 @@ Clears (deletes) the media and all params from the given face.
 	<string name="create_new_skirt">Create new skirt</string>
 	<string name="create_new_alpha">Create new alpha</string>
 	<string name="create_new_tattoo">Create new tattoo</string>
+  <string name="create_new_physics">Create new physics</string>
 	<string name="create_new_invalid">invalid</string>
 
   <!-- Wearable List-->
@@ -1908,7 +2038,7 @@ Clears (deletes) the media and all params from the given face.
 
 	<!-- Gestures labels -->
     <!-- use value="" because they have preceding spaces -->
-    <string name="Chat"          value=" Chat : " />
+    <string name="Chat Message"  value=" Chat : " />
     <string name="Sound"         value=" Sound : " />
 	<string name="Wait"          value=" --- Wait : " />
 	<string name="AnimFlagStop"  value=" Stop Animation :    " />
@@ -1965,6 +2095,7 @@ Clears (deletes) the media and all params from the given face.
 	<string name="InvFolder Initial Outfits">Initial Outfits</string>
 	<string name="InvFolder My Outfits">My Outfits</string>
 	<string name="InvFolder Accessories">Accessories</string>
+	<string name="InvFolder Meshes">Meshes</string>
 
   <!-- are used for Friends and Friends/All folders in Inventory "Calling cards" folder. See EXT-694-->
 	<string name="InvFolder Friends">Friends</string>
@@ -2019,6 +2150,7 @@ Clears (deletes) the media and all params from the given face.
 	<string name="Stomach">Stomach</string>
 	<string name="Left Pec">Left Pec</string>
 	<string name="Right Pec">Right Pec</string>
+	<string name="Invalid Attachment">Invalid Attachment Point</string>
 
   <!-- Avatar age computation, see LLDateUtil::ageFromDate -->
   <string name="YearsMonthsOld">[AGEYEARS] [AGEMONTHS] old</string>
@@ -2182,7 +2314,6 @@ Clears (deletes) the media and all params from the given face.
 	<string name="ATTACH_HUD_BOTTOM_LEFT">HUD Bottom Left</string>
 	<string name="ATTACH_HUD_BOTTOM">HUD Bottom</string>
 	<string name="ATTACH_HUD_BOTTOM_RIGHT">HUD Bottom Right</string>
-	<string name="Bad attachment point">Invalid Attachment Point</string>
 			
 	<!-- script editor -->
 	<string name="CursorPos">Line [LINE], Column [COLUMN]</string>
@@ -2225,7 +2356,7 @@ Clears (deletes) the media and all params from the given face.
   
   <!-- panel picks -->
   <string name="NoPicksClassifiedsText">You haven't created any Picks or Classifieds. Click the Plus button below to create a Pick or Classified.</string>
-  <string name="NoAvatarPicksClassifiedsText">User has no picks or classfields</string>
+  <string name="NoAvatarPicksClassifiedsText">User has no picks or classifieds</string>
   <string name="PicksClassifiedsLoadingText">Loading...</string>
 
 	<!-- Multi Preview Floater -->
@@ -2239,8 +2370,7 @@ Clears (deletes) the media and all params from the given face.
 	<string name="InvOfferOwnedBy">owned by</string>
 	<string name="InvOfferOwnedByUnknownUser">owned by an unknown user</string>
 	<string name="InvOfferGaveYou">gave you</string>
-	<string name="InvOfferYouDecline">You decline</string>
-	<string name="InvOfferFrom">from</string>
+	<string name="InvOfferDecline">You decline [DESC] from &lt;nolink&gt;[NAME]&lt;/nolink&gt;.</string>
 
 	<!-- group money -->
 	<string name="GroupMoneyTotal">Total</string>
@@ -2282,9 +2412,6 @@ Expected .wav, .tga, .bmp, .jpg, .jpeg, or .bvh
 	<string name="accel-win-alt">Alt+</string>
 	<string name="accel-win-shift">Shift+</string>
 
-	<string name="Esc">Esc</string>
-	<string name="Home">Home</string>
-
 	<!-- Previews -->
 	<string name="FileSaved">File Saved</string>
 	<string name="Receiving">Receiving</string>
@@ -2296,16 +2423,16 @@ Expected .wav, .tga, .bmp, .jpg, .jpeg, or .bvh
 	<string name="PDT">PDT</string>
 
 	<!-- Directions, HUD -->
-	<string name="Forward">Forward</string>
-	<string name="Left">Left</string>
-	<string name="Right">Right</string>
-	<string name="Back">Back</string>
-	<string name="North">North</string>
-	<string name="South">South</string>
-	<string name="West">West</string>
-	<string name="East">East</string>
-	<string name="Up">Up</string>
-	<string name="Down">Down</string>
+	<string name="Direction_Forward">Forward</string>
+	<string name="Direction_Left">Left</string>
+	<string name="Direction_Right">Right</string>
+	<string name="Direction_Back">Back</string>
+	<string name="Direction_North">North</string>
+	<string name="Direction_South">South</string>
+	<string name="Direction_West">West</string>
+	<string name="Direction_East">East</string>
+	<string name="Direction_Up">Up</string>
+	<string name="Direction_Down">Down</string>
 
     <!-- Search Category Strings -->
 	<string name="Any Category">Any Category</string>
@@ -2334,6 +2461,7 @@ Expected .wav, .tga, .bmp, .jpg, .jpeg, or .bvh
 	<!--<string name="Shopping">Shopping</string>	-->
 	<string name="Stage">Stage</string>
 	<string name="Other">Other</string>
+	<string name="Rental">Rental</string>
 	<string name="Any">Any</string>
 	<string name="You">You</string>
 
@@ -2471,10 +2599,55 @@ If you continue to receive this message, contact the [SUPPORT_SITE].
 <string name="Bulbous">Bulbous</string>
 <string name="Bulbous Nose">Bulbous Nose</string>
 
+<string name="Breast Physics Mass">Breast Mass</string>
+<string name="Breast Physics Smoothing">Breast Smoothing</string>
+<string name="Breast Physics Gravity">Breast Gravity</string>
+<string name="Breast Physics Drag">Breast Drag</string>
+
+<string name="Breast Physics InOut Max Effect">Max Effect</string>
+<string name="Breast Physics InOut Spring">Spring</string>
+<string name="Breast Physics InOut Gain">Gain</string>
+<string name="Breast Physics InOut Damping">Damping</string>
+
+<string name="Breast Physics UpDown Max Effect">Max Effect</string>
+<string name="Breast Physics UpDown Spring">Spring</string>
+<string name="Breast Physics UpDown Gain">Gain</string>
+<string name="Breast Physics UpDown Damping">Damping</string>
+
+<string name="Breast Physics LeftRight Max Effect">Max Effect</string>
+<string name="Breast Physics LeftRight Spring">Spring</string>
+<string name="Breast Physics LeftRight Gain">Gain</string>
+<string name="Breast Physics LeftRight Damping">Damping</string>
+
+<string name="Belly Physics Mass">Belly Mass</string>
+<string name="Belly Physics Smoothing">Belly Smoothing</string>
+<string name="Belly Physics Gravity">Belly Gravity</string>
+<string name="Belly Physics Drag">Belly Drag</string>
+
+<string name="Belly Physics UpDown Max Effect">Max Effect</string>
+<string name="Belly Physics UpDown Spring">Spring</string>
+<string name="Belly Physics UpDown Gain">Gain</string>
+<string name="Belly Physics UpDown Damping">Damping</string>
+
+<string name="Butt Physics Mass">Butt Mass</string>
+<string name="Butt Physics Smoothing">Butt Smoothing</string>
+<string name="Butt Physics Gravity">Butt Gravity</string>
+<string name="Butt Physics Drag">Butt Drag</string>
+
+<string name="Butt Physics UpDown Max Effect">Max Effect</string>
+<string name="Butt Physics UpDown Spring">Spring</string>
+<string name="Butt Physics UpDown Gain">Gain</string>
+<string name="Butt Physics UpDown Damping">Damping</string>
+
+<string name="Butt Physics LeftRight Max Effect">Max Effect</string>
+<string name="Butt Physics LeftRight Spring">Spring</string>
+<string name="Butt Physics LeftRight Gain">Gain</string>
+<string name="Butt Physics LeftRight Damping">Damping</string>
 
 <string name="Bushy Eyebrows">Bushy Eyebrows</string>
 <string name="Bushy Hair">Bushy Hair</string>
 <string name="Butt Size">Butt Size</string>
+<string name="Butt Gravity">Butt Gravity</string>
 <string name="bustle skirt">Bustle Skirt</string>
 <string name="no bustle">No Bustle</string>
 <string name="more bustle">More Bustle</string>
@@ -3029,7 +3202,7 @@ If you continue to receive this message, contact the [SUPPORT_SITE].
     Ad-hoc Conference
   </string>
   <string name="conference-title-incoming">
-    [AGENT_NAME] Conference
+    Conference with [AGENT_NAME]
   </string>
   <string name="inventory_item_offered-im">
     Inventory item offered
@@ -3039,11 +3212,14 @@ If you continue to receive this message, contact the [SUPPORT_SITE].
   </string>
 
 
+  <string name="no_session_message">
+    (IM Session Doesn't Exist)
+  </string>
   <string name="only_user_message">
     You are the only user in this session.
   </string>
   <string name="offline_message">
-    [FIRST] [LAST] is offline.
+    [NAME] is offline.
   </string>
   <string name="invite_message">
     Click the [BUTTON NAME] button to accept/connect to this voice chat.
@@ -3126,20 +3302,25 @@ If you continue to receive this message, contact the [SUPPORT_SITE].
 		The session initialization is timed out
 	</string>
   
+  <string name="Home position set.">Home position set.</string>
+  
   <string name="voice_morphing_url">http://secondlife.com/landing/voicemorphing</string>
 
   <!-- Financial operations strings -->
-  <string name="paid_you_ldollars">[NAME] paid you L$[AMOUNT]</string>
+  <string name="paid_you_ldollars">[NAME] paid you L$[AMOUNT] [REASON].</string>
+  <string name="paid_you_ldollars_no_reason">[NAME] paid you L$[AMOUNT].</string>
   <string name="you_paid_ldollars">You paid [NAME] L$[AMOUNT] [REASON].</string>
   <string name="you_paid_ldollars_no_info">You paid L$[AMOUNT].</string>
   <string name="you_paid_ldollars_no_reason">You paid [NAME] L$[AMOUNT].</string>
   <string name="you_paid_ldollars_no_name">You paid L$[AMOUNT] [REASON].</string>
+  <string name="for item">for [ITEM]</string>
   <string name="for a parcel of land">for a parcel of land</string>
   <string name="for a land access pass">for a land access pass</string>
   <string name="for deeding land">for deeding land</string>
   <string name="to create a group">to create a group</string>
   <string name="to join a group">to join a group</string>
   <string name="to upload">to upload</string>
+  <string name="to publish a classified ad">to publish a classified ad</string>
   
   <string name="giving">Giving L$ [AMOUNT]</string>
   <string name="uploading_costs">Uploading costs L$ [AMOUNT]</string>
@@ -3172,6 +3353,7 @@ Abuse Report</string>
   <string name="New Skirt">New Skirt</string>
   <string name="New Alpha">New Alpha</string>
   <string name="New Tattoo">New Tattoo</string>
+  <string name="New Physics">New Physics</string>
   <string name="Invalid Wearable">Invalid Wearable</string>
   <string name="New Gesture">New Gesture</string>
   <string name="New Script">New Script</string>
@@ -3267,5 +3449,137 @@ Abuse Report</string>
   <string name="DeleteItem">Delete selected item?</string>
 
   <string name="EmptyOutfitText">There are no items in this outfit</string>
+ 
+ <!-- External editor status codes -->
+ <string name="ExternalEditorNotSet">Select an editor using the ExternalEditor setting.</string>
+ <string name="ExternalEditorNotFound">Cannot find the external editor you specified.
+Try enclosing path to the editor with double quotes.
+(e.g. "/path to my/editor" "%s")</string>
+ <string name="ExternalEditorCommandParseError">Error parsing the external editor command.</string>
+ <string name="ExternalEditorFailedToRun">External editor failed to run.</string>
+
+  <!-- Key names begin -->
+  <string name="Esc">Esc</string>
+  <string name="Space">Space</string>
+  <string name="Enter">Enter</string>
+  <string name="Tab">Tab</string>
+  <string name="Ins">Ins</string>
+  <string name="Del">Del</string>
+  <string name="Backsp">Backsp</string>
+  <string name="Shift">Shift</string>
+  <string name="Ctrl">Ctrl</string>
+  <string name="Alt">Alt</string>
+  <string name="CapsLock">CapsLock</string>
+  <string name="Left">Left</string>
+  <string name="Right">Right</string>
+  <string name="Up">Up</string>
+  <string name="Down">Down</string>
+  <string name="Home">Home</string>
+  <string name="End">End</string>
+  <string name="PgUp">PgUp</string>
+  <string name="PgDn">PgDn</string>
+
+  <string name="F1">F1</string>
+  <string name="F2">F2</string>
+  <string name="F3">F3</string>
+  <string name="F4">F4</string>
+  <string name="F5">F5</string>
+  <string name="F6">F6</string>
+  <string name="F7">F7</string>
+  <string name="F8">F8</string>
+  <string name="F9">F9</string>
+  <string name="F10">F10</string>
+  <string name="F11">F11</string>
+  <string name="F12">F12</string>
+
+  <string name="Add">Add</string>
+  <string name="Subtract">Subtract</string>
+  <string name="Multiply">Multiply</string>
+  <string name="Divide">Divide</string>
+  <string name="PAD_DIVIDE">PAD_DIVIDE</string>
+  <string name="PAD_LEFT">PAD_LEFT</string>
+  <string name="PAD_RIGHT">PAD_RIGHT</string>
+  <string name="PAD_DOWN">PAD_DOWN</string>
+  <string name="PAD_UP">PAD_UP</string>
+  <string name="PAD_HOME">PAD_HOME</string>
+  <string name="PAD_END">PAD_END</string>
+  <string name="PAD_PGUP">PAD_PGUP</string>
+  <string name="PAD_PGDN">PAD_PGDN</string>
+  <string name="PAD_CENTER">PAD_CENTER</string>
+  <string name="PAD_INS">PAD_INS</string>
+  <string name="PAD_DEL">PAD_DEL</string>
+  <string name="PAD_Enter">PAD_Enter</string>
+  <string name="PAD_BUTTON0">PAD_BUTTON0</string>
+  <string name="PAD_BUTTON1">PAD_BUTTON1</string>
+  <string name="PAD_BUTTON2">PAD_BUTTON2</string>
+  <string name="PAD_BUTTON3">PAD_BUTTON3</string>
+  <string name="PAD_BUTTON4">PAD_BUTTON4</string>
+  <string name="PAD_BUTTON5">PAD_BUTTON5</string>
+  <string name="PAD_BUTTON6">PAD_BUTTON6</string>
+  <string name="PAD_BUTTON7">PAD_BUTTON7</string>
+  <string name="PAD_BUTTON8">PAD_BUTTON8</string>
+  <string name="PAD_BUTTON9">PAD_BUTTON9</string>
+  <string name="PAD_BUTTON10">PAD_BUTTON10</string>
+  <string name="PAD_BUTTON11">PAD_BUTTON11</string>
+  <string name="PAD_BUTTON12">PAD_BUTTON12</string>
+  <string name="PAD_BUTTON13">PAD_BUTTON13</string>
+  <string name="PAD_BUTTON14">PAD_BUTTON14</string>
+  <string name="PAD_BUTTON15">PAD_BUTTON15</string>
+
+  <string name="-">-</string>
+  <string name="=">=</string>
+  <string name="`">`</string>
+  <string name=";">;</string>
+  <string name="[">[</string>
+  <string name="]">]</string>
+  <string name="\">\</string>
+
+  <string name="0">0</string>
+  <string name="1">1</string>
+  <string name="2">2</string>
+  <string name="3">3</string>
+  <string name="4">4</string>
+  <string name="5">5</string>
+  <string name="6">6</string>
+  <string name="7">7</string>
+  <string name="8">8</string>
+  <string name="9">9</string>
+
+  <string name="A">A</string>
+  <string name="B">B</string>
+  <string name="C">C</string>
+  <string name="D">D</string>
+  <string name="E">E</string>
+  <string name="F">F</string>
+  <string name="G">G</string>
+  <string name="H">H</string>
+  <string name="I">I</string>
+  <string name="J">J</string>
+  <string name="K">K</string>
+  <string name="L">L</string>
+  <string name="M">M</string>
+  <string name="N">N</string>
+  <string name="O">O</string>
+  <string name="P">P</string>
+  <string name="Q">Q</string>
+  <string name="R">R</string>
+  <string name="S">S</string>
+  <string name="T">T</string>
+  <string name="U">U</string>
+  <string name="V">V</string>
+  <string name="W">W</string>
+  <string name="X">X</string>
+  <string name="Y">Y</string>
+  <string name="Z">Z</string>
+  <!-- Key names end -->
+
+  <!-- llviewerwindow -->
+  <string name="BeaconParticle">Viewing particle beacons (blue)</string>
+  <string name="BeaconPhysical">Viewing physical object beacons (green)</string>
+  <string name="BeaconScripted">Viewing scripted object beacons (red)</string>
+  <string name="BeaconScriptedTouch">Viewing scripted object with touch function beacons (red)</string>
+  <string name="BeaconSound">Viewing sound beacons (yellow)</string>
+  <string name="BeaconMedia">Viewing media beacons (white)</string>
+  <string name="ParticleHiding">Hiding Particles</string>
 
   </strings>

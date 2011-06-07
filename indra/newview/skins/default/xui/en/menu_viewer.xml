@@ -41,7 +41,7 @@
              parameter="agent" />
         </menu_item_call>
         <menu_item_call
-         label="Change Outfit"
+         label="My Appearance"
          name="ChangeOutfit">
             <menu_item_call.on_click
              function="CustomizeAvatar" />
@@ -89,11 +89,54 @@
          visibility_control="VoiceMorphingEnabled">
             <menu_item_check.on_check
              function="Floater.Visible"
-             parameter="voice_effect" />
+             Parameter="voice_effect" />
             <menu_item_check.on_click
              function="Floater.Toggle"
              parameter="voice_effect" />
         </menu_item_check>
+		<menu
+		 create_jump_keys="true"
+		 label="Movement"
+		 name="Movement"
+		 tear_off="true">
+            <menu_item_call
+             label="Sit Down"
+             layout="topleft"
+		     shortcut="alt|shift|S"
+             name="Sit Down Here">
+                <menu_item_call.on_click
+                 function="Self.SitDown"
+                 parameter="" />
+                <menu_item_call.on_enable
+                 function="Self.EnableSitDown" />
+            </menu_item_call>
+            <menu_item_check
+             label="Fly"
+             name="Fly"
+             shortcut="Home">
+                <menu_item_check.on_check
+                 function="Agent.getFlying" />
+                <menu_item_check.on_click
+                 function="Agent.toggleFlying" />
+                <menu_item_check.on_enable
+                 function="Agent.enableFlying" />
+            </menu_item_check>
+            <menu_item_check
+             label="Always Run"
+             name="Always Run"
+             shortcut="control|R">
+                <menu_item_check.on_check
+                 function="World.CheckAlwaysRun" />
+                <menu_item_check.on_click
+                 function="World.AlwaysRun" />
+            </menu_item_check>
+            <menu_item_call
+             label="Stop Animating Me"
+             name="Stop Animating My Avatar">
+                 <menu_item_call.on_click
+                  function="Tools.StopAllAnimations" />
+            </menu_item_call>
+		</menu>
         <menu
          create_jump_keys="true"
          label="My Status"
@@ -218,6 +261,17 @@
              function="Floater.Toggle"
              parameter="world_map" />
         </menu_item_check>
+        <menu_item_check
+        label="Search"
+        name="Search"
+        shortcut="control|F">
+            <menu_item_check.on_check
+             function="Floater.Visible"
+             parameter="search" />
+            <menu_item_check.on_click
+             function="Floater.Toggle"
+             parameter="search" />
+            </menu_item_check>
         <menu_item_call
          label="Snapshot"
          name="Take Snapshot"
@@ -358,6 +412,18 @@
                parameter="NavBarShowParcelProperties" />
             <menu_item_check.on_check
                control="NavBarShowParcelProperties" />
+          </menu_item_check>
+          <menu_item_separator />
+          <menu_item_check
+             label="Advanced Menu"
+             name="Show Advanced Menu"
+             shortcut="control|alt|shift|D">
+            <on_check
+               function="CheckControl"
+               parameter="UseDebugMenus" />
+            <on_click
+               function="ToggleControl"
+               parameter="UseDebugMenus" />
           </menu_item_check>
         </menu>
 
@@ -670,6 +736,14 @@
 			<menu_item_call.on_enable
                function="Tools.EnableSaveToObjectInventory" />
           </menu_item_call>
+          <menu_item_call
+			 label="Return Object"
+			 name="Return Object back to Owner">
+			<menu_item_call.on_click
+               function="Object.Return" />
+			<menu_item_call.on_enable
+               function="Object.EnableReturn" />
+          </menu_item_call>
 		</menu>
         <menu
            create_jump_keys="true"
@@ -772,6 +846,16 @@
 
           <menu_item_separator/>
 
+                <menu_item_check
+                 label="Show Selection Outlines"
+                 name="Show Selection Outlines">
+                    <menu_item_check.on_check
+                     function="CheckControl"
+                     parameter="RenderHighlightSelections" />
+                    <menu_item_check.on_click
+                     function="ToggleControl"
+                     parameter="RenderHighlightSelections" />
+                </menu_item_check>
                 <menu_item_check
                  label="Show Hidden Selection"
                  name="Show Hidden Selection">
@@ -888,6 +972,30 @@
                  parameter="Upload Animation" />
             </menu_item_call>
             <menu_item_call
+           label="Model..."
+           layout="topleft"
+           name="Upload Model">
+            <menu_item_call.on_click
+             function="File.UploadModel"
+             parameter="" />
+            <menu_item_call.on_enable
+             function="File.EnableUploadModel" />
+            <menu_item_call.on_visible
+            function="File.VisibleUploadModel"/>
+            </menu_item_call>
+			<menu_item_call
+           label="Model Wizard..."
+           layout="topleft"
+           name="Upload Model Wizard">
+				<menu_item_call.on_click
+				 function="Floater.Show"
+				 parameter="upload_model_wizard" />
+				<menu_item_call.on_enable
+				 function="File.EnableUploadModel" />
+				<menu_item_call.on_visible
+				function="File.VisibleUploadModel"/>
+			</menu_item_call>
+            <menu_item_call
              label="Bulk (L$[COST] per file)..."
              layout="topleft"
              name="Bulk Upload">
@@ -903,6 +1011,29 @@
                  parameter="perm_prefs" />
             </menu_item_call>
         </menu>
+        <menu_item_separator/>
+        <menu_item_call
+         enabled="false"
+         label="Undo"
+         name="Undo"
+         shortcut="control|Z">
+            <on_click
+             function="Edit.Undo"
+             userdata="" />
+            <on_enable
+             function="Edit.EnableUndo" />
+        </menu_item_call>
+        <menu_item_call
+         enabled="false"
+         label="Redo"
+         name="Redo"
+         shortcut="control|Y">
+            <on_click
+             function="Edit.Redo"
+             userdata="" />
+            <on_enable
+             function="Edit.EnableRedo" />
+        </menu_item_call>        
     </menu>
     <menu
      create_jump_keys="true"
@@ -917,6 +1048,14 @@
              function="ShowHelp"
              parameter="f1_help" />
         </menu_item_call>
+        <menu_item_check
+         label="Enable Hints"
+         name="Enable Hints">
+          <on_check
+            control="EnableUIHints"/>
+          <on_click
+            function="ToggleUIHints"/>
+        </menu_item_check>
 <!--        <menu_item_call
          label="Tutorial"
          name="Tutorial">
@@ -957,12 +1096,6 @@
      name="Advanced"
      tear_off="true"
      visible="false">
-        <menu_item_call
-         label="Stop Animating Me"
-         name="Stop Animating My Avatar">
-            <menu_item_call.on_click
-             function="Tools.StopAllAnimations" />
-        </menu_item_call>
         <menu_item_call
          label="Rebake Textures"
          name="Rebake Texture"
@@ -1233,15 +1366,15 @@
                  parameter="character" />
             </menu_item_check>
             <menu_item_check
-             label="SurfacePath"
-             name="SurfacePath"
+             label="Surface Patch"
+             name="Surface Patch"
              shortcut="control|alt|shift|5">
                 <menu_item_check.on_check
                  function="Advanced.CheckRenderType"
-                 parameter="surfacePath" />
+                 parameter="surfacePatch" />
                 <menu_item_check.on_click
                  function="Advanced.ToggleRenderType"
-                 parameter="surfacePath" />
+                 parameter="surfacePatch" />
             </menu_item_check>
             <menu_item_check
              label="Sky"
@@ -1500,28 +1633,17 @@
                 <menu_item_call.on_click
                  function="View.DefaultUISize" />
             </menu_item_call>
-
-            <menu_item_separator/>
-
+            <!-- This second, alternative shortcut for Show Advanced Menu is for backward compatibility.  The main shortcut has been changed so it's Linux-friendly, where the old shortcut is typically eaten by the window manager. -->
             <menu_item_check
-             label="Always Run"
-             name="Always Run"
-             shortcut="control|R">
-                <menu_item_check.on_check
-                 function="World.CheckAlwaysRun" />
-                <menu_item_check.on_click
-                 function="World.AlwaysRun" />
-            </menu_item_check>
-            <menu_item_check
-             label="Fly"
-             name="Fly"
-             shortcut="Home">
-                <menu_item_check.on_check
-                 function="Agent.getFlying" />
-                <menu_item_check.on_click
-                 function="Agent.toggleFlying" />
-                <menu_item_check.on_enable
-                 function="Agent.enableFlying" />
+               label="Show Advanced Menu - legacy shortcut"
+               name="Show Advanced Menu - legacy shortcut"
+               shortcut="control|alt|D">
+              <on_check
+                 function="CheckControl"
+                 parameter="UseDebugMenus" />
+              <on_click
+                 function="ToggleControl"
+                 parameter="UseDebugMenus" />
             </menu_item_check>
 
             <menu_item_separator/>
@@ -1667,23 +1789,6 @@
                 <menu_item_call.on_click
                  function="View.ZoomOut" />
             </menu_item_call>
-            <menu_item_separator
-             visible="false"/>
-            <!-- Made invisible to avoid a dissonance: menu item toggle menu where it is located. EXT-8069.
-              Can't be removed to keep sortcut workable.
-            -->
-            <menu_item_check
-             label="Show Advanced Menu"
-             name="Show Advanced Menu"
-             shortcut="control|alt|D"
-             visible="false">
-                <on_check
-                 function="CheckControl"
-                 parameter="UseDebugMenus" />
-                <on_click
-                 function="ToggleControl"
-                 parameter="UseDebugMenus" />
-        </menu_item_check>
         </menu> <!--Shortcuts-->
 
         <menu_item_separator/>
@@ -1706,7 +1811,6 @@
              function="ToggleControl"
              parameter="QAMode" />
         </menu_item_check>
-    
     </menu>
     <menu
      create_jump_keys="true"
@@ -1797,6 +1901,16 @@
                  function="Advanced.ToggleConsole"
                  parameter="memory view" />
             </menu_item_check>
+            <menu_item_check
+               label="Scene Statistics"
+               name="Scene Statistics">
+              <menu_item_check.on_check
+               function="Advanced.CheckConsole"
+               parameter="scene view" />
+              <menu_item_check.on_click
+               function="Advanced.ToggleConsole"
+               parameter="scene view" />
+            </menu_item_check>
 
             <menu_item_separator/>
 
@@ -1881,6 +1995,17 @@
                  function="ToggleControl"
                  parameter="DebugShowTime" />
             </menu_item_check>
+          <menu_item_check
+             label="Show Upload Cost"
+             layout="topleft"
+             name="Show Upload Cost">
+            <menu_item_check.on_check
+             function="CheckControl"
+             parameter="DebugShowUploadCost" />
+            <menu_item_check.on_click
+             function="ToggleControl"
+             parameter="DebugShowUploadCost" />
+          </menu_item_check>
             <menu_item_check
              label="Show Render Info"
              name="Show Render Info">
@@ -1890,6 +2015,16 @@
                 <menu_item_check.on_click
                  function="ToggleControl"
                  parameter="DebugShowRenderInfo" />
+            </menu_item_check>
+			<menu_item_check
+             label="Show Texture Info"
+             name="Show Texture Info">
+                <menu_item_check.on_check
+                 function="CheckControl"
+                 parameter="DebugShowTextureInfo" />
+                <menu_item_check.on_click
+                 function="ToggleControl"
+                 parameter="DebugShowTextureInfo" />
             </menu_item_check>
             <menu_item_check
              label="Show Matrices"
@@ -1910,6 +2045,16 @@
                 <menu_item_check.on_click
                  function="ToggleControl"
                  parameter="DebugShowColor" />
+            </menu_item_check>
+            <menu_item_check
+               label="Show Memory"
+               name="Show Memory">
+              <menu_item_check.on_check
+               function="CheckControl"
+               parameter="DebugShowMemory" />
+              <menu_item_check.on_click
+               function="ToggleControl"
+               parameter="DebugShowMemory" />
             </menu_item_check>
 
             <menu_item_separator/>
@@ -2044,6 +2189,16 @@
          parameter="bboxes" />
         </menu_item_check>
         <menu_item_check
+         label="Normals"
+         name="Normals">
+          <menu_item_check.on_check
+           function="Advanced.CheckInfoDisplay"
+           parameter="normals" />
+          <menu_item_check.on_click
+           function="Advanced.ToggleInfoDisplay"
+           parameter="normals" />
+        </menu_item_check>
+        <menu_item_check
          label="Octree"
          name="Octree">
           <menu_item_check.on_check
@@ -2064,6 +2219,16 @@
            parameter="shadow frusta" />
         </menu_item_check>
         <menu_item_check
+         label="Physics Shapes"
+         name="Physics Shapes">
+          <menu_item_check.on_check
+           function="Advanced.CheckInfoDisplay"
+           parameter="physics shapes" />
+          <menu_item_check.on_click
+           function="Advanced.ToggleInfoDisplay"
+           parameter="physics shapes" />
+        </menu_item_check>
+        <menu_item_check
          label="Occlusion"
          name="Occlusion">
           <menu_item_check.on_check
@@ -2082,6 +2247,16 @@
           <menu_item_check.on_click
            function="Advanced.ToggleInfoDisplay"
            parameter="render batches" />
+        </menu_item_check>
+        <menu_item_check
+         label="Update Type"
+         name="Update Type">
+          <menu_item_check.on_check
+           function="Advanced.CheckInfoDisplay"
+           parameter="update type" />
+          <menu_item_check.on_click
+           function="Advanced.ToggleInfoDisplay"
+           parameter="update type" />
         </menu_item_check>
         <menu_item_check
          label="Texture Anim"
@@ -2124,6 +2299,26 @@
            parameter="face area" />
         </menu_item_check>
         <menu_item_check
+         label="LOD Info"
+         name="LOD Info">
+          <menu_item_check.on_check
+           function="Advanced.CheckInfoDisplay"
+           parameter="lod info" />
+          <menu_item_check.on_click
+           function="Advanced.ToggleInfoDisplay"
+           parameter="lod info" />
+        </menu_item_check>
+        <menu_item_check
+         label="Build Queue"
+         name="Build Queue">
+          <menu_item_check.on_check
+           function="Advanced.CheckInfoDisplay"
+           parameter="build queue" />
+          <menu_item_check.on_click
+           function="Advanced.ToggleInfoDisplay"
+           parameter="build queue" />
+        </menu_item_check>
+        <menu_item_check
          label="Lights"
          name="Lights">
           <menu_item_check.on_check
@@ -2153,6 +2348,16 @@
            function="Advanced.ToggleInfoDisplay"
            parameter="raycast" />
         </menu_item_check>
+		<menu_item_check
+         label="Sculpt"
+         name="Sculpt">
+          <menu_item_check.on_check
+           function="Advanced.CheckInfoDisplay"
+           parameter="sculpt" />
+          <menu_item_check.on_click
+           function="Advanced.ToggleInfoDisplay"
+           parameter="sculpt" />
+		</menu_item_check>
       </menu>
         <menu
          create_jump_keys="true"
@@ -2209,19 +2414,6 @@
                 <menu_item_check.on_enable
                  function="Advanced.EnableObjectObjectOcclusion" />
             </menu_item_check>
-          <menu_item_check
-             label="Framebuffer Objects"
-             name="Framebuffer Objects">
-            <menu_item_check.on_check
-             function="CheckControl"
-             parameter="RenderUseFBO" />
-            <menu_item_check.on_click
-             function="ToggleControl"
-             parameter="RenderUseFBO" />
-            <menu_item_check.on_enable
-                 function="Advanced.EnableRenderFBO" />
-           </menu_item_check>
-
           <menu_item_separator />
 
           <menu_item_check
@@ -2577,13 +2769,21 @@
                  parameter="BottomPanelNew" />
             </menu_item_check>-->
             <menu_item_call
-             label="Web Browser Test"
+             label="Media Browser Test"
              name="Web Browser Test">
                 <menu_item_call.on_click
                  function="Advanced.WebBrowserTest"
                  parameter="http://secondlife.com/app/search/slurls.html"/>
             </menu_item_call>
-            <menu_item_call
+          <menu_item_call
+           label="Web Content Browser"
+           name="Web Content Browser"
+           shortcut="control|shift|Z">
+            <menu_item_call.on_click
+             function="Advanced.WebContentTest"
+             parameter="http://google.com"/>
+          </menu_item_call>
+          <menu_item_call
              label="Dump SelectMgr"
              name="Dump SelectMgr">
                 <menu_item_call.on_click
@@ -2629,16 +2829,17 @@
                  function="Advanced.PrintTextureMemoryStats" />
             </menu_item_call>
             <menu_item_check
-             label="Double-ClickAuto-Pilot"
-             name="Double-ClickAuto-Pilot">
+             label="Region Debug Console"
+             name="Region Debug Console"
+             shortcut="control|shift|`"
+             use_mac_ctrl="true">
                 <menu_item_check.on_check
-                 function="CheckControl"
-                 parameter="DoubleClickAutoPilot" />
+                 function="Floater.Visible"
+                 parameter="region_debug_console" />
                 <menu_item_check.on_click
-                 function="ToggleControl"
-                 parameter="DoubleClickAutoPilot" />
+                 function="Floater.Toggle"
+                 parameter="region_debug_console" />
             </menu_item_check>
-
             <menu_item_separator />
 
             <menu_item_check
@@ -2725,18 +2926,6 @@
                  function="Floater.Show"
                  parameter="font_test" />
             </menu_item_call>
-            <menu_item_call
-             label="Load from XML"
-             name="Load from XML">
-                <menu_item_call.on_click
-                 function="Advanced.LoadUIFromXML" />
-            </menu_item_call>
-            <menu_item_call
-             label="Save to XML"
-             name="Save to XML">
-                <menu_item_call.on_click
-                 function="Advanced.SaveUIToXML" />
-            </menu_item_call>
             <menu_item_check
              label="Show XUI Names"
              name="Show XUI Names">
@@ -2751,6 +2940,12 @@
            name="Send Test IMs">
             <menu_item_call.on_click
              function="Advanced.SendTestIMs" />
+          </menu_item_call>
+          <menu_item_call
+           label="Flush Names Caches"
+           name="Flush Names Caches">
+            <menu_item_call.on_click
+             function="Advanced.FlushNameCaches" />
           </menu_item_call>
         </menu>
         <menu
@@ -2999,6 +3194,16 @@
              function="ToggleControl"
              parameter="ImagePipelineUseHTTP" />
         </menu_item_check>
+        <menu_item_check
+         label="HTTP Inventory"
+         name="HTTP Inventory">
+            <menu_item_check.on_check
+             function="CheckControl"
+             parameter="UseHTTPInventory" />
+            <menu_item_check.on_click
+             function="ToggleControl"
+             parameter="UseHTTPInventory" />
+        </menu_item_check>
         <menu_item_call
          label="Compress Images"
          name="Compress Images">
@@ -3028,15 +3233,6 @@
 
         <menu_item_separator/>
 
-        <menu_item_check
-         label="Show Admin Menu"
-         name="View Admin Options">
-            <menu_item_check.on_check
-             function="Advanced.CheckViewAdminOptions"
-             parameter="ViewAdminOptions" />
-            <menu_item_check.on_click
-             function="Advanced.ToggleViewAdminOptions" />
-        </menu_item_check>
         <menu_item_call
          label="Request Admin Status"
          name="Request Admin Options"
@@ -3051,6 +3247,17 @@
             <menu_item_call.on_click
              function="Advanced.LeaveAdminStatus" />
         </menu_item_call>
+		<menu_item_check
+         label="Show Admin Menu"
+         name="View Admin Options">
+            <menu_item_check.on_enable
+             function="Advanced.EnableViewAdminOptions" />
+            <menu_item_check.on_check
+             function="Advanced.CheckViewAdminOptions"
+             parameter="ViewAdminOptions" />
+            <menu_item_check.on_click
+             function="Advanced.ToggleViewAdminOptions" />
+        </menu_item_check>
     </menu>
     <menu
      create_jump_keys="true"
@@ -3311,6 +3518,16 @@
                 <menu_item_call.on_enable
                  function="Edit.EnableTakeOff"
                  parameter="tattoo" />
+            </menu_item_call>
+            <menu_item_call
+             label="Physics"
+             name="Physics">
+                <menu_item_call.on_click
+                 function="Edit.TakeOff"
+                 parameter="physics" />
+                <menu_item_call.on_enable
+                 function="Edit.EnableTakeOff"
+                 parameter="physics" />
             </menu_item_call>
             <menu_item_call
              label="All Clothes"

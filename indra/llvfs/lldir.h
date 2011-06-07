@@ -74,8 +74,7 @@ class LLDir
 
 // pure virtual functions
 	virtual U32 countFilesInDir(const std::string &dirname, const std::string &mask) = 0;
-	virtual BOOL getNextFileInDir(const std::string &dirname, const std::string &mask, std::string &fname, BOOL wrap) = 0;
-	virtual void getRandomFileInDir(const std::string &dirname, const std::string &mask, std::string &fname) = 0;
+
 	virtual std::string getCurPath() = 0;
 	virtual BOOL fileExists(const std::string &filename) const = 0;
 

@@ -36,6 +36,7 @@
 
 // project includes
 #include "llviewerobject.h"
+#include "llaccountingquota.h"
 
 class LLCamera;
 class LLNetMap;
@@ -85,8 +86,28 @@ public:
 	void updateApparentAngles(LLAgent &agent);
 	void update(LLAgent &agent, LLWorld &world);
 
+	void fetchObjectCosts();
+	void fetchPhysicsFlags();
+
+	void updateObjectCost(LLViewerObject* object);
+	void updateObjectCost(const LLUUID& object_id, F32 object_cost, F32 link_cost, F32 physics_cost, F32 link_physics_cost);
+	void onObjectCostFetchFailure(const LLUUID& object_id);
+
+	void updatePhysicsFlags(const LLViewerObject* object);
+	void onPhysicsFlagsFetchFailure(const LLUUID& object_id);
+	void updatePhysicsShapeType(const LLUUID& object_id, S32 type);
+	void updatePhysicsProperties(const LLUUID& object_id,
+									F32 density,
+									F32 friction,
+									F32 restitution,
+									F32 gravity_multiplier);
+
+	void updateQuotaCost( const LLUUID& objectId, const SelectionQuota& costs );
+	
 	void shiftObjects(const LLVector3 &offset);
 
+	bool hasMapObjectInRegion(LLViewerRegion* regionp) ;
+	void clearAllMapObjectsInRegion(LLViewerRegion* regionp) ;
 	void renderObjectsForMap(LLNetMap &netmap);
 	void renderObjectBounds(const LLVector3 &center);
 
@@ -104,7 +125,6 @@ public:
 
 	// Selection related stuff
 	void generatePickList(LLCamera &camera);
-	void renderPickList(const LLRect& screen_rect, BOOL pick_parcel_wall, BOOL render_transparent);
 
 	LLViewerObject *getSelectedObject(const U32 object_id);
 
@@ -161,7 +181,7 @@ public:
 								const U32 ip,
 								const U32 port); // Requires knowledge of message system info!
 
-	static BOOL removeFromLocalIDTable(const LLViewerObject &object);
+	static BOOL removeFromLocalIDTable(const LLViewerObject* objectp);
 	// Used ONLY by the orphaned object code.
 	static U64 getIndex(const U32 local_id, const U32 ip, const U32 port);
 
@@ -181,10 +201,17 @@ protected:
 
 	vobj_list_t mMapObjects;
 
-	typedef std::map<LLUUID, LLPointer<LLViewerObject> > vo_map;
-	vo_map mDeadObjects;	// Need to keep multiple entries per UUID
+	std::set<LLUUID> mDeadObjects;	
 
 	std::map<LLUUID, LLPointer<LLViewerObject> > mUUIDObjectMap;
+
+	//set of objects that need to update their cost
+	std::set<LLUUID> mStaleObjectCost;
+	std::set<LLUUID> mPendingObjectCost;
+
+	//set of objects that need to update their physics flags
+	std::set<LLUUID> mStalePhysicsFlags;
+	std::set<LLUUID> mPendingPhysicsFlags;
 
 	std::vector<LLDebugBeacon> mDebugBeacons;
 

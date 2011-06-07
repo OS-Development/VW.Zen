@@ -7,17 +7,16 @@ include(00-Common)
 include(LLCommon)
 include(Linking)
 include(Boost)
-include(Pth)
 include(LLSharedLibs)
 include(GoogleBreakpad)
 include(GooglePerfTools)
 include(Copy3rdPartyLibs)
+include(ZLIB)
 
 include_directories(
     ${EXPAT_INCLUDE_DIRS}
     ${LLCOMMON_INCLUDE_DIRS}
     ${ZLIB_INCLUDE_DIRS}
-    ${PTH_INCLUDE_DIRS}
     )
 
 # add_executable(lltreeiterators lltreeiterators.cpp)
@@ -33,6 +32,7 @@ set(llcommon_SOURCE_FILES
     llapp.cpp
     llapr.cpp
     llassettype.cpp
+    llavatarname.cpp
     llbase32.cpp
     llbase64.cpp
     llcommon.cpp
@@ -61,6 +61,7 @@ set(llcommon_SOURCE_FILES
     llformat.cpp
     llframetimer.cpp
     llheartbeat.cpp
+    llinstancetracker.cpp
     llliveappconfig.cpp
     lllivefile.cpp
     lllog.cpp
@@ -69,6 +70,7 @@ set(llcommon_SOURCE_FILES
     llmemorystream.cpp
     llmemtype.cpp
     llmetrics.cpp
+    llmetricperformancetester.cpp
     llmortician.cpp
     lloptioninterface.cpp
     llptrto.cpp 
@@ -91,6 +93,7 @@ set(llcommon_SOURCE_FILES
     llstringtable.cpp
     llsys.cpp
     llthread.cpp
+    llthreadsafequeue.cpp
     lltimer.cpp
     lluri.cpp
     lluuid.cpp
@@ -112,9 +115,11 @@ set(llcommon_HEADER_FILES
     indra_constants.h
     linden_common.h
     linked_lists.h
+    llaccountingquota.h
     llallocator.h
     llallocator_heap_profile.h
     llagentconstants.h
+    llavatarname.h
     llapp.h
     llapr.h
     llassettype.h
@@ -157,6 +162,7 @@ set(llcommon_HEADER_FILES
     lleventemitter.h
     llextendedstatus.h
     llfasttimer.h
+    llfasttimer_class.h
     llfile.h
     llfindlocale.h
     llfixedbuffer.h
@@ -183,6 +189,7 @@ set(llcommon_HEADER_FILES
     llmemorystream.h
     llmemtype.h
     llmetrics.h
+    llmetricperformancetester.h
     llmortician.h
     llnametable.h
     lloptioninterface.h
@@ -220,6 +227,7 @@ set(llcommon_HEADER_FILES
     llstringtable.h
     llsys.h
     llthread.h
+    llthreadsafequeue.h
     lltimer.h
     lltreeiterators.h
     lluri.h
@@ -251,8 +259,19 @@ set_source_files_properties(${llcommon_HEADER_FILES}
 list(APPEND llcommon_SOURCE_FILES ${llcommon_HEADER_FILES})
 
 if(LLCOMMON_LINK_SHARED)
-    add_library (llcommon SHARED ${llcommon_SOURCE_FILES})
-    ll_stage_sharedlib(llcommon)
+  add_library (llcommon SHARED ${llcommon_SOURCE_FILES})
+  if(NOT WORD_SIZE EQUAL 32)
+    if(WINDOWS)
+      add_definitions(/FIXED:NO)
+    else(WINDOWS) # not windows therefore gcc LINUX and DARWIN
+      add_definitions(-fPIC)
+    endif(WINDOWS)
+  endif(NOT WORD_SIZE EQUAL 32)
+  if(WINDOWS)
+    # always generate llcommon.pdb, even for "Release" builds
+    set_target_properties(llcommon PROPERTIES LINK_FLAGS "/DEBUG")
+  endif(WINDOWS)
+  ll_stage_sharedlib(llcommon)
 else(LLCOMMON_LINK_SHARED)
     add_library (llcommon ${llcommon_SOURCE_FILES})
 endif(LLCOMMON_LINK_SHARED)
@@ -267,9 +286,14 @@ target_link_libraries(
     ${WINDOWS_LIBRARIES}
     ${BOOST_PROGRAM_OPTIONS_LIBRARY}
     ${BOOST_REGEX_LIBRARY}
-    ${PTH_LIBRARIES}
     ${GOOGLE_PERFTOOLS_LIBRARIES}
     )
+
+if (DARWIN)
+  include(CMakeFindFrameworks)
+  find_library(CARBON_LIBRARY Carbon)
+  target_link_libraries(llcommon ${CARBON_LIBRARY})
+endif (DARWIN)
 
 add_dependencies(llcommon stage_third_party_libs)
 
@@ -299,6 +323,7 @@ if (LL_TESTS)
   LL_ADD_INTEGRATION_TEST(lluri "" "${test_libs}")
   LL_ADD_INTEGRATION_TEST(reflection "" "${test_libs}")
   LL_ADD_INTEGRATION_TEST(stringize "" "${test_libs}")
+  LL_ADD_INTEGRATION_TEST(lleventdispatcher "" "${test_libs}")
 
   # *TODO - reenable these once tcmalloc libs no longer break the build.
   #ADD_BUILD_TEST(llallocator llcommon)

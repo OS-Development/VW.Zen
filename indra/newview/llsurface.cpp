@@ -340,11 +340,6 @@ void LLSurface::connectNeighbor(LLSurface *neighborp, U32 direction)
 	S32 i;
 	LLSurfacePatch *patchp, *neighbor_patchp;
 
-	if (gNoRender)
-	{
-		return;
-	}
-
 	mNeighbors[direction] = neighborp;
 	neighborp->mNeighbors[gDirOpposite[direction]] = this;
 
@@ -1162,8 +1157,13 @@ void LLSurface::setWaterHeight(F32 height)
 	if (!mWaterObjp.isNull())
 	{
 		LLVector3 water_pos_region = mWaterObjp->getPositionRegion();
+		bool changed = water_pos_region.mV[VZ] != height;
 		water_pos_region.mV[VZ] = height;
 		mWaterObjp->setPositionRegion(water_pos_region);
+		if (changed)
+		{
+			LLWorld::getInstance()->updateWaterObjects();
+		}
 	}
 	else
 	{

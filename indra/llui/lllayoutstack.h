@@ -28,34 +28,50 @@
 #ifndef LL_LLLAYOUTSTACK_H
 #define LL_LLLAYOUTSTACK_H
 
-#include "llview.h"
+#include "llpanel.h"
 
 class LLPanel;
+
+class LLLayoutPanel;
 
 class LLLayoutStack : public LLView, public LLInstanceTracker<LLLayoutStack>
 {
 public:
-	struct Params : public LLInitParam::Block<Params, LLView::Params>
-	{
-		Optional<std::string>	orientation;
-		Optional<S32>			border_size;
-		Optional<bool>			animate,
-								clip;
-
-		Params();
-	};
-
 	typedef enum e_layout_orientation
 	{
 		HORIZONTAL,
 		VERTICAL
 	} ELayoutOrientation;
 
+	struct OrientationNames
+	:	public LLInitParam::TypeValuesHelper<ELayoutOrientation, OrientationNames>
+	{
+		static void declareValues();
+	};
+
+	struct LayoutStackRegistry : public LLChildRegistry<LayoutStackRegistry>
+	{};
+
+	struct Params : public LLInitParam::Block<Params, LLView::Params>
+	{
+		Mandatory<ELayoutOrientation, OrientationNames>	orientation;
+		Optional<S32>			border_size;
+		Optional<bool>			animate,
+								clip;
+		Optional<F32>			open_time_constant,
+								close_time_constant;
+
+		Params();
+	};
+
+	typedef LayoutStackRegistry child_registry_t;
+
 	virtual ~LLLayoutStack();
 
 	/*virtual*/ void draw();
 	/*virtual*/ void removeChild(LLView*);
 	/*virtual*/ BOOL postBuild();
+	/*virtual*/ bool addChild(LLView* child, S32 tab_group = 0);
 
 	static LLView* fromXML(LLXMLNodePtr node, LLView *parent, LLXMLNodePtr output_node = NULL);
 
@@ -68,29 +84,32 @@ public:
 		ANIMATE
 	} EAnimate;
 
-	void addPanel(LLPanel* panel, S32 min_width, S32 min_height, S32 max_width, S32 max_height, BOOL auto_resize, BOOL user_resize, EAnimate animate = NO_ANIMATE, S32 index = S32_MAX);
+	void addPanel(LLLayoutPanel* panel, EAnimate animate = NO_ANIMATE);
 	void removePanel(LLPanel* panel);
 	void collapsePanel(LLPanel* panel, BOOL collapsed = TRUE);
 	S32 getNumPanels() { return mPanels.size(); }
+	/**
+	 * Moves panel_to_move before target_panel inside layout stack (both panels should already be there).
+	 * If move_to_front is true target_panel is ignored and panel_to_move is moved to the beginning of mPanels
+	 */
+	void movePanel(LLPanel* panel_to_move, LLPanel* target_panel, bool move_to_front = false);
 
 	void updatePanelAutoResize(const std::string& panel_name, BOOL auto_resize);
 	void setPanelUserResize(const std::string& panel_name, BOOL user_resize);
 	
 	/**
-	 * Gets minimal width and/or height of the specified by name panel.
+	 * Gets minimal dimension along layout_stack axis of the specified by name panel.
 	 *
-	 * If it is necessary to get only the one dimension pass NULL for another one.
 	 * @returns true if specified by panel_name internal panel exists, false otherwise.
 	 */
-	bool getPanelMinSize(const std::string& panel_name, S32* min_widthp, S32* min_heightp);
+	bool getPanelMinSize(const std::string& panel_name, S32* min_dimp);
 
 	/**
-	 * Gets maximal width and/or height of the specified by name panel.
+	 * Gets maximal dimension along layout_stack axis of the specified by name panel.
 	 *
-	 * If it is necessary to get only the one dimension pass NULL for another one.
 	 * @returns true if specified by panel_name internal panel exists, false otherwise.
 	 */
-	bool getPanelMaxSize(const std::string& panel_name, S32* max_width, S32* max_height);
+	bool getPanelMaxSize(const std::string& panel_name, S32* max_dim);
 	
 	void updateLayout(BOOL force_resize = FALSE);
 	
@@ -105,19 +124,18 @@ protected:
 	friend class LLUICtrlFactory;
 
 private:
-	struct LayoutPanel;
-
+	void createResizeBars();
 	void calcMinExtents();
 	S32 getDefaultHeight(S32 cur_height);
 	S32 getDefaultWidth(S32 cur_width);
 
 	const ELayoutOrientation mOrientation;
 
-	typedef std::vector<LayoutPanel*> e_panel_list_t;
+	typedef std::vector<LLLayoutPanel*> e_panel_list_t;
 	e_panel_list_t mPanels;
 
-	LayoutPanel* findEmbeddedPanel(LLPanel* panelp) const;
-	LayoutPanel* findEmbeddedPanelByName(const std::string& name) const;
+	LLLayoutPanel* findEmbeddedPanel(LLPanel* panelp) const;
+	LLLayoutPanel* findEmbeddedPanelByName(const std::string& name) const;
 
 	S32 mMinWidth;  // calculated by calcMinExtents
 	S32 mMinHeight;  // calculated by calcMinExtents
@@ -127,6 +145,56 @@ private:
 	bool mAnimatedThisFrame;
 	bool mAnimate;
 	bool mClip;
+	F32 mOpenTimeConstant;
+	F32 mCloseTimeConstant;
 }; // end class LLLayoutStack
+
+class LLLayoutPanel : public LLPanel
+{
+friend class LLLayoutStack;
+friend class LLUICtrlFactory;
+public:
+	struct Params : public LLInitParam::Block<Params, LLPanel::Params>
+	{
+		Optional<S32>			min_dim,
+								max_dim;
+		Optional<bool>			user_resize,
+								auto_resize;
+
+		Params()
+		:	min_dim("min_dim", 0),
+			max_dim("max_dim", 0),
+			user_resize("user_resize", true),
+			auto_resize("auto_resize", true)
+		{
+			addSynonym(min_dim, "min_width");
+			addSynonym(min_dim, "min_height");
+			addSynonym(max_dim, "max_width");
+			addSynonym(max_dim, "max_height");
+		}
+	};
+
+	~LLLayoutPanel();
+
+	void initFromParams(const Params& p);
+	void setMinDim(S32 value) { mMinDim = value; }
+	void setMaxDim(S32 value) { mMaxDim = value; }
+
+protected:
+	LLLayoutPanel(const Params& p)	;
+
+	
+	F32 getCollapseFactor(LLLayoutStack::ELayoutOrientation orientation);
+
+	S32 mMinDim;
+	S32 mMaxDim;
+	BOOL mAutoResize;
+	BOOL mUserResize;
+	BOOL mCollapsed;
+	class LLResizeBar* mResizeBar;
+	F32 mVisibleAmt;
+	F32 mCollapseAmt;
+};
+
 
 #endif

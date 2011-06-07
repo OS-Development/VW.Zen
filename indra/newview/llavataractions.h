@@ -34,6 +34,8 @@
 #include <string>
 #include <vector>
 
+class LLInventoryPanel;
+
 /**
  * Friend-related actions (add, remove, offer teleport, etc)
  */
@@ -91,6 +93,8 @@ public:
 	 * Show avatar profile.
 	 */
 	static void showProfile(const LLUUID& id);
+	static void hideProfile(const LLUUID& id);
+	static bool profileVisible(const LLUUID& id);
 
 	/**
 	 * Show avatar on world map.
@@ -171,14 +175,28 @@ public:
 	static void csr(const LLUUID& id, std::string name);
 
 	/**
-	 * Checks whether can offer teleport to the avatar
-	 * Can't offer only for offline friends
+	 * Checks whether we can offer a teleport to the avatar, only offline friends
+	 * cannot be offered a teleport.
+	 *
+	 * @return false if avatar is a friend and not visibly online
 	 */
 	static bool canOfferTeleport(const LLUUID& id);
 
-	
+	/**
+	 * @return false if any one of the specified avatars a friend and not visibly online
+	 */
+	static bool canOfferTeleport(const uuid_vec_t& ids);
+
+	/**
+	 * Checks whether all items selected in the given inventory panel can be shared
+	 *
+	 * @param inv_panel Inventory panel to get selection from. If NULL, the active inventory panel is used.
+	 *
+	 * @return false if the selected items cannot be shared or the active inventory panel cannot be obtained
+	 */
+	static bool canShareSelectedItems(LLInventoryPanel* inv_panel = NULL);
+
 private:
-	static bool callbackAddFriend(const LLSD& notification, const LLSD& response);
 	static bool callbackAddFriendWithMessage(const LLSD& notification, const LLSD& response);
 	static bool handleRemove(const LLSD& notification, const LLSD& response);
 	static bool handlePay(const LLSD& notification, const LLSD& response, LLUUID avatar_id);

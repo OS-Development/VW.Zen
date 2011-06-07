@@ -57,6 +57,8 @@
      left="10"
      multi_select="true"
      name="enabled_popups"
+     sort_column="0"
+     sort_ascending="true" 
      width="495" />
 	 <button
 	 enabled_control="FirstSelectedDisabledPopups"
@@ -65,7 +67,7 @@
      image_overlay="Arrow_Up"
      hover_glow_amount="0.15"
      layout="topleft"
-     left="180"
+     left="200"
      name="enable_this_popup"
      top_pad="5"
      width="40">
@@ -79,7 +81,7 @@
      image_overlay="Arrow_Down"
      hover_glow_amount="0.15"
      layout="topleft"
-     left_pad="40"
+     left_pad="20"
      name="disable_this_popup"
      top_delta="0"
      width="40">
@@ -103,6 +105,8 @@
      height="140"
      layout="topleft"
      left="10"
+     sort_column="0"
+     sort_ascending="true"
      multi_select="true"
      name="disabled_popups"
      width="495" />

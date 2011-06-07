@@ -483,8 +483,9 @@ void LLIMChiclet::setShowSpeaker(bool show)
 	if(needs_resize)
 	{		
 		mShowSpeaker = show;
-		toggleSpeakerControl();
 	}
+
+	toggleSpeakerControl();
 }
 
 void LLIMChiclet::enableCounterControl(bool enable) 
@@ -1092,9 +1093,11 @@ LLChicletPanel::LLChicletPanel(const Params&p)
 
 LLChicletPanel::~LLChicletPanel()
 {
-	LLTransientFloaterMgr::getInstance()->removeControlView(mLeftScrollButton);
-	LLTransientFloaterMgr::getInstance()->removeControlView(mRightScrollButton);
-
+	if(LLTransientFloaterMgr::instanceExists())
+	{
+		LLTransientFloaterMgr::getInstance()->removeControlView(mLeftScrollButton);
+		LLTransientFloaterMgr::getInstance()->removeControlView(mRightScrollButton);
+	}
 }
 
 void im_chiclet_callback(LLChicletPanel* panel, const LLSD& data){
@@ -1181,6 +1184,10 @@ void LLChicletPanel::onCurrentVoiceChannelChanged(const LLUUID& session_id)
 		if(chiclet)
 		{
 			chiclet->setShowSpeaker(true);
+			if (gSavedSettings.getBOOL("OpenIMOnVoice"))
+			{
+				LLIMFloater::show(chiclet->getSessionId());
+			}
 		}
 	}
 

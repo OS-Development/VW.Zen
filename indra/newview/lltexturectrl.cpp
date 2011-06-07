@@ -196,8 +196,8 @@ LLFloaterTexturePicker::LLFloaterTexturePicker(
 	mContextConeOpacity(0.f),
 	mSelectedItemPinned( FALSE )
 {
+	buildFromFile("floater_texture_ctrl.xml");
 	mCanApplyImmediately = can_apply_immediately;
-	LLUICtrlFactory::getInstance()->buildFloater(this,"floater_texture_ctrl.xml",NULL);
 	setCanMinimize(FALSE);
 }
 
@@ -289,7 +289,9 @@ BOOL LLFloaterTexturePicker::handleDragAndDrop(
 {
 	BOOL handled = FALSE;
 
-	if (cargo_type == DAD_TEXTURE)
+	bool is_mesh = cargo_type == DAD_MESH;
+
+	if ((cargo_type == DAD_TEXTURE) || is_mesh)
 	{
 		LLInventoryItem *item = (LLInventoryItem *)cargo_data;
 
@@ -564,25 +566,27 @@ void LLFloaterTexturePicker::draw()
 		LLRect interior = border;
 		interior.stretch( -1 ); 
 
+		// If the floater is focused, don't apply its alpha to the texture (STORM-677).
+		const F32 alpha = getTransparencyType() == TT_ACTIVE ? 1.0f : getCurrentTransparency();
 		if( mTexturep )
 		{
 			if( mTexturep->getComponents() == 4 )
 			{
-				gl_rect_2d_checkerboard( interior );
+				gl_rect_2d_checkerboard( interior, alpha );
 			}
 
-			gl_draw_scaled_image( interior.mLeft, interior.mBottom, interior.getWidth(), interior.getHeight(), mTexturep );
+			gl_draw_scaled_image( interior.mLeft, interior.mBottom, interior.getWidth(), interior.getHeight(), mTexturep, UI_VERTEX_COLOR % alpha );
 
 			// Pump the priority
 			mTexturep->addTextureStats( (F32)(interior.getWidth() * interior.getHeight()) );
 		}
 		else if (!mFallbackImage.isNull())
 		{
-			mFallbackImage->draw(interior);
+			mFallbackImage->draw(interior, UI_VERTEX_COLOR % alpha);
 		}
 		else
 		{
-			gl_rect_2d( interior, LLColor4::grey, TRUE );
+			gl_rect_2d( interior, LLColor4::grey % alpha, TRUE );
 
 			// Draw X
 			gl_draw_x(interior, LLColor4::black );
@@ -1204,7 +1208,11 @@ BOOL LLTextureCtrl::handleDragAndDrop(S32 x, S32 y, MASK mask,
 	// returns true, then the cast was valid, and we can perform
 	// the third test without problems.
 	LLInventoryItem* item = (LLInventoryItem*)cargo_data; 
-	if (getEnabled() && (cargo_type == DAD_TEXTURE) && allowDrop(item))
+	bool is_mesh = cargo_type == DAD_MESH;
+
+	if (getEnabled() &&
+		((cargo_type == DAD_TEXTURE) || is_mesh) &&
+		 allowDrop(item))
 	{
 		if (drop)
 		{
@@ -1263,23 +1271,25 @@ void LLTextureCtrl::draw()
 	LLRect interior = border;
 	interior.stretch( -1 ); 
 
+	// If we're in a focused floater, don't apply the floater's alpha to the texture (STORM-677).
+	const F32 alpha = getTransparencyType() == TT_ACTIVE ? 1.0f : getCurrentTransparency();
 	if( mTexturep )
 	{
 		if( mTexturep->getComponents() == 4 )
 		{
-			gl_rect_2d_checkerboard( interior );
+			gl_rect_2d_checkerboard( interior, alpha );
 		}
 		
-		gl_draw_scaled_image( interior.mLeft, interior.mBottom, interior.getWidth(), interior.getHeight(), mTexturep);
+		gl_draw_scaled_image( interior.mLeft, interior.mBottom, interior.getWidth(), interior.getHeight(), mTexturep, UI_VERTEX_COLOR % alpha);
 		mTexturep->addTextureStats( (F32)(interior.getWidth() * interior.getHeight()) );
 	}
 	else if (!mFallbackImage.isNull())
 	{
-		mFallbackImage->draw(interior);
+		mFallbackImage->draw(interior, UI_VERTEX_COLOR % alpha);
 	}
 	else
 	{
-		gl_rect_2d( interior, LLColor4::grey, TRUE );
+		gl_rect_2d( interior, LLColor4::grey % alpha, TRUE );
 
 		// Draw X
 		gl_draw_x( interior, LLColor4::black );

@@ -57,6 +57,7 @@
 #include "llviewercontrol.h"
 #include "llfloatermediabrowser.h"
 #include "llweb.h"
+#include "llhints.h"
 
 #include "llinventorymodel.h"
 #include "lllandmarkactions.h"
@@ -272,13 +273,10 @@ LLNavigationBar::LLNavigationBar()
 	mPurgeTPHistoryItems(false),
 	mSaveToLocationHistory(false)
 {
-	LLUICtrlFactory::getInstance()->buildPanel(this, "panel_navigation_bar.xml");
+	buildFromFile( "panel_navigation_bar.xml");
 
 	// set a listener function for LoginComplete event
 	LLAppViewer::instance()->setOnLoginCompletedCallback(boost::bind(&LLNavigationBar::handleLoginComplete, this));
-
-	// Necessary for focus movement among child controls
-	setFocusRoot(TRUE);
 }
 
 LLNavigationBar::~LLNavigationBar()
@@ -326,6 +324,8 @@ BOOL LLNavigationBar::postBuild()
 	// we'll be notified on teleport history changes
 	LLTeleportHistory::getInstance()->setHistoryChangedCallback(
 			boost::bind(&LLNavigationBar::onTeleportHistoryChanged, this));
+
+	LLHints::registerHintTarget("nav_bar", LLView::getHandle());
 
 	return TRUE;
 }
@@ -639,18 +639,19 @@ void LLNavigationBar::onRegionNameResponse(
 		U64 region_handle, const std::string& url, const LLUUID& snapshot_id, bool teleport)
 {
 	// Invalid location?
-	if (!region_handle)
+	if (region_handle)
+	{
+		// Teleport to the location.
+		LLVector3d region_pos = from_region_handle(region_handle);
+		LLVector3d global_pos = region_pos + (LLVector3d) local_coords;
+
+		llinfos << "Teleporting to: " << LLSLURL(region_name,	global_pos).getSLURLString()  << llendl;
+		gAgent.teleportViaLocation(global_pos);
+	}
+	else if (gSavedSettings.getBOOL("SearchFromAddressBar"))
 	{
 		invokeSearch(typed_location);
-		return;
 	}
-
-	// Teleport to the location.
-	LLVector3d region_pos = from_region_handle(region_handle);
-	LLVector3d global_pos = region_pos + (LLVector3d) local_coords;
-
-	llinfos << "Teleporting to: " << LLSLURL(region_name,	global_pos).getSLURLString()  << llendl;
-	gAgent.teleportViaLocation(global_pos);
 }
 
 void	LLNavigationBar::showTeleportHistoryMenu(LLUICtrl* btn_ctrl)

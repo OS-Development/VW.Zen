@@ -50,9 +50,7 @@ template class LLCheckBoxCtrl* LLView::getChild<class LLCheckBoxCtrl>(
 	const std::string& name, BOOL recurse) const;
 
 LLCheckBoxCtrl::Params::Params()
-:	text_enabled_color("text_enabled_color"),
-	text_disabled_color("text_disabled_color"),
-	initial_value("initial_value", false),
+:	initial_value("initial_value", false),
 	label_text("label_text"),
 	check_button("check_button"),
 	radio_style("radio_style")
@@ -61,8 +59,8 @@ LLCheckBoxCtrl::Params::Params()
 
 LLCheckBoxCtrl::LLCheckBoxCtrl(const LLCheckBoxCtrl::Params& p)
 :	LLUICtrl(p),
-	mTextEnabledColor(p.text_enabled_color()),
-	mTextDisabledColor(p.text_disabled_color()),
+	mTextEnabledColor(p.label_text.text_color()),
+	mTextDisabledColor(p.label_text.text_readonly_color()),
 	mFont(p.font())
 {
 	mViewModel->setValue(LLSD(p.initial_value));
@@ -89,29 +87,20 @@ LLCheckBoxCtrl::LLCheckBoxCtrl(const LLCheckBoxCtrl::Params& p)
 	{
 		tbparams.font(p.font);
 	}
-	tbparams.text_color( p.enabled() ? p.text_enabled_color() : p.text_disabled_color() );
 	mLabel = LLUICtrlFactory::create<LLTextBox> (tbparams);
+	mLabel->reshapeToFitText();
 	addChild(mLabel);
 
-	S32 text_width = mLabel->getTextBoundingRect().getWidth();
-	S32 text_height = llround(mFont->getLineHeight());
-	LLRect label_rect;
-	label_rect.setOriginAndSize(
-		llcheckboxctrl_hpad + llcheckboxctrl_btn_size + llcheckboxctrl_spacing,
-		llcheckboxctrl_vpad + 1, // padding to get better alignment
-		text_width + llcheckboxctrl_hpad,
-		text_height );
-	mLabel->setShape(label_rect);
-
+	LLRect label_rect = mLabel->getRect();
 
 	// Button
 	// Note: button cover the label by extending all the way to the right.
-	LLRect btn_rect;
+	LLRect btn_rect = p.check_button.rect();
 	btn_rect.setOriginAndSize(
-		llcheckboxctrl_hpad,
-		llcheckboxctrl_vpad,
-		llcheckboxctrl_btn_size + llcheckboxctrl_spacing + text_width + llcheckboxctrl_hpad,
-		llmax( text_height, llcheckboxctrl_btn_size() ) + llcheckboxctrl_vpad);
+		btn_rect.mLeft,
+		btn_rect.mBottom,
+		llmax(btn_rect.mRight, label_rect.mRight - btn_rect.mLeft),
+		llmax( label_rect.getHeight(), btn_rect.mTop));
 	std::string active_true_id, active_false_id;
 	std::string inactive_true_id, inactive_false_id;
 
@@ -177,31 +166,20 @@ void LLCheckBoxCtrl::clear()
 
 void LLCheckBoxCtrl::reshape(S32 width, S32 height, BOOL called_from_parent)
 {
-	//stretch or shrink bounding rectangle of label when rebuilding UI at new scale
-	static LLUICachedControl<S32> llcheckboxctrl_spacing ("UICheckboxctrlSpacing", 0);
-	static LLUICachedControl<S32> llcheckboxctrl_hpad ("UICheckboxctrlHPad", 0);
-	static LLUICachedControl<S32> llcheckboxctrl_vpad ("UICheckboxctrlVPad", 0);
-	static LLUICachedControl<S32> llcheckboxctrl_btn_size ("UICheckboxctrlBtnSize", 0);
 
-	S32 text_width = mLabel->getTextBoundingRect().getWidth();
-	S32 text_height = llround(mFont->getLineHeight());
-	LLRect label_rect;
-	label_rect.setOriginAndSize(
-		llcheckboxctrl_hpad + llcheckboxctrl_btn_size + llcheckboxctrl_spacing,
-		llcheckboxctrl_vpad,
-		text_width,
-		text_height );
-	mLabel->setShape(label_rect);
+	mLabel->reshapeToFitText();
 
-	LLRect btn_rect;
+	LLRect label_rect = mLabel->getRect();
+
+	// Button
+	// Note: button cover the label by extending all the way to the right.
+	LLRect btn_rect = mButton->getRect();
 	btn_rect.setOriginAndSize(
-		llcheckboxctrl_hpad,
-		llcheckboxctrl_vpad,
-		llcheckboxctrl_btn_size + llcheckboxctrl_spacing + text_width,
-		llmax( text_height, llcheckboxctrl_btn_size() ) );
-	mButton->setShape( btn_rect );
-	
-	LLUICtrl::reshape(width, height, called_from_parent);
+		btn_rect.mLeft,
+		btn_rect.mBottom,
+		llmax(btn_rect.getWidth(), label_rect.mRight - btn_rect.mLeft),
+		llmax(label_rect.mTop - btn_rect.mBottom, btn_rect.getHeight()));
+	mButton->setShape(btn_rect);
 }
 
 //virtual

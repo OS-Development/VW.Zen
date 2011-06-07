@@ -36,8 +36,6 @@
 LLFloaterBeacons::LLFloaterBeacons(const LLSD& seed)
 :	LLFloater(seed)
 {
-//	LLUICtrlFactory::getInstance()->buildFloater(this, "floater_beacons.xml");
-
 	// Initialize pipeline states from saved settings.
 	// OK to do at floater constructor time because beacons do not display unless the floater is open
 	// therefore it is OK to not initialize the pipeline state before needed.
@@ -50,6 +48,7 @@ LLFloaterBeacons::LLFloaterBeacons(const LLSD& seed)
 	LLPipeline::setRenderParticleBeacons(     gSavedSettings.getBOOL("particlesbeacon"));
 	LLPipeline::setRenderHighlights(          gSavedSettings.getBOOL("renderhighlights"));
 	LLPipeline::setRenderBeacons(             gSavedSettings.getBOOL("renderbeacons"));
+	LLPipeline::setRenderMOAPBeacons(		  gSavedSettings.getBOOL("moapbeacon"));
 	mCommitCallbackRegistrar.add("Beacons.UICheck",	boost::bind(&LLFloaterBeacons::onClickUICheck, this,_1));
 }
 
@@ -98,6 +97,7 @@ void LLFloaterBeacons::onClickUICheck(LLUICtrl *ctrl)
 	else if(name == "physical")       LLPipeline::setRenderPhysicalBeacons(check->get());
 	else if(name == "sounds")         LLPipeline::setRenderSoundBeacons(check->get());
 	else if(name == "particles")      LLPipeline::setRenderParticleBeacons(check->get());
+	else if(name == "moapbeacon")     LLPipeline::setRenderMOAPBeacons(check->get());
 	else if(name == "highlights")
 	{
 		LLPipeline::toggleRenderHighlights(NULL);

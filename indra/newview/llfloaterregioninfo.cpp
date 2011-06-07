@@ -43,6 +43,7 @@
 
 #include "llagent.h"
 #include "llappviewer.h"
+#include "llavatarname.h"
 #include "llfloateravatarpicker.h"
 #include "llbutton.h" 
 #include "llcheckboxctrl.h"
@@ -52,6 +53,7 @@
 #include "llfloatertopobjects.h" // added to fix SL-32336
 #include "llfloatergroups.h"
 #include "llfloaterreg.h"
+#include "llfloaterregiondebugconsole.h"
 #include "llfloatertelehub.h"
 #include "llfloaterwindlight.h"
 #include "llinventorymodel.h"
@@ -158,10 +160,30 @@ bool estate_dispatch_initialized = false;
 //S32 LLFloaterRegionInfo::sRequestSerial = 0;
 LLUUID LLFloaterRegionInfo::sRequestInvoice;
 
+
+void LLFloaterRegionInfo::onConsoleReplyReceived(const std::string& output)
+{
+	llwarns << "here is what they're giving us:  " << output << llendl;
+
+	if (output.find("FALSE") != std::string::npos)
+	{
+		getChild<LLUICtrl>("mesh_rez_enabled_check")->setValue(FALSE);
+	}
+	else
+	{
+		getChild<LLUICtrl>("mesh_rez_enabled_check")->setValue(TRUE);
+	}
+}
+
+
 LLFloaterRegionInfo::LLFloaterRegionInfo(const LLSD& seed)
 	: LLFloater(seed)
 {
-	//LLUICtrlFactory::getInstance()->buildFloater(this, "floater_region_info.xml", FALSE);
+	mConsoleReplySignalConnection = LLFloaterRegionDebugConsole::setConsoleReplyCallback(
+	boost::bind(
+		&LLFloaterRegionInfo::onConsoleReplyReceived,
+		this,
+		_1));
 }
 
 BOOL LLFloaterRegionInfo::postBuild()
@@ -174,32 +196,32 @@ BOOL LLFloaterRegionInfo::postBuild()
 	mInfoPanels.push_back(panel);
 	panel->getCommitCallbackRegistrar().add("RegionInfo.ManageTelehub",	boost::bind(&LLPanelRegionInfo::onClickManageTelehub, panel));
 	
-	LLUICtrlFactory::getInstance()->buildPanel(panel, "panel_region_general.xml");
+	panel->buildFromFile("panel_region_general.xml");
 	mTab->addTabPanel(LLTabContainer::TabPanelParams().panel(panel).select_tab(true));
 
 	panel = new LLPanelRegionDebugInfo;
 	mInfoPanels.push_back(panel);
-	LLUICtrlFactory::getInstance()->buildPanel(panel, "panel_region_debug.xml");
+	panel->buildFromFile("panel_region_debug.xml");
 	mTab->addTabPanel(panel);
 
 	panel = new LLPanelRegionTextureInfo;
 	mInfoPanels.push_back(panel);
-	LLUICtrlFactory::getInstance()->buildPanel(panel, "panel_region_texture.xml");
+	panel->buildFromFile("panel_region_texture.xml");
 	mTab->addTabPanel(panel);
 
 	panel = new LLPanelRegionTerrainInfo;
 	mInfoPanels.push_back(panel);
-	LLUICtrlFactory::getInstance()->buildPanel(panel, "panel_region_terrain.xml");
+	panel->buildFromFile("panel_region_terrain.xml");
 	mTab->addTabPanel(panel);
 
 	panel = new LLPanelEstateInfo;
 	mInfoPanels.push_back(panel);
-	LLUICtrlFactory::getInstance()->buildPanel(panel, "panel_region_estate.xml");
+	panel->buildFromFile("panel_region_estate.xml");
 	mTab->addTabPanel(panel);
 
 	panel = new LLPanelEstateCovenant;
 	mInfoPanels.push_back(panel);
-	LLUICtrlFactory::getInstance()->buildPanel(panel, "panel_region_covenant.xml");
+	panel->buildFromFile("panel_region_covenant.xml");
 	mTab->addTabPanel(panel);
 
 	gMessageSystem->setHandlerFunc(
@@ -211,12 +233,14 @@ BOOL LLFloaterRegionInfo::postBuild()
 
 LLFloaterRegionInfo::~LLFloaterRegionInfo()
 {
+	mConsoleReplySignalConnection.disconnect();
 }
 
 void LLFloaterRegionInfo::onOpen(const LLSD& key)
 {
 	refreshFromRegion(gAgent.getRegion());
 	requestRegionInfo();
+	requestMeshRezInfo();
 }
 
 // static
@@ -566,6 +590,12 @@ bool LLPanelRegionGeneralInfo::refreshFromRegion(LLViewerRegion* region)
 	getChildView("im_btn")->setEnabled(allow_modify);
 	getChildView("manage_telehub_btn")->setEnabled(allow_modify);
 
+	const bool enable_mesh = gSavedSettings.getBOOL("MeshEnabled") && 
+		gAgent.getRegion() &&
+		!gAgent.getRegion()->getCapability("GetMesh").empty() &&
+		!gAgent.getRegion()->getCapability("ObjectAdd").empty();
+	getChildView("mesh_rez_enabled_check")->setVisible(enable_mesh);
+	getChildView("mesh_rez_enabled_check")->setEnabled(getChildView("mesh_rez_enabled_check")->getEnabled() && enable_mesh);
 	// Data gets filled in by processRegionInfo
 
 	return LLPanelRegionInfo::refreshFromRegion(region);
@@ -584,6 +614,7 @@ BOOL LLPanelRegionGeneralInfo::postBuild()
 	initCtrl("access_combo");
 	initCtrl("restrict_pushobject");
 	initCtrl("block_parcel_search_check");
+	initCtrl("mesh_rez_enabled_check");
 
 	childSetAction("kick_btn", boost::bind(&LLPanelRegionGeneralInfo::onClickKick, this));
 	childSetAction("kick_all_btn", onClickKickAll, this);
@@ -600,13 +631,13 @@ void LLPanelRegionGeneralInfo::onClickKick()
 	// this depends on the grandparent view being a floater
 	// in order to set up floater dependency
 	LLFloater* parent_floater = gFloaterView->getParentFloater(this);
-	LLFloater* child_floater = LLFloaterAvatarPicker::show(boost::bind(&LLPanelRegionGeneralInfo::onKickCommit, this, _1,_2), FALSE, TRUE);
+	LLFloater* child_floater = LLFloaterAvatarPicker::show(boost::bind(&LLPanelRegionGeneralInfo::onKickCommit, this, _1), FALSE, TRUE);
 	parent_floater->addDependentFloater(child_floater);
 }
 
-void LLPanelRegionGeneralInfo::onKickCommit(const std::vector<std::string>& names, const uuid_vec_t& ids)
+void LLPanelRegionGeneralInfo::onKickCommit(const uuid_vec_t& ids)
 {
-	if (names.empty() || ids.empty()) return;
+	if (ids.empty()) return;
 	if(ids[0].notNull())
 	{
 		strings_t strings;
@@ -691,7 +722,42 @@ bool LLPanelRegionGeneralInfo::onMessageCommit(const LLSD& notification, const L
 	return false;
 }
 
+class ConsoleRequestResponder : public LLHTTPClient::Responder
+{
+public:
+	/*virtual*/
+	void error(U32 status, const std::string& reason)
+	{
+		llwarns << "requesting mesh_rez_enabled failed" << llendl;
+	}
+};
 
+
+// called if this request times out.
+class ConsoleUpdateResponder : public LLHTTPClient::Responder
+{
+public:
+	/* virtual */
+	void error(U32 status, const std::string& reason)
+	{
+		llwarns << "Updating mesh enabled region setting failed" << llendl;
+	}
+};
+
+void LLFloaterRegionInfo::requestMeshRezInfo()
+{
+	std::string sim_console_url = gAgent.getRegion()->getCapability("SimConsoleAsync");
+
+	if (!sim_console_url.empty())
+	{
+		std::string request_str = "get mesh_rez_enabled";
+		
+		LLHTTPClient::post(
+			sim_console_url,
+			LLSD(request_str),
+			new ConsoleRequestResponder);
+	}
+}
 
 // setregioninfo
 // strings[0] = 'Y' - block terraform, 'N' - not
@@ -763,6 +829,27 @@ BOOL LLPanelRegionGeneralInfo::sendUpdate()
 		LLUUID invoice(LLFloaterRegionInfo::getLastInvoice());
 		sendEstateOwnerMessage(gMessageSystem, "setregioninfo", invoice, strings);
 	}
+
+	std::string sim_console_url = gAgent.getRegion()->getCapability("SimConsoleAsync");
+
+	if (!sim_console_url.empty())
+	{
+		std::string update_str = "set mesh_rez_enabled ";
+		if (getChild<LLUICtrl>("mesh_rez_enabled_check")->getValue().asBoolean())
+		{
+			update_str += "true";
+		}
+		else
+		{
+			update_str += "false";
+		}
+
+		LLHTTPClient::post(
+			sim_console_url,
+			LLSD(update_str),
+			new ConsoleUpdateResponder);
+	}
+
 
 	// if we changed access levels, tell user about it
 	LLViewerRegion* region = gAgent.getRegion();
@@ -842,11 +929,11 @@ void LLPanelRegionDebugInfo::onClickChooseAvatar()
 }
 
 
-void LLPanelRegionDebugInfo::callbackAvatarID(const std::vector<std::string>& names, const uuid_vec_t& ids)
+void LLPanelRegionDebugInfo::callbackAvatarID(const uuid_vec_t& ids, const std::vector<LLAvatarName> names)
 {
 	if (ids.empty() || names.empty()) return;
 	mTargetAvatar = ids[0];
-	getChild<LLUICtrl>("target_avatar_name")->setValue(LLSD(names[0]));
+	getChild<LLUICtrl>("target_avatar_name")->setValue(LLSD(names[0].getCompleteName()));
 	refreshFromRegion( gAgent.getRegion() );
 }
 
@@ -1513,24 +1600,17 @@ void LLPanelEstateInfo::onClickKickUser()
 	// this depends on the grandparent view being a floater
 	// in order to set up floater dependency
 	LLFloater* parent_floater = gFloaterView->getParentFloater(this);
-	LLFloater* child_floater = LLFloaterAvatarPicker::show(boost::bind(&LLPanelEstateInfo::onKickUserCommit, this, _1, _2), FALSE, TRUE);
+	LLFloater* child_floater = LLFloaterAvatarPicker::show(boost::bind(&LLPanelEstateInfo::onKickUserCommit, this, _1), FALSE, TRUE);
 	parent_floater->addDependentFloater(child_floater);
 }
 
-void LLPanelEstateInfo::onKickUserCommit(const std::vector<std::string>& names, const uuid_vec_t& ids)
+void LLPanelEstateInfo::onKickUserCommit(const uuid_vec_t& ids)
 {
-	if (names.empty() || ids.empty()) return;
+	if (ids.empty()) return;
 	
-	//check to make sure there is one valid user and id
-	if( (ids[0].isNull()) ||
-		(names[0].length() == 0) )
-	{
-		return;
-	}
-
 	//Bring up a confirmation dialog
 	LLSD args;
-	args["EVIL_USER"] = names[0];
+	args["EVIL_USER"] = LLSLURL("agent", ids[0], "completename").getSLURLString();
 	LLSD payload;
 	payload["agent_id"] = ids[0];
 	LLNotificationsUtil::add("EstateKickUser", args, payload, boost::bind(&LLPanelEstateInfo::kickUserConfirm, this, _1, _2));
@@ -1696,12 +1776,12 @@ bool LLPanelEstateInfo::accessAddCore2(const LLSD& notification, const LLSD& res
 
 	LLEstateAccessChangeInfo* change_info = new LLEstateAccessChangeInfo(notification["payload"]);
 	// avatar picker yes multi-select, yes close-on-select
-	LLFloaterAvatarPicker::show(boost::bind(&LLPanelEstateInfo::accessAddCore3, _1, _2, (void*)change_info), TRUE, TRUE);
+	LLFloaterAvatarPicker::show(boost::bind(&LLPanelEstateInfo::accessAddCore3, _1, (void*)change_info), TRUE, TRUE);
 	return false;
 }
 
 // static
-void LLPanelEstateInfo::accessAddCore3(const std::vector<std::string>& names, const uuid_vec_t& ids, void* data)
+void LLPanelEstateInfo::accessAddCore3(const uuid_vec_t& ids, void* data)
 {
 	LLEstateAccessChangeInfo* change_info = (LLEstateAccessChangeInfo*)data;
 	if (!change_info) return;
@@ -1957,8 +2037,15 @@ void LLPanelEstateInfo::updateControls(LLViewerRegion* region)
 	getChildView("remove_allowed_avatar_btn")->setEnabled(god || owner || manager);
 	getChildView("add_allowed_group_btn")->setEnabled(god || owner || manager);
 	getChildView("remove_allowed_group_btn")->setEnabled(god || owner || manager);
-	getChildView("add_banned_avatar_btn")->setEnabled(god || owner || manager);
-	getChildView("remove_banned_avatar_btn")->setEnabled(god || owner || manager);
+
+	// Can't ban people from mainland, orientation islands, etc. because this
+	// creates much network traffic and server load.
+	// Disable their accounts in CSR tool instead.
+	bool linden_estate = (getEstateID() <= ESTATE_LAST_LINDEN);
+	bool enable_ban = (god || owner || manager) && !linden_estate;
+	getChildView("add_banned_avatar_btn")->setEnabled(enable_ban);
+	getChildView("remove_banned_avatar_btn")->setEnabled(enable_ban);
+
 	getChildView("message_estate_btn")->setEnabled(god || owner || manager);
 	getChildView("kick_user_from_estate_btn")->setEnabled(god || owner || manager);
 

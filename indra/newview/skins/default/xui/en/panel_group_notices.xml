@@ -84,7 +84,7 @@ Maximum 200 per group daily
        name="create_new_notice"
        tool_tip="Create a new notice"
        top_delta="0"
-       width="93" />
+       width="127" />
      <button
      follows="top|left"
      height="23"
@@ -128,7 +128,7 @@ Maximum 200 per group daily
          layout="topleft"
          name="lbl3"
          top_pad="10"
-         width="60">
+         width="62">
             Subject:
         </text>
         <line_editor
@@ -138,10 +138,10 @@ Maximum 200 per group daily
          height="16"
          layout="topleft"
          left_pad="3"
-         max_length="63"
+         max_length_bytes="63"
          name="create_subject"
          prevalidate_callback="ascii"
-         width="220" />
+         width="218" />
         <text
          follows="left|top"
          type="string"
@@ -151,7 +151,7 @@ Maximum 200 per group daily
          left="10"
          name="lbl4"
          top_pad="5"
-         width="60">
+         width="62">
             Message:
         </text>
         <text_editor
@@ -162,7 +162,7 @@ Maximum 200 per group daily
          max_length="511"
          name="create_message"
          top_delta="0"
-         width="220"
+         width="218"
          word_wrap="true" />
         <text
          follows="left|top"
@@ -180,7 +180,7 @@ Maximum 200 per group daily
          enabled="false"
          height="19"
          layout="topleft"
-         max_length="90"
+         max_length_bytes="90"
          mouse_opaque="false"
          name="create_inventory_name"
          top_pad="2"
@@ -307,7 +307,7 @@ Maximum 200 per group daily
          height="20"
          layout="topleft"
          left_pad="3"
-         max_length="63"
+         max_length_bytes="63"
          name="view_subject"
          top_delta="-1"
          visible="false"
@@ -341,7 +341,7 @@ Maximum 200 per group daily
          height="20"
          layout="topleft"
          left="5"
-         max_length="63"
+         max_length_bytes="63"
          mouse_opaque="false"
          name="view_inventory_name"
          top_pad="8"

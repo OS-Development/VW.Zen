@@ -71,8 +71,8 @@ public:
 
 protected:
 	void updateButtons();
-	LLButton* createButton(const LLPointer<LLViewerInventoryItem> item, LLXMLNodePtr &root, S32 x_offset );
-	LLXMLNodePtr getButtonXMLNode();
+	LLButton* createButton(const LLPointer<LLViewerInventoryItem> item, const LLButton::Params& button_params, S32 x_offset );
+	const LLButton::Params& getButtonParams();
 	BOOL collectFavoriteItems(LLInventoryModel::item_array_t &items);
 
 	void onButtonClick(LLUUID id);
@@ -91,13 +91,14 @@ protected:
 	
 	void showDropDownMenu();
 
-	LLHandle<LLView> mPopupMenuHandle;
-	LLHandle<LLView> mInventoryItemsPopupMenuHandle;
+	LLHandle<LLView> mOverflowMenuHandle;
+	LLHandle<LLView> mContextMenuHandle;
 
 	LLUUID mFavoriteFolderId;
 	const LLFontGL *mFont;
 	S32 mFirstDropDownItem;
 	bool mUpdateDropDownItems;
+	bool mRestoreOverflowMenu;
 
 	LLUUID mSelectedItemID;
 

@@ -39,7 +39,6 @@
 LLFloaterSettingsDebug::LLFloaterSettingsDebug(const LLSD& key) 
 :	LLFloater(key)
 {
-	//LLUICtrlFactory::getInstance()->buildFloater(this, "floater_settings_debug.xml");
 	mCommitCallbackRegistrar.add("SettingSelect",	boost::bind(&LLFloaterSettingsDebug::onSettingSelect, this,_1));
 	mCommitCallbackRegistrar.add("CommitSettings",	boost::bind(&LLFloaterSettingsDebug::onCommitSettings, this));
 	mCommitCallbackRegistrar.add("ClickDefault",	boost::bind(&LLFloaterSettingsDebug::onClickDefault, this));
@@ -179,7 +178,7 @@ void LLFloaterSettingsDebug::onClickDefault()
 
 	if (controlp)
 	{
-		controlp->resetToDefault();
+		controlp->resetToDefault(true);
 		updateControl(controlp);
 	}
 }

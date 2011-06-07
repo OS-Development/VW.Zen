@@ -235,6 +235,7 @@ class LLTextBase
 public:
 	friend class LLTextSegment;
 	friend class LLNormalTextSegment;
+	friend class LLUICtrlFactory;
 
 	struct LineSpacingParams : public LLInitParam::Choice<LineSpacingParams>
 	{
@@ -264,6 +265,7 @@ public:
 								use_ellipses,
 								parse_urls,
 								parse_highlights,
+								clip,
 								clip_partial;
 								
 		Optional<S32>			v_pad,
@@ -337,7 +339,7 @@ public:
 	void					addDocumentChild(LLView* view);
 	void					removeDocumentChild(LLView* view);
 	const LLView*			getDocumentView() const { return mDocumentView; }
-	LLRect					getVisibleTextRect() { return mVisibleTextRect; }
+	LLRect					getVisibleTextRect() const { return mVisibleTextRect; }
 	LLRect					getTextBoundingRect();
 	LLRect					getVisibleDocumentRect() const;
 
@@ -492,7 +494,11 @@ protected:
 	// misc
 	void							updateRects();
 	void							needsScroll() { mScrollNeeded = TRUE; }
-	void							replaceUrlLabel(const std::string &url, const std::string &label);
+
+	struct URLLabelCallback;
+	// Replace a URL with a new icon and label, for example, when
+	// avatar names are looked up.
+	void replaceUrl(const std::string &url, const std::string &label, const std::string& icon);
 	
 	void							appendTextImpl(const std::string &new_text, const LLStyle::Params& input_params = LLStyle::Params());
 	void							appendAndHighlightTextImpl(const std::string &new_text, S32 highlight_part, const LLStyle::Params& style_params, bool underline_on_hover_only = false);
@@ -547,6 +553,7 @@ protected:
 	bool						mTrackEnd;			// if true, keeps scroll position at end of document during resize
 	bool						mReadOnly;
 	bool						mBGVisible;			// render background?
+	bool						mClip;				// clip text to widget rect
 	bool						mClipPartial;		// false if we show lines that are partially inside bounding rect
 	bool						mPlainText;			// didn't use Image or Icon segments
 	S32							mMaxTextByteLength;	// Maximum length mText is allowed to be in bytes

@@ -89,6 +89,7 @@ LLDrawPool *LLDrawPool::createPool(const U32 type, LLViewerTexture *tex0)
 	case POOL_SKY:
 		poolp = new LLDrawPoolSky();
 		break;
+	case POOL_VOIDWATER:
 	case POOL_WATER:
 		poolp = new LLDrawPoolWater();
 		break;
@@ -240,11 +241,6 @@ void LLFacePool::destroy()
 
 void LLFacePool::dirtyTextures(const std::set<LLViewerFetchedTexture*>& textures)
 {
-}
-
-BOOL LLFacePool::moveFace(LLFace *face, LLDrawPool *poolp, BOOL copy_data)
-{
-	return TRUE;
 }
 
 // static

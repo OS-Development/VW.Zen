@@ -203,8 +203,8 @@ void fetch_items_from_llsd(const LLSD& items_llsd)
 {
 	if (!items_llsd.size() || gDisconnected) return;
 	LLSD body;
-	body[0]["cap_name"] = "FetchInventory";
-	body[1]["cap_name"] = "FetchLib";
+	body[0]["cap_name"] = "FetchInventory2";
+	body[1]["cap_name"] = "FetchLib2";
 	for (S32 i=0; i<items_llsd.size();i++)
 	{
 		if (items_llsd[i]["owner_id"].asString() == gAgent.getID().asString())
@@ -572,16 +572,7 @@ void LLInventoryAddedObserver::changed(U32 mask)
 	// the network, figure out which item was updated.
 	LLMessageSystem* msg = gMessageSystem;
 
-	std::string msg_name;
-	if (mMessageName.empty())
-	{
-		msg_name = msg->getMessageName();
-	}
-	else
-	{
-		msg_name = mMessageName;
-	}
-
+	std::string msg_name = msg->getMessageName();
 	if (msg_name.empty())
 	{
 		return;

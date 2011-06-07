@@ -32,9 +32,9 @@
 #include "llui.h"
 
 static S32 DAYS_PER_MONTH_NOLEAP[] =
-	{ 31, 28, 21, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+	{ 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
 static S32 DAYS_PER_MONTH_LEAP[] =
-	{ 31, 29, 21, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+	{ 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
 
 static S32 days_from_month(S32 year, S32 month)
 {
@@ -166,3 +166,23 @@ std::string LLDateUtil::ageFromDate(const std::string& date_string)
 {
 	return ageFromDate(date_string, LLDate::now());
 }
+
+//std::string LLDateUtil::ageFromDateISO(const std::string& date_string,
+//									   const LLDate& now)
+//{
+//	S32 born_month, born_day, born_year;
+//	S32 matched = sscanf(date_string.c_str(), "%d-%d-%d",
+//			&born_year, &born_month, &born_day);
+//	if (matched != 3) return "???";
+//	date.fromYMDHMS(year, month, day);
+//	F64 secs_since_epoch = date.secondsSinceEpoch();
+//	// Correct for the fact that specified date is in Pacific time, == UTC - 8
+//	secs_since_epoch += 8.0 * 60.0 * 60.0;
+//	date.secondsSinceEpoch(secs_since_epoch);
+//	return ageFromDate(born_year, born_month, born_day, now);
+//}
+//
+//std::string LLDateUtil::ageFromDateISO(const std::string& date_string)
+//{
+//	return ageFromDateISO(date_string, LLDate::now());
+//}

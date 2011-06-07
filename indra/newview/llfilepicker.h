@@ -82,6 +82,8 @@ public:
 		FFLOAD_XML = 6,
 		FFLOAD_SLOBJECT = 7,
 		FFLOAD_RAW = 8,
+		FFLOAD_MODEL = 9,
+		FFLOAD_COLLADA = 10,
 	};
 
 	enum ESaveFilter
@@ -105,7 +107,7 @@ public:
 
 	// open the dialog. This is a modal operation
 	BOOL getSaveFile( ESaveFilter filter = FFSAVE_ALL, const std::string& filename = LLStringUtil::null );
-	BOOL getOpenFile( ELoadFilter filter = FFLOAD_ALL );
+	BOOL getOpenFile( ELoadFilter filter = FFLOAD_ALL, bool blocking = true  );
 	BOOL getMultipleOpenFiles( ELoadFilter filter = FFLOAD_ALL );
 
 	// Get the filename(s) found. getFirstFile() sets the pointer to
@@ -140,6 +142,10 @@ private:
 		//FILENAME_BUFFER_SIZE = 65536
 		FILENAME_BUFFER_SIZE = 65000
 	};
+
+	// utility function to check if access to local file system via file browser 
+	// is enabled and if not, tidy up and indicate we're not allowed to do this.
+	bool check_local_file_access_enabled();
 	
 #if LL_WINDOWS
 	OPENFILENAMEW mOFN;				// for open and save dialogs
@@ -185,5 +191,7 @@ public:
 	LLFilePicker();
 	~LLFilePicker();
 };
+
+const std::string upload_pick(void* data);
 
 #endif

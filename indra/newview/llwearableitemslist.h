@@ -361,7 +361,7 @@ private:
 		bool mSortWearableTypeByName;
 
 		LLWearableTypeOrder(ETypeListOrder order_priority, bool sort_asset_by_name, bool sort_wearable_by_name);
-		LLWearableTypeOrder(){};
+	LLWearableTypeOrder() : mOrderPriority(ORDER_RANK_UNKNOWN), mSortAssetTypeByName(false), mSortWearableTypeByName(false) {};
 	};
 
 	ETypeListOrder getTypeListOrder(LLAssetType::EType item_type) const;
@@ -396,7 +396,6 @@ protected:
  */
 class LLWearableItemsList : public LLInventoryItemsList
 {
-	LOG_CLASS(LLWearableItemsList);
 public:
 	/**
 	 * Context menu.

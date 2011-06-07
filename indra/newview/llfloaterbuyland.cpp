@@ -180,9 +180,8 @@ public:
 	void updateNames();
 	// Name cache callback
 	void updateGroupName(const LLUUID& id,
-						 const std::string& first_name,
-						 const std::string& last_name,
-						 BOOL is_group);
+						 const std::string& name,
+						 bool is_group);
 	
 	void refreshUI();
 	
@@ -294,7 +293,6 @@ LLFloaterBuyLandUI::LLFloaterBuyLandUI(const LLSD& key)
 {
 	LLViewerParcelMgr::getInstance()->addObserver(&mParcelSelectionObserver);
 	
-// 	LLUICtrlFactory::getInstance()->buildFloater(sInstance, "floater_buy_land.xml");
 }
 
 LLFloaterBuyLandUI::~LLFloaterBuyLandUI()
@@ -461,10 +459,18 @@ void LLFloaterBuyLandUI::updateParcelInfo()
 			return;
 		}
 
-		if (!authorizedBuyer.isNull()  &&  buyer != authorizedBuyer)
+		if (!authorizedBuyer.isNull() && buyer != authorizedBuyer)
 		{
-			mCannotBuyReason = getString("set_to_sell_to_other");
-			return;
+			// Maybe the parcel is set for sale to a group we are in.
+			bool authorized_group =
+				gAgent.hasPowerInGroup(authorizedBuyer,GP_LAND_DEED)
+				&& gAgent.hasPowerInGroup(authorizedBuyer,GP_LAND_SET_SALE_INFO);
+
+			if (!authorized_group)
+			{
+				mCannotBuyReason = getString("set_to_sell_to_other");
+				return;
+			}
 		}
 	}
 	else
@@ -820,28 +826,26 @@ void LLFloaterBuyLandUI::updateNames()
 	}
 	else if (parcelp->getIsGroupOwned())
 	{
-		gCacheName->get(parcelp->getGroupID(), TRUE,
+		gCacheName->getGroup(parcelp->getGroupID(),
 			boost::bind(&LLFloaterBuyLandUI::updateGroupName, this,
-				_1, _2, _3, _4));
+				_1, _2, _3));
 	}
 	else
 	{
-		mParcelSellerName =
-			LLSLURL("agent", parcelp->getOwnerID(), "inspect").getSLURLString();
+		mParcelSellerName = LLSLURL("agent", parcelp->getOwnerID(), "completename").getSLURLString();
 	}
 }
 
 void LLFloaterBuyLandUI::updateGroupName(const LLUUID& id,
-						 const std::string& first_name,
-						 const std::string& last_name,
-						 BOOL is_group)
+						 const std::string& name,
+						 bool is_group)
 {
 	LLParcel* parcelp = mParcel->getParcel();
 	if (parcelp
 		&& parcelp->getGroupID() == id)
 	{
 		// request is current
-		mParcelSellerName = first_name;
+		mParcelSellerName = name;
 	}
 }
 

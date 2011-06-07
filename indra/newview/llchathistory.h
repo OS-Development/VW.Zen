@@ -94,7 +94,7 @@ class LLChatHistory : public LLUICtrl
 		 * Builds a message header.
 		 * @return pointer to LLView header object.
 		 */
-		LLView* getHeader(const LLChat& chat,const LLStyle::Params& style_params);
+		LLView* getHeader(const LLChat& chat,const LLStyle::Params& style_params, const LLSD& args);
 
 		void onClickMoreText();
 
@@ -138,7 +138,7 @@ class LLChatHistory : public LLUICtrl
 		S32 mTopHeaderPad;
 		S32 mBottomHeaderPad;
 
-		LLPanel*		mMoreChatPanel;
+		class LLLayoutPanel*	mMoreChatPanel;
 		LLTextBox*		mMoreChatText;
 		LLTextEditor*	mEditor;
 		typedef std::set<std::string> unread_chat_source_t;

@@ -111,6 +111,7 @@ set(llui_SOURCE_FILES
     llviewmodel.cpp
     llview.cpp
     llviewquery.cpp
+    llwindowshade.cpp
     )
     
 set(llui_HEADER_FILES
@@ -158,6 +159,8 @@ set(llui_HEADER_FILES
     llnotifications.h
     llnotificationslistener.h
     llnotificationsutil.h
+    llnotificationtemplate.h
+	llnotificationvisibilityrule.h
     llpanel.h
     llprogressbar.h
     llradiogroup.h
@@ -208,6 +211,7 @@ set(llui_HEADER_FILES
     llviewmodel.h
     llview.h
     llviewquery.h
+    llwindowshade.h
     )
 
 set_source_files_properties(${llui_HEADER_FILES}
@@ -240,12 +244,12 @@ target_link_libraries(llui
     ${LLCOMMON_LIBRARIES} # must be after llimage, llwindow, llrender
     )
 
-if(LL_TESTS)
-  # Add tests
-  include(LLAddBuildTest)
-  SET(llui_TEST_SOURCE_FILES
-      llurlmatch.cpp
-      llurlentry.cpp
-      )
-  LL_ADD_PROJECT_UNIT_TESTS(llui "${llui_TEST_SOURCE_FILES}")
-endif(LL_TESTS)
+# Add tests
+if (LL_TESTS)
+	include(LLAddBuildTest)
+	SET(llui_TEST_SOURCE_FILES
+		llurlmatch.cpp
+		llurlentry.cpp
+		)
+	LL_ADD_PROJECT_UNIT_TESTS(llui "${llui_TEST_SOURCE_FILES}")
+endif (LL_TESTS)

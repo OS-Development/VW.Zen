@@ -50,10 +50,16 @@
 #include "llviewerstats.h"
 #include "llvlcomposition.h"
 #include "llvoavatar.h"
+#include "llvocache.h"
 #include "llvowater.h"
 #include "message.h"
 #include "pipeline.h"
 #include "llappviewer.h"		// for do_disconnect()
+
+#include <deque>
+#include <queue>
+#include <map>
+#include <cstring>
 
 //
 // Globals
@@ -93,11 +99,6 @@ LLWorld::LLWorld() :
 		mEdgeWaterObjects[i] = NULL;
 	}
 
-	if (gNoRender)
-	{
-		return;
-	}
-
 	LLPointer<LLImageRaw> raw = new LLImageRaw(1,1,4);
 	U8 *default_texture = raw->getData();
 	*(default_texture++) = MAX_WATER_COLOR.mV[0];
@@ -120,6 +121,10 @@ void LLWorld::destroyClass()
 	{
 		LLViewerRegion* region_to_delete = *region_it++;
 		removeRegion(region_to_delete->getHost());
+	}
+	if(LLVOCache::hasInstance())
+	{
+		LLVOCache::getInstance()->destroyClass() ;
 	}
 	LLViewerPartSim::getInstance()->destroyClass();
 }
@@ -256,6 +261,8 @@ void LLWorld::removeRegion(const LLHost &host)
 
 		llwarns << "Disabling region " << regionp->getName() << " that agent is in!" << llendl;
 		LLAppViewer::instance()->forceDisconnect(LLTrans::getString("YouHaveBeenDisconnected"));
+
+		regionp->saveObjectCache() ; //force to save objects here in case that the object cache is about to be destroyed.
 		return;
 	}
 
@@ -270,6 +277,10 @@ void LLWorld::removeRegion(const LLHost &host)
 	delete regionp;
 
 	updateWaterObjects();
+
+	//double check all objects of this region are removed.
+	gObjectList.clearAllMapObjectsInRegion(regionp) ;
+	//llassert_always(!gObjectList.hasMapObjectInRegion(regionp)) ;
 }
 
 
@@ -420,12 +431,13 @@ BOOL LLWorld::positionRegionValidGlobal(const LLVector3d &pos_global)
 
 
 // Allow objects to go up to their radius underground.
-F32 LLWorld::getMinAllowedZ(LLViewerObject* object)
+F32 LLWorld::getMinAllowedZ(LLViewerObject* object, const LLVector3d &global_pos)
 {
-	F32 land_height = resolveLandHeightGlobal(object->getPositionGlobal());
+	F32 land_height = resolveLandHeightGlobal(global_pos);
 	F32 radius = 0.5f * object->getScale().length();
 	return land_height - radius;
 }
+
 
 
 LLViewerRegion* LLWorld::resolveRegionGlobal(LLVector3 &pos_region, const LLVector3d &pos_global)
@@ -585,7 +597,7 @@ void LLWorld::updateVisibilities()
 		region_list_t::iterator curiter = iter++;
 		LLViewerRegion* regionp = *curiter;
 		F32 height = regionp->getLand().getMaxZ() - regionp->getLand().getMinZ();
-		F32 radius = 0.5f*fsqrtf(height * height + diagonal_squared);
+		F32 radius = 0.5f*(F32) sqrt(height * height + diagonal_squared);
 		if (!regionp->getLand().hasZData()
 			|| LLViewerCamera::getInstance()->sphereInFrustum(regionp->getCenterAgent(), radius))
 		{
@@ -606,14 +618,11 @@ void LLWorld::updateVisibilities()
 		}
 
 		F32 height = regionp->getLand().getMaxZ() - regionp->getLand().getMinZ();
-		F32 radius = 0.5f*fsqrtf(height * height + diagonal_squared);
+		F32 radius = 0.5f*(F32) sqrt(height * height + diagonal_squared);
 		if (LLViewerCamera::getInstance()->sphereInFrustum(regionp->getCenterAgent(), radius))
 		{
 			regionp->calculateCameraDistance();
-			if (!gNoRender)
-			{
-				regionp->getLand().updatePatchVisibilities(gAgent);
-			}
+			regionp->getLand().updatePatchVisibilities(gAgent);
 		}
 		else
 		{
@@ -831,9 +840,32 @@ F32 LLWorld::getLandFarClip() const
 
 void LLWorld::setLandFarClip(const F32 far_clip)
 {
+	static S32 const rwidth = (S32)REGION_WIDTH_U32;
+	S32 const n1 = (llceil(mLandFarClip) - 1) / rwidth;
+	S32 const n2 = (llceil(far_clip) - 1) / rwidth;
+	bool need_water_objects_update = n1 != n2;
+
 	mLandFarClip = far_clip;
+
+	if (need_water_objects_update)
+	{
+		updateWaterObjects();
+	}
 }
 
+// Some region that we're connected to, but not the one we're in, gave us
+// a (possibly) new water height. Update it in our local copy.
+void LLWorld::waterHeightRegionInfo(std::string const& sim_name, F32 water_height)
+{
+	for (region_list_t::iterator iter = mRegionList.begin(); iter != mRegionList.end(); ++iter)
+	{
+		if ((*iter)->getName() == sim_name)
+		{
+			(*iter)->setWaterHeight(water_height);
+			break;
+		}
+	}
+}
 
 void LLWorld::updateWaterObjects()
 {
@@ -950,7 +982,7 @@ void LLWorld::updateWaterObjects()
 		{
 			// The edge water objects can be dead because they're attached to the region that the
 			// agent was in when they were originally created.
-			mEdgeWaterObjects[dir] = (LLVOWater *)gObjectList.createObjectViewer(LLViewerObject::LL_VO_WATER,
+			mEdgeWaterObjects[dir] = (LLVOWater *)gObjectList.createObjectViewer(LLViewerObject::LL_VO_VOID_WATER,
 																				 gAgent.getRegion());
 			waterp = mEdgeWaterObjects[dir];
 			waterp->setUseTexture(FALSE);
@@ -976,6 +1008,7 @@ void LLWorld::updateWaterObjects()
 		gObjectList.updateActive(waterp);
 	}
 }
+
 
 void LLWorld::shiftRegions(const LLVector3& offset)
 {
@@ -1234,6 +1267,8 @@ static LLVector3d unpackLocalToGlobalPosition(U32 compact_local, const LLVector3
 
 void LLWorld::getAvatars(uuid_vec_t* avatar_ids, std::vector<LLVector3d>* positions, const LLVector3d& relative_to, F32 radius) const
 {
+	F32 radius_squared = radius * radius;
+	
 	if(avatar_ids != NULL)
 	{
 		avatar_ids->clear();
@@ -1242,6 +1277,33 @@ void LLWorld::getAvatars(uuid_vec_t* avatar_ids, std::vector<LLVector3d>* positi
 	{
 		positions->clear();
 	}
+	// get the list of avatars from the character list first, so distances are correct
+	// when agent is above 1020m and other avatars are nearby
+	for (std::vector<LLCharacter*>::iterator iter = LLCharacter::sInstances.begin();
+		iter != LLCharacter::sInstances.end(); ++iter)
+	{
+		LLVOAvatar* pVOAvatar = (LLVOAvatar*) *iter;
+		if(!pVOAvatar->isDead() && !pVOAvatar->isSelf())
+		{
+			LLUUID uuid = pVOAvatar->getID();
+			if(!uuid.isNull())
+			{
+				LLVector3d pos_global = pVOAvatar->getPositionGlobal();
+				if(dist_vec_squared(pos_global, relative_to) <= radius_squared)
+				{
+					if(positions != NULL)
+					{
+						positions->push_back(pos_global);
+					}
+					if(avatar_ids !=NULL)
+					{
+						avatar_ids->push_back(uuid);
+					}
+				}
+			}
+		}
+	}
+	// region avatars added for situations where radius is greater than RenderFarClip
 	for (LLWorld::region_list_t::const_iterator iter = LLWorld::getInstance()->getRegionList().begin();
 		iter != LLWorld::getInstance()->getRegionList().end(); ++iter)
 	{
@@ -1251,15 +1313,17 @@ void LLWorld::getAvatars(uuid_vec_t* avatar_ids, std::vector<LLVector3d>* positi
 		for (S32 i = 0; i < count; i++)
 		{
 			LLVector3d pos_global = unpackLocalToGlobalPosition(regionp->mMapAvatars.get(i), origin_global);
-			if(dist_vec(pos_global, relative_to) <= radius)
+			if(dist_vec_squared(pos_global, relative_to) <= radius_squared)
 			{
-				if(positions != NULL)
+				LLUUID uuid = regionp->mMapAvatarIDs.get(i);
+				// if this avatar doesn't already exist in the list, add it
+				if(uuid.notNull() && avatar_ids!=NULL && std::find(avatar_ids->begin(), avatar_ids->end(), uuid) == avatar_ids->end())
 				{
-					positions->push_back(pos_global);
-				}
-				if(avatar_ids != NULL)
-				{
-					avatar_ids->push_back(regionp->mMapAvatarIDs.get(i));
+					if(positions != NULL)
+					{
+						positions->push_back(pos_global);
+					}
+					avatar_ids->push_back(uuid);
 				}
 			}
 		}

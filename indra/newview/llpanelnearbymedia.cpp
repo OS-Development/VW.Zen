@@ -96,7 +96,7 @@ LLPanelNearByMedia::LLPanelNearByMedia()
 	mCommitCallbackRegistrar.add("SelectedMediaCtrl.Zoom",		boost::bind(&LLPanelNearByMedia::onClickSelectedMediaZoom, this));
 	mCommitCallbackRegistrar.add("SelectedMediaCtrl.Unzoom",	boost::bind(&LLPanelNearByMedia::onClickSelectedMediaUnzoom, this));
 	
-	LLUICtrlFactory::instance().buildPanel(this, "panel_nearby_media.xml");
+	buildFromFile( "panel_nearby_media.xml");
 }
 
 LLPanelNearByMedia::~LLPanelNearByMedia()
@@ -356,7 +356,7 @@ void LLPanelNearByMedia::updateListItem(LLScrollListItem* item, LLViewerMediaImp
 		debug_str += llformat("%g/", (float)impl->getInterest());
 		
 		// proximity distance is actually distance squared -- display it as straight distance.
-		debug_str += llformat("%g/", fsqrtf(impl->getProximityDistance()));
+		debug_str += llformat("%g/", (F32) sqrt(impl->getProximityDistance()));
 		
 		//			s += llformat("%g/", (float)impl->getCPUUsage());
 		//			s += llformat("%g/", (float)impl->getApproximateTextureInterest());
@@ -564,16 +564,14 @@ void LLPanelNearByMedia::refreshParcelItems()
 	if (NULL != mParcelMediaItem)
 	{
 		std::string name, url, tooltip;
-		if (!LLViewerParcelMgr::getInstance()->getAgentParcel()->getObscureMedia())
+		getNameAndUrlHelper(LLViewerParcelMedia::getParcelMedia(), name, url, "");
+		if (name.empty() || name == url)
 		{
-			getNameAndUrlHelper(LLViewerParcelMedia::getParcelMedia(), name, url, "");
-			if (name.empty() || name == url)
-			{
-				tooltip = url;
-			}
-			else {
-				tooltip = name + " : " + url;
-			}
+			tooltip = url;
+		}
+		else
+		{
+			tooltip = name + " : " + url;
 		}
 		LLViewerMediaImpl *impl = LLViewerParcelMedia::getParcelMedia();
 		updateListItem(mParcelMediaItem,
@@ -611,10 +609,8 @@ void LLPanelNearByMedia::refreshParcelItems()
 		bool is_playing = LLViewerMedia::isParcelAudioPlaying();
 	
 		std::string url;
-		if (!LLViewerParcelMgr::getInstance()->getAgentParcel()->getObscureMusic())
-		{
-			url = LLViewerMedia::getParcelAudioURL();
-		}
+        url = LLViewerMedia::getParcelAudioURL();
+
 		updateListItem(mParcelAudioItem,
 					   mParcelAudioName,
 					   url,
@@ -958,7 +954,7 @@ void LLPanelNearByMedia::onAdvancedButtonClick()
 
 void LLPanelNearByMedia::onMoreLess()
 {
-	bool is_more = getChild<LLUICtrl>("more_btn")->getVisible();
+	bool is_more = getChild<LLButton>("more_btn")->getToggleState();
 	mNearbyMediaPanel->setVisible(is_more);
 
 	// enable resizing when expanded
@@ -969,8 +965,7 @@ void LLPanelNearByMedia::onMoreLess()
 
 	setShape(new_rect);
 
-	getChild<LLUICtrl>("more_btn")->setVisible(!is_more);
-	getChild<LLUICtrl>("less_btn")->setVisible(is_more);
+	getChild<LLUICtrl>("more_btn")->setVisible(true);
 }
 
 void LLPanelNearByMedia::updateControls()

@@ -35,6 +35,7 @@
 #include "llagentcamera.h"
 #include "llcallbacklist.h"
 #include "llcriticaldamp.h"
+#include "llfloaterperms.h"
 #include "llui.h"
 #include "llfocusmgr.h"
 #include "llbutton.h"
@@ -52,6 +53,7 @@
 #include "llfloaterpostcard.h"
 #include "llcheckboxctrl.h"
 #include "llradiogroup.h"
+#include "llslurl.h"
 #include "lltoolfocus.h"
 #include "lltoolmgr.h"
 #include "llwebsharing.h"
@@ -999,8 +1001,8 @@ void LLSnapshotLivePreview::saveTexture()
 				    LLFolderType::FT_SNAPSHOT_CATEGORY,
 				    LLInventoryType::IT_SNAPSHOT,
 				    PERM_ALL,  // Note: Snapshots to inventory is a special case of content upload
-				    PERM_NONE, // that ignores the user's premissions preferences and continues to
-				    PERM_NONE, // always use these fairly permissive hard-coded initial perms. - MG
+				    LLFloaterPerms::getGroupPerms(), // that is more permissive than other uploads
+				    LLFloaterPerms::getEveryonePerms(),
 				    "Snapshot : " + pos_string,
 				    callback, expected_upload_cost, userdata);
 		gViewerWindow->playSnapshotAnimAndSound();
@@ -1211,8 +1213,6 @@ LLViewerWindow::ESnapshotType LLFloaterSnapshot::Impl::getLayerType(LLFloaterSna
 		type = LLViewerWindow::SNAPSHOT_TYPE_COLOR;
 	else if (id == "depth")
 		type = LLViewerWindow::SNAPSHOT_TYPE_DEPTH;
-	else if (id == "objects")
-		type = LLViewerWindow::SNAPSHOT_TYPE_OBJECT_ID;
 	return type;
 }
 
@@ -1364,6 +1364,36 @@ void LLFloaterSnapshot::Impl::updateControls(LLFloaterSnapshot* floater)
 	floater->getChildView("auto_snapshot_check")->setVisible(		is_advance);
 	floater->getChildView("image_quality_slider")->setVisible(	is_advance && show_slider);
 
+	if (gSavedSettings.getBOOL("RenderUIInSnapshot") || gSavedSettings.getBOOL("RenderHUDInSnapshot"))
+	{ //clamp snapshot resolution to window size when showing UI or HUD in snapshot
+
+		LLSpinCtrl* width_ctrl = floater->getChild<LLSpinCtrl>("snapshot_width");
+		LLSpinCtrl* height_ctrl = floater->getChild<LLSpinCtrl>("snapshot_height");
+
+		S32 width = gViewerWindow->getWindowWidthRaw();
+		S32 height = gViewerWindow->getWindowHeightRaw();
+
+		width_ctrl->setMaxValue(width);
+		
+		height_ctrl->setMaxValue(height);
+
+		if (width_ctrl->getValue().asInteger() > width)
+		{
+			width_ctrl->forceSetValue(width);
+		}
+		if (height_ctrl->getValue().asInteger() > height)
+		{
+			height_ctrl->forceSetValue(height);
+		}
+	}
+	else
+	{ 
+		LLSpinCtrl* width = floater->getChild<LLSpinCtrl>("snapshot_width");
+		width->setMaxValue(6016);
+		LLSpinCtrl* height = floater->getChild<LLSpinCtrl>("snapshot_height");
+		height->setMaxValue(6016);
+	}
+		
 	LLSnapshotLivePreview* previewp = getPreviewView(floater);
 	BOOL got_bytes = previewp && previewp->getDataSize() > 0;
 	BOOL got_snap = previewp && previewp->getSnapshotUpToDate();
@@ -1811,6 +1841,13 @@ void LLFloaterSnapshot::Impl::updateResolution(LLUICtrl* ctrl, void* data, BOOL 
 
 		previewp->getSize(width, height);
 	
+		if (gSavedSettings.getBOOL("RenderUIInSnapshot") || gSavedSettings.getBOOL("RenderHUDInSnapshot"))
+		{ //clamp snapshot resolution to window size when showing UI or HUD in snapshot
+			width = llmin(width, gViewerWindow->getWindowWidthRaw());
+			height = llmin(height, gViewerWindow->getWindowHeightRaw());
+		}
+
+		
 		if(checkImageSize(previewp, width, height, TRUE, previewp->getMaxImageSize()))
 		{
 			resetSnapshotSizeOnUI(view, width, height) ;
@@ -2070,7 +2107,6 @@ LLFloaterSnapshot::LLFloaterSnapshot(const LLSD& key)
 	: LLFloater(key),
 	  impl (*(new Impl))
 {
-	//Called from floater reg: LLUICtrlFactory::getInstance()->buildFloater(this, "floater_snapshot.xml", FALSE);
 }
 
 // Destroys the object
@@ -2191,9 +2227,11 @@ void LLFloaterSnapshot::draw()
 			S32 offset_y = thumbnail_rect.mBottom + (thumbnail_rect.getHeight() - previewp->getThumbnailHeight()) / 2 ;
 
 			glMatrixMode(GL_MODELVIEW);
+			// Apply floater transparency to the texture unless the floater is focused.
+			F32 alpha = getTransparencyType() == TT_ACTIVE ? 1.0f : getCurrentTransparency();
 			gl_draw_scaled_image(offset_x, offset_y, 
 					previewp->getThumbnailWidth(), previewp->getThumbnailHeight(), 
-					previewp->getThumbnailImage(), LLColor4::white);	
+					previewp->getThumbnailImage(), LLColor4::white % alpha);
 
 			previewp->drawPreviewRect(offset_x, offset_y) ;
 		}

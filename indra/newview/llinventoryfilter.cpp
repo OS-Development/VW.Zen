@@ -393,18 +393,22 @@ void LLInventoryFilter::setFilterUUID(const LLUUID& object_id)
 
 void LLInventoryFilter::setFilterSubString(const std::string& string)
 {
-	if (mFilterSubString != string)
+	std::string filter_sub_string_new = string;
+	mFilterSubStringOrig = string;
+	LLStringUtil::trimHead(filter_sub_string_new);
+	LLStringUtil::toUpper(filter_sub_string_new);
+
+	if (mFilterSubString != filter_sub_string_new)
 	{
 		// hitting BACKSPACE, for example
-		const BOOL less_restrictive = mFilterSubString.size() >= string.size() && !mFilterSubString.substr(0, string.size()).compare(string);
+		const BOOL less_restrictive = mFilterSubString.size() >= filter_sub_string_new.size()
+			&& !mFilterSubString.substr(0, filter_sub_string_new.size()).compare(filter_sub_string_new);
 
 		// appending new characters
-		const BOOL more_restrictive = mFilterSubString.size() < string.size() && !string.substr(0, mFilterSubString.size()).compare(mFilterSubString);
+		const BOOL more_restrictive = mFilterSubString.size() < filter_sub_string_new.size()
+			&& !filter_sub_string_new.substr(0, mFilterSubString.size()).compare(mFilterSubString);
 
-		mFilterSubStringOrig = string;
-		LLStringUtil::trimHead(mFilterSubStringOrig);
-		mFilterSubString = mFilterSubStringOrig;
-		LLStringUtil::toUpper(mFilterSubString);
+		mFilterSubString = filter_sub_string_new;
 		if (less_restrictive)
 		{
 			setModified(FILTER_LESS_RESTRICTIVE);
@@ -506,9 +510,15 @@ void LLInventoryFilter::setHoursAgo(U32 hours)
 {
 	if (mFilterOps.mHoursAgo != hours)
 	{
+		bool are_date_limits_valid = mFilterOps.mMinDate == time_min() && mFilterOps.mMaxDate == time_max();
+
+		bool is_increasing = hours > mFilterOps.mHoursAgo;
+		bool is_increasing_from_zero = is_increasing && !mFilterOps.mHoursAgo;
+
 		// *NOTE: need to cache last filter time, in case filter goes stale
-		BOOL less_restrictive = (mFilterOps.mMinDate == time_min() && mFilterOps.mMaxDate == time_max() && hours > mFilterOps.mHoursAgo);
-		BOOL more_restrictive = (mFilterOps.mMinDate == time_min() && mFilterOps.mMaxDate == time_max() && hours <= mFilterOps.mHoursAgo);
+		BOOL less_restrictive = (are_date_limits_valid && ((is_increasing && mFilterOps.mHoursAgo)) || !hours);
+		BOOL more_restrictive = (are_date_limits_valid && (!is_increasing && hours) || is_increasing_from_zero);
+
 		mFilterOps.mHoursAgo = hours;
 		mFilterOps.mMinDate = time_min();
 		mFilterOps.mMaxDate = time_max();

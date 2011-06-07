@@ -86,14 +86,8 @@
 			<text name="Owner:">
 				Eigentümer:
 			</text>
-			<text name="OwnerText">
-				Leyla Linden
-			</text>
 			<text name="Group:">
 				Gruppe:
-			</text>
-			<text name="GroupText">
-				Leyla Linden
 			</text>
 			<button label="Festlegen" label_selected="Einstellen..." name="Set..." width="90"/>
 			<check_box label="Übertragung an Gruppe zulassen" name="check deed" tool_tip="Ein Gruppen-Officer kann dieses Land der Gruppe übertragen. Das Land wird dann über die Landzuteilung der Gruppe verwaltet."/>
@@ -259,18 +253,18 @@ werden.
 			<text left="204" name="other_objects_text" width="48">
 				[COUNT]
 			</text>
-			<button label="Anzeigen" label_selected="Anzeigen" name="ShowOther" right="-135" width="60"/>
-			<button label="Zurückgeben" label_selected="Zurückgeben..." name="ReturnOther..." right="-10" tool_tip="Objekte an ihre Eigentümer zurückgeben." width="119"/>
-			<text left="14" name="Selected / sat upon:" width="140">
+			<button label="Anzeigen" label_selected="Anzeigen" name="ShowOther"/>
+			<button label="Zurückgeben" label_selected="Zurückgeben..." name="ReturnOther..." tool_tip="Objekte an ihre Eigentümer zurückgeben."/>
+			<text name="Selected / sat upon:">
 				Ausgewählt/gesessen auf:
 			</text>
-			<text left="204" name="selected_objects_text" width="48">
+			<text name="selected_objects_text">
 				[COUNT]
 			</text>
 			<text name="Autoreturn">
 				Objekte anderer Einwohner automatisch zurückgeben (Minuten, 0 für aus):
 			</text>
-			<line_editor name="clean other time" right="-10" width="56"/>
+			<line_editor name="clean other time"/>
 			<text name="Object Owners:">
 				Objekteigentümer:
 			</text>
@@ -279,7 +273,7 @@ werden.
 			<name_list name="owner list">
 				<name_list.columns label="Typ" name="type"/>
 				<name_list.columns label="Name" name="name"/>
-				<name_list.columns label="Anzahl" name="count" width="80"/>
+				<name_list.columns label="Anzahl" name="count"/>
 				<name_list.columns label="Aktuellstes" name="mostrecent"/>
 			</name_list>
 		</panel>
@@ -354,6 +348,7 @@ Nur große Parzellen können in der Suche aufgeführt werden.
 				<combo_box.item label="Parks und Natur" name="item9"/>
 				<combo_box.item label="Wohngebiet" name="item10"/>
 				<combo_box.item label="Shopping" name="item11"/>
+				<combo_box.item label="Vermietung" name="item13"/>
 				<combo_box.item label="Sonstige" name="item12"/>
 			</combo_box>
 			<combo_box name="land category">
@@ -368,6 +363,7 @@ Nur große Parzellen können in der Suche aufgeführt werden.
 				<combo_box.item label="Parks und Natur" name="item9"/>
 				<combo_box.item label="Wohngebiet" name="item10"/>
 				<combo_box.item label="Shopping" name="item11"/>
+				<combo_box.item label="Vermietung" name="item13"/>
 				<combo_box.item label="Sonstige" name="item12"/>
 			</combo_box>
 			<check_box label="Moderater Inhalt" name="MatureCheck" tool_tip=""/>
@@ -398,7 +394,6 @@ Nur große Parzellen können in der Suche aufgeführt werden.
 				Homepage:
 			</text>
 			<button label="Festlegen" name="set_media_url"/>
-			<check_box label="URL ausblenden" name="hide_media_url" tool_tip="Aktivieren Sie diese Option, wenn Sie nicht möchten, dass unautorisierte Personen die Medien-URL sehen können. Diese Option ist für HTML-Medien nicht verfügbar."/>
 			<text name="Description:">
 				Inhalt:
 			</text>
@@ -428,7 +423,6 @@ Nur große Parzellen können in der Suche aufgeführt werden.
 			<text name="MusicURL:">
 				Musik-URL:
 			</text>
-			<check_box label="URL ausblenden" name="hide_music_url" tool_tip="Aktivieren Sie diese Option, wenn Sie nicht möchten, dass unautorisierte Personen die Musik-URL sehen können"/>
 			<text name="Sound:">
 				Sound:
 			</text>
@@ -445,7 +439,7 @@ Nur große Parzellen können in der Suche aufgeführt werden.
 				(Durch Grundbesitz festgelegt)
 			</panel.string>
 			<panel.string name="allow_public_access">
-				Öffentlichen Zugang erlauben ([MATURITY])
+				Öffentlichen Zugang erlauben ([MATURITY]) (Hinweis: Bei Deaktivierung dieser Option werden Bannlinien generiert)
 			</panel.string>
 			<panel.string name="estate_override">
 				Eine oder mehrere dieser Optionen gelten auf Grundbesitzebene

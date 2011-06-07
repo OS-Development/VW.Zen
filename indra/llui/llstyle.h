@@ -30,6 +30,7 @@
 #include "v4color.h"
 #include "llui.h"
 #include "llinitparam.h"
+#include "lluiimage.h"
 
 class LLFontGL;
 
@@ -46,6 +47,7 @@ public:
 		Optional<const LLFontGL*>		font;
 		Optional<LLUIImage*>			image;
 		Optional<std::string>			link_href;
+		Optional<bool>					is_link;
 		Params();
 	};
 	LLStyle(const Params& p = Params());
@@ -71,7 +73,7 @@ public:
 	void setLinkHREF(const std::string& href);
 	BOOL isLink() const;
 
-	LLUIImagePtr getImage() const;
+	LLPointer<LLUIImage> getImage() const;
 	void setImage(const LLUUID& src);
 	void setImage(const std::string& name);
 
@@ -106,7 +108,8 @@ private:
 	std::string			mFontName;
 	const LLFontGL*		mFont;
 	std::string			mLink;
-	LLUIImagePtr		mImagep;
+	bool				mIsLink;
+	LLPointer<LLUIImage> mImagep;
 };
 
 typedef LLPointer<LLStyle> LLStyleSP;

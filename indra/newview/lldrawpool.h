@@ -47,16 +47,17 @@ public:
 	{
 		// Correspond to LLPipeline render type
 		POOL_SIMPLE = 1,
-		POOL_TERRAIN,	
-		POOL_TREE,
-		POOL_SKY,
-		POOL_WL_SKY,
 		POOL_GROUND,
-		POOL_GRASS,
 		POOL_FULLBRIGHT,
 		POOL_BUMP,
+		POOL_TERRAIN,	
+		POOL_SKY,
+		POOL_WL_SKY,
+		POOL_TREE,
+		POOL_GRASS,
 		POOL_INVISIBLE, // see below *
 		POOL_AVATAR,
+		POOL_VOIDWATER,
 		POOL_WATER,
 		POOL_GLOW,
 		POOL_ALPHA,
@@ -167,7 +168,6 @@ public:
 	LLFacePool(const U32 type);
 	virtual ~LLFacePool();
 	
-	virtual void renderForSelect() = 0;
 	BOOL isDead() { return mReferences.empty(); }
 	
 	virtual LLViewerTexture *getTexture();
@@ -181,8 +181,6 @@ public:
 	
 	virtual void resetDrawOrders();
 	void resetAll();
-
-	BOOL moveFace(LLFace *face, LLDrawPool *poolp, BOOL copy_data = FALSE);
 
 	void destroy();
 

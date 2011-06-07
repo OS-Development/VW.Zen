@@ -26,7 +26,7 @@
 #ifndef LL_LLPNGWRAPPER_H
 #define LL_LLPNGWRAPPER_H
 
-#include "libpng12/png.h"
+#include "png.h"
 #include "llimage.h"
 
 class LLPngWrapper
@@ -87,9 +87,6 @@ private:
 	S32 mFilterMethod;
 
 	U32 mFinalSize;
-
-	bool mHasBKGD;
-	png_color_16p mBackgroundColor;
 
 	F64 mGamma;
 

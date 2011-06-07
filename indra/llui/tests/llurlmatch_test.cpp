@@ -25,13 +25,146 @@
  * $/LicenseInfo$
  */
 
+#include "linden_common.h"
+
 #include "../llurlmatch.h"
+#include "../lluiimage.h"
 #include "lltut.h"
 
-// link seam
+// link seams
+
 LLUIColor::LLUIColor()
 	: mColorPtr(NULL)
 {}
+
+LLStyle::Params::Params()
+{
+}
+
+LLUIImage::LLUIImage(const std::string& name, LLPointer<LLTexture> image)
+{
+}
+
+LLUIImage::~LLUIImage()
+{
+}
+
+//virtual
+S32 LLUIImage::getWidth() const
+{
+	return 0;
+}
+
+//virtual
+S32 LLUIImage::getHeight() const
+{
+	return 0;
+}
+
+namespace LLInitParam
+{
+	BaseBlock::BaseBlock() {}
+	BaseBlock::~BaseBlock() {}
+
+	S32 Parser::sNextParseGeneration = 0;
+
+	BlockDescriptor::BlockDescriptor() {}
+	ParamDescriptor::ParamDescriptor(param_handle_t p, 
+						merge_func_t merge_func, 
+						deserialize_func_t deserialize_func, 
+						serialize_func_t serialize_func,
+						validation_func_t validation_func,
+						inspect_func_t inspect_func,
+						S32 min_count,
+						S32 max_count){}
+	ParamDescriptor::~ParamDescriptor() {}
+
+	void BaseBlock::paramChanged(const Param& last_param, bool user_provided) {}
+
+	void BaseBlock::addParam(BlockDescriptor& block_data, const ParamDescriptorPtr in_param, const char* char_name){}
+	param_handle_t BaseBlock::getHandleFromParam(const Param* param) const {return 0;}
+	void BaseBlock::addSynonym(Param& param, const std::string& synonym) {}
+
+	void BaseBlock::init(BlockDescriptor& descriptor, BlockDescriptor& base_descriptor, size_t block_size)
+	{
+		descriptor.mCurrentBlockPtr = this;
+	}
+
+	Param::Param(BaseBlock* enclosing_block)
+	:	mIsProvided(false)
+	{
+		const U8* my_addr = reinterpret_cast<const U8*>(this);
+		const U8* block_addr = reinterpret_cast<const U8*>(enclosing_block);
+		mEnclosingBlockOffset = (U16)(my_addr - block_addr);
+	}
+
+	bool BaseBlock::deserializeBlock(Parser& p, Parser::name_stack_range_t name_stack, S32 generation){ return true; }
+	void BaseBlock::serializeBlock(Parser& parser, Parser::name_stack_t name_stack, const LLInitParam::BaseBlock* diff_block) const {}
+	bool BaseBlock::inspectBlock(Parser& parser, Parser::name_stack_t name_stack, S32 min_count, S32 max_count) const { return true; }
+	bool BaseBlock::mergeBlock(BlockDescriptor& block_data, const BaseBlock& other, bool overwrite) { return true; }
+	bool BaseBlock::validateBlock(bool emit_errors) const { return true; }
+
+	ParamValue<LLUIColor, TypeValues<LLUIColor> >::ParamValue(const LLUIColor& color)
+	:	super_t(color)
+	{}
+
+	void ParamValue<LLUIColor, TypeValues<LLUIColor> >::updateValueFromBlock()
+	{}
+	
+	void ParamValue<LLUIColor, TypeValues<LLUIColor> >::updateBlockFromValue()
+	{}
+
+	bool ParamCompare<const LLFontGL*, false>::equals(const LLFontGL* a, const LLFontGL* b)
+	{
+		return false;
+	}
+
+
+	ParamValue<const LLFontGL*, TypeValues<const LLFontGL*> >::ParamValue(const LLFontGL* fontp)
+	:	super_t(fontp)
+	{}
+
+	void ParamValue<const LLFontGL*, TypeValues<const LLFontGL*> >::updateValueFromBlock()
+	{}
+	
+	void ParamValue<const LLFontGL*, TypeValues<const LLFontGL*> >::updateBlockFromValue()
+	{}
+
+	void TypeValues<LLFontGL::HAlign>::declareValues()
+	{}
+
+	void TypeValues<LLFontGL::VAlign>::declareValues()
+	{}
+
+	void TypeValues<LLFontGL::ShadowType>::declareValues()
+	{}
+
+	void ParamValue<LLUIImage*, TypeValues<LLUIImage*> >::updateValueFromBlock()
+	{}
+	
+	void ParamValue<LLUIImage*, TypeValues<LLUIImage*> >::updateBlockFromValue()
+	{}
+	
+	bool ParamCompare<LLUIImage*, false>::equals(
+		LLUIImage* const &a,
+		LLUIImage* const &b)
+	{
+		return false;
+	}
+
+	bool ParamCompare<LLUIColor, false>::equals(const LLUIColor &a, const LLUIColor &b)
+	{
+		return false;
+	}
+
+}
+
+//static
+LLFontGL* LLFontGL::getFontDefault()
+{
+	return NULL; 
+}
+
 
 namespace tut
 {
@@ -59,7 +192,7 @@ namespace tut
 		LLUrlMatch match;
 		ensure("empty()", match.empty());
 
-		match.setValues(0, 1, "http://secondlife.com", "Second Life", "", "", LLUIColor(), "", "", false,LLUUID::null);
+		match.setValues(0, 1, "http://secondlife.com", "Second Life", "", "", LLStyle::Params(), "", "", LLUUID::null);
 		ensure("! empty()", ! match.empty());
 	}
 
@@ -72,7 +205,7 @@ namespace tut
 		LLUrlMatch match;
 		ensure_equals("getStart() == 0", match.getStart(), 0);
 
-		match.setValues(10, 20, "", "", "", "", LLUIColor(), "", "", false,LLUUID::null);
+		match.setValues(10, 20, "", "", "", "", LLStyle::Params(), "", "", LLUUID::null);
 		ensure_equals("getStart() == 10", match.getStart(), 10);
 	}
 
@@ -85,7 +218,7 @@ namespace tut
 		LLUrlMatch match;
 		ensure_equals("getEnd() == 0", match.getEnd(), 0);
 
-		match.setValues(10, 20, "", "", "", "", LLUIColor(), "", "", false,LLUUID::null);
+		match.setValues(10, 20, "", "", "", "", LLStyle::Params(), "", "", LLUUID::null);
 		ensure_equals("getEnd() == 20", match.getEnd(), 20);
 	}
 
@@ -98,10 +231,10 @@ namespace tut
 		LLUrlMatch match;
 		ensure_equals("getUrl() == ''", match.getUrl(), "");
 
-		match.setValues(10, 20, "http://slurl.com/", "", "", "", LLUIColor(), "", "", false,LLUUID::null);
+		match.setValues(10, 20, "http://slurl.com/", "", "", "", LLStyle::Params(), "", "", LLUUID::null);
 		ensure_equals("getUrl() == 'http://slurl.com/'", match.getUrl(), "http://slurl.com/");
 
-		match.setValues(10, 20, "", "", "", "", LLUIColor(), "", "", false,LLUUID::null);
+		match.setValues(10, 20, "", "", "", "", LLStyle::Params(), "", "", LLUUID::null);
 		ensure_equals("getUrl() == '' (2)", match.getUrl(), "");
 	}
 
@@ -114,10 +247,10 @@ namespace tut
 		LLUrlMatch match;
 		ensure_equals("getLabel() == ''", match.getLabel(), "");
 
-		match.setValues(10, 20, "", "Label", "", "", LLUIColor(), "", "", false,LLUUID::null);
+		match.setValues(10, 20, "", "Label", "", "", LLStyle::Params(), "", "", LLUUID::null);
 		ensure_equals("getLabel() == 'Label'", match.getLabel(), "Label");
 
-		match.setValues(10, 20, "", "", "", "", LLUIColor(), "", "", false,LLUUID::null);
+		match.setValues(10, 20, "", "", "", "", LLStyle::Params(), "", "", LLUUID::null);
 		ensure_equals("getLabel() == '' (2)", match.getLabel(), "");
 	}
 
@@ -130,10 +263,10 @@ namespace tut
 		LLUrlMatch match;
 		ensure_equals("getTooltip() == ''", match.getTooltip(), "");
 
-		match.setValues(10, 20, "", "", "Info", "", LLUIColor(), "", "", false,LLUUID::null);
+		match.setValues(10, 20, "", "", "Info", "", LLStyle::Params(), "", "", LLUUID::null);
 		ensure_equals("getTooltip() == 'Info'", match.getTooltip(), "Info");
 
-		match.setValues(10, 20, "", "", "", "", LLUIColor(), "", "", false,LLUUID::null);
+		match.setValues(10, 20, "", "", "", "", LLStyle::Params(), "", "", LLUUID::null);
 		ensure_equals("getTooltip() == '' (2)", match.getTooltip(), "");
 	}
 
@@ -146,10 +279,10 @@ namespace tut
 		LLUrlMatch match;
 		ensure_equals("getIcon() == ''", match.getIcon(), "");
 
-		match.setValues(10, 20, "", "", "", "Icon", LLUIColor(), "", "", false,LLUUID::null);
+		match.setValues(10, 20, "", "", "", "Icon", LLStyle::Params(), "", "", LLUUID::null);
 		ensure_equals("getIcon() == 'Icon'", match.getIcon(), "Icon");
 
-		match.setValues(10, 20, "", "", "", "", LLUIColor(), "", "", false,LLUUID::null);
+		match.setValues(10, 20, "", "", "", "", LLStyle::Params(), "", "", LLUUID::null);
 		ensure_equals("getIcon() == '' (2)", match.getIcon(), "");
 	}
 
@@ -162,10 +295,10 @@ namespace tut
 		LLUrlMatch match;
 		ensure("getMenuName() empty", match.getMenuName().empty());
 
-		match.setValues(10, 20, "", "", "", "Icon", LLUIColor(), "xui_file.xml", "", false,LLUUID::null);
+		match.setValues(10, 20, "", "", "", "Icon", LLStyle::Params(), "xui_file.xml", "", LLUUID::null);
 		ensure_equals("getMenuName() == \"xui_file.xml\"", match.getMenuName(), "xui_file.xml");
 
-		match.setValues(10, 20, "", "", "", "", LLUIColor(), "", "", false,LLUUID::null);
+		match.setValues(10, 20, "", "", "", "", LLStyle::Params(), "", "", LLUUID::null);
 		ensure("getMenuName() empty (2)", match.getMenuName().empty());
 	}
 
@@ -178,10 +311,10 @@ namespace tut
 		LLUrlMatch match;
 		ensure("getLocation() empty", match.getLocation().empty());
 
-		match.setValues(10, 20, "", "", "", "Icon", LLUIColor(), "xui_file.xml", "Paris", false,LLUUID::null);
+		match.setValues(10, 20, "", "", "", "Icon", LLStyle::Params(), "xui_file.xml", "Paris", LLUUID::null);
 		ensure_equals("getLocation() == \"Paris\"", match.getLocation(), "Paris");
 
-		match.setValues(10, 20, "", "", "", "", LLUIColor(), "", "", false,LLUUID::null);
+		match.setValues(10, 20, "", "", "", "", LLStyle::Params(), "", "", LLUUID::null);
 		ensure("getLocation() empty (2)", match.getLocation().empty());
 	}
 }

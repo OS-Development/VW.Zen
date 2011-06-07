@@ -78,7 +78,7 @@ template class LLLineEditor* LLView::getChild<class LLLineEditor>(
 //
 
 LLLineEditor::Params::Params()
-:	max_length_bytes("max_length", 254),
+:	max_length(""),
     keystroke_callback("keystroke_callback"),
 	prevalidate_callback("prevalidate_callback"),
 	background_image("background_image"),
@@ -88,6 +88,7 @@ LLLineEditor::Params::Params()
 	revert_on_esc("revert_on_esc", true),
 	commit_on_focus_lost("commit_on_focus_lost", true),
 	ignore_tab("ignore_tab", true),
+	is_password("is_password", false),
 	cursor_color("cursor_color"),
 	text_color("text_color"),
 	text_readonly_color("text_readonly_color"),
@@ -108,7 +109,8 @@ LLLineEditor::Params::Params()
 
 LLLineEditor::LLLineEditor(const LLLineEditor::Params& p)
 :	LLUICtrl(p),
-	mMaxLengthBytes(p.max_length_bytes),
+	mMaxLengthBytes(p.max_length.bytes),
+	mMaxLengthChars(p.max_length.chars),
 	mCursorPos( 0 ),
 	mScrollHPos( 0 ),
 	mTextPadLeft(p.text_pad_left),
@@ -128,7 +130,7 @@ LLLineEditor::LLLineEditor(const LLLineEditor::Params& p)
 	mBorderThickness( 0 ),
 	mIgnoreArrowKeys( FALSE ),
 	mIgnoreTab( p.ignore_tab ),
-	mDrawAsterixes( FALSE ),
+	mDrawAsterixes( p.is_password ),
 	mSelectAllonFocusReceived( p.select_on_focus ),
 	mPassDelete(FALSE),
 	mReadOnly(FALSE),
@@ -313,6 +315,12 @@ void LLLineEditor::setMaxTextLength(S32 max_text_length)
 	mMaxLengthBytes = max_len;
 } 
 
+void LLLineEditor::setMaxTextChars(S32 max_text_chars)
+{
+	S32 max_chars = llmax(0, max_text_chars);
+	mMaxLengthChars = max_chars;
+} 
+
 void LLLineEditor::getTextPadding(S32 *left, S32 *right)
 {
 	*left = mTextPadLeft;
@@ -358,6 +366,16 @@ void LLLineEditor::setText(const LLStringExplicit &new_text)
 	}
 	mText.assign(truncated_utf8);
 
+	if (mMaxLengthChars)
+	{
+		LLWString truncated_wstring = utf8str_to_wstring(truncated_utf8);
+		if (truncated_wstring.size() > (U32)mMaxLengthChars)
+		{
+			truncated_wstring = truncated_wstring.substr(0, mMaxLengthChars);
+		}
+		mText.assign(wstring_to_utf8str(truncated_wstring));
+	}
+
 	if (all_selected)
 	{
 		// ...keep whole thing selected
@@ -371,7 +389,11 @@ void LLLineEditor::setText(const LLStringExplicit &new_text)
 	setCursor(llmin((S32)mText.length(), getCursor()));
 
 	// Set current history line to end of history.
-	if(mLineHistory.end() != mLineHistory.begin())
+	if (mLineHistory.empty())
+	{
+		mCurrentHistoryLine = mLineHistory.end();
+	}
+	else
 	{
 		mCurrentHistoryLine = mLineHistory.end() - 1;
 	}
@@ -798,6 +820,7 @@ void LLLineEditor::addChar(const llwchar uni_char)
 	}
 
 	S32 cur_bytes = mText.getString().size();
+
 	S32 new_bytes = wchar_utf8_length(new_c);
 
 	BOOL allow_char = TRUE;
@@ -806,6 +829,14 @@ void LLLineEditor::addChar(const llwchar uni_char)
 	if ((new_bytes + cur_bytes) > mMaxLengthBytes)
 	{
 		allow_char = FALSE;
+	}
+	else if (mMaxLengthChars)
+	{
+		S32 wide_chars = mText.getWString().size();
+		if ((wide_chars + 1) > mMaxLengthChars)
+		{
+			allow_char = FALSE;
+		}
 	}
 
 	if (allow_char)
@@ -1107,7 +1138,19 @@ void LLLineEditor::pasteHelper(bool is_primary)
 				clean_string = clean_string.substr(0, wchars_that_fit);
 				LLUI::reportBadKeystroke();
 			}
- 
+
+			if (mMaxLengthChars)
+			{
+				U32 available_chars = mMaxLengthChars - mText.getWString().size();
+		
+				if (available_chars < clean_string.size())
+				{
+					clean_string = clean_string.substr(0, available_chars);
+				}
+
+				LLUI::reportBadKeystroke();
+			}
+
 			mText.insert(getCursor(), clean_string);
 			setCursor( getCursor() + (S32)clean_string.length() );
 			deselect();
@@ -1266,12 +1309,12 @@ BOOL LLLineEditor::handleSpecialKey(KEY key, MASK mask)
 
 	// handle ctrl-uparrow if we have a history enabled line editor.
 	case KEY_UP:
-		if( mHaveHistory && ( MASK_CONTROL == mask ) )
+		if( mHaveHistory && ((mIgnoreArrowKeys == false) || ( MASK_CONTROL == mask )) )
 		{
 			if( mCurrentHistoryLine > mLineHistory.begin() )
 			{
 				mText.assign( *(--mCurrentHistoryLine) );
-				setCursor(llmin((S32)mText.length(), getCursor()));
+				setCursorToEnd();
 			}
 			else
 			{
@@ -1281,14 +1324,14 @@ BOOL LLLineEditor::handleSpecialKey(KEY key, MASK mask)
 		}
 		break;
 
-	// handle ctrl-downarrow if we have a history enabled line editor
+	// handle [ctrl]-downarrow if we have a history enabled line editor
 	case KEY_DOWN:
-		if( mHaveHistory  && ( MASK_CONTROL == mask ) )
+		if( mHaveHistory  && ((mIgnoreArrowKeys == false) || ( MASK_CONTROL == mask )) )
 		{
 			if( !mLineHistory.empty() && mCurrentHistoryLine < mLineHistory.end() - 1 )
 			{
 				mText.assign( *(++mCurrentHistoryLine) );
-				setCursor(llmin((S32)mText.length(), getCursor()));
+				setCursorToEnd();
 			}
 			else
 			{
@@ -1491,8 +1534,11 @@ void LLLineEditor::drawBackground()
 	{
 		image = mBgImage;
 	}
+
+	if (!image) return;
 	
-	F32 alpha = getDrawContext().mAlpha;
+	F32 alpha = getCurrentTransparency();
+
 	// optionally draw programmatic border
 	if (has_focus)
 	{
@@ -2247,4 +2293,9 @@ void LLLineEditor::setContextMenu(LLContextMenu* new_context_menu)
 		mContextMenuHandle = new_context_menu->getHandle();
 	else
 		mContextMenuHandle.markDead();
+}
+
+void LLLineEditor::setFont(const LLFontGL* font)
+{
+	mGLFont = font;
 }

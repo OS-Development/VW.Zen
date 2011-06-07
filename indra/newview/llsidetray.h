@@ -33,6 +33,13 @@
 class LLAccordionCtrl;
 class LLSideTrayTab;
 
+// Deal with LLSideTrayTab being opaque. Generic do-nothing cast...
+template <class T>
+T tab_cast(LLSideTrayTab* tab) { return tab; }
+// specialized for implementation in presence of LLSideTrayTab definition
+template <>
+LLPanel* tab_cast<LLPanel*>(LLSideTrayTab* tab);
+
 // added inheritance from LLDestroyClass<LLSideTray> to enable Side Tray perform necessary actions 
 // while disconnecting viewer in LLAppViewer::disconnectViewer().
 // LLDestroyClassList::instance().fireCallbacks() calls destroyClass method. See EXT-245.
@@ -40,6 +47,8 @@ class LLSideTray : public LLPanel, private LLDestroyClass<LLSideTray>
 {
 	friend class LLUICtrlFactory;
 	friend class LLDestroyClass<LLSideTray>;
+	friend class LLSideTrayTab;
+	friend class LLSideTrayButton;
 public:
 
 	LOG_CLASS(LLSideTray);
@@ -76,9 +85,12 @@ public:
 	// interface functions
 	    
 	/**
-     * Select tab with specific name and set it active    
-     */
-	bool 		selectTabByName	(const std::string& name);
+	 * Select tab with specific name and set it active
+	 *
+	 * @param name				Tab to switch to.
+	 * @param keep_prev_visible	Whether to keep the previously selected tab visible.
+	 */
+	bool 		selectTabByName	(const std::string& name, bool keep_prev_visible = false);
 	
 	/**
      * Select tab with specific index and set it active    
@@ -91,6 +103,8 @@ public:
 	 * Pass params as array, or they may be overwritten(example - params["name"]="nearby")
 	 */
 	LLPanel*	showPanel		(const std::string& panel_name, const LLSD& params = LLSD());
+
+	bool		hidePanel		(const std::string& panel_name);
 
 	/**
 	 * Toggling Side Tray tab which contains "sub_panel" child of "panel_name" panel.
@@ -106,10 +120,23 @@ public:
     LLPanel*	getPanel		(const std::string& panel_name);
     LLPanel*	getActivePanel	();
     bool		isPanelActive	(const std::string& panel_name);
+
+	void		setTabDocked(const std::string& tab_name, bool dock, bool toggle_floater = true);
+
 	/*
-	 * get currently active tab
+	 * get the panel of given type T (don't show it or do anything else with it)
 	 */
-    const LLSideTrayTab*	getActiveTab() const { return mActiveTab; }
+	template <typename T>
+	T* getPanel(const std::string& panel_name)
+	{
+		T* panel = dynamic_cast<T*>(getPanel(panel_name));
+		if (!panel)
+		{
+			llwarns << "Child named \"" << panel_name << "\" of type " << typeid(T*).name() << " not found" << llendl;
+			return NULL;
+		}
+		return panel;
+	}
 
 	/*
      * collapse SideBar, hiding visible tab and moving tab buttons
@@ -119,8 +146,10 @@ public:
     
 	/*
      * expand SideBar
+     *
+     * @param open_active Whether to call onOpen() for the active tab.
      */
-	void		expandSideBar	();
+	void		expandSideBar(bool open_active = true);
 
 
 	/**
@@ -142,40 +171,52 @@ public:
 
     virtual BOOL postBuild();
 
-	void		onTabButtonClick(std::string name);
-	void		onToggleCollapse();
-
-	bool		addChild		(LLView* view, S32 tab_group);
-	bool		removeTab		(LLSideTrayTab* tab); // Used to detach tabs temporarily
-	bool		addTab			(LLSideTrayTab* tab); // Used to re-attach tabs
-
 	BOOL		handleMouseDown	(S32 x, S32 y, MASK mask);
 	
 	void		reshape			(S32 width, S32 height, BOOL called_from_parent = TRUE);
 
-	void		processTriState ();
-	
+
+	/**
+	 * @return side tray width if it's visible and expanded, 0 otherwise.
+	 *
+	 * Not that width of the tab buttons is not included.
+	 *
+	 * @see setVisibleWidthChangeCallback()
+	 */
+	S32			getVisibleWidth();
+
+	void		setVisibleWidthChangeCallback(const commit_signal_t::slot_type& cb);
+
 	void		updateSidetrayVisibility();
 
-	commit_signal_t& getCollapseSignal() { return mCollapseSignal; }
-
 	void		handleLoginComplete();
-
-	LLSideTrayTab* getTab		(const std::string& name);
 
 	bool 		isTabAttached	(const std::string& name);
 
 protected:
+	bool		addChild		(LLView* view, S32 tab_group);
+	bool		removeTab		(LLSideTrayTab* tab); // Used to detach tabs temporarily
+	bool		addTab			(LLSideTrayTab* tab); // Used to re-attach tabs
 	bool		hasTabs			();
+
+	const LLSideTrayTab*	getActiveTab() const { return mActiveTab; }
+	LLSideTrayTab* 			getTab(const std::string& name);
 
 	void		createButtons	();
 
 	LLButton*	createButton	(const std::string& name,const std::string& image,const std::string& tooltip,
 									LLUICtrl::commit_callback_t callback);
 	void		arrange			();
+	void		detachTabs		();
 	void		reflectCollapseChange();
+	void		processTriState ();
 
 	void		toggleTabButton	(LLSideTrayTab* tab);
+
+	LLPanel*	openChildPanel	(LLSideTrayTab* tab, const std::string& panel_name, const LLSD& params);
+
+	void		onTabButtonClick(std::string name);
+	void		onToggleCollapse();
 
 private:
 	// Implementation of LLDestroyClass<LLSideTray>
@@ -185,21 +226,20 @@ private:
 		if (LLSideTray::instanceCreated())
 			LLSideTray::getInstance()->setEnabled(FALSE);
 	}
-	
+
 private:
-
-	typedef std::pair<LLButton*, LLSideTrayTab*> detached_tab_t;
-	typedef std::map<std::string, detached_tab_t> detached_tab_map_t;
-
+	// Since we provide no public way to query mTabs and mDetachedTabs, give
+	// LLSideTrayListener friend access.
+	friend class LLSideTrayListener;
 	LLPanel*						mButtonsPanel;
 	typedef std::map<std::string,LLButton*> button_map_t;
 	button_map_t					mTabButtons;
 	child_vector_t					mTabs;
-	detached_tab_map_t				mDetachedTabs;
+	child_vector_t					mDetachedTabs;
 	tab_order_vector_t				mOriginalTabOrder;
 	LLSideTrayTab*					mActiveTab;	
 	
-	commit_signal_t					mCollapseSignal;
+	commit_signal_t					mVisibleWidthChangeSignal;
 
 	LLButton*						mCollapseButton;
 	bool							mCollapsed;

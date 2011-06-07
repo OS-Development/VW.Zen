@@ -43,11 +43,12 @@ class LLButton;
 class LLCheckBoxCtrl;
 class LLRadioGroup;
 class LLComboBox;
-class LLNameListCtrl;
-class LLSpinCtrl;
 class LLLineEditor;
+class LLMessageSystem;
+class LLNameListCtrl;
 class LLRadioGroup;
 class LLParcelSelectionObserver;
+class LLSpinCtrl;
 class LLTabContainer;
 class LLTextBox;
 class LLTextEditor;
@@ -372,8 +373,8 @@ public:
 	
 	void onClickAddAccess();
 	void onClickAddBanned();
-	void callbackAvatarCBBanned(const std::vector<std::string>& names, const uuid_vec_t& ids);
-	void callbackAvatarCBAccess(const std::vector<std::string>& names, const uuid_vec_t& ids);
+	void callbackAvatarCBBanned(const uuid_vec_t& ids);
+	void callbackAvatarCBAccess(const uuid_vec_t& ids);
 
 protected:
 	LLNameListCtrl*		mListAccess;

@@ -31,6 +31,7 @@
 #include "llviewercontrol.h"
 #include "llsdserialize.h"
 #include "llsecapi.h"
+#include "lltrans.h"
 #include "llweb.h"
 
                                                             
@@ -304,7 +305,12 @@ void LLGridManager::initialize(const std::string& grid_file)
 		addGrid(grid);		
 	}
 
-	gSavedSettings.getControl("CurrentGrid")->getSignal()->connect(boost::bind(&LLGridManager::updateIsInProductionGrid, this));
+	LLControlVariablePtr grid_control = gSavedSettings.getControl("CurrentGrid");
+	if (grid_control.notNull())
+	{
+		grid_control->getSignal()->connect(boost::bind(&LLGridManager::updateIsInProductionGrid, this));
+	}
+
 	// since above only triggers on changes, trigger the callback manually to initialize state
 	updateIsInProductionGrid();
 
@@ -500,6 +506,8 @@ void LLGridManager::setGridChoice(const std::string& grid)
 	}
 	mGrid = grid;
 	gSavedSettings.setString("CurrentGrid", grid);
+
+	updateIsInProductionGrid();
 }
 
 std::string LLGridManager::getGridByLabel( const std::string &grid_label, bool case_sensitive)

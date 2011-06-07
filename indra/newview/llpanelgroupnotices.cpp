@@ -30,6 +30,7 @@
 
 #include "llview.h"
 
+#include "llavatarnamecache.h"
 #include "llinventory.h"
 #include "llviewerinventory.h"
 #include "llinventorydefines.h"
@@ -153,6 +154,7 @@ BOOL LLGroupDropTarget::handleDragAndDrop(S32 x, S32 y, MASK mask, BOOL drop,
 		case DAD_ANIMATION:
 		case DAD_GESTURE:
 		case DAD_CALLINGCARD:
+		case DAD_MESH:
 		{
 			LLViewerInventoryItem* inv_item = (LLViewerInventoryItem*)cargo_data;
 			if(gInventory.getItem(inv_item->getUUID())
@@ -539,6 +541,12 @@ void LLPanelGroupNotices::processNotices(LLMessageSystem* msg)
 		msg->getBOOL("Data","HasAttachment",has_attachment,i);
 		msg->getU8("Data","AssetType",asset_type,i);
 		msg->getU32("Data","Timestamp",timestamp,i);
+
+		// we only have the legacy name here, convert it to a username
+		if (LLAvatarNameCache::useDisplayNames())
+		{
+			name = LLCacheName::buildUsername(name);
+		}
 
 		LLSD row;
 		row["id"] = id;

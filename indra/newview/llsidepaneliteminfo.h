@@ -37,6 +37,7 @@
 class LLButton;
 class LLViewerInventoryItem;
 class LLItemPropertiesObserver;
+class LLObjectInventoryObserver;
 class LLViewerObject;
 class LLPermissions;
 
@@ -53,6 +54,9 @@ public:
 	void setItemID(const LLUUID& item_id);
 	void setEditMode(BOOL edit);
 
+	const LLUUID& getObjectID() const;
+	const LLUUID& getItemID() const;
+
 protected:
 	/*virtual*/ void refresh();
 	/*virtual*/ void save();
@@ -63,9 +67,13 @@ protected:
 	void refreshFromItem(LLViewerInventoryItem* item);
 
 private:
+	void startObjectInventoryObserver();
+	void stopObjectInventoryObserver();
+
 	LLUUID mItemID; 	// inventory UUID for the inventory item.
 	LLUUID mObjectID; 	// in-world task UUID, or null if in agent inventory.
 	LLItemPropertiesObserver* mPropertiesObserver; // for syncing changes to item
+	LLObjectInventoryObserver* mObjectInventoryObserver; // for syncing changes to items inside an object
 	
 	//
 	// UI Elements

@@ -45,6 +45,9 @@
 	<string name="edit_tattoo_title">
 		Modification du tatouage
 	</string>
+	<string name="edit_physics_title">
+		Modification des propriétés physiques
+	</string>
 	<string name="shape_desc_text">
 		Silhouette :
 	</string>
@@ -90,6 +93,9 @@
 	<string name="tattoo_desc_text">
 		Tatouage :
 	</string>
+	<string name="physics_desc_text">
+		Propriétés physiques :
+	</string>
 	<labeled_back_button label="Enregistrer" name="back_btn" tool_tip="Revenir à Modifier la tenue"/>
 	<text name="edit_wearable_title" value="Modification de la silhouette"/>
 	<panel label="Chemise" name="wearable_type_panel">
@@ -102,7 +108,13 @@
 		<icon name="female_icon" tool_tip="Femme"/>
 	</panel>
 	<panel name="button_panel">
-		<button label="Enregistrer sous" name="save_as_button"/>
-		<button label="Annuler" name="revert_button" width="130"/>
+		<layout_stack name="button_panel_ls">
+			<layout_panel name="save_as_btn_lp">
+				<button label="Enregistrer sous" name="save_as_button"/>
+			</layout_panel>
+			<layout_panel name="revert_btn_lp">
+				<button label="Annuler" name="revert_button"/>
+			</layout_panel>
+		</layout_stack>
 	</panel>
 </panel>
