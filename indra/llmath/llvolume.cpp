@@ -6023,6 +6023,11 @@ void LLVolumeFace::cacheOptimize()
 	
 	LLVCacheLRU cache;
 	
+	if (mNumVertices < 3)
+	{ //nothing to do
+		return;
+	}
+
 	//mapping of vertices to triangles and indices
 	std::vector<LLVCacheVertexData> vertex_data;
 
