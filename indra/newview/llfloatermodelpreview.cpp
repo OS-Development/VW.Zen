@@ -1289,11 +1289,7 @@ void stretch_extents(LLModel* model, LLMatrix4& mat, LLVector3& min, LLVector3& 
 
 void LLModelLoader::run()
 {
-	if (!doLoadModel())
-	{
-		mPreview = NULL;
-	}
-
+	doLoadModel();
 	doOnIdleOneTime(boost::bind(&LLModelLoader::loadModelCallback,this));
 }
 
