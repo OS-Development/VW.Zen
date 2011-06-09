@@ -1,10 +1,10 @@
 /** 
- * @file lldrawpoolclouds.h
- * @brief LLDrawPoolClouds class definition
+ * @file llfloaterdeleteenvpreset.h
+ * @brief Floater to delete a water / sky / day cycle preset.
  *
- * $LicenseInfo:firstyear=2006&license=viewerlgpl$
+ * $LicenseInfo:firstyear=2011&license=viewerlgpl$
  * Second Life Viewer Source Code
- * Copyright (C) 2010, Linden Research, Inc.
+ * Copyright (C) 2011, Linden Research, Inc.
  * 
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -24,31 +24,37 @@
  * $/LicenseInfo$
  */
 
-#ifndef LL_LLDRAWPOOLCLOUDS_H
-#define LL_LLDRAWPOOLCLOUDS_H
+#ifndef LL_LLFLOATERDELETEENVPRESET_H
+#define LL_LLFLOATERDELETEENVPRESET_H
 
-#include "lldrawpool.h"
+#include "llfloater.h"
 
-class LLDrawPoolClouds : public LLDrawPool
+class LLComboBox;
+
+class LLFloaterDeleteEnvPreset : public LLFloater
 {
+	LOG_CLASS(LLFloaterDeleteEnvPreset);
+
 public:
-	enum
-	{
-		VERTEX_DATA_MASK =	LLVertexBuffer::MAP_VERTEX |
-							LLVertexBuffer::MAP_NORMAL |
-							LLVertexBuffer::MAP_TEXCOORD0
-	};
+	LLFloaterDeleteEnvPreset(const LLSD &key);
 
-	BOOL addFace(LLFace* face);
-	virtual U32 getVertexDataMask() { return VERTEX_DATA_MASK; }
+	/*virtual*/	BOOL	postBuild();
+	/*virtual*/ void	onOpen(const LLSD& key);
 
-	LLDrawPoolClouds();
+	void onBtnDelete();
+	void onBtnCancel();
 
-	/*virtual*/ void prerender();
-	/*virtual*/ LLDrawPool *instancePool();
-	/*virtual*/ void enqueue(LLFace *face);
-	/*virtual*/ void beginRenderPass(S32 pass);
-	/*virtual*/ void render(S32 pass = 0);
+private:
+	void populateWaterPresetsList();
+	void populateSkyPresetsList();
+	void populateDayCyclesList();
+
+	void postPopulate();
+
+	void onDeleteDayCycleConfirmation();
+	void onDeleteSkyPresetConfirmation();
+
+	LLComboBox* mPresetCombo;
 };
 
-#endif // LL_LLDRAWPOOLSKY_H
+#endif // LL_LLFLOATERDELETEENVPRESET_H
