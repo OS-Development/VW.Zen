@@ -84,7 +84,7 @@ void load_face_from_dom_inputs(LLVolumeFace& face, const domInputLocalOffset_Arr
 			domInputLocal_Array& v_inp = vertices->getInput_array();
 			if (inputs[j]->getOffset() != 0)
 			{
-				llerrs << "WTF?" << llendl;
+				llerrs << "Vertex array offset MUST be zero." << llendl;
 			}
 
 			for (U32 k = 0; k < v_inp.getCount(); ++k)
@@ -98,7 +98,7 @@ void load_face_from_dom_inputs(LLVolumeFace& face, const domInputLocalOffset_Arr
 
 					if (src->getTechnique_common()->getAccessor()->getStride() != 3)
 					{
-						llerrs << "WTF?" << llendl;
+						llerrs << "Vertex array stride MUST be three." << llendl;
 					}
 
 					domListOfFloats& v = src->getFloat_array()->getValue();
@@ -149,9 +149,10 @@ void load_face_from_dom_inputs(LLVolumeFace& face, const domInputLocalOffset_Arr
 	}
 }
 
-void get_dom_sources(const domInputLocalOffset_Array& inputs, S32& pos_offset, S32& tc_offset, S32& norm_offset, S32 &idx_stride,
+bool get_dom_sources(const domInputLocalOffset_Array& inputs, S32& pos_offset, S32& tc_offset, S32& norm_offset, S32 &idx_stride,
 					 domSource* &pos_source, domSource* &tc_source, domSource* &norm_source)
 {
+	
 	idx_stride = 0;
 
 	for (U32 j = 0; j < inputs.getCount(); ++j)
@@ -163,7 +164,11 @@ void get_dom_sources(const domInputLocalOffset_Array& inputs, S32& pos_offset, S
 			const domURIFragmentType& uri = inputs[j]->getSource();
 			daeElementRef elem = uri.getElement();
 			domVertices* vertices = (domVertices*) elem.cast();
-
+			if ( !vertices )
+			{
+				return false;
+			}
+				
 			domInputLocal_Array& v_inp = vertices->getInput_array();
 			
 			
@@ -207,6 +212,8 @@ void get_dom_sources(const domInputLocalOffset_Array& inputs, S32& pos_offset, S
 	}
 
 	idx_stride += 1;
+	
+	return true;
 }
 
 LLModel::EModelStatus load_face_from_dom_triangles(std::vector<LLVolumeFace>& face_list, std::vector<std::string>& materials, domTrianglesRef& tri)
@@ -227,8 +234,12 @@ LLModel::EModelStatus load_face_from_dom_triangles(std::vector<LLVolumeFace>& fa
 
 	S32 idx_stride = 0;
 
-	get_dom_sources(inputs, pos_offset, tc_offset, norm_offset, idx_stride, pos_source, tc_source, norm_source);
+	if ( !get_dom_sources(inputs, pos_offset, tc_offset, norm_offset, idx_stride, pos_source, tc_source, norm_source) || !pos_source )
+	{
+		return LLModel::BAD_ELEMENT;
+	}
 
+	
 	domPRef p = tri->getP();
 	domListOfUInts& idx = p->getValue();
 	
@@ -367,7 +378,10 @@ LLModel::EModelStatus load_face_from_dom_polylist(std::vector<LLVolumeFace>& fac
 
 	S32 idx_stride = 0;
 
-	get_dom_sources(inputs, pos_offset, tc_offset, norm_offset, idx_stride, pos_source, tc_source, norm_source);
+	if (!get_dom_sources(inputs, pos_offset, tc_offset, norm_offset, idx_stride, pos_source, tc_source, norm_source))
+	{
+		return LLModel::BAD_ELEMENT;
+	}
 
 	LLVolumeFace face;
 
@@ -564,7 +578,10 @@ LLModel::EModelStatus load_face_from_dom_polygons(std::vector<LLVolumeFace>& fac
 			const domURIFragmentType& uri = inputs[i]->getSource();
 			daeElementRef elem = uri.getElement();
 			domVertices* vertices = (domVertices*) elem.cast();
-
+			if (!vertices)
+			{
+				return LLModel::BAD_ELEMENT;
+			}
 			domInputLocal_Array& v_inp = vertices->getInput_array();
 
 			for (U32 k = 0; k < v_inp.getCount(); ++k)
@@ -574,6 +591,10 @@ LLModel::EModelStatus load_face_from_dom_polygons(std::vector<LLVolumeFace>& fac
 					const domURIFragmentType& uri = v_inp[k]->getSource();
 					daeElementRef elem = uri.getElement();
 					domSource* src = (domSource*) elem.cast();
+					if (!src)
+					{
+						return LLModel::BAD_ELEMENT;
+					}
 					v = &(src->getFloat_array()->getValue());
 				}
 			}
@@ -585,6 +606,10 @@ LLModel::EModelStatus load_face_from_dom_polygons(std::vector<LLVolumeFace>& fac
 			const domURIFragmentType& uri = inputs[i]->getSource();
 			daeElementRef elem = uri.getElement();
 			domSource* src = (domSource*) elem.cast();
+			if (!src)
+			{
+				return LLModel::BAD_ELEMENT;
+			}
 			n = &(src->getFloat_array()->getValue());
 		}
 		else if (strcmp(COMMON_PROFILE_INPUT_TEXCOORD, inputs[i]->getSemantic()) == 0 && inputs[i]->getSet() == 0)
@@ -593,6 +618,10 @@ LLModel::EModelStatus load_face_from_dom_polygons(std::vector<LLVolumeFace>& fac
 			const domURIFragmentType& uri = inputs[i]->getSource();
 			daeElementRef elem = uri.getElement();
 			domSource* src = (domSource*) elem.cast();
+			if (!src)
+			{
+				return LLModel::BAD_ELEMENT;
+			}
 			t = &(src->getFloat_array()->getValue());
 		}
 	}
@@ -667,11 +696,6 @@ LLModel::EModelStatus load_face_from_dom_polygons(std::vector<LLVolumeFace>& fac
 		}
 	}
 
-	if (cur_idx != vert_idx.size())
-	{
-		llerrs << "WTF?" << llendl;
-	}
-
 	//build vertex array from map
 	std::vector<LLVolumeFace::VertexData> new_verts;
 	new_verts.resize(vert_idx.size());
@@ -717,7 +741,7 @@ LLModel::EModelStatus load_face_from_dom_polygons(std::vector<LLVolumeFace>& fac
 //static
 std::string LLModel::getStatusString(U32 status)
 {
-	const static std::string status_strings[(S32)INVALID_STATUS] = {"status_no_error", "status_vertex_number_overflow"};
+	const static std::string status_strings[(S32)INVALID_STATUS] = {"status_no_error", "status_vertex_number_overflow","bad_element"};
 
 	if(status < INVALID_STATUS)
 	{
@@ -755,7 +779,6 @@ void LLModel::addVolumeFacesFromDomMesh(domMesh* mesh)
 	for (U32 i = 0; i < polys.getCount(); ++i)
 	{
 		domPolylistRef& poly = polys.get(i);
-
 		mStatus = load_face_from_dom_polylist(mVolumeFaces, mMaterialList, poly);
 
 		if(mStatus != NO_ERRORS)
@@ -765,12 +788,12 @@ void LLModel::addVolumeFacesFromDomMesh(domMesh* mesh)
 			return ; //abort
 		}
 	}
-
+	
 	domPolygons_Array& polygons = mesh->getPolygons_array();
+	
 	for (U32 i = 0; i < polygons.getCount(); ++i)
 	{
 		domPolygonsRef& poly = polygons.get(i);
-
 		mStatus = load_face_from_dom_polygons(mVolumeFaces, mMaterialList, poly);
 
 		if(mStatus != NO_ERRORS)
@@ -780,7 +803,7 @@ void LLModel::addVolumeFacesFromDomMesh(domMesh* mesh)
 			return ; //abort
 		}
 	}
-
+ 
 }
 
 BOOL LLModel::createVolumeFacesFromDomMesh(domMesh* mesh)
@@ -926,11 +949,6 @@ void LLModel::normalizeVolumeFaces()
 	{
 		LLVector4a min, max;
 		
-		if (mVolumeFaces[0].mNumVertices <= 0)
-		{
-			llerrs << "WTF?" << llendl;
-		}
-
 		// For all of the volume faces
 		// in the model, loop over
 		// them and see what the extents
@@ -941,11 +959,6 @@ void LLModel::normalizeVolumeFaces()
 		for (U32 i = 1; i < mVolumeFaces.size(); ++i)
 		{
 			LLVolumeFace& face = mVolumeFaces[i];
-
-			if (face.mNumVertices <= 0)
-			{
-				llerrs << "WTF?" << llendl;
-			}
 
 			update_min_max(min, max, face.mExtents[0]);
 			update_min_max(min, max, face.mExtents[1]);
@@ -1289,11 +1302,6 @@ void LLModel::generateNormals(F32 angle_cutoff)
 				{
 					LLVector4a& n = iter->second[k].getNormal();
 
-					if (!iter->second[k].getPosition().equals3(new_face.mPositions[i]))
-					{
-						llerrs << "WTF?" << llendl;
-					}
-
 					F32 cur = n.dot3(ref_norm).getF32();
 
 					if (cur > best)
@@ -1539,11 +1547,6 @@ LLSD LLModel::writeModel(
 
 						weight_list& weights = high->getJointInfluences(pos);
 
-						if (weights.size() > 4)
-						{
-							llerrs << "WTF?" << llendl;
-						}
-
 						S32 count = 0;
 						for (weight_list::iterator iter = weights.begin(); iter != weights.end(); ++iter)
 						{
@@ -1606,10 +1609,6 @@ LLSD LLModel::writeModelToStream(std::ostream& ostr, LLSD& mdl, BOOL nowrite)
 			header["skin"]["size"] = (LLSD::Integer) size;
 			cur_offset += size;
 			bytes += size;
-		}
-		else
-		{
-			llerrs << "WTF?" << llendl;
 		}
 	}
 
@@ -1685,7 +1684,7 @@ LLModel::weight_list& LLModel::getJointInfluences(const LLVector3& pos)
 	{
 		if ((iter->first - pos).magVec() > 0.1f)
 		{
-			llerrs << "WTF?" << llendl;
+			llerrs << "Couldn't find weight list." << llendl;
 		}
 
 		return iter->second;
@@ -1778,7 +1777,7 @@ void LLModel::updateHullCenters()
 	if (mHullPoints > 0)
 	{
 		mCenterOfHullCenters *= 1.f / mHullPoints;
-		llassert(mPhysics.asLLSD().has("HullList"));
+		llassert(mPhysics.hasHullList());
 	}
 }
 
@@ -2127,6 +2126,11 @@ void LLModel::Decomposition::fromLLSD(LLSD& decomp)
 	}
 }
 
+bool LLModel::Decomposition::hasHullList() const
+{
+	return !mHull.empty() ;
+}
+
 LLSD LLModel::Decomposition::asLLSD() const
 {
 	LLSD ret;
@@ -2208,14 +2212,17 @@ LLSD LLModel::Decomposition::asLLSD() const
 					//convert to 16-bit normalized across domain
 					U16 val = (U16) (((mHull[i][j].mV[k]-min.mV[k])/range.mV[k])*65535);
 
-					switch (k)
+					if(valid.size() < 3)
 					{
-						case 0: test = test | (U64) val; break;
-						case 1: test = test | ((U64) val << 16); break;
-						case 2: test = test | ((U64) val << 32); break;
-					};
+						switch (k)
+						{
+							case 0: test = test | (U64) val; break;
+							case 1: test = test | ((U64) val << 16); break;
+							case 2: test = test | ((U64) val << 32); break;
+						};
 
-					valid.insert(test);
+						valid.insert(test);
+					}
 					
 					U8* buff = (U8*) &val;
 					//write to binary buffer
@@ -2227,8 +2234,8 @@ LLSD LLModel::Decomposition::asLLSD() const
 				}
 			}
 
-			//must have at least 4 unique points
-			llassert(valid.size() > 3);
+			//must have at least 3 unique points
+			llassert(valid.size() > 2);
 		}
 
 		ret["Position"] = p;
@@ -2255,7 +2262,7 @@ LLSD LLModel::Decomposition::asLLSD() const
 
 				if (vert_idx > p.size())
 				{
-					llerrs << "WTF?" << llendl;
+					llerrs << "Index out of bounds" << llendl;
 				}
 			}
 		}
@@ -2289,11 +2296,6 @@ void LLModel::Decomposition::merge(const LLModel::Decomposition* rhs)
 	if (mPhysicsShapeMesh.empty())
 	{ //take physics shape mesh from rhs
 		mPhysicsShapeMesh = rhs->mPhysicsShapeMesh;
-	}
-
-	if (!mHull.empty())
-	{ //verify
-		llassert(asLLSD().has("HullList"));
 	}
 }
 

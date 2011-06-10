@@ -314,14 +314,16 @@ BOOL LLFloaterModelPreview::postBuild()
 	childSetCommitCallback("pelvis_offset", onPelvisOffsetCommit, this);
 
 	childSetCommitCallback("lod_file_or_limit", refresh, this);
-	childSetCommitCallback("physics_load_radio", refresh, this);
+	childSetCommitCallback("physics_load_radio", onPhysicsLoadRadioCommit, this);
 	//childSetCommitCallback("physics_optimize", refresh, this);
 	//childSetCommitCallback("physics_use_hull", refresh, this);
 
 	childDisable("upload_skin");
 	childDisable("upload_joints");
-
+	
 	childDisable("ok_btn");
+
+	childSetCommitCallback("confirm_checkbox", refresh, this);
 
 	mViewOptionMenuButton = getChild<LLMenuButton>("options_gear_btn");
 
@@ -470,6 +472,29 @@ void LLFloaterModelPreview::onPelvisOffsetCommit( LLUICtrl*, void* userdata )
 }
 
 //static
+void LLFloaterModelPreview::onPhysicsLoadRadioCommit( LLUICtrl*, void *userdata)
+{
+	LLFloaterModelPreview* fmp = LLFloaterModelPreview::sInstance;
+	if (fmp)
+	{
+		if (fmp->childGetValue("physics_use_lod").asBoolean())
+		{
+			onPhysicsUseLOD(NULL,NULL);
+		}
+		if (fmp->childGetValue("physics_load_from_file").asBoolean())
+		{
+			
+		}
+		LLModelPreview *model_preview = fmp->mModelPreview;
+		if (model_preview)
+		{
+			model_preview->refresh();
+			model_preview->updateStatusMessages();
+		}
+	}
+}
+
+//static
 void LLFloaterModelPreview::onUploadJointsCommit(LLUICtrl*,void* userdata)
 {
 	LLFloaterModelPreview *fp =(LLFloaterModelPreview *)userdata;
@@ -571,6 +596,11 @@ void LLFloaterModelPreview::draw()
 		if ( mModelPreview->getLoadState() > LLModelLoader::ERROR_PARSING )
 		{		
 			childSetTextArg("status", "[STATUS]", getString(LLModel::getStatusString(mModelPreview->getLoadState() - LLModelLoader::ERROR_PARSING)));
+		}
+		else
+		if ( mModelPreview->getLoadState() == LLModelLoader::ERROR_PARSING )
+		{
+			childSetTextArg("status", "[STATUS]", getString("status_parse_error"));
 		}
 		else
 		{
@@ -1225,6 +1255,23 @@ bool LLModelLoader::doLoadModel()
 		return false;
 	}
 	
+	//Verify some basic properties of the dae
+	//1. Basic validity check on controller 
+	U32 controllerCount = (int) db->getElementCount( NULL, "controller" );
+	bool result = false;
+	for ( int i=0; i<controllerCount; ++i )
+	{
+		domController* pController = NULL;
+		db->getElement( (daeElement**) &pController, i , NULL, "controller" );
+		result = mPreview->verifyController( pController );
+		if (!result)
+		{
+			setLoadState( ERROR_PARSING );
+			return true;
+		}
+	}
+
+
 	//get unit scale
 	mTransform.setIdentity();
 	
@@ -1634,7 +1681,7 @@ bool LLModelLoader::doLoadModel()
 											{
 												if (pos.getCount() <= j+2)
 												{
-													llerrs << "WTF?" << llendl;
+													llerrs << "Invalid position array size." << llendl;
 												}
 												
 												LLVector3 v(pos[j], pos[j+1], pos[j+2]);
@@ -2153,6 +2200,90 @@ bool LLModelLoader::isNodeAJoint( domNode* pNode )
 
 	return false;
 }
+//-----------------------------------------------------------------------------
+// verifyCount
+//-----------------------------------------------------------------------------
+bool LLModelPreview::verifyCount( int expected, int result )
+{
+	if ( expected != result )
+	{
+		llinfos<< "Error: (expected/got)"<<expected<<"/"<<result<<"verts"<<llendl;
+		return false;
+	}
+	return true;
+}
+//-----------------------------------------------------------------------------
+// verifyController
+//-----------------------------------------------------------------------------
+bool LLModelPreview::verifyController( domController* pController )
+{	
+
+	bool result = true;
+
+	domSkin* pSkin = pController->getSkin();
+
+	if ( pSkin )
+	{
+		xsAnyURI & uri = pSkin->getSource();
+		domElement* pElement = uri.getElement();
+
+		if ( !pElement )
+		{
+			llinfos<<"Can't resolve skin source"<<llendl;
+			return false;
+		}
+
+		daeString type_str = pElement->getTypeName();
+		if ( stricmp(type_str, "geometry") == 0 )
+		{	
+			//Skin is reference directly by geometry and get the vertex count from skin
+			domSkin::domVertex_weights* pVertexWeights = pSkin->getVertex_weights();
+			U32 vertexWeightsCount = pVertexWeights->getCount();
+			domGeometry* pGeometry = (domGeometry*) (domElement*) uri.getElement();
+			domMesh* pMesh = pGeometry->getMesh();				
+			
+			if ( pMesh )
+			{
+				//Get vertex count from geometry
+				domVertices* pVertices = pMesh->getVertices();
+				if ( !pVertices )
+				{ 
+					llinfos<<"No vertices!"<<llendl;
+					return false;
+				}
+
+				if ( pVertices )
+				{
+					xsAnyURI src = pVertices->getInput_array()[0]->getSource();
+					domSource* pSource = (domSource*) (domElement*) src.getElement();
+					U32 verticesCount = pSource->getTechnique_common()->getAccessor()->getCount();
+					result = verifyCount( verticesCount, vertexWeightsCount );
+					if ( !result )
+					{
+						return result;
+					}
+				}
+			}	
+
+			U32 vcountCount = (U32) pVertexWeights->getVcount()->getValue().getCount();
+			result = verifyCount( vcountCount, vertexWeightsCount );	
+			if ( !result )
+			{
+				return result;
+			}
+
+			domInputLocalOffset_Array& inputs = pVertexWeights->getInput_array();
+			U32 sum = 0;
+			for (size_t i=0; i<vcountCount; i++)
+			{
+				sum += pVertexWeights->getVcount()->getValue()[i];
+			}
+			result = verifyCount( sum * inputs.getCount(), (domInt) pVertexWeights->getV()->getValue().getCount() );
+		}
+	}
+	
+	return result;
+}
 
 //-----------------------------------------------------------------------------
 // extractTranslation()
@@ -2296,8 +2427,11 @@ void LLModelLoader::processElement(daeElement* element)
 	{
 		domFloat3 dom_value = scale->getValue();
 
+
+		LLVector3 scale_vector = LLVector3(dom_value[0], dom_value[1], dom_value[2]);
+		scale_vector.abs(); // Set all values positive, since we don't currently support mirrored meshes
 		LLMatrix4 scaling;
-		scaling.initScale(LLVector3(dom_value[0], dom_value[1], dom_value[2]));
+		scaling.initScale(scale_vector);
 
 		scaling *= mTransform;
 		mTransform = scaling;
@@ -2675,7 +2809,8 @@ U32 LLModelPreview::calcResourceCost()
 
 	if (mFMP && mModelLoader)
 	{
-		if ( getLoadState() < LLModelLoader::ERROR_PARSING )
+		const BOOL confirmed_checkbox = mFMP->getChild<LLCheckBoxCtrl>("confirm_checkbox")->getValue().asBoolean();
+		if ( getLoadState() < LLModelLoader::ERROR_PARSING && confirmed_checkbox )
 		{
 			mFMP->childEnable("ok_btn");
 		}
@@ -2817,7 +2952,8 @@ void LLModelPreview::rebuildUploadData()
 
 	F32 max_scale = 0.f;
 
-	if ( mBaseScene.size() > 0 )
+	const BOOL confirmed_checkbox = mFMP->getChild<LLCheckBoxCtrl>("confirm_checkbox")->getValue().asBoolean();
+	if ( mBaseScene.size() > 0 && confirmed_checkbox )
 	{
 		mFMP->childEnable("ok_btn");
 	}
@@ -3221,6 +3357,8 @@ void LLModelPreview::loadModelCallback(S32 lod)
 	}
 
 	mLoading = false;
+	if (mFMP)
+		mFMP->getChild<LLCheckBoxCtrl>("confirm_checkbox")->set(FALSE);
 	refresh();
 
 	mModelLoadedSignal();
@@ -3876,7 +4014,8 @@ void LLModelPreview::updateStatusMessages()
 		}
 	}
 	
-	if ( upload_ok && !errorStateFromLoader && skinAndRigOk )
+	const BOOL confirmed_checkbox = mFMP->getChild<LLCheckBoxCtrl>("confirm_checkbox")->getValue().asBoolean();
+	if ( upload_ok && !errorStateFromLoader && skinAndRigOk && confirmed_checkbox)
 	{
 		mFMP->childEnable("ok_btn");
 	}
@@ -4238,11 +4377,7 @@ void LLModelPreview::genBuffers(S32 lod, bool include_skin_weights)
 					const LLModel::weight_list& weight_list = base_mdl->getJointInfluences(pos);
 
 					LLVector4 w(0,0,0,0);
-					if (weight_list.size() > 4)
-					{
-						llerrs << "WTF?" << llendl;
-					}
-
+					
 					for (U32 i = 0; i < weight_list.size(); ++i)
 					{
 						F32 wght = llmin(weight_list[i].mWeight, 0.999999f);
@@ -4962,9 +5097,12 @@ LLFloaterModelPreview::DecompRequest::DecompRequest(const std::string& stage, LL
 	if (mdl)
 	{
 		U16 index_offset = 0;
+		U16 tri[3] ;
 
 		mPositions.clear();
 		mIndices.clear();
+		mBBox[1] = LLVector3(F32_MIN, F32_MIN, F32_MIN) ;
+		mBBox[0] = LLVector3(F32_MAX, F32_MAX, F32_MAX) ;
 
 		//queue up vertex positions and indices
 		for (S32 i = 0; i < mdl->getNumVolumeFaces(); ++i)
@@ -4978,12 +5116,28 @@ LLFloaterModelPreview::DecompRequest::DecompRequest(const std::string& stage, LL
 			for (U32 j = 0; j < face.mNumVertices; ++j)
 			{
 				mPositions.push_back(LLVector3(face.mPositions[j].getF32ptr()));
+				for(U32 k = 0 ; k < 3 ; k++)
+				{
+					mBBox[0].mV[k] = llmin(mBBox[0].mV[k], mPositions[j].mV[k]) ;
+					mBBox[1].mV[k] = llmax(mBBox[1].mV[k], mPositions[j].mV[k]) ;
+				}
 			}
 
-			for (U32 j = 0; j < face.mNumIndices; ++j)
+			updateTriangleAreaThreshold() ;
+
+			for (U32 j = 0; j+2 < face.mNumIndices; j += 3)
 			{
-				mIndices.push_back(face.mIndices[j]+index_offset);
-			}
+				tri[0] = face.mIndices[j] + index_offset ;
+				tri[1] = face.mIndices[j + 1] + index_offset ;
+				tri[2] = face.mIndices[j + 2] + index_offset ;
+				
+				if(isValidTriangle(tri[0], tri[1], tri[2]))
+				{
+					mIndices.push_back(tri[0]);
+					mIndices.push_back(tri[1]);
+					mIndices.push_back(tri[2]);
+				}
+			}			
 
 			index_offset += face.mNumVertices;
 		}
