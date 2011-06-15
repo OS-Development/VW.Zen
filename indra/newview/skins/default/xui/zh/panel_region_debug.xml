@@ -6,7 +6,7 @@
 	<text name="region_text">
 		未知
 	</text>
-	<check_box label="Disable Scripts" name="disable_scripts_check" tool_tip="Disable all scripts in this region"/>
+	<check_box label="關閉腳本" name="disable_scripts_check" tool_tip="關閉這個地區現在的全部腳本"/>
 	<check_box label="Disable Collisions" name="disable_collisions_check" tool_tip="Disable non-avatar collisions in this region"/>
 	<check_box label="Disable Physics" name="disable_physics_check" tool_tip="Disable all physics in this region"/>
 	<button label="套用" name="apply_btn"/>
@@ -21,7 +21,7 @@
 	</line_editor>
 	<button label="Choose" name="choose_avatar_btn"/>
 	<text name="options_text_lbl">
-		Options:
+		選項：
 	</text>
 	<check_box label="With scripts" name="return_scripts" tool_tip="Return only objects which have scripts"/>
 	<check_box label="On someone else&apos;s land" name="return_other_land" tool_tip="Return only objects which are on land belonging to someone else"/>

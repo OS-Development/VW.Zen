@@ -708,6 +708,17 @@
       <key>Value</key>
       <integer>0</integer>
     </map>
+    <key>BrowserEnableJSObject</key>
+    <map>
+      <key>Comment</key>
+      <string>(WARNING: Advanced feature. Use if you are aware of the implications). Enable or disable the viewer to Javascript bridge object.</string>
+      <key>Persist</key>
+      <integer>0</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>0</integer>
+    </map>
     <key>BlockAvatarAppearanceMessages</key>
         <map>
         <key>Comment</key>
@@ -3047,6 +3058,17 @@
       <key>Value</key>
       <integer>1</integer>
     </map>
+    <key>EnableGestureSounds</key>
+    <map>
+      <key>Comment</key>
+      <string>Play sounds from gestures</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>1</integer>
+    </map>
     <key>EnableMouselook</key>
     <map>
       <key>Comment</key>
@@ -3238,17 +3260,6 @@
     <map>
       <key>Comment</key>
       <string>Display only results of find places that have pictures</string>
-      <key>Persist</key>
-      <integer>1</integer>
-      <key>Type</key>
-      <string>Boolean</string>
-      <key>Value</key>
-      <integer>1</integer>
-    </map>
-    <key>FirstLoginThisInstall</key>
-    <map>
-      <key>Comment</key>
-      <string>Specifies that you have not successfully logged in since you installed the latest update</string>
       <key>Persist</key>
       <integer>1</integer>
       <key>Type</key>
@@ -8867,17 +8878,6 @@
     <key>Value</key>
     <integer>0</integer>
   </map>
-  <key>RenderUseTriStrips</key>
-  <map>
-    <key>Comment</key>
-    <string>Use triangle strips for rendering prims.</string>
-    <key>Persist</key>
-    <integer>1</integer>
-    <key>Type</key>
-    <string>Boolean</string>
-    <key>Value</key>
-    <integer>0</integer>
-  </map>
     <key>RenderUseFarClip</key>
     <map>
       <key>Comment</key>
@@ -12395,7 +12395,7 @@
       <key>Type</key>
       <string>S32</string>
       <key>Value</key>
-      <integer>-1</integer>
+      <integer>20</integer>
     </map>
     <key>WaterEditPresets</key>
     <map>

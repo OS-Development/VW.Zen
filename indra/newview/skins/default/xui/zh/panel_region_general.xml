@@ -24,7 +24,7 @@
 	<check_box label="Restrict Pushing" name="restrict_pushobject"/>
 	<check_box label="Allow Land Resell" name="allow_land_resell_check"/>
 	<check_box label="Allow Land Join/Divide" name="allow_parcel_changes_check"/>
-	<check_box label="Block Land Show in Search" name="block_parcel_search_check" tool_tip="Let people see this region and its parcels in search results"/>
+	<check_box label="阻擋土地顯示於搜尋中" name="block_parcel_search_check" tool_tip="Let people see this region and its parcels in search results"/>
 	<spinner label="Agent Limit" name="agent_limit_spin"/>
 	<spinner label="Object Bonus" name="object_bonus_spin"/>
 	<text label="Maturity" name="access_text">
@@ -36,8 +36,8 @@
 		<icons_combo_box.item label="一般" name="PG" value="13"/>
 	</icons_combo_box>
 	<button label="套用" name="apply_btn"/>
-	<button label="Teleport Home One Resident..." name="kick_btn"/>
-	<button label="Teleport Home All Residents..." name="kick_all_btn"/>
-	<button label="Send Message To Region..." name="im_btn"/>
-	<button label="Manage Telehub..." name="manage_telehub_btn"/>
+	<button label="強制瞬間傳送一位居民回家..." name="kick_btn"/>
+	<button label="強制瞬間傳送所有居民回家..." name="kick_all_btn"/>
+	<button label="傳送訊息到地區..." name="im_btn"/>
+	<button label="管理瞬間傳送中心..." name="manage_telehub_btn"/>
 </panel>
