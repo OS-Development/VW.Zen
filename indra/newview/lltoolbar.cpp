@@ -3,31 +3,25 @@
  * @author James Cook, Richard Nelson
  * @brief Large friendly buttons at bottom of screen.
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -54,12 +48,13 @@
 #include "lltooldraganddrop.h"
 #include "llfloaterinventory.h"
 #include "llfloaterchatterbox.h"
-#include "llfloaterfriends.h"
 #include "llfloatersnapshot.h"
+#include "llinventorypanel.h"
 #include "lltoolmgr.h"
 #include "llui.h"
 #include "llviewermenu.h"
-#include "llfirstuse.h"
+//#include "llfirstuse.h"
+#include "llpanelblockedlist.h"
 #include "llscrolllistctrl.h"
 #include "llscrolllistitem.h"
 #include "llscrolllistcell.h"
@@ -68,9 +63,6 @@
 #include "llviewerwindow.h"
 #include "lltoolgrab.h"
 #include "llcombobox.h"
-#include "llfloaterchat.h"
-#include "llfloatermute.h"
-#include "llimpanel.h"
 #include "lllayoutstack.h"
 
 #if LL_DARWIN
@@ -95,7 +87,10 @@ F32	LLToolBar::sInventoryAutoOpenTime = 1.f;
 //
 
 LLToolBar::LLToolBar()
-:	LLPanel()
+	: LLPanel(),
+
+	mInventoryAutoOpen(FALSE),
+	mNumUnreadIMs(0)	
 #if LL_DARWIN
 	, mResizeHandle(NULL)
 #endif // LL_DARWIN
@@ -157,12 +152,11 @@ BOOL LLToolBar::handleDragAndDrop(S32 x, S32 y, MASK mask, BOOL drop,
 	LLButton* inventory_btn = getChild<LLButton>("inventory_btn");
 	if (!inventory_btn) return FALSE;
 
-	LLFloaterInventory* active_inventory = LLFloaterInventory::getActiveInventory();
-
 	LLRect button_screen_rect;
 	inventory_btn->localRectToScreen(inventory_btn->getRect(),&button_screen_rect);
-
-	if(active_inventory && active_inventory->getVisible())
+	
+	const LLInventoryPanel *active_panel = LLInventoryPanel::getActiveInventoryPanel();
+	if(active_panel)
 	{
 		mInventoryAutoOpen = FALSE;
 	}
@@ -170,8 +164,8 @@ BOOL LLToolBar::handleDragAndDrop(S32 x, S32 y, MASK mask, BOOL drop,
 	{
 		if (mInventoryAutoOpen)
 		{
-			if (!(active_inventory && active_inventory->getVisible()) && 
-			mInventoryAutoOpenTimer.getElapsedTimeF32() > sInventoryAutoOpenTime)
+			if (!active_panel && 
+				mInventoryAutoOpenTimer.getElapsedTimeF32() > sInventoryAutoOpenTime)
 			{
 				LLFloaterInventory::showAgentInventory();
 			}
@@ -206,29 +200,22 @@ void LLToolBar::layoutButtons()
 {
 #if LL_DARWIN
 	const S32 FUDGE_WIDTH_OF_SCREEN = 4;                                    
-	S32 width = gViewerWindow->getWindowWidth() + FUDGE_WIDTH_OF_SCREEN;   
+	S32 width = gViewerWindow->getWindowWidthScaled() + FUDGE_WIDTH_OF_SCREEN;   
 	S32 pad = 2;
 
 	// this function may be called before postBuild(), in which case mResizeHandle won't have been set up yet.
 	if(mResizeHandle != NULL)
 	{
-		if(!gViewerWindow->getWindow()->getFullscreen())
-		{
-			// Only when running in windowed mode on the Mac, leave room for a resize widget on the right edge of the bar.
-			width -= RESIZE_HANDLE_WIDTH;
+		// Only when running in windowed mode on the Mac, leave room for a resize widget on the right edge of the bar.
+		width -= RESIZE_HANDLE_WIDTH;
 
-			LLRect r;
-			r.mLeft = width - pad;
-			r.mBottom = 0;
-			r.mRight = r.mLeft + RESIZE_HANDLE_WIDTH;
-			r.mTop = r.mBottom + RESIZE_HANDLE_HEIGHT;
-			mResizeHandle->setRect(r);
-			mResizeHandle->setVisible(TRUE);
-		}
-		else
-		{
-			mResizeHandle->setVisible(FALSE);
-		}
+		LLRect r;
+		r.mLeft = width - pad;
+		r.mBottom = 0;
+		r.mRight = r.mLeft + RESIZE_HANDLE_WIDTH;
+		r.mTop = r.mBottom + RESIZE_HANDLE_HEIGHT;
+		mResizeHandle->setRect(r);
+		mResizeHandle->setVisible(TRUE);
 	}
 #endif // LL_DARWIN
 }
@@ -250,41 +237,6 @@ void LLToolBar::refresh()
 	BOOL mouselook = gAgent.cameraMouselook();
 	setVisible(show && !mouselook);
 
-	BOOL sitting = FALSE;
-	if (gAgent.getAvatarObject())
-	{
-		sitting = gAgent.getAvatarObject()->mIsSitting;
-	}
-
-	if (!gAgent.canFly())
-	{
-		gSavedSettings.setBOOL("FlyBtnEnabled", gAgent.getFlying() ? true : false);
-		gSavedSettings.setBOOL("FlyBtnState", false);
-	}
-	else
-	{
-		gSavedSettings.setBOOL("FlyBtnEnabled", sitting ? false : true);
-	}
-
-	// Check to see if we're in build mode
-	bool build_enabled = LLToolMgr::getInstance()->canEdit();
-	if (build_enabled)
-	{
-		gSavedSettings.setBOOL("BuildBtnEnabled", true);
-		bool build_mode = LLToolMgr::getInstance()->inEdit();
-		// HACK: Not in mouselook and not just clicking on a scripted object
-		if (gAgent.cameraMouselook() || LLToolGrab::getInstance()->getHideBuildHighlight())
-	{
-		build_mode = FALSE;
-	}
-	gSavedSettings.setBOOL("BuildBtnState", build_mode);
-	}
-	else
-	{
-		gSavedSettings.setBOOL("BuildBtnEnabled", false);
-		gSavedSettings.setBOOL("BuildBtnState", false);
-	}
-
 	if (isInVisibleChain())
 	{
 		updateCommunicateList();
@@ -298,48 +250,32 @@ void LLToolBar::updateCommunicateList()
 
 	communicate_button->removeall();
 
-	LLFloater* frontmost_floater = LLFloaterChatterBox::getInstance()->getActiveFloater();
+	//LLFloater* frontmost_floater = LLFloaterChatterBox::getInstance()->getActiveFloater();
 	LLScrollListItem* itemp = NULL;
 
 	LLSD contact_sd;
 	contact_sd["value"] = "contacts";
-	contact_sd["columns"][0]["value"] = LLFloaterMyFriends::getInstance()->getShortTitle(); 
+	/*contact_sd["columns"][0]["value"] = LLFloaterMyFriends::getInstance()->getShortTitle(); 
 	if (LLFloaterMyFriends::getInstance() == frontmost_floater)
 	{
+		contact_sd["columns"][0]["font"]["name"] = "SANSSERIF_SMALL"; 
 		contact_sd["columns"][0]["font"]["style"] = "BOLD"; 
 		// make sure current tab is selected in list
 		if (selected.isUndefined())
 		{
 			selected = "contacts";
 		}
-	}
+	}*/
 	itemp = communicate_button->addElement(contact_sd, ADD_TOP);
-
-	LLSD communicate_sd;
-	communicate_sd["value"] = "local chat";
-	communicate_sd["columns"][0]["value"] = LLFloaterChat::getInstance()->getShortTitle();
-
-	if (LLFloaterChat::getInstance() == frontmost_floater)
-	{
-		communicate_sd["columns"][0]["font"]["style"] = "BOLD";
-		if (selected.isUndefined())
-		{
-			selected = "local chat";
-		}
-	}
-	itemp = communicate_button->addElement(communicate_sd, ADD_TOP);
 
 	communicate_button->addSeparator(ADD_TOP);
 	communicate_button->add(getString("Redock Windows"), LLSD("redock"), ADD_TOP);
 	communicate_button->addSeparator(ADD_TOP);
-	LLFloaterMute* mute_instance = LLFloaterReg::getTypedInstance<LLFloaterMute>("mute");
-	if(mute_instance)
-	{
-		communicate_button->add(mute_instance->getShortTitle(), LLSD("mute list"), ADD_TOP);
-	}
+	communicate_button->add(getString("Blocked List"), LLSD("mute list"), ADD_TOP);
+
 	std::set<LLHandle<LLFloater> >::const_iterator floater_handle_it;
 
-	if (gIMMgr->getIMFloaterHandles().size() > 0)
+	/*if (gIMMgr->getIMFloaterHandles().size() > 0)
 	{
 		communicate_button->addSeparator(ADD_TOP);
 	}
@@ -356,6 +292,7 @@ void LLToolBar::updateCommunicateList()
 			im_sd["columns"][0]["value"] = floater_title;
 			if (im_floaterp  == frontmost_floater)
 			{
+				im_sd["columns"][0]["font"]["name"] = "SANSSERIF_SMALL";
 				im_sd["columns"][0]["font"]["style"] = "BOLD";
 				if (selected.isUndefined())
 				{
@@ -364,7 +301,7 @@ void LLToolBar::updateCommunicateList()
 			}
 			itemp = communicate_button->addElement(im_sd, ADD_TOP);
 		}
-	}
+	}*/
 
 	communicate_button->setValue(selected);
 }
@@ -388,12 +325,11 @@ void LLToolBar::onClickCommunicate(LLUICtrl* ctrl, const LLSD& user_data)
 	}
 	else if (selected_option.asString() == "redock")
 	{
-		LLFloaterChatterBox* chatterbox_instance = LLFloaterChatterBox::getInstance();
+		/*LLFloaterChatterBox* chatterbox_instance = LLFloaterChatterBox::getInstance();
 		if(chatterbox_instance)
 		{
 			chatterbox_instance->addFloater(LLFloaterMyFriends::getInstance(), FALSE);
-		    chatterbox_instance->addFloater(LLFloaterChat::getInstance(), FALSE);
-		
+			
 			LLUUID session_to_show;
 		
 			std::set<LLHandle<LLFloater> >::const_iterator floater_handle_it;
@@ -410,19 +346,19 @@ void LLToolBar::onClickCommunicate(LLUICtrl* ctrl, const LLSD& user_data)
 				}
 			}
 			LLFloaterReg::showInstance("communicate", session_to_show);
-		}
+		}*/
 	}
 	else if (selected_option.asString() == "mute list")
 	{
-		LLFloaterReg::showInstance("mute");
+		LLPanelBlockedList::showPanelAndSelect(LLUUID::null);
 	}
 	else if (selected_option.isUndefined()) // user just clicked the communicate button, treat as toggle
 	{
-		LLFloaterReg::toggleInstance("communicate");
+		/*LLFloaterReg::toggleInstance("communicate");*/
 		}
 	else // otherwise selection_option is undifined or a specific IM session id
 	{
-		LLFloaterReg::showInstance("communicate", selected_option);
+		/*LLFloaterReg::showInstance("communicate", selected_option);*/
 	}
 }
 

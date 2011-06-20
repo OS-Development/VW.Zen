@@ -2,8 +2,25 @@
  * @file lluicolortable.cpp
  * @brief brief LLUIColorTable class implementation file
  *
- * $LicenseInfo:firstyear=2009&license=viewergpl$
- * Copyright (c) 2009, Linden Research, Inc.
+ * $LicenseInfo:firstyear=2009&license=viewerlgpl$
+ * Second Life Viewer Source Code
+ * Copyright (C) 2010, Linden Research, Inc.
+ * 
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
+ * 
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -33,20 +50,20 @@ LLUIColorTable::Params::Params()
 {
 }
 
-void LLUIColorTable::insertFromParams(const Params& p)
+void LLUIColorTable::insertFromParams(const Params& p, string_color_map_t& table)
 {
 	// this map will contain all color references after the following loop
 	typedef std::map<std::string, std::string> string_string_map_t;
 	string_string_map_t unresolved_refs;
 
-	for(LLInitParam::ParamIterator<ColorEntryParams>::const_iterator it = p.color_entries().begin();
-		it != p.color_entries().end();
+	for(LLInitParam::ParamIterator<ColorEntryParams>::const_iterator it = p.color_entries.begin();
+		it != p.color_entries.end();
 		++it)
 	{
 		ColorEntryParams color_entry = *it;
 		if(color_entry.color.value.isChosen())
 		{
-			setColor(color_entry.name, color_entry.color.value, mLoadedColors);
+			setColor(color_entry.name, color_entry.color.value, table);
 		}
 		else
 		{
@@ -162,19 +179,27 @@ void LLUIColorTable::clear()
 LLUIColor LLUIColorTable::getColor(const std::string& name, const LLColor4& default_color) const
 {
 	string_color_map_t::const_iterator iter = mUserSetColors.find(name);
+	
 	if(iter != mUserSetColors.end())
 	{
 		return LLUIColor(&iter->second);
 	}
 
 	iter = mLoadedColors.find(name);
-	return (iter != mLoadedColors.end() ? LLUIColor(&iter->second) : LLUIColor(default_color));
+	
+	if(iter != mLoadedColors.end())
+	{
+		return LLUIColor(&iter->second);
+	}
+	
+	return  LLUIColor(default_color);
 }
 
 // update user color, loaded colors are parsed on initialization
 void LLUIColorTable::setColor(const std::string& name, const LLColor4& color)
 {
 	setColor(name, color, mUserSetColors);
+	setColor(name, color, mLoadedColors);
 }
 
 bool LLUIColorTable::loadFromSettings()
@@ -182,16 +207,22 @@ bool LLUIColorTable::loadFromSettings()
 	bool result = false;
 
 	std::string default_filename = gDirUtilp->getExpandedFilename(LL_PATH_DEFAULT_SKIN, "colors.xml");
-	result |= loadFromFilename(default_filename);
+	result |= loadFromFilename(default_filename, mLoadedColors);
 
 	std::string current_filename = gDirUtilp->getExpandedFilename(LL_PATH_TOP_SKIN, "colors.xml");
 	if(current_filename != default_filename)
 	{
-		result |= loadFromFilename(current_filename);
+		result |= loadFromFilename(current_filename, mLoadedColors);
 	}
 
-	std::string user_filename = gDirUtilp->getExpandedFilename(LL_PATH_USER_SKIN, "colors.xml");
-	loadFromFilename(user_filename);
+	current_filename = gDirUtilp->getExpandedFilename(LL_PATH_USER_SKIN, "colors.xml");
+	if(current_filename != default_filename)
+	{
+		result |= loadFromFilename(current_filename, mLoadedColors);
+	}
+
+	std::string user_filename = gDirUtilp->getExpandedFilename(LL_PATH_USER_SETTINGS, "colors.xml");
+	loadFromFilename(user_filename, mUserSetColors);
 
 	return result;
 }
@@ -212,11 +243,12 @@ void LLUIColorTable::saveUserSettings() const
 	}
 
 	LLXMLNodePtr output_node = new LLXMLNode("colors", false);
-	LLXUIParser::instance().writeXUI(output_node, params);
+	LLXUIParser parser;
+	parser.writeXUI(output_node, params);
 
 	if(!output_node->isNull())
 	{
-		const std::string& filename = gDirUtilp->getExpandedFilename(LL_PATH_USER_SKIN, "colors.xml");
+		const std::string& filename = gDirUtilp->getExpandedFilename(LL_PATH_USER_SETTINGS, "colors.xml");
 		LLFILE *fp = LLFile::fopen(filename, "w");
 
 		if(fp != NULL)
@@ -261,7 +293,7 @@ void LLUIColorTable::setColor(const std::string& name, const LLColor4& color, st
 	}
 }
 
-bool LLUIColorTable::loadFromFilename(const std::string& filename)
+bool LLUIColorTable::loadFromFilename(const std::string& filename, string_color_map_t& table)
 {
 	LLXMLNodePtr root;
 
@@ -278,11 +310,12 @@ bool LLUIColorTable::loadFromFilename(const std::string& filename)
 	}
 
 	Params params;
-	LLXUIParser::instance().readXUI(root, params);
+	LLXUIParser parser;
+	parser.readXUI(root, params, filename);
 
 	if(params.validateBlock())
 	{
-		insertFromParams(params);
+		insertFromParams(params, table);
 	}
 	else
 	{
@@ -292,3 +325,11 @@ bool LLUIColorTable::loadFromFilename(const std::string& filename)
 
 	return true;
 }
+
+void LLUIColorTable::insertFromParams(const Params& p)
+{
+	insertFromParams(p, mUserSetColors);
+}
+
+// EOF
+

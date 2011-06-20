@@ -1,31 +1,25 @@
 /** 
  * @file llimagejpeg.cpp
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -188,6 +182,7 @@ void LLImageJPEG::decodeTermSource (j_decompress_ptr cinfo)
 }
 
 
+// Returns true when done, whether or not decode was successful.
 BOOL LLImageJPEG::decode(LLImageRaw* raw_image, F32 decode_time)
 {
 	llassert_always(raw_image);
@@ -198,7 +193,7 @@ BOOL LLImageJPEG::decode(LLImageRaw* raw_image, F32 decode_time)
 	if (!getData() || (0 == getDataSize()))
 	{
 		setLastError("LLImageJPEG trying to decode an image with no data!");
-		return FALSE;
+		return TRUE;  // done
 	}
 	
 	S32 row_stride = 0;
@@ -226,7 +221,7 @@ BOOL LLImageJPEG::decode(LLImageRaw* raw_image, F32 decode_time)
 	if(setjmp(sSetjmpBuffer))
 	{
 		jpeg_destroy_decompress(&cinfo);
-		return FALSE;
+		return TRUE; // done
 	}
 	try
 	{
@@ -320,7 +315,7 @@ BOOL LLImageJPEG::decode(LLImageRaw* raw_image, F32 decode_time)
 	catch (int)
 	{
 		jpeg_destroy_decompress(&cinfo);
-		return FALSE;
+		return TRUE; // done
 	}
 
 	// Check to see whether any corrupt-data warnings occurred
@@ -328,7 +323,7 @@ BOOL LLImageJPEG::decode(LLImageRaw* raw_image, F32 decode_time)
 	{
 		// TODO: extract the warning to find out what went wrong.
 		setLastError( "Unable to decode JPEG image.");
-		return FALSE;
+		return TRUE; // done
 	}
 
 	return TRUE;

@@ -9,13 +9,11 @@ if (STANDALONE)
   include(FindCARes)
 else (STANDALONE)
     use_prebuilt_binary(ares)
+    add_definitions("-DCARES_STATICLIB")
     if (WINDOWS)
         set(CARES_LIBRARIES areslib)
     elseif (DARWIN)
-        set(CARES_LIBRARIES
-          optimized ${ARCH_PREBUILT_DIRS_RELEASE}/libcares.a
-          debug ${ARCH_PREBUILT_DIRS_DEBUG}/libcares.a
-          )
+       set(CARES_LIBRARIES cares)
     else (WINDOWS)
         set(CARES_LIBRARIES cares)
     endif (WINDOWS)

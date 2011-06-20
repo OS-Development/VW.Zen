@@ -3,31 +3,25 @@
  * @brief Allows configuration of "media" for a land parcel,
  *   for example movies, web pages, and audio.
  *
- * $LicenseInfo:firstyear=2007&license=viewergpl$
- * 
- * Copyright (c) 2007-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2007&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -39,6 +33,8 @@
 #include "llmimetypes.h"
 #include "llviewerparcelmgr.h"
 #include "llviewerregion.h"
+#include "llviewermedia.h"
+#include "llviewerparcelmedia.h"
 #include "lluictrlfactory.h"
 
 // library includes
@@ -54,6 +50,7 @@
 #include "llsdutil.h"
 #include "lltexturectrl.h"
 #include "roles_constants.h"
+#include "llscrolllistctrl.h"
 
 //---------------------------------------------------------------------------
 // LLPanelLandMedia
@@ -62,12 +59,6 @@
 LLPanelLandMedia::LLPanelLandMedia(LLParcelSelectionHandle& parcel)
 :	LLPanel(),
 	mParcel(parcel),
-	mCheckSoundLocal(NULL),
-	mSoundHelpButton(NULL),
-	mCheckEnableVoiceChat(NULL),
-	mCheckEnableVoiceChatIsEstateDisabled(NULL),
-	mCheckEnableVoiceChatParcel(NULL),
-	mMusicURLEdit(NULL),
 	mMediaURLEdit(NULL),
 	mMediaDescEdit(NULL),
 	mMediaTypeCombo(NULL),
@@ -77,9 +68,7 @@ LLPanelLandMedia::LLPanelLandMedia(LLParcelSelectionHandle& parcel)
 	mMediaSizeCtrlLabel(NULL),
 	mMediaTextureCtrl(NULL),
 	mMediaAutoScaleCheck(NULL),
-	mMediaLoopCheck(NULL),
-	mMediaUrlCheck(NULL),
-	mMusicUrlCheck(NULL)
+	mMediaLoopCheck(NULL)
 {
 }
 
@@ -87,34 +76,10 @@ LLPanelLandMedia::LLPanelLandMedia(LLParcelSelectionHandle& parcel)
 // virtual
 LLPanelLandMedia::~LLPanelLandMedia()
 {
-	// close LLFloaterURLEntry?
 }
-
-
-// static
-void LLPanelLandMedia::onClickSoundHelp(void*)
-{
-	LLNotifications::instance().add("ClickSoundHelpLand");
-}
-
 
 BOOL LLPanelLandMedia::postBuild()
 {
-	mCheckSoundLocal = getChild<LLCheckBoxCtrl>("check sound local");
-	childSetCommitCallback("check sound local", onCommitAny, this);
-
-	mSoundHelpButton = getChild<LLButton>("?");
-	mSoundHelpButton->setClickedCallback(onClickSoundHelp, this);
-
-	mCheckEnableVoiceChat = getChild<LLCheckBoxCtrl>("parcel_enable_voice_channel");
-	childSetCommitCallback("parcel_enable_voice_channel", onCommitAny, this);
-	mCheckEnableVoiceChatIsEstateDisabled = getChild<LLCheckBoxCtrl>("parcel_enable_voice_channel_is_estate_disabled");
-	childSetCommitCallback("parcel_enable_voice_channel_is_estate_disabled", onCommitAny, this);
-	mCheckEnableVoiceChatParcel = getChild<LLCheckBoxCtrl>("parcel_enable_voice_channel_parcel");
-	childSetCommitCallback("parcel_enable_voice_channel_parcel", onCommitAny, this);
-
-	mMusicURLEdit = getChild<LLLineEditor>("music_url");
-	childSetCommitCallback("music_url", onCommitAny, this);
 
 	mMediaTextureCtrl = getChild<LLTextureCtrl>("media texture");
 	mMediaTextureCtrl->setCommitCallback( onCommitAny, this );
@@ -126,16 +91,10 @@ BOOL LLPanelLandMedia::postBuild()
 	childSetCommitCallback("media_auto_scale", onCommitAny, this);
 
 	mMediaLoopCheck = getChild<LLCheckBoxCtrl>("media_loop");
-	childSetCommitCallback("media_loop", onCommitAny, this);
-
-	mMediaUrlCheck = getChild<LLCheckBoxCtrl>("hide_media_url");
-	childSetCommitCallback("hide_media_url", onCommitAny, this);
-
-	mMusicUrlCheck = getChild<LLCheckBoxCtrl>("hide_music_url");
-	childSetCommitCallback("hide_music_url", onCommitAny, this);
+	childSetCommitCallback("media_loop", onCommitAny, this );
 
 	mMediaURLEdit = getChild<LLLineEditor>("media_url");
-	childSetCommitCallback("media_url", onCommitAny, this);
+	childSetCommitCallback("media_url", onCommitAny, this );
 
 	mMediaDescEdit = getChild<LLLineEditor>("url_description");
 	childSetCommitCallback("url_description", onCommitAny, this);
@@ -173,81 +132,22 @@ void LLPanelLandMedia::refresh()
 		// Display options
 		BOOL can_change_media = LLViewerParcelMgr::isParcelModifiableByAgent(parcel, GP_LAND_CHANGE_MEDIA);
 
-		mCheckSoundLocal->set( parcel->getSoundLocal() );
-		mCheckSoundLocal->setEnabled( can_change_media );
-
-		LLViewerRegion* region = LLViewerParcelMgr::getInstance()->getSelectionRegion();
-		if (!region)
-		{
-			// never seen this happen, but log it
-			llwarns << "Couldn't get selected region." << llendl;
-		}
-
-		if (region && region->isVoiceEnabled()) // estate-wide voice-disable overrides all
-		{
-			bool allow_voice = parcel->getParcelFlagAllowVoice();
-
-			mCheckEnableVoiceChatIsEstateDisabled->setVisible(false);
-
-			mCheckEnableVoiceChat->setVisible(true);
-			mCheckEnableVoiceChat->setEnabled( can_change_media );
-			mCheckEnableVoiceChat->set(allow_voice);
-
-			mCheckEnableVoiceChatParcel->setEnabled( can_change_media && allow_voice );
-		}
-		else // disabled at region level
-		{
-			mCheckEnableVoiceChatIsEstateDisabled->setVisible(true); // always disabled
-			mCheckEnableVoiceChat->setVisible(false);
-			mCheckEnableVoiceChat->setEnabled(false);
-			mCheckEnableVoiceChat->set(false);
-
-			mCheckEnableVoiceChatParcel->setEnabled(false);
-		}
-
-		mCheckEnableVoiceChatParcel->set(!parcel->getParcelFlagUseEstateVoiceChannel());
-
-		mMusicURLEdit->setText(parcel->getMusicURL());
-		mMusicURLEdit->setEnabled( can_change_media );
-
 		mMediaURLEdit->setText(parcel->getMediaURL());
 		mMediaURLEdit->setEnabled( FALSE );
+
+		getChild<LLUICtrl>("current_url")->setValue(parcel->getMediaCurrentURL());
 
 		mMediaDescEdit->setText(parcel->getMediaDesc());
 		mMediaDescEdit->setEnabled( can_change_media );
 
 		std::string mime_type = parcel->getMediaType();
-		if (mime_type.empty())
+		if (mime_type.empty() || mime_type == LLMIMETypes::getDefaultMimeType())
 		{
-			mime_type = "none/none";
+			mime_type = LLMIMETypes::getDefaultMimeTypeTranslation();
 		}
 		setMediaType(mime_type);
 		mMediaTypeCombo->setEnabled( can_change_media );
-		childSetText("mime_type", mime_type);
-
-		mMediaUrlCheck->set( parcel->getObscureMedia() );
-		mMediaUrlCheck->setEnabled( can_change_media );
-
-		mMusicUrlCheck->set( parcel->getObscureMusic() );
-		mMusicUrlCheck->setEnabled( can_change_media );
-
-		// don't display urls if you're not able to change it
-		// much requested change in forums so people can't 'steal' urls
-		// NOTE: bug#2009 means this is still vunerable - however, bug
-		// should be closed since this bug opens up major security issues elsewhere.
-		bool obscure_media = ! can_change_media && parcel->getObscureMedia();
-		bool obscure_music = ! can_change_media && parcel->getObscureMusic();
-
-		// Special code to disable asterixes for html type
-		if(mime_type == "text/html")
-		{
-			obscure_media = false;
-			mMediaUrlCheck->set( 0 );
-			mMediaUrlCheck->setEnabled( false );
-		}
-
-		mMusicURLEdit->setDrawAsterixes( obscure_music );
-		mMediaURLEdit->setDrawAsterixes( obscure_media );
+		getChild<LLUICtrl>("mime_type")->setValue(mime_type);
 
 		mMediaAutoScaleCheck->set( parcel->getMediaAutoScale () );
 		mMediaAutoScaleCheck->setEnabled ( can_change_media );
@@ -260,7 +160,7 @@ void LLPanelLandMedia::refresh()
 		else
 			mMediaLoopCheck->set( false );
 		mMediaLoopCheck->setEnabled ( can_change_media && allow_looping );
-
+		
 		// disallow media size change for mime types that don't allow it
 		bool allow_resize = LLMIMETypes::findAllowResize( mime_type );
 		if ( allow_resize )
@@ -284,33 +184,12 @@ void LLPanelLandMedia::refresh()
 
 		mSetURLButton->setEnabled( can_change_media );
 
-		#if 0
-		// there is a media url and a media texture selected
-		if ( ( ! ( std::string ( parcel->getMediaURL() ).empty () ) ) && ( ! ( parcel->getMediaID ().isNull () ) ) )
-		{
-			// turn on transport controls if allowed for this parcel
-			mMediaStopButton->setEnabled ( editable );
-			mMediaStartButton->setEnabled ( editable );
-		}
-		else
-		{
-			// no media url or no media texture
-			mMediaStopButton->setEnabled ( FALSE );
-			mMediaStartButton->setEnabled ( FALSE );
-		};
-		#endif
-
-		LLFloaterURLEntry* floater_url_entry = (LLFloaterURLEntry*)mURLEntryFloater.get();
-		if (floater_url_entry)
-		{
-			floater_url_entry->updateFromLandMediaPanel();
-		}
 	}
 }
 
 void LLPanelLandMedia::populateMIMECombo()
 {
-	std::string default_mime_type = "none/none";
+	std::string default_mime_type = LLMIMETypes::getDefaultMimeType();
 	std::string default_label;
 	LLMIMETypes::mime_widget_set_map_t::const_iterator it;
 	for (it = LLMIMETypes::sWidgetMap.begin(); it != LLMIMETypes::sWidgetMap.end(); ++it)
@@ -327,8 +206,7 @@ void LLPanelLandMedia::populateMIMECombo()
 			mMediaTypeCombo->add(info.mLabel, mime_type);
 		}
 	}
-	// *TODO: The sort order is based on std::map key, which is
-	// ASCII-sorted and is wrong in other languages.  TRANSLATE
+
 	mMediaTypeCombo->add( default_label, default_mime_type, ADD_BOTTOM );
 }
 
@@ -340,29 +218,44 @@ void LLPanelLandMedia::setMediaType(const std::string& mime_type)
 
 	std::string media_key = LLMIMETypes::widgetType(mime_type);
 	mMediaTypeCombo->setValue(media_key);
-	childSetText("mime_type", mime_type);
+
+	std::string mime_str = mime_type;
+	if(LLMIMETypes::getDefaultMimeType() == mime_type)
+	{
+		// Instead of showing predefined "none/none" we are going to show something 
+		// localizable - "none" for example (see EXT-6542)
+		mime_str = LLMIMETypes::getDefaultMimeTypeTranslation();
+	}
+	getChild<LLUICtrl>("mime_type")->setValue(mime_str);
 }
 
 void LLPanelLandMedia::setMediaURL(const std::string& media_url)
 {
 	mMediaURLEdit->setText(media_url);
-	mMediaURLEdit->onCommit();
-}
+	LLParcel *parcel = mParcel->getParcel();
+	if(parcel)
+		parcel->setMediaCurrentURL(media_url);
+	// LLViewerMedia::navigateHome();
 
+
+	mMediaURLEdit->onCommit();
+	// LLViewerParcelMedia::sendMediaNavigateMessage(media_url);
+	getChild<LLUICtrl>("current_url")->setValue(media_url);
+}
 std::string LLPanelLandMedia::getMediaURL()
 {
-	return mMediaURLEdit->getText();
+	return mMediaURLEdit->getText();	
 }
 
 // static
 void LLPanelLandMedia::onCommitType(LLUICtrl *ctrl, void *userdata)
 {
 	LLPanelLandMedia *self = (LLPanelLandMedia *)userdata;
-	std::string current_type = LLMIMETypes::widgetType(self->childGetText("mime_type"));
+	std::string current_type = LLMIMETypes::widgetType(self->getChild<LLUICtrl>("mime_type")->getValue().asString());
 	std::string new_type = self->mMediaTypeCombo->getValue();
 	if(current_type != new_type)
 	{
-		self->childSetText("mime_type", LLMIMETypes::findDefaultMimeType(new_type));
+		self->getChild<LLUICtrl>("mime_type")->setValue(LLMIMETypes::findDefaultMimeType(new_type));
 	}
 	onCommitAny(ctrl, userdata);
 
@@ -380,33 +273,22 @@ void LLPanelLandMedia::onCommitAny(LLUICtrl*, void *userdata)
 	}
 
 	// Extract data from UI
-	BOOL sound_local		= self->mCheckSoundLocal->get();
-	std::string music_url	= self->mMusicURLEdit->getText();
 	std::string media_url	= self->mMediaURLEdit->getText();
 	std::string media_desc	= self->mMediaDescEdit->getText();
-	std::string mime_type	= self->childGetText("mime_type");
+	std::string mime_type	= self->getChild<LLUICtrl>("mime_type")->getValue().asString();
 	U8 media_auto_scale		= self->mMediaAutoScaleCheck->get();
 	U8 media_loop           = self->mMediaLoopCheck->get();
-	U8 obscure_media		= self->mMediaUrlCheck->get();
-	U8 obscure_music		= self->mMusicUrlCheck->get();
 	S32 media_width			= (S32)self->mMediaWidthCtrl->get();
 	S32 media_height		= (S32)self->mMediaHeightCtrl->get();
 	LLUUID media_id			= self->mMediaTextureCtrl->getImageAssetID();
 
-	BOOL voice_enabled = self->mCheckEnableVoiceChat->get();
-	BOOL voice_estate_chan = ! self->mCheckEnableVoiceChatParcel->get();
 
-	self->childSetText("mime_type", mime_type);
+	self->getChild<LLUICtrl>("mime_type")->setValue(mime_type);
 
 	// Remove leading/trailing whitespace (common when copying/pasting)
-	LLStringUtil::trim(music_url);
 	LLStringUtil::trim(media_url);
 
 	// Push data into current parcel
-	parcel->setParcelFlag(PF_ALLOW_VOICE_CHAT, voice_enabled);
-	parcel->setParcelFlag(PF_USE_ESTATE_VOICE_CHAN, voice_estate_chan);
-	parcel->setParcelFlag(PF_SOUND_LOCAL, sound_local);
-	parcel->setMusicURL(music_url);
 	parcel->setMediaURL(media_url);
 	parcel->setMediaType(mime_type);
 	parcel->setMediaDesc(media_desc);
@@ -415,8 +297,6 @@ void LLPanelLandMedia::onCommitAny(LLUICtrl*, void *userdata)
 	parcel->setMediaID(media_id);
 	parcel->setMediaAutoScale ( media_auto_scale );
 	parcel->setMediaLoop ( media_loop );
-	parcel->setObscureMedia( obscure_media );
-	parcel->setObscureMusic( obscure_music );
 
 	// Send current parcel data upstream to server
 	LLViewerParcelMgr::getInstance()->sendParcelPropertiesUpdate( parcel );
@@ -428,10 +308,23 @@ void LLPanelLandMedia::onCommitAny(LLUICtrl*, void *userdata)
 void LLPanelLandMedia::onSetBtn(void *userdata)
 {
 	LLPanelLandMedia *self = (LLPanelLandMedia *)userdata;
-	self->mURLEntryFloater = LLFloaterURLEntry::show( self->getHandle() );
+	self->mURLEntryFloater = LLFloaterURLEntry::show( self->getHandle(), self->getMediaURL() );
 	LLFloater* parent_floater = gFloaterView->getParentFloater(self);
 	if (parent_floater)
 	{
 		parent_floater->addDependentFloater(self->mURLEntryFloater.get());
 	}
 }
+
+// static
+void LLPanelLandMedia::onResetBtn(void *userdata)
+{
+	LLPanelLandMedia *self = (LLPanelLandMedia *)userdata;
+	LLParcel* parcel = self->mParcel->getParcel();
+	// LLViewerMedia::navigateHome();
+	self->refresh();
+	self->getChild<LLUICtrl>("current_url")->setValue(parcel->getMediaURL());
+	// LLViewerParcelMedia::sendMediaNavigateMessage(parcel->getMediaURL());
+
+}
+

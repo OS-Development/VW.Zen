@@ -2,31 +2,25 @@
  * @file llimagegl.h
  * @brief Object for managing images and their textures
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -42,16 +36,19 @@
 #include "v2math.h"
 
 #include "llrender.h"
-
+class LLTextureAtlas ;
 #define BYTES_TO_MEGA_BYTES(x) ((x) >> 20)
 #define MEGA_BYTES_TO_BYTES(x) ((x) << 20)
 
 //============================================================================
-
 class LLImageGL : public LLRefCount
 {
 	friend class LLTexUnit;
 public:
+	static std::list<U32> sDeadTextureList;
+
+	static void deleteDeadTextures();
+
 	// Size calculation
 	static S32 dataFormatBits(S32 dataformat);
 	static S32 dataFormatBytes(S32 dataformat, S32 width, S32 height);
@@ -59,6 +56,7 @@ public:
 
 	BOOL updateBindStats(S32 tex_mem) const ;
 	F32 getTimePassedSinceLastBound();
+	void forceUpdateBindStats(void) const;
 
 	// needs to be called every frame
 	static void updateStats(F32 current_time);
@@ -66,10 +64,11 @@ public:
 	// Save off / restore GL textures
 	static void destroyGL(BOOL save_state = TRUE);
 	static void restoreGL();
+	static void dirtyTexOptions();
 
-	// Sometimes called externally for textures not using LLImageGL (should go away...)
-	static S32 updateBoundTexMem(const S32 delta);
-
+	// Sometimes called externally for textures not using LLImageGL (should go away...)	
+	static S32 updateBoundTexMem(const S32 mem, const S32 ncomponents, S32 category) ;
+	
 	static bool checkSize(S32 width, S32 height);
 
 	//for server side use only.
@@ -87,7 +86,8 @@ public:
 protected:
 	virtual ~LLImageGL();
 
-	void analyzeAlpha(const void* data_in, S32 w, S32 h);
+	void analyzeAlpha(const void* data_in, U32 w, U32 h);
+	void calcAlphaChannelOffsetAndStride();
 
 public:
 	virtual void dump();	// debugging info to llinfos
@@ -98,23 +98,25 @@ public:
 	// These 3 functions currently wrap glGenTextures(), glDeleteTextures(), and glTexImage2D() 
 	// for tracking purposes and will be deprecated in the future
 	static void generateTextures(S32 numTextures, U32 *textures);
-	static void deleteTextures(S32 numTextures, U32 *textures);
+	static void deleteTextures(S32 numTextures, U32 *textures, bool immediate = false);
 	static void setManualImage(U32 target, S32 miplevel, S32 intformat, S32 width, S32 height, U32 pixformat, U32 pixtype, const void *pixels);
 
 	BOOL createGLTexture() ;
-	BOOL createGLTexture(S32 discard_level, const LLImageRaw* imageraw, S32 usename = 0);
+	BOOL createGLTexture(S32 discard_level, const LLImageRaw* imageraw, S32 usename = 0, BOOL to_create = TRUE, 
+		S32 category = sMaxCatagories - 1);
 	BOOL createGLTexture(S32 discard_level, const U8* data, BOOL data_hasmips = FALSE, S32 usename = 0);
 	void setImage(const LLImageRaw* imageraw);
 	void setImage(const U8* data_in, BOOL data_hasmips = FALSE);
-	BOOL setSubImage(const LLImageRaw* imageraw, S32 x_pos, S32 y_pos, S32 width, S32 height);
-	BOOL setSubImage(const U8* datap, S32 data_width, S32 data_height, S32 x_pos, S32 y_pos, S32 width, S32 height);
+	BOOL setSubImage(const LLImageRaw* imageraw, S32 x_pos, S32 y_pos, S32 width, S32 height, BOOL force_fast_update = FALSE);
+	BOOL setSubImage(const U8* datap, S32 data_width, S32 data_height, S32 x_pos, S32 y_pos, S32 width, S32 height, BOOL force_fast_update = FALSE);
 	BOOL setSubImageFromFrameBuffer(S32 fb_x, S32 fb_y, S32 x_pos, S32 y_pos, S32 width, S32 height);
-	BOOL setDiscardLevel(S32 discard_level);
+	
 	// Read back a raw image for this discard level, if it exists
 	BOOL readBackRaw(S32 discard_level, LLImageRaw* imageraw, bool compressed_ok) const;
 	void destroyGLTexture();
 
 	void setExplicitFormat(LLGLint internal_format, LLGLenum primary_format, LLGLenum type_format = 0, BOOL swap_bytes = FALSE);
+	void setComponents(S8 ncomponents) { mComponents = ncomponents; }
 
 	S32	 getDiscardLevel() const		{ return mCurrentDiscardLevel; }
 	S32	 getMaxDiscardLevel() const		{ return mMaxDiscardLevel; }
@@ -127,7 +129,9 @@ public:
 	S32  getBytes(S32 discard_level = -1) const;
 	S32  getMipBytes(S32 discard_level = -1) const;
 	BOOL getBoundRecently() const;
+	BOOL isJustBound() const;
 	LLGLenum getPrimaryFormat() const { return mFormatPrimary; }
+	LLGLenum getFormatType() const { return mFormatType; }
 
 	BOOL getHasGLTexture() const { return mTexName != 0; }
 	LLGLuint getTexName() const { return mTexName; }
@@ -145,12 +149,10 @@ public:
 	BOOL getUseMipMaps() const { return mUseMipMaps; }
 	void setUseMipMaps(BOOL usemips) { mUseMipMaps = usemips; }	
 
-	BOOL isValidForSculpt(S32 discard_level, S32 image_width, S32 image_height, S32 ncomponents) ;
-
 	void updatePickMask(S32 width, S32 height, const U8* data_in);
 	BOOL getMask(const LLVector2 &tc);
 
-	void checkTexSize() const ;
+	void checkTexSize(bool forced = false) const ;
 	
 	// Sets the addressing mode used to sample the texture 
 	//  (such as wrapping, mirrored wrapping, and clamp)
@@ -164,28 +166,48 @@ public:
 	void setFilteringOption(LLTexUnit::eTextureFilterOptions option);
 	LLTexUnit::eTextureFilterOptions getFilteringOption(void) const { return mFilterOption; }
 
+	LLGLenum getTexTarget()const { return mTarget ;}
+	S8       getDiscardLevelInAtlas()const {return mDiscardLevelInAtlas;}
+	U32      getTexelsInAtlas()const { return mTexelsInAtlas ;}
+	U32      getTexelsInGLTexture()const {return mTexelsInGLTexture;}
+
+	
 	void init(BOOL usemipmaps);
 	virtual void cleanup(); // Clean up the LLImageGL so it can be reinitialized.  Be careful when using this in derived class destructors
+
+	void setNeedsAlphaAndPickMask(BOOL need_mask);
+
+	BOOL preAddToAtlas(S32 discard_level, const LLImageRaw* raw_image);
+	void postAddToAtlas() ;	
 
 public:
 	// Various GL/Rendering options
 	S32 mTextureMemory;
 	mutable F32  mLastBindTime;	// last time this was bound, by discard level
-
+	
 private:
 	LLPointer<LLImageRaw> mSaveData; // used for destroyGL/restoreGL
 	U8* mPickMask;  //downsampled bitmap approximation of alpha channel.  NULL if no alpha channel
+	U16 mPickMaskWidth;
+	U16 mPickMaskHeight;
 	S8 mUseMipMaps;
 	S8 mHasExplicitFormat; // If false (default), GL format is f(mComponents)
 	S8 mAutoGenMips;
 
 	BOOL mIsMask;
-	
+	BOOL mNeedsAlphaAndPickMask;
+	S8   mAlphaStride ;
+	S8   mAlphaOffset ;
+
 	bool     mGLTextureCreated ;
 	LLGLuint mTexName;
 	U16      mWidth;
 	U16      mHeight;	
 	S8       mCurrentDiscardLevel;
+	
+	S8       mDiscardLevelInAtlas;
+	U32      mTexelsInAtlas ;
+	U32      mTexelsInGLTexture;
 
 protected:
 	LLGLenum mTarget;		// Normally GL_TEXTURE2D, sometimes something else (ex. cube maps)
@@ -199,7 +221,7 @@ protected:
 	
 	bool	mTexOptionsDirty;
 	LLTexUnit::eTextureAddressMode		mAddressMode;	// Defaults to TAM_WRAP
-	LLTexUnit::eTextureFilterOptions	mFilterOption;	// Defaults to TFO_TRILINEAR
+	LLTexUnit::eTextureFilterOptions	mFilterOption;	// Defaults to TFO_ANISOTROPIC
 	
 	LLGLint  mFormatInternal; // = GL internalformat
 	LLGLenum mFormatPrimary;  // = GL format (pixel data format)
@@ -212,7 +234,7 @@ public:
 	static S32 sCount;
 	
 	static F32 sLastFrameTime;
-
+	
 	static LLGLuint sCurrentBoundTextures[MAX_GL_TEXTURE_UNITS]; // Currently bound texture ID
 
 	// Global memory statistics
@@ -222,7 +244,8 @@ public:
 	static U32 sBindCount;					// Tracks number of texture binds for current frame
 	static U32 sUniqueCount;				// Tracks number of unique texture binds for current frame
 	static BOOL sGlobalUseAnisotropic;
-	static LLImageGL* sDefaultGLTexture ;
+	static LLImageGL* sDefaultGLTexture ;	
+	static BOOL sAutomatedTest;
 
 #if DEBUG_MISS
 	BOOL mMissed; // Missed on last bind?
@@ -230,6 +253,55 @@ public:
 #else
 	BOOL getMissed() const { return FALSE; };
 #endif
+
+public:
+	static void initClass(S32 num_catagories) ;
+	static void cleanupClass() ;
+private:
+	static S32 sMaxCatagories ;
+
+	//the flag to allow to call readBackRaw(...).
+	//can be removed if we do not use that function at all.
+	static BOOL sAllowReadBackRaw ;
+//
+//****************************************************************************************************
+//The below for texture auditing use only
+//****************************************************************************************************
+private:
+	S32 mCategory ;
+public:		
+	void setCategory(S32 category) ;
+	S32  getCategory()const {return mCategory ;}
+
+	//for debug use: show texture size distribution 
+	//----------------------------------------
+	static LLPointer<LLImageGL> sHighlightTexturep; //default texture to replace normal textures
+	static std::vector<S32> sTextureLoadedCounter ;
+	static std::vector<S32> sTextureBoundCounter ;
+	static std::vector<S32> sTextureCurBoundCounter ;
+	static S32 sCurTexSizeBar ;
+	static S32 sCurTexPickSize ;
+
+	static void setHighlightTexture(S32 category) ;
+	static S32 getTextureCounterIndex(U32 val) ;
+	static void incTextureCounter(U32 val, S32 ncomponents, S32 category) ;
+	static void decTextureCounter(U32 val, S32 ncomponents, S32 category) ;
+	static void setCurTexSizebar(S32 index, BOOL set_pick_size = TRUE) ;
+	static void resetCurTexSizebar();
+	//----------------------------------------
+
+	//for debug use: show texture category distribution 
+	//----------------------------------------		
+	
+	static std::vector<S32> sTextureMemByCategory;
+	static std::vector<S32> sTextureMemByCategoryBound ;
+	static std::vector<S32> sTextureCurMemByCategoryBound ;
+	//----------------------------------------	
+//****************************************************************************************************
+//End of definitions for texture auditing use only
+//****************************************************************************************************
+
 };
 
+extern BOOL gAuditTexture;
 #endif // LL_LLIMAGEGL_H

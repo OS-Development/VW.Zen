@@ -2,50 +2,46 @@
  * @file llmemoryview.cpp
  * @brief LLMemoryView class implementation
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
 #include "llviewerprecompiledheaders.h"
 
-#include "indra_constants.h"
 #include "llmemoryview.h"
 
 #include "llappviewer.h"
 #include "llallocator_heap_profile.h"
+#include "llgl.h"						// LLGLSUIDefault
 #include "llviewerwindow.h"
 #include "llviewercontrol.h"
 
 #include <sstream>
 #include <boost/algorithm/string/split.hpp>
 
+#include "llmemory.h"
 
 LLMemoryView::LLMemoryView(const LLMemoryView::Params& p)
 :	LLView(p),
+	mPaused(FALSE),
 	//mDelay(120),
     mAlloc(NULL)
 {
@@ -65,6 +61,7 @@ BOOL LLMemoryView::handleMouseDown(S32 x, S32 y, MASK mask)
 	}
 	else
 	{
+		mPaused = !mPaused;
 	}
 	return TRUE;
 }
@@ -130,8 +127,8 @@ void LLMemoryView::draw()
 	curUpdate++;
 
 	// setup window properly
-	S32 height = (S32) (gViewerWindow->getVirtualWindowRect().getHeight()*0.75f);
-	S32 width = (S32) (gViewerWindow->getVirtualWindowRect().getWidth() * 0.9f);
+	S32 height = (S32) (gViewerWindow->getWindowRectScaled().getHeight()*0.75f);
+	S32 width = (S32) (gViewerWindow->getWindowRectScaled().getWidth() * 0.9f);
 	setRect(LLRect().setLeftTopAndSize(getRect().mLeft, getRect().mTop, width, height));
 	
 	// setup window color
@@ -154,13 +151,14 @@ void LLMemoryView::draw()
 
 	// cut off lines on bottom
 	U32 max_lines = U32((height - 2 * line_height) / line_height);
-    std::vector<LLWString>::const_iterator end = mLines.end();
+	y_pos = height - MARGIN_AMT - line_height;
+    y_off = 0.f;
+
+#if !MEM_TRACK_MEM
+	std::vector<LLWString>::const_iterator end = mLines.end();
     if(mLines.size() > max_lines) {
         end = mLines.begin() + max_lines;
     }
-
-	y_pos = height - MARGIN_AMT - line_height;
-    y_off = 0.f;
     for (std::vector<LLWString>::const_iterator i = mLines.begin(); i != end; ++i)
 	{
 		font->render(*i, 0, MARGIN_AMT, y_pos -  y_off,
@@ -174,6 +172,47 @@ void LLMemoryView::draw()
 			);
 		y_off += line_height;
 	}
+
+#else
+	LLMemTracker::getInstance()->preDraw(mPaused) ;
+
+	{
+		F32 x_pos = MARGIN_AMT ;
+		U32 lines = 0 ;
+		const char* str = LLMemTracker::getInstance()->getNextLine() ;
+		while(str != NULL)
+		{
+			lines++ ;
+			font->renderUTF8(str, 0, x_pos, y_pos -  y_off,
+				LLColor4::white,
+				LLFontGL::LEFT, 
+				LLFontGL::BASELINE,
+				LLFontGL::NORMAL,
+				LLFontGL::DROP_SHADOW,
+				S32_MAX,
+				target_width,
+				NULL, FALSE);
+		
+			str = LLMemTracker::getInstance()->getNextLine() ;
+			y_off += line_height;
+
+			if(lines >= max_lines)
+			{
+				lines = 0 ;
+				x_pos += 512.f ;
+				if(x_pos + 512.f > target_width)
+				{
+					break ;
+				}
+
+				y_pos = height - MARGIN_AMT - line_height;
+				y_off = 0.f;
+			}
+		}
+	}
+
+	LLMemTracker::getInstance()->postDraw() ;
+#endif
 
 #if MEM_TRACK_TYPE
 

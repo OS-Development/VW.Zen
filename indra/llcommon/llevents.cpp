@@ -4,8 +4,25 @@
  * @date   2008-09-12
  * @brief  Implementation for llevents.
  * 
- * $LicenseInfo:firstyear=2008&license=viewergpl$
- * Copyright (c) 2008, Linden Research, Inc.
+ * $LicenseInfo:firstyear=2008&license=viewerlgpl$
+ * Second Life Viewer Source Code
+ * Copyright (C) 2010, Linden Research, Inc.
+ * 
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
+ * 
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -38,6 +55,12 @@
 #pragma warning (pop)
 #endif
 // other Linden headers
+#include "stringize.h"
+#include "llerror.h"
+#include "llsdutil.h"
+#if LL_MSVC
+#pragma warning (disable : 4702)
+#endif
 
 /*****************************************************************************
 *   queue_names: specify LLEventPump names that should be instantiated as
@@ -56,14 +79,12 @@ const char* queue_names[] =
 /*****************************************************************************
 *   If there's a "mainloop" pump, listen on that to flush all LLEventQueues
 *****************************************************************************/
-struct RegisterFlush
+struct RegisterFlush : public LLEventTrackable
 {
     RegisterFlush():
-        pumps(LLEventPumps::instance()),
-        mainloop(pumps.obtain("mainloop")),
-        name("flushLLEventQueues")
+        pumps(LLEventPumps::instance())
     {
-        mainloop.listen(name, boost::bind(&RegisterFlush::flush, this, _1));
+        pumps.obtain("mainloop").listen("flushLLEventQueues", boost::bind(&RegisterFlush::flush, this, _1));
     }
     bool flush(const LLSD&)
     {
@@ -72,11 +93,9 @@ struct RegisterFlush
     }
     ~RegisterFlush()
     {
-        mainloop.stopListening(name);
+        // LLEventTrackable handles stopListening for us.
     }
     LLEventPumps& pumps;
-    LLEventPump& mainloop;
-    const std::string name;
 };
 static RegisterFlush registerFlush;
 
@@ -121,6 +140,16 @@ void LLEventPumps::flush()
     for (PumpMap::iterator pmi = mPumpMap.begin(), pmend = mPumpMap.end(); pmi != pmend; ++pmi)
     {
         pmi->second->flush();
+    }
+}
+
+void LLEventPumps::reset()
+{
+    // Reset every known LLEventPump instance. Leave it up to each instance to
+    // decide what to do with the reset() call.
+    for (PumpMap::iterator pmi = mPumpMap.begin(), pmend = mPumpMap.end(); pmi != pmend; ++pmi)
+    {
+        pmi->second->reset();
     }
 }
 
@@ -240,6 +269,7 @@ LLEventPumps::~LLEventPumps()
 LLEventPump::LLEventPump(const std::string& name, bool tweak):
     // Register every new instance with LLEventPumps
     mName(LLEventPumps::instance().registerNew(*this, name, tweak)),
+    mSignal(new LLStandardSignal()),
     mEnabled(true)
 {}
 
@@ -255,6 +285,19 @@ LLEventPump::~LLEventPump()
 
 // static data member
 const LLEventPump::NameList LLEventPump::empty;
+
+std::string LLEventPump::inventName(const std::string& pfx)
+{
+    static long suffix = 0;
+    return STRINGIZE(pfx << suffix++);
+}
+
+void LLEventPump::reset()
+{
+    mSignal.reset();
+    mConnections.clear();
+    //mDeps.clear();
+}
 
 LLBoundListener LLEventPump::listen_impl(const std::string& name, const LLEventListener& listener,
                                          const NameList& after,
@@ -397,7 +440,7 @@ LLBoundListener LLEventPump::listen_impl(const std::string& name, const LLEventL
     }
     // Now that newNode has a value that places it appropriately in mSignal,
     // connect it.
-    LLBoundListener bound = mSignal.connect(newNode, listener);
+    LLBoundListener bound = mSignal->connect(newNode, listener);
     mConnections[name] = bound;
     return bound;
 }
@@ -432,12 +475,26 @@ void LLEventPump::stopListening(const std::string& name)
 *****************************************************************************/
 bool LLEventStream::post(const LLSD& event)
 {
-    if (! mEnabled)
+    if (! mEnabled || !mSignal)
+    {
         return false;
+    }
+    // NOTE NOTE NOTE: Any new access to member data beyond this point should
+    // cause us to move our LLStandardSignal object to a pimpl class along
+    // with said member data. Then the local shared_ptr will preserve both.
+
+    // DEV-43463: capture a local copy of mSignal. We've turned up a
+    // cross-coroutine scenario (described in the Jira) in which this post()
+    // call could end up destroying 'this', the LLEventPump subclass instance
+    // containing mSignal, during the call through *mSignal. So -- capture a
+    // *stack* instance of the shared_ptr, ensuring that our heap
+    // LLStandardSignal object will live at least until post() returns, even
+    // if 'this' gets destroyed during the call.
+    boost::shared_ptr<LLStandardSignal> signal(mSignal);
     // Let caller know if any one listener handled the event. This is mostly
     // useful when using LLEventStream as a listener for an upstream
     // LLEventPump.
-    return mSignal(event);
+    return (*signal)(event);
 }
 
 /*****************************************************************************
@@ -458,6 +515,8 @@ bool LLEventQueue::post(const LLSD& event)
 
 void LLEventQueue::flush()
 {
+	if(!mSignal) return;
+		
     // Consider the case when a given listener on this LLEventQueue posts yet
     // another event on the same queue. If we loop over mEventQueue directly,
     // we'll end up processing all those events during the same flush() call
@@ -466,9 +525,16 @@ void LLEventQueue::flush()
     // be processed in the *next* flush() call.
     EventQueue queue(mEventQueue);
     mEventQueue.clear();
+    // NOTE NOTE NOTE: Any new access to member data beyond this point should
+    // cause us to move our LLStandardSignal object to a pimpl class along
+    // with said member data. Then the local shared_ptr will preserve both.
+
+    // DEV-43463: capture a local copy of mSignal. See LLEventStream::post()
+    // for detailed comments.
+    boost::shared_ptr<LLStandardSignal> signal(mSignal);
     for ( ; ! queue.empty(); queue.pop_front())
     {
-        mSignal(queue.front());
+        (*signal)(queue.front());
     }
 }
 
@@ -498,4 +564,40 @@ bool LLListenerOrPumpName::operator()(const LLSD& event) const
         throw Empty("attempting to call uninitialized");
     }
     return (*mListener)(event);
+}
+
+void LLReqID::stamp(LLSD& response) const
+{
+    if (! (response.isUndefined() || response.isMap()))
+    {
+        // If 'response' was previously completely empty, it's okay to
+        // turn it into a map. If it was already a map, then it should be
+        // okay to add a key. But if it was anything else (e.g. a scalar),
+        // assigning a ["reqid"] key will DISCARD the previous value,
+        // replacing it with a map. That would be Bad.
+        LL_INFOS("LLReqID") << "stamp(" << mReqid << ") leaving non-map response unmodified: "
+                            << response << LL_ENDL;
+        return;
+    }
+    LLSD oldReqid(response["reqid"]);
+    if (! (oldReqid.isUndefined() || llsd_equals(oldReqid, mReqid)))
+    {
+        LL_INFOS("LLReqID") << "stamp(" << mReqid << ") preserving existing [\"reqid\"] value "
+                            << oldReqid << " in response: " << response << LL_ENDL;
+        return;
+    }
+    response["reqid"] = mReqid;
+}
+
+bool sendReply(const LLSD& reply, const LLSD& request, const std::string& replyKey)
+{
+    // Copy 'reply' to modify it.
+    LLSD newreply(reply);
+    // Get the ["reqid"] element from request
+    LLReqID reqID(request);
+    // and copy it to 'newreply'.
+    reqID.stamp(newreply);
+    // Send reply on LLEventPump named in request[replyKey]. Don't forget to
+    // send the modified 'newreply' instead of the original 'reply'.
+    return LLEventPumps::instance().obtain(request[replyKey]).post(newreply);
 }

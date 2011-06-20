@@ -2,31 +2,25 @@
  * @file llpanelgroupgeneral.cpp
  * @brief General information about a group.
  *
- * $LicenseInfo:firstyear=2006&license=viewergpl$
- * 
- * Copyright (c) 2006-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2006&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -37,50 +31,43 @@
 #include "lluictrlfactory.h"
 #include "llagent.h"
 #include "roles_constants.h"
-#include "llfloatergroupinfo.h"
 
 // UI elements
 #include "llbutton.h"
 #include "llcheckboxctrl.h"
 #include "llcombobox.h"
 #include "lldbstrings.h"
-#include "llfriendactions.h"
+#include "llavataractions.h"
+#include "llgroupactions.h"
 #include "lllineeditor.h"
-#include "llnamebox.h"
 #include "llnamelistctrl.h"
+#include "llnotificationsutil.h"
 #include "llscrolllistitem.h"
 #include "llspinctrl.h"
-#include "llstatusbar.h"	// can_afford_transaction()
+#include "llslurl.h"
 #include "lltextbox.h"
 #include "lltexteditor.h"
 #include "lltexturectrl.h"
 #include "lltrans.h"
 #include "llviewerwindow.h"
 
+static LLRegisterPanelClassWrapper<LLPanelGroupGeneral> t_panel_group_general("panel_group_general");
+
 // consts
 const S32 MATURE_CONTENT = 1;
 const S32 NON_MATURE_CONTENT = 2;
 const S32 DECLINE_TO_STATE = 0;
 
-// static
-void* LLPanelGroupGeneral::createTab(void* data)
-{
-	LLUUID* group_id = static_cast<LLUUID*>(data);
-	return new LLPanelGroupGeneral(*group_id);
-}
 
-
-LLPanelGroupGeneral::LLPanelGroupGeneral(const LLUUID& group_id)
-:	LLPanelGroupTab(group_id),
+LLPanelGroupGeneral::LLPanelGroupGeneral()
+:	LLPanelGroupTab(),
 	mPendingMemberUpdate(FALSE),
 	mChanged(FALSE),
 	mFirstUse(TRUE),
 	mGroupNameEditor(NULL),
-	mGroupName(NULL),
 	mFounderName(NULL),
 	mInsignia(NULL),
 	mEditCharter(NULL),
-	mBtnJoinGroup(NULL),
 	mListVisibleMembers(NULL),
 	mCtrlShowInGroupList(NULL),
 	mComboMature(NULL),
@@ -103,43 +90,23 @@ BOOL LLPanelGroupGeneral::postBuild()
 {
 	bool recurse = true;
 
-	// General info
-	mGroupNameEditor = getChild<LLLineEditor>("group_name_editor", recurse);
-	mGroupName = getChild<LLTextBox>("group_name", recurse);
-	
-	mInsignia = getChild<LLTextureCtrl>("insignia", recurse);
-	if (mInsignia)
-	{
-		mInsignia->setCommitCallback(onCommitAny, this);
-		mDefaultIconID = mInsignia->getImageAssetID();
-	}
-	
 	mEditCharter = getChild<LLTextEditor>("charter", recurse);
 	if(mEditCharter)
 	{
 		mEditCharter->setCommitCallback(onCommitAny, this);
-		mEditCharter->setFocusReceivedCallback(onFocusEdit, this);
-		mEditCharter->setFocusChangedCallback(onFocusEdit, this);
+		mEditCharter->setFocusReceivedCallback(boost::bind(onFocusEdit, _1, this));
+		mEditCharter->setFocusChangedCallback(boost::bind(onFocusEdit, _1, this));
 	}
 
-	mBtnJoinGroup = getChild<LLButton>("join_button", recurse);
-	if ( mBtnJoinGroup )
-	{
-		mBtnJoinGroup->setClickedCallback(onClickJoin, this);
-	}
 
-	mBtnInfo = getChild<LLButton>("info_button", recurse);
-	if ( mBtnInfo )
-	{
-		mBtnInfo->setClickedCallback(onClickInfo, this);
-	}
-
-	mFounderName = getChild<LLNameBox>("founder_name");
 
 	mListVisibleMembers = getChild<LLNameListCtrl>("visible_members", recurse);
 	if (mListVisibleMembers)
 	{
 		mListVisibleMembers->setDoubleClickCallback(openProfile, this);
+		mListVisibleMembers->setContextMenu(LLScrollListCtrl::MENU_AVATAR);
+		
+		mListVisibleMembers->setSortCallback(boost::bind(&LLPanelGroupGeneral::sortMembersList,this,_1,_2,_3));
 	}
 
 	// Options
@@ -211,17 +178,14 @@ BOOL LLPanelGroupGeneral::postBuild()
 	mComboActiveTitle = getChild<LLComboBox>("active_title", recurse);
 	if (mComboActiveTitle)
 	{
-		mComboActiveTitle->setCommitCallback(onCommitTitle, this);
-		mComboActiveTitle->resetDirty();
+		mComboActiveTitle->setCommitCallback(onCommitAny, this);
 	}
 
 	mIncompleteMemberDataStr = getString("incomplete_member_data_str");
-	mConfirmGroupCreateStr = getString("confirm_group_create_str");
 
 	// If the group_id is null, then we are creating a new group
 	if (mGroupID.isNull())
 	{
-		mGroupNameEditor->setEnabled(TRUE);
 		mEditCharter->setEnabled(TRUE);
 
 		mCtrlShowInGroupList->setEnabled(TRUE);
@@ -230,12 +194,25 @@ BOOL LLPanelGroupGeneral::postBuild()
 		mCtrlEnrollmentFee->setEnabled(TRUE);
 		mSpinEnrollmentFee->setEnabled(TRUE);
 
-		mBtnJoinGroup->setVisible(FALSE);
-		mBtnInfo->setVisible(FALSE);
-		mGroupName->setVisible(FALSE);
 	}
 
 	return LLPanelGroupTab::postBuild();
+}
+
+void LLPanelGroupGeneral::setupCtrls(LLPanel* panel_group)
+{
+	mInsignia = getChild<LLTextureCtrl>("insignia");
+	if (mInsignia)
+	{
+		mInsignia->setCommitCallback(onCommitAny, this);
+	}
+	mFounderName = getChild<LLTextBox>("founder_name");
+
+
+	mGroupNameEditor = panel_group->getChild<LLLineEditor>("group_name_editor");
+	mGroupNameEditor->setPrevalidate( LLTextValidate::validateASCII );
+	
+
 }
 
 // static
@@ -294,16 +271,6 @@ void LLPanelGroupGeneral::onCommitEnrollment(LLUICtrl* ctrl, void* data)
 }
 
 // static
-void LLPanelGroupGeneral::onCommitTitle(LLUICtrl* ctrl, void* data)
-{
-	LLPanelGroupGeneral* self = (LLPanelGroupGeneral*)data;
-	if (self->mGroupID.isNull() || !self->mAllowEdit) return;
-	LLGroupMgr::getInstance()->sendGroupTitleUpdate(self->mGroupID,self->mComboActiveTitle->getCurrentID());
-	self->update(GC_TITLES);
-	self->mComboActiveTitle->resetDirty();
-}
-
-// static
 void LLPanelGroupGeneral::onClickInfo(void *userdata)
 {
 	LLPanelGroupGeneral *self = (LLPanelGroupGeneral *)userdata;
@@ -312,57 +279,8 @@ void LLPanelGroupGeneral::onClickInfo(void *userdata)
 
 	lldebugs << "open group info: " << self->mGroupID << llendl;
 
-	LLFloaterGroupInfo::showFromUUID(self->mGroupID);
-}
+	LLGroupActions::show(self->mGroupID);
 
-// static
-void LLPanelGroupGeneral::onClickJoin(void *userdata)
-{
-	LLPanelGroupGeneral *self = (LLPanelGroupGeneral *)userdata;
-
-	if ( !self ) return;
-
-	lldebugs << "joining group: " << self->mGroupID << llendl;
-
-	LLGroupMgrGroupData* gdatap = LLGroupMgr::getInstance()->getGroupData(self->mGroupID);
-
-	if (gdatap)
-	{
-		S32 cost = gdatap->mMembershipFee;
-		LLSD args;
-		args["COST"] = llformat("%d", cost);
-		LLSD payload;
-		payload["group_id"] = self->mGroupID;
-
-		if (can_afford_transaction(cost))
-		{
-			LLNotifications::instance().add("JoinGroupCanAfford", args, payload, LLPanelGroupGeneral::joinDlgCB);
-		}
-		else
-		{
-			LLNotifications::instance().add("JoinGroupCannotAfford", args, payload);
-		}
-	}
-	else
-	{
-		llwarns << "LLGroupMgr::getInstance()->getGroupData(" << self->mGroupID
-			<< ") was NULL" << llendl;
-	}
-}
-
-// static
-bool LLPanelGroupGeneral::joinDlgCB(const LLSD& notification, const LLSD& response)
-{
-	S32 option = LLNotification::getSelectedOption(notification, response);
-
-	if (option == 1)
-	{
-		// user clicked cancel
-		return false;
-	}
-
-	LLGroupMgr::getInstance()->sendGroupMemberJoin(notification["payload"]["group_id"].asUUID());
-	return false;
 }
 
 // static
@@ -375,7 +293,7 @@ void LLPanelGroupGeneral::openProfile(void* data)
 		LLScrollListItem* selected = self->mListVisibleMembers->getFirstSelected();
 		if (selected)
 		{
-			LLFriendActions::showProfile(selected->getUUID());
+			LLAvatarActions::showProfile(selected->getUUID());
 		}
 	}
 }
@@ -421,6 +339,13 @@ void LLPanelGroupGeneral::draw()
 
 bool LLPanelGroupGeneral::apply(std::string& mesg)
 {
+	if (!mGroupID.isNull() && mAllowEdit && mComboActiveTitle && mComboActiveTitle->isDirty())
+	{
+		LLGroupMgr::getInstance()->sendGroupTitleUpdate(mGroupID,mComboActiveTitle->getCurrentID());
+		update(GC_TITLES);
+		mComboActiveTitle->resetDirty();
+	}
+
 	BOOL has_power_in_group = gAgent.hasPowerInGroup(mGroupID,GP_GROUP_CHANGE_IDENTITY);
 
 	if (has_power_in_group || mGroupID.isNull())
@@ -431,7 +356,7 @@ bool LLPanelGroupGeneral::apply(std::string& mesg)
 		if(mComboMature &&
 		   mComboMature->getCurrentIndex() == DECLINE_TO_STATE)
 		{
-			LLNotifications::instance().add("SetGroupMature", LLSD(), LLSD(), 
+			LLNotificationsUtil::add("SetGroupMature", LLSD(), LLSD(), 
 											boost::bind(&LLPanelGroupGeneral::confirmMatureApply, this, _1, _2));
 			return false;
 		}
@@ -450,9 +375,7 @@ bool LLPanelGroupGeneral::apply(std::string& mesg)
 				return false;
 			}
 
-			LLSD args;
-			args["MESSAGE"] = mConfirmGroupCreateStr;
-			LLNotifications::instance().add("GenericAlertYesCancel", args, LLSD(), boost::bind(&LLPanelGroupGeneral::createGroupCallback, this, _1, _2));
+			LLNotificationsUtil::add("CreateGroupCost",  LLSD(), LLSD(), boost::bind(&LLPanelGroupGeneral::createGroupCallback, this, _1, _2));
 
 			return false;
 		}
@@ -515,6 +438,8 @@ bool LLPanelGroupGeneral::apply(std::string& mesg)
 
 	gAgent.setUserGroupFlags(mGroupID, receive_notices, list_in_profile);
 
+	resetDirty();
+
 	mChanged = FALSE;
 
 	return true;
@@ -532,7 +457,7 @@ void LLPanelGroupGeneral::cancel()
 // invoked from callbackConfirmMature
 bool LLPanelGroupGeneral::confirmMatureApply(const LLSD& notification, const LLSD& response)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	// 0 == Yes
 	// 1 == No
 	// 2 == Cancel
@@ -550,14 +475,21 @@ bool LLPanelGroupGeneral::confirmMatureApply(const LLSD& notification, const LLS
 
 	// If we got here it means they set a valid value
 	std::string mesg = "";
-	apply(mesg);
-	return false;
+	bool ret = apply(mesg);
+	if ( !mesg.empty() )
+	{
+		LLSD args;
+		args["MESSAGE"] = mesg;
+		LLNotificationsUtil::add("GenericAlert", args);
+	}
+
+	return ret;
 }
 
 // static
 bool LLPanelGroupGeneral::createGroupCallback(const LLSD& notification, const LLSD& response)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	switch(option)
 	{
 	case 0:
@@ -645,7 +577,6 @@ void LLPanelGroupGeneral::update(LLGroupChange gc)
 			}
 		}
 
-		mComboActiveTitle->resetDirty();
 	}
 
 	// If this was just a titles update, we are done.
@@ -660,8 +591,6 @@ void LLPanelGroupGeneral::update(LLGroupChange gc)
 	{
 		mCtrlShowInGroupList->set(gdatap->mShowInList);
 		mCtrlShowInGroupList->setEnabled(mAllowEdit && can_change_ident);
-		mCtrlShowInGroupList->resetDirty();
-
 	}
 	if (mComboMature)
 	{
@@ -675,19 +604,16 @@ void LLPanelGroupGeneral::update(LLGroupChange gc)
 		}
 		mComboMature->setEnabled(mAllowEdit && can_change_ident);
 		mComboMature->setVisible( !gAgent.isTeen() );
-		mComboMature->resetDirty();
 	}
 	if (mCtrlOpenEnrollment) 
 	{
 		mCtrlOpenEnrollment->set(gdatap->mOpenEnrollment);
 		mCtrlOpenEnrollment->setEnabled(mAllowEdit && can_change_member_opts);
-		mCtrlOpenEnrollment->resetDirty();
 	}
 	if (mCtrlEnrollmentFee) 
 	{	
 		mCtrlEnrollmentFee->set(gdatap->mMembershipFee > 0);
 		mCtrlEnrollmentFee->setEnabled(mAllowEdit && can_change_member_opts);
-		mCtrlEnrollmentFee->resetDirty();
 	}
 	
 	if (mSpinEnrollmentFee)
@@ -697,30 +623,7 @@ void LLPanelGroupGeneral::update(LLGroupChange gc)
 		mSpinEnrollmentFee->setEnabled( mAllowEdit &&
 						(fee > 0) &&
 						can_change_member_opts);
-		mSpinEnrollmentFee->resetDirty();
 	}
-	if ( mBtnJoinGroup )
-	{
-		std::string fee_buff;
-		bool visible;
-
-		visible = !is_member && gdatap->mOpenEnrollment;
-		mBtnJoinGroup->setVisible(visible);
-
-		if ( visible )
-		{
-			LLStringUtil::format_map_t string_args;
-			string_args["[AMOUNT]"] = llformat("%d", gdatap->mMembershipFee);
-			fee_buff = getString("group_join_btn", string_args);
-			mBtnJoinGroup->setLabelSelected(fee_buff);
-			mBtnJoinGroup->setLabelUnselected(fee_buff);
-		}
-	}
-	if ( mBtnInfo )
-	{
-		mBtnInfo->setVisible(is_member && !mAllowEdit);
-	}
-
 	if (mCtrlReceiveNotices)
 	{
 		mCtrlReceiveNotices->setVisible(is_member);
@@ -728,16 +631,14 @@ void LLPanelGroupGeneral::update(LLGroupChange gc)
 		{
 			mCtrlReceiveNotices->setEnabled(mAllowEdit);
 		}
-		mCtrlReceiveNotices->resetDirty();
 	}
 
 
 	if (mInsignia) mInsignia->setEnabled(mAllowEdit && can_change_ident);
 	if (mEditCharter) mEditCharter->setEnabled(mAllowEdit && can_change_ident);
 	
-	if (mGroupName) mGroupName->setText(gdatap->mName);
 	if (mGroupNameEditor) mGroupNameEditor->setVisible(FALSE);
-	if (mFounderName) mFounderName->setNameID(gdatap->mFounderID,FALSE);
+	if (mFounderName) mFounderName->setText(LLSLURL("agent", gdatap->mFounderID, "inspect").getSLURLString());
 	if (mInsignia)
 	{
 		if (gdatap->mInsigniaID.notNull())
@@ -746,14 +647,13 @@ void LLPanelGroupGeneral::update(LLGroupChange gc)
 		}
 		else
 		{
-			mInsignia->setImageAssetID(mDefaultIconID);
+			mInsignia->setImageAssetName(mInsignia->getDefaultImageName());
 		}
 	}
 
 	if (mEditCharter)
 	{
 		mEditCharter->setText(gdatap->mCharter);
-		mEditCharter->resetDirty();
 	}
 	
 	if (mListVisibleMembers)
@@ -776,11 +676,14 @@ void LLPanelGroupGeneral::update(LLGroupChange gc)
 
 			LLSD row;
 			row["columns"][0]["value"] = pending.str();
+			row["columns"][0]["column"] = "name";
 
 			mListVisibleMembers->setEnabled(FALSE);
 			mListVisibleMembers->addElement(row);
 		}
 	}
+
+	resetDirty();
 }
 
 void LLPanelGroupGeneral::updateMembers()
@@ -790,7 +693,8 @@ void LLPanelGroupGeneral::updateMembers()
 	LLGroupMgrGroupData* gdatap = LLGroupMgr::getInstance()->getGroupData(mGroupID);
 
 	if (!mListVisibleMembers || !gdatap 
-		|| !gdatap->isMemberDataComplete())
+		|| !gdatap->isMemberDataComplete()
+		|| gdatap->mMembers.empty())
 	{
 		return;
 	}
@@ -813,31 +717,38 @@ void LLPanelGroupGeneral::updateMembers()
 		}
 		// Owners show up in bold.
 		std::string style = "NORMAL";
-		if ( member->isOwner() )
-		{
-			style = "BOLD";
-		}
-		
 		sd_timer.reset();
 		LLSD row;
 		row["id"] = member->getID();
 
 		row["columns"][0]["column"] = "name";
+		row["columns"][0]["font"]["name"] = "SANSSERIF_SMALL";
 		row["columns"][0]["font"]["style"] = style;
 		// value is filled in by name list control
 
 		row["columns"][1]["column"] = "title";
 		row["columns"][1]["value"] = member->getTitle();
+		row["columns"][1]["font"]["name"] = "SANSSERIF_SMALL";
 		row["columns"][1]["font"]["style"] = style;
+
+		std::string status = member->getOnlineStatus();
 		
-		row["columns"][2]["column"] = "online";
-		row["columns"][2]["value"] = member->getOnlineStatus();
+		row["columns"][2]["column"] = "status";
+		row["columns"][2]["value"] = status;
+		row["columns"][2]["font"]["name"] = "SANSSERIF_SMALL";
 		row["columns"][2]["font"]["style"] = style;
 
 		sSDTime += sd_timer.getElapsedTimeF32();
 
 		element_timer.reset();
-		mListVisibleMembers->addElement(row);//, ADD_SORTED);
+		LLScrollListItem* member_row = mListVisibleMembers->addElement(row);
+		
+		if ( member->isOwner() )
+		{
+			LLScrollListText* name_textp = dynamic_cast<LLScrollListText*>(member_row->getColumn(0));
+			if (name_textp)
+				name_textp->setFontStyle(LLFontGL::BOLD);
+		}
 		sElementTime += element_timer.getElapsedTimeF32();
 	}
 	sAllTime += all_timer.getElapsedTimeF32();
@@ -865,7 +776,6 @@ void LLPanelGroupGeneral::updateChanged()
 	LLUICtrl *check_list[] =
 	{
 		mGroupNameEditor,
-		mGroupName,
 		mFounderName,
 		mInsignia,
 		mEditCharter,
@@ -890,4 +800,160 @@ void LLPanelGroupGeneral::updateChanged()
 			break;
 		}
 	}
+}
+
+void LLPanelGroupGeneral::reset()
+{
+	mFounderName->setVisible(false);
+
+	
+	mCtrlReceiveNotices->set(false);
+	
+	
+	mCtrlListGroup->set(true);
+	
+	mCtrlReceiveNotices->setEnabled(false);
+	mCtrlReceiveNotices->setVisible(true);
+
+	mCtrlListGroup->setEnabled(false);
+
+	mGroupNameEditor->setEnabled(TRUE);
+	mEditCharter->setEnabled(TRUE);
+
+	mCtrlShowInGroupList->setEnabled(false);
+	mComboMature->setEnabled(TRUE);
+	
+	mCtrlOpenEnrollment->setEnabled(TRUE);
+	
+	mCtrlEnrollmentFee->setEnabled(TRUE);
+	
+	mSpinEnrollmentFee->setEnabled(TRUE);
+	mSpinEnrollmentFee->set((F32)0);
+
+	mGroupNameEditor->setVisible(true);
+
+	mComboActiveTitle->setVisible(false);
+
+	mInsignia->setImageAssetID(LLUUID::null);
+	
+	mInsignia->setEnabled(true);
+
+	mInsignia->setImageAssetName(mInsignia->getDefaultImageName());
+
+	{
+		std::string empty_str = "";
+		mEditCharter->setText(empty_str);
+		mGroupNameEditor->setText(empty_str);
+	}
+	
+	{
+		LLSD row;
+		row["columns"][0]["value"] = "no members yet";
+		row["columns"][0]["column"] = "name";
+
+		mListVisibleMembers->deleteAllItems();
+		mListVisibleMembers->setEnabled(FALSE);
+		mListVisibleMembers->addElement(row);
+	}
+
+
+	{
+		mComboMature->setEnabled(true);
+		mComboMature->setVisible( !gAgent.isTeen() );
+		mComboMature->selectFirstItem();
+	}
+
+
+	resetDirty();
+}
+
+void	LLPanelGroupGeneral::resetDirty()
+{
+	// List all the controls we want to check for changes...
+	LLUICtrl *check_list[] =
+	{
+		mGroupNameEditor,
+		mFounderName,
+		mInsignia,
+		mEditCharter,
+		mCtrlShowInGroupList,
+		mComboMature,
+		mCtrlOpenEnrollment,
+		mCtrlEnrollmentFee,
+		mSpinEnrollmentFee,
+		mCtrlReceiveNotices,
+		mCtrlListGroup,
+		mActiveTitleLabel,
+		mComboActiveTitle
+	};
+
+	for( size_t i=0; i<LL_ARRAY_SIZE(check_list); i++ )
+	{
+		if( check_list[i] )
+			check_list[i]->resetDirty() ;
+	}
+
+
+}
+
+void LLPanelGroupGeneral::setGroupID(const LLUUID& id)
+{
+	LLPanelGroupTab::setGroupID(id);
+
+	if(id == LLUUID::null)
+	{
+		reset();
+		return;
+	}
+
+	BOOL accept_notices = FALSE;
+	BOOL list_in_profile = FALSE;
+	LLGroupData data;
+	if(gAgent.getGroupData(mGroupID,data))
+	{
+		accept_notices = data.mAcceptNotices;
+		list_in_profile = data.mListInProfile;
+	}
+	mCtrlReceiveNotices = getChild<LLCheckBoxCtrl>("receive_notices");
+	if (mCtrlReceiveNotices)
+	{
+		mCtrlReceiveNotices->set(accept_notices);
+		mCtrlReceiveNotices->setEnabled(data.mID.notNull());
+	}
+	
+	mCtrlListGroup = getChild<LLCheckBoxCtrl>("list_groups_in_profile");
+	if (mCtrlListGroup)
+	{
+		mCtrlListGroup->set(list_in_profile);
+		mCtrlListGroup->setEnabled(data.mID.notNull());
+	}
+
+	mCtrlShowInGroupList->setEnabled(data.mID.notNull());
+
+	mActiveTitleLabel = getChild<LLTextBox>("active_title_label");
+	
+	mComboActiveTitle = getChild<LLComboBox>("active_title");
+
+	mFounderName->setVisible(true);
+
+	mInsignia->setImageAssetID(LLUUID::null);
+
+	resetDirty();
+
+	activate();
+}
+S32 LLPanelGroupGeneral::sortMembersList(S32 col_idx,const LLScrollListItem* i1,const LLScrollListItem* i2)
+{
+	const LLScrollListCell *cell1 = i1->getColumn(col_idx);
+	const LLScrollListCell *cell2 = i2->getColumn(col_idx);
+
+	if(col_idx == 2)
+	{
+		if(LLStringUtil::compareDict(cell1->getValue().asString(),"Online") == 0 )
+			return 1;
+		if(LLStringUtil::compareDict(cell2->getValue().asString(),"Online") == 0 )
+			return -1;
+	}
+
+	return LLStringUtil::compareDict(cell1->getValue().asString(), cell2->getValue().asString());
 }

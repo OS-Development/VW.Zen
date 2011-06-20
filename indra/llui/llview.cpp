@@ -3,36 +3,31 @@
  * @author James Cook
  * @brief Container for other views, anything that draws.
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
 #include "linden_common.h"
 
+#define LLVIEW_CPP
 #include "llview.h"
 
 #include <cassert>
@@ -40,7 +35,6 @@
 
 #include "llrender.h"
 #include "llevent.h"
-#include "llfontgl.h"
 #include "llfocusmgr.h"
 #include "llrect.h"
 #include "llstl.h"
@@ -49,6 +43,7 @@
 #include "llwindow.h"
 #include "v3color.h"
 #include "lluictrlfactory.h"
+#include "lltooltip.h"
 
 // for ui edit hack
 #include "llbutton.h"
@@ -56,24 +51,36 @@
 #include "lltexteditor.h"
 #include "lltextbox.h"
 
-BOOL	LLView::sDebugRects = FALSE;
-BOOL	LLView::sDebugKeys = FALSE;
 S32		LLView::sDepth = 0;
-BOOL	LLView::sDebugMouseHandling = FALSE;
+bool	LLView::sDebugRects = false;
+bool	LLView::sDebugRectsShowNames = true;
+bool	LLView::sDebugKeys = false;
+bool	LLView::sDebugMouseHandling = false;
 std::string LLView::sMouseHandlerMessage;
-//BOOL	LLView::sEditingUI = FALSE;
 BOOL	LLView::sForceReshape = FALSE;
-//LLView*	LLView::sEditingUIView = NULL;
 std::set<LLView*> LLView::sPreviewHighlightedElements;
 BOOL LLView::sHighlightingDiffs = FALSE;
 LLView* LLView::sPreviewClickedElement = NULL;
 BOOL	LLView::sDrawPreviewHighlights = FALSE;
 S32		LLView::sLastLeftXML = S32_MIN;
 S32		LLView::sLastBottomXML = S32_MIN;
+std::vector<LLViewDrawContext*> LLViewDrawContext::sDrawContextStack;
 
-#if LL_DEBUG
+
+//#if LL_DEBUG
 BOOL LLView::sIsDrawing = FALSE;
-#endif
+//#endif
+
+// Compiler optimization, generate extern template
+template class LLView* LLView::getChild<class LLView>(
+	const std::string& name, BOOL recurse) const;
+
+static LLDefaultChildRegistry::Register<LLView> r("view");
+
+LLView::Follows::Follows()
+:   string(""),
+	flags("flags", FOLLOWS_LEFT | FOLLOWS_TOP)
+{}
 
 LLView::Params::Params()
 :	name("name", std::string("unnamed")),
@@ -87,9 +94,6 @@ LLView::Params::Params()
 	default_tab_group("default_tab_group"),
 	tool_tip("tool_tip"),
 	sound_flags("sound_flags", MOUSE_UP),
-	font("font", LLFontGL::getFontSansSerif()),
-	font_halign("halign"),
-	font_valign("valign"),
 	layout("layout"),
 	rect("rect"),
 	bottom_delta("bottom_delta", S32_MAX),
@@ -97,11 +101,8 @@ LLView::Params::Params()
 	top_delta("top_delta", S32_MAX),
 	left_pad("left_pad"),
 	left_delta("left_delta", S32_MAX),
-	center_horiz("center_horiz", false),
-	center_vert("center_vert", false),
 	from_xui("from_xui", false),
-	user_resize("user_resize"),
-	auto_resize("auto_resize"),
+	focus_root("focus_root", false),
 	needs_translate("translate"),
 	xmlns("xmlns"),
 	xmlns_xsi("xmlns:xsi"),
@@ -113,16 +114,16 @@ LLView::Params::Params()
 }
 
 LLView::LLView(const LLView::Params& p)
-:	mName(p.name),
+:	mVisible(p.visible),
+	mName(p.name),
 	mParentView(NULL),
 	mReshapeFlags(FOLLOWS_NONE),
-	mSaveToXML(p.from_xui),
-	mIsFocusRoot(FALSE),
+	mFromXUI(p.from_xui),
+	mIsFocusRoot(p.focus_root),
 	mLastVisible(FALSE),
 	mNextInsertionOrdinal(0),
 	mHoverCursor(getCursorFromString(p.hover_cursor)),
 	mEnabled(p.enabled),
-	mVisible(p.visible),
 	mMouseOpaque(p.mouse_opaque),
 	mSoundFlags(p.sound_flags),
 	mUseBoundingRect(p.use_bounding_rect),
@@ -138,17 +139,16 @@ LLView::LLView(const LLView::Params& p)
 
 LLView::~LLView()
 {
+	dirtyRect();
 	//llinfos << "Deleting view " << mName << ":" << (void*) this << llendl;
+	if (LLView::sIsDrawing)
+	{
+		lldebugs << "Deleting view " << mName << " during UI draw() phase" << llendl;
+	}
 // 	llassert(LLView::sIsDrawing == FALSE);
 	
 //	llassert_always(sDepth == 0); // avoid deleting views while drawing! It can subtly break list iterators
 	
-	if( gFocusMgr.getKeyboardFocus() == this )
-	{
-		//llwarns << "View holding keyboard focus deleted: " << getName() << ".  Keyboard focus removed." << llendl;
-		gFocusMgr.removeKeyboardFocusWithoutCallback( this );
-	}
-
 	if( hasMouseCapture() )
 	{
 		//llwarns << "View holding mouse capture deleted: " << getName() << ".  Mouse capture removed." << llendl;
@@ -164,17 +164,9 @@ LLView::~LLView()
 
 	if (mDefaultWidgets)
 	{
-		std::for_each(mDefaultWidgets->begin(), mDefaultWidgets->end(),
-					  DeletePairedPointer());
 		delete mDefaultWidgets;
 		mDefaultWidgets = NULL;
 	}
-}
-
-// virtual
-BOOL LLView::isView() const
-{
-	return TRUE;
 }
 
 // virtual
@@ -221,16 +213,15 @@ void LLView::setUseBoundingRect( BOOL use_bounding_rect )
 	}
 }
 
-BOOL LLView::getUseBoundingRect()
+BOOL LLView::getUseBoundingRect() const
 {
 	return mUseBoundingRect;
 }
 
 // virtual
-const std::string& LLView::getName() const
+std::string LLView::getName() const
 {
-	static const std::string unnamed("(no name)");
-	return mName.empty() ? unnamed : mName;
+	return mName.empty() ? std::string("(no name)") : mName;
 }
 
 void LLView::sendChildToFront(LLView* child)
@@ -347,7 +338,7 @@ void LLView::removeChild(LLView* child)
 	}
 	else
 	{
-		llerrs << "LLView::removeChild called with non-child" << llendl;
+		llwarns << child->getName() << "is not a child of " << getName() << llendl;
 	}
 	updateBoundingRect();
 }
@@ -401,28 +392,40 @@ bool LLCompareByTabOrder::operator() (const LLView* const a, const LLView* const
 	return (a_score == b_score) ? a < b : a_score < b_score;
 }
 
-bool LLView::trueToRoot(const boost::function<bool (const LLView*)>& predicate) const
-{
-	const LLView* cur_view = this;
-	while(cur_view)
-	{
-		if(!predicate(cur_view))
-		{
-			return false;
-		}
-		cur_view = cur_view->getParent();
-	}
-	return true;
-}
-
 BOOL LLView::isInVisibleChain() const
 {
-	return trueToRoot(&LLView::getVisible);
+	BOOL visible = TRUE;
+
+	const LLView* viewp = this;
+	while(viewp)
+	{
+		if (!viewp->getVisible())
+		{
+			visible = FALSE;
+			break;
+		}
+		viewp = viewp->getParent();
+	}
+	
+	return visible;
 }
 
 BOOL LLView::isInEnabledChain() const
 {
-	return trueToRoot(&LLView::getEnabled);
+	BOOL enabled = TRUE;
+
+	const LLView* viewp = this;
+	while(viewp)
+	{
+		if (!viewp->getEnabled())
+		{
+			enabled = FALSE;
+			break;
+		}
+		viewp = viewp->getParent();
+	}
+	
+	return enabled;
 }
 
 // virtual
@@ -432,20 +435,21 @@ BOOL LLView::canFocusChildren() const
 }
 
 //virtual
-void LLView::setTentative(BOOL b)
-{
-}
-
-//virtual
-BOOL LLView::getTentative() const
-{
-	return FALSE;
-}
-
-//virtual
 void LLView::setEnabled(BOOL enabled)
 {
 	mEnabled = enabled;
+}
+
+//virtual
+bool LLView::isAvailable() const
+{
+    return isInEnabledChain() && isInVisibleChain();
+}
+
+//static
+bool LLView::isAvailable(const LLView* view)
+{
+    return view && view->isAvailable();
 }
 
 //virtual
@@ -464,16 +468,6 @@ LLRect LLView::getSnapRect() const
 LLRect LLView::getRequiredRect()
 {
 	return mRect;
-}
-
-//virtual
-void LLView::onFocusLost()
-{
-}
-
-//virtual
-void LLView::onFocusReceived()
-{
 }
 
 BOOL LLView::focusNextRoot()
@@ -592,25 +586,21 @@ void LLView::setVisible(BOOL visible)
 {
 	if ( mVisible != visible )
 	{
-		if( !visible && (gFocusMgr.getTopCtrl() == this) )
-		{
-			gFocusMgr.setTopCtrl( NULL );
-		}
-
 		mVisible = visible;
 
 		// notify children of visibility change if root, or part of visible hierarchy
 		if (!getParent() || getParent()->isInVisibleChain())
 		{
 			// tell all children of this view that the visibility may have changed
-			onVisibilityChange( visible );
+			dirtyRect();
+			handleVisibilityChange( visible );
 		}
 		updateBoundingRect();
 	}
 }
 
 // virtual
-void LLView::onVisibilityChange ( BOOL new_visibility )
+void LLView::handleVisibilityChange ( BOOL new_visibility )
 {
 	for ( child_list_iter_t child_it = mChildList.begin(); child_it != mChildList.end(); ++child_it)
 	{
@@ -618,7 +608,7 @@ void LLView::onVisibilityChange ( BOOL new_visibility )
 		// only views that are themselves visible will have their overall visibility affected by their ancestors
 		if (viewp->getVisible())
 		{
-			viewp->onVisibilityChange ( new_visibility );
+			viewp->handleVisibilityChange ( new_visibility );
 		}
 	}
 }
@@ -643,16 +633,7 @@ void LLView::setSnappedTo(const LLView* snap_view)
 
 BOOL LLView::handleHover(S32 x, S32 y, MASK mask)
 {
-	BOOL handled = childrenHandleHover( x, y, mask ) != NULL;
-	if( !handled 
-		&& blockMouseEvent(x, y) )
-	{
-		LLUI::sWindow->setCursor(mHoverCursor);
-		lldebugst(LLERR_USER_INPUT) << "hover handled by " << getName() << llendl;
-		handled = TRUE;
-	}
-
-	return handled;
+	return childrenHandleHover( x, y, mask ) != NULL;
 }
 
 void LLView::onMouseEnter(S32 x, S32 y, MASK mask)
@@ -666,93 +647,91 @@ void LLView::onMouseLeave(S32 x, S32 y, MASK mask)
 }
 
 
-std::string LLView::getShowNamesToolTip()
+LLView* LLView::childrenHandleToolTip(S32 x, S32 y, MASK mask)
 {
-	LLView* view = getParent();
-	std::string name;
-	std::string tool_tip = mName;
-
-	while (view)
-	{
-		name = view->getName();
-
-		if (name == "root") break;
-
-		if (view->getToolTip().find(".xml") != std::string::npos)
-		{
-			tool_tip = view->getToolTip() + "/" +  tool_tip;
-			break;
-		}
-		else
-		{
-			tool_tip = view->getName() + "/" +  tool_tip;
-		}
-
-		view = view->getParent();
-	}
-
-	return "/" + tool_tip;
-}
-
-
-BOOL LLView::handleToolTip(S32 x, S32 y, std::string& msg, LLRect* sticky_rect_screen)
-{
-	BOOL handled = FALSE;
-
-	std::string tool_tip;
-
+	LLView* handled_view = NULL;
 	for ( child_list_iter_t child_it = mChildList.begin(); child_it != mChildList.end(); ++child_it)
 	{
 		LLView* viewp = *child_it;
-		S32 local_x = x - viewp->mRect.mLeft;
-		S32 local_y = y - viewp->mRect.mBottom;
-		// Allow tooltips for disabled views so we can explain to the user why
-		// the view is disabled. JC
-		if( viewp->pointInView(local_x, local_y) 
-			&& viewp->getVisible() 
-			// && viewp->getEnabled()
-			&& viewp->handleToolTip(local_x, local_y, msg, sticky_rect_screen ))
+		S32 local_x = x - viewp->getRect().mLeft;
+		S32 local_y = y - viewp->getRect().mBottom;
+		if(!viewp->pointInView(local_x, local_y) 
+			|| !viewp->getVisible())
 		{
-			// child provided a tooltip, just return
-			if (!msg.empty()) return TRUE;
+			continue;
+		}
 
-			// otherwise, one of our children ate the event so don't traverse
-			// siblings however, our child did not actually provide a tooltip
-            // so we might want to
-			handled = TRUE;
+		if (viewp->handleToolTip(local_x, local_y, mask) )
+		{
+			if (sDebugMouseHandling)
+			{
+				sMouseHandlerMessage = std::string("/") + viewp->mName + sMouseHandlerMessage;
+			}
+
+			handled_view = viewp;
+			break;
+		}
+
+		if (viewp->blockMouseEvent(local_x, local_y))
+		{
+			handled_view = viewp;
 			break;
 		}
 	}
+	return handled_view;
+}
 
-	// get our own tooltip
-	tool_tip = mToolTipMsg.getString();
-	
-	if (LLUI::sShowXUINames 
-		&& (tool_tip.find(".xml", 0) == std::string::npos) 
-		&& (mName.find("Drag", 0) == std::string::npos))
+
+LLView*	LLView::childFromPoint(S32 x, S32 y)
+{
+	if (!getVisible()  )
+		return false;
+	for ( child_list_iter_t child_it = mChildList.begin(); child_it != mChildList.end(); ++child_it)
 	{
-		tool_tip = getShowNamesToolTip();
+		LLView* viewp = *child_it;
+		S32 local_x = x - viewp->getRect().mLeft;
+		S32 local_y = y - viewp->getRect().mBottom;
+		if (!viewp->pointInView(local_x, local_y) 
+			|| !viewp->getVisible() )
+		{
+			continue;
+		}
+		return viewp;
+
+	}
+	return 0;
+}
+
+BOOL LLView::handleToolTip(S32 x, S32 y, MASK mask)
+{
+	BOOL handled = FALSE;
+
+	// parents provide tooltips first, which are optionally
+	// overridden by children, in case child is mouse_opaque
+	if (!mToolTipMsg.empty())
+	{
+		// allow "scrubbing" over ui by showing next tooltip immediately
+		// if previous one was still visible
+		F32 timeout = LLToolTipMgr::instance().toolTipVisible() 
+			? 0.f
+			: LLUI::sSettingGroups["config"]->getF32( "ToolTipDelay" );
+		LLToolTipMgr::instance().show(LLToolTip::Params()
+			.message(mToolTipMsg)
+			.sticky_rect(calcScreenRect())
+			.delay_time(timeout));
+
+		handled = TRUE;
 	}
 
-	if(!tool_tip.empty())
-	{
-		msg = tool_tip;
-
-		// Convert rect local to screen coordinates
-		*sticky_rect_screen = calcScreenRect();
-	}
-	// don't allow any siblings to handle this event
-	// even if we don't have a tooltip
-	if (getMouseOpaque() || 
-		(!tool_tip.empty() && 
-		 (!LLUI::sShowXUINames || dynamic_cast<LLTextBox*>(this))))
+	// child tooltips will override our own
+	LLView* child_handler = childrenHandleToolTip(x, y, mask);
+	if (child_handler)
 	{
 		handled = TRUE;
 	}
 
 	return handled;
 }
-
 BOOL LLView::handleKey(KEY key, MASK mask, BOOL called_from_parent)
 {
 	BOOL handled = FALSE;
@@ -833,20 +812,7 @@ BOOL LLView::handleDragAndDrop(S32 x, S32 y, MASK mask, BOOL drop,
 							   EAcceptance* accept,
 							   std::string& tooltip_msg)
 {
-	// CRO this is an experiment to allow drag and drop into object inventory based on the DragAndDrop tool's permissions rather than the parent
-	BOOL handled = childrenHandleDragAndDrop( x, y, mask, drop,
-											cargo_type,
-											cargo_data,
-											accept,
-											tooltip_msg) != NULL;
-	if( !handled && blockMouseEvent(x, y) )
-	{
-		*accept = ACCEPT_NO;
-		handled = TRUE;
-		lldebugst(LLERR_USER_INPUT) << "dragAndDrop handled by LLView " << getName() << llendl;
-	}
-
-	return handled;
+	return childrenHandleDragAndDrop( x, y, mask, drop, cargo_type, cargo_data, accept, tooltip_msg) != NULL;
 }
 
 LLView* LLView::childrenHandleDragAndDrop(S32 x, S32 y, MASK mask,
@@ -856,28 +822,33 @@ LLView* LLView::childrenHandleDragAndDrop(S32 x, S32 y, MASK mask,
 									   EAcceptance* accept,
 									   std::string& tooltip_msg)
 {
-	LLView* handled_view = FALSE;
-	// CRO this is an experiment to allow drag and drop into object inventory based on the DragAndDrop tool's permissions rather than the parent
-	if( getVisible() )
-//	if( getVisible() && getEnabled() )
+	LLView* handled_view = NULL;
+	for ( child_list_iter_t child_it = mChildList.begin(); child_it != mChildList.end(); ++child_it)
 	{
-		for ( child_list_iter_t child_it = mChildList.begin(); child_it != mChildList.end(); ++child_it)
+		LLView* viewp = *child_it;
+		S32 local_x = x - viewp->getRect().mLeft;
+		S32 local_y = y - viewp->getRect().mBottom;
+		if( !viewp->pointInView(local_x, local_y) ||
+			!viewp->getVisible() ||
+			!viewp->getEnabled())
 		{
-			LLView* viewp = *child_it;
-			S32 local_x = x - viewp->getRect().mLeft;
-			S32 local_y = y - viewp->getRect().mBottom;
-			if( viewp->pointInView(local_x, local_y) && 
-				viewp->getVisible() &&
-				viewp->getEnabled() &&
-				viewp->handleDragAndDrop(local_x, local_y, mask, drop,
-										 cargo_type,
-										 cargo_data,
-										 accept,
-										 tooltip_msg))
-			{
-				handled_view = viewp;
-				break;
-			}
+			continue;
+		}
+		if (viewp->handleDragAndDrop(local_x, local_y, mask, drop,
+									 cargo_type,
+									 cargo_data,
+									 accept,
+									 tooltip_msg))
+		{
+			handled_view = viewp;
+			break;
+		}
+
+		if (viewp->blockMouseEvent(x, y))
+		{
+			*accept = ACCEPT_NO;
+			handled_view = viewp;
+			break;
 		}
 	}
 	return handled_view;
@@ -894,110 +865,42 @@ BOOL LLView::hasMouseCapture()
 
 BOOL LLView::handleMouseUp(S32 x, S32 y, MASK mask)
 {
-	BOOL handled = childrenHandleMouseUp( x, y, mask ) != NULL;
-	if( !handled && blockMouseEvent(x, y) )
-	{
-		handled = TRUE;
-	}
-	return handled;
+	return childrenHandleMouseUp( x, y, mask ) != NULL;
 }
 
 BOOL LLView::handleMouseDown(S32 x, S32 y, MASK mask)
 {
-	LLView* handled_view = childrenHandleMouseDown( x, y, mask );
-	BOOL handled = (handled_view != NULL);
-	if( !handled && blockMouseEvent(x, y) )
-	{
-		handled = TRUE;
-		handled_view = this;
-	}
-
-	//// HACK If we're editing UI, select the leaf view that ate the click.
-	//if (sEditingUI && handled_view)
-	//{
-	//	// need to find leaf views, big hack
-	//	LLButton* buttonp = dynamic_cast<LLButton*>(handled_view);
-	//	LLLineEditor* line_editorp = dynamic_cast<LLLineEditor*>(handled_view);
-	//	LLTextEditor* text_editorp = dynamic_cast<LLTextEditor*>(handled_view);
-	//	LLTextBox* text_boxp = dynamic_cast<LLTextBox*>(handled_view);
-	//	if (buttonp
-	//		|| line_editorp
-	//		|| text_editorp
-	//		|| text_boxp)
-	//	{
-	//		sEditingUIView = handled_view;
-	//	}
-	//}
-
-	return handled;
+	return childrenHandleMouseDown( x, y, mask ) != NULL;
 }
 
 BOOL LLView::handleDoubleClick(S32 x, S32 y, MASK mask)
 {
-	BOOL handled = childrenHandleDoubleClick( x, y, mask ) != NULL;
-	if( !handled && blockMouseEvent(x, y) )
-	{
-		handleMouseDown(x, y, mask);
-		handled = TRUE;
-	}
-	return handled;
+	return childrenHandleDoubleClick( x, y, mask ) != NULL;
 }
 
 BOOL LLView::handleScrollWheel(S32 x, S32 y, S32 clicks)
 {
-	BOOL handled = FALSE;
-	if( getVisible() && getEnabled() )
-	{
-		handled = childrenHandleScrollWheel( x, y, clicks ) != NULL;
-		if( !handled && blockMouseEvent(x, y) )
-		{
-			handled = TRUE;
-		}
-	}
-	return handled;
+	return childrenHandleScrollWheel( x, y, clicks ) != NULL;
 }
 
 BOOL LLView::handleRightMouseDown(S32 x, S32 y, MASK mask)
 {
-	BOOL handled = childrenHandleRightMouseDown( x, y, mask ) != NULL;
-	if( !handled && blockMouseEvent(x, y) )
-	{
-		handled = TRUE;
-	}
-	return handled;
+	return childrenHandleRightMouseDown( x, y, mask ) != NULL;
 }
 
 BOOL LLView::handleRightMouseUp(S32 x, S32 y, MASK mask)
 {
-	BOOL handled = childrenHandleRightMouseUp( x, y, mask ) != NULL;
-	if( !handled && blockMouseEvent(x, y) )
-	{
-		handled = TRUE;
-	}
-	return handled;
+	return childrenHandleRightMouseUp( x, y, mask ) != NULL;
 }
  
 BOOL LLView::handleMiddleMouseDown(S32 x, S32 y, MASK mask)
 {
-	LLView* handled_view = childrenHandleMiddleMouseDown( x, y, mask );
-	BOOL handled = (handled_view != NULL);
-	if( !handled && blockMouseEvent(x, y) )
-	{
-		handled = TRUE;
-		handled_view = this;
-	}
-
-	return handled;
+	return childrenHandleMiddleMouseDown( x, y, mask ) != NULL;
 }
 
 BOOL LLView::handleMiddleMouseUp(S32 x, S32 y, MASK mask)
 {
-	BOOL handled = childrenHandleMiddleMouseUp( x, y, mask ) != NULL;
-	if( !handled && blockMouseEvent(x, y) )
-	{
-		handled = TRUE;
-	}
-	return handled;
+	return childrenHandleMiddleMouseUp( x, y, mask ) != NULL;
 }
 
 
@@ -1011,14 +914,18 @@ LLView* LLView::childrenHandleScrollWheel(S32 x, S32 y, S32 clicks)
 			LLView* viewp = *child_it;
 			S32 local_x = x - viewp->getRect().mLeft;
 			S32 local_y = y - viewp->getRect().mBottom;
-			if (viewp->pointInView(local_x, local_y) 
-				&& viewp->getVisible()
-				&& viewp->getEnabled()
-				&& viewp->handleScrollWheel( local_x, local_y, clicks ))
+			if (!viewp->pointInView(local_x, local_y) 
+				|| !viewp->getVisible()
+				|| !viewp->getEnabled())
+			{
+				continue;
+			}
+
+			if (viewp->handleScrollWheel( local_x, local_y, clicks ))
 			{
 				if (sDebugMouseHandling)
 				{
-					sMouseHandlerMessage = std::string("->") + viewp->mName + sMouseHandlerMessage;
+					sMouseHandlerMessage = std::string("/") + viewp->mName + sMouseHandlerMessage;
 				}
 
 				handled_view = viewp;
@@ -1039,15 +946,27 @@ LLView* LLView::childrenHandleHover(S32 x, S32 y, MASK mask)
 			LLView* viewp = *child_it;
 			S32 local_x = x - viewp->getRect().mLeft;
 			S32 local_y = y - viewp->getRect().mBottom;
-			if(viewp->pointInView(local_x, local_y) &&
-				viewp->getVisible() &&
-				viewp->getEnabled() &&
-				viewp->handleHover(local_x, local_y, mask) )
+			if(!viewp->pointInView(local_x, local_y) 
+				|| !viewp->getVisible() 
+				|| !viewp->getEnabled())
+			{
+				continue;
+			}
+
+			if (viewp->handleHover(local_x, local_y, mask) )
 			{
 				if (sDebugMouseHandling)
 				{
-					sMouseHandlerMessage = std::string("->") + viewp->mName + sMouseHandlerMessage;
+					sMouseHandlerMessage = std::string("/") + viewp->mName + sMouseHandlerMessage;
 				}
+
+				handled_view = viewp;
+				break;
+			}
+
+			if (viewp->blockMouseEvent(local_x, local_y))
+			{
+				LLUI::sWindow->setCursor(viewp->getHoverCursor());
 
 				handled_view = viewp;
 				break;
@@ -1117,15 +1036,25 @@ LLView* LLView::childrenHandleMouseDown(S32 x, S32 y, MASK mask)
 		S32 local_x = x - viewp->getRect().mLeft;
 		S32 local_y = y - viewp->getRect().mBottom;
 
-		if (viewp->pointInView(local_x, local_y) && 
-			viewp->getVisible() && 
-			viewp->getEnabled() && 
-			viewp->handleMouseDown( local_x, local_y, mask ))
+		if (!viewp->pointInView(local_x, local_y) 
+			|| !viewp->getVisible() 
+			|| !viewp->getEnabled())
+		{
+			continue;
+		}
+
+		if(viewp->handleMouseDown( local_x, local_y, mask ))
 		{
 			if (sDebugMouseHandling)
 			{
-				sMouseHandlerMessage = std::string("->") + viewp->mName + sMouseHandlerMessage;
+				sMouseHandlerMessage = std::string("/") + viewp->mName + sMouseHandlerMessage;
 			}
+			handled_view = viewp;
+			break;
+		}
+
+		if(viewp->blockMouseEvent(local_x, local_y))
+		{
 			handled_view = viewp;
 			break;
 		}
@@ -1144,16 +1073,27 @@ LLView* LLView::childrenHandleRightMouseDown(S32 x, S32 y, MASK mask)
 			LLView* viewp = *child_it;
 			S32 local_x = x - viewp->getRect().mLeft;
 			S32 local_y = y - viewp->getRect().mBottom;
-			if (viewp->pointInView(local_x, local_y) &&
-				viewp->getVisible() &&
-				viewp->getEnabled() &&
-				viewp->handleRightMouseDown( local_x, local_y, mask ))
+
+			if (!viewp->pointInView(local_x, local_y)
+				|| !viewp->getVisible() 
+				|| !viewp->getEnabled())
+			{
+				continue;
+			}
+
+			if (viewp->handleRightMouseDown( local_x, local_y, mask ))
 			{
 				if (sDebugMouseHandling)
 				{
-					sMouseHandlerMessage = std::string("->") + viewp->mName + sMouseHandlerMessage;
+					sMouseHandlerMessage = std::string("/") + viewp->mName + sMouseHandlerMessage;
 				}
 
+				handled_view = viewp;
+				break;
+			}
+
+			if (viewp->blockMouseEvent(local_x, local_y))
+			{
 				handled_view = viewp;
 				break;
 			}
@@ -1173,15 +1113,25 @@ LLView* LLView::childrenHandleMiddleMouseDown(S32 x, S32 y, MASK mask)
 			LLView* viewp = *child_it;
 			S32 local_x = x - viewp->getRect().mLeft;
 			S32 local_y = y - viewp->getRect().mBottom;
-			if (viewp->pointInView(local_x, local_y) &&
-				viewp->getVisible() &&
-				viewp->getEnabled() &&
-				viewp->handleMiddleMouseDown( local_x, local_y, mask ))
+			if (!viewp->pointInView(local_x, local_y)
+				|| !viewp->getVisible() 
+				|| !viewp->getEnabled())
+			{
+				continue;
+			}
+
+			if(viewp->handleMiddleMouseDown( local_x, local_y, mask ))
 			{
 				if (sDebugMouseHandling)
 				{
-					sMouseHandlerMessage = std::string("->") + viewp->mName + sMouseHandlerMessage;
+					sMouseHandlerMessage = std::string("/") + viewp->mName + sMouseHandlerMessage;
 				}
+				handled_view = viewp;
+				break;
+			}
+
+			if (viewp->blockMouseEvent(local_x, local_y))
+			{
 				handled_view = viewp;
 				break;
 			}
@@ -1201,15 +1151,26 @@ LLView* LLView::childrenHandleDoubleClick(S32 x, S32 y, MASK mask)
 			LLView* viewp = *child_it;
 			S32 local_x = x - viewp->getRect().mLeft;
 			S32 local_y = y - viewp->getRect().mBottom;
-			if (viewp->pointInView(local_x, local_y) &&
-				viewp->getVisible() &&
-				viewp->getEnabled() &&
-				viewp->handleDoubleClick( local_x, local_y, mask ))
+
+			if (!viewp->pointInView(local_x, local_y) 
+				|| !viewp->getVisible() 
+				|| !viewp->getEnabled())
+			{
+				continue;
+			}
+
+			if (viewp->handleDoubleClick( local_x, local_y, mask ))
 			{
 				if (sDebugMouseHandling)
 				{
-					sMouseHandlerMessage = std::string("->") + viewp->mName + sMouseHandlerMessage;
+					sMouseHandlerMessage = std::string("/") + viewp->mName + sMouseHandlerMessage;
 				}
+				handled_view = viewp;
+				break;
+			}
+
+			if (viewp->blockMouseEvent(local_x, local_y))
+			{
 				handled_view = viewp;
 				break;
 			}
@@ -1228,18 +1189,25 @@ LLView* LLView::childrenHandleMouseUp(S32 x, S32 y, MASK mask)
 			LLView* viewp = *child_it;
 			S32 local_x = x - viewp->getRect().mLeft;
 			S32 local_y = y - viewp->getRect().mBottom;
-			if (!viewp->pointInView(local_x, local_y))
+			if (!viewp->pointInView(local_x, local_y)
+				|| !viewp->getVisible()
+				|| !viewp->getEnabled())
+			{
 				continue;
-			if (!viewp->getVisible())
-				continue;
-			if (!viewp->getEnabled())
-				continue;
+			}
+			
 			if (viewp->handleMouseUp( local_x, local_y, mask ))
 			{
 				if (sDebugMouseHandling)
 				{
-					sMouseHandlerMessage = std::string("->") + viewp->mName + sMouseHandlerMessage;
+					sMouseHandlerMessage = std::string("/") + viewp->mName + sMouseHandlerMessage;
 				}
+				handled_view = viewp;
+				break;
+			}
+
+			if (viewp->blockMouseEvent(local_x, local_y))
+			{
 				handled_view = viewp;
 				break;
 			}
@@ -1258,15 +1226,25 @@ LLView* LLView::childrenHandleRightMouseUp(S32 x, S32 y, MASK mask)
 			LLView* viewp = *child_it;
 			S32 local_x = x - viewp->getRect().mLeft;
 			S32 local_y = y - viewp->getRect().mBottom;
-			if (viewp->pointInView(local_x, local_y) &&
-				viewp->getVisible() &&
-				viewp->getEnabled() &&
-				viewp->handleRightMouseUp( local_x, local_y, mask ))
+			if (!viewp->pointInView(local_x, local_y) 
+				|| !viewp->getVisible() 
+				|| !viewp->getEnabled() )
+			{
+				continue;
+			}
+
+			if(viewp->handleRightMouseUp( local_x, local_y, mask ))
 			{
 				if (sDebugMouseHandling)
 				{
-					sMouseHandlerMessage = std::string("->") + viewp->mName + sMouseHandlerMessage;
+					sMouseHandlerMessage = std::string("/") + viewp->mName + sMouseHandlerMessage;
 				}
+				handled_view = viewp;
+				break;
+			}
+
+			if(viewp->blockMouseEvent(local_x, local_y))
+			{
 				handled_view = viewp;
 				break;
 			}
@@ -1285,15 +1263,25 @@ LLView* LLView::childrenHandleMiddleMouseUp(S32 x, S32 y, MASK mask)
 			LLView* viewp = *child_it;
 			S32 local_x = x - viewp->getRect().mLeft;
 			S32 local_y = y - viewp->getRect().mBottom;
-			if (viewp->pointInView(local_x, local_y) &&
-				viewp->getVisible() &&
-				viewp->getEnabled() &&
-				viewp->handleMiddleMouseUp( local_x, local_y, mask ))
+			if (!viewp->pointInView(local_x, local_y) 
+				|| !viewp->getVisible() 
+				|| !viewp->getEnabled())
+			{
+				continue;
+			}
+				
+			if(viewp->handleMiddleMouseUp( local_x, local_y, mask ))
 			{
 				if (sDebugMouseHandling)
 				{
-					sMouseHandlerMessage = std::string("->") + viewp->mName + sMouseHandlerMessage;
+					sMouseHandlerMessage = std::string("/") + viewp->mName + sMouseHandlerMessage;
 				}
+				handled_view = viewp;
+				break;
+			}
+
+			if (viewp->blockMouseEvent(local_x, local_y))
+			{
 				handled_view = viewp;
 				break;
 			}
@@ -1304,21 +1292,20 @@ LLView* LLView::childrenHandleMiddleMouseUp(S32 x, S32 y, MASK mask)
 
 void LLView::draw()
 {
-	if (sDebugRects)
-	{
-		drawDebugRect();
+	drawChildren();
+}
 
-		// Check for bogus rectangle
-		if (getRect().mRight <= getRect().mLeft
-			|| getRect().mTop <= getRect().mBottom)
-		{
-			llwarns << "Bogus rectangle for " << getName() << " with " << mRect << llendl;
-		}
-	}
-
+void LLView::drawChildren()
+{
 	if (!mChildList.empty())
 	{
-		LLRect rootRect = getRootView()->getRect();
+		static const LLRect* rootRect = NULL;
+		
+		if (!mParentView)
+		{
+			rootRect = &mRect;
+		}
+
 		LLRect screenRect;
 
 		++sDepth;
@@ -1332,13 +1319,23 @@ void LLView::draw()
 			{
 				// Only draw views that are within the root view
 				localRectToScreen(viewp->getRect(),&screenRect);
-				if ( rootRect.rectInRect(&screenRect) )
+				if ( rootRect->overlaps(screenRect)  && LLUI::sDirtyRect.overlaps(screenRect))
 				{
-					glMatrixMode(GL_MODELVIEW);
 					LLUI::pushMatrix();
 					{
 						LLUI::translate((F32)viewp->getRect().mLeft, (F32)viewp->getRect().mBottom, 0.f);
 						viewp->draw();
+
+						if (sDebugRects)
+						{
+							viewp->drawDebugRect();
+
+							// Check for bogus rectangle
+							if (!getRect().isValid())
+							{
+								llwarns << "Bogus rectangle for " << getName() << " with " << mRect << llendl;
+							}
+						}
 					}
 					LLUI::popMatrix();
 				}
@@ -1347,8 +1344,21 @@ void LLView::draw()
 		}
 		--sDepth;
 	}
+}
 
-	gGL.getTexUnit(0)->disable();
+void LLView::dirtyRect()
+{
+	LLView* child = getParent();
+	LLView* parent = child ? child->getParent() : NULL;
+	LLView* cur = this;
+	while (child && parent && parent->getParent())
+	{ //find third to top-most view
+		cur = child;
+		child = parent;
+		parent = parent->getParent();
+	}
+
+	LLUI::dirtyRect(cur->calcScreenRect());
 }
 
 //Draw a box for debugging.
@@ -1361,19 +1371,15 @@ void LLView::drawDebugRect()
 		// drawing solids requires texturing be disabled
 		gGL.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
 
-		if (mUseBoundingRect)
+		if (getUseBoundingRect())
 		{
 			LLUI::translate((F32)mBoundingRect.mLeft - (F32)mRect.mLeft, (F32)mBoundingRect.mBottom - (F32)mRect.mBottom, 0.f);
 		}
 
-		LLRect debug_rect = mUseBoundingRect ? mBoundingRect : mRect;
+		LLRect debug_rect = getUseBoundingRect() ? mBoundingRect : mRect;
 
 		// draw red rectangle for the border
-		LLColor4 border_color(0.f, 0.f, 0.f, 1.f);
-		//if (sEditingUI)
-		//{
-		//	border_color.mV[0] = 1.f;
-		//}
+		LLColor4 border_color(0.25f, 0.25f, 0.25f, 1.f);
 		if(preview_iter != sPreviewHighlightedElements.end())
 		{
 			if(LLView::sPreviewClickedElement && this == sPreviewClickedElement)
@@ -1408,7 +1414,9 @@ void LLView::drawDebugRect()
 		gGL.end();
 
 		// Draw the name if it's not a leaf node or not in editing or preview mode
-		if (mChildList.size() && preview_iter == sPreviewHighlightedElements.end())
+		if (mChildList.size()
+			&& preview_iter == sPreviewHighlightedElements.end()
+			&& sDebugRectsShowNames)
 		{
 			//char temp[256];
 			S32 x, y;
@@ -1522,45 +1530,53 @@ void LLView::reshape(S32 width, S32 height, BOOL called_from_parent)
 	updateBoundingRect();
 }
 
+LLRect LLView::calcBoundingRect()
+{
+	LLRect local_bounding_rect = LLRect::null;
+
+	child_list_const_iter_t child_it;
+	for ( child_it = mChildList.begin(); child_it != mChildList.end(); ++child_it)
+	{
+		LLView* childp = *child_it;
+		// ignore invisible and "top" children when calculating bounding rect
+		// such as combobox popups
+		if (!childp->getVisible() || childp == gFocusMgr.getTopCtrl()) 
+		{
+			continue;
+		}
+
+		LLRect child_bounding_rect = childp->getBoundingRect();
+
+		if (local_bounding_rect.isEmpty())
+		{
+			// start out with bounding rect equal to first visible child's bounding rect
+			local_bounding_rect = child_bounding_rect;
+		}
+		else
+		{
+			// accumulate non-null children rectangles
+			if (!child_bounding_rect.isEmpty())
+			{
+				local_bounding_rect.unionWith(child_bounding_rect);
+			}
+		}
+	}
+
+	// convert to parent-relative coordinates
+	local_bounding_rect.translate(mRect.mLeft, mRect.mBottom);
+	return local_bounding_rect;
+}
+
+
 void LLView::updateBoundingRect()
 {
 	if (isDead()) return;
 
-	if (mUseBoundingRect)
+	LLRect cur_rect = mBoundingRect;
+
+	if (getUseBoundingRect())
 	{
-		LLRect local_bounding_rect = LLRect::null;
-
-		child_list_const_iter_t child_it;
-		for ( child_it = mChildList.begin(); child_it != mChildList.end(); ++child_it)
-		{
-			LLView* childp = *child_it;
-			// ignore invisible and "top" children when calculating bounding rect
-			// such as combobox popups
-			if (!childp->getVisible() || childp == gFocusMgr.getTopCtrl()) 
-			{
-				continue;
-			}
-
-			LLRect child_bounding_rect = childp->getBoundingRect();
-
-			if (local_bounding_rect.isNull())
-			{
-				// start out with bounding rect equal to first visible child's bounding rect
-				local_bounding_rect = child_bounding_rect;
-			}
-			else
-			{
-				// accumulate non-null children rectangles
-				if (!child_bounding_rect.isNull())
-				{
-					local_bounding_rect.unionWith(child_bounding_rect);
-				}
-			}
-		}
-
-		mBoundingRect = local_bounding_rect;
-		// translate into parent-relative coordinates
-		mBoundingRect.translate(mRect.mLeft, mRect.mBottom);
+		mBoundingRect = calcBoundingRect();
 	}
 	else
 	{
@@ -1568,10 +1584,16 @@ void LLView::updateBoundingRect()
 	}
 
 	// give parent view a chance to resize, in case we just moved, for example
-	if (getParent() && getParent()->mUseBoundingRect)
+	if (getParent() && getParent()->getUseBoundingRect())
 	{
 		getParent()->updateBoundingRect();
 	}
+
+	if (mBoundingRect != cur_rect)
+	{
+		dirtyRect();
+	}
+
 }
 
 LLRect LLView::calcScreenRect() const
@@ -1586,7 +1608,7 @@ LLRect LLView::calcScreenBoundingRect() const
 {
 	LLRect screen_rect;
 	// get bounding rect, if used
-	LLRect bounding_rect = mUseBoundingRect ? mBoundingRect : mRect;
+	LLRect bounding_rect = getUseBoundingRect() ? mBoundingRect : mRect;
 
 	// convert to local coordinates, as defined by mRect
 	bounding_rect.translate(-mRect.mLeft, -mRect.mBottom);
@@ -1642,7 +1664,7 @@ BOOL LLView::hasAncestor(const LLView* parentp) const
 
 BOOL LLView::childHasKeyboardFocus( const std::string& childname ) const
 {
-	LLView *child = getChildView(childname, TRUE, FALSE);
+	LLView *child = findChildView(childname, TRUE);
 	if (child)
 	{
 		return gFocusMgr.childHasKeyboardFocus(child);
@@ -1657,14 +1679,22 @@ BOOL LLView::childHasKeyboardFocus( const std::string& childname ) const
 
 BOOL LLView::hasChild(const std::string& childname, BOOL recurse) const
 {
-	return getChildView(childname, recurse, FALSE) != NULL;
+	return findChildView(childname, recurse) != NULL;
 }
 
 //-----------------------------------------------------------------------------
 // getChildView()
 //-----------------------------------------------------------------------------
-LLView* LLView::getChildView(const std::string& name, BOOL recurse, BOOL create_if_missing) const
+LLView* LLView::getChildView(const std::string& name, BOOL recurse) const
 {
+	return getChild<LLView>(name, recurse);
+}
+
+static LLFastTimer::DeclareTimer FTM_FIND_VIEWS("Find Widgets");
+
+LLView* LLView::findChildView(const std::string& name, BOOL recurse) const
+{
+	LLFastTimer ft(FTM_FIND_VIEWS);
 	//richard: should we allow empty names?
 	//if(name.empty())
 	//	return NULL;
@@ -1673,6 +1703,7 @@ LLView* LLView::getChildView(const std::string& name, BOOL recurse, BOOL create_
 	for ( child_it = mChildList.begin(); child_it != mChildList.end(); ++child_it)
 	{
 		LLView* childp = *child_it;
+		llassert(childp);
 		if (childp->getName() == name)
 		{
 			return childp;
@@ -1684,36 +1715,27 @@ LLView* LLView::getChildView(const std::string& name, BOOL recurse, BOOL create_
 		for ( child_it = mChildList.begin(); child_it != mChildList.end(); ++child_it)
 		{
 			LLView* childp = *child_it;
-			LLView* viewp = childp->getChildView(name, recurse, FALSE);
+			llassert(childp);
+			LLView* viewp = childp->findChildView(name, recurse);
 			if ( viewp )
 			{
 				return viewp;
 			}
 		}
 	}
-
-	if (create_if_missing)
-	{
-		LLView* view = getDefaultWidget<LLView>(name);
-		if (!view)
-		{
-			 view = LLUICtrlFactory::createDefaultWidget<LLView>(name);
-		}
-		return view;
-	}
 	return NULL;
 }
 
 BOOL LLView::parentPointInView(S32 x, S32 y, EHitTestType type) const 
 { 
-	return (mUseBoundingRect && type == HIT_TEST_USE_BOUNDING_RECT)
+	return (getUseBoundingRect() && type == HIT_TEST_USE_BOUNDING_RECT)
 		? mBoundingRect.pointInRect( x, y ) 
 		: mRect.pointInRect( x, y ); 
 }
 
 BOOL LLView::pointInView(S32 x, S32 y, EHitTestType type) const 
 { 
-	return (mUseBoundingRect && type == HIT_TEST_USE_BOUNDING_RECT)
+	return (getUseBoundingRect() && type == HIT_TEST_USE_BOUNDING_RECT)
 		? mBoundingRect.pointInRect( x + mRect.mLeft, y + mRect.mBottom ) 
 		: mRect.localPointInRect( x, y ); 
 }
@@ -1817,72 +1839,122 @@ void LLView::deleteViewByHandle(LLHandle<LLView> handle)
 }
 
 
-// Moves the view so that it is entirely inside of constraint.
-// If the view will not fit because it's too big, aligns with the top and left.
-// (Why top and left?  That's where the drag bars are for floaters.)
-BOOL LLView::translateIntoRect(const LLRect& constraint, BOOL allow_partial_outside )
+LLCoordGL getNeededTranslation(const LLRect& input, const LLRect& constraint, BOOL allow_partial_outside)
 {
-	S32 delta_x = 0;
-	S32 delta_y = 0;
+	LLCoordGL delta;
 
 	if (allow_partial_outside)
 	{
 		const S32 KEEP_ONSCREEN_PIXELS = 16;
 
-		if( getRect().mRight - KEEP_ONSCREEN_PIXELS < constraint.mLeft )
+		if( input.mRight - KEEP_ONSCREEN_PIXELS < constraint.mLeft )
 		{
-			delta_x = constraint.mLeft - (getRect().mRight - KEEP_ONSCREEN_PIXELS);
+			delta.mX = constraint.mLeft - (input.mRight - KEEP_ONSCREEN_PIXELS);
 		}
 		else
-		if( getRect().mLeft + KEEP_ONSCREEN_PIXELS > constraint.mRight )
+		if( input.mLeft + KEEP_ONSCREEN_PIXELS > constraint.mRight )
 		{
-			delta_x = constraint.mRight - (getRect().mLeft + KEEP_ONSCREEN_PIXELS);
+			delta.mX = constraint.mRight - (input.mLeft + KEEP_ONSCREEN_PIXELS);
 		}
 
-		if( getRect().mTop > constraint.mTop )
+		if( input.mTop > constraint.mTop )
 		{
-			delta_y = constraint.mTop - getRect().mTop;
+			delta.mY = constraint.mTop - input.mTop;
 		}
 		else
-		if( getRect().mTop - KEEP_ONSCREEN_PIXELS < constraint.mBottom )
+		if( input.mTop - KEEP_ONSCREEN_PIXELS < constraint.mBottom )
 		{
-			delta_y = constraint.mBottom - (getRect().mTop - KEEP_ONSCREEN_PIXELS);
+			delta.mY = constraint.mBottom - (input.mTop - KEEP_ONSCREEN_PIXELS);
 		}
 	}
 	else
 	{
-		if( getRect().mLeft < constraint.mLeft )
+		if( input.mLeft < constraint.mLeft )
 		{
-			delta_x = constraint.mLeft - getRect().mLeft;
+			delta.mX = constraint.mLeft - input.mLeft;
 		}
 		else
-		if( getRect().mRight > constraint.mRight )
+		if( input.mRight > constraint.mRight )
 		{
-			delta_x = constraint.mRight - getRect().mRight;
+			delta.mX = constraint.mRight - input.mRight;
 			// compensate for left edge possible going off screen
-			delta_x += llmax( 0, getRect().getWidth() - constraint.getWidth() );
+			delta.mX += llmax( 0, input.getWidth() - constraint.getWidth() );
 		}
 
-		if( getRect().mTop > constraint.mTop )
+		if( input.mTop > constraint.mTop )
 		{
-			delta_y = constraint.mTop - getRect().mTop;
+			delta.mY = constraint.mTop - input.mTop;
 		}
 		else
-		if( getRect().mBottom < constraint.mBottom )
+		if( input.mBottom < constraint.mBottom )
 		{
-			delta_y = constraint.mBottom - getRect().mBottom;
+			delta.mY = constraint.mBottom - input.mBottom;
 			// compensate for top edge possible going off screen
-			delta_y -= llmax( 0, getRect().getHeight() - constraint.getHeight() );
+			delta.mY -= llmax( 0, input.getHeight() - constraint.getHeight() );
 		}
 	}
 
-	if (delta_x != 0 || delta_y != 0)
+	return delta;
+}
+
+// Moves the view so that it is entirely inside of constraint.
+// If the view will not fit because it's too big, aligns with the top and left.
+// (Why top and left?  That's where the drag bars are for floaters.)
+BOOL LLView::translateIntoRect(const LLRect& constraint, BOOL allow_partial_outside )
+{
+	LLCoordGL translation = getNeededTranslation(getRect(), constraint, allow_partial_outside);
+
+	if (translation.mX != 0 || translation.mY != 0)
 	{
-		translate(delta_x, delta_y);
+		translate(translation.mX, translation.mY);
 		return TRUE;
 	}
 	return FALSE;
 }
+
+// move this view into "inside" but not onto "exclude"
+// NOTE: if this view is already contained in "inside", we ignore the "exclude" rect
+BOOL LLView::translateIntoRectWithExclusion( const LLRect& inside, const LLRect& exclude, BOOL allow_partial_outside )
+{
+	LLCoordGL translation = getNeededTranslation(getRect(), inside, allow_partial_outside);
+	
+	if (translation.mX != 0 || translation.mY != 0)
+	{
+		// translate ourselves into constraint rect
+		translate(translation.mX, translation.mY);
+	
+		// do we overlap with exclusion area?
+		// keep moving in the same direction to the other side of the exclusion rect
+		if (exclude.overlaps(getRect()))
+		{
+			// moving right
+			if (translation.mX > 0)
+			{
+				translate(exclude.mRight - getRect().mLeft, 0);
+			}
+			// moving left
+			else if (translation.mX < 0)
+			{
+				translate(exclude.mLeft - getRect().mRight, 0);
+			}
+
+			// moving up
+			if (translation.mY > 0)
+			{
+				translate(0, exclude.mTop - getRect().mBottom);
+			}
+			// moving down
+			else if (translation.mY < 0)
+			{
+				translate(0, exclude.mBottom - getRect().mTop);
+			}
+		}
+
+		return TRUE;
+	}
+	return FALSE;
+}
+
 
 void LLView::centerWithin(const LLRect& bounds)
 {
@@ -1892,7 +1964,7 @@ void LLView::centerWithin(const LLRect& bounds)
 	translate( left - getRect().mLeft, bottom - getRect().mBottom );
 }
 
-BOOL LLView::localPointToOtherView( S32 x, S32 y, S32 *other_x, S32 *other_y, LLView* other_view) const
+BOOL LLView::localPointToOtherView( S32 x, S32 y, S32 *other_x, S32 *other_y, const LLView* other_view) const
 {
 	const LLView* cur_view = this;
 	const LLView* root_view = NULL;
@@ -1935,7 +2007,7 @@ BOOL LLView::localPointToOtherView( S32 x, S32 y, S32 *other_x, S32 *other_y, LL
 	return FALSE;
 }
 
-BOOL LLView::localRectToOtherView( const LLRect& local, LLRect* other, LLView* other_view ) const
+BOOL LLView::localRectToOtherView( const LLRect& local, LLRect* other, const LLView* other_view ) const
 {
 	LLRect cur_rect = local;
 	const LLView* cur_view = this;
@@ -2392,7 +2464,7 @@ static bool get_last_child_rect(LLView* parent, LLRect *rect)
 	for (;itor != parent->getChildList()->end(); ++itor)
 	{
 		LLView *last_view = (*itor);
-		if (last_view->getSaveToXML())
+		if (last_view->getFromXUI())
 		{
 			*rect = last_view->getRect();
 			return true;
@@ -2402,13 +2474,11 @@ static bool get_last_child_rect(LLView* parent, LLRect *rect)
 }
 
 //static
-void LLView::setupParams(LLView::Params& p, LLView* parent)
+void LLView::applyXUILayout(LLView::Params& p, LLView* parent)
 {
 	const S32 VPAD = 4;
 	const S32 MIN_WIDGET_HEIGHT = 10;
 	
-	p.from_xui(true);
-
 	// *NOTE:  This will confuse export of floater/panel coordinates unless
 	// the default is also "topleft".  JC
 	if (p.layout().empty() && parent)
@@ -2423,6 +2493,14 @@ void LLView::setupParams(LLView::Params& p, LLView* parent)
 		LLRect last_rect = parent->getLocalRect();
 
 		bool layout_topleft = (p.layout() == "topleft");
+
+		// convert negative or centered coordinates to parent relative values
+		// Note: some of this logic matches the logic in TypedParam<LLRect>::setValueFromBlock()
+		if (p.rect.left.isProvided() && p.rect.left < 0) p.rect.left = p.rect.left + parent_rect.getWidth();
+		if (p.rect.right.isProvided() && p.rect.right < 0) p.rect.right = p.rect.right + parent_rect.getWidth();
+		if (p.rect.bottom.isProvided() && p.rect.bottom < 0) p.rect.bottom = p.rect.bottom + parent_rect.getHeight();
+		if (p.rect.top.isProvided() && p.rect.top < 0) p.rect.top = p.rect.top + parent_rect.getHeight();
+
 		if (layout_topleft)
 		{
 			//invert top to bottom
@@ -2430,53 +2508,8 @@ void LLView::setupParams(LLView::Params& p, LLView* parent)
 			if (p.rect.bottom.isProvided()) p.rect.bottom = parent_rect.getHeight() - p.rect.bottom;
 		}
 
-		// convert negative or centered coordinates to parent relative values
-		// Note: some of this logic matches the logic in TypedParam<LLRect>::getValueFromBlock()
-
-		if (p.center_horiz)
-		{
-			if (p.rect.left.isProvided() && p.rect.right.isProvided())
-			{
-				S32 width = p.rect.right - p.rect.left;
-				width = llmax(width, 0);
-				S32 offset = parent_rect.getWidth()/2 - width/2;
-				p.rect.left = p.rect.left + offset;
-				p.rect.right = p.rect.right + offset;
-			}
-			else
-			{
-				p.rect.left = p.rect.left + parent_rect.getWidth()/2 - p.rect.width/2;
-			}
-		}
-		else
-		{
-			if (p.rect.left < 0) p.rect.left = p.rect.left + parent_rect.getWidth();
-			if (p.rect.right < 0) p.rect.right = p.rect.right + parent_rect.getWidth();
-		}
-		if (p.center_vert)
-		{
-			if (p.rect.bottom.isProvided() && p.rect.top.isProvided())
-			{
-				S32 height = p.rect.top - p.rect.bottom;
-				height = llmax(height, 0);
-				S32 offset = parent_rect.getHeight()/2 - height/2;
-				p.rect.bottom = p.rect.bottom + offset;
-				p.rect.top = p.rect.top + offset;
-			}
-			else
-			{
-				p.rect.bottom = p.rect.bottom + parent_rect.getHeight()/2 - p.rect.height/2;
-			}
-		}
-		else
-		{
-			if (p.rect.bottom < 0) p.rect.bottom = p.rect.bottom + parent_rect.getHeight();
-			if (p.rect.top < 0) p.rect.top = p.rect.top + parent_rect.getHeight();
-		}
-
-
 		// DEPRECATE: automatically fall back to height of MIN_WIDGET_HEIGHT pixels
-		if (!p.rect.height.isProvided() && !p.rect.top.isProvided())
+		if (!p.rect.height.isProvided() && !p.rect.top.isProvided() && p.rect.height == 0)
 		{
 			p.rect.height = MIN_WIDGET_HEIGHT;
 		}
@@ -2575,7 +2608,7 @@ static void convert_to_relative_layout(LLView::Params& p, LLView* parent)
 	// Use setupParams to get the final widget rectangle
 	// according to our wacky layout rules.
 	LLView::Params final = p;
-	LLView::setupParams(final, parent);
+	LLView::applyXUILayout(final, parent);
 	// Must actually extract the rectangle to get consistent
 	// right = left+width, top = bottom+height
 	LLRect final_rect = final.rect;
@@ -2712,26 +2745,100 @@ void LLView::setupParamsForExport(Params& p, LLView* parent)
 	convert_coords_to_top_left(p, parent);
 }
 
-LLView::tree_iterator_t LLView::beginTree() 
+LLView::tree_iterator_t LLView::beginTreeDFS() 
 { 
 	return tree_iterator_t(this, 
 							boost::bind(boost::mem_fn(&LLView::beginChild), _1), 
 							boost::bind(boost::mem_fn(&LLView::endChild), _1)); 
 }
 
-LLView::tree_iterator_t LLView::endTree() 
+LLView::tree_iterator_t LLView::endTreeDFS() 
 { 
 	// an empty iterator is an "end" iterator
 	return tree_iterator_t();
 }
 
+LLView::tree_post_iterator_t LLView::beginTreeDFSPost() 
+{ 
+	return tree_post_iterator_t(this, 
+							boost::bind(boost::mem_fn(&LLView::beginChild), _1), 
+							boost::bind(boost::mem_fn(&LLView::endChild), _1)); 
+}
+
+LLView::tree_post_iterator_t LLView::endTreeDFSPost() 
+{ 
+	// an empty iterator is an "end" iterator
+	return tree_post_iterator_t();
+}
+
+LLView::bfs_tree_iterator_t LLView::beginTreeBFS() 
+{ 
+	return bfs_tree_iterator_t(this, 
+							boost::bind(boost::mem_fn(&LLView::beginChild), _1), 
+							boost::bind(boost::mem_fn(&LLView::endChild), _1)); 
+}
+
+LLView::bfs_tree_iterator_t LLView::endTreeBFS() 
+{ 
+	// an empty iterator is an "end" iterator
+	return bfs_tree_iterator_t();
+}
+
+
+LLView::root_to_view_iterator_t LLView::beginRootToView()
+{
+	return root_to_view_iterator_t(this, boost::bind(&LLView::getParent, _1));
+}
+
+LLView::root_to_view_iterator_t LLView::endRootToView()
+{
+	return root_to_view_iterator_t();
+}
+
+
 // only create maps on demand, as they incur heap allocation/deallocation cost
 // when a view is constructed/deconstructed
-LLView::default_widget_map_t& LLView::getDefaultWidgetMap() const
+LLView& LLView::getDefaultWidgetContainer() const
 {
 	if (!mDefaultWidgets)
 	{
-		mDefaultWidgets = new default_widget_map_t();
+		LLView::Params p;
+		p.name = "default widget container";
+		p.visible = false; // ensures default widgets can't steal focus, etc.
+		mDefaultWidgets = new LLView(p);
 	}
 	return *mDefaultWidgets;
+}
+
+S32	LLView::notifyParent(const LLSD& info)
+{
+	LLView* parent = getParent();
+	if(parent)
+		return parent->notifyParent(info);
+	return 0;
+}
+bool	LLView::notifyChildren(const LLSD& info)
+{
+	bool ret = false;
+	for ( child_list_iter_t child_it = mChildList.begin(); child_it != mChildList.end(); ++child_it)
+	{
+		ret |= (*child_it)->notifyChildren(info);
+	}
+	return ret;
+}
+
+// convenient accessor for draw context
+const LLViewDrawContext& LLView::getDrawContext()
+{
+	return LLViewDrawContext::getCurrentContext();
+}
+
+const LLViewDrawContext& LLViewDrawContext::getCurrentContext()
+{
+	static LLViewDrawContext default_context;
+
+	if (sDrawContextStack.empty())
+		return default_context;
+		
+	return *sDrawContextStack.back();
 }

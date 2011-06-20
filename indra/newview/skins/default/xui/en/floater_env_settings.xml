@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  height="150"
  layout="topleft"
  name="Environment Editor Floater"
+ help_topic="environment_editor_floater"
  save_rect="true"
- title="Environment Editor"
+ title="ENVIRONMENT EDITOR"
  width="600">
     <floater.string
      name="timeStr">
@@ -42,6 +44,7 @@
      left="85"
      name="EnvDayCycle"
      top="30"
+     use_draw_context_alpha="false"
      width="200" />
     <slider
      control_name="EnvTimeSlider"
@@ -96,7 +99,6 @@
         Water Color
     </text>
     <color_swatch
-     border_color="0.45098 0.517647 0.607843 1"
      can_apply_immediately="true"
      color="0.5 0.5 0.5 1"
      follows="left|top"
@@ -104,7 +106,7 @@
      layout="topleft"
      left="390"
      name="EnvWaterColor"
-     tool_tip="Click to open Color Picker"
+     tool_tip="Click to open color picker"
      top="30"
      width="40" />
     <text
@@ -134,41 +136,29 @@
      width="210" />
     <button
      follows="left|top"
-     font="SansSerifSmall"
-     height="20"
+     height="23"
      label="Use Estate Time"
      layout="topleft"
-     left="8"
+     left="10"
      name="EnvUseEstateTimeButton"
      top="120"
      width="137" />
     <button
      follows="left|top"
-     font="SansSerifSmall"
-     height="20"
+     height="23"
      label="Advanced Sky"
      layout="topleft"
-     left_pad="9"
+     left_pad="3"
      name="EnvAdvancedSkyButton"
      top_delta="0"
      width="137" />
     <button
      follows="left|top"
-     font="SansSerifSmall"
-     height="20"
+     height="23"
      label="Advanced Water"
      layout="topleft"
-     left_pad="9"
+     left_pad="3"
      name="EnvAdvancedWaterButton"
      top_delta="0"
      width="137" />
-    <button
-     follows="left|top"
-     height="18"
-     label="?"
-     layout="topleft"
-     left="570"
-     name="EnvSettingsHelpButton"
-     top="22"
-     width="18" />
 </floater>

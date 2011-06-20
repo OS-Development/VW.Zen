@@ -15,7 +15,7 @@ Life itself - please see <http://www.secondlife.com/whatis/>.
    5.3. Blank window after minimizing it
    5.4. Audio
    5.5. 'Alt' key for camera controls doesn't work
-   5.6. In-world streaming movie/music playback
+   5.6. In-world streaming movie, music and Flash playback
 6. Advanced Troubleshooting
    6.1. Audio
    6.2. OpenGL
@@ -55,10 +55,13 @@ Minimum requirements:
           is required.  If you are running a 64-bit Linux distribution then
           you will need its 32-bit compatibility environment installed, but
           this configuration is not currently supported.
+    * PulseAudio or ALSA Linux system sound software.  A recent PulseAudio
+      is the recommended configuration; see README-linux-voice.txt for more
+      information.
     * Video/Graphics Card:
           o nVidia GeForce 2, GeForce 4mx, or better (recommend one of the
             following: 6700, 6800, 7600, 7800, 7900, 8400, 8500, 8600,
-            8800, Go 7400, Go 7600, Go 7800, Go 7900)
+            8800, Go 7400, Go 7600, Go 7800, Go 7900, +)
           o OR ATI Radeon 8500, 9250, or better
           (nVidia cards are recommended for the Linux client)
 
@@ -75,8 +78,9 @@ Life Linux client is very similar to that for Windows, as detailed at:
 3. INSTALLING & RUNNING
 -=-=-=-=-=-=-=-=-=-=-=-
 
-The Second Life Linux client entirely runs out of the directory you have
-unpacked it into - no installation step is required.
+The Second Life Linux client can entirely run from the directory you have
+unpacked it into - no installation step is required.  If you wish to
+perform a separate installation step anyway, you may run './install.sh'
 
 Run ./secondlife from the installation directory to start Second Life.
 
@@ -96,10 +100,7 @@ you wish.
 4. KNOWN ISSUES
 -=-=-=-=-=-=-=-
 
-* UPDATING - when the client detects that a new version of Second Life
-  is available, it will ask you if you wish to download the new version.
-  This option is not implemented; to upgrade, you should manually download a
-  new version from the Second Life web site, <http://www.secondlife.com/>.
+* No significant known issues at this time.
 
 
 5. TROUBLESHOOTING
@@ -168,12 +169,15 @@ SOLUTION:- Some window managers eat the Alt key for their own purposes; you
    example, the 'Windows' key!) which will allow the Alt key to function
    properly with mouse actions in Second Life and other applications.
 
-PROBLEM 6:- In-world movie and/or music playback doesn't work for me.
+PROBLEM 6:- In-world movie, music, or Flash playback doesn't work for me.
 SOLUTION:- You need to have a working installation of GStreamer 0.10; this
    is usually an optional package for most versions of Linux.  If you have
    installed GStreamer 0.10 and you can play some music/movies but not others
    then you need to install a wider selection of GStreamer plugins, either
-   from your vendor or an appropriate third party.
+   from your vendor (i.e. the 'Ugly' plugins) or an appropriate third party.
+   For Flash playback, you need to have Flash 10 installed for your normal
+   web browser (for example, Firefox).  PulseAudio is required for Flash
+   volume control / muting to fully function inside Second Life.
 
 
 6. ADVANCED TROUBLESHOOTING

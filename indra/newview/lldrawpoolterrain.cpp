@@ -2,31 +2,25 @@
  * @file lldrawpoolterrain.cpp
  * @brief LLDrawPoolTerrain class implementation
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -61,6 +55,8 @@ int DebugDetailMap = 0;
 S32 LLDrawPoolTerrain::sDetailMode = 1;
 F32 LLDrawPoolTerrain::sDetailScale = DETAIL_SCALE;
 static LLGLSLShader* sShader = NULL;
+static LLFastTimer::DeclareTimer FTM_SHADOW_TERRAIN("Terrain Shadow");
+
 
 LLDrawPoolTerrain::LLDrawPoolTerrain(LLViewerTexture *texturep) :
 	LLFacePool(POOL_TERRAIN),
@@ -70,26 +66,26 @@ LLDrawPoolTerrain::LLDrawPoolTerrain(LLViewerTexture *texturep) :
 	sDetailScale = 1.f/gSavedSettings.getF32("RenderTerrainScale");
 	sDetailMode = gSavedSettings.getS32("RenderTerrainDetail");
 	mAlphaRampImagep = LLViewerTextureManager::getFetchedTextureFromFile("alpha_gradient.tga", 
-													TRUE, TRUE, 
+													TRUE, LLViewerTexture::BOOST_UI, 
 													LLViewerTexture::FETCHED_TEXTURE,
 													GL_ALPHA8, GL_ALPHA,
 													LLUUID("e97cf410-8e61-7005-ec06-629eba4cd1fb"));
 
-	gGL.getTexUnit(0)->bind(mAlphaRampImagep);
+	//gGL.getTexUnit(0)->bind(mAlphaRampImagep.get());
 	mAlphaRampImagep->setAddressMode(LLTexUnit::TAM_CLAMP);
 
 	m2DAlphaRampImagep = LLViewerTextureManager::getFetchedTextureFromFile("alpha_gradient_2d.j2c", 
-													TRUE, TRUE, 
+													TRUE, LLViewerTexture::BOOST_UI, 
 													LLViewerTexture::FETCHED_TEXTURE,
 													GL_ALPHA8, GL_ALPHA,
 													LLUUID("38b86f85-2575-52a9-a531-23108d8da837"));
 
-	gGL.getTexUnit(0)->bind(m2DAlphaRampImagep);
+	//gGL.getTexUnit(0)->bind(m2DAlphaRampImagep.get());
 	m2DAlphaRampImagep->setAddressMode(LLTexUnit::TAM_CLAMP);
 	
 	mTexturep->setBoostLevel(LLViewerTexture::BOOST_TERRAIN);
 	
-	gGL.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
+	//gGL.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
 }
 
 LLDrawPoolTerrain::~LLDrawPoolTerrain()
@@ -131,7 +127,7 @@ void LLDrawPoolTerrain::prerender()
 
 void LLDrawPoolTerrain::beginRenderPass( S32 pass )
 {
-	LLFastTimer t(LLFastTimer::FTM_RENDER_TERRAIN);
+	LLFastTimer t(FTM_RENDER_TERRAIN);
 	LLFacePool::beginRenderPass(pass);
 
 	sShader = LLPipeline::sUnderWaterRender ? 
@@ -146,7 +142,7 @@ void LLDrawPoolTerrain::beginRenderPass( S32 pass )
 
 void LLDrawPoolTerrain::endRenderPass( S32 pass )
 {
-	LLFastTimer t(LLFastTimer::FTM_RENDER_TERRAIN);
+	LLFastTimer t(FTM_RENDER_TERRAIN);
 	LLFacePool::endRenderPass(pass);
 
 	if (mVertexShaderLevel > 1 && sShader->mShaderLevel > 0) {
@@ -162,7 +158,7 @@ S32 LLDrawPoolTerrain::getDetailMode()
 
 void LLDrawPoolTerrain::render(S32 pass)
 {
-	LLFastTimer t(LLFastTimer::FTM_RENDER_TERRAIN);
+	LLFastTimer t(FTM_RENDER_TERRAIN);
 	
 	if (mDrawFace.empty())
 	{
@@ -235,7 +231,7 @@ void LLDrawPoolTerrain::render(S32 pass)
 
 void LLDrawPoolTerrain::beginDeferredPass(S32 pass)
 {
-	LLFastTimer t(LLFastTimer::FTM_RENDER_TERRAIN);
+	LLFastTimer t(FTM_RENDER_TERRAIN);
 	LLFacePool::beginRenderPass(pass);
 
 	sShader = &gDeferredTerrainProgram;
@@ -245,14 +241,14 @@ void LLDrawPoolTerrain::beginDeferredPass(S32 pass)
 
 void LLDrawPoolTerrain::endDeferredPass(S32 pass)
 {
-	LLFastTimer t(LLFastTimer::FTM_RENDER_TERRAIN);
+	LLFastTimer t(FTM_RENDER_TERRAIN);
 	LLFacePool::endRenderPass(pass);
 	sShader->unbind();
 }
 
 void LLDrawPoolTerrain::renderDeferred(S32 pass)
 {
-	LLFastTimer t(LLFastTimer::FTM_RENDER_TERRAIN);
+	LLFastTimer t(FTM_RENDER_TERRAIN);
 	if (mDrawFace.empty())
 	{
 		return;
@@ -262,7 +258,7 @@ void LLDrawPoolTerrain::renderDeferred(S32 pass)
 
 void LLDrawPoolTerrain::beginShadowPass(S32 pass)
 {
-	LLFastTimer t(LLFastTimer::FTM_SHADOW_TERRAIN);
+	LLFastTimer t(FTM_SHADOW_TERRAIN);
 	LLFacePool::beginRenderPass(pass);
 	gGL.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
 	gDeferredShadowProgram.bind();
@@ -270,14 +266,14 @@ void LLDrawPoolTerrain::beginShadowPass(S32 pass)
 
 void LLDrawPoolTerrain::endShadowPass(S32 pass)
 {
-	LLFastTimer t(LLFastTimer::FTM_SHADOW_TERRAIN);
+	LLFastTimer t(FTM_SHADOW_TERRAIN);
 	LLFacePool::endRenderPass(pass);
 	gDeferredShadowProgram.unbind();
 }
 
 void LLDrawPoolTerrain::renderShadow(S32 pass)
 {
-	LLFastTimer t(LLFastTimer::FTM_SHADOW_TERRAIN);
+	LLFastTimer t(FTM_SHADOW_TERRAIN);
 	if (mDrawFace.empty())
 	{
 		return;
@@ -902,27 +898,6 @@ void LLDrawPoolTerrain::renderOwnership()
 	glMatrixMode(GL_MODELVIEW);
 }
 
-
-void LLDrawPoolTerrain::renderForSelect()
-{
-	if (mDrawFace.empty())
-	{
-		return;
-	}
-
-	
-	gGL.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
-
-	for (std::vector<LLFace*>::iterator iter = mDrawFace.begin();
-		 iter != mDrawFace.end(); iter++)
-	{
-		LLFace *facep = *iter;
-		if (!facep->getDrawable()->isDead() && (facep->getDrawable()->getVObj()->mGLName))
-		{
-			facep->renderForSelect(LLVertexBuffer::MAP_VERTEX);
-		}
-	}
-}
 
 void LLDrawPoolTerrain::dirtyTextures(const std::set<LLViewerFetchedTexture*>& textures)
 {

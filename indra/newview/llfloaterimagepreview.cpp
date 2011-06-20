@@ -2,31 +2,25 @@
  * @file llfloaterimagepreview.cpp
  * @brief LLFloaterImagePreview class implementation
  *
- * $LicenseInfo:firstyear=2004&license=viewergpl$
- * 
- * Copyright (c) 2004-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2004&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -59,15 +53,17 @@
 #include "llviewertexturelist.h"
 #include "llstring.h"
 
-//static
-S32 LLFloaterImagePreview::sUploadAmount = 10;
+#include "llendianswizzle.h"
+
+#include "llviewercontrol.h"
+#include "lltrans.h"
+#include "llimagedimensionsinfo.h"
 
 const S32 PREVIEW_BORDER_WIDTH = 2;
 const S32 PREVIEW_RESIZE_HANDLE_SIZE = S32(RESIZE_HANDLE_WIDTH * OO_SQRT2) + PREVIEW_BORDER_WIDTH;
 const S32 PREVIEW_HPAD = PREVIEW_RESIZE_HANDLE_SIZE;
 const S32 PREF_BUTTON_HEIGHT = 16 + 7 + 16;
-const S32 PREVIEW_TEXTURE_HEIGHT = 300;
-
+const S32 PREVIEW_TEXTURE_HEIGHT = 320;
 
 //-----------------------------------------------------------------------------
 // LLFloaterImagePreview()
@@ -93,9 +89,7 @@ BOOL LLFloaterImagePreview::postBuild()
 	{
 		return FALSE;
 	}
-
-	childSetLabelArg("ok_btn", "[AMOUNT]", llformat("%d",sUploadAmount));
-
+	
 	LLCtrlSelectionInterface* iface = childGetSelectionInterface("clothing_type_combo");
 	if (iface)
 	{
@@ -109,7 +103,7 @@ BOOL LLFloaterImagePreview::postBuild()
 		PREVIEW_HPAD + PREF_BUTTON_HEIGHT + PREVIEW_HPAD);
 	mPreviewImageRect.set(0.f, 1.f, 1.f, 0.f);
 
-	childHide("bad_image_text");
+	getChildView("bad_image_text")->setVisible(FALSE);
 
 	if (mRawImagep.notNull() && gAgent.getRegion() != NULL)
 	{
@@ -120,17 +114,24 @@ BOOL LLFloaterImagePreview::postBuild()
 		mSculptedPreview->setPreviewTarget(mRawImagep, 2.0f);
 
 		if (mRawImagep->getWidth() * mRawImagep->getHeight () <= LL_IMAGE_REZ_LOSSLESS_CUTOFF * LL_IMAGE_REZ_LOSSLESS_CUTOFF)
-			childEnable("lossless_check");
+			getChildView("lossless_check")->setEnabled(TRUE);
 	}
 	else
 	{
 		mAvatarPreview = NULL;
 		mSculptedPreview = NULL;
-		childShow("bad_image_text");
-		childDisable("clothing_type_combo");
-		childDisable("ok_btn");
-	}
+		getChildView("bad_image_text")->setVisible(TRUE);
+		getChildView("clothing_type_combo")->setEnabled(FALSE);
+		getChildView("ok_btn")->setEnabled(FALSE);
 
+		if(!mImageLoadError.empty())
+		{
+			getChild<LLUICtrl>("bad_image_text")->setValue(mImageLoadError.c_str());
+		}
+	}
+	
+	getChild<LLUICtrl>("ok_btn")->setCommitCallback(boost::bind(&LLFloaterNameDesc::onBtnOK, this));
+	
 	return TRUE;
 }
 
@@ -324,101 +325,51 @@ void LLFloaterImagePreview::draw()
 bool LLFloaterImagePreview::loadImage(const std::string& src_filename)
 {
 	std::string exten = gDirUtilp->getExtension(src_filename);
-	
-	U32 codec = IMG_CODEC_INVALID;
-	std::string temp_str;
-	if( exten == "bmp")
+	U32 codec = LLImageBase::getCodecFromExtension(exten);
+
+	LLImageDimensionsInfo image_info;
+	if (!image_info.load(src_filename,codec))
 	{
-		codec = IMG_CODEC_BMP;
-	}
-	else if( exten == "tga")
-	{
-		codec = IMG_CODEC_TGA;
-	}
-	else if( exten == "jpg" || exten == "jpeg")
-	{
-		codec = IMG_CODEC_JPEG;
-	}
-	else if( exten == "png" )
-	{
-		codec = IMG_CODEC_PNG;
-	}
-
-	LLPointer<LLImageRaw> raw_image = new LLImageRaw;
-
-	switch (codec)
-	{
-	case IMG_CODEC_BMP:
-		{
-			LLPointer<LLImageBMP> bmp_image = new LLImageBMP;
-
-			if (!bmp_image->load(src_filename))
-			{
-				return false;
-			}
-			
-			if (!bmp_image->decode(raw_image, 0.0f))
-			{
-				return false;
-			}
-		}
-		break;
-	case IMG_CODEC_TGA:
-		{
-			LLPointer<LLImageTGA> tga_image = new LLImageTGA;
-
-			if (!tga_image->load(src_filename))
-			{
-				return false;
-			}
-			
-			if (!tga_image->decode(raw_image))
-			{
-				return false;
-			}
-
-			if(	(tga_image->getComponents() != 3) &&
-				(tga_image->getComponents() != 4) )
-			{
-				tga_image->setLastError( "Image files with less than 3 or more than 4 components are not supported." );
-				return false;
-			}
-		}
-		break;
-	case IMG_CODEC_JPEG:
-		{
-			LLPointer<LLImageJPEG> jpeg_image = new LLImageJPEG;
-
-			if (!jpeg_image->load(src_filename))
-			{
-				return false;
-			}
-			
-			if (!jpeg_image->decode(raw_image, 0.0f))
-			{
-				return false;
-			}
-		}
-		break;
-	case IMG_CODEC_PNG:
-		{
-			LLPointer<LLImagePNG> png_image = new LLImagePNG;
-
-			if (!png_image->load(src_filename))
-			{
-				return false;
-			}
-			
-			if (!png_image->decode(raw_image, 0.0f))
-			{
-				return false;
-			}
-		}
-		break;
-	default:
+		mImageLoadError = image_info.getLastError();
 		return false;
 	}
 
+	S32 max_width = gSavedSettings.getS32("max_texture_dimension_X");
+	S32 max_height = gSavedSettings.getS32("max_texture_dimension_Y");
+
+	if ((image_info.getWidth() > max_width) || (image_info.getHeight() > max_height))
+	{
+		LLStringUtil::format_map_t args;
+		args["WIDTH"] = llformat("%d", max_width);
+		args["HEIGHT"] = llformat("%d", max_height);
+
+		mImageLoadError = LLTrans::getString("texture_load_dimensions_error", args);
+		return false;
+	}
+	
+	// Load the image
+	LLPointer<LLImageFormatted> image = LLImageFormatted::createFromType(codec);
+	if (image.isNull())
+	{
+		return false;
+	}
+	if (!image->load(src_filename))
+	{
+		return false;
+	}
+	// Decompress or expand it in a raw image structure
+	LLPointer<LLImageRaw> raw_image = new LLImageRaw;
+	if (!image->decode(raw_image, 0.0f))
+	{
+		return false;
+	}
+	// Check the image constraints
+	if ((image->getComponents() != 3) && (image->getComponents() != 4))
+	{
+		image->setLastError("Image files with less than 3 or more than 4 components are not supported.");
+		return false;
+	}
+	
 	raw_image->biasedScaleToPowerOfTwo(1024);
 	mRawImagep = raw_image;
 	
@@ -550,7 +501,7 @@ BOOL LLFloaterImagePreview::handleHover(S32 x, S32 y, MASK mask)
 			mSculptedPreview->refresh();
 		}
 
-		LLUI::setCursorPositionLocal(this, mLastMouseX, mLastMouseY);
+		LLUI::setMousePositionLocal(this, mLastMouseX, mLastMouseY);
 	}
 
 	if (!mPreviewRect.pointInRect(x, y) || !mAvatarPreview || !mSculptedPreview)
@@ -614,7 +565,6 @@ LLImagePreviewAvatar::LLImagePreviewAvatar(S32 width, S32 height) : LLViewerDyna
 	mCameraZoom = 1.f;
 
 	mDummyAvatar = (LLVOAvatar*)gObjectList.createObjectViewer(LL_PCODE_LEGACY_AVATAR, gAgent.getRegion());
-	mDummyAvatar->initInstance();
 	mDummyAvatar->createDrawable(&gPipeline);
 	mDummyAvatar->mIsDummy = TRUE;
 	mDummyAvatar->mSpecialRenderMode = 2;
@@ -633,6 +583,11 @@ LLImagePreviewAvatar::~LLImagePreviewAvatar()
 	mDummyAvatar->markDead();
 }
 
+//virtual
+S8 LLImagePreviewAvatar::getType() const
+{
+	return LLViewerDynamicTexture::LL_IMAGE_PREVIEW_AVATAR ;
+}
 
 void LLImagePreviewAvatar::setPreviewTarget(const std::string& joint_name, const std::string& mesh_name, LLImageRaw* imagep, F32 distance, BOOL male) 
 { 
@@ -691,6 +646,9 @@ BOOL LLImagePreviewAvatar::render()
 	mNeedsUpdate = FALSE;
 	LLVOAvatar* avatarp = mDummyAvatar;
 
+	gGL.pushUIMatrix();
+	gGL.loadUIIdentity();
+
 	glMatrixMode(GL_PROJECTION);
 	gGL.pushMatrix();
 	glLoadIdentity();
@@ -699,6 +657,7 @@ BOOL LLImagePreviewAvatar::render()
 	glMatrixMode(GL_MODELVIEW);
 	gGL.pushMatrix();
 	glLoadIdentity();
+	
 
 	LLGLSUIDefault def;
 	gGL.color4f(0.15f, 0.2f, 0.3f, 1.f);
@@ -744,6 +703,7 @@ BOOL LLImagePreviewAvatar::render()
 		avatarPoolp->renderAvatars(avatarp);  // renders only one avatar
 	}
 
+	gGL.popUIMatrix();
 	gGL.color4f(1,1,1,1);
 	return TRUE;
 }
@@ -807,6 +767,11 @@ LLImagePreviewSculpted::~LLImagePreviewSculpted()
 {
 }
 
+//virtual
+S8 LLImagePreviewSculpted::getType() const
+{
+	return LLViewerDynamicTexture::LL_IMAGE_PREVIEW_SCULPTED ;
+}
 
 void LLImagePreviewSculpted::setPreviewTarget(LLImageRaw* imagep, F32 distance)
 { 
@@ -822,8 +787,8 @@ void LLImagePreviewSculpted::setPreviewTarget(LLImageRaw* imagep, F32 distance)
 	}
 
 	const LLVolumeFace &vf = mVolume->getVolumeFace(0);
-	U32 num_indices = vf.mIndices.size();
-	U32 num_vertices = vf.mVertices.size();
+	U32 num_indices = vf.mNumIndices;
+	U32 num_vertices = vf.mNumVertices;
 
 	mVertexBuffer = new LLVertexBuffer(LLVertexBuffer::MAP_VERTEX | LLVertexBuffer::MAP_NORMAL, 0);
 	mVertexBuffer->allocateBuffer(num_vertices, num_indices, TRUE);
@@ -837,10 +802,16 @@ void LLImagePreviewSculpted::setPreviewTarget(LLImageRaw* imagep, F32 distance)
 	mVertexBuffer->getIndexStrider(index_strider);
 
 	// build vertices and normals
+	LLStrider<LLVector3> pos;
+	pos = (LLVector3*) vf.mPositions; pos.setStride(16);
+	LLStrider<LLVector3> norm;
+	norm = (LLVector3*) vf.mNormals; norm.setStride(16);
+		
+
 	for (U32 i = 0; i < num_vertices; i++)
 	{
-		*(vertex_strider++) = vf.mVertices[i].mPosition;
-		LLVector3 normal = vf.mVertices[i].mNormal;
+		*(vertex_strider++) = *pos++;
+		LLVector3 normal = *norm++;
 		normal.normalize();
 		*(normal_strider++) = normal;
 	}
@@ -859,7 +830,6 @@ void LLImagePreviewSculpted::setPreviewTarget(LLImageRaw* imagep, F32 distance)
 BOOL LLImagePreviewSculpted::render()
 {
 	mNeedsUpdate = FALSE;
-
 	LLGLSUIDefault def;
 	LLGLDisable no_blend(GL_BLEND);
 	LLGLEnable cull(GL_CULL_FACE);
@@ -904,7 +874,7 @@ BOOL LLImagePreviewSculpted::render()
 	LLViewerCamera::getInstance()->setPerspective(FALSE, mOrigin.mX, mOrigin.mY, mFullWidth, mFullHeight, FALSE);
 
 	const LLVolumeFace &vf = mVolume->getVolumeFace(0);
-	U32 num_indices = vf.mIndices.size();
+	U32 num_indices = vf.mNumIndices;
 	
 	mVertexBuffer->setBuffer(LLVertexBuffer::MAP_VERTEX | LLVertexBuffer::MAP_NORMAL);
 
@@ -917,7 +887,6 @@ BOOL LLImagePreviewSculpted::render()
 	mVertexBuffer->draw(LLRender::TRIANGLES, num_indices, 0);
 
 	gGL.popMatrix();
-		
 	return TRUE;
 }
 

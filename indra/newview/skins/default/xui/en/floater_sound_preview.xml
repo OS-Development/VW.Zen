@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  height="190"
  layout="topleft"
  name="Sound Preview"
- title="sound.wav"
+ help_topic="sound_preview"
+ title="SOUND.WAV"
  width="300">
     <text
      type="string"
@@ -25,9 +27,9 @@
      height="19"
      layout="topleft"
      left_delta="0"
-     max_length="63"
+     max_length_bytes="63"
      name="name_form"
-     top_pad="4"
+     top_pad="0"
      width="280" />
     <text
      type="string"
@@ -38,7 +40,7 @@
      left_delta="0"
      mouse_opaque="false"
      name="description_label"
-     top_pad="4"
+     top_pad="10"
      width="270">
         Description:
     </text>
@@ -49,27 +51,26 @@
      height="19"
      layout="topleft"
      left_delta="0"
-     max_length="127"
+     max_length_bytes="127"
      name="description_form"
-     top_pad="4"
+     top_pad="0"
      width="280" />
     <button
+     follows="left|bottom"
+     height="22"
+     label="Upload (L$[AMOUNT])"
+     layout="topleft"
+     left="45"
+     name="ok_btn"
+     top_pad="60"
+     width="150" />
+    <button
      follows="right|bottom"
-     height="20"
+     height="22"
      label="Cancel"
      label_selected="Cancel"
      layout="topleft"
-     left="200"
      name="cancel_btn"
-     top="160"
+     left_pad="5"
      width="90" />
-    <button
-     follows="left|bottom"
-     height="20"
-     label="Upload (L$[AMOUNT])"
-     layout="topleft"
-     left_delta="-135"
-     name="ok_btn"
-     top_delta="0"
-     width="130" />
 </floater>

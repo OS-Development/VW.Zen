@@ -2,31 +2,25 @@
  * @file llmaterialtable.h
  * @brief Table of material information for the viewer UI
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -37,6 +31,8 @@
 #include "llstring.h"
 
 #include <list>
+
+class LLMaterialInfo;
 
 const U32 LLMATERIAL_INFO_NAME_LENGTH = 256;
 
@@ -63,45 +59,6 @@ const F32 LEGACY_DEFAULT_OBJECT_DENSITY = 10.0f;
 // See the physics engine mass properties code for more info.
 const F32 DEFAULT_AVATAR_DENSITY = 445.3f;		// was 444.24f;
 
-
-class LLMaterialInfo
-{
-public:
-	U8		    mMCode;
-	std::string	mName;
-	LLUUID		mDefaultTextureID;
-	LLUUID		mShatterSoundID;
-	F32         mDensity;           // kg/m^3
-	F32         mFriction;
-	F32         mRestitution;
-
-	// damage and energy constants
-	F32			mHPModifier;		// modifier on mass based HP total
-	F32			mDamageModifier;	// modifier on KE based damage
-	F32			mEPModifier;		// modifier on mass based EP total
-
-	LLMaterialInfo(U8 mcode, const std::string& name, const LLUUID &uuid)
-	{
-		init(mcode,name,uuid);
-	};
-
-	void init(U8 mcode, const std::string& name, const LLUUID &uuid)
-	{
-		mDensity = 1000.f;             // default to 1000.0 (water)
-		mHPModifier = 1.f;
-		mDamageModifier = 1.f;
-		mEPModifier = 1.f;
-
-		mMCode = mcode;
-		mName = name;
-		mDefaultTextureID = uuid;		
-	};
-
-	~LLMaterialInfo()
-	{
-	};
-
-};
 
 class LLMaterialTable
 {
@@ -183,6 +140,48 @@ public:
 	LLUUID getGroundCollisionParticleUUID(U8 mcode);
 
 	static LLMaterialTable basic;
+};
+
+
+class LLMaterialInfo
+{
+public:
+	U8		    mMCode;
+	std::string	mName;
+	LLUUID		mDefaultTextureID;
+	LLUUID		mShatterSoundID;
+	F32         mDensity;           // kg/m^3
+	F32         mFriction;
+	F32         mRestitution;
+
+	// damage and energy constants
+	F32			mHPModifier;		// modifier on mass based HP total
+	F32			mDamageModifier;	// modifier on KE based damage
+	F32			mEPModifier;		// modifier on mass based EP total
+
+	LLMaterialInfo(U8 mcode, const std::string& name, const LLUUID &uuid)
+	{
+		init(mcode,name,uuid);
+	};
+
+	void init(U8 mcode, const std::string& name, const LLUUID &uuid)
+	{
+		mDensity = 1000.f;             // default to 1000.0 (water)
+		mFriction = LLMaterialTable::DEFAULT_FRICTION;
+		mRestitution = LLMaterialTable::DEFAULT_RESTITUTION;
+		mHPModifier = 1.f;
+		mDamageModifier = 1.f;
+		mEPModifier = 1.f;
+
+		mMCode = mcode;
+		mName = name;
+		mDefaultTextureID = uuid;		
+	};
+
+	~LLMaterialInfo()
+	{
+	};
+
 };
 
 #endif

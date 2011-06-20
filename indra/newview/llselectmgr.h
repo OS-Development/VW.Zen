@@ -2,31 +2,25 @@
  * @file llselectmgr.h
  * @brief A manager for selected objects and TEs.
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -35,7 +29,6 @@
 
 #include "llcharacter.h"
 #include "lleditmenuhandler.h"
-#include "llstring.h"
 #include "llundo.h"
 #include "lluuid.h"
 #include "llpointer.h"
@@ -48,14 +41,15 @@
 #include "llframetimer.h"
 #include "llbbox.h"
 #include "llpermissions.h"
-#include "llviewerobject.h"
 #include "llcontrol.h"
+#include "llviewerobject.h"	// LLObjectSelection::getSelectedTEValue template
+
 #include <deque>
-#include "boost/iterator/filter_iterator.hpp"
+#include <boost/iterator/filter_iterator.hpp>
+#include <boost/signals2.hpp>
 
 class LLMessageSystem;
 class LLViewerTexture;
-class LLViewerObject;
 class LLColor4;
 class LLVector3;
 class LLSelectNode;
@@ -139,6 +133,8 @@ public:
 	void selectTE(S32 te_index, BOOL selected);
 	BOOL isTESelected(S32 te_index);
 	S32 getLastSelectedTE();
+	S32 getTESelectMask() { return mTESelectMask; }
+	void renderOneWireframe(const LLColor4& color);
 	void renderOneSilhouette(const LLColor4 &color);
 	void setTransient(BOOL transient) { mTransient = transient; }
 	BOOL isTransient() { return mTransient; }
@@ -146,7 +142,7 @@ public:
 	void setObject(LLViewerObject* object);
 	// *NOTE: invalidate stored textures and colors when # faces change
 	void saveColors();
-	void saveTextures(const std::vector<LLUUID>& textures);
+	void saveTextures(const uuid_vec_t& textures);
 	void saveTextureScaleRatios();
 
 	BOOL allowOperationOnNode(PermissionBit op, U64 group_proxy_power) const;
@@ -182,16 +178,15 @@ public:
 	std::string		mSitName;
 	U64				mCreationDate;
 	std::vector<LLColor4>	mSavedColors;
-	std::vector<LLUUID>		mSavedTextures;
+	uuid_vec_t		mSavedTextures;
 	std::vector<LLVector3>  mTextureScaleRatios;
 	std::vector<LLVector3>	mSilhouetteVertices;	// array of vertices to render silhouette of object
 	std::vector<LLVector3>	mSilhouetteNormals;	// array of normals to render silhouette of object
-	std::vector<S32>		mSilhouetteSegments;	// array of normals to render silhouette of object
 	BOOL					mSilhouetteExists;	// need to generate silhouette?
 
 protected:
 	LLPointer<LLViewerObject>	mObject;
-	BOOL			mTESelected[SELECT_MAX_TES];
+	S32				mTESelectMask;
 	S32				mLastTESelected;
 };
 
@@ -202,13 +197,9 @@ class LLObjectSelection : public LLRefCount
 protected:
 	~LLObjectSelection();
 
-	// List
 public:
 	typedef std::list<LLSelectNode*> list_t;
-private:
-	list_t mList;
 
-public:
 	// Iterators
 	struct is_non_null
 	{
@@ -234,11 +225,7 @@ public:
 
 	struct is_root
 	{
-		bool operator()(LLSelectNode* node)
-		{
-			LLViewerObject* object = node->getObject();
-			return (object != NULL) && !node->mIndividualSelection && (object->isRootEdit() || object->isJointChild());
-		}
+		bool operator()(LLSelectNode* node);
 	};
 	typedef boost::filter_iterator<is_root, list_t::iterator > root_iterator;
 	root_iterator root_begin() { return root_iterator(mList.begin(), mList.end()); }
@@ -246,23 +233,15 @@ public:
 	
 	struct is_valid_root
 	{
-		bool operator()(LLSelectNode* node)
-		{
-			LLViewerObject* object = node->getObject();
-			return (object != NULL) && node->mValid && !node->mIndividualSelection && (object->isRootEdit() || object->isJointChild());
-		}
+		bool operator()(LLSelectNode* node);
 	};
-	typedef boost::filter_iterator<is_root, list_t::iterator > valid_root_iterator;
+	typedef boost::filter_iterator<is_valid_root, list_t::iterator > valid_root_iterator;
 	valid_root_iterator valid_root_begin() { return valid_root_iterator(mList.begin(), mList.end()); }
 	valid_root_iterator valid_root_end() { return valid_root_iterator(mList.end(), mList.end()); }
 	
 	struct is_root_object
 	{
-		bool operator()(LLSelectNode* node)
-		{
-			LLViewerObject* object = node->getObject();
-			return (object != NULL) && (object->isRootEdit() || object->isJointChild());
-		}
+		bool operator()(LLSelectNode* node);
 	};
 	typedef boost::filter_iterator<is_root_object, list_t::iterator > root_object_iterator;
 	root_object_iterator root_object_begin() { return root_object_iterator(mList.begin(), mList.end()); }
@@ -272,7 +251,6 @@ public:
 	LLObjectSelection();
 
 	void updateEffects();
-	void cleanupNodes();
 
 	BOOL isEmpty() const;
 
@@ -288,24 +266,32 @@ public:
 	LLViewerObject*	getFirstCopyableObject(BOOL get_parent = FALSE);
 	LLViewerObject* getFirstDeleteableObject();
 	LLViewerObject*	getFirstMoveableObject(BOOL get_parent = FALSE);
+
+	/// Return the object that lead to this selection, possible a child
 	LLViewerObject* getPrimaryObject() { return mPrimaryObject; }
 
 	// iterate through texture entries
 	template <typename T> bool getSelectedTEValue(LLSelectedTEGetFunctor<T>* func, T& res);
-		
-	void addNode(LLSelectNode *nodep);
-	void addNodeAtEnd(LLSelectNode *nodep);
-	void moveNodeToFront(LLSelectNode *nodep);
-	void removeNode(LLSelectNode *nodep);
-	void deleteAllNodes();			// Delete all nodes
+	template <typename T> bool isMultipleTEValue(LLSelectedTEGetFunctor<T>* func, const T& ignore_value);
+	
 	S32 getNumNodes();
 	LLSelectNode* findNode(LLViewerObject* objectp);
 
 	// count members
 	S32 getObjectCount();
+	F32 getSelectedObjectCost();
+	F32 getSelectedLinksetCost();
+	F32 getSelectedPhysicsCost();
+	F32 getSelectedLinksetPhysicsCost();
+	S32 getSelectedObjectRenderCost();
+	
+	F32 getSelectedObjectStreamingCost(S32* total_bytes = NULL, S32* visible_bytes = NULL);
+	U32 getSelectedObjectTriangleCount();
+
 	S32 getTECount();
 	S32 getRootObjectCount();
 
+	BOOL isMultipleTESelected();
 	BOOL contains(LLViewerObject* object);
 	BOOL contains(LLViewerObject* object, S32 te);
 
@@ -324,6 +310,16 @@ public:
 	ESelectType getSelectType() const { return mSelectType; }
 
 private:
+	void addNode(LLSelectNode *nodep);
+	void addNodeAtEnd(LLSelectNode *nodep);
+	void moveNodeToFront(LLSelectNode *nodep);
+	void removeNode(LLSelectNode *nodep);
+	void deleteAllNodes();
+	void cleanupNodes();
+
+
+private:
+	list_t mList;
 	const LLObjectSelection &operator=(const LLObjectSelection &);
 
 	LLPointer<LLViewerObject> mPrimaryObject;
@@ -332,6 +328,11 @@ private:
 };
 
 typedef LLSafeHandle<LLObjectSelection> LLObjectSelectionHandle;
+
+// Build time optimization, generate this once in .cpp file
+#ifndef LLSELECTMGR_CPP
+extern template class LLSelectMgr* LLSingleton<class LLSelectMgr>::getInstance();
+#endif
 
 class LLSelectMgr : public LLEditMenuHandler, public LLSingleton<LLSelectMgr>
 {
@@ -355,6 +356,7 @@ public:
 	static LLColor4				sContextSilhouetteColor;
 
 	LLCachedControl<bool>					mHideSelectedObjects;
+	LLCachedControl<bool>					mRenderHighlightSelections;
 	LLCachedControl<bool>					mAllowSelectAvatar;
 	LLCachedControl<bool>					mDebugSelectMgr;
 
@@ -396,12 +398,15 @@ public:
 	// Add
 	////////////////////////////////////////////////////////////////
 
+	// This method is meant to select an object, and then select all
+	// of the ancestors and descendants. This should be the normal behavior.
+	//
+	// *NOTE: You must hold on to the object selection handle, otherwise
+	// the objects will be automatically deselected in 1 frame.
+	LLObjectSelectionHandle selectObjectAndFamily(LLViewerObject* object, BOOL add_to_end = FALSE);
+
 	// For when you want just a child object.
 	LLObjectSelectionHandle selectObjectOnly(LLViewerObject* object, S32 face = SELECT_ALL_TES);
-
-	// This method is meant to select an object, and then select all
-	// of the ancestors and descendents. This should be the normal behavior.
-	LLObjectSelectionHandle selectObjectAndFamily(LLViewerObject* object, BOOL add_to_end = FALSE);
 
 	// Same as above, but takes a list of objects.  Used by rectangle select.
 	LLObjectSelectionHandle selectObjectAndFamily(const std::vector<LLViewerObject*>& object_list, BOOL send_to_sim = TRUE);
@@ -409,7 +414,9 @@ public:
 	// converts all objects currently highlighted to a selection, and returns it
 	LLObjectSelectionHandle selectHighlightedObjects();
 
-	LLObjectSelectionHandle setHoverObject(LLViewerObject *objectp);
+	LLObjectSelectionHandle setHoverObject(LLViewerObject *objectp, S32 face = -1);
+	LLSelectNode *getHoverNode();
+	LLSelectNode *getPrimaryHoverNode();
 
 	void highlightObjectOnly(LLViewerObject *objectp);
 	void highlightObjectAndFamily(LLViewerObject *objectp);
@@ -442,15 +449,23 @@ public:
 	BOOL removeObjectFromSelections(const LLUUID &id);
 
 	////////////////////////////////////////////////////////////////
+	// Selection editing
+	////////////////////////////////////////////////////////////////
+	bool linkObjects();
+
+	bool unlinkObjects();
+
+	bool enableLinkObjects();
+
+	bool enableUnlinkObjects();
+
+	////////////////////////////////////////////////////////////////
 	// Selection accessors
 	////////////////////////////////////////////////////////////////
-	LLObjectSelectionHandle	getHoverObjects() { return mHoverObjects; }
 	LLObjectSelectionHandle	getSelection() { return mSelectedObjects; }
 	// right now this just renders the selection with root/child colors instead of a single color
 	LLObjectSelectionHandle	getEditSelection() { convertTransient(); return mSelectedObjects; }
 	LLObjectSelectionHandle	getHighlightedObjects() { return mHighlightedObjects; }
-
-	LLSelectNode *getHoverNode();
 
 	////////////////////////////////////////////////////////////////
 	// Grid manipulation
@@ -494,6 +509,11 @@ public:
 	bool selectionGetIncludeInSearch(bool* include_in_search_out); // true if all selected objects have same
 	BOOL selectionGetGlow(F32 *glow);
 
+	void selectionSetPhysicsType(U8 type);
+	void selectionSetGravity(F32 gravity);
+	void selectionSetFriction(F32 friction);
+	void selectionSetDensity(F32 density);
+	void selectionSetRestitution(F32 restitution);
 	void selectionSetMaterial(U8 material);
 	void selectionSetImage(const LLUUID& imageid); // could be item or asset id
 	void selectionSetColor(const LLColor4 &color);
@@ -505,7 +525,7 @@ public:
 	void selectionSetTexGen( U8 texgen );
 	void selectionSetShiny( U8 shiny );
 	void selectionSetFullbright( U8 fullbright );
-	void selectionSetMediaTypeAndURL( U8 media_type, const std::string& media_url );
+	void selectionSetMedia( U8 media_type, const LLSD &media_data );
 	void selectionSetClickAction(U8 action);
 	void selectionSetIncludeInSearch(bool include_in_search);
 	void selectionSetGlow(const F32 glow);
@@ -537,6 +557,7 @@ public:
 	// Returns TRUE if the viewer has information on all selected objects
 	BOOL selectGetAllRootsValid();
 	BOOL selectGetAllValid();
+	BOOL selectGetAllValidAndObjectsFound();
 
 	// returns TRUE if you can modify all selected objects. 
 	BOOL selectGetRootsModify();
@@ -611,7 +632,7 @@ public:
 	// verification only, if it doesn't match region info then sale is
 	// canceled
 	void sendBuy(const LLUUID& buyer_id, const LLUUID& category_id, const LLSaleInfo sale_info);
-	void sendAttach(U8 attachment_point);
+	void sendAttach(U8 attachment_point, bool replace);
 	void sendDetach();
 	void sendDropAttachment();
 	void sendLink();
@@ -649,12 +670,14 @@ private:
 	ESelectType getSelectTypeForObject(LLViewerObject* object);
 	void addAsFamily(std::vector<LLViewerObject*>& objects, BOOL add_to_end = FALSE);
 	void generateSilhouette(LLSelectNode *nodep, const LLVector3& view_point);
+	void updateSelectionSilhouette(LLObjectSelectionHandle object_handle, S32& num_sils_genned, std::vector<LLViewerObject*>& changed_objects);
 	// Send one message to each region containing an object on selection list.
 	void sendListToRegions(	const std::string& message_name,
 							void (*pack_header)(void *user_data), 
 							void (*pack_body)(LLSelectNode* node, void *user_data), 
 							void *user_data,
 							ESendType send_type);
+
 
 	static void packAgentID(	void *);
 	static void packAgentAndSessionID(void* user_data);
@@ -666,7 +689,7 @@ private:
 	static void packDeRezHeader(void* user_data);
 	static void packObjectID(	LLSelectNode* node, void *);
 	static void packObjectIDAsParam(LLSelectNode* node, void *);
-	static void packObjectIDAndRotation(	LLSelectNode* node, void *);
+	static void packObjectIDAndRotation(LLSelectNode* node, void *);
 	static void packObjectLocalID(LLSelectNode* node, void *);
 	static void packObjectClickAction(LLSelectNode* node, void* data);
 	static void packObjectIncludeInSearch(LLSelectNode* node, void* data);
@@ -688,7 +711,13 @@ private:
 	static void packPermissionsHead(void* user_data);
 	static void packGodlikeHead(void* user_data);
 	static bool confirmDelete(const LLSD& notification, const LLSD& response, LLObjectSelectionHandle handle);
-	
+
+public:
+	// Observer/callback support for when object selection changes or
+	// properties are received/updated
+	typedef boost::signals2::signal< void ()> update_signal_t;
+	update_signal_t mUpdateSignal;
+
 private:
 	LLPointer<LLViewerTexture>				mSilhouetteImagep;
 	LLObjectSelectionHandle					mSelectedObjects;
@@ -720,8 +749,10 @@ private:
 	LLAnimPauseRequest		mPauseRequest;
 };
 
-// Utilities
-void dialog_refresh_all();		// Update subscribers to the selection list
+// *DEPRECATED: For callbacks or observers, use
+// LLSelectMgr::getInstance()->mUpdateSignal.connect( callback )
+// Update subscribers to the selection list
+void dialog_refresh_all();		
 
 // Templates
 //-----------------------------------------------------------------------------
@@ -782,6 +813,53 @@ template <typename T> bool LLObjectSelection::getSelectedTEValue(LLSelectedTEGet
 		res = selected_value;
 	}
 	return identical;
+}
+
+// Templates
+//-----------------------------------------------------------------------------
+// isMultipleTEValue iterate through all TEs and test for uniqueness 
+// with certain return value ignored when performing the test. 
+// e.g. when testing if the selection has a unique non-empty homeurl :
+// you can set ignore_value = "" and it will only compare among the non-empty  
+// homeUrls and ignore the empty ones.
+//-----------------------------------------------------------------------------
+template <typename T> bool LLObjectSelection::isMultipleTEValue(LLSelectedTEGetFunctor<T>* func, const T& ignore_value)
+{
+	bool have_first = false;
+	T selected_value = T();
+	
+	// Now iterate through all TEs to test for sameness
+	bool unique = TRUE;
+	for (iterator iter = begin(); iter != end(); iter++)
+	{
+		LLSelectNode* node = *iter;
+		LLViewerObject* object = node->getObject();
+		for (S32 te = 0; te < object->getNumTEs(); ++te)
+		{
+			if (!node->isTESelected(te))
+			{
+				continue;
+			}
+			T value = func->get(object, te);
+			if(value == ignore_value)
+			{
+				continue;
+			}
+			if (!have_first)
+			{
+				have_first = true;
+			}
+			else
+			{
+				if (value !=selected_value  )
+				{
+					unique = false;
+					return !unique;
+				}
+			}
+		}
+	}
+	return !unique;
 }
 
 

@@ -1,13 +1,15 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
- height="512"
+ legacy_header_height="18"
+ height="555"
+ help_topic="regioninfo"
  layout="topleft"
  name="regioninfo"
  save_rect="true"
- title="Region/Estate"
- width="280">
+ title="REGION/ESTATE"
+ width="530">
     <tab_container
-     bottom="512"
+     bottom="555"
      follows="left|right|top|bottom"
      layout="topleft"
      left="1"

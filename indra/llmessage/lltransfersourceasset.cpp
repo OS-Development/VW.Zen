@@ -2,31 +2,25 @@
  * @file lltransfersourceasset.cpp
  * @brief Transfer system for sending an asset.
  *
- * $LicenseInfo:firstyear=2006&license=viewergpl$
- * 
- * Copyright (c) 2006-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2006&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -60,7 +54,7 @@ void LLTransferSourceAsset::initTransfer()
 		// to the simulator. This is subset of assets we allow to be
 		// simply pulled straight from the asset system.
 		LLUUID* tidp;
-		if(is_asset_fetch_by_id_allowed(mParams.getAssetType()))
+		if(LLAssetType::lookupIsAssetFetchByIDAllowed(mParams.getAssetType()))
 		{
 			tidp = new LLUUID(getID());
 			gAssetStorage->getAssetData(
@@ -131,7 +125,7 @@ LLTSCode LLTransferSourceAsset::dataCallback(const S32 packet_id,
 	*data_handle = tmpp;
 	if (!vf.read(tmpp, max_bytes))		/* Flawfinder: Ignore */
 	{
-		// Crap, read failure, need to deal with it.
+		// Read failure, need to deal with it.
 		delete[] tmpp;
 		*data_handle = NULL;
 		returned_bytes = 0;
@@ -226,7 +220,10 @@ void LLTransferSourceAsset::responderCallback(LLVFS *vfs, const LLUUID& uuid, LL
 
 
 
-LLTransferSourceParamsAsset::LLTransferSourceParamsAsset() : LLTransferSourceParams(LLTST_ASSET)
+LLTransferSourceParamsAsset::LLTransferSourceParamsAsset()
+	: LLTransferSourceParams(LLTST_ASSET),
+
+	  mAssetType(LLAssetType::AT_NONE)
 {
 }
 
@@ -255,51 +252,3 @@ BOOL LLTransferSourceParamsAsset::unpackParams(LLDataPacker &dp)
 	return TRUE;
 }
 
-/**
- * Helper functions
- */
-bool is_asset_fetch_by_id_allowed(LLAssetType::EType type)
-{
-	// *FIX: Make this list smaller.
-	bool rv = false;
-	switch(type)
-	{
-		case LLAssetType::AT_SOUND:
-		case LLAssetType::AT_LANDMARK:
-		case LLAssetType::AT_CLOTHING:
-		case LLAssetType::AT_BODYPART:
-		case LLAssetType::AT_ANIMATION:
-		case LLAssetType::AT_GESTURE:
-		case LLAssetType::AT_FAVORITE:
-			rv = true;
-			break;
-		default:
-			break;
-	}
-	return rv;
-}
-
-bool is_asset_id_knowable(LLAssetType::EType type)
-{
-	// *FIX: Make this list smaller.
-	bool rv = false;
-	switch(type)
-	{
-		case LLAssetType::AT_TEXTURE:
-		case LLAssetType::AT_SOUND:
-		case LLAssetType::AT_LANDMARK:
-		case LLAssetType::AT_CLOTHING:
-		case LLAssetType::AT_NOTECARD:
-		case LLAssetType::AT_BODYPART:
-		case LLAssetType::AT_ANIMATION:
-		case LLAssetType::AT_GESTURE:
-		case LLAssetType::AT_FAVORITE:
-		case LLAssetType::AT_LINK:
-		case LLAssetType::AT_LINK_FOLDER:
-		rv = true;
-		break;
-	default:
-		break;
-	}
-	return rv;
-}

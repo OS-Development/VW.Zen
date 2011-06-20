@@ -2,31 +2,25 @@
  * @file llscrollbar.cpp
  * @brief Scrollbar UI widget
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -56,15 +50,19 @@ LLScrollbar::Params::Params()
 	doc_pos ("doc_pos", 0),
 	page_size ("page_size", 0),
 	step_size ("step_size", 1),
-	thumb_image("thumb_image"),
-	track_image("track_image"),
+	thumb_image_vertical("thumb_image_vertical"),
+	thumb_image_horizontal("thumb_image_horizontal"),
+	track_image_vertical("track_image_vertical"),
+	track_image_horizontal("track_image_horizontal"),
 	track_color("track_color"),
 	thumb_color("thumb_color"),
 	thickness("thickness"),
 	up_button("up_button"),
 	down_button("down_button"),
 	left_button("left_button"),
-	right_button("right_button")
+	right_button("right_button"),
+	bg_visible("bg_visible", false),
+	bg_color("bg_color", LLColor4::black)
 {
 	tab_stop = false;
 }
@@ -84,11 +82,13 @@ LLScrollbar::LLScrollbar(const Params & p)
 		mCurGlowStrength(0.f),
 		mTrackColor( p.track_color() ),
 		mThumbColor ( p.thumb_color() ),
-		mOnScrollEndCallback( NULL ),
-		mOnScrollEndData( NULL ),
-		mThumbImage(p.thumb_image),
-		mTrackImage(p.track_image),
-		mThickness(p.thickness.isProvided() ? p.thickness : LLUI::sSettingGroups["config"]->getS32("UIScrollbarSize"))
+		mThumbImageV(p.thumb_image_vertical),
+		mThumbImageH(p.thumb_image_horizontal),
+		mTrackImageV(p.track_image_vertical),
+		mTrackImageH(p.track_image_horizontal),
+		mThickness(p.thickness.isProvided() ? p.thickness : LLUI::sSettingGroups["config"]->getS32("UIScrollbarSize")),
+		mBGVisible(p.bg_visible),
+		mBGColor(p.bg_color)
 {
 	updateThumbRect();
 	
@@ -143,7 +143,8 @@ void LLScrollbar::setDocParams( S32 size, S32 pos )
 	updateThumbRect();
 }
 
-void LLScrollbar::setDocPos(S32 pos, BOOL update_thumb)
+// returns true if document position really changed
+bool LLScrollbar::setDocPos(S32 pos, BOOL update_thumb)
 {
 	pos = llclamp(pos, 0, getDocPosMax());
 	if (pos != mDocPos)
@@ -160,7 +161,9 @@ void LLScrollbar::setDocPos(S32 pos, BOOL update_thumb)
 		{
 			updateThumbRect();
 		}
+		return true;
 	}
+	return false;
 }
 
 void LLScrollbar::setDocSize(S32 size)
@@ -234,11 +237,6 @@ void LLScrollbar::updateThumbRect()
 		mThumbRect.mTop = mThickness;
 		mThumbRect.mRight = thumb_start + thumb_length;
 		mThumbRect.mBottom = 0;
-	}
-	
-	if (mOnScrollEndCallback && mOnScrollEndData && (mDocPos == getDocPosMax()))
-	{
-		mOnScrollEndCallback(mOnScrollEndData);
 	}
 }
 
@@ -390,7 +388,7 @@ BOOL LLScrollbar::handleHover(S32 x, S32 y, MASK mask)
 	}
 	else
 	{
-		handled = childrenHandleMouseUp( x, y, mask ) != NULL;
+		handled = childrenHandleHover( x, y, mask ) != NULL;
 	}
 
 	// Opaque
@@ -408,8 +406,8 @@ BOOL LLScrollbar::handleHover(S32 x, S32 y, MASK mask)
 
 BOOL LLScrollbar::handleScrollWheel(S32 x, S32 y, S32 clicks)
 {
-	changeLine( clicks * mStepSize, TRUE );
-	return TRUE;
+	BOOL handled = changeLine( clicks * mStepSize, TRUE );
+	return handled;
 }
 
 BOOL LLScrollbar::handleDragAndDrop(S32 x, S32 y, MASK mask, BOOL drop,
@@ -451,6 +449,13 @@ BOOL LLScrollbar::handleMouseUp(S32 x, S32 y, MASK mask)
 	return handled;
 }
 
+BOOL LLScrollbar::handleDoubleClick(S32 x, S32 y, MASK mask)
+{
+	// just treat a double click as a second click
+	return handleMouseDown(x, y, mask);
+}
+
+
 void LLScrollbar::reshape(S32 width, S32 height, BOOL called_from_parent)
 {
 	if (width == getRect().getWidth() && height == getRect().getHeight()) return;
@@ -478,9 +483,14 @@ void LLScrollbar::draw()
 {
 	if (!getRect().isValid()) return;
 
+	if(mBGVisible)
+	{
+		gl_rect_2d(getLocalRect(), mBGColor.get(), TRUE);
+	}
+
 	S32 local_mouse_x;
 	S32 local_mouse_y;
-	LLUI::getCursorPositionLocal(this, &local_mouse_x, &local_mouse_y);
+	LLUI::getMousePositionLocal(this, &local_mouse_x, &local_mouse_y);
 	BOOL other_captor = gFocusMgr.getMouseCapture() && gFocusMgr.getMouseCapture() != this;
 	BOOL hovered = getEnabled() && !other_captor && (hasMouseCapture() || mThumbRect.pointInRect(local_mouse_x, local_mouse_y));
 	if (hovered)
@@ -493,7 +503,8 @@ void LLScrollbar::draw()
 	}
 
 	// Draw background and thumb.
-	if (mTrackImage.isNull() || mThumbImage.isNull())
+	if (   ( mOrientation == VERTICAL&&(mThumbImageV.isNull() || mThumbImageH.isNull()) ) 
+		|| (mOrientation == HORIZONTAL&&(mTrackImageH.isNull() || mTrackImageV.isNull()) ))
 	{
 		gl_rect_2d(mOrientation == HORIZONTAL ? mThickness : 0, 
 		mOrientation == VERTICAL ? getRect().getHeight() - 2 * mThickness : getRect().getHeight(),
@@ -505,36 +516,53 @@ void LLScrollbar::draw()
 	}
 	else
 	{
-		// Background
-		mTrackImage->drawSolid(mOrientation == HORIZONTAL ? mThickness : 0, 
-			mOrientation == VERTICAL ? mThickness : 0,
-			mOrientation == HORIZONTAL ? getRect().getWidth() - 2 * mThickness : getRect().getWidth(), 
-			mOrientation == VERTICAL ? getRect().getHeight() - 2 * mThickness : getRect().getHeight(),
-			mTrackColor.get());
-
 		// Thumb
 		LLRect outline_rect = mThumbRect;
 		outline_rect.stretch(2);
-
-		if (gFocusMgr.getKeyboardFocus() == this)
+		// Background
+		
+		if(mOrientation == HORIZONTAL)
 		{
-			mTrackImage->draw(outline_rect, gFocusMgr.getFocusColor());
+			mTrackImageH->drawSolid(mThickness								//S32 x
+								   , 0										//S32 y
+								   , getRect().getWidth() - 2 * mThickness  //S32 width
+								   , getRect().getHeight()					//S32 height
+								   , mTrackColor.get());                    //const LLColor4& color
+			
+			if (gFocusMgr.getKeyboardFocus() == this)
+			{
+				mTrackImageH->draw(outline_rect, gFocusMgr.getFocusColor());
+			}
+			
+			mThumbImageH->draw(mThumbRect, mThumbColor.get());
+			if (mCurGlowStrength > 0.01f)
+			{
+				gGL.setSceneBlendType(LLRender::BT_ADD_WITH_ALPHA);
+				mThumbImageH->drawSolid(mThumbRect, LLColor4(1.f, 1.f, 1.f, mCurGlowStrength));
+				gGL.setSceneBlendType(LLRender::BT_ALPHA);
+			}
+			
 		}
-
-		mThumbImage->draw(mThumbRect, mThumbColor.get());
-		if (mCurGlowStrength > 0.01f)
+		else if(mOrientation == VERTICAL)
 		{
-			gGL.setSceneBlendType(LLRender::BT_ADD_WITH_ALPHA);
-			mThumbImage->drawSolid(mThumbRect, LLColor4(1.f, 1.f, 1.f, mCurGlowStrength));
-			gGL.setSceneBlendType(LLRender::BT_ALPHA);
+			mTrackImageV->drawSolid(  0										//S32 x
+								   , mThickness								//S32 y
+								   , getRect().getWidth()					//S32 width
+								   , getRect().getHeight() - 2 * mThickness	//S32 height
+								   , mTrackColor.get());                    //const LLColor4& color
+			if (gFocusMgr.getKeyboardFocus() == this)
+			{
+				mTrackImageV->draw(outline_rect, gFocusMgr.getFocusColor());
+			}
+			
+			mThumbImageV->draw(mThumbRect, mThumbColor.get());
+			if (mCurGlowStrength > 0.01f)
+			{
+				gGL.setSceneBlendType(LLRender::BT_ADD_WITH_ALPHA);
+				mThumbImageV->drawSolid(mThumbRect, LLColor4(1.f, 1.f, 1.f, mCurGlowStrength));
+				gGL.setSceneBlendType(LLRender::BT_ALPHA);
+			}
 		}
-
-	}
-
-	BOOL was_scrolled_to_bottom = (getDocPos() == getDocPosMax());
-	if (mOnScrollEndCallback && was_scrolled_to_bottom)
-	{
-		mOnScrollEndCallback(mOnScrollEndData);
 	}
 
 	// Draw children
@@ -542,9 +570,9 @@ void LLScrollbar::draw()
 } // end draw
 
 
-void LLScrollbar::changeLine( S32 delta, BOOL update_thumb )
+bool LLScrollbar::changeLine( S32 delta, BOOL update_thumb )
 {
-	setDocPos(mDocPos + delta, update_thumb);
+	return setDocPos(mDocPos + delta, update_thumb);
 }
 
 void LLScrollbar::setValue(const LLSD& value) 
@@ -615,16 +643,4 @@ void LLScrollbar::onLineUpBtnPressed( const LLSD& data )
 void LLScrollbar::onLineDownBtnPressed( const LLSD& data )
 {
 	changeLine( mStepSize, TRUE );
-}
-
-
-namespace LLInitParam
-{
-    template<>
-	bool ParamCompare<boost::function<void (S32, LLScrollbar*)> >::equals(
-		const boost::function<void (S32, LLScrollbar*)> &a,
-		const boost::function<void (S32, LLScrollbar*)> &b) 
-	{
-		return false;
-	}
 }

@@ -2,31 +2,25 @@
  * @file llui_libtest.cpp
  * @brief Integration test for the LLUI library
  *
- * $LicenseInfo:firstyear=2009&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2009&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 #include "linden_common.h"
@@ -39,10 +33,12 @@
 // linden library includes
 #include "llcontrol.h"		// LLControlGroup
 #include "lldir.h"
+#include "lldiriterator.h"
 #include "llerrorcontrol.h"
 #include "llfloater.h"
+#include "llfontfreetype.h"
 #include "llfontgl.h"
-#include "lltrans.h"
+#include "lltransutil.h"
 #include "llui.h"
 #include "lluictrlfactory.h"
 
@@ -50,6 +46,11 @@
 
 // *TODO: switch to using TUT
 // *TODO: teach Parabuild about this program, run automatically after full builds
+
+// I believe these must be globals, not stack variables.  JC
+LLControlGroup gSavedSettings("Global");	// saved at end of session
+LLControlGroup gSavedPerAccountSettings("PerAccount"); // saved at end of session
+LLControlGroup gWarningSettings("Warnings"); // persists ignored dialogs/warnings
 
 // We can't create LLImageGL objects because we have no window or rendering 
 // context.  Provide enough of an LLUIImage to test the LLUI library without
@@ -72,17 +73,18 @@ public:
 	}
 };
 
+
 class LLTexture ;
 // We need to supply dummy images
 class TestImageProvider : public LLImageProviderInterface
 {
 public:
-	/*virtual*/ LLPointer<LLUIImage> getUIImage(const std::string& name)
+	/*virtual*/ LLPointer<LLUIImage> getUIImage(const std::string& name, S32 priority)
 	{
 		return makeImage();
 	}
 
-	/*virtual*/ LLPointer<LLUIImage> getUIImageByID(const LLUUID& id)
+	/*virtual*/ LLPointer<LLUIImage> getUIImageByID(const LLUUID& id, S32 priority)
 	{
 		return makeImage();
 	}
@@ -94,10 +96,16 @@ public:
 	LLPointer<LLUIImage> makeImage()
 	{
 		LLPointer<LLTexture> image_gl;
-		LLPointer<LLUIImage> image = new LLUIImage( std::string(), image_gl);
+		LLPointer<LLUIImage> image = new TestUIImage(); //LLUIImage( std::string(), image_gl);
+		mImageList.push_back(image);
 		return image;
 	}
+	
+public:
+	// Unclear if we need this, hold on to one copy of each image we make
+	std::vector<LLPointer<LLUIImage> > mImageList;
 };
+TestImageProvider gTestImageProvider;
 
 static std::string get_xui_dir()
 {
@@ -116,27 +124,22 @@ void init_llui()
 	gDirUtilp->initAppDirs("SecondLife", newview_path);
 	gDirUtilp->setSkinFolder("default");
 	
+	// colors are no longer stored in a LLControlGroup file
+	LLUIColorTable::instance().loadFromSettings();
+
 	std::string config_filename = gDirUtilp->getExpandedFilename(
 																 LL_PATH_APP_SETTINGS, "settings.xml");
-	LLControlGroup config_group("config");
-	config_group.loadFromFile(config_filename);
+	gSavedSettings.loadFromFile(config_filename);
 	
-	std::string color_filename = gDirUtilp->getExpandedFilename(
-																LL_PATH_DEFAULT_SKIN, "colors.xml");
-	LLControlGroup color_group("color");
-	color_group.loadFromFile(color_filename);
-	
-	LLControlGroup floater_group("floater");
-	LLControlGroup ignores_group("ignores");
+	// See LLAppViewer::init()
 	LLUI::settings_map_t settings;
-	settings["config"] = &config_group;
-	settings["color"] = &color_group;
-	settings["floater"] = &floater_group;
-	settings["ignores"] = &ignores_group;
+	settings["config"] = &gSavedSettings;
+	settings["ignores"] = &gWarningSettings;
+	settings["floater"] = &gSavedSettings;
+	settings["account"] = &gSavedPerAccountSettings;
 	
 	// Don't use real images as we don't have a GL context
-	TestImageProvider image_provider;
-	LLUI::initClass(settings, &image_provider);
+	LLUI::initClass(settings, &gTestImageProvider);
 	
 	const bool no_register_widgets = false;
 	LLWidgetReg::initClass( no_register_widgets );
@@ -146,8 +149,8 @@ void init_llui()
 	// Otherwise we get translation warnings when setting up floaters
 	// (tooltips for buttons)
 	std::set<std::string> default_args;
-	LLTrans::parseStrings("strings.xml", default_args);
-    
+	LLTransUtil::parseStrings("strings.xml", default_args);
+	LLTransUtil::parseLanguageStrings("language_settings.xml");
 	LLFontManager::initClass();
 	
 	// Creating widgets apparently requires fonts to be initialized,
@@ -172,7 +175,9 @@ void export_test_floaters()
 	std::string delim = gDirUtilp->getDirDelimiter();
 	std::string xui_dir = get_xui_dir() + "en" + delim;
 	std::string filename;
-	while (gDirUtilp->getNextFileInDir(xui_dir, "floater_test_*.xml", filename, false))
+
+	LLDirIterator iter(xui_dir, "floater_test_*.xml");
+	while (iter.next(filename))
 	{
 		if (filename.find("_new.xml") != std::string::npos)
 		{
@@ -182,11 +187,10 @@ void export_test_floaters()
 		llinfos << "Converting " << filename << llendl;
 		// Build a floater and output new attributes
 		LLXMLNodePtr output_node = new LLXMLNode();
-		LLFloater* floater = new LLFloater();
-		LLUICtrlFactory::getInstance()->buildFloater(floater,
-													 filename,
-													 FALSE,	// don't open floater
-													 output_node);
+		LLFloater* floater = new LLFloater(LLSD());
+		floater->buildFromFile(	filename,
+								//	 FALSE,	// don't open floater
+								output_node);
 		std::string out_filename = xui_dir + filename;
 		std::string::size_type extension_pos = out_filename.rfind(".xml");
 		out_filename.resize(extension_pos);

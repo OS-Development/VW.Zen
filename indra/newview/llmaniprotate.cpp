@@ -2,31 +2,25 @@
  * @file llmaniprotate.cpp
  * @brief LLManipRotate class implementation
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -45,11 +39,12 @@
 
 // viewer includes
 #include "llagent.h"
+#include "llagentcamera.h"
 #include "llbox.h"
 #include "llbutton.h"
 #include "llviewercontrol.h"
 #include "llcriticaldamp.h"
-#include "llhoverview.h"
+#include "lltooltip.h"
 #include "llfloatertools.h"
 #include "llselectmgr.h"
 #include "llstatusbar.h"
@@ -64,6 +59,7 @@
 #include "lldrawable.h"
 #include "llglheaders.h"
 #include "lltrans.h"
+#include "llvoavatarself.h"
 
 const F32 RADIUS_PIXELS = 100.f;		// size in screen space
 const F32 SQ_RADIUS = RADIUS_PIXELS * RADIUS_PIXELS;
@@ -138,7 +134,7 @@ void LLManipRotate::render()
 	glPushMatrix();
 	if (mObjectSelection->getSelectType() == SELECT_TYPE_HUD)
 	{
-		F32 zoom = gAgent.mHUDCurZoom;
+		F32 zoom = gAgentCamera.mHUDCurZoom;
 		glScalef(zoom, zoom, zoom);
 	}
 
@@ -690,7 +686,7 @@ void LLManipRotate::drag( S32 x, S32 y )
 	LLSelectMgr::getInstance()->updateSelectionCenter();
 
 	// RN: just clear focus so camera doesn't follow spurious object updates
-	gAgent.clearFocusObject();
+	gAgentCamera.clearFocusObject();
 	dialog_refresh_all();
 }
 
@@ -730,7 +726,7 @@ void LLManipRotate::renderSnapGuides()
 	}
 	else
 	{
-		cam_at_axis = center - gAgent.getCameraPositionAgent();
+		cam_at_axis = center - gAgentCamera.getCameraPositionAgent();
 		cam_at_axis.normVec();
 	}
 
@@ -738,7 +734,7 @@ void LLManipRotate::renderSnapGuides()
 	LLVector3 test_axis = constraint_axis;
 
 	BOOL constrain_to_ref_object = FALSE;
-	if (mObjectSelection->getSelectType() == SELECT_TYPE_ATTACHMENT && gAgent.getAvatarObject())
+	if (mObjectSelection->getSelectType() == SELECT_TYPE_ATTACHMENT && isAgentAvatarValid())
 	{
 		test_axis = test_axis * ~grid_rotation;
 	}
@@ -765,7 +761,7 @@ void LLManipRotate::renderSnapGuides()
 	}
 
 	LLVector3 projected_snap_axis = world_snap_axis;
-	if (mObjectSelection->getSelectType() == SELECT_TYPE_ATTACHMENT && gAgent.getAvatarObject())
+	if (mObjectSelection->getSelectType() == SELECT_TYPE_ATTACHMENT && isAgentAvatarValid())
 	{
 		projected_snap_axis = projected_snap_axis * grid_rotation;
 	}
@@ -905,32 +901,32 @@ void LLManipRotate::renderSnapGuides()
 					{
 						if (i == 0)
 						{
-							renderTickText(text_point, mObjectSelection->isAttachment() ? LLTrans::getString("Forward") : LLTrans::getString("East"), LLColor4::white);
+							renderTickText(text_point, mObjectSelection->isAttachment() ? LLTrans::getString("Direction_Forward") : LLTrans::getString("Direction_East"), LLColor4::white);
 						}
 						else if (i == 16)
 						{
 							if (constraint_axis.mV[VZ] > 0.f)
 							{
-								renderTickText(text_point, mObjectSelection->isAttachment() ? LLTrans::getString("Left") : LLTrans::getString("North"), LLColor4::white);
+								renderTickText(text_point, mObjectSelection->isAttachment() ? LLTrans::getString("Direction_Left") : LLTrans::getString("Direction_North"), LLColor4::white);
 							}
 							else
 							{
-								renderTickText(text_point, mObjectSelection->isAttachment() ? LLTrans::getString("Right") : LLTrans::getString("South"), LLColor4::white);
+								renderTickText(text_point, mObjectSelection->isAttachment() ? LLTrans::getString("Direction_Right") : LLTrans::getString("Direction_South"), LLColor4::white);
 							}
 						}
 						else if (i == 32)
 						{
-							renderTickText(text_point, mObjectSelection->isAttachment() ? LLTrans::getString("Back") : LLTrans::getString("West"), LLColor4::white);
+							renderTickText(text_point, mObjectSelection->isAttachment() ? LLTrans::getString("Direction_Back") : LLTrans::getString("Direction_West"), LLColor4::white);
 						}
 						else
 						{
 							if (constraint_axis.mV[VZ] > 0.f)
 							{
-								renderTickText(text_point, mObjectSelection->isAttachment() ? LLTrans::getString("Right") : LLTrans::getString("South"), LLColor4::white);
+								renderTickText(text_point, mObjectSelection->isAttachment() ? LLTrans::getString("Direction_Right") : LLTrans::getString("Direction_South"), LLColor4::white);
 							}
 							else
 							{
-								renderTickText(text_point, mObjectSelection->isAttachment() ? LLTrans::getString("Left") : LLTrans::getString("North"), LLColor4::white);
+								renderTickText(text_point, mObjectSelection->isAttachment() ? LLTrans::getString("Direction_Left") : LLTrans::getString("Direction_North"), LLColor4::white);
 							}
 						}
 					}
@@ -938,32 +934,32 @@ void LLManipRotate::renderSnapGuides()
 					{
 						if (i == 0)
 						{
-							renderTickText(text_point, mObjectSelection->isAttachment() ? LLTrans::getString("Left") : LLTrans::getString("North"), LLColor4::white);
+							renderTickText(text_point, mObjectSelection->isAttachment() ? LLTrans::getString("Direction_Left") : LLTrans::getString("Direction_North"), LLColor4::white);
 						}
 						else if (i == 16)
 						{
 							if (constraint_axis.mV[VX] > 0.f)
 							{
-								renderTickText(text_point, LLTrans::getString("Up"), LLColor4::white);
+								renderTickText(text_point, LLTrans::getString("Direction_Up"), LLColor4::white);
 							}
 							else
 							{
-								renderTickText(text_point, LLTrans::getString("Down"), LLColor4::white);
+								renderTickText(text_point, LLTrans::getString("Direction_Down"), LLColor4::white);
 							}
 						}
 						else if (i == 32)
 						{
-							renderTickText(text_point, mObjectSelection->isAttachment() ? LLTrans::getString("Right") : LLTrans::getString("South"), LLColor4::white);
+							renderTickText(text_point, mObjectSelection->isAttachment() ? LLTrans::getString("Direction_Right") : LLTrans::getString("Direction_South"), LLColor4::white);
 						}
 						else
 						{
 							if (constraint_axis.mV[VX] > 0.f)
 							{
-								renderTickText(text_point, LLTrans::getString("Down"), LLColor4::white);
+								renderTickText(text_point, LLTrans::getString("Direction_Down"), LLColor4::white);
 							}
 							else
 							{
-								renderTickText(text_point, LLTrans::getString("Up"), LLColor4::white);
+								renderTickText(text_point, LLTrans::getString("Direction_Up"), LLColor4::white);
 							}
 						}
 					}
@@ -971,32 +967,32 @@ void LLManipRotate::renderSnapGuides()
 					{
 						if (i == 0)
 						{
-							renderTickText(text_point, LLTrans::getString("Up"), LLColor4::white);
+							renderTickText(text_point, LLTrans::getString("Direction_Up"), LLColor4::white);
 						}
 						else if (i == 16)
 						{
 							if (constraint_axis.mV[VY] > 0.f)
 							{
-								renderTickText(text_point, mObjectSelection->isAttachment() ? LLTrans::getString("Forward") : LLTrans::getString("East"), LLColor4::white);
+								renderTickText(text_point, mObjectSelection->isAttachment() ? LLTrans::getString("Direction_Forward") : LLTrans::getString("Direction_East"), LLColor4::white);
 							}
 							else
 							{
-								renderTickText(text_point, mObjectSelection->isAttachment() ? LLTrans::getString("Back") : LLTrans::getString("West"), LLColor4::white);
+								renderTickText(text_point, mObjectSelection->isAttachment() ? LLTrans::getString("Direction_Back") : LLTrans::getString("Direction_West"), LLColor4::white);
 							}
 						}
 						else if (i == 32)
 						{
-							renderTickText(text_point, LLTrans::getString("Down"), LLColor4::white);
+							renderTickText(text_point, LLTrans::getString("Direction_Down"), LLColor4::white);
 						}
 						else
 						{
 							if (constraint_axis.mV[VY] > 0.f)
 							{
-								renderTickText(text_point, mObjectSelection->isAttachment() ? LLTrans::getString("Back") : LLTrans::getString("West"), LLColor4::white);
+								renderTickText(text_point, mObjectSelection->isAttachment() ? LLTrans::getString("Direction_Back") : LLTrans::getString("Direction_West"), LLColor4::white);
 							}
 							else
 							{
-								renderTickText(text_point, mObjectSelection->isAttachment() ? LLTrans::getString("Forward") : LLTrans::getString("East"), LLColor4::white);
+								renderTickText(text_point, mObjectSelection->isAttachment() ? LLTrans::getString("Direction_Forward") : LLTrans::getString("Direction_East"), LLColor4::white);
 							}
 						}
 					}
@@ -1097,18 +1093,21 @@ BOOL LLManipRotate::updateVisiblity()
 	LLVector3 center = gAgent.getPosAgentFromGlobal( mRotationCenter );
 	if (mObjectSelection->getSelectType() == SELECT_TYPE_HUD)
 	{
-		mCenterToCam = LLVector3(-1.f / gAgent.mHUDCurZoom, 0.f, 0.f);
+		mCenterToCam = LLVector3(-1.f / gAgentCamera.mHUDCurZoom, 0.f, 0.f);
 		mCenterToCamNorm = mCenterToCam;
 		mCenterToCamMag = mCenterToCamNorm.normVec();
 
 		mRadiusMeters = RADIUS_PIXELS / (F32) LLViewerCamera::getInstance()->getViewHeightInPixels();
-		mRadiusMeters /= gAgent.mHUDCurZoom;
+		mRadiusMeters /= gAgentCamera.mHUDCurZoom;
 
 		mCenterToProfilePlaneMag = mRadiusMeters * mRadiusMeters / mCenterToCamMag;
 		mCenterToProfilePlane = -mCenterToProfilePlaneMag * mCenterToCamNorm;
 
-		mCenterScreen.set((S32)((0.5f - mRotationCenter.mdV[VY]) / gAgent.mHUDCurZoom * gViewerWindow->getWorldViewWidth()),
-							(S32)((mRotationCenter.mdV[VZ] + 0.5f) / gAgent.mHUDCurZoom * gViewerWindow->getWorldViewHeight()));
+		// x axis range is (-aspect * 0.5f, +aspect * 0.5)
+		// y axis range is (-0.5, 0.5)
+		// so use getWorldViewHeightRaw as scale factor when converting to pixel coordinates
+		mCenterScreen.set((S32)((0.5f - center.mV[VY]) / gAgentCamera.mHUDCurZoom * gViewerWindow->getWorldViewHeightScaled()),
+							(S32)((center.mV[VZ] + 0.5f) / gAgentCamera.mHUDCurZoom * gViewerWindow->getWorldViewHeightScaled()));
 		visible = TRUE;
 	}
 	else
@@ -1116,7 +1115,7 @@ BOOL LLManipRotate::updateVisiblity()
 		visible = LLViewerCamera::getInstance()->projectPosAgentToScreen(center, mCenterScreen );
 		if( visible )
 		{
-			mCenterToCam = gAgent.getCameraPositionAgent() - center;
+			mCenterToCam = gAgentCamera.getCameraPositionAgent() - center;
 			mCenterToCamNorm = mCenterToCam;
 			mCenterToCamMag = mCenterToCamNorm.normVec();
 			LLVector3 cameraAtAxis = LLViewerCamera::getInstance()->getAtAxis();
@@ -1128,7 +1127,7 @@ BOOL LLManipRotate::updateVisiblity()
 			if (gSavedSettings.getBOOL("LimitSelectDistance"))
 			{
 				F32 max_select_distance = gSavedSettings.getF32("MaxSelectDistance");
-				if (dist_vec(gAgent.getPositionAgent(), center) > max_select_distance)
+				if (dist_vec_squared(gAgent.getPositionAgent(), center) > (max_select_distance * max_select_distance))
 				{
 					visible = FALSE;
 				}
@@ -1162,7 +1161,7 @@ BOOL LLManipRotate::updateVisiblity()
 
 LLQuaternion LLManipRotate::dragUnconstrained( S32 x, S32 y )
 {
-	LLVector3 cam = gAgent.getCameraPositionAgent();
+	LLVector3 cam = gAgentCamera.getCameraPositionAgent();
 	LLVector3 center =  gAgent.getPosAgentFromGlobal( mRotationCenter );
 
 	mMouseCur = intersectMouseWithSphere( x, y, center, mRadiusMeters);
@@ -1234,9 +1233,9 @@ LLVector3 LLManipRotate::getConstraintAxis()
 		else
 		{
 #ifndef LL_RELEASE_FOR_DOWNLOAD
-			llerrs << "Got bogus hit part in LLManipRotate::getConstraintAxis():" << mManipPart << llendl
+			llerrs << "Got bogus hit part in LLManipRotate::getConstraintAxis():" << mManipPart << llendl;
 #else
-			llwarns << "Got bogus hit part in LLManipRotate::getConstraintAxis():" << mManipPart << llendl
+			llwarns << "Got bogus hit part in LLManipRotate::getConstraintAxis():" << mManipPart << llendl;
 #endif
 			axis.mV[0] = 1.f;
 		}
@@ -1278,7 +1277,7 @@ LLQuaternion LLManipRotate::dragConstrained( S32 x, S32 y )
 	LLVector3 axis2;
 
 	LLVector3 test_axis = constraint_axis;
-	if (mObjectSelection->getSelectType() == SELECT_TYPE_ATTACHMENT && gAgent.getAvatarObject())
+	if (mObjectSelection->getSelectType() == SELECT_TYPE_ATTACHMENT && isAgentAvatarValid())
 	{
 		test_axis = test_axis * ~grid_rotation;
 	}
@@ -1302,7 +1301,7 @@ LLQuaternion LLManipRotate::dragConstrained( S32 x, S32 y )
 		axis1 = LLVector3::x_axis;
 	}
 
-	if (mObjectSelection->getSelectType() == SELECT_TYPE_ATTACHMENT && gAgent.getAvatarObject())
+	if (mObjectSelection->getSelectType() == SELECT_TYPE_ATTACHMENT && isAgentAvatarValid())
 	{
 		axis1 = axis1 * grid_rotation;
 	}
@@ -1330,7 +1329,7 @@ LLQuaternion LLManipRotate::dragConstrained( S32 x, S32 y )
 		}
 		else
 		{
-			cam_to_snap_plane = snap_plane_center - gAgent.getCameraPositionAgent();
+			cam_to_snap_plane = snap_plane_center - gAgentCamera.getCameraPositionAgent();
 			cam_to_snap_plane.normVec();
 		}
 
@@ -1380,7 +1379,7 @@ LLQuaternion LLManipRotate::dragConstrained( S32 x, S32 y )
 			}
 			else
 			{
-				cam_to_snap_plane = snap_plane_center - gAgent.getCameraPositionAgent();
+				cam_to_snap_plane = snap_plane_center - gAgentCamera.getCameraPositionAgent();
 				cam_to_snap_plane.normVec();
 			}
 
@@ -1427,7 +1426,7 @@ LLQuaternion LLManipRotate::dragConstrained( S32 x, S32 y )
 			}
 			else
 			{
-				cam_at_axis = snap_plane_center - gAgent.getCameraPositionAgent();
+				cam_at_axis = snap_plane_center - gAgentCamera.getCameraPositionAgent();
 				cam_at_axis.normVec();
 			}
 
@@ -1624,15 +1623,15 @@ void LLManipRotate::mouseToRay( S32 x, S32 y, LLVector3* ray_pt, LLVector3* ray_
 {
 	if (LLSelectMgr::getInstance()->getSelection()->getSelectType() == SELECT_TYPE_HUD)
 	{
-		F32 mouse_x = (((F32)x / gViewerWindow->getWorldViewWidth()) - 0.5f) / gAgent.mHUDCurZoom;
-		F32 mouse_y = ((((F32)y) / gViewerWindow->getWorldViewHeight()) - 0.5f) / gAgent.mHUDCurZoom;
+		F32 mouse_x = (((F32)x / gViewerWindow->getWorldViewRectScaled().getWidth()) - 0.5f) / gAgentCamera.mHUDCurZoom;
+		F32 mouse_y = ((((F32)y) / gViewerWindow->getWorldViewRectScaled().getHeight()) - 0.5f) / gAgentCamera.mHUDCurZoom;
 
 		*ray_pt = LLVector3(-1.f, -mouse_x, mouse_y);
 		*ray_dir = LLVector3(1.f, 0.f, 0.f);
 	}
 	else
 	{
-		*ray_pt = gAgent.getCameraPositionAgent();
+		*ray_pt = gAgentCamera.getCameraPositionAgent();
 		LLViewerCamera::getInstance()->projectScreenToPosAgent(x, y, ray_dir);
 		*ray_dir -= *ray_pt;
 		ray_dir->normVec();
@@ -1699,7 +1698,7 @@ void LLManipRotate::highlightManipulators( S32 x, S32 y )
 	F32 dist_y = mouse_dir_y.normVec();
 	F32 dist_z = mouse_dir_z.normVec();
 
-	F32 distance_threshold = (MAX_MANIP_SELECT_DISTANCE * mRadiusMeters) / gViewerWindow->getWorldViewHeight();
+	F32 distance_threshold = (MAX_MANIP_SELECT_DISTANCE * mRadiusMeters) / gViewerWindow->getWorldViewHeightScaled();
 
 	if (llabs(dist_x - mRadiusMeters) * llmax(0.05f, proj_rot_x_axis) < distance_threshold)
 	{

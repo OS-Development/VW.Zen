@@ -2,30 +2,25 @@
  * @file lltexlayerparams.h
  * @brief Texture layer parameters, used by lltexlayer.
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2007, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlife.com/developers/opensource/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at http://secondlife.com/developers/opensource/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -34,36 +29,50 @@
 
 #include "llviewervisualparam.h"
 
+class LLImageRaw;
+class LLImageTGA;
 class LLTexLayer;
+class LLTexLayerInterface;
+class LLViewerTexture;
 class LLVOAvatar;
+class LLWearable;
 
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// LLTexLayerParam
+// 
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 class LLTexLayerParam : public LLViewerVisualParam
 {
 public: 
-	LLTexLayerParam(LLTexLayer *layer);
+	LLTexLayerParam(LLTexLayerInterface *layer);
 	LLTexLayerParam(LLVOAvatar *avatar);
-	/* Virtual */ BOOL setInfo(LLViewerVisualParamInfo *info);
+	/*virtual*/ BOOL setInfo(LLViewerVisualParamInfo *info, BOOL add_to_avatar  );
+	/*virtual*/ LLViewerVisualParam* cloneParam(LLWearable* wearable) const = 0;
+
 protected:
-	LLTexLayer*				mTexLayer;
+	LLTexLayerInterface*	mTexLayer;
 	LLVOAvatar*             mAvatar;
 };
 
-//-----------------------------------------------------------------------------
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // LLTexLayerParamAlpha
 // 
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 class LLTexLayerParamAlpha : public LLTexLayerParam
 {
 public:
-	LLTexLayerParamAlpha( LLTexLayer* layer );
+	LLTexLayerParamAlpha( LLTexLayerInterface* layer );
 	LLTexLayerParamAlpha( LLVOAvatar* avatar );
 	/*virtual*/ ~LLTexLayerParamAlpha();
+
+	/*virtual*/ LLViewerVisualParam* cloneParam(LLWearable* wearable = NULL) const;
 
 	// LLVisualParam Virtual functions
 	///*virtual*/ BOOL		parseData(LLXmlTreeNode* node);
 	/*virtual*/ void		apply( ESex avatar_sex ) {}
-	/*virtual*/ void		setWeight(F32 weight, BOOL set_by_user);
-	/*virtual*/ void		setAnimationTarget(F32 target_value, BOOL set_by_user); 
-	/*virtual*/ void		animate(F32 delta, BOOL set_by_user);
+	/*virtual*/ void		setWeight(F32 weight, BOOL upload_bake);
+	/*virtual*/ void		setAnimationTarget(F32 target_value, BOOL upload_bake); 
+	/*virtual*/ void		animate(F32 delta, BOOL upload_bake);
 
 	// LLViewerVisualParam Virtual functions
 	/*virtual*/ F32					getTotalDistortion()									{ return 1.f; }
@@ -115,9 +124,10 @@ private:
 // LLTexLayerParamAlpha
 //-----------------------------------------------------------------------------
 
-//-----------------------------------------------------------------------------
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // LLTexLayerParamColor
 //
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 class LLTexLayerParamColor : public LLTexLayerParam
 {
 public:
@@ -129,16 +139,18 @@ public:
 		OP_COUNT = 3 // Number of operations
 	};
 
-	LLTexLayerParamColor( LLTexLayer* layer );
+	LLTexLayerParamColor( LLTexLayerInterface* layer );
 	LLTexLayerParamColor( LLVOAvatar* avatar );
 	/* virtual */ ~LLTexLayerParamColor();
+
+	/*virtual*/ LLViewerVisualParam* cloneParam(LLWearable* wearable = NULL) const;
 
 	// LLVisualParam Virtual functions
 	///*virtual*/ BOOL			parseData(LLXmlTreeNode* node);
 	/*virtual*/ void			apply( ESex avatar_sex ) {}
-	/*virtual*/ void			setWeight(F32 weight, BOOL set_by_user);
-	/*virtual*/ void			setAnimationTarget(F32 target_value, BOOL set_by_user);
-	/*virtual*/ void			animate(F32 delta, BOOL set_by_user);
+	/*virtual*/ void			setWeight(F32 weight, BOOL upload_bake);
+	/*virtual*/ void			setAnimationTarget(F32 target_value, BOOL upload_bake);
+	/*virtual*/ void			animate(F32 delta, BOOL upload_bake);
 
 
 	// LLViewerVisualParam Virtual functions
@@ -152,7 +164,7 @@ public:
 	// New functions
 	LLColor4				getNetColor() const;
 protected:
-	virtual void onGlobalColorChanged(bool set_by_user) {}
+	virtual void onGlobalColorChanged(bool upload_bake) {}
 private:
 	LLVector3				mAvgDistortionVec;
 };
@@ -173,8 +185,9 @@ private:
 	S32					mNumColors;
 };
 
-//
-// LLTexLayerParamColor
-//-----------------------------------------------------------------------------
+typedef std::vector<LLTexLayerParamColor *> param_color_list_t;
+typedef std::vector<LLTexLayerParamAlpha *> param_alpha_list_t;
+typedef std::vector<LLTexLayerParamColorInfo *> param_color_info_list_t;
+typedef std::vector<LLTexLayerParamAlphaInfo *> param_alpha_info_list_t;
 
 #endif

@@ -2,31 +2,25 @@
  * @file llpreviewanim.cpp
  * @brief LLPreviewAnim class implementation
  *
- * $LicenseInfo:firstyear=2004&license=viewergpl$
- * 
- * Copyright (c) 2004-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2004&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -36,7 +30,6 @@
 #include "llbutton.h"
 #include "llresmgr.h"
 #include "llinventory.h"
-#include "llfloaterinventory.h"
 #include "llvoavatarself.h"
 #include "llagent.h"          // gAgent
 #include "llkeyframemotion.h"
@@ -50,7 +43,6 @@ extern LLAgent gAgent;
 LLPreviewAnim::LLPreviewAnim(const LLSD& key)
 	: LLPreview( key )
 {
-	//Called from floater reg: LLUICtrlFactory::getInstance()->buildFloater(this,"floater_preview_animation.xml", FALSE);
 }
 
 // static
@@ -61,8 +53,8 @@ void LLPreviewAnim::endAnimCallback( void *userdata )
 	delete handlep; // done with the handle
 	if (self)
 	{
-		self->childSetValue("Anim play btn", FALSE);
-		self->childSetValue("Anim audition btn", FALSE);
+		self->getChild<LLUICtrl>("Anim play btn")->setValue(FALSE);
+		self->getChild<LLUICtrl>("Anim audition btn")->setValue(FALSE);
 	}
 }
 
@@ -72,15 +64,15 @@ BOOL LLPreviewAnim::postBuild()
 	const LLInventoryItem* item = getItem();
 	if(item)
 	{
-		gAgent.getAvatarObject()->createMotion(item->getAssetUUID()); // preload the animation
-		childSetText("desc", item->getDescription());
+		gAgentAvatarp->createMotion(item->getAssetUUID()); // preload the animation
+		getChild<LLUICtrl>("desc")->setValue(item->getDescription());
 	}
 
 	childSetAction("Anim play btn",playAnim, this);
 	childSetAction("Anim audition btn",auditionAnim, this);
 
 	childSetCommitCallback("desc", LLPreview::onText, this);
-	childSetPrevalidate("desc", &LLLineEditor::prevalidatePrintableNotPipe);
+	getChild<LLLineEditor>("desc")->setPrevalidate(&LLTextValidate::validateASCIIPrintableNoPipe);
 	
 	return LLPreview::postBuild();
 }
@@ -122,14 +114,11 @@ void LLPreviewAnim::playAnim( void *userdata )
 			btn->toggleState();
 		}
 		
-		if (self->childGetValue("Anim play btn").asBoolean() ) 
+		if (self->getChild<LLUICtrl>("Anim play btn")->getValue().asBoolean() ) 
 		{
 			self->mPauseRequest = NULL;
 			gAgent.sendAnimationRequest(itemID, ANIM_REQUEST_START);
-			
-			LLVOAvatar* avatar = gAgent.getAvatarObject();
-			LLMotion*   motion = avatar->findMotion(itemID);
-			
+			LLMotion* motion = gAgentAvatarp->findMotion(itemID);
 			if (motion)
 			{
 				motion->setDeactivateCallback(&endAnimCallback, (void *)(new LLHandle<LLFloater>(self->getHandle())));
@@ -137,7 +126,7 @@ void LLPreviewAnim::playAnim( void *userdata )
 		}
 		else
 		{
-			gAgent.getAvatarObject()->stopMotion(itemID);
+			gAgentAvatarp->stopMotion(itemID);
 			gAgent.sendAnimationRequest(itemID, ANIM_REQUEST_STOP);
 		}
 	}
@@ -159,13 +148,11 @@ void LLPreviewAnim::auditionAnim( void *userdata )
 			btn->toggleState();
 		}
 		
-		if (self->childGetValue("Anim audition btn").asBoolean() ) 
+		if (self->getChild<LLUICtrl>("Anim audition btn")->getValue().asBoolean() ) 
 		{
 			self->mPauseRequest = NULL;
-			gAgent.getAvatarObject()->startMotion(item->getAssetUUID());
-			
-			LLVOAvatar* avatar = gAgent.getAvatarObject();
-			LLMotion*   motion = avatar->findMotion(itemID);
+			gAgentAvatarp->startMotion(item->getAssetUUID());
+			LLMotion* motion = gAgentAvatarp->findMotion(itemID);
 			
 			if (motion)
 			{
@@ -174,23 +161,22 @@ void LLPreviewAnim::auditionAnim( void *userdata )
 		}
 		else
 		{
-			gAgent.getAvatarObject()->stopMotion(itemID);
+			gAgentAvatarp->stopMotion(itemID);
 			gAgent.sendAnimationRequest(itemID, ANIM_REQUEST_STOP);
 		}
 	}
 }
 
+// virtual
 void LLPreviewAnim::onClose(bool app_quitting)
 {
 	const LLInventoryItem *item = getItem();
 
 	if(item)
 	{
-		gAgent.getAvatarObject()->stopMotion(item->getAssetUUID());
+		gAgentAvatarp->stopMotion(item->getAssetUUID());
 		gAgent.sendAnimationRequest(item->getAssetUUID(), ANIM_REQUEST_STOP);
-					
-		LLVOAvatar* avatar = gAgent.getAvatarObject();
-		LLMotion*   motion = avatar->findMotion(item->getAssetUUID());
+		LLMotion* motion = gAgentAvatarp->findMotion(item->getAssetUUID());
 		
 		if (motion)
 		{
@@ -198,5 +184,4 @@ void LLPreviewAnim::onClose(bool app_quitting)
 			motion->setDeactivateCallback(NULL, (void *)NULL);
 		}
 	}
-	destroy();
 }

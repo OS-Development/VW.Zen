@@ -2,31 +2,25 @@
  * @file llprimitive.h
  * @brief LLPrimitive base class
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -107,7 +101,8 @@ public:
 	{
 		PARAMS_FLEXIBLE = 0x10,
 		PARAMS_LIGHT    = 0x20,
-		PARAMS_SCULPT   = 0x30
+		PARAMS_SCULPT   = 0x30,
+		PARAMS_LIGHT_IMAGE = 0x40,
 	};
 	
 public:
@@ -262,11 +257,34 @@ public:
 	bool fromLLSD(LLSD& sd);
 
 	void setSculptTexture(const LLUUID& id) { mSculptTexture = id; }
-	LLUUID getSculptTexture()               { return mSculptTexture; }
+	LLUUID getSculptTexture() const         { return mSculptTexture; }
 	void setSculptType(U8 type)             { mSculptType = type; }
-	U8 getSculptType()                      { return mSculptType; }
+	U8 getSculptType() const                { return mSculptType; }
 };
 
+class LLLightImageParams : public LLNetworkData
+{
+protected:
+	LLUUID mLightTexture;
+	LLVector3 mParams;
+	
+public:
+	LLLightImageParams();
+	/*virtual*/ BOOL pack(LLDataPacker &dp) const;
+	/*virtual*/ BOOL unpack(LLDataPacker &dp);
+	/*virtual*/ bool operator==(const LLNetworkData& data) const;
+	/*virtual*/ void copy(const LLNetworkData& data);
+	LLSD asLLSD() const;
+	operator LLSD() const { return asLLSD(); }
+	bool fromLLSD(LLSD& sd);
+
+	void setLightTexture(const LLUUID& id) { mLightTexture = id; }
+	LLUUID getLightTexture() const         { return mLightTexture; }
+	bool isLightSpotlight() const         { return mLightTexture.notNull(); }
+	void setParams(const LLVector3& params) { mParams = params; }
+	LLVector3 getParams() const			   { return mParams; }
+	
+};
 
 
 class LLPrimitive : public LLXform
@@ -305,7 +323,7 @@ public:
 	const LLVolume *getVolumeConst() const { return mVolumep; }		// HACK for Windoze confusion about ostream operator in LLVolume
 	LLVolume *getVolume() const { return mVolumep; }
 	virtual BOOL setVolume(const LLVolumeParams &volume_params, const S32 detail, bool unique_volume = false);
-
+	
 	// Modify texture entry properties
 	inline BOOL validTE(const U8 te_num) const;
 	LLTextureEntry* getTE(const U8 te_num) const;
@@ -340,8 +358,8 @@ public:
 	S32 unpackTEField(U8 *cur_ptr, U8 *buffer_end, U8 *data_ptr, U8 data_size, U8 face_count, EMsgVariableType type);
 	BOOL packTEMessage(LLMessageSystem *mesgsys) const;
 	BOOL packTEMessage(LLDataPacker &dp) const;
-	S32 unpackTEMessage(LLMessageSystem *mesgsys, char *block_name);
-	S32 unpackTEMessage(LLMessageSystem *mesgsys, char *block_name, const S32 block_num); // Variable num of blocks
+	S32 unpackTEMessage(LLMessageSystem* mesgsys, char const* block_name);
+	S32 unpackTEMessage(LLMessageSystem* mesgsys, char const* block_name, const S32 block_num); // Variable num of blocks
 	BOOL unpackTEMessage(LLDataPacker &dp);
 	
 #ifdef CHECK_FOR_FINITE
@@ -426,6 +444,7 @@ protected:
 	U8					mNumTEs;			// # of faces on the primitve	
 	U32 				mMiscFlags;			// home for misc bools
 
+public:
 	static LLVolumeMgr* sVolumeManager;
 };
 

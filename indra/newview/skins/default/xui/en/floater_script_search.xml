@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  default_tab_group="1"
  height="120"
  layout="topleft"
  name="script search"
- title="Script Search"
+ help_topic="script_search"
+ title="SCRIPT SEARCH"
  width="300">
     <check_box
      control_name="LSLFindCaseInsensitivity"

@@ -2,31 +2,25 @@
  * @file llfloaterdaycycle.h
  * @brief LLFloaterDayCycle class definition
  *
- * $LicenseInfo:firstyear=2007&license=viewergpl$
- * 
- * Copyright (c) 2007-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2007&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -56,86 +50,65 @@ class LLFloaterDayCycle : public LLFloater
 {
 public:
 
-	LLFloaterDayCycle();
+	LLFloaterDayCycle(const LLSD& key);
 	virtual ~LLFloaterDayCycle();
 	/*virtual*/	BOOL	postBuild();
-	/// help button stuff
-	static void onClickHelp(void* data);
-	void initHelpBtn(const std::string& name, const std::string& xml_alert);
 
 	/// initialize all
 	void initCallbacks(void);
 
-	/// one and one instance only
-	static LLFloaterDayCycle* instance();
-
 	/// on time slider moved
-	static void onTimeSliderMoved(LLUICtrl* ctrl, void* userData);
+	void onTimeSliderMoved(LLUICtrl* ctrl);
 
 	/// what happens when you move the key frame
-	static void onKeyTimeMoved(LLUICtrl* ctrl, void* userData);
+	void onKeyTimeMoved(LLUICtrl* ctrl);
 
 	/// what happens when you change the key frame's time
-	static void onKeyTimeChanged(LLUICtrl* ctrl, void* userData);
+	void onKeyTimeChanged(LLUICtrl* ctrl);
 
 	/// if you change the combo box, change the frame
-	static void onKeyPresetChanged(LLUICtrl* ctrl, void* userData);
+	void onKeyPresetChanged(LLUICtrl* ctrl);
 	
 	/// run this when user says to run the sky animation
-	static void onRunAnimSky(void* userData);
+	void onRunAnimSky(LLUICtrl* ctrl);
 
 	/// run this when user says to stop the sky animation
-	static void onStopAnimSky(void* userData);
+	void onStopAnimSky(LLUICtrl* ctrl);
 
 	/// if you change the combo box, change the frame
-	static void onTimeRateChanged(LLUICtrl* ctrl, void* userData);
+	void onTimeRateChanged(LLUICtrl* ctrl);
 
 	/// add a new key on slider
-	static void onAddKey(void* userData);
+	void onAddKey(LLUICtrl* ctrl);
 
 	/// delete any and all reference to a preset
 	void deletePreset(std::string& presetName);
 
 	/// delete a key frame
-	static void onDeleteKey(void* userData);
+	void onDeleteKey(LLUICtrl* ctrl);
 
 	/// button to load day
-	static void onLoadDayCycle(void* userData);
+	void onLoadDayCycle(LLUICtrl* ctrl);
 
 	/// button to save day
-	static void onSaveDayCycle(void* userData);
+	void onSaveDayCycle(LLUICtrl* ctrl);
 
 	/// toggle for Linden time
-	static void onUseLindenTime(void* userData);
-
-
-	//// menu management
-
-	/// show off our menu
-	static void show();
-
-	/// return if the menu exists or not
-	static bool isOpen();
-
-	/// stuff to do on exit
-	virtual void onClose(bool app_quitting);
+	void onUseLindenTime(LLUICtrl* ctrl);
 
 	/// sync up sliders with day cycle structure
-	static void syncMenu();
+	void syncMenu();
 
 	// 	makes sure key slider has what's in day cycle
-	static void syncSliderTrack();
+	void syncSliderTrack();
 
 	/// makes sure day cycle data structure has what's in menu
-	static void syncTrack();
+	void syncTrack();
 
 	/// add a slider to the track
-	static void addSliderKey(F32 time, const std::string& presetName);
+	void addSliderKey(F32 time, const std::string& presetName);
 
 private:
-
-	// one instance on the inside
-	static LLFloaterDayCycle* sDayCycle;
 
 	// map of sliders to parameters
 	static std::map<std::string, LLWLSkyKey> sSliderToKey;

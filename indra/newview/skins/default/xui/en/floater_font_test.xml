@@ -1,12 +1,14 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  can_resize="true"
  height="800"
  layout="topleft"
  min_height="175"
  min_width="154"
  name="contents"
- title="Font Test"
+ help_topic="contents"
+ title="FONT TEST"
  width="500">
     <text
      type="string"
@@ -61,6 +63,30 @@
      layout="topleft"
      left="16">
         SansSerifHuge
+    </text>
+    <text
+     type="string"
+     length="1"
+     bottom_delta="36"
+     follows="left|top|right"
+     font="SansSerifHuge"
+     font.style.="BOLD"
+     height="32"
+     layout="topleft"
+     left="16">
+        SansSerifHuge style=BOLD
+    </text>
+    <text
+     type="string"
+     length="1"
+     bottom_delta="36"
+     follows="left|top|right"
+     font="SansSerifBold"
+     font.size="Huge"
+     height="32"
+     layout="topleft"
+     left="16">
+        SansSerifBold size=Huge
     </text>
     <text
      type="string"
@@ -174,7 +200,7 @@
      bottom_delta="20"
      follows="left|top|right"
      font="SansSerif"
-     font_shadow="hard"
+     font_shadow="none"
      height="16"
      layout="topleft"
      left="16">
@@ -311,6 +337,7 @@
      left="16">
         Helvetica size=Large style=BOLD|ITALIC
     </text>
+<!--
     <text
      type="string"
      length="1"
@@ -333,4 +360,5 @@
      left="16">
         BogusFontName
     </text>
+-->
 </floater>

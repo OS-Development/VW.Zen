@@ -1,129 +1,108 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  can_minimize="false"
- height="140"
+ height="200"
  layout="topleft"
  name="Give Money"
+ help_topic="give_money"
  save_rect="true"
- width="300">
+ width="250">
+   <string
+    name="payee_group">
+        Pay Group
+   </string>
+   <string
+    name="payee_resident">
+        Pay Resident
+   </string>
+
+    <text
+     type="string"
+     length="1"
+     follows="left|top"
+     font="SansSerifSmall"
+     height="16"
+     layout="topleft"
+     left="10"
+     name="payee_name"
+     top="25" 
+     use_ellipses="true"
+     width="230">
+        Test Name That Is Extremely Long To Check Clipping
+    </text>
     <button
-     height="20"
+     height="23"
      label="L$1"
      label_selected="L$1"
      layout="topleft"
-     left="108"
+     left="35"
      name="fastpay 1"
-     top="54"
+     top_pad="8"
      width="80" />
     <button
-     height="20"
+     height="23"
      label="L$5"
      label_selected="L$5"
      layout="topleft"
      left_pad="15"
      name="fastpay 5"
-     top_delta="0"
      width="80" />
     <button
-     height="20"
+     height="23"
      label="L$10"
      label_selected="L$10"
      layout="topleft"
-     left="108"
+     left="35"
      name="fastpay 10"
-     top="78"
+     top_pad="8"
      width="80" />
     <button
-     height="20"
+     height="23"
      label="L$20"
      label_selected="L$20"
      layout="topleft"
      left_pad="15"
      name="fastpay 20"
-     top_delta="0"
-     width="80" />
-    <button
-     enabled="false"
-     height="20"
-     label="Pay"
-     label_selected="Pay"
-     layout="topleft"
-     left="120"
-     name="pay btn"
-     top="112"
-     width="80" />
-    <button
-     height="20"
-     label="Cancel"
-     label_selected="Cancel"
-     layout="topleft"
-     left_pad="3"
-     name="cancel btn"
-     top_delta="0"
      width="80" />
     <text
      type="string"
      length="1"
      follows="left|top"
-     font="SansSerif"
      height="18"
      layout="topleft"
-     left="12"
-     name="payee_label"
-     top="7"
-     width="75">
-        Pay resident:
-    </text>
-    <text
-     type="string"
-     length="1"
-     follows="left|top"
-     font="SansSerif"
-     height="18"
-     layout="topleft"
-     left_delta="73"
-     name="payee_name"
-     top_delta="0"
-     width="210">
-        [FIRST] [LAST]
-    </text>
-    <text
-     type="string"
-     length="1"
-     follows="left|top"
-     font="SansSerif"
-     halign="right"
-     height="18"
-     layout="topleft"
-     left="5"
-     name="fastpay text"
-     top="54"
-     width="95">
-        Fast Pay:
-    </text>
-    <text
-     type="string"
-     length="1"
-     follows="left|top"
-     font="SansSerif"
-     height="18"
-     layout="topleft"
-     left="12"
+     left="35"
      name="amount text"
-     top="112"
-     width="75">
-        Amount:
+     top_pad="8"
+     width="180">
+        Or, choose amount:
     </text>
     <line_editor
      border_style="line"
-     border_thickness="1"
      follows="left|top|right"
-     font="SansSerif"
-     height="18"
+     height="19"
+     top_pad="0"
      layout="topleft"
-     left_delta="46"
-     max_length="9"
+     left="130"
+     max_length_bytes="9"
      name="amount"
-     top_delta="0"
-     width="57" />
+     width="80" />
+    <button
+     enabled="false"
+     height="23"
+     label="Pay"
+     label_selected="Pay"
+     layout="topleft"
+     left="20"
+     name="pay btn"
+     top_pad="15"
+     width="100" />
+    <button
+     height="23"
+     label="Cancel"
+     label_selected="Cancel"
+     layout="topleft"
+     left_pad="10"
+     name="cancel btn"
+     width="100" />
 </floater>

@@ -1,9 +1,11 @@
 /**
  * @file atmosphericsHelpersV.glsl
  *
- * Copyright (c) 2005-$CurrentYear$, Linden Research, Inc.
- * $License$
+ * $LicenseInfo:firstyear=2005&license=viewerlgpl$
+ * $/LicenseInfo$
  */
+ 
+
 
 // Output variables
 vec3 getSunlitColor();

@@ -2,31 +2,25 @@
  * @file llfolderview.h
  * @brief Definition of the folder view collection of classes.
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -41,25 +35,28 @@
 #ifndef LL_LLFOLDERVIEW_H
 #define LL_LLFOLDERVIEW_H
 
-// JAMESDEBUG - trim this list
-#include <vector>
-#include <map>
-#include <deque>
-#include <boost/function.hpp>
-#include <boost/signals2.hpp>
+#include "llfolderviewitem.h"	// because LLFolderView is-a LLFolderViewFolder
 
 #include "lluictrl.h"
 #include "v4color.h"
 #include "lldarray.h"
-//#include "llviewermenu.h"
 #include "stdenums.h"
-#include "llfontgl.h"
-#include "lleditmenuhandler.h"
-#include "llviewertexture.h"
 #include "lldepthstack.h"
+#include "lleditmenuhandler.h"
+#include "llfontgl.h"
 #include "lltooldraganddrop.h"
-// JAMESDEBUG - move this up
-#include "llfolderviewitem.h"	// because LLFolderView is-a LLFolderViewFolder
+#include "llviewertexture.h"
+
+class LLFolderViewEventListener;
+class LLFolderViewFolder;
+class LLFolderViewItem;
+class LLInventoryModel;
+class LLPanel;
+class LLLineEditor;
+class LLMenuGL;
+class LLScrollContainer;
+class LLUICtrl;
+class LLTextBox;
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Class LLFolderViewFunctor
@@ -69,10 +66,6 @@
 // that only work folders or only work on items, but I'll worry about
 // that later when it's determined to be too slow.
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-class LLFolderViewItem;
-class LLFolderViewFolder;
-
 class LLFolderViewFunctor
 {
 public:
@@ -81,7 +74,6 @@ public:
 	virtual void doItem(LLFolderViewItem* item) = 0;
 };
 
-
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Class LLFolderView
 //
@@ -89,23 +81,16 @@ public:
 // manages the screen region of the folder view.
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-class LLFolderViewEventListener;
-class LLInventoryModel;
-class LLLineEditor;
-class LLMenuGL;
-class LLScrollContainer;
-class LLUICtrl;
-
 class LLFolderView : public LLFolderViewFolder, public LLEditMenuHandler
 {
 public:
 	struct Params : public LLInitParam::Block<Params, LLFolderViewFolder::Params>
 	{
-		Mandatory<LLPanel*> parent_panel;
-		Optional<LLUUID>	task_id;
+		Mandatory<LLPanel*>	    parent_panel;
+		Optional<LLUUID>        task_id;
+		Optional<std::string>   title;
+		Optional<bool>			use_label_suffix;
 	};
-	LLFolderView( const std::string& name, LLUIImagePtr root_folder_icon, const LLRect& rect, 
-					const LLUUID& source_id, LLPanel *parent_view );
 	LLFolderView(const Params&);
 	virtual ~LLFolderView( void );
 
@@ -116,7 +101,6 @@ public:
 	// FolderViews default to sort by name.  This will change that,
 	// and resort the items if necessary.
 	void setSortOrder(U32 order);
-	void checkTreeResortForModelChanged();
 	void setFilterPermMask(PermissionMask filter_perm_mask);
 	void setAllowMultiSelect(BOOL allow) { mAllowMultiSelect = allow; }
 	
@@ -127,9 +111,9 @@ public:
 	// filter is never null
 	LLInventoryFilter* getFilter();
 	const std::string getFilterSubString(BOOL trim = FALSE);
-	U32 getFilterTypes() const;
+	U32 getFilterObjectTypes() const;
 	PermissionMask getFilterPermissions() const;
-	// JAMESDEBUG use getFilter()->getShowFolderState();
+	// *NOTE: use getFilter()->getShowFolderState();
 	//LLInventoryFilter::EFolderShow getShowFolderState();
 	U32 getSortOrder() const;
 	BOOL isFilterModified();
@@ -138,6 +122,7 @@ public:
 	// Close all folders in the view
 	void closeAllFolders();
 	void openFolder(const std::string& foldername);
+	void openTopLevelFolders();
 
 	virtual void toggleOpen() {};
 	virtual void setOpenArrangeRecursively(BOOL openitem, ERecurseType recurse);
@@ -159,20 +144,20 @@ public:
 	// Record the selected item and pass it down the hierachy.
 	virtual BOOL setSelection(LLFolderViewItem* selection, BOOL openitem,
 		BOOL take_keyboard_focus);
-	
+
 	// Used by menu callbacks
 	void setSelectionByID(const LLUUID& obj_id, BOOL take_keyboard_focus);
-	
+
 	// Called once a frame to update the selection if mSelectThisID has been set
-	void updateSelection();	
-	
+	void updateSelection();
+
 	// This method is used to toggle the selection of an item. Walks
 	// children, and keeps track of selected objects.
 	virtual BOOL changeSelection(LLFolderViewItem* selection, BOOL selected);
 
-	virtual S32 extendSelection(LLFolderViewItem* selection, LLFolderViewItem* last_selected, LLDynamicArray<LLFolderViewItem*>& items);
+	virtual void extendSelection(LLFolderViewItem* selection, LLFolderViewItem* last_selected, LLDynamicArray<LLFolderViewItem*>& items);
 
-	virtual BOOL getSelectionList(std::set<LLUUID> &selection);
+	virtual std::set<LLUUID> getSelectionList() const;
 
 	// make sure if ancestor is selected, descendents are not
 	void sanitizeSelection();
@@ -182,6 +167,9 @@ public:
 
 	BOOL startDrag(LLToolDragAndDrop::ESource source);
 	void setDragAndDropThisFrame() { mDragAndDropThisFrame = TRUE; }
+	void setDraggingOverItem(LLFolderViewItem* item) { mDraggingOverItem = item; }
+	LLFolderViewItem* getDraggingOverItem() { return mDraggingOverItem; }
+
 
 	// deletion functionality
  	void removeSelectedItems();
@@ -189,6 +177,9 @@ public:
 	// open the selected item.
 	void openSelectedItems( void );
 	void propertiesSelectedItems( void );
+
+	// change the folder type
+	void changeType(LLInventoryModel *model, LLFolderType::EType new_folder_type);
 
 	void autoOpenItem(LLFolderViewFolder* item);
 	void closeAutoOpenedFolders();
@@ -232,12 +223,12 @@ public:
 								   EAcceptance* accept,
 								   std::string& tooltip_msg);
 	/*virtual*/ void reshape(S32 width, S32 height, BOOL called_from_parent = TRUE);
-	virtual BOOL handleScrollWheel(S32 x, S32 y, S32 clicks);
+	/*virtual*/ void onMouseLeave(S32 x, S32 y, MASK mask) { setShowSelectionContext(FALSE); }
 	virtual void draw();
 	virtual void deleteAllChildren();
 
 	void scrollToShowSelection();
-	void scrollToShowItem(LLFolderViewItem* item);
+	void scrollToShowItem(LLFolderViewItem* item, const LLRect& constraint_rect);
 	void setScrollContainer( LLScrollContainer* parent ) { mScrollContainer = parent; }
 	LLRect getVisibleRect();
 
@@ -247,10 +238,13 @@ public:
 	void setShowSingleSelection(BOOL show);
 	BOOL getShowSingleSelection() { return mShowSingleSelection; }
 	F32  getSelectionFadeElapsedTime() { return mMultiSelectionFadeTimer.getElapsedTimeF32(); }
+	void setUseEllipses(bool use_ellipses) { mUseEllipses = use_ellipses; }
+	bool getUseEllipses() { return mUseEllipses; }
 
 	void addItemID(const LLUUID& id, LLFolderViewItem* itemp);
 	void removeItemID(const LLUUID& id);
 	LLFolderViewItem* getItemByID(const LLUUID& id);
+	LLFolderViewFolder* getFolderByID(const LLUUID& id);
 	
 	bool doToSelected(LLInventoryModel* model, const LLSD& userdata);
 	
@@ -260,6 +254,8 @@ public:
 	BOOL needsAutoSelect() { return mNeedsAutoSelect && !mAutoSelectOverride; }
 	BOOL needsAutoRename() { return mNeedsAutoRename; }
 	void setNeedsAutoRename(BOOL val) { mNeedsAutoRename = val; }
+	void setPinningSelectedItem(BOOL val) { mPinningSelectedItem = val; }
+	void setAutoSelectOverride(BOOL val) { mAutoSelectOverride = val; }
 
 	void setCallbackRegistrar(LLUICtrl::CommitCallbackRegistry::ScopedRegistrar* registrar) { mCallbackRegistrar = registrar; }
 
@@ -268,19 +264,32 @@ public:
 	LLPanel* getParentPanel() { return mParentPanel; }
 	// DEBUG only
 	void dumpSelectionInformation();
+
+	virtual S32	notify(const LLSD& info) ;
 	
+	bool useLabelSuffix() { return mUseLabelSuffix; }
+	void updateMenu();
+
 private:
+	void updateMenuOptions(LLMenuGL* menu);
 	void updateRenamerPosition();
 
 protected:
 	LLScrollContainer* mScrollContainer;  // NULL if this is not a child of a scroll container.
 
 	void commitRename( const LLSD& data );
-	static void onRenamerLost( LLFocusableElement* renamer, void* user_data);
+	void onRenamerLost();
 
 	void finishRenamingItem( void );
 	void closeRenamer( void );
+
+	bool selectFirstItem();
+	bool selectLastItem();
 	
+	BOOL addNoOptions(LLMenuGL* menu) const;
+
+	void onItemsRemovalConfirmation(const LLSD& notification, const LLSD& response);
+
 protected:
 	LLHandle<LLView>					mPopupMenuHandle;
 	
@@ -296,11 +305,12 @@ protected:
 	LLLineEditor*					mRenamer;
 
 	BOOL							mNeedsScroll;
-	LLFolderViewItem*				mLastScrollItem;
-	LLCoordGL						mLastScrollOffset;
+	BOOL							mPinningSelectedItem;
+	LLRect							mScrollConstraintRect;
 	BOOL							mNeedsAutoSelect;
 	BOOL							mAutoSelectOverride;
 	BOOL							mNeedsAutoRename;
+	bool							mUseLabelSuffix;
 	
 	BOOL							mDebugFilters;
 	U32								mSortOrder;
@@ -326,10 +336,23 @@ protected:
 	
 	LLPanel*						mParentPanel;
 
+	/**
+	 * Is used to determine if we need to cut text In LLFolderViewItem to avoid horizontal scroll.
+	 * NOTE: For now it uses only to cut LLFolderViewItem::mLabel text to be used for Landmarks in Places Panel.
+	 */
+	bool							mUseEllipses; // See EXT-719
+
+	/**
+	 * Contains item under mouse pointer while dragging
+	 */
+	LLFolderViewItem*				mDraggingOverItem; // See EXT-719
+
 	LLUICtrl::CommitCallbackRegistry::ScopedRegistrar* mCallbackRegistrar;
 	
 public:
 	static F32 sAutoOpenTime;
+	LLTextBox*						mStatusTextBox;
+
 };
 
 bool sort_item_name(LLFolderViewItem* a, LLFolderViewItem* b);

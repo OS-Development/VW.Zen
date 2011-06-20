@@ -2,31 +2,25 @@
  * @file lldrawpoolwater.cpp
  * @brief LLDrawPoolWater class implementation
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -54,7 +48,8 @@
 #include "llviewershadermgr.h"
 #include "llwaterparammanager.h"
 
-const LLUUID WATER_TEST("2bfd3884-7e27-69b9-ba3a-3e673f680004");
+const LLUUID TRANSPARENT_WATER_TEXTURE("2bfd3884-7e27-69b9-ba3a-3e673f680004");
+const LLUUID OPAQUE_WATER_TEXTURE("43c32285-d658-1793-c123-bf86315de055");
 
 static float sTime;
 
@@ -69,18 +64,22 @@ LLVector3 LLDrawPoolWater::sLightDir;
 LLDrawPoolWater::LLDrawPoolWater() :
 	LLFacePool(POOL_WATER)
 {
-	mHBTex[0] = LLViewerTextureManager::getFetchedTexture(gSunTextureID, TRUE, TRUE);
+	mHBTex[0] = LLViewerTextureManager::getFetchedTexture(gSunTextureID, TRUE, LLViewerTexture::BOOST_UI);
 	gGL.getTexUnit(0)->bind(mHBTex[0]) ;
 	mHBTex[0]->setAddressMode(LLTexUnit::TAM_CLAMP);
 
-	mHBTex[1] = LLViewerTextureManager::getFetchedTexture(gMoonTextureID, TRUE, TRUE);
+	mHBTex[1] = LLViewerTextureManager::getFetchedTexture(gMoonTextureID, TRUE, LLViewerTexture::BOOST_UI);
 	gGL.getTexUnit(0)->bind(mHBTex[1]);
 	mHBTex[1]->setAddressMode(LLTexUnit::TAM_CLAMP);
 
-	mWaterImagep = LLViewerTextureManager::getFetchedTexture(WATER_TEST);
-	mWaterImagep->setNoDelete() ;
+
+	mWaterImagep = LLViewerTextureManager::getFetchedTexture(TRANSPARENT_WATER_TEXTURE);
+	llassert(mWaterImagep);
+	mWaterImagep->setNoDelete();
+	mOpaqueWaterImagep = LLViewerTextureManager::getFetchedTexture(OPAQUE_WATER_TEXTURE);
+	llassert(mOpaqueWaterImagep);
 	mWaterNormp = LLViewerTextureManager::getFetchedTexture(DEFAULT_WATER_NORMAL);
-	mWaterNormp->setNoDelete() ;
+	mWaterNormp->setNoDelete();
 
 	restoreGL();
 }
@@ -136,9 +135,22 @@ void LLDrawPoolWater::endPostDeferredPass(S32 pass)
 	deferred_render = FALSE;
 }
 
+//===============================
+//DEFERRED IMPLEMENTATION
+//===============================
+void LLDrawPoolWater::renderDeferred(S32 pass)
+{
+	LLFastTimer t(FTM_RENDER_WATER);
+	deferred_render = TRUE;
+	shade();
+	deferred_render = FALSE;
+}
+
+//=========================================
+
 void LLDrawPoolWater::render(S32 pass)
 {
-	LLFastTimer ftm(LLFastTimer::FTM_RENDER_WATER);
+	LLFastTimer ftm(FTM_RENDER_WATER);
 	if (mDrawFace.empty() || LLDrawable::getCurrentFrame() <= 1)
 	{
 		return;
@@ -153,6 +165,14 @@ void LLDrawPoolWater::render(S32 pass)
 	}
 
 	std::sort(mDrawFace.begin(), mDrawFace.end(), LLFace::CompareDistanceGreater());
+
+	// See if we are rendering water as opaque or not
+	if (!gSavedSettings.getBOOL("RenderTransparentWater"))
+	{
+		// render water for low end hardware
+		renderOpaqueLegacyWater();
+		return;
+	}
 
 	LLGLEnable blend(GL_BLEND);
 
@@ -307,6 +327,87 @@ void LLDrawPoolWater::render(S32 pass)
 	gGL.getTexUnit(0)->setTextureBlendType(LLTexUnit::TB_MULT);
 }
 
+// for low end hardware
+void LLDrawPoolWater::renderOpaqueLegacyWater()
+{
+	LLVOSky *voskyp = gSky.mVOSkyp;
+
+	stop_glerror();
+
+	// Depth sorting and write to depth buffer
+	// since this is opaque, we should see nothing
+	// behind the water.  No blending because
+	// of no transparency.  And no face culling so
+	// that the underside of the water is also opaque.
+	LLGLDepthTest gls_depth(GL_TRUE, GL_TRUE);
+	LLGLDisable no_cull(GL_CULL_FACE);
+	LLGLDisable no_blend(GL_BLEND);
+
+	gPipeline.disableLights();
+
+	mOpaqueWaterImagep->addTextureStats(1024.f*1024.f);
+
+	// Activate the texture binding and bind one
+	// texture since all images will have the same texture
+	gGL.getTexUnit(0)->activate();
+	gGL.getTexUnit(0)->enable(LLTexUnit::TT_TEXTURE);
+	gGL.getTexUnit(0)->bind(mOpaqueWaterImagep);
+
+	// Automatically generate texture coords for water texture
+	glEnable(GL_TEXTURE_GEN_S); //texture unit 0
+	glEnable(GL_TEXTURE_GEN_T); //texture unit 0
+	glTexGenf(GL_S, GL_TEXTURE_GEN_MODE, GL_OBJECT_LINEAR);
+	glTexGenf(GL_T, GL_TEXTURE_GEN_MODE, GL_OBJECT_LINEAR);
+
+	// Use the fact that we know all water faces are the same size
+	// to save some computation
+
+	// Slowly move texture coordinates over time so the watter appears
+	// to be moving.
+	F32 movement_period_secs = 50.f;
+
+	F32 offset = fmod(gFrameTimeSeconds, movement_period_secs);
+
+	if (movement_period_secs != 0)
+	{
+	 	offset /= movement_period_secs;
+	}
+	else
+	{
+		offset = 0;
+	}
+
+	F32 tp0[4] = { 16.f / 256.f, 0.0f, 0.0f, offset };
+	F32 tp1[4] = { 0.0f, 16.f / 256.f, 0.0f, offset };
+
+	glTexGenfv(GL_S, GL_OBJECT_PLANE, tp0);
+	glTexGenfv(GL_T, GL_OBJECT_PLANE, tp1);
+
+	glColor3f(1.f, 1.f, 1.f);
+
+	for (std::vector<LLFace*>::iterator iter = mDrawFace.begin();
+		 iter != mDrawFace.end(); iter++)
+	{
+		LLFace *face = *iter;
+		if (voskyp->isReflFace(face))
+		{
+			continue;
+		}
+
+		face->renderIndexed();
+	}
+
+	stop_glerror();
+
+	// Reset the settings back to expected values
+	glDisable(GL_TEXTURE_GEN_S); //texture unit 0
+	glDisable(GL_TEXTURE_GEN_T); //texture unit 0
+
+	gGL.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
+	gGL.getTexUnit(0)->setTextureBlendType(LLTexUnit::TB_MULT);
+}
+
+
 void LLDrawPoolWater::renderReflection(LLFace* face)
 {
 	LLVOSky *voskyp = gSky.mVOSkyp;
@@ -337,7 +438,10 @@ void LLDrawPoolWater::renderReflection(LLFace* face)
 
 void LLDrawPoolWater::shade()
 {
-	gGL.setColorMask(true, true);
+	if (!deferred_render)
+	{
+		gGL.setColorMask(true, true);
+	}
 
 	LLVOSky *voskyp = gSky.mVOSkyp;
 
@@ -353,7 +457,7 @@ void LLDrawPoolWater::shade()
 	LLVector3 light_dir;
 	LLColor3 light_color;
 
-	if (gSky.getSunDirection().mV[2] > NIGHTTIME_ELEVATION_COS) 	 
+	if (gSky.getSunDirection().mV[2] > LLSky::NIGHTTIME_ELEVATION_COS) 	 
     { 	 
         light_dir  = gSky.getSunDirection(); 	 
         light_dir.normVec(); 	
@@ -400,6 +504,15 @@ void LLDrawPoolWater::shade()
 		shader = &gWaterProgram;
 	}
 
+	if (deferred_render)
+	{
+		gPipeline.bindDeferredShader(*shader);
+	}
+	else
+	{
+		shader->bind();
+	}
+
 	sTime = (F32)LLFrameTimer::getElapsedSeconds()*0.5f;
 	
 	S32 reftex = shader->enableTexture(LLViewerShaderMgr::WATER_REFTEX);
@@ -435,15 +548,6 @@ void LLDrawPoolWater::shade()
 	
 	S32 screentex = shader->enableTexture(LLViewerShaderMgr::WATER_SCREENTEX);	
 		
-	if (deferred_render)
-	{
-		gPipeline.bindDeferredShader(*shader);
-	}
-	else
-	{
-		shader->bind();
-	}
-	
 	if (screentex > -1)
 	{
 		shader->uniform4fv(LLViewerShaderMgr::WATER_FOGCOLOR, 1, sWaterFogColor.mV);
@@ -522,6 +626,7 @@ void LLDrawPoolWater::shade()
 	glColor4fv(water_color.mV);
 
 	{
+		LLGLEnable depth_clamp(gGLManager.mHasDepthClamp ? GL_DEPTH_CLAMP : 0);
 		LLGLDisable cullface(GL_CULL_FACE);
 		for (std::vector<LLFace*>::iterator iter = mDrawFace.begin();
 			iter != mDrawFace.end(); iter++)
@@ -538,23 +643,19 @@ void LLDrawPoolWater::shade()
 
 			sNeedsReflectionUpdate = TRUE;
 			
-			if (water->getUseTexture())
+			if (water->getUseTexture() || !water->getIsEdgePatch())
 			{
 				sNeedsDistortionUpdate = TRUE;
 				face->renderIndexed();
 			}
+			else if (gGLManager.mHasDepthClamp || deferred_render)
+			{
+				face->renderIndexed();
+			}
 			else
-			{ //smash background faces to far clip plane
-				if (water->getIsEdgePatch())
-				{
-					LLGLClampToFarClip far_clip(glh_get_current_projection());
-					face->renderIndexed();
-				}
-				else
-				{
-					sNeedsDistortionUpdate = TRUE;
-					face->renderIndexed();
-				}
+			{
+				LLGLSquashToFarClip far_clip(glh_get_current_projection());
+				face->renderIndexed();
 			}
 		}
 	}
@@ -577,14 +678,11 @@ void LLDrawPoolWater::shade()
 
 	gGL.getTexUnit(0)->activate();
 	gGL.getTexUnit(0)->enable(LLTexUnit::TT_TEXTURE);
-	gGL.setColorMask(true, false);
+	if (!deferred_render)
+	{
+		gGL.setColorMask(true, false);
+	}
 
-}
-
-void LLDrawPoolWater::renderForSelect()
-{
-	// Can't select water!
-	return;
 }
 
 LLViewerTexture *LLDrawPoolWater::getDebugTexture()

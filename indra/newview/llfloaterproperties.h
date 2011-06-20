@@ -2,31 +2,25 @@
  * @file llfloaterproperties.h
  * @brief A floater which shows an inventory item's properties.
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -53,30 +47,27 @@ class LLPropertiesObserver;
 class LLFloaterProperties : public LLFloater
 {
 public:
-	static LLFloaterProperties* find(const LLUUID& item_id,
-									 const LLUUID& object_id = LLUUID::null);
-	static LLFloaterProperties* show(const LLUUID& item_id,
-									 const LLUUID& object_id = LLUUID::null);
-	static void dirtyAll();
-
-	static void closeByID(const LLUUID& item_id, const LLUUID& object_id);
-
-	LLFloaterProperties(const LLUUID& item_id, const LLUUID& object_id);
-	virtual ~LLFloaterProperties();
+	LLFloaterProperties(const LLUUID& item_id);
+	/*virtual*/ ~LLFloaterProperties();
+	
 	/*virtual*/ BOOL postBuild();
-	// do everything necessary
+	/*virtual*/ void onOpen(const LLSD& key);
+	void setObjectID(const LLUUID& object_id) { mObjectID = object_id; }
+
 	void dirty() { mDirty = TRUE; }
 	void refresh();
-
+	
+	static void dirtyAll();
+	
 protected:
 	// ui callbacks
-	static void onClickCreator(void* data);
-	static void onClickOwner(void* data);
-	static void onCommitName(LLUICtrl* ctrl, void* data);
-	static void onCommitDescription(LLUICtrl* ctrl, void* data);
-	static void onCommitPermissions(LLUICtrl* ctrl, void* data);
-	static void onCommitSaleInfo(LLUICtrl* ctrl, void* data);
-	static void onCommitSaleType(LLUICtrl* ctrl, void* data);
+	void onClickCreator();
+	void onClickOwner();
+	void onCommitName();
+	void onCommitDescription();
+	void onCommitPermissions();
+	void onCommitSaleInfo();
+	void onCommitSaleType();
 	void updateSaleInfo();
 
 	LLInventoryItem* findItem() const;
@@ -93,12 +84,9 @@ protected:
 	// inventory.
 	LLUUID mObjectID;
 
-	BOOL	mDirty;
+	BOOL mDirty;
 
-	typedef std::map<LLUUID, LLFloaterProperties*, lluuid_less> instance_map;
-	static instance_map sInstances;
-	static LLPropertiesObserver* sPropertiesObserver;
-	static S32 sPropertiesObserverCount;
+	LLPropertiesObserver* mPropertiesObserver;
 };
 
 class LLMultiProperties : public LLMultiFloater

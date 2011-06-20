@@ -2,35 +2,28 @@
  * @file llfloatermap.cpp
  * @brief The "mini-map" or radar in the upper right part of the screen.
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
-#include <string>
 #include "llviewerprecompiledheaders.h"
 
 // self include
@@ -42,30 +35,43 @@
 #include "llglheaders.h"
 
 // Viewer includes
-#include "llagent.h"
+#include "llagentcamera.h"
 #include "llviewercontrol.h"
 #include "llnetmap.h"
 #include "lltracker.h"
 #include "llviewercamera.h"
 #include "lldraghandle.h"
 #include "lltextbox.h"
-#include "llviewermenu.h"
+#include "llfloaterworldmap.h"
+#include "llagent.h"
 
 //
 // Constants
 //
-const F32 MAP_SCALE_MIN = 64;
-const F32 MAP_SCALE_MID = 172;
-const F32 MAP_SCALE_MAX = 512;
 
+// The minor cardinal direction labels are hidden if their height is more
+// than this proportion of the map.
+const F32 MAP_MINOR_DIR_THRESHOLD = 0.07f;
+const S32 MAP_PADDING_LEFT = 0;
+const S32 MAP_PADDING_TOP = 2;
+const S32 MAP_PADDING_RIGHT = 2;
+const S32 MAP_PADDING_BOTTOM = 0;
 //
 // Member functions
 //
 
 LLFloaterMap::LLFloaterMap(const LLSD& key) 
-	: LLFloater(key)
+	: LLFloater(key),
+	  mTextBoxEast(NULL),
+	  mTextBoxNorth(NULL),
+	  mTextBoxWest(NULL),
+	  mTextBoxSouth(NULL),
+	  mTextBoxSouthEast(NULL),
+	  mTextBoxNorthEast(NULL),
+	  mTextBoxNorthWest(NULL),
+	  mTextBoxSouthWest(NULL),
+	  mMap(NULL)
 {
-	//Called from floater reg: LLUICtrlFactory::getInstance()->buildFloater(this, "floater_map.xml", FALSE);
 }
 
 LLFloaterMap::~LLFloaterMap()
@@ -75,9 +81,14 @@ LLFloaterMap::~LLFloaterMap()
 BOOL LLFloaterMap::postBuild()
 {
 	mMap = getChild<LLNetMap>("Net Map");
-	mMap->setScale(gSavedSettings.getF32("MiniMapScale"));
-	mMap->setRotateMap(gSavedSettings.getBOOL( "MiniMapRotate" ));
-	mMap->setToolTipMsg(getString("ToolTipMsg"));	
+	if (gSavedSettings.getBOOL("DoubleClickTeleport"))
+	{
+		mMap->setToolTipMsg(getString("AltToolTipMsg"));
+	}
+	else if (gSavedSettings.getBOOL("DoubleClickShowWorldMap"))
+	{
+		mMap->setToolTipMsg(getString("ToolTipMsg"));
+	}
 	sendChildToBack(mMap);
 	
 	mTextBoxNorth = getChild<LLTextBox> ("floater_map_north");
@@ -89,21 +100,16 @@ BOOL LLFloaterMap::postBuild()
 	mTextBoxSouthWest = getChild<LLTextBox> ("floater_map_southwest");
 	mTextBoxNorthWest = getChild<LLTextBox> ("floater_map_northwest");
 
-	LLUICtrl::CommitCallbackRegistry::ScopedRegistrar registrar;
-	
-	registrar.add("Minimap.Zoom", boost::bind(&LLFloaterMap::handleZoom, this, _2));
-	registrar.add("Minimap.Tracker", boost::bind(&LLFloaterMap::handleStopTracking, this, _2));
+	stretchMiniMap(getRect().getWidth() - MAP_PADDING_LEFT - MAP_PADDING_RIGHT
+		,getRect().getHeight() - MAP_PADDING_TOP - MAP_PADDING_BOTTOM);
 
-	mPopupMenu = LLUICtrlFactory::getInstance()->createFromFile<LLMenuGL>("menu_minimap.xml", gMenuHolder, LLViewerMenuHolderGL::child_registry_t::instance());
-	if (mPopupMenu && !LLTracker::isTracking(0))
-	{
-		mPopupMenu->setItemEnabled ("Stop Tracking", false);
-	}
+	updateMinorDirections();
 
 	// Get the drag handle all the way in back
 	sendChildToBack(getDragHandle());
 
 	setIsChrome(TRUE);
+	getDragHandle()->setTitleVisible(TRUE);
 	
 	// keep onscreen
 	gFloaterView->adjustToFitScreen(this, FALSE);
@@ -111,19 +117,35 @@ BOOL LLFloaterMap::postBuild()
 	return TRUE;
 }
 
-BOOL LLFloaterMap::handleDoubleClick( S32 x, S32 y, MASK mask )
+BOOL LLFloaterMap::handleDoubleClick(S32 x, S32 y, MASK mask)
 {
-	LLFloaterReg::showInstance("world_map");
-	return TRUE;
-}
-
-BOOL LLFloaterMap::handleRightMouseDown(S32 x, S32 y, MASK mask)
-{
-	if (mPopupMenu)
+	// If floater is minimized, minimap should be shown on doubleclick (STORM-299)
+	if (isMinimized())
 	{
-		mPopupMenu->buildDrawLabels();
-		mPopupMenu->updateParent(LLMenuGL::sMenuContainer);
-		LLMenuGL::showPopup(this, mPopupMenu, x, y);
+		setMinimized(FALSE);
+		return TRUE;
+	}
+
+	LLVector3d pos_global = mMap->viewPosToGlobal(x, y);
+	
+	// If we're not tracking a beacon already, double-click will set one 
+	if (!LLTracker::isTracking(NULL))
+	{
+		LLFloaterWorldMap* world_map = LLFloaterWorldMap::getInstance();
+		if (world_map)
+		{
+			world_map->trackLocation(pos_global);
+		}
+	}
+	
+	if (gSavedSettings.getBOOL("DoubleClickTeleport"))
+	{
+		// If DoubleClickTeleport is on, double clicking the minimap will teleport there
+		gAgent.teleportViaLocationLookAt(pos_global);
+	}
+	else if (gSavedSettings.getBOOL("DoubleClickShowWorldMap"))
+	{
+		LLFloaterReg::showInstance("world_map");
 	}
 	return TRUE;
 }
@@ -133,8 +155,8 @@ void LLFloaterMap::setDirectionPos( LLTextBox* text_box, F32 rotation )
 	// Rotation is in radians.
 	// Rotation of 0 means x = 1, y = 0 on the unit circle.
 
-	F32 map_half_height = (F32)(getRect().getHeight() / 2);
-	F32 map_half_width = (F32)(getRect().getWidth() / 2);
+	F32 map_half_height = (F32)(getRect().getHeight() / 2) - getHeaderHeight()/2;
+	F32 map_half_width = (F32)(getRect().getWidth() / 2) ;
 	F32 text_half_height = (F32)(text_box->getRect().getHeight() / 2);
 	F32 text_half_width = (F32)(text_box->getRect().getWidth() / 2);
 	F32 radius = llmin( map_half_height - text_half_height, map_half_width - text_half_width );
@@ -147,12 +169,30 @@ void LLFloaterMap::setDirectionPos( LLTextBox* text_box, F32 rotation )
 		llround(map_half_height - text_half_height + radius * sin( rotation )) );
 }
 
+void LLFloaterMap::updateMinorDirections()
+{
+	if (mTextBoxNorthEast == NULL)
+	{
+		return;
+	}
+
+	// Hide minor directions if they cover too much of the map
+	bool show_minors = mTextBoxNorthEast->getRect().getHeight() < MAP_MINOR_DIR_THRESHOLD *
+		llmin(getRect().getWidth(), getRect().getHeight());
+
+	mTextBoxNorthEast->setVisible(show_minors);
+	mTextBoxNorthWest->setVisible(show_minors);
+	mTextBoxSouthWest->setVisible(show_minors);
+	mTextBoxSouthEast->setVisible(show_minors);
+}
+
 // virtual
 void LLFloaterMap::draw()
 {
 	F32 rotation = 0;
 
-	if( mMap->getRotateMap() )
+	static LLUICachedControl<bool> rotate_map("MiniMapRotate", true);
+	if( rotate_map )
 	{
 		// rotate subsequent draws to agent rotation
 		rotation = atan2( LLViewerCamera::getInstance()->getAtAxis().mV[VX], LLViewerCamera::getInstance()->getAtAxis().mV[VY] );
@@ -169,7 +209,7 @@ void LLFloaterMap::draw()
 	setDirectionPos( mTextBoxSouthEast, rotation + F_PI + F_PI_BY_TWO + F_PI_BY_TWO / 2);
 
 	// Note: we can't just gAgent.check cameraMouselook() because the transition states are wrong.
-	if( gAgent.cameraMouselook())
+	if(gAgentCamera.cameraMouselook())
 	{
 		setMouseOpaque(FALSE);
 		getDragHandle()->setMouseOpaque(FALSE);
@@ -180,12 +220,44 @@ void LLFloaterMap::draw()
 		getDragHandle()->setMouseOpaque(TRUE);
 	}
 	
-	if (LLTracker::isTracking(0))
-	{
-		mPopupMenu->setItemEnabled ("Stop Tracking", true);
-	}
-	
 	LLFloater::draw();
+}
+
+// virtual
+void LLFloaterMap::onFocusReceived()
+{
+	setBackgroundOpaque(true);
+	LLPanel::onFocusReceived();
+}
+
+// virtual
+void LLFloaterMap::onFocusLost()
+{
+	setBackgroundOpaque(false);
+	LLPanel::onFocusLost();
+}
+
+void LLFloaterMap::stretchMiniMap(S32 width,S32 height)
+{
+	//fix for ext-7112
+	//by default ctrl can't overlap caption area
+	if(mMap)
+	{
+		LLRect map_rect;
+		map_rect.setLeftTopAndSize( MAP_PADDING_LEFT, getRect().getHeight() - MAP_PADDING_TOP, width, height);
+		mMap->reshape( width, height, 1);
+		mMap->setRect(map_rect);
+	}
+}
+
+void LLFloaterMap::reshape(S32 width, S32 height, BOOL called_from_parent)
+{
+	LLFloater::reshape(width, height, called_from_parent);
+	
+	stretchMiniMap(width - MAP_PADDING_LEFT - MAP_PADDING_RIGHT
+		,height - MAP_PADDING_TOP - MAP_PADDING_BOTTOM);
+
+	updateMinorDirections();
 }
 
 void LLFloaterMap::handleZoom(const LLSD& userdata)
@@ -193,25 +265,36 @@ void LLFloaterMap::handleZoom(const LLSD& userdata)
 	std::string level = userdata.asString();
 	
 	F32 scale = 0.0f;
-	if (level == std::string("close"))
-		scale = MAP_SCALE_MAX;
+	if (level == std::string("default"))
+	{
+		LLControlVariable *pvar = gSavedSettings.getControl("MiniMapScale");
+		if(pvar)
+		{
+			pvar->resetToDefault();
+			scale = gSavedSettings.getF32("MiniMapScale");
+		}
+	}
+	else if (level == std::string("close"))
+		scale = LLNetMap::MAP_SCALE_MAX;
 	else if (level == std::string("medium"))
-		scale = MAP_SCALE_MID;
+		scale = LLNetMap::MAP_SCALE_MID;
 	else if (level == std::string("far"))
-		scale = MAP_SCALE_MIN;
+		scale = LLNetMap::MAP_SCALE_MIN;
 	if (scale != 0.0f)
 	{
-		gSavedSettings.setF32("MiniMapScale", scale );
 		mMap->setScale(scale);
 	}
 }
 
-void LLFloaterMap::handleStopTracking (const LLSD& userdata)
+void	LLFloaterMap::setMinimized(BOOL b)
 {
-	if (mPopupMenu)
+	LLFloater::setMinimized(b);
+	if(b)
 	{
-		mPopupMenu->setItemEnabled ("Stop Tracking", false);
-		LLTracker::stopTracking ((void*)LLTracker::isTracking(NULL));
+		setTitle(getString("mini_map_caption"));
+	}
+	else
+	{
+		setTitle("");
 	}
 }
-

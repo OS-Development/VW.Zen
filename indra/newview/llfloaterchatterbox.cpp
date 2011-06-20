@@ -4,31 +4,25 @@
  * @date 2007-05-08
  * @brief Implementation of the chatterbox integrated conversation ui
  *
- * $LicenseInfo:firstyear=2007&license=viewergpl$
- * 
- * Copyright (c) 2007-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2007&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -38,19 +32,19 @@
 #include "llfloaterreg.h"
 #include "llfloaterchatterbox.h"
 #include "lluictrlfactory.h"
-#include "llfloaterchat.h"
 #include "llfloaterfriends.h"
 #include "llfloatergroups.h"
 #include "llviewercontrol.h"
-#include "llimview.h"
+#include "llvoicechannel.h"
 #include "llimpanel.h"
+#include "llimview.h"
 
 //
 // LLFloaterMyFriends
 //
 
 LLFloaterMyFriends::LLFloaterMyFriends(const LLSD& seed)
-	: LLFloater()
+	: LLFloater(seed)
 {
 	mFactoryMap["friends_panel"] = LLCallbackMap(LLFloaterMyFriends::createFriendsPanel, NULL);
 	mFactoryMap["groups_panel"] = LLCallbackMap(LLFloaterMyFriends::createGroupsPanel, NULL);
@@ -78,11 +72,6 @@ void LLFloaterMyFriends::onOpen(const LLSD& key)
 	}
 }
 
-void LLFloaterMyFriends::onClose(bool app_quitting)
-{
-	setVisible(FALSE);
-}
-
 //static
 void* LLFloaterMyFriends::createFriendsPanel(void* data)
 {
@@ -105,8 +94,8 @@ LLFloaterMyFriends* LLFloaterMyFriends::getInstance()
 // LLFloaterChatterBox
 //
 LLFloaterChatterBox::LLFloaterChatterBox(const LLSD& seed)
-	:	LLMultiFloater(),
-		mActiveVoiceFloater(NULL)
+:	LLMultiFloater(seed),
+	mActiveVoiceFloater(NULL)
 {
 	mAutoResize = FALSE;
 
@@ -119,6 +108,8 @@ LLFloaterChatterBox::~LLFloaterChatterBox()
 
 BOOL LLFloaterChatterBox::postBuild()
 {
+	setVisibleCallback(boost::bind(&LLFloaterChatterBox::onVisibilityChange, this, _2));
+	
 	if (gSavedSettings.getBOOL("ContactsTornOff"))
 	{
 		LLFloaterMyFriends* floater_contacts = LLFloaterMyFriends::getInstance();
@@ -136,22 +127,6 @@ BOOL LLFloaterChatterBox::postBuild()
 		addFloater(LLFloaterMyFriends::getInstance(), TRUE);
 	}
 
-	if (gSavedSettings.getBOOL("ChatHistoryTornOff"))
-	{
-		LLFloaterChat* floater_chat = LLFloaterChat::getInstance();
-		if(floater_chat)
-		{
-			// add then remove to set up relationship for re-attach
-			addFloater(floater_chat, FALSE);
-			removeFloater(floater_chat);
-			// reparent to floater view
-			gFloaterView->addChild(floater_chat);
-		}
-	}
-	else
-	{
-		addFloater(LLFloaterChat::getInstance(), FALSE);
-	}
 	mTabContainer->lockTabs();
 	return TRUE;
 }
@@ -232,33 +207,19 @@ void LLFloaterChatterBox::onOpen(const LLSD& key)
 	//*TODO:Skinning show the session id associated with key
 	if (key.asString() == "local")
 	{
-		LLFloaterChat* chat = LLFloaterReg::findTypedInstance<LLFloaterChat>("chat");
-		chat->openFloater();
 	}
 	else if (key.isDefined())
 	{
-		LLFloaterIMPanel* impanel = gIMMgr->findFloaterBySession(key.asUUID());
+		/*LLFloaterIMPanel* impanel = gIMMgr->findFloaterBySession(key.asUUID());
 		if (impanel)
 		{
 			impanel->openFloater();
-		}
+		}*/
 	}
 }
 
-void LLFloaterChatterBox::onClose(bool app_quitting)
+void LLFloaterChatterBox::onVisibilityChange ( const LLSD& new_visibility )
 {
-	setVisible(FALSE);
-}
-
-void LLFloaterChatterBox::setMinimized(BOOL minimized)
-{
-	LLFloater::setMinimized(minimized);
-	// HACK: potentially need to toggle console
-	LLFloaterChat* instance = LLFloaterChat::getInstance();
-	if(instance)
-	{
-		instance->updateConsoleVisibility();
-	}
 }
 
 void LLFloaterChatterBox::removeFloater(LLFloater* floaterp)
@@ -332,7 +293,7 @@ void LLFloaterChatterBox::addFloater(LLFloater* floaterp,
 	else
 	{
 		LLMultiFloater::addFloater(floaterp, select_added_floater, insertion_point);
-		openFloater(floaterp->getKey());
+		// openFloater(floaterp->getKey());
 	}
 
 	// make sure active voice icon shows up for new tab
@@ -351,14 +312,13 @@ LLFloaterChatterBox* LLFloaterChatterBox::getInstance()
 //static 
 LLFloater* LLFloaterChatterBox::getCurrentVoiceFloater()
 {
-	if (!LLVoiceClient::voiceEnabled())
+	if (!LLVoiceClient::getInstance()->voiceEnabled())
 	{
 		return NULL;
 	}
 	if (LLVoiceChannelProximal::getInstance() == LLVoiceChannel::getCurrentVoiceChannel())
 	{
-		// show near me tab if in proximal channel
-		return LLFloaterChat::getInstance();
+		return NULL;
 	}
 	else
 	{
@@ -372,7 +332,8 @@ LLFloater* LLFloaterChatterBox::getCurrentVoiceFloater()
 			{
 				// only LLFloaterIMPanels are called "im_floater"
 				LLFloaterIMPanel* im_floaterp = (LLFloaterIMPanel*)panelp;
-				if (im_floaterp->getVoiceChannel()  == LLVoiceChannel::getCurrentVoiceChannel())
+				LLVoiceChannel* voice_channel = LLIMModel::getInstance()->getVoiceChannel(im_floaterp->getSessionID());
+				if (voice_channel  == LLVoiceChannel::getCurrentVoiceChannel())
 				{
 					return im_floaterp;
 				}

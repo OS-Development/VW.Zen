@@ -39,6 +39,7 @@ import shutil
 import sys
 import tarfile
 import errno
+import subprocess
 
 def path_ancestors(path):
     drive, path = os.path.splitdrive(os.path.normpath(path))
@@ -119,10 +120,10 @@ ARGUMENTS=[
         On Linux this would try to use Linux_i686Manifest.""",
          default=""),
     dict(name='build', description='Build directory.', default=DEFAULT_SRCTREE),
+    dict(name='buildtype', description='Build type (i.e. Debug, Release, RelWithDebInfo).', default=None),
     dict(name='configuration',
-         description="""The build configuration used. Only used on OS X for
-        now, but it could be used for other platforms as well.""",
-         default="Universal"),
+         description="""The build configuration used.""",
+         default="Release"),
     dict(name='dest', description='Destination directory.', default=DEFAULT_SRCTREE),
     dict(name='grid',
          description="""Which grid the client will try to connect to. Even
@@ -366,20 +367,23 @@ class LLManifest(object):
 
     def run_command(self, command):
         """ Runs an external command, and returns the output.  Raises
-        an exception if the command reurns a nonzero status code.  For
-        debugging/informational purpoases, prints out the command's
+        an exception if the command returns a nonzero status code.  For
+        debugging/informational purposes, prints out the command's
         output as it is received."""
         print "Running command:", command
-        fd = os.popen(command, 'r')
+        sys.stdout.flush()
+        child = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                 shell=True)
         lines = []
         while True:
-            lines.append(fd.readline())
+            lines.append(child.stdout.readline())
             if lines[-1] == '':
                 break
             else:
                 print lines[-1],
         output = ''.join(lines)
-        status = fd.close()
+        child.stdout.close()
+        status = child.wait()
         if status:
             raise RuntimeError(
                 "Command %s returned non-zero status (%s) \noutput:\n%s"

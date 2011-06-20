@@ -2,31 +2,25 @@
  * @file llpanelobject.cpp
  * @brief Object editing (position, scale, etc.) in the tools floater
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -61,7 +55,6 @@
 #include "lltool.h"
 #include "lltoolcomp.h"
 #include "lltoolmgr.h"
-#include "lltrans.h"
 #include "llui.h"
 #include "llviewerobject.h"
 #include "llviewerregion.h"
@@ -71,7 +64,7 @@
 #include "pipeline.h"
 #include "llviewercontrol.h"
 #include "lluictrlfactory.h"
-#include "llfirstuse.h"
+//#include "llfirstuse.h"
 
 #include "lldrawpool.h"
 
@@ -105,17 +98,6 @@ BOOL	LLPanelObject::postBuild()
 {
 	setMouseOpaque(FALSE);
 	
-	std::map<std::string, std::string> material_name_map;
-	material_name_map["Stone"]= LLTrans::getString("Stone");
-	material_name_map["Metal"]= LLTrans::getString("Metal");	
-	material_name_map["Glass"]= LLTrans::getString("Glass");	
-	material_name_map["Wood"]= LLTrans::getString("Wood");	
-	material_name_map["Flesh"]= LLTrans::getString("Flesh");
-	material_name_map["Plastic"]= LLTrans::getString("Plastic");
-	material_name_map["Rubber"]= LLTrans::getString("Rubber");	
-	material_name_map["Light"]= LLTrans::getString("Light");		
-	
-	LLMaterialTable::basic.initTableTransNames(material_name_map);
 	//--------------------------------------------------------
 	// Top
 	//--------------------------------------------------------
@@ -135,7 +117,8 @@ BOOL	LLPanelObject::postBuild()
 	// Phantom checkbox
 	mCheckPhantom = getChild<LLCheckBoxCtrl>("Phantom Checkbox Ctrl");
 	childSetCommitCallback("Phantom Checkbox Ctrl",onCommitPhantom,this);
-	
+       
+
 	// Position
 	mLabelPosition = getChild<LLTextBox>("label position");
 	mCtrlPosX = getChild<LLSpinCtrl>("Pos X");
@@ -169,25 +152,7 @@ BOOL	LLPanelObject::postBuild()
 
 	//--------------------------------------------------------
 		
-	// material type popup
-	mLabelMaterial = getChild<LLTextBox>("label material");
-	mComboMaterial = getChild<LLComboBox>("material");
-	childSetCommitCallback("material",onCommitMaterial,this);
-	mComboMaterial->removeall();
-
-	for (LLMaterialTable::info_list_t::iterator iter = LLMaterialTable::basic.mMaterialInfoList.begin();
-		 iter != LLMaterialTable::basic.mMaterialInfoList.end(); ++iter)
-	{
-		LLMaterialInfo* minfop = *iter;
-		if (minfop->mMCode != LL_MCODE_LIGHT)
-		{
-			mComboMaterial->add(minfop->mName);  
-		}
-	}
-	mComboMaterialItemCount = mComboMaterial->getItemCount();
-
 	// Base Type
-	mLabelBaseType = getChild<LLTextBox>("label basetype");
 	mComboBaseType = getChild<LLComboBox>("comboBaseType");
 	childSetCommitCallback("comboBaseType",onCommitParametric,this);
 
@@ -318,7 +283,9 @@ LLPanelObject::LLPanelObject()
 	mIsTemporary(FALSE),
 	mIsPhantom(FALSE),
 	mCastShadows(TRUE),
-	mSelectedType(MI_BOX)
+	mSelectedType(MI_BOX),
+	mSculptTextureRevert(LLUUID::null),
+	mSculptTypeRevert(0)
 {
 }
 
@@ -461,17 +428,17 @@ void LLPanelObject::getState( )
 	BOOL editable = root_objectp->permModify();
 
 	// Select Single Message
-	childSetVisible("select_single", FALSE);
-	childSetVisible("edit_object", FALSE);
+	getChildView("select_single")->setVisible( FALSE);
+	getChildView("edit_object")->setVisible( FALSE);
 	if (!editable || single_volume || selected_count <= 1)
 	{
-		childSetVisible("edit_object", TRUE);
-		childSetEnabled("edit_object", TRUE);
+		getChildView("edit_object")->setVisible( TRUE);
+		getChildView("edit_object")->setEnabled(TRUE);
 	}
 	else
 	{
-		childSetVisible("select_single", TRUE);
-		childSetEnabled("select_single", TRUE);
+		getChildView("select_single")->setVisible( TRUE);
+		getChildView("select_single")->setEnabled(TRUE);
 	}
 	// Lock checkbox - only modifiable if you own the object.
 	BOOL self_owned = (gAgent.getID() == owner_id);
@@ -522,51 +489,13 @@ void LLPanelObject::getState( )
 	mCheckPhantom->set( mIsPhantom );
 	mCheckPhantom->setEnabled( roots_selected>0 && editable && !is_flexible );
 
+       
 #if 0 // 1.9.2
 	mCastShadows = root_objectp->flagCastShadows();
 	mCheckCastShadows->set( mCastShadows );
 	mCheckCastShadows->setEnabled( roots_selected==1 && editable );
 #endif
 	
-	// Update material part
-	// slightly inefficient - materials are unique per object, not per TE
-	U8 material_code = 0;
-	struct f : public LLSelectedTEGetFunctor<U8>
-	{
-		U8 get(LLViewerObject* object, S32 te)
-		{
-			return object->getMaterial();
-		}
-	} func;
-	bool material_same = LLSelectMgr::getInstance()->getSelection()->getSelectedTEValue( &func, material_code );
-	std::string LEGACY_FULLBRIGHT_DESC = LLTrans::getString("Fullbright");
-	if (editable && single_volume && material_same)
-	{
-		mComboMaterial->setEnabled( TRUE );
-		mLabelMaterial->setEnabled( TRUE );
-		if (material_code == LL_MCODE_LIGHT)
-		{
-			if (mComboMaterial->getItemCount() == mComboMaterialItemCount)
-			{
-				mComboMaterial->add(LEGACY_FULLBRIGHT_DESC);
-			}
-			mComboMaterial->setSimple(LEGACY_FULLBRIGHT_DESC);
-		}
-		else
-		{
-			if (mComboMaterial->getItemCount() != mComboMaterialItemCount)
-			{
-				mComboMaterial->remove(LEGACY_FULLBRIGHT_DESC);
-			}
-			
-			mComboMaterial->setSimple(std::string(LLMaterialTable::basic.getName(material_code)));
-		}
-	}
-	else
-	{
-		mComboMaterial->setEnabled( FALSE );
-		mLabelMaterial->setEnabled( FALSE );	
-	}
 	//----------------------------------------------------------------------------
 
 	S32 selected_item	= MI_BOX;
@@ -574,6 +503,7 @@ void LLPanelObject::getState( )
 	BOOL enabled = FALSE;
 	BOOL hole_enabled = FALSE;
 	F32 scale_x=1.f, scale_y=1.f;
+	BOOL isMesh = FALSE;
 	
 	if( !objectp || !objectp->getVolume() || !editable || !single_volume)
 	{
@@ -604,10 +534,9 @@ void LLPanelObject::getState( )
 		// Only allowed to change these parameters for objects
 		// that you have permissions on AND are not attachments.
 		enabled = root_objectp->permModify();
-
-		const LLVolumeParams &volume_params = objectp->getVolume()->getParams();
-
+		
 		// Volume type
+		const LLVolumeParams &volume_params = objectp->getVolume()->getParams();
 		U8 path = volume_params.getPathParams().getCurveType();
 		U8 profile_and_hole = volume_params.getProfileParams().getCurveType();
 		U8 profile	= profile_and_hole & LL_PCODE_PROFILE_MASK;
@@ -680,7 +609,7 @@ void LLPanelObject::getState( )
 		if (objectp->getParameterEntryInUse(LLNetworkData::PARAMS_SCULPT))
 		{
 			selected_item = MI_SCULPT;
-			LLFirstUse::useSculptedPrim();
+			//LLFirstUse::useSculptedPrim();
 		}
 
 		
@@ -838,7 +767,7 @@ void LLPanelObject::getState( )
 		}
 		mSpinSkew->set( skew );
 	}
-
+	
 	// Compute control visibility, label names, and twist range.
 	// Start with defaults.
 	BOOL cut_visible                = TRUE;
@@ -974,7 +903,6 @@ void LLPanelObject::getState( )
 	}
 
 	// Update field enablement
-	mLabelBaseType	->setEnabled( enabled );
 	mComboBaseType	->setEnabled( enabled );
 
 	mLabelCut		->setEnabled( enabled );
@@ -993,19 +921,19 @@ void LLPanelObject::getState( )
 	mLabelSkew		->setEnabled( enabled );
 	mSpinSkew		->setEnabled( enabled );
 
-	childSetVisible("scale_hole", FALSE);
-	childSetVisible("scale_taper", FALSE);
+	getChildView("scale_hole")->setVisible( FALSE);
+	getChildView("scale_taper")->setVisible( FALSE);
 	if (top_size_x_visible || top_size_y_visible)
 	{
 		if (size_is_hole)
 		{
-			childSetVisible("scale_hole", TRUE);
-			childSetEnabled("scale_hole", enabled);
+			getChildView("scale_hole")->setVisible( TRUE);
+			getChildView("scale_hole")->setEnabled(enabled);
 		}
 		else
 		{
-			childSetVisible("scale_taper", TRUE);
-			childSetEnabled("scale_taper", enabled);
+			getChildView("scale_taper")->setVisible( TRUE);
+			getChildView("scale_taper")->setEnabled(enabled);
 		}
 	}
 	
@@ -1016,27 +944,27 @@ void LLPanelObject::getState( )
 	mSpinShearX		->setEnabled( enabled );
 	mSpinShearY		->setEnabled( enabled );
 
-	childSetVisible("advanced_cut", FALSE);
-	childSetVisible("advanced_dimple", FALSE);
-	childSetVisible("advanced_slice", FALSE);
+	getChildView("advanced_cut")->setVisible( FALSE);
+	getChildView("advanced_dimple")->setVisible( FALSE);
+	getChildView("advanced_slice")->setVisible( FALSE);
 
 	if (advanced_cut_visible)
 	{
 		if (advanced_is_dimple)
 		{
-			childSetVisible("advanced_dimple", TRUE);
-			childSetEnabled("advanced_dimple", enabled);
+			getChildView("advanced_dimple")->setVisible( TRUE);
+			getChildView("advanced_dimple")->setEnabled(enabled);
 		}
 
 		else if (advanced_is_slice)
 		{
-			childSetVisible("advanced_slice", TRUE);
-			childSetEnabled("advanced_slice", enabled);
+			getChildView("advanced_slice")->setVisible( TRUE);
+			getChildView("advanced_slice")->setEnabled(enabled);
 		}
 		else
 		{
-			childSetVisible("advanced_cut", TRUE);
-			childSetEnabled("advanced_cut", enabled);
+			getChildView("advanced_cut")->setVisible( TRUE);
+			getChildView("advanced_cut")->setEnabled(enabled);
 		}
 	}
 	
@@ -1099,15 +1027,14 @@ void LLPanelObject::getState( )
 	mCtrlSculptTexture->setVisible(sculpt_texture_visible);
 	mLabelSculptType->setVisible(sculpt_texture_visible);
 	mCtrlSculptType->setVisible(sculpt_texture_visible);
-	mCtrlSculptMirror->setVisible(sculpt_texture_visible);
-	mCtrlSculptInvert->setVisible(sculpt_texture_visible);
 
 
 	// sculpt texture
-
 	if (selected_item == MI_SCULPT)
 	{
-        LLUUID id;
+
+
+		LLUUID id;
 		LLSculptParams *sculpt_params = (LLSculptParams *)objectp->getParameterEntry(LLNetworkData::PARAMS_SCULPT);
 
 		
@@ -1119,32 +1046,35 @@ void LLPanelObject::getState( )
 				mSculptTypeRevert    = sculpt_params->getSculptType();
 			}
 		
+			U8 sculpt_type = sculpt_params->getSculptType();
+			U8 sculpt_stitching = sculpt_type & LL_SCULPT_TYPE_MASK;
+			BOOL sculpt_invert = sculpt_type & LL_SCULPT_FLAG_INVERT;
+			BOOL sculpt_mirror = sculpt_type & LL_SCULPT_FLAG_MIRROR;
+			isMesh = (sculpt_stitching == LL_SCULPT_TYPE_MESH);
+
 			LLTextureCtrl*  mTextureCtrl = getChild<LLTextureCtrl>("sculpt texture control");
 			if(mTextureCtrl)
 			{
 				mTextureCtrl->setTentative(FALSE);
-				mTextureCtrl->setEnabled(editable);
+				mTextureCtrl->setEnabled(editable && !isMesh);
 				if (editable)
 					mTextureCtrl->setImageAssetID(sculpt_params->getSculptTexture());
 				else
 					mTextureCtrl->setImageAssetID(LLUUID::null);
 			}
 
-			U8 sculpt_type = sculpt_params->getSculptType();
-			U8 sculpt_stitching = sculpt_type & LL_SCULPT_TYPE_MASK;
-			BOOL sculpt_invert = sculpt_type & LL_SCULPT_FLAG_INVERT;
-			BOOL sculpt_mirror = sculpt_type & LL_SCULPT_FLAG_MIRROR;
+			mComboBaseType->setEnabled(!isMesh);
 			
 			if (mCtrlSculptType)
 			{
 				mCtrlSculptType->setCurrentByIndex(sculpt_stitching);
-				mCtrlSculptType->setEnabled(editable);
+				mCtrlSculptType->setEnabled(editable && !isMesh);
 			}
 
 			if (mCtrlSculptMirror)
 			{
 				mCtrlSculptMirror->set(sculpt_mirror);
-				mCtrlSculptMirror->setEnabled(editable);
+				mCtrlSculptMirror->setEnabled(editable && !isMesh);
 			}
 
 			if (mCtrlSculptInvert)
@@ -1157,14 +1087,17 @@ void LLPanelObject::getState( )
 			{
 				mLabelSculptType->setEnabled(TRUE);
 			}
+			
 		}
 	}
 	else
 	{
-		mSculptTextureRevert = LLUUID::null;
+		mSculptTextureRevert = LLUUID::null;		
 	}
 
-	
+	mCtrlSculptMirror->setVisible(sculpt_texture_visible && !isMesh);
+	mCtrlSculptInvert->setVisible(sculpt_texture_visible && !isMesh);
+
 	//----------------------------------------------------------------------------
 
 	mObject = objectp;
@@ -1240,25 +1173,6 @@ void LLPanelObject::sendCastShadows()
 	else
 	{
 		llinfos << "update cast shadows not changed" << llendl;
-	}
-}
-
-// static
-void LLPanelObject::onCommitMaterial( LLUICtrl* ctrl, void* userdata )
-{
-	//LLPanelObject* self = (LLPanelObject*) userdata;
-	LLComboBox* box = (LLComboBox*) ctrl;
-
-	if (box)
-	{
-		// apply the currently selected material to the object
-		const std::string& material_name = box->getSimple();
-		std::string LEGACY_FULLBRIGHT_DESC = LLTrans::getString("Fullbright");
-		if (material_name != LEGACY_FULLBRIGHT_DESC)
-		{
-			U8 material_code = LLMaterialTable::basic.getMCode(material_name);
-			LLSelectMgr::getInstance()->selectionSetMaterial(material_code);
-		}
 	}
 }
 
@@ -1701,10 +1615,10 @@ void LLPanelObject::sendPosition(BOOL btn_down)
 
 	LLVector3 newpos(mCtrlPosX->get(), mCtrlPosY->get(), mCtrlPosZ->get());
 	LLViewerRegion* regionp = mObject->getRegion();
-		
+
 	// Clamp the Z height
 	const F32 height = newpos.mV[VZ];
-	const F32 min_height = LLWorld::getInstance()->getMinAllowedZ(mObject);
+	const F32 min_height = LLWorld::getInstance()->getMinAllowedZ(mObject, mObject->getPositionGlobal());
 	const F32 max_height = LLWorld::getInstance()->getRegionMaxHeight();
 
 	if (!mObject->isAttachment())
@@ -1792,6 +1706,17 @@ void LLPanelObject::sendSculpt()
 	if (mCtrlSculptType)
 		sculpt_type |= mCtrlSculptType->getCurrentIndex();
 
+	bool enabled = sculpt_type != LL_SCULPT_TYPE_MESH;
+
+	if (mCtrlSculptMirror)
+	{
+		mCtrlSculptMirror->setEnabled(enabled ? TRUE : FALSE);
+	}
+	if (mCtrlSculptInvert)
+	{
+		mCtrlSculptInvert->setEnabled(enabled ? TRUE : FALSE);
+	}
+	
 	if ((mCtrlSculptMirror) && (mCtrlSculptMirror->get()))
 		sculpt_type |= LL_SCULPT_FLAG_MIRROR;
 
@@ -1814,6 +1739,12 @@ void LLPanelObject::refresh()
 	{
 		mRootObject = NULL;
 	}
+	
+	F32 max_scale = get_default_max_prim_scale(LLPickInfo::isFlora(mObject));
+
+	getChild<LLSpinCtrl>("Scale X")->setMaxValue(max_scale);
+	getChild<LLSpinCtrl>("Scale Y")->setMaxValue(max_scale);
+	getChild<LLSpinCtrl>("Scale Z")->setMaxValue(max_scale);
 }
 
 
@@ -1900,17 +1831,15 @@ void LLPanelObject::clearCtrls()
 	mCheckTemporary	->setEnabled( FALSE );
 	mCheckPhantom	->set(FALSE);
 	mCheckPhantom	->setEnabled( FALSE );
+	
 #if 0 // 1.9.2
 	mCheckCastShadows->set(FALSE);
 	mCheckCastShadows->setEnabled( FALSE );
 #endif
-	mComboMaterial	->setEnabled( FALSE );
-	mLabelMaterial	->setEnabled( FALSE );
 	// Disable text labels
 	mLabelPosition	->setEnabled( FALSE );
 	mLabelSize		->setEnabled( FALSE );
 	mLabelRotation	->setEnabled( FALSE );
-	mLabelBaseType	->setEnabled( FALSE );
 	mLabelCut		->setEnabled( FALSE );
 	mLabelHollow	->setEnabled( FALSE );
 	mLabelHoleType	->setEnabled( FALSE );
@@ -1921,15 +1850,15 @@ void LLPanelObject::clearCtrls()
 	mLabelRadiusOffset->setEnabled( FALSE );
 	mLabelRevolutions->setEnabled( FALSE );
 
-	childSetVisible("select_single", FALSE);
-	childSetVisible("edit_object", TRUE);	
-	childSetEnabled("edit_object", FALSE);
+	getChildView("select_single")->setVisible( FALSE);
+	getChildView("edit_object")->setVisible( TRUE);	
+	getChildView("edit_object")->setEnabled(FALSE);
 	
-	childSetEnabled("scale_hole", FALSE);
-	childSetEnabled("scale_taper", FALSE);
-	childSetEnabled("advanced_cut", FALSE);
-	childSetEnabled("advanced_dimple", FALSE);
-	childSetVisible("advanced_slice", FALSE);
+	getChildView("scale_hole")->setEnabled(FALSE);
+	getChildView("scale_taper")->setEnabled(FALSE);
+	getChildView("advanced_cut")->setEnabled(FALSE);
+	getChildView("advanced_dimple")->setEnabled(FALSE);
+	getChildView("advanced_slice")->setVisible( FALSE);
 }
 
 //

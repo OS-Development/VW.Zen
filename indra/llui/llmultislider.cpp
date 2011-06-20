@@ -2,31 +2,25 @@
  * @file llmultisldr.cpp
  * @brief LLMultiSlider base class
  *
- * $LicenseInfo:firstyear=2007&license=viewergpl$
- * 
- * Copyright (c) 2007-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2007&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -41,6 +35,7 @@
 #include "llkeyboard.h"			// for the MASK constants
 #include "llcontrol.h"
 #include "lluictrlfactory.h"
+#include "lluiimage.h"
 
 #include <sstream>
 
@@ -49,6 +44,12 @@ static LLDefaultChildRegistry::Register<LLMultiSlider> r("multi_slider_bar");
 const F32 FLOAT_THRESHOLD = 0.00001f;
 
 S32 LLMultiSlider::mNameCounter = 0;
+
+LLMultiSlider::SliderParams::SliderParams()
+:	name("name"),
+	value("value", 0.f)
+{
+}
 
 LLMultiSlider::Params::Params()
 :	max_sliders("max_sliders", 1),
@@ -63,7 +64,8 @@ LLMultiSlider::Params::Params()
 	triangle_color("triangle_color"),
 	mouse_down_callback("mouse_down_callback"),
 	mouse_up_callback("mouse_up_callback"),
-	thumb_width("thumb_width")
+	thumb_width("thumb_width"),
+	sliders("slider")
 {
 	name = "multi_slider_bar";
 	mouse_opaque(true);
@@ -84,16 +86,43 @@ LLMultiSlider::LLMultiSlider(const LLMultiSlider::Params& p)
 	mThumbCenterSelectedColor(p.thumb_center_selected_color()),
 	mDisabledThumbColor(p.thumb_disabled_color()),
 	mTriangleColor(p.triangle_color()),
-	mThumbWidth(p.thumb_width)
+	mThumbWidth(p.thumb_width),
+	mMouseDownSignal(NULL),
+	mMouseUpSignal(NULL)
 {
 	mValue.emptyMap();
 	mCurSlider = LLStringUtil::null;
 	
 	if (p.mouse_down_callback.isProvided())
-		initCommitCallback(p.mouse_down_callback, mMouseDownSignal);
+	{
+		setMouseDownCallback(initCommitCallback(p.mouse_down_callback));
+	}
 	if (p.mouse_up_callback.isProvided())
-		initCommitCallback(p.mouse_up_callback, mMouseUpSignal);
+	{
+		setMouseUpCallback(initCommitCallback(p.mouse_up_callback));
+	}
+
+	for (LLInitParam::ParamIterator<SliderParams>::const_iterator it = p.sliders.begin();
+		it != p.sliders.end();
+		++it)
+	{
+		if (it->name.isProvided())
+		{
+			addSlider(it->value, it->name);
+		}
+		else
+		{
+			addSlider(it->value);
+		}
+	}
 }
+
+LLMultiSlider::~LLMultiSlider()
+{
+	delete mMouseDownSignal;
+	delete mMouseUpSignal;
+}
+
 
 void LLMultiSlider::setSliderValue(const std::string& name, F32 value, BOOL from_event)
 {
@@ -217,6 +246,30 @@ const std::string& LLMultiSlider::addSlider(F32 val)
 	return mCurSlider;
 }
 
+void LLMultiSlider::addSlider(F32 val, const std::string& name)
+{
+	F32 initVal = val;
+
+	if(mValue.size() >= mMaxNumSliders) {
+		return;
+	}
+
+	bool foundOne = findUnusedValue(initVal);
+	if(!foundOne) {
+		return;
+	}
+
+	// add a new thumb rect
+	mThumbRects[name] = LLRect( 0, getRect().getHeight(), mThumbWidth, 0 );
+
+	// add the value and set the current slider to this one
+	mValue.insert(name, initVal);
+	mCurSlider = name;
+
+	// move the slider
+	setSliderValue(mCurSlider, initVal, TRUE);
+}
+
 bool LLMultiSlider::findUnusedValue(F32& initVal)
 {
 	bool firstTry = true;
@@ -325,7 +378,8 @@ BOOL LLMultiSlider::handleMouseUp(S32 x, S32 y, MASK mask)
 	{
 		gFocusMgr.setMouseCapture( NULL );
 
-		mMouseUpSignal( this, LLSD() );
+		if (mMouseUpSignal)
+			(*mMouseUpSignal)( this, LLSD() );
 
 		handled = TRUE;
 		make_ui_sound("UISndClickRelease");
@@ -345,7 +399,8 @@ BOOL LLMultiSlider::handleMouseDown(S32 x, S32 y, MASK mask)
 	{
 		setFocus(TRUE);
 	}
-	mMouseDownSignal( this, LLSD() );
+	if (mMouseDownSignal)
+		(*mMouseDownSignal)( this, LLSD() );
 
 	if (MASK_CONTROL & mask) // if CTRL is modifying
 	{
@@ -430,7 +485,7 @@ void LLMultiSlider::draw()
 	F32 opacity = getEnabled() ? 1.f : 0.3f;
 
 	// Track
-	LLUIImagePtr thumb_imagep = LLUI::getUIImage("rounded_square.tga");
+	LLUIImagePtr thumb_imagep = LLUI::getUIImage("Rounded_Square");
 
 	static LLUICachedControl<S32> multi_track_height ("UIMultiTrackHeight", 0);
 	S32 height_offset = (getRect().getHeight() - multi_track_height) / 2;
@@ -556,4 +611,15 @@ void LLMultiSlider::draw()
 	}
 
 	LLF32UICtrl::draw();
+}
+boost::signals2::connection LLMultiSlider::setMouseDownCallback( const commit_signal_t::slot_type& cb ) 
+{ 
+	if (!mMouseDownSignal) mMouseDownSignal = new commit_signal_t();
+	return mMouseDownSignal->connect(cb); 
+}
+
+boost::signals2::connection LLMultiSlider::setMouseUpCallback(	const commit_signal_t::slot_type& cb )   
+{ 
+	if (!mMouseUpSignal) mMouseUpSignal = new commit_signal_t();
+	return mMouseUpSignal->connect(cb); 
 }

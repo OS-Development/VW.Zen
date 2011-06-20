@@ -1,32 +1,26 @@
 /**
  * @file llpanelplaceinfo.cpp
- * @brief Displays place information in Side Tray.
+ * @brief Base class for place information in Side Tray.
  *
- * $LicenseInfo:firstyear=2009&license=viewergpl$
- * 
- * Copyright (c) 2004-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2009&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -34,39 +28,38 @@
 
 #include "llpanelplaceinfo.h"
 
-#include "roles_constants.h"
+#include "llavatarname.h"
 #include "llsdutil.h"
-#include "llsecondlifeurls.h"
 
-#include "llinventory.h"
+#include "llsdutil_math.h"
 
-#include "llqueryflags.h"
+#include "llregionhandle.h"
 
-#include "llbutton.h"
-#include "lllineeditor.h"
-#include "llscrollcontainer.h"
+#include "lliconctrl.h"
 #include "lltextbox.h"
 
-#include "llagent.h"
-#include "llfloaterworldmap.h"
-#include "llinventorymodel.h"
-#include "lltexturectrl.h"
-#include "llviewerinventory.h"
-#include "llviewerregion.h"
-#include "llviewertexteditor.h"
-#include "llworldmap.h"
+#include "lltrans.h"
 
-static LLRegisterPanelClassWrapper<LLPanelPlaceInfo> t_place_info("panel_place_info");
+#include "llagent.h"
+#include "llexpandabletextbox.h"
+#include "llpanelpick.h"
+#include "lltexturectrl.h"
+#include "llviewerregion.h"
 
 LLPanelPlaceInfo::LLPanelPlaceInfo()
 :	LLPanel(),
 	mParcelID(),
 	mRequestedID(),
 	mPosRegion(),
-	mLandmarkID(),
-	mMinHeight(0)
+	mScrollingPanelMinHeight(0),
+	mScrollingPanelWidth(0),
+	mInfoType(UNKNOWN),
+	mScrollingPanel(NULL),
+	mScrollContainer(NULL),
+	mDescEditor(NULL)
 {}
 
+//virtual
 LLPanelPlaceInfo::~LLPanelPlaceInfo()
 {
 	if (mParcelID.notNull())
@@ -75,152 +68,44 @@ LLPanelPlaceInfo::~LLPanelPlaceInfo()
 	}
 }
 
+//virtual
 BOOL LLPanelPlaceInfo::postBuild()
 {
-	mTitle = getChild<LLTextBox>("panel_title");
+	mTitle = getChild<LLTextBox>("title");
 	mCurrentTitle = mTitle->getText();
 
-	// Since this is only used in the directory browser, always
-	// disable the snapshot control. Otherwise clicking on it will
-	// open a texture picker.
 	mSnapshotCtrl = getChild<LLTextureCtrl>("logo");
-	mSnapshotCtrl->setEnabled(FALSE);
+	mRegionName = getChild<LLTextBox>("region_title");
+	mParcelName = getChild<LLTextBox>("parcel_title");
+	mDescEditor = getChild<LLExpandableTextBox>("description");
 
-	mRegionName = getChild<LLTextBox>("region_name");
-	mParcelName = getChild<LLTextBox>("parcel_name");
-	mDescEditor = getChild<LLTextEditor>("description");
-	mRating = getChild<LLIconCtrl>("maturity");
-
-	mOwner = getChild<LLTextBox>("owner");
-	mCreator = getChild<LLTextBox>("creator");
-	mCreated = getChild<LLTextBox>("created");
-
-	mTitleEditor = getChild<LLLineEditor>("title_editor");
-	mTitleEditor->setCommitCallback(boost::bind(&LLPanelPlaceInfo::onCommitTitleOrNote, this, TITLE));
-
-	mNotesEditor = getChild<LLTextEditor>("notes_editor");
-	mNotesEditor->setCommitCallback(boost::bind(&LLPanelPlaceInfo::onCommitTitleOrNote, this, NOTE));
-	mNotesEditor->setCommitOnFocusLost(true);
-
-	LLScrollContainer* scroll_container = getChild<LLScrollContainer>("scroll_container");
-	scroll_container->setBorderVisible(FALSE);
-	mMinHeight = scroll_container->getScrolledViewRect().getHeight();
+	mMaturityRatingIcon = getChild<LLIconCtrl>("maturity_icon");
+	mMaturityRatingText = getChild<LLTextBox>("maturity_value");
 
 	mScrollingPanel = getChild<LLPanel>("scrolling_panel");
+	mScrollContainer = getChild<LLScrollContainer>("place_scroll");
 
-	mInfoPanel = getChild<LLPanel>("info_panel", TRUE, FALSE);
-	mMediaPanel = getChild<LLMediaPanel>("media_panel", TRUE, FALSE);
+	mScrollingPanelMinHeight = mScrollContainer->getScrolledViewRect().getHeight();
+	mScrollingPanelWidth = mScrollingPanel->getRect().getWidth();
 
 	return TRUE;
 }
 
-void LLPanelPlaceInfo::displayItemInfo(const LLInventoryItem* pItem)
-{
-	if (!pItem)
-		return;
-
-	mLandmarkID = pItem->getUUID();
-
-	if(!gCacheName)
-		return;
-
-	const LLPermissions& perm = pItem->getPermissions();
-
-	//////////////////
-	// CREATOR NAME //
-	//////////////////
-	if (pItem->getCreatorUUID().notNull())
-	{
-		std::string name;
-		LLUUID creator_id = pItem->getCreatorUUID();
-		if (!gCacheName->getFullName(creator_id, name))
-		{
-			gCacheName->get(creator_id, FALSE,
-							boost::bind(&LLPanelPlaceInfo::nameUpdatedCallback, this, mCreator, _2, _3));
-		}
-		mCreator->setText(name);
-	}
-	else
-	{
-		mCreator->setText(getString("unknown"));
-	}
-
-	////////////////
-	// OWNER NAME //
-	////////////////
-	if(perm.isOwned())
-	{
-		std::string name;
-		if (perm.isGroupOwned())
-		{
-			LLUUID group_id = perm.getGroup();
-			if (!gCacheName->getGroupName(group_id, name))
-			{
-				gCacheName->get(group_id, TRUE,
-								boost::bind(&LLPanelPlaceInfo::nameUpdatedCallback, this, mOwner, _2, _3));
-			}
-		}
-		else
-		{
-			LLUUID owner_id = perm.getOwner();
-			if (!gCacheName->getFullName(owner_id, name))
-			{
-				gCacheName->get(owner_id, FALSE,
-								boost::bind(&LLPanelPlaceInfo::nameUpdatedCallback, this, mOwner, _2, _3));
-			}
-		}
-		mOwner->setText(name);
-	}
-	else
-	{
-		mOwner->setText(getString("public"));
-	}
-	
-	//////////////////
-	// ACQUIRE DATE //
-	//////////////////
-	time_t time_utc = pItem->getCreationDate();
-	if (0 == time_utc)
-	{
-		mCreated->setText(getString("unknown"));
-	}
-	else
-	{
-		std::string timeStr = getString("acquired_date");
-		LLSD substitution;
-		substitution["datetime"] = (S32) time_utc;
-		LLStringUtil::format (timeStr, substitution);
-		mCreated->setText(timeStr);
-	}
-
-	mTitleEditor->setText(pItem->getName());
-	mNotesEditor->setText(pItem->getDescription());
-}
-
-void LLPanelPlaceInfo::nameUpdatedCallback(
-	LLTextBox* text,
-	const std::string& first,
-	const std::string& last)
-{
-	text->setText(first + " " + last);
-}
-
+//virtual
 void LLPanelPlaceInfo::resetLocation()
 {
 	mParcelID.setNull();
 	mRequestedID.setNull();
-	mLandmarkID.setNull();
 	mPosRegion.clearVec();
-	std::string not_available = getString("not_available");
-	mRating->setValue(not_available);
-	mRegionName->setText(not_available);
-	mParcelName->setText(not_available);
-	mDescEditor->setText(not_available);
-	mCreator->setText(not_available);
-	mOwner->setText(not_available);
-	mCreated->setText(not_available);
-	mTitleEditor->setText(LLStringUtil::null);
-	mNotesEditor->setText(LLStringUtil::null);
+
+	std::string loading = LLTrans::getString("LoadingData");
+	mMaturityRatingText->setValue(loading);
+	mRegionName->setText(loading);
+	mParcelName->setText(loading);
+	mDescEditor->setText(loading);
+	mMaturityRatingIcon->setValue(LLUUID::null);
+
+	mSnapshotCtrl->setImageAssetID(LLUUID::null);
 }
 
 //virtual
@@ -230,43 +115,13 @@ void LLPanelPlaceInfo::setParcelID(const LLUUID& parcel_id)
 	sendParcelInfoRequest();
 }
 
-void LLPanelPlaceInfo::setInfoType(INFO_TYPE type)
+//virtual
+void LLPanelPlaceInfo::setInfoType(EInfoType type)
 {
-	if (!mInfoPanel)
-	    return;
+	mTitle->setText(mCurrentTitle);
+	mTitle->setToolTip(mCurrentTitle);
 
-	if (type == PLACE)
-	{
-		mCurrentTitle = getString("title_place");
-	}
-	else
-	{
-		mCurrentTitle = getString("title_landmark");
-	}
-	
-	if (mInfoPanel->getVisible())
-	{
-		mTitle->setText(mCurrentTitle);
-	}
-}
-
-void LLPanelPlaceInfo::toggleMediaPanel()
-{
-    if (!(mMediaPanel && mInfoPanel))
-        return;
-
-    bool visible = mInfoPanel->getVisible();
-    if (visible)
-	{
-		mTitle->setText(getString("title_media"));
-	}
-	else
-	{
-		mTitle->setText(mCurrentTitle);
-	}
-
-    mInfoPanel->setVisible(!visible);
-    mMediaPanel->setVisible(visible);
+	mInfoType = type;
 }
 
 void LLPanelPlaceInfo::sendParcelInfoRequest()
@@ -277,6 +132,39 @@ void LLPanelPlaceInfo::sendParcelInfoRequest()
 		LLRemoteParcelInfoProcessor::getInstance()->sendParcelInfoRequest(mParcelID);
 
 		mRequestedID = mParcelID;
+	}
+}
+
+void LLPanelPlaceInfo::displayParcelInfo(const LLUUID& region_id,
+										 const LLVector3d& pos_global)
+{
+	LLViewerRegion* region = gAgent.getRegion();
+	if (!region)
+		return;
+
+	mPosRegion.setVec((F32)fmod(pos_global.mdV[VX], (F64)REGION_WIDTH_METERS),
+					  (F32)fmod(pos_global.mdV[VY], (F64)REGION_WIDTH_METERS),
+					  (F32)pos_global.mdV[VZ]);
+
+	LLSD body;
+	std::string url = region->getCapability("RemoteParcelRequest");
+	if (!url.empty())
+	{
+		body["location"] = ll_sd_from_vector3(mPosRegion);
+		if (!region_id.isNull())
+		{
+			body["region_id"] = region_id;
+		}
+		if (!pos_global.isExactlyZero())
+		{
+			U64 region_handle = to_region_handle(pos_global);
+			body["region_handle"] = ll_sd_from_U64(region_handle);
+		}
+		LLHTTPClient::post(url, body, new LLRemoteParcelRequestResponder(getObserverHandle()));
+	}
+	else
+	{
+		mDescEditor->setText(getString("server_update_text"));
 	}
 }
 
@@ -293,7 +181,21 @@ void LLPanelPlaceInfo::setErrorStatus(U32 status, const std::string& reason)
 	{
 		error_text = getString("server_forbidden_text");
 	}
+	else
+	{
+		error_text = getString("server_error_text");
+	}
+
 	mDescEditor->setText(error_text);
+
+	std::string not_available = getString("not_available");
+	mMaturityRatingText->setValue(not_available);
+	mRegionName->setText(not_available);
+	mParcelName->setText(not_available);
+	mMaturityRatingIcon->setValue(LLUUID::null);
+
+	// Enable "Back" button that was disabled when parcel request was sent.
+	getChild<LLButton>("back_btn")->setEnabled(TRUE);
 }
 
 // virtual
@@ -304,36 +206,27 @@ void LLPanelPlaceInfo::processParcelInfo(const LLParcelData& parcel_data)
 		mSnapshotCtrl->setImageAssetID(parcel_data.snapshot_id);
 	}
 
-	if( !parcel_data.name.empty())
+	if(!parcel_data.sim_name.empty())
 	{
-		mParcelName->setText(parcel_data.name);
+		mRegionName->setText(parcel_data.sim_name);
+	}
+	else
+	{
+		mRegionName->setText(LLStringUtil::null);
 	}
 
-	if( !parcel_data.desc.empty())
+	if(!parcel_data.desc.empty())
 	{
 		mDescEditor->setText(parcel_data.desc);
 	}
-
-	// HACK: Flag 0x2 == adult region,
-	// Flag 0x1 == mature region, otherwise assume PG
-	std::string rating = LLViewerRegion::accessToString(SIM_ACCESS_PG);
-	std::string rating_icon = "icon_event.tga";
-	if (parcel_data.flags & 0x2)
+	else
 	{
-		rating = LLViewerRegion::accessToString(SIM_ACCESS_ADULT);
-		rating_icon = "icon_event_adult.tga";
+		mDescEditor->setText(getString("not_available"));
 	}
-	else if (parcel_data.flags & 0x1)
-	{
-		rating = LLViewerRegion::accessToString(SIM_ACCESS_MATURE);
-		rating_icon = "icon_event_mature.tga";
-	}
-	mRating->setValue(rating_icon);
 
-	// Just use given region position for display
-	S32 region_x = llround(mPosRegion.mV[0]);
-	S32 region_y = llround(mPosRegion.mV[1]);
-	S32 region_z = llround(mPosRegion.mV[2]);
+	S32 region_x;
+	S32 region_y;
+	S32 region_z;
 
 	// If the region position is zero, grab position from the global
 	if(mPosRegion.isExactlyZero())
@@ -342,95 +235,81 @@ void LLPanelPlaceInfo::processParcelInfo(const LLParcelData& parcel_data)
 		region_y = llround(parcel_data.global_y) % REGION_WIDTH_UNITS;
 		region_z = llround(parcel_data.global_z);
 	}
-
-	if (!parcel_data.sim_name.empty())
+	else
 	{
-		std::string name = llformat("%s (%d, %d, %d)",
-									parcel_data.sim_name.c_str(), region_x, region_y, region_z);
-		mRegionName->setText(name);
+		region_x = llround(mPosRegion.mV[VX]);
+		region_y = llround(mPosRegion.mV[VY]);
+		region_z = llround(mPosRegion.mV[VZ]);
 	}
-}
 
-void LLPanelPlaceInfo::displayParcelInfo(const LLVector3& pos_region,
-									 const LLUUID& region_id,
-									 const LLVector3d& pos_global)
-{
-	LLSD body;
-	mPosRegion = pos_region;
-	std::string url = gAgent.getRegion()->getCapability("RemoteParcelRequest");
-	if (!url.empty())
+	if (!parcel_data.name.empty())
 	{
-		body["location"] = ll_sd_from_vector3(pos_region);
-		if (!region_id.isNull())
-		{
-			body["region_id"] = region_id;
-		}
-		if (!pos_global.isExactlyZero())
-		{
-			U64 region_handle = to_region_handle(pos_global);
-			body["region_handle"] = ll_sd_from_U64(region_handle);
-		}
-		LLHTTPClient::post(url, body, new LLRemoteParcelRequestResponder(getObserverHandle()));
+		mParcelTitle = parcel_data.name;
+
+		mParcelName->setText(llformat("%s (%d, %d, %d)",
+							 mParcelTitle.c_str(), region_x, region_y, region_z));
 	}
 	else
 	{
-		mDescEditor->setText(getString("server_update_text"));
-	}
-	mSnapshotCtrl->setImageAssetID(LLUUID::null);
-	mSnapshotCtrl->setFallbackImageName("default_land_picture.j2c");
-}
-
-void LLPanelPlaceInfo::onCommitTitleOrNote(LANDMARK_INFO_TYPE type)
-{
-	LLInventoryItem* item = gInventory.getItem(mLandmarkID);
-	if (!item)
-		return;
-
-	std::string current_value;
-	std::string item_value;
-	if (type == TITLE)
-	{
-		if (mTitleEditor)
-		{
-			current_value = mTitleEditor->getText();
-			item_value = item->getName();
-		}
-	}
-	else
-	{
-		if (mNotesEditor)
-		{
-			current_value = mNotesEditor->getText();
-			item_value = item->getDescription();
-		}
-	}
-
-	if (item_value != current_value &&
-	    gAgent.allowOperation(PERM_MODIFY, item->getPermissions(), GP_OBJECT_MANIPULATE))
-	{
-		LLPointer<LLViewerInventoryItem> new_item = new LLViewerInventoryItem(item);
-
-		if (type == TITLE)
-		{
-			new_item->rename(current_value);
-		}
-		else
-		{
-			new_item->setDescription(current_value);
-		}
-
-		new_item->updateServer(FALSE);
-		gInventory.updateItem(new_item);
-		gInventory.notifyObservers();
+		mParcelName->setText(getString("not_available"));
 	}
 }
 
+// virtual
 void LLPanelPlaceInfo::reshape(S32 width, S32 height, BOOL called_from_parent)
 {
-	if (mMinHeight > 0)
+
+	// This if was added to force collapsing description textbox on Windows at the beginning of reshape
+	// (the only case when reshape is skipped here is when it's caused by this textbox, so called_from_parent is FALSE)
+	// This way it is consistent with Linux where topLost collapses textbox at the beginning of reshape.
+	// On windows it collapsed only after reshape which caused EXT-8342.
+	if(called_from_parent)
 	{
-		mScrollingPanel->reshape(mScrollingPanel->getRect().getWidth(), mMinHeight);
+		if(mDescEditor) mDescEditor->onTopLost();
 	}
 
-	LLView::reshape(width, height, called_from_parent);
+	LLPanel::reshape(width, height, called_from_parent);
+
+	if (!mScrollContainer || !mScrollingPanel)
+		return;
+
+	static LLUICachedControl<S32> scrollbar_size ("UIScrollbarSize", 0);
+
+	S32 scroll_height = mScrollContainer->getRect().getHeight();
+	if (mScrollingPanelMinHeight > scroll_height)
+	{
+		mScrollingPanel->reshape(mScrollingPanelWidth, mScrollingPanelMinHeight);
+	}
+	else
+	{
+		mScrollingPanel->reshape(mScrollingPanelWidth + scrollbar_size, scroll_height);
+	}
+}
+
+void LLPanelPlaceInfo::createPick(const LLVector3d& pos_global, LLPanelPickEdit* pick_panel)
+{
+	std::string region_name = mRegionName->getText();
+
+	LLPickData data;
+	data.pos_global = pos_global;
+	data.name = mParcelTitle.empty() ? region_name : mParcelTitle;
+	data.sim_name = region_name;
+	data.desc = mDescEditor->getText();
+	data.snapshot_id = mSnapshotCtrl->getImageAssetID();
+	data.parcel_id = mParcelID;
+	pick_panel->setPickData(&data);
+}
+
+// static
+void LLPanelPlaceInfo::onNameCache(LLTextBox* text, const std::string& full_name)
+{
+	text->setText(full_name);
+}
+
+// static
+void LLPanelPlaceInfo::onAvatarNameCache(const LLUUID& agent_id,
+										 const LLAvatarName& av_name,
+										 LLTextBox* text)
+{
+	text->setText( av_name.getCompleteName() );
 }

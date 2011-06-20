@@ -3,31 +3,25 @@
  * @brief Scroll lists are composed of rows (items), each of which 
  * contains columns (cells).
  *
- * $LicenseInfo:firstyear=2007&license=viewergpl$
- * 
- * Copyright (c) 2007-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2007&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -71,7 +65,8 @@ LLScrollListCell* LLScrollListCell::create(const LLScrollListCell::Params& cell_
 
 
 LLScrollListCell::LLScrollListCell(const LLScrollListCell::Params& p)
-:	mWidth(p.width)
+:	mWidth(p.width), 
+	mToolTip(p.tool_tip)
 {}
 
 // virtual
@@ -177,7 +172,6 @@ LLScrollListText::LLScrollListText(const LLScrollListCell::Params& p)
 	mFont(p.font),
 	mColor(p.color),
 	mUseColor(p.color.isProvided()),
-	mFontStyle(LLFontGL::NORMAL),
 	mFontAlignment(p.font_halign),
 	mVisible(p.visible),
 	mHighlightCount( 0 ),
@@ -185,10 +179,12 @@ LLScrollListText::LLScrollListText(const LLScrollListCell::Params& p)
 {
 	sCount++;
 
+	mTextWidth = getWidth();
+
 	// initialize rounded rect image
 	if (!mRoundedRectImage)
 	{
-		mRoundedRectImage = LLUI::getUIImage("rounded_square.tga");
+		mRoundedRectImage = LLUI::getUIImage("Rounded_Square");
 	}
 }
 
@@ -203,6 +199,28 @@ void LLScrollListText::highlightText(S32 offset, S32 num_chars)
 BOOL LLScrollListText::isText() const
 {
 	return TRUE;
+}
+
+// virtual
+const std::string &LLScrollListText::getToolTip() const
+{
+	// If base class has a tooltip, return that
+	if (! LLScrollListCell::getToolTip().empty())
+		return LLScrollListCell::getToolTip();
+	
+	// ...otherwise, return the value itself as the tooltip
+	return mText.getString();
+}
+
+// virtual
+BOOL LLScrollListText::needsToolTip() const
+{
+	// If base class has a tooltip, return that
+	if (LLScrollListCell::needsToolTip())
+		return LLScrollListCell::needsToolTip();
+	
+	// ...otherwise, show tooltips for truncated text
+	return mFont->getWidth(mText.getString()) > getWidth();
 }
 
 //virtual 
@@ -238,6 +256,13 @@ void LLScrollListText::setColor(const LLColor4& color)
 void LLScrollListText::setText(const LLStringExplicit& text)
 {
 	mText = text;
+}
+
+void LLScrollListText::setFontStyle(const U8 font_style)
+{
+	LLFontDescriptor new_desc(mFont->getFontDesc());
+	new_desc.setStyle(font_style);
+	mFont = LLFontGL::getFont(new_desc);
 }
 
 //virtual
@@ -304,17 +329,16 @@ void LLScrollListText::draw(const LLColor4& color, const LLColor4& highlight_col
 		break;
 	}
 	mFont->render(mText.getWString(), 0, 
-						start_x, 2.f,
-						display_color,
-						mFontAlignment,
-						LLFontGL::BOTTOM, 
-						mFontStyle,
-						LLFontGL::NO_SHADOW,
-						string_chars, 
-						getWidth(),
-						&right_x, 
-						FALSE, 
-						TRUE);
+					start_x, 2.f,
+					display_color,
+					mFontAlignment,
+					LLFontGL::BOTTOM, 
+					0,
+					LLFontGL::NO_SHADOW,
+					string_chars, 
+					getTextWidth(),
+					&right_x, 
+					TRUE);
 }
 
 //
@@ -325,7 +349,7 @@ LLScrollListCheck::LLScrollListCheck(const LLScrollListCell::Params& p)
 {
 	LLCheckBoxCtrl::Params checkbox_p;
 	checkbox_p.name("checkbox");
-	checkbox_p.rect.left(0).bottom(0).width(p.width).height(p.width);
+	checkbox_p.rect = LLRect(0, p.width, p.width, 0);
 	checkbox_p.enabled(p.enabled);
 	checkbox_p.initial_value(p.value());
 

@@ -1,30 +1,31 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<floater name="Water Floater" title="Editor de Água Avançado">
-	<text name="KeyFramePresetsText">
+<floater name="Water Floater" title="EDITOR DE ÁGUA AVANÇADO">
+	<text name="KeyFramePresetsText" width="175">
 		Pré-configurações da Água:
 	</text>
+	<combo_box left_delta="175" name="WaterPresetsCombo" width="150"/>
 	<button label="Novo" label_selected="Novo" name="WaterNewPreset"/>
 	<button label="Salvar" label_selected="Salvar" name="WaterSavePreset"/>
 	<button label="Deletar" label_selected="Deletar" name="WaterDeletePreset"/>
 	<tab_container name="Water Tabs">
-		<panel label="Configurações" name="Settings">
+		<panel label="DEFINIÇÕES" name="Settings">
 			<text name="BHText">
 				Cor da névoa da Água
 			</text>
 			<button label="?" name="WaterFogColorHelp"/>
-			<color_swatch label="" name="WaterFogColor" tool_tip="Clique para abrir o Capturador de Cor"/>
+			<color_swatch label="" name="WaterFogColor" tool_tip="Selecionar a cor"/>
 			<text name="WaterFogDensText">
 				Expoente da Densidade de névoa
 			</text>
-			<button label="?" name="WaterFogDensityHelp"/>
+			<button label="?" left="209" name="WaterFogDensityHelp"/>
 			<text name="WaterUnderWaterFogModText">
 				Modificador da névoa Subaquática
 			</text>
-			<button label="?" name="WaterUnderWaterFogModHelp"/>
+			<button label="?" left="209" name="WaterUnderWaterFogModHelp"/>
 			<text name="BDensText">
 				Escala da Marola de Reflexão
 			</text>
-			<button label="?" name="WaterNormalScaleHelp"/>
+			<button label="?" left="415" name="WaterNormalScaleHelp"/>
 			<text name="BHText2">
 				1
 			</text>
@@ -37,29 +38,29 @@
 			<text name="HDText">
 				Escala de Fresnel
 			</text>
-			<button label="?" name="WaterFresnelScaleHelp"/>
+			<button label="?" left="415" name="WaterFresnelScaleHelp"/>
 			<text name="FresnelOffsetText">
 				Deslocamento de Fresnel
 			</text>
-			<button label="?" name="WaterFresnelOffsetHelp"/>
+			<button label="?" left="415" name="WaterFresnelOffsetHelp"/>
 			<text name="DensMultText">
 				Refratar a Escala para Cima
 			</text>
-			<button label="?" name="WaterScaleAboveHelp"/>
+			<button label="?" left="640" name="WaterScaleAboveHelp"/>
 			<text name="WaterScaleBelowText">
 				Refratar a Escala para Baixo
 			</text>
-			<button label="?" name="WaterScaleBelowHelp"/>
+			<button label="?" left="640" name="WaterScaleBelowHelp"/>
 			<text name="MaxAltText">
 				Multiplicador de Difusão
 			</text>
-			<button label="?" name="WaterBlurMultiplierHelp"/>
+			<button label="?" left="640" name="WaterBlurMultiplierHelp"/>
 		</panel>
-		<panel label="Imagem" name="Waves">
+		<panel label="IMAGEM" name="Waves">
 			<text name="BHText">
 				Direção da Onda Maior
 			</text>
-			<button label="?" name="WaterWave1Help"/>
+			<button label="?" left="170" name="WaterWave1Help"/>
 			<text name="WaterWave1DirXText">
 				X
 			</text>
@@ -69,7 +70,7 @@
 			<text name="BHText2">
 				Direção da Onda Pequena
 			</text>
-			<button label="?" name="WaterWave2Help"/>
+			<button label="?" left="170" name="WaterWave2Help"/>
 			<text name="WaterWave2DirXText">
 				X
 			</text>

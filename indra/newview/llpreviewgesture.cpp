@@ -2,81 +2,55 @@
  * @file llpreviewgesture.cpp
  * @brief Editing UI for inventory-based gestures.
  *
- * $LicenseInfo:firstyear=2004&license=viewergpl$
- * 
- * Copyright (c) 2004-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2004&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
 #include "llviewerprecompiledheaders.h"
-
-#include <algorithm>
-
 #include "llpreviewgesture.h"
 
-// libraries
-#include "lldatapacker.h"
-#include "lldarray.h"
-#include "llstring.h"
-#include "lldir.h"
-#include "llfloaterreg.h"
-#include "llmultigesture.h"
-#include "llvfile.h"
-
-// newview
-#include "llagent.h"		// todo: remove
+#include "llagent.h"
+#include "llanimstatelabels.h"
 #include "llanimationstates.h"
+#include "llappviewer.h"			// gVFS
 #include "llassetuploadresponders.h"
-#include "llbutton.h"
 #include "llcheckboxctrl.h"
 #include "llcombobox.h"
+#include "lldatapacker.h"
 #include "lldelayedgestureerror.h"
-#include "llfloatergesture.h" // for some label constants
+#include "llfloaterreg.h"
 #include "llgesturemgr.h"
+#include "llinventorydefines.h"
+#include "llinventoryfunctions.h"
 #include "llinventorymodel.h"
-#include "llkeyboard.h"
-#include "lllineeditor.h"
-#include "llnotify.h"
+#include "llinventorymodelbackgroundfetch.h"
+#include "llmultigesture.h"
+#include "llnotificationsutil.h"
 #include "llradiogroup.h"
-#include "llscrolllistctrl.h"
-#include "llscrolllistitem.h"
-#include "llscrolllistcell.h"
-#include "lltextbox.h"
-#include "lluictrlfactory.h"
-#include "llviewerinventory.h"
-#include "llviewerobject.h"
+#include "llresmgr.h"
+#include "lltrans.h"
+#include "llvfile.h"
 #include "llviewerobjectlist.h"
 #include "llviewerregion.h"
 #include "llviewerstats.h"
-#include "llviewerwindow.h"		// busycount
-#include "llvoavatarself.h"
-#include "llappviewer.h"			// gVFS
-#include "llanimstatelabels.h"
-#include "llresmgr.h"
-#include "lltrans.h"
-
 
 std::string NONE_LABEL;
 std::string SHIFT_LABEL;
@@ -97,7 +71,7 @@ protected:
 
 void LLInventoryGestureAvailable::done()
 {
-	for(item_ref_t::iterator it = mComplete.begin(); it != mComplete.end(); ++it)
+	for(uuid_vec_t::iterator it = mComplete.begin(); it != mComplete.end(); ++it)
 	{
 		LLPreviewGesture* preview = LLFloaterReg::findTypedInstance<LLPreviewGesture>("preview_gesture", *it);
 		if(preview)
@@ -130,15 +104,15 @@ LLPreviewGesture* LLPreviewGesture::show(const LLUUID& item_id, const LLUUID& ob
 	preview->setObjectID(object_id);
 	
 	// Start speculative download of sounds and animations
-	LLUUID animation_folder_id = gInventory.findCategoryUUIDForType(LLAssetType::AT_ANIMATION);
-	gInventory.startBackgroundFetch(animation_folder_id);
+	const LLUUID animation_folder_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_ANIMATION);
+	LLInventoryModelBackgroundFetch::instance().start(animation_folder_id);
 
-	LLUUID sound_folder_id = gInventory.findCategoryUUIDForType(LLAssetType::AT_SOUND);
-	gInventory.startBackgroundFetch(sound_folder_id);
+	const LLUUID sound_folder_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_SOUND);
+	LLInventoryModelBackgroundFetch::instance().start(sound_folder_id);
 
 	// this will call refresh when we have everything.
 	LLViewerInventoryItem* item = (LLViewerInventoryItem*)preview->getItem();
-	if (item && !item->isComplete())
+	if (item && !item->isFinished())
 	{
 		LLInventoryGestureAvailable* observer;
 		observer = new LLInventoryGestureAvailable();
@@ -153,6 +127,12 @@ LLPreviewGesture* LLPreviewGesture::show(const LLUUID& item_id, const LLUUID& ob
 	}
 
 	return preview;
+}
+
+void LLPreviewGesture::draw()
+{
+	// Skip LLPreview::draw() to avoid description update
+	LLFloater::draw();
 }
 
 // virtual
@@ -254,7 +234,7 @@ BOOL LLPreviewGesture::canClose()
 	else
 	{
 		// Bring up view-modal dialog: Save changes? Yes, No, Cancel
-		LLNotifications::instance().add("SaveChanges", LLSD(), LLSD(),
+		LLNotificationsUtil::add("SaveChanges", LLSD(), LLSD(),
 			boost::bind(&LLPreviewGesture::handleSaveChangesDialog, this, _1, _2) );
 		return FALSE;
 	}
@@ -263,8 +243,7 @@ BOOL LLPreviewGesture::canClose()
 // virtual
 void LLPreviewGesture::onClose(bool app_quitting)
 {
-	gGestureManager.stopGesture(mPreviewGesture);
-	LLPreview::onClose(app_quitting);
+	LLGestureMgr::instance().stopGesture(mPreviewGesture);
 }
 
 // virtual
@@ -273,35 +252,28 @@ void LLPreviewGesture::onUpdateSucceeded()
 	refresh();
 }
 
-// virtual
-void LLPreviewGesture::setMinimized(BOOL minimize)
+void LLPreviewGesture::onVisibilityChange ( const LLSD& new_visibility )
 {
-	if (minimize != isMinimized())
+	if (new_visibility.asBoolean())
 	{
-		LLFloater::setMinimized(minimize);
-
-		// We're being restored
-		if (!minimize)
-		{
-			refresh();
-		}
+		refresh();
 	}
 }
 
 
 bool LLPreviewGesture::handleSaveChangesDialog(const LLSD& notification, const LLSD& response)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	switch(option)
 	{
 	case 0:  // "Yes"
-		gGestureManager.stopGesture(mPreviewGesture);
+		LLGestureMgr::instance().stopGesture(mPreviewGesture);
 		mCloseAfterSave = TRUE;
 		onClickSave(this);
 		break;
 
 	case 1:  // "No"
-		gGestureManager.stopGesture(mPreviewGesture);
+		LLGestureMgr::instance().stopGesture(mPreviewGesture);
 		mDirty = FALSE; // Force the dirty flag because user has clicked NO on confirm save dialog...
 		closeFloater();
 		break;
@@ -340,9 +312,6 @@ LLPreviewGesture::LLPreviewGesture(const LLSD& key)
 	NONE_LABEL =  LLTrans::getString("---");
 	SHIFT_LABEL = LLTrans::getString("KBShift");
 	CTRL_LABEL = LLTrans::getString("KBCtrl");
-	
-	//Called from floater reg: LLUICtrlFactory::getInstance()->buildFloater(this, "floater_preview_gesture.xml", FALSE);
-
 }
 
 
@@ -363,12 +332,20 @@ LLPreviewGesture::~LLPreviewGesture()
 
 BOOL LLPreviewGesture::postBuild()
 {
+	setVisibleCallback(boost::bind(&LLPreviewGesture::onVisibilityChange, this, _2));
+	
 	LLLineEditor* edit;
 	LLComboBox* combo;
 	LLButton* btn;
 	LLScrollListCtrl* list;
 	LLTextBox* text;
 	LLCheckBoxCtrl* check;
+
+	edit = getChild<LLLineEditor>("name");
+	edit->setKeystrokeCallback(onKeystrokeCommit, this);
+
+	edit = getChild<LLLineEditor>("desc");
+	edit->setKeystrokeCallback(onKeystrokeCommit, this);
 
 	edit = getChild<LLLineEditor>("trigger_editor");
 	edit->setKeystrokeCallback(onKeystrokeCommit, this);
@@ -427,9 +404,7 @@ BOOL LLPreviewGesture::postBuild()
 	mStepList = list;
 
 	// Options
-	text = getChild<LLTextBox>("options_text");
-	text->setBorderVisible(TRUE);
-	mOptionsText = text;
+	mOptionsText = getChild<LLTextBox>("options_text");
 
 	combo = getChild<LLComboBox>( "animation_list");
 	combo->setVisible(FALSE);
@@ -468,7 +443,7 @@ BOOL LLPreviewGesture::postBuild()
 	edit = getChild<LLLineEditor>("wait_time_editor");
 	edit->setEnabled(FALSE);
 	edit->setVisible(FALSE);
-	edit->setPrevalidate(LLLineEditor::prevalidateFloat);
+	edit->setPrevalidate(LLTextValidate::validateFloat);
 //	edit->setKeystrokeCallback(onKeystrokeCommit, this);
 	edit->setCommitOnFocusLost(TRUE);
 	edit->setCommitCallback(onCommitWaitTime, this);
@@ -499,9 +474,11 @@ BOOL LLPreviewGesture::postBuild()
 
 	if (item) 
 	{
-		childSetCommitCallback("desc", LLPreview::onText, this);
-		childSetText("desc", item->getDescription());
-		childSetPrevalidate("desc", &LLLineEditor::prevalidatePrintableNotPipe);
+		getChild<LLUICtrl>("desc")->setValue(item->getDescription());
+		getChild<LLLineEditor>("desc")->setPrevalidate(&LLTextValidate::validateASCIIPrintableNoPipe);
+		
+		getChild<LLUICtrl>("name")->setValue(item->getName());
+		getChild<LLLineEditor>("name")->setPrevalidate(&LLTextValidate::validateASCIIPrintableNoPipe);
 	}
 
 	return LLPreview::postBuild();
@@ -639,11 +616,11 @@ void LLPreviewGesture::refresh()
 	LLPreview::refresh();
 	// If previewing or item is incomplete, all controls are disabled
 	LLViewerInventoryItem* item = (LLViewerInventoryItem*)getItem();
-	bool is_complete = (item && item->isComplete()) ? true : false;
+	bool is_complete = (item && item->isFinished()) ? true : false;
 	if (mPreviewGesture || !is_complete)
 	{
 		
-		childSetEnabled("desc", FALSE);
+		getChildView("desc")->setEnabled(FALSE);
 		//mDescEditor->setEnabled(FALSE);
 		mTriggerEditor->setEnabled(FALSE);
 		mReplaceText->setEnabled(FALSE);
@@ -674,7 +651,7 @@ void LLPreviewGesture::refresh()
 
 	BOOL modifiable = item->getPermissions().allowModifyBy(gAgent.getID());
 
-	childSetEnabled("desc", modifiable);
+	getChildView("desc")->setEnabled(modifiable);
 	mTriggerEditor->setEnabled(TRUE);
 	mLibraryList->setEnabled(modifiable);
 	mStepList->setEnabled(modifiable);
@@ -778,7 +755,7 @@ void LLPreviewGesture::refresh()
 	
 	mOptionsText->setText(optionstext);
 
-	BOOL active = gGestureManager.isGestureActive(mItemUUID);
+	BOOL active = LLGestureMgr::instance().isGestureActive(mItemUUID);
 	mActiveCheck->set(active);
 
 	// Can only preview if there are steps
@@ -823,7 +800,9 @@ void LLPreviewGesture::loadAsset()
 	const LLInventoryItem* item = getItem();
 	if (!item) 
 	{
-		mAssetStatus = PREVIEW_ASSET_ERROR;
+		// Don't set asset status here; we may not have set the item id yet
+		// (e.g. when this gets called initially)
+		//mAssetStatus = PREVIEW_ASSET_ERROR;
 		return;
 	}
 
@@ -889,6 +868,7 @@ void LLPreviewGesture::onLoadComplete(LLVFS *vfs,
 
 				self->mDirty = FALSE;
 				self->refresh();
+				self->refreshFromItem(); // to update description and title
 			}
 			else
 			{
@@ -1062,19 +1042,21 @@ void LLPreviewGesture::saveIfNeeded()
 
 	if (dp.getCurrentSize() > 1000)
 	{
-		LLNotifications::instance().add("GestureSaveFailedTooManySteps");
+		LLNotificationsUtil::add("GestureSaveFailedTooManySteps");
 
 		delete gesture;
 		gesture = NULL;
 	}
 	else if (!ok)
 	{
-		LLNotifications::instance().add("GestureSaveFailedTryAgain");
+		LLNotificationsUtil::add("GestureSaveFailedTryAgain");
 		delete gesture;
 		gesture = NULL;
 	}
 	else
 	{
+		LLPreview::onCommit();
+
 		// Every save gets a new UUID.  Yup.
 		LLTransactionID tid;
 		LLAssetID asset_id;
@@ -1130,10 +1112,10 @@ void LLPreviewGesture::saveIfNeeded()
 
 		// If this gesture is active, then we need to update the in-memory
 		// active map with the new pointer.
-		if (!delayedUpload && gGestureManager.isGestureActive(mItemUUID))
+		if (!delayedUpload && LLGestureMgr::instance().isGestureActive(mItemUUID))
 		{
 			// gesture manager now owns the pointer
-			gGestureManager.replaceGesture(mItemUUID, gesture, asset_id);
+			LLGestureMgr::instance().replaceGesture(mItemUUID, gesture, asset_id);
 
 			// replaceGesture may deactivate other gestures so let the
 			// inventory know.
@@ -1186,7 +1168,7 @@ void LLPreviewGesture::onSaveComplete(const LLUUID& asset_uuid, void* user_data,
 			else
 			{
 				llwarns << "Inventory item for gesture " << info->mItemUUID
-						<< " is no longer in agent inventory." << llendl
+						<< " is no longer in agent inventory." << llendl;
 			}
 		}
 		else
@@ -1208,7 +1190,7 @@ void LLPreviewGesture::onSaveComplete(const LLUUID& asset_uuid, void* user_data,
 			}
 			else
 			{
-				LLNotifications::instance().add("GestureSaveFailedObjectNotFound");
+				LLNotificationsUtil::add("GestureSaveFailedObjectNotFound");
 			}
 		}
 
@@ -1224,7 +1206,7 @@ void LLPreviewGesture::onSaveComplete(const LLUUID& asset_uuid, void* user_data,
 		llwarns << "Problem saving gesture: " << status << llendl;
 		LLSD args;
 		args["REASON"] = std::string(LLAssetStorage::getErrorString(status));
-		LLNotifications::instance().add("GestureSaveFailedReason", args);
+		LLNotificationsUtil::add("GestureSaveFailedReason", args);
 	}
 	delete info;
 	info = NULL;
@@ -1616,7 +1598,7 @@ std::string LLPreviewGesture::getLabel(std::vector<std::string> labels)
 	
 	if(v_labels[0]=="Chat")
 	{
-		result=LLTrans::getString("Chat");
+		result=LLTrans::getString("Chat Message");
 	}
     else if(v_labels[0]=="Sound")	
 	{
@@ -1635,7 +1617,17 @@ std::string LLPreviewGesture::getLabel(std::vector<std::string> labels)
 		result=LLTrans::getString("AnimFlagStart");
 	}
 
-	result.append(v_labels[1]);
+	// lets localize action value
+	std::string action = v_labels[1];
+	if ("None" == action)
+	{
+		action = LLTrans::getString("GestureActionNone");
+	}
+	else if ("until animations are done" == action)
+	{
+		action = LLFloaterReg::getInstance("preview_gesture")->getChild<LLCheckBoxCtrl>("wait_anim_check")->getLabel();
+	}
+	result.append(action);
 	return result;
 	
 }
@@ -1694,13 +1686,13 @@ void LLPreviewGesture::onClickDelete(void* data)
 void LLPreviewGesture::onCommitActive(LLUICtrl* ctrl, void* data)
 {
 	LLPreviewGesture* self = (LLPreviewGesture*)data;
-	if (!gGestureManager.isGestureActive(self->mItemUUID))
+	if (!LLGestureMgr::instance().isGestureActive(self->mItemUUID))
 	{
-		gGestureManager.activateGesture(self->mItemUUID);
+		LLGestureMgr::instance().activateGesture(self->mItemUUID);
 	}
 	else
 	{
-		gGestureManager.deactivateGesture(self->mItemUUID);
+		LLGestureMgr::instance().deactivateGesture(self->mItemUUID);
 	}
 
 	// Make sure the (active) label in the inventory gets updated.
@@ -1739,14 +1731,14 @@ void LLPreviewGesture::onClickPreview(void* data)
 		self->mPreviewBtn->setLabel(self->getString("stop_txt"));
 
 		// play it, and delete when done
-		gGestureManager.playGesture(self->mPreviewGesture);
+		LLGestureMgr::instance().playGesture(self->mPreviewGesture);
 
 		self->refresh();
 	}
 	else
 	{
 		// Will call onDonePreview() below
-		gGestureManager.stopGesture(self->mPreviewGesture);
+		LLGestureMgr::instance().stopGesture(self->mPreviewGesture);
 
 		self->refresh();
 	}

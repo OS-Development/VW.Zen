@@ -2,40 +2,31 @@
  * @file llmultisliderctrl.cpp
  * @brief LLMultiSliderCtrl base class
  *
- * $LicenseInfo:firstyear=2007&license=viewergpl$
- * 
- * Copyright (c) 2007-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2007&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
 #include "linden_common.h"
 
 #include "llmultisliderctrl.h"
-
-#include "audioengine.h"
-#include "sound_ids.h"
 
 #include "llmath.h"
 #include "llfontgl.h"
@@ -68,7 +59,8 @@ LLMultiSliderCtrl::Params::Params()
 	text_color("text_color"),
 	text_disabled_color("text_disabled_color"),
 	mouse_down_callback("mouse_down_callback"),
-	mouse_up_callback("mouse_up_callback")
+	mouse_up_callback("mouse_up_callback"),
+	sliders("slider")
 {
 	mouse_opaque = true;
 }
@@ -101,7 +93,7 @@ LLMultiSliderCtrl::LLMultiSliderCtrl(const LLMultiSliderCtrl::Params& p)
 		LLTextBox::Params params;
 		params.name("MultiSliderCtrl Label");
 		params.rect(label_rect);
-		params.text(p.label);
+		params.initial_value(p.label());
 		params.font(p.font);
 		mLabelBox = LLUICtrlFactory::create<LLTextBox> (params);
 		addChild(mLabelBox);
@@ -138,12 +130,12 @@ LLMultiSliderCtrl::LLMultiSliderCtrl(const LLMultiSliderCtrl::Params& p)
 			params.name("MultiSliderCtrl Editor");
 			params.rect(text_rect);
 			params.font(p.font);
-			params.max_length_bytes(MAX_STRING_LENGTH);
+			params.max_length.bytes(MAX_STRING_LENGTH);
 			params.commit_callback.function(LLMultiSliderCtrl::onEditorCommit);
-			params.prevalidate_callback(&LLLineEditor::prevalidateFloat);
+			params.prevalidate_callback(&LLTextValidate::validateFloat);
 			params.follows.flags(FOLLOWS_LEFT | FOLLOWS_BOTTOM);
 			mEditor = LLUICtrlFactory::create<LLLineEditor> (params);
-			mEditor->setFocusReceivedCallback( &LLMultiSliderCtrl::onEditorGainFocus );
+			mEditor->setFocusReceivedCallback( boost::bind(LLMultiSliderCtrl::onEditorGainFocus, _1, this) );
 			// don't do this, as selecting the entire text is single clicking in some cases
 			// and double clicking in others
 			//mEditor->setSelectAllonFocusReceived(TRUE);
@@ -164,6 +156,7 @@ LLMultiSliderCtrl::LLMultiSliderCtrl(const LLMultiSliderCtrl::Params& p)
 	S32 slider_left = label_width ? label_width + multi_sliderctrl_spacing : 0;
 	LLRect slider_rect( slider_left, top, slider_right, bottom );
 	LLMultiSlider::Params params;
+	params.sliders = p.sliders;
 	params.rect(slider_rect);
 	params.commit_callback.function( LLMultiSliderCtrl::onSliderCommit );
 	params.mouse_down_callback( p.mouse_down_callback );
@@ -331,8 +324,13 @@ void LLMultiSliderCtrl::updateText()
 // static
 void LLMultiSliderCtrl::onEditorCommit( LLUICtrl* ctrl, const LLSD& userdata)
 {
-	LLMultiSliderCtrl* self = dynamic_cast<LLMultiSliderCtrl*>(ctrl);
+	llassert(ctrl);
 	if (!ctrl)
+		return;
+
+	LLMultiSliderCtrl* self = dynamic_cast<LLMultiSliderCtrl*>(ctrl->getParent());
+	llassert(self);
+	if (!self) // cast failed - wrong type! :O
 		return;
 	
 	BOOL success = FALSE;
@@ -347,7 +345,7 @@ void LLMultiSliderCtrl::onEditorCommit( LLUICtrl* ctrl, const LLSD& userdata)
 		if( self->mMultiSlider->getMinValue() <= val && val <= self->mMultiSlider->getMaxValue() )
 		{
 			self->setCurSliderValue( val );  // set the value temporarily so that the callback can retrieve it.
-			if( self->mValidateSignal( self, val ) )
+			if( !self->mValidateSignal || (*(self->mValidateSignal))( self, val ) )
 			{
 				success = TRUE;
 			}
@@ -372,7 +370,7 @@ void LLMultiSliderCtrl::onEditorCommit( LLUICtrl* ctrl, const LLSD& userdata)
 // static
 void LLMultiSliderCtrl::onSliderCommit(LLUICtrl* ctrl, const LLSD& userdata)
 {
-	LLMultiSliderCtrl* self = dynamic_cast<LLMultiSliderCtrl*>(ctrl);
+	LLMultiSliderCtrl* self = dynamic_cast<LLMultiSliderCtrl*>(ctrl->getParent());
 	if (!self)
 		return;
 	
@@ -381,7 +379,7 @@ void LLMultiSliderCtrl::onSliderCommit(LLUICtrl* ctrl, const LLSD& userdata)
 	F32 new_val = self->mMultiSlider->getCurSliderValue();
 
 	self->mCurValue = new_val;  // set the value temporarily so that the callback can retrieve it.
-	if( self->mValidateSignal( self, new_val ) )
+	if( !self->mValidateSignal || (*(self->mValidateSignal))( self, new_val ) )
 	{
 		success = TRUE;
 	}

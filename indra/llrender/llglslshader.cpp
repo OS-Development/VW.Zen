@@ -2,31 +2,25 @@
  * @file llglslshader.cpp
  * @brief GLSL helper functions and state.
  *
- * $LicenseInfo:firstyear=2005&license=viewergpl$
- * 
- * Copyright (c) 2005-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2005&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -54,6 +48,8 @@ using std::pair;
 using std::make_pair;
 using std::string;
 
+GLhandleARB LLGLSLShader::sCurBoundShader = 0;
+
 BOOL shouldChange(const LLVector4& v1, const LLVector4& v2)
 {
 	return v1 != v2;
@@ -61,8 +57,8 @@ BOOL shouldChange(const LLVector4& v1, const LLVector4& v2)
 
 LLShaderFeatures::LLShaderFeatures()
 : calculatesLighting(false), isShiny(false), isFullbright(false), hasWaterFog(false),
-hasTransport(false), hasSkinning(false), hasAtmospherics(false), isSpecular(false),
-hasGamma(false), hasLighting(false), calculatesAtmospherics(false)
+hasTransport(false), hasSkinning(false), hasObjectSkinning(false), hasAtmospherics(false), isSpecular(false),
+hasGamma(false), hasLighting(false), calculatesAtmospherics(false), mIndexedTextureChannels(0), disableTextureIndex(false)
 {
 }
 
@@ -70,7 +66,7 @@ hasGamma(false), hasLighting(false), calculatesAtmospherics(false)
 // LLGLSL Shader implementation
 //===============================
 LLGLSLShader::LLGLSLShader()
-: mProgramObject(0), mShaderLevel(0), mShaderGroup(SG_DEFAULT)
+	: mProgramObject(0), mActiveTextureChannels(0), mShaderLevel(0), mShaderGroup(SG_DEFAULT), mUniformsDirty(FALSE)
 {
 }
 
@@ -113,18 +109,13 @@ BOOL LLGLSLShader::createShader(vector<string> * attributes,
 	// Create program
 	mProgramObject = glCreateProgramObjectARB();
 	
-	// Attach existing objects
-	if (!LLShaderMgr::instance()->attachShaderFeatures(this))
-	{
-		return FALSE;
-	}
-
+	//compile new source
 	vector< pair<string,GLenum> >::iterator fileIter = mShaderFiles.begin();
 	for ( ; fileIter != mShaderFiles.end(); fileIter++ )
 	{
-		GLhandleARB shaderhandle = LLShaderMgr::instance()->loadShaderFile((*fileIter).first, mShaderLevel, (*fileIter).second);
+		GLhandleARB shaderhandle = LLShaderMgr::instance()->loadShaderFile((*fileIter).first, mShaderLevel, (*fileIter).second, mFeatures.mIndexedTextureChannels);
 		LL_DEBUGS("ShaderLoading") << "SHADER FILE: " << (*fileIter).first << " mShaderLevel=" << mShaderLevel << LL_ENDL;
-		if (mShaderLevel > 0)
+		if (shaderhandle > 0)
 		{
 			attachObject(shaderhandle);
 		}
@@ -132,6 +123,12 @@ BOOL LLGLSLShader::createShader(vector<string> * attributes,
 		{
 			success = FALSE;
 		}
+	}
+
+	// Attach existing objects
+	if (!LLShaderMgr::instance()->attachShaderFeatures(this))
+	{
+		return FALSE;
 	}
 
 	// Map attributes and uniforms
@@ -155,6 +152,29 @@ BOOL LLGLSLShader::createShader(vector<string> * attributes,
 			return createShader(attributes,uniforms);
 		}
 	}
+	else if (mFeatures.mIndexedTextureChannels > 0)
+	{ //override texture channels for indexed texture rendering
+		bind();
+		S32 channel_count = mFeatures.mIndexedTextureChannels;
+
+		for (S32 i = 0; i < channel_count; i++)
+		{
+			uniform1i(llformat("tex%d", i), i);
+		}
+
+		S32 cur_tex = channel_count; //adjust any texture channels that might have been overwritten
+		for (U32 i = 0; i < mTexture.size(); i++)
+		{
+			if (mTexture[i] > -1 && mTexture[i] < channel_count)
+			{
+				llassert(cur_tex < gGLManager.mNumTextureImageUnits);
+				uniform1i(i, cur_tex);
+				mTexture[i] = cur_tex++;
+			}
+		}
+		unbind();
+	}
+
 	return success;
 }
 
@@ -299,7 +319,8 @@ void LLGLSLShader::mapUniform(GLint index, const vector<string> * uniforms)
 
 GLint LLGLSLShader::mapUniformTextureChannel(GLint location, GLenum type)
 {
-	if (type >= GL_SAMPLER_1D_ARB && type <= GL_SAMPLER_2D_RECT_SHADOW_ARB)
+	if (type >= GL_SAMPLER_1D_ARB && type <= GL_SAMPLER_2D_RECT_SHADOW_ARB ||
+		type == GL_SAMPLER_2D_MULTISAMPLE)
 	{	//this here is a texture
 		glUniform1iARB(location, mActiveTextureChannels);
 		LL_DEBUGS("ShaderLoading") << "Assigned to texture channel " << mActiveTextureChannels << LL_ENDL;
@@ -348,7 +369,7 @@ void LLGLSLShader::bind()
 	if (gGLManager.mHasShaderObjects)
 	{
 		glUseProgramObjectARB(mProgramObject);
-
+		sCurBoundShader = mProgramObject;
 		if (mUniformsDirty)
 		{
 			LLShaderMgr::instance()->updateShaderUniforms(this);
@@ -371,6 +392,7 @@ void LLGLSLShader::unbind()
 			}
 		}
 		glUseProgramObjectARB(0);
+		sCurBoundShader = 0;
 		stop_glerror();
 	}
 }
@@ -378,6 +400,7 @@ void LLGLSLShader::unbind()
 void LLGLSLShader::bindNoShader(void)
 {
 	glUseProgramObjectARB(0);
+	sCurBoundShader = 0;
 }
 
 S32 LLGLSLShader::enableTexture(S32 uniform, LLTexUnit::eTextureType mode)
@@ -704,17 +727,46 @@ void LLGLSLShader::uniformMatrix4fv(U32 index, U32 count, GLboolean transpose, c
 
 GLint LLGLSLShader::getUniformLocation(const string& uniform)
 {
+	GLint ret = -1;
 	if (mProgramObject > 0)
 	{
 		std::map<string, GLint>::iterator iter = mUniformMap.find(uniform);
 		if (iter != mUniformMap.end())
 		{
-			llassert(iter->second == glGetUniformLocationARB(mProgramObject, uniform.c_str()));
-			return iter->second;
+			if (gDebugGL)
+			{
+				stop_glerror();
+				if (iter->second != glGetUniformLocationARB(mProgramObject, uniform.c_str()))
+				{
+					llerrs << "Uniform does not match." << llendl;
+				}
+				stop_glerror();
+			}
+			ret = iter->second;
 		}
 	}
 
-	return -1;
+	/*if (gDebugGL)
+	{
+		if (ret == -1 && ret != glGetUniformLocationARB(mProgramObject, uniform.c_str()))
+		{
+			llerrs << "Uniform map invalid." << llendl;
+		}
+	}*/
+
+	return ret;
+}
+
+GLint LLGLSLShader::getAttribLocation(U32 attrib)
+{
+	if (attrib < mAttribute.size())
+	{
+		return mAttribute[attrib];
+	}
+	else
+	{
+		return -1;
+	}
 }
 
 void LLGLSLShader::uniform1i(const string& uniform, GLint v)
@@ -888,7 +940,9 @@ void LLGLSLShader::uniformMatrix4fv(const string& uniform, U32 count, GLboolean 
 				
 	if (location >= 0)
 	{
+		stop_glerror();
 		glUniformMatrix4fvARB(location, count, transpose, v);
+		stop_glerror();
 	}
 }
 

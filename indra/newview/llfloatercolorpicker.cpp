@@ -2,31 +2,25 @@
  * @file llfloatercolorpicker.cpp
  * @brief Generic system color picker
  *
- * $LicenseInfo:firstyear=2004&license=viewergpl$
- * 
- * Copyright (c) 2004-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2004&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -79,7 +73,7 @@ const F32 CONTEXT_FADE_TIME = 0.08f;
 //////////////////////////////////////////////////////////////////////////////
 
 LLFloaterColorPicker::LLFloaterColorPicker (LLColorSwatchCtrl* swatch, BOOL show_apply_immediate )
-	: LLFloater(),
+	: LLFloater(LLSD()),
 	  mComponents			( 3 ),
 	  mMouseDownInLumRegion	( FALSE ),
 	  mMouseDownInHueRegion	( FALSE ),
@@ -113,6 +107,8 @@ LLFloaterColorPicker::LLFloaterColorPicker (LLColorSwatchCtrl* swatch, BOOL show
 	  mCanApplyImmediately	( show_apply_immediate ),
 	  mContextConeOpacity	( 0.f )
 {
+	buildFromFile ( "floater_color_picker.xml");
+
 	// create user interface for this picker
 	createUI ();
 
@@ -133,10 +129,6 @@ LLFloaterColorPicker::~LLFloaterColorPicker()
 //
 void LLFloaterColorPicker::createUI ()
 {
-	// build the majority of the gui using the factory builder
-	LLUICtrlFactory::getInstance()->buildFloater ( this, "floater_color_picker.xml" );
-	setVisible ( FALSE );
-
 	// create RGB type area (not really RGB but it's got R,G & B in it.,..
 
 	LLPointer<LLImageRaw> raw = new LLImageRaw ( mRGBViewerImageWidth, mRGBViewerImageHeight, mComponents );
@@ -480,6 +472,12 @@ void LLFloaterColorPicker::onMouseCaptureLost()
 	setMouseDownInLumRegion(FALSE);
 }
 
+F32 LLFloaterColorPicker::getSwatchTransparency()
+{
+	// If the floater is focused, don't apply its alpha to the color swatch (STORM-676).
+	return getTransparencyType() == TT_ACTIVE ? 1.f : LLFloater::getCurrentTransparency();
+}
+
 //////////////////////////////////////////////////////////////////////////////
 //
 void LLFloaterColorPicker::draw()
@@ -541,8 +539,10 @@ void LLFloaterColorPicker::draw()
 	// base floater stuff
 	LLFloater::draw ();
 
+	const F32 alpha = getSwatchTransparency();
+
 	// draw image for RGB area (not really RGB but you'll see what I mean...
-	gl_draw_image ( mRGBViewerImageLeft, mRGBViewerImageTop - mRGBViewerImageHeight, mRGBImage, LLColor4::white );
+	gl_draw_image ( mRGBViewerImageLeft, mRGBViewerImageTop - mRGBViewerImageHeight, mRGBImage, LLColor4::white % alpha);
 
 	// update 'cursor' into RGB Section
 	S32 xPos = ( S32 ) ( ( F32 )mRGBViewerImageWidth * getCurH () ) - 8;
@@ -562,9 +562,9 @@ void LLFloaterColorPicker::draw()
 	// create rgb area outline
 	gl_rect_2d ( mRGBViewerImageLeft,
 				 mRGBViewerImageTop - mRGBViewerImageHeight,
-				 mRGBViewerImageLeft + mRGBViewerImageWidth,
+				 mRGBViewerImageLeft + mRGBViewerImageWidth + 1,
 				 mRGBViewerImageTop,
-				 LLColor4 ( 0.0f, 0.0f, 0.0f, 1.0f ),
+				 LLColor4 ( 0.0f, 0.0f, 0.0f, alpha ),
 				 FALSE );
 
 	// draw luminance slider
@@ -577,7 +577,7 @@ void LLFloaterColorPicker::draw()
 			mLumRegionTop - mLumRegionHeight + y, 
 				mLumRegionLeft + mLumRegionWidth, 
 					mLumRegionTop - mLumRegionHeight + y - 1, 
-						LLColor4 ( rValSlider, gValSlider, bValSlider, 1.0f ) );
+						LLColor4 ( rValSlider, gValSlider, bValSlider, alpha ) );
 	}
 
 
@@ -587,12 +587,12 @@ void LLFloaterColorPicker::draw()
 	gl_triangle_2d ( startX, startY,
 			startX + mLumMarkerSize, startY - mLumMarkerSize,
 				startX + mLumMarkerSize, startY + mLumMarkerSize,
-					LLColor4 ( 0.0f, 0.0f, 0.0f, 1.0f ), TRUE );
+					LLColor4 ( 0.75f, 0.75f, 0.75f, 1.0f ), TRUE );
 
 	// draw luminance slider outline
 	gl_rect_2d ( mLumRegionLeft,
 				 mLumRegionTop - mLumRegionHeight,
-				 mLumRegionLeft + mLumRegionWidth,
+				 mLumRegionLeft + mLumRegionWidth + 1,
 				 mLumRegionTop,
 				 LLColor4 ( 0.0f, 0.0f, 0.0f, 1.0f ),
 				 FALSE );
@@ -602,13 +602,13 @@ void LLFloaterColorPicker::draw()
 				 mSwatchRegionTop - mSwatchRegionHeight,
 				 mSwatchRegionLeft + mSwatchRegionWidth,
 				 mSwatchRegionTop,
-				 LLColor4 ( getCurR (), getCurG (), getCurB (), 1.0f ),
+				 LLColor4 ( getCurR (), getCurG (), getCurB (), alpha ),
 				 TRUE );
 
 	// draw selected color swatch outline
 	gl_rect_2d ( mSwatchRegionLeft,
 				 mSwatchRegionTop - mSwatchRegionHeight,
-				 mSwatchRegionLeft + mSwatchRegionWidth,
+				 mSwatchRegionLeft + mSwatchRegionWidth + 1,
 				 mSwatchRegionTop,
 				 LLColor4 ( 0.0f, 0.0f, 0.0f, 1.0f ),
 				 FALSE );
@@ -642,6 +642,7 @@ const LLColor4& LLFloaterColorPicker::getComplimentaryColor ( const LLColor4& ba
 void LLFloaterColorPicker::drawPalette ()
 {
 	S32 curEntry = 0;
+	const F32 alpha = getSwatchTransparency();
 
 	for ( S32 y = 0; y < numPaletteRows; ++y )
 	{
@@ -656,7 +657,7 @@ void LLFloaterColorPicker::drawPalette ()
 			// draw palette entry color
 			if ( mPalette [ curEntry ] )
 			{
-				gl_rect_2d ( x1 + 2, y1 - 2, x2 - 2, y2 + 2, *mPalette [ curEntry++ ], TRUE );
+				gl_rect_2d ( x1 + 2, y1 - 2, x2 - 2, y2 + 2, *mPalette [ curEntry++ ] % alpha, TRUE );
 				gl_rect_2d ( x1 + 1, y1 - 1, x2 - 1, y2 + 1, LLColor4 ( 0.0f, 0.0f, 0.0f, 1.0f ), FALSE );
 			}
 		}
@@ -693,12 +694,12 @@ void LLFloaterColorPicker::drawPalette ()
 void LLFloaterColorPicker::updateTextEntry ()
 {
 	// set values in spinners
-	childSetValue("rspin", ( getCurR () * 255.0f ) );
-	childSetValue("gspin", ( getCurG () * 255.0f ) );
-	childSetValue("bspin", ( getCurB () * 255.0f ) );
-	childSetValue("hspin", ( getCurH () * 360.0f ) );
-	childSetValue("sspin", ( getCurS () * 100.0f ) );
-	childSetValue("lspin", ( getCurL () * 100.0f ) );
+	getChild<LLUICtrl>("rspin")->setValue(( getCurR () * 255.0f ) );
+	getChild<LLUICtrl>("gspin")->setValue(( getCurG () * 255.0f ) );
+	getChild<LLUICtrl>("bspin")->setValue(( getCurB () * 255.0f ) );
+	getChild<LLUICtrl>("hspin")->setValue(( getCurH () * 360.0f ) );
+	getChild<LLUICtrl>("sspin")->setValue(( getCurS () * 100.0f ) );
+	getChild<LLUICtrl>("lspin")->setValue(( getCurL () * 100.0f ) );
 }
 
 //////////////////////////////////////////////////////////////////////////////

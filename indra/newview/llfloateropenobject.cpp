@@ -2,37 +2,31 @@
  * @file llfloateropenobject.cpp
  * @brief LLFloaterOpenObject class implementation
  *
- * $LicenseInfo:firstyear=2004&license=viewergpl$
- * 
- * Copyright (c) 2004-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2004&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
 /*
  * Shows the contents of an object.
- * A floater wrapper for llpanelinventory
+ * A floater wrapper for LLPanelObjectInventory
  */
 
 #include "llviewerprecompiledheaders.h"
@@ -41,14 +35,14 @@
 
 #include "llcachename.h"
 #include "llbutton.h"
+#include "llnotificationsutil.h"
 #include "lltextbox.h"
 
-#include "llagent.h"			// for agent id
-#include "llalertdialog.h"
 #include "llinventorybridge.h"
 #include "llfloaterinventory.h"
 #include "llinventorymodel.h"
-#include "llpanelinventory.h"
+#include "llinventorypanel.h"
+#include "llpanelobjectinventory.h"
 #include "llfloaterreg.h"
 #include "llselectmgr.h"
 #include "lluiconstants.h"
@@ -59,10 +53,9 @@
 
 LLFloaterOpenObject::LLFloaterOpenObject(const LLSD& key)
 :	LLFloater(key),
-	mPanelInventory(NULL),
+	mPanelInventoryObject(NULL),
 	mDirty(TRUE)
 {
-//	LLUICtrlFactory::getInstance()->buildFloater(this,"floater_openobject.xml");
 	mCommitCallbackRegistrar.add("OpenObject.MoveToInventory",	boost::bind(&LLFloaterOpenObject::onClickMoveToInventory, this));
 	mCommitCallbackRegistrar.add("OpenObject.MoveAndWear",		boost::bind(&LLFloaterOpenObject::onClickMoveAndWear, this));
 }
@@ -71,11 +64,14 @@ LLFloaterOpenObject::~LLFloaterOpenObject()
 {
 //	sInstance = NULL;
 }
+
 // virtual
 BOOL LLFloaterOpenObject::postBuild()
 {
-	childSetTextArg("object_name", "[DESC]", std::string("Object") ); // *Note: probably do not want to translate this
-	mPanelInventory = getChild<LLPanelInventory>("object_contents");
+	getChild<LLUICtrl>("object_name")->setTextArg("[DESC]", std::string("Object") ); // *Note: probably do not want to translate this
+	mPanelInventoryObject = getChild<LLPanelObjectInventory>("object_contents");
+	
+	refresh();
 	return TRUE;
 }
 
@@ -84,7 +80,7 @@ void LLFloaterOpenObject::onOpen(const LLSD& key)
 	LLObjectSelectionHandle object_selection = LLSelectMgr::getInstance()->getSelection();
 	if (object_selection->getRootObjectCount() != 1)
 	{
-		LLNotifications::instance().add("UnableToViewContentsMoreThanOne");
+		LLNotificationsUtil::add("UnableToViewContentsMoreThanOne");
 		closeFloater();
 		return;
 	}
@@ -94,16 +90,18 @@ void LLFloaterOpenObject::onOpen(const LLSD& key)
 		return;
 	}
 	mObjectSelection = LLSelectMgr::getInstance()->getEditSelection();
+	refresh();
 }
+
 void LLFloaterOpenObject::refresh()
 {
-	mPanelInventory->refresh();
+	mPanelInventoryObject->refresh();
 
-	std::string name;
-	BOOL enabled;
+	std::string name = "";
+	BOOL enabled = FALSE;
 
 	LLSelectNode* node = mObjectSelection->getFirstRootNode();
-	if (node)
+	if (node) 
 	{
 		name = node->mName;
 		enabled = TRUE;
@@ -113,10 +111,10 @@ void LLFloaterOpenObject::refresh()
 		name = "";
 		enabled = FALSE;
 	}
-
-	childSetTextArg("object_name", "[DESC]", name);
-	childSetEnabled("copy_to_inventory_button", enabled);
-	childSetEnabled("copy_and_wear_button", enabled);
+	
+	getChild<LLUICtrl>("object_name")->setTextArg("[DESC]", name);
+	getChildView("copy_to_inventory_button")->setEnabled(enabled);
+	getChildView("copy_and_wear_button")->setEnabled(enabled);
 
 }
 
@@ -141,7 +139,7 @@ void LLFloaterOpenObject::moveToInventory(bool wear)
 {
 	if (mObjectSelection->getRootObjectCount() != 1)
 	{
-		LLNotifications::instance().add("OnlyCopyContentsOfSingleItem");
+		LLNotificationsUtil::add("OnlyCopyContentsOfSingleItem");
 		return;
 	}
 
@@ -158,14 +156,14 @@ void LLFloaterOpenObject::moveToInventory(bool wear)
 	if (wear)
 	{
 		parent_category_id = gInventory.findCategoryUUIDForType(
-			LLAssetType::AT_CLOTHING);
+			LLFolderType::FT_CLOTHING);
 	}
 	else
 	{
 		parent_category_id = gInventory.getRootFolderID();
 	}
 	LLUUID category_id = gInventory.createNewCategory(parent_category_id, 
-		LLAssetType::AT_NONE, 
+		LLFolderType::FT_NONE, 
 		name);
 
 	LLCatAndWear* data = new LLCatAndWear;
@@ -182,7 +180,7 @@ void LLFloaterOpenObject::moveToInventory(bool wear)
 		delete data;
 		data = NULL;
 
-		LLNotifications::instance().add("OpenObjectCannotCopy");
+		LLNotificationsUtil::add("OpenObjectCannotCopy");
 	}
 }
 
@@ -193,11 +191,10 @@ void LLFloaterOpenObject::callbackMoveInventory(S32 result, void* data)
 
 	if (result == 0)
 	{
-		LLFloaterInventory::showAgentInventory();
-		LLFloaterInventory* view = LLFloaterInventory::getActiveInventory();
-		if (view)
+		LLInventoryPanel *active_panel = LLInventoryPanel::getActiveInventoryPanel();
+		if (active_panel)
 		{
-			view->getPanel()->setSelection(cat->mCatID, TAKE_FOCUS_NO);
+			active_panel->setSelection(cat->mCatID, TAKE_FOCUS_NO);
 		}
 	}
 

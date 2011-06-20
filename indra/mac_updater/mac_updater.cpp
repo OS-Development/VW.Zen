@@ -2,36 +2,33 @@
  * @file mac_updater.cpp
  * @brief 
  *
- * $LicenseInfo:firstyear=2006&license=viewergpl$
- * 
- * Copyright (c) 2006-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2006&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
 #include "linden_common.h"
 
+#include <boost/format.hpp>
+
+#include <libgen.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -47,9 +44,6 @@
 #include "llstring.h"
 
 #include <Carbon/Carbon.h>
-
-#include "MoreFilesX.h"
-#include "FSCopyObject.h"
 
 #include "llerrorcontrol.h"
 
@@ -70,6 +64,9 @@ Boolean gCancelled = false;
 
 const char *gUpdateURL;
 const char *gProductName;
+const char *gBundleID;
+const char *gDmgFile;
+const char *gMarkerPath;
 
 void *updatethreadproc(void*);
 
@@ -338,6 +335,18 @@ int parse_args(int argc, char **argv)
 		{
 			gProductName = argv[j];
 		}
+		else if ((!strcmp(argv[j], "-bundleid")) && (++j < argc)) 
+		{
+			gBundleID = argv[j];
+		}
+		else if ((!strcmp(argv[j], "-dmg")) && (++j < argc)) 
+		{
+			gDmgFile = argv[j];
+		}
+		else if ((!strcmp(argv[j], "-marker")) && (++j < argc)) 
+		{
+			gMarkerPath = argv[j];;
+		}
 	}
 
 	return 0;
@@ -364,10 +373,13 @@ int main(int argc, char **argv)
 	//
 	gUpdateURL  = NULL;
 	gProductName = NULL;
+	gBundleID = NULL;
+	gDmgFile = NULL;
+	gMarkerPath = NULL;
 	parse_args(argc, argv);
-	if (!gUpdateURL)
+	if ((gUpdateURL == NULL) && (gDmgFile == NULL))
 	{
-		llinfos << "Usage: mac_updater -url <url> [-name <product_name>] [-program <program_name>]" << llendl;
+		llinfos << "Usage: mac_updater -url <url> | -dmg <dmg file> [-name <product_name>] [-program <program_name>]" << llendl;
 		exit(1);
 	}
 	else
@@ -380,6 +392,14 @@ int main(int argc, char **argv)
 		else
 		{
 			gProductName = "Second Life";
+		}
+		if (gBundleID)
+		{
+			llinfos << "Bundle ID is: " << gBundleID << llendl;
+		}
+		else
+		{
+			gBundleID = "com.secondlife.indra.viewer";
 		}
 	}
 	
@@ -483,11 +503,18 @@ int main(int argc, char **argv)
 					NULL,
 					&retval_mac);
 		}
-
+		
+		if(gMarkerPath != 0)
+		{
+			// Create a install fail marker that can be used by the viewer to
+			// detect install problems.
+			std::ofstream stream(gMarkerPath);
+			if(stream) stream << -1;
+		}
+		exit(-1);
+	} else {
+		exit(0);
 	}
-	
-	// Don't dispose of things, just exit.  This keeps the update thread from potentially getting hosed.
-	exit(0);
 
 	if(gWindow != NULL)
 	{
@@ -547,20 +574,6 @@ bool isDirWritable(FSRef &dir)
 	return result;
 }
 
-static void utf8str_to_HFSUniStr255(HFSUniStr255 *dest, const char* src)
-{
-	llutf16string	utf16str = utf8str_to_utf16str(src);
-
-	dest->length = utf16str.size();
-	if(dest->length > 255)
-	{
-		// There's onl room for 255 chars in a HFSUniStr25..
-		// Truncate to avoid stack smaching or other badness.
-		dest->length = 255;
-	}
-	memcpy(dest->unicode, utf16str.data(), sizeof(UniChar)* dest->length);		/* Flawfinder: ignore */
-}
-
 static std::string HFSUniStr255_to_utf8str(const HFSUniStr255* src)
 {
 	llutf16string string16((U16*)&(src->unicode), src->length);
@@ -584,19 +597,12 @@ int restoreObject(const char* aside, const char* target, const char* path, const
 
 	llinfos << "Copying " << source << " to " << dest << llendl;
 
-	err = FSCopyObject(	
+	err = FSCopyObjectSync(
 			&sourceRef,
 			&destRef,
-			0,
-			kFSCatInfoNone,
-			kDupeActionReplace,
-			NULL,
-			false,
-			false,
 			NULL,
 			NULL,
-			NULL,
-			NULL);
+			kFSFileOperationOverwrite);
 
 	if(err != noErr) return false;
 	return true;
@@ -622,7 +628,8 @@ static bool isFSRefViewerBundle(FSRef *targetRef)
 	CFURLRef targetURL = NULL;
 	CFBundleRef targetBundle = NULL;
 	CFStringRef targetBundleID = NULL;
-	
+	CFStringRef sourceBundleID = NULL;
+
 	targetURL = CFURLCreateFromFSRef(NULL, targetRef);
 
 	if(targetURL == NULL)
@@ -649,7 +656,8 @@ static bool isFSRefViewerBundle(FSRef *targetRef)
 	}
 	else
 	{
-		if(CFStringCompare(targetBundleID, CFSTR("com.secondlife.indra.viewer"), 0) == kCFCompareEqualTo)
+		sourceBundleID = CFStringCreateWithCString(NULL, gBundleID, kCFStringEncodingUTF8);
+		if(CFStringCompare(sourceBundleID, targetBundleID, 0) == kCFCompareEqualTo)
 		{
 			// This is the bundle we're looking for.
 			result = true;
@@ -714,17 +722,26 @@ static OSErr findAppBundleOnDiskImage(FSRef *parent, FSRef *app)
 						// Looks promising.  Check to see if it has the right bundle identifier.
 						if(isFSRefViewerBundle(&ref))
 						{
+							llinfos << name << " is the one" << llendl;
 							// This is the one.  Return it.
 							*app = ref;
 							found = true;
+							break;
+						} else {
+							llinfos << name << " is not the bundle we are looking for; move along" << llendl;
 						}
+
 					}
 				}
 			}
 		}
-		while(!err && !found);
+		while(!err);
+		
+		llinfos << "closing the iterator" << llendl;
 		
 		FSCloseIterator(iterator);
+		
+		llinfos << "closed" << llendl;
 	}
 	
 	if(!err && !found)
@@ -779,21 +796,21 @@ void *updatethreadproc(void*)
 			// so we need to go up 3 levels to get the path to the main application bundle.
 			if(err == noErr)
 			{
-				err = FSGetParentRef(&myBundle, &targetRef);
+				err = FSGetCatalogInfo(&myBundle, kFSCatInfoNone, NULL, NULL, NULL, &targetRef);
 			}
 			if(err == noErr)
 			{
-				err = FSGetParentRef(&targetRef, &targetRef);
+				err = FSGetCatalogInfo(&targetRef, kFSCatInfoNone, NULL, NULL, NULL, &targetRef);
 			}
 			if(err == noErr)
 			{
-				err = FSGetParentRef(&targetRef, &targetRef);
+				err = FSGetCatalogInfo(&targetRef, kFSCatInfoNone, NULL, NULL, NULL, &targetRef);
 			}
 			
 			// And once more to get the parent of the target
 			if(err == noErr)
 			{
-				err = FSGetParentRef(&targetRef, &targetParentRef);
+				err = FSGetCatalogInfo(&targetRef, kFSCatInfoNone, NULL, NULL, NULL, &targetParentRef);
 			}
 			
 			if(err == noErr)
@@ -935,6 +952,22 @@ void *updatethreadproc(void*)
 
 #endif // 0 *HACK for DEV-11935
 		
+		// Skip downloading the file if the dmg was passed on the command line.
+		std::string dmgName;
+		if(gDmgFile != NULL) {
+			dmgName = basename((char *)gDmgFile);
+			char * dmgDir = dirname((char *)gDmgFile);
+			strncpy(tempDir, dmgDir, sizeof(tempDir));
+			err = FSPathMakeRef((UInt8*)tempDir, &tempDirRef, NULL);
+			if(err != noErr) throw 0;
+			chdir(tempDir);
+			goto begin_install;
+		} else {
+			// Continue on to download file.
+			dmgName = "SecondLife.dmg";
+		}
+
+		
 		strncat(temp, "/SecondLifeUpdate_XXXXXX", (sizeof(temp) - strlen(temp)) - 1);
 		if(mkdtemp(temp) == NULL)
 		{
@@ -993,14 +1026,17 @@ void *updatethreadproc(void*)
 			fclose(downloadFile);
 			downloadFile = NULL;
 		}
-		
+
+	begin_install:
 		sendProgress(0, 0, CFSTR("Mounting image..."));
 		LLFile::mkdir("mnt", 0700);
 		
 		// NOTE: we could add -private at the end of this command line to keep the image from showing up in the Finder,
 		//		but if our cleanup fails, this makes it much harder for the user to unmount the image.
 		std::string mountOutput;
-		FILE* mounter = popen("hdiutil attach SecondLife.dmg -mountpoint mnt", "r");		/* Flawfinder: ignore */
+		boost::format cmdFormat("hdiutil attach %s -mountpoint mnt");
+		cmdFormat % dmgName;
+		FILE* mounter = popen(cmdFormat.str().c_str(), "r");		/* Flawfinder: ignore */
 		
 		if(mounter == NULL)
 		{
@@ -1066,30 +1102,43 @@ void *updatethreadproc(void*)
 			throw 0;
 		}
 
+		sendProgress(0, 0, CFSTR("Searching for the app bundle..."));
 		err = findAppBundleOnDiskImage(&mountRef, &sourceRef);
 		if(err != noErr)
 		{
 			llinfos << "Couldn't find application bundle on mounted disk image." << llendl;
 			throw 0;
 		}
+		else
+		{
+			llinfos << "found the bundle." << llendl;
+		}
+
+		sendProgress(0, 0, CFSTR("Preparing to copy files..."));
 		
 		FSRef asideRef;
 		char aside[MAX_PATH];		/* Flawfinder: ignore */
 		
 		// this will hold the name of the destination target
-		HFSUniStr255 appNameUniStr;
+		CFStringRef appNameRef;
 
 		if(replacingTarget)
 		{
 			// Get the name of the target we're replacing
+			HFSUniStr255 appNameUniStr;
 			err = FSGetCatalogInfo(&targetRef, 0, NULL, &appNameUniStr, NULL, NULL);
 			if(err != noErr)
 				throw 0;
+			appNameRef = FSCreateStringFromHFSUniStr(NULL, &appNameUniStr);
 			
 			// Move aside old version (into work directory)
 			err = FSMoveObject(&targetRef, &tempDirRef, &asideRef);
 			if(err != noErr)
+			{
+				llwarns << "failed to move aside old version (error code " << 
+					err << ")" << llendl;
 				throw 0;
+			}
 
 			// Grab the path for later use.
 			err = FSRefMakePath(&asideRef, (UInt8*)aside, sizeof(aside));
@@ -1099,7 +1148,7 @@ void *updatethreadproc(void*)
 			// Construct the name of the target based on the product name
 			char appName[MAX_PATH];		/* Flawfinder: ignore */
 			snprintf(appName, sizeof(appName), "%s.app", gProductName);		
-			utf8str_to_HFSUniStr255( &appNameUniStr, appName );
+			appNameRef = CFStringCreateWithCString(NULL, appName, kCFStringEncodingUTF8);
 		}
 		
 		sendProgress(0, 0, CFSTR("Copying files..."));
@@ -1107,19 +1156,12 @@ void *updatethreadproc(void*)
 		llinfos << "Starting copy..." << llendl;
 
 		// Copy the new version from the disk image to the target location.
-		err = FSCopyObject(	
+		err = FSCopyObjectSync(
 				&sourceRef,
 				&targetParentRef,
-				0,
-				kFSCatInfoNone,
-				kDupeActionStandard,
-				&appNameUniStr,
-				false,
-				false,
-				NULL,
-				NULL,
+				appNameRef,
 				&targetRef,
-				NULL);
+				kFSFileOperationDefaultOptions);
 		
 		// Grab the path for later use.
 		err = FSRefMakePath(&targetRef, (UInt8*)target, sizeof(target));
@@ -1131,7 +1173,7 @@ void *updatethreadproc(void*)
 		if(err != noErr)
 		{
 			// Something went wrong during the copy.  Attempt to put the old version back and bail.
-			(void)FSDeleteObjects(&targetRef);
+			(void)FSDeleteObject(&targetRef);
 			if(replacingTarget)
 			{
 				(void)FSMoveObject(&asideRef, &targetParentRef, NULL);
@@ -1188,16 +1230,14 @@ void *updatethreadproc(void*)
 	// Move work directory to the trash
 	if(tempDir[0] != 0)
 	{
-//		chdir("/");
-//		FSDeleteObjects(tempDirRef);
-
 		llinfos << "Moving work directory to the trash." << llendl;
 
-		err = FSMoveObject(&tempDirRef, &trashFolderRef, NULL);
-
-//		snprintf(temp, sizeof(temp), "rm -rf '%s'", tempDir);
-//		printf("%s\n", temp);
-//		system(temp);
+		FSRef trashRef;
+		OSStatus err = FSMoveObjectToTrashSync(&tempDirRef, &trashRef, 0); 
+		if(err != noErr) {
+			llwarns << "failed to move files to trash, (error code " <<
+				err << ")" << llendl;
+		}
 	}
 	
 	if(!gCancelled  && !gFailure && (target[0] != 0))

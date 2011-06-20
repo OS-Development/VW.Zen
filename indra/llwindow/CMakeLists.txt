@@ -12,6 +12,7 @@ project(llwindow)
 
 include(00-Common)
 include(DirectX)
+include(DragDrop)
 include(LLCommon)
 include(LLImage)
 include(LLMath)
@@ -19,7 +20,6 @@ include(LLRender)
 include(LLVFS)
 include(LLWindow)
 include(LLXML)
-include(Mozlib)
 include(UI)
 
 include_directories(
@@ -30,20 +30,25 @@ include_directories(
     ${LLVFS_INCLUDE_DIRS}
     ${LLWINDOW_INCLUDE_DIRS}
     ${LLXML_INCLUDE_DIRS}
+    ${DIRECTX_INCLUDE_DIR}
     )
 
 set(llwindow_SOURCE_FILES
     llkeyboard.cpp
+    llkeyboardheadless.cpp
     llwindowheadless.cpp
     llwindowcallbacks.cpp
+    llwindowlistener.cpp
     )
 
 set(llwindow_HEADER_FILES
     CMakeLists.txt
 
     llkeyboard.h
+    llkeyboardheadless.h
     llwindowheadless.h
     llwindowcallbacks.h
+    llwindowlistener.h
     )
 
 set(viewer_SOURCE_FILES
@@ -59,12 +64,13 @@ set(viewer_HEADER_FILES
 
 # Libraries on which this library depends, needed for Linux builds
 # Sort by high-level to low-level
-if (NOT LINUX OR VIEWER)
+if (LINUX AND VIEWER)
   set(llwindow_LINK_LIBRARIES
       ${UI_LIBRARIES}     # for GTK
       ${SDL_LIBRARY}
+      fontconfig          # For FCInit and other FC* functions.
       )
-endif (NOT LINUX OR VIEWER)
+endif (LINUX AND VIEWER)
 
 if (DARWIN)
   list(APPEND llwindow_SOURCE_FILES
@@ -103,14 +109,17 @@ if (WINDOWS)
        llwindowwin32.cpp
        lldxhardware.cpp
        llkeyboardwin32.cpp
+       lldragdropwin32.cpp
        )
   list(APPEND llwindow_HEADER_FILES
        llwindowwin32.h
        lldxhardware.h
        llkeyboardwin32.h
+       lldragdropwin32.h
        )
   list(APPEND llwindow_LINK_LIBRARIES
        comdlg32     # Common Dialogs for ChooseColor
+       ole32
        )
 endif (WINDOWS)
 

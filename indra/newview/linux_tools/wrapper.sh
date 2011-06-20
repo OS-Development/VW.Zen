@@ -41,16 +41,8 @@
 ##   driver bug, try enabling this option and report whether it helps:
 #export LL_ATI_MOUSE_CURSOR_BUG=x
 
-## - If you experience crashes with streaming video and music, you can
-##   disable these by enabling this option:
-#export LL_DISABLE_GSTREAMER=x
-
-## - GStreamer is automatically disabled - for now - on 64-bit systems due
-##   to common fatal incompatibilities; remove/comment these lines if you want
-##   to try anyway.
 if [ "`uname -m`" = "x86_64" ]; then
-    export LL_DISABLE_GSTREAMER=x
-    echo '64-bit Linux detected: Disabling GStreamer (streaming video and music) by default; edit ./secondlife to re-enable.'
+    echo '64-bit Linux detected.'
 fi
 
 ## Everything below this line is just for advanced troubleshooters.
@@ -91,34 +83,36 @@ echo "Running from ${RUN_PATH}"
 cd "${RUN_PATH}"
 
 # Re-register the secondlife:// protocol handler every launch, for now.
-./register_secondlifeprotocol.sh
+./etc/register_secondlifeprotocol.sh
+
+# Re-register the application with the desktop system every launch, for now.
+./etc/refresh_desktop_app_entry.sh
+
 ## Before we mess with LD_LIBRARY_PATH, save the old one to restore for
 ##  subprocesses that care.
-if [ "${LD_LIBRARY_PATH+isset}" = "isset" ]; then
-    export SAVED_LD_LIBRARY_PATH="${LD_LIBRARY_PATH}"
-fi
+export SAVED_LD_LIBRARY_PATH="${LD_LIBRARY_PATH}"
 
-if [ -n "$LL_TCMALLOC" ]; then
-    tcmalloc_libs='/usr/lib/libtcmalloc.so.0 /usr/lib/libstacktrace.so.0 /lib/libpthread.so.0'
-    all=1
-    for f in $tcmalloc_libs; do
-        if [ ! -f $f ]; then
-	    all=0
-	fi
-    done
-    if [ $all != 1 ]; then
-        echo 'Cannot use tcmalloc libraries: components missing' 1>&2
-    else
-	export LD_PRELOAD=$(echo $tcmalloc_libs | tr ' ' :)
-	if [ -z "$HEAPCHECK" -a -z "$HEAPPROFILE" ]; then
-	    export HEAPCHECK=${HEAPCHECK:-normal}
-	fi
-    fi
-fi
+# if [ -n "$LL_TCMALLOC" ]; then
+#    tcmalloc_libs='/usr/lib/libtcmalloc.so.0 /usr/lib/libstacktrace.so.0 /lib/libpthread.so.0'
+#    all=1
+#    for f in $tcmalloc_libs; do
+#        if [ ! -f $f ]; then
+#	    all=0
+#	fi
+#    done
+#    if [ $all != 1 ]; then
+#        echo 'Cannot use tcmalloc libraries: components missing' 1>&2
+#    else
+#	export LD_PRELOAD=$(echo $tcmalloc_libs | tr ' ' :)
+#	if [ -z "$HEAPCHECK" -a -z "$HEAPPROFILE" ]; then
+#	    export HEAPCHECK=${HEAPCHECK:-normal}
+#	fi
+#    fi
+#fi
 
-export SL_ENV='LD_LIBRARY_PATH="`pwd`"/lib:"`pwd`"/app_settings/mozilla-runtime-linux-i686:"${LD_LIBRARY_PATH}"'
+export SL_ENV='LD_LIBRARY_PATH="`pwd`"/lib:"${LD_LIBRARY_PATH}"'
 export SL_CMD='$LL_WRAPPER bin/do-not-directly-run-secondlife-bin'
-export SL_OPT="`cat gridargs.dat` $@"
+export SL_OPT="`cat etc/gridargs.dat` $@"
 
 # Run the program
 eval ${SL_ENV} ${SL_CMD} ${SL_OPT} || LL_RUN_ERR=runerr

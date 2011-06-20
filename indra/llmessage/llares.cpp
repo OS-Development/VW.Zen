@@ -4,35 +4,30 @@
  * @date 2007-08-15
  * @brief Wrapper for asynchronous DNS lookups.
  *
- * $LicenseInfo:firstyear=2007&license=viewergpl$
- * 
- * Copyright (c) 2007-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2007&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
 #include "linden_common.h"
+#include "llares.h"
 
 #include <ares_dns.h>
 #include <ares_version.h>
@@ -42,9 +37,10 @@
 #include "apr_poll.h"
 
 #include "llapr.h"
-#include "llares.h"
+#include "llareslistener.h"
 
 #if defined(LL_WINDOWS)
+#pragma warning (disable : 4355) // 'this' used in initializer list: yes, intentionally
 # define ns_c_in 1
 # define NS_HFIXEDSZ     12      /* #/bytes of fixed data in header */
 # define NS_QFIXEDSZ     4       /* #/bytes of fixed data in query */
@@ -102,9 +98,12 @@ void LLAres::QueryResponder::queryError(int code)
 }
 
 LLAres::LLAres() :
-chan_(NULL), mInitSuccess(false)
+    chan_(NULL),
+    mInitSuccess(false),
+    mListener(new LLAresListener(this))
 {
-	if (ares_init(&chan_) != ARES_SUCCESS)
+	if (ares_library_init( ARES_LIB_INIT_ALL ) != ARES_SUCCESS ||
+		ares_init(&chan_) != ARES_SUCCESS)
 	{
 		llwarns << "Could not succesfully initialize ares!" << llendl;
 		return;
@@ -116,6 +115,7 @@ chan_(NULL), mInitSuccess(false)
 LLAres::~LLAres()
 {
 	ares_destroy(chan_);
+	ares_library_cleanup();
 }
 
 void LLAres::cancel()
@@ -171,7 +171,8 @@ void LLAres::rewriteURI(const std::string &uri, UriRewriteResponder *resp)
 
 LLQueryResponder::LLQueryResponder()
 	: LLAres::QueryResponder(),
-	  mResult(ARES_ENODATA)
+	  mResult(ARES_ENODATA),
+	  mType(RES_INVALID)
 {
 }
 
@@ -468,7 +469,7 @@ bool LLAres::process(U64 timeout)
 		ll_init_apr();
 	}
 
-	int socks[ARES_GETSOCK_MAXNUM];
+	ares_socket_t socks[ARES_GETSOCK_MAXNUM];
 	apr_pollfd_t aprFds[ARES_GETSOCK_MAXNUM];
 	apr_int32_t nsds = 0;	
 	int nactive = 0;
@@ -637,8 +638,10 @@ LLPtrRecord::LLPtrRecord(const std::string &name, unsigned ttl)
 }
 
 LLAddrRecord::LLAddrRecord(LLResType type, const std::string &name,
-						   unsigned ttl)
-	: LLDnsRecord(type, name, ttl)
+			   unsigned ttl)
+	: LLDnsRecord(type, name, ttl),
+
+	  mSize(0)
 {
 }
 
@@ -697,7 +700,11 @@ bail:
 }
 
 LLSrvRecord::LLSrvRecord(const std::string &name, unsigned ttl)
-	: LLHostRecord(RES_SRV, name, ttl)
+	: LLHostRecord(RES_SRV, name, ttl),
+
+	  mPriority(0),
+	  mWeight(0),
+	  mPort(0)
 {
 }
 

@@ -4,22 +4,22 @@
 	<RenderAvatarCloth value="TRUE"/>
 	<!--Default for now-->
 	<RenderAvatarLODFactor value="1.0"/>
+	<!--Default for now-->
+	<RenderAvatarPhysicsLODFactor value="1.0"/>
 	<!--NO SHADERS-->
 	<RenderAvatarVP value="TRUE"/>
 	<!--Short Range-->
 	<RenderFarClip value="256"/>
 	<!--Default for now-->
 	<RenderFlexTimeFactor value="1"/>
-	<!--256... but they don't use this-->
+	<!--256... but they do not use this-->
 	<RenderGlowResolutionPow value="9"/>
-	<!--Sun/Moon only-->
-	<RenderLightingDetail value="1"/>
 	<!--Low number-->
 	<RenderMaxPartCount value="4096"/>
 	<!--bump okay-->
 	<RenderObjectBump value="TRUE"/>
 	<!--NO SHADERS-->
-	<RenderReflectionDetail value="3"/>
+	<RenderReflectionDetail value="4"/>
 	<!--Simple-->
 	<RenderTerrainDetail value="1"/>
 	<!--Default for now-->
@@ -31,9 +31,13 @@
 	<!--Default for now-->
 	<RenderVolumeLODFactor value="2.0"/>
 	<!--NO SHADERS-->
-	<RenderWaterReflections value="TRUE"/>
-	<!--NO SHADERS-->
 	<VertexShaderEnable value="TRUE"/>
 	<!--NO SHADERS-->
 	<WindLightUseAtmosShaders value="TRUE"/>
+	<!--Deferred Shading-->
+	<RenderDeferred value="TRUE"/>
+	<!--SSAO Enabled-->
+	<RenderDeferredSSAO value="TRUE"/>
+	<!--Full Shadows-->
+	<RenderShadowDetail value="2"/>
 </settings>

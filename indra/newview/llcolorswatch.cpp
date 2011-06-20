@@ -2,31 +2,25 @@
  * @file llcolorswatch.cpp
  * @brief LLColorSwatch class implementation
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -59,6 +53,7 @@ LLColorSwatchCtrl::Params::Params()
 	alpha_background_image("alpha_background_image"),
 	border_color("border_color"),
     label_width("label_width", -1),
+	label_height("label_height", -1),
 	caption_text("caption_text"),
 	border("border")
 {
@@ -68,33 +63,36 @@ LLColorSwatchCtrl::Params::Params()
 LLColorSwatchCtrl::LLColorSwatchCtrl(const Params& p)
 :	LLUICtrl(p),
 	mValid( TRUE ),
-	mColor(p.color),
+	mColor(p.color()),
 	mCanApplyImmediately(p.can_apply_immediately),
 	mAlphaGradientImage(p.alpha_background_image),
 	mOnCancelCallback(p.cancel_callback()),
 	mOnSelectCallback(p.select_callback()),
 	mBorderColor(p.border_color()),
-	mLabelWidth(p.label_width)
+	mLabelWidth(p.label_width),
+	mLabelHeight(p.label_height)
 {	
 	LLTextBox::Params tp = p.caption_text;
+	// use custom label height if it is provided
+	mLabelHeight = mLabelHeight != -1 ? mLabelHeight : BTN_HEIGHT_SMALL;
 	// label_width is specified, not -1
 	if(mLabelWidth!= -1)
 	{
-		tp.rect(LLRect( 0, BTN_HEIGHT_SMALL, mLabelWidth, 0 ));
+		tp.rect(LLRect( 0, mLabelHeight, mLabelWidth, 0 ));
 	}
 	else
 	{
-		tp.rect(LLRect( 0, BTN_HEIGHT_SMALL, getRect().getWidth(), 0 ));
+		tp.rect(LLRect( 0, mLabelHeight, getRect().getWidth(), 0 ));
 	}
 	
-	tp.text(p.label);
+	tp.initial_value(p.label());
 	mCaption = LLUICtrlFactory::create<LLTextBox>(tp);
 	addChild( mCaption );
 
 	LLRect border_rect = getLocalRect();
 	border_rect.mTop -= 1;
 	border_rect.mRight -=1;
-	border_rect.mBottom += BTN_HEIGHT_SMALL;
+	border_rect.mBottom += mLabelHeight;
 
 	LLViewBorder::Params params = p.border;
 	params.rect(border_rect);
@@ -187,6 +185,10 @@ BOOL LLColorSwatchCtrl::handleMouseUp(S32 x, S32 y, MASK mask)
 			llassert(getEnabled());
 			llassert(getVisible());
 
+			// Focus the widget now in order to return the focus
+			// after the color picker is closed.
+			setFocus(TRUE);
+
 			showPicker(FALSE);
 		}
 	}
@@ -197,9 +199,12 @@ BOOL LLColorSwatchCtrl::handleMouseUp(S32 x, S32 y, MASK mask)
 // assumes GL state is set for 2D
 void LLColorSwatchCtrl::draw()
 {
+	// If we're in a focused floater, don't apply the floater's alpha to the color swatch (STORM-676).
+	F32 alpha = getTransparencyType() == TT_ACTIVE ? 1.0f : getCurrentTransparency();
+
 	mBorder->setKeyboardFocusHighlight(hasFocus());
 	// Draw border
-	LLRect border( 0, getRect().getHeight(), getRect().getWidth(), BTN_HEIGHT_SMALL );
+	LLRect border( 0, getRect().getHeight(), getRect().getWidth(), mLabelHeight );
 	gl_rect_2d( border, mBorderColor.get(), FALSE );
 
 	LLRect interior = border;
@@ -208,39 +213,50 @@ void LLColorSwatchCtrl::draw()
 	// Check state
 	if ( mValid )
 	{
-		// Draw the color swatch
-		gl_rect_2d_checkerboard( interior );
-		gl_rect_2d(interior, mColor, TRUE);
-		LLColor4 opaque_color = mColor;
-		opaque_color.mV[VALPHA] = 1.f;
-		gGL.color4fv(opaque_color.mV);
-		if (mAlphaGradientImage.notNull())
+		if (!mColor.isOpaque())
 		{
-			gGL.pushMatrix();
+			// Draw checker board.
+			gl_rect_2d_checkerboard(interior, alpha);
+		}
+
+		// Draw the color swatch
+		gl_rect_2d(interior, mColor % alpha, TRUE);
+
+		if (!mColor.isOpaque())
+		{
+			// Draw semi-transparent center area in filled with mColor.
+			LLColor4 opaque_color = mColor;
+			opaque_color.mV[VALPHA] = alpha;
+			gGL.color4fv(opaque_color.mV);
+			if (mAlphaGradientImage.notNull())
 			{
-				mAlphaGradientImage->draw(interior, mColor);
+				gGL.pushMatrix();
+				{
+					mAlphaGradientImage->draw(interior, mColor % alpha);
+				}
+				gGL.popMatrix();
 			}
-			gGL.popMatrix();
 		}
 	}
 	else
 	{
 		if (!mFallbackImageName.empty())
 		{
-			LLPointer<LLViewerTexture> fallback_image = LLViewerTextureManager::getFetchedTextureFromFile(mFallbackImageName, TRUE, FALSE, LLViewerTexture::LOD_TEXTURE);
+			LLPointer<LLViewerFetchedTexture> fallback_image = LLViewerTextureManager::getFetchedTextureFromFile(mFallbackImageName, TRUE, 
+				LLViewerTexture::BOOST_NONE, LLViewerTexture::LOD_TEXTURE);
 			if( fallback_image->getComponents() == 4 )
 			{	
 				gl_rect_2d_checkerboard( interior );
 			}	
-			gl_draw_scaled_image( interior.mLeft, interior.mBottom, interior.getWidth(), interior.getHeight(), fallback_image);
+			gl_draw_scaled_image( interior.mLeft, interior.mBottom, interior.getWidth(), interior.getHeight(), fallback_image, LLColor4::white % alpha);
 			fallback_image->addTextureStats( (F32)(interior.getWidth() * interior.getHeight()) );
 		}
 		else
 		{
 			// Draw grey and an X
-			gl_rect_2d(interior, LLColor4::grey, TRUE);
+			gl_rect_2d(interior, LLColor4::grey % alpha, TRUE);
 			
-			gl_draw_x(interior, LLColor4::black);
+			gl_draw_x(interior, LLColor4::black % alpha);
 		}
 	}
 
@@ -304,6 +320,21 @@ void LLColorSwatchCtrl::onColorChanged ( void* data, EColorPickOp pick_op )
 	}
 }
 
+// This is called when the main floatercustomize panel is closed.
+// Since this class has pointers up to its parents, we need to cleanup
+// this class first in order to avoid a crash.
+void LLColorSwatchCtrl::closeFloaterColorPicker()
+{
+	LLFloaterColorPicker* pickerp = (LLFloaterColorPicker*)mPickerHandle.get();
+	if (pickerp)
+	{
+		pickerp->setSwatch(NULL);
+		pickerp->closeFloater();
+	}
+
+	mPickerHandle.markDead();
+}
+
 void LLColorSwatchCtrl::setValid(BOOL valid )
 {
 	mValid = valid;
@@ -321,7 +352,11 @@ void LLColorSwatchCtrl::showPicker(BOOL take_focus)
 	if (!pickerp)
 	{
 		pickerp = new LLFloaterColorPicker(this, mCanApplyImmediately);
-		gFloaterView->getParentFloater(this)->addDependentFloater(pickerp);
+		LLFloater* parent = gFloaterView->getParentFloater(this);
+		if (parent)
+		{
+			parent->addDependentFloater(pickerp);
+		}
 		mPickerHandle = pickerp->getHandle();
 	}
 

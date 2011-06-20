@@ -1,30 +1,31 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  can_minimize="false"
  follows="left|top"
  height="380"
  layout="topleft"
  name="ColorPicker"
- title="Color Picker"
+ help_topic="colorpicker"
+ title="COLOR PICKER"
  width="440">
     <text
      type="string"
      length="1"
      follows="left|top"
-     font="SansSerif"
-     height="10"
+     height="20"
      layout="topleft"
-     left="12"
+     left="10"
      mouse_opaque="false"
      name="r_val_text"
-     top="35"
+     top="25"
      width="413">
         Red:
     </text>
     <spinner
      decimal_digits="0"
      follows="left"
-     height="16"
+     height="20"
      increment="1"
      initial_value="128"
      layout="topleft"
@@ -37,20 +38,18 @@
      type="string"
      length="1"
      follows="left|top"
-     font="SansSerif"
-     height="10"
+     height="20"
      layout="topleft"
-     left="12"
+     left="10"
      mouse_opaque="false"
      name="g_val_text"
-     top="56"
      width="413">
         Green:
     </text>
     <spinner
      decimal_digits="0"
      follows="left"
-     height="16"
+     height="20"
      increment="1"
      initial_value="128"
      layout="topleft"
@@ -63,20 +62,18 @@
      type="string"
      length="1"
      follows="left|top"
-     font="SansSerif"
-     height="10"
+     height="20"
      layout="topleft"
-     left="12"
+     left="10"
      mouse_opaque="false"
      name="b_val_text"
-     top="77"
      width="413">
         Blue:
     </text>
     <spinner
      decimal_digits="0"
      follows="left"
-     height="16"
+     height="20"
      increment="1"
      initial_value="128"
      layout="topleft"
@@ -89,20 +86,18 @@
      type="string"
      length="1"
      follows="left|top"
-     font="SansSerif"
-     height="10"
+     height="20"
      layout="topleft"
-     left="12"
+     left="10"
      mouse_opaque="false"
      name="h_val_text"
-     top="108"
      width="413">
         Hue:
     </text>
     <spinner
      decimal_digits="0"
      follows="left"
-     height="16"
+     height="20"
      increment="1"
      initial_value="180"
      layout="topleft"
@@ -115,20 +110,18 @@
      type="string"
      length="1"
      follows="left|top"
-     font="SansSerif"
-     height="10"
+     height="20"
      layout="topleft"
-     left="12"
+     left="10"
      mouse_opaque="false"
      name="s_val_text"
-     top="129"
      width="413">
         Sat:
     </text>
     <spinner
      decimal_digits="0"
      follows="left"
-     height="16"
+     height="20"
      increment="1"
      initial_value="50"
      layout="topleft"
@@ -141,20 +134,18 @@
      type="string"
      length="1"
      follows="left|top"
-     font="SansSerif"
-     height="10"
+     height="20"
      layout="topleft"
-     left="12"
+     left="10"
      mouse_opaque="false"
      name="l_val_text"
-     top="150"
      width="413">
         Lum:
     </text>
     <spinner
      decimal_digits="0"
      follows="left"
-     height="16"
+     height="20"
      increment="1"
      initial_value="50"
      layout="topleft"
@@ -166,40 +157,40 @@
     <check_box
      follows="left|bottom"
      height="20"
-     label="Apply Immediately"
+     label="Apply now"
      layout="topleft"
-     left="12"
+     left="10"
      name="apply_immediate"
-     top="353"
+     top_pad="185"
      width="100" />
     <button
-     follows="left|top"
-     height="32"
+     follows="left|bottom"
+     height="28"
+     image_selected="eye_button_active.tga"
+     image_unselected="eye_button_inactive.tga"
      layout="topleft"
-     left_delta="130"
+     left_pad="50"
      name="color_pipette"
-     picture_style="true"
-     top="341"
-     width="32" />
+     width="28" />
     <button
      follows="right|bottom"
-     height="20"
+     height="23"
+     label="OK"
+     label_selected="OK"
+     layout="topleft"
+     right="-120"
+     top_delta="9"
+     name="select_btn"
+     width="100" />
+    <button
+     follows="right|bottom"
+     height="23"
      label="Cancel"
      label_selected="Cancel"
      layout="topleft"
-     left_delta="75"
+     left_pad="5"
+     right="-10"
      name="cancel_btn"
-     top="353"
-     width="100" />
-    <button
-     follows="right|bottom"
-     height="20"
-     label="Select"
-     label_selected="Select"
-     layout="topleft"
-     left_pad="4"
-     name="select_btn"
-     top_delta="0"
      width="100" />
     <text
      type="string"
@@ -207,7 +198,7 @@
      follows="left|top"
      height="16"
      layout="topleft"
-     left="12"
+     left="10"
      name="Current color:"
      top="172"
      width="110">
@@ -219,10 +210,11 @@
      follows="left|top"
      height="16"
      layout="topleft"
-     left_delta="0"
+     left="10"
      name="(Drag below to save.)"
      top_pad="66"
-     width="110">
-        (Drag below to save.)
+     width="130"
+     wrap="true">
+        (Drag below to save)
     </text>
 </floater>

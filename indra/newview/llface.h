@@ -2,31 +2,25 @@
  * @file llface.h
  * @brief LLFace class definition
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -47,6 +41,7 @@
 #include "llvertexbuffer.h"
 #include "llviewertexture.h"
 #include "lldrawable.h"
+#include "lltextureatlasmanager.h"
 
 class LLFacePool;
 class LLVolume;
@@ -55,6 +50,7 @@ class LLTextureEntry;
 class LLVertexProgram;
 class LLViewerTexture;
 class LLGeometryManager;
+class LLTextureAtlasSlot;
 
 const F32 MIN_ALPHA_SIZE = 1024.f;
 const F32 MIN_TEX_ANIM_SIZE = 512.f;
@@ -62,6 +58,17 @@ const F32 MIN_TEX_ANIM_SIZE = 512.f;
 class LLFace
 {
 public:
+
+	LLFace(const LLFace& rhs)
+	{
+		*this = rhs;
+	}
+
+	const LLFace& operator=(const LLFace& rhs)
+	{
+		llerrs << "Illegal operation!" << llendl;
+		return *this;
+	}
 
 	enum EMasks
 	{
@@ -71,6 +78,7 @@ public:
 		HUD_RENDER		= 0x0008,
 		USE_FACE_COLOR	= 0x0010,
 		TEXTURE_ANIM	= 0x0020, 
+		RIGGED			= 0x0040,
 	};
 
 	static void initClass();
@@ -86,12 +94,18 @@ public:
 	U16				getGeomCount()		const	{ return mGeomCount; }		// vertex count for this face
 	U16				getGeomIndex()		const	{ return mGeomIndex; }		// index into draw pool
 	U16				getGeomStart()		const	{ return mGeomIndex; }		// index into draw pool
-	LLViewerTexture*	getTexture()		const	{ return mTexture; }
+	void			setTextureIndex(U8 index);
+	U8				getTextureIndex() const		{ return mTextureIndex; }
 	void			setTexture(LLViewerTexture* tex) ;
+	void            switchTexture(LLViewerTexture* new_texture);
+	void            dirtyTexture();
 	LLXformMatrix*	getXform()			const	{ return mXform; }
 	BOOL			hasGeometry()		const	{ return mGeomCount > 0; }
 	LLVector3		getPositionAgent()	const;
 	LLVector2       surfaceToTexture(LLVector2 surface_coord, LLVector3 position, LLVector3 normal);
+	void 			getPlanarProjectedParams(LLQuaternion* face_rot, LLVector3* face_pos, F32* scale) const;
+	bool			calcAlignedPlanarTE(const LLFace* align_to, LLVector2* st_offset,
+										LLVector2* st_scale, F32* st_rot) const;
 	
 	U32				getState()			const	{ return mState; }
 	void			setState(U32 state)			{ mState |= state; }
@@ -101,6 +115,9 @@ public:
 	void			setPixelArea(F32 area)	{ mPixelArea = area; }
 	F32				getVirtualSize() const { return mVSize; }
 	F32				getPixelArea() const { return mPixelArea; }
+
+	S32             getIndexInTex() const {return mIndexInTex ;}
+	void            setIndexInTex(S32 index) { mIndexInTex = index ;}
 
 	void			renderSetColor() const;
 	S32				renderElements(const U16 *index_array) const;
@@ -116,14 +133,14 @@ public:
 	LLDrawable*		getDrawable()		const	{ return mDrawablep; }
 	LLViewerObject*	getViewerObject()	const	{ return mVObjp; }
 	S32				getLOD()			const	{ return mVObjp.notNull() ? mVObjp->getLOD() : 0; }
-	LLVertexBuffer* getVertexBuffer()	const	{ return mVertexBuffer; }
 	void			setPoolType(U32 type)		{ mPoolType = type; }
 	S32				getTEOffset()				{ return mTEOffset; }
-	LLViewerTexture*	getTexture()				{ return mTexture; }
+	LLViewerTexture*	getTexture() const;
 
 	void			setViewerObject(LLViewerObject* object);
 	void			setPool(LLFacePool *pool, LLViewerTexture *texturep);
-	
+	void			setPool(LLFacePool* pool);
+
 	void			setDrawable(LLDrawable *drawable);
 	void			setTEOffset(const S32 te_offset);
 	
@@ -132,14 +149,15 @@ public:
 	void			unsetFaceColor(); // switch back to material color
 	const LLColor4&	getFaceColor() const { return mFaceColor; } 
 	const LLColor4& getRenderColor() const;
-	
 
 	//for volumes
 	void updateRebuildFlags();
+	bool canRenderAsMask(); // logic helper
 	BOOL getGeometryVolume(const LLVolume& volume,
 						const S32 &f,
 						const LLMatrix4& mat_vert, const LLMatrix3& mat_normal,
-						const U16 &index_offset);
+						const U16 &index_offset,
+						bool force_rebuild = false);
 
 	// For avatar
 	U16			 getGeometryAvatar(
@@ -158,7 +176,7 @@ public:
 	S32 getColors(LLStrider<LLColor4U> &colors);
 	S32 getIndices(LLStrider<U16> &indices);
 
-	void		setSize(const S32 numVertices, const S32 num_indices = 0);
+	void		setSize(S32 numVertices, S32 num_indices = 0, bool align = false);
 	
 	BOOL		genVolumeBBoxes(const LLVolume &volume, S32 f,
 								   const LLMatrix4& mat, const LLMatrix3& inv_trans_mat, BOOL global_volume = FALSE);
@@ -170,7 +188,6 @@ public:
 	void		updateCenterAgent(); // Update center when xform has changed.
 	void		renderSelectedUV();
 
-	void		renderForSelect(U32 data_mask = LLVertexBuffer::MAP_VERTEX | LLVertexBuffer::MAP_TEXCOORD0);
 	void		renderSelected(LLViewerTexture *image, const LLColor4 &color);
 
 	F32			getKey()					const	{ return mDistance; }
@@ -181,30 +198,65 @@ public:
 	BOOL		verify(const U32* indices_array = NULL) const;
 	void		printDebugInfo() const;
 
-	void		setGeomIndex(U16 idx) { mGeomIndex = idx; }
-	void		setIndicesIndex(S32 idx) { mIndicesIndex = idx; }
+	void		setGeomIndex(U16 idx); 
+	void		setIndicesIndex(S32 idx);
 	void		setDrawInfo(LLDrawInfo* draw_info);
 
-protected:
+	F32         getTextureVirtualSize() ;
+	F32         getImportanceToCamera()const {return mImportanceToCamera ;}
+
+	void        setHasMedia(bool has_media)  { mHasMedia = has_media ;}
+	BOOL        hasMedia() const ;
+
+	//for atlas
+	LLTextureAtlasSlot*   getAtlasInfo() ;
+	void                  setAtlasInUse(BOOL flag);
+	void                  setAtlasInfo(LLTextureAtlasSlot* atlasp);
+	BOOL                  isAtlasInUse()const;
+	BOOL                  canUseAtlas() const;
+	const LLVector2*      getTexCoordScale() const ;
+	const LLVector2*      getTexCoordOffset()const;
+	const LLTextureAtlas* getAtlas()const ;
+	void                  removeAtlas() ;
+	BOOL                  switchTexture() ;
+
+	//vertex buffer tracking
+	void setVertexBuffer(LLVertexBuffer* buffer);
+	void clearVertexBuffer(); //sets mVertexBuffer and mLastVertexBuffer to NULL
+	LLVertexBuffer* getVertexBuffer()	const	{ return mVertexBuffer; }
+	U32 getRiggedVertexBufferDataMask() const;
+	S32 getRiggedIndex(U32 type) const;
+	void setRiggedIndex(U32 type, S32 index);
+
+	static U32 getRiggedDataMask(U32 type);
+
+public: //aligned members
+	LLVector4a		mExtents[2];
+
+private:	
+	F32         adjustPartialOverlapPixelArea(F32 cos_angle_to_view_dir, F32 radius );
+	BOOL        calcPixelArea(F32& cos_angle_to_view_dir, F32& radius) ;
+public:
+	static F32 calcImportanceToCamera(F32 to_view_dir, F32 dist);
+	static F32 adjustPixelArea(F32 importance, F32 pixel_area) ;
 
 public:
 	
 	LLVector3		mCenterLocal;
 	LLVector3		mCenterAgent;
-	LLVector3		mExtents[2];
+	
 	LLVector2		mTexExtents[2];
 	F32				mDistance;
-	LLPointer<LLVertexBuffer> mVertexBuffer;
-	LLPointer<LLVertexBuffer> mLastVertexBuffer;
 	F32			mLastUpdateTime;
+	F32			mLastSkinTime;
 	F32			mLastMoveTime;
 	LLMatrix4*	mTextureMatrix;
 	LLDrawInfo* mDrawInfo;
 
-protected:
-	friend class LLGeometryManager;
-	friend class LLVolumeGeometryManager;
-
+private:
+	LLPointer<LLVertexBuffer> mVertexBuffer;
+	LLPointer<LLVertexBuffer> mLastVertexBuffer;
+	
 	U32			mState;
 	LLFacePool*	mDrawPoolp;
 	U32			mPoolType;
@@ -212,8 +264,10 @@ protected:
 	
 	U16			mGeomCount;			// vertex count for this face
 	U16			mGeomIndex;			// index into draw pool
+	U8			mTextureIndex;		// index of texture channel to use for pseudo-atlasing
 	U32			mIndicesCount;
 	U32			mIndicesIndex;		// index into draw pool for indices (yeah, I know!)
+	S32         mIndexInTex ;
 
 	//previous rebuild's geometry info
 	U16			mLastGeomCount;
@@ -228,8 +282,21 @@ protected:
 	S32			mTEOffset;
 
 	S32			mReferenceIndex;
+	std::vector<S32> mRiggedIndex;
+	
 	F32			mVSize;
 	F32			mPixelArea;
+
+	//importance factor, in the range [0, 1.0].
+	//1.0: the most important.
+	//based on the distance from the face to the view point and the angle from the face center to the view direction.
+	F32         mImportanceToCamera ; 
+	F32         mBoundingSphereRadius ;
+	bool        mHasMedia ;
+
+	//atlas
+	LLPointer<LLTextureAtlasSlot> mAtlasInfop ;
+	BOOL                          mUsingAtlas ;
 	
 protected:
 	static BOOL	sSafeRenderSelect;
@@ -239,7 +306,7 @@ public:
 	{
 		bool operator()(const LLFace* const& lhs, const LLFace* const& rhs)
 		{
-			return lhs->mDistance > rhs->mDistance; // farthest = first
+			return !lhs || (rhs && (lhs->mDistance > rhs->mDistance)); // farthest = first
 		}
 	};
 	
@@ -258,7 +325,7 @@ public:
 			const LLTextureEntry* lte = lhs->getTextureEntry();
 			const LLTextureEntry* rte = rhs->getTextureEntry();
 
-			if (lhs->getTexture() != rhs->getTexture())
+			if(lhs->getTexture() != rhs->getTexture())
 			{
 				return lhs->getTexture() < rhs->getTexture();
 			}

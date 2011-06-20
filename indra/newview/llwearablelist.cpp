@@ -2,31 +2,25 @@
  * @file llwearablelist.cpp
  * @brief LLWearableList class implementation
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -38,9 +32,8 @@
 #include "llassetstorage.h"
 #include "llagent.h"
 #include "llvoavatar.h"
-#include "llviewerinventory.h"
 #include "llviewerstats.h"
-#include "llnotify.h"
+#include "llnotificationsutil.h"
 #include "llinventorymodel.h"
 #include "lltrans.h"
 
@@ -70,25 +63,17 @@ struct LLWearableArrivedData
 
 LLWearableList::~LLWearableList()
 {
+	llassert_always(mList.empty()) ;
+}
+
+void LLWearableList::cleanup() 
+{
 	for_each(mList.begin(), mList.end(), DeletePairedPointer());
 	mList.clear();
 }
 
-void LLWearableList::getAsset(const LLAssetID& _assetID, const std::string& wearable_name, LLAssetType::EType asset_type, void(*asset_arrived_callback)(LLWearable*, void* userdata), void* userdata)
+void LLWearableList::getAsset(const LLAssetID& assetID, const std::string& wearable_name, LLAssetType::EType asset_type, void(*asset_arrived_callback)(LLWearable*, void* userdata), void* userdata)
 {
-	LLAssetID assetID = _assetID;
-
-	// A bit of a hack since wearables database doesn't contain asset types...
-	// Perform indirection in case this assetID is in fact a link.  This only works
-	// because of the assumption that all assetIDs and itemIDs are unique (i.e.
-	// no assetID is also used as an itemID elsewhere); therefore if the assetID
-	// exists as an itemID in the user's inventory, then this must be a link.
-	const LLInventoryItem *linked_item = gInventory.getItem(_assetID);
-	if (linked_item)
-	{
-		assetID = linked_item->getAssetUUID();
-		asset_type = linked_item->getType();
-	}
 	llassert( (asset_type == LLAssetType::AT_CLOTHING) || (asset_type == LLAssetType::AT_BODYPART) );
 	LLWearable* instance = get_if_there(mList, assetID, (LLWearable*)NULL );
 	if( instance )
@@ -130,7 +115,7 @@ void LLWearableList::processGetAssetReply( const char* filename, const LLAssetID
 			bool res = wearable->importFile( fp );
 			if (!res)
 			{
-				if (wearable->getType() == WT_COUNT)
+				if (wearable->getType() == LLWearableType::WT_COUNT)
 				{
 					isNewWearable = TRUE;
 				}
@@ -195,16 +180,16 @@ void LLWearableList::processGetAssetReply( const char* filename, const LLAssetID
 		args["TYPE"] =LLTrans::getString(LLAssetType::lookupHumanReadable(data->mAssetType));
 		if (isNewWearable)
 		{
-			LLNotifications::instance().add("InvalidWearable");
+			LLNotificationsUtil::add("InvalidWearable");
 		}
 		else if (data->mName.empty())
 		{
-			LLNotifications::instance().add("FailedToFindWearableUnnamed", args);
+			LLNotificationsUtil::add("FailedToFindWearableUnnamed", args);
 		}
 		else
 		{
 			args["DESC"] = data->mName;
-			LLNotifications::instance().add("FailedToFindWearable", args);
+			LLNotificationsUtil::add("FailedToFindWearable", args);
 		}
 	}
 	// Always call callback; wearable will be NULL if we failed
@@ -218,18 +203,17 @@ void LLWearableList::processGetAssetReply( const char* filename, const LLAssetID
 }
 
 
-LLWearable* LLWearableList::createCopyFromAvatar(const LLWearable* old_wearable, const std::string& new_name)
+LLWearable* LLWearableList::createCopy(const LLWearable* old_wearable, const std::string& new_name)
 {
-	lldebugs << "LLWearableList::createCopyFromAvatar()" << llendl;
+	lldebugs << "LLWearableList::createCopy()" << llendl;
 
 	LLWearable *wearable = generateNewWearable();
-	wearable->copyDataFrom( old_wearable );
+	wearable->copyDataFrom(old_wearable);
 
 	LLPermissions perm(old_wearable->getPermissions());
 	perm.setOwnerAndGroup(LLUUID::null, gAgent.getID(), LLUUID::null, true);
 	wearable->setPermissions(perm);
-	wearable->readFromAvatar();  // update from the avatar
-   
+
 	if (!new_name.empty()) wearable->setName(new_name);
 
 	// Send to the dataserver
@@ -238,33 +222,14 @@ LLWearable* LLWearableList::createCopyFromAvatar(const LLWearable* old_wearable,
 	return wearable;
 }
 
-
-LLWearable* LLWearableList::createCopy(const LLWearable* old_wearable)
-{
-	lldebugs << "LLWearableList::createCopy()" << llendl;
-
-	LLWearable *wearable = generateNewWearable();
-	wearable->copyDataFrom(old_wearable);
-	
-	LLPermissions perm(old_wearable->getPermissions());
-	perm.setOwnerAndGroup(LLUUID::null, gAgent.getID(), LLUUID::null, true);
-	wearable->setPermissions(perm);
-
-	// Send to the dataserver
-	wearable->saveNewAsset();
-
-	return wearable;
-}
-
-LLWearable* LLWearableList::createNewWearable( EWearableType type )
+LLWearable* LLWearableList::createNewWearable( LLWearableType::EType type )
 {
 	lldebugs << "LLWearableList::createNewWearable()" << llendl;
 
 	LLWearable *wearable = generateNewWearable();
 	wearable->setType( type );
 	
-	std::string name = "New ";
-	name.append( wearable->getTypeLabel() );
+	std::string name = LLTrans::getString( LLWearableType::getTypeDefaultNewName(wearable->getType()) );
 	wearable->setName( name );
 
 	LLPermissions perm;
@@ -273,12 +238,15 @@ LLWearable* LLWearableList::createNewWearable( EWearableType type )
 	wearable->setPermissions(perm);
 
 	// Description and sale info have default values.
-	
 	wearable->setParamsToDefaults();
 	wearable->setTexturesToDefaults();
 
+	//mark all values (params & images) as saved
+	wearable->saveValues();
+
 	// Send to the dataserver
 	wearable->saveNewAsset();
+
 
 	return wearable;
 }

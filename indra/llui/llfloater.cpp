@@ -1,32 +1,27 @@
 /** 
+
  * @file llfloater.cpp
  * @brief LLFloater base class
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -42,6 +37,7 @@
 #include "lluictrlfactory.h"
 #include "llbutton.h"
 #include "llcheckboxctrl.h"
+#include "lldir.h"
 #include "lldraghandle.h"
 #include "llfloaterreg.h"
 #include "llfocusmgr.h"
@@ -59,61 +55,37 @@
 #include "lltabcontainer.h"
 #include "v2math.h"
 #include "lltrans.h"
+#include "llhelp.h"
 #include "llmultifloater.h"
+#include "llsdutil.h"
 
 // use this to control "jumping" behavior when Ctrl-Tabbing
 const S32 TABBED_FLOATER_OFFSET = 0;
 
-std::string	LLFloater::sButtonActiveImageNames[BUTTON_COUNT] = 
-{
-	"Icon_Close_Foreground",		//BUTTON_CLOSE
-	"restore.tga",	//BUTTON_RESTORE
-	"minimize.tga",	//BUTTON_MINIMIZE
-	"tearoffbox.tga",	//BUTTON_TEAR_OFF
-	"closebox.tga",		//BUTTON_EDIT
-};
-
-std::string	LLFloater::sButtonInactiveImageNames[BUTTON_COUNT] = 
-{
-	"close_inactive_blue.tga",	//BUTTON_CLOSE
-	"restore_inactive.tga",	//BUTTON_RESTORE
-	"minimize_inactive.tga",	//BUTTON_MINIMIZE
-	"tearoffbox.tga",	//BUTTON_TEAR_OFF
-	"close_inactive_blue.tga",	//BUTTON_EDIT
-};
-
-std::string	LLFloater::sButtonPressedImageNames[BUTTON_COUNT] = 
-{
-	"Icon_Close_Press",		//BUTTON_CLOSE
-	"restore_pressed.tga",	//BUTTON_RESTORE
-	"minimize_pressed.tga",	//BUTTON_MINIMIZE
-	"tearoff_pressed.tga",	//BUTTON_TEAR_OFF
-	"close_in_blue.tga",		//BUTTON_EDIT
-};
-
 std::string	LLFloater::sButtonNames[BUTTON_COUNT] = 
 {
-	"llfloater_close_btn",	//BUTTON_CLOSE
+	"llfloater_close_btn",		//BUTTON_CLOSE
 	"llfloater_restore_btn",	//BUTTON_RESTORE
 	"llfloater_minimize_btn",	//BUTTON_MINIMIZE
 	"llfloater_tear_off_btn",	//BUTTON_TEAR_OFF
-	"llfloater_edit_btn",		//BUTTON_EDIT
+	"llfloater_dock_btn",		//BUTTON_DOCK
+	"llfloater_help_btn"		//BUTTON_HELP
 };
 
-std::string LLFloater::sButtonToolTips[BUTTON_COUNT] = {};
-
+std::string LLFloater::sButtonToolTips[BUTTON_COUNT];
 
 std::string LLFloater::sButtonToolTipsIndex[BUTTON_COUNT]=
 {
 #ifdef LL_DARWIN
-	"BUTTON_CLOSE_DARWIN",//LLTrans::getString("BUTTON_CLOSE_DARWIN"), //"Close (Cmd-W)",	//BUTTON_CLOSE
+	"BUTTON_CLOSE_DARWIN",	//"Close (Cmd-W)",	//BUTTON_CLOSE
 #else
-	"BUTTON_CLOSE_WIN", //LLTrans::getString("BUTTON_CLOSE_WIN"), //"Close (Ctrl-W)",	//BUTTON_CLOSE
+	"BUTTON_CLOSE_WIN",		//"Close (Ctrl-W)",	//BUTTON_CLOSE
 #endif
-	"BUTTON_RESTORE",//LLTrans::getString("BUTTON_RESTORE"), //"Restore",	//BUTTON_RESTORE
-	"BUTTON_MINIMIZE",//LLTrans::getString("BUTTON_MINIMIZE"),	//"Minimize",	//BUTTON_MINIMIZE
-	"BUTTON_TEAR_OFF",//LLTrans::getString("BUTTON_TEAR_OFF"),	//"Tear Off",	//BUTTON_TEAR_OFF
-	"BUTTON_EDIT", //LLTrans::getString("BUTTON_EDIT"), //	"Edit",		//BUTTON_EDIT
+	"BUTTON_RESTORE",		//"Restore",	//BUTTON_RESTORE
+	"BUTTON_MINIMIZE",		//"Minimize",	//BUTTON_MINIMIZE
+	"BUTTON_TEAR_OFF",		//"Tear Off",	//BUTTON_TEAR_OFF
+	"BUTTON_DOCK",
+	"BUTTON_HELP"
 };
 
 LLFloater::click_callback LLFloater::sButtonCallbacks[BUTTON_COUNT] =
@@ -122,15 +94,25 @@ LLFloater::click_callback LLFloater::sButtonCallbacks[BUTTON_COUNT] =
 	LLFloater::onClickMinimize, //BUTTON_RESTORE
 	LLFloater::onClickMinimize, //BUTTON_MINIMIZE
 	LLFloater::onClickTearOff,	//BUTTON_TEAR_OFF
-	LLFloater::onClickEdit,	//BUTTON_EDIT
+	LLFloater::onClickDock,		//BUTTON_DOCK
+	LLFloater::onClickHelp		//BUTTON_HELP
 };
 
 LLMultiFloater* LLFloater::sHostp = NULL;
-BOOL			LLFloater::sEditModeEnabled = FALSE;
-BOOL			LLFloater::sQuitting = FALSE; // Temporary hack until onClose() behavior becomes data driven
+BOOL			LLFloater::sQuitting = FALSE; // Flag to prevent storing visibility controls while quitting
 LLFloater::handle_map_t	LLFloater::sFloaterMap;
 
 LLFloaterView* gFloaterView = NULL;
+
+/*==========================================================================*|
+// DEV-38598: The fundamental problem with this operation is that it can only
+// support a subset of LLSD values. While it's plausible to compare two arrays
+// lexicographically, what strict ordering can you impose on maps?
+// (LLFloaterTOS's current key is an LLSD map.)
+
+// Of course something like this is necessary if you want to build a std::set
+// or std::map with LLSD keys. Fortunately we're getting by with other
+// container types for now.
 
 //static
 bool LLFloater::KeyCompare::compare(const LLSD& a, const LLSD& b)
@@ -159,35 +141,50 @@ bool LLFloater::KeyCompare::compare(const LLSD& a, const LLSD& b)
 	else
 		return false; // no valid operation for Binary
 }
+|*==========================================================================*/
 
 bool LLFloater::KeyCompare::equate(const LLSD& a, const LLSD& b)
 {
-	if (a.type() != b.type())
-	{
-		//llerrs << "Mismatched LLSD types: (" << a << ") mismatches (" << b << ")" << llendl;
-		return false;
-	}
-	else if (a.isUndefined())
-		return true;
-	else if (a.isInteger())
-		return a.asInteger() == b.asInteger();
-	else if (a.isReal())
-		return a.asReal() == b.asReal();
-	else if (a.isString())
-		return a.asString() == b.asString();
-	else if (a.isUUID())
-		return a.asUUID() == b.asUUID();
-	else if (a.isDate())
-		return a.asDate() == b.asDate();
-	else if (a.isURI())
-		return a.asString() == b.asString(); // compare URIs as strings
-	else if (a.isBoolean())
-		return a.asBoolean() == b.asBoolean();
-	else
-		return false; // no valid operation for Binary
+	return llsd_equals(a, b);
 }
 
 //************************************
+
+LLFloater::Params::Params()
+:	title("title"),
+	short_title("short_title"),
+	single_instance("single_instance", false),
+	auto_tile("auto_tile", false),
+	can_resize("can_resize", false),
+	can_minimize("can_minimize", true),
+	can_close("can_close", true),
+	can_drag_on_left("can_drag_on_left", false),
+	can_tear_off("can_tear_off", true),
+	save_dock_state("save_dock_state", false),
+	save_rect("save_rect", false),
+	save_visibility("save_visibility", false),
+	can_dock("can_dock", false),
+	open_centered("open_centered", false),
+	header_height("header_height", 0),
+	legacy_header_height("legacy_header_height", 0),
+	close_image("close_image"),
+	restore_image("restore_image"),
+	minimize_image("minimize_image"),
+	tear_off_image("tear_off_image"),
+	dock_image("dock_image"),
+	help_image("help_image"),
+	close_pressed_image("close_pressed_image"),
+	restore_pressed_image("restore_pressed_image"),
+	minimize_pressed_image("minimize_pressed_image"),
+	tear_off_pressed_image("tear_off_pressed_image"),
+	dock_pressed_image("dock_pressed_image"),
+	help_pressed_image("help_pressed_image"),
+	open_callback("open_callback"),
+	close_callback("close_callback")
+{
+	visible = false;
+}
+
 
 //static 
 const LLFloater::Params& LLFloater::getDefaultParams()
@@ -195,51 +192,67 @@ const LLFloater::Params& LLFloater::getDefaultParams()
 	return LLUICtrlFactory::getDefaultParams<LLFloater>();
 }
 
-
-LLFloater::LLFloater(const LLSD& key, const LLFloater::Params& p)
-	:	LLPanel(),
-		mDragHandle(NULL),
-		mTitle(p.title),
-		mShortTitle(p.short_title),
-		mSingleInstance(p.single_instance),
-		mKey(key),
-		mAutoTile(p.auto_tile),
-		mCanTearOff(p.can_tear_off),
-		mCanMinimize(p.can_minimize),
-		mCanClose(p.can_close),
-		mDragOnLeft(p.can_drag_on_left),
-		mResizable(p.can_resize),
-		mMinWidth(p.min_width),
-		mMinHeight(p.min_height),
-		mMinimized(FALSE),
-		mForeground(FALSE),
-		mFirstLook(TRUE),
-		mEditing(FALSE),
-		mButtonScale(1.0f),
-		mAutoFocus(TRUE), // automatically take focus when opened
-		mHasBeenDraggedWhileMinimized(FALSE),
-		mPreviousMinimizedBottom(0),
-		mPreviousMinimizedLeft(0),
-		mNotificationContext(NULL)
+//static
+void LLFloater::initClass()
 {
-	static LLUIColor default_background_color = LLUIColorTable::instance().getColor("FloaterDefaultBackgroundColor");
-	static LLUIColor focus_background_color = LLUIColorTable::instance().getColor("FloaterFocusBackgroundColor");
-	
+	// translate tooltips for floater buttons
 	for (S32 i = 0; i < BUTTON_COUNT; i++)
 	{
-		sButtonToolTips[i] =LLTrans::getString( sButtonToolTipsIndex[i]);
+		sButtonToolTips[i] = LLTrans::getString( sButtonToolTipsIndex[i] );
 	}
-	
-	mHandle.bind(this);
-	mNotificationContext = new LLFloaterNotificationContext(getHandle());
-	mBgColorAlpha        = default_background_color;
-	mBgColorOpaque       = focus_background_color;
 
-	for (S32 i = 0; i < 4; i++) 
+	LLControlVariable* ctrl = LLUI::sSettingGroups["config"]->getControl("ActiveFloaterTransparency").get();
+	if (ctrl)
 	{
-		mResizeBar[i] = NULL;
-		mResizeHandle[i] = NULL;
+		ctrl->getSignal()->connect(boost::bind(&LLFloater::updateActiveFloaterTransparency));
+		updateActiveFloaterTransparency();
 	}
+
+	ctrl = LLUI::sSettingGroups["config"]->getControl("InactiveFloaterTransparency").get();
+	if (ctrl)
+	{
+		ctrl->getSignal()->connect(boost::bind(&LLFloater::updateInactiveFloaterTransparency));
+		updateInactiveFloaterTransparency();
+	}
+
+}
+
+// defaults for floater param block pulled from widgets/floater.xml
+static LLWidgetNameRegistry::StaticRegistrar sRegisterFloaterParams(&typeid(LLFloater::Params), "floater");
+
+LLFloater::LLFloater(const LLSD& key, const LLFloater::Params& p)
+:	LLPanel(),	// intentionally do not pass params here, see initFromParams
+ 	mDragHandle(NULL),
+	mTitle(p.title),
+	mShortTitle(p.short_title),
+	mSingleInstance(p.single_instance),
+	mKey(key),
+	mAutoTile(p.auto_tile),
+	mCanTearOff(p.can_tear_off),
+	mCanMinimize(p.can_minimize),
+	mCanClose(p.can_close),
+	mDragOnLeft(p.can_drag_on_left),
+	mResizable(p.can_resize),
+	mMinWidth(p.min_width),
+	mMinHeight(p.min_height),
+	mHeaderHeight(p.header_height),
+	mLegacyHeaderHeight(p.legacy_header_height),
+	mMinimized(FALSE),
+	mForeground(FALSE),
+	mFirstLook(TRUE),
+	mButtonScale(1.0f),
+	mAutoFocus(TRUE), // automatically take focus when opened
+	mCanDock(false),
+	mDocked(false),
+	mTornOff(false),
+	mHasBeenDraggedWhileMinimized(FALSE),
+	mPreviousMinimizedBottom(0),
+	mPreviousMinimizedLeft(0),
+	mMinimizeSignal(NULL)
+//	mNotificationContext(NULL)
+{
+	mHandle.bind(this);
+//	mNotificationContext = new LLFloaterNotificationContext(getHandle());
 
 	// Clicks stop here.
 	setMouseOpaque(TRUE);
@@ -251,36 +264,30 @@ LLFloater::LLFloater(const LLSD& key, const LLFloater::Params& p)
 	// prior rectangle to be used on restore.
 	mExpandedRect.set(0,0,0,0);
 	
-	for (S32 i = 0; i < BUTTON_COUNT; i++)
-	{
-		mButtonsEnabled[i] = FALSE;
-		mButtons[i] = NULL;
-	}
-	for (S32 i = 0; i < 4; i++) 
-	{
-		mResizeBar[i] = NULL; 
-		mResizeHandle[i] = NULL;
-	}
+	memset(mButtonsEnabled, 0, BUTTON_COUNT * sizeof(bool));
+	memset(mButtons, 0, BUTTON_COUNT * sizeof(LLButton*));
+	
+	addDragHandle();
+	addResizeCtrls();
 	
 	initFromParams(p);
 	
-	// chrome floaters don't take focus at all
-	setFocusRoot(!getIsChrome());
-
-	initFloater();
+	initFloater(p);
 }
 
 // Note: Floaters constructed from XML call init() twice!
-void LLFloater::initFloater()
+void LLFloater::initFloater(const Params& p)
 {
-	addDragHandle();
-	
-	addResizeCtrls();
-
 	// Close button.
 	if (mCanClose)
 	{
 		mButtonsEnabled[BUTTON_CLOSE] = TRUE;
+	}
+
+	// Help button: '?'
+	if ( !mHelpTopic.empty() )
+	{
+		mButtonsEnabled[BUTTON_HELP] = TRUE;
 	}
 
 	// Minimize button only for top draggers
@@ -289,7 +296,12 @@ void LLFloater::initFloater()
 		mButtonsEnabled[BUTTON_MINIMIZE] = TRUE;
 	}
 
-	buildButtons();
+	if(mCanDock)
+	{
+		mButtonsEnabled[BUTTON_DOCK] = TRUE;
+	}
+
+	buildButtons(p);
 
 	// Floaters are created in the invisible state	
 	setVisible(FALSE);
@@ -305,9 +317,6 @@ void LLFloater::initFloater()
 
 void LLFloater::addDragHandle()
 {
-	static LLUICachedControl<S32> floater_close_box_size ("UIFloaterCloseBoxSize", 0);
-	S32 close_box_size = mCanClose ? floater_close_box_size : 0;
-	
 	if (!mDragHandle)
 	{
 		if (mDragOnLeft)
@@ -328,6 +337,15 @@ void LLFloater::addDragHandle()
 		}
 		addChild(mDragHandle);
 	}
+	layoutDragHandle();
+	applyTitle();
+}
+
+void LLFloater::layoutDragHandle()
+{
+	static LLUICachedControl<S32> floater_close_box_size ("UIFloaterCloseBoxSize", 0);
+	S32 close_box_size = mCanClose ? floater_close_box_size : 0;
+	
 	LLRect rect;
 	if (mDragOnLeft)
 	{
@@ -337,46 +355,34 @@ void LLFloater::addDragHandle()
 	{
 		rect = getLocalRect();
 	}
-	mDragHandle->setRect(rect);
-	updateButtons();
-	applyTitle();
+	mDragHandle->setShape(rect);
+	updateTitleButtons();
+}
+
+// static
+void LLFloater::updateActiveFloaterTransparency()
+{
+	sActiveControlTransparency = LLUI::sSettingGroups["config"]->getF32("ActiveFloaterTransparency");
+}
+
+// static
+void LLFloater::updateInactiveFloaterTransparency()
+{
+	sInactiveControlTransparency = LLUI::sSettingGroups["config"]->getF32("InactiveFloaterTransparency");
 }
 
 void LLFloater::addResizeCtrls()
-{
-	for (S32 i = 0; i < 4; i++) 
-	{
-		if (mResizeBar[i])
-		{
-			removeChild(mResizeBar[i]);
-			delete mResizeBar[i];
-			mResizeBar[i] = NULL;
-		}
-		if (mResizeHandle[i])
-		{
-			removeChild(mResizeHandle[i]);
-			delete mResizeHandle[i];
-			mResizeHandle[i] = NULL;
-		}
-	}
-	if( !mResizable )
-	{
-		return;
-	}
-	
+{	
 	// Resize bars (sides)
-	const S32 RESIZE_BAR_THICKNESS = 3;
 	LLResizeBar::Params p;
 	p.name("resizebar_left");
 	p.resizing_view(this);
-	p.rect(LLRect( 0, getRect().getHeight(), RESIZE_BAR_THICKNESS, 0));
 	p.min_size(mMinWidth);
 	p.side(LLResizeBar::LEFT);
 	mResizeBar[LLResizeBar::LEFT] = LLUICtrlFactory::create<LLResizeBar>(p);
 	addChild( mResizeBar[LLResizeBar::LEFT] );
 
 	p.name("resizebar_top");
-	p.rect(LLRect( 0, getRect().getHeight(), getRect().getWidth(), getRect().getHeight() - RESIZE_BAR_THICKNESS));
 	p.min_size(mMinHeight);
 	p.side(LLResizeBar::TOP);
 
@@ -384,15 +390,12 @@ void LLFloater::addResizeCtrls()
 	addChild( mResizeBar[LLResizeBar::TOP] );
 
 	p.name("resizebar_right");
-	p.rect(LLRect(getRect().getWidth() - RESIZE_BAR_THICKNESS, getRect().getHeight(), getRect().getWidth(), 0));
 	p.min_size(mMinWidth);
-	p.side(LLResizeBar::RIGHT);
-	
+	p.side(LLResizeBar::RIGHT);	
 	mResizeBar[LLResizeBar::RIGHT] = LLUICtrlFactory::create<LLResizeBar>(p);
 	addChild( mResizeBar[LLResizeBar::RIGHT] );
 
 	p.name("resizebar_bottom");
-	p.rect(LLRect(0, RESIZE_BAR_THICKNESS, getRect().getWidth(), 0));
 	p.min_size(mMinHeight);
 	p.side(LLResizeBar::BOTTOM);
 	mResizeBar[LLResizeBar::BOTTOM] = LLUICtrlFactory::create<LLResizeBar>(p);
@@ -400,27 +403,80 @@ void LLFloater::addResizeCtrls()
 
 	// Resize handles (corners)
 	LLResizeHandle::Params handle_p;
-	handle_p.rect(LLRect( getRect().getWidth() - RESIZE_HANDLE_WIDTH, RESIZE_HANDLE_HEIGHT, getRect().getWidth(), 0));
+	// handles must not be mouse-opaque, otherwise they block hover events
+	// to other buttons like the close box. JC
+	handle_p.mouse_opaque(false);
 	handle_p.min_width(mMinWidth);
 	handle_p.min_height(mMinHeight);
 	handle_p.corner(LLResizeHandle::RIGHT_BOTTOM);
 	mResizeHandle[0] = LLUICtrlFactory::create<LLResizeHandle>(handle_p);
 	addChild(mResizeHandle[0]);
 
-	handle_p.rect(LLRect( getRect().getWidth() - RESIZE_HANDLE_WIDTH, getRect().getHeight(), getRect().getWidth(), getRect().getHeight() - RESIZE_HANDLE_HEIGHT));
 	handle_p.corner(LLResizeHandle::RIGHT_TOP);
 	mResizeHandle[1] = LLUICtrlFactory::create<LLResizeHandle>(handle_p);
 	addChild(mResizeHandle[1]);
 	
-	handle_p.rect(LLRect( 0, RESIZE_HANDLE_HEIGHT, RESIZE_HANDLE_WIDTH, 0 ));
 	handle_p.corner(LLResizeHandle::LEFT_BOTTOM);
 	mResizeHandle[2] = LLUICtrlFactory::create<LLResizeHandle>(handle_p);
 	addChild(mResizeHandle[2]);
 
-	handle_p.rect(LLRect( 0, getRect().getHeight(), RESIZE_HANDLE_WIDTH, getRect().getHeight() - RESIZE_HANDLE_HEIGHT ));
 	handle_p.corner(LLResizeHandle::LEFT_TOP);
 	mResizeHandle[3] = LLUICtrlFactory::create<LLResizeHandle>(handle_p);
 	addChild(mResizeHandle[3]);
+
+	layoutResizeCtrls();
+}
+
+void LLFloater::layoutResizeCtrls()
+{
+	LLRect rect;
+
+	// Resize bars (sides)
+	const S32 RESIZE_BAR_THICKNESS = 3;
+	rect = LLRect( 0, getRect().getHeight(), RESIZE_BAR_THICKNESS, 0);
+	mResizeBar[LLResizeBar::LEFT]->setRect(rect);
+
+	rect = LLRect( 0, getRect().getHeight(), getRect().getWidth(), getRect().getHeight() - RESIZE_BAR_THICKNESS);
+	mResizeBar[LLResizeBar::TOP]->setRect(rect);
+
+	rect = LLRect(getRect().getWidth() - RESIZE_BAR_THICKNESS, getRect().getHeight(), getRect().getWidth(), 0);
+	mResizeBar[LLResizeBar::RIGHT]->setRect(rect);
+
+	rect = LLRect(0, RESIZE_BAR_THICKNESS, getRect().getWidth(), 0);
+	mResizeBar[LLResizeBar::BOTTOM]->setRect(rect);
+
+	// Resize handles (corners)
+	rect = LLRect( getRect().getWidth() - RESIZE_HANDLE_WIDTH, RESIZE_HANDLE_HEIGHT, getRect().getWidth(), 0);
+	mResizeHandle[0]->setRect(rect);
+
+	rect = LLRect( getRect().getWidth() - RESIZE_HANDLE_WIDTH, getRect().getHeight(), getRect().getWidth(), getRect().getHeight() - RESIZE_HANDLE_HEIGHT);
+	mResizeHandle[1]->setRect(rect);
+	
+	rect = LLRect( 0, RESIZE_HANDLE_HEIGHT, RESIZE_HANDLE_WIDTH, 0 );
+	mResizeHandle[2]->setRect(rect);
+
+	rect = LLRect( 0, getRect().getHeight(), RESIZE_HANDLE_WIDTH, getRect().getHeight() - RESIZE_HANDLE_HEIGHT );
+	mResizeHandle[3]->setRect(rect);
+}
+
+void LLFloater::enableResizeCtrls(bool enable)
+{
+	for (S32 i = 0; i < 4; ++i)
+	{
+		mResizeBar[i]->setVisible(enable);
+		mResizeBar[i]->setEnabled(enable);
+
+		mResizeHandle[i]->setVisible(enable);
+		mResizeHandle[i]->setEnabled(enable);
+	}
+}
+
+void LLFloater::destroy()
+{
+	// LLFloaterReg should be synchronized with "dead" floater to avoid returning dead instance before
+	// it was deleted via LLMortician::updateClass(). See EXT-8458.
+	LLFloaterReg::removeInstance(mInstanceName, mKey);
+	die();
 }
 
 // virtual
@@ -428,8 +484,8 @@ LLFloater::~LLFloater()
 {
 	LLFloaterReg::removeInstance(mInstanceName, mKey);
 	
-	delete mNotificationContext;
-	mNotificationContext = NULL;
+//	delete mNotificationContext;
+//	mNotificationContext = NULL;
 
 	//// am I not hosted by another floater?
 	//if (mHostHandle.isDead())
@@ -462,28 +518,76 @@ LLFloater::~LLFloater()
 	storeRectControl();
 	setVisible(false); // We're not visible if we're destroyed
 	storeVisibilityControl();
+	storeDockStateControl();
+
+	delete mMinimizeSignal;
 }
 
 void LLFloater::storeRectControl()
 {
 	if( mRectControl.size() > 1 )
 	{
-		LLUI::sSettingGroups["floater"]->setRect( mRectControl, getRect() );
+		getControlGroup()->setRect( mRectControl, getRect() );
 	}
 }
 
 void LLFloater::storeVisibilityControl()
 {
-	// sQuitting is a temp hack until we standardize onClose() behavior so that it won't call this when quitting
 	if( !sQuitting && mVisibilityControl.size() > 1 )
 	{
-		LLUI::sSettingGroups["floater"]->setBOOL( mVisibilityControl, getVisible() );
+		getControlGroup()->setBOOL( mVisibilityControl, getVisible() );
 	}
+}
+
+void LLFloater::storeDockStateControl()
+{
+	if( !sQuitting && mDocStateControl.size() > 1 )
+	{
+		getControlGroup()->setBOOL( mDocStateControl, isDocked() );
+	}
+}
+
+LLRect LLFloater::getSavedRect() const
+{
+	LLRect rect;
+
+	if (mRectControl.size() > 1)
+	{
+		rect = getControlGroup()->getRect(mRectControl);
+	}
+
+	return rect;
+}
+
+bool LLFloater::hasSavedRect() const
+{
+	return !getSavedRect().isEmpty();
+}
+
+// static
+std::string LLFloater::getControlName(const std::string& name, const LLSD& key)
+{
+	std::string ctrl_name = name;
+
+	// Add the key to the control name if appropriate.
+	if (key.isString() && !key.asString().empty())
+	{
+		ctrl_name += "_" + key.asString();
+	}
+
+	return ctrl_name;
+}
+
+// static
+LLControlGroup*	LLFloater::getControlGroup()
+{
+	// Floater size, position, visibility, etc are saved in per-account settings.
+	return LLUI::sSettingGroups["account"];
 }
 
 void LLFloater::setVisible( BOOL visible )
 {
-	LLPanel::setVisible(visible);
+	LLPanel::setVisible(visible); // calls handleVisibilityChange()
 	if( visible && mFirstLook )
 	{
 		mFirstLook = FALSE;
@@ -491,10 +595,7 @@ void LLFloater::setVisible( BOOL visible )
 
 	if( !visible )
 	{
-		if( gFocusMgr.childIsTopCtrl( this ) )
-		{
-			gFocusMgr.setTopCtrl(NULL);
-		}
+		LLUI::removePopup(this);
 
 		if( gFocusMgr.childHasMouseCapture( this ) )
 		{
@@ -518,18 +619,19 @@ void LLFloater::setVisible( BOOL visible )
 }
 
 // virtual
-void LLFloater::onVisibilityChange ( BOOL new_visibility )
+void LLFloater::handleVisibilityChange ( BOOL new_visibility )
 {
 	if (new_visibility)
 	{
 		if (getHost())
 			getHost()->setFloaterFlashing(this, FALSE);
 	}
-	LLPanel::onVisibilityChange ( new_visibility );
+	LLPanel::handleVisibilityChange ( new_visibility );
 }
 
 void LLFloater::openFloater(const LLSD& key)
 {
+	llinfos << "Opening floater " << getName() << llendl;
 	mKey = key; // in case we need to open ourselves again
 	
 	if (getSoundFlags() != SILENT 
@@ -562,15 +664,18 @@ void LLFloater::openFloater(const LLSD& key)
 		setVisibleAndFrontmost(mAutoFocus);
 	}
 
-	mOpenSignal(this, getValue());
+	mOpenSignal(this, key);
 	onOpen(key);
+
+	dirtyRect();
 }
 
 void LLFloater::closeFloater(bool app_quitting)
 {
+	llinfos << "Closing floater " << getName() << llendl;
 	if (app_quitting)
 	{
-		LLFloater::sQuitting = true; // Temp hack until we standardize onClose()	
+		LLFloater::sQuitting = true;
 	}
 	
 	// Always unminimize before trying to close.
@@ -629,10 +734,31 @@ void LLFloater::closeFloater(bool app_quitting)
 				}
 			}
 		}
-		
-		// Let floater do cleanup.
-		mCloseSignal(this, getValue(), app_quitting);
+
+		dirtyRect();
+
+		// Close callbacks
 		onClose(app_quitting);
+		mCloseSignal(this, LLSD(app_quitting));
+		
+		// Hide or Destroy
+		if (mSingleInstance)
+		{
+			// Hide the instance
+			if (getHost())
+			{
+				getHost()->setVisible(FALSE);
+			}
+			else
+			{
+				setVisible(FALSE);
+			}
+		}
+		else
+		{
+			setVisible(FALSE); // hide before destroying (so handleVisibilityChange() gets called)
+			destroy();
+		}
 	}
 }
 
@@ -645,15 +771,9 @@ void LLFloater::reshape(S32 width, S32 height, BOOL called_from_parent)
 
 void LLFloater::releaseFocus()
 {
-	if( gFocusMgr.childIsTopCtrl( this ) )
-	{
-		gFocusMgr.setTopCtrl(NULL);
-	}
+	LLUI::removePopup(this);
 
-	if( gFocusMgr.childHasKeyboardFocus( this ) )
-	{
-		gFocusMgr.setKeyboardFocus(NULL);
-	}
+	setFocus(FALSE);
 
 	if( gFocusMgr.childHasMouseCapture( this ) )
 	{
@@ -703,11 +823,24 @@ LLMultiFloater* LLFloater::getHost()
 	return (LLMultiFloater*)mHostHandle.get(); 
 }
 
+void    LLFloater::applySavedVariables()
+{
+	applyRectControl();
+	applyDockState();
+}
+
 void LLFloater::applyRectControl()
 {
+	// first, center on screen if requested	
+	if (mOpenCentered)
+	{
+		center();
+	}
+
+	// override center if we have saved rect control
 	if (mRectControl.size() > 1)
 	{
-		const LLRect& rect = LLUI::sSettingGroups["floater"]->getRect(mRectControl);
+		const LLRect& rect = getControlGroup()->getRect(mRectControl);
 		if (rect.getWidth() > 0 && rect.getHeight() > 0)
 		{
 			translate( rect.mLeft - getRect().mLeft, rect.mBottom - getRect().mBottom);
@@ -719,13 +852,18 @@ void LLFloater::applyRectControl()
 	}
 }
 
-void LLFloater::applyTitle()
+void LLFloater::applyDockState()
 {
-	if (gNoRender)
+	if (mDocStateControl.size() > 1)
 	{
-		return;
+		bool dockState = getControlGroup()->getBOOL(mDocStateControl);
+		setDocked(dockState);
 	}
 
+}
+
+void LLFloater::applyTitle()
+{
 	if (!mDragHandle)
 	{
 		return;
@@ -739,9 +877,14 @@ void LLFloater::applyTitle()
 	{
 		mDragHandle->setTitle ( mTitle );
 	}
+
+	if (getHost())
+	{
+		getHost()->updateFloaterTitle(this);	
+	}
 }
 
-const std::string& LLFloater::getCurrentTitle() const
+std::string LLFloater::getCurrentTitle() const
 {
 	return mDragHandle ? mDragHandle->getTitle() : LLStringUtil::null;
 }
@@ -752,7 +895,7 @@ void LLFloater::setTitle( const std::string& title )
 	applyTitle();
 }
 
-std::string LLFloater::getTitle()
+std::string LLFloater::getTitle() const
 {
 	if (mTitle.empty())
 	{
@@ -770,7 +913,7 @@ void LLFloater::setShortTitle( const std::string& short_title )
 	applyTitle();
 }
 
-std::string LLFloater::getShortTitle()
+std::string LLFloater::getShortTitle() const
 {
 	if (mShortTitle.empty())
 	{
@@ -781,8 +924,6 @@ std::string LLFloater::getShortTitle()
 		return mShortTitle;
 	}
 }
-
-
 
 BOOL LLFloater::canSnapTo(const LLView* other_view)
 {
@@ -814,9 +955,11 @@ void LLFloater::setSnappedTo(const LLView* snap_view)
 	else
 	{
 		//RN: assume it's a floater as it must be a sibling to our parent floater
-		LLFloater* floaterp = (LLFloater*)snap_view;
-		
-		setSnapTarget(floaterp->getHandle());
+		const LLFloater* floaterp = dynamic_cast<const LLFloater*>(snap_view);
+		if (floaterp)
+		{
+			setSnapTarget(floaterp->getHandle());
+		}
 	}
 }
 
@@ -876,13 +1019,22 @@ void LLFloater::handleReshape(const LLRect& new_rect, bool by_user)
 
 void LLFloater::setMinimized(BOOL minimize)
 {
-	static LLUICachedControl<S32> floater_header_size ("UIFloaterHeaderSize", 0);
+	const LLFloater::Params& default_params = LLFloater::getDefaultParams();
+	S32 floater_header_size = default_params.header_height;
 	static LLUICachedControl<S32> minimized_width ("UIMinimizedWidth", 0);
 
 	if (minimize == mMinimized) return;
 
+	if(mMinimizeSignal)
+	{
+		(*mMinimizeSignal)(this, LLSD(minimize));
+	}
+
 	if (minimize)
 	{
+		// minimized flag should be turned on before release focus
+		mMinimized = TRUE;
+
 		mExpandedRect = getRect();
 
 		// If the floater has been dragged while minimized in the
@@ -944,8 +1096,6 @@ void LLFloater::setMinimized(BOOL minimize)
 			}
 		}
 		
-		mMinimized = TRUE;
-
 		// Reshape *after* setting mMinimized
 		reshape( minimized_width, floater_header_size, TRUE);
 	}
@@ -998,11 +1148,10 @@ void LLFloater::setMinimized(BOOL minimize)
 		// Reshape *after* setting mMinimized
 		reshape( mExpandedRect.getWidth(), mExpandedRect.getHeight(), TRUE );
 	}
-	
-	applyTitle ();
 
 	make_ui_sound("UISndWindowClose");
-	updateButtons();
+	updateTitleButtons();
+	applyTitle ();
 }
 
 void LLFloater::setFocus( BOOL b )
@@ -1013,7 +1162,7 @@ void LLFloater::setFocus( BOOL b )
 	}
 	LLUICtrl* last_focus = gFocusMgr.getLastFocusForGroup(this);
 	// a descendent already has focus
-	BOOL child_had_focus = gFocusMgr.childHasKeyboardFocus(this);
+	BOOL child_had_focus = hasFocus();
 
 	// give focus to first valid descendent
 	LLPanel::setFocus(b);
@@ -1038,13 +1187,15 @@ void LLFloater::setFocus( BOOL b )
 			last_focus->setFocus(TRUE);
 		}
 	}
+	updateTransparency(b ? TT_ACTIVE : TT_INACTIVE);
 }
 
 // virtual
 void LLFloater::setRect(const LLRect &rect)
 {
 	LLPanel::setRect(rect);
-	addDragHandle(); // re-add drag handle, sized based on rect
+	layoutDragHandle();
+	layoutResizeCtrls();
 }
 
 // virtual
@@ -1057,6 +1208,7 @@ void LLFloater::setIsChrome(BOOL is_chrome)
 		setFocus(FALSE);
 		// can't Ctrl-Tab to "chrome" floaters
 		setFocusRoot(FALSE);
+		mButtons[BUTTON_CLOSE]->setToolTip(LLStringExplicit(getButtonTooltip(Params(), BUTTON_CLOSE, is_chrome)));
 	}
 	
 	// no titles displayed on "chrome" floaters
@@ -1126,7 +1278,7 @@ void LLFloater::setHost(LLMultiFloater* host)
 		mButtonScale = 1.f;
 		//mButtonsEnabled[BUTTON_TEAR_OFF] = FALSE;
 	}
-	updateButtons();
+	updateTitleButtons();
 	if (host)
 	{
 		mHostHandle = host->getHandle();
@@ -1195,7 +1347,7 @@ void LLFloater::removeDependentFloater(LLFloater* floaterp)
 	floaterp->mDependeeHandle = LLHandle<LLFloater>();
 }
 
-BOOL LLFloater::offerClickToButton(S32 x, S32 y, MASK mask, EFloaterButtons index)
+BOOL LLFloater::offerClickToButton(S32 x, S32 y, MASK mask, EFloaterButton index)
 {
 	if( mButtonsEnabled[index] )
 	{
@@ -1212,6 +1364,12 @@ BOOL LLFloater::offerClickToButton(S32 x, S32 y, MASK mask, EFloaterButtons inde
 		}
 	}
 	return FALSE;
+}
+
+BOOL LLFloater::handleScrollWheel(S32 x, S32 y, S32 clicks)
+{
+	LLPanel::handleScrollWheel(x,y,clicks);
+	return TRUE;//always
 }
 
 // virtual
@@ -1302,30 +1460,41 @@ void LLFloater::setFrontmost(BOOL take_focus)
 		// there are more than one floater view
 		// so we need to query our parent directly
 		((LLFloaterView*)getParent())->bringToFront(this, take_focus);
+
+		// Make sure to set the appropriate transparency type (STORM-732).
+		updateTransparency(hasFocus() || getIsChrome() ? TT_ACTIVE : TT_INACTIVE);
 	}
 }
 
-//static
-void LLFloater::setEditModeEnabled(BOOL enable)
+void LLFloater::setCanDock(bool b)
 {
-	if (enable != sEditModeEnabled)
+	if(b != mCanDock)
 	{
-		S32 count = 0;
-		for(handle_map_iter_t iter = sFloaterMap.begin(); iter != sFloaterMap.end(); ++iter)
+		mCanDock = b;
+		if(mCanDock)
 		{
-			LLFloater* floater = iter->second;
-			if (!floater->isDead())
-			{
-				iter->second->mButtonsEnabled[BUTTON_EDIT] = enable;
-				iter->second->updateButtons();
-			}
-			count++;
+			mButtonsEnabled[BUTTON_DOCK] = !mDocked;
+		}
+		else
+		{
+			mButtonsEnabled[BUTTON_DOCK] = FALSE;
 		}
 	}
-
-	sEditModeEnabled = enable;
+	updateTitleButtons();
 }
 
+void LLFloater::setDocked(bool docked, bool pop_on_undock)
+{
+	if(docked != mDocked && mCanDock)
+	{
+		mDocked = docked;
+		mButtonsEnabled[BUTTON_DOCK] = !mDocked;
+		updateTitleButtons();
+
+		storeDockStateControl();
+	}
+	
+}
 
 // static
 void LLFloater::onClickMinimize(LLFloater* self)
@@ -1337,9 +1506,9 @@ void LLFloater::onClickMinimize(LLFloater* self)
 
 void LLFloater::onClickTearOff(LLFloater* self)
 {
-	static LLUICachedControl<S32> floater_header_size ("UIFloaterHeaderSize", 0);
 	if (!self)
 		return;
+	S32 floater_header_size = self->mHeaderHeight;
 	LLMultiFloater* host_floater = self->getHost();
 	if (host_floater) //Tear off
 	{
@@ -1359,6 +1528,7 @@ void LLFloater::onClickTearOff(LLFloater* self)
 		gFloaterView->adjustToFitScreen(self, FALSE);
 		// give focus to new window to keep continuity for the user
 		self->setFocus(TRUE);
+		self->setTornOff(true);
 	}
 	else  //Attach to parent.
 	{
@@ -1370,15 +1540,32 @@ void LLFloater::onClickTearOff(LLFloater* self)
 			// make sure host is visible
 			new_host->openFloater(new_host->getKey());
 		}
+		self->setTornOff(false);
+	}
+	self->updateTitleButtons();
+}
+
+// static
+void LLFloater::onClickDock(LLFloater* self)
+{
+	if(self && self->mCanDock)
+	{
+		self->setDocked(!self->mDocked, true);
 	}
 }
 
 // static
-void LLFloater::onClickEdit(LLFloater* self)
+void LLFloater::onClickHelp( LLFloater* self )
 {
-	if (!self)
-		return;
-	self->mEditing = self->mEditing ? FALSE : TRUE;
+	if (self && LLUI::sHelpImpl)
+	{
+		// find the current help context for this floater
+		std::string help_topic;
+		if (self->findHelpTopic(help_topic))
+		{
+			LLUI::sHelpImpl->showTopic(help_topic);
+		}
+	}
 }
 
 // static 
@@ -1404,7 +1591,8 @@ LLFloater* LLFloater::getClosableFloaterFromFocus()
 
 	// The focused floater may not be closable,
 	// Find and close a parental floater that is closeable, if any.
-	for(LLFloater* floater_to_close = focused_floater; 
+	LLFloater* prev_floater = NULL;
+	for(LLFloater* floater_to_close = focused_floater;
 		NULL != floater_to_close; 
 		floater_to_close = gFloaterView->getParentFloater(floater_to_close))
 	{
@@ -1412,6 +1600,14 @@ LLFloater* LLFloater::getClosableFloaterFromFocus()
 		{
 			return floater_to_close;
 		}
+
+		// If floater has as parent root view
+		// gFloaterView->getParentFloater(floater_to_close) returns
+		// the same floater_to_close, so we need to check this.
+		if (prev_floater == floater_to_close) {
+			break;
+		}
+		prev_floater = floater_to_close;
 	}
 
 	return NULL;
@@ -1442,53 +1638,69 @@ void LLFloater::onClickClose( LLFloater* self )
 {
 	if (!self)
 		return;
-	self->closeFloater(false);
+	self->onClickCloseBtn();
+}
+
+void	LLFloater::onClickCloseBtn()
+{
+	closeFloater(false);
 }
 
 
 // virtual
 void LLFloater::draw()
 {
+	const F32 alpha = getCurrentTransparency();
+
 	// draw background
 	if( isBackgroundVisible() )
 	{
+		drawShadow(this);
+
 		S32 left = LLPANEL_BORDER_WIDTH;
 		S32 top = getRect().getHeight() - LLPANEL_BORDER_WIDTH;
 		S32 right = getRect().getWidth() - LLPANEL_BORDER_WIDTH;
 		S32 bottom = LLPANEL_BORDER_WIDTH;
 
-		static LLUICachedControl<S32> shadow_offset_S32 ("DropShadowFloater", 0);
-		static LLUIColor shadow_color_cached = LLUIColorTable::instance().getColor("ColorDropShadow");
-		LLColor4 shadow_color = shadow_color_cached;
-		F32 shadow_offset = (F32)shadow_offset_S32;
-
-		if (!isBackgroundOpaque())
-		{
-			shadow_offset *= 0.2f;
-			shadow_color.mV[VALPHA] *= 0.5f;
-		}
-		gl_drop_shadow(left, top, right, bottom, 
-			shadow_color, 
-			llround(shadow_offset));
-
-		// No transparent windows in simple UI
+		LLUIImage* image = NULL;
+		LLColor4 color;
+		LLColor4 overlay_color;
 		if (isBackgroundOpaque())
 		{
-			gl_rect_2d( left, top, right, bottom, mBgColorOpaque );
+			// NOTE: image may not be set
+			image = getBackgroundImage();
+			color = getBackgroundColor();
+			overlay_color = getBackgroundImageOverlay();
 		}
 		else
 		{
-			gl_rect_2d( left, top, right, bottom, mBgColorAlpha );
+			image = getTransparentImage();
+			color = getTransparentColor();
+			overlay_color = getTransparentImageOverlay();
 		}
 
-		if(gFocusMgr.childHasKeyboardFocus(this) && !getIsChrome() && !getCurrentTitle().empty())
+		if (image)
 		{
-			static LLUIColor titlebar_focus_color = LLUIColorTable::instance().getColor("TitleBarFocusColor");
+			// We're using images for this floater's backgrounds
+			image->draw(getLocalRect(), overlay_color % alpha);
+		}
+		else
+		{
+			// We're not using images, use old-school flat colors
+			gl_rect_2d( left, top, right, bottom, color % alpha );
+
 			// draw highlight on title bar to indicate focus.  RDW
-			const LLFontGL* font = LLFontGL::getFontSansSerif();
-			LLRect r = getRect();
-			gl_rect_2d_offset_local(0, r.getHeight(), r.getWidth(), r.getHeight() - (S32)font->getLineHeight() - 1, 
-				titlebar_focus_color, 0, TRUE);
+			if(hasFocus() 
+				&& !getIsChrome() 
+				&& !getCurrentTitle().empty())
+			{
+				static LLUIColor titlebar_focus_color = LLUIColorTable::instance().getColor("TitleBarFocusColor");
+				
+				const LLFontGL* font = LLFontGL::getFontSansSerif();
+				LLRect r = getRect();
+				gl_rect_2d_offset_local(0, r.getHeight(), r.getWidth(), r.getHeight() - (S32)font->getLineHeight() - 1, 
+					titlebar_focus_color % alpha, 0, TRUE);
+			}
 		}
 	}
 
@@ -1498,9 +1710,9 @@ void LLFloater::draw()
 	{
 		if (hasFocus() && getDefaultButton()->getEnabled())
 		{
-			LLUICtrl* focus_ctrl = gFocusMgr.getKeyboardFocus();
+			LLFocusableElement* focus_ctrl = gFocusMgr.getKeyboardFocus();
 			// is this button a direct descendent and not a nested widget (e.g. checkbox)?
-			BOOL focus_is_child_button = dynamic_cast<LLButton*>(focus_ctrl) != NULL && focus_ctrl->getParent() == this;
+			BOOL focus_is_child_button = dynamic_cast<LLButton*>(focus_ctrl) != NULL && dynamic_cast<LLButton*>(focus_ctrl)->getParent() == this;
 			// only enable default button when current focus is not a button
 			getDefaultButton()->setBorderEnabled(!focus_is_child_button);
 		}
@@ -1519,35 +1731,8 @@ void LLFloater::draw()
 	}
 	else
 	{
-		// draw children
-		LLView* focused_child = gFocusMgr.getKeyboardFocus();
-		BOOL focused_child_visible = FALSE;
-		if (focused_child && focused_child->getParent() == this)
-		{
-			focused_child_visible = focused_child->getVisible();
-			focused_child->setVisible(FALSE);
-		}
-
 		// don't call LLPanel::draw() since we've implemented custom background rendering
 		LLView::draw();
-
-		if (focused_child_visible)
-		{
-			focused_child->setVisible(TRUE);
-		}
-		drawChild(focused_child);
-	}
-
-	if( isBackgroundVisible() )
-	{
-		// add in a border to improve spacialized visual aclarity ;)
-		// use lines instead of gl_rect_2d so we can round the edges as per james' recommendation
-		static LLUIColor focus_border_color = LLUIColorTable::instance().getColor("FloaterFocusBorderColor");
-		static LLUIColor unfocus_border_color = LLUIColorTable::instance().getColor("FloaterUnfocusBorderColor");
-		LLUI::setLineWidth(1.5f);
-		LLColor4 outlineColor = gFocusMgr.childHasKeyboardFocus(this) ? focus_border_color : unfocus_border_color;
-		gl_rect_2d_offset_local(0, getRect().getHeight() + 1, getRect().getWidth() + 1, 0, outlineColor, -LLPANEL_BORDER_WIDTH, FALSE);
-		LLUI::setLineWidth(1.f);
 	}
 
 	// update tearoff button for torn off floaters
@@ -1560,6 +1745,50 @@ void LLFloater::draw()
 			setCanTearOff(FALSE);
 		}
 	}
+}
+
+void	LLFloater::drawShadow(LLPanel* panel)
+{
+	S32 left = LLPANEL_BORDER_WIDTH;
+	S32 top = panel->getRect().getHeight() - LLPANEL_BORDER_WIDTH;
+	S32 right = panel->getRect().getWidth() - LLPANEL_BORDER_WIDTH;
+	S32 bottom = LLPANEL_BORDER_WIDTH;
+
+	static LLUICachedControl<S32> shadow_offset_S32 ("DropShadowFloater", 0);
+	static LLUIColor shadow_color_cached = LLUIColorTable::instance().getColor("ColorDropShadow");
+	LLColor4 shadow_color = shadow_color_cached;
+	F32 shadow_offset = (F32)shadow_offset_S32;
+
+	if (!panel->isBackgroundOpaque())
+	{
+		shadow_offset *= 0.2f;
+		shadow_color.mV[VALPHA] *= 0.5f;
+	}
+	gl_drop_shadow(left, top, right, bottom, 
+		shadow_color % getCurrentTransparency(),
+		llround(shadow_offset));
+}
+
+void LLFloater::updateTransparency(LLView* view, ETypeTransparency transparency_type)
+{
+	child_list_t children = *view->getChildList();
+	child_list_t::iterator it = children.begin();
+
+	LLUICtrl* ctrl = dynamic_cast<LLUICtrl*>(view);
+	if (ctrl)
+	{
+		ctrl->setTransparencyType(transparency_type);
+	}
+
+	for(; it != children.end(); ++it)
+	{
+		updateTransparency(*it, transparency_type);
+	}
+}
+
+void LLFloater::updateTransparency(ETypeTransparency transparency_type)
+{
+	updateTransparency(this, transparency_type);
 }
 
 void	LLFloater::setCanMinimize(BOOL can_minimize)
@@ -1575,7 +1804,7 @@ void	LLFloater::setCanMinimize(BOOL can_minimize)
 	mButtonsEnabled[BUTTON_MINIMIZE] = can_minimize && !isMinimized();
 	mButtonsEnabled[BUTTON_RESTORE]  = can_minimize &&  isMinimized();
 
-	updateButtons();
+	updateTitleButtons();
 }
 
 void	LLFloater::setCanClose(BOOL can_close)
@@ -1583,7 +1812,7 @@ void	LLFloater::setCanClose(BOOL can_close)
 	mCanClose = can_close;
 	mButtonsEnabled[BUTTON_CLOSE] = can_close;
 
-	updateButtons();
+	updateTitleButtons();
 }
 
 void	LLFloater::setCanTearOff(BOOL can_tear_off)
@@ -1591,14 +1820,14 @@ void	LLFloater::setCanTearOff(BOOL can_tear_off)
 	mCanTearOff = can_tear_off;
 	mButtonsEnabled[BUTTON_TEAR_OFF] = mCanTearOff && !mHostHandle.isDead();
 
-	updateButtons();
+	updateTitleButtons();
 }
 
 
 void LLFloater::setCanResize(BOOL can_resize)
 {
 	mResizable = can_resize;
-	addResizeCtrls();
+	enableResizeCtrls(can_resize);
 }
 
 void LLFloater::setCanDrag(BOOL can_drag)
@@ -1615,21 +1844,40 @@ void LLFloater::setCanDrag(BOOL can_drag)
 	}
 }
 
-void LLFloater::updateButtons()
+void LLFloater::updateTitleButtons()
 {
 	static LLUICachedControl<S32> floater_close_box_size ("UIFloaterCloseBoxSize", 0);
 	static LLUICachedControl<S32> close_box_from_top ("UICloseBoxFromTop", 0);
+	LLRect buttons_rect;
 	S32 button_count = 0;
 	for (S32 i = 0; i < BUTTON_COUNT; i++)
 	{
-		if(!mButtons[i]) continue;
-		mButtons[i]->setEnabled(mButtonsEnabled[i]);
+		if (!mButtons[i])
+		{
+			continue;
+		}
 
-		if (mButtonsEnabled[i] 
-			//*HACK: always render close button for hosted floaters
-			// so that users don't accidentally hit the button when closing multiple windows
-			// in the chatterbox
-			|| (i == BUTTON_CLOSE && mButtonScale != 1.f))
+		bool enabled = mButtonsEnabled[i];
+		if (i == BUTTON_HELP)
+		{
+			// don't show the help button if the floater is minimized
+			// or if it is a docked tear-off floater
+			if (isMinimized() || (mButtonsEnabled[BUTTON_TEAR_OFF] && ! mTornOff))
+			{
+				enabled = false;
+			}
+		}
+		if (i == BUTTON_CLOSE && mButtonScale != 1.f)
+		{
+			//*HACK: always render close button for hosted floaters so
+			//that users don't accidentally hit the button when
+			//closing multiple windows in the chatterbox
+			enabled = true;
+		}
+
+		mButtons[i]->setEnabled(enabled);
+
+		if (enabled)
 		{
 			button_count++;
 
@@ -1651,21 +1899,36 @@ void LLFloater::updateButtons()
 					llround((F32)floater_close_box_size * mButtonScale));
 			}
 
+			// first time here, init 'buttons_rect'
+			if(1 == button_count)
+			{
+				buttons_rect = btn_rect;
+			}
+			else
+			{
+				// if mDragOnLeft=true then buttons are on top-left side vertically aligned
+				// title is not displayed in this case, calculating 'buttons_rect' for future use
+				mDragOnLeft ? buttons_rect.mBottom -= btn_rect.mBottom : 
+					buttons_rect.mLeft = btn_rect.mLeft;
+			}
 			mButtons[i]->setRect(btn_rect);
 			mButtons[i]->setVisible(TRUE);
 			// the restore button should have a tab stop so that it takes action when you Ctrl-Tab to a minimized floater
 			mButtons[i]->setTabStop(i == BUTTON_RESTORE);
 		}
-		else if (mButtons[i])
+		else
 		{
 			mButtons[i]->setVisible(FALSE);
 		}
 	}
 	if (mDragHandle)
-		mDragHandle->setMaxTitleWidth(getRect().getWidth() - (button_count * (floater_close_box_size + 1)));
+	{
+		localRectToOtherView(buttons_rect, &buttons_rect, mDragHandle);
+		mDragHandle->setButtonsRect(buttons_rect);
+	}
 }
 
-void LLFloater::buildButtons()
+void LLFloater::buildButtons(const Params& floater_params)
 {
 	static LLUICachedControl<S32> floater_close_box_size ("UIFloaterCloseBoxSize", 0);
 	static LLUICachedControl<S32> close_box_from_top ("UICloseBoxFromTop", 0);
@@ -1699,99 +1962,97 @@ void LLFloater::buildButtons()
 		LLButton::Params p;
 		p.name(sButtonNames[i]);
 		p.rect(btn_rect);
-		p.label("");
-		p.image_unselected.name(sButtonActiveImageNames[i]);
-		p.image_selected.name(sButtonPressedImageNames[i]);
-		p.image_hover_selected.name(sButtonPressedImageNames[i]);
-		p.image_hover_unselected.name(sButtonPressedImageNames[i]);
+		p.image_unselected = getButtonImage(floater_params, (EFloaterButton)i);
+		// Selected, no matter if hovered or not, is "pressed"
+		LLUIImage* pressed_image = getButtonPressedImage(floater_params, (EFloaterButton)i);
+		p.image_selected = pressed_image;
+		p.image_hover_selected = pressed_image;
+		// Use a glow effect when the user hovers over the button
+		// These icons are really small, need glow amount increased
+		p.hover_glow_amount( 0.33f );
 		p.click_callback.function(boost::bind(sButtonCallbacks[i], this));
 		p.tab_stop(false);
 		p.follows.flags(FOLLOWS_TOP|FOLLOWS_RIGHT);
-		p.tool_tip(sButtonToolTips[i]);
+		p.tool_tip = getButtonTooltip(floater_params, (EFloaterButton)i, getIsChrome());
 		p.scale_image(true);
+		p.chrome(true);
 
 		LLButton* buttonp = LLUICtrlFactory::create<LLButton>(p);
 		addChild(buttonp);
 		mButtons[i] = buttonp;
 	}
 
-	updateButtons();
+	updateTitleButtons();
 }
 
-void LLFloater::initOpenCallback(const OpenCallbackParam& cb, open_signal_t& sig)
+// static
+LLUIImage* LLFloater::getButtonImage(const Params& p, EFloaterButton e)
 {
-	if (cb.function.isProvided())
+	switch(e)
 	{
-		if (cb.parameter.isProvided())
-			sig.connect(boost::bind(cb.function(), _1, cb.parameter));
-		else
-			sig.connect(cb.function());
-	}
-	else
-	{
-		std::string function_name = cb.function_name;
-		open_callback_t* func = (OpenCallbackRegistry::getValue(function_name));
-		if (func)
-		{
-			if (cb.parameter.isProvided())
-				sig.connect(boost::bind((*func), _1, cb.parameter));
-			else
-				sig.connect(*func);
-		}
-		else if (!function_name.empty())
-		{
-			llwarns << "No callback found for: '" << function_name << "' in control: " << getName() << llendl;
-		}			
+		default:
+		case BUTTON_CLOSE:
+			return p.close_image;
+		case BUTTON_RESTORE:
+			return p.restore_image;
+		case BUTTON_MINIMIZE:
+			return p.minimize_image;
+		case BUTTON_TEAR_OFF:
+			return p.tear_off_image;
+		case BUTTON_DOCK:
+			return p.dock_image;
+		case BUTTON_HELP:
+			return p.help_image;
 	}
 }
 
-void LLFloater::initCloseCallback(const CloseCallbackParam& cb, close_signal_t& sig)
+// static
+LLUIImage* LLFloater::getButtonPressedImage(const Params& p, EFloaterButton e)
 {
-	if (cb.function.isProvided())
+	switch(e)
 	{
-		if (cb.parameter.isProvided())
-			sig.connect(boost::bind(cb.function(), _1, cb.parameter, _3));
-		else
-			sig.connect(cb.function());
-	}
-	else
-	{
-		std::string function_name = cb.function_name;
-		close_callback_t* func = (CloseCallbackRegistry::getValue(function_name)); 
-		if (func)
-		{
-			if (cb.parameter.isProvided())
-				sig.connect(boost::bind((*func), _1, cb.parameter,_3));
-			else
-				sig.connect(*func);
-		}
-		else if (!function_name.empty())
-		{
-			llwarns << "No callback found for: '" << function_name << "' in control: " << getName() << llendl;
-		}			
+		default:
+		case BUTTON_CLOSE:
+			return p.close_pressed_image;
+		case BUTTON_RESTORE:
+			return p.restore_pressed_image;
+		case BUTTON_MINIMIZE:
+			return p.minimize_pressed_image;
+		case BUTTON_TEAR_OFF:
+			return p.tear_off_pressed_image;
+		case BUTTON_DOCK:
+			return p.dock_pressed_image;
+		case BUTTON_HELP:
+			return p.help_pressed_image;
 	}
 }
 
-namespace LLInitParam
+// static
+std::string LLFloater::getButtonTooltip(const Params& p, EFloaterButton e, bool is_chrome)
 {
-    
-    template<> 
-	bool ParamCompare<LLFloater::close_callback_t>::equals(
-												  const LLFloater::close_callback_t &a, 
-												  const LLFloater::close_callback_t &b)
-    {
-    	return false;
-    }
-}    
+	// EXT-4081 (Lag Meter: Ctrl+W does not close floater)
+	// If floater is chrome set 'Close' text for close button's tooltip
+	if(is_chrome && BUTTON_CLOSE == e)
+	{
+		static std::string close_tooltip_chrome = LLTrans::getString("BUTTON_CLOSE_CHROME");
+		return close_tooltip_chrome;
+	}
+	// TODO: per-floater localizable tooltips set in XML
+	return sButtonToolTips[e];
+}
 
 /////////////////////////////////////////////////////
 // LLFloaterView
 
+static LLDefaultChildRegistry::Register<LLFloaterView> r("floater_view");
+
 LLFloaterView::LLFloaterView (const Params& p)
 :	LLUICtrl (p),
+
 	mFocusCycleMode(FALSE),
-	mSnapOffsetBottom(0)
-	,mSnapOffsetRight(0)
+	mMinimizePositionVOffset(0),
+	mSnapOffsetBottom(0),
+	mSnapOffsetRight(0)
 {
 }
 
@@ -1816,41 +2077,50 @@ void LLFloaterView::reshapeFloater(S32 width, S32 height, BOOL called_from_paren
 			// dependents use same follow flags as their "dependee"
 			continue;
 		}
-		LLRect r = floaterp->getRect();
-
-		// Compute absolute distance from each edge of screen
-		S32 left_offset = llabs(r.mLeft - 0);
-		S32 right_offset = llabs(old_width - r.mRight);
-
-		S32 top_offset = llabs(old_height - r.mTop);
-		S32 bottom_offset = llabs(r.mBottom - 0);
 
 		// Make if follow the edge it is closest to
 		U32 follow_flags = 0x0;
 
-		if (left_offset < right_offset)
+		if (floaterp->isMinimized())
 		{
-			follow_flags |= FOLLOWS_LEFT;
+			follow_flags |= (FOLLOWS_LEFT | FOLLOWS_TOP);
 		}
 		else
 		{
-			follow_flags |= FOLLOWS_RIGHT;
-		}
+			LLRect r = floaterp->getRect();
 
-		// "No vertical adjustment" usually means that the bottom of the view
-		// has been pushed up or down.  Hence we want the floaters to follow
-		// the top.
-		if (!adjust_vertical)
-		{
-			follow_flags |= FOLLOWS_TOP;
-		}
-		else if (top_offset < bottom_offset)
-		{
-			follow_flags |= FOLLOWS_TOP;
-		}
-		else
-		{
-			follow_flags |= FOLLOWS_BOTTOM;
+			// Compute absolute distance from each edge of screen
+			S32 left_offset = llabs(r.mLeft - 0);
+			S32 right_offset = llabs(old_width - r.mRight);
+
+			S32 top_offset = llabs(old_height - r.mTop);
+			S32 bottom_offset = llabs(r.mBottom - 0);
+
+
+			if (left_offset < right_offset)
+			{
+				follow_flags |= FOLLOWS_LEFT;
+			}
+			else
+			{
+				follow_flags |= FOLLOWS_RIGHT;
+			}
+
+			// "No vertical adjustment" usually means that the bottom of the view
+			// has been pushed up or down.  Hence we want the floaters to follow
+			// the top.
+			if (!adjust_vertical)
+			{
+				follow_flags |= FOLLOWS_TOP;
+			}
+			else if (top_offset < bottom_offset)
+			{
+				follow_flags |= FOLLOWS_TOP;
+			}
+			else
+			{
+				follow_flags |= FOLLOWS_BOTTOM;
+			}
 		}
 
 		floaterp->setFollows(follow_flags);
@@ -1889,8 +2159,8 @@ void LLFloaterView::restoreAll()
 LLRect LLFloaterView::findNeighboringPosition( LLFloater* reference_floater, LLFloater* neighbor )
 {
 	LLRect base_rect = reference_floater->getRect();
-	S32 width = neighbor->getRect().getWidth();
-	S32 height = neighbor->getRect().getHeight();
+	LLRect::tCoordType width = neighbor->getRect().getWidth();
+	LLRect::tCoordType height = neighbor->getRect().getHeight();
 	LLRect new_rect = neighbor->getRect();
 
 	LLRect expanded_base_rect = base_rect;
@@ -1903,16 +2173,16 @@ LLRect LLFloaterView::findNeighboringPosition( LLFloater* reference_floater, LLF
 		if (sibling && 
 			sibling != neighbor && 
 			sibling->getVisible() && 
-			expanded_base_rect.rectInRect(&sibling->getRect()))
+			expanded_base_rect.overlaps(sibling->getRect()))
 		{
 			base_rect.unionWith(sibling->getRect());
 		}
 	}
 
-	S32 left_margin = llmax(0, base_rect.mLeft);
-	S32 right_margin = llmax(0, getRect().getWidth() - base_rect.mRight);
-	S32 top_margin = llmax(0, getRect().getHeight() - base_rect.mTop);
-	S32 bottom_margin = llmax(0, base_rect.mBottom);
+	LLRect::tCoordType left_margin = llmax(0, base_rect.mLeft);
+	LLRect::tCoordType right_margin = llmax(0, getRect().getWidth() - base_rect.mRight);
+	LLRect::tCoordType top_margin = llmax(0, getRect().getHeight() - base_rect.mTop);
+	LLRect::tCoordType bottom_margin = llmax(0, base_rect.mBottom);
 
 	// find position for floater in following order
 	// right->left->bottom->top
@@ -2031,6 +2301,11 @@ void LLFloaterView::bringToFront(LLFloater* child, BOOL give_focus)
 	if (give_focus && !gFocusMgr.childHasKeyboardFocus(child))
 	{
 		child->setFocus(TRUE);
+		// floater did not take focus, so relinquish focus to world
+		if (!child->hasFocus())
+		{
+			gFocusMgr.setKeyboardFocus(NULL);
+		}
 	}
 }
 
@@ -2097,18 +2372,20 @@ void LLFloaterView::focusFrontFloater()
 
 void LLFloaterView::getMinimizePosition(S32 *left, S32 *bottom)
 {
-	static LLUICachedControl<S32> floater_header_size ("UIFloaterHeaderSize", 0);
+	const LLFloater::Params& default_params = LLFloater::getDefaultParams();
+	S32 floater_header_size = default_params.header_height;
 	static LLUICachedControl<S32> minimized_width ("UIMinimizedWidth", 0);
-	S32 col = 0;
 	LLRect snap_rect_local = getLocalSnapRect();
-	for(S32 row = snap_rect_local.mBottom;
-		row < snap_rect_local.getHeight() - floater_header_size;
-		row += floater_header_size ) //loop rows
-	{
-		for(col = snap_rect_local.mLeft;
-			col < snap_rect_local.getWidth() - minimized_width;
-			col += minimized_width)
+	snap_rect_local.mTop += mMinimizePositionVOffset;
+	for(S32 col = snap_rect_local.mLeft;
+		col < snap_rect_local.getWidth() - minimized_width;
+		col += minimized_width)
+	{	
+		for(S32 row = snap_rect_local.mTop - floater_header_size;
+		row > floater_header_size;
+		row -= floater_header_size ) //loop rows
 		{
+
 			bool foundGap = TRUE;
 			for(child_list_const_iter_t child_it = getChildList()->begin();
 				child_it != getChildList()->end();
@@ -2172,7 +2449,9 @@ void LLFloaterView::closeAllChildren(bool app_quitting)
 
 		// Attempt to close floater.  This will cause the "do you want to save"
 		// dialogs to appear.
-		if (floaterp->canClose() && !floaterp->isDead())
+		// Skip invisible floaters if we're not quitting (STORM-192).
+		if (floaterp->canClose() && !floaterp->isDead() &&
+			(app_quitting || floaterp->getVisible()))
 		{
 			floaterp->closeFloater(app_quitting);
 		}
@@ -2197,6 +2476,19 @@ BOOL LLFloaterView::allChildrenClosed()
 	return true;
 }
 
+void LLFloaterView::shiftFloaters(S32 x_offset, S32 y_offset)
+{
+	for (child_list_const_iter_t it = getChildList()->begin(); it != getChildList()->end(); ++it)
+	{
+		LLFloater* floaterp = dynamic_cast<LLFloater*>(*it);
+
+		if (floaterp && floaterp->isMinimized())
+		{
+			floaterp->translate(x_offset, y_offset);
+		}
+	}
+}
+
 void LLFloaterView::refresh()
 {
 	// Constrain children to be entirely on the screen
@@ -2218,11 +2510,10 @@ void LLFloaterView::adjustToFitScreen(LLFloater* floater, BOOL allow_partial_out
 		// floater is hosted elsewhere, so ignore
 		return;
 	}
-	S32 screen_width = getSnapRect().getWidth();
-	S32 screen_height = getSnapRect().getHeight();
-	// convert to local coordinate frame
-	LLRect snap_rect_local = getLocalSnapRect();
+	LLRect::tCoordType screen_width = getSnapRect().getWidth();
+	LLRect::tCoordType screen_height = getSnapRect().getHeight();
 
+	
 	// only automatically resize non-minimized, resizable floaters
 	if( floater->isResizable() && !floater->isMinimized() )
 	{
@@ -2247,7 +2538,11 @@ void LLFloaterView::adjustToFitScreen(LLFloater* floater, BOOL allow_partial_out
 			new_width = llmax(new_width, min_width);
 			new_height = llmax(new_height, min_height);
 
-			floater->reshape( new_width, new_height, TRUE );
+			LLRect new_rect;
+			new_rect.setLeftTopAndSize(view_rect.mLeft,view_rect.mTop,new_width, new_height);
+
+			floater->setShape(new_rect);
+
 			if (floater->followsRight())
 			{
 				floater->translate(old_width - new_width, 0);
@@ -2261,7 +2556,7 @@ void LLFloaterView::adjustToFitScreen(LLFloater* floater, BOOL allow_partial_out
 	}
 
 	// move window fully onscreen
-	if (floater->translateIntoRect( snap_rect_local, allow_partial_outside ))
+	if (floater->translateIntoRect( getLocalRect(), allow_partial_outside ))
 	{
 		floater->clearSnapTarget();
 	}
@@ -2295,9 +2590,13 @@ void LLFloaterView::draw()
 
 LLRect LLFloaterView::getSnapRect() const
 {
-	LLRect snap_rect = getRect();
-	snap_rect.mBottom += mSnapOffsetBottom;
-	snap_rect.mRight  -= mSnapOffsetRight;
+	LLRect snap_rect = getLocalRect();
+
+	LLView* snap_view = mSnapView.get();
+	if (snap_view)
+	{
+		snap_view->localRectToOtherView(snap_view->getLocalRect(), &snap_rect, this);
+	}
 
 	return snap_rect;
 }
@@ -2344,7 +2643,7 @@ LLFloater *LLFloaterView::getBackmost() const
 
 void LLFloaterView::syncFloaterTabOrder()
 {
-	// look for a visible modal dialog, starting from first (should be only one)
+	// look for a visible modal dialog, starting from first
 	LLModalDialog* modal_dialog = NULL;
 	for ( child_list_const_iter_t child_it = getChildList()->begin(); child_it != getChildList()->end(); ++child_it)
 	{
@@ -2359,10 +2658,7 @@ void LLFloaterView::syncFloaterTabOrder()
 	if (modal_dialog)
 	{
 		// If we have a visible modal dialog, make sure that it has focus
-		if( gFocusMgr.getTopCtrl() != modal_dialog )
-		{
-			gFocusMgr.setTopCtrl( modal_dialog );
-		}
+		LLUI::addPopup(modal_dialog);
 		
 		if( !gFocusMgr.childHasKeyboardFocus( modal_dialog ) )
 		{
@@ -2440,12 +2736,18 @@ void LLFloaterView::pushVisibleAll(BOOL visible, const skip_list_t& skip_list)
 			view->pushVisible(visible);
 		}
 	}
+
+	LLFloaterReg::blockShowFloaters(true);
 }
 
 void LLFloaterView::popVisibleAll(const skip_list_t& skip_list)
 {
-	for (child_list_const_iter_t child_iter = getChildList()->begin();
-		 child_iter != getChildList()->end(); ++child_iter)
+	// make a copy of the list since some floaters change their
+	// order in the childList when changing visibility.
+	child_list_t child_list_copy = *getChildList();
+
+	for (child_list_const_iter_t child_iter = child_list_copy.begin();
+		 child_iter != child_list_copy.end(); ++child_iter)
 	{
 		LLView *view = *child_iter;
 		if (skip_list.find(view) == skip_list.end())
@@ -2453,6 +2755,8 @@ void LLFloaterView::popVisibleAll(const skip_list_t& skip_list)
 			view->popVisible();
 		}
 	}
+
+	LLFloaterReg::blockShowFloaters(false);
 }
 
 void LLFloater::setInstanceName(const std::string& name)
@@ -2463,15 +2767,22 @@ void LLFloater::setInstanceName(const std::string& name)
 	mInstanceName = name;
 	if (!mInstanceName.empty())
 	{
+		std::string ctrl_name = getControlName(mInstanceName, mKey);
+
 		// save_rect and save_visibility only apply to registered floaters
 		if (!mRectControl.empty())
 		{
-			mRectControl = LLFloaterReg::declareRectControl(mInstanceName);
+			mRectControl = LLFloaterReg::declareRectControl(ctrl_name);
 		}
 		if (!mVisibilityControl.empty())
 		{
-			mVisibilityControl = LLFloaterReg::declareVisibilityControl(mInstanceName);
+			mVisibilityControl = LLFloaterReg::declareVisibilityControl(ctrl_name);
 		}
+		if(!mDocStateControl.empty())
+		{
+			mDocStateControl = LLFloaterReg::declareDockStateControl(ctrl_name);
+		}
+
 	}
 }
 
@@ -2512,6 +2823,9 @@ void LLFloater::setupParamsForExport(Params& p, LLView* parent)
 
 void LLFloater::initFromParams(const LLFloater::Params& p)
 {
+	// *NOTE: We have too many classes derived from LLFloater to retrofit them 
+	// all to pass in params via constructors.  So we use this method.
+
 	 // control_name, tab_stop, focus_lost_callback, initial_value, rect, enabled, visible
 	LLPanel::initFromParams(p);
 
@@ -2522,13 +2836,16 @@ void LLFloater::initFromParams(const LLFloater::Params& p)
 	setCanTearOff(p.can_tear_off);
 	setCanMinimize(p.can_minimize);
 	setCanClose(p.can_close);
+	setCanDock(p.can_dock);
+	setCanResize(p.can_resize);
+	setResizeLimits(p.min_width, p.min_height);
 	
 	mDragOnLeft = p.can_drag_on_left;
-	mResizable = p.can_resize;
-	mMinWidth = p.min_width;
-	mMinHeight = p.min_height;
+	mHeaderHeight = p.header_height;
+	mLegacyHeaderHeight = p.legacy_header_height;
 	mSingleInstance = p.single_instance;
 	mAutoTile = p.auto_tile;
+	mOpenCentered = p.open_centered;
 
 	if (p.save_rect)
 	{
@@ -2538,19 +2855,42 @@ void LLFloater::initFromParams(const LLFloater::Params& p)
 	{
 		mVisibilityControl = "t"; // flag to build mVisibilityControl name once mInstanceName is set
 	}
+
+	if(p.save_dock_state)
+	{
+		mDocStateControl = "t"; // flag to build mDocStateControl name once mInstanceName is set
+	}
 	
 	// open callback 
 	if (p.open_callback.isProvided())
-		initOpenCallback(p.open_callback, mOpenSignal);
+	{
+		mOpenSignal.connect(initCommitCallback(p.open_callback));
+	}
 	// close callback 
 	if (p.close_callback.isProvided())
-		initCloseCallback(p.close_callback, mCloseSignal);
+	{
+		setCloseCallback(initCommitCallback(p.close_callback));
+	}
 }
 
-void LLFloater::initFloaterXML(LLXMLNodePtr node, LLView *parent, BOOL open_floater, LLXMLNodePtr output_node)
+boost::signals2::connection LLFloater::setMinimizeCallback( const commit_signal_t::slot_type& cb ) 
+{ 
+	if (!mMinimizeSignal) mMinimizeSignal = new commit_signal_t();
+	return mMinimizeSignal->connect(cb); 
+}
+
+boost::signals2::connection LLFloater::setCloseCallback( const commit_signal_t::slot_type& cb )
+{
+	return mCloseSignal.connect(cb);
+}
+
+LLFastTimer::DeclareTimer POST_BUILD("Floater Post Build");
+
+bool LLFloater::initFloaterXML(LLXMLNodePtr node, LLView *parent, const std::string& filename, LLXMLNodePtr output_node)
 {
 	Params params(LLUICtrlFactory::getDefaultParams<LLFloater>());
-	LLXUIParser::instance().readXUI(node, params);
+	LLXUIParser parser;
+	parser.readXUI(node, params, filename); // *TODO: Error checking
 
 	if (output_node)
 	{
@@ -2558,14 +2898,26 @@ void LLFloater::initFloaterXML(LLXMLNodePtr node, LLView *parent, BOOL open_floa
 		setupParamsForExport(output_params, parent);
         Params default_params(LLUICtrlFactory::getDefaultParams<LLFloater>());
 		output_node->setName(node->getName()->mString);
-		LLXUIParser::instance().writeXUI(
-			output_node, output_params, &default_params);
+		parser.writeXUI(output_node, output_params, &default_params);
 	}
 
-	setupParams(params, parent);
+	// Default floater position to top-left corner of screen
+	// However, some legacy floaters have explicit top or bottom
+	// coordinates set, so respect their wishes.
+	if (!params.rect.top.isProvided() && !params.rect.bottom.isProvided())
+	{
+		params.rect.top.set(0);
+	}
+	if (!params.rect.left.isProvided() && !params.rect.right.isProvided())
+	{
+		params.rect.left.set(0);
+	}
+
+	params.from_xui = true;
+	applyXUILayout(params, parent);
  	initFromParams(params);
-	
-	initFloater();
+
+	initFloater(params);
 	
 	LLMultiFloater* last_host = LLFloater::getFloaterHost();
 	if (node->hasName("multi_floater"))
@@ -2580,7 +2932,29 @@ void LLFloater::initFloaterXML(LLXMLNodePtr node, LLView *parent, BOOL open_floa
 		LLFloater::setFloaterHost(last_host);
 	}
 	
-	BOOL result = postBuild();
+	// HACK: When we changed the header height to 25 pixels in Viewer 2, rather
+	// than re-layout all the floaters we use this value in pixels to make the
+	// whole floater bigger and change the top-left coordinate for widgets.
+	// The goal is to eventually set mLegacyHeaderHeight to zero, which would
+	// make the top-left corner for widget layout the same as the top-left
+	// corner of the window's content area.  James
+	S32 header_stretch = (mHeaderHeight - mLegacyHeaderHeight);
+	if (header_stretch > 0)
+	{
+		// Stretch the floater vertically, don't move widgets
+		LLRect rect = getRect();
+		rect.mTop += header_stretch;
+
+		// This will also update drag handle, title bar, close box, etc.
+		setRect(rect);
+	}
+
+	BOOL result;
+	{
+		LLFastTimer ft(POST_BUILD);
+
+		result = postBuild();
+	}
 
 	if (!result)
 	{
@@ -2590,38 +2964,93 @@ void LLFloater::initFloaterXML(LLXMLNodePtr node, LLView *parent, BOOL open_floa
 	applyRectControl(); // If we have a saved rect control, apply it
 	gFloaterView->adjustToFitScreen(this, FALSE); // Floaters loaded from XML should all fit on screen	
 
-	if (open_floater)
-	{
-		this->openFloater(getKey());
-	}
-
 	moveResizeHandlesToFront();
+
+	applyDockState();
+
+	return true; // *TODO: Error checking
 }
 
-// visibility methods
-bool VisibilityPolicy<LLFloater>::visible(LLFloater* instance, const LLSD& key)
+bool LLFloater::isShown() const
 {
-	if (instance) 
-	{
-		return !instance->isMinimized() && instance->isInVisibleChain();
-	}
-	return FALSE;
+    return ! isMinimized() && isInVisibleChain();
 }
 
-void VisibilityPolicy<LLFloater>::show(LLFloater* instance, const LLSD& key)
+/* static */
+bool LLFloater::isShown(const LLFloater* floater)
 {
-	if (instance) 
+    return floater && floater->isShown();
+}
+
+/* static */
+bool LLFloater::isMinimized(const LLFloater* floater)
+{
+    return floater && floater->isMinimized();
+}
+
+/* static */
+bool LLFloater::isVisible(const LLFloater* floater)
+{
+    return floater && floater->getVisible();
+}
+
+static LLFastTimer::DeclareTimer FTM_BUILD_FLOATERS("Build Floaters");
+
+bool LLFloater::buildFromFile(const std::string& filename, LLXMLNodePtr output_node)
+{
+	LLFastTimer timer(FTM_BUILD_FLOATERS);
+	LLXMLNodePtr root;
+
+	//if exporting, only load the language being exported, 
+	//instead of layering localized version on top of english
+	if (output_node)
 	{
-		instance->openFloater(key);
-		if (instance->getHost())
+		if (!LLUICtrlFactory::getLocalizedXMLNode(filename, root))
 		{
-			instance->getHost()->openFloater(key);
+			llwarns << "Couldn't parse floater from: " << LLUI::getLocalizedSkinPath() + gDirUtilp->getDirDelimiter() + filename << llendl;
+			return false;
 		}
 	}
-}
+	else if (!LLUICtrlFactory::getLayeredXMLNode(filename, root))
+	{
+		llwarns << "Couldn't parse floater from: " << LLUI::getSkinPath() + gDirUtilp->getDirDelimiter() + filename << llendl;
+		return false;
+	}
+	
+	// root must be called floater
+	if( !(root->hasName("floater") || root->hasName("multi_floater")) )
+	{
+		llwarns << "Root node should be named floater in: " << filename << llendl;
+		return false;
+	}
+	
+	bool res = true;
+	
+	lldebugs << "Building floater " << filename << llendl;
+	LLUICtrlFactory::instance().pushFileName(filename);
+	{
+		if (!getFactoryMap().empty())
+		{
+			LLPanel::sFactoryStack.push_front(&getFactoryMap());
+		}
 
-void VisibilityPolicy<LLFloater>::hide(LLFloater* instance, const LLSD& key)
-{
-	if (instance) instance->closeFloater();
-}
+		 // for local registry callbacks; define in constructor, referenced in XUI or postBuild
+		getCommitCallbackRegistrar().pushScope();
+		getEnableCallbackRegistrar().pushScope();
+		
+		res = initFloaterXML(root, getParent(), filename, output_node);
 
+		setXMLFilename(filename);
+		
+		getCommitCallbackRegistrar().popScope();
+		getEnableCallbackRegistrar().popScope();
+		
+		if (!getFactoryMap().empty())
+		{
+			LLPanel::sFactoryStack.pop_front();
+		}
+	}
+	LLUICtrlFactory::instance().popFileName();
+	
+	return res;
+}

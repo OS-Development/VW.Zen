@@ -1,36 +1,36 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<floater name="Day Cycle Floater" title="Editor de ciclo de dia">
+<floater name="Day Cycle Floater" title="EDITOR DE CICLO DE DIA">
 	<tab_container name="Day Cycle Tabs">
 		<panel label="Ciclo do dia" name="Day Cycle">
 			<button label="?" name="WLDayCycleHelp"/>
 			<text name="WL12am">
-				12:00 meia-noite
+				0:00
 			</text>
 			<text name="WL3am">
-				3:00 da manhã
+				3:00
 			</text>
 			<text name="WL6am">
-				6:00 da manhã
+				6:00
 			</text>
 			<text name="WL9amHash">
-				9:00 da manhã
+				9:00
 			</text>
 			<text name="WL12pmHash">
-				12:00 meio dia
+				12:00
 			</text>
 			<text name="WL3pm">
-				3:00 da tarde
+				15:00
 			</text>
 			<text name="WL6pm">
-				6:00 da tarde
+				18:00
 			</text>
 			<text name="WL9pm">
-				9:00 da noite
+				21:00
 			</text>
 			<text name="WL12am2">
-				12:00 meia noite
+				24:00
 			</text>
-			<button label="Add Key" label_selected="Adicionar chave" name="WLAddKey"/>
+			<button label="Adicionar chave" label_selected="Adicionar chave" name="WLAddKey"/>
 			<button label="Apagar chave" label_selected="Apagar chave" name="WLDeleteKey"/>
 			<text name="WLCurKeyFrameText">
 				Configurações de Quadro-chave:
@@ -52,10 +52,10 @@
 				Duração do Ciclo:
 			</text>
 			<spinner label="Hora" name="WLLengthOfDayHour"/>
-			<spinner label="Minuto" name="WLLengthOfDayMin"/>
-			<spinner label="Segundo" name="WLLengthOfDaySec"/>
+			<spinner label="Min." name="WLLengthOfDayMin"/>
+			<spinner label="Seg." name="WLLengthOfDaySec"/>
 			<text name="DayCycleText3">
-				Prévia:
+				Visualizar
 			</text>
 			<button label="Tocar" label_selected="Tocar" name="WLAnimSky"/>
 			<button label="Pare!" label_selected="Pare" name="WLStopAnimSky"/>

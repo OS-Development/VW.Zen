@@ -2,31 +2,25 @@
  * @file llwindowmacosx.cpp
  * @brief Platform-dependent implementation of llwindow
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -114,9 +108,6 @@ static long getDictLong (CFDictionaryRef refDict, CFStringRef key);
 static EventTypeSpec WindowHandlerEventList[] =
 {
 	// Window-related events
-	//	{ kEventClassWindow, kEventWindowCollapsing },
-	//	{ kEventClassWindow, kEventWindowCollapsed },
-	//	{ kEventClassWindow, kEventWindowShown },
 	{ kEventClassWindow, kEventWindowActivated },
 	{ kEventClassWindow, kEventWindowDeactivated },
 	{ kEventClassWindow, kEventWindowShown },
@@ -127,8 +118,7 @@ static EventTypeSpec WindowHandlerEventList[] =
 	{ kEventClassWindow, kEventWindowClose },
 	{ kEventClassWindow, kEventWindowBoundsChanging },
 	{ kEventClassWindow, kEventWindowBoundsChanged },
-	//	{ kEventClassWindow, kEventWindowZoomed },
-	//	{ kEventClassWindow, kEventWindowDrawContent },
+	{ kEventClassWindow, kEventWindowGetIdealSize },
 
 	// Mouse events
 	{ kEventClassMouse, kEventMouseDown },
@@ -254,12 +244,14 @@ LLWindowMacOSX::LLWindowMacOSX(LLWindowCallbacks* callbacks,
 	mCursorIgnoreNextDelta = FALSE;
 	mNeedsResize = FALSE;
 	mOverrideAspectRatio = 0.f;
+	mMaximized = FALSE;
 	mMinimized = FALSE;
 	mTSMDocument = NULL; // Just in case.
 	mLanguageTextInputAllowed = FALSE;
 	mTSMScriptCode = 0;
 	mTSMLangCode = 0;
 	mPreeditor = NULL;
+	mRawKeyEvent = NULL;
 	mFSAASamples = fsaa_samples;
 	mForceRebuild = FALSE;
 	
@@ -278,6 +270,8 @@ LLWindowMacOSX::LLWindowMacOSX(LLWindowCallbacks* callbacks,
 	mMoveEventCampartorUPP = NewEventComparatorUPP(staticMoveEventComparator);
 	mGlobalHandlerRef = NULL;
 	mWindowHandlerRef = NULL;
+	
+	mDragOverrideCursor = -1;
 
 	// We're not clipping yet
 	SetRect( &mOldMouseClip, 0, 0, 0, 0 );
@@ -458,24 +452,23 @@ BOOL LLWindowMacOSX::createContext(int x, int y, int width, int height, int bits
 
 	if(!mFullscreen && (mWindow == NULL))
 	{
-		Rect			window_rect;
 		//int				displayWidth = CGDisplayPixelsWide(mDisplay);
 		//int				displayHeight = CGDisplayPixelsHigh(mDisplay);
 		//const int		menuBarPlusTitleBar = 44;   // Ugly magic number.
 
 		LL_DEBUGS("Window") << "createContext: creating window" << LL_ENDL;
 
-		window_rect.left = (long) x;
-		window_rect.right = (long) x + width;
-		window_rect.top = (long) y;
-		window_rect.bottom = (long) y + height;
+		mPreviousWindowRect.left = (long) x;
+		mPreviousWindowRect.right = (long) x + width;
+		mPreviousWindowRect.top = (long) y;
+		mPreviousWindowRect.bottom = (long) y + height;
 
 		//-----------------------------------------------------------------------
 		// Create the window
 		//-----------------------------------------------------------------------
 		mWindow = NewCWindow(
 			NULL,
-			&window_rect,
+			&mPreviousWindowRect,
 			mWindowTitle,
 			false,				// Create the window invisible.  Whoever calls createContext() should show it after any moving/resizing.
 			//		noGrowDocProc,		// Window with no grow box and no zoom box
@@ -484,8 +477,7 @@ BOOL LLWindowMacOSX::createContext(int x, int y, int width, int height, int bits
 			kFirstWindowOfClass,
 			true,
 			(long)this);
-
-
+		
 		if (!mWindow)
 		{
 			setupFailure("Window creation error", "Error", OSMB_OK);
@@ -499,8 +491,11 @@ BOOL LLWindowMacOSX::createContext(int x, int y, int width, int height, int bits
 
 		// Set up window event handlers (some window-related events ONLY go to window handlers.)
 		InstallStandardEventHandler(GetWindowEventTarget(mWindow));
-		InstallWindowEventHandler (mWindow, mEventHandlerUPP, GetEventTypeCount (WindowHandlerEventList), WindowHandlerEventList, (void*)this, &mWindowHandlerRef); // add event handler
-
+		InstallWindowEventHandler(mWindow, mEventHandlerUPP, GetEventTypeCount (WindowHandlerEventList), WindowHandlerEventList, (void*)this, &mWindowHandlerRef); // add event handler
+#if LL_OS_DRAGDROP_ENABLED
+		InstallTrackingHandler( dragTrackingHandler, mWindow, (void*)this );		
+		InstallReceiveHandler( dragReceiveHandler, mWindow, (void*)this );
+#endif // LL_OS_DRAGDROP_ENABLED
 	}
 
 	{
@@ -522,7 +517,6 @@ BOOL LLWindowMacOSX::createContext(int x, int y, int width, int height, int bits
 		if (mTSMDocument)
 		{
 			ActivateTSMDocument(mTSMDocument);
-			UseInputWindow(mTSMDocument, FALSE);
 			allowLanguageTextInput(NULL, FALSE);
 		}
 	}
@@ -542,20 +536,20 @@ BOOL LLWindowMacOSX::createContext(int x, int y, int width, int height, int bits
 				GLint fullscreenAttrib[] =
 				{
 					AGL_RGBA,
-						AGL_FULLSCREEN,
-						//			AGL_NO_RECOVERY,	// MBW -- XXX -- Not sure if we want this attribute
-						AGL_SAMPLE_BUFFERS_ARB, mFSAASamples > 0 ? 1 : 0,
-						AGL_SAMPLES_ARB, mFSAASamples,
-						AGL_DOUBLEBUFFER,
-						AGL_CLOSEST_POLICY,
-						AGL_ACCELERATED,
-						AGL_RED_SIZE, 8,
-						AGL_GREEN_SIZE, 8,
-						AGL_BLUE_SIZE, 8,
-						AGL_ALPHA_SIZE, 8,
-						AGL_DEPTH_SIZE, 24,
-						AGL_STENCIL_SIZE, 8,
-						AGL_NONE
+					AGL_FULLSCREEN,
+					AGL_NO_RECOVERY,
+					AGL_SAMPLE_BUFFERS_ARB, mFSAASamples > 0 ? 1 : 0,
+					AGL_SAMPLES_ARB, mFSAASamples,
+					AGL_DOUBLEBUFFER,
+					AGL_CLOSEST_POLICY,
+					AGL_ACCELERATED,
+					AGL_RED_SIZE, 8,
+					AGL_GREEN_SIZE, 8,
+					AGL_BLUE_SIZE, 8,
+					AGL_ALPHA_SIZE, 8,
+					AGL_DEPTH_SIZE, 24,
+					AGL_STENCIL_SIZE, 8,
+					AGL_NONE
 				};
 
 				LL_DEBUGS("Window") << "createContext: creating fullscreen pixelformat" << LL_ENDL;
@@ -568,21 +562,28 @@ BOOL LLWindowMacOSX::createContext(int x, int y, int width, int height, int bits
 			}
 			else
 			{
+				// NOTE from Leslie:
+				//
+				// AGL_NO_RECOVERY, when combined with AGL_ACCELERATED prevents software rendering
+				// fallback which means we won't hvae shaders that compile and link but then don't
+				// work.  The drawback is that our shader compilation will be a bit more finicky though.
+
 				GLint windowedAttrib[] =
 				{
 					AGL_RGBA,
-						AGL_DOUBLEBUFFER,
-						AGL_CLOSEST_POLICY,
-						AGL_ACCELERATED,
-						AGL_SAMPLE_BUFFERS_ARB, mFSAASamples > 0 ? 1 : 0,
-						AGL_SAMPLES_ARB, mFSAASamples,
-						AGL_RED_SIZE, 8,
-						AGL_GREEN_SIZE, 8,
-						AGL_BLUE_SIZE, 8,
-						AGL_ALPHA_SIZE, 8,
-						AGL_DEPTH_SIZE, 24,
-						AGL_STENCIL_SIZE, 8,
-						AGL_NONE
+					AGL_NO_RECOVERY,
+					AGL_DOUBLEBUFFER,
+					AGL_CLOSEST_POLICY,
+					AGL_ACCELERATED,
+					AGL_SAMPLE_BUFFERS_ARB, mFSAASamples > 0 ? 1 : 0,
+					AGL_SAMPLES_ARB, mFSAASamples,
+					AGL_RED_SIZE, 8,
+					AGL_GREEN_SIZE, 8,
+					AGL_BLUE_SIZE, 8,
+					AGL_ALPHA_SIZE, 8,
+					AGL_DEPTH_SIZE, 24,
+					AGL_STENCIL_SIZE, 8,
+					AGL_NONE
 				};
 
 				LL_DEBUGS("Window") << "createContext: creating windowed pixelformat" << LL_ENDL;
@@ -1034,6 +1035,7 @@ void LLWindowMacOSX::hide()
 	HideWindow(mWindow);
 }
 
+//virtual
 void LLWindowMacOSX::minimize()
 {
 	setMouseClipping(FALSE);
@@ -1041,6 +1043,7 @@ void LLWindowMacOSX::minimize()
 	CollapseWindow(mWindow, true);
 }
 
+//virtual
 void LLWindowMacOSX::restore()
 {
 	show();
@@ -1092,31 +1095,22 @@ BOOL LLWindowMacOSX::getVisible()
 
 BOOL LLWindowMacOSX::getMinimized()
 {
-	BOOL result = FALSE;
-	
-	// Since the set of states where we want to act "minimized" is non-trivial, it's easier to
-	// track things locally than to try and retrieve the state from the window manager.
-	result = mMinimized;
-
-	return(result);
+	return mMinimized;
 }
 
 BOOL LLWindowMacOSX::getMaximized()
 {
-	BOOL result = FALSE;
-
-	if (mWindow)
-	{
-		// TODO
-	}
-
-	return(result);
+	return mMaximized;
 }
 
 BOOL LLWindowMacOSX::maximize()
 {
-	// TODO
-	return FALSE;
+	if (mWindow && !mMaximized)
+	{
+		ZoomWindow(mWindow, inContent, true);
+	}
+	
+	return mMaximized;
 }
 
 BOOL LLWindowMacOSX::getFullscreen()
@@ -1389,11 +1383,11 @@ void LLWindowMacOSX::setMouseClipping( BOOL b )
 
 	if(b)
 	{
-		//		llinfos << "setMouseClipping(TRUE)" << llendl
+		//		llinfos << "setMouseClipping(TRUE)" << llendl;
 	}
 	else
 	{
-		//		llinfos << "setMouseClipping(FALSE)" << llendl
+		//		llinfos << "setMouseClipping(FALSE)" << llendl;
 	}
 
 	adjustCursorDecouple();
@@ -1411,7 +1405,7 @@ BOOL LLWindowMacOSX::setCursorPosition(const LLCoordWindow position)
 
 	CGPoint newPosition;
 
-	//	llinfos << "setCursorPosition(" << screen_pos.mX << ", " << screen_pos.mY << ")" << llendl
+	//	llinfos << "setCursorPosition(" << screen_pos.mX << ", " << screen_pos.mY << ")" << llendl;
 
 	newPosition.x = screen_pos.mX;
 	newPosition.y = screen_pos.mY;
@@ -1442,7 +1436,7 @@ static void fixOrigin(void)
 	::GetPortBounds(port, &portrect);
 	if((portrect.left != 0) || (portrect.top != 0))
 	{
-		// Mozilla sometimes changes our port origin.  Fuckers.
+		// Mozilla sometimes changes our port origin.
 		::SetOrigin(0,0);
 	}
 }
@@ -2016,7 +2010,7 @@ OSStatus LLWindowMacOSX::eventHandler (EventHandlerCallRef myHandler, EventRef e
 							// Although the spec. is unclear, replace range should
 							// not present when there is an active preedit.  We just
 							// ignore the case.  markAsPreedit will detect the case and warn it.
-							const LLWString & text = mPreeditor->getWText();
+							const LLWString & text = mPreeditor->getPreeditString();
 							const S32 location = wstring_wstring_length_from_utf16_length(text, 0, range.location);
 							const S32 length = wstring_wstring_length_from_utf16_length(text, location, range.length);
 							mPreeditor->markAsPreedit(location, length);
@@ -2134,10 +2128,11 @@ OSStatus LLWindowMacOSX::eventHandler (EventHandlerCallRef myHandler, EventRef e
 				{
 					UInt32 modifiers = 0;
 
+
 					// First, process the raw event.
 					{
-						EventRef rawEvent;
-
+						EventRef rawEvent = NULL;
+						
 						// Get the original event and extract the modifier keys, so we can ignore command-key events.
 						if (GetEventParameter(event, kEventParamTextInputSendKeyboardEvent, typeEventRef, NULL, sizeof(rawEvent), NULL, &rawEvent) == noErr)
 						{
@@ -2146,6 +2141,9 @@ OSStatus LLWindowMacOSX::eventHandler (EventHandlerCallRef myHandler, EventRef e
 
 							// and call this function recursively to handle the raw key event.
 							eventHandler (myHandler, rawEvent);
+							
+							// save the raw event until we're done processing the unicode input as well.
+							mRawKeyEvent = rawEvent;
 						}
 					}
 
@@ -2173,11 +2171,8 @@ OSStatus LLWindowMacOSX::eventHandler (EventHandlerCallRef myHandler, EventRef e
 						}
 						else
 						{
-							MASK mask = 0;
-							if(modifiers & shiftKey) { mask |= MASK_SHIFT; }
-							if(modifiers & (cmdKey | controlKey)) { mask |= MASK_CONTROL; }
-							if(modifiers & optionKey) { mask |= MASK_ALT; }
-
+							MASK mask = LLWindowMacOSX::modifiersToMask(modifiers);
+							
 							llassert( actualType == typeUnicodeText );
 
 							// The result is a UTF16 buffer.  Pass the characters in turn to handleUnicodeChar.
@@ -2199,6 +2194,7 @@ OSStatus LLWindowMacOSX::eventHandler (EventHandlerCallRef myHandler, EventRef e
 						delete[] buffer;
 					}
 
+					mRawKeyEvent = NULL;
 					result = err;
 				}
 				break;
@@ -2214,7 +2210,7 @@ OSStatus LLWindowMacOSX::eventHandler (EventHandlerCallRef myHandler, EventRef e
 					{
 						S32 preedit, preedit_length;
 						mPreeditor->getPreeditRange(&preedit, &preedit_length);
-						const LLWString & text = mPreeditor->getWText();
+						const LLWString & text = mPreeditor->getPreeditString();
 						 
 						LLCoordGL caret_coord;
 						LLRect preedit_bounds;
@@ -2251,7 +2247,7 @@ OSStatus LLWindowMacOSX::eventHandler (EventHandlerCallRef myHandler, EventRef e
 						mPreeditor->getSelectionRange(&selection, &selection_length);
 						if (selection_length)
 						{
-							const LLWString text = mPreeditor->getWText().substr(selection, selection_length);
+							const LLWString text = mPreeditor->getPreeditString().substr(selection, selection_length);
 							const llutf16string text_utf16 = wstring_to_utf16str(text);
 							result = SetEventParameter(event, kEventParamTextInputReplyText, typeUnicodeText,
 										text_utf16.length() * sizeof(U16), text_utf16.c_str());
@@ -2272,6 +2268,9 @@ OSStatus LLWindowMacOSX::eventHandler (EventHandlerCallRef myHandler, EventRef e
 			// Some of these may fail for some event types.  That's fine.
 			GetEventParameter (event, kEventParamKeyCode, typeUInt32, NULL, sizeof(UInt32), NULL, &keyCode);
 			GetEventParameter (event, kEventParamKeyModifiers, typeUInt32, NULL, sizeof(UInt32), NULL, &modifiers);
+
+			// save the raw event so getNativeKeyData can use it.
+			mRawKeyEvent = event;
 
 			//			printf("key event, key code = 0x%08x, char code = 0x%02x (%c), modifiers = 0x%08x\n", keyCode, charCode, (char)charCode, modifiers);
 			//			fflush(stdout);
@@ -2368,6 +2367,8 @@ OSStatus LLWindowMacOSX::eventHandler (EventHandlerCallRef myHandler, EventRef e
 				result = eventNotHandledErr;
 				break;
 			}
+			
+			mRawKeyEvent = NULL;
 		}
 		break;
 
@@ -2551,7 +2552,24 @@ OSStatus LLWindowMacOSX::eventHandler (EventHandlerCallRef myHandler, EventRef e
 
 				GetEventParameter(event, kEventParamCurrentBounds, typeQDRectangle, NULL, sizeof(Rect), NULL, &currentBounds);
 				GetEventParameter(event, kEventParamPreviousBounds, typeQDRectangle, NULL, sizeof(Rect), NULL, &previousBounds);
-
+				
+				// Put an offset into window un-maximize operation since the kEventWindowGetIdealSize
+				// event only allows the specification of size and not position.
+				if (mMaximized)
+				{
+					short leftOffset = mPreviousWindowRect.left - currentBounds.left;
+					currentBounds.left += leftOffset;
+					currentBounds.right += leftOffset;
+					
+					short topOffset = mPreviousWindowRect.top - currentBounds.top;
+					currentBounds.top += topOffset;
+					currentBounds.bottom += topOffset;
+				}
+				else
+				{
+					// Store off the size for future un-maximize operations
+					mPreviousWindowRect = previousBounds;
+				}
 
 				if ((currentBounds.right - currentBounds.left) < MIN_WIDTH)
 				{
@@ -2570,13 +2588,43 @@ OSStatus LLWindowMacOSX::eventHandler (EventHandlerCallRef myHandler, EventRef e
 
 		case kEventWindowBoundsChanged:
 			{
+				// Get new window bounds
 				Rect newBounds;
-
 				GetEventParameter(event, kEventParamCurrentBounds, typeQDRectangle, NULL, sizeof(Rect), NULL, &newBounds);
+				
+				// Get previous window bounds
+				Rect oldBounds;
+				GetEventParameter(event, kEventParamPreviousBounds, typeQDRectangle, NULL, sizeof(Rect), NULL, &oldBounds);
+				
+				// Determine if the new size is larger than the old
+				bool newBoundsLarger = ((newBounds.right - newBounds.left) >= (oldBounds.right - oldBounds.left));
+				newBoundsLarger &= ((newBounds.bottom - newBounds.top) >= (oldBounds.bottom - oldBounds.top));
+				
+				// Check to see if this is a zoom event (+ button on window pane)
+				unsigned int eventParams;
+				GetEventParameter(event, kEventParamAttributes, typeUInt32, NULL, sizeof(int), NULL, &eventParams);
+				bool isZoomEvent = ((eventParams & kWindowBoundsChangeZoom) != 0);
+				
+				// Maximized flag is if zoom event and increasing window size
+				mMaximized = (isZoomEvent && newBoundsLarger);
+				
 				aglUpdateContext(mContext);
+				
 				mCallbacks->handleResize(this, newBounds.right - newBounds.left, newBounds.bottom - newBounds.top);
-
-
+			}
+			break;
+			
+		case kEventWindowGetIdealSize:
+			// Only recommend a new ideal size when un-maximizing
+			if (mMaximized == TRUE)
+			{
+				Point nonMaximizedSize;
+				
+				nonMaximizedSize.v = mPreviousWindowRect.bottom - mPreviousWindowRect.top;
+				nonMaximizedSize.h = mPreviousWindowRect.right - mPreviousWindowRect.left;
+				
+				SetEventParameter(event, kEventParamDimensions, typeQDPoint, sizeof(Point), &nonMaximizedSize);
+				result = noErr;
 			}
 			break;
 
@@ -2637,7 +2685,7 @@ OSStatus LLWindowMacOSX::eventHandler (EventHandlerCallRef myHandler, EventRef e
 
 					S32 preedit, preedit_length;
 					mPreeditor->getPreeditRange(&preedit, &preedit_length);
-					const LLWString & text = mPreeditor->getWText();
+					const LLWString & text = mPreeditor->getPreeditString();
 					const CFIndex length = wstring_utf16_length(text, 0, preedit)
 						+ wstring_utf16_length(text, preedit + preedit_length, text.length());
 					result = SetEventParameter(event, kEventParamTSMDocAccessCharacterCount, typeCFIndex, sizeof(length), &length);
@@ -2654,7 +2702,7 @@ OSStatus LLWindowMacOSX::eventHandler (EventHandlerCallRef myHandler, EventRef e
 
 					S32 preedit, preedit_length;
 					mPreeditor->getPreeditRange(&preedit, &preedit_length);
-					const LLWString & text = mPreeditor->getWText();
+					const LLWString & text = mPreeditor->getPreeditString();
 					
 					CFRange range;
 					if (preedit_length)
@@ -2688,7 +2736,7 @@ OSStatus LLWindowMacOSX::eventHandler (EventHandlerCallRef myHandler, EventRef e
 					{
 						S32 preedit, preedit_length;
 						mPreeditor->getPreeditRange(&preedit, &preedit_length);
-						const LLWString & text = mPreeditor->getWText();
+						const LLWString & text = mPreeditor->getPreeditString();
 
 						// The GetCharacters event of TSMDA has a fundamental flaw;
 						// An input method need to decide the starting offset and length
@@ -2763,14 +2811,13 @@ const char* cursorIDToName(int id)
 		case UI_CURSOR_TOOLPAN:			return "UI_CURSOR_TOOLPAN";
 		case UI_CURSOR_TOOLZOOMIN:		return "UI_CURSOR_TOOLZOOMIN";
 		case UI_CURSOR_TOOLPICKOBJECT3:	return "UI_CURSOR_TOOLPICKOBJECT3";
-		case UI_CURSOR_TOOLSIT:			return "UI_CURSOR_TOOLSIT";
-		case UI_CURSOR_TOOLBUY:			return "UI_CURSOR_TOOLBUY";
-		case UI_CURSOR_TOOLPAY:			return "UI_CURSOR_TOOLPAY";
-		case UI_CURSOR_TOOLOPEN:		return "UI_CURSOR_TOOLOPEN";
 		case UI_CURSOR_TOOLPLAY:		return "UI_CURSOR_TOOLPLAY";
 		case UI_CURSOR_TOOLPAUSE:		return "UI_CURSOR_TOOLPAUSE";
 		case UI_CURSOR_TOOLMEDIAOPEN:	return "UI_CURSOR_TOOLMEDIAOPEN";
 		case UI_CURSOR_PIPETTE:			return "UI_CURSOR_PIPETTE";		
+		case UI_CURSOR_TOOLSIT:			return "UI_CURSOR_TOOLSIT";
+		case UI_CURSOR_TOOLBUY:			return "UI_CURSOR_TOOLBUY";
+		case UI_CURSOR_TOOLOPEN:		return "UI_CURSOR_TOOLOPEN";
 	}
 
 	llerrs << "cursorIDToName: unknown cursor id" << id << llendl;
@@ -2798,6 +2845,14 @@ void LLWindowMacOSX::setCursor(ECursorType cursor)
 {
 	OSStatus result = noErr;
 
+	if (mDragOverrideCursor != -1) 
+	{
+		// A drag is in progress...remember the requested cursor and we'll
+		// restore it when it is done
+		mCurrentCursor = cursor;
+		return;
+	}
+		
 	if (cursor == UI_CURSOR_ARROW
 		&& mBusyCount > 0)
 	{
@@ -2862,13 +2917,12 @@ void LLWindowMacOSX::setCursor(ECursorType cursor)
 	case UI_CURSOR_TOOLPAN:
 	case UI_CURSOR_TOOLZOOMIN:
 	case UI_CURSOR_TOOLPICKOBJECT3:
-	case UI_CURSOR_TOOLSIT:
-	case UI_CURSOR_TOOLBUY:
-	case UI_CURSOR_TOOLPAY:
-	case UI_CURSOR_TOOLOPEN:
 	case UI_CURSOR_TOOLPLAY:
 	case UI_CURSOR_TOOLPAUSE:
 	case UI_CURSOR_TOOLMEDIAOPEN:
+	case UI_CURSOR_TOOLSIT:
+	case UI_CURSOR_TOOLBUY:
+	case UI_CURSOR_TOOLOPEN:
 		result = setImageCursor(gCursors[cursor]);
 		break;
 
@@ -2907,13 +2961,12 @@ void LLWindowMacOSX::initCursors()
 	initPixmapCursor(UI_CURSOR_TOOLPAN, 7, 6);
 	initPixmapCursor(UI_CURSOR_TOOLZOOMIN, 7, 6);
 	initPixmapCursor(UI_CURSOR_TOOLPICKOBJECT3, 1, 1);
-	initPixmapCursor(UI_CURSOR_TOOLSIT, 1, 1);
-	initPixmapCursor(UI_CURSOR_TOOLBUY, 1, 1);
-	initPixmapCursor(UI_CURSOR_TOOLPAY, 1, 1);
-	initPixmapCursor(UI_CURSOR_TOOLOPEN, 1, 1);
 	initPixmapCursor(UI_CURSOR_TOOLPLAY, 1, 1);
 	initPixmapCursor(UI_CURSOR_TOOLPAUSE, 1, 1);
 	initPixmapCursor(UI_CURSOR_TOOLMEDIAOPEN, 1, 1);
+	initPixmapCursor(UI_CURSOR_TOOLSIT, 20, 15);
+	initPixmapCursor(UI_CURSOR_TOOLBUY, 20, 15);
+	initPixmapCursor(UI_CURSOR_TOOLOPEN, 20, 15);
 
 	initPixmapCursor(UI_CURSOR_SIZENWSE, 10, 10);
 	initPixmapCursor(UI_CURSOR_SIZENESW, 10, 10);
@@ -3159,7 +3212,7 @@ S32 OSMessageBoxMacOSX(const std::string& text, const std::string& caption, U32 
 
 // Open a URL with the user's default web browser.
 // Must begin with protocol identifier.
-void LLWindowMacOSX::spawnWebBrowser(const std::string& escaped_url)
+void LLWindowMacOSX::spawnWebBrowser(const std::string& escaped_url, bool async)
 {
 	bool found = false;
 	S32 i;
@@ -3210,6 +3263,60 @@ void LLWindowMacOSX::spawnWebBrowser(const std::string& escaped_url)
 	{
 		llinfos << "Error: couldn't create URL." << llendl;
 	}
+}
+
+LLSD LLWindowMacOSX::getNativeKeyData()
+{
+	LLSD result = LLSD::emptyMap();
+	
+	if(mRawKeyEvent)
+	{
+		char char_code = 0;
+		UInt32 key_code = 0;
+		UInt32 modifiers = 0;
+		UInt32 keyboard_type = 0;
+		
+		GetEventParameter (mRawKeyEvent, kEventParamKeyMacCharCodes, typeChar, NULL, sizeof(char), NULL, &char_code);
+		GetEventParameter (mRawKeyEvent, kEventParamKeyCode, typeUInt32, NULL, sizeof(UInt32), NULL, &key_code);
+		GetEventParameter (mRawKeyEvent, kEventParamKeyModifiers, typeUInt32, NULL, sizeof(UInt32), NULL, &modifiers);
+		GetEventParameter (mRawKeyEvent, kEventParamKeyboardType, typeUInt32, NULL, sizeof(UInt32), NULL, &keyboard_type);
+
+		result["char_code"] = (S32)char_code;
+		result["key_code"] = (S32)key_code;
+		result["modifiers"] = (S32)modifiers;
+		result["keyboard_type"] = (S32)keyboard_type;
+		
+#if 0
+		// This causes trouble for control characters -- apparently character codes less than 32 (escape, control-A, etc)
+		// cause llsd serialization to create XML that the llsd deserializer won't parse!
+		std::string unicode;
+		OSStatus err = noErr;
+		EventParamType actualType = typeUTF8Text;
+		UInt32 actualSize = 0;
+		char *buffer = NULL;
+		
+		err = GetEventParameter (mRawKeyEvent, kEventParamKeyUnicodes, typeUTF8Text, &actualType, 0, &actualSize, NULL);
+		if(err == noErr)
+		{
+			// allocate a buffer and get the actual data.
+			buffer = new char[actualSize];
+			err = GetEventParameter (mRawKeyEvent, kEventParamKeyUnicodes, typeUTF8Text, &actualType, actualSize, &actualSize, buffer);
+			if(err == noErr)
+			{
+				unicode.assign(buffer, actualSize);
+			}
+			delete[] buffer;
+		}
+		
+		result["unicode"] = unicode;
+#endif
+
+	}
+
+
+	lldebugs << "native key data is: " << result << llendl;
+	
+	return result;
 }
 
 
@@ -3329,6 +3436,8 @@ void LLWindowMacOSX::allowLanguageTextInput(LLPreeditor *preeditor, BOOL b)
 		return;
 	}
 
+	UseInputWindow(mTSMDocument, !b);
+	
 	// Take care of old and new preeditors.
 	if (preeditor != mPreeditor || !b)
 	{
@@ -3388,3 +3497,174 @@ std::vector<std::string> LLWindowMacOSX::getDynamicFallbackFontList()
 	return std::vector<std::string>();
 }
 
+// static
+MASK LLWindowMacOSX::modifiersToMask(SInt16 modifiers)
+{
+	MASK mask = 0;
+	if(modifiers & shiftKey) { mask |= MASK_SHIFT; }
+	if(modifiers & (cmdKey | controlKey)) { mask |= MASK_CONTROL; }
+	if(modifiers & optionKey) { mask |= MASK_ALT; }
+	return mask;
+}	
+
+#if LL_OS_DRAGDROP_ENABLED
+
+OSErr LLWindowMacOSX::dragTrackingHandler(DragTrackingMessage message, WindowRef theWindow,
+						  void * handlerRefCon, DragRef drag)
+{
+	OSErr result = noErr;
+	LLWindowMacOSX *self = (LLWindowMacOSX*)handlerRefCon;
+
+	lldebugs << "drag tracking handler, message = " << message << llendl;
+	
+	switch(message)
+	{
+		case kDragTrackingInWindow:
+			result = self->handleDragNDrop(drag, LLWindowCallbacks::DNDA_TRACK);
+		break;
+		
+		case kDragTrackingEnterHandler:
+			result = self->handleDragNDrop(drag, LLWindowCallbacks::DNDA_START_TRACKING);
+		break;
+		
+		case kDragTrackingLeaveHandler:
+			result = self->handleDragNDrop(drag, LLWindowCallbacks::DNDA_STOP_TRACKING);
+		break;
+		
+		default:
+		break;
+	}
+	
+	return result;
+}
+
+OSErr LLWindowMacOSX::dragReceiveHandler(WindowRef theWindow, void * handlerRefCon,	
+										 DragRef drag)
+{	
+	LLWindowMacOSX *self = (LLWindowMacOSX*)handlerRefCon;
+	return self->handleDragNDrop(drag, LLWindowCallbacks::DNDA_DROPPED);
+
+}
+
+OSErr LLWindowMacOSX::handleDragNDrop(DragRef drag, LLWindowCallbacks::DragNDropAction action)
+{	
+	OSErr result = dragNotAcceptedErr;	// overall function result
+	OSErr err = noErr;	// for local error handling
+	
+	// Get the mouse position and modifiers of this drag.
+	SInt16 modifiers, mouseDownModifiers, mouseUpModifiers;
+	::GetDragModifiers(drag, &modifiers, &mouseDownModifiers, &mouseUpModifiers);
+	MASK mask = LLWindowMacOSX::modifiersToMask(modifiers);
+	
+	Point mouse_point;
+	// This will return the mouse point in global screen coords
+	::GetDragMouse(drag, &mouse_point, NULL);
+	LLCoordScreen screen_coords(mouse_point.h, mouse_point.v);
+	LLCoordGL gl_pos;
+	convertCoords(screen_coords, &gl_pos);
+	
+	// Look at the pasteboard and try to extract an URL from it
+	PasteboardRef   pasteboard;
+	if(GetDragPasteboard(drag, &pasteboard) == noErr)
+	{
+		ItemCount num_items = 0;
+		// Treat an error here as an item count of 0
+		(void)PasteboardGetItemCount(pasteboard, &num_items);
+		
+		// Only deal with single-item drags.
+		if(num_items == 1)
+		{
+			PasteboardItemID item_id = NULL;
+			CFArrayRef flavors = NULL;
+			CFDataRef data = NULL;
+			
+			err = PasteboardGetItemIdentifier(pasteboard, 1, &item_id); // Yes, this really is 1-based.
+			
+			// Try to extract an URL from the pasteboard
+			if(err == noErr)
+			{
+				err = PasteboardCopyItemFlavors( pasteboard, item_id, &flavors);
+			}
+			
+			if(err == noErr)
+			{
+				if(CFArrayContainsValue(flavors, CFRangeMake(0, CFArrayGetCount(flavors)), kUTTypeURL))
+				{
+					// This is an URL.
+					err = PasteboardCopyItemFlavorData(pasteboard, item_id, kUTTypeURL, &data);
+				}
+				else if(CFArrayContainsValue(flavors, CFRangeMake(0, CFArrayGetCount(flavors)), kUTTypeUTF8PlainText))
+				{
+					// This is a string that might be an URL.
+					err = PasteboardCopyItemFlavorData(pasteboard, item_id, kUTTypeUTF8PlainText, &data);
+				}
+				
+			}
+			
+			if(flavors != NULL)
+			{
+				CFRelease(flavors);
+			}
+
+			if(data != NULL)
+			{
+				std::string url;
+				url.assign((char*)CFDataGetBytePtr(data), CFDataGetLength(data));
+				CFRelease(data);
+				
+				if(!url.empty())
+				{
+					LLWindowCallbacks::DragNDropResult res = 
+						mCallbacks->handleDragNDrop(this, gl_pos, mask, action, url);
+					
+					switch (res) {
+						case LLWindowCallbacks::DND_NONE:		// No drop allowed
+							if (action == LLWindowCallbacks::DNDA_TRACK)
+							{
+								mDragOverrideCursor = kThemeNotAllowedCursor;
+							}
+							else {
+								mDragOverrideCursor = -1;
+							}
+							break;
+						case LLWindowCallbacks::DND_MOVE:		// Drop accepted would result in a "move" operation
+							mDragOverrideCursor = kThemePointingHandCursor;
+							result = noErr;
+							break;
+						case LLWindowCallbacks::DND_COPY:		// Drop accepted would result in a "copy" operation
+							mDragOverrideCursor = kThemeCopyArrowCursor;
+							result = noErr;
+							break;
+						case LLWindowCallbacks::DND_LINK:		// Drop accepted would result in a "link" operation:
+							mDragOverrideCursor = kThemeAliasArrowCursor;
+							result = noErr;
+							break;
+						default:
+							mDragOverrideCursor = -1;
+							break;
+					}
+					// This overrides the cursor being set by setCursor.
+					// This is a bit of a hack workaround because lots of areas
+					// within the viewer just blindly set the cursor.
+					if (mDragOverrideCursor == -1)
+					{
+						// Restore the cursor
+						ECursorType temp_cursor = mCurrentCursor;
+						// get around the "setting the same cursor" code in setCursor()
+						mCurrentCursor = UI_CURSOR_COUNT; 
+ 						setCursor(temp_cursor);
+					}
+					else {
+						// Override the cursor
+						SetThemeCursor(mDragOverrideCursor);
+					}
+
+				}
+			}
+		}
+	}
+	
+	return result;
+}
+
+#endif // LL_OS_DRAGDROP_ENABLED

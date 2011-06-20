@@ -2,31 +2,25 @@
  * @file llviewerstats.cpp
  * @brief LLViewerStats class implementation
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -39,6 +33,7 @@
 #include "llfloaterreg.h"
 #include "llmemory.h"
 #include "lltimer.h"
+#include "llvfile.h"
 
 #include "llappviewer.h"
 
@@ -51,19 +46,20 @@
 #include "llsurface.h"
 #include "llvlmanager.h"
 #include "llagent.h"
+#include "llagentcamera.h"
 #include "llviewercontrol.h"
-#include "llfloaterdirectory.h"
+#include "llversioninfo.h"
 #include "llfloatertools.h"
 #include "lldebugview.h"
 #include "llfasttimerview.h"
 #include "llviewerregion.h"
 #include "llvoavatar.h"
 #include "llvoavatarself.h"
-#include "llfloaterhtml.h"
 #include "llviewerwindow.h"		// *TODO: remove, only used for width/height
 #include "llworld.h"
 #include "llfeaturemanager.h"
 #include "llviewernetwork.h"
+#include "llmeshrepository.h" //for LLMeshRepository::sBytesReceived
 
 
 class StatAttributes
@@ -280,6 +276,8 @@ LLViewerStats::LLViewerStats() :
 	{
 		mStats[ST_HAS_BAD_TIMER] = 1.0;
 	}	
+	
+	mAgentPositionSnaps.reset();
 }
 
 LLViewerStats::~LLViewerStats()
@@ -299,6 +297,8 @@ void LLViewerStats::resetStats()
 	LLViewerStats::getInstance()->mPacketsOutStat.reset();
 	LLViewerStats::getInstance()->mFPSStat.reset();
 	LLViewerStats::getInstance()->mTexturePacketsStat.reset();
+	
+	LLViewerStats::getInstance()->mAgentPositionSnaps.reset();
 }
 
 
@@ -393,6 +393,10 @@ void LLViewerStats::addToMessage(LLSD &body) const
 					<< llendl;
 		}
 	}
+	
+	body["AgentPositionSnaps"] = mAgentPositionSnaps.getData();
+	llinfos << "STAT: AgentPositionSnaps: Mean = " << mAgentPositionSnaps.getMean() << "; StdDev = " << mAgentPositionSnaps.getStdDev() 
+			<< "; Count = " << mAgentPositionSnaps.getCount() << llendl;
 }
 
 // static
@@ -556,27 +560,33 @@ F32		gWorstLandCompression = 0.f, gWorstWaterCompression = 0.f;
 U32		gTotalWorldBytes = 0, gTotalObjectBytes = 0, gTotalTextureBytes = 0, gSimPingCount = 0;
 U32		gObjectBits = 0;
 F32		gAvgSimPing = 0.f;
-
+U32     gTotalTextureBytesPerBoostLevel[LLViewerTexture::MAX_GL_IMAGE_CATEGORY] = {0};
 
 extern U32  gVisCompared;
 extern U32  gVisTested;
 
 std::map<S32,LLFrameTimer> gDebugTimers;
+std::map<S32,std::string> gDebugTimerLabel;
+
+void init_statistics()
+{
+	// Label debug timers
+	gDebugTimerLabel[0] = "Texture";
+}
 
 void update_statistics(U32 frame_count)
 {
 	gTotalWorldBytes += gVLManager.getTotalBytes();
 	gTotalObjectBytes += gObjectBits / 8;
-	gTotalTextureBytes += gTextureList.mTextureBits / 8;
 
 	// make sure we have a valid time delta for this frame
 	if (gFrameIntervalSeconds > 0.f)
 	{
-		if (gAgent.getCameraMode() == CAMERA_MODE_MOUSELOOK)
+		if (gAgentCamera.getCameraMode() == CAMERA_MODE_MOUSELOOK)
 		{
 			LLViewerStats::getInstance()->incStat(LLViewerStats::ST_MOUSELOOK_SECONDS, gFrameIntervalSeconds);
 		}
-		else if (gAgent.getCameraMode() == CAMERA_MODE_CUSTOMIZE_AVATAR)
+		else if (gAgentCamera.getCameraMode() == CAMERA_MODE_CUSTOMIZE_AVATAR)
 		{
 			LLViewerStats::getInstance()->incStat(LLViewerStats::ST_AVATAR_EDIT_SECONDS, gFrameIntervalSeconds);
 		}
@@ -586,7 +596,7 @@ void update_statistics(U32 frame_count)
 		}
 	}
 	LLViewerStats::getInstance()->setStat(LLViewerStats::ST_ENABLE_VBO, (F64)gSavedSettings.getBOOL("RenderVBOEnable"));
-	LLViewerStats::getInstance()->setStat(LLViewerStats::ST_LIGHTING_DETAIL, (F64)gSavedSettings.getS32("RenderLightingDetail"));
+	LLViewerStats::getInstance()->setStat(LLViewerStats::ST_LIGHTING_DETAIL, (F64)gPipeline.getLightingDetail());
 	LLViewerStats::getInstance()->setStat(LLViewerStats::ST_DRAW_DIST, (F64)gSavedSettings.getF32("RenderFarClip"));
 	LLViewerStats::getInstance()->setStat(LLViewerStats::ST_CHAT_BUBBLES, (F64)gSavedSettings.getBOOL("UseChatBubbles"));
 #if 0 // 1.9.2
@@ -594,14 +604,14 @@ void update_statistics(U32 frame_count)
 	LLViewerStats::getInstance()->setStat(LLViewerStats::ST_SHADER_AVATAR, (F64)gSavedSettings.getBOOL("VertexShaderLevelAvatar"));
 	LLViewerStats::getInstance()->setStat(LLViewerStats::ST_SHADER_ENVIRONMENT, (F64)gSavedSettings.getBOOL("VertexShaderLevelEnvironment"));
 #endif
-	LLViewerStats::getInstance()->setStat(LLViewerStats::ST_FRAME_SECS, gDebugView->mFastTimerView->getTime(LLFastTimer::NamedTimer::getRootNamedTimer().getFrameState()));
-	F64 idle_secs = gDebugView->mFastTimerView->getTime(LLFastTimer::FTM_IDLE);
-	F64 network_secs = gDebugView->mFastTimerView->getTime(LLFastTimer::FTM_NETWORK);
+	LLViewerStats::getInstance()->setStat(LLViewerStats::ST_FRAME_SECS, gDebugView->mFastTimerView->getTime("Frame"));
+	F64 idle_secs = gDebugView->mFastTimerView->getTime("Idle");
+	F64 network_secs = gDebugView->mFastTimerView->getTime("Network");
 	LLViewerStats::getInstance()->setStat(LLViewerStats::ST_UPDATE_SECS, idle_secs - network_secs);
 	LLViewerStats::getInstance()->setStat(LLViewerStats::ST_NETWORK_SECS, network_secs);
-	LLViewerStats::getInstance()->setStat(LLViewerStats::ST_IMAGE_SECS, gDebugView->mFastTimerView->getTime(LLFastTimer::FTM_IMAGE_UPDATE));
-	LLViewerStats::getInstance()->setStat(LLViewerStats::ST_REBUILD_SECS, gDebugView->mFastTimerView->getTime(LLFastTimer::FTM_STATESORT ));
-	LLViewerStats::getInstance()->setStat(LLViewerStats::ST_RENDER_SECS, gDebugView->mFastTimerView->getTime(LLFastTimer::FTM_RENDER_GEOMETRY));
+	LLViewerStats::getInstance()->setStat(LLViewerStats::ST_IMAGE_SECS, gDebugView->mFastTimerView->getTime("Update Images"));
+	LLViewerStats::getInstance()->setStat(LLViewerStats::ST_REBUILD_SECS, gDebugView->mFastTimerView->getTime("Sort Draw State"));
+	LLViewerStats::getInstance()->setStat(LLViewerStats::ST_RENDER_SECS, gDebugView->mFastTimerView->getTime("Geometry"));
 		
 	LLCircuitData *cdp = gMessageSystem->mCircuitInfo.findCircuit(gAgent.getRegion()->getHost());
 	if (cdp)
@@ -619,7 +629,6 @@ void update_statistics(U32 frame_count)
 	F32 layer_bits = (F32)(gVLManager.getLandBits() + gVLManager.getWindBits() + gVLManager.getCloudBits());
 	LLViewerStats::getInstance()->mLayersKBitStat.addValue(layer_bits/1024.f);
 	LLViewerStats::getInstance()->mObjectKBitStat.addValue(gObjectBits/1024.f);
-	LLViewerStats::getInstance()->mTextureKBitStat.addValue(gTextureList.mTextureBits/1024.f);
 	LLViewerStats::getInstance()->mVFSPendingOperations.addValue(LLVFile::getVFSThread()->getPending());
 	LLViewerStats::getInstance()->mAssetKBitStat.addValue(gTransferManager.getTransferBitsIn(LLTCT_ASSET)/1024.f);
 	gTransferManager.resetTransferBitsIn(LLTCT_ASSET);
@@ -633,8 +642,6 @@ void update_statistics(U32 frame_count)
 		gDebugTimers[0].unpause();
 	}
 	
-	LLViewerStats::getInstance()->mTexturePacketsStat.addValue(gTextureList.mTexturePackets);
-
 	{
 		static F32 visible_avatar_frames = 0.f;
 		static F32 avg_visible_avatars = 0;
@@ -654,8 +661,20 @@ void update_statistics(U32 frame_count)
 	gObjectBits = 0;
 //	gDecodedBits = 0;
 
-	gTextureList.mTextureBits = 0;
-	gTextureList.mTexturePackets = 0;
+	// Only update texture stats periodically so that they are less noisy
+	{
+		static const F32 texture_stats_freq = 10.f;
+		static LLFrameTimer texture_stats_timer;
+		if (texture_stats_timer.getElapsedTimeF32() >= texture_stats_freq)
+		{
+			LLViewerStats::getInstance()->mTextureKBitStat.addValue(LLViewerTextureList::sTextureBits/1024.f);
+			LLViewerStats::getInstance()->mTexturePacketsStat.addValue(LLViewerTextureList::sTexturePackets);
+			gTotalTextureBytes += LLViewerTextureList::sTextureBits / 8;
+			LLViewerTextureList::sTextureBits = 0;
+			LLViewerTextureList::sTexturePackets = 0;
+			texture_stats_timer.reset();
+		}
+	}
 
 }
 
@@ -693,7 +712,7 @@ void send_stats()
 	// but that day is not today.
 
 	// Only send stats if the agent is connected to a region.
-	if (!gAgent.getRegion() || gNoRender)
+	if (!gAgent.getRegion())
 	{
 		return;
 	}
@@ -732,7 +751,7 @@ void send_stats()
 
 	// send fps only for time app spends in foreground
 	agent["fps"] = (F32)gForegroundFrameCount / gForegroundTime.getElapsedTimeF32();
-	agent["version"] = gCurrentVersion;
+	agent["version"] = LLVersionInfo::getChannelAndVersion();
 	std::string language = LLUI::getLanguage();
 	agent["language"] = language;
 	
@@ -753,9 +772,11 @@ void send_stats()
 	system["ram"] = (S32) gSysMemory.getPhysicalMemoryKB();
 	system["os"] = LLAppViewer::instance()->getOSInfo().getOSStringSimple();
 	system["cpu"] = gSysCPU.getCPUString();
+	unsigned char MACAddress[MAC_ADDRESS_BYTES];
+	LLUUID::getNodeID(MACAddress);
 	std::string macAddressString = llformat("%02x-%02x-%02x-%02x-%02x-%02x",
-											gMACAddress[0],gMACAddress[1],gMACAddress[2],
-											gMACAddress[3],gMACAddress[4],gMACAddress[5]);
+											MACAddress[0],MACAddress[1],MACAddress[2],
+											MACAddress[3],MACAddress[4],MACAddress[5]);
 	system["mac_address"] = macAddressString;
 	system["serial_number"] = LLAppViewer::instance()->getSerialNumber();
 	std::string gpu_desc = llformat(
@@ -774,6 +795,7 @@ void send_stats()
 	download["world_kbytes"] = gTotalWorldBytes / 1024.0;
 	download["object_kbytes"] = gTotalObjectBytes / 1024.0;
 	download["texture_kbytes"] = gTotalTextureBytes / 1024.0;
+	download["mesh_kbytes"] = LLMeshRepository::sBytesReceived/1024.0;
 
 	LLSD &in = body["stats"]["net"]["in"];
 
@@ -809,13 +831,15 @@ void send_stats()
 	// Screen size so the UI team can figure out how big the widgets
 	// appear and use a "typical" size for end user tests.
 
-	S32 window_width = gViewerWindow->getWindowDisplayWidth();
-	S32 window_height = gViewerWindow->getWindowDisplayHeight();
+	S32 window_width = gViewerWindow->getWindowWidthRaw();
+	S32 window_height = gViewerWindow->getWindowHeightRaw();
 	S32 window_size = (window_width * window_height) / 1024;
 	misc["string_1"] = llformat("%d", window_size);
-	// misc["string_2"] = 
-// 	misc["int_1"] = LLFloaterDirectory::sOldSearchCount; // Steve: 1.18.6
-// 	misc["int_2"] = LLFloaterDirectory::sNewSearchCount; // Steve: 1.18.6
+	if (gDebugTimers.find(0) != gDebugTimers.end() && gFrameTimeSeconds > 0)
+	{
+		misc["string_2"] = llformat("Texture Time: %.2f, Total Time: %.2f", gDebugTimers[0].getElapsedTimeF32(), gFrameTimeSeconds);
+	}
+
 // 	misc["int_1"] = LLSD::Integer(gSavedSettings.getU32("RenderQualityPerformance")); // Steve: 1.21
 // 	misc["int_2"] = LLSD::Integer(gFrameStalls); // Steve: 1.21
 
@@ -826,7 +850,13 @@ void send_stats()
 
 	llinfos << "Misc Stats: int_1: " << misc["int_1"] << " int_2: " << misc["int_2"] << llendl;
 	llinfos << "Misc Stats: string_1: " << misc["string_1"] << " string_2: " << misc["string_2"] << llendl;
+
+	body["DisplayNamesEnabled"] = gSavedSettings.getBOOL("UseDisplayNames");
+	body["DisplayNamesShowUsername"] = gSavedSettings.getBOOL("NameTagShowUsernames");
+	
+	body["MinimalSkin"] = !gSavedSettings.getString("SessionSettingsFile").empty();
 	
 	LLViewerStats::getInstance()->addToMessage(body);
 	LLHTTPClient::post(url, body, new ViewerStatsResponder());
 }
+

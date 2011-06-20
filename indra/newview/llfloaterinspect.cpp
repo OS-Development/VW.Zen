@@ -2,31 +2,25 @@
  * @file llfloaterinspect.cpp
  * @brief Floater for object inspection tool
  *
- * $LicenseInfo:firstyear=2006&license=viewergpl$
- * 
- * Copyright (c) 2006-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2006&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -36,8 +30,8 @@
 
 #include "llfloaterreg.h"
 #include "llfloatertools.h"
-#include "llfriendactions.h"
-#include "llcachename.h"
+#include "llavataractions.h"
+#include "llavatarnamecache.h"
 #include "llscrolllistctrl.h"
 #include "llscrolllistitem.h"
 #include "llselectmgr.h"
@@ -53,7 +47,6 @@ LLFloaterInspect::LLFloaterInspect(const LLSD& key)
   : LLFloater(key),
 	mDirty(FALSE)
 {
-	//LLUICtrlFactory::getInstance()->buildFloater(this, "floater_inspect.xml");
 	mCommitCallbackRegistrar.add("Inspect.OwnerProfile",	boost::bind(&LLFloaterInspect::onClickOwnerProfile, this));
 	mCommitCallbackRegistrar.add("Inspect.CreatorProfile",	boost::bind(&LLFloaterInspect::onClickCreatorProfile, this));
 	mCommitCallbackRegistrar.add("Inspect.SelectObject",	boost::bind(&LLFloaterInspect::onSelectObject, this));
@@ -88,32 +81,7 @@ LLFloaterInspect::~LLFloaterInspect(void)
 	}
 	//sInstance = NULL;
 }
-/*
-BOOL LLFloaterInspect::isVisible()
-{
-	return (!!sInstance);
-}*/
-/*
-void LLFloaterInspect::show(void* ignored)
-{
-	// setForceSelection ensures that the pie menu does not deselect things when it 
-	// looses the focus (this can happen with "select own objects only" enabled
-	// VWR-1471
-	BOOL forcesel = LLSelectMgr::getInstance()->setForceSelection(TRUE);
 
-	if (!sInstance)	// first use
-	{
-		sInstance = new LLFloaterInspect;
-	}
-
-	sInstance->openFloater();
-	LLToolMgr::getInstance()->setTransientTool(LLToolCompInspect::getInstance());
-	LLSelectMgr::getInstance()->setForceSelection(forcesel);	// restore previouis value
-
-	sInstance->mObjectSelection = LLSelectMgr::getInstance()->getSelection();
-	sInstance->refresh();
-}
-*/
 void LLFloaterInspect::onOpen(const LLSD& key)
 {
 	BOOL forcesel = LLSelectMgr::getInstance()->setForceSelection(TRUE);
@@ -144,7 +112,7 @@ void LLFloaterInspect::onClickCreatorProfile()
 		LLSelectNode* node = mObjectSelection->getFirstNode(&func);
 		if(node)
 		{
-			LLFriendActions::showProfile(node->mPermissions->getCreator());
+			LLAvatarActions::showProfile(node->mPermissions->getCreator());
 		}
 	}
 }
@@ -170,7 +138,7 @@ void LLFloaterInspect::onClickOwnerProfile()
 		if(node)
 		{
 			const LLUUID& owner_id = node->mPermissions->getOwner();
-			LLFriendActions::showProfile(owner_id);
+			LLAvatarActions::showProfile(owner_id);
 		}
 	}
 }
@@ -179,8 +147,8 @@ void LLFloaterInspect::onSelectObject()
 {
 	if(LLFloaterInspect::getSelectedUUID() != LLUUID::null)
 	{
-		childSetEnabled("button owner", true);
-		childSetEnabled("button creator", true);
+		getChildView("button owner")->setEnabled(true);
+		getChildView("button creator")->setEnabled(true);
 	}
 }
 
@@ -203,8 +171,8 @@ void LLFloaterInspect::refresh()
 	LLUUID creator_id;
 	std::string creator_name;
 	S32 pos = mObjectList->getScrollPos();
-	childSetEnabled("button owner", false);
-	childSetEnabled("button creator", false);
+	getChildView("button owner")->setEnabled(false);
+	getChildView("button creator")->setEnabled(false);
 	LLUUID selected_uuid;
 	S32 selected_index = mObjectList->getFirstSelectedIndex();
 	if(selected_index > -1)
@@ -237,8 +205,12 @@ void LLFloaterInspect::refresh()
 		substitution["datetime"] = (S32) timestamp;
 		LLStringUtil::format (timeStr, substitution);
 
-		gCacheName->getFullName(obj->mPermissions->getOwner(), owner_name);
-		gCacheName->getFullName(obj->mPermissions->getCreator(), creator_name);
+		LLAvatarName av_name;
+		LLAvatarNameCache::get(obj->mPermissions->getOwner(), &av_name);
+		owner_name = av_name.getCompleteName();
+		LLAvatarNameCache::get(obj->mPermissions->getCreator(), &av_name);
+		creator_name = av_name.getCompleteName();
+		
 		row["id"] = obj->getObject()->getID();
 		row["columns"][0]["column"] = "object_name";
 		row["columns"][0]["type"] = "text";

@@ -4,31 +4,25 @@
  * in UI code.  LLScrollListCell, LLScrollListItem, etc. are utility
  * classes.
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -51,9 +45,11 @@
 #include "lldate.h"
 #include "llscrolllistitem.h"
 #include "llscrolllistcolumn.h"
+#include "llviewborder.h"
 
 class LLScrollListCell;
 class LLTextBox;
+class LLContextMenu;
 
 class LLScrollListCtrl : public LLUICtrl, public LLEditMenuHandler, 
 	public LLCtrlListInterface, public LLCtrlScrollInterface
@@ -71,21 +67,48 @@ public:
 
 	// *TODO: Add callbacks to Params
 	typedef boost::function<void (void)> callback_t;
+
+	template<typename T> struct maximum
+	{
+		typedef T result_type;
+
+		template<typename InputIterator>
+		T operator()(InputIterator first, InputIterator last) const
+		{
+			// If there are no slots to call, just return the
+			// default-constructed value
+			if(first == last ) return T();
+			T max_value = *first++;
+			while (first != last) {
+				if (max_value < *first)
+				max_value = *first;
+				++first;
+			}
+
+			return max_value;
+		}
+	};
+
+	
+	typedef boost::signals2::signal<S32 (S32,const LLScrollListItem*,const LLScrollListItem*),maximum<S32> > sort_signal_t;
 	
 	struct Params : public LLInitParam::Block<Params, LLUICtrl::Params>
 	{
 		// behavioral flags
 		Optional<bool>	multi_select,
-						commit_on_keyboard_movement;
+						commit_on_keyboard_movement,
+						mouse_wheel_opaque;
 
 		// display flags
 		Optional<bool>	has_border,
 						draw_heading,
 						draw_stripes,
-						background_visible;
+						background_visible,
+						scroll_bar_bg_visible;
 
 		// layout
 		Optional<S32>	column_padding,
+							page_lines,
 						heading_height;
 
 		// sort and search behavior
@@ -99,12 +122,15 @@ public:
 							bg_selected_color,
 							fg_disable_color,
 							bg_writeable_color,
-							bg_read_only_color,
+							bg_readonly_color,
 							bg_stripe_color,
 							hovered_color,
-							highlighted_color;
+							highlighted_color,
+							scroll_bar_bg_color;
 
 		Optional<Contents> contents;
+
+		Optional<LLViewBorder::Params> border;
 		
 		Params();
 	};
@@ -141,6 +167,7 @@ public:
 	// "columns" => [ "column" => column name, "value" => value, "type" => type, "font" => font, "font-style" => style ], "id" => uuid
 	// Creates missing columns automatically.
 	virtual LLScrollListItem* addElement(const LLSD& element, EAddPosition pos = ADD_BOTTOM, void* userdata = NULL);
+	virtual LLScrollListItem* addRow(LLScrollListItem *new_item, const LLScrollListItem::Params& value, EAddPosition pos = ADD_BOTTOM);
 	virtual LLScrollListItem* addRow(const LLScrollListItem::Params& value, EAddPosition pos = ADD_BOTTOM);
 	// Simple add element. Takes a single array of:
 	// [ "value" => value, "font" => font, "font-style" => style ]
@@ -187,7 +214,10 @@ public:
 	void			deselectAllItems(BOOL no_commit_on_change = FALSE);	// by default, go ahead and commit on selection change
 
 	void			clearHighlightedItems();
-	void			mouseOverHighlightNthItem( S32 index );
+	
+	virtual void	mouseOverHighlightNthItem( S32 index );
+
+	S32				getHighlightedItemInx() const { return mHighlightedItem; } 
 	
 	void			setDoubleClickCallback( callback_t cb ) { mOnDoubleClickCallback = cb; }
 	void			setMaximumSelectCallback( callback_t cb) { mOnMaximumSelectCallback = cb; }
@@ -270,16 +300,21 @@ public:
 
 	void			clearSearchString() { mSearchString.clear(); }
 
+	// support right-click context menus for avatar/group lists
+	enum ContextMenuType { MENU_NONE, MENU_AVATAR, MENU_GROUP };
+	void setContextMenu(const ContextMenuType &menu) { mContextMenuType = menu; }
+
 	// Overridden from LLView
 	/*virtual*/ void    draw();
 	/*virtual*/ BOOL	handleMouseDown(S32 x, S32 y, MASK mask);
 	/*virtual*/ BOOL	handleMouseUp(S32 x, S32 y, MASK mask);
+	/*virtual*/ BOOL	handleRightMouseDown(S32 x, S32 y, MASK mask);
 	/*virtual*/ BOOL	handleDoubleClick(S32 x, S32 y, MASK mask);
 	/*virtual*/ BOOL	handleHover(S32 x, S32 y, MASK mask);
 	/*virtual*/ BOOL	handleKeyHere(KEY key, MASK mask);
 	/*virtual*/ BOOL	handleUnicodeCharHere(llwchar uni_char);
 	/*virtual*/ BOOL	handleScrollWheel(S32 x, S32 y, S32 clicks);
-	/*virtual*/ BOOL	handleToolTip(S32 x, S32 y, std::string& msg, LLRect* sticky_rect);
+	/*virtual*/ BOOL	handleToolTip(S32 x, S32 y, MASK mask);
 	/*virtual*/ void	setEnabled(BOOL enabled);
 	/*virtual*/ void	setFocus( BOOL b );
 	/*virtual*/ void	onFocusReceived();
@@ -298,6 +333,9 @@ public:
 
 	LLRect			getItemListRect() { return mItemListRect; }
 
+	/// Returns rect, in local coords, of a given row/column
+	LLRect			getCellRect(S32 row_index, S32 column_index);
+
 	// Used "internally" by the scroll bar.
 	void			onScrollChange( S32 new_pos, LLScrollbar* src );
 
@@ -308,6 +346,11 @@ public:
 	S32 getMaxContentWidth() { return mMaxContentWidth; }
 
 	void setHeadingHeight(S32 heading_height);
+	/**
+	 * Sets  max visible  lines without scroolbar, if this value equals to 0,
+	 * then display all items.
+	 */
+	void setPageLines(S32 page_lines );
 	void setCollapseEmptyColumns(BOOL collapse);
 
 	LLScrollListItem*	hitItem(S32 x,S32 y);
@@ -329,16 +372,24 @@ public:
 
 	std::string     getSortColumnName();
 	BOOL			getSortAscending() { return mSortColumns.empty() ? TRUE : mSortColumns.back().second; }
-	BOOL			needsSorting();
+	BOOL			hasSortOrder() const;
 
-	S32		selectMultiple( std::vector<LLUUID> ids );
-	void			sortItems();
+	S32		selectMultiple( uuid_vec_t ids );
+	// conceptually const, but mutates mItemList
+	void			updateSort() const;
 	// sorts a list without affecting the permanent sort order (so further list insertions can be unsorted, for example)
 	void			sortOnce(S32 column, BOOL ascending);
 
 	// manually call this whenever editing list items in place to flag need for resorting
-	void			setSorted(BOOL sorted) { mSorted = sorted; }
+	void			setNeedsSort(bool val = true) { mSorted = !val; }
 	void			dirtyColumns(); // some operation has potentially affected column layout or ordering
+
+	boost::signals2::connection setSortCallback(sort_signal_t::slot_type cb )
+	{
+		if (!mSortCallback) mSortCallback = new sort_signal_t();
+		return mSortCallback->connect(cb);
+	}
+
 
 protected:
 	// "Full" interface: use this when you're creating a list that has one or more of the following:
@@ -361,11 +412,13 @@ protected:
 	typedef std::deque<LLScrollListItem *> item_list;
 	item_list&		getItemList() { return mItemList; }
 
+	void			updateLineHeight();
+
 private:
 	void			selectPrevItem(BOOL extend_selection);
 	void			selectNextItem(BOOL extend_selection);
 	void			drawItems();
-	void			updateLineHeight();
+	
 	void            updateLineHeightInsert(LLScrollListItem* item);
 	void			reportInvalidInput();
 	BOOL			isRepeatedChars(const LLWString& string) const;
@@ -373,9 +426,11 @@ private:
 	void			deselectItem(LLScrollListItem* itemp);
 	void			commitIfChanged();
 	BOOL			setSort(S32 column, BOOL ascending);
+	S32				getLinesPerPage();
 
-	S32				mCurIndex;			// For get[First/Next]Data
-	S32				mCurSelectedIndex;  // For get[First/Next]Selected
+	static void		showNameDetails(std::string id, bool is_group);
+	static void		copyNameToClipboard(std::string id, bool is_group);
+	static void		copySLURLToClipboard(std::string id, bool is_group);
 
 	S32				mLineHeight;	// the max height of a single line
 	S32				mScrollLines;	// how many lines we've scrolled down
@@ -389,11 +444,12 @@ private:
 	BOOL			mCommitOnSelectionChange;
 	BOOL			mSelectionChanged;
 	BOOL			mNeedsScroll;
+	BOOL			mMouseWheelOpaque;
 	BOOL			mCanSelect;
 	const BOOL		mDisplayColumnHeaders;
 	BOOL			mColumnsDirty;
 
-	item_list		mItemList;
+	mutable item_list	mItemList;
 
 	LLScrollListItem *mLastSelected;
 
@@ -423,6 +479,7 @@ private:
 
 	S32				mHighlightedItem;
 	class LLViewBorder*	mBorder;
+	LLContextMenu	*mPopupMenu;
 
 	LLWString		mSearchString;
 	LLFrameTimer	mSearchTimer;
@@ -432,13 +489,15 @@ private:
 	S32				mTotalStaticColumnWidth;
 	S32				mTotalColumnPadding;
 
-	BOOL			mSorted;
+	mutable bool	mSorted;
 	
-	typedef std::map<std::string, LLScrollListColumn> column_map_t;
+	typedef std::map<std::string, LLScrollListColumn*> column_map_t;
 	column_map_t mColumns;
 
 	BOOL			mDirty;
 	S32				mOriginalSelection;
+
+	ContextMenuType mContextMenuType;
 
 	typedef std::vector<LLScrollListColumn*> ordered_columns_t;
 	ordered_columns_t	mColumnsIndexed;
@@ -446,10 +505,7 @@ private:
 	typedef std::pair<S32, BOOL> sort_column_t;
 	std::vector<sort_column_t>	mSortColumns;
 
-	// HACK:  Did we draw one selected item this frame?
-	BOOL mDrewSelected;
-
-	LLTextBox*		mCommentTextBox;
+	sort_signal_t*	mSortCallback;
 }; // end class LLScrollListCtrl
 
 #endif  // LL_SCROLLLISTCTRL_H

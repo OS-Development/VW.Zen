@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  can_resize="true"
  height="400"
  layout="topleft"
  name="floater_test_radiogroup"
+ help_topic="floater_test_radiogroup"
+ translate="false"
  width="400">
     <radio_group
      height="54"

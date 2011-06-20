@@ -2,31 +2,25 @@
  * @file llviewerobjectlist.h
  * @brief Description of LLViewerObjectList class.
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -38,19 +32,18 @@
 
 // common includes
 #include "llstat.h"
-#include "lldarrayptr.h"
-#include "llmap.h"			// *TODO: switch to std::map
 #include "llstring.h"
 
 // project includes
 #include "llviewerobject.h"
+#include "llaccountingquota.h"
 
 class LLCamera;
 class LLNetMap;
 class LLDebugBeacon;
 
 const U32 CLOSE_BIN_SIZE = 10;
-const U32 NUM_BINS = 16;
+const U32 NUM_BINS = 128;
 
 // GL name = position in object list + GL_NAME_INDEX_OFFSET so that
 // we can have special numbers like zero.
@@ -93,8 +86,29 @@ public:
 	void updateApparentAngles(LLAgent &agent);
 	void update(LLAgent &agent, LLWorld &world);
 
-	void shiftObjects(const LLVector3 &offset);
+	void fetchObjectCosts();
+	void fetchPhysicsFlags();
 
+	void updateObjectCost(LLViewerObject* object);
+	void updateObjectCost(const LLUUID& object_id, F32 object_cost, F32 link_cost, F32 physics_cost, F32 link_physics_cost);
+	void onObjectCostFetchFailure(const LLUUID& object_id);
+
+	void updatePhysicsFlags(const LLViewerObject* object);
+	void onPhysicsFlagsFetchFailure(const LLUUID& object_id);
+	void updatePhysicsShapeType(const LLUUID& object_id, S32 type);
+	void updatePhysicsProperties(const LLUUID& object_id,
+									F32 density,
+									F32 friction,
+									F32 restitution,
+									F32 gravity_multiplier);
+
+	void updateQuota( const LLUUID& objectId, const SelectionQuota& costs );
+	
+	void shiftObjects(const LLVector3 &offset);
+	void repartitionObjects();
+
+	bool hasMapObjectInRegion(LLViewerRegion* regionp) ;
+	void clearAllMapObjectsInRegion(LLViewerRegion* regionp) ;
 	void renderObjectsForMap(LLNetMap &netmap);
 	void renderObjectBounds(const LLVector3 &center);
 
@@ -111,13 +125,11 @@ public:
 	void updateAvatarVisibility();
 
 	// Selection related stuff
-	void renderObjectsForSelect(LLCamera &camera, const LLRect& screen_rect, BOOL pick_parcel_wall = FALSE, BOOL render_transparent = TRUE);
 	void generatePickList(LLCamera &camera);
-	void renderPickList(const LLRect& screen_rect, BOOL pick_parcel_wall, BOOL render_transparent);
 
 	LLViewerObject *getSelectedObject(const U32 object_id);
 
-	inline S32 getNumObjects() { return mObjects.count(); }
+	inline S32 getNumObjects() { return (S32) mObjects.size(); }
 
 	void addToMap(LLViewerObject *objectp);
 	void removeFromMap(LLViewerObject *objectp);
@@ -131,7 +143,7 @@ public:
 
 	S32 findReferences(LLDrawable *drawablep) const; // Find references to drawable in all objects, and return value.
 
-	S32 getOrphanParentCount() const { return mOrphanParents.count(); }
+	S32 getOrphanParentCount() const { return (S32) mOrphanParents.size(); }
 	S32 getOrphanCount() const { return mNumOrphans; }
 	void orphanize(LLViewerObject *childp, U32 parent_id, U32 ip, U32 port);
 	void findOrphans(LLViewerObject* objectp, U32 ip, U32 port);
@@ -170,7 +182,7 @@ public:
 								const U32 ip,
 								const U32 port); // Requires knowledge of message system info!
 
-	static BOOL removeFromLocalIDTable(const LLViewerObject &object);
+	static BOOL removeFromLocalIDTable(const LLViewerObject* objectp);
 	// Used ONLY by the orphaned object code.
 	static U64 getIndex(const U32 local_id, const U32 ip, const U32 port);
 
@@ -179,26 +191,35 @@ public:
 	S32 mNumUnknownKills;
 	S32 mNumDeadObjects;
 protected:
-	LLDynamicArray<U64>	mOrphanParents;	// LocalID/ip,port of orphaned objects
-	LLDynamicArray<OrphanInfo> mOrphanChildren;	// UUID's of orphaned objects
+	std::vector<U64>	mOrphanParents;	// LocalID/ip,port of orphaned objects
+	std::vector<OrphanInfo> mOrphanChildren;	// UUID's of orphaned objects
 	S32 mNumOrphans;
 
-	LLDynamicArrayPtr<LLPointer<LLViewerObject>, 256> mObjects;
+	typedef std::vector<LLPointer<LLViewerObject> > vobj_list_t;
+
+	vobj_list_t mObjects;
 	std::set<LLPointer<LLViewerObject> > mActiveObjects;
 
-	LLDynamicArrayPtr<LLPointer<LLViewerObject> > mMapObjects;
+	vobj_list_t mMapObjects;
 
-	typedef std::map<LLUUID, LLPointer<LLViewerObject> > vo_map;
-	vo_map mDeadObjects;	// Need to keep multiple entries per UUID
+	std::set<LLUUID> mDeadObjects;	
 
 	std::map<LLUUID, LLPointer<LLViewerObject> > mUUIDObjectMap;
 
-	LLDynamicArray<LLDebugBeacon> mDebugBeacons;
+	//set of objects that need to update their cost
+	std::set<LLUUID> mStaleObjectCost;
+	std::set<LLUUID> mPendingObjectCost;
+
+	//set of objects that need to update their physics flags
+	std::set<LLUUID> mStalePhysicsFlags;
+	std::set<LLUUID> mPendingPhysicsFlags;
+
+	std::vector<LLDebugBeacon> mDebugBeacons;
 
 	S32 mCurLazyUpdateIndex;
 
 	static U32 sSimulatorMachineIndex;
-	static LLMap<U64, U32> sIPAndPortToIndex;
+	static std::map<U64, U32> sIPAndPortToIndex;
 
 	static std::map<U64, LLUUID> sIndexAndLocalIDToUUID;
 
@@ -233,6 +254,10 @@ public:
 extern LLViewerObjectList gObjectList;
 
 // Inlines
+/**
+ * Note:
+ * it will return NULL for offline avatar_id 
+ */
 inline LLViewerObject *LLViewerObjectList::findObject(const LLUUID &id)
 {
 	std::map<LLUUID, LLPointer<LLViewerObject> >::iterator iter = mUUIDObjectMap.find(id);
@@ -260,12 +285,16 @@ inline LLViewerObject *LLViewerObjectList::getObject(const S32 index)
 
 inline void LLViewerObjectList::addToMap(LLViewerObject *objectp)
 {
-	mMapObjects.put(objectp);
+	mMapObjects.push_back(objectp);
 }
 
 inline void LLViewerObjectList::removeFromMap(LLViewerObject *objectp)
 {
-	mMapObjects.removeObj(objectp);
+	std::vector<LLPointer<LLViewerObject> >::iterator iter = std::find(mMapObjects.begin(), mMapObjects.end(), objectp);
+	if (iter != mMapObjects.end())
+	{
+		mMapObjects.erase(iter);
+	}
 }
 
 

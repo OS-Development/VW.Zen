@@ -2,31 +2,25 @@
  * @file v3math.h
  * @brief LLVector3 class header file.
  *
- * $LicenseInfo:firstyear=2000&license=viewergpl$
- * 
- * Copyright (c) 2000-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2000&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -40,6 +34,7 @@
 class LLVector2;
 class LLVector4;
 class LLMatrix3;
+class LLMatrix4;
 class LLVector3d;
 class LLQuaternion;
 
@@ -75,6 +70,7 @@ class LLVector3
 
 		inline BOOL isFinite() const;									// checks to see if all values of LLVector3 are finite
 		BOOL		clamp(F32 min, F32 max);		// Clamps all values to (min,max), returns TRUE if data changed
+		BOOL		clamp(const LLVector3 &min_vec, const LLVector3 &max_vec); // Scales vector by another vector
 		BOOL		clampLength( F32 length_limit );					// Scales vector to limit length to a value
 
 		void		quantize16(F32 lowerxy, F32 upperxy, F32 lowerz, F32 upperz);	// changes the vector to reflect quatization
@@ -115,6 +111,7 @@ class LLVector3
 		const LLVector3&	rotVec(F32 angle, F32 x, F32 y, F32 z);		// Rotates about x,y,z by angle radians
 		const LLVector3&	rotVec(const LLMatrix3 &mat);				// Rotates by LLMatrix4 mat
 		const LLVector3&	rotVec(const LLQuaternion &q);				// Rotates by LLQuaternion q
+		const LLVector3&	transVec(const LLMatrix4& mat);				// Transforms by LLMatrix4 mat (mat * v)
 
 		const LLVector3&	scaleVec(const LLVector3& vec);				// scales per component by vec
 		LLVector3			scaledVec(const LLVector3& vec) const;			// get a copy of this vector scaled by vec
@@ -162,6 +159,8 @@ F32	dist_vec(const LLVector3 &a, const LLVector3 &b);		// Returns distance betwe
 F32	dist_vec_squared(const LLVector3 &a, const LLVector3 &b);// Returns distance squared between a and b
 F32	dist_vec_squared2D(const LLVector3 &a, const LLVector3 &b);// Returns distance squared between a and b ignoring Z component
 LLVector3 projected_vec(const LLVector3 &a, const LLVector3 &b); // Returns vector a projected on vector b
+LLVector3 parallel_component(const LLVector3 &a, const LLVector3 &b); // Returns vector a projected on vector b (same as projected_vec)
+LLVector3 orthogonal_component(const LLVector3 &a, const LLVector3 &b); // Returns component of vector a not parallel to vector b (same as projected_vec)
 LLVector3 lerp(const LLVector3 &a, const LLVector3 &b, F32 u); // Returns a vector that is a linear interpolation between a and b
 
 inline LLVector3::LLVector3(void)
@@ -280,7 +279,7 @@ inline void	LLVector3::setVec(const F32 *vec)
 
 inline F32 LLVector3::normalize(void)
 {
-	F32 mag = fsqrtf(mV[0]*mV[0] + mV[1]*mV[1] + mV[2]*mV[2]);
+	F32 mag = (F32) sqrt(mV[0]*mV[0] + mV[1]*mV[1] + mV[2]*mV[2]);
 	F32 oomag;
 
 	if (mag > FP_MAG_THRESHOLD)
@@ -303,7 +302,7 @@ inline F32 LLVector3::normalize(void)
 // deprecated
 inline F32 LLVector3::normVec(void)
 {
-	F32 mag = fsqrtf(mV[0]*mV[0] + mV[1]*mV[1] + mV[2]*mV[2]);
+	F32 mag = (F32) sqrt(mV[0]*mV[0] + mV[1]*mV[1] + mV[2]*mV[2]);
 	F32 oomag;
 
 	if (mag > FP_MAG_THRESHOLD)
@@ -327,7 +326,7 @@ inline F32 LLVector3::normVec(void)
 
 inline F32	LLVector3::length(void) const
 {
-	return fsqrtf(mV[0]*mV[0] + mV[1]*mV[1] + mV[2]*mV[2]);
+	return (F32) sqrt(mV[0]*mV[0] + mV[1]*mV[1] + mV[2]*mV[2]);
 }
 
 inline F32	LLVector3::lengthSquared(void) const
@@ -337,7 +336,7 @@ inline F32	LLVector3::lengthSquared(void) const
 
 inline F32	LLVector3::magVec(void) const
 {
-	return fsqrtf(mV[0]*mV[0] + mV[1]*mV[1] + mV[2]*mV[2]);
+	return (F32) sqrt(mV[0]*mV[0] + mV[1]*mV[1] + mV[2]*mV[2]);
 }
 
 inline F32	LLVector3::magVecSquared(void) const
@@ -409,8 +408,8 @@ inline bool operator<(const LLVector3 &a, const LLVector3 &b)
 	return (a.mV[0] < b.mV[0]
 			|| (a.mV[0] == b.mV[0]
 				&& (a.mV[1] < b.mV[1]
-					|| (a.mV[1] == b.mV[1])
-						&& a.mV[2] < b.mV[2])));
+					|| ((a.mV[1] == b.mV[1])
+						&& a.mV[2] < b.mV[2]))));
 }
 
 inline const LLVector3& operator+=(LLVector3 &a, const LLVector3 &b)
@@ -471,7 +470,7 @@ inline F32	dist_vec(const LLVector3 &a, const LLVector3 &b)
 	F32 x = a.mV[0] - b.mV[0];
 	F32 y = a.mV[1] - b.mV[1];
 	F32 z = a.mV[2] - b.mV[2];
-	return fsqrtf( x*x + y*y + z*z );
+	return (F32) sqrt( x*x + y*y + z*z );
 }
 
 inline F32	dist_vec_squared(const LLVector3 &a, const LLVector3 &b)
@@ -495,6 +494,17 @@ inline LLVector3 projected_vec(const LLVector3 &a, const LLVector3 &b)
 	project_axis.normalize();
 	return project_axis * (a * project_axis);
 }
+
+inline LLVector3 parallel_component(const LLVector3 &a, const LLVector3 &b)
+{
+	return projected_vec(a, b);
+}
+
+inline LLVector3 orthogonal_component(const LLVector3 &a, const LLVector3 &b)
+{
+	return a - projected_vec(a, b);
+}
+
 
 inline LLVector3 lerp(const LLVector3 &a, const LLVector3 &b, F32 u)
 {
@@ -529,6 +539,21 @@ inline void update_min_max(LLVector3& min, LLVector3& max, const LLVector3& pos)
 	}
 }
 
+inline void update_min_max(LLVector3& min, LLVector3& max, const F32* pos)
+{
+	for (U32 i = 0; i < 3; i++)
+	{
+		if (min.mV[i] > pos[i])
+		{
+			min.mV[i] = pos[i];
+		}
+		if (max.mV[i] < pos[i])
+		{
+			max.mV[i] = pos[i];
+		}
+	}
+}
+
 inline F32 angle_between(const LLVector3& a, const LLVector3& b)
 {
 	LLVector3 an = a;
@@ -554,6 +579,12 @@ inline BOOL are_parallel(const LLVector3 &a, const LLVector3 &b, F32 epsilon)
 		return TRUE;
 	}
 	return FALSE;
+}
+
+inline std::ostream& operator<<(std::ostream& s, const LLVector3 &a) 
+{
+	s << "{ " << a.mV[VX] << ", " << a.mV[VY] << ", " << a.mV[VZ] << " }";
+	return s;
 }
 
 #endif

@@ -2,31 +2,25 @@
  * @file llfloateranimpreview.cpp
  * @brief LLFloaterAnimPreview class implementation
  *
- * $LicenseInfo:firstyear=2004&license=viewergpl$
- * 
- * Copyright (c) 2004-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2004&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -37,6 +31,8 @@
 #include "llbvhloader.h"
 #include "lldatapacker.h"
 #include "lldir.h"
+#include "lleconomy.h"
+#include "llnotificationsutil.h"
 #include "llvfile.h"
 #include "llapr.h"
 #include "llstring.h"
@@ -69,8 +65,6 @@
 #include "lluictrlfactory.h"
 #include "lltrans.h"
 
-S32 LLFloaterAnimPreview::sUploadAmount = 10;
-
 const S32 PREVIEW_BORDER_WIDTH = 2;
 const S32 PREVIEW_RESIZE_HANDLE_SIZE = S32(RESIZE_HANDLE_WIDTH * OO_SQRT2) + PREVIEW_BORDER_WIDTH;
 const S32 PREVIEW_HPAD = PREVIEW_RESIZE_HANDLE_SIZE;
@@ -86,38 +80,40 @@ const F32 BASE_ANIM_TIME_OFFSET = 5.f;
 
 std::string STATUS[] =
 {
-  "E_ST_OK",
-  "E_ST_EOF",
-  "E_ST_NO_CONSTRAINT",
-  "E_ST_NO_FILE",
-"E_ST_NO_HIER",
-"E_ST_NO_JOINT",
-"E_ST_NO_NAME",
-"E_ST_NO_OFFSET",
-"E_ST_NO_CHANNELS",
-"E_ST_NO_ROTATION",
-"E_ST_NO_AXIS",
-"E_ST_NO_MOTION",
-"E_ST_NO_FRAMES",
-"E_ST_NO_FRAME_TIME",
-"E_ST_NO_POS",
-"E_ST_NO_ROT",
-"E_ST_NO_XLT_FILE",
-"E_ST_NO_XLT_HEADER",
-"E_ST_NO_XLT_NAME",
-"E_ST_NO_XLT_IGNORE",
-"E_ST_NO_XLT_RELATIVE",
-"E_ST_NO_XLT_OUTNAME",
-"E_ST_NO_XLT_MATRIX",
-"E_ST_NO_XLT_MERGECHILD",
-"E_ST_NO_XLT_MERGEPARENT",
-"E_ST_NO_XLT_PRIORITY",
-"E_ST_NO_XLT_LOOP",
-"E_ST_NO_XLT_EASEIN",
-"E_ST_NO_XLT_EASEOUT",
-"E_ST_NO_XLT_HAND",
-"E_ST_NO_XLT_EMOTE",
+	"E_ST_OK",
+	"E_ST_EOF",
+	"E_ST_NO_CONSTRAINT",
+	"E_ST_NO_FILE",
+	"E_ST_NO_HIER",
+	"E_ST_NO_JOINT",
+	"E_ST_NO_NAME",
+	"E_ST_NO_OFFSET",
+	"E_ST_NO_CHANNELS",
+	"E_ST_NO_ROTATION",
+	"E_ST_NO_AXIS",
+	"E_ST_NO_MOTION",
+	"E_ST_NO_FRAMES",
+	"E_ST_NO_FRAME_TIME",
+	"E_ST_NO_POS",
+	"E_ST_NO_ROT",
+	"E_ST_NO_XLT_FILE",
+	"E_ST_NO_XLT_HEADER",
+	"E_ST_NO_XLT_NAME",
+	"E_ST_NO_XLT_IGNORE",
+	"E_ST_NO_XLT_RELATIVE",
+	"E_ST_NO_XLT_OUTNAME",
+	"E_ST_NO_XLT_MATRIX",
+	"E_ST_NO_XLT_MERGECHILD",
+	"E_ST_NO_XLT_MERGEPARENT",
+	"E_ST_NO_XLT_PRIORITY",
+	"E_ST_NO_XLT_LOOP",
+	"E_ST_NO_XLT_EASEIN",
+	"E_ST_NO_XLT_EASEOUT",
+	"E_ST_NO_XLT_HAND",
+	"E_ST_NO_XLT_EMOTE",
+"E_ST_BAD_ROOT"
 };
+
 //-----------------------------------------------------------------------------
 // LLFloaterAnimPreview()
 //-----------------------------------------------------------------------------
@@ -159,27 +155,27 @@ LLFloaterAnimPreview::LLFloaterAnimPreview(const std::string& filename) :
 //-----------------------------------------------------------------------------
 void LLFloaterAnimPreview::setAnimCallbacks()
 {
-	childSetCommitCallback("playback_slider", onSliderMove, this);
+	getChild<LLUICtrl>("playback_slider")->setCommitCallback(boost::bind(&LLFloaterAnimPreview::onSliderMove, this));
 	
-	childSetCommitCallback("preview_base_anim", onCommitBaseAnim, this);
-	childSetValue("preview_base_anim", "Standing");
+	getChild<LLUICtrl>("preview_base_anim")->setCommitCallback(boost::bind(&LLFloaterAnimPreview::onCommitBaseAnim, this));
+	getChild<LLUICtrl>("preview_base_anim")->setValue("Standing");
 
-	childSetCommitCallback("priority", onCommitPriority, this);
-	childSetCommitCallback("loop_check", onCommitLoop, this);
-	childSetCommitCallback("loop_in_point", onCommitLoopIn, this);
-	childSetValidate("loop_in_point", boost::bind(&LLFloaterAnimPreview::validateLoopIn, this, _1));
-	childSetCommitCallback("loop_out_point", onCommitLoopOut, this);
-	childSetValidate("loop_out_point", boost::bind(&LLFloaterAnimPreview::validateLoopOut, this, _1));
+	getChild<LLUICtrl>("priority")->setCommitCallback(boost::bind(&LLFloaterAnimPreview::onCommitPriority, this));
+	getChild<LLUICtrl>("loop_check")->setCommitCallback(boost::bind(&LLFloaterAnimPreview::onCommitLoop, this));
+	getChild<LLUICtrl>("loop_in_point")->setCommitCallback(boost::bind(&LLFloaterAnimPreview::onCommitLoopIn, this));
+	getChild<LLUICtrl>("loop_in_point")->setValidateBeforeCommit( boost::bind(&LLFloaterAnimPreview::validateLoopIn, this, _1));
+	getChild<LLUICtrl>("loop_out_point")->setCommitCallback(boost::bind(&LLFloaterAnimPreview::onCommitLoopOut, this));
+	getChild<LLUICtrl>("loop_out_point")->setValidateBeforeCommit( boost::bind(&LLFloaterAnimPreview::validateLoopOut, this, _1));
 
-	childSetCommitCallback("hand_pose_combo", onCommitHandPose, this);
+	getChild<LLUICtrl>("hand_pose_combo")->setCommitCallback(boost::bind(&LLFloaterAnimPreview::onCommitHandPose, this));
 	
-	childSetCommitCallback("emote_combo", onCommitEmote, this);
-	childSetValue("emote_combo", "[None]");
+	getChild<LLUICtrl>("emote_combo")->setCommitCallback(boost::bind(&LLFloaterAnimPreview::onCommitEmote, this));
+	getChild<LLUICtrl>("emote_combo")->setValue("[None]");
 
-	childSetCommitCallback("ease_in_time", onCommitEaseIn, this);
-	childSetValidate("ease_in_time", boost::bind(&LLFloaterAnimPreview::validateEaseIn, this, _1));
-	childSetCommitCallback("ease_out_time", onCommitEaseOut, this);
-	childSetValidate("ease_out_time", boost::bind(&LLFloaterAnimPreview::validateEaseOut, this, _1));
+	getChild<LLUICtrl>("ease_in_time")->setCommitCallback(boost::bind(&LLFloaterAnimPreview::onCommitEaseIn, this));
+	getChild<LLUICtrl>("ease_in_time")->setValidateBeforeCommit( boost::bind(&LLFloaterAnimPreview::validateEaseIn, this, _1));
+	getChild<LLUICtrl>("ease_out_time")->setCommitCallback(boost::bind(&LLFloaterAnimPreview::onCommitEaseOut, this));
+	getChild<LLUICtrl>("ease_out_time")->setValidateBeforeCommit( boost::bind(&LLFloaterAnimPreview::validateEaseOut, this, _1));
 }
 
 //-----------------------------------------------------------------------------
@@ -195,9 +191,8 @@ BOOL LLFloaterAnimPreview::postBuild()
 		return FALSE;
 	}
 
-	childSetCommitCallback("name_form", onCommitName, this);
+	getChild<LLUICtrl>("name_form")->setCommitCallback(boost::bind(&LLFloaterAnimPreview::onCommitName, this));
 
-	childSetLabelArg("ok_btn", "[AMOUNT]", llformat("%d",sUploadAmount));
 	childSetAction("ok_btn", onBtnOK, this);
 	setDefaultBtn();
 
@@ -208,12 +203,17 @@ BOOL LLFloaterAnimPreview::postBuild()
 	mPreviewImageRect.set(0.f, 1.f, 1.f, 0.f);
 
 	mPlayButton = getChild<LLButton>( "play_btn");
-	mPlayButton->setClickedCallback(onBtnPlay, this);
+	mPlayButton->setClickedCallback(boost::bind(&LLFloaterAnimPreview::onBtnPlay, this));
+	mPlayButton->setVisible(true);
 
+	mPauseButton = getChild<LLButton>( "pause_btn");
+	mPauseButton->setClickedCallback(boost::bind(&LLFloaterAnimPreview::onBtnPause, this));
+	mPauseButton->setVisible(false);
+	
 	mStopButton = getChild<LLButton>( "stop_btn");
-	mStopButton->setClickedCallback(onBtnStop, this);
+	mStopButton->setClickedCallback(boost::bind(&LLFloaterAnimPreview::onBtnStop, this));
 
-	childHide("bad_animation_text");
+	getChildView("bad_animation_text")->setVisible(FALSE);
 
 	std::string exten = gDirUtilp->getExtension(mFilename);
 	if (exten == "bvh")
@@ -305,19 +305,19 @@ BOOL LLFloaterAnimPreview::postBuild()
 		
 			mAnimPreview->setZoom(camera_zoom);
 
-			motionp->setName(childGetValue("name_form").asString());
+			motionp->setName(getChild<LLUICtrl>("name_form")->getValue().asString());
 			mAnimPreview->getDummyAvatar()->startMotion(mMotionID);
 			
 			getChild<LLSlider>("playback_slider")->setMinValue(0.0);
 			getChild<LLSlider>("playback_slider")->setMaxValue(1.0);
 
-			childSetValue("loop_check", LLSD(motionp->getLoop()));
-			childSetValue("loop_in_point", LLSD(motionp->getLoopIn() / motionp->getDuration() * 100.f));
-			childSetValue("loop_out_point", LLSD(motionp->getLoopOut() / motionp->getDuration() * 100.f));
-			childSetValue("priority", LLSD((F32)motionp->getPriority()));
-			childSetValue("hand_pose_combo", LLHandMotion::getHandPoseName(motionp->getHandPose()));
-			childSetValue("ease_in_time", LLSD(motionp->getEaseInDuration()));
-			childSetValue("ease_out_time", LLSD(motionp->getEaseOutDuration()));
+			getChild<LLUICtrl>("loop_check")->setValue(LLSD(motionp->getLoop()));
+			getChild<LLUICtrl>("loop_in_point")->setValue(LLSD(motionp->getLoopIn() / motionp->getDuration() * 100.f));
+			getChild<LLUICtrl>("loop_out_point")->setValue(LLSD(motionp->getLoopOut() / motionp->getDuration() * 100.f));
+			getChild<LLUICtrl>("priority")->setValue(LLSD((F32)motionp->getPriority()));
+			getChild<LLUICtrl>("hand_pose_combo")->setValue(LLHandMotion::getHandPoseName(motionp->getHandPose()));
+			getChild<LLUICtrl>("ease_in_time")->setValue(LLSD(motionp->getEaseInDuration()));
+			getChild<LLUICtrl>("ease_out_time")->setValue(LLSD(motionp->getEaseOutDuration()));
 			setEnabled(TRUE);
 			std::string seconds_string;
 			seconds_string = llformat(" - %.2f seconds", motionp->getDuration());
@@ -328,7 +328,7 @@ BOOL LLFloaterAnimPreview::postBuild()
 		{
 			mAnimPreview = NULL;
 			mMotionID.setNull();
-			childSetValue("bad_animation_text", getString("failed_to_initialize"));
+			getChild<LLUICtrl>("bad_animation_text")->setValue(getString("failed_to_initialize"));
 		}
 	}
 	else
@@ -340,13 +340,13 @@ BOOL LLFloaterAnimPreview::postBuild()
 				LLUIString out_str = getString("anim_too_long");
 				out_str.setArg("[LENGTH]", llformat("%.1f", loaderp->getDuration()));
 				out_str.setArg("[MAX_LENGTH]", llformat("%.1f", MAX_ANIM_DURATION));
-				childSetValue("bad_animation_text", out_str.getString());
+				getChild<LLUICtrl>("bad_animation_text")->setValue(out_str.getString());
 			}
 			else
 			{
 				LLUIString out_str = getString("failed_file_read");
 				out_str.setArg("[STATUS]", getString(STATUS[loaderp->getStatus()])); 
-				childSetValue("bad_animation_text", out_str.getString());
+				getChild<LLUICtrl>("bad_animation_text")->setValue(out_str.getString());
 			}
 		}
 
@@ -423,17 +423,17 @@ void LLFloaterAnimPreview::resetMotion()
 	LLKeyframeMotion* motionp = (LLKeyframeMotion*)avatarp->findMotion(mMotionID);
 	
 	// Set emotion
-	std::string emote = childGetValue("emote_combo").asString();
+	std::string emote = getChild<LLUICtrl>("emote_combo")->getValue().asString();
 	motionp->setEmote(mIDList[emote]);
 	
-	LLUUID base_id = mIDList[childGetValue("preview_base_anim").asString()];
+	LLUUID base_id = mIDList[getChild<LLUICtrl>("preview_base_anim")->getValue().asString()];
 	avatarp->deactivateAllMotions();
-	avatarp->startMotion(base_id, BASE_ANIM_TIME_OFFSET);
 	avatarp->startMotion(mMotionID, 0.0f);
-	childSetValue("playback_slider", 0.0f);
+	avatarp->startMotion(base_id, BASE_ANIM_TIME_OFFSET);
+	getChild<LLUICtrl>("playback_slider")->setValue(0.0f);
 
 	// Set pose
-	std::string handpose = childGetValue("hand_pose_combo").asString();
+	std::string handpose = getChild<LLUICtrl>("hand_pose_combo")->getValue().asString();
 	avatarp->startMotion( ANIM_AGENT_HAND_MOTION, 0.0f );
 	motionp->setHandPose(LLHandMotion::getHandPose(handpose));
 
@@ -507,7 +507,7 @@ BOOL LLFloaterAnimPreview::handleHover(S32 x, S32 y, MASK mask)
 
 		mAnimPreview->requestUpdate();
 
-		LLUI::setCursorPositionLocal(this, mLastMouseX, mLastMouseY);
+		LLUI::setMousePositionLocal(this, mLastMouseX, mLastMouseY);
 	}
 
 	if (!mPreviewRect.pointInRect(x, y) || !mAnimPreview)
@@ -552,30 +552,44 @@ void LLFloaterAnimPreview::onMouseCaptureLost()
 //-----------------------------------------------------------------------------
 // onBtnPlay()
 //-----------------------------------------------------------------------------
-void LLFloaterAnimPreview::onBtnPlay(void* user_data)
+void LLFloaterAnimPreview::onBtnPlay()
 {
-	LLFloaterAnimPreview* previewp = (LLFloaterAnimPreview*)user_data;
-	if (!previewp->getEnabled())
+	if (!getEnabled())
 		return;
 
-	if (previewp->mMotionID.notNull() && previewp->mAnimPreview)
+	if (mMotionID.notNull() && mAnimPreview)
 	{
-		LLVOAvatar* avatarp = previewp->mAnimPreview->getDummyAvatar();
-
-		if(!avatarp->isMotionActive(previewp->mMotionID))
+		LLVOAvatar* avatarp = mAnimPreview->getDummyAvatar();
+		
+		if (!avatarp->isMotionActive(mMotionID))
 		{
-			previewp->resetMotion();
-			previewp->mPauseRequest = NULL;
+			resetMotion();
+			mPauseRequest = NULL;
 		}
-		else
+		else if (avatarp->areAnimationsPaused())
+		{			
+			mPauseRequest = NULL;
+		}
+	}
+}
+
+//-----------------------------------------------------------------------------
+// onBtnPause()
+//-----------------------------------------------------------------------------
+void LLFloaterAnimPreview::onBtnPause()
+{
+	if (!getEnabled())
+		return;
+	
+	if (mMotionID.notNull() && mAnimPreview)
+	{
+		LLVOAvatar* avatarp = mAnimPreview->getDummyAvatar();
+
+		if (avatarp->isMotionActive(mMotionID))
 		{
-			if (avatarp->areAnimationsPaused())
+			if (!avatarp->areAnimationsPaused())
 			{
-				previewp->mPauseRequest = NULL;
-			}
-			else
-			{
-				previewp->mPauseRequest = avatarp->requestPause();
+				mPauseRequest = avatarp->requestPause();
 			}
 		}
 	}
@@ -584,42 +598,40 @@ void LLFloaterAnimPreview::onBtnPlay(void* user_data)
 //-----------------------------------------------------------------------------
 // onBtnStop()
 //-----------------------------------------------------------------------------
-void LLFloaterAnimPreview::onBtnStop(void* user_data)
+void LLFloaterAnimPreview::onBtnStop()
 {
-	LLFloaterAnimPreview* previewp = (LLFloaterAnimPreview*)user_data;
-	if (!previewp->getEnabled())
+	if (!getEnabled())
 		return;
 
-	if (previewp->mMotionID.notNull() && previewp->mAnimPreview)
+	if (mMotionID.notNull() && mAnimPreview)
 	{
-		LLVOAvatar* avatarp = previewp->mAnimPreview->getDummyAvatar();
-		previewp->resetMotion();
-		previewp->mPauseRequest = avatarp->requestPause();
+		LLVOAvatar* avatarp = mAnimPreview->getDummyAvatar();
+		resetMotion();
+		mPauseRequest = avatarp->requestPause();
 	}
 }
 
 //-----------------------------------------------------------------------------
 // onSliderMove()
 //-----------------------------------------------------------------------------
-void LLFloaterAnimPreview::onSliderMove(LLUICtrl* ctrl, void*user_data)
+void LLFloaterAnimPreview::onSliderMove()
 {
-	LLFloaterAnimPreview* previewp = (LLFloaterAnimPreview*)user_data;
-	if (!previewp->getEnabled())
+	if (!getEnabled())
 		return;
 
-	if (previewp->mAnimPreview)
+	if (mAnimPreview)
 	{
-		LLVOAvatar* avatarp = previewp->mAnimPreview->getDummyAvatar();
-		F32 slider_value = (F32)previewp->childGetValue("playback_slider").asReal();
-		LLUUID base_id = previewp->mIDList[previewp->childGetValue("preview_base_anim").asString()];
-		LLMotion* motionp = avatarp->findMotion(previewp->mMotionID);
+		LLVOAvatar* avatarp = mAnimPreview->getDummyAvatar();
+		F32 slider_value = (F32)getChild<LLUICtrl>("playback_slider")->getValue().asReal();
+		LLUUID base_id = mIDList[getChild<LLUICtrl>("preview_base_anim")->getValue().asString()];
+		LLMotion* motionp = avatarp->findMotion(mMotionID);
 		F32 duration = motionp->getDuration();// + motionp->getEaseOutDuration();
 		F32 delta_time = duration * slider_value;
 		avatarp->deactivateAllMotions();
 		avatarp->startMotion(base_id, delta_time + BASE_ANIM_TIME_OFFSET);
-		avatarp->startMotion(previewp->mMotionID, delta_time);
-		previewp->mPauseRequest = avatarp->requestPause();
-		previewp->refresh();
+		avatarp->startMotion(mMotionID, delta_time);
+		mPauseRequest = avatarp->requestPause();
+		refresh();
 	}
 
 }
@@ -627,29 +639,28 @@ void LLFloaterAnimPreview::onSliderMove(LLUICtrl* ctrl, void*user_data)
 //-----------------------------------------------------------------------------
 // onCommitBaseAnim()
 //-----------------------------------------------------------------------------
-void LLFloaterAnimPreview::onCommitBaseAnim(LLUICtrl* ctrl, void* data)
+void LLFloaterAnimPreview::onCommitBaseAnim()
 {
-	LLFloaterAnimPreview* previewp = (LLFloaterAnimPreview*)data;
-	if (!previewp->getEnabled())
+	if (!getEnabled())
 		return;
 
-	if (previewp->mAnimPreview)
+	if (mAnimPreview)
 	{
-		LLVOAvatar* avatarp = previewp->mAnimPreview->getDummyAvatar();
+		LLVOAvatar* avatarp = mAnimPreview->getDummyAvatar();
 
 		BOOL paused = avatarp->areAnimationsPaused();
 
 		// stop all other possible base motions
-		avatarp->stopMotion(ANIM_AGENT_STAND, TRUE);
-		avatarp->stopMotion(ANIM_AGENT_WALK, TRUE);
-		avatarp->stopMotion(ANIM_AGENT_SIT, TRUE);
-		avatarp->stopMotion(ANIM_AGENT_HOVER, TRUE);
+		avatarp->stopMotion(mIDList["Standing"], TRUE);
+		avatarp->stopMotion(mIDList["Walking"], TRUE);
+		avatarp->stopMotion(mIDList["Sitting"], TRUE);
+		avatarp->stopMotion(mIDList["Flying"], TRUE);
 
-		previewp->resetMotion();
+		resetMotion();
 
 		if (!paused)
 		{
-			previewp->mPauseRequest = NULL;
+			mPauseRequest = NULL;
 		}
 	}
 }
@@ -657,154 +668,145 @@ void LLFloaterAnimPreview::onCommitBaseAnim(LLUICtrl* ctrl, void* data)
 //-----------------------------------------------------------------------------
 // onCommitLoop()
 //-----------------------------------------------------------------------------
-void LLFloaterAnimPreview::onCommitLoop(LLUICtrl* ctrl, void* data)
+void LLFloaterAnimPreview::onCommitLoop()
 {
-	LLFloaterAnimPreview* previewp = (LLFloaterAnimPreview*)data;
-	if (!previewp->getEnabled())
+	if (!getEnabled())
 		return;
 	
-	LLVOAvatar* avatarp = previewp->mAnimPreview->getDummyAvatar();
-	LLKeyframeMotion* motionp = (LLKeyframeMotion*)avatarp->findMotion(previewp->mMotionID);
+	LLVOAvatar* avatarp = mAnimPreview->getDummyAvatar();
+	LLKeyframeMotion* motionp = (LLKeyframeMotion*)avatarp->findMotion(mMotionID);
 
 	if (motionp)
 	{
-		motionp->setLoop(previewp->childGetValue("loop_check").asBoolean());
-		motionp->setLoopIn((F32)previewp->childGetValue("loop_in_point").asReal() * 0.01f * motionp->getDuration());
-		motionp->setLoopOut((F32)previewp->childGetValue("loop_out_point").asReal() * 0.01f * motionp->getDuration());
+		motionp->setLoop(getChild<LLUICtrl>("loop_check")->getValue().asBoolean());
+		motionp->setLoopIn((F32)getChild<LLUICtrl>("loop_in_point")->getValue().asReal() * 0.01f * motionp->getDuration());
+		motionp->setLoopOut((F32)getChild<LLUICtrl>("loop_out_point")->getValue().asReal() * 0.01f * motionp->getDuration());
 	}
 }
 
 //-----------------------------------------------------------------------------
 // onCommitLoopIn()
 //-----------------------------------------------------------------------------
-void LLFloaterAnimPreview::onCommitLoopIn(LLUICtrl* ctrl, void* data)
+void LLFloaterAnimPreview::onCommitLoopIn()
 {
-	LLFloaterAnimPreview* previewp = (LLFloaterAnimPreview*)data;
-	if (!previewp->getEnabled())
+	if (!getEnabled())
 		return;
 
-	LLVOAvatar* avatarp = previewp->mAnimPreview->getDummyAvatar();
-	LLKeyframeMotion* motionp = (LLKeyframeMotion*)avatarp->findMotion(previewp->mMotionID);
+	LLVOAvatar* avatarp = mAnimPreview->getDummyAvatar();
+	LLKeyframeMotion* motionp = (LLKeyframeMotion*)avatarp->findMotion(mMotionID);
 
 	if (motionp)
 	{
-		motionp->setLoopIn((F32)previewp->childGetValue("loop_in_point").asReal() / 100.f);
-		previewp->resetMotion();
-		previewp->childSetValue("loop_check", LLSD(TRUE));
-		onCommitLoop(ctrl, data);
+		motionp->setLoopIn((F32)getChild<LLUICtrl>("loop_in_point")->getValue().asReal() / 100.f);
+		resetMotion();
+		getChild<LLUICtrl>("loop_check")->setValue(LLSD(TRUE));
+		onCommitLoop();
 	}
 }
 
 //-----------------------------------------------------------------------------
 // onCommitLoopOut()
 //-----------------------------------------------------------------------------
-void LLFloaterAnimPreview::onCommitLoopOut(LLUICtrl* ctrl, void* data)
+void LLFloaterAnimPreview::onCommitLoopOut()
 {
-	LLFloaterAnimPreview* previewp = (LLFloaterAnimPreview*)data;
-	if (!previewp->getEnabled())
+	if (!getEnabled())
 		return;
 
-	LLVOAvatar* avatarp = previewp->mAnimPreview->getDummyAvatar();
-	LLKeyframeMotion* motionp = (LLKeyframeMotion*)avatarp->findMotion(previewp->mMotionID);
+	LLVOAvatar* avatarp = mAnimPreview->getDummyAvatar();
+	LLKeyframeMotion* motionp = (LLKeyframeMotion*)avatarp->findMotion(mMotionID);
 
 	if (motionp)
 	{
-		motionp->setLoopOut((F32)previewp->childGetValue("loop_out_point").asReal() * 0.01f * motionp->getDuration());
-		previewp->resetMotion();
-		previewp->childSetValue("loop_check", LLSD(TRUE));
-		onCommitLoop(ctrl, data);
+		motionp->setLoopOut((F32)getChild<LLUICtrl>("loop_out_point")->getValue().asReal() * 0.01f * motionp->getDuration());
+		resetMotion();
+		getChild<LLUICtrl>("loop_check")->setValue(LLSD(TRUE));
+		onCommitLoop();
 	}
 }
 
 //-----------------------------------------------------------------------------
 // onCommitName()
 //-----------------------------------------------------------------------------
-void LLFloaterAnimPreview::onCommitName(LLUICtrl* ctrl, void* data)
+void LLFloaterAnimPreview::onCommitName()
 {
-	LLFloaterAnimPreview* previewp = (LLFloaterAnimPreview*)data;
-	if (!previewp->getEnabled())
+	if (!getEnabled())
 		return;
 
-	LLVOAvatar* avatarp = previewp->mAnimPreview->getDummyAvatar();
-	LLKeyframeMotion* motionp = (LLKeyframeMotion*)avatarp->findMotion(previewp->mMotionID);
+	LLVOAvatar* avatarp = mAnimPreview->getDummyAvatar();
+	LLKeyframeMotion* motionp = (LLKeyframeMotion*)avatarp->findMotion(mMotionID);
 
 	if (motionp)
 	{
-		motionp->setName(previewp->childGetValue("name_form").asString());
+		motionp->setName(getChild<LLUICtrl>("name_form")->getValue().asString());
 	}
 
-	LLFloaterNameDesc::doCommit(ctrl, data);
+	doCommit();
 }
 
 //-----------------------------------------------------------------------------
 // onCommitHandPose()
 //-----------------------------------------------------------------------------
-void LLFloaterAnimPreview::onCommitHandPose(LLUICtrl* ctrl, void* data)
+void LLFloaterAnimPreview::onCommitHandPose()
 {
-	LLFloaterAnimPreview* previewp = (LLFloaterAnimPreview*)data;
-	if (!previewp->getEnabled())
+	if (!getEnabled())
 		return;
 
-	previewp->resetMotion(); // sets hand pose
+	resetMotion(); // sets hand pose
 }
 
 //-----------------------------------------------------------------------------
 // onCommitEmote()
 //-----------------------------------------------------------------------------
-void LLFloaterAnimPreview::onCommitEmote(LLUICtrl* ctrl, void* data)
+void LLFloaterAnimPreview::onCommitEmote()
 {
-	LLFloaterAnimPreview* previewp = (LLFloaterAnimPreview*)data;
-	if (!previewp->getEnabled())
+	if (!getEnabled())
 		return;
 
-	previewp->resetMotion(); // ssts emote
+	resetMotion(); // ssts emote
 }
 
 //-----------------------------------------------------------------------------
 // onCommitPriority()
 //-----------------------------------------------------------------------------
-void LLFloaterAnimPreview::onCommitPriority(LLUICtrl* ctrl, void* data)
+void LLFloaterAnimPreview::onCommitPriority()
 {
-	LLFloaterAnimPreview* previewp = (LLFloaterAnimPreview*)data;
-	if (!previewp->getEnabled())
+	if (!getEnabled())
 		return;
 
-	LLVOAvatar* avatarp = previewp->mAnimPreview->getDummyAvatar();
-	LLKeyframeMotion* motionp = (LLKeyframeMotion*)avatarp->findMotion(previewp->mMotionID);
+	LLVOAvatar* avatarp = mAnimPreview->getDummyAvatar();
+	LLKeyframeMotion* motionp = (LLKeyframeMotion*)avatarp->findMotion(mMotionID);
 
-	motionp->setPriority(llfloor((F32)previewp->childGetValue("priority").asReal()));
+	motionp->setPriority(llfloor((F32)getChild<LLUICtrl>("priority")->getValue().asReal()));
 }
 
 //-----------------------------------------------------------------------------
 // onCommitEaseIn()
 //-----------------------------------------------------------------------------
-void LLFloaterAnimPreview::onCommitEaseIn(LLUICtrl* ctrl, void* data)
+void LLFloaterAnimPreview::onCommitEaseIn()
 {
-	LLFloaterAnimPreview* previewp = (LLFloaterAnimPreview*)data;
-	if (!previewp->getEnabled())
+	if (!getEnabled())
 		return;
 
-	LLVOAvatar* avatarp = previewp->mAnimPreview->getDummyAvatar();
-	LLKeyframeMotion* motionp = (LLKeyframeMotion*)avatarp->findMotion(previewp->mMotionID);
+	LLVOAvatar* avatarp = mAnimPreview->getDummyAvatar();
+	LLKeyframeMotion* motionp = (LLKeyframeMotion*)avatarp->findMotion(mMotionID);
 
-	motionp->setEaseIn((F32)previewp->childGetValue("ease_in_time").asReal());
-	previewp->resetMotion();
+	motionp->setEaseIn((F32)getChild<LLUICtrl>("ease_in_time")->getValue().asReal());
+	resetMotion();
 }
 
 //-----------------------------------------------------------------------------
 // onCommitEaseOut()
 //-----------------------------------------------------------------------------
-void LLFloaterAnimPreview::onCommitEaseOut(LLUICtrl* ctrl, void* data)
+void LLFloaterAnimPreview::onCommitEaseOut()
 {
-	LLFloaterAnimPreview* previewp = (LLFloaterAnimPreview*)data;
-	if (!previewp->getEnabled())
+	if (!getEnabled())
 		return;
 
-	LLVOAvatar* avatarp = previewp->mAnimPreview->getDummyAvatar();
-	LLKeyframeMotion* motionp = (LLKeyframeMotion*)avatarp->findMotion(previewp->mMotionID);
+	LLVOAvatar* avatarp = mAnimPreview->getDummyAvatar();
+	LLKeyframeMotion* motionp = (LLKeyframeMotion*)avatarp->findMotion(mMotionID);
 
-	motionp->setEaseOut((F32)previewp->childGetValue("ease_out_time").asReal());
-	previewp->resetMotion();
+	motionp->setEaseOut((F32)getChild<LLUICtrl>("ease_out_time")->getValue().asReal());
+	resetMotion();
 }
 
 //-----------------------------------------------------------------------------
@@ -820,8 +822,8 @@ bool LLFloaterAnimPreview::validateEaseIn(const LLSD& data)
 	
 	if (!motionp->getLoop())
 	{
-		F32 new_ease_in = llclamp((F32)childGetValue("ease_in_time").asReal(), 0.f, motionp->getDuration() - motionp->getEaseOutDuration());
-		childSetValue("ease_in_time", LLSD(new_ease_in));
+		F32 new_ease_in = llclamp((F32)getChild<LLUICtrl>("ease_in_time")->getValue().asReal(), 0.f, motionp->getDuration() - motionp->getEaseOutDuration());
+		getChild<LLUICtrl>("ease_in_time")->setValue(LLSD(new_ease_in));
 	}
 	
 	return true;
@@ -840,8 +842,8 @@ bool LLFloaterAnimPreview::validateEaseOut(const LLSD& data)
 	
 	if (!motionp->getLoop())
 	{
-		F32 new_ease_out = llclamp((F32)childGetValue("ease_out_time").asReal(), 0.f, motionp->getDuration() - motionp->getEaseInDuration());
-		childSetValue("ease_out_time", LLSD(new_ease_out));
+		F32 new_ease_out = llclamp((F32)getChild<LLUICtrl>("ease_out_time")->getValue().asReal(), 0.f, motionp->getDuration() - motionp->getEaseInDuration());
+		getChild<LLUICtrl>("ease_out_time")->setValue(LLSD(new_ease_out));
 	}
 
 	return true;
@@ -855,8 +857,8 @@ bool LLFloaterAnimPreview::validateLoopIn(const LLSD& data)
 	if (!getEnabled())
 		return false;
 
-	F32 loop_in_value = (F32)childGetValue("loop_in_point").asReal();
-	F32 loop_out_value = (F32)childGetValue("loop_out_point").asReal();
+	F32 loop_in_value = (F32)getChild<LLUICtrl>("loop_in_point")->getValue().asReal();
+	F32 loop_out_value = (F32)getChild<LLUICtrl>("loop_out_point")->getValue().asReal();
 
 	if (loop_in_value < 0.f)
 	{
@@ -871,7 +873,7 @@ bool LLFloaterAnimPreview::validateLoopIn(const LLSD& data)
 		loop_in_value = loop_out_value;
 	}
 
-	childSetValue("loop_in_point", LLSD(loop_in_value));
+	getChild<LLUICtrl>("loop_in_point")->setValue(LLSD(loop_in_value));
 	return true;
 }
 
@@ -883,8 +885,8 @@ bool LLFloaterAnimPreview::validateLoopOut(const LLSD& data)
 	if (!getEnabled())
 		return false;
 
-	F32 loop_out_value = (F32)childGetValue("loop_out_point").asReal();
-	F32 loop_in_value = (F32)childGetValue("loop_in_point").asReal();
+	F32 loop_out_value = (F32)getChild<LLUICtrl>("loop_out_point")->getValue().asReal();
+	F32 loop_in_value = (F32)getChild<LLUICtrl>("loop_in_point")->getValue().asReal();
 
 	if (loop_out_value < 0.f)
 	{
@@ -899,7 +901,7 @@ bool LLFloaterAnimPreview::validateLoopOut(const LLSD& data)
 		loop_out_value = loop_in_value;
 	}
 
-	childSetValue("loop_out_point", LLSD(loop_out_value));
+	getChild<LLUICtrl>("loop_out_point")->setValue(LLSD(loop_out_value));
 	return true;
 }
 
@@ -909,52 +911,48 @@ bool LLFloaterAnimPreview::validateLoopOut(const LLSD& data)
 //-----------------------------------------------------------------------------
 void LLFloaterAnimPreview::refresh()
 {
+	// Are we showing the play button (default) or the pause button?
+	bool show_play = true;
 	if (!mAnimPreview)
 	{
-		childShow("bad_animation_text");
+		getChildView("bad_animation_text")->setVisible(TRUE);
+		// play button visible but disabled
 		mPlayButton->setEnabled(FALSE);
 		mStopButton->setEnabled(FALSE);
-		childDisable("ok_btn");
+		getChildView("ok_btn")->setEnabled(FALSE);
 	}
 	else
 	{
-		childHide("bad_animation_text");
+		getChildView("bad_animation_text")->setVisible(FALSE);
+		// re-enabled in case previous animation was bad
 		mPlayButton->setEnabled(TRUE);
+		mStopButton->setEnabled(TRUE);
 		LLVOAvatar* avatarp = mAnimPreview->getDummyAvatar();
 		if (avatarp->isMotionActive(mMotionID))
 		{
 			mStopButton->setEnabled(TRUE);
 			LLKeyframeMotion* motionp = (LLKeyframeMotion*)avatarp->findMotion(mMotionID);
-			if (avatarp->areAnimationsPaused())
+			if (!avatarp->areAnimationsPaused())
 			{
-
-				mPlayButton->setImages(std::string("button_anim_play.tga"),
-									   std::string("button_anim_play_selected.tga"));
-
-			}
-			else
-			{
+				// animation is playing
 				if (motionp)
 				{
 					F32 fraction_complete = motionp->getLastUpdateTime() / motionp->getDuration();
-					childSetValue("playback_slider", fraction_complete);
+					getChild<LLUICtrl>("playback_slider")->setValue(fraction_complete);
 				}
-				mPlayButton->setImages(std::string("button_anim_pause.tga"),
-									   std::string("button_anim_pause_selected.tga"));
-
+				show_play = false;
 			}
 		}
 		else
 		{
+			// Motion just finished playing
 			mPauseRequest = avatarp->requestPause();
-			mPlayButton->setImages(std::string("button_anim_play.tga"),
-								   std::string("button_anim_play_selected.tga"));
-
-			mStopButton->setEnabled(TRUE); // stop also resets, leave enabled.
 		}
-		childEnable("ok_btn");
+		getChildView("ok_btn")->setEnabled(TRUE);
 		mAnimPreview->requestUpdate();
 	}
+	mPlayButton->setVisible(show_play);
+	mPauseButton->setVisible(!show_play);
 }
 
 //-----------------------------------------------------------------------------
@@ -981,26 +979,27 @@ void LLFloaterAnimPreview::onBtnOK(void* userdata)
 			file.setMaxSize(size);
 			if (file.write((U8*)buffer, size))
 			{
-				std::string name = floaterp->childGetValue("name_form").asString();
-				std::string desc = floaterp->childGetValue("description_form").asString();
+				std::string name = floaterp->getChild<LLUICtrl>("name_form")->getValue().asString();
+				std::string desc = floaterp->getChild<LLUICtrl>("description_form")->getValue().asString();
 				LLAssetStorage::LLStoreAssetCallback callback = NULL;
-				S32 expected_upload_cost = sUploadAmount;
+				S32 expected_upload_cost = LLGlobalEconomy::Singleton::getInstance()->getPriceUpload();
 				void *userdata = NULL;
 				upload_new_resource(floaterp->mTransactionID, // tid
 						    LLAssetType::AT_ANIMATION,
 						    name,
 						    desc,
 						    0,
-						    LLAssetType::AT_NONE,
+						    LLFolderType::FT_NONE,
 						    LLInventoryType::IT_ANIMATION,
 						    LLFloaterPerms::getNextOwnerPerms(), LLFloaterPerms::getGroupPerms(), LLFloaterPerms::getEveryonePerms(),
 						    name,
 						    callback, expected_upload_cost, userdata);
+
 			}
 			else
 			{
 				llwarns << "Failure writing animation data." << llendl;
-				LLNotifications::instance().add("WriteAnimationFail");
+				LLNotificationsUtil::add("WriteAnimationFail");
 			}
 		}
 
@@ -1034,7 +1033,6 @@ LLPreviewAnimation::LLPreviewAnimation(S32 width, S32 height) : LLViewerDynamicT
 	mDummyAvatar->updateGeometry(mDummyAvatar->mDrawable);
 	mDummyAvatar->startMotion(ANIM_AGENT_STAND, BASE_ANIM_TIME_OFFSET);
 	mDummyAvatar->hideSkirt();
-	gPipeline.markVisible(mDummyAvatar->mDrawable, *LLViewerCamera::getInstance());
 
 	// stop extraneous animations
 	mDummyAvatar->stopMotion( ANIM_AGENT_HEAD_ROT, TRUE );
@@ -1049,6 +1047,12 @@ LLPreviewAnimation::LLPreviewAnimation(S32 width, S32 height) : LLViewerDynamicT
 LLPreviewAnimation::~LLPreviewAnimation()
 {
 	mDummyAvatar->markDead();
+}
+
+//virtual
+S8 LLPreviewAnimation::getType() const
+{
+	return LLViewerDynamicTexture::LL_PREVIEW_ANIMATION ;
 }
 
 //-----------------------------------------------------------------------------

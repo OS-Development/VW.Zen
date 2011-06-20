@@ -1,10 +1,10 @@
 /** 
  * @file transportF.glsl
  *
- * Copyright (c) 2007-$CurrentYear$, Linden Research, Inc.
- * $License$
+ * $LicenseInfo:firstyear=2007&license=viewerlgpl$
+ * $/LicenseInfo$
  */
-
+ 
 //////////////////////////////////////////////////////////
 // The fragment shader for the terrain atmospherics
 //////////////////////////////////////////////////////////

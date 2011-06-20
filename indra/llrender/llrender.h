@@ -7,31 +7,25 @@
  *	code, to define an interface for a multiple rendering API abstraction of the UI
  *	rendering, and to abstract out direct rendering calls in a way that is cleaner and easier to maintain.
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -43,6 +37,7 @@
 #include "v2math.h"
 #include "v3math.h"
 #include "v4coloru.h"
+#include "v4math.h"
 #include "llstrider.h"
 #include "llpointer.h"
 #include "llglheaders.h"
@@ -62,6 +57,7 @@ public:
 		TT_TEXTURE = 0,			// Standard 2D Texture
 		TT_RECT_TEXTURE,	// Non power of 2 texture
 		TT_CUBE_MAP,		// 6-sided cube map texture
+		TT_MULTISAMPLE_TEXTURE, // see GL_ARB_texture_multisample
 		TT_NONE 		// No texture type is currently enabled
 	} eTextureType;
 
@@ -149,8 +145,8 @@ public:
 	
 	// Binds the LLImageGL to this texture unit 
 	// (automatically enables the unit for the LLImageGL's texture type)
-	bool bind(LLImageGL* texture, bool forceBind = false);
-	bool bind(LLTexture* texture, bool forceBind = false);
+	bool bind(LLImageGL* texture, bool for_rendering = false, bool forceBind = false);
+	bool bind(LLTexture* texture, bool for_rendering = false, bool forceBind = false);
 
 	// Binds a cubemap to this texture unit 
 	// (automatically enables the texture unit for cubemaps)
@@ -218,6 +214,41 @@ protected:
 	void setTextureCombiner(eTextureBlendOp op, eTextureBlendSrc src1, eTextureBlendSrc src2, bool isAlpha = false);
 };
 
+class LLLightState
+{
+public:
+	LLLightState(S32 index);
+
+	void enable();
+	void disable();
+	void setDiffuse(const LLColor4& diffuse);
+	void setAmbient(const LLColor4& ambient);
+	void setSpecular(const LLColor4& specular);
+	void setPosition(const LLVector4& position);
+	void setConstantAttenuation(const F32& atten);
+	void setLinearAttenuation(const F32& atten);
+	void setQuadraticAttenuation(const F32& atten);
+	void setSpotExponent(const F32& exponent);
+	void setSpotCutoff(const F32& cutoff);
+	void setSpotDirection(const LLVector3& direction);
+
+protected:
+	S32 mIndex;
+	bool mEnabled;
+	LLColor4 mDiffuse;
+	LLColor4 mAmbient;
+	LLColor4 mSpecular;
+	LLVector4 mPosition;
+	LLVector3 mSpotDirection;
+
+	F32 mConstantAtten;
+	F32 mLinearAtten;
+	F32 mQuadraticAtten;
+
+	F32 mSpotExponent;
+	F32 mSpotCutoff;
+};
+
 class LLRender
 {
 	friend class LLTexUnit;
@@ -270,7 +301,9 @@ public:
 		BF_DEST_ALPHA,
 		BF_SOURCE_ALPHA,
 		BF_ONE_MINUS_DEST_ALPHA,
-		BF_ONE_MINUS_SOURCE_ALPHA
+		BF_ONE_MINUS_SOURCE_ALPHA,
+
+		BF_UNDEF
 	} eBlendFactor;
 
 	LLRender();
@@ -285,6 +318,14 @@ public:
 	void scalef(const GLfloat& x, const GLfloat& y, const GLfloat& z);
 	void pushMatrix();
 	void popMatrix();
+
+	void translateUI(F32 x, F32 y, F32 z);
+	void scaleUI(F32 x, F32 y, F32 z);
+	void pushUIMatrix();
+	void popUIMatrix();
+	void loadUIIdentity();
+	LLVector3 getUITranslation();
+	LLVector3 getUIScale();
 
 	void flush();
 
@@ -307,13 +348,23 @@ public:
 	void color3fv(const GLfloat* c);
 	void color4ubv(const GLubyte* c);
 
+	void vertexBatchPreTransformed(LLVector3* verts, S32 vert_count);
+	void vertexBatchPreTransformed(LLVector3* verts, LLVector2* uvs, S32 vert_count);
+	void vertexBatchPreTransformed(LLVector3* verts, LLVector2* uvs, LLColor4U*, S32 vert_count);
+
 	void setColorMask(bool writeColor, bool writeAlpha);
 	void setColorMask(bool writeColorR, bool writeColorG, bool writeColorB, bool writeAlpha);
 	void setSceneBlendType(eBlendType type);
 
 	void setAlphaRejectSettings(eCompareFunc func, F32 value = 0.01f);
 
+	// applies blend func to both color and alpha
 	void blendFunc(eBlendFactor sfactor, eBlendFactor dfactor);
+	// applies separate blend functions to color and alpha
+	void blendFunc(eBlendFactor color_sfactor, eBlendFactor color_dfactor,
+		       eBlendFactor alpha_sfactor, eBlendFactor alpha_dfactor);
+
+	LLLightState* getLight(U32 index);
 
 	LLTexUnit* getTexUnit(U32 index);
 
@@ -333,7 +384,9 @@ public:
 	};
 
 public:
-
+	static U32 sUICalls;
+	static U32 sUIVerts;
+	
 private:
 	bool				mDirty;
 	U32				mCount;
@@ -349,12 +402,23 @@ private:
 	LLStrider<LLColor4U>		mColorsp;
 	std::vector<LLTexUnit*>		mTexUnits;
 	LLTexUnit*			mDummyTexUnit;
+	std::vector<LLLightState*> mLightState;
+
+	eBlendFactor mCurrBlendColorSFactor;
+	eBlendFactor mCurrBlendColorDFactor;
+	eBlendFactor mCurrBlendAlphaSFactor;
+	eBlendFactor mCurrBlendAlphaDFactor;
 
 	F32				mMaxAnisotropy;
+
+	std::vector<LLVector3> mUIOffset;
+	std::vector<LLVector3> mUIScale;
+
 };
 
 extern F64 gGLModelView[16];
 extern F64 gGLLastModelView[16];
+extern F64 gGLLastProjection[16];
 extern F64 gGLProjection[16];
 extern S32 gGLViewport[4];
 

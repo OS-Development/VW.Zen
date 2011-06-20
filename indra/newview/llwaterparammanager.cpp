@@ -2,31 +2,25 @@
  * @file llwaterparammanager.cpp
  * @brief Implementation for the LLWaterParamManager class.
  *
- * $LicenseInfo:firstyear=2007&license=viewergpl$
- * 
- * Copyright (c) 2007-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2007&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -39,6 +33,8 @@
 #include "pipeline.h"
 #include "llsky.h"
 
+#include "lldiriterator.h"
+#include "llfloaterreg.h"
 #include "llsliderctrl.h"
 #include "llspinctrl.h"
 #include "llcheckboxctrl.h"
@@ -50,16 +46,14 @@
 #include "llsdserialize.h"
 
 #include "v4math.h"
-#include "llviewerdisplay.h"
 #include "llviewercontrol.h"
-#include "llviewerwindow.h"
 #include "lldrawpoolwater.h"
 #include "llagent.h"
+#include "llagentcamera.h"
 #include "llviewerregion.h"
 
 #include "llwlparammanager.h"
 #include "llwaterparamset.h"
-#include "llpostprocess.h"
 #include "llfloaterwater.h"
 
 #include "curl/curl.h"
@@ -79,6 +73,8 @@ LLWaterParamManager::LLWaterParamManager() :
 	mWave1Dir(.5f, .5f, "wave1Dir"),
 	mWave2Dir(.5f, .5f, "wave2Dir"),
 	mDensitySliderValue(1.0f),
+	mPrevFogDensity(16.0f), // 2^4
+	mPrevFogColor(22.f/255.f, 43.f/255.f, 54.f/255.f, 0.0f),
 	mWaterFogKS(1.0f)
 {
 }
@@ -90,13 +86,14 @@ LLWaterParamManager::~LLWaterParamManager()
 void LLWaterParamManager::loadAllPresets(const std::string& file_name)
 {
 	std::string path_name(gDirUtilp->getExpandedFilename(LL_PATH_APP_SETTINGS, "windlight/water", ""));
-	LL_INFOS2("AppInit", "Shaders") << "Loading Default water settings from " << path_name << LL_ENDL;
+	LL_DEBUGS2("AppInit", "Shaders") << "Loading Default water settings from " << path_name << LL_ENDL;
 			
-	bool found = true;			
+	bool found = true;
+	LLDirIterator app_settings_iter(path_name, "*.xml");
 	while(found) 
 	{
 		std::string name;
-		found = gDirUtilp->getNextFileInDir(path_name, "*.xml", name, false);
+		found = app_settings_iter.next(name);
 		if(found)
 		{
 
@@ -116,13 +113,14 @@ void LLWaterParamManager::loadAllPresets(const std::string& file_name)
 	// And repeat for user presets, note the user presets will modify any system presets already loaded
 
 	std::string path_name2(gDirUtilp->getExpandedFilename( LL_PATH_USER_SETTINGS , "windlight/water", ""));
-	LL_INFOS2("AppInit", "Shaders") << "Loading User water settings from " << path_name2 << LL_ENDL;
+	LL_DEBUGS2("AppInit", "Shaders") << "Loading User water settings from " << path_name2 << LL_ENDL;
 			
-	found = true;			
+	found = true;
+	LLDirIterator user_settings_iter(path_name2, "*.xml");
 	while(found) 
 	{
 		std::string name;
-		found = gDirUtilp->getNextFileInDir(path_name2, "*.xml", name, false);
+		found = user_settings_iter.next(name);
 		if(found)
 		{
 			name=name.erase(name.length()-4);
@@ -151,17 +149,18 @@ void LLWaterParamManager::loadPreset(const std::string & name,bool propagate)
 	escaped_filename += ".xml";
 
 	std::string pathName(gDirUtilp->getExpandedFilename(LL_PATH_APP_SETTINGS, "windlight/water", escaped_filename));
-	llinfos << "Loading water settings from " << pathName << llendl;
+	LL_DEBUGS2("AppInit", "Shaders") << "Loading water settings from " << pathName << LL_ENDL;
 	
-	std::ifstream presetsXML;
+	llifstream presetsXML;
 	presetsXML.open(pathName.c_str());
 	
 	// That failed, try loading from the users area instead.
 	if(!presetsXML)
 	{
 		pathName=gDirUtilp->getExpandedFilename( LL_PATH_USER_SETTINGS , "windlight/water", escaped_filename);
-		llinfos << "Loading User water setting from " << pathName << llendl;
-		presetsXML.open(pathName.c_str());
+		LL_DEBUGS2("AppInit", "Shaders") << "Loading User water setting from " << pathName << LL_ENDL;
+		presetsXML.clear();
+        presetsXML.open(pathName.c_str());
 	}
 
 	if (presetsXML)
@@ -262,20 +261,35 @@ void LLWaterParamManager::updateShaderUniforms(LLGLSLShader * shader)
 	}
 }
 
+static LLFastTimer::DeclareTimer FTM_UPDATE_WLPARAM("Update Windlight Params");
+
 void LLWaterParamManager::update(LLViewerCamera * cam)
 {
-	LLFastTimer ftm(LLFastTimer::FTM_UPDATE_WLPARAM);
+	LLFastTimer ftm(FTM_UPDATE_WLPARAM);
 	
 	// update the shaders and the menu
 	propagateParameters();
 	
-	// sync menus if they exist
-	if(LLFloaterWater::isOpen()) 
+	// If water fog color has been changed, save it.
+	if (mPrevFogColor != mFogColor)
 	{
-		LLFloaterWater::instance()->syncMenu();
+		gSavedSettings.setColor4("WaterFogColor", mFogColor);
+		mPrevFogColor = mFogColor;
 	}
 
-	stop_glerror();
+	// If water fog density has been changed, save it.
+	if (mPrevFogDensity != mFogDensity)
+	{
+		gSavedSettings.setF32("WaterFogDensity", mFogDensity);
+		mPrevFogDensity = mFogDensity;
+	}
+	
+	// sync menus if they exist
+	LLFloaterWater* waterfloater = LLFloaterReg::findTypedInstance<LLFloaterWater>("env_water");
+	if(waterfloater) 
+	{
+		waterfloater->syncMenu();
+	}
 
 	// only do this if we're dealing with shaders
 	if(gPipeline.canUseVertexShaders()) 
@@ -301,7 +315,7 @@ void LLWaterParamManager::update(LLViewerCamera * cam)
 		mWaterPlane = LLVector4(enorm.v[0], enorm.v[1], enorm.v[2], -ep.dot(enorm));
 
 		LLVector3 sunMoonDir;
-		if (gSky.getSunDirection().mV[2] > NIGHTTIME_ELEVATION_COS) 	 
+		if (gSky.getSunDirection().mV[2] > LLSky::NIGHTTIME_ELEVATION_COS) 	 
 		{ 	 
 			sunMoonDir = gSky.getSunDirection(); 	 
 		} 	 
@@ -434,7 +448,7 @@ F32 LLWaterParamManager::getFogDensity(void)
 	
 	// modify if we're underwater
 	const F32 water_height = gAgent.getRegion() ? gAgent.getRegion()->getWaterHeight() : 0.f;
-	F32 camera_height = gAgent.getCameraPositionAgent().mV[2];
+	F32 camera_height = gAgentCamera.getCameraPositionAgent().mV[2];
 	if(camera_height <= water_height)
 	{
 		// raise it to the underwater fog density modifier
@@ -454,7 +468,24 @@ LLWaterParamManager * LLWaterParamManager::instance()
 		sInstance->loadAllPresets(LLStringUtil::null);
 
 		sInstance->getParamSet("Default", sInstance->mCurParams);
+		sInstance->initOverrides();
 	}
 
 	return sInstance;
+}
+
+void LLWaterParamManager::initOverrides()
+{
+	// Override fog color from the current preset with the saved setting.
+	LLColor4 fog_color_override = gSavedSettings.getColor4("WaterFogColor");
+	mFogColor = fog_color_override;
+	mPrevFogColor = fog_color_override;
+	mCurParams.set("waterFogColor", fog_color_override);
+
+	// Do the same with fog density.
+	F32 fog_density = gSavedSettings.getF32("WaterFogDensity");
+	mPrevFogDensity = fog_density;
+	mFogDensity = fog_density;
+	mCurParams.set("waterFogDensity", fog_density);
+	setDensitySliderValue(mFogDensity.mExp);
 }

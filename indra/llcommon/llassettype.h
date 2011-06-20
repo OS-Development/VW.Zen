@@ -2,31 +2,25 @@
  * @file llassettype.h
  * @brief Declaration of LLAssetType.
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -37,7 +31,7 @@
 
 #include "stdenums.h" 	// for EDragAndDropType
 
-class LLAssetType
+class LL_COMMON_API LLAssetType
 {
 public:
 	enum EType
@@ -78,11 +72,6 @@ public:
 			// Holds a collection of inventory items.
 			// It's treated as an item in the inventory and therefore needs a type.
 
-		AT_ROOT_CATEGORY = 9,
-			// A user's root inventory category.
-			// We decided to expose it visually, so it seems logical to fold
-			// it into the asset types.
-
 		AT_LSL_TEXT = 10,
 		AT_LSL_BYTECODE = 11,
 			// The LSL is the scripting language. 
@@ -93,18 +82,6 @@ public:
 
 		AT_BODYPART = 13,
 			// A collection of textures and parameters that can be worn by an avatar.
-
-		AT_TRASH = 14,
-			// Only to be used as a marker for a category preferred type. 
-			// Using this, we can throw things in the trash before completely deleting.
-
-		AT_SNAPSHOT_CATEGORY = 15,
-			// A marker for a folder meant for snapshots. 
-			// No actual assets will be snapshots, though if there were, you
-			// could interpret them as textures.
-
-		AT_LOST_AND_FOUND = 16,
-			// Used to stuff lost&found items into.
 
 		AT_SOUND_WAV = 17,
 			// Uncompressed sound.
@@ -125,31 +102,32 @@ public:
 
 		AT_SIMSTATE = 22,
 			// Simstate file.
-	
-		AT_FAVORITE = 23,
-			// favorite items
 
 		AT_LINK = 24,
 			// Inventory symbolic link
 
 		AT_LINK_FOLDER = 25,
 			// Inventory folder link
+		AT_MESH = 49,
+		    // Mesh data in our proprietary SLM format
 
-		AT_COUNT = 26,
+		AT_COUNT = 50,
 
-			// +************************************************+
-			// |  TO ADD AN ELEMENT TO THIS ENUM:               |
-			// +************************************************+
-			// | 1. INSERT BEFORE AT_COUNT                      |
-			// | 2. INCREMENT AT_COUNT BY 1                     |
-			// | 3. ADD TO LLAssetDictionary in llassettype.cpp |
-			// +************************************************+
+			// +*********************************************************+
+			// |  TO ADD AN ELEMENT TO THIS ENUM:                        |
+			// +*********************************************************+
+			// | 1. INSERT BEFORE AT_COUNT                               |
+			// | 2. INCREMENT AT_COUNT BY 1                              |
+			// | 3. ADD TO LLAssetType.cpp                               |
+			// | 4. ADD TO LLViewerAssetType.cpp                         |
+			// | 5. ADD TO DEFAULT_ASSET_FOR_INV in LLInventoryType.cpp  |
+			// +*********************************************************+
 
 		AT_NONE = -1
 	};
 
 	// machine transation between type and strings
-	static EType lookup(const char* name); // safe conversion to std::string, *TODO: deprecate
+	static EType 				lookup(const char* name); // safe conversion to std::string, *TODO: deprecate
 	static EType 				lookup(const std::string& type_name);
 	static const char*			lookup(EType asset_type);
 
@@ -158,28 +136,18 @@ public:
 	static EType 				lookupHumanReadable(const std::string& readable_name);
 	static const char*			lookupHumanReadable(EType asset_type);
 
-	static const char*  		lookupCategoryName(EType asset_type);
-
-	// Generate a good default description. You may want to add a verb
-	// or agent name after this depending on your application.
-	static void 				generateDescriptionFor(LLAssetType::EType asset_type,
-													   std::string& description);
-
 	static EType 				getType(const std::string& desc_name);
 	static const std::string&	getDesc(EType asset_type);
-	static EDragAndDropType   	lookupDragAndDropType(EType asset_type);
+
 	static bool 				lookupCanLink(EType asset_type);
 	static bool 				lookupIsLinkType(EType asset_type);
 
-	/* TODO: Change return types from "const char *" to "const std::string &".
-	This is fairly straightforward, but requires changing some calls to use .c_str().
-	e.g.:
-	-	fprintf(fp, "\t\ttype\t%s\n", LLAssetType::lookup(mType));
-	+	fprintf(fp, "\t\ttype\t%s\n", LLAssetType::lookup(mType).c_str());
-	*/
+	static bool 				lookupIsAssetFetchByIDAllowed(EType asset_type); // the asset allows direct download
+	static bool 				lookupIsAssetIDKnowable(EType asset_type); // asset data can be known by the viewer
 	
-private:
-	// don't instantiate or derive one of these objects
+	static const std::string&	badLookup(); // error string when a lookup fails
+
+protected:
 	LLAssetType() {}
 	~LLAssetType() {}
 };

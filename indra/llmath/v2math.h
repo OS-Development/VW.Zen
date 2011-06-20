@@ -2,31 +2,25 @@
  * @file v2math.h
  * @brief LLVector2 class header file.
  *
- * $LicenseInfo:firstyear=2000&license=viewergpl$
- * 
- * Copyright (c) 2000-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2000&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -66,9 +60,14 @@ class LLVector2
 		void	set(const LLVector2 &vec);	// Sets LLVector2 to vec
 		void	set(const F32 *vec);			// Sets LLVector2 to vec
 
+		LLSD	getValue() const;
+		void	setValue(LLSD& sd);
+
 		void	setVec(F32 x, F32 y);	        // deprecated
 		void	setVec(const LLVector2 &vec);	// deprecated
 		void	setVec(const F32 *vec);			// deprecated
+
+		inline bool isFinite() const; // checks to see if all values of LLVector2 are finite
 
 		F32		length() const;				// Returns magnitude of LLVector2
 		F32		lengthSquared() const;		// Returns magnitude squared of LLVector2
@@ -215,11 +214,12 @@ inline void	LLVector2::setVec(const F32 *vec)
 	mV[VY] = vec[VY];
 }
 
+
 // LLVector2 Magnitude and Normalization Functions
 
 inline F32 LLVector2::length(void) const
 {
-	return fsqrtf(mV[0]*mV[0] + mV[1]*mV[1]);
+	return (F32) sqrt(mV[0]*mV[0] + mV[1]*mV[1]);
 }
 
 inline F32 LLVector2::lengthSquared(void) const
@@ -229,7 +229,7 @@ inline F32 LLVector2::lengthSquared(void) const
 
 inline F32		LLVector2::normalize(void)
 {
-	F32 mag = fsqrtf(mV[0]*mV[0] + mV[1]*mV[1]);
+	F32 mag = (F32) sqrt(mV[0]*mV[0] + mV[1]*mV[1]);
 	F32 oomag;
 
 	if (mag > FP_MAG_THRESHOLD)
@@ -247,10 +247,16 @@ inline F32		LLVector2::normalize(void)
 	return (mag);
 }
 
+// checker
+inline bool LLVector2::isFinite() const
+{
+	return (llfinite(mV[VX]) && llfinite(mV[VY]));
+}
+
 // deprecated
 inline F32		LLVector2::magVec(void) const
 {
-	return fsqrtf(mV[0]*mV[0] + mV[1]*mV[1]);
+	return (F32) sqrt(mV[0]*mV[0] + mV[1]*mV[1]);
 }
 
 // deprecated
@@ -262,7 +268,7 @@ inline F32		LLVector2::magVecSquared(void) const
 // deprecated
 inline F32		LLVector2::normVec(void)
 {
-	F32 mag = fsqrtf(mV[0]*mV[0] + mV[1]*mV[1]);
+	F32 mag = (F32) sqrt(mV[0]*mV[0] + mV[1]*mV[1]);
 	F32 oomag;
 
 	if (mag > FP_MAG_THRESHOLD)

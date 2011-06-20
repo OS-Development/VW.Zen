@@ -1,30 +1,23 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<floater name="Joystick" title="Configuración del joystick">
-	<check_box name="enable_joystick">
-		Activar el joystick:
-	</check_box>
-	<spinner label="Mapping: X" name="JoystickAxis1"/>
-	<spinner label="Mapping: Y" name="JoystickAxis2"/>
-	<spinner label="Mapping: Z" name="JoystickAxis0"/>
-	<spinner label="Mapping: arriba/abajo" name="JoystickAxis4"/>
-	<spinner label="Mapping: izq./der." name="JoystickAxis5"/>
-	<spinner label="Mapping: giro" name="JoystickAxis3"/>
-	<spinner label="Mapping: zoom" name="JoystickAxis6"/>
+<floater name="Joystick" title="CONFIGURACIÓN DEL JOYSTICK">
+	<check_box label="Activar el joystick:" name="enable_joystick"/>
+	<text left="140" name="joystick_type" width="360"/>
+	<spinner label="Mapping: eje X" label_width="118" name="JoystickAxis1" width="161"/>
+	<spinner label="Mapping: eje Y" label_width="105" name="JoystickAxis2" width="148"/>
+	<spinner label="Mapping: eje Z" label_width="95" name="JoystickAxis0" width="138"/>
+	<spinner label="Mapping: arriba/abajo" label_width="118" name="JoystickAxis4" width="161"/>
+	<spinner label="Mapping: izq./der." label_width="105" name="JoystickAxis5" width="148"/>
+	<spinner label="Mapping: giro" label_width="95" name="JoystickAxis3" width="138"/>
+	<spinner label="Mapping: zoom" label_width="118" name="JoystickAxis6" width="161"/>
 	<check_box label="Zoom directo" name="ZoomDirect"/>
 	<check_box label="Cursor 3D" name="Cursor3D"/>
 	<check_box label="Nivel automático" name="AutoLeveling"/>
 	<text name="Control Modes:">
 		Modos de control:
 	</text>
-	<check_box name="JoystickAvatarEnabled">
-		Avatar
-	</check_box>
-	<check_box name="JoystickBuildEnabled">
-		Construir
-	</check_box>
-	<check_box name="JoystickFlycamEnabled">
-		Flycam
-	</check_box>
+	<check_box label="Avatar" name="JoystickAvatarEnabled"/>
+	<check_box label="Construir" name="JoystickBuildEnabled"/>
+	<check_box label="Flycam" name="JoystickFlycamEnabled"/>
 	<text name="XScale">
 		Escala: X
 	</text>
@@ -53,10 +46,10 @@
 		Zona muerta Z
 	</text>
 	<text name="PitchDeadZone">
-		Zona muerta arriba/abajo
+		Zona muerta arri./aba.
 	</text>
 	<text name="YawDeadZone">
-		Zona muerta izq./der
+		Zona muerta izq./der.
 	</text>
 	<text name="RollDeadZone">
 		Zona muerta giro
@@ -70,15 +63,17 @@
 	<text name="ZoomDeadZone">
 		Zona muerta zoom
 	</text>
-	<button label="Predeterminados del SpaceNavigator" name="SpaceNavigatorDefaults"/>
-	<button label="OK" label_selected="OK" name="ok_btn"/>
-	<button label="Cancelar" label_selected="Cancelar" name="cancel_btn"/>
-	<string name="JoystickMonitor">
-		Monitor del joystick
-	</string>
-	<string name="Axis">
-		Eje [NUM]
-	</string>
+	<button font="SansSerifSmall" label="Por defecto del SpaceNavigator" name="SpaceNavigatorDefaults"/>
+	<button label="OK" label_selected="OK" left="330" name="ok_btn"/>
+	<button label="Cancelar" label_selected="Cancelar" left_delta="120" name="cancel_btn"/>
+	<stat_view label="Monitor del joystick" name="axis_view">
+		<stat_bar label="Eje 0" name="axis0"/>
+		<stat_bar label="Eje 1" name="axis1"/>
+		<stat_bar label="Eje 2" name="axis2"/>
+		<stat_bar label="Eje 3" name="axis3"/>
+		<stat_bar label="Eje 4" name="axis4"/>
+		<stat_bar label="Eje 5" name="axis5"/>
+	</stat_view>
 	<string name="NoDevice">
 		no se ha detectado el dispositivo
 	</string>

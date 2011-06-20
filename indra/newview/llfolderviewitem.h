@@ -2,37 +2,33 @@
 * @file llfolderviewitem.h
 * @brief Items and folders that can appear in a hierarchical folder view
 *
-* $LicenseInfo:firstyear=2001&license=viewergpl$
-* 
-* Copyright (c) 2001-2009, Linden Research, Inc.
-* 
+* $LicenseInfo:firstyear=2001&license=viewerlgpl$
 * Second Life Viewer Source Code
-* The source code in this file ("Source Code") is provided by Linden Lab
-* to you under the terms of the GNU General Public License, version 2.0
-* ("GPL"), unless you have obtained a separate licensing agreement
-* ("Other License"), formally executed by you and Linden Lab.  Terms of
-* the GPL can be found in doc/GPL-license.txt in this distribution, or
-* online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+* Copyright (C) 2010, Linden Research, Inc.
 * 
-* There are special exceptions to the terms and conditions of the GPL as
-* it is applied to this Source Code. View the full text of the exception
-* in the file doc/FLOSS-exception.txt in this software distribution, or
-* online at
-* http://secondlifegrid.net/programs/open_source/licensing/flossexception
+* This library is free software; you can redistribute it and/or
+* modify it under the terms of the GNU Lesser General Public
+* License as published by the Free Software Foundation;
+* version 2.1 of the License only.
 * 
-* By copying, modifying or distributing this software, you acknowledge
-* that you have read and understood your obligations described above,
-* and agree to abide by those obligations.
+* This library is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+* Lesser General Public License for more details.
 * 
-* ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
-* WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
-* COMPLETENESS OR PERFORMANCE.
+* You should have received a copy of the GNU Lesser General Public
+* License along with this library; if not, write to the Free Software
+* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+* 
+* Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
 * $/LicenseInfo$
 */
 #ifndef LLFOLDERVIEWITEM_H
 #define LLFOLDERVIEWITEM_H
 
 #include "llview.h"
+#include "lldarray.h"  // *TODO: Eliminate, forward declare
+#include "lluiimage.h"
 
 class LLFontGL;
 class LLFolderView;
@@ -44,6 +40,7 @@ class LLFolderViewListenerFunctor;
 class LLInventoryFilter;
 class LLMenuGL;
 class LLUIImage;
+class LLViewerInventoryItem;
 
 // These are grouping of inventory types.
 // Order matters when sorting system folders to the top.
@@ -55,7 +52,7 @@ enum EInventorySortGroup
 	SG_ITEM 
 };
 
-// JAMESDEBUG *TODO: do we really need one sort object per folder?
+// *TODO: do we really need one sort object per folder?
 // can we just have one of these per LLFolderView ?
 class LLInventorySort
 {
@@ -91,15 +88,19 @@ public:
 	static void initClass();
 	static void cleanupClass();
 
-	// jamesdebug was LLUICtrl::Params
 	struct Params : public LLInitParam::Block<Params, LLView::Params>
 	{
 		Optional<LLUIImage*>					icon;
+		Optional<LLUIImage*>					icon_open;  // used for folders
+		Optional<LLUIImage*>					icon_overlay;  // for links
 		Optional<LLFolderView*>					root;
 		Optional<LLFolderViewEventListener*>	listener;
 
 		Optional<LLUIImage*>					folder_arrow_image;
+		Optional<S32>							folder_indentation; // pixels
 		Optional<LLUIImage*>					selection_image;
+		Optional<S32>							item_height; // pixels
+		Optional<S32>							item_top_pad; // pixels
 
 		Optional<S32>							creation_date; //UTC seconds
 
@@ -108,7 +109,7 @@ public:
 
 	// layout constants
 	static const S32 LEFT_PAD = 5;
-	static const S32 LEFT_INDENTATION = 13;
+	// LEFT_INDENTATION is set via folder_indentation above
 	static const S32 ICON_PAD = 2;
 	static const S32 ICON_WIDTH = 16;
 	static const S32 TEXT_PAD = 1;
@@ -118,16 +119,17 @@ public:
 	static const F32 FOLDER_CLOSE_TIME_CONSTANT;
 	static const F32 FOLDER_OPEN_TIME_CONSTANT;
 
+	// Mostly for debugging printout purposes.
+	const std::string& getSearchableLabel() { return mSearchableLabel; }
+
+private:
+	BOOL						mIsSelected;
+
 protected:
 	friend class LLUICtrlFactory;
 	friend class LLFolderViewEventListener;
 
-	LLFolderViewItem(Params p = LLFolderViewItem::Params());
-
-	static const LLFontGL*		sFont;
-	static const LLFontGL*		sSmallFont;
-	static LLUIImagePtr			sArrowImage;
-	static LLUIImagePtr			sBoxImage;
+	LLFolderViewItem(const Params& p);
 
 	std::string					mLabel;
 	std::string					mSearchableLabel;
@@ -136,33 +138,27 @@ protected:
 	time_t						mCreationDate;
 	LLFolderViewFolder*			mParentFolder;
 	LLFolderViewEventListener*	mListener;
-	BOOL						mIsSelected;
 	BOOL						mIsCurSelection;
 	BOOL						mSelectPending;
 	LLFontGL::StyleFlags		mLabelStyle;
 	std::string					mLabelSuffix;
 	LLUIImagePtr				mIcon;
 	std::string					mStatusText;
+	LLUIImagePtr				mIconOpen;
+	LLUIImagePtr				mIconOverlay;
 	BOOL						mHasVisibleChildren;
 	S32							mIndentation;
-	S32							mNumDescendantsSelected;
-	BOOL						mFiltered;
+	S32							mItemHeight;
+	BOOL						mPassedFilter;
 	S32							mLastFilterGeneration;
 	std::string::size_type		mStringMatchOffset;
 	F32							mControlLabelRotation;
 	LLFolderView*				mRoot;
 	BOOL						mDragAndDropTarget;
-	LLUIImagePtr				mArrowImage;
-	LLUIImagePtr				mBoxImage;
-	BOOL                            mIsLoading;
-	LLTimer                         mTimeSinceRequestStart;
-
-	// This function clears the currently selected item, and records
-	// the specified selected item appropriately for display and use
-	// in the UI. If open is TRUE, then folders are opened up along
-	// the way to the selection.
-	void setSelectionFromRoot(LLFolderViewItem* selection, BOOL openitem,
-		BOOL take_keyboard_focus = TRUE);
+	BOOL                        mIsLoading;
+	LLTimer                     mTimeSinceRequestStart;
+	bool						mHidden;
+	bool						mShowLoadStatus;
 
 	// helper function to change the selection from the root.
 	void changeSelectionFromRoot(LLFolderViewItem* selection, BOOL selected);
@@ -175,7 +171,16 @@ protected:
 	virtual BOOL addItem(LLFolderViewItem*) { return FALSE; }
 	virtual BOOL addFolder(LLFolderViewFolder*) { return FALSE; }
 
+	static LLFontGL* getLabelFontForStyle(U8 style);
+
 public:
+	// This function clears the currently selected item, and records
+	// the specified selected item appropriately for display and use
+	// in the UI. If open is TRUE, then folders are opened up along
+	// the way to the selection.
+	void setSelectionFromRoot(LLFolderViewItem* selection, BOOL openitem,
+		BOOL take_keyboard_focus = TRUE);
+
 	// This function is called when the folder view is dirty. It's
 	// implemented here but called by derived classes when folding the
 	// views.
@@ -197,6 +202,11 @@ public:
 	virtual S32 arrange( S32* width, S32* height, S32 filter_generation );
 	virtual S32 getItemHeight();
 
+	// Hide the folder from the UI, such as if you want to hide the root
+	// folder in an inventory panel.
+	void setHidden(bool hidden) { mHidden = hidden; }
+	bool getHidden() const { return mHidden; }
+
 	// applies filters to control visibility of inventory items
 	virtual void filter( LLInventoryFilter& filter);
 
@@ -205,25 +215,26 @@ public:
 
 	virtual void	dirtyFilter();
 
-	// If the selection is 'this' then note that otherwise
-	// ignore. Returns TRUE if this object was affected. If open is
-	// TRUE, then folders are opened up along the way to the
-	// selection.
-	virtual BOOL setSelection(LLFolderViewItem* selection, BOOL openitem,
-		BOOL take_keyboard_focus);
+	// If 'selection' is 'this' then note that otherwise ignore.
+	// Returns TRUE if this item ends up being selected.
+	virtual BOOL setSelection(LLFolderViewItem* selection, BOOL openitem, BOOL take_keyboard_focus);
 
-	// This method is used to toggle the selection of an item. If
-	// selection is 'this', then note selection, and return TRUE.
+	// This method is used to set the selection state of an item.
+	// If 'selection' is 'this' then note selection.
+	// Returns TRUE if the selection state of this item was changed.
 	virtual BOOL changeSelection(LLFolderViewItem* selection, BOOL selected);
 
 	// this method is used to group select items
-	virtual S32 extendSelection(LLFolderViewItem* selection, LLFolderViewItem* last_selected, LLDynamicArray<LLFolderViewItem*>& items){ return FALSE; }
+	virtual void extendSelection(LLFolderViewItem* selection, LLFolderViewItem* last_selected, LLDynamicArray<LLFolderViewItem*>& items) { }
 
-	// this method is used to group select items
-	virtual void recursiveDeselect(BOOL deselect_self);
+	// this method is used to deselect this element
+	void deselectItem();
+
+	// this method is used to select this element
+	void selectItem();
 
 	// gets multiple-element selection
-	virtual BOOL getSelectionList(std::set<LLUUID> &selection){return TRUE;}
+	virtual std::set<LLUUID> getSelectionList() const;
 
 	// Returns true is this object and all of its children can be removed (deleted by user)
 	virtual BOOL isRemovable();
@@ -234,15 +245,17 @@ public:
 	// destroys this item recursively
 	virtual void destroyView();
 
-	S32 getNumSelectedDescendants() { return mNumDescendantsSelected; }
+	BOOL isSelected() const { return mIsSelected; }
 
-	BOOL isSelected() { return mIsSelected; }
+	void setUnselected() { mIsSelected = FALSE; }
 
 	void setIsCurSelection(BOOL select) { mIsCurSelection = select; }
 
 	BOOL getIsCurSelection() { return mIsCurSelection; }
 
 	BOOL hasVisibleChildren() { return mHasVisibleChildren; }
+
+	void setShowLoadStatus(bool status) { mShowLoadStatus = status; }
 
 	// Call through to the viewed object and return true if it can be
 	// removed. Returns true if it's removed.
@@ -254,7 +267,7 @@ public:
 
 	// This method returns the actual name of the thing being
 	// viewed. This method will ask the viewed object itself.
-	const std::string& getName( void ) const;
+	std::string getName( void ) const;
 
 	const std::string& getSearchableLabel( void ) const;
 
@@ -274,6 +287,9 @@ public:
 
 	const LLFolderViewEventListener* getListener( void ) const { return mListener; }
 	LLFolderViewEventListener* getListener( void ) { return mListener; }
+	
+	// Gets the inventory item if it exists (null otherwise)
+	LLViewerInventoryItem * getInventoryItem(void);
 
 	// just rename the object.
 	void rename(const std::string& new_name);
@@ -285,7 +301,7 @@ public:
 	// Show children (unfortunate that this is called "open")
 	virtual void setOpen(BOOL open = TRUE) {};
 
-	virtual BOOL isOpen() { return FALSE; }
+	virtual BOOL isOpen() const { return FALSE; }
 
 	virtual LLFolderView*	getRoot();
 	BOOL			isDescendantOf( const LLFolderViewFolder* potential_ancestor );
@@ -312,7 +328,6 @@ public:
 	virtual BOOL handleHover( S32 x, S32 y, MASK mask );
 	virtual BOOL handleMouseUp( S32 x, S32 y, MASK mask );
 	virtual BOOL handleDoubleClick( S32 x, S32 y, MASK mask );
-	virtual BOOL handleScrollWheel(S32 x, S32 y, S32 clicks);
 
 	//	virtual void handleDropped();
 	virtual void draw();
@@ -321,6 +336,9 @@ public:
 		void* cargo_data,
 		EAcceptance* accept,
 		std::string& tooltip_msg);
+
+private:
+	static std::map<U8, LLFontGL*> sFonts; // map of styles to fonts
 };
 
 
@@ -333,7 +351,7 @@ typedef bool (*sort_order_f)(LLFolderViewItem* a, LLFolderViewItem* b);
 //
 // An instance of an LLFolderViewFolder represents a collection of
 // more folders and items. This is used to build the hierarchy of
-// items found in the folder view. :)
+// items found in the folder view.
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 class LLFolderViewFolder : public LLFolderViewItem
@@ -347,6 +365,13 @@ public:
 	{
 		UNKNOWN, TRASH, NOT_TRASH
 	} ETrash;
+
+private:
+	S32		mNumDescendantsSelected;
+
+public:		// Accessed needed by LLFolderViewItem
+	void recursiveIncrementNumDescendantsSelected(S32 increment);
+	S32 numSelected(void) const { return mNumDescendantsSelected + (isSelected() ? 1 : 0); }
 
 protected:
 	typedef std::list<LLFolderViewItem*> items_t;
@@ -409,20 +434,19 @@ public:
 	virtual void dirtyFilter();
 
 	// Passes selection information on to children and record
-	// selection information if necessary. Returns TRUE if this object
-	// (or a child) was affected.
-	virtual BOOL setSelection(LLFolderViewItem* selection, BOOL openitem,
-		BOOL take_keyboard_focus);
+	// selection information if necessary.
+	// Returns TRUE if this object (or a child) ends up being selected.
+	// If 'openitem' is TRUE then folders are opened up along the way to the selection.
+	virtual BOOL setSelection(LLFolderViewItem* selection, BOOL openitem, BOOL take_keyboard_focus);
 
-	// This method is used to change the selection of an item. If
-	// selection is 'this', then note selection as true. Returns TRUE
-	// if this or a child is now selected.
+	// This method is used to change the selection of an item.
+	// Recursively traverse all children; if 'selection' is 'this' then change
+	// the select status if necessary.
+	// Returns TRUE if the selection state of this folder, or of a child, was changed.
 	virtual BOOL changeSelection(LLFolderViewItem* selection, BOOL selected);
 
 	// this method is used to group select items
-	virtual S32 extendSelection(LLFolderViewItem* selection, LLFolderViewItem* last_selected, LLDynamicArray<LLFolderViewItem*>& items);
-
-	virtual void recursiveDeselect(BOOL deselect_self);
+	virtual void extendSelection(LLFolderViewItem* selection, LLFolderViewItem* last_selected, LLDynamicArray<LLFolderViewItem*>& items);
 
 	// Returns true is this object and all of its children can be removed.
 	virtual BOOL isRemovable();
@@ -478,7 +502,7 @@ public:
 	virtual void setOpenArrangeRecursively(BOOL openitem, ERecurseType recurse = RECURSE_NO);
 
 	// Get the current state of the folder.
-	virtual BOOL isOpen() { return mIsOpen; }
+	virtual BOOL isOpen() const { return mIsOpen; }
 
 	// special case if an object is dropped on the child.
 	BOOL handleDragAndDropFromChild(MASK mask,
@@ -490,6 +514,9 @@ public:
 
 	void applyFunctorRecursively(LLFolderViewFunctor& functor);
 	virtual void applyListenerFunctorRecursively(LLFolderViewListenerFunctor& functor);
+
+	// Just apply this functor to the folder's immediate children.
+	void applyFunctorToChildren(LLFolderViewFunctor& functor);
 
 	virtual void openItem( void );
 	virtual BOOL addItem(LLFolderViewItem* item);
@@ -509,6 +536,7 @@ public:
 
 	time_t getCreationDate() const;
 	bool isTrash() const;
+	S32 getNumSelectedDescendants(void) const { return mNumDescendantsSelected; }
 };
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

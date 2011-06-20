@@ -3,38 +3,33 @@
  * @author Brad Payne
  * @brief Storage for fonts.
  *
- * $LicenseInfo:firstyear=2008&license=viewergpl$
- * 
- * Copyright (c) 2008-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2008&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
 #include "linden_common.h"
 #include "llgl.h"
-#include "llfontregistry.h"
+#include "llfontfreetype.h"
 #include "llfontgl.h"
+#include "llfontregistry.h"
 #include <boost/tokenizer.hpp>
 #include "llcontrol.h"
 #include "lldir.h"
@@ -104,7 +99,7 @@ bool removeSubString(std::string& str, const std::string& substr)
 	size_t pos = str.find(substr);
 	if (pos != string::npos)
 	{
-		str.erase(pos);
+		str.erase(pos, substr.size());
 		return true;
 	}
 	return false;
@@ -379,10 +374,20 @@ LLFontGL *LLFontRegistry::createFont(const LLFontDescriptor& desc)
 	LLFontDescriptor nearest_exact_desc = *match_desc;
 	nearest_exact_desc.setSize(norm_desc.getSize());
 	font_reg_map_t::iterator it = mFontMap.find(nearest_exact_desc);
-	if (it != mFontMap.end())
+	// If we fail to find a font in the fonts directory, it->second might be NULL.
+	// We shouldn't construcnt a font with a NULL mFontFreetype.
+	// This may not be the best solution, but it at least prevents a crash.
+	if (it != mFontMap.end() && it->second != NULL)
 	{
 		llinfos << "-- matching font exists: " << nearest_exact_desc.getName() << " size " << nearest_exact_desc.getSize() << " style " << ((S32) nearest_exact_desc.getStyle()) << llendl;
-		return it->second;
+		
+		// copying underlying Freetype font, and storing in LLFontGL with requested font descriptor
+		LLFontGL *font = new LLFontGL;
+		font->mFontDescriptor = desc;
+		font->mFontFreetype = it->second->mFontFreetype;
+		mFontMap[desc] = font;
+
+		return font;
 	}
 
 	// Build list of font names to look for.
@@ -410,10 +415,11 @@ LLFontGL *LLFontRegistry::createFont(const LLFontDescriptor& desc)
 		llwarns << "createFont failed, no file names specified" << llendl;
 		return NULL;
 	}
-	LLFontList *fontlistp = new LLFontList;
+
+	LLFontFreetype::font_vector_t fontlist;
 	LLFontGL *result = NULL;
 
-	// Snarf all fonts we can into fontlistp.  First will get pulled
+	// Snarf all fonts we can into fontlist.  First will get pulled
 	// off the list and become the "head" font, set to non-fallback.
 	// Rest will consitute the fallback list.
 	BOOL is_first_found = TRUE;
@@ -455,23 +461,29 @@ LLFontGL *LLFontRegistry::createFont(const LLFontDescriptor& desc)
 				is_first_found = false;
 			}
 			else
-				fontlistp->addAtEnd(fontp);
+			{
+				fontlist.push_back(fontp->mFontFreetype);
+				delete fontp;
+				fontp = NULL;
+			}
 		}
 	}
-	if (result && !fontlistp->empty())
+
+	if (result && !fontlist.empty())
 	{
-		result->setFallbackFont(fontlistp);
+		result->mFontFreetype->setFallbackFonts(fontlist);
 	}
 
-	norm_desc.setStyle(match_desc->getStyle());
 	if (result)
-		result->setFontDesc(norm_desc);
-
-	if (!result)
+	{
+		result->mFontDescriptor = desc;
+	}
+	else
 	{
 		llwarns << "createFont failed in some way" << llendl;
 	}
-	mFontMap[norm_desc] = result;
+
+	mFontMap[desc] = result;
 	return result;
 }
 
@@ -511,21 +523,19 @@ void LLFontRegistry::destroyGL()
 	}
 }
 
-LLFontGL *LLFontRegistry::getFont(const LLFontDescriptor& orig_desc)
+LLFontGL *LLFontRegistry::getFont(const LLFontDescriptor& desc)
 {
-	LLFontDescriptor norm_desc = orig_desc.normalize();
-
-	font_reg_map_t::iterator it = mFontMap.find(norm_desc);
+	font_reg_map_t::iterator it = mFontMap.find(desc);
 	if (it != mFontMap.end())
 		return it->second;
 	else
 	{
-		LLFontGL *fontp = createFont(orig_desc);
+		LLFontGL *fontp = createFont(desc);
 		if (!fontp)
 		{
-			llwarns << "getFont failed, name " << orig_desc.getName()
-					<<" style=[" << ((S32) orig_desc.getStyle()) << "]"
-					<< " size=[" << orig_desc.getSize() << "]" << llendl;
+			llwarns << "getFont failed, name " << desc.getName()
+					<<" style=[" << ((S32) desc.getStyle()) << "]"
+					<< " size=[" << desc.getSize() << "]" << llendl;
 		}
 		return fontp;
 	}
@@ -652,4 +662,9 @@ void LLFontRegistry::dump()
 			llinfos << "  file: " << *file_it <<llendl;
 		}
 	}
+}
+
+const string_vec_t& LLFontRegistry::getUltimateFallbackList() const 
+{ 
+	return mUltimateFallbackList;
 }

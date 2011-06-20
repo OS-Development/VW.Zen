@@ -2,31 +2,25 @@
  * @file llpermissions.h
  * @brief Permissions structures for objects.
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -38,6 +32,7 @@
 #include "lluuid.h"
 #include "llxmlnode.h"
 #include "reflective.h"
+#include "llinventorytype.h"
 
 // prototypes
 class LLMessageSystem;
@@ -129,6 +124,8 @@ public:
 	void initMasks(PermissionMask base, PermissionMask owner,
 				   PermissionMask everyone, PermissionMask group,
 				   PermissionMask next);
+	// adjust permissions based on inventory type.
+	void initMasks(LLInventoryType::EType type);
 
 	//
 	// ACCESSORS
@@ -146,7 +143,7 @@ public:
 	const LLUUID&	getGroup() 			const	{ return mGroup; }
 
 	// return the agent_id of the last agent owner. Only returns
-	// LLUUID::null if there has never been a previous owner.
+	// LLUUID::null if there has never been a previous owner (*note: this is apparently not true, say for textures in inventory, it may return LLUUID::null even if there was a previous owner).
 	const LLUUID&	getLastOwner() 		const	{ return mLastOwner; }
 
 	U32				getMaskBase() 		const	{ return mMaskBase; }
@@ -229,6 +226,10 @@ public:
 	// ownerhsip changes
 	void yesReallySetOwner(const LLUUID& owner, bool group_owned);
 
+	// Last owner doesn't have much in the way of permissions so it's 
+	//not too dangerous to do this. 
+	void setLastOwner(const LLUUID& last_owner);
+
 	// saves last owner, sets owner to uuid null, sets group
 	// owned. group_id must be the group of the object (that's who it
 	// is being deeded to) and the object must be group
@@ -249,7 +250,11 @@ public:
 	BOOL setGroupBits( const LLUUID& agent, const LLUUID& group, BOOL set, PermissionMask bits);
 	BOOL setEveryoneBits(const LLUUID& agent, const LLUUID& group, BOOL set, PermissionMask bits);
 	BOOL setNextOwnerBits(const LLUUID& agent, const LLUUID& group, BOOL set, PermissionMask bits);
-
+	
+	// This is currently only used in the Viewer to handle calling cards
+	// where the creator is actually used to store the target. Use with care.
+	void setCreator(const LLUUID& creator) { mCreator = creator; }
+	
 	//
 	// METHODS
 	//
@@ -261,18 +266,18 @@ public:
 	// They also return true if the object isn't owned, or the
 	// requesting agent is a system agent.  See llpermissionsflags.h
 	// for bits.
-	BOOL allowOperationBy(PermissionBit op, const LLUUID& agent, const LLUUID& group = LLUUID::null) const;
+	bool allowOperationBy(PermissionBit op, const LLUUID& agent, const LLUUID& group = LLUUID::null) const;
 
-	inline BOOL allowModifyBy(const LLUUID &agent_id) const;
-	inline BOOL allowCopyBy(const LLUUID& agent_id) const;
-	inline BOOL allowMoveBy(const LLUUID& agent_id) const;
-	inline BOOL allowModifyBy(const LLUUID &agent_id, const LLUUID& group) const;
-	inline BOOL allowCopyBy(const LLUUID& agent_id, const LLUUID& group) const;
-	inline BOOL allowMoveBy(const LLUUID &agent_id, const LLUUID &group) const;
+	inline bool allowModifyBy(const LLUUID &agent_id) const;
+	inline bool allowCopyBy(const LLUUID& agent_id) const;
+	inline bool allowMoveBy(const LLUUID& agent_id) const;
+	inline bool allowModifyBy(const LLUUID &agent_id, const LLUUID& group) const;
+	inline bool allowCopyBy(const LLUUID& agent_id, const LLUUID& group) const;
+	inline bool allowMoveBy(const LLUUID &agent_id, const LLUUID &group) const;
 
 	// This somewhat specialized function is meant for testing if the
 	// current owner is allowed to transfer to the specified agent id.
-	inline BOOL allowTransferTo(const LLUUID &agent_id) const;
+	inline bool allowTransferTo(const LLUUID &agent_id) const;
 
 	//
 	// DEPRECATED.
@@ -325,38 +330,38 @@ public:
 };
 
 // Inlines
-BOOL LLPermissions::allowModifyBy(const LLUUID& agent, const LLUUID& group) const
+bool LLPermissions::allowModifyBy(const LLUUID& agent, const LLUUID& group) const
 {
 	return allowOperationBy(PERM_MODIFY, agent, group);
 }
 
-BOOL LLPermissions::allowCopyBy(const LLUUID& agent, const LLUUID& group) const
+bool LLPermissions::allowCopyBy(const LLUUID& agent, const LLUUID& group) const
 {
 	return allowOperationBy(PERM_COPY, agent, group);
 }
 
 
-BOOL LLPermissions::allowMoveBy(const LLUUID& agent, const LLUUID& group) const
+bool LLPermissions::allowMoveBy(const LLUUID& agent, const LLUUID& group) const
 {
 	return allowOperationBy(PERM_MOVE, agent, group);
 }
 
-BOOL LLPermissions::allowModifyBy(const LLUUID& agent) const
+bool LLPermissions::allowModifyBy(const LLUUID& agent) const
 {
 	return allowOperationBy(PERM_MODIFY, agent, LLUUID::null);
 }
 
-BOOL LLPermissions::allowCopyBy(const LLUUID& agent) const
+bool LLPermissions::allowCopyBy(const LLUUID& agent) const
 {
 	return allowOperationBy(PERM_COPY, agent, LLUUID::null);
 }
 
-BOOL LLPermissions::allowMoveBy(const LLUUID& agent) const
+bool LLPermissions::allowMoveBy(const LLUUID& agent) const
 {
 	return allowOperationBy(PERM_MOVE, agent, LLUUID::null);
 }
 
-BOOL LLPermissions::allowTransferTo(const LLUUID &agent_id) const
+bool LLPermissions::allowTransferTo(const LLUUID &agent_id) const
 {
 	if (mIsGroupOwned)
 	{

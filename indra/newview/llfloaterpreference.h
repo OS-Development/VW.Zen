@@ -2,31 +2,25 @@
  * @file llfloaterpreference.h
  * @brief LLPreferenceCore class definition
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -40,6 +34,7 @@
 #define LL_LLFLOATERPREFERENCE_H
 
 #include "llfloater.h"
+#include "llavatarpropertiesprocessor.h"
 
 class LLPanelPreference;
 class LLPanelLCD;
@@ -61,7 +56,7 @@ typedef enum
 
 
 // Floater to control preferences (display, audio, bandwidth, general.
-class LLFloaterPreference : public LLFloater
+class LLFloaterPreference : public LLFloater, public LLAvatarPropertiesObserver
 {
 public: 
 	LLFloaterPreference(const LLSD& key);
@@ -70,9 +65,9 @@ public:
 	void apply();
 	void cancel();
 	/*virtual*/ void draw();
-	virtual BOOL postBuild();
-	virtual void onOpen(const LLSD& key);
-	virtual void onClose(bool app_quitting);
+	/*virtual*/ BOOL postBuild();
+	/*virtual*/ void onOpen(const LLSD& key);
+	/*virtual*/	void onClose(bool app_quitting);
 
 	// static data update, called from message handler
 	static void updateUserInfo(const std::string& visibility, bool im_via_email, const std::string& email);
@@ -80,27 +75,52 @@ public:
 	// refresh all the graphics preferences menus
 	static void refreshEnabledGraphics();
 	
-protected:
-	
+	// translate user's busy response message according to current locale if message is default, otherwise do nothing
+	static void initBusyResponse();
+
+	void processProperties( void* pData, EAvatarProcessorType type );
+	void processProfileProperties(const LLAvatarData* pAvatarData );
+	void storeAvatarProperties( const LLAvatarData* pAvatarData );
+	void saveAvatarProperties( void );
+
+protected:	
 	void		onBtnOK();
 	void		onBtnCancel();
 	void		onBtnApply();
-	void		onOpenHelp();
 
-	static void		onClickClearCache(void*);
-	static void		onClickBrowserClearCache(void*);
+	void		onClickClearCache();			// Clear viewer texture cache, vfs, and VO cache on next startup
+	void		onClickBrowserClearCache();		// Clear web history and caches as well as viewer caches above
+	void		onLanguageChange();
+	void		onNameTagOpacityChange(const LLSD& newvalue);
 
+	// set value of "BusyResponseChanged" in account settings depending on whether busy response
+	// string differs from default after user changes.
+	void onBusyResponseChanged();
 	// if the custom settings box is clicked
 	void onChangeCustom();
 	void updateMeterText(LLUICtrl* ctrl);
 	void onOpenHardwareSettings();
-	/// callback for defaults
+	// callback for defaults
 	void setHardwareDefaults();
 	// callback for when client turns on shaders
 	void onVertexShaderEnable();
+	// callback for changing double click action checkbox
+	void onDoubleClickCheckBox(LLUICtrl* ctrl);
+	// callback for selecting double click action radio-button
+	void onDoubleClickRadio();
+	// updates double-click action settings depending on controls from preferences
+	void updateDoubleClickSettings();
+	// updates double-click action controls depending on values from settings.xml
+	void updateDoubleClickControls();
 	
+	// This function squirrels away the current values of the controls so that
+	// cancel() can restore them.	
+	void saveSettings();
+		
 
 public:
+
+	void setCacheLocation(const LLStringExplicit& location);
 
 	void onClickSetCache();
 	void onClickResetCache();
@@ -109,14 +129,15 @@ public:
 	void onClickSetKey();
 	void setKey(KEY key);
 	void onClickSetMiddleMouse();
-	void onClickSkipDialogs();
-	void onClickResetDialogs();
+	void onClickSetSounds();
+//	void onClickSkipDialogs();
+//	void onClickResetDialogs();
 	void onClickEnablePopup();
+	void onClickDisablePopup();	
 	void resetAllIgnored();
 	void setAllIgnored();
 	void onClickLogPath();	
 	void enableHistory();
-	void onCommitLogging();
 	void setPersonalInfo(const std::string& visibility, bool im_via_email, const std::string& email);
 	void refreshEnabledState();
 	void disableUnavailableSettings();
@@ -127,28 +148,33 @@ public:
 	
 	void updateSliderText(LLSliderCtrl* ctrl, LLTextBox* text_box);
 	void onUpdateSliderText(LLUICtrl* ctrl, const LLSD& name);
-	void onKeystrokeAspectRatio();
 //	void fractionFromDecimal(F32 decimal_val, S32& numerator, S32& denominator);
-//	bool extractWindowSizeFromString(const std::string& instr, U32 &width, U32 &height);
 
-	void onCommitAutoDetectAspect();
+	void onCommitParcelMediaAutoPlayEnable();
+	void onCommitMediaEnabled();
+	void onCommitMusicEnabled();
 	void applyResolution();
-	void applyWindowSize();
-
-	static void initWindowSizeControls(LLPanel* panelp);
+	void onChangeMaturity();
+	void onClickBlockList();
+	void applyUIColor(LLUICtrl* ctrl, const LLSD& param);
+	void getUIColor(LLUICtrl* ctrl, const LLSD& param);
 	
-	static void buildLists(void* data);
+	void buildPopupLists();
 	static void refreshSkin(void* data);
-	static void cleanupBadSetting();
-	static F32 sAspectRatio;	
 private:
 	static std::string sSkin;
+	// set true if state of double-click action checkbox or radio-group was changed by user
+	// (reset back to false on apply or cancel)
+	bool mDoubleClickActionDirty;
 	bool mGotPersonalInfo;
 	bool mOriginalIMViaEmail;
+	bool mLanguageChanged;
+	bool mAvatarDataInitialized;
 	
 	bool mOriginalHideOnlineStatus;
 	std::string mDirectoryVisibility;
-
+	
+	LLAvatarData mAvatarProperties;
 };
 
 class LLPanelPreference : public LLPanel
@@ -157,15 +183,50 @@ public:
 	LLPanelPreference();
 	/*virtual*/ BOOL postBuild();
 	
+	virtual ~LLPanelPreference();
+
 	virtual void apply();
 	virtual void cancel();
 	void setControlFalse(const LLSD& user_data);
+	virtual void setHardwareDefaults(){};
+
+	// Disables "Allow Media to auto play" check box only when both
+	// "Streaming Music" and "Media" are unchecked. Otherwise enables it.
+	void updateMediaAutoPlayCheckbox(LLUICtrl* ctrl);
+
+	// This function squirrels away the current values of the controls so that
+	// cancel() can restore them.
+	virtual void saveSettings();
+	
+	class Updater;
 private:
+	//for "Only friends and groups can call or IM me"
+	static void showFriendsOnlyWarning(LLUICtrl*, const LLSD&);
+	//for "Show my Favorite Landmarks at Login"
+	static void showFavoritesOnLoginWarning(LLUICtrl* checkbox, const LLSD& value);
+
 	typedef std::map<LLControlVariable*, LLSD> control_values_map_t;
 	control_values_map_t mSavedValues;
 
 	typedef std::map<std::string, LLColor4> string_color_map_t;
 	string_color_map_t mSavedColors;
+
+	Updater* mBandWidthUpdater;
+};
+
+class LLPanelPreferenceGraphics : public LLPanelPreference
+{
+public:
+	BOOL postBuild();
+	void draw();
+	void apply();
+	void cancel();
+	void saveSettings();
+	void setHardwareDefaults();
+protected:
+	bool hasDirtyChilds();
+	void resetDirtyChilds();
+	
 };
 
 #endif  // LL_LLPREFERENCEFLOATER_H

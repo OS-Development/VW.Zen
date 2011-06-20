@@ -2,31 +2,25 @@
  * @file llmenugl.h
  * @brief Declaration of the opengl based menu system.
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -61,7 +55,8 @@ public:
 	{
 		Optional<std::string>	shortcut;
 		Optional<KEY>			jump_key;
-		Optional<bool>			use_mac_ctrl;
+		Optional<bool>			use_mac_ctrl,
+								allow_key_repeat;
 
 		Ignored					rect,
 								left,
@@ -79,36 +74,23 @@ public:
 								highlight_fg_color;
 
 
-		Params()
-		:	shortcut("shortcut"),
-			jump_key("jump_key", KEY_NONE),
-			use_mac_ctrl("use_mac_ctrl", false),
-			rect("rect"),
-			left("left"),
-			top("top"),
-			right("right"),
-			bottom("bottom"),
-			width("width"),
-			height("height"),
-			bottom_delta("bottom_delta"),
-			left_delta("left_delta"),
-			enabled_color("enabled_color"),
-			disabled_color("disabled_color"),
-			highlight_bg_color("highlight_bg_color"),
-			highlight_fg_color("highlight_fg_color")
-		{	
-			mouse_opaque = true;
-		}
+		Params();
 	};
 
 protected:
 	LLMenuItemGL(const Params&);
 	friend class LLUICtrlFactory;
 public:
-	virtual void setValue(const LLSD& value) { setLabel(value.asString()); }
-	/*virtual*/ void onVisibilityChange(BOOL new_visibility);
+	// LLView overrides
+	/*virtual*/ void handleVisibilityChange(BOOL new_visibility);
+	/*virtual*/ BOOL handleHover(S32 x, S32 y, MASK mask);
+	/*virtual*/ BOOL handleRightMouseDown(S32 x, S32 y, MASK mask);
+	/*virtual*/ BOOL handleRightMouseUp(S32 x, S32 y, MASK mask);
 
-	virtual BOOL handleHover(S32 x, S32 y, MASK mask);
+	// LLUICtrl overrides
+	/*virtual*/ void setValue(const LLSD& value);
+	/*virtual*/ LLSD getValue() const;
+
 	virtual BOOL handleAcceleratorKey(KEY key, MASK mask);
 
 	LLColor4 getHighlightBgColor() { return mHighlightBackground.get(); }
@@ -124,8 +106,8 @@ public:
 	virtual U32 getNominalHeight( void ) const;
 	
 	// Marks item as not needing space for check marks or accelerator keys
-	virtual void setBriefItem(BOOL brief) { mBriefItem = brief; }
-	virtual BOOL isBriefItem() const { return mBriefItem; }
+	virtual void setBriefItem(BOOL brief);
+	virtual BOOL isBriefItem() const;
 
 	virtual BOOL addToAcceleratorList(std::list<LLKeyBinding*> *listp);
 	void setAllowKeyRepeat(BOOL allow) { mAllowKeyRepeat = allow; }
@@ -137,7 +119,7 @@ public:
 	virtual BOOL setLabelArg( const std::string& key, const LLStringExplicit& text );
 
 	// Get the parent menu for this item
-	virtual class LLMenuGL*	getMenu();
+	virtual class LLMenuGL*	getMenu() const;
 
 	// returns the normal width of this control in pixels - this is
 	// used for calculating the widest item, as well as for horizontal
@@ -189,9 +171,7 @@ protected:
 	// This function appends the character string representation of
 	// the current accelerator key and mask to the provided string.
 	void appendAcceleratorString( std::string& st ) const;
-	
-	void initMenuEnableCallback(const EnableCallbackParam& cb, enable_signal_t& sig);
-	
+		
 protected:
 	KEY mAcceleratorKey;
 	MASK mAcceleratorMask;
@@ -263,15 +243,18 @@ public:
 	{
 		Optional<EnableCallbackParam > on_enable;
 		Optional<CommitCallbackParam > on_click;
+		Optional<EnableCallbackParam > on_visible;
 		Params()
 			: on_enable("on_enable"),
-			  on_click("on_click")
+			  on_click("on_click"),
+			  on_visible("on_visible")
 		{}
 	};
 protected:
 	LLMenuItemCallGL(const Params&);
 	friend class LLUICtrlFactory;
 	void updateEnabled( void );
+	void updateVisible( void );
 
 public:
 	void initFromParams(const Params& p);
@@ -295,9 +278,10 @@ public:
 	{
 		return mEnableSignal.connect(cb);
 	}
-	
+		
 private:
 	enable_signal_t mEnableSignal;
+	enable_signal_t mVisibleSignal;
 };
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -307,7 +291,7 @@ private:
 // class, by allowing another method to be specified which determines
 // if the menu item should consider itself checked as true or not.  Be
 // careful that the provided callback is fast - it needs to be VERY
-// FUCKING EFFICIENT, because it may need to be checked a lot.
+// EFFICIENT because it may need to be checked a lot.
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 class LLMenuItemCheckGL 
@@ -332,6 +316,7 @@ public:
 	virtual void onCommit( void );
 	
 	virtual void setValue(const LLSD& value);
+	virtual LLSD getValue() const;
 
 	// called to rebuild the draw label
 	virtual void buildDrawLabel( void );
@@ -367,7 +352,6 @@ class LLMenuGL
 public:
 	struct Params : public LLInitParam::Block<Params, LLUICtrl::Params>
 	{
-		Optional<LLHandle<LLFloater> >	parent_floater;
 		Optional<KEY>					jump_key;
 		Optional<bool>					horizontal_layout,
 										can_tear_off,
@@ -376,16 +360,24 @@ public:
 										create_jump_keys,
 										keep_fixed_size,
 										scrollable;
+		Optional<U32>					max_scrollable_items;
+		Optional<U32>					preferred_width;
 		Optional<LLUIColor>				bg_color;
+		Optional<S32>					shortcut_pad;
 
 		Params()
 		:	jump_key("jump_key", KEY_NONE),
+			horizontal_layout("horizontal_layout"),
 			can_tear_off("tear_off", false),
 			drop_shadow("drop_shadow", true),
 			bg_visible("bg_visible", true),
 			create_jump_keys("create_jump_keys", false),
 			bg_color("bg_color",  LLUIColorTable::instance().getColor( "MenuDefaultBgColor" )),
-			scrollable("scrollable", false)
+			scrollable("scrollable", false), 
+			max_scrollable_items("max_scrollable_items", U32_MAX),
+			preferred_width("preferred_width", U32_MAX),
+			shortcut_pad("shortcut_pad")
+			
 		{
 			addSynonym(bg_visible, "opaque");
 			addSynonym(bg_color, "color");
@@ -398,6 +390,21 @@ public:
 	typedef MenuRegistry child_registry_t;
 
 	void initFromParams(const Params&);
+
+	// textual artwork which menugl-imitators may want to match
+	static const std::string BOOLEAN_TRUE_PREFIX;
+	static const std::string BRANCH_SUFFIX;
+	static const std::string ARROW_UP;
+	static const std::string ARROW_DOWN;
+
+	// for scrollable menus
+	typedef enum e_scrolling_direction
+	{
+		SD_UP = 0,
+		SD_DOWN = 1,
+		SD_BEGIN = 2,
+		SD_END = 3
+	} EScrollingDirection;
 
 protected:
 	LLMenuGL(const LLMenuGL::Params& p);
@@ -422,7 +429,7 @@ public:
 
 	virtual BOOL handleAcceleratorKey(KEY key, MASK mask);
 
-	LLMenuGL* getChildMenuByName(const std::string& name, BOOL recurse) const;
+	LLMenuGL* findChildMenuByName(const std::string& name, BOOL recurse) const;
 	
 	BOOL clearHoverItem();
 
@@ -434,7 +441,7 @@ public:
 	void setBackgroundColor( const LLUIColor& color ) { mBackgroundColor = color; }
 	const LLUIColor& getBackgroundColor() const { return mBackgroundColor; }
 	void setBackgroundVisible( BOOL b )	{ mBgVisible = b; }
-	void setCanTearOff(BOOL tear_off, LLHandle<LLFloater> parent_floater_handle = LLHandle<LLFloater>());
+	void setCanTearOff(BOOL tear_off);
 
 	// add a separator to this menu
 	virtual BOOL addSeparator();
@@ -483,10 +490,7 @@ public:
 	void buildDrawLabels();
 	void createJumpKeys();
 
-	// Show popup in global screen space based on last mouse location.
-	static void showPopup(LLMenuGL* menu);
-
-	// Show popup at a specific location.
+	// Show popup at a specific location, in the spawn_view's coordinate frame
 	static void showPopup(LLView* spawning_view, LLMenuGL* menu, S32 x, S32 y);
 
 	// Whether to drop shadow menu bar 
@@ -506,8 +510,9 @@ public:
 	static void setKeyboardMode(BOOL mode) { sKeyboardMode = mode; }
 	static BOOL getKeyboardMode() { return sKeyboardMode; }
 
-	void scrollItemsUp();
-	void scrollItemsDown();
+	S32 getShortcutPad() { return mShortcutPad; }
+
+	bool scrollItems(EScrollingDirection direction);
 	BOOL isScrollable() const { return mScrollable; }
 
 	static class LLMenuHolderGL* sMenuContainer;
@@ -533,6 +538,8 @@ protected:
 	S32				mLastMouseY;
 	S32				mMouseVelX;
 	S32				mMouseVelY;
+	U32				mMaxScrollableItems;
+	U32				mPreferredWidth;
 	BOOL			mHorizontalLayout;
 	BOOL			mScrollable;
 	BOOL			mKeepFixedSize;
@@ -549,16 +556,16 @@ private:
 	LLHandle<LLView> mParentMenuItem;
 	LLUIString		mLabel;
 	BOOL mDropShadowed; 	//  Whether to drop shadow 
-	BOOL			mHasSelection;
+	bool			mHasSelection;
 	LLFrameTimer	mFadeTimer;
 	LLTimer			mScrollItemsTimer;
 	BOOL			mTornOff;
 	class LLMenuItemTearOffGL* mTearOffItem;
 	class LLMenuItemBranchGL* mSpilloverBranch;
 	LLMenuGL*		mSpilloverMenu;
-	LLHandle<LLFloater>	mParentFloaterHandle;
 	KEY				mJumpKey;
 	BOOL			mCreateJumpKeys;
+	S32				mShortcutPad;
 }; // end class LLMenuGL
 
 
@@ -605,16 +612,16 @@ public:
 
 	virtual BOOL handleKeyHere(KEY key, MASK mask);
 
-	virtual BOOL isActive() const { return isOpen() && getBranch() && getBranch()->getHighlightedItem(); }
+	virtual BOOL isActive() const;
 
-	virtual BOOL isOpen() const { return getBranch() && getBranch()->isOpen(); }
+	virtual BOOL isOpen() const;
 
 	LLMenuGL* getBranch() const { return (LLMenuGL*)mBranchHandle.get(); }
 
 	virtual void updateBranchParent( LLView* parentp );
 
 	// LLView Functionality
-	virtual void onVisibilityChange( BOOL curVisibilityIn );
+	virtual void handleVisibilityChange( BOOL curVisibilityIn );
 
 	virtual void draw();
 
@@ -622,7 +629,8 @@ public:
 
 	virtual void openMenu();
 
-	virtual LLView* getChildView(const std::string& name, BOOL recurse = TRUE, BOOL create_if_missing = TRUE) const;
+	virtual LLView* getChildView(const std::string& name, BOOL recurse = TRUE) const;
+	virtual LLView* findChildView(const std::string& name, BOOL recurse = TRUE) const;
 
 private:
 	LLHandle<LLView> mBranchHandle;
@@ -662,21 +670,20 @@ public:
 	virtual void	show				(S32 x, S32 y);
 	virtual void	hide				();
 
-	
-
 	virtual BOOL	handleHover			( S32 x, S32 y, MASK mask );
-	virtual BOOL	handleMouseDown		( S32 x, S32 y, MASK mask );
 	virtual BOOL	handleRightMouseDown( S32 x, S32 y, MASK mask );
 	virtual BOOL	handleRightMouseUp	( S32 x, S32 y, MASK mask );
-	virtual BOOL	handleMouseUp		( S32 x, S32 y, MASK mask );
 
 	virtual bool	addChild			(LLView* view, S32 tab_group = 0);
 
 			BOOL	appendContextSubMenu(LLContextMenu *menu);
 
+			LLHandle<LLContextMenu> getHandle() { mHandle.bind(this); return mHandle; }
+
 protected:
-	BOOL			mHoveredAnyItem;
-	LLMenuItemGL*	mHoverItem;
+	BOOL						mHoveredAnyItem;
+	LLMenuItemGL*				mHoverItem;
+	LLRootHandle<LLContextMenu>	mHandle;
 };
 
 
@@ -708,7 +715,6 @@ public:
 	/*virtual*/ BOOL handleKeyHere(KEY key, MASK mask);
 	/*virtual*/ BOOL handleJumpKey(KEY key);
 	/*virtual*/ BOOL handleMouseDown(S32 x, S32 y, MASK mask);
-	/*virtual*/ BOOL handleRightMouseDown(S32 x, S32 y, MASK mask);
 
 	/*virtual*/ void draw();
 	/*virtual*/ BOOL jumpKeysActive();
@@ -745,7 +751,9 @@ private:
 class LLMenuHolderGL : public LLPanel
 {
 public:
-	LLMenuHolderGL();
+	struct Params : public LLInitParam::Block<Params, LLPanel::Params>
+	{};
+	LLMenuHolderGL(const Params& p);
 	virtual ~LLMenuHolderGL() {}
 
 	virtual BOOL hideMenus();
@@ -757,10 +765,19 @@ public:
 	virtual BOOL handleMouseDown( S32 x, S32 y, MASK mask );
 	virtual BOOL handleRightMouseDown( S32 x, S32 y, MASK mask );
 
+	// Close context menus on right mouse up not handled by menus.
+	/*virtual*/ BOOL handleRightMouseUp( S32 x, S32 y, MASK mask );
+
+	virtual BOOL handleKey(KEY key, MASK mask, BOOL called_from_parent);
 	virtual const LLRect getMenuRect() const { return getLocalRect(); }
-	virtual BOOL hasVisibleMenu() const;
+	LLView*const getVisibleMenu() const;
+	virtual BOOL hasVisibleMenu() const {return getVisibleMenu() != NULL;}
 
 	static void setActivatedItem(LLMenuItemGL* item);
+
+	// Need to detect if mouse-up after context menu spawn has moved.
+	// If not, need to keep the menu up.
+	static LLCoordGL sContextMenuSpawnPos;
 
 private:
 	static LLHandle<LLView> sItemLastSelectedHandle;
@@ -779,8 +796,8 @@ class LLTearOffMenu : public LLFloater
 {
 public:
 	static LLTearOffMenu* create(LLMenuGL* menup);
-	virtual ~LLTearOffMenu() {}
-	virtual void onClose(bool app_quitting);
+	virtual ~LLTearOffMenu();
+
 	virtual void draw(void);
 	virtual void onFocusReceived();
 	virtual void onFocusLost();
@@ -790,7 +807,9 @@ public:
 
 private:
 	LLTearOffMenu(LLMenuGL* menup);
-
+	
+	void closeTearOff();
+	
 	LLView*		mOldParent;
 	LLMenuGL*	mMenu;
 	F32			mTargetHeight;
@@ -807,7 +826,6 @@ class LLMenuItemTearOffGL : public LLMenuItemGL
 public:
 	struct Params : public LLInitParam::Block<Params, LLMenuItemGL::Params>
 	{
-		Optional<LLHandle<LLFloater> > parent_floater_handle;
 		Params()
 		{
 			name = "tear off";
@@ -816,13 +834,12 @@ public:
 	};
 
 	LLMenuItemTearOffGL( const Params& );
-
+	
 	virtual void onCommit(void);
 	virtual void draw(void);
 	virtual U32 getNominalHeight() const;
 
-private:
-	LLHandle<LLFloater> mParentHandle;
+	LLFloater* getParentFloater();
 };
 
 

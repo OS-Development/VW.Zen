@@ -2,31 +2,25 @@
  * @file llfloaterworldmap.h
  * @brief LLFloaterWorldMap class definition
  *
- * $LicenseInfo:firstyear=2003&license=viewergpl$
- * 
- * Copyright (c) 2003-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2003&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -43,12 +37,13 @@
 #include "llhudtext.h"
 #include "llmapimagetype.h"
 #include "lltracker.h"
+#include "llslurl.h"
 
-class LLEventInfo;
 class LLFriendObserver;
 class LLInventoryModel;
 class LLInventoryObserver;
 class LLItemInfo;
+class LLLineEditor;
 class LLTabContainer;
 
 class LLFloaterWorldMap : public LLFloater
@@ -95,7 +90,7 @@ public:
 	static const LLUUID& getHomeID() { return sHomeID; }
 
 	// A z_attenuation of 0.0f collapses the distance into the X-Y plane
-	F32			getDistanceToDestination(const LLVector3d& pos_global, F32 z_attenuation = 0.5f) const;
+	F32				getDistanceToDestination(const LLVector3d& pos_global, F32 z_attenuation = 0.5f) const;
 
 	void			clearLocationSelection(BOOL clear_ui = FALSE);
 	void			clearAvatarSelection(BOOL clear_ui = FALSE);
@@ -110,8 +105,13 @@ public:
 
 	// teleport to the tracked item, if there is one
 	void			teleport();
+	void			onChangeMaturity();
+	
+	
+	//Slapp instigated avatar tracking
+	void			avatarTrackFromSlapp( const LLUUID& id ); 
 
-protected:
+protected:	
 	void			onGoHome();
 
 	void			onLandmarkComboPrearrange();
@@ -120,10 +120,8 @@ protected:
 	void			onAvatarComboPrearrange();
 	void		    onAvatarComboCommit();
 
-	void			onCommitBackground();
-
 	void			onComboTextEntry( );
-	void			onSearchTextEntry( LLLineEditor* ctrl );
+	void			onSearchTextEntry( );
 
 	void			onClearBtn();
 	void			onClickTeleportBtn();
@@ -149,17 +147,23 @@ protected:
 	void			updateSearchEnabled();
 	void			onLocationFocusChanged( LLFocusableElement* ctrl );
 	void		    onLocationCommit();
-	void			onCommitLocation();
+	void			onCoordinatesCommit();
 	void		    onCommitSearchResult();
 
 	void			cacheLandmarkPosition();
 
-protected:
-	LLTabContainer*	mTabs;
+private:
+	LLPanel*			mPanel;		// Panel displaying the map
 
-	// Sets gMapScale, in pixels per region
+	// Ties to LLWorldMapView::sMapScale, in pixels per region
 	F32						mCurZoomVal;
 	LLFrameTimer			mZoomTimer;
+
+	// update display of teleport destination coordinates - pos is in global coordinates
+	void updateTeleportCoordsDisplay( const LLVector3d& pos );
+
+	// enable/disable teleport destination coordinates 
+	void enableTeleportCoordsDisplay( bool enabled );
 
 	LLDynamicArray<LLUUID>	mLandmarkAssetIDList;
 	LLDynamicArray<LLUUID>	mLandmarkItemIDList;
@@ -171,9 +175,12 @@ protected:
 	LLFriendObserver* mFriendObserver;
 
 	std::string				mCompletingRegionName;
+	// Local position from trackURL() request, used to select final
+	// position once region lookup complete.
+	LLVector3				mCompletingRegionPos;
+
 	std::string				mLastRegionName;
 	BOOL					mWaitingForTracker;
-	BOOL					mExactMatch;
 
 	BOOL					mIsClosing;
 	BOOL					mSetToUserPosition;
@@ -182,7 +189,7 @@ protected:
 	LLTracker::ETrackingStatus mTrackedStatus;
 	std::string				mTrackedSimName;
 	std::string				mTrackedAvatarName;
-	std::string				mSLURL;
+	LLSLURL  				mSLURL;
 };
 
 extern LLFloaterWorldMap* gFloaterWorldMap;

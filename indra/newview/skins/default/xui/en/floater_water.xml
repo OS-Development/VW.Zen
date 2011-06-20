@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  height="240"
  layout="topleft"
  name="Water Floater"
+ help_topic="water_floater"
  save_rect="true"
- title="Advanced Water Editor"
+ title="ADVANCED WATER EDITOR"
  width="700">
     <floater.string
      name="WLDefaultWaterNames">
@@ -14,52 +16,54 @@
      type="string"
      length="1"
      follows="left|top|right"
-     font="SansSerif"
      height="16"
      layout="topleft"
      left="10"
      name="KeyFramePresetsText"
      top="34"
-     width="110">
+     font="SansSerif"
+     width="85">
         Water Presets:
     </text>
     <combo_box
-     height="18"
+     height="23"
      layout="topleft"
-     left_delta="110"
+     left_delta="95"
      name="WaterPresetsCombo"
-     top_delta="-2"
+     top_delta="-4"
      width="150" />
     <button
-     height="20"
+     height="23"
      label="New"
      label_selected="New"
      layout="topleft"
-     left_pad="20"
+     left_pad="3"
      name="WaterNewPreset"
-     top_delta="1"
+     top_delta="0"
      width="70" />
     <button
-     height="20"
+     height="23"
      label="Save"
      label_selected="Save"
      layout="topleft"
-     left_pad="10"
+     left_pad="3"
      name="WaterSavePreset"
      top_delta="0"
      width="70" />
     <button
-     height="20"
+     height="23"
      label="Delete"
      label_selected="Delete"
      layout="topleft"
-     left_pad="10"
+     left_pad="3"
      name="WaterDeletePreset"
      top_delta="0"
      width="70" />
     <tab_container
+    border="false"
      follows="left|top"
      height="180"
+     halign="center"
      layout="topleft"
      left="0"
      name="Water Tabs"
@@ -68,14 +72,15 @@
      width="700">
         <panel
          border="true"
-         follows="left|top|right|bottom"
+         follows="all"
          height="180"
-         label="Settings"
+         label="SETTINGS"
          layout="topleft"
-         left="1"
+         left="0"
          mouse_opaque="false"
+         help_topic="water_settings_tab"
          name="Settings"
-         top="60"
+         top="0"
          width="698">
             <text
              type="string"
@@ -87,21 +92,10 @@
              left="10"
              name="BHText"
              top="4"
-             width="355">
+             width="200">
                 Water Fog Color
             </text>
-            <button
-             follows="left|top"
-             font="SansSerifSmall"
-             height="18"
-             label="?"
-             layout="topleft"
-             left_delta="150"
-             name="WaterFogColorHelp"
-             top_delta="-2"
-             width="18" />
             <color_swatch
-             border_color="0.45098 0.517647 0.607843 1"
              can_apply_immediately="true"
              color="0.5 0.5 0.5 1"
              follows="left|top"
@@ -109,7 +103,7 @@
              layout="topleft"
              left="40"
              name="WaterFogColor"
-             tool_tip="Click to open Color Picker"
+             tool_tip="Click to open color picker"
              top="30"
              width="40" />
             <text
@@ -121,20 +115,10 @@
              layout="topleft"
              left="10"
              name="WaterFogDensText"
-             top="74"
-             width="355">
+             top="84"
+             width="200">
                 Fog Density Exponent
             </text>
-            <button
-             follows="left|top"
-             font="SansSerifSmall"
-             height="18"
-             label="?"
-             layout="topleft"
-             left_delta="150"
-             name="WaterFogDensityHelp"
-             top_delta="-2"
-             width="18" />
             <slider
              control_name="WaterFogDensity"
              decimal_digits="1"
@@ -145,7 +129,7 @@
              left="24"
              max_val="10"
              name="WaterFogDensity"
-             top="110"
+             top="124"
              width="200" />
             <text
              type="string"
@@ -156,20 +140,10 @@
              layout="topleft"
              left_delta="-14"
              name="WaterUnderWaterFogModText"
-             top_delta="4"
-             width="355">
+             top="124"
+             width="200">
                 Underwater Fog Modifier
             </text>
-            <button
-             follows="left|top"
-             font="SansSerifSmall"
-             height="18"
-             label="?"
-             layout="topleft"
-             left_delta="150"
-             name="WaterUnderWaterFogModHelp"
-             top_delta="-2"
-             width="18" />
             <slider
              decimal_digits="2"
              follows="left"
@@ -180,7 +154,7 @@
              left="24"
              max_val="2"
              name="WaterUnderWaterFogMod"
-             top="150"
+             top="164"
              width="200" />
             <text
              type="string"
@@ -192,93 +166,44 @@
              left="245"
              name="BDensText"
              top="4"
-             width="355">
+             width="200">
                 Reflection Wavelet Scale
-            </text>
-            <button
-             follows="left|top"
-             font="SansSerifSmall"
-             height="18"
-             label="?"
-             layout="topleft"
-             left_delta="150"
-             name="WaterNormalScaleHelp"
-             top_delta="-2"
-             width="18" />
-            <text
-             type="string"
-             length="1"
-             follows="left|top|right"
-             halign="center"
-             height="16"
-             layout="topleft"
-             left="245"
-             name="BHText2"
-             top="21"
-             width="10">
-                1
-            </text>
-            <text
-             type="string"
-             length="1"
-             follows="left|top|right"
-             halign="center"
-             height="16"
-             layout="topleft"
-             left_delta="0"
-             name="BHText3"
-             top_delta="11"
-             width="10">
-                2
-            </text>
-            <text
-             type="string"
-             length="1"
-             follows="left|top|right"
-             halign="center"
-             height="16"
-             layout="topleft"
-             left_delta="0"
-             name="BHText4"
-             top_delta="11"
-             width="10">
-                3
             </text>
             <slider
              control_name="WaterNormalScaleX"
              decimal_digits="1"
              follows="left"
-             height="10"
+             height="15"
              initial_value="0.7"
+             label="1"
              layout="topleft"
-             left_pad="4"
              max_val="10"
              name="WaterNormalScaleX"
-             top_delta="-3"
+             top_pad="24"
              width="200" />
             <slider
              control_name="WaterNormalScaleY"
              decimal_digits="1"
              follows="left"
-             height="10"
+             height="15"
              initial_value="0.7"
+             label="2"
              layout="topleft"
-             left_delta="0"
              max_val="10"
              name="WaterNormalScaleY"
-             top_pad="1"
+             top_pad="4"
              width="200" />
             <slider
              control_name="WaterNormalScaleZ"
              decimal_digits="1"
              follows="left"
-             height="10"
+             height="15"
              initial_value="0.7"
+             label="3"
              layout="topleft"
-             left_delta="0"
              max_val="10"
              name="WaterNormalScaleZ"
-             top_pad="1"
+             top_pad="4"
              width="200" />
             <text
              type="string"
@@ -287,22 +212,11 @@
              font="SansSerif"
              height="16"
              layout="topleft"
-             left_delta="-14"
              name="HDText"
-             top_delta="2"
-             width="355">
+             top="84"
+             width="200">
                 Fresnel Scale
             </text>
-            <button
-             follows="left|top"
-             font="SansSerifSmall"
-             height="18"
-             label="?"
-             layout="topleft"
-             left_delta="150"
-             name="WaterFresnelScaleHelp"
-             top_delta="-2"
-             width="18" />
             <slider
              control_name="WaterFresnelScale"
              decimal_digits="2"
@@ -311,9 +225,8 @@
              increment="0.01"
              initial_value="0.7"
              layout="topleft"
-             left="259"
              name="WaterFresnelScale"
-             top="100"
+             top="124"
              width="200" />
             <text
              type="string"
@@ -322,22 +235,11 @@
              font="SansSerif"
              height="16"
              layout="topleft"
-             left_delta="-14"
              name="FresnelOffsetText"
-             top_delta="-1"
-             width="355">
+             top="124"
+             width="200">
                 Fresnel Offset
             </text>
-            <button
-             follows="left|top"
-             font="SansSerifSmall"
-             height="18"
-             label="?"
-             layout="topleft"
-             left_delta="150"
-             name="WaterFresnelOffsetHelp"
-             top_delta="-2"
-             width="18" />
             <slider
              control_name="WaterFresnelOffset"
              decimal_digits="2"
@@ -346,9 +248,8 @@
              increment="0.01"
              initial_value="0.7"
              layout="topleft"
-             left="259"
              name="WaterFresnelOffset"
-             top="135"
+             top="164"
              width="200" />
             <text
              type="string"
@@ -360,19 +261,9 @@
              left="480"
              name="DensMultText"
              top="4"
-             width="355">
+             width="200">
                 Refract Scale Above
             </text>
-            <button
-             follows="left|top"
-             font="SansSerifSmall"
-             height="18"
-             label="?"
-             layout="topleft"
-             left_delta="150"
-             name="WaterScaleAboveHelp"
-             top_delta="-2"
-             width="18" />
             <slider
              control_name="WaterScaleAbove"
              decimal_digits="2"
@@ -383,7 +274,7 @@
              layout="topleft"
              left="494"
              name="WaterScaleAbove"
-             top="40"
+             top="44"
              width="200" />
             <text
              type="string"
@@ -394,20 +285,10 @@
              layout="topleft"
              left_delta="-14"
              name="WaterScaleBelowText"
-             top_delta="-3"
-             width="355">
+             top="44"
+             width="200">
                 Refract Scale Below
             </text>
-            <button
-             follows="left|top"
-             font="SansSerifSmall"
-             height="18"
-             label="?"
-             layout="topleft"
-             left_delta="150"
-             name="WaterScaleBelowHelp"
-             top_delta="-2"
-             width="18" />
             <slider
              control_name="WaterScaleBelow"
              decimal_digits="2"
@@ -418,7 +299,7 @@
              layout="topleft"
              left="494"
              name="WaterScaleBelow"
-             top="73"
+             top="84"
              width="200" />
             <text
              type="string"
@@ -429,20 +310,10 @@
              layout="topleft"
              left_delta="-14"
              name="MaxAltText"
-             top_delta="-2"
-             width="355">
+             top="84"
+             width="200">
                 Blur Multiplier
             </text>
-            <button
-             follows="left|top"
-             font="SansSerifSmall"
-             height="18"
-             label="?"
-             layout="topleft"
-             left_delta="150"
-             name="WaterBlurMultiplierHelp"
-             top_delta="-2"
-             width="18" />
             <slider
              control_name="WaterBlurMult"
              follows="left"
@@ -453,19 +324,20 @@
              left="494"
              max_val="0.16"
              name="WaterBlurMult"
-             top="107"
+             top="124"
              width="200" />
         </panel>
         <panel
          border="true"
-         follows="left|top|right|bottom"
+         follows="all"
          height="180"
-         label="Image"
+         label="IMAGE"
          layout="topleft"
-         left_delta="0"
+         left="0"
          mouse_opaque="false"
+         help_topic="water_waves_tab"
          name="Waves"
-         top_delta="44"
+         top="0"
          width="698">
             <text
              type="string"
@@ -477,19 +349,9 @@
              left="10"
              name="BHText"
              top="4"
-             width="355">
+             width="200">
                 Big Wave Direction
             </text>
-            <button
-             follows="left|top"
-             font="SansSerifSmall"
-             height="18"
-             label="?"
-             layout="topleft"
-             left_delta="145"
-             name="WaterWave1Help"
-             top_delta="-2"
-             width="18" />
             <text
              type="string"
              length="1"
@@ -499,22 +361,9 @@
              layout="topleft"
              left="10"
              name="WaterWave1DirXText"
-             top="21"
+             top_pad="5"
              width="10">
                 X
-            </text>
-            <text
-             type="string"
-             length="1"
-             follows="left|top|right"
-             halign="center"
-             height="16"
-             layout="topleft"
-             left_delta="0"
-             name="WaterWave1DirYText"
-             top_delta="11"
-             width="10">
-                Y
             </text>
             <slider
              control_name="WaterWave1DirX"
@@ -528,8 +377,22 @@
              max_val="4"
              min_val="-4"
              name="WaterWave1DirX"
-             top="40"
+             left_pad="3"
+             top_pad="6"
              width="200" />
+            <text
+             type="string"
+             length="1"
+             follows="left|top|right"
+             halign="center"
+             height="16"
+             layout="topleft"
+             left_delta="-13"
+             name="WaterWave1DirYText"
+             top_pad="-15"
+             width="10">
+                Y
+            </text>
             <slider
              control_name="WaterWave1DirY"
              decimal_digits="2"
@@ -542,7 +405,8 @@
              max_val="4"
              min_val="-4"
              name="WaterWave1DirY"
-             top_pad="1"
+             left_pad="3"
+             top_pad="6"
              width="200" />
             <text
              type="string"
@@ -551,22 +415,12 @@
              font="SansSerif"
              height="16"
              layout="topleft"
-             left_delta="-14"
+             left_delta="-13"
              name="BHText2"
-             top_delta="3"
+             top_pad="-10"
              width="355">
                 Little Wave Direction
             </text>
-            <button
-             follows="left|top"
-             font="SansSerifSmall"
-             height="18"
-             label="?"
-             layout="topleft"
-             left_delta="145"
-             name="WaterWave2Help"
-             top_delta="-2"
-             width="18" />
             <text
              type="string"
              length="1"
@@ -575,23 +429,11 @@
              height="16"
              layout="topleft"
              left="10"
+             left_delta="0"
              name="WaterWave2DirXText"
-             top="71"
+             top_pad="5"
              width="10">
                 X
-            </text>
-            <text
-             type="string"
-             length="1"
-             follows="left|top|right"
-             halign="center"
-             height="16"
-             layout="topleft"
-             left_delta="0"
-             name="WaterWave2DirYText"
-             top_delta="11"
-             width="10">
-                Y
             </text>
             <slider
              control_name="WaterWave2DirX"
@@ -605,8 +447,22 @@
              max_val="4"
              min_val="-4"
              name="WaterWave2DirX"
-             top="90"
+             left_pad="3"
+             top_pad="6"
              width="200" />
+            <text
+             type="string"
+             length="1"
+             follows="left|top|right"
+             halign="center"
+             height="16"
+             layout="topleft"
+             left_delta="-13"
+             name="WaterWave2DirYText"
+             top_pad="-15"
+             width="10">
+                Y
+            </text>
             <slider
              control_name="WaterWave2DirY"
              decimal_digits="2"
@@ -619,7 +475,8 @@
              max_val="4"
              min_val="-4"
              name="WaterWave2DirY"
-             top_pad="1"
+             left_pad="3"
+             top_pad="6"
              width="200" />
             <text
              type="string"
@@ -631,19 +488,9 @@
              left="240"
              name="BHText3"
              top="4"
-             width="355">
+             width="200">
                 Normal Map
             </text>
-            <button
-             follows="left|top"
-             font="SansSerifSmall"
-             height="18"
-             label="?"
-             layout="topleft"
-             left_delta="125"
-             name="WaterNormalMapHelp"
-             top_delta="-2"
-             width="18" />
             <texture_picker
              height="143"
              layout="topleft"

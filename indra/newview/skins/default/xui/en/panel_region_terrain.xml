@@ -2,16 +2,15 @@
 <panel
  border="true"
  follows="top|left"
- height="340"
+ height="320"
+ help_topic="panel_region_terrain_tab"
  label="Terrain"
  layout="topleft"
  left="0"
  name="Terrain"
  top="320"
- width="280">
+ width="480">
     <text
-     type="string"
-     length="1"
      follows="left|top"
      font="SansSerif"
      height="20"
@@ -23,8 +22,6 @@
         Region:
     </text>
     <text
-     type="string"
-     length="1"
      follows="left|top"
      font="SansSerif"
      height="20"
@@ -32,7 +29,7 @@
      left_delta="50"
      name="region_text"
      top_delta="0"
-     width="200">
+     width="400">
         unknown
     </text>
     <spinner
@@ -46,16 +43,6 @@
      name="water_height_spin"
      top="40"
      width="180" />
-    <button
-     follows="left|top"
-     font="SansSerifSmall"
-     height="18"
-     label="?"
-     layout="topleft"
-     left_pad="5"
-     name="water_height_help"
-     top_delta="2"
-     width="18" />
     <spinner
      follows="left|top"
      height="20"
@@ -68,16 +55,6 @@
      name="terrain_raise_spin"
      top="60"
      width="180" />
-    <button
-     follows="left|top"
-     font="SansSerifSmall"
-     height="18"
-     label="?"
-     layout="topleft"
-     left_pad="5"
-     name="terrain_raise_help"
-     top_delta="2"
-     width="18" />
     <spinner
      follows="left|top"
      height="20"
@@ -91,59 +68,29 @@
      name="terrain_lower_spin"
      top="80"
      width="180" />
-    <button
-     follows="left|top"
-     font="SansSerifSmall"
-     height="18"
-     label="?"
-     layout="topleft"
-     left_pad="5"
-     name="terrain_lower_help"
-     top_delta="2"
-     width="18" />
     <check_box
      height="20"
      label="Use Estate Sun"
      layout="topleft"
-     left="15"
+     left="250"
      name="use_estate_sun_check"
-     top="105"
+     top="35"
      width="100" />
-    <button
-     follows="left|top"
-     font="SansSerifSmall"
-     height="18"
-     label="?"
-     layout="topleft"
-     left_pad="85"
-     name="use_estate_sun_help"
-     top_delta="2"
-     width="18" />
     <check_box
      height="20"
      label="Fixed Sun"
      layout="topleft"
-     left="15"
+     left="250"
      name="fixed_sun_check"
-     top_pad="0"
+     top="55"
      width="100" />
-    <button
-     follows="left|top"
-     font="SansSerifSmall"
-     height="18"
-     label="?"
-     layout="topleft"
-     left_pad="85"
-     name="fixed_sun_help"
-     top_delta="2"
-     width="18" />
     <icon
      height="20"
      image_name="icon_day_cycle.tga"
      layout="topleft"
-     left="50"
+     left="285"
      name="daycycle"
-     top_delta="25"
+     top="80"
      width="165" />
     <slider
      follows="left|top"
@@ -151,12 +98,12 @@
      increment="0.001"
      label="Phase"
      layout="topleft"
-     left="15"
+     left="250"
      max_val="30"
      min_val="6"
      name="sun_hour_slider"
      show_text="false"
-     top_delta="30"
+     top="105"
      width="200" />
     <button
      enabled="false"
@@ -164,18 +111,18 @@
      height="20"
      label="Apply"
      layout="topleft"
-     left="130"
+     left="350"
      name="apply_btn"
-     top_delta="30"
+     top="135"
      width="90" />
     <view_border
      bevel_style="none"
      follows="top|left"
-     height="210"
+     height="130"
      layout="topleft"
      left="8"
      top="30"
-     width="240" />
+     width="460" />
     <button
      follows="left|top"
      height="20"
@@ -184,18 +131,8 @@
      left_delta="2"
      name="download_raw_btn"
      tool_tip="Available only to estate owners, not managers"
-     top_pad="15"
+     top_pad="60"
      width="170" />
-    <button
-     follows="left|top"
-     font="SansSerifSmall"
-     height="18"
-     label="?"
-     layout="topleft"
-     left_pad="10"
-     name="download_raw_help"
-     top_delta="2"
-     width="18" />
     <button
      follows="left|top"
      height="20"
@@ -204,18 +141,8 @@
      left="10"
      name="upload_raw_btn"
      tool_tip="Available only to estate owners, not managers"
-     top_pad="0"
+     top="243"
      width="170" />
-    <button
-     follows="left|top"
-     font="SansSerifSmall"
-     height="18"
-     label="?"
-     layout="topleft"
-     left_pad="10"
-     name="upload_raw_help"
-     top_delta="2"
-     width="18" />
     <button
      follows="left|top"
      height="20"
@@ -224,16 +151,6 @@
      left="10"
      name="bake_terrain_btn"
      tool_tip="Set current terrain as mid-point for raise/lower limits"
-     top_pad="15"
+     top="283"
      width="100" />
-    <button
-     follows="left|top"
-     font="SansSerifSmall"
-     height="18"
-     label="?"
-     layout="topleft"
-     left_pad="10"
-     name="bake_terrain_help"
-     top_delta="2"
-     width="18" />
 </panel>

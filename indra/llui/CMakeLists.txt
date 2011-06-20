@@ -3,7 +3,6 @@
 project(llui)
 
 include(00-Common)
-include(LLAudio)
 include(LLCommon)
 include(LLImage)
 include(LLMath)
@@ -12,9 +11,9 @@ include(LLRender)
 include(LLWindow)
 include(LLVFS)
 include(LLXML)
+include(LLXUIXML)
 
 include_directories(
-    ${LLAUDIO_INCLUDE_DIRS}
     ${LLCOMMON_INCLUDE_DIRS}
     ${LLIMAGE_INCLUDE_DIRS}
     ${LLMATH_INCLUDE_DIRS}
@@ -23,10 +22,12 @@ include_directories(
     ${LLWINDOW_INCLUDE_DIRS}
     ${LLVFS_INCLUDE_DIRS}
     ${LLXML_INCLUDE_DIRS}
+    ${LLXUIXML_INCLUDE_DIRS}
     )
 
 set(llui_SOURCE_FILES
-    llalertdialog.cpp
+    llaccordionctrl.cpp
+    llaccordionctrltab.cpp
     llbutton.cpp
     llcheckboxctrl.cpp
     llclipboard.cpp
@@ -34,31 +35,41 @@ set(llui_SOURCE_FILES
     llconsole.cpp
     llcontainerview.cpp
     llctrlselectioninterface.cpp
+    lldockablefloater.cpp
+    lldockcontrol.cpp
     lldraghandle.cpp
     lleditmenuhandler.cpp
     llf32uictrl.cpp
+    llfiltereditor.cpp
+    llflatlistview.cpp
     llfloater.cpp
     llfloaterreg.cpp
+    llfloaterreglistener.cpp
     llflyoutbutton.cpp 
     llfocusmgr.cpp
     llfunctorregistry.cpp
     lliconctrl.cpp
-    llinitparam.cpp
     llkeywords.cpp
     lllayoutstack.cpp
     lllineeditor.cpp
+    llloadingindicator.cpp
+    lllocalcliprect.cpp
+    llmenubutton.cpp
     llmenugl.cpp
     llmodaldialog.cpp
     llmultifloater.cpp 
     llmultislider.cpp
     llmultisliderctrl.cpp
     llnotifications.cpp
+    llnotificationslistener.cpp
+    llnotificationsutil.cpp
     llpanel.cpp
     llprogressbar.cpp
     llradiogroup.cpp
     llresizebar.cpp
     llresizehandle.cpp
     llresmgr.cpp
+    llrngwriter.cpp
     llscrollbar.cpp
     llscrollcontainer.cpp
     llscrollingpanellist.cpp
@@ -67,7 +78,7 @@ set(llui_SOURCE_FILES
     llscrolllistctrl.cpp
     llscrolllistitem.cpp
     llsdparam.cpp
-    llsearcheditor.cpp 
+    llsearcheditor.cpp
     llslider.cpp
     llsliderctrl.cpp
     llspinctrl.cpp
@@ -76,28 +87,38 @@ set(llui_SOURCE_FILES
     llstatview.cpp
     llstyle.cpp
     lltabcontainer.cpp
+    lltextbase.cpp
     lltextbox.cpp
     lltexteditor.cpp
     lltextparser.cpp
-    lltrans.cpp
+    lltextutil.cpp
+    lltextvalidate.cpp
+    lltransutil.cpp
+    lltoggleablemenu.cpp
+    lltooltip.cpp
     llui.cpp
-    lluicolor.cpp
     lluicolortable.cpp
     lluictrl.cpp
     lluictrlfactory.cpp
     lluiimage.cpp
     lluistring.cpp
     llundo.cpp
+    llurlaction.cpp
+    llurlentry.cpp
+    llurlmatch.cpp
+    llurlregistry.cpp
     llviewborder.cpp
     llviewmodel.cpp
     llview.cpp
     llviewquery.cpp
+    llwindowshade.cpp
     )
     
 set(llui_HEADER_FILES
     CMakeLists.txt
 
-    llalertdialog.h
+    llaccordionctrl.h
+    llaccordionctrltab.h
     llbutton.h
     llcallbackmap.h
     llcheckboxctrl.h
@@ -107,33 +128,46 @@ set(llui_HEADER_FILES
     llcontainerview.h
     llctrlselectioninterface.h
     lldraghandle.h
+    lldockablefloater.h
+    lldockcontrol.h
     lleditmenuhandler.h
     llf32uictrl.h
+    llfiltereditor.h 
+    llflatlistview.h
     llfloater.h
     llfloaterreg.h
+    llfloaterreglistener.h
     llflyoutbutton.h 
     llfocusmgr.h
     llfunctorregistry.h
-    llhtmlhelp.h
+    llhandle.h
+    llhelp.h
     lliconctrl.h
-    llinitparam.h
     llkeywords.h
     lllayoutstack.h
     lllazyvalue.h
     lllineeditor.h
+    llloadingindicator.h
+    lllocalcliprect.h
+    llmenubutton.h
     llmenugl.h
     llmodaldialog.h
     llmultifloater.h 
     llmultisliderctrl.h
     llmultislider.h
+    llnotificationptr.h
     llnotifications.h
+    llnotificationslistener.h
+    llnotificationsutil.h
+    llnotificationtemplate.h
+	llnotificationvisibilityrule.h
     llpanel.h
     llprogressbar.h
     llradiogroup.h
-    llregistry.h
     llresizebar.h
     llresizehandle.h
     llresmgr.h
+    llrngwriter.h
     llsearcheditor.h 
     llscrollbar.h
     llscrollcontainer.h
@@ -151,11 +185,15 @@ set(llui_HEADER_FILES
     llstatview.h
     llstyle.h
     lltabcontainer.h
+    lltextbase.h
     lltextbox.h
     lltexteditor.h
     lltextparser.h
-    lltrans.h
-    lluicolor.h
+    lltextutil.h
+    lltextvalidate.h
+    lltoggleablemenu.h
+    lltooltip.h
+    lltransutil.h
     lluicolortable.h
     lluiconstants.h
     lluictrlfactory.h
@@ -165,14 +203,29 @@ set(llui_HEADER_FILES
     lluiimage.h
     lluistring.h
     llundo.h
+    llurlaction.h
+    llurlentry.h
+    llurlmatch.h
+    llurlregistry.h
     llviewborder.h
     llviewmodel.h
     llview.h
     llviewquery.h
+    llwindowshade.h
     )
 
 set_source_files_properties(${llui_HEADER_FILES}
                             PROPERTIES HEADER_FILE_ONLY TRUE)
+
+SET(llurlentry_TEST_DEPENDENCIES
+    llurlmatch.cpp
+    llurlregistry.cpp
+    )
+
+set_source_files_properties(llurlentry.cpp
+    PROPERTIES LL_TEST_ADDITIONAL_SOURCE_FILES
+    "${llurlentry_TEST_DEPENDENCIES}"
+    )
 
 list(APPEND llui_SOURCE_FILES ${llui_HEADER_FILES})
 
@@ -180,11 +233,23 @@ add_library (llui ${llui_SOURCE_FILES})
 # Libraries on which this library depends, needed for Linux builds
 # Sort by high-level to low-level
 target_link_libraries(llui
-    llrender
-    llwindow
-    llimage
-    llvfs       # ugh, just for LLDir
-    llxml
-    llcommon    # must be after llimage, llwindow, llrender
-    llmath
+    ${LLMESSAGE_LIBRARIES}
+    ${LLRENDER_LIBRARIES}
+    ${LLWINDOW_LIBRARIES}
+    ${LLIMAGE_LIBRARIES}
+    ${LLVFS_LIBRARIES}    # ugh, just for LLDir
+    ${LLXUIXML_LIBRARIES}
+    ${LLXML_LIBRARIES}
+    ${LLMATH_LIBRARIES}
+    ${LLCOMMON_LIBRARIES} # must be after llimage, llwindow, llrender
     )
+
+# Add tests
+if (LL_TESTS)
+	include(LLAddBuildTest)
+	SET(llui_TEST_SOURCE_FILES
+		llurlmatch.cpp
+		llurlentry.cpp
+		)
+	LL_ADD_PROJECT_UNIT_TESTS(llui "${llui_TEST_SOURCE_FILES}")
+endif (LL_TESTS)

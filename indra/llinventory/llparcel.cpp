@@ -2,31 +2,25 @@
  * @file llparcel.cpp
  * @brief A land parcel.
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -43,7 +37,7 @@
 #include "llsdutil.h"
 #include "lltransactiontypes.h"
 #include "lltransactionflags.h"
-#include "llsdutil.h"
+#include "llsdutil_math.h"
 #include "message.h"
 #include "u64.h"
 
@@ -58,7 +52,6 @@ static const std::string PARCEL_OWNERSHIP_STATUS_STRING[LLParcel::OS_COUNT+1] =
 };
 
 // NOTE: Adding parcel categories also requires updating:
-// * floater_directory.xml category combobox
 // * floater_about_land.xml category combobox
 // * Web site "create event" tools
 // DO NOT DELETE ITEMS FROM THIS LIST WITHOUT DEEPLY UNDERSTANDING WHAT YOU'RE DOING.
@@ -79,6 +72,7 @@ static const std::string PARCEL_CATEGORY_STRING[LLParcel::C_COUNT] =
     "shopping",
     "stage",
     "other",
+	"rental"
 };
 static const std::string PARCEL_CATEGORY_UI_STRING[LLParcel::C_COUNT + 1] =
 {
@@ -96,6 +90,7 @@ static const std::string PARCEL_CATEGORY_UI_STRING[LLParcel::C_COUNT + 1] =
     "Shopping",
     "Stage",
     "Other",
+	"Rental",
     "Any",	 // valid string for parcel searches
 };
 
@@ -195,10 +190,14 @@ void LLParcel::init(const LLUUID &owner_id,
 	mMediaID.setNull();
 	mMediaAutoScale = 0;
 	mMediaLoop = TRUE;
-	mObscureMedia = 1;
-	mObscureMusic = 1;
 	mMediaWidth = 0;
 	mMediaHeight = 0;
+	setMediaCurrentURL(LLStringUtil::null);
+	mMediaURLFilterEnable = FALSE;
+	mMediaURLFilterList = LLSD::emptyArray();
+	mMediaAllowNavigate = TRUE;
+	mMediaURLTimeout = 0.0f;
+	mMediaPreventCameraZoom = FALSE;
 
 	mGroupID.setNull();
 
@@ -314,6 +313,56 @@ void LLParcel::setMediaHeight(S32 height)
 {
 	mMediaHeight = height;
 }
+
+void LLParcel::setMediaCurrentURL(const std::string& url)
+{
+    mMediaCurrentURL = url;
+    // The escaping here must match the escaping in the database
+    // abstraction layer if it's ever added.
+    // This should really filter the url in some way. Other than
+    // simply requiring non-printable.
+    LLStringFn::replace_nonprintable_in_ascii(mMediaCurrentURL, LL_UNKNOWN_CHAR);
+	
+}
+
+void LLParcel::setMediaURLResetTimer(F32 time)
+{
+	mMediaResetTimer.start();
+	mMediaResetTimer.setTimerExpirySec(time);
+}
+
+void LLParcel::setMediaURLFilterList(LLSD list)
+{
+	// sanity check LLSD
+	// must be array of strings
+	if (!list.isArray())
+	{
+		return;
+	}
+
+	for (S32 i = 0; i < list.size(); i++)
+	{
+		if (!list[i].isString())
+			return;
+	}
+
+	// can't be too big
+	const S32 MAX_SIZE = 50;
+	if (list.size() > MAX_SIZE)
+	{
+		LLSD new_list = LLSD::emptyArray();
+
+		for (S32 i = 0; i < llmin(list.size(), MAX_SIZE); i++)
+		{
+			new_list.append(list[i]);
+		}
+
+		list = new_list;
+	}
+	
+	mMediaURLFilterList = list;
+}
+
 // virtual
 void LLParcel::setLocalID(S32 local_id)
 {
@@ -396,7 +445,7 @@ BOOL LLParcel::allowTerraformBy(const LLUUID &agent_id) const
 
 bool LLParcel::isAgentBlockedFromParcel(LLParcel* parcelp,
                                         const LLUUID& agent_id,
-                                        const std::vector<LLUUID>& group_ids,
+                                        const uuid_vec_t& group_ids,
                                         const BOOL is_agent_identified,
                                         const BOOL is_agent_transacted,
                                         const BOOL is_agent_ageverified)
@@ -568,6 +617,34 @@ BOOL LLParcel::importAccessEntry(std::istream& input_stream, LLAccessEntry* entr
     return input_stream.good();
 }
 
+BOOL LLParcel::importMediaURLFilter(std::istream& input_stream, std::string& url)
+{
+	skip_to_end_of_next_keyword("{", input_stream);
+
+	while(input_stream.good())
+	{
+		skip_comments_and_emptyspace(input_stream);
+		std::string line, keyword, value;
+		get_line(line, input_stream, MAX_STRING);
+		get_keyword_and_value(keyword, value, line);
+
+		if ("}" == keyword)
+		{
+			break;
+		}
+		else if ("url" == keyword)
+		{
+			url = value;
+		}
+		else
+		{
+			llwarns << "Unknown keyword in parcel media url filter section: <"
+					<< keyword << ">" << llendl;
+		}
+	}
+	return input_stream.good();
+}
+
 // Assumes we are in a block "ParcelData"
 void LLParcel::packMessage(LLMessageSystem* msg)
 {
@@ -593,6 +670,7 @@ void LLParcel::packMessage(LLMessageSystem* msg)
 // Assumes we are in a block "ParcelData"
 void LLParcel::packMessage(LLSD& msg)
 {
+	// used in the viewer, the sim uses it's own packer
 	msg["local_id"] = getLocalID();
 	msg["parcel_flags"] = ll_sd_from_U32(getParcelFlags());
 	msg["sale_price"] = getSalePrice();
@@ -606,15 +684,20 @@ void LLParcel::packMessage(LLSD& msg)
 	msg["media_height"] = getMediaHeight();
 	msg["auto_scale"] = getMediaAutoScale();
 	msg["media_loop"] = getMediaLoop();
-	msg["obscure_media"] = getObscureMedia();
-	msg["obscure_music"] = getObscureMusic();
+	msg["media_current_url"] = getMediaCurrentURL();
+	msg["obscure_media"] = false; // OBSOLETE - no longer used
+	msg["obscure_music"] = false; // OBSOLETE - no longer used
 	msg["media_id"] = getMediaID();
+	msg["media_allow_navigate"] = getMediaAllowNavigate();
+	msg["media_prevent_camera_zoom"] = getMediaPreventCameraZoom();
+	msg["media_url_timeout"] = getMediaURLTimeout();
+	msg["media_url_filter_enable"] = getMediaURLFilterEnable();
+	msg["media_url_filter_list"] = getMediaURLFilterList();
 	msg["group_id"] = getGroupID();
 	msg["pass_price"] = mPassPrice;
 	msg["pass_hours"] = mPassHours;
 	msg["category"] = (U8)mCategory;
 	msg["auth_buyer_id"] = mAuthBuyerID;
-	msg["snapshot_id"] = mSnapshotID;
 	msg["snapshot_id"] = mSnapshotID;
 	msg["user_location"] = ll_sd_from_vector3(mUserLocation);
 	msg["user_look_at"] = ll_sd_from_vector3(mUserLookAt);
@@ -667,17 +750,29 @@ void LLParcel::unpackMessage(LLMessageSystem* msg)
 		msg->getS32("MediaData", "MediaWidth", mMediaWidth);
 		msg->getS32("MediaData", "MediaHeight", mMediaHeight);
 		msg->getU8 ( "MediaData", "MediaLoop", mMediaLoop );
-		msg->getU8 ( "MediaData", "ObscureMedia", mObscureMedia );
-		msg->getU8 ( "MediaData", "ObscureMusic", mObscureMusic );
+		// the ObscureMedia and ObscureMusic flags previously set here are no longer used
 	}
 	else
 	{
 		setMediaType(std::string("video/vnd.secondlife.qt.legacy"));
 		setMediaDesc(std::string("No Description available without Server Upgrade"));
 		mMediaLoop = true;
-		mObscureMedia = true;
-		mObscureMusic = true;
 	}
+
+	if(msg->getNumberOfBlocks("MediaLinkSharing") > 0)
+	{
+		msg->getString("MediaLinkSharing", "MediaCurrentURL", buffer);
+		setMediaCurrentURL(buffer);
+		msg->getU8 ( "MediaLinkSharing", "MediaAllowNavigate", mMediaAllowNavigate );
+		msg->getU8 ( "MediaLinkSharing", "MediaURLFilterEnable", mMediaURLFilterEnable );
+		msg->getU8 ( "MediaLinkSharing", "MediaPreventCameraZoom", mMediaPreventCameraZoom );
+		msg->getF32( "MediaLinkSharing", "MediaURLTimeout", mMediaURLTimeout);
+	}
+	else
+	{
+		setMediaCurrentURL(LLStringUtil::null);
+	}
+	
 }
 
 void LLParcel::packAccessEntries(LLMessageSystem* msg,
@@ -994,6 +1089,20 @@ BOOL LLParcel::isSaleTimerExpired(const U64& time)
     return expired;
 }
 
+BOOL LLParcel::isMediaResetTimerExpired(const U64& time)
+{
+    if (mMediaResetTimer.getStarted() == FALSE)
+    {
+        return FALSE;
+    }
+    BOOL expired = mMediaResetTimer.checkExpirationAndReset(0.0);
+    if (expired)
+    {
+        mMediaResetTimer.stop();
+    }
+    return expired;
+}
+
 
 void LLParcel::startSale(const LLUUID& buyer_id, BOOL is_buyer_group)
 {
@@ -1113,10 +1222,14 @@ void LLParcel::clearParcel()
     setMediaDesc(LLStringUtil::null);
 	setMediaAutoScale(0);
 	setMediaLoop(TRUE);
-	mObscureMedia = 1;
-	mObscureMusic = 1;
 	mMediaWidth = 0;
 	mMediaHeight = 0;
+	setMediaCurrentURL(LLStringUtil::null);
+	setMediaURLFilterList(LLSD::emptyArray());
+	setMediaURLFilterEnable(FALSE);
+	setMediaAllowNavigate(TRUE);
+	setMediaPreventCameraZoom(FALSE);
+	setMediaURLTimeout(0.0f);
 	setMusicURL(LLStringUtil::null);
 	setInEscrow(FALSE);
 	setAuthorizedBuyerID(LLUUID::null);
@@ -1235,3 +1348,12 @@ LLParcel::ECategory category_ui_string_to_category(const std::string& s)
     // is a distinct option from "None" and "Other"
     return LLParcel::C_ANY;
 }
+
+void LLParcel::updateQuota( const LLUUID& objectId,  const ParcelQuota& quota )
+{
+	if ( mID == objectId )
+	{
+		mQuota = quota;
+	}
+}
+

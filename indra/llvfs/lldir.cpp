@@ -2,31 +2,25 @@
  * @file lldir.cpp
  * @brief implementation of directory utilities base class
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -45,6 +39,8 @@
 #include "llerror.h"
 #include "lltimer.h"	// ms_sleep()
 #include "lluuid.h"
+
+#include "lldiriterator.h"
 
 #if LL_WINDOWS
 #include "lldir_win32.h"
@@ -89,27 +85,38 @@ S32 LLDir::deleteFilesInDir(const std::string &dirname, const std::string &mask)
 	std::string filename; 
 	std::string fullpath;
 	S32 result;
-	while (getNextFileInDir(dirname, mask, filename, FALSE))
+
+	LLDirIterator iter(dirname, mask);
+	while (iter.next(filename))
 	{
-		if ((filename == ".") || (filename == ".."))
+		fullpath = dirname;
+		fullpath += getDirDelimiter();
+		fullpath += filename;
+
+		if(LLFile::isdir(fullpath))
 		{
 			// skipping directory traversal filenames
 			count++;
 			continue;
 		}
-		fullpath = dirname;
-		fullpath += getDirDelimiter();
-		fullpath += filename;
 
 		S32 retry_count = 0;
 		while (retry_count < 5)
 		{
 			if (0 != LLFile::remove(fullpath))
 			{
+				retry_count++;
 				result = errno;
 				llwarns << "Problem removing " << fullpath << " - errorcode: "
 						<< result << " attempt " << retry_count << llendl;
-				ms_sleep(1000);
+
+				if(retry_count >= 5)
+				{
+					llwarns << "Failed to remove " << fullpath << llendl ;
+					return count ;
+				}
+
+				ms_sleep(100);
 			}
 			else
 			{
@@ -118,8 +125,7 @@ S32 LLDir::deleteFilesInDir(const std::string &dirname, const std::string &mask)
 					llwarns << "Successfully removed " << fullpath << llendl;
 				}
 				break;
-			}
-			retry_count++;
+			}			
 		}
 		count++;
 	}
@@ -147,7 +153,11 @@ const std::string LLDir::findFile(const std::string& filename, const std::vector
 	{
 		if (!search_path_iter->empty())
 		{
-			std::string filename_and_path = (*search_path_iter) + getDirDelimiter() + filename;
+			std::string filename_and_path = (*search_path_iter);
+			if (!filename.empty())
+			{
+				filename_and_path += getDirDelimiter() + filename;
+			}
 			if (fileExists(filename_and_path))
 			{
 				return filename_and_path;
@@ -200,6 +210,11 @@ const std::string &LLDir::getOSUserAppDir() const
 
 const std::string &LLDir::getLindenUserDir() const
 {
+	if (mLindenUserDir.empty())
+	{
+		lldebugs << "getLindenUserDir() called early, we don't have the user name yet - returning empty string to caller" << llendl;
+	}
+
 	return mLindenUserDir;
 }
 
@@ -296,6 +311,10 @@ const std::string LLDir::getSkinBaseDir() const
 	return mSkinBaseDir;
 }
 
+const std::string &LLDir::getLLPluginDir() const
+{
+	return mLLPluginDir;
+}
 
 std::string LLDir::getExpandedFilename(ELLPath location, const std::string& filename) const
 {
@@ -333,7 +352,7 @@ std::string LLDir::getExpandedFilename(ELLPath location, const std::string& subd
 		break;
 		
 	case LL_PATH_CACHE:
-	    prefix = getCacheDir();
+		prefix = getCacheDir();
 		break;
 		
 	case LL_PATH_USER_SETTINGS:
@@ -344,6 +363,11 @@ std::string LLDir::getExpandedFilename(ELLPath location, const std::string& subd
 
 	case LL_PATH_PER_SL_ACCOUNT:
 		prefix = getLindenUserDir();
+		if (prefix.empty())
+		{
+			// if we're asking for the per-SL-account directory but we haven't logged in yet (or otherwise don't know the account name from which to build this string), then intentionally return a blank string to the caller and skip the below warning about a blank prefix.
+			return std::string();
+		}
 		break;
 		
 	case LL_PATH_CHAT_LOGS:
@@ -373,11 +397,7 @@ std::string LLDir::getExpandedFilename(ELLPath location, const std::string& subd
 		break;
 
 	case LL_PATH_USER_SKIN:
-		prefix = getOSUserAppDir();
-		prefix += mDirDelimiter;
-		prefix += "user_settings";
-		prefix += mDirDelimiter;
-		prefix += "skins";
+		prefix = getUserSkinDir();
 		break;
 
 	case LL_PATH_SKINS:
@@ -390,14 +410,14 @@ std::string LLDir::getExpandedFilename(ELLPath location, const std::string& subd
 		prefix += "local_assets";
 		break;
 
-	case LL_PATH_MOZILLA_PROFILE:
-		prefix = getOSUserAppDir();
-		prefix += mDirDelimiter;
-		prefix += "browser_profile";
-		break;
-
 	case LL_PATH_EXECUTABLE:
 		prefix = getExecutableDir();
+		break;
+		
+	case LL_PATH_FONTS:
+		prefix = getAppRODataDir();
+		prefix += mDirDelimiter;
+		prefix += "fonts";
 		break;
 		
 	default:
@@ -415,6 +435,11 @@ std::string LLDir::getExpandedFilename(ELLPath location, const std::string& subd
 		filename = subdir1 + mDirDelimiter + filename;
 	}
 
+	if (prefix.empty())
+	{
+		llwarns << "prefix is empty, possible bad filename" << llendl;
+	}
+	
 	std::string expanded_filename;
 	if (!filename.empty())
 	{
@@ -440,7 +465,6 @@ std::string LLDir::getExpandedFilename(ELLPath location, const std::string& subd
 	}
 
 	//llinfos << "*** EXPANDED FILENAME: <" << expanded_filename << ">" << llendl;
-
 	return expanded_filename;
 }
 
@@ -471,6 +495,8 @@ std::string LLDir::getDirName(const std::string& filepath) const
 
 std::string LLDir::getExtension(const std::string& filepath) const
 {
+	if (filepath.empty())
+		return std::string();
 	std::string basename = getBaseFileName(filepath, false);
 	std::size_t offset = basename.find_last_of('.');
 	std::string exten = (offset == std::string::npos || offset == 0) ? "" : basename.substr(offset+1);
@@ -544,26 +570,23 @@ std::string LLDir::getForbiddenFileChars()
 	return "\\/:*?\"<>|";
 }
 
-void LLDir::setLindenUserDir(const std::string &first, const std::string &last)
+void LLDir::setLindenUserDir(const std::string &username)
 {
-	// if both first and last aren't set, assume we're grabbing the cached dir
-	if (!first.empty() && !last.empty())
+	// if the username isn't set, that's bad
+	if (!username.empty())
 	{
 		// some platforms have case-sensitive filesystems, so be
 		// utterly consistent with our firstname/lastname case.
-		std::string firstlower(first);
-		LLStringUtil::toLower(firstlower);
-		std::string lastlower(last);
-		LLStringUtil::toLower(lastlower);
+		std::string userlower(username);
+		LLStringUtil::toLower(userlower);
+		LLStringUtil::replaceChar(userlower, ' ', '_');
 		mLindenUserDir = getOSUserAppDir();
 		mLindenUserDir += mDirDelimiter;
-		mLindenUserDir += firstlower;
-		mLindenUserDir += "_";
-		mLindenUserDir += lastlower;
+		mLindenUserDir += userlower;
 	}
 	else
 	{
-		llerrs << "Invalid name for LLDir::setLindenUserDir" << llendl;
+		llerrs << "NULL name for LLDir::setLindenUserDir" << llendl;
 	}
 
 	dumpCurrentDirectories();	
@@ -581,27 +604,25 @@ void LLDir::setChatLogsDir(const std::string &path)
 	}
 }
 
-void LLDir::setPerAccountChatLogsDir(const std::string &first, const std::string &last)
+void LLDir::setPerAccountChatLogsDir(const std::string &username)
 {
 	// if both first and last aren't set, assume we're grabbing the cached dir
-	if (!first.empty() && !last.empty())
+	if (!username.empty())
 	{
 		// some platforms have case-sensitive filesystems, so be
 		// utterly consistent with our firstname/lastname case.
-		std::string firstlower(first);
-		LLStringUtil::toLower(firstlower);
-		std::string lastlower(last);
-		LLStringUtil::toLower(lastlower);
+		std::string userlower(username);
+		LLStringUtil::toLower(userlower);
+		LLStringUtil::replaceChar(userlower, ' ', '_');
 		mPerAccountChatLogsDir = getChatLogsDir();
 		mPerAccountChatLogsDir += mDirDelimiter;
-		mPerAccountChatLogsDir += firstlower;
-		mPerAccountChatLogsDir += "_";
-		mPerAccountChatLogsDir += lastlower;
+		mPerAccountChatLogsDir += userlower;
 	}
 	else
 	{
-		llwarns << "Invalid name for LLDir::setPerAccountChatLogsDir" << llendl;
+		llerrs << "NULL name for LLDir::setPerAccountChatLogsDir" << llendl;
 	}
+	
 }
 
 void LLDir::setSkinFolder(const std::string &skin_folder)
@@ -667,11 +688,6 @@ void LLDir::dumpCurrentDirectories()
 	LL_DEBUGS2("AppInit","Directories") << "  CAFile:				 " << getCAFile() << LL_ENDL;
 	LL_DEBUGS2("AppInit","Directories") << "  SkinBaseDir:           " << getSkinBaseDir() << LL_ENDL;
 	LL_DEBUGS2("AppInit","Directories") << "  SkinDir:               " << getSkinDir() << LL_ENDL;
-
-#if LL_LIBXUL_ENABLED
- 	LL_DEBUGS2("AppInit","Directories") << "  HTML Path:             " << getExpandedFilename( LL_PATH_HTML, "" ) << llendl;
- 	LL_DEBUGS2("AppInit","Directories") << "  Mozilla Profile Path:  " << getExpandedFilename( LL_PATH_MOZILLA_PROFILE, "" ) << llendl;
-#endif
 }
 
 

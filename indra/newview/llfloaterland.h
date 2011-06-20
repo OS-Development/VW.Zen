@@ -3,31 +3,25 @@
  * @author James Cook
  * @brief "About Land" floater, allowing display and editing of land parcel properties.
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -49,27 +43,29 @@ class LLButton;
 class LLCheckBoxCtrl;
 class LLRadioGroup;
 class LLComboBox;
-class LLNameListCtrl;
-class LLSpinCtrl;
 class LLLineEditor;
+class LLMessageSystem;
+class LLNameListCtrl;
 class LLRadioGroup;
 class LLParcelSelectionObserver;
+class LLSpinCtrl;
 class LLTabContainer;
 class LLTextBox;
 class LLTextEditor;
 class LLTextureCtrl;
 class LLUIImage;
-class LLViewerTextEditor;
 class LLParcelSelection;
 
 class LLPanelLandGeneral;
 class LLPanelLandObjects;
 class LLPanelLandOptions;
+class LLPanelLandAudio;
 class LLPanelLandMedia;
 class LLPanelLandAccess;
 class LLPanelLandBan;
 class LLPanelLandRenters;
 class LLPanelLandCovenant;
+class LLParcel;
 
 class LLFloaterLand
 :	public LLFloater
@@ -80,9 +76,9 @@ public:
 
 	static LLPanelLandObjects* getCurrentPanelLandObjects();
 	static LLPanelLandCovenant* getCurrentPanelLandCovenant();
-
-	// Destroys itself on close.
-	virtual void onClose(bool app_quitting);
+	
+	LLParcel* getCurrentSelectedParcel();
+	
 	virtual void onOpen(const LLSD& key);
 	virtual BOOL postBuild();
 
@@ -91,6 +87,8 @@ private:
 	// to allocate or destroy.
 	LLFloaterLand(const LLSD& seed);
 	virtual ~LLFloaterLand();
+		
+	void onVisibilityChange(const LLSD& visible);
 
 protected:
 
@@ -100,6 +98,7 @@ protected:
 	static void* createPanelLandCovenant(void* data);
 	static void* createPanelLandObjects(void* data);
 	static void* createPanelLandOptions(void* data);
+	static void* createPanelLandAudio(void* data);
 	static void* createPanelLandMedia(void* data);
 	static void* createPanelLandAccess(void* data);
 	static void* createPanelLandBan(void* data);
@@ -113,6 +112,7 @@ protected:
 	LLPanelLandGeneral*		mPanelGeneral;
 	LLPanelLandObjects*		mPanelObjects;
 	LLPanelLandOptions*		mPanelOptions;
+	LLPanelLandAudio*		mPanelAudio;
 	LLPanelLandMedia*		mPanelMedia;
 	LLPanelLandAccess*		mPanelAccess;
 	LLPanelLandCovenant*	mPanelCovenant;
@@ -139,11 +139,11 @@ public:
 	virtual void draw();
 
 	void setGroup(const LLUUID& group_id);
-	static void onClickProfile(void*);
-		   void onClickSetGroup();
-	static BOOL enableDeedToGroup(void*);
+	void onClickProfile();
+	void onClickSetGroup();
 	static void onClickDeed(void*);
 	static void onClickBuyLand(void* data);
+	static void onClickScriptLimits(void* data);
 	static void onClickRelease(void*);
 	static void onClickReclaim(void*);
 	static void onClickBuyPass(void* deselect_when_done);
@@ -161,7 +161,7 @@ public:
 	static void onClickSet(void* data);
 	static void onClickClear(void* data);
 	static void onClickShow(void* data);
-	static void callbackAvatarPick(const std::vector<std::string>& names, const std::vector<LLUUID>& ids, void* data);
+	static void callbackAvatarPick(const std::vector<std::string>& names, const uuid_vec_t& ids, void* data);
 	static void finalizeAvatarPick(void* data);
 	static void callbackHighlightTransferable(S32 option, void* userdata);
 	static void onClickStartAuction(void*);
@@ -213,6 +213,7 @@ protected:
 	LLTextBox*		mTextDwell;
 
 	LLButton*		mBtnBuyLand;
+	LLButton*		mBtnScriptLimits;
 	LLButton*		mBtnBuyGroupLand;
 
 	// these buttons share the same location, but
@@ -226,6 +227,11 @@ protected:
 	LLButton* mBtnStartAuction;
 
 	LLSafeHandle<LLParcelSelection>&	mParcel;
+
+	// This pointer is needed to avoid parcel deselection until buying pass is completed or canceled.
+	// Deselection happened because of zero references to parcel selection, which took place when 
+	// "Buy Pass" was called from popup menu(EXT-6464)
+	static LLPointer<LLParcelSelection>	sSelectionForBuyPass;
 
 	static LLHandle<LLFloater> sBuyPassDialogHandle;
 };
@@ -318,7 +324,6 @@ private:
 	static void onCommitAny(LLUICtrl* ctrl, void *userdata);
 	static void onClickSet(void* userdata);
 	static void onClickClear(void* userdata);
-	static void onClickPublishHelp(void*);
 
 private:
 	LLCheckBoxCtrl*	mCheckEditObjects;
@@ -330,7 +335,6 @@ private:
 	LLCheckBoxCtrl*	mCheckFly;
 	LLCheckBoxCtrl*	mCheckGroupScripts;
 	LLCheckBoxCtrl*	mCheckOtherScripts;
-	LLCheckBoxCtrl*	mCheckLandmark;
 
 	LLCheckBoxCtrl*	mCheckShowDirectory;
 	LLComboBox*		mCategoryCombo;
@@ -344,7 +348,6 @@ private:
 
 	LLCheckBoxCtrl		*mMatureCtrl;
 	LLCheckBoxCtrl		*mPushRestrictionCtrl;
-	LLButton			*mPublishHelpButton;
 
 	LLSafeHandle<LLParcelSelection>&	mParcel;
 };
@@ -363,14 +366,15 @@ public:
 
 	static void onCommitPublicAccess(LLUICtrl* ctrl, void *userdata);
 	static void onCommitAny(LLUICtrl* ctrl, void *userdata);
-	static void onClickAddAccess(void*);
-	static void callbackAvatarCBAccess(const std::vector<std::string>& names, const std::vector<LLUUID>& ids, void* userdata);
 	static void onClickRemoveAccess(void*);
-	static void onClickAddBanned(void*);
-	static void callbackAvatarCBBanned(const std::vector<std::string>& names, const std::vector<LLUUID>& ids, void* userdata);
 	static void onClickRemoveBanned(void*);
 
 	virtual BOOL postBuild();
+	
+	void onClickAddAccess();
+	void onClickAddBanned();
+	void callbackAvatarCBBanned(const uuid_vec_t& ids);
+	void callbackAvatarCBAccess(const uuid_vec_t& ids);
 
 protected:
 	LLNameListCtrl*		mListAccess;
@@ -386,7 +390,6 @@ class LLPanelLandCovenant
 public:
 	LLPanelLandCovenant(LLSafeHandle<LLParcelSelection>& parcelp);
 	virtual ~LLPanelLandCovenant();
-	virtual BOOL postBuild();
 	void refresh();
 	static void updateCovenantText(const std::string& string);
 	static void updateEstateName(const std::string& name);

@@ -2,31 +2,25 @@
  * @file llviewercamera.h
  * @brief LLViewerCamera class header file
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -52,9 +46,32 @@ const F32 OGL_TO_CFR_ROTATION[16] = {  0.f,  0.f, -1.f,  0.f, 	// -Z becomes X
 const BOOL FOR_SELECTION = TRUE;
 const BOOL NOT_FOR_SELECTION = FALSE;
 
+// Build time optimization, generate this once in .cpp file
+#ifndef LLVIEWERCAMERA_CPP
+extern template class LLViewerCamera* LLSingleton<class LLViewerCamera>::getInstance();
+#endif
+
 class LLViewerCamera : public LLCamera, public LLSingleton<LLViewerCamera>
 {
 public:
+
+	typedef enum
+	{
+		CAMERA_WORLD = 0,
+		CAMERA_SHADOW0,
+		CAMERA_SHADOW1,
+		CAMERA_SHADOW2,
+		CAMERA_SHADOW3,
+		CAMERA_SHADOW4,
+		CAMERA_SHADOW5,
+		CAMERA_WATER0,
+		CAMERA_WATER1,
+		CAMERA_GI_SOURCE,
+		NUM_CAMERAS
+	} eCameraID;
+
+	static U32 sCurCameraID;
+
 	LLViewerCamera();
 
 	void updateCameraLocation(const LLVector3 &center,
@@ -73,17 +90,20 @@ public:
 	BOOL projectPosAgentToScreen(const LLVector3 &pos_agent, LLCoordGL &out_point, const BOOL clamp = TRUE) const;
 	BOOL projectPosAgentToScreenEdge(const LLVector3 &pos_agent, LLCoordGL &out_point) const;
 
-
+	const LLVector3* getVelocityDir() const {return &mVelocityDir;}
 	LLStat *getVelocityStat() { return &mVelocityStat; }
 	LLStat *getAngularVelocityStat() { return &mAngularVelocityStat; }
+	F32     getCosHalfFov() {return mCosHalfCameraFOV;}
+	F32     getAverageSpeed() {return mAverageSpeed ;}
+	F32     getAverageAngularSpeed() {return mAverageAngularSpeed;}
 
 	void getPixelVectors(const LLVector3 &pos_agent, LLVector3 &up, LLVector3 &right);
 	LLVector3 roundToPixel(const LLVector3 &pos_agent);
 
 	// Sets the current matrix
 	/* virtual */ void setView(F32 vertical_fov_rads);
-	// Sets the current matrix AND remembers result as default view
-	void setDefaultFOV(F32 vertical_fov_rads);
+
+	void setDefaultFOV(F32 fov) ;
 	F32 getDefaultFOV() { return mCameraFOVDefault; }
 
 	BOOL cameraUnderWater() const;
@@ -102,9 +122,14 @@ protected:
 
 	LLStat mVelocityStat;
 	LLStat mAngularVelocityStat;
+	LLVector3 mVelocityDir ;
+	F32       mAverageSpeed ;
+	F32       mAverageAngularSpeed ;
+
 	mutable LLMatrix4	mProjectionMatrix;	// Cache of perspective matrix
 	mutable LLMatrix4	mModelviewMatrix;
 	F32					mCameraFOVDefault;
+	F32					mCosHalfCameraFOV;
 	LLVector3			mLastPointOfInterest;
 	F32					mPixelMeterRatio; // Divide by distance from camera to get pixels per meter at that distance.
 	S32					mScreenPixelArea; // Pixel area of entire window

@@ -2,31 +2,25 @@
  * @file llkeyboard.cpp
  * @brief Handler for assignable key bindings
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -35,7 +29,6 @@
 #include "llkeyboard.h"
 
 #include "llwindowcallbacks.h"
-
 
 //
 // Globals
@@ -46,6 +39,8 @@ LLKeyboard *gKeyboard = NULL;
 //static
 std::map<KEY,std::string> LLKeyboard::sKeysToNames;
 std::map<std::string,KEY> LLKeyboard::sNamesToKeys;
+LLKeyStringTranslatorFunc*	LLKeyboard::mStringTranslator = NULL;	// Used for l10n + PC/Mac/Linux accelerator labeling
+
 
 //
 // Class Implementation
@@ -342,9 +337,75 @@ std::string LLKeyboard::stringFromKey(KEY key)
 		buffer[1] = '\0';
 		res = std::string(buffer);
 	}
+
+	LLKeyStringTranslatorFunc *trans = gKeyboard->mStringTranslator;
+	if (trans != NULL)
+	{
+		res = trans(res.c_str());
+	}
+
 	return res;
 }
 
+
+//static
+std::string LLKeyboard::stringFromAccelerator( MASK accel_mask, KEY key )
+{
+	std::string res;
+	
+	// break early if this is a silly thing to do.
+	if( KEY_NONE == key )
+	{
+		return res;
+	}
+	
+	LLKeyStringTranslatorFunc *trans = gKeyboard->mStringTranslator;
+	
+	if( trans == NULL )
+	{
+		llerrs << "No mKeyStringTranslator" << llendl;
+		return res;
+	}
+	
+	// Append any masks
+#ifdef LL_DARWIN
+	// Standard Mac names for modifier keys in menu equivalents
+	// We could use the symbol characters, but they only exist in certain fonts.
+	if( accel_mask & MASK_CONTROL )
+	{
+		if ( accel_mask & MASK_MAC_CONTROL )
+		{
+			res.append( trans("accel-mac-control") );
+		}
+		else
+		{
+			res.append( trans("accel-mac-command") );		// Symbol would be "\xE2\x8C\x98"
+		}
+	}
+	if( accel_mask & MASK_ALT )
+		res.append( trans("accel-mac-option") );		// Symbol would be "\xE2\x8C\xA5"
+	if( accel_mask & MASK_SHIFT )
+		res.append( trans("accel-mac-shift") );		// Symbol would be "\xE2\x8C\xA7"
+#else
+	if( accel_mask & MASK_CONTROL )
+		res.append( trans("accel-win-control") );
+	if( accel_mask & MASK_ALT )
+		res.append( trans("accel-win-alt") );
+	if( accel_mask & MASK_SHIFT )
+		res.append( trans("accel-win-shift") );
+#endif
+	std::string key_string = LLKeyboard::stringFromKey(key);
+	if ((accel_mask & MASK_NORMALKEYS) &&
+		(key_string[0] == '-' || key_string[0] == '=' || key_string[0] == '+'))
+	{
+		res.append( " " );
+	}
+
+	std::string keystr = stringFromKey( key );
+	res.append( keystr );
+	
+	return res;
+}
 
 
 //static
@@ -395,4 +456,11 @@ BOOL LLKeyboard::maskFromString(const std::string& str, MASK *mask)
 	{
 		return FALSE;
 	}
+}
+
+
+//static
+void LLKeyboard::setStringTranslatorFunc( LLKeyStringTranslatorFunc *trans_func )
+{
+	mStringTranslator = trans_func;
 }

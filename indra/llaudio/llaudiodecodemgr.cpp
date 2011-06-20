@@ -1,31 +1,25 @@
 /** 
  * @file llaudiodecodemgr.cpp
  *
- * $LicenseInfo:firstyear=2003&license=viewergpl$
- * 
- * Copyright (c) 2003-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2003&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -33,8 +27,7 @@
 
 #include "llaudiodecodemgr.h"
 
-#include "vorbisdecode.h"
-#include "audioengine.h"
+#include "llaudioengine.h"
 #include "lllfsthread.h"
 #include "llvfile.h"
 #include "llstring.h"
@@ -42,6 +35,8 @@
 #include "llendianswizzle.h"
 #include "llassetstorage.h"
 #include "llrefcount.h"
+
+#include "llvorbisencode.h"
 
 #include "vorbis/codec.h"
 #include "vorbis/vorbisfile.h"
@@ -180,6 +175,8 @@ LLVorbisDecodeState::LLVorbisDecodeState(const LLUUID &uuid, const std::string &
 	mFileHandle = LLLFSThread::nullHandle();
 #endif
 	// No default value for mVF, it's an ogg structure?
+	// Hey, let's zero it anyway, for predictability.
+	memset(&mVF, 0, sizeof(mVF));
 }
 
 LLVorbisDecodeState::~LLVorbisDecodeState()
@@ -218,11 +215,56 @@ BOOL LLVorbisDecodeState::initDecode()
 		return(FALSE);
 	}
 	
-	size_t size_guess = (size_t)ov_pcm_total(&mVF, -1);
+	S32 sample_count = ov_pcm_total(&mVF, -1);
+	size_t size_guess = (size_t)sample_count;
 	vorbis_info* vi = ov_info(&mVF, -1);
-	size_guess *= vi->channels;
+	size_guess *= (vi? vi->channels : 1);
 	size_guess *= 2;
 	size_guess += 2048;
+	
+	bool abort_decode = false;
+	
+	if (vi)
+	{
+		if( vi->channels < 1 || vi->channels > LLVORBIS_CLIP_MAX_CHANNELS )
+		{
+			abort_decode = true;
+			llwarns << "Bad channel count: " << vi->channels << llendl;
+		}
+	}
+	else // !vi
+	{
+		abort_decode = true;
+		llwarns << "No default bitstream found" << llendl;	
+	}
+	
+	if( (size_t)sample_count > LLVORBIS_CLIP_REJECT_SAMPLES ||
+	    (size_t)sample_count <= 0)
+	{
+		abort_decode = true;
+		llwarns << "Illegal sample count: " << sample_count << llendl;
+	}
+	
+	if( size_guess > LLVORBIS_CLIP_REJECT_SIZE ||
+	    size_guess < 0)
+	{
+		abort_decode = true;
+		llwarns << "Illegal sample size: " << size_guess << llendl;
+	}
+	
+	if( abort_decode )
+	{
+		llwarns << "Canceling initDecode. Bad asset: " << mUUID << llendl;
+		vorbis_comment* comment = ov_comment(&mVF,-1);
+		if (comment && comment->vendor)
+		{
+			llwarns << "Bad asset encoded by: " << comment->vendor << llendl;
+		}
+		delete mInFilep;
+		mInFilep = NULL;
+		return FALSE;
+	}
+	
 	mWAVBuffer.reserve(size_guess);
 	mWAVBuffer.resize(WAV_HEADER_SIZE);
 
@@ -638,4 +680,10 @@ BOOL LLAudioDecodeMgr::addDecodeRequest(const LLUUID &uuid)
 	return FALSE;
 }
 
-
+#if LL_DARWIN || LL_LINUX
+// HACK: to fool the compiler into not emitting unused warnings.
+namespace {
+	const ov_callbacks callback_array[4] = {OV_CALLBACKS_DEFAULT, OV_CALLBACKS_NOCLOSE, OV_CALLBACKS_STREAMONLY, 
+		OV_CALLBACKS_STREAMONLY_NOCLOSE};
+}
+#endif

@@ -15,6 +15,10 @@
      name="loading">
         (loading...)
     </panel.string>
+    <panel.string
+     name="already_in_group">
+        Some Residents you chose are already in the group, and so were not sent an invitation.
+    </panel.string>
     <text
      type="string"
      length="1"
@@ -22,14 +26,12 @@
      layout="topleft"
      left="7"
      name="help_text"
-     top="24"
+     top="28"
+     word_wrap="true"
      width="200">
-        You can select multiple residents to 
-invite to your group. Click &apos;Open 
-Resident Chooser&apos; to start.
+        You can select multiple Residents to invite to your group. Click &apos;Open Resident Chooser&apos; to start.
     </text>
     <button
-     font="SansSerifSmall"
      height="20"
      label="Open Resident Chooser"
      layout="topleft"
@@ -45,17 +47,16 @@ Resident Chooser&apos; to start.
      left_delta="0"
      multi_select="true"
      name="invitee_list"
-     tool_tip="Hold the Ctrl key and click resident names to multi-select."
+     tool_tip="Hold the Ctrl key and click Resident names to multi-select"
      top_pad="4"
      width="200" />
     <button
-     font="SansSerifSmall"
      height="20"
      label="Remove Selected from List"
      layout="topleft"
      left_delta="0"
      name="remove_button"
-     tool_tip="Removes residents selected above from the invite list."
+     tool_tip="Removes the Residents selected above from the invite list"
      top_pad="4"
      width="200" />
     <text
@@ -66,6 +67,7 @@ Resident Chooser&apos; to start.
      left_delta="4"
      name="role_text"
      top_pad="5"
+     word_wrap="true"
      width="200">
         Choose what Role to assign them to:
     </text>
@@ -74,27 +76,25 @@ Resident Chooser&apos; to start.
      layout="topleft"
      left_delta="0"
      name="role_name"
-     tool_tip="Choose from the list of Roles you are allowed to assign members to."
+     tool_tip="Choose from the list of Roles you are allowed to assign members to"
      top_delta="16"
      width="196" />
     <button
-     font="SansSerifSmall"
      height="20"
      label="Send Invitations"
      layout="topleft"
      left="4"
      name="ok_button"
      top="356"
-     width="130" />
+     width="135" />
     <button
-     font="SansSerifSmall"
      height="20"
      label="Cancel"
      layout="topleft"
      left_pad="2"
      name="cancel_button"
      top_delta="0"
-     width="70" />
+     width="65" />
 	 <string 
 	 name="GroupInvitation">
 	 Group Invitation

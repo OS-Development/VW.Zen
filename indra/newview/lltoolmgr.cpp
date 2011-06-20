@@ -2,31 +2,25 @@
  * @file lltoolmgr.cpp
  * @brief LLToolMgr class implementation
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -38,7 +32,7 @@
 #include "llmenugl.h"
 #include "llfloaterreg.h"
 
-#include "llfirstuse.h"
+//#include "llfirstuse.h"
 // tools and manipulators
 #include "lltool.h"
 #include "llmanipscale.h"
@@ -56,6 +50,7 @@
 #include "lltoolobjpicker.h"
 #include "lltoolpipette.h"
 #include "llagent.h"
+#include "llagentcamera.h"
 #include "llviewercontrol.h"
 #include "llviewerjoystick.h"
 #include "llviewermenu.h"
@@ -247,7 +242,7 @@ bool LLToolMgr::inEdit()
 
 bool LLToolMgr::canEdit()
 {
-	return LLViewerParcelMgr::getInstance()->agentCanBuild();
+	return LLViewerParcelMgr::getInstance()->allowAgentBuild();
 }
 
 void LLToolMgr::toggleBuildMode()
@@ -262,7 +257,7 @@ void LLToolMgr::toggleBuildMode()
 		else
 		{
 			// manually disable edit mode, but do not affect the camera
-			gAgent.resetView(false);
+			gAgentCamera.resetView(false);
 			LLFloaterReg::hideInstance("build");
 			gViewerWindow->showCursor();			
 		}
@@ -271,7 +266,7 @@ void LLToolMgr::toggleBuildMode()
 	}
 	else
 	{
-		ECameraMode camMode = gAgent.getCameraMode();
+		ECameraMode camMode = gAgentCamera.getCameraMode();
 		if (CAMERA_MODE_MOUSELOOK == camMode ||	CAMERA_MODE_CUSTOMIZE_AVATAR == camMode)
 		{
 			// pull the user out of mouselook or appearance mode when entering build mode
@@ -286,13 +281,13 @@ void LLToolMgr::toggleBuildMode()
 				handle_toggle_flycam();
 			}
 
-			if (gAgent.getFocusOnAvatar())
+			if (gAgentCamera.getFocusOnAvatar())
 			{
 				// zoom in if we're looking at the avatar
-				gAgent.setFocusOnAvatar(FALSE, ANIMATE);
-				gAgent.setFocusGlobal(gAgent.getPositionGlobal() + 2.0 * LLVector3d(gAgent.getAtAxis()));
-				gAgent.cameraZoomIn(0.666f);
-				gAgent.cameraOrbitOver( 30.f * DEG_TO_RAD );
+				gAgentCamera.setFocusOnAvatar(FALSE, ANIMATE);
+				gAgentCamera.setFocusGlobal(gAgent.getPositionGlobal() + 2.0 * LLVector3d(gAgent.getAtAxis()));
+				gAgentCamera.cameraZoomIn(0.666f);
+				gAgentCamera.cameraOrbitOver( 30.f * DEG_TO_RAD );
 			}
 		}
 
@@ -301,9 +296,9 @@ void LLToolMgr::toggleBuildMode()
 		getCurrentToolset()->selectTool( LLToolCompCreate::getInstance() );
 
 		// Could be first use
-		LLFirstUse::useBuild();
+		//LLFirstUse::useBuild();
 
-		gAgent.resetView(false);
+		gAgentCamera.resetView(false);
 
 		// avoid spurious avatar movements
 		LLViewerJoystick::getInstance()->setNeedsReset();
@@ -317,8 +312,7 @@ bool LLToolMgr::inBuildMode()
 	// cameraMouselook() actually starts returning true.  Also, appearance edit
 	// sets build mode to true, so let's exclude that.
 	bool b=(inEdit() 
-			&& gSavedSettings.getBOOL("BuildBtnState")
-			&& !gAgent.cameraMouselook()
+			&& !gAgentCamera.cameraMouselook()
 			&& mCurrentToolset != gFaceEditToolset);
 	
 	return b;
@@ -357,22 +351,20 @@ void LLToolMgr::clearTransientTool()
 }
 
 
-// The "gun tool", used for handling mouselook, captures the mouse and
-// locks it within the window.  When the app loses focus we need to
-// release this locking.
 void LLToolMgr::onAppFocusLost()
 {
-	mSavedTool = mBaseTool;
-	mBaseTool = gToolNull;
+	if (mSelectedTool)
+	{
+		mSelectedTool->handleDeselect();
+	}
 	updateToolStatus();
 }
 
 void LLToolMgr::onAppFocusGained()
 {
-	if (mSavedTool)
+	if (mSelectedTool)
 	{
-		mBaseTool = mSavedTool;
-		mSavedTool = NULL;
+		mSelectedTool->handleSelect();
 	}
 	updateToolStatus();
 }

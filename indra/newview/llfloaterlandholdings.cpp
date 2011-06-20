@@ -2,31 +2,25 @@
  * @file llfloaterlandholdings.cpp
  * @brief "My Land" floater showing all your land parcels.
  *
- * $LicenseInfo:firstyear=2003&license=viewergpl$
- * 
- * Copyright (c) 2003-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2003&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -42,7 +36,6 @@
 
 #include "llagent.h"
 #include "llfloaterreg.h"
-#include "llfloatergroupinfo.h"
 #include "llfloaterworldmap.h"
 #include "llproductinforequest.h"
 #include "llscrolllistctrl.h"
@@ -56,46 +49,17 @@
 #include "llviewermessage.h"
 #include "lluictrlfactory.h"
 
-// statics
-LLFloaterLandHoldings* LLFloaterLandHoldings::sInstance = NULL;
-
-
-// static
-void LLFloaterLandHoldings::show(void*)
-{
-	LLFloaterLandHoldings* floater = new LLFloaterLandHoldings();
-	LLUICtrlFactory::getInstance()->buildFloater(floater, "floater_land_holdings.xml");
-	floater->center();
-
-	// query_id null is known to be us
-	const LLUUID& query_id = LLUUID::null;
-
-	// look only for parcels we own
-	U32 query_flags = DFQ_AGENT_OWNED;
-
-	send_places_query(query_id,
-					  LLUUID::null,
-					  "",
-					  query_flags,
-					  LLParcel::C_ANY,
-					  "");
-
-	// TODO: request updated L$ balance?
-	floater->openFloater();
-}
-
+#include "llgroupactions.h"
 
 // protected
-LLFloaterLandHoldings::LLFloaterLandHoldings()
-:	LLFloater(),
+LLFloaterLandHoldings::LLFloaterLandHoldings(const LLSD& key)
+:	LLFloater(key),
 	mActualArea(0),
 	mBillableArea(0),
 	mFirstPacketReceived(FALSE),
 	mSortColumn(""),
 	mSortAscending(TRUE)
 {
-	// Instance management.
-	sInstance = this;
 }
 
 BOOL LLFloaterLandHoldings::postBuild()
@@ -104,10 +68,9 @@ BOOL LLFloaterLandHoldings::postBuild()
 	childSetAction("Show on Map", onClickMap, this);
 
 	// Grant list
-	getChild<LLScrollListCtrl>("grant list")->setDoubleClickCallback(onGrantList, this);
-
-	LLCtrlListInterface *list = childGetListInterface("grant list");
-	if (!list) return TRUE;
+	LLScrollListCtrl* grant_list = getChild<LLScrollListCtrl>("grant list");
+	grant_list->sortByColumnIndex(0, TRUE);
+	grant_list->setDoubleClickCallback(onGrantList, this);
 
 	S32 count = gAgent.mGroups.count();
 	for(S32 i = 0; i < count; ++i)
@@ -126,9 +89,11 @@ BOOL LLFloaterLandHoldings::postBuild()
 		element["columns"][1]["value"] = areastr;
 		element["columns"][1]["font"] = "SANSSERIF";
 
-		list->addElement(element, ADD_SORTED);
+		grant_list->addElement(element);
 	}
-
+	
+	center();
+	
 	return TRUE;
 }
 
@@ -136,9 +101,23 @@ BOOL LLFloaterLandHoldings::postBuild()
 // protected
 LLFloaterLandHoldings::~LLFloaterLandHoldings()
 {
-	sInstance = NULL;
 }
 
+void LLFloaterLandHoldings::onOpen(const LLSD& key)
+{
+	// query_id null is known to be us
+	const LLUUID& query_id = LLUUID::null;
+
+	// look only for parcels we own
+	U32 query_flags = DFQ_AGENT_OWNED;
+
+	send_places_query(query_id,
+					  LLUUID::null,
+					  "",
+					  query_flags,
+					  LLParcel::C_ANY,
+					  "");
+}
 
 void LLFloaterLandHoldings::draw()
 {
@@ -158,8 +137,8 @@ void LLFloaterLandHoldings::refresh()
 		enable_btns = TRUE;
 	}
 
-	childSetEnabled("Teleport", enable_btns);
-	childSetEnabled("Show on Map", enable_btns);
+	getChildView("Teleport")->setEnabled(enable_btns);
+	getChildView("Show on Map")->setEnabled(enable_btns);
 
 	refreshAggregates();
 }
@@ -168,7 +147,7 @@ void LLFloaterLandHoldings::refresh()
 // static
 void LLFloaterLandHoldings::processPlacesReply(LLMessageSystem* msg, void**)
 {
-	LLFloaterLandHoldings* self = sInstance;
+	LLFloaterLandHoldings* self = LLFloaterReg::findTypedInstance<LLFloaterLandHoldings>("land_holdings");
 
 	// Is this packet from an old, closed window?
 	if (!self)
@@ -224,50 +203,53 @@ void LLFloaterLandHoldings::processPlacesReply(LLMessageSystem* msg, void**)
 			land_type = LLTrans::getString("land_type_unknown");
 		}
 		
-		self->mActualArea += actual_area;
-		self->mBillableArea += billable_area;
-
-		S32 region_x = llround(global_x) % REGION_WIDTH_UNITS;
-		S32 region_y = llround(global_y) % REGION_WIDTH_UNITS;
-
-		std::string location;
-		location = llformat("%s (%d, %d)", sim_name.c_str(), region_x, region_y);
-
-		std::string area;
-		if(billable_area == actual_area)
+		if(owner_id.notNull())
 		{
-			area = llformat("%d", billable_area);
-		}
-		else
-		{
-			area = llformat("%d / %d", billable_area, actual_area);
-		}
-		
-		std::string hidden;
-		hidden = llformat("%f %f", global_x, global_y);
+			self->mActualArea += actual_area;
+			self->mBillableArea += billable_area;
 
-		LLSD element;
-		element["columns"][0]["column"] = "name";
-		element["columns"][0]["value"] = name;
-		element["columns"][0]["font"] = "SANSSERIF";
-		
-		element["columns"][1]["column"] = "location";
-		element["columns"][1]["value"] = location;
-		element["columns"][1]["font"] = "SANSSERIF";
-		
-		element["columns"][2]["column"] = "area";
-		element["columns"][2]["value"] = area;
-		element["columns"][2]["font"] = "SANSSERIF";
-		
-		element["columns"][3]["column"] = "type";
-		element["columns"][3]["value"] = land_type;
-		element["columns"][3]["font"] = "SANSSERIF";
-		
-		// hidden is always last column
-		element["columns"][4]["column"] = "hidden";
-		element["columns"][4]["value"] = hidden;
+			S32 region_x = llround(global_x) % REGION_WIDTH_UNITS;
+			S32 region_y = llround(global_y) % REGION_WIDTH_UNITS;
 
-		list->addElement(element);
+			std::string location;
+			location = llformat("%s (%d, %d)", sim_name.c_str(), region_x, region_y);
+
+			std::string area;
+			if(billable_area == actual_area)
+			{
+				area = llformat("%d", billable_area);
+			}
+			else
+			{
+				area = llformat("%d / %d", billable_area, actual_area);
+			}
+			
+			std::string hidden;
+			hidden = llformat("%f %f", global_x, global_y);
+
+			LLSD element;
+			element["columns"][0]["column"] = "name";
+			element["columns"][0]["value"] = name;
+			element["columns"][0]["font"] = "SANSSERIF";
+			
+			element["columns"][1]["column"] = "location";
+			element["columns"][1]["value"] = location;
+			element["columns"][1]["font"] = "SANSSERIF";
+			
+			element["columns"][2]["column"] = "area";
+			element["columns"][2]["value"] = area;
+			element["columns"][2]["font"] = "SANSSERIF";
+			
+			element["columns"][3]["column"] = "type";
+			element["columns"][3]["value"] = land_type;
+			element["columns"][3]["font"] = "SANSSERIF";
+			
+			// hidden is always last column
+			element["columns"][4]["column"] = "hidden";
+			element["columns"][4]["value"] = hidden;
+
+			list->addElement(element);
+		}
 	}
 	
 	self->refreshAggregates();
@@ -334,7 +316,7 @@ void LLFloaterLandHoldings::onGrantList(void* data)
 	LLUUID group_id = list->getCurrentID();
 	if (group_id.notNull())
 	{
-		LLFloaterGroupInfo::showFromUUID(group_id);
+		LLGroupActions::show(group_id);
 	}
 }
 
@@ -344,7 +326,7 @@ void LLFloaterLandHoldings::refreshAggregates()
 	S32 current_area = gStatusBar->getSquareMetersCommitted();
 	S32 available_area = gStatusBar->getSquareMetersLeft();
 
-	childSetTextArg("allowed_text", "[AREA]", llformat("%d",allowed_area));
-	childSetTextArg("current_text", "[AREA]", llformat("%d",current_area));
-	childSetTextArg("available_text", "[AREA]", llformat("%d",available_area));
+	getChild<LLUICtrl>("allowed_text")->setTextArg("[AREA]", llformat("%d",allowed_area));
+	getChild<LLUICtrl>("current_text")->setTextArg("[AREA]", llformat("%d",current_area));
+	getChild<LLUICtrl>("available_text")->setTextArg("[AREA]", llformat("%d",available_area));
 }

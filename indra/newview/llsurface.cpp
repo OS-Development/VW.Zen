@@ -2,31 +2,25 @@
  * @file llsurface.cpp
  * @brief Implementation of LLSurface class
  *
- * $LicenseInfo:firstyear=2000&license=viewergpl$
- * 
- * Copyright (c) 2000-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2000&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -44,6 +38,7 @@
 #include "llviewerobjectlist.h"
 #include "llregionhandle.h"
 #include "llagent.h"
+#include "llagentcamera.h"
 #include "llappviewer.h"
 #include "llworld.h"
 #include "llviewercontrol.h"
@@ -157,6 +152,7 @@ void LLSurface::initClasses()
 void LLSurface::setRegion(LLViewerRegion *regionp)
 {
 	mRegionp = regionp;
+	mWaterObjp = NULL; // depends on regionp, needs recreating
 }
 
 // Assumes that arguments are powers of 2, and that
@@ -214,7 +210,7 @@ void LLSurface::create(const S32 grids_per_edge,
 
 LLViewerTexture* LLSurface::getSTexture()
 {
-	if (mSTexturep.notNull() && !mSTexturep->hasValidGLTexture())
+	if (mSTexturep.notNull() && !mSTexturep->hasGLTexture())
 	{
 		createSTexture();
 	}
@@ -223,7 +219,7 @@ LLViewerTexture* LLSurface::getSTexture()
 
 LLViewerTexture* LLSurface::getWaterTexture()
 {
-	if (mWaterTexturep.notNull() && !mWaterTexturep->hasValidGLTexture())
+	if (mWaterTexturep.notNull() && !mWaterTexturep->hasGLTexture())
 	{
 		createWaterTexture();
 	}
@@ -234,7 +230,8 @@ void LLSurface::createSTexture()
 {
 	if (!mSTexturep)
 	{
-		// Fill with dummy gray data.
+		// Fill with dummy gray data.	
+		// GL NOT ACTIVE HERE
 		LLPointer<LLImageRaw> raw = new LLImageRaw(sTextureSize, sTextureSize, 3);
 		U8 *default_texture = raw->getData();
 		for (S32 i = 0; i < sTextureSize; i++)
@@ -270,7 +267,8 @@ void LLSurface::createWaterTexture()
 				*(default_texture + (i*sTextureSize/2 + j)*4 + 2) = MAX_WATER_COLOR.mV[2];
 				*(default_texture + (i*sTextureSize/2 + j)*4 + 3) = MAX_WATER_COLOR.mV[3];
 			}
-		}
+		}		
+		
 		mWaterTexturep = LLViewerTextureManager::getLocalTexture(raw.get(), FALSE);
 		mWaterTexturep->dontDiscard();
 		gGL.getTexUnit(0)->bind(mWaterTexturep);
@@ -341,11 +339,6 @@ void LLSurface::connectNeighbor(LLSurface *neighborp, U32 direction)
 {
 	S32 i;
 	LLSurfacePatch *patchp, *neighbor_patchp;
-
-	if (gNoRender)
-	{
-		return;
-	}
 
 	mNeighbors[direction] = neighborp;
 	neighborp->mNeighbors[gDirOpposite[direction]] = this;
@@ -604,7 +597,7 @@ void LLSurface::moveZ(const S32 x, const S32 y, const F32 delta)
 
 void LLSurface::updatePatchVisibilities(LLAgent &agent) 
 {
-	LLVector3 pos_region = mRegionp->getPosRegionFromGlobal(gAgent.getCameraPositionGlobal());
+	LLVector3 pos_region = mRegionp->getPosRegionFromGlobal(gAgentCamera.getCameraPositionGlobal());
 
 	LLSurfacePatch *patchp;
 	
@@ -955,6 +948,7 @@ LLSurfacePatch *LLSurface::resolvePatchRegion(const LLVector3 &pos_region) const
 
 LLSurfacePatch *LLSurface::resolvePatchGlobal(const LLVector3d &pos_global) const
 {
+	llassert(mRegionp);
 	LLVector3 pos_region = mRegionp->getPosRegionFromGlobal(pos_global);
 	return resolvePatchRegion(pos_region);
 }
@@ -1163,8 +1157,13 @@ void LLSurface::setWaterHeight(F32 height)
 	if (!mWaterObjp.isNull())
 	{
 		LLVector3 water_pos_region = mWaterObjp->getPositionRegion();
+		bool changed = water_pos_region.mV[VZ] != height;
 		water_pos_region.mV[VZ] = height;
 		mWaterObjp->setPositionRegion(water_pos_region);
+		if (changed)
+		{
+			LLWorld::getInstance()->updateWaterObjects();
+		}
 	}
 	else
 	{
@@ -1189,7 +1188,7 @@ F32 LLSurface::getWaterHeight() const
 BOOL LLSurface::generateWaterTexture(const F32 x, const F32 y,
 									 const F32 width, const F32 height)
 {
-	if (!getWaterTexture() || !mWaterTexturep->hasGLTexture())
+	if (!getWaterTexture())
 	{
 		return FALSE;
 	}
@@ -1271,6 +1270,11 @@ BOOL LLSurface::generateWaterTexture(const F32 x, const F32 y,
 				*(rawp + offset++) = coloru.mV[3];
 			}
 		}
+	}
+
+	if (!mWaterTexturep->hasGLTexture())
+	{
+		mWaterTexturep->createGLTexture(0, raw);
 	}
 
 	mWaterTexturep->setSubImage(raw, x_begin, y_begin, x_end - x_begin, y_end - y_begin);

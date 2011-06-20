@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  can_resize="true"
  height="500"
  layout="topleft"
  name="floater_test_layout"
+ help_topic="floater_test_layout"
+ translate="false"
  width="500">
     <text
      type="string"

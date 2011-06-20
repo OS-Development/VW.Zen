@@ -2,13 +2,14 @@
 <panel
  border="true"
  follows="top|left"
- height="350"
+ height="320"
+ help_topic="panel_region_covenant_tab"
  label="Covenant"
  layout="topleft"
  left="0"
  name="Covenant"
  top="320"
- width="280">
+ width="480">
     <panel.string
      name="can_resell">
         Purchased land in this region may be resold.
@@ -26,8 +27,6 @@
         Purchased land in this region may not be joined or subdivided.
     </panel.string>
     <text
-     type="string"
-     length="1"
      follows="left|top"
      font="SansSerif"
      height="20"
@@ -40,8 +39,6 @@
         Estate
     </text>
     <text
-     type="string"
-     length="1"
      follows="left|top"
      height="20"
      layout="topleft"
@@ -49,16 +46,14 @@
      mouse_opaque="false"
      name="estate_name_lbl"
      top_pad="5"
-     width="75">
+     width="100">
         Name:
     </text>
     <text
-     type="string"
-     length="1"
      follows="left|top"
      height="20"
      layout="topleft"
-     left_pad="0"
+     left_pad="10"
      mouse_opaque="false"
      name="estate_name_text"
      top_delta="0"
@@ -66,8 +61,6 @@
         mainland
     </text>
     <text
-     type="string"
-     length="1"
      follows="left|top"
      height="20"
      layout="topleft"
@@ -75,116 +68,90 @@
      mouse_opaque="false"
      name="estate_owner_lbl"
      top_pad="5"
-     width="75">
+     width="100">
         Owner:
     </text>
     <text
-     type="string"
-     length="1"
      follows="left|top"
      height="20"
      layout="topleft"
-     left_pad="0"
+     left_pad="10"
      mouse_opaque="false"
      name="estate_owner_text"
      top_delta="0"
      width="150">
         (none)
     </text>
-
-    <text 
-     type="string" 
-     length="1" 
-     follows="left|top"
-     height="20" 
-     layout="topleft"
-     left="10"
-     mouse_opaque="false" 
-     name="estate_cov_lbl" 
-     top_pad="5"
-     width="75">
-        Covenant:
-    </text>
     <text
-     type="string"
-     length="1"
      follows="left|top"
      height="20"
      layout="topleft"
-     left_pad="0"
+     left="10"
+     mouse_opaque="false"
+     name="estate_cov_lbl"
+     top_pad="5"
+     width="100">
+        Covenant:
+    </text>
+    <text
+     follows="left|top"
+     height="20"
+     layout="topleft"
+     left_pad="10"
      mouse_opaque="false"
      name="covenant_timestamp_text"
      top_delta="0"
-     width="167">
+     width="308">
         Last Modified Wed Dec 31 16:00:00 1969
     </text>
-    <button
-     follows="left|top"
-     font="SansSerifSmall"
-     height="18"
-     label="?"
-     layout="topleft"
-     left_pad="5"
-     name="covenant_help"
-     top_delta="-2"
-     width="18" />
-
     <text_editor
-     type="string"
-     length="1"
      enabled="false"
      follows="left|top"
      height="100"
      layout="topleft"
-     left="80"
+     left="110"
      max_length="65535"
      name="covenant_editor"
      top_delta="30"
-     width="193"
+     width="340"
      word_wrap="true">
         There is no Covenant provided for this Estate.
     </text_editor>
     <button
      follows="left|top"
-     font="SansSerifSmall"
      height="18"
      label="Reset"
      layout="topleft"
-     left_delta="75"
+     left_delta="250"
      name="reset_covenant"
      top_pad="5"
      width="90" />
 
     <text
-     type="string"
-     length="1"
      follows="left|top"
      height="20"
      layout="topleft"
-     left="85"
+     left="120"
      name="covenant_help_text"
      top_pad="10"
-     width="190">
-        Changes to the covenant will show
-on all parcels in the estate.
+     word_wrap="true"
+     width="360">
+        Changes to the covenant will show on all parcels in the estate.
     </text>
     <text
-     type="string"
-     length="1"
      follows="left|top"
      height="16"
      layout="topleft"
      left_delta="0"
      name="covenant_instructions"
-     top_pad="15"
-     width="190">
-        Drag and drop a notecard to change
-the Covenant for this Estate.
+     top_pad="5"
+     word_wrap="true"
+     font.style="ITALIC"
+     width="360">
+        Drag and drop a notecard to change the Covenant for this estate.
     </text>
 
     <text
-     type="string"
-     length="1"
      follows="left|top"
      font="SansSerif"
      height="20"
@@ -192,13 +159,11 @@ the Covenant for this Estate.
      left="5"
      mouse_opaque="false"
      name="region_section_lbl"
-     top_pad="10"
+     top_pad="5"
      width="100">
         Region
     </text>
     <text
-     type="string"
-     length="1"
      follows="left|top"
      height="20"
      layout="topleft"
@@ -206,25 +171,21 @@ the Covenant for this Estate.
      mouse_opaque="false"
      name="region_name_lbl"
      top_pad="5"
-     width="75">
+     width="100">
         Name:
     </text>
     <text
-     type="string"
-     length="1"
      follows="left|top"
      height="20"
      layout="topleft"
-     left_pad="0"
+     left_pad="10"
      mouse_opaque="false"
      name="region_name_text"
      top_delta="0"
      width="150">
-        leyla
+        Erica
     </text>
     <text
-     type="string"
-     length="1"
      follows="left|top"
      height="20"
      layout="topleft"
@@ -232,16 +193,14 @@ the Covenant for this Estate.
      mouse_opaque="false"
      name="region_landtype_lbl"
      top_pad="5"
-     width="75">
+     width="100">
         Type:
     </text>
     <text
-     type="string"
-     length="1"
      follows="left|top"
      height="20"
      layout="topleft"
-     left_pad="0"
+     left_pad="10"
      mouse_opaque="false"
      name="region_landtype_text"
      top_delta="0"
@@ -249,8 +208,6 @@ the Covenant for this Estate.
         Mainland / Homestead
     </text>
     <text
-     type="string"
-     length="1"
      follows="left|top"
      height="20"
      layout="topleft"
@@ -258,16 +215,14 @@ the Covenant for this Estate.
      mouse_opaque="false"
      name="region_maturity_lbl"
      top_pad="5"
-     width="75">
+     width="100">
         Rating:
     </text>
     <text
-     type="string"
-     length="1"
      follows="left|top"
      height="20"
      layout="topleft"
-     left_pad="0"
+     left_pad="10"
      mouse_opaque="false"
      name="region_maturity_text"
      top_delta="0"
@@ -275,8 +230,6 @@ the Covenant for this Estate.
         Adult
     </text>
     <text
-     type="string"
-     length="1"
      follows="left|top"
      height="20"
      layout="topleft"
@@ -284,49 +237,41 @@ the Covenant for this Estate.
      mouse_opaque="false"
      name="resellable_lbl"
      top_pad="5"
-     width="75">
+     width="100">
         Resale:
     </text>
     <text
-     type="string"
-     length="1"
      follows="left|top"
      height="20"
      layout="topleft"
-     left_pad="0"
+     left_pad="10"
      mouse_opaque="false"
      name="resellable_clause"
      top_delta="0"
-     width="190">
-        Land in this region may not be
-resold.
+     width="330">
+        Land in this region may not be resold.
     </text>
     <text
-     type="string"
-     length="1"
      follows="left|top"
      height="20"
      layout="topleft"
      left="10"
      mouse_opaque="false"
      name="changeable_lbl"
-     top_pad="10"
-     width="75">
+     top_pad="5"
+     width="100">
         Subdivide:
     </text>
     <text
-     type="string"
-     length="1"
      follows="left|top"
      height="30"
      layout="topleft"
-     left_pad="0"
+     left_pad="10"
      mouse_opaque="false"
      name="changeable_clause"
      top_delta="0"
-     width="190">
-        Land in this region may not be
-joined/subdivided.
+     width="330">
+        Land in this region may not be joined/subdivided.
     </text>
 
 </panel>

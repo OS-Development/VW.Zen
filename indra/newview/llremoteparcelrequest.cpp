@@ -4,31 +4,25 @@
  * @brief Get information about a parcel you aren't standing in to display
  * landmark/teleport information.
  *
- * $LicenseInfo:firstyear=2007&license=viewergpl$
- * 
- * Copyright (c) 2007-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2007&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -36,10 +30,10 @@
 
 #include "message.h"
 
-#include "llpanelplace.h"
 #include "llpanel.h"
 #include "llhttpclient.h"
 #include "llsdserialize.h"
+#include "llurlentry.h"
 #include "llviewerregion.h"
 #include "llview.h"
 
@@ -84,23 +78,20 @@ void LLRemoteParcelRequestResponder::error(U32 status, const std::string& reason
 
 void LLRemoteParcelInfoProcessor::addObserver(const LLUUID& parcel_id, LLRemoteParcelInfoObserver* observer)
 {
-	// Check if the observer is alredy in observsrs list for this UUID
 	observer_multimap_t::iterator it;
+	observer_multimap_t::iterator start = mObservers.lower_bound(parcel_id);
+	observer_multimap_t::iterator end = mObservers.upper_bound(parcel_id);
 
-	it = mObservers.find(parcel_id);
-	while (it != mObservers.end())
+	// Check if the observer is already in observers list for this UUID
+	for(it = start; it != end; ++it)
 	{
-		if (it->second == observer)
+		if (it->second.get() == observer)
 		{
 			return;
 		}
-		else
-		{
-			++it;
-		}
 	}
 
-	mObservers.insert(std::pair<LLUUID, LLRemoteParcelInfoObserver*>(parcel_id, observer));
+	mObservers.insert(std::make_pair(parcel_id, observer->getObserverHandle()));
 }
 
 void LLRemoteParcelInfoProcessor::removeObserver(const LLUUID& parcel_id, LLRemoteParcelInfoObserver* observer)
@@ -111,18 +102,15 @@ void LLRemoteParcelInfoProcessor::removeObserver(const LLUUID& parcel_id, LLRemo
 	}
 
 	observer_multimap_t::iterator it;
+	observer_multimap_t::iterator start = mObservers.lower_bound(parcel_id);
+	observer_multimap_t::iterator end = mObservers.upper_bound(parcel_id);
 
-	it = mObservers.find(parcel_id);
-	while (it != mObservers.end())
+	for(it = start; it != end; ++it)
 	{
-		if (it->second == observer)
+		if (it->second.get() == observer)
 		{
 			mObservers.erase(it);
 			break;
-		}
-		else
-		{
-			++it;
 		}
 	}
 }
@@ -148,15 +136,51 @@ void LLRemoteParcelInfoProcessor::processParcelInfoReply(LLMessageSystem* msg, v
 	msg->getS32		("Data", "SalePrice", parcel_data.sale_price);
 	msg->getS32		("Data", "AuctionID", parcel_data.auction_id);
 
-	LLRemoteParcelInfoProcessor::observer_multimap_t observers = LLRemoteParcelInfoProcessor::getInstance()->mObservers;
+	LLRemoteParcelInfoProcessor::observer_multimap_t & observers = LLRemoteParcelInfoProcessor::getInstance()->mObservers;
 
-	observer_multimap_t::iterator oi = observers.find(parcel_data.parcel_id);
+	typedef std::vector<observer_multimap_t::iterator> deadlist_t;
+	deadlist_t dead_iters;
+
+	observer_multimap_t::iterator oi = observers.lower_bound(parcel_data.parcel_id);
 	observer_multimap_t::iterator end = observers.upper_bound(parcel_data.parcel_id);
-	for (; oi != end; ++oi)
+
+	while (oi != end)
 	{
-		oi->second->processParcelInfo(parcel_data);
-		LLRemoteParcelInfoProcessor::getInstance()->removeObserver(parcel_data.parcel_id, oi->second);
+		// increment the loop iterator now since it may become invalid below
+		observer_multimap_t::iterator cur_oi = oi++;
+
+		LLRemoteParcelInfoObserver * observer = cur_oi->second.get();
+		if(observer)
+		{
+			// may invalidate cur_oi if the observer removes itself 
+			observer->processParcelInfo(parcel_data);
+		}
+		else
+		{
+			// the handle points to an expired observer, so don't keep it
+			// around anymore
+			dead_iters.push_back(cur_oi);
+		}
 	}
+
+	deadlist_t::iterator i;
+	deadlist_t::iterator end_dead = dead_iters.end();
+	for(i = dead_iters.begin(); i != end_dead; ++i)
+	{
+		observers.erase(*i);
+	}
+
+	LLUrlEntryParcel::LLParcelData url_data;
+	url_data.parcel_id = parcel_data.parcel_id;
+	url_data.name = parcel_data.name;
+	url_data.sim_name = parcel_data.sim_name;
+	url_data.global_x = parcel_data.global_x;
+	url_data.global_y = parcel_data.global_y;
+	url_data.global_z = parcel_data.global_z;
+
+	// Pass the parcel data to LLUrlEntryParcel to render
+	// human readable parcel name.
+	LLUrlEntryParcel::processParcelInfo(url_data);
 }
 
 void LLRemoteParcelInfoProcessor::sendParcelInfoRequest(const LLUUID& parcel_id)

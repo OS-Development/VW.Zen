@@ -2,35 +2,35 @@
  * @file llmemory.cpp
  * @brief Very special memory allocation/deallocation stuff here
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
 #include "linden_common.h"
+
+#include "llmemory.h"
+
+#if MEM_TRACK_MEM
+#include "llthread.h"
+#endif
 
 #if defined(LL_WINDOWS)
 # include <windows.h>
@@ -42,8 +42,6 @@
 #elif LL_LINUX || LL_SOLARIS
 # include <unistd.h>
 #endif
-
-#include "llmemory.h"
 
 //----------------------------------------------------------------------------
 
@@ -73,25 +71,6 @@ void LLMemory::freeReserve()
 	reserveMem = NULL;
 }
 
-void* ll_allocate (size_t size)
-{
-	if (size == 0)
-	{
-		llwarns << "Null allocation" << llendl;
-	}
-	void *p = malloc(size);
-	if (p == NULL)
-	{
-		LLMemory::freeReserve();
-		llerrs << "Out of memory Error" << llendl;
-	}
-	return p;
-}
-
-void ll_release (void *p)
-{
-	free(p);
-}
 
 //----------------------------------------------------------------------------
 
@@ -109,6 +88,20 @@ U64 LLMemory::getCurrentRSS()
 	}
 
 	return counters.WorkingSetSize;
+}
+
+//static 
+U32 LLMemory::getWorkingSetSize()
+{
+    PROCESS_MEMORY_COUNTERS pmc ;
+	U32 ret = 0 ;
+
+    if (GetProcessMemoryInfo( GetCurrentProcess(), &pmc, sizeof(pmc)) )
+	{
+		ret = pmc.WorkingSetSize ;
+	}
+
+	return ret ;
 }
 
 #elif defined(LL_DARWIN)
@@ -157,6 +150,11 @@ U64 LLMemory::getCurrentRSS()
 	return residentSize;
 }
 
+U32 LLMemory::getWorkingSetSize()
+{
+	return 0 ;
+}
+
 #elif defined(LL_LINUX)
 
 U64 LLMemory::getCurrentRSS()
@@ -191,6 +189,11 @@ bail:
 	return rss;
 }
 
+U32 LLMemory::getWorkingSetSize()
+{
+	return 0 ;
+}
+
 #elif LL_SOLARIS
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -219,6 +222,12 @@ U64 LLMemory::getCurrentRSS()
 
 	return((U64)proc_psinfo.pr_rssize * 1024);
 }
+
+U32 LLMemory::getWorkingSetSize()
+{
+	return 0 ;
+}
+
 #else
 
 U64 LLMemory::getCurrentRSS()
@@ -226,4 +235,144 @@ U64 LLMemory::getCurrentRSS()
 	return 0;
 }
 
+U32 LLMemory::getWorkingSetSize()
+{
+	return 0 ;
+}
+
 #endif
+
+//--------------------------------------------------------------------------------------------------
+#if MEM_TRACK_MEM
+#include "llframetimer.h"
+
+//static 
+LLMemTracker* LLMemTracker::sInstance = NULL ;
+
+LLMemTracker::LLMemTracker()
+{
+	mLastAllocatedMem = LLMemory::getWorkingSetSize() ;
+	mCapacity = 128 ;	
+	mCurIndex = 0 ;
+	mCounter = 0 ;
+	mDrawnIndex = 0 ;
+	mPaused = FALSE ;
+
+	mMutexp = new LLMutex(NULL) ;
+	mStringBuffer = new char*[128] ;
+	mStringBuffer[0] = new char[mCapacity * 128] ;
+	for(S32 i = 1 ; i < mCapacity ; i++)
+	{
+		mStringBuffer[i] = mStringBuffer[i-1] + 128 ;
+	}
+}
+
+LLMemTracker::~LLMemTracker()
+{
+	delete[] mStringBuffer[0] ;
+	delete[] mStringBuffer;
+	delete mMutexp ;
+}
+
+//static 
+LLMemTracker* LLMemTracker::getInstance()
+{
+	if(!sInstance)
+	{
+		sInstance = new LLMemTracker() ;
+	}
+	return sInstance ;
+}
+
+//static 
+void LLMemTracker::release() 
+{
+	if(sInstance)
+	{
+		delete sInstance ;
+		sInstance = NULL ;
+	}
+}
+
+//static
+void LLMemTracker::track(const char* function, const int line)
+{
+	static const S32 MIN_ALLOCATION = 0 ; //1KB
+
+	if(mPaused)
+	{
+		return ;
+	}
+
+	U32 allocated_mem = LLMemory::getWorkingSetSize() ;
+
+	LLMutexLock lock(mMutexp) ;
+
+	S32 delta_mem = allocated_mem - mLastAllocatedMem ;
+	mLastAllocatedMem = allocated_mem ;
+
+	if(delta_mem <= 0)
+	{
+		return ; //occupied memory does not grow
+	}
+
+	if(delta_mem < MIN_ALLOCATION)
+	{
+		return ;
+	}
+		
+	char* buffer = mStringBuffer[mCurIndex++] ;
+	F32 time = (F32)LLFrameTimer::getElapsedSeconds() ;
+	S32 hours = (S32)(time / (60*60));
+	S32 mins = (S32)((time - hours*(60*60)) / 60);
+	S32 secs = (S32)((time - hours*(60*60) - mins*60));
+	strcpy(buffer, function) ;
+	sprintf(buffer + strlen(function), " line: %d DeltaMem: %d (bytes) Time: %d:%02d:%02d", line, delta_mem, hours,mins,secs) ;
+
+	if(mCounter < mCapacity)
+	{
+		mCounter++ ;
+	}
+	if(mCurIndex >= mCapacity)
+	{
+		mCurIndex = 0 ;		
+	}
+}
+
+
+//static 
+void LLMemTracker::preDraw(BOOL pause) 
+{
+	mMutexp->lock() ;
+
+	mPaused = pause ;
+	mDrawnIndex = mCurIndex - 1;
+	mNumOfDrawn = 0 ;
+}
+	
+//static 
+void LLMemTracker::postDraw() 
+{
+	mMutexp->unlock() ;
+}
+
+//static 
+const char* LLMemTracker::getNextLine() 
+{
+	if(mNumOfDrawn >= mCounter)
+	{
+		return NULL ;
+	}
+	mNumOfDrawn++;
+
+	if(mDrawnIndex < 0)
+	{
+		mDrawnIndex = mCapacity - 1 ;
+	}
+
+	return mStringBuffer[mDrawnIndex--] ;
+}
+
+#endif //MEM_TRACK_MEM
+//--------------------------------------------------------------------------------------------------
+

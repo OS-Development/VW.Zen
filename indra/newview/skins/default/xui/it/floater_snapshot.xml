@@ -1,79 +1,75 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<floater name="Snapshot" title="Anteprima della fotografia" width="247">
-	<text name="type_label">
-		Destinazione della fotografia
-	</text>
-	<radio_group label="Tipo di fotografia" name="snapshot_type_radio" width="228">
-		<radio_item name="postcard" label="Invia via email" />
-		<radio_item name="texture" label="Salva nel tuo inventario ([AMOUNT] L$)" />
-		<radio_item name="local" label="Salva sul tuo pc" />
+<floater name="Snapshot" title="ANTEPRIMA FOTOGRAFIA" width="247">
+	<floater.string name="unknown">
+		sconosciuto
+	</floater.string>
+	<radio_group label="Tipo di fotografia" name="snapshot_type_radio">
+		<radio_item label="E-mail" name="postcard"/>
+		<radio_item label="Il mio inventario (L$[AMOUNT])" name="texture"/>
+		<radio_item label="Salva sul mio computer" name="local"/>
 	</radio_group>
 	<text name="file_size_label">
-		Grandezza del file: [SIZE] KB
+		[SIZE] KB
 	</text>
 	<button label="Aggiorna la fotografia" name="new_snapshot_btn"/>
 	<button label="Invia" name="send_btn"/>
 	<button label="Salva ([AMOUNT] L$)" name="upload_btn"/>
-	<flyout_button label="Salva" name="save_btn" tool_tip="Salva l&apos;immagine come file" >
-		<flyout_button_item name="save_item" label="Salva"/>
-		<flyout_button_item name="saveas_item" label="Salva come..."/>
+	<flyout_button label="Salva" name="save_btn" tool_tip="Salva immagine come file">
+		<flyout_button.item label="Salva" name="save_item"/>
+		<flyout_button.item label="Salva con nome..." name="saveas_item"/>
 	</flyout_button>
+	<button label="Altro" name="more_btn" tool_tip="Opzioni Avanzate"/>
+	<button label="Meno" name="less_btn" tool_tip="Opzioni Avanzate"/>
 	<button label="Annulla" name="discard_btn"/>
-	<button label="Espandi &gt;&gt;" name="more_btn" tool_tip="Opzioni avanzate"/>
-	<button label="&lt;&lt; Diminuisci" name="less_btn" tool_tip="Opzioni avanzate"/>
 	<text name="type_label2">
-		Grandezza
+		Dimensioni
 	</text>
 	<text name="format_label">
 		Formato
 	</text>
 	<combo_box label="Risoluzione" name="postcard_size_combo">
-		<combo_box.item name="CurrentWindow" label="Finestra corrente"/>
-		<combo_box.item name="640x480" label="640x480"/>
-		<combo_box.item name="800x600" label="800x600"/>
-		<combo_box.item name="1024x768" label="1024x768"/>
-		<combo_box.item name="Custom" label="Personalizzata"/>
+		<combo_box.item label="Finestra attuale" name="CurrentWindow"/>
+		<combo_box.item label="640x480" name="640x480"/>
+		<combo_box.item label="800x600" name="800x600"/>
+		<combo_box.item label="1024x768" name="1024x768"/>
+		<combo_box.item label="Personalizza" name="Custom"/>
 	</combo_box>
 	<combo_box label="Risoluzione" name="texture_size_combo">
-		<combo_box.item name="CurrentWindow" label="Finestra corrente"/>
-		<combo_box.item name="Small(128x128)" label="Piccola (128x128)"/>
-		<combo_box.item name="Medium(256x256)" label="Media (256x256)"/>
-		<combo_box.item name="Large(512x512)" label="Larga (512x512)"/>
-		<combo_box.item name="Custom" label="Personalizzata"/>
+		<combo_box.item label="Finestra attuale" name="CurrentWindow"/>
+		<combo_box.item label="Piccola (128x128)" name="Small(128x128)"/>
+		<combo_box.item label="Media (256x256)" name="Medium(256x256)"/>
+		<combo_box.item label="Grande (512x512)" name="Large(512x512)"/>
+		<combo_box.item label="Personalizza" name="Custom"/>
 	</combo_box>
 	<combo_box label="Risoluzione" name="local_size_combo">
-		<combo_box.item name="CurrentWindow" label="Finestra corrente"/>
-		<combo_box.item name="320x240" label="320x240"/>
-		<combo_box.item name="640x480" label="640x480"/>
-		<combo_box.item name="800x600" label="800x600"/>
-		<combo_box.item name="1024x768" label="1024x768"/>
-		<combo_box.item name="1280x1024" label="1280x1024"/>
-		<combo_box.item name="1600x1200" label="1600x1200"/>
-		<combo_box.item name="Custom" label="Personalizzata"/>
+		<combo_box.item label="Finestra attuale" name="CurrentWindow"/>
+		<combo_box.item label="320x240" name="320x240"/>
+		<combo_box.item label="640x480" name="640x480"/>
+		<combo_box.item label="800x600" name="800x600"/>
+		<combo_box.item label="1024x768" name="1024x768"/>
+		<combo_box.item label="1280x1024" name="1280x1024"/>
+		<combo_box.item label="1600x1200" name="1600x1200"/>
+		<combo_box.item label="Personalizza" name="Custom"/>
 	</combo_box>
 	<combo_box label="Formato" name="local_format_combo">
-		<combo_box.item name="PNG" label="PNG"/>
-		<combo_box.item name="JPEG" label="JPEG"/>
-		<combo_box.item name="BMP" label="BMP"/>
+		<combo_box.item label="PNG" name="PNG"/>
+		<combo_box.item label="JPEG" name="JPEG"/>
+		<combo_box.item label="BMP" name="BMP"/>
 	</combo_box>
-	<spinner label="Larghezza" name="snapshot_width" label_width="58" width="116"/>
-	<spinner label="Altezza" name="snapshot_height" label_width="41" width="101" left="130"/>
+	<spinner label="Larghezza" name="snapshot_width"/>
+	<spinner label="Altezza" name="snapshot_height"/>
 	<check_box label="Mantieni le proporzioni" name="keep_aspect_check"/>
-	<slider label="Qualità d&apos;immagine" name="image_quality_slider"/>
-	<text name="layer_type_label" width="55">
-		Fotografa:
+	<slider label="Qualità dell&apos;immagine" name="image_quality_slider"/>
+	<text name="layer_type_label">
+		Cattura:
 	</text>
-	<combo_box label="Layer dell&apos;immagine" name="layer_types" left="68" width="165">
-		<combo_box.item name="Colors" label="Colori"/>
-		<combo_box.item name="Depth" label="Profondità"/>
-		<combo_box.item name="ObjectMattes" label="Colori primari degli oggetti"/>
+	<combo_box label="Layer dell&apos;immagine" name="layer_types">
+		<combo_box.item label="Colori" name="Colors"/>
+		<combo_box.item label="Profondità" name="Depth"/>
 	</combo_box>
-	<check_box label="Mostra l&apos;interfaccia nella fotografia" name="ui_check"/>
-	<check_box bottom_delta="-17" label="Mostra i dispositivi indossati nella foto" name="hud_check"/>
-	<check_box bottom_delta="-17" label="Mantieni aperto dopo aver salvato" name="keep_open_check"/>
-	<check_box bottom_delta="-17" label="Blocca l&apos;anteprima &#10;(Anteprima a schermo intero)" name="freeze_frame_check"/>
-	<check_box bottom_delta="-29" label="Auto-Aggiorna" name="auto_snapshot_check"/>
-	<string name="unknown">
-		sconosciuto
-	</string>
+	<check_box label="Interfaccia" name="ui_check"/>
+	<check_box label="HUD" name="hud_check"/>
+	<check_box label="Tieni aperta dopo il salvataggio" name="keep_open_check"/>
+	<check_box label="Congela il frame (tutto schermo)" name="freeze_frame_check"/>
+	<check_box label="Aggiornamento automatico" name="auto_snapshot_check"/>
 </floater>

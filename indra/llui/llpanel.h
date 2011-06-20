@@ -3,31 +3,25 @@
  * @author James Cook, Tom Yedwab
  * @brief LLPanel base class
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -37,9 +31,8 @@
 
 #include "llcallbackmap.h"
 #include "lluictrl.h"
-#include "llbutton.h"
-#include "lllineeditor.h"
 #include "llviewborder.h"
+#include "lluiimage.h"
 #include "lluistring.h"
 #include "v4color.h"
 #include <list>
@@ -49,6 +42,8 @@ const S32 LLPANEL_BORDER_WIDTH = 1;
 const BOOL BORDER_YES = TRUE;
 const BOOL BORDER_NO = FALSE;
 
+class LLButton;
+class LLUIImage;
 
 /*
  * General purpose concrete view base class.
@@ -62,12 +57,9 @@ public:
 	struct LocalizedString : public LLInitParam::Block<LocalizedString>
 	{
 		Mandatory<std::string>	name;
-		Mandatory<std::string>	text;
+		Mandatory<std::string>	value;
 		
-		LocalizedString()
-		:	name("name"),
-			text("value")
-		{}
+		LocalizedString();
 	};
 
 	struct Params 
@@ -76,20 +68,28 @@ public:
 		Optional<bool>			has_border;
 		Optional<LLViewBorder::Params>	border;
 
-		Optional<LLUIColor>		bg_opaque_color,
-								bg_alpha_color;
-
 		Optional<bool>			background_visible,
 								background_opaque;
+
+		Optional<LLUIColor>		bg_opaque_color,
+								bg_alpha_color,
+								bg_opaque_image_overlay,
+								bg_alpha_image_overlay;
+		// opaque image is for "panel in foreground" look
+		Optional<LLUIImage*>	bg_opaque_image,
+								bg_alpha_image;
 
 		Optional<S32>			min_width,
 								min_height;
 
 		Optional<std::string>	filename;
 		Optional<std::string>	class_name;
+		Optional<std::string>   help_topic;
 
 		Multiple<LocalizedString>	strings;
-
+		
+		Optional<CommitCallbackParam> visible_callback;
+		
 		Params();
 	};
 
@@ -105,16 +105,17 @@ protected:
 	LLPanel(const LLPanel::Params& params = getDefaultParams());
 	
 public:
-// 	LLPanel(const std::string& name, const LLRect& rect = LLRect(), BOOL bordered = TRUE);
-	/*virtual*/ ~LLPanel() {}
+	BOOL buildFromFile(const std::string &filename, LLXMLNodePtr output_node = NULL, const LLPanel::Params&default_params = getDefaultParams());
+
+	static LLPanel* createFactoryPanel(const std::string& name);
+
+	/*virtual*/ ~LLPanel();
 
 	// LLView interface
 	/*virtual*/ BOOL 	isPanel() const;
 	/*virtual*/ void	draw();	
 	/*virtual*/ BOOL	handleKeyHere( KEY key, MASK mask );
-
-	// Override to set not found list:
-	/*virtual*/ LLView* getChildView(const std::string& name, BOOL recurse = TRUE, BOOL create_if_missing = TRUE) const;
+	/*virtual*/ void 	handleVisibilityChange ( BOOL new_visibility );
 
 	// From LLFocusableElement
 	/*virtual*/ void	setFocus( BOOL b );
@@ -130,23 +131,14 @@ public:
 	BOOL			hasBorder() const { return mBorder != NULL; }
 	void			setBorderVisible( BOOL b );
 
-	template <class T> void requires(const std::string& name)
-	{
-		// check for widget with matching type and name
-		if (LLView::getChild<T>(name) == NULL)
-		{
-			mRequirementsError += name + "\n";
-		}
-	}
-	
-	// requires LLView by default
-	void requires(const std::string& name);
-	BOOL			checkRequirements();
-
-	void			setBackgroundColor( const LLColor4& color ) { mBgColorOpaque = color; }
-	const LLColor4&	getBackgroundColor() const { return mBgColorOpaque; }
-	void			setTransparentColor(const LLColor4& color) { mBgColorAlpha = color; }
-	const LLColor4& getTransparentColor() const { return mBgColorAlpha; }
+	void			setBackgroundColor( const LLColor4& color ) { mBgOpaqueColor = color; }
+	const LLColor4&	getBackgroundColor() const { return mBgOpaqueColor; }
+	void			setTransparentColor(const LLColor4& color) { mBgAlphaColor = color; }
+	const LLColor4& getTransparentColor() const { return mBgAlphaColor; }
+	LLPointer<LLUIImage> getBackgroundImage() const { return mBgOpaqueImage; }
+	LLPointer<LLUIImage> getTransparentImage() const { return mBgAlphaImage; }
+	LLColor4		getBackgroundImageOverlay() { return mBgOpaqueImageOverlay; }
+	LLColor4		getTransparentImageOverlay() { return mBgAlphaImageOverlay; }
 	void			setBackgroundVisible( BOOL b )	{ mBgVisible = b; }
 	BOOL			isBackgroundVisible() const { return mBgVisible; }
 	void			setBackgroundOpaque(BOOL b)		{ mBgOpaque = b; }
@@ -156,6 +148,8 @@ public:
 	void			updateDefaultBtn();
 	void			setLabel(const LLStringExplicit& label) { mLabel = label; }
 	std::string		getLabel() const { return mLabel; }
+	void			setHelpTopic(const std::string& help_topic) { mHelpTopic = help_topic; }
+	std::string		getHelpTopic() const { return mHelpTopic; }
 	
 	void			setCtrlsEnabled(BOOL b);
 
@@ -167,13 +161,14 @@ public:
 	EnableCallbackRegistry::ScopedRegistrar& getEnableCallbackRegistrar() { return mEnableCallbackRegistrar; }
 	
 	void initFromParams(const Params& p);
-	BOOL initPanelXML(LLXMLNodePtr node, LLView *parent, LLXMLNodePtr output_node = NULL);
+	BOOL initPanelXML(	LLXMLNodePtr node, LLView *parent, LLXMLNodePtr output_node, const LLPanel::Params& default_params);
 	
 	bool hasString(const std::string& name);
 	std::string getString(const std::string& name, const LLStringUtil::format_map_t& args) const;
 	std::string getString(const std::string& name) const;
 
 	// ** Wrappers for setting child properties by name ** -TomY
+	// WARNING: These are deprecated, please use getChild<T>("name")->doStuff() idiom instead
 
 	// LLView
 	void childSetVisible(const std::string& name, bool visible);
@@ -196,7 +191,11 @@ public:
 	BOOL childHasFocus(const std::string& id);
 	
 	// *TODO: Deprecate; for backwards compatability only:
+	// Prefer getChild<LLUICtrl>("foo")->setCommitCallback(boost:bind(...)),
+	// which takes a generic slot.  Or use mCommitCallbackRegistrar.add() with
+	// a named callback and reference it in XML.
 	void childSetCommitCallback(const std::string& id, boost::function<void (LLUICtrl*,void*)> cb, void* data);	
+	
 	void childSetValidate(const std::string& id, boost::function<bool (const LLSD& data)> cb );
 
 	void childSetColor(const std::string& id, const LLColor4& color);
@@ -219,8 +218,9 @@ public:
 	void childShowTab(const std::string& id, const std::string& tabname, bool visible = true);
 	LLPanel *childGetVisibleTab(const std::string& id) const;
 
-	// LLTextBox
-	void childSetWrappedText(const std::string& id, const std::string& text, bool visible = true);
+	// Find a child with a nonempty Help topic 
+	LLPanel *childGetVisibleTabWithHelp();
+	LLPanel *childGetVisiblePanelWithHelp();
 
 	// LLTextBox/LLTextEditor/LLLineEditor
 	void childSetText(const std::string& id, const LLStringExplicit& text) { childSetValue(id, LLSD(text)); }
@@ -229,42 +229,49 @@ public:
 	std::string childGetText(const std::string& id) const { return childGetValue(id).asString(); }
 
 	// LLLineEditor
-	void childSetPrevalidate(const std::string& id, BOOL (*func)(const LLWString &) );
+	void childSetPrevalidate(const std::string& id, bool (*func)(const LLWString &) );
 
 	// LLButton
-	void childSetAction(const std::string& id, boost::function<void(void*)> function, void* value = NULL);
+	void childSetAction(const std::string& id, boost::function<void(void*)> function, void* value);
+	void childSetAction(const std::string& id, const commit_signal_t::slot_type& function);
 
 	// LLTextBox
 	void childSetActionTextbox(const std::string& id, boost::function<void(void*)> function, void* value = NULL);
 
 	void childSetControlName(const std::string& id, const std::string& control_name);
 
-	// Error reporting
-	void childNotFound(const std::string& id) const;
-	void childDisplayNotFound();
-
 	static LLView*	fromXML(LLXMLNodePtr node, LLView *parent, LLXMLNodePtr output_node = NULL);
 
 	//call onOpen to let panel know when it's about to be shown or activated
 	virtual void	onOpen(const LLSD& key) {}
+
+	void setXMLFilename(std::string filename) { mXMLFilename = filename; };
+	std::string getXMLFilename() { return mXMLFilename; };
 	
+	boost::signals2::connection setVisibleCallback( const commit_signal_t::slot_type& cb );
+
 protected:
 	// Override to set not found list
 	LLButton*		getDefaultButton() { return mDefaultBtn; }
 	LLCallbackMap::map_t mFactoryMap;
 	CommitCallbackRegistry::ScopedRegistrar mCommitCallbackRegistrar;
 	EnableCallbackRegistry::ScopedRegistrar mEnableCallbackRegistrar;
+
+	commit_signal_t* mVisibleSignal;		// Called when visibility changes, passes new visibility as LLSD()
+
+	std::string		mHelpTopic;         // the name of this panel's help topic to display in the Help Viewer
+	typedef std::deque<const LLCallbackMap::map_t*> factory_stack_t;
+	static factory_stack_t	sFactoryStack;
 	
 private:
-	// Unified error reporting for the child* functions
-	typedef std::set<std::string> expected_members_list_t;
-	mutable expected_members_list_t mExpectedMembers;
-	mutable expected_members_list_t mNewExpectedMembers;
-
-	LLColor4		mBgColorAlpha;
-	LLColor4		mBgColorOpaque;
-	BOOL			mBgVisible;
-	BOOL			mBgOpaque;
+	BOOL			mBgVisible;				// any background at all?
+	BOOL			mBgOpaque;				// use opaque color or image
+	LLUIColor		mBgOpaqueColor;
+	LLUIColor		mBgAlphaColor;
+	LLUIColor		mBgOpaqueImageOverlay;
+	LLUIColor		mBgAlphaImageOverlay;
+	LLPointer<LLUIImage> mBgOpaqueImage;	// "panel in front" look
+	LLPointer<LLUIImage> mBgAlphaImage;		// "panel in back" look
 	LLViewBorder*	mBorder;
 	LLButton*		mDefaultBtn;
 	LLUIString		mLabel;
@@ -273,8 +280,68 @@ private:
 	typedef std::map<std::string, std::string> ui_string_map_t;
 	ui_string_map_t	mUIStrings;
 
-	std::string		mRequirementsError;
+	// for setting the xml filename when building panel in context dependent cases
+	std::string		mXMLFilename;
 
 }; // end class LLPanel
+
+// Build time optimization, generate once in .cpp file
+#ifndef LLPANEL_CPP
+extern template class LLPanel* LLView::getChild<class LLPanel>(
+	const std::string& name, BOOL recurse) const;
+#endif
+
+typedef boost::function<LLPanel* (void)> LLPanelClassCreatorFunc;
+
+// local static instance for registering a particular panel class
+
+class LLRegisterPanelClass
+:	public LLSingleton< LLRegisterPanelClass >
+{
+public:
+	// reigister with either the provided builder, or the generic templated builder
+	void addPanelClass(const std::string& tag,LLPanelClassCreatorFunc func)
+	{
+		mPanelClassesNames[tag] = func;
+	}
+
+	LLPanel* createPanelClass(const std::string& tag)
+	{
+		param_name_map_t::iterator iT =  mPanelClassesNames.find(tag);
+		if(iT == mPanelClassesNames.end())
+			return 0;
+		return iT->second();
+	}
+	template<typename T>
+	static T* defaultPanelClassBuilder()
+	{
+		T* pT = new T();
+		return pT;
+	}
+
+private:
+	typedef std::map< std::string, LLPanelClassCreatorFunc> param_name_map_t;
+	
+	param_name_map_t mPanelClassesNames;
+};
+
+
+// local static instance for registering a particular panel class
+template<typename T>
+class LLRegisterPanelClassWrapper
+:	public LLRegisterPanelClass
+{
+public:
+	// reigister with either the provided builder, or the generic templated builder
+	LLRegisterPanelClassWrapper(const std::string& tag);
+};
+
+
+template<typename T>
+LLRegisterPanelClassWrapper<T>::LLRegisterPanelClassWrapper(const std::string& tag) 
+{
+	LLRegisterPanelClass::instance().addPanelClass(tag,&LLRegisterPanelClass::defaultPanelClassBuilder<T>);
+}
+
 
 #endif

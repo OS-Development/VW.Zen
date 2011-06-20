@@ -2,31 +2,25 @@
  * @file llfloaterchat.cpp
  * @brief LLFloaterChat class implementation
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -37,17 +31,15 @@
 
 #include "llviewerprecompiledheaders.h"
 
-#include "llfloaterchat.h"
-
 // project include
 #include "llagent.h"
+#include "llappviewer.h"
 #include "llbutton.h"
 #include "llcheckboxctrl.h"
 #include "llcombobox.h"
 #include "llconsole.h"
 #include "llfloateractivespeakers.h"
 #include "llfloaterchatterbox.h"
-#include "llfloatermute.h"
 #include "llfloaterreg.h"
 #include "llfloaterscriptdebug.h"
 #include "llkeyboard.h"
@@ -56,6 +48,8 @@
 //#include "llresizehandle.h"
 #include "llchatbar.h"
 #include "llrecentpeople.h"
+#include "llpanelblockedlist.h"
+#include "llslurl.h"
 #include "llstatusbar.h"
 #include "llviewertexteditor.h"
 #include "llviewergesture.h"			// for triggering gestures
@@ -63,16 +57,14 @@
 #include "llviewerwindow.h"
 #include "llviewercontrol.h"
 #include "lluictrlfactory.h"
-#include "llchatbar.h"
 #include "lllogchat.h"
 #include "lltexteditor.h"
 #include "lltextparser.h"
-#include "llfloaterhtml.h"
 #include "llweb.h"
 #include "llstylemap.h"
 
 // linden library includes
-#include "audioengine.h"
+#include "llaudioengine.h"
 #include "llchat.h"
 #include "llfontgl.h"
 #include "llrect.h"
@@ -86,6 +78,7 @@
 //
 const F32 INSTANT_MSG_SIZE = 8.0f;
 const F32 CHAT_MSG_SIZE = 8.0f;
+
 
 //
 // Global statics
@@ -110,11 +103,6 @@ LLFloaterChat::~LLFloaterChat()
 	// Children all cleaned up by default view destructor.
 }
 
-void LLFloaterChat::setVisible(BOOL visible)
-{
-	LLFloater::setVisible( visible );
-}
-
 void LLFloaterChat::draw()
 {
 	// enable say and shout only when text available
@@ -133,13 +121,10 @@ void LLFloaterChat::draw()
 
 BOOL LLFloaterChat::postBuild()
 {
+	// Hide the chat overlay when our history is visible.
+	setVisibleCallback(boost::bind(&LLFloaterChat::updateConsoleVisibility, this));
+	
 	mPanel = (LLPanelActiveSpeakers*)getChild<LLPanel>("active_speakers_panel");
-
-	LLChatBar* chat_barp = findChild<LLChatBar>("chat_panel", TRUE);
-	if (chat_barp)
-	{
-		chat_barp->setGestureCombo(getChild<LLComboBox>( "Gesture"));
-	}
 
 	childSetCommitCallback("show mutes",onClickToggleShowMute,this); //show mutes
 	childSetVisible("Chat History Editor with mute",FALSE);
@@ -148,36 +133,12 @@ BOOL LLFloaterChat::postBuild()
 	return TRUE;
 }
 
-// public virtual
-void LLFloaterChat::onClose(bool app_quitting)
-{
-	if (getHost())
-	{
-		getHost()->setVisible(FALSE);
-	}
-	else
-	{
-		setVisible(FALSE);
-	}
-}
-
-void LLFloaterChat::onVisibilityChange(BOOL new_visibility)
-{
-	// Hide the chat overlay when our history is visible.
-	updateConsoleVisibility();
-
-	LLFloater::onVisibilityChange(new_visibility);
-}
-
-void LLFloaterChat::setMinimized(BOOL minimized)
-{
-	LLFloater::setMinimized(minimized);
-	updateConsoleVisibility();
-}
-
-
 void LLFloaterChat::updateConsoleVisibility()
 {
+	if(gDisconnected)
+	{
+		return;
+	}
 	// determine whether we should show console due to not being visible
 	gConsole->setVisible( !isInVisibleChain()								// are we not in part of UI being drawn?
 							|| isMinimized()								// are we minimized?
@@ -199,7 +160,7 @@ void add_timestamped_line(LLViewerTextEditor* edit, LLChat chat, const LLColor4&
 	if (chat.mSourceType == CHAT_SOURCE_AGENT &&
 		chat.mFromID != LLUUID::null)
 	{
-		chat.mURL = llformat("secondlife:///app/agent/%s/about",chat.mFromID.asString().c_str());
+		chat.mURL = LLSLURL("agent", chat.mFromID, "inspect").getSLURLString();
 	}
 
 	// If the chat line has an associated url, link it up to the name.
@@ -208,29 +169,27 @@ void add_timestamped_line(LLViewerTextEditor* edit, LLChat chat, const LLColor4&
 	{
 		std::string start_line = line.substr(0, chat.mFromName.length() + 1);
 		line = line.substr(chat.mFromName.length() + 1);
-		const LLStyleSP &sourceStyle = LLStyleMap::instance().lookup(chat.mFromID,chat.mURL);
-		edit->appendStyledText(start_line, false, prepend_newline, sourceStyle);
+		edit->appendText(start_line, prepend_newline, LLStyleMap::instance().lookup(chat.mFromID,chat.mURL));
+		edit->blockUndo();
 		prepend_newline = false;
 	}
-	edit->appendColoredText(line, false, prepend_newline, color);
+	edit->appendText(line, prepend_newline, LLStyle::Params().color(color));
+	edit->blockUndo();
 }
 
-void log_chat_text(const LLChat& chat)
-{
-		std::string histstr;
-		if (gSavedPerAccountSettings.getBOOL("LogChatTimestamp"))
-			histstr = LLLogChat::timestamp(gSavedPerAccountSettings.getBOOL("LogTimestampDate")) + chat.mText;
-		else
-			histstr = chat.mText;
-
-		LLLogChat::saveHistory(std::string("chat"),histstr);
-}
 // static
 void LLFloaterChat::addChatHistory(const LLChat& chat, bool log_to_file)
 {	
-	if ( gSavedPerAccountSettings.getBOOL("LogChat") && log_to_file) 
+	if (log_to_file && (gSavedPerAccountSettings.getBOOL("LogChat"))) 
 	{
-		log_chat_text(chat);
+		if (chat.mChatType != CHAT_TYPE_WHISPER && chat.mChatType != CHAT_TYPE_SHOUT)
+		{
+			LLLogChat::saveHistory("chat", chat.mFromName, chat.mFromID, chat.mText);
+		}
+		else
+		{
+			LLLogChat::saveHistory("chat", "", chat.mFromID, chat.mFromName + " " + chat.mText);
+		}
 	}
 	
 	LLColor4 color = get_text_color(chat);
@@ -239,12 +198,14 @@ void LLFloaterChat::addChatHistory(const LLChat& chat, bool log_to_file)
 
 	if (chat.mChatType == CHAT_TYPE_DEBUG_MSG)
 	{
-		LLFloaterScriptDebug::addScriptLine(chat.mText,
-											chat.mFromName, 
-											color, 
-											chat.mFromID);
-		if (!gSavedSettings.getBOOL("ScriptErrorsAsChat"))
+		if(gSavedSettings.getBOOL("ShowScriptErrors") == FALSE)
+			return;
+		if (gSavedSettings.getS32("ShowScriptErrorsLocation") == 1)
 		{
+			LLFloaterScriptDebug::addScriptLine(chat.mText,
+												chat.mFromName, 
+												color, 
+												chat.mFromID);
 			return;
 		}
 	}
@@ -254,12 +215,6 @@ void LLFloaterChat::addChatHistory(const LLChat& chat, bool log_to_file)
 	LLViewerTextEditor*	history_editor = chat_floater->getChild<LLViewerTextEditor>("Chat History Editor");
 	LLViewerTextEditor*	history_editor_with_mute = chat_floater->getChild<LLViewerTextEditor>("Chat History Editor with mute");
 
-	history_editor->setParseHTML(TRUE);
-	history_editor_with_mute->setParseHTML(TRUE);
-	
-	history_editor->setParseHighlights(TRUE);
-	history_editor_with_mute->setParseHighlights(TRUE);
-	
 	if (!chat.mMuted)
 	{
 		add_timestamped_line(history_editor, chat, color);
@@ -317,7 +272,7 @@ void LLFloaterChat::onClickMute(void *data)
 	LLMute mute(id);
 	mute.setFromDisplayName(name);
 	LLMuteList::getInstance()->add(mute);
-	LLFloaterReg::showInstance("mute");
+	LLPanelBlockedList::showPanelAndSelect(mute.mID);
 }
 
 //static
@@ -350,52 +305,17 @@ void LLFloaterChat::onClickToggleShowMute(LLUICtrl* caller, void *data)
 }
 
 // Put a line of chat in all the right places
-void LLFloaterChat::addChat(const LLChat& chat, 
-			  BOOL from_instant_message, 
-			  BOOL local_agent)
+void LLFloaterChat::addChat(const LLChat& chat, BOOL local_agent)
 {
-	LLColor4 text_color = get_text_color(chat);
-
-	BOOL invisible_script_debug_chat = 
-			chat.mChatType == CHAT_TYPE_DEBUG_MSG
-			&& !gSavedSettings.getBOOL("ScriptErrorsAsChat");
-
-	if (!invisible_script_debug_chat 
-		&& !chat.mMuted 
-		&& gConsole 
-		&& !local_agent)
-	{
-		F32 size = CHAT_MSG_SIZE;
-		if (chat.mSourceType == CHAT_SOURCE_SYSTEM)
-		{
-			text_color = LLUIColorTable::instance().getColor("SystemChatColor");
-		}
-		else if(from_instant_message)
-		{
-			text_color = LLUIColorTable::instance().getColor("IMChatColor");
-			size = INSTANT_MSG_SIZE;
-		}
-		// We display anything if it's not an IM. If it's an IM, check pref...
-		if	( !from_instant_message || gSavedSettings.getBOOL("IMInChatConsole") ) 
-		{
-			gConsole->addLine(chat.mText, size, text_color);
-		}
-	}
-
-	if(from_instant_message && gSavedPerAccountSettings.getBOOL("LogChatIM"))
-		log_chat_text(chat);
-	
-	if(from_instant_message && gSavedSettings.getBOOL("IMInChatHistory")) 	 
-		addChatHistory(chat,false);
-
 	triggerAlerts(chat.mText);
 
 	// Add the sender to the list of people with which we've recently interacted.
-	if(chat.mSourceType == CHAT_SOURCE_AGENT && chat.mFromID.notNull())
-		LLRecentPeople::instance().add(chat.mFromID);
-
-	if(!from_instant_message)
-		addChatHistory(chat);
+	// this is not the best place to add _all_ messages to recent list
+	// comment this for now, may remove later on code cleanup
+	//if(chat.mSourceType == CHAT_SOURCE_AGENT && chat.mFromID.notNull())
+	//	LLRecentPeople::instance().add(chat.mFromID);
+	
+	addChatHistory(chat, true);
 }
 
 // Moved from lltextparser.cpp to break llui/llaudio library dependency.
@@ -493,8 +413,9 @@ LLColor4 get_text_color(const LLChat& chat)
 		if (!chat.mPosAgent.isExactlyZero())
 		{
 			LLVector3 pos_agent = gAgent.getPositionAgent();
-			F32 distance = dist_vec(pos_agent, chat.mPosAgent);
-			if (distance > gAgent.getNearChatRadius())
+			F32 distance_squared = dist_vec_squared(pos_agent, chat.mPosAgent);
+			F32 dist_near_chat = gAgent.getNearChatRadius();
+			if (distance_squared > dist_near_chat * dist_near_chat)
 			{
 				// diminish far-off chat
 				text_color.mV[VALPHA] = 0.8f;
@@ -512,7 +433,7 @@ void LLFloaterChat::loadHistory()
 }
 
 //static
-void LLFloaterChat::chatFromLogFile(LLLogChat::ELogLineType type , std::string line, void* userdata)
+void LLFloaterChat::chatFromLogFile(LLLogChat::ELogLineType type , const LLSD& line, void* userdata)
 {
 	switch (type)
 	{
@@ -521,9 +442,10 @@ void LLFloaterChat::chatFromLogFile(LLLogChat::ELogLineType type , std::string l
 		// *TODO: nice message from XML file here
 		break;
 	case LLLogChat::LOG_LINE:
+	case LLLogChat::LOG_LLSD:
 		{
 			LLChat chat;					
-			chat.mText = line;
+			chat.mText = line["message"].asString();
 			get_text_color(chat);
 			addChatHistory(chat,  FALSE);
 		}

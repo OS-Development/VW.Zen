@@ -1,53 +1,58 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <panel label="Text-Chat" name="chat">
-	<text length="1" name="text_box" type="string">
-		Chat-Schriftgröße:
+	<text name="font_size">
+		Schriftgröße:
 	</text>
 	<radio_group name="chat_font_size">
-		<radio_item length="1" name="radio" type="string" label="Klein" />
-		<radio_item length="1" name="radio2" type="string" label="Mittel" />
-		<radio_item length="1" name="radio3" type="string" label="Groß" />
+		<radio_item label="Klein" name="radio" value="0"/>
+		<radio_item label="Mittel" name="radio2" value="1"/>
+		<radio_item label="Groß" name="radio3" value="2"/>
 	</radio_group>
-	<text length="1" name="text_box2" type="string">
-		Chat-Farbe:
+	<check_box initial_value="true" label="Beim Chatten Tippanimation abspielen" name="play_typing_animation"/>
+	<check_box label="IMs per Email zuschicken, wenn ich offline bin" name="send_im_to_email"/>
+	<check_box label="Kompakten IM- und Text-Chatverlauf aktivieren" name="plain_text_chat_history"/>
+	<check_box label="Blasen-Chat" name="bubble_text_chat"/>
+	<text name="show_ims_in_label">
+		IMs anzeigen in:
 	</text>
-	<color_swatch label="Sie" name="user"/>
-	<color_swatch label="Andere" name="agent"/>
-	<color_swatch label="IM" name="im"/>
-	<color_swatch label="System" name="system"/>
-	<color_swatch label="Chat" name="users"/>
-	<color_swatch label="Objekte" name="objects"/>
-	<color_swatch label="Eigentümer" name="owner" width="58"/>
-	<color_swatch label="Blase" left_delta="62" name="background"/>
-	<color_swatch label="URLs" name="links"/>
-	<text length="1" name="text_box3" type="string">
-		Chat-Konsole:
+	<text name="requires_restart_label">
+		(Neustart erforderlich)
 	</text>
-	<spinner label="Chat ausblenden nach" label_width="115" left="148" name="fade_chat_time" width="160"/>
-	<text left="310" length="1" name="text_box4" type="string">
-		(Sekunden)
+	<radio_group name="chat_window" tool_tip="Zeigen Sie Ihre Sofortnachrichten (Instant Messages) in einem anderen Fenster oder in einem einzigen Fenster mit vielen Registerkarten an (Neustart erforderlich).">
+		<radio_item label="Getrennte Fenster" name="radio" value="0"/>
+		<radio_item label="Registerkarten" name="radio2" value="1"/>
+	</radio_group>
+	<text name="disable_toast_label">
+		Popups für eingehende Chats aktivieren:
 	</text>
-	<spinne left="370" name="max_chat_count"/>
-	<text left="435" length="1" name="text_box5" type="string">
-		(# Zeilen)
+	<check_box label="Gruppen-Chats" name="EnableGroupChatPopups" tool_tip="Markieren, um Popups zu sehen, wenn Gruppen-Chat-Message eintrifft"/>
+	<check_box label="IM-Chats" name="EnableIMChatPopups" tool_tip="Markieren, um Popups zu sehen, wenn Instant Message eintrifft"/>
+	<spinner label="Lebenszeit von Toasts für Chat in der Nähe:" name="nearby_toasts_lifetime"/>
+	<spinner label="Ein-/Ausblenddauer von Toasts für Chat in der Nähe:" name="nearby_toasts_fadingtime"/>
+	<check_box name="translate_chat_checkbox"/>
+	<text name="translate_chb_label">
+		Beim Chatten Maschinenübersetzung verwenden (von Google bereitgestellt)
 	</text>
-	<slider label="Deckkraft" name="console_opacity"/>
-	<text length="1" name="text_box6" type="string">
-		Chat-Optionen:
+	<text name="translate_language_text">
+		Chat übersetzen in:
 	</text>
-	<check_box label="Chat verwendet volle Bildbreite (Neustart erforderlich)" name="chat_full_width_check"/>
-	<check_box label="Chatleiste nach Drücken der Eingabetaste schließen" name="close_chat_on_return_check"/>
-	<check_box label="Pfeiltasten bewegen immer den Avatar beim Chatten" name="arrow_keys_move_avatar_check"/>
-	<check_box label="Zeitstempel im lokalen Chat anzeigen" name="show_timestamps_check"/>
-	<check_box label="Beim Chatten Tippanimation abspielen" name="play_typing_animation"/>
-	<text length="1" name="text_box7" type="string">
-		Blasen-Chat:
-	</text>
-	<check_box label="Chat-Blasen anzeigen" name="bubble_text_chat"/>
-	<slider label="Deckkraft" name="bubble_chat_opacity"/>
-	<text length="1" name="text_box8" type="string">
-		Skriptfehler:
-	</text>
-	<check_box label="Skriptfehler und Warnungen als normalen Chat anzeigen" name="script_errors_as_chat"/>
-	<color_swatch label="Fehler" name="script_error"/>
+	<combo_box name="translate_language_combobox" width="200">
+		<combo_box.item label="Systemstandard" name="System Default Language"/>
+		<combo_box.item label="English (Englisch)" name="English"/>
+		<combo_box.item label="Dansk (Dänisch)" name="Danish"/>
+		<combo_box.item label="Deutsch" name="German"/>
+		<combo_box.item label="Español (Spanisch)" name="Spanish"/>
+		<combo_box.item label="Français (Französisch)" name="French"/>
+		<combo_box.item label="Italiano (Italienisch)" name="Italian"/>
+		<combo_box.item label="Magyar (Ungarisch)" name="Hungarian"/>
+		<combo_box.item label="Nederlands (Holländisch)" name="Dutch"/>
+		<combo_box.item label="Polski (Polnisch)" name="Polish"/>
+		<combo_box.item label="Português (Portugiesisch)" name="Portugese"/>
+		<combo_box.item label="Русский (Russisch)" name="Russian"/>
+		<combo_box.item label="Türkçe (Türkisch)" name="Turkish"/>
+		<combo_box.item label="Українська (Ukrainisch)" name="Ukrainian"/>
+		<combo_box.item label="中文 (简体) (Chinesisch)" name="Chinese"/>
+		<combo_box.item label="日本語 (Japanisch)" name="Japanese"/>
+		<combo_box.item label="한국어 (Koreanisch)" name="Korean"/>
+	</combo_box>
 </panel>

@@ -1,33 +1,26 @@
 /** 
  * @file llfloaterevent.cpp
- * @brief Event information as shown in a floating window from 
- * secondlife:// command handler.
+ * @brief Display for events in the finder
  *
- * $LicenseInfo:firstyear=2007&license=viewergpl$
- * 
- * Copyright (c) 2007-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2004&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -35,97 +28,92 @@
 
 #include "llfloaterevent.h"
 
-// viewer project includes
-#include "llcommandhandler.h"
-#include "llpanelevent.h"
+#include "message.h"
+#include "llnotificationsutil.h"
+#include "llui.h"
 
-// linden library includes
-#include "lluuid.h"
+#include "llagent.h"
+#include "llviewerwindow.h"
+#include "llbutton.h"
+#include "llcachename.h"
+#include "llcommandhandler.h"	// secondlife:///app/chat/ support
+#include "lleventflags.h"
+#include "llmediactrl.h"
+#include "llexpandabletextbox.h"
+#include "llfloater.h"
+#include "llfloaterreg.h"
+#include "llmediactrl.h"
+#include "llfloaterworldmap.h"
+#include "llinventorymodel.h"
+#include "llsecondlifeurls.h"
+#include "llslurl.h"
+#include "lltextbox.h"
+#include "lltexteditor.h"
+#include "lluiconstants.h"
+#include "llviewercontrol.h"
+#include "llweb.h"
+#include "llworldmap.h"
+#include "llworldmapmessage.h"
 #include "lluictrlfactory.h"
+#include "lltrans.h"
 
-////////////////////////////////////////////////////////////////////////////
-// LLFloaterEventInfo
 
-//-----------------------------------------------------------------------------
-// Globals
-//-----------------------------------------------------------------------------
-
-LLMap< U32, LLFloaterEventInfo* > gEventInfoInstances;
-
-class LLEventHandler : public LLCommandHandler
+LLFloaterEvent::LLFloaterEvent(const LLSD& key)
+	: LLFloater(key),
+      LLViewerMediaObserver(),
+      mBrowser(NULL),
+	  mEventID(0)
 {
-public:
-	// requires trusted browser to trigger
-	LLEventHandler() : LLCommandHandler("event", true) { }
-	bool handle(const LLSD& tokens, const LLSD& query_map,
-				LLWebBrowserCtrl* web)
+}
+
+
+LLFloaterEvent::~LLFloaterEvent()
+{
+}
+
+
+BOOL LLFloaterEvent::postBuild()
+{
+	mBrowser = getChild<LLMediaCtrl>("browser");
+	if (mBrowser)
 	{
-		if (tokens.size() < 2)
-		{
-			return false;
-		}
-		U32 event_id = tokens[0].asInteger();
-		if (tokens[1].asString() == "about")
-		{
-			LLFloaterEventInfo::show(event_id);
-			return true;
-		}
-		return false;
-	}
-};
-LLEventHandler gEventHandler;
-
-LLFloaterEventInfo::LLFloaterEventInfo(const U32 event_id)
-:	LLFloater(),
-	mEventID( event_id )
-{
-
-	mFactoryMap["event_details_panel"] = LLCallbackMap(LLFloaterEventInfo::createEventDetail, this);
-	LLUICtrlFactory::getInstance()->buildFloater(this, "floater_preview_event.xml");
-	gEventInfoInstances.addData(event_id, this);
-}
-
-LLFloaterEventInfo::~LLFloaterEventInfo()
-{
-	// child views automatically deleted
-	gEventInfoInstances.removeData(mEventID);
-}
-
-void LLFloaterEventInfo::displayEventInfo(const U32 event_id)
-{
-	mPanelEventp->setEventID(event_id);
-	this->setFrontmost(true);
-}
-
-// static
-void* LLFloaterEventInfo::createEventDetail(void* userdata)
-{
-	LLFloaterEventInfo *self = (LLFloaterEventInfo*)userdata;
-	self->mPanelEventp = new LLPanelEvent();
-	LLUICtrlFactory::getInstance()->buildPanel(self->mPanelEventp, "panel_event.xml");
-
-	return self->mPanelEventp;
-}
-
-// static
-LLFloaterEventInfo* LLFloaterEventInfo::show(const U32 event_id)
-{
-	LLFloaterEventInfo *floater;
-	if (gEventInfoInstances.checkData(event_id))
-	{
-		// ...bring that window to front
-		floater = gEventInfoInstances.getData(event_id);
-		floater->openFloater();
-		floater->setFrontmost(true);
-	}
-	else
-	{
-		floater =  new LLFloaterEventInfo( event_id );
-		floater->center();
-		floater->openFloater();
-		floater->displayEventInfo(event_id);
-		floater->setFrontmost(true);
+		mBrowser->addObserver(this);
 	}
 
-	return floater;
+	return TRUE;
+}
+
+void LLFloaterEvent::handleMediaEvent(LLPluginClassMedia *self, EMediaEvent event)
+{
+	switch (event) 
+	{
+		case MEDIA_EVENT_NAVIGATE_BEGIN:
+			getChild<LLUICtrl>("status_text")->setValue(getString("loading_text"));
+			break;
+			
+		case MEDIA_EVENT_NAVIGATE_COMPLETE:
+			getChild<LLUICtrl>("status_text")->setValue(getString("done_text"));
+			break;
+			
+		default:
+			break;
+	}
+}
+
+void LLFloaterEvent::setEventID(const U32 event_id)
+{
+	mEventID = event_id;
+
+	if (event_id != 0)
+	{
+		LLSD subs;
+		subs["EVENT_ID"] = (S32)event_id;
+        // get the search URL and expand all of the substitutions                                                       
+        // (also adds things like [LANGUAGE], [VERSION], [OS], etc.)                                                    
+		std::ostringstream url;
+		url <<  gSavedSettings.getString("EventURL") << event_id << "/" << std::endl;
+		// and load the URL in the web view                                                                             
+        mBrowser->navigateTo(url.str());
+		
+	}
 }

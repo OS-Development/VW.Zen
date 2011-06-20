@@ -2,31 +2,25 @@
  * @file lloutputmonitorctrl.cpp
  * @brief LLOutputMonitorCtrl base class
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -38,6 +32,8 @@
 
 // viewer includes
 #include "llvoiceclient.h"
+#include "llmutelist.h"
+#include "llagent.h"
 
 // default options set in output_monitor.xml
 static LLDefaultChildRegistry::Register<LLOutputMonitorCtrl> r("output_monitor");
@@ -52,29 +48,32 @@ LLColor4	LLOutputMonitorCtrl::sColorBound;
 //F32			LLOutputMonitorCtrl::sRectHeightRatio	= 0.f;
 
 LLOutputMonitorCtrl::Params::Params()
-:	image_mute("image_mute"),
+:	draw_border("draw_border"),
+	image_mute("image_mute"),
 	image_off("image_off"),
 	image_on("image_on"),
 	image_level_1("image_level_1"),
 	image_level_2("image_level_2"),
-	image_level_3("image_level_3")
+	image_level_3("image_level_3"),
+	auto_update("auto_update"),
+	speaker_id("speaker_id")
 {
-	draw_border = true;
-	name = "output_monitor";
-	follows.flags(FOLLOWS_LEFT|FOLLOWS_TOP);
-	mouse_opaque = false;
 };
 
 LLOutputMonitorCtrl::LLOutputMonitorCtrl(const LLOutputMonitorCtrl::Params& p)
 :	LLView(p),
 	mPower(0),
-	mIsMuted(true),
 	mImageMute(p.image_mute),
 	mImageOff(p.image_off),
 	mImageOn(p.image_on),
 	mImageLevel1(p.image_level_1),
 	mImageLevel2(p.image_level_2),
-	mImageLevel3(p.image_level_3)
+	mImageLevel3(p.image_level_3),
+	mAutoUpdate(p.auto_update),
+	mSpeakerId(p.speaker_id),
+	mIsAgentControl(false),
+	mIsSwitchDirty(false),
+	mShouldSwitchOn(false)
 {
 	//static LLUIColor output_monitor_muted_color = LLUIColorTable::instance().getColor("OutputMonitorMutedColor", LLColor4::orange);
 	//static LLUIColor output_monitor_overdriven_color = LLUIColorTable::instance().getColor("OutputMonitorOverdrivenColor", LLColor4::red);
@@ -97,10 +96,15 @@ LLOutputMonitorCtrl::LLOutputMonitorCtrl(const LLOutputMonitorCtrl::Params& p)
 	//sRectHeightRatio	= output_monitor_rect_height_ratio;
 
 	mBorder = p.draw_border;
+
+	//with checking mute state
+	setSpeakerId(mSpeakerId);
 }
 
 LLOutputMonitorCtrl::~LLOutputMonitorCtrl()
 {
+	LLMuteList::getInstance()->removeObserver(this);
+	LLSpeakingIndicatorManager::unregisterSpeakingIndicator(mSpeakerId, this);
 }
 
 void LLOutputMonitorCtrl::setPower(F32 val)
@@ -110,36 +114,70 @@ void LLOutputMonitorCtrl::setPower(F32 val)
 
 void LLOutputMonitorCtrl::draw()
 {
+	// see also switchIndicator()
+	if (mIsSwitchDirty)
+	{
+		mIsSwitchDirty = false;
+		if (mShouldSwitchOn)
+		{
+			// just notify parent visibility may have changed
+			notifyParentVisibilityChanged();
+		}
+		else
+		{
+			// make itself invisible and notify parent about this
+			setVisible(FALSE);
+			notifyParentVisibilityChanged();
+
+			// no needs to render for invisible element
+			return;
+		}
+	}
+
 	// Copied from llmediaremotectrl.cpp
 	// *TODO: Give the LLOutputMonitorCtrl an agent-id to monitor, then
-	// call directly into gVoiceClient to ask if that agent-id is muted, is
+	// call directly into LLVoiceClient::getInstance() to ask if that agent-id is muted, is
 	// speaking, and what power.  This avoids duplicating data, which can get
 	// out of sync.
+	const F32 LEVEL_0 = LLVoiceClient::OVERDRIVEN_POWER_LEVEL / 3.f;
+	const F32 LEVEL_1 = LLVoiceClient::OVERDRIVEN_POWER_LEVEL * 2.f / 3.f;
+	const F32 LEVEL_2 = LLVoiceClient::OVERDRIVEN_POWER_LEVEL;
+
+	if (getVisible() && mAutoUpdate && !mIsMuted && mSpeakerId.notNull())
+	{
+		setPower(LLVoiceClient::getInstance()->getCurrentPower(mSpeakerId));
+		if(mIsAgentControl)
+		{
+			setIsTalking(LLVoiceClient::getInstance()->getUserPTTState());
+		}
+		else
+		{
+			setIsTalking(LLVoiceClient::getInstance()->getIsSpeaking(mSpeakerId));
+		}
+	}
+
 	LLPointer<LLUIImage> icon;
 	if (mIsMuted)
 	{
 		icon = mImageMute;
 	}
-	else if (mPower == 0.f)
+	else if (mPower == 0.f && !mIsTalking)
 	{
+		// only show off if PTT is not engaged
 		icon = mImageOff;
 	}
-	else if (mPower < LLVoiceClient::OVERDRIVEN_POWER_LEVEL)
+	else if (mPower < LEVEL_0)
 	{
-		S32 icon_image_idx = llmin(2, llfloor((mPower / LLVoiceClient::OVERDRIVEN_POWER_LEVEL) * 3.f));
-		switch(icon_image_idx)
-		{
-		default:
-		case 0:
-			icon = mImageOn;
-			break;
-		case 1:
-			icon = mImageLevel1;
-			break;
-		case 2:
-			icon = mImageLevel2;
-			break;
-		}
+		// PTT is on, possibly with quiet background noise
+		icon = mImageOn;
+	}
+	else if (mPower < LEVEL_1)
+	{
+		icon = mImageLevel1;
+	}
+	else if (mPower < LEVEL_2)
+	{
+		icon = mImageLevel2;
 	}
 	else
 	{
@@ -202,3 +240,82 @@ void LLOutputMonitorCtrl::draw()
 	if(mBorder)
 		gl_rect_2d(0, monh, monw, 0, sColorBound, FALSE);
 }
+
+void LLOutputMonitorCtrl::setSpeakerId(const LLUUID& speaker_id, const LLUUID& session_id/* = LLUUID::null*/)
+{
+	if (speaker_id.isNull() && mSpeakerId.notNull())
+	{
+		LLSpeakingIndicatorManager::unregisterSpeakingIndicator(mSpeakerId, this);
+	}
+
+	if (speaker_id.isNull() || speaker_id == mSpeakerId) return;
+
+	if (mSpeakerId.notNull())
+	{
+		// Unregister previous registration to avoid crash. EXT-4782.
+		LLSpeakingIndicatorManager::unregisterSpeakingIndicator(mSpeakerId, this);
+	}
+
+	mSpeakerId = speaker_id;
+	LLSpeakingIndicatorManager::registerSpeakingIndicator(mSpeakerId, this, session_id);
+
+	//mute management
+	if (mAutoUpdate)
+	{
+		if (speaker_id == gAgentID)
+		{
+			setIsMuted(false);
+		}
+		else
+		{
+			// check only blocking on voice. EXT-3542
+			setIsMuted(LLMuteList::getInstance()->isMuted(mSpeakerId, LLMute::flagVoiceChat));
+			LLMuteList::getInstance()->addObserver(this);
+		}
+	}
+}
+
+void LLOutputMonitorCtrl::onChange()
+{
+	// check only blocking on voice. EXT-3542
+	setIsMuted(LLMuteList::getInstance()->isMuted(mSpeakerId, LLMute::flagVoiceChat));
+}
+
+// virtual
+void LLOutputMonitorCtrl::switchIndicator(bool switch_on)
+{
+	// ensure indicator is visible in case it is not in visible chain
+	// to be called when parent became visible next time to notify parent that visibility is changed.
+	setVisible(TRUE);
+
+	// if parent is in visible chain apply switch_on state and notify it immediately
+	if (getParent() && getParent()->isInVisibleChain())
+	{
+		LL_DEBUGS("SpeakingIndicator") << "Indicator is in visible chain, notifying parent: " << mSpeakerId << LL_ENDL;
+		setVisible((BOOL)switch_on);
+		notifyParentVisibilityChanged();
+	}
+
+	// otherwise remember necessary state and mark itself as dirty.
+	// State will be applied in next draw when parents chain becomes visible.
+	else
+	{
+		LL_DEBUGS("SpeakingIndicator") << "Indicator is not in visible chain, parent won't be notified: " << mSpeakerId << LL_ENDL;
+		mIsSwitchDirty = true;
+		mShouldSwitchOn = switch_on;
+	}
+}
+
+//////////////////////////////////////////////////////////////////////////
+// PRIVATE SECTION
+//////////////////////////////////////////////////////////////////////////
+void LLOutputMonitorCtrl::notifyParentVisibilityChanged()
+{
+	LL_DEBUGS("SpeakingIndicator") << "Notify parent that visibility was changed: " << mSpeakerId << ", new_visibility: " << getVisible() << LL_ENDL;
+
+	LLSD params = LLSD().with("visibility_changed", getVisible());
+
+	notifyParent(params);
+}
+
+// EOF

@@ -2,31 +2,25 @@
  * @file m4math.h
  * @brief LLMatrix4 class header file.
  *
- * $LicenseInfo:firstyear=2000&license=viewergpl$
- * 
- * Copyright (c) 2000-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2000&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -125,6 +119,8 @@ public:
 
 	~LLMatrix4(void);										// Destructor
 
+	LLSD getValue() const;
+	void setValue(const LLSD&);
 
 	//////////////////////////////
 	//
@@ -138,6 +134,7 @@ public:
 
 	// various useful matrix functions
 	const LLMatrix4& setIdentity();					// Load identity matrix
+	bool isIdentity() const;
 	const LLMatrix4& setZero();						// Clears matrix to all zeros.
 
 	const LLMatrix4& initRotation(const F32 angle, const F32 x, const F32 y, const F32 z);	// Calculate rotation matrix by rotating angle radians about (x, y, z)
@@ -159,6 +156,7 @@ public:
 	const LLMatrix4& initRotTrans(const F32 roll, const F32 pitch, const F32 yaw, const LLVector4 &pos); // Rotation from Euler + translation
 	const LLMatrix4& initRotTrans(const LLQuaternion &q, const LLVector4 &pos);	// Set with Quaternion and position
 
+	const LLMatrix4& initScale(const LLVector3 &scale);
 
 	// Set all
 	const LLMatrix4& initAll(const LLVector3 &scale, const LLQuaternion &q, const LLVector3 &pos);	
@@ -225,17 +223,15 @@ public:
 	// Operators
 	//
 
-// Not implemented to enforce code that agrees with symbolic syntax
-//		friend LLVector4 operator*(const LLMatrix4 &a, const LLVector4 &b);		// Apply rotation a to vector b
-
-//	friend inline LLMatrix4 operator*(const LLMatrix4 &a, const LLMatrix4 &b);		// Return a * b
+	//	friend inline LLMatrix4 operator*(const LLMatrix4 &a, const LLMatrix4 &b);		// Return a * b
 	friend LLVector4 operator*(const LLVector4 &a, const LLMatrix4 &b);		// Return transform of vector a by matrix b
-	friend LLVector3 operator*(const LLVector3 &a, const LLMatrix4 &b);		// Return full transform of a by matrix b
+	friend const LLVector3 operator*(const LLVector3 &a, const LLMatrix4 &b);		// Return full transform of a by matrix b
 	friend LLVector4 rotate_vector(const LLVector4 &a, const LLMatrix4 &b);	// Rotates a but does not translate
 	friend LLVector3 rotate_vector(const LLVector3 &a, const LLMatrix4 &b);	// Rotates a but does not translate
 
 	friend bool operator==(const LLMatrix4 &a, const LLMatrix4 &b);			// Return a == b
 	friend bool operator!=(const LLMatrix4 &a, const LLMatrix4 &b);			// Return a != b
+	friend bool operator<(const LLMatrix4 &a, const LLMatrix4& b);			// Return a < b
 
 	friend const LLMatrix4& operator+=(LLMatrix4 &a, const LLMatrix4 &b);	// Return a + b
 	friend const LLMatrix4& operator-=(LLMatrix4 &a, const LLMatrix4 &b);	// Return a - b
@@ -267,6 +263,30 @@ inline const LLMatrix4&	LLMatrix4::setIdentity()
 	mMatrix[3][2] = 0.f;
 	mMatrix[3][3] = 1.f;
 	return (*this);
+}
+
+inline bool LLMatrix4::isIdentity() const
+{
+	return
+		mMatrix[0][0] == 1.f &&
+		mMatrix[0][1] == 0.f &&
+		mMatrix[0][2] == 0.f &&
+		mMatrix[0][3] == 0.f &&
+
+		mMatrix[1][0] == 0.f &&
+		mMatrix[1][1] == 1.f &&
+		mMatrix[1][2] == 0.f &&
+		mMatrix[1][3] == 0.f &&
+
+		mMatrix[2][0] == 0.f &&
+		mMatrix[2][1] == 0.f &&
+		mMatrix[2][2] == 1.f &&
+		mMatrix[2][3] == 0.f &&
+
+		mMatrix[3][0] == 0.f &&
+		mMatrix[3][1] == 0.f &&
+		mMatrix[3][2] == 0.f &&
+		mMatrix[3][3] == 1.f;
 }
 
 
@@ -353,7 +373,31 @@ inline const LLMatrix4& operator-=(LLMatrix4 &a, const LLMatrix4 &b)
 	return a;
 }
 
+// Operates "to the left" on row-vector a
+//
+// When avatar vertex programs are off, this function is a hot spot in profiles
+// due to software skinning in LLViewerJointMesh::updateGeometry().  JC
+inline const LLVector3 operator*(const LLVector3 &a, const LLMatrix4 &b)
+{
+	// This is better than making a temporary LLVector3.  This eliminates an
+	// unnecessary LLVector3() constructor and also helps the compiler to
+	// realize that the output floats do not alias the input floats, hence
+	// eliminating redundant loads of a.mV[0], etc.  JC
+	return LLVector3(a.mV[VX] * b.mMatrix[VX][VX] + 
+					 a.mV[VY] * b.mMatrix[VY][VX] + 
+					 a.mV[VZ] * b.mMatrix[VZ][VX] +
+					 b.mMatrix[VW][VX],
+					 
+					 a.mV[VX] * b.mMatrix[VX][VY] + 
+					 a.mV[VY] * b.mMatrix[VY][VY] + 
+					 a.mV[VZ] * b.mMatrix[VZ][VY] +
+					 b.mMatrix[VW][VY],
+					 
+					 a.mV[VX] * b.mMatrix[VX][VZ] + 
+					 a.mV[VY] * b.mMatrix[VY][VZ] + 
+					 a.mV[VZ] * b.mMatrix[VZ][VZ] +
+					 b.mMatrix[VW][VZ]);
+}
+
 #endif
-
-
 

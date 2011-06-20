@@ -2,31 +2,25 @@
  * @file lleventnotifier.cpp
  * @brief Viewer code for managing event notifications
  *
- * $LicenseInfo:firstyear=2004&license=viewergpl$
- * 
- * Copyright (c) 2004-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2004&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -34,14 +28,66 @@
 
 #include "lleventnotifier.h"
 
+#include "llnotificationsutil.h"
 #include "message.h"
 
-#include "llnotify.h"
-#include "lleventinfo.h"
 #include "llfloaterreg.h"
-#include "llfloaterdirectory.h"
 #include "llfloaterworldmap.h"
+#include "llfloaterevent.h"
 #include "llagent.h"
+#include "llcommandhandler.h"	// secondlife:///app/... support
+
+class LLEventHandler : public LLCommandHandler
+{
+public:
+	// requires trusted browser to trigger
+	LLEventHandler() : LLCommandHandler("event", UNTRUSTED_THROTTLE) { }
+	bool handle(const LLSD& params, const LLSD& query_map,
+				LLMediaCtrl* web)
+	{
+		if (params.size() < 2)
+		{
+			return false;
+		}
+		std::string event_command = params[1].asString();
+		S32 event_id = params[0].asInteger();
+		if(event_command == "details")
+		{
+			LLFloaterEvent* floater = LLFloaterReg::getTypedInstance<LLFloaterEvent>("event");
+			if (floater)
+			{
+				floater->setEventID(event_id);
+				LLFloaterReg::showTypedInstance<LLFloaterEvent>("event");
+				return true;
+			}
+		}
+		else if(event_command == "notify")
+		{
+			// we're adding or removing a notification, so grab the date, name and notification bool
+			if (params.size() < 3)
+			{
+				return false;
+			}			
+			if(params[2].asString() == "enable")
+			{
+				gEventNotifier.add(event_id);
+				// tell the server to modify the database as this was a slurl event notification command
+				gEventNotifier.serverPushRequest(event_id, true);
+			
+			}
+			else
+			{
+				gEventNotifier.remove(event_id);
+			}
+			return true;
+		}
+
+		
+		return false;
+	}
+};
+LLEventHandler gEventHandler;
+
 
 LLEventNotifier gEventNotifier;
 
@@ -70,49 +116,110 @@ void LLEventNotifier::update()
 		// Check our notifications again and send out updates
 		// if they happen.
 
-		time_t alert_time = time_corrected() + 5 * 60;
+		F64 alert_time = LLDate::now().secondsSinceEpoch() + 5 * 60;
 		en_map::iterator iter;
 		for (iter = mEventNotifications.begin();
 			 iter != mEventNotifications.end();)
 		{
 			LLEventNotification *np = iter->second;
 
-			if (np->getEventDate() < (alert_time))
+			iter++;
+			if (np->getEventDateEpoch() < alert_time)
 			{
 				LLSD args;
 				args["NAME"] = np->getEventName();
+				
 				args["DATE"] = np->getEventDateStr();
-				LLNotifications::instance().add("EventNotification", args, LLSD(),
-					boost::bind(&LLEventNotification::handleResponse, np, _1, _2));
-				mEventNotifications.erase(iter++);
-			}
-			else
-			{
-				iter++;
+				LLNotificationsUtil::add("EventNotification", args, LLSD(),
+					boost::bind(&LLEventNotifier::handleResponse, this, np->getEventID(), _1, _2));
+				remove(np->getEventID());
+				
 			}
 		}
 		mNotificationTimer.reset();
 	}
 }
 
-void LLEventNotifier::load(const LLUserAuth::options_t& event_options)
+
+
+bool LLEventNotifier::handleResponse(U32 eventId, const LLSD& notification, const LLSD& response)
 {
-	LLUserAuth::options_t::const_iterator resp_it;
-	for (resp_it = event_options.begin(); 
-		 resp_it != event_options.end(); 
-		 ++resp_it)
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
+	switch (option)
 	{
-		const LLUserAuth::response_t& response = *resp_it;
-
-		LLEventNotification *new_enp = new LLEventNotification();
-
-		if (!new_enp->load(response))
+		case 0:
 		{
-			delete new_enp;
-			continue;
+			LLFloaterEvent* floater = LLFloaterReg::getTypedInstance<LLFloaterEvent>("event");
+			if (floater)
+			{
+				floater->setEventID(eventId);
+				LLFloaterReg::showTypedInstance<LLFloaterEvent>("event");
+			}
+			break;
 		}
-		
-		mEventNotifications[new_enp->getEventID()] = new_enp;
+		case 1:
+			break;
+	}
+	return true;
+}
+
+bool LLEventNotifier::add(U32 eventId, F64 eventEpoch, const std::string& eventDateStr, const std::string &eventName)
+{
+	LLEventNotification *new_enp = new LLEventNotification(eventId, eventEpoch, eventDateStr, eventName);
+	
+	llinfos << "Add event " << eventName << " id " << eventId << " date " << eventDateStr << llendl;
+	if(!new_enp->isValid())
+	{
+		delete new_enp;
+		return false;
+	}
+	
+	mEventNotifications[new_enp->getEventID()] = new_enp;
+	return true;
+	
+}
+
+void LLEventNotifier::add(U32 eventId)
+{
+	
+	gMessageSystem->newMessageFast(_PREHASH_EventInfoRequest);
+	gMessageSystem->nextBlockFast(_PREHASH_AgentData);
+	gMessageSystem->addUUIDFast(_PREHASH_AgentID, gAgent.getID() );
+	gMessageSystem->addUUIDFast(_PREHASH_SessionID, gAgent.getSessionID() );
+	gMessageSystem->nextBlockFast(_PREHASH_EventData);
+	gMessageSystem->addU32Fast(_PREHASH_EventID, eventId);
+	gAgent.sendReliableMessage();
+
+}
+
+//static 
+void LLEventNotifier::processEventInfoReply(LLMessageSystem *msg, void **)
+{
+	// extract the agent id
+	LLUUID agent_id;
+	U32 event_id;
+	std::string event_name;
+	std::string eventd_date;
+	U32 event_time_utc;
+	
+	msg->getUUIDFast(_PREHASH_AgentData, _PREHASH_AgentID, agent_id );
+	msg->getU32("EventData", "EventID", event_id);
+	msg->getString("EventData", "Name", event_name);
+	msg->getString("EventData", "Date", eventd_date);
+	msg->getU32("EventData", "DateUTC", event_time_utc);
+	
+	gEventNotifier.add(event_id, (F64)event_time_utc, eventd_date, event_name);
+}	
+	
+	
+void LLEventNotifier::load(const LLSD& event_options)
+{
+	for(LLSD::array_const_iterator resp_it = event_options.beginArray(),
+		end = event_options.endArray(); resp_it != end; ++resp_it)
+	{
+		LLSD response = *resp_it;
+
+		add(response["event_id"].asInteger(), response["event_date_ut"], response["event_date"].asString(), response["event_name"].asString());
 	}
 }
 
@@ -126,32 +233,6 @@ BOOL LLEventNotifier::hasNotification(const U32 event_id)
 	return FALSE;
 }
 
-
-void LLEventNotifier::add(LLEventInfo &event_info)
-{
-	// We need to tell the simulator that we want to pay attention to
-	// this event, as well as add it to our list.
-
-	if (mEventNotifications.find(event_info.mID) != mEventNotifications.end())
-	{
-		// We already have a notification for this event, don't bother.
-		return;
-	}
-
-	// Push up a message to tell the server we have this notification.
-	gMessageSystem->newMessage("EventNotificationAddRequest");
-	gMessageSystem->nextBlockFast(_PREHASH_AgentData);
-	gMessageSystem->addUUIDFast(_PREHASH_AgentID, gAgent.getID() );
-	gMessageSystem->addUUIDFast(_PREHASH_SessionID, gAgent.getSessionID());
-	gMessageSystem->nextBlock("EventData");
-	gMessageSystem->addU32("EventID", event_info.mID);
-	gAgent.sendReliableMessage();
-
-	LLEventNotification *enp = new LLEventNotification;
-	enp->load(event_info);
-	mEventNotifications[event_info.mID] = enp;
-}
-
 void LLEventNotifier::remove(const U32 event_id)
 {
 	en_map::iterator iter;
@@ -162,167 +243,36 @@ void LLEventNotifier::remove(const U32 event_id)
 		return;
 	}
 
-	// Push up a message to tell the server to remove this notification.
-	gMessageSystem->newMessage("EventNotificationRemoveRequest");
+	serverPushRequest(event_id, false);
+	delete iter->second;
+	mEventNotifications.erase(iter);
+}
+
+
+void LLEventNotifier::serverPushRequest(U32 event_id, bool add)
+{
+	// Push up a message to tell the server we have this notification.
+	gMessageSystem->newMessage(add?"EventNotificationAddRequest":"EventNotificationRemoveRequest");
 	gMessageSystem->nextBlockFast(_PREHASH_AgentData);
 	gMessageSystem->addUUIDFast(_PREHASH_AgentID, gAgent.getID() );
 	gMessageSystem->addUUIDFast(_PREHASH_SessionID, gAgent.getSessionID());
 	gMessageSystem->nextBlock("EventData");
 	gMessageSystem->addU32("EventID", event_id);
 	gAgent.sendReliableMessage();
+}
+
+
+LLEventNotification::LLEventNotification(U32 eventId, F64 eventEpoch, const std::string& eventDateStr, const std::string &eventName) :
+	mEventID(eventId),
+	mEventName(eventName),
+	mEventDateEpoch(eventEpoch),
+    mEventDateStr(eventDateStr)
+{
 	
-	delete iter->second;
-	mEventNotifications.erase(iter);
-}
-
-LLEventNotification::LLEventNotification() :
-	mEventID(0),
-	mEventName("")
-{
 }
 
 
-LLEventNotification::~LLEventNotification()
-{
-}
-
-bool LLEventNotification::handleResponse(const LLSD& notification, const LLSD& response)
-{
-	S32 option = LLNotification::getSelectedOption(notification, response);
-	switch (option)
-	{
-	case 0:
-		{
-			gAgent.teleportViaLocation(getEventPosGlobal());
-			LLFloaterWorldMap* floater_world_map = LLFloaterWorldMap::getInstance();
-			if(floater_world_map) floater_world_map->trackLocation(getEventPosGlobal());
-			break;
-		}
-	case 1:
-		gDisplayEventHack = TRUE;
-		LLFloaterReg::showInstance("search", LLSD().insert("panel", "event").insert("id", S32(getEventID())));
-		break;
-	case 2:
-		break;
-	}
-
-	// We could clean up the notification on the server now if we really wanted to.
-	return false;
-}
-
-BOOL LLEventNotification::load(const LLUserAuth::response_t &response)
-{
-
-	LLUserAuth::response_t::const_iterator option_it;
-	BOOL event_ok = TRUE;
-	option_it = response.find("event_id");
-	if (option_it != response.end())
-	{
-		mEventID = atoi(option_it->second.c_str());
-	}
-	else
-	{
-		event_ok = FALSE;
-	}
-
-	option_it = response.find("event_name");
-	if (option_it != response.end())
-	{
-		llinfos << "Event: " << option_it->second << llendl;
-		mEventName = option_it->second;
-	}
-	else
-	{
-		event_ok = FALSE;
-	}
 
 
-	option_it = response.find("event_date");
-	if (option_it != response.end())
-	{
-		llinfos << "EventDate: " << option_it->second << llendl;
-		mEventDateStr = option_it->second;
-	}
-	else
-	{
-		event_ok = FALSE;
-	}
 
-	option_it = response.find("event_date_ut");
-	if (option_it != response.end())
-	{
-		llinfos << "EventDate: " << option_it->second << llendl;
-		mEventDate = strtoul(option_it->second.c_str(), NULL, 10);
-	}
-	else
-	{
-		event_ok = FALSE;
-	}
-
-	S32 grid_x = 0;
-	S32 grid_y = 0;
-	S32 x_region = 0;
-	S32 y_region = 0;
-
-	option_it = response.find("grid_x");
-	if (option_it != response.end())
-	{
-		llinfos << "GridX: " << option_it->second << llendl;
-		grid_x= atoi(option_it->second.c_str());
-	}
-	else
-	{
-		event_ok = FALSE;
-	}
-
-	option_it = response.find("grid_y");
-	if (option_it != response.end())
-	{
-		llinfos << "GridY: " << option_it->second << llendl;
-		grid_y = atoi(option_it->second.c_str());
-	}
-	else
-	{
-		event_ok = FALSE;
-	}
-
-	option_it = response.find("x_region");
-	if (option_it != response.end())
-	{
-		llinfos << "RegionX: " << option_it->second << llendl;
-		x_region = atoi(option_it->second.c_str());
-	}
-	else
-	{
-		event_ok = FALSE;
-	}
-
-	option_it = response.find("y_region");
-	if (option_it != response.end())
-	{
-		llinfos << "RegionY: " << option_it->second << llendl;
-		y_region = atoi(option_it->second.c_str());
-	}
-	else
-	{
-		event_ok = FALSE;
-	}
-
-	mEventPosGlobal.mdV[VX] = grid_x * 256 + x_region;
-	mEventPosGlobal.mdV[VY] = grid_y * 256 + y_region;
-	mEventPosGlobal.mdV[VZ] = 0.f;
-
-	return event_ok;
-}
-
-BOOL LLEventNotification::load(const LLEventInfo &event_info)
-{
-
-	mEventID = event_info.mID;
-	mEventName = event_info.mName;
-	mEventDateStr = event_info.mTimeStr;
-	mEventDate = event_info.mUnixTime;
-	mEventPosGlobal = event_info.mPosGlobal;
-	return TRUE;
-}
 

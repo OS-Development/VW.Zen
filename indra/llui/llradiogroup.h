@@ -2,31 +2,25 @@
  * @file llradiogroup.h
  * @brief LLRadioGroup base class
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -36,43 +30,6 @@
 #include "lluictrl.h"
 #include "llcheckboxctrl.h"
 #include "llctrlselectioninterface.h"
-
-
-/*
- * An invisible view containing multiple mutually exclusive toggling 
- * buttons (usually radio buttons).  Automatically handles the mutex
- * condition by highlighting only one button at a time.
- */
-class LLRadioCtrl : public LLCheckBoxCtrl 
-{
-public:
-	struct Params : public LLInitParam::Block<Params, LLCheckBoxCtrl::Params>
-	{
-		Ignored		length;
-		Ignored		type;
-
-		Params() 
-		:	length("length"),
-			type("type")
-		{}
-	};
-
-	/*virtual*/ ~LLRadioCtrl();
-	/*virtual*/ void setValue(const LLSD& value);
-
-	/*virtual*/ BOOL postBuild();
-
-	// Ensure label is in an attribute, not the contents
-	static void setupParamsForExport(Params& p, LLView* parent);
-
-protected:
-	LLRadioCtrl(const Params& p);
-	friend class LLUICtrlFactory;
-};
-
-
-struct RadioGroupRegistry : public LLChildRegistry<RadioGroupRegistry>
-{};
 
 /*
  * An invisible view containing multiple mutually exclusive toggling 
@@ -84,43 +41,44 @@ class LLRadioGroup
 {
 public:
 
-	struct Params : public LLInitParam::Block<Params, LLUICtrl::Params>
+	struct ItemParams : public LLInitParam::Block<ItemParams, LLCheckBoxCtrl::Params>
 	{
-		Optional<bool> has_border;
-		Params();
+		Optional<LLSD>	value;
+		ItemParams();
 	};
 
-	// my valid children are stored in this registry
-	typedef RadioGroupRegistry child_registry_t;
+	struct Params : public LLInitParam::Block<Params, LLUICtrl::Params>
+	{
+		Optional<bool>						allow_deselect;
+		Multiple<ItemParams, AtLeast<1> >	items;
+		Params();
+	};
 
 protected:
 	LLRadioGroup(const Params&);
 	friend class LLUICtrlFactory;
 
 public:
+
+	/*virtual*/ void initFromParams(const Params&);
+
 	virtual ~LLRadioGroup();
 	
 	virtual BOOL postBuild();
 	
-	virtual bool addChild(LLView* view, S32 tab_group = 0);
+	virtual BOOL handleMouseDown(S32 x, S32 y, MASK mask);
 	
 	virtual BOOL handleKeyHere(KEY key, MASK mask);
 
-	virtual void setEnabled(BOOL enabled);
 	void setIndexEnabled(S32 index, BOOL enabled);
-	
 	// return the index value of the selected item
 	S32 getSelectedIndex() const { return mSelectedIndex; }
-	
 	// set the index value programatically
 	BOOL setSelectedIndex(S32 index, BOOL from_event = FALSE);
 
 	// Accept and retrieve strings of the radio group control names
 	virtual void	setValue(const LLSD& value );
 	virtual LLSD	getValue() const;
-
-	// Draw the group, but also fix the highlighting based on the control.
-	void draw();
 
 	// Update the control as needed.  Userdata must be a pointer to the button.
 	void onClickButton(LLUICtrl* clicked_radio);
@@ -144,12 +102,13 @@ public:
 	/*virtual*/ BOOL	operateOnAll(EOperation op);
 
 private:
-	const LLFontGL* mFont;
-	S32 mSelectedIndex;
-	typedef std::vector<LLRadioCtrl*> button_list_t;
-	button_list_t mRadioButtons;
+	const LLFontGL*		mFont;
+	S32					mSelectedIndex;
 
-	BOOL mHasBorder;
+	typedef std::vector<class LLRadioCtrl*> button_list_t;
+	button_list_t		mRadioButtons;
+
+	bool				mAllowDeselect;	// user can click on an already selected option to deselect it
 };
 
 #endif

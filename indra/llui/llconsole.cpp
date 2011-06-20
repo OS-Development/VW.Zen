@@ -2,31 +2,25 @@
  * @file llconsole.cpp
  * @brief a scrolling console output device
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -60,11 +54,15 @@ LLConsole* gConsole = NULL;  // Created and destroyed in LLViewerWindow.
 const F32 FADE_DURATION = 2.f;
 const S32 MIN_CONSOLE_WIDTH = 200;
  
+static LLDefaultChildRegistry::Register<LLConsole> r("console");
+
 LLConsole::LLConsole(const LLConsole::Params& p) 
-:	LLView(p),
+:	LLUICtrl(p),
 	LLFixedBuffer(p.max_lines),
 	mLinePersistTime(p.persist_time), // seconds
-	mFont(p.font)
+	mFont(p.font),
+	mConsoleWidth(0),
+	mConsoleHeight(0)
 {
 	if (p.font_size_index.isProvided())
 	{
@@ -94,7 +92,7 @@ void LLConsole::reshape(S32 width, S32 height, BOOL called_from_parent)
 	mConsoleWidth = new_width;
 	mConsoleHeight= new_height;
 	
-	LLView::reshape(new_width, new_height, called_from_parent);
+	LLUICtrl::reshape(new_width, new_height, called_from_parent);
 	
 	for(paragraph_t::iterator paragraph_it = mParagraphs.begin(); paragraph_it != mParagraphs.end(); paragraph_it++)
 	{
@@ -119,6 +117,11 @@ void LLConsole::setFontSize(S32 size_index)
 	else
 	{
 		mFont = LLFontGL::getFontSansSerifHuge();
+	}
+	// Make sure the font exists
+	if (mFont == NULL)
+	{
+		mFont = LLFontGL::getFontDefault();
 	}
 	
 	for(paragraph_t::iterator paragraph_it = mParagraphs.begin(); paragraph_it != mParagraphs.end(); paragraph_it++)
@@ -173,7 +176,7 @@ void LLConsole::draw()
 	// draw remaining lines
 	F32 y_pos = 0.f;
 
-	LLUIImagePtr imagep = LLUI::getUIImage("rounded_square.tga");
+	LLUIImagePtr imagep = LLUI::getUIImage("Rounded_Square");
 
 //	F32 console_opacity = llclamp(gSavedSettings.getF32("ConsoleBackgroundOpacity"), 0.f, 1.f);
 	F32 console_opacity = llclamp(LLUI::sSettingGroups["config"]->getF32("ConsoleBackgroundOpacity"), 0.f, 1.f);
@@ -235,23 +238,6 @@ void LLConsole::draw()
 	}
 }
 
-void LLConsole::addLine(const std::string& utf8line)
-{
-	LLWString wline = utf8str_to_wstring(utf8line);
-	addLine(wline, 0.f, LLColor4(1.f, 1.f, 1.f, 1.f));
-}
-
-void LLConsole::addLine(const LLWString& wline)
-{
-	addLine(wline, 0.f, LLColor4(1.f, 1.f, 1.f, 1.f));
-}
-
-void LLConsole::addLine(const std::string& utf8line, F32 size, const LLColor4 &color)
-{
-	LLWString wline = utf8str_to_wstring(utf8line);
-	addLine(wline, size, color);
-}
-
 //Generate highlight color segments for this paragraph.  Pass in default color of paragraph.
 void LLConsole::Paragraph::makeParagraphColorSegments (const LLColor4 &color) 
 {
@@ -308,7 +294,8 @@ void LLConsole::Paragraph::updateLines(F32 screen_width, const LLFontGL* font, b
 	S32 paragraph_offset = 0;			//Offset into the paragraph text.
 
 	// Wrap lines that are longer than the view is wide.
-	while( paragraph_offset < (S32)mParagraphText.length() )
+	while( paragraph_offset < (S32)mParagraphText.length() &&
+		   mParagraphText[paragraph_offset] != 0)
 	{
 		S32 skip_chars; // skip '\n'
 		// Figure out if a word-wrapped line fits here.
@@ -323,7 +310,7 @@ void LLConsole::Paragraph::updateLines(F32 screen_width, const LLFontGL* font, b
 			skip_chars = 0;
 		}
 
-		U32 drawable = font->maxDrawableChars(mParagraphText.c_str()+paragraph_offset, screen_width, line_end - paragraph_offset, TRUE);
+		U32 drawable = font->maxDrawableChars(mParagraphText.c_str()+paragraph_offset, screen_width, line_end - paragraph_offset, LLFontGL::WORD_BOUNDARY_IF_POSSIBLE);
 
 		if (drawable != 0)
 		{
@@ -374,20 +361,45 @@ void LLConsole::Paragraph::updateLines(F32 screen_width, const LLFontGL* font, b
 
 //Pass in the string and the default color for this block of text.
 LLConsole::Paragraph::Paragraph (LLWString str, const LLColor4 &color, F32 add_time, const LLFontGL* font, F32 screen_width) 
-						: mParagraphText(str), mAddTime(add_time), mMaxWidth(-1)
+:	mParagraphText(str), mAddTime(add_time), mMaxWidth(-1)
 {
 	makeParagraphColorSegments(color);
 	updateLines( screen_width, font );
 }
 	
-void LLConsole::addLine(const LLWString& wline, F32 size, const LLColor4 &color)
+// called once per frame regardless of console visibility
+// static
+void LLConsole::updateClass()
 {	
-	Paragraph paragraph(wline, color, mTimer.getElapsedTimeF32(), mFont,  (F32)getRect().getWidth() );
-	
-	mParagraphs.push_back ( paragraph );
-	
-#if LL_WINDOWS && LL_LCD_COMPILE
-	// add to LCD screen
-	AddNewDebugConsoleToLCD(wline);
-#endif	
+	LLInstanceTrackerScopedGuard guard;
+
+	for (instance_iter it = guard.beginInstances(); it != guard.endInstances(); ++it)
+	{
+		it->update();
+	} 
 }
+
+void LLConsole::update()
+{
+	{
+		LLMutexLock lock(&mMutex);
+
+		while (!mLines.empty())
+		{
+			mParagraphs.push_back(
+				Paragraph(	mLines.front(), 
+							LLColor4::white, 
+							mTimer.getElapsedTimeF32(), 
+							mFont, 
+							(F32)getRect().getWidth()));
+			mLines.pop_front();
+		}
+	}
+
+	// remove old paragraphs which can't possibly be visible any more.  ::draw() will do something similar but more conservative - we do this here because ::draw() isn't guaranteed to ever be called!  (i.e. the console isn't visible)
+	while ((S32)mParagraphs.size() > llmax((S32)0, (S32)(mMaxLines)))
+	{
+			mParagraphs.pop_front();
+	}
+}
+

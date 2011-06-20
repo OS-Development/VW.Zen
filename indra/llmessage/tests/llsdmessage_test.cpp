@@ -1,11 +1,28 @@
 /**
- * @file   llsdmessage_tut.cpp
+ * @file   llsdmessage_test.cpp
  * @author Nat Goodspeed
  * @date   2008-12-22
  * @brief  Test of llsdmessage.h
  * 
- * $LicenseInfo:firstyear=2008&license=viewergpl$
- * Copyright (c) 2008, Linden Research, Inc.
+ * $LicenseInfo:firstyear=2008&license=viewerlgpl$
+ * Second Life Viewer Source Code
+ * Copyright (C) 2010, Linden Research, Inc.
+ * 
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
+ * 
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -21,6 +38,7 @@
 #include <iostream>
 // std headers
 #include <stdexcept>
+#include <typeinfo>
 // external library headers
 // other Linden headers
 #include "../test/lltut.h"
@@ -43,6 +61,7 @@ namespace tut
         llsdmessage_data():
             httpPump(pumps.obtain("LLHTTPClient"))
         {
+            LLCurl::initClass();
             LLSDMessage::link();
         }
     };
@@ -62,6 +81,32 @@ namespace tut
         catch (const LLEventPump::DupPumpName&)
         {
             threw = true;
+        }
+        catch (const std::runtime_error& ex)
+        {
+            // This clause is because on Linux, on the viewer side, for this
+            // one test program (though not others!), the
+            // LLEventPump::DupPumpName exception isn't caught by the clause
+            // above. Warn the user...
+            std::cerr << "Failed to catch " << typeid(ex).name() << std::endl;
+            // But if the expected exception was thrown, allow the test to
+            // succeed anyway. Not sure how else to handle this odd case.
+            if (std::string(typeid(ex).name()) == typeid(LLEventPump::DupPumpName).name())
+            {
+                threw = true;
+            }
+            else
+            {
+                // We don't even recognize this exception. Let it propagate
+                // out to TUT to fail the test.
+                throw;
+            }
+        }
+        catch (...)
+        {
+            std::cerr << "Utterly failed to catch expected exception!" << std::endl;
+            // This case is full of fail. We HAVE to address it.
+            throw;
         }
         ensure("second LLSDMessage should throw", threw);
     }

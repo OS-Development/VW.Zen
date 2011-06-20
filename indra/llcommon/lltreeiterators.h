@@ -34,31 +34,25 @@
  *         once for each parent. Cycles in the graph will result in either an
  *         infinite loop or an out-of-memory crash. You Have Been Warned.
  * 
- * $LicenseInfo:firstyear=2008&license=viewergpl$
- * 
- * Copyright (c) 2008-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2008&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -343,20 +337,20 @@ public:
     /// Instantiate an LLTreeDFSIter to start a depth-first walk. Pass
     /// functors to extract the 'child begin' and 'child end' iterators from
     /// each node.
-    LLTreeDFSIter(const ptr_type& node, const func_type& beginfunc, const func_type& endfunc):
-        mBeginFunc(beginfunc),
-        mEndFunc(endfunc),
-		mSkipChildren(false)
+    LLTreeDFSIter(const ptr_type& node, const func_type& beginfunc, const func_type& endfunc)
+	    : mBeginFunc(beginfunc),
+	    mEndFunc(endfunc),
+	    mSkipChildren(false)
     {
         // Only push back this node if it's non-NULL!
         if (node)
             mPending.push_back(node);
     }
     /// Instantiate an LLTreeDFSIter to mark the end of the walk
-    LLTreeDFSIter() {}
+    LLTreeDFSIter() : mSkipChildren(false) {}
 
-	/// flags iterator logic to skip traversing children of current node on next increment
-	void skipDescendants(bool skip = true) { mSkipChildren = skip; }
+    /// flags iterator logic to skip traversing children of current node on next increment
+    void skipDescendants(bool skip = true) { mSkipChildren = skip; }
 
 private:
     /// leverage boost::iterator_facade
@@ -405,8 +399,8 @@ private:
     func_type mBeginFunc;
     /// functor to extract end() child iterator
     func_type mEndFunc;
-	/// flag which controls traversal of children (skip children of current node if true)
-	bool	mSkipChildren;
+    /// flag which controls traversal of children (skip children of current node if true)
+    bool	mSkipChildren;
 };
 
 /**
@@ -451,21 +445,21 @@ public:
     /// Instantiate an LLTreeDFSPostIter to start a depth-first walk. Pass
     /// functors to extract the 'child begin' and 'child end' iterators from
     /// each node.
-    LLTreeDFSPostIter(const ptr_type& node, const func_type& beginfunc, const func_type& endfunc):
-        mBeginFunc(beginfunc),
-        mEndFunc(endfunc),
-		mSkipAncestors(false)
-    {
+    LLTreeDFSPostIter(const ptr_type& node, const func_type& beginfunc, const func_type& endfunc)
+	    : mBeginFunc(beginfunc),
+	    mEndFunc(endfunc),
+	    mSkipAncestors(false)
+	    {
         if (! node)
             return;
         mPending.push_back(typename list_type::value_type(node, false));
         makeCurrent();
     }
     /// Instantiate an LLTreeDFSPostIter to mark the end of the walk
-    LLTreeDFSPostIter() {}
+    LLTreeDFSPostIter() : mSkipAncestors(false) {}
 
-	/// flags iterator logic to skip traversing ancestors of current node on next increment
-	void skipAncestors(bool skip = true) { mSkipAncestors = skip; }
+    /// flags iterator logic to skip traversing ancestors of current node on next increment
+    void skipAncestors(bool skip = true) { mSkipAncestors = skip; }
 
 private:
     /// leverage boost::iterator_facade

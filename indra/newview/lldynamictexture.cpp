@@ -2,31 +2,25 @@
  * @file lldynamictexture.cpp
  * @brief Implementation of LLViewerDynamicTexture class
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -60,6 +54,13 @@ LLViewerDynamicTexture::LLViewerDynamicTexture(S32 width, S32 height, S32 compon
 {
 	llassert((1 <= components) && (components <= 4));
 
+	if(gGLManager.mDebugGPU)
+	{
+		if(components == 3)
+		{
+			mComponents = 4 ; //convert to 32bits.
+		}
+	}
 	generateGLTexture();
 
 	llassert( 0 <= order && order < ORDER_COUNT );
@@ -104,7 +105,7 @@ void LLViewerDynamicTexture::generateGLTexture(LLGLint internal_format, LLGLenum
 	{
 		setExplicitFormat(internal_format, primary_format, type_format, swap_bytes);
 	}
-	createGLTexture(0, raw_image);
+	createGLTexture(0, raw_image, 0, TRUE, LLViewerTexture::DYNAMIC_TEX);
 	setAddressMode((mClamp) ? LLTexUnit::TAM_CLAMP : LLTexUnit::TAM_WRAP);
 	mGLTexturep->setGLTextureCreated(false);
 }
@@ -126,7 +127,7 @@ void LLViewerDynamicTexture::preRender(BOOL clear_depth)
 		// force rendering to on-screen portion of frame buffer
 		LLCoordScreen window_pos;
 		gViewerWindow->getWindow()->getPosition( &window_pos );
-		mOrigin.set(0, gViewerWindow->getWindowDisplayHeight() - mFullHeight);  // top left corner
+		mOrigin.set(0, gViewerWindow->getWindowHeightRaw() - mFullHeight);  // top left corner
 
 		if (window_pos.mX < 0)
 		{
@@ -141,11 +142,12 @@ void LLViewerDynamicTexture::preRender(BOOL clear_depth)
 		gGL.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
 	}
 	// Set up camera
-	mCamera.setOrigin(*LLViewerCamera::getInstance());
-	mCamera.setAxes(*LLViewerCamera::getInstance());
-	mCamera.setAspect(LLViewerCamera::getInstance()->getAspect());
-	mCamera.setView(LLViewerCamera::getInstance()->getView());
-	mCamera.setNear(LLViewerCamera::getInstance()->getNear());
+	LLViewerCamera* camera = LLViewerCamera::getInstance();
+	mCamera.setOrigin(*camera);
+	mCamera.setAxes(*camera);
+	mCamera.setAspect(camera->getAspect());
+	mCamera.setView(camera->getView());
+	mCamera.setNear(camera->getNear());
 
 	glViewport(mOrigin.mX, mOrigin.mY, mFullWidth, mFullHeight);
 	if (clear_depth)
@@ -166,6 +168,15 @@ void LLViewerDynamicTexture::postRender(BOOL success)
 			{
 				generateGLTexture() ;
 			}
+			else if(!mGLTexturep->getHasGLTexture())
+			{
+				generateGLTexture() ;
+			}			
+			else if(mGLTexturep->getDiscardLevel() != 0)//do not know how it happens, but regenerate one if it does.
+			{
+				generateGLTexture() ;
+			}
+
 			success = mGLTexturep->setSubImageFromFrameBuffer(0, 0, mOrigin.mX, mOrigin.mY, mFullWidth, mFullHeight);
 		}
 	}
@@ -174,11 +185,12 @@ void LLViewerDynamicTexture::postRender(BOOL success)
 	gViewerWindow->setup2DViewport();
 
 	// restore camera
-	LLViewerCamera::getInstance()->setOrigin(mCamera);
-	LLViewerCamera::getInstance()->setAxes(mCamera);
-	LLViewerCamera::getInstance()->setAspect(mCamera.getAspect());
-	LLViewerCamera::getInstance()->setView(mCamera.getView());
-	LLViewerCamera::getInstance()->setNear(mCamera.getNear());
+	LLViewerCamera* camera = LLViewerCamera::getInstance();
+	camera->setOrigin(mCamera);
+	camera->setAxes(mCamera);
+	camera->setAspect(mCamera.getAspect());
+	camera->setView(mCamera.getView());
+	camera->setNear(mCamera.getNear());
 }
 
 //-----------------------------------------------------------------------------
@@ -203,11 +215,10 @@ BOOL LLViewerDynamicTexture::updateAllInstances()
 		{
 			LLViewerDynamicTexture *dynamicTexture = *iter;
 			if (dynamicTexture->needsRender())
-			{
+			{				
 				glClear(GL_DEPTH_BUFFER_BIT);
 				gDepthDirty = TRUE;
-				
-				
+								
 				gGL.color4f(1,1,1,1);
 				dynamicTexture->preRender();	// Must be called outside of startRender()
 				result = FALSE;

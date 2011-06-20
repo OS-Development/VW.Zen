@@ -2,31 +2,25 @@
  * @file lldrawpooltree.cpp
  * @brief LLDrawPoolTree class implementation
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -46,12 +40,12 @@
 
 S32 LLDrawPoolTree::sDiffTex = 0;
 static LLGLSLShader* shader = NULL;
+static LLFastTimer::DeclareTimer FTM_SHADOW_TREE("Tree Shadow");
 
 LLDrawPoolTree::LLDrawPoolTree(LLViewerTexture *texturep) :
 	LLFacePool(POOL_TREE),
 	mTexturep(texturep)
 {
-	gGL.getTexUnit(0)->bind(mTexturep);
 	mTexturep->setAddressMode(LLTexUnit::TAM_WRAP);
 }
 
@@ -67,16 +61,16 @@ void LLDrawPoolTree::prerender()
 
 void LLDrawPoolTree::beginRenderPass(S32 pass)
 {
-	LLFastTimer t(LLFastTimer::FTM_RENDER_TREES);
+	LLFastTimer t(FTM_RENDER_TREES);
 	gGL.setAlphaRejectSettings(LLRender::CF_GREATER, 0.5f);
 	
 	if (LLPipeline::sUnderWaterRender)
 	{
-		shader = &gObjectSimpleWaterProgram;
+		shader = &gObjectSimpleNonIndexedWaterProgram;
 	}
 	else
 	{
-		shader = &gObjectSimpleProgram;
+		shader = &gObjectSimpleNonIndexedProgram;
 	}
 
 	if (gPipeline.canUseWindLightShadersOnObjects())
@@ -91,7 +85,7 @@ void LLDrawPoolTree::beginRenderPass(S32 pass)
 
 void LLDrawPoolTree::render(S32 pass)
 {
-	LLFastTimer t(LLPipeline::sShadowRender ? LLFastTimer::FTM_SHADOW_TREE : LLFastTimer::FTM_RENDER_TREES);
+	LLFastTimer t(LLPipeline::sShadowRender ? FTM_SHADOW_TREE : FTM_RENDER_TREES);
 
 	if (mDrawFace.empty())
 	{
@@ -113,16 +107,20 @@ void LLDrawPoolTree::render(S32 pass)
 			 iter != mDrawFace.end(); iter++)
 		{
 			LLFace *face = *iter;
-			face->mVertexBuffer->setBuffer(LLDrawPoolTree::VERTEX_DATA_MASK);
-			face->mVertexBuffer->drawRange(LLRender::TRIANGLES, 0, face->mVertexBuffer->getRequestedVerts()-1, face->mVertexBuffer->getRequestedIndices(), 0); 
-			gPipeline.addTrianglesDrawn(face->mVertexBuffer->getRequestedIndices()/3);
+			LLVertexBuffer* buff = face->getVertexBuffer();
+			if(buff)
+			{
+				buff->setBuffer(LLDrawPoolTree::VERTEX_DATA_MASK);
+				buff->drawRange(LLRender::TRIANGLES, 0, buff->getRequestedVerts()-1, buff->getRequestedIndices(), 0); 
+				gPipeline.addTrianglesDrawn(buff->getRequestedIndices());
+			}
 		}
 	}
 }
 
 void LLDrawPoolTree::endRenderPass(S32 pass)
 {
-	LLFastTimer t(LLFastTimer::FTM_RENDER_TREES);
+	LLFastTimer t(FTM_RENDER_TREES);
 	gGL.setAlphaRejectSettings(LLRender::CF_DEFAULT);
 	
 	if (gPipeline.canUseWindLightShadersOnObjects())
@@ -136,8 +134,8 @@ void LLDrawPoolTree::endRenderPass(S32 pass)
 //============================================
 void LLDrawPoolTree::beginDeferredPass(S32 pass)
 {
-	LLFastTimer t(LLFastTimer::FTM_RENDER_TREES);
-	gGL.setAlphaRejectSettings(LLRender::CF_GREATER, 0.5f);
+	LLFastTimer t(FTM_RENDER_TREES);
+	gGL.setAlphaRejectSettings(LLRender::CF_GREATER, 0.f);
 		
 	shader = &gDeferredTreeProgram;
 	shader->bind();
@@ -150,7 +148,7 @@ void LLDrawPoolTree::renderDeferred(S32 pass)
 
 void LLDrawPoolTree::endDeferredPass(S32 pass)
 {
-	LLFastTimer t(LLFastTimer::FTM_RENDER_TREES);
+	LLFastTimer t(FTM_RENDER_TREES);
 	gGL.setAlphaRejectSettings(LLRender::CF_DEFAULT);
 	
 	shader->unbind();
@@ -161,8 +159,11 @@ void LLDrawPoolTree::endDeferredPass(S32 pass)
 //============================================
 void LLDrawPoolTree::beginShadowPass(S32 pass)
 {
-	LLFastTimer t(LLFastTimer::FTM_SHADOW_TREE);
+	LLFastTimer t(FTM_SHADOW_TREE);
 	gGL.setAlphaRejectSettings(LLRender::CF_GREATER, 0.5f);
+	glPolygonOffset(gSavedSettings.getF32("RenderDeferredTreeShadowOffset"),
+					gSavedSettings.getF32("RenderDeferredTreeShadowBias"));
+
 	gDeferredShadowProgram.bind();
 }
 
@@ -173,80 +174,22 @@ void LLDrawPoolTree::renderShadow(S32 pass)
 
 void LLDrawPoolTree::endShadowPass(S32 pass)
 {
-	LLFastTimer t(LLFastTimer::FTM_SHADOW_TREE);
+	LLFastTimer t(FTM_SHADOW_TREE);
 	gGL.setAlphaRejectSettings(LLRender::CF_DEFAULT);
-	gDeferredShadowProgram.unbind();
+
+	glPolygonOffset(gSavedSettings.getF32("RenderDeferredSpotShadowOffset"),
+						gSavedSettings.getF32("RenderDeferredSpotShadowBias"));
+
+	//gDeferredShadowProgram.unbind();
 }
 
-
-void LLDrawPoolTree::renderForSelect()
-{
-	if (mDrawFace.empty())
-	{
-		return;
-	}
-
-	LLOverrideFaceColor color(this, 1.f, 1.f, 1.f, 1.f);
-
-	LLGLSObjectSelectAlpha gls_alpha;
-	gGL.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
-
-	gGL.setSceneBlendType(LLRender::BT_REPLACE);
-	gGL.setAlphaRejectSettings(LLRender::CF_GREATER, 0.5f);
-
-	gGL.getTexUnit(0)->setTextureColorBlend(LLTexUnit::TBO_REPLACE, LLTexUnit::TBS_PREV_COLOR);
-	gGL.getTexUnit(0)->setTextureAlphaBlend(LLTexUnit::TBO_MULT, LLTexUnit::TBS_TEX_ALPHA, LLTexUnit::TBS_VERT_ALPHA);
-
-	if (gSavedSettings.getBOOL("RenderAnimateTrees"))
-	{
-		renderTree(TRUE);
-	}
-	else
-	{
-		gGL.getTexUnit(sDiffTex)->bind(mTexturep);
-				
-		for (std::vector<LLFace*>::iterator iter = mDrawFace.begin();
-			 iter != mDrawFace.end(); iter++)
-		{
-			LLFace *face = *iter;
-			LLDrawable *drawablep = face->getDrawable();
-
-			if (drawablep->isDead() || face->mVertexBuffer.isNull())
-			{
-				continue;
-			}
-
-			// Render each of the trees
-			LLVOTree *treep = (LLVOTree *)drawablep->getVObj().get();
-
-			LLColor4U color(255,255,255,255);
-
-			if (treep->mGLName != 0)
-			{
-				S32 name = treep->mGLName;
-				color = LLColor4U((U8)(name >> 16), (U8)(name >> 8), (U8)name, 255);
-				
-				LLFacePool::LLOverrideFaceColor col(this, color);
-				
-				face->mVertexBuffer->setBuffer(LLDrawPoolTree::VERTEX_DATA_MASK);
-				face->mVertexBuffer->drawRange(LLRender::TRIANGLES, 0, face->mVertexBuffer->getRequestedVerts()-1, face->mVertexBuffer->getRequestedIndices(), 0); 
-				gPipeline.addTrianglesDrawn(face->mVertexBuffer->getRequestedIndices()/3);
-			}
-		}
-	}
-
-	gGL.setAlphaRejectSettings(LLRender::CF_DEFAULT);
-	gGL.setSceneBlendType(LLRender::BT_ALPHA);
-
-	gGL.getTexUnit(0)->setTextureBlendType(LLTexUnit::TB_MULT);
-}
 
 void LLDrawPoolTree::renderTree(BOOL selecting)
 {
 	LLGLState normalize(GL_NORMALIZE, TRUE);
 	
 	// Bind the texture for this tree.
-	gGL.getTexUnit(sDiffTex)->bind(mTexturep);
+	gGL.getTexUnit(sDiffTex)->bind(mTexturep.get(), TRUE);
 		
 	U32 indices_drawn = 0;
 
@@ -258,13 +201,13 @@ void LLDrawPoolTree::renderTree(BOOL selecting)
 		LLFace *face = *iter;
 		LLDrawable *drawablep = face->getDrawable();
 
-		if (drawablep->isDead() || face->mVertexBuffer.isNull())
+		if (drawablep->isDead() || !face->getVertexBuffer())
 		{
 			continue;
 		}
 
-		face->mVertexBuffer->setBuffer(LLDrawPoolTree::VERTEX_DATA_MASK);
-		U16* indicesp = (U16*) face->mVertexBuffer->getIndicesPointer();
+		face->getVertexBuffer()->setBuffer(LLDrawPoolTree::VERTEX_DATA_MASK);
+		U16* indicesp = (U16*) face->getVertexBuffer()->getIndicesPointer();
 
 		// Render each of the trees
 		LLVOTree *treep = (LLVOTree *)drawablep->getVObj().get();
@@ -326,7 +269,7 @@ void LLDrawPoolTree::renderTree(BOOL selecting)
 			S32 stop_depth = 0;
 			F32 app_angle = treep->getAppAngle()*LLVOTree::sTreeFactor;
 			F32 alpha = 1.0;
-			S32 trunk_LOD = 0;
+			S32 trunk_LOD = LLVOTree::sMAX_NUM_TREE_LOD_LEVELS;
 
 			for (S32 j = 0; j < 4; j++)
 			{
@@ -337,6 +280,10 @@ void LLDrawPoolTree::renderTree(BOOL selecting)
 					break;
 				}
 			} 
+			if(trunk_LOD >= LLVOTree::sMAX_NUM_TREE_LOD_LEVELS)
+			{
+				continue ; //do not render.
+			}
 
 			if (app_angle < (THRESH_ANGLE_FOR_BILLBOARD - BLEND_RANGE_FOR_BILLBOARD))
 			{

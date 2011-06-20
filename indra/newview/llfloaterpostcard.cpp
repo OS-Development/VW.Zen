@@ -2,31 +2,25 @@
  * @file llfloaterpostcard.cpp
  * @brief Postcard send floater, allows setting name, e-mail address, etc.
  *
- * $LicenseInfo:firstyear=2004&license=viewergpl$
- * 
- * Copyright (c) 2004-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2004&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -43,8 +37,10 @@
 #include "llagent.h"
 #include "llui.h"
 #include "lllineeditor.h"
-#include "llviewertexteditor.h"
 #include "llbutton.h"
+#include "lltexteditor.h"
+#include "llfloaterreg.h"
+#include "llnotificationsutil.h"
 #include "llviewercontrol.h"
 #include "llviewernetwork.h"
 #include "lluictrlfactory.h"
@@ -54,15 +50,15 @@
 #include "llstatusbar.h"
 #include "llviewerregion.h"
 #include "lleconomy.h"
+#include "message.h"
 
-#include "llgl.h"
-#include "llglheaders.h"
 #include "llimagejpeg.h"
 #include "llimagej2c.h"
 #include "llvfile.h"
 #include "llvfs.h"
 #include "llviewertexture.h"
 #include "llassetuploadresponders.h"
+#include "llagentui.h"
 
 #include <boost/regex.hpp>  //boost.regex lib
 
@@ -70,72 +66,61 @@
 /// Local function declarations, constants, enums, and typedefs
 ///----------------------------------------------------------------------------
 
-//static
-LLFloaterPostcard::instance_list_t LLFloaterPostcard::sInstances;
-
 ///----------------------------------------------------------------------------
 /// Class LLFloaterPostcard
 ///----------------------------------------------------------------------------
 
-LLFloaterPostcard::LLFloaterPostcard(LLImageJPEG* jpeg, LLViewerTexture *img, const LLVector2& img_scale, const LLVector3d& pos_taken_global)
-:	LLFloater(),
-	mJPEGImage(jpeg),
-	mViewerImage(img),
-	mImageScale(img_scale),
-	mPosTakenGlobal(pos_taken_global),
+LLFloaterPostcard::LLFloaterPostcard(const LLSD& key)
+:	LLFloater(key),
+	mJPEGImage(NULL),
+	mViewerImage(NULL),
 	mHasFirstMsgFocus(false)
 {
-	LLUICtrlFactory::getInstance()->buildFloater(this, "floater_postcard.xml");
-
-	sInstances.insert(this);
-	
-	// pick up the user's up-to-date email address
-	gAgent.sendAgentUserInfoRequest();
-
-	openFloater();
 }
 
 // Destroys the object
 LLFloaterPostcard::~LLFloaterPostcard()
 {
-	sInstances.erase(this);
 	mJPEGImage = NULL; // deletes image
 }
 
 BOOL LLFloaterPostcard::postBuild()
 {
+	// pick up the user's up-to-date email address
+	gAgent.sendAgentUserInfoRequest();
+
 	childSetAction("cancel_btn", onClickCancel, this);
 	childSetAction("send_btn", onClickSend, this);
 
-	childDisable("from_form");
+	getChildView("from_form")->setEnabled(FALSE);
 
 	std::string name_string;
-	gAgent.buildFullname(name_string);
-	childSetValue("name_form", LLSD(name_string));
+	LLAgentUI::buildFullname(name_string);
+	getChild<LLUICtrl>("name_form")->setValue(LLSD(name_string));
 
-	LLTextEditor* MsgField = getChild<LLTextEditor>("msg_form");
-	if (MsgField)
-	{
-		MsgField->setWordWrap(TRUE);
-
-		// For the first time a user focusess to .the msg box, all text will be selected.
-		MsgField->setFocusChangedCallback(onMsgFormFocusRecieved, this);
-	}
+	// For the first time a user focusess to .the msg box, all text will be selected.
+	getChild<LLUICtrl>("msg_form")->setFocusChangedCallback(boost::bind(onMsgFormFocusRecieved, _1, this));
 	
-	childSetFocus("to_form", TRUE);
+	getChild<LLUICtrl>("to_form")->setFocus(TRUE);
 
     return TRUE;
 }
-
-
 
 // static
 LLFloaterPostcard* LLFloaterPostcard::showFromSnapshot(LLImageJPEG *jpeg, LLViewerTexture *img, const LLVector2 &image_scale, const LLVector3d& pos_taken_global)
 {
 	// Take the images from the caller
 	// It's now our job to clean them up
-	LLFloaterPostcard *instance = new LLFloaterPostcard(jpeg, img, image_scale, pos_taken_global);
+	LLFloaterPostcard* instance = LLFloaterReg::showTypedInstance<LLFloaterPostcard>("postcard", LLSD(img->getID()));
 
+	if (instance) // may be 0 if we're in mouselook mode
+	{
+		instance->mJPEGImage = jpeg;
+		instance->mViewerImage = img;
+		instance->mImageScale = image_scale;
+		instance->mPosTakenGlobal = pos_taken_global;
+	}
+	
 	return instance;
 }
 
@@ -146,6 +131,8 @@ void LLFloaterPostcard::draw()
 
 	if(!isMinimized() && mViewerImage.notNull() && mJPEGImage.notNull()) 
 	{
+		// Force the texture to be 100% opaque when the floater is focused.
+		F32 alpha = getTransparencyType() == TT_ACTIVE ? 1.0f : getCurrentTransparency();
 		LLRect rect(getRect());
 
 		// first set the max extents of our preview
@@ -159,15 +146,15 @@ void LLFloaterPostcard::draw()
 		F32 ratio = (F32)mJPEGImage->getWidth() / (F32)mJPEGImage->getHeight();
 		if ((F32)rect.getWidth() / (F32)rect.getHeight() >= ratio)
 		{
-			rect.mRight = (S32)((F32)rect.mLeft + ((F32)rect.getHeight() * ratio));
+			rect.mRight = LLRect::tCoordType((F32)rect.mLeft + ((F32)rect.getHeight() * ratio));
 		}
 		else
 		{
-			rect.mBottom = (S32)((F32)rect.mTop - ((F32)rect.getWidth() / ratio));
+			rect.mBottom = LLRect::tCoordType((F32)rect.mTop - ((F32)rect.getWidth() / ratio));
 		}
 		{
 			gGL.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
-			gl_rect_2d(rect, LLColor4(0.f, 0.f, 0.f, 1.f));
+			gl_rect_2d(rect, LLColor4(0.f, 0.f, 0.f, 1.f) % alpha);
 			rect.stretch(-1);
 		}
 		{
@@ -182,7 +169,7 @@ void LLFloaterPostcard::draw()
 								 rect.getWidth(),
 								 rect.getHeight(),
 								 mViewerImage.get(), 
-								 LLColor4::white);
+								 LLColor4::white % alpha);
 		}
 		glMatrixMode(GL_TEXTURE);
 		glPopMatrix();
@@ -226,27 +213,27 @@ void LLFloaterPostcard::onClickSend(void* data)
 	{
 		LLFloaterPostcard *self = (LLFloaterPostcard *)data;
 
-		std::string from(self->childGetValue("from_form").asString());
-		std::string to(self->childGetValue("to_form").asString());
+		std::string from(self->getChild<LLUICtrl>("from_form")->getValue().asString());
+		std::string to(self->getChild<LLUICtrl>("to_form")->getValue().asString());
 		
 		boost::regex emailFormat("[A-Za-z0-9.%+-_]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}(,[ \t]*[A-Za-z0-9.%+-_]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,})*");
 		
 		if (to.empty() || !boost::regex_match(to, emailFormat))
 		{
-			LLNotifications::instance().add("PromptRecipientEmail");
+			LLNotificationsUtil::add("PromptRecipientEmail");
 			return;
 		}
 
 		if (from.empty() || !boost::regex_match(from, emailFormat))
 		{
-			LLNotifications::instance().add("PromptSelfEmail");
+			LLNotificationsUtil::add("PromptSelfEmail");
 			return;
 		}
 
-		std::string subject(self->childGetValue("subject_form").asString());
+		std::string subject(self->getChild<LLUICtrl>("subject_form")->getValue().asString());
 		if(subject.empty() || !self->mHasFirstMsgFocus)
 		{
-			LLNotifications::instance().add("PromptMissingSubjMsg", LLSD(), LLSD(), boost::bind(&LLFloaterPostcard::missingSubjMsgAlertCallback, self, _1, _2));
+			LLNotificationsUtil::add("PromptMissingSubjMsg", LLSD(), LLSD(), boost::bind(&LLFloaterPostcard::missingSubjMsgAlertCallback, self, _1, _2));
 			return;
 		}
 
@@ -256,7 +243,7 @@ void LLFloaterPostcard::onClickSend(void* data)
 		}
 		else
 		{
-			LLNotifications::instance().add("ErrorProcessingSnapshot");
+			LLNotificationsUtil::add("ErrorProcessingSnapshot");
 		}
 	}
 }
@@ -272,7 +259,7 @@ void LLFloaterPostcard::uploadCallback(const LLUUID& asset_id, void *user_data, 
 	{
 		LLSD args;
 		args["REASON"] = std::string(LLAssetStorage::getErrorString(result));
-		LLNotifications::instance().add("ErrorUploadingPostcard", args);
+		LLNotificationsUtil::add("ErrorUploadingPostcard", args);
 	}
 	else
 	{
@@ -286,11 +273,11 @@ void LLFloaterPostcard::uploadCallback(const LLUUID& asset_id, void *user_data, 
 		msg->addUUID("SessionID", gAgent.getSessionID());
 		msg->addUUID("AssetID", self->mAssetID);
 		msg->addVector3d("PosGlobal", self->mPosTakenGlobal);
-		msg->addString("To", self->childGetValue("to_form").asString());
-		msg->addString("From", self->childGetValue("from_form").asString());
-		msg->addString("Name", self->childGetValue("name_form").asString());
-		msg->addString("Subject", self->childGetValue("subject_form").asString());
-		msg->addString("Msg", self->childGetValue("msg_form").asString());
+		msg->addString("To", self->getChild<LLUICtrl>("to_form")->getValue().asString());
+		msg->addString("From", self->getChild<LLUICtrl>("from_form")->getValue().asString());
+		msg->addString("Name", self->getChild<LLUICtrl>("name_form")->getValue().asString());
+		msg->addString("Subject", self->getChild<LLUICtrl>("subject_form")->getValue().asString());
+		msg->addString("Msg", self->getChild<LLUICtrl>("msg_form")->getValue().asString());
 		msg->addBOOL("AllowPublish", FALSE);
 		msg->addBOOL("MaturePublish", FALSE);
 		gAgent.sendReliableMessage();
@@ -302,15 +289,16 @@ void LLFloaterPostcard::uploadCallback(const LLUUID& asset_id, void *user_data, 
 // static
 void LLFloaterPostcard::updateUserInfo(const std::string& email)
 {
-	for (instance_list_t::iterator iter = sInstances.begin();
-		 iter != sInstances.end(); ++iter)
+	LLFloaterReg::const_instance_list_t& inst_list = LLFloaterReg::getFloaterList("postcard");
+	for (LLFloaterReg::const_instance_list_t::const_iterator iter = inst_list.begin();
+		 iter != inst_list.end(); ++iter)
 	{
-		LLFloaterPostcard *instance = *iter;
-		const std::string& text = instance->childGetValue("from_form").asString();
+		LLFloater* instance = *iter;
+		const std::string& text = instance->getChild<LLUICtrl>("from_form")->getValue().asString();
 		if (text.empty())
 		{
 			// there's no text in this field yet, pre-populate
-			instance->childSetValue("from_form", LLSD(email));
+			instance->getChild<LLUICtrl>("from_form")->setValue(LLSD(email));
 		}
 	}
 }
@@ -331,21 +319,21 @@ void LLFloaterPostcard::onMsgFormFocusRecieved(LLFocusableElement* receiver, voi
 
 bool LLFloaterPostcard::missingSubjMsgAlertCallback(const LLSD& notification, const LLSD& response)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	if(0 == option)
 	{
 		// User clicked OK
-		if((childGetValue("subject_form").asString()).empty())
+		if((getChild<LLUICtrl>("subject_form")->getValue().asString()).empty())
 		{
 			// Stuff the subject back into the form.
-			childSetValue("subject_form", getString("default_subject"));
+			getChild<LLUICtrl>("subject_form")->setValue(getString("default_subject"));
 		}
 
 		if(!mHasFirstMsgFocus)
 		{
 			// The user never switched focus to the messagee window. 
 			// Using the default string.
-			childSetValue("msg_form", getString("default_message"));
+			getChild<LLUICtrl>("msg_form")->setValue(getString("default_message"));
 		}
 
 		sendPostcard();
@@ -367,11 +355,11 @@ void LLFloaterPostcard::sendPostcard()
 		LLSD body = LLSD::emptyMap();
 		// the capability already encodes: agent ID, region ID
 		body["pos-global"] = mPosTakenGlobal.getValue();
-		body["to"] = childGetValue("to_form").asString();
-		body["from"] = childGetValue("from_form").asString();
-		body["name"] = childGetValue("name_form").asString();
-		body["subject"] = childGetValue("subject_form").asString();
-		body["msg"] = childGetValue("msg_form").asString();
+		body["to"] = getChild<LLUICtrl>("to_form")->getValue().asString();
+		body["from"] = getChild<LLUICtrl>("from_form")->getValue().asString();
+		body["name"] = getChild<LLUICtrl>("name_form")->getValue().asString();
+		body["subject"] = getChild<LLUICtrl>("subject_form")->getValue().asString();
+		body["msg"] = getChild<LLUICtrl>("msg_form")->getValue().asString();
 		LLHTTPClient::post(url, body, new LLSendPostcardResponder(body, mAssetID, LLAssetType::AT_IMAGE_JPEG));
 	} 
 	else

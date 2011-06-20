@@ -4,31 +4,25 @@
  * @date 2005-04-28
  * @brief Implementation of the URLRequest class and related classes.
  *
- * $LicenseInfo:firstyear=2005&license=viewergpl$
- * 
- * Copyright (c) 2005-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2005&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -36,7 +30,8 @@
 #include "llurlrequest.h"
 
 #include <algorithm>
-
+#include <openssl/x509_vfy.h>
+#include <openssl/ssl.h>
 #include "llcurl.h"
 #include "llioutil.h"
 #include "llmemtype.h"
@@ -51,9 +46,12 @@ static const U32 HTTP_STATUS_PIPE_ERROR = 499;
  * String constants
  */
 const std::string CONTEXT_DEST_URI_SD_LABEL("dest_uri");
+const std::string CONTEXT_TRANSFERED_BYTES("transfered_bytes");
 
 
 static size_t headerCallback(void* data, size_t size, size_t nmemb, void* user);
+
+
 
 /**
  * class LLURLRequestDetail
@@ -71,6 +69,7 @@ public:
 	U32 mBodyLimit;
 	S32 mByteAccumulator;
 	bool mIsBodyLimitSet;
+	LLURLRequest::SSLCertVerifyCallback mSSLVerifyCallback;
 };
 
 LLURLRequestDetail::LLURLRequestDetail() :
@@ -79,7 +78,8 @@ LLURLRequestDetail::LLURLRequestDetail() :
 	mLastRead(NULL),
 	mBodyLimit(0),
 	mByteAccumulator(0),
-	mIsBodyLimitSet(false)
+	mIsBodyLimitSet(false),
+    mSSLVerifyCallback(NULL)
 {
 	LLMemType m1(LLMemType::MTYPE_IO_URL_REQUEST);
 	mCurlRequest = new LLCurlEasyRequest();
@@ -93,6 +93,36 @@ LLURLRequestDetail::~LLURLRequestDetail()
 	mLastRead = NULL;
 }
 
+void LLURLRequest::setSSLVerifyCallback(SSLCertVerifyCallback callback, void *param)
+{
+	mDetail->mSSLVerifyCallback = callback;
+	mDetail->mCurlRequest->setSSLCtxCallback(LLURLRequest::_sslCtxCallback, (void *)this);
+	mDetail->mCurlRequest->setopt(CURLOPT_SSL_VERIFYPEER, true);
+	mDetail->mCurlRequest->setopt(CURLOPT_SSL_VERIFYHOST, 2);	
+}
+
+
+// _sslCtxFunction
+// Callback function called when an SSL Context is created via CURL
+// used to configure the context for custom cert validation
+
+CURLcode LLURLRequest::_sslCtxCallback(CURL * curl, void *sslctx, void *param)
+{	
+	LLURLRequest *req = (LLURLRequest *)param;
+	if(req == NULL || req->mDetail->mSSLVerifyCallback == NULL)
+	{
+		SSL_CTX_set_cert_verify_callback((SSL_CTX *)sslctx, NULL, NULL);
+		return CURLE_OK;
+	}
+	SSL_CTX * ctx = (SSL_CTX *) sslctx;
+	// disable any default verification for server certs
+	SSL_CTX_set_verify(ctx, SSL_VERIFY_NONE, NULL);
+	// set the verification callback.
+	SSL_CTX_set_cert_verify_callback(ctx, req->mDetail->mSSLVerifyCallback, (void *)req);
+	// the calls are void
+	return CURLE_OK;
+	
+}
 
 /**
  * class LLURLRequest
@@ -147,6 +177,11 @@ void LLURLRequest::setURL(const std::string& url)
 	mDetail->mURL = url;
 }
 
+std::string LLURLRequest::getURL() const
+{
+	return mDetail->mURL;
+}
+
 void LLURLRequest::addHeader(const char* header)
 {
 	LLMemType m1(LLMemType::MTYPE_IO_URL_REQUEST);
@@ -157,12 +192,6 @@ void LLURLRequest::setBodyLimit(U32 size)
 {
 	mDetail->mBodyLimit = size;
 	mDetail->mIsBodyLimitSet = true;
-}
-
-void LLURLRequest::checkRootCertificate(bool check)
-{
-	mDetail->mCurlRequest->setopt(CURLOPT_SSL_VERIFYPEER, (check? TRUE : FALSE));
-	mDetail->mCurlRequest->setoptString(CURLOPT_ENCODING, "");
 }
 
 void LLURLRequest::setCallback(LLURLRequestComplete* callback)
@@ -216,6 +245,11 @@ void LLURLRequest::useProxy(const std::string &proxy)
     mDetail->mCurlRequest->setoptString(CURLOPT_PROXY, proxy);
 }
 
+void LLURLRequest::allowCookies()
+{
+	mDetail->mCurlRequest->setoptString(CURLOPT_COOKIEFILE, "");
+}
+
 // virtual
 LLIOPipe::EStatus LLURLRequest::handleError(
 	LLIOPipe::EStatus status,
@@ -247,7 +281,29 @@ LLIOPipe::EStatus LLURLRequest::process_impl(
 	PUMP_DEBUG;
 	LLMemType m1(LLMemType::MTYPE_IO_URL_REQUEST);
 	//llinfos << "LLURLRequest::process_impl()" << llendl;
-	if(!buffer) return STATUS_ERROR;
+	if (!buffer) return STATUS_ERROR;
+	
+	// we're still waiting or prcessing, check how many
+	// bytes we have accumulated.
+	const S32 MIN_ACCUMULATION = 100000;
+	if(pump && (mDetail->mByteAccumulator > MIN_ACCUMULATION))
+	{
+		 // This is a pretty sloppy calculation, but this
+		 // tries to make the gross assumption that if data
+		 // is coming in at 56kb/s, then this transfer will
+		 // probably succeed. So, if we're accumlated
+		 // 100,000 bytes (MIN_ACCUMULATION) then let's
+		 // give this client another 2s to complete.
+		 const F32 TIMEOUT_ADJUSTMENT = 2.0f;
+		 mDetail->mByteAccumulator = 0;
+		 pump->adjustTimeoutSeconds(TIMEOUT_ADJUSTMENT);
+		 lldebugs << "LLURLRequest adjustTimeoutSeconds for request: " << mDetail->mURL << llendl;
+		 if (mState == STATE_INITIALIZED)
+		 {
+			  llinfos << "LLURLRequest adjustTimeoutSeconds called during upload" << llendl;
+		 }
+	}
+
 	switch(mState)
 	{
 	case STATE_INITIALIZED:
@@ -286,27 +342,14 @@ LLIOPipe::EStatus LLURLRequest::process_impl(
 			bool newmsg = mDetail->mCurlRequest->getResult(&result);
 			if(!newmsg)
 			{
-				// we're still waiting or prcessing, check how many
-				// bytes we have accumulated.
-				const S32 MIN_ACCUMULATION = 100000;
-				if(pump && (mDetail->mByteAccumulator > MIN_ACCUMULATION))
-				{
-					// This is a pretty sloppy calculation, but this
-					// tries to make the gross assumption that if data
-					// is coming in at 56kb/s, then this transfer will
-					// probably succeed. So, if we're accumlated
-					// 100,000 bytes (MIN_ACCUMULATION) then let's
-					// give this client another 2s to complete.
-					const F32 TIMEOUT_ADJUSTMENT = 2.0f;
-					mDetail->mByteAccumulator = 0;
-					pump->adjustTimeoutSeconds(TIMEOUT_ADJUSTMENT);
-				}
-
 				// keep processing
 				break;
 			}
 
 			mState = STATE_HAVE_RESPONSE;
+			context[CONTEXT_REQUEST][CONTEXT_TRANSFERED_BYTES] = mRequestTransferedBytes;
+			context[CONTEXT_RESPONSE][CONTEXT_TRANSFERED_BYTES] = mResponseTransferedBytes;
+			lldebugs << this << "Setting context to " << context << llendl;
 			switch(result)
 			{
 				case CURLE_OK:
@@ -353,10 +396,16 @@ LLIOPipe::EStatus LLURLRequest::process_impl(
 		// we already stuffed everything into channel in in the curl
 		// callback, so we are done.
 		eos = true;
+		context[CONTEXT_REQUEST][CONTEXT_TRANSFERED_BYTES] = mRequestTransferedBytes;
+		context[CONTEXT_RESPONSE][CONTEXT_TRANSFERED_BYTES] = mResponseTransferedBytes;
+		lldebugs << this << "Setting context to " << context << llendl;
 		return STATUS_DONE;
 
 	default:
 		PUMP_DEBUG;
+		context[CONTEXT_REQUEST][CONTEXT_TRANSFERED_BYTES] = mRequestTransferedBytes;
+		context[CONTEXT_RESPONSE][CONTEXT_TRANSFERED_BYTES] = mResponseTransferedBytes;
+		lldebugs << this << "Setting context to " << context << llendl;
 		return STATUS_ERROR;
 	}
 }
@@ -369,6 +418,8 @@ void LLURLRequest::initialize()
 	mDetail->mCurlRequest->setopt(CURLOPT_NOSIGNAL, 1);
 	mDetail->mCurlRequest->setWriteCallback(&downCallback, (void*)this);
 	mDetail->mCurlRequest->setReadCallback(&upCallback, (void*)this);
+	mRequestTransferedBytes = 0;
+	mResponseTransferedBytes = 0;
 }
 
 bool LLURLRequest::configure()
@@ -389,6 +440,9 @@ bool LLURLRequest::configure()
 	case HTTP_GET:
 		mDetail->mCurlRequest->setopt(CURLOPT_HTTPGET, 1);
 		mDetail->mCurlRequest->setopt(CURLOPT_FOLLOWLOCATION, 1);
+
+		// Set Accept-Encoding to allow response compression
+		mDetail->mCurlRequest->setoptString(CURLOPT_ENCODING, "");
 		rv = true;
 		break;
 
@@ -413,6 +467,9 @@ bool LLURLRequest::configure()
 
 		// Set the handle for an http post
 		mDetail->mCurlRequest->setPost(NULL, bytes);
+
+		// Set Accept-Encoding to allow response compression
+		mDetail->mCurlRequest->setoptString(CURLOPT_ENCODING, "");
 		rv = true;
 		break;
 
@@ -471,6 +528,7 @@ size_t LLURLRequest::downCallback(
 		req->mDetail->mChannels.out(),
 		(U8*)data,
 		bytes);
+	req->mResponseTransferedBytes += bytes;
 	req->mDetail->mByteAccumulator += bytes;
 	return bytes;
 }
@@ -494,6 +552,7 @@ size_t LLURLRequest::upCallback(
 		req->mDetail->mLastRead,
 		(U8*)data,
 		bytes);
+	req->mRequestTransferedBytes += bytes;
 	return bytes;
 }
 

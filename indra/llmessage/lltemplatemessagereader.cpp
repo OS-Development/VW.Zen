@@ -2,31 +2,25 @@
  * @file lltemplatemessagereader.cpp
  * @brief LLTemplateMessageReader class implementation.
  *
- * $LicenseInfo:firstyear=2007&license=viewergpl$
- * 
- * Copyright (c) 2007-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2007&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -36,6 +30,7 @@
 #include "llfasttimer.h"
 #include "llmessagebuilder.h"
 #include "llmessagetemplate.h"
+#include "llmath.h"
 #include "llquaternion.h"
 #include "message.h"
 #include "u64.h"
@@ -433,10 +428,9 @@ inline void LLTemplateMessageReader::getString(const char *block, const char *va
 
 inline void LLTemplateMessageReader::getString(const char *block, const char *var, std::string& outstr, S32 blocknum )
 {
-	char s[MTUBYTES];
-	s[0] = '\0';
+	char s[MTUBYTES + 1]= {0}; // every element is initialized with 0
 	getData(block, var, s, 0, blocknum, MTUBYTES);
-	s[MTUBYTES - 1] = '\0';
+	s[MTUBYTES] = '\0';
 	outstr = s;
 }
 
@@ -530,6 +524,8 @@ void LLTemplateMessageReader::logRanOffEndOfPacket( const LLHost& host, const S3
 	}
 	gMessageSystem->callExceptionFunc(MX_RAN_OFF_END_OF_PACKET);
 }
+
+static LLFastTimer::DeclareTimer FTM_PROCESS_MESSAGES("Process Messages");
 
 // decode a given message
 BOOL LLTemplateMessageReader::decodeData(const U8* buffer, const LLHost& sender )
@@ -676,12 +672,7 @@ BOOL LLTemplateMessageReader::decodeData(const U8* buffer, const LLHost& sender 
 
 						// default to 0s.
 						U32 size = mvci.getSize();
-						std::vector<U8> data(size);
-						if(size)
-						{
-							// Nonsense test to get past GCC 4.3.1 bug with -O3
-							memset(&(data[0]), 0, size);
-						}
+						std::vector<U8> data(size, 0);
 						cur_data_block->addData(mvci.getName(), &(data[0]), 
 												size, mvci.getType());
 					}
@@ -714,7 +705,7 @@ BOOL LLTemplateMessageReader::decodeData(const U8* buffer, const LLHost& sender 
 		}
 
 		{
-			LLFastTimer t(LLFastTimer::FTM_PROCESS_MESSAGES);
+			LLFastTimer t(FTM_PROCESS_MESSAGES);
 			if( !mCurrentRMessageTemplate->callHandlerFunc(gMessageSystem) )
 			{
 				llwarns << "Message from " << sender << " with no handler function received: " << mCurrentRMessageTemplate->mName << llendl;

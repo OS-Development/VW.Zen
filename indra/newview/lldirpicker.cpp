@@ -2,31 +2,25 @@
  * @file lldirpicker.cpp
  * @brief OS-specific file picker
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -41,6 +35,7 @@
 #include "llframetimer.h"
 #include "lltrans.h"
 #include "llwindow.h"	// beforeDialog()
+#include "llviewercontrol.h"
 
 #if LL_LINUX || LL_SOLARIS
 # include "llfilepicker.h"
@@ -59,9 +54,28 @@ LLDirPicker LLDirPicker::sInstance;
 //
 // Implementation
 //
+
+// utility function to check if access to local file system via file browser 
+// is enabled and if not, tidy up and indicate we're not allowed to do this.
+bool LLDirPicker::check_local_file_access_enabled()
+{
+	// if local file browsing is turned off, return without opening dialog
+	bool local_file_system_browsing_enabled = gSavedSettings.getBOOL("LocalFileSystemBrowsingEnabled");
+	if ( ! local_file_system_browsing_enabled )
+	{
+		mDir.clear();	// Windows
+		mFileName = NULL; // Mac/Linux
+		return false;
+	}
+
+	return true;
+}
+
 #if LL_WINDOWS
 
-LLDirPicker::LLDirPicker() 
+LLDirPicker::LLDirPicker() :
+	mFileName(NULL),
+	mLocked(false)
 {
 }
 
@@ -76,6 +90,13 @@ BOOL LLDirPicker::getDir(std::string* filename)
 	{
 		return FALSE;
 	}
+
+	// if local file browsing is turned off, return without opening dialog
+	if ( check_local_file_access_enabled() == false )
+	{
+		return FALSE;
+	}
+
 	BOOL success = FALSE;
 
 	// Modal, so pause agent
@@ -125,7 +146,9 @@ std::string LLDirPicker::getDirName()
 /////////////////////////////////////////////DARWIN
 #elif LL_DARWIN
 
-LLDirPicker::LLDirPicker() 
+LLDirPicker::LLDirPicker() :
+	mFileName(NULL),
+	mLocked(false)
 {
 	reset();
 
@@ -233,7 +256,13 @@ BOOL LLDirPicker::getDir(std::string* filename)
 	if( mLocked ) return FALSE;
 	BOOL success = FALSE;
 	OSStatus	error = noErr;
-	
+
+	// if local file browsing is turned off, return without opening dialog
+	if ( check_local_file_access_enabled() == false )
+	{
+		return FALSE;
+	}
+
 	mFileName = filename;
 	
 //	mNavOptions.saveFileName 
@@ -262,13 +291,15 @@ std::string LLDirPicker::getDirName()
 
 void LLDirPicker::reset()
 {
-	mLocked = FALSE;
+	mLocked = false;
 	mDir.clear();
 }
 
 #elif LL_LINUX || LL_SOLARIS
 
-LLDirPicker::LLDirPicker() 
+LLDirPicker::LLDirPicker() :
+	mFileName(NULL),
+	mLocked(false)
 {
 	mFilePicker = new LLFilePicker();
 	reset();
@@ -289,6 +320,13 @@ void LLDirPicker::reset()
 BOOL LLDirPicker::getDir(std::string* filename)
 {
 	reset();
+
+	// if local file browsing is turned off, return without opening dialog
+	if ( check_local_file_access_enabled() == false )
+	{
+		return FALSE;
+	}
+
 	if (mFilePicker)
 	{
 		GtkWindow* picker = mFilePicker->buildFilePicker(false, true,

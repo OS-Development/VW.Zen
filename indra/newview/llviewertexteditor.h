@@ -2,31 +2,25 @@
  * @file llviewertexteditor.h
  * @brief Text editor widget to let users enter a multi-line document//
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -34,7 +28,6 @@
 #define LL_VIEWERTEXTEDITOR_H
 
 #include "lltexteditor.h"
-
 
 //
 // Classes
@@ -44,10 +37,7 @@ class LLViewerTextEditor : public LLTextEditor
 public:
 	struct Params : public LLInitParam::Block<Params, LLTextEditor::Params>
 	{
-		Optional<bool>	allow_html;
-
 		Params()
-		:	allow_html("allow_html", false)
 		{
 			name = "text_editor";
 		}
@@ -65,13 +55,9 @@ public:
 	// mousehandler overrides
 	virtual BOOL	handleMouseDown(S32 x, S32 y, MASK mask);
 	virtual BOOL	handleMouseUp(S32 x, S32 y, MASK mask);
-	virtual BOOL	handleMiddleMouseDown(S32 x, S32 y, MASK mask);
-	virtual BOOL	handleMiddleMouseUp(S32 x, S32 y, MASK mask);
-	virtual BOOL	handleRightMouseDown(S32 x, S32 y, MASK mask);
 	virtual BOOL	handleHover(S32 x, S32 y, MASK mask);
 	virtual BOOL	handleDoubleClick(S32 x, S32 y, MASK mask );
 
-	virtual BOOL	handleToolTip(S32 x, S32 y, std::string& msg, LLRect* sticky_rect);
 	virtual BOOL	handleDragAndDrop(S32 x, S32 y, MASK mask,
 										BOOL drop, EDragAndDropType cargo_type, 
 										void *cargo_data, EAcceptance *accept, std::string& tooltip_msg);
@@ -80,6 +66,8 @@ public:
 	virtual BOOL 	importBuffer(const char* buffer, S32 length);
 	virtual bool	importStream(std::istream& str);
 	virtual BOOL 	exportBuffer(std::string& buffer);
+	virtual void	onValueChange(S32 start, S32 end);
+
 	void setNotecardInfo(const LLUUID& notecard_item_id, const LLUUID& object_id, const LLUUID& preview_id)
 	{
 		mNotecardInventoryID = notecard_item_id;
@@ -106,20 +94,22 @@ public:
 
 private:
 	// Embedded object operations
+	void findEmbeddedItemSegments(S32 start, S32 end);
 	virtual llwchar	pasteEmbeddedItem(llwchar ext_char);
-	virtual void	bindEmbeddedChars(const LLFontGL* font) const;
-	virtual void	unbindEmbeddedChars(const LLFontGL* font) const;
 
-	BOOL			getEmbeddedItemToolTipAtPos(S32 pos, LLWString &wmsg) const;
 	BOOL			openEmbeddedItemAtPos( S32 pos );
-	BOOL			openEmbeddedItem(LLInventoryItem* item, llwchar wc);
+	BOOL			openEmbeddedItem(LLPointer<LLInventoryItem> item, llwchar wc);
 
 	S32				insertEmbeddedItem(S32 pos, LLInventoryItem* item);
 
+	// *NOTE: most of openEmbeddedXXX methods except openEmbeddedLandmark take pointer to LLInventoryItem.
+	// Be sure they don't bind it to callback function to avoid situation when it gets invalid when
+	// callback is trigged after text editor is closed. See EXT-8459.
 	void			openEmbeddedTexture( LLInventoryItem* item, llwchar wc );
 	void			openEmbeddedSound( LLInventoryItem* item, llwchar wc );
-	void			openEmbeddedLandmark( LLInventoryItem* item, llwchar wc );
+	void			openEmbeddedLandmark( LLPointer<LLInventoryItem> item_ptr, llwchar wc );
 	void			openEmbeddedNotecard( LLInventoryItem* item, llwchar wc);
+	void			openEmbeddedCallingcard( LLInventoryItem* item, llwchar wc);
 	void			showCopyToInvDialog( LLInventoryItem* item, llwchar wc );
 	void			showUnsavedAlertDialog( LLInventoryItem* item );
 
@@ -127,6 +117,7 @@ private:
 	static bool		onNotecardDialog(const LLSD& notification, const LLSD& response );
 	
 	LLPointer<LLInventoryItem> mDragItem;
+	LLTextSegment* mDragSegment;
 	llwchar mDragItemChar;
 	BOOL mDragItemSaved;
 	class LLEmbeddedItems* mEmbeddedItemList;
@@ -137,14 +128,11 @@ private:
 
 	LLPointer<class LLEmbeddedNotecardOpener> mInventoryCallback;
 
-	// *TODO: Add right click menus for SLURLs
-	//LLViewHandle mPopupMenuHandle;
-
 	//
 	// Inner classes
 	//
 
-	class LLTextCmdInsertEmbeddedItem;
+	class TextCmdInsertEmbeddedItem;
 };
 
 #endif  // LL_VIEWERTEXTEDITOR_H

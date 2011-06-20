@@ -2,31 +2,25 @@
  * @file llchatbar.cpp
  * @brief LLChatBar class implementation
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -48,7 +42,6 @@
 #include "llcombobox.h"
 #include "llcommandhandler.h"	// secondlife:///app/chat/ support
 #include "llviewercontrol.h"
-#include "llfloaterchat.h"
 #include "llgesturemgr.h"
 #include "llkeyboard.h"
 #include "lllineeditor.h"
@@ -87,6 +80,8 @@ private:
 };
 
 
+extern void send_chat_from_viewer(const std::string& utf8_out_text, EChatType type, S32 channel);
+
 //
 // Functions
 //
@@ -101,16 +96,12 @@ LLChatBar::LLChatBar()
 	mObserver(NULL)
 {
 	setIsChrome(TRUE);
-	
-#if !LL_RELEASE_FOR_DOWNLOAD
-	childDisplayNotFound();
-#endif
 }
 
 
 LLChatBar::~LLChatBar()
 {
-	gGestureManager.removeObserver(mObserver);
+	LLGestureMgr::instance().removeObserver(mObserver);
 	delete mObserver;
 	mObserver = NULL;
 	// LLView destructor cleans up children
@@ -120,20 +111,22 @@ BOOL LLChatBar::postBuild()
 {
 	getChild<LLUICtrl>("Say")->setCommitCallback(boost::bind(&LLChatBar::onClickSay, this, _1));
 
+	// * NOTE: mantipov: getChild with default parameters returns dummy widget.
+	// Seems this class will be completle removed
 	// attempt to bind to an existing combo box named gesture
-	setGestureCombo(getChild<LLComboBox>( "Gesture", TRUE, FALSE));
+	setGestureCombo(findChild<LLComboBox>( "Gesture"));
 
 	mInputEditor = getChild<LLLineEditor>("Chat Editor");
 	mInputEditor->setKeystrokeCallback(&onInputEditorKeystroke, this);
-	mInputEditor->setFocusLostCallback(&onInputEditorFocusLost, this);
-	mInputEditor->setFocusReceivedCallback( &onInputEditorGainFocus, this );
+	mInputEditor->setFocusLostCallback(boost::bind(&LLChatBar::onInputEditorFocusLost));
+	mInputEditor->setFocusReceivedCallback(boost::bind(&LLChatBar::onInputEditorGainFocus));
 	mInputEditor->setCommitOnFocusLost( FALSE );
 	mInputEditor->setRevertOnEsc( FALSE );
 	mInputEditor->setIgnoreTab(TRUE);
 	mInputEditor->setPassDelete(TRUE);
 	mInputEditor->setReplaceNewlinesWithSpaces(FALSE);
 
-	mInputEditor->setMaxTextLength(1023);
+	mInputEditor->setMaxTextLength(DB_CHAT_MSG_STR_LEN);
 	mInputEditor->setEnableLineHistory(TRUE);
 
 	mIsBuilt = TRUE;
@@ -150,7 +143,6 @@ BOOL LLChatBar::handleKeyHere( KEY key, MASK mask )
 {
 	BOOL handled = FALSE;
 
-	// ALT-RETURN is reserved for windowed/fullscreen toggle
 	if( KEY_RETURN == key )
 	{
 		if (mask == MASK_CONTROL)
@@ -193,7 +185,7 @@ void LLChatBar::refresh()
 		gAgent.stopTyping();
 	}
 
-	childSetEnabled("Say", mInputEditor->getText().size() > 0);
+	getChildView("Say")->setEnabled(mInputEditor->getText().size() > 0);
 
 }
 
@@ -210,8 +202,9 @@ void LLChatBar::refreshGestures()
 
 		// collect list of unique gestures
 		std::map <std::string, BOOL> unique;
-		LLGestureManager::item_map_t::iterator it;
-		for (it = gGestureManager.mActive.begin(); it != gGestureManager.mActive.end(); ++it)
+		LLGestureMgr::item_map_t::const_iterator it;
+		const LLGestureMgr::item_map_t& active_gestures = LLGestureMgr::instance().getActiveGestures();
+		for (it = active_gestures.begin(); it != active_gestures.end(); ++it)
 		{
 			LLMultiGesture* gesture = (*it).second;
 			if (gesture)
@@ -296,7 +289,7 @@ void LLChatBar::setGestureCombo(LLComboBox* combo)
 
 		// now register observer since we have a place to put the results
 		mObserver = new LLChatBarGestureObserver(this);
-		gGestureManager.addObserver(mObserver);
+		LLGestureMgr::instance().addObserver(mObserver);
 
 		// refresh list from current active gestures
 		refreshGestures();
@@ -377,7 +370,7 @@ void LLChatBar::sendChat( EChatType type )
 			if (0 == channel)
 			{
 				// discard returned "found" boolean
-				gGestureManager.triggerAndReviseString(utf8text, &utf8_revised_text);
+				LLGestureMgr::instance().triggerAndReviseString(utf8text, &utf8_revised_text);
 			}
 			else
 			{
@@ -394,7 +387,7 @@ void LLChatBar::sendChat( EChatType type )
 		}
 	}
 
-	childSetValue("Chat Editor", LLStringUtil::null);
+	getChild<LLUICtrl>("Chat Editor")->setValue(LLStringUtil::null);
 
 	gAgent.stopTyping();
 
@@ -415,11 +408,11 @@ void LLChatBar::sendChat( EChatType type )
 void LLChatBar::startChat(const char* line)
 {
 	//TODO* remove DUMMY chat
-	if(gBottomTray && gBottomTray->getChatBox())
-	{
-		gBottomTray->setVisible(TRUE);
-		gBottomTray->getChatBox()->setFocus(TRUE);
-	}
+	//if(gBottomTray && gBottomTray->getChatBox())
+	//{
+	//	gBottomTray->setVisible(TRUE);
+	//	gBottomTray->getChatBox()->setFocus(TRUE);
+	//}
 
 	// *TODO Vadim: Why was this code commented out?
 
@@ -442,10 +435,10 @@ void LLChatBar::startChat(const char* line)
 void LLChatBar::stopChat()
 {
 	//TODO* remove DUMMY chat
-	if(gBottomTray && gBottomTray->getChatBox())
-	{
-		gBottomTray->getChatBox()->setFocus(FALSE);
-	}
+	//if(gBottomTray && gBottomTray->getChatBox())
+	///{
+	//	gBottomTray->getChatBox()->setFocus(FALSE);
+	//}
 
 	// *TODO Vadim: Why was this code commented out?
 
@@ -516,7 +509,7 @@ void LLChatBar::onInputEditorKeystroke( LLLineEditor* caller, void* userdata )
 		std::string utf8_trigger = wstring_to_utf8str(raw_text);
 		std::string utf8_out_str(utf8_trigger);
 
-		if (gGestureManager.matchPrefix(utf8_trigger, &utf8_out_str))
+		if (LLGestureMgr::instance().matchPrefix(utf8_trigger, &utf8_out_str))
 		{
 			if (self->mInputEditor)
 			{
@@ -538,16 +531,16 @@ void LLChatBar::onInputEditorKeystroke( LLLineEditor* caller, void* userdata )
 }
 
 // static
-void LLChatBar::onInputEditorFocusLost( LLFocusableElement* caller, void* userdata)
+void LLChatBar::onInputEditorFocusLost()
 {
 	// stop typing animation
 	gAgent.stopTyping();
 }
 
 // static
-void LLChatBar::onInputEditorGainFocus( LLFocusableElement* caller, void* userdata )
+void LLChatBar::onInputEditorGainFocus()
 {
-	LLFloaterChat::setHistoryCursorAndScrollToEnd();
+	//LLFloaterChat::setHistoryCursorAndScrollToEnd();
 }
 
 void LLChatBar::onClickSay( LLUICtrl* ctrl )
@@ -572,12 +565,20 @@ void LLChatBar::sendChatFromViewer(const std::string &utf8text, EChatType type, 
 
 void LLChatBar::sendChatFromViewer(const LLWString &wtext, EChatType type, BOOL animate)
 {
+	// as soon as we say something, we no longer care about teaching the user
+	// how to chat
+	gWarningSettings.setBOOL("FirstOtherChatBeforeUser", FALSE);
+	
 	// Look for "/20 foo" channel chats.
 	S32 channel = 0;
 	LLWString out_text = stripChannelNumber(wtext, &channel);
 	std::string utf8_out_text = wstring_to_utf8str(out_text);
-	std::string utf8_text = wstring_to_utf8str(wtext);
+	if (!utf8_out_text.empty())
+	{
+		utf8_out_text = utf8str_truncate(utf8_out_text, MAX_MSG_STR_LEN);
+	}
 
+	std::string utf8_text = wstring_to_utf8str(wtext);
 	utf8_text = utf8str_trim(utf8_text);
 	if (!utf8_text.empty())
 	{
@@ -618,7 +619,7 @@ void LLChatBar::sendChatFromViewer(const LLWString &wtext, EChatType type, BOOL 
 
 	send_chat_from_viewer(utf8_out_text, type, channel);
 }
-
+/*
 void send_chat_from_viewer(const std::string& utf8_out_text, EChatType type, S32 channel)
 {
 	LLMessageSystem* msg = gMessageSystem;
@@ -635,7 +636,7 @@ void send_chat_from_viewer(const std::string& utf8_out_text, EChatType type, S32
 
 	LLViewerStats::getInstance()->incStat(LLViewerStats::ST_CHAT_COUNT);
 }
-
+*/
 
 void LLChatBar::onCommitGesture(LLUICtrl* ctrl)
 {
@@ -653,7 +654,7 @@ void LLChatBar::onCommitGesture(LLUICtrl* ctrl)
 		// substitution and logging.
 		std::string text(trigger);
 		std::string revised_text;
-		gGestureManager.triggerAndReviseString(text, &revised_text);
+		LLGestureMgr::instance().triggerAndReviseString(text, &revised_text);
 
 		revised_text = utf8str_trim(revised_text);
 		if (!revised_text.empty())
@@ -670,23 +671,46 @@ void LLChatBar::onCommitGesture(LLUICtrl* ctrl)
 	}
 }
 
+
+/* Cruft - global gChatHandler declared below has been commented out,
+   so this class is never used.  See similar code in llnearbychatbar.cpp
 class LLChatHandler : public LLCommandHandler
 {
 public:
 	// not allowed from outside the app
-	LLChatHandler() : LLCommandHandler("chat", true) { }
+	LLChatHandler() : LLCommandHandler("chat", UNTRUSTED_BLOCK) { }
 
     // Your code here
 	bool handle(const LLSD& tokens, const LLSD& query_map,
-				LLWebBrowserCtrl* web)
+				LLMediaCtrl* web)
 	{
-		if (tokens.size() < 2) return false;
+		bool retval = false;
+		// Need at least 2 tokens to have a valid message.
+		if (tokens.size() < 2) 
+		{
+			retval = false;
+		}
+		else
+		{
 		S32 channel = tokens[0].asInteger();
+			// VWR-19499 Restrict function to chat channels greater than 0.
+			if ((channel > 0) && (channel < CHAT_CHANNEL_DEBUG))
+			{
+				retval = true;
+				// Say mesg on channel
 		std::string mesg = tokens[1].asString();
 		send_chat_from_viewer(mesg, CHAT_TYPE_NORMAL, channel);
-		return true;
+			}
+			else
+			{
+				retval = false;
+				// Tell us this is an unsupported SLurl.
+			}
+		}
+		return retval;
 	}
 };
 
 // Creating the object registers with the dispatcher.
-LLChatHandler gChatHandler;
+//LLChatHandler gChatHandler;
+cruft */

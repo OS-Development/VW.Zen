@@ -2,31 +2,25 @@
  * @file llmanip.cpp
  * @brief LLManip class implementation
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -43,6 +37,7 @@
 #include "llviewertexturelist.h"
 
 #include "llagent.h"
+#include "llagentcamera.h"
 #include "llviewercontrol.h"
 #include "lldrawable.h"
 #include "llfontgl.h"
@@ -85,6 +80,7 @@ void LLManip::rebuild(LLViewerObject* vobj)
 		if (group)
 		{
 			group->dirtyGeom();
+			gPipeline.markRebuild(group, TRUE);
 		}
 	}
 }
@@ -179,7 +175,7 @@ F32 LLManip::getSubdivisionLevel(const LLVector3 &reference_point, const LLVecto
 	LLVector3 cam_to_reference;
 	if (mObjectSelection->getSelectType() == SELECT_TYPE_HUD)
 	{
-		cam_to_reference = LLVector3(1.f / gAgent.mHUDCurZoom, 0.f, 0.f);
+		cam_to_reference = LLVector3(1.f / gAgentCamera.mHUDCurZoom, 0.f, 0.f);
 	}
 	else
 	{
@@ -264,8 +260,8 @@ BOOL LLManip::getMousePointOnPlaneGlobal(LLVector3d& point, S32 x, S32 y, LLVect
 	if (mObjectSelection->getSelectType() == SELECT_TYPE_HUD)
 	{
 		BOOL result = FALSE;
-		F32 mouse_x = ((F32)x / gViewerWindow->getWindowWidth() - 0.5f) * LLViewerCamera::getInstance()->getAspect() / gAgent.mHUDCurZoom;
-		F32 mouse_y = ((F32)y / gViewerWindow->getWindowHeight() - 0.5f) / gAgent.mHUDCurZoom;
+		F32 mouse_x = ((F32)x / gViewerWindow->getWorldViewWidthScaled() - 0.5f) * LLViewerCamera::getInstance()->getAspect() / gAgentCamera.mHUDCurZoom;
+		F32 mouse_y = ((F32)y / gViewerWindow->getWorldViewHeightScaled() - 0.5f) / gAgentCamera.mHUDCurZoom;
 
 		LLVector3 origin_agent = gAgent.getPosAgentFromGlobal(origin);
 		LLVector3 mouse_pos = LLVector3(0.f, -mouse_x, mouse_y);
@@ -303,15 +299,15 @@ BOOL LLManip::nearestPointOnLineFromMouse( S32 x, S32 y, const LLVector3& b1, co
 
 	if (mObjectSelection->getSelectType() == SELECT_TYPE_HUD)
 	{
-		F32 mouse_x = (((F32)x / gViewerWindow->getWindowWidth()) - 0.5f) * LLViewerCamera::getInstance()->getAspect() / gAgent.mHUDCurZoom;
-		F32 mouse_y = (((F32)y / gViewerWindow->getWindowHeight()) - 0.5f) / gAgent.mHUDCurZoom;
+		F32 mouse_x = (((F32)x / gViewerWindow->getWindowWidthScaled()) - 0.5f) * LLViewerCamera::getInstance()->getAspect() / gAgentCamera.mHUDCurZoom;
+		F32 mouse_y = (((F32)y / gViewerWindow->getWindowHeightScaled()) - 0.5f) / gAgentCamera.mHUDCurZoom;
 		a1 = LLVector3(llmin(b1.mV[VX] - 0.1f, b2.mV[VX] - 0.1f, 0.f), -mouse_x, mouse_y);
 		a2 = a1 + LLVector3(1.f, 0.f, 0.f);
 	}
 	else
 	{
-		a1 = gAgent.getCameraPositionAgent();
-		a2 = gAgent.getCameraPositionAgent() + LLVector3(gViewerWindow->mouseDirectionGlobal(x, y));
+		a1 = gAgentCamera.getCameraPositionAgent();
+		a2 = gAgentCamera.getCameraPositionAgent() + LLVector3(gViewerWindow->mouseDirectionGlobal(x, y));
 	}
 
 	BOOL parallel = TRUE;
@@ -428,16 +424,17 @@ void LLManip::renderXYZ(const LLVector3 &vec)
 	const S32 PAD = 10;
 	std::string feedback_string;
 	LLVector3 camera_pos = LLViewerCamera::getInstance()->getOrigin() + LLViewerCamera::getInstance()->getAtAxis();
-	S32 vertical_offset = gViewerWindow->getWindowHeight() / 2 - VERTICAL_OFFSET;
-	S32 window_center_x = gViewerWindow->getWindowWidth() / 2;
-	S32 window_center_y = gViewerWindow->getWindowHeight() / 2;
+	S32 window_center_x = gViewerWindow->getWorldViewRectScaled().getWidth() / 2;
+	S32 window_center_y = gViewerWindow->getWorldViewRectScaled().getHeight() / 2;
+	S32 vertical_offset = window_center_y - VERTICAL_OFFSET;
 
-	glPushMatrix();
+
+	gGL.pushMatrix();
 	{
-		LLUIImagePtr imagep = LLUI::getUIImage("rounded_square.tga");
+		LLUIImagePtr imagep = LLUI::getUIImage("Rounded_Square");
 		gViewerWindow->setup2DRender();
 		const LLVector2& display_scale = gViewerWindow->getDisplayScale();
-		glScalef(display_scale.mV[VX], display_scale.mV[VY], 1.f);
+		gGL.scalef(display_scale.mV[VX], display_scale.mV[VY], 1.f);
 		gGL.color4f(0.f, 0.f, 0.f, 0.7f);
 
 		imagep->draw(
@@ -447,7 +444,7 @@ void LLManip::renderXYZ(const LLVector3 &vec)
 			PAD * 2 + 10, 
 			LLColor4(0.f, 0.f, 0.f, 0.7f) );
 	}
-	glPopMatrix();
+	gGL.popMatrix();
 
 	gViewerWindow->setup3DRender();
 
@@ -489,7 +486,7 @@ void LLManip::renderTickText(const LLVector3& pos, const std::string& text, cons
 	LLVector3 render_pos = pos;
 	if (hud_selection)
 	{
-		F32 zoom_amt = gAgent.mHUDCurZoom;
+		F32 zoom_amt = gAgentCamera.mHUDCurZoom;
 		F32 inv_zoom_amt = 1.f / zoom_amt;
 		// scale text back up to counter-act zoom level
 		render_pos = pos * zoom_amt;
@@ -547,7 +544,7 @@ void LLManip::renderTickValue(const LLVector3& pos, F32 value, const std::string
 	LLVector3 render_pos = pos;
 	if (hud_selection)
 	{
-		F32 zoom_amt = gAgent.mHUDCurZoom;
+		F32 zoom_amt = gAgentCamera.mHUDCurZoom;
 		F32 inv_zoom_amt = 1.f / zoom_amt;
 		// scale text back up to counter-act zoom level
 		render_pos = pos * zoom_amt;

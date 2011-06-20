@@ -2,31 +2,25 @@
  * @file llpanelgroupnotices.cpp
  * @brief A panel to display group notices.
  *
- * $LicenseInfo:firstyear=2006&license=viewergpl$
- * 
- * Copyright (c) 2006-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2006&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -36,12 +30,15 @@
 
 #include "llview.h"
 
+#include "llavatarnamecache.h"
 #include "llinventory.h"
 #include "llviewerinventory.h"
+#include "llinventorydefines.h"
+#include "llinventoryfunctions.h"
 #include "llinventorymodel.h"
 #include "llfloaterinventory.h"
 #include "llagent.h"
-#include "lltooldraganddrop.h"
+#include "llagentui.h"
 
 #include "lllineeditor.h"
 #include "lltexteditor.h"
@@ -56,7 +53,11 @@
 #include "roles_constants.h"
 #include "llviewerwindow.h"
 #include "llviewermessage.h"
-#include "llnotifications.h"
+#include "llnotificationsutil.h"
+#include "llgiveinventory.h"
+
+static LLRegisterPanelClassWrapper<LLPanelGroupNotices> t_panel_group_notices("panel_group_notices");
+
 
 /////////////////////////
 // LLPanelGroupNotices //
@@ -152,10 +153,12 @@ BOOL LLGroupDropTarget::handleDragAndDrop(S32 x, S32 y, MASK mask, BOOL drop,
 		case DAD_BODYPART:
 		case DAD_ANIMATION:
 		case DAD_GESTURE:
+		case DAD_CALLINGCARD:
+		case DAD_MESH:
 		{
 			LLViewerInventoryItem* inv_item = (LLViewerInventoryItem*)cargo_data;
 			if(gInventory.getItem(inv_item->getUUID())
-				&& LLToolDragAndDrop::isInventoryGroupGiveAcceptable(inv_item))
+				&& LLGiveInventory::isInventoryGroupGiveAcceptable(inv_item))
 			{
 				// *TODO: get multiple object transfers working
 				*accept = ACCEPT_YES_COPY_SINGLE;
@@ -175,7 +178,6 @@ BOOL LLGroupDropTarget::handleDragAndDrop(S32 x, S32 y, MASK mask, BOOL drop,
 			break;
 		}
 		case DAD_CATEGORY:
-		case DAD_CALLINGCARD:
 		default:
 			*accept = ACCEPT_NO;
 			break;
@@ -207,12 +209,13 @@ std::string build_notice_date(const U32& the_time)
 	return dateStr;
 }
 
-LLPanelGroupNotices::LLPanelGroupNotices(const LLUUID& group_id) :
-	LLPanelGroupTab(group_id),
+LLPanelGroupNotices::LLPanelGroupNotices() :
+	LLPanelGroupTab(),
 	mInventoryItem(NULL),
 	mInventoryOffer(NULL)
 {
-	sInstances[group_id] = this;
+	
+	
 }
 
 LLPanelGroupNotices::~LLPanelGroupNotices()
@@ -228,12 +231,6 @@ LLPanelGroupNotices::~LLPanelGroupNotices()
 	}
 }
 
-// static
-void* LLPanelGroupNotices::createTab(void* data)
-{
-	LLUUID* group_id = static_cast<LLUUID*>(data);
-	return new LLPanelGroupNotices(*group_id);
-}
 
 BOOL LLPanelGroupNotices::isVisibleByAgent(LLAgent* agentp)
 {
@@ -304,6 +301,9 @@ BOOL LLPanelGroupNotices::postBuild()
 
 void LLPanelGroupNotices::activate()
 {
+	if(mNoticesList)
+		mNoticesList->deleteAllItems();
+	
 	BOOL can_send = gAgent.hasPowerInGroup(mGroupID,GP_NOTICES_SEND);
 	BOOL can_receive = gAgent.hasPowerInGroup(mGroupID,GP_NOTICES_RECEIVE);
 
@@ -326,12 +326,12 @@ void LLPanelGroupNotices::setItem(LLPointer<LLInventoryItem> inv_item)
 	mInventoryItem = inv_item;
 
 	BOOL item_is_multi = FALSE;
-	if ( inv_item->getFlags() & LLInventoryItem::II_FLAGS_OBJECT_HAS_MULTIPLE_ITEMS )
+	if ( inv_item->getFlags() & LLInventoryItemFlags::II_FLAGS_OBJECT_HAS_MULTIPLE_ITEMS )
 	{
 		item_is_multi = TRUE;
 	};
 
-	std::string icon_name = get_item_icon_name(inv_item->getType(),
+	std::string icon_name = LLInventoryIcon::getIconName(inv_item->getType(),
 										inv_item->getInventoryType(),
 										inv_item->getFlags(),
 										item_is_multi );
@@ -372,7 +372,7 @@ void LLPanelGroupNotices::onClickSendMessage(void* data)
 	if (self->mCreateSubject->getText().empty())
 	{
 		// Must supply a subject
-		LLNotifications::instance().add("MustSpecifyGroupNoticeSubject");
+		LLNotificationsUtil::add("MustSpecifyGroupNoticeSubject");
 		return;
 	}
 	send_group_notice(
@@ -381,13 +381,38 @@ void LLPanelGroupNotices::onClickSendMessage(void* data)
 			self->mCreateMessage->getText(),
 			self->mInventoryItem);
 
+
+	//instantly add new notice. actual notice will be added after ferreshNotices call
+	LLUUID id = LLUUID::generateNewID();
+	std::string subj = self->mCreateSubject->getText();
+	std::string name ;
+	LLAgentUI::buildFullname(name);
+	U32 timestamp = 0;
+
+	LLSD row;
+	row["id"] = id;
+	
+	row["columns"][0]["column"] = "icon";
+
+	row["columns"][1]["column"] = "subject";
+	row["columns"][1]["value"] = subj;
+
+	row["columns"][2]["column"] = "from";
+	row["columns"][2]["value"] = name;
+
+	row["columns"][3]["column"] = "date";
+	row["columns"][3]["value"] = build_notice_date(timestamp);
+
+	row["columns"][4]["column"] = "sort";
+	row["columns"][4]["value"] = llformat( "%u", timestamp);
+
+	self->mNoticesList->addElement(row, ADD_BOTTOM);
+
 	self->mCreateMessage->clear();
 	self->mCreateSubject->clear();
 	onClickRemoveAttachment(data);
 
 	self->arrangeNoticeView(VIEW_PAST_NOTICE);
-	onClickRefreshNotices(self);
-
 }
 
 //static 
@@ -407,6 +432,26 @@ void LLPanelGroupNotices::onClickNewMessage(void* data)
 	self->mCreateMessage->clear();
 	if (self->mInventoryItem) onClickRemoveAttachment(self);
 	self->mNoticesList->deselectAllItems(TRUE); // TRUE == don't commit on chnage
+}
+
+void LLPanelGroupNotices::refreshNotices()
+{
+	onClickRefreshNotices(this);
+	/*
+	lldebugs << "LLPanelGroupNotices::onClickGetPastNotices" << llendl;
+	
+	mNoticesList->deleteAllItems();
+
+	LLMessageSystem* msg = gMessageSystem;
+	msg->newMessage("GroupNoticesListRequest");
+	msg->nextBlock("AgentData");
+	msg->addUUID("AgentID",gAgent.getID());
+	msg->addUUID("SessionID",gAgent.getSessionID());
+	msg->nextBlock("Data");
+	msg->addUUID("GroupID",self->mGroupID);
+	gAgent.sendReliableMessage();
+	*/
+	
 }
 
 void LLPanelGroupNotices::onClickRefreshNotices(void* data)
@@ -465,6 +510,14 @@ void LLPanelGroupNotices::processNotices(LLMessageSystem* msg)
 
 	S32 i=0;
 	S32 count = msg->getNumberOfBlocks("Data");
+
+	mNoticesList->setEnabled(TRUE);
+
+	//save sort state and set unsorted state to prevent unnecessary 
+	//sorting while adding notices
+	bool save_sort = mNoticesList->isSorted();
+	mNoticesList->setNeedsSort(false);
+
 	for (;i<count;++i)
 	{
 		msg->getUUID("Data","NoticeID",id,i);
@@ -475,6 +528,13 @@ void LLPanelGroupNotices::processNotices(LLMessageSystem* msg)
 			mNoticesList->setEnabled(FALSE);
 			return;
 		}
+
+		//with some network delays we can receive notice list more then once...
+		//so add only unique notices
+		S32 pos = mNoticesList->getItemIndex(id);
+
+		if(pos!=-1)//if items with this ID already in the list - skip it
+			continue;
 			
 		msg->getString("Data","Subject",subj,i);
 		msg->getString("Data","FromName",name,i);
@@ -482,15 +542,21 @@ void LLPanelGroupNotices::processNotices(LLMessageSystem* msg)
 		msg->getU8("Data","AssetType",asset_type,i);
 		msg->getU32("Data","Timestamp",timestamp,i);
 
+		// we only have the legacy name here, convert it to a username
+		if (LLAvatarNameCache::useDisplayNames())
+		{
+			name = LLCacheName::buildUsername(name);
+		}
+
 		LLSD row;
 		row["id"] = id;
 		
 		row["columns"][0]["column"] = "icon";
 		if (has_attachment)
 		{
-			std::string icon_name = get_item_icon_name(
+			std::string icon_name = LLInventoryIcon::getIconName(
 									(LLAssetType::EType)asset_type,
-									LLInventoryType::IT_NONE,FALSE, FALSE);
+									LLInventoryType::IT_NONE);
 			row["columns"][0]["type"] = "icon";
 			row["columns"][0]["value"] = icon_name;
 		}
@@ -510,7 +576,8 @@ void LLPanelGroupNotices::processNotices(LLMessageSystem* msg)
 		mNoticesList->addElement(row, ADD_BOTTOM);
 	}
 
-	mNoticesList->sortItems();
+	mNoticesList->setNeedsSort(save_sort);
+	mNoticesList->updateSort();
 }
 
 void LLPanelGroupNotices::onSelectNotice(LLUICtrl* ctrl, void* data)
@@ -555,9 +622,8 @@ void LLPanelGroupNotices::showNotice(const std::string& subject,
 	{
 		mInventoryOffer = inventory_offer;
 
-		std::string icon_name = get_item_icon_name(mInventoryOffer->mType,
-												LLInventoryType::IT_TEXTURE,
-												0, FALSE);
+		std::string icon_name = LLInventoryIcon::getIconName(mInventoryOffer->mType,
+												LLInventoryType::IT_TEXTURE);
 
 		mViewInventoryIcon->setValue(icon_name);
 		mViewInventoryIcon->setVisible(TRUE);
@@ -589,4 +655,24 @@ void LLPanelGroupNotices::arrangeNoticeView(ENoticeView view_type)
 		mPanelViewNotice->setVisible(TRUE);
 		mBtnOpenAttachment->setEnabled(FALSE);
 	}
+}
+void LLPanelGroupNotices::setGroupID(const LLUUID& id)
+{
+	sInstances.erase(mGroupID);
+	LLPanelGroupTab::setGroupID(id);
+	sInstances[mGroupID] = this;
+
+	mBtnNewMessage->setEnabled(gAgent.hasPowerInGroup(mGroupID, GP_NOTICES_SEND));
+
+	LLGroupDropTarget* target = getChild<LLGroupDropTarget> ("drop_target");
+	target->setPanel (this);
+	target->setGroup (mGroupID);
+
+	if(mViewMessage) 
+		mViewMessage->clear();
+
+	if(mViewInventoryName)
+		mViewInventoryName->clear();
+	
+	activate();
 }

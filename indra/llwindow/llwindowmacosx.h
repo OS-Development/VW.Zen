@@ -2,31 +2,25 @@
  * @file llwindowmacosx.h
  * @brief Mac implementation of LLWindow class
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -34,6 +28,7 @@
 #define LL_LLWINDOWMACOSX_H
 
 #include "llwindow.h"
+#include "llwindowcallbacks.h"
 
 #include "lltimer.h"
 
@@ -56,6 +51,8 @@ public:
 	/*virtual*/ BOOL getMinimized();
 	/*virtual*/ BOOL getMaximized();
 	/*virtual*/ BOOL maximize();
+	/*virtual*/ void minimize();
+	/*virtual*/ void restore();
 	/*virtual*/ BOOL getFullscreen();
 	/*virtual*/ BOOL getPosition(LLCoordScreen *position);
 	/*virtual*/ BOOL getSize(LLCoordScreen *size);
@@ -113,9 +110,13 @@ public:
 	
 	/*virtual*/ void allowLanguageTextInput(LLPreeditor *preeditor, BOOL b);
 	/*virtual*/ void interruptLanguageTextInput();
-	/*virtual*/ void spawnWebBrowser(const std::string& escaped_url);
+	/*virtual*/ void spawnWebBrowser(const std::string& escaped_url, bool async);
 
 	static std::vector<std::string> getDynamicFallbackFontList();
+
+	// Provide native key event data
+	/*virtual*/ LLSD getNativeKeyData();
+
 
 protected:
 	LLWindowMacOSX(LLWindowCallbacks* callbacks,
@@ -139,9 +140,6 @@ protected:
 	// Restore the display resolution to its value before we ran the app.
 	BOOL	resetDisplayResolution();
 
-	void	minimize();
-	void	restore();
-
 	BOOL	shouldPostQuit() { return mPostQuit; }
 
 
@@ -158,10 +156,16 @@ protected:
 	static pascal Boolean staticMoveEventComparator( EventRef event, void* data);
 	OSStatus eventHandler (EventHandlerCallRef myHandler, EventRef event);
 	void adjustCursorDecouple(bool warpingMouse = false);
-	void fixWindowSize(void);
 	void stopDockTileBounce();
-
-
+	static MASK modifiersToMask(SInt16 modifiers);
+	
+#if LL_OS_DRAGDROP_ENABLED
+	static OSErr dragTrackingHandler(DragTrackingMessage message, WindowRef theWindow,
+									 void * handlerRefCon, DragRef theDrag);
+	static OSErr dragReceiveHandler(WindowRef theWindow, void * handlerRefCon,	DragRef theDrag);
+	OSErr handleDragNDrop(DragRef theDrag, LLWindowCallbacks::DragNDropAction action);
+#endif // LL_OS_DRAGDROP_ENABLED
+	
 	//
 	// Platform specific variables
 	//
@@ -177,6 +181,7 @@ protected:
 	EventComparatorUPP  mMoveEventCampartorUPP;
 	
 	Rect		mOldMouseClip;  // Screen rect to which the mouse cursor was globally constrained before we changed it in clipMouse()
+	Rect		mPreviousWindowRect;  // Save previous window for un-maximize event
 	Str255 		mWindowTitle;
 	double		mOriginalAspectRatio;
 	BOOL		mSimulatedRightClick;
@@ -190,15 +195,18 @@ protected:
 	BOOL		mNeedsResize;		// Constructor figured out the window is too big, it needs a resize.
 	LLCoordScreen   mNeedsResizeSize;
 	F32			mOverrideAspectRatio;
+	BOOL		mMaximized;
 	BOOL		mMinimized;
 	U32			mFSAASamples;
 	BOOL		mForceRebuild;
+	
+	S32			mDragOverrideCursor;
 	
 	F32			mBounceTime;
 	NMRec		mBounceRec;
 	LLTimer		mBounceTimer;
 
-	// Imput method management through Text Service Manager.
+	// Input method management through Text Service Manager.
 	TSMDocumentID	mTSMDocument;
 	BOOL		mLanguageTextInputAllowed;
 	ScriptCode	mTSMScriptCode;
@@ -209,6 +217,7 @@ protected:
 
 	friend class LLWindowManager;
 	static WindowRef sMediaWindow;
+	EventRef 	mRawKeyEvent;
 
 };
 

@@ -1,31 +1,25 @@
 /** 
  * @file llwidgetreg.cpp
  *
- * $LicenseInfo:firstyear=2009&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2009&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 #include "linden_common.h"
@@ -37,11 +31,14 @@
 #include "llcombobox.h"
 #include "llcontainerview.h"
 #include "lliconctrl.h"
+#include "llloadingindicator.h"
+#include "llmenubutton.h"
 #include "llmenugl.h"
 #include "llmultislider.h"
 #include "llmultisliderctrl.h"
 #include "llprogressbar.h"
 #include "llradiogroup.h"
+#include "llsearcheditor.h"
 #include "llscrollcontainer.h"
 #include "llscrollingpanellist.h"
 #include "llscrolllistctrl.h"
@@ -53,7 +50,7 @@
 #include "lltextbox.h"
 #include "lltexteditor.h"
 #include "llflyoutbutton.h"
-#include "llsearcheditor.h"
+#include "llfiltereditor.h"
 #include "lllayoutstack.h"
 
 void LLWidgetReg::initClass(bool register_widgets)
@@ -63,13 +60,15 @@ void LLWidgetReg::initClass(bool register_widgets)
 	if (register_widgets)
 	{
 		LLDefaultChildRegistry::Register<LLButton> button("button");
+		LLDefaultChildRegistry::Register<LLMenuButton> menu_button("menu_button");
 		LLDefaultChildRegistry::Register<LLCheckBoxCtrl> check_box("check_box");
 		LLDefaultChildRegistry::Register<LLComboBox> combo_box("combo_box");
+		LLDefaultChildRegistry::Register<LLFilterEditor> filter_editor("filter_editor");
 		LLDefaultChildRegistry::Register<LLFlyoutButton> flyout_button("flyout_button");
 		LLDefaultChildRegistry::Register<LLContainerView> container_view("container_view");
 		LLDefaultChildRegistry::Register<LLIconCtrl> icon("icon");
+		LLDefaultChildRegistry::Register<LLLoadingIndicator> loading_indicator("loading_indicator");
 		LLDefaultChildRegistry::Register<LLLineEditor> line_editor("line_editor");
-		LLDefaultChildRegistry::Register<LLSearchEditor> search_editor("search_editor");
 		LLDefaultChildRegistry::Register<LLMenuItemSeparatorGL> menu_item_separator("menu_item_separator");
 		LLDefaultChildRegistry::Register<LLMenuItemCallGL> menu_item_call_gl("menu_item_call");
 		LLDefaultChildRegistry::Register<LLMenuItemCheckGL> menu_item_check_gl("menu_item_check");
@@ -79,10 +78,10 @@ void LLWidgetReg::initClass(bool register_widgets)
 		LLDefaultChildRegistry::Register<LLMultiSlider> multi_slider_bar("multi_slider_bar");
 		LLDefaultChildRegistry::Register<LLMultiSliderCtrl> multi_slider("multi_slider");
 		LLDefaultChildRegistry::Register<LLPanel> panel("panel", &LLPanel::fromXML);
-		LLDefaultChildRegistry::Register<LLLayoutStack> layout_stack("layout_stack", &LLLayoutStack::fromXML);
+		LLDefaultChildRegistry::Register<LLLayoutStack> layout_stack("layout_stack");
 		LLDefaultChildRegistry::Register<LLProgressBar> progress_bar("progress_bar");
 		LLDefaultChildRegistry::Register<LLRadioGroup> radio_group("radio_group");
-		LLDefaultChildRegistry::Register<LLRadioCtrl> radio_item("radio_item");
+		LLDefaultChildRegistry::Register<LLSearchEditor> search_editor("search_editor");
 		LLDefaultChildRegistry::Register<LLScrollContainer> scroll_container("scroll_container");
 		LLDefaultChildRegistry::Register<LLScrollingPanelList> scrolling_panel_list("scrolling_panel_list");
 		LLDefaultChildRegistry::Register<LLScrollListCtrl> scroll_list("scroll_list");

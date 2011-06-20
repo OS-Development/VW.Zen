@@ -7,8 +7,25 @@
  *         originally introduced in llnotifications.h. It has nothing
  *         whatsoever to do with the older system in llevent.h.
  * 
- * $LicenseInfo:firstyear=2008&license=viewergpl$
- * Copyright (c) 2008, Linden Research, Inc.
+ * $LicenseInfo:firstyear=2008&license=viewerlgpl$
+ * Second Life Viewer Source Code
+ * Copyright (C) 2010, Linden Research, Inc.
+ * 
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
+ * 
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -19,7 +36,6 @@
 #include <map>
 #include <set>
 #include <vector>
-#include <list>
 #include <deque>
 #include <stdexcept>
 #if LL_WINDOWS
@@ -37,23 +53,22 @@
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/utility.hpp>        // noncopyable
 #include <boost/optional/optional.hpp>
-#include <boost/ptr_container/ptr_vector.hpp>
 #include <boost/visit_each.hpp>
 #include <boost/ref.hpp>            // reference_wrapper
 #include <boost/type_traits/is_pointer.hpp>
-#include <boost/utility/addressof.hpp>
-#include <boost/preprocessor/repetition/enum_params.hpp>
-#include <boost/preprocessor/iteration/local.hpp>
 #include <boost/function.hpp>
 #include <boost/static_assert.hpp>
 #include "llsd.h"
 #include "llsingleton.h"
 #include "lldependencies.h"
+#include "ll_template_cast.h"
 
+/*==========================================================================*|
 // override this to allow binding free functions with more parameters
 #ifndef LLEVENTS_LISTENER_ARITY
 #define LLEVENTS_LISTENER_ARITY 10
 #endif
+|*==========================================================================*/
 
 // hack for testing
 #ifndef testable
@@ -120,6 +135,9 @@ typedef LLStandardSignal::slot_type LLEventListener;
 /// Result of registering a listener, supports <tt>connected()</tt>,
 /// <tt>disconnect()</tt> and <tt>blocked()</tt>
 typedef boost::signals2::connection LLBoundListener;
+/// Storing an LLBoundListener in LLTempBoundListener will disconnect the
+/// referenced listener when the LLTempBoundListener instance is destroyed.
+typedef boost::signals2::scoped_connection LLTempBoundListener;
 
 /**
  * A common idiom for event-based code is to accept either a callable --
@@ -136,7 +154,7 @@ typedef boost::signals2::connection LLBoundListener;
  * LLListenerOrPumpName::Empty. Test for this condition beforehand using
  * either <tt>if (param)</tt> or <tt>if (! param)</tt>.
  */
-class LLListenerOrPumpName
+class LL_COMMON_API LLListenerOrPumpName
 {
 public:
     /// passing string name of LLEventPump
@@ -189,7 +207,7 @@ class LLEventPump;
  * LLEventPumps is a Singleton manager through which one typically accesses
  * this subsystem.
  */
-class LLEventPumps: public LLSingleton<LLEventPumps>
+class LL_COMMON_API LLEventPumps: public LLSingleton<LLEventPumps>
 {
     friend class LLSingleton<LLEventPumps>;
 public:
@@ -203,6 +221,12 @@ public:
      * Flush all known LLEventPump instances
      */
     void flush();
+
+    /**
+     * Reset all known LLEventPump instances
+     * workaround for DEV-35406 crash on shutdown
+     */
+    void reset();
 
 private:
     friend class LLEventPump;
@@ -250,6 +274,11 @@ namespace LLEventDetail
     /// signature.
     typedef boost::function<LLBoundListener(const LLEventListener&)> ConnectFunc;
 
+    /// overload of visit_and_connect() when we have a string identifier available
+    template <typename LISTENER>
+    LLBoundListener visit_and_connect(const std::string& name,
+                                      const LISTENER& listener,
+                                      const ConnectFunc& connect_func);
     /**
      * Utility template function to use Visitor appropriately
      *
@@ -260,8 +289,53 @@ namespace LLEventDetail
      */
     template <typename LISTENER>
     LLBoundListener visit_and_connect(const LISTENER& listener,
-                                      const ConnectFunc& connect_func);
+                                      const ConnectFunc& connect_func)
+    {
+        return visit_and_connect("", listener, connect_func);
+    }
 } // namespace LLEventDetail
+
+/*****************************************************************************
+*   LLEventTrackable
+*****************************************************************************/
+/**
+ * LLEventTrackable wraps boost::signals2::trackable, which resembles
+ * boost::trackable. Derive your listener class from LLEventTrackable instead,
+ * and use something like
+ * <tt>LLEventPump::listen(boost::bind(&YourTrackableSubclass::method,
+ * instance, _1))</tt>. This will implicitly disconnect when the object
+ * referenced by @c instance is destroyed.
+ *
+ * @note
+ * LLEventTrackable doesn't address a couple of cases:
+ * * Object destroyed during call
+ *   - You enter a slot call in thread A.
+ *   - Thread B destroys the object, which of course disconnects it from any
+ *     future slot calls.
+ *   - Thread A's call uses 'this', which now refers to a defunct object.
+ *     Undefined behavior results.
+ * * Call during destruction
+ *   - @c MySubclass is derived from LLEventTrackable.
+ *   - @c MySubclass registers one of its own methods using
+ *     <tt>LLEventPump::listen()</tt>.
+ *   - The @c MySubclass object begins destruction. <tt>~MySubclass()</tt>
+ *     runs, destroying state specific to the subclass. (For instance, a
+ *     <tt>Foo*</tt> data member is <tt>delete</tt>d but not zeroed.)
+ *   - The listening method will not be disconnected until
+ *     <tt>~LLEventTrackable()</tt> runs.
+ *   - Before we get there, another thread posts data to the @c LLEventPump
+ *     instance, calling the @c MySubclass method.
+ *   - The method in question relies on valid @c MySubclass state. (For
+ *     instance, it attempts to dereference the <tt>Foo*</tt> pointer that was
+ *     <tt>delete</tt>d but not zeroed.)
+ *   - Undefined behavior results.
+ * If you suspect you may encounter any such scenario, you're better off
+ * managing the lifespan of your object with <tt>boost::shared_ptr</tt>.
+ * Passing <tt>LLEventPump::listen()</tt> a <tt>boost::bind()</tt> expression
+ * involving a <tt>boost::weak_ptr<Foo></tt> is recognized specially, engaging
+ * thread-safe Boost.Signals2 machinery.
+ */
+typedef boost::signals2::trackable LLEventTrackable;
 
 /*****************************************************************************
 *   LLEventPump
@@ -269,8 +343,14 @@ namespace LLEventDetail
 /**
  * LLEventPump is the base class interface through which we access the
  * concrete subclasses LLEventStream and LLEventQueue.
+ *
+ * @NOTE
+ * LLEventPump derives from LLEventTrackable so that when you "chain"
+ * LLEventPump instances together, they will automatically disconnect on
+ * destruction. Please see LLEventTrackable documentation for situations in
+ * which this may be perilous across threads.
  */
-class LLEventPump: boost::noncopyable
+class LL_COMMON_API LLEventPump: public LLEventTrackable
 {
 public:
     /**
@@ -373,10 +453,22 @@ public:
      * themselves. listen() can throw any ListenError; see ListenError
      * subclasses.
      *
-     * If (as is typical) you pass a <tt>boost::bind()</tt> expression,
-     * listen() will inspect the components of that expression. If a bound
-     * object matches any of several cases, the connection will automatically
-     * be disconnected when that object is destroyed.
+     * The listener name must be unique among active listeners for this
+     * LLEventPump, else you get DupListenerName. If you don't care to invent
+     * a name yourself, use inventName(). (I was tempted to recognize e.g. ""
+     * and internally generate a distinct name for that case. But that would
+     * handle badly the scenario in which you want to add, remove, re-add,
+     * etc. the same listener: each new listen() call would necessarily
+     * perform a new dependency sort. Assuming you specify the same
+     * after/before lists each time, using inventName() when you first
+     * instantiate your listener, then passing the same name on each listen()
+     * call, allows us to optimize away the second and subsequent dependency
+     * sorts.
+     *
+     * If (as is typical) you pass a <tt>boost::bind()</tt> expression as @a
+     * listener, listen() will inspect the components of that expression. If a
+     * bound object matches any of several cases, the connection will
+     * automatically be disconnected when that object is destroyed.
      *
      * * You bind a <tt>boost::weak_ptr</tt>.
      * * Binding a <tt>boost::shared_ptr</tt> that way would ensure that the
@@ -402,7 +494,8 @@ public:
         // This is why listen() is a template. Conversion from boost::bind()
         // to LLEventListener performs type erasure, so it's important to look
         // at the boost::bind object itself before that happens.
-        return LLEventDetail::visit_and_connect(listener,
+        return LLEventDetail::visit_and_connect(name,
+                                                listener,
                                                 boost::bind(&LLEventPump::listen_impl,
                                                             this,
                                                             name,
@@ -438,10 +531,15 @@ public:
     /// query
     virtual bool enabled() const { return mEnabled; }
 
+    /// Generate a distinct name for a listener -- see listen()
+    static std::string inventName(const std::string& pfx="listener");
+
 private:
     friend class LLEventPumps;
     /// flush queued events
     virtual void flush() {}
+
+    virtual void reset();
 
 private:
     virtual LLBoundListener listen_impl(const std::string& name, const LLEventListener&,
@@ -451,7 +549,8 @@ private:
 
 protected:
     /// implement the dispatching
-    LLStandardSignal mSignal;
+    boost::shared_ptr<LLStandardSignal> mSignal;
+
     /// valve open?
     bool mEnabled;
     /// Map of named listeners. This tracks the listeners that actually exist
@@ -476,7 +575,7 @@ protected:
  * LLEventStream is a thin wrapper around LLStandardSignal. Posting an
  * event immediately calls all registered listeners.
  */
-class LLEventStream: public LLEventPump
+class LL_COMMON_API LLEventStream: public LLEventPump
 {
 public:
     LLEventStream(const std::string& name, bool tweak=false): LLEventPump(name, tweak) {}
@@ -493,7 +592,7 @@ public:
  * LLEventQueue isa LLEventPump whose post() method defers calling registered
  * listeners until flush() is called.
  */
-class LLEventQueue: public LLEventPump
+class LL_COMMON_API LLEventQueue: public LLEventPump
 {
 public:
     LLEventQueue(const std::string& name, bool tweak=false): LLEventPump(name, tweak) {}
@@ -512,47 +611,159 @@ private:
 };
 
 /*****************************************************************************
-*   LLEventTrackable and underpinnings
+*   LLReqID
 *****************************************************************************/
 /**
- * LLEventTrackable wraps boost::signals2::trackable, which resembles
- * boost::trackable. Derive your listener class from LLEventTrackable instead,
- * and use something like
- * <tt>LLEventPump::listen(boost::bind(&YourTrackableSubclass::method,
- * instance, _1))</tt>. This will implicitly disconnect when the object
- * referenced by @c instance is destroyed.
+ * This class helps the implementer of a given event API to honor the
+ * ["reqid"] convention. By this convention, each event API stamps into its
+ * response LLSD a ["reqid"] key whose value echoes the ["reqid"] value, if
+ * any, from the corresponding request.
+ *
+ * This supports an (atypical, but occasionally necessary) use case in which
+ * two or more asynchronous requests are multiplexed onto the same ["reply"]
+ * LLEventPump. Since the response events could arrive in arbitrary order, the
+ * caller must be able to demux them. It does so by matching the ["reqid"]
+ * value in each response with the ["reqid"] value in the corresponding
+ * request.
+ *
+ * It is the caller's responsibility to ensure distinct ["reqid"] values for
+ * that case. Though LLSD::UUID is guaranteed to work, it might be overkill:
+ * the "namespace" of unique ["reqid"] values is simply the set of requests
+ * specifying the same ["reply"] LLEventPump name.
+ *
+ * Making a given event API echo the request's ["reqid"] into the response is
+ * nearly trivial. This helper is mostly for mnemonic purposes, to serve as a
+ * place to put these comments. We hope that each time a coder implements a
+ * new event API based on some existing one, s/he will say, "Huh, what's an
+ * LLReqID?" and look up this material.
+ *
+ * The hardest part about the convention is deciding where to store the
+ * ["reqid"] value. Ironically, LLReqID can't help with that: you must store
+ * an LLReqID instance in whatever storage will persist until the reply is
+ * sent. For example, if the request ultimately ends up using a Responder
+ * subclass, storing an LLReqID instance in the Responder works.
  *
  * @note
- * LLEventTrackable doesn't address a couple of cases:
- * * Object destroyed during call
- *   - You enter a slot call in thread A.
- *   - Thread B destroys the object, which of course disconnects it from any
- *     future slot calls.
- *   - Thread A's call uses 'this', which now refers to a defunct object.
- *     Undefined behavior results.
- * * Call during destruction
- *   - @c MySubclass is derived from LLEventTrackable.
- *   - @c MySubclass registers one of its own methods using
- *     <tt>LLEventPump::listen()</tt>.
- *   - The @c MySubclass object begins destruction. <tt>~MySubclass()</tt>
- *     runs, destroying state specific to the subclass. (For instance, a
- *     <tt>Foo*</tt> data member is <tt>delete</tt>d but not zeroed.)
- *   - The listening method will not be disconnected until
- *     <tt>~LLEventTrackable()</tt> runs.
- *   - Before we get there, another thread posts data to the @c LLEventPump
- *     instance, calling the @c MySubclass method.
- *   - The method in question relies on valid @c MySubclass state. (For
- *     instance, it attempts to dereference the <tt>Foo*</tt> pointer that was
- *     <tt>delete</tt>d but not zeroed.)
- *   - Undefined behavior results.
- * If you suspect you may encounter any such scenario, you're better off
- * managing the lifespan of your object with <tt>boost::shared_ptr</tt>.
- * Passing <tt>LLEventPump::listen()</tt> a <tt>boost::bind()</tt> expression
- * involving a <tt>boost::weak_ptr<Foo></tt> is recognized specially, engaging
- * thread-safe Boost.Signals2 machinery.
+ * The @em implementer of an event API must honor the ["reqid"] convention.
+ * However, the @em caller of an event API need only use it if s/he is sharing
+ * the same ["reply"] LLEventPump for two or more asynchronous event API
+ * requests.
+ *
+ * In most cases, it's far easier for the caller to instantiate a local
+ * LLEventStream and pass its name to the event API in question. Then it's
+ * perfectly reasonable not to set a ["reqid"] key in the request, ignoring
+ * the @c isUndefined() ["reqid"] value in the response.
  */
-typedef boost::signals2::trackable LLEventTrackable;
+class LL_COMMON_API LLReqID
+{
+public:
+    /**
+     * If you have the request in hand at the time you instantiate the
+     * LLReqID, pass that request to extract its ["reqid"].
+ */
+    LLReqID(const LLSD& request):
+        mReqid(request["reqid"])
+    {}
+    /// If you don't yet have the request, use setFrom() later.
+    LLReqID() {}
 
+    /// Extract and store the ["reqid"] value from an incoming request.
+    void setFrom(const LLSD& request)
+    {
+        mReqid = request["reqid"];
+    }
+
+    /// Set ["reqid"] key into a pending response LLSD object.
+    void stamp(LLSD& response) const;
+
+    /// Make a whole new response LLSD object with our ["reqid"].
+    LLSD makeResponse() const
+    {
+        LLSD response;
+        stamp(response);
+        return response;
+    }
+
+    /// Not really sure of a use case for this accessor...
+    LLSD getReqID() const { return mReqid; }
+
+private:
+    LLSD mReqid;
+};
+
+/**
+ * Conventionally send a reply to a request event.
+ *
+ * @a reply is the LLSD reply event to send
+ * @a request is the corresponding LLSD request event
+ * @a replyKey is the key in the @a request event, conventionally ["reply"],
+ * whose value is the name of the LLEventPump on which to send the reply.
+ *
+ * Before sending the reply event, sendReply() copies the ["reqid"] item from
+ * the request to the reply.
+ */
+LL_COMMON_API bool sendReply(const LLSD& reply, const LLSD& request,
+                             const std::string& replyKey="reply");
+
+/**
+ * Base class for LLListenerWrapper. See visit_and_connect() and llwrap(). We
+ * provide virtual @c accept_xxx() methods, customization points allowing a
+ * subclass access to certain data visible at LLEventPump::listen() time.
+ * Example subclass usage:
+ *
+ * @code
+ * myEventPump.listen("somename",
+ *                    llwrap<MyListenerWrapper>(boost::bind(&MyClass::method, instance, _1)));
+ * @endcode
+ *
+ * Because of the anticipated usage (note the anonymous temporary
+ * MyListenerWrapper instance in the example above), the @c accept_xxx()
+ * methods must be @c const.
+ */
+class LL_COMMON_API LLListenerWrapperBase
+{
+public:
+    /// New instance. The accept_xxx() machinery makes it important to use
+    /// shared_ptrs for our data. Many copies of this object are made before
+    /// the instance that actually ends up in the signal, yet accept_xxx()
+    /// will later be called on the @em original instance. All copies of the
+    /// same original instance must share the same data.
+    LLListenerWrapperBase():
+        mName(new std::string),
+        mConnection(new LLBoundListener)
+    {
+    }
+	
+    /// Copy constructor. Copy shared_ptrs to original instance data.
+    LLListenerWrapperBase(const LLListenerWrapperBase& that):
+        mName(that.mName),
+        mConnection(that.mConnection)
+    {
+    }
+	virtual ~LLListenerWrapperBase() {}
+
+    /// Ask LLEventPump::listen() for the listener name
+    virtual void accept_name(const std::string& name) const
+    {
+        *mName = name;
+    }
+
+    /// Ask LLEventPump::listen() for the new connection
+    virtual void accept_connection(const LLBoundListener& connection) const
+    {
+        *mConnection = connection;
+    }
+
+protected:
+    /// Listener name.
+    boost::shared_ptr<std::string> mName;
+    /// Connection.
+    boost::shared_ptr<LLBoundListener> mConnection;
+};
+
+/*****************************************************************************
+*   Underpinnings
+*****************************************************************************/
 /**
  * We originally provided a suite of overloaded
  * LLEventTrackable::listenTo(LLEventPump&, ...) methods that would call
@@ -784,7 +995,8 @@ namespace LLEventDetail
      * LLStandardSignal, returning LLBoundListener.
      */
     template <typename LISTENER>
-    LLBoundListener visit_and_connect(const LISTENER& raw_listener,
+    LLBoundListener visit_and_connect(const std::string& name,
+                                      const LISTENER& raw_listener,
                                       const ConnectFunc& connect_func)
     {
         // Capture the listener
@@ -799,14 +1011,20 @@ namespace LLEventDetail
         // which type details have been erased. unwrap() comes from
         // Boost.Signals, in case we were passed a boost::ref().
         visit_each(visitor, LLEventDetail::unwrap(raw_listener));
-        // Make the connection using passed function. At present, wrapping
-        // this functionality into this function is a bit silly: we don't
-        // really need a visit_and_connect() function any more, just a visit()
-        // function. The definition of this function dates from when, after
-        // visit_each(), after establishing the connection, we had to
-        // postprocess the new connection with the visitor object. That's no
-        // longer necessary.
-        return connect_func(listener);
+        // Make the connection using passed function.
+        LLBoundListener connection(connect_func(listener));
+        // If the LISTENER is an LLListenerWrapperBase subclass, pass it the
+        // desired information. It's important that we pass the raw_listener
+        // so the compiler can make decisions based on its original type.
+        const LLListenerWrapperBase* lwb =
+            ll_template_cast<const LLListenerWrapperBase*>(&raw_listener);
+        if (lwb)
+        {
+            lwb->accept_name(name);
+            lwb->accept_connection(connection);
+        }
+        // In any case, show new connection to caller.
+        return connection;
     }
 } // namespace LLEventDetail
 

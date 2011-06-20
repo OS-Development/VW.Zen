@@ -3,31 +3,25 @@
  * @date   February 2006
  * @brief LLSDMessageBuilder unit tests
  *
- * $LicenseInfo:firstyear=2006&license=viewergpl$
- * 
- * Copyright (c) 2006-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2006&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -44,6 +38,8 @@
 #include "v3dmath.h"
 #include "v3math.h"
 #include "v4math.h"
+#include "llsdutil.h"
+//#include "llsdutil.cpp"
 #include "llsdutil_math.cpp"
 #include "lltemplatemessagebuilder.h"
 
@@ -353,7 +349,7 @@ namespace tut
 	{
 	  char binData[] = "abcdefghijklmnop";
 
-	  addValue(messageBlockData, "testBinData", &binData, MVT_FIXED, sizeof(binData));
+	  addValue(messageBlockData, (char *)"testBinData", &binData, MVT_FIXED, sizeof(binData));
 	  messageData->addBlock(messageBlockData);
 	  LLSDMessageBuilder builder = defaultBuilder();
 	  
@@ -393,7 +389,7 @@ namespace tut
 	{
 	  U16 binData[] = {1,2,3,4,5,6,7,8,9}; //9 shorts
 
-	  addValue(messageBlockData, "testBinData", &binData, MVT_VARIABLE, sizeof(binData) >> 1, 2);
+	  addValue(messageBlockData, (char *)"testBinData", &binData, MVT_VARIABLE, sizeof(binData) >> 1, 2);
 	  messageData->addBlock(messageBlockData);
 	  LLSDMessageBuilder builder = defaultBuilder();
 	  
@@ -413,7 +409,7 @@ namespace tut
 	{
 	  U32 binData[] = {9,8,7,6,5,4,3,2,1};
 
-	  addValue(messageBlockData, "testBinData", &binData, MVT_VARIABLE, sizeof(binData) >> 2, 4);
+	  addValue(messageBlockData, (char *)"testBinData", &binData, MVT_VARIABLE, sizeof(binData) >> 2, 4);
 	  messageData->addBlock(messageBlockData);
 	  LLSDMessageBuilder builder = defaultBuilder();
 	  
@@ -433,7 +429,7 @@ namespace tut
 	{
 	  U8 data = 0xa5;
 
-	  addValue(messageBlockData, "testBinData", &data, MVT_U8, sizeof(data));
+	  addValue(messageBlockData, (char *)"testBinData", &data, MVT_U8, sizeof(data));
 	  messageData->addBlock(messageBlockData);
 	  LLSDMessageBuilder builder = defaultBuilder();
 	  
@@ -450,7 +446,7 @@ namespace tut
 	{
 	  U16 data = 0xa55a;
 
-	  addValue(messageBlockData, "testBinData", &data, MVT_U16, sizeof(data));
+	  addValue(messageBlockData, (char *)"testBinData", &data, MVT_U16, sizeof(data));
 	  messageData->addBlock(messageBlockData);
 	  LLSDMessageBuilder builder = defaultBuilder();
 	  
@@ -467,7 +463,7 @@ namespace tut
 	{
 	  U32 data = 0xa55a7117;
 
-	  addValue(messageBlockData, "testBinData", &data, MVT_U32, sizeof(data));
+	  addValue(messageBlockData, (char *)"testBinData", &data, MVT_U32, sizeof(data));
 	  messageData->addBlock(messageBlockData);
 	  LLSDMessageBuilder builder = defaultBuilder();
 	  
@@ -483,7 +479,7 @@ namespace tut
 	void LLSDMessageBuilderTestObject::test<27>()
 	{
 	  U64 data = U64L(0xa55a711711223344);
-	  addValue(messageBlockData, "testBinData", &data, MVT_U64, sizeof(data));
+	  addValue(messageBlockData, (char *)"testBinData", &data, MVT_U64, sizeof(data));
 	  messageData->addBlock(messageBlockData);
 	  LLSDMessageBuilder builder = defaultBuilder();
 	  
@@ -500,7 +496,7 @@ namespace tut
 	{
 	  S8 data = -31;
 
-	  addValue(messageBlockData, "testBinData", &data, MVT_S8, sizeof(data));
+	  addValue(messageBlockData, (char *)"testBinData", &data, MVT_S8, sizeof(data));
 	  messageData->addBlock(messageBlockData);
 	  LLSDMessageBuilder builder = defaultBuilder();
 	  
@@ -517,7 +513,7 @@ namespace tut
 	{
 	  S16 data = -31;
 
-	  addValue(messageBlockData, "testBinData", &data, MVT_S16, sizeof(data));
+	  addValue(messageBlockData, (char *)"testBinData", &data, MVT_S16, sizeof(data));
 	  messageData->addBlock(messageBlockData);
 	  LLSDMessageBuilder builder = defaultBuilder();
 	  
@@ -534,7 +530,7 @@ namespace tut
 	{
 	  S32 data = -3100;
 
-	  addValue(messageBlockData, "testBinData", &data, MVT_S32, sizeof(data));
+	  addValue(messageBlockData, (char *)"testBinData", &data, MVT_S32, sizeof(data));
 	  messageData->addBlock(messageBlockData);
 	  LLSDMessageBuilder builder = defaultBuilder();
 	  
@@ -551,7 +547,7 @@ namespace tut
 	{
 	  S64 data = -31003100;
 
-	  addValue(messageBlockData, "testBinData", &data, MVT_S64, sizeof(data));
+	  addValue(messageBlockData, (char *)"testBinData", &data, MVT_S64, sizeof(data));
 	  messageData->addBlock(messageBlockData);
 	  LLSDMessageBuilder builder = defaultBuilder();
 	  
@@ -568,7 +564,7 @@ namespace tut
 	{
 	  F32 data = 1234.1234f;
 
-	  addValue(messageBlockData, "testBinData", &data, MVT_F32, sizeof(data));
+	  addValue(messageBlockData, (char *)"testBinData", &data, MVT_F32, sizeof(data));
 	  messageData->addBlock(messageBlockData);
 	  LLSDMessageBuilder builder = defaultBuilder();
 	  
@@ -585,7 +581,7 @@ namespace tut
 	{
 	  F64 data = 1234.1234;
 
-	  addValue(messageBlockData, "testBinData", &data, MVT_F64, sizeof(data));
+	  addValue(messageBlockData, (char *)"testBinData", &data, MVT_F64, sizeof(data));
 	  messageData->addBlock(messageBlockData);
 	  LLSDMessageBuilder builder = defaultBuilder();
 	  
@@ -602,7 +598,7 @@ namespace tut
 	{
 	  LLVector3 data(1,2,3);
 
-	  addValue(messageBlockData, "testBinData", &data, MVT_LLVector3, sizeof(data));
+	  addValue(messageBlockData, (char *)"testBinData", &data, MVT_LLVector3, sizeof(data));
 	  messageData->addBlock(messageBlockData);
 	  LLSDMessageBuilder builder = defaultBuilder();
 	  
@@ -619,7 +615,7 @@ namespace tut
 	{
 	  LLVector3d data(1,2,3);
 
-	  addValue(messageBlockData, "testBinData", &data, MVT_LLVector3d, sizeof(data));
+	  addValue(messageBlockData, (char *)"testBinData", &data, MVT_LLVector3d, sizeof(data));
 	  messageData->addBlock(messageBlockData);
 	  LLSDMessageBuilder builder = defaultBuilder();
 	  
@@ -637,7 +633,7 @@ namespace tut
 	  LLVector4 data(1,2,3,4);
 	  LLSD v = ll_sd_from_vector4(data);
 
-	  addValue(messageBlockData, "testBinData", &data, MVT_LLVector4, sizeof(data));
+	  addValue(messageBlockData, (char *)"testBinData", &data, MVT_LLVector4, sizeof(data));
 	  messageData->addBlock(messageBlockData);
 	  LLSDMessageBuilder builder = defaultBuilder();
 	  
@@ -657,7 +653,7 @@ namespace tut
 	  //we send a quaternion packed into a vec3 (w is infered) - so sizeof(vec) == 12 bytes not 16.
 	  LLVector3 vec = data.packToVector3();
 
-	  addValue(messageBlockData, "testBinData", &vec, MVT_LLQuaternion, sizeof(vec));
+	  addValue(messageBlockData, (char *)"testBinData", &vec, MVT_LLQuaternion, sizeof(vec));
 	  messageData->addBlock(messageBlockData);
 	  LLSDMessageBuilder builder = defaultBuilder();
 	  
@@ -674,7 +670,7 @@ namespace tut
 	{
 	  LLUUID data("01234567-0123-0123-0123-234567abcdef");
 
-	  addValue(messageBlockData, "testBinData", &data, MVT_LLUUID, sizeof(data));
+	  addValue(messageBlockData, (char *)"testBinData", &data, MVT_LLUUID, sizeof(data));
 	  messageData->addBlock(messageBlockData);
 	  LLSDMessageBuilder builder = defaultBuilder();
 	  
@@ -696,8 +692,8 @@ namespace tut
 
 	  LLMsgData* md = new LLMsgData("testMessage");
 	  LLMsgBlkData* mbd = new LLMsgBlkData("testBlock", 0);
-	  addValue(mbd, "testBoolFalse", &valueFalse, MVT_BOOL, sizeof(BOOL));
-	  addValue(mbd, "testBoolTrue", &valueTrue, MVT_BOOL, sizeof(BOOL));
+	  addValue(mbd, (char *)"testBoolFalse", &valueFalse, MVT_BOOL, sizeof(BOOL));
+	  addValue(mbd, (char *)"testBoolTrue", &valueTrue, MVT_BOOL, sizeof(BOOL));
 	  md->addBlock(mbd);
 	  LLSDMessageBuilder builder = defaultBuilder();
 	  
@@ -715,7 +711,7 @@ namespace tut
 	  U32 data(0xff887766);
 	  LLSD v = ll_sd_from_ipaddr(data);
 
-	  addValue(messageBlockData, "testBinData", &data, MVT_IP_ADDR, sizeof(data));
+	  addValue(messageBlockData, (char *)"testBinData", &data, MVT_IP_ADDR, sizeof(data));
 	  messageData->addBlock(messageBlockData);
 	  LLSDMessageBuilder builder = defaultBuilder();
 	  
@@ -732,7 +728,7 @@ namespace tut
 	{
 	  U16 data = 0xff88;
 
-	  addValue(messageBlockData, "testBinData", &data, MVT_IP_PORT, sizeof(data));
+	  addValue(messageBlockData, (char *)"testBinData", &data, MVT_IP_PORT, sizeof(data));
 	  messageData->addBlock(messageBlockData);
 	  LLSDMessageBuilder builder = defaultBuilder();
 	  
@@ -749,7 +745,7 @@ namespace tut
 	{
 	  U16 data[3] = {0,1,2};
 
-	  addValue(messageBlockData, "testBinData", &data, MVT_U16Vec3, sizeof(data));
+	  addValue(messageBlockData, (char *)"testBinData", &data, MVT_U16Vec3, sizeof(data));
 	  messageData->addBlock(messageBlockData);
 	  LLSDMessageBuilder builder = defaultBuilder();
 	  
@@ -769,7 +765,7 @@ namespace tut
 	{
 	  U16 data[4] = {0,1,2,4};
 
-	  addValue(messageBlockData, "testBinData", &data, MVT_U16Quat, sizeof(data));
+	  addValue(messageBlockData, (char *)"testBinData", &data, MVT_U16Quat, sizeof(data));
 	  messageData->addBlock(messageBlockData);
 	  LLSDMessageBuilder builder = defaultBuilder();
 	  
@@ -789,7 +785,7 @@ namespace tut
 	{
 	  S16 data[19] = {0,-1,2,-4,5,-6,7,-8,9,-10,11,-12,13,-14,15,16,17,18};
 
-	  addValue(messageBlockData, "testBinData", &data, MVT_S16Array, sizeof(data));
+	  addValue(messageBlockData, (char *)"testBinData", &data, MVT_S16Array, sizeof(data));
 	  messageData->addBlock(messageBlockData);
 	  LLSDMessageBuilder builder = defaultBuilder();
 	  

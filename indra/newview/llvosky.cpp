@@ -2,31 +2,25 @@
  * @file llvosky.cpp
  * @brief LLVOSky class implementation
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -41,6 +35,7 @@
 #include "timing.h"
 
 #include "llagent.h"
+#include "llagentcamera.h"
 #include "lldrawable.h"
 #include "llface.h"
 #include "llcubemap.h"
@@ -81,9 +76,6 @@ static const LLVector2 TEX11 = LLVector2(1.f, 1.f);
 // Exported globals
 LLUUID gSunTextureID = IMG_SUN;
 LLUUID gMoonTextureID = IMG_MOON;
-
-//static 
-LLColor3 LLHaze::sAirScaSeaLevel;
 
 class LLFastLn
 {
@@ -187,6 +179,23 @@ inline void color_gamma_correct(LLColor3 &col)
 	}
 }
 
+static LLColor3 calc_air_sca_sea_level()
+{
+	static LLColor3 WAVE_LEN(675, 520, 445);
+	static LLColor3 refr_ind = refr_ind_calc(WAVE_LEN);
+	static LLColor3 n21 = refr_ind * refr_ind - LLColor3(1, 1, 1);
+	static LLColor3 n4 = n21 * n21;
+	static LLColor3 wl2 = WAVE_LEN * WAVE_LEN * 1e-6f;
+	static LLColor3 wl4 = wl2 * wl2;
+	static LLColor3 mult_const = fsigma * 2.0f/ 3.0f * 1e24f * (F_PI * F_PI) * n4;
+	static F32 dens_div_N = F32( ATM_SEA_LEVEL_NDENS / Ndens2);
+	return dens_div_N * color_div ( mult_const, wl4 );
+}
+
+// static constants.
+LLColor3 const LLHaze::sAirScaSeaLevel = calc_air_sca_sea_level();
+F32 const LLHaze::sAirScaIntense = color_intens(LLHaze::sAirScaSeaLevel);	
+F32 const LLHaze::sAirScaAvg = LLHaze::sAirScaIntense / 3.f;
 
 
 /***************************************
@@ -289,13 +298,13 @@ void LLSkyTex::create(const F32 brightness)
 
 void LLSkyTex::createGLImage(S32 which)
 {	
-	mTexture[which]->createGLTexture(0, mImageRaw[which]);
+	mTexture[which]->createGLTexture(0, mImageRaw[which], 0, TRUE, LLViewerTexture::LOCAL);
 	mTexture[which]->setAddressMode(LLTexUnit::TAM_CLAMP);
 }
 
 void LLSkyTex::bindTexture(BOOL curr)
 {
-	gGL.getTexUnit(0)->bind(mTexture[getWhich(curr)]);
+	gGL.getTexUnit(0)->bind(mTexture[getWhich(curr)], true);
 }
 
 /***************************************
@@ -343,7 +352,6 @@ LLVOSky::LLVOSky(const LLUUID &id, const LLPCode pcode, LLViewerRegion *regionp)
 	cloud_pos_density1 = LLColor3();
 	cloud_pos_density2 = LLColor3();
 
-
 	mInitialized = FALSE;
 	mbCanSelect = FALSE;
 	mUpdateTimer.reset();
@@ -358,7 +366,7 @@ LLVOSky::LLVOSky(const LLUUID &id, const LLPCode pcode, LLViewerRegion *regionp)
 		mFace[i] = NULL;
 	}
 	
-	mCameraPosAgent = gAgent.getCameraPositionAgent();
+	mCameraPosAgent = gAgentCamera.getCameraPositionAgent();
 	mAtmHeight = ATM_HEIGHT;
 	mEarthCenter = LLVector3(mCameraPosAgent.mV[0], mCameraPosAgent.mV[1], -EARTH_RADIUS);
 
@@ -376,15 +384,19 @@ LLVOSky::LLVOSky(const LLUUID &id, const LLPCode pcode, LLViewerRegion *regionp)
 	mSun.setIntensity(SUN_INTENSITY);
 	mMoon.setIntensity(0.1f * SUN_INTENSITY);
 
-	mSunTexturep = LLViewerTextureManager::getFetchedTexture(gSunTextureID, TRUE, TRUE);
+	mSunTexturep = LLViewerTextureManager::getFetchedTexture(gSunTextureID, TRUE, LLViewerTexture::BOOST_UI);
 	mSunTexturep->setAddressMode(LLTexUnit::TAM_CLAMP);
-	mMoonTexturep = LLViewerTextureManager::getFetchedTexture(gMoonTextureID, TRUE, TRUE);
+	mMoonTexturep = LLViewerTextureManager::getFetchedTexture(gMoonTextureID, TRUE, LLViewerTexture::BOOST_UI);
 	mMoonTexturep->setAddressMode(LLTexUnit::TAM_CLAMP);
 	mBloomTexturep = LLViewerTextureManager::getFetchedTexture(IMG_BLOOM1);
 	mBloomTexturep->setNoDelete() ;
 	mBloomTexturep->setAddressMode(LLTexUnit::TAM_CLAMP);
 
 	mHeavenlyBodyUpdated = FALSE ;
+
+	mDrawRefl = 0;
+	mHazeConcentration = 0.f;
+	mInterpVal = 0.f;
 }
 
 
@@ -395,12 +407,6 @@ LLVOSky::~LLVOSky()
 
 	mCubeMap = NULL;
 }
-
-void LLVOSky::initClass()
-{
-	LLHaze::initClass();
-}
-
 
 void LLVOSky::init()
 {
@@ -472,9 +478,9 @@ void LLVOSky::restoreGL()
 	{
 		mSkyTex[i].restoreGL();
 	}
-	mSunTexturep = LLViewerTextureManager::getFetchedTexture(gSunTextureID, TRUE, TRUE);
+	mSunTexturep = LLViewerTextureManager::getFetchedTexture(gSunTextureID, TRUE, LLViewerTexture::BOOST_UI);
 	mSunTexturep->setAddressMode(LLTexUnit::TAM_CLAMP);
-	mMoonTexturep = LLViewerTextureManager::getFetchedTexture(gMoonTextureID, TRUE, TRUE);
+	mMoonTexturep = LLViewerTextureManager::getFetchedTexture(gMoonTextureID, TRUE, LLViewerTexture::BOOST_UI);
 	mMoonTexturep->setAddressMode(LLTexUnit::TAM_CLAMP);
 	mBloomTexturep = LLViewerTextureManager::getFetchedTexture(IMG_BLOOM1);
 	mBloomTexturep->setNoDelete() ;
@@ -965,13 +971,16 @@ void LLVOSky::calcAtmospherics(void)
 		
 		// and vary_sunlight will work properly with moon light
 		F32 lighty = unclamped_lightnorm[1];
-		if(lighty < NIGHTTIME_ELEVATION_COS)
+		if(lighty < LLSky::NIGHTTIME_ELEVATION_COS)
 		{
 			lighty = -lighty;
 		}
 
 		temp2.mV[1] = llmax(0.f, lighty);
-		temp2.mV[1] = 1.f / temp2.mV[1];
+		if(temp2.mV[1] > 0.f)
+		{
+			temp2.mV[1] = 1.f / temp2.mV[1];
+		}
 		componentMultBy(sunlight, componentExp((light_atten * -1.f) * temp2.mV[1]));
 
 		// Distance
@@ -1072,10 +1081,10 @@ BOOL LLVOSky::updateSky()
 		++next_frame;
 		next_frame = next_frame % cycle_frame_no;
 
-		sInterpVal = (!mInitialized) ? 1 : (F32)next_frame / cycle_frame_no;
+		mInterpVal = (!mInitialized) ? 1 : (F32)next_frame / cycle_frame_no;
 		// sInterpVal = (F32)next_frame / cycle_frame_no;
-		LLSkyTex::setInterpVal( sInterpVal );
-		LLHeavenBody::setInterpVal( sInterpVal );
+		LLSkyTex::setInterpVal( mInterpVal );
+		LLHeavenBody::setInterpVal( mInterpVal );
 		calcAtmospherics();
 
 		if (mForceUpdate || total_no_tiles == frame)
@@ -1095,10 +1104,10 @@ BOOL LLVOSky::updateSky()
 							   mLastTotalAmbient.mV[2] - mTotalAmbient.mV[2]);
 
 			if ( mForceUpdate 
-				 || ((dot_lighting < LIGHT_DIRECTION_THRESHOLD)
+				 || (((dot_lighting < LIGHT_DIRECTION_THRESHOLD)
 				 || (delta_color.length() > COLOR_CHANGE_THRESHOLD)
 				 || !mInitialized)
-				&& !direction.isExactlyZero())
+				&& !direction.isExactlyZero()))
 			{
 				mLastLightingDirection = direction;
 				mLastTotalAmbient = mTotalAmbient;
@@ -1173,14 +1182,14 @@ BOOL LLVOSky::updateSky()
 		}
 	}
 
-	if (mDrawable.notNull() && mDrawable->getFace(0) && mDrawable->getFace(0)->mVertexBuffer.isNull())
+	if (mDrawable.notNull() && mDrawable->getFace(0) && !mDrawable->getFace(0)->getVertexBuffer())
 	{
 		gPipeline.markRebuild(mDrawable, LLDrawable::REBUILD_VOLUME, TRUE);
 	}
 	return TRUE;
 }
 
-void LLVOSky::updateTextures(LLAgent &agent)
+void LLVOSky::updateTextures()
 {
 	if (mSunTexturep)
 	{
@@ -1224,12 +1233,15 @@ void LLVOSky::createDummyVertexBuffer()
 		mFace[FACE_DUMMY] = mDrawable->addFace(poolp, NULL);
 	}
 
-	if(mFace[FACE_DUMMY]->mVertexBuffer.isNull())
+	if(!mFace[FACE_DUMMY]->getVertexBuffer())
 	{
-		mFace[FACE_DUMMY]->mVertexBuffer = new LLVertexBuffer(LLDrawPoolSky::VERTEX_DATA_MASK, GL_DYNAMIC_DRAW_ARB);
-		mFace[FACE_DUMMY]->mVertexBuffer->allocateBuffer(1, 1, TRUE);
+		LLVertexBuffer* buff = new LLVertexBuffer(LLDrawPoolSky::VERTEX_DATA_MASK, GL_DYNAMIC_DRAW_ARB);
+		buff->allocateBuffer(1, 1, TRUE);
+		mFace[FACE_DUMMY]->setVertexBuffer(buff);
 	}
 }
+
+static LLFastTimer::DeclareTimer FTM_RENDER_FAKE_VBO_UPDATE("Fake VBO Update");
 
 void LLVOSky::updateDummyVertexBuffer()
 {	
@@ -1242,23 +1254,24 @@ void LLVOSky::updateDummyVertexBuffer()
 		return ;
 	}
 
-	LLFastTimer t(LLFastTimer::FTM_RENDER_FAKE_VBO_UPDATE) ;
+	LLFastTimer t(FTM_RENDER_FAKE_VBO_UPDATE) ;
 
-	if(!mFace[FACE_DUMMY] || mFace[FACE_DUMMY]->mVertexBuffer.isNull())
+	if(!mFace[FACE_DUMMY] || !mFace[FACE_DUMMY]->getVertexBuffer())
 		createDummyVertexBuffer() ;
 
 	LLStrider<LLVector3> vertices ;
-	mFace[FACE_DUMMY]->mVertexBuffer->getVertexStrider(vertices,  0);
+	mFace[FACE_DUMMY]->getVertexBuffer()->getVertexStrider(vertices,  0);
 	*vertices = mCameraPosAgent ;
-	mFace[FACE_DUMMY]->mVertexBuffer->setBuffer(0) ;
+	mFace[FACE_DUMMY]->getVertexBuffer()->setBuffer(0) ;
 }
 //----------------------------------
 //end of fake vertex buffer updating
 //----------------------------------
+static LLFastTimer::DeclareTimer FTM_GEO_SKY("Sky Geometry");
 
 BOOL LLVOSky::updateGeometry(LLDrawable *drawable)
 {
-	LLFastTimer ftm(LLFastTimer::FTM_GEO_SKY);
+	LLFastTimer ftm(FTM_GEO_SKY);
 	if (mFace[FACE_REFLECTION] == NULL)
 	{
 		LLDrawPoolWater *poolp = (LLDrawPoolWater*) gPipeline.getPool(LLDrawPool::POOL_WATER);
@@ -1292,14 +1305,15 @@ BOOL LLVOSky::updateGeometry(LLDrawable *drawable)
 	{
 		face = mFace[FACE_SIDE0 + side]; 
 
-		if (face->mVertexBuffer.isNull())
+		if (!face->getVertexBuffer())
 		{
 			face->setSize(4, 6);
 			face->setGeomIndex(0);
 			face->setIndicesIndex(0);
-			face->mVertexBuffer = new LLVertexBuffer(LLDrawPoolSky::VERTEX_DATA_MASK, GL_STREAM_DRAW_ARB);
-			face->mVertexBuffer->allocateBuffer(4, 6, TRUE);
-			
+			LLVertexBuffer* buff = new LLVertexBuffer(LLDrawPoolSky::VERTEX_DATA_MASK, GL_STREAM_DRAW_ARB);
+			buff->allocateBuffer(4, 6, TRUE);
+			face->setVertexBuffer(buff);
+
 			index_offset = face->getGeometry(verticesp,normalsp,texCoordsp, indicesp);
 			
 			S32 vtx = 0;
@@ -1332,7 +1346,7 @@ BOOL LLVOSky::updateGeometry(LLDrawable *drawable)
 			*indicesp++ = index_offset + 3;
 			*indicesp++ = index_offset + 2;
 
-			face->mVertexBuffer->setBuffer(0);
+			buff->setBuffer(0);
 		}
 	}
 
@@ -1459,14 +1473,17 @@ BOOL LLVOSky::updateHeavenlyBodyGeometry(LLDrawable *drawable, const S32 f, cons
 
 	facep = mFace[f]; 
 
-	if (facep->mVertexBuffer.isNull())
+	if (!facep->getVertexBuffer())
 	{
-		facep->setSize(4, 6);		
-		facep->mVertexBuffer = new LLVertexBuffer(LLDrawPoolSky::VERTEX_DATA_MASK, GL_STREAM_DRAW_ARB);
-		facep->mVertexBuffer->allocateBuffer(facep->getGeomCount(), facep->getIndicesCount(), TRUE);
+		facep->setSize(4, 6);	
+		LLVertexBuffer* buff = new LLVertexBuffer(LLDrawPoolSky::VERTEX_DATA_MASK, GL_STREAM_DRAW_ARB);
+		buff->allocateBuffer(facep->getGeomCount(), facep->getIndicesCount(), TRUE);
 		facep->setGeomIndex(0);
 		facep->setIndicesIndex(0);
+		facep->setVertexBuffer(buff);
 	}
+
+	llassert(facep->getVertexBuffer()->getNumIndices() == 6);
 
 	index_offset = facep->getGeometry(verticesp,normalsp,texCoordsp, indicesp);
 
@@ -1494,7 +1511,7 @@ BOOL LLVOSky::updateHeavenlyBodyGeometry(LLDrawable *drawable, const S32 f, cons
 	*indicesp++ = index_offset + 2;
 	*indicesp++ = index_offset + 3;
 
-	facep->mVertexBuffer->setBuffer(0);
+	facep->getVertexBuffer()->setBuffer(0);
 
 	if (is_sun)
 	{
@@ -1863,13 +1880,14 @@ void LLVOSky::updateReflectionGeometry(LLDrawable *drawable, F32 H,
 
 	LLFace *face = mFace[FACE_REFLECTION]; 
 
-	if (face->mVertexBuffer.isNull() || quads*4 != face->getGeomCount())
+	if (!face->getVertexBuffer() || quads*4 != face->getGeomCount())
 	{
 		face->setSize(quads * 4, quads * 6);
-		face->mVertexBuffer = new LLVertexBuffer(LLDrawPoolWater::VERTEX_DATA_MASK, GL_STREAM_DRAW_ARB);
-		face->mVertexBuffer->allocateBuffer(face->getGeomCount(), face->getIndicesCount(), TRUE);
+		LLVertexBuffer* buff = new LLVertexBuffer(LLDrawPoolWater::VERTEX_DATA_MASK, GL_STREAM_DRAW_ARB);
+		buff->allocateBuffer(face->getGeomCount(), face->getIndicesCount(), TRUE);
 		face->setIndicesIndex(0);
 		face->setGeomIndex(0);
+		face->setVertexBuffer(buff);
 	}
 	
 	LLStrider<LLVector3> verticesp;
@@ -2007,7 +2025,7 @@ void LLVOSky::updateReflectionGeometry(LLDrawable *drawable, F32 H,
 		}
 	}
 
-	face->mVertexBuffer->setBuffer(0);
+	face->getVertexBuffer()->setBuffer(0);
 }
 
 
@@ -2028,7 +2046,7 @@ void LLVOSky::updateFog(const F32 distance)
 
 	const F32 water_height = gAgent.getRegion() ? gAgent.getRegion()->getWaterHeight() : 0.f;
 	// LLWorld::getInstance()->getWaterHeight();
-	F32 camera_height = gAgent.getCameraPositionAgent().mV[2];
+	F32 camera_height = gAgentCamera.getCameraPositionAgent().mV[2];
 
 	F32 near_clip_height = LLViewerCamera::getInstance()->getAtAxis().mV[VZ] * LLViewerCamera::getInstance()->getNear();
 	camera_height += near_clip_height;
@@ -2143,17 +2161,8 @@ void LLVOSky::updateFog(const F32 distance)
 	stop_glerror();
 }
 
-// static
-void LLHaze::initClass()
-{
-	sAirScaSeaLevel = LLHaze::calcAirScaSeaLevel();
-}
-
-
 
 // Functions used a lot.
-
-
 F32 color_norm_pow(LLColor3& col, F32 e, BOOL postmultiply)
 {
 	F32 mv = color_max(col);

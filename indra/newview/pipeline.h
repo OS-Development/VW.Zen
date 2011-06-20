@@ -2,31 +2,25 @@
  * @file pipeline.h
  * @brief Rendering pipeline definitions
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -46,6 +40,12 @@
 #include "lldrawable.h"
 #include "llrendertarget.h"
 
+#include <stack>
+
+#include <stack>
+
+#include <stack>
+
 class LLViewerTexture;
 class LLEdge;
 class LLFace;
@@ -58,6 +58,9 @@ class LLCubeMap;
 class LLCullResult;
 class LLVOAvatar;
 class LLGLSLShader;
+class LLCurlRequest;
+
+class LLMeshResponder;
 
 typedef enum e_avatar_skinning_method
 {
@@ -78,6 +81,27 @@ glh::matrix4f gl_ortho(GLfloat left, GLfloat right, GLfloat bottom, GLfloat top,
 glh::matrix4f gl_perspective(GLfloat fovy, GLfloat aspect, GLfloat zNear, GLfloat zFar);
 glh::matrix4f gl_lookat(LLVector3 eye, LLVector3 center, LLVector3 up);
 
+extern LLFastTimer::DeclareTimer FTM_RENDER_GEOMETRY;
+extern LLFastTimer::DeclareTimer FTM_RENDER_GRASS;
+extern LLFastTimer::DeclareTimer FTM_RENDER_INVISIBLE;
+extern LLFastTimer::DeclareTimer FTM_RENDER_OCCLUSION;
+extern LLFastTimer::DeclareTimer FTM_RENDER_SHINY;
+extern LLFastTimer::DeclareTimer FTM_RENDER_SIMPLE;
+extern LLFastTimer::DeclareTimer FTM_RENDER_TERRAIN;
+extern LLFastTimer::DeclareTimer FTM_RENDER_TREES;
+extern LLFastTimer::DeclareTimer FTM_RENDER_UI;
+extern LLFastTimer::DeclareTimer FTM_RENDER_WATER;
+extern LLFastTimer::DeclareTimer FTM_RENDER_WL_SKY;
+extern LLFastTimer::DeclareTimer FTM_RENDER_ALPHA;
+extern LLFastTimer::DeclareTimer FTM_RENDER_CHARACTERS;
+extern LLFastTimer::DeclareTimer FTM_RENDER_BUMP;
+extern LLFastTimer::DeclareTimer FTM_RENDER_FULLBRIGHT;
+extern LLFastTimer::DeclareTimer FTM_RENDER_GLOW;
+extern LLFastTimer::DeclareTimer FTM_STATESORT;
+extern LLFastTimer::DeclareTimer FTM_PIPELINE;
+extern LLFastTimer::DeclareTimer FTM_CLIENT_COPY;
+
+
 class LLPipeline
 {
 public:
@@ -90,10 +114,11 @@ public:
 	void resizeScreenTexture();
 	void releaseGLBuffers();
 	void createGLBuffers();
-	void allocateScreenBuffer(U32 resX, U32 resY);
 
+	void allocateScreenBuffer(U32 resX, U32 resY);
+	void allocatePhysicsBuffer();
+	
 	void resetVertexBuffers(LLDrawable* drawable);
-	void setUseVBO(BOOL use_vbo);
 	void generateImpostor(LLVOAvatar* avatar);
 	void bindScreenToTexture();
 	void renderBloom(BOOL for_snapshot, F32 zoom_factor = 1.f, int subfield = 0);
@@ -129,8 +154,11 @@ public:
 	void        markMoved(LLDrawable *drawablep, BOOL damped_motion = FALSE);
 	void        markShift(LLDrawable *drawablep);
 	void        markTextured(LLDrawable *drawablep);
+	void		markGLRebuild(LLGLUpdate* glu);
+	void		markRebuild(LLSpatialGroup* group, BOOL priority = FALSE);
 	void        markRebuild(LLDrawable *drawablep, LLDrawable::EDrawableFlags flag = LLDrawable::REBUILD_ALL, BOOL priority = FALSE);
-		
+	void		markPartitionMove(LLDrawable* drawablep);
+
 	//get the object between start and end that's closest to start.
 	LLViewerObject* lineSegmentIntersectInWorld(const LLVector3& start, const LLVector3& end,
 												BOOL pick_transparent,
@@ -169,6 +197,7 @@ public:
 	BOOL		canUseVertexShaders();
 	BOOL		canUseWindLightShaders() const;
 	BOOL		canUseWindLightShadersOnObjects() const;
+	BOOL		canUseAntiAliasing() const;
 
 	// phases
 	void resetFrameStats();
@@ -179,13 +208,19 @@ public:
 	void updateMove();
 	BOOL visibleObjectsInFrustum(LLCamera& camera);
 	BOOL getVisibleExtents(LLCamera& camera, LLVector3 &min, LLVector3& max);
-	void updateCull(LLCamera& camera, LLCullResult& result, S32 water_clip = 0);  //if water_clip is 0, ignore water plane, 1, cull to above plane, -1, cull to below plane
+	BOOL getVisiblePointCloud(LLCamera& camera, LLVector3 &min, LLVector3& max, std::vector<LLVector3>& fp, LLVector3 light_dir = LLVector3(0,0,0));
+	void updateCull(LLCamera& camera, LLCullResult& result, S32 water_clip = 0, LLPlane* plane = NULL);  //if water_clip is 0, ignore water plane, 1, cull to above plane, -1, cull to below plane
 	void createObjects(F32 max_dtime);
 	void createObject(LLViewerObject* vobj);
+	void processPartitionQ();
 	void updateGeom(F32 max_dtime);
+	void updateGL();
+	void rebuildPriorityGroups();
+	void rebuildGroups();
 
 	//calculate pixel area of given box from vantage point of given camera
 	static F32 calcPixelArea(LLVector3 center, LLVector3 size, LLCamera& camera);
+	static F32 calcPixelArea(const LLVector4a& center, const LLVector4a& size, LLCamera &camera);
 
 	void stateSort(LLCamera& camera, LLCullResult& result);
 	void stateSort(LLSpatialGroup* group, LLCamera& camera);
@@ -198,21 +233,38 @@ public:
 	void renderGroups(LLRenderPass* pass, U32 type, U32 mask, BOOL texture);
 
 	void grabReferences(LLCullResult& result);
+	void clearReferences();
+
+	//check references will assert that there are no references in sCullResult to the provided data
+	void checkReferences(LLFace* face);
+	void checkReferences(LLDrawable* drawable);
+	void checkReferences(LLDrawInfo* draw_info);
+	void checkReferences(LLSpatialGroup* group);
+
 
 	void renderGeom(LLCamera& camera, BOOL forceVBOUpdate = FALSE);
 	void renderGeomDeferred(LLCamera& camera);
 	void renderGeomPostDeferred(LLCamera& camera);
 	void renderGeomShadow(LLCamera& camera);
-	void bindDeferredShader(LLGLSLShader& shader, U32 light_index = 0);
+	void bindDeferredShader(LLGLSLShader& shader, U32 light_index = 0, LLRenderTarget* gi_source = NULL, LLRenderTarget* last_gi_post = NULL, U32 noise_map = 0xFFFFFFFF);
+	void setupSpotLight(LLGLSLShader& shader, LLDrawable* drawablep);
+
 	void unbindDeferredShader(LLGLSLShader& shader);
 	void renderDeferredLighting();
 	
 	void generateWaterReflection(LLCamera& camera);
 	void generateSunShadow(LLCamera& camera);
+	void generateHighlight(LLCamera& camera);
+	void renderHighlight(const LLViewerObject* obj, F32 fade);
+	void setHighlightObject(LLDrawable* obj) { mHighlightObject = obj; }
+
+
+	void renderShadow(glh::matrix4f& view, glh::matrix4f& proj, LLCamera& camera, LLCullResult& result, BOOL use_shader = TRUE, BOOL use_occlusion = TRUE);
+	void generateGI(LLCamera& camera, LLVector3& lightDir, std::vector<LLVector3>& vpc);
 	void renderHighlights();
 	void renderDebug();
+	void renderPhysicsDisplay();
 
-	void renderForSelect(std::set<LLViewerObject*>& objects, BOOL render_transparent, const LLRect& screen_rect);
 	void rebuildPools(); // Rebuild pools
 
 	void findReferences(LLDrawable *drawablep);	// Find the lists which have references to this object
@@ -227,6 +279,7 @@ public:
 	void enableLightsStatic();
 	void enableLightsDynamic();
 	void enableLightsAvatar();
+	void enableLightsPreview();
 	void enableLightsAvatarEdit(const LLColor4& color);
 	void enableLightsFullbright(const LLColor4& color);
 	void disableLights();
@@ -234,20 +287,32 @@ public:
 	void shiftObjects(const LLVector3 &offset);
 
 	void setLight(LLDrawable *drawablep, BOOL is_light);
-	void setActive(LLDrawable *drawablep, BOOL active);
-
+	
 	BOOL hasRenderBatches(const U32 type) const;
 	LLCullResult::drawinfo_list_t::iterator beginRenderMap(U32 type);
 	LLCullResult::drawinfo_list_t::iterator endRenderMap(U32 type);
 	LLCullResult::sg_list_t::iterator beginAlphaGroups();
 	LLCullResult::sg_list_t::iterator endAlphaGroups();
 	
-	void addTrianglesDrawn(S32 count);
-	BOOL hasRenderType(const U32 type) const				{ return (type && (mRenderTypeMask & (1<<type))) ? TRUE : FALSE; }
+
+	void addTrianglesDrawn(S32 index_count, U32 render_type = LLRender::TRIANGLES);
+
 	BOOL hasRenderDebugFeatureMask(const U32 mask) const	{ return (mRenderDebugFeatureMask & mask) ? TRUE : FALSE; }
 	BOOL hasRenderDebugMask(const U32 mask) const			{ return (mRenderDebugMask & mask) ? TRUE : FALSE; }
-	void setRenderTypeMask(const U32 mask)					{ mRenderTypeMask = mask; }
-	U32  getRenderTypeMask() const							{ return mRenderTypeMask; }
+	
+
+
+	BOOL hasRenderType(const U32 type) const;
+	BOOL hasAnyRenderType(const U32 type, ...) const;
+
+	void setRenderTypeMask(U32 type, ...);
+	void orRenderTypeMask(U32 type, ...);
+	void andRenderTypeMask(U32 type, ...);
+	void clearRenderTypeMask(U32 type, ...);
+	
+	void pushRenderTypeMask();
+	void popRenderTypeMask();
+
 	static void toggleRenderType(U32 type);
 
 	// For UI control of render features
@@ -258,6 +323,7 @@ public:
 	static BOOL toggleRenderTypeControlNegated(void* data);
 	static BOOL toggleRenderDebugControl(void* data);
 	static BOOL toggleRenderDebugFeatureControl(void* data);
+	static void setRenderDebugFeatureControl(U32 bit, bool value);
 
 	static void setRenderParticleBeacons(BOOL val);
 	static void toggleRenderParticleBeacons(void* data);
@@ -266,6 +332,10 @@ public:
 	static void setRenderSoundBeacons(BOOL val);
 	static void toggleRenderSoundBeacons(void* data);
 	static BOOL getRenderSoundBeacons(void* data);
+
+	static void setRenderMOAPBeacons(BOOL val);
+	static void toggleRenderMOAPBeacons(void * data);
+	static BOOL getRenderMOAPBeacons(void * data);
 
 	static void setRenderPhysicalBeacons(BOOL val);
 	static void toggleRenderPhysicalBeacons(void* data);
@@ -288,6 +358,9 @@ public:
 	static BOOL getRenderHighlights(void* data);
 
 	static void updateRenderDeferred();
+	static void refreshRenderDeferred();
+
+	void addDebugBlip(const LLVector3& position, const LLColor4& color);
 
 private:
 	void unloadShaders();
@@ -303,27 +376,43 @@ public:
 	enum LLRenderTypeMask
 	{
 		// Following are pool types (some are also object types)
-		RENDER_TYPE_SKY			= LLDrawPool::POOL_SKY,
-		RENDER_TYPE_WL_SKY		= LLDrawPool::POOL_WL_SKY,
-		RENDER_TYPE_GROUND		= LLDrawPool::POOL_GROUND,	
-		RENDER_TYPE_TERRAIN		= LLDrawPool::POOL_TERRAIN,
-		RENDER_TYPE_SIMPLE		= LLDrawPool::POOL_SIMPLE,
-		RENDER_TYPE_GRASS		= LLDrawPool::POOL_GRASS,
-		RENDER_TYPE_FULLBRIGHT	= LLDrawPool::POOL_FULLBRIGHT,
-		RENDER_TYPE_BUMP		= LLDrawPool::POOL_BUMP,
-		RENDER_TYPE_AVATAR		= LLDrawPool::POOL_AVATAR,
-		RENDER_TYPE_TREE		= LLDrawPool::POOL_TREE,
-		RENDER_TYPE_INVISIBLE	= LLDrawPool::POOL_INVISIBLE,
-		RENDER_TYPE_WATER		= LLDrawPool::POOL_WATER,
- 		RENDER_TYPE_ALPHA		= LLDrawPool::POOL_ALPHA,
-		RENDER_TYPE_GLOW		= LLDrawPool::POOL_GLOW,
-		
+		RENDER_TYPE_SKY							= LLDrawPool::POOL_SKY,
+		RENDER_TYPE_WL_SKY						= LLDrawPool::POOL_WL_SKY,
+		RENDER_TYPE_GROUND						= LLDrawPool::POOL_GROUND,	
+		RENDER_TYPE_TERRAIN						= LLDrawPool::POOL_TERRAIN,
+		RENDER_TYPE_SIMPLE						= LLDrawPool::POOL_SIMPLE,
+		RENDER_TYPE_GRASS						= LLDrawPool::POOL_GRASS,
+		RENDER_TYPE_FULLBRIGHT					= LLDrawPool::POOL_FULLBRIGHT,
+		RENDER_TYPE_BUMP						= LLDrawPool::POOL_BUMP,
+		RENDER_TYPE_AVATAR						= LLDrawPool::POOL_AVATAR,
+		RENDER_TYPE_TREE						= LLDrawPool::POOL_TREE,
+		RENDER_TYPE_INVISIBLE					= LLDrawPool::POOL_INVISIBLE,
+		RENDER_TYPE_VOIDWATER					= LLDrawPool::POOL_VOIDWATER,
+		RENDER_TYPE_WATER						= LLDrawPool::POOL_WATER,
+ 		RENDER_TYPE_ALPHA						= LLDrawPool::POOL_ALPHA,
+		RENDER_TYPE_GLOW						= LLDrawPool::POOL_GLOW,
+		RENDER_TYPE_PASS_SIMPLE 				= LLRenderPass::PASS_SIMPLE,
+		RENDER_TYPE_PASS_GRASS					= LLRenderPass::PASS_GRASS,
+		RENDER_TYPE_PASS_FULLBRIGHT				= LLRenderPass::PASS_FULLBRIGHT,
+		RENDER_TYPE_PASS_INVISIBLE				= LLRenderPass::PASS_INVISIBLE,
+		RENDER_TYPE_PASS_INVISI_SHINY			= LLRenderPass::PASS_INVISI_SHINY,
+		RENDER_TYPE_PASS_FULLBRIGHT_SHINY		= LLRenderPass::PASS_FULLBRIGHT_SHINY,
+		RENDER_TYPE_PASS_SHINY					= LLRenderPass::PASS_SHINY,
+		RENDER_TYPE_PASS_BUMP					= LLRenderPass::PASS_BUMP,
+		RENDER_TYPE_PASS_POST_BUMP				= LLRenderPass::PASS_POST_BUMP,
+		RENDER_TYPE_PASS_GLOW					= LLRenderPass::PASS_GLOW,
+		RENDER_TYPE_PASS_ALPHA					= LLRenderPass::PASS_ALPHA,
+		RENDER_TYPE_PASS_ALPHA_MASK				= LLRenderPass::PASS_ALPHA_MASK,
+		RENDER_TYPE_PASS_FULLBRIGHT_ALPHA_MASK	= LLRenderPass::PASS_FULLBRIGHT_ALPHA_MASK,
+		RENDER_TYPE_PASS_ALPHA_SHADOW = LLRenderPass::PASS_ALPHA_SHADOW,
 		// Following are object types (only used in drawable mRenderType)
-		RENDER_TYPE_HUD = LLDrawPool::NUM_POOL_TYPES,
+		RENDER_TYPE_HUD = LLRenderPass::NUM_RENDER_TYPES,
 		RENDER_TYPE_VOLUME,
 		RENDER_TYPE_PARTICLES,
 		RENDER_TYPE_CLOUDS,
-		RENDER_TYPE_HUD_PARTICLES
+		RENDER_TYPE_HUD_PARTICLES,
+		NUM_RENDER_TYPES,
+		END_RENDER_TYPES = NUM_RENDER_TYPES
 	};
 
 	enum LLRenderDebugFeatureMask
@@ -362,7 +451,12 @@ public:
 		RENDER_DEBUG_SHADOW_FRUSTA		= 0x0040000,
 		RENDER_DEBUG_SCULPTED           = 0x0080000,
 		RENDER_DEBUG_AVATAR_VOLUME      = 0x0100000,
-		RENDER_DEBUG_AGENT_TARGET       = 0x0200000,
+		RENDER_DEBUG_BUILD_QUEUE		= 0x0200000,
+		RENDER_DEBUG_AGENT_TARGET       = 0x0400000,
+		RENDER_DEBUG_UPDATE_TYPE		= 0x0800000,
+		RENDER_DEBUG_PHYSICS_SHAPES     = 0x1000000,
+		RENDER_DEBUG_NORMALS	        = 0x2000000,
+		RENDER_DEBUG_LOD_INFO	        = 0x4000000,
 	};
 
 public:
@@ -385,6 +479,10 @@ public:
 	S32						 mNumVisibleNodes;
 	S32						 mVerticesRelit;
 
+	S32						 mDebugTextureUploadCost;
+	S32						 mDebugSculptUploadCost;
+	S32						 mDebugMeshUploadCost;
+
 	S32						 mLightingChanges;
 	S32						 mGeometryChanges;
 
@@ -396,13 +494,15 @@ public:
 	static BOOL				sForceOldBakedUpload; // If true will not use capabilities to upload baked textures.
 	static S32				sUseOcclusion;  // 0 = no occlusion, 1 = read only, 2 = read/write
 	static BOOL				sDelayVBUpdate;
-	static BOOL				sFastAlpha;
+	static BOOL				sAutoMaskAlphaDeferred;
+	static BOOL				sAutoMaskAlphaNonDeferred;
 	static BOOL				sDisableShaders; // if TRUE, rendering will be done without shaders
 	static BOOL				sRenderBump;
-	static BOOL				sUseFBO;
+	static BOOL				sBakeSunlight;
+	static BOOL				sNoAlpha;
+	static BOOL				sUseTriStrips;
 	static BOOL				sUseFarClip;
 	static BOOL				sShadowRender;
-	static BOOL				sSkipUpdate; //skip lod updates
 	static BOOL				sWaterReflections;
 	static BOOL				sDynamicLOD;
 	static BOOL				sPickAvatar;
@@ -416,19 +516,50 @@ public:
 	static BOOL				sRenderAttachedParticles;
 	static BOOL				sRenderDeferred;
 	static S32				sVisibleLightCount;
+	static F32				sMinRenderSize;
 
 	//screen texture
+	U32 					mScreenWidth;
+	U32 					mScreenHeight;
+	
 	LLRenderTarget			mScreen;
+	LLRenderTarget			mUIScreen;
 	LLRenderTarget			mDeferredScreen;
-	LLRenderTarget			mDeferredLight[2];
-	LLMultisampleBuffer		mSampleBuffer;
+	LLRenderTarget			mEdgeMap;
+	LLRenderTarget			mDeferredDepth;
+	LLRenderTarget			mDeferredLight[3];
+	LLRenderTarget			mGIMap;
+	LLRenderTarget			mGIMapPost[2];
+	LLRenderTarget			mLuminanceMap;
+	LLRenderTarget			mHighlight;
+	LLRenderTarget			mPhysicsDisplay;
 
 	//sun shadow map
-	LLRenderTarget			mSunShadow[4];
+	LLRenderTarget			mShadow[6];
+	std::vector<LLVector3>	mShadowFrustPoints[4];
+	LLVector4				mShadowError;
+	LLVector4				mShadowFOV;
+	LLVector3				mShadowFrustOrigin[4];
 	LLCamera				mShadowCamera[8];
 	LLVector3				mShadowExtents[4][2];
-	glh::matrix4f			mSunShadowMatrix[4];
+	glh::matrix4f			mSunShadowMatrix[6];
+	glh::matrix4f			mShadowModelview[6];
+	glh::matrix4f			mShadowProjection[6];
+	glh::matrix4f			mGIMatrix;
+	glh::matrix4f			mGIMatrixProj;
+	glh::matrix4f			mGIModelview;
+	glh::matrix4f			mGIProjection;
+	glh::matrix4f			mGINormalMatrix;
+	glh::matrix4f			mGIInvProj;
+	LLVector2				mGIRange;
+	F32						mGILightRadius;
+	
+	LLPointer<LLDrawable>				mShadowSpotLight[2];
+	F32									mSpotLightFade[2];
+	LLPointer<LLDrawable>				mTargetShadowSpotLight[2];
+
 	LLVector4				mSunClipPlanes;
+	LLVector4				mSunOrthoClipPlanes;
 
 	LLVector2				mScreenScale;
 
@@ -443,6 +574,8 @@ public:
 
 	//noise map
 	U32					mNoiseMap;
+	U32					mTrueNoiseMap;
+	U32					mLightFunc;
 
 	LLColor4				mSunDiffuse;
 	LLVector3				mSunDir;
@@ -452,7 +585,9 @@ public:
 	S32						mVertexShadersLoaded; // 0 = no, 1 = yes, -1 = failed
 
 protected:
-	U32						mRenderTypeMask;
+	BOOL					mRenderTypeEnabled[NUM_RENDER_TYPES];
+	std::stack<std::string> mRenderTypeEnableStack;
+
 	U32						mRenderDebugFeatureMask;
 	U32						mRenderDebugMask;
 
@@ -503,11 +638,47 @@ protected:
 	//
 	LLDrawable::drawable_list_t 	mBuildQ1; // priority
 	LLDrawable::drawable_list_t 	mBuildQ2; // non-priority
+	LLSpatialGroup::sg_vector_t		mGroupQ1; //priority
+	LLSpatialGroup::sg_vector_t		mGroupQ2; // non-priority
+
+	LLDrawable::drawable_list_t		mPartitionQ; //drawables that need to update their spatial partition radius 
+
+	bool mGroupQ2Locked;
+	bool mGroupQ1Locked;
+
 	LLViewerObject::vobj_list_t		mCreateQ;
 		
-	LLDrawable::drawable_set_t		mActiveQ;
-	
 	LLDrawable::drawable_set_t		mRetexturedList;
+
+	class HighlightItem
+	{
+	public:
+		const LLPointer<LLDrawable> mItem;
+		mutable F32 mFade;
+
+		HighlightItem(LLDrawable* item)
+		: mItem(item), mFade(0)
+		{
+		}
+
+		bool operator<(const HighlightItem& rhs) const
+		{
+			return mItem < rhs.mItem;
+		}
+
+		bool operator==(const HighlightItem& rhs) const
+		{
+			return mItem == rhs.mItem;
+		}
+
+		void incrFade(F32 val) const
+		{
+			mFade = llclamp(mFade+val, 0.f, 1.f);
+		}
+	};
+
+	std::set<HighlightItem> mHighlightSet;
+	LLPointer<LLDrawable> mHighlightObject;
 
 	//////////////////////////////////////////////////
 	//
@@ -561,15 +732,28 @@ public:
 protected:
 	std::vector<LLFace*>		mSelectedFaces;
 
+	class DebugBlip
+	{
+	public:
+		LLColor4 mColor;
+		LLVector3 mPosition;
+		F32 mAge;
+
+		DebugBlip(const LLVector3& position, const LLColor4& color)
+			: mColor(color), mPosition(position), mAge(0.f)
+		{ }
+	};
+
+	std::list<DebugBlip> mDebugBlips;
+
 	LLPointer<LLViewerFetchedTexture>	mFaceSelectImagep;
-	LLPointer<LLViewerTexture>	mBloomImagep;
-	LLPointer<LLViewerTexture>	mBloomImage2p;
 	
 	U32						mLightMask;
 	U32						mLightMovingMask;
 	S32						mLightingDetail;
 		
 	static BOOL				sRenderPhysicalBeacons;
+	static BOOL				sRenderMOAPBeacons;
 	static BOOL				sRenderScriptedTouchBeacons;
 	static BOOL				sRenderScriptedBeacons;
 	static BOOL				sRenderParticleBeacons;
@@ -577,12 +761,15 @@ protected:
 public:
 	static BOOL				sRenderBeacons;
 	static BOOL				sRenderHighlight;
+
+	//debug use
+	static U32              sCurRenderPoolType ;
 };
 
 void render_bbox(const LLVector3 &min, const LLVector3 &max);
+void render_hud_elements();
 
 extern LLPipeline gPipeline;
-extern BOOL gRenderForSelect;
 extern BOOL gDebugPipeline;
 extern const LLMatrix4* gGLLastMatrix;
 

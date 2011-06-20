@@ -2,31 +2,25 @@
  * @file llgroupactions.cpp
  * @brief Group-related actions (join, leave, new, delete, etc)
  *
- * $LicenseInfo:firstyear=2009&license=viewergpl$
- * 
- * Copyright (c) 2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2009&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -35,21 +29,179 @@
 
 #include "llgroupactions.h"
 
+#include "message.h"
+
 #include "llagent.h"
-#include "llfloatergroupinfo.h"
+#include "llcommandhandler.h"
 #include "llfloaterreg.h"
+#include "llgroupmgr.h"
 #include "llimview.h" // for gIMMgr
+#include "llnotificationsutil.h"
+#include "llsidetray.h"
+#include "llstatusbar.h"	// can_afford_transaction()
+#include "llimfloater.h"
+#include "groupchatlistener.h"
+
+//
+// Globals
+//
+static GroupChatListener sGroupChatListener;
+
+class LLGroupHandler : public LLCommandHandler
+{
+public:
+	// requires trusted browser to trigger
+	LLGroupHandler() : LLCommandHandler("group", UNTRUSTED_THROTTLE) { }
+	bool handle(const LLSD& tokens, const LLSD& query_map,
+				LLMediaCtrl* web)
+	{
+		if (!LLUI::sSettingGroups["config"]->getBOOL("EnableGroupInfo"))
+		{
+			LLNotificationsUtil::add("NoGroupInfo", LLSD(), LLSD(), std::string("SwitchToStandardSkinAndQuit"));
+			return true;
+		}
+
+		if (tokens.size() < 1)
+		{
+			return false;
+		}
+
+		if (tokens[0].asString() == "create")
+		{
+			LLGroupActions::createGroup();
+			return true;
+		}
+
+		if (tokens.size() < 2)
+		{
+			return false;
+		}
+
+		if (tokens[0].asString() == "list")
+		{
+			if (tokens[1].asString() == "show")
+			{
+				LLSD params;
+				params["people_panel_tab_name"] = "groups_panel";
+				LLSideTray::getInstance()->showPanel("panel_people", params);
+				return true;
+			}
+            return false;
+		}
+
+		LLUUID group_id;
+		if (!group_id.set(tokens[0], FALSE))
+		{
+			return false;
+		}
+
+		if (tokens[1].asString() == "about")
+		{
+			if (group_id.isNull())
+				return true;
+
+			LLGroupActions::show(group_id);
+
+			return true;
+		}
+		if (tokens[1].asString() == "inspect")
+		{
+			if (group_id.isNull())
+				return true;
+			LLGroupActions::inspect(group_id);
+			return true;
+		}
+		return false;
+	}
+};
+LLGroupHandler gGroupHandler;
 
 // static
 void LLGroupActions::search()
 {
-	LLFloaterReg::showInstance("search", LLSD().insert("panel", "group"));
+	LLFloaterReg::showInstance("search", LLSD().with("category", "groups"));
 }
 
 // static
-void LLGroupActions::create()
+void LLGroupActions::startCall(const LLUUID& group_id)
 {
-	LLFloaterGroupInfo::showCreateGroup(NULL);
+	// create a new group voice session
+	LLGroupData gdata;
+
+	if (!gAgent.getGroupData(group_id, gdata))
+	{
+		llwarns << "Error getting group data" << llendl;
+		return;
+	}
+
+	LLUUID session_id = gIMMgr->addSession(gdata.mName, IM_SESSION_GROUP_START, group_id, true);
+	if (session_id == LLUUID::null)
+	{
+		llwarns << "Error adding session" << llendl;
+		return;
+	}
+
+	// start the call
+	gIMMgr->autoStartCallOnStartup(session_id);
+
+	make_ui_sound("UISndStartIM");
+}
+
+// static
+void LLGroupActions::join(const LLUUID& group_id)
+{
+	if (!gAgent.canJoinGroups())
+	{
+		LLNotificationsUtil::add("JoinedTooManyGroups");
+		return;
+	}
+
+	LLGroupMgrGroupData* gdatap = 
+		LLGroupMgr::getInstance()->getGroupData(group_id);
+
+	if (gdatap)
+	{
+		S32 cost = gdatap->mMembershipFee;
+		LLSD args;
+		args["COST"] = llformat("%d", cost);
+		args["NAME"] = gdatap->mName;
+		LLSD payload;
+		payload["group_id"] = group_id;
+
+		if (can_afford_transaction(cost))
+		{
+			if(cost > 0)
+				LLNotificationsUtil::add("JoinGroupCanAfford", args, payload, onJoinGroup);
+			else
+				LLNotificationsUtil::add("JoinGroupNoCost", args, payload, onJoinGroup);
+				
+		}
+		else
+		{
+			LLNotificationsUtil::add("JoinGroupCannotAfford", args, payload);
+		}
+	}
+	else
+	{
+		llwarns << "LLGroupMgr::getInstance()->getGroupData(" << group_id 
+			<< ") was NULL" << llendl;
+	}
+}
+
+// static
+bool LLGroupActions::onJoinGroup(const LLSD& notification, const LLSD& response)
+{
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
+
+	if (option == 1)
+	{
+		// user clicked cancel
+		return false;
+	}
+
+	LLGroupMgr::getInstance()->
+		sendGroupMemberJoin(notification["payload"]["group_id"].asUUID());
+	return false;
 }
 
 // static
@@ -71,7 +223,7 @@ void LLGroupActions::leave(const LLUUID& group_id)
 		args["GROUP"] = gAgent.mGroups.get(i).mName;
 		LLSD payload;
 		payload["group_id"] = group_id;
-		LLNotifications::instance().add("GroupLeaveConfirmMember", args, payload, onLeaveGroup);
+		LLNotificationsUtil::add("GroupLeaveConfirmMember", args, payload, onLeaveGroup);
 	}
 }
 
@@ -87,36 +239,157 @@ void LLGroupActions::activate(const LLUUID& group_id)
 	gAgent.sendReliableMessage();
 }
 
-// static
-void LLGroupActions::info(const LLUUID& group_id)
+static bool isGroupUIVisible()
 {
-	if (group_id.isNull())
-		return;
+	static LLPanel* panel = 0;
+	if(!panel)
+		panel = LLSideTray::getInstance()->getPanel("panel_group_info_sidetray");
+	if(!panel)
+		return false;
+	return panel->isInVisibleChain();
+}
 
-	LLFloaterGroupInfo::showFromUUID(group_id);	
+// static 
+void LLGroupActions::inspect(const LLUUID& group_id)
+{
+	LLFloaterReg::showInstance("inspect_group", LLSD().with("group_id", group_id));
 }
 
 // static
-void LLGroupActions::startChat(const LLUUID& group_id)
+void LLGroupActions::show(const LLUUID& group_id)
 {
 	if (group_id.isNull())
 		return;
+
+	LLSD params;
+	params["group_id"] = group_id;
+	params["open_tab_name"] = "panel_group_info_sidetray";
+
+	LLSideTray::getInstance()->showPanel("panel_group_info_sidetray", params);
+}
+
+void LLGroupActions::refresh_notices()
+{
+	if(!isGroupUIVisible())
+		return;
+
+	LLSD params;
+	params["group_id"] = LLUUID::null;
+	params["open_tab_name"] = "panel_group_info_sidetray";
+	params["action"] = "refresh_notices";
+
+	LLSideTray::getInstance()->showPanel("panel_group_info_sidetray", params);
+}
+
+//static 
+void LLGroupActions::refresh(const LLUUID& group_id)
+{
+	if(!isGroupUIVisible())
+		return;
+
+	LLSD params;
+	params["group_id"] = group_id;
+	params["open_tab_name"] = "panel_group_info_sidetray";
+	params["action"] = "refresh";
+
+	LLSideTray::getInstance()->showPanel("panel_group_info_sidetray", params);
+}
+
+//static 
+void LLGroupActions::createGroup()
+{
+	LLSD params;
+	params["group_id"] = LLUUID::null;
+	params["open_tab_name"] = "panel_group_info_sidetray";
+	params["action"] = "create";
+
+	LLSideTray::getInstance()->showPanel("panel_group_info_sidetray", params);
+
+}
+//static
+void LLGroupActions::closeGroup(const LLUUID& group_id)
+{
+	if(!isGroupUIVisible())
+		return;
+
+	LLSD params;
+	params["group_id"] = group_id;
+	params["open_tab_name"] = "panel_group_info_sidetray";
+	params["action"] = "close";
+
+	LLSideTray::getInstance()->showPanel("panel_group_info_sidetray", params);
+}
+
+
+// static
+LLUUID LLGroupActions::startIM(const LLUUID& group_id)
+{
+	if (group_id.isNull()) return LLUUID::null;
 
 	LLGroupData group_data;
 	if (gAgent.getGroupData(group_id, group_data))
 	{
-		gIMMgr->addSession(
+		LLUUID session_id = gIMMgr->addSession(
 			group_data.mName,
 			IM_SESSION_GROUP_START,
 			group_id);
+		if (session_id != LLUUID::null)
+		{
+			LLIMFloater::show(session_id);
+		}
 		make_ui_sound("UISndStartIM");
+		return session_id;
 	}
 	else
 	{
 		// this should never happen, as starting a group IM session
 		// relies on you belonging to the group and hence having the group data
 		make_ui_sound("UISndInvalidOp");
+		return LLUUID::null;
 	}
+}
+
+// static
+void LLGroupActions::endIM(const LLUUID& group_id)
+{
+	if (group_id.isNull())
+		return;
+	
+	LLUUID session_id = gIMMgr->computeSessionID(IM_SESSION_GROUP_START, group_id);
+	if (session_id != LLUUID::null)
+	{
+		gIMMgr->leaveSession(session_id);
+	}
+}
+
+// static
+bool LLGroupActions::isInGroup(const LLUUID& group_id)
+{
+	// *TODO: Move all the LLAgent group stuff into another class, such as
+	// this one.
+	return gAgent.isInGroup(group_id);
+}
+
+// static
+bool LLGroupActions::isAvatarMemberOfGroup(const LLUUID& group_id, const LLUUID& avatar_id)
+{
+	if(group_id.isNull() || avatar_id.isNull())
+	{
+		return false;
+	}
+
+	LLGroupMgrGroupData* group_data = LLGroupMgr::getInstance()->getGroupData(group_id);
+	if(!group_data)
+	{
+		return false;
+	}
+
+	if(group_data->mMembers.end() == group_data->mMembers.find(avatar_id))
+	{
+		return false;
+	}
+
+	return true;
 }
 
 //-- Private methods ----------------------------------------------------------
@@ -124,7 +397,7 @@ void LLGroupActions::startChat(const LLUUID& group_id)
 // static
 bool LLGroupActions::onLeaveGroup(const LLSD& notification, const LLSD& response)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	LLUUID group_id = notification["payload"]["group_id"].asUUID();
 	if(option == 0)
 	{

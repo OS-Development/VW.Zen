@@ -1,611 +1,458 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <panel
- bevel_style="in"
- follows="left|top|right|bottom"
- height="625"
+ follows="all"
+ height="430"
  label="Profile"
  layout="topleft"
- left="10"
- mouse_opaque="false"
+ left="0"
  name="panel_profile"
- top="10"
- width="355">
-    <panel.string
+ top="0"
+ width="317">
+    <string
      name="CaptionTextAcctInfo">
-        [ACCTTYPE] [PAYMENTINFO] [AGEVERIFICATION]
-    </panel.string>
-    <panel.string
-     name="AcctTypeResident">
-        Resident.
-    </panel.string>
-    <panel.string
-     name="AcctTypeTrial">
-        Trial
-    </panel.string>
-    <panel.string
-     name="AcctTypeCharterMember">
-        Charter Member
-    </panel.string>
-    <panel.string
-     name="AcctTypeEmployee">
-        Linden Lab Employee
-    </panel.string>
-    <panel.string
-     name="PaymentInfoUsed">
-        Payment Info Used
-    </panel.string>
-    <panel.string
-     name="PaymentInfoOnFile">
-        Payment Info On File
-    </panel.string>
-    <panel.string
-     name="NoPaymentInfoOnFile">
-        No Payment Info On File
-    </panel.string>
-    <panel.string
-     name="AgeVerified">
-        Age-verified
-    </panel.string>
-    <panel.string
-     name="NotAgeVerified">
-        Not Age-verified
-    </panel.string>
-    <panel.string
+        [ACCTTYPE]
+[PAYMENTINFO] [AGEVERIFICATION]
+    </string>
+    <string
      name="payment_update_link_url">
         http://www.secondlife.com/account/billing.php?lang=en
-    </panel.string>
-    <panel.string
-     name="my_account_link_url">
-        http://secondlife.com/account
-    </panel.string>
-    <panel.string
+    </string>
+    <string
      name="partner_edit_link_url">
         http://www.secondlife.com/account/partners.php?lang=en
-    </panel.string>
-    <panel.string
-     name="no_partner_text">
-        None
-    </panel.string>
-    <scroll_container
-     color="0.5 0.5 0.5 1.0"
-     follows="left|top|right|bottom"
-     height="570"
+    </string>
+    <string
+     name="my_account_link_url"
+     value="http://secondlife.com/account" />
+    <string
+     name="no_partner_text"
+     value="None" />
+    <string
+     name="no_group_text"
+     value="None" />
+    <string
+	 name="RegisterDateFormat">
+	 [REG_DATE] ([AGE])
+	</string>
+  <string
+  name="name_text_args">
+    [NAME]
+  </string>
+  <string
+    name="display_name_text_args">
+    [DISPLAY_NAME]
+  </string>
+    <layout_stack
+     name="layout"
+     orientation="vertical"
+     follows="all"
      layout="topleft"
-     left="8"
-     name="profile_scroll"
-     opaque="true"
-     reserve_scroll_corner="false"
-     width="340">
-        <panel
-         height="680"
+     left="0"
+     top="0"
+     height="400"
+     width="317"
+     border_size="0">
+      <layout_panel
+         name="profile_stack"
+         follows="all"
+         layout="topleft"
+         top="0"
+         left="0"
+         height="400"
+         width="317">
+        <scroll_container
+         color="DkGray2"
+         follows="all"
          layout="topleft"
          left="0"
-         top="0"
-         width="310">
-            <text 
-             type="string"
-             follows="top|left|right"
-             font="SansSerifHugeBold" 
-             height="20" 
-             layout="topleft" 
-             left="9" 
-             name="user_name" 
-             text_color="white" 
-             top="0" 
-             mouse_opaque="true" 
-             width="320">
-              (Loading...)
-            </text> 
+         name="profile_scroll"
+         opaque="true"
+         height="400"
+         width="317"
+         top="0">
+          <panel
+                layout="topleft"
+          follows="left|top|right"
+                height="505"
+		min_height="505"
+                name="profile_scroll_panel"
+                top="0"
+                left="0"
+                width="297">
             <panel
-             follows="left|top"
-             height="120"
-             layout="topleft"
-             left="9"
-             name="lifes_images_panel"
-             top_pad="15"
-             width="250">
-                <panel
-                 follows="left|top"
-                 height="120"
-                 layout="topleft"
-                 left="0"
-                 name="second_life_image_panel"
-                 top="0"
-                 width="125">
-                    <text
-                     type="string"
-                     follows="left|top|right|bottom"
-                     font="SansSerifBold"
-                     height="20"
-                     layout="topleft"
-                     left="0"
-                     name="first_life_photo_title_text"
-                     text_color="white"
-                     top="0"
-                     width="125">
-                        Second Life photo:
-                    </text>
-                    <texture_picker
-                     allow_no_texture="true"
-                     default_image_name="None"
-                     enabled="false"
-                     follows="top|left"
-                     height="105"
-                     layout="topleft"
-                     left="0"
-                     name="2nd_life_pic"
-                     top_pad="5"
-                     width="105" />
-                </panel>
-                <panel
-                 follows="left|top"
-                 height="120"
-                 layout="topleft"
-                 left_pad="1" 
-                 name="first_life_image_panel"
-                 top="0"
-                 width="125">
-                    <text
-                     type="string"
-                     follows="left|top|right|bottom"
-                     font="SansSerifBold"
-                     height="20"
-                     layout="topleft"
-                     left="0"
-                     name="second_life_photo_title_text"
-                     text_color="white"
-                     top="0"
-                     width="125">
-                        First Life photo:
-                    </text>
-                    <texture_picker
-                     allow_no_texture="true"
-                     default_image_name="None"
-                     enabled="false"
-                     follows="top|left"
-                     height="105"
-                     layout="topleft"
-                     left="0"
-                     name="1st_life_pic"
-                     top_pad="5"
-                     width="105" />
-                </panel>
+                  follows="left|top|right"
+                  height="124"
+                  layout="topleft"
+                  left="13"
+                  name="second_life_image_panel"
+                  top="0"
+                  width="297">
+              <texture_picker
+               allow_no_texture="true"
+               default_image_name="None"
+               enabled="false"
+               fallback_image="Generic_Person_Large"
+               follows="top|left"
+               height="124"
+               layout="topleft"
+               left="0"
+               name="2nd_life_pic"
+               top="10"
+               width="102" />
+              <text
+               follows="left|top|right"
+         font.style="BOLD"
+               height="15"
+               layout="topleft"
+               left_pad="10"
+               name="title_sl_descr_text"
+               text_color="white"
+               top_delta="0"
+               value="[SECOND_LIFE]:"
+               width="180" />
+              <expandable_text
+               follows="left|top|right"
+               height="97"
+               layout="topleft"
+               left="107"
+               textbox.max_length="512"
+               textbox.show_context_menu="true"
+               name="sl_description_edit"
+               top_pad="-3"
+               translate="false"
+               width="180"
+               expanded_bg_visible="true"
+               expanded_bg_color="DkGray">
+                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean viverra orci et justo sagittis aliquet.Nullamma lesuada mauris sit amet ipsum. adipiscing elit. Ae nean viverra orci et justo sagittis aliquet. Nullam malesuada mauris sit amet ipsum. adipiscing elit. Aenean viverra orci et justo sagittis aliquet. Nullam malesuada mauris sit amet ipsum.
+              </expandable_text>
             </panel>
             <panel
              follows="left|top|right"
-             height="30"
+             height="124"
              layout="topleft"
-             left="0"
-             name="status_panel"
-             top="155"
-             width="320">
-                <text
-                 follows="left|top"
-                 font="SansSerifBold"
-                 font.style="ITALIC"
-                 height="15"
-                 layout="topleft"
-                 left="9"
-                 name="online_status"
-                 text_color="green"
-                 width="100" />
-                <text
-                 type="string"
-                 follows="left|top"
-                 font="SansSerifBold"
-                 font.style="ITALIC"
-                 height="15"
-                 layout="topleft"
-                 left="9"
-                 name="status_message"
-                 text_color="0.1 0.1 0.1 1"
-                 width="300">
-                    <!--TBD-->
-                 </text>
-            </panel>
-            <panel
-             follows="left|top|right"
-             height="80"
-             layout="topleft"
-             left="0"
-             name="status_me_panel"
-             top="155"
-             width="300">
-                <text
-                 type="string"
-                 follows="left|top"
-                 font="SansSerifBold"
-                 height="15"
-                 layout="topleft"
-                 left="9"
-                 name="online_me_status_text"
-                 text_color="white"
-                 width="100">
-                    Status:
-                </text>
-                <combo_box
-                 font="SansSerifBold"
-                 height="18"
-                 layout="topleft"
-                 left="10"
-                 name="status_combo"
-                 width="150">
-                    <combo_box.item
-                     label="Online"
-                     value="online" />
-                    <combo_box.item
-                     label="Away"
-                     value="away" />
-                    <combo_box.item
-                     label="Busy"
-                     value="busy" />
-                </combo_box>
-                <text
-                 type="string"
-                 follows="left|top"
-                 font="SansSerifBold"
-                 height="15"
-                 layout="topleft"
-                 left="9"
-                 name="status_me_message_text"
-                 text_color="white"
-                 width="300">
-                    What&apos;re you up to?
-                </text>
-                <line_editor
-                 border_style="line"
-                 border_thickness="1"
-                 follows="left|top|right"
-                 font="SansSerifBold"
-                 font.style="ITALIC"
-                 height="20"
-                 layout="topleft"
-                 left="9"
-                 name="status_me_message_edit"
-                 select_on_focus="true"
-                 text_color="0.5 0.5 0.5 1"
-                 width="300">
-                    Type a message about what you&apos;re doing in SL!
-                </line_editor>
+       top_pad="0"
+             left="13"
+             name="first_life_image_panel"
+             width="297">
+              <texture_picker
+               allow_no_texture="true"
+               default_image_name="None"
+               enabled="false"
+               fallback_image="Generic_Person_Large"
+               follows="top|left"
+               height="124"
+               layout="topleft"
+               left="0"
+               name="real_world_pic"
+               width="102" />
+              <text
+               follows="left|top|right"
+         font.style="BOLD"
+               height="15"
+               layout="topleft"
+               left_pad="10"
+               name="title_rw_descr_text"
+               text_color="white"
+               top_delta="0"
+               value="Real World:"
+               width="180" />
+              <expandable_text
+               follows="left|top|right"
+               height="97"
+               layout="topleft"
+               left="107"
+               textbox.max_length="512"
+               textbox.show_context_menu="true"
+               name="fl_description_edit"
+               top_pad="-3"
+               translate="false"
+               width="180"
+               expanded_bg_visible="true"
+               expanded_bg_color="DkGray">
+                Lorem ipsum dolor sit amet, consectetur adlkjpiscing elit moose moose. Aenean viverra orci et justo sagittis aliquet. Nullam malesuada mauris sit amet. adipiscing elit. Aenean rigviverra orci et justo sagittis aliquet. Nullam malesuada mauris sit amet sorbet ipsum. adipiscing elit. Aenean viverra orci et justo sagittis aliquet. Nullam malesuada mauris sit amet ipsum.
+              </expandable_text>
             </panel>
             <text
-             type="string"
-
+              follows="left|top"
+              height="15"
+        font.style="BOLD"
+        font="SansSerifMedium"
+              layout="topleft"
+              left="10"
+              name="homepage_edit"
+              top_pad="0"
+              translate="false"
+              value="http://librarianavengers.org"
+              width="300"
+              word_wrap="false"
+              use_ellipses="true" />
+            <text
              follows="left|top"
-             font="SansSerifBold"
-             height="15"
+           font.style="BOLD"
+             height="10"
              layout="topleft"
-             left="9"
-             name="title_sl_descr_text"
-             text_color="white"
-             top_pad="10"
-             width="290">
-                Second Life description:
-            </text>
-            <text
-             type="string"
-             follows="left|top|right"
-             font="SansSerif"
-             height="45"
-             layout="topleft"
-             left="9"
-             name="sl_description_edit"
-             text_color="0.1 0.1 0.1 1"
-             width="290"
-             word_wrap="true">
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean viverra orci et justo sagittis aliquet. Nullam malesuada mauris sit amet ipsum.
-            </text>
-            <text
-             type="string"
-             follows="left|top"
-             font="SansSerifBold"
-             height="15"
-             layout="topleft"
-             left="9"
-             name="title_fl_descr_text"
-             text_color="white"
-             top_pad="10"
-             width="290">
-                First Life description:
-            </text>
-            <text
-             type="string"
-             follows="left|top|right"
-             font="SansSerif"
-             height="45"
-             layout="topleft"
-             left="9"
-             name="fl_description_edit"
-             text_color="0.1 0.1 0.1 1"
-             width="290"
-             word_wrap="true">
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean viverra orci et justo sagittis aliquet. Nullam malesuada mauris sit amet ipsum.
-            </text>
-            <text
-             type="string"
-             follows="left|top"
-             font="SansSerifBold"
-             height="15"
-             layout="topleft"
-             left="9"
-             name="title_groups_text"
-             text_color="white"
-             top_pad="10"
-             width="290">
-                Second Life groups:
-            </text>
-            <text
-             type="string"
-             follows="left|top|right"
-             font="SansSerif"
-             height="45"
-             layout="topleft"
-             left="9"
-             name="sl_groups"
-             text_color="0.1 0.1 0.1 1"
-             width="290"
-             word_wrap="true">
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean viverra orci et justo sagittis aliquet. Nullam malesuada mauris sit amet ipsum.
-            </text>
-            <text
-             type="string"
-             follows="left|top"
-             font="SansSerifBold"
-             height="15"
-             layout="topleft"
-             left="9"
-             name="title_homepage_text"
-             text_color="white"
-             top_pad="10"
-             width="100">
-                Homepage:
-            </text>
-            <text
-             type="string"
-             follows="left|top|right"
-             font="SansSerif"
-             font.style="UNDERLINE"
-             font_shadow="hard" 
-             height="15"
-             layout="topleft"
-             left="9"
-             name="homepage_edit"
-             text_color="0.2 0.2 1 1"
-             width="290">
-                TODO
-            </text>
-            <text
-             type="string"
-             follows="left|top"
-             font="SansSerifBold"
-             height="15"
-             layout="topleft"
-             left="9"
+             left="10"
              name="title_member_text"
              text_color="white"
              top_pad="10"
-             width="100">
-                Member since:
-            </text>
-            <text
-             type="string"
-             follows="left|top|right"
-             font="SansSerif"
-             height="15"
-             layout="topleft"
-             left="9"
-             name="register_date"
-             text_color="0.1 0.1 0.1 1"
-             width="290"
-             word_wrap="true">
-                05/31/1976
-            </text>
-            <text
-             type="string"
+             value="Resident Since:"
+             width="300" />
+            <text_editor
+             allow_scroll="false"
+             bg_visible="false"
              follows="left|top"
-             font="SansSerifBold"
+             h_pad="0"
              height="15"
              layout="topleft"
-             left="9"
+             left="10"
+             name="register_date"
+             read_only="true"
+             translate="false"
+             v_pad="0"
+             value="05/31/2376"
+             width="300"
+             word_wrap="true" />
+            <text
+             follows="left|top"
+       font.style="BOLD"
+             height="15"
+             layout="topleft"
+             left="10"
              name="title_acc_status_text"
              text_color="white"
-             top_pad="10"
-             width="100">
-                Account status:
-            </text>
-            <text
-             type="string"
-             follows="left|top|right"
-             font="SansSerif"
-             height="30"
-             layout="topleft"
-             left="9"
-             name="acc_status_text"
-             text_color="0.1 0.1 0.1 1"
-             width="290"
-             word_wrap="true">
-                Resident. No payment info on file.
-            </text>
-            <panel
-             follows="left|top|right"
-             height="15"
-             layout="topleft"
-             left="9"
-             name="account_actions_panel"
-             width="300">
-                <text
-                 type="string"
-                 follows="left|top"
-                 font="SansSerif"
-                 font.style="UNDERLINE"
-                 font_shadow="hard" 
-                 height="15"
-                 layout="topleft"
-                 left="0"
-                 name="payment_update_link"
-                 text_color="0.2 0.2 1 1"
-                 top="0"
-                 width="65">
-                    Update
-                </text>
-                <text
-                 type="string"
-                 follows="left|top"
-                 font="SansSerif"
-                 font.style="UNDERLINE"
-                 font_shadow="hard" 
-                 height="15"
-                 layout="topleft"
-                 left="70"
-                 name="my_account_link"
-                 text_color="0.2 0.2 1 1"
-                 top="0"
-                 width="80">
-                    My Account
-                </text>
-            </panel>
-            <text
-             type="string"
+             top_pad="5"
+             value="Account Status:"
+             width="300" />
+            <!-- <text
+         type="string"
+         follows="left|top"
+         font="SansSerifSmall"
+         height="15"
+         layout="topleft"
+         left_pad="10"
+         name="my_account_link"
+         top_delta="0"
+	 value="Go to Dashboard"
+         width="100"/> -->
+            <text_editor
+             allow_scroll="false"
+             bg_visible="false"
              follows="left|top"
-             font="SansSerifBold"
+             h_pad="0"
+             height="28"
+             layout="topleft"
+             left="10"
+             name="acc_status_text"
+             read_only="true"
+             top_pad="0"
+             translate="false"
+             v_pad="0"
+             width="300"
+             word_wrap="true">
+              Resident. No payment info on file.
+              Linden.
+            </text_editor>
+            <text
+             follows="left|top"
+       font.style="BOLD"
              height="15"
              layout="topleft"
+             left="10"
              name="title_partner_text"
              text_color="white"
-             top_pad="10"
-             width="100">
-                Partner:
-            </text>
+             top_pad="3"
+             value="Partner:"
+             width="300" />
             <panel
-             follows="left|top|right"
+             follows="left|top"
              height="15"
              layout="topleft"
-             left="9"
+             left="10"
              name="partner_data_panel"
+             top_pad="0"
              width="300">
-                <text
-                 type="string"
-                 follows="left|top|right"
-                 font="SansSerif"
-                 height="15"
-                 layout="topleft"
-                 left="0"
-                 name="partner_text"
-                 text_color="0.1 0.1 0.1 1"
-                 top="0"
-                 width="290"
-                 word_wrap="true">
-                    [FIRST] [LAST]
-                </text>
-                <text
-                 type="string"
-                 follows="top|right"
-                 font="SansSerif"
-                 font.style="UNDERLINE"
-                 font_shadow="hard" 
-                 halign="right"
-                 height="15"
-                 layout="topleft"
-                 left="250"
-                 name="partner_edit_link"
-                 text_color="0.2 0.2 1 1"
-                 top="0"
-                 width="40">
-                    Edit
-                </text>
+              <text
+               follows="left|top"
+               height="10"
+               initial_value="(retrieving)"
+               layout="topleft"
+               left="0"
+               link="true"
+               name="partner_text"
+               top="0"
+               use_ellipses="true"
+           width="300" />
             </panel>
-        </panel>
-    </scroll_container>
-    <panel
-     bottom="625"
-     follows="bottom|left"
-     height="30"
+            <text
+             follows="left|top"
+       font.style="BOLD"
+             height="13"
+             layout="topleft"
+             left="10"
+             name="title_groups_text"
+             text_color="white"
+             top_pad="3"
+             value="Groups:"
+             width="300" />
+            <expandable_text
+            follows="all"
+            height="103"
+            layout="topleft"
+            left="7"
+            name="sl_groups"
+            textbox.max_length="512"
+            textbox.show_context_menu="true"
+            top_pad="0"
+            translate="false"
+            width="290"
+            expanded_bg_visible="true"
+            expanded_bg_color="DkGray">
+              Lorem ipsum dolor sit amet, consectetur adlkjpiscing elit moose moose. Aenean viverra orci et justo sagittis aliquet. Nullam malesuada mauris sit amet. adipiscing elit. Aenean rigviverra orci et justo sagittis aliquet. Nullam malesuada mauris sit amet sorbet ipsum. adipiscing elit. Aenean viverra orci et justo sagittis aliquet. Nullam malesuada mauris sit amet ipsum. Aenean viverra tulip moosetop. Slan de heelish marfnik tooplod. Sum sum to whop de wompam booster copm.
+            </expandable_text>
+          </panel>
+        </scroll_container>
+      </layout_panel>
+           
+</layout_stack>
+
+	<layout_stack
+     name="layout_verb_buttons"
+     orientation="horizontal"
+     follows="bottom|left|right"
      layout="topleft"
-     left="8"
-     name="profile_buttons_panel"
-     width="345">
-        <button
-         follows="bottom|left"
-         font="SansSerifSmallBold"
-         height="25"
-         label="Add Friend"
-         layout="topleft"
-         left="0"
-         mouse_opaque="false"
-         name="add_friend"
-         top="0"
-         width="75" />
-        <button
-         follows="bottom|left"
-         font="SansSerifSmallBold"
-         height="25"
-         label="IM"
-         layout="topleft"
-         left_pad="5"
-         name="im"
-         top="0"
-         width="40" />
-        <button
-         enabled="false"
-         follows="bottom|left"
-         font="SansSerifSmallBold"
-         height="25"
-         label="Call"
-         layout="topleft"
-         left_pad="5"
-         name="call"
-         top="0"
-         width="50" />
-        <button
-         follows="bottom|left"
-         font="SansSerifSmallBold"
-         height="25"
-         label="Teleport"
-         layout="topleft"
-         left_pad="5"
-         name="teleport"
-         top="0"
-         width="65" />
-        <button
-         enabled="false"
-         follows="bottom|left"
-         font="SansSerifSmallBold"
-         height="25"
-         label="Share"
-         layout="topleft"
-         left_pad="5"
-         name="share"
-         top="0"
-         width="50" />
-    </panel>
-   <!-- <panel
-     bottom="625"
-     follows="bottom|left"
+     left="2"
+     top_pad="1"
      height="30"
-     layout="topleft"
-     left="8"
-     name="profile_me_buttons_panel"
-     visible="false"
-     width="345">
-        <button
+     width="315"
+     border_size="0">
+     	<layout_panel
          follows="bottom|left"
-         font="SansSerifSmallBold"
-         height="25"
-         label="Edit Profile"
+         height="30"
          layout="topleft"
-         left="0"
-         name="edit_profile_btn"
+         name="profile_buttons_panel"
          top="0"
-         width="105" />
-        <button
-         follows="bottom|left"
-         font="SansSerifSmallBold"
-         height="25"
-         label="Edit Appearance"
-         layout="topleft"
-         left_pad="5"
-         name="edit_appearance_btn"
-         top="0"
-         width="130" />
-    </panel> -->
+         auto_resize="false"
+         width="317">
+         	
+           <layout_stack
+	     	follows="bottom|left|right"
+			height="23"
+			layout="topleft"
+			name="bottom_bar_ls"
+			left="0"
+			orientation="horizontal"
+			top_pad="5"
+			width="317">
+	
+				<layout_panel
+				follows="bottom|left|right"
+				height="23"
+				layout="bottomleft"
+				left="0"
+				name="add_friend_btn_lp"
+			    user_resize="false" 
+			    auto_resize="true"
+				width="121">
+					<button
+			         follows="bottom|left|right"
+			         height="23"
+			         label="Add Friend"
+			         layout="topleft"
+			         left="1"
+			         mouse_opaque="false"
+			         name="add_friend"
+			         tool_tip="Offer friendship to the Resident"
+			         top="0"
+			         width="120" />	
+				</layout_panel>
+				
+				<layout_panel
+				follows="bottom|left|right"
+				height="23"
+				layout="bottomleft"
+				left_pad="3"
+				name="im_btn_lp"
+			    user_resize="false" 
+			    auto_resize="true"
+				width="22">
+					<button
+			         follows="bottom|left|right"
+			         height="23"
+			         label="IM"
+			         layout="topleft"
+			         name="im"
+			         tool_tip="Open instant message session"
+			         top="0"
+			         left="1"
+			         width="21" />		
+				</layout_panel>
+				
+				<layout_panel
+				follows="bottom|left|right"
+				height="23"
+				layout="bottomleft"
+				left_pad="3"
+				name="call_btn_lp"
+			    user_resize="false" 
+			    auto_resize="true"
+				width="52">
+					<button
+			         follows="bottom|left|right"
+			         height="23"
+			         label="Call"
+			         layout="topleft"
+			         name="call"
+			         tool_tip="Call this Resident"
+			         left="1"
+			         top="0"
+			         use_ellipses="true"
+			         width="51" />		
+				</layout_panel>
+				
+				<layout_panel
+				follows="bottom|left|right"
+				height="23"
+				layout="bottomleft"
+				left_pad="3"
+				name="chat_btn_lp"
+			    user_resize="false" 
+			    auto_resize="true"
+				width="93">
+					<button
+			         follows="bottom|left|right"
+			         height="23"
+			         label="Teleport"
+			         layout="topleft"
+			         name="teleport"
+			         tool_tip="Offer teleport"
+			         left="1"
+			         top="0"
+			         use_ellipses="true"
+			         width="92" />
+				</layout_panel>
+				
+				<layout_panel
+				follows="bottom|left|right"
+				height="23"
+				layout="bottomleft"
+				left_pad="3"
+				name="overflow_btn_lp"
+			    user_resize="false" 
+			    auto_resize="false"
+				width="24">
+					<menu_button
+			         follows="bottom|left|right"
+			         height="23"
+			         label="▼"
+			         layout="topleft"
+			         name="overflow_btn"
+			         tool_tip="Pay money to or share inventory with the Resident"
+			         left="1"
+			         top="0"
+			         width="23" />		
+				</layout_panel>
+		</layout_stack>
+      </layout_panel>
+     </layout_stack>
+
 </panel>

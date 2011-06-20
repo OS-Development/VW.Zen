@@ -2,31 +2,25 @@
  * @file llfloatergesture.h
  * @brief Read-only list of gestures from your inventory.
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -36,10 +30,10 @@
 
 #ifndef LL_LLFLOATERGESTURE_H
 #define LL_LLFLOATERGESTURE_H
+#include <vector> 
 
 #include "llfloater.h"
-
-#include "lldarray.h"
+#include "llinventoryobserver.h"
 
 class LLScrollContainer;
 class LLView;
@@ -51,37 +45,62 @@ class LLGestureOptions;
 class LLScrollListCtrl;
 class LLFloaterGestureObserver;
 class LLFloaterGestureInventoryObserver;
+class LLMultiGesture;
+class LLMenuGL;
 
 class LLFloaterGesture
-:	public LLFloater
+:	public LLFloater, LLInventoryFetchDescendentsObserver
 {
+	LOG_CLASS(LLFloaterGesture);
 public:
-	LLFloaterGesture();
+	LLFloaterGesture(const LLSD& key);
 	virtual ~LLFloaterGesture();
 
 	virtual BOOL postBuild();
-
-	static void show();
-	static void toggleVisibility();
-	static void refreshAll();
+	virtual void done ();
+	void refreshAll();
+	/**
+	 * @brief Add new scrolllistitem into gesture_list.
+	 * @param  item_id inventory id of gesture
+	 * @param  gesture can be NULL , if item was not loaded yet
+	 */
+	void addGesture(const LLUUID& item_id, LLMultiGesture* gesture, LLCtrlListInterface * list);
 
 protected:
 	// Reads from the gesture manager's list of active gestures
 	// and puts them in this list.
 	void buildGestureList();
+	void playGesture(LLUUID item_id);
+private:
+	void addToCurrentOutFit();
+	/**
+	 * @brief  This method is using to collect selected items. 
+	 * In some places gesture_list can be rebuilt by gestureObservers during  iterating data from LLScrollListCtrl::getAllSelected().
+	 * Therefore we have to copy these items to avoid viewer crash.
+	 * @see LLFloaterGesture::onActivateBtnClick
+	 */
+	void getSelectedIds(uuid_vec_t& ids);
+	bool isActionEnabled(const LLSD& command);
+	/**
+	 * @brief Activation rules:
+	 *  According to Gesture Spec:
+	 *  1. If all selected gestures are active: set to inactive
+	 *  2. If all selected gestures are inactive: set to active
+	 *  3. If selected gestures are in a mixed state: set all to active
+	 */
+	void onActivateBtnClick();
+	void onClickEdit();
+	void onClickPlay();
+	void onClickNew();
+	void onCommitList();
+	void onCopyPasteAction(const LLSD& command);
+	void onDeleteSelected();
 
-	static void onClickInventory(void* data);
-	static void onClickEdit(void* data);
-	static void onClickPlay(void* data);
-	static void onClickNew(void* data);
-	static void onCommitList(LLUICtrl* ctrl, void* data);
-
-protected:
 	LLUUID mSelectedID;
+	LLUUID mGestureFolderID;
+	LLScrollListCtrl* mGestureList;
 
-	static LLFloaterGesture* sInstance;
-	static LLFloaterGestureObserver* sObserver;
-	static LLFloaterGestureInventoryObserver* sInventoryObserver;
+	LLFloaterGestureObserver* mObserver;
 };
 
 

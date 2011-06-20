@@ -34,6 +34,7 @@
              height="768"
              layout="topleft"
              left="0"
+             orientation="vertical" 
              name="stack2"
              top="0"
              width="640">
@@ -54,7 +55,7 @@
                      color="LoginProgressBoxCenterColor"
                      follows="left|right|bottom|top"
                      height="250"
-                     image_name="rounded_square.tga"
+                     image_name="Rounded_Square"
                      layout="topleft"
                      left="0"
                      top="0"
@@ -62,7 +63,7 @@
                     <text
                      follows="left|right|top"
                      font="SansSerifHuge"
-                     font_shadow="hard"
+                     font_shadow="none"
                      halign="left"
                      height="20"
                      layout="topleft"
@@ -74,7 +75,7 @@
                     <text
                      follows="left|right|top"
                      font="SansSerif"
-                     font_shadow="hard"
+                     font_shadow="none"
                      halign="left"
                      height="20"
                      layout="topleft"
@@ -82,7 +83,8 @@
                      name="progress_text"
                      text_color="LoginProgressBoxTextColor"
                      top_pad="5"
-                     width="593" />
+                     width="593"
+                     word_wrap="true"/>
                     <progress_bar
                      bottom="115"
                      color_bar="1 1 1 0.96"
@@ -95,16 +97,17 @@
                     <text
                      follows="left|right|top|bottom"
                      font="SansSerifLarge"
-                     font_shadow="hard"
+                     font_shadow="none"
                      halign="left"
                      height="100"
                      layout="topleft"
-                     left="30"
-                     line_spacing="2"
+                     left="45"
+                     line_spacing.pixels="2"
                      name="message_text"
                      text_color="LoginProgressBoxTextColor"
                      top="145"
-                     width="610" />
+                     width="550"
+                     word_wrap="true"/>
                 </layout_panel>
                 <layout_panel
                  height="200"
@@ -127,7 +130,6 @@
      layout="topleft"
      left="-106"
      name="cancel_btn"
-     picture_style="true"
      top="700"
      width="90" />
 </panel>

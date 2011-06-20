@@ -2,70 +2,114 @@
  * @file llviewertexteditor.cpp
  * @brief Text editor widget to let users enter a multi-line document.
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
 #include "llviewerprecompiledheaders.h"
 
-#include "llfloaterreg.h"
-#include "llfocusmgr.h"
-#include "audioengine.h"
-#include "llagent.h"
-#include "llinventory.h"
-#include "llinventorybridge.h"
-#include "llinventorymodel.h"
-#include "llfloaterinventory.h"
-
 #include "llviewertexteditor.h"
 
-#include "llfloaterchat.h"
+#include "llagent.h"
+#include "llaudioengine.h"
+#include "llavataractions.h"
+#include "llfloaterreg.h"
 #include "llfloaterworldmap.h"
-#include "llnotify.h"
-#include "llpreview.h"
-#include "llpreviewtexture.h"
-#include "llpreviewnotecard.h"
-#include "llpreviewlandmark.h"
-#include "llscrollbar.h"
-#include "lltooldraganddrop.h"
-#include "lltrans.h"
-#include "llviewercontrol.h"
-#include "llviewertexturelist.h"
-#include "llviewerwindow.h"
-#include "llviewerinventory.h"
-#include "lluictrlfactory.h"
-#include "llnotecard.h"
+#include "llfocusmgr.h"
+#include "llinventorybridge.h"
+#include "llinventorydefines.h"
+#include "llinventorymodel.h"
+#include "lllandmark.h"
+#include "lllandmarkactions.h"
+#include "lllandmarklist.h"
 #include "llmemorystream.h"
 #include "llmenugl.h"
-
-#include "llappviewer.h" // for gPacificDaylightTime
+#include "llnotecard.h"
+#include "llnotificationsutil.h"
+#include "llpanelplaces.h"
+#include "llpreview.h"
+#include "llpreviewnotecard.h"
+#include "llpreviewtexture.h"
+#include "llscrollbar.h"
+#include "llscrollcontainer.h"
+#include "llsidetray.h"
+#include "lltooldraganddrop.h"
+#include "lltooltip.h"
+#include "lltrans.h"
+#include "lluictrlfactory.h"
+#include "llviewerassettype.h"
+#include "llviewercontrol.h"
+#include "llviewerinventory.h"
+#include "llviewertexturelist.h"
+#include "llviewerwindow.h"
 
 static LLDefaultChildRegistry::Register<LLViewerTextEditor> r("text_editor");
 
+///-----------------------------------------------------------------------
+///  Class LLEmbeddedLandmarkCopied
+///-----------------------------------------------------------------------
+class LLEmbeddedLandmarkCopied: public LLInventoryCallback
+{
+public:
+
+	LLEmbeddedLandmarkCopied(){}
+	void fire(const LLUUID& inv_item)
+	{
+		showInfo(inv_item);
+	}
+	static void showInfo(const LLUUID& landmark_inv_id)
+	{
+		LLSD key;
+		key["type"] = "landmark";
+		key["id"] = landmark_inv_id;
+		LLSideTray::getInstance()->showPanel("panel_places", key);
+	}
+	static void processForeignLandmark(LLLandmark* landmark,
+			const LLUUID& object_id, const LLUUID& notecard_inventory_id,
+			LLPointer<LLInventoryItem> item_ptr)
+	{
+		LLVector3d global_pos;
+		landmark->getGlobalPos(global_pos);
+		LLViewerInventoryItem* agent_lanmark =
+				LLLandmarkActions::findLandmarkForGlobalPos(global_pos);
+
+		if (agent_lanmark)
+		{
+			showInfo(agent_lanmark->getUUID());
+		}
+		else
+		{
+			if (item_ptr.isNull())
+			{
+				// check to prevent a crash. See EXT-8459.
+				llwarns << "Passed handle contains a dead inventory item. Most likely notecard has been closed and embedded item was destroyed." << llendl;
+			}
+			else
+			{
+				LLPointer<LLEmbeddedLandmarkCopied> cb = new LLEmbeddedLandmarkCopied();
+				copy_inventory_from_notecard(object_id, notecard_inventory_id, item_ptr.get(), gInventoryCallbacks.registerCB(cb));
+			}
+		}
+	}
+};
 ///----------------------------------------------------------------------------
 /// Class LLEmbeddedNotecardOpener
 ///----------------------------------------------------------------------------
@@ -106,6 +150,119 @@ public:
 	}
 };
 
+//
+// class LLEmbeddedItemSegment
+//
+
+const S32 EMBEDDED_ITEM_LABEL_PADDING = 2;
+
+class LLEmbeddedItemSegment : public LLTextSegment
+{
+public:
+	LLEmbeddedItemSegment(S32 pos, LLUIImagePtr image, LLPointer<LLInventoryItem> inv_item, LLTextEditor& editor)
+	:	LLTextSegment(pos, pos + 1),
+		mImage(image),
+		mLabel(utf8str_to_wstring(inv_item->getName())),
+		mItem(inv_item),
+		mEditor(editor),
+		mHasMouseHover(false)
+	{
+
+		mStyle = new LLStyle(LLStyle::Params().font(LLFontGL::getFontSansSerif()));
+		mToolTip = inv_item->getName() + '\n' + inv_item->getDescription();
+	}
+
+	/*virtual*/ bool getDimensions(S32 first_char, S32 num_chars, S32& width, S32& height) const
+	{
+		if (num_chars == 0)
+		{
+			width = 0;
+			height = 0;
+		}
+		else
+		{
+			width = EMBEDDED_ITEM_LABEL_PADDING + mImage->getWidth() + mStyle->getFont()->getWidth(mLabel.c_str());
+			height = llmax(mImage->getHeight(), llceil(mStyle->getFont()->getLineHeight()));
+		}
+		return false;
+	}
+
+	/*virtual*/ S32				getNumChars(S32 num_pixels, S32 segment_offset, S32 line_offset, S32 max_chars) const 
+	{
+		// always draw at beginning of line
+		if (line_offset == 0)
+		{
+			return 1;
+		}
+		else
+		{
+			S32 width, height;
+			getDimensions(mStart, 1, width, height);
+			if (width > num_pixels) 
+			{
+				return 0;
+			}
+			else
+			{
+				return 1;
+			}
+		}
+	}
+	/*virtual*/ F32				draw(S32 start, S32 end, S32 selection_start, S32 selection_end, const LLRect& draw_rect)
+	{
+		LLRect image_rect = draw_rect;
+		image_rect.mRight = image_rect.mLeft + mImage->getWidth();
+		image_rect.mTop = image_rect.mBottom + mImage->getHeight();
+		mImage->draw(image_rect);
+
+		LLColor4 color;
+		if (mEditor.getReadOnly())
+		{
+			color = LLUIColorTable::instance().getColor("TextEmbeddedItemReadOnlyColor");
+		}
+		else
+		{
+			color = LLUIColorTable::instance().getColor("TextEmbeddedItemColor");
+		}
+
+		F32 right_x;
+		mStyle->getFont()->render(mLabel, 0, image_rect.mRight + EMBEDDED_ITEM_LABEL_PADDING, draw_rect.mTop, color, LLFontGL::LEFT, LLFontGL::TOP, LLFontGL::UNDERLINE, LLFontGL::NO_SHADOW, mLabel.length(), S32_MAX, &right_x);
+		return right_x;
+	}
+	
+	/*virtual*/ bool			canEdit() const { return false; }
+
+
+	/*virtual*/ BOOL			handleHover(S32 x, S32 y, MASK mask)
+	{
+		LLUI::getWindow()->setCursor(UI_CURSOR_HAND);
+		return TRUE;
+	}
+	virtual BOOL				handleToolTip(S32 x, S32 y, MASK mask )
+	{ 
+		if (!mToolTip.empty())
+		{
+			LLToolTipMgr::instance().show(mToolTip);
+			return TRUE;
+		}
+		return FALSE; 
+	}
+
+	/*virtual*/ LLStyleConstSP		getStyle() const { return mStyle; }
+
+private:
+	LLUIImagePtr	mImage;
+	LLWString		mLabel;
+	LLStyleSP		mStyle;
+	std::string		mToolTip;
+	LLPointer<LLInventoryItem> mItem;
+	LLTextEditor&	mEditor;
+	bool			mHasMouseHover;
+
+};
+
+
+
 ////////////////////////////////////////////////////////////
 // LLEmbeddedItems
 //
@@ -128,13 +285,11 @@ public:
 	// return true if there are no embedded items.
 	bool empty();
 	
-	void	bindEmbeddedChars(const LLFontGL* font) const;
-	void	unbindEmbeddedChars(const LLFontGL* font) const;
-
 	BOOL	insertEmbeddedItem(LLInventoryItem* item, llwchar* value, bool is_new);
 	BOOL	removeEmbeddedItem( llwchar ext_char );
 
 	BOOL	hasEmbeddedItem(llwchar ext_char); // returns TRUE if /this/ editor has an entry for this item
+	LLUIImagePtr getItemImage(llwchar ext_char) const;
 
 	void	getEmbeddedItemList( std::vector<LLPointer<LLInventoryItem> >& items );
 	void	addItems(const std::vector<LLPointer<LLInventoryItem> >& items);
@@ -147,14 +302,14 @@ public:
 
 	void	markSaved();
 	
-	static LLInventoryItem* getEmbeddedItem(llwchar ext_char); // returns item from static list
+	static LLPointer<LLInventoryItem> getEmbeddedItemPtr(llwchar ext_char); // returns pointer to item from static list
 	static BOOL getEmbeddedItemSaved(llwchar ext_char); // returns whether item from static list is saved
 
 private:
 
 	struct embedded_info_t
 	{
-		LLPointer<LLInventoryItem> mItem;
+		LLPointer<LLInventoryItem> mItemPtr;
 		BOOL mSaved;
 	};
 	typedef std::map<llwchar, embedded_info_t > item_map_t;
@@ -225,7 +380,7 @@ BOOL LLEmbeddedItems::insertEmbeddedItem( LLInventoryItem* item, llwchar* ext_ch
 		++wc_emb;
 	}
 
-	sEntries[wc_emb].mItem = item;
+	sEntries[wc_emb].mItemPtr = item;
 	sEntries[wc_emb].mSaved = is_new ? FALSE : TRUE;
 	*ext_char = wc_emb;
 	mEmbeddedUsedChars.insert(wc_emb);
@@ -247,14 +402,14 @@ BOOL LLEmbeddedItems::removeEmbeddedItem( llwchar ext_char )
 }
 	
 // static
-LLInventoryItem* LLEmbeddedItems::getEmbeddedItem(llwchar ext_char)
+LLPointer<LLInventoryItem> LLEmbeddedItems::getEmbeddedItemPtr(llwchar ext_char)
 {
 	if( ext_char >= LLTextEditor::FIRST_EMBEDDED_CHAR && ext_char <= LLTextEditor::LAST_EMBEDDED_CHAR )
 	{
 		item_map_t::iterator iter = sEntries.find(ext_char);
 		if (iter != sEntries.end())
 		{
-			return iter->second.mItem;
+			return iter->second.mItemPtr;
 		}
 	}
 	return NULL;
@@ -349,90 +504,48 @@ BOOL LLEmbeddedItems::hasEmbeddedItem(llwchar ext_char)
 	return FALSE;
 }
 
-void LLEmbeddedItems::bindEmbeddedChars( const LLFontGL* font ) const
-{
-	if( sEntries.empty() )
-	{
-		return; 
-	}
 
-	for (std::set<llwchar>::const_iterator iter1 = mEmbeddedUsedChars.begin(); iter1 != mEmbeddedUsedChars.end(); ++iter1)
+LLUIImagePtr LLEmbeddedItems::getItemImage(llwchar ext_char) const
+{
+	LLInventoryItem* item = getEmbeddedItemPtr(ext_char);
+	if (item)
 	{
-		llwchar wch = *iter1;
-		item_map_t::iterator iter2 = sEntries.find(wch);
-		if (iter2 == sEntries.end())
-		{
-			continue;
-		}
-		LLInventoryItem* item = iter2->second.mItem;
-		if (!item)
-		{
-			continue;
-		}
-		const char* img_name;
+		const char* img_name = "";
 		switch( item->getType() )
 		{
-		  case LLAssetType::AT_TEXTURE:
-			if(item->getInventoryType() == LLInventoryType::IT_SNAPSHOT)
-			{
-				img_name = "inv_item_snapshot.tga";
-			}
-			else
-			{
-				img_name = "inv_item_texture.tga";
-			}
+			case LLAssetType::AT_TEXTURE:
+				if(item->getInventoryType() == LLInventoryType::IT_SNAPSHOT)
+				{
+					img_name = "Inv_Snapshot";
+				}
+				else
+				{
+					img_name = "Inv_Texture";
+				}
 
-			break;
-		  case LLAssetType::AT_SOUND:			img_name = "inv_item_sound.tga";	break;
-		  case LLAssetType::AT_LANDMARK:		
-			if (item->getFlags() & LLInventoryItem::II_FLAGS_LANDMARK_VISITED)
-			{
-				img_name = "inv_item_landmark_visited.tga";	
-			}
-			else
-			{
-				img_name = "inv_item_landmark.tga";	
-			}
-			break;
-		  case LLAssetType::AT_CLOTHING:		img_name = "inv_item_clothing.tga";	break;
-		  case LLAssetType::AT_OBJECT:			
-			if (item->getFlags() & LLInventoryItem::II_FLAGS_OBJECT_HAS_MULTIPLE_ITEMS)
-			{
-				img_name = "inv_item_object_multi.tga";	
-			}
-			else
-			{
-				img_name = "inv_item_object.tga";	
-			}
-			break;
-		  case LLAssetType::AT_NOTECARD:		img_name = "inv_item_notecard.tga";	break;
-		  case LLAssetType::AT_LSL_TEXT:		img_name = "inv_item_script.tga";	break;
-		  case LLAssetType::AT_BODYPART:		img_name = "inv_item_skin.tga";	break;
-		  case LLAssetType::AT_ANIMATION:		img_name = "inv_item_animation.tga";break;
-		  case LLAssetType::AT_GESTURE:			img_name = "inv_item_gesture.tga";	break;
-		  //TODO need img_name
-		  case LLAssetType::AT_FAVORITE:		img_name = "inv_item_landmark.tga";	 break;
-		  default: llassert(0); continue;
+				break;
+			case LLAssetType::AT_SOUND:			img_name = "Inv_Sound";		break;
+			case LLAssetType::AT_CLOTHING:		img_name = "Inv_Clothing";	break;
+			case LLAssetType::AT_OBJECT:
+				img_name = LLInventoryItemFlags::II_FLAGS_OBJECT_HAS_MULTIPLE_ITEMS & item->getFlags() ?
+					"Inv_Object_Multi" : "Inv_Object";
+				break;
+			case LLAssetType::AT_CALLINGCARD:	img_name = "Inv_CallingCard"; break;
+			case LLAssetType::AT_LANDMARK:		img_name = "Inv_Landmark"; 	break;
+			case LLAssetType::AT_NOTECARD:		img_name = "Inv_Notecard";	break;
+			case LLAssetType::AT_LSL_TEXT:		img_name = "Inv_Script";	break;
+			case LLAssetType::AT_BODYPART:		img_name = "Inv_Skin";		break;
+			case LLAssetType::AT_ANIMATION:		img_name = "Inv_Animation";	break;
+			case LLAssetType::AT_GESTURE:		img_name = "Inv_Gesture";	break;
+			case LLAssetType::AT_MESH:          img_name = "Inv_Mesh";	    break;
+			default: llassert(0);
 		}
 
-		LLUIImagePtr image = LLUI::getUIImage(img_name);
-
-		font->addEmbeddedChar( wch, image->getImage(), item->getName() );
+		return LLUI::getUIImage(img_name);
 	}
+	return LLUIImagePtr();
 }
 
-void LLEmbeddedItems::unbindEmbeddedChars( const LLFontGL* font ) const
-{
-	if( sEntries.empty() )
-	{
-		return; 
-	}
-
-	for (std::set<llwchar>::const_iterator iter1 = mEmbeddedUsedChars.begin(); iter1 != mEmbeddedUsedChars.end(); ++iter1)
-	{
-		font->removeEmbeddedChar(*iter1);
-	}
-}
 
 void LLEmbeddedItems::addItems(const std::vector<LLPointer<LLInventoryItem> >& items)
 {
@@ -457,7 +570,7 @@ void LLEmbeddedItems::getEmbeddedItemList( std::vector<LLPointer<LLInventoryItem
 	for (std::set<llwchar>::iterator iter = mEmbeddedUsedChars.begin(); iter != mEmbeddedUsedChars.end(); ++iter)
 	{
 		llwchar wc = *iter;
-		LLPointer<LLInventoryItem> item = getEmbeddedItem(wc);
+		LLPointer<LLInventoryItem> item = getEmbeddedItemPtr(wc);
 		if (item)
 		{
 			items.push_back(item);
@@ -476,17 +589,17 @@ void LLEmbeddedItems::markSaved()
 
 ///////////////////////////////////////////////////////////////////
 
-class LLViewerTextEditor::LLTextCmdInsertEmbeddedItem : public LLTextEditor::LLTextCmd
+class LLViewerTextEditor::TextCmdInsertEmbeddedItem : public LLTextBase::TextCmd
 {
 public:
-	LLTextCmdInsertEmbeddedItem( S32 pos, LLInventoryItem* item )
-		: LLTextCmd(pos, FALSE), 
+	TextCmdInsertEmbeddedItem( S32 pos, LLInventoryItem* item )
+		: TextCmd(pos, FALSE), 
 		  mExtCharValue(0)
 	{
 		mItem = item;
 	}
 
-	virtual BOOL execute( LLTextEditor* editor, S32* delta )
+	virtual BOOL execute( LLTextBase* editor, S32* delta )
 	{
 		LLViewerTextEditor* viewer_editor = (LLViewerTextEditor*)editor;
 		// Take this opportunity to remove any unused embedded items from this editor
@@ -501,13 +614,13 @@ public:
 		return FALSE;
 	}
 	
-	virtual S32 undo( LLTextEditor* editor )
+	virtual S32 undo( LLTextBase* editor )
 	{
 		remove(editor, getPosition(), 1);
 		return getPosition(); 
 	}
 	
-	virtual S32 redo( LLTextEditor* editor )
+	virtual S32 redo( LLTextBase* editor )
 	{ 
 		LLWString ws;
 		ws += mExtCharValue;
@@ -549,7 +662,6 @@ LLViewerTextEditor::LLViewerTextEditor(const LLViewerTextEditor::Params& p)
 	mDragItemSaved(FALSE),
 	mInventoryCallback(new LLEmbeddedNotecardOpener)
 {
-	mParseHTML = p.allow_html;
 	mEmbeddedItemList = new LLEmbeddedItems(this);
 	mInventoryCallback->setEditor(this);
 }
@@ -572,59 +684,6 @@ void LLViewerTextEditor::makePristine()
 	LLTextEditor::makePristine();
 }
 
-///////////////////////////////////////////////////////////////////
-
-BOOL LLViewerTextEditor::handleToolTip(S32 x, S32 y, std::string& msg, LLRect* sticky_rect_screen)
-{
-	for (child_list_const_iter_t child_iter = getChildList()->begin();
-			child_iter != getChildList()->end(); ++child_iter)
-	{
-		LLView *viewp = *child_iter;
-		S32 local_x = x - viewp->getRect().mLeft;
-		S32 local_y = y - viewp->getRect().mBottom;
-		if( viewp->pointInView(local_x, local_y) 
-			&& viewp->getVisible() 
-			&& viewp->getEnabled()
-			&& viewp->handleToolTip(local_x, local_y, msg, sticky_rect_screen ) )
-		{
-			return TRUE;
-		}
-	}
-
-	if( mSegments.empty() )
-	{
-		return TRUE;
-	}
-
-	const LLTextSegment* cur_segment = getSegmentAtLocalPos( x, y );
-	if( cur_segment )
-	{
-		BOOL has_tool_tip = FALSE;
-		if( cur_segment->getStyle()->getIsEmbeddedItem() )
-		{
-			LLWString wtip;
-			has_tool_tip = getEmbeddedItemToolTipAtPos(cur_segment->getStart(), wtip);
-			msg = wstring_to_utf8str(wtip);
-		}
-		else
-		{
-			has_tool_tip = cur_segment->getToolTip( msg );
-		}
-		if( has_tool_tip )
-		{
-			// Just use a slop area around the cursor
-			// Convert rect local to screen coordinates
-			S32 SLOP = 8;
-			localPointToScreen( 
-				x - SLOP, y - SLOP, 
-				&(sticky_rect_screen->mLeft), &(sticky_rect_screen->mBottom) );
-			sticky_rect_screen->mRight = sticky_rect_screen->mLeft + 2 * SLOP;
-			sticky_rect_screen->mTop = sticky_rect_screen->mBottom + 2 * SLOP;
-		}
-	}
-	return TRUE;
-}
-
 BOOL LLViewerTextEditor::handleMouseDown(S32 x, S32 y, MASK mask)
 {
 	BOOL	handled = FALSE;
@@ -632,30 +691,17 @@ BOOL LLViewerTextEditor::handleMouseDown(S32 x, S32 y, MASK mask)
 	// Let scrollbar have first dibs
 	handled = LLView::childrenHandleMouseDown(x, y, mask) != NULL;
 
-	// enable I Agree checkbox if the user scrolled through entire text
-	BOOL was_scrolled_to_bottom = (mScrollbar->getDocPos() == mScrollbar->getDocPosMax());
-	if (mOnScrollEndCallback && was_scrolled_to_bottom)
+	if( !handled)
 	{
-		mOnScrollEndCallback(mOnScrollEndData);
-	}
-
-	if( !handled && mTakesNonScrollClicks)
-	{
-		if (!(mask & MASK_SHIFT))
-		{
-			deselect();
-		}
-
-		BOOL start_select = TRUE;
 		if( allowsEmbeddedItems() )
 		{
 			setCursorAtLocalPos( x, y, FALSE );
 			llwchar wc = 0;
 			if (mCursorPos < getLength())
 			{
-				wc = getWChar(mCursorPos);
+				wc = getWText()[mCursorPos];
 			}
-			LLInventoryItem* item_at_pos = LLEmbeddedItems::getEmbeddedItem(wc);
+			LLPointer<LLInventoryItem> item_at_pos = LLEmbeddedItems::getEmbeddedItemPtr(wc);
 			if (item_at_pos)
 			{
 				mDragItem = item_at_pos;
@@ -669,7 +715,12 @@ BOOL LLViewerTextEditor::handleMouseDown(S32 x, S32 y, MASK mask)
 				localPointToScreen(x, y, &screen_x, &screen_y );
 				LLToolDragAndDrop::getInstance()->setDragStart( screen_x, screen_y );
 
-				start_select = FALSE;
+				if (hasTabStop())
+				{
+					setFocus( TRUE );
+				}
+
+				handled = TRUE;
 			}
 			else
 			{
@@ -677,67 +728,11 @@ BOOL LLViewerTextEditor::handleMouseDown(S32 x, S32 y, MASK mask)
 			}
 		}
 
-		if( start_select )
+		if (!handled)
 		{
-			// If we're not scrolling (handled by child), then we're selecting
-			if (mask & MASK_SHIFT)
-			{
-				S32 old_cursor_pos = mCursorPos;
-				setCursorAtLocalPos( x, y, TRUE );
-
-				if (hasSelection())
-				{
-					/* Mac-like behavior - extend selection towards the cursor
-					if (mCursorPos < mSelectionStart
-						&& mCursorPos < mSelectionEnd)
-					{
-						// ...left of selection
-						mSelectionStart = llmax(mSelectionStart, mSelectionEnd);
-						mSelectionEnd = mCursorPos;
-					}
-					else if (mCursorPos > mSelectionStart
-						&& mCursorPos > mSelectionEnd)
-					{
-						// ...right of selection
-						mSelectionStart = llmin(mSelectionStart, mSelectionEnd);
-						mSelectionEnd = mCursorPos;
-					}
-					else
-					{
-						mSelectionEnd = mCursorPos;
-					}
-					*/
-					// Windows behavior
-					mSelectionEnd = mCursorPos;
-				}
-				else
-				{
-					mSelectionStart = old_cursor_pos;
-					mSelectionEnd = mCursorPos;
-				}
-				// assume we're starting a drag select
-				mIsSelecting = TRUE;
-
-			}
-			else
-			{
-				setCursorAtLocalPos( x, y, TRUE );
-				startSelection();
-			}
-			gFocusMgr.setMouseCapture( this );
+			handled = LLTextEditor::handleMouseDown(x, y, mask);
 		}
-
-		handled = TRUE;
 	}
-
-	if (hasTabStop())
-	{
-		setFocus(TRUE);
-		handled = TRUE;
-	}
-
-	// Delay cursor flashing
-	resetKeystrokeTimer();
 
 	return handled;
 }
@@ -745,114 +740,27 @@ BOOL LLViewerTextEditor::handleMouseDown(S32 x, S32 y, MASK mask)
 
 BOOL LLViewerTextEditor::handleHover(S32 x, S32 y, MASK mask)
 {
-	static LLUICachedControl<S32> scrollbar_size ("UIScrollbarSize", 0);
-	BOOL handled = FALSE;
+	BOOL handled = LLTextEditor::handleHover(x, y, mask);
 
-	if (!mDragItem)
+	if(hasMouseCapture() && mDragItem)
 	{
-		// leave hover segment active during drag and drop
-		mHoverSegment = NULL;
-	}
-	if(hasMouseCapture() )
-	{
-		if( mIsSelecting ) 
+		S32 screen_x;
+		S32 screen_y;
+		localPointToScreen(x, y, &screen_x, &screen_y );
+
+		mScroller->autoScroll(x, y);
+
+		if( LLToolDragAndDrop::getInstance()->isOverThreshold( screen_x, screen_y ) )
 		{
-			if (x != mLastSelectionX || y != mLastSelectionY)
-			{
-				mLastSelectionX = x;
-				mLastSelectionY = y;
-			}
-
-			if( y > getTextRect().mTop )
-			{
-				mScrollbar->setDocPos( mScrollbar->getDocPos() - 1 );
-			}
-			else
-			if( y < getTextRect().mBottom )
-			{
-				mScrollbar->setDocPos( mScrollbar->getDocPos() + 1 );
-			}
-
-			setCursorAtLocalPos( x, y, TRUE );
-			mSelectionEnd = mCursorPos;
-			
-			updateScrollFromCursor();
-			getWindow()->setCursor(UI_CURSOR_IBEAM);
+			LLToolDragAndDrop::getInstance()->beginDrag(
+				LLViewerAssetType::lookupDragAndDropType( mDragItem->getType() ),
+				mDragItem->getUUID(),
+				LLToolDragAndDrop::SOURCE_NOTECARD,
+				mPreviewID, mObjectID);
+			return LLToolDragAndDrop::getInstance()->handleHover( x, y, mask );
 		}
-		else if( mDragItem )
-		{
-			S32 screen_x;
-			S32 screen_y;
-			localPointToScreen(x, y, &screen_x, &screen_y );
-			if( LLToolDragAndDrop::getInstance()->isOverThreshold( screen_x, screen_y ) )
-			{
-				LLToolDragAndDrop::getInstance()->beginDrag(
-					LLAssetType::lookupDragAndDropType( mDragItem->getType() ),
-					mDragItem->getUUID(),
-					LLToolDragAndDrop::SOURCE_NOTECARD,
-					mPreviewID, mObjectID);
-
-				return LLToolDragAndDrop::getInstance()->handleHover( x, y, mask );
-			}
-			getWindow()->setCursor(UI_CURSOR_HAND);
-		}
-
-		lldebugst(LLERR_USER_INPUT) << "hover handled by " << getName() << " (active)" << llendl;		
+		getWindow()->setCursor(UI_CURSOR_HAND);
 		handled = TRUE;
-	}
-
-	if( !handled )
-	{
-		// Pass to children
-		handled = LLView::childrenHandleHover(x, y, mask) != NULL;
-	}
-
-	if( handled )
-	{
-		// Delay cursor flashing
-		resetKeystrokeTimer();
-	}
-
-	// Opaque
-	if( !handled && mTakesNonScrollClicks)
-	{
-		// Check to see if we're over an HTML-style link
-		if( !mSegments.empty() )
-		{
-			const LLTextSegment* cur_segment = getSegmentAtLocalPos( x, y );
-			if( cur_segment )
-			{
-				if(cur_segment->getStyle()->isLink())
-				{
-					lldebugst(LLERR_USER_INPUT) << "hover handled by " << getName() << " (over link, inactive)" << llendl;		
-					getWindow()->setCursor(UI_CURSOR_HAND);
-					handled = TRUE;
-				}
-				else
-				if(cur_segment->getStyle()->getIsEmbeddedItem())
-				{
-					lldebugst(LLERR_USER_INPUT) << "hover handled by " << getName() << " (over embedded item, inactive)" << llendl;		
-					getWindow()->setCursor(UI_CURSOR_HAND);
-					//getWindow()->setCursor(UI_CURSOR_ARROW);
-					handled = TRUE;
-				}
-				mHoverSegment = cur_segment;
-			}
-		}
-
-		if( !handled )
-		{
-			lldebugst(LLERR_USER_INPUT) << "hover handled by " << getName() << " (inactive)" << llendl;		
-			if (!mScrollbar->getVisible() || x < getRect().getWidth() - scrollbar_size)
-			{
-				getWindow()->setCursor(UI_CURSOR_IBEAM);
-			}
-			else
-			{
-				getWindow()->setCursor(UI_CURSOR_ARROW);
-			}
-			handled = TRUE;
-		}
 	}
 
 	return handled;
@@ -887,67 +795,6 @@ BOOL LLViewerTextEditor::handleMouseUp(S32 x, S32 y, MASK mask)
 
 	handled = LLTextEditor::handleMouseUp(x,y,mask);
 
-	// Used to enable I Agree checkbox if the user scrolled through entire text
-	BOOL was_scrolled_to_bottom = (mScrollbar->getDocPos() == mScrollbar->getDocPosMax());
-	if (mOnScrollEndCallback && was_scrolled_to_bottom)
-	{
-		mOnScrollEndCallback(mOnScrollEndData);
-	}
-
-	return handled;
-}
-
-BOOL LLViewerTextEditor::handleRightMouseDown(S32 x, S32 y, MASK mask)
-{
-	BOOL handled = childrenHandleRightMouseDown(x, y, mask) != NULL;
-
-	// *TODO: Add right click menus for SLURLs
-// 	if(! handled)
-// 	{
-// 		const LLTextSegment* cur_segment = getSegmentAtLocalPos( x, y );
-// 		if( cur_segment )
-// 		{
-// 			if(cur_segment->getStyle()->isLink())
-// 			{
-// 				handled = TRUE;
-// 				mHTML = cur_segment->getStyle()->getLinkHREF();
-// 			}
-// 		}
-// 	}
-// 	LLMenuGL* menu = (LLMenuGL*)mPopupMenuHandle.get();
-// 	if(handled && menu && mParseHTML && mHTML.length() > 0)
-// 	{
-// 		menu->setVisible(TRUE);
-// 		menu->arrange();
-// 		menu->updateParent(LLMenuGL::sMenuContainer);
-// 		LLMenuGL::showPopup(this, menu, x, y);
-// 		mHTML = "";
-// 	}
-// 	else
-// 	{
-// 		if(menu && menu->getVisible())
-// 		{
-// 			menu->setVisible(FALSE);
-// 		}
-// 	}
-	return handled;
-}
-
-BOOL LLViewerTextEditor::handleMiddleMouseDown(S32 x, S32 y, MASK mask)
-{
-	BOOL	handled = FALSE;
-	handled = childrenHandleMiddleMouseDown(x, y, mask) != NULL;
-	if (!handled)
-	{
-		handled = LLTextEditor::handleMiddleMouseDown(x, y, mask);
-	}
-	return handled;
-}
-
-BOOL LLViewerTextEditor::handleMiddleMouseUp(S32 x, S32 y, MASK mask)
-{
-	BOOL handled = childrenHandleMiddleMouseUp(x, y, mask) != NULL;
-
 	return handled;
 }
 
@@ -958,14 +805,15 @@ BOOL LLViewerTextEditor::handleDoubleClick(S32 x, S32 y, MASK mask)
 	// let scrollbar have first dibs
 	handled = LLView::childrenHandleDoubleClick(x, y, mask) != NULL;
 
-	if( !handled && mTakesNonScrollClicks)
+	if( !handled)
 	{
 		if( allowsEmbeddedItems() )
 		{
-			const LLTextSegment* cur_segment = getSegmentAtLocalPos( x, y );
-			if( cur_segment && cur_segment->getStyle()->getIsEmbeddedItem() )
+			S32 doc_index = getDocIndexFromLocalCoord(x, y, FALSE);
+			llwchar doc_char = getWText()[doc_index];
+			if (mEmbeddedItemList->hasEmbeddedItem(doc_char))
 			{
-				if( openEmbeddedItemAtPos( cur_segment->getStart() ) )
+				if( openEmbeddedItemAtPos( doc_index ))
 				{
 					deselect();
 					setFocus( FALSE );
@@ -973,54 +821,12 @@ BOOL LLViewerTextEditor::handleDoubleClick(S32 x, S32 y, MASK mask)
 				}
 			}
 		}
-	
-		setCursorAtLocalPos( x, y, FALSE );
-		deselect();
-
-		const LLWString &text = getWText();
-		
-		if( isPartOfWord( text[mCursorPos] ) )
-		{
-			// Select word the cursor is over
-			while ((mCursorPos > 0) && isPartOfWord(text[mCursorPos-1]))
-			{
-				mCursorPos--;
-			}
-			startSelection();
-
-			while ((mCursorPos < (S32)text.length()) && isPartOfWord( text[mCursorPos] ) )
-			{
-				mCursorPos++;
-			}
-		
-			mSelectionEnd = mCursorPos;
-		}
-		else if ((mCursorPos < (S32)text.length()) && !iswspace( text[mCursorPos]) )
-		{
-			// Select the character the cursor is over
-			startSelection();
-			mCursorPos++;
-			mSelectionEnd = mCursorPos;
-		}
-
-		// We don't want handleMouseUp() to "finish" the selection (and thereby
-		// set mSelectionEnd to where the mouse is), so we finish the selection here.
-		mIsSelecting = FALSE;  
-
-		// delay cursor flashing
-		resetKeystrokeTimer();
-
-		// take selection to 'primary' clipboard
-		updatePrimary();
-
-		handled = TRUE;
+		handled = LLTextEditor::handleDoubleClick(x, y, mask);
 	}
 	return handled;
 }
 
 
-// Allow calling cards to be dropped onto text fields.  Append the name and
-// a carriage return.
 // virtual
 BOOL LLViewerTextEditor::handleDragAndDrop(S32 x, S32 y, MASK mask,
 					  BOOL drop, EDragAndDropType cargo_type, void *cargo_data,
@@ -1037,29 +843,11 @@ BOOL LLViewerTextEditor::handleDragAndDrop(S32 x, S32 y, MASK mask,
 		return FALSE;
 	}
 	
-	if (mTakesNonScrollClicks)
+	if (getEnabled() && acceptsTextInput())
 	{
-		if (getEnabled() && acceptsTextInput())
+		switch( cargo_type )
 		{
-			switch( cargo_type )
-			{
 			case DAD_CALLINGCARD:
-				if(acceptsCallingCardNames())
-				{
-					if (drop)
-					{
-						LLInventoryItem *item = (LLInventoryItem *)cargo_data;
-						std::string name = item->getName();
-						appendText(name, true, true);
-					}
-					*accept = ACCEPT_YES_COPY_SINGLE;
-				}
-				else
-				{
-					*accept = ACCEPT_NO;
-				}
-				break;
-
 			case DAD_TEXTURE:
 			case DAD_SOUND:
 			case DAD_LANDMARK:
@@ -1070,63 +858,64 @@ BOOL LLViewerTextEditor::handleDragAndDrop(S32 x, S32 y, MASK mask,
 			case DAD_BODYPART:
 			case DAD_ANIMATION:
 			case DAD_GESTURE:
+			case DAD_MESH:
+			{
+				LLInventoryItem *item = (LLInventoryItem *)cargo_data;
+				if( item && allowsEmbeddedItems() )
 				{
-					LLInventoryItem *item = (LLInventoryItem *)cargo_data;
-					if( item && allowsEmbeddedItems() )
+					U32 mask_next = item->getPermissions().getMaskNextOwner();
+					if((mask_next & PERM_ITEM_UNRESTRICTED) == PERM_ITEM_UNRESTRICTED)
 					{
-						U32 mask_next = item->getPermissions().getMaskNextOwner();
-						if((mask_next & PERM_ITEM_UNRESTRICTED) == PERM_ITEM_UNRESTRICTED)
+						if( drop )
 						{
-							if( drop )
+							deselect();
+							S32 old_cursor = mCursorPos;
+							setCursorAtLocalPos( x, y, TRUE );
+							S32 insert_pos = mCursorPos;
+							setCursorPos(old_cursor);
+							BOOL inserted = insertEmbeddedItem( insert_pos, item );
+							if( inserted && (old_cursor > mCursorPos) )
 							{
-								deselect();
-								S32 old_cursor = mCursorPos;
-								setCursorAtLocalPos( x, y, TRUE );
-								S32 insert_pos = mCursorPos;
-								setCursorPos(old_cursor);
-								BOOL inserted = insertEmbeddedItem( insert_pos, item );
-								if( inserted && (old_cursor > mCursorPos) )
-								{
-									setCursorPos(mCursorPos + 1);
-								}
+								setCursorPos(mCursorPos + 1);
+							}
 
-								updateLineStartList();
-							}
-							*accept = ACCEPT_YES_COPY_MULTI;
+							needsReflow();
+							
 						}
-						else
-						{
-							*accept = ACCEPT_NO;
-							if (tooltip_msg.empty())
-							{
-								// *TODO: Translate
-								tooltip_msg.assign("Only items with unrestricted\n"
-													"'next owner' permissions \n"
-													"can be attached to notecards.");
-							}
-						}
+						*accept = ACCEPT_YES_COPY_MULTI;
 					}
 					else
 					{
 						*accept = ACCEPT_NO;
+						if (tooltip_msg.empty())
+						{
+							// *TODO: Translate
+							tooltip_msg.assign("Only items with unrestricted\n"
+												"'next owner' permissions \n"
+												"can be attached to notecards.");
+						}
 					}
-					break;
 				}
-
-			default:
-				*accept = ACCEPT_NO;
+				else
+				{
+					*accept = ACCEPT_NO;
+				}
 				break;
 			}
-		}
-		else
-		{
-			// Not enabled
-			*accept = ACCEPT_NO;
-		}
 
-		handled = TRUE;
-		lldebugst(LLERR_USER_INPUT) << "dragAndDrop handled by LLViewerTextEditor " << getName() << llendl;
+		default:
+			*accept = ACCEPT_NO;
+			break;
+		}
 	}
+	else
+	{
+		// Not enabled
+		*accept = ACCEPT_NO;
+	}
+
+	handled = TRUE;
+	lldebugst(LLERR_USER_INPUT) << "dragAndDrop handled by LLViewerTextEditor " << getName() << llendl;
 
 	return handled;
 }
@@ -1176,7 +965,7 @@ std::string LLViewerTextEditor::getEmbeddedText()
 	LLWString outtextw;
 	for (S32 i=0; i<(S32)getWText().size(); i++)
 	{
-		llwchar wch = getWChar(i);
+		llwchar wch = getWText()[i];
 		if( wch >= FIRST_EMBEDDED_CHAR && wch <= LAST_EMBEDDED_CHAR )
 		{
 			S32 index = mEmbeddedItemList->getIndexFromEmbeddedChar(wch);
@@ -1219,7 +1008,8 @@ std::string LLViewerTextEditor::appendTime(bool prepend_newline)
 
 	substitution["datetime"] = (S32) utc_time;
 	LLStringUtil::format (timeStr, substitution);
-	appendColoredText(timeStr, false, prepend_newline, LLColor4::grey);
+	appendText(timeStr, prepend_newline, LLStyle::Params().color(LLColor4::grey));
+	blockUndo();
 
 	return timeStr;
 }
@@ -1233,7 +1023,7 @@ llwchar LLViewerTextEditor::pasteEmbeddedItem(llwchar ext_char)
 	{
 		return ext_char; // already exists in my list
 	}
-	LLInventoryItem* item = LLEmbeddedItems::getEmbeddedItem(ext_char);
+	LLInventoryItem* item = LLEmbeddedItems::getEmbeddedItemPtr(ext_char);
 	if (item)
 	{
 		// Add item to my list and return new llwchar associated with it
@@ -1246,39 +1036,40 @@ llwchar LLViewerTextEditor::pasteEmbeddedItem(llwchar ext_char)
 	return LL_UNKNOWN_CHAR; // item not found or list full
 }
 
-void LLViewerTextEditor::bindEmbeddedChars(const LLFontGL* font) const
+void LLViewerTextEditor::onValueChange(S32 start, S32 end)
 {
-	mEmbeddedItemList->bindEmbeddedChars( font );
+	updateSegments();
+	updateLinkSegments();
+	findEmbeddedItemSegments(start, end);
 }
 
-void LLViewerTextEditor::unbindEmbeddedChars(const LLFontGL* font) const
+void LLViewerTextEditor::findEmbeddedItemSegments(S32 start, S32 end)
 {
-	mEmbeddedItemList->unbindEmbeddedChars( font );
-}
+	LLWString text = getWText();
 
-BOOL LLViewerTextEditor::getEmbeddedItemToolTipAtPos(S32 pos, LLWString &msg) const
-{
-	if (pos < getLength())
+	LLColor4 text_color = ( mReadOnly ? mReadOnlyFgColor.get() : mFgColor.get()  );
+
+	// Start with i just after the first embedded item
+	for(S32 idx = start; idx < end; idx++ )
 	{
-		LLInventoryItem* item = LLEmbeddedItems::getEmbeddedItem(getWChar(pos));
-		if( item )
+		llwchar embedded_char = text[idx];
+		if( embedded_char >= FIRST_EMBEDDED_CHAR 
+			&& embedded_char <= LAST_EMBEDDED_CHAR 
+			&& mEmbeddedItemList->hasEmbeddedItem(embedded_char) )
 		{
-			msg = utf8str_to_wstring(item->getName());
-			msg += '\n';
-			msg += utf8str_to_wstring(item->getDescription());
-			return TRUE;
+			LLInventoryItem* itemp = mEmbeddedItemList->getEmbeddedItemPtr(embedded_char);
+			LLUIImagePtr image = mEmbeddedItemList->getItemImage(embedded_char);
+			insertSegment(new LLEmbeddedItemSegment(idx, image, itemp, *this));
 		}
 	}
-	return FALSE;
 }
-
 
 BOOL LLViewerTextEditor::openEmbeddedItemAtPos(S32 pos)
 {
 	if( pos < getLength())
 	{
-		llwchar wc = getWChar(pos);
-		LLInventoryItem* item = LLEmbeddedItems::getEmbeddedItem( wc );
+		llwchar wc = getWText()[pos];
+		LLPointer<LLInventoryItem> item = LLEmbeddedItems::getEmbeddedItemPtr( wc );
 		if( item )
 		{
 			BOOL saved = LLEmbeddedItems::getEmbeddedItemSaved( wc );
@@ -1296,37 +1087,41 @@ BOOL LLViewerTextEditor::openEmbeddedItemAtPos(S32 pos)
 }
 
 
-BOOL LLViewerTextEditor::openEmbeddedItem(LLInventoryItem* item, llwchar wc)
+BOOL LLViewerTextEditor::openEmbeddedItem(LLPointer<LLInventoryItem> item, llwchar wc)
 {
 
 	switch( item->getType() )
 	{
-	case LLAssetType::AT_TEXTURE:
-	  	openEmbeddedTexture( item, wc );
-		return TRUE;
+		case LLAssetType::AT_TEXTURE:
+			openEmbeddedTexture( item, wc );
+			return TRUE;
 
-	case LLAssetType::AT_SOUND:
-		openEmbeddedSound( item, wc );
-		return TRUE;
+		case LLAssetType::AT_SOUND:
+			openEmbeddedSound( item, wc );
+			return TRUE;
 
-	case LLAssetType::AT_NOTECARD:
-		openEmbeddedNotecard( item, wc );
-		return TRUE;
+		case LLAssetType::AT_NOTECARD:
+			openEmbeddedNotecard( item, wc );
+			return TRUE;
 
-	case LLAssetType::AT_LANDMARK:
-		openEmbeddedLandmark( item, wc );
-		return TRUE;
+		case LLAssetType::AT_LANDMARK:
+			openEmbeddedLandmark( item, wc );
+			return TRUE;
 
-	case LLAssetType::AT_LSL_TEXT:
-	case LLAssetType::AT_CLOTHING:
-	case LLAssetType::AT_OBJECT:
-	case LLAssetType::AT_BODYPART:
-	case LLAssetType::AT_ANIMATION:
-	case LLAssetType::AT_GESTURE:
-		showCopyToInvDialog( item, wc );
-		return TRUE;
-	default:
-		return FALSE;
+		case LLAssetType::AT_CALLINGCARD:
+			openEmbeddedCallingcard( item, wc );
+			return TRUE;
+
+		case LLAssetType::AT_LSL_TEXT:
+		case LLAssetType::AT_CLOTHING:
+		case LLAssetType::AT_OBJECT:
+		case LLAssetType::AT_BODYPART:
+		case LLAssetType::AT_ANIMATION:
+		case LLAssetType::AT_GESTURE:
+			showCopyToInvDialog( item, wc );
+			return TRUE;
+		default:
+			return FALSE;
 	}
 
 }
@@ -1360,14 +1155,17 @@ void LLViewerTextEditor::openEmbeddedSound( LLInventoryItem* item, llwchar wc )
 }
 
 
-void LLViewerTextEditor::openEmbeddedLandmark( LLInventoryItem* item, llwchar wc )
+void LLViewerTextEditor::openEmbeddedLandmark( LLPointer<LLInventoryItem> item_ptr, llwchar wc )
 {
-	if (!item)
+	if (item_ptr.isNull())
 		return;
-	LLPreviewLandmark* preview = LLFloaterReg::showTypedInstance<LLPreviewLandmark>("preview_landmark", LLSD(item->getUUID()), TAKE_FOCUS_YES);
-	if (preview)
+
+	LLLandmark* landmark = gLandmarkList.getAsset(item_ptr->getAssetUUID(),
+			boost::bind(&LLEmbeddedLandmarkCopied::processForeignLandmark, _1, mObjectID, mNotecardInventoryID, item_ptr));
+	if (landmark)
 	{
-		preview->setItem( item );
+		LLEmbeddedLandmarkCopied::processForeignLandmark(landmark, mObjectID,
+				mNotecardInventoryID, item_ptr);
 	}
 }
 
@@ -1376,18 +1174,26 @@ void LLViewerTextEditor::openEmbeddedNotecard( LLInventoryItem* item, llwchar wc
 	copyInventory(item, gInventoryCallbacks.registerCB(mInventoryCallback));
 }
 
+void LLViewerTextEditor::openEmbeddedCallingcard( LLInventoryItem* item, llwchar wc )
+{
+	if(item && !item->getCreatorUUID().isNull())
+	{
+		LLAvatarActions::showProfile(item->getCreatorUUID());
+	}
+}
+
 void LLViewerTextEditor::showUnsavedAlertDialog( LLInventoryItem* item )
 {
 	LLSD payload;
 	payload["item_id"] = item->getUUID();
 	payload["notecard_id"] = mNotecardInventoryID;
-	LLNotifications::instance().add( "ConfirmNotecardSave", LLSD(), payload, LLViewerTextEditor::onNotecardDialog);
+	LLNotificationsUtil::add( "ConfirmNotecardSave", LLSD(), payload, LLViewerTextEditor::onNotecardDialog);
 }
 
 // static
 bool LLViewerTextEditor::onNotecardDialog(const LLSD& notification, const LLSD& response )
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	if( option == 0 )
 	{
 		LLPreviewNotecard* preview = LLFloaterReg::findTypedInstance<LLPreviewNotecard>("preview_notecard", notification["payload"]["notecard_id"]);;
@@ -1407,18 +1213,18 @@ void LLViewerTextEditor::showCopyToInvDialog( LLInventoryItem* item, llwchar wc 
 	LLUUID item_id = item->getUUID();
 	payload["item_id"] = item_id;
 	payload["item_wc"] = LLSD::Integer(wc);
-	LLNotifications::instance().add( "ConfirmItemCopy", LLSD(), payload,
+	LLNotificationsUtil::add( "ConfirmItemCopy", LLSD(), payload,
 		boost::bind(&LLViewerTextEditor::onCopyToInvDialog, this, _1, _2));
 }
 
 bool LLViewerTextEditor::onCopyToInvDialog(const LLSD& notification, const LLSD& response)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	if( 0 == option )
 	{
 		LLUUID item_id = notification["payload"]["item_id"].asUUID();
 		llwchar wc = llwchar(notification["payload"]["item_wc"].asInteger());
-		LLInventoryItem* itemp = LLEmbeddedItems::getEmbeddedItem(wc);
+		LLInventoryItem* itemp = LLEmbeddedItems::getEmbeddedItemPtr(wc);
 		if (itemp)
 			copyInventory(itemp);
 	}
@@ -1430,7 +1236,7 @@ bool LLViewerTextEditor::onCopyToInvDialog(const LLSD& notification, const LLSD&
 // Returns change in number of characters in mWText
 S32 LLViewerTextEditor::insertEmbeddedItem( S32 pos, LLInventoryItem* item )
 {
-	return execute( new LLTextCmdInsertEmbeddedItem( pos, item ) );
+	return execute( new TextCmdInsertEmbeddedItem( pos, item ) );
 }
 
 bool LLViewerTextEditor::importStream(std::istream& str)

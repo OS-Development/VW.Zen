@@ -2,31 +2,25 @@
  * @file llwindowwin32.cpp
  * @brief Platform-dependent implementation of llwindow
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -38,6 +32,7 @@
 
 // LLWindow library includes
 #include "llkeyboardwin32.h"
+#include "lldragdropwin32.h"
 #include "llpreeditor.h"
 #include "llwindowcallbacks.h"
 
@@ -45,6 +40,7 @@
 #include "llerror.h"
 #include "llgl.h"
 #include "llstring.h"
+#include "lldir.h"
 
 // System includes
 #include <commdlg.h>
@@ -52,6 +48,7 @@
 #include <mapi.h>
 #include <process.h>	// for _spawn
 #include <shellapi.h>
+#include <fstream>
 #include <Imm.h>
 
 // Require DirectInput version 8
@@ -376,12 +373,18 @@ LLWindowWin32::LLWindowWin32(LLWindowCallbacks* callbacks,
 	mMousePositionModified = FALSE;
 	mInputProcessingPaused = FALSE;
 	mPreeditor = NULL;
+	mKeyCharCode = 0;
+	mKeyScanCode = 0;
+	mKeyVirtualKey = 0;
 	mhDC = NULL;
 	mhRC = NULL;
 
 	// Initialize the keyboard
 	gKeyboard = new LLKeyboardWin32();
 	gKeyboard->setCallbacks(callbacks);
+
+	// Initialize the Drag and Drop functionality
+	mDragDrop = new LLDragDropWin32;
 
 	// Initialize (boot strap) the Language text input management,
 	// based on the system's (user's) default settings.
@@ -497,6 +500,8 @@ LLWindowWin32::LLWindowWin32(LLWindowCallbacks* callbacks,
 	//-----------------------------------------------------------------------
 
 	DEVMODE dev_mode;
+	::ZeroMemory(&dev_mode, sizeof(DEVMODE));
+	dev_mode.dmSize = sizeof(DEVMODE);
 	DWORD current_refresh;
 	if (EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &dev_mode))
 	{
@@ -541,7 +546,27 @@ LLWindowWin32::LLWindowWin32(LLWindowCallbacks* callbacks,
 		if (closest_refresh == 0)
 		{
 			LL_WARNS("Window") << "Couldn't find display mode " << width << " by " << height << " at " << BITS_PER_PIXEL << " bits per pixel" << LL_ENDL;
-			success = FALSE;
+			//success = FALSE;
+
+			if (!EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &dev_mode))
+			{
+				success = FALSE;
+			}
+			else
+			{
+				if (dev_mode.dmBitsPerPel == BITS_PER_PIXEL)
+				{
+					LL_WARNS("Window") << "Current BBP is OK falling back to that" << LL_ENDL;
+					window_rect.right=width=dev_mode.dmPelsWidth;
+					window_rect.bottom=height=dev_mode.dmPelsHeight;
+					success = TRUE;
+				}
+				else
+				{
+					LL_WARNS("Window") << "Current BBP is BAD" << LL_ENDL;
+					success = FALSE;
+				}
+			}
 		}
 
 		// If we found a good resolution, use it.
@@ -620,6 +645,8 @@ LLWindowWin32::LLWindowWin32(LLWindowCallbacks* callbacks,
 
 LLWindowWin32::~LLWindowWin32()
 {
+	delete mDragDrop;
+
 	delete [] mWindowTitle;
 	mWindowTitle = NULL;
 
@@ -643,6 +670,7 @@ void LLWindowWin32::hide()
 	ShowWindow(mWindowHandle, SW_HIDE);
 }
 
+//virtual
 void LLWindowWin32::minimize()
 {
 	setMouseClipping(FALSE);
@@ -650,7 +678,7 @@ void LLWindowWin32::minimize()
 	ShowWindow(mWindowHandle, SW_MINIMIZE);
 }
 
-
+//virtual
 void LLWindowWin32::restore()
 {
 	ShowWindow(mWindowHandle, SW_RESTORE);
@@ -669,6 +697,8 @@ void LLWindowWin32::close()
 	{
 		return;
 	}
+
+	mDragDrop->reset();
 
 	// Make sure cursor is visible and we haven't mangled the clipping state.
 	setMouseClipping(FALSE);
@@ -850,6 +880,8 @@ BOOL LLWindowWin32::switchContext(BOOL fullscreen, const LLCoordScreen &size, BO
 {
 	GLuint	pixel_format;
 	DEVMODE dev_mode;
+	::ZeroMemory(&dev_mode, sizeof(DEVMODE));
+	dev_mode.dmSize = sizeof(DEVMODE);
 	DWORD	current_refresh;
 	DWORD	dw_ex_style;
 	DWORD	dw_style;
@@ -1348,6 +1380,11 @@ BOOL LLWindowWin32::switchContext(BOOL fullscreen, const LLCoordScreen &size, BO
 	}
 
 	SetWindowLong(mWindowHandle, GWL_USERDATA, (U32)this);
+
+	// register this window as handling drag/drop events from the OS
+	DragAcceptFiles( mWindowHandle, TRUE );
+
+	mDragDrop->init( mWindowHandle );
 	
 	//register joystick timer callback
 	SetTimer( mWindowHandle, 0, 1000 / 30, NULL ); // 30 fps timer
@@ -1525,15 +1562,14 @@ void LLWindowWin32::initCursors()
 	mCursor[ UI_CURSOR_TOOLZOOMIN ] = LoadCursor(module, TEXT("TOOLZOOMIN"));
 	mCursor[ UI_CURSOR_TOOLPICKOBJECT3 ] = LoadCursor(module, TEXT("TOOLPICKOBJECT3"));
 	mCursor[ UI_CURSOR_PIPETTE ] = LoadCursor(module, TEXT("TOOLPIPETTE"));
+	mCursor[ UI_CURSOR_TOOLSIT ]	= LoadCursor(module, TEXT("TOOLSIT"));
+	mCursor[ UI_CURSOR_TOOLBUY ]	= LoadCursor(module, TEXT("TOOLBUY"));
+	mCursor[ UI_CURSOR_TOOLOPEN ]	= LoadCursor(module, TEXT("TOOLOPEN"));
 
 	// Color cursors
-	mCursor[UI_CURSOR_TOOLSIT] = loadColorCursor(TEXT("TOOLSIT"));
-	mCursor[UI_CURSOR_TOOLBUY] = loadColorCursor(TEXT("TOOLBUY"));
-	mCursor[UI_CURSOR_TOOLPAY] = loadColorCursor(TEXT("TOOLPAY"));
-	mCursor[UI_CURSOR_TOOLOPEN] = loadColorCursor(TEXT("TOOLOPEN"));
-	mCursor[UI_CURSOR_TOOLPLAY] = loadColorCursor(TEXT("TOOLPLAY"));
-	mCursor[UI_CURSOR_TOOLPAUSE] = loadColorCursor(TEXT("TOOLPAUSE"));
-	mCursor[UI_CURSOR_TOOLMEDIAOPEN] = loadColorCursor(TEXT("TOOLMEDIAOPEN"));
+	mCursor[ UI_CURSOR_TOOLPLAY ]		= loadColorCursor(TEXT("TOOLPLAY"));
+	mCursor[ UI_CURSOR_TOOLPAUSE ]		= loadColorCursor(TEXT("TOOLPAUSE"));
+	mCursor[ UI_CURSOR_TOOLMEDIAOPEN ]	= loadColorCursor(TEXT("TOOLMEDIAOPEN"));
 
 	// Note: custom cursors that are not found make LoadCursor() return NULL.
 	for( S32 i = 0; i < UI_CURSOR_COUNT; i++ )
@@ -1644,6 +1680,9 @@ void LLWindowWin32::gatherInput()
 	// we slammed the mouse position
 	mMousePositionModified = FALSE;
 }
+
+static LLFastTimer::DeclareTimer FTM_KEYHANDLER("Handle Keyboard");
+static LLFastTimer::DeclareTimer FTM_MOUSEHANDLER("Handle Mouse");
 
 LRESULT CALLBACK LLWindowWin32::mainWindowProc(HWND h_wnd, UINT u_msg, WPARAM w_param, LPARAM l_param)
 {
@@ -1858,6 +1897,10 @@ LRESULT CALLBACK LLWindowWin32::mainWindowProc(HWND h_wnd, UINT u_msg, WPARAM w_
 			// allow system keys, such as ALT-F4 to be processed by Windows
 			eat_keystroke = FALSE;
 		case WM_KEYDOWN:
+			window_imp->mKeyCharCode = 0; // don't know until wm_char comes in next
+			window_imp->mKeyScanCode = ( l_param >> 16 ) & 0xff;
+			window_imp->mKeyVirtualKey = w_param;
+
 			window_imp->mCallbacks->handlePingWatchdog(window_imp, "Main:WM_KEYDOWN");
 			{
 				if (gDebugWindowProc)
@@ -1877,8 +1920,11 @@ LRESULT CALLBACK LLWindowWin32::mainWindowProc(HWND h_wnd, UINT u_msg, WPARAM w_
 			eat_keystroke = FALSE;
 		case WM_KEYUP:
 		{
+			window_imp->mKeyScanCode = ( l_param >> 16 ) & 0xff;
+			window_imp->mKeyVirtualKey = w_param;
+
 			window_imp->mCallbacks->handlePingWatchdog(window_imp, "Main:WM_KEYUP");
-			LLFastTimer t2(LLFastTimer::FTM_KEYHANDLER);
+			LLFastTimer t2(FTM_KEYHANDLER);
 
 			if (gDebugWindowProc)
 			{
@@ -1962,6 +2008,8 @@ LRESULT CALLBACK LLWindowWin32::mainWindowProc(HWND h_wnd, UINT u_msg, WPARAM w_
 			break;
 
 		case WM_CHAR:
+			window_imp->mKeyCharCode = w_param;
+
 			// Should really use WM_UNICHAR eventually, but it requires a specific Windows version and I need
 			// to figure out how that works. - Doug
 			//
@@ -1987,7 +2035,7 @@ LRESULT CALLBACK LLWindowWin32::mainWindowProc(HWND h_wnd, UINT u_msg, WPARAM w_
 		case WM_LBUTTONDOWN:
 			{
 				window_imp->mCallbacks->handlePingWatchdog(window_imp, "Main:WM_LBUTTONDOWN");
-				LLFastTimer t2(LLFastTimer::FTM_MOUSEHANDLER);
+				LLFastTimer t2(FTM_MOUSEHANDLER);
 				if (LLWinImm::isAvailable() && window_imp->mPreeditor)
 				{
 					window_imp->interruptLanguageTextInput();
@@ -2051,7 +2099,7 @@ LRESULT CALLBACK LLWindowWin32::mainWindowProc(HWND h_wnd, UINT u_msg, WPARAM w_
 		case WM_LBUTTONUP:
 			{
 				window_imp->mCallbacks->handlePingWatchdog(window_imp, "Main:WM_LBUTTONUP");
-				LLFastTimer t2(LLFastTimer::FTM_MOUSEHANDLER);
+				LLFastTimer t2(FTM_MOUSEHANDLER);
 				//if (gDebugClicks)
 				//{
 				//	LL_INFOS("Window") << "WndProc left button up" << LL_ENDL;
@@ -2085,7 +2133,7 @@ LRESULT CALLBACK LLWindowWin32::mainWindowProc(HWND h_wnd, UINT u_msg, WPARAM w_
 		case WM_RBUTTONDOWN:
 			{
 				window_imp->mCallbacks->handlePingWatchdog(window_imp, "Main:WM_RBUTTONDOWN");
-				LLFastTimer t2(LLFastTimer::FTM_MOUSEHANDLER);
+				LLFastTimer t2(FTM_MOUSEHANDLER);
 				if (LLWinImm::isAvailable() && window_imp->mPreeditor)
 				{
 					window_imp->interruptLanguageTextInput();
@@ -2119,7 +2167,7 @@ LRESULT CALLBACK LLWindowWin32::mainWindowProc(HWND h_wnd, UINT u_msg, WPARAM w_
 		case WM_RBUTTONUP:
 			{
 				window_imp->mCallbacks->handlePingWatchdog(window_imp, "Main:WM_RBUTTONUP");
-				LLFastTimer t2(LLFastTimer::FTM_MOUSEHANDLER);
+				LLFastTimer t2(FTM_MOUSEHANDLER);
 				// Because we move the cursor position in the app, we need to query
 				// to find out where the cursor at the time the event is handled.
 				// If we don't do this, many clicks could get buffered up, and if the
@@ -2149,7 +2197,7 @@ LRESULT CALLBACK LLWindowWin32::mainWindowProc(HWND h_wnd, UINT u_msg, WPARAM w_
 //		case WM_MBUTTONDBLCLK:
 			{
 				window_imp->mCallbacks->handlePingWatchdog(window_imp, "Main:WM_MBUTTONDOWN");
-				LLFastTimer t2(LLFastTimer::FTM_MOUSEHANDLER);
+				LLFastTimer t2(FTM_MOUSEHANDLER);
 				if (LLWinImm::isAvailable() && window_imp->mPreeditor)
 				{
 					window_imp->interruptLanguageTextInput();
@@ -2183,8 +2231,8 @@ LRESULT CALLBACK LLWindowWin32::mainWindowProc(HWND h_wnd, UINT u_msg, WPARAM w_
 		case WM_MBUTTONUP:
 			{
 				window_imp->mCallbacks->handlePingWatchdog(window_imp, "Main:WM_MBUTTONUP");
-				LLFastTimer t2(LLFastTimer::FTM_MOUSEHANDLER);
-				// Because we move the cursor position in tllviewerhe app, we need to query
+				LLFastTimer t2(FTM_MOUSEHANDLER);
+				// Because we move the cursor position in the llviewer app, we need to query
 				// to find out where the cursor at the time the event is handled.
 				// If we don't do this, many clicks could get buffered up, and if the
 				// first click changes the cursor position, all subsequent clicks
@@ -2214,7 +2262,27 @@ LRESULT CALLBACK LLWindowWin32::mainWindowProc(HWND h_wnd, UINT u_msg, WPARAM w_
 				window_imp->mCallbacks->handlePingWatchdog(window_imp, "Main:WM_MOUSEWHEEL");
 				static short z_delta = 0;
 
-				z_delta += HIWORD(w_param);
+				RECT	client_rect;
+
+				// eat scroll events that occur outside our window, since we use mouse position to direct scroll
+				// instead of keyboard focus
+				// NOTE: mouse_coord is in *window* coordinates for scroll events
+				POINT mouse_coord = {(S32)(S16)LOWORD(l_param), (S32)(S16)HIWORD(l_param)};
+
+				if (ScreenToClient(window_imp->mWindowHandle, &mouse_coord)
+					&& GetClientRect(window_imp->mWindowHandle, &client_rect))
+				{
+					// we have a valid mouse point and client rect
+					if (mouse_coord.x < client_rect.left || client_rect.right < mouse_coord.x
+						|| mouse_coord.y < client_rect.top || client_rect.bottom < mouse_coord.y)
+					{
+						// mouse is outside of client rect, so don't do anything
+						return 0;
+					}
+				}
+
+				S16 incoming_z_delta = HIWORD(w_param);
+				z_delta += incoming_z_delta;
 				// cout << "z_delta " << z_delta << endl;
 
 				// current mouse wheels report changes in increments of zDelta (+120, -120)
@@ -2334,11 +2402,15 @@ LRESULT CALLBACK LLWindowWin32::mainWindowProc(HWND h_wnd, UINT u_msg, WPARAM w_
 			return 0;
 
 		case WM_COPYDATA:
-			window_imp->mCallbacks->handlePingWatchdog(window_imp, "Main:WM_COPYDATA");
-			// received a URL
-			PCOPYDATASTRUCT myCDS = (PCOPYDATASTRUCT) l_param;
-			window_imp->mCallbacks->handleDataCopy(window_imp, myCDS->dwData, myCDS->lpData);
+			{
+				window_imp->mCallbacks->handlePingWatchdog(window_imp, "Main:WM_COPYDATA");
+				// received a URL
+				PCOPYDATASTRUCT myCDS = (PCOPYDATASTRUCT) l_param;
+				window_imp->mCallbacks->handleDataCopy(window_imp, myCDS->dwData, myCDS->lpData);
+			};
 			return 0;			
+
+			break;
 		}
 
 	window_imp->mCallbacks->handlePauseWatchdog(window_imp);	
@@ -2643,6 +2715,8 @@ LLWindow::LLWindowResolution* LLWindowWin32::getSupportedResolutions(S32 &num_re
 	{
 		mSupportedResolutions = new LLWindowResolution[MAX_NUM_RESOLUTIONS];
 		DEVMODE dev_mode;
+		::ZeroMemory(&dev_mode, sizeof(DEVMODE));
+		dev_mode.dmSize = sizeof(DEVMODE);
 
 		mNumSupportedResolutions = 0;
 		for (S32 mode_num = 0; mNumSupportedResolutions < MAX_NUM_RESOLUTIONS; mode_num++)
@@ -2718,7 +2792,8 @@ F32 LLWindowWin32::getPixelAspectRatio()
 BOOL LLWindowWin32::setDisplayResolution(S32 width, S32 height, S32 bits, S32 refresh)
 {
 	DEVMODE dev_mode;
-	dev_mode.dmSize = sizeof(dev_mode);
+	::ZeroMemory(&dev_mode, sizeof(DEVMODE));
+	dev_mode.dmSize = sizeof(DEVMODE);
 	BOOL success = FALSE;
 
 	// Don't change anything if we don't have to
@@ -2823,8 +2898,16 @@ void LLSplashScreenWin32::updateImpl(const std::string& mesg)
 {
 	if (!mWindow) return;
 
-	WCHAR w_mesg[1024];
-	mbstowcs(w_mesg, mesg.c_str(), 1024);
+	int output_str_len = MultiByteToWideChar(CP_UTF8, 0, mesg.c_str(), mesg.length(), NULL, 0);
+	if( output_str_len>1024 )
+		return;
+
+	WCHAR w_mesg[1025];//big enought to keep null terminatos
+
+	MultiByteToWideChar (CP_UTF8, 0, mesg.c_str(), mesg.length(), w_mesg, output_str_len);
+
+	//looks like MultiByteToWideChar didn't add null terminator to converted string, see EXT-4858
+	w_mesg[output_str_len] = 0;
 
 	SendDlgItemMessage(mWindow,
 		666,		// HACK: text id
@@ -2903,7 +2986,7 @@ S32 OSMessageBoxWin32(const std::string& text, const std::string& caption, U32 t
 }
 
 
-void LLWindowWin32::spawnWebBrowser(const std::string& escaped_url )
+void LLWindowWin32::spawnWebBrowser(const std::string& escaped_url, bool async)
 {
 	bool found = false;
 	S32 i;
@@ -2933,86 +3016,31 @@ void LLWindowWin32::spawnWebBrowser(const std::string& escaped_url )
 
 	// let the OS decide what to use to open the URL
 	SHELLEXECUTEINFO sei = { sizeof( sei ) };
-	sei.fMask = SEE_MASK_FLAG_DDEWAIT;
+	// NOTE: this assumes that SL will stick around long enough to complete the DDE message exchange
+	// necessary for ShellExecuteEx to complete
+	if (async)
+	{
+		sei.fMask = SEE_MASK_ASYNCOK;
+	}
 	sei.nShow = SW_SHOWNORMAL;
 	sei.lpVerb = L"open";
 	sei.lpFile = url_utf16.c_str();
 	ShellExecuteEx( &sei );
-
-	//// TODO: LEAVING OLD CODE HERE SO I DON'T BONE OTHER MERGES
-	//// DELETE THIS ONCE THE MERGES ARE DONE
-
-	// Figure out the user's default web browser
-	// HKEY_CLASSES_ROOT\http\shell\open\command
-	/*
-	std::string reg_path_str = gURLProtocolWhitelistHandler[i] + "\\shell\\open\\command";
-	WCHAR reg_path_wstr[256];
-	mbstowcs( reg_path_wstr, reg_path_str.c_str(), LL_ARRAY_SIZE(reg_path_wstr) );
-
-	HKEY key;
-	WCHAR browser_open_wstr[1024];
-	DWORD buffer_length = 1024;
-	RegOpenKeyEx(HKEY_CLASSES_ROOT, reg_path_wstr, 0, KEY_QUERY_VALUE, &key);
-	RegQueryValueEx(key, NULL, NULL, NULL, (LPBYTE)browser_open_wstr, &buffer_length);
-	RegCloseKey(key);
-
-	// Convert to STL string
-	LLWString browser_open_wstring = utf16str_to_wstring(browser_open_wstr);
-
-	if (browser_open_wstring.length() < 2)
-	{
-		LL_WARNS("Window") << "Invalid browser executable in registry " << browser_open_wstring << LL_ENDL;
-		return;
-	}
-
-	// Extract the process that's supposed to be launched
-	LLWString browser_executable;
-	if (browser_open_wstring[0] == '"')
-	{
-		// executable is quoted, find the matching quote
-		size_t quote_pos = browser_open_wstring.find('"', 1);
-		// copy out the string including both quotes
-		browser_executable = browser_open_wstring.substr(0, quote_pos+1);
-	}
-	else
-	{
-		// executable not quoted, find a space
-		size_t space_pos = browser_open_wstring.find(' ', 1);
-		browser_executable = browser_open_wstring.substr(0, space_pos);
-	}
-
-	LL_DEBUGS("Window") << "Browser reg key: " << wstring_to_utf8str(browser_open_wstring) << LL_ENDL;
-	LL_INFOS("Window") << "Browser executable: " << wstring_to_utf8str(browser_executable) << LL_ENDL;
-
-	// Convert URL to wide string for Windows API
-	// Assume URL is UTF8, as can come from scripts
-	LLWString url_wstring = utf8str_to_wstring(escaped_url);
-	llutf16string url_utf16 = wstring_to_utf16str(url_wstring);
-
-	// Convert executable and path to wide string for Windows API
-	llutf16string browser_exec_utf16 = wstring_to_utf16str(browser_executable);
-
-	// ShellExecute returns HINSTANCE for backwards compatiblity.
-	// MS docs say to cast to int and compare to 32.
-	HWND our_window = NULL;
-	LPCWSTR directory_wstr = NULL;
-	int retval = (int) ShellExecute(our_window, 	// Flawfinder: ignore
-									L"open", 
-									browser_exec_utf16.c_str(), 
-									url_utf16.c_str(), 
-									directory_wstr,
-									SW_SHOWNORMAL);
-	if (retval > 32)
-	{
-		LL_DEBUGS("Window") << "load_url success with " << retval << LL_ENDL;
-	}
-	else
-	{
-		LL_INFOS("Window") << "load_url failure with " << retval << LL_ENDL;
-	}
-	*/
 }
 
+/*
+	Make the raw keyboard data available - used to poke through to LLQtWebKit so
+	that Qt/Webkit has access to the virtual keycodes etc. that it needs
+*/
+LLSD LLWindowWin32::getNativeKeyData()
+{
+	LLSD result = LLSD::emptyMap();
+
+	result["scan_code"] = (S32)mKeyScanCode;
+	result["virtual_key"] = (S32)mKeyVirtualKey;
+
+	return result;
+}
 
 BOOL LLWindowWin32::dialogColorPicker( F32 *r, F32 *g, F32 *b )
 {
@@ -3508,6 +3536,13 @@ static LLWString find_context(const LLWString & wtext, S32 focus, S32 focus_leng
 	return wtext.substr(start, end - start);
 }
 
+// final stage of handling drop requests - both from WM_DROPFILES message
+// for files and via IDropTarget interface requests.
+LLWindowCallbacks::DragNDropResult LLWindowWin32::completeDragNDropRequest( const LLCoordGL gl_coord, const MASK mask, LLWindowCallbacks::DragNDropAction action, const std::string url )
+{
+	return mCallbacks->handleDragNDrop( this, gl_coord, mask, action, url );
+}
+
 // Handle WM_IME_REQUEST message.
 // If it handled the message, returns TRUE.  Otherwise, FALSE.
 // When it handled the message, the value to be returned from
@@ -3541,7 +3576,7 @@ BOOL LLWindowWin32::handleImeRequests(U32 request, U32 param, LRESULT *result)
 				// WCHARs, i.e., UTF-16 encoding units, so we can't simply pass the
 				// number to getPreeditLocation.  
 
-				const LLWString & wtext = mPreeditor->getWText();
+				const LLWString & wtext = mPreeditor->getPreeditString();
 				S32 preedit, preedit_length;
 				mPreeditor->getPreeditRange(&preedit, &preedit_length);
 				LLCoordGL caret_coord;
@@ -3568,7 +3603,7 @@ BOOL LLWindowWin32::handleImeRequests(U32 request, U32 param, LRESULT *result)
 			case IMR_RECONVERTSTRING:
 			{
 				mPreeditor->resetPreedit();
-				const LLWString & wtext = mPreeditor->getWText();
+				const LLWString & wtext = mPreeditor->getPreeditString();
 				S32 select, select_length;
 				mPreeditor->getSelectionRange(&select, &select_length);
 
@@ -3610,7 +3645,7 @@ BOOL LLWindowWin32::handleImeRequests(U32 request, U32 param, LRESULT *result)
 			}
 			case IMR_DOCUMENTFEED:
 			{
-				const LLWString & wtext = mPreeditor->getWText();
+				const LLWString & wtext = mPreeditor->getPreeditString();
 				S32 preedit, preedit_length;
 				mPreeditor->getPreeditRange(&preedit, &preedit_length);
 				

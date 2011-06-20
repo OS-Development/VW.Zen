@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
- height="150"
+ legacy_header_height="18"
+ height="170"
  layout="topleft"
  name="floater_lagmeter"
+ help_topic="floater_lagmeter"
  save_rect="true"
- title="Lag Meter"
+ title="LAG METER"
  width="350">
     <floater.string
      name="max_title_msg">
@@ -182,7 +184,6 @@
      layout="topleft"
      left="8"
      name="client_lagmeter"
-     picture_style="true"
      tab_stop="false"
      tool_tip="Client lag status"
      top="24"
@@ -198,10 +199,10 @@
      name="client"
      top_delta="0"
      width="128">
-        Client:
+        Client
     </text>
     <text
-	 visiblity_control="LagMeterShrunk"
+     invisiblity_control="LagMeterShrunk"
      type="string"
      length="1"
      bottom="40"
@@ -215,7 +216,7 @@
         Normal
     </text>
     <text
-	 visiblity_control="LagMeterShrunk"	
+     invisiblity_control="LagMeterShrunk"
      bottom="56"
      follows="left|top"
      height="16"
@@ -231,7 +232,6 @@
      layout="topleft"
      left="8"
      name="network_lagmeter"
-     picture_style="true"
      tab_stop="false"
      tool_tip="Network lag status"
      top="64"
@@ -247,10 +247,10 @@
      name="network"
      top_delta="0"
      width="128">
-        Network:
+        Network
     </text>
     <text
-	 visiblity_control="LagMeterShrunk"
+     invisiblity_control="LagMeterShrunk"
      type="string"
      length="1"
      bottom="80"
@@ -264,7 +264,7 @@
         Normal
     </text>
     <text
-	 visiblity_control="LagMeterShrunk"	
+     invisiblity_control="LagMeterShrunk"
      bottom="96"
      follows="left|top"
      height="16"
@@ -280,7 +280,6 @@
      layout="topleft"
      left="8"
      name="server_lagmeter"
-     picture_style="true"
      tab_stop="false"
      tool_tip="Server lag status"
      top="104"
@@ -296,10 +295,10 @@
      name="server"
      top_delta="0"
      width="60">
-        Server:
+        Server
     </text>
     <text
-	 make_visible_control="LagMeterShrunk"
+     invisiblity_control="LagMeterShrunk"
      type="string"
      length="1"
      bottom="120"
@@ -307,13 +306,13 @@
      font="SansSerif"
      height="16"
      layout="topleft"
-     left="85"
+     left="110"
      name="server_text"
      right="-10">
         Normal
     </text>
     <text
-	 make_visible_control="LagMeterShrunk"
+     invisiblity_control="LagMeterShrunk"
      bottom="136"
      follows="left|top"
      height="16"
@@ -322,24 +321,15 @@
      name="server_lag_cause"
      right="-32" />
     <button
-     bottom="145"
-     follows="left|top"
-     height="18"
-     help_url="https://support.secondlife.com/ics/support/default.asp?deptID=4417&amp;task=knowledge&amp;questionID=4851"
-     label="?"
-     layout="topleft"
-     name="server_help"
-     right="-10"
-     width="18" />
-    <button
      follows="left|top"
      height="20"
      label="&gt;&gt;"
      layout="topleft"
-     left_delta="-317"
+     left="10"
      name="minimize"
-     top_delta="-2"
-     width="25">
+	 tool_tip="Toggle floater size"
+     top_delta="24"
+     width="40">
         <button.commit_callback
          function="LagMeter.ClickShrink" />
     </button>

@@ -20,11 +20,13 @@
 					<key>tags</key>
 						<array>
 							<string>AppInit</string>
+              <string>Capabilities</string>
 							<string>SystemInfo</string>
 							<string>TextureCache</string>
 							<string>AppCache</string>
 							<string>Window</string>
 							<string>RenderInit</string>
+							<string>MediaAuth</string>
 						</array>
 				</map>
 				<map>
@@ -40,7 +42,9 @@
 						</array>
 					<key>tags</key>
 						<array>
-              <string>ShaderLoading</string>
+							<!-- sample entry for debugging a specific item	-->
+<!--						<string>Voice</string>							-->
+              <string>Capabilities</string>
 						</array>
 				</map>
 			</array>

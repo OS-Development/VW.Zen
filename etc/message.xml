@@ -50,7 +50,7 @@
 				<key>OpenCircuit</key>
 				<map>
 					<key>flavor</key>
-					<string>template</string>
+					<string>llsd</string>
 					<key>trusted-sender</key>
 					<boolean>false</boolean>
 				</map>
@@ -370,6 +370,14 @@
 				</map>
 
 				<!-- Server to client -->
+				<key>DisplayNameUpdate</key>
+				<map>
+					<key>flavor</key>
+					<string>llsd</string>
+					<key>trusted-sender</key>
+					<boolean>true</boolean>
+				</map>
+                
 				<key>ParcelVoiceInfo</key>
 				<map>
 					<key>flavor</key>
@@ -377,7 +385,23 @@
 					<key>trusted-sender</key>
 					<boolean>true</boolean>
 				</map>
+
+				<key>ParcelMediaURLFilter</key>
+				<map>
+					<key>flavor</key>
+					<string>llsd</string>
+					<key>trusted-sender</key>
+					<boolean>false</boolean>
+				</map>
 				
+				<key>ParcelNavigateMedia</key>
+				<map>
+					<key>flavor</key>
+					<string>llsd</string>
+					<key>trusted-sender</key>
+					<boolean>false</boolean>
+				</map>
+
 				<key>ParcelObjectOwnersReply</key>
 				<map>
 					<key>flavor</key>
@@ -403,6 +427,22 @@
 				</map>
 
         <key>PlacesReply</key>
+        <map>
+          <key>flavor</key>
+          <string>llsd</string>
+          <key>trusted-sender</key>
+          <boolean>true</boolean>
+        </map>
+
+        <key>SetDisplayNameReply</key>
+        <map>
+          <key>flavor</key>
+          <string>llsd</string>
+          <key>trusted-sender</key>
+          <boolean>true</boolean>
+        </map>
+
+        <key>SimConsoleResponse</key>
         <map>
           <key>flavor</key>
           <string>llsd</string>
@@ -556,6 +596,13 @@
 					<boolean>false</boolean>
 				</map>
 
+        <key>ObjectPhysicsProperties</key>
+        <map>
+          <key>flavor</key>
+          <string>llsd</string>
+          <key>trusted-sender</key>
+          <boolean>true</boolean>
+        </map>
 
 		  </map>
   	  	<key>capBans</key>
@@ -638,21 +685,28 @@
 			<key>EstateChangeInfo</key>
 			<boolean>true</boolean>
 		
-			<key>FetchInventoryDescendents</key>
+			<key>FetchInventoryDescendents2</key>
 			<boolean>false</boolean>
 		
-			<key>WebFetchInventoryDescendents</key>
-			<boolean>true</boolean>
+			<key>FetchInventory2</key>
+			<boolean>false</boolean>
 		
-			<key>FetchInventory</key>
-			<boolean>true</boolean>
+			<key>FetchLibDescendents2</key>
+			<boolean>false</boolean>
 		
-			<key>FetchLibDescendents</key>
+			<key>FetchLib2</key>
+			<boolean>false</boolean>
+
+			<key>UploadBakedTexture</key>
 			<boolean>true</boolean>
-		
-			<key>FetchLib</key>
-			<boolean>true</boolean>
-		</map>
+			
+			<key>ObjectMedia</key>
+            		<boolean>false</boolean>
+                  
+            		<key>ObjectMediaNavigate</key>
+            		<boolean>false</boolean>
+                  
+      </map>
 
 		<key>messageBans</key>
 		<map>

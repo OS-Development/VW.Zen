@@ -2,39 +2,31 @@
  * @file llsliderctrl.cpp
  * @brief LLSliderCtrl base class
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
 #include "linden_common.h"
 
 #include "llsliderctrl.h"
-
-#include "audioengine.h"
 
 #include "llmath.h"
 #include "llfontgl.h"
@@ -65,7 +57,8 @@ LLSliderCtrl::LLSliderCtrl(const LLSliderCtrl::Params& p)
 	mCanEditText(p.can_edit_text),
 	mPrecision(p.decimal_digits),
 	mTextEnabledColor(p.text_color()),
-	mTextDisabledColor(p.text_disabled_color())
+	mTextDisabledColor(p.text_disabled_color()),
+	mLabelWidth(p.label_width)
 {
 	S32 top = getRect().getHeight();
 	S32 bottom = 0;
@@ -85,9 +78,10 @@ LLSliderCtrl::LLSliderCtrl(const LLSliderCtrl::Params& p)
 		LLTextBox::Params params(p.slider_label);
 		params.rect.setIfNotProvided(label_rect);
 		params.font.setIfNotProvided(p.font);
-		params.text(p.label);
+		params.initial_value(p.label());
 		mLabelBox = LLUICtrlFactory::create<LLTextBox> (params);
 		addChild(mLabelBox);
+		mLabelFont = params.font();
 	}
 
 	if (p.show_text && !p.text_width.isProvided())
@@ -124,7 +118,8 @@ LLSliderCtrl::LLSliderCtrl(const LLSliderCtrl::Params& p)
 	slider_p.min_value.setIfNotProvided(p.min_value);
 	slider_p.max_value.setIfNotProvided(p.max_value);
 	slider_p.increment.setIfNotProvided(p.increment);
-
+	slider_p.orientation.setIfNotProvided(p.orientation);
+	
 	slider_p.commit_callback.function(&LLSliderCtrl::onSliderCommit);
 	slider_p.control_name(p.control_name);
 	slider_p.mouse_down_callback( p.mouse_down_callback );
@@ -142,10 +137,10 @@ LLSliderCtrl::LLSliderCtrl(const LLSliderCtrl::Params& p)
 			line_p.rect.setIfNotProvided(text_rect);
 			line_p.font.setIfNotProvided(p.font);
 			line_p.commit_callback.function(&LLSliderCtrl::onEditorCommit);
-			line_p.prevalidate_callback(&LLLineEditor::prevalidateFloat);
+			line_p.prevalidate_callback(&LLTextValidate::validateFloat);
 			mEditor = LLUICtrlFactory::create<LLLineEditor>(line_p);
 
-			mEditor->setFocusReceivedCallback( &LLSliderCtrl::onEditorGainFocus, this );
+			mEditor->setFocusReceivedCallback( boost::bind(&LLSliderCtrl::onEditorGainFocus, _1, this ));
 			// don't do this, as selecting the entire text is single clicking in some cases
 			// and double clicking in others
 			//mEditor->setSelectAllonFocusReceived(TRUE);
@@ -187,9 +182,9 @@ BOOL LLSliderCtrl::setLabelArg( const std::string& key, const LLStringExplicit& 
 	if (mLabelBox)
 	{
 		res = mLabelBox->setTextArg(key, text);
-		if (res && mLabelWidth == 0)
+		if (res && mLabelFont && mLabelWidth == 0)
 		{
-			S32 label_width = mFont->getWidth(mLabelBox->getText());
+			S32 label_width = mLabelFont->getWidth(mLabelBox->getText());
 			LLRect rect = mLabelBox->getRect();
 			S32 prev_right = rect.mRight;
 			rect.mRight = rect.mLeft + label_width;
@@ -234,6 +229,10 @@ void LLSliderCtrl::updateText()
 		std::string text = llformat(format.c_str(), displayed_value);
 		if( mEditor )
 		{
+			// Setting editor text here to "" before using actual text is here because if text which
+			// is set is the same as the one which is actually typed into lineeditor, LLLineEditor::setText()
+			// will exit at it's beginning, so text for revert on escape won't be saved. (EXT-8536)
+			mEditor->setText( LLStringUtil::null );
 			mEditor->setText( text );
 		}
 		else
@@ -262,7 +261,7 @@ void LLSliderCtrl::onEditorCommit( LLUICtrl* ctrl, const LLSD& userdata )
 		if( self->mSlider->getMinValue() <= val && val <= self->mSlider->getMaxValue() )
 		{
 			self->setValue( val );  // set the value temporarily so that the callback can retrieve it.
-			if( self->mValidateSignal( self, val ) )
+			if( !self->mValidateSignal || (*(self->mValidateSignal))( self, val ) )
 			{
 				success = TRUE;
 			}
@@ -296,7 +295,7 @@ void LLSliderCtrl::onSliderCommit( LLUICtrl* ctrl, const LLSD& userdata )
 	F32 new_val = self->mSlider->getValueF32();
 
 	self->mValue = new_val;  // set the value temporarily so that the callback can retrieve it.
-	if( self->mValidateSignal( self, new_val ) )
+	if( !self->mValidateSignal || (*(self->mValidateSignal))( self, new_val ) )
 	{
 		success = TRUE;
 	}
@@ -397,5 +396,4 @@ void LLSliderCtrl::reportInvalidData()
 {
 	make_ui_sound("UISndBadKeystroke");
 }
-
 

@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  height="224"
  layout="topleft"
  name="Hardware Settings Floater"
- title="Hardware Settings"
- width="500">
+ help_topic="hardware_settings_floater"
+ title="HARDWARE SETTINGS"
+ width="615">
     <text
      type="string"
      length="1"
@@ -13,8 +15,8 @@
      layout="topleft"
      left="10"
      name="Filtering:"
-     top="30"
-     width="128">
+     top="20"
+     width="188">
         Filtering:
     </text>
     <check_box
@@ -34,36 +36,53 @@
      layout="topleft"
      left="10"
      name="Antialiasing:"
-     top="49"
-     width="128">
+     top_pad="7"
+     width="188">
         Antialiasing:
     </text>
     <combo_box
      control_name="RenderFSAASamples"
-     height="16"
+     height="22"
      initial_value="false"
      label="Antialiasing"
      layout="topleft"
      left_pad="10"
      name="fsaa"
      top_delta="0"
-     width="64">
+     width="130">
         <combo_box.item
          label="Disabled"
+         name="FSAADisabled"
          value="0" />
         <combo_box.item
          label="2x"
+         name="2x"
          value="2" />
         <combo_box.item
          label="4x"
+         name="4x"
          value="4" />
         <combo_box.item
          label="8x"
+         name="8x"
          value="8" />
         <combo_box.item
          label="16x"
+         name="16x"
          value="16" />
     </combo_box>
+   <text
+     type="string"
+     length="1"
+     follows="left|top"
+     height="12"
+     layout="topleft"
+     left_pad="10"
+     name="antialiasing restart"
+     top_delta="0"
+     width="230">
+      (requires viewer restart)
+    </text>
     <spinner
      control_name="RenderGamma"
      decimal_digits="2"
@@ -72,13 +91,13 @@
      increment="0.01"
      initial_value="1"
      label="Gamma:"
-     label_width="138"
+     label_width="198"
      layout="topleft"
      left="10"
      max_val="2"
      name="gamma"
-     top="70"
-     width="202" />
+     top_pad="11"
+     width="262" />
     <text
      type="string"
      length="1"
@@ -88,19 +107,19 @@
      left_pad="10"
      name="(brightness, lower is brighter)"
      top_delta="2"
-     width="315">
-        (brightness, lower is brighter, 0=use default)
+     width="385">
+        (0 = default brightness, lower = brighter)
     </text>
     <text
      type="string"
      length="1"
      follows="left|top"
-     height="12"
+     height="16"
      layout="topleft"
      left="10"
      name="Enable VBO:"
-     top="92"
-     width="128">
+     top_pad="10"
+     width="188">
         Enable VBO:
     </text>
     <check_box
@@ -112,47 +131,46 @@
      left_pad="10"
      name="vbo"
      tool_tip="Enabling this on modern hardware gives a performance gain.  However, older hardware often has poor implementations of VBOs and you may get crashes when this is enabled."
-     top_delta="1"
      width="315" />
     <slider
      control_name="TextureMemory"
      decimal_digits="0"
      follows="left|top"
-     height="16"
+     height="20"
      increment="16"
      initial_value="32"
      label="Texture Memory (MB):"
-     label_width="135"
+     label_width="195"
      layout="topleft"
      left="10"
      max_val="4096"
-     name="GrapicsCardTextureMemory"
-     tool_tip="Amount of memory to allocate for textures. Defaults to Video Card Memory. Reducing this may improve performance but may also make textures blurry."
-     top="114"
-     width="300" />
+     name="GraphicsCardTextureMemory"
+     tool_tip="Amount of memory to allocate for textures. Defaults to video card memory. Reducing this may improve performance but may also make textures blurry."
+     top_pad="10"
+     width="360" />
     <spinner
      control_name="RenderFogRatio"
      decimal_digits="1"
      follows="left|top"
-     height="16"
+     height="22"
      initial_value="4"
      label="Fog Distance Ratio:"
-     label_width="138"
+     label_width="198"
      layout="topleft"
      left_delta="0"
      max_val="10"
      min_val="0.5"
      name="fog"
-     top_pad="8"
-     width="202" />
+     top_pad="7"
+     width="262" />
     <button
      follows="right|bottom"
-     height="20"
+     height="22"
      label="OK"
      label_selected="OK"
      layout="topleft"
-     left="-110"
+     left="-102"
      name="OK"
-     top="194"
+     top="192"
      width="90" />
 </floater>

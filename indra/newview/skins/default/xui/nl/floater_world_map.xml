@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<floater name="worldmap" title="Wereldkaart">
+<floater name="worldmap" title="WERELDKAART">
 	<tab_container name="maptab">
 		<panel label="Objecten" name="objects_mapview"/>
 		<panel label="Terrein" name="terrain_mapview"/>
@@ -26,13 +26,13 @@
 		Evenementen:
 	</text>
 	<check_box label="PG" name="event_chk"/>
-	<check_box label="Mature" name="event_mature_chk"/>
-	<check_box label="Adult" name="event_adult_chk"/>
+	<check_box label="Mature" name="events_mature_chk"/>
+	<check_box label="Adult" name="events_adult_chk"/>
 	<combo_box label="Online vrienden" name="friend combo" tool_tip="Vriend die op kaart getoond wordt">
-		<combo_box.item name="none_selected" label="Online vrienden"/>
+		<combo_box.item name="item1" label="Online vrienden"/>
 	</combo_box>
 	<combo_box label="Landmarkeringen" name="landmark combo" tool_tip="Landmarkering die op kaart getoond wordt">
-		<combo_box.item name="none_selected" label="Landmarkeringen"/>
+		<combo_box.item name="item1" label="Landmarkeringen"/>
 	</combo_box>
 	<line_editor label="Zoek op regionaam" name="location" tool_tip="Type de naam van een regio"/>
 	<button label="Zoeken" name="DoSearch" tool_tip="Zoek naar regio"/>
@@ -49,6 +49,6 @@
 	<button label="Toon bestemming" label_selected="Toon bestemming" name="Show Destination" tool_tip="Centreer kaart op geselecteerde locatie"/>
 	<button label="Verwijder" label_selected="Verwijder" name="Clear" tool_tip="Stop volgen"/>
 	<button label="Toon mijn locatie" label_selected="Toon mijn locatie" name="Show My Location" tool_tip="Centreer kaart op de locatie van uw avatar"/>
-	<button label="Kopieer SLURL naar klembord" name="copy_slurl" tool_tip="Kopieert huidige locatie als SLURL, zodat deze op het web gebruikt kan worden."/>
+	<button label="Kopieer SLurl naar klembord" name="copy_slurl" tool_tip="Kopieert huidige locatie als SLurl, zodat deze op het web gebruikt kan worden."/>
 	<slider label="Zoom" name="zoom slider"/>
 </floater>

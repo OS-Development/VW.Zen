@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  can_minimize="false"
  height="87"
  layout="topleft"
  name="url_entry"
+ help_topic="url_entry"
  width="280">
     <text
      type="string"
@@ -30,7 +32,6 @@
     <button
      follows="top|left"
      height="20"
-     font="SansSerifSmall"
      label="OK"
      layout="topleft"
      left="10"
@@ -40,7 +41,6 @@
     <button
      follows="top|left"
      height="20"
-     font="SansSerifSmall"
      label="Cancel"
      layout="topleft"
      left_pad="5"
@@ -50,7 +50,6 @@
     <button
      follows="top|right"
      height="20"
-     font="SansSerifSmall"
      label="Clear"
      layout="topleft"
      left_pad="65"

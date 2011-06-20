@@ -2,55 +2,45 @@
  * @file llworldmapview.h
  * @brief LLWorldMapView class header file
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
-// Global map of the world.
+// View of the global map of the world
+
+// The data (model) for the global map (a singleton, unique to the application instance) is 
+// in LLWorldMap and is typically accessed using LLWorldMap::getInstance()
 
 #ifndef LL_LLWORLDMAPVIEW_H
 #define LL_LLWORLDMAPVIEW_H
 
 #include "llpanel.h"
-#include "v3math.h"
-#include "v3dmath.h"
-#include "v4color.h"
-#include "llviewertexture.h"
-#include "llmapimagetype.h"
 #include "llworldmap.h"
-
-class LLItemInfo;
+#include "v4color.h"
 
 const S32 DEFAULT_TRACKING_ARROW_SIZE = 16;
 
-class LLColor4;
-class LLColor4U;
-class LLCoordGL;
-class LLViewerTexture;
+class LLUUID;
+class LLVector3d;
+class LLVector3;
 class LLTextBox;
 
 
@@ -72,27 +62,31 @@ public:
 	virtual BOOL	handleMouseUp(S32 x, S32 y, MASK mask);
 	virtual BOOL	handleDoubleClick( S32 x, S32 y, MASK mask );
 	virtual BOOL	handleHover( S32 x, S32 y, MASK mask );
-	virtual BOOL	handleToolTip( S32 x, S32 y, std::string& msg, LLRect* sticky_rect_screen );
+	virtual BOOL	handleToolTip( S32 x, S32 y, MASK mask);
 
 	bool			checkItemHit(S32 x, S32 y, LLItemInfo& item, LLUUID* id, bool track);
 	void			handleClick(S32 x, S32 y, MASK mask, S32* hit_type, LLUUID* id);
 
-	// Scale and pan are shared across all instances.
+	// Scale and pan are shared across all instances! (i.e. Terrain and Objects maps are always registered)
 	static void		setScale( F32 scale );
 	static void		translatePan( S32 delta_x, S32 delta_y );
 	static void		setPan( S32 x, S32 y, BOOL snap = TRUE );
+	// Return true if the current scale level is above the threshold for accessing region info
+	static bool		showRegionInfo();
 
 	LLVector3		globalPosToView(const LLVector3d& global_pos);
 	LLVector3d		viewPosToGlobal(S32 x,S32 y);
 
 	virtual void	draw();
-	void			drawGenericItems(const LLWorldMap::item_info_list_t& items, LLUIImagePtr image);
+	void			drawGenericItems(const LLSimInfo::item_info_list_t& items, LLUIImagePtr image);
 	void			drawGenericItem(const LLItemInfo& item, LLUIImagePtr image);
 	void			drawImage(const LLVector3d& global_pos, LLUIImagePtr image, const LLColor4& color = LLColor4::white);
 	void			drawImageStack(const LLVector3d& global_pos, LLUIImagePtr image, U32 count, F32 offset, const LLColor4& color);
 	void			drawAgents();
-	void			drawEvents();
+	void			drawItems();
 	void			drawFrustum();
+	void			drawMipmap(S32 width, S32 height);
+	bool			drawMipmapLevel(S32 width, S32 height, S32 level, bool load = true);
 
 	static void		cleanupTextures();
 
@@ -108,7 +102,7 @@ public:
 									F32 y_pixels, 
 									const LLColor4& color,
 									F32 relative_z = 0.f,
-									F32 dot_radius = 3.f);
+									F32 dot_radius = 5.f);
 
 	static void		drawTrackingCircle( const LLRect& rect, S32 x, S32 y, 
 										const LLColor4& color, 
@@ -129,9 +123,7 @@ public:
 	static void		clearLastClick() { sHandledLastClick = FALSE; }
 
 	// if the view changes, download additional sim info as needed
-	// return value is number of blocks newly requested.
-	U32				updateBlock(S32 block_x, S32 block_y);
-	U32				updateVisibleBlocks();
+	void			updateVisibleBlocks();
 
 protected:
 	void			setDirectionPos( LLTextBox* text_box, F32 rotation );
@@ -140,11 +132,13 @@ protected:
 public:
 	LLColor4		mBackgroundColor;
 
-	static LLUIImagePtr	sAvatarYouSmallImage;
 	static LLUIImagePtr	sAvatarSmallImage;
-	static LLUIImagePtr	sAvatarLargeImage;
+	static LLUIImagePtr	sAvatarYouImage;
+	static LLUIImagePtr	sAvatarYouLargeImage;
+	static LLUIImagePtr	sAvatarLevelImage;
 	static LLUIImagePtr	sAvatarAboveImage;
 	static LLUIImagePtr	sAvatarBelowImage;
+
 	static LLUIImagePtr	sTelehubImage;
 	static LLUIImagePtr	sInfohubImage;
 	static LLUIImagePtr	sHomeImage;
@@ -157,9 +151,7 @@ public:
 	static LLUIImagePtr	sForSaleImage;
 	static LLUIImagePtr	sForSaleAdultImage;
 
-	static F32		sThresholdA;
-	static F32		sThresholdB;
-	static F32		sPixelsPerMeter;		// world meters to map pixels
+	static F32		sMapScale;				// scale = size of a region in pixels
 
 	BOOL			mItemPicked;
 
@@ -169,6 +161,7 @@ public:
 	static F32		sTargetPanY;		// in pixels
 	static S32		sTrackingArrowX;
 	static S32		sTrackingArrowY;
+	static bool		sVisibleTilesLoaded;
 
 	// Are we mid-pan from a user drag?
 	BOOL			mPanning;
@@ -191,10 +184,14 @@ public:
 	static BOOL		sHandledLastClick;
 	S32				mSelectIDStart;
 
+	// Keep the list of regions that are displayed on screen. Avoids iterating through the whole region map after draw().
 	typedef std::vector<U64> handle_list_t;
 	handle_list_t mVisibleRegions; // set every frame
 
 	static std::map<std::string,std::string> sStringsMap;
+
+private:
+	void drawTileOutline(S32 level, F32 top, F32 left, F32 bottom, F32 right);
 };
 
 #endif

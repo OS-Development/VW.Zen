@@ -2,31 +2,25 @@
  * @file llgl.h
  * @brief LLGL definition
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -36,7 +30,8 @@
 // This file contains various stuff for handling gl extensions and other gl related stuff.
 
 #include <string>
-#include <map>
+#include <boost/unordered_map.hpp>
+#include <list>
 
 #include "llerror.h"
 #include "v4color.h"
@@ -45,6 +40,7 @@
 #include "v4math.h"
 #include "llplane.h"
 #include "llgltypes.h"
+#include "llinstancetracker.h"
 
 #include "llglheaders.h"
 #include "glh/glh_linear.h"
@@ -81,22 +77,34 @@ public:
 
 	// Extensions used by everyone
 	BOOL mHasMultitexture;
+	BOOL mHasATIMemInfo;
+	BOOL mHasNVXMemInfo;
 	S32	 mNumTextureUnits;
 	BOOL mHasMipMapGeneration;
 	BOOL mHasCompressedTextures;
 	BOOL mHasFramebufferObject;
-	BOOL mHasFramebufferMultisample;
-	
+	S32 mMaxSamples;
+	BOOL mHasBlendFuncSeparate;
+		
 	// ARB Extensions
 	BOOL mHasVertexBufferObject;
+	BOOL mHasMapBufferRange;
 	BOOL mHasPBuffer;
 	BOOL mHasShaderObjects;
 	BOOL mHasVertexShader;
 	BOOL mHasFragmentShader;
+	S32  mNumTextureImageUnits;
 	BOOL mHasOcclusionQuery;
+	BOOL mHasOcclusionQuery2;
 	BOOL mHasPointParameters;
 	BOOL mHasDrawBuffers;
+	BOOL mHasDepthClamp;
 	BOOL mHasTextureRectangle;
+	BOOL mHasTextureMultisample;
+	S32 mMaxSampleMaskWords;
+	S32 mMaxColorTextureSamples;
+	S32 mMaxDepthTextureSamples;
+	S32 mMaxIntegerSamples;
 
 	// Other extensions.
 	BOOL mHasAnisotropic;
@@ -118,6 +126,9 @@ public:
 
 	// Misc extensions
 	BOOL mHasSeparateSpecularColor;
+
+	//whether this GPU is in the debug list.
+	BOOL mDebugGPU;
 	
 	S32 mDriverVersionMajor;
 	S32 mDriverVersionMinor;
@@ -135,6 +146,7 @@ public:
 	void printGLInfoString();
 	void getGLInfo(LLSD& info);
 
+	U32 getNumFBOFSAASamples(U32 desired_samples = 32);
 	// In ALL CAPS
 	std::string mGLVendor;
 	std::string mGLVendorShort;
@@ -146,6 +158,7 @@ private:
 	void initExtensions();
 	void initGLStates();
 	void initGLImages();
+	void setToDebugGPU();
 };
 
 extern LLGLManager gGLManager;
@@ -157,6 +170,7 @@ void rotate_quat(LLQuaternion& rotation);
 
 void flush_glerror(); // Flush GL errors when we know we're handling them correctly.
 
+void log_glerror();
 void assert_glerror();
 
 void clear_glerror();
@@ -239,7 +253,7 @@ public:
 	static void checkClientArrays(const std::string& msg = "", U32 data_mask = 0x0001);
 	
 protected:
-	static std::map<LLGLenum, LLGLboolean> sStateMap;
+	static boost::unordered_map<LLGLenum, LLGLboolean> sStateMap;
 	
 public:
 	enum { CURRENT_STATE = -2 };
@@ -297,12 +311,14 @@ class LLGLUserClipPlane
 {
 public:
 	
-	LLGLUserClipPlane(const LLPlane& plane, const glh::matrix4f& modelview, const glh::matrix4f& projection);
+	LLGLUserClipPlane(const LLPlane& plane, const glh::matrix4f& modelview, const glh::matrix4f& projection, bool apply = true);
 	~LLGLUserClipPlane();
 
 	void setPlane(F32 a, F32 b, F32 c, F32 d);
 
 private:
+	bool mApply;
+
 	glh::matrix4f mProjection;
 	glh::matrix4f mModelview;
 };
@@ -315,20 +331,22 @@ private:
   leaves this class.
   Does not stack.
 */
-class LLGLClampToFarClip
+class LLGLSquashToFarClip
 {
 public:
-	LLGLClampToFarClip(glh::matrix4f projection);
-	~LLGLClampToFarClip();
+	LLGLSquashToFarClip(glh::matrix4f projection, U32 layer = 0);
+	~LLGLSquashToFarClip();
 };
 
 /*
 	Generic pooling scheme for things which use GL names (used for occlusion queries and vertex buffer objects).
 	Prevents thrashing of GL name caches by avoiding calls to glGenFoo and glDeleteFoo.
 */
-class LLGLNamePool
+class LLGLNamePool : public LLInstanceTracker<LLGLNamePool>
 {
 public:
+	typedef LLInstanceTracker<LLGLNamePool> tracker_t;
+
 	struct NameEntry
 	{
 		GLuint name;
@@ -355,16 +373,43 @@ public:
 	GLuint allocate();
 	void release(GLuint name);
 	
-	static void registerPool(LLGLNamePool* pool);
 	static void upkeepPools();
 	static void cleanupPools();
 
 protected:
 	typedef std::vector<LLGLNamePool*> pool_list_t;
-	static pool_list_t sInstances;
 	
 	virtual GLuint allocateName() = 0;
 	virtual void releaseName(GLuint name) = 0;
+};
+
+/*
+	Interface for objects that need periodic GL updates applied to them.
+	Used to synchronize GL updates with GL thread.
+*/
+class LLGLUpdate
+{
+public:
+
+	static std::list<LLGLUpdate*> sGLQ;
+
+	BOOL mInQ;
+	LLGLUpdate()
+		: mInQ(FALSE)
+	{
+	}
+	virtual ~LLGLUpdate()
+	{
+		if (mInQ)
+		{
+			std::list<LLGLUpdate*>::iterator iter = std::find(sGLQ.begin(), sGLQ.end(), this);
+			if (iter != sGLQ.end())
+			{
+				sGLQ.erase(iter);
+			}
+		}
+	}
+	virtual void updateGL() = 0;
 };
 
 extern LLMatrix4 gGLObliqueProjectionInverse;
@@ -384,5 +429,70 @@ void set_binormals(const S32 index, const U32 stride, const LLVector3 *binormals
 void parse_gl_version( S32* major, S32* minor, S32* release, std::string* vendor_specific );
 
 extern BOOL gClothRipple;
-extern BOOL gNoRender;
+extern BOOL gHeadlessClient;
+extern BOOL gGLActive;
+
+// Deal with changing glext.h definitions for newer SDK versions, specifically
+// with MAC OSX 10.5 -> 10.6
+
+
+#ifndef GL_DEPTH_ATTACHMENT
+#define GL_DEPTH_ATTACHMENT GL_DEPTH_ATTACHMENT_EXT
+#endif
+
+#ifndef GL_STENCIL_ATTACHMENT
+#define GL_STENCIL_ATTACHMENT GL_STENCIL_ATTACHMENT_EXT
+#endif
+
+#ifndef GL_FRAMEBUFFER
+#define GL_FRAMEBUFFER GL_FRAMEBUFFER_EXT
+#define GL_DRAW_FRAMEBUFFER GL_DRAW_FRAMEBUFFER_EXT
+#define GL_READ_FRAMEBUFFER GL_READ_FRAMEBUFFER_EXT
+#define GL_FRAMEBUFFER_COMPLETE GL_FRAMEBUFFER_COMPLETE_EXT
+#define GL_FRAMEBUFFER_UNSUPPORTED GL_FRAMEBUFFER_UNSUPPORTED_EXT
+#define GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT_EXT
+#define GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT_EXT
+#define glGenFramebuffers glGenFramebuffersEXT
+#define glBindFramebuffer glBindFramebufferEXT
+#define glCheckFramebufferStatus glCheckFramebufferStatusEXT
+#define glBlitFramebuffer glBlitFramebufferEXT
+#define glDeleteFramebuffers glDeleteFramebuffersEXT
+#define glFramebufferRenderbuffer glFramebufferRenderbufferEXT
+#define glFramebufferTexture2D glFramebufferTexture2DEXT
+#endif
+
+#ifndef GL_RENDERBUFFER
+#define GL_RENDERBUFFER GL_RENDERBUFFER_EXT
+#define glGenRenderbuffers glGenRenderbuffersEXT
+#define glBindRenderbuffer glBindRenderbufferEXT
+#define glRenderbufferStorage glRenderbufferStorageEXT
+#define glRenderbufferStorageMultisample glRenderbufferStorageMultisampleEXT
+#define glDeleteRenderbuffers glDeleteRenderbuffersEXT
+#endif
+
+#ifndef GL_COLOR_ATTACHMENT
+#define GL_COLOR_ATTACHMENT GL_COLOR_ATTACHMENT_EXT
+#endif
+
+#ifndef GL_COLOR_ATTACHMENT0
+#define GL_COLOR_ATTACHMENT0 GL_COLOR_ATTACHMENT0_EXT
+#endif
+
+#ifndef GL_COLOR_ATTACHMENT1
+#define GL_COLOR_ATTACHMENT1 GL_COLOR_ATTACHMENT1_EXT
+#endif
+
+#ifndef GL_COLOR_ATTACHMENT2
+#define GL_COLOR_ATTACHMENT2 GL_COLOR_ATTACHMENT2_EXT
+#endif
+
+#ifndef GL_COLOR_ATTACHMENT3
+#define GL_COLOR_ATTACHMENT3 GL_COLOR_ATTACHMENT3_EXT
+#endif
+
+
+#ifndef GL_DEPTH24_STENCIL8
+#define GL_DEPTH24_STENCIL8 GL_DEPTH24_STENCIL8_EXT
+#endif 
+
 #endif // LL_LLGL_H

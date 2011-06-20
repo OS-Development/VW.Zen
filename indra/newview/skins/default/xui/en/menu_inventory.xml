@@ -5,6 +5,14 @@
  name="Popup"
  visible="false">
     <menu_item_call
+     label="Share"
+     layout="topleft"
+     name="Share"
+     visible="true">
+        <menu_item_call.on_click
+         function="Inventory.Share" />
+    </menu_item_call>
+    <menu_item_call
      label="Buy"
      layout="topleft"
      name="Task Buy">
@@ -85,7 +93,7 @@
          parameter="lsl" />
     </menu_item_call>
     <menu_item_call
-     label="New Note"
+     label="New Notecard"
      layout="topleft"
      name="New Note">
         <menu_item_call.on_click
@@ -192,6 +200,14 @@
              function="Inventory.DoCreate"
              parameter="tattoo" />
         </menu_item_call>
+        <menu_item_call
+         label="New Physics"
+         layout="topleft"
+         name="New Physics">
+            <menu_item_call.on_click
+             function="Inventory.DoCreate"
+             parameter="physics" />
+        </menu_item_call>
     </menu>
     <menu
      label="New Body Parts"
@@ -230,6 +246,91 @@
              parameter="eyes" />
         </menu_item_call>
     </menu>
+    <menu
+     label="Change Type"
+     layout="topleft"
+     name="Change Type">
+        <menu_item_call
+         label="Default"
+         layout="topleft"
+         name="Default">
+            <menu_item_call.on_click
+             function="Inventory.DoToSelected"
+             parameter="change_folder_type_default" />
+        </menu_item_call>
+        <menu_item_call
+         label="Gloves"
+         layout="topleft"
+         name="Gloves">
+            <menu_item_call.on_click
+             function="Inventory.DoToSelected"
+             parameter="change_folder_type_gloves" />
+        </menu_item_call>
+        <menu_item_call
+         label="Jacket"
+         layout="topleft"
+         name="Jacket">
+            <menu_item_call.on_click
+             function="Inventory.DoToSelected"
+             parameter="change_folder_type_jacket" />
+        </menu_item_call>
+        <menu_item_call
+         label="Pants"
+         layout="topleft"
+         name="Pants">
+            <menu_item_call.on_click
+             function="Inventory.DoToSelected"
+             parameter="change_folder_type_pants" />
+        </menu_item_call>
+        <menu_item_call
+         label="Shape"
+         layout="topleft"
+         name="Shape">
+            <menu_item_call.on_click
+             function="Inventory.DoToSelected"
+             parameter="change_folder_type_shape" />
+        </menu_item_call>
+        <menu_item_call
+         label="Shoes"
+         layout="topleft"
+         name="Shoes">
+            <menu_item_call.on_click
+             function="Inventory.DoToSelected"
+             parameter="change_folder_type_shoes" />
+        </menu_item_call>
+        <menu_item_call
+         label="Shirt"
+         layout="topleft"
+         name="Shirt">
+            <menu_item_call.on_click
+             function="Inventory.DoToSelected"
+             parameter="change_folder_type_shirt" />
+        </menu_item_call>
+        <menu_item_call
+         label="Skirt"
+         layout="topleft"
+         name="Skirt">
+            <menu_item_call.on_click
+             function="Inventory.DoToSelected"
+             parameter="change_folder_type_skirt" />
+        </menu_item_call>
+        <menu_item_call
+         label="Underpants"
+         layout="topleft"
+         name="Underpants">
+            <menu_item_call.on_click
+             function="Inventory.DoToSelected"
+             parameter="change_folder_type_underpants" />
+        </menu_item_call>
+        <menu_item_call
+         label="Undershirt"
+         layout="topleft"
+         name="Undershirt">
+            <menu_item_call.on_click
+             function="Inventory.DoToSelected"
+             parameter="change_folder_type_undershirt" />
+        </menu_item_call>
+    </menu>
     <menu_item_call
      label="Teleport"
      layout="topleft"
@@ -253,6 +354,44 @@
         <menu_item_call.on_click
          function="Inventory.DoToSelected"
          parameter="open" />
+    </menu_item_call>
+    <menu_item_separator
+     layout="topleft"
+     name="Folder Wearables Separator" />
+    <menu_item_call
+     label="Replace Current Outfit"
+     layout="topleft"
+     name="Replace Outfit">
+        <menu_item_call.on_click
+         function="Inventory.DoToSelected"
+         parameter="replaceoutfit" />
+    </menu_item_call>
+    <menu_item_call
+     label="Add To Current Outfit"
+     layout="topleft"
+     name="Add To Outfit">
+        <menu_item_call.on_click
+         function="Inventory.DoToSelected"
+         parameter="addtooutfit" />
+    </menu_item_call>
+    <menu_item_call
+     label="Remove From Current Outfit"
+     layout="topleft"
+     name="Remove From Outfit">
+        <menu_item_call.on_click
+         function="Inventory.DoToSelected"
+         parameter="removefromoutfit" />
+    </menu_item_call>
+    <menu_item_separator
+     layout="topleft"
+     name="Outfit Separator" />
+    <menu_item_call
+     label="Find Original"
+     layout="topleft"
+     name="Find Original">
+        <menu_item_call.on_click
+         function="Inventory.DoToSelected"
+         parameter="goto" />
     </menu_item_call>
     <menu_item_call
      label="Purge Item"
@@ -279,6 +418,14 @@
          parameter="open" />
     </menu_item_call>
     <menu_item_call
+     label="Open Original"
+     layout="topleft"
+     name="Open Original">
+        <menu_item_call.on_click
+         function="Inventory.DoToSelected"
+         parameter="open_original" />
+    </menu_item_call>
+    <menu_item_call
      label="Properties"
      layout="topleft"
      name="Properties">
@@ -303,7 +450,8 @@
          parameter="copy_uuid" />
     </menu_item_call>
     <menu_item_separator
-     layout="topleft" />
+     layout="topleft" 
+     name="Copy Separator" />
     <menu_item_call
      label="Copy"
      layout="topleft"
@@ -329,7 +477,16 @@
          parameter="paste_link" />
     </menu_item_call>
     <menu_item_separator
-     layout="topleft" />
+     layout="topleft" 
+     name="Paste Separator" />
+    <menu_item_call
+     label="Delete"
+     layout="topleft"
+     name="Remove Link">
+        <menu_item_call.on_click
+         function="Inventory.DoToSelected"
+         parameter="delete" />
+    </menu_item_call>
     <menu_item_call
      label="Delete"
      layout="topleft"
@@ -338,32 +495,16 @@
          function="Inventory.DoToSelected"
          parameter="delete" />
     </menu_item_call>
+    <menu_item_call
+     label="Delete System Folder"
+     layout="topleft"
+     name="Delete System Folder">
+        <menu_item_call.on_click
+         function="Inventory.DoToSelected"
+         parameter="delete_system_folder" />
+    </menu_item_call>
     <menu_item_separator
      layout="topleft" />
-    <menu_item_call
-     label="Take Off Items"
-     layout="topleft"
-     name="Take Off Items">
-        <menu_item_call.on_click
-         function="Inventory.DoToSelected"
-         parameter="removefromoutfit" />
-    </menu_item_call>
-    <menu_item_call
-     label="Add To Outfit"
-     layout="topleft"
-     name="Add To Outfit">
-        <menu_item_call.on_click
-         function="Inventory.DoToSelected"
-         parameter="addtooutfit" />
-    </menu_item_call>
-    <menu_item_call
-     label="Replace Outfit"
-     layout="topleft"
-     name="Replace Outfit">
-        <menu_item_call.on_click
-         function="Inventory.DoToSelected"
-         parameter="replaceoutfit" />
-    </menu_item_call>
     <menu_item_separator
      layout="topleft" />
     <menu_item_call
@@ -385,19 +526,21 @@
          parameter="open" />
     </menu_item_call>
     <menu_item_separator
-     layout="topleft" />
+     layout="topleft"
+     name="Landmark Separator" />
     <menu_item_call
      label="About Landmark"
      layout="topleft"
-     name="Teleport To Landmark">
+     name="About Landmark">
         <menu_item_call.on_click
          function="Inventory.DoToSelected"
          parameter="about" />
     </menu_item_call>
     <menu_item_separator
-     layout="topleft" />
+     layout="topleft" 
+     name="Animation Separator" />
     <menu_item_call
-     label="Play in World"
+     label="Play Inworld"
      layout="topleft"
      name="Animation Play">
         <menu_item_call.on_click
@@ -413,7 +556,8 @@
          parameter="playlocal" />
     </menu_item_call>
     <menu_item_separator
-     layout="topleft" />
+     layout="topleft" 
+     name="Send Instant Message Separator" />
     <menu_item_call
      label="Send Instant Message"
      layout="topleft"
@@ -439,7 +583,8 @@
          parameter="selected" />
     </menu_item_call>
     <menu_item_separator
-     layout="topleft" />
+     layout="topleft" 
+     name="Gesture Separator" />
     <menu_item_call
      label="Activate"
      layout="topleft"
@@ -457,7 +602,19 @@
          parameter="deactivate" />
     </menu_item_call>
     <menu_item_separator
-     layout="topleft" />
+     layout="topleft" 
+     name="Texture Separator" />
+    <menu_item_call
+     label="Save As"
+     layout="topleft"
+     name="Save As">
+        <menu_item_call.on_click
+         function="Inventory.DoToSelected"
+         parameter="save_as" />
+    </menu_item_call>
+    <menu_item_separator
+     layout="topleft" 
+     name="Wearable And Object Separator"/>
     <menu_item_call
      label="Detach From Yourself"
      layout="topleft"
@@ -480,10 +637,10 @@
     <menu_item_call
      label="Wear"
      layout="topleft"
-     name="Object Wear">
+     name="Wearable And Object Wear">
         <menu_item_call.on_click
          function="Inventory.DoToSelected"
-         parameter="attach" />
+         parameter="wear" />
     </menu_item_call>
     <menu
      label="Attach To"
@@ -502,12 +659,12 @@
          parameter="edit" />
     </menu_item_call>
     <menu_item_call
-     label="Wear"
+     label="Add"
      layout="topleft"
-     name="Wearable Wear">
+     name="Wearable Add">
         <menu_item_call.on_click
          function="Inventory.DoToSelected"
-         parameter="wear" />
+         parameter="wear_add" />
     </menu_item_call>
     <menu_item_call
      label="Take Off"

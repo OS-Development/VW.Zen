@@ -2,31 +2,25 @@
  * @file lscript_tree.cpp
  * @brief implements methods for lscript_tree.h classes
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -631,9 +625,7 @@ static void print_cil_cast(LLFILE* fp, LSCRIPTType srcType, LSCRIPTType targetTy
 		switch(targetType)
 		{
 		case LST_INTEGER:
-			//fprintf(fp, "call int32 [LslLibrary]LindenLab.SecondLife.LslRunTime::ToInteger(float32)\n");
-			fprintf(fp, "conv.i4\n"); // TODO replace this line with the above
-			// we the entire grid is > 1.25.1
+			fprintf(fp, "call int32 [LslLibrary]LindenLab.SecondLife.LslRunTime::ToInteger(float32)\n");
 			break;
 		case LST_STRING:
 			fprintf(fp, "call string [LslLibrary]LindenLab.SecondLife.LslRunTime::ToString(float32)\n");
@@ -8375,10 +8367,18 @@ void LLScriptStateChange::recurse(LLFILE *fp, S32 tabs, S32 tabsize, LSCRIPTComp
 			chunk->addInteger(mIdentifier->mScopeEntry->mCount);
 		}
 		break;
+	case LSCP_TYPE:
+		mReturnType = basetype;
+		break;
 	case LSCP_EMIT_CIL_ASSEMBLY:
 		fprintf(fp, "ldarg.0\n");
 		fprintf(fp, "ldstr \"%s\"\n", mIdentifier->mName);
 		fprintf(fp, "call instance void class [LslUserScript]LindenLab.SecondLife.LslUserScript::ChangeState(string)\n");
+		// We are doing a state change. In the LSL interpreter, this is basically a longjmp. We emulate it
+		// here using a call to the ChangeState followed by a short cut return of the current method. To
+		// maintain type safety we need to push an arbitrary variable of the current method's return type
+		// onto the stack before returning. This will be ignored and discarded.
+		print_cil_init_variable(fp, mReturnType);
 		fprintf(fp, "ret\n");
 		break;
 	default:
@@ -9799,6 +9799,9 @@ void LLScriptEventHandler::recurse(LLFILE *fp, S32 tabs, S32 tabsize, LSCRIPTCom
 		break;
 	case LSCP_EMIT_BYTE_CODE:
 		{
+			llassert(mEventp);
+			if (!mEventp) return;
+
 			// order for event handler
 			// set jump table value
 			S32 jumpoffset;
@@ -9812,13 +9815,11 @@ void LLScriptEventHandler::recurse(LLFILE *fp, S32 tabs, S32 tabsize, LSCRIPTCom
 			chunk->addBytes(4);
 
 			// null terminated event name and null terminated parameters
-			if (mEventp)
-			{
-				LLScriptByteCodeChunk	*event = new LLScriptByteCodeChunk(FALSE);
-				mEventp->recurse(fp, tabs, tabsize, pass, ptype, prunearg, scope, type, basetype, count, event, heap, stacksize, entry, entrycount, NULL);
-				chunk->addBytes(event->mCodeChunk, event->mCurrentOffset);
-				delete event;
-			}
+			LLScriptByteCodeChunk	*event = new LLScriptByteCodeChunk(FALSE);
+			mEventp->recurse(fp, tabs, tabsize, pass, ptype, prunearg, scope, type, basetype, count, event, heap, stacksize, entry, entrycount, NULL);
+			chunk->addBytes(event->mCodeChunk, event->mCurrentOffset);
+			delete event;
+		
 			chunk->addBytes(1);
 
 			// now we're at the first opcode
@@ -10620,6 +10621,8 @@ LLScriptScript::LLScriptScript(LLScritpGlobalStorage *globals,
 		}
 		temp = temp->mNextp;
 	}
+
+	mClassName[0] = '\0';
 }
 
 void LLScriptScript::setBytecodeDest(const char* dst_filename)
@@ -10673,20 +10676,21 @@ void LLScriptScript::recurse(LLFILE *fp, S32 tabs, S32 tabsize, LSCRIPTCompilePa
 		{
 			mGlobalScope = new LLScriptScope(gScopeStringTable);
 			// zeroth, add library functions to global scope
-			S32 i;
+			U16 function_index = 0;
 			const char *arg;
 			LLScriptScopeEntry *sentry;
-			for (i = 0; i < gScriptLibrary.mNextNumber; i++)
+			for (std::vector<LLScriptLibraryFunction>::const_iterator i = gScriptLibrary.mFunctions.begin();
+				 i != gScriptLibrary.mFunctions.end(); ++i)
 			{
 				// First, check to make sure this isn't a god only function, or that the viewer's agent is a god.
-				if (!gScriptLibrary.mFunctions[i]->mGodOnly || mGodLike)
+				if (!i->mGodOnly || mGodLike)
 				{
-					if (gScriptLibrary.mFunctions[i]->mReturnType)
-						sentry = mGlobalScope->addEntry(gScriptLibrary.mFunctions[i]->mName, LIT_LIBRARY_FUNCTION, char2type(*gScriptLibrary.mFunctions[i]->mReturnType));
+					if (i->mReturnType)
+						sentry = mGlobalScope->addEntry(i->mName, LIT_LIBRARY_FUNCTION, char2type(*i->mReturnType));
 					else
-						sentry = mGlobalScope->addEntry(gScriptLibrary.mFunctions[i]->mName, LIT_LIBRARY_FUNCTION, LST_NULL);
-					sentry->mLibraryNumber = i;
-					arg = gScriptLibrary.mFunctions[i]->mArgs;
+						sentry = mGlobalScope->addEntry(i->mName, LIT_LIBRARY_FUNCTION, LST_NULL);
+					sentry->mLibraryNumber = function_index;
+					arg = i->mArgs;
 					if (arg)
 					{
 						while (*arg)
@@ -10698,6 +10702,7 @@ void LLScriptScript::recurse(LLFILE *fp, S32 tabs, S32 tabsize, LSCRIPTCompilePa
 						}
 					}
 				}
+				function_index++;
 			}
 			// first go and collect all the global variables
 			if (mGlobals)

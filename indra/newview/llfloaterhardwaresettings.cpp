@@ -2,31 +2,25 @@
  * @file llfloaterhardwaresettings.cpp
  * @brief Menu of all the different graphics hardware settings
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -47,24 +41,25 @@
 #include "llradiogroup.h"
 #include "lluictrlfactory.h"
 #include "llwindow.h"
-#include "llslider.h"
+#include "llsliderctrl.h"
 
-LLFloaterHardwareSettings* LLFloaterHardwareSettings::sHardwareSettings = NULL;
+LLFloaterHardwareSettings::LLFloaterHardwareSettings(const LLSD& key)
+	: LLFloater(key),
 
-LLFloaterHardwareSettings::LLFloaterHardwareSettings()
-  : LLFloater()
+	  // these should be set on imminent refresh() call,
+	  // but init them anyway
+	  mUseVBO(0),
+	  mUseAniso(0),
+	  mFSAASamples(0),
+	  mGamma(0.0),
+	  mVideoCardMem(0),
+	  mFogRatio(0.0),
+	  mProbeHardwareOnStartup(FALSE)
 {
-	LLUICtrlFactory::getInstance()->buildFloater(this, "floater_hardware_settings.xml");
 }
 
 LLFloaterHardwareSettings::~LLFloaterHardwareSettings()
 {
-}
-
-void LLFloaterHardwareSettings::onClickHelp(void* data)
-{
-	const char* xml_alert = "HardwareSettingsHelpButton";
-	LLNotifications::instance().add(xml_alert);
 }
 
 void LLFloaterHardwareSettings::initCallbacks(void) 
@@ -85,7 +80,7 @@ void LLFloaterHardwareSettings::refresh()
 	mFogRatio = gSavedSettings.getF32("RenderFogRatio");
 	mProbeHardwareOnStartup = gSavedSettings.getBOOL("ProbeHardwareOnStartup");
 
-	childSetValue("fsaa", (LLSD::Integer) mFSAASamples);
+	getChild<LLUICtrl>("fsaa")->setValue((LLSD::Integer) mFSAASamples);
 	refreshEnabledState();
 }
 
@@ -93,63 +88,29 @@ void LLFloaterHardwareSettings::refreshEnabledState()
 {
 	S32 min_tex_mem = LLViewerTextureList::getMinVideoRamSetting();
 	S32 max_tex_mem = LLViewerTextureList::getMaxVideoRamSetting();
-	getChild<LLSlider>("GrapicsCardTextureMemory")->setMinValue(min_tex_mem);
-	getChild<LLSlider>("GrapicsCardTextureMemory")->setMinValue(max_tex_mem);
+	getChild<LLSliderCtrl>("GraphicsCardTextureMemory")->setMinValue(min_tex_mem);
+	getChild<LLSliderCtrl>("GraphicsCardTextureMemory")->setMaxValue(max_tex_mem);
 
 	if (!LLFeatureManager::getInstance()->isFeatureAvailable("RenderVBOEnable") ||
 		!gGLManager.mHasVertexBufferObject)
 	{
-		childSetEnabled("vbo", FALSE);
+		getChildView("vbo")->setEnabled(FALSE);
 	}
 
 	// if no windlight shaders, turn off nighttime brightness, gamma, and fog distance
-	childSetEnabled("gamma", !gPipeline.canUseWindLightShaders());
-	childSetEnabled("(brightness, lower is brighter)", !gPipeline.canUseWindLightShaders());
-	childSetEnabled("fog", !gPipeline.canUseWindLightShaders());
+	getChildView("gamma")->setEnabled(!gPipeline.canUseWindLightShaders());
+	getChildView("(brightness, lower is brighter)")->setEnabled(!gPipeline.canUseWindLightShaders());
+	getChildView("fog")->setEnabled(!gPipeline.canUseWindLightShaders());
+	getChildView("fsaa")->setEnabled(gPipeline.canUseAntiAliasing());
+	getChildView("antialiasing restart")->setVisible(!gSavedSettings.getBOOL("RenderDeferred"));
 
-}
-
-// static instance of it
-LLFloaterHardwareSettings* LLFloaterHardwareSettings::instance()
-{
-	if (!sHardwareSettings)
+	/* Enable to reset fsaa value to disabled when feature is not available.
+	if (!gPipeline.canUseAntiAliasing())
 	{
-		sHardwareSettings = new LLFloaterHardwareSettings();
-		sHardwareSettings->closeFloater();
+		getChild<LLUICtrl>("fsaa")->setValue((LLSD::Integer) 0);
 	}
-	return sHardwareSettings;
+	*/
 }
-void LLFloaterHardwareSettings::show()
-{
-	LLFloaterHardwareSettings* hardSettings = instance();
-	hardSettings->refresh();
-	hardSettings->center();
-
-	// comment in if you want the menu to rebuild each time
-	//LLUICtrlFactory::getInstance()->buildFloater(hardSettings, "floater_hardware_settings.xml");
-	//hardSettings->initCallbacks();
-
-	hardSettings->openFloater();
-}
-
-bool LLFloaterHardwareSettings::isOpen()
-{
-	if (sHardwareSettings != NULL) 
-	{
-		return true;
-	}
-	return false;
-}
-
-// virtual
-void LLFloaterHardwareSettings::onClose(bool app_quitting)
-{
-	if (sHardwareSettings)
-	{
-		sHardwareSettings->setVisible(FALSE);
-	}
-}
-
 
 //============================================================================
 
@@ -158,6 +119,7 @@ BOOL LLFloaterHardwareSettings::postBuild()
 	childSetAction("OK", onBtnOK, this);
 
 	refresh();
+	center();
 
 	// load it up
 	initCallbacks();
@@ -167,31 +129,6 @@ BOOL LLFloaterHardwareSettings::postBuild()
 
 void LLFloaterHardwareSettings::apply()
 {
-	// Anisotropic rendering
-	BOOL old_anisotropic = LLImageGL::sGlobalUseAnisotropic;
-	LLImageGL::sGlobalUseAnisotropic = childGetValue("ani");
-
-	U32 fsaa = (U32) childGetValue("fsaa").asInteger();
-	U32 old_fsaa = gSavedSettings.getU32("RenderFSAASamples");
-
-	BOOL logged_in = (LLStartUp::getStartupState() >= STATE_STARTED);
-
-	if (old_fsaa != fsaa)
-	{
-		gSavedSettings.setU32("RenderFSAASamples", fsaa);
-		LLWindow* window = gViewerWindow->getWindow();
-		LLCoordScreen size;
-		window->getSize(&size);
-		gViewerWindow->changeDisplaySettings(window->getFullscreen(), 
-														size,
-														gSavedSettings.getBOOL("DisableVerticalSync"),
-														logged_in);
-	}
-	else if (old_anisotropic != LLImageGL::sGlobalUseAnisotropic)
-	{
-		gViewerWindow->restartDisplay(logged_in);
-	}
-
 	refresh();
 }
 

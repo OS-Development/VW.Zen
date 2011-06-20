@@ -3,31 +3,25 @@
  * @author Richard Nelson, James Cook
  * @brief LLTextureCtrl class header file including related functions
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -45,7 +39,7 @@
 class LLButton;
 class LLFloaterTexturePicker;
 class LLInventoryItem;
-class LLViewerTexture;
+class LLViewerFetchedTexture;
 
 // used for setting drag & drop callbacks.
 typedef boost::function<BOOL (LLUICtrl*, LLInventoryItem*)> drag_n_drop_callback;
@@ -74,8 +68,11 @@ public:
 		Optional<std::string>	default_image_name;
 		Optional<bool>			allow_no_texture;
 		Optional<bool>			can_apply_immediately;
+		Optional<bool>			no_commit_on_selection; // alternative mode: commit occurs and the widget gets dirty
+														// only on DnD or when OK is pressed in the picker
 		Optional<S32>			label_width;
 		Optional<LLUIColor>		border_color;
+		Optional<LLUIImage*>	fallback_image;
 		
 		Optional<LLTextBox::Params>	multiselect_text,
 									caption_text;
@@ -84,12 +81,14 @@ public:
 
 		Params()
 		:	image_id("image"),
-			default_image_id("default_image"),
+			default_image_id("default_image_id"),
 			default_image_name("default_image_name"),
 			allow_no_texture("allow_no_texture"),
 			can_apply_immediately("can_apply_immediately"),
+			no_commit_on_selection("no_commit_on_selection", false),
 		    label_width("label_width", -1),
 			border_color("border_color"),
+			fallback_image("fallback_image"),
 			multiselect_text("multiselect_text"),
 			caption_text("caption_text"),
 			border("border")
@@ -125,7 +124,7 @@ public:
 	virtual void	clear();
 
 	// Takes a UUID, wraps get/setImageAssetID
-	virtual void	setValue(const LLSD& value );
+	virtual void	setValue(const LLSD& value);
 	virtual LLSD	getValue() const;
 
 	// LLTextureCtrl interface
@@ -139,6 +138,8 @@ public:
 
 	const LLUUID&	getImageItemID() { return mImageItemID; }
 
+	virtual void	setImageAssetName(const std::string& name);
+	
 	void			setImageAssetID(const LLUUID &image_asset_id);
 	const LLUUID&	getImageAssetID() const						{ return mImageAssetID; }
 
@@ -146,9 +147,6 @@ public:
 	const LLUUID&	getDefaultImageAssetID() const { return mDefaultImageAssetID; }
 
 	const std::string&	getDefaultImageName() const					{ return mDefaultImageName; }
-
-	void			setFallbackImageName( const std::string& name ) { mFallbackImageName = name; }			
-	const std::string& 	getFallbackImageName() const { return mFallbackImageName; }	   
 
 	void			setCaption(const std::string& caption);
 	void			setCanApplyImmediately(BOOL b);
@@ -180,36 +178,39 @@ public:
 
 	void setShowLoadingPlaceholder(BOOL showLoadingPlaceholder);
 
+	LLViewerFetchedTexture* getTexture() { return mTexturep; }
+
 private:
 	BOOL allowDrop(LLInventoryItem* item);
 	BOOL doDrop(LLInventoryItem* item);
 
 private:
-	drag_n_drop_callback	 mDragCallback;
-	drag_n_drop_callback	 mDropCallback;
-	commit_callback_t		 mOnCancelCallback;
-	commit_callback_t		 mOnSelectCallback;
-	LLPointer<LLViewerTexture> mTexturep;
-	LLUIColor				 mBorderColor;
-	LLUUID					 mImageItemID;
-	LLUUID					 mImageAssetID;
-	LLUUID					 mDefaultImageAssetID;
-	std::string				 mFallbackImageName;
-	std::string				 mDefaultImageName;
-	LLHandle<LLFloater>			 mFloaterHandle;
-	LLTextBox*				 mTentativeLabel;
-	LLTextBox*				 mCaption;
-	std::string				 mLabel;
-	BOOL					 mAllowNoTexture; // If true, the user can select "none" as an option
-	PermissionMask			 mImmediateFilterPermMask;
-	PermissionMask			 mNonImmediateFilterPermMask;
-	BOOL					 mCanApplyImmediately;
-	BOOL					 mNeedsRawImageData;
-	LLViewBorder*			 mBorder;
-	BOOL					 mValid;
-	BOOL					 mShowLoadingPlaceholder;
-	std::string				 mLoadingPlaceholderString;
-	S32						 mLabelWidth;
+	drag_n_drop_callback	 	mDragCallback;
+	drag_n_drop_callback	 	mDropCallback;
+	commit_callback_t		 	mOnCancelCallback;
+	commit_callback_t		 	mOnSelectCallback;
+	LLPointer<LLViewerFetchedTexture> mTexturep;
+	LLUIColor				 	mBorderColor;
+	LLUUID					 	mImageItemID;
+	LLUUID					 	mImageAssetID;
+	LLUUID					 	mDefaultImageAssetID;
+	LLUIImagePtr				mFallbackImage;
+	std::string					mDefaultImageName;
+	LLHandle<LLFloater>			mFloaterHandle;
+	LLTextBox*				 	mTentativeLabel;
+	LLTextBox*				 	mCaption;
+	std::string				 	mLabel;
+	BOOL					 	mAllowNoTexture; // If true, the user can select "none" as an option
+	PermissionMask			 	mImmediateFilterPermMask;
+	PermissionMask			 	mNonImmediateFilterPermMask;
+	BOOL					 	mCanApplyImmediately;
+	BOOL					 	mCommitOnSelection;
+	BOOL					 	mNeedsRawImageData;
+	LLViewBorder*			 	mBorder;
+	BOOL					 	mValid;
+	BOOL					 	mShowLoadingPlaceholder;
+	std::string				 	mLoadingPlaceholderString;
+	S32						 	mLabelWidth;
 };
 
 // XUI HACK: When floaters converted, switch this file to lltexturepicker.h/cpp

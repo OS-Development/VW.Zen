@@ -2,31 +2,25 @@
  * @file llspinctrl.h
  * @brief Typical spinner with "up" and "down" arrow buttons.
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -35,6 +29,7 @@
 
 
 #include "stdtypes.h"
+#include "llbutton.h"
 #include "llf32uictrl.h"
 #include "v4color.h"
 #include "llrect.h"
@@ -49,9 +44,13 @@ public:
 		Optional<S32> label_width;
 		Optional<U32> decimal_digits;
 		Optional<bool> allow_text_entry;
+		Optional<bool> label_wrap;
 
 		Optional<LLUIColor> text_enabled_color;
 		Optional<LLUIColor> text_disabled_color;
+
+		Optional<LLButton::Params> up_button;
+		Optional<LLButton::Params> down_button;
 
 		Params();
 	};
@@ -77,8 +76,8 @@ public:
 	virtual void	setPrecision(S32 precision);
 
 	void			setLabel(const LLStringExplicit& label);
-	void			setLabelColor(const LLColor4& c)			{ mTextEnabledColor = c; }
-	void			setDisabledLabelColor(const LLColor4& c)	{ mTextDisabledColor = c; }
+	void			setLabelColor(const LLColor4& c)			{ mTextEnabledColor = c; updateLabelColor(); }
+	void			setDisabledLabelColor(const LLColor4& c)	{ mTextDisabledColor = c; updateLabelColor();}
 	void			setAllowEdit(BOOL allow_edit);
 
 	virtual void	onTabInto();
@@ -99,6 +98,7 @@ public:
 	void			onDownBtn(const LLSD& data);
 
 private:
+	void			updateLabelColor();
 	void			updateEditor();
 	void			reportInvalidData();
 

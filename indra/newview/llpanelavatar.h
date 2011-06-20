@@ -2,31 +2,25 @@
  * @file llpanelavatar.h
  * @brief LLPanelAvatar and related class definitions
  *
- * $LicenseInfo:firstyear=2004&license=viewergpl$
- * 
- * Copyright (c) 2004-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2004&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -35,6 +29,9 @@
 
 #include "llpanel.h"
 #include "llavatarpropertiesprocessor.h"
+#include "llcallingcard.h"
+#include "llvoiceclient.h"
+#include "llavatarnamecache.h"
 
 class LLComboBox;
 class LLLineEditor;
@@ -45,137 +42,256 @@ enum EOnlineStatus
 	ONLINE_STATUS_YES     = 1
 };
 
-
-class LLPanelProfileTab 
+/**
+* Base class for any Profile View or My Profile Panel.
+*/
+class LLPanelProfileTab
 	: public LLPanel
 	, public LLAvatarPropertiesObserver
 {
 public:
-	
-	LLPanelProfileTab(const LLUUID& avatar_id);
-	LLPanelProfileTab(const Params& params );
 
-	void setAvatarId(const LLUUID& avatar_id);
+	/**
+	 * Sets avatar ID, sets panel as observer of avatar related info replies from server.
+	 */
+	virtual void setAvatarId(const LLUUID& id);
 
-	const LLUUID& getAvatarId(){return mAvatarId;}
+	/**
+	 * Returns avatar ID.
+	 */
+	virtual const LLUUID& getAvatarId() { return mAvatarId; }
 
+	/**
+	 * Sends update data request to server.
+	 */
 	virtual void updateData() = 0;
 
+	/**
+	 * Clears panel data if viewing avatar info for first time and sends update data request.
+	 */
 	virtual void onOpen(const LLSD& key);
 
-	virtual void onActivate(const LLUUID& id);
+	/**
+	 * Profile tabs should close any opened panels here.
+	 *
+	 * Called from LLPanelProfile::onOpen() before opening new profile.
+	 * See LLPanelPicks::onClosePanel for example. LLPanelPicks closes picture info panel
+	 * before new profile is displayed, otherwise new profile will 
+	 * be hidden behind picture info panel.
+	 */
+	virtual void onClosePanel() {}
 
-	typedef enum e_profile_type
-	{
-		PT_UNKNOWN,
-		PT_OWN,
-		PT_OTHER
-	} EProfileType;
+	/**
+	 * Resets controls visibility, state, etc.
+	 */
+	virtual void resetControls(){};
 
-	virtual void onAddFriend();
+	/**
+	 * Clears all data received from server.
+	 */
+	virtual void resetData(){};
 
-	virtual void onIM();
-
-	virtual void onTeleport();
-
-	virtual void clear(){};
+	/*virtual*/ ~LLPanelProfileTab();
 
 protected:
-	virtual ~LLPanelProfileTab();
-	void setProfileType();
 
-private:
+	LLPanelProfileTab();
+
+	/**
+	 * Scrolls panel to top when viewing avatar info for first time.
+	 */
 	void scrollToTop();
 
-protected:
-	e_profile_type mProfileType;
+	virtual void onMapButtonClick();
+
+	virtual void updateButtons();
+
+private:
+
 	LLUUID mAvatarId;
 };
 
-class LLPanelAvatarProfile 
+/**
+* Panel for displaying Avatar's first and second life related info.
+*/
+class LLPanelAvatarProfile
 	: public LLPanelProfileTab
+	, public LLFriendObserver
+	, public LLVoiceClientStatusObserver
 {
 public:
-	LLPanelAvatarProfile(const LLUUID& avatar_id = LLUUID::null);
-	LLPanelAvatarProfile(const Params& params );
-	~LLPanelAvatarProfile();
-	
-	static void* create(void* data);
+	LLPanelAvatarProfile();
+	/*virtual*/ ~LLPanelAvatarProfile();
 
-	/*virtual*/ void processProperties(void* data, EAvatarProcessorType type);
-
-	void updateData();
-
-	void clear();
-
-	virtual void clearControls();
-
-	/*virtual*/ BOOL postBuild(void);
 	/*virtual*/ void onOpen(const LLSD& key);
 
-private:
-	bool isOwnProfile(){return PT_OWN == mProfileType;}
-	bool isEditMode(){return mEditMode;}
-	void updateChildrenList();
-	void onStatusChanged();
-	void onStatusMessageChanged();
-	void setCaptionText(const LLAvatarData* avatar_data);
+	/**
+	 * LLFriendObserver trigger
+	 */
+	virtual void changed(U32 mask);
 
-	static void onUrlTextboxClicked(std::string url);
-	void onHomepageTextboxClicked();
-	void onUpdateAccountTextboxClicked();
-	void onMyAccountTextboxClicked();
-	void onPartnerEditTextboxClicked();
+	// Implements LLVoiceClientStatusObserver::onChange() to enable the call
+	// button when voice is available
+	/*virtual*/ void onChange(EStatusType status, const std::string &channelURI, bool proximal);
 
+	/*virtual*/ void setAvatarId(const LLUUID& id);
+
+	/**
+	 * Processes data received from server.
+	 */
+	/*virtual*/ void processProperties(void* data, EAvatarProcessorType type);
+
+	/*virtual*/ BOOL postBuild();
+
+	/*virtual*/ void updateData();
+
+	/*virtual*/ void resetControls();
+
+	/*virtual*/ void resetData();
+
+protected:
+
+	/**
+	 * Process profile related data received from server.
+	 */
+	virtual void processProfileProperties(const LLAvatarData* avatar_data);
+
+	/**
+	 * Processes group related data received from server.
+	 */
+	virtual void processGroupProperties(const LLAvatarGroups* avatar_groups);
+
+	/**
+	 * Fills common for Avatar profile and My Profile fields.
+	 */
+	virtual void fillCommonData(const LLAvatarData* avatar_data);
+
+	/**
+	 * Fills partner data.
+	 */
+	virtual void fillPartnerData(const LLAvatarData* avatar_data);
+
+	/**
+	 * Fills account status.
+	 */
+	virtual void fillAccountStatus(const LLAvatarData* avatar_data);
+
+	/**
+	 * Opens "Pay Resident" dialog.
+	 */
+	void pay();
+
+	/**
+	 * opens inventory and IM for sharing items
+	 */
+	void share();
+
+	/**
+	 * Add/remove resident to/from your block list.
+	 */
+	void toggleBlock();
+
+	void kick();
+	void freeze();
+	void unfreeze();
+	void csr();
+	
+	bool enableShowOnMap();
+	bool enableBlock();
+	bool enableUnblock();
+	bool enableGod();
+
+	void onSeeProfileBtnClick();
 	void onAddFriendButtonClick();
 	void onIMButtonClick();
 	void onCallButtonClick();
 	void onTeleportButtonClick();
 	void onShareButtonClick();
 
-
-protected:
-	bool mEditMode;
-
 private:
-	bool mUpdated;
-	LLComboBox * mStatusCombobox;
-	LLLineEditor * mStatusMessage;
+	void onNameCache(const LLUUID& agent_id, const LLAvatarName& av_name);
+
+	typedef std::map< std::string,LLUUID>	group_map_t;
+	group_map_t 			mGroups;
 };
 
-
-class LLPanelAvatarNotes 
-	: public LLPanelProfileTab
+/**
+ * Panel for displaying own first and second life related info.
+ */
+class LLPanelMyProfile
+	: public LLPanelAvatarProfile
 {
 public:
-	LLPanelAvatarNotes(const LLUUID& id = LLUUID::null);
-	LLPanelAvatarNotes(const Params& params );
-	~LLPanelAvatarNotes();
+	LLPanelMyProfile();
 
-	static void* create(void* data);
-
-	void onActivate(const LLUUID& id);
-
-	BOOL postBuild(void);
-
-	void onCommitRights();
-
-	void onCommitNotes();
-
-	void clear();
-
-	void processProperties(void* data, EAvatarProcessorType type);
-
-	void updateData();
+	/*virtual*/ BOOL postBuild();
 
 protected:
 
-	void updateChildrenList();
+	/*virtual*/ void onOpen(const LLSD& key);
+
+	/*virtual*/ void processProfileProperties(const LLAvatarData* avatar_data);
+
+	/*virtual*/ void resetControls();
+
+protected:
+	void onStatusMessageChanged();
 };
 
+/**
+ * Panel for displaying Avatar's notes and modifying friend's rights.
+ */
+class LLPanelAvatarNotes 
+	: public LLPanelProfileTab
+	, public LLFriendObserver
+	, public LLVoiceClientStatusObserver
+{
+public:
+	LLPanelAvatarNotes();
+	/*virtual*/ ~LLPanelAvatarNotes();
 
+	virtual void setAvatarId(const LLUUID& id);
 
-// helper funcs
-void add_left_label(LLPanel *panel, const std::string& name, S32 y);
+	/** 
+	 * LLFriendObserver trigger
+	 */
+	virtual void changed(U32 mask);
+
+	// Implements LLVoiceClientStatusObserver::onChange() to enable the call
+	// button when voice is available
+	/*virtual*/ void onChange(EStatusType status, const std::string &channelURI, bool proximal);
+
+	/*virtual*/ void onOpen(const LLSD& key);
+
+	/*virtual*/ BOOL postBuild();
+
+	/*virtual*/ void processProperties(void* data, EAvatarProcessorType type);
+
+	/*virtual*/ void updateData();
+
+protected:
+
+	/*virtual*/ void resetControls();
+
+	/*virtual*/ void resetData();
+
+	/**
+	 * Fills rights data for friends.
+	 */
+	void fillRightsData();
+
+	void rightsConfirmationCallback(const LLSD& notification,
+			const LLSD& response, S32 rights);
+	void confirmModifyRights(bool grant, S32 rights);
+	void onCommitRights();
+	void onCommitNotes();
+
+	void onAddFriendButtonClick();
+	void onIMButtonClick();
+	void onCallButtonClick();
+	void onTeleportButtonClick();
+	void onShareButtonClick();
+	void enableCheckboxes(bool enable);
+};
 
 #endif // LL_LLPANELAVATAR_H

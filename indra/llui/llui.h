@@ -2,31 +2,25 @@
  * @file llui.h
  * @brief GL function declarations and other general static UI services.
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -39,16 +33,13 @@
 #include "llrect.h"
 #include "llcontrol.h"
 #include "llcoord.h"
-//#include "llhtmlhelp.h"
-#include "llgl.h"			// *TODO: break this dependency
-#include <stack>
-#include "lluiimage.h"		// *TODO: break this dependency, need to add #include "lluiimage.h" to all widgets that hold an Optional<LLUIImage*> in their paramblocks
 #include "llinitparam.h"
 #include "llregistry.h"
 #include "lluicolor.h"
 #include "lluicolortable.h"
 #include <boost/signals2.hpp>
 #include "lllazyvalue.h"
+#include "llframetimer.h"
 
 // LLUIFactory
 #include "llsd.h"
@@ -57,13 +48,13 @@
 #include "llfontgl.h"
 
 class LLColor4; 
-class LLHtmlHelp;
 class LLVector3;
 class LLVector2;
 class LLUIImage;
 class LLUUID;
 class LLWindow;
 class LLView;
+class LLHelp;
 
 // UI colors
 extern const LLColor4 UI_VERTEX_COLOR;
@@ -85,7 +76,7 @@ void gl_rect_2d_offset_local( S32 left, S32 top, S32 right, S32 bottom, const LL
 void gl_rect_2d_offset_local( S32 left, S32 top, S32 right, S32 bottom, S32 pixel_offset = 0, BOOL filled = TRUE );
 void gl_rect_2d(const LLRect& rect, BOOL filled = TRUE );
 void gl_rect_2d(const LLRect& rect, const LLColor4& color, BOOL filled = TRUE );
-void gl_rect_2d_checkerboard(const LLRect& rect);
+void gl_rect_2d_checkerboard(const LLRect& rect, GLfloat alpha = 1.0f);
 
 void gl_drop_shadow(S32 left, S32 top, S32 right, S32 bottom, const LLColor4 &start_color, S32 lines);
 
@@ -96,7 +87,6 @@ void gl_ring( F32 radius, F32 width, const LLColor4& center_color, const LLColor
 void gl_corners_2d(S32 left, S32 top, S32 right, S32 bottom, S32 length, F32 max_frac);
 void gl_washer_2d(F32 outer_radius, F32 inner_radius, S32 steps, const LLColor4& inner_color, const LLColor4& outer_color);
 void gl_washer_segment_2d(F32 outer_radius, F32 inner_radius, F32 start_radians, F32 end_radians, S32 steps, const LLColor4& inner_color, const LLColor4& outer_color);
-void gl_washer_spokes_2d(F32 outer_radius, F32 inner_radius, S32 count, const LLColor4& inner_color, const LLColor4& outer_color);
 
 void gl_draw_image(S32 x, S32 y, LLTexture* image, const LLColor4& color = UI_VERTEX_COLOR, const LLRectf& uv_rect = LLRectf(0.f, 1.f, 1.f, 0.f));
 void gl_draw_scaled_image(S32 x, S32 y, S32 width, S32 height, LLTexture* image, const LLColor4& color = UI_VERTEX_COLOR, const LLRectf& uv_rect = LLRectf(0.f, 1.f, 1.f, 0.f));
@@ -104,10 +94,7 @@ void gl_draw_rotated_image(S32 x, S32 y, F32 degrees, LLTexture* image, const LL
 void gl_draw_scaled_rotated_image(S32 x, S32 y, S32 width, S32 height, F32 degrees,LLTexture* image, const LLColor4& color = UI_VERTEX_COLOR, const LLRectf& uv_rect = LLRectf(0.f, 1.f, 1.f, 0.f));
 void gl_draw_scaled_image_with_border(S32 x, S32 y, S32 border_width, S32 border_height, S32 width, S32 height, LLTexture* image, const LLColor4 &color, BOOL solid_color = FALSE, const LLRectf& uv_rect = LLRectf(0.f, 1.f, 1.f, 0.f));
 void gl_draw_scaled_image_with_border(S32 x, S32 y, S32 width, S32 height, LLTexture* image, const LLColor4 &color, BOOL solid_color = FALSE, const LLRectf& uv_rect = LLRectf(0.f, 1.f, 1.f, 0.f), const LLRectf& scale_rect = LLRectf(0.f, 1.f, 1.f, 0.f));
-// Flip vertical, used for LLFloaterHTML
-void gl_draw_scaled_image_inverted(S32 x, S32 y, S32 width, S32 height, LLTexture* image, const LLColor4& color = UI_VERTEX_COLOR, const LLRectf& uv_rect = LLRectf(0.f, 1.f, 1.f, 0.f));
 
-void gl_rect_2d_xor(S32 left, S32 top, S32 right, S32 bottom);
 void gl_stippled_line_3d( const LLVector3& start, const LLVector3& end, const LLColor4& color, F32 phase = 0.f ); 
 
 void gl_rect_2d_simple_tex( S32 width, S32 height );
@@ -150,9 +137,6 @@ inline void gl_rect_2d_offset_local( const LLRect& rect, S32 pixel_offset, BOOL 
 	gl_rect_2d_offset_local( rect.mLeft, rect.mTop, rect.mRight, rect.mBottom, pixel_offset, filled );
 }
 
-// Used to hide the flashing text cursor when window doesn't have focus.
-extern BOOL gShowTextEditCursor;
-
 class LLImageProviderInterface;
 
 typedef	void (*LLUIAudioCallback)(const LLUUID& uuid);
@@ -165,17 +149,26 @@ public:
 	// Methods
 	//
 	typedef std::map<std::string, LLControlGroup*> settings_map_t;
+	typedef boost::function<void(LLView*)> add_popup_t;
+	typedef boost::function<void(LLView*)> remove_popup_t;
+	typedef boost::function<void(void)> clear_popups_t;
+
 	static void initClass(const settings_map_t& settings,
 						  LLImageProviderInterface* image_provider,
 						  LLUIAudioCallback audio_callback = NULL,
 						  const LLVector2 *scale_factor = NULL,
 						  const std::string& language = LLStringUtil::null);
 	static void cleanupClass();
+	static void setPopupFuncs(const add_popup_t& add_popup, const remove_popup_t&, const clear_popups_t& );
 
 	static void pushMatrix();
 	static void popMatrix();
 	static void loadIdentity();
 	static void translate(F32 x, F32 y, F32 z = 0.0f);
+
+	static LLRect	sDirtyRect;
+	static BOOL		sDirty;
+	static void		dirtyRect(LLRect rect);
 
 	// Return the ISO639 language name ("en", "ko", etc.) for the viewer UI.
 	// http://www.loc.gov/standards/iso639-2/php/code_list.php
@@ -189,23 +182,65 @@ public:
 	//helper functions (should probably move free standing rendering helper functions here)
 	static LLView* getRootView() { return sRootView; }
 	static void setRootView(LLView* view) { sRootView = view; }
+	/**
+	 * Walk the LLView tree to resolve a path
+	 * Paths can be discovered using Develop > XUI > Show XUI Paths
+	 *
+	 * A leading "/" indicates the root of the tree is the starting
+	 * position of the search, (otherwise the context node is used)
+	 *
+	 * Adjacent "//" mean that the next level of the search is done
+	 * recursively ("descendant" rather than "child").
+	 *
+	 * Return values: If no match is found, NULL is returned,
+	 * otherwise the matching LLView* is returned.
+	 *
+	 * Examples:
+	 *
+	 * "/" -> return the root view
+	 * "/foo" -> find "foo" as a direct child of the root
+	 * "foo" -> find "foo" as a direct child of the context node
+	 * "//foo" -> find the first "foo" child anywhere in the tree
+	 * "/foo/bar" -> find "foo" as direct child of the root, and
+	 *      "bar" as a direct child of "foo"
+	 * "//foo//bar/baz" -> find the first "foo" anywhere in the
+	 *      tree, the first "bar" anywhere under it, and "baz"
+	 *      as a direct child of that
+	 */
+	static const LLView* resolvePath(const LLView* context, const std::string& path);
+	static LLView* resolvePath(LLView* context, const std::string& path);
 	static std::string locateSkin(const std::string& filename);
-	static void setCursorPositionScreen(S32 x, S32 y);
-	static void setCursorPositionLocal(const LLView* viewp, S32 x, S32 y);
-	static void getCursorPositionLocal(const LLView* viewp, S32 *x, S32 *y);
+	static void setMousePositionScreen(S32 x, S32 y);
+	static void getMousePositionScreen(S32 *x, S32 *y);
+	static void setMousePositionLocal(const LLView* viewp, S32 x, S32 y);
+	static void getMousePositionLocal(const LLView* viewp, S32 *x, S32 *y);
 	static void setScaleFactor(const LLVector2& scale_factor);
 	static void setLineWidth(F32 width);
-	static LLPointer<LLUIImage> getUIImageByID(const LLUUID& image_id);
-	static LLPointer<LLUIImage> getUIImage(const std::string& name);
+	static LLPointer<LLUIImage> getUIImageByID(const LLUUID& image_id, S32 priority = 0);
+	static LLPointer<LLUIImage> getUIImage(const std::string& name, S32 priority = 0);
 	static LLVector2 getWindowSize();
 	static void screenPointToGL(S32 screen_x, S32 screen_y, S32 *gl_x, S32 *gl_y);
 	static void glPointToScreen(S32 gl_x, S32 gl_y, S32 *screen_x, S32 *screen_y);
 	static void screenRectToGL(const LLRect& screen, LLRect *gl);
 	static void glRectToScreen(const LLRect& gl, LLRect *screen);
-	static void setHtmlHelp(LLHtmlHelp* html_help);
 	// Returns the control group containing the control name, or the default group
 	static LLControlGroup& getControlControlGroup (const std::string& controlname);
-	
+	static F32 getMouseIdleTime() { return sMouseIdleTimer.getElapsedTimeF32(); }
+	static void resetMouseIdleTimer() { sMouseIdleTimer.reset(); }
+	static LLWindow* getWindow() { return sWindow; }
+
+	static void addPopup(LLView*);
+	static void removePopup(LLView*);
+	static void clearPopups();
+
+	static void reportBadKeystroke();
+
+	// Ensures view does not overlap mouse cursor, but is inside
+	// the view's parent rectangle.  Used for tooltips, inspectors.
+	// Optionally override the view's default X/Y, which are relative to the
+	// view's parent.
+	static void positionViewNearMouse(LLView* view,	S32 spawn_x = S32_MAX, S32 spawn_y = S32_MAX);
+
 	//
 	// Data
 	//
@@ -213,354 +248,19 @@ public:
 	static LLUIAudioCallback sAudioCallback;
 	static LLVector2		sGLScaleFactor;
 	static LLWindow*		sWindow;
-	static BOOL             sShowXUINames;
-	static LLHtmlHelp*		sHtmlHelp;
 	static LLView*			sRootView;
+	static LLHelp*			sHelpImpl;
 private:
 	static LLImageProviderInterface* sImageProvider;
 	static std::vector<std::string> sXUIPaths;
-};
-
-//	FactoryPolicy is a static class that controls the creation and lookup of UI elements, 
-//	such as floaters.
-//	The key parameter is used to provide a unique identifier and/or associated construction 
-//	parameters for a given UI instance
-//
-//	Specialize this traits for different types, or provide a class with an identical interface 
-//	in the place of the traits parameter
-//
-//	For example:
-//
-//	template <>
-//	class FactoryPolicy<MyClass> /* FactoryPolicy specialized for MyClass */
-//	{
-//	public:
-//		static MyClass* findInstance(const LLSD& key = LLSD())
-//		{
-//			/* return instance of MyClass associated with key */
-//		}
-//	
-//		static MyClass* createInstance(const LLSD& key = LLSD())
-//		{
-//			/* create new instance of MyClass using key for construction parameters */
-//		}
-//	}
-//	
-//	class MyClass : public LLUIFactory<MyClass>
-//	{
-//		/* uses FactoryPolicy<MyClass> by default */
-//	}
-
-template <class T>
-class FactoryPolicy
-{
-public:
-	// basic factory methods
-	static T* findInstance(const LLSD& key); // unimplemented, provide specialiation
-	static T* createInstance(const LLSD& key); // unimplemented, provide specialiation
-};
-
-//	VisibilityPolicy controls the visibility of UI elements, such as floaters.
-//	The key parameter is used to store the unique identifier of a given UI instance
-//
-//	Specialize this traits for different types, or duplicate this interface for specific instances
-//	(see above)
-
-template <class T>
-class VisibilityPolicy
-{
-public:
-	// visibility methods
-	static bool visible(T* instance, const LLSD& key); // unimplemented, provide specialiation
-	static void show(T* instance, const LLSD& key); // unimplemented, provide specialiation
-	static void hide(T* instance, const LLSD& key); // unimplemented, provide specialiation
-};
-
-//	Manages generation of UI elements by LLSD, such that (generally) there is
-//	a unique instance per distinct LLSD parameter
-//	Class T is the instance type being managed, and the FACTORY_POLICY and VISIBILITY_POLICY 
-//	classes provide static methods for creating, accessing, showing and hiding the associated 
-//	element T
-template <class T, class FACTORY_POLICY = FactoryPolicy<T>, class VISIBILITY_POLICY = VisibilityPolicy<T> >
-class LLUIFactory
-{
-public:
-	// give names to the template parameters so derived classes can refer to them
-	// except this doesn't work in gcc
-	typedef FACTORY_POLICY factory_policy_t;
-	typedef VISIBILITY_POLICY visibility_policy_t;
-
-	LLUIFactory()
-	{
-	}
-
- 	virtual ~LLUIFactory() 
-	{ 
-	}
-
-	// default show and hide methods
-	static T* showInstance(const LLSD& key = LLSD()) 
-	{ 
-		T* instance = getInstance(key); 
-		if (instance != NULL)
-		{
-			VISIBILITY_POLICY::show(instance, key);
-		}
-		return instance;
-	}
-
-	static void hideInstance(const LLSD& key = LLSD()) 
-	{ 
-		T* instance = getInstance(key); 
-		if (instance != NULL)
-		{
-			VISIBILITY_POLICY::hide(instance, key);
-		}
-	}
-
-	static void toggleInstance(const LLSD& key = LLSD())
-	{
-		if (instanceVisible(key))
-		{
-			hideInstance(key);
-		}
-		else
-		{
-			showInstance(key);
-		}
-	}
-
-	static bool instanceVisible(const LLSD& key = LLSD())
-	{
-		T* instance = FACTORY_POLICY::findInstance(key);
-		return instance != NULL && VISIBILITY_POLICY::visible(instance, key);
-	}
-
-	static T* getInstance(const LLSD& key = LLSD()) 
-	{
-		T* instance = FACTORY_POLICY::findInstance(key);
-		if (instance == NULL)
-		{
-			instance = FACTORY_POLICY::createInstance(key);
-		}
-		return instance;
-	}
-
+	static LLFrameTimer		sMouseIdleTimer;
+	static add_popup_t		sAddPopupFunc;
+	static remove_popup_t	sRemovePopupFunc;
+	static clear_popups_t	sClearPopupsFunc;
 };
 
 
-//	Creates a UI singleton by ignoring the identifying parameter
-//	and always generating the same instance via the LLUIFactory interface.
-//	Note that since UI elements can be destroyed by their hierarchy, this singleton
-//	pattern uses a static pointer to an instance that will be re-created as needed.
-//	
-//	Usage Pattern:
-//	
-//	class LLFloaterFoo : public LLFloater, public LLUISingleton<LLFloaterFoo>
-//	{
-//		friend class LLUISingleton<LLFloaterFoo>;
-//		private:
-//			LLFloaterFoo(const LLSD& key);
-//	};
-//	
-//	Note that LLUISingleton takes an option VisibilityPolicy parameter that defines
-//	how showInstance(), hideInstance(), etc. work.
-// 
-//  https://wiki.lindenlab.com/mediawiki/index.php?title=LLUISingleton&oldid=79352
-
-template <class T, class VISIBILITY_POLICY = VisibilityPolicy<T> >
-class LLUISingleton: public LLUIFactory<T, LLUISingleton<T, VISIBILITY_POLICY>, VISIBILITY_POLICY>
-{
-protected:
-
-	// T must derive from LLUISingleton<T>
-	LLUISingleton() { sInstance = static_cast<T*>(this); }
-	~LLUISingleton() { sInstance = NULL; }
-
-public:
-	static T* findInstance(const LLSD& key = LLSD())
-	{
-		return sInstance;
-	}
-	
-	static T* createInstance(const LLSD& key = LLSD())
-	{
-		if (sInstance == NULL)
-		{
-			sInstance = new T(key);
-		}
-		return sInstance;
-	}
-
-	static void destroyInstance()
-	{
-		delete sInstance;
-		sInstance = NULL;
-	}
-	
-private:
-	static T*	sInstance;
-};
-
-template <class T, class U> T* LLUISingleton<T,U>::sInstance = NULL;
-
-class LLScreenClipRect
-{
-public:
-	LLScreenClipRect(const LLRect& rect, BOOL enabled = TRUE);
-	virtual ~LLScreenClipRect();
-
-private:
-	static void pushClipRect(const LLRect& rect);
-	static void popClipRect();
-	static void updateScissorRegion();
-
-private:
-	LLGLState		mScissorState;
-	BOOL			mEnabled;
-
-	static std::stack<LLRect> sClipRectStack;
-};
-
-class LLLocalClipRect : public LLScreenClipRect
-{
-public:
-	LLLocalClipRect(const LLRect& rect, BOOL enabled = TRUE);
-};
-
-template <typename T>
-class LLTombStone : public LLRefCount
-{
-public:
-	LLTombStone(T* target = NULL) : mTarget(target) {}
-	
-	void setTarget(T* target) { mTarget = target; }
-	T* getTarget() const { return mTarget; }
-private:
-	T* mTarget;
-};
-
-//	LLHandles are used to refer to objects whose lifetime you do not control or influence.  
-//	Calling get() on a handle will return a pointer to the referenced object or NULL, 
-//	if the object no longer exists.  Note that during the lifetime of the returned pointer, 
-//	you are assuming that the object will not be deleted by any action you perform, 
-//	or any other thread, as normal when using pointers, so avoid using that pointer outside of
-//	the local code block.
-// 
-//  https://wiki.lindenlab.com/mediawiki/index.php?title=LLHandle&oldid=79669
-
-template <typename T>
-class LLHandle
-{
-public:
-	LLHandle() : mTombStone(sDefaultTombStone) {}
-	const LLHandle<T>& operator =(const LLHandle<T>& other)  
-	{ 
-		mTombStone = other.mTombStone;
-		return *this; 
-	}
-
-	bool isDead() const 
-	{ 
-		return mTombStone->getTarget() == NULL; 
-	}
-
-	void markDead() 
-	{ 
-		mTombStone = sDefaultTombStone; 
-	}
-
-	T* get() const
-	{
-		return mTombStone->getTarget();
-	}
-
-	friend bool operator== (const LLHandle<T>& lhs, const LLHandle<T>& rhs)
-	{
-		return lhs.mTombStone == rhs.mTombStone;
-	}
-	friend bool operator!= (const LLHandle<T>& lhs, const LLHandle<T>& rhs)
-	{
-		return !(lhs == rhs);
-	}
-	friend bool	operator< (const LLHandle<T>& lhs, const LLHandle<T>& rhs)
-	{
-		return lhs.mTombStone < rhs.mTombStone;
-	}
-	friend bool	operator> (const LLHandle<T>& lhs, const LLHandle<T>& rhs)
-	{
-		return lhs.mTombStone > rhs.mTombStone;
-	}
-protected:
-
-protected:
-	LLPointer<LLTombStone<T> > mTombStone;
-
-private:
-	static LLPointer<LLTombStone<T> > sDefaultTombStone;
-};
-
-// initialize static "empty" tombstone pointer
-template <typename T> LLPointer<LLTombStone<T> > LLHandle<T>::sDefaultTombStone = new LLTombStone<T>();
-
-
-template <typename T>
-class LLRootHandle : public LLHandle<T>
-{
-public:
-	LLRootHandle(T* object) { bind(object); }
-	LLRootHandle() {};
-	~LLRootHandle() { unbind(); }
-
-	// this is redundant, since a LLRootHandle *is* an LLHandle
-	LLHandle<T> getHandle() { return LLHandle<T>(*this); }
-
-	void bind(T* object) 
-	{ 
-		// unbind existing tombstone
-		if (LLHandle<T>::mTombStone.notNull())
-		{
-			if (LLHandle<T>::mTombStone->getTarget() == object) return;
-			LLHandle<T>::mTombStone->setTarget(NULL);
-		}
-		// tombstone reference counted, so no paired delete
-		LLHandle<T>::mTombStone = new LLTombStone<T>(object);
-	}
-
-	void unbind() 
-	{
-		LLHandle<T>::mTombStone->setTarget(NULL);
-	}
-
-	//don't allow copying of root handles, since there should only be one
-private:
-	LLRootHandle(const LLRootHandle& other) {};
-};
-
-// Use this as a mixin for simple classes that need handles and when you don't
-// want handles at multiple points of the inheritance hierarchy
-template <typename T>
-class LLHandleProvider
-{
-protected:
-	typedef LLHandle<T> handle_type_t;
-	LLHandleProvider() 
-	{
-		// provided here to enforce T deriving from LLHandleProvider<T>
-	} 
-
-	LLHandle<T> getHandle() 
-	{ 
-		// perform lazy binding to avoid small tombstone allocations for handle
-		// providers whose handles are never referenced
-		mHandle.bind(static_cast<T*>(this)); 
-		return mHandle; 
-	}
-
-private:
-	LLRootHandle<T> mHandle;
-};
-
+// Moved LLLocalClipRect to lllocalcliprect.h
 
 //RN: maybe this needs to moved elsewhere?
 class LLImageProviderInterface
@@ -569,8 +269,8 @@ protected:
 	LLImageProviderInterface() {};
 	virtual ~LLImageProviderInterface() {};
 public:
-	virtual LLPointer<LLUIImage> getUIImage(const std::string& name) = 0;
-	virtual LLPointer<LLUIImage> getUIImageByID(const LLUUID& id) = 0;
+	virtual LLPointer<LLUIImage> getUIImage(const std::string& name, S32 priority) = 0;
+	virtual LLPointer<LLUIImage> getUIImageByID(const LLUUID& id, S32 priority) = 0;
 	virtual void cleanUp() = 0;
 };
 
@@ -693,10 +393,10 @@ public:
 namespace LLInitParam
 {
 	template<>
-	class TypedParam<LLRect> 
-	:	public BlockValue<LLRect>
+	class ParamValue<LLRect, TypeValues<LLRect> > 
+	:	public CustomParamValue<LLRect>
 	{
-        typedef BlockValue<LLRect> super_t;
+        typedef CustomParamValue<LLRect> super_t;
 	public:
 		Optional<S32>	left,
 						top,
@@ -705,45 +405,43 @@ namespace LLInitParam
 						width,
 						height;
 
-		TypedParam(BlockDescriptor& descriptor, const char* name, const LLRect& value, ParamDescriptor::validation_func_t func, S32 min_count, S32 max_count);
+		ParamValue(const LLRect& value);
 
-		LLRect getValueFromBlock() const;
+		void updateValueFromBlock();
+		void updateBlockFromValue();
 	};
 
 	template<>
-	struct TypeValues<LLUIColor> : public TypeValuesHelper<LLUIColor>
+	class ParamValue<LLUIColor, TypeValues<LLUIColor> > 
+	:	public CustomParamValue<LLUIColor>
 	{
-		static void declareValues();
-	};
+        typedef CustomParamValue<LLUIColor> super_t;
 
-	template<>
-	class TypedParam<LLUIColor> 
-	:	public BlockValue<LLUIColor>
-	{
-        typedef BlockValue<LLUIColor> super_t;
 	public:
-		Optional<F32> red;
-		Optional<F32> green;
-		Optional<F32> blue;
-		Optional<F32> alpha;
-		Optional<std::string> control;
+		Optional<F32>			red,
+								green,
+								blue,
+								alpha;
+		Optional<std::string>	control;
 
-		TypedParam(BlockDescriptor& descriptor, const char* name, const LLUIColor& value, ParamDescriptor::validation_func_t func, S32 min_count, S32 max_count);
-		LLUIColor getValueFromBlock() const;
+		ParamValue(const LLUIColor& color);
+		void updateValueFromBlock();
+		void updateBlockFromValue();
 	};
 
 	template<>
-	class TypedParam<const LLFontGL*> 
-	:	public BlockValue<const LLFontGL*>
+	class ParamValue<const LLFontGL*, TypeValues<const LLFontGL*> > 
+	:	public CustomParamValue<const LLFontGL* >
 	{
-        typedef BlockValue<const LLFontGL*> super_t;
+        typedef CustomParamValue<const LLFontGL*> super_t;
 	public:
-		Optional<std::string> name;
-		Optional<std::string> size;
-		Optional<std::string> style;
+		Optional<std::string>	name,
+								size,
+								style;
 
-		TypedParam(BlockDescriptor& descriptor, const char* name, const LLFontGL* const value, ParamDescriptor::validation_func_t func, S32 min_count, S32 max_count);
-		const LLFontGL* getValueFromBlock() const;
+		ParamValue(const LLFontGL* value);
+		void updateValueFromBlock();
+		void updateBlockFromValue();
 	};
 
 	template<>
@@ -762,6 +460,27 @@ namespace LLInitParam
 	struct TypeValues<LLFontGL::ShadowType> : public TypeValuesHelper<LLFontGL::ShadowType>
 	{
 		static void declareValues();
+	};
+
+	template<>
+	struct ParamCompare<const LLFontGL*, false>
+	{
+		static bool equals(const LLFontGL* a, const LLFontGL* b);
+	};
+
+
+	template<>
+	class ParamValue<LLCoordGL, TypeValues<LLCoordGL> >
+	:	public CustomParamValue<LLCoordGL>
+	{
+		typedef CustomParamValue<LLCoordGL> super_t;
+	public:
+		Optional<S32>	x,
+						y;
+
+		ParamValue(const LLCoordGL& val);
+		void updateValueFromBlock();
+		void updateBlockFromValue();
 	};
 }
 

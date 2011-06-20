@@ -2,31 +2,25 @@
  * @file llwlparammanager.cpp
  * @brief Implementation for the LLWLParamManager class.
  *
- * $LicenseInfo:firstyear=2007&license=viewergpl$
- * 
- * Copyright (c) 2007-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2007&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -37,22 +31,18 @@
 #include "pipeline.h"
 #include "llsky.h"
 
+#include "lldiriterator.h"
+#include "llfloaterreg.h"
 #include "llsliderctrl.h"
 #include "llspinctrl.h"
 #include "llcheckboxctrl.h"
 #include "lluictrlfactory.h"
-#include "llviewercamera.h"
 #include "llcombobox.h"
 #include "lllineeditor.h"
 #include "llsdserialize.h"
 
 #include "v4math.h"
-#include "llviewerdisplay.h"
 #include "llviewercontrol.h"
-#include "llviewerwindow.h"
-#include "lldrawpoolwater.h"
-#include "llagent.h"
-#include "llviewerregion.h"
 
 #include "llwlparamset.h"
 #include "llpostprocess.h"
@@ -63,6 +53,7 @@
 #include "curl/curl.h"
 
 LLWLParamManager * LLWLParamManager::sInstance = NULL;
+static LLFastTimer::DeclareTimer FTM_UPDATE_WLPARAM("Update Windlight Params");
 
 LLWLParamManager::LLWLParamManager() :
 
@@ -108,13 +99,14 @@ LLWLParamManager::~LLWLParamManager()
 void LLWLParamManager::loadPresets(const std::string& file_name)
 {
 	std::string path_name(gDirUtilp->getExpandedFilename(LL_PATH_APP_SETTINGS, "windlight/skies", ""));
-	LL_INFOS2("AppInit", "Shaders") << "Loading Default WindLight settings from " << path_name << LL_ENDL;
+	LL_DEBUGS2("AppInit", "Shaders") << "Loading Default WindLight settings from " << path_name << LL_ENDL;
 			
-	bool found = true;			
+	bool found = true;
+	LLDirIterator app_settings_iter(path_name, "*.xml");
 	while(found) 
 	{
 		std::string name;
-		found = gDirUtilp->getNextFileInDir(path_name, "*.xml", name, false);
+		found = app_settings_iter.next(name);
 		if(found)
 		{
 
@@ -134,13 +126,14 @@ void LLWLParamManager::loadPresets(const std::string& file_name)
 	// And repeat for user presets, note the user presets will modify any system presets already loaded
 
 	std::string path_name2(gDirUtilp->getExpandedFilename( LL_PATH_USER_SETTINGS , "windlight/skies", ""));
-	LL_INFOS2("AppInit", "Shaders") << "Loading User WindLight settings from " << path_name2 << LL_ENDL;
+	LL_DEBUGS2("AppInit", "Shaders") << "Loading User WindLight settings from " << path_name2 << LL_ENDL;
 			
-	found = true;			
+	found = true;
+	LLDirIterator user_settings_iter(path_name2, "*.xml");
 	while(found) 
 	{
 		std::string name;
-		found = gDirUtilp->getNextFileInDir(path_name2, "*.xml", name, false);
+		found = user_settings_iter.next(name);
 		if(found)
 		{
 			name=name.erase(name.length()-4);
@@ -195,7 +188,7 @@ void LLWLParamManager::loadPreset(const std::string & name,bool propagate)
 	escaped_filename += ".xml";
 
 	std::string pathName(gDirUtilp->getExpandedFilename(LL_PATH_APP_SETTINGS, "windlight/skies", escaped_filename));
-	llinfos << "Loading WindLight sky setting from " << pathName << llendl;
+	LL_DEBUGS2("AppInit", "Shaders") << "Loading WindLight sky setting from " << pathName << LL_ENDL;
 
 	llifstream presetsXML;
 	presetsXML.open(pathName.c_str());
@@ -204,8 +197,9 @@ void LLWLParamManager::loadPreset(const std::string & name,bool propagate)
 	if(!presetsXML)
 	{
 		pathName=gDirUtilp->getExpandedFilename( LL_PATH_USER_SETTINGS , "windlight/skies", escaped_filename);
-		llinfos << "Loading User WindLight sky setting from " << pathName << llendl;
-		presetsXML.open(pathName.c_str());
+		LL_DEBUGS2("AppInit", "Shaders") << "Loading User WindLight sky setting from " << pathName << LL_ENDL;
+		presetsXML.clear();
+        presetsXML.open(pathName.c_str());
 	}
 
 	if (presetsXML)
@@ -291,7 +285,7 @@ void LLWLParamManager::updateShaderUniforms(LLGLSLShader * shader)
 
 void LLWLParamManager::propagateParameters(void)
 {
-	LLFastTimer ftm(LLFastTimer::FTM_UPDATE_WLPARAM);
+	LLFastTimer ftm(FTM_UPDATE_WLPARAM);
 	
 	LLVector4 sunDir;
 	LLVector4 moonDir;
@@ -315,7 +309,7 @@ void LLWLParamManager::propagateParameters(void)
 	{
 		mLightDir = sunDir;
 	}
-	else if(sunDir.mV[1] < 0 && sunDir.mV[1] > NIGHTTIME_ELEVATION_COS)
+	else if(sunDir.mV[1] < 0 && sunDir.mV[1] > LLSky::NIGHTTIME_ELEVATION_COS)
 	{
 		// clamp v1 to 0 so sun never points up and causes weirdness on some machines
 		LLVector3 vec(sunDir.mV[0], sunDir.mV[1], sunDir.mV[2]);
@@ -362,7 +356,7 @@ void LLWLParamManager::propagateParameters(void)
 
 void LLWLParamManager::update(LLViewerCamera * cam)
 {
-	LLFastTimer ftm(LLFastTimer::FTM_UPDATE_WLPARAM);
+	LLFastTimer ftm(FTM_UPDATE_WLPARAM);
 	
 	// update clouds, sun, and general
 	mCurParams.updateCloudScrolling();
@@ -377,22 +371,23 @@ void LLWLParamManager::update(LLViewerCamera * cam)
 	propagateParameters();
 	
 	// sync menus if they exist
-	if(LLFloaterWindLight::isOpen()) 
+	LLFloaterWindLight* wlfloater = LLFloaterReg::findTypedInstance<LLFloaterWindLight>("env_windlight");
+	if (wlfloater)
 	{
-		LLFloaterWindLight::instance()->syncMenu();
+		wlfloater->syncMenu();
 	}
-	if(LLFloaterDayCycle::isOpen()) 
+	LLFloaterDayCycle* dlfloater = LLFloaterReg::findTypedInstance<LLFloaterDayCycle>("env_day_cycle");
+	if (dlfloater)
 	{
-		LLFloaterDayCycle::instance()->syncMenu();
+		dlfloater->syncMenu();
 	}
-	if(LLFloaterEnvSettings::isOpen()) 
+	LLFloaterEnvSettings* envfloater = LLFloaterReg::findTypedInstance<LLFloaterEnvSettings>("env_settings");
+	if (envfloater)
 	{
-		LLFloaterEnvSettings::instance()->syncMenu();
+		envfloater->syncMenu();
 	}
 
 	F32 camYaw = cam->getYaw();
-
-	stop_glerror();
 
 	// *TODO: potential optimization - this block may only need to be
 	// executed some of the time.  For example for water shaders only.

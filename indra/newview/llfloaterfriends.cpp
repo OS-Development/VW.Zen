@@ -4,31 +4,25 @@
  * @date 2005-01-13
  * @brief Implementation of the friends floater
  *
- * $LicenseInfo:firstyear=2005&license=viewergpl$
- * 
- * Copyright (c) 2005-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2005&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -46,10 +40,10 @@
 #include "llfloateravatarpicker.h"
 #include "llviewerwindow.h"
 #include "llbutton.h"
-#include "llfriendactions.h"
+#include "llavataractions.h"
 #include "llinventorymodel.h"
 #include "llnamelistctrl.h"
-#include "llnotify.h"
+#include "llnotificationsutil.h"
 #include "llresmgr.h"
 #include "llscrolllistctrl.h"
 #include "llscrolllistitem.h"
@@ -58,11 +52,11 @@
 #include "llmenucommands.h"
 #include "llviewercontrol.h"
 #include "llviewermessage.h"
-#include "lltimer.h"
+#include "lleventtimer.h"
 #include "lltextbox.h"
 #include "llvoiceclient.h"
 
-// *TODO: Move more common stuff to LLFriendActions?
+// *TODO: Move more common stuff to LLAvatarActions?
 
 //Maximum number of people you can select to do an operation on at once.
 #define MAX_FRIEND_SELECT 20
@@ -194,6 +188,7 @@ BOOL LLPanelFriends::postBuild()
 	mFriendsList->setMaxSelectable(MAX_FRIEND_SELECT);
 	mFriendsList->setMaximumSelectCallback(boost::bind(&LLPanelFriends::onMaximumSelect));
 	mFriendsList->setCommitOnSelectionChange(TRUE);
+	mFriendsList->setContextMenu(LLScrollListCtrl::MENU_AVATAR);
 	childSetCommitCallback("friend_list", onSelectName, this);
 	getChild<LLScrollListCtrl>("friend_list")->setDoubleClickCallback(onClickIM, this);
 
@@ -236,7 +231,7 @@ BOOL LLPanelFriends::addFriend(const LLUUID& agent_id)
 	LLSD& friend_column = element["columns"][LIST_FRIEND_NAME];
 	friend_column["column"] = "friend_name";
 	friend_column["value"] = fullname;
-	friend_column["font"] = "SANSSERIF";
+	friend_column["font"]["name"] = "SANSSERIF";
 	friend_column["font"]["style"] = "NORMAL";	
 
 	LLSD& online_status_column = element["columns"][LIST_ONLINE_STATUS];
@@ -404,7 +399,7 @@ void LLPanelFriends::refreshNames(U32 changed_mask)
 	// Changed item in place, need to request sort and update columns
 	// because we might have changed data in a column on which the user
 	// has already sorted. JC
-	mFriendsList->sortItems();
+	mFriendsList->updateSort();
 
 	// re-select items
 	mFriendsList->selectMultiple(selected_ids);
@@ -534,7 +529,7 @@ void LLPanelFriends::onMaximumSelect()
 {
 	LLSD args;
 	args["MAX_SELECT"] = llformat("%d", MAX_FRIEND_SELECT);
-	LLNotifications::instance().add("MaxListSelectMessage", args);
+	LLNotificationsUtil::add("MaxListSelectMessage", args);
 };
 
 // static
@@ -546,7 +541,7 @@ void LLPanelFriends::onClickProfile(void* user_data)
 	if(ids.size() > 0)
 	{
 		LLUUID agent_id = ids[0];
-		LLFriendActions::showProfile(agent_id);
+		LLAvatarActions::showProfile(agent_id);
 	}
 }
 
@@ -560,23 +555,22 @@ void LLPanelFriends::onClickIM(void* user_data)
 	{
 		if(ids.size() == 1)
 		{
-			LLFriendActions::startIM(ids[0]);
+			LLAvatarActions::startIM(ids[0]);
 		}
 		else
 		{
-			LLFriendActions::startConference(ids);
+			LLAvatarActions::startConference(ids);
 		}
 	}
 }
 
 // static
 void LLPanelFriends::onPickAvatar(const std::vector<std::string>& names,
-									const std::vector<LLUUID>& ids,
-									void* )
+									const std::vector<LLUUID>& ids)
 {
 	if (names.empty()) return;
 	if (ids.empty()) return;
-	LLFriendActions::requestFriendshipDialog(ids[0], names[0]);
+	LLAvatarActions::requestFriendshipDialog(ids[0], names[0]);
 }
 
 // static
@@ -584,7 +578,7 @@ void LLPanelFriends::onClickAddFriend(void* user_data)
 {
 	LLPanelFriends* panelp = (LLPanelFriends*)user_data;
 	LLFloater* root_floater = gFloaterView->getParentFloater(panelp);
-	LLFloaterAvatarPicker* picker = LLFloaterAvatarPicker::show(onPickAvatar, user_data, FALSE, TRUE);
+	LLFloaterAvatarPicker* picker = LLFloaterAvatarPicker::show(boost::bind(&LLPanelFriends::onPickAvatar, _1,_2), FALSE, TRUE);
 	if (root_floater)
 	{
 		root_floater->addDependentFloater(picker);
@@ -595,14 +589,14 @@ void LLPanelFriends::onClickAddFriend(void* user_data)
 void LLPanelFriends::onClickRemove(void* user_data)
 {
 	LLPanelFriends* panelp = (LLPanelFriends*)user_data;
-	LLFriendActions::removeFriendsDialog(panelp->getSelectedIDs());
+	LLAvatarActions::removeFriendsDialog(panelp->getSelectedIDs());
 }
 
 // static
 void LLPanelFriends::onClickOfferTeleport(void* user_data)
 {
 	LLPanelFriends* panelp = (LLPanelFriends*)user_data;
-	LLFriendActions::offerTeleport(panelp->getSelectedIDs());
+	LLAvatarActions::offerTeleport(panelp->getSelectedIDs());
 }
 
 // static
@@ -613,7 +607,7 @@ void LLPanelFriends::onClickPay(void* user_data)
 	std::vector<LLUUID> ids = panelp->getSelectedIDs();
 	if(ids.size() == 1)
 	{	
-		handle_pay_by_id(ids[0]);
+		LLAvatarActions::pay(ids[0]);
 	}
 }
 
@@ -638,14 +632,14 @@ void LLPanelFriends::confirmModifyRights(rights_map_t& ids, EGrantRevoke command
 			}
 			if (command == GRANT)
 			{
-				LLNotifications::instance().add("GrantModifyRights", 
+				LLNotificationsUtil::add("GrantModifyRights", 
 					args, 
 					LLSD(), 
 					boost::bind(&LLPanelFriends::modifyRightsConfirmation, this, _1, _2, rights));
 			}
 			else
 			{
-				LLNotifications::instance().add("RevokeModifyRights", 
+				LLNotificationsUtil::add("RevokeModifyRights", 
 					args, 
 					LLSD(), 
 					boost::bind(&LLPanelFriends::modifyRightsConfirmation, this, _1, _2, rights));
@@ -655,14 +649,14 @@ void LLPanelFriends::confirmModifyRights(rights_map_t& ids, EGrantRevoke command
 		{
 			if (command == GRANT)
 			{
-				LLNotifications::instance().add("GrantModifyRightsMultiple", 
+				LLNotificationsUtil::add("GrantModifyRightsMultiple", 
 					args, 
 					LLSD(), 
 					boost::bind(&LLPanelFriends::modifyRightsConfirmation, this, _1, _2, rights));
 			}
 			else
 			{
-				LLNotifications::instance().add("RevokeModifyRightsMultiple", 
+				LLNotificationsUtil::add("RevokeModifyRightsMultiple", 
 					args, 
 					LLSD(), 
 					boost::bind(&LLPanelFriends::modifyRightsConfirmation, this, _1, _2, rights));
@@ -673,7 +667,7 @@ void LLPanelFriends::confirmModifyRights(rights_map_t& ids, EGrantRevoke command
 
 bool LLPanelFriends::modifyRightsConfirmation(const LLSD& notification, const LLSD& response, rights_map_t* rights)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	if(0 == option)
 	{
 		sendRightsGrant(*rights);

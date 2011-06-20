@@ -6,6 +6,9 @@
 	<global name="alwayschoose">
 		Kies altijd deze optie
 	</global>
+	<global name="implicitclosebutton">
+		Sluiten
+	</global>
   <template name="okbutton">
     <form>
       <button
@@ -71,7 +74,7 @@
     </form>
   </template>
 	<notification functor="GenericAcknowledge" label="Onbekende waarschuwingsboodschap" name="MissingAlert">
-		Uw versie van Second Life weet niet hoe het de waarschuwingsboodschap die zojuist ontvangen is moet weergeven. 
+		Uw versie van [APP_NAME] weet niet hoe het de waarschuwingsboodschap die zojuist ontvangen is moet weergeven. 
 
 Foutdetails: De waarschuwing genaamd &apos;[_NAME]&apos; is niet gevonden in notifications.xml.
 		<usetemplate name="okbutton" yestext="OK"/>
@@ -94,7 +97,7 @@ Foutdetails: De waarschuwing genaamd &apos;[_NAME]&apos; is niet gevonden in not
 		<usetemplate name="okcancelbuttons" notext="Annuleren" yestext="Ja"/>
 	</notification>
 	<notification name="BadInstallation">
-		Er is een fout opgetreden tijdens het bijwerken van Second Life. Download alstublieft de meest recente versie van secondlife.com
+		Er is een fout opgetreden tijdens het bijwerken van [APP_NAME]. Download alstublieft de meest recente versie van secondlife.com
     <usetemplate
      name="okbutton"
      yestext="OK"/>
@@ -232,7 +235,7 @@ Het aan vinken van deze optie zal:
 	<notification name="ClickPartnerHelpAvatar">
 		U kunt een andere Inwoner ten huwelijk vragen of een bestaand partner schap verbreken via de [SECOND_LIFE] website.
 
-Naar de Second Life website gaan voor meer informatie over partner schap?
+Naar de [SECOND_LIFE] website gaan voor meer informatie over partner schap?
 		<usetemplate name="okcancelbuttons" notext="Annuleren" yestext="Ga naar Pagina"/>
 	</notification>
 	<notification name="ClickUploadHelpPermissions">
@@ -245,7 +248,7 @@ Naar de Second Life website gaan voor meer informatie over partner schap?
 * Klik op Laden &gt; &apos;Thuis pagina URL&apos; om terug te keren naar het web profiel van deze Inwoner indien U verder genavigeerd bent.
 
 Indien u uw eigen profiel bekijkt, kunt U elke willekeurige URL opgeven als uw web profiel en op OK klikken om het in te stellen.
-Andere Inwoners kunnen de door U opgegeven URL bezoeken indien zijn uw profiel bekijken.
+Andere Inwoners kunnen de door U opgegeven URL bezoeken indien zij uw profiel bekijken.
 	</notification>
 	<notification name="JoinGroupCanAfford">
 		Deelname aan deze groep kost L$[COST].
@@ -272,7 +275,7 @@ Uw verkoopprijs is L$[SALE_PRICE] en zal geautoriseerd worden voor verkoop door 
 		<usetemplate name="okcancelbuttons" notext="Annuleren" yestext="OK"/>
 	</notification>
 	<notification name="ConfirmLandSaleToAnyoneChange">
-		ATTENTIE: Het aanklikken van &apos;verkoop aan iedereen&apos; zal uw land beschikbaar maken aan de gehele Second Life gemeenschap, zo ook diegenen niet in deze regio!
+		ATTENTIE: Het aanklikken van &apos;verkoop aan iedereen&apos; zal uw land beschikbaar maken aan de gehele [SECOND_LIFE] gemeenschap, zo ook diegenen niet in deze regio!
 
 De geselecteerde [LAND_SIZE] m² land is te koop gezet.
 Uw verkoopprijs is L$[SALE_PRICE] en zal geautoriseerd worden voor verkoop door [NAME].
@@ -377,6 +380,9 @@ De outfit folder bevat geen kleding, lichaamsdelen of externe bevestigingen.
 U moet zowel de voornaam als de achternaam van uw avatar opgeven.
 
 U heeft een account nodig om [SECOND_LIFE] binnen te gaan. Wilt u er nu een maken?
+		<url name="url">
+			https://join.secondlife.com/index.php?lang=nl-NL
+		</url>
 		<usetemplate name="okcancelbuttons" notext="Probeer het opnieuw" yestext="Maak een nieuw account"/>
 	</notification>
 	<notification name="AddClassified">
@@ -418,17 +424,17 @@ Betaalde advertentiekosten zullen niet worden terug gestort.
 		<usetemplate name="okcancelbuttons" notext="Annuleren" yestext="OK"/>
 	</notification>
 	<notification name="CacheWillClear">
-		De Cache zal geleegd worden als u [SECOND_LIFE] opnieuw start.
+		De cache zal geleegd worden als u [APP_NAME] opnieuw start.
 	</notification>
 	<notification name="CacheWillBeMoved">
-		De Cache zal verplaatst worden als u [SECOND_LIFE] opnieuw start.
+		De cache zal verplaatst worden als u [APP_NAME] opnieuw start.
 Opmerking: Dit zal de Cache legen.
 	</notification>
 	<notification name="ChangeConnectionPort">
-		Poort instelling zullen effect hebben nadat u [SECOND_LIFE] opnieuw start.
+		Poort instelling zullen effect hebben nadat u [APP_NAME] opnieuw start.
 	</notification>
 	<notification name="ChangeSkin">
-		De nieuwe skin zal verschijnen nadat u [SECOND_LIFE] opnieuw start.
+		De nieuwe skin zal verschijnen nadat u [APP_NAME] opnieuw start.
 	</notification>
 	<notification name="GoToAuctionPage">
 		Ga naar de [SECOND_LIFE] web pagina om de veiling details te zien of een bod uit te brengen.
@@ -489,7 +495,7 @@ Het object kan buiten bereik of mogelijk verwijderd zijn.
 		Kan niet naar bestand [[FILE]] schrijven
 	</notification>
 	<notification name="UnsupportedHardware">
-		Waarschuwing: Uw systeem voldoet niet aan de Second Life minimum systeem eisen. Indien u Second Life gebruikt, ervaart u mogelijk slechte prestaties. Helaas kunnen we geen technische ondersteuning geven voor niet ondersteunde configuraties.
+		Waarschuwing: Uw systeem voldoet niet aan de [APP_NAME] minimum systeem eisen. Indien u [APP_NAME] gebruikt, ervaart u mogelijk slechte prestaties. Helaas kunnen we geen technische ondersteuning geven voor niet ondersteunde configuraties.
 
 MINSPECS
 Wilt u [_URL] bezoeken voor meer informatie?
@@ -501,14 +507,14 @@ Wilt u [_URL] bezoeken voor meer informatie?
 	<notification name="UnknownGPU">
 		Uw systeem heeft een grafische kaart die bij ons nog niet bekend is op dit moment.
 
-Dit is vaak het geval met nieuwe hardware waarbij wij nog niet de kans gehad hebben om het te testen. Second Life zal mogelijk naar behoren functioneren, doch het kan zijn dat u uw grafische instellingen naar geschiktere waarden zult moeten instellen.
+Dit is vaak het geval met nieuwe hardware waarbij wij nog niet de kans gehad hebben om het te testen. [APP_NAME] zal mogelijk naar behoren functioneren, doch het kan zijn dat u uw grafische instellingen naar geschiktere waarden zult moeten instellen.
 (Bewerken menu &gt; Voorkeuren &gt; Grafisch).
 		<form name="form">
 			<ignore name="ignore" text="Indien een onbekende grafische kaart gedetecteerd"/>
 		</form>
 	</notification>
 	<notification name="DisplaySettingsNoShaders">
-		[SECOND_LIFE] is gestopt bij het initialiseren van de grafische stuurprogramma&apos;s.
+		[APP_NAME] is gestopt bij het initialiseren van de grafische stuurprogramma&apos;s.
 Grafische kwaliteit zal op zijn laagst worden ingesteld om veel voorkomende fouten met stuurprogramma&apos;s te vermijden.
 Dit zal sommige grafische opties uitschakelen.
 Wij adviseren u de stuurprogramma&apos;s van uw grafische kaart bij te werken.
@@ -573,7 +579,7 @@ Verplaats alstublieft alle objecten die u wilt verwerven naar dezelfde regio.
 	<notification name="PromptGoToCurrencyPage">
 		[EXTRA]
 
-Naar [URL] gaan voor informatie over de aankoop valuta?
+Naar [_URL] gaan voor informatie over de aankoop L$?
 		<usetemplate name="okcancelbuttons" notext="Annuleren" yestext="OK"/>
 	</notification>
 	<notification name="UnableToLinkObjects">
@@ -789,7 +795,7 @@ Geen perceel geselecteerd.
 Kan de regio niet vinden waar dit land zich bevind.
 	</notification>
 	<notification name="CannotCloseFloaterBuyLand">
-		U kunt het Koop Land venster niet sluiten totdat Second Life de prijs van de transactie geschat heeft.
+		U kunt het Koop Land venster niet sluiten totdat [APP_NAME] de prijs van de transactie geschat heeft.
 	</notification>
 	<notification name="CannotDeedLandNothingSelected">
 		Kan land niet toekennen:
@@ -802,7 +808,6 @@ Geen groep geselecteerd.
 	<notification name="CannotDeedLandNoRegion">
 		Kan land niet toekennen:
 Kan de regio niet vinden waar dit land zich bevind.
-Gebruik alstublieft Gereedschappen -&gt; Report Bug om het te rapporteren.
 	</notification>
 	<notification name="CannotDeedLandMultipleSelected">
 		Kan land niet toekennen:
@@ -849,8 +854,6 @@ Percelen in uw eigendom verschijnen in groen.
 	<notification name="CannotReleaseLandRegionNotFound">
 		Kan land niet afstaan:
 Kan de regio niet vinden waar dit land zich bevind.
-
-Gebruik alstublieft Gereedschappen &gt; Report Bug om het te rapporteren.
 	</notification>
 	<notification name="CannotReleaseLandNoTransfer">
 		Kan land niet afstaan:
@@ -889,14 +892,10 @@ Land opdelen?
 	<notification name="CannotDivideLandNoRegion">
 		Kan het land niet opdelen:
 Kan de regio niet vinden waar dit land zich bevind.
-
-Gebruik alstublieft Gereedschappen &gt; Report Bug om het te rapporteren.
 	</notification>
 	<notification name="CannotJoinLandNoRegion">
 		Kan land niet verbinden:
 Kan de regio niet vinden waar dit land zich bevind.
-
-Gebruik alstublieft Gereedschappen &gt; Report Bug om het te rapporteren.
 	</notification>
 	<notification name="CannotJoinLandNothingSelected">
 		Kan land niet verbinden:
@@ -956,13 +955,11 @@ Grijs = Openbaar
 		Kon [NAME] niet opslaan in centrale (asset) opslag.
 Meestal is dit een tijdelijk probleem.
 Wijzig en sla het draagbaar item over een paar minuten opnieuw op.
-
-Indien dit probleem aanhoudt, klik dan alstublieft op &apos;Gereedschap &gt; Rapporteer Bug&apos; in het menu en voeg informatie toe over uw netwerk instellingen.
 	</notification>
 	<notification name="YouHaveBeenLoggedOut">
 		U bent uitgelogd uit [SECOND_LIFE]:
 [MESSAGE]
-U kunt uw bestaande IM en chat bekijken door te klikken op &apos;Toon IM &amp; Chat&apos;. Anders, klik op Afsluiten om [SECOND_LIFE] direct te verlaten.
+U kunt uw bestaande IM en chat bekijken door te klikken op &apos;Toon IM &amp; Chat&apos;. Anders, klik op Afsluiten om [APP_NAME] direct te verlaten.
 		<usetemplate name="okcancelbuttons" notext="Afsluiten" yestext="Toon IM &amp; Chat"/>
 	</notification>
 	<notification name="OnlyOfficerCanBuyLand">
@@ -980,7 +977,7 @@ Vriendschap aanbieden aan [NAME]?
 
 Vriendschap aanbieden aan [NAME]?
 		<form name="form">
-			<input name="message" type="text">
+			<input name="message">
 				Wilt U mijn vriend zijn?
 			</input>
 			<button name="Offer" text="OK"/>
@@ -1134,14 +1131,14 @@ U kunt [SECOND_LIFE] normaal gebruiken en anderen zullen u correct zien.
 		</form>
 	</notification>
 	<notification name="FirstRun">
-		[SECOND_LIFE] installatie compleet.
+		[APP_NAME] installatie compleet.
 
 Als dit de eerste keer is dat u [SECOND_LIFE] gebruikt, zult u een account aan moeten maken voordat u in kan loggen.
-Terugkeren naar www.secondlife.com om een nieuw account aan te maken?
+Terugkeren naar [https://join.secondlife.com/index.php?lang=nl-NL secondlife.com] om een nieuw account aan te maken?
 		<usetemplate name="okcancelbuttons" notext="Doorgaan" yestext="Nieuw Account..."/>
 	</notification>
 	<notification name="LoginPacketNeverReceived">
-		Wij hebben problemen verbinding te maken. Er zou een probleem kunnen zijn met uw internet verbinding of met de Second Life servers.
+		Wij hebben problemen verbinding te maken. Er zou een probleem kunnen zijn met uw internet verbinding of met de [SECOND_LIFE] servers.
 
 U kunt uw internet verbinding controleren en het over een paar minuten opnieuw proberen, op Help klikken om verbinding te maken met onze support website, of klik op Teleporteren om een poging te doen naar uw thuis locatie te teleporteren.
 		<form name="form">
@@ -1245,33 +1242,33 @@ Zet het object alstublieft te koop en probeer het opnieuw.
 [DOWNLOAD_PATH].
 	</notification>
 	<notification name="DownloadWindowsMandatory">
-		Een nieuwe versie van [SECOND_LIFE] is beschikbaar.
+		Een nieuwe versie van [APP_NAME] is beschikbaar.
 [MESSAGE]
-U moet deze update downloaden om [SECOND_LIFE] te kunnen gebruiken.
+U moet deze update downloaden om [APP_NAME] te kunnen gebruiken.
 		<usetemplate name="okcancelbuttons" notext="Afsluiten" yestext="Download"/>
 	</notification>
 	<notification name="DownloadWindows">
-		Een bijgewerkte versie van [SECOND_LIFE] is beschikbaar.
+		Een bijgewerkte versie van [APP_NAME] is beschikbaar.
 [MESSAGE]
 Deze update is niet vereist, maar wij raden aan dat u het installeert om de prestaties en stabiliteit te verbeteren.
 		<usetemplate name="okcancelbuttons" notext="Doorgaan" yestext="Download"/>
 	</notification>
 	<notification name="DownloadWindowsReleaseForDownload">
-		Een bijgewerkte versie van [SECOND_LIFE] is beschikbaar.
+		Een bijgewerkte versie van [APP_NAME] is beschikbaar.
 [MESSAGE]
 Deze update is niet vereist, maar wij raden aan dat u het installeert om de prestaties en stabiliteit te verbeteren.
 		<usetemplate name="okcancelbuttons" notext="Doorgaan" yestext="Download"/>
 	</notification>
 	<notification name="DownloadMacMandatory">
-		Een nieuwe versie van [SECOND_LIFE] is beschikbaar.
+		Een nieuwe versie van [APP_NAME] is beschikbaar.
 [MESSAGE]
-U moet deze update downloaden om [SECOND_LIFE] te kunnen gebruiken.
+U moet deze update downloaden om [APP_NAME] te kunnen gebruiken.
 
 Downloaden naar uw Applicatie Data map?
 		<usetemplate name="okcancelbuttons" notext="Afsluiten" yestext="Download"/>
 	</notification>
 	<notification name="DownloadMac">
-		Een bijgewerkte versie van [SECOND_LIFE] is beschikbaar.
+		Een bijgewerkte versie van [APP_NAME] is beschikbaar.
 [MESSAGE]
 Deze update is niet vereist, maar wij raden aan dat u het installeert om de prestaties en stabiliteit te verbeteren.
 
@@ -1279,7 +1276,7 @@ Downloaden naar uw Applicatie Data map?
 		<usetemplate name="okcancelbuttons" notext="Doorgaan" yestext="Download"/>
 	</notification>
 	<notification name="DownloadMacReleaseForDownload">
-		Een bijgewerkte versie van [SECOND_LIFE] is beschikbaar.
+		Een bijgewerkte versie van [APP_NAME] is beschikbaar.
 [MESSAGE]
 Deze update is niet vereist, maar wij raden aan dat u het installeert om de prestaties en stabiliteit te verbeteren.
 
@@ -1298,10 +1295,6 @@ Downloaden naar uw Applicatie Data map?
 	<notification name="WebLaunchJoinNow">
 		Naar www.secondlife.com gaan om uw account te beheren?
 		<usetemplate ignoretext="Bij openen van webbrowser om uw account te beheren" name="okcancelignore" notext="Annuleren" yestext="OK"/>
-	</notification>
-	<notification name="WebLaunchBugReport101">
-		Bezoek de [SECOND_LIFE] Wiki en leer hoe Bugs correct gerapporteerd kunnen worden.
-		<usetemplate ignoretext="Bij openen webbrowser om de Bug Reporting 101 Wiki te bekijken" name="okcancelignore" notext="Annuleren" yestext="OK"/>
 	</notification>
 	<notification name="WebLaunchSecurityIssues">
 		Bezoek de [SECOND_LIFE] Wiki voor details over hoe een Veiligheids Probleem (Security Issue) te rapporteren.
@@ -1388,7 +1381,7 @@ Om een groep te verlaten, selecteer de &apos;Groep..&apos; optie via het &apos;B
 	<notification name="KickUser">
 		Verwijder deze gebruiker met welk bericht?
 		<form name="form">
-			<input name="message" type="text">
+			<input name="message">
 				Een administrator heeft u uitgelogd.
 			</input>
 			<button name="OK" text="OK"/>
@@ -1398,7 +1391,7 @@ Om een groep te verlaten, selecteer de &apos;Groep..&apos; optie via het &apos;B
 	<notification name="KickAllUsers">
 		Verwijder iedereen momenteel op het grid met welk bericht?
 		<form name="form">
-			<input name="message" type="text">
+			<input name="message">
 				Een administrator heeft u uitgelogd.
 			</input>
 			<button name="OK" text="OK"/>
@@ -1408,7 +1401,7 @@ Om een groep te verlaten, selecteer de &apos;Groep..&apos; optie via het &apos;B
 	<notification name="FreezeUser">
 		Bevries deze gebruiker met welk bericht?
 		<form name="form">
-			<input name="message" type="text">
+			<input name="message">
 				U bent bevroren. U kunt zich niet verplaatsen of praten. Een administrator zal contact met u opnemen via instant message (IM).
 			</input>
 			<button name="OK" text="OK"/>
@@ -1418,7 +1411,7 @@ Om een groep te verlaten, selecteer de &apos;Groep..&apos; optie via het &apos;B
 	<notification name="UnFreezeUser">
 		Ontdooi deze gebruiker met welk bericht?
 		<form name="form">
-			<input name="message" type="text">
+			<input name="message">
 				U bent niet langer bevroren.
 			</input>
 			<button name="OK" text="OK"/>
@@ -1428,7 +1421,7 @@ Om een groep te verlaten, selecteer de &apos;Groep..&apos; optie via het &apos;B
 	<notification name="OfferTeleport">
 		Een Teleport aanbieden naar uw locatie met welk bericht?
 		<form name="form">
-			<input name="message" type="text">
+			<input name="message">
 				Voeg u bij mij in [REGION]
 			</input>
 			<button name="OK" text="OK"/>
@@ -1438,7 +1431,7 @@ Om een groep te verlaten, selecteer de &apos;Groep..&apos; optie via het &apos;B
 	<notification name="OfferTeleportFromGod">
 		God beveel gebruiker naar uw locatie?
 		<form name="form">
-			<input name="message" type="text">
+			<input name="message">
 				Voeg u bij mij in [REGION]
 			</input>
 			<button name="OK" text="OK"/>
@@ -1452,7 +1445,7 @@ Om een groep te verlaten, selecteer de &apos;Groep..&apos; optie via het &apos;B
 	<notification label="Bericht iedereen in uw Estate" name="MessageEstate">
 		Type een kort bericht om naar iedereen sturen die momenteel in uw Estate aanwezig is.
 		<form name="form">
-			<input name="message" type="text"/>
+			<input name="message"/>
 			<button name="OK" text="OK"/>
 			<button name="Cancel" text="Annuleren"/>
 		</form>
@@ -1541,7 +1534,7 @@ Ga naar de kennisbank voor meer informatie over inhoudscategorieën?
 		U wordt niet in die regio toegelaten vanwege uw inhoudscategorie.
 
 U kunt klikken op &apos;Wijzig voorkeur&apos; om uw inhoudscategorie voorkeur nu te verhogen en toegelaten te worden. U zult in staat zijn om [REGIONMATURITY] inhoud te zoeken en benaderen vanaf dit moment. Wanneer u later deze instelling wilt wijzigen, ga dan naar Bewerken &gt; Voorkeuren... &gt; Algemeen.
-	 <form>
+	 <form name="form">
       <button
        name="OK"
        text="Wijzig voorkeur"/>
@@ -1549,7 +1542,7 @@ U kunt klikken op &apos;Wijzig voorkeur&apos; om uw inhoudscategorie voorkeur nu
        default="true"
        name="Cancel"
        text="Sluiten"/>
-       <ignore text="Wanneer regiotoegang wordt geblokkeerd vanwege de inhoudscategorie voorkeur"/>
+       <ignore name="ignore" text="Wanneer regiotoegang wordt geblokkeerd vanwege de inhoudscategorie voorkeur"/>
     </form>
 	</notification>
 	<notification name="LandClaimAccessBlocked">
@@ -1675,7 +1668,7 @@ Advertentie nu Publiceren voor L$[AMOUNT]?
 	<notification label="Bericht iedereen in deze regio" name="MessageRegion">
 		Type een kort bericht om naar iedereen sturen die momenteel in regio aanwezig is.
 		<form name="form">
-			<input name="message" type="text"/>
+			<input name="message"/>
 			<button name="OK" text="OK"/>
 			<button name="Cancel" text="Annuleren"/>
 		</form>
@@ -1766,7 +1759,7 @@ Indien deze optie is aan gevinkt, kunnen kopers hun land in deze regio verkopen.
 Standaard: Niet toestaan
 	</notification>
 	<notification label="Scripts Uitschakelen" name="HelpRegionDisableScripts">
-		Indien de sim prestaties slecht zijn, kan een script de oorzaak zijn. Open de Statistieken balk (Ctrl-Shift-1). Kijk naar de Simulator Fysieke FPS. Indien het lager is dan 45, open dan het Tijd paneel onderaan de Statistieken balk. Indien de Script Tijd 25 ms of hoger is, klik dan op de Top Scripts knop. U krijgt dan een naam en lokatie van scripts die mogelijk de slechte prestaties veroorzaken.
+		Indien de sim prestaties slecht zijn, kan een script de oorzaak zijn. Open de Statistieken balk (Ctrl+Shift+1). Kijk naar de Simulator Fysieke FPS. Indien het lager is dan 45, open dan het Tijd paneel onderaan de Statistieken balk. Indien de Script Tijd 25 ms of hoger is, klik dan op de Top Scripts knop. U krijgt dan een naam en lokatie van scripts die mogelijk de slechte prestaties veroorzaken.
 
 Het aan vinken van Scripts Uitschakelen en vervolgens op de Toepassen knop drukken, zal tijdelijk alle scripts in deze regio uitschakelen. U zult dit mogelijk moeten doen om naar de lokatie te gaan van het &apos;top script&apos;. Eenmaal aangekomen, onderzoek dan of het script het probleem veroorzaakt. U zult mogelijk de eigenaar willen contacteren of het object willen retourneren c.q. verwijderen.
 Verwijder het vinkje van Scripts Uitschakelen en klik op Toepassen om scripts weer te reactiveren in de regio.
@@ -1774,7 +1767,7 @@ Verwijder het vinkje van Scripts Uitschakelen en klik op Toepassen om scripts we
 Standaard: Uitgeschakeld
 	</notification>
 	<notification label="Botsingen Uitschakelen" name="HelpRegionDisableCollisions">
-		Indien de sim prestaties slecht zijn, kunnen fysieke objecten de oorzaak zijn. Open de Statistieken balk (Ctrl-Shift-1). Kijk naar de Simulator Fysieke FPS. Indien het lager is dan 45, open dan het Tijd paneel onderaan de Statistieken balk. Indien de Sim Tijd (Fysiek) 20 ms of hoger is, klik dan op de Toon Top Botsingen knop. U krijgt dan een naam en lokatie van de fysieke objecten die mogelijk de slecht prestaties veroorzaken.
+		Indien de sim prestaties slecht zijn, kunnen fysieke objecten de oorzaak zijn. Open de Statistieken balk (Ctrl+Shift+1). Kijk naar de Simulator Fysieke FPS. Indien het lager is dan 45, open dan het Tijd paneel onderaan de Statistieken balk. Indien de Sim Tijd (Fysiek) 20 ms of hoger is, klik dan op de Toon Top Botsingen knop. U krijgt dan een naam en lokatie van de fysieke objecten die mogelijk de slecht prestaties veroorzaken.
 
 Het aan vinken van de Botsingen Uitschakelen knop en vervolgens op de Toepassen knop drukken, zal tijdelijk object-object botsingen uitschakelen. U zult dit mogelijk moeten doen om naar de lokatie te gaan van de &apos;top botsingen&apos;. Eenmaal aangekomen, onderzoek dan het object. Botst het constant met andere objecten? U zult mogelijk de eigenaar willen contacteren of het object willen retourneren c.q. verwijderen.
 Verwijder het vinkje van Botsingen Uitschakelen en klik op Toepassen om botsingen weer te reactiveren in de regio.
@@ -1890,7 +1883,7 @@ Indien u het leeg laat, zullen misbruik rapporten alleen verzonden worden naar L
 Standaard: Uitgeschakeld
 	</notification>
 	<notification label="Voice Versie Ongelijkheid" name="VoiceVersionMismatch">
-		Deze versie van Second Life is niet compatibel met de Voice spraak optie in deze regio. Om Voice Chat goed te laten functioneren, moet u Second Life bijwerken.
+		Deze versie van [APP_NAME] is niet compatibel met de Voice spraak optie in deze regio. Om Voice Chat goed te laten functioneren, moet u [APP_NAME] bijwerken.
 	</notification>
 	<notification label="Estate Convenant" name="HelpEstateCovenant">
 		Het instellen van een Estate Convenant maakt het u mogelijk om percelen in het Estate te verkopen. Indien de Convenant niet is ingesteld kunt u het niet verkopen. Een notitiekaart voor uw Convenant kan leeg zijn indien u geen regels wilt instellen, advies aan kopers wilt geven of iets anders in relatie tot het land wilt mededelen voor als men het koopt.
@@ -1968,14 +1961,14 @@ De inhoud zal naar uw inventaris gekopieerd worden.
 Weet u zeker dat u verder wilt gaan met deze aankoop?
 		<usetemplate name="okcancelbuttons" notext="Annuleren" yestext="OK"/>
 	</notification>
-	<notification name="ConfirmPurchasePassword" type="password">
+	<notification name="ConfirmPurchasePassword">
 		Deze transactie zal:
 [ACTION]
 
 Weet u zeker dat u verder wilt gaan met deze aankoop?
 Voer alstublieft opnieuw uw wachtwoord in en klik op OK.
 		<form name="form">
-			<input name="message" type="password"/>
+			<input name="message"/>
 			<button name="ConfirmPurchase" text="OK"/>
 			<button name="Cancel" text="Annuleren"/>
 		</form>
@@ -2001,7 +1994,7 @@ inventaris item(s) verplaatsen?
 		<usetemplate ignoretext="Indien verplaatsen &apos;niet kopieerbare&apos; inventaris van gescripte objecten" name="okcancelignore" notext="Annuleren" yestext="OK"/>
 	</notification>
 	<notification name="ClickActionNotPayable">
-		Waarschuwing: Het Betaal Object aan klik actie is ingesteld, maar het zal alleen werken als er een script is toegevoegd met een money() event.
+		Waarschuwing: Het &apos;Betaal object&apos; aan klik actie is ingesteld, maar het zal alleen werken als er een script is toegevoegd met een money() event.
 		<form name="form">
 			<ignore name="ignore" text="Indien instellen &apos;Betaal&apos; op objecten zonder money() events"/>
 		</form>
@@ -2010,16 +2003,16 @@ inventaris item(s) verplaatsen?
 		Er zitten geen items in dit object die u kunt kopiëren.
 	</notification>
 	<notification name="WebLaunchAccountHistory">
-		Naar de Second Life web site gaan om uw account geschiedenis te bekijken?
+		Naar de [SECOND_LIFE] web site gaan om uw account geschiedenis te bekijken?
 		<usetemplate ignoretext="Bij laden van de account geschiedenis webpagina" name="okcancelignore" notext="Annuleren" yestext="Ga naar pagina"/>
 	</notification>
 	<notification name="ClickOpenF1Help">
-		De Second Life Support Web site bezoeken?
-		<usetemplate ignoretext="Bij bezoeken van de Second Life Support Website." name="okcancelignore" notext="Annuleren" yestext="Ga"/>
+		De [SECOND_LIFE] Support Web site bezoeken?
+		<usetemplate ignoretext="Bij bezoeken van de [SECOND_LIFE] Support Website." name="okcancelignore" notext="Annuleren" yestext="Ga"/>
 	</notification>
 	<notification name="ConfirmQuit">
 		Weet u zeker dat u wilt afsluiten?
-		<usetemplate ignoretext="Bij afsluiten Second Life." name="okcancelignore" notext="Doorgaan" yestext="Afsluiten"/>
+		<usetemplate ignoretext="Bij afsluiten [APP_NAME]." name="okcancelignore" notext="Doorgaan" yestext="Afsluiten"/>
 	</notification>
 	<notification name="HelpReportAbuseEmailLL">
 		Gebruik dit gereedschap om overtredingen van de Voorwaarden voor Service (Terms of Service) en Gemeenschaps Standaarden (Community Standards)te rapporteren. Zie:
@@ -2039,27 +2032,12 @@ Als een service aan Inwoners en bezoekers heeft de eigenaar van deze regio er vo
 De regio eigenaar zal de rapporten afhandelen op basis van de regels geldend voor deze regio zoals weergegeven in het Estate Convenant (Bekijk Convenants door naar Wereld te gaan in het menu en te kiezen voor Over Land).
 
 De afhandeling van dit rapport is alleen van toepassing op deze regio.
-Toegang van Inwoners tot andere gebieden van Second Life zullen niet beïnvloed worden door de uitkomst van dit rapport. Alleen Linden Lab kan de toegang tot geheel Second Life beperken.
-	</notification>
-	<notification name="HelpReportBug">
-		Gebruik dit gereedschap *alleen* voor het rapporteren van technische opties die niet functioneren als verwacht. Geef alstublieft zoveel mogelijk technische details als mogelijk. U kunt de automatische-antwoord email gebruiken om op te reageren om aanvullende gegevens toe te voegen aan uw rapport.
-
-Alle bug rapporten worden onderzocht en ingeschat. Er zal geen antwoord per email worden verzonden.
-
-Als u technische problemen heeft, neem dan contact op met Support op:
-http://secondlife.com/community/support.php
-
-Opmerking: Onvolledige rapporten zullen niet worden onderzocht.
+Toegang van Inwoners tot andere gebieden van [SECOND_LIFE] zullen niet beïnvloed worden door de uitkomst van dit rapport. Alleen Linden Lab kan de toegang tot geheel [SECOND_LIFE] beperken.
 	</notification>
 	<notification name="HelpReportAbuseSelectCategory">
 		Selecteer alstublieft een categorie voor dit misbruik rapport.
 
 Het selecteren van een categorie helpt ons met het archiveren en verwerken van misbruik rapporten.
-	</notification>
-	<notification name="HelpReportBugSelectCategory">
-		Selecteer alstublieft een categorie voor dit bug rapport.
-
-Het selecteren van een categorie helpt ons met het archiveren en verwerken van bug rapporten.
 	</notification>
 	<notification name="HelpReportAbuseAbuserNameEmpty">
 		Geef alstublieft een naam op van de misbruiker.
@@ -2076,22 +2054,10 @@ Een accurate waarde opgeven helpt ons met het archiveren en verwerken van misbru
 
 Een accurate waarde opgeven helpt ons met het archiveren en verwerken van misbruik rapporten.
 	</notification>
-	<notification name="HelpReportBugSummaryEmpty">
-		Geef alstublieft een korte samenvatting van de bug.
-
-Een accurate samenvatting opgeven helpt ons met het archiveren en verwerken van bug rapporten.
-	</notification>
 	<notification name="HelpReportAbuseDetailsEmpty">
 		Geef alstublieft een gedetailleerde omschrijving van het misbruik dat plaats vond.
 
 Wees zo specifiek als mogelijk, inclusief namen en details van het incident waarover u rapporteert.
-
-Het opgeven van een accurate omschrijving helpt ons met het archiveren en verwerken van misbruik rapporten.
-	</notification>
-	<notification name="HelpReportBugDetailsEmpty">
-		Geef alstublieft een gedetailleerde omschrijving van de bug.
-
-Wees zo specifiek als mogelijk, inclusief stappen om de bug te reproduceren, indien mogelijk.
 
 Het opgeven van een accurate omschrijving helpt ons met het archiveren en verwerken van misbruik rapporten.
 	</notification>
@@ -2100,9 +2066,9 @@ Het opgeven van een accurate omschrijving helpt ons met het archiveren en verwer
 
 Het lijkt er op dat u intellectueel eigendoms misbruik rapporteert. Wees er alstublieft van overtuigd dat u dit correct rapporteert:
 
-(1) Het Misbruik Proces. U kunt een misbruik rapport indienen als u er van overtuigd bent dat een Inwoner het Second Life permissie systeem uitbuit, bijvoorbeeld door gebruik van CopyBot of soortgelijke gereedschappen, daarmee de intellectuele eigendoms rechten overtredend. Het Abuse Team onderzoekt en zal passende maatregelen uitvaardigen tegen gedrag dat de Second Life Gemeenschaps Standaarden overtreedt. Echter, het Abuse Team zal geen actie ondernemen en niet reageren op verzoeken om inhoud te verwijderen uit de Second Life wereld.
+(1) Het Misbruik Proces. U kunt een misbruik rapport indienen als u er van overtuigd bent dat een Inwoner het [SECOND_LIFE] permissie systeem uitbuit, bijvoorbeeld door gebruik van CopyBot of soortgelijke gereedschappen, daarmee de intellectuele eigendoms rechten overtredend. Het Abuse Team onderzoekt en zal passende maatregelen uitvaardigen tegen gedrag dat de [SECOND_LIFE] Gemeenschaps Standaarden overtreedt. Echter, het Abuse Team zal geen actie ondernemen en niet reageren op verzoeken om inhoud te verwijderen uit de [SECOND_LIFE] wereld.
 
-(2) Het DMCA of Inhoud Verwijder Proces. Voor een verzoek tot verwijdering van inhoud in Second Life, MOET u een geldige berichtgeving van misbruik indienen zoals voorzien in onze DMCA beleid op http://secondlife.com/corporate/dmca.php.
+(2) Het DMCA of Inhoud Verwijder Proces. Voor een verzoek tot verwijdering van inhoud in [SECOND_LIFE], MOET u een geldige berichtgeving van misbruik indienen zoals voorzien in onze DMCA beleid op http://secondlife.com/corporate/dmca.php.
 
 Indien u nog steeds door wilt gaan met het misbruik proces, sluit dan alstublieft dit venster en maak het indienen van uw rapport af. U zult mogelijk een specifieke catagorie moeten kiezen &apos;CopyBot of Permissie Uitbuiting&apos;.
 
@@ -2137,7 +2103,7 @@ Wilt u de Niet Storen Modus verlaten voordat u deze transactie completeert?
 		<usetemplate ignoretext="Bij verwijderen van de inhoud uit de inventaris vuilnisbak map" name="okcancelignore" notext="Annuleren" yestext="OK"/>
 	</notification>
 	<notification name="ConfirmClearBrowserCache">
-		Weet u zeker dat u uw browser cache wilt legen?
+		Weet u zeker dat u uw browsercache wilt legen?
 		<usetemplate name="okcancelbuttons" notext="Annuleren" yestext="Ja"/>
 	</notification>
 	<notification name="ConfirmClearCookies">
@@ -2153,34 +2119,34 @@ Wilt u de Niet Storen Modus verlaten voordat u deze transactie completeert?
 		<usetemplate ignoretext="Bij legen van uw inventaris Verloren en Gevonden map" name="okcancelignore" notext="Nee" yestext="Ja"/>
 	</notification>
 	<notification name="CopySLURL">
-		De volgende SLURL is gekopieerd naar uw klem bord:
+		De volgende SLurl is gekopieerd naar uw klem bord:
 [SLURL]
 
 Plaats het in een web pagina om anderen eenvoudig toegang te verschaffen naar de locatie of test het zelf door het te plakken in de adres balk van uw web browser.
 		<form name="form">
-			<ignore name="ignore" text="Bij kopiëren van een SLURL naar het klem bord"/>
+			<ignore name="ignore" text="Bij kopiëren van een SLurl naar het klem bord"/>
 		</form>
 	</notification>
 	<notification name="GraphicsPreferencesHelp">
-		Dit venster bepaald de venster afmetingen, resolutie en kwaliteit van de client&apos;s grafische weergave. De Voorkeuren &gt; Grafische interface laat u kiezen uit vier grafische niveaus: Laag, Middel, Hoog en Ultra. U kunt ook uw grafische instellingen aanpassen met het aan vinken van het Custom vakje en de volgende instellingen manipuleren:
+		Dit venster bepaald de venster afmetingen, resolutie en kwaliteit van de client&apos;s grafische weergave. De Voorkeuren &gt; Grafische interface laat u kiezen uit vier grafische niveaus: Laag, Middel, Hoog en Ultra. U kunt ook uw grafische instellingen aanpassen met het aan vinken van het Aangepast vakje en de volgende instellingen manipuleren:
 
 Shaders: In of uitschakelen van de verschillende typen pixel shaders.
 
-Reflectie Detail: Stelt het type objecten in hetgeen water kan reflecteren.
+Reflectiedetail: Stelt het type objecten in hetgeen water kan reflecteren.
 
-Avatar Weergave: Stelt de opties in die van invloed zijn op hoe de client een avatar zal renderen.
+Avatarweergave: Stelt de opties in die van invloed zijn op hoe de client een avatar zal renderen.
 
-Zicht bereik: Beïnvloed tot hoe ver objecten vanaf uw zichtpunt worden weergegeven in de scène.
+Zichtbereik: Beïnvloed tot hoe ver objecten vanaf uw zichtpunt worden weergegeven in de scène.
 
 Maximaal Aantal Particles: Stelt het maximaal aantal particles in die u tegelijk kunt zien op uw scherm.
 
-Nabewerking Kwaliteit: Stelt de resolutie in waarmee Gloei wordt weergegeven.
+Nabewerkingskwaliteit: Stelt de resolutie in waarmee Gloei wordt weergegeven.
 
-Maas Detail: Stelt de hoeveelheid detail of het aantal driehoeken in gebruikt voor de weergave van bepaalde objecten. Een hogere waarde zal langer nemen om weer te gegeven, maar zorgen voor objecten met meer detail.
+Maasdetail: Stelt de hoeveelheid detail of het aantal driehoeken in gebruikt voor de weergave van bepaalde objecten. Een hogere waarde zal langer nemen om weer te gegeven, maar zorgen voor objecten met meer detail.
 
-Licht Detail: Bepaald welke typen lichten u wenst weer te geven.
+Lichtdetail: Bepaald welke typen lichten u wenst weer te geven.
 
-Terrein Detail: Stelt de hoeveelheid detail in die u wilt zien voor het terrein textuur.
+Terreindetail: Stelt de hoeveelheid detail in die u wilt zien voor het terrein textuur.
 	</notification>
 	<notification name="WLSavePresetAlert">
 		Wilt u de opgeslagen voor instellingen overschrijven?
@@ -2224,7 +2190,7 @@ Klik op &quot;Geavanceerde Lucht&quot; om de editor op te roepen voor geavanceer
 Klik op &quot;Geavanceerd Water&quot; om de editor op te roepen voor geavanceerde instellingen voor water.
 	</notification>
 	<notification name="HelpDayCycle">
-		De Dag Cyclus Editor geeft u controle over de lucht gedurende de Second Life&apos;s dag/nacht cyclus. Dit is de cyclus die gebruikt wordt in de Basis Omgeving Editor&apos;s Tijd van de Dag schuif knop.
+		De Dag Cyclus Editor geeft u controle over de lucht gedurende de [SECOND_LIFE]&apos;s dag/nacht cyclus. Dit is de cyclus die gebruikt wordt in de Basis Omgeving Editor&apos;s Tijd van de Dag schuif knop.
 
 De Dag Cyclus Editor werkt beter met het instellen van gemarkeerde frames. Dit zijn nodes (weergegeven als grijze blips in de tijd weergave) die Hemel voorinstelling met zich geassocieerd hebben. Als de Tijd van de Dag voortschrijdt, &quot;animeert&quot; de WindLight Hemel als het interpoleert tussen de gemarkeerde frames.
 
@@ -2304,7 +2270,7 @@ Gelijkwaardig aan azimut.
 		Bepaald de snelheid van de wolken terwijl zij in Y richting bewegen.
 	</notification>
 	<notification name="HelpClassicClouds">
-		Vink dit aan voor weergave van Second Life&apos;s oudere klassieke wolken als toevoeging op WindLight&apos;s wolken.
+		Vink dit aan voor weergave van [SECOND_LIFE]&apos;s oudere klassieke wolken als toevoeging op WindLight&apos;s wolken.
 	</notification>
 	<notification name="HelpWaterFogColor">
 		Kiest de kleur van de onder water nevel.
@@ -2348,7 +2314,7 @@ Gelijkwaardig aan azimut.
 	<notification name="NewSkyPreset">
 		Geef een naam op voor de nieuwe lucht.
 		<form name="form">
-			<input name="message" type="text">
+			<input name="message">
 				Nieuwe Voorinstelling
 			</input>
 			<button name="OK" text="OK"/>
@@ -2361,7 +2327,7 @@ Gelijkwaardig aan azimut.
 	<notification name="NewWaterPreset">
 		Geef een naam voor de nieuwe voorinstelling van water.
 		<form name="form">
-			<input name="message" type="text">
+			<input name="message">
 				Nieuwe Voorinstelling
 			</input>
 			<button name="OK" text="OK"/>
@@ -2403,7 +2369,7 @@ Om dit recht in te trekken, moet de object eigenaar het object verwijderen of de
 	</notification>
 	<notification name="NotAgeVerified">
 		U moet leeftijd geverifieerd zijn om toegang te verkrijgen tot dit perceel.
-Wilt u de Second Life website bezoeken om uw leeftijd te verifiëren?
+Wilt u de [SECOND_LIFE] website bezoeken om uw leeftijd te verifiëren?
 
 [_URL]
 		<url name="url" option="0">
@@ -2413,7 +2379,7 @@ Wilt u de Second Life website bezoeken om uw leeftijd te verifiëren?
 	</notification>
 	<notification name="Cannot enter parcel: no payment info on file">
 		Dit perceel verlangd dat u betaal informatie geregistreerd hebt staan alvorens toegang te verkrijgen.
-Wilt u de Second Life website bezoeken om dit in te stellen?
+Wilt u de [SECOND_LIFE] website bezoeken om dit in te stellen?
 
 [_URL]
 		<url name="url" option="0">
@@ -2443,10 +2409,10 @@ Wilt u de Second Life website bezoeken om dit in te stellen?
 		Onderwerp: [SUBJECT], Bericht: [MESSAGE]
 	</notification>
 	<notification name="FriendOnline">
-		[FIRST] [LAST] is Online
+		[NAME] is Online
 	</notification>
 	<notification name="FriendOffline">
-		[FIRST] [LAST] is Offline
+		[NAME] is Offline
 	</notification>
 	<notification name="AddSelfFriend">
 		U kunt uzelf niet als vriend toevoegen.
@@ -2511,9 +2477,6 @@ Wilt u de Second Life website bezoeken om dit in te stellen?
 	</notification>
 	<notification name="CannotRemoveProtectedCategories">
 		U kunt geen beschermde categorieën verwijderen.
-	</notification>
-	<notification name="OfferedCard">
-		U heeft een visitekaartje aangeboden aan [FIRST] [LAST]
 	</notification>
 	<notification name="UnableToBuyWhileDownloading">
 		Niet mogelijk te kopen terwijl objectdata wordt gedownload. Probeer het alstublieft opnieuw.
@@ -2584,8 +2547,7 @@ Probeer een kleiner stuk land te selecteren.
 [NAME]
 [DATE]
 		<form name="form">
-			<button name="Teleport" text="Teleport"/>
-			<button name="Description" text="Omschrijving"/>
+			<button name="Details" text="Omschrijving"/>
 			<button name="Cancel" text="Annuleren"/>
 		</form>
 	</notification>
@@ -2609,7 +2571,7 @@ Indien u streaming media wilt zien op percelen die dit ondersteunen, dient u naa
 		De objecten die uw eigendom zijn op het geselecteerde perceel zijn geretourneerd naar uw inventaris.
 	</notification>
 	<notification name="OtherObjectsReturned">
-		De objecten op het geselecteerde perceel dat het eigendom is van [FIRST] [LAST], zijn geretourneerd naar zijn of haar inventaris.
+		De objecten op het geselecteerde perceel dat het eigendom is van [NAME], zijn geretourneerd naar zijn of haar inventaris.
 	</notification>
 	<notification name="OtherObjectsReturned2">
 		De objecten op het geselecteerde perceel dat het eigendom is van inwoner &apos;[NAME]&apos;, zijn geretourneerd naar hun eigenaar.
@@ -2671,7 +2633,7 @@ Gaat u alstublieft naar de kennisbank voor details over het betreden van gebiede
 	<notification name="ImproperPaymentStatus">
 		U heeft niet de juiste betalingstatus om deze regio binnen te gaan.
 	</notification>
-	<notification name="MustGetAgeRgion">
+	<notification name="MustGetAgeRegion">
 		U moet leeftijd geverifieerd zijn om deze regio binnen te gaan.
 	</notification>
 	<notification name="MustGetAgeParcel">
@@ -2721,13 +2683,13 @@ Probeer het alstublieft opnieuw over enkele ogenblikken.
 		Kan wachtende verbinding niet maken.
 	</notification>
 	<notification name="InternalUsherError">
-		Er is een interne fout opgetreden terwijl geprobeerd werd u naar uw teleportbestemming te begeleiden. Second Life heeft op dit moment mogelijk problemen met de dienstverlening.
+		Er is een interne fout opgetreden terwijl geprobeerd werd u naar uw teleportbestemming te begeleiden. [SECOND_LIFE] heeft op dit moment mogelijk problemen met de dienstverlening.
 	</notification>
 	<notification name="NoGoodTPDestination">
 		Kan geen goede teleportbestemming vinden in deze regio.
 	</notification>
 	<notification name="InternalErrorRegionResolver">
-		Er is een interne fout opgetreden terwijl de globale coördinaten voor uw teleportverzoek werden bepaald. Second Life heeft op dit moment mogelijk problemen met de dienstverlening.
+		Er is een interne fout opgetreden terwijl de globale coördinaten voor uw teleportverzoek werden bepaald. [SECOND_LIFE] heeft op dit moment mogelijk problemen met de dienstverlening.
 	</notification>
 	<notification name="NoValidLanding">
 		Er kon geen geldig landingspunt worden gevonden.
@@ -2736,7 +2698,7 @@ Probeer het alstublieft opnieuw over enkele ogenblikken.
 		Geen geldig perceel kon gevonden worden.
 	</notification>
 	<notification name="ObjectGiveItem">
-		Een object genaamd [OBJECTFROMNAME], eigendom van [FIRST] [LAST], heeft u een [OBJECTTYPE] genaamd [OBJECTNAME] gegeven.
+		Een object genaamd &lt;nolink&gt;[OBJECTFROMNAME]&lt;/nolink&gt;, eigendom van [NAME_SLURL], heeft u een [OBJECTTYPE] genaamd [ITEM_SLURL] gegeven.
 		<form name="form">
 			<button name="Keep" text="Behouden"/>
 			<button name="Discard" text="Afwijzen"/>
@@ -2815,7 +2777,7 @@ Probeer het alstublieft opnieuw over enkele ogenblikken.
 		[NAME] heeft uw vriendschapsaanbod afgewezen.
 	</notification>
 	<notification name="OfferCallingCard">
-		[FIRST] [LAST] biedt zijn/haar visitekaartje aan.
+		[NAME] biedt zijn/haar visitekaartje aan.
 Dit zal een bladwijzer in uw inventaris toevoegen zodat u deze inwoner snel kunt een IM kunt sturen.
 		<form name="form">
 			<button name="Accept" text="Accepteren"/>
@@ -2848,7 +2810,7 @@ Van object: [OBJECTNAME], eigenaar: [NAME]?
 		Kon [TYPE] genaamd [DESC] niet in de database vinden.
 	</notification>
 	<notification name="InvalidWearable">
-		Het item dat u probeert te dragen gebruikt een kenmerk dat uw viewer niet kan lezen. Upgrade u alstublieft uw versie van Second Life om dit item te dragen.
+		Het item dat u probeert te dragen gebruikt een kenmerk dat uw viewer niet kan lezen. Upgrade u alstublieft uw versie van [APP_NAME] om dit item te dragen.
 	</notification>
 	<notification name="ScriptQuestion">
 		[OBJECTNAME]&apos;, een object van &apos;[NAME]&apos;, wil graag:
@@ -2875,7 +2837,7 @@ Dit verzoek inwilligen?
 		</form>
 	</notification>
 	<notification name="ScriptDialog">
-		[FIRST] [LAST]&apos;s &apos;[TITLE]&apos;
+		[NAME]&apos;s &apos;&lt;nolink&gt;[TITLE]&lt;/nolink&gt;&apos;
 [MESSAGE]
 		<form name="form">
 			<button name="Ignore" text="Negeren"/>
@@ -2952,8 +2914,8 @@ Flexibele objecten mogen niet fysiek zijn en moeten fantoom zijn tot de &apos;fl
 	</notification>
 	<notification name="FirstDebugMenus">
 		U heeft het menu Geavanceerd geactiveerd.
-Dit menu bevat opties die handig zijn voor ontwikkelaars tijdens het debuggen van Second Life.
-Om dit menu in en uit te schakelen drukt u binnen Windows Ctrl-Alt-D. Met een Mac drukt u Cmd-Opt-Shift-D.
+Dit menu bevat opties die handig zijn voor ontwikkelaars tijdens het debuggen van [SECOND_LIFE].
+Om dit menu in en uit te schakelen drukt u binnen Windows Ctrl+Alt+D. Met een Mac drukt u &#8997;&#8984;D.
 	</notification>
 	<notification name="FirstSculptedPrim">
 		U bent een sculpted prim aan het bewerken.
@@ -2976,13 +2938,13 @@ Klik Accepteren om deel te nemen aan dit gesprek of Afwijzen om de uitnodiging a
 		</form>
 	</notification>
 	<notification name="AutoUnmuteByIM">
-		Er is een instant message naar [FIRST] [LAST] gestuurd, waardoor deze automatisch van de negeerlijst is gehaald.
+		Er is een instant message naar [NAME] gestuurd, waardoor deze automatisch van de negeerlijst is gehaald.
 	</notification>
 	<notification name="AutoUnmuteByMoney">
-		Er is geld gegeven aan [FIRST] [LAST], waardoor deze automatisch van de negeerlijst is gehaald.
+		Er is geld gegeven aan [NAME], waardoor deze automatisch van de negeerlijst is gehaald.
 	</notification>
 	<notification name="AutoUnmuteByInventory">
-		Er is inventaris aangeboden aan [FIRST] [LAST], waardoor deze automatisch van de negeerlijst is gehaald.
+		Er is inventaris aangeboden aan [NAME], waardoor deze automatisch van de negeerlijst is gehaald.
 	</notification>
 	<notification name="VoiceInviteGroup">
 		[NAME] doet nu mee met een Voice chat gesprek binnen de groep [GROUP].
@@ -3050,9 +3012,6 @@ Klik Accepteren om deel te nemen aan de chat of Afwijzen om de uitnodiging af te
 	<notification name="VoiceCallGenericError">
 		Er is een fout opgetreden tijdens het verbinden met voice chat voor [VOICE_CHANNEL_NAME]. Probeert u het later alstublieft opnieuw.
 	</notification>
-	<notification name="ServerVersionChanged">
-		De regio die u bent binnengetreden wordt onder een andere simulatorversie uitgevoerd. Klik dit bericht voor meer details.
-	</notification>
 	<notification name="UnableToOpenCommandURL">
 		De URL die u heeft geklikt kan niet binnen deze webbrowser worden geopend.
 	</notification>
@@ -3060,7 +3019,7 @@ Klik Accepteren om deel te nemen aan de chat of Afwijzen om de uitnodiging af te
 		- Uw Processor snelheid (CPU) voldoet niet aan de minimale eisen.
 	</global>
 	<global name="UnsupportedGLRequirements">
-		U heeft mogelijk niet de vereiste hardware voor Second Life. Second Life verlangd een OpenGL grafische kaart die multi-texture ondersteund. Indien dat het geval is, overtuig u er dan van dat u de laatste stuurprogramma&apos;s voor uw grafische kaart, service packs en patches voor uw Operating systeem heeft.
+		U heeft mogelijk niet de vereiste hardware voor [APP_NAME]. [APP_NAME] verlangd een OpenGL grafische kaart die multi-texture ondersteund. Indien dat het geval is, overtuig u er dan van dat u de laatste stuurprogramma&apos;s voor uw grafische kaart, service packs en patches voor uw Operating systeem heeft.
 
 Indien u problemen blijft houden, bezoek dan: http://www.secondlife.com/support
 	</global>

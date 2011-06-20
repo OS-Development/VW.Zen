@@ -3,31 +3,25 @@
  * @brief Scroll lists are composed of rows (items), each of which 
  * contains columns (cells).
  *
- * $LicenseInfo:firstyear=2007&license=viewergpl$
- * 
- * Copyright (c) 2007-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2007&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -66,6 +60,7 @@ public:
 
 		Optional<void*>				userdata;
 		Optional<LLSD>				value;
+		Optional<std::string>		tool_tip;
 
 		Optional<const LLFontGL*>	font;
 		Optional<LLColor4>			font_color;
@@ -80,6 +75,7 @@ public:
 			enabled("enabled", true),
 			visible("visible", true),
 			value("value"),
+			tool_tip("tool_tip", ""),
 			font("font", LLFontGL::getFontSansSerifSmall()),
 			font_color("font_color", LLColor4::black),
 			color("color", LLColor4::white),
@@ -94,16 +90,20 @@ public:
 
 	LLScrollListCell(const LLScrollListCell::Params&);
 	virtual ~LLScrollListCell() {};
-	virtual void			draw(const LLColor4& color, const LLColor4& highlight_color) const = 0;		// truncate to given width, if possible
+
+	virtual void			draw(const LLColor4& color, const LLColor4& highlight_color) const {};		// truncate to given width, if possible
 	virtual S32				getWidth() const {return mWidth;}
 	virtual S32				getContentWidth() const { return 0; }
-	virtual S32				getHeight() const = 0;
+	virtual S32				getHeight() const { return 0; }
 	virtual const LLSD		getValue() const;
 	virtual void			setValue(const LLSD& value) { }
+	virtual const std::string &getToolTip() const { return mToolTip; }
+	virtual void			setToolTip(const std::string &str) { mToolTip = str; }
 	virtual BOOL			getVisible() const { return TRUE; }
 	virtual void			setWidth(S32 width) { mWidth = width; }
 	virtual void			highlightText(S32 offset, S32 num_chars) {}
-	virtual BOOL			isText() const = 0;
+	virtual BOOL			isText() const { return FALSE; }
+	virtual BOOL			needsToolTip() const { return ! mToolTip.empty(); }
 	virtual void			setColor(const LLColor4&) {}
 	virtual void			onCommit() {};
 
@@ -112,6 +112,7 @@ public:
 
 private:
 	S32 mWidth;
+	std::string mToolTip;
 };
 
 class LLScrollListSpacer : public LLScrollListCell
@@ -120,8 +121,6 @@ public:
 	LLScrollListSpacer(const LLScrollListCell::Params& p) : LLScrollListCell(p) {}
 	/*virtual*/ ~LLScrollListSpacer() {};
 	/*virtual*/ void			draw(const LLColor4& color, const LLColor4& highlight_color) const {}
-	/*virtual*/ S32				getHeight() const { return 0; }
-	/*virtual*/ BOOL			isText() const { return FALSE; }
 };
 
 /*
@@ -143,16 +142,22 @@ public:
 
 	/*virtual*/ void	setColor(const LLColor4&);
 	/*virtual*/ BOOL	isText() const;
+	/*virtual*/ const std::string &	getToolTip() const;
+	/*virtual*/ BOOL	needsToolTip() const;
+
+	S32				getTextWidth() const { return mTextWidth;}
+	void			setTextWidth(S32 value) { mTextWidth = value;} 
+	virtual void	setWidth(S32 width) { LLScrollListCell::setWidth(width); mTextWidth = width; }
 
 	void			setText(const LLStringExplicit& text);
-	void			setFontStyle(const U8 font_style) { mFontStyle = font_style; }
+	void			setFontStyle(const U8 font_style);
 
 private:
 	LLUIString		mText;
+	S32				mTextWidth;
 	const LLFontGL*	mFont;
 	LLColor4		mColor;
 	U8				mUseColor;
-	U8				mFontStyle;
 	LLFontGL::HAlign mFontAlignment;
 	BOOL			mVisible;
 	S32				mHighlightCount;
@@ -176,7 +181,6 @@ public:
 	/*virtual*/ S32		getHeight() const;
 	/*virtual*/ const LLSD		getValue() const;
 	/*virtual*/ void	setColor(const LLColor4&);
-	/*virtual*/ BOOL	isText()const { return FALSE; }
 	/*virtual*/ void	setValue(const LLSD& value);
 
 private:
@@ -203,7 +207,6 @@ public:
 	/*virtual*/ void	setEnabled(BOOL enable);
 
 	LLCheckBoxCtrl*	getCheckBox()				{ return mCheckBox; }
-	/*virtual*/ BOOL	isText() const				{ return FALSE; }
 
 private:
 	LLCheckBoxCtrl* mCheckBox;

@@ -53,7 +53,7 @@ version 2.0
 
 // OpenCircuit - Tells the recipient's messaging system to open the descibed circuit
 {
-	OpenCircuit Fixed 0xFFFFFFFC NotTrusted Unencoded
+	OpenCircuit Fixed 0xFFFFFFFC NotTrusted Unencoded UDPBlackListed
 	{
 		CircuitInfo		Single
 		{	IP			IPADDR	}
@@ -1383,6 +1383,10 @@ version 2.0
 		{	AgentID			LLUUID	}
 		{	KickedFromEstateID	U32	}
 	}
+	{
+		AgentInfo	Single
+		{   AgentEffectiveMaturity U32  }
+	}
 }
 
 // DataHomeLocationReply data->sim
@@ -2056,6 +2060,15 @@ version 2.0
 		{	IsTemporary		BOOL	}
 		{	IsPhantom		BOOL	}
 		{	CastsShadows	BOOL	}
+	}
+    {
+		ExtraPhysics        Variable
+		{   PhysicsShapeType U8     }
+        {   Density          F32    }
+        {   Friction         F32    }
+        {   Restitution      F32    }
+        {   GravityMultiplier    F32    }
+
 	}
 }
 
@@ -2962,7 +2975,7 @@ version 2.0
 		{	BillableFactor		F32			}
 		{	ObjectBonusFactor 	F32			}
 		{	WaterHeight			F32			}
-		{   TerrainRaiseLimit	F32 		}
+		{	TerrainRaiseLimit	F32 		}
 		{	TerrainLowerLimit	F32 		}
 		{	PricePerMeter 		S32			}
 		{	RedirectGridX 		S32			}
@@ -4238,6 +4251,10 @@ version 2.0
 		Buttons	Variable
 		{	ButtonLabel		Variable	1	}
 	}
+	{
+		OwnerData Variable
+		{	OwnerID		LLUUID	}
+	}
 }
 
 
@@ -5287,6 +5304,10 @@ version 2.0
 		AgentAccess				Variable
 		{	AgentLegacyAccess		U8	}
 		{	AgentMaxAccess			U8	}
+	}
+	{
+		AgentInfo				Variable
+		{	Flags					U32	}
 	}
 }
 
@@ -6754,6 +6775,8 @@ version 2.0
 }
 
 // And, the money transfer
+// *NOTE: Unused as of 2010-04-06, because all back-end money transactions
+// are done with web services via L$ API.  JC
 {
 	MoneyTransferBackend Low 312 Trusted Zerocoded
 	{
@@ -6804,6 +6827,19 @@ version 2.0
 		{	SquareMetersCommitted	S32	}
 		{	Description			Variable 1	}	// string
 	}
+	// For replies that are part of a transaction (buying something) provide
+	// metadata for localization.  If TransactionType is 0, the message is
+	// purely a balance update.  Added for server 1.40 and viewer 2.1.  JC
+	{
+		TransactionInfo		Single
+		{	TransactionType			S32			}	// lltransactiontype.h
+		{	SourceID				LLUUID		}
+		{	IsSourceGroup			BOOL		}
+		{	DestID					LLUUID		}
+		{	IsDestGroup				BOOL		}
+		{	Amount					S32			}
+		{	ItemDescription			Variable 1	}	// string
+	}
 }
 
 
@@ -6829,6 +6865,17 @@ version 2.0
 		{	SquareMetersCredit	S32	}
 		{	SquareMetersCommitted	S32	}
 		{	Description			Variable 1	}	// string
+	}
+	// See MoneyBalanceReply above.
+	{
+		TransactionInfo		Single
+		{	TransactionType			S32			}	// lltransactiontype.h
+		{	SourceID				LLUUID		}
+		{	IsSourceGroup			BOOL		}
+		{	DestID					LLUUID		}
+		{	IsDestGroup				BOOL		}
+		{	Amount					S32			}
+		{	ItemDescription			Variable 1	}	// string
 	}
 }
 
@@ -8946,6 +8993,7 @@ version 2.0
 	}
 }
 
+// Link inventory
 {
 	LinkInventoryItem	Low	426 NotTrusted	Zerocoded
 	{
@@ -8954,12 +9002,16 @@ version 2.0
 		{	SessionID	LLUUID	}
 	}
 	{
-		InventoryData		Variable
+		InventoryBlock		Single
 		{	CallbackID	U32			} // Async Response
 		{	FolderID		LLUUID	}
+		{	TransactionID			LLUUID	} // Going to become TransactionID
 		{	OldItemID		LLUUID	}
+		{	Type			S8	}
+		{	InvType			S8	}
 		{	Name			Variable	1	}
-		{	AssetType		U8		}
+		{	Description		Variable	1	}
+
 	}
 }
 

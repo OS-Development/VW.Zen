@@ -3,31 +3,25 @@
  * @brief Front-end to LLPipeline controls for highlighting various kinds of objects.
  * @author Coco
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -42,8 +36,6 @@
 LLFloaterBeacons::LLFloaterBeacons(const LLSD& seed)
 :	LLFloater(seed)
 {
-//	LLUICtrlFactory::getInstance()->buildFloater(this, "floater_beacons.xml");
-
 	// Initialize pipeline states from saved settings.
 	// OK to do at floater constructor time because beacons do not display unless the floater is open
 	// therefore it is OK to not initialize the pipeline state before needed.
@@ -56,27 +48,13 @@ LLFloaterBeacons::LLFloaterBeacons(const LLSD& seed)
 	LLPipeline::setRenderParticleBeacons(     gSavedSettings.getBOOL("particlesbeacon"));
 	LLPipeline::setRenderHighlights(          gSavedSettings.getBOOL("renderhighlights"));
 	LLPipeline::setRenderBeacons(             gSavedSettings.getBOOL("renderbeacons"));
+	LLPipeline::setRenderMOAPBeacons(		  gSavedSettings.getBOOL("moapbeacon"));
 	mCommitCallbackRegistrar.add("Beacons.UICheck",	boost::bind(&LLFloaterBeacons::onClickUICheck, this,_1));
 }
 
 BOOL LLFloaterBeacons::postBuild()
 {
 	return TRUE;
-}
-
-// Needed to make the floater visibility toggle the beacons.
-// Too bad we can't just add control_name="BeaconAlwaysOn" to the XML.
-void LLFloaterBeacons::onOpen(const LLSD& key)
-{
-	gSavedSettings.setBOOL( "BeaconAlwaysOn", TRUE);
-}
-void LLFloaterBeacons::onClose(bool app_quitting)
-{
-	destroy();
-	if(!app_quitting)
-	{
-		gSavedSettings.setBOOL( "BeaconAlwaysOn", FALSE);
-	}
 }
 
 // Callback attached to each check box control to both affect their main purpose
@@ -86,7 +64,7 @@ void LLFloaterBeacons::onClickUICheck(LLUICtrl *ctrl)
 {
 	LLCheckBoxCtrl *check = (LLCheckBoxCtrl *)ctrl;
 	std::string name = check->getName();
-	if(     name == "touch_only")
+	if(name == "touch_only")
 	{
 		LLPipeline::toggleRenderScriptedTouchBeacons(NULL);
 		// Don't allow both to be ON at the same time. Toggle the other one off if both now on.
@@ -96,7 +74,9 @@ void LLFloaterBeacons::onClickUICheck(LLUICtrl *ctrl)
 		{
 			LLPipeline::setRenderScriptedBeacons(FALSE);
 			getChild<LLCheckBoxCtrl>("scripted")->setControlValue(LLSD(FALSE));
+			getChild<LLCheckBoxCtrl>("scripted")->setValue(FALSE);
 			getChild<LLCheckBoxCtrl>("touch_only")->setControlValue(LLSD(TRUE)); // just to be sure it's in sync with llpipeline
+			getChild<LLCheckBoxCtrl>("touch_only")->setValue(TRUE);
 		}
 	}
 	else if(name == "scripted")
@@ -109,12 +89,15 @@ void LLFloaterBeacons::onClickUICheck(LLUICtrl *ctrl)
 		{
 			LLPipeline::setRenderScriptedTouchBeacons(FALSE);
 			getChild<LLCheckBoxCtrl>("touch_only")->setControlValue(LLSD(FALSE));
+			getChild<LLCheckBoxCtrl>("touch_only")->setValue(FALSE);
 			getChild<LLCheckBoxCtrl>("scripted")->setControlValue(LLSD(TRUE)); // just to be sure it's in sync with llpipeline
+			getChild<LLCheckBoxCtrl>("scripted")->setValue(TRUE);
 		}
 	}
 	else if(name == "physical")       LLPipeline::setRenderPhysicalBeacons(check->get());
 	else if(name == "sounds")         LLPipeline::setRenderSoundBeacons(check->get());
 	else if(name == "particles")      LLPipeline::setRenderParticleBeacons(check->get());
+	else if(name == "moapbeacon")     LLPipeline::setRenderMOAPBeacons(check->get());
 	else if(name == "highlights")
 	{
 		LLPipeline::toggleRenderHighlights(NULL);
@@ -125,7 +108,9 @@ void LLFloaterBeacons::onClickUICheck(LLUICtrl *ctrl)
 		{
 			LLPipeline::setRenderBeacons(TRUE);
 			getChild<LLCheckBoxCtrl>("beacons")->setControlValue(LLSD(TRUE));
+			getChild<LLCheckBoxCtrl>("beacons")->setValue(TRUE);
 			getChild<LLCheckBoxCtrl>("highlights")->setControlValue(LLSD(FALSE)); // just to be sure it's in sync with llpipeline
+			getChild<LLCheckBoxCtrl>("highlights")->setValue(FALSE); 
 		}
 	}
 	else if(name == "beacons")
@@ -138,7 +123,9 @@ void LLFloaterBeacons::onClickUICheck(LLUICtrl *ctrl)
 		{
 			LLPipeline::setRenderHighlights(TRUE);
 			getChild<LLCheckBoxCtrl>("highlights")->setControlValue(LLSD(TRUE));
+			getChild<LLCheckBoxCtrl>("highlights")->setValue(TRUE);
 			getChild<LLCheckBoxCtrl>("beacons")->setControlValue(LLSD(FALSE)); // just to be sure it's in sync with llpipeline
+			getChild<LLCheckBoxCtrl>("beacons")->setValue(FALSE); 
 		}
 	}
 }

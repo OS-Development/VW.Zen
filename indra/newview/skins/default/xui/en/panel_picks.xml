@@ -1,173 +1,232 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <panel
- bevel_style="in"
- follows="left|top|right|bottom"
- height="625"
+bg_opaque_color="DkGray2"
+       background_visible="true"
+       background_opaque="true"
+ follows="all"
+ height="548"
  label="Picks"
  layout="topleft"
  left="0"
  name="panel_picks"
  top="0"
- width="355">
-    <text
-     type="string"
-     length="1"
-     follows="top|left|right"
-     font="SansSerifHugeBold"
-     height="50"
+ width="313">
+ <string
+  name="no_picks"
+  value="No Picks" />
+ <string
+  name="no_classifieds"
+  value="No Classifieds" />
+ <text
+  type="string"
+  follows="all"
+  height="535"
+  layout="topleft"
+  left="6"
+  name="picks_panel_text"
+  wrap="true"
+  top="10"
+  width="313"/>
+ <accordion
+  fit_parent="true" 
+  follows="all"
+  height="485"
+  layout="topleft"
+  left="0"
+  name="accordion"
+  top="0"
+  single_expansion="true"
+  width="313">
+    <accordion_tab
      layout="topleft"
-     left="10"
-     name="pick_title"
-     text_color="white"
-     top="10"
-     width="330"
-     word_wrap="true">
-        [NAME]&apos;s favorite places in Second Life...
-    </text>
-    <!-- below is a special title shown for the Agent on the "Picks" tab-->
-    <text
-     type="string"
-     length="1"
-     follows="top"
-     font="SansSerifHugeBold"
-     height="55"
+     height="235"
+     min_height="150"
+     name="tab_picks"
+     title="Picks"
+     visible="false">
+ <flat_list_view
+         color="DkGray2"
+         follows="all"
+         layout="topleft"
+         left="0"
+         name="picks_list"
+         opaque="true"
+         top="0"
+         width="313" />
+    </accordion_tab>
+    <accordion_tab
      layout="topleft"
-     left="10"
-     name="pick_title_agent"
-     text_color="white"
-     top="10"
-     visible="false" 
-     width="330"
-     word_wrap="true">
-        Tell everyone about your favorite Second Life places...
-    </text>
-    <scroll_container
-     follows="left|top|right|bottom"
-     height="495"
-     layout="topleft"
-     left="8"
-     name="profile_scroll"
-     opaque="true"
-     color="0.5 0.5 0.5 1.0"
-     reserve_scroll_corner="false"
-     top_pad="0"
-     width="340">
-        <panel
-         bevel_style="in"
+     height="235"
+     name="tab_classifieds"
+     title="Classifieds"
+     visible="false">
+            <flat_list_view
+             color="DkGray2"
+             follows="all"
+             layout="topleft"
+             left="0"
+             name="classifieds_list"
+             opaque="true"
+             top="0"
+             width="313" />
+    </accordion_tab>
+ </accordion>
+   <panel
+bg_opaque_color="DkGray2"
+       background_visible="true"
+       background_opaque="true"
+         bevel_style="none"
+         enabled="false"
+         auto_resize="false"
+         follows="bottom|left|right"
+         left="1"
+         height="27"
+         label="bottom_panel"
+         layout="bottom"
+         name="edit_panel"
+         top_pad="-2"
+         width="313">
+         
+         <layout_stack
+		  follows="bottom|left|right"
+		  height="23"
+		  layout="bottomleft"
+		  name="edit_panel_ls"
+		  left="10"
+		  orientation="horizontal"
+		  top_pad="0"
+		  width="293">
+		  
+		  <layout_panel
+			  follows="bottom|left"
+			  height="18"
+			  layout="bottomleft"
+			  left="0"
+			  name="gear_menu_btn"
+		      user_resize="false" 
+		      auto_resize="true"
+			  width="51">
+				<button
+	             follows="bottom|left"
+	             height="18"
+	             image_disabled="AddItem_Disabled"
+	             image_selected="AddItem_Press"
+	             image_unselected="AddItem_Off"
+	             layout="topleft"
+	             left="0"
+	             name="new_btn"
+	             tool_tip="Create a new pick or classified at the current location"
+	             top="0"
+	             width="18" />
+		  </layout_panel>
+		  
+		  <layout_panel
+			  follows="bottom|right"
+			  height="18"
+			  layout="bottomleft"
+			  name="trash_btn_lp"
+		      user_resize="false" 
+		      auto_resize="true"
+			  width="18">
+				<button
+	             follows="bottom|right"
+	             height="18"
+	             image_disabled="TrashItem_Disabled"
+	             image_selected="TrashItem_Press"
+	             image_unselected="TrashItem_Off"
+	             layout="topleft"
+	             name="trash_btn"
+	             top="0"
+	             width="18" />
+		  </layout_panel>
+		  
+	  </layout_stack>
+	  </panel>
+	  
+	  <panel
+ bg_opaque_color="DkGray"
+       background_visible="true"
+       background_opaque="true"
+         follows="bottom|left|right"
+         layout="topleft"
+         left="0"
          height="40"
-         layout="topleft"
-         left="0"
-         name="back_panel"
-         top="0"
-         width="310" />
-    </scroll_container>
-    <panel
-     background_visible="true"
-     bevel_style="in"
-     bg_alpha_color="black"
-     enabled="false"
-     follows="left|right|bottom"
-     height="25"
-     label="bottom_panel"
-     layout="topleft"
-     left="8"
-     name="edit_panel"
-     visible="false"
-     top_pad="0"
-     width="340">
-        <button
-         enabled="false"
-         follows="bottom|left"
-         font="SansSerifBigBold"
-         height="16"
-         image_hover_selected="gear.tga"
-         image_selected="gear.tga"
-         image_unselected="gear.tga"
-         layout="topleft"
-         left="5"
-         name="gear_menu_btn"
-         picture_style="true"
-         top="5"
-         width="16" />
-        <button
-         follows="bottom|left"
-         font="SansSerifBigBold"
-         height="16"
-         image_hover_selected="plus.tga"
-         image_selected="plus.tga"
-         image_unselected="plus.tga"
-         layout="topleft"
-         left="35"
-         name="new_btn"
-         picture_style="true"
-         tool_tip="Create New Pick at Current Location"
-         top="5"
-         width="16" />
-        <button
-         follows="bottom|right"
-         font="SansSerifBigBold"
-         height="16"
-         image_hover_selected="minus.tga"
-         image_selected="minus.tga"
-         image_unselected="minus.tga"
-         layout="topleft"
-         name="trash_btn"
-         picture_style="true"
-         right="-10"
-         top="5"
-         width="16" />
-    </panel>
-    <panel
-     follows="bottom|left"
-     height="30"
-     layout="topleft"
-     left="8"
-     name="buttons_cucks"
-     bottom="625"
-     width="345">
-        <button
-         follows="bottom|left"
-         font="SansSerifSmallBold"
-         height="25"
-         label="Info"
-         layout="topleft"
-         left="0"
-         name="info_btn"
-         enabled="false"
-         top="0"
-         width="50" />
-        <button
-         follows="bottom|left"
-         font="SansSerifSmallBold"
-         height="25"
-         label="Teleport"
-         layout="topleft"
-         left_pad="5"
-         name="teleport_btn"
-         enabled="false"
-         top="0"
-         width="70" />
-        <button
-         follows="bottom|left"
-         font="SansSerifSmallBold"
-         height="25"
-         label="Show on Map"
-         layout="topleft"
-         left_pad="5"
-         name="show_on_map_btn"
-         enabled="false"
-         top="0"
-         width="90" />
-        <button
-         enabled="false"
-         follows="bottom|right"
-         font="SansSerifSmallBold"
-         height="25"
-         label="Verb"
-         layout="topleft"
-         right="-15"
-         name="verb_btn"
-         top="0"
-         width="50" />
-    </panel>
+         name="buttons_cucks"
+         width="313">
+      
+      <layout_stack
+		  follows="bottom|left|right"
+		  height="28"
+		  layout="topleft"
+		  left="2"
+		  name="buttons_cucks_ls"
+		  orientation="horizontal"
+		  top="0"
+		  width="313">
+		  	  
+		  <layout_panel
+			  follows="bottom|left|right"
+			  height="28"
+			  layout="topleft"
+			  left="0"
+			  name="info_btn_lp"
+		      user_resize="false" 
+		      auto_resize="true"
+			  top="0"
+			  width="95">
+		       <button
+		         enabled="false"
+		         follows="top|left|right"
+		         height="23"
+		         label="Info"
+		         layout="topleft"
+		         name="info_btn"
+		         tab_stop="false"
+		         tool_tip="Show pick information"
+		         width="95" />
+		  </layout_panel>
+		  
+		  <layout_panel
+			  follows="bottom|left|right"
+			  height="28"
+			  layout="bottomleft" 
+			  left_pad="2"
+			  name="teleport_btn_lp"
+		      user_resize="false" 
+		      auto_resize="true"
+			  width="117">
+		        <button
+		         enabled="false"
+		         follows="top|left|right"
+		         height="23"
+		         label="Teleport"
+		         layout="topleft"
+		         name="teleport_btn"
+		         tab_stop="false"
+		         tool_tip="Teleport to the corresponding area"
+		         width="117" />
+		  </layout_panel>
+		  
+		  <layout_panel
+			  follows="bottom|left|right"
+			  height="28"
+			  layout="bottomleft"
+			  name="show_on_map_btn_lp"
+		      user_resize="false" 
+		      auto_resize="true" 
+			  left_pad="2"
+			  width="90">
+		        <button
+		         enabled="false"
+		         follows="top|left|right"
+		         height="23"
+		         label="Map"
+		         layout="topleft"
+		         name="show_on_map_btn"
+		         tab_stop="false"
+		         tool_tip="Show the corresponding area on the World Map"
+		         width="88" />
+		  </layout_panel>
+	</layout_stack>
+	</panel>
 </panel>

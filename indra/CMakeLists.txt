@@ -22,7 +22,10 @@ set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include(Variables)
 
 if (DARWIN)
-  cmake_minimum_required(VERSION 2.6.2 FATAL_ERROR)
+  # 2.6.4 fixes a Mac bug in get_target_property(... "SLPlugin" LOCATION):
+  # before that version it returns "pathname/SLPlugin", whereas the correct
+  # answer is "pathname/SLPlugin.app/Contents/MacOS/SLPlugin".
+  cmake_minimum_required(VERSION 2.6.4 FATAL_ERROR)
 endif (DARWIN)
 
 if (NOT CMAKE_BUILD_TYPE)
@@ -32,28 +35,26 @@ endif (NOT CMAKE_BUILD_TYPE)
 
 # For the library installation process;
 # see cmake/Prebuild.cmake for the counterpart code.
-file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/temp)
-file(WRITE ${CMAKE_BINARY_DIR}/temp/sentinel_installed "0")
+if ("${CMAKE_SOURCE_DIR}/../autobuild.xml" IS_NEWER_THAN "${CMAKE_BINARY_DIR}/temp/sentinel_installed")
+  file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/temp)
+  file(WRITE ${CMAKE_BINARY_DIR}/temp/sentinel_installed "0")
+endif ("${CMAKE_SOURCE_DIR}/../autobuild.xml" IS_NEWER_THAN "${CMAKE_BINARY_DIR}/temp/sentinel_installed")
 add_subdirectory(cmake)
 
 add_subdirectory(${LIBS_OPEN_PREFIX}llaudio)
 add_subdirectory(${LIBS_OPEN_PREFIX}llcharacter)
 add_subdirectory(${LIBS_OPEN_PREFIX}llcommon)
 add_subdirectory(${LIBS_OPEN_PREFIX}llimage)
+add_subdirectory(${LIBS_OPEN_PREFIX}llkdu)
 add_subdirectory(${LIBS_OPEN_PREFIX}llimagej2coj)
 add_subdirectory(${LIBS_OPEN_PREFIX}llinventory)
 add_subdirectory(${LIBS_OPEN_PREFIX}llmath)
-add_subdirectory(${LIBS_OPEN_PREFIX}llmedia)
 add_subdirectory(${LIBS_OPEN_PREFIX}llmessage)
 add_subdirectory(${LIBS_OPEN_PREFIX}llprimitive)
 add_subdirectory(${LIBS_OPEN_PREFIX}llrender)
 add_subdirectory(${LIBS_OPEN_PREFIX}llvfs)
 add_subdirectory(${LIBS_OPEN_PREFIX}llwindow)
 add_subdirectory(${LIBS_OPEN_PREFIX}llxml)
-
-if (EXISTS ${LIBS_CLOSED_DIR}llkdu)
-  add_subdirectory(${LIBS_CLOSED_PREFIX}llkdu)
-endif (EXISTS ${LIBS_CLOSED_DIR}llkdu)
 
 add_subdirectory(${LIBS_OPEN_PREFIX}lscript)
 
@@ -64,11 +65,23 @@ endif (WINDOWS AND EXISTS ${LIBS_CLOSED_DIR}copy_win_scripts)
 add_custom_target(viewer)
 if (VIEWER)
   add_subdirectory(${LIBS_OPEN_PREFIX}llcrashlogger)
+  add_subdirectory(${LIBS_OPEN_PREFIX}llplugin)
   add_subdirectory(${LIBS_OPEN_PREFIX}llui)
+  add_subdirectory(${LIBS_OPEN_PREFIX}llxuixml)
+  add_subdirectory(${LIBS_OPEN_PREFIX}viewer_components)
+
+  # viewer media plugins
+  add_subdirectory(${LIBS_OPEN_PREFIX}media_plugins)
+
+  # llplugin testbed code (is this the right way to include it?)
+  if (LL_TESTS AND NOT LINUX)
+    add_subdirectory(${VIEWER_PREFIX}test_apps/llplugintest)
+  endif (LL_TESTS AND NOT LINUX)
 
   if (LINUX)
     add_subdirectory(${VIEWER_PREFIX}linux_crash_logger)
-    add_dependencies(viewer linux-crash-logger-strip-target)
+    add_subdirectory(${VIEWER_PREFIX}linux_updater)
+    add_dependencies(viewer linux-crash-logger-strip-target linux-updater)
   elseif (DARWIN)
     add_subdirectory(${VIEWER_PREFIX}mac_crash_logger)
     add_subdirectory(${VIEWER_PREFIX}mac_updater)
@@ -92,7 +105,7 @@ if (VIEWER)
 endif (VIEWER)
 
 # Linux builds the viewer and server in 2 separate projects
-# In order for ./develop.py build server to work on linux, 
+# In order for build server to work on linux, 
 # the viewer project needs a server target.
 # This is not true for mac and windows.
 if (LINUX) 
@@ -112,6 +125,8 @@ if (SERVER)
   endif (WINDOWS)
 endif (SERVER)
 
-# Define after the custom viewer and server targets are created so individual
-# apps can add themselves as dependencies
-add_subdirectory(${INTEGRATION_TESTS_PREFIX}integration_tests)
+if (LL_TESTS)
+  # Define after the custom viewer and server targets are created so
+  # individual apps can add themselves as dependencies
+  add_subdirectory(${INTEGRATION_TESTS_PREFIX}integration_tests)
+endif (LL_TESTS)

@@ -2,31 +2,25 @@
  * @file llfloaternamedesc.cpp
  * @brief LLFloaterNameDesc class implementation
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -69,15 +63,12 @@ const S32 PREF_BUTTON_HEIGHT = 16;
 //-----------------------------------------------------------------------------
 // LLFloaterNameDesc()
 //-----------------------------------------------------------------------------
-LLFloaterNameDesc::LLFloaterNameDesc(const std::string& filename )
-	: LLFloater()
+LLFloaterNameDesc::LLFloaterNameDesc(const LLSD& filename )
+	: LLFloater(filename),
+	  mIsAudio(FALSE)	  
 {
-	setTitle("Name/Description Floater");
-	mFilenameAndPath = filename;
-	mFilename = gDirUtilp->getBaseFileName(filename, false);
-	// SL-5521 Maintain capitalization of filename when making the inventory item. JC
-	//LLStringUtil::toLower(mFilename);
-	mIsAudio = FALSE;
+	mFilenameAndPath = filename.asString();
+	mFilename = gDirUtilp->getBaseFileName(mFilenameAndPath, false);
 }
 
 //-----------------------------------------------------------------------------
@@ -93,11 +84,6 @@ BOOL LLFloaterNameDesc::postBuild()
 	LLStringUtil::stripNonprintable(asset_name);
 	LLStringUtil::trim(asset_name);
 
-	std::string exten = gDirUtilp->getExtension(asset_name);
-	if (exten == "wav")
-	{
-		mIsAudio = TRUE;
-	}
 	asset_name = gDirUtilp->getBaseFileName(asset_name, true); // no extsntion
 
 	setTitle(mFilename);
@@ -112,37 +98,37 @@ BOOL LLFloaterNameDesc::postBuild()
 
 	r.setLeftTopAndSize( PREVIEW_HPAD, y, line_width, PREVIEW_LINE_HEIGHT );    
 
-	childSetCommitCallback("name_form", doCommit, this);
-	childSetValue("name_form", LLSD(asset_name));
+	getChild<LLUICtrl>("name_form")->setCommitCallback(boost::bind(&LLFloaterNameDesc::doCommit, this));
+	getChild<LLUICtrl>("name_form")->setValue(LLSD(asset_name));
 
 	LLLineEditor *NameEditor = getChild<LLLineEditor>("name_form");
 	if (NameEditor)
 	{
 		NameEditor->setMaxTextLength(DB_INV_ITEM_NAME_STR_LEN);
-		NameEditor->setPrevalidate(&LLLineEditor::prevalidatePrintableNotPipe);
+		NameEditor->setPrevalidate(&LLTextValidate::validateASCIIPrintableNoPipe);
 	}
 
 	y -= llfloor(PREVIEW_LINE_HEIGHT * 1.2f);
 	y -= PREVIEW_LINE_HEIGHT;
 
 	r.setLeftTopAndSize( PREVIEW_HPAD, y, line_width, PREVIEW_LINE_HEIGHT );  
-	childSetCommitCallback("description_form", doCommit, this);
+	getChild<LLUICtrl>("description_form")->setCommitCallback(boost::bind(&LLFloaterNameDesc::doCommit, this));
 	LLLineEditor *DescEditor = getChild<LLLineEditor>("description_form");
 	if (DescEditor)
 	{
 		DescEditor->setMaxTextLength(DB_INV_ITEM_DESC_STR_LEN);
-		DescEditor->setPrevalidate(&LLLineEditor::prevalidatePrintableNotPipe);
+		DescEditor->setPrevalidate(&LLTextValidate::validateASCIIPrintableNoPipe);
 	}
 
 	y -= llfloor(PREVIEW_LINE_HEIGHT * 1.2f);
 
 	// Cancel button
-	childSetAction("cancel_btn", onBtnCancel, this);
+	getChild<LLUICtrl>("cancel_btn")->setCommitCallback(boost::bind(&LLFloaterNameDesc::onBtnCancel, this));
 
-	// OK button
-	childSetAction("ok_btn", onBtnOK, this);
+	getChild<LLUICtrl>("ok_btn")->setLabelArg("[AMOUNT]", llformat("%d", LLGlobalEconomy::Singleton::getInstance()->getPriceUpload() ));
+	
 	setDefaultBtn("ok_btn");
-
+	
 	return TRUE;
 }
 
@@ -162,45 +148,59 @@ void LLFloaterNameDesc::onCommit()
 {
 }
 
-// static 
 //-----------------------------------------------------------------------------
 // onCommit()
 //-----------------------------------------------------------------------------
-void LLFloaterNameDesc::doCommit( class LLUICtrl *, void* userdata )
+void LLFloaterNameDesc::doCommit()
 {
-	LLFloaterNameDesc* self = (LLFloaterNameDesc*) userdata;
-	self->onCommit();
+	onCommit();
 }
 
-// static 
 //-----------------------------------------------------------------------------
 // onBtnOK()
 //-----------------------------------------------------------------------------
-void LLFloaterNameDesc::onBtnOK( void* userdata )
+void LLFloaterNameDesc::onBtnOK( )
 {
-	LLFloaterNameDesc *fp =(LLFloaterNameDesc *)userdata;
-
-	fp->childDisable("ok_btn"); // don't allow inadvertent extra uploads
+	getChildView("ok_btn")->setEnabled(FALSE); // don't allow inadvertent extra uploads
 	
 	LLAssetStorage::LLStoreAssetCallback callback = NULL;
 	S32 expected_upload_cost = LLGlobalEconomy::Singleton::getInstance()->getPriceUpload(); // kinda hack - assumes that unsubclassed LLFloaterNameDesc is only used for uploading chargeable assets, which it is right now (it's only used unsubclassed for the sound upload dialog, and THAT should be a subclass).
 	void *nruserdata = NULL;
 	std::string display_name = LLStringUtil::null;
-	upload_new_resource(fp->mFilenameAndPath, // file
-			    fp->childGetValue("name_form").asString(), 
-			    fp->childGetValue("description_form").asString(), 
-			    0, LLAssetType::AT_NONE, LLInventoryType::IT_NONE,
+	upload_new_resource(mFilenameAndPath, // file
+			    getChild<LLUICtrl>("name_form")->getValue().asString(), 
+			    getChild<LLUICtrl>("description_form")->getValue().asString(), 
+			    0, LLFolderType::FT_NONE, LLInventoryType::IT_NONE,
 			    LLFloaterPerms::getNextOwnerPerms(), LLFloaterPerms::getGroupPerms(), LLFloaterPerms::getEveryonePerms(),
 			    display_name, callback, expected_upload_cost, nruserdata);
-	fp->closeFloater(false);
+	closeFloater(false);
 }
 
-// static 
 //-----------------------------------------------------------------------------
 // onBtnCancel()
 //-----------------------------------------------------------------------------
-void LLFloaterNameDesc::onBtnCancel( void* userdata )
+void LLFloaterNameDesc::onBtnCancel()
 {
-	LLFloaterNameDesc *fp =(LLFloaterNameDesc *)userdata;
-	fp->closeFloater(false);
+	closeFloater(false);
+}
+
+
+//-----------------------------------------------------------------------------
+// LLFloaterSoundPreview()
+//-----------------------------------------------------------------------------
+
+LLFloaterSoundPreview::LLFloaterSoundPreview(const LLSD& filename )
+	: LLFloaterNameDesc(filename)
+{
+	mIsAudio = TRUE;
+}
+
+BOOL LLFloaterSoundPreview::postBuild()
+{
+	if (!LLFloaterNameDesc::postBuild())
+	{
+		return FALSE;
+	}
+	getChild<LLUICtrl>("ok_btn")->setCommitCallback(boost::bind(&LLFloaterNameDesc::onBtnOK, this));
+	return TRUE;
 }

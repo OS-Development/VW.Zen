@@ -1,31 +1,25 @@
 /** 
  * @file lluuid.cpp
  *
- * $LicenseInfo:firstyear=2000&license=viewergpl$
- * 
- * Copyright (c) 2000-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2000&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -33,9 +27,12 @@
 
 // We can't use WIN32_LEAN_AND_MEAN here, needs lots of includes.
 #if LL_WINDOWS
-#	undef WIN32_LEAN_AND_MEAN
-#	include <winsock2.h>
-#	include <windows.h>
+#undef WIN32_LEAN_AND_MEAN
+#include <winsock2.h>
+#include <windows.h>
+// ugh, this is ugly.  We need to straighten out our linking for this library
+#pragma comment(lib, "IPHLPAPI.lib")
+#include <iphlpapi.h>
 #endif
 
 #include "lldefs.h"
@@ -452,7 +449,8 @@ static void get_random_bytes(void *buf, int nbytes)
 	return;	
 }
 
-#if LL_WINDOWS
+#if	LL_WINDOWS
+
 typedef struct _ASTAT_
 {
 	ADAPTER_STATUS adapt;
@@ -460,58 +458,44 @@ typedef struct _ASTAT_
 }ASTAT, * PASTAT;
 
 // static
-S32 LLUUID::getNodeID(unsigned char * node_id)
+S32	LLUUID::getNodeID(unsigned char	*node_id)
 {
-	  ASTAT Adapter;
-      NCB Ncb;
-      UCHAR uRetCode;
-      LANA_ENUM   lenum;
-      int      i;
-	  int retval = 0;
+	ASTAT Adapter;
+	NCB Ncb;
+	UCHAR uRetCode;
+	LANA_ENUM   lenum;
+	int      i;
+	int retval = 0;
 
-      memset( &Ncb, 0, sizeof(Ncb) );
-      Ncb.ncb_command = NCBENUM;
-      Ncb.ncb_buffer = (UCHAR *)&lenum;
-      Ncb.ncb_length = sizeof(lenum);
-      uRetCode = Netbios( &Ncb );
- //     printf( "The NCBENUM return code is: 0x%x \n", uRetCode );
+	memset( &Ncb, 0, sizeof(Ncb) );
+	Ncb.ncb_command = NCBENUM;
+	Ncb.ncb_buffer = (UCHAR *)&lenum;
+	Ncb.ncb_length = sizeof(lenum);
+	uRetCode = Netbios( &Ncb );
 
-      for(i=0; i < lenum.length ;i++)
-      {
-          memset( &Ncb, 0, sizeof(Ncb) );
-          Ncb.ncb_command = NCBRESET;
-          Ncb.ncb_lana_num = lenum.lana[i];
+	for(i=0; i < lenum.length ;i++)
+	{
+		memset( &Ncb, 0, sizeof(Ncb) );
+		Ncb.ncb_command = NCBRESET;
+		Ncb.ncb_lana_num = lenum.lana[i];
 
-          uRetCode = Netbios( &Ncb );
- //         printf( "The NCBRESET on LANA %d return code is: 0x%x \n",
- //                 lenum.lana[i], uRetCode );
+		uRetCode = Netbios( &Ncb );
 
-          memset( &Ncb, 0, sizeof (Ncb) );
-          Ncb.ncb_command = NCBASTAT;
-          Ncb.ncb_lana_num = lenum.lana[i];
+		memset( &Ncb, 0, sizeof (Ncb) );
+		Ncb.ncb_command = NCBASTAT;
+		Ncb.ncb_lana_num = lenum.lana[i];
 
-          strcpy( (char *)Ncb.ncb_callname,  "*              " );		/* Flawfinder: ignore */
-          Ncb.ncb_buffer = (unsigned char *)&Adapter;
-          Ncb.ncb_length = sizeof(Adapter);
+		strcpy( (char *)Ncb.ncb_callname,  "*              " );		/* Flawfinder: ignore */
+		Ncb.ncb_buffer = (unsigned char *)&Adapter;
+		Ncb.ncb_length = sizeof(Adapter);
 
-          uRetCode = Netbios( &Ncb );
-//          printf( "The NCBASTAT on LANA %d return code is: 0x%x \n",
-//                 lenum.lana[i], uRetCode );
-          if ( uRetCode == 0 )
-          {
-//            printf( "The Ethernet Number on LANA %d is: %02x%02x%02x%02x%02x%02x\n",
-//	 			  lenum.lana[i],
-//                  Adapter.adapt.adapter_address[0],
-//                  Adapter.adapt.adapter_address[1],
-//                  Adapter.adapt.adapter_address[2],
-//                  Adapter.adapt.adapter_address[3],
-//                  Adapter.adapt.adapter_address[4],
-//                  Adapter.adapt.adapter_address[5] );
+		uRetCode = Netbios( &Ncb );
+		if ( uRetCode == 0 )
+		{
 			memcpy(node_id,Adapter.adapt.adapter_address,6);		/* Flawfinder: ignore */
 			retval = 1;
-
-          }
-	  }
+		}
+	}
 	return retval;
 }
 

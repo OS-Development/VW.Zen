@@ -2,31 +2,25 @@
  * @file llmutelist.h
  * @brief Management of list of muted players
  *
- * $LicenseInfo:firstyear=2003&license=viewergpl$
- * 
- * Copyright (c) 2003-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2003&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -45,7 +39,8 @@ class LLMute
 {
 public:
 	// Legacy mutes are BY_NAME and have null UUID.
-	enum EType { BY_NAME = 0, AGENT = 1, OBJECT = 2, GROUP = 3, COUNT = 4 };
+	// EXTERNAL mutes are only processed through an external system (e.g. Voice) and not stored.
+	enum EType { BY_NAME = 0, AGENT = 1, OBJECT = 2, GROUP = 3, EXTERNAL = 4, COUNT = 5 };
 	
 	// Bits in the mute flags.  For backwards compatibility (since any mute list entries that were created before the flags existed
 	// will have a flags field of 0), some of the flags are "inverted".
@@ -63,18 +58,12 @@ public:
 	
 	LLMute(const LLUUID& id, const std::string& name = std::string(), EType type = BY_NAME, U32 flags = 0);
 
-	// Returns name + suffix based on type
-	// For example:  "James Tester (resident)"
-	std::string getDisplayName() const;
-	
-	// Converts a UI name into just the agent or object name
-	// For example: "James Tester (resident)" sets the name to "James Tester"
-	// and the type to AGENT.
-	void setFromDisplayName(const std::string& display_name);
+	// Returns localized type name of muted item
+	std::string getDisplayType() const;
 	
 public:
 	LLUUID		mID;	// agent or object id
-	std::string	mName;	// agent or object name
+	std::string	mName;	// agent or object name, does not store last name "Resident"
 	EType		mType;	// needed for UI display of existing mutes
 	U32			mFlags;	// flags pertaining to this mute entry
 };
@@ -107,7 +96,7 @@ public:
 
 	// Remove both normal and legacy mutes, for any or all properties.
 	BOOL remove(const LLMute& mute, U32 flags = 0);
-	BOOL autoRemove(const LLUUID& agent_id, const EAutoReason reason, const std::string& first_name = LLStringUtil::null, const std::string& last_name = LLStringUtil::null);
+	BOOL autoRemove(const LLUUID& agent_id, const EAutoReason reason);
 	
 	// Name is required to test against legacy text-only mutes.
 	BOOL isMuted(const LLUUID& id, const std::string& name = LLStringUtil::null, U32 flags = 0) const;
@@ -127,12 +116,7 @@ public:
 	// call this method on logout to save everything.
 	void cache(const LLUUID& agent_id);
 
-	void setSavedResidentVolume(const LLUUID& id, F32 volume);
-	F32 getSavedResidentVolume(const LLUUID& id);
-
 private:
-	void loadUserVolumes();
-	
 	BOOL loadFromFile(const std::string& filename);
 	BOOL saveToFile(const std::string& filename);
 
@@ -153,7 +137,13 @@ private:
 	{
 		bool operator()(const LLMute& a, const LLMute& b) const
 		{
-			return a.mName < b.mName;
+			std::string name1 = a.mName;
+			std::string name2 = b.mName;
+
+			LLStringUtil::toUpper(name1);
+			LLStringUtil::toUpper(name2);
+
+			return name1 < name2;
 		}
 	};
 	struct compare_by_id
@@ -173,12 +163,8 @@ private:
 	observer_set_t mObservers;
 
 	BOOL mIsLoaded;
-	BOOL mUserVolumesLoaded;
 
 	friend class LLDispatchEmptyMuteList;
-
-	typedef std::map<LLUUID, F32> user_volume_map_t; 
-	user_volume_map_t mUserVolumeSettings;
 };
 
 class LLMuteListObserver

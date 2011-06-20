@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  can_minimize="false"
  follows="left|top"
  height="175"
  layout="topleft"
  name="MemLeak"
- title="Memory Leaking Simulation"
+ help_topic="memleak"
+ title="SIMULATE A MEMORY LEAK"
  width="350">
     <spinner
      decimal_digits="0"

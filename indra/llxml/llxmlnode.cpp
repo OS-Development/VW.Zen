@@ -3,31 +3,25 @@
  * @author Tom Yedwab
  * @brief LLXMLNode implementation
  *
- * $LicenseInfo:firstyear=2005&license=viewergpl$
- * 
- * Copyright (c) 2005-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2005&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -131,6 +125,8 @@ LLXMLNode::LLXMLNode(const LLXMLNode& rhs) :
 	mPrecision(rhs.mPrecision),
 	mType(rhs.mType),
 	mEncoding(rhs.mEncoding),
+	mLineNumber(0),
+	mParser(NULL),
 	mParent(NULL),
 	mChildren(NULL),
 	mAttributes(),
@@ -863,23 +859,21 @@ BOOL LLXMLNode::isFullyDefault()
 }
 
 // static
-bool LLXMLNode::getLayeredXMLNode(const std::string &xui_filename, LLXMLNodePtr& root,
+bool LLXMLNode::getLayeredXMLNode(LLXMLNodePtr& root,
 								  const std::vector<std::string>& paths)
 {
-	std::string full_filename = gDirUtilp->findSkinnedFilename(paths.front(), xui_filename);
-	if (full_filename.empty())
+	if (paths.empty()) return false;
+
+	std::string filename = paths.front();
+	if (filename.empty())
 	{
 		return false;
 	}
-
-	if (!LLXMLNode::parseFile(full_filename, root, NULL))
+	
+	if (!LLXMLNode::parseFile(filename, root, NULL))
 	{
-		// try filename as passed in since sometimes we load an xml file from a user-supplied path
-		if (!LLXMLNode::parseFile(xui_filename, root, NULL))
-		{
-			llwarns << "Problem reading UI description file: " << xui_filename << llendl;
-			return false;
-		}
+		llwarns << "Problem reading UI description file: " << filename << llendl;
+		return false;
 	}
 
 	LLXMLNodePtr updateRoot;
@@ -891,7 +885,7 @@ bool LLXMLNode::getLayeredXMLNode(const std::string &xui_filename, LLXMLNodePtr&
 		std::string nodeName;
 		std::string updateName;
 
-		std::string layer_filename = gDirUtilp->findSkinnedFilename((*itor), xui_filename);
+		std::string layer_filename = *itor;
 		if(layer_filename.empty())
 		{
 			// no localized version of this file, that's ok, keep looking
@@ -900,7 +894,7 @@ bool LLXMLNode::getLayeredXMLNode(const std::string &xui_filename, LLXMLNodePtr&
 
 		if (!LLXMLNode::parseFile(layer_filename, updateRoot, NULL))
 		{
-			llwarns << "Problem reading localized UI description file: " << (*itor) + gDirUtilp->getDirDelimiter() + xui_filename << llendl;
+			llwarns << "Problem reading localized UI description file: " << layer_filename << llendl;
 			return false;
 		}
 
@@ -922,7 +916,7 @@ void LLXMLNode::writeHeaderToFile(LLFILE *out_file)
 	fprintf(out_file, "<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"yes\" ?>\n");
 }
 
-void LLXMLNode::writeToFile(LLFILE *out_file, const std::string& indent)
+void LLXMLNode::writeToFile(LLFILE *out_file, const std::string& indent, bool use_type_decorations)
 {
 	if (isFullyDefault())
 	{
@@ -931,7 +925,7 @@ void LLXMLNode::writeToFile(LLFILE *out_file, const std::string& indent)
 	}
 
 	std::ostringstream ostream;
-	writeToOstream(ostream, indent);
+	writeToOstream(ostream, indent, use_type_decorations);
 	std::string outstring = ostream.str();
 	size_t written = fwrite(outstring.c_str(), 1, outstring.length(), out_file);
 	if (written != outstring.length())
@@ -940,7 +934,7 @@ void LLXMLNode::writeToFile(LLFILE *out_file, const std::string& indent)
 	}
 }
 
-void LLXMLNode::writeToOstream(std::ostream& output_stream, const std::string& indent)
+void LLXMLNode::writeToOstream(std::ostream& output_stream, const std::string& indent, bool use_type_decorations)
 {
 	if (isFullyDefault())
 	{
@@ -956,77 +950,80 @@ void LLXMLNode::writeToOstream(std::ostream& output_stream, const std::string& i
 	// stream the name
 	output_stream << indent << "<" << mName->mString << "\n";
 
-	// ID
-	if (mID != "")
+	if (use_type_decorations)
 	{
-		output_stream << indent << " id=\"" << mID << "\"\n";
-	}
-
-	// Type
-	if (!has_default_type)
-	{
-		switch (mType)
+		// ID
+		if (mID != "")
 		{
-		case TYPE_BOOLEAN:
-			output_stream << indent << " type=\"boolean\"\n";
-			break;
-		case TYPE_INTEGER:
-			output_stream << indent << " type=\"integer\"\n";
-			break;
-		case TYPE_FLOAT:
-			output_stream << indent << " type=\"float\"\n";
-			break;
-		case TYPE_STRING:
-			output_stream << indent << " type=\"string\"\n";
-			break;
-		case TYPE_UUID:
-			output_stream << indent << " type=\"uuid\"\n";
-			break;
-		case TYPE_NODEREF:
-			output_stream << indent << " type=\"noderef\"\n";
-			break;
-		default:
-			// default on switch(enum) eliminates a warning on linux
-			break;
-		};
-	}
+			output_stream << indent << " id=\"" << mID << "\"\n";
+		}
 
-	// Encoding
-	if (!has_default_encoding)
-	{
-		switch (mEncoding)
+		// Type
+		if (!has_default_type)
 		{
-		case ENCODING_DECIMAL:
-			output_stream << indent << " encoding=\"decimal\"\n";
-			break;
-		case ENCODING_HEX:
-			output_stream << indent << " encoding=\"hex\"\n";
-			break;
-		/*case ENCODING_BASE32:
-			output_stream << indent << " encoding=\"base32\"\n";
-			break;*/
-		default:
-			// default on switch(enum) eliminates a warning on linux
-			break;
-		};
-	}
+			switch (mType)
+			{
+			case TYPE_BOOLEAN:
+				output_stream << indent << " type=\"boolean\"\n";
+				break;
+			case TYPE_INTEGER:
+				output_stream << indent << " type=\"integer\"\n";
+				break;
+			case TYPE_FLOAT:
+				output_stream << indent << " type=\"float\"\n";
+				break;
+			case TYPE_STRING:
+				output_stream << indent << " type=\"string\"\n";
+				break;
+			case TYPE_UUID:
+				output_stream << indent << " type=\"uuid\"\n";
+				break;
+			case TYPE_NODEREF:
+				output_stream << indent << " type=\"noderef\"\n";
+				break;
+			default:
+				// default on switch(enum) eliminates a warning on linux
+				break;
+			};
+		}
 
-	// Precision
-	if (!has_default_precision && (mType == TYPE_INTEGER || mType == TYPE_FLOAT))
-	{
-		output_stream << indent << " precision=\"" << mPrecision << "\"\n";
-	}
+		// Encoding
+		if (!has_default_encoding)
+		{
+			switch (mEncoding)
+			{
+			case ENCODING_DECIMAL:
+				output_stream << indent << " encoding=\"decimal\"\n";
+				break;
+			case ENCODING_HEX:
+				output_stream << indent << " encoding=\"hex\"\n";
+				break;
+			/*case ENCODING_BASE32:
+				output_stream << indent << " encoding=\"base32\"\n";
+				break;*/
+			default:
+				// default on switch(enum) eliminates a warning on linux
+				break;
+			};
+		}
 
-	// Version
-	if (mVersionMajor > 0 || mVersionMinor > 0)
-	{
-		output_stream << indent << " version=\"" << mVersionMajor << "." << mVersionMinor << "\"\n";
-	}
+		// Precision
+		if (!has_default_precision && (mType == TYPE_INTEGER || mType == TYPE_FLOAT))
+		{
+			output_stream << indent << " precision=\"" << mPrecision << "\"\n";
+		}
 
-	// Array length
-	if (!has_default_length && mLength > 0)
-	{
-		output_stream << indent << " length=\"" << mLength << "\"\n";
+		// Version
+		if (mVersionMajor > 0 || mVersionMinor > 0)
+		{
+			output_stream << indent << " version=\"" << mVersionMajor << "." << mVersionMinor << "\"\n";
+		}
+
+		// Array length
+		if (!has_default_length && mLength > 0)
+		{
+			output_stream << indent << " length=\"" << mLength << "\"\n";
+		}
 	}
 
 	{
@@ -1039,12 +1036,13 @@ void LLXMLNode::writeToOstream(std::ostream& output_stream, const std::string& i
 			if (child->mDefault.isNull() || child->mDefault->mValue != child->mValue)
 			{
 				std::string attr = child->mName->mString;
-				if (attr == "id" ||
-					attr == "type" ||
-					attr == "encoding" ||
-					attr == "precision" ||
-					attr == "version" ||
-					attr == "length")
+				if (use_type_decorations
+					&& (attr == "id" ||
+						attr == "type" ||
+						attr == "encoding" ||
+						attr == "precision" ||
+						attr == "version" ||
+						attr == "length"))
 				{
 					continue; // skip built-in attributes
 				}
@@ -1074,7 +1072,7 @@ void LLXMLNode::writeToOstream(std::ostream& output_stream, const std::string& i
 			std::string next_indent = indent + "    ";
 			for (LLXMLNode* child = getFirstChild(); child; child = child->getNextSibling())
 			{
-				child->writeToOstream(output_stream, next_indent);
+				child->writeToOstream(output_stream, next_indent, use_type_decorations);
 			}
 		}
 		if (!mValue.empty())

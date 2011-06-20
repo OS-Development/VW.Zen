@@ -2,31 +2,25 @@
  * @file llvowater.cpp
  * @brief LLVOWater class implementation
  *
- * $LicenseInfo:firstyear=2005&license=viewergpl$
- * 
- * Copyright (c) 2005-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2005&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -37,7 +31,6 @@
 #include "imageids.h"
 #include "llviewercontrol.h"
 
-#include "llagent.h"
 #include "lldrawable.h"
 #include "lldrawpoolwater.h"
 #include "llface.h"
@@ -56,8 +49,6 @@ const BOOL gUseRoam = FALSE;
 
 ///////////////////////////////////
 
-#include "randgauss.h"
-
 template<class T> inline T LERP(T a, T b, F32 factor)
 {
 	return a + (b - a) * factor;
@@ -69,8 +60,11 @@ const U32 WIDTH			= (N_RES * WAVE_STEP); //128.f //64		// width of wave tile, in
 const F32 WAVE_STEP_INV	= (1. / WAVE_STEP);
 
 
-LLVOWater::LLVOWater(const LLUUID &id, const LLPCode pcode, LLViewerRegion *regionp)
-:	LLStaticViewerObject(id, LL_VO_WATER, regionp)
+LLVOWater::LLVOWater(const LLUUID &id, 
+					 const LLPCode pcode, 
+					 LLViewerRegion *regionp) :
+	LLStaticViewerObject(id, pcode, regionp),
+	mRenderType(LLPipeline::RENDER_TYPE_WATER)
 {
 	// Terrain must draw during selection passes so it can block objects behind it.
 	mbCanSelect = FALSE;
@@ -101,7 +95,7 @@ void LLVOWater::setPixelAreaAndAngle(LLAgent &agent)
 
 
 // virtual
-void LLVOWater::updateTextures(LLAgent &agent)
+void LLVOWater::updateTextures()
 {
 }
 
@@ -123,7 +117,7 @@ LLDrawable *LLVOWater::createDrawable(LLPipeline *pipeline)
 {
 	pipeline->allocDrawable(this);
 	mDrawable->setLit(FALSE);
-	mDrawable->setRenderType(LLPipeline::RENDER_TYPE_WATER);
+	mDrawable->setRenderType(mRenderType);
 
 	LLDrawPoolWater *pool = (LLDrawPoolWater*) gPipeline.getPool(LLDrawPool::POOL_WATER);
 
@@ -139,9 +133,11 @@ LLDrawable *LLVOWater::createDrawable(LLPipeline *pipeline)
 	return mDrawable;
 }
 
+static LLFastTimer::DeclareTimer FTM_UPDATE_WATER("Update Water");
+
 BOOL LLVOWater::updateGeometry(LLDrawable *drawable)
 {
-	LLFastTimer ftm(LLFastTimer::FTM_UPDATE_WATER);
+	LLFastTimer ftm(FTM_UPDATE_WATER);
 	LLFace *face;
 
 	if (drawable->getNumFaces() < 1)
@@ -159,21 +155,29 @@ BOOL LLVOWater::updateGeometry(LLDrawable *drawable)
 	LLStrider<U16> indicesp;
 	U16 index_offset;
 
-	S32 size = 16;
 
-	S32 num_quads = size*size;	
-	face->setSize(4*num_quads, 6*num_quads);
+	// A quad is 4 vertices and 6 indices (making 2 triangles)
+	static const unsigned int vertices_per_quad = 4;
+	static const unsigned int indices_per_quad = 6;
 
-	if (face->mVertexBuffer.isNull())
+	const S32 size = gSavedSettings.getBOOL("RenderTransparentWater") ? 16 : 1;
+
+	const S32 num_quads = size * size;
+	face->setSize(vertices_per_quad * num_quads,
+				  indices_per_quad * num_quads);
+	
+	LLVertexBuffer* buff = face->getVertexBuffer();
+	if (!buff)
 	{
-		face->mVertexBuffer = new LLVertexBuffer(LLDrawPoolWater::VERTEX_DATA_MASK, GL_DYNAMIC_DRAW_ARB);
-		face->mVertexBuffer->allocateBuffer(face->getGeomCount(), face->getIndicesCount(), TRUE);
+		buff = new LLVertexBuffer(LLDrawPoolWater::VERTEX_DATA_MASK, GL_DYNAMIC_DRAW_ARB);
+		buff->allocateBuffer(face->getGeomCount(), face->getIndicesCount(), TRUE);
 		face->setIndicesIndex(0);
 		face->setGeomIndex(0);
+		face->setVertexBuffer(buff);
 	}
 	else
 	{
-		face->mVertexBuffer->resizeBuffer(face->getGeomCount(), face->getIndicesCount());
+		buff->resizeBuffer(face->getGeomCount(), face->getIndicesCount());
 	}
 		
 	index_offset = face->getGeometry(verticesp,normalsp,texCoordsp, indicesp);
@@ -227,7 +231,7 @@ BOOL LLVOWater::updateGeometry(LLDrawable *drawable)
 		}
 	}
 	
-	face->mVertexBuffer->setBuffer(0);
+	buff->setBuffer(0);
 
 	mDrawable->movePartition();
 	LLPipeline::sCompiles++;
@@ -259,15 +263,21 @@ void LLVOWater::setIsEdgePatch(const BOOL edge_patch)
 	mIsEdgePatch = edge_patch;
 }
 
-void LLVOWater::updateSpatialExtents(LLVector3 &newMin, LLVector3& newMax)
+void LLVOWater::updateSpatialExtents(LLVector4a &newMin, LLVector4a& newMax)
 {
-	LLVector3 pos = getPositionAgent();
-	LLVector3 scale = getScale();
+	LLVector4a pos;
+	pos.load3(getPositionAgent().mV);
+	LLVector4a scale;
+	scale.load3(getScale().mV);
+	scale.mul(0.5f);
 
-	newMin = pos - scale * 0.5f;
-	newMax = pos + scale * 0.5f;
+	newMin.setSub(pos, scale);
+	newMax.setAdd(pos, scale);
+	
+	pos.setAdd(newMin,newMax);
+	pos.mul(0.5f);
 
-	mDrawable->setPositionGroup((newMin + newMax) * 0.5f);
+	mDrawable->setPositionGroup(pos);
 }
 
 U32 LLVOWater::getPartitionType() const
@@ -275,11 +285,21 @@ U32 LLVOWater::getPartitionType() const
 	return LLViewerRegion::PARTITION_WATER; 
 }
 
-LLWaterPartition::LLWaterPartition()
-: LLSpatialPartition(0)
+U32 LLVOVoidWater::getPartitionType() const
 {
-	mRenderByGroup = FALSE;
+	return LLViewerRegion::PARTITION_VOIDWATER;
+}
+
+LLWaterPartition::LLWaterPartition()
+: LLSpatialPartition(0, FALSE, GL_DYNAMIC_DRAW_ARB)
+{
 	mInfiniteFarClip = TRUE;
 	mDrawableType = LLPipeline::RENDER_TYPE_WATER;
 	mPartitionType = LLViewerRegion::PARTITION_WATER;
+}
+
+LLVoidWaterPartition::LLVoidWaterPartition()
+{
+	mDrawableType = LLPipeline::RENDER_TYPE_VOIDWATER;
+	mPartitionType = LLViewerRegion::PARTITION_VOIDWATER;
 }

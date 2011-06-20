@@ -1,85 +1,108 @@
-/** 
+/**
  * @file llslurl.h
- * @brief SLURL manipulation
+ * @brief Handles "SLURL fragments" like Ahern/123/45 for
+ * startup processing, login screen, prefs, etc.
  *
- * $LicenseInfo:firstyear=2009&license=viewergpl$
- * 
- * Copyright (c) 2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2010&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
+#ifndef LLSLURL_H
+#define LLSLURL_H
 
-#ifndef LL_SLURL_H
-#define LL_SLURL_H
+#include "llstring.h"
 
-#include <string>
 
-// IAN BUG: where should this live?
-// IAN BUG: are static utility functions right?  See LLUUID.
-// question of whether to have a LLSLURL object or a 
-// some of this was moved from LLURLDispatcher
+// represents a location in a grid
 
-/**
- * SLURL manipulation
- */
 class LLSLURL
 {
 public:
-	static const std::string PREFIX_SL_HELP;
-	static const std::string PREFIX_SL;
-	static const std::string PREFIX_SECONDLIFE;
-	static const std::string PREFIX_SLURL;
+	static const char* SLURL_HTTPS_SCHEME;
+	static const char* SLURL_HTTP_SCHEME;
+	static const char* SLURL_SL_SCHEME;
+	static const char* SLURL_SECONDLIFE_SCHEME;
+	static const char* SLURL_SECONDLIFE_PATH;
+	static const char* SLURL_COM;
+	static const char* WWW_SLURL_COM;
+	static const char* SECONDLIFE_COM;
+	static const char* MAPS_SECONDLIFE_COM;
+	static const char* SLURL_X_GRID_LOCATION_INFO_SCHEME;
+	static LLSLURL START_LOCATION;
+	static const char* SIM_LOCATION_HOME;
+	static const char* SIM_LOCATION_LAST;
+	static const char* SLURL_APP_PATH;
+	static const char* SLURL_REGION_PATH;	
+	
+	enum SLURL_TYPE { 
+		INVALID, 
+		LOCATION,
+		HOME_LOCATION,
+		LAST_LOCATION,
+		APP,
+		HELP 
+	};
+		
+	
+	LLSLURL(): mType(INVALID)  { }
+	LLSLURL(const std::string& slurl);
+	LLSLURL(const std::string& grid, const std::string& region);
+	LLSLURL(const std::string& region, const LLVector3& position);
+	LLSLURL(const std::string& grid, const std::string& region, const LLVector3& position);
+	LLSLURL(const std::string& grid, const std::string& region, const LLVector3d& global_position);
+	LLSLURL(const std::string& region, const LLVector3d& global_position);
+	LLSLURL(const std::string& command, const LLUUID&id, const std::string& verb);
+	
+	SLURL_TYPE getType() const { return mType; }
+	
+	std::string getSLURLString() const;
+	std::string getLoginString() const;
+	std::string getLocationString() const; 
+	std::string getGrid() const { return mGrid; }
+	std::string getRegion() const { return mRegion; }
+	LLVector3   getPosition() const { return mPosition; }
+	std::string getAppCmd() const { return mAppCmd; }
+	std::string getAppQuery() const { return mAppQuery; }
+	LLSD        getAppQueryMap() const { return mAppQueryMap; }
+	LLSD        getAppPath() const { return mAppPath; }
+	
+	bool        isValid() const { return mType != INVALID; }
+	bool        isSpatial() const { return (mType == LAST_LOCATION) || (mType == HOME_LOCATION) || (mType == LOCATION); }
+	
+	bool operator==(const LLSLURL& rhs);
+	bool operator!=(const LLSLURL&rhs);
 
-	static const std::string APP_TOKEN;
+    std::string asString() const ;
 
-	/**
-	 * Is this any sort of secondlife:// or sl:// URL?
-	 */
-	static bool isSLURL(const std::string& url);
-
-	/**
-	 * Is this a special secondlife://app/ URL?
-	 */
-	static bool isSLURLCommand(const std::string& url);
-
-	/**
-	 * Not sure what it is.
-	 */
-	static bool isSLURLHelp(const std::string& url);
-
-	/**
-	 * builds: http://slurl.com/secondlife/RegionName/x/y/z/
-	 */
-	static std::string buildSLURL(const std::string& regionname, S32 x, S32 y, S32 z);
-
-	/**
-	 * Strip protocol part from the URL.
-	 */
-	static std::string stripProtocol(const std::string& url);
-
-private:
-	static bool matchPrefix(const std::string& url, const std::string& prefix);
+protected:
+	SLURL_TYPE mType;
+	
+	// used for Apps and Help
+	std::string mAppCmd;
+	LLSD        mAppPath;
+	LLSD        mAppQueryMap;
+	std::string mAppQuery;
+	
+	std::string mGrid;  // reference to grid manager grid
+	std::string mRegion;
+	LLVector3  mPosition;
 };
 
-#endif
+#endif // LLSLURL_H

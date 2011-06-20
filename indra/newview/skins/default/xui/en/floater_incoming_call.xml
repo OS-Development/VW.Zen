@@ -1,13 +1,27 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  can_close="false"
  can_minimize="false"
  can_tear_off="false"
- height="200"
+ height="125"
  layout="topleft"
  name="incoming call"
- title="Unknown Person is calling"
- width="240">
+ help_topic="incoming_call"
+ title="Incoming call"
+ width="410">
+    <floater.string
+     name="lifetime">
+        5
+    </floater.string>
+    <floater.string
+     name="localchat">
+        Nearby Voice Chat
+    </floater.string>
+    <floater.string
+     name="anonymous">
+        anonymous
+    </floater.string>
     <floater.string
      name="VoiceInviteP2P">
         is calling.
@@ -15,6 +29,18 @@
     <floater.string
      name="VoiceInviteAdHoc">
         has joined a Voice Chat call with a conference chat.
+    </floater.string>
+    <floater.string
+     name="VoiceInviteGroup">
+      just joined '[GROUP]' voice channel.
+    </floater.string>
+    <floater.string
+     name="VoiceInviteQuestionGroup">
+      Would you like to leave [CURRENT_CHAT] and join the call with '[GROUP]'?
+    </floater.string>
+    <floater.string
+     name="VoiceInviteQuestionDefault">
+      Do you want to leave [CURRENT_CHAT] and join this voice chat?
     </floater.string>
     <avatar_icon
      enabled="false"
@@ -25,19 +51,37 @@
      left_delta="19"
      top="35"
      width="36" />
-    <text_editor
-     font="SansSerif"
-     height="64"
-     hide_border="true"
-     hide_scrollbar="true"
+    <group_icon
+     enabled="false"
+     follows="left|top"
+     height="36"
+     layout="topleft"
+     top="35"
+     width="36" />
+    <text
+     clip_partial="true"
+     font="SansSerifLarge"
+     height="37"
      layout="topleft"
      left="77"
-     max_length="2147483647"
      name="caller name"
-     read_only="true"
-     top="21"
-     width="163"
+     top="20"
+     use_ellipses="true"
+     width="315"
      word_wrap="true" />
+    <text
+     clip_partial="true"
+     font="SansSerif"
+     height="30"
+     layout="topleft"
+     left="77"
+     name="question"
+     top_pad="5"
+     use_ellipses="true"
+     width="315"
+     word_wrap="true">
+     Do you want to leave [CURRENT_CHAT] and join this voice chat?
+    </text>
     <button
      height="24"
      label="Accept"
@@ -52,16 +96,14 @@
      label="Reject"
      label_selected="Reject"
      layout="topleft"
-     left_delta="0"
      name="Reject"
-     top_pad="12"
+     left_pad="10"
      width="100" />
     <button
      height="24"
      label="Start IM"
      layout="topleft"
-     left_delta="0"
      name="Start IM"
-     top_pad="12"
+     left_pad="10"
      width="100" />
 </floater>

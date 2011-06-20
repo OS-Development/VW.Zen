@@ -2,31 +2,25 @@
  * @file llpanelgrouproles.cpp
  * @brief Panel for roles information about a particular group.
  *
- * $LicenseInfo:firstyear=2006&license=viewergpl$
- * 
- * Copyright (c) 2006-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2006&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -36,24 +30,31 @@
 
 #include "llagent.h"
 #include "llbutton.h"
+#include "llfiltereditor.h"
 #include "llfloatergroupinvite.h"
-#include "llfriendactions.h"
+#include "llavataractions.h"
 #include "lliconctrl.h"
 #include "lllineeditor.h"
 #include "llnamelistctrl.h"
-#include "llnotify.h"
+#include "llnotifications.h"
+#include "llnotificationsutil.h"
 #include "llpanelgrouproles.h"
 #include "llscrolllistctrl.h"
 #include "llscrolllistitem.h"
 #include "llscrolllistcell.h"
+#include "llslurl.h"
 #include "lltabcontainer.h"
 #include "lltextbox.h"
 #include "lltexteditor.h"
+#include "lltrans.h"
 #include "llviewertexturelist.h"
 #include "llviewerwindow.h"
 #include "llfocusmgr.h"
+#include "llviewercontrol.h"
 
 #include "roles_constants.h"
+
+static LLRegisterPanelClassWrapper<LLPanelGroupRoles> t_panel_group_roles("panel_group_roles");
 
 bool agentCanRemoveFromRole(const LLUUID& group_id,
 							const LLUUID& role_id)
@@ -108,31 +109,18 @@ bool agentCanAddToRole(const LLUUID& group_id,
 }
 
 // static
-void* LLPanelGroupRoles::createTab(void* data)
-{
-	LLUUID* group_id = static_cast<LLUUID*>(data);
-	return new LLPanelGroupRoles(*group_id);
-}
 
-LLPanelGroupRoles::LLPanelGroupRoles(const LLUUID& group_id)
-:	LLPanelGroupTab(group_id),
+LLPanelGroupRoles::LLPanelGroupRoles()
+:	LLPanelGroupTab(),
 	mCurrentTab(NULL),
 	mRequestedTab( NULL ),
 	mSubTabContainer( NULL ),
-	mFirstUse( TRUE ),
-	mIgnoreTransition( FALSE )
+	mFirstUse( TRUE )
 {
 }
 
 LLPanelGroupRoles::~LLPanelGroupRoles()
 {
-	int i;
-	for (i = 0; i < mSubTabContainer->getTabCount(); ++i)
-	{
-		LLPanelGroupSubTab* subtabp = (LLPanelGroupSubTab*) mSubTabContainer->getPanelByIndex(i);
-
-		subtabp->removeObserver(this);
-	}
 }
 
 BOOL LLPanelGroupRoles::postBuild()
@@ -144,20 +132,25 @@ BOOL LLPanelGroupRoles::postBuild()
 	if (!mSubTabContainer) return FALSE;
 
 	// Hook up each sub-tabs callback and widgets.
-	S32 i;
-	for (i = 0; i < mSubTabContainer->getTabCount(); ++i)
+	for (S32 i = 0; i < mSubTabContainer->getTabCount(); ++i)
 	{
-		LLPanelGroupSubTab* subtabp = (LLPanelGroupSubTab*) mSubTabContainer->getPanelByIndex(i);
-
-		// Add click callbacks to all the tabs.
-		mSubTabContainer->setCommitCallback(boost::bind(&LLPanelGroupRoles::handleClickSubTab, this));
+		LLPanel* panel = mSubTabContainer->getPanelByIndex(i);
+		LLPanelGroupSubTab* subtabp = dynamic_cast<LLPanelGroupSubTab*>(panel);
+		if (!subtabp)
+		{
+			llwarns << "Invalid subtab panel: " << panel->getName() << llendl;
+			return FALSE;
+		}
 
 		// Hand the subtab a pointer to this LLPanelGroupRoles, so that it can
 		// look around for the widgets it is interested in.
-		if (!subtabp->postBuildSubTab(this)) return FALSE;
+		if (!subtabp->postBuildSubTab(this))
+			return FALSE;
 
-		subtabp->addObserver(this);
+		//subtabp->addObserver(this);
 	}
+	// Add click callbacks to tab switching.
+	mSubTabContainer->setValidateBeforeCommit(boost::bind(&LLPanelGroupRoles::handleSubTabSwitch, this, _1));
 
 	// Set the current tab to whatever is currently being shown.
 	mCurrentTab = (LLPanelGroupTab*) mSubTabContainer->getCurrentPanel();
@@ -199,30 +192,17 @@ BOOL LLPanelGroupRoles::isVisibleByAgent(LLAgent* agentp)
 								   
 }
 
-void LLPanelGroupRoles::handleClickSubTab()
+bool LLPanelGroupRoles::handleSubTabSwitch(const LLSD& data)
 {
-	// If we are already handling a transition,
-	// ignore this.
-	if (mIgnoreTransition)
+	std::string panel_name = data.asString();
+	
+	if(mRequestedTab != NULL)//we already have tab change request
 	{
-		return;
+		return false;
 	}
 
-	mRequestedTab = (LLPanelGroupTab*) mSubTabContainer->getCurrentPanel();
+	mRequestedTab = static_cast<LLPanelGroupTab*>(mSubTabContainer->getPanelByName(panel_name));
 
-	// Make sure they aren't just clicking the same tab...
-	if (mRequestedTab == mCurrentTab)
-	{
-		return;
-	}
-
-	// Try to switch from the current panel to the panel the user selected.
-	attemptTransition();
-}
-
-BOOL LLPanelGroupRoles::attemptTransition()
-{
-	// Check if the current tab needs to be applied.
 	std::string mesg;
 	if (mCurrentTab && mCurrentTab->needsApply(mesg))
 	{
@@ -235,29 +215,17 @@ BOOL LLPanelGroupRoles::attemptTransition()
 		LLSD args;
 		args["NEEDS_APPLY_MESSAGE"] = mesg;
 		args["WANT_APPLY_MESSAGE"] = mWantApplyMesg;
-		LLNotifications::instance().add("PanelGroupApply", args, LLSD(),
+		LLNotificationsUtil::add("PanelGroupApply", args, LLSD(),
 			boost::bind(&LLPanelGroupRoles::handleNotifyCallback, this, _1, _2));
 		mHasModal = TRUE;
-		// We need to reselect the current tab, since it isn't finished.
-		if (mSubTabContainer)
-		{
-			mIgnoreTransition = TRUE;
-			mSubTabContainer->selectTabPanel( mCurrentTab );
-			mIgnoreTransition = FALSE;
-		}
+		
 		// Returning FALSE will block a close action from finishing until
 		// we get a response back from the user.
-		return FALSE;
+		return false;
 	}
-	else
-	{
-		// The current panel didn't have anything it needed to apply.
-		if (mRequestedTab)
-		{
-			transitionToTab();
-		}
-		return TRUE;
-	}
+
+	transitionToTab();
+	return true;
 }
 
 void LLPanelGroupRoles::transitionToTab()
@@ -274,13 +242,15 @@ void LLPanelGroupRoles::transitionToTab()
 		// This is now the current tab;
 		mCurrentTab = mRequestedTab;
 		mCurrentTab->activate();
+		mRequestedTab = 0;
 	}
 }
 
 bool LLPanelGroupRoles::handleNotifyCallback(const LLSD& notification, const LLSD& response)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	mHasModal = FALSE;
+	LLPanelGroupTab* transition_tab = mRequestedTab;
 	switch (option)
 	{
 	case 0: // "Apply Changes"
@@ -295,31 +265,25 @@ bool LLPanelGroupRoles::handleNotifyCallback(const LLSD& notification, const LLS
 				mHasModal = TRUE;
 				LLSD args;
 				args["MESSAGE"] = apply_mesg;
-				LLNotifications::instance().add("GenericAlert", args, LLSD(), boost::bind(&LLPanelGroupRoles::onModalClose, this, _1, _2));
+				LLNotificationsUtil::add("GenericAlert", args, LLSD(), boost::bind(&LLPanelGroupRoles::onModalClose, this, _1, _2));
 			}
 			// Skip switching tabs.
 			break;
 		}
-
-		// This panel's info successfully applied.
-		// Switch to the next panel.
-		// No break!  Continue into 'Ignore Changes' which just switches tabs.
-		mIgnoreTransition = TRUE;
-		mSubTabContainer->selectTabPanel( mRequestedTab );
-		mIgnoreTransition = FALSE;
 		transitionToTab();
+		mSubTabContainer->selectTabPanel( transition_tab );
+		
 		break;
 	}
 	case 1: // "Ignore Changes"
 		// Switch to the requested panel without applying changes
 		cancel();
-		mIgnoreTransition = TRUE;
-		mSubTabContainer->selectTabPanel( mRequestedTab );
-		mIgnoreTransition = FALSE;
 		transitionToTab();
+		mSubTabContainer->selectTabPanel( transition_tab );
 		break;
 	case 2: // "Cancel"
 	default:
+		mRequestedTab = NULL;
 		// Do nothing.  The user is canceling the action.
 		break;
 	}
@@ -365,24 +329,11 @@ void LLPanelGroupRoles::cancel()
 	panelp->cancel();
 }
 
-// Pass all of these messages to the currently visible sub tab.
-std::string LLPanelGroupRoles::getHelpText() const
-{
-	LLPanelGroupTab* panelp = (LLPanelGroupTab*) mSubTabContainer->getCurrentPanel();
-	if (panelp)
-	{
-		return panelp->getHelpText();
-	}
-	else
-	{
-		return mHelpText;
-	}
-}
-
 void LLPanelGroupRoles::update(LLGroupChange gc)
 {
 	if (mGroupID.isNull()) return;
-
+	
+	
 	LLPanelGroupTab* panelp = (LLPanelGroupTab*) mSubTabContainer->getCurrentPanel();
 	if (panelp)
 	{
@@ -392,6 +343,7 @@ void LLPanelGroupRoles::update(LLGroupChange gc)
 	{
 		llwarns << "LLPanelGroupRoles::update() -- No subtab to update!" << llendl;
 	}
+	
 }
 
 void LLPanelGroupRoles::activate()
@@ -459,22 +411,16 @@ BOOL LLPanelGroupRoles::hasModal()
 	return panelp->hasModal();
 }
 
-// PanelGroupTab observer trigger
-void LLPanelGroupRoles::tabChanged()
-{
-	notifyObservers();
-}
 
 ////////////////////////////
 // LLPanelGroupSubTab
 ////////////////////////////
-LLPanelGroupSubTab::LLPanelGroupSubTab(const LLUUID& group_id)
-:	LLPanelGroupTab(group_id),
+LLPanelGroupSubTab::LLPanelGroupSubTab()
+:	LLPanelGroupTab(),
 	mHeader(NULL),
 	mFooter(NULL),
-	mSearchLineEditor(NULL),
-	mSearchButton(NULL),
-	mShowAllButton(NULL)
+	mActivated(false),
+	mSearchEditor(NULL)
 {
 }
 
@@ -482,27 +428,8 @@ LLPanelGroupSubTab::~LLPanelGroupSubTab()
 {
 }
 
-BOOL LLPanelGroupSubTab::postBuild()
-{
-	// Hook up the search widgets.
-	bool recurse = true;
-	mSearchLineEditor = getChild<LLLineEditor>("search_text", recurse);
-
-	if (!mSearchLineEditor) return FALSE;
-	mSearchLineEditor->setKeystrokeCallback(onSearchKeystroke, this);
-
-	mSearchButton = getChild<LLButton>("search_button", recurse);
-
-	if (!mSearchButton) return FALSE;
-	mSearchButton->setClickedCallback(onClickSearch, this);
-	mSearchButton->setEnabled(FALSE);
-
-	mShowAllButton = getChild<LLButton>("show_all_button", recurse);
-
-	if (!mShowAllButton) return FALSE;
-	mShowAllButton->setClickedCallback(onClickShowAll, this);
-	mShowAllButton->setEnabled(FALSE);
-	
+BOOL LLPanelGroupSubTab::postBuildSubTab(LLView* root) 
+{ 
 	// Get icons for later use.
 	mActionIcons.clear();
 
@@ -520,71 +447,39 @@ BOOL LLPanelGroupSubTab::postBuild()
 	{
 		mActionIcons["partial"] = getString("power_partial_icon");
 	}
+	return TRUE; 
+}
+
+BOOL LLPanelGroupSubTab::postBuild()
+{
+	// Hook up the search widgets.
+	bool recurse = true;
+	mSearchEditor = getChild<LLFilterEditor>("filter_input", recurse);
+
+	if (!mSearchEditor) 
+		return FALSE;
+
+	mSearchEditor->setCommitCallback(boost::bind(&LLPanelGroupSubTab::setSearchFilter, this, _2));
 
 	return LLPanelGroupTab::postBuild();
 }
 
-// static
-void LLPanelGroupSubTab::onSearchKeystroke(LLLineEditor* caller, void* user_data)
+void LLPanelGroupSubTab::setGroupID(const LLUUID& id)
 {
-	LLPanelGroupSubTab* self = static_cast<LLPanelGroupSubTab*>(user_data);
-	self->handleSearchKeystroke(caller);
-}
-
-void LLPanelGroupSubTab::handleSearchKeystroke(LLLineEditor* caller)
-{
-	if (caller->getText().size())
+	LLPanelGroupTab::setGroupID(id);
+	if(mSearchEditor)
 	{
-		setDefaultBtn( mSearchButton );
-		mSearchButton->setEnabled(TRUE);
-	}
-	else
-	{
-		setDefaultBtn( NULL );
-		mSearchButton->setEnabled(FALSE);
-	}
-}
-
-// static 
-void LLPanelGroupSubTab::onClickSearch(void* user_data)
-{
-	LLPanelGroupSubTab* self = static_cast<LLPanelGroupSubTab*>(user_data);
-	self->handleClickSearch();
-}
- 
-void LLPanelGroupSubTab::handleClickSearch()
-{
-	lldebugs << "LLPanelGroupSubTab::handleClickSearch()" << llendl;
-
-	if (0 == mSearchLineEditor->getText().size())
-	{
-		// No search text.  (This shouldn't happen... the search button should have been disabled).
-		llwarns << "handleClickSearch with no search text!" << llendl;
-		mSearchButton->setEnabled(FALSE);
-		return;
+		mSearchEditor->clear();
+		setSearchFilter("");
 	}
 
-	setSearchFilter( mSearchLineEditor->getText() );
-	mShowAllButton->setEnabled(TRUE);
-}
-
-// static
-void LLPanelGroupSubTab::onClickShowAll(void* user_data)
-{
-	LLPanelGroupSubTab* self = static_cast<LLPanelGroupSubTab*>(user_data);
-	self->handleClickShowAll();
-}
-
-void LLPanelGroupSubTab::handleClickShowAll()
-{
-	lldebugs << "LLPanelGroupSubTab::handleClickShowAll()" << llendl;
-	setSearchFilter( LLStringUtil::null );
-	mShowAllButton->setEnabled(FALSE);
+	mActivated = false;
 }
 
 void LLPanelGroupSubTab::setSearchFilter(const std::string& filter)
 {
-	lldebugs << "LLPanelGroupSubTab::setSearchFilter() ==> '" << filter << "'" << llendl;
+	if(mSearchFilter == filter)
+		return;
 	mSearchFilter = filter;
 	LLStringUtil::toLower(mSearchFilter);
 	update(GC_ALL);
@@ -592,13 +487,11 @@ void LLPanelGroupSubTab::setSearchFilter(const std::string& filter)
 
 void LLPanelGroupSubTab::activate()
 {
-	lldebugs << "LLPanelGroupSubTab::activate()" << llendl;
 	setOthersVisible(TRUE);
 }
 
 void LLPanelGroupSubTab::deactivate()
 {
-	lldebugs << "LLPanelGroupSubTab::deactivate()" << llendl;
 	setOthersVisible(FALSE);
 }
 
@@ -608,18 +501,10 @@ void LLPanelGroupSubTab::setOthersVisible(BOOL b)
 	{
 		mHeader->setVisible( b );
 	}
-	else
-	{
-		llwarns << "LLPanelGroupSubTab missing header!" << llendl;
-	}
 
 	if (mFooter)
 	{
 		mFooter->setVisible( b );
-	}
-	else
-	{
-		llwarns << "LLPanelGroupSubTab missing footer!" << llendl;
 	}
 }
 
@@ -645,7 +530,6 @@ bool LLPanelGroupSubTab::matchesActionSearchFilter(std::string action)
 void LLPanelGroupSubTab::buildActionsList(LLScrollListCtrl* ctrl, 
 										  U64 allowed_by_some, 
 										  U64 allowed_by_all,
-										  icon_map_t& icons,
 										  LLUICtrl::commit_callback_t commit_callback,
 										  BOOL show_all,
 										  BOOL filter,
@@ -666,7 +550,6 @@ void LLPanelGroupSubTab::buildActionsList(LLScrollListCtrl* ctrl,
 							allowed_by_some,
 							allowed_by_all,
 							(*ras_it),
-							icons, 
 							commit_callback,
 							show_all,
 							filter,
@@ -678,7 +561,6 @@ void LLPanelGroupSubTab::buildActionCategory(LLScrollListCtrl* ctrl,
 											 U64 allowed_by_some,
 											 U64 allowed_by_all,
 											 LLRoleActionSet* action_set,
-											 icon_map_t& icons,
 											 LLUICtrl::commit_callback_t commit_callback,
 											 BOOL show_all,
 											 BOOL filter,
@@ -692,18 +574,25 @@ void LLPanelGroupSubTab::buildActionCategory(LLScrollListCtrl* ctrl,
 		LLSD row;
 
 		row["columns"][0]["column"] = "icon";
-		icon_map_t::iterator iter = icons.find("folder");
-		if (iter != icons.end())
+		row["columns"][0]["type"] = "icon";
+		
+		icon_map_t::iterator iter = mActionIcons.find("folder");
+		if (iter != mActionIcons.end())
 		{
-			row["columns"][0]["type"] = "icon";
 			row["columns"][0]["value"] = (*iter).second;
 		}
 
 		row["columns"][1]["column"] = "action";
-		row["columns"][1]["value"] = action_set->mActionSetData->mName;
-		row["columns"][1]["font"]["style"] = "BOLD";
+		row["columns"][1]["type"] = "text";
+		row["columns"][1]["value"] = LLTrans::getString(action_set->mActionSetData->mName);
+		row["columns"][1]["font"]["name"] = "SANSSERIF_SMALL";
+		
 
 		LLScrollListItem* title_row = ctrl->addElement(row, ADD_BOTTOM, action_set->mActionSetData);
+		
+		LLScrollListText* name_textp = dynamic_cast<LLScrollListText*>(title_row->getColumn(2)); //?? I have no idea fix getColumn(1) return column spacer...
+		if (name_textp)
+			name_textp->setFontStyle(LLFontGL::BOLD);
 
 		bool category_matches_filter = (filter) ? matchesActionSearchFilter(action_set->mActionSetData->mName) : true;
 
@@ -757,8 +646,8 @@ void LLPanelGroupSubTab::buildActionCategory(LLScrollListCtrl* ctrl,
 			{
 				if (show_full_strength)
 				{
-					icon_map_t::iterator iter = icons.find("full");
-					if (iter != icons.end())
+					icon_map_t::iterator iter = mActionIcons.find("full");
+					if (iter != mActionIcons.end())
 					{
 						row["columns"][column_index]["column"] = "checkbox";
 						row["columns"][column_index]["type"] = "icon";
@@ -768,8 +657,8 @@ void LLPanelGroupSubTab::buildActionCategory(LLScrollListCtrl* ctrl,
 				}
 				else
 				{
-					icon_map_t::iterator iter = icons.find("partial");
-					if (iter != icons.end())
+					icon_map_t::iterator iter = mActionIcons.find("partial");
+					if (iter != mActionIcons.end())
 					{
 						row["columns"][column_index]["column"] = "checkbox";
 						row["columns"][column_index]["type"] = "icon";
@@ -842,15 +731,11 @@ void LLPanelGroupSubTab::setFooterEnabled(BOOL enable)
 // LLPanelGroupMembersSubTab
 ////////////////////////////
 
-// static
-void* LLPanelGroupMembersSubTab::createTab(void* data)
-{
-	LLUUID* group_id = static_cast<LLUUID*>(data);
-	return new LLPanelGroupMembersSubTab(*group_id);
-}
 
-LLPanelGroupMembersSubTab::LLPanelGroupMembersSubTab(const LLUUID& group_id)
-: 	LLPanelGroupSubTab(group_id),
+static LLRegisterPanelClassWrapper<LLPanelGroupMembersSubTab> t_panel_group_members_subtab("panel_group_members_subtab");
+
+LLPanelGroupMembersSubTab::LLPanelGroupMembersSubTab()
+: 	LLPanelGroupSubTab(),
 	mMembersList(NULL),
 	mAssignedRolesList(NULL),
 	mAllowedActionsList(NULL),
@@ -859,14 +744,18 @@ LLPanelGroupMembersSubTab::LLPanelGroupMembersSubTab(const LLUUID& group_id)
 	mHasMatch(FALSE),
 	mNumOwnerAdditions(0)
 {
+	mUdpateSessionID = LLUUID::null;
 }
 
 LLPanelGroupMembersSubTab::~LLPanelGroupMembersSubTab()
 {
+	gSavedSettings.setString("GroupMembersSortOrder", mMembersList->getSortColumnName());
 }
 
 BOOL LLPanelGroupMembersSubTab::postBuildSubTab(LLView* root)
 {
+	LLPanelGroupSubTab::postBuildSubTab(root);
+	
 	// Upcast parent so we can ask it for sibling controls.
 	LLPanelGroupRoles* parent = (LLPanelGroupRoles*) root;
 
@@ -886,6 +775,18 @@ BOOL LLPanelGroupMembersSubTab::postBuildSubTab(LLView* root)
 	mMembersList->setCommitCallback(onMemberSelect, this);
 	// Show the member's profile on double click.
 	mMembersList->setDoubleClickCallback(onMemberDoubleClick, this);
+	mMembersList->setContextMenu(LLScrollListCtrl::MENU_AVATAR);
+	
+	LLSD row;
+	row["columns"][0]["column"] = "name";
+	row["columns"][1]["column"] = "donated";
+	row["columns"][2]["column"] = "online";
+	mMembersList->addElement(row);
+	std::string order_by = gSavedSettings.getString("GroupMembersSortOrder");
+	if(!order_by.empty())
+	{
+		mMembersList->sortByColumn(order_by, TRUE);
+	}	
 
 	LLButton* button = parent->getChild<LLButton>("member_invite", recurse);
 	if ( button )
@@ -902,6 +803,43 @@ BOOL LLPanelGroupMembersSubTab::postBuildSubTab(LLView* root)
 	}
 
 	return TRUE;
+}
+
+void LLPanelGroupMembersSubTab::setGroupID(const LLUUID& id)
+{
+	//clear members list
+	if(mMembersList) mMembersList->deleteAllItems();
+	if(mAssignedRolesList) mAssignedRolesList->deleteAllItems();
+	if(mAllowedActionsList) mAllowedActionsList->deleteAllItems();
+
+	LLPanelGroupSubTab::setGroupID(id);
+}
+
+void LLPanelGroupRolesSubTab::setGroupID(const LLUUID& id)
+{
+	if(mRolesList) mRolesList->deleteAllItems();
+	if(mAssignedMembersList) mAssignedMembersList->deleteAllItems();
+	if(mAllowedActionsList) mAllowedActionsList->deleteAllItems();
+
+	if(mRoleName) mRoleName->clear();
+	if(mRoleDescription) mRoleDescription->clear();
+	if(mRoleTitle) mRoleTitle->clear();
+
+	mHasRoleChange = FALSE;
+
+	setFooterEnabled(FALSE);
+
+	LLPanelGroupSubTab::setGroupID(id);
+}
+void LLPanelGroupActionsSubTab::setGroupID(const LLUUID& id)
+{
+	if(mActionList) mActionList->deleteAllItems();
+	if(mActionRoles) mActionRoles->deleteAllItems();
+	if(mActionMembers) mActionMembers->deleteAllItems();
+
+	if(mActionDescription) mActionDescription->clear();
+
+	LLPanelGroupSubTab::setGroupID(id);
 }
 
 
@@ -932,7 +870,7 @@ void LLPanelGroupMembersSubTab::handleMemberSelect()
 	if (selection.empty()) return;
 
 	// Build a vector of all selected members, and gather allowed actions.
-	std::vector<LLUUID> selected_members;
+	uuid_vec_t selected_members;
 	U64 allowed_by_all = 0xffffffffffffLL;
 	U64 allowed_by_some = 0;
 
@@ -940,10 +878,12 @@ void LLPanelGroupMembersSubTab::handleMemberSelect()
 	for (itor = selection.begin();
 		 itor != selection.end(); ++itor)
 	{
-		selected_members.push_back( (*itor)->getUUID() );
+		LLUUID member_id = (*itor)->getUUID();
+
+		selected_members.push_back( member_id );
 		// Get this member's power mask including any unsaved changes
 
-		U64 powers = getAgentPowersBasedOnRoleChanges((*itor)->getUUID());
+		U64 powers = getAgentPowersBasedOnRoleChanges( member_id );
 
 		allowed_by_all &= powers;
 		allowed_by_some |= powers;
@@ -956,7 +896,6 @@ void LLPanelGroupMembersSubTab::handleMemberSelect()
 	buildActionsList(mAllowedActionsList,
 					 allowed_by_some,
 					 allowed_by_all,
-					 mActionIcons,
 					 NULL,
 					 FALSE,
 					 FALSE,
@@ -997,8 +936,8 @@ void LLPanelGroupMembersSubTab::handleMemberSelect()
 			if (cb_enable && (count > 0) && role_id == gdatap->mOwnerRole)
 			{
 				// Check if any owners besides this agent are selected.
-				std::vector<LLUUID>::const_iterator member_iter;
-				std::vector<LLUUID>::const_iterator member_end =
+				uuid_vec_t::const_iterator member_iter;
+				uuid_vec_t::const_iterator member_end =
 												selected_members.end();
 				for (member_iter = selected_members.begin();
 					 member_iter != member_end;	
@@ -1024,7 +963,7 @@ void LLPanelGroupMembersSubTab::handleMemberSelect()
 
 			//now see if there are any role changes for the selected
 			//members and remember to include them
-			std::vector<LLUUID>::iterator sel_mem_iter = selected_members.begin();
+			uuid_vec_t::iterator sel_mem_iter = selected_members.begin();
 			for (; sel_mem_iter != selected_members.end(); sel_mem_iter++)
 			{
 				LLRoleMemberChangeType type;
@@ -1081,13 +1020,14 @@ void LLPanelGroupMembersSubTab::handleMemberSelect()
 				check->setTentative(
 					(0 != count)
 					&& (selected_members.size() !=
-						(std::vector<LLUUID>::size_type)count));
+						(uuid_vec_t::size_type)count));
 
 				//NOTE: as of right now a user can break the group
 				//by removing himself from a role if he is the
 				//last owner.  We should check for this special case
 				// -jwolk
 				check->setEnabled(cb_enable);
+				item->setEnabled(cb_enable);
 			}
 		}
 		else
@@ -1155,7 +1095,7 @@ void LLPanelGroupMembersSubTab::onEjectMembers(void *userdata)
 void LLPanelGroupMembersSubTab::handleEjectMembers()
 {
 	//send down an eject message
-	std::vector<LLUUID> selected_members;
+	uuid_vec_t selected_members;
 
 	std::vector<LLScrollListItem*> selection = mMembersList->getAllSelected();
 	if (selection.empty()) return;
@@ -1164,13 +1104,33 @@ void LLPanelGroupMembersSubTab::handleEjectMembers()
 	for (itor = selection.begin() ; 
 		 itor != selection.end(); ++itor)
 	{
-		selected_members.push_back((*itor)->getUUID());
+		LLUUID member_id = (*itor)->getUUID();
+		selected_members.push_back( member_id );
 	}
 
 	mMembersList->deleteSelectedItems();
 
+	sendEjectNotifications(mGroupID, selected_members);
+
 	LLGroupMgr::getInstance()->sendGroupMemberEjects(mGroupID,
 									 selected_members);
+}
+
+void LLPanelGroupMembersSubTab::sendEjectNotifications(const LLUUID& group_id, const uuid_vec_t& selected_members)
+{
+	LLGroupMgrGroupData* group_data = LLGroupMgr::getInstance()->getGroupData(group_id);
+
+	if (group_data)
+	{
+		for (uuid_vec_t::const_iterator i = selected_members.begin(); i != selected_members.end(); ++i)
+		{
+			LLSD args;
+			args["AVATAR_NAME"] = LLSLURL("agent", *i, "displayname").getSLURLString();
+			args["GROUP_NAME"] = group_data->mName;
+			
+			LLNotifications::instance().add(LLNotification::Params("EjectAvatarFromGroup").substitutions(args));
+		}
+	}
 }
 
 void LLPanelGroupMembersSubTab::handleRoleCheck(const LLUUID& role_id,
@@ -1197,6 +1157,7 @@ void LLPanelGroupMembersSubTab::handleRoleCheck(const LLUUID& role_id,
 	for (std::vector<LLScrollListItem*>::iterator itor = selection.begin() ; 
 		 itor != selection.end(); ++itor)
 	{
+
 		member_id = (*itor)->getUUID();
 
 		//see if we requested a change for this member before
@@ -1256,7 +1217,6 @@ void LLPanelGroupMembersSubTab::handleRoleCheck(const LLUUID& role_id,
 	buildActionsList(mAllowedActionsList,
 					 powers_some_have,
 					 powers_all_have,
-					 mActionIcons,
 					 NULL,
 					 FALSE,
 					 FALSE,
@@ -1289,15 +1249,19 @@ void LLPanelGroupMembersSubTab::handleMemberDoubleClick()
 	LLScrollListItem* selected = mMembersList->getFirstSelected();
 	if (selected)
 	{
-		LLFriendActions::showProfile(selected->getUUID());
+		LLUUID member_id = selected->getUUID();
+		LLAvatarActions::showProfile( member_id );
 	}
 }
 
 void LLPanelGroupMembersSubTab::activate()
 {
 	LLPanelGroupSubTab::activate();
-
-	update(GC_ALL);
+	if(!mActivated)
+	{
+		update(GC_ALL);
+		mActivated = true;
+	}
 }
 
 void LLPanelGroupMembersSubTab::deactivate()
@@ -1348,7 +1312,7 @@ bool LLPanelGroupMembersSubTab::apply(std::string& mesg)
 			{
 				mHasModal = TRUE;
 				args["ROLE_NAME"] = rd.mRoleName;
-				LLNotifications::instance().add("AddGroupOwnerWarning",
+				LLNotificationsUtil::add("AddGroupOwnerWarning",
 										args,
 										LLSD(),
 										boost::bind(&LLPanelGroupMembersSubTab::addOwnerCB, this, _1, _2));
@@ -1373,7 +1337,7 @@ bool LLPanelGroupMembersSubTab::apply(std::string& mesg)
 
 bool LLPanelGroupMembersSubTab::addOwnerCB(const LLSD& notification, const LLSD& response)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	mHasModal = FALSE;
 
 	if (0 == option)
@@ -1480,7 +1444,7 @@ U64 LLPanelGroupMembersSubTab::getAgentPowersBasedOnRoleChanges(const LLUUID& ag
 
 	if ( role_change_datap )
 	{
-		std::vector<LLUUID> roles_to_be_removed;
+		uuid_vec_t roles_to_be_removed;
 
 		for (role_change_data_map_t::iterator role = role_change_datap->begin();
 			 role != role_change_datap->end(); ++ role)
@@ -1572,9 +1536,6 @@ void LLPanelGroupMembersSubTab::update(LLGroupChange gc)
 		return;
 	}
 
-	// Rebuild the members list.
-	mMembersList->deleteAllItems();
-
 	// Wait for both all data to be retrieved before displaying anything.
 	if (   gdatap->isMemberDataComplete() 
 		&& gdatap->isRoleDataComplete()
@@ -1583,6 +1544,10 @@ void LLPanelGroupMembersSubTab::update(LLGroupChange gc)
 		mMemberProgress = gdatap->mMembers.begin();
 		mPendingMemberUpdate = TRUE;
 		mHasMatch = FALSE;
+		// Generate unique ID for current updateMembers()- see onNameCache for details.
+		// Using unique UUID is perhaps an overkill but this way we are perfectly safe
+		// from coincidences.
+		mUdpateSessionID.generate();
 	}
 	else
 	{
@@ -1610,11 +1575,68 @@ void LLPanelGroupMembersSubTab::update(LLGroupChange gc)
 	}
 }
 
+void LLPanelGroupMembersSubTab::addMemberToList(LLUUID id, LLGroupMemberData* data)
+{
+	if (!data) return;
+	LLUIString donated = getString("donation_area");
+	donated.setArg("[AREA]", llformat("%d", data->getContribution()));
+
+	LLSD row;
+	row["id"] = id;
+
+	row["columns"][0]["column"] = "name";
+	// value is filled in by name list control
+
+	row["columns"][1]["column"] = "donated";
+	row["columns"][1]["value"] = donated.getString();
+
+	row["columns"][2]["column"] = "online";
+	row["columns"][2]["value"] = data->getOnlineStatus();
+	row["columns"][2]["font"] = "SANSSERIF_SMALL";
+
+	mMembersList->addElement(row);
+
+	mHasMatch = TRUE;
+}
+
+void LLPanelGroupMembersSubTab::onNameCache(const LLUUID& update_id, const LLUUID& id)
+{
+	// Update ID is used to determine whether member whose id is passed
+	// into onNameCache() was passed after current or previous user-initiated update.
+	// This is needed to avoid probable duplication of members in list after changing filter
+	// or adding of members of another group if gets for their names were called on
+	// previous update. If this id is from get() called from older update,
+	// we do nothing.
+	if (mUdpateSessionID != update_id) return;
+	
+	LLGroupMgrGroupData* gdatap = LLGroupMgr::getInstance()->getGroupData(mGroupID);
+		if (!gdatap) 
+	{
+		llwarns << "LLPanelGroupMembersSubTab::updateMembers() -- No group data!" << llendl;
+		return;
+	}
+	
+	std::string fullname;
+	gCacheName->getFullName(id, fullname);
+
+	LLGroupMemberData* data;
+	// trying to avoid unnecessary hash lookups
+	if (matchesSearchFilter(fullname) && ((data = gdatap->mMembers[id]) != NULL))
+	{
+		addMemberToList(id, data);
+		if(!mMembersList->getEnabled())
+		{
+			mMembersList->setEnabled(TRUE);
+		}
+	}
+	
+}
+
 void LLPanelGroupMembersSubTab::updateMembers()
 {
 	mPendingMemberUpdate = FALSE;
 
-	lldebugs << "LLPanelGroupMembersSubTab::updateMembers()" << llendl;
+	// Rebuild the members list.
 
 	LLGroupMgrGroupData* gdatap = LLGroupMgr::getInstance()->getGroupData(mGroupID);
 	if (!gdatap) 
@@ -1631,9 +1653,16 @@ void LLPanelGroupMembersSubTab::updateMembers()
 	{
 		return;
 	}
-		
-	LLGroupMgrGroupData::member_list_t::iterator end = gdatap->mMembers.end();
 
+	//cleanup list only for first iretation
+	if(mMemberProgress == gdatap->mMembers.begin())
+	{
+		mMembersList->deleteAllItems();
+	}
+
+
+	LLGroupMgrGroupData::member_list_t::iterator end = gdatap->mMembers.end();
+	
 	S32 i = 0;
 	for( ; mMemberProgress != end && i<UPDATE_MEMBERS_PER_FRAME; 
 			++mMemberProgress, ++i)
@@ -1641,38 +1670,19 @@ void LLPanelGroupMembersSubTab::updateMembers()
 		if (!mMemberProgress->second)
 			continue;
 		// Do filtering on name if it is already in the cache.
-		bool add_member = true;
-
 		std::string fullname;
 		if (gCacheName->getFullName(mMemberProgress->first, fullname))
 		{
-			if ( !matchesSearchFilter(fullname) )
+			if (matchesSearchFilter(fullname))
 			{
-				add_member = false;
+				addMemberToList(mMemberProgress->first, mMemberProgress->second);
 			}
 		}
-
-		if (add_member)
+		else
 		{
-			// Build the donated tier string.
-			std::ostringstream donated;
-			donated << mMemberProgress->second->getContribution() << " sq. m.";
-
-			LLSD row;
-			row["id"] = (*mMemberProgress).first;
-
-			row["columns"][0]["column"] = "name";
-			// value is filled in by name list control
-
-			row["columns"][1]["column"] = "donated";
-			row["columns"][1]["value"] = donated.str();
-
-			row["columns"][2]["column"] = "online";
-			row["columns"][2]["value"] = mMemberProgress->second->getOnlineStatus();
-			row["columns"][2]["font"] = "SANSSERIF_SMALL";
-
-			mMembersList->addElement(row);//, ADD_SORTED);
-			mHasMatch = TRUE;
+			// If name is not cached, onNameCache() should be called when it is cached and add this member to list.
+			gCacheName->get(mMemberProgress->first, FALSE, boost::bind(&LLPanelGroupMembersSubTab::onNameCache,
+																	   this, mUdpateSessionID, _1));
 		}
 	}
 
@@ -1703,15 +1713,21 @@ void LLPanelGroupMembersSubTab::updateMembers()
 // LLPanelGroupRolesSubTab
 ////////////////////////////
 
-// static
-void* LLPanelGroupRolesSubTab::createTab(void* data)
-{
-	LLUUID* group_id = static_cast<LLUUID*>(data);
-	return new LLPanelGroupRolesSubTab(*group_id);
-}
+static LLRegisterPanelClassWrapper<LLPanelGroupRolesSubTab> t_panel_group_roles_subtab("panel_group_roles_subtab");
 
-LLPanelGroupRolesSubTab::LLPanelGroupRolesSubTab(const LLUUID& group_id)
-: LLPanelGroupSubTab(group_id), mHasRoleChange(FALSE)
+LLPanelGroupRolesSubTab::LLPanelGroupRolesSubTab()
+  : LLPanelGroupSubTab(),
+	mRolesList(NULL),
+	mAssignedMembersList(NULL),
+	mAllowedActionsList(NULL),
+	mRoleName(NULL),
+	mRoleTitle(NULL),
+	mRoleDescription(NULL),
+	mMemberVisibleCheck(NULL),
+	mDeleteRoleButton(NULL),
+	mCreateRoleButton(NULL),
+
+	mHasRoleChange(FALSE)
 {
 }
 
@@ -1721,6 +1737,8 @@ LLPanelGroupRolesSubTab::~LLPanelGroupRolesSubTab()
 
 BOOL LLPanelGroupRolesSubTab::postBuildSubTab(LLView* root)
 {
+	LLPanelGroupSubTab::postBuildSubTab(root);
+
 	// Upcast parent so we can ask it for sibling controls.
 	LLPanelGroupRoles* parent = (LLPanelGroupRoles*) root;
 
@@ -1768,6 +1786,8 @@ BOOL LLPanelGroupRolesSubTab::postBuildSubTab(LLView* root)
 	mRolesList->setCommitOnSelectionChange(TRUE);
 	mRolesList->setCommitCallback(onRoleSelect, this);
 
+	mAssignedMembersList->setContextMenu(LLScrollListCtrl::MENU_AVATAR);
+
 	mMemberVisibleCheck->setCommitCallback(onMemberVisibilityChange, this);
 
 	mAllowedActionsList->setCommitOnSelectionChange(TRUE);
@@ -1779,8 +1799,7 @@ BOOL LLPanelGroupRolesSubTab::postBuildSubTab(LLView* root)
 	mRoleTitle->setKeystrokeCallback(onPropertiesKey, this);
 
 	mRoleDescription->setCommitOnFocusLost(TRUE);
-	mRoleDescription->setCommitCallback(onDescriptionCommit, this);
-	mRoleDescription->setFocusReceivedCallback(onDescriptionFocus, this);
+	mRoleDescription->setKeystrokeCallback(boost::bind(&LLPanelGroupRolesSubTab::onDescriptionKeyStroke, this, _1));
 
 	setFooterEnabled(FALSE);
 
@@ -1825,7 +1844,8 @@ bool LLPanelGroupRolesSubTab::apply(std::string& mesg)
 {
 	lldebugs << "LLPanelGroupRolesSubTab::apply()" << llendl;
 
-	saveRoleChanges();
+	saveRoleChanges(true);
+
 	LLGroupMgr::getInstance()->sendGroupRoleChanges(mGroupID);
 
 	notifyObservers();
@@ -2004,7 +2024,7 @@ void LLPanelGroupRolesSubTab::handleRoleSelect()
 		return;
 	}
 
-	saveRoleChanges();
+	saveRoleChanges(false);
 
 	// Check if there is anything selected.
 	LLScrollListItem* item = mRolesList->getFirstSelected();
@@ -2029,7 +2049,6 @@ void LLPanelGroupRolesSubTab::handleRoleSelect()
 		buildActionsList(mAllowedActionsList,
 						 rd.mRolePowers,
 						 0LL,
-						 mActionIcons,
 						 boost::bind(&LLPanelGroupRolesSubTab::handleActionCheck, this, _1, false),
 						 TRUE,
 						 FALSE,
@@ -2116,8 +2135,8 @@ void LLPanelGroupRolesSubTab::buildMembersList()
 			LLGroupRoleData* rdatap = (*rit).second;
 			if (rdatap)
 			{
-				std::vector<LLUUID>::const_iterator mit = rdatap->getMembersBegin();
-				std::vector<LLUUID>::const_iterator end = rdatap->getMembersEnd();
+				uuid_vec_t::const_iterator mit = rdatap->getMembersBegin();
+				uuid_vec_t::const_iterator end = rdatap->getMembersEnd();
 				for ( ; mit != end; ++mit)
 				{
 					mAssignedMembersList->addNameItem((*mit));
@@ -2187,7 +2206,7 @@ void LLPanelGroupRolesSubTab::handleActionCheck(LLUICtrl* ctrl, bool force)
 				{
 					warning = "AssignDangerousAbilityWarning";
 				}
-				LLNotifications::instance().add(warning, args, LLSD(), boost::bind(&LLPanelGroupRolesSubTab::addActionCB, this, _1, _2, check));
+				LLNotificationsUtil::add(warning, args, LLSD(), boost::bind(&LLPanelGroupRolesSubTab::addActionCB, this, _1, _2, check));
 			}
 			else
 			{
@@ -2215,7 +2234,7 @@ bool LLPanelGroupRolesSubTab::addActionCB(const LLSD& notification, const LLSD& 
 
 	mHasModal = FALSE;
 
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	if (0 == option)
 	{
 		// User clicked "Yes"
@@ -2237,14 +2256,10 @@ void LLPanelGroupRolesSubTab::onPropertiesKey(LLLineEditor* ctrl, void* user_dat
 	self->notifyObservers();
 }
 
-// static 
-void LLPanelGroupRolesSubTab::onDescriptionFocus(LLFocusableElement* ctrl, void* user_data)
+void LLPanelGroupRolesSubTab::onDescriptionKeyStroke(LLTextEditor* caller)
 {
-	LLPanelGroupRolesSubTab* self = static_cast<LLPanelGroupRolesSubTab*>(user_data);
-	if (!self) return;
-
-	self->mHasRoleChange = TRUE;
-	self->notifyObservers();
+	mHasRoleChange = TRUE;
+	notifyObservers();
 }
 
 // static 
@@ -2361,7 +2376,7 @@ void LLPanelGroupRolesSubTab::handleDeleteRole()
 	{
 		LLSD args;
 		args["MESSAGE"] = mRemoveEveryoneTxt;
-		LLNotifications::instance().add("GenericAlert", args);
+		LLNotificationsUtil::add("GenericAlert", args);
 		return;
 	}
 
@@ -2372,7 +2387,7 @@ void LLPanelGroupRolesSubTab::handleDeleteRole()
 	notifyObservers();
 }
 
-void LLPanelGroupRolesSubTab::saveRoleChanges()
+void LLPanelGroupRolesSubTab::saveRoleChanges(bool select_saved_role)
 {
 	LLGroupMgrGroupData* gdatap = LLGroupMgr::getInstance()->getGroupData(mGroupID);
 
@@ -2387,13 +2402,23 @@ void LLPanelGroupRolesSubTab::saveRoleChanges()
 		rd.mRoleDescription = mRoleDescription->getText();
 		rd.mRoleTitle = mRoleTitle->getText();
 
+		S32 role_members_count = 0;
+		if (mSelectedRole.isNull())
+		{
+			role_members_count = gdatap->mMemberCount;
+		}
+		else if(LLGroupRoleData* grd = get_ptr_in_map(gdatap->mRoles, mSelectedRole))
+		{
+			role_members_count = grd->getTotalMembersInRole();
+		}
+
 		gdatap->setRoleData(mSelectedRole,rd);
 
 		mRolesList->deleteSingleItem(mRolesList->getItemIndex(mSelectedRole));
 		
-		LLSD row = createRoleItem(mSelectedRole,rd.mRoleName,rd.mRoleTitle,0);
+		LLSD row = createRoleItem(mSelectedRole,rd.mRoleName,rd.mRoleTitle,role_members_count);
 		LLScrollListItem* item = mRolesList->addElement(row, ADD_BOTTOM, this);
-		item->setSelected(TRUE);
+		item->setSelected(select_saved_role);
 
 		mHasRoleChange = FALSE;
 	}
@@ -2402,15 +2427,11 @@ void LLPanelGroupRolesSubTab::saveRoleChanges()
 // LLPanelGroupActionsSubTab
 ////////////////////////////
 
-// static
-void* LLPanelGroupActionsSubTab::createTab(void* data)
-{
-	LLUUID* group_id = static_cast<LLUUID*>(data);
-	return new LLPanelGroupActionsSubTab(*group_id);
-}
+static LLRegisterPanelClassWrapper<LLPanelGroupActionsSubTab> t_panel_group_actions_subtab("panel_group_actions_subtab");
 
-LLPanelGroupActionsSubTab::LLPanelGroupActionsSubTab(const LLUUID& group_id)
-: LLPanelGroupSubTab(group_id)
+
+LLPanelGroupActionsSubTab::LLPanelGroupActionsSubTab()
+: LLPanelGroupSubTab()
 {
 }
 
@@ -2420,6 +2441,8 @@ LLPanelGroupActionsSubTab::~LLPanelGroupActionsSubTab()
 
 BOOL LLPanelGroupActionsSubTab::postBuildSubTab(LLView* root)
 {
+	LLPanelGroupSubTab::postBuildSubTab(root);
+
 	// Upcast parent so we can ask it for sibling controls.
 	LLPanelGroupRoles* parent = (LLPanelGroupRoles*) root;
 
@@ -2438,6 +2461,7 @@ BOOL LLPanelGroupActionsSubTab::postBuildSubTab(LLView* root)
 
 	mActionList->setCommitOnSelectionChange(TRUE);
 	mActionList->setCommitCallback(boost::bind(&LLPanelGroupActionsSubTab::handleActionSelect, this));
+	mActionList->setContextMenu(LLScrollListCtrl::MENU_AVATAR);
 
 	update(GC_ALL);
 
@@ -2447,12 +2471,8 @@ BOOL LLPanelGroupActionsSubTab::postBuildSubTab(LLView* root)
 void LLPanelGroupActionsSubTab::activate()
 {
 	LLPanelGroupSubTab::activate();
-	lldebugs << "LLPanelGroupActionsSubTab::activate()" << llendl;
 
-	mActionList->deselectAllItems();
-	mActionMembers->deleteAllItems();
-	mActionRoles->deleteAllItems();
-	mActionDescription->clear();
+	update(GC_ALL);
 }
 
 void LLPanelGroupActionsSubTab::deactivate()
@@ -2490,7 +2510,6 @@ void LLPanelGroupActionsSubTab::update(LLGroupChange gc)
 	buildActionsList(mActionList,
 					 GP_ALL_POWERS,
 					 GP_ALL_POWERS,
-					 mActionIcons,
 					 NULL,
 					 FALSE,
 					 TRUE,
@@ -2582,3 +2601,26 @@ void LLPanelGroupActionsSubTab::handleActionSelect()
 		LLGroupMgr::getInstance()->sendGroupRoleDataRequest(mGroupID);
 	}
 }
+void LLPanelGroupRoles::setGroupID(const LLUUID& id)
+{
+	LLPanelGroupTab::setGroupID(id);
+	
+	LLPanelGroupMembersSubTab* group_members_tab = findChild<LLPanelGroupMembersSubTab>("members_sub_tab");
+	LLPanelGroupRolesSubTab*  group_roles_tab = findChild<LLPanelGroupRolesSubTab>("roles_sub_tab");
+	LLPanelGroupActionsSubTab* group_actions_tab = findChild<LLPanelGroupActionsSubTab>("actions_sub_tab");
+
+	if(group_members_tab) group_members_tab->setGroupID(id);
+	if(group_roles_tab) group_roles_tab->setGroupID(id);
+	if(group_actions_tab) group_actions_tab->setGroupID(id);
+
+	LLButton* button = getChild<LLButton>("member_invite");
+	if ( button )
+		button->setEnabled(gAgent.hasPowerInGroup(mGroupID, GP_MEMBER_INVITE));
+
+	if(mSubTabContainer)
+		mSubTabContainer->selectTab(0);
+
+	activate();
+}
+
+

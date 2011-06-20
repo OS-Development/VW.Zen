@@ -2,31 +2,25 @@
  * @file llpanelgrouproles.h
  * @brief Panel for roles information about a particular group.
  *
- * $LicenseInfo:firstyear=2006&license=viewergpl$
- * 
- * Copyright (c) 2006-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2006&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -35,6 +29,7 @@
 
 #include "llpanelgroup.h"
 
+class LLFilterEditor;
 class LLNameListCtrl;
 class LLPanelGroupSubTab;
 class LLPanelGroupMembersSubTab;
@@ -49,11 +44,10 @@ class LLTextEditor;
 
 typedef std::map<std::string,std::string> icon_map_t;
 
-class LLPanelGroupRoles : public LLPanelGroupTab,
-						  public LLPanelGroupTabObserver
+class LLPanelGroupRoles : public LLPanelGroupTab
 {
 public:
-	LLPanelGroupRoles(const LLUUID& group_id);
+	LLPanelGroupRoles();
 	virtual ~LLPanelGroupRoles();
 
 	// Allow sub tabs to ask for sibling controls.
@@ -64,8 +58,8 @@ public:
 	virtual BOOL postBuild();
 	virtual BOOL isVisibleByAgent(LLAgent* agentp);
 
-	static void* createTab(void* data);
-	void handleClickSubTab();
+	
+	bool handleSubTabSwitch(const LLSD& data);
 
 	// Checks if the current tab needs to be applied, and tries to switch to the requested tab.
 	BOOL attemptTransition();
@@ -78,7 +72,6 @@ public:
 	bool onModalClose(const LLSD& notification, const LLSD& response);
 
 	// Most of these messages are just passed on to the current sub-tab.
-	virtual std::string getHelpText() const;
 	virtual void activate();
 	virtual void deactivate();
 	virtual bool needsApply(std::string& mesg);
@@ -87,15 +80,13 @@ public:
 	virtual void cancel();
 	virtual void update(LLGroupChange gc);
 
-	// PanelGroupTab observer trigger
-	virtual void tabChanged();
+	virtual void setGroupID(const LLUUID& id);
 
 protected:
 	LLPanelGroupTab*		mCurrentTab;
 	LLPanelGroupTab*		mRequestedTab;
 	LLTabContainer*	mSubTabContainer;
 	BOOL					mFirstUse;
-	BOOL					mIgnoreTransition;
 
 	std::string				mDefaultNeedsApplyMesg;
 	std::string				mWantApplyMesg;
@@ -104,21 +95,13 @@ protected:
 class LLPanelGroupSubTab : public LLPanelGroupTab
 {
 public:
-	LLPanelGroupSubTab(const LLUUID& group_id);
+	LLPanelGroupSubTab();
 	virtual ~LLPanelGroupSubTab();
 
 	virtual BOOL postBuild();
 
 	// This allows sub-tabs to collect child widgets from a higher level in the view hierarchy.
-	virtual BOOL postBuildSubTab(LLView* root) { return TRUE; }
-
-	static void onSearchKeystroke(LLLineEditor* caller, void* user_data);
-	void handleSearchKeystroke(LLLineEditor* caller);
-
-	static void onClickSearch(void*);
-	void handleClickSearch();
-	static void onClickShowAll(void*);
-	void handleClickShowAll();
+	virtual BOOL postBuildSubTab(LLView* root);
 
 	virtual void setSearchFilter( const std::string& filter );
 
@@ -127,10 +110,15 @@ public:
 
 	// Helper functions
 	bool matchesActionSearchFilter(std::string action);
+
+
+	void setFooterEnabled(BOOL enable);
+
+	virtual void setGroupID(const LLUUID& id);
+protected:
 	void buildActionsList(LLScrollListCtrl* ctrl,
 								 U64 allowed_by_some,
 								 U64 allowed_by_all,
-								 icon_map_t& icons,
 						  		 LLUICtrl::commit_callback_t commit_callback,
 								 BOOL show_all,
 								 BOOL filter,
@@ -139,24 +127,22 @@ public:
 									U64 allowed_by_some,
 									U64 allowed_by_all,
 									LLRoleActionSet* action_set,
-									icon_map_t& icons,
 									LLUICtrl::commit_callback_t commit_callback,
 									BOOL show_all,
 									BOOL filter,
 									BOOL is_owner_role);
 
-	void setFooterEnabled(BOOL enable);
 protected:
 	LLPanel* mHeader;
 	LLPanel* mFooter;
 
-	LLLineEditor*	mSearchLineEditor;
-	LLButton*		mSearchButton;
-	LLButton*		mShowAllButton;
+	LLFilterEditor*	mSearchEditor;
 
 	std::string mSearchFilter;
 
 	icon_map_t	mActionIcons;
+
+	bool mActivated;
 
 	void setOthersVisible(BOOL b);
 };
@@ -164,12 +150,10 @@ protected:
 class LLPanelGroupMembersSubTab : public LLPanelGroupSubTab
 {
 public:
-	LLPanelGroupMembersSubTab(const LLUUID& group_id);
+	LLPanelGroupMembersSubTab();
 	virtual ~LLPanelGroupMembersSubTab();
 
 	virtual BOOL postBuildSubTab(LLView* root);
-
-	static void* createTab(void* data);
 
 	static void onMemberSelect(LLUICtrl*, void*);
 	void handleMemberSelect();
@@ -182,6 +166,7 @@ public:
 
 	static void onEjectMembers(void*);
 	void handleEjectMembers();
+	void sendEjectNotifications(const LLUUID& group_id, const uuid_vec_t& selected_members);
 
 	static void onRoleCheck(LLUICtrl* check, void* user_data);
 	void handleRoleCheck(const LLUUID& role_id,
@@ -199,6 +184,11 @@ public:
 	void updateMembers();
 
 	virtual void draw();
+
+	virtual void setGroupID(const LLUUID& id);
+
+	void addMemberToList(LLUUID id, LLGroupMemberData* data);
+	void onNameCache(const LLUUID& update_id, const LLUUID& id);
 
 protected:
 	typedef std::map<LLUUID, LLRoleMemberChangeType> role_change_data_map_t;
@@ -220,6 +210,9 @@ protected:
 	BOOL mPendingMemberUpdate;
 	BOOL mHasMatch;
 
+	// This id is generated after each user initiated member list update(opening Roles or changing filter)
+	LLUUID mUdpateSessionID;
+
 	member_role_changes_map_t mMemberRoleChangeData;
 	U32 mNumOwnerAdditions;
 
@@ -229,12 +222,10 @@ protected:
 class LLPanelGroupRolesSubTab : public LLPanelGroupSubTab
 {
 public:
-	LLPanelGroupRolesSubTab(const LLUUID& group_id);
+	LLPanelGroupRolesSubTab();
 	virtual ~LLPanelGroupRolesSubTab();
 
 	virtual BOOL postBuildSubTab(LLView* root);
-
-	static void* createTab(void* data);
 
 	virtual void activate();
 	virtual void deactivate();
@@ -253,8 +244,9 @@ public:
 
 	static void onPropertiesKey(LLLineEditor*, void*);
 
+	void onDescriptionKeyStroke(LLTextEditor* caller);
+
 	static void onDescriptionCommit(LLUICtrl*, void*);
-	static void onDescriptionFocus(LLFocusableElement*, void*);
 
 	static void onMemberVisibilityChange(LLUICtrl*, void*);
 	void handleMemberVisibilityChange(bool value);
@@ -265,7 +257,9 @@ public:
 	static void onDeleteRole(void*);
 	void handleDeleteRole();
 
-	void saveRoleChanges();
+	void saveRoleChanges(bool select_saved_role);
+
+	virtual void setGroupID(const LLUUID& id);
 protected:
 	void handleActionCheck(LLUICtrl* ctrl, bool force);
 	LLSD createRoleItem(const LLUUID& role_id, std::string name, std::string title, S32 members);
@@ -290,12 +284,11 @@ protected:
 class LLPanelGroupActionsSubTab : public LLPanelGroupSubTab
 {
 public:
-	LLPanelGroupActionsSubTab(const LLUUID& group_id);
+	LLPanelGroupActionsSubTab();
 	virtual ~LLPanelGroupActionsSubTab();
 
 	virtual BOOL postBuildSubTab(LLView* root);
 
-	static void* createTab(void* data);
 
 	virtual void activate();
 	virtual void deactivate();
@@ -304,6 +297,8 @@ public:
 	virtual void update(LLGroupChange gc);
 
 	void handleActionSelect();
+
+	virtual void setGroupID(const LLUUID& id);
 protected:
 	LLScrollListCtrl*	mActionList;
 	LLScrollListCtrl*	mActionRoles;

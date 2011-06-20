@@ -2,31 +2,25 @@
  * @file message.cpp
  * @brief LLMessageSystem class implementation
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -253,6 +247,8 @@ LLMessageSystem::LLMessageSystem(const std::string& filename, U32 port,
 {
 	init();
 
+	mSendSize = 0;
+
 	mSystemVersionMajor = version_major;
 	mSystemVersionMinor = version_minor;
 	mSystemVersionPatch = version_patch;
@@ -323,6 +319,8 @@ LLMessageSystem::LLMessageSystem(const std::string& filename, U32 port,
 	mMaxMessageTime   = 1.f;
 
 	mTrueReceiveSize = 0;
+
+	mReceiveTime = 0.f;
 }
 
 
@@ -2433,7 +2431,7 @@ void dump_prehash_files()
 			" * @file message_prehash.h\n"
 			" * @brief header file of externs of prehashed variables plus defines.\n"
 			" *\n"
-			" * $LicenseInfo:firstyear=2003&license=viewergpl$"
+			" * $LicenseInfo:firstyear=2003&license=viewerlgpl$"
 			" * $/LicenseInfo$"
 			" */\n\n"
 			"#ifndef LL_MESSAGE_PREHASH_H\n#define LL_MESSAGE_PREHASH_H\n\n");
@@ -2443,12 +2441,12 @@ void dump_prehash_files()
 			" * Generated from message template version number %.3f\n"
 			" */\n",
 			gMessageSystem->mMessageFileVersionNumber);
-		fprintf(fp, "\n\nextern F32 gPrehashVersionNumber;\n\n");
+		fprintf(fp, "\n\nextern F32 const gPrehashVersionNumber;\n\n");
 		for (i = 0; i < MESSAGE_NUMBER_OF_HASH_BUCKETS; i++)
 		{
 			if (!LLMessageStringTable::getInstance()->mEmpty[i] && LLMessageStringTable::getInstance()->mString[i][0] != '.')
 			{
-				fprintf(fp, "extern char * _PREHASH_%s;\n", LLMessageStringTable::getInstance()->mString[i]);
+				fprintf(fp, "extern char const* const _PREHASH_%s;\n", LLMessageStringTable::getInstance()->mString[i]);
 			}
 		}
 		fprintf(fp, "\n\n#endif\n");
@@ -2464,7 +2462,7 @@ void dump_prehash_files()
 			" * @file message_prehash.cpp\n"
 			" * @brief file of prehashed variables\n"
 			" *\n"
-			" * $LicenseInfo:firstyear=2003&license=viewergpl$"
+			" * $LicenseInfo:firstyear=2003&license=viewerlgpl$"
 			" * $/LicenseInfo$"
 			" */\n\n"
 			"/**\n"
@@ -2473,12 +2471,12 @@ void dump_prehash_files()
 			gMessageSystem->mMessageFileVersionNumber);
 		fprintf(fp, "#include \"linden_common.h\"\n");
 		fprintf(fp, "#include \"message.h\"\n\n");
-		fprintf(fp, "\n\nF32 gPrehashVersionNumber = %.3ff;\n\n", gMessageSystem->mMessageFileVersionNumber);
+		fprintf(fp, "\n\nF32 const gPrehashVersionNumber = %.3ff;\n\n", gMessageSystem->mMessageFileVersionNumber);
 		for (i = 0; i < MESSAGE_NUMBER_OF_HASH_BUCKETS; i++)
 		{
 			if (!LLMessageStringTable::getInstance()->mEmpty[i] && LLMessageStringTable::getInstance()->mString[i][0] != '.')
 			{
-				fprintf(fp, "char * _PREHASH_%s = LLMessageStringTable::getInstance()->getString(\"%s\");\n", LLMessageStringTable::getInstance()->mString[i], LLMessageStringTable::getInstance()->mString[i]);
+				fprintf(fp, "char const* const _PREHASH_%s = LLMessageStringTable::getInstance()->getString(\"%s\");\n", LLMessageStringTable::getInstance()->mString[i], LLMessageStringTable::getInstance()->mString[i]);
 			}
 		}
 		fclose(fp);

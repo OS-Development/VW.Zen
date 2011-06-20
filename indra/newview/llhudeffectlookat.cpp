@@ -2,31 +2,25 @@
  * @file llhudeffectlookat.cpp
  * @brief LLHUDEffectLookAt class implementation
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -38,6 +32,7 @@
 
 #include "message.h"
 #include "llagent.h"
+#include "llagentcamera.h"
 #include "llvoavatar.h"
 #include "lldrawable.h"
 #include "llviewerobjectlist.h"
@@ -61,7 +56,7 @@ const S32 PKT_SIZE = 57;
 // throttle
 const F32 MAX_SENDS_PER_SEC = 4.f;
 
-const F32 MIN_DELTAPOS_FOR_UPDATE = 0.05f;
+const F32 MIN_DELTAPOS_FOR_UPDATE_SQUARED = 0.05f * 0.05f;
 const F32 MIN_TARGET_OFFSET_SQUARED = 0.0001f;
 
 
@@ -316,7 +311,7 @@ void LLHUDEffectLookAt::unpackData(LLMessageSystem *mesgsys, S32 blocknum)
 	LLUUID dataId;
 	mesgsys->getUUIDFast(_PREHASH_Effect, _PREHASH_ID, dataId, blocknum);
 
-	if (!gAgent.mLookAt.isNull() && dataId == gAgent.mLookAt->getID())
+	if (!gAgentCamera.mLookAt.isNull() && dataId == gAgentCamera.mLookAt->getID())
 	{
 		return;
 	}
@@ -421,8 +416,8 @@ BOOL LLHUDEffectLookAt::setLookAt(ELookAtType target_type, LLViewerObject *objec
 	BOOL lookAtChanged = (target_type != mTargetType) || (object != mTargetObject);
 
 	// lookat position has moved a certain amount and we haven't just sent an update
-	lookAtChanged = lookAtChanged || (dist_vec(position, mLastSentOffsetGlobal) > MIN_DELTAPOS_FOR_UPDATE) && 
-		((current_time - mLastSendTime) > (1.f / MAX_SENDS_PER_SEC));
+	lookAtChanged = lookAtChanged || ((dist_vec_squared(position, mLastSentOffsetGlobal) > MIN_DELTAPOS_FOR_UPDATE_SQUARED) && 
+		((current_time - mLastSendTime) > (1.f / MAX_SENDS_PER_SEC)));
 
 	if (lookAtChanged)
 	{
@@ -592,11 +587,6 @@ void LLHUDEffectLookAt::update()
  */
 bool LLHUDEffectLookAt::calcTargetPosition()
 {
-	if (gNoRender)
-	{
-		return false;
-	}
-
 	LLViewerObject *target_obj = (LLViewerObject *)mTargetObject;
 	LLVector3 local_offset;
 	
@@ -610,7 +600,9 @@ bool LLHUDEffectLookAt::calcTargetPosition()
 	}
 
 	LLVOAvatar* source_avatar = (LLVOAvatar*)(LLViewerObject*)mSourceObject;
-
+	if (!source_avatar->isBuilt())
+		return false;
+	
 	if (target_obj && target_obj->mDrawable.notNull())
 	{
 		LLQuaternion target_rot;
@@ -635,7 +627,7 @@ bool LLHUDEffectLookAt::calcTargetPosition()
 				// mouselook and freelook target offsets are absolute
 				target_rot = LLQuaternion::DEFAULT;
 			}
-			else if (looking_at_self && gAgent.cameraCustomizeAvatar())
+			else if (looking_at_self && gAgentCamera.cameraCustomizeAvatar())
 			{
 				// *NOTE: We have to do this because animation
 				// overrides do not set lookat behavior.

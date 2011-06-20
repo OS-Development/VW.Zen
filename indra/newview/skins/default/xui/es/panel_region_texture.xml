@@ -6,7 +6,7 @@
 	<text name="region_text">
 		desconocida
 	</text>
-	<text name="detail_texture_text">
+	<text name="detail_texture_text" width="380">
 		Texturas del terreno (se requieren archivos .tga de 512x512 y 24 bites)
 	</text>
 	<text name="height_text_lbl">
@@ -25,16 +25,16 @@
 		Rangos de la elevación de la textura
 	</text>
 	<text name="height_text_lbl6">
-		Suroeste
-	</text>
-	<text name="height_text_lbl7">
 		Noroeste
 	</text>
+	<text name="height_text_lbl7">
+		Noreste
+	</text>
 	<text name="height_text_lbl8">
-		Sureste
+		Suroeste
 	</text>
 	<text name="height_text_lbl9">
-		Noreste
+		Sureste
 	</text>
 	<spinner label="Baja" name="height_start_spin_0"/>
 	<spinner label="Baja" name="height_start_spin_1"/>
@@ -48,7 +48,7 @@
 		Estos valores representan la gama de mezclas para las texturas superiores.
 	</text>
 	<text name="height_text_lbl11">
-		Midiendo en metros, el valor BAJA es la altura MÁXIMA de la textura #1,
+		Midiendo en metros, el valor BAJA es la altura MÁXIMA de la textura #1, y el valor ALTA es la altura MÍNIMA de la textura #4.
 	</text>
 	<text name="height_text_lbl12">
 		y el valor ALTA es la altura MÍNIMA de la textura #4.

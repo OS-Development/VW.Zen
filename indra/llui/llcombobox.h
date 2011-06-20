@@ -2,31 +2,25 @@
  * @file llcombobox.h
  * @brief LLComboBox base class
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -48,9 +42,6 @@
 
 class LLFontGL;
 class LLViewBorder;
-
-extern S32 LLCOMBOBOX_HEIGHT;
-extern S32 LLCOMBOBOX_WIDTH;
 
 class LLComboBox
 :	public LLUICtrl, public LLCtrlListInterface
@@ -78,11 +69,12 @@ public:
 	:	public LLInitParam::Block<Params, LLUICtrl::Params>
 	{
 		Optional<bool>						allow_text_entry,
-											show_text_as_tentative;
+											show_text_as_tentative,
+											allow_new_values;
 		Optional<S32>						max_chars;
 		Optional<commit_callback_t> 		prearrange_callback,
 											text_entry_callback,
-											selection_callback;
+											text_changed_callback;
 
 		Optional<EPreferredPosition, PreferredPositionValues>	list_position;
 		
@@ -110,12 +102,9 @@ protected:
 
 public:
 	// LLView interface
-	virtual void	draw();
 	virtual void	onFocusLost();
 
-	virtual void	setEnabled(BOOL enabled);
-
-	virtual BOOL	handleToolTip(S32 x, S32 y, std::string& msg, LLRect* sticky_rect);
+	virtual BOOL	handleToolTip(S32 x, S32 y, MASK mask);
 	virtual BOOL	handleKeyHere(KEY key, MASK mask);
 	virtual BOOL	handleUnicodeCharHere(llwchar uni_char);
 
@@ -145,6 +134,7 @@ public:
 	LLScrollListItem*	addSeparator(EAddPosition pos = ADD_BOTTOM);
 	BOOL			remove( S32 index );	// remove item by index, return TRUE if found and removed
 	void			removeall() { clearRows(); }
+	bool			itemExists(const std::string& name);
 
 	void			sortByName(BOOL ascending = TRUE); // Sort the entries in the combobox by name
 
@@ -153,11 +143,14 @@ public:
 	// Get name of current item. Returns an empty string if not found.
 	const std::string	getSimple() const;
 	// Get contents of column x of selected row
-	const std::string getSelectedItemLabel(S32 column = 0) const;
+	virtual const std::string getSelectedItemLabel(S32 column = 0) const;
 
 	// Sets the label, which doesn't have to exist in the label.
 	// This is probably a UI abuse.
 	void			setLabel(const LLStringExplicit& name);
+
+	// Updates the combobox label to match the selected list item.
+	void			updateLabel();
 
 	BOOL			remove(const std::string& name);	// remove item "name", return TRUE if found and removed
 	
@@ -202,11 +195,12 @@ public:
 
 	void			setPrearrangeCallback( commit_callback_t cb ) { mPrearrangeCallback = cb; }
 	void			setTextEntryCallback( commit_callback_t cb ) { mTextEntryCallback = cb; }
-	void			setSelectionCallback( commit_callback_t cb ) { mSelectionCallback = cb; }
+	void			setTextChangedCallback( commit_callback_t cb ) { mTextChangedCallback = cb; }
 
 	void			setButtonVisible(BOOL visible);
 
-	void			onButtonDown();
+	void			onButtonMouseDown();
+	void			onListMouseUp();
 	void			onItemSelected(const LLSD& data);
 	void			onTextCommit(const LLSD& data);
 
@@ -227,10 +221,45 @@ protected:
 
 private:
 	BOOL				mAllowTextEntry;
+	BOOL				mAllowNewValues;
 	S32					mMaxChars;
 	BOOL				mTextEntryTentative;
 	commit_callback_t	mPrearrangeCallback;
 	commit_callback_t	mTextEntryCallback;
+	commit_callback_t	mTextChangedCallback;
 	commit_callback_t	mSelectionCallback;
+	boost::signals2::connection mTopLostSignalConnection;
+	S32                 mLastSelectedIndex;
 };
+
+// A combo box with icons for the list of items.
+class LLIconsComboBox
+:	public LLComboBox
+{
+public:
+	struct Params
+	:	public LLInitParam::Block<Params, LLComboBox::Params>
+	{
+		Optional<S32>		icon_column,
+							label_column;
+		Params();
+	};
+
+	/*virtual*/ const std::string getSelectedItemLabel(S32 column = 0) const;
+
+private:
+	enum EColumnIndex
+	{
+		ICON_COLUMN = 0,
+		LABEL_COLUMN
+	};
+
+	friend class LLUICtrlFactory;
+	LLIconsComboBox(const Params&);
+	virtual ~LLIconsComboBox() {};
+
+	S32			mIconColumnIndex;
+	S32			mLabelColumnIndex;
+};
+
 #endif

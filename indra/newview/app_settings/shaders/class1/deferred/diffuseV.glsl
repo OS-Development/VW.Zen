@@ -1,21 +1,22 @@
 /** 
  * @file diffuseV.glsl
  *
- * Copyright (c) 2007-$CurrentYear$, Linden Research, Inc.
- * $License$
+ * $LicenseInfo:firstyear=2007&license=viewerlgpl$
+ * $/LicenseInfo$
  */
+ 
+
 
 varying vec3 vary_normal;
-varying vec4 vary_position;
+varying float vary_texture_index;
 
 void main()
 {
 	//transform vertex
-	gl_Position = ftransform(); 
+	gl_Position = gl_ModelViewProjectionMatrix * vec4(gl_Vertex.xyz, 1.0); 
 	gl_TexCoord[0] = gl_TextureMatrix[0] * gl_MultiTexCoord0;
 	
-	vary_position = gl_ModelViewMatrix * gl_Vertex;
-	
+	vary_texture_index = gl_Vertex.w;
 	vary_normal = normalize(gl_NormalMatrix * gl_Normal);
 
 	gl_FrontColor = gl_Color;

@@ -3,30 +3,25 @@
  * @brief Teleport history represented by a scrolling list
  * class definition
  *
- * $LicenseInfo:firstyear=2009&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2009&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -34,40 +29,98 @@
 #define LL_LLPANELTELEPORTHISTORY_H
 
 #include "lluictrlfactory.h"
-#include "llscrolllistctrl.h"
 
 #include "llpanelplacestab.h"
 #include "llteleporthistory.h"
+#include "llmenugl.h"
+
+class LLTeleportHistoryStorage;
+class LLAccordionCtrl;
+class LLAccordionCtrlTab;
+class LLFlatListView;
+class LLMenuButton;
 
 class LLTeleportHistoryPanel : public LLPanelPlacesTab
 {
 public:
+	// *TODO: derive from LLListContextMenu?
+	class ContextMenu
+	{
+	public:
+		ContextMenu();
+		void show(LLView* spawning_view, S32 index, S32 x, S32 y);
+
+	private:
+		LLContextMenu* createMenu();
+		void onTeleport();
+		void onInfo();
+		void onCopyToClipboard();
+
+		static void gotSLURLCallback(const std::string& slurl);
+
+		LLContextMenu* mMenu;
+		S32 mIndex;
+	};
+
 	LLTeleportHistoryPanel();
 	virtual ~LLTeleportHistoryPanel();
 
 	/*virtual*/ BOOL postBuild();
+	/*virtual*/ void draw();
+
 	/*virtual*/ void onSearchEdit(const std::string& string);
 	/*virtual*/ void onShowOnMap();
+	/*virtual*/ void onShowProfile();
 	/*virtual*/ void onTeleport();
 	///*virtual*/ void onCopySLURL();
 	/*virtual*/ void updateVerbs();
-	
-	void showTeleportHistory();
-	void handleItemSelect(const LLSD& data);
-
-	static void onDoubleClickItem(void* user_data);
+	/*virtual*/ bool isSingleItemSelected();
 
 private:
-	enum TELEPORT_HISTORY_COLUMN_ORDER
-	{
-		LIST_ICON,
-		LIST_ITEM_TITLE,
-		LIST_INDEX
-	};
 
-	LLTeleportHistory*		mTeleportHistory;
-	LLScrollListCtrl*		mHistoryItems;
-	std::string				mFilterSubString;
+	void onDoubleClickItem();
+	void onReturnKeyPressed();
+	void onAccordionTabRightClick(LLView *view, S32 x, S32 y, MASK mask);
+	void onAccordionTabOpen(LLAccordionCtrlTab *tab);
+	void onAccordionTabClose(LLAccordionCtrlTab *tab);
+	void onExpandAllFolders();
+	void onCollapseAllFolders();
+	void onClearTeleportHistory();
+	bool onClearTeleportHistoryDialog(const LLSD& notification, const LLSD& response);
+
+	void refresh();
+	void getNextTab(const LLDate& item_date, S32& curr_tab, LLDate& tab_date);
+	void onTeleportHistoryChange(S32 removed_index);
+	void replaceItem(S32 removed_index);
+	void showTeleportHistory();
+	void handleItemSelect(LLFlatListView* );
+	LLFlatListView* getFlatListViewFromTab(LLAccordionCtrlTab *);
+	bool isActionEnabled(const LLSD& userdata) const;
+
+	void setAccordionCollapsedByUser(LLUICtrl* acc_tab, bool collapsed);
+	bool isAccordionCollapsedByUser(LLUICtrl* acc_tab);
+	void onAccordionExpand(LLUICtrl* ctrl, const LLSD& param);
+
+	static void confirmTeleport(S32 hist_idx);
+	static bool onTeleportConfirmation(const LLSD& notification, const LLSD& response, S32 hist_idx);
+
+	LLTeleportHistoryStorage*	mTeleportHistory;
+	LLAccordionCtrl*		mHistoryAccordion;
+
+	LLFlatListView*			mLastSelectedFlatlList;
+	S32				mLastSelectedItemIndex;
+	bool				mDirty;
+	S32				mCurrentItem;
+
+	typedef LLDynamicArray<LLAccordionCtrlTab*> item_containers_t;
+	item_containers_t mItemContainers;
+
+	ContextMenu mContextMenu;
+	LLContextMenu*			mAccordionTabMenu;
+	LLHandle<LLView>		mGearMenuHandle;
+	LLMenuButton*			mMenuGearButton;
 };
+
+
 
 #endif //LL_LLPANELTELEPORTHISTORY_H

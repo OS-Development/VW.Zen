@@ -2,31 +2,25 @@
  * @file llmorphview.cpp
  * @brief Container for Morph functionality
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -37,11 +31,11 @@
 #include "lljoint.h"
 
 #include "llagent.h"
+#include "llagentcamera.h"
 #include "lldrawable.h"
 #include "lldrawpoolavatar.h"
 #include "llface.h"
-#include "llfirstuse.h"
-#include "llfloatercustomize.h"
+//#include "llfirstuse.h"
 #include "llfloatertools.h"
 #include "llresmgr.h"
 #include "lltoolmgr.h"
@@ -75,7 +69,6 @@ LLMorphView::LLMorphView(const LLMorphView::Params& p)
 	mOldCameraNearClip( 0.f ),
 	mCameraPitch( 0.f ),
 	mCameraYaw( 0.f ),
-	mCameraDist( -1.f ),
 	mCameraDrivenByKeys( FALSE )
 {}
 
@@ -86,17 +79,15 @@ void	LLMorphView::initialize()
 {
 	mCameraPitch = 0.f;
 	mCameraYaw = 0.f;
-	mCameraDist = -1.f;
 
-	LLVOAvatar *avatarp = gAgent.getAvatarObject();
-	if (!avatarp || avatarp->isDead())
+	if (!isAgentAvatarValid() || gAgentAvatarp->isDead())
 	{
-		gAgent.changeCameraToDefault();
+		gAgentCamera.changeCameraToDefault();
 		return;
 	}
 
-	avatarp->stopMotion( ANIM_AGENT_BODY_NOISE );
-	avatarp->mSpecialRenderMode = 3;
+	gAgentAvatarp->stopMotion( ANIM_AGENT_BODY_NOISE );
+	gAgentAvatarp->mSpecialRenderMode = 3;
 	
 	// set up camera for close look at avatar
 	mOldCameraNearClip = LLViewerCamera::getInstance()->getNear();
@@ -110,11 +101,10 @@ void	LLMorphView::shutdown()
 {
 	LLVOAvatarSelf::onCustomizeEnd();
 
-	LLVOAvatar *avatarp = gAgent.getAvatarObject();
-	if(avatarp && !avatarp->isDead())
+	if (isAgentAvatarValid())
 	{
-		avatarp->startMotion( ANIM_AGENT_BODY_NOISE );
-		avatarp->mSpecialRenderMode = 0;
+		gAgentAvatarp->startMotion( ANIM_AGENT_BODY_NOISE );
+		gAgentAvatarp->mSpecialRenderMode = 0;
 		// reset camera
 		LLViewerCamera::getInstance()->setNear(mOldCameraNearClip);
 	}
@@ -132,28 +122,15 @@ void LLMorphView::setVisible(BOOL visible)
 
 		if (visible)
 		{
-			llassert( !gFloaterCustomize );
-			gFloaterCustomize = new LLFloaterCustomize();
-			gFloaterCustomize->fetchInventory();
-			gFloaterCustomize->openFloater();
-
-			// Must do this _after_ gFloaterView is initialized.
-			gFloaterCustomize->switchToDefaultSubpart();
-
+			// TODO: verify some user action has already opened outfit editor? - Nyx
 			initialize();
 
 			// First run dialog
-			LLFirstUse::useAppearance();
+			//LLFirstUse::useAppearance();
 		}
 		else
 		{
-			if( gFloaterCustomize )
-			{
-				gFloaterView->removeChild( gFloaterCustomize );
-				delete gFloaterCustomize;
-				gFloaterCustomize = NULL;
-			}
-
+			// TODO: verify some user action has already closed outfit editor ? - Nyx
 			shutdown();
 		}
 	}
@@ -163,15 +140,11 @@ void LLMorphView::updateCamera()
 {
 	if (!mCameraTargetJoint)
 	{
-		setCameraTargetJoint(gAgent.getAvatarObject()->getJoint("mHead"));
-	}
-	
-	LLVOAvatar* avatar = gAgent.getAvatarObject();
-	if( !avatar )
-	{
-		return;
-	}
-	LLJoint* root_joint = avatar->getRootJoint();
+		setCameraTargetJoint(gAgentAvatarp->getJoint("mHead"));
+	}	
+	if (!isAgentAvatarValid()) return;
+
+	LLJoint* root_joint = gAgentAvatarp->getRootJoint();
 	if( !root_joint )
 	{
 		return;
@@ -187,7 +160,7 @@ void LLMorphView::updateCamera()
 
 	LLVector3d camera_pos = joint_pos + mCameraOffset * camera_rot_pitch * camera_rot_yaw * avatar_rot;
 
-	gAgent.setCameraPosAndFocusGlobal( camera_pos, target_pos, gAgent.getID() );
+	gAgentCamera.setCameraPosAndFocusGlobal( camera_pos, target_pos, gAgent.getID() );
 }
 
 void LLMorphView::setCameraDrivenByKeys(BOOL b)

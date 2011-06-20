@@ -1,31 +1,25 @@
 /** 
  * @file llstat.cpp
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -43,7 +37,7 @@
 
 
 // statics
-BOOL            LLPerfBlock::sStatsEnabled = FALSE;    // Flag for detailed information
+S32	            LLPerfBlock::sStatsFlags = LLPerfBlock::LLSTATS_NO_OPTIONAL_STATS;       // Control what is being recorded
 LLPerfBlock::stat_map_t    LLPerfBlock::sStatMap;    // Map full path string to LLStatTime objects, tracks all active objects
 std::string        LLPerfBlock::sCurrentStatPath = "";    // Something like "/total_time/physics/physics step"
 LLStat::stat_map_t LLStat::sStatList;
@@ -130,6 +124,7 @@ bool LLStatsConfigFile::loadFile()
 
     F32 duration = 0.f;
     F32 interval = 0.f;
+	S32 flags = LLPerfBlock::LLSTATS_BASIC_STATS;
 
     const char * w = "duration";
     if (stats_config.has(w))
@@ -141,8 +136,18 @@ bool LLStatsConfigFile::loadFile()
     {
         interval = (F32)stats_config[w].asReal();
     } 
+    w = "flags";
+    if (stats_config.has(w))
+    {
+		flags = (S32)stats_config[w].asInteger();
+		if (flags == LLPerfBlock::LLSTATS_NO_OPTIONAL_STATS &&
+			duration > 0)
+		{   // No flags passed in, but have a duration, so reset to basic stats
+			flags = LLPerfBlock::LLSTATS_BASIC_STATS;
+		}
+    } 
 
-    mStatsp->setReportPerformanceDuration( duration );
+    mStatsp->setReportPerformanceDuration( duration, flags );
     mStatsp->setReportPerformanceInterval( interval );
 
     if ( duration > 0 )
@@ -254,13 +259,14 @@ void LLPerfStats::dumpIntervalPerformanceStats()
     }
 }
 
-// Set length of performance stat recording
-void    LLPerfStats::setReportPerformanceDuration( F32 seconds )
+// Set length of performance stat recording.  
+// If turning stats on, caller must provide flags
+void    LLPerfStats::setReportPerformanceDuration( F32 seconds, S32 flags /* = LLSTATS_NO_OPTIONAL_STATS */ )
 { 
 	if ( seconds <= 0.f )
 	{
 		mReportPerformanceStatEnd = 0.0;
-		LLPerfBlock::setStatsEnabled( FALSE );
+		LLPerfBlock::setStatsFlags(LLPerfBlock::LLSTATS_NO_OPTIONAL_STATS);		// Make sure all recording is off
 		mFrameStatsFile.close();
 		LLPerfBlock::clearDynamicStats();
 	}
@@ -269,8 +275,8 @@ void    LLPerfStats::setReportPerformanceDuration( F32 seconds )
 		mReportPerformanceStatEnd = LLFrameTimer::getElapsedSeconds() + ((F64) seconds);
 		// Clear failure flag to try and create the log file once
 		mFrameStatsFileFailure = FALSE;
-		LLPerfBlock::setStatsEnabled( TRUE );
 		mSkipFirstFrameStats = TRUE;		// Skip the first report (at the end of this frame)
+		LLPerfBlock::setStatsFlags(flags);
 	}
 }
 
@@ -612,11 +618,26 @@ LLPerfBlock::LLPerfBlock(LLStatTime* stat ) : mPredefinedStat(stat), mDynamicSta
     }
 }
 
-// Use this constructor for dynamically created LLStatTime objects (not pre-defined) with a multi-part key.
-// These are also turned on or off via the switch passed in
-LLPerfBlock::LLPerfBlock( const char* key1, const char* key2 ) : mPredefinedStat(NULL), mDynamicStat(NULL)
+// Use this constructor for normal, optional LLPerfBlock time slices
+LLPerfBlock::LLPerfBlock( const char* key ) : mPredefinedStat(NULL), mDynamicStat(NULL)
 {
-    if (!sStatsEnabled) return;
+    if ((sStatsFlags & LLSTATS_BASIC_STATS) == 0)
+	{	// These are off unless the base set is enabled
+		return;
+	}
+
+	initDynamicStat(key);
+}
+
+	
+// Use this constructor for dynamically created LLPerfBlock time slices
+// that are only enabled by specific control flags
+LLPerfBlock::LLPerfBlock( const char* key1, const char* key2, S32 flags ) : mPredefinedStat(NULL), mDynamicStat(NULL)
+{
+    if ((sStatsFlags & flags) == 0)
+	{
+		return;
+	}
 
     if (NULL == key2 || strlen(key2) == 0)
     {
@@ -630,10 +651,12 @@ LLPerfBlock::LLPerfBlock( const char* key1, const char* key2 ) : mPredefinedStat
     }
 }
 
+// Set up the result data map if dynamic stats are enabled
 void LLPerfBlock::initDynamicStat(const std::string& key)
 {
     // Early exit if dynamic stats aren't enabled.
-    if (!sStatsEnabled) return;
+    if (sStatsFlags == LLSTATS_NO_OPTIONAL_STATS) 
+		return;
 
     mLastPath = sCurrentStatPath;		// Save and restore current path
     sCurrentStatPath += "/" + key;		// Add key to current path
@@ -714,7 +737,7 @@ void LLPerfBlock::addStatsToLLSDandReset( LLSD & stats,
             }
 		}
 		else
-		{	// WTF?  Shouldn't have a NULL pointer in the map.
+		{	// Shouldn't have a NULL pointer in the map.
             llwarns << "Unexpected NULL dynamic stat at '" << stats_full_path << "'" << llendl;
 		}
 	}	

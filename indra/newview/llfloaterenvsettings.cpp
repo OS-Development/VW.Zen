@@ -2,31 +2,25 @@
  * @file llfloaterenvsettings.cpp
  * @brief LLFloaterEnvSettings class definition
  *
- * $LicenseInfo:firstyear=2007&license=viewergpl$
- * 
- * Copyright (c) 2007-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2007&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -34,6 +28,7 @@
 
 #include "llfloaterenvsettings.h"
 
+#include "llfloaterreg.h"
 #include "llfloaterwindlight.h"
 #include "llfloaterwater.h"
 #include "lluictrlfactory.h"
@@ -52,12 +47,9 @@
 
 #include <sstream>
 
-LLFloaterEnvSettings* LLFloaterEnvSettings::sEnvSettings = NULL;
-
-LLFloaterEnvSettings::LLFloaterEnvSettings()
-  : LLFloater()
+LLFloaterEnvSettings::LLFloaterEnvSettings(const LLSD& key)
+  : LLFloater(key)
 {
-	LLUICtrlFactory::getInstance()->buildFloater(this, "floater_env_settings.xml");
 }
 // virtual
 LLFloaterEnvSettings::~LLFloaterEnvSettings()
@@ -68,47 +60,39 @@ BOOL LLFloaterEnvSettings::postBuild()
 {	
 	// load it up
 	initCallbacks();
+	syncMenu();
 	return TRUE;
-}
-void LLFloaterEnvSettings::onClickHelp(void* data)
-{
-	LLFloaterEnvSettings* self = (LLFloaterEnvSettings*)data;
-	LLNotifications::instance().add(self->contextualNotification("EnvSettingsHelpButton"));
 }
 
 void LLFloaterEnvSettings::initCallbacks(void) 
 {
 	// our three sliders
-	childSetCommitCallback("EnvTimeSlider", onChangeDayTime, NULL);
-	childSetCommitCallback("EnvCloudSlider", onChangeCloudCoverage, NULL);
-	childSetCommitCallback("EnvWaterFogSlider", onChangeWaterFogDensity, 
-		&LLWaterParamManager::instance()->mFogDensity);	
+	getChild<LLUICtrl>("EnvTimeSlider")->setCommitCallback(boost::bind(&LLFloaterEnvSettings::onChangeDayTime, this, _1));
+	getChild<LLUICtrl>("EnvCloudSlider")->setCommitCallback(boost::bind(&LLFloaterEnvSettings::onChangeCloudCoverage, this, _1));
+	getChild<LLUICtrl>("EnvWaterFogSlider")->setCommitCallback(boost::bind(&LLFloaterEnvSettings::onChangeWaterFogDensity, this, _1, &LLWaterParamManager::instance()->mFogDensity));	
 
 	// color picker
-	childSetCommitCallback("EnvWaterColor", onChangeWaterColor, 
-		&LLWaterParamManager::instance()->mFogColor);
+	getChild<LLUICtrl>("EnvWaterColor")->setCommitCallback(boost::bind(&LLFloaterEnvSettings::onChangeWaterColor, this, _1, &LLWaterParamManager::instance()->mFogColor));
 
 	// WL Top
-	childSetAction("EnvAdvancedSkyButton", onOpenAdvancedSky, NULL);
-	childSetAction("EnvAdvancedWaterButton", onOpenAdvancedWater, NULL);
-	childSetAction("EnvUseEstateTimeButton", onUseEstateTime, NULL);
-	childSetAction("EnvSettingsHelpButton", onClickHelp, this);
+	getChild<LLUICtrl>("EnvAdvancedSkyButton")->setCommitCallback(boost::bind(&LLFloaterEnvSettings::onOpenAdvancedSky, this));
+ 	getChild<LLUICtrl>("EnvAdvancedWaterButton")->setCommitCallback(boost::bind(&LLFloaterEnvSettings::onOpenAdvancedWater, this));
+	getChild<LLUICtrl>("EnvUseEstateTimeButton")->setCommitCallback(boost::bind(&LLFloaterEnvSettings::onUseEstateTime, this));
 }
-
 
 // menu maintenance functions
 
 void LLFloaterEnvSettings::syncMenu()
 {
 	LLSliderCtrl* sldr;
-	sldr = sEnvSettings->getChild<LLSliderCtrl>("EnvTimeSlider");
+	sldr = getChild<LLSliderCtrl>("EnvTimeSlider");
 
 	// sync the clock
 	F32 val = (F32)LLWLParamManager::instance()->mAnimator.getDayTime();
 	std::string timeStr = timeToString(val);
 
 	LLTextBox* textBox;
-	textBox = sEnvSettings->getChild<LLTextBox>("EnvTimeText");
+	textBox = getChild<LLTextBox>("EnvTimeText");
 
 	textBox->setValue(timeStr);
 	
@@ -122,102 +106,58 @@ void LLFloaterEnvSettings::syncMenu()
 
 	// sync cloud coverage
 	bool err;
-	childSetValue("EnvCloudSlider", LLWLParamManager::instance()->mCurParams.getFloat("cloud_shadow", err));
+	getChild<LLUICtrl>("EnvCloudSlider")->setValue(LLWLParamManager::instance()->mCurParams.getFloat("cloud_shadow", err));
 
 	LLWaterParamManager * param_mgr = LLWaterParamManager::instance();
 	// sync water params
 	LLColor4 col = param_mgr->getFogColor();
-	LLColorSwatchCtrl* colCtrl = sEnvSettings->getChild<LLColorSwatchCtrl>("EnvWaterColor");
+	LLColorSwatchCtrl* colCtrl = getChild<LLColorSwatchCtrl>("EnvWaterColor");
 	col.mV[3] = 1.0f;
 	colCtrl->set(col);
 
-	childSetValue("EnvWaterFogSlider", param_mgr->mFogDensity.mExp);
+	getChild<LLUICtrl>("EnvWaterFogSlider")->setValue(param_mgr->mFogDensity.mExp);
 	param_mgr->setDensitySliderValue(param_mgr->mFogDensity.mExp);
 
 	// turn off Use Estate Time button if it's already being used
 	if(LLWLParamManager::instance()->mAnimator.mUseLindenTime)
 	{
-		childDisable("EnvUseEstateTimeButton");
+		getChildView("EnvUseEstateTimeButton")->setEnabled(FALSE);
 	} else {
-		childEnable("EnvUseEstateTimeButton");
+		getChildView("EnvUseEstateTimeButton")->setEnabled(TRUE);
 	}
 
 	if(!gPipeline.canUseVertexShaders())
 	{
-		childDisable("EnvWaterColor");
-		childDisable("EnvWaterColorText");
-		//childDisable("EnvAdvancedWaterButton");		
+		getChildView("EnvWaterColor")->setEnabled(FALSE);
+		getChildView("EnvWaterColorText")->setEnabled(FALSE);
+		//getChildView("EnvAdvancedWaterButton")->setEnabled(FALSE);		
 	}
 	else
 	{
-		childEnable("EnvWaterColor");
-		childEnable("EnvWaterColorText");
-		//childEnable("EnvAdvancedWaterButton");		
+		getChildView("EnvWaterColor")->setEnabled(TRUE);
+		getChildView("EnvWaterColorText")->setEnabled(TRUE);
+		//getChildView("EnvAdvancedWaterButton")->setEnabled(TRUE);		
 	}
 
 	// only allow access to these if they are using windlight
 	if(!gPipeline.canUseWindLightShaders())
 	{
 
-		childDisable("EnvCloudSlider");
-		childDisable("EnvCloudText");
-		//childDisable("EnvAdvancedSkyButton");
+		getChildView("EnvCloudSlider")->setEnabled(FALSE);
+		getChildView("EnvCloudText")->setEnabled(FALSE);
+		//getChildView("EnvAdvancedSkyButton")->setEnabled(FALSE);
 	}
 	else
 	{
-		childEnable("EnvCloudSlider");
-		childEnable("EnvCloudText");
-		//childEnable("EnvAdvancedSkyButton");
+		getChildView("EnvCloudSlider")->setEnabled(TRUE);
+		getChildView("EnvCloudText")->setEnabled(TRUE);
+		//getChildView("EnvAdvancedSkyButton")->setEnabled(TRUE);
 	}
 }
 
-
-// static instance of it
-LLFloaterEnvSettings* LLFloaterEnvSettings::instance()
+void LLFloaterEnvSettings::onChangeDayTime(LLUICtrl* ctrl)
 {
-	if (!sEnvSettings)
-	{
-		sEnvSettings = new LLFloaterEnvSettings();
-		sEnvSettings->openFloater();
-		sEnvSettings->setFocus(TRUE);
-	}
-	return sEnvSettings;
-}
-void LLFloaterEnvSettings::show()
-{
-	LLFloaterEnvSettings* envSettings = instance();
-	envSettings->syncMenu();
-
-	// comment in if you want the menu to rebuild each time
-	//LLUICtrlFactory::getInstance()->buildFloater(envSettings, "floater_env_settings.xml");
-	//envSettings->initCallbacks();
-
-	envSettings->openFloater();
-}
-
-bool LLFloaterEnvSettings::isOpen()
-{
-	if (sEnvSettings != NULL) 
-	{
-		return true;
-	}
-	return false;
-}
-
-// virtual
-void LLFloaterEnvSettings::onClose(bool app_quitting)
-{
-	if (sEnvSettings)
-	{
-		sEnvSettings->setVisible(FALSE);
-	}
-}
-
-
-void LLFloaterEnvSettings::onChangeDayTime(LLUICtrl* ctrl, void* userData)
-{
-	LLSliderCtrl* sldr;
-	sldr = sEnvSettings->getChild<LLSliderCtrl>("EnvTimeSlider");
+	LLSliderCtrl* sldr = static_cast<LLSliderCtrl*>(ctrl);
 
 	// deactivate animator
 	LLWLParamManager::instance()->mAnimator.mIsRunning = false;
@@ -234,10 +174,9 @@ void LLFloaterEnvSettings::onChangeDayTime(LLUICtrl* ctrl, void* userData)
 		LLWLParamManager::instance()->mCurParams);
 }
 
-void LLFloaterEnvSettings::onChangeCloudCoverage(LLUICtrl* ctrl, void* userData)
+void LLFloaterEnvSettings::onChangeCloudCoverage(LLUICtrl* ctrl)
 {
-	LLSliderCtrl* sldr;
-	sldr = sEnvSettings->getChild<LLSliderCtrl>("EnvCloudSlider");
+	LLSliderCtrl* sldr = static_cast<LLSliderCtrl*>(ctrl);
 	
 	// deactivate animator
 	//LLWLParamManager::instance()->mAnimator.mIsRunning = false;
@@ -247,17 +186,10 @@ void LLFloaterEnvSettings::onChangeCloudCoverage(LLUICtrl* ctrl, void* userData)
 	LLWLParamManager::instance()->mCurParams.set("cloud_shadow", val);
 }
 
-void LLFloaterEnvSettings::onChangeWaterFogDensity(LLUICtrl* ctrl, void* userData)
+void LLFloaterEnvSettings::onChangeWaterFogDensity(LLUICtrl* ctrl, WaterExpFloatControl* expFloatControl)
 {
 	LLSliderCtrl* sldr;
-	sldr = sEnvSettings->getChild<LLSliderCtrl>("EnvWaterFogSlider");
-	
-	if(NULL == userData)
-	{
-		return;
-	}
-
-	WaterExpFloatControl * expFloatControl = static_cast<WaterExpFloatControl *>(userData);
+	sldr = getChild<LLSliderCtrl>("EnvWaterFogSlider");
 	
 	F32 val = sldr->getValueF32();
 	expFloatControl->mExp = val;
@@ -267,10 +199,9 @@ void LLFloaterEnvSettings::onChangeWaterFogDensity(LLUICtrl* ctrl, void* userDat
 	LLWaterParamManager::instance()->propagateParameters();
 }
 
-void LLFloaterEnvSettings::onChangeWaterColor(LLUICtrl* ctrl, void* userData)
+void LLFloaterEnvSettings::onChangeWaterColor(LLUICtrl* ctrl, WaterColorControl* colorControl)
 {
 	LLColorSwatchCtrl* swatch = static_cast<LLColorSwatchCtrl*>(ctrl);
-	WaterColorControl * colorControl = static_cast<WaterColorControl *>(userData);	
 	*colorControl = swatch->get();
 
 	colorControl->update(LLWaterParamManager::instance()->mCurParams);
@@ -278,23 +209,22 @@ void LLFloaterEnvSettings::onChangeWaterColor(LLUICtrl* ctrl, void* userData)
 }
 
 
-void LLFloaterEnvSettings::onOpenAdvancedSky(void* userData)
+void LLFloaterEnvSettings::onOpenAdvancedSky()
 {
-	LLFloaterWindLight::show();
+	LLFloaterReg::showInstance("env_windlight");
 }
 
-void LLFloaterEnvSettings::onOpenAdvancedWater(void* userData)
+void LLFloaterEnvSettings::onOpenAdvancedWater()
 {
-	LLFloaterWater::show();
+	LLFloaterReg::showInstance("env_water");
 }
 
 
-void LLFloaterEnvSettings::onUseEstateTime(void* userData)
+void LLFloaterEnvSettings::onUseEstateTime()
 {
-	if(LLFloaterWindLight::isOpen())
+	LLFloaterWindLight* wl = LLFloaterReg::findTypedInstance<LLFloaterWindLight>("env_windlight");
+	if(wl)
 	{
-		// select the blank value in 
-		LLFloaterWindLight* wl = LLFloaterWindLight::instance();
 		LLComboBox* box = wl->getChild<LLComboBox>("WLPresetsCombo");
 		box->selectByValue("");
 	}

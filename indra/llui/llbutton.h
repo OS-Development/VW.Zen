@@ -2,38 +2,31 @@
  * @file llbutton.h
  * @brief Header for buttons
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
 #ifndef LL_LLBUTTON_H
 #define LL_LLBUTTON_H
 
-#include "lluuid.h"
 #include "llcontrol.h"
 #include "lluictrl.h"
 #include "v4color.h"
@@ -49,7 +42,6 @@
 // PLEASE please use these "constants" when building your own buttons.
 // They are loaded from settings.xml at run time.
 extern S32	LLBUTTON_H_PAD;
-extern S32	LLBUTTON_V_PAD;
 extern S32	BTN_HEIGHT_SMALL;
 extern S32	BTN_HEIGHT;
 
@@ -60,6 +52,8 @@ S32 round_up(S32 grid, S32 value);
 
 
 class LLUICtrlFactory;
+class LLUIImage;
+class LLUUID;
 
 //
 // Classes
@@ -74,8 +68,9 @@ public:
 	{
 		// text label
 		Optional<std::string>	label_selected;
-		Optional<bool>			label_dropshadow;
+		Optional<bool>			label_shadow;
 		Optional<bool>			auto_resize;
+		Optional<bool>			use_ellipses;
 
 		// images
 		Optional<LLUIImage*>	image_unselected,
@@ -84,6 +79,9 @@ public:
 								image_hover_unselected,
 								image_disabled_selected,
 								image_disabled,
+								image_flash,
+								image_pressed,
+								image_pressed_selected,
 								image_overlay;
 
 		Optional<std::string>	image_overlay_alignment;
@@ -102,22 +100,32 @@ public:
 		// layout
 		Optional<S32>			pad_right;
 		Optional<S32>			pad_left;
+		Optional<S32>			pad_bottom; // under text label
 		
+		//image overlay paddings
+		Optional<S32>			image_top_pad;
+		Optional<S32>			image_bottom_pad;
+
+		/**
+		 * Space between image_overlay and label
+		 */
+		Optional<S32>			imgoverlay_label_space;
+
 		// callbacks
 		Optional<CommitCallbackParam>	click_callback, // alias -> commit_callback
-															mouse_down_callback,
-															mouse_up_callback,
-															mouse_held_callback;
+										mouse_down_callback,
+										mouse_up_callback,
+										mouse_held_callback;
 		
 		// misc
 		Optional<bool>			is_toggle,
 								scale_image,
-								commit_on_return,
-								picture_style;      //if true, don't display label
+								commit_on_return;
 		
-		Optional<std::string>		help_url;
 		Optional<F32>				hover_glow_amount;
 		Optional<TimeIntervalParam>	held_down_delay;
+
+		Optional<bool>			use_draw_context_alpha;
 
 		Params();
 	};
@@ -127,6 +135,8 @@ protected:
 	LLButton(const Params&);
 
 public:
+
+	~LLButton();
 	// For backward compatability only
 	typedef boost::function<void(void*)> button_callback_t;
 
@@ -139,6 +149,7 @@ public:
 	virtual BOOL	handleHover(S32 x, S32 y, MASK mask);
 	virtual BOOL	handleRightMouseDown(S32 x, S32 y, MASK mask);
 	virtual BOOL	handleRightMouseUp(S32 x, S32 y, MASK mask);	
+	virtual BOOL	handleDoubleClick(S32 x, S32 y, MASK mask);
 	virtual void	draw();
 	/*virtual*/ BOOL postBuild();
 
@@ -150,14 +161,14 @@ public:
 
 	void			setUnselectedLabelColor( const LLColor4& c )		{ mUnselectedLabelColor = c; }
 	void			setSelectedLabelColor( const LLColor4& c )			{ mSelectedLabelColor = c; }
+	void			setUseEllipses( BOOL use_ellipses )					{ mUseEllipses = use_ellipses; }
+
 
 	boost::signals2::connection setClickedCallback( const commit_signal_t::slot_type& cb ); // mouse down and up within button
 	boost::signals2::connection setMouseDownCallback( const commit_signal_t::slot_type& cb );
 	boost::signals2::connection setMouseUpCallback( const commit_signal_t::slot_type& cb ); // mouse up, EVEN IF NOT IN BUTTON
 	// Passes a 'count' parameter in the commit param payload, i.e. param["count"])
 	boost::signals2::connection setHeldDownCallback( const commit_signal_t::slot_type& cb ); // Mouse button held down and in button
-	boost::signals2::connection setRightClickedCallback( const commit_signal_t::slot_type& cb ); // right mouse down and up within button
-
 
 	
 	// *TODO: Deprecate (for backwards compatability only)
@@ -174,6 +185,7 @@ public:
 	BOOL			getToggleState() const;
 	void			setToggleState(BOOL b);
 
+	void			setHighlight(bool b);
 	void			setFlashing( BOOL b );
 	BOOL			getFlashing() const		{ return mFlashing; }
 
@@ -182,38 +194,44 @@ public:
 	void			setLeftHPad( S32 pad )					{ mLeftHPad = pad; }
 	void			setRightHPad( S32 pad )					{ mRightHPad = pad; }
 
+	void 			setImageOverlayTopPad( S32 pad )			{ mImageOverlayTopPad = pad; }
+	S32 			getImageOverlayTopPad() const				{ return mImageOverlayTopPad; }
+	void 			setImageOverlayBottomPad( S32 pad )			{ mImageOverlayBottomPad = pad; }
+	S32 			getImageOverlayBottomPad() const			{ return mImageOverlayBottomPad; }
+
 	const std::string	getLabelUnselected() const { return wstring_to_utf8str(mUnselectedLabel); }
 	const std::string	getLabelSelected() const { return wstring_to_utf8str(mSelectedLabel); }
 
 	void			setImageColor(const std::string& color_control);
 	void			setImageColor(const LLColor4& c);
-	virtual void	setColor(const LLColor4& c);
+	/*virtual*/ void	setColor(const LLColor4& c);
 
 	void			setImages(const std::string &image_name, const std::string &selected_name);
-	void			setDisabledImages(const std::string &image_name, const std::string &selected_name);
-	void			setDisabledImages(const std::string &image_name, const std::string &selected_name, const LLColor4& c);
 	
-	void			setHoverImages(const std::string &image_name, const std::string &selected_name);
-
 	void			setDisabledImageColor(const LLColor4& c)		{ mDisabledImageColor = c; }
 
 	void			setDisabledSelectedLabelColor( const LLColor4& c )	{ mDisabledSelectedLabelColor = c; }
 
 	void			setImageOverlay(const std::string& image_name, LLFontGL::HAlign alignment = LLFontGL::HCENTER, const LLColor4& color = LLColor4::white);
+	void 			setImageOverlay(const LLUUID& image_id, LLFontGL::HAlign alignment = LLFontGL::HCENTER, const LLColor4& color = LLColor4::white);
 	LLPointer<LLUIImage> getImageOverlay() { return mImageOverlay; }
-
+	LLFontGL::HAlign getImageOverlayHAlign() const	{ return mImageOverlayAlignment; }
+	
 	void            autoResize();	// resize with label of current btn state 
 	void            resize(LLUIString label); // resize with label input
 	void			setLabel( const LLStringExplicit& label);
 	virtual BOOL	setLabelArg( const std::string& key, const LLStringExplicit& text );
 	void			setLabelUnselected(const LLStringExplicit& label);
 	void			setLabelSelected(const LLStringExplicit& label);
-	void			setDisabledLabel(const LLStringExplicit& disabled_label);
-	void			setDisabledSelectedLabel(const LLStringExplicit& disabled_label);
 	void			setDisabledLabelColor( const LLColor4& c )		{ mDisabledLabelColor = c; }
 	
 	void			setFont(const LLFontGL *font)		
 		{ mGLFont = ( font ? font : LLFontGL::getFontSansSerif()); }
+	const LLFontGL* getFont() const { return mGLFont; }
+
+
+	S32				getLastDrawCharsCount() const { return mLastDrawCharsCount; }
+
 	void			setScaleImage(BOOL scale)			{ mScaleImage = scale; }
 	BOOL			getScaleImage() const				{ return mScaleImage; }
 
@@ -223,134 +241,128 @@ public:
 
 	void			setHoverGlowStrength(F32 strength) { mHoverGlowStrength = strength; }
 
-	void			setImageUnselected(const std::string &image_name);
-	const std::string& getImageUnselectedName() const { return mImageUnselectedName; }
-	void			setImageSelected(const std::string &image_name);
-	const std::string& getImageSelectedName() const { return mImageSelectedName; }
-	void			setImageHoverSelected(const std::string &image_name);
-	void			setImageHoverUnselected(const std::string &image_name);
-	void			setImageDisabled(const std::string &image_name);
-	void			setImageDisabledSelected(const std::string &image_name);
-
 	void			setImageUnselected(LLPointer<LLUIImage> image);
 	void			setImageSelected(LLPointer<LLUIImage> image);
 	void			setImageHoverSelected(LLPointer<LLUIImage> image);
 	void			setImageHoverUnselected(LLPointer<LLUIImage> image);
 	void			setImageDisabled(LLPointer<LLUIImage> image);
 	void			setImageDisabledSelected(LLPointer<LLUIImage> image);
+	void			setImageFlash(LLPointer<LLUIImage> image);
+	void			setImagePressed(LLPointer<LLUIImage> image);
 
 	void			setCommitOnReturn(BOOL commit) { mCommitOnReturn = commit; }
 	BOOL			getCommitOnReturn() const { return mCommitOnReturn; }
 
-	void			setHelpURLCallback(const std::string &help_url);
-	const std::string&	getHelpURL() const { return mHelpURL; }
-
 	static void		onHeldDown(void *userdata);  // to be called by gIdleCallbacks
 	static void		toggleFloaterAndSetToggleState(LLUICtrl* ctrl, const LLSD& sdname);
 	static void		setFloaterToggle(LLUICtrl* ctrl, const LLSD& sdname);
+	static void		setDockableFloaterToggle(LLUICtrl* ctrl, const LLSD& sdname);
+	static void		showHelp(LLUICtrl* ctrl, const LLSD& sdname);
+
+	void		setForcePressedState(bool b) { mForcePressedState = b; }
 	
+	void 		setAutoResize(bool auto_resize) { mAutoResize = auto_resize; }
+
 protected:
-
-	virtual void	drawBorder(const LLColor4& color, S32 size);
-
-	void			setImageUnselectedID(const LLUUID &image_id);
-	const LLUUID&	getImageUnselectedID() const { return mImageUnselectedID; }
-	void			setImageSelectedID(const LLUUID &image_id);
-	const LLUUID&	getImageSelectedID() const { return mImageSelectedID; }
-	void			setImageHoverSelectedID(const LLUUID &image_id);
-	void			setImageHoverUnselectedID(const LLUUID &image_id);
-	void			setImageDisabledID(const LLUUID &image_id);
-	void			setImageDisabledSelectedID(const LLUUID &image_id);
-	const LLPointer<LLUIImage>&	getImageUnselected() const	{ return mImageUnselected; }
-	const LLPointer<LLUIImage>& getImageSelected() const	{ return mImageSelected; }
-	void			resetMouseDownTimer();
+	LLPointer<LLUIImage> getImageUnselected() const	{ return mImageUnselected; }
+	LLPointer<LLUIImage> getImageSelected() const	{ return mImageSelected; }
 
 	LLFrameTimer	mMouseDownTimer;
 
-	// If the label is empty, set the picture_style attribute
-	static void setupParamsForExport(Params& p, LLView* parent);
+private:
+	void			drawBorder(LLUIImage* imagep, const LLColor4& color, S32 size);
+	void			resetMouseDownTimer();
 
 private:
-	commit_signal_t mMouseDownSignal;
-	commit_signal_t mMouseUpSignal;
-	commit_signal_t mHeldDownSignal;
+	commit_signal_t* 			mMouseDownSignal;
+	commit_signal_t* 			mMouseUpSignal;
+	commit_signal_t* 			mHeldDownSignal;
 	
-	const LLFontGL	*mGLFont;
+	const LLFontGL*				mGLFont;
 	
-	S32				mMouseDownFrame;
-	S32 			mMouseHeldDownCount; 	// Counter for parameter passed to held-down callback
-	F32				mHeldDownDelay;			// seconds, after which held-down callbacks get called
-	S32				mHeldDownFrameDelay;	// frames, after which held-down callbacks get called
+	S32							mMouseDownFrame;
+	S32 						mMouseHeldDownCount; 	// Counter for parameter passed to held-down callback
+	F32							mHeldDownDelay;			// seconds, after which held-down callbacks get called
+	S32							mHeldDownFrameDelay;	// frames, after which held-down callbacks get called
+	S32							mLastDrawCharsCount;
 
 	LLPointer<LLUIImage>		mImageOverlay;
 	LLFontGL::HAlign			mImageOverlayAlignment;
-	LLUIColor	mImageOverlayColor;
+	LLUIColor					mImageOverlayColor;
 
 	LLPointer<LLUIImage>		mImageUnselected;
 	LLUIString					mUnselectedLabel;
-	LLUIColor	mUnselectedLabelColor;
+	LLUIColor					mUnselectedLabelColor;
 
 	LLPointer<LLUIImage>		mImageSelected;
 	LLUIString					mSelectedLabel;
-	LLUIColor	mSelectedLabelColor;
+	LLUIColor					mSelectedLabelColor;
 
 	LLPointer<LLUIImage>		mImageHoverSelected;
 
 	LLPointer<LLUIImage>		mImageHoverUnselected;
 
 	LLPointer<LLUIImage>		mImageDisabled;
-	LLUIString					mDisabledLabel;
-	LLUIColor	mDisabledLabelColor;
+	LLUIColor					mDisabledLabelColor;
 
 	LLPointer<LLUIImage>		mImageDisabledSelected;
 	LLUIString					mDisabledSelectedLabel;
-	LLUIColor	mDisabledSelectedLabelColor;
+	LLUIColor					mDisabledSelectedLabelColor;
 
-	LLUUID			mImageUnselectedID;
-	LLUUID			mImageSelectedID;
-	LLUUID			mImageHoverSelectedID;
-	LLUUID			mImageHoverUnselectedID;
-	LLUUID			mImageDisabledID;
-	LLUUID			mImageDisabledSelectedID;
-	std::string		mImageUnselectedName;
-	std::string		mImageSelectedName;
-	std::string		mImageHoverSelectedName;
-	std::string		mImageHoverUnselectedName;
-	std::string		mImageDisabledName;
-	std::string		mImageDisabledSelectedName;
+	LLPointer<LLUIImage>		mImagePressed;
+	LLPointer<LLUIImage>		mImagePressedSelected;
 
-	LLUIColor	mHighlightColor;
-	LLUIColor		mFlashBgColor;
+	/* There are two ways an image can flash- by making changes in color according to flash_color attribute
+	   or by changing icon from current to the one specified in image_flash. Second way is used only if
+	   flash icon name is set in attributes(by default it isn't). First way is used otherwise. */
+	LLPointer<LLUIImage>		mImageFlash;
 
-	LLUIColor	mImageColor;
-	LLUIColor	mDisabledImageColor;
+	LLUIColor					mHighlightColor;
+	LLUIColor					mFlashBgColor;
 
-	BOOL			mIsToggle;
-	BOOL			mScaleImage;
+	LLUIColor					mImageColor;
+	LLUIColor					mDisabledImageColor;
 
-	BOOL			mDropShadowedText;
-	BOOL			mAutoResize;
-	BOOL			mBorderEnabled;
+	BOOL						mIsToggle;
+	BOOL						mScaleImage;
 
-	BOOL			mFlashing;
+	BOOL						mDropShadowedText;
+	BOOL						mAutoResize;
+	BOOL						mUseEllipses;
+	BOOL						mBorderEnabled;
 
-	LLFontGL::HAlign mHAlign;
-	S32				mLeftHPad;
-	S32				mRightHPad;
+	BOOL						mFlashing;
 
-	F32				mHoverGlowStrength;
-	F32				mCurGlowStrength;
+	LLFontGL::HAlign			mHAlign;
+	S32							mLeftHPad;
+	S32							mRightHPad;
+	S32							mBottomVPad;	// under text label
 
-	BOOL			mNeedsHighlight;
-	BOOL			mCommitOnReturn;
-	BOOL			mFadeWhenDisabled;
+	S32							mImageOverlayTopPad;
+	S32							mImageOverlayBottomPad;
 
-	std::string		mHelpURL;
+	bool						mUseDrawContextAlpha;
 
-	LLPointer<LLUIImage> mImagep;
+	/*
+	 * Space between image_overlay and label
+	 */
+	S32							mImgOverlayLabelSpace;
 
-	LLFrameTimer	mFlashingTimer;
+	F32							mHoverGlowStrength;
+	F32							mCurGlowStrength;
+
+	BOOL						mNeedsHighlight;
+	BOOL						mCommitOnReturn;
+	BOOL						mFadeWhenDisabled;
+	bool						mForcePressedState;
+
+	LLFrameTimer				mFlashingTimer;
 };
 
+// Build time optimization, generate once in .cpp file
+#ifndef LLBUTTON_CPP
+extern template class LLButton* LLView::getChild<class LLButton>(
+	const std::string& name, BOOL recurse) const;
+#endif
 
 #endif  // LL_LLBUTTON_H

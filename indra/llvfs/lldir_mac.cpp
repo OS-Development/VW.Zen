@@ -2,31 +2,25 @@
  * @file lldir_mac.cpp
  * @brief Implementation of directory utilities for Mac OS X
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -68,7 +62,8 @@ static void CFStringRefToLLString(CFStringRef stringRef, std::string &llString, 
 {
 	if (stringRef)
 	{
-		long	bufferSize = CFStringGetLength(stringRef) + 1;
+		long stringSize = CFStringGetLength(stringRef) + 1;
+		long bufferSize = CFStringGetMaximumSizeForEncoding(stringSize,kCFStringEncodingUTF8);
 		char* buffer = new char[bufferSize];
 		memset(buffer, 0, bufferSize);
 		if (CFStringGetCString(stringRef, buffer, bufferSize, kCFStringEncodingUTF8))
@@ -143,19 +138,23 @@ LLDir_Mac::LLDir_Mac()
 		
 		// mAppRODataDir
 
-		CFURLRef resourcesURLRef = CFBundleCopyResourcesDirectoryURL(mainBundleRef);
-		CFURLRefToLLString(resourcesURLRef, mAppRODataDir, true);
 		
 		// *NOTE: When running in a dev tree, use the copy of
 		// skins in indra/newview/ rather than in the application bundle.  This
 		// mirrors Windows dev environment behavior and allows direct checkin
 		// of edited skins/xui files. JC
+		
+		// MBW -- This keeps the mac application from finding other things.
+		// If this is really for skins, it should JUST apply to skins.
 
-		U32 indra_pos = mExecutableDir.find("/indra");
-		if (indra_pos != std::string::npos)
+		CFURLRef resourcesURLRef = CFBundleCopyResourcesDirectoryURL(mainBundleRef);
+		CFURLRefToLLString(resourcesURLRef, mAppRODataDir, true);
+		
+		U32 build_dir_pos = mExecutableDir.rfind("/build-darwin-");
+		if (build_dir_pos != std::string::npos)
 		{
 			// ...we're in a dev checkout
-			mSkinBaseDir = mExecutableDir.substr(0, indra_pos)
+			mSkinBaseDir = mExecutableDir.substr(0, build_dir_pos)
 				+ "/indra/newview/skins";
 			llinfos << "Running in dev checkout with mSkinBaseDir "
 				<< mSkinBaseDir << llendl;
@@ -211,6 +210,8 @@ LLDir_Mac::LLDir_Mac()
 		}
 		
 		mWorkingDir = getCurPath();
+
+		mLLPluginDir = mAppRODataDir + mDirDelimiter + "llplugin";
 				
 		CFRelease(executableURLRef);
 		executableURLRef = NULL;
@@ -257,139 +258,6 @@ U32 LLDir_Mac::countFilesInDir(const std::string &dirname, const std::string &ma
 	return (file_count);
 }
 
-// get the next file in the directory
-// automatically wrap if we've hit the end
-BOOL LLDir_Mac::getNextFileInDir(const std::string &dirname, const std::string &mask, std::string &fname, BOOL wrap)
-{
-	glob_t g;
-	BOOL result = FALSE;
-	fname = "";
-	
-	if(!(dirname == mCurrentDir))
-	{
-		// different dir specified, close old search
-		mCurrentDirIndex = -1;
-		mCurrentDirCount = -1;
-		mCurrentDir = dirname;
-	}
-	
-	std::string tmp_str;
-	tmp_str = dirname;
-	tmp_str += mask;
-
-	if(glob(tmp_str.c_str(), GLOB_NOSORT, NULL, &g) == 0)
-	{
-		if(g.gl_pathc > 0)
-		{
-			if(g.gl_pathc != mCurrentDirCount)
-			{
-				// Number of matches has changed since the last search, meaning a file has been added or deleted.
-				// Reset the index.
-				mCurrentDirIndex = -1;
-				mCurrentDirCount = g.gl_pathc;
-			}
-	
-			mCurrentDirIndex++;
-	
-			if((mCurrentDirIndex >= g.gl_pathc) && wrap)
-			{
-				mCurrentDirIndex = 0;
-			}
-			
-			if(mCurrentDirIndex < g.gl_pathc)
-			{
-//				llinfos << "getNextFileInDir: returning number " << mCurrentDirIndex << ", path is " << g.gl_pathv[mCurrentDirIndex] << llendl;
-
-				// The API wants just the filename, not the full path.
-				//fname = g.gl_pathv[mCurrentDirIndex];
-
-				char *s = strrchr(g.gl_pathv[mCurrentDirIndex], '/');
-				
-				if(s == NULL)
-					s = g.gl_pathv[mCurrentDirIndex];
-				else if(s[0] == '/')
-					s++;
-					
-				fname = s;
-				
-				result = TRUE;
-			}
-		}
-		
-		globfree(&g);
-	}
-	
-	return(result);
-}
-
-// get a random file in the directory
-void LLDir_Mac::getRandomFileInDir(const std::string &dirname, const std::string &mask, std::string &fname)
-{
-	S32 which_file;
-	glob_t g;
-	fname = "";
-	
-	std::string tmp_str;
-	tmp_str = dirname;
-	tmp_str += mask;
-	
-	if(glob(tmp_str.c_str(), GLOB_NOSORT, NULL, &g) == 0)
-	{
-		if(g.gl_pathc > 0)
-		{
-			
-			which_file = ll_rand(g.gl_pathc);
-	
-//			llinfos << "getRandomFileInDir: returning number " << which_file << ", path is " << g.gl_pathv[which_file] << llendl;
-			// The API wants just the filename, not the full path.
-			//fname = g.gl_pathv[which_file];
-
-			char *s = strrchr(g.gl_pathv[which_file], '/');
-			
-			if(s == NULL)
-				s = g.gl_pathv[which_file];
-			else if(s[0] == '/')
-				s++;
-				
-			fname = s;
-		}
-		
-		globfree(&g);
-	}
-}
-
-S32 LLDir_Mac::deleteFilesInDir(const std::string &dirname, const std::string &mask)
-{
-	glob_t g;
-	S32 result = 0;
-	
-	std::string tmp_str;
-	tmp_str = dirname;
-	tmp_str += mask;
-	
-	if(glob(tmp_str.c_str(), GLOB_NOSORT, NULL, &g) == 0)
-	{
-		int i;
-		
-		for(i = 0; i < g.gl_pathc; i++)
-		{
-//			llinfos << "deleteFilesInDir: deleting number " << i << ", path is " << g.gl_pathv[i] << llendl;
-
-			if(unlink(g.gl_pathv[i]) != 0)
-			{
-				result = errno;
-
-				llwarns << "Problem removing " << g.gl_pathv[i] << " - errorcode: "
-					<< result << llendl;
-			}
-		}
-
-		globfree(&g);
-	}
-	
-	return(result);
-}
-
 std::string LLDir_Mac::getCurPath()
 {
 	char tmp_str[LL_MAX_PATH];	/* Flawfinder: ignore */ 
@@ -413,6 +281,19 @@ BOOL LLDir_Mac::fileExists(const std::string &filename) const
 	{
 		return FALSE;
 	}
+}
+
+
+/*virtual*/ std::string LLDir_Mac::getLLPluginLauncher()
+{
+	return gDirUtilp->getAppRODataDir() + gDirUtilp->getDirDelimiter() +
+		"SLPlugin.app/Contents/MacOS/SLPlugin";
+}
+
+/*virtual*/ std::string LLDir_Mac::getLLPluginFilename(std::string base_name)
+{
+	return gDirUtilp->getLLPluginDir() + gDirUtilp->getDirDelimiter() +
+		base_name + ".dylib";
 }
 
 

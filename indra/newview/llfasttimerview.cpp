@@ -2,46 +2,45 @@
  * @file llfasttimerview.cpp
  * @brief LLFastTimerView class implementation
  *
- * $LicenseInfo:firstyear=2004&license=viewergpl$
- * 
- * Copyright (c) 2004-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2004&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
 #include "llviewerprecompiledheaders.h"
 
-#include "indra_constants.h"
 #include "llfasttimerview.h"
+
 #include "llviewerwindow.h"
 #include "llrect.h"
 #include "llerror.h"
 #include "llgl.h"
+#include "llimagepng.h"
 #include "llrender.h"
+#include "llrendertarget.h"
+#include "lllocalcliprect.h"
 #include "llmath.h"
 #include "llfontgl.h"
 #include "llsdserialize.h"
+#include "lltooltip.h"
+#include "llbutton.h"
 
 #include "llappviewer.h"
 #include "llviewertexturelist.h"
@@ -52,6 +51,8 @@
 #include "llfasttimer.h"
 #include "lltreeiterators.h"
 #include "llmetricperformancetester.h"
+#include "llviewerstats.h"
+
 //////////////////////////////////////////////////////////////////////////////
 
 static const S32 MAX_VISIBLE_HISTORY = 10;
@@ -80,7 +81,7 @@ static timer_tree_iterator_t end_timer_tree()
 }
 
 LLFastTimerView::LLFastTimerView(const LLRect& rect)
-:	LLFloater(),
+:	LLFloater(LLSD()),
 	mHoverTimer(NULL)
 {
 	setRect(rect);
@@ -96,6 +97,9 @@ LLFastTimerView::LLFastTimerView(const LLRect& rect)
 	mHoverBarIndex = -1;
 	FTV_NUM_TIMERS = LLFastTimer::NamedTimer::instanceCount();
 	mPrintStats = -1;	
+	mAverageCyclesPerTimer = 0;
+	setCanMinimize(false);
+	setCanClose(true);
 }
 
 
@@ -117,7 +121,7 @@ BOOL LLFastTimerView::handleRightMouseDown(S32 x, S32 y, MASK mask)
 	{
 		S32 bar_idx = MAX_VISIBLE_HISTORY - ((y - mBarRect.mBottom) * (MAX_VISIBLE_HISTORY + 2) / mBarRect.getHeight());
 		bar_idx = llclamp(bar_idx, 0, MAX_VISIBLE_HISTORY);
-		mPrintStats = bar_idx;
+		mPrintStats = LLFastTimer::NamedTimer::HISTORY_NUM - mScrollIndex - bar_idx;
 	}
 	return FALSE;
 }
@@ -134,8 +138,31 @@ LLFastTimer::NamedTimer* LLFastTimerView::getLegendID(S32 y)
 	return NULL;
 }
 
+BOOL LLFastTimerView::handleDoubleClick(S32 x, S32 y, MASK mask)
+{
+	for(timer_tree_iterator_t it = begin_timer_tree(LLFastTimer::NamedTimer::getRootNamedTimer());
+		it != end_timer_tree();
+		++it)
+	{
+		(*it)->setCollapsed(false);
+	}
+	return TRUE;
+}
+
 BOOL LLFastTimerView::handleMouseDown(S32 x, S32 y, MASK mask)
 {
+
+	{
+		S32 local_x = x - mButtons[BUTTON_CLOSE]->getRect().mLeft;
+		S32 local_y = y - mButtons[BUTTON_CLOSE]->getRect().mBottom;
+		if(mButtons[BUTTON_CLOSE]->getVisible()
+			&&  mButtons[BUTTON_CLOSE]->pointInView(local_x, local_y)  )
+		{
+			return LLFloater::handleMouseDown(x, y, mask);;
+		}
+	}
+	
+
 	if (x < mBarRect.mLeft) 
 	{
 		LLFastTimer::NamedTimer* idp = getLegendID(y);
@@ -185,6 +212,15 @@ BOOL LLFastTimerView::handleMouseDown(S32 x, S32 y, MASK mask)
 
 BOOL LLFastTimerView::handleMouseUp(S32 x, S32 y, MASK mask)
 {
+	{
+		S32 local_x = x - mButtons[BUTTON_CLOSE]->getRect().mLeft;
+		S32 local_y = y - mButtons[BUTTON_CLOSE]->getRect().mBottom;
+		if(mButtons[BUTTON_CLOSE]->getVisible()
+			&&  mButtons[BUTTON_CLOSE]->pointInView(local_x, local_y)  )
+		{
+			return LLFloater::handleMouseUp(x, y, mask);;
+		}
+	}
 	return FALSE;
 }
 
@@ -195,7 +231,8 @@ BOOL LLFastTimerView::handleHover(S32 x, S32 y, MASK mask)
 
 	if(LLFastTimer::sPauseHistory && mBarRect.pointInRect(x, y))
 	{
-		mHoverBarIndex = llmin(LLFastTimer::getCurFrameIndex() - 1, MAX_VISIBLE_HISTORY - ((y - mBarRect.mBottom) * (MAX_VISIBLE_HISTORY + 2) / mBarRect.getHeight()));
+		mHoverBarIndex = llmin(LLFastTimer::getCurFrameIndex() - 1, 
+								MAX_VISIBLE_HISTORY - ((y - mBarRect.mBottom) * (MAX_VISIBLE_HISTORY + 2) / mBarRect.getHeight()));
 		if (mHoverBarIndex == 0)
 		{
 			return TRUE;
@@ -217,9 +254,9 @@ BOOL LLFastTimerView::handleHover(S32 x, S32 y, MASK mask)
 				mHoverID = (*it);
 				mHoverTimer = (*it);	
 				mToolTipRect.set(mBarStart[mHoverBarIndex][i], 
-					mBarRect.mBottom + llround(((F32)mHoverBarIndex + 1.f) * ((F32)mBarRect.getHeight() / ((F32)MAX_VISIBLE_HISTORY + 2.f))),
+					mBarRect.mBottom + llround(((F32)(MAX_VISIBLE_HISTORY - mHoverBarIndex + 1)) * ((F32)mBarRect.getHeight() / ((F32)MAX_VISIBLE_HISTORY + 2.f))),
 					mBarEnd[mHoverBarIndex][i],
-					mBarRect.mBottom + llround((F32)mHoverBarIndex * ((F32)mBarRect.getHeight() / ((F32)MAX_VISIBLE_HISTORY + 2.f))));
+					mBarRect.mBottom + llround((F32)(MAX_VISIBLE_HISTORY - mHoverBarIndex) * ((F32)mBarRect.getHeight() / ((F32)MAX_VISIBLE_HISTORY + 2.f))));
 			}
 
 			if ((*it)->getCollapsed())
@@ -241,14 +278,21 @@ BOOL LLFastTimerView::handleHover(S32 x, S32 y, MASK mask)
 }
 
 
-BOOL LLFastTimerView::handleToolTip(S32 x, S32 y, std::string& msg, LLRect* sticky_rect_screen)
+BOOL LLFastTimerView::handleToolTip(S32 x, S32 y, MASK mask)
 {
 	if(LLFastTimer::sPauseHistory && mBarRect.pointInRect(x, y))
 	{
 		// tooltips for timer bars
 		if (mHoverTimer)
 		{
-			msg = mHoverTimer->getToolTip(LLFastTimer::NamedTimer::HISTORY_NUM - mScrollIndex - mHoverBarIndex);
+			LLRect screen_rect;
+			localRectToScreen(mToolTipRect, &screen_rect);
+
+			LLToolTipMgr::instance().show(LLToolTip::Params()
+				.message(mHoverTimer->getToolTip(LLFastTimer::NamedTimer::HISTORY_NUM - mScrollIndex - mHoverBarIndex))
+				.sticky_rect(screen_rect)
+				.delay_time(0.f));
+
 			return TRUE;
 		}
 	}
@@ -260,11 +304,11 @@ BOOL LLFastTimerView::handleToolTip(S32 x, S32 y, std::string& msg, LLRect* stic
 			LLFastTimer::NamedTimer* idp = getLegendID(y);
 			if (idp)
 			{
-				msg = idp->getToolTip(); 
+				LLToolTipMgr::instance().show(idp->getToolTip());
+
 				return TRUE;
 			}
 		}
-
 	}
 	
 	return FALSE;
@@ -293,16 +337,17 @@ void LLFastTimerView::draw()
 	F64 iclock_freq = 1000.0 / clock_freq;
 	
 	S32 margin = 10;
-	S32 height = (S32) (gViewerWindow->getVirtualWindowRect().getHeight()*0.75f);
-	S32 width = (S32) (gViewerWindow->getVirtualWindowRect().getWidth() * 0.75f);
+	S32 height = (S32) (gViewerWindow->getWindowRectScaled().getHeight()*0.75f);
+	S32 width = (S32) (gViewerWindow->getWindowRectScaled().getWidth() * 0.75f);
 	
-	// HACK: casting away const. Should use setRect or some helper function instead.
-		const_cast<LLRect&>(getRect()).setLeftTopAndSize(getRect().mLeft, getRect().mTop, width, height);
+	LLRect new_rect;
+	new_rect.setLeftTopAndSize(getRect().mLeft, getRect().mTop, width, height);
+	setRect(new_rect);
 
 	S32 left, top, right, bottom;
 	S32 x, y, barw, barh, dx, dy;
 	S32 texth, textw;
-	LLPointer<LLUIImage> box_imagep = LLUI::getUIImage("rounded_square.tga");
+	LLPointer<LLUIImage> box_imagep = LLUI::getUIImage("Rounded_Square");
 
 	// Draw the window background
 	gGL.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
@@ -311,6 +356,12 @@ void LLFastTimerView::draw()
 	S32 xleft = margin;
 	S32 ytop = margin;
 	
+	mAverageCyclesPerTimer = LLFastTimer::sTimerCalls == 0 
+		? 0 
+		: llround(lerp((F32)mAverageCyclesPerTimer, (F32)(LLFastTimer::sTimerCycles / (U64)LLFastTimer::sTimerCalls), 0.1f));
+	LLFastTimer::sTimerCycles = 0;
+	LLFastTimer::sTimerCalls = 0;
+
 	// Draw some help
 	{
 		
@@ -318,6 +369,10 @@ void LLFastTimerView::draw()
 		y = height - ytop;
 		texth = (S32)LLFontGL::getFontMonospace()->getLineHeight();
 
+#if TIME_FAST_TIMERS
+		tdesc = llformat("Cycles per timer call: %d", mAverageCyclesPerTimer);
+		LLFontGL::getFontMonospace()->renderUTF8(tdesc, 0, x, y, LLColor4::white, LLFontGL::LEFT, LLFontGL::TOP);
+#else
 		char modedesc[][32] = {
 			"2 x Average ",
 			"Max         ",
@@ -332,7 +387,6 @@ void LLFastTimerView::draw()
 
 		tdesc = llformat("Full bar = %s [Click to pause/reset] [SHIFT-Click to toggle]",modedesc[mDisplayMode]);
 		LLFontGL::getFontMonospace()->renderUTF8(tdesc, 0, x, y, LLColor4::white, LLFontGL::LEFT, LLFontGL::TOP);
-
 		textw = LLFontGL::getFontMonospace()->getWidth(tdesc);
 
 		x = xleft, y -= (texth + 2);
@@ -342,6 +396,7 @@ void LLFastTimerView::draw()
 
 		LLFontGL::getFontMonospace()->renderUTF8(std::string("[Right-Click log selected] [ALT-Click toggle counts] [ALT-SHIFT-Click sub hidden]"),
 										 0, x, y, LLColor4::white, LLFontGL::LEFT, LLFontGL::TOP);
+#endif
 		y -= (texth + 2);
 	}
 
@@ -487,7 +542,7 @@ void LLFastTimerView::draw()
 	// Draw the history bars
 	if (LLFastTimer::getLastFrameIndex() >= 0)
 	{	
-		LLLocalClipRect clip(LLRect(xleft, ytop - margin, getRect().getWidth() - margin, margin));
+		LLLocalClipRect clip(LLRect(xleft, ytop, getRect().getWidth() - margin, margin));
 
 		U64 totalticks;
 		if (!LLFastTimer::sPauseHistory)
@@ -907,7 +962,7 @@ void LLFastTimerView::draw()
 			{
 				legend_stat += ", ";
 			}
-			first = true;
+			first = false;
 			legend_stat += idp->getName();
 
 			if (idp->getCollapsed())
@@ -934,8 +989,7 @@ void LLFastTimerView::draw()
 			U64 ticks;
 			if (mPrintStats > 0)
 			{
-				S32 hidx = (mPrintStats - 1) - mScrollIndex;
-				ticks = idp->getHistoricalCount(hidx);
+				ticks = idp->getHistoricalCount(mPrintStats);
 			}
 			else
 			{
@@ -960,9 +1014,335 @@ void LLFastTimerView::draw()
 	LLView::draw();
 }
 
-F64 LLFastTimerView::getTime(LLFastTimer::NamedTimer::FrameState& id)
+F64 LLFastTimerView::getTime(const std::string& name)
 {
-	return (F64)id.mTimer->getCountAverage() / (F64)LLFastTimer::countsPerSecond();
+	const LLFastTimer::NamedTimer* timerp = LLFastTimer::getTimerByName(name);
+	if (timerp)
+	{
+		return (F64)timerp->getCountAverage() / (F64)LLFastTimer::countsPerSecond();
+	}
+	return 0.0;
+}
+
+void saveChart(const std::string& label, const char* suffix, LLImageRaw* scratch)
+{
+	//read result back into raw image
+	glReadPixels(0, 0, 1024, 512, GL_RGB, GL_UNSIGNED_BYTE, scratch->getData());
+
+	//write results to disk
+	LLPointer<LLImagePNG> result = new LLImagePNG();
+	result->encode(scratch, 0.f);
+
+	std::string ext = result->getExtension();
+	std::string filename = llformat("%s_%s.%s", label.c_str(), suffix, ext.c_str());
+	
+	std::string out_file = gDirUtilp->getExpandedFilename(LL_PATH_LOGS, filename);
+	result->save(out_file);
+}
+
+//static
+void LLFastTimerView::exportCharts(const std::string& base, const std::string& target)
+{
+	//allocate render target for drawing charts 
+	LLRenderTarget buffer;
+	buffer.allocate(1024,512, GL_RGB, FALSE, FALSE);
+	
+
+	LLSD cur;
+
+	LLSD base_data;
+
+	{ //read base log into memory
+		S32 i = 0;
+		std::ifstream is(base.c_str());
+		while (!is.eof() && LLSDSerialize::fromXML(cur, is))
+		{
+			base_data[i++] = cur;
+		}
+		is.close();
+	}
+
+	LLSD cur_data;
+	std::set<std::string> chart_names;
+
+	{ //read current log into memory
+		S32 i = 0;
+		std::ifstream is(target.c_str());
+		while (!is.eof() && LLSDSerialize::fromXML(cur, is))
+		{
+			cur_data[i++] = cur;
+
+			for (LLSD::map_iterator iter = cur.beginMap(); iter != cur.endMap(); ++iter)
+			{
+				std::string label = iter->first;
+				chart_names.insert(label);
+			}
+		}
+		is.close();
+	}
+
+	//get time domain
+	LLSD::Real cur_total_time = 0.0;
+
+	for (U32 i = 0; i < cur_data.size(); ++i)
+	{
+		cur_total_time += cur_data[i]["Total"]["Time"].asReal();
+	}
+
+	LLSD::Real base_total_time = 0.0;
+	for (U32 i = 0; i < base_data.size(); ++i)
+	{
+		base_total_time += base_data[i]["Total"]["Time"].asReal();
+	}
+
+	//allocate raw scratch space
+	LLPointer<LLImageRaw> scratch = new LLImageRaw(1024, 512, 3);
+
+	gGL.pushMatrix();
+	glLoadIdentity();
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	glOrtho(-0.05, 1.05, -0.05, 1.05, -1.0, 1.0);
+
+	//render charts
+	gGL.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
+	
+	buffer.bindTarget();
+
+	for (std::set<std::string>::iterator iter = chart_names.begin(); iter != chart_names.end(); ++iter)
+	{
+		std::string label = *iter;
+	
+		LLSD::Real max_time = 0.0;
+		LLSD::Integer max_calls = 0;
+		LLSD::Real max_execution = 0.0;
+
+		std::vector<LLSD::Real> cur_execution;
+		std::vector<LLSD::Real> cur_times;
+		std::vector<LLSD::Integer> cur_calls;
+
+		std::vector<LLSD::Real> base_execution;
+		std::vector<LLSD::Real> base_times;
+		std::vector<LLSD::Integer> base_calls;
+
+		for (U32 i = 0; i < cur_data.size(); ++i)
+		{
+			LLSD::Real time = cur_data[i][label]["Time"].asReal();
+			LLSD::Integer calls = cur_data[i][label]["Calls"].asInteger();
+
+			LLSD::Real execution = 0.0;
+			if (calls > 0)
+			{
+				execution = time/calls;
+				cur_execution.push_back(execution);
+				cur_times.push_back(time);
+			}
+
+			cur_calls.push_back(calls);
+		}
+
+		for (U32 i = 0; i < base_data.size(); ++i)
+		{
+			LLSD::Real time = base_data[i][label]["Time"].asReal();
+			LLSD::Integer calls = base_data[i][label]["Calls"].asInteger();
+
+			LLSD::Real execution = 0.0;
+			if (calls > 0)
+			{
+				execution = time/calls;
+				base_execution.push_back(execution);
+				base_times.push_back(time);
+			}
+
+			base_calls.push_back(calls);
+		}
+
+		std::sort(base_calls.begin(), base_calls.end());
+		std::sort(base_times.begin(), base_times.end());
+		std::sort(base_execution.begin(), base_execution.end());
+
+		std::sort(cur_calls.begin(), cur_calls.end());
+		std::sort(cur_times.begin(), cur_times.end());
+		std::sort(cur_execution.begin(), cur_execution.end());
+
+		//remove outliers
+		const U32 OUTLIER_CUTOFF = 512;
+		if (base_times.size() > OUTLIER_CUTOFF)
+		{ 
+			ll_remove_outliers(base_times, 1.f);
+		}
+
+		if (base_execution.size() > OUTLIER_CUTOFF)
+		{ 
+			ll_remove_outliers(base_execution, 1.f);
+		}
+
+		if (cur_times.size() > OUTLIER_CUTOFF)
+		{ 
+			ll_remove_outliers(cur_times, 1.f);
+		}
+
+		if (cur_execution.size() > OUTLIER_CUTOFF)
+		{ 
+			ll_remove_outliers(cur_execution, 1.f);
+		}
+
+
+		max_time = llmax(base_times.empty() ? 0.0 : *base_times.rbegin(), cur_times.empty() ? 0.0 : *cur_times.rbegin());
+		max_calls = llmax(base_calls.empty() ? 0 : *base_calls.rbegin(), cur_calls.empty() ? 0 : *cur_calls.rbegin());
+		max_execution = llmax(base_execution.empty() ? 0.0 : *base_execution.rbegin(), cur_execution.empty() ? 0.0 : *cur_execution.rbegin());
+
+
+		LLVector3 last_p;
+
+		//====================================
+		// basic
+		//====================================
+		buffer.clear();
+
+		last_p.clear();
+
+		LLGLDisable cull(GL_CULL_FACE);
+
+		LLVector3 base_col(0, 0.7f, 0.f);
+		LLVector3 cur_col(1.f, 0.f, 0.f);
+
+		gGL.setSceneBlendType(LLRender::BT_ADD);
+
+		gGL.color3fv(base_col.mV);
+		for (U32 i = 0; i < base_times.size(); ++i)
+		{
+			gGL.begin(LLRender::TRIANGLE_STRIP);
+			gGL.vertex3fv(last_p.mV);
+			gGL.vertex3f(last_p.mV[0], 0.f, 0.f);
+			last_p.set((F32)i/(F32) base_times.size(), base_times[i]/max_time, 0.f);
+			gGL.vertex3fv(last_p.mV);
+			gGL.vertex3f(last_p.mV[0], 0.f, 0.f);
+			gGL.end();
+		}
+		
+		gGL.flush();
+
+		
+		last_p.clear();
+		{
+			LLGLEnable blend(GL_BLEND);
+						
+			gGL.color3fv(cur_col.mV);
+			for (U32 i = 0; i < cur_times.size(); ++i)
+			{
+				gGL.begin(LLRender::TRIANGLE_STRIP);
+				gGL.vertex3f(last_p.mV[0], 0.f, 0.f);
+				gGL.vertex3fv(last_p.mV);
+				last_p.set((F32) i / (F32) cur_times.size(), cur_times[i]/max_time, 0.f);
+				gGL.vertex3f(last_p.mV[0], 0.f, 0.f);
+				gGL.vertex3fv(last_p.mV);
+				gGL.end();
+			}
+			
+			gGL.flush();
+		}
+
+		saveChart(label, "time", scratch);
+		
+		//======================================
+		// calls
+		//======================================
+		buffer.clear();
+
+		last_p.clear();
+
+		gGL.color3fv(base_col.mV);
+		for (U32 i = 0; i < base_calls.size(); ++i)
+		{
+			gGL.begin(LLRender::TRIANGLE_STRIP);
+			gGL.vertex3fv(last_p.mV);
+			gGL.vertex3f(last_p.mV[0], 0.f, 0.f);
+			last_p.set((F32) i / (F32) base_calls.size(), (F32)base_calls[i]/max_calls, 0.f);
+			gGL.vertex3fv(last_p.mV);
+			gGL.vertex3f(last_p.mV[0], 0.f, 0.f);
+			gGL.end();
+		}
+		
+		gGL.flush();
+
+		{
+			LLGLEnable blend(GL_BLEND);
+			gGL.color3fv(cur_col.mV);
+			last_p.clear();
+
+			for (U32 i = 0; i < cur_calls.size(); ++i)
+			{
+				gGL.begin(LLRender::TRIANGLE_STRIP);
+				gGL.vertex3f(last_p.mV[0], 0.f, 0.f);
+				gGL.vertex3fv(last_p.mV);
+				last_p.set((F32) i / (F32) cur_calls.size(), (F32) cur_calls[i]/max_calls, 0.f);
+				gGL.vertex3f(last_p.mV[0], 0.f, 0.f);
+				gGL.vertex3fv(last_p.mV);
+				gGL.end();
+				
+			}
+			
+			gGL.flush();
+		}
+
+		saveChart(label, "calls", scratch);
+
+		//======================================
+		// execution
+		//======================================
+		buffer.clear();
+
+
+		gGL.color3fv(base_col.mV);
+		U32 count = 0;
+		U32 total_count = base_execution.size();
+
+		last_p.clear();
+
+		for (std::vector<LLSD::Real>::iterator iter = base_execution.begin(); iter != base_execution.end(); ++iter)
+		{
+			gGL.begin(LLRender::TRIANGLE_STRIP);
+			gGL.vertex3fv(last_p.mV);
+			gGL.vertex3f(last_p.mV[0], 0.f, 0.f);
+			last_p.set((F32)count/(F32)total_count, *iter/max_execution, 0.f);
+			gGL.vertex3fv(last_p.mV);
+			gGL.vertex3f(last_p.mV[0], 0.f, 0.f);
+			gGL.end();
+			count++;
+		}
+
+		last_p.clear();
+				
+		{
+			LLGLEnable blend(GL_BLEND);
+			gGL.color3fv(cur_col.mV);
+			count = 0;
+			total_count = cur_execution.size();
+
+			for (std::vector<LLSD::Real>::iterator iter = cur_execution.begin(); iter != cur_execution.end(); ++iter)
+			{
+				gGL.begin(LLRender::TRIANGLE_STRIP);
+				gGL.vertex3f(last_p.mV[0], 0.f, 0.f);
+				gGL.vertex3fv(last_p.mV);
+				last_p.set((F32)count/(F32)total_count, *iter/max_execution, 0.f);			
+				gGL.vertex3f(last_p.mV[0], 0.f, 0.f);
+				gGL.vertex3fv(last_p.mV);
+				gGL.end();
+				count++;
+			}
+
+			gGL.flush();
+		}
+
+		saveChart(label, "execution", scratch);
+	}
+
+	buffer.flush();
+
+	gGL.popMatrix();
+	glMatrixMode(GL_MODELVIEW);
+	gGL.popMatrix();
 }
 
 //static
@@ -975,6 +1355,10 @@ LLSD LLFastTimerView::analyzePerformanceLogDefault(std::istream& is)
 	LLSD::Real total_time = 0.0;
 	LLSD::Integer total_frames = 0;
 
+	typedef std::map<std::string,LLViewerStats::StatsAccumulator> stats_map_t;
+	stats_map_t time_stats;
+	stats_map_t sample_stats;
+
 	while (!is.eof() && LLSDSerialize::fromXML(cur, is))
 	{
 		for (LLSD::map_iterator iter = cur.beginMap(); iter != cur.endMap(); ++iter)
@@ -982,39 +1366,39 @@ LLSD LLFastTimerView::analyzePerformanceLogDefault(std::istream& is)
 			std::string label = iter->first;
 
 			F64 time = iter->second["Time"].asReal();
-			
-			total_time += time;
+
+			// Skip the total figure
+			if(label.compare("Total") != 0)
+			{
+				total_time += time;
+			}			
 
 			if (time > 0.0)
 			{
-				ret[label]["TotalTime"] = ret[label]["TotalTime"].asReal() + time;
-				ret[label]["MaxTime"] = llmax(time, ret[label]["MaxTime"].asReal());
-
-				if (ret[label]["MinTime"].asReal() == 0)
-				{
-					ret[label]["MinTime"] = time;
-				}
-				else
-				{
-					ret[label]["MinTime"] = llmin(ret[label]["MinTime"].asReal(), time);
-				}
-				
 				LLSD::Integer samples = iter->second["Calls"].asInteger();
 
-				ret[label]["Samples"] = ret[label]["Samples"].asInteger() + samples;
-				ret[label]["MaxSamples"] = llmax(ret[label]["MaxSamples"].asInteger(), samples);
-
-				if (ret[label]["MinSamples"].asInteger() == 0)
-				{
-					ret[label]["MinSamples"] = samples;
-				}
-				else
-				{
-					ret[label]["MinSamples"] = llmin(ret[label]["MinSamples"].asInteger(), samples);
-				}
+				time_stats[label].push(time);
+				sample_stats[label].push(samples);
 			}
 		}
 		total_frames++;
+	}
+
+	for(stats_map_t::iterator it = time_stats.begin(); it != time_stats.end(); ++it)
+	{
+		std::string label = it->first;
+		ret[label]["TotalTime"] = time_stats[label].mSum;
+		ret[label]["MeanTime"] = time_stats[label].getMean();
+		ret[label]["MaxTime"] = time_stats[label].getMaxValue();
+		ret[label]["MinTime"] = time_stats[label].getMinValue();
+		ret[label]["StdDevTime"] = time_stats[label].getStdDev();
+		
+		ret[label]["Samples"] = sample_stats[label].mSum;
+		ret[label]["MaxSamples"] = sample_stats[label].getMaxValue();
+		ret[label]["MinSamples"] = sample_stats[label].getMinValue();
+		ret[label]["StdDevSamples"] = sample_stats[label].getStdDev();
+
+		ret[label]["Frames"] = (LLSD::Integer)time_stats[label].getCount();
 	}
 		
 	ret["SessionTime"] = total_time;
@@ -1027,14 +1411,22 @@ LLSD LLFastTimerView::analyzePerformanceLogDefault(std::istream& is)
 //static
 void LLFastTimerView::doAnalysisDefault(std::string baseline, std::string target, std::string output)
 {
+	// Open baseline and current target, exit if one is inexistent
+	std::ifstream base_is(baseline.c_str());
+	std::ifstream target_is(target.c_str());
+	if (!base_is.is_open() || !target_is.is_open())
+	{
+		llwarns << "'-analyzeperformance' error : baseline or current target file inexistent" << llendl;
+		base_is.close();
+		target_is.close();
+		return;
+	}
 
 	//analyze baseline
-	std::ifstream base_is(baseline.c_str());
 	LLSD base = analyzePerformanceLogDefault(base_is);
 	base_is.close();
 
 	//analyze current
-	std::ifstream target_is(target.c_str());
 	LLSD current = analyzePerformanceLogDefault(target_is);
 	target_is.close();
 
@@ -1042,8 +1434,27 @@ void LLFastTimerView::doAnalysisDefault(std::string baseline, std::string target
 	std::ofstream os(output.c_str());
 
 	LLSD::Real session_time = current["SessionTime"].asReal();
-	
-	os << "Label, % Change, % of Session, Cur Min, Cur Max, Cur Mean, Cur Total, Cur Samples, Base Min, Base Max, Base Mean, Base Total, Base Samples\n"; 
+	os <<
+		"Label, "
+		"% Change, "
+		"% of Session, "
+		"Cur Min, "
+		"Cur Max, "
+		"Cur Mean/sample, "
+		"Cur Mean/frame, "
+		"Cur StdDev/frame, "
+		"Cur Total, "
+		"Cur Frames, "
+		"Cur Samples, "
+		"Base Min, "
+		"Base Max, "
+		"Base Mean/sample, "
+		"Base Mean/frame, "
+		"Base StdDev/frame, "
+		"Base Total, "
+		"Base Frames, "
+		"Base Samples\n"; 
+
 	for (LLSD::map_iterator iter = base.beginMap();  iter != base.endMap(); ++iter)
 	{
 		LLSD::String label = iter->first;
@@ -1055,94 +1466,53 @@ void LLFastTimerView::doAnalysisDefault(std::string baseline, std::string target
 			continue;
 		}	
 		LLSD::Real a = base[label]["TotalTime"].asReal() / base[label]["Samples"].asReal();
-		LLSD::Real b = current[label]["TotalTime"].asReal() / base[label]["Samples"].asReal();
+		LLSD::Real b = current[label]["TotalTime"].asReal() / current[label]["Samples"].asReal();
 			
 		LLSD::Real diff = b-a;
 
 		LLSD::Real perc = diff/a * 100;
 
-		os << llformat("%s, %.2f, %.4f, %.4f, %.4f, %.4f, %.4f, %d, %.4f, %.4f, %.4f, %.4f, %d\n",
+		os << llformat("%s, %.2f, %.4f, %.4f, %.4f, %.4f, %.4f, %.4f, %.4f, %d, %d, %.4f, %.4f, %.4f, %.4f, %.4f, %.4f, %d, %d\n",
 			label.c_str(), 
 			(F32) perc, 
 			(F32) (current[label]["TotalTime"].asReal()/session_time * 100.0), 
+
 			(F32) current[label]["MinTime"].asReal(), 
 			(F32) current[label]["MaxTime"].asReal(), 
 			(F32) b, 
+			(F32) current[label]["MeanTime"].asReal(), 
+			(F32) current[label]["StdDevTime"].asReal(),
 			(F32) current[label]["TotalTime"].asReal(), 
+			current[label]["Frames"].asInteger(),
 			current[label]["Samples"].asInteger(),
 			(F32) base[label]["MinTime"].asReal(), 
 			(F32) base[label]["MaxTime"].asReal(), 
 			(F32) a, 
+			(F32) base[label]["MeanTime"].asReal(), 
+			(F32) base[label]["StdDevTime"].asReal(),
 			(F32) base[label]["TotalTime"].asReal(), 
+			base[label]["Frames"].asInteger(),
 			base[label]["Samples"].asInteger());			
 	}
 
-	
+	exportCharts(baseline, target);
+
 	os.flush();
 	os.close();
 }
 
-//-------------------------
 //static
-LLSD LLFastTimerView::analyzeMetricPerformanceLog(std::istream& is)
+void LLFastTimerView::outputAllMetrics()
 {
-	LLSD ret;
-	LLSD cur;
-
-	while (!is.eof() && LLSDSerialize::fromXML(cur, is))
+	if (LLMetricPerformanceTesterBasic::hasMetricPerformanceTesters())
 	{
-		for (LLSD::map_iterator iter = cur.beginMap(); iter != cur.endMap(); ++iter)
+		for (LLMetricPerformanceTesterBasic::name_tester_map_t::iterator iter = LLMetricPerformanceTesterBasic::sTesterMap.begin(); 
+			iter != LLMetricPerformanceTesterBasic::sTesterMap.end(); ++iter)
 		{
-			std::string label = iter->first;
-
-			LLMetricPerformanceTester* tester = LLMetricPerformanceTester::getTester(iter->second["Name"].asString()) ;
-			if(tester)
-			{
-				ret[label]["Name"] = iter->second["Name"] ;
-
-				S32 num_of_strings = tester->getNumOfMetricStrings() ;
-				for(S32 index = 0 ; index < num_of_strings ; index++)
-				{
-					ret[label][ tester->getMetricString(index) ] = iter->second[ tester->getMetricString(index) ] ;
-				}
-			}
+			LLMetricPerformanceTesterBasic* tester = ((LLMetricPerformanceTesterBasic*)iter->second);	
+			tester->outputTestResults();
 		}
 	}
-		
-	return ret;
-}
-
-//static
-void LLFastTimerView::doAnalysisMetrics(std::string baseline, std::string target, std::string output)
-{
-	if(!LLMetricPerformanceTester::hasMetricPerformanceTesters())
-	{
-		return ;
-	}
-
-	//analyze baseline
-	std::ifstream base_is(baseline.c_str());
-	LLSD base = analyzeMetricPerformanceLog(base_is);
-	base_is.close();
-
-	//analyze current
-	std::ifstream target_is(target.c_str());
-	LLSD current = analyzeMetricPerformanceLog(target_is);
-	target_is.close();
-
-	//output comparision
-	std::ofstream os(output.c_str());
-	
-	os << "Label, Metric, Base(B), Target(T), Diff(T-B), Percentage(100*T/B)\n"; 
-	for(LLMetricPerformanceTester::name_tester_map_t::iterator iter = LLMetricPerformanceTester::sTesterMap.begin() ; 
-		iter != LLMetricPerformanceTester::sTesterMap.end() ; ++iter)
-	{
-		LLMetricPerformanceTester* tester = ((LLMetricPerformanceTester*)iter->second) ;	
-		tester->analyzePerformance(&os, &base, &current) ;
-	}
-	
-	os.flush();
-	os.close();
 }
 
 //static
@@ -1156,9 +1526,12 @@ void LLFastTimerView::doAnalysis(std::string baseline, std::string target, std::
 
 	if(LLFastTimer::sMetricLog)
 	{
-		doAnalysisMetrics(baseline, target, output) ;
+		LLMetricPerformanceTesterBasic::doAnalysisMetrics(baseline, target, output) ;
 		return ;
 	}
 }
-
+void	LLFastTimerView::onClickCloseBtn()
+{
+	setVisible(false);
+}
 

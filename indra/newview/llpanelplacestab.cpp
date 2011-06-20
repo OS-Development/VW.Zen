@@ -2,48 +2,56 @@
  * @file llpanelplacestab.cpp
  * @brief Tabs interface for Side Bar "Places" panel
  *
- * $LicenseInfo:firstyear=2009&license=viewergpl$
- * 
- * Copyright (c) 2004-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2009&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
 #include "llviewerprecompiledheaders.h"
 
+#include "llpanelplacestab.h"
+
+#include "llbutton.h"
+#include "llnotificationsutil.h"
+
 #include "llwindow.h"
 
-#include "llnotifications.h"
-
+#include "llpanelplaces.h"
 #include "llslurl.h"
-#include "llpanelplacestab.h"
 #include "llworldmap.h"
+
+std::string LLPanelPlacesTab::sFilterSubString = LLStringUtil::null;
+
+bool LLPanelPlacesTab::isTabVisible()
+{
+	LLUICtrl* parent = getParentUICtrl();
+	if (!parent) return false;
+	if (!parent->getVisible()) return false;
+	return true;
+}
 
 void LLPanelPlacesTab::setPanelPlacesButtons(LLPanelPlaces* panel)
 {
-	//mShareBtn = panel->getChild<LLButton>("share_btn");
 	mTeleportBtn = panel->getChild<LLButton>("teleport_btn");
 	mShowOnMapBtn = panel->getChild<LLButton>("map_btn");
+	mShowProfile = panel->getChild<LLButton>("profile_btn");
 }
 
 void LLPanelPlacesTab::onRegionResponse(const LLVector3d& landmark_global_pos,
@@ -58,10 +66,7 @@ void LLPanelPlacesTab::onRegionResponse(const LLVector3d& landmark_global_pos,
 	std::string sl_url;
 	if ( gotSimName )
 	{
-		F32 region_x = (F32)fmod( landmark_global_pos.mdV[VX], (F64)REGION_WIDTH_METERS );
-		F32 region_y = (F32)fmod( landmark_global_pos.mdV[VY], (F64)REGION_WIDTH_METERS );
-
-		sl_url = LLSLURL::buildSLURL(sim_name, llround(region_x), llround(region_y), llround((F32)landmark_global_pos.mdV[VZ]));
+		sl_url = LLSLURL(sim_name, landmark_global_pos).getSLURLString();
 	}
 	else
 	{
@@ -73,5 +78,5 @@ void LLPanelPlacesTab::onRegionResponse(const LLVector3d& landmark_global_pos,
 	LLSD args;
 	args["SLURL"] = sl_url;
 
-	LLNotifications::instance().add("CopySLURL", args);
+	LLNotificationsUtil::add("CopySLURL", args);
 }

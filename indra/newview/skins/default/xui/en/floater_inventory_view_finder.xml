@@ -1,14 +1,16 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  can_minimize="false"
  height="408"
  layout="topleft"
  name="Inventory Finder"
- title="inventory_recent_items"
+ help_topic="inventory_finder"
+ title="INVENTORY_RECENT_ITEMS"
  width="280">
     <icon
      height="16"
-     image_name="inv_item_animation.tga"
+     image_name="Inv_Animation"
      layout="topleft"
      left="8"
      mouse_opaque="true"
@@ -25,7 +27,7 @@
      width="126" />
     <icon
      height="16"
-     image_name="inv_item_callingcard_online.tga"
+     image_name="Inv_CallingCard"
      layout="topleft"
      left="8"
      mouse_opaque="true"
@@ -42,7 +44,7 @@
      width="126" />
     <icon
      height="16"
-     image_name="inv_item_shirt.tga"
+     image_name="Inv_Shirt"
      layout="topleft"
      left="8"
      mouse_opaque="true"
@@ -59,7 +61,7 @@
      width="126" />
     <icon
      height="16"
-     image_name="inv_item_gesture.tga"
+     image_name="Inv_Gesture"
      layout="topleft"
      left="8"
      mouse_opaque="true"
@@ -76,7 +78,7 @@
      width="126" />
     <icon
      height="16"
-     image_name="inv_item_landmark_visited.tga"
+     image_name="Inv_Landmark"
      layout="topleft"
      left="8"
      mouse_opaque="true"
@@ -93,7 +95,24 @@
      width="126" />
     <icon
      height="16"
-     image_name="inv_item_notecard.tga"
+     image_name="Inv_Mesh"
+     layout="topleft"
+     left="8"
+     mouse_opaque="true"
+     name="icon_mesh"
+     top="142"
+     width="16" />
+    <check_box
+     height="16"
+     label="Meshes"
+     layout="topleft"
+     left_pad="2"
+     name="check_mesh"
+     top_delta="0"
+     width="126" />
+    <icon
+     height="16"
+     image_name="Inv_Notecard"
      layout="topleft"
      left="8"
      mouse_opaque="true"
@@ -110,12 +129,12 @@
      width="126" />
     <icon
      height="16"
-     image_name="inv_item_object.tga"
+     image_name="Inv_Object"
      layout="topleft"
      left="8"
      mouse_opaque="true"
      name="icon_object"
-     top="142"
+     top="162"
      width="16" />
     <check_box
      height="16"
@@ -127,12 +146,12 @@
      width="126" />
     <icon
      height="16"
-     image_name="inv_item_script.tga"
+     image_name="Inv_Script"
      layout="topleft"
      left="8"
      mouse_opaque="true"
      name="icon_script"
-     top="162"
+     top="182"
      width="16" />
     <check_box
      height="16"
@@ -144,12 +163,12 @@
      width="126" />
     <icon
      height="16"
-     image_name="inv_item_sound.tga"
+     image_name="Inv_Sound"
      layout="topleft"
      left="8"
      mouse_opaque="true"
      name="icon_sound"
-     top="182"
+     top="202"
      width="16" />
     <check_box
      height="16"
@@ -161,12 +180,12 @@
      width="126" />
     <icon
      height="16"
-     image_name="inv_item_texture.tga"
+     image_name="Inv_Texture"
      layout="topleft"
      left="8"
      mouse_opaque="true"
      name="icon_texture"
-     top="202"
+     top="222"
      width="16" />
     <check_box
      height="16"
@@ -178,12 +197,12 @@
      width="126" />
     <icon
      height="16"
-     image_name="inv_item_snapshot.tga"
+     image_name="Inv_Snapshot"
      layout="topleft"
      left="8"
      mouse_opaque="true"
      name="icon_snapshot"
-     top="222"
+     top="242"
      width="16" />
     <check_box
      height="16"
@@ -201,7 +220,7 @@
      layout="topleft"
      left="8"
      name="All"
-     top="242"
+     top="262"
      width="100" />
     <button
      follows="left|top"

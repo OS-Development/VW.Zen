@@ -3,31 +3,25 @@
  * @author James Cook
  * @brief LLFloaterTelehub class implementation
  *
- * $LicenseInfo:firstyear=2005&license=viewergpl$
- * 
- * Copyright (c) 2005-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2005&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -39,6 +33,7 @@
 #include "llfontgl.h"
 
 #include "llagent.h"
+#include "llfloaterreg.h"
 #include "llfloatertools.h"
 #include "llscrolllistctrl.h"
 #include "llselectmgr.h"
@@ -48,59 +43,24 @@
 #include "llviewerobjectlist.h"
 #include "lluictrlfactory.h"
 
-LLFloaterTelehub* LLFloaterTelehub::sInstance = NULL;
-
-
-// static
-void LLFloaterTelehub::show()
-{
-	if (sInstance)
-	{
-		sInstance->setVisibleAndFrontmost();
-		return;
-	}
-
-	sInstance = new LLFloaterTelehub();
-
-	// Show tools floater by selecting translate (select) tool
-	LLToolMgr::getInstance()->setCurrentToolset(gBasicToolset);
-	LLToolMgr::getInstance()->getCurrentToolset()->selectTool( LLToolCompTranslate::getInstance() );
-
-	// Find tools floater, glue to bottom
-	if (gFloaterTools)
-	{
-		LLRect tools_rect = gFloaterTools->getRect();
-		S32 our_width = sInstance->getRect().getWidth();
-		S32 our_height = sInstance->getRect().getHeight();
-		LLRect our_rect;
-		our_rect.setLeftTopAndSize(tools_rect.mLeft, tools_rect.mBottom, our_width, our_height);
-		sInstance->setRect(our_rect);
-	}
-
-	sInstance->sendTelehubInfoRequest();
-}
-
-LLFloaterTelehub::LLFloaterTelehub()
-:	LLFloater(),
+LLFloaterTelehub::LLFloaterTelehub(const LLSD& key)
+:	LLFloater(key),
 	mTelehubObjectID(),
 	mTelehubObjectName(),
 	mTelehubPos(),
 	mTelehubRot(),
 	mNumSpawn(0)
 {
-	sInstance = this;
-
-	gMessageSystem->setHandlerFunc("TelehubInfo", processTelehubInfo);
-
-	LLUICtrlFactory::getInstance()->buildFloater(sInstance, "floater_telehub.xml");
 }
+
 BOOL LLFloaterTelehub::postBuild()
 {
+	gMessageSystem->setHandlerFunc("TelehubInfo", processTelehubInfo);
 
-	childSetAction("connect_btn", onClickConnect, this);
-	childSetAction("disconnect_btn", onClickDisconnect, this);
-	childSetAction("add_spawn_point_btn", onClickAddSpawnPoint, this);
-	childSetAction("remove_spawn_point_btn", onClickRemoveSpawnPoint, this);
+	getChild<LLUICtrl>("connect_btn")->setCommitCallback(boost::bind(&LLFloaterTelehub::onClickConnect, this));
+	getChild<LLUICtrl>("disconnect_btn")->setCommitCallback(boost::bind(&LLFloaterTelehub::onClickDisconnect, this));
+	getChild<LLUICtrl>("add_spawn_point_btn")->setCommitCallback(boost::bind(&LLFloaterTelehub::onClickAddSpawnPoint, this));
+	getChild<LLUICtrl>("remove_spawn_point_btn")->setCommitCallback(boost::bind(&LLFloaterTelehub::onClickRemoveSpawnPoint, this));
 
 	LLScrollListCtrl* list = getChild<LLScrollListCtrl>("spawn_points_list");
 	if (list)
@@ -113,12 +73,17 @@ BOOL LLFloaterTelehub::postBuild()
 }
 void LLFloaterTelehub::onOpen(const LLSD& key)
 {
+	// Show tools floater by selecting translate (select) tool
+	LLToolMgr::getInstance()->setCurrentToolset(gBasicToolset);
+	LLToolMgr::getInstance()->getCurrentToolset()->selectTool( LLToolCompTranslate::getInstance() );
+
+	sendTelehubInfoRequest();
+	
 	mObjectSelection = LLSelectMgr::getInstance()->getEditSelection();
 }
+
 LLFloaterTelehub::~LLFloaterTelehub()
 {
-	sInstance = NULL;
-
 	// no longer interested in this message
 	gMessageSystem->setHandlerFunc("TelehubInfo", NULL);
 }
@@ -140,19 +105,19 @@ void LLFloaterTelehub::refresh()
 	
 	BOOL have_selection = (object != NULL);
 	BOOL all_volume = LLSelectMgr::getInstance()->selectionAllPCode( LL_PCODE_VOLUME );
-	childSetEnabled("connect_btn", have_selection && all_volume);
+	getChildView("connect_btn")->setEnabled(have_selection && all_volume);
 
 	BOOL have_telehub = mTelehubObjectID.notNull();
-	childSetEnabled("disconnect_btn", have_telehub);
+	getChildView("disconnect_btn")->setEnabled(have_telehub);
 
 	BOOL space_avail = (mNumSpawn < MAX_SPAWNPOINTS_PER_TELEHUB);
-	childSetEnabled("add_spawn_point_btn", have_selection && all_volume && space_avail);
+	getChildView("add_spawn_point_btn")->setEnabled(have_selection && all_volume && space_avail);
 
 	LLScrollListCtrl* list = getChild<LLScrollListCtrl>("spawn_points_list");
 	if (list)
 	{
 		BOOL enable_remove = (list->getFirstSelected() != NULL);
-		childSetEnabled("remove_spawn_point_btn", enable_remove);
+		getChildView("remove_spawn_point_btn")->setEnabled(enable_remove);
 	}
 }
 
@@ -160,19 +125,22 @@ void LLFloaterTelehub::refresh()
 BOOL LLFloaterTelehub::renderBeacons()
 {
 	// only render if we've got a telehub
-	return sInstance && sInstance->mTelehubObjectID.notNull();
+	LLFloaterTelehub* floater = LLFloaterReg::findTypedInstance<LLFloaterTelehub>("telehubs");
+	return floater && floater->mTelehubObjectID.notNull();
 }
 
 // static
 void LLFloaterTelehub::addBeacons()
 {
-	if (!sInstance) return;
-
+	LLFloaterTelehub* floater = LLFloaterReg::findTypedInstance<LLFloaterTelehub>("telehubs");
+	if (!floater)
+		return;
+	
 	// Find the telehub position, either our cached old position, or
 	// an updated one based on the actual object position.
-	LLVector3 hub_pos_region = sInstance->mTelehubPos;
-	LLQuaternion hub_rot = sInstance->mTelehubRot;
-	LLViewerObject* obj = gObjectList.findObject(sInstance->mTelehubObjectID);
+	LLVector3 hub_pos_region = floater->mTelehubPos;
+	LLQuaternion hub_rot = floater->mTelehubRot;
+	LLViewerObject* obj = gObjectList.findObject(floater->mTelehubObjectID);
 	if (obj)
 	{
 		hub_pos_region = obj->getPositionRegion();
@@ -181,13 +149,13 @@ void LLFloaterTelehub::addBeacons()
 	// Draw nice thick 3-pixel lines.
 	gObjectList.addDebugBeacon(hub_pos_region, "", LLColor4::yellow, LLColor4::white, 4);
 
-	LLScrollListCtrl* list = sInstance->getChild<LLScrollListCtrl>("spawn_points_list");
+	LLScrollListCtrl* list = floater->getChild<LLScrollListCtrl>("spawn_points_list");
 	if (list)
 	{
 		S32 spawn_index = list->getFirstSelectedIndex();
 		if (spawn_index >= 0)
 		{
-			LLVector3 spawn_pos = hub_pos_region  + (sInstance->mSpawnPointPos[spawn_index] * hub_rot);
+			LLVector3 spawn_pos = hub_pos_region  + (floater->mSpawnPointPos[spawn_index] * hub_rot);
 			gObjectList.addDebugBeacon(spawn_pos, "", LLColor4::orange, LLColor4::white, 4);
 		}
 	}
@@ -198,32 +166,27 @@ void LLFloaterTelehub::sendTelehubInfoRequest()
 	LLSelectMgr::getInstance()->sendGodlikeRequest("telehub", "info ui");
 }
 
-// static 
-void LLFloaterTelehub::onClickConnect(void* data)
+void LLFloaterTelehub::onClickConnect()
 {
 	LLSelectMgr::getInstance()->sendGodlikeRequest("telehub", "connect");
 }
 
-// static 
-void LLFloaterTelehub::onClickDisconnect(void* data)
+void LLFloaterTelehub::onClickDisconnect()
 {
 	LLSelectMgr::getInstance()->sendGodlikeRequest("telehub", "delete");
 }
 
-// static 
-void LLFloaterTelehub::onClickAddSpawnPoint(void* data)
+void LLFloaterTelehub::onClickAddSpawnPoint()
 {
 	LLSelectMgr::getInstance()->sendGodlikeRequest("telehub", "spawnpoint add");
 	LLSelectMgr::getInstance()->deselectAll();
 }
 
-// static 
-void LLFloaterTelehub::onClickRemoveSpawnPoint(void* data)
+void LLFloaterTelehub::onClickRemoveSpawnPoint()
 {
-	if (!sInstance) return;
-
-	LLScrollListCtrl* list = sInstance->getChild<LLScrollListCtrl>("spawn_points_list");
-	if (!list) return;
+	LLScrollListCtrl* list = getChild<LLScrollListCtrl>("spawn_points_list");
+	if (!list)
+		return;
 
 	S32 spawn_index = list->getFirstSelectedIndex();
 	if (spawn_index < 0) return;  // nothing selected
@@ -261,9 +224,10 @@ void LLFloaterTelehub::onClickRemoveSpawnPoint(void* data)
 // static 
 void LLFloaterTelehub::processTelehubInfo(LLMessageSystem* msg, void**)
 {
-	if (sInstance)
+	LLFloaterTelehub* floater = LLFloaterReg::findTypedInstance<LLFloaterTelehub>("telehubs");
+	if (floater)
 	{
-		sInstance->unpackTelehubInfo(msg);
+		floater->unpackTelehubInfo(msg);
 	}
 }
 
@@ -284,18 +248,18 @@ void LLFloaterTelehub::unpackTelehubInfo(LLMessageSystem* msg)
 
 	if (mTelehubObjectID.isNull())
 	{
-		childSetVisible("status_text_connected", false);
-		childSetVisible("status_text_not_connected", true);
-		childSetVisible("help_text_connected", false);
-		childSetVisible("help_text_not_connected", true);
+		getChildView("status_text_connected")->setVisible( false);
+		getChildView("status_text_not_connected")->setVisible( true);
+		getChildView("help_text_connected")->setVisible( false);
+		getChildView("help_text_not_connected")->setVisible( true);
 	}
 	else
 	{
-		childSetTextArg("status_text_connected", "[OBJECT]", mTelehubObjectName);
-		childSetVisible("status_text_connected", true);
-		childSetVisible("status_text_not_connected", false);
-		childSetVisible("help_text_connected", true);
-		childSetVisible("help_text_not_connected", false);
+		getChild<LLUICtrl>("status_text_connected")->setTextArg("[OBJECT]", mTelehubObjectName);
+		getChildView("status_text_connected")->setVisible( true);
+		getChildView("status_text_not_connected")->setVisible( false);
+		getChildView("help_text_connected")->setVisible( true);
+		getChildView("help_text_not_connected")->setVisible( false);
 	}
 
 	LLScrollListCtrl* list = getChild<LLScrollListCtrl>("spawn_points_list");

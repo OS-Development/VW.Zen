@@ -2,31 +2,25 @@
  * @file llscrollcontainer.h
  * @brief LLScrollContainer class header file.
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -53,6 +47,10 @@ class LLUICtrlFactory;
  * the width and height of the view you're scrolling.
  *
  *****************************************************************************/
+
+struct ScrollContainerRegistry : public LLChildRegistry<ScrollContainerRegistry>
+{};
+
 class LLScrollContainer : public LLUICtrl
 {
 public:
@@ -62,15 +60,20 @@ public:
 
 	struct Params : public LLInitParam::Block<Params, LLUICtrl::Params>
 	{
-		Optional<bool>		is_opaque;
+		Optional<bool>		is_opaque,
+							reserve_scroll_corner,
+							border_visible,
+							hide_scrollbar;
+		Optional<F32>		min_auto_scroll_rate,
+							max_auto_scroll_rate;
 		Optional<LLUIColor>	bg_color;
-		Optional<bool>		reserve_scroll_corner;
+		Optional<LLScrollbar::callback_t> scroll_callback;
 		
 		Params();
 	};
 
 	// my valid children are stored in this registry
-	typedef LLDefaultChildRegistry child_registry_t;
+ 	typedef ScrollContainerRegistry child_registry_t;
 
 protected:
 	LLScrollContainer(const Params&);
@@ -80,20 +83,22 @@ public:
 
 	virtual void 	setValue(const LLSD& value) { mInnerRect.setValue(value); }
 
-	void			calcVisibleSize( S32 *visible_width, S32 *visible_height, BOOL* show_h_scrollbar, BOOL* show_v_scrollbar ) const;
-	void			calcVisibleSize( const LLRect& doc_rect, S32 *visible_width, S32 *visible_height, BOOL* show_h_scrollbar, BOOL* show_v_scrollbar ) const;
 	void			setBorderVisible( BOOL b );
 
-	void			scrollToShowRect( const LLRect& rect, const LLCoordGL& desired_offset );
+	void			scrollToShowRect( const LLRect& rect, const LLRect& constraint);
+	void			scrollToShowRect( const LLRect& rect) { scrollToShowRect(rect, LLRect(0, mInnerRect.getHeight(), mInnerRect.getWidth(), 0)); }
+
 	void			setReserveScrollCorner( BOOL b ) { mReserveScrollCorner = b; }
-	const LLRect&	getScrolledViewRect() const { return mScrolledView->getRect(); }
+	LLRect			getVisibleContentRect();
+	LLRect			getContentWindowRect();
+	const LLRect&	getScrolledViewRect() const { return mScrolledView ? mScrolledView->getRect() : LLRect::null; }
 	void			pageUp(S32 overlap = 0);
 	void			pageDown(S32 overlap = 0);
 	void			goToTop();
 	void			goToBottom();
+	bool			isAtTop() { return mScrollbar[VERTICAL]->isAtBeginning(); }
+	bool			isAtBottom() { return mScrollbar[VERTICAL]->isAtEnd(); }
 	S32				getBorderWidth() const;
-
-	BOOL			needsToScroll(S32 x, S32 y, SCROLL_ORIENTATION axis) const;
 
 	// LLView functionality
 	virtual void	reshape(S32 width, S32 height, BOOL called_from_parent = TRUE);
@@ -107,12 +112,15 @@ public:
 
 	virtual void	draw();
 	virtual bool	addChild(LLView* view, S32 tab_group = 0);
+	
+	bool autoScroll(S32 x, S32 y);
 
 private:
 	// internal scrollbar handlers
 	virtual void scrollHorizontal( S32 new_pos );
 	virtual void scrollVertical( S32 new_pos );
 	void updateScroll();
+	void calcVisibleSize( S32 *visible_width, S32 *visible_height, BOOL* show_h_scrollbar, BOOL* show_v_scrollbar ) const;
 
 	LLScrollbar* mScrollbar[SCROLLBAR_COUNT];
 	LLView*		mScrolledView;
@@ -124,6 +132,9 @@ private:
 	BOOL		mReserveScrollCorner;
 	BOOL		mAutoScrolling;
 	F32			mAutoScrollRate;
+	F32			mMinAutoScrollRate;
+	F32			mMaxAutoScrollRate;
+	bool		mHideScrollbar;
 };
 
 

@@ -2,31 +2,25 @@
  * @file llui.cpp
  * @brief UI implementation
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -38,13 +32,13 @@
 #include <map>
 
 // Linden library includes
-#include "audioengine.h"
 #include "v2math.h"
+#include "m3math.h"
 #include "v4color.h"
 #include "llrender.h"
 #include "llrect.h"
 #include "lldir.h"
-#include "llfontgl.h"
+#include "llgl.h"
 
 // Project includes
 #include "llcontrol.h"
@@ -55,23 +49,25 @@
 #include "llfloater.h"
 #include "llfloaterreg.h"
 #include "llmenugl.h"
+#include "llmenubutton.h"
+#include "llloadingindicator.h"
 #include "llwindow.h"
 
 // for registration
-#include "llsearcheditor.h"
+#include "llfiltereditor.h"
 #include "llflyoutbutton.h"
+#include "llsearcheditor.h"
 
 // for XUIParse
 #include "llquaternion.h"
 #include <boost/tokenizer.hpp>
+#include <boost/algorithm/string/find_iterator.hpp>
+#include <boost/algorithm/string/finder.hpp>
 
 //
 // Globals
 //
 const LLColor4 UI_VERTEX_COLOR(1.f, 1.f, 1.f, 1.f);
-
-// Used to hide the flashing text cursor when window doesn't have focus.
-BOOL gShowTextEditCursor = TRUE;
 
 // Language for UI construction
 std::map<std::string, std::string> gTranslation;
@@ -81,16 +77,23 @@ std::list<std::string> gUntranslated;
 /*static*/ LLUIAudioCallback LLUI::sAudioCallback = NULL;
 /*static*/ LLVector2		LLUI::sGLScaleFactor(1.f, 1.f);
 /*static*/ LLWindow*		LLUI::sWindow = NULL;
-/*static*/ LLHtmlHelp*		LLUI::sHtmlHelp = NULL;
 /*static*/ LLView*			LLUI::sRootView = NULL;
-/*static*/ BOOL            LLUI::sShowXUINames = FALSE;
-/*static*/ std::stack<LLRect> LLScreenClipRect::sClipRectStack;
-
+/*static*/ BOOL                         LLUI::sDirty = FALSE;
+/*static*/ LLRect                       LLUI::sDirtyRect;
+/*static*/ LLHelp*			LLUI::sHelpImpl = NULL;
 /*static*/ std::vector<std::string> LLUI::sXUIPaths;
+/*static*/ LLFrameTimer		LLUI::sMouseIdleTimer;
+/*static*/ LLUI::add_popup_t	LLUI::sAddPopupFunc;
+/*static*/ LLUI::remove_popup_t	LLUI::sRemovePopupFunc;
+/*static*/ LLUI::clear_popups_t	LLUI::sClearPopupsFunc;
 
-// register searcheditor here
-static LLDefaultChildRegistry::Register<LLSearchEditor> register_search_editor("search_editor");
+// register filtereditor here
+static LLDefaultChildRegistry::Register<LLFilterEditor> register_filter_editor("filter_editor");
 static LLDefaultChildRegistry::Register<LLFlyoutButton> register_flyout_button("flyout_button");
+static LLDefaultChildRegistry::Register<LLSearchEditor> register_search_editor("search_editor");
+
+// register other widgets which otherwise may not be linked in
+static LLDefaultChildRegistry::Register<LLLoadingIndicator> register_loading_indicator("loading_indicator");
 
 
 //
@@ -180,19 +183,19 @@ void gl_rect_2d_offset_local( S32 left, S32 top, S32 right, S32 bottom, const LL
 
 void gl_rect_2d_offset_local( S32 left, S32 top, S32 right, S32 bottom, S32 pixel_offset, BOOL filled)
 {
-	gGL.pushMatrix();
+	gGL.pushUIMatrix();
 	left += LLFontGL::sCurOrigin.mX;
 	right += LLFontGL::sCurOrigin.mX;
 	bottom += LLFontGL::sCurOrigin.mY;
 	top += LLFontGL::sCurOrigin.mY;
 
-	glLoadIdentity();
+	gGL.loadUIIdentity();
 	gl_rect_2d(llfloor((F32)left * LLUI::sGLScaleFactor.mV[VX]) - pixel_offset,
 				llfloor((F32)top * LLUI::sGLScaleFactor.mV[VY]) + pixel_offset,
 				llfloor((F32)right * LLUI::sGLScaleFactor.mV[VX]) + pixel_offset,
 				llfloor((F32)bottom * LLUI::sGLScaleFactor.mV[VY]) - pixel_offset,
 				filled);
-	gGL.popMatrix();
+	gGL.popUIMatrix();
 }
 
 
@@ -203,7 +206,7 @@ void gl_rect_2d(S32 left, S32 top, S32 right, S32 bottom, BOOL filled )
 
 	// Counterclockwise quad will face the viewer
 	if( filled )
-	{
+	{ 
 		gGL.begin( LLRender::QUADS );
 			gGL.vertex2i(left, top);
 			gGL.vertex2i(left, bottom);
@@ -459,7 +462,7 @@ void gl_draw_scaled_image_with_border(S32 x, S32 y, S32 border_width, S32 border
 	gl_draw_scaled_image_with_border(x, y, width, height, image, color, solid_color, uv_rect, scale_rect);
 }
 
-void gl_draw_scaled_image_with_border(S32 x, S32 y, S32 width, S32 height, LLTexture* image, const LLColor4& color, BOOL solid_color, const LLRectf& uv_rect, const LLRectf& scale_rect)
+void gl_draw_scaled_image_with_border(S32 x, S32 y, S32 width, S32 height, LLTexture* image, const LLColor4& color, BOOL solid_color, const LLRectf& uv_outer_rect, const LLRectf& center_rect)
 {
 	stop_glerror();
 
@@ -469,36 +472,53 @@ void gl_draw_scaled_image_with_border(S32 x, S32 y, S32 width, S32 height, LLTex
 		return;
 	}
 
+	// add in offset of current image to current ui translation
+	const LLVector3 ui_scale = gGL.getUIScale();
+	const LLVector3 ui_translation = (gGL.getUITranslation() + LLVector3(x, y, 0.f)).scaledVec(ui_scale);
+
+	F32 uv_width = uv_outer_rect.getWidth();
+	F32 uv_height = uv_outer_rect.getHeight();
+
 	// shrink scaling region to be proportional to clipped image region
-	LLRectf scale_rect_uv(
-		uv_rect.mLeft + (scale_rect.mLeft * uv_rect.getWidth()),
-		uv_rect.mBottom + (scale_rect.mTop * uv_rect.getHeight()),
-		uv_rect.mLeft + (scale_rect.mRight * uv_rect.getWidth()),
-		uv_rect.mBottom + (scale_rect.mBottom * uv_rect.getHeight()));
+	LLRectf uv_center_rect(
+		uv_outer_rect.mLeft + (center_rect.mLeft * uv_width),
+		uv_outer_rect.mBottom + (center_rect.mTop * uv_height),
+		uv_outer_rect.mLeft + (center_rect.mRight * uv_width),
+		uv_outer_rect.mBottom + (center_rect.mBottom * uv_height));
 
-	S32 image_natural_width = llround((F32)image->getWidth(0) * uv_rect.getWidth());
-	S32 image_natural_height = llround((F32)image->getHeight(0) * uv_rect.getHeight());
+	F32 image_width = image->getWidth(0);
+	F32 image_height = image->getHeight(0);
 
-	LLRect draw_rect(0, height, width, 0);
-	LLRect draw_scale_rect(llround(scale_rect_uv.mLeft * (F32)image->getWidth(0)),
-						llround(scale_rect_uv.mTop * (F32)image->getHeight(0)),
-						llround(scale_rect_uv.mRight * (F32)image->getWidth(0)),
-						llround(scale_rect_uv.mBottom * (F32)image->getHeight(0)));
-	// scale fixed region of image to drawn region
-	draw_scale_rect.mRight += width - image_natural_width;
-	draw_scale_rect.mTop += height - image_natural_height;
+	S32 image_natural_width = llround(image_width * uv_width);
+	S32 image_natural_height = llround(image_height * uv_height);
 
-	S32 border_shrink_width = llmax(0, draw_scale_rect.mLeft - draw_scale_rect.mRight);
-	S32 border_shrink_height = llmax(0, draw_scale_rect.mBottom - draw_scale_rect.mTop);
+	LLRectf draw_center_rect(	uv_center_rect.mLeft * image_width,
+								uv_center_rect.mTop * image_height,
+								uv_center_rect.mRight * image_width,
+								uv_center_rect.mBottom * image_height);
 
-	F32 shrink_width_ratio = scale_rect.getWidth() == 1.f ? 0.f : border_shrink_width / ((F32)image_natural_width * (1.f - scale_rect.getWidth()));
-	F32 shrink_height_ratio = scale_rect.getHeight() == 1.f ? 0.f : border_shrink_height / ((F32)image_natural_height * (1.f - scale_rect.getHeight()));
+	{	// scale fixed region of image to drawn region
+		draw_center_rect.mRight += width - image_natural_width;
+		draw_center_rect.mTop += height - image_natural_height;
 
-	F32 shrink_scale = 1.f - llmax(shrink_width_ratio, shrink_height_ratio);
-	draw_scale_rect.mLeft = llround((F32)draw_scale_rect.mLeft * shrink_scale);
-	draw_scale_rect.mTop = llround(lerp((F32)height, (F32)draw_scale_rect.mTop, shrink_scale));
-	draw_scale_rect.mRight = llround(lerp((F32)width, (F32)draw_scale_rect.mRight, shrink_scale));
-	draw_scale_rect.mBottom = llround((F32)draw_scale_rect.mBottom * shrink_scale);
+		F32 border_shrink_width = llmax(0.f, draw_center_rect.mLeft - draw_center_rect.mRight);
+		F32 border_shrink_height = llmax(0.f, draw_center_rect.mBottom - draw_center_rect.mTop);
+
+		F32 shrink_width_ratio = center_rect.getWidth() == 1.f ? 0.f : border_shrink_width / ((F32)image_natural_width * (1.f - center_rect.getWidth()));
+		F32 shrink_height_ratio = center_rect.getHeight() == 1.f ? 0.f : border_shrink_height / ((F32)image_natural_height * (1.f - center_rect.getHeight()));
+
+		F32 shrink_scale = 1.f - llmax(shrink_width_ratio, shrink_height_ratio);
+
+		draw_center_rect.mLeft = llround(ui_translation.mV[VX] + (F32)draw_center_rect.mLeft * shrink_scale * ui_scale.mV[VX]);
+		draw_center_rect.mTop = llround(ui_translation.mV[VY] + lerp((F32)height, (F32)draw_center_rect.mTop, shrink_scale) * ui_scale.mV[VY]);
+		draw_center_rect.mRight = llround(ui_translation.mV[VX] + lerp((F32)width, (F32)draw_center_rect.mRight, shrink_scale) * ui_scale.mV[VX]);
+		draw_center_rect.mBottom = llround(ui_translation.mV[VY] + (F32)draw_center_rect.mBottom * shrink_scale * ui_scale.mV[VY]);
+	}
+
+	LLRectf draw_outer_rect(ui_translation.mV[VX], 
+							ui_translation.mV[VY] + height * ui_scale.mV[VY], 
+							ui_translation.mV[VX] + width * ui_scale.mV[VX], 
+							ui_translation.mV[VY]);
 
 	LLGLSUIDefault gls_ui;
 	
@@ -508,136 +528,174 @@ void gl_draw_scaled_image_with_border(S32 x, S32 y, S32 width, S32 height, LLTex
 		gGL.getTexUnit(0)->setTextureAlphaBlend(LLTexUnit::TBO_MULT, LLTexUnit::TBS_TEX_ALPHA, LLTexUnit::TBS_VERT_ALPHA);
 	}
 
-	gGL.pushMatrix();
+	gGL.getTexUnit(0)->bind(image);
+
+	gGL.color4fv(color.mV);
+	
+	const S32 NUM_VERTICES = 9 * 4; // 9 quads
+	LLVector2 uv[NUM_VERTICES];
+	LLVector3 pos[NUM_VERTICES];
+
+	S32 index = 0;
+
+	gGL.begin(LLRender::QUADS);
 	{
-		gGL.translatef((F32)x, (F32)y, 0.f);
+		// draw bottom left
+		uv[index] = LLVector2(uv_outer_rect.mLeft, uv_outer_rect.mBottom);
+		pos[index] = LLVector3(draw_outer_rect.mLeft, draw_outer_rect.mBottom, 0.f);
+		index++;
 
-		gGL.getTexUnit(0)->bind(image);
+		uv[index] = LLVector2(uv_center_rect.mLeft, uv_outer_rect.mBottom);
+		pos[index] = LLVector3(draw_center_rect.mLeft, draw_outer_rect.mBottom, 0.f);
+		index++;
 
-		gGL.color4fv(color.mV);
-		
-		gGL.begin(LLRender::QUADS);
-		{
-			// draw bottom left
-			gGL.texCoord2f(uv_rect.mLeft, uv_rect.mBottom);
-			gGL.vertex2i(0, 0);
+		uv[index] = LLVector2(uv_center_rect.mLeft, uv_center_rect.mBottom);
+		pos[index] = LLVector3(draw_center_rect.mLeft, draw_center_rect.mBottom, 0.f);
+		index++;
 
-			gGL.texCoord2f(scale_rect_uv.mLeft, uv_rect.mBottom);
-			gGL.vertex2i(draw_scale_rect.mLeft, 0);
+		uv[index] = LLVector2(uv_outer_rect.mLeft, uv_center_rect.mBottom);
+		pos[index] = LLVector3(draw_outer_rect.mLeft, draw_center_rect.mBottom, 0.f);
+		index++;
 
-			gGL.texCoord2f(scale_rect_uv.mLeft, scale_rect_uv.mBottom);
-			gGL.vertex2i(draw_scale_rect.mLeft, draw_scale_rect.mBottom);
+		// draw bottom middle
+		uv[index] = LLVector2(uv_center_rect.mLeft, uv_outer_rect.mBottom);
+		pos[index] = LLVector3(draw_center_rect.mLeft, draw_outer_rect.mBottom, 0.f);
+		index++;
 
-			gGL.texCoord2f(uv_rect.mLeft, scale_rect_uv.mBottom);
-			gGL.vertex2i(0, draw_scale_rect.mBottom);
+		uv[index] = LLVector2(uv_center_rect.mRight, uv_outer_rect.mBottom);
+		pos[index] = LLVector3(draw_center_rect.mRight, draw_outer_rect.mBottom, 0.f);
+		index++;
 
-			// draw bottom middle
-			gGL.texCoord2f(scale_rect_uv.mLeft, uv_rect.mBottom);
-			gGL.vertex2i(draw_scale_rect.mLeft, 0);
+		uv[index] = LLVector2(uv_center_rect.mRight, uv_center_rect.mBottom);
+		pos[index] = LLVector3(draw_center_rect.mRight, draw_center_rect.mBottom, 0.f);
+		index++;
 
-			gGL.texCoord2f(scale_rect_uv.mRight, uv_rect.mBottom);
-			gGL.vertex2i(draw_scale_rect.mRight, 0);
+		uv[index] = LLVector2(uv_center_rect.mLeft, uv_center_rect.mBottom);
+		pos[index] = LLVector3(draw_center_rect.mLeft, draw_center_rect.mBottom, 0.f);
+		index++;
 
-			gGL.texCoord2f(scale_rect_uv.mRight, scale_rect_uv.mBottom);
-			gGL.vertex2i(draw_scale_rect.mRight, draw_scale_rect.mBottom);
+		// draw bottom right
+		uv[index] = LLVector2(uv_center_rect.mRight, uv_outer_rect.mBottom);
+		pos[index] = LLVector3(draw_center_rect.mRight, draw_outer_rect.mBottom, 0.f);
+		index++;
 
-			gGL.texCoord2f(scale_rect_uv.mLeft, scale_rect_uv.mBottom);
-			gGL.vertex2i(draw_scale_rect.mLeft, draw_scale_rect.mBottom);
+		uv[index] = LLVector2(uv_outer_rect.mRight, uv_outer_rect.mBottom);
+		pos[index] = LLVector3(draw_outer_rect.mRight, draw_outer_rect.mBottom, 0.f);
+		index++;
 
-			// draw bottom right
-			gGL.texCoord2f(scale_rect_uv.mRight, uv_rect.mBottom);
-			gGL.vertex2i(draw_scale_rect.mRight, 0);
+		uv[index] = LLVector2(uv_outer_rect.mRight, uv_center_rect.mBottom);
+		pos[index] = LLVector3(draw_outer_rect.mRight, draw_center_rect.mBottom, 0.f);
+		index++;
 
-			gGL.texCoord2f(uv_rect.mRight, uv_rect.mBottom);
-			gGL.vertex2i(width, 0);
+		uv[index] = LLVector2(uv_center_rect.mRight, uv_center_rect.mBottom);
+		pos[index] = LLVector3(draw_center_rect.mRight, draw_center_rect.mBottom, 0.f);
+		index++;
 
-			gGL.texCoord2f(uv_rect.mRight, scale_rect_uv.mBottom);
-			gGL.vertex2i(width, draw_scale_rect.mBottom);
+		// draw left 
+		uv[index] = LLVector2(uv_outer_rect.mLeft, uv_center_rect.mBottom);
+		pos[index] = LLVector3(draw_outer_rect.mLeft, draw_center_rect.mBottom, 0.f);
+		index++;
 
-			gGL.texCoord2f(scale_rect_uv.mRight, scale_rect_uv.mBottom);
-			gGL.vertex2i(draw_scale_rect.mRight, draw_scale_rect.mBottom);
+		uv[index] = LLVector2(uv_center_rect.mLeft, uv_center_rect.mBottom);
+		pos[index] = LLVector3(draw_center_rect.mLeft, draw_center_rect.mBottom, 0.f);
+		index++;
 
-			// draw left 
-			gGL.texCoord2f(uv_rect.mLeft, scale_rect_uv.mBottom);
-			gGL.vertex2i(0, draw_scale_rect.mBottom);
+		uv[index] = LLVector2(uv_center_rect.mLeft, uv_center_rect.mTop);
+		pos[index] = LLVector3(draw_center_rect.mLeft, draw_center_rect.mTop, 0.f);
+		index++;
 
-			gGL.texCoord2f(scale_rect_uv.mLeft, scale_rect_uv.mBottom);
-			gGL.vertex2i(draw_scale_rect.mLeft, draw_scale_rect.mBottom);
+		uv[index] = LLVector2(uv_outer_rect.mLeft, uv_center_rect.mTop);
+		pos[index] = LLVector3(draw_outer_rect.mLeft, draw_center_rect.mTop, 0.f);
+		index++;
 
-			gGL.texCoord2f(scale_rect_uv.mLeft, scale_rect_uv.mTop);
-			gGL.vertex2i(draw_scale_rect.mLeft, draw_scale_rect.mTop);
+		// draw middle
+		uv[index] = LLVector2(uv_center_rect.mLeft, uv_center_rect.mBottom);
+		pos[index] = LLVector3(draw_center_rect.mLeft, draw_center_rect.mBottom, 0.f);
+		index++;
 
-			gGL.texCoord2f(uv_rect.mLeft, scale_rect_uv.mTop);
-			gGL.vertex2i(0, draw_scale_rect.mTop);
+		uv[index] = LLVector2(uv_center_rect.mRight, uv_center_rect.mBottom);
+		pos[index] = LLVector3(draw_center_rect.mRight, draw_center_rect.mBottom, 0.f);
+		index++;
 
-			// draw middle
-			gGL.texCoord2f(scale_rect_uv.mLeft, scale_rect_uv.mBottom);
-			gGL.vertex2i(draw_scale_rect.mLeft, draw_scale_rect.mBottom);
+		uv[index] = LLVector2(uv_center_rect.mRight, uv_center_rect.mTop);
+		pos[index] = LLVector3(draw_center_rect.mRight, draw_center_rect.mTop, 0.f);
+		index++;
 
-			gGL.texCoord2f(scale_rect_uv.mRight, scale_rect_uv.mBottom);
-			gGL.vertex2i(draw_scale_rect.mRight, draw_scale_rect.mBottom);
+		uv[index] = LLVector2(uv_center_rect.mLeft, uv_center_rect.mTop);
+		pos[index] = LLVector3(draw_center_rect.mLeft, draw_center_rect.mTop, 0.f);
+		index++;
 
-			gGL.texCoord2f(scale_rect_uv.mRight, scale_rect_uv.mTop);
-			gGL.vertex2i(draw_scale_rect.mRight, draw_scale_rect.mTop);
+		// draw right 
+		uv[index] = LLVector2(uv_center_rect.mRight, uv_center_rect.mBottom);
+		pos[index] = LLVector3(draw_center_rect.mRight, draw_center_rect.mBottom, 0.f);
+		index++;
 
-			gGL.texCoord2f(scale_rect_uv.mLeft, scale_rect_uv.mTop);
-			gGL.vertex2i(draw_scale_rect.mLeft, draw_scale_rect.mTop);
+		uv[index] = LLVector2(uv_outer_rect.mRight, uv_center_rect.mBottom);
+		pos[index] = LLVector3(draw_outer_rect.mRight, draw_center_rect.mBottom, 0.f);
+		index++;
 
-			// draw right 
-			gGL.texCoord2f(scale_rect_uv.mRight, scale_rect_uv.mBottom);
-			gGL.vertex2i(draw_scale_rect.mRight, draw_scale_rect.mBottom);
+		uv[index] = LLVector2(uv_outer_rect.mRight, uv_center_rect.mTop);
+		pos[index] = LLVector3(draw_outer_rect.mRight, draw_center_rect.mTop, 0.f);
+		index++;
 
-			gGL.texCoord2f(uv_rect.mRight, scale_rect_uv.mBottom);
-			gGL.vertex2i(width, draw_scale_rect.mBottom);
+		uv[index] = LLVector2(uv_center_rect.mRight, uv_center_rect.mTop);
+		pos[index] = LLVector3(draw_center_rect.mRight, draw_center_rect.mTop, 0.f);
+		index++;
 
-			gGL.texCoord2f(uv_rect.mRight, scale_rect_uv.mTop);
-			gGL.vertex2i(width, draw_scale_rect.mTop);
+		// draw top left
+		uv[index] = LLVector2(uv_outer_rect.mLeft, uv_center_rect.mTop);
+		pos[index] = LLVector3(draw_outer_rect.mLeft, draw_center_rect.mTop, 0.f);
+		index++;
 
-			gGL.texCoord2f(scale_rect_uv.mRight, scale_rect_uv.mTop);
-			gGL.vertex2i(draw_scale_rect.mRight, draw_scale_rect.mTop);
+		uv[index] = LLVector2(uv_center_rect.mLeft, uv_center_rect.mTop);
+		pos[index] = LLVector3(draw_center_rect.mLeft, draw_center_rect.mTop, 0.f);
+		index++;
 
-			// draw top left
-			gGL.texCoord2f(uv_rect.mLeft, scale_rect_uv.mTop);
-			gGL.vertex2i(0, draw_scale_rect.mTop);
+		uv[index] = LLVector2(uv_center_rect.mLeft, uv_outer_rect.mTop);
+		pos[index] = LLVector3(draw_center_rect.mLeft, draw_outer_rect.mTop, 0.f);
+		index++;
 
-			gGL.texCoord2f(scale_rect_uv.mLeft, scale_rect_uv.mTop);
-			gGL.vertex2i(draw_scale_rect.mLeft, draw_scale_rect.mTop);
+		uv[index] = LLVector2(uv_outer_rect.mLeft, uv_outer_rect.mTop);
+		pos[index] = LLVector3(draw_outer_rect.mLeft, draw_outer_rect.mTop, 0.f);
+		index++;
 
-			gGL.texCoord2f(scale_rect_uv.mLeft, uv_rect.mTop);
-			gGL.vertex2i(draw_scale_rect.mLeft, height);
+		// draw top middle
+		uv[index] = LLVector2(uv_center_rect.mLeft, uv_center_rect.mTop);
+		pos[index] = LLVector3(draw_center_rect.mLeft, draw_center_rect.mTop, 0.f);
+		index++;
 
-			gGL.texCoord2f(uv_rect.mLeft, uv_rect.mTop);
-			gGL.vertex2i(0, height);
+		uv[index] = LLVector2(uv_center_rect.mRight, uv_center_rect.mTop);
+		pos[index] = LLVector3(draw_center_rect.mRight, draw_center_rect.mTop, 0.f);
+		index++;
 
-			// draw top middle
-			gGL.texCoord2f(scale_rect_uv.mLeft, scale_rect_uv.mTop);
-			gGL.vertex2i(draw_scale_rect.mLeft, draw_scale_rect.mTop);
+		uv[index] = LLVector2(uv_center_rect.mRight, uv_outer_rect.mTop);
+		pos[index] = LLVector3(draw_center_rect.mRight, draw_outer_rect.mTop, 0.f);
+		index++;
 
-			gGL.texCoord2f(scale_rect_uv.mRight, scale_rect_uv.mTop);
-			gGL.vertex2i(draw_scale_rect.mRight, draw_scale_rect.mTop);
+		uv[index] = LLVector2(uv_center_rect.mLeft, uv_outer_rect.mTop);
+		pos[index] = LLVector3(draw_center_rect.mLeft, draw_outer_rect.mTop, 0.f);
+		index++;
 
-			gGL.texCoord2f(scale_rect_uv.mRight, uv_rect.mTop);
-			gGL.vertex2i(draw_scale_rect.mRight, height);
+		// draw top right
+		uv[index] = LLVector2(uv_center_rect.mRight, uv_center_rect.mTop);
+		pos[index] = LLVector3(draw_center_rect.mRight, draw_center_rect.mTop, 0.f);
+		index++;
 
-			gGL.texCoord2f(scale_rect_uv.mLeft, uv_rect.mTop);
-			gGL.vertex2i(draw_scale_rect.mLeft, height);
+		uv[index] = LLVector2(uv_outer_rect.mRight, uv_center_rect.mTop);
+		pos[index] = LLVector3(draw_outer_rect.mRight, draw_center_rect.mTop, 0.f);
+		index++;
 
-			// draw top right
-			gGL.texCoord2f(scale_rect_uv.mRight, scale_rect_uv.mTop);
-			gGL.vertex2i(draw_scale_rect.mRight, draw_scale_rect.mTop);
+		uv[index] = LLVector2(uv_outer_rect.mRight, uv_outer_rect.mTop);
+		pos[index] = LLVector3(draw_outer_rect.mRight, draw_outer_rect.mTop, 0.f);
+		index++;
 
-			gGL.texCoord2f(uv_rect.mRight, scale_rect_uv.mTop);
-			gGL.vertex2i(width, draw_scale_rect.mTop);
+		uv[index] = LLVector2(uv_center_rect.mRight, uv_outer_rect.mTop);
+		pos[index] = LLVector3(draw_center_rect.mRight, draw_outer_rect.mTop, 0.f);
+		index++;
 
-			gGL.texCoord2f(uv_rect.mRight, uv_rect.mTop);
-			gGL.vertex2i(width, height);
-
-			gGL.texCoord2f(scale_rect_uv.mRight, uv_rect.mTop);
-			gGL.vertex2i(draw_scale_rect.mRight, height);
-		}
-		gGL.end();
+		gGL.vertexBatchPreTransformed(pos, uv, NUM_VERTICES);
 	}
-	gGL.popMatrix();
+	gGL.end();
 
 	if (solid_color)
 	{
@@ -660,77 +718,87 @@ void gl_draw_scaled_rotated_image(S32 x, S32 y, S32 width, S32 height, F32 degre
 
 	LLGLSUIDefault gls_ui;
 
-	gGL.pushMatrix();
-	{
-		gGL.translatef((F32)x, (F32)y, 0.f);
-		if( degrees )
-		{
-			F32 offset_x = F32(width/2);
-			F32 offset_y = F32(height/2);
-			gGL.translatef( offset_x, offset_y, 0.f);
-			glRotatef( degrees, 0.f, 0.f, 1.f );
-			gGL.translatef( -offset_x, -offset_y, 0.f );
-		}
 
+	gGL.getTexUnit(0)->bind(image);
+
+	gGL.color4fv(color.mV);
+
+	if (degrees == 0.f)
+	{
+		const S32 NUM_VERTICES = 4; // 9 quads
+		LLVector2 uv[NUM_VERTICES];
+		LLVector3 pos[NUM_VERTICES];
+
+		gGL.begin(LLRender::QUADS);
+		{
+			LLVector3 ui_scale = gGL.getUIScale();
+			LLVector3 ui_translation = gGL.getUITranslation();
+			ui_translation.mV[VX] += x;
+			ui_translation.mV[VY] += y;
+			ui_translation.scaleVec(ui_scale);
+			S32 index = 0;
+			S32 scaled_width = llround(width * ui_scale.mV[VX]);
+			S32 scaled_height = llround(height * ui_scale.mV[VY]);
+
+			uv[index] = LLVector2(uv_rect.mRight, uv_rect.mTop);
+			pos[index] = LLVector3(ui_translation.mV[VX] + scaled_width, ui_translation.mV[VY] + scaled_height, 0.f);
+			index++;
+
+			uv[index] = LLVector2(uv_rect.mLeft, uv_rect.mTop);
+			pos[index] = LLVector3(ui_translation.mV[VX], ui_translation.mV[VY] + scaled_height, 0.f);
+			index++;
+
+			uv[index] = LLVector2(uv_rect.mLeft, uv_rect.mBottom);
+			pos[index] = LLVector3(ui_translation.mV[VX], ui_translation.mV[VY], 0.f);
+			index++;
+
+			uv[index] = LLVector2(uv_rect.mRight, uv_rect.mBottom);
+			pos[index] = LLVector3(ui_translation.mV[VX] + scaled_width, ui_translation.mV[VY], 0.f);
+			index++;
+
+			gGL.vertexBatchPreTransformed(pos, uv, NUM_VERTICES);
+		}
+		gGL.end();
+	}
+	else
+	{
+		gGL.pushUIMatrix();
+		gGL.translateUI((F32)x, (F32)y, 0.f);
+	
+		F32 offset_x = F32(width/2);
+		F32 offset_y = F32(height/2);
+
+		gGL.translateUI(offset_x, offset_y, 0.f);
+
+		LLMatrix3 quat(0.f, 0.f, degrees*DEG_TO_RAD);
+		
 		gGL.getTexUnit(0)->bind(image);
 
 		gGL.color4fv(color.mV);
 		
 		gGL.begin(LLRender::QUADS);
 		{
+			LLVector3 v;
+
+			v = LLVector3(offset_x, offset_y, 0.f) * quat;
 			gGL.texCoord2f(uv_rect.mRight, uv_rect.mTop);
-			gGL.vertex2i(width, height );
+			gGL.vertex2f(v.mV[0], v.mV[1] );
 
+			v = LLVector3(-offset_x, offset_y, 0.f) * quat;
 			gGL.texCoord2f(uv_rect.mLeft, uv_rect.mTop);
-			gGL.vertex2i(0, height );
+			gGL.vertex2f(v.mV[0], v.mV[1] );
 
+			v = LLVector3(-offset_x, -offset_y, 0.f) * quat;
 			gGL.texCoord2f(uv_rect.mLeft, uv_rect.mBottom);
-			gGL.vertex2i(0, 0);
+			gGL.vertex2f(v.mV[0], v.mV[1] );
 
+			v = LLVector3(offset_x, -offset_y, 0.f) * quat;
 			gGL.texCoord2f(uv_rect.mRight, uv_rect.mBottom);
-			gGL.vertex2i(width, 0);
+			gGL.vertex2f(v.mV[0], v.mV[1] );
 		}
 		gGL.end();
+		gGL.popUIMatrix();
 	}
-	gGL.popMatrix();
-}
-
-
-void gl_draw_scaled_image_inverted(S32 x, S32 y, S32 width, S32 height, LLTexture* image, const LLColor4& color, const LLRectf& uv_rect)
-{
-	if (NULL == image)
-	{
-		llwarns << "image == NULL; aborting function" << llendl;
-		return;
-	}
-
-	LLGLSUIDefault gls_ui;
-
-	gGL.pushMatrix();
-	{
-		gGL.translatef((F32)x, (F32)y, 0.f);
-
-		gGL.getTexUnit(0)->bind(image);
-
-		gGL.color4fv(color.mV);
-		
-		gGL.begin(LLRender::QUADS);
-		{
-			gGL.texCoord2f(uv_rect.mRight, uv_rect.mBottom);
-			gGL.vertex2i(width, height );
-
-			gGL.texCoord2f(uv_rect.mLeft, uv_rect.mBottom);
-			gGL.vertex2i(0, height );
-
-			gGL.texCoord2f(uv_rect.mLeft, uv_rect.mTop);
-			gGL.vertex2i(0, 0);
-
-			gGL.texCoord2f(uv_rect.mRight, uv_rect.mTop);
-			gGL.vertex2i(width, 0);
-		}
-		gGL.end();
-	}
-	gGL.popMatrix();
 }
 
 
@@ -759,25 +827,6 @@ void gl_stippled_line_3d( const LLVector3& start, const LLVector3& end, const LL
 	LLUI::setLineWidth(1.f);
 }
 
-
-void gl_rect_2d_xor(S32 left, S32 top, S32 right, S32 bottom)
-{
-	gGL.color4fv( LLColor4::white.mV );
-	glLogicOp( GL_XOR );
-	stop_glerror();
-
-	gGL.begin(LLRender::QUADS);
-		gGL.vertex2i(left, top);
-		gGL.vertex2i(left, bottom);
-		gGL.vertex2i(right, bottom);
-		gGL.vertex2i(right, top);
-	gGL.end();
-
-	glLogicOp( GL_COPY );
-	stop_glerror();
-}
-
-
 void gl_arc_2d(F32 center_x, F32 center_y, F32 radius, S32 steps, BOOL filled, F32 start_angle, F32 end_angle)
 {
 	if (end_angle < start_angle)
@@ -785,9 +834,9 @@ void gl_arc_2d(F32 center_x, F32 center_y, F32 radius, S32 steps, BOOL filled, F
 		end_angle += F_TWO_PI;
 	}
 
-	gGL.pushMatrix();
+	gGL.pushUIMatrix();
 	{
-		gGL.translatef(center_x, center_y, 0.f);
+		gGL.translateUI(center_x, center_y, 0.f);
 
 		// Inexact, but reasonably fast.
 		F32 delta = (end_angle - start_angle) / steps;
@@ -818,15 +867,15 @@ void gl_arc_2d(F32 center_x, F32 center_y, F32 radius, S32 steps, BOOL filled, F
 		}
 		gGL.end();
 	}
-	gGL.popMatrix();
+	gGL.popUIMatrix();
 }
 
 void gl_circle_2d(F32 center_x, F32 center_y, F32 radius, S32 steps, BOOL filled)
 {
-	gGL.pushMatrix();
+	gGL.pushUIMatrix();
 	{
 		gGL.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
-		gGL.translatef(center_x, center_y, 0.f);
+		gGL.translateUI(center_x, center_y, 0.f);
 
 		// Inexact, but reasonably fast.
 		F32 delta = F_TWO_PI / steps;
@@ -857,7 +906,7 @@ void gl_circle_2d(F32 center_x, F32 center_y, F32 radius, S32 steps, BOOL filled
 		}
 		gGL.end();
 	}
-	gGL.popMatrix();
+	gGL.popUIMatrix();
 }
 
 // Renders a ring with sides (tube shape)
@@ -884,9 +933,9 @@ void gl_deep_circle( F32 radius, F32 depth, S32 steps )
 
 void gl_ring( F32 radius, F32 width, const LLColor4& center_color, const LLColor4& side_color, S32 steps, BOOL render_center )
 {
-	gGL.pushMatrix();
+	gGL.pushUIMatrix();
 	{
-		gGL.translatef(0.f, 0.f, -width / 2);
+		gGL.translateUI(0.f, 0.f, -width / 2);
 		if( render_center )
 		{
 			gGL.color4fv(center_color.mV);
@@ -895,15 +944,15 @@ void gl_ring( F32 radius, F32 width, const LLColor4& center_color, const LLColor
 		else
 		{
 			gl_washer_2d(radius, radius - width, steps, side_color, side_color);
-			gGL.translatef(0.f, 0.f, width);
+			gGL.translateUI(0.f, 0.f, width);
 			gl_washer_2d(radius - width, radius, steps, side_color, side_color);
 		}
 	}
-	gGL.popMatrix();
+	gGL.popUIMatrix();
 }
 
 // Draw gray and white checkerboard with black border
-void gl_rect_2d_checkerboard(const LLRect& rect)
+void gl_rect_2d_checkerboard(const LLRect& rect, GLfloat alpha)
 {
 	// Initialize the first time this is called.
 	const S32 PIXELS = 32;
@@ -924,11 +973,11 @@ void gl_rect_2d_checkerboard(const LLRect& rect)
 	gGL.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
 
 	// ...white squares
-	gGL.color3f( 1.f, 1.f, 1.f );
+	gGL.color4f( 1.f, 1.f, 1.f, alpha );
 	gl_rect_2d(rect);
 
 	// ...gray squares
-	gGL.color3f( .7f, .7f, .7f );
+	gGL.color4f( .7f, .7f, .7f, alpha );
 	gGL.flush();
 	glPolygonStipple( checkerboard );
 
@@ -1011,42 +1060,6 @@ void gl_washer_segment_2d(F32 outer_radius, F32 inner_radius, F32 start_radians,
 	gGL.end();
 }
 
-// Draws spokes around a circle.
-void gl_washer_spokes_2d(F32 outer_radius, F32 inner_radius, S32 count, const LLColor4& inner_color, const LLColor4& outer_color)
-{
-	const F32 DELTA = F_TWO_PI / count;
-	const F32 HALF_DELTA = DELTA * 0.5f;
-	const F32 SIN_DELTA = sin( DELTA );
-	const F32 COS_DELTA = cos( DELTA );
-
-	F32 x1 = outer_radius * cos( HALF_DELTA );
-	F32 y1 = outer_radius * sin( HALF_DELTA );
-	F32 x2 = inner_radius * cos( HALF_DELTA );
-	F32 y2 = inner_radius * sin( HALF_DELTA );
-
-	gGL.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
-
-	gGL.begin( LLRender::LINES  );
-	{
-		while( count-- )
-		{
-			gGL.color4fv(outer_color.mV);
-			gGL.vertex2f( x1, y1 );
-			gGL.color4fv(inner_color.mV);
-			gGL.vertex2f( x2, y2 );
-
-			F32 x1_new = x1 * COS_DELTA - y1 * SIN_DELTA;
-			y1 = x1 * SIN_DELTA +  y1 * COS_DELTA;
-			x1 = x1_new;
-
-			F32 x2_new = x2 * COS_DELTA - y2 * SIN_DELTA;
-			y2 = x2 * SIN_DELTA +  y2 * COS_DELTA;
-			x2 = x2_new;
-		}
-	}
-	gGL.end();
-}
-
 void gl_rect_2d_simple_tex( S32 width, S32 height )
 {
 	gGL.begin( LLRender::QUADS );
@@ -1088,9 +1101,9 @@ void gl_segmented_rect_2d_tex(const S32 left,
 	S32 width = llabs(right - left);
 	S32 height = llabs(top - bottom);
 
-	gGL.pushMatrix();
+	gGL.pushUIMatrix();
 
-	gGL.translatef((F32)left, (F32)bottom, 0.f);
+	gGL.translateUI((F32)left, (F32)bottom, 0.f);
 	LLVector2 border_uv_scale((F32)border_size / (F32)texture_width, (F32)border_size / (F32)texture_height);
 
 	if (border_uv_scale.mV[VX] > 0.5f)
@@ -1231,9 +1244,10 @@ void gl_segmented_rect_2d_tex(const S32 left,
 	}
 	gGL.end();
 
-	gGL.popMatrix();
+	gGL.popUIMatrix();
 }
 
+//FIXME: rewrite to use scissor?
 void gl_segmented_rect_2d_fragment_tex(const S32 left, 
 									   const S32 top, 
 									   const S32 right, 
@@ -1248,9 +1262,9 @@ void gl_segmented_rect_2d_fragment_tex(const S32 left,
 	S32 width = llabs(right - left);
 	S32 height = llabs(top - bottom);
 
-	gGL.pushMatrix();
+	gGL.pushUIMatrix();
 
-	gGL.translatef((F32)left, (F32)bottom, 0.f);
+	gGL.translateUI((F32)left, (F32)bottom, 0.f);
 	LLVector2 border_uv_scale((F32)border_size / (F32)texture_width, (F32)border_size / (F32)texture_height);
 
 	if (border_uv_scale.mV[VX] > 0.5f)
@@ -1421,7 +1435,7 @@ void gl_segmented_rect_2d_fragment_tex(const S32 left,
 	}
 	gGL.end();
 
-	gGL.popMatrix();
+	gGL.popUIMatrix();
 }
 
 void gl_segmented_rect_3d_tex(const LLVector2& border_scale, const LLVector3& border_width, 
@@ -1563,12 +1577,6 @@ void gl_segmented_rect_3d_tex_top(const LLVector2& border_scale, const LLVector3
 	gl_segmented_rect_3d_tex(border_scale, border_width, border_height, width_vec, height_vec, ROUNDED_RECT_TOP);
 }
 
-bool handleShowXUINamesChanged(const LLSD& newvalue)
-{
-	LLUI::sShowXUINames = newvalue.asBoolean();
-	return true;
-}
-
 void LLUI::initClass(const settings_map_t& settings,
 					 LLImageProviderInterface* image_provider,
 					 LLUIAudioCallback audio_callback,
@@ -1590,21 +1598,25 @@ void LLUI::initClass(const settings_map_t& settings,
 	sWindow = NULL; // set later in startup
 	LLFontGL::sShadowColor = LLUIColorTable::instance().getColor("ColorDropShadow");
 
-	static LLUICachedControl<bool> show_xui_names ("ShowXUINames", false);
-	LLUI::sShowXUINames = show_xui_names;
-	LLUI::sSettingGroups["config"]->getControl("ShowXUINames")->getSignal()->connect(boost::bind(&handleShowXUINamesChanged, _2));
-	
+	LLUICtrl::CommitCallbackRegistry::Registrar& reg = LLUICtrl::CommitCallbackRegistry::defaultRegistrar();
+
 	// Callbacks for associating controls with floater visibilty:
-	LLUICtrl::CommitCallbackRegistry::defaultRegistrar().add("Floater.Toggle", boost::bind(&LLFloaterReg::toggleFloaterInstance, _2));
-	LLUICtrl::CommitCallbackRegistry::defaultRegistrar().add("Floater.Show", boost::bind(&LLFloaterReg::showFloaterInstance, _2));
-	LLUICtrl::CommitCallbackRegistry::defaultRegistrar().add("Floater.Hide", boost::bind(&LLFloaterReg::hideFloaterInstance, _2));
-	LLUICtrl::CommitCallbackRegistry::defaultRegistrar().add("Floater.InitToVisibilityControl", boost::bind(&LLFloaterReg::initUICtrlToFloaterVisibilityControl, _1, _2));
+	reg.add("Floater.Toggle", boost::bind(&LLFloaterReg::toggleFloaterInstance, _2));
+	reg.add("Floater.Show", boost::bind(&LLFloaterReg::showFloaterInstance, _2));
+	reg.add("Floater.Hide", boost::bind(&LLFloaterReg::hideFloaterInstance, _2));
+	reg.add("Floater.InitToVisibilityControl", boost::bind(&LLFloaterReg::initUICtrlToFloaterVisibilityControl, _1, _2));
 	
 	// Button initialization callback for toggle buttons
-	LLUICtrl::CommitCallbackRegistry::defaultRegistrar().add("Button.SetFloaterToggle", boost::bind(&LLButton::setFloaterToggle, _1, _2));
+	reg.add("Button.SetFloaterToggle", boost::bind(&LLButton::setFloaterToggle, _1, _2));
 	
+	// Button initialization callback for toggle buttons on dockale floaters
+	reg.add("Button.SetDockableFloaterToggle", boost::bind(&LLButton::setDockableFloaterToggle, _1, _2));
+
+	// Display the help topic for the current context
+	reg.add("Button.ShowHelp", boost::bind(&LLButton::showHelp, _1, _2));
+
 	// Currently unused, but kept for reference:
-	LLUICtrl::CommitCallbackRegistry::defaultRegistrar().add("Button.ToggleFloater", boost::bind(&LLButton::toggleFloaterAndSetToggleState, _1, _2));
+	reg.add("Button.ToggleFloater", boost::bind(&LLButton::toggleFloaterAndSetToggleState, _1, _2));
 	
 	// Used by menus along with Floater.Toggle to display visibility as a checkmark
 	LLUICtrl::EnableCallbackRegistry::defaultRegistrar().add("Floater.Visible", boost::bind(&LLFloaterReg::floaterInstanceVisible, _2));
@@ -1612,14 +1624,38 @@ void LLUI::initClass(const settings_map_t& settings,
 
 void LLUI::cleanupClass()
 {
+	if(sImageProvider)
+	{
 	sImageProvider->cleanUp();
 }
+}
 
+void LLUI::setPopupFuncs(const add_popup_t& add_popup, const remove_popup_t& remove_popup,  const clear_popups_t& clear_popups)
+{
+	sAddPopupFunc = add_popup;
+	sRemovePopupFunc = remove_popup;
+	sClearPopupsFunc = clear_popups;
+}
+
+//static
+void LLUI::dirtyRect(LLRect rect)
+{
+	if (!sDirty)
+	{
+		sDirtyRect = rect;
+		sDirty = TRUE;
+	}
+	else
+	{
+		sDirtyRect.unionWith(rect);
+	}		
+}
+ 
 
 //static
 void LLUI::translate(F32 x, F32 y, F32 z)
 {
-	gGL.translatef(x,y,z);
+	gGL.translateUI(x,y,z);
 	LLFontGL::sCurOrigin.mX += (S32) x;
 	LLFontGL::sCurOrigin.mY += (S32) y;
 	LLFontGL::sCurOrigin.mZ += z;
@@ -1628,14 +1664,14 @@ void LLUI::translate(F32 x, F32 y, F32 z)
 //static
 void LLUI::pushMatrix()
 {
-	gGL.pushMatrix();
+	gGL.pushUIMatrix();
 	LLFontGL::sOriginStack.push_back(LLFontGL::sCurOrigin);
 }
 
 //static
 void LLUI::popMatrix()
 {
-	gGL.popMatrix();
+	gGL.popUIMatrix();
 	LLFontGL::sCurOrigin = *LLFontGL::sOriginStack.rbegin();
 	LLFontGL::sOriginStack.pop_back();
 }
@@ -1643,7 +1679,7 @@ void LLUI::popMatrix()
 //static 
 void LLUI::loadIdentity()
 {
-	glLoadIdentity();
+	gGL.loadUIIdentity(); 
 	LLFontGL::sCurOrigin.mX = 0;
 	LLFontGL::sCurOrigin.mY = 0;
 	LLFontGL::sCurOrigin.mZ = 0;
@@ -1663,7 +1699,7 @@ void LLUI::setLineWidth(F32 width)
 }
 
 //static 
-void LLUI::setCursorPositionScreen(S32 x, S32 y)
+void LLUI::setMousePositionScreen(S32 x, S32 y)
 {
 	S32 screen_x, screen_y;
 	screen_x = llround((F32)x * sGLScaleFactor.mV[VX]);
@@ -1676,25 +1712,33 @@ void LLUI::setCursorPositionScreen(S32 x, S32 y)
 }
 
 //static 
-void LLUI::setCursorPositionLocal(const LLView* viewp, S32 x, S32 y)
+void LLUI::getMousePositionScreen(S32 *x, S32 *y)
+{
+	LLCoordWindow cursor_pos_window;
+	getWindow()->getCursorPosition(&cursor_pos_window);
+	LLCoordGL cursor_pos_gl;
+	getWindow()->convertCoords(cursor_pos_window, &cursor_pos_gl);
+	*x = llround((F32)cursor_pos_gl.mX / sGLScaleFactor.mV[VX]);
+	*y = llround((F32)cursor_pos_gl.mY / sGLScaleFactor.mV[VX]);
+}
+
+//static 
+void LLUI::setMousePositionLocal(const LLView* viewp, S32 x, S32 y)
 {
 	S32 screen_x, screen_y;
 	viewp->localPointToScreen(x, y, &screen_x, &screen_y);
 
-	setCursorPositionScreen(screen_x, screen_y);
+	setMousePositionScreen(screen_x, screen_y);
 }
 
 //static 
-void LLUI::getCursorPositionLocal(const LLView* viewp, S32 *x, S32 *y)
+void LLUI::getMousePositionLocal(const LLView* viewp, S32 *x, S32 *y)
 {
-	LLCoordWindow cursor_pos_window;
-	LLView::getWindow()->getCursorPosition(&cursor_pos_window);
-	LLCoordGL cursor_pos_gl;
-	LLView::getWindow()->convertCoords(cursor_pos_window, &cursor_pos_gl);
-	cursor_pos_gl.mX = llround((F32)cursor_pos_gl.mX / LLUI::sGLScaleFactor.mV[VX]);
-	cursor_pos_gl.mY = llround((F32)cursor_pos_gl.mY / LLUI::sGLScaleFactor.mV[VY]);
-	viewp->screenPointToLocal(cursor_pos_gl.mX, cursor_pos_gl.mY, x, y);
+	S32 screen_x, screen_y;
+	getMousePositionScreen(&screen_x, &screen_y);
+	viewp->screenPointToLocal(screen_x, screen_y, x, y);
 }
+
 
 // On Windows, the user typically sets the language when they install the
 // app (by running it with a shortcut that sets InstallLanguage).  On Mac,
@@ -1724,6 +1768,33 @@ std::string LLUI::getLanguage()
 	return language;
 }
 
+struct SubDir : public LLInitParam::Block<SubDir>
+{
+	Mandatory<std::string> value;
+
+	SubDir()
+	:	value("value")
+	{}
+};
+
+struct Directory : public LLInitParam::Block<Directory>
+{
+	Multiple<SubDir, AtLeast<1> > subdirs;
+
+	Directory()
+	:	subdirs("subdir")
+	{}
+};
+
+struct Paths : public LLInitParam::Block<Paths>
+{
+	Multiple<Directory, AtLeast<1> > directories;
+
+	Paths()
+	:	directories("directory")
+	{}
+};
+
 //static
 void LLUI::setupPaths()
 {
@@ -1731,21 +1802,37 @@ void LLUI::setupPaths()
 
 	LLXMLNodePtr root;
 	BOOL success  = LLXMLNode::parseFile(filename, root, NULL);
+	Paths paths;
+	LLXUIParser parser;
+	parser.readXUI(root, paths, filename);
+
 	sXUIPaths.clear();
 	
-	if (success)
+	if (success && paths.validateBlock())
 	{
 		LLStringUtil::format_map_t path_args;
 		path_args["[LANGUAGE]"] = LLUI::getLanguage();
 		
-		for (LLXMLNodePtr path = root->getFirstChild(); path.notNull(); path = path->getNextSibling())
+		for (LLInitParam::ParamIterator<Directory>::const_iterator it = paths.directories.begin(), 
+				end_it = paths.directories.end();
+			it != end_it;
+			++it)
 		{
-			std::string path_val_ui(path->getValue());
+			std::string path_val_ui;
+			for (LLInitParam::ParamIterator<SubDir>::const_iterator subdir_it = it->subdirs.begin(),
+					subdir_end_it = it->subdirs.end();
+				subdir_it != subdir_end_it;)
+			{
+				path_val_ui += subdir_it->value();
+				if (++subdir_it != subdir_end_it)
+					path_val_ui += gDirUtilp->getDirDelimiter();
+			}
 			LLStringUtil::format(path_val_ui, path_args);
 			if (std::find(sXUIPaths.begin(), sXUIPaths.end(), path_val_ui) == sXUIPaths.end())
 			{
 				sXUIPaths.push_back(path_val_ui);
 			}
+
 		}
 	}
 	else // parsing failed
@@ -1826,11 +1913,11 @@ void LLUI::glRectToScreen(const LLRect& gl, LLRect *screen)
 }
 
 //static
-LLPointer<LLUIImage> LLUI::getUIImageByID(const LLUUID& image_id)
+LLPointer<LLUIImage> LLUI::getUIImageByID(const LLUUID& image_id, S32 priority)
 {
 	if (sImageProvider)
 	{
-		return sImageProvider->getUIImageByID(image_id);
+		return sImageProvider->getUIImageByID(image_id, priority);
 	}
 	else
 	{
@@ -1839,18 +1926,12 @@ LLPointer<LLUIImage> LLUI::getUIImageByID(const LLUUID& image_id)
 }
 
 //static 
-LLPointer<LLUIImage> LLUI::getUIImage(const std::string& name)
+LLPointer<LLUIImage> LLUI::getUIImage(const std::string& name, S32 priority)
 {
 	if (!name.empty() && sImageProvider)
-		return sImageProvider->getUIImage(name);
+		return sImageProvider->getUIImage(name, priority);
 	else
 		return NULL;
-}
-
-// static 
-void LLUI::setHtmlHelp(LLHtmlHelp* html_help)
-{
-	LLUI::sHtmlHelp = html_help;
 }
 
 LLControlGroup& LLUI::getControlControlGroup (const std::string& controlname)
@@ -1858,153 +1939,240 @@ LLControlGroup& LLUI::getControlControlGroup (const std::string& controlname)
 	for (settings_map_t::iterator itor = sSettingGroups.begin();
 		 itor != sSettingGroups.end(); ++itor)
 	{
-		if(itor->second!= NULL)
+		LLControlGroup* control_group = itor->second;
+		if(control_group != NULL)
 		{
-			if (sSettingGroups[(itor->first)]->controlExists(controlname))
-				return *sSettingGroups[(itor->first)];
+			if (control_group->controlExists(controlname))
+				return *control_group;
 		}
 	}
 
 	return *sSettingGroups["config"]; // default group
 }
 
-LLScreenClipRect::LLScreenClipRect(const LLRect& rect, BOOL enabled) : mScissorState(GL_SCISSOR_TEST), mEnabled(enabled)
+//static 
+void LLUI::addPopup(LLView* viewp)
 {
-	if (mEnabled)
+	if (sAddPopupFunc)
 	{
-		pushClipRect(rect);
+		sAddPopupFunc(viewp);
 	}
-	mScissorState.setEnabled(!sClipRectStack.empty());
-	updateScissorRegion();
-}
-
-LLScreenClipRect::~LLScreenClipRect()
-{
-	if (mEnabled)
-	{
-		popClipRect();
-	}
-	updateScissorRegion();
 }
 
 //static 
-void LLScreenClipRect::pushClipRect(const LLRect& rect)
+void LLUI::removePopup(LLView* viewp)
 {
-	LLRect combined_clip_rect = rect;
-	if (!sClipRectStack.empty())
+	if (sRemovePopupFunc)
 	{
-		LLRect top = sClipRectStack.top();
-		combined_clip_rect.intersectWith(top);
+		sRemovePopupFunc(viewp);
 	}
-	sClipRectStack.push(combined_clip_rect);
-}
-
-//static 
-void LLScreenClipRect::popClipRect()
-{
-	sClipRectStack.pop();
 }
 
 //static
-void LLScreenClipRect::updateScissorRegion()
+void LLUI::clearPopups()
 {
-	if (sClipRectStack.empty()) return;
+	if (sClearPopupsFunc)
+	{
+		sClearPopupsFunc();
+	}
+}
 
-	LLRect rect = sClipRectStack.top();
-	stop_glerror();
-	S32 x,y,w,h;
-	x = llfloor(rect.mLeft * LLUI::sGLScaleFactor.mV[VX]);
-	y = llfloor(rect.mBottom * LLUI::sGLScaleFactor.mV[VY]);
-	w = llmax(0, llceil(rect.getWidth() * LLUI::sGLScaleFactor.mV[VX])) + 1;
-	h = llmax(0, llceil(rect.getHeight() * LLUI::sGLScaleFactor.mV[VY])) + 1;
-	glScissor( x,y,w,h );
-	stop_glerror();
+//static
+void LLUI::reportBadKeystroke()
+{
+	make_ui_sound("UISndBadKeystroke");
+}
+	
+//static
+// spawn_x and spawn_y are top left corner of view in screen GL coordinates
+void LLUI::positionViewNearMouse(LLView* view, S32 spawn_x, S32 spawn_y)
+{
+	const S32 CURSOR_HEIGHT = 16;		// Approximate "normal" cursor size
+	const S32 CURSOR_WIDTH = 8;
+
+	LLView* parent = view->getParent();
+
+	S32 mouse_x;
+	S32 mouse_y;
+	LLUI::getMousePositionScreen(&mouse_x, &mouse_y);
+
+	// If no spawn location provided, use mouse position
+	if (spawn_x == S32_MAX || spawn_y == S32_MAX)
+	{
+		spawn_x = mouse_x + CURSOR_WIDTH;
+		spawn_y = mouse_y - CURSOR_HEIGHT;
+	}
+
+	LLRect virtual_window_rect = parent->getLocalRect();
+
+	LLRect mouse_rect;
+	const S32 MOUSE_CURSOR_PADDING = 1;
+	mouse_rect.setLeftTopAndSize(mouse_x - MOUSE_CURSOR_PADDING, 
+								mouse_y + MOUSE_CURSOR_PADDING, 
+								CURSOR_WIDTH + MOUSE_CURSOR_PADDING * 2, 
+								CURSOR_HEIGHT + MOUSE_CURSOR_PADDING * 2);
+
+	S32 local_x, local_y;
+	// convert screen coordinates to tooltipview-local coordinates
+	parent->screenPointToLocal(spawn_x, spawn_y, &local_x, &local_y);
+
+	// Start at spawn position (using left/top)
+	view->setOrigin( local_x, local_y - view->getRect().getHeight());
+	// Make sure we're onscreen and not overlapping the mouse
+	view->translateIntoRectWithExclusion( virtual_window_rect, mouse_rect, FALSE );
+}
+
+LLView* LLUI::resolvePath(LLView* context, const std::string& path)
+{
+	// Nothing about resolvePath() should require non-const LLView*. If caller
+	// wants non-const, call the const flavor and then cast away const-ness.
+	return const_cast<LLView*>(resolvePath(const_cast<const LLView*>(context), path));
+}
+
+const LLView* LLUI::resolvePath(const LLView* context, const std::string& path)
+{
+	// Create an iterator over slash-separated parts of 'path'. Dereferencing
+	// this iterator returns an iterator_range over the substring. Unlike
+	// LLStringUtil::getTokens(), this split_iterator doesn't combine adjacent
+	// delimiters: leading/trailing slash produces an empty substring, double
+	// slash produces an empty substring. That's what we need.
+	boost::split_iterator<std::string::const_iterator> ti(path, boost::first_finder("/")), tend;
+
+	if (ti == tend)
+	{
+		// 'path' is completely empty, no navigation
+		return context;
+	}
+
+	// leading / means "start at root"
+	if (ti->empty())
+	{
+		context = getRootView();
+		++ti;
+	}
+
+	bool recurse = false;
+	for (; ti != tend && context; ++ti)
+	{
+		if (ti->empty()) 
+		{
+			recurse = true;
+		}
+		else
+		{
+			std::string part(ti->begin(), ti->end());
+			context = context->findChildView(part, recurse);
+			recurse = false;
+		}
+	}
+
+	return context;
 }
 
 
-LLLocalClipRect::LLLocalClipRect(const LLRect &rect, BOOL enabled) 
-: LLScreenClipRect(LLRect(rect.mLeft + LLFontGL::sCurOrigin.mX, 
-						rect.mTop + LLFontGL::sCurOrigin.mY, 
-						rect.mRight + LLFontGL::sCurOrigin.mX, 
-						rect.mBottom + LLFontGL::sCurOrigin.mY),
-					enabled)
-{
-}
+// LLLocalClipRect and LLScreenClipRect moved to lllocalcliprect.h/cpp
 
 namespace LLInitParam
 {
-	TypedParam<LLUIColor >::TypedParam(BlockDescriptor& descriptor, const char* name, const LLUIColor& value, ParamDescriptor::validation_func_t func, S32 min_count, S32 max_count)
-	:	super_t(descriptor, name, value, func, min_count, max_count),
+	ParamValue<LLUIColor, TypeValues<LLUIColor> >::ParamValue(const LLUIColor& color)
+	:	super_t(color),
 		red("red"),
 		green("green"),
 		blue("blue"),
 		alpha("alpha"),
 		control("")
-	{}
+	{
+		updateBlockFromValue();
+	}
 
-	LLUIColor TypedParam<LLUIColor>::getValueFromBlock() const
+	void ParamValue<LLUIColor, TypeValues<LLUIColor> >::updateValueFromBlock()
 	{
 		if (control.isProvided())
 		{
-			return LLUIColorTable::instance().getColor(control);
+			updateValue(LLUIColorTable::instance().getColor(control));
 		}
 		else
 		{
-			return LLColor4(red, green, blue, alpha);
+			updateValue(LLColor4(red, green, blue, alpha));
 		}
 	}
-
-	void TypeValues<LLUIColor>::declareValues()
+	
+	void ParamValue<LLUIColor, TypeValues<LLUIColor> >::updateBlockFromValue()
 	{
-		declare("white", LLColor4::white);
-		declare("black", LLColor4::black);
-		declare("red", LLColor4::red);
-		declare("green", LLColor4::green);
-		declare("blue", LLColor4::blue);
+		LLColor4 color = getValue();
+		red.set(color.mV[VRED], false);
+		green.set(color.mV[VGREEN], false);
+		blue.set(color.mV[VBLUE], false);
+		alpha.set(color.mV[VALPHA], false);
+		control.set("", false);
 	}
 
-	TypedParam<const LLFontGL*>::TypedParam(BlockDescriptor& descriptor, const char* name, const LLFontGL*const value, ParamDescriptor::validation_func_t func, S32 min_count, S32 max_count)
-	:	super_t(descriptor, name, value, func, min_count, max_count),
-		name(""),
+	bool ParamCompare<const LLFontGL*, false>::equals(const LLFontGL* a, const LLFontGL* b)
+	{
+		return !(a->getFontDesc() < b->getFontDesc())
+			&& !(b->getFontDesc() < a->getFontDesc());
+	}
+
+	ParamValue<const LLFontGL*, TypeValues<const LLFontGL*> >::ParamValue(const LLFontGL* fontp)
+	:	super_t(fontp),
+		name("name"),
 		size("size"),
 		style("style")
-	{}
-
-	const LLFontGL* TypedParam<const LLFontGL*>::getValueFromBlock() const
 	{
-		if (name.isProvided())
+		if (!fontp)
 		{
-			const LLFontGL* res_fontp = LLFontGL::getFontByName(name);
-			if (res_fontp)
-			{
-				return res_fontp;
-			}
-
-			U8 fontstyle = 0;
-			fontstyle = LLFontGL::getStyleFromString(style());
-			LLFontDescriptor desc(name(), size(), fontstyle);
-			const LLFontGL* fontp = LLFontGL::getFont(desc);
-			if (fontp)
-			{
-				return fontp;
-			}
+			updateValue(LLFontGL::getFontDefault());
 		}
-
-		// default to current value
-		return mData.mValue;
+		addSynonym(name, "");
+		updateBlockFromValue();
 	}
 
-	TypedParam<LLRect>::TypedParam(BlockDescriptor& descriptor, const char* name, const LLRect& value, ParamDescriptor::validation_func_t func, S32 min_count, S32 max_count)
-	:	super_t(descriptor, name, value, func, min_count, max_count),
+	void ParamValue<const LLFontGL*, TypeValues<const LLFontGL*> >::updateValueFromBlock()
+	{
+		const LLFontGL* res_fontp = LLFontGL::getFontByName(name);
+		if (res_fontp)
+		{
+			updateValue(res_fontp);
+			return;
+		}
+
+		U8 fontstyle = 0;
+		fontstyle = LLFontGL::getStyleFromString(style());
+		LLFontDescriptor desc(name(), size(), fontstyle);
+		const LLFontGL* fontp = LLFontGL::getFont(desc);
+		if (fontp)
+		{
+			updateValue(fontp);
+		}
+		else
+		{
+			updateValue(LLFontGL::getFontDefault());
+		}
+	}
+	
+	void ParamValue<const LLFontGL*, TypeValues<const LLFontGL*> >::updateBlockFromValue()
+	{
+		if (getValue())
+		{
+			name.set(LLFontGL::nameFromFont(getValue()), false);
+			size.set(LLFontGL::sizeFromFont(getValue()), false);
+			style.set(LLFontGL::getStringFromStyle(getValue()->getFontDesc().getStyle()), false);
+		}
+	}
+
+	ParamValue<LLRect, TypeValues<LLRect> >::ParamValue(const LLRect& rect)
+	:	super_t(rect),
 		left("left"),
 		top("top"),
 		right("right"),
 		bottom("bottom"),
 		width("width"),
 		height("height")
-	{}
+	{
+		updateBlockFromValue();
+	}
 
-	LLRect TypedParam<LLRect>::getValueFromBlock() const
+	void ParamValue<LLRect, TypeValues<LLRect> >::updateValueFromBlock()
 	{
 		LLRect rect;
 
@@ -2065,8 +2233,43 @@ namespace LLInitParam
 			rect.mBottom = bottom;
 			rect.mTop = top;
 		}
-		return rect;
+		updateValue(rect);
 	}
+	
+	void ParamValue<LLRect, TypeValues<LLRect> >::updateBlockFromValue()
+	{
+		// because of the ambiguity in specifying a rect by position and/or dimensions
+		// we clear the "provided" flag so that values from xui/etc have priority
+		// over those calculated from the rect object
+
+		LLRect& value = getValue();
+		left.set(value.mLeft, false);
+		right.set(value.mRight, false);
+		bottom.set(value.mBottom, false);
+		top.set(value.mTop, false);
+		width.set(value.getWidth(), false);
+		height.set(value.getHeight(), false);
+	}
+
+	ParamValue<LLCoordGL, TypeValues<LLCoordGL> >::ParamValue(const LLCoordGL& coord)
+	:	super_t(coord),
+		x("x"),
+		y("y")
+	{
+		updateBlockFromValue();
+	}
+
+	void ParamValue<LLCoordGL, TypeValues<LLCoordGL> >::updateValueFromBlock()
+	{
+		updateValue(LLCoordGL(x, y));
+	}
+	
+	void ParamValue<LLCoordGL, TypeValues<LLCoordGL> >::updateBlockFromValue()
+	{
+		x.set(getValue().mX, false);
+		y.set(getValue().mY, false);
+	}
+
 
 	void TypeValues<LLFontGL::HAlign>::declareValues()
 	{

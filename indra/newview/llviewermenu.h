@@ -2,31 +2,25 @@
  * @file llviewermenu.h
  * @brief Builds menus out of objects
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -36,21 +30,24 @@
 #include "llmenugl.h"
 #include "llsafehandle.h"
 
-//newview includes
-#include "llfilepicker.h"
-
+class LLMessageSystem;
+class LLSD;
 class LLUICtrl;
 class LLView;
 class LLParcelSelection;
 class LLObjectSelection;
+class LLSelectNode;
 
-
+void initialize_edit_menu();
 void init_menus();
 void cleanup_menus();
 
 void show_debug_menus(); // checks for if menus should be shown first.
+void toggle_debug_menus(void*);
 void show_context_menu( S32 x, S32 y, MASK mask );
 void show_build_mode_context_menu(S32 x, S32 y, MASK mask);
+void show_navbar_context_menu(LLView* ctrl, S32 x, S32 y);
+void show_topinfobar_context_menu(LLView* ctrl, S32 x, S32 y);
 BOOL enable_save_into_inventory(void*);
 void handle_reset_view();
 void handle_cut(void*);
@@ -81,11 +78,9 @@ void confirm_replace_attachment(S32 option, void* user_data);
 void handle_detach_from_avatar(const LLSD& user_data);
 void attach_label(std::string& label, const LLSD&);
 void detach_label(std::string& label, const LLSD&);
-BOOL object_selected_and_point_valid(const LLSD&);
 void handle_detach(void*);
 BOOL enable_god_full(void* user_data);
 BOOL enable_god_liaison(void* user_data);
-BOOL enable_god_customer_service(void* user_data);
 BOOL enable_god_basic(void* user_data);
 void set_underclothes_menu_options();
 
@@ -94,24 +89,56 @@ void exchange_callingcard(const LLUUID& dest_id);
 void handle_gestures(void*);
 void handle_sit_down(void*);
 void handle_object_build(void*);
+void handle_object_touch();
+bool enable_object_open();
+void handle_object_open();
+
+// Buy either contents or object itself
+void handle_buy();
+void handle_take_copy();
+void handle_look_at_selection(const LLSD& param);
+void handle_zoom_to_object(LLUUID object_id);
+
+void handle_buy_land();
+
+// Takes avatar UUID, or if no UUID passed, uses last selected object
+void handle_avatar_freeze(const LLSD& avatar_id);
+
+// Takes avatar UUID, or if no UUID passed, uses last selected object
+void handle_avatar_eject(const LLSD& avatar_id);
+
+bool enable_freeze_eject(const LLSD& avatar_id);
+
+// Can anyone take a free copy of the object?
+// *TODO: Move to separate file
+bool anyone_copy_selection(LLSelectNode* nodep);
+
+// Is this selected object for sale?
+// *TODO: Move to separate file
+bool for_sale_selection(LLSelectNode* nodep);
+
 void handle_save_snapshot(void *);
 void handle_toggle_flycam();
 
-bool handle_sit_or_stand();
-bool handle_give_money_dialog();
+void handle_object_sit_or_stand();
+void handle_give_money_dialog();
+bool enable_pay_object();
+bool enable_buy_object();
 bool handle_go_to();
+
+void toggle_destination_and_avatar_picker(const LLSD& show);
 
 // Export to XML or Collada
 void handle_export_selected( void * );
 
-// Pass in an empty string and this function will build a string that
-// describes buyer permissions.
-class LLSaleInfo;
-class LLPermissions;
-
 class LLViewerMenuHolderGL : public LLMenuHolderGL
 {
 public:
+	struct Params : public LLInitParam::Block<Params, LLMenuHolderGL::Params>
+	{};
+
+	LLViewerMenuHolderGL(const Params& p);
+
 	virtual BOOL hideMenus();
 	
 	void setParcelSelection(LLSafeHandle<LLParcelSelection> selection);
@@ -128,25 +155,18 @@ extern const std::string SAVE_INTO_INVENTORY;
 
 extern LLMenuBarGL*		gMenuBarView;
 //extern LLView*			gMenuBarHolder;
+extern LLMenuGL*		gEditMenu;
 extern LLMenuGL*		gPopupMenuView;
 extern LLViewerMenuHolderGL*	gMenuHolder;
 extern LLMenuBarGL*		gLoginMenuBarView;
 
-// Pie menus
-extern LLContextMenu		*gPieSelf;
-extern LLContextMenu		*gPieAvatar;
-extern LLContextMenu		*gPieObject;
-extern LLContextMenu		*gPieAttachment;
-
-extern LLContextMenu		*gPieLand;
-extern LLContextMenu		*gPieRate;
-
-// Pie menus
-extern LLContextMenu	*gPieSelfSimple;
-extern LLContextMenu	*gPieAvatarSimple;
-extern LLContextMenu	*gPieObjectSimple;
-extern LLContextMenu	*gPieAttachmentSimple;
-extern LLContextMenu	*gPieLandSimple;
+// Context menus in 3D scene
+extern LLContextMenu		*gMenuAvatarSelf;
+extern LLContextMenu		*gMenuAvatarOther;
+extern LLContextMenu		*gMenuObject;
+extern LLContextMenu		*gMenuAttachmentSelf;
+extern LLContextMenu		*gMenuAttachmentOther;
+extern LLContextMenu		*gMenuLand;
 
 // Needed to build menus when attachment site list available
 extern LLMenuGL* gAttachSubMenu;

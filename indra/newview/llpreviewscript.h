@@ -2,31 +2,25 @@
  * @file llpreviewscript.h
  * @brief LLPreviewScript class definition
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -41,7 +35,7 @@
 #include "lliconctrl.h"
 #include "llframetimer.h"
 
-
+class LLLiveLSLFile;
 class LLMessageSystem;
 class LLTextEditor;
 class LLButton;
@@ -52,6 +46,9 @@ struct 	LLEntryAndEdCore;
 class LLMenuBarGL;
 class LLFloaterScriptSearch;
 class LLKeywordToken;
+class LLVFS;
+class LLViewerInventoryItem;
+class LLScriptEdContainer;
 
 // Inner, implementation class.  LLPreviewScript and LLLiveLSLEditor each own one of these.
 class LLScriptEdCore : public LLPanel
@@ -60,17 +57,20 @@ class LLScriptEdCore : public LLPanel
 	friend class LLPreviewLSL;
 	friend class LLLiveLSLEditor;
 	friend class LLFloaterScriptSearch;
+	friend class LLScriptEdContainer;
 
-public:
+protected:
+	// Supposed to be invoked only by the container.
 	LLScriptEdCore(
+		LLScriptEdContainer* container,
 		const std::string& sample,
-		const std::string& help_url,
 		const LLHandle<LLFloater>& floater_handle,
 		void (*load_callback)(void* userdata),
 		void (*save_callback)(void* userdata, BOOL close_after_save),
 		void (*search_replace_callback)(void* userdata),
 		void* userdata,
 		S32 bottom_pad = 0);	// pad below bottom row of buttons
+public:
 	~LLScriptEdCore();
 	
 	void			initMenu();
@@ -78,21 +78,28 @@ public:
 	virtual void	draw();
 	/*virtual*/	BOOL	postBuild();
 	BOOL			canClose();
+	void			setEnableEditing(bool enable);
 
 	void            setScriptText(const std::string& text, BOOL is_valid);
+	bool			loadScriptText(const std::string& filename);
+	bool			writeToFile(const std::string& filename);
+	void			sync();
 	
 	void			doSave( BOOL close_after_save );
 
 	bool			handleSaveChangesDialog(const LLSD& notification, const LLSD& response);
 	bool			handleReloadFromServerDialog(const LLSD& notification, const LLSD& response);
 
-	static bool		onHelpWebDialog(const LLSD& notification, const LLSD& response);
+	void			openInExternalEditor();
+
 	static void		onCheckLock(LLUICtrl*, void*);
 	static void		onHelpComboCommit(LLUICtrl* ctrl, void* userdata);
 	static void		onClickBack(void* userdata);
 	static void		onClickForward(void* userdata);
 	static void		onBtnInsertSample(void*);
 	static void		onBtnInsertFunction(LLUICtrl*, void*);
+
+	virtual bool	hasAccelerators() const { return true; }
 
 private:
 	void		onBtnHelp();
@@ -116,7 +123,6 @@ protected:
 
 private:
 	std::string		mSampleText;
-	std::string		mHelpURL;
 	LLTextEditor*	mEditor;
 	void			(*mLoadCallback)(void* userdata);
 	void			(*mSaveCallback)(void* userdata, BOOL close_after_save);
@@ -124,7 +130,6 @@ private:
 	void*			mUserdata;
 	LLComboBox		*mFunctions;
 	BOOL			mForceClose;
-	//LLPanel*		mGuiPanel;
 	LLPanel*		mCodePanel;
 	LLScrollListCtrl* mErrorList;
 	LLDynamicArray<LLEntryAndEdCore*> mBridges;
@@ -134,11 +139,28 @@ private:
 	S32				mLiveHelpHistorySize;
 	BOOL			mEnableSave;
 	BOOL			mHasScriptData;
+	LLLiveLSLFile*	mLiveFile;
+
+	LLScriptEdContainer* mContainer; // parent view
 };
 
+class LLScriptEdContainer : public LLPreview
+{
+	friend class LLScriptEdCore;
+
+public:
+	LLScriptEdContainer(const LLSD& key);
+
+protected:
+	std::string		getTmpFileName();
+	bool			onExternalChange(const std::string& filename);
+	virtual void	saveIfNeeded(bool sync = true) = 0;
+
+	LLScriptEdCore*		mScriptEd;
+};
 
 // Used to view and edit a LSL from your inventory.
-class LLPreviewLSL : public LLPreview
+class LLPreviewLSL : public LLScriptEdContainer
 {
 public:
 	LLPreviewLSL(const LLSD& key );
@@ -152,7 +174,7 @@ protected:
 	void closeIfNeeded();
 
 	virtual void loadAsset();
-	void saveIfNeeded();
+	/*virtual*/ void saveIfNeeded(bool sync = true);
 	void uploadAssetViaCaps(const std::string& url,
 							const std::string& filename, 
 							const LLUUID& item_id);
@@ -176,7 +198,6 @@ protected:
 
 protected:
 
-	LLScriptEdCore* mScriptEd;
 	// Can safely close only after both text and bytecode are uploaded
 	S32 mPendingUploads;
 
@@ -184,11 +205,11 @@ protected:
 
 
 // Used to view and edit an LSL that is attached to an object.
-class LLLiveLSLEditor : public LLPreview
+class LLLiveLSLEditor : public LLScriptEdContainer
 {
+	friend class LLLiveLSLFile;
 public: 
 	LLLiveLSLEditor(const LLSD& key);
-	~LLLiveLSLEditor();
 
 
 	static void processScriptRunningReply(LLMessageSystem* msg, void**);
@@ -209,7 +230,7 @@ private:
 
 	virtual void loadAsset();
 	void loadAsset(BOOL is_new);
-	void saveIfNeeded();
+	/*virtual*/ void saveIfNeeded(bool sync = true);
 	void uploadAssetViaCaps(const std::string& url,
 							const std::string& filename, 
 							const LLUUID& task_id,
@@ -234,7 +255,6 @@ private:
 	static void onRunningCheckboxClicked(LLUICtrl*, void* userdata);
 	static void onReset(void* userdata);
 
-// 	void loadScriptText(const std::string& filename); // unused
 	void loadScriptText(LLVFS *vfs, const LLUUID &uuid, LLAssetType::EType type);
 
 	static void onErrorList(LLUICtrl*, void* user_data);
@@ -245,7 +265,6 @@ private:
 
 private:
 	bool				mIsNew;
-	LLScriptEdCore*		mScriptEd;
 	//LLUUID mTransmitID;
 	LLCheckBoxCtrl*		mRunningCheckbox;
 	BOOL				mAskedForRunningInfo;

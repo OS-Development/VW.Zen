@@ -2,42 +2,40 @@
  * @file llfloaterurlentry.cpp
  * @brief LLFloaterURLEntry class implementation
  *
- * $LicenseInfo:firstyear=2007&license=viewergpl$
- * 
- * Copyright (c) 2007-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2007&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
 #include "llviewerprecompiledheaders.h"
 
+#include "llhttpclient.h"
+
 #include "llfloaterurlentry.h"
 
 #include "llpanellandmedia.h"
+#include "llpanelface.h"
 
-// project includes
 #include "llcombobox.h"
+#include "llmimetypes.h"
+#include "llnotificationsutil.h"
 #include "llurlhistory.h"
 #include "lluictrlfactory.h"
 #include "llwindow.h"
@@ -66,16 +64,11 @@ public:
 		  completeAny(status, mime_type);
 	  }
 
-	  virtual void error( U32 status, const std::string& reason )
-	  {
-		  completeAny(status, "none/none");
-	  }
-
 	  void completeAny(U32 status, const std::string& mime_type)
 	  {
 		  // Set empty type to none/none.  Empty string is reserved for legacy parcels
 		  // which have no mime type set.
-		  std::string resolved_mime_type = ! mime_type.empty() ? mime_type : "none/none";
+		  std::string resolved_mime_type = ! mime_type.empty() ? mime_type : LLMIMETypes::getDefaultMimeType();
 		  LLFloaterURLEntry* floater_url_entry = (LLFloaterURLEntry*)mParent.get();
 		  if ( floater_url_entry )
 			  floater_url_entry->headerFetchComplete( status, resolved_mime_type );
@@ -86,10 +79,10 @@ public:
 // LLFloaterURLEntry()
 //-----------------------------------------------------------------------------
 LLFloaterURLEntry::LLFloaterURLEntry(LLHandle<LLPanel> parent)
-	: LLFloater(),
+	: LLFloater(LLSD()),
 	  mPanelLandMediaHandle(parent)
 {
-	LLUICtrlFactory::getInstance()->buildFloater(this, "floater_url_entry.xml");
+	buildFromFile("floater_url_entry.xml");
 }
 
 //-----------------------------------------------------------------------------
@@ -112,7 +105,7 @@ BOOL LLFloaterURLEntry::postBuild()
 	// clear media list button
 	LLSD parcel_history = LLURLHistory::getURLHistory("parcel");
 	bool enable_clear_button = parcel_history.size() > 0 ? true : false;
-	childSetEnabled( "clear_btn", enable_clear_button );
+	getChildView("clear_btn")->setEnabled(enable_clear_button );
 
 	// OK button
 	childSetAction("ok_btn", onBtnOK, this);
@@ -145,43 +138,42 @@ void LLFloaterURLEntry::buildURLHistory()
 
 void LLFloaterURLEntry::headerFetchComplete(U32 status, const std::string& mime_type)
 {
-	LLPanelLandMedia* panel_media = (LLPanelLandMedia*)mPanelLandMediaHandle.get();
+	LLPanelLandMedia* panel_media = dynamic_cast<LLPanelLandMedia*>(mPanelLandMediaHandle.get());
 	if (panel_media)
 	{
 		// status is ignored for now -- error = "none/none"
 		panel_media->setMediaType(mime_type);
 		panel_media->setMediaURL(mMediaURLEdit->getValue().asString());
 	}
+	else
+	{
+		LLPanelFace* panel_face = dynamic_cast<LLPanelFace*>(mPanelLandMediaHandle.get());
+		if(panel_face)
+		{
+			panel_face->setMediaType(mime_type);
+			panel_face->setMediaURL(mMediaURLEdit->getValue().asString());
+		}
+
+	}
 	// Decrement the cursor
 	getWindow()->decBusyCount();
-	childSetVisible("loading_label", false);
+	getChildView("loading_label")->setVisible( false);
 	closeFloater();
 }
 
 // static
-LLHandle<LLFloater> LLFloaterURLEntry::show(LLHandle<LLPanel> parent)
+LLHandle<LLFloater> LLFloaterURLEntry::show(LLHandle<LLPanel> parent, const std::string media_url)
 {
-	if (sInstance)
-	{
-		sInstance->openFloater();
-	}
-	else
+	if (!sInstance)
 	{
 		sInstance = new LLFloaterURLEntry(parent);
 	}
-	sInstance->updateFromLandMediaPanel();
+	sInstance->openFloater();
+	sInstance->addURLToCombobox(media_url);
 	return sInstance->getHandle();
 }
 
-void LLFloaterURLEntry::updateFromLandMediaPanel()
-{
-	LLPanelLandMedia* panel_media = (LLPanelLandMedia*)mPanelLandMediaHandle.get();
-	if (panel_media)
-	{
-		std::string media_url = panel_media->getMediaURL();
-		addURLToCombobox(media_url);
-	}
-}
+
 
 bool LLFloaterURLEntry::addURLToCombobox(const std::string& media_url)
 {
@@ -227,7 +219,7 @@ void LLFloaterURLEntry::onBtnOK( void* userdata )
 	}
 
 	// Discover the MIME type only for "http" scheme.
-	if(scheme == "http")
+	if(scheme == "http" || scheme == "https")
 	{
 		LLHTTPClient::getHeaderOnly( media_url,
 			new LLMediaTypeResponder(self->getHandle()));
@@ -238,13 +230,13 @@ void LLFloaterURLEntry::onBtnOK( void* userdata )
 	}
 
 	// Grey the buttons until we get the header response
-	self->childSetEnabled("ok_btn", false);
-	self->childSetEnabled("cancel_btn", false);
-	self->childSetEnabled("media_entry", false);
+	self->getChildView("ok_btn")->setEnabled(false);
+	self->getChildView("cancel_btn")->setEnabled(false);
+	self->getChildView("media_entry")->setEnabled(false);
 
 	// show progress bar here?
 	getWindow()->incBusyCount();
-	self->childSetVisible("loading_label", true);
+	self->getChildView("loading_label")->setVisible( true);
 }
 
 // static
@@ -263,13 +255,13 @@ void LLFloaterURLEntry::onBtnCancel( void* userdata )
 //-----------------------------------------------------------------------------
 void LLFloaterURLEntry::onBtnClear( void* userdata )
 {
-	LLNotifications::instance().add( "ConfirmClearMediaUrlList", LLSD(), LLSD(), 
+	LLNotificationsUtil::add( "ConfirmClearMediaUrlList", LLSD(), LLSD(), 
 									boost::bind(&LLFloaterURLEntry::callback_clear_url_list, (LLFloaterURLEntry*)userdata, _1, _2) );
 }
 
 bool LLFloaterURLEntry::callback_clear_url_list(const LLSD& notification, const LLSD& response)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	if ( option == 0 ) // YES
 	{
 		// clear saved list
@@ -286,7 +278,7 @@ bool LLFloaterURLEntry::callback_clear_url_list(const LLSD& notification, const 
 		LLURLHistory::clear("parcel");
 
 		// cleared the list so disable Clear button
-		childSetEnabled( "clear_btn", false );
+		getChildView("clear_btn")->setEnabled(false );
 	}
 	return false;
 }

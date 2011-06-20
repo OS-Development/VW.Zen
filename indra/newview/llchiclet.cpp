@@ -1,138 +1,413 @@
 /** 
-* @file llchiclet.cpp
-* @brief LLChiclet class implementation
-*
-* $LicenseInfo:firstyear=2002&license=viewergpl$
-* 
-* Copyright (c) 2002-2009, Linden Research, Inc.
-* 
-* Second Life Viewer Source Code
-* The source code in this file ("Source Code") is provided by Linden Lab
-* to you under the terms of the GNU General Public License, version 2.0
-* ("GPL"), unless you have obtained a separate licensing agreement
-* ("Other License"), formally executed by you and Linden Lab.  Terms of
-* the GPL can be found in doc/GPL-license.txt in this distribution, or
-* online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
-* 
-* There are special exceptions to the terms and conditions of the GPL as
-* it is applied to this Source Code. View the full text of the exception
-* in the file doc/FLOSS-exception.txt in this software distribution, or
-* online at
-* http://secondlifegrid.net/programs/open_source/licensing/flossexception
-* 
-* By copying, modifying or distributing this software, you acknowledge
-* that you have read and understood your obligations described above,
-* and agree to abide by those obligations.
-* 
-* ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
-* WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
-* COMPLETENESS OR PERFORMANCE.
-* $/LicenseInfo$
-*/
+ * @file llchiclet.cpp
+ * @brief LLChiclet class implementation
+ *
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
+ * Second Life Viewer Source Code
+ * Copyright (C) 2010, Linden Research, Inc.
+ * 
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
+ * 
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
+ * $/LicenseInfo$
+ */
 
 #include "llviewerprecompiledheaders.h" // must be first include
 #include "llchiclet.h"
-#include "llvoiceclient.h"
-#include "llagent.h"
-#include "lltextbox.h"
-#include "lliconctrl.h"
-#include "llvoicecontrolpanel.h"
-#include "lloutputmonitorctrl.h"
-#include "llimview.h"
-#include "llbottomtray.h"
-#include "llimpanel.h"
 
-static const S32 CHICLET_HEIGHT = 25;
-static const S32 CHICLET_SPACING = 0;
-static const S32 CHICLET_PADDING = 3;
-static const S32 AVATAR_WIDTH = 25;
-static const S32 SPEAKER_WIDTH = 20;
-static const S32 COUNTER_WIDTH = 20;
-static const S32 SCROLL_BUTTON_WIDTH = 19;
-static const S32 SCROLL_BUTTON_HEIGHT = 20;
-static const S32 NOTIFICATION_TEXT_TOP_PAD = 5;
+#include "llagent.h"
+#include "llavataractions.h"
+#include "llbottomtray.h"
+#include "lleventtimer.h"
+#include "llgroupactions.h"
+#include "lliconctrl.h"
+#include "llimfloater.h"
+#include "llimview.h"
+#include "llfloaterreg.h"
+#include "lllocalcliprect.h"
+#include "llmenugl.h"
+#include "llnotifications.h"
+#include "llnotificationsutil.h"
+#include "lloutputmonitorctrl.h"
+#include "llscriptfloater.h"
+#include "llspeakers.h"
+#include "lltextbox.h"
+#include "llvoiceclient.h"
+#include "llgroupmgr.h"
+#include "llnotificationmanager.h"
+#include "lltransientfloatermgr.h"
+#include "llsyswellwindow.h"
 
 static LLDefaultChildRegistry::Register<LLChicletPanel> t1("chiclet_panel");
-static LLDefaultChildRegistry::Register<LLTalkButton> t2("chiclet_talk");
-static LLDefaultChildRegistry::Register<LLNotificationChiclet> t3("chiclet_notification");
-static LLDefaultChildRegistry::Register<LLChicletPanel> t4("chiclet_panel");
+static LLDefaultChildRegistry::Register<LLIMWellChiclet> t2_0("chiclet_im_well");
+static LLDefaultChildRegistry::Register<LLNotificationChiclet> t2("chiclet_notification");
+static LLDefaultChildRegistry::Register<LLIMP2PChiclet> t3("chiclet_im_p2p");
+static LLDefaultChildRegistry::Register<LLIMGroupChiclet> t4("chiclet_im_group");
+static LLDefaultChildRegistry::Register<LLAdHocChiclet> t5("chiclet_im_adhoc");
+static LLDefaultChildRegistry::Register<LLScriptChiclet> t6("chiclet_script");
+static LLDefaultChildRegistry::Register<LLInvOfferChiclet> t7("chiclet_offer");
 
+boost::signals2::signal<LLChiclet* (const LLUUID&),
+		LLIMChiclet::CollectChicletCombiner<std::list<LLChiclet*> > >
+		LLIMChiclet::sFindChicletsSignal;
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
-LLNotificationChiclet::Params::Params()
-: image_unselected("image_unselected")
-, image_selected("image_selected")
-, image_overlay("image_overlay")
+/**
+ * Updates the Well's 'Lit' state to flash it when "new messages" are come.
+ *
+ * It gets callback which will be called 2*N times with passed period. See EXT-3147
+ */
+class LLSysWellChiclet::FlashToLitTimer : public LLEventTimer
 {
+public:
+	typedef boost::function<void()> callback_t;
+
+	/**
+	 * Constructor.
+	 *
+	 * @param count - how many times callback should be called (twice to not change original state)
+	 * @param period - how frequently callback should be called
+	 * @param cb - callback to be called each tick
+	 */
+	FlashToLitTimer(S32 count, F32 period, callback_t cb)
+		: LLEventTimer(period)
+		, mCallback(cb)
+		, mFlashCount(2 * count)
+		, mCurrentFlashCount(0)
+	{
+		mEventTimer.stop();
+	}
+
+	BOOL tick()
+	{
+		mCallback();
+
+		if (++mCurrentFlashCount == mFlashCount) mEventTimer.stop();
+		return FALSE;
+	}
+
+	void flash()
+	{
+		mCurrentFlashCount = 0;
+		mEventTimer.start();
+	}
+
+	void stopFlashing()
+	{
+		mEventTimer.stop();
+	}
+
+private:
+	callback_t		mCallback;
+
+	/**
+	 * How many times Well will blink.
+	 */
+	S32 mFlashCount;
+	S32 mCurrentFlashCount;
+};
+
+LLSysWellChiclet::Params::Params()
+: button("button")
+, unread_notifications("unread_notifications")
+, max_displayed_count("max_displayed_count", 99)
+{
+	button.name("button");
+	button.tab_stop(FALSE);
+	button.label(LLStringUtil::null);
 }
 
-LLNotificationChiclet::LLNotificationChiclet(const Params& p)
+LLSysWellChiclet::LLSysWellChiclet(const Params& p)
 : LLChiclet(p)
 , mButton(NULL)
-, mCounterText(NULL)
+, mCounter(0)
+, mMaxDisplayedCount(p.max_displayed_count)
+, mIsNewMessagesState(false)
+, mFlashToLitTimer(NULL)
+, mContextMenu(NULL)
 {
-	LLRect rc(p.rect);
-
-	LLButton::Params button_params;
-	button_params.name("btn");
-	button_params.label(LLStringUtil::null);
-	button_params.rect(LLRect(0,rc.getHeight(),rc.getWidth(),0));
-	button_params.image_overlay(p.image_overlay);
-	button_params.image_unselected(p.image_unselected);
-	button_params.image_selected(p.image_selected);
-	button_params.tab_stop(false);
+	LLButton::Params button_params = p.button;
 	mButton = LLUICtrlFactory::create<LLButton>(button_params);
 	addChild(mButton);
 
-	LLTextBox::Params textbox_params;
-	textbox_params.name("txt");
-	textbox_params.rect(LLRect(p.label_left,rc.getHeight(),
-		rc.getWidth()-p.label_left,0));
-	textbox_params.mouse_opaque(false);
-	textbox_params.v_pad(NOTIFICATION_TEXT_TOP_PAD);
-	textbox_params.font.style("SansSerif");
-	textbox_params.font_halign(LLFontGL::HCENTER);
-	mCounterText = LLUICtrlFactory::create<LLTextBox>(textbox_params);
-	addChild(mCounterText);
-	mCounterText->setColor(LLColor4::white);
-	mCounterText->setText(LLStringUtil::null);
+	// use settings from settings.xml to be able change them via Debug settings. See EXT-5973.
+	// Due to Timer is implemented as derived class from EventTimer it is impossible to change period
+	// in runtime. So, both settings are made as required restart.
+	static S32 flash_to_lit_count = gSavedSettings.getS32("WellIconFlashCount");
+	static F32 flash_period = gSavedSettings.getF32("WellIconFlashPeriod");
+
+	mFlashToLitTimer = new FlashToLitTimer(flash_to_lit_count, flash_period, boost::bind(&LLSysWellChiclet::changeLitState, this));
 }
 
-LLNotificationChiclet::~LLNotificationChiclet()
+LLSysWellChiclet::~LLSysWellChiclet()
 {
-
+	delete mFlashToLitTimer;
 }
 
-LLChiclet* LLNotificationChiclet::create(const Params& p)
+void LLSysWellChiclet::setCounter(S32 counter)
 {
-	LLChiclet* chiclet = new LLNotificationChiclet(p);
-	return chiclet;
-}
+	// do nothing if the same counter is coming. EXT-3678.
+	if (counter == mCounter) return;
 
-void LLNotificationChiclet::setCounter(S32 counter)
-{
-	std::stringstream stream;
+	// note same code in LLChicletNotificationCounterCtrl::setCounter(S32 counter)
+	std::string s_count;
+	if(counter != 0)
+	{
+		static std::string more_messages_exist("+");
+		std::string more_messages(counter > mMaxDisplayedCount ? more_messages_exist : "");
+		s_count = llformat("%d%s"
+			, llmin(counter, mMaxDisplayedCount)
+			, more_messages.c_str()
+			);
+	}
+
+	mButton->setLabel(s_count);
+
 	mCounter = counter;
-	stream << mCounter;
-	mCounterText->setText(stream.str());
 }
 
-boost::signals2::connection LLNotificationChiclet::setClickCallback(
+boost::signals2::connection LLSysWellChiclet::setClickCallback(
 	const commit_callback_t& cb)
 {
 	return mButton->setClickedCallback(cb);
 }
 
+void LLSysWellChiclet::setToggleState(BOOL toggled) {
+	mButton->setToggleState(toggled);
+}
+
+void LLSysWellChiclet::changeLitState()
+{
+	setNewMessagesState(!mIsNewMessagesState);
+}
+
+void LLSysWellChiclet::setNewMessagesState(bool new_messages)
+{
+	/*
+	Emulate 4 states of button by background images, see detains in EXT-3147
+	xml attribute           Description
+	image_unselected        "Unlit" - there are no new messages
+	image_selected          "Unlit" + "Selected" - there are no new messages and the Well is open
+	image_pressed           "Lit" - there are new messages
+	image_pressed_selected  "Lit" + "Selected" - there are new messages and the Well is open
+	*/
+	mButton->setForcePressedState(new_messages);
+
+	mIsNewMessagesState = new_messages;
+}
+
+void LLSysWellChiclet::updateWidget(bool is_window_empty)
+{
+	mButton->setEnabled(!is_window_empty);
+
+	LLSD params;
+	params["well_empty"] = is_window_empty;
+	params["well_name"] = getName();
+	notifyParent(params);
+}
+// virtual
+BOOL LLSysWellChiclet::handleRightMouseDown(S32 x, S32 y, MASK mask)
+{
+	if(!mContextMenu)
+	{
+		createMenu();
+	}
+	if (mContextMenu)
+	{
+		mContextMenu->show(x, y);
+		LLMenuGL::showPopup(this, mContextMenu, x, y);
+	}
+	return TRUE;
+}
+
+/************************************************************************/
+/*               LLIMWellChiclet implementation                         */
+/************************************************************************/
+LLIMWellChiclet::LLIMWellChiclet(const Params& p)
+: LLSysWellChiclet(p)
+{
+	LLIMModel::instance().addNewMsgCallback(boost::bind(&LLIMWellChiclet::messageCountChanged, this, _1));
+	LLIMModel::instance().addNoUnreadMsgsCallback(boost::bind(&LLIMWellChiclet::messageCountChanged, this, _1));
+
+	LLIMMgr::getInstance()->addSessionObserver(this);
+
+	LLIMWellWindow::getInstance()->setSysWellChiclet(this);
+}
+
+LLIMWellChiclet::~LLIMWellChiclet()
+{
+	LLIMMgr::getInstance()->removeSessionObserver(this);
+}
+
+void LLIMWellChiclet::onMenuItemClicked(const LLSD& user_data)
+{
+	std::string action = user_data.asString();
+	if("close all" == action)
+	{
+		LLIMWellWindow::getInstance()->closeAll();
+	}
+}
+
+bool LLIMWellChiclet::enableMenuItem(const LLSD& user_data)
+{
+	std::string item = user_data.asString();
+	if (item == "can close all")
+	{
+		return !LLIMWellWindow::getInstance()->isWindowEmpty();
+	}
+	return true;
+}
+
+void LLIMWellChiclet::createMenu()
+{
+	if(mContextMenu)
+	{
+		llwarns << "Menu already exists" << llendl;
+		return;
+	}
+
+	LLUICtrl::CommitCallbackRegistry::ScopedRegistrar registrar;
+	registrar.add("IMWellChicletMenu.Action",
+		boost::bind(&LLIMWellChiclet::onMenuItemClicked, this, _2));
+
+	LLUICtrl::EnableCallbackRegistry::ScopedRegistrar enable_registrar;
+	enable_registrar.add("IMWellChicletMenu.EnableItem",
+		boost::bind(&LLIMWellChiclet::enableMenuItem, this, _2));
+
+	mContextMenu = LLUICtrlFactory::getInstance()->createFromFile<LLContextMenu>
+		("menu_im_well_button.xml",
+		 LLMenuGL::sMenuContainer,
+		 LLViewerMenuHolderGL::child_registry_t::instance());
+}
+
+void LLIMWellChiclet::messageCountChanged(const LLSD& session_data)
+{
+	const LLUUID& session_id = session_data["session_id"];
+	const S32 counter = LLBottomTray::getInstance()->getTotalUnreadIMCount();
+	const bool im_not_visible = !LLFloaterReg::instanceVisible("im_container")
+		&& !LLFloaterReg::instanceVisible("impanel", session_id);
+
+	setNewMessagesState(counter > mCounter	&& im_not_visible);
+
+	// we have to flash to 'Lit' state each time new unread message is coming.
+	if (counter > mCounter && im_not_visible)
+	{
+		mFlashToLitTimer->flash();
+	}
+	else if (counter == 0)
+	{
+		// if notification is resolved while well is flashing it can leave in the 'Lit' state
+		// when flashing finishes itself. Let break flashing here.
+		mFlashToLitTimer->stopFlashing();
+	}
+
+	setCounter(counter);
+}
+
+/************************************************************************/
+/*               LLNotificationChiclet implementation                   */
+/************************************************************************/
+LLNotificationChiclet::LLNotificationChiclet(const Params& p)
+: LLSysWellChiclet(p)
+, mUreadSystemNotifications(0)
+{
+	// connect counter handlers to the signals
+	connectCounterUpdatersToSignal("notify");
+	connectCounterUpdatersToSignal("groupnotify");
+	connectCounterUpdatersToSignal("offer");
+
+	// ensure that notification well window exists, to synchronously
+	// handle toast add/delete events.
+	LLNotificationWellWindow::getInstance()->setSysWellChiclet(this);
+}
+
+void LLNotificationChiclet::connectCounterUpdatersToSignal(const std::string& notification_type)
+{
+	LLNotificationsUI::LLNotificationManager* manager = LLNotificationsUI::LLNotificationManager::getInstance();
+	LLNotificationsUI::LLEventHandler* n_handler = manager->getHandlerForNotification(notification_type);
+	if(n_handler)
+	{
+		n_handler->setNewNotificationCallback(boost::bind(&LLNotificationChiclet::incUreadSystemNotifications, this));
+		n_handler->setDelNotification(boost::bind(&LLNotificationChiclet::decUreadSystemNotifications, this));
+	}
+}
+
+void LLNotificationChiclet::onMenuItemClicked(const LLSD& user_data)
+{
+	std::string action = user_data.asString();
+	if("close all" == action)
+	{
+		LLNotificationWellWindow::getInstance()->closeAll();
+	}
+}
+
+bool LLNotificationChiclet::enableMenuItem(const LLSD& user_data)
+{
+	std::string item = user_data.asString();
+	if (item == "can close all")
+	{
+		return mUreadSystemNotifications != 0;
+	}
+	return true;
+}
+
+void LLNotificationChiclet::createMenu()
+{
+	if(mContextMenu)
+	{
+		llwarns << "Menu already exists" << llendl;
+		return;
+	}
+
+	LLUICtrl::CommitCallbackRegistry::ScopedRegistrar registrar;
+	registrar.add("NotificationWellChicletMenu.Action",
+		boost::bind(&LLNotificationChiclet::onMenuItemClicked, this, _2));
+
+	LLUICtrl::EnableCallbackRegistry::ScopedRegistrar enable_registrar;
+	enable_registrar.add("NotificationWellChicletMenu.EnableItem",
+		boost::bind(&LLNotificationChiclet::enableMenuItem, this, _2));
+
+	mContextMenu = LLUICtrlFactory::getInstance()->createFromFile<LLContextMenu>
+		("menu_notification_well_button.xml",
+		 LLMenuGL::sMenuContainer,
+		 LLViewerMenuHolderGL::child_registry_t::instance());
+}
+
+/*virtual*/
+void LLNotificationChiclet::setCounter(S32 counter)
+{
+	LLSysWellChiclet::setCounter(counter);
+	updateWidget(getCounter() == 0);
+	
+}
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
+LLChiclet::Params::Params()
+ : show_counter("show_counter", true)
+ , enable_counter("enable_counter", false)
+{
+}
+
 LLChiclet::LLChiclet(const Params& p)
 : LLUICtrl(p)
-, mCounter(0)
-, mShowCounter(true)
+, mSessionId(LLUUID::null)
+, mShowCounter(p.show_counter)
 {
 
 }
@@ -145,7 +420,7 @@ LLChiclet::~LLChiclet()
 boost::signals2::connection LLChiclet::setLeftButtonClickCallback(
 	const commit_callback_t& cb)
 {
-	return mCommitSignal.connect(cb);
+	return setCommitCallback(cb);
 }
 
 BOOL LLChiclet::handleMouseDown(S32 x, S32 y, MASK mask)
@@ -155,227 +430,829 @@ BOOL LLChiclet::handleMouseDown(S32 x, S32 y, MASK mask)
 	return TRUE;
 }
 
+boost::signals2::connection LLChiclet::setChicletSizeChangedCallback(
+	const chiclet_size_changed_callback_t& cb)
+{
+	return mChicletSizeChangedSignal.connect(cb);
+}
+
+void LLChiclet::onChicletSizeChanged()
+{
+	mChicletSizeChangedSignal(this, getValue());
+}
+
+LLSD LLChiclet::getValue() const
+{
+	return LLSD(getSessionId());
+}
+
+void LLChiclet::setValue(const LLSD& value)
+{
+	if(value.isUUID())
+		setSessionId(value.asUUID());
+}
+
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
-LLIMChiclet::LLIMChiclet(const LLChiclet::Params& p)
+LLIMChiclet::LLIMChiclet(const LLIMChiclet::Params& p)
 : LLChiclet(p)
-, mAvatar(NULL)
-, mCounterText(NULL)
-, mSpeaker(NULL)
-, mIMSessionId(LLUUID::null)
 , mShowSpeaker(false)
-, mSpeakerStatus(SPEAKER_IDLE)
+, mDefaultWidth(p.rect().getWidth())
+, mNewMessagesIcon(NULL)
+, mSpeakerCtrl(NULL)
+, mCounterCtrl(NULL)
+, mChicletButton(NULL)
+, mPopupMenu(NULL)
 {
-	LLAvatarIconCtrl::Params avatar_params;
-	avatar_params.control_name("avatar");
-	avatar_params.draw_tooltip = FALSE;
-	mAvatar = LLUICtrlFactory::create<LLAvatarIconCtrl>(avatar_params);
-
-	addChild(mAvatar);
-
-	LLTextBox::Params unread_params;
-	unread_params.font.style("SansSerif");
-	unread_params.font_halign(LLFontGL::HCENTER);
-	unread_params.v_pad(5);
-	mCounterText = LLUICtrlFactory::create<LLTextBox>(unread_params);
-	addChild(mCounterText);
-	mCounterText->setColor(LLColor4::white);
-	setCounter(getCounter());
-
-	LLIconCtrl::Params speaker_params;
-	speaker_params.image( LLUI::getUIImage("icn_voice_ptt-on-lvl2.tga") );
-	mSpeaker = LLUICtrlFactory::create<LLIconCtrl>(speaker_params);
-	addChild(mSpeaker);
-	mSpeaker->setVisible(getShowSpeaker());
-
-	S32 left = 0;
-	mAvatar->setRect(LLRect(left,CHICLET_HEIGHT,AVATAR_WIDTH,0));
-	left += AVATAR_WIDTH + CHICLET_SPACING;
-	mCounterText->setRect(LLRect(left,CHICLET_HEIGHT,left + COUNTER_WIDTH,0));
-	left += COUNTER_WIDTH + CHICLET_SPACING;
-	mSpeaker->setRect(LLRect(left,CHICLET_HEIGHT,left + SPEAKER_WIDTH,0));
+	enableCounterControl(p.enable_counter);
 }
 
-LLIMChiclet::~LLIMChiclet()
+/* virtual*/
+BOOL LLIMChiclet::postBuild()
 {
-
+	mChicletButton = getChild<LLButton>("chiclet_button");
+	mChicletButton->setCommitCallback(boost::bind(&LLIMChiclet::onMouseDown, this));
+	mChicletButton->setDoubleClickCallback(boost::bind(&LLIMChiclet::onMouseDown, this));
+	return TRUE;
 }
-
-LLChiclet* LLIMChiclet::create(const LLUUID& im_session_id /* = LLUUID::null */)
+void LLIMChiclet::setShowSpeaker(bool show)
 {
-	LLIMChiclet* chiclet = new LLIMChiclet(LLChiclet::Params());
-	chiclet->setIMSessionId(im_session_id);
-	return chiclet;
-}
-
-void LLIMChiclet::setCounter(S32 counter)
-{
-	mCounter = counter;
-	std::stringstream stream;
-	stream << mCounter;
-	mCounterText->setText(stream.str());
-
-	LLRect rc = mCounterText->getRect();
-	rc.mRight = rc.mLeft + calcCounterWidth();
-	mCounterText->setRect(rc);
-}
-
-LLRect LLIMChiclet::getRequiredRect()
-{
-	LLRect rect(0,CHICLET_HEIGHT,AVATAR_WIDTH,0);
-	if(getShowCounter())
-	{
-		rect.mRight += CHICLET_SPACING + calcCounterWidth();
+	bool needs_resize = getShowSpeaker() != show;
+	if(needs_resize)
+	{		
+		mShowSpeaker = show;
 	}
-	if(getShowSpeaker())
+
+	toggleSpeakerControl();
+}
+
+void LLIMChiclet::enableCounterControl(bool enable) 
+{
+	mCounterEnabled = enable;
+	if(!enable)
 	{
-		rect.mRight += CHICLET_SPACING + SPEAKER_WIDTH;
+		LLChiclet::setShowCounter(false);
 	}
-	return rect;
 }
 
 void LLIMChiclet::setShowCounter(bool show)
 {
-	LLChiclet::setShowCounter(show);
-	mCounterText->setVisible(getShowCounter());
-}
-
-void LLIMChiclet::setIMSessionName(const std::string& name)
-{
-	setToolTip(name);
-}
-
-void LLIMChiclet::setOtherParticipantId(const LLUUID& other_participant_id)
-{
-	if (mAvatar)
+	if(!mCounterEnabled)
 	{
-		mAvatar->setValue(other_participant_id);
+		return;
+	}
+
+	bool needs_resize = getShowCounter() != show;
+	if(needs_resize)
+	{		
+		LLChiclet::setShowCounter(show);
+		toggleCounterControl();
 	}
 }
 
-void LLIMChiclet::setShowSpeaker(bool show)
+void LLIMChiclet::initSpeakerControl()
 {
-	mShowSpeaker = show;
-	mSpeaker->setVisible(getShowSpeaker());
+	// virtual
+}
+
+void LLIMChiclet::setRequiredWidth()
+{
+	bool show_speaker = getShowSpeaker();
+	bool show_counter = getShowCounter();
+	S32 required_width = mDefaultWidth;
+
+	if (show_counter)
+	{
+		required_width += mCounterCtrl->getRect().getWidth();
+	}
+	if (show_speaker)
+	{
+		required_width += mSpeakerCtrl->getRect().getWidth();
+	} 
+
+	reshape(required_width, getRect().getHeight());
+
+	onChicletSizeChanged();
+}
+
+void LLIMChiclet::toggleSpeakerControl()
+{
+	if(getShowSpeaker())
+	{
+		// move speaker to the right of chiclet icon
+		LLRect speaker_rc = mSpeakerCtrl->getRect();
+		speaker_rc.setLeftTopAndSize(mDefaultWidth, speaker_rc.mTop, speaker_rc.getWidth(), speaker_rc.getHeight());
+		mSpeakerCtrl->setRect(speaker_rc);
+
+		if(getShowCounter())
+		{
+			// move speaker to the right of counter
+			mSpeakerCtrl->translate(mCounterCtrl->getRect().getWidth(), 0);
+		}
+
+		initSpeakerControl();		
+	}
+
+	setRequiredWidth();
+	mSpeakerCtrl->setSpeakerId(LLUUID::null);
+	mSpeakerCtrl->setVisible(getShowSpeaker());
+}
+
+void LLIMChiclet::setCounter(S32 counter)
+{
+	if (mCounterCtrl->getCounter() == counter)
+	{
+		return;
+	}
+
+	mCounterCtrl->setCounter(counter);
+	setShowCounter(counter);
+	setShowNewMessagesIcon(counter);
+}
+
+void LLIMChiclet::toggleCounterControl()
+{
+	setRequiredWidth();
+	mCounterCtrl->setVisible(getShowCounter());
+}
+
+void LLIMChiclet::setShowNewMessagesIcon(bool show)
+{
+	if(mNewMessagesIcon)
+	{
+		mNewMessagesIcon->setVisible(show);
+	}
+	setRequiredWidth();
+}
+
+bool LLIMChiclet::getShowNewMessagesIcon()
+{
+	return mNewMessagesIcon->getVisible();
+}
+
+void LLIMChiclet::onMouseDown()
+{
+	LLIMFloater::toggle(getSessionId());
+	setCounter(0);
+}
+
+void LLIMChiclet::setToggleState(bool toggle)
+{
+	mChicletButton->setToggleState(toggle);
 }
 
 void LLIMChiclet::draw()
 {
 	LLUICtrl::draw();
-	gl_rect_2d(0, getRect().getHeight(), getRect().getWidth(), 0, LLColor4(0.0f,0.0f,0.0f,1.f), FALSE);
 }
 
-S32 LLIMChiclet::calcCounterWidth()
+// static
+LLIMChiclet::EType LLIMChiclet::getIMSessionType(const LLUUID& session_id)
 {
-	S32 font_width = mCounterText->getFont()->getWidth("0");
-	S32 text_size = mCounterText->getText().size();
+	EType				type	= TYPE_UNKNOWN;
 
-	return llmax(font_width * text_size, COUNTER_WIDTH);
+	if(session_id.isNull())
+		return type;
+
+	EInstantMessage im_type = LLIMModel::getInstance()->getType(session_id);
+	if (IM_COUNT == im_type)
+	{
+		llassert_always(0 && "IM session not found"); // should never happen
+		return type;
+	}
+
+	switch(im_type)
+	{
+	case IM_NOTHING_SPECIAL:
+	case IM_SESSION_P2P_INVITE:
+		type = TYPE_IM;
+		break;
+	case IM_SESSION_GROUP_START:
+	case IM_SESSION_INVITE:
+		if (gAgent.isInGroup(session_id))
+		{
+			type = TYPE_GROUP;
+		}
+		else
+		{
+			type = TYPE_AD_HOC;
+		}
+		break;
+	case IM_SESSION_CONFERENCE_START:
+		type = TYPE_AD_HOC;
+	default:
+		break;
+	}
+
+	return type;
+}
+
+BOOL LLIMChiclet::handleRightMouseDown(S32 x, S32 y, MASK mask)
+{
+	if(!mPopupMenu)
+	{
+		createPopupMenu();
+	}
+
+	if (mPopupMenu)
+	{
+		updateMenuItems();
+		mPopupMenu->arrangeAndClear();
+		LLMenuGL::showPopup(this, mPopupMenu, x, y);
+	}
+
+	return TRUE;
+}
+
+bool LLIMChiclet::canCreateMenu()
+{
+	if(mPopupMenu)
+	{
+		llwarns << "Menu already exists" << llendl;
+		return false;
+	}
+	if(getSessionId().isNull())
+	{
+		return false;
+	}
+	return true;
 }
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
+
+LLIMP2PChiclet::Params::Params()
+: avatar_icon("avatar_icon")
+, chiclet_button("chiclet_button")
+, unread_notifications("unread_notifications")
+, speaker("speaker")
+, new_message_icon("new_message_icon")
+, show_speaker("show_speaker")
+{
+}
+
+LLIMP2PChiclet::LLIMP2PChiclet(const Params& p)
+: LLIMChiclet(p)
+, mChicletIconCtrl(NULL)
+{
+	LLButton::Params button_params = p.chiclet_button;
+	mChicletButton = LLUICtrlFactory::create<LLButton>(button_params);
+	addChild(mChicletButton);
+
+	LLIconCtrl::Params new_msg_params = p.new_message_icon;
+	mNewMessagesIcon = LLUICtrlFactory::create<LLIconCtrl>(new_msg_params);
+	addChild(mNewMessagesIcon);
+
+	LLChicletAvatarIconCtrl::Params avatar_params = p.avatar_icon;
+	mChicletIconCtrl = LLUICtrlFactory::create<LLChicletAvatarIconCtrl>(avatar_params);
+	addChild(mChicletIconCtrl);
+
+	LLChicletNotificationCounterCtrl::Params unread_params = p.unread_notifications;
+	mCounterCtrl = LLUICtrlFactory::create<LLChicletNotificationCounterCtrl>(unread_params);
+	addChild(mCounterCtrl);
+
+	setCounter(getCounter());
+	setShowCounter(getShowCounter());
+
+	LLChicletSpeakerCtrl::Params speaker_params = p.speaker;
+	mSpeakerCtrl = LLUICtrlFactory::create<LLChicletSpeakerCtrl>(speaker_params);
+	addChild(mSpeakerCtrl);
+
+	sendChildToFront(mNewMessagesIcon);
+	setShowSpeaker(p.show_speaker);
+}
+
+void LLIMP2PChiclet::initSpeakerControl()
+{
+	mSpeakerCtrl->setSpeakerId(getOtherParticipantId());
+}
+
+void LLIMP2PChiclet::setOtherParticipantId(const LLUUID& other_participant_id)
+{
+	LLIMChiclet::setOtherParticipantId(other_participant_id);
+	mChicletIconCtrl->setValue(getOtherParticipantId());
+}
+
+void LLIMP2PChiclet::updateMenuItems()
+{
+	if(!mPopupMenu)
+		return;
+	if(getSessionId().isNull())
+		return;
+
+	LLIMFloater* open_im_floater = LLIMFloater::findInstance(getSessionId());
+	bool open_window_exists = open_im_floater && open_im_floater->getVisible();
+	mPopupMenu->getChild<LLUICtrl>("Send IM")->setEnabled(!open_window_exists);
+	
+	bool is_friend = LLAvatarActions::isFriend(getOtherParticipantId());
+	mPopupMenu->getChild<LLUICtrl>("Add Friend")->setEnabled(!is_friend);
+}
+
+void LLIMP2PChiclet::createPopupMenu()
+{
+	if(!canCreateMenu())
+		return;
+
+	LLUICtrl::CommitCallbackRegistry::ScopedRegistrar registrar;
+	registrar.add("IMChicletMenu.Action", boost::bind(&LLIMP2PChiclet::onMenuItemClicked, this, _2));
+
+	mPopupMenu = LLUICtrlFactory::getInstance()->createFromFile<LLMenuGL>
+		("menu_imchiclet_p2p.xml", gMenuHolder, LLViewerMenuHolderGL::child_registry_t::instance());
+}
+
+void LLIMP2PChiclet::onMenuItemClicked(const LLSD& user_data)
+{
+	std::string level = user_data.asString();
+	LLUUID other_participant_id = getOtherParticipantId();
+
+	if("profile" == level)
+	{
+		LLAvatarActions::showProfile(other_participant_id);
+	}
+	else if("im" == level)
+	{
+		LLAvatarActions::startIM(other_participant_id);
+	}
+	else if("add" == level)
+	{
+		LLAvatarActions::requestFriendshipDialog(other_participant_id);
+	}
+	else if("end" == level)
+	{
+		LLAvatarActions::endIM(other_participant_id);
+	}
+}
+
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+
+LLAdHocChiclet::Params::Params()
+: avatar_icon("avatar_icon")
+, chiclet_button("chiclet_button")
+, unread_notifications("unread_notifications")
+, speaker("speaker")
+, new_message_icon("new_message_icon")
+, show_speaker("show_speaker")
+, avatar_icon_color("avatar_icon_color", LLColor4::green)
+{
+}
+
+LLAdHocChiclet::LLAdHocChiclet(const Params& p)
+: LLIMChiclet(p)
+, mChicletIconCtrl(NULL)
+{
+	LLButton::Params button_params = p.chiclet_button;
+	mChicletButton = LLUICtrlFactory::create<LLButton>(button_params);
+	addChild(mChicletButton);
+
+	LLIconCtrl::Params new_msg_params = p.new_message_icon;
+	mNewMessagesIcon = LLUICtrlFactory::create<LLIconCtrl>(new_msg_params);
+	addChild(mNewMessagesIcon);
+
+	LLChicletAvatarIconCtrl::Params avatar_params = p.avatar_icon;
+	mChicletIconCtrl = LLUICtrlFactory::create<LLChicletAvatarIconCtrl>(avatar_params);
+	//Make the avatar modified
+	mChicletIconCtrl->setColor(p.avatar_icon_color);
+	addChild(mChicletIconCtrl);
+
+	LLChicletNotificationCounterCtrl::Params unread_params = p.unread_notifications;
+	mCounterCtrl = LLUICtrlFactory::create<LLChicletNotificationCounterCtrl>(unread_params);
+	addChild(mCounterCtrl);
+
+	setCounter(getCounter());
+	setShowCounter(getShowCounter());
+
+	LLChicletSpeakerCtrl::Params speaker_params = p.speaker;
+	mSpeakerCtrl = LLUICtrlFactory::create<LLChicletSpeakerCtrl>(speaker_params);
+	addChild(mSpeakerCtrl);
+
+	sendChildToFront(mNewMessagesIcon);
+	setShowSpeaker(p.show_speaker);
+}
+
+void LLAdHocChiclet::setSessionId(const LLUUID& session_id)
+{
+	LLChiclet::setSessionId(session_id);
+	LLIMModel::LLIMSession* im_session = LLIMModel::getInstance()->findIMSession(session_id);
+	mChicletIconCtrl->setValue(im_session->mOtherParticipantID);
+}
+
+void LLAdHocChiclet::draw()
+{
+	switchToCurrentSpeaker();
+	LLIMChiclet::draw();
+}
+
+void LLAdHocChiclet::initSpeakerControl()
+{
+	switchToCurrentSpeaker();
+}
+
+void LLAdHocChiclet::switchToCurrentSpeaker()
+{
+	LLUUID speaker_id;
+	LLSpeakerMgr::speaker_list_t speaker_list;
+
+	LLIMModel::getInstance()->findIMSession(getSessionId())->mSpeakers->getSpeakerList(&speaker_list, FALSE);
+	for (LLSpeakerMgr::speaker_list_t::iterator i = speaker_list.begin(); i != speaker_list.end(); ++i)
+	{
+		LLPointer<LLSpeaker> s = *i;
+		if (s->mSpeechVolume > 0 || s->mStatus == LLSpeaker::STATUS_SPEAKING)
+		{
+			speaker_id = s->mID;
+			break;
+		}
+	}
+
+	mSpeakerCtrl->setSpeakerId(speaker_id);
+}
+
+void LLAdHocChiclet::createPopupMenu()
+{
+	if(!canCreateMenu())
+		return;
+
+	LLUICtrl::CommitCallbackRegistry::ScopedRegistrar registrar;
+	registrar.add("IMChicletMenu.Action", boost::bind(&LLAdHocChiclet::onMenuItemClicked, this, _2));
+
+	mPopupMenu = LLUICtrlFactory::getInstance()->createFromFile<LLMenuGL>
+		("menu_imchiclet_adhoc.xml", gMenuHolder, LLViewerMenuHolderGL::child_registry_t::instance());
+}
+
+void LLAdHocChiclet::onMenuItemClicked(const LLSD& user_data)
+{
+	std::string level = user_data.asString();
+	LLUUID group_id = getSessionId();
+
+	if("end" == level)
+	{
+		LLGroupActions::endIM(group_id);
+	}
+}
+
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+
+LLIMGroupChiclet::Params::Params()
+: group_icon("group_icon")
+, chiclet_button("chiclet_button")
+, unread_notifications("unread_notifications")
+, speaker("speaker")
+, new_message_icon("new_message_icon")
+, show_speaker("show_speaker")
+{
+}
+
+LLIMGroupChiclet::LLIMGroupChiclet(const Params& p)
+: LLIMChiclet(p)
+, LLGroupMgrObserver(LLUUID::null)
+, mChicletIconCtrl(NULL)
+{
+	LLButton::Params button_params = p.chiclet_button;
+	mChicletButton = LLUICtrlFactory::create<LLButton>(button_params);
+	addChild(mChicletButton);
+
+	LLIconCtrl::Params new_msg_params = p.new_message_icon;
+	mNewMessagesIcon = LLUICtrlFactory::create<LLIconCtrl>(new_msg_params);
+	addChild(mNewMessagesIcon);
+
+	LLChicletGroupIconCtrl::Params avatar_params = p.group_icon;
+	mChicletIconCtrl = LLUICtrlFactory::create<LLChicletGroupIconCtrl>(avatar_params);
+	addChild(mChicletIconCtrl);
+
+	LLChicletNotificationCounterCtrl::Params unread_params = p.unread_notifications;
+	mCounterCtrl = LLUICtrlFactory::create<LLChicletNotificationCounterCtrl>(unread_params);
+	addChild(mCounterCtrl);
+
+	setCounter(getCounter());
+	setShowCounter(getShowCounter());
+
+	LLChicletSpeakerCtrl::Params speaker_params = p.speaker;
+	mSpeakerCtrl = LLUICtrlFactory::create<LLChicletSpeakerCtrl>(speaker_params);
+	addChild(mSpeakerCtrl);
+
+	sendChildToFront(mNewMessagesIcon);
+	setShowSpeaker(p.show_speaker);
+}
+
+LLIMGroupChiclet::~LLIMGroupChiclet()
+{
+	LLGroupMgr::getInstance()->removeObserver(this);
+}
+
+void LLIMGroupChiclet::draw()
+{
+	if(getShowSpeaker())
+	{
+		switchToCurrentSpeaker();
+	}
+	LLIMChiclet::draw();
+}
+
+void LLIMGroupChiclet::initSpeakerControl()
+{
+	switchToCurrentSpeaker();
+}
+
+void LLIMGroupChiclet::switchToCurrentSpeaker()
+{
+	LLUUID speaker_id;
+	LLSpeakerMgr::speaker_list_t speaker_list;
+
+	LLIMModel::getInstance()->findIMSession(getSessionId())->mSpeakers->getSpeakerList(&speaker_list, FALSE);
+	for (LLSpeakerMgr::speaker_list_t::iterator i = speaker_list.begin(); i != speaker_list.end(); ++i)
+	{
+		LLPointer<LLSpeaker> s = *i;
+		if (s->mSpeechVolume > 0 || s->mStatus == LLSpeaker::STATUS_SPEAKING)
+		{
+			speaker_id = s->mID;
+			break;
+		}
+	}
+
+	mSpeakerCtrl->setSpeakerId(speaker_id);
+}
+
+void LLIMGroupChiclet::setSessionId(const LLUUID& session_id)
+{
+	LLChiclet::setSessionId(session_id);
+
+	LLGroupMgr* grp_mgr = LLGroupMgr::getInstance();
+	LLGroupMgrGroupData* group_data = grp_mgr->getGroupData(session_id);
+	if (group_data && group_data->mInsigniaID.notNull())
+	{
+		mChicletIconCtrl->setValue(group_data->mInsigniaID);
+	}
+	else
+	{
+		if(getSessionId() != mID)
+		{
+			grp_mgr->removeObserver(this);
+			mID = getSessionId();
+			grp_mgr->addObserver(this);
+		}
+		grp_mgr->sendGroupPropertiesRequest(session_id);
+	}
+}
+
+void LLIMGroupChiclet::changed(LLGroupChange gc)
+{
+	if (GC_PROPERTIES == gc)
+	{
+		LLGroupMgrGroupData* group_data = LLGroupMgr::getInstance()->getGroupData(getSessionId());
+		if (group_data)
+		{
+			mChicletIconCtrl->setValue(group_data->mInsigniaID);
+		}
+	}
+}
+
+void LLIMGroupChiclet::updateMenuItems()
+{
+	if(!mPopupMenu)
+		return;
+	if(getSessionId().isNull())
+		return;
+
+	LLIMFloater* open_im_floater = LLIMFloater::findInstance(getSessionId());
+	bool open_window_exists = open_im_floater && open_im_floater->getVisible();
+	mPopupMenu->getChild<LLUICtrl>("Chat")->setEnabled(!open_window_exists);
+}
+
+void LLIMGroupChiclet::createPopupMenu()
+{
+	if(!canCreateMenu())
+		return;
+
+	LLUICtrl::CommitCallbackRegistry::ScopedRegistrar registrar;
+	registrar.add("IMChicletMenu.Action", boost::bind(&LLIMGroupChiclet::onMenuItemClicked, this, _2));
+
+	mPopupMenu = LLUICtrlFactory::getInstance()->createFromFile<LLMenuGL>
+		("menu_imchiclet_group.xml", gMenuHolder, LLViewerMenuHolderGL::child_registry_t::instance());
+}
+
+void LLIMGroupChiclet::onMenuItemClicked(const LLSD& user_data)
+{
+	std::string level = user_data.asString();
+	LLUUID group_id = getSessionId();
+
+	if("group chat" == level)
+	{
+		LLGroupActions::startIM(group_id);
+	}
+	else if("info" == level)
+	{
+		LLGroupActions::show(group_id);
+	}
+	else if("end" == level)
+	{
+		LLGroupActions::endIM(group_id);
+	}
+}
+
+
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+
+LLChicletPanel::Params::Params()
+: chiclet_padding("chiclet_padding")
+, scrolling_offset("scrolling_offset")
+, scroll_button_hpad("scroll_button_hpad")
+, scroll_ratio("scroll_ratio")
+, min_width("min_width")
+{
+};
 
 LLChicletPanel::LLChicletPanel(const Params&p)
 : LLPanel(p)
 , mScrollArea(NULL)
-, mLeftScroll(NULL)
-, mRightScroll(NULL)
+, mLeftScrollButton(NULL)
+, mRightScrollButton(NULL)
+, mChicletPadding(p.chiclet_padding)
+, mScrollingOffset(p.scrolling_offset)
+, mScrollButtonHPad(p.scroll_button_hpad)
+, mScrollRatio(p.scroll_ratio)
+, mMinWidth(p.min_width)
+, mShowControls(true)
 {
-	LLButton::Params params;
-
-	params.name("scroll_left");
-	params.label(LLStringUtil::null);
-	params.tab_stop(false);
-	params.image_selected(LLUI::getUIImage("bottom_tray_scroll_left.tga"));
-	params.image_unselected(LLUI::getUIImage("bottom_tray_scroll_left.tga"));
-	params.image_hover_selected(LLUI::getUIImage("bottom_tray_scroll_left.tga"));
-	mLeftScroll = LLUICtrlFactory::create<LLButton>(params);
-	addChild(mLeftScroll);
-	mLeftScroll->setClickedCallback(boost::bind(&LLChicletPanel::onLeftScrollClick,this));
-	mLeftScroll->setEnabled(false);
-
-	params.name("scroll_right");
-	params.image_selected(LLUI::getUIImage("bottom_tray_scroll_right.tga"));
-	params.image_unselected(LLUI::getUIImage("bottom_tray_scroll_right.tga"));
-	params.image_hover_selected(LLUI::getUIImage("bottom_tray_scroll_right.tga"));
-	mRightScroll = LLUICtrlFactory::create<LLButton>(params);
-	addChild(mRightScroll);
-	mRightScroll->setClickedCallback(boost::bind(&LLChicletPanel::onRightScrollClick,this));
-	mRightScroll->setEnabled(false);
-
 	LLPanel::Params panel_params;
+	panel_params.follows.flags(FOLLOWS_LEFT | FOLLOWS_RIGHT);
 	mScrollArea = LLUICtrlFactory::create<LLPanel>(panel_params,this);
+
+	// important for Show/Hide Camera and Move controls menu in bottom tray to work properly
+	mScrollArea->setMouseOpaque(false);
+
 	addChild(mScrollArea);
 }
 
 LLChicletPanel::~LLChicletPanel()
 {
-
+	if(LLTransientFloaterMgr::instanceExists())
+	{
+		LLTransientFloaterMgr::getInstance()->removeControlView(mLeftScrollButton);
+		LLTransientFloaterMgr::getInstance()->removeControlView(mRightScrollButton);
+	}
 }
 
 void im_chiclet_callback(LLChicletPanel* panel, const LLSD& data){
 	
 	LLUUID session_id = data["session_id"].asUUID();
-	LLChiclet* chiclet = panel->findIMChiclet(session_id);
+	S32 unread = data["participant_unread"].asInteger();
 
-	if (chiclet)
+	LLIMFloater* im_floater = LLIMFloater::findInstance(session_id);
+	if (im_floater && im_floater->getVisible() && im_floater->hasFocus())
 	{
-		chiclet->setCounter(data["num_unread"].asInteger());
+		unread = 0;
 	}
-    else
-    {
-    	llwarns << "Unable to set counter for chiclet " << session_id << llendl;
-    }
+
+	std::list<LLChiclet*> chiclets = LLIMChiclet::sFindChicletsSignal(session_id);
+	std::list<LLChiclet *>::iterator iter;
+	for (iter = chiclets.begin(); iter != chiclets.end(); iter++) {
+		LLChiclet* chiclet = *iter;
+		if (chiclet != NULL)
+		{
+			chiclet->setCounter(unread);
+		}
+	    else
+	    {
+	    	llwarns << "Unable to set counter for chiclet " << session_id << llendl;
+	    }
+	}
 }
 
+void object_chiclet_callback(const LLSD& data)
+{
+	LLUUID notification_id = data["notification_id"];
+	bool new_message = data["new_message"];
+
+	std::list<LLChiclet*> chiclets = LLIMChiclet::sFindChicletsSignal(notification_id);
+	std::list<LLChiclet *>::iterator iter;
+	for (iter = chiclets.begin(); iter != chiclets.end(); iter++)
+	{
+		LLIMChiclet* chiclet = dynamic_cast<LLIMChiclet*>(*iter);
+		if (chiclet != NULL)
+		{
+			if(data.has("unread"))
+			{
+				chiclet->setCounter(data["unread"]);
+			}
+			chiclet->setShowNewMessagesIcon(new_message);
+		}
+	}
+}
 
 BOOL LLChicletPanel::postBuild()
 {
 	LLPanel::postBuild();
-	LLIMModel::instance().addChangedCallback(boost::bind(im_chiclet_callback, this, _1));
+	LLIMModel::instance().addNewMsgCallback(boost::bind(im_chiclet_callback, this, _1));
+	LLIMModel::instance().addNoUnreadMsgsCallback(boost::bind(im_chiclet_callback, this, _1));
+	LLScriptFloaterManager::getInstance()->addNewObjectCallback(boost::bind(object_chiclet_callback, _1));
+	LLScriptFloaterManager::getInstance()->addToggleObjectFloaterCallback(boost::bind(object_chiclet_callback, _1));
+	LLIMChiclet::sFindChicletsSignal.connect(boost::bind(&LLChicletPanel::findChiclet<LLChiclet>, this, _1));
+	LLVoiceChannel::setCurrentVoiceChannelChangedCallback(boost::bind(&LLChicletPanel::onCurrentVoiceChannelChanged, this, _1));
+
+	mLeftScrollButton=getChild<LLButton>("chicklet_left_scroll_button");
+	LLTransientFloaterMgr::getInstance()->addControlView(mLeftScrollButton);
+	mLeftScrollButton->setMouseDownCallback(boost::bind(&LLChicletPanel::onLeftScrollClick,this));
+	mLeftScrollButton->setHeldDownCallback(boost::bind(&LLChicletPanel::onLeftScrollHeldDown,this));
+	mLeftScrollButton->setEnabled(false);
+
+	mRightScrollButton=getChild<LLButton>("chicklet_right_scroll_button");
+	LLTransientFloaterMgr::getInstance()->addControlView(mRightScrollButton);
+	mRightScrollButton->setMouseDownCallback(boost::bind(&LLChicletPanel::onRightScrollClick,this));
+	mRightScrollButton->setHeldDownCallback(boost::bind(&LLChicletPanel::onRightScrollHeldDown,this));
+	mRightScrollButton->setEnabled(false);	
 
 	return TRUE;
 }
 
-LLChiclet* LLChicletPanel::createChiclet(const LLUUID& im_session_id /* = LLUUID::null */, S32 pos /* = 0 */)
+void LLChicletPanel::onCurrentVoiceChannelChanged(const LLUUID& session_id)
 {
-	LLChiclet* chiclet = LLIMChiclet::create(im_session_id);
-	if(!chiclet)
+	static LLUUID s_previous_active_voice_session_id;
+
+	std::list<LLChiclet*> chiclets = LLIMChiclet::sFindChicletsSignal(session_id);
+
+	for(std::list<LLChiclet *>::iterator it = chiclets.begin(); it != chiclets.end(); ++it)
 	{
-		assert(false);
-		return NULL;
+		LLIMChiclet* chiclet = dynamic_cast<LLIMChiclet*>(*it);
+		if(chiclet)
+		{
+			chiclet->setShowSpeaker(true);
+			if (gSavedSettings.getBOOL("OpenIMOnVoice"))
+			{
+				LLIMFloater::show(chiclet->getSessionId());
+			}
+		}
 	}
 
-	if(!addChiclet(chiclet, pos))
+	if(!s_previous_active_voice_session_id.isNull() && s_previous_active_voice_session_id != session_id)
 	{
-		assert(false);
-		return NULL;
+		chiclets = LLIMChiclet::sFindChicletsSignal(s_previous_active_voice_session_id);
+
+		for(std::list<LLChiclet *>::iterator it = chiclets.begin(); it != chiclets.end(); ++it)
+		{
+			LLIMChiclet* chiclet = dynamic_cast<LLIMChiclet*>(*it);
+			if(chiclet)
+			{
+				chiclet->setShowSpeaker(false);
+			}
+		}		
 	}
 
-	return chiclet;
+	s_previous_active_voice_session_id = session_id;
 }
 
-bool LLChicletPanel::addChiclet(LLChiclet* chiclet, S32 pos)
+bool LLChicletPanel::addChiclet(LLChiclet* chiclet, S32 index)
 {
 	if(mScrollArea->addChild(chiclet))
 	{
-		// if first chiclet is scrolled left, the created one should be scrolled left too
-		if(0 == pos && canScrollLeft())
+		// chiclets should be aligned to right edge of scroll panel
+		S32 left_shift = 0;
+
+		if (!canScrollLeft())
 		{
-			LLRect first_chiclet_rect = getChiclet(0)->getRect();
-			chiclet->setRect(first_chiclet_rect);
+			// init left shift for the first chiclet in the list...
+			if (mChicletList.empty())
+			{
+				// ...start from the right border of the scroll area for the first added chiclet 
+				left_shift = mScrollArea->getRect().getWidth();
+			}
+			else
+			{
+				// ... start from the left border of the first chiclet minus padding
+				left_shift = getChiclet(0)->getRect().mLeft - getChicletPadding();
+			}
+
+			// take into account width of the being added chiclet
+			left_shift -= chiclet->getRequiredRect().getWidth();
+
+			// if we overflow the scroll area we do not need to shift chiclets
+			if (left_shift < 0)
+			{
+				left_shift = 0;
+			}
 		}
 
-		mChicletList.insert(mChicletList.begin() + pos, chiclet);
+		mChicletList.insert(mChicletList.begin() + index, chiclet);
+
+		// shift first chiclet to place it in correct position. 
+		// rest ones will be placed in arrange()
+		if (!canScrollLeft())
+		{
+			getChiclet(0)->translate(left_shift - getChiclet(0)->getRect().mLeft, 0);
+		}
 
 		chiclet->setLeftButtonClickCallback(boost::bind(&LLChicletPanel::onChicletClick, this, _1, _2));
+		chiclet->setChicletSizeChangedCallback(boost::bind(&LLChicletPanel::onChicletSizeChanged, this, _1, index));
 
 		arrange();
-		showScrollButtonsIfNeeded();
+		LLTransientFloaterMgr::getInstance()->addControlView(LLTransientFloaterMgr::IM, chiclet);
 
 		return true;
 	}
@@ -383,74 +1260,51 @@ bool LLChicletPanel::addChiclet(LLChiclet* chiclet, S32 pos)
 	return false;
 }
 
+void LLChicletPanel::onChicletSizeChanged(LLChiclet* ctrl, const LLSD& param)
+{
+	arrange();
+}
+
 void LLChicletPanel::onChicletClick(LLUICtrl*ctrl,const LLSD&param)
 {
-	LLIMChiclet* chiclet = dynamic_cast<LLIMChiclet*>(ctrl);
-	if (chiclet)
+	if (mCommitSignal)
 	{
-		S32 x, y;
-		LLRect rect = getRect();
-		localPointToScreen(rect.getCenterX(), 0, &x, &y);
-		LLIMFloater::show(chiclet->getIMSessionId(), x);
+		(*mCommitSignal)(ctrl,param);
 	}
-	mCommitSignal(ctrl,param);
-}
-
-LLChiclet* LLChicletPanel::findIMChiclet(const LLUUID& im_session_id)
-{
-	chiclet_list_t::const_iterator it = mChicletList.begin();
-	for( ; mChicletList.end() != it; ++it)
-	{
-		// Only IM Chiclets have session id, skip non IM Chiclets
-		LLIMChiclet* chiclet = dynamic_cast<LLIMChiclet*>(*it);
-		if(!chiclet)
-		{
-			continue;
-		}
-
-		if(chiclet->getIMSessionId() == im_session_id)
-		{
-			return chiclet;
-		}
-	}
-	return NULL;
-}
-
-LLChiclet* LLChicletPanel::getChiclet(S32 pos)
-{
-	return mChicletList[pos];
 }
 
 void LLChicletPanel::removeChiclet(chiclet_list_t::iterator it)
 {
-	// if possible, after deletion shift chiclets right
-	if(canScrollLeft() && !canScrollRight())
-	{
-		LLChiclet* chiclet = *it;
-		LLRect first_chiclet_rect = getChiclet(0)->getRect();
-		S32 deleted_chiclet_width = chiclet->getRect().getWidth();
-		deleted_chiclet_width += CHICLET_PADDING;
-		
-		first_chiclet_rect.mLeft += deleted_chiclet_width;
-		first_chiclet_rect.mRight += deleted_chiclet_width;
-
-		getChiclet(0)->setRect(first_chiclet_rect);
-	}
-
-	mScrollArea->removeChild(*it);
+	LLChiclet* chiclet = *it;
+	mScrollArea->removeChild(chiclet);
 	mChicletList.erase(it);
 	
 	arrange();
-	showScrollButtonsIfNeeded();
+	LLTransientFloaterMgr::getInstance()->removeControlView(LLTransientFloaterMgr::IM, chiclet);
+	chiclet->die();
 }
 
-void LLChicletPanel::removeChiclet(S32 pos)
+void LLChicletPanel::removeChiclet(S32 index)
 {
-	if(0 > pos || getChicletCount() <= pos)
+	if(index >= 0 && index < getChicletCount())
 	{
-		return;
+		removeChiclet(mChicletList.begin() + index);
 	}
-	removeChiclet(mChicletList.begin() + pos);
+}
+
+S32 LLChicletPanel::getChicletIndex(const LLChiclet* chiclet)
+{
+	if(mChicletList.empty())
+		return -1;
+
+	S32 size = getChicletCount();
+	for(int n = 0; n < size; ++n)
+	{
+		if(chiclet == mChicletList[n])
+			return n;
+	}
+
+	return -1;
 }
 
 void LLChicletPanel::removeChiclet(LLChiclet*chiclet)
@@ -467,19 +1321,14 @@ void LLChicletPanel::removeChiclet(LLChiclet*chiclet)
 	}
 }
 
-void LLChicletPanel::removeIMChiclet(const LLUUID& im_session_id)
+void LLChicletPanel::removeChiclet(const LLUUID& im_session_id)
 {
 	chiclet_list_t::iterator it = mChicletList.begin();
 	for( ; mChicletList.end() != it; ++it)
 	{
-		// Only IM Chiclets have session id, skip non IM Chiclets
 		LLIMChiclet* chiclet = dynamic_cast<LLIMChiclet*>(*it);
-		if(!chiclet)
-		{
-			continue;
-		}
 
-		if(chiclet->getIMSessionId() == im_session_id)
+		if(chiclet->getSessionId() == im_session_id)
 		{
 			removeChiclet(it);
 			return;
@@ -489,58 +1338,111 @@ void LLChicletPanel::removeIMChiclet(const LLUUID& im_session_id)
 
 void LLChicletPanel::removeAll()
 {
-	mScrollArea->deleteAllChildren();
+	S32 size = getChicletCount();
+	for(S32 n = 0; n < size; ++n)
+	{
+		mScrollArea->removeChild(mChicletList[n]);
+	}
 
 	mChicletList.erase(mChicletList.begin(), mChicletList.end());
 
 	showScrollButtonsIfNeeded();
 }
 
+void LLChicletPanel::scrollToChiclet(const LLChiclet* chiclet)
+{
+	const LLRect& rect = chiclet->getRect();
+
+	if (rect.mLeft < 0)
+	{
+		scroll(llabs(rect.mLeft));
+		showScrollButtonsIfNeeded();
+	}
+	else
+	{
+		S32 scrollWidth = mScrollArea->getRect().getWidth();
+
+		if (rect.mRight > scrollWidth)
+		{
+			scroll(-llabs(rect.mRight - scrollWidth));
+			showScrollButtonsIfNeeded();
+		}
+	}
+}
+
 void LLChicletPanel::reshape(S32 width, S32 height, BOOL called_from_parent )
 {
 	LLPanel::reshape(width,height,called_from_parent);
 
-	mLeftScroll->setRect(LLRect(0,CHICLET_HEIGHT,SCROLL_BUTTON_WIDTH,
-		CHICLET_HEIGHT - SCROLL_BUTTON_HEIGHT));
-	mRightScroll->setRect(LLRect(width-SCROLL_BUTTON_WIDTH,CHICLET_HEIGHT,
-		width,CHICLET_HEIGHT - SCROLL_BUTTON_HEIGHT));
+	//Needed once- to avoid error at first call of reshape() before postBuild()
+	if(!mLeftScrollButton||!mRightScrollButton)
+		return;
+	
+	LLRect scroll_button_rect = mLeftScrollButton->getRect();
+	mLeftScrollButton->setRect(LLRect(0,scroll_button_rect.mTop,scroll_button_rect.getWidth(),
+		scroll_button_rect.mBottom));
+	scroll_button_rect = mRightScrollButton->getRect();
+	mRightScrollButton->setRect(LLRect(width - scroll_button_rect.getWidth(),scroll_button_rect.mTop,
+		width, scroll_button_rect.mBottom));
+	
 
-	S32 old_scroll_width = mScrollArea->getRect().getWidth();
+	bool need_show_scroll = needShowScroll();
+	if(need_show_scroll)
+	{
+		mScrollArea->setRect(LLRect(scroll_button_rect.getWidth() + mScrollButtonHPad,
+			height, width - scroll_button_rect.getWidth() - mScrollButtonHPad, 0));
+	}
+	else
+	{
+		mScrollArea->setRect(LLRect(0,height, width, 0));
+	}
+	
+	mShowControls = width >= mMinWidth;
+	
+	mScrollArea->setVisible(mShowControls);
 
-	mScrollArea->setRect(LLRect(SCROLL_BUTTON_WIDTH + 5,CHICLET_HEIGHT + 1,
-		width - SCROLL_BUTTON_WIDTH - 5, 0));
-
-	S32 current_scroll_width = mScrollArea->getRect().getWidth();
-	reshapeScrollArea(current_scroll_width - old_scroll_width);
-
+	trimChiclets();
 	showScrollButtonsIfNeeded();
+
 }
 
-void LLChicletPanel::reshapeScrollArea(S32 delta_width)
+S32	LLChicletPanel::notifyParent(const LLSD& info)
 {
-	if(mChicletList.empty())
-		return;
-
-	S32 last_chiclet_right = (*mChicletList.rbegin())->getRect().mRight;
-	S32 scroll_width = mScrollArea->getRect().getWidth();
-
-	// Align all chiclets to last chiclet
-	// if there is a gap between last chiclet and scroll area right side
-	// or last chiclet is at visible area right side
-	if( last_chiclet_right < scroll_width 
-		|| last_chiclet_right == scroll_width - delta_width)
+	if(info.has("notification"))
 	{
-		LLRect first_chiclet_rect = getChiclet(0)->getRect();
-		// if we can right shift all chiclets
-		if(first_chiclet_rect.mLeft < 0)
+		std::string str_notification = info["notification"];
+		if(str_notification == "size_changes")
 		{
-			first_chiclet_rect.mLeft += delta_width;
-			first_chiclet_rect.mRight += delta_width;
-
-			getChiclet(0)->setRect(first_chiclet_rect);
-
 			arrange();
+			return 1;
 		}
+	}
+	return LLPanel::notifyParent(info);
+}
+
+void LLChicletPanel::setChicletToggleState(const LLUUID& session_id, bool toggle)
+{
+	if(session_id.isNull())
+	{
+		llwarns << "Null Session ID" << llendl;
+	}
+
+	// toggle off all chiclets, except specified
+	S32 size = getChicletCount();
+	for(int n = 0; n < size; ++n)
+	{
+		LLIMChiclet* chiclet = getChiclet<LLIMChiclet>(n);
+		if(chiclet && chiclet->getSessionId() != session_id)
+		{
+			chiclet->setToggleState(false);
+		}
+	}
+
+	// toggle specified chiclet
+	LLIMChiclet* chiclet = findChiclet<LLIMChiclet>(session_id);
+	if(chiclet)
+	{
+		chiclet->setToggleState(toggle);
 	}
 }
 
@@ -549,41 +1451,79 @@ void LLChicletPanel::arrange()
 	if(mChicletList.empty())
 		return;
 
-	LLRect first_chiclet_rect = getChiclet(0)->getRect();
-	// don't allow gap between first chiclet and scroll area left side
-	if(first_chiclet_rect.mLeft > 0)
-	{
-		first_chiclet_rect.mRight = first_chiclet_rect.getWidth();
-		first_chiclet_rect.mLeft = 0;
-	}
-
-	S32 left = first_chiclet_rect.mLeft;
-
+	//initial arrange of chicklets positions
+	S32 chiclet_left = getChiclet(0)->getRect().mLeft;
 	S32 size = getChicletCount();
 	for( int n = 0; n < size; ++n)
 	{
 		LLChiclet* chiclet = getChiclet(n);
+
 		S32 chiclet_width = chiclet->getRequiredRect().getWidth();
-		LLRect rc(left, CHICLET_HEIGHT, left + chiclet_width, 0);
+		LLRect rect = chiclet->getRect();
+		rect.set(chiclet_left, rect.mTop, chiclet_left + chiclet_width, rect.mBottom);
 
-		chiclet->setRect(rc);
+		chiclet->setRect(rect);
 
-		left += chiclet_width + CHICLET_PADDING;
+		chiclet_left += chiclet_width + getChicletPadding();
+	}
+
+	//reset size and pos on mScrollArea
+	LLRect rect = getRect();
+	LLRect scroll_button_rect = mLeftScrollButton->getRect();
+	
+	bool need_show_scroll = needShowScroll();
+	if(need_show_scroll)
+	{
+		mScrollArea->setRect(LLRect(scroll_button_rect.getWidth() + mScrollButtonHPad,
+			rect.getHeight(), rect.getWidth() - scroll_button_rect.getWidth() - mScrollButtonHPad, 0));
+	}
+	else
+	{
+		mScrollArea->setRect(LLRect(0,rect.getHeight(), rect.getWidth(), 0));
+	}
+	
+	trimChiclets();
+	showScrollButtonsIfNeeded();
+}
+
+void LLChicletPanel::trimChiclets()
+{
+	// trim right
+	if(!mChicletList.empty())
+	{
+		S32 last_chiclet_right = (*mChicletList.rbegin())->getRect().mRight;
+		S32 first_chiclet_left = getChiclet(0)->getRect().mLeft;
+		S32 scroll_width = mScrollArea->getRect().getWidth();
+		if(last_chiclet_right < scroll_width || first_chiclet_left > 0)
+		{
+			shiftChiclets(scroll_width - last_chiclet_right);
+		}
 	}
 }
+
+bool LLChicletPanel::needShowScroll()
+{
+	if(mChicletList.empty())
+		return false;
+	
+	S32 chicklet_width  = (*mChicletList.rbegin())->getRect().mRight - (*mChicletList.begin())->getRect().mLeft;
+
+	return chicklet_width>getRect().getWidth();
+}
+
 
 void LLChicletPanel::showScrollButtonsIfNeeded()
 {
 	bool can_scroll_left = canScrollLeft();
 	bool can_scroll_right = canScrollRight();
 
-	mLeftScroll->setEnabled(can_scroll_left);
-	mRightScroll->setEnabled(can_scroll_right);
+	mLeftScrollButton->setEnabled(can_scroll_left);
+	mRightScrollButton->setEnabled(can_scroll_right);
 
-	bool show_scroll_buttons = can_scroll_left || can_scroll_right;
+	bool show_scroll_buttons = (can_scroll_left || can_scroll_right) && mShowControls;
 
-	mLeftScroll->setVisible(show_scroll_buttons);
-	mRightScroll->setVisible(show_scroll_buttons);
+	mLeftScrollButton->setVisible(show_scroll_buttons);
+	mRightScrollButton->setVisible(show_scroll_buttons);
 }
 
 void LLChicletPanel::draw()
@@ -626,42 +1566,19 @@ bool LLChicletPanel::canScrollLeft()
 	return getChiclet(0)->getRect().mLeft < 0;
 }
 
-void LLChicletPanel::scroll(ScrollDirection direction)
+void LLChicletPanel::scroll(S32 offset)
 {
-	S32 first_visible_chiclet = getFirstVisibleChiclet();
-	if(-1 == first_visible_chiclet)
+	shiftChiclets(offset);
+}
+
+void LLChicletPanel::shiftChiclets(S32 offset, S32 start_index /* = 0 */)
+{
+	if(start_index < 0 || start_index >= getChicletCount())
+	{
 		return;
-
-	S32 offset = 0;
-
-	if(SCROLL_LEFT == direction)
-	{
-		if(0 == first_visible_chiclet)
-		{
-			// shift chiclets in case first chiclet is partially visible
-			offset = llabs(getChiclet(first_visible_chiclet)->getRect().mLeft);
-		}
-		else
-		{
-			offset = getChiclet(first_visible_chiclet - 1)->getRect().getWidth() + CHICLET_PADDING;
-		}
-	}
-	else if(SCROLL_RIGHT == direction)
-	{
-		S32 last_chiclet_right = (*mChicletList.rbegin())->getRect().mRight;
-		S32 scroll_rect_width = mScrollArea->getRect().getWidth();
-
-		offset = getChiclet(first_visible_chiclet)->getRect().getWidth() + CHICLET_PADDING;
-		offset *= direction;
-		// if after scrolling, the last chiclet will not be aligned to 
-		// scroll area right side - align it.
-		if( last_chiclet_right + offset < scroll_rect_width )
-		{
-			offset = scroll_rect_width - last_chiclet_right;
-		}
 	}
 
-	chiclet_list_t::const_iterator it = mChicletList.begin();
+	chiclet_list_t::const_iterator it = mChicletList.begin() + start_index;
 	for(;mChicletList.end() != it; ++it)
 	{
 		LLChiclet* chiclet = *it;
@@ -669,31 +1586,20 @@ void LLChicletPanel::scroll(ScrollDirection direction)
 	}
 }
 
-S32 LLChicletPanel::getFirstVisibleChiclet()
-{
-	if(mChicletList.empty())
-		return -1;
-
-	for(int n = 0; n < getChicletCount(); ++n)
-	{
-		LLRect rc = getChiclet(n)->getRect();
-		if(n > 0)
-			rc.mLeft -= CHICLET_PADDING;
-		// bottom left of scroll area is first visible point
-		if(rc.pointInRect(0,0))
-		{
-			return n;
-		}
-	}
-
-	return -1;
-}
-
 void LLChicletPanel::scrollLeft()
 {
 	if(canScrollLeft())
 	{
-		scroll(SCROLL_LEFT);
+		S32 offset = getScrollingOffset();
+		LLRect first_chiclet_rect = getChiclet(0)->getRect();
+
+		// shift chiclets in case first chiclet is partially visible
+		if(first_chiclet_rect.mLeft < 0 && first_chiclet_rect.mRight > 0)
+		{
+			offset = llabs(first_chiclet_rect.mLeft);
+		}
+
+		scroll(offset);
 		
 		showScrollButtonsIfNeeded();
 	}
@@ -703,7 +1609,18 @@ void LLChicletPanel::scrollRight()
 {
 	if(canScrollRight())
 	{
-		scroll(SCROLL_RIGHT);
+		S32 offset = - getScrollingOffset();
+
+		S32 last_chiclet_right = (*mChicletList.rbegin())->getRect().mRight;
+		S32 scroll_rect_width = mScrollArea->getRect().getWidth();
+		// if after scrolling, the last chiclet will not be aligned to 
+		// scroll area right side - align it.
+		if( last_chiclet_right + offset < scroll_rect_width )
+		{
+			offset = scroll_rect_width - last_chiclet_right;
+		}
+
+		scroll(offset);
 		
 		showScrollButtonsIfNeeded();
 	}
@@ -719,10 +1636,26 @@ void LLChicletPanel::onRightScrollClick()
 	scrollRight();
 }
 
-boost::signals2::connection LLChicletPanel::setChicletClickCallback(
+void LLChicletPanel::onLeftScrollHeldDown()
+{
+	S32 offset = mScrollingOffset;
+	mScrollingOffset = mScrollingOffset / mScrollRatio;
+	scrollLeft();
+	mScrollingOffset = offset;
+}
+
+void LLChicletPanel::onRightScrollHeldDown()
+{
+	S32 offset = mScrollingOffset;
+	mScrollingOffset = mScrollingOffset / mScrollRatio;
+	scrollRight();
+	mScrollingOffset = offset;
+}
+
+boost::signals2::connection LLChicletPanel::setChicletClickedCallback(
 	const commit_callback_t& cb)
 {
-	return mCommitSignal.connect(cb);
+	return setCommitCallback(cb);
 }
 
 BOOL LLChicletPanel::handleScrollWheel(S32 x, S32 y, S32 clicks)
@@ -738,122 +1671,319 @@ BOOL LLChicletPanel::handleScrollWheel(S32 x, S32 y, S32 clicks)
 	return TRUE;
 }
 
-//////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////
-
-LLTalkButton::LLTalkButton(const LLUICtrl::Params& p)
-: LLUICtrl(p)
+bool LLChicletPanel::isAnyIMFloaterDoked()
 {
-	static S32 DROPDOWN_BTN_WIDTH = 20;
-
-	LLRect rc(p.rect);
-
-	LLButton::Params speak_params;
-	speak_params.name("left");
-	speak_params.rect(LLRect(0,rc.getHeight(),rc.getWidth()-DROPDOWN_BTN_WIDTH,0));
-	speak_params.label("Speak");
-	speak_params.label_selected("Speak");
-	speak_params.font(LLFontGL::getFontSansSerifSmall());
-	speak_params.tab_stop(false);
-	speak_params.is_toggle(true);
-	speak_params.picture_style(true);
-	speak_params.image_selected(LLUI::getUIImage("SegmentedBtn_Left_Selected")); 
-	speak_params.image_unselected(LLUI::getUIImage("SegmentedBtn_Left_Off"));
-	mSpeakBtn = LLUICtrlFactory::create<LLButton>(speak_params);
-	addChild(mSpeakBtn);
-
-	mSpeakBtn->setClickedCallback(boost::bind(&LLTalkButton::onClick_SpeakBtn, this));
-	mSpeakBtn->setToggleState(false);
-
-	LLButton::Params show_params;
-	show_params.name("right");
-	show_params.rect(LLRect(rc.getWidth()-DROPDOWN_BTN_WIDTH,rc.getHeight(),rc.getWidth(),0));
-	show_params.label("");
-	show_params.tab_stop(false);
-	show_params.is_toggle(true);
-	show_params.picture_style(true);
-	show_params.image_selected(LLUI::getUIImage("ComboButton_Selected"));
-	show_params.image_unselected(LLUI::getUIImage("ComboButton_Off"));
-	mShowBtn = LLUICtrlFactory::create<LLButton>(show_params);
-	addChild(mShowBtn);
-
-	mShowBtn->setClickedCallback(boost::bind(&LLTalkButton::onClick_ShowBtn, this));
-	mShowBtn->setToggleState(false);
-
-	mSpeakBtn->setToggleState(FALSE);
-	mShowBtn->setToggleState(FALSE);
-
-	rc = mSpeakBtn->getRect();
-
-	LLOutputMonitorCtrl::Params monitor_param;
-	monitor_param.name("monitor");
-	monitor_param.draw_border(false);
-	monitor_param.rect(LLRect(rc.getWidth()-20,18,rc.getWidth()-3,2));
-	monitor_param.visible(true);
-	mOutputMonitor = LLUICtrlFactory::create<LLOutputMonitorCtrl>(monitor_param);
-	// never show "muted" because you can't mute yourself
-	mOutputMonitor->setIsMuted(false);
-
-	mSpeakBtn->addChild(mOutputMonitor);
-
-	mPrivateCallPanel = NULL;
-}
-
-LLTalkButton::~LLTalkButton()
-{
-}
-
-void LLTalkButton::draw()
-{
-	// Always provide speaking feedback.  User can trigger speaking
-	// with keyboard or middle-mouse shortcut.
-	mOutputMonitor->setPower(gVoiceClient->getCurrentPower(gAgent.getID()));
-
-	LLUICtrl::draw();
-}
-
-void LLTalkButton::onClick_SpeakBtn()
-{
-	bool speaking = mSpeakBtn->getToggleState();
-	gVoiceClient->setUserPTTState(speaking);
-}
-
-void LLTalkButton::onClick_ShowBtn()
-{
-	if(!mShowBtn->getToggleState())
+	bool res = false;
+	for (chiclet_list_t::iterator it = mChicletList.begin(); it
+			!= mChicletList.end(); it++)
 	{
-		mPrivateCallPanel->onClickClose(mPrivateCallPanel);
-		delete mPrivateCallPanel;
-		mPrivateCallPanel = NULL;
-		mShowBtn->setToggleState(FALSE);
-		return;
+		LLIMFloater* im_floater = LLFloaterReg::findTypedInstance<LLIMFloater>(
+				"impanel", (*it)->getSessionId());
+		if (im_floater != NULL && im_floater->getVisible()
+				&& !im_floater->isMinimized() && im_floater->isDocked())
+		{
+			res = true;
+			break;
+		}
 	}
 
-	S32 x = mSpeakBtn->getRect().mLeft;
-	S32 y = 0;
-
-	localPointToScreen(x, y, &x, &y);
-
-	mPrivateCallPanel = new LLVoiceControlPanel;
-	getRootView()->addChild(mPrivateCallPanel);
-
- 	if(gBottomTray)
- 		y = gBottomTray->getRect().getHeight() + mPrivateCallPanel->getRect().getHeight();
-
-	LLRect rect;
-	rect.setLeftTopAndSize(x, y, mPrivateCallPanel->getRect().getWidth(), mPrivateCallPanel->getRect().getHeight());
-	mPrivateCallPanel->setRect(rect);
-
-	LLAvatarListItem::Params p;
-	p.buttons.status = true;
-	p.buttons.info = true;
-	p.buttons.profile = false;
-	p.buttons.locator = true;
-
-	mPrivateCallPanel->addItem(new LLAvatarListItem(p));
-	mPrivateCallPanel->setVisible(TRUE);
-	mPrivateCallPanel->setFrontmost(TRUE);
-
-	mShowBtn->setToggleState(TRUE);
+	return res;
 }
+
+S32 LLChicletPanel::getTotalUnreadIMCount()
+{
+	S32 count = 0;
+	chiclet_list_t::const_iterator it = mChicletList.begin();
+	for( ; mChicletList.end() != it; ++it)
+	{
+		LLIMChiclet* chiclet = dynamic_cast<LLIMChiclet*>(*it);
+		if(chiclet)
+		{
+			count += chiclet->getCounter();
+		}
+	}
+	return count;
+}
+
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+LLChicletNotificationCounterCtrl::Params::Params()
+: max_displayed_count("max_displayed_count", 99)
+{
+}
+
+LLChicletNotificationCounterCtrl::LLChicletNotificationCounterCtrl(const Params& p)
+ : LLTextBox(p)
+ , mCounter(0)
+ , mInitialWidth(0)
+ , mMaxDisplayedCount(p.max_displayed_count)
+{
+	mInitialWidth = getRect().getWidth();
+}
+
+void LLChicletNotificationCounterCtrl::setCounter(S32 counter)
+{
+	mCounter = counter;
+
+	// note same code in LLSysWellChiclet::setCounter(S32 counter)
+	std::string s_count;
+	if(counter != 0)
+	{
+		static std::string more_messages_exist("+");
+		std::string more_messages(counter > mMaxDisplayedCount ? more_messages_exist : "");
+		s_count = llformat("%d%s"
+			, llmin(counter, mMaxDisplayedCount)
+			, more_messages.c_str()
+			);
+	}
+
+	if(mCounter != 0)
+	{
+		setText(s_count);
+	}
+	else
+	{
+		setText(std::string(""));
+	}
+}
+
+LLRect LLChicletNotificationCounterCtrl::getRequiredRect()
+{
+	LLRect rc;
+	S32 text_width = getTextPixelWidth();
+
+	rc.mRight = rc.mLeft + llmax(text_width, mInitialWidth);
+	
+	return rc;
+}
+
+void LLChicletNotificationCounterCtrl::setValue(const LLSD& value)
+{
+	if(value.isInteger())
+		setCounter(value.asInteger());
+}
+
+LLSD LLChicletNotificationCounterCtrl::getValue() const
+{
+	return LLSD(getCounter());
+}
+
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+
+LLChicletAvatarIconCtrl::LLChicletAvatarIconCtrl(const Params& p)
+ : LLAvatarIconCtrl(p)
+{
+}
+
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+
+LLChicletGroupIconCtrl::LLChicletGroupIconCtrl(const Params& p)
+: LLIconCtrl(p)
+, mDefaultIcon(p.default_icon)
+{
+	setValue(LLUUID::null);
+}
+
+void LLChicletGroupIconCtrl::setValue(const LLSD& value )
+{
+	if(value.asUUID().isNull())
+	{
+		LLIconCtrl::setValue(mDefaultIcon);
+	}
+	else
+	{
+		LLIconCtrl::setValue(value);
+	}
+}
+
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+
+LLChicletInvOfferIconCtrl::LLChicletInvOfferIconCtrl(const Params& p)
+: LLChicletAvatarIconCtrl(p)
+ , mDefaultIcon(p.default_icon)
+{
+}
+
+void LLChicletInvOfferIconCtrl::setValue(const LLSD& value )
+{
+	if(value.asUUID().isNull())
+	{
+		LLIconCtrl::setValue(mDefaultIcon);
+	}
+	else
+	{
+		LLChicletAvatarIconCtrl::setValue(value);
+	}
+}
+
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+
+LLChicletSpeakerCtrl::LLChicletSpeakerCtrl(const Params&p)
+ : LLOutputMonitorCtrl(p)
+{
+}
+
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+
+LLScriptChiclet::Params::Params()
+ : icon("icon")
+ , chiclet_button("chiclet_button")
+ , new_message_icon("new_message_icon")
+{
+}
+
+LLScriptChiclet::LLScriptChiclet(const Params&p)
+ : LLIMChiclet(p)
+ , mChicletIconCtrl(NULL)
+{
+	LLButton::Params button_params = p.chiclet_button;
+	mChicletButton = LLUICtrlFactory::create<LLButton>(button_params);
+	addChild(mChicletButton);
+
+	LLIconCtrl::Params new_msg_params = p.new_message_icon;
+	mNewMessagesIcon = LLUICtrlFactory::create<LLIconCtrl>(new_msg_params);
+	addChild(mNewMessagesIcon);
+
+	LLIconCtrl::Params icon_params = p.icon;
+	mChicletIconCtrl = LLUICtrlFactory::create<LLIconCtrl>(icon_params);
+	addChild(mChicletIconCtrl);
+
+	sendChildToFront(mNewMessagesIcon);
+}
+
+void LLScriptChiclet::setSessionId(const LLUUID& session_id)
+{
+	setShowNewMessagesIcon( getSessionId() != session_id );
+
+	LLIMChiclet::setSessionId(session_id);
+
+	setToolTip(LLScriptFloaterManager::getObjectName(session_id));
+}
+
+void LLScriptChiclet::setCounter(S32 counter)
+{
+	setShowNewMessagesIcon( counter > 0 );
+}
+
+void LLScriptChiclet::onMouseDown()
+{
+	LLScriptFloaterManager::getInstance()->toggleScriptFloater(getSessionId());
+}
+
+void LLScriptChiclet::onMenuItemClicked(const LLSD& user_data)
+{
+	std::string action = user_data.asString();
+
+	if("end" == action)
+	{
+		LLScriptFloaterManager::instance().removeNotification(getSessionId());
+	}
+}
+
+void LLScriptChiclet::createPopupMenu()
+{
+	if(!canCreateMenu())
+		return;
+
+	LLUICtrl::CommitCallbackRegistry::ScopedRegistrar registrar;
+	registrar.add("ScriptChiclet.Action", boost::bind(&LLScriptChiclet::onMenuItemClicked, this, _2));
+
+	mPopupMenu = LLUICtrlFactory::getInstance()->createFromFile<LLMenuGL>
+		("menu_script_chiclet.xml", gMenuHolder, LLViewerMenuHolderGL::child_registry_t::instance());
+}
+
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+
+static const std::string INVENTORY_USER_OFFER	("UserGiveItem");
+
+LLInvOfferChiclet::Params::Params()
+ : icon("icon")
+ , chiclet_button("chiclet_button")
+ , new_message_icon("new_message_icon")
+{
+}
+
+LLInvOfferChiclet::LLInvOfferChiclet(const Params&p)
+ : LLIMChiclet(p)
+ , mChicletIconCtrl(NULL)
+{
+	LLButton::Params button_params = p.chiclet_button;
+	mChicletButton = LLUICtrlFactory::create<LLButton>(button_params);
+	addChild(mChicletButton);
+
+	LLIconCtrl::Params new_msg_params = p.new_message_icon;
+	mNewMessagesIcon = LLUICtrlFactory::create<LLIconCtrl>(new_msg_params);
+	addChild(mNewMessagesIcon);
+
+	LLChicletInvOfferIconCtrl::Params icon_params = p.icon;
+	mChicletIconCtrl = LLUICtrlFactory::create<LLChicletInvOfferIconCtrl>(icon_params);
+	addChild(mChicletIconCtrl);
+
+	sendChildToFront(mNewMessagesIcon);
+}
+
+void LLInvOfferChiclet::setSessionId(const LLUUID& session_id)
+{
+	setShowNewMessagesIcon( getSessionId() != session_id );
+
+	setToolTip(LLScriptFloaterManager::getObjectName(session_id));
+
+	LLIMChiclet::setSessionId(session_id);
+	LLNotificationPtr notification = LLNotifications::getInstance()->find(session_id);
+
+	if ( notification && notification->getName() == INVENTORY_USER_OFFER )
+	{
+		mChicletIconCtrl->setValue(notification->getPayload()["from_id"]);
+	}
+	else
+	{
+		mChicletIconCtrl->setValue(LLUUID::null);
+	}
+}
+
+void LLInvOfferChiclet::setCounter(S32 counter)
+{
+	setShowNewMessagesIcon( counter > 0 );
+}
+
+void LLInvOfferChiclet::onMouseDown()
+{
+	LLScriptFloaterManager::instance().toggleScriptFloater(getSessionId());
+}
+
+void LLInvOfferChiclet::onMenuItemClicked(const LLSD& user_data)
+{
+	std::string action = user_data.asString();
+
+	if("end" == action)
+	{
+		LLScriptFloaterManager::instance().removeNotification(getSessionId());
+	}
+}
+
+void LLInvOfferChiclet::createPopupMenu()
+{
+	if(!canCreateMenu())
+		return;
+
+	LLUICtrl::CommitCallbackRegistry::ScopedRegistrar registrar;
+	registrar.add("InvOfferChiclet.Action", boost::bind(&LLInvOfferChiclet::onMenuItemClicked, this, _2));
+
+	mPopupMenu = LLUICtrlFactory::getInstance()->createFromFile<LLMenuGL>
+		("menu_inv_offer_chiclet.xml", gMenuHolder, LLViewerMenuHolderGL::child_registry_t::instance());
+}
+
+// EOF

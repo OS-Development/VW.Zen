@@ -2,31 +2,25 @@
  * @file llvisualparam.h
  * @brief Implementation of LLPolyMesh class.
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -36,6 +30,7 @@
 #include "v3math.h"
 #include "llstring.h"
 #include "llxmltree.h"
+#include <boost/function.hpp>
 
 class LLPolyMesh;
 class LLXmlTreeNode;
@@ -51,6 +46,7 @@ enum EVisualParamGroup
 {
 	VISUAL_PARAM_GROUP_TWEAKABLE,
 	VISUAL_PARAM_GROUP_ANIMATABLE,
+	VISUAL_PARAM_GROUP_TWEAKABLE_NO_TRANSMIT,
 	NUM_VISUAL_PARAM_GROUPS
 };
 
@@ -68,6 +64,10 @@ public:
 	virtual ~LLVisualParamInfo() {};
 
 	virtual BOOL parseXml(LLXmlTreeNode *node);
+
+	S32 getID() const { return mID; }
+
+	virtual void toStream(std::ostream &out);
 	
 protected:
 	S32					mID;				// ID associated with VisualParam
@@ -92,6 +92,8 @@ protected:
 class LLVisualParam
 {
 public:
+	typedef	boost::function<LLVisualParam*(S32)> visual_param_mapper;
+
 	LLVisualParam();
 	virtual ~LLVisualParam();
 
@@ -106,10 +108,13 @@ public:
 	//virtual BOOL			parseData( LLXmlTreeNode *node ) = 0;
 	virtual void			apply( ESex avatar_sex ) = 0;
 	//  Default functions
-	virtual void			setWeight(F32 weight, BOOL set_by_user);
-	virtual void			setAnimationTarget( F32 target_value, BOOL set_by_user );
-	virtual void			animate(F32 delta, BOOL set_by_user);
-	virtual void			stopAnimating(BOOL set_by_user);
+	virtual void			setWeight(F32 weight, BOOL upload_bake);
+	virtual void			setAnimationTarget( F32 target_value, BOOL upload_bake );
+	virtual void			animate(F32 delta, BOOL upload_bake);
+	virtual void			stopAnimating(BOOL upload_bake);
+
+	virtual BOOL			linkDrivenParams(visual_param_mapper mapper, BOOL only_cross_params);
+	virtual void			resetDrivenParams();
 
 	// Interface methods
 	S32						getID() const		{ return mID; }
@@ -134,12 +139,15 @@ public:
 	F32						getCurrentWeight() const 	{ return mCurWeight; }
 	F32						getLastWeight() const	{ return mLastWeight; }
 	BOOL					isAnimating() const	{ return mIsAnimating; }
+	BOOL					isTweakable() const { return (getGroup() == VISUAL_PARAM_GROUP_TWEAKABLE)  || (getGroup() == VISUAL_PARAM_GROUP_TWEAKABLE_NO_TRANSMIT); }
 
 	LLVisualParam*			getNextParam()		{ return mNext; }
 	void					setNextParam( LLVisualParam *next );
 	
-	virtual void			setAnimating(BOOL is_animating) { mIsAnimating = is_animating; }
+	virtual void			setAnimating(BOOL is_animating) { mIsAnimating = is_animating && !mIsDummy; }
 	BOOL					getAnimating() const { return mIsAnimating; }
+
+	void					setIsDummy(BOOL is_dummy) { mIsDummy = is_dummy; }
 
 protected:
 	F32					mCurWeight;			// current weight
@@ -147,6 +155,8 @@ protected:
 	LLVisualParam*		mNext;				// next param in a shared chain
 	F32					mTargetWeight;		// interpolation target
 	BOOL				mIsAnimating;	// this value has been given an interpolation target
+	BOOL				mIsDummy;  // this is used to prevent dummy visual params from animating
+
 
 	S32					mID;				// id for storing weight/morphtarget compares compactly
 	LLVisualParamInfo	*mInfo;

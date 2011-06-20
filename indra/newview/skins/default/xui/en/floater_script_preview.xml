@@ -1,39 +1,39 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  auto_tile="true"
  can_resize="true"
- height="550"
+ height="570"
  layout="topleft"
- left_delta="343"
  min_height="271"
  min_width="290"
  name="preview lsl text"
+ help_topic="preview_lsl_text"
  save_rect="true"
- title="Script: Rotation Script"
- top_delta="0"
- width="500">
+ title="SCRIPT: ROTATION SCRIPT"
+ width="508">
     <floater.string
      name="Title">
-        Script: [NAME]
+        SCRIPT: [NAME]
     </floater.string>
     <panel
      follows="left|top|right|bottom"
-     height="508"
+     height="522"
      layout="topleft"
-     left="0"
+     left="10"
      name="script panel"
      top="42"
      width="497" />
     <icon
      follows="top|right"
-     height="16"
-     image_name="icon_lock.tga"
+     height="18"
+     image_name="Lock"
      layout="topleft"
-     left="444"
+     left="426"
      mouse_opaque="true"
      name="lock"
-     top="3"
-     width="16" />
+     top="4"
+     width="18" />
     <text
      type="string"
      length="1"
@@ -55,7 +55,7 @@
      height="19"
      layout="topleft"
      left_delta="80"
-     max_length="127"
+     max_length_bytes="127"
      name="desc"
      top_delta="0"
      width="394" />

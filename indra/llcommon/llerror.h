@@ -3,31 +3,25 @@
  * @date   December 2006
  * @brief error message system
  *
- * $LicenseInfo:firstyear=2006&license=viewergpl$
- * 
- * Copyright (c) 2006-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2006&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -131,7 +125,7 @@ namespace LLError
 	
 	class CallSite;
 	
-	class Log
+	class LL_COMMON_API Log
 	{
 	public:
 		static bool shouldLog(CallSite&);
@@ -140,7 +134,7 @@ namespace LLError
 		static void flush(std::ostringstream*, const CallSite&);
 	};
 	
-	class CallSite
+	class LL_COMMON_API CallSite
 	{
 		// Represents a specific place in the code where a message is logged
 		// This is public because it is used by the macros below.  It is not
@@ -179,7 +173,7 @@ namespace LLError
 		{ return s; }
 		// used to indicate the end of a message
 		
-	class NoClassInfo { };
+	class LL_COMMON_API NoClassInfo { };
 		// used to indicate no class info known for logging
 
    //LLCallStacks keeps track of call stacks and output the call stacks to log file
@@ -189,7 +183,7 @@ namespace LLError
 	//LLCallStacks is designed not to be thread-safe.
    //so try not to use it in multiple parallel threads at same time.
    //Used in a single thread at a time is fine.
-   class LLCallStacks
+   class LL_COMMON_API LLCallStacks
    {
    private:
        static char**  sBuffer ;
@@ -239,10 +233,10 @@ typedef LLError::NoClassInfo _LL_CLASS_TO_LOG;
 */
 
 #define lllog(level, broadTag, narrowTag, once) \
-	{ \
+	do { \
 		static LLError::CallSite _site( \
 			level, __FILE__, __LINE__, typeid(_LL_CLASS_TO_LOG), __FUNCTION__, broadTag, narrowTag, once);\
-		if (_site.shouldLog()) \
+		if (LL_UNLIKELY(_site.shouldLog()))			\
 		{ \
 			std::ostringstream* _out = LLError::Log::out(); \
 			(*_out)
@@ -252,7 +246,7 @@ typedef LLError::NoClassInfo _LL_CLASS_TO_LOG;
 			LLError::End(); \
 			LLError::Log::flush(_out, _site); \
 		} \
-	}
+	} while(0)
 
 // DEPRECATED: Use the new macros that allow tags and *look* like macros.
 #define lldebugs	lllog(LLError::LEVEL_DEBUG, NULL, NULL, false)

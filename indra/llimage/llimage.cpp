@@ -2,31 +2,25 @@
  * @file llimage.cpp
  * @brief Base class for images.
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -55,21 +49,14 @@ std::string LLImage::sLastErrorMessage;
 LLMutex* LLImage::sMutex = NULL;
 
 //static
-void LLImage::initClass(LLWorkerThread* workerthread)
+void LLImage::initClass()
 {
 	sMutex = new LLMutex(NULL);
-	if (workerthread)
-	{
-		LLImageWorker::initImageWorker(workerthread);
-	}
-	LLImageJ2C::openDSO();
 }
 
 //static
 void LLImage::cleanupClass()
 {
-	LLImageJ2C::closeDSO();
-	LLImageWorker::cleanupImageWorker();
 	delete sMutex;
 	sMutex = NULL;
 }
@@ -98,9 +85,10 @@ LLImageBase::LLImageBase()
 	  mWidth(0),
 	  mHeight(0),
 	  mComponents(0),
+	  mBadBufferAllocation(false),
+	  mAllowOverSize(false),
 	  mMemType(LLMemType::MTYPE_IMAGEBASE)
 {
-	mBadBufferAllocation = FALSE ;
 }
 
 // virtual
@@ -139,8 +127,6 @@ void LLImageBase::sanityCheck()
 	}
 }
 
-BOOL LLImageBase::sSizeOverride = FALSE;
-
 // virtual
 void LLImageBase::deleteData()
 {
@@ -159,25 +145,35 @@ U8* LLImageBase::allocateData(S32 size)
 		size = mWidth * mHeight * mComponents;
 		if (size <= 0)
 		{
-			llerrs << llformat("LLImageBase::allocateData called with bad dimentions: %dx%dx%d",mWidth,mHeight,mComponents) << llendl;
+			llerrs << llformat("LLImageBase::allocateData called with bad dimensions: %dx%dx%d",mWidth,mHeight,(S32)mComponents) << llendl;
 		}
 	}
-	else if (size <= 0 || (size > 4096*4096*16 && sSizeOverride == FALSE))
-	{
-		llerrs << "LLImageBase::allocateData: bad size: " << size << llendl;
-	}
 	
+	//make this function thread-safe.
+	static const U32 MAX_BUFFER_SIZE = 4096 * 4096 * 16 ; //256 MB
+	if (size < 1 || size > MAX_BUFFER_SIZE) 
+	{
+		llinfos << "width: " << mWidth << " height: " << mHeight << " components: " << mComponents << llendl ;
+		if(mAllowOverSize)
+		{
+			llinfos << "Oversize: " << size << llendl ;
+		}
+		else
+		{
+			llerrs << "LLImageBase::allocateData: bad size: " << size << llendl;
+		}
+	}
 	if (!mData || size != mDataSize)
 	{
 		deleteData(); // virtual
-		mBadBufferAllocation = FALSE ;
+		mBadBufferAllocation = false ;
 		mData = new U8[size];
 		if (!mData)
 		{
 			llwarns << "allocate image data: " << size << llendl;
 			size = 0 ;
 			mWidth = mHeight = 0 ;
-			mBadBufferAllocation = TRUE ;
+			mBadBufferAllocation = true ;
 		}
 		mDataSize = size;
 	}
@@ -226,7 +222,7 @@ U8* LLImageBase::getData()
 	return mData; 
 }
 
-BOOL LLImageBase::isBufferInvalid()
+bool LLImageBase::isBufferInvalid()
 {
 	return mBadBufferAllocation || mData == NULL ;
 }
@@ -262,7 +258,7 @@ LLImageRaw::LLImageRaw(U16 width, U16 height, S8 components)
 	: LLImageBase()
 {
 	mMemType = LLMemType::MTYPE_IMAGERAW;
-	llassert( S32(width) * S32(height) * S32(components) <= MAX_IMAGE_DATA_SIZE );
+	//llassert( S32(width) * S32(height) * S32(components) <= MAX_IMAGE_DATA_SIZE );
 	allocateDataSize(width, height, components);
 	++sRawImageCount;
 }
@@ -278,11 +274,11 @@ LLImageRaw::LLImageRaw(U8 *data, U16 width, U16 height, S8 components)
 	++sRawImageCount;
 }
 
-LLImageRaw::LLImageRaw(const std::string& filename, bool j2c_lowest_mip_only)
-	: LLImageBase()
-{
-	createFromFile(filename, j2c_lowest_mip_only);
-}
+//LLImageRaw::LLImageRaw(const std::string& filename, bool j2c_lowest_mip_only)
+//	: LLImageBase()
+//{
+//	createFromFile(filename, j2c_lowest_mip_only);
+//}
 
 LLImageRaw::~LLImageRaw()
 {
@@ -314,6 +310,21 @@ void LLImageRaw::deleteData()
 {
 	sGlobalRawMemory -= getDataSize();
 	LLImageBase::deleteData();
+}
+
+void LLImageRaw::setDataAndSize(U8 *data, S32 width, S32 height, S8 components) 
+{ 
+	if(data == getData())
+	{
+		return ;
+	}
+
+	deleteData();
+
+	LLImageBase::setSize(width, height, components) ;
+	LLImageBase::setDataAndSize(data, width * height * components) ;
+	
+	sGlobalRawMemory += getDataSize();
 }
 
 BOOL LLImageRaw::resize(U16 width, U16 height, S8 components)
@@ -658,10 +669,13 @@ void LLImageRaw::fill( const LLColor4U& color )
 // Src and dst can be any size.  Src and dst can each have 3 or 4 components.
 void LLImageRaw::copy(LLImageRaw* src)
 {
-	LLImageRaw* dst = this;  // Just for clarity.
+	if (!src)
+	{
+		llwarns << "LLImageRaw::copy called with a null src pointer" << llendl;
+		return;
+	}
 
-	llassert( (3 == src->getComponents()) || (4 == src->getComponents()) );
-	llassert( (3 == dst->getComponents()) || (4 == dst->getComponents()) );
+	LLImageRaw* dst = this;  // Just for clarity.
 
 	if( (src->getWidth() == dst->getWidth()) && (src->getHeight() == dst->getHeight()) )
 	{
@@ -816,6 +830,51 @@ void LLImageRaw::copyScaled( LLImageRaw* src )
 	}
 }
 
+//scale down image by not blending a pixel with its neighbors.
+BOOL LLImageRaw::scaleDownWithoutBlending( S32 new_width, S32 new_height)
+{
+	LLMemType mt1(mMemType);
+
+	S8 c = getComponents() ;
+	llassert((1 == c) || (3 == c) || (4 == c) );
+
+	S32 old_width = getWidth();
+	S32 old_height = getHeight();
+	
+	S32 new_data_size = old_width * new_height * c ;
+	llassert_always(new_data_size > 0);
+
+	F32 ratio_x = (F32)old_width / new_width ;
+	F32 ratio_y = (F32)old_height / new_height ;
+	if( ratio_x < 1.0f || ratio_y < 1.0f )
+	{
+		return TRUE;  // Nothing to do.
+	}
+	ratio_x -= 1.0f ;
+	ratio_y -= 1.0f ;
+
+	U8* new_data = new U8[new_data_size] ;
+	llassert_always(new_data != NULL) ;
+
+	U8* old_data = getData() ;
+	S32 i, j, k, s, t;
+	for(i = 0, s = 0, t = 0 ; i < new_height ; i++)
+	{
+		for(j = 0 ; j < new_width ; j++)
+		{
+			for(k = 0 ; k < c ; k++)
+			{
+				new_data[s++] = old_data[t++] ;
+			}
+			t += (S32)(ratio_x * c + 0.1f) ;
+		}
+		t += (S32)(ratio_y * old_width * c + 0.1f) ;
+	}
+
+	setDataAndSize(new_data, new_width, new_height, c) ;
+	
+	return TRUE ;
+}
 
 BOOL LLImageRaw::scale( S32 new_width, S32 new_height, BOOL scale_image_data )
 {
@@ -1119,7 +1178,7 @@ file_extensions[] =
 	{ "png", IMG_CODEC_PNG }
 };
 #define NUM_FILE_EXTENSIONS LL_ARRAY_SIZE(file_extensions)
-
+#if 0
 static std::string find_file(std::string &name, S8 *codec)
 {
 	std::string tname;
@@ -1137,7 +1196,7 @@ static std::string find_file(std::string &name, S8 *codec)
 	}
 	return std::string("");
 }
-
+#endif
 EImageCodec LLImageBase::getCodecFromExtension(const std::string& exten)
 {
 	for (int i=0; i<(int)(NUM_FILE_EXTENSIONS); i++)
@@ -1147,7 +1206,7 @@ EImageCodec LLImageBase::getCodecFromExtension(const std::string& exten)
 	}
 	return IMG_CODEC_INVALID;
 }
-
+#if 0
 bool LLImageRaw::createFromFile(const std::string &filename, bool j2c_lowest_mip_only)
 {
 	std::string name = filename;
@@ -1195,53 +1254,35 @@ bool LLImageRaw::createFromFile(const std::string &filename, bool j2c_lowest_mip
 		return false;
 	}
 	
-	LLPointer<LLImageFormatted> image;
-	switch(codec)
-	{
-	  //case IMG_CODEC_RGB:
-	  case IMG_CODEC_BMP:
-		image = new LLImageBMP();
-		break;
-	  case IMG_CODEC_TGA:
-		image = new LLImageTGA();
-		break;
-	  case IMG_CODEC_JPEG:
-		image = new LLImageJPEG();
-		break;
-	  case IMG_CODEC_J2C:
-		image = new LLImageJ2C();
-		break;
-	  case IMG_CODEC_DXT:
-		image = new LLImageDXT();
-		break;
-	  default:
-		return false;
-	}
+	LLPointer<LLImageFormatted> image = LLImageFormatted::createFromType(codec);
 	llassert(image.notNull());
 
 	U8 *buffer = image->allocateData(length);
 	ifs.read ((char*)buffer, length);
 	ifs.close();
 	
-	image->updateData();
-	
-	if (j2c_lowest_mip_only && codec == IMG_CODEC_J2C)
-	{
-		S32 width = image->getWidth();
-		S32 height = image->getHeight();
-		S32 discard_level = 0;
-		while (width > 1 && height > 1 && discard_level < MAX_DISCARD_LEVEL)
-		{
-			width >>= 1;
-			height >>= 1;
-			discard_level++;
-		}
-		((LLImageJ2C *)((LLImageFormatted*)image))->setDiscardLevel(discard_level);
-	}
-	
-	BOOL success = image->decode(this, 100000.0f);
-	image = NULL; // deletes image
+	BOOL success;
 
+	success = image->updateData();
+	if (success)
+	{
+		if (j2c_lowest_mip_only && codec == IMG_CODEC_J2C)
+		{
+			S32 width = image->getWidth();
+			S32 height = image->getHeight();
+			S32 discard_level = 0;
+			while (width > 1 && height > 1 && discard_level < MAX_DISCARD_LEVEL)
+			{
+				width >>= 1;
+				height >>= 1;
+				discard_level++;
+			}
+			((LLImageJ2C *)((LLImageFormatted*)image))->setDiscardLevel(discard_level);
+		}
+		success = image->decode(this, 100000.0f);
+	}
+
+	image = NULL; // deletes image
 	if (!success)
 	{
 		deleteData();
@@ -1251,7 +1292,7 @@ bool LLImageRaw::createFromFile(const std::string &filename, bool j2c_lowest_mip
 
 	return true;
 }
-
+#endif
 //---------------------------------------------------------------------------
 // LLImageFormatted
 //---------------------------------------------------------------------------
@@ -1264,7 +1305,7 @@ LLImageFormatted::LLImageFormatted(S8 codec)
 	  mCodec(codec),
 	  mDecoding(0),
 	  mDecoded(0),
-	  mDiscardLevel(0)
+	  mDiscardLevel(-1)
 {
 	mMemType = LLMemType::MTYPE_IMAGEFORMATTED;
 }
@@ -1483,6 +1524,7 @@ void LLImageFormatted::appendData(U8 *data, S32 size)
 			S32 newsize = cursize + size;
 			reallocateData(newsize);
 			memcpy(getData() + cursize, data, size);
+			delete[] data;
 		}
 	}
 }

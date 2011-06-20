@@ -2,31 +2,25 @@
  * @file llnotificationsconsole.cpp
  * @brief Debugging console for unified notifications.
  *
- * $LicenseInfo:firstyear=2003&license=viewergpl$
- * 
- * Copyright (c) 2003-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2003&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -39,15 +33,14 @@
 #include "llscrolllistitem.h"
 #include "llpanel.h"
 #include "llcombobox.h"
-#include "llviewertexteditor.h"
 
 const S32 NOTIFICATION_PANEL_HEADER_HEIGHT = 20;
 const S32 HEADER_PADDING = 38;
 
-class LLNotificationChannelPanel : public LLPanel
+class LLNotificationChannelPanel : public LLLayoutPanel
 {
 public:
-	LLNotificationChannelPanel(const std::string& channel_name);
+	LLNotificationChannelPanel(const Params& p);
 	BOOL postBuild();
 
 private:
@@ -59,14 +52,14 @@ private:
 	LLNotificationChannelPtr mChannelRejectsPtr;
 };
 
-LLNotificationChannelPanel::LLNotificationChannelPanel(const std::string& channel_name) 
-	: LLPanel()
+LLNotificationChannelPanel::LLNotificationChannelPanel(const LLNotificationChannelPanel::Params& p) 
+:	LLLayoutPanel(p)
 {
-	mChannelPtr = LLNotifications::instance().getChannel(channel_name);
+	mChannelPtr = LLNotifications::instance().getChannel(p.name);
 	mChannelRejectsPtr = LLNotificationChannelPtr(
-		LLNotificationChannel::buildChannel(channel_name + "rejects", mChannelPtr->getParentChannelName(),
+		LLNotificationChannel::buildChannel(p.name() + "rejects", mChannelPtr->getParentChannelName(),
 											!boost::bind(mChannelPtr->getFilter(), _1)));
-	LLUICtrlFactory::instance().buildPanel(this, "panel_notifications_channel.xml");
+	buildFromFile( "panel_notifications_channel.xml");
 }
 
 BOOL LLNotificationChannelPanel::postBuild()
@@ -113,10 +106,15 @@ void LLNotificationChannelPanel::onClickNotification(void* user_data)
 {
 	LLNotificationChannelPanel* self = (LLNotificationChannelPanel*)user_data;
 	if (!self) return;
-	void* data = self->getChild<LLScrollListCtrl>("notifications_list")->getFirstSelected()->getUserdata();
-	if (data)
+	LLScrollListItem* firstselected = self->getChild<LLScrollListCtrl>("notifications_list")->getFirstSelected();
+	llassert(firstselected);
+	if (firstselected)
 	{
-		gFloaterView->getParentFloater(self)->addDependentFloater(new LLFloaterNotification((LLNotification*)data), TRUE);
+		void* data = firstselected->getUserdata();
+		if (data)
+		{
+			gFloaterView->getParentFloater(self)->addDependentFloater(new LLFloaterNotification((LLNotification*)data), TRUE);
+		}
 	}
 }
 
@@ -125,10 +123,15 @@ void LLNotificationChannelPanel::onClickNotificationReject(void* user_data)
 {
 	LLNotificationChannelPanel* self = (LLNotificationChannelPanel*)user_data;
 	if (!self) return;
-	void* data = self->getChild<LLScrollListCtrl>("notification_rejects_list")->getFirstSelected()->getUserdata();
-	if (data)
+	LLScrollListItem* firstselected = self->getChild<LLScrollListCtrl>("notification_rejects_list")->getFirstSelected();
+	llassert(firstselected);
+	if (firstselected)
 	{
-		gFloaterView->getParentFloater(self)->addDependentFloater(new LLFloaterNotification((LLNotification*)data), TRUE);
+		void* data = firstselected->getUserdata();
+		if (data)
+		{
+			gFloaterView->getParentFloater(self)->addDependentFloater(new LLFloaterNotification((LLNotification*)data), TRUE);
+		}
 	}
 }
 
@@ -164,25 +167,17 @@ LLFloaterNotificationConsole::LLFloaterNotificationConsole(const LLSD& key)
 : LLFloater(key)
 {
 	mCommitCallbackRegistrar.add("ClickAdd",     boost::bind(&LLFloaterNotificationConsole::onClickAdd, this));	
-
-	//LLUICtrlFactory::instance().buildFloater(this, "floater_notifications_console.xml");
 }
-
-void LLFloaterNotificationConsole::onClose(bool app_quitting)
-{
-	setVisible(FALSE);
-	//destroy();
-}
-
 
 BOOL LLFloaterNotificationConsole::postBuild()
 {
 	// these are in the order of processing
 	addChannel("Unexpired");
 	addChannel("Ignore");
+	addChannel("VisibilityRules");
 	addChannel("Visible", true);
 	// all the ones below attach to the Visible channel
-	addChannel("History");
+	addChannel("Persistent");
 	addChannel("Alerts");
 	addChannel("AlertModal");
 	addChannel("Group Notifications");
@@ -207,8 +202,13 @@ BOOL LLFloaterNotificationConsole::postBuild()
 void LLFloaterNotificationConsole::addChannel(const std::string& name, bool open)
 {
 	LLLayoutStack& stack = getChildRef<LLLayoutStack>("notification_channels");
-	LLNotificationChannelPanel* panelp = new LLNotificationChannelPanel(name);
-	stack.addPanel(panelp, 0, NOTIFICATION_PANEL_HEADER_HEIGHT, TRUE, TRUE, LLLayoutStack::ANIMATE);
+	LLNotificationChannelPanel::Params p;
+	p.min_dim = NOTIFICATION_PANEL_HEADER_HEIGHT;
+	p.auto_resize = true;
+	p.user_resize = true;
+	p.name = name;
+	LLNotificationChannelPanel* panelp = new LLNotificationChannelPanel(p);
+	stack.addPanel(panelp, LLLayoutStack::ANIMATE);
 
 	LLButton& header_button = panelp->getChildRef<LLButton>("header");
 	header_button.setToggleState(!open);
@@ -219,12 +219,9 @@ void LLFloaterNotificationConsole::addChannel(const std::string& name, bool open
 
 void LLFloaterNotificationConsole::removeChannel(const std::string& name)
 {
-	LLPanel* panelp = getChild<LLPanel>(name, TRUE, FALSE);
-	if (panelp)
-	{
-		getChildRef<LLLayoutStack>("notification_channels").removePanel(panelp);
-		delete panelp;
-	}
+	LLPanel* panelp = getChild<LLPanel>(name);
+	getChildRef<LLLayoutStack>("notification_channels").removePanel(panelp);
+	delete panelp;
 
 	updateResizeLimits();
 }
@@ -232,7 +229,8 @@ void LLFloaterNotificationConsole::removeChannel(const std::string& name)
 //static 
 void LLFloaterNotificationConsole::updateResizeLimits()
 {
-	static LLUICachedControl<S32> floater_header_size ("UIFloaterHeaderSize", 0);
+	const LLFloater::Params& floater_params = LLFloater::getDefaultParams();
+	S32 floater_header_size = floater_params.header_height;
 
 	LLLayoutStack& stack = getChildRef<LLLayoutStack>("notification_channels");
 	setResizeLimits(getMinWidth(), floater_header_size + HEADER_PADDING + ((NOTIFICATION_PANEL_HEADER_HEIGHT + 3) * stack.getNumPanels()));
@@ -243,7 +241,7 @@ void LLFloaterNotificationConsole::onClickAdd()
 	std::string message_name = getChild<LLComboBox>("notification_types")->getValue().asString();
 	if (!message_name.empty())
 	{
-		LLNotifications::instance().add(message_name, LLSD());
+		LLNotifications::instance().add(message_name, LLSD(), LLSD());
 	}
 }
 
@@ -251,16 +249,16 @@ void LLFloaterNotificationConsole::onClickAdd()
 //=============== LLFloaterNotification ================
 
 LLFloaterNotification::LLFloaterNotification(LLNotification* note) 
-:	LLFloater(),
+:	LLFloater(LLSD()),
 	mNote(note)
 {
-	LLUICtrlFactory::instance().buildFloater(this, "floater_notification.xml");
+	buildFromFile("floater_notification.xml");
 }
 
 BOOL LLFloaterNotification::postBuild()
 {
 	setTitle(mNote->getName());
-	getChild<LLViewerTextEditor>("payload")->setText(mNote->getMessage());
+	getChild<LLUICtrl>("payload")->setValue(mNote->getMessage());
 
 	LLComboBox* responses_combo = getChild<LLComboBox>("response");
 	LLCtrlListInterface* response_list = responses_combo->getListInterface();

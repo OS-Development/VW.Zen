@@ -2,31 +2,25 @@
  * @file lldir.h
  * @brief Definition of directory utilities class
  *
- * $LicenseInfo:firstyear=2000&license=viewergpl$
- * 
- * Copyright (c) 2000-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2000&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -38,13 +32,13 @@
 #define MAX_PATH MAXPATHLEN
 #endif
 
-// these numbers *may* get serialized, so we need to be explicit
+// these numbers *may* get serialized (really??), so we need to be explicit
 typedef enum ELLPath
 {
 	LL_PATH_NONE = 0,
 	LL_PATH_USER_SETTINGS = 1,
 	LL_PATH_APP_SETTINGS = 2,	
-	LL_PATH_PER_SL_ACCOUNT = 3,	
+	LL_PATH_PER_SL_ACCOUNT = 3, // returns/expands to blank string if we don't know the account name yet
 	LL_PATH_CACHE = 4,	
 	LL_PATH_CHARACTER = 5,	
 	LL_PATH_HELP = 6,		
@@ -54,12 +48,11 @@ typedef enum ELLPath
 	LL_PATH_TOP_SKIN = 10,
 	LL_PATH_CHAT_LOGS = 11,
 	LL_PATH_PER_ACCOUNT_CHAT_LOGS = 12,
-	LL_PATH_MOZILLA_PROFILE = 13,
 	LL_PATH_USER_SKIN = 14,
 	LL_PATH_LOCAL_ASSETS = 15,
-//	LL_PATH_HTML = 16,
 	LL_PATH_EXECUTABLE = 16,
 	LL_PATH_DEFAULT_SKIN = 17,
+	LL_PATH_FONTS = 18,
 	LL_PATH_LAST
 } ELLPath;
 
@@ -81,13 +74,16 @@ class LLDir
 
 // pure virtual functions
 	virtual U32 countFilesInDir(const std::string &dirname, const std::string &mask) = 0;
-	virtual BOOL getNextFileInDir(const std::string &dirname, const std::string &mask, std::string &fname, BOOL wrap) = 0;
-	virtual void getRandomFileInDir(const std::string &dirname, const std::string &mask, std::string &fname) = 0;
+
 	virtual std::string getCurPath() = 0;
 	virtual BOOL fileExists(const std::string &filename) const = 0;
 
 	const std::string findFile(const std::string& filename, const std::vector<std::string> filenames) const; 
 	const std::string findFile(const std::string& filename, const std::string& searchPath1 = "", const std::string& searchPath2 = "", const std::string& searchPath3 = "") const;
+
+	virtual std::string getLLPluginLauncher() = 0; // full path and name for the plugin shell
+	virtual std::string getLLPluginFilename(std::string base_name) = 0; // full path and name to the plugin DSO for this base_name (i.e. 'FOO' -> '/bar/baz/libFOO.so')
+
 	const std::string &getExecutablePathAndName() const;	// Full pathname of the executable
 	const std::string &getAppName() const;			// install directory under progams/ ie "SecondLife"
 	const std::string &getExecutableDir() const;	// Directory where the executable is located
@@ -108,6 +104,7 @@ class LLDir
 	const std::string &getUserSkinDir() const;		// User-specified skin folder with user modifications. e.g. c:\documents and settings\username\application data\second life\skins\curskin
 	const std::string &getDefaultSkinDir() const;	// folder for default skin. e.g. c:\program files\second life\skins\default
 	const std::string getSkinBaseDir() const;		// folder that contains all installed skins (not user modifications). e.g. c:\program files\second life\skins
+	const std::string &getLLPluginDir() const;		// Directory containing plugins and plugin shell
 
 	// Expanded filename
 	std::string getExpandedFilename(ELLPath location, const std::string &filename) const;
@@ -133,8 +130,8 @@ class LLDir
 	static std::string getForbiddenFileChars();
 
 	virtual void setChatLogsDir(const std::string &path);		// Set the chat logs dir to this user's dir
-	virtual void setPerAccountChatLogsDir(const std::string &first, const std::string &last);		// Set the per user chat log directory.
-	virtual void setLindenUserDir(const std::string &first, const std::string &last);		// Set the linden user dir to this user's dir
+	virtual void setPerAccountChatLogsDir(const std::string &username);		// Set the per user chat log directory.
+	virtual void setLindenUserDir(const std::string &username);		// Set the linden user dir to this user's dir
 	virtual void setSkinFolder(const std::string &skin_folder);
 	virtual bool setCacheDir(const std::string &path);
 
@@ -165,6 +162,7 @@ protected:
 	std::string mSkinDir;			// Location for current skin info.
 	std::string mDefaultSkinDir;			// Location for default skin info.
 	std::string mUserSkinDir;			// Location for user-modified skin info.
+	std::string mLLPluginDir;			// Location for plugins and plugin shell
 };
 
 void dir_exists_or_crash(const std::string &dir_name);

@@ -2,31 +2,25 @@
  * @file llgroupmgr.cpp
  * @brief LLGroupMgr class implementation
  *
- * $LicenseInfo:firstyear=2004&license=viewergpl$
- * 
- * Copyright (c) 2004-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2004&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -50,11 +44,24 @@
 #include "llstatusbar.h"
 #include "lleconomy.h"
 #include "llviewerwindow.h"
-#include "llfloaterdirectory.h"
-#include "llfloatergroupinfo.h"
+#include "llpanelgroup.h"
+#include "llgroupactions.h"
+#include "llnotificationsutil.h"
 #include "lluictrlfactory.h"
+#include "lltrans.h"
 #include <boost/regex.hpp>
 
+#if LL_MSVC
+#pragma warning(push)   
+// disable boost::lexical_cast warning
+#pragma warning (disable:4702)
+#endif
+
+#include <boost/lexical_cast.hpp>
+
+#if LL_MSVC
+#pragma warning(pop)   // Restore all warnings to the previous state
+#endif
 
 const U32 MAX_CACHED_GROUPS = 10;
 
@@ -148,7 +155,7 @@ LLGroupRoleData::~LLGroupRoleData()
 {	
 }
 
-S32 LLGroupRoleData::getMembersInRole(std::vector<LLUUID> members,
+S32 LLGroupRoleData::getMembersInRole(uuid_vec_t members,
 									  BOOL needs_sort)
 {
 	if (mRoleID.isNull())
@@ -172,8 +179,8 @@ S32 LLGroupRoleData::getMembersInRole(std::vector<LLUUID> members,
 
 	// Return the number of members in the intersection.
 	S32 max_size = llmin( members.size(), mMemberIDs.size() );
-	std::vector<LLUUID> in_role( max_size );
-	std::vector<LLUUID>::iterator in_role_end;
+	uuid_vec_t in_role( max_size );
+	uuid_vec_t::iterator in_role_end;
 	in_role_end = std::set_intersection(mMemberIDs.begin(), mMemberIDs.end(),
 									members.begin(), members.end(),
 									in_role.begin());
@@ -188,7 +195,7 @@ void LLGroupRoleData::addMember(const LLUUID& member)
 
 bool LLGroupRoleData::removeMember(const LLUUID& member)
 {
-	std::vector<LLUUID>::iterator it = std::find(mMemberIDs.begin(),mMemberIDs.end(),member);
+	uuid_vec_t::iterator it = std::find(mMemberIDs.begin(),mMemberIDs.end(),member);
 
 	if (it != mMemberIDs.end())
 	{
@@ -676,9 +683,12 @@ void LLGroupMgrGroupData::sendRoleChanges()
 				break;
 			}
 			case RC_UPDATE_ALL:
+				// fall through
 			case RC_UPDATE_POWERS:
 				need_power_recalc = true;
+				// fall through
 			case RC_UPDATE_DATA:
+				// fall through
 			default: 
 			{
 				LLGroupRoleData* group_role_data = (*role_it).second;
@@ -757,7 +767,16 @@ void LLGroupMgr::clearGroupData(const LLUUID& group_id)
 
 void LLGroupMgr::addObserver(LLGroupMgrObserver* observer) 
 { 
-	mObservers.insert(std::pair<LLUUID, LLGroupMgrObserver*>(observer->getID(), observer));
+	if( observer->getID() != LLUUID::null )
+		mObservers.insert(std::pair<LLUUID, LLGroupMgrObserver*>(observer->getID(), observer));
+}
+
+void LLGroupMgr::addObserver(const LLUUID& group_id, LLParticularGroupObserver* observer)
+{
+	if(group_id.notNull() && observer)
+	{
+		mParticularObservers[group_id].insert(observer);
+	}
 }
 
 void LLGroupMgr::removeObserver(LLGroupMgrObserver* observer)
@@ -782,6 +801,23 @@ void LLGroupMgr::removeObserver(LLGroupMgrObserver* observer)
 	}
 }
 
+void LLGroupMgr::removeObserver(const LLUUID& group_id, LLParticularGroupObserver* observer)
+{
+	if(group_id.isNull() || !observer)
+	{
+		return;
+	}
+
+    observer_map_t::iterator obs_it = mParticularObservers.find(group_id);
+    if(obs_it == mParticularObservers.end())
+        return;
+
+    obs_it->second.erase(observer);
+
+    if (obs_it->second.size() == 0)
+    	mParticularObservers.erase(obs_it);
+}
+
 LLGroupMgrGroupData* LLGroupMgr::getGroupData(const LLUUID& id)
 {
 	group_map_t::iterator gi = mGroups.find(id);
@@ -803,12 +839,13 @@ static void formatDateString(std::string &date_string)
 	const regex expression("([0-9]{1,2})/([0-9]{1,2})/([0-9]{4})");
 	if (regex_match(date_string.c_str(), result, expression))
 	{
-		std::string year = result[3];
-		std::string month = result[1];
-		std::string day = result[2];
+		// convert matches to integers so that we can pad them with zeroes on Linux
+		S32 year	= boost::lexical_cast<S32>(result[3]);
+		S32 month	= boost::lexical_cast<S32>(result[1]);
+		S32 day		= boost::lexical_cast<S32>(result[2]);
 
 		// ISO 8601 date format
-		date_string = llformat("%04s-%02s-%02s", year.c_str(), month.c_str(), day.c_str());
+		date_string = llformat("%04d/%02d/%02d", year, month, day);
 	}
 }
 
@@ -861,7 +898,15 @@ void LLGroupMgr::processGroupMembersReply(LLMessageSystem* msg, void** data)
 
 			if (member_id.notNull())
 			{
-				formatDateString(online_status); // reformat for sorting, e.g. 12/25/2008 -> 2008/12/25
+				if (online_status == "Online")
+				{
+					static std::string localized_online(LLTrans::getString("group_member_status_online"));
+					online_status = localized_online;
+				}
+				else
+				{
+					formatDateString(online_status); // reformat for sorting, e.g. 12/25/2008 -> 2008/12/25
+				}
 				
 				//llinfos << "Member " << member_id << " has powers " << std::hex << agent_powers << std::dec << llendl;
 				LLGroupMemberData* newdata = new LLGroupMemberData(member_id, 
@@ -1021,6 +1066,24 @@ void LLGroupMgr::processGroupRoleDataReply(LLMessageSystem* msg, void** data)
 		msg->getU64("RoleData","Powers",powers,i);
 		msg->getU32("RoleData","Members",member_count,i);
 
+		//there are 3 predifined roles - Owners, Officers, Everyone
+		//there names are defined in lldatagroups.cpp
+		//lets change names from server to localized strings
+		if(name == "Everyone")
+		{
+			name = LLTrans::getString("group_role_everyone");
+		}
+		else if(name == "Officers")
+		{
+			name = LLTrans::getString("group_role_officers");
+		}
+		else if(name == "Owners")
+		{
+			name = LLTrans::getString("group_role_owners");
+		}
+
+
+
 		lldebugs << "Adding role data: " << name << " {" << role_id << "}" << llendl;
 		LLGroupRoleData* rd = new LLGroupRoleData(role_id,name,title,desc,powers,member_count);
 		group_data->mRoles[role_id] = rd;
@@ -1113,8 +1176,8 @@ void LLGroupMgr::processGroupRoleMembersReply(LLMessageSystem* msg, void** data)
 				}
 				else
 				{
-					if (!rd) llwarns << "Received role data for unkown role " << role_id << " in group " << group_id << llendl;
-					if (!md) llwarns << "Received role data for unkown member " << member_id << " in group " << group_id << llendl;
+					if (!rd) llwarns << "Received role data for unknown role " << role_id << " in group " << group_id << llendl;
+					if (!md) llwarns << "Received role data for unknown member " << member_id << " in group " << group_id << llendl;
 				}
 			}
 		}
@@ -1210,7 +1273,7 @@ void LLGroupMgr::processEjectGroupMemberReply(LLMessageSystem* msg, void ** data
 	// If we had a failure, the group panel needs to be updated.
 	if (!success)
 	{
-		LLFloaterGroupInfo::refreshGroup(group_id);
+		LLGroupActions::refresh(group_id);
 	}
 }
 
@@ -1230,9 +1293,7 @@ void LLGroupMgr::processJoinGroupReply(LLMessageSystem* msg, void ** data)
 
 		LLGroupMgr::getInstance()->clearGroupData(group_id);
 		// refresh the floater for this group, if any.
-		LLFloaterGroupInfo::refreshGroup(group_id);
-		// refresh the group panel of the search window, if necessary.
-		LLFloaterDirectory::refreshGroup(group_id);
+		LLGroupActions::refresh(group_id);
 	}
 }
 
@@ -1252,9 +1313,7 @@ void LLGroupMgr::processLeaveGroupReply(LLMessageSystem* msg, void ** data)
 
 		LLGroupMgr::getInstance()->clearGroupData(group_id);
 		// close the floater for this group, if any.
-		LLFloaterGroupInfo::closeGroup(group_id);
-		// refresh the group panel of the search window, if necessary.
-		LLFloaterDirectory::refreshGroup(group_id);
+		LLGroupActions::closeGroup(group_id);
 	}
 }
 
@@ -1288,15 +1347,17 @@ void LLGroupMgr::processCreateGroupReply(LLMessageSystem* msg, void ** data)
 
 		gAgent.mGroups.push_back(gd);
 
-		LLFloaterGroupInfo::closeCreateGroup();
-		LLFloaterGroupInfo::showFromUUID(group_id,"roles_tab");
+		LLPanelGroup::refreshCreatedGroup(group_id);
+		//FIXME
+		//LLFloaterGroupInfo::closeCreateGroup();
+		//LLFloaterGroupInfo::showFromUUID(group_id,"roles_tab");
 	}
 	else
 	{
 		// *TODO: Translate
 		LLSD args;
 		args["MESSAGE"] = message;
-		LLNotifications::instance().add("UnableToCreateGroup", args);
+		LLNotificationsUtil::add("UnableToCreateGroup", args);
 	}
 }
 
@@ -1322,15 +1383,33 @@ void LLGroupMgr::notifyObservers(LLGroupChange gc)
 {
 	for (group_map_t::iterator gi = mGroups.begin(); gi != mGroups.end(); ++gi)
 	{
+		LLUUID group_id = gi->first;
 		if (gi->second->mChanged)
 		{
+			// notify LLGroupMgrObserver
+			// Copy the map because observers may remove themselves on update
+			observer_multimap_t observers = mObservers;
+
 			// find all observers for this group id
-			observer_multimap_t::iterator oi = mObservers.find(gi->first);
-			for (; oi != mObservers.end(); ++oi)
+			observer_multimap_t::iterator oi = observers.lower_bound(group_id);
+			observer_multimap_t::iterator end = observers.upper_bound(group_id);
+			for (; oi != end; ++oi)
 			{
 				oi->second->changed(gc);
 			}
 			gi->second->mChanged = FALSE;
+
+
+			// notify LLParticularGroupObserver
+		    observer_map_t::iterator obs_it = mParticularObservers.find(group_id);
+		    if(obs_it == mParticularObservers.end())
+		        return;
+
+		    observer_set_t& obs = obs_it->second;
+		    for (observer_set_t::iterator ob_it = obs.begin(); ob_it != obs.end(); ++ob_it)
+		    {
+		        (*ob_it)->changed(group_id, gc);
+		    }
 		}
 	}
 }
@@ -1660,22 +1739,26 @@ void LLGroupMgr::sendGroupMemberInvites(const LLUUID& group_id, std::map<LLUUID,
 
 //static
 void LLGroupMgr::sendGroupMemberEjects(const LLUUID& group_id,
-									   std::vector<LLUUID>& member_ids)
+									   uuid_vec_t& member_ids)
 {
 	bool start_message = true;
 	LLMessageSystem* msg = gMessageSystem;
 
+	
+
 	LLGroupMgrGroupData* group_datap = LLGroupMgr::getInstance()->getGroupData(group_id);
 	if (!group_datap) return;
 
-	for (std::vector<LLUUID>::iterator it = member_ids.begin();
+	for (uuid_vec_t::iterator it = member_ids.begin();
 		 it != member_ids.end(); ++it)
 	{
+		LLUUID& ejected_member_id = (*it);
+
 		// Can't use 'eject' to leave a group.
-		if ((*it) == gAgent.getID()) continue;
+		if (ejected_member_id == gAgent.getID()) continue;
 
 		// Make sure they are in the group, and we need the member data
-		LLGroupMgrGroupData::member_list_t::iterator mit = group_datap->mMembers.find(*it);
+		LLGroupMgrGroupData::member_list_t::iterator mit = group_datap->mMembers.find(ejected_member_id);
 		if (mit != group_datap->mMembers.end())
 		{
 			// Add them to the message
@@ -1691,7 +1774,7 @@ void LLGroupMgr::sendGroupMemberEjects(const LLUUID& group_id,
 			}
 			
 			msg->nextBlock("EjectData");
-			msg->addUUID("EjecteeID",(*it));
+			msg->addUUID("EjecteeID",ejected_member_id);
 
 			if (msg->isSendFull())
 			{
@@ -1699,17 +1782,23 @@ void LLGroupMgr::sendGroupMemberEjects(const LLUUID& group_id,
 				start_message = true;
 			}
 
+			LLGroupMemberData* member_data = (*mit).second;
+
 			// Clean up groupmgr
-			for (LLGroupMemberData::role_list_t::iterator rit = (*mit).second->roleBegin();
-				 rit != (*mit).second->roleEnd(); ++rit)
+			for (LLGroupMemberData::role_list_t::iterator rit = member_data->roleBegin();
+				 rit != member_data->roleEnd(); ++rit)
 			{
-				if ((*rit).first.notNull())
+				if ((*rit).first.notNull() && (*rit).second!=0)
 				{
-					(*rit).second->removeMember(*it);
+					(*rit).second->removeMember(ejected_member_id);
 				}
 			}
-			delete (*mit).second;
-			group_datap->mMembers.erase(*it);
+			
+			group_datap->mMembers.erase(ejected_member_id);
+			
+			// member_data was introduced and is used here instead of (*mit).second to avoid crash because of invalid iterator
+			// It becomes invalid after line with erase above. EXT-4778
+			delete member_data;
 		}
 	}
 

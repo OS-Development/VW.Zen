@@ -1,106 +1,128 @@
-#!/usr/bin/python
-# @file viewer_manifest.py
-# @author Ryan Williams
-# @brief Description of all installer viewer files, and methods for packaging
-#        them into installers for all supported platforms.
-#
-# $LicenseInfo:firstyear=2006&license=viewergpl$
-# 
-# Copyright (c) 2006-2009, Linden Research, Inc.
-# 
-# Second Life Viewer Source Code
-# The source code in this file ("Source Code") is provided by Linden Lab
-# to you under the terms of the GNU General Public License, version 2.0
-# ("GPL"), unless you have obtained a separate licensing agreement
-# ("Other License"), formally executed by you and Linden Lab.  Terms of
-# the GPL can be found in doc/GPL-license.txt in this distribution, or
-# online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
-# 
-# There are special exceptions to the terms and conditions of the GPL as
-# it is applied to this Source Code. View the full text of the exception
-# in the file doc/FLOSS-exception.txt in this software distribution, or
-# online at
-# http://secondlifegrid.net/programs/open_source/licensing/flossexception
-# 
-# By copying, modifying or distributing this software, you acknowledge
-# that you have read and understood your obligations described above,
-# and agree to abide by those obligations.
-# 
-# ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
-# WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
-# COMPLETENESS OR PERFORMANCE.
-# $/LicenseInfo$
+#!/usr/bin/env python
+"""\
+@file viewer_manifest.py
+@author Ryan Williams
+@brief Description of all installer viewer files, and methods for packaging
+       them into installers for all supported platforms.
+
+$LicenseInfo:firstyear=2006&license=viewerlgpl$
+Second Life Viewer Source Code
+Copyright (C) 2006-2011, Linden Research, Inc.
+
+This library is free software; you can redistribute it and/or
+modify it under the terms of the GNU Lesser General Public
+License as published by the Free Software Foundation;
+version 2.1 of the License only.
+
+This library is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public
+License along with this library; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+
+Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
+$/LicenseInfo$
+"""
 import sys
 import os.path
 import re
 import tarfile
+import time
 viewer_dir = os.path.dirname(__file__)
 # add llmanifest library to our path so we don't have to muck with PYTHONPATH
 sys.path.append(os.path.join(viewer_dir, '../lib/python/indra/util'))
 from llmanifest import LLManifest, main, proper_windows_path, path_ancestors
 
 class ViewerManifest(LLManifest):
+    def is_packaging_viewer(self):
+        # Some commands, files will only be included
+        # if we are packaging the viewer on windows.
+        # This manifest is also used to copy
+        # files during the build (see copy_w_viewer_manifest
+        # and copy_l_viewer_manifest targets)
+        return 'package' in self.args['actions']
+    
     def construct(self):
         super(ViewerManifest, self).construct()
         self.exclude("*.svn*")
         self.path(src="../../scripts/messages/message_template.msg", dst="app_settings/message_template.msg")
         self.path(src="../../etc/message.xml", dst="app_settings/message.xml")
 
-        if self.prefix(src="app_settings"):
-            self.exclude("logcontrol.xml")
-            self.exclude("logcontrol-dev.xml")
-            self.path("*.pem")
-            self.path("*.ini")
-            self.path("*.xml")
-            self.path("*.db2")
+        if self.is_packaging_viewer():
+            if self.prefix(src="app_settings"):
+                self.exclude("logcontrol.xml")
+                self.exclude("logcontrol-dev.xml")
+                self.path("*.pem")
+                self.path("*.ini")
+                self.path("*.xml")
+                self.path("*.db2")
 
-            # include the entire shaders directory recursively
-            self.path("shaders")
-            # ... and the entire windlight directory
-            self.path("windlight")
-            self.end_prefix("app_settings")
+                # include the entire shaders directory recursively
+                self.path("shaders")
+                # ... and the entire windlight directory
+                self.path("windlight")
+                self.end_prefix("app_settings")
 
-        if self.prefix(src="character"):
-            self.path("*.llm")
-            self.path("*.xml")
-            self.path("*.tga")
-            self.end_prefix("character")
+            if self.prefix(src="character"):
+                self.path("*.llm")
+                self.path("*.xml")
+                self.path("*.tga")
+                self.end_prefix("character")
 
-        # Include our fonts
-        if self.prefix(src="fonts"):
-            self.path("*.ttf")
-            self.path("*.txt")
-            self.end_prefix("fonts")
+            # Include our fonts
+            if self.prefix(src="fonts"):
+                self.path("*.ttf")
+                self.path("*.txt")
+                self.end_prefix("fonts")
 
-        # skins
-        if self.prefix(src="skins"):
-                self.path("paths.xml")
-                # include the entire textures directory recursively
-                if self.prefix(src="*/textures"):
-                        self.path("*/*.tga")
-                        self.path("*/*.j2c")
-                        self.path("*/*.jpg")
-                        self.path("*/*.png")
-                        self.path("*.tga")
-                        self.path("*.j2c")
-                        self.path("*.jpg")
-                        self.path("*.png")
-                        self.path("textures.xml")
-                        self.end_prefix("*/textures")
-                self.path("*/xui/*/*.xml")
-                self.path("*/xui/*/widgets/*.xml")
-                self.path("*/*.xml")
-                
-                # Local HTML files (e.g. loading screen)
-                if self.prefix(src="*/html"):
-                        self.path("*.png")
-                        self.path("*/*/*.html")
-                        self.path("*/*/*.gif")
-                        self.end_prefix("*/html")
-                self.end_prefix("skins")
-        
-        # Files in the newview/ directory
-        self.path("gpu_table.txt")
+            # skins
+            if self.prefix(src="skins"):
+                    self.path("paths.xml")
+                    # include the entire textures directory recursively
+                    if self.prefix(src="*/textures"):
+                            self.path("*/*.tga")
+                            self.path("*/*.j2c")
+                            self.path("*/*.jpg")
+                            self.path("*/*.png")
+                            self.path("*.tga")
+                            self.path("*.j2c")
+                            self.path("*.jpg")
+                            self.path("*.png")
+                            self.path("textures.xml")
+                            self.end_prefix("*/textures")
+                    self.path("*/xui/*/*.xml")
+                    self.path("*/xui/*/widgets/*.xml")
+                    self.path("*/*.xml")
+
+                    # Local HTML files (e.g. loading screen)
+                    if self.prefix(src="*/html"):
+                            self.path("*.png")
+                            self.path("*/*/*.html")
+                            self.path("*/*/*.gif")
+                            self.end_prefix("*/html")
+                    self.end_prefix("skins")
+
+            # local_assets dir (for pre-cached textures)
+            if self.prefix(src="local_assets"):
+                self.path("*.j2c")
+                self.path("*.tga")
+                self.end_prefix("local_assets")
+
+            # Files in the newview/ directory
+            self.path("gpu_table.txt")
+
+            # The summary.json file gets left in the base checkout dir by
+            # build.sh. It's only created for a build.sh build, therefore we
+            # have to check whether it exists.  :-P
+            summary_json = "summary.json"
+            summary_json_path = os.path.join(os.pardir, os.pardir, summary_json)
+            if os.path.exists(os.path.join(self.get_src_prefix(), summary_json_path)):
+                self.path(summary_json_path, summary_json)
+            else:
+                print "No %s" % os.path.join(self.get_src_prefix(), summary_json_path)
 
     def login_channel(self):
         """Channel reported for login and upgrade purposes ONLY;
@@ -163,107 +185,257 @@ class WindowsManifest(ViewerManifest):
         else:
             return ''.join(self.channel().split()) + '.exe'
 
+    def test_msvcrt_and_copy_action(self, src, dst):
+        # This is used to test a dll manifest.
+        # It is used as a temporary override during the construct method
+        from test_win32_manifest import test_assembly_binding
+        if src and (os.path.exists(src) or os.path.islink(src)):
+            # ensure that destination path exists
+            self.cmakedirs(os.path.dirname(dst))
+            self.created_paths.append(dst)
+            if not os.path.isdir(src):
+                if(self.args['configuration'].lower() == 'debug'):
+                    test_assembly_binding(src, "Microsoft.VC80.DebugCRT", "8.0.50727.4053")
+                else:
+                    test_assembly_binding(src, "Microsoft.VC80.CRT", "8.0.50727.4053")
+                self.ccopy(src,dst)
+            else:
+                raise Exception("Directories are not supported by test_CRT_and_copy_action()")
+        else:
+            print "Doesn't exist:", src
+
+    def test_for_no_msvcrt_manifest_and_copy_action(self, src, dst):
+        # This is used to test that no manifest for the msvcrt exists.
+        # It is used as a temporary override during the construct method
+        from test_win32_manifest import test_assembly_binding
+        from test_win32_manifest import NoManifestException, NoMatchingAssemblyException
+        if src and (os.path.exists(src) or os.path.islink(src)):
+            # ensure that destination path exists
+            self.cmakedirs(os.path.dirname(dst))
+            self.created_paths.append(dst)
+            if not os.path.isdir(src):
+                try:
+                    if(self.args['configuration'].lower() == 'debug'):
+                        test_assembly_binding(src, "Microsoft.VC80.DebugCRT", "")
+                    else:
+                        test_assembly_binding(src, "Microsoft.VC80.CRT", "")
+                    raise Exception("Unknown condition")
+                except NoManifestException, err:
+                    pass
+                except NoMatchingAssemblyException, err:
+                    pass
+                    
+                self.ccopy(src,dst)
+            else:
+                raise Exception("Directories are not supported by test_CRT_and_copy_action()")
+        else:
+            print "Doesn't exist:", src
+        
+    ### DISABLED MANIFEST CHECKING for vs2010.  we may need to reenable this
+    # shortly.  If this hasn't been reenabled by the 2.9 viewer release then it
+    # should be deleted -brad
+    #def enable_crt_manifest_check(self):
+    #    if self.is_packaging_viewer():
+    #       WindowsManifest.copy_action = WindowsManifest.test_msvcrt_and_copy_action
+
+    #def enable_no_crt_manifest_check(self):
+    #    if self.is_packaging_viewer():
+    #        WindowsManifest.copy_action = WindowsManifest.test_for_no_msvcrt_manifest_and_copy_action
+
+    #def disable_manifest_check(self):
+    #    if self.is_packaging_viewer():
+    #        del WindowsManifest.copy_action
 
     def construct(self):
         super(WindowsManifest, self).construct()
-        # the final exe is complicated because we're not sure where it's coming from,
-        # nor do we have a fixed name for the executable
-        self.path(self.find_existing_file('debug/secondlife-bin.exe', 'release/secondlife-bin.exe', 'relwithdebinfo/secondlife-bin.exe'), dst=self.final_exe())
-        # need to get the kdu dll from any of the build directories as well
-        try:
-            self.path(self.find_existing_file('../llkdu/%s/llkdu.dll' % self.args['configuration'],
-                '../../libraries/i686-win32/lib/release/llkdu.dll'), 
-                  dst='llkdu.dll')
-            pass
-        except:
-            print "Skipping llkdu.dll"
-            pass
-        self.path(src="licenses-win32.txt", dst="licenses.txt")
 
-        self.path("featuretable.txt")
+        #self.enable_crt_manifest_check()
 
-        # For use in crash reporting (generates minidumps)
-        self.path("dbghelp.dll")
+        if self.is_packaging_viewer():
+            # Find secondlife-bin.exe in the 'configuration' dir, then rename it to the result of final_exe.
+            self.path(src='%s/secondlife-bin.exe' % self.args['configuration'], dst=self.final_exe())
 
-        # For using FMOD for sound... DJS
-        self.path("fmod.dll")
+        # Plugin host application
+        self.path(os.path.join(os.pardir,
+                               'llplugin', 'slplugin', self.args['configuration'], "slplugin.exe"),
+                  "slplugin.exe")
+        
+        #self.disable_manifest_check()
 
-        # For textures
-        if self.prefix(src="../../libraries/i686-win32/lib/release", dst=""):
-            self.path("openjpeg.dll")
-            self.end_prefix()
+        self.path(src="../viewer_components/updater/scripts/windows/update_install.bat", dst="update_install.bat")
+        # Get shared libs from the shared libs staging directory
+        if self.prefix(src=os.path.join(os.pardir, 'sharedlibs', self.args['configuration']),
+                       dst=""):
 
-        # Mozilla appears to force a dependency on these files so we need to ship it (CP) - updated to vc8 versions (nyx)
-        # These need to be installed as a SxS assembly, currently a 'private' assembly.
-        # See http://msdn.microsoft.com/en-us/library/ms235291(VS.80).aspx
-        if self.prefix(src=self.args['configuration'], dst=""):
-            if self.args['configuration'] == 'Debug':
-                self.path("msvcr80d.dll")
-                self.path("msvcp80d.dll")
-                self.path("Microsoft.VC80.DebugCRT.manifest")
+            #self.enable_crt_manifest_check()
+            
+            # Get llcommon and deps. If missing assume static linkage and continue.
+            try:
+                self.path('llcommon.dll')
+                self.path('libapr-1.dll')
+                self.path('libaprutil-1.dll')
+                self.path('libapriconv-1.dll')
+                
+            except RuntimeError, err:
+                print err.message
+                print "Skipping llcommon.dll (assuming llcommon was linked statically)"
+
+            #self.disable_manifest_check()
+
+            # Mesh 3rd party libs needed for auto LOD and collada reading
+            try:
+                if self.args['configuration'].lower() == 'debug':
+                    self.path("libcollada14dom22-d.dll")
+                else:
+                    self.path("libcollada14dom22.dll")
+                    
+                self.path("glod.dll")
+            except RuntimeError, err:
+                print err.message
+                print "Skipping COLLADA and GLOD libraries (assumming linked statically)"
+
+
+            # Get fmod dll, continue if missing
+            try:
+                self.path("fmod.dll")
+            except:
+                print "Skipping fmod.dll"
+
+            # For textures
+            if self.args['configuration'].lower() == 'debug':
+                self.path("openjpegd.dll")
             else:
-                self.path("msvcr80.dll")
-                self.path("msvcp80.dll")
-                self.path("Microsoft.VC80.CRT.manifest")
-            self.end_prefix()
+                self.path("openjpeg.dll")
 
-        # Mozilla runtime DLLs (CP)
-        if self.prefix(src="../../libraries/i686-win32/lib/release", dst=""):
-            self.path("freebl3.dll")
-            self.path("js3250.dll")
-            self.path("nspr4.dll")
-            self.path("nss3.dll")
-            self.path("nssckbi.dll")
-            self.path("plc4.dll")
-            self.path("plds4.dll")
-            self.path("smime3.dll")
-            self.path("softokn3.dll")
-            self.path("ssl3.dll")
-            self.path("xpcom.dll")
-            self.path("xul.dll")
-            self.end_prefix()
+            # These need to be installed as a SxS assembly, currently a 'private' assembly.
+            # See http://msdn.microsoft.com/en-us/library/ms235291(VS.80).aspx
+            if self.args['configuration'].lower() == 'debug':
+                 self.path("msvcr100d.dll")
+                 self.path("msvcp100d.dll")
+            else:
+                 self.path("msvcr100.dll")
+                 self.path("msvcp100.dll")
 
-        # Mozilla runtime misc files (CP)
-        if self.prefix(src="app_settings/mozilla"):
-            self.path("chrome/*.*")
-            self.path("components/*.*")
-            self.path("greprefs/*.*")
-            self.path("plugins/*.*")
-            self.path("res/*.*")
-            self.path("res/*/*")
-            self.end_prefix()
-
-        # Mozilla hack to get it to accept newer versions of msvc*80.dll than are listed in manifest
-        # necessary as llmozlib2-vc80.lib refers to an old version of msvc*80.dll - can be removed when new version of llmozlib is built - Nyx
-        # The config file name needs to match the exe's name.
-        self.path("SecondLife.exe.config", dst=self.final_exe() + ".config")
-
-        # Vivox runtimes
-        if self.prefix(src="vivox-runtime/i686-win32", dst=""):
+            # Vivox runtimes
             self.path("SLVoice.exe")
-            self.path("alut.dll")
             self.path("vivoxsdk.dll")
             self.path("ortp.dll")
-            self.path("wrap_oal.dll")
+            self.path("libsndfile-1.dll")
+            self.path("zlib1.dll")
+            self.path("vivoxplatform.dll")
+            self.path("vivoxoal.dll")
+            
+            # Security
+            self.path("ssleay32.dll")
+            self.path("libeay32.dll")
+
+            # For google-perftools tcmalloc allocator.
+            try:
+                if self.args['configuration'].lower() == 'debug':
+                    self.path('libtcmalloc_minimal-debug.dll')
+                else:
+                    self.path('libtcmalloc_minimal.dll')
+            except:
+                print "Skipping libtcmalloc_minimal.dll"
+
             self.end_prefix()
 
-        # pull in the crash logger and updater from other projects
-        self.path(src=self.find_existing_file( # tag:"crash-logger" here as a cue to the exporter
-                "../win_crash_logger/debug/windows-crash-logger.exe",
-                "../win_crash_logger/release/windows-crash-logger.exe",
-                "../win_crash_logger/relwithdebinfo/windows-crash-logger.exe"),
-                  dst="win_crash_logger.exe")
-        self.path(src=self.find_existing_file(
-                "../win_updater/debug/windows-updater.exe",
-                "../win_updater/release/windows-updater.exe",
-                "../win_updater/relwithdebinfo/windows-updater.exe"),
-                  dst="updater.exe")
+        self.path(src="licenses-win32.txt", dst="licenses.txt")
+        self.path("featuretable.txt")
+        self.path("featuretable_xp.txt")
 
-        # For google-perftools tcmalloc allocator.
-        if self.prefix(src="../../libraries/i686-win32/lib/release", dst=""):
-                self.path("libtcmalloc_minimal.dll")
+        #self.enable_no_crt_manifest_check()
+
+        # Media plugins - QuickTime
+        if self.prefix(src='../media_plugins/quicktime/%s' % self.args['configuration'], dst="llplugin"):
+            self.path("media_plugin_quicktime.dll")
+            self.end_prefix()
+
+        # Media plugins - WebKit/Qt
+        if self.prefix(src='../media_plugins/webkit/%s' % self.args['configuration'], dst="llplugin"):
+            self.path("media_plugin_webkit.dll")
+            self.end_prefix()
+
+        # winmm.dll shim
+        if self.prefix(src='../media_plugins/winmmshim/%s' % self.args['configuration'], dst=""):
+            self.path("winmm.dll")
+            self.end_prefix()
+
+
+        if self.args['configuration'].lower() == 'debug':
+            if self.prefix(src=os.path.join(os.pardir, 'packages', 'lib', 'debug'),
+                           dst="llplugin"):
+                self.path("libeay32.dll")
+                self.path("qtcored4.dll")
+                self.path("qtguid4.dll")
+                self.path("qtnetworkd4.dll")
+                self.path("qtopengld4.dll")
+                self.path("qtwebkitd4.dll")
+                self.path("qtxmlpatternsd4.dll")
+                self.path("ssleay32.dll")
+
+                # For WebKit/Qt plugin runtimes (image format plugins)
+                if self.prefix(src="imageformats", dst="imageformats"):
+                    self.path("qgifd4.dll")
+                    self.path("qicod4.dll")
+                    self.path("qjpegd4.dll")
+                    self.path("qmngd4.dll")
+                    self.path("qsvgd4.dll")
+                    self.path("qtiffd4.dll")
+                    self.end_prefix()
+
+                # For WebKit/Qt plugin runtimes (codec/character encoding plugins)
+                if self.prefix(src="codecs", dst="codecs"):
+                    self.path("qcncodecsd4.dll")
+                    self.path("qjpcodecsd4.dll")
+                    self.path("qkrcodecsd4.dll")
+                    self.path("qtwcodecsd4.dll")
+                    self.end_prefix()
+
+                self.end_prefix()
+        else:
+            if self.prefix(src=os.path.join(os.pardir, 'packages', 'lib', 'release'),
+                           dst="llplugin"):
+                self.path("libeay32.dll")
+                self.path("qtcore4.dll")
+                self.path("qtgui4.dll")
+                self.path("qtnetwork4.dll")
+                self.path("qtopengl4.dll")
+                self.path("qtwebkit4.dll")
+                self.path("qtxmlpatterns4.dll")
+                self.path("ssleay32.dll")
+
+                # For WebKit/Qt plugin runtimes (image format plugins)
+                if self.prefix(src="imageformats", dst="imageformats"):
+                    self.path("qgif4.dll")
+                    self.path("qico4.dll")
+                    self.path("qjpeg4.dll")
+                    self.path("qmng4.dll")
+                    self.path("qsvg4.dll")
+                    self.path("qtiff4.dll")
+                    self.end_prefix()
+
+                # For WebKit/Qt plugin runtimes (codec/character encoding plugins)
+                if self.prefix(src="codecs", dst="codecs"):
+                    self.path("qcncodecs4.dll")
+                    self.path("qjpcodecs4.dll")
+                    self.path("qkrcodecs4.dll")
+                    self.path("qtwcodecs4.dll")
+                    self.end_prefix()
+
                 self.end_prefix()
 
+        #self.disable_manifest_check()
+
+        # pull in the crash logger and updater from other projects
+        # tag:"crash-logger" here as a cue to the exporter
+        self.path(src='../win_crash_logger/%s/windows-crash-logger.exe' % self.args['configuration'],
+                  dst="win_crash_logger.exe")
+        self.path(src='../win_updater/%s/windows-updater.exe' % self.args['configuration'],
+                  dst="updater.exe")
+
+        if not self.is_packaging_viewer():
+            self.package_file = "copied_deps"    
 
     def nsi_file_commands(self, install=True):
         def wpath(path):
@@ -337,8 +509,8 @@ class WindowsManifest(ViewerManifest):
                 grid_vars_template = """
                 OutFile "%(installer_file)s"
                 !define INSTFLAGS "%(flags)s"
-                !define INSTNAME   "SecondLife"
-                !define SHORTCUT   "Second Life"
+                !define INSTNAME   "SecondLifeViewer2"
+                !define SHORTCUT   "Second Life Viewer 2"
                 !define URLNAME   "secondlife"
                 Caption "Second Life ${VERSION}"
                 """
@@ -384,13 +556,24 @@ class WindowsManifest(ViewerManifest):
 
         # We use the Unicode version of NSIS, available from
         # http://www.scratchpaper.com/
-        NSIS_path = 'C:\\Program Files\\NSIS\\Unicode\\makensis.exe'
+        # Check two paths, one for Program Files, and one for Program Files (x86).
+        # Yay 64bit windows.
+        NSIS_path = os.path.expandvars('${ProgramFiles}\\NSIS\\Unicode\\makensis.exe')
+        if not os.path.exists(NSIS_path):
+            NSIS_path = os.path.expandvars('${ProgramFiles(x86)}\\NSIS\\Unicode\\makensis.exe')
         self.run_command('"' + proper_windows_path(NSIS_path) + '" ' + self.dst_path_of(tempfile))
         # self.remove(self.dst_path_of(tempfile))
         # If we're on a build machine, sign the code using our Authenticode certificate. JC
-        sign_py = 'C:\\buildscripts\\code-signing\\sign.py'
+        sign_py = os.path.expandvars("${SIGN}")
+        if not sign_py or sign_py == "${SIGN}":
+            sign_py = 'C:\\buildscripts\\code-signing\\sign.py'
+        else:
+            sign_py = sign_py.replace('\\', '\\\\\\\\')
+        python = os.path.expandvars("${PYTHON}")
+        if not python or python == "${PYTHON}":
+            python = 'python'
         if os.path.exists(sign_py):
-            self.run_command(sign_py + ' ' + self.dst_path_of(installer_file))
+            self.run_command("%s %s %s" % (python, sign_py, self.dst_path_of(installer_file).replace('\\', '\\\\\\\\')))
         else:
             print "Skipping code signing,", sign_py, "does not exist"
         self.created_path(self.dst_path_of(installer_file))
@@ -398,25 +581,21 @@ class WindowsManifest(ViewerManifest):
 
 
 class DarwinManifest(ViewerManifest):
+    def is_packaging_viewer(self):
+        # darwin requires full app bundle packaging even for debugging.
+        return True
+
     def construct(self):
         # copy over the build result (this is a no-op if run within the xcode script)
         self.path(self.args['configuration'] + "/Second Life.app", dst="")
 
         if self.prefix(src="", dst="Contents"):  # everything goes in Contents
-            # Expand the tar file containing the assorted mozilla bits into
-            #  <bundle>/Contents/MacOS/
-            self.contents_of_tar(self.args['source']+'/mozilla-universal-darwin.tgz', 'MacOS')
-
             self.path("Info-SecondLife.plist", dst="Info.plist")
 
             # copy additional libs in <bundle>/Contents/MacOS/
-            self.path("../../libraries/universal-darwin/lib_release/libndofdev.dylib", dst="MacOS/libndofdev.dylib")
+            self.path("../packages/lib/release/libndofdev.dylib", dst="Resources/libndofdev.dylib")
 
-            # replace the default theme with our custom theme (so scrollbars work).
-            if self.prefix(src="mozilla-theme", dst="MacOS/chrome"):
-                self.path("classic.jar")
-                self.path("classic.manifest")
-                self.end_prefix("MacOS/chrome")
+            self.path("../viewer_components/updater/scripts/darwin/update_install", "MacOS/update_install")
 
             # most everything goes in the Resources directory
             if self.prefix(src="", dst="Resources"):
@@ -456,29 +635,87 @@ class DarwinManifest(ViewerManifest):
                 self.path("uk.lproj")
                 self.path("zh-Hans.lproj")
 
-                # SLVoice and vivox lols
-                self.path("vivox-runtime/universal-darwin/libalut.dylib", "libalut.dylib")
-                self.path("vivox-runtime/universal-darwin/libopenal.dylib", "libopenal.dylib")
-                self.path("vivox-runtime/universal-darwin/libortp.dylib", "libortp.dylib")
-                self.path("vivox-runtime/universal-darwin/libvivoxsdk.dylib", "libvivoxsdk.dylib")
-                self.path("vivox-runtime/universal-darwin/SLVoice", "SLVoice")
+                libdir = "../packages/lib/release"
+                dylibs = {}
 
-                # need to get the kdu dll from any of the build directories as well
+                # Need to get the llcommon dll from any of the build directories as well
+                lib = "llcommon"
+                libfile = "lib%s.dylib" % lib
                 try:
-                    self.path(self.find_existing_file('../llkdu/%s/libllkdu.dylib' % self.args['configuration'],
-                        "../../libraries/universal-darwin/lib_release/libllkdu.dylib"),
-                        dst='libllkdu.dylib')
-                    pass
-                except:
-                    print "Skipping libllkdu.dylib"
-                    pass
+                    self.path(self.find_existing_file(os.path.join(os.pardir,
+                                                                    lib,
+                                                                    self.args['configuration'],
+                                                                    libfile),
+                                                      os.path.join(libdir, libfile)),
+                                                      dst=libfile)
+                except RuntimeError:
+                    print "Skipping %s" % libfile
+                    dylibs[lib] = False
+                else:
+                    dylibs[lib] = True
+
+                if dylibs["llcommon"]:
+                    for libfile in ("libapr-1.0.dylib",
+                                    "libaprutil-1.0.dylib",
+                                    "libexpat.1.5.2.dylib",
+                                    "libexception_handler.dylib",
+                                    "libGLOD.dylib",
+                                    "libcollada14dom.dylib"
+                                    ):
+                        self.path(os.path.join(libdir, libfile), libfile)
+
+                # SLVoice and vivox lols
+                for libfile in ('libsndfile.dylib', 'libvivoxoal.dylib', 'libortp.dylib', \
+                    'libvivoxsdk.dylib', 'libvivoxplatform.dylib', 'SLVoice') :
+                     self.path(os.path.join(libdir, libfile), libfile)
                 
-                #libfmodwrapper.dylib
-                self.path(self.args['configuration'] + "/libfmodwrapper.dylib", "libfmodwrapper.dylib")
+                try:
+                    # FMOD for sound
+                    self.path(self.args['configuration'] + "/libfmodwrapper.dylib", "libfmodwrapper.dylib")
+                except:
+                    print "Skipping FMOD - not found"
                 
                 # our apps
                 self.path("../mac_crash_logger/" + self.args['configuration'] + "/mac-crash-logger.app", "mac-crash-logger.app")
                 self.path("../mac_updater/" + self.args['configuration'] + "/mac-updater.app", "mac-updater.app")
+
+                # plugin launcher
+                self.path("../llplugin/slplugin/" + self.args['configuration'] + "/SLPlugin.app", "SLPlugin.app")
+
+                # our apps dependencies on shared libs
+                if dylibs["llcommon"]:
+                    mac_crash_logger_res_path = self.dst_path_of("mac-crash-logger.app/Contents/Resources")
+                    mac_updater_res_path = self.dst_path_of("mac-updater.app/Contents/Resources")
+                    slplugin_res_path = self.dst_path_of("SLPlugin.app/Contents/Resources")
+                    for libfile in ("libllcommon.dylib",
+                                    "libapr-1.0.dylib",
+                                    "libaprutil-1.0.dylib",
+                                    "libexpat.1.5.2.dylib",
+                                    "libexception_handler.dylib",
+                                    "libGLOD.dylib",
+				    "libcollada14dom.dylib"
+                                    ):
+                        target_lib = os.path.join('../../..', libfile)
+                        self.run_command("ln -sf %(target)r %(link)r" % 
+                                         {'target': target_lib,
+                                          'link' : os.path.join(mac_crash_logger_res_path, libfile)}
+                                         )
+                        self.run_command("ln -sf %(target)r %(link)r" % 
+                                         {'target': target_lib,
+                                          'link' : os.path.join(mac_updater_res_path, libfile)}
+                                         )
+                        self.run_command("ln -sf %(target)r %(link)r" % 
+                                         {'target': target_lib,
+                                          'link' : os.path.join(slplugin_res_path, libfile)}
+                                         )
+
+                # plugins
+                if self.prefix(src="", dst="llplugin"):
+                    self.path("../media_plugins/quicktime/" + self.args['configuration'] + "/media_plugin_quicktime.dylib", "media_plugin_quicktime.dylib")
+                    self.path("../media_plugins/webkit/" + self.args['configuration'] + "/media_plugin_webkit.dylib", "media_plugin_webkit.dylib")
+                    self.path("../packages/lib/release/libllqtwebkit.dylib", "libllqtwebkit.dylib")
+
+                    self.end_prefix("llplugin")
 
                 # command line arguments for connecting to the proper grid
                 self.put_in_file(self.flags_list(), 'arguments.txt')
@@ -493,12 +730,18 @@ class DarwinManifest(ViewerManifest):
         # This may be desirable for the final release.  Or not.
         if ("package" in self.args['actions'] or 
             "unpacked" in self.args['actions']):
-            self.run_command('strip -S "%(viewer_binary)s"' %
+            self.run_command('strip -S %(viewer_binary)r' %
                              { 'viewer_binary' : self.dst_path_of('Contents/MacOS/Second Life')})
 
 
+    def copy_finish(self):
+        # Force executable permissions to be set for scripts
+        # see CHOP-223 and http://mercurial.selenic.com/bts/issue1802
+        for script in 'Contents/MacOS/update_install',:
+            self.run_command("chmod +x %r" % os.path.join(self.get_dst_prefix(), script))
+
     def package_finish(self):
-        channel_standin = 'Second Life'  # hah, our default channel is not usable on its own
+        channel_standin = 'Second Life Viewer 2'  # hah, our default channel is not usable on its own
         if not self.default_channel():
             channel_standin = self.channel()
 
@@ -522,63 +765,86 @@ class DarwinManifest(ViewerManifest):
         # make sure we don't have stale files laying about
         self.remove(sparsename, finalname)
 
-        self.run_command('hdiutil create "%(sparse)s" -volname "%(vol)s" -fs HFS+ -type SPARSE -megabytes 300 -layout SPUD' % {
+        self.run_command('hdiutil create %(sparse)r -volname %(vol)r -fs HFS+ -type SPARSE -megabytes 700 -layout SPUD' % {
                 'sparse':sparsename,
                 'vol':volname})
 
         # mount the image and get the name of the mount point and device node
-        hdi_output = self.run_command('hdiutil attach -private "' + sparsename + '"')
-        devfile = re.search("/dev/disk([0-9]+)[^s]", hdi_output).group(0).strip()
-        volpath = re.search('HFS\s+(.+)', hdi_output).group(1).strip()
+        hdi_output = self.run_command('hdiutil attach -private %r' % sparsename)
+        try:
+            devfile = re.search("/dev/disk([0-9]+)[^s]", hdi_output).group(0).strip()
+            volpath = re.search('HFS\s+(.+)', hdi_output).group(1).strip()
 
-        # Copy everything in to the mounted .dmg
+            if devfile != '/dev/disk1':
+                # adding more debugging info based upon nat's hunches to the
+                # logs to help track down 'SetFile -a V' failures -brad
+                print "WARNING: 'SetFile -a V' command below is probably gonna fail"
 
-        if self.default_channel() and not self.default_grid():
-            app_name = "Second Life " + self.args['grid']
-        else:
-            app_name = channel_standin.strip()
+            # Copy everything in to the mounted .dmg
 
-        # Hack:
-        # Because there is no easy way to coerce the Finder into positioning
-        # the app bundle in the same place with different app names, we are
-        # adding multiple .DS_Store files to svn. There is one for release,
-        # one for release candidate and one for first look. Any other channels
-        # will use the release .DS_Store, and will look broken.
-        # - Ambroff 2008-08-20
-        dmg_template = os.path.join(
-            'installers', 
-            'darwin',
-            '%s-dmg' % "".join(self.channel_unique().split()).lower())
+            if self.default_channel() and not self.default_grid():
+                app_name = "Second Life " + self.args['grid']
+            else:
+                app_name = channel_standin.strip()
 
-        if not os.path.exists (self.src_path_of(dmg_template)):
-            dmg_template = os.path.join ('installers', 'darwin', 'release-dmg')
+            # Hack:
+            # Because there is no easy way to coerce the Finder into positioning
+            # the app bundle in the same place with different app names, we are
+            # adding multiple .DS_Store files to svn. There is one for release,
+            # one for release candidate and one for first look. Any other channels
+            # will use the release .DS_Store, and will look broken.
+            # - Ambroff 2008-08-20
+            dmg_template = os.path.join(
+                'installers', 
+                'darwin',
+                '%s-dmg' % "".join(self.channel_unique().split()).lower())
 
-        for s,d in {self.get_dst_prefix():app_name + ".app",
-                    os.path.join(dmg_template, "_VolumeIcon.icns"): ".VolumeIcon.icns",
-                    os.path.join(dmg_template, "background.jpg"): "background.jpg",
-                    os.path.join(dmg_template, "_DS_Store"): ".DS_Store"}.items():
-            print "Copying to dmg", s, d
-            self.copy_action(self.src_path_of(s), os.path.join(volpath, d))
+            if not os.path.exists (self.src_path_of(dmg_template)):
+                dmg_template = os.path.join ('installers', 'darwin', 'release-dmg')
 
-        # Hide the background image, DS_Store file, and volume icon file (set their "visible" bit)
-        self.run_command('SetFile -a V "' + os.path.join(volpath, ".VolumeIcon.icns") + '"')
-        self.run_command('SetFile -a V "' + os.path.join(volpath, "background.jpg") + '"')
-        self.run_command('SetFile -a V "' + os.path.join(volpath, ".DS_Store") + '"')
+            for s,d in {self.get_dst_prefix():app_name + ".app",
+                        os.path.join(dmg_template, "_VolumeIcon.icns"): ".VolumeIcon.icns",
+                        os.path.join(dmg_template, "background.jpg"): "background.jpg",
+                        os.path.join(dmg_template, "_DS_Store"): ".DS_Store"}.items():
+                print "Copying to dmg", s, d
+                self.copy_action(self.src_path_of(s), os.path.join(volpath, d))
 
-        # Create the alias file (which is a resource file) from the .r
-        self.run_command('rez "' + self.src_path_of("installers/darwin/release-dmg/Applications-alias.r") + '" -o "' + os.path.join(volpath, "Applications") + '"')
+            # Hide the background image, DS_Store file, and volume icon file (set their "visible" bit)
+            for f in ".VolumeIcon.icns", "background.jpg", ".DS_Store":
+                pathname = os.path.join(volpath, f)
+                # We've observed mysterious "no such file" failures of the SetFile
+                # command, especially on the first file listed above -- yet
+                # subsequent inspection of the target directory confirms it's
+                # there. Timing problem with copy command? Try to handle.
+                for x in xrange(3):
+                    if os.path.exists(pathname):
+                        print "Confirmed existence: %r" % pathname
+                        break
+                    print "Waiting for %s copy command to complete (%s)..." % (f, x+1)
+                    sys.stdout.flush()
+                    time.sleep(1)
+                # If we fall out of the loop above without a successful break, oh
+                # well, possibly we've mistaken the nature of the problem. In any
+                # case, don't hang up the whole build looping indefinitely, let
+                # the original problem manifest by executing the desired command.
+                self.run_command('SetFile -a V %r' % pathname)
 
-        # Set the alias file's alias and custom icon bits
-        self.run_command('SetFile -a AC "' + os.path.join(volpath, "Applications") + '"')
+            # Create the alias file (which is a resource file) from the .r
+            self.run_command('Rez %r -o %r' %
+                             (self.src_path_of("installers/darwin/release-dmg/Applications-alias.r"),
+                              os.path.join(volpath, "Applications")))
 
-        # Set the disk image root's custom icon bit
-        self.run_command('SetFile -a C "' + volpath + '"')
+            # Set the alias file's alias and custom icon bits
+            self.run_command('SetFile -a AC %r' % os.path.join(volpath, "Applications"))
 
-        # Unmount the image
-        self.run_command('hdiutil detach -force "' + devfile + '"')
+            # Set the disk image root's custom icon bit
+            self.run_command('SetFile -a C %r' % volpath)
+        finally:
+            # Unmount the image even if exceptions from any of the above 
+            self.run_command('hdiutil detach -force %r' % devfile)
 
         print "Converting temp disk image to final disk image"
-        self.run_command('hdiutil convert "%(sparse)s" -format UDZO -imagekey zlib-level=9 -o "%(final)s"' % {'sparse':sparsename, 'final':finalname})
+        self.run_command('hdiutil convert %(sparse)r -format UDZO -imagekey zlib-level=9 -o %(final)r' % {'sparse':sparsename, 'final':finalname})
         # get rid of the temp file
         self.package_file = finalname
         self.remove(sparsename)
@@ -593,13 +859,46 @@ class LinuxManifest(ViewerManifest):
             self.path("client-readme-voice.txt","README-linux-voice.txt")
             self.path("client-readme-joystick.txt","README-linux-joystick.txt")
             self.path("wrapper.sh","secondlife")
-            self.path("handle_secondlifeprotocol.sh")
-            self.path("register_secondlifeprotocol.sh")
+            self.path("handle_secondlifeprotocol.sh", "etc/handle_secondlifeprotocol.sh")
+            self.path("register_secondlifeprotocol.sh", "etc/register_secondlifeprotocol.sh")
+            self.path("refresh_desktop_app_entry.sh", "etc/refresh_desktop_app_entry.sh")
+            self.path("launch_url.sh","etc/launch_url.sh")
+            self.path("install.sh")
             self.end_prefix("linux_tools")
 
         # Create an appropriate gridargs.dat for this package, denoting required grid.
-        self.put_in_file(self.flags_list(), 'gridargs.dat')
+        self.put_in_file(self.flags_list(), 'etc/gridargs.dat')
 
+        self.path("secondlife-bin","bin/do-not-directly-run-secondlife-bin")
+        self.path("../linux_crash_logger/linux-crash-logger","bin/linux-crash-logger.bin")
+        self.path("../linux_updater/linux-updater", "bin/linux-updater.bin")
+        self.path("../llplugin/slplugin/SLPlugin", "bin/SLPlugin")
+
+        if self.prefix("res-sdl"):
+            self.path("*")
+            # recurse
+            self.end_prefix("res-sdl")
+
+        self.path("../viewer_components/updater/scripts/linux/update_install", "bin/update_install")
+
+        # plugins
+        if self.prefix(src="", dst="bin/llplugin"):
+            self.path("../media_plugins/webkit/libmedia_plugin_webkit.so", "libmedia_plugin_webkit.so")
+            self.path("../media_plugins/gstreamer010/libmedia_plugin_gstreamer010.so", "libmedia_plugin_gstreamer.so")
+            self.end_prefix("bin/llplugin")
+
+        try:
+            self.path("../llcommon/libllcommon.so", "lib/libllcommon.so")
+        except:
+            print "Skipping llcommon.so (assuming llcommon was linked statically)"
+
+        self.path("featuretable_linux.txt")
+
+    def copy_finish(self):
+        # Force executable permissions to be set for scripts
+        # see CHOP-223 and http://mercurial.selenic.com/bts/issue1802
+        for script in 'secondlife', 'bin/update_install':
+            self.run_command("chmod +x %r" % os.path.join(self.get_dst_prefix(), script))
 
     def package_finish(self):
         if 'installer_name' in self.args:
@@ -613,6 +912,10 @@ class LinuxManifest(ViewerManifest):
                     installer_name += '_' + self.args['grid'].upper()
             else:
                 installer_name += '_' + self.channel_oneword().upper()
+
+        if self.args['buildtype'].lower() == 'release' and self.is_packaging_viewer():
+            print "* Going strip-crazy on the packaged binaries, since this is a RELEASE build"
+            self.run_command("find %(d)r/bin %(d)r/lib -type f \\! -name update_install | xargs --no-run-if-empty strip -S" % {'d': self.get_dst_prefix()} ) # makes some small assumptions about our packaged dir structure
 
         # Fix access permissions
         self.run_command("""
@@ -630,13 +933,18 @@ class LinuxManifest(ViewerManifest):
             'dst': self.get_dst_prefix(),
             'inst': self.build_path_of(installer_name)})
         try:
-            # --numeric-owner hides the username of the builder for
-            # security etc.
-            self.run_command('tar -C %(dir)s --numeric-owner -cjf '
-                             '%(inst_path)s.tar.bz2 %(inst_name)s' % {
-                'dir': self.get_build_prefix(),
-                'inst_name': installer_name,
-                'inst_path':self.build_path_of(installer_name)})
+            # only create tarball if it's a release build.
+            if self.args['buildtype'].lower() == 'release':
+                # --numeric-owner hides the username of the builder for
+                # security etc.
+                self.run_command('tar -C %(dir)s --numeric-owner -cjf '
+                                 '%(inst_path)s.tar.bz2 %(inst_name)s' % {
+                        'dir': self.get_build_prefix(),
+                        'inst_name': installer_name,
+                        'inst_path':self.build_path_of(installer_name)})
+            else:
+                print "Skipping %s.tar.bz2 for non-Release build (%s)" % \
+                      (installer_name, self.args['buildtype'])
         finally:
             self.run_command("mv %(inst)s %(dst)s" % {
                 'dst': self.get_dst_prefix(),
@@ -646,70 +954,75 @@ class Linux_i686Manifest(LinuxManifest):
     def construct(self):
         super(Linux_i686Manifest, self).construct()
 
-        # install either the libllkdu we just built, or a prebuilt one, in
-        # decreasing order of preference.  for linux package, this goes to bin/
-        try:
-            self.path(self.find_existing_file('../llkdu/libllkdu.so',
-                '../../libraries/i686-linux/lib_release_client/libllkdu.so'), 
-                  dst='bin/libllkdu.so')
-            # keep this one to preserve syntax, open source mangling removes previous lines
-            pass
-        except:
-            print "Skipping libllkdu.so - not found"
-            pass
-
-        self.path("secondlife-stripped","bin/do-not-directly-run-secondlife-bin")
-        self.path("../linux_crash_logger/linux-crash-logger-stripped","linux-crash-logger.bin")
-        self.path("linux_tools/launch_url.sh","launch_url.sh")
-        if self.prefix("res-sdl"):
-            self.path("*")
-            # recurse
-            self.end_prefix("res-sdl")
-
-        self.path("featuretable_linux.txt")
-        #self.path("secondlife-i686.supp")
-
-        self.path("app_settings/mozilla-runtime-linux-i686")
-
-        if self.prefix("../../libraries/i686-linux/lib_release_client", dst="lib"):
-            #self.path("libkdu_v42R.so", "libkdu.so")
-            self.path("libfmod-3.75.so")
+        if self.prefix("../packages/lib/release", dst="lib"):
+            self.path("libapr-1.so")
             self.path("libapr-1.so.0")
+            self.path("libapr-1.so.0.4.2")
+            self.path("libaprutil-1.so")
             self.path("libaprutil-1.so.0")
-            self.path("libdb-4.2.so")
-            self.path("libcrypto.so.0.9.7")
-            self.path("libexpat.so.1")
-            self.path("libssl.so.0.9.7")
-            self.path("libuuid.so", "libuuid.so.1")
-            self.path("libSDL-1.2.so.0")
-            self.path("libELFIO.so")
-            self.path("libopenjpeg.so.1.3.0", "libopenjpeg.so.1.3")
+            self.path("libaprutil-1.so.0.3.10")
+            self.path("libbreakpad_client.so.0.0.0")
+            self.path("libbreakpad_client.so.0")
+            self.path("libbreakpad_client.so")
+	    self.path("libcollada14dom.so")
+            self.path("libdb-5.1.so")
+            self.path("libdb-5.so")
+            self.path("libdb.so")
+            self.path("libcrypto.so.1.0.0")
+            self.path("libexpat.so.1.5.2")
+            self.path("libssl.so.1.0.0")
+	    self.path("libglod.so")
+	    self.path("libminizip.so")
+            self.path("libuuid.so")
+            self.path("libuuid.so.16")
+            self.path("libuuid.so.16.0.22")
+            self.path("libSDL-1.2.so.0.11.3")
+            self.path("libdirectfb-1.4.so.5.0.4")
+            self.path("libfusion-1.4.so.5.0.4")
+            self.path("libdirect-1.4.so.5.0.4")
+            self.path("libopenjpeg.so.1.4.0")
+            self.path("libopenjpeg.so.1")
+            self.path("libopenjpeg.so")
             self.path("libalut.so")
             self.path("libopenal.so", "libopenal.so.1")
+            self.path("libopenal.so", "libvivoxoal.so.1") # vivox's sdk expects this soname
+            self.path("libfontconfig.so.1.4.4")
+            self.path("libtcmalloc.so", "libtcmalloc.so") #formerly called google perf tools
+            self.path("libtcmalloc.so.0", "libtcmalloc.so.0") #formerly called google perf tools
+            self.path("libtcmalloc.so.0.1.0", "libtcmalloc.so.0.1.0") #formerly called google perf tools
+            try:
+                    self.path("libfmod-3.75.so")
+                    pass
+            except:
+                    print "Skipping libfmod-3.75.so - not found"
+                    pass
             self.end_prefix("lib")
 
             # Vivox runtimes
-            if self.prefix(src="vivox-runtime/i686-linux", dst="bin"):
+            if self.prefix(src="../packages/lib/release", dst="bin"):
                     self.path("SLVoice")
                     self.end_prefix()
-            if self.prefix(src="vivox-runtime/i686-linux", dst="lib"):
+            if self.prefix(src="../packages/lib/release", dst="lib"):
                     self.path("libortp.so")
+                    self.path("libsndfile.so.1")
+                    #self.path("libvivoxoal.so.1") # no - we'll re-use the viewer's own OpenAL lib
                     self.path("libvivoxsdk.so")
+                    self.path("libvivoxplatform.so")
                     self.end_prefix("lib")
+
+            if self.args['buildtype'].lower() == 'release' and self.is_packaging_viewer():
+                    print "* Going strip-crazy on the packaged binaries, since this is a RELEASE build"
+                    self.run_command("find %(d)r/bin %(d)r/lib -type f \\! -name update_install | xargs --no-run-if-empty strip -S" % {'d': self.get_dst_prefix()} ) # makes some small assumptions about our packaged dir structure
+
 
 class Linux_x86_64Manifest(LinuxManifest):
     def construct(self):
         super(Linux_x86_64Manifest, self).construct()
-        self.path("secondlife-stripped","bin/do-not-directly-run-secondlife-bin")
-        self.path("../linux_crash_logger/linux-crash-logger-stripped","linux-crash-logger.bin")
-        self.path("linux_tools/launch_url.sh","launch_url.sh")
-        if self.prefix("res-sdl"):
-            self.path("*")
-            # recurse
-            self.end_prefix("res-sdl")
 
-        self.path("featuretable_linux.txt")
+        # support file for valgrind debug tool
         self.path("secondlife-i686.supp")
+
+################################################################
 
 if __name__ == "__main__":
     main()

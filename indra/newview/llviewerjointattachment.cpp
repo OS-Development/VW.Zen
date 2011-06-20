@@ -2,31 +2,25 @@
  * @file llviewerjointattachment.cpp
  * @brief Implementation of LLViewerJointAttachment class
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -35,12 +29,12 @@
 #include "llviewerjointattachment.h"
 
 #include "llagentconstants.h"
-
 #include "llviewercontrol.h"
 #include "lldrawable.h"
 #include "llgl.h"
+#include "llhudtext.h"
 #include "llrender.h"
-#include "llvoavatar.h"
+#include "llvoavatarself.h"
 #include "llvolume.h"
 #include "pipeline.h"
 #include "llspatialpartition.h"
@@ -57,14 +51,14 @@ extern LLPipeline gPipeline;
 // LLViewerJointAttachment()
 //-----------------------------------------------------------------------------
 LLViewerJointAttachment::LLViewerJointAttachment() :
-mAttachedObject(NULL),
-mVisibleInFirst(FALSE),
-mGroup(0),
-mIsHUDAttachment(FALSE),
-mPieSlice(-1)
+	mVisibleInFirst(FALSE),
+	mGroup(0),
+	mIsHUDAttachment(FALSE),
+	mPieSlice(-1)
 {
 	mValid = FALSE;
 	mUpdateXform = FALSE;
+	mAttachedObjects.clear();
 }
 
 //-----------------------------------------------------------------------------
@@ -103,36 +97,43 @@ U32 LLViewerJointAttachment::drawShape( F32 pixelArea, BOOL first_pass, BOOL is_
 	return 0;
 }
 
-void LLViewerJointAttachment::setupDrawable(LLDrawable* drawablep)
+void LLViewerJointAttachment::setupDrawable(LLViewerObject *object)
 {
-	drawablep->mXform.setParent(&mXform); // LLViewerJointAttachment::lazyAttach
-	drawablep->makeActive();
-	LLVector3 current_pos = mAttachedObject->getRenderPosition();
-	LLQuaternion current_rot = mAttachedObject->getRenderRotation();
-	LLQuaternion attachment_pt_inv_rot = ~getWorldRotation();
+	if (!object->mDrawable)
+		return;
+	if (object->mDrawable->isActive())
+	{
+		object->mDrawable->makeStatic(FALSE);
+	}
+
+	object->mDrawable->mXform.setParent(getXform()); // LLViewerJointAttachment::lazyAttach
+	object->mDrawable->makeActive();
+	LLVector3 current_pos = object->getRenderPosition();
+	LLQuaternion current_rot = object->getRenderRotation();
+	LLQuaternion attachment_pt_inv_rot = ~(getWorldRotation());
 
 	current_pos -= getWorldPosition();
 	current_pos.rotVec(attachment_pt_inv_rot);
 
 	current_rot = current_rot * attachment_pt_inv_rot;
 
-	drawablep->mXform.setPosition(current_pos);
-	drawablep->mXform.setRotation(current_rot);
-	gPipeline.markMoved(drawablep);
-	gPipeline.markTextured(drawablep); // face may need to change draw pool to/from POOL_HUD
-	drawablep->setState(LLDrawable::USE_BACKLIGHT);
+	object->mDrawable->mXform.setPosition(current_pos);
+	object->mDrawable->mXform.setRotation(current_rot);
+	gPipeline.markMoved(object->mDrawable);
+	gPipeline.markTextured(object->mDrawable); // face may need to change draw pool to/from POOL_HUD
+	object->mDrawable->setState(LLDrawable::USE_BACKLIGHT);
 	
 	if(mIsHUDAttachment)
 	{
-		for (S32 face_num = 0; face_num < drawablep->getNumFaces(); face_num++)
+		for (S32 face_num = 0; face_num < object->mDrawable->getNumFaces(); face_num++)
 		{
-			drawablep->getFace(face_num)->setState(LLFace::HUD_RENDER);
+			object->mDrawable->getFace(face_num)->setState(LLFace::HUD_RENDER);
 		}
 	}
 
-	LLViewerObject::const_child_list_t& child_list = mAttachedObject->getChildren();
+	LLViewerObject::const_child_list_t& child_list = object->getChildren();
 	for (LLViewerObject::child_list_t::const_iterator iter = child_list.begin();
-		 iter != child_list.end(); iter++)
+		 iter != child_list.end(); ++iter)
 	{
 		LLViewerObject* childp = *iter;
 		if (childp && childp->mDrawable.notNull())
@@ -157,55 +158,32 @@ void LLViewerJointAttachment::setupDrawable(LLDrawable* drawablep)
 //-----------------------------------------------------------------------------
 BOOL LLViewerJointAttachment::addObject(LLViewerObject* object)
 {
-	if (mAttachedObject)
+	object->extractAttachmentItemID();
+
+	// Same object reattached
+	if (isObjectAttached(object))
 	{
-		llwarns << "Attempted to attach object where an attachment already exists!" << llendl;
-		
-		if (mAttachedObject == object) {
-			llinfos << "(same object re-attached)" << llendl;
-			removeObject(mAttachedObject);
-			// Pass through anyway to let setupDrawable()
-			// re-connect object to the joint correctly
-		}
-		else {
-			llinfos << "(objects differ, removing existing object)" << llendl;
-			// Rather hacky, but no-one can think of something
-			// better to do for this case.
-			gObjectList.killObject(mAttachedObject);
-			// Proceed with new object attachment
-		}
+		llinfos << "(same object re-attached)" << llendl;
+		removeObject(object);
+		// Pass through anyway to let setupDrawable()
+		// re-connect object to the joint correctly
 	}
-	mAttachedObject = object;
 	
-	LLUUID item_id;
-
-	// Find the inventory item ID of the attached object
-	LLNameValue* item_id_nv = object->getNVPair("AttachItemID");
-	if( item_id_nv )
+	// Two instances of the same inventory item attached --
+	// Request detach, and kill the object in the meantime.
+	if (getAttachedObject(object->getAttachmentItemID()))
 	{
-		const char* s = item_id_nv->getString();
-		if( s )
-		{
-			item_id.set( s );
-			lldebugs << "getNVPair( AttachItemID ) = " << item_id << llendl;
-		}
+		llinfos << "(same object re-attached)" << llendl;
+		object->markDead();
+
+		// If this happens to be attached to self, then detach.
+		LLVOAvatarSelf::detachAttachmentIntoInventory(object->getAttachmentItemID());
+		return FALSE;
 	}
 
-	mItemID = item_id;
-
-	LLDrawable* drawablep = object->mDrawable;
-
-	if (drawablep)
-	{
-		//if object is active, make it static
-		if(drawablep->isActive())
-		{
-			drawablep->makeStatic(FALSE) ;
-		}
-
-		setupDrawable(drawablep);
-	}
-
+	mAttachedObjects.push_back(object);
+	setupDrawable(object);
+	
 	if (mIsHUDAttachment)
 	{
 		if (object->mText.notNull())
@@ -214,7 +192,7 @@ BOOL LLViewerJointAttachment::addObject(LLViewerObject* object)
 		}
 		LLViewerObject::const_child_list_t& child_list = object->getChildren();
 		for (LLViewerObject::child_list_t::const_iterator iter = child_list.begin();
-			 iter != child_list.end(); iter++)
+			 iter != child_list.end(); ++iter)
 		{
 			LLViewerObject* childp = *iter;
 			if (childp && childp->mText.notNull())
@@ -225,7 +203,7 @@ BOOL LLViewerJointAttachment::addObject(LLViewerObject* object)
 	}
 	calcLOD();
 	mUpdateXform = TRUE;
-
+	
 	return TRUE;
 }
 
@@ -234,15 +212,33 @@ BOOL LLViewerJointAttachment::addObject(LLViewerObject* object)
 //-----------------------------------------------------------------------------
 void LLViewerJointAttachment::removeObject(LLViewerObject *object)
 {
+	attachedobjs_vec_t::iterator iter;
+	for (iter = mAttachedObjects.begin();
+		 iter != mAttachedObjects.end();
+		 ++iter)
+	{
+		LLViewerObject *attached_object = (*iter);
+		if (attached_object == object)
+		{
+			break;
+		}
+	}
+	if (iter == mAttachedObjects.end())
+	{
+		llwarns << "Could not find object to detach" << llendl;
+		return;
+	}
+
 	// force object visibile
 	setAttachmentVisibility(TRUE);
 
+	mAttachedObjects.erase(iter);
 	if (object->mDrawable.notNull())
 	{
 		//if object is active, make it static
 		if(object->mDrawable->isActive())
 		{
-			object->mDrawable->makeStatic(FALSE) ;
+			object->mDrawable->makeStatic(FALSE);
 		}
 
 		LLVector3 cur_position = object->getRenderPosition();
@@ -265,7 +261,7 @@ void LLViewerJointAttachment::removeObject(LLViewerObject *object)
 
 	LLViewerObject::const_child_list_t& child_list = object->getChildren();
 	for (LLViewerObject::child_list_t::const_iterator iter = child_list.begin();
-		 iter != child_list.end(); iter++)
+		 iter != child_list.end(); ++iter)
 	{
 		LLViewerObject* childp = *iter;
 		if (childp && childp->mDrawable.notNull())
@@ -290,7 +286,7 @@ void LLViewerJointAttachment::removeObject(LLViewerObject *object)
 		}
 		LLViewerObject::const_child_list_t& child_list = object->getChildren();
 		for (LLViewerObject::child_list_t::const_iterator iter = child_list.begin();
-			 iter != child_list.end(); iter++)
+			 iter != child_list.end(); ++iter)
 		{
 			LLViewerObject* childp = *iter;
 			if (childp->mText.notNull())
@@ -299,10 +295,11 @@ void LLViewerJointAttachment::removeObject(LLViewerObject *object)
 			}
 		}
 	}
-
-	mAttachedObject = NULL;
-	mUpdateXform = FALSE;
-	mItemID.setNull();
+	if (mAttachedObjects.size() == 0)
+	{
+		mUpdateXform = FALSE;
+	}
+	object->setAttachmentItemID(LLUUID::null);
 }
 
 //-----------------------------------------------------------------------------
@@ -310,20 +307,26 @@ void LLViewerJointAttachment::removeObject(LLViewerObject *object)
 //-----------------------------------------------------------------------------
 void LLViewerJointAttachment::setAttachmentVisibility(BOOL visible)
 {
-	if (!mAttachedObject || mAttachedObject->mDrawable.isNull() || 
-		!(mAttachedObject->mDrawable->getSpatialBridge()))
-		return;
-
-	if (visible)
+	for (attachedobjs_vec_t::const_iterator iter = mAttachedObjects.begin();
+		 iter != mAttachedObjects.end();
+		 ++iter)
 	{
-		// Hack to make attachments not visible by disabling their type mask!
-		// This will break if you can ever attach non-volumes! - djs 02/14/03
-		mAttachedObject->mDrawable->getSpatialBridge()->mDrawableType = 
-			mAttachedObject->isHUDAttachment() ? LLPipeline::RENDER_TYPE_HUD : LLPipeline::RENDER_TYPE_VOLUME;
-	}
-	else
-	{
-		mAttachedObject->mDrawable->getSpatialBridge()->mDrawableType = 0;
+		LLViewerObject *attached_obj = (*iter);
+		if (!attached_obj || attached_obj->mDrawable.isNull() || 
+			!(attached_obj->mDrawable->getSpatialBridge()))
+			continue;
+		
+		if (visible)
+		{
+			// Hack to make attachments not visible by disabling their type mask!
+			// This will break if you can ever attach non-volumes! - djs 02/14/03
+			attached_obj->mDrawable->getSpatialBridge()->mDrawableType = 
+				attached_obj->isHUDAttachment() ? LLPipeline::RENDER_TYPE_HUD : LLPipeline::RENDER_TYPE_VOLUME;
+		}
+		else
+		{
+			attached_obj->mDrawable->getSpatialBridge()->mDrawableType = 0;
+		}
 	}
 }
 
@@ -341,14 +344,19 @@ void LLViewerJointAttachment::setOriginalPosition(LLVector3& position)
 //-----------------------------------------------------------------------------
 void LLViewerJointAttachment::clampObjectPosition()
 {
-	if (mAttachedObject)
+	for (attachedobjs_vec_t::const_iterator iter = mAttachedObjects.begin();
+		 iter != mAttachedObjects.end();
+		 ++iter)
 	{
-		// *NOTE: object can drift when hitting maximum radius
-		LLVector3 attachmentPos = mAttachedObject->getPosition();
-		F32 dist = attachmentPos.normVec();
-		dist = llmin(dist, MAX_ATTACHMENT_DIST);
-		attachmentPos *= dist;
-		mAttachedObject->setPosition(attachmentPos);
+		if (LLViewerObject *attached_object = (*iter))
+		{
+			// *NOTE: object can drift when hitting maximum radius
+			LLVector3 attachmentPos = attached_object->getPosition();
+			F32 dist = attachmentPos.normVec();
+			dist = llmin(dist, MAX_ATTACHMENT_DIST);
+			attachmentPos *= dist;
+			attached_object->setPosition(attachmentPos);
+		}
 	}
 }
 
@@ -357,14 +365,23 @@ void LLViewerJointAttachment::clampObjectPosition()
 //-----------------------------------------------------------------------------
 void LLViewerJointAttachment::calcLOD()
 {
-	F32 maxarea = mAttachedObject->getMaxScale() * mAttachedObject->getMidScale();
-	LLViewerObject::const_child_list_t& child_list = mAttachedObject->getChildren();
-	for (LLViewerObject::child_list_t::const_iterator iter = child_list.begin();
-		 iter != child_list.end(); iter++)
+	F32 maxarea = 0;
+	for (attachedobjs_vec_t::const_iterator iter = mAttachedObjects.begin();
+		 iter != mAttachedObjects.end();
+		 ++iter)
 	{
-		LLViewerObject* childp = *iter;
-		F32 area = childp->getMaxScale() * childp->getMidScale();
-		maxarea = llmax(maxarea, area);
+		if (LLViewerObject *attached_object = (*iter))
+		{
+			maxarea = llmax(maxarea,attached_object->getMaxScale() * attached_object->getMidScale());
+			LLViewerObject::const_child_list_t& child_list = attached_object->getChildren();
+			for (LLViewerObject::child_list_t::const_iterator iter = child_list.begin();
+				 iter != child_list.end(); ++iter)
+			{
+				LLViewerObject* childp = *iter;
+				F32 area = childp->getMaxScale() * childp->getMidScale();
+				maxarea = llmax(maxarea, area);
+			}
+		}
 	}
 	maxarea = llclamp(maxarea, .01f*.01f, 1.f);
 	F32 avatar_area = (4.f * 4.f); // pixels for an avatar sized attachment
@@ -386,3 +403,47 @@ BOOL LLViewerJointAttachment::updateLOD(F32 pixel_area, BOOL activate)
 	return res;
 }
 
+BOOL LLViewerJointAttachment::isObjectAttached(const LLViewerObject *viewer_object) const
+{
+	for (attachedobjs_vec_t::const_iterator iter = mAttachedObjects.begin();
+		 iter != mAttachedObjects.end();
+		 ++iter)
+	{
+		const LLViewerObject* attached_object = (*iter);
+		if (attached_object == viewer_object)
+		{
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+const LLViewerObject *LLViewerJointAttachment::getAttachedObject(const LLUUID &object_id) const
+{
+	for (attachedobjs_vec_t::const_iterator iter = mAttachedObjects.begin();
+		 iter != mAttachedObjects.end();
+		 ++iter)
+	{
+		const LLViewerObject* attached_object = (*iter);
+		if (attached_object->getAttachmentItemID() == object_id)
+		{
+			return attached_object;
+		}
+	}
+	return NULL;
+}
+
+LLViewerObject *LLViewerJointAttachment::getAttachedObject(const LLUUID &object_id)
+{
+	for (attachedobjs_vec_t::iterator iter = mAttachedObjects.begin();
+		 iter != mAttachedObjects.end();
+		 ++iter)
+	{
+		LLViewerObject* attached_object = (*iter);
+		if (attached_object->getAttachmentItemID() == object_id)
+		{
+			return attached_object;
+		}
+	}
+	return NULL;
+}

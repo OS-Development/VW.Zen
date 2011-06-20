@@ -2,31 +2,25 @@
  * @file llmaniptranslate.cpp
  * @brief LLManipTranslate class implementation
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -42,6 +36,7 @@
 #include "llrender.h"
 
 #include "llagent.h"
+#include "llagentcamera.h"
 #include "llbbox.h"
 #include "llbox.h"
 #include "llviewercontrol.h"
@@ -101,6 +96,16 @@ const U32 ARROW_TO_AXIS[4] =
 	VZ
 };
 
+// Sort manipulator handles by their screen-space projection
+struct ClosestToCamera
+{
+	bool operator()(const LLManipTranslate::ManipulatorHandle& a,
+					const LLManipTranslate::ManipulatorHandle& b) const
+	{
+		return a.mEndPosition.mV[VZ] < b.mEndPosition.mV[VZ];
+	}
+};
+
 LLManipTranslate::LLManipTranslate( LLToolComposite* composite )
 :	LLManip( std::string("Move"), composite ),
 	mLastHoverMouseX(-1),
@@ -113,9 +118,13 @@ LLManipTranslate::LLManipTranslate( LLToolComposite* composite )
 	mAxisArrowLength(50),
 	mConeSize(0),
 	mArrowLengthMeters(0.f),
+	mGridSizeMeters(1.f),
 	mPlaneManipOffsetMeters(0.f),
 	mUpdateTimer(),
 	mSnapOffsetMeters(0.f),
+	mSubdivisions(10.f),
+	mInSnapRegime(FALSE),
+	mSnapped(FALSE),
 	mArrowScales(1.f, 1.f, 1.f),
 	mPlaneScales(1.f, 1.f, 1.f),
 	mPlaneManipPositions(1.f, 1.f, 1.f, 1.f)
@@ -163,7 +172,7 @@ void LLManipTranslate::restoreGL()
 
 	GLuint* d = new GLuint[rez*rez];	
 
-	gGL.getTexUnit(0)->bindManual(LLTexUnit::TT_TEXTURE, sGridTex->getTexName());
+	gGL.getTexUnit(0)->bindManual(LLTexUnit::TT_TEXTURE, sGridTex->getTexName(), true);
 	gGL.getTexUnit(0)->setTextureFilteringOption(LLTexUnit::TFO_TRILINEAR);
 
 	while (rez >= 1)
@@ -273,7 +282,6 @@ void LLManipTranslate::restoreGL()
 
 LLManipTranslate::~LLManipTranslate()
 {
-	for_each(mProjectedManipulators.begin(), mProjectedManipulators.end(), DeletePointer());
 }
 
 
@@ -379,7 +387,7 @@ BOOL LLManipTranslate::handleMouseDownOnPart( S32 x, S32 y, MASK mask )
 		}
 		else if (gSavedSettings.getBOOL("SnapToMouseCursor"))
 		{
-			LLUI::setCursorPositionScreen(mouse_pos.mX, mouse_pos.mY);
+			LLUI::setMousePositionScreen(mouse_pos.mX, mouse_pos.mY);
 			x = mouse_pos.mX;
 			y = mouse_pos.mY;
 		}
@@ -413,8 +421,9 @@ BOOL LLManipTranslate::handleHover(S32 x, S32 y, MASK mask)
 	}
 	
 	// Handle auto-rotation if necessary.
+	LLRect world_rect = gViewerWindow->getWorldViewRectScaled();
 	const F32 ROTATE_ANGLE_PER_SECOND = 30.f * DEG_TO_RAD;
-	const S32 ROTATE_H_MARGIN = gViewerWindow->getWorldViewWidth() / 20;
+	const S32 ROTATE_H_MARGIN = world_rect.getWidth() / 20;
 	const F32 rotate_angle = ROTATE_ANGLE_PER_SECOND / gFPSClamped;
 	BOOL rotated = FALSE;
 
@@ -423,12 +432,12 @@ BOOL LLManipTranslate::handleHover(S32 x, S32 y, MASK mask)
 	{
 		if (x < ROTATE_H_MARGIN)
 		{
-			gAgent.cameraOrbitAround(rotate_angle);
+			gAgentCamera.cameraOrbitAround(rotate_angle);
 			rotated = TRUE;
 		}
-		else if (x > gViewerWindow->getWorldViewWidth() - ROTATE_H_MARGIN)
+		else if (x > world_rect.getWidth() - ROTATE_H_MARGIN)
 		{
-			gAgent.cameraOrbitAround(-rotate_angle);
+			gAgentCamera.cameraOrbitAround(-rotate_angle);
 			rotated = TRUE;
 		}
 	}
@@ -699,7 +708,7 @@ BOOL LLManipTranslate::handleHover(S32 x, S32 y, MASK mask)
 				// in position changes even when the mouse moves
 				object->setPosition(new_position_local);
 				rebuild(object);
-				gAgent.getAvatarObject()->clampAttachmentPositions();
+				gAgentAvatarp->clampAttachmentPositions();
 				new_position_local = object->getPosition();
 
 				if (selectNode->mIndividualSelection)
@@ -717,7 +726,7 @@ BOOL LLManipTranslate::handleHover(S32 x, S32 y, MASK mask)
 				LLVector3d new_position_global = selectNode->mSavedPositionGlobal + clamped_relative_move;
 
 				// Don't let object centers go too far underground
-				F64 min_height = LLWorld::getInstance()->getMinAllowedZ(object);
+				F64 min_height = LLWorld::getInstance()->getMinAllowedZ(object, object->getPositionGlobal());
 				if (new_position_global.mdV[VZ] < min_height)
 				{
 					new_position_global.mdV[VZ] = min_height;
@@ -775,7 +784,7 @@ BOOL LLManipTranslate::handleHover(S32 x, S32 y, MASK mask)
 	}
 
 	LLSelectMgr::getInstance()->updateSelectionCenter();
-	gAgent.clearFocusObject();
+	gAgentCamera.clearFocusObject();
 	dialog_refresh_all();		// ??? is this necessary?
 
 	lldebugst(LLERR_USER_INPUT) << "hover handled by LLManipTranslate (active)" << llendl;
@@ -816,7 +825,7 @@ void LLManipTranslate::highlightManipulators(S32 x, S32 y)
 		LLMatrix4 cfr(OGL_TO_CFR_ROTATION);
 		transform *= cfr;
 		LLMatrix4 window_scale;
-		F32 zoom_level = 2.f * gAgent.mHUDCurZoom;
+		F32 zoom_level = 2.f * gAgentCamera.mHUDCurZoom;
 		window_scale.initAll(LLVector3(zoom_level / LLViewerCamera::getInstance()->getAspect(), zoom_level, 0.f),
 			LLQuaternion::DEFAULT,
 			LLVector3::zero);
@@ -887,8 +896,9 @@ void LLManipTranslate::highlightManipulators(S32 x, S32 y)
 		planar_manip_xy_visible = TRUE;
 	}
 
-	for_each(mProjectedManipulators.begin(), mProjectedManipulators.end(), DeletePointer());
-	mProjectedManipulators.clear();
+	// Project up to 9 manipulators to screen space 2*X, 2*Y, 2*Z, 3*planes
+	std::vector<ManipulatorHandle> projected_manipulators;
+	projected_manipulators.reserve(9);
 	
 	for (S32 i = 0; i < num_arrow_manips; i+= 2)
 	{
@@ -898,12 +908,12 @@ void LLManipTranslate::highlightManipulators(S32 x, S32 y)
 		LLVector4 projected_end = mManipulatorVertices[i + 1] * transform;
 		projected_end = projected_end * (1.f / projected_end.mV[VW]);
 
-		ManipulatorHandle* projManipulator = 
-			new ManipulatorHandle(LLVector3(projected_start.mV[VX], projected_start.mV[VY], projected_start.mV[VZ]), 
+		ManipulatorHandle projected_manip(
+				LLVector3(projected_start.mV[VX], projected_start.mV[VY], projected_start.mV[VZ]), 
 				LLVector3(projected_end.mV[VX], projected_end.mV[VY], projected_end.mV[VZ]), 
 				MANIPULATOR_IDS[i / 2],
 				10.f); // 10 pixel hotspot for arrows
-		mProjectedManipulators.insert(projManipulator);
+		projected_manipulators.push_back(projected_manip);
 	}
 
 	if (planar_manip_yz_visible)
@@ -915,12 +925,12 @@ void LLManipTranslate::highlightManipulators(S32 x, S32 y)
 		LLVector4 projected_end = mManipulatorVertices[i + 1] * transform;
 		projected_end = projected_end * (1.f / projected_end.mV[VW]);
 
-		ManipulatorHandle* projManipulator = 
-			new ManipulatorHandle(LLVector3(projected_start.mV[VX], projected_start.mV[VY], projected_start.mV[VZ]), 
+		ManipulatorHandle projected_manip(
+				LLVector3(projected_start.mV[VX], projected_start.mV[VY], projected_start.mV[VZ]), 
 				LLVector3(projected_end.mV[VX], projected_end.mV[VY], projected_end.mV[VZ]), 
 				MANIPULATOR_IDS[i / 2],
 				20.f); // 20 pixels for planar manipulators
-		mProjectedManipulators.insert(projManipulator);
+		projected_manipulators.push_back(projected_manip);
 	}
 
 	if (planar_manip_xz_visible)
@@ -932,12 +942,12 @@ void LLManipTranslate::highlightManipulators(S32 x, S32 y)
 		LLVector4 projected_end = mManipulatorVertices[i + 1] * transform;
 		projected_end = projected_end * (1.f / projected_end.mV[VW]);
 
-		ManipulatorHandle* projManipulator = 
-			new ManipulatorHandle(LLVector3(projected_start.mV[VX], projected_start.mV[VY], projected_start.mV[VZ]), 
+		ManipulatorHandle projected_manip(
+				LLVector3(projected_start.mV[VX], projected_start.mV[VY], projected_start.mV[VZ]), 
 				LLVector3(projected_end.mV[VX], projected_end.mV[VY], projected_end.mV[VZ]), 
 				MANIPULATOR_IDS[i / 2],
 				20.f); // 20 pixels for planar manipulators
-		mProjectedManipulators.insert(projManipulator);
+		projected_manipulators.push_back(projected_manip);
 	}
 
 	if (planar_manip_xy_visible)
@@ -949,29 +959,35 @@ void LLManipTranslate::highlightManipulators(S32 x, S32 y)
 		LLVector4 projected_end = mManipulatorVertices[i + 1] * transform;
 		projected_end = projected_end * (1.f / projected_end.mV[VW]);
 
-		ManipulatorHandle* projManipulator = 
-			new ManipulatorHandle(LLVector3(projected_start.mV[VX], projected_start.mV[VY], projected_start.mV[VZ]), 
+		ManipulatorHandle projected_manip(
+				LLVector3(projected_start.mV[VX], projected_start.mV[VY], projected_start.mV[VZ]), 
 				LLVector3(projected_end.mV[VX], projected_end.mV[VY], projected_end.mV[VZ]), 
 				MANIPULATOR_IDS[i / 2],
 				20.f); // 20 pixels for planar manipulators
-		mProjectedManipulators.insert(projManipulator);
+		projected_manipulators.push_back(projected_manip);
 	}
 
 	LLVector2 manip_start_2d;
 	LLVector2 manip_end_2d;
 	LLVector2 manip_dir;
-	F32 half_width = gViewerWindow->getWorldViewWidth() / 2.f;
-	F32 half_height = gViewerWindow->getWorldViewHeight() / 2.f;
+	LLRect world_view_rect = gViewerWindow->getWorldViewRectScaled();
+	F32 half_width = (F32)world_view_rect.getWidth() / 2.f;
+	F32 half_height = (F32)world_view_rect.getHeight() / 2.f;
 	LLVector2 mousePos((F32)x - half_width, (F32)y - half_height);
 	LLVector2 mouse_delta;
 
-	for (minpulator_list_t::iterator iter = mProjectedManipulators.begin();
-		 iter != mProjectedManipulators.end(); ++iter)
+	// Keep order consistent with insertion via stable_sort
+	std::stable_sort( projected_manipulators.begin(),
+		projected_manipulators.end(),
+		ClosestToCamera() );
+
+	std::vector<ManipulatorHandle>::iterator it = projected_manipulators.begin();
+	for ( ; it != projected_manipulators.end(); ++it)
 	{
-		ManipulatorHandle* manipulator = *iter;
+		ManipulatorHandle& manipulator = *it;
 		{
-			manip_start_2d.setVec(manipulator->mStartPosition.mV[VX] * half_width, manipulator->mStartPosition.mV[VY] * half_height);
-			manip_end_2d.setVec(manipulator->mEndPosition.mV[VX] * half_width, manipulator->mEndPosition.mV[VY] * half_height);
+			manip_start_2d.setVec(manipulator.mStartPosition.mV[VX] * half_width, manipulator.mStartPosition.mV[VY] * half_height);
+			manip_end_2d.setVec(manipulator.mEndPosition.mV[VX] * half_width, manipulator.mEndPosition.mV[VY] * half_height);
 			manip_dir = manip_end_2d - manip_start_2d;
 
 			mouse_delta = mousePos - manip_start_2d;
@@ -983,9 +999,9 @@ void LLManipTranslate::highlightManipulators(S32 x, S32 y)
 
 			if (mouse_pos_manip > 0.f &&
 				mouse_pos_manip < manip_length &&
-				mouse_dist_manip_squared < manipulator->mHotSpotRadius * manipulator->mHotSpotRadius)
+				mouse_dist_manip_squared < manipulator.mHotSpotRadius * manipulator.mHotSpotRadius)
 			{
-				mHighlightedPart = manipulator->mManipID;
+				mHighlightedPart = manipulator.mManipID;
 				break;
 			}
 		}
@@ -1054,7 +1070,7 @@ void LLManipTranslate::render()
 	gGL.pushMatrix();
 	if (mObjectSelection->getSelectType() == SELECT_TYPE_HUD)
 	{
-		F32 zoom = gAgent.mHUDCurZoom;
+		F32 zoom = gAgentCamera.mHUDCurZoom;
 		glScalef(zoom, zoom, zoom);
 	}
 	{
@@ -1218,14 +1234,14 @@ void LLManipTranslate::renderSnapGuides()
 
 		if (mObjectSelection->getSelectType() == SELECT_TYPE_HUD)
 		{
-			guide_size_meters = 1.f / gAgent.mHUDCurZoom;
+			guide_size_meters = 1.f / gAgentCamera.mHUDCurZoom;
 			mSnapOffsetMeters = mArrowLengthMeters * 1.5f;
 		}
 		else
 		{
 			LLVector3 cam_to_selection = getPivotPoint() - LLViewerCamera::getInstance()->getOrigin();
 			F32 current_range = cam_to_selection.normVec();
-			guide_size_meters = SNAP_GUIDE_SCREEN_SIZE * gViewerWindow->getWorldViewHeight() * current_range / LLViewerCamera::getInstance()->getPixelMeterRatio();
+			guide_size_meters = SNAP_GUIDE_SCREEN_SIZE * gViewerWindow->getWorldViewHeightRaw() * current_range / LLViewerCamera::getInstance()->getPixelMeterRatio();
 	
 			F32 fraction_of_fov = mAxisArrowLength / (F32) LLViewerCamera::getInstance()->getViewHeightInPixels();
 			F32 apparent_angle = fraction_of_fov * LLViewerCamera::getInstance()->getView();  // radians
@@ -1438,7 +1454,7 @@ void LLManipTranslate::renderSnapGuides()
 				LLVector3 help_text_pos = selection_center_start + (snap_offset_meters_up * 3.f * mSnapOffsetAxis);
 				const LLFontGL* big_fontp = LLFontGL::getFontSansSerif();
 
-				std::string help_text = "Move mouse cursor over ruler to snap";
+				std::string help_text = "Move mouse cursor over ruler";
 				LLColor4 help_text_color = LLColor4::white;
 				help_text_color.mV[VALPHA] = clamp_rescale(mHelpTextTimer.getElapsedTimeF32(), sHelpTextVisibleTime, sHelpTextVisibleTime + sHelpTextFadeTime, line_alpha, 0.f);
 				hud_render_utf8text(help_text, help_text_pos, *big_fontp, LLFontGL::NORMAL, LLFontGL::NO_SHADOW, -0.5f * big_fontp->getWidthF32(help_text), 3.f, help_text_color, mObjectSelection->getSelectType() == SELECT_TYPE_HUD);
@@ -1800,12 +1816,12 @@ void LLManipTranslate::renderTranslationHandles()
 	// Drag handles 	
 	if (mObjectSelection->getSelectType() == SELECT_TYPE_HUD)
 	{
-		mArrowLengthMeters = mAxisArrowLength / gViewerWindow->getWorldViewHeight();
-		mArrowLengthMeters /= gAgent.mHUDCurZoom;
+		mArrowLengthMeters = mAxisArrowLength / gViewerWindow->getWorldViewHeightRaw();
+		mArrowLengthMeters /= gAgentCamera.mHUDCurZoom;
 	}
 	else
 	{
-		LLVector3 camera_pos_agent = gAgent.getCameraPositionAgent();
+		LLVector3 camera_pos_agent = gAgentCamera.getCameraPositionAgent();
 		F32 range = dist_vec(camera_pos_agent, selection_center);
 		F32 range_from_agent = dist_vec(gAgent.getPositionAgent(), selection_center);
 		
@@ -2087,7 +2103,7 @@ void LLManipTranslate::renderTranslationHandles()
 
 			// Copied from LLDrawable::updateGeometry
 			LLVector3 pos_agent     = first_object->getPositionAgent();
-			LLVector3 camera_agent	= gAgent.getCameraPositionAgent();
+			LLVector3 camera_agent	= gAgentCamera.getCameraPositionAgent();
 			LLVector3 headPos		= pos_agent - camera_agent;
 
 			LLVector3 orientWRTHead    = headPos * invRotation;
@@ -2129,7 +2145,7 @@ void LLManipTranslate::renderTranslationHandles()
 			}
 			else
 			{
-				camera_axis.setVec(gAgent.getCameraPositionAgent() - first_object->getPositionAgent());
+				camera_axis.setVec(gAgentCamera.getCameraPositionAgent() - first_object->getPositionAgent());
 			}
 
 			for (U32 i = 0; i < NUM_AXES*2; i++)

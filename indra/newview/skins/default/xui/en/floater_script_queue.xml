@@ -1,12 +1,14 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  auto_tile="true"
  can_resize="true"
  height="400"
  layout="topleft"
  name="queue"
+ help_topic="queue"
  save_rect="true"
- title="Reset Progress"
+ title="RESET PROGRESS"
  width="300">
     <floater.string
      name="Starting">

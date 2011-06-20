@@ -2,31 +2,25 @@
  * @file llvograss.cpp
  * @brief Not a blade, but a clump of grass
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -37,8 +31,8 @@
 #include "imageids.h"
 #include "llviewercontrol.h"
 
-#include "llagent.h"
-#include "llviewerwindow.h"
+#include "llagentcamera.h"
+#include "llnotificationsutil.h"
 #include "lldrawable.h"
 #include "llface.h"
 #include "llsky.h"
@@ -53,6 +47,7 @@
 #include "llworld.h"
 #include "lldir.h"
 #include "llxmltree.h"
+#include "llvotree.h"
 
 const S32 GRASS_MAX_BLADES =	32;
 const F32 GRASS_BLADE_BASE =	0.25f;			//  Width of grass at base
@@ -106,7 +101,7 @@ void LLVOGrass::updateSpecies()
 		SpeciesMap::const_iterator it = sSpeciesTable.begin();
 		mSpecies = (*it).first;
 	}
-	setTEImage(0, LLViewerTextureManager::getFetchedTexture(sSpeciesTable[mSpecies]->mTextureID, TRUE, FALSE, LLViewerTexture::LOD_TEXTURE));
+	setTEImage(0, LLViewerTextureManager::getFetchedTexture(sSpeciesTable[mSpecies]->mTextureID, TRUE, LLViewerTexture::BOOST_NONE, LLViewerTexture::LOD_TEXTURE));
 }
 
 
@@ -211,7 +206,7 @@ void LLVOGrass::initClass()
 	{
 		LLSD args;
 		args["SPECIES"] = err;
-		LLNotifications::instance().add("ErrorUndefinedGrasses", args);
+		LLNotificationsUtil::add("ErrorUndefinedGrasses", args);
 	}
 
 	for (S32 i = 0; i < GRASS_MAX_BLADES; ++i)
@@ -294,6 +289,23 @@ BOOL LLVOGrass::idleUpdate(LLAgent &agent, LLWorld &world, const F64 &time)
 		return TRUE;
 	}
 
+	if(LLVOTree::isTreeRenderingStopped()) //stop rendering grass
+	{
+		if(mNumBlades)
+		{
+			mNumBlades = 0 ;
+			gPipeline.markRebuild(mDrawable, LLDrawable::REBUILD_ALL, TRUE);
+		}
+		return TRUE ;
+	}
+	else if(!mNumBlades)//restart grass rendering
+	{
+		mNumBlades = GRASS_MAX_BLADES ;
+		gPipeline.markRebuild(mDrawable, LLDrawable::REBUILD_ALL, TRUE);
+		
+		return TRUE ;
+	}
+
 	if (mPatch && (mLastPatchUpdateTime != mPatch->getLastUpdateTime()))
 	{
 		gPipeline.markRebuild(mDrawable, LLDrawable::REBUILD_VOLUME, TRUE);
@@ -306,7 +318,7 @@ BOOL LLVOGrass::idleUpdate(LLAgent &agent, LLWorld &world, const F64 &time)
 void LLVOGrass::setPixelAreaAndAngle(LLAgent &agent)
 {
 	// This should be the camera's center, as soon as we move to all region-local.
-	LLVector3 relative_position = getPositionAgent() - agent.getCameraPositionAgent();
+	LLVector3 relative_position = getPositionAgent() - gAgentCamera.getCameraPositionAgent();
 	F32 range = relative_position.length();
 
 	F32 max_scale = getMaxScale();
@@ -322,13 +334,13 @@ void LLVOGrass::setPixelAreaAndAngle(LLAgent &agent)
 
 
 // BUG could speed this up by caching the relative_position and range calculations
-void LLVOGrass::updateTextures(LLAgent &agent)
+void LLVOGrass::updateTextures()
 {
 	if (getTEImage(0))
 	{
 		if (gPipeline.hasRenderDebugMask(LLPipeline::RENDER_DEBUG_TEXTURE_AREA))
 		{
-			setDebugText(llformat("%4.0f", fsqrtf(mPixelArea)));
+			setDebugText(llformat("%4.0f", (F32) sqrt(mPixelArea)));
 		}
 		getTEImage(0)->addTextureStats(mPixelArea);
 	}
@@ -340,7 +352,20 @@ BOOL LLVOGrass::updateLOD()
 	{
 		return FALSE;
 	}
-	
+	if(LLVOTree::isTreeRenderingStopped())
+	{
+		if(mNumBlades)
+		{
+			mNumBlades = 0 ;
+			gPipeline.markRebuild(mDrawable, LLDrawable::REBUILD_ALL, TRUE);
+		}
+		return TRUE ;
+	}
+	if(!mNumBlades)
+	{
+		mNumBlades = GRASS_MAX_BLADES;
+	}
+
 	LLFace* face = mDrawable->getFace(0);
 
 	F32 tan_angle = 0.f;
@@ -382,11 +407,29 @@ LLDrawable* LLVOGrass::createDrawable(LLPipeline *pipeline)
 	return mDrawable;
 }
 
+static LLFastTimer::DeclareTimer FTM_UPDATE_GRASS("Update Grass");
+
 BOOL LLVOGrass::updateGeometry(LLDrawable *drawable)
 {
-	LLFastTimer ftm(LLFastTimer::FTM_UPDATE_GRASS);
+	LLFastTimer ftm(FTM_UPDATE_GRASS);
+
 	dirtySpatialGroup();
-	plantBlades();
+
+	if(!mNumBlades)//stop rendering grass
+	{
+		if (mDrawable->getNumFaces() > 0)
+		{
+			LLFace* facep = mDrawable->getFace(0);
+			if(facep)
+			{
+				facep->setSize(0, 0);			
+			}
+		}
+	}
+	else
+	{		
+		plantBlades();
+	}
 	return TRUE;
 }
 
@@ -410,7 +453,7 @@ void LLVOGrass::plantBlades()
 	face->setTexture(getTEImage(0));
 	face->setState(LLFace::GLOBAL);
 	face->setSize(mNumBlades * 8, mNumBlades * 12);
-	face->mVertexBuffer = NULL;
+	face->setVertexBuffer(NULL);
 	face->setTEOffset(0);
 	face->mCenterLocal = mPosition + mRegionp->getOriginAgent();
 	
@@ -427,6 +470,11 @@ void LLVOGrass::getGeometry(S32 idx,
 								LLStrider<LLColor4U>& colorsp, 
 								LLStrider<U16>& indicesp)
 {
+	if(!mNumBlades)//stop rendering grass
+	{
+		return ;
+	}
+
 	mPatch = mRegionp->getLand().resolvePatchRegion(getPositionRegion());
 	if (mPatch)
 		mLastPatchUpdateTime = mPatch->getLastUpdateTime();
@@ -592,7 +640,7 @@ BOOL LLVOGrass::lineSegmentIntersect(const LLVector3& start, const LLVector3& en
 
 	LLVector2 tc[4];
 	LLVector3 v[4];
-	// LLVector3 n[4]; // unused!
+	//LLVector3 n[4];
 
 	F32 closest_t = 1.f;
 
@@ -638,7 +686,6 @@ BOOL LLVOGrass::lineSegmentIntersect(const LLVector3& start, const LLVector3& en
 		position.mV[2] += blade_height;
 		v[3]    = v1 = position + mRegionp->getOriginAgent();
 	
-
 		F32 a,b,t;
 
 		BOOL hit = FALSE;
@@ -646,23 +693,23 @@ BOOL LLVOGrass::lineSegmentIntersect(const LLVector3& start, const LLVector3& en
 
 		U32 idx0 = 0,idx1 = 0,idx2 = 0;
 
-		if (LLTriangleRayIntersect(v[0], v[1], v[2], start, dir, &a, &b, &t, FALSE))
+		if (LLTriangleRayIntersect(v[0], v[1], v[2], start, dir, a, b, t, FALSE))
 		{
 			hit = TRUE;
 			idx0 = 0; idx1 = 1; idx2 = 2;
 		}
-		else if (LLTriangleRayIntersect(v[1], v[3], v[2], start, dir, &a, &b, &t, FALSE))
+		else if (LLTriangleRayIntersect(v[1], v[3], v[2], start, dir, a, b, t, FALSE))
 		{
 			hit = TRUE;
 			idx0 = 1; idx1 = 3; idx2 = 2;
 		}
-		else if (LLTriangleRayIntersect(v[2], v[1], v[0], start, dir, &a, &b, &t, FALSE))
+		else if (LLTriangleRayIntersect(v[2], v[1], v[0], start, dir, a, b, t, FALSE))
 		{
 			normal1 = -normal1;
 			hit = TRUE;
 			idx0 = 2; idx1 = 1; idx2 = 0;
 		}
-		else if (LLTriangleRayIntersect(v[2], v[3], v[1], start, dir, &a, &b, &t, FALSE))
+		else if (LLTriangleRayIntersect(v[2], v[3], v[1], start, dir, a, b, t, FALSE))
 		{
 			normal1 = -normal1;
 			hit = TRUE;

@@ -2,31 +2,25 @@
  * @file llpanelcontents.cpp
  * @brief Object contents panel in the tools floater.
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -40,6 +34,7 @@
 #include "llerror.h"
 #include "llfloaterreg.h"
 #include "llfontgl.h"
+#include "llinventorydefines.h"
 #include "llmaterialtable.h"
 #include "llpermissionsflags.h"
 #include "llrect.h"
@@ -50,8 +45,7 @@
 
 // project includes
 #include "llagent.h"
-#include "llfloaterbulkpermission.h"
-#include "llpanelinventory.h"
+#include "llpanelobjectinventory.h"
 #include "llpreviewscript.h"
 #include "llresmgr.h"
 #include "llselectmgr.h"
@@ -59,6 +53,8 @@
 #include "lltoolcomp.h"
 #include "lltoolmgr.h"
 #include "lltrans.h"
+#include "llviewerassettype.h"
+#include "llviewerinventory.h"
 #include "llviewerobject.h"
 #include "llviewerregion.h"
 #include "llviewerwindow.h"
@@ -72,6 +68,13 @@
 //
 // Globals
 //
+const char* LLPanelContents::TENTATIVE_SUFFIX = "_tentative";
+const char* LLPanelContents::PERMS_OWNER_INTERACT_KEY = "perms_owner_interact";
+const char* LLPanelContents::PERMS_OWNER_CONTROL_KEY = "perms_owner_control";
+const char* LLPanelContents::PERMS_GROUP_INTERACT_KEY = "perms_group_interact";
+const char* LLPanelContents::PERMS_GROUP_CONTROL_KEY = "perms_group_control";
+const char* LLPanelContents::PERMS_ANYONE_INTERACT_KEY = "perms_anyone_interact";
+const char* LLPanelContents::PERMS_ANYONE_CONTROL_KEY = "perms_anyone_control";
 
 BOOL LLPanelContents::postBuild()
 {
@@ -82,14 +85,14 @@ BOOL LLPanelContents::postBuild()
 	childSetAction("button new script",&LLPanelContents::onClickNewScript, this);
 	childSetAction("button permissions",&LLPanelContents::onClickPermissions, this);
 
-	mPanelInventory = getChild<LLPanelInventory>("contents_inventory");
-	
+	mPanelInventoryObject = getChild<LLPanelObjectInventory>("contents_inventory");
+
 	return TRUE;
 }
 
 LLPanelContents::LLPanelContents()
 	:	LLPanel(),
-		mPanelInventory(NULL)
+		mPanelInventoryObject(NULL)
 {
 }
 
@@ -104,7 +107,7 @@ void LLPanelContents::getState(LLViewerObject *objectp )
 {
 	if( !objectp )
 	{
-		childSetEnabled("button new script",FALSE);
+		getChildView("button new script")->setEnabled(FALSE);
 		return;
 	}
 
@@ -112,19 +115,19 @@ void LLPanelContents::getState(LLViewerObject *objectp )
 	LLSelectMgr::getInstance()->selectGetGroup(group_id);  // sets group_id as a side effect SL-23488
 
 	// BUG? Check for all objects being editable?
-	BOOL editable = gAgent.isGodlike()
+	bool editable = gAgent.isGodlike()
 					|| (objectp->permModify()
 					       && ( objectp->permYouOwner() || ( !group_id.isNull() && gAgent.isInGroup(group_id) )));  // solves SL-23488
 	BOOL all_volume = LLSelectMgr::getInstance()->selectionAllPCode( LL_PCODE_VOLUME );
 
 	// Edit script button - ok if object is editable and there's an unambiguous destination for the object.
-	childSetEnabled("button new script",
+	getChildView("button new script")->setEnabled(
 		editable &&
 		all_volume &&
 		((LLSelectMgr::getInstance()->getSelection()->getRootObjectCount() == 1)
 			|| (LLSelectMgr::getInstance()->getSelection()->getObjectCount() == 1)));
-}
 
+}
 
 void LLPanelContents::refresh()
 {
@@ -132,10 +135,10 @@ void LLPanelContents::refresh()
 	LLViewerObject* object = LLSelectMgr::getInstance()->getSelection()->getFirstRootObject(children_ok);
 
 	getState(object);
-	if (mPanelInventory)
+	if (mPanelInventoryObject)
 	{
-		mPanelInventory->refresh();
-	}
+		mPanelInventoryObject->refresh();
+	}	
 }
 
 
@@ -160,7 +163,7 @@ void LLPanelContents::onClickNewScript(void *userdata)
 			PERM_NONE,
 			PERM_MOVE | PERM_TRANSFER);
 		std::string desc;
-		LLAssetType::generateDescriptionFor(LLAssetType::AT_LSL_TEXT, desc);
+		LLViewerAssetType::generateDescriptionFor(LLAssetType::AT_LSL_TEXT, desc);
 		LLPointer<LLViewerInventoryItem> new_item =
 			new LLViewerInventoryItem(
 				LLUUID::null,
@@ -172,7 +175,7 @@ void LLPanelContents::onClickNewScript(void *userdata)
 				LLTrans::getString("PanelContentsNewScript"),
 				desc,
 				LLSaleInfo::DEFAULT,
-				LLViewerInventoryItem::II_FLAGS_NONE,
+				LLInventoryItemFlags::II_FLAGS_NONE,
 				time_corrected());
 		object->saveScript(new_item, TRUE, true);
 

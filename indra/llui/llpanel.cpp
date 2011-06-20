@@ -2,31 +2,25 @@
  * @file llpanel.cpp
  * @brief LLPanel base class
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -34,15 +28,18 @@
 
 #include "linden_common.h"
 
+#define LLPANEL_CPP
 #include "llpanel.h"
 
-#include "llalertdialog.h"
 #include "llfocusmgr.h"
 #include "llfontgl.h"
 #include "llrect.h"
 #include "llerror.h"
+#include "lldir.h"
 #include "lltimer.h"
 
+#include "llaccordionctrltab.h"
+#include "llbutton.h"
 #include "llmenugl.h"
 //#include "llstatusbar.h"
 #include "llui.h"
@@ -53,10 +50,20 @@
 #include "lluictrl.h"
 #include "lluictrlfactory.h"
 #include "llviewborder.h"
-#include "llbutton.h"
 #include "lltabcontainer.h"
 
 static LLDefaultChildRegistry::Register<LLPanel> r1("panel", &LLPanel::fromXML);
+LLPanel::factory_stack_t	LLPanel::sFactoryStack;
+
+
+// Compiler optimization, generate extern template
+template class LLPanel* LLView::getChild<class LLPanel>(
+	const std::string& name, BOOL recurse) const;
+
+LLPanel::LocalizedString::LocalizedString()
+:	name("name"),
+	value("value")
+{}
 
 const LLPanel::Params& LLPanel::getDefaultParams() 
 { 
@@ -65,15 +72,22 @@ const LLPanel::Params& LLPanel::getDefaultParams()
 
 LLPanel::Params::Params()
 :	has_border("border", false),
-	bg_opaque_color("bg_opaque_color"),
-	bg_alpha_color("bg_alpha_color"),
+	border(""),
 	background_visible("background_visible", false),
 	background_opaque("background_opaque", false),
+	bg_opaque_color("bg_opaque_color"),
+	bg_alpha_color("bg_alpha_color"),
+	bg_opaque_image_overlay("bg_opaque_image_overlay"),
+	bg_alpha_image_overlay("bg_alpha_image_overlay"),
+	bg_opaque_image("bg_opaque_image"),
+	bg_alpha_image("bg_alpha_image"),
 	min_width("min_width", 100),
 	min_height("min_height", 100),
 	strings("string"),
 	filename("filename"),
-	class_name("class")
+	class_name("class"),
+	help_topic("help_topic"),
+	visible_callback("visible_callback")
 {
 	name = "panel";
 	addSynonym(background_visible, "bg_visible");
@@ -84,24 +98,36 @@ LLPanel::Params::Params()
 
 LLPanel::LLPanel(const LLPanel::Params& p)
 :	LLUICtrl(p),
-	mBgColorAlpha(p.bg_alpha_color().get()),
-	mBgColorOpaque(p.bg_opaque_color().get()),
 	mBgVisible(p.background_visible),
 	mBgOpaque(p.background_opaque),
+	mBgOpaqueColor(p.bg_opaque_color()),
+	mBgAlphaColor(p.bg_alpha_color()),
+	mBgOpaqueImageOverlay(p.bg_opaque_image_overlay),
+	mBgAlphaImageOverlay(p.bg_alpha_image_overlay),
+	mBgOpaqueImage(p.bg_opaque_image()),
+	mBgAlphaImage(p.bg_alpha_image()),
 	mDefaultBtn(NULL),
 	mBorder(NULL),
 	mLabel(p.label),
+	mHelpTopic(p.help_topic),
 	mCommitCallbackRegistrar(false),
-	mEnableCallbackRegistrar(false)
+	mEnableCallbackRegistrar(false),
+	mXMLFilename(p.filename),
+	mVisibleSignal(NULL)
+	// *NOTE: Be sure to also change LLPanel::initFromParams().  We have too
+	// many classes derived from LLPanel to retrofit them all to pass in params.
 {
-	setIsChrome(FALSE);
-
 	if (p.has_border)
 	{
 		addBorder(p.border);
 	}
 	
 	mPanelHandle.bind(this);
+}
+
+LLPanel::~LLPanel()
+{
+	delete mVisibleSignal;
 }
 
 // virtual
@@ -163,22 +189,38 @@ void LLPanel::setCtrlsEnabled( BOOL b )
 
 void LLPanel::draw()
 {
+	F32 alpha = getDrawContext().mAlpha;
+
 	// draw background
 	if( mBgVisible )
 	{
-		//RN: I don't see the point of this
-		S32 left = 0;//LLPANEL_BORDER_WIDTH;
-		S32 top = getRect().getHeight();// - LLPANEL_BORDER_WIDTH;
-		S32 right = getRect().getWidth();// - LLPANEL_BORDER_WIDTH;
-		S32 bottom = 0;//LLPANEL_BORDER_WIDTH;
+		alpha = getCurrentTransparency();
 
+		LLRect local_rect = getLocalRect();
 		if (mBgOpaque )
 		{
-			gl_rect_2d( left, top, right, bottom, mBgColorOpaque );
+			// opaque, in-front look
+			if (mBgOpaqueImage.notNull())
+			{
+				mBgOpaqueImage->draw( local_rect, mBgOpaqueImageOverlay % alpha );
+			}
+			else
+			{
+				// fallback to flat colors when there are no images
+				gl_rect_2d( local_rect, mBgOpaqueColor.get() % alpha);
+			}
 		}
 		else
 		{
-			gl_rect_2d( left, top, right, bottom, mBgColorAlpha );
+			// transparent, in-back look
+			if (mBgAlphaImage.notNull())
+			{
+				mBgAlphaImage->draw( local_rect, mBgAlphaImageOverlay % alpha );
+			}
+			else
+			{
+				gl_rect_2d( local_rect, mBgAlphaColor.get() % alpha );
+			}
 		}
 	}
 
@@ -189,16 +231,11 @@ void LLPanel::draw()
 
 void LLPanel::updateDefaultBtn()
 {
-	// This method does not call LLView::draw() so callers will need
-	// to take care of that themselves at the appropriate place in
-	// their rendering sequence
-
 	if( mDefaultBtn)
 	{
 		if (gFocusMgr.childHasKeyboardFocus( this ) && mDefaultBtn->getEnabled())
 		{
-			LLUICtrl* focus_ctrl = gFocusMgr.getKeyboardFocus();
-			LLButton* buttonp = dynamic_cast<LLButton*>(focus_ctrl);
+			LLButton* buttonp = dynamic_cast<LLButton*>(gFocusMgr.getKeyboardFocus());
 			BOOL focus_is_child_button = buttonp && buttonp->getCommitOnReturn();
 			// only enable default button when current focus is not a return-capturing button
 			mDefaultBtn->setBorderEnabled(!focus_is_child_button);
@@ -246,12 +283,12 @@ BOOL LLPanel::handleKeyHere( KEY key, MASK mask )
 {
 	BOOL handled = FALSE;
 
-	LLUICtrl* cur_focus = gFocusMgr.getKeyboardFocus();
+	LLUICtrl* cur_focus = dynamic_cast<LLUICtrl*>(gFocusMgr.getKeyboardFocus());
 
 	// handle user hitting ESC to defocus
 	if (key == KEY_ESCAPE)
 	{
-		gFocusMgr.setKeyboardFocus(NULL);
+		setFocus(FALSE);
 		return TRUE;
 	}
 	else if( (mask == MASK_SHIFT) && (KEY_TAB == key))
@@ -306,53 +343,25 @@ BOOL LLPanel::handleKeyHere( KEY key, MASK mask )
 	return handled;
 }
 
-BOOL LLPanel::checkRequirements()
+void LLPanel::handleVisibilityChange ( BOOL new_visibility )
 {
-	if (!mRequirementsError.empty())
-	{
-		LLSD args;
-		args["COMPONENTS"] = mRequirementsError;
-		args["FLOATER"] = getName();
-
-		llwarns << getName() << " failed requirements check on: \n"  
-				<< mRequirementsError << llendl;
-		
-		LLNotifications::instance().add(LLNotification::Params("FailedRequirementsCheck").payload(args));
-		mRequirementsError.clear();
-		return FALSE;
-	}
-
-	return TRUE;
+	LLUICtrl::handleVisibilityChange ( new_visibility );
+	if (mVisibleSignal)
+		(*mVisibleSignal)(this, LLSD(new_visibility) ); // Pass BOOL as LLSD
 }
 
 void LLPanel::setFocus(BOOL b)
 {
-	if( b )
+	if( b && !hasFocus())
 	{
-		if (!gFocusMgr.childHasKeyboardFocus(this))
-		{
-			// give ourselves focus preemptively, to avoid infinite loop
-			LLUICtrl::setFocus(TRUE);
-			// then try to pass to first valid child
-			focusFirstItem();
-		}
+		// give ourselves focus preemptively, to avoid infinite loop
+		LLUICtrl::setFocus(TRUE);
+		// then try to pass to first valid child
+		focusFirstItem();
 	}
 	else
 	{
-		if( this == gFocusMgr.getKeyboardFocus() )
-		{
-			gFocusMgr.setKeyboardFocus( NULL );
-		}
-		else
-		{
-			//RN: why is this here?
-			LLView::ctrl_list_t ctrls = getCtrlList();
-			for (LLView::ctrl_list_t::iterator ctrl_it = ctrls.begin(); ctrl_it != ctrls.end(); ++ctrl_it)
-			{
-				LLUICtrl* ctrl = *ctrl_it;
-				ctrl->setFocus( FALSE );
-			}
-		}
+		LLUICtrl::setFocus(b);
 	}
 }
 
@@ -376,8 +385,7 @@ LLView* LLPanel::fromXML(LLXMLNodePtr node, LLView* parent, LLXMLNodePtr output_
 
 	LLPanel* panelp = NULL;
 	
-	{
-		LLFastTimer timer(FTM_PANEL_CONSTRUCTION);
+	{	LLFastTimer _(FTM_PANEL_CONSTRUCTION);
 		
 		if(!class_attr.empty())
 		{
@@ -390,27 +398,33 @@ LLView* LLPanel::fromXML(LLXMLNodePtr node, LLView* parent, LLXMLNodePtr output_
 
 		if (!panelp)
 		{
-			panelp = LLUICtrlFactory::getInstance()->createFactoryPanel(name);
+			panelp = createFactoryPanel(name);
+			llassert(panelp);
+			
+			if (!panelp)
+			{
+				return NULL; // :(
+			}
 		}
 
 	}
 	// factory panels may have registered their own factory maps
 	if (!panelp->getFactoryMap().empty())
 	{
-		LLUICtrlFactory::instance().pushFactoryFunctions(&panelp->getFactoryMap());
+		sFactoryStack.push_back(&panelp->getFactoryMap());
 	}
 	// for local registry callbacks; define in constructor, referenced in XUI or postBuild
 	panelp->mCommitCallbackRegistrar.pushScope(); 
 	panelp->mEnableCallbackRegistrar.pushScope();
 
-	panelp->initPanelXML(node, parent, output_node);
+	panelp->initPanelXML(node, parent, output_node, LLUICtrlFactory::getDefaultParams<LLPanel>());
 	
 	panelp->mCommitCallbackRegistrar.popScope();
 	panelp->mEnableCallbackRegistrar.popScope();
 
-	if (panelp && !panelp->getFactoryMap().empty())
+	if (!panelp->getFactoryMap().empty())
 	{
-		LLUICtrlFactory::instance().popFactoryFunctions();
+		sFactoryStack.pop_back();
 	}
 
 	return panelp;
@@ -422,23 +436,32 @@ void LLPanel::initFromParams(const LLPanel::Params& p)
     //and LLView::initFromParams will use them to set visible and enabled  
 	setVisible(p.visible);
 	setEnabled(p.enabled);
+	setFocusRoot(p.focus_root);
+	setSoundFlags(p.sound_flags);
 
 	 // control_name, tab_stop, focus_lost_callback, initial_value, rect, enabled, visible
 	LLUICtrl::initFromParams(p);
-
-	for (LLInitParam::ParamIterator<LocalizedString>::const_iterator it = p.strings().begin();
-		it != p.strings().end();
+	
+	// visible callback 
+	if (p.visible_callback.isProvided())
+	{
+		setVisibleCallback(initCommitCallback(p.visible_callback));
+	}
+	
+	for (LLInitParam::ParamIterator<LocalizedString>::const_iterator it = p.strings.begin();
+		it != p.strings.end();
 		++it)
 	{
-		mUIStrings[it->name] = it->text;
+		mUIStrings[it->name] = it->value;
 	}
 
 	setLabel(p.label());
+	setHelpTopic(p.help_topic);
 	setShape(p.rect);
 	parseFollowsFlags(p);
 
 	setToolTip(p.tool_tip());
-	setSaveToXML(p.from_xui);
+	setFromXUI(p.from_xui);
 	
 	mHoverCursor = getCursorFromString(p.hover_cursor);
 	
@@ -458,38 +481,48 @@ void LLPanel::initFromParams(const LLPanel::Params& p)
 	setBackgroundOpaque(p.background_opaque);
 	setBackgroundColor(p.bg_opaque_color().get());
 	setTransparentColor(p.bg_alpha_color().get());
-	
+	mBgOpaqueImage = p.bg_opaque_image();
+	mBgAlphaImage = p.bg_alpha_image();
+	mBgOpaqueImageOverlay = p.bg_opaque_image_overlay;
+	mBgAlphaImageOverlay = p.bg_alpha_image_overlay;
 }
 
 static LLFastTimer::DeclareTimer FTM_PANEL_SETUP("Panel Setup");
 static LLFastTimer::DeclareTimer FTM_EXTERNAL_PANEL_LOAD("Load Extern Panel Reference");
 static LLFastTimer::DeclareTimer FTM_PANEL_POSTBUILD("Panel PostBuild");
 
-BOOL LLPanel::initPanelXML(LLXMLNodePtr node, LLView *parent, LLXMLNodePtr output_node)
+BOOL LLPanel::initPanelXML(LLXMLNodePtr node, LLView *parent, LLXMLNodePtr output_node, const LLPanel::Params& default_params)
 {
-	const LLPanel::Params& default_params(LLUICtrlFactory::getDefaultParams<LLPanel>());
 	Params params(default_params);
-
 	{
 		LLFastTimer timer(FTM_PANEL_SETUP);
 
 		LLXMLNodePtr referenced_xml;
-		std::string xml_filename;
-		node->getAttributeString("filename", xml_filename);
+		std::string xml_filename = mXMLFilename;
+		
+		// if the panel didn't provide a filename, check the node
+		if (xml_filename.empty())
+		{
+			node->getAttributeString("filename", xml_filename);
+			setXMLFilename(xml_filename);
+		}
+
+		LLXUIParser parser;
 
 		if (!xml_filename.empty())
 		{
+			LLUICtrlFactory::instance().pushFileName(xml_filename);
+
 			LLFastTimer timer(FTM_EXTERNAL_PANEL_LOAD);
 			if (output_node)
 			{
 				//if we are exporting, we want to export the current xml
 				//not the referenced xml
-				LLXUIParser::instance().readXUI(node, params);
+				parser.readXUI(node, params, LLUICtrlFactory::getInstance()->getCurFileName());
 				Params output_params(params);
 				setupParamsForExport(output_params, parent);
 				output_node->setName(node->getName()->mString);
-				LLXUIParser::instance().writeXUI(
-					output_node, output_params, &default_params);
+				parser.writeXUI(output_node, output_params, &default_params);
 				return TRUE;
 			}
 		
@@ -500,25 +533,28 @@ BOOL LLPanel::initPanelXML(LLXMLNodePtr node, LLView *parent, LLXMLNodePtr outpu
 				return FALSE;
 			}
 
-			LLXUIParser::instance().readXUI(referenced_xml, params);
+			parser.readXUI(referenced_xml, params, LLUICtrlFactory::getInstance()->getCurFileName());
 
 			// add children using dimensions from referenced xml for consistent layout
 			setShape(params.rect);
 			LLUICtrlFactory::createChildren(this, referenced_xml, child_registry_t::instance());
+
+			LLUICtrlFactory::instance().popFileName();
 		}
 
-		LLXUIParser::instance().readXUI(node, params);
+		// ask LLUICtrlFactory for filename, since xml_filename might be empty
+		parser.readXUI(node, params, LLUICtrlFactory::getInstance()->getCurFileName());
 
 		if (output_node)
 		{
 			Params output_params(params);
 			setupParamsForExport(output_params, parent);
 			output_node->setName(node->getName()->mString);
-			LLXUIParser::instance().writeXUI(
-				output_node, output_params, &default_params);
+			parser.writeXUI(output_node, output_params, &default_params);
 		}
 		
-		setupParams(params, parent);
+		params.from_xui = true;
+		applyXUILayout(params, parent);
 		{
 			LLFastTimer timer(FTM_PANEL_CONSTRUCTION);
 			initFromParams(params);
@@ -532,7 +568,7 @@ BOOL LLPanel::initPanelXML(LLXMLNodePtr node, LLView *parent, LLXMLNodePtr outpu
 		// be built/added. JC
 		if (parent)
 		{
-			S32 tab_group = params.tab_group.isProvided() ? params.tab_group() : -1;
+			S32 tab_group = params.tab_group.isProvided() ? params.tab_group() : parent->getLastTabGroup();
 			parent->addChild(this, tab_group);
 		}
 
@@ -621,7 +657,7 @@ void LLPanel::childSetEnabled(const std::string& id, bool enabled)
 
 void LLPanel::childSetTentative(const std::string& id, bool tentative)
 {
-	LLView* child = findChild<LLView>(id);
+	LLUICtrl* child = findChild<LLUICtrl>(id);
 	if (child)
 	{
 		child->setTentative(tentative);
@@ -686,12 +722,14 @@ BOOL LLPanel::childHasFocus(const std::string& id)
 	}
 	else
 	{
-		childNotFound(id);
 		return FALSE;
 	}
 }
 
 // *TODO: Deprecate; for backwards compatability only:
+// Prefer getChild<LLUICtrl>("foo")->setCommitCallback(boost:bind(...)),
+// which takes a generic slot.  Or use mCommitCallbackRegistrar.add() with
+// a named callback and reference it in XML.
 void LLPanel::childSetCommitCallback(const std::string& id, boost::function<void (LLUICtrl*,void*)> cb, void* data)
 {
 	LLUICtrl* child = findChild<LLUICtrl>(id);
@@ -818,22 +856,72 @@ LLPanel *LLPanel::childGetVisibleTab(const std::string& id) const
 	return NULL;
 }
 
-void LLPanel::childSetPrevalidate(const std::string& id, BOOL (*func)(const LLWString &) )
+LLPanel* LLPanel::childGetVisibleTabWithHelp()
 {
-	LLLineEditor* child = findChild<LLLineEditor>(id);
-	if (child)
+	LLView *child;
+
+	bfs_tree_iterator_t it = beginTreeBFS();
+	// skip ourselves
+	++it;
+	for (; it != endTreeBFS(); ++it)
 	{
-		child->setPrevalidate(func);
+		child = *it;
+		LLPanel *curTabPanel = NULL;
+
+		// do we have a tab container?
+		LLTabContainer *tab = dynamic_cast<LLTabContainer *>(child);
+		if (tab && tab->getVisible())
+		{
+			curTabPanel = tab->getCurrentPanel();
+		}
+
+		// do we have an accordion tab?
+		LLAccordionCtrlTab* accordion = dynamic_cast<LLAccordionCtrlTab *>(child);
+		if (accordion && accordion->getDisplayChildren())
+		{
+			curTabPanel = dynamic_cast<LLPanel *>(accordion->getAccordionView());
+		}
+
+		// if we found a valid tab, does it have a help topic?
+		if (curTabPanel && !curTabPanel->getHelpTopic().empty())
+		{
+			return curTabPanel;
+		}
 	}
+
+	// couldn't find any active tabs with a help topic string
+	return NULL;
 }
 
-void LLPanel::childSetWrappedText(const std::string& id, const std::string& text, bool visible)
+
+LLPanel *LLPanel::childGetVisiblePanelWithHelp()
 {
-	LLTextBox* child = findChild<LLTextBox>(id);
-	if (child)
+	LLView *child;
+
+	bfs_tree_iterator_t it = beginTreeBFS();
+	// skip ourselves
+	++it;
+	for (; it != endTreeBFS(); ++it)
 	{
-		child->setVisible(visible);
-		child->setWrappedText(text);
+		child = *it;
+		// do we have a panel with a help topic?
+		LLPanel *panel = dynamic_cast<LLPanel *>(child);
+		if (panel && panel->isInVisibleChain() && !panel->getHelpTopic().empty())
+		{
+			return panel;
+		}
+	}
+
+	// couldn't find any active panels with a help topic string
+	return NULL;
+}
+
+void LLPanel::childSetAction(const std::string& id, const commit_signal_t::slot_type& function)
+{
+	LLButton* button = findChild<LLButton>(id);
+	if (button)
+	{
+		button->setClickedCallback(function);
 	}
 }
 
@@ -864,57 +952,98 @@ void LLPanel::childSetControlName(const std::string& id, const std::string& cont
 	}
 }
 
-//virtual
-LLView* LLPanel::getChildView(const std::string& name, BOOL recurse, BOOL create_if_missing) const
+boost::signals2::connection LLPanel::setVisibleCallback( const commit_signal_t::slot_type& cb )
 {
-	// just get child, don't try to create a dummy one
-	LLView* view = LLUICtrl::getChildView(name, recurse, FALSE);
-	if (!view && !recurse)
+	if (!mVisibleSignal)
 	{
-		childNotFound(name);
+		mVisibleSignal = new commit_signal_t();
 	}
-	if (!view && create_if_missing)
-	{
-		view = getDefaultWidget<LLView>(name);
-		if (!view)
+
+	return mVisibleSignal->connect(cb);
+}
+
+static LLFastTimer::DeclareTimer FTM_BUILD_PANELS("Build Panels");
+
+//-----------------------------------------------------------------------------
+// buildPanel()
+//-----------------------------------------------------------------------------
+BOOL LLPanel::buildFromFile(const std::string& filename, LLXMLNodePtr output_node, const LLPanel::Params& default_params)
+{
+	LLFastTimer timer(FTM_BUILD_PANELS);
+	BOOL didPost = FALSE;
+	LLXMLNodePtr root;
+
+	//if exporting, only load the language being exported, 
+	//instead of layering localized version on top of english
+	if (output_node)
+	{	
+		if (!LLUICtrlFactory::getLocalizedXMLNode(filename, root))
 		{
-			// create LLViews explicitly, as they are not registered widget types
-			view = LLUICtrlFactory::createDefaultWidget<LLView>(name);
+			llwarns << "Couldn't parse panel from: " << LLUI::getLocalizedSkinPath() + gDirUtilp->getDirDelimiter() + filename  << llendl;
+			return didPost;
 		}
 	}
-	return view;
-}
-
-void LLPanel::childNotFound(const std::string& id) const
-{
-	if (mExpectedMembers.find(id) == mExpectedMembers.end())
+	else if (!LLUICtrlFactory::getLayeredXMLNode(filename, root))
 	{
-		mNewExpectedMembers.insert(id);
+		llwarns << "Couldn't parse panel from: " << LLUI::getSkinPath() + gDirUtilp->getDirDelimiter() + filename << llendl;
+		return didPost;
 	}
-}
 
-void LLPanel::childDisplayNotFound()
-{
-	if (mNewExpectedMembers.empty())
+	// root must be called panel
+	if( !root->hasName("panel" ) )
 	{
-		return;
+		llwarns << "Root node should be named panel in : " << filename << llendl;
+		return didPost;
 	}
-	std::string msg;
-	expected_members_list_t::iterator itor;
-	for (itor=mNewExpectedMembers.begin(); itor!=mNewExpectedMembers.end(); ++itor)
+
+	lldebugs << "Building panel " << filename << llendl;
+
+	LLUICtrlFactory::instance().pushFileName(filename);
 	{
-		msg.append(*itor);
-		msg.append("\n");
-		mExpectedMembers.insert(*itor);
+		if (!getFactoryMap().empty())
+		{
+			sFactoryStack.push_back(&getFactoryMap());
+		}
+		
+		 // for local registry callbacks; define in constructor, referenced in XUI or postBuild
+		getCommitCallbackRegistrar().pushScope();
+		getEnableCallbackRegistrar().pushScope();
+		
+		didPost = initPanelXML(root, NULL, output_node, default_params);
+
+		getCommitCallbackRegistrar().popScope();
+		getEnableCallbackRegistrar().popScope();
+		
+		setXMLFilename(filename);
+
+		if (!getFactoryMap().empty())
+		{
+			sFactoryStack.pop_back();
+		}
 	}
-	mNewExpectedMembers.clear();
-	LLSD args;
-	args["CONTROLS"] = msg;
-	LLNotifications::instance().add("FloaterNotFound", args);
+	LLUICtrlFactory::instance().popFileName();
+	return didPost;
 }
 
-void LLPanel::requires(const std::string& name)
+//-----------------------------------------------------------------------------
+// createFactoryPanel()
+//-----------------------------------------------------------------------------
+LLPanel* LLPanel::createFactoryPanel(const std::string& name)
 {
-	requires<LLView>(name);
-}
+	std::deque<const LLCallbackMap::map_t*>::iterator itor;
+	for (itor = sFactoryStack.begin(); itor != sFactoryStack.end(); ++itor)
+	{
+		const LLCallbackMap::map_t* factory_map = *itor;
 
+		// Look up this panel's name in the map.
+		LLCallbackMap::map_const_iter_t iter = factory_map->find( name );
+		if (iter != factory_map->end())
+		{
+			// Use the factory to create the panel, instead of using a default LLPanel.
+			LLPanel *ret = (LLPanel*) iter->second.mCallback( iter->second.mData );
+			return ret;
+		}
+	}
+	LLPanel::Params panel_p;
+	return LLUICtrlFactory::create<LLPanel>(panel_p);
+}

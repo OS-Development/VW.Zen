@@ -2,31 +2,25 @@
  * @file llpreviewnotecard.cpp
  * @brief Implementation of the notecard editor
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -35,15 +29,18 @@
 #include "llpreviewnotecard.h"
 
 #include "llinventory.h"
+#include "llinventoryfunctions.h" // for change_item_parent()
 
 #include "llagent.h"
 #include "llassetuploadresponders.h"
+#include "lldraghandle.h"
 #include "llviewerwindow.h"
 #include "llbutton.h"
 #include "llfloaterreg.h"
+#include "llinventorydefines.h"
 #include "llinventorymodel.h"
 #include "lllineeditor.h"
-#include "llnotify.h"
+#include "llnotificationsutil.h"
 #include "llresmgr.h"
 #include "roles_constants.h"
 #include "llscrollbar.h"
@@ -55,7 +52,6 @@
 #include "llviewerobjectlist.h"
 #include "llviewerregion.h"
 #include "lldir.h"
-//#include "llfloaterchat.h"
 #include "llviewerstats.h"
 #include "llviewercontrol.h"		// gSavedSettings
 #include "llappviewer.h"		// app_abort_quit()
@@ -73,8 +69,6 @@ LLPreviewNotecard::LLPreviewNotecard(const LLSD& key) //const LLUUID& item_id,
 	const LLInventoryItem *item = getItem();
 	if (item)
 	{
-		mShowKeepDiscard = item->getPermissions().getCreator() != gAgent.getID();
-		//Called from floater reg: LLUICtrlFactory::getInstance()->buildFloater(this,"floater_preview_notecard.xml", FALSE);
 		mAssetID = item->getAssetUUID();
 	}	
 }
@@ -86,40 +80,25 @@ LLPreviewNotecard::~LLPreviewNotecard()
 BOOL LLPreviewNotecard::postBuild()
 {
 	LLViewerTextEditor *ed = getChild<LLViewerTextEditor>("Notecard Editor");
-	if (ed)
-	{
-		ed->setNotecardInfo(mItemUUID, mObjectID, getKey());
-		ed->makePristine();
-	}
-	if (mShowKeepDiscard)
-	{
-		childSetAction("Keep",onKeepBtn,this);
-		childSetAction("Discard",onDiscardBtn,this);
-	}
-	else
-	{
-		getChild<LLButton>("Keep")->setLabel(getString("Save"));
-		childSetAction("Keep",onClickSave,this);
-		childSetVisible("Discard", false);
-	}
+	ed->setNotecardInfo(mItemUUID, mObjectID, getKey());
+	ed->makePristine();
 
-	childSetVisible("lock", FALSE);	
+	childSetAction("Save", onClickSave, this);
+	getChildView("lock")->setVisible( FALSE);	
+
+	childSetAction("Delete", onClickDelete, this);
+	getChildView("Delete")->setEnabled(false);
 
 	const LLInventoryItem* item = getItem();
 
 	childSetCommitCallback("desc", LLPreview::onText, this);
 	if (item)
-		childSetText("desc", item->getDescription());
-	childSetPrevalidate("desc", &LLLineEditor::prevalidatePrintableNotPipe);
-
-	LLViewerTextEditor* editor = getChild<LLViewerTextEditor>("Notecard Editor");
-
-	if (editor)
 	{
-		editor->setWordWrap(TRUE);
-		editor->setHandleEditKeysDirectly(TRUE);
+		getChild<LLUICtrl>("desc")->setValue(item->getDescription());
+		getChildView("Delete")->setEnabled(true);
 	}
-	
+	getChild<LLLineEditor>("desc")->setPrevalidate(&LLTextValidate::validateASCIIPrintableNoPipe);
+
 	return LLPreview::postBuild();
 }
 
@@ -134,21 +113,19 @@ void LLPreviewNotecard::setEnabled( BOOL enabled )
 
 	LLViewerTextEditor* editor = getChild<LLViewerTextEditor>("Notecard Editor");
 
-	childSetEnabled("Notecard Editor", enabled);
-	childSetVisible("lock", !enabled);
-	childSetEnabled("desc", enabled);
-	childSetEnabled("Keep", enabled && editor && (!editor->isPristine()));
-
+	getChildView("Notecard Editor")->setEnabled(enabled);
+	getChildView("lock")->setVisible( !enabled);
+	getChildView("desc")->setEnabled(enabled);
+	getChildView("Save")->setEnabled(enabled && editor && (!editor->isPristine()));
 }
 
 
 void LLPreviewNotecard::draw()
 {
-	
 	LLViewerTextEditor* editor = getChild<LLViewerTextEditor>("Notecard Editor");
-	BOOL script_changed = !editor->isPristine();
-	
-	childSetEnabled("Keep", script_changed && getEnabled());
+	BOOL changed = !editor->isPristine();
+
+	getChildView("Save")->setEnabled(changed && getEnabled());
 	
 	LLPreview::draw();
 }
@@ -177,7 +154,7 @@ BOOL LLPreviewNotecard::canClose()
 	else
 	{
 		// Bring up view-modal dialog: Save changes? Yes, No, Cancel
-		LLNotifications::instance().add("SaveChanges", LLSD(), LLSD(), boost::bind(&LLPreviewNotecard::handleSaveChangesDialog,this, _1, _2));
+		LLNotificationsUtil::add("SaveChanges", LLSD(), LLSD(), boost::bind(&LLPreviewNotecard::handleSaveChangesDialog,this, _1, _2));
 								  
 		return FALSE;
 	}
@@ -211,6 +188,20 @@ void LLPreviewNotecard::refreshFromInventory(const LLUUID& new_item_id)
 	}
 	lldebugs << "LLPreviewNotecard::refreshFromInventory()" << llendl;
 	loadAsset();
+}
+
+void LLPreviewNotecard::updateTitleButtons()
+{
+	LLPreview::updateTitleButtons();
+
+	LLUICtrl* lock_btn = getChild<LLUICtrl>("lock");
+	if(lock_btn->getVisible() && !isMinimized()) // lock button stays visible if floater is minimized.
+	{
+		LLRect lock_rc = lock_btn->getRect();
+		LLRect buttons_rect = getDragHandle()->getButtonsRect();
+		buttons_rect.mLeft = lock_rc.mLeft;
+		getDragHandle()->setButtonsRect(buttons_rect);
+	}
 }
 
 void LLPreviewNotecard::loadAsset()
@@ -285,7 +276,7 @@ void LLPreviewNotecard::loadAsset()
 								GP_OBJECT_MANIPULATE))
 		{
 			editor->setEnabled(FALSE);
-			childSetVisible("lock", TRUE);
+			getChildView("lock")->setVisible( TRUE);
 		}
 	}
 	else
@@ -293,7 +284,9 @@ void LLPreviewNotecard::loadAsset()
 		editor->setText(LLStringUtil::null);
 		editor->makePristine();
 		editor->setEnabled(TRUE);
-		mAssetStatus = PREVIEW_ASSET_LOADED;
+		// Don't set asset status here; we may not have set the item id yet
+		// (e.g. when this gets called initially)
+		//mAssetStatus = PREVIEW_ASSET_LOADED;
 	}
 }
 
@@ -352,15 +345,15 @@ void LLPreviewNotecard::onLoadComplete(LLVFS *vfs,
 			if( LL_ERR_ASSET_REQUEST_NOT_IN_DATABASE == status ||
 				LL_ERR_FILE_EMPTY == status)
 			{
-				LLNotifications::instance().add("NotecardMissing");
+				LLNotificationsUtil::add("NotecardMissing");
 			}
 			else if (LL_ERR_INSUFFICIENT_PERMISSIONS == status)
 			{
-				LLNotifications::instance().add("NotecardNoPermissions");
+				LLNotificationsUtil::add("NotecardNoPermissions");
 			}
 			else
 			{
-				LLNotifications::instance().add("UnableToLoadNotecard");
+				LLNotificationsUtil::add("UnableToLoadNotecard");
 			}
 
 			llwarns << "Problem loading notecard: " << status << llendl;
@@ -378,6 +371,17 @@ void LLPreviewNotecard::onClickSave(void* user_data)
 	if(preview)
 	{
 		preview->saveIfNeeded();
+	}
+}
+
+
+// static
+void LLPreviewNotecard::onClickDelete(void* user_data)
+{
+	LLPreviewNotecard* preview = (LLPreviewNotecard*)user_data;
+	if(preview)
+	{
+		preview->deleteNotecard();
 	}
 }
 
@@ -473,6 +477,18 @@ bool LLPreviewNotecard::saveIfNeeded(LLInventoryItem* copyitem)
 	return true;
 }
 
+void LLPreviewNotecard::deleteNotecard()
+{
+	LLViewerInventoryItem* item = gInventory.getItem(mItemUUID);
+	if (item != NULL)
+	{
+		const LLUUID trash_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_TRASH);
+		change_item_parent(&gInventory, item, trash_id, FALSE);
+	}
+
+	closeFloater();
+}
+
 // static
 void LLPreviewNotecard::onSaveComplete(const LLUUID& asset_uuid, void* user_data, S32 status, LLExtStat ext_status) // StoreAssetData callback (fixed)
 {
@@ -515,7 +531,7 @@ void LLPreviewNotecard::onSaveComplete(const LLUUID& asset_uuid, void* user_data
 			}
 			else
 			{
-				LLNotifications::instance().add("SaveNotecardFailObjectNotFound");
+				LLNotificationsUtil::add("SaveNotecardFailObjectNotFound");
 			}
 		}
 		// Perform item copy to inventory
@@ -541,7 +557,7 @@ void LLPreviewNotecard::onSaveComplete(const LLUUID& asset_uuid, void* user_data
 		llwarns << "Problem saving notecard: " << status << llendl;
 		LLSD args;
 		args["REASON"] = std::string(LLAssetStorage::getErrorString(status));
-		LLNotifications::instance().add("SaveNotecardFailReason", args);
+		LLNotificationsUtil::add("SaveNotecardFailReason", args);
 	}
 
 	std::string uuid_string;
@@ -554,7 +570,7 @@ void LLPreviewNotecard::onSaveComplete(const LLUUID& asset_uuid, void* user_data
 
 bool LLPreviewNotecard::handleSaveChangesDialog(const LLSD& notification, const LLSD& response)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	switch(option)
 	{
 	case 0:  // "Yes"

@@ -2,31 +2,25 @@
  * @file llcompilequeue.cpp
  * @brief LLCompileQueueData class implementation
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -59,7 +53,7 @@
 
 #include "llbutton.h"
 #include "lldir.h"
-#include "llfloaterchat.h"
+#include "llnotificationsutil.h"
 #include "llviewerstats.h"
 #include "llvfile.h"
 #include "lluictrlfactory.h"
@@ -92,9 +86,9 @@ struct LLScriptQueueData
 // Default constructor
 LLFloaterScriptQueue::LLFloaterScriptQueue(const LLSD& key) :
 	LLFloater(key),
-	mDone(FALSE)
+	mDone(false),
+	mMono(false)
 {
-	//Called from floater reg: LLUICtrlFactory::getInstance()->buildFloater(this,"floater_script_queue.xml", FALSE);
 }
 
 // Destroys the object
@@ -105,7 +99,7 @@ LLFloaterScriptQueue::~LLFloaterScriptQueue()
 BOOL LLFloaterScriptQueue::postBuild()
 {
 	childSetAction("close",onCloseBtn,this);
-	childSetEnabled("close",FALSE);
+	getChildView("close")->setEnabled(FALSE);
 	return TRUE;
 }
 
@@ -113,7 +107,7 @@ BOOL LLFloaterScriptQueue::postBuild()
 // worked on.
 // NOT static, virtual!
 void LLFloaterScriptQueue::inventoryChanged(LLViewerObject* viewer_object,
-											 InventoryObjectList* inv,
+											 LLInventoryObject::object_list_t* inv,
 											 S32,
 											 void* q_id)
 {
@@ -216,9 +210,9 @@ BOOL LLFloaterScriptQueue::nextObject()
 	} while((mObjectIDs.count() > 0) && !successful_start);
 	if(isDone() && !mDone)
 	{
-		mDone = TRUE;
+		mDone = true;
 		getChild<LLScrollListCtrl>("queue output")->setCommentText(getString("Done"));
-		childSetEnabled("close",TRUE);
+		getChildView("close")->setEnabled(TRUE);
 	}
 	return successful_start;
 }
@@ -304,7 +298,7 @@ LLFloaterCompileQueue::~LLFloaterCompileQueue()
 }
 
 void LLFloaterCompileQueue::handleInventory(LLViewerObject *viewer_object,
-											InventoryObjectList* inv)
+											LLInventoryObject::object_list_t* inv)
 {
 	// find all of the lsl, leaving off duplicates. We'll remove
 	// all matching asset uuids on compilation success.
@@ -312,8 +306,8 @@ void LLFloaterCompileQueue::handleInventory(LLViewerObject *viewer_object,
 	typedef std::multimap<LLUUID, LLPointer<LLInventoryItem> > uuid_item_map;
 	uuid_item_map asset_item_map;
 
-	InventoryObjectList::const_iterator it = inv->begin();
-	InventoryObjectList::const_iterator end = inv->end();
+	LLInventoryObject::object_list_t::const_iterator it = inv->begin();
+	LLInventoryObject::object_list_t::const_iterator end = inv->end();
 	for ( ; it != end; ++it)
 	{
 		if((*it)->getType() == LLAssetType::AT_LSL_TEXT)
@@ -446,14 +440,18 @@ void LLFloaterCompileQueue::scriptArrived(LLVFS *vfs, const LLUUID& asset_id,
 
 		if( LL_ERR_ASSET_REQUEST_NOT_IN_DATABASE == status )
 		{
-			LLChat chat(LLTrans::getString("CompileQueueScriptNotFound"));
-			LLFloaterChat::addChat(chat);
+			LLSD args;
+			args["MESSAGE"] = LLTrans::getString("CompileQueueScriptNotFound");
+			LLNotificationsUtil::add("SystemMessage", args);
+			
 			buffer = LLTrans::getString("CompileQueueProblemDownloading") + (": ") + data->mScriptName;
 		}
 		else if (LL_ERR_INSUFFICIENT_PERMISSIONS == status)
 		{
-			LLChat chat(LLTrans::getString("CompileQueueInsufficientPermDownload"));
-			LLFloaterChat::addChat(chat);
+			LLSD args;
+			args["MESSAGE"] = LLTrans::getString("CompileQueueInsufficientPermDownload");
+			LLNotificationsUtil::add("SystemMessage", args);
+
 			buffer = LLTrans::getString("CompileQueueInsufficientPermFor") + (": ") + data->mScriptName;
 		}
 		else
@@ -480,7 +478,7 @@ void LLFloaterCompileQueue::onSaveTextComplete(const LLUUID& asset_id, void* use
 		llwarns << "Unable to save text for script." << llendl;
 		LLSD args;
 		args["REASON"] = std::string(LLAssetStorage::getErrorString(status));
-		LLNotifications::instance().add("CompileQueueSaveText", args);
+		LLNotificationsUtil::add("CompileQueueSaveText", args);
 	}
 }
 
@@ -500,7 +498,7 @@ void LLFloaterCompileQueue::onSaveBytecodeComplete(const LLUUID& asset_id, void*
 		llwarns << "Unable to save bytecode for script." << llendl;
 		LLSD args;
 		args["REASON"] = std::string(LLAssetStorage::getErrorString(status));
-		LLNotifications::instance().add("CompileQueueSaveBytecode", args);
+		LLNotificationsUtil::add("CompileQueueSaveBytecode", args);
 	}
 	delete data;
 	data = NULL;
@@ -620,14 +618,14 @@ LLFloaterResetQueue::~LLFloaterResetQueue()
 }
 
 void LLFloaterResetQueue::handleInventory(LLViewerObject* viewer_obj,
-										  InventoryObjectList* inv)
+										  LLInventoryObject::object_list_t* inv)
 {
 	// find all of the lsl, leaving off duplicates. We'll remove
 	// all matching asset uuids on compilation success.
 	LLDynamicArray<const char*> names;
 	
-	InventoryObjectList::const_iterator it = inv->begin();
-	InventoryObjectList::const_iterator end = inv->end();
+	LLInventoryObject::object_list_t::const_iterator it = inv->begin();
+	LLInventoryObject::object_list_t::const_iterator end = inv->end();
 	for ( ; it != end; ++it)
 	{
 		if((*it)->getType() == LLAssetType::AT_LSL_TEXT)
@@ -672,14 +670,14 @@ LLFloaterRunQueue::~LLFloaterRunQueue()
 }
 
 void LLFloaterRunQueue::handleInventory(LLViewerObject* viewer_obj,
-										  InventoryObjectList* inv)
+										  LLInventoryObject::object_list_t* inv)
 {
 	// find all of the lsl, leaving off duplicates. We'll remove
 	// all matching asset uuids on compilation success.
 	LLDynamicArray<const char*> names;
 	
-	InventoryObjectList::const_iterator it = inv->begin();
-	InventoryObjectList::const_iterator end = inv->end();
+	LLInventoryObject::object_list_t::const_iterator it = inv->begin();
+	LLInventoryObject::object_list_t::const_iterator end = inv->end();
 	for ( ; it != end; ++it)
 	{
 		if((*it)->getType() == LLAssetType::AT_LSL_TEXT)
@@ -727,14 +725,14 @@ LLFloaterNotRunQueue::~LLFloaterNotRunQueue()
 }
 
 void LLFloaterNotRunQueue::handleInventory(LLViewerObject* viewer_obj,
-										  InventoryObjectList* inv)
+										  LLInventoryObject::object_list_t* inv)
 {
 	// find all of the lsl, leaving off duplicates. We'll remove
 	// all matching asset uuids on compilation success.
 	LLDynamicArray<const char*> names;
 	
-	InventoryObjectList::const_iterator it = inv->begin();
-	InventoryObjectList::const_iterator end = inv->end();
+	LLInventoryObject::object_list_t::const_iterator it = inv->begin();
+	LLInventoryObject::object_list_t::const_iterator end = inv->end();
 	for ( ; it != end; ++it)
 	{
 		if((*it)->getType() == LLAssetType::AT_LSL_TEXT)

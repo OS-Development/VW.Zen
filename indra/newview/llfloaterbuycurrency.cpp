@@ -2,31 +2,25 @@
  * @file llfloaterbuycurrency.cpp
  * @brief LLFloaterBuyCurrency class implementation
  *
- * $LicenseInfo:firstyear=2005&license=viewergpl$
- * 
- * Copyright (c) 2005-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2005&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -37,6 +31,8 @@
 // viewer includes
 #include "llcurrencyuimanager.h"
 #include "llfloater.h"
+#include "llfloaterreg.h"
+#include "llnotificationsutil.h"
 #include "llstatusbar.h"
 #include "lltextbox.h"
 #include "llviewchildren.h"
@@ -53,12 +49,7 @@ class LLFloaterBuyCurrencyUI
 :	public LLFloater
 {
 public:
-	static LLFloaterBuyCurrencyUI* soleInstance(bool createIfNeeded);
-
-private:
-	static LLFloaterBuyCurrencyUI* sInstance;
-
-	LLFloaterBuyCurrencyUI();
+	LLFloaterBuyCurrencyUI(const LLSD& key);
 	virtual ~LLFloaterBuyCurrencyUI();
 
 
@@ -81,29 +72,16 @@ public:
 	virtual void draw();
 	virtual BOOL canClose();
 
-	static void onClickBuy(void* data);
-	static void onClickCancel(void* data);
-	static void onClickErrorWeb(void* data);
+	void onClickBuy();
+	void onClickCancel();
+	void onClickErrorWeb();
 };
 
-
-// static
-LLFloaterBuyCurrencyUI* LLFloaterBuyCurrencyUI::sInstance = NULL;
-
-// static
-LLFloaterBuyCurrencyUI* LLFloaterBuyCurrencyUI::soleInstance(bool createIfNeeded)
+LLFloater* LLFloaterBuyCurrency::buildFloater(const LLSD& key)
 {
-	if (!sInstance  &&  createIfNeeded)
-	{
-		sInstance = new LLFloaterBuyCurrencyUI();
-
-		LLUICtrlFactory::getInstance()->buildFloater(sInstance, "floater_buy_currency.xml");
-		sInstance->center();
-	}
-	
-	return sInstance;
+	LLFloaterBuyCurrencyUI* floater = new LLFloaterBuyCurrencyUI(key);
+	return floater;
 }
-
 
 #if LL_WINDOWS
 // passing 'this' during construction generates a warning. The callee
@@ -112,8 +90,8 @@ LLFloaterBuyCurrencyUI* LLFloaterBuyCurrencyUI::soleInstance(bool createIfNeeded
 // warning so that we can compile without generating a warning.
 #pragma warning(disable : 4355)
 #endif 
-LLFloaterBuyCurrencyUI::LLFloaterBuyCurrencyUI()
-:	LLFloater(),
+LLFloaterBuyCurrencyUI::LLFloaterBuyCurrencyUI(const LLSD& key)
+:	LLFloater(key),
 	mChildren(*this),
 	mManager(*this)
 {
@@ -121,10 +99,6 @@ LLFloaterBuyCurrencyUI::LLFloaterBuyCurrencyUI()
 
 LLFloaterBuyCurrencyUI::~LLFloaterBuyCurrencyUI()
 {
-	if (sInstance == this)
-	{
-		sInstance = NULL;
-	}
 }
 
 
@@ -156,11 +130,14 @@ BOOL LLFloaterBuyCurrencyUI::postBuild()
 {
 	mManager.prepare();
 	
-	childSetAction("buy_btn", onClickBuy, this);
-	childSetAction("cancel_btn", onClickCancel, this);
-	childSetAction("error_web", onClickErrorWeb, this);
-
+	getChild<LLUICtrl>("buy_btn")->setCommitCallback( boost::bind(&LLFloaterBuyCurrencyUI::onClickBuy, this));
+	getChild<LLUICtrl>("cancel_btn")->setCommitCallback( boost::bind(&LLFloaterBuyCurrencyUI::onClickCancel, this));
+	getChild<LLUICtrl>("error_web")->setCommitCallback( boost::bind(&LLFloaterBuyCurrencyUI::onClickErrorWeb, this));
+	
+	center();
+	
 	updateUI();
+	
 	return TRUE;
 }
 
@@ -170,12 +147,16 @@ void LLFloaterBuyCurrencyUI::draw()
 	{
 		if (mManager.bought())
 		{
+			LLNotificationsUtil::add("BuyLindenDollarSuccess");
 			closeFloater();
 			return;
 		}
 		
 		updateUI();
 	}
+
+	// disable the Buy button when we are not able to buy
+	getChildView("buy_btn")->setEnabled(mManager.canBuy());
 
 	LLFloater::draw();
 }
@@ -190,179 +171,135 @@ void LLFloaterBuyCurrencyUI::updateUI()
 	bool hasError = mManager.hasError();
 	mManager.updateUI(!hasError && !mManager.buying());
 
-	// section zero: title area
-	{
-		childSetVisible("info_buying", false);
-		childSetVisible("info_cannot_buy", false);
-		childSetVisible("info_need_more", false);
-		if (hasError)
-		{
-			childSetVisible("info_cannot_buy", true);
-		}
-		else if (mHasTarget)
-		{
-			childSetVisible("info_need_more", true);
-		}
-		else
-		{
-			childSetVisible("info_buying", true);
-		}
-	}
-	
-	// error section
+	// hide most widgets - we'll turn them on as needed next
+	getChildView("info_buying")->setVisible(FALSE);
+	getChildView("info_cannot_buy")->setVisible(FALSE);
+	getChildView("info_need_more")->setVisible(FALSE);	
+	getChildView("purchase_warning_repurchase")->setVisible(FALSE);
+	getChildView("purchase_warning_notenough")->setVisible(FALSE);
+	getChildView("contacting")->setVisible(FALSE);
+	getChildView("buy_action")->setVisible(FALSE);
+
 	if (hasError)
 	{
-		mChildren.setBadge(std::string("step_error"), LLViewChildren::BADGE_ERROR);
-		
-		LLTextBox* message = getChild<LLTextBox>("error_message");
-		if (message)
+		// display an error from the server
+		getChildView("normal_background")->setVisible(FALSE);
+		getChildView("error_background")->setVisible(TRUE);
+		getChildView("info_cannot_buy")->setVisible(TRUE);
+		getChildView("cannot_buy_message")->setVisible(TRUE);
+		getChildView("balance_label")->setVisible(FALSE);
+		getChildView("balance_amount")->setVisible(FALSE);
+		getChildView("buying_label")->setVisible(FALSE);
+		getChildView("buying_amount")->setVisible(FALSE);
+		getChildView("total_label")->setVisible(FALSE);
+		getChildView("total_amount")->setVisible(FALSE);
+
+        LLTextBox* message = getChild<LLTextBox>("cannot_buy_message");
+        if (message)
 		{
-			message->setVisible(true);
-			message->setWrappedText(mManager.errorMessage());
+			message->setText(mManager.errorMessage());
 		}
 
-		childSetVisible("error_web", !mManager.errorURI().empty());
-		if (!mManager.errorURI().empty())
-		{
-			childHide("getting_data");
-		}
+		getChildView("error_web")->setVisible( !mManager.errorURI().empty());
 	}
 	else
 	{
-		childHide("step_error");
-		childHide("error_message");
-		childHide("error_web");
-	}
-	
-	
-	//  currency
-	childSetVisible("contacting", false);
-	childSetVisible("buy_action", false);
-	childSetVisible("buy_action_unknown", false);
-	
-	if (!hasError)
-	{
-		mChildren.setBadge(std::string("step_1"), LLViewChildren::BADGE_NOTE);
+		// display the main Buy L$ interface
+		getChildView("normal_background")->setVisible(TRUE);
+		getChildView("error_background")->setVisible(FALSE);
+		getChildView("cannot_buy_message")->setVisible(FALSE);
+		getChildView("error_web")->setVisible(FALSE);
+
+		if (mHasTarget)
+		{
+			getChildView("info_need_more")->setVisible(TRUE);
+		}
+		else
+		{
+			getChildView("info_buying")->setVisible(TRUE);
+		}
 
 		if (mManager.buying())
 		{
-			childSetVisible("contacting", true);
+			getChildView("contacting")->setVisible( true);
 		}
 		else
 		{
 			if (mHasTarget)
 			{
-				childSetVisible("buy_action", true);
-				childSetTextArg("buy_action", "[NAME]", mTargetName);
-				childSetTextArg("buy_action", "[PRICE]", llformat("%d",mTargetPrice));
-			}
-			else
-			{
-				childSetVisible("buy_action_unknown", true);
+				getChildView("buy_action")->setVisible( true);
+				getChild<LLUICtrl>("buy_action")->setTextArg("[ACTION]", mTargetName);
 			}
 		}
 		
 		S32 balance = gStatusBar->getBalance();
-		childShow("balance_label");
-		childShow("balance_amount");
-		childSetTextArg("balance_amount", "[AMT]", llformat("%d", balance));
+		getChildView("balance_label")->setVisible(TRUE);
+		getChildView("balance_amount")->setVisible(TRUE);
+		getChild<LLUICtrl>("balance_amount")->setTextArg("[AMT]", llformat("%d", balance));
 		
 		S32 buying = mManager.getAmount();
-		childShow("buying_label");
-		childShow("buying_amount");
-		childSetTextArg("buying_amount", "[AMT]", llformat("%d", buying));
+		getChildView("buying_label")->setVisible(TRUE);
+		getChildView("buying_amount")->setVisible(TRUE);
+		getChild<LLUICtrl>("buying_amount")->setTextArg("[AMT]", llformat("%d", buying));
 		
 		S32 total = balance + buying;
-		childShow("total_label");
-		childShow("total_amount");
-		childSetTextArg("total_amount", "[AMT]", llformat("%d", total));
+		getChildView("total_label")->setVisible(TRUE);
+		getChildView("total_amount")->setVisible(TRUE);
+		getChild<LLUICtrl>("total_amount")->setTextArg("[AMT]", llformat("%d", total));
 
-		childSetVisible("purchase_warning_repurchase", false);
-		childSetVisible("purchase_warning_notenough", false);
 		if (mHasTarget)
 		{
 			if (total >= mTargetPrice)
 			{
-				childSetVisible("purchase_warning_repurchase", true);
+				getChildView("purchase_warning_repurchase")->setVisible( true);
 			}
 			else
 			{
-				childSetVisible("purchase_warning_notenough", true);
+				getChildView("purchase_warning_notenough")->setVisible( true);
 			}
 		}
 	}
-	else
-	{
-		childHide("step_1");
-		childHide("balance_label");
-		childHide("balance_amount");
-		childHide("buying_label");
-		childHide("buying_amount");
-		childHide("total_label");
-		childHide("total_amount");
-		childHide("purchase_warning_repurchase");
-		childHide("purchase_warning_notenough");
-	}
-	
-	childSetEnabled("buy_btn", mManager.canBuy());
 
-	if (!mManager.canBuy() && !childIsVisible("error_web"))
-	{
-		childShow("getting_data");
-	}
+	getChildView("getting_data")->setVisible( !mManager.canBuy() && !hasError);
 }
 
-// static
-void LLFloaterBuyCurrencyUI::onClickBuy(void* data)
+void LLFloaterBuyCurrencyUI::onClickBuy()
 {
-	LLFloaterBuyCurrencyUI* self = LLFloaterBuyCurrencyUI::soleInstance(false);
-	if (self)
-	{
-		self->mManager.buy(self->getString("buy_currency"));
-		self->updateUI();
-		// JC: updateUI() doesn't get called again until progress is made
-		// with transaction processing, so the "Purchase" button would be
-		// left enabled for some time.  Pre-emptively disable.
-		self->childSetEnabled("buy_btn", false);
-	}
+	mManager.buy(getString("buy_currency"));
+	updateUI();
+	// Update L$ balance
+	LLStatusBar::sendMoneyBalanceRequest();
 }
 
-// static
-void LLFloaterBuyCurrencyUI::onClickCancel(void* data)
+void LLFloaterBuyCurrencyUI::onClickCancel()
 {
-	LLFloaterBuyCurrencyUI* self = LLFloaterBuyCurrencyUI::soleInstance(false);
-	if (self)
-	{
-		self->closeFloater();
-	}
+	closeFloater();
+	// Update L$ balance
+	LLStatusBar::sendMoneyBalanceRequest();
 }
 
-// static
-void LLFloaterBuyCurrencyUI::onClickErrorWeb(void* data)
+void LLFloaterBuyCurrencyUI::onClickErrorWeb()
 {
-	LLFloaterBuyCurrencyUI* self = LLFloaterBuyCurrencyUI::soleInstance(false);
-	if (self)
-	{
-		LLWeb::loadURLExternal(self->mManager.errorURI());
-		self->closeFloater();
-	}
+	LLWeb::loadURLExternal(mManager.errorURI());
+	closeFloater();
+	// Update L$ balance
+	LLStatusBar::sendMoneyBalanceRequest();
 }
 
 // static
 void LLFloaterBuyCurrency::buyCurrency()
 {
-	LLFloaterBuyCurrencyUI* ui = LLFloaterBuyCurrencyUI::soleInstance(true);
+	LLFloaterBuyCurrencyUI* ui = LLFloaterReg::showTypedInstance<LLFloaterBuyCurrencyUI>("buy_currency");
 	ui->noTarget();
 	ui->updateUI();
-	ui->openFloater();
 }
 
+// static
 void LLFloaterBuyCurrency::buyCurrency(const std::string& name, S32 price)
 {
-	LLFloaterBuyCurrencyUI* ui = LLFloaterBuyCurrencyUI::soleInstance(true);
+	LLFloaterBuyCurrencyUI* ui = LLFloaterReg::showTypedInstance<LLFloaterBuyCurrencyUI>("buy_currency");
 	ui->target(name, price);
 	ui->updateUI();
-	ui->openFloater();
 }
 
 

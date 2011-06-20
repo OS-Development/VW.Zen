@@ -2,31 +2,25 @@
  * @file llfeaturemanager.cpp
  * @brief LLFeatureManager class implementation
  *
- * $LicenseInfo:firstyear=2003&license=viewergpl$
- * 
- * Copyright (c) 2003-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2003&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -44,10 +38,14 @@
 #include "llgl.h"
 #include "llsecondlifeurls.h"
 
+#include "llappviewer.h"
+#include "llhttpclient.h"
+#include "llnotificationsutil.h"
 #include "llviewercontrol.h"
 #include "llworld.h"
 #include "lldrawpoolterrain.h"
 #include "llviewertexturelist.h"
+#include "llversioninfo.h"
 #include "llwindow.h"
 #include "llui.h"
 #include "llcontrol.h"
@@ -58,23 +56,23 @@
 #include "lldxhardware.h"
 #endif
 
-//
-// externs
-//
-extern LLMemoryInfo gSysMemory;
-extern LLCPUInfo gSysCPU;
 
 #if LL_DARWIN
 const char FEATURE_TABLE_FILENAME[] = "featuretable_mac.txt";
+const char FEATURE_TABLE_VER_FILENAME[] = "featuretable_mac.%s.txt";
 #elif LL_LINUX
 const char FEATURE_TABLE_FILENAME[] = "featuretable_linux.txt";
+const char FEATURE_TABLE_VER_FILENAME[] = "featuretable_linux.%s.txt";
 #elif LL_SOLARIS
 const char FEATURE_TABLE_FILENAME[] = "featuretable_solaris.txt";
+const char FEATURE_TABLE_VER_FILENAME[] = "featuretable_solaris.%s.txt";
 #else
-const char FEATURE_TABLE_FILENAME[] = "featuretable.txt";
+const char FEATURE_TABLE_FILENAME[] = "featuretable%s.txt";
+const char FEATURE_TABLE_VER_FILENAME[] = "featuretable%s.%s.txt";
 #endif
 
 const char GPU_TABLE_FILENAME[] = "gpu_table.txt";
+const char GPU_TABLE_VER_FILENAME[] = "gpu_table.%s.txt";
 
 LLFeatureInfo::LLFeatureInfo(const std::string& name, const BOOL available, const F32 level)
 	: mValid(TRUE), mName(name), mAvailable(available), mRecommendedLevel(level)
@@ -205,7 +203,7 @@ BOOL LLFeatureManager::maskFeatures(const std::string& name)
  		LL_DEBUGS("RenderInit") << "Unknown feature mask " << name << LL_ENDL;
 		return FALSE;
 	}
-	LL_DEBUGS("RenderInit") << "Applying Feature Mask: " << name << LL_ENDL;
+	LL_INFOS("RenderInit") << "Applying GPU Feature list: " << name << LL_ENDL;
 	return maskList(*maskp);
 }
 
@@ -219,22 +217,64 @@ BOOL LLFeatureManager::loadFeatureTables()
 	mSkippedFeatures.insert("RenderVBOEnable");
 	mSkippedFeatures.insert("RenderFogRatio");
 
-	std::string data_path = gDirUtilp->getAppRODataDir();
+	// first table is install with app
+	std::string app_path = gDirUtilp->getAppRODataDir();
+	app_path += gDirUtilp->getDirDelimiter();
 
-	data_path += gDirUtilp->getDirDelimiter();
+	std::string filename;
+	std::string http_filename; 
+#if LL_WINDOWS
+	std::string os_string = LLAppViewer::instance()->getOSInfo().getOSStringSimple();
+	if (os_string.find("Microsoft Windows XP") == 0)
+	{
+		filename = llformat(FEATURE_TABLE_FILENAME, "_xp");
+		http_filename = llformat(FEATURE_TABLE_VER_FILENAME, "_xp", LLVersionInfo::getVersion().c_str());
+	}
+	else
+	{
+		filename = llformat(FEATURE_TABLE_FILENAME, "");
+		http_filename = llformat(FEATURE_TABLE_VER_FILENAME, "", LLVersionInfo::getVersion().c_str());
+	}
+#else
+	filename = FEATURE_TABLE_FILENAME;
+	http_filename = llformat(FEATURE_TABLE_VER_FILENAME, LLVersionInfo::getVersion().c_str());
+#endif
 
-	data_path += FEATURE_TABLE_FILENAME;
-	lldebugs << "Looking for feature table in " << data_path << llendl;
+	app_path += filename;
+
+	
+	// second table is downloaded with HTTP
+	std::string http_path = gDirUtilp->getExpandedFilename(LL_PATH_USER_SETTINGS, http_filename);
+
+	// use HTTP table if it exists
+	std::string path;
+	if (gDirUtilp->fileExists(http_path))
+	{
+		path = http_path;
+	}
+	else
+	{
+		path = app_path;
+	}
+
+	
+	return parseFeatureTable(path);
+}
+
+
+BOOL LLFeatureManager::parseFeatureTable(std::string filename)
+{
+	llinfos << "Looking for feature table in " << filename << llendl;
 
 	llifstream file;
 	std::string name;
 	U32		version;
 	
-	file.open(data_path); 	 /*Flawfinder: ignore*/
+	file.open(filename); 	 /*Flawfinder: ignore*/
 
 	if (!file)
 	{
-		LL_WARNS("RenderInit") << "Unable to open feature table!" << LL_ENDL;
+		LL_WARNS("RenderInit") << "Unable to open feature table " << filename << LL_ENDL;
 		return FALSE;
 	}
 
@@ -243,29 +283,20 @@ BOOL LLFeatureManager::loadFeatureTables()
 	file >> version;
 	if (name != "version")
 	{
-		LL_WARNS("RenderInit") << data_path << " does not appear to be a valid feature table!" << LL_ENDL;
+		LL_WARNS("RenderInit") << filename << " does not appear to be a valid feature table!" << LL_ENDL;
 		return FALSE;
 	}
 
 	mTableVersion = version;
 
 	LLFeatureList *flp = NULL;
-	while (!file.eof() && file.good())
+	while (file >> name)
 	{
 		char buffer[MAX_STRING];		 /*Flawfinder: ignore*/
-
-		file >> name;
 		
 		if (name.substr(0,2) == "//")
 		{
 			// This is a comment.
-			file.getline(buffer, MAX_STRING);
-			continue;
-		}
-
-		if (name.empty())
-		{
-			// This is a blank line
 			file.getline(buffer, MAX_STRING);
 			continue;
 		}
@@ -291,6 +322,7 @@ BOOL LLFeatureManager::loadFeatureTables()
 			if (!flp)
 			{
 				LL_ERRS("RenderInit") << "Specified parameter before <list> keyword!" << LL_ENDL;
+				return FALSE;
 			}
 			S32 available;
 			F32 recommended;
@@ -305,34 +337,57 @@ BOOL LLFeatureManager::loadFeatureTables()
 
 void LLFeatureManager::loadGPUClass()
 {
-	std::string data_path = gDirUtilp->getAppRODataDir();
-
-	data_path += gDirUtilp->getDirDelimiter();
-
-	data_path += GPU_TABLE_FILENAME;
-
 	// defaults
 	mGPUClass = GPU_CLASS_UNKNOWN;
 	mGPUString = gGLManager.getRawGLString();
 	mGPUSupported = FALSE;
 
+	// first table is in the app dir
+	std::string app_path = gDirUtilp->getAppRODataDir();
+	app_path += gDirUtilp->getDirDelimiter();
+	app_path += GPU_TABLE_FILENAME;
+	
+	// second table is downloaded with HTTP
+	std::string http_filename = llformat(GPU_TABLE_VER_FILENAME, LLVersionInfo::getVersion().c_str());
+	std::string http_path = gDirUtilp->getExpandedFilename(LL_PATH_USER_SETTINGS, http_filename);
+
+	// use HTTP table if it exists
+	std::string path;
+	if (gDirUtilp->fileExists(http_path))
+	{
+		path = http_path;
+	}
+	else
+	{
+		path = app_path;
+	}
+
+	parseGPUTable(path);
+}
+
+	
+void LLFeatureManager::parseGPUTable(std::string filename)
+{
 	llifstream file;
 		
-	file.open(data_path); 		 /*Flawfinder: ignore*/
+	file.open(filename);
 
 	if (!file)
 	{
-		LL_WARNS("RenderInit") << "Unable to open GPU table: " << data_path << "!" << LL_ENDL;
+		LL_WARNS("RenderInit") << "Unable to open GPU table: " << filename << "!" << LL_ENDL;
 		return;
 	}
 
-	std::string renderer = gGLManager.getRawGLString();
+	std::string rawRenderer = gGLManager.getRawGLString();
+	std::string renderer = rawRenderer;
 	for (std::string::iterator i = renderer.begin(); i != renderer.end(); ++i)
 	{
 		*i = tolower(*i);
 	}
-	
-	while (!file.eof())
+
+	bool gpuFound;
+	U32 lineNumber;
+	for (gpuFound = false, lineNumber = 0; !gpuFound && !file.eof(); lineNumber++)
 	{
 		char buffer[MAX_STRING];		 /*Flawfinder: ignore*/
 		buffer[0] = 0;
@@ -379,6 +434,7 @@ void LLFeatureManager::loadGPUClass()
 
 		if (label.empty() || expr.empty() || cls.empty() || supported.empty())
 		{
+			LL_WARNS("RenderInit") << "invald gpu_table.txt:" << lineNumber << ": '" << buffer << "'" << LL_ENDL;
 			continue;
 		}
 	
@@ -392,19 +448,119 @@ void LLFeatureManager::loadGPUClass()
 		if(boost::regex_search(renderer, re))
 		{
 			// if we found it, stop!
-			file.close();
-			LL_INFOS("RenderInit") << "GPU is " << label << llendl;
+			gpuFound = true;
 			mGPUString = label;
 			mGPUClass = (EGPUClass) strtol(cls.c_str(), NULL, 10);
 			mGPUSupported = (BOOL) strtol(supported.c_str(), NULL, 10);
-			file.close();
-			return;
 		}
 	}
 	file.close();
 
-	LL_WARNS("RenderInit") << "Couldn't match GPU to a class: " << gGLManager.getRawGLString() << LL_ENDL;
+	if ( gpuFound )
+	{
+		LL_INFOS("RenderInit") << "GPU '" << rawRenderer << "' recognized as '" << mGPUString << "'" << LL_ENDL;
+		if (!mGPUSupported)
+		{
+			LL_INFOS("RenderInit") << "GPU '" << mGPUString << "' is not supported." << LL_ENDL;
+		}
+	}
+	else
+	{
+		LL_WARNS("RenderInit") << "GPU '" << rawRenderer << "' not recognized" << LL_ENDL;
+	}
 }
+
+// responder saves table into file
+class LLHTTPFeatureTableResponder : public LLHTTPClient::Responder
+{
+public:
+
+	LLHTTPFeatureTableResponder(std::string filename) :
+		mFilename(filename)
+	{
+	}
+
+	
+	virtual void completedRaw(U32 status, const std::string& reason,
+							  const LLChannelDescriptors& channels,
+							  const LLIOPipe::buffer_ptr_t& buffer)
+	{
+		if (isGoodStatus(status))
+		{
+			// write to file
+
+			llinfos << "writing feature table to " << mFilename << llendl;
+			
+			S32 file_size = buffer->countAfter(channels.in(), NULL);
+			if (file_size > 0)
+			{
+				// read from buffer
+				U8* copy_buffer = new U8[file_size];
+				buffer->readAfter(channels.in(), NULL, copy_buffer, file_size);
+
+				// write to file
+				LLAPRFile out(mFilename, LL_APR_WB);
+				out.write(copy_buffer, file_size);
+				out.close();
+			}
+		}
+		
+	}
+	
+private:
+	std::string mFilename;
+};
+
+void fetch_feature_table(std::string table)
+{
+	const std::string base       = gSavedSettings.getString("FeatureManagerHTTPTable");
+
+#if LL_WINDOWS
+	std::string os_string = LLAppViewer::instance()->getOSInfo().getOSStringSimple();
+	std::string filename;
+	if (os_string.find("Microsoft Windows XP") == 0)
+	{
+		filename = llformat(table.c_str(), "_xp", LLVersionInfo::getVersion().c_str());
+	}
+	else
+	{
+		filename = llformat(table.c_str(), "", LLVersionInfo::getVersion().c_str());
+	}
+#else
+	const std::string filename   = llformat(table.c_str(), LLVersionInfo::getVersion().c_str());
+#endif
+
+	const std::string url        = base + "/" + filename;
+
+	const std::string path       = gDirUtilp->getExpandedFilename(LL_PATH_USER_SETTINGS, filename);
+
+	llinfos << "LLFeatureManager fetching " << url << " into " << path << llendl;
+	
+	LLHTTPClient::get(url, new LLHTTPFeatureTableResponder(path));
+}
+
+void fetch_gpu_table(std::string table)
+{
+	const std::string base       = gSavedSettings.getString("FeatureManagerHTTPTable");
+
+	const std::string filename   = llformat(table.c_str(), LLVersionInfo::getVersion().c_str());
+
+	const std::string url        = base + "/" + filename;
+
+	const std::string path       = gDirUtilp->getExpandedFilename(LL_PATH_USER_SETTINGS, filename);
+
+	llinfos << "LLFeatureManager fetching " << url << " into " << path << llendl;
+	
+	LLHTTPClient::get(url, new LLHTTPFeatureTableResponder(path));
+}
+
+// fetch table(s) from a website (S3)
+void LLFeatureManager::fetchHTTPTables()
+{
+	fetch_feature_table(FEATURE_TABLE_VER_FILENAME);
+	fetch_gpu_table(GPU_TABLE_VER_FILENAME);
+}
+
 
 void LLFeatureManager::cleanupFeatureTables()
 {
@@ -585,6 +741,10 @@ void LLFeatureManager::applyBaseMasks()
 	{
 		maskFeatures("ATI");
 	}
+	if (gGLManager.mHasATIMemInfo && gGLManager.mVRAM < 256)
+	{
+		maskFeatures("ATIVramLT256");
+	}
 	if (gGLManager.mATIOldDriver)
 	{
 		maskFeatures("ATIOldDriver");
@@ -600,6 +760,14 @@ void LLFeatureManager::applyBaseMasks()
 	if (gGLManager.mGLVersion < 1.5f)
 	{
 		maskFeatures("OpenGLPre15");
+	}
+	if (gGLManager.mGLVersion < 3.f)
+	{
+		maskFeatures("OpenGLPre30");
+	}
+	if (gGLManager.mNumTextureImageUnits <= 8)
+	{
+		maskFeatures("TexUnit8orLess");
 	}
 
 	// now mask by gpu string
@@ -624,9 +792,9 @@ void LLFeatureManager::applyBaseMasks()
 	
 #if LL_SOLARIS && defined(__sparc) 	//  even low MHz SPARCs are fast
 #error The 800 is hinky. Would something like a LL_MIN_MHZ make more sense here?
-	if (gSysCPU.getMhz() < 800)
+	if (gSysCPU.getMHz() < 800)
 #else
-	if (gSysCPU.getMhz() < 1100)
+	if (gSysCPU.getMHz() < 1100)
 #endif
 	{
 		maskFeatures("CPUSlow");

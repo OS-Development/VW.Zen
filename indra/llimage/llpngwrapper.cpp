@@ -2,31 +2,25 @@
  * @file llpngwrapper.cpp
  * @brief Encapsulates libpng read/write functionality.
  *
- * $LicenseInfo:firstyear=2007&license=viewergpl$
- * 
- * Copyright (c) 2007-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2007&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -56,8 +50,6 @@ LLPngWrapper::LLPngWrapper()
 	  mCompressionType( 0 ),
 	  mFilterMethod( 0 ),
 	  mFinalSize( 0 ),
-	  mHasBKGD(false),
-	  mBackgroundColor(),
 	  mGamma(0.f)
 {
 }
@@ -117,9 +109,9 @@ void LLPngWrapper::writeFlush(png_structp png_ptr)
 }
 
 // Read the PNG file using the libpng.  The low-level interface is used here
-// because we want to do various transformations (including setting the
-// matte background if any, and applying gama) which can't be done with
-// the high-level interface. The scanline also begins at the bottom of
+// because we want to do various transformations (including applying gama)
+// which can't be done with the high-level interface.
+// The scanline also begins at the bottom of
 // the image (per SecondLife conventions) instead of at the top, so we
 // must assign row-pointers in "reverse" order.
 BOOL LLPngWrapper::readPng(U8* src, LLImageRaw* rawImage, ImageInfo *infop)
@@ -207,8 +199,7 @@ void LLPngWrapper::normalizeImage()
 	//		2. Convert grayscales to RGB
 	//		3. Create alpha layer from transparency
 	//		4. Ensure 8-bpp for all images
-	//		5. Apply background matte if any
-	//		6. Set (or guess) gamma
+	//		5. Set (or guess) gamma
 
 	if (mColorType == PNG_COLOR_TYPE_PALETTE)
 	{
@@ -216,7 +207,7 @@ void LLPngWrapper::normalizeImage()
 	}
     if (mColorType == PNG_COLOR_TYPE_GRAY && mBitDepth < 8)
 	{
-		png_set_gray_1_2_4_to_8(mReadPngPtr);
+		png_set_expand_gray_1_2_4_to_8(mReadPngPtr);
 	}
 	if (mColorType == PNG_COLOR_TYPE_GRAY
 		|| mColorType == PNG_COLOR_TYPE_GRAY_ALPHA)
@@ -234,12 +225,6 @@ void LLPngWrapper::normalizeImage()
 	else if (mBitDepth == 16)
 	{
 		png_set_strip_16(mReadPngPtr);
-	}
-	mHasBKGD = png_get_bKGD(mReadPngPtr, mReadInfoPtr, &mBackgroundColor);
-	if (mHasBKGD)
-	{
-		png_set_background(mReadPngPtr, mBackgroundColor,
-			PNG_BACKGROUND_GAMMA_FILE, 1, 1.0);
 	}
 
 #if LL_DARWIN
@@ -267,7 +252,6 @@ void LLPngWrapper::updateMetaData()
     mBitDepth = png_get_bit_depth(mReadPngPtr, mReadInfoPtr);
     mColorType = png_get_color_type(mReadPngPtr, mReadInfoPtr);
 	mChannels = png_get_channels(mReadPngPtr, mReadInfoPtr);
-	mHasBKGD = png_get_bKGD(mReadPngPtr, mReadInfoPtr, &mBackgroundColor);
 }
 
 // Method to write raw image into PNG at dest. The raw scanline begins
@@ -364,7 +348,7 @@ void LLPngWrapper::releaseResources()
 {
 	if (mReadPngPtr || mReadInfoPtr)
 	{
-		png_destroy_read_struct(&mReadPngPtr, &mReadInfoPtr, png_infopp_NULL);
+		png_destroy_read_struct(&mReadPngPtr, &mReadInfoPtr, NULL);
 		mReadPngPtr = NULL;
 		mReadInfoPtr = NULL;
 	}

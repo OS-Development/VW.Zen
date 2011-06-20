@@ -3,31 +3,25 @@
  * @author James Cook
  * @brief The about box from Help->About
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
  
@@ -35,37 +29,40 @@
 
 #include "llfloaterabout.h"
 
-#include "llsys.h"
-#include "llgl.h"
-#include "llui.h"	// for tr()
-#include "v3dmath.h"
-
-#include "llcurl.h"
-#include "llimagej2c.h"
-#include "audioengine.h"
-
+// Viewer includes
+#include "llagent.h"
+#include "llappviewer.h" 
+#include "llsecondlifeurls.h"
+#include "llvoiceclient.h"
+#include "lluictrlfactory.h"
 #include "llviewertexteditor.h"
 #include "llviewercontrol.h"
-#include "llagent.h"
 #include "llviewerstats.h"
 #include "llviewerregion.h"
-#include "llversionviewer.h"
-#include "llviewerbuild.h"
-#include "lluictrlfactory.h"
-#include "lluri.h"
+#include "llversioninfo.h"
 #include "llweb.h"
-#include "llsecondlifeurls.h"
-#include "lltrans.h"
-#include "llappviewer.h" 
+
+// Linden library includes
+#include "llaudioengine.h"
+#include "llbutton.h"
+#include "llcurl.h"
 #include "llglheaders.h"
-#include "llmediamanager.h"
+#include "llfloater.h"
+#include "llfloaterreg.h"
+#include "llimagej2c.h"
+#include "llsys.h"
+#include "lltrans.h"
+#include "lluri.h"
+#include "v3dmath.h"
 #include "llwindow.h"
+#include "stringize.h"
+#include "llsdutil_math.h"
+#include "lleventapi.h"
 
 #if LL_WINDOWS
 #include "lldxhardware.h"
 #endif
 
-extern LLCPUInfo gSysCPU;
 extern LLMemoryInfo gSysMemory;
 extern U32 gPacketsIn;
 
@@ -75,12 +72,28 @@ static std::string get_viewer_release_notes_url();
 ///----------------------------------------------------------------------------
 /// Class LLFloaterAbout
 ///----------------------------------------------------------------------------
+class LLFloaterAbout 
+	: public LLFloater
+{
+	friend class LLFloaterReg;
+private:
+	LLFloaterAbout(const LLSD& key);
+	virtual ~LLFloaterAbout();
+
+public:
+	/*virtual*/ BOOL postBuild();
+
+	/// Obtain the data used to fill out the contents string. This is
+	/// separated so that we can programmatically access the same info.
+	static LLSD getInfo();
+	void onClickCopyToClipboard();
+};
+
 
 // Default constructor
 LLFloaterAbout::LLFloaterAbout(const LLSD& key) 
 :	LLFloater(key)
 {
-	//LLUICtrlFactory::getInstance()->buildFloater(this, "floater_about.xml");
 	
 }
 
@@ -98,185 +111,231 @@ BOOL LLFloaterAbout::postBuild()
 	LLViewerTextEditor *credits_widget = 
 		getChild<LLViewerTextEditor>("credits_editor", true);
 
-	// For some reason, adding style doesn't work unless this is true.
-	support_widget->setParseHTML(TRUE);
+	getChild<LLUICtrl>("copy_btn")->setCommitCallback(
+		boost::bind(&LLFloaterAbout::onClickCopyToClipboard, this));
 
-	// Text styles for release notes hyperlinks
-	LLStyleSP viewer_link_style(new LLStyle);
-	viewer_link_style->setVisible(true);
-	viewer_link_style->setFontName(LLStringUtil::null);
-	viewer_link_style->setLinkHREF(get_viewer_release_notes_url());
-	viewer_link_style->setColor(LLUIColorTable::instance().getColor("HTMLLinkColor"));
-
-	// Version string
-	std::string version = LLTrans::getString("SECOND_LIFE_VIEWER")
-		+ llformat(" %d.%d.%d (%d) %s %s (%s)\n",
-				   LL_VERSION_MAJOR, LL_VERSION_MINOR, LL_VERSION_PATCH, LL_VIEWER_BUILD,
-				   __DATE__, __TIME__,
-				   gSavedSettings.getString("VersionChannelName").c_str());
-	support_widget->appendColoredText(version, FALSE, FALSE, LLUIColorTable::instance().getColor("TextFgReadOnlyColor"));
-	support_widget->appendStyledText(LLTrans::getString("ReleaseNotes"), false, false, viewer_link_style);
-
-	std::string support;
-	support.append("\n\n");
-
-#if LL_MSVC
-    support.append(llformat("Built with MSVC version %d\n\n", _MSC_VER));
+#if LL_WINDOWS
+	getWindow()->incBusyCount();
+	getWindow()->setCursor(UI_CURSOR_ARROW);
+#endif
+	LLSD info(getInfo());
+#if LL_WINDOWS
+	getWindow()->decBusyCount();
+	getWindow()->setCursor(UI_CURSOR_ARROW);
 #endif
 
-#if LL_GNUC
-    support.append(llformat("Built with GCC version %d\n\n", GCC_VERSION));
+	std::ostringstream support;
+
+	// Render the LLSD from getInfo() as a format_map_t
+	LLStringUtil::format_map_t args;
+
+	// allow the "Release Notes" URL label to be localized
+	args["ReleaseNotes"] = LLTrans::getString("ReleaseNotes");
+
+	for (LLSD::map_const_iterator ii(info.beginMap()), iend(info.endMap());
+		 ii != iend; ++ii)
+	{
+		if (! ii->second.isArray())
+		{
+			// Scalar value
+			if (ii->second.isUndefined())
+			{
+				args[ii->first] = getString("none");
+			}
+			else
+			{
+				// don't forget to render value asString()
+				args[ii->first] = ii->second.asString();
+			}
+		}
+		else
+		{
+			// array value: build KEY_0, KEY_1 etc. entries
+			for (LLSD::Integer n(0), size(ii->second.size()); n < size; ++n)
+			{
+				args[STRINGIZE(ii->first << '_' << n)] = ii->second[n].asString();
+			}
+		}
+	}
+
+	// Now build the various pieces
+	support << getString("AboutHeader", args);
+	if (info.has("REGION"))
+	{
+		support << "\n\n" << getString("AboutPosition", args);
+	}
+	support << "\n\n" << getString("AboutSystem", args);
+	support << "\n";
+	if (info.has("GRAPHICS_DRIVER_VERSION"))
+	{
+		support << "\n" << getString("AboutDriver", args);
+	}
+	support << "\n" << getString("AboutLibs", args);
+	if (info.has("COMPILER"))
+	{
+		support << "\n" << getString("AboutCompiler", args);
+	}
+	if (info.has("PACKETS_IN"))
+	{
+		support << '\n' << getString("AboutTraffic", args);
+	}
+
+	support_widget->appendText(support.str(), 
+								FALSE, 
+								LLStyle::Params()
+									.color(LLUIColorTable::instance().getColor("TextFgReadOnlyColor")));
+	support_widget->blockUndo();
+
+	// Fix views
+	support_widget->setEnabled(FALSE);
+	support_widget->startOfDoc();
+
+	credits_widget->setEnabled(FALSE);
+	credits_widget->startOfDoc();
+
+	return TRUE;
+}
+
+// static
+LLSD LLFloaterAbout::getInfo()
+{
+	// The point of having one method build an LLSD info block and the other
+	// construct the user-visible About string is to ensure that the same info
+	// is available to a getInfo() caller as to the user opening
+	// LLFloaterAbout.
+	LLSD info;
+	LLSD version;
+	version.append(LLVersionInfo::getMajor());
+	version.append(LLVersionInfo::getMinor());
+	version.append(LLVersionInfo::getPatch());
+	version.append(LLVersionInfo::getBuild());
+	info["VIEWER_VERSION"] = version;
+	info["VIEWER_VERSION_STR"] = LLVersionInfo::getVersion();
+	info["BUILD_DATE"] = __DATE__;
+	info["BUILD_TIME"] = __TIME__;
+	info["CHANNEL"] = LLVersionInfo::getChannel();
+
+	info["VIEWER_RELEASE_NOTES_URL"] = get_viewer_release_notes_url();
+
+#if LL_MSVC
+	info["COMPILER"] = "MSVC";
+	info["COMPILER_VERSION"] = _MSC_VER;
+#elif LL_GNUC
+	info["COMPILER"] = "GCC";
+	info["COMPILER_VERSION"] = GCC_VERSION;
 #endif
 
 	// Position
 	LLViewerRegion* region = gAgent.getRegion();
 	if (region)
 	{
-		LLStyleSP server_link_style(new LLStyle);
-		server_link_style->setVisible(true);
-		server_link_style->setFontName(LLStringUtil::null);
-		server_link_style->setLinkHREF(region->getCapability("ServerReleaseNotes"));
-		server_link_style->setColor(LLUIColorTable::instance().getColor("HTMLLinkColor"));
-
 		const LLVector3d &pos = gAgent.getPositionGlobal();
-		LLUIString pos_text = getString("you_are_at");
-		pos_text.setArg("[POSITION]",
-						llformat("%.1f, %.1f, %.1f ", pos.mdV[VX], pos.mdV[VY], pos.mdV[VZ]));
-		support.append(pos_text);
-
-		LLUIString region_text = getString ("in_region") + " ";
-		region_text.setArg("[REGION]", llformat ("%s", gAgent.getRegion()->getName().c_str()));
-		support.append(region_text);
-
-		std::string buffer;
-		buffer = gAgent.getRegion()->getHost().getHostName();
-		support.append(buffer);
-		support.append(" (");
-		buffer = gAgent.getRegion()->getHost().getString();
-		support.append(buffer);
-		support.append(")\n");
-		support.append(gLastVersionChannel);
-		support.append("\n");
-
-		support_widget->appendColoredText(support, FALSE, FALSE, LLUIColorTable::instance().getColor("TextFgReadOnlyColor"));
-		support_widget->appendStyledText(LLTrans::getString("ReleaseNotes"), false, false, server_link_style);
-
-		support = "\n\n";
+		info["POSITION"] = ll_sd_from_vector3d(pos);
+		info["REGION"] = gAgent.getRegion()->getName();
+		info["HOSTNAME"] = gAgent.getRegion()->getHost().getHostName();
+		info["HOSTIP"] = gAgent.getRegion()->getHost().getString();
+		info["SERVER_VERSION"] = gLastVersionChannel;
+		info["SERVER_RELEASE_NOTES_URL"] = LLWeb::escapeURL(region->getCapability("ServerReleaseNotes"));
 	}
 
-	// *NOTE: Do not translate text like GPU, Graphics Card, etc -
-	//  Most PC users that know what these mean will be used to the english versions,
-	//  and this info sometimes gets sent to support
-	
 	// CPU
-	support.append(getString("CPU") + " ");
-	support.append( gSysCPU.getCPUString() );
-	support.append("\n");
-
-	U32 memory = gSysMemory.getPhysicalMemoryKB() / 1024;
+	info["CPU"] = gSysCPU.getCPUString();
+	info["MEMORY_MB"] = LLSD::Integer(gSysMemory.getPhysicalMemoryKB() / 1024);
 	// Moved hack adjustment to Windows memory size into llsys.cpp
-
-	LLStringUtil::format_map_t args;
-	args["[MEM]"] = llformat ("%u", memory);
-	support.append(getString("Memory", args) + "\n");
-
-	support.append(getString("OSVersion") + " ");
-	support.append( LLAppViewer::instance()->getOSInfo().getOSString() );
-	support.append("\n");
-
-	support.append(getString("GraphicsCardVendor") + " ");
-	support.append( (const char*) glGetString(GL_VENDOR) );
-	support.append("\n");
-
-	support.append(getString("GraphicsCard") + " ");
-	support.append( (const char*) glGetString(GL_RENDERER) );
-	support.append("\n");
+	info["OS_VERSION"] = LLAppViewer::instance()->getOSInfo().getOSString();
+	info["GRAPHICS_CARD_VENDOR"] = (const char*)(glGetString(GL_VENDOR));
+	info["GRAPHICS_CARD"] = (const char*)(glGetString(GL_RENDERER));
 
 #if LL_WINDOWS
-    getWindow()->incBusyCount();
-    getWindow()->setCursor(UI_CURSOR_ARROW);
-    support.append("Windows Graphics Driver Version: ");
     LLSD driver_info = gDXHardware.getDisplayInfo();
     if (driver_info.has("DriverVersion"))
     {
-        support.append(driver_info["DriverVersion"]);
+        info["GRAPHICS_DRIVER_VERSION"] = driver_info["DriverVersion"];
     }
-    support.append("\n");
-    getWindow()->decBusyCount();
-    getWindow()->setCursor(UI_CURSOR_ARROW);
 #endif
 
-	support.append(getString("OpenGLVersion") + " ");
-	support.append( (const char*) glGetString(GL_VERSION) );
-	support.append("\n");
-
-	support.append("\n");
-
-	support.append(getString("LibCurlVersion") + " ");
-	support.append( LLCurl::getVersionString() );
-	support.append("\n");
-
-	support.append(getString("J2CDecoderVersion") + " ");
-	support.append( LLImageJ2C::getEngineInfo() );
-	support.append("\n");
-
-	support.append(getString("AudioDriverVersion") + " ");
+	info["OPENGL_VERSION"] = (const char*)(glGetString(GL_VERSION));
+	info["LIBCURL_VERSION"] = LLCurl::getVersionString();
+	info["J2C_VERSION"] = LLImageJ2C::getEngineInfo();
 	bool want_fullname = true;
-	support.append( gAudiop ? gAudiop->getDriverName(want_fullname) : getString("none") );
-	support.append("\n");
-
-	LLMediaManager *mgr = LLMediaManager::getInstance();
-	if (mgr)
+	info["AUDIO_DRIVER_VERSION"] = gAudiop ? LLSD(gAudiop->getDriverName(want_fullname)) : LLSD();
+	if(LLVoiceClient::getInstance()->voiceEnabled())
 	{
-		LLMediaBase *media_source = mgr->createSourceFromMimeType("http", "text/html");
-		if (media_source)
-		{
-			support.append(getString("LLMozLibVersion") + " ");
-			support.append(media_source->getVersion());
-			support.append("\n");
-			mgr->destroySource(media_source);
-		}
+		LLVoiceVersionInfo version = LLVoiceClient::getInstance()->getVersion();
+		std::ostringstream version_string;
+		version_string << version.serverType << " " << version.serverVersion << std::endl;
+		info["VOICE_VERSION"] = version_string.str();
 	}
+	else 
+	{
+		info["VOICE_VERSION"] = LLTrans::getString("NotConnected");
+	}
+	
+	// TODO: Implement media plugin version query
+	info["QT_WEBKIT_VERSION"] = "4.7.1 (version number hard-coded)";
 
 	if (gPacketsIn > 0)
 	{
-		args["[LOST]"] = llformat ("%.0f", LLViewerStats::getInstance()->mPacketsLostStat.getCurrent());
-		args["[IN]"] = llformat ("%.0f", F32(gPacketsIn));
-		args["[PCT]"] = llformat ("%.1f", 100.f*LLViewerStats::getInstance()->mPacketsLostStat.getCurrent() / F32(gPacketsIn) );
-		support.append(getString ("PacketsLost", args) + "\n");
+		info["PACKETS_LOST"] = LLViewerStats::getInstance()->mPacketsLostStat.getCurrent();
+		info["PACKETS_IN"] = F32(gPacketsIn);
+		info["PACKETS_PCT"] = 100.f*info["PACKETS_LOST"].asReal() / info["PACKETS_IN"].asReal();
 	}
 
-	support_widget->appendColoredText(support, FALSE, FALSE, LLUIColorTable::instance().getColor("TextFgReadOnlyColor"));
-
-	// Fix views
-	support_widget->setCursorPos(0);
-	support_widget->setEnabled(FALSE);
-	support_widget->setTakesFocus(TRUE);
-	support_widget->setHandleEditKeysDirectly(TRUE);
-
-	credits_widget->setCursorPos(0);
-	credits_widget->setEnabled(FALSE);
-	credits_widget->setTakesFocus(TRUE);
-	credits_widget->setHandleEditKeysDirectly(TRUE);
-
-	return TRUE;
+    return info;
 }
 
+static std::string get_viewer_release_notes_url()
+{
+	// return a URL to the release notes for this viewer, such as:
+	// http://wiki.secondlife.com/wiki/Release_Notes/Second Life Beta Viewer/2.1.0
+	std::string url = LLTrans::getString("RELEASE_NOTES_BASE_URL");
+	if (! LLStringUtil::endsWith(url, "/"))
+		url += "/";
+	url += LLVersionInfo::getChannel() + "/";
+	url += LLVersionInfo::getShortVersion();
+	return LLWeb::escapeURL(url);
+}
 
- static std::string get_viewer_release_notes_url()
- {
- 	std::ostringstream version;
- 	version << LL_VERSION_MAJOR << "."
- 		<< LL_VERSION_MINOR << "."
- 		<< LL_VERSION_PATCH << "."
- 		<< LL_VERSION_BUILD;
+class LLFloaterAboutListener: public LLEventAPI
+{
+public:
+	LLFloaterAboutListener():
+		LLEventAPI("LLFloaterAbout",
+                   "LLFloaterAbout listener to retrieve About box info")
+	{
+		add("getInfo",
+            "Request an LLSD::Map containing information used to populate About box",
+            &LLFloaterAboutListener::getInfo,
+            LLSD().with("reply", LLSD()));
+	}
 
- 	LLSD query;
- 	query["channel"] = gSavedSettings.getString("VersionChannelName");
- 	query["version"] = version.str();
+private:
+	void getInfo(const LLSD& request) const
+	{
+		LLReqID reqid(request);
+		LLSD reply(LLFloaterAbout::getInfo());
+		reqid.stamp(reply);
+		LLEventPumps::instance().obtain(request["reply"]).post(reply);
+	}
+};
 
- 	std::ostringstream url;
-	 url << LLTrans::getString("RELEASE_NOTES_BASE_URL") << LLURI::mapToQueryString(query);
+static LLFloaterAboutListener floaterAboutListener;
 
- 	return url.str();
- }
+void LLFloaterAbout::onClickCopyToClipboard()
+{
+	LLViewerTextEditor *support_widget = 
+		getChild<LLViewerTextEditor>("support_editor", true);
+	support_widget->selectAll();
+	support_widget->copy();
+	support_widget->deselect();
+}
+
+///----------------------------------------------------------------------------
+/// LLFloaterAboutUtil
+///----------------------------------------------------------------------------
+void LLFloaterAboutUtil::registerFloater()
+{
+	LLFloaterReg::add("sl_about", "floater_about.xml",
+		&LLFloaterReg::build<LLFloaterAbout>);
+
+}

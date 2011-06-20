@@ -2,31 +2,25 @@
  * @file llappviewermacosx.cpp
  * @brief The LLAppViewerMacOSX class definitions
  *
- * $LicenseInfo:firstyear=2007&license=viewergpl$
- * 
- * Copyright (c) 2007-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2007&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */ 
 
@@ -44,13 +38,13 @@
 #include "llviewernetwork.h"
 #include "llviewercontrol.h"
 #include "llmd5.h"
-#include "llurlsimstring.h"
 #include "llfloaterworldmap.h"
 #include "llurldispatcher.h"
 #include <Carbon/Carbon.h>
 #include "lldir.h"
 #include <signal.h>
-class LLWebBrowserCtrl;		// for LLURLDispatcher
+#include <CoreAudio/CoreAudio.h>	// for systemwide mute
+class LLMediaCtrl;		// for LLURLDispatcher
 
 namespace 
 {
@@ -159,15 +153,7 @@ bool LLAppViewerMacOSX::initParseCommandLine(LLCommandLineParser& clp)
 	clp.addOptionDesc("psn", NULL, 1, "MacOSX process serial number");
 	clp.setCustomParser(parse_psn);
 	
-	// First parse the command line, not often used on the mac.
-	if(clp.parseCommandLine(gArgC, gArgV) == false)
-	{
-		return false;
-	}
-    
-    // Now read in the args from arguments txt.
-    // Succesive calls to clp.parse... will NOT override earlier 
-    // options. 
+    // First read in the args from arguments txt.
     const char* filename = "arguments.txt";
 	llifstream ifs(filename, llifstream::binary);
 	if (!ifs.is_open())
@@ -180,7 +166,14 @@ bool LLAppViewerMacOSX::initParseCommandLine(LLCommandLineParser& clp)
 	{
 		return false;
 	}
-	
+
+	// Then parse the user's command line, so that any --url arg can appear last
+	// Succesive calls to clp.parse... will NOT override earlier options. 
+	if(clp.parseCommandLine(gArgC, gArgV) == false)
+	{
+		return false;
+	}
+    	
 	// Get the user's preferred language string based on the Mac OS localization mechanism.
 	// To add a new localization:
 		// go to the "Resources" section of the project
@@ -265,11 +258,6 @@ bool LLAppViewerMacOSX::restoreErrorTrap()
 	return reset_count == 0;
 }
 
-void LLAppViewerMacOSX::handleSyncCrashTrace()
-{
-	// do nothing
-}
-
 static OSStatus CarbonEventHandler(EventHandlerCallRef inHandlerCallRef, 
 								   EventRef inEvent, 
 								   void* inUserData)
@@ -291,6 +279,7 @@ static OSStatus CarbonEventHandler(EventHandlerCallRef inHandlerCallRef,
 		if(os_result >= 0 && matching_psn)
 		{
 			sCrashReporterIsRunning = false;
+			QuitApplicationEventLoop();
 		}
     }
     return noErr;
@@ -326,7 +315,7 @@ void LLAppViewerMacOSX::handleCrashReporting(bool reportFreeze)
 			// *NOTE:Mani A better way - make a copy of the data that the crash reporter will send
 			// and let SL go about its business. This way makes the mac work like windows and linux
 			// and is the smallest patch for the issue. 
-			sCrashReporterIsRunning = true;
+			sCrashReporterIsRunning = false;
 			ProcessSerialNumber o_psn;
 
 			static EventHandlerRef sCarbonEventsRef = NULL;
@@ -356,15 +345,13 @@ void LLAppViewerMacOSX::handleCrashReporting(bool reportFreeze)
 			
 			if(os_result >= 0)
 			{	
-				EventRecord evt;
-				while(sCrashReporterIsRunning)
-				{
-					while(WaitNextEvent(osMask, &evt, 0, NULL))
-					{
-						// null op!?!
-					}
-				}
-			}	
+				sCrashReporterIsRunning = true;
+			}
+
+			while(sCrashReporterIsRunning)
+			{
+				RunApplicationEventLoop();
+			}
 
 			// Re-install the apps quit handler.
 			AEInstallEventHandler(kCoreEventClass, 
@@ -386,33 +373,6 @@ void LLAppViewerMacOSX::handleCrashReporting(bool reportFreeze)
 		}
 		
 	}
-
-	if(!reportFreeze)
-	{
-		_exit(1);
-	}
-	
-	// TODO:palmer REMOVE THIS VERY SOON.  THIS WILL NOT BE IN VIEWER 2.0
-	// Remove the crash stack log from previous executions.
-	// Since we've started logging a new instance of the app, we can assume 
-	// The old crash stack is invalid for the next crash report.
-	char path[MAX_PATH];		
-	FSRef folder;
-	if(FSFindFolder(kUserDomain, kLogsFolderType, false, &folder) == noErr)
-	{
-		// folder is an FSRef to ~/Library/Logs/
-		if(FSRefMakePath(&folder, (UInt8*)&path, sizeof(path)) == noErr)
-		{
-			std::string pathname = std::string(path) + std::string("/CrashReporter/");
-			std::string mask = "Second Life*";
-			std::string file_name;
-			while(gDirUtilp->getNextFileInDir(pathname, mask, file_name, false))
-			{
-				LLFile::remove(pathname + file_name);
-			}
-		}
-	}
-	
 }
 
 std::string LLAppViewerMacOSX::generateSerialNumber()
@@ -443,6 +403,68 @@ std::string LLAppViewerMacOSX::generateSerialNumber()
 	}
 
 	return serial_md5;
+}
+
+static AudioDeviceID get_default_audio_output_device(void)
+{
+	AudioDeviceID device = 0;
+	UInt32 size = sizeof(device);
+	AudioObjectPropertyAddress device_address = { kAudioHardwarePropertyDefaultOutputDevice,
+												  kAudioObjectPropertyScopeGlobal,
+												  kAudioObjectPropertyElementMaster };
+
+	OSStatus err = AudioObjectGetPropertyData(kAudioObjectSystemObject, &device_address, 0, NULL, &size, &device);
+	if(err != noErr)
+	{
+		LL_DEBUGS("SystemMute") << "Couldn't get default audio output device (0x" << std::hex << err << ")" << LL_ENDL;
+	}
+
+	return device;
+}
+
+//virtual
+void LLAppViewerMacOSX::setMasterSystemAudioMute(bool new_mute)
+{
+	AudioDeviceID device = get_default_audio_output_device();
+
+	if(device != 0)
+	{
+		UInt32 mute = new_mute;
+		AudioObjectPropertyAddress device_address = { kAudioDevicePropertyMute,
+													  kAudioDevicePropertyScopeOutput,
+													  kAudioObjectPropertyElementMaster };
+
+		OSStatus err = AudioObjectSetPropertyData(device, &device_address, 0, NULL, sizeof(mute), &mute);
+		if(err != noErr)
+		{
+			LL_INFOS("SystemMute") << "Couldn't set audio mute property (0x" << std::hex << err << ")" << LL_ENDL;
+		}
+	}
+}
+
+//virtual
+bool LLAppViewerMacOSX::getMasterSystemAudioMute()
+{
+	// Assume the system isn't muted 
+	UInt32 mute = 0;
+
+	AudioDeviceID device = get_default_audio_output_device();
+
+	if(device != 0)
+	{
+		UInt32 size = sizeof(mute);
+		AudioObjectPropertyAddress device_address = { kAudioDevicePropertyMute,
+													  kAudioDevicePropertyScopeOutput,
+													  kAudioObjectPropertyElementMaster };
+
+		OSStatus err = AudioObjectGetPropertyData(device, &device_address, 0, NULL, &size, &mute);
+		if(err != noErr)
+		{
+			LL_DEBUGS("SystemMute") << "Couldn't get audio mute property (0x" << std::hex << err << ")" << LL_ENDL;
+		}
+	}
+	
+	return (mute != 0);
 }
 
 OSErr AEGURLHandler(const AppleEvent *messagein, AppleEvent *reply, long refIn)
@@ -476,9 +498,9 @@ OSErr AEGURLHandler(const AppleEvent *messagein, AppleEvent *reply, long refIn)
 			url.replace(0, prefix.length(), "secondlife:///app/");
 		}
 		
-		LLWebBrowserCtrl* web = NULL;
+		LLMediaCtrl* web = NULL;
 		const bool trusted_browser = false;
-		LLURLDispatcher::dispatch(url, web, trusted_browser);
+		LLURLDispatcher::dispatch(url, "", web, trusted_browser);
 	}
 	
 	return(result);

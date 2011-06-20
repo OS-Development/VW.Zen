@@ -2,31 +2,25 @@
  * @file llcontrol.cpp
  * @brief Holds global state for viewer.
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -174,6 +168,20 @@ LLSD LLControlVariable::getComparableValue(const LLSD& value)
 		else
 		{
 			storable_value = false;
+		}
+	}
+	else if (TYPE_LLSD == type() && value.isString())
+	{
+		LLPointer<LLSDNotationParser> parser = new LLSDNotationParser;
+		LLSD result;
+		std::stringstream value_stream(value.asString());
+		if (parser->parse(value_stream, result, LLSDSerialize::SIZE_UNLIMITED) != LLSDParser::PARSE_FAILURE)
+		{
+			storable_value = result;
+		}
+		else
+		{
+			storable_value = value;
 		}
 	}
 	else
@@ -827,11 +835,9 @@ U32 LLControlGroup::saveToFile(const std::string& filename, BOOL nondefault_only
 	return num_saved;
 }
 
-U32 LLControlGroup::loadFromFile(const std::string& filename, bool set_default_values)
+U32 LLControlGroup::loadFromFile(const std::string& filename, bool set_default_values, bool save_values)
 {
-	std::string name;
 	LLSD settings;
-	LLSD control_map;
 	llifstream infile;
 	infile.open(filename);
 	if(!infile.is_open())
@@ -855,8 +861,8 @@ U32 LLControlGroup::loadFromFile(const std::string& filename, bool set_default_v
 	for(LLSD::map_const_iterator itr = settings.beginMap(); itr != settings.endMap(); ++itr)
 	{
 		bool persist = true;
-		name = (*itr).first;
-		control_map = (*itr).second;
+		std::string const & name = itr->first;
+		LLSD const & control_map = itr->second;
 		
 		if(control_map.has("Persist")) 
 		{
@@ -900,8 +906,7 @@ U32 LLControlGroup::loadFromFile(const std::string& filename, bool set_default_v
 			}
 			else if(existing_control->isPersisted())
 			{
-				
-				existing_control->setValue(control_map["Value"]);
+				existing_control->setValue(control_map["Value"], save_values);
 			}
 			// *NOTE: If not persisted and not setting defaults, 
 			// the value should not get loaded.
@@ -1113,7 +1118,7 @@ bool convert_from_llsd<bool>(const LLSD& sd, eControlType type, const std::strin
 		return sd.asBoolean();
 	else
 	{
-		CONTROL_ERRS << "Invalid BOOL value" << llendl;
+		CONTROL_ERRS << "Invalid BOOL value for " << control_name << ": " << sd << llendl;
 		return FALSE;
 	}
 }
@@ -1125,7 +1130,7 @@ S32 convert_from_llsd<S32>(const LLSD& sd, eControlType type, const std::string&
 		return sd.asInteger();
 	else
 	{
-		CONTROL_ERRS << "Invalid S32 value" << llendl;
+		CONTROL_ERRS << "Invalid S32 value for " << control_name << ": " << sd << llendl;
 		return 0;
 	}
 }
@@ -1137,7 +1142,7 @@ U32 convert_from_llsd<U32>(const LLSD& sd, eControlType type, const std::string&
 		return sd.asInteger();
 	else
 	{
-		CONTROL_ERRS << "Invalid U32 value" << llendl;
+		CONTROL_ERRS << "Invalid U32 value for " << control_name << ": " << sd << llendl;
 		return 0;
 	}
 }
@@ -1149,7 +1154,7 @@ F32 convert_from_llsd<F32>(const LLSD& sd, eControlType type, const std::string&
 		return (F32) sd.asReal();
 	else
 	{
-		CONTROL_ERRS << "Invalid F32 value" << llendl;
+		CONTROL_ERRS << "Invalid F32 value for " << control_name << ": " << sd << llendl;
 		return 0.0f;
 	}
 }
@@ -1161,7 +1166,7 @@ std::string convert_from_llsd<std::string>(const LLSD& sd, eControlType type, co
 		return sd.asString();
 	else
 	{
-		CONTROL_ERRS << "Invalid string value" << llendl;
+		CONTROL_ERRS << "Invalid string value for " << control_name << ": " << sd << llendl;
 		return LLStringUtil::null;
 	}
 }
@@ -1179,7 +1184,7 @@ LLVector3 convert_from_llsd<LLVector3>(const LLSD& sd, eControlType type, const 
 		return (LLVector3)sd;
 	else
 	{
-		CONTROL_ERRS << "Invalid LLVector3 value" << llendl;
+		CONTROL_ERRS << "Invalid LLVector3 value for " << control_name << ": " << sd << llendl;
 		return LLVector3::zero;
 	}
 }
@@ -1191,7 +1196,7 @@ LLVector3d convert_from_llsd<LLVector3d>(const LLSD& sd, eControlType type, cons
 		return (LLVector3d)sd;
 	else
 	{
-		CONTROL_ERRS << "Invalid LLVector3d value" << llendl;
+		CONTROL_ERRS << "Invalid LLVector3d value for " << control_name << ": " << sd << llendl;
 		return LLVector3d::zero;
 	}
 }
@@ -1203,7 +1208,7 @@ LLRect convert_from_llsd<LLRect>(const LLSD& sd, eControlType type, const std::s
 		return LLRect(sd);
 	else
 	{
-		CONTROL_ERRS << "Invalid rect value" << llendl;
+		CONTROL_ERRS << "Invalid rect value for " << control_name << ": " << sd << llendl;
 		return LLRect::null;
 	}
 }
@@ -1217,19 +1222,19 @@ LLColor4 convert_from_llsd<LLColor4>(const LLSD& sd, eControlType type, const st
 		LLColor4 color(sd);
 		if (color.mV[VRED] < 0.f || color.mV[VRED] > 1.f)
 		{
-			llwarns << "Color " << control_name << " value out of range " << llendl;
+			llwarns << "Color " << control_name << " red value out of range: " << color << llendl;
 		}
 		else if (color.mV[VGREEN] < 0.f || color.mV[VGREEN] > 1.f)
 		{
-			llwarns << "Color " << control_name << " value out of range " << llendl;
+			llwarns << "Color " << control_name << " green value out of range: " << color << llendl;
 		}
 		else if (color.mV[VBLUE] < 0.f || color.mV[VBLUE] > 1.f)
 		{
-			llwarns << "Color " << control_name << " value out of range " << llendl;
+			llwarns << "Color " << control_name << " blue value out of range: " << color << llendl;
 		}
 		else if (color.mV[VALPHA] < 0.f || color.mV[VALPHA] > 1.f)
 		{
-			llwarns << "Color " << control_name << " value out of range " << llendl;
+			llwarns << "Color " << control_name << " alpha value out of range: " << color << llendl;
 		}
 
 		return LLColor4(sd);
@@ -1248,7 +1253,7 @@ LLColor3 convert_from_llsd<LLColor3>(const LLSD& sd, eControlType type, const st
 		return sd;
 	else
 	{
-		CONTROL_ERRS << "Invalid LLColor3 value" << llendl;
+		CONTROL_ERRS << "Invalid LLColor3 value for " << control_name << ": " << sd << llendl;
 		return LLColor3::white;
 	}
 }

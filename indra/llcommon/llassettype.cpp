@@ -2,31 +2,25 @@
  * @file llassettype.cpp
  * @brief Implementatino of LLAssetType functionality.
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -43,20 +37,27 @@
 struct AssetEntry : public LLDictionaryEntry
 {
 	AssetEntry(const char *desc_name,
-			   const char *type_name, // 8 character limit!
-			   const char *human_name,
-			   const char *category_name, // used by llinventorymodel when creating new categories
-			   EDragAndDropType dad_type,
-			   bool can_link);
+			   const char *type_name, 	// 8 character limit!
+			   const char *human_name, 	// for decoding to human readable form; put any and as many printable characters you want in each one
+			   bool can_link, 			// can you create a link to this type?
+			   bool can_fetch, 			// can you fetch this asset by ID?
+			   bool can_know) 			// can you see this asset's ID?
+		:
+		LLDictionaryEntry(desc_name),
+		mTypeName(type_name),
+		mHumanName(human_name),
+		mCanLink(can_link),
+		mCanFetch(can_fetch),
+		mCanKnow(can_know)
+	{
+		llassert(strlen(mTypeName) <= 8);
+	}
 
-	// limited to 8 characters
 	const char *mTypeName;
-	// human readable form.  Put as many printable characters you want in each one.
-	// (c.f. llinventory.cpp INVENTORY_TYPE_HUMAN_NAMES).
 	const char *mHumanName;
-	const char *mCategoryName;
-	EDragAndDropType mDadType;
 	bool mCanLink;
+	bool mCanFetch;
+	bool mCanKnow;
 };
 
 class LLAssetDictionary : public LLSingleton<LLAssetDictionary>,
@@ -68,52 +69,34 @@ public:
 
 LLAssetDictionary::LLAssetDictionary()
 {
-	addEntry(LLAssetType::AT_TEXTURE, 			new AssetEntry("TEXTURE",			"texture",	"texture",			"Textures", 		DAD_TEXTURE,	FALSE));
-	addEntry(LLAssetType::AT_SOUND, 			new AssetEntry("SOUND",				"sound",	"sound",			"Sounds", 			DAD_SOUND,		FALSE));
-	addEntry(LLAssetType::AT_CALLINGCARD, 		new AssetEntry("CALLINGCARD",		"callcard",	"calling card",		"Calling Cards", 	DAD_CALLINGCARD, FALSE));
-	addEntry(LLAssetType::AT_LANDMARK, 			new AssetEntry("LANDMARK",			"landmark",	"landmark",			"Landmarks", 		DAD_LANDMARK,	FALSE));
-	addEntry(LLAssetType::AT_SCRIPT, 			new AssetEntry("SCRIPT",			"script",	"legacy script",	"Scripts", 			DAD_NONE,		FALSE));
-	addEntry(LLAssetType::AT_CLOTHING, 			new AssetEntry("CLOTHING",			"clothing",	"clothing",			"Clothing", 		DAD_CLOTHING,	TRUE));
-	addEntry(LLAssetType::AT_OBJECT, 			new AssetEntry("OBJECT",			"object",	"object",			"Objects", 			DAD_OBJECT,		TRUE));
-	addEntry(LLAssetType::AT_NOTECARD, 			new AssetEntry("NOTECARD",			"notecard",	"note card",		"Notecards", 		DAD_NOTECARD,	FALSE));
-	addEntry(LLAssetType::AT_CATEGORY, 			new AssetEntry("CATEGORY",			"category",	"folder",			"New Folder", 		DAD_CATEGORY,	TRUE));
-	addEntry(LLAssetType::AT_ROOT_CATEGORY, 	new AssetEntry("ROOT_CATEGORY",		"root",		"root",				"Inventory", 		DAD_ROOT_CATEGORY, TRUE));
-	addEntry(LLAssetType::AT_LSL_TEXT, 			new AssetEntry("LSL_TEXT",			"lsltext",	"lsl2 script",		"Scripts", 			DAD_SCRIPT,		FALSE));
-	addEntry(LLAssetType::AT_LSL_BYTECODE, 		new AssetEntry("LSL_BYTECODE",		"lslbyte",	"lsl bytecode",		"Scripts", 			DAD_NONE,		FALSE));
-	addEntry(LLAssetType::AT_TEXTURE_TGA, 		new AssetEntry("TEXTURE_TGA",		"txtr_tga",	"tga texture",		"Uncompressed Images", DAD_NONE,	FALSE));
-	addEntry(LLAssetType::AT_BODYPART, 			new AssetEntry("BODYPART",			"bodypart",	"body part",		"Body Parts", 		DAD_BODYPART,	TRUE));
-	addEntry(LLAssetType::AT_TRASH, 			new AssetEntry("TRASH",				"trash",	"trash",			"Trash", 			DAD_NONE,		FALSE));
-	addEntry(LLAssetType::AT_SNAPSHOT_CATEGORY, new AssetEntry("SNAPSHOT_CATEGORY", "snapshot",	"snapshot",			"Photo Album", 		DAD_NONE,		FALSE));
-	addEntry(LLAssetType::AT_LOST_AND_FOUND, 	new AssetEntry("LOST_AND_FOUND", 	"lstndfnd",	"lost and found",	"Lost And Found", 	DAD_NONE,		FALSE));
-	addEntry(LLAssetType::AT_SOUND_WAV, 		new AssetEntry("SOUND_WAV",			"snd_wav",	"sound",			"Uncompressed SoundS", DAD_NONE,	FALSE));
-	addEntry(LLAssetType::AT_IMAGE_TGA, 		new AssetEntry("IMAGE_TGA",			"img_tga",	"targa image",		"Uncompressed Images", DAD_NONE,	FALSE));
-	addEntry(LLAssetType::AT_IMAGE_JPEG, 		new AssetEntry("IMAGE_JPEG",		"jpeg",		"jpeg image",		"Uncompressed Images", DAD_NONE,	FALSE));
-	addEntry(LLAssetType::AT_ANIMATION, 		new AssetEntry("ANIMATION",			"animatn",	"animation",		"Animations", 		DAD_ANIMATION,	FALSE));
-	addEntry(LLAssetType::AT_GESTURE, 			new AssetEntry("GESTURE",			"gesture",	"gesture",			"Gestures", 		DAD_GESTURE,	FALSE));
-	addEntry(LLAssetType::AT_SIMSTATE, 			new AssetEntry("SIMSTATE",			"simstate",	"simstate",			"New Folder", 		DAD_NONE,		FALSE));
-	addEntry(LLAssetType::AT_FAVORITE, 			new AssetEntry("FAVORITE",			"favorite",	"favorite",			"favorite", 		DAD_NONE,		FALSE));
+	//       												   DESCRIPTION			TYPE NAME	HUMAN NAME			CAN LINK?   CAN FETCH?  CAN KNOW?	
+	//      												  |--------------------|-----------|-------------------|-----------|-----------|---------|
+	addEntry(LLAssetType::AT_TEXTURE, 			new AssetEntry("TEXTURE",			"texture",	"texture",			true,		false,		true));
+	addEntry(LLAssetType::AT_SOUND, 			new AssetEntry("SOUND",				"sound",	"sound",			true,		true,		true));
+	addEntry(LLAssetType::AT_CALLINGCARD, 		new AssetEntry("CALLINGCARD",		"callcard",	"calling card",		true,		false,		false));
+	addEntry(LLAssetType::AT_LANDMARK, 			new AssetEntry("LANDMARK",			"landmark",	"landmark",			true,		true,		true));
+	addEntry(LLAssetType::AT_SCRIPT, 			new AssetEntry("SCRIPT",			"script",	"legacy script",	true,		false,		false));
+	addEntry(LLAssetType::AT_CLOTHING, 			new AssetEntry("CLOTHING",			"clothing",	"clothing",			true,		true,		true));
+	addEntry(LLAssetType::AT_OBJECT, 			new AssetEntry("OBJECT",			"object",	"object",			true,		false,		false));
+	addEntry(LLAssetType::AT_NOTECARD, 			new AssetEntry("NOTECARD",			"notecard",	"note card",		true,		false,		true));
+	addEntry(LLAssetType::AT_CATEGORY, 			new AssetEntry("CATEGORY",			"category",	"folder",			true,		false,		false));
+	addEntry(LLAssetType::AT_LSL_TEXT, 			new AssetEntry("LSL_TEXT",			"lsltext",	"lsl2 script",		true,		false,		false));
+	addEntry(LLAssetType::AT_LSL_BYTECODE, 		new AssetEntry("LSL_BYTECODE",		"lslbyte",	"lsl bytecode",		true,		false,		false));
+	addEntry(LLAssetType::AT_TEXTURE_TGA, 		new AssetEntry("TEXTURE_TGA",		"txtr_tga",	"tga texture",		true,		false,		false));
+	addEntry(LLAssetType::AT_BODYPART, 			new AssetEntry("BODYPART",			"bodypart",	"body part",		true,		true,		true));
+	addEntry(LLAssetType::AT_SOUND_WAV, 		new AssetEntry("SOUND_WAV",			"snd_wav",	"sound",			true,		false,		false));
+	addEntry(LLAssetType::AT_IMAGE_TGA, 		new AssetEntry("IMAGE_TGA",			"img_tga",	"targa image",		true,		false,		false));
+	addEntry(LLAssetType::AT_IMAGE_JPEG, 		new AssetEntry("IMAGE_JPEG",		"jpeg",		"jpeg image",		true,		false,		false));
+	addEntry(LLAssetType::AT_ANIMATION, 		new AssetEntry("ANIMATION",			"animatn",	"animation",		true,		true,		true));
+	addEntry(LLAssetType::AT_GESTURE, 			new AssetEntry("GESTURE",			"gesture",	"gesture",			true,		true,		true));
+	addEntry(LLAssetType::AT_SIMSTATE, 			new AssetEntry("SIMSTATE",			"simstate",	"simstate",			false,		false,		false));
 
-	addEntry(LLAssetType::AT_LINK, 				new AssetEntry("LINK",				"link",		"symbolic link",	"New Folder", 		DAD_NONE,		FALSE));
-	addEntry(LLAssetType::AT_LINK_FOLDER, 		new AssetEntry("FOLDER_LINK",		"link_f", "symbolic folder link", "New Folder", DAD_NONE,		FALSE));
+	addEntry(LLAssetType::AT_LINK, 				new AssetEntry("LINK",				"link",		"sym link",			false,		false,		true));
+	addEntry(LLAssetType::AT_LINK_FOLDER, 		new AssetEntry("FOLDER_LINK",		"link_f", 	"sym folder link",	false,		false,		true));
+	addEntry(LLAssetType::AT_MESH,              new AssetEntry("MESH",              "mesh",     "mesh",             false, false, false));
+	addEntry(LLAssetType::AT_NONE, 				new AssetEntry("NONE",				"-1",		NULL,		  		FALSE,		FALSE,		FALSE));
 
-	addEntry(LLAssetType::AT_NONE, 				new AssetEntry("NONE",				"-1",		NULL,		  		"New Folder", 		DAD_NONE,		FALSE));
 };
-
-AssetEntry::AssetEntry(const char *desc_name,
-					   const char *type_name,
-					   const char *human_name,
-					   const char *category_name,
-					   EDragAndDropType dad_type,
-					   bool can_link) :
-	LLDictionaryEntry(desc_name),
-	mTypeName(type_name),
-	mHumanName(human_name),
-	mCategoryName(category_name),
-	mDadType(dad_type),
-	mCanLink(can_link)
-{
-	llassert(strlen(mTypeName) <= 8);
-}
 
 // static
 LLAssetType::EType LLAssetType::getType(const std::string& desc_name)
@@ -128,13 +111,12 @@ const std::string &LLAssetType::getDesc(LLAssetType::EType asset_type)
 {
 	const AssetEntry *entry = LLAssetDictionary::getInstance()->lookup(asset_type);
 	if (entry)
-{ 
+	{
 		return entry->mName;
 	}
 	else
-	{ 
-		static const std::string error_string = "BAD TYPE";
-		return error_string;
+	{
+		return badLookup();
 	}
 }
 
@@ -149,16 +131,17 @@ const char *LLAssetType::lookup(LLAssetType::EType asset_type)
 	}
 	else
 	{
-		return "-1";
+		return badLookup().c_str();
 	}
 }
 
 // static
-LLAssetType::EType LLAssetType::lookup( const char* name )
+LLAssetType::EType LLAssetType::lookup(const char* name)
 {
 	return lookup(ll_safe_string(name));
 }
 
+// static
 LLAssetType::EType LLAssetType::lookup(const std::string& type_name)
 {
 	const LLAssetDictionary *dict = LLAssetDictionary::getInstance();
@@ -186,16 +169,17 @@ const char *LLAssetType::lookupHumanReadable(LLAssetType::EType asset_type)
 	}
 	else
 	{
-		return NULL;
+		return badLookup().c_str();
 	}
 }
 
 // static
-LLAssetType::EType LLAssetType::lookupHumanReadable( const char* name )
+LLAssetType::EType LLAssetType::lookupHumanReadable(const char* name)
 {
 	return lookupHumanReadable(ll_safe_string(name));
 }
 
+// static
 LLAssetType::EType LLAssetType::lookupHumanReadable(const std::string& readable_name)
 {
 	const LLAssetDictionary *dict = LLAssetDictionary::getInstance();
@@ -204,38 +188,12 @@ LLAssetType::EType LLAssetType::lookupHumanReadable(const std::string& readable_
 		 iter++)
 	{
 		const AssetEntry *entry = iter->second;
-		if (readable_name == entry->mHumanName)
+		if (entry->mHumanName && (readable_name == entry->mHumanName))
 		{
 			return iter->first;
 		}
 	}
 	return AT_NONE;
-}
-
-// static
-const char *LLAssetType::lookupCategoryName(LLAssetType::EType asset_type)
-{
-	const LLAssetDictionary *dict = LLAssetDictionary::getInstance();
-	const AssetEntry *entry = dict->lookup(asset_type);
-	if (entry)
-	{
-		return entry->mCategoryName;
-	}
-	else
-	{
-		return "New Folder";
-	}
-}
-
-// static
-EDragAndDropType LLAssetType::lookupDragAndDropType(EType asset_type)
-{
-	const LLAssetDictionary *dict = LLAssetDictionary::getInstance();
-	const AssetEntry *entry = dict->lookup(asset_type);
-	if (entry)
-		return entry->mDadType;
-	else
-		return DAD_NONE;
 }
 
 // static
@@ -261,16 +219,34 @@ bool LLAssetType::lookupIsLinkType(EType asset_type)
 	return false;
 }
 
-// static. Generate a good default description
-void LLAssetType::generateDescriptionFor(LLAssetType::EType asset_type,
-										 std::string& description)
+// static
+const std::string &LLAssetType::badLookup()
 {
-	const S32 BUF_SIZE = 30;
-	char time_str[BUF_SIZE];	/* Flawfinder: ignore */
-	time_t now;
-	time(&now);
-	memset(time_str, '\0', BUF_SIZE);
-	strftime(time_str, BUF_SIZE - 1, "%Y-%m-%d %H:%M:%S ", localtime(&now));
-	description.assign(time_str);
-	description.append(LLAssetType::lookupHumanReadable(asset_type));
+	static const std::string sBadLookup = "llassettype_bad_lookup";
+	return sBadLookup;
+
+}
+
+// static
+bool LLAssetType::lookupIsAssetFetchByIDAllowed(EType asset_type)
+{
+	const LLAssetDictionary *dict = LLAssetDictionary::getInstance();
+	const AssetEntry *entry = dict->lookup(asset_type);
+	if (entry)
+	{
+		return entry->mCanFetch;
+	}
+	return false;
+}
+
+// static
+bool LLAssetType::lookupIsAssetIDKnowable(EType asset_type)
+{
+	const LLAssetDictionary *dict = LLAssetDictionary::getInstance();
+	const AssetEntry *entry = dict->lookup(asset_type);
+	if (entry)
+	{
+		return entry->mCanKnow;
+	}
+	return false;
 }

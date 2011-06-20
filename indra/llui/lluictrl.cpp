@@ -3,115 +3,89 @@
  * @author James Cook, Richard Nelson, Tom Yedwab
  * @brief Abstract base class for UI controls
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
-//#include "llviewerprecompiledheaders.h"
 #include "linden_common.h"
+
+#define LLUICTRL_CPP
 #include "lluictrl.h"
+
 #include "llfocusmgr.h"
 #include "llpanel.h"
 #include "lluictrlfactory.h"
 
 static LLDefaultChildRegistry::Register<LLUICtrl> r("ui_ctrl");
 
+F32 LLUICtrl::sActiveControlTransparency = 1.0f;
+F32 LLUICtrl::sInactiveControlTransparency = 1.0f;
+
+// Compiler optimization, generate extern template
+template class LLUICtrl* LLView::getChild<class LLUICtrl>(
+	const std::string& name, BOOL recurse) const;
+
+LLUICtrl::CallbackParam::CallbackParam()
+:	name("name"),
+	function_name("function"),
+	parameter("parameter"),
+	control_name("control") // Shortcut to control -> "control_name" for backwards compatability			
+{
+	addSynonym(parameter, "userdata");
+}
+
+LLUICtrl::EnableControls::EnableControls()
+:	enabled("enabled_control"),
+	disabled("disabled_control")
+{}
+
+LLUICtrl::ControlVisibility::ControlVisibility()
+:	visible("visibility_control"),
+	invisible("invisibility_control")
+{
+	addSynonym(visible, "visiblity_control");
+	addSynonym(invisible, "invisiblity_control");
+}
+
 LLUICtrl::Params::Params()
 :	tab_stop("tab_stop", true),
+	chrome("chrome", false),
 	label("label"),
-	initial_value("initial_value"),
+	initial_value("value"),
 	init_callback("init_callback"),
 	commit_callback("commit_callback"),
 	validate_callback("validate_callback"),
-	rightclick_callback("rightclick_callback"),
 	mouseenter_callback("mouseenter_callback"),
 	mouseleave_callback("mouseleave_callback"),
-	control_name("control_name")
+	control_name("control_name"),
+	font("font", LLFontGL::getFontSansSerif()),
+	font_halign("halign"),
+	font_valign("valign"),
+	length("length"), 	// ignore LLXMLNode cruft
+	type("type")   		// ignore LLXMLNode cruft
 {
-	addSynonym(initial_value, "initial_val");
-	// this is the canonical name for text contents of an xml node
-	addSynonym(initial_value, "value");
+	addSynonym(initial_value, "initial_value");
 }
 
-LLFocusableElement::LLFocusableElement()
-:	mFocusLostCallback(NULL),
-	mFocusReceivedCallback(NULL),
-	mFocusChangedCallback(NULL),
-	mTopLostCallback(NULL),
-	mFocusCallbackUserData(NULL)
-{
-}
-
-//virtual
-LLFocusableElement::~LLFocusableElement()
-{
-}
-
-void LLFocusableElement::onFocusReceived()
-{
-	if( mFocusReceivedCallback )
-	{
-		mFocusReceivedCallback( this, mFocusCallbackUserData );
-	}
-	if( mFocusChangedCallback )
-	{
-		mFocusChangedCallback( this, mFocusCallbackUserData );
-	}
-}
-
-void LLFocusableElement::onFocusLost()
-{
-	if( mFocusLostCallback )
-	{
-		mFocusLostCallback( this, mFocusCallbackUserData );
-	}
-
-	if( mFocusChangedCallback )
-	{
-		mFocusChangedCallback( this, mFocusCallbackUserData );
-	}
-}
-
-void LLFocusableElement::onTopLost()
-{
-	if (mTopLostCallback)
-	{
-		mTopLostCallback(this, mFocusCallbackUserData);
-	}
-}
-
-BOOL LLFocusableElement::hasFocus() const
-{
-	return FALSE;
-}
-
-void LLFocusableElement::setFocus(BOOL b)
-{
-}
+// NOTE: the LLFocusableElement implementation has been moved from here to llfocusmgr.cpp.
 
 //static 
 const LLUICtrl::Params& LLUICtrl::getDefaultParams()
@@ -124,10 +98,23 @@ LLUICtrl::LLUICtrl(const LLUICtrl::Params& p, const LLViewModelPtr& viewmodel)
 :	LLView(p),
 	mTentative(FALSE),
 	mIsChrome(FALSE),
+	mTabStop(FALSE),
     mViewModel(viewmodel),
 	mControlVariable(NULL),
 	mEnabledControlVariable(NULL),
-	mDisabledControlVariable(NULL)
+	mDisabledControlVariable(NULL),
+	mMakeVisibleControlVariable(NULL),
+	mMakeInvisibleControlVariable(NULL),
+	mCommitSignal(NULL),
+	mValidateSignal(NULL),
+	mMouseEnterSignal(NULL),
+	mMouseLeaveSignal(NULL),
+	mMouseDownSignal(NULL),
+	mMouseUpSignal(NULL),
+	mRightMouseDownSignal(NULL),
+	mRightMouseUpSignal(NULL),
+	mDoubleClickSignal(NULL),
+	mTransparencyType(TT_DEFAULT)
 {
 	mUICtrlHandle.bind(this);
 }
@@ -136,6 +123,7 @@ void LLUICtrl::initFromParams(const Params& p)
 {
 	LLView::initFromParams(p);
 
+	setIsChrome(p.chrome);
 	setControlName(p.control_name);
 	if(p.enabled_controls.isProvided())
 	{
@@ -169,7 +157,6 @@ void LLUICtrl::initFromParams(const Params& p)
 	}
 
 	setTabStop(p.tab_stop);
-	setFocusLostCallback(p.focus_lost_callback());
 
 	if (p.initial_value.isProvided() 
 		&& !p.control_name.isProvided())
@@ -178,10 +165,14 @@ void LLUICtrl::initFromParams(const Params& p)
 	}
 	
 	if (p.commit_callback.isProvided())
-		initCommitCallback(p.commit_callback, mCommitSignal);
+	{
+		setCommitCallback(initCommitCallback(p.commit_callback));
+	}
 	
 	if (p.validate_callback.isProvided())
-		initEnableCallback(p.validate_callback, mValidateSignal);
+	{
+		setValidateCallback(initEnableCallback(p.validate_callback));
+	}
 	
 	if (p.init_callback.isProvided())
 	{
@@ -199,14 +190,15 @@ void LLUICtrl::initFromParams(const Params& p)
 		}
 	}
 
-	if(p.rightclick_callback.isProvided())
-		initCommitCallback(p.rightclick_callback, mRightClickSignal);
-
 	if(p.mouseenter_callback.isProvided())
-		initCommitCallback(p.mouseenter_callback, mMouseEnterSignal);
+	{
+		setMouseEnterCallback(initCommitCallback(p.mouseenter_callback));
+	}
 
 	if(p.mouseleave_callback.isProvided())
-		initCommitCallback(p.mouseleave_callback, mMouseLeaveSignal);
+	{
+		setMouseLeaveCallback(initCommitCallback(p.mouseleave_callback));
+	}
 }
 
 
@@ -219,16 +211,35 @@ LLUICtrl::~LLUICtrl()
 		llwarns << "UI Control holding top ctrl deleted: " << getName() << ".  Top view removed." << llendl;
 		gFocusMgr.removeTopCtrlWithoutCallback( this );
 	}
+
+	delete mCommitSignal;
+	delete mValidateSignal;
+	delete mMouseEnterSignal;
+	delete mMouseLeaveSignal;
+	delete mMouseDownSignal;
+	delete mMouseUpSignal;
+	delete mRightMouseDownSignal;
+	delete mRightMouseUpSignal;
+	delete mDoubleClickSignal;
 }
 
-void LLUICtrl::initCommitCallback(const CommitCallbackParam& cb, commit_signal_t& sig)
+void default_commit_handler(LLUICtrl* ctrl, const LLSD& param)
+{}
+
+bool default_enable_handler(LLUICtrl* ctrl, const LLSD& param)
+{
+	return true;
+}
+
+
+LLUICtrl::commit_signal_t::slot_type LLUICtrl::initCommitCallback(const CommitCallbackParam& cb)
 {
 	if (cb.function.isProvided())
 	{
 		if (cb.parameter.isProvided())
-			sig.connect(boost::bind(cb.function(), _1, cb.parameter));
+			return boost::bind(cb.function(), _1, cb.parameter);
 		else
-			sig.connect(cb.function());
+			return cb.function();
 	}
 	else
 	{
@@ -237,26 +248,27 @@ void LLUICtrl::initCommitCallback(const CommitCallbackParam& cb, commit_signal_t
 		if (func)
 		{
 			if (cb.parameter.isProvided())
-				sig.connect(boost::bind((*func), _1, cb.parameter));
+				return boost::bind((*func), _1, cb.parameter);
 			else
-				sig.connect(*func);
+				return commit_signal_t::slot_type(*func);
 		}
 		else if (!function_name.empty())
 		{
 			llwarns << "No callback found for: '" << function_name << "' in control: " << getName() << llendl;
 		}			
 	}
+	return default_commit_handler;
 }
 
-void LLUICtrl::initEnableCallback(const EnableCallbackParam& cb, enable_signal_t& sig)
+LLUICtrl::enable_signal_t::slot_type LLUICtrl::initEnableCallback(const EnableCallbackParam& cb)
 {
 	// Set the callback function
 	if (cb.function.isProvided())
 	{
 		if (cb.parameter.isProvided())
-			sig.connect(boost::bind(cb.function(), this, cb.parameter));
+			return boost::bind(cb.function(), this, cb.parameter);
 		else
-			sig.connect(cb.function());
+			return cb.function();
 	}
 	else
 	{
@@ -264,28 +276,97 @@ void LLUICtrl::initEnableCallback(const EnableCallbackParam& cb, enable_signal_t
 		if (func)
 		{
 			if (cb.parameter.isProvided())
-				sig.connect(boost::bind((*func), this, cb.parameter));
+				return boost::bind((*func), this, cb.parameter);
 			else
-				sig.connect(*func);
+				return enable_signal_t::slot_type(*func);
 		}
 	}
+	return default_enable_handler;
 }
 
 // virtual
 void LLUICtrl::onMouseEnter(S32 x, S32 y, MASK mask)
 {
-	mMouseEnterSignal(this, getValue());
+	if (mMouseEnterSignal)
+	{
+		(*mMouseEnterSignal)(this, getValue());
+	}
 }
 
 // virtual
 void LLUICtrl::onMouseLeave(S32 x, S32 y, MASK mask)
 {
-	mMouseLeaveSignal(this, getValue());
+	if(mMouseLeaveSignal)
+	{
+		(*mMouseLeaveSignal)(this, getValue());
+	}
 }
+
+//virtual 
+BOOL LLUICtrl::handleMouseDown(S32 x, S32 y, MASK mask)
+{
+	BOOL handled  = LLView::handleMouseDown(x,y,mask);
+	if (mMouseDownSignal)
+	{
+		(*mMouseDownSignal)(this,x,y,mask);
+	}
+	return handled;
+}
+
+//virtual
+BOOL LLUICtrl::handleMouseUp(S32 x, S32 y, MASK mask)
+{
+	BOOL handled  = LLView::handleMouseUp(x,y,mask);
+	if (mMouseUpSignal)
+	{
+		(*mMouseUpSignal)(this,x,y,mask);
+	}
+	return handled;
+}
+
+//virtual
+BOOL LLUICtrl::handleRightMouseDown(S32 x, S32 y, MASK mask)
+{
+	BOOL handled  = LLView::handleRightMouseDown(x,y,mask);
+	if (mRightMouseDownSignal)
+	{
+		(*mRightMouseDownSignal)(this,x,y,mask);
+	}
+	return handled;
+}
+
+//virtual
+BOOL LLUICtrl::handleRightMouseUp(S32 x, S32 y, MASK mask)
+{
+	BOOL handled  = LLView::handleRightMouseUp(x,y,mask);
+	if(mRightMouseUpSignal)
+	{
+		(*mRightMouseUpSignal)(this,x,y,mask);
+	}
+	return handled;
+}
+
+BOOL LLUICtrl::handleDoubleClick(S32 x, S32 y, MASK mask)
+{
+	BOOL handled = LLView::handleDoubleClick(x, y, mask);
+	if (mDoubleClickSignal)
+	{
+		(*mDoubleClickSignal)(this, x, y, mask);
+	}
+	return handled;
+}
+
+// can't tab to children of a non-tab-stop widget
+BOOL LLUICtrl::canFocusChildren() const
+{
+	return hasTabStop();
+}
+
 
 void LLUICtrl::onCommit()
 {
-	mCommitSignal(this, getValue());
+	if (mCommitSignal)
+	(*mCommitSignal)(this, getValue());
 }
 
 //virtual
@@ -518,56 +599,6 @@ void LLUICtrl::setFocus(BOOL b)
 	}
 }
 
-void LLUICtrl::onFocusReceived()
-{
-	// trigger callbacks
-	LLFocusableElement::onFocusReceived();
-
-	// find first view in hierarchy above new focus that is a LLUICtrl
-	LLView* viewp = getParent();
-	LLUICtrl* last_focus = gFocusMgr.getLastKeyboardFocus();
-
-	while (viewp && !viewp->isCtrl()) 
-	{
-		viewp = viewp->getParent();
-	}
-
-	// and if it has newly gained focus, call onFocusReceived()
-	LLUICtrl* ctrlp = static_cast<LLUICtrl*>(viewp);
-	if (ctrlp && (!last_focus || !last_focus->hasAncestor(ctrlp)))
-	{
-		ctrlp->onFocusReceived();
-	}
-}
-
-void LLUICtrl::onFocusLost()
-{
-	// trigger callbacks
-	LLFocusableElement::onFocusLost();
-
-	// find first view in hierarchy above old focus that is a LLUICtrl
-	LLView* viewp = getParent();
-	while (viewp && !viewp->isCtrl()) 
-	{
-		viewp = viewp->getParent();
-	}
-
-	// and if it has just lost focus, call onFocusReceived()
-	LLUICtrl* ctrlp = static_cast<LLUICtrl*>(viewp);
-	// hasFocus() includes any descendants
-	if (ctrlp && !ctrlp->hasFocus())
-	{
-		ctrlp->onFocusLost();
-	}
-}
-
-void LLUICtrl::onTopLost()
-{
-	// trigger callbacks
-	LLFocusableElement::onTopLost();
-}
-
-
 // virtual
 void LLUICtrl::setTabStop( BOOL b )	
 { 
@@ -617,7 +648,6 @@ void LLUICtrl::setIsChrome(BOOL is_chrome)
 // virtual
 BOOL LLUICtrl::getIsChrome() const
 { 
-
 	LLView* parent_ctrl = getParent();
 	while(parent_ctrl)
 	{
@@ -644,7 +674,7 @@ BOOL LLUICtrl::getIsChrome() const
 class CompareByDefaultTabGroup: public LLCompareByTabOrder
 {
 public:
-	CompareByDefaultTabGroup(LLView::child_tab_order_t order, S32 default_tab_group):
+	CompareByDefaultTabGroup(const LLView::child_tab_order_t& order, S32 default_tab_group):
 			LLCompareByTabOrder(order),
 			mDefaultTabGroup(default_tab_group) {}
 private:
@@ -668,13 +698,16 @@ class LLUICtrl::DefaultTabGroupFirstSorter : public LLQuerySorter, public LLSing
 {
 public:
 	/*virtual*/ void operator() (LLView * parent, viewList_t &children) const
-	{
+	{	
 		children.sort(CompareByDefaultTabGroup(parent->getCtrlOrder(), parent->getDefaultTabGroup()));
 	}
 };
 
+LLFastTimer::DeclareTimer FTM_FOCUS_FIRST_ITEM("Focus First Item");
+
 BOOL LLUICtrl::focusFirstItem(BOOL prefer_text_fields, BOOL focus_flash)
 {
+	LLFastTimer _(FTM_FOCUS_FIRST_ITEM);
 	// try to select default tab group child
 	LLCtrlQuery query = getTabOrderQuery();
 	// sort things such that the default tab group is at the front
@@ -794,7 +827,7 @@ LLUICtrl* LLUICtrl::findRootMostFocusRoot()
 {
 	LLUICtrl* focus_root = NULL;
 	LLUICtrl* next_view = this;
-	while(next_view)
+	while(next_view && next_view->hasTabStop())
 	{
 		if (next_view->isFocusRoot())
 		{
@@ -825,6 +858,48 @@ LLUICtrl* LLUICtrl::getParentUICtrl() const
 	return NULL;
 }
 
+bool LLUICtrl::findHelpTopic(std::string& help_topic_out)
+{
+	LLUICtrl* ctrl = this;
+
+	// search back through the control's parents for a panel
+	// or tab with a help_topic string defined
+	while (ctrl)
+	{
+		LLPanel *panel = dynamic_cast<LLPanel *>(ctrl);
+
+		if (panel)
+		{
+			// does the panel have a sub-panel with a help topic?
+			LLPanel *subpanel = panel->childGetVisiblePanelWithHelp();
+			if (subpanel)
+			{
+				help_topic_out = subpanel->getHelpTopic();
+				return true; // success (subpanel)
+			}
+
+			// does the panel have an active tab with a help topic?
+			LLPanel *tab = panel->childGetVisibleTabWithHelp();
+			if (tab)
+			{
+				help_topic_out = tab->getHelpTopic();
+				return true; // success (tab)
+			}
+
+			// otherwise, does the panel have a help topic itself?
+			if (!panel->getHelpTopic().empty())
+			{
+				help_topic_out = panel->getHelpTopic();
+				return true; // success (panel)
+			}		
+		}
+
+		ctrl = ctrl->getParentUICtrl();
+	}
+
+	return false; // no help topic found
+}
+
 // *TODO: Deprecate; for backwards compatability only:
 boost::signals2::connection LLUICtrl::setCommitCallback( boost::function<void (LLUICtrl*,void*)> cb, void* data)
 {
@@ -832,7 +907,8 @@ boost::signals2::connection LLUICtrl::setCommitCallback( boost::function<void (L
 }
 boost::signals2::connection LLUICtrl::setValidateBeforeCommit( boost::function<bool (const LLSD& data)> cb )
 {
-	return mValidateSignal.connect(boost::bind(cb, _2));
+	if (!mValidateSignal) mValidateSignal = new enable_signal_t();
+	return mValidateSignal->connect(boost::bind(cb, _2));
 }
 
 // virtual
@@ -851,31 +927,87 @@ BOOL LLUICtrl::getTentative() const
 void LLUICtrl::setColor(const LLColor4& color)							
 { }
 
-
-
-namespace LLInitParam
+F32 LLUICtrl::getCurrentTransparency()
 {
-    template<> 
-	bool ParamCompare<LLUICtrl::commit_callback_t>::equals(
-		const LLUICtrl::commit_callback_t &a, 
-		const LLUICtrl::commit_callback_t &b)
-    {
-    	return false;
-    }
-    
-    template<> 
-	bool ParamCompare<LLUICtrl::focus_callback_t>::equals(
-		const LLUICtrl::focus_callback_t &a, 
-		const LLUICtrl::focus_callback_t &b)
-    {
-    	return false;
-    }
-    
-    template<> 
-	bool ParamCompare<LLUICtrl::enable_callback_t>::equals(
-		const LLUICtrl::enable_callback_t &a, 
-		const LLUICtrl::enable_callback_t &b)
-    {
-    	return false;
-    }
+	F32 alpha = 0;
+
+	switch(mTransparencyType)
+	{
+	case TT_DEFAULT:
+		alpha = getDrawContext().mAlpha;
+		break;
+
+	case TT_ACTIVE:
+		alpha = sActiveControlTransparency;
+		break;
+
+	case TT_INACTIVE:
+		alpha = sInactiveControlTransparency;
+		break;
+
+	case TT_FADING:
+		alpha = sInactiveControlTransparency / 2;
+		break;
+	}
+
+	return alpha;
+}
+
+void LLUICtrl::setTransparencyType(ETypeTransparency type)
+{
+	mTransparencyType = type;
+}
+
+boost::signals2::connection LLUICtrl::setCommitCallback( const commit_signal_t::slot_type& cb ) 
+{ 
+	if (!mCommitSignal) mCommitSignal = new commit_signal_t();
+	return mCommitSignal->connect(cb); 
+}
+
+boost::signals2::connection LLUICtrl::setValidateCallback( const enable_signal_t::slot_type& cb ) 
+{ 
+	if (!mValidateSignal) mValidateSignal = new enable_signal_t();
+	return mValidateSignal->connect(cb); 
+}
+
+boost::signals2::connection LLUICtrl::setMouseEnterCallback( const commit_signal_t::slot_type& cb ) 
+{ 
+	if (!mMouseEnterSignal) mMouseEnterSignal = new commit_signal_t();
+	return mMouseEnterSignal->connect(cb); 
+}
+
+boost::signals2::connection LLUICtrl::setMouseLeaveCallback( const commit_signal_t::slot_type& cb ) 
+{ 
+	if (!mMouseLeaveSignal) mMouseLeaveSignal = new commit_signal_t();
+	return mMouseLeaveSignal->connect(cb); 
+}
+
+boost::signals2::connection LLUICtrl::setMouseDownCallback( const mouse_signal_t::slot_type& cb ) 
+{ 
+	if (!mMouseDownSignal) mMouseDownSignal = new mouse_signal_t();
+	return mMouseDownSignal->connect(cb); 
+}
+
+boost::signals2::connection LLUICtrl::setMouseUpCallback( const mouse_signal_t::slot_type& cb ) 
+{ 
+	if (!mMouseUpSignal) mMouseUpSignal = new mouse_signal_t();
+	return mMouseUpSignal->connect(cb); 
+}
+
+boost::signals2::connection LLUICtrl::setRightMouseDownCallback( const mouse_signal_t::slot_type& cb ) 
+{ 
+	if (!mRightMouseDownSignal) mRightMouseDownSignal = new mouse_signal_t();
+	return mRightMouseDownSignal->connect(cb); 
+}
+
+boost::signals2::connection LLUICtrl::setRightMouseUpCallback( const mouse_signal_t::slot_type& cb ) 
+{ 
+	if (!mRightMouseUpSignal) mRightMouseUpSignal = new mouse_signal_t();
+	return mRightMouseUpSignal->connect(cb); 
+}
+
+boost::signals2::connection LLUICtrl::setDoubleClickCallback( const mouse_signal_t::slot_type& cb ) 
+{ 
+	if (!mDoubleClickSignal) mDoubleClickSignal = new mouse_signal_t();
+	return mDoubleClickSignal->connect(cb); 
 }

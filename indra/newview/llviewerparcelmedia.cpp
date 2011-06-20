@@ -2,31 +2,25 @@
  * @file llviewerparcelmedia.cpp
  * @brief Handlers for multimedia on a per-parcel basis
  *
- * $LicenseInfo:firstyear=2007&license=viewergpl$
- * 
- * Copyright (c) 2007-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2007&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -34,6 +28,8 @@
 #include "llviewerparcelmedia.h"
 
 #include "llagent.h"
+#include "llaudioengine.h"
+#include "llmimetypes.h"
 #include "llviewercontrol.h"
 #include "llviewermedia.h"
 #include "llviewerregion.h"
@@ -41,47 +37,19 @@
 #include "llviewerparcelmgr.h"
 #include "lluuid.h"
 #include "message.h"
+#include "llviewermediafocus.h"
 #include "llviewerparcelmediaautoplay.h"
-#include "llviewerwindow.h"
-#include "llfirstuse.h"
+#include "llnotificationsutil.h"
+//#include "llfirstuse.h"
+#include "llpluginclassmedia.h"
+#include "llviewertexture.h"
 
 // Static Variables
 
 S32 LLViewerParcelMedia::sMediaParcelLocalID = 0;
 LLUUID LLViewerParcelMedia::sMediaRegionID;
+viewer_media_t LLViewerParcelMedia::sMediaImpl;
 
-// Local functions
-bool callback_play_media(const LLSD& notification, const LLSD& response, LLParcel* parcel);
-
-// Move this to its own file.
-// helper class that tries to download a URL from a web site and calls a method
-// on the Panel Land Media and to discover the MIME type
-class LLMimeDiscoveryResponder : public LLHTTPClient::Responder
-{
-public:
-	LLMimeDiscoveryResponder( )
-	  {}
-
-
-
-	  virtual void completedHeader(U32 status, const std::string& reason, const LLSD& content)
-	  {
-		  std::string media_type = content["content-type"].asString();
-		  std::string::size_type idx1 = media_type.find_first_of(";");
-		  std::string mime_type = media_type.substr(0, idx1);
-		  completeAny(status, mime_type);
-	  }
-
-	  virtual void error( U32 status, const std::string& reason )
-	  {
-		  completeAny(status, "none/none");
-	  }
-
-	  void completeAny(U32 status, const std::string& mime_type)
-	  {
-		  LLViewerMedia::setMimeType(mime_type);
-	  }
-};
 
 // static
 void LLViewerParcelMedia::initClass()
@@ -90,6 +58,13 @@ void LLViewerParcelMedia::initClass()
 	msg->setHandlerFunc("ParcelMediaCommandMessage", processParcelMediaCommandMessage );
 	msg->setHandlerFunc("ParcelMediaUpdate", processParcelMediaUpdate );
 	LLViewerParcelMediaAutoPlay::initClass();
+}
+
+//static 
+void LLViewerParcelMedia::cleanupClass()
+{
+	// This needs to be destroyed before global destructor time.
+	sMediaImpl = NULL;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -105,6 +80,7 @@ void LLViewerParcelMedia::update(LLParcel* parcel)
 			{
 				sMediaRegionID = LLUUID() ;
 				stop() ;
+				LL_DEBUGS("Media") << "no agent region, bailing out." << LL_ENDL;
 				return ;				
 			}
 
@@ -115,64 +91,45 @@ void LLViewerParcelMedia::update(LLParcel* parcel)
 			LLUUID regionid = gAgent.getRegion()->getRegionID();
 			if (parcelid != sMediaParcelLocalID || regionid != sMediaRegionID)
 			{
+				LL_DEBUGS("Media") << "New parcel, parcel id = " << parcelid << ", region id = " << regionid << LL_ENDL;
 				sMediaParcelLocalID = parcelid;
 				sMediaRegionID = regionid;
 				new_parcel = true;
 			}
 
 			std::string mediaUrl = std::string ( parcel->getMediaURL () );
-			LLStringUtil::trim(mediaUrl);
+			std::string mediaCurrentUrl = std::string( parcel->getMediaCurrentURL());
 
-			// has something changed?
-			if (  ( LLViewerMedia::getMediaURL() != mediaUrl )
-				|| ( LLViewerMedia::getMediaTextureID() != parcel->getMediaID () ) )
+			// if we have a current (link sharing) url, use it instead
+			if (mediaCurrentUrl != "" && parcel->getMediaType() == "text/html")
 			{
-				bool video_was_playing = FALSE;
-				bool same_media_id = LLViewerMedia::getMediaTextureID() == parcel->getMediaID ();
+				mediaUrl = mediaCurrentUrl;
+			}
+			
+			LLStringUtil::trim(mediaUrl);
+			
+			// If no parcel media is playing, nothing left to do
+			if(sMediaImpl.isNull())
 
-				if (LLViewerMedia::isMediaPlaying())
+			{
+				return;
+			}
+
+			// Media is playing...has something changed?
+			else if (( sMediaImpl->getMediaURL() != mediaUrl )
+				|| ( sMediaImpl->getMediaTextureID() != parcel->getMediaID() )
+				|| ( sMediaImpl->getMimeType() != parcel->getMediaType() ))
+			{
+				// Only play if the media types are the same.
+				if(sMediaImpl->getMimeType() == parcel->getMediaType())
 				{
-					video_was_playing = TRUE;
+					play(parcel);
 				}
 
-				if ( !mediaUrl.empty() && same_media_id && ! new_parcel)
-				{
-					// Someone has "changed the channel", changing the URL of a video
-					// you were already watching.  Automatically play provided the texture ID is the same
-					if (video_was_playing)
-					{
-						// Poke the mime type in before calling play.
-						// This is necessary because in this instance we are not waiting
-						// for the results of a header curl.  In order to change the channel
-						// a mime type MUST be provided.
-						LLViewerMedia::setMimeType(parcel->getMediaType());
-						play(parcel);
-					}
-				}
 				else
 				{
 					stop();
 				}
-
-				// Discover the MIME type
-				// Disabled for the time being.  Get the mime type from the parcel.
-				if(gSavedSettings.getBOOL("AutoMimeDiscovery"))
-				{
-					LLHTTPClient::getHeaderOnly( mediaUrl, new LLMimeDiscoveryResponder());
-				}
-				else
-				{
-					LLViewerMedia::setMimeType(parcel->getMediaType());
-				}
-
-				// First use warning
-				if(	gWarningSettings.getBOOL("FirstStreamingVideo") )
-				{
-					LLNotifications::instance().add("ParcelCanPlayMedia", LLSD(), LLSD(),
-						boost::bind(callback_play_media, _1, _2, parcel));
-
-				}
-
 			}
 		}
 		else
@@ -183,7 +140,7 @@ void LLViewerParcelMedia::update(LLParcel* parcel)
 	/*
 	else
 	{
-		// no audio player, do a first use dialog if their is media here
+		// no audio player, do a first use dialog if there is media here
 		if (parcel)
 		{
 			std::string mediaUrl = std::string ( parcel->getMediaURL () );
@@ -193,7 +150,7 @@ void LLViewerParcelMedia::update(LLParcel* parcel)
 				{
 					gWarningSettings.setBOOL("QuickTimeInstalled", FALSE);
 
-					LLNotifications::instance().add("NoQuickTime" );
+					LLNotificationsUtil::add("NoQuickTime" );
 				};
 			}
 		}
@@ -208,42 +165,106 @@ void LLViewerParcelMedia::play(LLParcel* parcel)
 
 	if (!parcel) return;
 
-	if (!gSavedSettings.getBOOL("AudioStreaming") || !gSavedSettings.getBOOL("AudioStreamingVideo"))
+	if (!gSavedSettings.getBOOL("AudioStreamingMedia"))
 		return;
 
 	std::string media_url = parcel->getMediaURL();
+	std::string media_current_url = parcel->getMediaCurrentURL();
 	std::string mime_type = parcel->getMediaType();
 	LLUUID placeholder_texture_id = parcel->getMediaID();
 	U8 media_auto_scale = parcel->getMediaAutoScale();
 	U8 media_loop = parcel->getMediaLoop();
 	S32 media_width = parcel->getMediaWidth();
 	S32 media_height = parcel->getMediaHeight();
-	LLViewerMedia::play(media_url, mime_type, placeholder_texture_id,
-						media_width, media_height, media_auto_scale,
-						media_loop);
-	LLFirstUse::useMedia();
 
-	LLViewerParcelMediaAutoPlay::playStarted();
+	if(sMediaImpl)
+	{
+		// If the url and mime type are the same, call play again
+		if(sMediaImpl->getMediaURL() == media_url 
+			&& sMediaImpl->getMimeType() == mime_type
+			&& sMediaImpl->getMediaTextureID() == placeholder_texture_id)
+		{
+			LL_DEBUGS("Media") << "playing with existing url " << media_url << LL_ENDL;
+
+			sMediaImpl->play();
+		}
+		// Else if the texture id's are the same, navigate and rediscover type
+		// MBW -- This causes other state from the previous parcel (texture size, autoscale, and looping) to get re-used incorrectly.
+		// It's also not really necessary -- just creating a new instance is fine.
+//		else if(sMediaImpl->getMediaTextureID() == placeholder_texture_id)
+//		{
+//			sMediaImpl->navigateTo(media_url, mime_type, true);
+//		}
+		else
+		{
+			// Since the texture id is different, we need to generate a new impl
+
+			// Delete the old one first so they don't fight over the texture.
+			sMediaImpl = NULL;
+			
+			// A new impl will be created below.
+		}
+	}
+	
+	// Don't ever try to play if the media type is set to "none/none"
+	if(stricmp(mime_type.c_str(), LLMIMETypes::getDefaultMimeType().c_str()) != 0)
+	{
+		if(!sMediaImpl)
+		{
+			LL_DEBUGS("Media") << "new media impl with mime type " << mime_type << ", url " << media_url << LL_ENDL;
+
+			// There is no media impl, make a new one
+			sMediaImpl = LLViewerMedia::newMediaImpl(
+				placeholder_texture_id,
+				media_width, 
+				media_height, 
+				media_auto_scale,
+				media_loop);
+			sMediaImpl->setIsParcelMedia(true);
+			sMediaImpl->navigateTo(media_url, mime_type, true);
+		}
+
+		//LLFirstUse::useMedia();
+
+		LLViewerParcelMediaAutoPlay::playStarted();
+	}
 }
 
 // static
 void LLViewerParcelMedia::stop()
 {
+	if(sMediaImpl.isNull())
+	{
+		return;
+	}
+	
+	// We need to remove the media HUD if it is up.
+	LLViewerMediaFocus::getInstance()->clearFocus();
 
-	LLViewerMedia::stop();
+	// This will unload & kill the media instance.
+	sMediaImpl = NULL;
 }
 
 // static
 void LLViewerParcelMedia::pause()
 {
-	LLViewerMedia::pause();
+	if(sMediaImpl.isNull())
+	{
+		return;
+	}
+	sMediaImpl->pause();
 }
 
 // static
 void LLViewerParcelMedia::start()
 {
-	LLViewerMedia::start();
-	LLFirstUse::useMedia();
+	if(sMediaImpl.isNull())
+	{
+		return;
+	}
+	sMediaImpl->start();
+
+	//LLFirstUse::useMedia();
 
 	LLViewerParcelMediaAutoPlay::playStarted();
 }
@@ -251,14 +272,68 @@ void LLViewerParcelMedia::start()
 // static
 void LLViewerParcelMedia::seek(F32 time)
 {
-	LLViewerMedia::seek(time);
+	if(sMediaImpl.isNull())
+	{
+		return;
+	}
+	sMediaImpl->seek(time);
 }
 
+// static
+void LLViewerParcelMedia::focus(bool focus)
+{
+	sMediaImpl->focus(focus);
+}
 
 // static
-LLMediaBase::EStatus LLViewerParcelMedia::getStatus()
+LLPluginClassMediaOwner::EMediaStatus LLViewerParcelMedia::getStatus()
+{	
+	LLPluginClassMediaOwner::EMediaStatus result = LLPluginClassMediaOwner::MEDIA_NONE;
+	
+	if(sMediaImpl.notNull() && sMediaImpl->hasMedia())
+	{
+		result = sMediaImpl->getMediaPlugin()->getStatus();
+	}
+	
+	return result;
+}
+
+// static
+std::string LLViewerParcelMedia::getMimeType()
 {
-	return LLViewerMedia::getStatus();
+	return sMediaImpl.notNull() ? sMediaImpl->getMimeType() : LLMIMETypes::getDefaultMimeType();
+}
+
+//static 
+std::string LLViewerParcelMedia::getURL()
+{
+	std::string url;
+	if(sMediaImpl.notNull())
+		url = sMediaImpl->getMediaURL();
+	
+	if(stricmp(LLViewerParcelMgr::getInstance()->getAgentParcel()->getMediaType().c_str(), LLMIMETypes::getDefaultMimeType().c_str()) != 0)
+	{
+		if (url.empty())
+			url = LLViewerParcelMgr::getInstance()->getAgentParcel()->getMediaCurrentURL();
+		
+		if (url.empty())
+			url = LLViewerParcelMgr::getInstance()->getAgentParcel()->getMediaURL();
+	}
+	
+	return url;
+}
+
+//static 
+std::string LLViewerParcelMedia::getName()
+{
+	if(sMediaImpl.notNull())
+		return sMediaImpl->getName();
+	return "";
+}
+
+viewer_media_t LLViewerParcelMedia::getParcelMedia()
+{
+	return sMediaImpl;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -298,7 +373,7 @@ void LLViewerParcelMedia::processParcelMediaCommandMessage( LLMessageSystem *msg
 		if(( command == PARCEL_MEDIA_COMMAND_PLAY ) ||
 		   ( command == PARCEL_MEDIA_COMMAND_LOOP ))
 		{
-			if (LLViewerMedia::isMediaPaused())
+			if (getStatus() == LLViewerMediaImpl::MEDIA_PAUSED)
 			{
 				start();
 			}
@@ -318,7 +393,7 @@ void LLViewerParcelMedia::processParcelMediaCommandMessage( LLMessageSystem *msg
 
 	if (flags & (1<<PARCEL_MEDIA_COMMAND_TIME))
 	{
-		if(! LLViewerMedia::hasMedia())
+		if(sMediaImpl.isNull())
 		{
 			LLParcel *parcel = LLViewerParcelMgr::getInstance()->getAgentParcel();
 			play(parcel);
@@ -382,22 +457,169 @@ void LLViewerParcelMedia::processParcelMediaUpdate( LLMessageSystem *msg, void *
 		}
 	}
 }
-
-bool callback_play_media(const LLSD& notification, const LLSD& response, LLParcel* parcel)
+// Static
+/////////////////////////////////////////////////////////////////////////////////////////
+void LLViewerParcelMedia::sendMediaNavigateMessage(const std::string& url)
 {
-	S32 option = LLNotification::getSelectedOption(notification, response);
-	if (option == 0)
+	std::string region_url = gAgent.getRegion()->getCapability("ParcelNavigateMedia");
+	if (!region_url.empty())
 	{
-		gSavedSettings.setBOOL("AudioStreamingVideo", TRUE);
-		if(!gSavedSettings.getBOOL("AudioStreaming")) 
-			gSavedSettings.setBOOL("AudioStreaming", TRUE);
-		LLViewerParcelMedia::play(parcel);
+		// send navigate event to sim for link sharing
+		LLSD body;
+		body["agent-id"] = gAgent.getID();
+		body["local-id"] = LLViewerParcelMgr::getInstance()->getAgentParcel()->getLocalID();
+		body["url"] = url;
+		LLHTTPClient::post(region_url, body, new LLHTTPClient::Responder);
 	}
 	else
 	{
-		gSavedSettings.setBOOL("AudioStreamingVideo", FALSE);
+		llwarns << "can't get ParcelNavigateMedia capability" << llendl;
 	}
-	gWarningSettings.setBOOL("FirstStreamingVideo", FALSE);
-	return false;
+
 }
 
+/////////////////////////////////////////////////////////////////////////////////////////
+// inherited from LLViewerMediaObserver
+// virtual 
+void LLViewerParcelMedia::handleMediaEvent(LLPluginClassMedia* self, EMediaEvent event)
+{
+	switch(event)
+	{
+		case MEDIA_EVENT_CONTENT_UPDATED:
+		{
+			// LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_CONTENT_UPDATED " << LL_ENDL;
+		};
+		break;
+		
+		case MEDIA_EVENT_TIME_DURATION_UPDATED:
+		{
+			// LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_TIME_DURATION_UPDATED, time is " << self->getCurrentTime() << " of " << self->getDuration() << LL_ENDL;
+		};
+		break;
+		
+		case MEDIA_EVENT_SIZE_CHANGED:
+		{
+			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_SIZE_CHANGED " << LL_ENDL;
+		};
+		break;
+		
+		case MEDIA_EVENT_CURSOR_CHANGED:
+		{
+			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_CURSOR_CHANGED, new cursor is " << self->getCursorName() << LL_ENDL;
+		};
+		break;
+		
+		case MEDIA_EVENT_NAVIGATE_BEGIN:
+		{
+			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_NAVIGATE_BEGIN " << LL_ENDL;
+		};
+		break;
+		
+		case MEDIA_EVENT_NAVIGATE_COMPLETE:
+		{
+			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_NAVIGATE_COMPLETE, result string is: " << self->getNavigateResultString() << LL_ENDL;
+		};
+		break;
+
+		case MEDIA_EVENT_PROGRESS_UPDATED:
+		{
+			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_PROGRESS_UPDATED, loading at " << self->getProgressPercent() << "%" << LL_ENDL;
+		};
+		break;
+
+		case MEDIA_EVENT_STATUS_TEXT_CHANGED:
+		{
+			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_STATUS_TEXT_CHANGED, new status text is: " << self->getStatusText() << LL_ENDL;
+		};
+		break;
+
+		case MEDIA_EVENT_LOCATION_CHANGED:
+		{
+			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_LOCATION_CHANGED, new uri is: " << self->getLocation() << LL_ENDL;
+		};
+		break;
+
+		case MEDIA_EVENT_NAVIGATE_ERROR_PAGE:
+		{
+			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_NAVIGATE_ERROR_PAGE" << LL_ENDL;
+		};
+		break;
+
+		case MEDIA_EVENT_CLICK_LINK_HREF:
+		{
+			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_CLICK_LINK_HREF, target is \"" << self->getClickTarget() << "\", uri is " << self->getClickURL() << LL_ENDL;
+		};
+		break;
+		
+		case MEDIA_EVENT_CLICK_LINK_NOFOLLOW:
+		{
+			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_CLICK_LINK_NOFOLLOW, uri is " << self->getClickURL() << LL_ENDL;
+		};
+		break;
+
+		case MEDIA_EVENT_PLUGIN_FAILED:
+		{
+			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_PLUGIN_FAILED" << LL_ENDL;
+		};
+		break;
+		
+		case MEDIA_EVENT_PLUGIN_FAILED_LAUNCH:
+		{
+			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_PLUGIN_FAILED_LAUNCH" << LL_ENDL;
+		};
+		break;
+		
+		case MEDIA_EVENT_NAME_CHANGED:
+		{
+			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_NAME_CHANGED" << LL_ENDL;
+		};
+		break;
+
+		case MEDIA_EVENT_CLOSE_REQUEST:
+		{
+			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_CLOSE_REQUEST" << LL_ENDL;
+		}
+		break;
+		
+		case MEDIA_EVENT_PICK_FILE_REQUEST:
+		{
+			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_PICK_FILE_REQUEST" << LL_ENDL;
+		}
+		break;
+
+		case MEDIA_EVENT_GEOMETRY_CHANGE:
+		{
+			LL_DEBUGS("Media") << "Media event:  MEDIA_EVENT_GEOMETRY_CHANGE, uuid is " << self->getClickUUID() << LL_ENDL;
+		}
+		break;
+
+		case MEDIA_EVENT_AUTH_REQUEST:
+		{
+			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_AUTH_REQUEST, url " << self->getAuthURL() << ", realm " << self->getAuthRealm() << LL_ENDL;
+		}
+		break;
+
+		case MEDIA_EVENT_LINK_HOVERED:
+		{
+			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_LINK_HOVERED, hover text is: " << self->getHoverText() << LL_ENDL;
+		};
+		break;
+	};
+}
+
+// TODO: observer
+/*
+void LLViewerParcelMediaNavigationObserver::onNavigateComplete( const EventType& event_in )
+{
+	std::string url = event_in.getStringValue();
+
+	if (mCurrentURL != url && ! mFromMessage)
+	{
+		LLViewerParcelMedia::sendMediaNavigateMessage(url);
+	}
+
+	mCurrentURL = url;
+	mFromMessage = false;
+
+}
+*/

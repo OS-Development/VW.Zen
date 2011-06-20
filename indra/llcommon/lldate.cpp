@@ -4,31 +4,25 @@
  * @date 2006-02-05
  * @brief Implementation of the date class
  *
- * $LicenseInfo:firstyear=2006&license=viewergpl$
- * 
- * Copyright (c) 2006-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2006&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -38,7 +32,7 @@
 #include "apr_time.h"
 
 #include <time.h>
-#include <locale>
+#include <locale.h>
 #include <string>
 #include <iomanip>
 #include <sstream>
@@ -94,33 +88,39 @@ std::string LLDate::asRFC1123() const
 	return toHTTPDateString (std::string ("%A, %d %b %Y %H:%M:%S GMT"));
 }
 
+LLFastTimer::DeclareTimer FT_DATE_FORMAT("Date Format");
+
 std::string LLDate::toHTTPDateString (std::string fmt) const
 {
-	std::ostringstream stream;
+	LLFastTimer ft1(FT_DATE_FORMAT);
+	
 	time_t locSeconds = (time_t) mSecondsSinceEpoch;
 	struct tm * gmt = gmtime (&locSeconds);
-
-	stream.imbue (std::locale(LLStringUtil::getLocale().c_str()));
-	toHTTPDateStream (stream, gmt, fmt);
-	return stream.str();
+	return toHTTPDateString(gmt, fmt);
 }
 
 std::string LLDate::toHTTPDateString (tm * gmt, std::string fmt)
 {
-	std::ostringstream stream;
-	stream.imbue (std::locale(LLStringUtil::getLocale().c_str()));
-	toHTTPDateStream (stream, gmt, fmt);
-	return stream.str();
-}
+	LLFastTimer ft1(FT_DATE_FORMAT);
 
-void LLDate::toHTTPDateStream(std::ostream& s, tm * gmt, std::string fmt)
-{
-	using namespace std;
+	// avoid calling setlocale() unnecessarily - it's expensive.
+	static std::string prev_locale = "";
+	std::string this_locale = LLStringUtil::getLocale();
+	if (this_locale != prev_locale)
+	{
+		setlocale(LC_TIME, this_locale.c_str());
+		prev_locale = this_locale;
+	}
 
-	const char * pBeg = fmt.c_str();
-	const char * pEnd = pBeg + fmt.length();
-	const time_put<char>& tp = use_facet<time_put<char> >(s.getloc());
-	tp.put (s, s, s.fill(), gmt, pBeg, pEnd);
+	// use strftime() as it appears to be faster than std::time_put
+	char buffer[128];
+	strftime(buffer, 128, fmt.c_str(), gmt);
+	std::string res(buffer);
+#if LL_WINDOWS
+	// Convert from locale-dependant charset to UTF-8 (EXT-8524).
+	res = ll_convert_string_to_utf8_string(res);
+#endif
+	return res;
 }
 
 void LLDate::toStream(std::ostream& s) const
@@ -151,7 +151,39 @@ void LLDate::toStream(std::ostream& s) const
 		s << '.' << std::setw(2)
 		  << (int)(exp_time.tm_usec / (LL_APR_USEC_PER_SEC / 100));
 	}
-	s << 'Z';
+	s << 'Z'
+	  << std::setfill(' ');
+}
+
+bool LLDate::split(S32 *year, S32 *month, S32 *day, S32 *hour, S32 *min, S32 *sec) const
+{
+	apr_time_t time = (apr_time_t)(mSecondsSinceEpoch * LL_APR_USEC_PER_SEC);
+	
+	apr_time_exp_t exp_time;
+	if (apr_time_exp_gmt(&exp_time, time) != APR_SUCCESS)
+	{
+		return false;
+	}
+
+	if (year)
+		*year = exp_time.tm_year + 1900;
+
+	if (month)
+		*month = exp_time.tm_mon + 1;
+
+	if (day)
+		*day = exp_time.tm_mday;
+
+	if (hour)
+		*hour = exp_time.tm_hour;
+
+	if (min)
+		*min = exp_time.tm_min;
+
+	if (sec)
+		*sec = exp_time.tm_sec;
+
+	return true;
 }
 
 bool LLDate::fromString(const std::string& iso8601_date)
@@ -215,10 +247,59 @@ bool LLDate::fromStream(std::istream& s)
 		s >> fractional;
 		seconds_since_epoch += fractional;
 	}
-	c = s.get(); // skip the Z
-	if (c != 'Z') { return false; }
+
+	c = s.peek(); // check for offset
+	if (c == '+' || c == '-')
+	{
+		S32 offset_sign = (c == '+') ? 1 : -1;
+		S32 offset_hours = 0;
+		S32 offset_minutes = 0;
+		S32 offset_in_seconds = 0;
+
+		s >> offset_hours;
+
+		c = s.get(); // skip the colon a get the minutes if there are any
+		if (c == ':')
+		{		
+			s >> offset_minutes;
+		}
+		
+		offset_in_seconds =  (offset_hours * 60 + offset_sign * offset_minutes) * 60;
+		seconds_since_epoch -= offset_in_seconds;
+	}
+	else if (c != 'Z') { return false; } // skip the Z
 
 	mSecondsSinceEpoch = seconds_since_epoch;
+	return true;
+}
+
+bool LLDate::fromYMDHMS(S32 year, S32 month, S32 day, S32 hour, S32 min, S32 sec)
+{
+	struct apr_time_exp_t exp_time;
+	
+	exp_time.tm_year = year - 1900;
+	exp_time.tm_mon = month - 1;
+	exp_time.tm_mday = day;
+	exp_time.tm_hour = hour;
+	exp_time.tm_min = min;
+	exp_time.tm_sec = sec;
+
+	// zero out the unused fields
+	exp_time.tm_usec = 0;
+	exp_time.tm_wday = 0;
+	exp_time.tm_yday = 0;
+	exp_time.tm_isdst = 0;
+	exp_time.tm_gmtoff = 0;
+
+	// generate a time_t from that
+	apr_time_t time;
+	if (apr_time_exp_gmt_get(&time, &exp_time) != APR_SUCCESS)
+	{
+		return false;
+	}
+	
+	mSecondsSinceEpoch = time / LL_APR_USEC_PER_SEC;
+
 	return true;
 }
 

@@ -38,7 +38,7 @@ list(APPEND linux_crash_logger_SOURCE_FILES
      ${linux_crash_logger_HEADER_FILES}
      )
 
-list(APPEND CMAKE_EXE_LINKER_FLAGS -Wl,--as-needed)
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--as-needed")
 
 add_executable(linux-crash-logger ${linux_crash_logger_SOURCE_FILES})
 
@@ -54,12 +54,5 @@ target_link_libraries(linux-crash-logger
     ${DB_LIBRARIES}
     )
 
-add_custom_command(
-    OUTPUT linux-crash-logger-stripped
-    COMMAND strip
-    ARGS --strip-debug -o linux-crash-logger-stripped linux-crash-logger
-    DEPENDS linux-crash-logger
-    )
-
-add_custom_target(linux-crash-logger-strip-target ALL
-                  DEPENDS linux-crash-logger-stripped)
+add_custom_target(linux-crash-logger-target ALL
+                  DEPENDS linux-crash-logger)

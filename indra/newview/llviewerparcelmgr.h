@@ -2,31 +2,25 @@
  * @file llviewerparcelmgr.h
  * @brief Viewer-side representation of owned land
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -56,9 +50,6 @@ class LLViewerRegion;
 //							  | EAST_MASK 
 //							  | WEST_MASK);
 
-const F32 PARCEL_POST_HEIGHT = 0.666f;
-//const F32 PARCEL_POST_HEIGHT = 20.f;
-
 // Specify the type of land transfer taking place
 //enum ELandTransferType
 //{
@@ -71,6 +62,9 @@ const F32 PARCEL_POST_HEIGHT = 0.666f;
 
 // Base class for people who want to "observe" changes in the viewer
 // parcel selection.
+
+//FIXME: this should be done by grabbing a floating parcel selection and observing changes on it, not the parcel mgr
+//--RN
 class LLParcelObserver
 {
 public:
@@ -82,6 +76,8 @@ class LLViewerParcelMgr : public LLSingleton<LLViewerParcelMgr>
 {
 
 public:
+	typedef boost::function<void (const LLVector3d&)> teleport_finished_callback_t;
+	typedef boost::signals2::signal<void (const LLVector3d&)> teleport_finished_signal_t;
 	typedef boost::function<void()> parcel_changed_callback_t;
 	typedef boost::signals2::signal<void()> parcel_changed_signal_t;
 
@@ -166,10 +162,31 @@ public:
 
 	LLParcel*	getCollisionParcel() const;
 
-	BOOL	agentCanTakeDamage() const;
-	BOOL	agentCanFly() const;
-	F32		agentDrawDistance() const;
-	bool	agentCanBuild() const;
+	// Can this agent build on the parcel he is on?
+	// Used for parcel property icons in nav bar.
+	bool	allowAgentBuild() const;
+	bool	allowAgentBuild(const LLParcel* parcel) const;
+	
+	// Can this agent speak on the parcel he is on?
+	// Used for parcel property icons in nav bar.
+	bool	allowAgentVoice() const;
+	bool	allowAgentVoice(const LLViewerRegion* region, const LLParcel* parcel) const;
+
+	// Can this agent start flying on this parcel?
+	// Used for parcel property icons in nav bar.
+	bool	allowAgentFly(const LLViewerRegion* region, const LLParcel* parcel) const;
+	
+	// Can this agent be pushed by llPushObject() on this parcel?
+	// Used for parcel property icons in nav bar.
+	bool	allowAgentPush(const LLViewerRegion* region, const LLParcel* parcel) const;
+	
+	// Can scripts written by non-parcel-owners run on the agent's current
+	// parcel?  Used for parcel property icons in nav bar.
+	bool	allowAgentScripts(const LLViewerRegion* region, const LLParcel* parcel) const;
+	
+	// Can the agent be damaged here?
+	// Used for parcel property icons in nav bar.
+	bool	allowAgentDamage(const LLViewerRegion* region, const LLParcel* parcel) const;
 
 	F32		getHoverParcelWidth() const		
 				{ return F32(mHoverEastNorth.mdV[VX] - mHoverWestSouth.mdV[VX]); }
@@ -204,13 +221,18 @@ public:
 	// Takes an Access List flag, like AL_ACCESS or AL_BAN
 	void	sendParcelAccessListRequest(U32 flags);
 
+	// asks for the parcel's media url filter list
+	void    requestParcelMediaURLFilter();
+	// receive the response
+	void    receiveParcelMediaURLFilter(const LLSD &content);
+	
 	// Dwell is not part of the usual parcel update information because the
 	// simulator doesn't actually know the per-parcel dwell.  Ack!  We have
 	// to get it out of the database.
 	void	sendParcelDwellRequest();
 
 	// If the point is outside the current hover parcel, request more data
-	void	requestHoverParcelProperties(const LLVector3d& pos_global);
+	void	setHoverParcel(const LLVector3d& pos_global);
 
 	bool	canAgentBuyParcel(LLParcel*, bool forGroup) const;
 	
@@ -236,7 +258,7 @@ public:
 								  BOOL remove_contribution);
 		// callers responsibility to call deleteParcelBuy() on return value
 	void sendParcelBuy(ParcelBuyInfo*);
-	void deleteParcelBuy(ParcelBuyInfo*&);
+	void deleteParcelBuy(ParcelBuyInfo* *info);
 					   
 	void sendParcelDeed(const LLUUID& group_id);
 
@@ -262,10 +284,10 @@ public:
 	// the agent is banned or not in the allowed group
 	BOOL isCollisionBanned();
 
-	boost::signals2::connection setAgentParcelChangedCallback(parcel_changed_callback_t cb);
-	boost::signals2::connection setTeleportFinishedCallback(parcel_changed_callback_t cb);
+	boost::signals2::connection addAgentParcelChangedCallback(parcel_changed_callback_t cb);
+	boost::signals2::connection setTeleportFinishedCallback(teleport_finished_callback_t cb);
 	boost::signals2::connection setTeleportFailedCallback(parcel_changed_callback_t cb);
-	void onTeleportFinished();
+	void onTeleportFinished(bool local, const LLVector3d& new_pos);
 	void onTeleportFailed();
 
 	static BOOL isParcelOwnedByAgent(const LLParcel* parcelp, U64 group_proxy_power);
@@ -316,7 +338,7 @@ private:
 	LLDynamicArray<LLParcelObserver*> mObservers;
 
 	BOOL						mTeleportInProgress;
-	parcel_changed_signal_t		mTeleportFinishedSignal;
+	teleport_finished_signal_t	mTeleportFinishedSignal;
 	parcel_changed_signal_t		mTeleportFailedSignal;
 	parcel_changed_signal_t		mAgentParcelChangedSignal;
 

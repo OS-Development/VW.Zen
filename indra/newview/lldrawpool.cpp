@@ -2,31 +2,25 @@
  * @file lldrawpool.cpp
  * @brief LLDrawPool class implementation
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -95,6 +89,7 @@ LLDrawPool *LLDrawPool::createPool(const U32 type, LLViewerTexture *tex0)
 	case POOL_SKY:
 		poolp = new LLDrawPoolSky();
 		break;
+	case POOL_VOIDWATER:
 	case POOL_WATER:
 		poolp = new LLDrawPoolWater();
 		break;
@@ -196,6 +191,16 @@ void LLDrawPool::renderPostDeferred(S32 pass)
 //virtual
 void LLDrawPool::endRenderPass( S32 pass )
 {
+	for (U32 i = 0; i < gGLManager.mNumTextureImageUnits; i++)
+	{ //dummy cleanup of any currently bound textures
+		if (gGL.getTexUnit(i)->getCurrType() != LLTexUnit::TT_NONE)
+		{
+			gGL.getTexUnit(i)->unbind(gGL.getTexUnit(i)->getCurrType());
+			gGL.getTexUnit(i)->disable();
+		}
+	}
+
+	gGL.getTexUnit(0)->activate();
 }
 
 //virtual 
@@ -248,11 +253,6 @@ void LLFacePool::dirtyTextures(const std::set<LLViewerFetchedTexture*>& textures
 {
 }
 
-BOOL LLFacePool::moveFace(LLFace *face, LLDrawPool *poolp, BOOL copy_data)
-{
-	return TRUE;
-}
-
 // static
 S32 LLFacePool::drawLoop(face_array_t& face_list)
 {
@@ -279,7 +279,7 @@ S32 LLFacePool::drawLoopSetTex(face_array_t& face_list, S32 stage)
 			 iter != face_list.end(); iter++)
 		{
 			LLFace *facep = *iter;
-			gGL.getTexUnit(stage)->bind(facep->getTexture()) ;
+			gGL.getTexUnit(stage)->bind(facep->getTexture(), TRUE) ;
 			gGL.getTexUnit(0)->activate();
 			res += facep->renderIndexed();
 		}
@@ -440,14 +440,14 @@ void LLRenderPass::renderTexture(U32 type, U32 mask)
 	pushBatches(type, mask, TRUE);
 }
 
-void LLRenderPass::pushBatches(U32 type, U32 mask, BOOL texture)
+void LLRenderPass::pushBatches(U32 type, U32 mask, BOOL texture, BOOL batch_textures)
 {
 	for (LLCullResult::drawinfo_list_t::iterator i = gPipeline.beginRenderMap(type); i != gPipeline.endRenderMap(type); ++i)	
 	{
 		LLDrawInfo* pparams = *i;
 		if (pparams) 
 		{
-			pushBatch(*pparams, mask, texture);
+			pushBatch(*pparams, mask, texture, batch_textures);
 		}
 	}
 }
@@ -466,26 +466,43 @@ void LLRenderPass::applyModelMatrix(LLDrawInfo& params)
 	}
 }
 
-void LLRenderPass::pushBatch(LLDrawInfo& params, U32 mask, BOOL texture)
+void LLRenderPass::pushBatch(LLDrawInfo& params, U32 mask, BOOL texture, BOOL batch_textures)
 {
 	applyModelMatrix(params);
 
+	bool tex_setup = false;
+
 	if (texture)
 	{
-		if (params.mTexture.notNull())
+		if (batch_textures && params.mTextureList.size() > 1)
 		{
-			gGL.getTexUnit(0)->bind(params.mTexture) ;
-			if (params.mTextureMatrix)
+			for (U32 i = 0; i < params.mTextureList.size(); ++i)
 			{
-				glMatrixMode(GL_TEXTURE);
-				glLoadMatrixf((GLfloat*) params.mTextureMatrix->mMatrix);
-				gPipeline.mTextureMatrixOps++;
+				if (params.mTextureList[i].notNull())
+				{
+					gGL.getTexUnit(i)->bind(params.mTextureList[i], TRUE);
+				}
 			}
-			params.mTexture->addTextureStats(params.mVSize);
 		}
 		else
-		{
-			gGL.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
+		{ //not batching textures or batch has only 1 texture -- might need a texture matrix
+			if (params.mTexture.notNull())
+			{
+				params.mTexture->addTextureStats(params.mVSize);
+				gGL.getTexUnit(0)->bind(params.mTexture, TRUE) ;
+				if (params.mTextureMatrix)
+				{
+					tex_setup = true;
+					gGL.getTexUnit(0)->activate();
+					glMatrixMode(GL_TEXTURE);
+					glLoadMatrixf((GLfloat*) params.mTextureMatrix->mMatrix);
+					gPipeline.mTextureMatrixOps++;
+				}
+			}
+			else
+			{
+				gGL.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
+			}
 		}
 	}
 	
@@ -496,11 +513,11 @@ void LLRenderPass::pushBatch(LLDrawInfo& params, U32 mask, BOOL texture)
 			params.mGroup->rebuildMesh();
 		}
 		params.mVertexBuffer->setBuffer(mask);
-		params.mVertexBuffer->drawRange(LLRender::TRIANGLES, params.mStart, params.mEnd, params.mCount, params.mOffset);
-		gPipeline.addTrianglesDrawn(params.mCount/3);
+		params.mVertexBuffer->drawRange(params.mDrawMode, params.mStart, params.mEnd, params.mCount, params.mOffset);
+		gPipeline.addTrianglesDrawn(params.mCount, params.mDrawMode);
 	}
 
-	if (params.mTextureMatrix && texture && params.mTexture.notNull())
+	if (tex_setup)
 	{
 		glLoadIdentity();
 		glMatrixMode(GL_MODELVIEW);

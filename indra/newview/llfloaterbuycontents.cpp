@@ -3,31 +3,25 @@
  * @author James Cook
  * @brief LLFloaterBuyContents class implementation
  *
- * $LicenseInfo:firstyear=2004&license=viewergpl$
- * 
- * Copyright (c) 2004-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2004&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -43,10 +37,14 @@
 #include "llcachename.h"
 
 #include "llagent.h"			// for agent id
-#include "llalertdialog.h"
 #include "llcheckboxctrl.h"
+#include "llinventorydefines.h"
+#include "llinventoryfunctions.h"
 #include "llinventorymodel.h"	// for gInventory
-#include "llfloaterinventory.h"	// for get_item_icon
+#include "llfirstuse.h"
+#include "llfloaterreg.h"
+#include "llfloaterinventory.h"	// for LLInventoryIcon::getIcon
+#include "llnotificationsutil.h"
 #include "llselectmgr.h"
 #include "llscrolllistctrl.h"
 #include "llviewerobject.h"
@@ -54,31 +52,34 @@
 #include "lluictrlfactory.h"
 #include "llviewerwindow.h"
 
-LLFloaterBuyContents* LLFloaterBuyContents::sInstance = NULL;
-
-LLFloaterBuyContents::LLFloaterBuyContents()
-:	LLFloater()
+LLFloaterBuyContents::LLFloaterBuyContents(const LLSD& key)
+:	LLFloater(key)
 {
-	LLUICtrlFactory::getInstance()->buildFloater(this, "floater_buy_contents.xml");
-
 }
+
 BOOL LLFloaterBuyContents::postBuild()
 {
 
-	childSetAction("cancel_btn", onClickCancel, this);
-	childSetAction("buy_btn", onClickBuy, this);
+	getChild<LLUICtrl>("cancel_btn")->setCommitCallback( boost::bind(&LLFloaterBuyContents::onClickCancel, this));
+	getChild<LLUICtrl>("buy_btn")->setCommitCallback( boost::bind(&LLFloaterBuyContents::onClickBuy, this));
 
-	childDisable("item_list");
-	childDisable("buy_btn");
-	childDisable("wear_check");
+	getChildView("item_list")->setEnabled(FALSE);
+	getChildView("buy_btn")->setEnabled(FALSE);
+	getChildView("wear_check")->setEnabled(FALSE);
 
 	setDefaultBtn("cancel_btn"); // to avoid accidental buy (SL-43130)
+
+	// Always center the dialog.  User can change the size,
+	// but purchases are important and should be center screen.
+	// This also avoids problems where the user resizes the application window
+	// mid-session and the saved rect is off-center.
+	center();
+	
 	return TRUE;
 }
 
 LLFloaterBuyContents::~LLFloaterBuyContents()
 {
-	sInstance = NULL;
 }
 
 
@@ -89,41 +90,30 @@ void LLFloaterBuyContents::show(const LLSaleInfo& sale_info)
 
 	if (selection->getRootObjectCount() != 1)
 	{
-		LLNotifications::instance().add("BuyContentsOneOnly");
+		LLNotificationsUtil::add("BuyContentsOneOnly");
 		return;
 	}
+	
+	LLFloaterBuyContents* floater = LLFloaterReg::showTypedInstance<LLFloaterBuyContents>("buy_object_contents");
+	if (!floater)
+		return;
+	
+	LLScrollListCtrl* list = floater->getChild<LLScrollListCtrl>("item_list");
+	if (list)
+		list->deleteAllItems();
 
-	// Create a new instance only if needed
-	if (sInstance)
-	{
-		LLScrollListCtrl* list = sInstance->getChild<LLScrollListCtrl>("item_list");
-		if (list) list->deleteAllItems();
-	}
-	else
-	{
-		sInstance = new LLFloaterBuyContents();
-	}
-
-	sInstance->openFloater();
-	sInstance->setFocus(TRUE);
-	sInstance->mObjectSelection = LLSelectMgr::getInstance()->getEditSelection();
-
-	// Always center the dialog.  User can change the size,
-	// but purchases are important and should be center screen.
-	// This also avoids problems where the user resizes the application window
-	// mid-session and the saved rect is off-center.
-	sInstance->center();
+	floater->mObjectSelection = LLSelectMgr::getInstance()->getEditSelection();
 
 	LLUUID owner_id;
 	std::string owner_name;
 	BOOL owners_identical = LLSelectMgr::getInstance()->selectGetOwner(owner_id, owner_name);
 	if (!owners_identical)
 	{
-		LLNotifications::instance().add("BuyContentsOneOwner");
+		LLNotificationsUtil::add("BuyContentsOneOwner");
 		return;
 	}
 
-	sInstance->mSaleInfo = sale_info;
+	floater->mSaleInfo = sale_info;
 
 	// Update the display
 	LLSelectNode* node = selection->getFirstRootNode();
@@ -133,21 +123,21 @@ void LLFloaterBuyContents::show(const LLSaleInfo& sale_info)
 		gCacheName->getGroupName(owner_id, owner_name);
 	}
 
-	sInstance->childSetTextArg("contains_text", "[NAME]", node->mName);
-	sInstance->childSetTextArg("buy_text", "[AMOUNT]", llformat("%d", sale_info.getSalePrice()));
-	sInstance->childSetTextArg("buy_text", "[NAME]", owner_name);
+	floater->getChild<LLUICtrl>("contains_text")->setTextArg("[NAME]", node->mName);
+	floater->getChild<LLUICtrl>("buy_text")->setTextArg("[AMOUNT]", llformat("%d", sale_info.getSalePrice()));
+	floater->getChild<LLUICtrl>("buy_text")->setTextArg("[NAME]", owner_name);
 
 	// Must do this after the floater is created, because
 	// sometimes the inventory is already there and 
 	// the callback is called immediately.
 	LLViewerObject* obj = selection->getFirstRootObject();
-	sInstance->registerVOInventoryListener(obj,NULL);
-	sInstance->requestVOInventory();
+	floater->registerVOInventoryListener(obj,NULL);
+	floater->requestVOInventory();
 }
 
 
 void LLFloaterBuyContents::inventoryChanged(LLViewerObject* obj,
-											InventoryObjectList* inv,
+											LLInventoryObject::object_list_t* inv,
 								 S32 serial_num,
 								 void* data)
 {
@@ -173,7 +163,7 @@ void LLFloaterBuyContents::inventoryChanged(LLViewerObject* obj,
 	}
 
 	// default to turning off the buy button.
-	childDisable("buy_btn");
+	getChildView("buy_btn")->setEnabled(FALSE);
 
 	LLUUID owner_id;
 	BOOL is_group_owned;
@@ -181,8 +171,8 @@ void LLFloaterBuyContents::inventoryChanged(LLViewerObject* obj,
 	LLInventoryType::EType inv_type;
 	S32 wearable_count = 0;
 	
-	InventoryObjectList::const_iterator it = inv->begin();
-	InventoryObjectList::const_iterator end = inv->end();
+	LLInventoryObject::object_list_t::const_iterator it = inv->begin();
+	LLInventoryObject::object_list_t::const_iterator end = inv->end();
 
 	for ( ; it != end; ++it )
 	{
@@ -190,10 +180,6 @@ void LLFloaterBuyContents::inventoryChanged(LLViewerObject* obj,
 
 		// Skip folders, so we know we have inventory items only
 		if (asset_type == LLAssetType::AT_CATEGORY)
-			continue;
-
-		// Skip root folders, so we know we have inventory items only
-		if (asset_type == LLAssetType::AT_ROOT_CATEGORY) 
 			continue;
 
 		LLInventoryItem* inv_item = (LLInventoryItem*)((LLInventoryObject*)(*it));
@@ -218,18 +204,18 @@ void LLFloaterBuyContents::inventoryChanged(LLViewerObject* obj,
 
 		// There will be at least one item shown in the display, so go
 		// ahead and enable the buy button.
-		childEnable("buy_btn");
+		getChildView("buy_btn")->setEnabled(TRUE);
 
 		// Create the line in the list
 		LLSD row;
 
 		BOOL item_is_multi = FALSE;
-		if ( inv_item->getFlags() & LLInventoryItem::II_FLAGS_LANDMARK_VISITED )
+		if ( inv_item->getFlags() & LLInventoryItemFlags::II_FLAGS_LANDMARK_VISITED )
 		{
 			item_is_multi = TRUE;
 		}
 
-		std::string icon_name = get_item_icon_name(inv_item->getType(), 
+		std::string icon_name = LLInventoryIcon::getIconName(inv_item->getType(), 
 								 inv_item->getInventoryType(),
 								 inv_item->getFlags(),
 								 item_is_multi);
@@ -264,47 +250,48 @@ void LLFloaterBuyContents::inventoryChanged(LLViewerObject* obj,
 
 	if (wearable_count > 0)
 	{
-		childEnable("wear_check");
-		childSetValue("wear_check", LLSD(false) );
+		getChildView("wear_check")->setEnabled(TRUE);
+		getChild<LLUICtrl>("wear_check")->setValue(LLSD(false) );
 	}
 	
 	removeVOInventoryListener();
 }
 
 
-// static
-void LLFloaterBuyContents::onClickBuy(void*)
+void LLFloaterBuyContents::onClickBuy()
 {
 	// Make sure this wasn't selected through other mechanisms 
 	// (ie, being the default button and pressing enter.
-	if(!sInstance->childIsEnabled("buy_btn"))
+	if(!getChildView("buy_btn")->getEnabled())
 	{
 		// We shouldn't be enabled.  Just close.
-		sInstance->closeFloater();
+		closeFloater();
 		return;
 	}
 
 	// We may want to wear this item
-	if (sInstance->childGetValue("wear_check"))
+	if (getChild<LLUICtrl>("wear_check")->getValue())
 	{
-		LLFloaterInventory::sWearNewClothing = TRUE;
+		LLInventoryState::sWearNewClothing = TRUE;
 	}
 
 	// Put the items where we put new folders.
 	LLUUID category_id;
-	category_id = gInventory.findCategoryUUIDForType(LLAssetType::AT_CATEGORY);
+	category_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_ROOT_INVENTORY);
 
 	// *NOTE: doesn't work for multiple object buy, which UI does not
 	// currently support sale info is used for verification only, if
 	// it doesn't match region info then sale is canceled.
-	LLSelectMgr::getInstance()->sendBuy(gAgent.getID(), category_id, sInstance->mSaleInfo);
+	LLSelectMgr::getInstance()->sendBuy(gAgent.getID(), category_id, mSaleInfo);
 
-	sInstance->closeFloater();
+	// NOTE: do this here instead of on receipt of object, since contents are transfered
+	// via a generic BulkUpdateInventory message with no way of distinguishing it from
+	// other inventory operations
+	LLFirstUse::newInventory();
+	closeFloater();
 }
 
-
-// static
-void LLFloaterBuyContents::onClickCancel(void*)
+void LLFloaterBuyContents::onClickCancel()
 {
-	sInstance->closeFloater();
+	closeFloater();
 }

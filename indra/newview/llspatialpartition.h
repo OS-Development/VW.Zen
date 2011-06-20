@@ -2,31 +2,25 @@
  * @file llspatialpartition.h
  * @brief LLSpatialGroup header file including definitions for supporting functions
  *
- * $LicenseInfo:firstyear=2003&license=viewergpl$
- * 
- * Copyright (c) 2003-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2003&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -44,7 +38,8 @@
 #include "llcubemap.h"
 #include "lldrawpool.h"
 #include "llface.h"
-
+#include "llviewercamera.h"
+#include "llvector4a.h"
 #include <queue>
 
 #define SG_STATE_INHERIT_MASK (OCCLUDED)
@@ -53,12 +48,19 @@
 class LLSpatialPartition;
 class LLSpatialBridge;
 class LLSpatialGroup;
+class LLTextureAtlas;
+class LLTextureAtlasSlot;
+
+S32 AABBSphereIntersect(const LLVector4a& min, const LLVector4a& max, const LLVector3 &origin, const F32 &rad);
+S32 AABBSphereIntersectR2(const LLVector4a& min, const LLVector4a& max, const LLVector3 &origin, const F32 &radius_squared);
 
 S32 AABBSphereIntersect(const LLVector3& min, const LLVector3& max, const LLVector3 &origin, const F32 &rad);
 S32 AABBSphereIntersectR2(const LLVector3& min, const LLVector3& max, const LLVector3 &origin, const F32 &radius_squared);
+void pushVerts(LLFace* face, U32 mask);
 
 // get index buffer for binary encoded axis vertex buffer given a box at center being viewed by given camera
-U8* get_box_fan_indices(LLCamera* camera, const LLVector3& center);
+U32 get_box_fan_indices(LLCamera* camera, const LLVector4a& center);
+U8* get_box_fan_indices_ptr(LLCamera* camera, const LLVector4a& center);
 
 class LLDrawInfo : public LLRefCount 
 {
@@ -66,13 +68,31 @@ protected:
 	~LLDrawInfo();	
 	
 public:
+
+	LLDrawInfo(const LLDrawInfo& rhs)
+	{
+		*this = rhs;
+	}
+
+	const LLDrawInfo& operator=(const LLDrawInfo& rhs)
+	{
+		llerrs << "Illegal operation!" << llendl;
+		return *this;
+	}
+
 	LLDrawInfo(U16 start, U16 end, U32 count, U32 offset, 
 				LLViewerTexture* image, LLVertexBuffer* buffer, 
 				BOOL fullbright = FALSE, U8 bump = 0, BOOL particle = FALSE, F32 part_size = 0);
 	
 
+	void validate();
+
+	LLVector4a mExtents[2];
+	
 	LLPointer<LLVertexBuffer> mVertexBuffer;
-	LLPointer<LLViewerTexture> mTexture;
+	LLPointer<LLViewerTexture>     mTexture;
+	std::vector<LLPointer<LLViewerTexture> > mTextureList;
+
 	LLColor4U mGlowColor;
 	S32 mDebugColor;
 	const LLMatrix4* mTextureMatrix;
@@ -89,7 +109,7 @@ public:
 	LLSpatialGroup* mGroup;
 	LLFace* mFace; //associated face
 	F32 mDistance;
-	LLVector3 mExtents[2];
+	U32 mDrawMode;
 
 	struct CompareTexture
 	{
@@ -130,6 +150,17 @@ public:
 
 	};
 
+	struct CompareMatrixTexturePtr
+	{
+		bool operator()(const LLPointer<LLDrawInfo>& lhs, const LLPointer<LLDrawInfo>& rhs)	
+		{
+			return lhs.get() != rhs.get() 
+				&& (lhs.isNull() || (rhs.notNull() && (lhs->mModelMatrix > rhs->mModelMatrix ||
+													   (lhs->mModelMatrix == rhs->mModelMatrix && lhs->mTexture.get() > rhs->mTexture.get()))));
+		}
+
+	};
+
 	struct CompareBump
 	{
 		bool operator()(const LLPointer<LLDrawInfo>& lhs, const LLPointer<LLDrawInfo>& rhs) 
@@ -151,20 +182,34 @@ public:
 	};
 };
 
+LL_ALIGN_PREFIX(64)
 class LLSpatialGroup : public LLOctreeListener<LLDrawable>
 {
 	friend class LLSpatialPartition;
+	friend class LLOctreeStateCheck;
 public:
+
+	LLSpatialGroup(const LLSpatialGroup& rhs)
+	{
+		*this = rhs;
+	}
+
+	const LLSpatialGroup& operator=(const LLSpatialGroup& rhs)
+	{
+		llerrs << "Illegal operation!" << llendl;
+		return *this;
+	}
+
+	static std::set<GLuint> sPendingQueries; //pending occlusion queries
 	static U32 sNodeCount;
 	static BOOL sNoDelete; //deletion of spatial groups and draw info not allowed if TRUE
 
 	typedef std::vector<LLPointer<LLSpatialGroup> > sg_vector_t;
-	typedef std::set<LLPointer<LLSpatialGroup> > sg_set_t;
 	typedef std::vector<LLPointer<LLSpatialBridge> > bridge_list_t;
 	typedef std::vector<LLPointer<LLDrawInfo> > drawmap_elem_t; 
 	typedef std::map<U32, drawmap_elem_t > draw_map_t;	
 	typedef std::vector<LLPointer<LLVertexBuffer> > buffer_list_t;
-	typedef std::map<LLPointer<LLViewerTexture>, buffer_list_t> buffer_texture_map_t;
+	typedef std::map<LLFace*, buffer_list_t> buffer_texture_map_t;
 	typedef std::map<U32, buffer_texture_map_t> buffer_map_t;
 
 	typedef LLOctreeListener<LLDrawable>	BaseType;
@@ -184,6 +229,14 @@ public:
 		}
 	};
 
+	struct CompareUpdateUrgency
+	{
+		bool operator()(const LLPointer<LLSpatialGroup> lhs, const LLPointer<LLSpatialGroup> rhs)
+		{
+			return lhs->getUpdateUrgency() > rhs->getUpdateUrgency();
+		}
+	};
+
 	struct CompareDepthGreater
 	{
 		bool operator()(const LLSpatialGroup* const& lhs, const LLSpatialGroup* const& rhs)
@@ -194,35 +247,44 @@ public:
 
 	typedef enum
 	{
-		OCCLUDED				= 0x00000001,
-		IN_QUEUE				= 0x00000002,
-		QUERY_PENDING			= 0x00000004,
-		ACTIVE_OCCLUSION		= 0x00000008,
-		DISCARD_QUERY			= 0x00000010,
-		DEAD					= 0x00000020,
-		EARLY_FAIL				= 0x00000040,
-		DIRTY					= 0x00000080,
-		OBJECT_DIRTY			= 0x00000100,
-		GEOM_DIRTY				= 0x00000200,
-		ALPHA_DIRTY				= 0x00000800,
-		SKIP_FRUSTUM_CHECK		= 0x00001000,
-		IN_IMAGE_QUEUE			= 0x00002000,
-		IMAGE_DIRTY				= 0x00004000,
-		OCCLUSION_DIRTY			= 0x00008000,
-		MESH_DIRTY				= 0x00010000,
+		OCCLUDED				= 0x00010000,
+		QUERY_PENDING			= 0x00020000,
+		ACTIVE_OCCLUSION		= 0x00040000,
+		DISCARD_QUERY			= 0x00080000,
+		EARLY_FAIL				= 0x00100000,
+	} eOcclusionState;
+
+	typedef enum
+	{
+		DEAD					= 0x00000001,
+		DIRTY					= 0x00000002,
+		OBJECT_DIRTY			= 0x00000004,
+		GEOM_DIRTY				= 0x00000008,
+		ALPHA_DIRTY				= 0x00000010,
+		SKIP_FRUSTUM_CHECK		= 0x00000020,
+		IN_IMAGE_QUEUE			= 0x00000040,
+		IMAGE_DIRTY				= 0x00000080,
+		OCCLUSION_DIRTY			= 0x00000100,
+		MESH_DIRTY				= 0x00000200,
+		NEW_DRAWINFO			= 0x00000400,
+		IN_BUILD_Q1				= 0x00000800,
+		IN_BUILD_Q2				= 0x00001000,
+		STATE_MASK				= 0x0000FFFF,
 	} eSpatialState;
 
 	typedef enum
 	{
 		STATE_MODE_SINGLE = 0,		//set one node
 		STATE_MODE_BRANCH,			//set entire branch
-		STATE_MODE_DIFF				//set entire branch as long as current state is different
+		STATE_MODE_DIFF,			//set entire branch as long as current state is different
+		STATE_MODE_ALL_CAMERAS,		//used for occlusion state, set state for all cameras
 	} eSetStateMode;
 
 	LLSpatialGroup(OctreeNode* node, LLSpatialPartition* part);
 
 	BOOL isDead()							{ return isState(DEAD); }
-	BOOL isState(U32 state) const			{ return mState & state ? TRUE : FALSE; }
+	BOOL isState(U32 state) const;	
+	BOOL isOcclusionState(U32 state) const	{ return mOcclusionState[LLViewerCamera::sCurCameraID] & state ? TRUE : FALSE; }
 	U32 getState()							{ return mState; }
 	void setState(U32 state);	
 	void clearState(U32 state);	
@@ -233,17 +295,22 @@ public:
 	void validateDrawMap();
 	
 	void setState(U32 state, S32 mode);
+	void clearState(U32 state, S32 mode);
+
+	void setOcclusionState(U32 state, S32 mode = STATE_MODE_SINGLE);
+	void clearOcclusionState(U32 state, S32 mode = STATE_MODE_SINGLE);
 
 	LLSpatialGroup* getParent();
 
-	void clearState(U32 state, S32 mode);
+	
 	BOOL addObject(LLDrawable *drawablep, BOOL add_all = FALSE, BOOL from_octree = FALSE);
 	BOOL removeObject(LLDrawable *drawablep, BOOL from_octree = FALSE);
 	BOOL updateInGroup(LLDrawable *drawablep, BOOL immediate = FALSE); // Update position if it's in the group
 	BOOL isVisible() const;
+	BOOL isRecentlyVisible() const;
 	void setVisible();
-	void shift(const LLVector3 &offset);
-	BOOL boundObjects(BOOL empty, LLVector3& newMin, LLVector3& newMax);
+	void shift(const LLVector4a &offset);
+	BOOL boundObjects(BOOL empty, LLVector4a& newMin, LLVector4a& newMax);
 	void unbound();
 	BOOL rebound();
 	void buildOcclusion(); //rebuild mOcclusionVerts
@@ -253,6 +320,7 @@ public:
 	
 	void updateDistance(LLCamera& camera);
 	BOOL needsUpdate();
+	F32 getUpdateUrgency() const;
 	BOOL changeLOD();
 	void rebuildGeom();
 	void rebuildMesh();
@@ -262,6 +330,8 @@ public:
 	element_list& getData() { return mOctreeNode->getData(); }
 	U32 getElementCount() const { return mOctreeNode->getElementCount(); }
 
+	void drawObjectBox(LLColor4 col);
+
 	 //LISTENER FUNCTIONS
 	virtual void handleInsertion(const TreeNode* node, LLDrawable* face);
 	virtual void handleRemoval(const TreeNode* node, LLDrawable* face);
@@ -270,45 +340,89 @@ public:
 	virtual void handleChildAddition(const OctreeNode* parent, OctreeNode* child);
 	virtual void handleChildRemoval(const OctreeNode* parent, const OctreeNode* child);
 
+//-------------------
+//for atlas use
+//-------------------
+	//atlas	
+	void setCurUpdatingTime(U32 t) {mCurUpdatingTime = t ;}
+	U32  getCurUpdatingTime() const { return mCurUpdatingTime ;}
+	
+	void setCurUpdatingSlot(LLTextureAtlasSlot* slotp) ;
+	LLTextureAtlasSlot* getCurUpdatingSlot(LLViewerTexture* imagep, S8 recursive_level = 3) ;
+
+	void setCurUpdatingTexture(LLViewerTexture* tex){ mCurUpdatingTexture = tex ;}
+	LLViewerTexture* getCurUpdatingTexture() const { return mCurUpdatingTexture ;}
+	
+	BOOL hasAtlas(LLTextureAtlas* atlasp) ;
+	LLTextureAtlas* getAtlas(S8 ncomponents, S8 to_be_reserved, S8 recursive_level = 3) ;
+	void addAtlas(LLTextureAtlas* atlasp, S8 recursive_level = 3) ;
+	void removeAtlas(LLTextureAtlas* atlasp, BOOL remove_group = TRUE, S8 recursive_level = 3) ;
+	void clearAtlasList() ;
+
+public:
+
+	typedef enum
+	{
+		BOUNDS = 0,
+		EXTENTS = 2,
+		OBJECT_BOUNDS = 4,
+		OBJECT_EXTENTS = 6,
+		VIEW_ANGLE = 8,
+		LAST_VIEW_ANGLE = 9,
+		V4_COUNT = 10
+	} eV4Index;
+
+	LLVector4a mBounds[2]; // bounding box (center, size) of this node and all its children (tight fit to objects)
+	LLVector4a mExtents[2]; // extents (min, max) of this node and all its children
+	LLVector4a mObjectExtents[2]; // extents (min, max) of objects in this node
+	LLVector4a mObjectBounds[2]; // bounding box (center, size) of objects in this node
+	LLVector4a mViewAngle;
+	LLVector4a mLastUpdateViewAngle;
+		
+private:
+	U32                     mCurUpdatingTime ;
+	//do not make the below two to use LLPointer
+	//because mCurUpdatingTime invalidates them automatically.
+	LLTextureAtlasSlot* mCurUpdatingSlotp ;
+	LLViewerTexture*          mCurUpdatingTexture ;
+
+	std::vector< std::list<LLTextureAtlas*> > mAtlasList ; 
+//-------------------
+//end for atlas use
+//-------------------
+
 protected:
 	virtual ~LLSpatialGroup();
 
 	U32 mState;
+	U32 mOcclusionState[LLViewerCamera::NUM_CAMERAS];
 	S32 mLODHash;
 	static S32 sLODSeed;
 
 public:
 	bridge_list_t mBridgeList;
-	buffer_map_t mBufferMap; //used by volume buffers to store unique buffers per texture
+	buffer_map_t mBufferMap; //used by volume buffers to attempt to reuse vertex buffers
 
 	F32 mBuilt;
 	OctreeNode* mOctreeNode;
 	LLSpatialPartition* mSpatialPartition;
-	LLVector3 mBounds[2];
-	LLVector3 mExtents[2];
 	
-	LLVector3 mObjectExtents[2];
-	LLVector3 mObjectBounds[2];
-
 	LLPointer<LLVertexBuffer> mVertexBuffer;
-	F32*					mOcclusionVerts;
-	GLuint					mOcclusionQuery;
+	LLPointer<LLVertexBuffer> mOcclusionVerts;
+	GLuint					mOcclusionQuery[LLViewerCamera::NUM_CAMERAS];
 
 	U32 mBufferUsage;
 	draw_map_t mDrawMap;
 	
-	S32 mVisible;
+	S32 mVisible[LLViewerCamera::NUM_CAMERAS];
 	F32 mDistance;
 	F32 mDepth;
 	F32 mLastUpdateDistance;
 	F32 mLastUpdateTime;
-			
-	LLVector3 mViewAngle;
-	LLVector3 mLastUpdateViewAngle;
 	
 	F32 mPixelArea;
 	F32 mRadius;
-};
+} LL_ALIGN_POSTFIX(64);
 
 class LLGeometryManager
 {
@@ -326,9 +440,7 @@ public:
 class LLSpatialPartition: public LLGeometryManager
 {
 public:
-	static BOOL sFreezeState; //if true, no spatialgroup state updates will be made
-
-	LLSpatialPartition(U32 data_mask, U32 mBufferUsage = GL_STATIC_DRAW_ARB);
+	LLSpatialPartition(U32 data_mask,  BOOL render_by_group, U32 mBufferUsage);
 	virtual ~LLSpatialPartition();
 
 	LLSpatialGroup *put(LLDrawable *drawablep, BOOL was_visible = FALSE);
@@ -346,7 +458,7 @@ public:
 	
 	// If the drawable moves, move it here.
 	virtual void move(LLDrawable *drawablep, LLSpatialGroup *curp, BOOL immediate = FALSE);
-	virtual void shift(const LLVector3 &offset);
+	virtual void shift(const LLVector4a &offset);
 
 	virtual F32 calcDistance(LLSpatialGroup* group, LLCamera& camera);
 	virtual F32 calcPixelArea(LLSpatialGroup* group, LLCamera& camera);
@@ -362,6 +474,7 @@ public:
 	virtual LLSpatialBridge* asBridge() { return NULL; }
 	virtual BOOL isBridge() { return asBridge() != NULL; }
 
+	void renderPhysicsShapes();
 	void renderDebug();
 	void renderIntersectingBBoxes(LLCamera* camera);
 	void restoreGL();
@@ -374,7 +487,7 @@ public:
 	BOOL mOcclusionEnabled; // if TRUE, occlusion culling is performed
 	BOOL mInfiniteFarClip; // if TRUE, frustum culling ignores far clip plane
 	U32 mBufferUsage;
-	BOOL mRenderByGroup;
+	const BOOL mRenderByGroup;
 	U32 mLODSeed;
 	U32 mLODPeriod;	//number of frames between LOD updates for a given spatial group (staggered by mLODSeed)
 	U32 mVertexDataMask;
@@ -393,7 +506,7 @@ protected:
 public:
 	typedef std::vector<LLPointer<LLSpatialBridge> > bridge_vector_t;
 	
-	LLSpatialBridge(LLDrawable* root, U32 data_mask);
+	LLSpatialBridge(LLDrawable* root, BOOL render_by_group, U32 data_mask);
 	
 	virtual BOOL isSpatialBridge() const		{ return TRUE; }
 
@@ -404,7 +517,7 @@ public:
 	virtual void makeActive();
 	virtual void move(LLDrawable *drawablep, LLSpatialGroup *curp, BOOL immediate = FALSE);
 	virtual BOOL updateMove();
-	virtual void shiftPos(const LLVector3& vec);
+	virtual void shiftPos(const LLVector4a& vec);
 	virtual void cleanupReferences();
 	virtual LLSpatialPartition* asPartition()		{ return this; }
 	virtual LLSpatialBridge* asBridge()				{ return this; }
@@ -432,6 +545,7 @@ public:
 	sg_list_t::iterator beginAlphaGroups();
 	sg_list_t::iterator endAlphaGroups();
 
+	bool hasOcclusionGroups() { return mOcclusionGroupsSize > 0; }
 	sg_list_t::iterator beginOcclusionGroups();
 	sg_list_t::iterator endOcclusionGroups();
 
@@ -474,12 +588,19 @@ private:
 	U32					mRenderMapSize[LLRenderPass::NUM_RENDER_TYPES];
 
 	sg_list_t			mVisibleGroups;
+	sg_list_t::iterator mVisibleGroupsEnd;
 	sg_list_t			mAlphaGroups;
+	sg_list_t::iterator mAlphaGroupsEnd;
 	sg_list_t			mOcclusionGroups;
+	sg_list_t::iterator	mOcclusionGroupsEnd;
 	sg_list_t			mDrawableGroups;
+	sg_list_t::iterator mDrawableGroupsEnd;
 	drawable_list_t		mVisibleList;
+	drawable_list_t::iterator mVisibleListEnd;
 	bridge_list_t		mVisibleBridge;
+	bridge_list_t::iterator mVisibleBridgeEnd;
 	drawinfo_list_t		mRenderMap[LLRenderPass::NUM_RENDER_TYPES];
+	drawinfo_list_t::iterator mRenderMapEnd[LLRenderPass::NUM_RENDER_TYPES];
 };
 
 
@@ -490,6 +611,13 @@ public:
 	LLWaterPartition();
 	virtual void getGeometry(LLSpatialGroup* group) {  }
 	virtual void addGeometryCount(LLSpatialGroup* group, U32 &vertex_count, U32& index_count) { }
+};
+
+//spatial partition for hole and edge water (implemented in LLVOWater.cpp)
+class LLVoidWaterPartition : public LLWaterPartition
+{
+public:
+	LLVoidWaterPartition();
 };
 
 //spatial partition for terrain (impelmented in LLVOSurfacePatch.cpp)
@@ -546,14 +674,20 @@ public:
 //class for wrangling geometry out of volumes (implemented in LLVOVolume.cpp)
 class LLVolumeGeometryManager: public LLGeometryManager
 {
-public:
+ public:
+	typedef enum
+	{
+		NONE = 0,
+		BATCH_SORT,
+		DISTANCE_SORT
+	} eSortType;
+
 	virtual ~LLVolumeGeometryManager() { }
 	virtual void rebuildGeom(LLSpatialGroup* group);
 	virtual void rebuildMesh(LLSpatialGroup* group);
 	virtual void getGeometry(LLSpatialGroup* group);
-	void genDrawInfo(LLSpatialGroup* group, U32 mask, std::vector<LLFace*>& faces, BOOL distance_sort = FALSE);
+	void genDrawInfo(LLSpatialGroup* group, U32 mask, std::vector<LLFace*>& faces, BOOL distance_sort = FALSE, BOOL batch_textures = FALSE);
 	void registerFace(LLSpatialGroup* group, LLFace* facep, U32 type);
-
 };
 
 //spatial partition that uses volume geometry manager (implemented in LLVOVolume.cpp)
@@ -582,7 +716,7 @@ class LLHUDBridge : public LLVolumeBridge
 {
 public:
 	LLHUDBridge(LLDrawable* drawablep);
-	virtual void shiftPos(const LLVector3& vec);
+	virtual void shiftPos(const LLVector4a& vec);
 	virtual F32 calcPixelArea(LLSpatialGroup* group, LLCamera& camera);
 };
 
@@ -599,10 +733,8 @@ class LLHUDPartition : public LLBridgePartition
 {
 public:
 	LLHUDPartition();
-	virtual void shift(const LLVector3 &offset);
+	virtual void shift(const LLVector4a &offset);
 };
-
-void validate_draw_info(LLDrawInfo& params);
 
 extern const F32 SG_BOX_SIDE;
 extern const F32 SG_BOX_OFFSET;

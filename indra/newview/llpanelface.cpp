@@ -2,31 +2,25 @@
  * @file llpanelface.cpp
  * @brief Panel in the tools floater for editing face textures, colors, etc.
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -48,7 +42,9 @@
 #include "llcolorswatch.h"
 #include "llcombobox.h"
 #include "lldrawpoolbump.h"
+#include "llface.h"
 #include "lllineeditor.h"
+#include "llmediaentry.h"
 #include "llresmgr.h"
 #include "llselectmgr.h"
 #include "llspinctrl.h"
@@ -61,7 +57,10 @@
 #include "llviewermedia.h"
 #include "llviewerobject.h"
 #include "llviewerstats.h"
+#include "llvovolume.h"
 #include "lluictrlfactory.h"
+#include "llpluginclassmedia.h"
+#include "llviewertexturelist.h"
 
 //
 // Methods
@@ -69,6 +68,19 @@
 
 BOOL	LLPanelFace::postBuild()
 {
+	childSetCommitCallback("combobox shininess",&LLPanelFace::onCommitShiny,this);
+	childSetCommitCallback("combobox bumpiness",&LLPanelFace::onCommitBump,this);
+	childSetCommitCallback("TexScaleU",&LLPanelFace::onCommitTextureInfo, this);
+	childSetCommitCallback("checkbox flip s",&LLPanelFace::onCommitTextureInfo, this);
+	childSetCommitCallback("TexScaleV",&LLPanelFace::onCommitTextureInfo, this);
+	childSetCommitCallback("checkbox flip t",&LLPanelFace::onCommitTextureInfo, this);
+	childSetCommitCallback("TexRot",&LLPanelFace::onCommitTextureInfo, this);
+	childSetAction("button apply",&LLPanelFace::onClickApply,this);
+	childSetCommitCallback("checkbox planar align",&LLPanelFace::onCommitPlanarAlign, this);
+	childSetCommitCallback("TexOffsetU",LLPanelFace::onCommitTextureInfo, this);
+	childSetCommitCallback("TexOffsetV",LLPanelFace::onCommitTextureInfo, this);
+	childSetAction("button align",&LLPanelFace::onClickAutoFix,this);
+
 	LLRect	rect = this->getRect();
 	LLTextureCtrl*	mTextureCtrl;
 	LLColorSwatchCtrl*	mColorSwatch;
@@ -90,7 +102,7 @@ BOOL	LLPanelFace::postBuild()
 		mTextureCtrl->setCommitCallback( boost::bind(&LLPanelFace::onCommitTexture, this, _2) );
 		mTextureCtrl->setOnCancelCallback( boost::bind(&LLPanelFace::onCancelTexture, this, _2) );
 		mTextureCtrl->setOnSelectCallback( boost::bind(&LLPanelFace::onSelectTexture, this, _2) );
-		mTextureCtrl->setDragCallback(boost::bind(&LLPanelFace::onDragTexture, _2));
+		mTextureCtrl->setDragCallback(boost::bind(&LLPanelFace::onDragTexture, this, _2));
 		mTextureCtrl->setFollowsTop();
 		mTextureCtrl->setFollowsLeft();
 		// Don't allow (no copy) or (no transfer) textures to be selected during immediate mode
@@ -160,17 +172,6 @@ BOOL	LLPanelFace::postBuild()
 		mCtrlGlow->setCommitCallback(LLPanelFace::onCommitGlow, this);
 	}
 	
-	childSetCommitCallback("combobox shininess",&LLPanelFace::onCommitShiny,this);
-	childSetCommitCallback("combobox bumpiness",&LLPanelFace::onCommitBump,this);
-	childSetCommitCallback("TexScaleU",&LLPanelFace::onCommitTextureInfo, this);
-	childSetCommitCallback("checkbox flip s",&LLPanelFace::onCommitTextureInfo, this);
-	childSetCommitCallback("TexScaleV",&LLPanelFace::onCommitTextureInfo, this);
-	childSetCommitCallback("checkbox flip t",&LLPanelFace::onCommitTextureInfo, this);
-	childSetCommitCallback("TexRot",&LLPanelFace::onCommitTextureInfo, this);
-	childSetAction("button apply",&onClickApply,this);
-	childSetCommitCallback("TexOffsetU",LLPanelFace::onCommitTextureInfo, this);
-	childSetCommitCallback("TexOffsetV",LLPanelFace::onCommitTextureInfo, this);
-	childSetAction("button align",onClickAutoFix,this);
 
 	clearCtrls();
 
@@ -260,10 +261,13 @@ void LLPanelFace::sendAlpha()
 
 void LLPanelFace::sendGlow()
 {
-	LLSpinCtrl*	mCtrlGlow = getChild<LLSpinCtrl>("glow");
-	F32 glow = mCtrlGlow->get();
-
-	LLSelectMgr::getInstance()->selectionSetGlow( glow );
+	LLSpinCtrl* mCtrlGlow = getChild<LLSpinCtrl>("glow");
+	llassert(mCtrlGlow);
+	if (mCtrlGlow)
+	{
+		F32 glow = mCtrlGlow->get();
+		LLSelectMgr::getInstance()->selectionSetGlow( glow );
+	}
 }
 
 struct LLPanelFaceSetTEFunctor : public LLSelectedTEFunctor
@@ -281,6 +285,9 @@ struct LLPanelFaceSetTEFunctor : public LLSelectedTEFunctor
 		LLCheckBoxCtrl*	checkFlipScaleS = mPanel->getChild<LLCheckBoxCtrl>("checkbox flip s");
 		LLCheckBoxCtrl*	checkFlipScaleT = mPanel->getChild<LLCheckBoxCtrl>("checkbox flip t");
 		LLComboBox*		comboTexGen = mPanel->getChild<LLComboBox>("combobox texgen");
+		llassert(comboTexGen);
+		llassert(object);
+
 		if (ctrlTexScaleS)
 		{
 			valid = !ctrlTexScaleS->getTentative() || !checkFlipScaleS->getTentative();
@@ -291,7 +298,8 @@ struct LLPanelFaceSetTEFunctor : public LLSelectedTEFunctor
 				{
 					value = -value;
 				}
-				if (comboTexGen->getCurrentIndex() == 1)
+				if (comboTexGen &&
+				    comboTexGen->getCurrentIndex() == 1)
 				{
 					value *= 0.5f;
 				}
@@ -309,7 +317,8 @@ struct LLPanelFaceSetTEFunctor : public LLSelectedTEFunctor
 				{
 					value = -value;
 				}
-				if (comboTexGen->getCurrentIndex() == 1)
+				if (comboTexGen &&
+				    comboTexGen->getCurrentIndex() == 1)
 				{
 					value *= 0.5f;
 				}
@@ -352,6 +361,104 @@ private:
 	LLPanelFace* mPanel;
 };
 
+// Functor that aligns a face to mCenterFace
+struct LLPanelFaceSetAlignedTEFunctor : public LLSelectedTEFunctor
+{
+	LLPanelFaceSetAlignedTEFunctor(LLPanelFace* panel, LLFace* center_face) :
+		mPanel(panel),
+		mCenterFace(center_face) {}
+
+	virtual bool apply(LLViewerObject* object, S32 te)
+	{
+		LLFace* facep = object->mDrawable->getFace(te);
+		if (!facep)
+		{
+			return true;
+		}
+
+		if (facep->getViewerObject()->getVolume()->getNumVolumeFaces() <= te)
+		{
+			return true;
+		}
+
+		bool set_aligned = true;
+		if (facep == mCenterFace)
+		{
+			set_aligned = false;
+		}
+		if (set_aligned)
+		{
+			LLVector2 uv_offset, uv_scale;
+			F32 uv_rot;
+			set_aligned = facep->calcAlignedPlanarTE(mCenterFace, &uv_offset, &uv_scale, &uv_rot);
+			if (set_aligned)
+			{
+				object->setTEOffset(te, uv_offset.mV[VX], uv_offset.mV[VY]);
+				object->setTEScale(te, uv_scale.mV[VX], uv_scale.mV[VY]);
+				object->setTERotation(te, uv_rot);
+			}
+		}
+		if (!set_aligned)
+		{
+			LLPanelFaceSetTEFunctor setfunc(mPanel);
+			setfunc.apply(object, te);
+		}
+		return true;
+	}
+private:
+	LLPanelFace* mPanel;
+	LLFace* mCenterFace;
+};
+
+// Functor that tests if a face is aligned to mCenterFace
+struct LLPanelFaceGetIsAlignedTEFunctor : public LLSelectedTEFunctor
+{
+	LLPanelFaceGetIsAlignedTEFunctor(LLFace* center_face) :
+		mCenterFace(center_face) {}
+
+	virtual bool apply(LLViewerObject* object, S32 te)
+	{
+		LLFace* facep = object->mDrawable->getFace(te);
+		if (!facep)
+		{
+			return false;
+		}
+
+		if (facep->getViewerObject()->getVolume()->getNumVolumeFaces() <= te)
+		{ //volume face does not exist, can't be aligned
+			return false;
+		}
+
+		if (facep == mCenterFace)
+		{
+			return true;
+		}
+		
+		LLVector2 aligned_st_offset, aligned_st_scale;
+		F32 aligned_st_rot;
+		if ( facep->calcAlignedPlanarTE(mCenterFace, &aligned_st_offset, &aligned_st_scale, &aligned_st_rot) )
+		{
+			const LLTextureEntry* tep = facep->getTextureEntry();
+			LLVector2 st_offset, st_scale;
+			tep->getOffset(&st_offset.mV[VX], &st_offset.mV[VY]);
+			tep->getScale(&st_scale.mV[VX], &st_scale.mV[VY]);
+			F32 st_rot = tep->getRotation();
+			// needs a fuzzy comparison, because of fp errors
+			if (is_approx_equal_fraction(st_offset.mV[VX], aligned_st_offset.mV[VX], 12) && 
+				is_approx_equal_fraction(st_offset.mV[VY], aligned_st_offset.mV[VY], 12) && 
+				is_approx_equal_fraction(st_scale.mV[VX], aligned_st_scale.mV[VX], 12) &&
+				is_approx_equal_fraction(st_scale.mV[VY], aligned_st_scale.mV[VY], 12) &&
+				is_approx_equal_fraction(st_rot, aligned_st_rot, 14))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+private:
+	LLFace* mCenterFace;
+};
+
 struct LLPanelFaceSendFunctor : public LLSelectedObjectFunctor
 {
 	virtual bool apply(LLViewerObject* object)
@@ -363,8 +470,26 @@ struct LLPanelFaceSendFunctor : public LLSelectedObjectFunctor
 
 void LLPanelFace::sendTextureInfo()
 {
-	LLPanelFaceSetTEFunctor setfunc(this);
-	LLSelectMgr::getInstance()->getSelection()->applyToTEs(&setfunc);
+	if ((bool)childGetValue("checkbox planar align").asBoolean())
+	{
+		struct f1 : public LLSelectedTEGetFunctor<LLFace *>
+		{
+			LLFace* get(LLViewerObject* object, S32 te)
+			{
+				return (object->mDrawable) ? object->mDrawable->getFace(te): NULL;
+			}
+		} get_last_face_func;
+		LLFace* last_face;
+		LLSelectMgr::getInstance()->getSelection()->getSelectedTEValue(&get_last_face_func, last_face);
+
+		LLPanelFaceSetAlignedTEFunctor setfunc(this, last_face);
+		LLSelectMgr::getInstance()->getSelection()->applyToTEs(&setfunc);
+	}
+	else
+	{
+		LLPanelFaceSetTEFunctor setfunc(this);
+		LLSelectMgr::getInstance()->getSelection()->applyToTEs(&setfunc);
+	}
 
 	LLPanelFaceSendFunctor sendfunc;
 	LLSelectMgr::getInstance()->getSelection()->applyToObjects(&sendfunc);
@@ -381,16 +506,9 @@ void LLPanelFace::getState()
 		BOOL editable = objectp->permModify();
 
 		// only turn on auto-adjust button if there is a media renderer and the media is loaded
-		childSetEnabled("textbox autofix",FALSE);
-		//mLabelTexAutoFix->setEnabled ( FALSE );
-		childSetEnabled("button align",FALSE);
-		//mBtnAutoFix->setEnabled ( FALSE );
+		getChildView("textbox autofix")->setEnabled(editable);
+		getChildView("button align")->setEnabled(editable);
 		
-		if(LLViewerMedia::hasMedia())
-		{
-			childSetEnabled("textbox autofix",editable);
-			childSetEnabled("button align",editable);
-		}
 		//if ( LLMediaEngine::getInstance()->getMediaRenderer () )
 		//	if ( LLMediaEngine::getInstance()->getMediaRenderer ()->isLoaded () )
 		//	{	
@@ -399,7 +517,7 @@ void LLPanelFace::getState()
 		//		
 		//		//mBtnAutoFix->setEnabled ( editable );
 		//	}
-		childSetEnabled("button apply",editable);
+		getChildView("button apply")->setEnabled(editable);
 
 		bool identical;
 		LLTextureCtrl*	texture_ctrl = getChild<LLTextureCtrl>("texture control");
@@ -409,14 +527,40 @@ void LLPanelFace::getState()
 			LLUUID id;
 			struct f1 : public LLSelectedTEGetFunctor<LLUUID>
 			{
-				LLUUID get(LLViewerObject* object, S32 te)
+				LLUUID get(LLViewerObject* object, S32 te_index)
 				{
-					LLViewerTexture* image = object->getTEImage(te);
-					return image ? image->getID() : LLUUID::null;
+					LLUUID id;
+					
+					LLViewerTexture* image = object->getTEImage(te_index);
+					if (image) id = image->getID();
+					
+					if (!id.isNull() && LLViewerMedia::textureHasMedia(id))
+					{
+						LLTextureEntry *te = object->getTE(te_index);
+						if (te)
+						{
+							LLViewerTexture* tex = te->getID().notNull() ? gTextureList.findImage(te->getID()) : NULL ;
+							if(!tex)
+							{
+								tex = LLViewerFetchedTexture::sDefaultImagep;
+							}
+							if (tex)
+							{
+								id = tex->getID();
+							}
+						}
+					}
+					return id;
 				}
 			} func;
 			identical = LLSelectMgr::getInstance()->getSelection()->getSelectedTEValue( &func, id );
 
+			if(LLViewerMedia::textureHasMedia(id))
+			{
+				getChildView("textbox autofix")->setEnabled(editable);
+				getChildView("button align")->setEnabled(editable);
+			}
+			
 			if (identical)
 			{
 				// All selected have the same texture
@@ -448,6 +592,7 @@ void LLPanelFace::getState()
 				}
 			}
 		}
+
 		
 		LLAggregatePermissions texture_perms;
 		if(texture_ctrl)
@@ -470,10 +615,46 @@ void LLPanelFace::getState()
 			}
 		}
 
+
+		// planar align
+		bool align_planar = false;
+		bool identical_planar_aligned = false;
+		bool is_planar = false;
+		{
+			LLCheckBoxCtrl*	cb_planar_align = getChild<LLCheckBoxCtrl>("checkbox planar align");
+			align_planar = (cb_planar_align && cb_planar_align->get());
+			struct f1 : public LLSelectedTEGetFunctor<bool>
+			{
+				bool get(LLViewerObject* object, S32 face)
+				{
+					return (object->getTE(face)->getTexGen() == LLTextureEntry::TEX_GEN_PLANAR);
+				}
+			} func;
+
+			bool texgens_identical = LLSelectMgr::getInstance()->getSelection()->getSelectedTEValue( &func, is_planar );
+			bool enabled = (editable && texgens_identical && is_planar);
+			childSetValue("checkbox planar align", align_planar && enabled);
+			childSetEnabled("checkbox planar align", enabled);
+
+			if (align_planar && enabled)
+			{
+				struct f2 : public LLSelectedTEGetFunctor<LLFace *>
+				{
+					LLFace* get(LLViewerObject* object, S32 te)
+					{
+						return (object->mDrawable) ? object->mDrawable->getFace(te): NULL;
+					}
+				} get_te_face_func;
+				LLFace* last_face;
+				LLSelectMgr::getInstance()->getSelection()->getSelectedTEValue(&get_te_face_func, last_face);
+				LLPanelFaceGetIsAlignedTEFunctor get_is_aligend_func(last_face);
+				// this will determine if the texture param controls are tentative:
+				identical_planar_aligned = LLSelectMgr::getInstance()->getSelection()->applyToTEs(&get_is_aligend_func);
+			}
+		}
+		
 		// Texture scale
 		{
-			childSetEnabled("tex scale",editable);
-			//mLabelTexScale->setEnabled( editable );
 			F32 scale_s = 1.f;
 			struct f2 : public LLSelectedTEGetFunctor<F32>
 			{
@@ -483,12 +664,13 @@ void LLPanelFace::getState()
 				}
 			} func;
 			identical = LLSelectMgr::getInstance()->getSelection()->getSelectedTEValue( &func, scale_s );
-			childSetValue("TexScaleU",editable ? llabs(scale_s) : 0);
-			childSetTentative("TexScaleU",LLSD((BOOL)(!identical)));
-			childSetEnabled("TexScaleU",editable);
-			childSetValue("checkbox flip s",LLSD((BOOL)(scale_s < 0 ? TRUE : FALSE )));
-			childSetTentative("checkbox flip s",LLSD((BOOL)((!identical) ? TRUE : FALSE )));
-			childSetEnabled("checkbox flip s",editable);
+			identical = align_planar ? identical_planar_aligned : identical;
+			getChild<LLUICtrl>("TexScaleU")->setValue(editable ? llabs(scale_s) : 0);
+			getChild<LLUICtrl>("TexScaleU")->setTentative(LLSD((BOOL)(!identical)));
+			getChildView("TexScaleU")->setEnabled(editable);
+			getChild<LLUICtrl>("checkbox flip s")->setValue(LLSD((BOOL)(scale_s < 0 ? TRUE : FALSE )));
+			getChild<LLUICtrl>("checkbox flip s")->setTentative(LLSD((BOOL)((!identical) ? TRUE : FALSE )));
+			getChildView("checkbox flip s")->setEnabled(editable);
 		}
 
 		{
@@ -501,18 +683,19 @@ void LLPanelFace::getState()
 				}
 			} func;
 			identical = LLSelectMgr::getInstance()->getSelection()->getSelectedTEValue( &func, scale_t );
+			identical = align_planar ? identical_planar_aligned : identical;
 
-			childSetValue("TexScaleV",llabs(editable ? llabs(scale_t) : 0));
-			childSetTentative("TexScaleV",LLSD((BOOL)(!identical)));
-			childSetEnabled("TexScaleV",editable);
-			childSetValue("checkbox flip t",LLSD((BOOL)(scale_t< 0 ? TRUE : FALSE )));
-			childSetTentative("checkbox flip t",LLSD((BOOL)((!identical) ? TRUE : FALSE )));
-			childSetEnabled("checkbox flip t",editable);
+			getChild<LLUICtrl>("TexScaleV")->setValue(llabs(editable ? llabs(scale_t) : 0));
+			getChild<LLUICtrl>("TexScaleV")->setTentative(LLSD((BOOL)(!identical)));
+			getChildView("TexScaleV")->setEnabled(editable);
+			getChild<LLUICtrl>("checkbox flip t")->setValue(LLSD((BOOL)(scale_t< 0 ? TRUE : FALSE )));
+			getChild<LLUICtrl>("checkbox flip t")->setTentative(LLSD((BOOL)((!identical) ? TRUE : FALSE )));
+			getChildView("checkbox flip t")->setEnabled(editable);
 		}
 
 		// Texture offset
 		{
-			childSetEnabled("tex offset",editable);
+			getChildView("tex offset")->setEnabled(editable);
 			F32 offset_s = 0.f;
 			struct f4 : public LLSelectedTEGetFunctor<F32>
 			{
@@ -522,9 +705,10 @@ void LLPanelFace::getState()
 				}
 			} func;
 			identical = LLSelectMgr::getInstance()->getSelection()->getSelectedTEValue( &func, offset_s );
-			childSetValue("TexOffsetU", editable ? offset_s : 0);
-			childSetTentative("TexOffsetU",!identical);
-			childSetEnabled("TexOffsetU",editable);
+			identical = align_planar ? identical_planar_aligned : identical;
+			getChild<LLUICtrl>("TexOffsetU")->setValue(editable ? offset_s : 0);
+			getChild<LLUICtrl>("TexOffsetU")->setTentative(!identical);
+			getChildView("TexOffsetU")->setEnabled(editable);
 		}
 
 		{
@@ -537,14 +721,14 @@ void LLPanelFace::getState()
 				}
 			} func;
 			identical = LLSelectMgr::getInstance()->getSelection()->getSelectedTEValue( &func, offset_t );
-			childSetValue("TexOffsetV", editable ? offset_t : 0);
-			childSetTentative("TexOffsetV",!identical);
-			childSetEnabled("TexOffsetV",editable);
+			identical = align_planar ? identical_planar_aligned : identical;
+			getChild<LLUICtrl>("TexOffsetV")->setValue(editable ? offset_t : 0);
+			getChild<LLUICtrl>("TexOffsetV")->setTentative(!identical);
+			getChildView("TexOffsetV")->setEnabled(editable);
 		}
 
 		// Texture rotation
 		{
-			childSetEnabled("tex rotate",editable);
 			F32 rotation = 0.f;
 			struct f6 : public LLSelectedTEGetFunctor<F32>
 			{
@@ -554,9 +738,10 @@ void LLPanelFace::getState()
 				}
 			} func;
 			identical = LLSelectMgr::getInstance()->getSelection()->getSelectedTEValue( &func, rotation );
-			childSetValue("TexRot", editable ? rotation * RAD_TO_DEG : 0);
-			childSetTentative("TexRot",!identical);
-			childSetEnabled("TexRot",editable);
+			identical = align_planar ? identical_planar_aligned : identical;
+			getChild<LLUICtrl>("TexRot")->setValue(editable ? rotation * RAD_TO_DEG : 0);
+			getChild<LLUICtrl>("TexRot")->setTentative(!identical);
+			getChildView("TexRot")->setEnabled(editable);
 		}
 
 		// Color swatch
@@ -582,13 +767,13 @@ void LLPanelFace::getState()
 		}
 		// Color transparency
 		{
-			childSetEnabled("color trans",editable);
+			getChildView("color trans")->setEnabled(editable);
 		}
 
 		F32 transparency = (1.f - color.mV[VALPHA]) * 100.f;
 		{
-			childSetValue("ColorTrans", editable ? transparency : 0);
-			childSetEnabled("ColorTrans",editable);
+			getChild<LLUICtrl>("ColorTrans")->setValue(editable ? transparency : 0);
+			getChildView("ColorTrans")->setEnabled(editable);
 		}
 
 		{
@@ -602,10 +787,10 @@ void LLPanelFace::getState()
 			} func;
 			identical = LLSelectMgr::getInstance()->getSelection()->getSelectedTEValue( &func, glow );
 
-			childSetValue("glow",glow);
-			childSetEnabled("glow",editable);
-			childSetTentative("glow",!identical);
-			childSetEnabled("glow label",editable);
+			getChild<LLUICtrl>("glow")->setValue(glow);
+			getChildView("glow")->setEnabled(editable);
+			getChild<LLUICtrl>("glow")->setTentative(!identical);
+			getChildView("glow label")->setEnabled(editable);
 
 		}
 
@@ -630,9 +815,9 @@ void LLPanelFace::getState()
 			{
 				llwarns << "failed childGetSelectionInterface for 'combobox shininess'" << llendl;
 			}
-			childSetEnabled("combobox shininess",editable);
-			childSetTentative("combobox shininess",!identical);
-			childSetEnabled("label shininess",editable);
+			getChildView("combobox shininess")->setEnabled(editable);
+			getChild<LLUICtrl>("combobox shininess")->setTentative(!identical);
+			getChildView("label shininess")->setEnabled(editable);
 		}
 
 		{
@@ -655,9 +840,9 @@ void LLPanelFace::getState()
 			{
 				llwarns << "failed childGetSelectionInterface for 'combobox bumpiness'" << llendl;
 			}
-			childSetEnabled("combobox bumpiness",editable);
-			childSetTentative("combobox bumpiness",!identical);
-			childSetEnabled("label bumpiness",editable);
+			getChildView("combobox bumpiness")->setEnabled(editable);
+			getChild<LLUICtrl>("combobox bumpiness")->setTentative(!identical);
+			getChildView("label bumpiness")->setEnabled(editable);
 		}
 
 		{
@@ -681,19 +866,14 @@ void LLPanelFace::getState()
 			{
 				llwarns << "failed childGetSelectionInterface for 'combobox texgen'" << llendl;
 			}
-			childSetEnabled("combobox texgen",editable);
-			childSetTentative("combobox texgen",!identical);
-			childSetEnabled("tex gen",editable);
+			getChildView("combobox texgen")->setEnabled(editable);
+			getChild<LLUICtrl>("combobox texgen")->setTentative(!identical);
+			getChildView("tex gen")->setEnabled(editable);
 
 			if (selected_texgen == 1)
 			{
-				childSetText("tex scale",getString("string repeats per meter"));
-				childSetValue("TexScaleU", 2.0f * childGetValue("TexScaleU").asReal() );
-				childSetValue("TexScaleV", 2.0f * childGetValue("TexScaleV").asReal() );
-			}
-			else
-			{
-				childSetText("tex scale",getString("string repeats per face"));
+				getChild<LLUICtrl>("TexScaleU")->setValue(2.0f * getChild<LLUICtrl>("TexScaleU")->getValue().asReal() );
+				getChild<LLUICtrl>("TexScaleV")->setValue(2.0f * getChild<LLUICtrl>("TexScaleV")->getValue().asReal() );
 			}
 
 		}
@@ -709,14 +889,14 @@ void LLPanelFace::getState()
 			} func;
 			identical = LLSelectMgr::getInstance()->getSelection()->getSelectedTEValue( &func, fullbrightf );
 
-			childSetValue("checkbox fullbright",(S32)fullbrightf);
-			childSetEnabled("checkbox fullbright",editable);
-			childSetTentative("checkbox fullbright",!identical);
+			getChild<LLUICtrl>("checkbox fullbright")->setValue((S32)fullbrightf);
+			getChildView("checkbox fullbright")->setEnabled(editable);
+			getChild<LLUICtrl>("checkbox fullbright")->setTentative(!identical);
 		}
 		
 		// Repeats per meter label
 		{
-			childSetEnabled("rpt",editable);
+			getChildView("rpt")->setEnabled(editable);
 		}
 
 		// Repeats per meter
@@ -736,14 +916,14 @@ void LLPanelFace::getState()
 			} func;			
 			identical = LLSelectMgr::getInstance()->getSelection()->getSelectedTEValue( &func, repeats );
 			
-			childSetValue("rptctrl", editable ? repeats : 0);
-			childSetTentative("rptctrl",!identical);
+			getChild<LLUICtrl>("rptctrl")->setValue(editable ? repeats : 0);
+			getChild<LLUICtrl>("rptctrl")->setTentative(!identical);
 			LLComboBox*	mComboTexGen = getChild<LLComboBox>("combobox texgen");
 			if (mComboTexGen)
 			{
 				BOOL enabled = editable && (!mComboTexGen || mComboTexGen->getCurrentIndex() != 1);
-				childSetEnabled("rptctrl",enabled);
-				childSetEnabled("button apply",enabled);
+				getChildView("rptctrl")->setEnabled(enabled);
+				getChildView("button apply")->setEnabled(enabled);
 			}
 		}
 	}
@@ -757,7 +937,6 @@ void LLPanelFace::getState()
 		if(texture_ctrl)
 		{
 			texture_ctrl->setImageAssetID( LLUUID::null );
-			texture_ctrl->setFallbackImageName( "locked_image.j2c" );
 			texture_ctrl->setEnabled( FALSE );  // this is a LLUICtrl, but we don't want it to have keyboard focus so we add it as a child, not a ctrl.
 // 			texture_ctrl->setValid(FALSE);
 		}
@@ -768,19 +947,20 @@ void LLPanelFace::getState()
 			mColorSwatch->setFallbackImageName("locked_image.j2c" );
 			mColorSwatch->setValid(FALSE);
 		}
-		childSetEnabled("color trans",FALSE);
-		childSetEnabled("rpt",FALSE);
-		childSetEnabled("tex scale",FALSE);
-		childSetEnabled("tex offset",FALSE);
-		childSetEnabled("tex rotate",FALSE);
-		childSetEnabled("tex gen",FALSE);
-		childSetEnabled("label shininess",FALSE);
-		childSetEnabled("label bumpiness",FALSE);
+		getChildView("color trans")->setEnabled(FALSE);
+		getChildView("rpt")->setEnabled(FALSE);
+		getChildView("tex offset")->setEnabled(FALSE);
+		getChildView("tex gen")->setEnabled(FALSE);
+		getChildView("label shininess")->setEnabled(FALSE);
+		getChildView("label bumpiness")->setEnabled(FALSE);
 
-		childSetEnabled("textbox autofix",FALSE);
+		getChildView("textbox autofix")->setEnabled(FALSE);
 
-		childSetEnabled("button align",FALSE);
-		childSetEnabled("button apply",FALSE);
+		getChildView("button align")->setEnabled(FALSE);
+		getChildView("button apply")->setEnabled(FALSE);
+		//getChildView("has media")->setEnabled(FALSE);
+		//getChildView("media info set")->setEnabled(FALSE);
+		
 	}
 }
 
@@ -858,7 +1038,7 @@ void LLPanelFace::onCommitGlow(LLUICtrl* ctrl, void* userdata)
 }
 
 // static
-BOOL LLPanelFace::onDragTexture(LLInventoryItem* item)
+BOOL LLPanelFace::onDragTexture(LLUICtrl*, LLInventoryItem* item)
 {
 	BOOL accept = TRUE;
 	for (LLObjectSelection::root_iterator iter = LLSelectMgr::getInstance()->getSelection()->root_begin();
@@ -909,24 +1089,38 @@ void LLPanelFace::onClickApply(void* userdata)
 	gFocusMgr.setKeyboardFocus( NULL );
 
 	//F32 repeats_per_meter = self->mCtrlRepeatsPerMeter->get();
-	F32 repeats_per_meter = (F32)self->childGetValue( "rptctrl" ).asReal();//self->mCtrlRepeatsPerMeter->get();
+	F32 repeats_per_meter = (F32)self->getChild<LLUICtrl>("rptctrl")->getValue().asReal();//self->mCtrlRepeatsPerMeter->get();
 	LLSelectMgr::getInstance()->selectionTexScaleAutofit( repeats_per_meter );
 }
-
-// commit the fit media texture to prim button
 
 struct LLPanelFaceSetMediaFunctor : public LLSelectedTEFunctor
 {
 	virtual bool apply(LLViewerObject* object, S32 te)
 	{
-		// only do this if it's a media texture
-		if ( object->getTE ( te )->getID() == LLViewerMedia::getMediaTextureID() )
+		viewer_media_t pMediaImpl;
+				
+		const LLTextureEntry* tep = object->getTE(te);
+		const LLMediaEntry* mep = tep->hasMedia() ? tep->getMediaData() : NULL;
+		if ( mep )
 		{
-			S32 media_width, media_height;
-			S32 texture_width, texture_height;
-			if ( LLViewerMedia::getMediaSize( &media_width, &media_height )
-				&& LLViewerMedia::getTextureSize( &texture_width, &texture_height ) )
+			pMediaImpl = LLViewerMedia::getMediaImplFromTextureID(mep->getMediaID());
+		}
+		
+		if ( pMediaImpl.isNull())
+		{
+			// If we didn't find face media for this face, check whether this face is showing parcel media.
+			pMediaImpl = LLViewerMedia::getMediaImplFromTextureID(tep->getID());
+		}
+		
+		if ( pMediaImpl.notNull())
+		{
+			LLPluginClassMedia *media = pMediaImpl->getMediaPlugin();
+			if(media)
 			{
+				S32 media_width = media->getWidth();
+				S32 media_height = media->getHeight();
+				S32 texture_width = media->getTextureWidth();
+				S32 texture_height = media->getTextureHeight();
 				F32 scale_s = (F32)media_width / (F32)texture_width;
 				F32 scale_t = (F32)media_height / (F32)texture_height;
 
@@ -949,3 +1143,22 @@ void LLPanelFace::onClickAutoFix(void* userdata)
 	LLPanelFaceSendFunctor sendfunc;
 	LLSelectMgr::getInstance()->getSelection()->applyToObjects(&sendfunc);
 }
+
+
+
+// TODO: I don't know who put these in or what these are for???
+void LLPanelFace::setMediaURL(const std::string& url)
+{
+}
+void LLPanelFace::setMediaType(const std::string& mime_type)
+{
+}
+
+// static
+void LLPanelFace::onCommitPlanarAlign(LLUICtrl* ctrl, void* userdata)
+{
+	LLPanelFace* self = (LLPanelFace*) userdata;
+	self->getState();
+	self->sendTextureInfo();
+}
+

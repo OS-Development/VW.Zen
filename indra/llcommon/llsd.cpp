@@ -2,31 +2,25 @@
  * @file llsd.cpp
  * @brief LLSD flexible data system
  *
- * $LicenseInfo:firstyear=2005&license=viewergpl$
- * 
- * Copyright (c) 2005-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2005&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -355,7 +349,7 @@ namespace
 		using LLSD::Impl::erase; // Unhiding erase(LLSD::Integer)
 		using LLSD::Impl::ref; // Unhiding ref(LLSD::Integer)
 		virtual LLSD get(const LLSD::String&) const; 
-		        LLSD& insert(const LLSD::String& k, const LLSD& v);
+		void insert(const LLSD::String& k, const LLSD& v);
 		virtual void erase(const LLSD::String&);
 		              LLSD& ref(const LLSD::String&);
 		virtual const LLSD& ref(const LLSD::String&) const;
@@ -394,14 +388,9 @@ namespace
 		return (i != mData.end()) ? i->second : LLSD();
 	}
 	
-	LLSD& ImplMap::insert(const LLSD::String& k, const LLSD& v)
+	void ImplMap::insert(const LLSD::String& k, const LLSD& v)
 	{
 		mData.insert(DataMap::value_type(k, v));
-		#ifdef LL_MSVC7
-			return *((LLSD*)this);
-		#else
-			return *dynamic_cast<LLSD*>(this);
-		#endif
 	}
 	
 	void ImplMap::erase(const LLSD::String& k)
@@ -450,7 +439,7 @@ namespace
 		virtual int size() const; 
 		virtual LLSD get(LLSD::Integer) const;
 		        void set(LLSD::Integer, const LLSD&);
-		        LLSD& insert(LLSD::Integer, const LLSD&);
+		        void insert(LLSD::Integer, const LLSD&);
 		        void append(const LLSD&);
 		virtual void erase(LLSD::Integer);
 		              LLSD& ref(LLSD::Integer);
@@ -499,14 +488,10 @@ namespace
 		mData[index] = v;
 	}
 	
-	LLSD& ImplArray::insert(LLSD::Integer i, const LLSD& v)
+	void ImplArray::insert(LLSD::Integer i, const LLSD& v)
 	{
 		if (i < 0) {
-			#ifdef LL_MSVC7
-				return *((LLSD*)this);
-			#else
-				return *dynamic_cast<LLSD*>(this);
-			#endif
+			return;
 		}
 		DataVector::size_type index = i;
 		
@@ -516,11 +501,6 @@ namespace
 		}
 		
 		mData.insert(mData.begin() + index, v);
-		#ifdef LL_MSVC7
-			return *((LLSD*)this);
-		#else
-			return *dynamic_cast<LLSD*>(this);
-		#endif
 	}
 	
 	void ImplArray::append(const LLSD& v)
@@ -763,11 +743,12 @@ LLSD LLSD::emptyMap()
 
 bool LLSD::has(const String& k) const	{ return safe(impl).has(k); }
 LLSD LLSD::get(const String& k) const	{ return safe(impl).get(k); } 
+void LLSD::insert(const String& k, const LLSD& v) {	makeMap(impl).insert(k, v); }
 
-LLSD& LLSD::insert(const String& k, const LLSD& v)
+LLSD& LLSD::with(const String& k, const LLSD& v)
 										{ 
 											makeMap(impl).insert(k, v); 
-											return *dynamic_cast<LLSD*>(this);
+											return *this;
 										}
 void LLSD::erase(const String& k)		{ makeMap(impl).erase(k); }
 
@@ -788,8 +769,9 @@ int LLSD::size() const					{ return safe(impl).size(); }
  
 LLSD LLSD::get(Integer i) const			{ return safe(impl).get(i); } 
 void LLSD::set(Integer i, const LLSD& v){ makeArray(impl).set(i, v); }
+void LLSD::insert(Integer i, const LLSD& v) { makeArray(impl).insert(i, v); }
 
-LLSD& LLSD::insert(Integer i, const LLSD& v)
+LLSD& LLSD::with(Integer i, const LLSD& v)
 										{ 
 											makeArray(impl).insert(i, v); 
 											return *this;
@@ -819,9 +801,15 @@ static const char *llsd_dump(const LLSD &llsd, bool useXMLFormat)
 	{
 		std::ostringstream out;
 		if (useXMLFormat)
-			out << LLSDXMLStreamer(llsd);
+		{
+			LLSDXMLStreamer xml_streamer(llsd);
+			out << xml_streamer;
+		}
 		else
-			out << LLSDNotationStreamer(llsd);
+		{
+			LLSDNotationStreamer notation_streamer(llsd);
+			out << notation_streamer;
+		}
 		out_string = out.str();
 	}
 	int len = out_string.length();

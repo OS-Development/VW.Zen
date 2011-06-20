@@ -3,31 +3,25 @@
  * @brief This file should be included in all Linden Lab files and
  * should only contain special preprocessor directives
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -55,12 +49,27 @@
 #define LL_BIG_ENDIAN 1
 #endif
 
+
 // Per-compiler switches
+
 #ifdef __GNUC__
 #define LL_FORCE_INLINE inline __attribute__((always_inline))
 #else
 #define LL_FORCE_INLINE __forceinline
 #endif
+
+// Mark-up expressions with branch prediction hints.  Do NOT use
+// this with reckless abandon - it's an obfuscating micro-optimization
+// outside of inner loops or other places where you are OVERWHELMINGLY
+// sure which way an expression almost-always evaluates.
+#if __GNUC__ >= 3
+# define LL_LIKELY(EXPR) __builtin_expect (!!(EXPR), true)
+# define LL_UNLIKELY(EXPR) __builtin_expect (!!(EXPR), false)
+#else
+# define LL_LIKELY(EXPR) (EXPR)
+# define LL_UNLIKELY(EXPR) (EXPR)
+#endif
+
 
 // Figure out differences between compilers
 #if defined(__GNUC__)
@@ -93,19 +102,8 @@
 #endif
 
 
-// Deal with the differeneces on Windows
-#if LL_MSVC
-namespace snprintf_hack
-{
-	int snprintf(char *str, size_t size, const char *format, ...);
-}
-
-// #define snprintf safe_snprintf		/* Flawfinder: ignore */
-using snprintf_hack::snprintf;
-#endif	// LL_MSVC
-
 // Static linking with apr on windows needs to be declared.
-#ifdef LL_WINDOWS
+#if LL_WINDOWS && !LL_COMMON_LINK_SHARED
 #ifndef APR_DECLARE_STATIC
 #define APR_DECLARE_STATIC // For APR on Windows
 #endif
@@ -117,7 +115,9 @@ using snprintf_hack::snprintf;
 #if defined(LL_WINDOWS)
 #define BOOST_REGEX_NO_LIB 1
 #define CURL_STATICLIB 1
+#ifndef XML_STATIC
 #define XML_STATIC
+#endif
 #endif	//	LL_WINDOWS
 
 
@@ -131,10 +131,52 @@ using snprintf_hack::snprintf;
 #pragma warning( 3      :  4264 )	// "'virtual_function' : no override available for virtual member function from base 'class'; function is hidden"
 #pragma warning( 3       : 4265 )	// "class has virtual functions, but destructor is not virtual"
 #pragma warning( 3      :  4266 )	// 'function' : no override available for virtual member function from base 'type'; function is hidden
+#pragma warning (disable : 4180)	// qualifier applied to function type has no meaning; ignored
 #pragma warning( disable : 4284 )	// silly MS warning deep inside their <map> include file
 #pragma warning( disable : 4503 )	// 'decorated name length exceeded, name was truncated'. Does not seem to affect compilation.
 #pragma warning( disable : 4800 )	// 'BOOL' : forcing value to bool 'true' or 'false' (performance warning)
 #pragma warning( disable : 4996 )	// warning: deprecated
+
+// Linker optimization with "extern template" generates these warnings
+#pragma warning( disable : 4231 )	// nonstandard extension used : 'extern' before template explicit instantiation
+#pragma warning( disable : 4506 )   // no definition for inline function
+
+// level 4 warnings that we need to disable:
+#pragma warning (disable : 4100) // unreferenced formal parameter
+#pragma warning (disable : 4127) // conditional expression is constant (e.g. while(1) )
+#pragma warning (disable : 4244) // possible loss of data on conversions
+#pragma warning (disable : 4396) // the inline specifier cannot be used when a friend declaration refers to a specialization of a function template
+#pragma warning (disable : 4512) // assignment operator could not be generated
+#pragma warning (disable : 4706) // assignment within conditional (even if((x = y)) )
+
+#pragma warning (disable : 4251) // member needs to have dll-interface to be used by clients of class
+#pragma warning (disable : 4275) // non dll-interface class used as base for dll-interface class
 #endif	//	LL_MSVC
+
+#if LL_WINDOWS
+#define LL_DLLEXPORT __declspec(dllexport)
+#define LL_DLLIMPORT __declspec(dllimport)
+#elif LL_LINUX
+#define LL_DLLEXPORT __attribute__ ((visibility("default")))
+#define LL_DLLIMPORT
+#else
+#define LL_DLLEXPORT
+#define LL_DLLIMPORT
+#endif // LL_WINDOWS
+
+#if LL_COMMON_LINK_SHARED
+// CMake automagically defines llcommon_EXPORTS only when building llcommon
+// sources, and only when llcommon is a shared library (i.e. when
+// LL_COMMON_LINK_SHARED). We must still test LL_COMMON_LINK_SHARED because
+// otherwise we can't distinguish between (non-llcommon source) and (llcommon
+// not shared).
+# if defined(llcommon_EXPORTS)
+#   define LL_COMMON_API LL_DLLEXPORT
+# else //llcommon_EXPORTS
+#   define LL_COMMON_API LL_DLLIMPORT
+# endif //llcommon_EXPORTS
+#else // LL_COMMON_LINK_SHARED
+# define LL_COMMON_API
+#endif // LL_COMMON_LINK_SHARED
 
 #endif	//	not LL_LINDEN_PREPROCESSOR_H

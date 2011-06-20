@@ -2,31 +2,25 @@
  * @file llcurrencyuimanager.cpp
  * @brief LLCurrencyUIManager class implementation
  *
- * $LicenseInfo:firstyear=2006&license=viewergpl$
- * 
- * Copyright (c) 2006-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2006&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -35,6 +29,10 @@
 #include "lluictrlfactory.h"
 #include "lltextbox.h"
 #include "lllineeditor.h"
+#include "llresmgr.h" // for LLLocale
+#include "lltrans.h"
+#include "llviewercontrol.h"
+#include "llversioninfo.h"
 
 #include "llcurrencyuimanager.h"
 
@@ -74,8 +72,16 @@ public:
 	bool			mUserEnteredCurrencyBuy;
 	
 	// from website
-	bool			mSiteCurrencyEstimated;
-	S32				mSiteCurrencyEstimatedCost;
+
+	// pre-viewer 2.0, the server returned estimates as an
+	// integer US cents value, e.g., "1000" for $10.00
+	// post-viewer 2.0, the server may also return estimates
+	// as a string with currency embedded, e.g., "10.00 Euros"
+	bool			mUSDCurrencyEstimated;
+	S32				mUSDCurrencyEstimatedCost;
+	bool			mLocalCurrencyEstimated;
+	std::string		mLocalCurrencyEstimatedCost;
+	bool			mSupportsInternationalBilling;
 	std::string		mSiteConfirm;
 	
 	bool			mBought;
@@ -99,6 +105,10 @@ public:
 	
 	void startCurrencyBuy(const std::string& password);
 	void finishCurrencyBuy();
+
+	void clearEstimate();
+	bool hasEstimate() const;
+	std::string getLocalEstimate() const;
 	
 	void startTransaction(TransactionType type,
 		const char* method, LLXMLRPCValue params);
@@ -124,12 +134,12 @@ LLCurrencyUIManager::Impl::Impl(LLPanel& dialog)
 	mError(false),
 	mUserCurrencyBuy(2000), // note, this is a default, real value set in llfloaterbuycurrency.cpp
 	mUserEnteredCurrencyBuy(false),
-	mSiteCurrencyEstimated(false),
-	  mSiteCurrencyEstimatedCost(0),
+	mSupportsInternationalBilling(false),
 	mBought(false),
 	mTransactionType(TransactionNone), mTransaction(0),
 	mCurrencyChanged(false)
 {
+	clearEstimate();
 }
 
 LLCurrencyUIManager::Impl::~Impl()
@@ -139,14 +149,13 @@ LLCurrencyUIManager::Impl::~Impl()
 
 void LLCurrencyUIManager::Impl::updateCurrencyInfo()
 {
-	mSiteCurrencyEstimated = false;
-	mSiteCurrencyEstimatedCost = 0;
+	clearEstimate();
 	mBought = false;
 	mCurrencyChanged = false;
 
 	if (mUserCurrencyBuy == 0)
 	{
-		mSiteCurrencyEstimated = true;
+		mLocalCurrencyEstimated = true;
 		return;
 	}
 	
@@ -155,7 +164,13 @@ void LLCurrencyUIManager::Impl::updateCurrencyInfo()
 	keywordArgs.appendString(
 		"secureSessionId",
 		gAgent.getSecureSessionID().asString());
+	keywordArgs.appendString("language", LLUI::getLanguage());
 	keywordArgs.appendInt("currencyBuy", mUserCurrencyBuy);
+	keywordArgs.appendString("viewerChannel", LLVersionInfo::getChannel());
+	keywordArgs.appendInt("viewerMajorVersion", LLVersionInfo::getMajor());
+	keywordArgs.appendInt("viewerMinorVersion", LLVersionInfo::getMinor());
+	keywordArgs.appendInt("viewerPatchVersion", LLVersionInfo::getPatch());
+	keywordArgs.appendInt("viewerBuildVersion", LLVersionInfo::getBuild());
 	
 	LLXMLRPCValue params = LLXMLRPCValue::createArray();
 	params.append(keywordArgs);
@@ -178,9 +193,22 @@ void LLCurrencyUIManager::Impl::finishCurrencyInfo()
 	}
 	
 	LLXMLRPCValue currency = result["currency"];
-	mSiteCurrencyEstimated = true;
-	mSiteCurrencyEstimatedCost = currency["estimatedCost"].asInt();
-	
+
+	// old XML-RPC server: estimatedCost = value in US cents
+	mUSDCurrencyEstimated = currency["estimatedCost"].isValid();
+	if (mUSDCurrencyEstimated)
+	{
+		mUSDCurrencyEstimatedCost = currency["estimatedCost"].asInt();
+	}
+
+	// newer XML-RPC server: estimatedLocalCost = local currency string
+	mLocalCurrencyEstimated = currency["estimatedLocalCost"].isValid();
+	if (mLocalCurrencyEstimated)
+	{
+		mLocalCurrencyEstimatedCost = currency["estimatedLocalCost"].asString();
+		mSupportsInternationalBilling = true;
+	}
+
 	S32 newCurrencyBuy = currency["currencyBuy"].asInt();
 	if (newCurrencyBuy != mUserCurrencyBuy)
 	{
@@ -193,27 +221,39 @@ void LLCurrencyUIManager::Impl::finishCurrencyInfo()
 
 void LLCurrencyUIManager::Impl::startCurrencyBuy(const std::string& password)
 {
-	mSiteCurrencyEstimated = false;
-	mSiteCurrencyEstimatedCost = 0;
-	mCurrencyChanged = false;
-	
 	LLXMLRPCValue keywordArgs = LLXMLRPCValue::createStruct();
 	keywordArgs.appendString("agentId", gAgent.getID().asString());
 	keywordArgs.appendString(
 		"secureSessionId",
 		gAgent.getSecureSessionID().asString());
+	keywordArgs.appendString("language", LLUI::getLanguage());
 	keywordArgs.appendInt("currencyBuy", mUserCurrencyBuy);
-	keywordArgs.appendInt("estimatedCost", mSiteCurrencyEstimatedCost);
+	if (mUSDCurrencyEstimated)
+	{
+		keywordArgs.appendInt("estimatedCost", mUSDCurrencyEstimatedCost);
+	}
+	if (mLocalCurrencyEstimated)
+	{
+		keywordArgs.appendString("estimatedLocalCost", mLocalCurrencyEstimatedCost);
+	}
 	keywordArgs.appendString("confirm", mSiteConfirm);
 	if (!password.empty())
 	{
 		keywordArgs.appendString("password", password);
 	}
-	
+	keywordArgs.appendString("viewerChannel", LLVersionInfo::getChannel());
+	keywordArgs.appendInt("viewerMajorVersion", LLVersionInfo::getMajor());
+	keywordArgs.appendInt("viewerMinorVersion", LLVersionInfo::getMinor());
+	keywordArgs.appendInt("viewerPatchVersion", LLVersionInfo::getPatch());
+	keywordArgs.appendInt("viewerBuildVersion", LLVersionInfo::getBuild());
+
 	LLXMLRPCValue params = LLXMLRPCValue::createArray();
 	params.append(keywordArgs);
 
 	startTransaction(TransactionBuy, "buyCurrency", params);
+
+	clearEstimate();
+	mCurrencyChanged = false;	
 }
 
 void LLCurrencyUIManager::Impl::finishCurrencyBuy()
@@ -242,7 +282,7 @@ void LLCurrencyUIManager::Impl::startTransaction(TransactionType type,
 	static std::string transactionURI;
 	if (transactionURI.empty())
 	{
-		transactionURI = LLViewerLogin::getInstance()->getHelperURI() + "currency.php";
+		transactionURI = LLGridManager::getInstance()->getHelperURI() + "currency.php";
 	}
 
 	delete mTransaction;
@@ -256,6 +296,39 @@ void LLCurrencyUIManager::Impl::startTransaction(TransactionType type,
 		);
 
 	clearError();
+}
+
+void LLCurrencyUIManager::Impl::clearEstimate()
+{
+	mUSDCurrencyEstimated = false;
+	mUSDCurrencyEstimatedCost = 0;
+	mLocalCurrencyEstimated = false;
+	mLocalCurrencyEstimatedCost = "0";
+}
+
+bool LLCurrencyUIManager::Impl::hasEstimate() const
+{
+	return (mUSDCurrencyEstimated || mLocalCurrencyEstimated);
+}
+
+std::string LLCurrencyUIManager::Impl::getLocalEstimate() const
+{
+	if (mLocalCurrencyEstimated)
+	{
+		// we have the new-style local currency string
+		return mLocalCurrencyEstimatedCost;
+	}
+	if (mUSDCurrencyEstimated)
+	{
+		// we have the old-style USD-specific value
+		LLStringUtil::format_map_t args;
+		{
+			LLLocale locale_override(LLStringUtil::getLocale());
+			args["[AMOUNT]"] = llformat("%#.2f", mUSDCurrencyEstimatedCost / 100.0);
+		}
+		return LLTrans::getString("LocalEstimateUSD", args);
+	}
+	return "";
 }
 
 bool LLCurrencyUIManager::Impl::checkTransaction()
@@ -330,13 +403,13 @@ void LLCurrencyUIManager::Impl::currencyKey(S32 value)
 
 	mUserCurrencyBuy = value;
 	
-	if (mSiteCurrencyEstimated) {
-		mSiteCurrencyEstimated = false;
+	if (hasEstimate()) {
+		clearEstimate();
 		//cannot just simply refresh the whole UI, as the edit field will
 		// get reset and the cursor will change...
 		
-		mPanel.childHide("currency_est");
-		mPanel.childSetVisible("getting_data",TRUE);
+		mPanel.getChildView("currency_est")->setVisible(FALSE);
+		mPanel.getChildView("getting_data")->setVisible(TRUE);
 	}
 	
 	mCurrencyChanged = true;
@@ -356,7 +429,7 @@ void LLCurrencyUIManager::Impl::prepare()
 	LLLineEditor* lindenAmount = mPanel.getChild<LLLineEditor>("currency_amt");
 	if (lindenAmount)
 	{
-		lindenAmount->setPrevalidate(LLLineEditor::prevalidateNonNegativeS32);
+		lindenAmount->setPrevalidate(LLTextValidate::validateNonNegativeS32);
 		lindenAmount->setKeystrokeCallback(onCurrencyKey, this);
 	}
 }
@@ -365,13 +438,13 @@ void LLCurrencyUIManager::Impl::updateUI()
 {
 	if (mHidden)
 	{
-		mPanel.childHide("currency_action");
-		mPanel.childHide("currency_amt");
-		mPanel.childHide("currency_est");
+		mPanel.getChildView("currency_action")->setVisible(FALSE);
+		mPanel.getChildView("currency_amt")->setVisible(FALSE);
+		mPanel.getChildView("currency_est")->setVisible(FALSE);
 		return;
 	}
 
-	mPanel.childShow("currency_action");
+	mPanel.getChildView("currency_action")->setVisible(TRUE);
 
 	LLLineEditor* lindenAmount = mPanel.getChild<LLLineEditor>("currency_amt");
 	if (lindenAmount) 
@@ -394,14 +467,17 @@ void LLCurrencyUIManager::Impl::updateUI()
 		}
 	}
 
-	mPanel.childSetTextArg("currency_est", "[USD]", llformat("%#.2f", mSiteCurrencyEstimatedCost / 100.0));
-	mPanel.childSetVisible("currency_est", mSiteCurrencyEstimated && mUserCurrencyBuy > 0);
+	mPanel.getChild<LLUICtrl>("currency_est")->setTextArg("[LOCALAMOUNT]", getLocalEstimate());
+	mPanel.getChildView("currency_est")->setVisible( hasEstimate() && mUserCurrencyBuy > 0);
 
-	if (mPanel.childIsEnabled("buy_btn")
-		||mPanel.childIsVisible("currency_est")
-		|| mPanel.childIsVisible("error_web"))
+	mPanel.getChildView("currency_links")->setVisible( mSupportsInternationalBilling);
+	mPanel.getChildView("exchange_rate_note")->setVisible( mSupportsInternationalBilling);
+
+	if (mPanel.getChildView("buy_btn")->getEnabled()
+		||mPanel.getChildView("currency_est")->getVisible()
+		|| mPanel.getChildView("error_web")->getVisible())
 	{
-		mPanel.childSetVisible("getting_data",FALSE);
+		mPanel.getChildView("getting_data")->setVisible(FALSE);
 	}
 }
 
@@ -436,18 +512,32 @@ void LLCurrencyUIManager::setZeroMessage(const std::string& message)
 	impl.mZeroMessage = message;
 }
 
-void LLCurrencyUIManager::setEstimate(int amount)
+void LLCurrencyUIManager::setUSDEstimate(int amount)
 {
-	impl.mSiteCurrencyEstimatedCost = amount;
-	impl.mSiteCurrencyEstimated = true;
+	impl.mUSDCurrencyEstimatedCost = amount;
+	impl.mUSDCurrencyEstimated = true;
 	impl.updateUI();
 	
 	impl.mCurrencyChanged = false;
 }
 
-int LLCurrencyUIManager::getEstimate()
+int LLCurrencyUIManager::getUSDEstimate()
 {
-	return impl.mSiteCurrencyEstimated ? impl.mSiteCurrencyEstimatedCost : 0;
+	return impl.mUSDCurrencyEstimated ? impl.mUSDCurrencyEstimatedCost : 0;
+}
+
+void LLCurrencyUIManager::setLocalEstimate(const std::string &amount)
+{
+	impl.mLocalCurrencyEstimatedCost = amount;
+	impl.mLocalCurrencyEstimated = true;
+	impl.updateUI();
+	
+	impl.mCurrencyChanged = false;
+}
+
+std::string LLCurrencyUIManager::getLocalEstimate() const
+{
+	return impl.getLocalEstimate();
 }
 
 void LLCurrencyUIManager::prepare()
@@ -478,7 +568,7 @@ void LLCurrencyUIManager::buy(const std::string& buy_msg)
 
 	LLUIString msg = buy_msg;
 	msg.setArg("[LINDENS]", llformat("%d", impl.mUserCurrencyBuy));
-	msg.setArg("[USD]", llformat("%#.2f", impl.mSiteCurrencyEstimatedCost / 100.0));
+	msg.setArg("[LOCALAMOUNT]", getLocalEstimate());
 	LLConfirmationManager::confirm(impl.mSiteConfirm,
 								   msg,
 								   impl,
@@ -499,7 +589,7 @@ bool LLCurrencyUIManager::canCancel()
 bool LLCurrencyUIManager::canBuy()
 {
 	return impl.mTransactionType == Impl::TransactionNone
-		&& impl.mSiteCurrencyEstimated
+		&& impl.hasEstimate()
 		&& impl.mUserCurrencyBuy > 0;
 }
 

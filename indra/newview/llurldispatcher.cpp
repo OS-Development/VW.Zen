@@ -2,31 +2,25 @@
  * @file llurldispatcher.cpp
  * @brief Central registry for all URL handlers
  *
- * $LicenseInfo:firstyear=2007&license=viewergpl$
- * 
- * Copyright (c) 2007-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2007&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 #include "llviewerprecompiledheaders.h"
@@ -36,61 +30,67 @@
 // viewer includes
 #include "llagent.h"			// teleportViaLocation()
 #include "llcommandhandler.h"
-#include "llfloaterdirectory.h"
-#include "llfloaterhtml.h"
-#include "llfloaterhtmlhelp.h"
+#include "llfloaterhelpbrowser.h"
 #include "llfloaterreg.h"
-#include "llfloaterurldisplay.h"
 #include "llfloaterworldmap.h"
 #include "llpanellogin.h"
+#include "llregionhandle.h"
+#include "llsidetray.h"
 #include "llslurl.h"
 #include "llstartup.h"			// gStartupState
-#include "llurlsimstring.h"
 #include "llweb.h"
-#include "llworldmap.h"
+#include "llworldmapmessage.h"
+#include "llurldispatcherlistener.h"
+#include "llviewernetwork.h"
 
 // library includes
+#include "llnotificationsutil.h"
 #include "llsd.h"
+
+static LLURLDispatcherListener sURLDispatcherListener;
 
 class LLURLDispatcherImpl
 {
 public:
-	static bool dispatch(const std::string& url,
-						 LLWebBrowserCtrl* web,
+	static bool dispatch(const LLSLURL& slurl,
+						 const std::string& nav_type,
+						 LLMediaCtrl* web,
 						 bool trusted_browser);
 		// returns true if handled or explicitly blocked.
 
-	static bool dispatchRightClick(const std::string& url);
+	static bool dispatchRightClick(const LLSLURL& slurl);
 
 private:
-	static bool dispatchCore(const std::string& url, 
+	static bool dispatchCore(const LLSLURL& slurl, 
+							 const std::string& nav_type,
 							 bool right_mouse,
-							 LLWebBrowserCtrl* web,
+							 LLMediaCtrl* web,
 							 bool trusted_browser);
 		// handles both left and right click
 
-	static bool dispatchHelp(const std::string& url, bool right_mouse);
+	static bool dispatchHelp(const LLSLURL& slurl, bool right_mouse);
 		// Handles sl://app.floater.html.help by showing Help floater.
 		// Returns true if handled.
 
-	static bool dispatchApp(const std::string& url,
+	static bool dispatchApp(const LLSLURL& slurl,
+							const std::string& nav_type,
 							bool right_mouse,
-							LLWebBrowserCtrl* web,
+							LLMediaCtrl* web,
 							bool trusted_browser);
 		// Handles secondlife:///app/agent/<agent_id>/about and similar
 		// by showing panel in Search floater.
 		// Returns true if handled or explicitly blocked.
 
-	static bool dispatchRegion(const std::string& url, bool right_mouse);
+	static bool dispatchRegion(const LLSLURL& slurl, const std::string& nav_type, bool right_mouse);
 		// handles secondlife://Ahern/123/45/67/
 		// Returns true if handled.
 
-	static void regionHandleCallback(U64 handle, const std::string& url,
+	static void regionHandleCallback(U64 handle, const LLSLURL& slurl,
 		const LLUUID& snapshot_id, bool teleport);
 		// Called by LLWorldMap when a location has been resolved to a
 	    // region name
 
-	static void regionNameCallback(U64 handle, const std::string& url,
+	static void regionNameCallback(U64 handle, const LLSLURL& slurl,
 		const LLUUID& snapshot_id, bool teleport);
 		// Called by LLWorldMap when a region name has been resolved to a
 		// location in-world, used by places-panel display.
@@ -99,187 +99,138 @@ private:
 };
 
 // static
-bool LLURLDispatcherImpl::dispatchCore(const std::string& url,
+bool LLURLDispatcherImpl::dispatchCore(const LLSLURL& slurl,
+									   const std::string& nav_type,
 									   bool right_mouse,
-									   LLWebBrowserCtrl* web,
+									   LLMediaCtrl* web,
 									   bool trusted_browser)
 {
-	if (url.empty()) return false;
-	if (dispatchHelp(url, right_mouse)) return true;
-	if (dispatchApp(url, right_mouse, web, trusted_browser)) return true;
-	if (dispatchRegion(url, right_mouse)) return true;
+	//if (dispatchHelp(slurl, right_mouse)) return true;
+	switch(slurl.getType())
+	{
+		case LLSLURL::APP: 
+			return dispatchApp(slurl, nav_type, right_mouse, web, trusted_browser);
+		case LLSLURL::LOCATION:
+			return dispatchRegion(slurl, nav_type, right_mouse);
+		default:
+			return false;
+	}
 
 	/*
 	// Inform the user we can't handle this
 	std::map<std::string, std::string> args;
-	args["SLURL"] = url;
+	args["SLURL"] = slurl;
 	r;
 	*/
-	
-	return false;
 }
 
 // static
-bool LLURLDispatcherImpl::dispatch(const std::string& url,
-								   LLWebBrowserCtrl* web,
+bool LLURLDispatcherImpl::dispatch(const LLSLURL& slurl,
+								   const std::string& nav_type,
+								   LLMediaCtrl* web,
 								   bool trusted_browser)
 {
-	llinfos << "url: " << url << llendl;
 	const bool right_click = false;
-	return dispatchCore(url, right_click, web, trusted_browser);
+	return dispatchCore(slurl, nav_type, right_click, web, trusted_browser);
 }
 
 // static
-bool LLURLDispatcherImpl::dispatchRightClick(const std::string& url)
+bool LLURLDispatcherImpl::dispatchRightClick(const LLSLURL& slurl)
 {
-	llinfos << "url: " << url << llendl;
 	const bool right_click = true;
-	LLWebBrowserCtrl* web = NULL;
+	LLMediaCtrl* web = NULL;
 	const bool trusted_browser = false;
-	return dispatchCore(url, right_click, web, trusted_browser);
+	return dispatchCore(slurl, "clicked", right_click, web, trusted_browser);
 }
 
 // static
-bool LLURLDispatcherImpl::dispatchHelp(const std::string& url, bool right_mouse)
-{
-#if LL_LIBXUL_ENABLED
-	if (LLSLURL::isURLHelp(url))
-	{
-		gViewerHtmlHelp.show();
-		return true;
-	}
-#endif
-	return false;
-}
-
-// static
-bool LLURLDispatcherImpl::dispatchApp(const std::string& url, 
+bool LLURLDispatcherImpl::dispatchApp(const LLSLURL& slurl, 
+									  const std::string& nav_type,
 									  bool right_mouse,
-									  LLWebBrowserCtrl* web,
+									  LLMediaCtrl* web,
 									  bool trusted_browser)
 {
-	if (!LLSLURL::isSLURL(url))
-	{
-		return false;
-	}
-
-	LLURI uri(url);
-	LLSD pathArray = uri.pathArray();
-	pathArray.erase(0); // erase "app"
-	std::string cmd = pathArray.get(0);
-	pathArray.erase(0); // erase "cmd"
+	llinfos << "cmd: " << slurl.getAppCmd() << " path: " << slurl.getAppPath() << " query: " << slurl.getAppQuery() << llendl;
+	const LLSD& query_map = LLURI::queryMap(slurl.getAppQuery());
 	bool handled = LLCommandDispatcher::dispatch(
-			cmd, pathArray, uri.queryMap(), web, trusted_browser);
-	return handled;
+			slurl.getAppCmd(), slurl.getAppPath(), query_map, web, nav_type, trusted_browser);
+
+	// alert if we didn't handle this secondlife:///app/ SLURL
+	// (but still return true because it is a valid app SLURL)
+	if (! handled)
+	{
+		LLNotificationsUtil::add("UnsupportedCommandSLURL");
+	}
+	return true;
 }
 
 // static
-bool LLURLDispatcherImpl::dispatchRegion(const std::string& url, bool right_mouse)
+bool LLURLDispatcherImpl::dispatchRegion(const LLSLURL& slurl, const std::string& nav_type, bool right_mouse)
 {
-	if (!LLSLURL::isSLURL(url))
-	{
-		return false;
-	}
-
+  if(slurl.getType() != LLSLURL::LOCATION)
+    {
+      return false;
+    }
 	// Before we're logged in, need to update the startup screen
 	// to tell the user where they are going.
 	if (LLStartUp::getStartupState() < STATE_LOGIN_CLEANUP)
 	{
-		// Parse it and stash in globals, it will be dispatched in
-		// STATE_CLEANUP.
-		LLURLSimString::setString(url);
 		// We're at the login screen, so make sure user can see
 		// the login location box to know where they are going.
 		
-		LLPanelLogin::refreshLocation( true );
+		LLPanelLogin::setLocation(slurl);
 		return true;
 	}
 
-	std::string sim_string = LLSLURL::stripProtocol(url);
-	std::string region_name;
-	S32 x = 128;
-	S32 y = 128;
-	S32 z = 0;
-	LLURLSimString::parse(sim_string, &region_name, &x, &y, &z);
-
-	LLFloaterURLDisplay* url_displayp = LLFloaterReg::getTypedInstance<LLFloaterURLDisplay>("preview_url",LLSD());
-	if(url_displayp) url_displayp->setName(region_name);
-
 	// Request a region handle by name
-	LLWorldMap::getInstance()->sendNamedRegionRequest(region_name,
+	LLWorldMapMessage::getInstance()->sendNamedRegionRequest(slurl.getRegion(),
 									  LLURLDispatcherImpl::regionNameCallback,
-									  url,
-									  false);	// don't teleport
+									  slurl.getSLURLString(),
+									  LLUI::sSettingGroups["config"]->getBOOL("SLURLTeleportDirectly"));	// don't teleport
 	return true;
 }
 
 /*static*/
-void LLURLDispatcherImpl::regionNameCallback(U64 region_handle, const std::string& url, const LLUUID& snapshot_id, bool teleport)
+void LLURLDispatcherImpl::regionNameCallback(U64 region_handle, const LLSLURL& slurl, const LLUUID& snapshot_id, bool teleport)
 {
-	std::string sim_string = LLSLURL::stripProtocol(url);
-	std::string region_name;
-	S32 x = 128;
-	S32 y = 128;
-	S32 z = 0;
-	LLURLSimString::parse(sim_string, &region_name, &x, &y, &z);
-
-	LLVector3 local_pos;
-	local_pos.mV[VX] = (F32)x;
-	local_pos.mV[VY] = (F32)y;
-	local_pos.mV[VZ] = (F32)z;
-
-	
-	// determine whether the point is in this region
-	if ((x >= 0) && (x < REGION_WIDTH_UNITS) &&
-		(y >= 0) && (y < REGION_WIDTH_UNITS))
-	{
-		// if so, we're done
-		regionHandleCallback(region_handle, url, snapshot_id, teleport);
-	}
-
-	else
-	{
-		// otherwise find the new region from the location
-		
-		// add the position to get the new region
-		LLVector3d global_pos = from_region_handle(region_handle) + LLVector3d(local_pos);
-
-		U64 new_region_handle = to_region_handle(global_pos);
-		LLWorldMap::getInstance()->sendHandleRegionRequest(new_region_handle,
-										   LLURLDispatcherImpl::regionHandleCallback,
-										   url, teleport);
-	}
+      
+  if(slurl.getType() == LLSLURL::LOCATION)
+    {        
+      regionHandleCallback(region_handle, slurl, snapshot_id, teleport);
+    }
 }
 
 /* static */
-void LLURLDispatcherImpl::regionHandleCallback(U64 region_handle, const std::string& url, const LLUUID& snapshot_id, bool teleport)
+void LLURLDispatcherImpl::regionHandleCallback(U64 region_handle, const LLSLURL& slurl, const LLUUID& snapshot_id, bool teleport)
 {
-	std::string sim_string = LLSLURL::stripProtocol(url);
-	std::string region_name;
-	S32 x = 128;
-	S32 y = 128;
-	S32 z = 0;
-	LLURLSimString::parse(sim_string, &region_name, &x, &y, &z);
 
-	// remap x and y to local coordinates
-	S32 local_x = x % REGION_WIDTH_UNITS;
-	S32 local_y = y % REGION_WIDTH_UNITS;
-	if (local_x < 0)
-		local_x += REGION_WIDTH_UNITS;
-	if (local_y < 0)
-		local_y += REGION_WIDTH_UNITS;
+  // we can't teleport cross grid at this point
+	if((!LLGridManager::getInstance()->isSystemGrid(slurl.getGrid()) || !LLGridManager::getInstance()->isSystemGrid()) &&
+	   (slurl.getGrid() != LLGridManager::getInstance()->getGrid()))
+	{
+		LLSD args;
+		args["SLURL"] = slurl.getLocationString();
+		args["CURRENT_GRID"] = LLGridManager::getInstance()->getGridLabel();
+		LLSD grid_info;
+		LLGridManager::getInstance()->getGridInfo(slurl.getGrid(), grid_info);
+		
+		if(grid_info.has(GRID_LABEL_VALUE))
+		{
+			args["GRID"] = grid_info[GRID_LABEL_VALUE].asString();
+		}
+		else 
+		{
+			args["GRID"] = slurl.getGrid();
+		}
+		LLNotificationsUtil::add("CantTeleportToGrid", args);
+		return;
+	}
 	
-	LLVector3 local_pos;
-	local_pos.mV[VX] = (F32)local_x;
-	local_pos.mV[VY] = (F32)local_y;
-	local_pos.mV[VZ] = (F32)z;
-
-
+	LLVector3d global_pos = from_region_handle(region_handle);
+	global_pos += LLVector3d(slurl.getPosition());
 	
 	if (teleport)
-	{
-		LLVector3d global_pos = from_region_handle(region_handle);
-		global_pos += LLVector3d(local_pos);
+	{	
 		gAgent.teleportViaLocation(global_pos);
 		LLFloaterWorldMap* instance = LLFloaterWorldMap::getInstance();
 		if(instance)
@@ -289,51 +240,49 @@ void LLURLDispatcherImpl::regionHandleCallback(U64 region_handle, const std::str
 	}
 	else
 	{
-		// display informational floater, allow user to click teleport btn
-		LLFloaterURLDisplay* url_displayp = LLFloaterReg::getTypedInstance<LLFloaterURLDisplay>("preview_url",LLSD());
-		if(url_displayp)
-		{
-			url_displayp->displayParcelInfo(region_handle, local_pos);
-			if(snapshot_id.notNull())
-			{
-				url_displayp->setSnapshotDisplay(snapshot_id);
-			}
-			std::string locationString = llformat("%s %d, %d, %d", region_name.c_str(), x, y, z);
-			url_displayp->setLocationString(locationString);
-		}
+		LLSD key;
+		key["type"] = "remote_place";
+		key["x"] = global_pos.mdV[VX];
+		key["y"] = global_pos.mdV[VY];
+		key["z"] = global_pos.mdV[VZ];
+
+		LLSideTray::getInstance()->showPanel("panel_places", key);
 	}
 }
 
 //---------------------------------------------------------------------------
 // Teleportation links are handled here because they are tightly coupled
-// to URL parsing and sim-fragment parsing
+// to SLURL parsing and sim-fragment parsing
 class LLTeleportHandler : public LLCommandHandler
 {
 public:
 	// Teleport requests *must* come from a trusted browser
 	// inside the app, otherwise a malicious web page could
 	// cause a constant teleport loop.  JC
-	LLTeleportHandler() : LLCommandHandler("teleport", true) { }
+	LLTeleportHandler() : LLCommandHandler("teleport", UNTRUSTED_BLOCK) { }
 
 	bool handle(const LLSD& tokens, const LLSD& query_map,
-				LLWebBrowserCtrl* web)
+				LLMediaCtrl* web)
 	{
 		// construct a "normal" SLURL, resolve the region to
 		// a global position, and teleport to it
 		if (tokens.size() < 1) return false;
 
-		// Region names may be %20 escaped.
-		std::string region_name = LLURLSimString::unescapeRegionName(tokens[0]);
-
-		// build secondlife://De%20Haro/123/45/67 for use in callback
-		std::string url = LLSLURL::PREFIX_SECONDLIFE;
-		for (int i = 0; i < tokens.size(); ++i)
+		LLVector3 coords(128, 128, 0);
+		if (tokens.size() <= 4)
 		{
-			url += tokens[i].asString() + "/";
+			coords = LLVector3(tokens[1].asReal(), 
+							   tokens[2].asReal(), 
+							   tokens[3].asReal());
 		}
-		LLWorldMap::getInstance()->sendNamedRegionRequest(region_name,
+		
+		// Region names may be %20 escaped.
+		
+		std::string region_name = LLURI::unescape(tokens[0]);
+
+		LLWorldMapMessage::getInstance()->sendNamedRegionRequest(region_name,
 			LLURLDispatcherImpl::regionHandleCallback,
-			url,
+			LLSLURL(region_name, coords).getSLURLString(),
 			true);	// teleport
 		return true;
 	}
@@ -343,29 +292,32 @@ LLTeleportHandler gTeleportHandler;
 //---------------------------------------------------------------------------
 
 // static
-bool LLURLDispatcher::dispatch(const std::string& url,
-							   LLWebBrowserCtrl* web,
+bool LLURLDispatcher::dispatch(const std::string& slurl,
+							   const std::string& nav_type,
+							   LLMediaCtrl* web,
 							   bool trusted_browser)
 {
-	return LLURLDispatcherImpl::dispatch(url, web, trusted_browser);
+	return LLURLDispatcherImpl::dispatch(LLSLURL(slurl), nav_type, web, trusted_browser);
 }
 
 // static
-bool LLURLDispatcher::dispatchRightClick(const std::string& url)
+bool LLURLDispatcher::dispatchRightClick(const std::string& slurl)
 {
-	return LLURLDispatcherImpl::dispatchRightClick(url);
+	return LLURLDispatcherImpl::dispatchRightClick(LLSLURL(slurl));
 }
 
 // static
-bool LLURLDispatcher::dispatchFromTextEditor(const std::string& url)
+bool LLURLDispatcher::dispatchFromTextEditor(const std::string& slurl)
 {
 	// *NOTE: Text editors are considered sources of trusted URLs
-	// in order to make objectim and avatar profile links in chat
-	// history work.  While a malicious resident could chat an app
-	// SLURL, the receiving resident will see it and must affirmatively
+	// in order to make avatar profile links in chat history work.
+	// While a malicious resident could chat an app SLURL, the
+	// receiving resident will see it and must affirmatively
 	// click on it.
 	// *TODO: Make this trust model more refined.  JC
 	const bool trusted_browser = true;
-	LLWebBrowserCtrl* web = NULL;
-	return LLURLDispatcherImpl::dispatch(url, web, trusted_browser);
+	LLMediaCtrl* web = NULL;
+	return LLURLDispatcherImpl::dispatch(LLSLURL(slurl), "clicked", web, trusted_browser);
 }
+
+

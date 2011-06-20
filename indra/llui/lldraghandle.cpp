@@ -2,31 +2,25 @@
  * @file lldraghandle.cpp
  * @brief LLDragHandle base class
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -49,9 +43,9 @@
 #include "lluictrlfactory.h"
 
 const S32 LEADING_PAD = 5;
-const S32 TITLE_PAD = 8;
+const S32 TITLE_HPAD = 8;
 const S32 BORDER_PAD = 1;
-const S32 LEFT_PAD = BORDER_PAD + TITLE_PAD + LEADING_PAD;
+const S32 LEFT_PAD = BORDER_PAD + TITLE_HPAD + LEADING_PAD;
 const S32 RIGHT_PAD = BORDER_PAD + 32; // HACK: space for close btn and minimize btn
 
 S32 LLDragHandle::sSnapMargin = 5;
@@ -108,10 +102,12 @@ void LLDragHandleTop::setTitle(const std::string& title)
 		LLTextBox::Params params;
 		params.name("Drag Handle Title");
 		params.rect(getRect());
-		params.text(trimmed_title);
+		params.initial_value(trimmed_title);
 		params.font(font);
 		params.follows.flags(FOLLOWS_TOP | FOLLOWS_LEFT | FOLLOWS_RIGHT);
 		params.font_shadow(LLFontGL::DROP_SHADOW_SOFT);
+		params.use_ellipses = true;
+		params.parse_urls = false; //cancel URL replacement in floater title
 		mTitleBox = LLUICtrlFactory::create<LLTextBox> (params);
 		addChild( mTitleBox );
 	}
@@ -120,7 +116,7 @@ void LLDragHandleTop::setTitle(const std::string& title)
 }
 
 
-const std::string& LLDragHandleTop::getTitle() const
+std::string LLDragHandleTop::getTitle() const
 {
 	return mTitleBox == NULL ? LLStringUtil::null : mTitleBox->getText();
 }
@@ -138,7 +134,7 @@ void LLDragHandleLeft::setTitle(const std::string& )
 }
 
 
-const std::string& LLDragHandleLeft::getTitle() const
+std::string LLDragHandleLeft::getTitle() const
 {
 	return LLStringUtil::null;
 }
@@ -240,23 +236,24 @@ void LLDragHandleLeft::draw()
 
 void LLDragHandleTop::reshapeTitleBox()
 {
+	static LLUICachedControl<S32> title_vpad("UIFloaterTitleVPad", 0);
 	if( ! mTitleBox)
 	{
 		return;
 	}
 	const LLFontGL* font = LLFontGL::getFontSansSerif();
-	S32 title_width = font->getWidth( mTitleBox->getText() ) + TITLE_PAD;
-	if (getMaxTitleWidth() > 0)
-		title_width = llmin(title_width, getMaxTitleWidth());
+	S32 title_width = getRect().getWidth();
+	title_width -= LEFT_PAD + 2 * BORDER_PAD + getButtonsRect().getWidth();
 	S32 title_height = llround(font->getLineHeight());
 	LLRect title_rect;
 	title_rect.setLeftTopAndSize( 
 		LEFT_PAD, 
-		getRect().getHeight() - BORDER_PAD,
-		getRect().getWidth() - LEFT_PAD - RIGHT_PAD,
+		getRect().getHeight() - title_vpad,
+		title_width,
 		title_height);
 
-	mTitleBox->setRect( title_rect );
+	// calls reshape on mTitleBox
+	mTitleBox->setShape( title_rect );
 }
 
 void LLDragHandleTop::reshape(S32 width, S32 height, BOOL called_from_parent)
@@ -316,6 +313,23 @@ BOOL LLDragHandle::handleHover(S32 x, S32 y, MASK mask)
 		// Resize the parent
 		S32 delta_x = screen_x - mDragLastScreenX;
 		S32 delta_y = screen_y - mDragLastScreenY;
+
+		// if dragging a docked floater we want to undock
+		if (((LLFloater*)getParent())->isDocked())
+		{
+			const S32 SLOP = 12;
+
+			if (delta_y <= -SLOP || 
+				delta_y >= SLOP)
+			{
+				((LLFloater*)getParent())->setDocked(false, false);
+				return TRUE;
+			}
+			else
+			{
+				return FALSE;
+			}
+		}
 
 		LLRect original_rect = getParent()->getRect();
 		LLRect translated_rect = getParent()->getRect();

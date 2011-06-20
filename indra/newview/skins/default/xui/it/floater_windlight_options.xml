@@ -1,18 +1,19 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<floater name="WindLight floater" title="Editor avanzato del cielo">
-	<text name="KeyFramePresetsText">
+<floater name="WindLight floater" title="EDITOR AVANZATO DEL CIELO">
+	<text name="KeyFramePresetsText" width="105">
 		Cieli predefiniti:
 	</text>
+	<combo_box left_delta="105" name="WLPresetsCombo"/>
 	<button label="Nuovo" label_selected="Nuovo" name="WLNewPreset"/>
-	<button label="Salva" label_selected="Salva" name="WLSavePreset"/>
-	<button label="Elimina" label_selected="Elimina" name="WLDeletePreset"/>
-	<button label="Editor del ciclo giorno/notte" label_selected="Editor del ciclo giorno/notte" name="WLDayCycleMenuButton"/>
+	<button label="Salva" label_selected="Salva" left_delta="72" name="WLSavePreset"/>
+	<button label="Elimina" label_selected="Elimina" left_delta="72" name="WLDeletePreset"/>
+	<button font="SansSerifSmall" label="Editor del ciclo giorno/notte" label_selected="Editor del ciclo giorno/notte" left_delta="85" name="WLDayCycleMenuButton" width="165"/>
 	<tab_container name="WindLight Tabs">
-		<panel label="Atmosfera" name="Atmosphere">
+		<panel label="ATMOSFERA" name="Atmosphere">
 			<text name="BHText">
 				Blu dell&apos;Orizzonte
 			</text>
-			<button label="?" name="WLBlueHorizonHelp"/>
+			<button label="?" left="189" name="WLBlueHorizonHelp"/>
 			<text name="BHText2">
 				R
 			</text>
@@ -25,10 +26,10 @@
 			<text name="BHText5">
 				I
 			</text>
-			<text name="BDensText">
+			<text font="SansSerifSmall" name="BDensText">
 				Altezza della Foschia all&apos;Orizzonte
 			</text>
-			<button label="?" name="WLHazeHorizonHelp"/>
+			<button label="?" left="189" name="WLHazeHorizonHelp"/>
 			<text name="BDensText2">
 				Densità del Blu
 			</text>
@@ -52,17 +53,17 @@
 			<text name="DensMultText">
 				Moltiplicatore di Densità
 			</text>
-			<button label="?" name="WLDensityMultHelp"/>
+			<button label="?" left="645" name="WLDensityMultHelp"/>
 			<text name="WLDistanceMultText">
 				Moltiplicatore della Distanza
 			</text>
-			<button label="?" name="WLDistanceMultHelp"/>
+			<button label="?" left="645" name="WLDistanceMultHelp"/>
 			<text name="MaxAltText">
 				Altitudine Massima
 			</text>
-			<button label="?" name="WLMaxAltitudeHelp"/>
+			<button label="?" left="645" name="WLMaxAltitudeHelp"/>
 		</panel>
-		<panel label="Illuminazione" name="Lighting">
+		<panel label="ILLUMINAZIONE" name="Lighting">
 			<text name="SLCText">
 				Colore Sole/Luna
 			</text>
@@ -118,7 +119,7 @@
 			</text>
 			<button label="?" name="WLStarBrightnessHelp"/>
 		</panel>
-		<panel label="Nuvole" name="Clouds">
+		<panel label="NUVOLE" name="Clouds">
 			<text name="WLCloudColorText">
 				Colore delle Nuvole
 			</text>
@@ -151,15 +152,15 @@
 			<text name="WLCloudCoverageText">
 				Copertura delle Nuvole
 			</text>
-			<button label="?" name="WLCloudCoverageHelp"/>
+			<button label="?" left="415" name="WLCloudCoverageHelp"/>
 			<text name="WLCloudScaleText">
 				Altitudine delle Nuvole
 			</text>
-			<button label="?" name="WLCloudScaleHelp"/>
+			<button label="?" left="415" name="WLCloudScaleHelp"/>
 			<text name="WLCloudDetailText">
 				Dettagli Nuvole (XY/ Densità)
 			</text>
-			<button label="?" name="WLCloudDetailHelp"/>
+			<button label="?" left="415" name="WLCloudDetailHelp"/>
 			<text name="BHText8">
 				X
 			</text>
@@ -170,17 +171,17 @@
 				D
 			</text>
 			<text name="WLCloudScrollXText">
-				Scorrimento delle nuvole X
+				Scorrimento delle X
 			</text>
 			<button label="?" name="WLCloudScrollXHelp"/>
 			<check_box label="Blocca" name="WLCloudLockX"/>
 			<text name="WLCloudScrollYText">
-				Scorrimento delle nuvole Y
+				Scorrimento delle Y
 			</text>
 			<button label="?" name="WLCloudScrollYHelp"/>
 			<check_box label="Blocca" name="WLCloudLockY"/>
 			<check_box label="Mostra le Nuvole Classiche" name="DrawClassicClouds"/>
-			<button label="?" name="WLClassicCloudsHelp"/>
+			<button label="?" left="645" name="WLClassicCloudsHelp"/>
 		</panel>
 	</tab_container>
 	<string name="WLDefaultSkyNames">

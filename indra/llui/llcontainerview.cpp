@@ -2,31 +2,25 @@
  * @file llcontainerview.cpp
  * @brief Container for all statistics info
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -42,7 +36,12 @@
 #include "llscrollcontainer.h"
 #include "lluictrlfactory.h"
 
-static LLDefaultChildRegistry::Register<LLContainerView> r("container_view");
+static LLDefaultChildRegistry::Register<LLContainerView> r1("container_view");
+
+#include "llpanel.h"
+#include "llstatview.h"
+static ContainerViewRegistry::Register<LLStatView> r2("stat_view");
+static ContainerViewRegistry::Register<LLPanel> r3("panel", &LLPanel::fromXML);
 
 LLContainerView::LLContainerView(const LLContainerView::Params& p)
 :	LLView(p),
@@ -127,35 +126,31 @@ void LLContainerView::draw()
 
 void LLContainerView::reshape(S32 width, S32 height, BOOL called_from_parent)
 {
-	S32 desired_width = width;
-	S32 desired_height = height;
+	LLRect scroller_rect;
+	scroller_rect.setOriginAndSize(0, 0, width, height);
 
 	if (mScrollContainer)
 	{
-		BOOL dum_bool;
-		mScrollContainer->calcVisibleSize(&desired_width, &desired_height, &dum_bool, &dum_bool);
+		scroller_rect = mScrollContainer->getContentWindowRect();
 	}
 	else
 	{
 		// if we're uncontained - make height as small as possible
-		desired_height = 0;
+		scroller_rect.mTop = 0;
 	}
 
-	arrange(desired_width, desired_height, called_from_parent);
+	arrange(scroller_rect.getWidth(), scroller_rect.getHeight(), called_from_parent);
 
 	// sometimes, after layout, our container will change size (scrollbars popping in and out)
 	// if so, attempt another layout
 	if (mScrollContainer)
 	{
-		S32 new_container_width;
-		S32 new_container_height;
-		BOOL dum_bool;
-		mScrollContainer->calcVisibleSize(&new_container_width, &new_container_height, &dum_bool, &dum_bool);
+		LLRect new_container_rect = mScrollContainer->getContentWindowRect();
 
-		if ((new_container_width != desired_width) ||
-			(new_container_height != desired_height))  // the container size has changed, attempt to arrange again
+		if ((new_container_rect.getWidth() != scroller_rect.getWidth()) ||
+			(new_container_rect.getHeight() != scroller_rect.getHeight()))  // the container size has changed, attempt to arrange again
 		{
-			arrange(new_container_width, new_container_height, called_from_parent);
+			arrange(new_container_rect.getWidth(), new_container_rect.getHeight(), called_from_parent);
 		}
 	}
 }

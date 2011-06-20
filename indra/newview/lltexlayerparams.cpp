@@ -1,51 +1,54 @@
 /** 
  * @file lltexlayerparams.cpp
- * @brief SERAPH - ADD IN
+ * @brief Texture layer parameters
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2007, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlife.com/developers/opensource/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at http://secondlife.com/developers/opensource/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
 #include "llviewerprecompiledheaders.h"
-#include "llagent.h"
+
+#include "lltexlayerparams.h"
+
+#include "llagentcamera.h"
+#include "llimagetga.h"
 #include "lltexlayer.h"
 #include "llvoavatarself.h"
-#include "lltexlayerparams.h"
+#include "llwearable.h"
 #include "llui.h"
 
 //-----------------------------------------------------------------------------
 // LLTexLayerParam
 //-----------------------------------------------------------------------------
-LLTexLayerParam::LLTexLayerParam(LLTexLayer *layer) :
+LLTexLayerParam::LLTexLayerParam(LLTexLayerInterface *layer) :
 	mTexLayer(layer),
 	mAvatar(NULL)
 {
 	if (mTexLayer != NULL)
 	{
 		mAvatar = mTexLayer->getTexLayerSet()->getAvatar();
+	}
+	else
+	{
+		llerrs << "LLTexLayerParam constructor passed with NULL reference for layer!" << llendl;
 	}
 }
 
@@ -56,13 +59,17 @@ LLTexLayerParam::LLTexLayerParam(LLVOAvatar *avatar) :
 }
 
 
-BOOL LLTexLayerParam::setInfo(LLViewerVisualParamInfo *info)
+BOOL LLTexLayerParam::setInfo(LLViewerVisualParamInfo *info, BOOL add_to_avatar  )
 {	
 	LLViewerVisualParam::setInfo(info);
-	mAvatar->addVisualParam( this);
+
+	if (add_to_avatar)
+	{
+		mAvatar->addVisualParam( this);
+	}
+
 	return TRUE;
 }
-
 
 
 //-----------------------------------------------------------------------------
@@ -94,7 +101,7 @@ void LLTexLayerParamAlpha::getCacheByteCount(S32* gl_bytes)
 		{
 			S32 bytes = (S32)tex->getWidth() * tex->getHeight() * tex->getComponents();
 
-			if (tex->hasValidGLTexture())
+			if (tex->hasGLTexture())
 			{
 				*gl_bytes += bytes;
 			}
@@ -102,7 +109,7 @@ void LLTexLayerParamAlpha::getCacheByteCount(S32* gl_bytes)
 	}
 }
 
-LLTexLayerParamAlpha::LLTexLayerParamAlpha(LLTexLayer* layer) :
+LLTexLayerParamAlpha::LLTexLayerParamAlpha(LLTexLayerInterface* layer) :
 	LLTexLayerParam(layer),
 	mCachedProcessedTexture(NULL),
 	mNeedsCreateTexture(FALSE),
@@ -131,6 +138,13 @@ LLTexLayerParamAlpha::~LLTexLayerParamAlpha()
 	sInstances.remove(this);
 }
 
+/*virtual*/ LLViewerVisualParam* LLTexLayerParamAlpha::cloneParam(LLWearable* wearable) const
+{
+	LLTexLayerParamAlpha *new_param = new LLTexLayerParamAlpha(mTexLayer);
+	*new_param = *this;
+	return new_param;
+}
+
 void LLTexLayerParamAlpha::deleteCaches()
 {
 	mStaticImageTGA = NULL; // deletes image
@@ -144,7 +158,7 @@ BOOL LLTexLayerParamAlpha::getMultiplyBlend() const
 	return ((LLTexLayerParamAlphaInfo *)getInfo())->mMultiplyBlend; 	
 }
 
-void LLTexLayerParamAlpha::setWeight(F32 weight, BOOL set_by_user)
+void LLTexLayerParamAlpha::setWeight(F32 weight, BOOL upload_bake)
 {
 	if (mIsAnimating || mTexLayer == NULL)
 	{
@@ -159,36 +173,41 @@ void LLTexLayerParamAlpha::setWeight(F32 weight, BOOL set_by_user)
 	{
 		mCurWeight = new_weight;
 
-		LLVOAvatar* avatar = mTexLayer->getTexLayerSet()->getAvatar();
-		if (avatar->getSex() & getSex())
+		if ((mAvatar->getSex() & getSex()) && (mAvatar->isSelf() && !mIsDummy)) // only trigger a baked texture update if we're changing a wearable's visual param.
 		{
-			if (gAgent.cameraCustomizeAvatar())
+			if (isAgentAvatarValid() && !gAgentAvatarp->isUsingBakedTextures())
 			{
-				set_by_user = FALSE;
+				upload_bake = FALSE;
 			}
-			avatar->invalidateComposite(mTexLayer->getTexLayerSet(), set_by_user);
+			mAvatar->invalidateComposite(mTexLayer->getTexLayerSet(), upload_bake);
 			mTexLayer->invalidateMorphMasks();
-			avatar->updateMeshTextures();
 		}
 	}
 }
 
-void LLTexLayerParamAlpha::setAnimationTarget(F32 target_value, BOOL set_by_user)
+void LLTexLayerParamAlpha::setAnimationTarget(F32 target_value, BOOL upload_bake)
 { 
+	// do not animate dummy parameters
+	if (mIsDummy)
+	{
+		setWeight(target_value, upload_bake);
+		return;
+	}
+
 	mTargetWeight = target_value; 
-	setWeight(target_value, set_by_user); 
+	setWeight(target_value, upload_bake); 
 	mIsAnimating = TRUE;
 	if (mNext)
 	{
-		mNext->setAnimationTarget(target_value, set_by_user);
+		mNext->setAnimationTarget(target_value, upload_bake);
 	}
 }
 
-void LLTexLayerParamAlpha::animate(F32 delta, BOOL set_by_user)
+void LLTexLayerParamAlpha::animate(F32 delta, BOOL upload_bake)
 {
 	if (mNext)
 	{
-		mNext->animate(delta, set_by_user);
+		mNext->animate(delta, upload_bake);
 	}
 }
 
@@ -210,8 +229,8 @@ BOOL LLTexLayerParamAlpha::getSkip() const
 		}
 	}
 
-	EWearableType type = (EWearableType)getWearableType();
-	if ((type != WT_INVALID) && !avatar->isWearingWearableType(type))
+	LLWearableType::EType type = (LLWearableType::EType)getWearableType();
+	if ((type != LLWearableType::WT_INVALID) && !avatar->isWearingWearableType(type))
 	{
 		return TRUE;
 	}
@@ -313,7 +332,7 @@ BOOL LLTexLayerParamAlpha::render(S32 x, S32 y, S32 width, S32 height)
 
 		// Don't keep the cache for other people's avatars
 		// (It's not really a "cache" in that case, but the logic is the same)
-		if (mAvatar->isSelf())
+		if (!mAvatar->isSelf())
 		{
 			mCachedProcessedTexture = NULL;
 		}
@@ -377,7 +396,7 @@ BOOL LLTexLayerParamAlphaInfo::parseXml(LLXmlTreeNode* node)
 
 
 
-LLTexLayerParamColor::LLTexLayerParamColor(LLTexLayer* layer) :
+LLTexLayerParamColor::LLTexLayerParamColor(LLTexLayerInterface* layer) :
 	LLTexLayerParam(layer),
 	mAvgDistortionVec(1.f, 1.f, 1.f)
 {
@@ -391,6 +410,13 @@ LLTexLayerParamColor::LLTexLayerParamColor(LLVOAvatar *avatar) :
 
 LLTexLayerParamColor::~LLTexLayerParamColor()
 {
+}
+
+/*virtual*/ LLViewerVisualParam* LLTexLayerParamColor::cloneParam(LLWearable* wearable) const
+{
+	LLTexLayerParamColor *new_param = new LLTexLayerParamColor(mTexLayer);
+	*new_param = *this;
+	return new_param;
 }
 
 LLColor4 LLTexLayerParamColor::getNetColor() const
@@ -421,7 +447,7 @@ LLColor4 LLTexLayerParamColor::getNetColor() const
 	}
 }
 
-void LLTexLayerParamColor::setWeight(F32 weight, BOOL set_by_user)
+void LLTexLayerParamColor::setWeight(F32 weight, BOOL upload_bake)
 {
 	if (mIsAnimating)
 	{
@@ -444,35 +470,36 @@ void LLTexLayerParamColor::setWeight(F32 weight, BOOL set_by_user)
 			return;
 		}
 
-		if (mAvatar->getSex() & getSex())
+		if ((mAvatar->getSex() & getSex()) && (mAvatar->isSelf() && !mIsDummy)) // only trigger a baked texture update if we're changing a wearable's visual param.
 		{
-			onGlobalColorChanged(set_by_user);
+			onGlobalColorChanged(upload_bake);
 			if (mTexLayer)
 			{
-				mAvatar->invalidateComposite(mTexLayer->getTexLayerSet(), set_by_user);
+				mAvatar->invalidateComposite(mTexLayer->getTexLayerSet(), upload_bake);
 			}
 		}
+
 //		llinfos << "param " << mName << " = " << new_weight << llendl;
 	}
 }
 
-void LLTexLayerParamColor::setAnimationTarget(F32 target_value, BOOL set_by_user)
+void LLTexLayerParamColor::setAnimationTarget(F32 target_value, BOOL upload_bake)
 { 
 	// set value first then set interpolating flag to ignore further updates
 	mTargetWeight = target_value; 
-	setWeight(target_value, set_by_user);
+	setWeight(target_value, upload_bake);
 	mIsAnimating = TRUE;
 	if (mNext)
 	{
-		mNext->setAnimationTarget(target_value, set_by_user);
+		mNext->setAnimationTarget(target_value, upload_bake);
 	}
 }
 
-void LLTexLayerParamColor::animate(F32 delta, BOOL set_by_user)
+void LLTexLayerParamColor::animate(F32 delta, BOOL upload_bake)
 {
 	if (mNext)
 	{
-		mNext->animate(delta, set_by_user);
+		mNext->animate(delta, upload_bake);
 	}
 }
 

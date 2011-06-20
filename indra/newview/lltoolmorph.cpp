@@ -2,31 +2,25 @@
  * @file lltoolmorph.cpp
  * @brief A tool to manipulate faces..
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -37,7 +31,7 @@
 #include "llrender.h"
 
 // Library includes
-#include "audioengine.h"
+#include "llaudioengine.h"
 #include "llviewercontrol.h"
 #include "llfontgl.h"
 #include "sound_ids.h"
@@ -49,7 +43,6 @@
 #include "lldrawable.h"
 #include "lldrawpoolavatar.h"
 #include "llface.h"
-#include "llfloatercustomize.h"
 #include "llmorphview.h"
 #include "llresmgr.h"
 #include "llselectmgr.h"
@@ -79,22 +72,25 @@ LLVisualParamHint::LLVisualParamHint(
 	S32 width, S32 height, 
 	LLViewerJointMesh *mesh, 
 	LLViewerVisualParam *param,
-	F32 param_weight)
+	LLWearable *wearable,
+	F32 param_weight,
+	LLJoint* jointp)
 	:
 	LLViewerDynamicTexture(width, height, 3, LLViewerDynamicTexture::ORDER_MIDDLE, TRUE ),
 	mNeedsUpdate( TRUE ),
 	mIsVisible( FALSE ),
 	mJointMesh( mesh ),
 	mVisualParam( param ),
+	mWearablePtr( wearable ),
 	mVisualParamWeight( param_weight ),
 	mAllowsUpdates( TRUE ),
 	mDelayFrames( 0 ),
 	mRect( pos_x, pos_y + height, pos_x + width, pos_y ),
-	mLastParamWeight(0.f)
+	mLastParamWeight(0.f),
+	mCamTargetJoint(jointp)
 {
 	LLVisualParamHint::sInstances.insert( this );
-	mBackgroundp = LLUI::getUIImage("avatar_thumb_bkgrnd.j2c");
-
+	mBackgroundp = LLUI::getUIImage("avatar_thumb_bkgrnd.png");
 
 	llassert(width != 0);
 	llassert(height != 0);
@@ -106,6 +102,12 @@ LLVisualParamHint::LLVisualParamHint(
 LLVisualParamHint::~LLVisualParamHint()
 {
 	LLVisualParamHint::sInstances.erase( this );
+}
+
+//virtual
+S8 LLVisualParamHint::getType() const
+{
+	return LLViewerDynamicTexture::LL_VISUAL_PARAM_HINT ;
 }
 
 //-----------------------------------------------------------------------------
@@ -139,21 +141,20 @@ void LLVisualParamHint::requestHintUpdates( LLVisualParamHint* exception1, LLVis
 
 BOOL LLVisualParamHint::needsRender()
 {
-	return mNeedsUpdate && mDelayFrames-- <= 0 && !gAgent.getAvatarObject()->mAppearanceAnimating && mAllowsUpdates;
+	return mNeedsUpdate && mDelayFrames-- <= 0 && !gAgentAvatarp->getIsAppearanceAnimating() && mAllowsUpdates;
 }
 
 void LLVisualParamHint::preRender(BOOL clear_depth)
 {
-	LLVOAvatarSelf* avatarp = gAgent.getAvatarObject();
-
-	mLastParamWeight = avatarp->getVisualParamWeight(mVisualParam);
-	avatarp->setVisualParamWeight(mVisualParam, mVisualParamWeight);
-	avatarp->setVisualParamWeight("Blink_Left", 0.f);
-	avatarp->setVisualParamWeight("Blink_Right", 0.f);
-	avatarp->updateComposites();
-	avatarp->updateVisualParams();
-	avatarp->updateGeometry(avatarp->mDrawable);
-	avatarp->updateLOD();
+	mLastParamWeight = mVisualParam->getWeight();
+	mWearablePtr->setVisualParamWeight(mVisualParam->getID(), mVisualParamWeight, FALSE);
+	gAgentAvatarp->setVisualParamWeight(mVisualParam->getID(), mVisualParamWeight, FALSE);
+	gAgentAvatarp->setVisualParamWeight("Blink_Left", 0.f);
+	gAgentAvatarp->setVisualParamWeight("Blink_Right", 0.f);
+	gAgentAvatarp->updateComposites();
+	gAgentAvatarp->updateVisualParams();
+	gAgentAvatarp->updateGeometry(gAgentAvatarp->mDrawable);
+	gAgentAvatarp->updateLOD();
 
 	LLViewerDynamicTexture::preRender(clear_depth);
 }
@@ -164,15 +165,17 @@ void LLVisualParamHint::preRender(BOOL clear_depth)
 BOOL LLVisualParamHint::render()
 {
 	LLVisualParamReset::sDirty = TRUE;
-	LLVOAvatar* avatarp = gAgent.getAvatarObject();
+
+	gGL.pushUIMatrix();
+	gGL.loadUIIdentity();
 
 	glMatrixMode(GL_PROJECTION);
-	glPushMatrix();
+	gGL.pushMatrix();
 	glLoadIdentity();
 	glOrtho(0.0f, mFullWidth, 0.0f, mFullHeight, -1.0f, 1.0f);
 
 	glMatrixMode(GL_MODELVIEW);
-	glPushMatrix();
+	gGL.pushMatrix();
 	glLoadIdentity();
 
 	LLGLSUIDefault gls_ui;
@@ -180,37 +183,22 @@ BOOL LLVisualParamHint::render()
 	mBackgroundp->draw(0, 0, mFullWidth, mFullHeight);
 
 	glMatrixMode(GL_PROJECTION);
-	glPopMatrix();
+	gGL.popMatrix();
 
 	glMatrixMode(GL_MODELVIEW);
-	glPopMatrix();
+	gGL.popMatrix();
 
 	mNeedsUpdate = FALSE;
 	mIsVisible = TRUE;
 
-	LLViewerJointMesh* cam_target_joint = NULL;
-	const std::string& cam_target_mesh_name = mVisualParam->getCameraTargetName();
-	if( !cam_target_mesh_name.empty() )
-	{
-		cam_target_joint = (LLViewerJointMesh*)avatarp->getJoint( cam_target_mesh_name );
-	}
-	if( !cam_target_joint )
-	{
-		cam_target_joint = (LLViewerJointMesh*)gMorphView->getCameraTargetJoint();
-	}
-	if( !cam_target_joint )
-	{
-		cam_target_joint = (LLViewerJointMesh*)avatarp->getJoint("mHead");
-	}
-
 	LLQuaternion avatar_rotation;
-	LLJoint* root_joint = avatarp->getRootJoint();
+	LLJoint* root_joint = gAgentAvatarp->getRootJoint();
 	if( root_joint )
 	{
 		avatar_rotation = root_joint->getWorldRotation();
 	}
 
-	LLVector3 target_joint_pos = cam_target_joint->getWorldPosition();
+	LLVector3 target_joint_pos = mCamTargetJoint->getWorldPosition();
 
 	LLVector3 target_offset( 0, 0, mVisualParam->getCameraElevation() );
 	LLVector3 target_pos = target_joint_pos + (target_offset * avatar_rotation);
@@ -226,25 +214,29 @@ BOOL LLVisualParamHint::render()
 	
 	LLViewerCamera::getInstance()->setAspect((F32)mFullWidth / (F32)mFullHeight);
 	LLViewerCamera::getInstance()->setOriginAndLookAt(
-		camera_pos,		// camera
-		LLVector3(0.f, 0.f, 1.f),						// up
-		target_pos );	// point of interest
+		camera_pos,			// camera
+		LLVector3::z_axis,	// up
+		target_pos );		// point of interest
 
 	LLViewerCamera::getInstance()->setPerspective(FALSE, mOrigin.mX, mOrigin.mY, mFullWidth, mFullHeight, FALSE);
 
-	if (avatarp->mDrawable.notNull())
+	if (gAgentAvatarp->mDrawable.notNull())
 	{
-		LLDrawPoolAvatar *avatarPoolp = (LLDrawPoolAvatar *)avatarp->mDrawable->getFace(0)->getPool();
+		LLDrawPoolAvatar *avatarPoolp = (LLDrawPoolAvatar *)gAgentAvatarp->mDrawable->getFace(0)->getPool();
 		LLGLDepthTest gls_depth(GL_TRUE, GL_TRUE);
 		gGL.setAlphaRejectSettings(LLRender::CF_ALWAYS);
 		gGL.setSceneBlendType(LLRender::BT_REPLACE);
-		avatarPoolp->renderAvatars(avatarp);  // renders only one avatar
+		avatarPoolp->renderAvatars(gAgentAvatarp);  // renders only one avatar
 		gGL.setSceneBlendType(LLRender::BT_ALPHA);
 		gGL.setAlphaRejectSettings(LLRender::CF_DEFAULT);
 	}
-	avatarp->setVisualParamWeight(mVisualParam, mLastParamWeight);
+	gAgentAvatarp->setVisualParamWeight(mVisualParam->getID(), mLastParamWeight);
+	mWearablePtr->setVisualParamWeight(mVisualParam->getID(), mLastParamWeight, FALSE);
+	gAgentAvatarp->updateVisualParams();
 	gGL.color4f(1,1,1,1);
 	mGLTexturep->setGLTextureCreated(true);
+	gGL.popUIMatrix();
+
 	return TRUE;
 }
 
@@ -252,13 +244,13 @@ BOOL LLVisualParamHint::render()
 //-----------------------------------------------------------------------------
 // draw()
 //-----------------------------------------------------------------------------
-void LLVisualParamHint::draw()
+void LLVisualParamHint::draw(F32 alpha)
 {
 	if (!mIsVisible) return;
 
 	gGL.getTexUnit(0)->bind(this);
 
-	gGL.color4f(1.f, 1.f, 1.f, 1.f);
+	gGL.color4f(1.f, 1.f, 1.f, alpha);
 
 	LLGLSUIDefault gls_ui;
 	gGL.begin(LLRender::QUADS);
@@ -284,6 +276,12 @@ LLVisualParamReset::LLVisualParamReset() : LLViewerDynamicTexture(1, 1, 1, ORDER
 {	
 }
 
+//virtual
+S8 LLVisualParamReset::getType() const
+{
+	return LLViewerDynamicTexture::LL_VISUAL_PARAM_RESET ;
+}
+
 //-----------------------------------------------------------------------------
 // render()
 //-----------------------------------------------------------------------------
@@ -291,10 +289,9 @@ BOOL LLVisualParamReset::render()
 {
 	if (sDirty)
 	{
-		LLVOAvatarSelf* avatarp = gAgent.getAvatarObject();
-		avatarp->updateComposites();
-		avatarp->updateVisualParams();
-		avatarp->updateGeometry(avatarp->mDrawable);
+		gAgentAvatarp->updateComposites();
+		gAgentAvatarp->updateVisualParams();
+		gAgentAvatarp->updateGeometry(gAgentAvatarp->mDrawable);
 		sDirty = FALSE;
 	}
 

@@ -2,31 +2,25 @@
  * @file lldir_win32.cpp
  * @brief Implementation of directory utilities for windows
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -87,10 +81,11 @@ LLDir_Win32::LLDir_Win32()
 
 //	fprintf(stderr, "mTempDir = <%s>",mTempDir);
 
-#if 1
-	// Don't use the real app path for now, as we'll have to add parsing to detect if
-	// we're in a developer tree, which has a different structure from the installed product.
+	// Set working directory, for LLDir::getWorkingDir()
+	GetCurrentDirectory(MAX_PATH, w_str);
+	mWorkingDir = utf16str_to_utf8str(llutf16string(w_str));
 
+	// Set the executable directory
 	S32 size = GetModuleFileName(NULL, w_str, MAX_PATH);
 	if (size)
 	{
@@ -106,29 +101,37 @@ LLDir_Win32::LLDir_Win32()
 		{
 			mExecutableFilename = mExecutablePathAndName;
 		}
-		GetCurrentDirectory(MAX_PATH, w_str);
-		mWorkingDir = utf16str_to_utf8str(llutf16string(w_str));
 
 	}
 	else
 	{
 		fprintf(stderr, "Couldn't get APP path, assuming current directory!");
-		GetCurrentDirectory(MAX_PATH, w_str);
-		mExecutableDir = utf16str_to_utf8str(llutf16string(w_str));
+		mExecutableDir = mWorkingDir;
 		// Assume it's the current directory
 	}
-#else
-	GetCurrentDirectory(MAX_PATH, w_str);
-	mExecutableDir = utf16str_to_utf8str(llutf16string(w_str));
-#endif
+
+	// mAppRODataDir = ".";	
+
+	// Determine the location of the App-Read-Only-Data
+	// Try the working directory then the exe's dir.
+	mAppRODataDir = mWorkingDir;	
+
+
+//	if (mExecutableDir.find("indra") == std::string::npos)
 	
-	// When running in a dev tree, app_settings is under indra/newview/
-	// but in production it is under Program Files/SecondLife/
-	// Attempt to detect which one we're using. JC
-	if (mExecutableDir.find("indra") != std::string::npos)
-		mAppRODataDir = getCurPath();
-	else
+	// *NOTE:Mani - It is a mistake to put viewer specific code in
+	// the LLDir implementation. The references to 'skins' and 
+	// 'llplugin' need to go somewhere else.
+	// alas... this also gets called during static initialization 
+	// time due to the construction of gDirUtil in lldir.cpp.
+	if(! LLFile::isdir(mAppRODataDir + mDirDelimiter + "skins"))
+	{
+		// What? No skins in the working dir?
+		// Try the executable's directory.
 		mAppRODataDir = mExecutableDir;
+	}
+
+	llinfos << "mAppRODataDir = " << mAppRODataDir << llendl;
 
 	mSkinBaseDir = mAppRODataDir + mDirDelimiter + "skins";
 
@@ -144,6 +147,8 @@ LLDir_Win32::LLDir_Win32()
 			llwarns << "Couldn't create LL_PATH_CACHE dir " << mDefaultCacheDir << llendl;
 		}
 	}
+
+	mLLPluginDir = mExecutableDir + mDirDelimiter + "llplugin";
 }
 
 LLDir_Win32::~LLDir_Win32()
@@ -205,22 +210,6 @@ void LLDir_Win32::initAppDirs(const std::string &app_name,
 		}
 	}
 	
-	res = LLFile::mkdir(getExpandedFilename(LL_PATH_MOZILLA_PROFILE,""));
-	if (res == -1)
-	{
-		if (errno != EEXIST)
-		{
-			llwarns << "Couldn't create LL_PATH_MOZILLA_PROFILE dir " << getExpandedFilename(LL_PATH_MOZILLA_PROFILE,"") << llendl;
-		}
-	}
-	res = LLFile::mkdir(getExpandedFilename(LL_PATH_USER_SKIN,""));
-	if (res == -1)
-	{
-		if (errno != EEXIST)
-		{
-			llwarns << "Couldn't create LL_PATH_SKINS dir " << getExpandedFilename(LL_PATH_USER_SKIN,"") << llendl;
-		}
-	}
 	mCAFile = getExpandedFilename(LL_PATH_APP_SETTINGS, "CA.pem");
 }
 
@@ -251,122 +240,6 @@ U32 LLDir_Win32::countFilesInDir(const std::string &dirname, const std::string &
 	return (file_count);
 }
 
-
-// get the next file in the directory
-// automatically wrap if we've hit the end
-BOOL LLDir_Win32::getNextFileInDir(const std::string &dirname, const std::string &mask, std::string &fname, BOOL wrap)
-{
-	llutf16string dirnamew = utf8str_to_utf16str(dirname);
-	return getNextFileInDir(dirnamew, mask, fname, wrap);
-
-}
-
-BOOL LLDir_Win32::getNextFileInDir(const llutf16string &dirname, const std::string &mask, std::string &fname, BOOL wrap)
-{
-	WIN32_FIND_DATAW FileData;
-
-	fname = "";
-	llutf16string pathname = dirname;
-	pathname += utf8str_to_utf16str(mask);
-
-	if (pathname != mCurrentDir)
-	{
-		// different dir specified, close old search
-		if (mCurrentDir[0])
-		{
-			FindClose(mDirSearch_h);
-		}
-		mCurrentDir = pathname;
-
-		// and open new one
-		// Check error opening Directory structure
-		if ((mDirSearch_h = FindFirstFile(pathname.c_str(), &FileData)) == INVALID_HANDLE_VALUE)   
-		{
-//			llinfos << "Unable to locate first file" << llendl;
-			return(FALSE);
-		}
-	}
-	else // get next file in list
-	{
-		// Find next entry
-		if (!FindNextFile(mDirSearch_h, &FileData))
-		{
-			if (GetLastError() == ERROR_NO_MORE_FILES)
-			{
-                // No more files, so reset to beginning of directory
-				FindClose(mDirSearch_h);
-				mCurrentDir[0] = NULL;
-
-				if (wrap)
-				{
-					return(getNextFileInDir(pathname,"",fname,TRUE));
-				}
-				else
-				{
-					fname[0] = 0;
-					return(FALSE);
-				}
-			}
-			else
-			{
-				// Error
-//				llinfos << "Unable to locate next file" << llendl;
-				return(FALSE);
-			}
-		}
-	}
-
-	// convert from TCHAR to char
-	fname = utf16str_to_utf8str(FileData.cFileName);
-	
-	// fname now first name in list
-	return(TRUE);
-}
-
-
-// get a random file in the directory
-// automatically wrap if we've hit the end
-void LLDir_Win32::getRandomFileInDir(const std::string &dirname, const std::string &mask, std::string &fname)
-{
-	S32 num_files;
-	S32 which_file;
-	HANDLE random_search_h;
-
-	fname = "";
-
-	llutf16string pathname = utf8str_to_utf16str(dirname);
-	pathname += utf8str_to_utf16str(mask);
-
-	WIN32_FIND_DATA FileData;
-	fname[0] = NULL;
-
-	num_files = countFilesInDir(dirname,mask);
-	if (!num_files)
-	{
-		return;
-	}
-
-	which_file = ll_rand(num_files);
-
-//	llinfos << "Random select mp3 #" << which_file << llendl;
-
-    // which_file now indicates the (zero-based) index to which file to play
-
-	if ((random_search_h = FindFirstFile(pathname.c_str(), &FileData)) != INVALID_HANDLE_VALUE)   
-	{
-		while (which_file--)
-		{
-			if (!FindNextFile(random_search_h, &FileData))
-			{
-				return;
-			}
-		}		   
-		FindClose(random_search_h);
-
-		fname = utf16str_to_utf8str(llutf16string(FileData.cFileName));
-	}
-}
-
 std::string LLDir_Win32::getCurPath()
 {
 	WCHAR w_str[MAX_PATH];
@@ -390,6 +263,19 @@ BOOL LLDir_Win32::fileExists(const std::string &filename) const
 	{
 		return FALSE;
 	}
+}
+
+
+/*virtual*/ std::string LLDir_Win32::getLLPluginLauncher()
+{
+	return gDirUtilp->getExecutableDir() + gDirUtilp->getDirDelimiter() +
+		"SLPlugin.exe";
+}
+
+/*virtual*/ std::string LLDir_Win32::getLLPluginFilename(std::string base_name)
+{
+	return gDirUtilp->getLLPluginDir() + gDirUtilp->getDirDelimiter() +
+		base_name + ".dll";
 }
 
 

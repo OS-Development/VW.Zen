@@ -2,31 +2,25 @@
  * @file llmodaldialog.cpp
  * @brief LLModalDialog base class
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -44,12 +38,10 @@
 // static
 std::list<LLModalDialog*> LLModalDialog::sModalStack;
 
-LLModalDialog::LLModalDialog( const std::string& title, S32 width, S32 height, BOOL modal )
-	: LLFloater(),
+LLModalDialog::LLModalDialog( const LLSD& key, BOOL modal )
+	: LLFloater(key),
 	  mModal( modal )
 {
-	setRect(LLRect( 0, height, width, 0 ));
-	setTitle(title);
 	if (modal)
 	{
 		setCanMinimize(FALSE);
@@ -59,6 +51,7 @@ LLModalDialog::LLModalDialog( const std::string& title, S32 width, S32 height, B
 	setBackgroundVisible(TRUE);
 	setBackgroundOpaque(TRUE);
 	centerOnScreen(); // default position
+	mCloseSignal.connect(boost::bind(&LLModalDialog::stopModal, this));
 }
 
 LLModalDialog::~LLModalDialog()
@@ -68,6 +61,18 @@ LLModalDialog::~LLModalDialog()
 	{
 		gFocusMgr.unlockFocus();
 	}
+	
+	std::list<LLModalDialog*>::iterator iter = std::find(sModalStack.begin(), sModalStack.end(), this);
+	if (iter != sModalStack.end())
+	{
+		llerrs << "Attempt to delete dialog while still in sModalStack!" << llendl;
+	}
+}
+
+// virtual
+BOOL LLModalDialog::postBuild()
+{
+	return LLFloater::postBuild();
 }
 
 // virtual
@@ -86,7 +91,8 @@ void LLModalDialog::reshape(S32 width, S32 height, BOOL called_from_parent)
 	centerOnScreen();
 }
 
-void LLModalDialog::startModal()
+// virtual
+void LLModalDialog::onOpen(const LLSD& key)
 {
 	if (mModal)
 	{
@@ -99,13 +105,11 @@ void LLModalDialog::startModal()
 	
 		// This is a modal dialog.  It sucks up all mouse and keyboard operations.
 		gFocusMgr.setMouseCapture( this );
-		gFocusMgr.setTopCtrl( this );
+		LLUI::addPopup(this);
 		setFocus(TRUE);
 
 		sModalStack.push_front( this );
 	}
-
-	setVisible( TRUE );
 }
 
 void LLModalDialog::stopModal()
@@ -143,7 +147,7 @@ void LLModalDialog::setVisible( BOOL visible )
 			gFocusMgr.setMouseCapture( this );
 
 			// The dialog view is a root view
-			gFocusMgr.setTopCtrl( this );
+			LLUI::addPopup(this);
 			setFocus( TRUE );
 		}
 		else
@@ -235,12 +239,6 @@ BOOL LLModalDialog::handleKeyHere(KEY key, MASK mask )
 	}	
 }
 
-void LLModalDialog::onClose(bool app_quitting)
-{
-	stopModal();
-	LLFloater::onClose(app_quitting);
-}
-
 // virtual
 void LLModalDialog::draw()
 {
@@ -273,10 +271,7 @@ void LLModalDialog::onAppFocusLost()
 			gFocusMgr.setMouseCapture( NULL );
 		}
 
-		if( gFocusMgr.childHasKeyboardFocus( instance ) )
-		{
-			gFocusMgr.setKeyboardFocus( NULL );
-		}
+		instance->setFocus(FALSE);
 	}
 }
 
@@ -290,11 +285,22 @@ void LLModalDialog::onAppFocusGained()
 		// This is a modal dialog.  It sucks up all mouse and keyboard operations.
 		gFocusMgr.setMouseCapture( instance );
 		instance->setFocus(TRUE);
-		gFocusMgr.setTopCtrl( instance );
+		LLUI::addPopup(instance);
 
 		instance->centerOnScreen();
 	}
 }
 
-
-
+void LLModalDialog::shutdownModals()
+{
+	// This method is only for use during app shutdown. ~LLModalDialog()
+	// checks sModalStack, and if the dialog instance is still there, it
+	// crumps with "Attempt to delete dialog while still in sModalStack!" But
+	// at app shutdown, all bets are off. If the user asks to shut down the
+	// app, we shouldn't have to care WHAT's open. Put differently, if a modal
+	// dialog is so crucial that we can't let the user terminate until s/he
+	// addresses it, we should reject a termination request. The current state
+	// of affairs is that we accept it, but then produce an llerrs popup that
+	// simply makes our software look unreliable.
+	sModalStack.clear();
+}

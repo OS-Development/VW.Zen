@@ -1,13 +1,16 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  can_resize="true"
- height="250"
+ height="310"
  layout="topleft"
- min_height="175"
- min_width="154"
+ min_height="150"
+ min_width="225"
  name="contents"
+ help_topic="contents"
  save_rect="true"
- title="Buy Copy of Object"
+ single_instance="true"
+ title="BUY COPY OF OBJECT"
  width="280">
     <floater.string
      name="title_buy_text">
@@ -30,13 +33,15 @@
         (no transfer)
     </floater.string>
     <scroll_list
+     background_visible="true"
+     draw_border="false"
      follows="left|top|right"
-     height="36"
+     height="35"
      layout="topleft"
-     left="15"
      name="object_list"
-     top="24"
-     width="250">
+     top="20"
+     left="10"
+     width="260">
         <scroll_list.columns
          name="icon"
          width="16" />
@@ -51,20 +56,22 @@
      font="SansSerif"
      height="16"
      layout="topleft"
-     left_delta="0"
+     left="10"
      name="contents_text"
-     top_pad="4"
-     width="250">
-        and its contents:
+     top_pad="5"
+     width="260">
+     Contains:
     </text>
     <scroll_list
-     follows="left|top|right|bottom"
-     height="108"
+     background_visible="true"
+     draw_border="false"
+     follows="all"
+     height="145"
      layout="topleft"
      left_delta="0"
      name="item_list"
      top_pad="4"
-     width="250">
+     width="260">
         <scroll_list.columns
          name="icon"
          width="16" />
@@ -77,32 +84,52 @@
      length="1"
      follows="left|right|bottom"
      font="SansSerif"
-     height="24"
+     height="15"
      layout="topleft"
      left_delta="0"
+	 line_spacing.pixels="7"
      name="buy_text"
-     top_pad="4"
-     width="281">
-        Buy for L$[AMOUNT] from [NAME]?
+     text_color="white"
+     top_pad="5"
+     use_ellipses="true"
+     width="260"
+	 word_wrap="true">
+Buy for L$[AMOUNT] from:
     </text>
-    <button
-     follows="right|bottom"
-     height="20"
-     label="Cancel"
-     label_selected="Cancel"
+  <text
+     type="string"
+     length="1"
+     follows="left|right|bottom"
+     font="SansSerif"
+     height="15"
      layout="topleft"
-     left="211"
-     name="cancel_btn"
-     top="224"
-     width="60" />
+     left_delta="0"
+	 line_spacing.pixels="7"
+     name="buy_name_text"
+     text_color="white"
+     top_pad="5"
+     use_ellipses="true"
+     width="260">
+    [NAME]?
+  </text>
     <button
      follows="right|bottom"
-     height="20"
+     height="23"
      label="Buy"
      label_selected="Buy"
      layout="topleft"
-     left_delta="-64"
+     left="65"
      name="buy_btn"
+     top_pad="10"
+     width="100" />
+    <button
+     follows="right|bottom"
+     height="23"
+     label="Cancel"
+     label_selected="Cancel"
+     layout="topleft"
+     left_pad="5"
+     name="cancel_btn"
      top_delta="0"
-     width="60" />
+     width="100" />
 </floater>

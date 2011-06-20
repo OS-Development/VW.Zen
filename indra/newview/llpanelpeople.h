@@ -2,31 +2,25 @@
  * @file llpanelpeople.h
  * @brief Side tray "People" panel
  *
- * $LicenseInfo:firstyear=2009&license=viewergpl$
- * 
- * Copyright (c) 2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2009&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -36,13 +30,18 @@
 #include <llpanel.h>
 
 #include "llcallingcard.h" // for avatar tracker
+#include "llvoiceclient.h"
 
-class LLSearchEditor;
-class LLTabContainer;
 class LLAvatarList;
+class LLAvatarName;
+class LLFilterEditor;
 class LLGroupList;
+class LLMenuButton;
+class LLTabContainer;
 
-class LLPanelPeople : public LLPanel
+class LLPanelPeople 
+	: public LLPanel
+	, public LLVoiceClientStatusObserver
 {
 	LOG_CLASS(LLPanelPeople);
 public:
@@ -50,34 +49,45 @@ public:
 	virtual ~LLPanelPeople();
 
 	/*virtual*/ BOOL 	postBuild();
-
-	virtual void	onOpen(const LLSD& key);
+	/*virtual*/ void	onOpen(const LLSD& key);
+	/*virtual*/ bool	notifyChildren(const LLSD& info);
+	// Implements LLVoiceClientStatusObserver::onChange() to enable call buttons
+	// when voice is available
+	/*virtual*/ void onChange(EStatusType status, const std::string &channelURI, bool proximal);
 
 	// internals
 	class Updater;
 
 private:
-	bool					updateFriendList(U32 changed_mask);
-	bool					updateNearbyList();
-	bool					updateRecentList();
-	bool					updateGroupList();
-	bool					filterFriendList();
-	bool					filterNearbyList();
-	bool					filterRecentList();
+
+	typedef enum e_sort_oder {
+		E_SORT_BY_NAME = 0,
+		E_SORT_BY_STATUS = 1,
+		E_SORT_BY_MOST_RECENT = 2,
+		E_SORT_BY_DISTANCE = 3,
+		E_SORT_BY_RECENT_SPEAKERS = 4,
+	} ESortOrder;
+
+	// methods indirectly called by the updaters
+	void					updateFriendListHelpText();
+	void					updateFriendList();
+	void					updateNearbyList();
+	void					updateRecentList();
+
+	bool					isItemsFreeOfFriends(const uuid_vec_t& uuids);
+
 	void					updateButtons();
-	LLAvatarList*			getActiveAvatarList() const;
+	std::string				getActiveTabName() const;
 	LLUUID					getCurrentItemID() const;
+	void					getCurrentItemIDs(uuid_vec_t& selected_uuids) const;
 	void					buttonSetVisible(std::string btn_name, BOOL visible);
 	void					buttonSetEnabled(const std::string& btn_name, bool enabled);
 	void					buttonSetAction(const std::string& btn_name, const commit_signal_t::slot_type& cb);
 	void					showGroupMenu(LLMenuGL* menu);
-
-	/*virtual*/ void		onVisibilityChange(BOOL new_visibility);
-
-	void					reSelectedCurrentTab();
+	void					setSortOrder(LLAvatarList* list, ESortOrder order, bool save = true);
 
 	// UI callbacks
-	void					onSearchEdit(const std::string& search_string);
+	void					onFilterEdit(const std::string& search_string);
 	void					onTabSelected(const LLSD& param);
 	void					onViewProfileButtonClicked();
 	void					onAddFriendButtonClicked();
@@ -87,49 +97,71 @@ private:
 	void					onChatButtonClicked();
 	void					onImButtonClicked();
 	void					onCallButtonClicked();
+	void					onGroupCallButtonClicked();
 	void					onTeleportButtonClicked();
 	void					onShareButtonClicked();
 	void					onMoreButtonClicked();
 	void					onActivateButtonClicked();
-	void					onAvatarListDoubleClicked(LLAvatarList* list);
+	void					onAvatarListDoubleClicked(LLUICtrl* ctrl);
 	void					onAvatarListCommitted(LLAvatarList* list);
 	void					onGroupPlusButtonClicked();
 	void					onGroupMinusButtonClicked();
 	void					onGroupPlusMenuItemClicked(const LLSD& userdata);
 
-	// misc callbacks
-	bool					onFriendListUpdate(U32 changed_mask);
-	static void				onAvatarPicked(
-								const std::vector<std::string>& names,
-								const std::vector<LLUUID>& ids,
-								void*);
+	void					onFriendsViewSortMenuItemClicked(const LLSD& userdata);
+	void					onNearbyViewSortMenuItemClicked(const LLSD& userdata);
+	void					onGroupsViewSortMenuItemClicked(const LLSD& userdata);
+	void					onRecentViewSortMenuItemClicked(const LLSD& userdata);
 
-	LLSearchEditor*			mSearchEditor;
+	//returns false only if group is "none"
+	bool					isRealGroup();
+	bool					onFriendsViewSortMenuItemCheck(const LLSD& userdata);
+	bool					onRecentViewSortMenuItemCheck(const LLSD& userdata);
+	bool					onNearbyViewSortMenuItemCheck(const LLSD& userdata);
+
+	// misc callbacks
+	static void				onAvatarPicked(const uuid_vec_t& ids, const std::vector<LLAvatarName> names);
+
+	void					onFriendsAccordionExpandedCollapsed(LLUICtrl* ctrl, const LLSD& param, LLAvatarList* avatar_list);
+
+	void					showAccordion(const std::string name, bool show);
+
+	void					showFriendsAccordionsIfNeeded();
+
+	void					onFriendListRefreshComplete(LLUICtrl*ctrl, const LLSD& param);
+
+	void					setAccordionCollapsedByUser(LLUICtrl* acc_tab, bool collapsed);
+	void					setAccordionCollapsedByUser(const std::string& name, bool collapsed);
+	bool					isAccordionCollapsedByUser(LLUICtrl* acc_tab);
+	bool					isAccordionCollapsedByUser(const std::string& name);
+
+	LLFilterEditor*			mFilterEditor;
 	LLTabContainer*			mTabContainer;
-	LLAvatarList*			mFriendList;
+	LLAvatarList*			mOnlineFriendList;
+	LLAvatarList*			mAllFriendList;
 	LLAvatarList*			mNearbyList;
 	LLAvatarList*			mRecentList;
 	LLGroupList*			mGroupList;
+	LLNetMap*				mMiniMap;
 
 	LLHandle<LLView>		mGroupPlusMenuHandle;
+	LLHandle<LLView>		mNearbyViewSortMenuHandle;
+	LLHandle<LLView>		mFriendsViewSortMenuHandle;
+	LLHandle<LLView>		mGroupsViewSortMenuHandle;
+	LLHandle<LLView>		mRecentViewSortMenuHandle;
 
 	Updater*				mFriendListUpdater;
 	Updater*				mNearbyListUpdater;
 	Updater*				mRecentListUpdater;
-	Updater*				mGroupListUpdater;
+	Updater*				mButtonsUpdater;
+
+	LLMenuButton*			mNearbyGearButton;
+	LLMenuButton*			mFriendsGearButton;
+	LLMenuButton*			mGroupsGearButton;
+	LLMenuButton*			mRecentGearButton;
 
 	std::string				mFilterSubString;
-
-	// The vectors below contain up-to date avatar lists
-	// for the corresponding tabs.
-	// When the user enters a filter, it gets applied
-	// to all the vectors and the result is shown in the tabs.
-	// We don't need to have such a vector for the groups tab
-	// since re-fetching the groups list is always fast.
-	typedef std::vector<LLUUID> uuid_vector_t;
-	uuid_vector_t			mNearbyVec;
-	uuid_vector_t			mFriendVec;
-	uuid_vector_t			mRecentVec;
+	std::string				mFilterSubStringOrig;
 };
 
 #endif //LL_LLPANELPEOPLE_H

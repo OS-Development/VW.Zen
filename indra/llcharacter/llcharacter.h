@@ -2,31 +2,25 @@
  * @file llcharacter.h
  * @brief Implementation of LLCharacter class.
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -203,20 +197,17 @@ public:
 	void addVisualParam(LLVisualParam *param);
 	void addSharedVisualParam(LLVisualParam *param);
 
-	BOOL setVisualParamWeight(LLVisualParam *which_param, F32 weight, BOOL set_by_user = FALSE );
-	BOOL setVisualParamWeight(const char* param_name, F32 weight, BOOL set_by_user = FALSE );
-	BOOL setVisualParamWeight(S32 index, F32 weight, BOOL set_by_user = FALSE );
+	virtual BOOL setVisualParamWeight(LLVisualParam *which_param, F32 weight, BOOL upload_bake = FALSE );
+	virtual BOOL setVisualParamWeight(const char* param_name, F32 weight, BOOL upload_bake = FALSE );
+	virtual BOOL setVisualParamWeight(S32 index, F32 weight, BOOL upload_bake = FALSE );
 
 	// get visual param weight by param or name
 	F32 getVisualParamWeight(LLVisualParam *distortion);
 	F32 getVisualParamWeight(const char* param_name);
 	F32 getVisualParamWeight(S32 index);
 
-	// set all morph weights to 0
+	// set all morph weights to defaults
 	void clearVisualParamWeights();
-
-	// see if all the weights are default
-	BOOL visualParamWeightsAreDefault();
 
 	// visual parameter accessors
 	LLVisualParam*	getFirstVisualParam()
@@ -231,14 +222,29 @@ public:
 		return (mCurIterator++)->second;
 	}
 
+	S32 getVisualParamCountInGroup(const EVisualParamGroup group) const
+	{
+		S32 rtn = 0;
+		for (visual_param_index_map_t::const_iterator iter = mVisualParamIndexMap.begin();
+		     iter != mVisualParamIndexMap.end();
+		     /**/ )
+		{
+			if ((iter++)->second->getGroup() == group)
+			{
+				++rtn;
+			}
+		}
+		return rtn;
+	}
+
 	LLVisualParam*	getVisualParam(S32 id) const
 	{
-		VisualParamIndexMap_t::const_iterator iter = mVisualParamIndexMap.find(id);
+		visual_param_index_map_t::const_iterator iter = mVisualParamIndexMap.find(id);
 		return (iter == mVisualParamIndexMap.end()) ? 0 : iter->second;
 	}
 	S32 getVisualParamID(LLVisualParam *id)
 	{
-		VisualParamIndexMap_t::iterator iter;
+		visual_param_index_map_t::iterator iter;
 		for (iter = mVisualParamIndexMap.begin(); iter != mVisualParamIndexMap.end(); iter++)
 		{
 			if (iter->second == id)
@@ -276,11 +282,12 @@ protected:
 
 private:
 	// visual parameter stuff
-	typedef std::map<S32, LLVisualParam *>    VisualParamIndexMap_t;
-	VisualParamIndexMap_t mVisualParamIndexMap;
-	VisualParamIndexMap_t::iterator mCurIterator;
-	typedef std::map<char *, LLVisualParam *> VisualParamNameMap_t;
-	VisualParamNameMap_t  mVisualParamNameMap;
+	typedef std::map<S32, LLVisualParam *> 		visual_param_index_map_t;
+	typedef std::map<char *, LLVisualParam *> 	visual_param_name_map_t;
+
+	visual_param_index_map_t::iterator 			mCurIterator;
+	visual_param_index_map_t 					mVisualParamIndexMap;
+	visual_param_name_map_t  					mVisualParamNameMap;
 
 	static LLStringTable sVisualParamNames;	
 };

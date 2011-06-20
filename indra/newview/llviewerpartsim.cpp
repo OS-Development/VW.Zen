@@ -2,31 +2,25 @@
  * @file llviewerpartsim.cpp
  * @brief LLViewerPart class implementation
  *
- * $LicenseInfo:firstyear=2003&license=viewergpl$
- * 
- * Copyright (c) 2003-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2003&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -71,9 +65,9 @@ const F32 LLViewerPartSim::PART_ADAPT_RATE_MULT_RECIP = 1.0f/PART_ADAPT_RATE_MUL
 
 U32 LLViewerPart::sNextPartID = 1;
 
-F32 calc_desired_size(LLVector3 pos, LLVector2 scale)
+F32 calc_desired_size(LLViewerCamera* camera, LLVector3 pos, LLVector2 scale)
 {
-	F32 desired_size = (pos-LLViewerCamera::getInstance()->getOrigin()).magVec();
+	F32 desired_size = (pos - camera->getOrigin()).magVec();
 	desired_size /= 4;
 	return llclamp(desired_size, scale.magVec()*0.5f, PART_SIM_BOX_SIDE*2);
 }
@@ -81,6 +75,7 @@ F32 calc_desired_size(LLVector3 pos, LLVector2 scale)
 LLViewerPart::LLViewerPart() :
 	mPartID(0),
 	mLastUpdateTime(0.f),
+	mSkipOffset(0.f),
 	mVPCallback(NULL),
 	mImagep(NULL)
 {
@@ -160,8 +155,8 @@ LLViewerPartGroup::LLViewerPartGroup(const LLVector3 &center_agent, const F32 bo
 
 	if (group != NULL)
 	{
-		LLVector3 center(group->mOctreeNode->getCenter());
-		LLVector3 size(group->mOctreeNode->getSize());
+		LLVector3 center(group->mOctreeNode->getCenter().getF32ptr());
+		LLVector3 size(group->mOctreeNode->getSize().getF32ptr());
 		size += LLVector3(0.01f, 0.01f, 0.01f);
 		mMinObjPos = center - size;
 		mMaxObjPos = center + size;
@@ -273,6 +268,7 @@ void LLViewerPartGroup::updateParticles(const F32 lastdt)
 
 	LLViewerPartSim::checkParticleCount(mParticles.size());
 
+	LLViewerCamera* camera = LLViewerCamera::getInstance();
 	LLViewerRegion *regionp = getRegion();
 	S32 end = (S32) mParticles.size();
 	for (S32 i = 0 ; i < (S32)mParticles.size();)
@@ -394,7 +390,7 @@ void LLViewerPartGroup::updateParticles(const F32 lastdt)
 		}
 		else 
 		{
-			F32 desired_size = calc_desired_size(part->mPosAgent, part->mScale);
+			F32 desired_size = calc_desired_size(camera, part->mPosAgent, part->mScale);
 			if (!posInGroup(part->mPosAgent, desired_size))
 			{
 				// Transfer particles between groups
@@ -557,7 +553,8 @@ LLViewerPartGroup *LLViewerPartSim::put(LLViewerPart* part)
 	}
 	else
 	{	
-		F32 desired_size = calc_desired_size(part->mPosAgent, part->mScale);
+		LLViewerCamera* camera = LLViewerCamera::getInstance();
+		F32 desired_size = calc_desired_size(camera, part->mPosAgent, part->mScale);
 
 		S32 count = (S32) mViewerPartGroups.size();
 		for (S32 i = 0; i < count; i++)
@@ -631,6 +628,8 @@ void LLViewerPartSim::shift(const LLVector3 &offset)
 	}
 }
 
+static LLFastTimer::DeclareTimer FTM_SIMULATE_PARTICLES("Simulate Particles");
+
 void LLViewerPartSim::updateSimulation()
 {
 	LLMemType mt(LLMemType::MTYPE_PARTICLES);
@@ -644,7 +643,7 @@ void LLViewerPartSim::updateSimulation()
 		return;
 	}
 
-	LLFastTimer ftm(LLFastTimer::FTM_SIMULATE_PARTICLES);
+	LLFastTimer ftm(FTM_SIMULATE_PARTICLES);
 
 	// Start at a random particle system so the same
 	// particle system doesn't always get first pick at the

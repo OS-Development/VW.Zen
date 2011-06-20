@@ -2,31 +2,25 @@
  * @file llvopartgroup.cpp
  * @brief Group of particle systems
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -40,7 +34,7 @@
 #include "message.h"
 #include "v2math.h"
 
-#include "llagent.h"
+#include "llagentcamera.h"
 #include "lldrawable.h"
 #include "llface.h"
 #include "llsky.h"
@@ -79,12 +73,14 @@ F32 LLVOPartGroup::getBinRadius()
 	return mScale.mV[0]*2.f;
 }
 
-void LLVOPartGroup::updateSpatialExtents(LLVector3& newMin, LLVector3& newMax)
+void LLVOPartGroup::updateSpatialExtents(LLVector4a& newMin, LLVector4a& newMax)
 {		
 	const LLVector3& pos_agent = getPositionAgent();
-	newMin = pos_agent - mScale;
-	newMax = pos_agent + mScale;
-	mDrawable->setPositionGroup(pos_agent);
+	newMin.load3( (pos_agent - mScale).mV);
+	newMax.load3( (pos_agent + mScale).mV);
+	LLVector4a pos;
+	pos.load3(pos_agent.mV);
+	mDrawable->setPositionGroup(pos);
 }
 
 BOOL LLVOPartGroup::idleUpdate(LLAgent &agent, LLWorld &world, const F64 &time)
@@ -108,7 +104,7 @@ void LLVOPartGroup::setPixelAreaAndAngle(LLAgent &agent)
 	}
 }
 
-void LLVOPartGroup::updateTextures(LLAgent &agent)
+void LLVOPartGroup::updateTextures()
 {
 	// Texture stats for particles need to be updated in a different way...
 }
@@ -136,12 +132,13 @@ F32 LLVOPartGroup::getPartSize(S32 idx)
 
 LLVector3 LLVOPartGroup::getCameraPosition() const
 {
-	return gAgent.getCameraPositionAgent();
+	return gAgentCamera.getCameraPositionAgent();
 }
 
+static LLFastTimer::DeclareTimer FTM_UPDATE_PARTICLES("Update Particles");
 BOOL LLVOPartGroup::updateGeometry(LLDrawable *drawable)
 {
-	LLFastTimer ftm(LLFastTimer::FTM_UPDATE_PARTICLES);
+	LLFastTimer ftm(FTM_UPDATE_PARTICLES);
 
 	dirtySpatialGroup();
 	
@@ -152,6 +149,11 @@ BOOL LLVOPartGroup::updateGeometry(LLDrawable *drawable)
 	{
 		drawable->movePartition();
 		group = drawable->getSpatialGroup();
+	}
+
+	if (group && group->isVisible())
+	{
+		dirtySpatialGroup(TRUE);
 	}
 
 	if (!num_parts)
@@ -243,6 +245,12 @@ BOOL LLVOPartGroup::updateGeometry(LLDrawable *drawable)
 		facep->mCenterLocal = part->mPosAgent;
 		facep->setFaceColor(part->mColor);
 		facep->setTexture(part->mImagep);
+			
+		//check if this particle texture is replaced by a parcel media texture.
+		if(part->mImagep.notNull() && part->mImagep->hasParcelMedia()) 
+		{
+			part->mImagep->getParcelMedia()->addMediaToFace(facep) ;
+		}
 
 		mPixelArea = tot_area * pixel_meter_ratio;
 		const F32 area_scale = 10.f; // scale area to increase priority a bit
@@ -316,10 +324,18 @@ void LLVOPartGroup::getGeometry(S32 idx,
 
 
 	LLVector3 normal = -LLViewerCamera::getInstance()->getXAxis();
-		
+
+	//HACK -- the verticesp->mV[3] = 0.f here are to set the texture index to 0 (particles don't use texture batching, maybe they should)
+	// this works because there is actually a 4th float stored after the vertex position which is used as a texture index
+	// also, somebody please VECTORIZE THIS
+
+	verticesp->mV[3] = 0.f;
 	*verticesp++ = part_pos_agent + up - right;
+	verticesp->mV[3] = 0.f;
 	*verticesp++ = part_pos_agent - up - right;
+	verticesp->mV[3] = 0.f;
 	*verticesp++ = part_pos_agent + up + right;
+	verticesp->mV[3] = 0.f;
 	*verticesp++ = part_pos_agent - up + right;
 
 	*colorsp++ = part.mColor;
@@ -352,12 +368,11 @@ U32 LLVOPartGroup::getPartitionType() const
 }
 
 LLParticlePartition::LLParticlePartition()
-: LLSpatialPartition(LLDrawPoolAlpha::VERTEX_DATA_MASK)
+: LLSpatialPartition(LLDrawPoolAlpha::VERTEX_DATA_MASK | LLVertexBuffer::MAP_TEXTURE_INDEX, TRUE, GL_STREAM_DRAW_ARB)
 {
 	mRenderPass = LLRenderPass::PASS_ALPHA;
 	mDrawableType = LLPipeline::RENDER_TYPE_PARTICLES;
 	mPartitionType = LLViewerRegion::PARTITION_PARTICLE;
-	mBufferUsage = GL_DYNAMIC_DRAW_ARB;
 	mSlopRatio = 0.f;
 	mLODPeriod = 1;
 }
@@ -375,6 +390,7 @@ void LLParticlePartition::addGeometryCount(LLSpatialGroup* group, U32& vertex_co
 
 	mFaceList.clear();
 
+	LLViewerCamera* camera = LLViewerCamera::getInstance();
 	for (LLSpatialGroup::element_iter i = group->getData().begin(); i != group->getData().end(); ++i)
 	{
 		LLDrawable* drawablep = *i;
@@ -404,24 +420,28 @@ void LLParticlePartition::addGeometryCount(LLSpatialGroup* group, U32& vertex_co
 			}
 			
 			count++;
-			facep->mDistance = (facep->mCenterLocal - LLViewerCamera::getInstance()->getOrigin()) * LLViewerCamera::getInstance()->getAtAxis();
+			facep->mDistance = (facep->mCenterLocal - camera->getOrigin()) * camera->getAtAxis();
 			obj->mDepth += facep->mDistance;
 			
 			mFaceList.push_back(facep);
 			vertex_count += facep->getGeomCount();
 			index_count += facep->getIndicesCount();
+			llassert(facep->getIndicesCount() < 65536);
 		}
 		
 		obj->mDepth /= count;
 	}
 }
 
+static LLFastTimer::DeclareTimer FTM_REBUILD_GRASS_VB("Grass VB");
+static LLFastTimer::DeclareTimer FTM_REBUILD_PARTICLE_VB("Particle VB");
+
 void LLParticlePartition::getGeometry(LLSpatialGroup* group)
 {
 	LLMemType mt(LLMemType::MTYPE_SPACE_PARTITION);
 	LLFastTimer ftm(mDrawableType == LLPipeline::RENDER_TYPE_GRASS ?
-					LLFastTimer::FTM_REBUILD_GRASS_VB :
-					LLFastTimer::FTM_REBUILD_PARTICLE_VB);
+					FTM_REBUILD_GRASS_VB :
+					FTM_REBUILD_PARTICLE_VB);
 
 	std::sort(mFaceList.begin(), mFaceList.end(), LLFace::CompareDistanceGreater());
 
@@ -452,7 +472,7 @@ void LLParticlePartition::getGeometry(LLSpatialGroup* group)
 		LLAlphaObject* object = (LLAlphaObject*) facep->getViewerObject();
 		facep->setGeomIndex(vertex_count);
 		facep->setIndicesIndex(index_count);
-		facep->mVertexBuffer = buffer;
+		facep->setVertexBuffer(buffer);
 		facep->setPoolType(LLDrawPool::POOL_ALPHA);
 		object->getGeometry(facep->getTEOffset(), verticesp, normalsp, texcoordsp, colorsp, indicesp);
 		
@@ -481,7 +501,9 @@ void LLParticlePartition::getGeometry(LLSpatialGroup* group)
 			U32 end = start + facep->getGeomCount()-1;
 			U32 offset = facep->getIndicesStart();
 			U32 count = facep->getIndicesCount();
-			LLDrawInfo* info = new LLDrawInfo(start,end,count,offset,facep->getTexture(), buffer, fullbright); 
+			LLDrawInfo* info = new LLDrawInfo(start,end,count,offset,facep->getTexture(), 
+				//facep->getTexture(),
+				buffer, fullbright); 
 			info->mExtents[0] = group->mObjectExtents[0];
 			info->mExtents[1] = group->mObjectExtents[1];
 			info->mVSize = vsize;

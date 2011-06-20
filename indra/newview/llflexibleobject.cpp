@@ -2,31 +2,25 @@
  * @file llflexibleobject.cpp
  * @brief Flexible object implementation
  *
- * $LicenseInfo:firstyear=2006&license=viewergpl$
- * 
- * Copyright (c) 2006-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2006&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -51,6 +45,9 @@
 
 /*static*/ F32 LLVolumeImplFlexible::sUpdateFactor = 1.0f;
 
+static LLFastTimer::DeclareTimer FTM_FLEXIBLE_REBUILD("Rebuild");
+static LLFastTimer::DeclareTimer FTM_DO_FLEXIBLE_UPDATE("Update");
+
 // LLFlexibleObjectData::pack/unpack now in llprimitive.cpp
 
 //-----------------------------------------------
@@ -66,6 +63,7 @@ LLVolumeImplFlexible::LLVolumeImplFlexible(LLViewerObject* vo, LLFlexibleObjectD
 	mInitializedRes = -1;
 	mSimulateRes = 0;
 	mFrameNum = 0;
+	mCollisionSphereRadius = 0.f;
 	mRenderRes = 1;
 
 	if(mVO->mDrawable.notNull())
@@ -93,11 +91,13 @@ void LLVolumeImplFlexible::onParameterChanged(U16 param_type, LLNetworkData *dat
 	}
 }
 
-void LLVolumeImplFlexible::onShift(const LLVector3 &shift_vector)
+void LLVolumeImplFlexible::onShift(const LLVector4a &shift_vector)
 {	
+	//VECTORIZE THIS
+	LLVector3 shift(shift_vector.getF32ptr());
 	for (int section = 0; section < (1<<FLEXIBLE_OBJECT_MAX_SECTIONS)+1; ++section)
 	{
-		mSection[section].mPosition += shift_vector;	
+		mSection[section].mPosition += shift;	
 	}
 }
 
@@ -193,7 +193,6 @@ void LLVolumeImplFlexible::remapSections(LLFlexibleObjectSection *source, S32 so
 	}
 }
 
-
 //-----------------------------------------------------------------------------
 void LLVolumeImplFlexible::setAttributesOfAllSections(LLVector3* inScale)
 {
@@ -261,6 +260,7 @@ void LLVolumeImplFlexible::onSetVolume(const LLVolumeParams &volume_params, cons
 // updated every time step. In the future, perhaps there could be an 
 // optimization similar to what Havok does for objects that are stationary. 
 //---------------------------------------------------------------------------------
+static LLFastTimer::DeclareTimer FTM_FLEXIBLE_UPDATE("Update Flexies");
 BOOL LLVolumeImplFlexible::doIdleUpdate(LLAgent &agent, LLWorld &world, const F64 &time)
 {
 	if (mVO->mDrawable.isNull())
@@ -279,7 +279,7 @@ BOOL LLVolumeImplFlexible::doIdleUpdate(LLAgent &agent, LLWorld &world, const F6
 		parent->mDrawable->mQuietCount = 0;
 	}
 
-	LLFastTimer ftm(LLFastTimer::FTM_FLEXIBLE_UPDATE);
+	LLFastTimer ftm(FTM_FLEXIBLE_UPDATE);
 		
 	S32 new_res = mAttributes->getSimulateLOD();
 
@@ -316,11 +316,13 @@ BOOL LLVolumeImplFlexible::doIdleUpdate(LLAgent &agent, LLWorld &world, const F6
 		return FALSE; // (we are not initialized or updated)
 	}
 
-	if (force_update)
+	bool visible = mVO->mDrawable->isVisible();
+
+	if (force_update && visible)
 	{
 		gPipeline.markRebuild(mVO->mDrawable, LLDrawable::REBUILD_POSITION, FALSE);
 	}
-	else if	(mVO->mDrawable->isVisible() &&
+	else if	(visible &&
 		!mVO->mDrawable->isState(LLDrawable::IN_REBUILD_Q1) &&
 		mVO->getPixelArea() > 256.f)
 	{
@@ -361,9 +363,10 @@ inline S32 log2(S32 x)
 
 void LLVolumeImplFlexible::doFlexibleUpdate()
 {
+	LLFastTimer ftm(FTM_DO_FLEXIBLE_UPDATE);
 	LLVolume* volume = mVO->getVolume();
 	LLPath *path = &volume->getPath();
-	if (mSimulateRes == 0)
+	if ((mSimulateRes == 0 || !mInitialized) && mVO->mDrawable->isVisible()) 
 	{
 		mVO->markForUpdate(TRUE);
 		if (!doIdleUpdate(gAgent, *LLWorld::getInstance(), 0.0))
@@ -372,7 +375,11 @@ void LLVolumeImplFlexible::doFlexibleUpdate()
 		}
 	}
 
-	llassert_always(mInitialized);
+	if(!mInitialized)
+	{
+		//the object is not visible
+		return ;
+	}
 	
 	S32 num_sections = 1 << mSimulateRes;
 
@@ -691,7 +698,12 @@ BOOL LLVolumeImplFlexible::doUpdateGeometry(LLDrawable *drawable)
 	}
 
 	volume->updateRelativeXform();
-	doFlexibleUpdate();
+
+	if (mRenderRes > -1)
+	{
+		LLFastTimer t(FTM_DO_FLEXIBLE_UPDATE);
+		doFlexibleUpdate();
+	}
 	
 	// Object may have been rotated, which means it needs a rebuild.  See SL-47220
 	BOOL	rotated = FALSE;
@@ -703,12 +715,15 @@ BOOL LLVolumeImplFlexible::doUpdateGeometry(LLDrawable *drawable)
 	}
 
 	if (volume->mLODChanged || volume->mFaceMappingChanged ||
-		volume->mVolumeChanged)
+		volume->mVolumeChanged || drawable->isState(LLDrawable::REBUILD_MATERIAL))
 	{
 		volume->regenFaces();
 		volume->mDrawable->setState(LLDrawable::REBUILD_VOLUME);
 		volume->dirtySpatialGroup();
-		doFlexibleRebuild();
+		{
+			LLFastTimer t(FTM_FLEXIBLE_REBUILD);
+			doFlexibleRebuild();
+		}
 		volume->genBBoxes(isVolumeGlobal());
 	}
 	else if (!mUpdated || rotated)

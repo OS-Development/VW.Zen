@@ -2,31 +2,25 @@
  * @file llcallingcard.h
  * @brief Definition of the LLPreviewCallingCard class
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -45,12 +39,13 @@
 //class LLInventoryObserver;
 class LLMessageSystem;
 class LLTrackingData;
+
 class LLFriendObserver
 {
 public:
 	// This enumeration is a way to refer to what changed in a more
 	// human readable format. You can mask the value provided by
-	// chaged() to see if the observer is interested in the change.
+	// changed() to see if the observer is interested in the change.
 	enum 
 	{
 		NONE = 0,
@@ -125,6 +120,9 @@ public:
 	// get full info
 	const LLRelationship* getBuddyInfo(const LLUUID& id) const;
 
+	// Is this person a friend/buddy/calling card holder?
+	bool isBuddy(const LLUUID& id) const;
+
 	// online status
 	void setBuddyOnline(const LLUUID& id, bool is_online);
 	bool isBuddyOnline(const LLUUID& id) const;
@@ -146,6 +144,23 @@ public:
 	void addObserver(LLFriendObserver* observer);
 	void removeObserver(LLFriendObserver* observer);
 	void notifyObservers();
+
+	// Observers interested in updates of a particular avatar.
+	// On destruction these observers are NOT deleted.
+	void addParticularFriendObserver(const LLUUID& buddy_id, LLFriendObserver* observer);
+	void removeParticularFriendObserver(const LLUUID& buddy_id, LLFriendObserver* observer);
+	void notifyParticularFriendObservers(const LLUUID& buddy_id);
+
+	/**
+	 * Stores flag for change and id of object change applies to
+	 *
+	 * This allows outsiders to tell the AvatarTracker if something has
+	 * been changed 'under the hood',
+	 * and next notification will have exact avatar IDs have been changed.
+	 */
+	void addChangedMask(U32 mask, const LLUUID& referent);
+
+	const std::set<LLUUID>& getChangedIDs() { return mChangedBuddyIDs; }
 
 	// Apply the functor to every buddy. Do not actually modify the
 	// buddy list in the functor or bad things will happen.
@@ -179,8 +194,15 @@ protected:
 
 	buddy_map_t mBuddyInfo;
 
+	typedef std::set<LLUUID> changed_buddy_t;
+	changed_buddy_t mChangedBuddyIDs;
+
 	typedef std::vector<LLFriendObserver*> observer_list_t;
 	observer_list_t mObservers;
+
+    typedef std::set<LLFriendObserver*> observer_set_t;
+    typedef std::map<LLUUID, observer_set_t> observer_map_t;
+    observer_map_t mParticularFriendObserverMap;
 
 private:
 	// do not implement
@@ -213,8 +235,7 @@ public:
 	virtual bool operator()(const LLUUID& buddy_id, LLRelationship* buddy);
 	typedef std::map<std::string, LLUUID, LLDictionaryLess> buddy_map_t;
 	buddy_map_t mMappable;
-	std::string mFirst;
-	std::string mLast;
+	std::string mFullName;
 };
 
 // collect dictionary sorted map of name -> agent_id for every online buddy
@@ -226,8 +247,7 @@ public:
 	virtual bool operator()(const LLUUID& buddy_id, LLRelationship* buddy);
 	typedef std::map<std::string, LLUUID, LLDictionaryLess> buddy_map_t;
 	buddy_map_t mOnline;
-	std::string mFirst;
-	std::string mLast;
+	std::string mFullName;
 };
 
 // collect dictionary sorted map of name -> agent_id for every buddy,
@@ -241,8 +261,7 @@ public:
 	typedef std::map<std::string, LLUUID, LLDictionaryLess> buddy_map_t;
 	buddy_map_t mOnline;
 	buddy_map_t mOffline;
-	std::string mFirst;
-	std::string mLast;
+	std::string mFullName;
 };
 
 #endif // LL_LLCALLINGCARD_H

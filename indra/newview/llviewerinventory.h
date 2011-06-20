@@ -2,31 +2,25 @@
  * @file llviewerinventory.h
  * @brief Declaration of the inventory bits that only used on the viewer.
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -36,6 +30,9 @@
 #include "llinventory.h"
 #include "llframetimer.h"
 #include "llwearable.h"
+#include "llui.h" //for LLDestroyClass
+
+#include <boost/signals2.hpp>	// boost::signals2::trackable
 
 class LLFolderView;
 class LLFolderBridge;
@@ -48,26 +45,37 @@ class LLViewerInventoryCategory;
 // their inventory.
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-class LLViewerInventoryItem : public LLInventoryItem
+class LLViewerInventoryItem : public LLInventoryItem, public boost::signals2::trackable
 {
 public:
 	typedef LLDynamicArray<LLPointer<LLViewerInventoryItem> > item_array_t;
 	
 protected:
 	~LLViewerInventoryItem( void ); // ref counted
+	BOOL extractSortFieldAndDisplayName(S32* sortField, std::string* displayName) const { return extractSortFieldAndDisplayName(mName, sortField, displayName); }
+	mutable std::string mDisplayName;
 	
 public:
 	virtual LLAssetType::EType getType() const;
 	virtual const LLUUID& getAssetUUID() const;
+	virtual const LLUUID& getProtectedAssetUUID() const; // returns LLUUID::null if current agent does not have permission to expose this asset's UUID to the user
 	virtual const std::string& getName() const;
+	virtual S32 getSortField() const;
+	virtual void setSortField(S32 sortField);
+	virtual void getSLURL(); //Caches SLURL for landmark. //*TODO: Find a better way to do it and remove this method from here.
 	virtual const LLPermissions& getPermissions() const;
+	virtual const bool getIsFullPerm() const; // 'fullperm' in the popular sense: modify-ok & copy-ok & transfer-ok, no special god rules applied
 	virtual const LLUUID& getCreatorUUID() const;
 	virtual const std::string& getDescription() const;
 	virtual const LLSaleInfo& getSaleInfo() const;
 	virtual LLInventoryType::EType getInventoryType() const;
+	virtual bool isWearableType() const;
+	virtual LLWearableType::EType getWearableType() const;
 	virtual U32 getFlags() const;
 	virtual time_t getCreationDate() const;
 	virtual U32 getCRC32() const; // really more of a checksum.
+
+	static BOOL extractSortFieldAndDisplayName(const std::string& name, S32* sortField, std::string* displayName);
 
 	// construct a complete viewer inventory item
 	LLViewerInventoryItem(const LLUUID& uuid, const LLUUID& parent_uuid,
@@ -126,7 +134,7 @@ public:
 	bool importFileLocal(LLFILE* fp);
 
 	// new methods
-	BOOL isComplete() const { return mIsComplete; }
+	BOOL isFinished() const { return mIsComplete; }
 	void setComplete(BOOL complete) { mIsComplete = complete; }
 	//void updateAssetOnServer() const;
 
@@ -141,10 +149,21 @@ public:
 	};
 	LLTransactionID getTransactionID() const { return mTransactionID; }
 	
-protected:
-	const LLViewerInventoryItem *getLinkedItem() const;
-	const LLViewerInventoryCategory *getLinkedCategory() const;
+	bool getIsBrokenLink() const; // true if the baseitem this points to doesn't exist in memory.
+	LLViewerInventoryItem *getLinkedItem() const;
+	LLViewerInventoryCategory *getLinkedCategory() const;
+	
+	// Checks the items permissions (for owner, group, or everyone) and returns true if all mask bits are set.
+	bool checkPermissionsSet(PermissionMask mask) const;
+	PermissionMask getPermissionMask() const;
 
+	// callback
+	void onCallingCardNameLookup(const LLUUID& id, const std::string& name, bool is_group);
+
+	// If this is a broken link, try to fix it and any other identical link.
+	BOOL regenerateLink();
+
+public:
 	BOOL mIsComplete;
 	LLTransactionID mTransactionID;
 };
@@ -168,7 +187,7 @@ protected:
 	
 public:
 	LLViewerInventoryCategory(const LLUUID& uuid, const LLUUID& parent_uuid,
-							  LLAssetType::EType preferred_type,
+							  LLFolderType::EType preferred_type,
 							  const std::string& name,
 							  const LLUUID& owner_id);
 	LLViewerInventoryCategory(const LLUUID& owner_id);
@@ -190,7 +209,7 @@ public:
 	void setVersion(S32 version) { mVersion = version; }
 
 	// Returns true if a fetch was issued.
-	bool fetchDescendents();
+	bool fetch();
 
 	// used to help make cacheing more robust - for example, if
 	// someone is getting 4 packets but logs out after 3. the viewer
@@ -203,6 +222,12 @@ public:
 	// other than cacheing.
 	bool exportFileLocal(LLFILE* fp) const;
 	bool importFileLocal(LLFILE* fp);
+	void determineFolderType();
+	void changeType(LLFolderType::EType new_folder_type);
+
+private:
+	friend class LLInventoryModel;
+	void localizeName(); // intended to be called from the LLInventoryModel
 
 protected:
 	LLUUID mOwnerID;
@@ -218,6 +243,17 @@ public:
 };
 
 class WearOnAvatarCallback : public LLInventoryCallback
+{
+public:
+	WearOnAvatarCallback(bool do_replace = false) : mReplace(do_replace) {}
+	
+	void fire(const LLUUID& inv_item);
+
+protected:
+	bool mReplace;
+};
+
+class ModifiedCOFCallback : public LLInventoryCallback
 {
 	void fire(const LLUUID& inv_item);
 };
@@ -249,11 +285,24 @@ public:
 	void fire(const LLUUID& inv_item);
 };
 
+class AddFavoriteLandmarkCallback : public LLInventoryCallback
+{
+public:
+	AddFavoriteLandmarkCallback() : mTargetLandmarkId(LLUUID::null) {}
+	void setTargetLandmarkId(const LLUUID& target_uuid) { mTargetLandmarkId = target_uuid; }
+
+private:
+	void fire(const LLUUID& inv_item);
+
+	LLUUID mTargetLandmarkId;
+};
+
 // misc functions
 //void inventory_reliable_callback(void**, S32 status);
 
-class LLInventoryCallbackManager
+class LLInventoryCallbackManager : public LLDestroyClass<LLInventoryCallbackManager>
 {
+	friend class LLDestroyClass<LLInventoryCallbackManager>;
 public:
 	LLInventoryCallbackManager();
 	~LLInventoryCallbackManager();
@@ -261,24 +310,30 @@ public:
 	void fire(U32 callback_id, const LLUUID& item_id);
 	U32 registerCB(LLPointer<LLInventoryCallback> cb);
 private:
-	std::map<U32, LLPointer<LLInventoryCallback> > mMap;
+	typedef std::map<U32, LLPointer<LLInventoryCallback> > callback_map_t;
+	callback_map_t mMap;
 	U32 mLastCallback;
 	static LLInventoryCallbackManager *sInstance;
+	static void destroyClass();
+
 public:
 	static bool is_instantiated() { return sInstance != NULL; }
 };
 extern LLInventoryCallbackManager gInventoryCallbacks;
 
 
-#define NOT_WEARABLE (EWearableType)0
+#define NOT_WEARABLE (LLWearableType::EType)0
 
+// *TODO: Find a home for these
 void create_inventory_item(const LLUUID& agent_id, const LLUUID& session_id,
 						   const LLUUID& parent, const LLTransactionID& transaction_id,
 						   const std::string& name,
 						   const std::string& desc, LLAssetType::EType asset_type,
-						   LLInventoryType::EType inv_type, EWearableType wtype,
+						   LLInventoryType::EType inv_type, LLWearableType::EType wtype,
 						   U32 next_owner_perm,
 						   LLPointer<LLInventoryCallback> cb);
+
+void create_inventory_callingcard(const LLUUID& avatar_id, const LLUUID& parent = LLUUID::null, LLPointer<LLInventoryCallback> cb=NULL);
 
 /**
  * @brief Securely create a new inventory item by copying from another.
@@ -296,6 +351,7 @@ void link_inventory_item(
 	const LLUUID& item_id,
 	const LLUUID& parent_id,
 	const std::string& new_name,
+	const std::string& new_description,
 	const LLAssetType::EType asset_type,
 	LLPointer<LLInventoryCallback> cb);
 
@@ -313,8 +369,9 @@ void copy_inventory_from_notecard(const LLUUID& object_id,
 								  U32 callback_id = 0);
 
 
-void menu_create_inventory_item(LLFolderView* folder,
+void menu_create_inventory_item(LLFolderView* root,
 								LLFolderBridge* bridge,
-								const LLSD& userdata);
+								const LLSD& userdata,
+								const LLUUID& default_parent_uuid = LLUUID::null);
 
 #endif // LL_LLVIEWERINVENTORY_H

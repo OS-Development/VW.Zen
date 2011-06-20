@@ -3,31 +3,25 @@
  * @author Michelle2 Zenovka
  * @brief A floater which allows task inventory item's properties to be changed on mass.
  *
- * $LicenseInfo:firstyear=2008&license=viewergpl$
- * 
- * Copyright (c) 2008-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2008&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -37,18 +31,19 @@
 #include "llfloaterperms.h" // for utilities
 #include "llagent.h"
 #include "llchat.h"
+#include "llinventorydefines.h"
 #include "llviewerwindow.h"
 #include "llviewerobject.h"
 #include "llviewerobjectlist.h"
 #include "llviewerregion.h"
 #include "lscript_rt_interface.h"
 #include "llviewercontrol.h"
+#include "llviewerinventory.h"
 #include "llviewerobject.h"
 #include "llviewerregion.h"
 #include "llresmgr.h"
 #include "llbutton.h"
 #include "lldir.h"
-#include "llfloaterchat.h"
 #include "llviewerstats.h"
 #include "lluictrlfactory.h"
 #include "llselectmgr.h"
@@ -62,7 +57,6 @@ LLFloaterBulkPermission::LLFloaterBulkPermission(const LLSD& seed)
 	mDone(FALSE)
 {
 	mID.generate();
-//	LLUICtrlFactory::getInstance()->buildFloater(this,"floater_bulk_perms.xml");
 	mCommitCallbackRegistrar.add("BulkPermission.Apply",	boost::bind(&LLFloaterBulkPermission::onApplyBtn, this));
 	mCommitCallbackRegistrar.add("BulkPermission.Close",	boost::bind(&LLFloaterBulkPermission::onCloseBtn, this));
 	mCommitCallbackRegistrar.add("BulkPermission.CheckAll",	boost::bind(&LLFloaterBulkPermission::onCheckAll, this));
@@ -72,8 +66,6 @@ LLFloaterBulkPermission::LLFloaterBulkPermission(const LLSD& seed)
 
 BOOL LLFloaterBulkPermission::postBuild()
 {
-//	childSetAction("help", onHelpBtn, this);  // this is not in use
-
 	return TRUE;
 }
 
@@ -118,7 +110,7 @@ void LLFloaterBulkPermission::doApply()
 // worked on.
 // NOT static, virtual!
 void LLFloaterBulkPermission::inventoryChanged(LLViewerObject* viewer_object,
-											 InventoryObjectList* inv,
+											 LLInventoryObject::object_list_t* inv,
 											 S32,
 											 void* q_id)
 {
@@ -157,15 +149,9 @@ void LLFloaterBulkPermission::onApplyBtn()
 	doApply();
 }
 
-// angela -- this is not in use
-//void LLFloaterBulkPermission::onHelpBtn(void* user_data)
-//{
-//	LLNotifications::instance().add("HelpBulkPermission");
-//}
-
 void LLFloaterBulkPermission::onCloseBtn()
 {
-	onClose(false);
+	closeFloater();
 }
 
 //static 
@@ -250,7 +236,6 @@ void LLFloaterBulkPermission::doCheckUncheckAll(BOOL check)
 	gSavedSettings.setBOOL("BulkChangeIncludeBodyParts" , check);
 	gSavedSettings.setBOOL("BulkChangeIncludeClothing"  , check);
 	gSavedSettings.setBOOL("BulkChangeIncludeGestures"  , check);
-	gSavedSettings.setBOOL("BulkChangeIncludeLandmarks" , check);
 	gSavedSettings.setBOOL("BulkChangeIncludeNotecards" , check);
 	gSavedSettings.setBOOL("BulkChangeIncludeObjects"   , check);
 	gSavedSettings.setBOOL("BulkChangeIncludeScripts"   , check);
@@ -259,12 +244,12 @@ void LLFloaterBulkPermission::doCheckUncheckAll(BOOL check)
 }
 
 
-void LLFloaterBulkPermission::handleInventory(LLViewerObject* viewer_obj, InventoryObjectList* inv)
+void LLFloaterBulkPermission::handleInventory(LLViewerObject* viewer_obj, LLInventoryObject::object_list_t* inv)
 {
 	LLScrollListCtrl* list = getChild<LLScrollListCtrl>("queue output");
 
-	InventoryObjectList::const_iterator it = inv->begin();
-	InventoryObjectList::const_iterator end = inv->end();
+	LLInventoryObject::object_list_t::const_iterator it = inv->begin();
+	LLInventoryObject::object_list_t::const_iterator end = inv->end();
 	for ( ; it != end; ++it)
 	{
 		LLAssetType::EType asstype = (*it)->getType();
@@ -273,8 +258,6 @@ void LLFloaterBulkPermission::handleInventory(LLViewerObject* viewer_obj, Invent
 			( asstype == LLAssetType::AT_BODYPART  && gSavedSettings.getBOOL("BulkChangeIncludeBodyParts" )) ||
 			( asstype == LLAssetType::AT_CLOTHING  && gSavedSettings.getBOOL("BulkChangeIncludeClothing"  )) ||
 			( asstype == LLAssetType::AT_GESTURE   && gSavedSettings.getBOOL("BulkChangeIncludeGestures"  )) ||
-			( asstype == LLAssetType::AT_LANDMARK  && gSavedSettings.getBOOL("BulkChangeIncludeLandmarks" )) ||
-			( asstype == LLAssetType::AT_FAVORITE  && gSavedSettings.getBOOL("BulkChangeIncludeFavourite" )) ||
 			( asstype == LLAssetType::AT_NOTECARD  && gSavedSettings.getBOOL("BulkChangeIncludeNotecards" )) ||
 			( asstype == LLAssetType::AT_OBJECT    && gSavedSettings.getBOOL("BulkChangeIncludeObjects"   )) ||
 			( asstype == LLAssetType::AT_LSL_TEXT  && gSavedSettings.getBOOL("BulkChangeIncludeScripts"   )) ||

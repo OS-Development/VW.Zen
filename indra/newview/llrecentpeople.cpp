@@ -2,62 +2,121 @@
  * @file llrecentpeople.cpp
  * @brief List of people with which the user has recently interacted.
  *
- * $LicenseInfo:firstyear=2009&license=viewergpl$
- * 
- * Copyright (c) 2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2009&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
 #include "llviewerprecompiledheaders.h"
 
 #include "llrecentpeople.h"
+#include "llgroupmgr.h"
 
 #include "llagent.h"
 
 using namespace LLOldEvents;
 
-bool LLRecentPeople::add(const LLUUID& id)
+bool LLRecentPeople::add(const LLUUID& id, const LLSD& userdata)
 {
-	if (contains(id) || id == gAgent.getID())
+	if (id == gAgent.getID())
 		return false;
 
-	mList.insert(id);
-	mChangedSignal();
-	return true;
+	bool is_not_group_id = LLGroupMgr::getInstance()->getGroupData(id) == NULL;
+
+	if (is_not_group_id)
+	{
+		// For each avaline call the id of caller is different even if
+		// the phone number is the same.
+		// To avoid duplication of avaline list items in the recent list
+		// of panel People, deleting id's with similar phone number.
+		const LLUUID& caller_id = getIDByPhoneNumber(userdata);
+		if (caller_id.notNull())
+			mPeople.erase(caller_id);
+
+		//[] instead of insert to replace existing id->llsd["date"] with new date value
+		mPeople[id] = userdata;
+		mChangedSignal();
+	}
+
+	return is_not_group_id;
 }
 
 bool LLRecentPeople::contains(const LLUUID& id) const
 {
-	return mList.find(id) != mList.end();
+	return mPeople.find(id) != mPeople.end();
 }
 
-void LLRecentPeople::get(std::vector<LLUUID>& result) const
+void LLRecentPeople::get(uuid_vec_t& result) const
 {
 	result.clear();
-	for (std::set<LLUUID>::const_iterator pos = mList.begin(); pos != mList.end(); ++pos)
-		result.push_back(*pos);
+	for (recent_people_t::const_iterator pos = mPeople.begin(); pos != mPeople.end(); ++pos)
+		result.push_back((*pos).first);
+}
+
+const LLDate LLRecentPeople::getDate(const LLUUID& id) const
+{
+	recent_people_t::const_iterator it = mPeople.find(id);
+	if (it!= mPeople.end()) return it->second["date"].asDate();
+
+	static LLDate no_date = LLDate();
+	return no_date;
+}
+
+const LLSD& LLRecentPeople::getData(const LLUUID& id) const
+{
+	recent_people_t::const_iterator it = mPeople.find(id);
+
+	if (it != mPeople.end())
+		return it->second;
+
+	static LLSD no_data = LLSD();
+	return no_data;
+}
+
+bool LLRecentPeople::isAvalineCaller(const LLUUID& id) const
+{
+	recent_people_t::const_iterator it = mPeople.find(id);
+
+	if (it != mPeople.end())
+	{
+		const LLSD& user = it->second;		
+		return user["avaline_call"].asBoolean();
+	}
+
+	return false;
+}
+
+const LLUUID& LLRecentPeople::getIDByPhoneNumber(const LLSD& userdata)
+{
+	if (!userdata["avaline_call"].asBoolean())
+		return LLUUID::null;
+
+	for (recent_people_t::const_iterator it = mPeople.begin(); it != mPeople.end(); ++it)
+	{
+		const LLSD& user_info = it->second;
+		
+		if (user_info["call_number"].asString() == userdata["call_number"].asString())
+			return it->first;
+	}
+	
+	return LLUUID::null;
 }
 
 // virtual

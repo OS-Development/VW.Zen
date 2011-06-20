@@ -1,31 +1,25 @@
 /** 
  * @file xform.h
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -38,10 +32,10 @@
 
 const F32 MAX_OBJECT_Z 		= 4096.f; // should match REGION_HEIGHT_METERS, Pre-havok4: 768.f
 const F32 MIN_OBJECT_Z 		= -256.f;
-const F32 DEFAULT_MAX_PRIM_SCALE = 10.f;
+const F32 DEFAULT_MAX_PRIM_SCALE = 64.f;
+const F32 DEFAULT_MAX_PRIM_SCALE_NO_MESH = 10.f;
 const F32 MIN_PRIM_SCALE = 0.01f;
 const F32 MAX_PRIM_SCALE = 65536.f;	// something very high but not near FLT_MAX
-
 
 class LLXform
 {
@@ -107,6 +101,12 @@ public:
 	inline void setRotation(const LLQuaternion& rot);
 	inline void setRotation(const F32 x, const F32 y, const F32 z);
 	inline void setRotation(const F32 x, const F32 y, const F32 z, const F32 s);
+
+	// Above functions must be inline for speed, but also
+	// need to emit warnings.  llwarns causes inline LLError::CallSite
+	// static objects that make more work for the linker.
+	// Avoid inline llwarns by calling this function.
+	void warn(const char* const msg);
 	
 	void 		setChanged(const U32 bits)					{ mChanged |= bits; }
 	BOOL		isChanged() const							{ return mChanged; }
@@ -173,7 +173,7 @@ BOOL LLXform::setParent(LLXform* parent)
 		{
 			if (cur_par == this)
 			{
-				//llwarns << "LLXform::setParent Creating loop when setting parent!" << llendl;
+				//warn("LLXform::setParent Creating loop when setting parent!");
 				return FALSE;
 			}
 			cur_par = cur_par->mParent;
@@ -191,7 +191,7 @@ void LLXform::setPosition(const LLVector3& pos)
 	else
 	{
 		mPosition.clearVec();
-		llwarns << "Non Finite in LLXform::setPosition(LLVector3)" << llendl;
+		warn("Non Finite in LLXform::setPosition(LLVector3)");
 	}
 }
 
@@ -203,7 +203,7 @@ void LLXform::setPosition(const F32 x, const F32 y, const F32 z)
 	else
 	{
 		mPosition.clearVec();
-		llwarns << "Non Finite in LLXform::setPosition(F32,F32,F32)" << llendl;
+		warn("Non Finite in LLXform::setPosition(F32,F32,F32)");
 	}
 }
 
@@ -215,7 +215,7 @@ void LLXform::setPositionX(const F32 x)
 	else
 	{
 		mPosition.mV[VX] = 0.f;
-		llwarns << "Non Finite in LLXform::setPositionX" << llendl;
+		warn("Non Finite in LLXform::setPositionX");
 	}
 }
 
@@ -227,7 +227,7 @@ void LLXform::setPositionY(const F32 y)
 	else
 	{
 		mPosition.mV[VY] = 0.f;
-		llwarns << "Non Finite in LLXform::setPositionY" << llendl;
+		warn("Non Finite in LLXform::setPositionY");
 	}
 }
 
@@ -239,7 +239,7 @@ void LLXform::setPositionZ(const F32 z)
 	else
 	{
 		mPosition.mV[VZ] = 0.f;
-		llwarns << "Non Finite in LLXform::setPositionZ" << llendl;
+		warn("Non Finite in LLXform::setPositionZ");
 	}
 }
 
@@ -249,7 +249,7 @@ void LLXform::addPosition(const LLVector3& pos)
 	if (pos.isFinite())
 		mPosition += pos; 
 	else
-		llwarns << "Non Finite in LLXform::addPosition" << llendl;
+		warn("Non Finite in LLXform::addPosition");
 }
 
 void LLXform::setScale(const LLVector3& scale)
@@ -260,7 +260,7 @@ void LLXform::setScale(const LLVector3& scale)
 	else
 	{
 		mScale.setVec(1.f, 1.f, 1.f);
-		llwarns << "Non Finite in LLXform::setScale" << llendl;
+		warn("Non Finite in LLXform::setScale");
 	}
 }
 void LLXform::setScale(const F32 x, const F32 y, const F32 z)
@@ -271,7 +271,7 @@ void LLXform::setScale(const F32 x, const F32 y, const F32 z)
 	else
 	{
 		mScale.setVec(1.f, 1.f, 1.f);
-		llwarns << "Non Finite in LLXform::setScale" << llendl;
+		warn("Non Finite in LLXform::setScale");
 	}
 }
 void LLXform::setRotation(const LLQuaternion& rot)
@@ -282,7 +282,7 @@ void LLXform::setRotation(const LLQuaternion& rot)
 	else
 	{
 		mRotation.loadIdentity();
-		llwarns << "Non Finite in LLXform::setRotation" << llendl;
+		warn("Non Finite in LLXform::setRotation");
 	}
 }
 void LLXform::setRotation(const F32 x, const F32 y, const F32 z) 
@@ -295,7 +295,7 @@ void LLXform::setRotation(const F32 x, const F32 y, const F32 z)
 	else
 	{
 		mRotation.loadIdentity();
-		llwarns << "Non Finite in LLXform::setRotation" << llendl;
+		warn("Non Finite in LLXform::setRotation");
 	}
 }
 void LLXform::setRotation(const F32 x, const F32 y, const F32 z, const F32 s) 
@@ -308,7 +308,7 @@ void LLXform::setRotation(const F32 x, const F32 y, const F32 z, const F32 s)
 	else
 	{
 		mRotation.loadIdentity();
-		llwarns << "Non Finite in LLXform::setRotation" << llendl;
+		warn("Non Finite in LLXform::setRotation");
 	}
 }
 

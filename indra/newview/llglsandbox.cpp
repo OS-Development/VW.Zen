@@ -2,31 +2,25 @@
  * @file llglsandbox.cpp
  * @brief GL functionality access
  *
- * $LicenseInfo:firstyear=2003&license=viewergpl$
- * 
- * Copyright (c) 2003-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2003&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -54,6 +48,7 @@
 #include "lltoolmgr.h"
 #include "llselectmgr.h"
 #include "llhudmanager.h"
+#include "llhudtext.h"
 #include "llrendersphere.h"
 #include "llviewerobjectlist.h"
 #include "lltoolselectrect.h"
@@ -67,101 +62,9 @@
 #include "llresmgr.h"
 #include "pipeline.h"
 #include "llspatialpartition.h"
- 
-BOOL LLAgent::setLookAt(ELookAtType target_type, LLViewerObject *object, LLVector3 position)
-{
-	if(object && object->isAttachment())
-	{
-		LLViewerObject* parent = object;
-		while(parent)
-		{
-			if (parent == mAvatarObject)
-			{
-				// looking at an attachment on ourselves, which we don't want to do
-				object = mAvatarObject;
-				position.clearVec();
-			}
-			parent = (LLViewerObject*)parent->getParent();
-		}
-	}
-	if(!mLookAt || mLookAt->isDead())
-	{
-		mLookAt = (LLHUDEffectLookAt *)LLHUDManager::getInstance()->createViewerEffect(LLHUDObject::LL_HUD_EFFECT_LOOKAT);
-		mLookAt->setSourceObject(mAvatarObject);
-	}
 
-	return mLookAt->setLookAt(target_type, object, position);
-}
-
-BOOL LLAgent::setPointAt(EPointAtType target_type, LLViewerObject *object, LLVector3 position)
-{
-	// disallow pointing at attachments and avatars
-	if (object && (object->isAttachment() || object->isAvatar()))
-	{
-		return FALSE;
-	}
-
-	if(!mPointAt || mPointAt->isDead())
-	{
-		mPointAt = (LLHUDEffectPointAt *)LLHUDManager::getInstance()->createViewerEffect(LLHUDObject::LL_HUD_EFFECT_POINTAT);
-		mPointAt->setSourceObject(mAvatarObject);
-	}
-
-	return mPointAt->setPointAt(target_type, object, position);
-}
-
-ELookAtType LLAgent::getLookAtType()
-{ 
-	if (mLookAt) 
-	{
-		return mLookAt->getLookAtType();
-	}
-
-	return LOOKAT_TARGET_NONE;
-}
-
-EPointAtType LLAgent::getPointAtType()
-{ 
-	if (mPointAt) 
-	{
-		return mPointAt->getPointAtType();
-	}
-
-	return POINTAT_TARGET_NONE;
-}
-
-// Draw a representation of current autopilot target
-void LLAgent::renderAutoPilotTarget()
-{
-	if (mAutoPilot)
-	{
-		F32 height_meters;
-		LLVector3d target_global;
-
-		glMatrixMode(GL_MODELVIEW);
-		gGL.pushMatrix();
-
-		// not textured
-		gGL.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
-
-		// lovely green
-		glColor4f(0.f, 1.f, 1.f, 1.f);
-
-		target_global = mAutoPilotTargetGlobal;
-
-		gGL.translatef((F32)(target_global.mdV[VX]), (F32)(target_global.mdV[VY]), (F32)(target_global.mdV[VZ]));
-
-		height_meters = 1.f;
-
-		glScalef(height_meters, height_meters, height_meters);
-
-		gSphere.render(1500.f);
-
-		gGL.popMatrix();
-	}
-}
-
-extern BOOL gDebugSelect;
+// Height of the yellow selection highlight posts for land
+const F32 PARCEL_POST_HEIGHT = 0.666f;
 
 // Returns true if you got at least one object
 void LLToolSelectRect::handleRectangleSelection(S32 x, S32 y, MASK mask)
@@ -760,35 +663,27 @@ void LLViewerParcelMgr::renderCollisionSegments(U8* segments, BOOL use_pass, LLV
 				x2 = x1 + PARCEL_GRID_STEP_METERS;
 				y2 = y1;
 
-				if (gRenderForSelect)
-				{
-					LLColor4U color((U8)(GL_NAME_PARCEL_WALL >> 16), (U8)(GL_NAME_PARCEL_WALL >> 8), (U8)GL_NAME_PARCEL_WALL);
-					gGL.color4ubv(color.mV);
-				}
+				dy = (pos_y - y1) + DIST_OFFSET;
+					
+				if (pos_x < x1)
+					dx = pos_x - x1;
+				else if (pos_x > x2)
+					dx = pos_x - x2;
+				else 
+					dx = 0;
+				
+				dist = dx*dx+dy*dy;
+				
+				if (dist < MIN_DIST_SQ)
+					alpha = MAX_ALPHA;
+				else if (dist > MAX_DIST_SQ)
+					alpha = 0.0f;
 				else
-				{
-					dy = (pos_y - y1) + DIST_OFFSET;
-					
-					if (pos_x < x1)
-						dx = pos_x - x1;
-					else if (pos_x > x2)
-						dx = pos_x - x2;
-					else 
-						dx = 0;
-					
-					dist = dx*dx+dy*dy;
-
-					if (dist < MIN_DIST_SQ)
-						alpha = MAX_ALPHA;
-					else if (dist > MAX_DIST_SQ)
-						alpha = 0.0f;
-					else
-						alpha = 30/dist;
-
-					alpha = llclamp(alpha, 0.0f, MAX_ALPHA);
-
-					gGL.color4f(1.f, 1.f, 1.f, alpha);
-				}
+					alpha = 30/dist;
+				
+				alpha = llclamp(alpha, 0.0f, MAX_ALPHA);
+				
+				gGL.color4f(1.f, 1.f, 1.f, alpha);
 
 				if ((pos_y - y1) < 0) direction = SOUTH_MASK;
 				else 		direction = NORTH_MASK;
@@ -806,35 +701,27 @@ void LLViewerParcelMgr::renderCollisionSegments(U8* segments, BOOL use_pass, LLV
 				x2 = x1;
 				y2 = y1 + PARCEL_GRID_STEP_METERS;
 
-				if (gRenderForSelect)
-				{
-					LLColor4U color((U8)(GL_NAME_PARCEL_WALL >> 16), (U8)(GL_NAME_PARCEL_WALL >> 8), (U8)GL_NAME_PARCEL_WALL);
-					gGL.color4ubv(color.mV);
-				}
+				dx = (pos_x - x1) + DIST_OFFSET;
+				
+				if (pos_y < y1) 
+					dy = pos_y - y1;
+				else if (pos_y > y2)
+					dy = pos_y - y2;
+				else 
+					dy = 0;
+				
+				dist = dx*dx+dy*dy;
+				
+				if (dist < MIN_DIST_SQ) 
+					alpha = MAX_ALPHA;
+				else if (dist > MAX_DIST_SQ)
+					alpha = 0.0f;
 				else
-				{					
-					dx = (pos_x - x1) + DIST_OFFSET;
-		
-					if (pos_y < y1) 
-						dy = pos_y - y1;
-					else if (pos_y > y2)
-						dy = pos_y - y2;
-					else 
-						dy = 0;
+					alpha = 30/dist;
+				
+				alpha = llclamp(alpha, 0.0f, MAX_ALPHA);
 
-					dist = dx*dx+dy*dy;
-					
-					if (dist < MIN_DIST_SQ) 
-						alpha = MAX_ALPHA;
-					else if (dist > MAX_DIST_SQ)
-						alpha = 0.0f;
-					else
-						alpha = 30/dist;
-
-					alpha = llclamp(alpha, 0.0f, MAX_ALPHA);
-
-					gGL.color4f(1.f, 1.f, 1.f, alpha);
-				}
+				gGL.color4f(1.f, 1.f, 1.f, alpha);
 
 				if ((pos_x - x1) > 0) direction = WEST_MASK;
 				else 		direction = EAST_MASK;
@@ -896,19 +783,21 @@ void LLViewerObjectList::renderObjectBeacons()
 		S32 last_line_width = -1;
 		// gGL.begin(LLRender::LINES); // Always happens in (line_width != last_line_width)
 		
-		for (S32 i = 0; i < mDebugBeacons.count(); i++)
+		BOOL flush = FALSE;
+		for (std::vector<LLDebugBeacon>::iterator iter = mDebugBeacons.begin(); iter != mDebugBeacons.end(); ++iter)
 		{
-			const LLDebugBeacon &debug_beacon = mDebugBeacons[i];
+			const LLDebugBeacon &debug_beacon = *iter;
 			LLColor4 color = debug_beacon.mColor;
 			color.mV[3] *= 0.25f;
 			S32 line_width = debug_beacon.mLineWidth;
 			if (line_width != last_line_width)
 			{
-				if (i > 0)
+				if (flush)
 				{
 					gGL.end();
-					gGL.flush();
 				}
+				flush = TRUE;
+				gGL.flush();
 				glLineWidth( (F32)line_width );
 				last_line_width = line_width;
 				gGL.begin(LLRender::LINES);
@@ -935,18 +824,20 @@ void LLViewerObjectList::renderObjectBeacons()
 		S32 last_line_width = -1;
 		// gGL.begin(LLRender::LINES); // Always happens in (line_width != last_line_width)
 		
-		for (S32 i = 0; i < mDebugBeacons.count(); i++)
+		BOOL flush = FALSE;
+		for (std::vector<LLDebugBeacon>::iterator iter = mDebugBeacons.begin(); iter != mDebugBeacons.end(); ++iter)
 		{
-			const LLDebugBeacon &debug_beacon = mDebugBeacons[i];
+			const LLDebugBeacon &debug_beacon = *iter;
 
 			S32 line_width = debug_beacon.mLineWidth;
 			if (line_width != last_line_width)
 			{
-				if (i > 0)
+				if (flush)
 				{
 					gGL.end();
-					gGL.flush();
 				}
+				flush = TRUE;
+				gGL.flush();
 				glLineWidth( (F32)line_width );
 				last_line_width = line_width;
 				gGL.begin(LLRender::LINES);
@@ -968,9 +859,9 @@ void LLViewerObjectList::renderObjectBeacons()
 		gGL.flush();
 		glLineWidth(1.f);
 
-		for (S32 i = 0; i < mDebugBeacons.count(); i++)
+		for (std::vector<LLDebugBeacon>::iterator iter = mDebugBeacons.begin(); iter != mDebugBeacons.end(); ++iter)
 		{
-			LLDebugBeacon &debug_beacon = mDebugBeacons[i];
+			LLDebugBeacon &debug_beacon = *iter;
 			if (debug_beacon.mString == "")
 			{
 				continue;
@@ -982,7 +873,7 @@ void LLViewerObjectList::renderObjectBeacons()
 			color = debug_beacon.mTextColor;
 			color.mV[3] *= 1.f;
 
-			hud_textp->setString(utf8str_to_wstring(debug_beacon.mString));
+			hud_textp->setString(debug_beacon.mString);
 			hud_textp->setColor(color);
 			hud_textp->setPositionAgent(debug_beacon.mPositionAgent);
 			debug_beacon.mHUDObject = hud_textp;

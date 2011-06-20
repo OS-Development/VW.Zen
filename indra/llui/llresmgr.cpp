@@ -2,31 +2,25 @@
  * @file llresmgr.cpp
  * @brief Localized resource manager
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -279,6 +273,14 @@ std::string LLResMgr::getMonetaryString( S32 input ) const
 
 void LLResMgr::getIntegerString( std::string& output, S32 input ) const
 {
+	// handle special case of input value being zero
+	if (input == 0)
+	{
+		output = "0";
+		return;
+	}
+	
+	// *NOTE: this method does not handle negative input integers correctly
 	S32 fraction = 0;
 	std::string fraction_string;
 	S32 remaining_count = input;
@@ -290,11 +292,11 @@ void LLResMgr::getIntegerString( std::string& output, S32 input ) const
 		{
 			if (fraction == remaining_count)
 			{
-				fraction_string = llformat("%d%c", fraction, getThousandsSeparator());
+				fraction_string = llformat_to_utf8("%d%c", fraction, getThousandsSeparator());
 			}
 			else
 			{
-				fraction_string = llformat("%3.3d%c", fraction, getThousandsSeparator());
+				fraction_string = llformat_to_utf8("%3.3d%c", fraction, getThousandsSeparator());
 			}
 			output = fraction_string + output;
 		}
@@ -335,7 +337,7 @@ LLLocale::LLLocale(const std::string& locale_string)
 	char* new_locale_string = setlocale( LC_ALL, locale_string.c_str());
 	if ( new_locale_string == NULL)
 	{
-		llwarns << "Failed to set locale " << locale_string << llendl;
+		LL_WARNS_ONCE("LLLocale") << "Failed to set locale " << locale_string << LL_ENDL;
 		setlocale(LC_ALL, SYSTEM_LOCALE.c_str());
 	}
 	//else

@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
- height="220"
+ legacy_header_height="18"
+ height="256"
  layout="topleft"
  name="WindLight floater"
+ help_topic="windlight_floater"
  save_rect="true"
- title="Advanced Sky Editor"
+ title="ADVANCED SKY EDITOR"
  width="700">
     <floater.string
      name="WLDefaultSkyNames">
@@ -20,55 +22,53 @@
      left="10"
      name="KeyFramePresetsText"
      top="34"
-     width="110">
+     width="135">
         Sky Presets:
     </text>
     <combo_box
-     height="18"
+     height="23"
      layout="topleft"
-     left_delta="110"
+     left_delta="135"
      name="WLPresetsCombo"
-     top_delta="-2"
+     top_delta="-4"
      width="150" />
     <button
-     height="20"
+     height="23"
      label="New"
      label_selected="New"
      layout="topleft"
-     left_pad="20"
+     left_pad="3"
      name="WLNewPreset"
-     top_delta="1"
      width="70" />
     <button
-     height="20"
+     height="23"
      label="Save"
      label_selected="Save"
      layout="topleft"
-     left_pad="10"
+     left_pad="3"
      name="WLSavePreset"
-     top_delta="0"
      width="70" />
     <button
-     height="20"
+     height="23"
      label="Delete"
      label_selected="Delete"
      layout="topleft"
-     left_pad="10"
+     left_pad="3"
      name="WLDeletePreset"
-     top_delta="0"
      width="70" />
     <button
-     height="20"
+     height="23"
      label="Day Cycle Editor"
      label_selected="Day Cycle Editor"
      layout="topleft"
-     left_pad="50"
+     right="-10"
      name="WLDayCycleMenuButton"
-     top_delta="0"
+     top_pad="-23"
      width="120" />
     <tab_container
      follows="left|top"
-     height="160"
+     height="196"
+     halign="center"
      layout="topleft"
      left="0"
      name="WindLight Tabs"
@@ -78,11 +78,12 @@
         <panel
          border="true"
          follows="left|top|right|bottom"
-         height="160"
-         label="Atmosphere"
+         height="196"
+         label="ATMOSPHERE"
          layout="topleft"
          left="1"
          mouse_opaque="false"
+         help_topic="windlight_atmosphere_tab"
          name="Atmosphere"
          top="60"
          width="698">
@@ -99,16 +100,6 @@
              width="355">
                 Blue Horizon
             </text>
-            <button
-             follows="left|top"
-             font="SansSerifSmall"
-             height="18"
-             label="?"
-             layout="topleft"
-             left_delta="150"
-             name="WLBlueHorizonHelp"
-             top_delta="-2"
-             width="18" />
             <text
              type="string"
              length="1"
@@ -118,48 +109,9 @@
              layout="topleft"
              left="10"
              name="BHText2"
-             top="21"
+             top_pad="5"
              width="10">
                 R
-            </text>
-            <text
-             type="string"
-             length="1"
-             follows="left|top|right"
-             halign="center"
-             height="16"
-             layout="topleft"
-             left_delta="0"
-             name="BHText3"
-             top_delta="11"
-             width="10">
-                G
-            </text>
-            <text
-             type="string"
-             length="1"
-             follows="left|top|right"
-             halign="center"
-             height="16"
-             layout="topleft"
-             left_delta="0"
-             name="BHText4"
-             top_delta="11"
-             width="10">
-                B
-            </text>
-            <text
-             type="string"
-             length="1"
-             follows="left|top|right"
-             halign="center"
-             height="16"
-             layout="topleft"
-             left_delta="0"
-             name="BHText5"
-             top_delta="11"
-             width="10">
-                I
             </text>
             <slider
              control_name="WLBlueHorizonR"
@@ -169,10 +121,23 @@
              increment="0.01"
              initial_value="0.7"
              layout="topleft"
-             left="24"
+             left_pad="3"
+             top_pad="6"
              name="WLBlueHorizonR"
-             top="40"
              width="200" />
+            <text
+             type="string"
+             length="1"
+             follows="left|top|right"
+             halign="center"
+             height="16"
+             layout="topleft"
+             left="10"
+             top_pad="-15"
+             name="BHText3"
+             width="10">
+                G
+            </text>
             <slider
              control_name="WLBlueHorizonG"
              decimal_digits="2"
@@ -183,8 +148,22 @@
              layout="topleft"
              left_delta="0"
              name="WLBlueHorizonG"
-             top_pad="1"
+             left_pad="3"
+             top_pad="6"
              width="200" />
+            <text
+             type="string"
+             length="1"
+             follows="left|top|right"
+             halign="center"
+             height="16"
+             layout="topleft"
+             name="BHText4"
+             left="10"
+             top_pad="-15"
+             width="10">
+                B
+            </text>
             <slider
              control_name="WLBlueHorizonB"
              decimal_digits="2"
@@ -193,10 +172,23 @@
              increment="0.01"
              initial_value="0.7"
              layout="topleft"
-             left_delta="0"
              name="WLBlueHorizonB"
-             top_pad="1"
+             left_pad="3"
+             top_pad="6"
              width="200" />
+            <text
+             type="string"
+             length="1"
+             follows="left|top|right"
+             halign="center"
+             height="16"
+             layout="topleft"
+             name="BHText5"
+             left="10"
+             top_pad="-15"
+             width="10">
+                I
+            </text>
             <slider
              control_name="WLBlueHorizonI"
              decimal_digits="2"
@@ -205,9 +197,9 @@
              increment="0.01"
              initial_value="1.0"
              layout="topleft"
-             left_delta="0"
              name="WLBlueHorizonI"
-             top_pad="1"
+             left_pad="3"
+             top_pad="6"
              width="200" />
             <text
              type="string"
@@ -216,22 +208,12 @@
              font="SansSerif"
              height="16"
              layout="topleft"
-             left_delta="-14"
+             left="10"
+             top_pad="-10"
              name="BDensText"
-             top_delta="-2"
              width="355">
                 Haze Horizon
             </text>
-            <button
-             follows="left|top"
-             font="SansSerifSmall"
-             height="18"
-             label="?"
-             layout="topleft"
-             left_delta="150"
-             name="WLHazeHorizonHelp"
-             top_delta="-2"
-             width="18" />
             <slider
              control_name="WLHazeHorizon"
              decimal_digits="2"
@@ -240,9 +222,10 @@
              increment="0.01"
              initial_value="0.25"
              layout="topleft"
-             left="24"
+             left="23"
+             top_delta="0"
+             top_pad="27"
              name="WLHazeHorizon"
-             top="107"
              width="200" />
             <text
              type="string"
@@ -257,16 +240,6 @@
              width="355">
                 Blue Density
             </text>
-            <button
-             follows="left|top"
-             font="SansSerifSmall"
-             height="18"
-             label="?"
-             layout="topleft"
-             left_delta="150"
-             name="WLBlueDensityHelp"
-             top_delta="-2"
-             width="18" />
             <text
              type="string"
              length="1"
@@ -276,48 +249,9 @@
              layout="topleft"
              left="245"
              name="BHText6"
-             top="21"
+             top_pad="5"
              width="10">
                 R
-            </text>
-            <text
-             type="string"
-             length="1"
-             follows="left|top|right"
-             halign="center"
-             height="16"
-             layout="topleft"
-             left_delta="0"
-             name="BHText7"
-             top_delta="11"
-             width="10">
-                G
-            </text>
-            <text
-             type="string"
-             length="1"
-             follows="left|top|right"
-             halign="center"
-             height="16"
-             layout="topleft"
-             left_delta="0"
-             name="BHText8"
-             top_delta="11"
-             width="10">
-                B
-            </text>
-            <text
-             type="string"
-             length="1"
-             follows="left|top|right"
-             halign="center"
-             height="16"
-             layout="topleft"
-             left_delta="0"
-             name="BHText9"
-             top_delta="11"
-             width="10">
-                I
             </text>
             <slider
              control_name="WLBlueDensityR"
@@ -327,10 +261,23 @@
              increment="0.01"
              initial_value="0.7"
              layout="topleft"
-             left="259"
+             left_pad="3"
+             top_pad="6"
              name="WLBlueDensityR"
-             top="40"
              width="200" />
+            <text
+             type="string"
+             length="1"
+             follows="left|top|right"
+             halign="center"
+             height="16"
+             layout="topleft"
+             left="245"
+             name="BHText7"
+             top_pad="-15"
+             width="10">
+                G
+            </text>
             <slider
              control_name="WLBlueDensityG"
              decimal_digits="2"
@@ -341,8 +288,22 @@
              layout="topleft"
              left_delta="0"
              name="WLBlueDensityG"
-             top_pad="1"
+             left_pad="3"
+             top_pad="6"
              width="200" />
+            <text
+             type="string"
+             length="1"
+             follows="left|top|right"
+             halign="center"
+             height="16"
+             layout="topleft"
+             left="245"
+             name="BHText8"
+             top_pad="-15"
+             width="10">
+                B
+            </text>
             <slider
              control_name="WLBlueDensityB"
              decimal_digits="2"
@@ -353,8 +314,22 @@
              layout="topleft"
              left_delta="0"
              name="WLBlueDensityB"
-             top_pad="1"
+             left_pad="3"
+             top_pad="6"
              width="200" />
+            <text
+             type="string"
+             length="1"
+             follows="left|top|right"
+             halign="center"
+             height="16"
+             layout="topleft"
+             left="245"
+             name="BHText9"
+             top_pad="-15"
+             width="10">
+                I
+            </text>
             <slider
              control_name="WLBlueDensityI"
              decimal_digits="2"
@@ -365,7 +340,8 @@
              layout="topleft"
              left_delta="0"
              name="WLBlueDensityI"
-             top_pad="1"
+             left_pad="3"
+             top_pad="6"
              width="200" />
             <text
              type="string"
@@ -374,22 +350,12 @@
              font="SansSerif"
              height="16"
              layout="topleft"
-             left_delta="-14"
+             left="245"
              name="HDText"
-             top_delta="-2"
+             top_pad="-10"
              width="355">
                 Haze Density
             </text>
-            <button
-             follows="left|top"
-             font="SansSerifSmall"
-             height="18"
-             label="?"
-             layout="topleft"
-             left_delta="150"
-             name="WLHazeDensityHelp"
-             top_delta="-2"
-             width="18" />
             <slider
              control_name="WLHazeDensity"
              decimal_digits="2"
@@ -398,10 +364,10 @@
              increment="0.01"
              initial_value="0.7"
              layout="topleft"
-             left="259"
+             left="258"
              max_val="4"
              name="WLHazeDensity"
-             top="107"
+             top_pad="27"
              width="200" />
             <text
              type="string"
@@ -416,16 +382,6 @@
              width="355">
                 Density Multiplier
             </text>
-            <button
-             follows="left|top"
-             font="SansSerifSmall"
-             height="18"
-             label="?"
-             layout="topleft"
-             left_delta="150"
-             name="WLDensityMultHelp"
-             top_delta="-2"
-             width="18" />
             <slider
              control_name="WLDensityMult"
              decimal_digits="2"
@@ -434,10 +390,10 @@
              increment="0.01"
              initial_value="0.1"
              layout="topleft"
-             left="494"
+             left_delta="13"
              max_val="0.9"
              name="WLDensityMult"
-             top="40"
+             top_pad="27"
              width="200" />
             <text
              type="string"
@@ -446,22 +402,12 @@
              font="SansSerif"
              height="16"
              layout="topleft"
-             left_delta="-14"
+             left_delta="-13"
              name="WLDistanceMultText"
-             top_delta="-3"
+             top_pad="-10"
              width="355">
                 Distance Multiplier
             </text>
-            <button
-             follows="left|top"
-             font="SansSerifSmall"
-             height="18"
-             label="?"
-             layout="topleft"
-             left_delta="150"
-             name="WLDistanceMultHelp"
-             top_delta="-2"
-             width="18" />
             <slider
              control_name="WLDistancMult"
              decimal_digits="1"
@@ -469,11 +415,11 @@
              height="10"
              initial_value="1.0"
              layout="topleft"
-             left="494"
+             left_delta="13"
              max_val="100"
              name="WLDistanceMult"
-             top="73"
-             width="207" />
+             top_pad="27"
+             width="200" />
             <text
              type="string"
              length="1"
@@ -481,22 +427,12 @@
              font="SansSerif"
              height="16"
              layout="topleft"
-             left_delta="-14"
+             left_delta="-13"
              name="MaxAltText"
-             top_delta="-2"
+             top_pad="-15"
              width="355">
                 Max Altitude
             </text>
-            <button
-             follows="left|top"
-             font="SansSerifSmall"
-             height="18"
-             label="?"
-             layout="topleft"
-             left_delta="150"
-             name="WLMaxAltitudeHelp"
-             top_delta="-2"
-             width="18" />
             <slider
              control_name="WLMaxAltitude"
              decimal_digits="0"
@@ -505,19 +441,20 @@
              increment="1"
              initial_value="500"
              layout="topleft"
-             left="494"
+             left_delta="13"
              max_val="4000"
              name="WLMaxAltitude"
-             top="107"
-             width="205" />
+             top_pad="27"
+             width="200" />
         </panel>
         <panel
          border="true"
          follows="left|top|right|bottom"
-         height="160"
-         label="Lighting"
+         height="196"
+         label="LIGHTING"
          layout="topleft"
          left_delta="0"
+         help_topic="windlight_lighting_tab"
          name="Lighting"
          top_delta="4"
          width="698">
@@ -534,16 +471,6 @@
              width="355">
                 Sun/Moon Color
             </text>
-            <button
-             follows="left|top"
-             font="SansSerifSmall"
-             height="18"
-             label="?"
-             layout="topleft"
-             left_delta="150"
-             name="WLSunlightColorHelp"
-             top_delta="-2"
-             width="18" />
             <text
              type="string"
              length="1"
@@ -551,50 +478,11 @@
              halign="center"
              height="16"
              layout="topleft"
-             left="10"
+             left_delta="0"
              name="BHText"
-             top="21"
+             top_pad="5"
              width="10">
                 R
-            </text>
-            <text
-             type="string"
-             length="1"
-             follows="left|top|right"
-             halign="center"
-             height="16"
-             layout="topleft"
-             left_delta="0"
-             name="BHText2"
-             top_delta="11"
-             width="10">
-                G
-            </text>
-            <text
-             type="string"
-             length="1"
-             follows="left|top|right"
-             halign="center"
-             height="16"
-             layout="topleft"
-             left_delta="0"
-             name="BHText3"
-             top_delta="11"
-             width="10">
-                B
-            </text>
-            <text
-             type="string"
-             length="1"
-             follows="left|top|right"
-             halign="center"
-             height="16"
-             layout="topleft"
-             left_delta="0"
-             name="BHText4"
-             top_delta="11"
-             width="10">
-                I
             </text>
             <slider
              control_name="WLSunlightR"
@@ -604,10 +492,23 @@
              increment="0.01"
              initial_value="0.7"
              layout="topleft"
-             left="24"
+             left_pad="3"
+             top_pad="6"
              name="WLSunlightR"
-             top="40"
              width="200" />
+            <text
+             type="string"
+             length="1"
+             follows="left|top|right"
+             halign="center"
+             height="16"
+             layout="topleft"
+             left_delta="-13"
+             name="BHText2"
+             top_pad="-15"
+             width="10">
+                G
+            </text>
             <slider
              control_name="WLSunlightG"
              decimal_digits="2"
@@ -618,8 +519,22 @@
              layout="topleft"
              left_delta="0"
              name="WLSunlightG"
-             top_pad="1"
+             left_pad="3"
+             top_pad="6"
              width="200" />
+            <text
+             type="string"
+             length="1"
+             follows="left|top|right"
+             halign="center"
+             height="16"
+             layout="topleft"
+             left_delta="-13"
+             name="BHText3"
+             top_pad="-15"
+             width="10">
+                B
+            </text>
             <slider
              control_name="WLSunlightB"
              decimal_digits="2"
@@ -630,8 +545,22 @@
              layout="topleft"
              left_delta="0"
              name="WLSunlightB"
-             top_pad="1"
+             left_pad="3"
+             top_pad="6"
              width="200" />
+            <text
+             type="string"
+             length="1"
+             follows="left|top|right"
+             halign="center"
+             height="16"
+             layout="topleft"
+             left_delta="-13"
+             name="BHText4"
+             top_pad="-15"
+             width="10">
+                I
+            </text>
             <slider
              control_name="WLSunlightI"
              decimal_digits="2"
@@ -642,7 +571,8 @@
              layout="topleft"
              left_delta="0"
              name="WLSunlightI"
-             top_pad="1"
+             left_pad="3"
+             top_pad="6"
              width="200" />
             <text
              type="string"
@@ -651,29 +581,20 @@
              font="SansSerif"
              height="16"
              layout="topleft"
-             left_delta="-14"
+             left_delta="-13"
              name="TODText"
-             top_delta="-2"
+             top_pad="-10"
              width="355">
                 Sun/Moon Position
             </text>
-            <button
-             follows="left|top"
-             font="SansSerifSmall"
-             height="18"
-             label="?"
-             layout="topleft"
-             left_delta="150"
-             name="WLTimeOfDayHelp"
-             top_delta="-2"
-             width="18" />
             <icon
              height="20"
              image_name="icon_diurnal.tga"
              layout="topleft"
-             left="30"
+             left_delta="14"
+             top_pad="10"
              name="SkyDayCycle"
-             top="97"
+             use_draw_context_alpha="false"
              width="148" />
             <slider
              control_name="WLSunAngle"
@@ -682,10 +603,10 @@
              increment="0.001"
              initial_value="0.7"
              layout="topleft"
-             left="24"
+             left_delta="-8"
              name="WLSunAngle"
-             top="137"
-             width="204" />
+             top_pad="20"
+             width="207" />
             <text
              type="string"
              length="1"
@@ -699,16 +620,6 @@
              width="355">
                 Ambient
             </text>
-            <button
-             follows="left|top"
-             font="SansSerifSmall"
-             height="18"
-             label="?"
-             layout="topleft"
-             left_delta="150"
-             name="WLAmbientHelp"
-             top_delta="-2"
-             width="18" />
             <text
              type="string"
              length="1"
@@ -716,50 +627,11 @@
              halign="center"
              height="16"
              layout="topleft"
-             left="245"
+             left_delta="0"
              name="BHText5"
-             top="21"
+             top_pad="5"
              width="10">
                 R
-            </text>
-            <text
-             type="string"
-             length="1"
-             follows="left|top|right"
-             halign="center"
-             height="16"
-             layout="topleft"
-             left_delta="0"
-             name="BHText6"
-             top_delta="11"
-             width="10">
-                G
-            </text>
-            <text
-             type="string"
-             length="1"
-             follows="left|top|right"
-             halign="center"
-             height="16"
-             layout="topleft"
-             left_delta="0"
-             name="BHText7"
-             top_delta="11"
-             width="10">
-                B
-            </text>
-            <text
-             type="string"
-             length="1"
-             follows="left|top|right"
-             halign="center"
-             height="16"
-             layout="topleft"
-             left_delta="0"
-             name="BHText8"
-             top_delta="11"
-             width="10">
-                I
             </text>
             <slider
              control_name="WLAmbientR"
@@ -769,10 +641,23 @@
              increment="0.01"
              initial_value="0.7"
              layout="topleft"
-             left="259"
+             left_pad="3"
+             top_pad="6"
              name="WLAmbientR"
-             top="40"
              width="200" />
+            <text
+             type="string"
+             length="1"
+             follows="left|top|right"
+             halign="center"
+             height="16"
+             layout="topleft"
+             left_delta="-13"
+             name="BHText6"
+             top_pad="-15"
+             width="10">
+                G
+            </text>
             <slider
              control_name="WLAmbientG"
              decimal_digits="2"
@@ -783,8 +668,22 @@
              layout="topleft"
              left_delta="0"
              name="WLAmbientG"
-             top_pad="1"
+             left_pad="3"
+             top_pad="6"
              width="200" />
+            <text
+             type="string"
+             length="1"
+             follows="left|top|right"
+             halign="center"
+             height="16"
+             layout="topleft"
+             left_delta="-13"
+             name="BHText7"
+             top_pad="-15"
+             width="10">
+                B
+            </text>
             <slider
              control_name="WLAmbientB"
              decimal_digits="2"
@@ -795,8 +694,22 @@
              layout="topleft"
              left_delta="0"
              name="WLAmbientB"
-             top_pad="1"
+             left_pad="3"
+             top_pad="6"
              width="200" />
+            <text
+             type="string"
+             length="1"
+             follows="left|top|right"
+             halign="center"
+             height="16"
+             layout="topleft"
+             left_delta="-13"
+             name="BHText8"
+             top_pad="-15"
+             width="10">
+                I
+            </text>
             <slider
              control_name="WLAmbientI"
              decimal_digits="2"
@@ -807,7 +720,8 @@
              layout="topleft"
              left_delta="0"
              name="WLAmbientI"
-             top_pad="1"
+             left_pad="3"
+             top_pad="6"
              width="200" />
             <text
              type="string"
@@ -816,22 +730,12 @@
              font="SansSerif"
              height="16"
              layout="topleft"
-             left_delta="-14"
+             left_delta="-13"
              name="WLEastAngleText"
-             top_delta="-2"
+             top_pad="-10"
              width="355">
                 East Angle
             </text>
-            <button
-             follows="left|top"
-             font="SansSerifSmall"
-             height="18"
-             label="?"
-             layout="topleft"
-             left_delta="150"
-             name="WLEastAngleHelp"
-             top_delta="-2"
-             width="18" />
             <slider
              control_name="WLEastAngle"
              decimal_digits="2"
@@ -840,9 +744,9 @@
              increment="0.01"
              initial_value="0.0"
              layout="topleft"
-             left="259"
+             left_delta="13"
              name="WLEastAngle"
-             top="107"
+             top_pad="27"
              width="200" />
             <text
              type="string"
@@ -857,16 +761,6 @@
              width="355">
                 Sun Glow
             </text>
-            <button
-             follows="left|top"
-             font="SansSerifSmall"
-             height="18"
-             label="?"
-             layout="topleft"
-             left_delta="150"
-             name="WLSunGlowHelp"
-             top_delta="-2"
-             width="18" />
             <slider
              control_name="WLGlowB"
              decimal_digits="2"
@@ -876,10 +770,10 @@
              initial_value="0.1"
              label="Focus "
              layout="topleft"
-             left="494"
+             left_delta="0"
              max_val="0.5"
              name="WLGlowB"
-             top="40"
+             top_pad="27"
              width="200" />
             <slider
              control_name="WLGlowR"
@@ -894,7 +788,7 @@
              max_val="1.99"
              min_val="1"
              name="WLGlowR"
-             top_pad="1"
+             top_pad="6"
              width="200" />
             <text
              type="string"
@@ -903,22 +797,12 @@
              font="SansSerif"
              height="16"
              layout="topleft"
-             left_delta="-14"
+             left_delta="0"
              name="SceneGammaText"
-             top_delta="0"
+             top_pad="-10"
              width="200">
                 Scene Gamma
             </text>
-            <button
-             follows="left|top"
-             font="SansSerifSmall"
-             height="18"
-             label="?"
-             layout="topleft"
-             left_delta="150"
-             name="WLSceneGammaHelp"
-             top_delta="-2"
-             width="18" />
             <slider
              control_name="WLGamma"
              decimal_digits="2"
@@ -927,11 +811,11 @@
              increment="0.01"
              initial_value="2.0"
              layout="topleft"
-             left="494"
+             left_delta="0"
              max_val="10"
              name="WLGamma"
-             top="87"
-             width="207" />
+             top_pad="27"
+             width="200" />
             <text
              type="string"
              length="1"
@@ -939,22 +823,12 @@
              font="SansSerif"
              height="16"
              layout="topleft"
-             left_delta="-14"
+             left_delta="0"
              name="WLStarText"
-             top_delta="-1"
+             top_pad="-10"
              width="355">
                 Star Brightness
             </text>
-            <button
-             follows="left|top"
-             font="SansSerifSmall"
-             height="18"
-             label="?"
-             layout="topleft"
-             left_delta="150"
-             name="WLStarBrightnessHelp"
-             top_delta="-2"
-             width="18" />
             <slider
              control_name="WLStarAlpha"
              decimal_digits="2"
@@ -963,20 +837,21 @@
              increment="0.01"
              initial_value="0"
              layout="topleft"
-             left="494"
+             left_delta="0"
              max_val="2"
              name="WLStarAlpha"
-             top="122"
+             top_pad="27"
              width="200" />
         </panel>
         <panel
          border="true"
          follows="left|top|right|bottom"
-         height="160"
-         label="Clouds"
+         height="196"
+         label="CLOUDS"
          layout="topleft"
          left_delta="0"
          mouse_opaque="false"
+         help_topic="windlight_clouds_tab"
          name="Clouds"
          top_delta="4"
          width="698">
@@ -993,16 +868,6 @@
              width="355">
                 Cloud Color
             </text>
-            <button
-             follows="left|top"
-             font="SansSerifSmall"
-             height="18"
-             label="?"
-             layout="topleft"
-             left_delta="150"
-             name="WLCloudColorHelp"
-             top_delta="-2"
-             width="18" />
             <text
              type="string"
              length="1"
@@ -1010,50 +875,11 @@
              halign="center"
              height="16"
              layout="topleft"
-             left="10"
+             left_delta="0"
              name="BHText"
-             top="21"
+             top_pad="5"
              width="10">
                 R
-            </text>
-            <text
-             type="string"
-             length="1"
-             follows="left|top|right"
-             halign="center"
-             height="16"
-             layout="topleft"
-             left_delta="0"
-             name="BHText2"
-             top_delta="11"
-             width="10">
-                G
-            </text>
-            <text
-             type="string"
-             length="1"
-             follows="left|top|right"
-             halign="center"
-             height="16"
-             layout="topleft"
-             left_delta="0"
-             name="BHText3"
-             top_delta="11"
-             width="10">
-                B
-            </text>
-            <text
-             type="string"
-             length="1"
-             follows="left|top|right"
-             halign="center"
-             height="16"
-             layout="topleft"
-             left_delta="0"
-             name="BHText4"
-             top_delta="11"
-             width="10">
-                I
             </text>
             <slider
              control_name="WLCloudColorR"
@@ -1063,10 +889,23 @@
              increment="0.01"
              initial_value="0.7"
              layout="topleft"
-             left="24"
+             left_pad="3"
+             top_pad="6"
              name="WLCloudColorR"
-             top="40"
              width="200" />
+            <text
+             type="string"
+             length="1"
+             follows="left|top|right"
+             halign="center"
+             height="16"
+             layout="topleft"
+             left_delta="-13"
+             name="BHText2"
+             top_pad="-15"
+             width="10">
+                G
+            </text>
             <slider
              control_name="WLCloudColorG"
              decimal_digits="2"
@@ -1077,8 +916,22 @@
              layout="topleft"
              left_delta="0"
              name="WLCloudColorG"
-             top_pad="1"
+             left_pad="3"
+             top_pad="6"
              width="200" />
+            <text
+             type="string"
+             length="1"
+             follows="left|top|right"
+             halign="center"
+             height="16"
+             layout="topleft"
+             left_delta="-13"
+             name="BHText3"
+             top_pad="-15"
+             width="10">
+                B
+            </text>
             <slider
              control_name="WLCloudColorB"
              decimal_digits="2"
@@ -1089,8 +942,22 @@
              layout="topleft"
              left_delta="0"
              name="WLCloudColorB"
-             top_pad="1"
+             left_pad="3"
+             top_pad="6"
              width="200" />
+            <text
+             type="string"
+             length="1"
+             follows="left|top|right"
+             halign="center"
+             height="16"
+             layout="topleft"
+             left_delta="-13"
+             name="BHText4"
+             top_pad="-15"
+             width="10">
+                I
+            </text>
             <slider
              control_name="WLCloudColorI"
              decimal_digits="2"
@@ -1101,7 +968,8 @@
              layout="topleft"
              left_delta="0"
              name="WLCloudColorI"
-             top_pad="1"
+             left_pad="3"
+             top_pad="6"
              width="200" />
             <text
              type="string"
@@ -1110,22 +978,12 @@
              font="SansSerif"
              height="16"
              layout="topleft"
-             left_delta="-14"
+             left_delta="-13"
              name="WLCloudColorText2"
-             top_delta="-2"
+             top_pad="-10"
              width="355">
                 Cloud XY/Density
             </text>
-            <button
-             follows="left|top"
-             font="SansSerifSmall"
-             height="18"
-             label="?"
-             layout="topleft"
-             left_delta="150"
-             name="WLCloudDensityHelp"
-             top_delta="-2"
-             width="18" />
             <text
              type="string"
              length="1"
@@ -1133,37 +991,11 @@
              halign="center"
              height="16"
              layout="topleft"
-             left="10"
+             left_delta="0"
              name="BHText5"
-             top="87"
+             top_pad="5"
              width="10">
                 X
-            </text>
-            <text
-             type="string"
-             length="1"
-             follows="left|top|right"
-             halign="center"
-             height="16"
-             layout="topleft"
-             left_delta="0"
-             name="BHText6"
-             top_delta="11"
-             width="10">
-                Y
-            </text>
-            <text
-             type="string"
-             length="1"
-             follows="left|top|right"
-             halign="center"
-             height="16"
-             layout="topleft"
-             left_delta="0"
-             name="BHText7"
-             top_delta="11"
-             width="10">
-                D
             </text>
             <slider
              control_name="WLCloudX"
@@ -1173,10 +1005,23 @@
              increment="0.01"
              initial_value="0.5"
              layout="topleft"
-             left_pad="4"
+             left_pad="3"
+             top_pad="6"
              name="WLCloudX"
-             top_delta="-2"
              width="200" />
+            <text
+             type="string"
+             length="1"
+             follows="left|top|right"
+             halign="center"
+             height="16"
+             layout="topleft"
+             left_delta="-13"
+             name="BHText6"
+             top_pad="-15"
+             width="10">
+                Y
+            </text>
             <slider
              control_name="WLCloudY"
              decimal_digits="2"
@@ -1185,10 +1030,23 @@
              increment="0.01"
              initial_value="0.5"
              layout="topleft"
-             left_delta="0"
+             left_pad="3"
+             top_pad="6"
              name="WLCloudY"
-             top_pad="1"
              width="200" />
+            <text
+             type="string"
+             length="1"
+             follows="left|top|right"
+             halign="center"
+             height="16"
+             layout="topleft"
+             left_delta="-13"
+             name="BHText7"
+             top_pad="-15"
+             width="10">
+                D
+            </text>
             <slider
              control_name="WLCloudDensity"
              decimal_digits="2"
@@ -1199,7 +1057,8 @@
              layout="topleft"
              left_delta="0"
              name="WLCloudDensity"
-             top_pad="1"
+             left_pad="3"
+             top_pad="6"
              width="200" />
             <text
              type="string"
@@ -1214,16 +1073,6 @@
              width="355">
                 Cloud Coverage
             </text>
-            <button
-             follows="left|top"
-             font="SansSerifSmall"
-             height="18"
-             label="?"
-             layout="topleft"
-             left_delta="150"
-             name="WLCloudCoverageHelp"
-             top_delta="-2"
-             width="18" />
             <slider
              control_name="WLCloudCoverage"
              decimal_digits="2"
@@ -1232,9 +1081,9 @@
              increment="0.01"
              initial_value="0.5"
              layout="topleft"
-             left="259"
+             left_delta="13"
              name="WLCloudCoverage"
-             top="40"
+             top_pad="27"
              width="200" />
             <text
              type="string"
@@ -1243,22 +1092,12 @@
              font="SansSerif"
              height="16"
              layout="topleft"
-             left_delta="-14"
+             left_delta="-13"
              name="WLCloudScaleText"
-             top_delta="-1"
+             top_pad="-10"
              width="355">
                 Cloud Scale
             </text>
-            <button
-             follows="left|top"
-             font="SansSerifSmall"
-             height="18"
-             label="?"
-             layout="topleft"
-             left_delta="150"
-             name="WLCloudScaleHelp"
-             top_delta="-2"
-             width="18" />
             <slider
              control_name="WLCloudScale"
              decimal_digits="2"
@@ -1267,10 +1106,10 @@
              increment="0.01"
              initial_value="1.0"
              layout="topleft"
-             left="259"
+             left_delta="13"
              min_val="0.01"
              name="WLCloudScale"
-             top="75"
+             top_pad="27"
              width="200" />
             <text
              type="string"
@@ -1279,22 +1118,12 @@
              font="SansSerif"
              height="16"
              layout="topleft"
-             left_delta="-14"
+             left_delta="-13"
              name="WLCloudDetailText"
-             top_delta="-4"
+             top_pad="-10"
              width="355">
                 Cloud Detail (XY/Density)
             </text>
-            <button
-             follows="left|top"
-             font="SansSerifSmall"
-             height="18"
-             label="?"
-             layout="topleft"
-             left_delta="150"
-             name="WLCloudDetailHelp"
-             top_delta="-2"
-             width="18" />
             <text
              type="string"
              length="1"
@@ -1302,37 +1131,11 @@
              halign="center"
              height="16"
              layout="topleft"
-             left="245"
+             left_delta="0"
              name="BHText8"
-             top="87"
+             top_pad="8"
              width="10">
                 X
-            </text>
-            <text
-             type="string"
-             length="1"
-             follows="left|top|right"
-             halign="center"
-             height="16"
-             layout="topleft"
-             left_delta="0"
-             name="BHText9"
-             top_delta="11"
-             width="10">
-                Y
-            </text>
-            <text
-             type="string"
-             length="1"
-             follows="left|top|right"
-             halign="center"
-             height="16"
-             layout="topleft"
-             left_delta="0"
-             name="BHText10"
-             top_delta="11"
-             width="10">
-                D
             </text>
             <slider
              control_name="WLCloudDetailX"
@@ -1342,10 +1145,23 @@
              increment="0.01"
              initial_value="0.5"
              layout="topleft"
-             left_pad="4"
+             left_pad="3"
+             top_pad="8"
              name="WLCloudDetailX"
-             top_delta="-2"
              width="200" />
+            <text
+             type="string"
+             length="1"
+             follows="left|top|right"
+             halign="center"
+             height="16"
+             layout="topleft"
+             left_delta="-13"
+             name="BHText9"
+             top_pad="-15"
+             width="10">
+                Y
+            </text>
             <slider
              control_name="WLCloudDetailY"
              decimal_digits="2"
@@ -1356,8 +1172,22 @@
              layout="topleft"
              left_delta="0"
              name="WLCloudDetailY"
-             top_pad="1"
+             left_pad="3"
+             top_pad="6"
              width="200" />
+            <text
+             type="string"
+             length="1"
+             follows="left|top|right"
+             halign="center"
+             height="16"
+             layout="topleft"
+             left_delta="-13"
+             name="BHText10"
+             top_pad="-15"
+             width="10">
+                D
+            </text>
             <slider
              control_name="WLCloudDetailDensity"
              decimal_digits="2"
@@ -1368,7 +1198,8 @@
              layout="topleft"
              left_delta="0"
              name="WLCloudDetailDensity"
-             top_pad="1"
+             left_pad="3"
+             top_pad="6"
              width="200" />
             <text
              type="string"
@@ -1383,16 +1214,6 @@
              width="355">
                 Cloud Scroll X
             </text>
-            <button
-             follows="left|top"
-             font="SansSerifSmall"
-             height="18"
-             label="?"
-             layout="topleft"
-             left_delta="125"
-             name="WLCloudScrollXHelp"
-             top_delta="-2"
-             width="18" />
             <check_box
              control_name="WLCloudLockX"
              follows="left"
@@ -1429,16 +1250,6 @@
              width="355">
                 Cloud Scroll Y
             </text>
-            <button
-             follows="left|top"
-             font="SansSerifSmall"
-             height="18"
-             label="?"
-             layout="topleft"
-             left_delta="125"
-             name="WLCloudScrollYHelp"
-             top_delta="-2"
-             width="18" />
             <check_box
              control_name="WLCloudLockY"
              follows="left"
@@ -1472,16 +1283,6 @@
              name="DrawClassicClouds"
              top="104"
              width="200" />
-            <button
-             follows="left|top"
-             font="SansSerifSmall"
-             height="18"
-             label="?"
-             layout="topleft"
-             left="608"
-             name="WLClassicCloudsHelp"
-             top="84"
-             width="18" />
         </panel>
     </tab_container>
 </floater>

@@ -2,31 +2,25 @@
  * @file LLSideTray.h
  * @brief SideBar header file
  *
- * $LicenseInfo:firstyear=2004&license=viewergpl$
- * 
- * Copyright (c) 2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2004&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -36,63 +30,25 @@
 #include "llpanel.h"
 #include "string"
 
-class LLSideTray;
-class LLAccordionPanel;
+class LLAccordionCtrl;
+class LLSideTrayTab;
 
-class LLSideTrayTab: public LLPanel
+// Deal with LLSideTrayTab being opaque. Generic do-nothing cast...
+template <class T>
+T tab_cast(LLSideTrayTab* tab) { return tab; }
+// specialized for implementation in presence of LLSideTrayTab definition
+template <>
+LLPanel* tab_cast<LLPanel*>(LLSideTrayTab* tab);
+
+// added inheritance from LLDestroyClass<LLSideTray> to enable Side Tray perform necessary actions 
+// while disconnecting viewer in LLAppViewer::disconnectViewer().
+// LLDestroyClassList::instance().fireCallbacks() calls destroyClass method. See EXT-245.
+class LLSideTray : public LLPanel, private LLDestroyClass<LLSideTray>
 {
 	friend class LLUICtrlFactory;
-	friend class LLSideTray;
-public:
-
-	struct Params 
-	:	public LLInitParam::Block<Params, LLPanel::Params>
-	{
-		// image name
-		Optional<std::string>		image_path;
-		Optional<std::string>		tab_title;
-		Optional<std::string>		tab_description;
-		Params():image_path("image","")
-				,tab_title("tab_title","no title")
-				,tab_description("description","no description")
-		{};
-	};
-protected:
-	LLSideTrayTab(const Params& params);
-	
-
-public:
-	virtual ~LLSideTrayTab();
-
-	void			addPanel	(LLPanel* panel);
-    /*virtual*/ BOOL	postBuild	();
-	/*virtual*/ bool	addChild	(LLView* view, S32 tab_group);
-
-
-	void			arrange		(S32 width, S32 height);
-	void			reshape		(S32 width, S32 height, BOOL called_from_parent = TRUE);
-	
-	static LLSideTrayTab*  createInstance	();
-
-	const std::string& getDescription () const { return mDescription;}
-	const std::string& getTabTitle() const { return mTabTitle;}
-
-	void draw();
-
-	void			onOpen		(const LLSD& key);
-
-private:
-	std::string mTabTitle;
-	std::string mImagePath;
-	std::string	mDescription;
-
-	LLAccordionPanel*	mAccordionPanel;
-};
-
-
-class LLSideTray : public LLPanel
-{
-	friend class LLUICtrlFactory;
+	friend class LLDestroyClass<LLSideTray>;
+	friend class LLSideTrayTab;
+	friend class LLSideTrayButton;
 public:
 
 	LOG_CLASS(LLSideTray);
@@ -101,70 +57,86 @@ public:
 	:	public LLInitParam::Block<Params, LLPanel::Params>
 	{
 		// initial state
-		Optional<bool>		collapsed;
-		Optional<std::string>		tab_btn_image_normal;
-		Optional<std::string>		tab_btn_image_selected;
+		Optional<bool>				collapsed;
+		Optional<LLUIImage*>		tab_btn_image_normal,
+									tab_btn_image_selected;
 		
-		Optional<S32>				default_button_width;
-		Optional<S32>				default_button_height;
-		Optional<S32>				default_button_margin;
+		Optional<S32>				default_button_width,
+									default_button_height,
+									default_button_margin;
 		
-		Params():
-			collapsed("collapsed",false)
-			,tab_btn_image_normal("tab_btn_image","sidebar_tab_left.tga")
-			,tab_btn_image_selected("tab_btn_image_selected","button_enabled_selected_32x128.tga")
-			,default_button_width("tab_btn_width",32)
-			,default_button_height("tab_btn_height",32)
-			,default_button_margin("tab_btn_margin",0)
-			{};
+		Params();
 	};
 
 	static LLSideTray*	getInstance		();
 	static bool			instanceCreated	();
 protected:
-	LLSideTray(Params& params);
-	typedef std::vector<LLView*> child_vector_t;
+	LLSideTray(const Params& params);
+	typedef std::vector<LLSideTrayTab*> child_vector_t;
 	typedef child_vector_t::iterator					child_vector_iter_t;
 	typedef child_vector_t::const_iterator  			child_vector_const_iter_t;
 	typedef child_vector_t::reverse_iterator 			child_vector_reverse_iter_t;
 	typedef child_vector_t::const_reverse_iterator 		child_vector_const_reverse_iter_t;
+	typedef std::vector<std::string>					tab_order_vector_t;
+	typedef tab_order_vector_t::const_iterator			tab_order_vector_const_iter_t;
 
 public:
 
 	// interface functions
 	    
 	/**
-     * Select tab with specific name and set it active    
-     */
-	bool 		selectTabByName	(const std::string& name);
+	 * Select tab with specific name and set it active
+	 *
+	 * @param name				Tab to switch to.
+	 * @param keep_prev_visible	Whether to keep the previously selected tab visible.
+	 */
+	bool 		selectTabByName	(const std::string& name, bool keep_prev_visible = false);
 	
 	/**
      * Select tab with specific index and set it active    
      */
 	bool		selectTabByIndex(size_t index);
 
-    /**
-     * add new panel to tab with tab_name name
-     * @param tab_name - name of sidebar tab to add new panel
-     * @param panel - pointer to panel 
-     */
-    bool        addPanel        ( const std::string& tab_name
-                                 ,LLPanel* panel );
-    /**
-     * Add new tab to side bar
-     * @param tab_name - name of the new tab
-     * @param image - image for new sidebar button
-     * @param title -  title for new tab
-     */
-    bool        addTab          ( const std::string& tab_name
-                                 ,const std::string& image
-                                 ,const std::string& title);
-
 	/**
 	 * Activate tab with "panel_name" panel
-	 * if no such tab - return false, otherwise true
+	 * if no such tab - return NULL, otherwise a pointer to the panel
+	 * Pass params as array, or they may be overwritten(example - params["name"]="nearby")
 	 */
-	bool		showPanel		(const std::string& panel_name, const LLSD& params);
+	LLPanel*	showPanel		(const std::string& panel_name, const LLSD& params = LLSD());
+
+	bool		hidePanel		(const std::string& panel_name);
+
+	/**
+	 * Toggling Side Tray tab which contains "sub_panel" child of "panel_name" panel.
+	 * If "sub_panel" is not visible Side Tray is opened to display it,
+	 * otherwise Side Tray is collapsed.
+	 * params are passed to "panel_name" panel onOpen().
+	 */
+	void		togglePanel		(LLPanel* &sub_panel, const std::string& panel_name, const LLSD& params = LLSD());
+
+	/*
+	 * get the panel (don't show it or do anything else with it)
+	 */
+    LLPanel*	getPanel		(const std::string& panel_name);
+    LLPanel*	getActivePanel	();
+    bool		isPanelActive	(const std::string& panel_name);
+
+	void		setTabDocked(const std::string& tab_name, bool dock, bool toggle_floater = true);
+
+	/*
+	 * get the panel of given type T (don't show it or do anything else with it)
+	 */
+	template <typename T>
+	T* getPanel(const std::string& panel_name)
+	{
+		T* panel = dynamic_cast<T*>(getPanel(panel_name));
+		if (!panel)
+		{
+			llwarns << "Child named \"" << panel_name << "\" of type " << typeid(T*).name() << " not found" << llendl;
+			return NULL;
+		}
+		return panel;
+	}
 
 	/*
      * collapse SideBar, hiding visible tab and moving tab buttons
@@ -174,8 +146,10 @@ public:
     
 	/*
      * expand SideBar
+     *
+     * @param open_active Whether to call onOpen() for the active tab.
      */
-	void		expandSideBar	();
+	void		expandSideBar(bool open_active = true);
 
 
 	/**
@@ -185,51 +159,91 @@ public:
 
 	void		setVisible(BOOL visible)
 	{
-		LLPanel::setVisible(visible);
+		if (getParent()) getParent()->setVisible(visible);
 	}
+
+	LLPanel*	getButtonsPanel() { return mButtonsPanel; }
+
+	bool		getCollapsed() { return mCollapsed; }
 
 public:
 	virtual ~LLSideTray(){};
 
     virtual BOOL postBuild();
 
-	void		onTabButtonClick(std::string name);
-	void		onToggleCollapse();
-
-	bool		addChild		(LLView* view, S32 tab_group);
-
 	BOOL		handleMouseDown	(S32 x, S32 y, MASK mask);
 	
 	void		reshape			(S32 width, S32 height, BOOL called_from_parent = TRUE);
-	S32			getTrayWidth();
+
+
+	/**
+	 * @return side tray width if it's visible and expanded, 0 otherwise.
+	 *
+	 * Not that width of the tab buttons is not included.
+	 *
+	 * @see setVisibleWidthChangeCallback()
+	 */
+	S32			getVisibleWidth();
+
+	void		setVisibleWidthChangeCallback(const commit_signal_t::slot_type& cb);
+
+	void		updateSidetrayVisibility();
+
+	void		handleLoginComplete();
+
+	bool 		isTabAttached	(const std::string& name);
 
 protected:
-	LLSideTrayTab* getTab		(const std::string& name);
+	bool		addChild		(LLView* view, S32 tab_group);
+	bool		removeTab		(LLSideTrayTab* tab); // Used to detach tabs temporarily
+	bool		addTab			(LLSideTrayTab* tab); // Used to re-attach tabs
+	bool		hasTabs			();
+
+	const LLSideTrayTab*	getActiveTab() const { return mActiveTab; }
+	LLSideTrayTab* 			getTab(const std::string& name);
 
 	void		createButtons	();
-	LLButton*	createButton	(const std::string& name,const std::string& image,LLUICtrl::commit_callback_t callback);
-	void		createHomeTab	();
+
+	LLButton*	createButton	(const std::string& name,const std::string& image,const std::string& tooltip,
+									LLUICtrl::commit_callback_t callback);
 	void		arrange			();
+	void		detachTabs		();
 	void		reflectCollapseChange();
+	void		processTriState ();
 
 	void		toggleTabButton	(LLSideTrayTab* tab);
 
+	LLPanel*	openChildPanel	(LLSideTrayTab* tab, const std::string& panel_name, const LLSD& params);
 
-	void		setPanelRect	();
-	
+	void		onTabButtonClick(std::string name);
+	void		onToggleCollapse();
 
 private:
+	// Implementation of LLDestroyClass<LLSideTray>
+	static void destroyClass()
+	{
+		// Disable SideTray to avoid crashes. EXT-245
+		if (LLSideTray::instanceCreated())
+			LLSideTray::getInstance()->setEnabled(FALSE);
+	}
 
-	std::map<std::string,LLButton*>	mTabButtons;
+private:
+	// Since we provide no public way to query mTabs and mDetachedTabs, give
+	// LLSideTrayListener friend access.
+	friend class LLSideTrayListener;
+	LLPanel*						mButtonsPanel;
+	typedef std::map<std::string,LLButton*> button_map_t;
+	button_map_t					mTabButtons;
 	child_vector_t					mTabs;
-	LLSideTrayTab*					mHomeTab;
+	child_vector_t					mDetachedTabs;
+	tab_order_vector_t				mOriginalTabOrder;
 	LLSideTrayTab*					mActiveTab;	
 	
+	commit_signal_t					mVisibleWidthChangeSignal;
+
 	LLButton*						mCollapseButton;
 	bool							mCollapsed;
 	
-	S32								mMaxBarWidth;
-
 	static LLSideTray*				sInstance;
 };
 

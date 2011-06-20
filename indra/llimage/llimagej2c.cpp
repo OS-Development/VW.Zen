@@ -1,221 +1,90 @@
 /** 
  * @file llimagej2c.cpp
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 #include "linden_common.h"
 
-#include "apr_pools.h"
-#include "apr_dso.h"
-
 #include "lldir.h"
 #include "llimagej2c.h"
 #include "llmemtype.h"
+#include "lltimer.h"
+#include "llmath.h"
 
 typedef LLImageJ2CImpl* (*CreateLLImageJ2CFunction)();
 typedef void (*DestroyLLImageJ2CFunction)(LLImageJ2CImpl*);
 typedef const char* (*EngineInfoLLImageJ2CFunction)();
 
-//some "private static" variables so we only attempt to load
-//dynamic libaries once
-CreateLLImageJ2CFunction j2cimpl_create_func;
-DestroyLLImageJ2CFunction j2cimpl_destroy_func;
-EngineInfoLLImageJ2CFunction j2cimpl_engineinfo_func;
-apr_pool_t *j2cimpl_dso_memory_pool;
-apr_dso_handle_t *j2cimpl_dso_handle;
-
-//Declare the prototype for theses functions here, their functionality
-//will be implemented in other files which define a derived LLImageJ2CImpl
-//but only ONE static library which has the implementation for this
-//function should ever be included
+// Declare the prototype for theses functions here. Their functionality
+// will be implemented in other files which define a derived LLImageJ2CImpl
+// but only ONE static library which has the implementation for these
+// functions should ever be included.
 LLImageJ2CImpl* fallbackCreateLLImageJ2CImpl();
 void fallbackDestroyLLImageJ2CImpl(LLImageJ2CImpl* impl);
 const char* fallbackEngineInfoLLImageJ2CImpl();
 
-//static
-//Loads the required "create", "destroy" and "engineinfo" functions needed
-void LLImageJ2C::openDSO()
-{
-	//attempt to load a DSO and get some functions from it
-	std::string dso_name;
-	std::string dso_path;
-
-	bool all_functions_loaded = false;
-	apr_status_t rv;
-
-#if LL_WINDOWS
-	dso_name = "llkdu.dll";
-#elif LL_DARWIN
-	dso_name = "libllkdu.dylib";
-#else
-	dso_name = "libllkdu.so";
-#endif
-
-	dso_path = gDirUtilp->findFile(dso_name,
-				       gDirUtilp->getAppRODataDir(),
-				       gDirUtilp->getExecutableDir());
-
-	j2cimpl_dso_handle      = NULL;
-	j2cimpl_dso_memory_pool = NULL;
-
-	//attempt to load the shared library
-	apr_pool_create(&j2cimpl_dso_memory_pool, NULL);
-	rv = apr_dso_load(&j2cimpl_dso_handle,
-					  dso_path.c_str(),
-					  j2cimpl_dso_memory_pool);
-
-	//now, check for success
-	if ( rv == APR_SUCCESS )
-	{
-		//found the dynamic library
-		//now we want to load the functions we're interested in
-		CreateLLImageJ2CFunction  create_func = NULL;
-		DestroyLLImageJ2CFunction dest_func = NULL;
-		EngineInfoLLImageJ2CFunction engineinfo_func = NULL;
-
-		rv = apr_dso_sym((apr_dso_handle_sym_t*)&create_func,
-						 j2cimpl_dso_handle,
-						 "createLLImageJ2CKDU");
-		if ( rv == APR_SUCCESS )
-		{
-			//we've loaded the create function ok
-			//we need to delete via the DSO too
-			//so lets check for a destruction function
-			rv = apr_dso_sym((apr_dso_handle_sym_t*)&dest_func,
-							 j2cimpl_dso_handle,
-						       "destroyLLImageJ2CKDU");
-			if ( rv == APR_SUCCESS )
-			{
-				//we've loaded the destroy function ok
-				rv = apr_dso_sym((apr_dso_handle_sym_t*)&engineinfo_func,
-						 j2cimpl_dso_handle,
-						 "engineInfoLLImageJ2CKDU");
-				if ( rv == APR_SUCCESS )
-				{
-					//ok, everything is loaded alright
-					j2cimpl_create_func  = create_func;
-					j2cimpl_destroy_func = dest_func;
-					j2cimpl_engineinfo_func = engineinfo_func;
-					all_functions_loaded = true;
-				}
-			}
-		}
-	}
-
-	if ( !all_functions_loaded )
-	{
-		//something went wrong with the DSO or function loading..
-		//fall back onto our satefy impl creation function
-
-#if 0
-		// precious verbose debugging, sadly we can't use our
-		// 'llinfos' stream etc. this early in the initialisation seq.
-		char errbuf[256];
-		fprintf(stderr, "failed to load syms from DSO %s (%s)\n",
-			dso_name.c_str(), dso_path.c_str());
-		apr_strerror(rv, errbuf, sizeof(errbuf));
-		fprintf(stderr, "error: %d, %s\n", rv, errbuf);
-		apr_dso_error(j2cimpl_dso_handle, errbuf, sizeof(errbuf));
-		fprintf(stderr, "dso-error: %d, %s\n", rv, errbuf);
-#endif
-
-		if ( j2cimpl_dso_handle )
-		{
-			apr_dso_unload(j2cimpl_dso_handle);
-			j2cimpl_dso_handle = NULL;
-		}
-
-		if ( j2cimpl_dso_memory_pool )
-		{
-			apr_pool_destroy(j2cimpl_dso_memory_pool);
-			j2cimpl_dso_memory_pool = NULL;
-		}
-	}
-}
-
-//static
-void LLImageJ2C::closeDSO()
-{
-	if ( j2cimpl_dso_handle ) apr_dso_unload(j2cimpl_dso_handle);
-	if (j2cimpl_dso_memory_pool) apr_pool_destroy(j2cimpl_dso_memory_pool);
-}
+// Test data gathering handle
+LLImageCompressionTester* LLImageJ2C::sTesterp = NULL ;
+const std::string sTesterName("ImageCompressionTester");
 
 //static
 std::string LLImageJ2C::getEngineInfo()
 {
-	if (!j2cimpl_engineinfo_func)
-		j2cimpl_engineinfo_func = fallbackEngineInfoLLImageJ2CImpl;
-
-	return j2cimpl_engineinfo_func();
+    return fallbackEngineInfoLLImageJ2CImpl();
 }
 
 LLImageJ2C::LLImageJ2C() : 	LLImageFormatted(IMG_CODEC_J2C),
 							mMaxBytes(0),
 							mRawDiscardLevel(-1),
 							mRate(0.0f),
-							mReversible(FALSE)
-	
+							mReversible(FALSE),
+							mAreaUsedForDataSizeCalcs(0)
 {
-	//We assume here that if we wanted to create via
-	//a dynamic library that the approriate open calls were made
-	//before any calls to this constructor.
+	mImpl = fallbackCreateLLImageJ2CImpl();
 
-	//Therefore, a NULL creation function pointer here means
-	//we either did not want to create using functions from the dynamic
-	//library or there were issues loading it, either way
-	//use our fall back
-	if ( !j2cimpl_create_func )
-	{
-		j2cimpl_create_func = fallbackCreateLLImageJ2CImpl;
+	// Clear data size table
+	for( S32 i = 0; i <= MAX_DISCARD_LEVEL; i++)
+	{	// Array size is MAX_DISCARD_LEVEL+1
+		mDataSizes[i] = 0;
 	}
 
-	mImpl = j2cimpl_create_func();
+	// If that test log has ben requested but not yet created, create it
+	if (LLMetricPerformanceTesterBasic::isMetricLogRequested(sTesterName) && !LLMetricPerformanceTesterBasic::getTester(sTesterName))
+	{
+		sTesterp = new LLImageCompressionTester() ;
+		if (!sTesterp->isValid())
+		{
+			delete sTesterp;
+			sTesterp = NULL;
+		}
+	}
 }
 
 // virtual
 LLImageJ2C::~LLImageJ2C()
 {
-	//We assume here that if we wanted to destroy via
-	//a dynamic library that the approriate open calls were made
-	//before any calls to this destructor.
-
-	//Therefore, a NULL creation function pointer here means
-	//we either did not want to destroy using functions from the dynamic
-	//library or there were issues loading it, either way
-	//use our fall back
-	if ( !j2cimpl_destroy_func )
-	{
-		j2cimpl_destroy_func = fallbackDestroyLLImageJ2CImpl;
-	}
-
 	if ( mImpl )
 	{
-		j2cimpl_destroy_func(mImpl);
+        fallbackDestroyLLImageJ2CImpl(mImpl);
 	}
 }
 
@@ -270,6 +139,15 @@ BOOL LLImageJ2C::updateData()
 	return res;
 }
 
+BOOL LLImageJ2C::initDecode(LLImageRaw &raw_image, int discard_level, int* region)
+{
+	return mImpl->initDecode(*this,raw_image,discard_level,region);
+}
+
+BOOL LLImageJ2C::initEncode(LLImageRaw &raw_image, int blocks_size, int precincts_size, int levels)
+{
+	return mImpl->initEncode(*this,raw_image,blocks_size,precincts_size,levels);
+}
 
 BOOL LLImageJ2C::decode(LLImageRaw *raw_imagep, F32 decode_time)
 {
@@ -277,8 +155,10 @@ BOOL LLImageJ2C::decode(LLImageRaw *raw_imagep, F32 decode_time)
 }
 
 
+// Returns TRUE to mean done, whether successful or not.
 BOOL LLImageJ2C::decodeChannels(LLImageRaw *raw_imagep, F32 decode_time, S32 first_channel, S32 max_channel_count )
 {
+	LLTimer elapsed;
 	LLMemType mt1(mMemType);
 
 	BOOL res = TRUE;
@@ -289,7 +169,7 @@ BOOL LLImageJ2C::decodeChannels(LLImageRaw *raw_imagep, F32 decode_time, S32 fir
 	if (!getData() || (getDataSize() < 16))
 	{
 		setLastError("LLImageJ2C uninitialized");
-		res = FALSE;
+		res = TRUE; // done
 	}
 	else
 	{
@@ -317,6 +197,21 @@ BOOL LLImageJ2C::decodeChannels(LLImageRaw *raw_imagep, F32 decode_time, S32 fir
 		LLImage::setLastError(mLastError);
 	}
 	
+	LLImageCompressionTester* tester = (LLImageCompressionTester*)LLMetricPerformanceTesterBasic::getTester(sTesterName);
+	if (tester)
+	{
+		// Decompression stat gathering
+		// Note that we *do not* take into account the decompression failures data so we might overestimate the time spent processing
+
+		// Always add the decompression time to the stat
+		tester->updateDecompressionStats(elapsed.getElapsedTimeF32()) ;
+		if (res)
+		{
+			// The whole data stream is finally decompressed when res is returned as TRUE
+			tester->updateDecompressionStats(this->getDataSize(), raw_imagep->getDataSize()) ;
+		}
+	}
+
 	return res;
 }
 
@@ -329,6 +224,7 @@ BOOL LLImageJ2C::encode(const LLImageRaw *raw_imagep, F32 encode_time)
 
 BOOL LLImageJ2C::encode(const LLImageRaw *raw_imagep, const char* comment_text, F32 encode_time)
 {
+	LLTimer elapsed;
 	LLMemType mt1(mMemType);
 	resetLastError();
 	BOOL res = mImpl->encodeImpl(*this, *raw_imagep, comment_text, encode_time, mReversible);
@@ -336,18 +232,37 @@ BOOL LLImageJ2C::encode(const LLImageRaw *raw_imagep, const char* comment_text, 
 	{
 		LLImage::setLastError(mLastError);
 	}
+
+	LLImageCompressionTester* tester = (LLImageCompressionTester*)LLMetricPerformanceTesterBasic::getTester(sTesterName);
+	if (tester)
+	{
+		// Compression stat gathering
+		// Note that we *do not* take into account the compression failures cases so we night overestimate the time spent processing
+
+		// Always add the compression time to the stat
+		tester->updateCompressionStats(elapsed.getElapsedTimeF32()) ;
+		if (res)
+		{
+			// The whole data stream is finally compressed when res is returned as TRUE
+			tester->updateCompressionStats(this->getDataSize(), raw_imagep->getDataSize()) ;
+		}
+	}
+
 	return res;
 }
 
 //static
 S32 LLImageJ2C::calcHeaderSizeJ2C()
 {
-	return 600; //2048; // ??? hack... just needs to be >= actual header size...
+	return FIRST_PACKET_SIZE; // Hack. just needs to be >= actual header size...
 }
 
 //static
 S32 LLImageJ2C::calcDataSizeJ2C(S32 w, S32 h, S32 comp, S32 discard_level, F32 rate)
 {
+	// Note: this only provides an *estimate* of the size in bytes of an image level
+	// *TODO: find a way to read the true size (when available) and convey the fact
+	// that the result is an estimate in the other cases
 	if (rate <= 0.f) rate = .125f;
 	while (discard_level > 0)
 	{
@@ -367,9 +282,45 @@ S32 LLImageJ2C::calcHeaderSize()
 	return calcHeaderSizeJ2C();
 }
 
+
+// calcDataSize() returns how many bytes to read 
+// to load discard_level (including header and higher discard levels)
 S32 LLImageJ2C::calcDataSize(S32 discard_level)
 {
-	return calcDataSizeJ2C(getWidth(), getHeight(), getComponents(), discard_level, mRate);
+	discard_level = llclamp(discard_level, 0, MAX_DISCARD_LEVEL);
+
+	if ( mAreaUsedForDataSizeCalcs != (getHeight() * getWidth()) 
+		|| mDataSizes[0] == 0)
+	{
+		mAreaUsedForDataSizeCalcs = getHeight() * getWidth();
+		
+		S32 level = MAX_DISCARD_LEVEL;	// Start at the highest discard
+		while ( level >= 0 )
+		{
+			mDataSizes[level] = calcDataSizeJ2C(getWidth(), getHeight(), getComponents(), level, mRate);
+			level--;
+		}
+
+		/* This is technically a more correct way to calculate the size required
+		   for each discard level, since they should include the size needed for
+		   lower levels.   Unfortunately, this doesn't work well and will lead to 
+		   download stalls.  The true correct way is to parse the header.  This will
+		   all go away with http textures at some point.
+
+		// Calculate the size for each discard level.   Lower levels (higher quality)
+		// contain the cumulative size of higher levels		
+		S32 total_size = calcHeaderSizeJ2C();
+
+		S32 level = MAX_DISCARD_LEVEL;	// Start at the highest discard
+		while ( level >= 0 )
+		{	// Add in this discard level and all before it
+			total_size += calcDataSizeJ2C(getWidth(), getHeight(), getComponents(), level, mRate);
+			mDataSizes[level] = total_size;
+			level--;
+		}
+		*/
+	}
+	return mDataSizes[discard_level];
 }
 
 S32 LLImageJ2C::calcDiscardLevelBytes(S32 bytes)
@@ -503,3 +454,126 @@ void LLImageJ2C::updateRawDiscardLevel()
 LLImageJ2CImpl::~LLImageJ2CImpl()
 {
 }
+
+//----------------------------------------------------------------------------------------------
+// Start of LLImageCompressionTester
+//----------------------------------------------------------------------------------------------
+LLImageCompressionTester::LLImageCompressionTester() : LLMetricPerformanceTesterBasic(sTesterName) 
+{
+	addMetric("Time Decompression (s)");
+	addMetric("Volume In Decompression (kB)");
+	addMetric("Volume Out Decompression (kB)");
+	addMetric("Decompression Ratio (x:1)");
+	addMetric("Perf Decompression (kB/s)");
+
+	addMetric("Time Compression (s)");
+	addMetric("Volume In Compression (kB)");
+	addMetric("Volume Out Compression (kB)");
+	addMetric("Compression Ratio (x:1)");
+	addMetric("Perf Compression (kB/s)");
+
+	mRunBytesInDecompression = 0;
+	mRunBytesInCompression = 0;
+
+	mTotalBytesInDecompression = 0;
+	mTotalBytesOutDecompression = 0;
+	mTotalBytesInCompression = 0;
+	mTotalBytesOutCompression = 0;
+
+	mTotalTimeDecompression = 0.0f;
+	mTotalTimeCompression = 0.0f;
+}
+
+LLImageCompressionTester::~LLImageCompressionTester()
+{
+	outputTestResults();
+	LLImageJ2C::sTesterp = NULL;
+}
+
+//virtual 
+void LLImageCompressionTester::outputTestRecord(LLSD *sd) 
+{	
+	std::string currentLabel = getCurrentLabelName();
+
+	F32 decompressionPerf = 0.0f;
+	F32 compressionPerf   = 0.0f;
+	F32 decompressionRate = 0.0f;
+	F32 compressionRate   = 0.0f;
+
+	F32 totalkBInDecompression  = (F32)(mTotalBytesInDecompression)  / 1000.0;
+	F32 totalkBOutDecompression = (F32)(mTotalBytesOutDecompression) / 1000.0;
+	F32 totalkBInCompression    = (F32)(mTotalBytesInCompression)    / 1000.0;
+	F32 totalkBOutCompression   = (F32)(mTotalBytesOutCompression)   / 1000.0;
+	
+	if (!is_approx_zero(mTotalTimeDecompression))
+	{
+		decompressionPerf = totalkBInDecompression / mTotalTimeDecompression;
+	}
+	if (!is_approx_zero(totalkBInDecompression))
+	{
+		decompressionRate = totalkBOutDecompression / totalkBInDecompression;
+	}
+	if (!is_approx_zero(mTotalTimeCompression))
+	{
+		compressionPerf = totalkBInCompression / mTotalTimeCompression;
+	}
+	if (!is_approx_zero(totalkBOutCompression))
+	{
+		compressionRate = totalkBInCompression / totalkBOutCompression;
+	}
+
+	(*sd)[currentLabel]["Time Decompression (s)"]		= (LLSD::Real)mTotalTimeDecompression;
+	(*sd)[currentLabel]["Volume In Decompression (kB)"]	= (LLSD::Real)totalkBInDecompression;
+	(*sd)[currentLabel]["Volume Out Decompression (kB)"]= (LLSD::Real)totalkBOutDecompression;
+	(*sd)[currentLabel]["Decompression Ratio (x:1)"]	= (LLSD::Real)decompressionRate;
+	(*sd)[currentLabel]["Perf Decompression (kB/s)"]	= (LLSD::Real)decompressionPerf;
+
+	(*sd)[currentLabel]["Time Compression (s)"]			= (LLSD::Real)mTotalTimeCompression;
+	(*sd)[currentLabel]["Volume In Compression (kB)"]	= (LLSD::Real)totalkBInCompression;
+	(*sd)[currentLabel]["Volume Out Compression (kB)"]	= (LLSD::Real)totalkBOutCompression;
+	(*sd)[currentLabel]["Compression Ratio (x:1)"]		= (LLSD::Real)compressionRate;
+	(*sd)[currentLabel]["Perf Compression (kB/s)"]		= (LLSD::Real)compressionPerf;
+}
+
+void LLImageCompressionTester::updateCompressionStats(const F32 deltaTime) 
+{
+	mTotalTimeCompression += deltaTime;
+}
+
+void LLImageCompressionTester::updateCompressionStats(const S32 bytesCompress, const S32 bytesRaw) 
+{
+	mTotalBytesInCompression += bytesRaw;
+	mRunBytesInCompression += bytesRaw;
+	mTotalBytesOutCompression += bytesCompress;
+	if (mRunBytesInCompression > (1000000))
+	{
+		// Output everything
+		outputTestResults();
+		// Reset the compression data of the run
+		mRunBytesInCompression = 0;
+	}
+}
+
+void LLImageCompressionTester::updateDecompressionStats(const F32 deltaTime) 
+{
+	mTotalTimeDecompression += deltaTime;
+}
+
+void LLImageCompressionTester::updateDecompressionStats(const S32 bytesIn, const S32 bytesOut) 
+{
+	mTotalBytesInDecompression += bytesIn;
+	mRunBytesInDecompression += bytesIn;
+	mTotalBytesOutDecompression += bytesOut;
+	if (mRunBytesInDecompression > (1000000))
+	{
+		// Output everything
+		outputTestResults();
+		// Reset the decompression data of the run
+		mRunBytesInDecompression = 0;
+	}
+}
+
+//----------------------------------------------------------------------------------------------
+// End of LLTexturePipelineTester
+//----------------------------------------------------------------------------------------------
+

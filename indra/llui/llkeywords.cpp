@@ -2,31 +2,25 @@
  * @file llkeywords.cpp
  * @brief Keyword list for LSL
  *
- * $LicenseInfo:firstyear=2000&license=viewergpl$
- * 
- * Copyright (c) 2000-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2000&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -218,6 +212,86 @@ void LLKeywords::addToken(LLKeywordToken::TOKEN_TYPE type,
 		llassert(0);
 	}
 }
+LLKeywords::WStringMapIndex::WStringMapIndex(const WStringMapIndex& other)
+{
+	if(other.mOwner)
+	{
+		copyData(other.mData, other.mLength);
+	}
+	else
+	{
+		mOwner = false;
+		mLength = other.mLength;
+		mData = other.mData;
+	}
+}
+
+LLKeywords::WStringMapIndex::WStringMapIndex(const LLWString& str)
+{
+	copyData(str.data(), str.size());
+}
+
+LLKeywords::WStringMapIndex::WStringMapIndex(const llwchar *start, size_t length):
+mData(start), mLength(length), mOwner(false)
+{
+}
+
+LLKeywords::WStringMapIndex::~WStringMapIndex()
+{
+	if(mOwner)
+		delete[] mData;
+}
+
+void LLKeywords::WStringMapIndex::copyData(const llwchar *start, size_t length)
+{
+	llwchar *data = new llwchar[length];
+	memcpy((void*)data, (const void*)start, length * sizeof(llwchar));
+
+	mOwner = true;
+	mLength = length;
+	mData = data;
+}
+
+bool LLKeywords::WStringMapIndex::operator<(const LLKeywords::WStringMapIndex &other) const
+{
+	// NOTE: Since this is only used to organize a std::map, it doesn't matter if it uses correct collate order or not.
+	// The comparison only needs to strictly order all possible strings, and be stable.
+	
+	bool result = false;
+	const llwchar* self_iter = mData;
+	const llwchar* self_end = mData + mLength;
+	const llwchar* other_iter = other.mData;
+	const llwchar* other_end = other.mData + other.mLength;
+	
+	while(true)
+	{
+		if(other_iter >= other_end)
+		{
+			// We've hit the end of other.
+			// This covers two cases: other being shorter than self, or the strings being equal.
+			// In either case, we want to return false.
+			result = false;
+			break;
+		}
+		else if(self_iter >= self_end)
+		{
+			// self is shorter than other.
+			result = true;
+			break; 
+		}
+		else if(*self_iter != *other_iter)
+		{
+			// The current character differs.  The strings are not equal.
+			result = *self_iter < *other_iter;
+			break;
+		}
+
+		self_iter++;
+		other_iter++;
+	}
+	
+	return result;
+}
 
 LLColor3 LLKeywords::readColor( const std::string& s )
 {
@@ -231,11 +305,13 @@ LLColor3 LLKeywords::readColor( const std::string& s )
 	return LLColor3( r, g, b );
 }
 
+LLFastTimer::DeclareTimer FTM_SYNTAX_COLORING("Syntax Coloring");
+
 // Walk through a string, applying the rules specified by the keyword token list and
 // create a list of color segments.
-void LLKeywords::findSegments(std::vector<LLTextSegment *>* seg_list, const LLWString& wtext, const LLColor4 &defaultColor)
+void LLKeywords::findSegments(std::vector<LLTextSegmentPtr>* seg_list, const LLWString& wtext, const LLColor4 &defaultColor, LLTextEditor& editor)
 {
-	std::for_each(seg_list->begin(), seg_list->end(), DeletePointer());
+	LLFastTimer ft(FTM_SYNTAX_COLORING);
 	seg_list->clear();
 
 	if( wtext.empty() )
@@ -243,9 +319,9 @@ void LLKeywords::findSegments(std::vector<LLTextSegment *>* seg_list, const LLWS
 		return;
 	}
 	
-	S32 text_len = wtext.size();
+	S32 text_len = wtext.size() + 1;
 
-	seg_list->push_back( new LLTextSegment( LLColor3(defaultColor), 0, text_len ) ); 
+	seg_list->push_back( new LLNormalTextSegment( defaultColor, 0, text_len, editor ) ); 
 
 	const llwchar* base = wtext.c_str();
 	const llwchar* cur = base;
@@ -257,6 +333,9 @@ void LLKeywords::findSegments(std::vector<LLTextSegment *>* seg_list, const LLWS
 		{
 			if( *cur == '\n' )
 			{
+				LLTextSegmentPtr text_segment = new LLLineBreakTextSegment(cur-base);
+				text_segment->setToken( 0 );
+				insertSegment( *seg_list, text_segment, text_len, defaultColor, editor);
 				cur++;
 				if( !*cur || *cur == '\n' )
 				{
@@ -296,9 +375,8 @@ void LLKeywords::findSegments(std::vector<LLTextSegment *>* seg_list, const LLWS
 						}
 						S32 seg_end = cur - base;
 						
-						LLTextSegment* text_segment = new LLTextSegment( cur_token->getColor(), seg_start, seg_end );
-						text_segment->setToken( cur_token );
-						insertSegment( seg_list, text_segment, text_len, defaultColor);
+						//create segments from seg_start to seg_end
+						insertSegments(wtext, *seg_list,cur_token, text_len, seg_start, seg_end, defaultColor, editor);
 						line_done = TRUE; // to break out of second loop.
 						break;
 					}
@@ -404,11 +482,12 @@ void LLKeywords::findSegments(std::vector<LLTextSegment *>* seg_list, const LLWS
 						seg_end = seg_start + between_delimiters + cur_delimiter->getLength();
 					}
 
-
-					LLTextSegment* text_segment = new LLTextSegment( cur_delimiter->getColor(), seg_start, seg_end );
+					insertSegments(wtext, *seg_list,cur_delimiter, text_len, seg_start, seg_end, defaultColor, editor);
+					/*
+					LLTextSegmentPtr text_segment = new LLNormalTextSegment( cur_delimiter->getColor(), seg_start, seg_end, editor );
 					text_segment->setToken( cur_delimiter );
-					insertSegment( seg_list, text_segment, text_len, defaultColor);
-
+					insertSegment( seg_list, text_segment, text_len, defaultColor, editor);
+					*/
 					// Note: we don't increment cur, since the end of one delimited seg may be immediately
 					// followed by the start of another one.
 					continue;
@@ -427,7 +506,7 @@ void LLKeywords::findSegments(std::vector<LLTextSegment *>* seg_list, const LLWS
 				S32 seg_len = p - cur;
 				if( seg_len > 0 )
 				{
-					LLWString word( cur, 0, seg_len );
+					WStringMapIndex word( cur, seg_len );
 					word_token_map_t::iterator map_iter = mWordTokenMap.find(word);
 					if( map_iter != mWordTokenMap.end() )
 					{
@@ -437,10 +516,7 @@ void LLKeywords::findSegments(std::vector<LLTextSegment *>* seg_list, const LLWS
 
 						// llinfos << "Seg: [" << word.c_str() << "]" << llendl;
 
-
-						LLTextSegment* text_segment = new LLTextSegment( cur_token->getColor(), seg_start, seg_end );
-						text_segment->setToken( cur_token );
-						insertSegment( seg_list, text_segment, text_len, defaultColor);
+						insertSegments(wtext, *seg_list,cur_token, text_len, seg_start, seg_end, defaultColor, editor);
 					}
 					cur += seg_len; 
 					continue;
@@ -455,25 +531,50 @@ void LLKeywords::findSegments(std::vector<LLTextSegment *>* seg_list, const LLWS
 	}
 }
 
-void LLKeywords::insertSegment(std::vector<LLTextSegment*>* seg_list, LLTextSegment* new_segment, S32 text_len, const LLColor4 &defaultColor )
+void LLKeywords::insertSegments(const LLWString& wtext, std::vector<LLTextSegmentPtr>& seg_list, LLKeywordToken* cur_token, S32 text_len, S32 seg_start, S32 seg_end, const LLColor4 &defaultColor, LLTextEditor& editor )
 {
-	LLTextSegment* last = seg_list->back();
+	std::string::size_type pos = wtext.find('\n',seg_start);
+	
+	while (pos!=-1 && pos < (std::string::size_type)seg_end)
+	{
+		if (pos!=seg_start)
+		{
+			LLTextSegmentPtr text_segment = new LLNormalTextSegment( cur_token->getColor(), seg_start, pos, editor );
+			text_segment->setToken( cur_token );
+			insertSegment( seg_list, text_segment, text_len, defaultColor, editor);
+		}
+
+		LLTextSegmentPtr text_segment = new LLLineBreakTextSegment(pos);
+		text_segment->setToken( cur_token );
+		insertSegment( seg_list, text_segment, text_len, defaultColor, editor);
+
+		seg_start = pos+1;
+		pos = wtext.find('\n',seg_start);
+	}
+
+	LLTextSegmentPtr text_segment = new LLNormalTextSegment( cur_token->getColor(), seg_start, seg_end, editor );
+	text_segment->setToken( cur_token );
+	insertSegment( seg_list, text_segment, text_len, defaultColor, editor);
+}
+
+void LLKeywords::insertSegment(std::vector<LLTextSegmentPtr>& seg_list, LLTextSegmentPtr new_segment, S32 text_len, const LLColor4 &defaultColor, LLTextEditor& editor )
+{
+	LLTextSegmentPtr last = seg_list.back();
 	S32 new_seg_end = new_segment->getEnd();
 
 	if( new_segment->getStart() == last->getStart() )
 	{
-		*last = *new_segment;
-		delete new_segment;
+		seg_list.pop_back();
 	}
 	else
 	{
 		last->setEnd( new_segment->getStart() );
-		seg_list->push_back( new_segment );
 	}
+	seg_list.push_back( new_segment );
 
 	if( new_seg_end < text_len )
 	{
-		seg_list->push_back( new LLTextSegment( defaultColor, new_seg_end, text_len ) );
+		seg_list.push_back( new LLNormalTextSegment( defaultColor, new_seg_end, text_len, editor ) );
 	}
 }
 

@@ -2,57 +2,159 @@
  * @file llavatariconctrl.cpp
  * @brief LLAvatarIconCtrl class implementation
  *
- * $LicenseInfo:firstyear=2009&license=viewergpl$
- * 
- * Copyright (c) 2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2009&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
 #include "llviewerprecompiledheaders.h"
 
+#include "llavatariconctrl.h"
+
+// viewer includes
 #include "llagent.h"
 #include "llavatarconstants.h"
-#include "llavatariconctrl.h"
 #include "llcallingcard.h" // for LLAvatarTracker
-#include "llfriendactions.h"
-#include "llimview.h"
+#include "llavataractions.h"
 #include "llmenugl.h"
 #include "lluictrlfactory.h"
+#include "llagentdata.h"
+#include "llimfloater.h"
 
-#include "llcachename.h"
+// library includes
+#include "llavatarnamecache.h"
 
 #define MENU_ITEM_VIEW_PROFILE 0
 #define MENU_ITEM_SEND_IM 1
 
 static LLDefaultChildRegistry::Register<LLAvatarIconCtrl> r("avatar_icon");
 
+bool LLAvatarIconIDCache::LLAvatarIconIDCacheItem::expired()
+{
+	const F64 SEC_PER_DAY_PLUS_HOUR = (24.0 + 1.0) * 60.0 * 60.0;
+	F64 delta = LLDate::now().secondsSinceEpoch() - cached_time.secondsSinceEpoch();
+	if (delta > SEC_PER_DAY_PLUS_HOUR)
+		return true;
+	return false;
+}
+
+void LLAvatarIconIDCache::load	()
+{
+	llinfos << "Loading avatar icon id cache." << llendl;
+	
+	// build filename for each user
+	std::string resolved_filename = gDirUtilp->getExpandedFilename(LL_PATH_CACHE, mFilename);
+	llifstream file(resolved_filename);
+
+	if (!file.is_open())
+		return;
+	
+	// add each line in the file to the list
+	int uuid_len = UUID_STR_LENGTH-1;
+	std::string line;
+	while (std::getline(file, line)) 
+	{
+		LLUUID avatar_id;
+		LLUUID icon_id;
+		LLDate date;
+
+		std::string avatar_id_str = line.substr(0,uuid_len);
+		std::string icon_id_str = line.substr(uuid_len,uuid_len);
+		
+		std::string date_str = line.substr(uuid_len*2, line.length()-uuid_len*2);
+
+		if(!avatar_id.set(avatar_id_str) || !icon_id.set(icon_id_str) || !date.fromString(date_str))
+			continue;
+
+		LLAvatarIconIDCacheItem item = {icon_id,date};
+		mCache[avatar_id] = item;
+	}
+
+	file.close();
+	
+}
+
+void LLAvatarIconIDCache::save	()
+{
+	std::string resolved_filename = gDirUtilp->getExpandedFilename(LL_PATH_CACHE, mFilename);
+
+	// open a file for writing
+	llofstream file (resolved_filename);
+	if (!file.is_open())
+	{
+		llwarns << "can't open avatar icons cache file\"" << mFilename << "\" for writing" << llendl;
+		return;
+	}
+
+	for(std::map<LLUUID,LLAvatarIconIDCacheItem>::iterator it = mCache.begin();it!=mCache.end();++it)
+	{
+		if(!it->second.expired())
+		{
+			file << it->first << it->second.icon_id << it->second.cached_time << std::endl;	
+		}
+	}
+	
+	file.close();
+}
+
+LLUUID*	LLAvatarIconIDCache::get		(const LLUUID& avatar_id)
+{
+	std::map<LLUUID,LLAvatarIconIDCacheItem>::iterator it = mCache.find(avatar_id);
+	if(it==mCache.end())
+		return 0;
+	if(it->second.expired())
+		return 0;
+	return &it->second.icon_id;
+}
+
+void LLAvatarIconIDCache::add		(const LLUUID& avatar_id,const LLUUID& icon_id)
+{
+	LLAvatarIconIDCacheItem item = {icon_id,LLDate::now()};
+	mCache[avatar_id] = item;
+}
+
+void LLAvatarIconIDCache::remove	(const LLUUID& avatar_id)
+{
+	mCache.erase(avatar_id);
+}
+
+
+LLAvatarIconCtrl::Params::Params()
+:	avatar_id("avatar_id"),
+	draw_tooltip("draw_tooltip", true),
+	default_icon_name("default_icon_name")
+{
+	name = "avatar_icon";
+}
+
+
 LLAvatarIconCtrl::LLAvatarIconCtrl(const LLAvatarIconCtrl::Params& p)
 :	LLIconCtrl(p),
-	mDrawTooltip(p.draw_tooltip)
+	mDrawTooltip(p.draw_tooltip),
+	mDefaultIconName(p.default_icon_name)
 {
+	mPriority = LLViewerFetchedTexture::BOOST_ICON;
+	
 	LLRect rect = p.rect;
+	mDrawWidth  = llmax(32, rect.getWidth()) ;
+	mDrawHeight = llmax(32, rect.getHeight()) ;
 
 	static LLUICachedControl<S32> llavatariconctrl_symbol_hpad("UIAvatariconctrlSymbolHPad", 2);
 	static LLUICachedControl<S32> llavatariconctrl_symbol_vpad("UIAvatariconctrlSymbolVPad", 2);
@@ -81,16 +183,6 @@ LLAvatarIconCtrl::LLAvatarIconCtrl(const LLAvatarIconCtrl::Params& p)
 
 	rect.setOriginAndSize(left, bottom, llavatariconctrl_symbol_size, llavatariconctrl_symbol_size);
 
-	LLIconCtrl::Params icparams;
-	icparams.name ("Status Symbol");
-	icparams.follows.flags (FOLLOWS_RIGHT | FOLLOWS_BOTTOM);
-	icparams.rect (rect);
-	mStatusSymbol = LLUICtrlFactory::create<LLIconCtrl> (icparams);
-	mStatusSymbol->setValue("circle.tga");
-	mStatusSymbol->setColor(LLColor4::grey);
-
-	addChild(mStatusSymbol);
-	
 	if (p.avatar_id.isProvided())
 	{
 		LLSD value(p.avatar_id);
@@ -98,17 +190,8 @@ LLAvatarIconCtrl::LLAvatarIconCtrl(const LLAvatarIconCtrl::Params& p)
 	}
 	else
 	{
-		LLIconCtrl::setValue("default_profile_picture.j2c");
+		LLIconCtrl::setValue(mDefaultIconName);
 	}
-
-
-	LLUICtrl::CommitCallbackRegistry::ScopedRegistrar registrar;
-
-	registrar.add("AvatarIcon.Action", boost::bind(&LLAvatarIconCtrl::onAvatarIconContextMenuItemClicked, this, _2));
-
-	LLMenuGL* menu = LLUICtrlFactory::getInstance()->createFromFile<LLMenuGL>("menu_avatar_icon.xml", gMenuHolder, LLViewerMenuHolderGL::child_registry_t::instance());
-
-	mPopupMenuHandle = menu->getHandle();
 }
 
 LLAvatarIconCtrl::~LLAvatarIconCtrl()
@@ -118,8 +201,6 @@ LLAvatarIconCtrl::~LLAvatarIconCtrl()
 		LLAvatarPropertiesProcessor::getInstance()->removeObserver(mAvatarId, this);
 		// Name callbacks will be automatically disconnected since LLUICtrl is trackable
 	}
-
-	LLView::deleteViewByHandle(mPopupMenuHandle);
 }
 
 //virtual
@@ -127,16 +208,34 @@ void LLAvatarIconCtrl::setValue(const LLSD& value)
 {
 	if (value.isUUID())
 	{
+		LLAvatarPropertiesProcessor* app =
+			LLAvatarPropertiesProcessor::getInstance();
 		if (mAvatarId.notNull())
 		{
-			LLAvatarPropertiesProcessor::getInstance()->removeObserver(mAvatarId, this);
+			app->removeObserver(mAvatarId, this);
 		}
 
 		if (mAvatarId != value.asUUID())
 		{
-			LLAvatarPropertiesProcessor::getInstance()->addObserver(value.asUUID(), this);
-			LLAvatarPropertiesProcessor::getInstance()->sendDataRequest(value.asUUID(),APT_PROPERTIES);
 			mAvatarId = value.asUUID();
+
+			// *BUG: This will return stale icons if a user changes their
+			// profile picture. However, otherwise we send too many upstream
+			// AvatarPropertiesRequest messages.
+
+			// to get fresh avatar icon use
+			// LLAvatarIconIDCache::getInstance()->remove(avatar_id);
+
+			// Check if cache already contains image_id for that avatar
+			if (!updateFromCache())
+			{
+				// *TODO: Consider getting avatar icon/badge directly from 
+				// People API, rather than sending AvatarPropertyRequest
+				// messages.  People API already hits the user table.
+				LLIconCtrl::setValue(mDefaultIconName);
+				app->addObserver(mAvatarId, this);
+				app->sendAvatarPropertiesRequest(mAvatarId);
+			}
 		}
 	}
 	else
@@ -144,7 +243,30 @@ void LLAvatarIconCtrl::setValue(const LLSD& value)
 		LLIconCtrl::setValue(value);
 	}
 
-	gCacheName->get(mAvatarId, FALSE, boost::bind(&LLAvatarIconCtrl::nameUpdatedCallback, this, _1, _2, _3, _4));
+	LLAvatarNameCache::get(mAvatarId,
+		boost::bind(&LLAvatarIconCtrl::onAvatarNameCache, 
+			this, _1, _2));
+}
+
+bool LLAvatarIconCtrl::updateFromCache()
+{
+	LLUUID* icon_id_ptr = LLAvatarIconIDCache::getInstance()->get(mAvatarId);
+	if(!icon_id_ptr)
+		return false;
+
+	const LLUUID& icon_id = *icon_id_ptr;
+
+	// Update the avatar
+	if (icon_id.notNull())
+	{
+		LLIconCtrl::setValue(icon_id);
+	}
+	else
+	{
+		LLIconCtrl::setValue(mDefaultIconName);
+	}
+
+	return true;
 }
 
 //virtual
@@ -160,98 +282,27 @@ void LLAvatarIconCtrl::processProperties(void* data, EAvatarProcessorType type)
 				return;
 			}
 
-			// Update the avatar
-			if (avatar_data->image_id.notNull())
-			{
-				LLIconCtrl::setValue(avatar_data->image_id);
-			}
-			else
-			{
-				LLIconCtrl::setValue("default_profile_picture.j2c");
-			}
-
-			// Update color of status symbol and tool tip
-			if (avatar_data->flags & AVATAR_ONLINE)
-			{
-				mStatusSymbol->setColor(LLColor4::green);
-				if (mDrawTooltip)
-				{
-					setToolTip((LLStringExplicit)"Online");
-				}
-			}
-			else
-			{
-				mStatusSymbol->setColor(LLColor4::grey);
-				if (mDrawTooltip)
-				{
-					setToolTip((LLStringExplicit)"Offline");
-				}
-			}
+			LLAvatarIconIDCache::getInstance()->add(mAvatarId,avatar_data->image_id);
+			updateFromCache();
 		}
 	}
 }
 
-BOOL LLAvatarIconCtrl::handleRightMouseDown(S32 x, S32 y, MASK mask)
+void LLAvatarIconCtrl::onAvatarNameCache(const LLUUID& agent_id, const LLAvatarName& av_name)
 {
-	LLMenuGL* menu = (LLMenuGL*)mPopupMenuHandle.get();
-
-	if(menu)
+	if (agent_id == mAvatarId)
 	{
-		bool is_friend = LLAvatarTracker::instance().getBuddyInfo(mAvatarId) != NULL;
+		// Most avatar icon controls are next to a UI element that shows
+		// a display name, so only show username.
+		mFullName = av_name.mUsername;
 
-		menu->setItemEnabled("Add Friend", !is_friend);
-		menu->setItemEnabled("Remove Friend", is_friend);
-
-		menu->buildDrawLabels();
-		menu->updateParent(LLMenuGL::sMenuContainer);
-		LLMenuGL::showPopup(this, menu, x, y);
-	}
-
-	return TRUE;
-}
-
-void LLAvatarIconCtrl::nameUpdatedCallback(
-	const LLUUID& id,
-	const std::string& first,
-	const std::string& last,
-	BOOL is_group)
-{
-	if (id == mAvatarId)
-	{
-		mFirstName = first;
-		mLastName = last;
-	}
-}
-
-void LLAvatarIconCtrl::onAvatarIconContextMenuItemClicked(const LLSD& userdata)
-{
-	std::string level = userdata.asString();
-	LLUUID id = getAvatarId();
-
-	if (level == "profile")
-	{
-		LLFriendActions::showProfile(id);
-	}
-	else if (level == "im")
-	{
-		std::string name;
-		name.assign(getFirstName());
-		name.append(" ");
-		name.append(getLastName());
-
-		gIMMgr->addSession(name, IM_NOTHING_SPECIAL, id);
-	}
-	else if (level == "add")
-	{
-		std::string name;
-		name.assign(getFirstName());
-		name.append(" ");
-		name.append(getLastName());
-
-		LLFriendActions::requestFriendshipDialog(id, name);
-	}
-	else if (level == "remove")
-	{
-		LLFriendActions::removeFriendDialog(id);
+		if (mDrawTooltip)
+		{
+			setToolTip(mFullName);
+		}
+		else
+		{
+			setToolTip(std::string());
+		}
 	}
 }

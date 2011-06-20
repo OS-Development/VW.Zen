@@ -1,8 +1,30 @@
-#!/usr/bin/python
-#
-# Update all of the various files in the repository to a new version number,
-# instead of having to figure it out by hand
-#
+#!/usr/bin/env python
+"""\
+@file   update_version_files.py
+@brief  Update all of the various files in the repository to a new version number,
+instead of having to figure it out by hand
+
+$LicenseInfo:firstyear=2010&license=viewerlgpl$
+Second Life Viewer Source Code
+Copyright (C) 2010-2011, Linden Research, Inc.
+
+This library is free software; you can redistribute it and/or
+modify it under the terms of the GNU Lesser General Public
+License as published by the Free Software Foundation;
+version 2.1 of the License only.
+
+This library is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public
+License along with this library; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+
+Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
+$/LicenseInfo$
+"""
 
 import sys
 import os.path
@@ -37,9 +59,6 @@ add_indra_lib_path()
 import getopt, os, re, commands
 from indra.util import llversion
 
-svn = os.path.expandvars("${SVN}")
-if not svn or svn == "${SVN}": svn = "svn"
-
 def usage():
     print "Usage:"
     print sys.argv[0] + """ [options]
@@ -47,6 +66,9 @@ def usage():
 Options:
   --version
    Specify the version string to replace current version.
+  --revision
+   Specify the revision to replace the last digit of the version.
+   By default, revision is computed from the version control system.
   --skip-on-branch
    Specify a regular expression against which the current branch
    is matched. If it matches, then leave version strings alone.
@@ -65,7 +87,7 @@ Options:
    Print this message and exit.
 
 Common Uses:
-   # Update server and viewer build numbers to the current SVN revision:
+   # Update server and viewer build numbers to the current hg revision:
    update_version_files.py
 
    # Update build numbers unless we are on a release branch:
@@ -77,7 +99,7 @@ Common Uses:
    # Update just the viewer version number explicitly:
    update_version_files.py --viewer --version=1.18.1.6     
 
-   # Update just the server build number to the current SVN revision:
+   # Update just the server build number to the current hg revision:
    update_version_files.py --server
                                
    # Update the viewer channel
@@ -149,9 +171,7 @@ re_map['indra/newview/English.lproj/InfoPlist.strings'] = \
       'CFBundleGetInfoString = "Second Life version %(VER_MAJOR)s.%(VER_MINOR)s.%(VER_PATCH)s.%(VER_BUILD)s'))
 
 
-version_re      = re.compile('(\d+).(\d+).(\d+).(\d+)')
-svn_branch_re   = re.compile('^URL:\s+\S+/([^/\s]+)$', re.MULTILINE)
-svn_revision_re = re.compile('^Last Changed Rev: (\d+)$', re.MULTILINE)
+version_re = re.compile('(\d+).(\d+).(\d+).(\d+)')
 
 def main():
     script_path = os.path.dirname(__file__)
@@ -161,6 +181,7 @@ def main():
     opts, args = getopt.getopt(sys.argv[1:],
                                "",
                                ['version=',
+                                'revision=',
                                 'channel=',
                                 'server_channel=',
                                 'skip-on-branch=',
@@ -171,12 +192,15 @@ def main():
     update_server = False
     update_viewer = False
     new_version = None
+    new_revision = None
     new_viewer_channel = None
     new_server_channel = None
     skip_on_branch_re = None
     for o,a in opts:
         if o in ('--version'):
             new_version = a
+        if o in ('--revision'):
+            new_revision = a
         if o in ('--skip-on-branch'):
             skip_on_branch_re = re.compile(a)
         if o in ('--channel'):
@@ -241,23 +265,20 @@ def main():
         if update_server:
             server_version = new_version
     else:
-        # Assume we're updating just the build number
-        cl = '%s info "%s"' % (svn, src_root)
-        status, output = _getstatusoutput(cl)
-        if verbose:
-            print
-            print "svn info output:"
-            print "----------------"
-            print output
 
-        branch_match = svn_branch_re.search(output)
-        revision_match = svn_revision_re.search(output)
-        if not branch_match or not revision_match:
-            print "Failed to execute svn info, output follows:"
-            print output
+        if llversion.using_hg():
+            if new_revision:
+                revision = new_revision
+            else:
+                revision = llversion.get_hg_changeset()
+            branch = llversion.get_hg_repo()
+        elif new_revision:
+            revision = new_revision
+            branch = "unknown"
+        else:
+            print >>sys.stderr, "ERROR: could not determine revision and branch"
             return -1
-        branch = branch_match.group(1)
-        revision = revision_match.group(1)
+        
         if skip_on_branch_re and skip_on_branch_re.match(branch):
             print "Release Candidate Build, leaving version files untouched."
             return 0
@@ -317,5 +338,6 @@ def main():
             print "File %(filename)s not present, skipping..." % locals()
     return 0
 
-main()
+if __name__ == '__main__':
+    sys.exit(main())
 

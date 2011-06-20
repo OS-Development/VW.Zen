@@ -2,31 +2,25 @@
  * @file llfilepicker.cpp
  * @brief OS-specific file picker
  *
- * $LicenseInfo:firstyear=2001&license=viewergpl$
- * 
- * Copyright (c) 2001-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -39,6 +33,7 @@
 #include "lldir.h"
 #include "llframetimer.h"
 #include "lltrans.h"
+#include "llviewercontrol.h"
 #include "llwindow.h"	// beforeDialog()
 
 #if LL_SDL
@@ -55,12 +50,14 @@ LLFilePicker LLFilePicker::sInstance;
 #define SOUND_FILTER L"Sounds (*.wav)\0*.wav\0"
 #define IMAGE_FILTER L"Images (*.tga; *.bmp; *.jpg; *.jpeg; *.png)\0*.tga;*.bmp;*.jpg;*.jpeg;*.png\0"
 #define ANIM_FILTER L"Animations (*.bvh)\0*.bvh\0"
+#define COLLADA_FILTER L"Scene (*.dae)\0*.dae\0"
 #ifdef _CORY_TESTING
 #define GEOMETRY_FILTER L"SL Geometry (*.slg)\0*.slg\0"
 #endif
 #define XML_FILTER L"XML files (*.xml)\0*.xml\0"
 #define SLOBJECT_FILTER L"Objects (*.slobject)\0*.slobject\0"
 #define RAW_FILTER L"RAW files (*.raw)\0*.raw\0"
+#define MODEL_FILTER L"Model files (*.dae)\0*.dae\0"
 #endif
 
 //
@@ -68,7 +65,7 @@ LLFilePicker LLFilePicker::sInstance;
 //
 LLFilePicker::LLFilePicker()
 	: mCurrentFile(0),
-	  mLocked(FALSE)
+	  mLocked(false)
 
 {
 	reset();
@@ -92,6 +89,7 @@ LLFilePicker::LLFilePicker()
 	mOFN.lCustData = 0L;
 	mOFN.lpfnHook = NULL;
 	mOFN.lpTemplateName = NULL;
+	mFilesW[0] = '\0';
 #endif
 
 #if LL_DARWIN
@@ -109,6 +107,20 @@ LLFilePicker::~LLFilePicker()
 	// nothing
 }
 
+// utility function to check if access to local file system via file browser 
+// is enabled and if not, tidy up and indicate we're not allowed to do this.
+bool LLFilePicker::check_local_file_access_enabled()
+{
+	// if local file browsing is turned off, return without opening dialog
+	bool local_file_system_browsing_enabled = gSavedSettings.getBOOL("LocalFileSystemBrowsingEnabled");
+	if ( ! local_file_system_browsing_enabled )
+	{
+		mFiles.clear();
+		return false;
+	}
+
+	return true;
+}
 
 const std::string LLFilePicker::getFirstFile()
 {
@@ -120,7 +132,7 @@ const std::string LLFilePicker::getNextFile()
 {
 	if (mCurrentFile >= getFileCount())
 	{
-		mLocked = FALSE;
+		mLocked = false;
 		return std::string();
 	}
 	else
@@ -133,7 +145,7 @@ const std::string LLFilePicker::getCurFile()
 {
 	if (mCurrentFile >= getFileCount())
 	{
-		mLocked = FALSE;
+		mLocked = false;
 		return std::string();
 	}
 	else
@@ -144,7 +156,7 @@ const std::string LLFilePicker::getCurFile()
 
 void LLFilePicker::reset()
 {
-	mLocked = FALSE;
+	mLocked = false;
 	mFiles.clear();
 	mCurrentFile = 0;
 }
@@ -175,6 +187,10 @@ BOOL LLFilePicker::setupFilter(ELoadFilter filter)
 		mOFN.lpstrFilter = ANIM_FILTER \
 			L"\0";
 		break;
+	case FFLOAD_COLLADA:
+		mOFN.lpstrFilter = COLLADA_FILTER \
+			L"\0";
+		break;
 #ifdef _CORY_TESTING
 	case FFLOAD_GEOMETRY:
 		mOFN.lpstrFilter = GEOMETRY_FILTER \
@@ -193,6 +209,10 @@ BOOL LLFilePicker::setupFilter(ELoadFilter filter)
 		mOFN.lpstrFilter = RAW_FILTER \
 			L"\0";
 		break;
+	case FFLOAD_MODEL:
+		mOFN.lpstrFilter = MODEL_FILTER \
+			L"\0";
+		break;
 	default:
 		res = FALSE;
 		break;
@@ -200,13 +220,19 @@ BOOL LLFilePicker::setupFilter(ELoadFilter filter)
 	return res;
 }
 
-BOOL LLFilePicker::getOpenFile(ELoadFilter filter)
+BOOL LLFilePicker::getOpenFile(ELoadFilter filter, bool blocking)
 {
 	if( mLocked )
 	{
 		return FALSE;
 	}
 	BOOL success = FALSE;
+
+	// if local file browsing is turned off, return without opening dialog
+	if ( check_local_file_access_enabled() == false )
+	{
+		return FALSE;
+	}
 
 	// don't provide default file selection
 	mFilesW[0] = '\0';
@@ -219,8 +245,11 @@ BOOL LLFilePicker::getOpenFile(ELoadFilter filter)
 
 	setupFilter(filter);
 	
-	// Modal, so pause agent
-	send_agent_pause();
+	if (blocking)
+	{
+		// Modal, so pause agent
+		send_agent_pause();
+	}
 
 	reset();
 	
@@ -231,10 +260,14 @@ BOOL LLFilePicker::getOpenFile(ELoadFilter filter)
 		std::string filename = utf16str_to_utf8str(llutf16string(mFilesW));
 		mFiles.push_back(filename);
 	}
-	send_agent_resume();
 
-	// Account for the fact that the app has been stalled.
-	LLFrameTimer::updateFrameTime();
+	if (blocking)
+	{
+		send_agent_resume();
+		// Account for the fact that the app has been stalled.
+		LLFrameTimer::updateFrameTime();
+	}
+	
 	return success;
 }
 
@@ -245,6 +278,12 @@ BOOL LLFilePicker::getMultipleOpenFiles(ELoadFilter filter)
 		return FALSE;
 	}
 	BOOL success = FALSE;
+
+	// if local file browsing is turned off, return without opening dialog
+	if ( check_local_file_access_enabled() == false )
+	{
+		return FALSE;
+	}
 
 	// don't provide default file selection
 	mFilesW[0] = '\0';
@@ -276,7 +315,7 @@ BOOL LLFilePicker::getMultipleOpenFiles(ELoadFilter filter)
 		}
 		else
 		{
-			mLocked = TRUE;
+			mLocked = true;
 			WCHAR* tptrw = mFilesW;
 			std::string dirname;
 			while(1)
@@ -308,6 +347,12 @@ BOOL LLFilePicker::getSaveFile(ESaveFilter filter, const std::string& filename)
 		return FALSE;
 	}
 	BOOL success = FALSE;
+
+	// if local file browsing is turned off, return without opening dialog
+	if ( check_local_file_access_enabled() == false )
+	{
+		return FALSE;
+	}
 
 	mOFN.lpstrFile = mFilesW;
 	if (!filename.empty())
@@ -375,9 +420,9 @@ BOOL LLFilePicker::getSaveFile(ESaveFilter filter, const std::string& filename)
 		{
 			wcsncpy( mFilesW,L"untitled.jpeg", FILENAME_BUFFER_SIZE);	/*Flawfinder: ignore*/
 		}
-		mOFN.lpstrDefExt = L"jpeg";
+		mOFN.lpstrDefExt = L"jpg";
 		mOFN.lpstrFilter =
-			L"JPEG Images (*.jpeg)\0*.jpeg\0" \
+			L"JPEG Images (*.jpg *.jpeg)\0*.jpg;*.jpeg\0" \
 			L"\0";
 		break;
 	case FFSAVE_AVI:
@@ -542,6 +587,15 @@ Boolean LLFilePicker::navOpenFilterProc(AEDesc *theItem, void *info, void *callB
 								result = false;
 							}
 						}
+						else if (filter == FFLOAD_COLLADA)
+						{
+							if (fileInfo.filetype != 'DAE ' && 
+								(fileInfo.extension && (CFStringCompare(fileInfo.extension, CFSTR("dae"), kCFCompareCaseInsensitive) != kCFCompareEqualTo))
+							)
+							{
+								result = false;
+							}
+						}
 #ifdef _CORY_TESTING
 						else if (filter == FFLOAD_GEOMETRY)
 						{
@@ -585,6 +639,12 @@ OSStatus	LLFilePicker::doNavChooseDialog(ELoadFilter filter)
 	OSStatus		error = noErr;
 	NavDialogRef	navRef = NULL;
 	NavReplyRecord	navReply;
+
+	// if local file browsing is turned off, return without opening dialog
+	if ( check_local_file_access_enabled() == false )
+	{
+		return FALSE;
+	}
 
 	memset(&navReply, 0, sizeof(navReply));
 	
@@ -807,12 +867,18 @@ OSStatus	LLFilePicker::doNavSaveDialog(ESaveFilter filter, const std::string& fi
 	return error;
 }
 
-BOOL LLFilePicker::getOpenFile(ELoadFilter filter)
+BOOL LLFilePicker::getOpenFile(ELoadFilter filter, bool blocking)
 {
 	if( mLocked )
 		return FALSE;
 
 	BOOL success = FALSE;
+
+	// if local file browsing is turned off, return without opening dialog
+	if ( check_local_file_access_enabled() == false )
+	{
+		return FALSE;
+	}
 
 	OSStatus	error = noErr;
 	
@@ -826,20 +892,29 @@ BOOL LLFilePicker::getOpenFile(ELoadFilter filter)
 		mNavOptions.optionFlags |= kNavSupportPackages;
 	}
 	
-	// Modal, so pause agent
-	send_agent_pause();
+	if (blocking)
+	{
+		// Modal, so pause agent
+		send_agent_pause();
+	}
+
 	{
 		error = doNavChooseDialog(filter);
 	}
-	send_agent_resume();
+	
 	if (error == noErr)
 	{
 		if (getFileCount())
 			success = true;
 	}
 
-	// Account for the fact that the app has been stalled.
-	LLFrameTimer::updateFrameTime();
+	if (blocking)
+	{
+		send_agent_resume();
+		// Account for the fact that the app has been stalled.
+		LLFrameTimer::updateFrameTime();
+	}
+
 	return success;
 }
 
@@ -849,6 +924,12 @@ BOOL LLFilePicker::getMultipleOpenFiles(ELoadFilter filter)
 		return FALSE;
 
 	BOOL success = FALSE;
+
+	// if local file browsing is turned off, return without opening dialog
+	if ( check_local_file_access_enabled() == false )
+	{
+		return FALSE;
+	}
 
 	OSStatus	error = noErr;
 
@@ -866,7 +947,7 @@ BOOL LLFilePicker::getMultipleOpenFiles(ELoadFilter filter)
 		if (getFileCount())
 			success = true;
 		if (getFileCount() > 1)
-			mLocked = TRUE;
+			mLocked = true;
 	}
 
 	// Account for the fact that the app has been stalled.
@@ -880,6 +961,12 @@ BOOL LLFilePicker::getSaveFile(ESaveFilter filter, const std::string& filename)
 		return FALSE;
 	BOOL success = FALSE;
 	OSStatus	error = noErr;
+
+	// if local file browsing is turned off, return without opening dialog
+	if ( check_local_file_access_enabled() == false )
+	{
+		return FALSE;
+	}
 
 	reset();
 	
@@ -1088,6 +1175,12 @@ static std::string add_bvh_filter_to_gtkchooser(GtkWindow *picker)
 						       LLTrans::getString("animation_files") + " (*.bvh)");
 }
 
+static std::string add_collada_filter_to_gtkchooser(GtkWindow *picker)
+{
+	return add_simple_pattern_filter_to_gtkchooser(picker,  "*.dae",
+						       LLTrans::getString("scene_files") + " (*.dae)");
+}
+
 static std::string add_imageload_filter_to_gtkchooser(GtkWindow *picker)
 {
 	GtkFileFilter *gfilter = gtk_file_filter_new();
@@ -1104,6 +1197,12 @@ static std::string add_imageload_filter_to_gtkchooser(GtkWindow *picker)
 BOOL LLFilePicker::getSaveFile( ESaveFilter filter, const std::string& filename )
 {
 	BOOL rtn = FALSE;
+
+	// if local file browsing is turned off, return without opening dialog
+	if ( check_local_file_access_enabled() == false )
+	{
+		return FALSE;
+	}
 
 	gViewerWindow->mWindow->beforeDialog();
 
@@ -1190,9 +1289,15 @@ BOOL LLFilePicker::getSaveFile( ESaveFilter filter, const std::string& filename 
 	return rtn;
 }
 
-BOOL LLFilePicker::getOpenFile( ELoadFilter filter )
+BOOL LLFilePicker::getOpenFile( ELoadFilter filter, bool blocking )
 {
 	BOOL rtn = FALSE;
+
+	// if local file browsing is turned off, return without opening dialog
+	if ( check_local_file_access_enabled() == false )
+	{
+		return FALSE;
+	}
 
 	gViewerWindow->mWindow->beforeDialog();
 
@@ -1211,6 +1316,9 @@ BOOL LLFilePicker::getOpenFile( ELoadFilter filter )
 			break;
 		case FFLOAD_ANIM:
 			filtername = add_bvh_filter_to_gtkchooser(picker);
+			break;
+		case FFLOAD_COLLADA:
+			filtername = add_collada_filter_to_gtkchooser(picker);
 			break;
 		case FFLOAD_IMAGE:
 			filtername = add_imageload_filter_to_gtkchooser(picker);
@@ -1237,6 +1345,12 @@ BOOL LLFilePicker::getOpenFile( ELoadFilter filter )
 BOOL LLFilePicker::getMultipleOpenFiles( ELoadFilter filter )
 {
 	BOOL rtn = FALSE;
+
+	// if local file browsing is turned off, return without opening dialog
+	if ( check_local_file_access_enabled() == false )
+	{
+		return FALSE;
+	}
 
 	gViewerWindow->mWindow->beforeDialog();
 
@@ -1268,6 +1382,13 @@ BOOL LLFilePicker::getMultipleOpenFiles( ELoadFilter filter )
 
 BOOL LLFilePicker::getSaveFile( ESaveFilter filter, const std::string& filename )
 {
+	// if local file browsing is turned off, return without opening dialog
+	// (Even though this is a stub, I think we still should not return anything at all)
+	if ( check_local_file_access_enabled() == false )
+	{
+		return FALSE;
+	}
+
 	reset();
 	
 	llinfos << "getSaveFile suggested filename is [" << filename
@@ -1282,6 +1403,13 @@ BOOL LLFilePicker::getSaveFile( ESaveFilter filter, const std::string& filename 
 
 BOOL LLFilePicker::getOpenFile( ELoadFilter filter )
 {
+	// if local file browsing is turned off, return without opening dialog
+	// (Even though this is a stub, I think we still should not return anything at all)
+	if ( check_local_file_access_enabled() == false )
+	{
+		return FALSE;
+	}
+
 	reset();
 	
 	// HACK: Static filenames for 'open' until we implement filepicker
@@ -1300,6 +1428,13 @@ BOOL LLFilePicker::getOpenFile( ELoadFilter filter )
 
 BOOL LLFilePicker::getMultipleOpenFiles( ELoadFilter filter )
 {
+	// if local file browsing is turned off, return without opening dialog
+	// (Even though this is a stub, I think we still should not return anything at all)
+	if ( check_local_file_access_enabled() == false )
+	{
+		return FALSE;
+	}
+
 	reset();
 	return FALSE;
 }

@@ -2,31 +2,25 @@
  * @file llmultifloater.cpp
  * @brief LLFloater that hosts other floaters
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -42,8 +36,8 @@
 // LLMultiFloater
 //
 
-LLMultiFloater::LLMultiFloater(const LLFloater::Params& params)
-	: LLFloater(),
+LLMultiFloater::LLMultiFloater(const LLSD& key, const LLFloater::Params& params)
+	: LLFloater(key),
 	  mTabContainer(NULL),
 	  mTabPos(LLTabContainer::TOP),
 	  mAutoResize(TRUE),
@@ -54,7 +48,8 @@ LLMultiFloater::LLMultiFloater(const LLFloater::Params& params)
 
 void LLMultiFloater::buildTabContainer()
 {
-	static LLUICachedControl<S32> floater_header_size ("UIFloaterHeaderSize", 0);
+	const LLFloater::Params& default_params = LLFloater::getDefaultParams();
+	S32 floater_header_size = default_params.header_height;
 	
 	LLTabContainer::Params p;
 	p.name(std::string("Preview Tabs"));
@@ -74,20 +69,12 @@ void LLMultiFloater::buildTabContainer()
 
 void LLMultiFloater::onOpen(const LLSD& key)
 {
-	if (mTabContainer->getTabCount() <= 0)
-	{
-		// for now, don't allow multifloaters
-		// without any child floaters
-		closeFloater();
-	}
-}
-
-void LLMultiFloater::onClose(bool app_quitting)
-{
-	if(closeAllFloaters() == TRUE)
-	{
-		LLFloater::onClose(app_quitting);
-	}//else not all tabs could be closed...
+// 	if (mTabContainer->getTabCount() <= 0)
+// 	{
+// 		// for now, don't allow multifloaters
+// 		// without any child floaters
+// 		closeFloater();
+// 	}
 }
 
 void LLMultiFloater::draw()
@@ -99,14 +86,6 @@ void LLMultiFloater::draw()
 	}
 	else
 	{
-		for (S32 i = 0; i < mTabContainer->getTabCount(); i++)
-		{
-			LLFloater* floaterp = (LLFloater*)mTabContainer->getPanelByIndex(i);
-			if (floaterp->getShortTitle() != mTabContainer->getPanelTitle(i))
-			{
-				mTabContainer->setPanelTitle(i, floaterp->getShortTitle());
-			}
-		}
 		LLFloater::draw();
 	}
 }
@@ -124,7 +103,8 @@ BOOL LLMultiFloater::closeAllFloaters()
 			//Tab did not actually close, possibly due to a pending Save Confirmation dialog..
 			//so try and close the next one in the list...
 			tabToClose++;
-		}else
+		}
+		else
 		{
 			//Tab closed ok.
 			lastTabCount = mTabContainer->getTabCount();
@@ -138,7 +118,8 @@ BOOL LLMultiFloater::closeAllFloaters()
 void LLMultiFloater::growToFit(S32 content_width, S32 content_height)
 {
 	static LLUICachedControl<S32> tabcntr_close_btn_size ("UITabCntrCloseBtnSize", 0);
-	static LLUICachedControl<S32> floater_header_size ("UIFloaterHeaderSize", 0);
+	const LLFloater::Params& default_params = LLFloater::getDefaultParams();
+	S32 floater_header_size = default_params.header_height;
 	S32 tabcntr_header_height = LLPANEL_BORDER_WIDTH + tabcntr_close_btn_size;
 	S32 new_width = llmax(getRect().getWidth(), content_width + LLPANEL_BORDER_WIDTH * 2);
 	S32 new_height = llmax(getRect().getHeight(), content_height + floater_header_size + tabcntr_header_height);
@@ -246,7 +227,20 @@ void LLMultiFloater::addFloater(LLFloater* floaterp, BOOL select_added_floater, 
 	{
 		floaterp->setVisible(FALSE);
 	}
+	
+	// Tabs sometimes overlap resize handle
+	moveResizeHandlesToFront();
 }
+
+void LLMultiFloater::updateFloaterTitle(LLFloater* floaterp)
+{
+	S32 index = mTabContainer->getIndexForPanel(floaterp);
+	if (index != -1)
+	{
+		mTabContainer->setPanelTitle(index, floaterp->getShortTitle());
+	}
+}
+
 
 /**
 	BOOL selectFloater(LLFloater* floaterp)
@@ -355,13 +349,20 @@ void LLMultiFloater::setVisible(BOOL visible)
 
 BOOL LLMultiFloater::handleKeyHere(KEY key, MASK mask)
 {
-	if (key == 'W' && mask == MASK_CONTROL)
+	if (key == 'W' && mask == (MASK_CONTROL|MASK_SHIFT))
 	{
 		LLFloater* floater = getActiveFloater();
 		// is user closeable and is system closeable
 		if (floater && floater->canClose() && floater->isCloseable())
 		{
 			floater->closeFloater();
+
+			// EXT-5695 (Tabbed IM window loses focus if close any tabs by Ctrl+W)
+			// bring back focus on tab container if there are any tab left
+			if(mTabContainer->getTabCount() > 0)
+			{
+				mTabContainer->setFocus(TRUE);
+			}
 		}
 		return TRUE;
 	}
@@ -436,6 +437,7 @@ void LLMultiFloater::onTabSelected()
 void LLMultiFloater::setCanResize(BOOL can_resize)
 {
 	LLFloater::setCanResize(can_resize);
+	if (!mTabContainer) return;
 	if (isResizable() && mTabContainer->getTabPosition() == LLTabContainer::BOTTOM)
 	{
 		mTabContainer->setRightTabBtnOffset(RESIZE_HANDLE_WIDTH);
@@ -448,6 +450,8 @@ void LLMultiFloater::setCanResize(BOOL can_resize)
 
 BOOL LLMultiFloater::postBuild()
 {
+	mCloseSignal.connect(boost::bind(&LLMultiFloater::closeAllFloaters, this));
+		
 	// remember any original xml minimum size
 	getResizeLimits(&mOrigMinWidth, &mOrigMinHeight);
 
@@ -456,20 +460,17 @@ BOOL LLMultiFloater::postBuild()
 		return TRUE;
 	}
 
-	requires<LLTabContainer>("Preview Tabs");
-	if (checkRequirements())
-	{
-		mTabContainer = getChild<LLTabContainer>("Preview Tabs");
-		return TRUE;
-	}
-
-	return FALSE;
+	mTabContainer = getChild<LLTabContainer>("Preview Tabs");
+	
+	setCanResize(mResizable);
+	return TRUE;
 }
 
 void LLMultiFloater::updateResizeLimits()
 {
 	static LLUICachedControl<S32> tabcntr_close_btn_size ("UITabCntrCloseBtnSize", 0);
-	static LLUICachedControl<S32> floater_header_size ("UIFloaterHeaderSize", 0);
+	const LLFloater::Params& default_params = LLFloater::getDefaultParams();
+	S32 floater_header_size = default_params.header_height;
 	S32 tabcntr_header_height = LLPANEL_BORDER_WIDTH + tabcntr_close_btn_size;
 	// initialize minimum size constraint to the original xml values.
 	S32 new_min_width = mOrigMinWidth;

@@ -10,12 +10,15 @@ include(00-Common)
 include(LLCommon)
 include(LLImage)
 include(LLImageJ2COJ)   # ugh, needed for images
+include(LLKDU)
 include(LLMath)
+include(LLMessage)
 include(LLRender)
 include(LLWindow)
 include(LLUI)
 include(LLVFS)        # ugh, needed for LLDir
 include(LLXML)
+include(LLXUIXML)
 include(Linking)
 # include(Tut)
 
@@ -29,6 +32,7 @@ include_directories(
     ${LLVFS_INCLUDE_DIRS}
     ${LLWINDOW_INCLUDE_DIRS}
     ${LLXML_INCLUDE_DIRS}
+    ${LLXUIXML_INCLUDE_DIRS}
     )
 
 set(llui_libtest_SOURCE_FILES
@@ -54,6 +58,8 @@ if (DARWIN)
   find_library(COCOA_LIBRARY Cocoa)
   set(OS_LIBRARIES ${COCOA_LIBRARY})
 elseif (WINDOWS)
+  #ll_stack_trace needs this now...
+  list(APPEND WINDOWS_LIBRARIES dbghelp)
   set(OS_LIBRARIES ${WINDOWS_LIBRARIES})
 elseif (LINUX)
   set(OS_LIBRARIES)
@@ -65,6 +71,12 @@ endif (DARWIN)
 # Sort by high-level to low-level
 target_link_libraries(llui_libtest
     llui
+    llmessage
+    ${LLRENDER_LIBRARIES}
+    ${LLIMAGE_LIBRARIES}
+    ${LLKDU_LIBRARIES}
+    ${KDU_LIBRARY}
+    ${LLIMAGEJ2COJ_LIBRARIES}
     ${OS_LIBRARIES}
     ${GOOGLE_PERFTOOLS_LIBRARIES}
     )
@@ -79,18 +91,19 @@ if (WINDOWS)
     # Copy over OpenJPEG.dll
     # *NOTE: On Windows with VS2005, only the first comment prints
     set(OPENJPEG_RELEASE
-        "${CMAKE_SOURCE_DIR}/../libraries/i686-win32/lib/release/openjpeg.dll")
+        "${ARCH_PREBUILT_DIRS_RELEASE}/openjpeg.dll")
     add_custom_command( TARGET llui_libtest POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different 
             ${OPENJPEG_RELEASE} ${CMAKE_CURRENT_BINARY_DIR}
         COMMENT "Copying OpenJPEG DLLs to binary directory"
         )
     set(OPENJPEG_DEBUG
-        "${CMAKE_SOURCE_DIR}/../libraries/i686-win32/lib/debug/openjpegd.dll")
+        "${ARCH_PREBUILT_DIRS_DEBUG}/openjpegd.dll")
     add_custom_command( TARGET llui_libtest POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different 
             ${OPENJPEG_DEBUG} ${CMAKE_CURRENT_BINARY_DIR}
         )
+  
 endif (WINDOWS)
 
 # Ensure people working on the viewer don't break this library

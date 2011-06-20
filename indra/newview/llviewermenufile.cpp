@@ -2,31 +2,25 @@
  * @file llviewermenufile.cpp
  * @brief "File" menu in the main menu bar.
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -36,12 +30,18 @@
 
 // project includes
 #include "llagent.h"
+#include "llagentcamera.h"
 #include "llfilepicker.h"
-#include "llfloateranimpreview.h"
-#include "llfloaterbuycurrency.h"
-#include "llfloaterimagepreview.h"
-#include "llfloaternamedesc.h"
+#include "llfloaterreg.h"
+#include "llbuycurrencyhtml.h"
+#include "llfloatermodelpreview.h"
 #include "llfloatersnapshot.h"
+#include "llimage.h"
+#include "llimagebmp.h"
+#include "llimagepng.h"
+#include "llimagej2c.h"
+#include "llimagejpeg.h"
+#include "llimagetga.h"
 #include "llinventorymodel.h"	// gInventory
 #include "llresourcedata.h"
 #include "llfloaterperms.h"
@@ -49,37 +49,34 @@
 #include "llviewercontrol.h"	// gSavedSettings
 #include "llviewertexturelist.h"
 #include "lluictrlfactory.h"
+#include "llvfile.h"
+#include "llvfs.h"
 #include "llviewerinventory.h"
 #include "llviewermenu.h"	// gMenuHolder
+#include "llviewerparcelmgr.h"
 #include "llviewerregion.h"
 #include "llviewerstats.h"
 #include "llviewerwindow.h"
 #include "llappviewer.h"
 #include "lluploaddialog.h"
 #include "lltrans.h"
-
+#include "llfloaterbuycurrency.h"
 
 // linden libraries
 #include "llassetuploadresponders.h"
 #include "lleconomy.h"
 #include "llhttpclient.h"
+#include "llnotificationsutil.h"
 #include "llsdserialize.h"
+#include "llsdutil.h"
 #include "llstring.h"
 #include "lltransactiontypes.h"
 #include "lluuid.h"
-#include "vorbisencode.h"
+#include "llvorbisencode.h"
+#include "message.h"
 
 // system libraries
 #include <boost/tokenizer.hpp>
-
-class LLFileEnableSaveAs : public view_listener_t
-{
-	bool handleEvent(const LLSD& userdata)
-	{
-		bool new_value = gFloaterView->getFrontmost() && gFloaterView->getFrontmost()->canSaveAs();
-		return new_value;
-	}
-};
 
 class LLFileEnableUpload : public view_listener_t
 {
@@ -89,6 +86,97 @@ class LLFileEnableUpload : public view_listener_t
 		return new_value;
 	}
 };
+
+class LLFileEnableUploadModel : public view_listener_t
+{
+	bool handleEvent(const LLSD& userdata)
+	{
+		return true;
+	}
+};
+
+class LLMeshEnabled : public view_listener_t
+{
+	bool handleEvent(const LLSD& userdata)
+	{
+		return gSavedSettings.getBOOL("MeshEnabled");
+	}
+};
+
+class LLMeshUploadVisible : public view_listener_t
+{
+	bool handleEvent(const LLSD& userdata)
+	{
+		return gMeshRepo.meshUploadEnabled();
+	}
+};
+
+LLMutex* LLFilePickerThread::sMutex = NULL;
+std::queue<LLFilePickerThread*> LLFilePickerThread::sDeadQ;
+
+void LLFilePickerThread::getFile()
+{
+#if LL_WINDOWS
+	start();
+#else
+	run();
+#endif
+}
+
+//virtual 
+void LLFilePickerThread::run()
+{
+	LLFilePicker picker;
+#if LL_WINDOWS
+	if (picker.getOpenFile(mFilter, false))
+	{
+		mFile = picker.getFirstFile();
+	}
+#else
+	if (picker.getOpenFile(mFilter, true))
+	{
+		mFile = picker.getFirstFile();
+	}
+#endif
+
+	{
+		LLMutexLock lock(sMutex);
+		sDeadQ.push(this);
+	}
+
+}
+
+//static
+void LLFilePickerThread::initClass()
+{
+	sMutex = new LLMutex(NULL);
+}
+
+//static
+void LLFilePickerThread::cleanupClass()
+{
+	clearDead();
+	
+	delete sMutex;
+	sMutex = NULL;
+}
+
+//static
+void LLFilePickerThread::clearDead()
+{
+	if (!sDeadQ.empty())
+	{
+		LLMutexLock lock(sMutex);
+		while (!sDeadQ.empty())
+		{
+			LLFilePickerThread* thread = sDeadQ.front();
+			thread->notify(thread->mFile);
+			delete thread;
+			sDeadQ.pop();
+		}
+	}
+}
+
 
 //============================================================================
 
@@ -103,6 +191,7 @@ static std::string XML_EXTENSIONS = "xml";
 static std::string SLOBJECT_EXTENSIONS = "slobject";
 #endif
 static std::string ALL_FILE_EXTENSIONS = "*.*";
+static std::string MODEL_EXTENSIONS = "dae";
 
 std::string build_extensions_string(LLFilePicker::ELoadFilter filter)
 {
@@ -117,6 +206,8 @@ std::string build_extensions_string(LLFilePicker::ELoadFilter filter)
 		return ANIM_EXTENSIONS;
 	case LLFilePicker::FFLOAD_SLOBJECT:
 		return SLOBJECT_EXTENSIONS;
+	case LLFilePicker::FFLOAD_MODEL:
+		return MODEL_EXTENSIONS;
 #ifdef _CORY_TESTING
 	case LLFilePicker::FFLOAD_GEOMETRY:
 		return GEOMETRY_EXTENSIONS;
@@ -141,9 +232,9 @@ std::string build_extensions_string(LLFilePicker::ELoadFilter filter)
 **/
 const std::string upload_pick(void* data)
 {
- 	if( gAgent.cameraMouselook() )
+ 	if( gAgentCamera.cameraMouselook() )
 	{
-		gAgent.changeCameraToDefault();
+		gAgentCamera.changeCameraToDefault();
 		// This doesn't seem necessary. JC
 		// display();
 	}
@@ -177,7 +268,7 @@ const std::string upload_pick(void* data)
 		// No extension
 		LLSD args;
 		args["FILE"] = short_name;
-		LLNotifications::instance().add("NoFileExtension", args);
+		LLNotificationsUtil::add("NoFileExtension", args);
 		return std::string();
 	}
 	else
@@ -220,8 +311,8 @@ const std::string upload_pick(void* data)
 			LLSD args;
 			args["EXTENSION"] = ext;
 			args["VALIDS"] = valid_extensions;
-			LLNotifications::instance().add("InvalidFileExtension", args);
-			return NULL;
+			LLNotificationsUtil::add("InvalidFileExtension", args);
+			return std::string();
 		}
 	}//end else (non-null extension)
 
@@ -238,7 +329,7 @@ const std::string upload_pick(void* data)
 			llinfos << error_msg << ": " << filename << llendl;
 			LLSD args;
 			args["FILE"] = filename;
-			LLNotifications::instance().add( error_msg, args );
+			LLNotificationsUtil::add( error_msg, args );
 			return std::string();
 		}
 	}//end if a wave/sound file
@@ -254,13 +345,26 @@ class LLFileUploadImage : public view_listener_t
 		std::string filename = upload_pick((void *)LLFilePicker::FFLOAD_IMAGE);
 		if (!filename.empty())
 		{
-			LLFloaterImagePreview* floaterp = new LLFloaterImagePreview(filename);
-			LLUICtrlFactory::getInstance()->buildFloater(floaterp, "floater_image_preview.xml");
+			LLFloaterReg::showInstance("upload_image", LLSD(filename));
 		}
 		return TRUE;
 	}
 };
 
+class LLFileUploadModel : public view_listener_t
+{
+	bool handleEvent(const LLSD& userdata)
+	{
+		LLFloaterModelPreview* fmp = (LLFloaterModelPreview*) LLFloaterReg::getInstance("upload_model");
+		if (fmp)
+		{
+			fmp->loadModel(3);
+		}
+		
+		return TRUE;
+	}
+};
+	
 class LLFileUploadSound : public view_listener_t
 {
 	bool handleEvent(const LLSD& userdata)
@@ -268,9 +372,7 @@ class LLFileUploadSound : public view_listener_t
 		std::string filename = upload_pick((void*)LLFilePicker::FFLOAD_WAV);
 		if (!filename.empty())
 		{
-			LLFloaterNameDesc* floaterp = new LLFloaterNameDesc(filename);
-			LLUICtrlFactory::getInstance()->buildFloater(floaterp, "floater_sound_preview.xml");
-			floaterp->childSetLabelArg("ok_btn", "[AMOUNT]", llformat("%d", LLGlobalEconomy::Singleton::getInstance()->getPriceUpload() ));
+			LLFloaterReg::showInstance("upload_sound", LLSD(filename));
 		}
 		return true;
 	}
@@ -283,8 +385,7 @@ class LLFileUploadAnim : public view_listener_t
 		const std::string filename = upload_pick((void*)LLFilePicker::FFLOAD_ANIM);
 		if (!filename.empty())
 		{
-			LLFloaterAnimPreview* floaterp = new LLFloaterAnimPreview(filename);
-			LLUICtrlFactory::getInstance()->buildFloater(floaterp, "floater_animation_preview.xml");
+			LLFloaterReg::showInstance("upload_anim", LLSD(filename));
 		}
 		return true;
 	}
@@ -294,9 +395,9 @@ class LLFileUploadBulk : public view_listener_t
 {
 	bool handleEvent(const LLSD& userdata)
 	{
-		if( gAgent.cameraMouselook() )
+		if( gAgentCamera.cameraMouselook() )
 		{
-			gAgent.changeCameraToDefault();
+			gAgentCamera.changeCameraToDefault();
 		}
 
 		// TODO:
@@ -325,10 +426,21 @@ class LLFileUploadBulk : public view_listener_t
 			LLAssetStorage::LLStoreAssetCallback callback = NULL;
 			S32 expected_upload_cost = LLGlobalEconomy::Singleton::getInstance()->getPriceUpload();
 			void *userdata = NULL;
-			upload_new_resource(filename, asset_name, asset_name, 0, LLAssetType::AT_NONE, LLInventoryType::IT_NONE,
-				LLFloaterPerms::getNextOwnerPerms(), LLFloaterPerms::getGroupPerms(), LLFloaterPerms::getEveryonePerms(),
-					    display_name,
-					    callback, expected_upload_cost, userdata);
+
+			upload_new_resource(
+				filename,
+				asset_name,
+				asset_name,
+				0,
+				LLFolderType::FT_NONE,
+				LLInventoryType::IT_NONE,
+				LLFloaterPerms::getNextOwnerPerms(),
+				LLFloaterPerms::getGroupPerms(),
+				LLFloaterPerms::getEveryonePerms(),
+				display_name,
+				callback,
+				expected_upload_cost,
+				userdata);
 
 			// *NOTE: Ew, we don't iterate over the file list here,
 			// we handle the next files in upload_done_callback()
@@ -344,7 +456,7 @@ class LLFileUploadBulk : public view_listener_t
 void upload_error(const std::string& error_message, const std::string& label, const std::string& filename, const LLSD& args) 
 {
 	llwarns << error_message << llendl;
-	LLNotifications::instance().add(label, args);
+	LLNotificationsUtil::add(label, args);
 	if(LLFile::remove(filename) == -1)
 	{
 		lldebugs << "unable to remove temp file" << llendl;
@@ -391,27 +503,14 @@ class LLFileCloseAllWindows : public view_listener_t
 	}
 };
 
-class LLFileSaveTexture : public view_listener_t
-{
-	bool handleEvent(const LLSD& userdata)
-	{
-		LLFloater* top = gFloaterView->getFrontmost();
-		if (top)
-		{
-			top->saveAs();
-		}
-		return true;
-	}
-};
-
 class LLFileTakeSnapshotToDisk : public view_listener_t
 {
 	bool handleEvent(const LLSD& userdata)
 	{
 		LLPointer<LLImageRaw> raw = new LLImageRaw;
 
-		S32 width = gViewerWindow->getWindowDisplayWidth();
-		S32 height = gViewerWindow->getWindowDisplayHeight();
+		S32 width = gViewerWindow->getWindowWidthRaw();
+		S32 height = gViewerWindow->getWindowHeightRaw();
 
 		if (gSavedSettings.getBOOL("HighResSnapshot"))
 		{
@@ -429,7 +528,6 @@ class LLFileTakeSnapshotToDisk : public view_listener_t
 		{
 			gViewerWindow->playSnapshotAnimAndSound();
 			
-			LLImageBase::setSizeOverride(TRUE);
 			LLPointer<LLImageFormatted> formatted;
 			switch(LLFloaterSnapshot::ESnapshotFormat(gSavedSettings.getS32("SnapshotFormat")))
 			{
@@ -444,12 +542,12 @@ class LLFileTakeSnapshotToDisk : public view_listener_t
 				break;
 			  default: 
 				llwarns << "Unknown Local Snapshot format" << llendl;
-				LLImageBase::setSizeOverride(FALSE);
 				return true;
 			}
 
+			formatted->enableOverSize() ;
 			formatted->encode(raw, 0);
-			LLImageBase::setSizeOverride(FALSE);
+			formatted->disableOverSize() ;
 			gViewerWindow->saveImageNumbered(formatted);
 		}
 		return true;
@@ -497,17 +595,20 @@ void handle_compress_image(void*)
 	}
 }
 
-void upload_new_resource(const std::string& src_filename, std::string name,
-			 std::string desc, S32 compression_info,
-			 LLAssetType::EType destination_folder_type,
-			 LLInventoryType::EType inv_type,
-			 U32 next_owner_perms,
-			 U32 group_perms,
-			 U32 everyone_perms,
-			 const std::string& display_name,
-			 LLAssetStorage::LLStoreAssetCallback callback,
-			 S32 expected_upload_cost,
-			 void *userdata)
+LLUUID upload_new_resource(
+	const std::string& src_filename,
+	std::string name,
+	std::string desc,
+	S32 compression_info,
+	LLFolderType::EType destination_folder_type,
+	LLInventoryType::EType inv_type,
+	U32 next_owner_perms,
+	U32 group_perms,
+	U32 everyone_perms,
+	const std::string& display_name,
+	LLAssetStorage::LLStoreAssetCallback callback,
+	S32 expected_upload_cost,
+	void *userdata)
 {	
 	// Generate the temporary UUID.
 	std::string filename = gDirUtilp->getTempFilename();
@@ -517,6 +618,7 @@ void upload_new_resource(const std::string& src_filename, std::string name,
 	LLSD args;
 
 	std::string exten = gDirUtilp->getExtension(src_filename);
+	U32 codec = LLImageBase::getCodecFromExtension(exten);
 	LLAssetType::EType asset_type = LLAssetType::AT_NONE;
 	std::string error_message;
 
@@ -531,69 +633,23 @@ void upload_new_resource(const std::string& src_filename, std::string name,
 				"No file extension for the file: '%s'\nPlease make sure the file has a correct file extension",
 				short_name.c_str());
 		args["FILE"] = short_name;
- 		upload_error(error_message, "NofileExtension", filename, args);
-		return;
+ 		upload_error(error_message, "NoFileExtension", filename, args);
+		return LLUUID();
 	}
-	else if( exten == "bmp")
+	else if (codec != IMG_CODEC_INVALID)
 	{
+		// It's an image file, the upload procedure is the same for all
 		asset_type = LLAssetType::AT_TEXTURE;
-		if (!LLViewerTextureList::createUploadFile(src_filename,
-												 filename,
-												 IMG_CODEC_BMP ))
+		if (!LLViewerTextureList::createUploadFile(src_filename, filename, codec ))
 		{
 			error_message = llformat( "Problem with file %s:\n\n%s\n",
-					src_filename.c_str(), LLImage::getLastError().c_str());
+									 src_filename.c_str(), LLImage::getLastError().c_str());
 			args["FILE"] = src_filename;
 			args["ERROR"] = LLImage::getLastError();
 			upload_error(error_message, "ProblemWithFile", filename, args);
-			return;
+			return LLUUID();
 		}
 	}
-	else if( exten == "tga")
-	{
-		asset_type = LLAssetType::AT_TEXTURE;
-		if (!LLViewerTextureList::createUploadFile(src_filename,
-												 filename,
-												 IMG_CODEC_TGA ))
-		{
-			error_message = llformat("Problem with file %s:\n\n%s\n",
-					src_filename.c_str(), LLImage::getLastError().c_str());
-			args["FILE"] = src_filename;
-			args["ERROR"] = LLImage::getLastError();
-			upload_error(error_message, "ProblemWithFile", filename, args);
-			return;
-		}
-	}
-	else if( exten == "jpg" || exten == "jpeg")
-	{
-		asset_type = LLAssetType::AT_TEXTURE;
-		if (!LLViewerTextureList::createUploadFile(src_filename,
-												 filename,
-												 IMG_CODEC_JPEG ))
-		{
-			error_message = llformat("Problem with file %s:\n\n%s\n",
-					src_filename.c_str(), LLImage::getLastError().c_str());
-			args["FILE"] = src_filename;
-			args["ERROR"] = LLImage::getLastError();
-			upload_error(error_message, "ProblemWithFile", filename, args);
-			return;
-		}
-	}
- 	else if( exten == "png")
- 	{
- 		asset_type = LLAssetType::AT_TEXTURE;
- 		if (!LLViewerTextureList::createUploadFile(src_filename,
- 												 filename,
- 												 IMG_CODEC_PNG ))
- 		{
- 			error_message = llformat("Problem with file %s:\n\n%s\n",
- 					src_filename.c_str(), LLImage::getLastError().c_str());
- 			args["FILE"] = src_filename;
- 			args["ERROR"] = LLImage::getLastError();
- 			upload_error(error_message, "ProblemWithFile", filename, args);
- 			return;
- 		}
- 	}
 	else if(exten == "wav")
 	{
 		asset_type = LLAssetType::AT_SOUND;  // tag it as audio
@@ -619,7 +675,7 @@ void upload_new_resource(const std::string& src_filename, std::string name,
 					upload_error(error_message, "UnknownVorbisEncodeFailure", filename, args);
 					break;	
 			}	
-			return;
+			return LLUUID();
 		}
 	}
 	else if(exten == "tmp")	 	
@@ -659,7 +715,7 @@ void upload_new_resource(const std::string& src_filename, std::string name,
                                                  error_message = llformat("corrupt resource file: %s", src_filename.c_str());
 												 args["FILE"] = src_filename;
 												 upload_error(error_message, "CorruptResourceFile", filename, args);
-                                                 return;
+                                                 return LLUUID();
                                          }	 	
 
                                          if (2 == tokens_read)	 	
@@ -687,7 +743,7 @@ void upload_new_resource(const std::string& src_filename, std::string name,
                                  error_message = llformat("unknown linden resource file version in file: %s", src_filename.c_str());
 								 args["FILE"] = src_filename;
 								 upload_error(error_message, "UnknownResourceFileVersion", filename, args);
-                                 return;
+                                 return LLUUID();
                          }	 	
                  }	 	
                  else	 	
@@ -729,7 +785,7 @@ void upload_new_resource(const std::string& src_filename, std::string name,
                          error_message = llformat( "Unable to create output file: %s", filename.c_str());
 						 args["FILE"] = filename;
 						 upload_error(error_message, "UnableToCreateOutputFile", filename, args);
-                         return;
+                         return LLUUID();
                  }	 	
 
                  fclose(in);	 	
@@ -743,7 +799,7 @@ void upload_new_resource(const std::string& src_filename, std::string name,
 	{
 		error_message = llformat("We do not currently support bulk upload of animation files\n");
 		upload_error(error_message, "DoNotSupportBulkAnimationUpload", filename, args);
-		return;
+		return LLUUID();
 	}
 	else
 	{
@@ -789,109 +845,131 @@ void upload_new_resource(const std::string& src_filename, std::string name,
 		{
 			t_disp_name = src_filename;
 		}
-		upload_new_resource(tid, asset_type, name, desc, compression_info, // tid
-				    destination_folder_type, inv_type, next_owner_perms, group_perms, everyone_perms,
-				    display_name, callback, expected_upload_cost, userdata);
+		upload_new_resource(
+			tid,
+			asset_type,
+			name,
+			desc,
+			compression_info, // tid
+			destination_folder_type,
+			inv_type,
+			next_owner_perms,
+			group_perms,
+			everyone_perms,
+			display_name,
+			callback,
+			expected_upload_cost,
+			userdata);
 	}
 	else
 	{
 		llwarns << error_message << llendl;
 		LLSD args;
 		args["ERROR_MESSAGE"] = error_message;
-		LLNotifications::instance().add("ErrorMessage", args);
+		LLNotificationsUtil::add("ErrorMessage", args);
 		if(LLFile::remove(filename) == -1)
 		{
 			lldebugs << "unable to remove temp file" << llendl;
 		}
 		LLFilePicker::instance().reset();
 	}
+
+	return uuid;
 }
 
-void upload_done_callback(const LLUUID& uuid, void* user_data, S32 result, LLExtStat ext_status) // StoreAssetData callback (fixed)
+void upload_done_callback(
+	const LLUUID& uuid,
+	void* user_data,
+	S32 result,
+	LLExtStat ext_status) // StoreAssetData callback (fixed)
 {
 	LLResourceData* data = (LLResourceData*)user_data;
 	S32 expected_upload_cost = data ? data->mExpectedUploadCost : 0;
 	//LLAssetType::EType pref_loc = data->mPreferredLocation;
 	BOOL is_balance_sufficient = TRUE;
 
-	if(result >= 0)
+	if(data)
 	{
-		LLAssetType::EType dest_loc = (data->mPreferredLocation == LLAssetType::AT_NONE) ? data->mAssetInfo.mType : data->mPreferredLocation;
-
-		if (LLAssetType::AT_SOUND == data->mAssetInfo.mType ||
-			LLAssetType::AT_TEXTURE == data->mAssetInfo.mType ||
-			LLAssetType::AT_ANIMATION == data->mAssetInfo.mType)
+		if (result >= 0)
 		{
-			// Charge the user for the upload.
-			LLViewerRegion* region = gAgent.getRegion();
-
-			if(!(can_afford_transaction(expected_upload_cost)))
+			LLFolderType::EType dest_loc = (data->mPreferredLocation == LLFolderType::FT_NONE) ? LLFolderType::assetTypeToFolderType(data->mAssetInfo.mType) : data->mPreferredLocation;
+			
+			if (LLAssetType::AT_SOUND == data->mAssetInfo.mType ||
+			    LLAssetType::AT_TEXTURE == data->mAssetInfo.mType ||
+			    LLAssetType::AT_ANIMATION == data->mAssetInfo.mType)
 			{
-				LLFloaterBuyCurrency::buyCurrency(
-					llformat(LLTrans::getString("UploadingCosts").c_str(),
-							 data->mAssetInfo.getName().c_str()),
-					         expected_upload_cost);
-				is_balance_sufficient = FALSE;
-			}
-			else if(region)
-			{
-				// Charge user for upload
-				gStatusBar->debitBalance(expected_upload_cost);
+				// Charge the user for the upload.
+				LLViewerRegion* region = gAgent.getRegion();
 				
-				LLMessageSystem* msg = gMessageSystem;
-				msg->newMessageFast(_PREHASH_MoneyTransferRequest);
-				msg->nextBlockFast(_PREHASH_AgentData);
-				msg->addUUIDFast(_PREHASH_AgentID, gAgent.getID());
-				msg->addUUIDFast(_PREHASH_SessionID, gAgent.getSessionID());
-				msg->nextBlockFast(_PREHASH_MoneyData);
-				msg->addUUIDFast(_PREHASH_SourceID, gAgent.getID());
-				msg->addUUIDFast(_PREHASH_DestID, LLUUID::null);
-				msg->addU8("Flags", 0);
-				// we tell the sim how much we were expecting to pay so it
-				// can respond to any discrepancy
-				msg->addS32Fast(_PREHASH_Amount, expected_upload_cost);
-				msg->addU8Fast(_PREHASH_AggregatePermNextOwner, (U8)LLAggregatePermissions::AP_EMPTY);
-				msg->addU8Fast(_PREHASH_AggregatePermInventory, (U8)LLAggregatePermissions::AP_EMPTY);
-				msg->addS32Fast(_PREHASH_TransactionType, TRANS_UPLOAD_CHARGE);
-				msg->addStringFast(_PREHASH_Description, NULL);
-				msg->sendReliable(region->getHost());
-			}
-		}
-
-		if(is_balance_sufficient)
-		{
-			// Actually add the upload to inventory
-			llinfos << "Adding " << uuid << " to inventory." << llendl;
-			LLUUID folder_id(gInventory.findCategoryUUIDForType(dest_loc));
-			if(folder_id.notNull())
-			{
-				U32 next_owner_perms = data->mNextOwnerPerm;
-				if(PERM_NONE == next_owner_perms)
+				if(!(can_afford_transaction(expected_upload_cost)))
 				{
-					next_owner_perms = PERM_MOVE | PERM_TRANSFER;
+					LLStringUtil::format_map_t args;
+					args["NAME"] = data->mAssetInfo.getName();
+					args["AMOUNT"] = llformat("%d", expected_upload_cost);
+					LLBuyCurrencyHTML::openCurrencyFloater( LLTrans::getString("UploadingCosts", args), expected_upload_cost );
+					is_balance_sufficient = FALSE;
 				}
-				create_inventory_item(gAgent.getID(), gAgent.getSessionID(),
-					folder_id, data->mAssetInfo.mTransactionID, data->mAssetInfo.getName(),
-					data->mAssetInfo.getDescription(), data->mAssetInfo.mType,
-					data->mInventoryType, NOT_WEARABLE, next_owner_perms,
-					LLPointer<LLInventoryCallback>(NULL));
+				else if(region)
+				{
+					// Charge user for upload
+					gStatusBar->debitBalance(expected_upload_cost);
+					
+					LLMessageSystem* msg = gMessageSystem;
+					msg->newMessageFast(_PREHASH_MoneyTransferRequest);
+					msg->nextBlockFast(_PREHASH_AgentData);
+					msg->addUUIDFast(_PREHASH_AgentID, gAgent.getID());
+					msg->addUUIDFast(_PREHASH_SessionID, gAgent.getSessionID());
+					msg->nextBlockFast(_PREHASH_MoneyData);
+					msg->addUUIDFast(_PREHASH_SourceID, gAgent.getID());
+					msg->addUUIDFast(_PREHASH_DestID, LLUUID::null);
+					msg->addU8("Flags", 0);
+					// we tell the sim how much we were expecting to pay so it
+					// can respond to any discrepancy
+					msg->addS32Fast(_PREHASH_Amount, expected_upload_cost);
+					msg->addU8Fast(_PREHASH_AggregatePermNextOwner, (U8)LLAggregatePermissions::AP_EMPTY);
+					msg->addU8Fast(_PREHASH_AggregatePermInventory, (U8)LLAggregatePermissions::AP_EMPTY);
+					msg->addS32Fast(_PREHASH_TransactionType, TRANS_UPLOAD_CHARGE);
+					msg->addStringFast(_PREHASH_Description, NULL);
+					msg->sendReliable(region->getHost());
+				}
 			}
-			else
+
+			if(is_balance_sufficient)
 			{
-				llwarns << "Can't find a folder to put it in" << llendl;
+				// Actually add the upload to inventory
+				llinfos << "Adding " << uuid << " to inventory." << llendl;
+				const LLUUID folder_id = gInventory.findCategoryUUIDForType(dest_loc);
+				if(folder_id.notNull())
+				{
+					U32 next_owner_perms = data->mNextOwnerPerm;
+					if(PERM_NONE == next_owner_perms)
+					{
+						next_owner_perms = PERM_MOVE | PERM_TRANSFER;
+					}
+					create_inventory_item(gAgent.getID(), gAgent.getSessionID(),
+							      folder_id, data->mAssetInfo.mTransactionID, data->mAssetInfo.getName(),
+							      data->mAssetInfo.getDescription(), data->mAssetInfo.mType,
+							      data->mInventoryType, NOT_WEARABLE, next_owner_perms,
+							      LLPointer<LLInventoryCallback>(NULL));
+				}
+				else
+				{
+					llwarns << "Can't find a folder to put it in" << llendl;
+				}
 			}
 		}
-	}
-	else // 	if(result >= 0)
-	{
-		LLSD args;
-		args["FILE"] = LLInventoryType::lookupHumanReadable(data->mInventoryType);
-		args["REASON"] = std::string(LLAssetStorage::getErrorString(result));
-		LLNotifications::instance().add("CannotUploadReason", args);
+		else // 	if(result >= 0)
+		{
+			LLSD args;
+			args["FILE"] = LLInventoryType::lookupHumanReadable(data->mInventoryType);
+			args["REASON"] = std::string(LLAssetStorage::getErrorString(result));
+			LLNotificationsUtil::add("CannotUploadReason", args);
+		}
 	}
 
 	LLUploadDialog::modalUploadFinished();
 	delete data;
+	data = NULL;
 
 	// *NOTE: This is a pretty big hack. What this does is check the
 	// file picker if there are any more pending uploads. If so,
@@ -908,35 +986,102 @@ void upload_done_callback(const LLUUID& uuid, void* user_data, S32 result, LLExt
 		std::string display_name = LLStringUtil::null;
 		LLAssetStorage::LLStoreAssetCallback callback = NULL;
 		void *userdata = NULL;
-		upload_new_resource(next_file, asset_name, asset_name,	// file
-				    0, LLAssetType::AT_NONE, LLInventoryType::IT_NONE,
-				    PERM_NONE, PERM_NONE, PERM_NONE,
-				    display_name,
-				    callback,
-				    expected_upload_cost, // assuming next in a group of uploads is of roughly the same type, i.e. same upload cost
-				    userdata);
+		upload_new_resource(
+			next_file,
+			asset_name,
+			asset_name,	// file
+			0,
+			LLFolderType::FT_NONE,
+			LLInventoryType::IT_NONE,
+			PERM_NONE,
+			PERM_NONE,
+			PERM_NONE,
+			display_name,
+			callback,
+			expected_upload_cost, // assuming next in a group of uploads is of roughly the same type, i.e. same upload cost
+			userdata);
 	}
 }
 
-void upload_new_resource(const LLTransactionID &tid, LLAssetType::EType asset_type,
-			 std::string name,
-			 std::string desc, S32 compression_info,
-			 LLAssetType::EType destination_folder_type,
-			 LLInventoryType::EType inv_type,
-			 U32 next_owner_perms,
-			 U32 group_perms,
-			 U32 everyone_perms,
-			 const std::string& display_name,
-			 LLAssetStorage::LLStoreAssetCallback callback,
-			 S32 expected_upload_cost,
-			 void *userdata)
+static LLAssetID upload_new_resource_prep(
+	const LLTransactionID& tid,
+	LLAssetType::EType asset_type,
+	LLInventoryType::EType& inventory_type,
+	std::string& name,
+	const std::string& display_name,
+	std::string& description)
+{
+	LLAssetID uuid = generate_asset_id_for_new_upload(tid);
+
+	increase_new_upload_stats(asset_type);
+
+	assign_defaults_and_show_upload_message(
+		asset_type,
+		inventory_type,
+		name,
+		display_name,
+		description);
+
+	return uuid;
+}
+
+LLSD generate_new_resource_upload_capability_body(
+	LLAssetType::EType asset_type,
+	const std::string& name,
+	const std::string& desc,
+	LLFolderType::EType destination_folder_type,
+	LLInventoryType::EType inv_type,
+	U32 next_owner_perms,
+	U32 group_perms,
+	U32 everyone_perms)
+{
+	LLSD body;
+
+	body["folder_id"] = gInventory.findCategoryUUIDForType(
+		(destination_folder_type == LLFolderType::FT_NONE) ?
+		(LLFolderType::EType) asset_type :
+		destination_folder_type);
+
+	body["asset_type"] = LLAssetType::lookup(asset_type);
+	body["inventory_type"] = LLInventoryType::lookup(inv_type);
+	body["name"] = name;
+	body["description"] = desc;
+	body["next_owner_mask"] = LLSD::Integer(next_owner_perms);
+	body["group_mask"] = LLSD::Integer(group_perms);
+	body["everyone_mask"] = LLSD::Integer(everyone_perms);
+
+	return body;
+}
+
+void upload_new_resource(
+	const LLTransactionID &tid,
+	LLAssetType::EType asset_type,
+	std::string name,
+	std::string desc,
+	S32 compression_info,
+	LLFolderType::EType destination_folder_type,
+	LLInventoryType::EType inv_type,
+	U32 next_owner_perms,
+	U32 group_perms,
+	U32 everyone_perms,
+	const std::string& display_name,
+	LLAssetStorage::LLStoreAssetCallback callback,
+	S32 expected_upload_cost,
+	void *userdata)
 {
 	if(gDisconnected)
 	{
 		return ;
 	}
-
-	LLAssetID uuid = tid.makeAssetID(gAgent.getSecureSessionID());
+	
+	LLAssetID uuid = 
+		upload_new_resource_prep(
+			tid,
+			asset_type,
+			inv_type,
+			name,
+			display_name,
+			desc);
 	
 	if( LLAssetType::AT_SOUND == asset_type )
 	{
@@ -979,28 +1124,34 @@ void upload_new_resource(const LLTransactionID &tid, LLAssetType::EType asset_ty
 	llinfos << "Name: " << name << llendl;
 	llinfos << "Desc: " << desc << llendl;
 	llinfos << "Expected Upload Cost: " << expected_upload_cost << llendl;
-	lldebugs << "Folder: " << gInventory.findCategoryUUIDForType((destination_folder_type == LLAssetType::AT_NONE) ? asset_type : destination_folder_type) << llendl;
+	lldebugs << "Folder: " << gInventory.findCategoryUUIDForType((destination_folder_type == LLFolderType::FT_NONE) ? LLFolderType::assetTypeToFolderType(asset_type) : destination_folder_type) << llendl;
 	lldebugs << "Asset Type: " << LLAssetType::lookup(asset_type) << llendl;
-	std::string url = gAgent.getRegion()->getCapability("NewFileAgentInventory");
-	if (!url.empty())
+
+	std::string url = gAgent.getRegion()->getCapability(
+		"NewFileAgentInventory");
+
+	if ( !url.empty() )
 	{
 		llinfos << "New Agent Inventory via capability" << llendl;
-		LLSD body;
-		body["folder_id"] = gInventory.findCategoryUUIDForType((destination_folder_type == LLAssetType::AT_NONE) ? asset_type : destination_folder_type);
-		body["asset_type"] = LLAssetType::lookup(asset_type);
-		body["inventory_type"] = LLInventoryType::lookup(inv_type);
-		body["name"] = name;
-		body["description"] = desc;
-		body["next_owner_mask"] = LLSD::Integer(next_owner_perms);
-		body["group_mask"] = LLSD::Integer(group_perms);
-		body["everyone_mask"] = LLSD::Integer(everyone_perms);
-		body["expected_upload_cost"] = LLSD::Integer(expected_upload_cost);
-		
-		//std::ostringstream llsdxml;
-		//LLSDSerialize::toPrettyXML(body, llsdxml);
-		//llinfos << "posting body to capability: " << llsdxml.str() << llendl;
 
-		LLHTTPClient::post(url, body, new LLNewAgentInventoryResponder(body, uuid, asset_type));
+		LLSD body;
+		body = generate_new_resource_upload_capability_body(
+			asset_type,
+			name,
+			desc,
+			destination_folder_type,
+			inv_type,
+			next_owner_perms,
+			group_perms,
+			everyone_perms);
+
+		LLHTTPClient::post(
+			url,
+			body,
+			new LLNewAgentInventoryResponder(
+				body,
+				uuid,
+				asset_type));
 	}
 	else
 	{
@@ -1015,7 +1166,10 @@ void upload_new_resource(const LLTransactionID &tid, LLAssetType::EType asset_ty
 			if (balance < expected_upload_cost)
 			{
 				// insufficient funds, bail on this upload
-				LLFloaterBuyCurrency::buyCurrency("Uploading costs", expected_upload_cost);
+				LLStringUtil::format_map_t args;
+				args["NAME"] = name;
+				args["AMOUNT"] = llformat("%d", expected_upload_cost);
+				LLBuyCurrencyHTML::openCurrencyFloater( LLTrans::getString("UploadingCosts", args), expected_upload_cost );
 				return;
 			}
 		}
@@ -1038,27 +1192,97 @@ void upload_new_resource(const LLTransactionID &tid, LLAssetType::EType asset_ty
 		{
 			asset_callback = callback;
 		}
-		gAssetStorage->storeAssetData(data->mAssetInfo.mTransactionID, data->mAssetInfo.mType,
-										asset_callback,
-										(void*)data,
-										FALSE);
+		gAssetStorage->storeAssetData(
+			data->mAssetInfo.mTransactionID,
+			data->mAssetInfo.mType,
+			asset_callback,
+			(void*)data,
+			FALSE);
 	}
 }
+
+LLAssetID generate_asset_id_for_new_upload(const LLTransactionID& tid)
+{
+	if ( gDisconnected )
+	{	
+		LLAssetID rv;
+
+		rv.setNull();
+		return rv;
+	}
+
+	LLAssetID uuid = tid.makeAssetID(gAgent.getSecureSessionID());
+
+	return uuid;
+}
+
+void increase_new_upload_stats(LLAssetType::EType asset_type)
+{
+	if ( LLAssetType::AT_SOUND == asset_type )
+	{
+		LLViewerStats::getInstance()->incStat(
+			LLViewerStats::ST_UPLOAD_SOUND_COUNT );
+	}
+	else if ( LLAssetType::AT_TEXTURE == asset_type )
+	{
+		LLViewerStats::getInstance()->incStat(
+			LLViewerStats::ST_UPLOAD_TEXTURE_COUNT );
+	}
+	else if ( LLAssetType::AT_ANIMATION == asset_type )
+	{
+		LLViewerStats::getInstance()->incStat(
+			LLViewerStats::ST_UPLOAD_ANIM_COUNT );
+	}
+}
+
+void assign_defaults_and_show_upload_message(
+	LLAssetType::EType asset_type,
+	LLInventoryType::EType& inventory_type,
+	std::string& name,
+	const std::string& display_name,
+	std::string& description)
+{
+	if ( LLInventoryType::IT_NONE == inventory_type )
+	{
+		inventory_type = LLInventoryType::defaultForAssetType(asset_type);
+	}
+	LLStringUtil::stripNonprintable(name);
+	LLStringUtil::stripNonprintable(description);
+
+	if ( name.empty() )
+	{
+		name = "(No Name)";
+	}
+	if ( description.empty() )
+	{
+		description = "(No Description)";
+	}
+
+	// At this point, we're ready for the upload.
+	std::string upload_message = "Uploading...\n\n";
+	upload_message.append(display_name);
+	LLUploadDialog::modalUploadDialog(upload_message);
+}
+
 
 void init_menu_file()
 {
 	view_listener_t::addCommit(new LLFileUploadImage(), "File.UploadImage");
 	view_listener_t::addCommit(new LLFileUploadSound(), "File.UploadSound");
 	view_listener_t::addCommit(new LLFileUploadAnim(), "File.UploadAnim");
+	view_listener_t::addCommit(new LLFileUploadModel(), "File.UploadModel");
 	view_listener_t::addCommit(new LLFileUploadBulk(), "File.UploadBulk");
 	view_listener_t::addCommit(new LLFileCloseWindow(), "File.CloseWindow");
 	view_listener_t::addCommit(new LLFileCloseAllWindows(), "File.CloseAllWindows");
 	view_listener_t::addEnable(new LLFileEnableCloseWindow(), "File.EnableCloseWindow");
 	view_listener_t::addEnable(new LLFileEnableCloseAllWindows(), "File.EnableCloseAllWindows");
-	view_listener_t::addCommit(new LLFileSaveTexture(), "File.SaveTexture");
 	view_listener_t::addCommit(new LLFileTakeSnapshotToDisk(), "File.TakeSnapshotToDisk");
 	view_listener_t::addCommit(new LLFileQuit(), "File.Quit");
 
 	view_listener_t::addEnable(new LLFileEnableUpload(), "File.EnableUpload");
-	view_listener_t::addEnable(new LLFileEnableSaveAs(), "File.EnableSaveAs");
+	view_listener_t::addEnable(new LLFileEnableUploadModel(), "File.EnableUploadModel");
+	view_listener_t::addMenu(new LLMeshEnabled(), "File.MeshEnabled");
+	view_listener_t::addMenu(new LLMeshUploadVisible(), "File.VisibleUploadModel");
+
+	// "File.SaveTexture" moved to llpanelmaininventory so that it can be properly handled.
 }

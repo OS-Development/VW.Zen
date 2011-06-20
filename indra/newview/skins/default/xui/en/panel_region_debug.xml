@@ -3,15 +3,14 @@
  border="true"
  follows="top|left"
  height="320"
+ help_topic="panel_region_debug_tab"
  label="Debug"
  layout="topleft"
  left="0"
  name="Debug"
  top="320"
- width="280">
+ width="480">
     <text
-     type="string"
-     length="1"
      follows="left|top"
      font="SansSerif"
      height="20"
@@ -23,8 +22,6 @@
         Region:
     </text>
     <text
-     type="string"
-     length="1"
      follows="left|top"
      font="SansSerif"
      height="20"
@@ -32,7 +29,7 @@
      left_delta="50"
      name="region_text"
      top_delta="0"
-     width="220">
+     width="400">
         unknown
     </text>
     <check_box
@@ -44,16 +41,6 @@
      tool_tip="Disable all scripts in this region"
      top="30"
      width="80" />
-    <button
-     follows="left|top"
-     font="SansSerifSmall"
-     height="18"
-     label="?"
-     layout="topleft"
-     left_pad="70"
-     name="disable_scripts_help"
-     top_delta="2"
-     width="18" />
     <check_box
      height="20"
      label="Disable Collisions"
@@ -63,16 +50,6 @@
      tool_tip="Disable non-avatar collisions in this region"
      top="50"
      width="80" />
-    <button
-     follows="left|top"
-     font="SansSerifSmall"
-     height="18"
-     label="?"
-     layout="topleft"
-     left_pad="70"
-     name="disable_collisions_help"
-     top_delta="2"
-     width="18" />
     <check_box
      height="20"
      label="Disable Physics"
@@ -83,29 +60,17 @@
      top="70"
      width="80" />
     <button
-     follows="left|top"
-     font="SansSerifSmall"
-     height="18"
-     label="?"
-     layout="topleft"
-     left_pad="70"
-     name="disable_physics_help"
-     top_delta="2"
-     width="18" />
-    <button
      enabled="false"
      follows="left|top"
      height="20"
-     font="SansSerifSmall"
      label="Apply"
      layout="topleft"
      left="60"
      name="apply_btn"
      top="100"
-     width="80" />
+     width="100" />
     <text
-     type="string"
-     length="1"
+
      follows="left|top"
      height="20"
      layout="topleft"
@@ -116,20 +81,18 @@
         Object Return
     </text>
     <text
-     type="string"
-     length="1"
+
      follows="left|top"
      height="20"
      layout="topleft"
-     left="20"
+     left="30"
      name="resident_text_lbl"
      top="175"
      width="60">
         Resident:
     </text>
     <line_editor
-     type="string"
-     length="1"
+
      border_style="line"
      border_thickness="1"
      enabled="false"
@@ -140,38 +103,35 @@
      mouse_opaque="false"
      name="target_avatar_name"
      top_delta="-2"
-     width="115">
+     width="270">
         (none)
     </line_editor>
     <button
      follows="left|top"
      height="20"
-     font="SansSerifSmall"
      label="Choose"
      layout="topleft"
      left_pad="5"
      name="choose_avatar_btn"
      top_delta="0"
      width="70" />
-   <text
-     type="string"
-     length="1"
+    <text
      follows="left|top"
      height="20"
      layout="topleft"
-     left="20"
+     left="30"
      name="options_text_lbl"
      top="198"
      width="60">
         Options:
     </text>
-    <check_box
+     <check_box
      height="20"
      label="With scripts"
      layout="topleft"
      left_delta="60"
      name="return_scripts"
-     tool_tip="Return only objects which have scripts."
+     tool_tip="Return only objects which have scripts"
      top_delta="0"
      width="80" />
     <check_box
@@ -195,7 +155,6 @@
     <button
      follows="left|top"
      height="20"
-     font="SansSerifSmall"
      label="Return"
      layout="topleft"
      left="20"
@@ -205,75 +164,41 @@
     <button
      follows="left|top"
      height="20"
-     font="SansSerifSmall"
      label="Get Top Colliders..."
      layout="topleft"
      left="10"
      name="top_colliders_btn"
      tool_tip="List of objects experiencing the most potential collisions"
      top="313"
-     width="130" />
-    <button
-     follows="left|top"
-     font="SansSerifSmall"
-     height="18"
-     label="?"
-     layout="topleft"
-     left_pad="10"
-     name="top_colliders_help"
-     top_delta="2"
-     width="18" />
+     width="150" />
     <button
      follows="left|top"
      height="20"
-     font="SansSerifSmall"
      label="Get Top Scripts..."
      layout="topleft"
      left="10"
      name="top_scripts_btn"
      tool_tip="List of objects spending the most time running scripts"
      top_pad="5"
-     width="130" />
-    <button
-     follows="left|top"
-     font="SansSerifSmall"
-     height="18"
-     label="?"
-     layout="topleft"
-     left_pad="10"
-     name="top_scripts_help"
-     top_delta="2"
-     width="18" />
+     width="150" />
     <button
      follows="left|top"
      height="20"
-     font="SansSerifSmall"
      label="Restart Region"
      layout="topleft"
      left="10"
      name="restart_btn"
      tool_tip="Give 2 minute countdown and restart region"
      top_pad="5"
-     width="110" />
-    <button
-     follows="left|top"
-     font="SansSerifSmall"
-     height="18"
-     label="?"
-     layout="topleft"
-     left_pad="10"
-     name="restart_help"
-     top_delta="2"
-     width="18" />
+     width="130" />
     <button
      follows="left|top"
      height="20"
-     font="SansSerifSmall"
      label="Delay Restart"
      layout="topleft"
      left="10"
      name="cancel_restart_btn"
      tool_tip="Delay region restart by one hour"
      top_pad="5"
-     width="110" />
+     width="130" />
 </panel>

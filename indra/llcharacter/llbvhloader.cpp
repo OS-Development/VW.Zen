@@ -2,31 +2,25 @@
  * @file llbvhloader.cpp
  * @brief Translates a BVH files to LindenLabAnimation format.
  *
- * $LicenseInfo:firstyear=2004&license=viewergpl$
- * 
- * Copyright (c) 2004-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2004&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -48,10 +42,10 @@ using namespace std;
 
 #define INCHES_TO_METERS 0.02540005f
 
-const F32 POSITION_KEYFRAME_THRESHOLD = 0.03f;
+const F32 POSITION_KEYFRAME_THRESHOLD_SQUARED = 0.03f * 0.03f;
 const F32 ROTATION_KEYFRAME_THRESHOLD = 0.01f;
 
-const F32 POSITION_MOTION_THRESHOLD = 0.001f;
+const F32 POSITION_MOTION_THRESHOLD_SQUARED = 0.001f * 0.001f;
 const F32 ROTATION_MOTION_THRESHOLD = 0.001f;
 
 char gInFile[1024];		/* Flawfinder: ignore */
@@ -91,7 +85,9 @@ const char *LLBVHLoader::ST_NO_XLT_EASEIN		= "Can't get easeIn values.";
 const char *LLBVHLoader::ST_NO_XLT_EASEOUT	= "Can't get easeOut values.";
 const char *LLBVHLoader::ST_NO_XLT_HAND		= "Can't get hand morph value.";
 const char *LLBVHLoader::ST_NO_XLT_EMOTE		= "Can't read emote name.";
+const char *LLBVHLoader::ST_BAD_ROOT        = "Illegal ROOT joint.";
 */
+
 //------------------------------------------------------------------------
 // find_next_whitespace()
 //------------------------------------------------------------------------
@@ -777,6 +773,17 @@ ELoadStatus LLBVHLoader::loadBVHFile(const char *buffer, char* error_text, S32 &
 			return E_ST_NO_NAME;
 		}
 
+		//---------------------------------------------------------------
+		// we require the root joint be "hip" - DEV-26188
+		//---------------------------------------------------------------
+		const char* FORCED_ROOT_NAME = "hip";
+		if ( (mJoints.size() == 0 ) && ( !strstr(jointName, FORCED_ROOT_NAME) ) )
+		{
+			strncpy(error_text, line.c_str(), 127);	/* Flawfinder: ignore */
+			return E_ST_BAD_ROOT;
+		}
+
+		
 		//----------------------------------------------------------------
 		// add a set of keyframes for this joint
 		//----------------------------------------------------------------
@@ -1189,7 +1196,7 @@ void LLBVHLoader::optimize()
 				if (ki_prev == ki_last_good_pos)
 				{
 					joint->mNumPosKeys++;
-					if (dist_vec(LLVector3(ki_prev->mPos), first_frame_pos) > POSITION_MOTION_THRESHOLD)
+					if (dist_vec_squared(LLVector3(ki_prev->mPos), first_frame_pos) > POSITION_MOTION_THRESHOLD_SQUARED)
 					{
 						pos_changed = TRUE;
 					}
@@ -1202,12 +1209,12 @@ void LLBVHLoader::optimize()
 					LLVector3 current_pos(ki->mPos);
 					LLVector3 interp_pos = lerp(current_pos, last_good_pos, 1.f / (F32)numPosFramesConsidered);
 
-					if (dist_vec(current_pos, first_frame_pos) > POSITION_MOTION_THRESHOLD)
+					if (dist_vec_squared(current_pos, first_frame_pos) > POSITION_MOTION_THRESHOLD_SQUARED)
 					{
 						pos_changed = TRUE;
 					}
 
-					if (dist_vec(interp_pos, test_pos) < POSITION_KEYFRAME_THRESHOLD)
+					if (dist_vec_squared(interp_pos, test_pos) < POSITION_KEYFRAME_THRESHOLD_SQUARED)
 					{
 						ki_prev->mIgnorePos = TRUE;
 						numPosFramesConsidered++;

@@ -1,13 +1,15 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  can_resize="true"
- height="250"
+ height="290"
  layout="topleft"
  min_height="150"
  min_width="200"
  name="floater_buy_contents"
+ help_topic="floater_buy_contents"
  save_rect="true"
- title="Buy Contents"
+ title="BUY CONTENTS"
  width="280">
     <floater.string
      name="no_copy_text">
@@ -21,27 +23,29 @@
      name="no_transfer_text">
         (no transfer)
     </floater.string>
-    <text
+       <text
      type="string"
      length="1"
      follows="left|top|right"
      font="SansSerif"
      height="16"
+     top="22"
+     left="10"
      layout="topleft"
-     left="15"
      name="contains_text"
-     top="24"
-     width="281">
-        [NAME] contains:
+     width="276">
+        &lt;nolink&gt;[NAME]&lt;/nolink&gt; contains:
     </text>
     <scroll_list
-     follows="left|top|right|bottom"
-     height="148"
+     background_visible="true"
+     draw_border="false"
+     follows="all"
+     height="163"
      layout="topleft"
-     left_delta="0"
+     left="10"
      name="item_list"
      top_pad="4"
-     width="250">
+     width="260">
         <scroll_list.columns
          name="icon"
          width="16" />
@@ -54,41 +58,41 @@
      length="1"
      follows="left|right|bottom"
      font="SansSerif"
-     height="24"
+     height="16"
      layout="topleft"
-     left_delta="0"
+     left="10"
      name="buy_text"
-     top_pad="4"
-     width="281">
+     text_color="white"
+     top="220"
+     use_ellipses="true" 
+     width="260">
         Buy for L$[AMOUNT] from [NAME]?
     </text>
-    <button
-     follows="right|bottom"
-     height="20"
-     label="Cancel"
-     label_selected="Cancel"
+    <check_box
+     follows="left|bottom"
+     height="16"
+     label="Wear clothing now"
      layout="topleft"
-     left="211"
-     name="cancel_btn"
-     top="224"
-     width="60" />
+     left="10"
+     name="wear_check"
+     width="250" />
     <button
      follows="right|bottom"
-     height="20"
+     height="23"
      label="Buy"
      label_selected="Buy"
      layout="topleft"
-     left_delta="-64"
+     left="65"
      name="buy_btn"
-     top_delta="0"
-     width="60" />
-    <check_box
-     follows="left|bottom"
-     height="20"
-     label="Wear clothing now"
+     top_pad="5"
+     width="100" />
+    <button
+     follows="right|bottom"
+     height="23"
+     label="Cancel"
+     label_selected="Cancel"
      layout="topleft"
-     left_delta="-139"
-     name="wear_check"
-     top_delta="0"
-     width="135" />
+     left_pad="5"
+     name="cancel_btn"
+     width="100" />
 </floater>

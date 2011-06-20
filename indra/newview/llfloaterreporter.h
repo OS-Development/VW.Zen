@@ -1,33 +1,27 @@
 /** 
  * @file llfloaterreporter.h
  * @author Andrew Meadows
- * @brief Bug and abuse reports.
+ * @brief Abuse reports.
  *
- * $LicenseInfo:firstyear=2006&license=viewergpl$
- * 
- * Copyright (c) 2006-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2006&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -38,6 +32,7 @@
 #include "lluuid.h"
 #include "v3math.h"
 
+class LLAvatarName;
 class LLMessageSystem;
 class LLViewerTexture;
 class LLInventoryItem;
@@ -48,7 +43,7 @@ class LLMeanCollisionData;
 struct LLResourceData;
 
 // these flags are used to label info requests to the server
-const U32 BUG_REPORT_REQUEST 		= 0x01 << 0;
+//const U32 BUG_REPORT_REQUEST 		= 0x01 << 0; // DEPRECATED
 const U32 COMPLAINT_REPORT_REQUEST 	= 0x01 << 1;
 const U32 OBJECT_PAY_REQUEST		= 0x01 << 2;
 
@@ -73,7 +68,7 @@ enum EReportType
 {
 	NULL_REPORT = 0,		// don't use this value anywhere
 	UNKNOWN_REPORT = 1,
-	BUG_REPORT = 2,
+	//BUG_REPORT = 2, // DEPRECATED
 	COMPLAINT_REPORT = 3,
 	CS_REQUEST_REPORT = 4
 };
@@ -82,35 +77,36 @@ class LLFloaterReporter
 :	public LLFloater
 {
 public:
-	LLFloaterReporter(EReportType = UNKNOWN_REPORT);
+	LLFloaterReporter(const LLSD& key);
 	/*virtual*/ ~LLFloaterReporter();
 	/*virtual*/ BOOL postBuild();
 	virtual void draw();
-
+	
+	void setReportType(EReportType type) { mReportType = type; }
+	
 	// Enables all buttons
 	static void showFromMenu(EReportType report_type);
 
 	static void showFromObject(const LLUUID& object_id);
+	static void showFromAvatar(const LLUUID& avatar_id, const std::string avatar_name);
 
 	static void onClickSend			(void *userdata);
 	static void onClickCancel		(void *userdata);
 	static void onClickObjPicker	(void *userdata);
-	static void onClickSelectAbuser (void *userdata);
+	void onClickSelectAbuser ();
 	static void closePickTool	(void *userdata);
 	static void uploadDoneCallback(const LLUUID &uuid, void* user_data, S32 result, LLExtStat ext_status);
 	static void addDescription(const std::string& description, LLMeanCollisionData *mcd = NULL);
 	static void setDescription(const std::string& description, LLMeanCollisionData *mcd = NULL);
 	
-	// returns a pointer to reporter of report_type
-	static LLFloaterReporter* getReporter(EReportType report_type);
-	static LLFloaterReporter* createNewAbuseReporter();
-
 	// static
 	static void processRegionInfo(LLMessageSystem* msg);
 	
 	void setPickedObjectProperties(const std::string& object_name, const std::string& owner_name, const LLUUID owner_id);
 
 private:
+	static void show(const LLUUID& object_id, const std::string& avatar_name = LLStringUtil::null);
+
 	void takeScreenshot();
 	void sendReportViaCaps(std::string url);
 	void uploadImage();
@@ -122,13 +118,17 @@ private:
 	void setPosBox(const LLVector3d &pos);
 	void enableControls(BOOL own_avatar);
 	void getObjectInfo(const LLUUID& object_id);
-	static void callbackAvatarID(const std::vector<std::string>& names, const std::vector<LLUUID>& ids, void* data);
+	void callbackAvatarID(const uuid_vec_t& ids, const std::vector<LLAvatarName> names);
+	void setFromAvatarID(const LLUUID& avatar_id);
+	void onAvatarNameCache(const LLUUID& avatar_id, const LLAvatarName& av_name);
 
 private:
 	EReportType		mReportType;
 	LLUUID 			mObjectID;
 	LLUUID			mScreenID;
 	LLUUID			mAbuserID;
+	// Store the real name, not the link, for upstream reporting
+	std::string		mOwnerName;
 	BOOL			mDeselectOnClose;
 	BOOL 			mPicking;
 	LLVector3		mPosition;

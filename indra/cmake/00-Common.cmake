@@ -4,27 +4,28 @@
 
 include(Variables)
 
-
 # Portable compilation flags.
-
-if (EXISTS ${CMAKE_SOURCE_DIR}/llphysics)
-  # The release build should only offer to send crash reports if we're
-  # building from a Linden internal source tree.
-  set(release_crash_reports 1)
-else (EXISTS ${CMAKE_SOURCE_DIR}/llphysics)
-  set(release_crash_reports 0) 
-endif (EXISTS ${CMAKE_SOURCE_DIR}/llphysics)
-
 set(CMAKE_CXX_FLAGS_DEBUG "-D_DEBUG -DLL_DEBUG=1")
 set(CMAKE_CXX_FLAGS_RELEASE
-    "-DLL_RELEASE=1 -DLL_RELEASE_FOR_DOWNLOAD=1 -D_SECURE_SCL=0 -DLL_SEND_CRASH_REPORTS=${release_crash_reports} -DNDEBUG") 
+    "-DLL_RELEASE=1 -DLL_RELEASE_FOR_DOWNLOAD=1 -DNDEBUG") 
 
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO 
-    "-DLL_RELEASE=1 -D_SECURE_SCL=0 -DLL_SEND_CRASH_REPORTS=0 -DNDEBUG -DLL_RELEASE_WITH_DEBUG_INFO=1")
+    "-DLL_RELEASE=1 -DNDEBUG -DLL_RELEASE_WITH_DEBUG_INFO=1")
 
+# Configure crash reporting
+set(RELEASE_CRASH_REPORTING OFF CACHE BOOL "Enable use of crash reporting in release builds")
+set(NON_RELEASE_CRASH_REPORTING OFF CACHE BOOL "Enable use of crash reporting in developer builds")
+
+if(RELEASE_CRASH_REPORTING)
+  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -DLL_SEND_CRASH_REPORTS=1")
+endif()
+
+if(NON_RELEASE_CRASH_REPORTING)
+  set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -DLL_SEND_CRASH_REPORTS=1")
+  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DLL_SEND_CRASH_REPORTS=1")
+endif()  
 
 # Don't bother with a MinSizeRel build.
-
 set(CMAKE_CONFIGURATION_TYPES "RelWithDebInfo;Release;Debug" CACHE STRING
     "Supported build types." FORCE)
 
@@ -35,13 +36,20 @@ if (WINDOWS)
   # Don't build DLLs.
   set(BUILD_SHARED_LIBS OFF)
 
-  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /Od /Zi /MDd"
+  # for "backwards compatibility", cmake sneaks in the Zm1000 option which royally
+  # screws incredibuild. this hack disables it.
+  # for details see: http://connect.microsoft.com/VisualStudio/feedback/details/368107/clxx-fatal-error-c1027-inconsistent-values-for-ym-between-creation-and-use-of-precompiled-headers
+  # http://www.ogre3d.org/forums/viewtopic.php?f=2&t=60015
+  # http://www.cmake.org/pipermail/cmake/2009-September/032143.html
+  string(REPLACE "/Zm1000" " " CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
+
+  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /Od /Zi /MDd /MP -D_SCL_SECURE_NO_WARNINGS=1"
       CACHE STRING "C++ compiler debug options" FORCE)
   set(CMAKE_CXX_FLAGS_RELWITHDEBINFO 
-      "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} /Od /Zi /MD"
+      "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} /Od /Zi /MD /MP /Ob2 -D_SECURE_STL=0"
       CACHE STRING "C++ compiler release-with-debug options" FORCE)
   set(CMAKE_CXX_FLAGS_RELEASE
-      "${CMAKE_CXX_FLAGS_RELEASE} ${LL_CXX_FLAGS} /O2 /Zi /MD"
+      "${CMAKE_CXX_FLAGS_RELEASE} ${LL_CXX_FLAGS} /O2 /Zi /MD /MP /Ob2 -D_SECURE_STL=0 -D_HAS_ITERATOR_DEBUGGING=0"
       CACHE STRING "C++ compiler release options" FORCE)
 
   set(CMAKE_CXX_STANDARD_LIBRARIES "")
@@ -49,31 +57,28 @@ if (WINDOWS)
 
   add_definitions(
       /DLL_WINDOWS=1
+      /DDOM_DYNAMIC
       /DUNICODE
       /D_UNICODE 
       /GS
       /TP
-      /W3
+      /W2
       /c
       /Zc:forScope
       /nologo
       /Oy-
+      /Zc:wchar_t-
+      /arch:SSE2
       )
      
-  if(MSVC80 OR MSVC90)
-    set(CMAKE_CXX_FLAGS_RELEASE
-      "${CMAKE_CXX_FLAGS_RELEASE} -D_SECURE_STL=0 -D_HAS_ITERATOR_DEBUGGING=0"
-      CACHE STRING "C++ compiler release options" FORCE)
-   
-    add_definitions(
-      /Zc:wchar_t-
-      )
-  endif (MSVC80 OR MSVC90)
-  
   # Are we using the crummy Visual Studio KDU build workaround?
   if (NOT VS_DISABLE_FATAL_WARNINGS)
     add_definitions(/WX)
   endif (NOT VS_DISABLE_FATAL_WARNINGS)
+
+  # configure win32 API for windows XP+ compatibility
+  set(WINVER "0x0501" CACHE STRING "Win32 API Target version (see http://msdn.microsoft.com/en-us/library/aa383745%28v=VS.85%29.aspx)")
+  add_definitions("/DWINVER=${WINVER}" "/D_WIN32_WINNT=${WINVER}")
 endif (WINDOWS)
 
 
@@ -118,14 +123,15 @@ if (LINUX)
     endif (NOT ${GXX_VERSION} MATCHES " 4.1.*Red Hat")
   endif (${GXX_VERSION} STREQUAL ${CXX_VERSION})
 
-  # GCC 4.3 introduces a pile of obnoxious new warnings, which we
-  # treat as errors due to -Werror.  Quiet the most offensive and
-  # widespread of them.
+  # Let's actually get a numerical version of gxx's version
+  STRING(REGEX REPLACE ".* ([0-9])\\.([0-9])\\.([0-9]).*" "\\1\\2\\3" CXX_VERSION_NUMBER ${CXX_VERSION})
 
-  if (${CXX_VERSION} MATCHES "4.3")
+  # gcc 4.3 and above don't like the LL boost and also
+  # cause warnings due to our use of deprecated headers
+  if(${CXX_VERSION_NUMBER} GREATER 429)
     add_definitions(-Wno-parentheses)
     set(CMAKE_CXX_FLAGS "-Wno-deprecated ${CMAKE_CXX_FLAGS}")
-  endif (${CXX_VERSION} MATCHES "4.3")
+  endif (${CXX_VERSION_NUMBER} GREATER 429)
 
   # End of hacks.
 
@@ -137,6 +143,8 @@ if (LINUX)
       -fno-strict-aliasing
       -fsigned-char
       -g
+      -msse2
+      -mfpmath=sse
       -pthread
       )
 
@@ -156,10 +164,6 @@ if (LINUX)
       link_directories(/usr/lib/mysql4/mysql)
     endif (EXISTS /usr/lib/mysql4/mysql)
 
-    add_definitions(
-        -msse2
-        -mfpmath=sse
-        )
   endif (SERVER)
 
   if (VIEWER)
@@ -167,9 +171,13 @@ if (LINUX)
     add_definitions(-fvisibility=hidden)
     # don't catch SIGCHLD in our base application class for the viewer - some of our 3rd party libs may need their *own* SIGCHLD handler to work.  Sigh!  The viewer doesn't need to catch SIGCHLD anyway.
     add_definitions(-DLL_IGNORE_SIGCHLD)
+    add_definitions(-march=pentium4 -mfpmath=sse)
+    #add_definitions(-ftree-vectorize) # THIS CRASHES GCC 3.1-3.2
     if (NOT STANDALONE)
       # this stops us requiring a really recent glibc at runtime
       add_definitions(-fno-stack-protector)
+      # linking can be very memory-hungry, especially the final viewer link
+      set(CMAKE_CXX_LINK_FLAGS "-Wl,--no-keep-memory")
     endif (NOT STANDALONE)
   endif (VIEWER)
 
@@ -179,11 +187,17 @@ endif (LINUX)
 
 
 if (DARWIN)
-  add_definitions(-DLL_DARWIN=1)
+  # NOTE (per http://lists.apple.com/archives/darwin-dev/2008/Jan/msg00232.html):
+  # > Why the bus error? What am I doing wrong? 
+  # This is a known issue where getcontext(3) is writing past the end of the
+  # ucontext_t struct when _XOPEN_SOURCE is not defined (rdar://problem/5578699 ).
+  # As a workaround, define _XOPEN_SOURCE before including ucontext.h.
+  add_definitions(-DLL_DARWIN=1 -D_XOPEN_SOURCE)
   set(CMAKE_CXX_LINK_FLAGS "-Wl,-headerpad_max_install_names,-search_paths_first")
   set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_CXX_LINK_FLAGS}")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mlong-branch")
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mlong-branch")
+  set(DARWIN_extra_cstar_flags "-mlong-branch")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${DARWIN_extra_cstar_flags}")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  ${DARWIN_extra_cstar_flags}")
   # NOTE: it's critical that the optimization flag is put in front.
   # NOTE: it's critical to have both CXX_FLAGS and C_FLAGS covered.
   set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O0 ${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
@@ -192,13 +206,13 @@ endif (DARWIN)
 
 
 if (LINUX OR DARWIN)
-  set(GCC_WARNINGS "-Wall -Wno-sign-compare -Wno-trigraphs -Wno-non-virtual-dtor -Woverloaded-virtual")
+  set(GCC_WARNINGS "-Wall -Wno-sign-compare -Wno-trigraphs")
 
   if (NOT GCC_DISABLE_FATAL_WARNINGS)
     set(GCC_WARNINGS "${GCC_WARNINGS} -Werror")
   endif (NOT GCC_DISABLE_FATAL_WARNINGS)
 
-  set(GCC_CXX_WARNINGS "${GCC_WARNINGS} -Wno-reorder")
+  set(GCC_CXX_WARNINGS "${GCC_WARNINGS} -Wno-reorder -Wno-non-virtual-dtor")
 
   set(CMAKE_C_FLAGS "${GCC_WARNINGS} ${CMAKE_C_FLAGS}")
   set(CMAKE_CXX_FLAGS "${GCC_CXX_WARNINGS} ${CMAKE_CXX_FLAGS}")

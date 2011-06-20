@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<floater name="build options floater" title="Opzioni della griglia">
-	<spinner label="Unità di misura della griglia (metri)" name="GridResolution"/>
-	<spinner label="Estensione della griglia (metri)" name="GridDrawSize"/>
-	<check_box label="Abilita sotto-unità di movimento" name="GridSubUnit"/>
-	<check_box label="Mostra piani d&apos;intersezione" name="GridCrossSection"/>
-	<slider label="Trasparenza della griglia" name="GridOpacity"/>
+<floater name="build options floater" title="OPZIONI DELLA GRIGLIA">
+	<spinner label="Unità griglia (metri)" label_width="192" name="GridResolution" width="250"/>
+	<spinner label="Estensione della griglia (metri)" label_width="192" name="GridDrawSize" width="250"/>
+	<check_box label="Usa sottounità" name="GridSubUnit"/>
+	<check_box label="Guarda le sezioni trasversali" name="GridCrossSection"/>
+	<text name="grid_opacity_label" tool_tip="Opacità della griglia">
+		Opacità:
+	</text>
+	<slider label="Trasparenza della griglia" name="GridOpacity" width="250"/>
 </floater>

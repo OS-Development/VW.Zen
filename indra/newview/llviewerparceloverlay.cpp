@@ -2,31 +2,25 @@
  * @file llviewerparceloverlay.cpp
  * @brief LLViewerParcelOverlay class implementation
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -43,16 +37,18 @@
 #include "v2math.h"
 
 // newview includes
+#include "llagentcamera.h"
 #include "llviewertexture.h"
 #include "llviewercontrol.h"
 #include "llsurface.h"
 #include "llviewerregion.h"
-#include "llagent.h"
 #include "llviewercamera.h"
 #include "llviewertexturelist.h"
 #include "llselectmgr.h"
 #include "llfloatertools.h"
 #include "llglheaders.h"
+#include "pipeline.h"
+
 
 const U8  OVERLAY_IMG_COMPONENTS = 4;
 
@@ -72,8 +68,6 @@ LLViewerParcelOverlay::LLViewerParcelOverlay(LLViewerRegion* region, F32 region_
 	// Use mipmaps = FALSE, clamped, NEAREST filter, for sharp edges	
 	mImageRaw = new LLImageRaw(mParcelGridsPerEdge, mParcelGridsPerEdge, OVERLAY_IMG_COMPONENTS);
 	mTexture = LLViewerTextureManager::getLocalTexture(mImageRaw.get(), FALSE);
-	gGL.getTexUnit(0)->activate();
-	gGL.getTexUnit(0)->bind(mTexture);
 	mTexture->setAddressMode(LLTexUnit::TAM_CLAMP);
 	mTexture->setFilteringOption(LLTexUnit::TFO_POINT);
 
@@ -87,7 +81,7 @@ LLViewerParcelOverlay::LLViewerParcelOverlay(LLViewerRegion* region, F32 region_
 	{
 		raw[i] = 0;
 	}
-	mTexture->setSubImage(mImageRaw, 0, 0, mParcelGridsPerEdge, mParcelGridsPerEdge);
+	//mTexture->setSubImage(mImageRaw, 0, 0, mParcelGridsPerEdge, mParcelGridsPerEdge);
 
 	// Create storage for ownership information from simulator
 	// and initialize it.
@@ -97,8 +91,7 @@ LLViewerParcelOverlay::LLViewerParcelOverlay(LLViewerRegion* region, F32 region_
 		mOwnership[i] = PARCEL_PUBLIC;
 	}
 
-	// Make sure the texture matches the ownership information.
-	updateOverlayTexture();
+	gPipeline.markGLRebuild(this);
 }
 
 
@@ -150,6 +143,35 @@ BOOL LLViewerParcelOverlay::isOwnedOther(const LLVector3& pos) const
 	S32 column = S32(pos.mV[VX] / PARCEL_GRID_STEP_METERS);
 	U8 overlay = ownership(row, column);
 	return (PARCEL_OWNED == overlay || PARCEL_FOR_SALE == overlay);
+}
+
+bool LLViewerParcelOverlay::encroachesOwned(const std::vector<LLBBox>& boxes) const
+{
+	// boxes are expected to already be axis aligned
+	for (U32 i = 0; i < boxes.size(); ++i)
+	{
+		LLVector3 min = boxes[i].getMinAgent();
+		LLVector3 max = boxes[i].getMaxAgent();
+		
+		S32 left   = S32(llclamp((min.mV[VX] / PARCEL_GRID_STEP_METERS), 0.f, REGION_WIDTH_METERS - 1));
+		S32 right  = S32(llclamp((max.mV[VX] / PARCEL_GRID_STEP_METERS), 0.f, REGION_WIDTH_METERS - 1));
+		S32 top    = S32(llclamp((min.mV[VY] / PARCEL_GRID_STEP_METERS), 0.f, REGION_WIDTH_METERS - 1));
+		S32 bottom = S32(llclamp((max.mV[VY] / PARCEL_GRID_STEP_METERS), 0.f, REGION_WIDTH_METERS - 1));
+	
+		for (S32 row = top; row <= bottom; row++)
+		{
+			for (S32 column = left; column <= right; column++)
+			{
+				U8 type = ownership(row, column);
+				if ((PARCEL_SELF == type)
+					|| (PARCEL_GROUP == type))
+				{
+					return true;
+				}
+			}
+		}
+	}
+	return false;
 }
 
 BOOL LLViewerParcelOverlay::isSoundLocal(const LLVector3& pos) const
@@ -283,6 +305,10 @@ void LLViewerParcelOverlay::updateOverlayTexture()
 	// Copy data into GL texture from raw data
 	if (i >= COUNT)
 	{
+		if (!mTexture->hasGLTexture())
+		{
+			mTexture->createGLTexture(0, mImageRaw);
+		}
 		mTexture->setSubImage(mImageRaw, 0, 0, mParcelGridsPerEdge, mParcelGridsPerEdge);
 		mOverlayTextureIdx = -1;
 	}
@@ -709,6 +735,11 @@ void LLViewerParcelOverlay::setDirty()
 	mDirty = TRUE;
 }
 
+void LLViewerParcelOverlay::updateGL()
+{
+	updateOverlayTexture();
+}
+
 void LLViewerParcelOverlay::idleUpdate(bool force_update)
 {
 	LLMemType mt_iup(LLMemType::MTYPE_IDLE_UPDATE_PARCEL_OVERLAY);
@@ -719,7 +750,7 @@ void LLViewerParcelOverlay::idleUpdate(bool force_update)
 	if (mOverlayTextureIdx >= 0 && (!(mDirty && force_update)))
 	{
 		// We are in the middle of updating the overlay texture
-		updateOverlayTexture();
+		gPipeline.markGLRebuild(this);
 		return;
 	}
 	// Only if we're dirty and it's been a while since the last update.
@@ -752,7 +783,7 @@ S32 LLViewerParcelOverlay::renderPropertyLines	()
 	LLGLDepthTest mDepthTest(GL_TRUE);
 
 	// Find camera height off the ground (not from zero)
-	F32 ground_height_at_camera = land.resolveHeightGlobal( gAgent.getCameraPositionGlobal() );
+	F32 ground_height_at_camera = land.resolveHeightGlobal( gAgentCamera.getCameraPositionGlobal() );
 	F32 camera_z = LLViewerCamera::getInstance()->getOrigin().mV[VZ];
 	F32 camera_height = camera_z - ground_height_at_camera;
 
@@ -783,7 +814,7 @@ S32 LLViewerParcelOverlay::renderPropertyLines	()
 	const S32 vertex_per_edge = 3 + 2 * (GRID_STEP-1) + 3;
 
 	// Stomp the camera into two dimensions
-	LLVector3 camera_region = mRegion->getPosRegionFromGlobal( gAgent.getCameraPositionGlobal() );
+	LLVector3 camera_region = mRegion->getPosRegionFromGlobal( gAgentCamera.getCameraPositionGlobal() );
 
 	// Set up a cull plane 2 * PARCEL_GRID_STEP_METERS behind
 	// the camera.  The cull plane normal is the camera's at axis.
@@ -800,8 +831,9 @@ S32 LLViewerParcelOverlay::renderPropertyLines	()
 	S32 drawn = 0;
 	F32* vertexp;
 	U8* colorp;
+	bool render_hidden = LLSelectMgr::sRenderHiddenSelections && LLFloaterReg::instanceVisible("build");
 
-	const F32 PROPERTY_LINE_CLIP_DIST = 256.f;
+	const F32 PROPERTY_LINE_CLIP_DIST_SQUARED = 256.f * 256.f;
 
 	for (i = 0; i < mVertexCount; i += vertex_per_edge)
 	{
@@ -812,7 +844,7 @@ S32 LLViewerParcelOverlay::renderPropertyLines	()
 		vertex.mV[VY] = *(vertexp+1);
 		vertex.mV[VZ] = *(vertexp+2);
 
-		if (dist_vec_squared2D(vertex, camera_region) > PROPERTY_LINE_CLIP_DIST*PROPERTY_LINE_CLIP_DIST)
+		if (dist_vec_squared2D(vertex, camera_region) > PROPERTY_LINE_CLIP_DIST_SQUARED)
 		{
 			continue;
 		}
@@ -841,7 +873,7 @@ S32 LLViewerParcelOverlay::renderPropertyLines	()
 
 		gGL.end();
 		
-		if (LLSelectMgr::sRenderHiddenSelections && LLFloaterReg::instanceVisible("build"))
+		if (render_hidden)
 		{
 			LLGLDepthTest depth(GL_TRUE, GL_FALSE, GL_GREATER);
 			

@@ -1,31 +1,25 @@
 /** 
  * @file llparcel.h
  *
- * $LicenseInfo:firstyear=2002&license=viewergpl$
- * 
- * Copyright (c) 2002-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -40,7 +34,7 @@
 #include "llpermissions.h"
 #include "lltimer.h"
 #include "v3math.h"
-
+#include "llaccountingquota.h"
 
 // Grid out of which parcels taken is stepped every 4 meters.
 const F32 PARCEL_GRID_STEP_METERS	= 4.f;
@@ -136,9 +130,9 @@ class LLSD;
 class LLAccessEntry
 {
 public:
-	LLUUID		mID;
-	S32			mTime;
-	U32			mFlags;
+	LLUUID		mID;		// Agent ID
+	S32			mTime;		// Time (unix seconds) when entry expires
+	U32			mFlags;		// Not used - currently should always be zero
 };
 
 typedef std::map<LLUUID,LLAccessEntry>::iterator access_map_iterator;
@@ -171,6 +165,7 @@ public:
 		C_SHOPPING,
 		C_STAGE,
 		C_OTHER,
+		C_RENTAL,
 		C_COUNT,
 		C_ANY = -1		// only useful in queries
 	};
@@ -244,13 +239,19 @@ public:
 	void	setMediaID(const LLUUID& id) { mMediaID = id; }
 	void	setMediaAutoScale ( U8 flagIn ) { mMediaAutoScale = flagIn; }
 	void    setMediaLoop (U8 loop) { mMediaLoop = loop; }
-	void	setObscureMedia( U8 flagIn ) { mObscureMedia = flagIn; }
-	void	setObscureMusic( U8 flagIn ) { mObscureMusic = flagIn; }
 	void setMediaWidth(S32 width);
 	void setMediaHeight(S32 height);
+	void setMediaCurrentURL(const std::string& url);
+	void setMediaURLFilterEnable(U8 enable) { mMediaURLFilterEnable = enable; }
+	void setMediaURLFilterList(LLSD list);
+	void setMediaAllowNavigate(U8 enable) { mMediaAllowNavigate = enable; }
+	void setMediaURLTimeout(F32 timeout) { mMediaURLTimeout = timeout; }
+	void setMediaPreventCameraZoom(U8 enable) { mMediaPreventCameraZoom = enable; }
+
+	void setMediaURLResetTimer(F32 time);
 	virtual void	setLocalID(S32 local_id);
 
-	// blow away all the extra crap lurking in parcels, including urls, access lists, etc
+	// blow away all the extra stuff lurking in parcels, including urls, access lists, etc
 	void clearParcel();
 
 	// This value is not persisted out to the parcel file, it is only
@@ -300,7 +301,8 @@ public:
 
 //	BOOL	importStream(std::istream& input_stream);
 	BOOL	importAccessEntry(std::istream& input_stream, LLAccessEntry* entry);
-//	BOOL	exportStream(std::ostream& output_stream);
+	BOOL    importMediaURLFilter(std::istream& input_stream, std::string& url);
+	// BOOL	exportStream(std::ostream& output_stream);
 
 	void	packMessage(LLMessageSystem* msg);
 	void	packMessage(LLSD& msg);
@@ -342,8 +344,13 @@ public:
 	S32				getMediaHeight() const		{ return mMediaHeight; }
 	U8				getMediaAutoScale() const	{ return mMediaAutoScale; }
 	U8              getMediaLoop() const        { return mMediaLoop; }
-	U8				getObscureMedia() const		{ return mObscureMedia; }
-	U8				getObscureMusic() const		{ return mObscureMusic; }
+	const std::string&  getMediaCurrentURL() const { return mMediaCurrentURL; }
+	U8              getMediaURLFilterEnable() const   { return mMediaURLFilterEnable; }
+	LLSD            getMediaURLFilterList() const     { return mMediaURLFilterList; }
+	U8              getMediaAllowNavigate() const { return mMediaAllowNavigate; }
+	F32				getMediaURLTimeout() const { return mMediaURLTimeout; }
+	U8              getMediaPreventCameraZoom() const { return mMediaPreventCameraZoom; }
+
 	S32				getLocalID() const			{ return mLocalID; }
 	const LLUUID&	getOwnerID() const			{ return mOwnerID; }
 	const LLUUID&	getGroupID() const			{ return mGroupID; }
@@ -414,6 +421,10 @@ public:
 	void completeSale(U32& type, U8& flags, LLUUID& to_id);
 	void clearSale();
 
+
+	BOOL isMediaResetTimerExpired(const U64& time);
+
+
 	// more accessors
 	U32		getParcelFlags() const			{ return mParcelFlags; }
 
@@ -447,8 +458,10 @@ public:
 	BOOL	getAllowFly() const
 					{ return (mParcelFlags & PF_ALLOW_FLY) ? TRUE : FALSE; }
 
+	// Remove permission restrictions for creating landmarks.
+	// We should eventually remove this flag completely.
 	BOOL	getAllowLandmark() const
-					{ return (mParcelFlags & PF_ALLOW_LANDMARK) ? TRUE : FALSE; }
+					{ return TRUE; }
 
 	BOOL	getAllowGroupScripts() const
 					{ return (mParcelFlags & PF_ALLOW_GROUP_SCRIPTS) ? TRUE : FALSE; }
@@ -516,7 +529,7 @@ public:
 
 	static bool isAgentBlockedFromParcel(LLParcel* parcelp, 
 									const LLUUID& agent_id,
-									const std::vector<LLUUID>& group_ids,
+									const uuid_vec_t& group_ids,
 									const BOOL is_agent_identified,
 									const BOOL is_agent_transacted,
 									const BOOL is_agent_ageverified);
@@ -573,7 +586,11 @@ public:
 	LLUUID	getPreviousOwnerID() const		{ return mPreviousOwnerID; }
 	BOOL	getPreviouslyGroupOwned() const	{ return mPreviouslyGroupOwned; }
 	BOOL	getSellWithObjects() const		{ return (mParcelFlags & PF_SELL_PARCEL_OBJECTS) ? TRUE : FALSE; }
-
+	
+	
+			void		 updateQuota( const LLUUID& objectId, const ParcelQuota& quota );
+	const	ParcelQuota& getQuota( void ) { return mQuota; }	
+	
 protected:
 	LLUUID mID;
 	LLUUID				mOwnerID;
@@ -590,6 +607,8 @@ protected:
 	LLVector3 mUserLookAt;
 	ELandingType mLandingType;
 	LLTimer mSaleTimerExpires;
+	LLTimer mMediaResetTimer;
+
 	S32 mGraceExtension;
 
 	// This value is non-zero if there is an auction associated with
@@ -617,9 +636,13 @@ protected:
 	S32					mMediaHeight;
 	U8					mMediaAutoScale;
 	U8                  mMediaLoop;
-	U8					mObscureMedia;
-	U8					mObscureMusic;
+	std::string         mMediaCurrentURL;
 	LLUUID				mMediaID;
+	U8                  mMediaURLFilterEnable;
+	LLSD                mMediaURLFilterList;
+	U8                  mMediaAllowNavigate;
+	U8					mMediaPreventCameraZoom;
+	F32					mMediaURLTimeout;
 	S32					mPassPrice;
 	F32					mPassHours;
 	LLVector3			mAABBMin;
@@ -638,8 +661,9 @@ protected:
 	BOOL				mRegionPushOverride;
 	BOOL				mRegionDenyAnonymousOverride;
 	BOOL				mRegionDenyAgeUnverifiedOverride;
-
-
+	
+	ParcelQuota			mQuota;
+	
 public:
 	// HACK, make private
 	S32					mLocalID;
@@ -649,6 +673,7 @@ public:
 	std::map<LLUUID,LLAccessEntry>	mBanList;
 	std::map<LLUUID,LLAccessEntry>	mTempBanList;
 	std::map<LLUUID,LLAccessEntry>	mTempAccessList;
+
 };
 
 

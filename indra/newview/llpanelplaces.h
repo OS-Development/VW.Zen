@@ -2,77 +2,151 @@
  * @file llpanelplaces.h
  * @brief Side Bar "Places" panel
  *
- * $LicenseInfo:firstyear=2009&license=viewergpl$
- * 
- * Copyright (c) 2004-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2009&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
 #ifndef LL_LLPANELPLACES_H
 #define LL_LLPANELPLACES_H
 
+#include "lltimer.h"
+
 #include "llpanel.h"
 
-#include "llinventory.h"
+class LLInventoryItem;
+class LLFilterEditor;
+class LLLandmark;
 
-#include "llinventorymodel.h"
-#include "llpanelplaceinfo.h"
+class LLPanelLandmarkInfo;
+class LLPanelPlaceProfile;
 
+class LLPanelPickEdit;
+class LLPanelPlaceInfo;
 class LLPanelPlacesTab;
-class LLSearchEditor;
+class LLParcelSelection;
+class LLPlacesInventoryObserver;
+class LLPlacesParcelObserver;
+class LLRemoteParcelInfoObserver;
 class LLTabContainer;
+class LLToggleableMenu;
+class LLMenuButton;
 
-class LLPanelPlaces : public LLPanel, LLInventoryObserver
+typedef std::pair<LLUUID, std::string>	folder_pair_t;
+
+class LLPanelPlaces : public LLPanel
 {
 public:
 	LLPanelPlaces();
 	virtual ~LLPanelPlaces();
 
 	/*virtual*/ BOOL postBuild();
-	/*virtual*/ void draw();
-	/*virtual*/ void changed(U32 mask);
 	/*virtual*/ void onOpen(const LLSD& key);
 
-	void onSearchEdit(const std::string& search_string);
-	void onTabSelected();
-	//void onAddLandmarkButtonClicked();
-	//void onCopySLURLButtonClicked();
-	void onShareButtonClicked();
-	void onTeleportButtonClicked();
-	void onShowOnMapButtonClicked();
-	void onBackButtonClicked();
-	void togglePlaceInfoPanel(BOOL visible);
+	// Called on parcel selection change to update place information.
+	void changedParcelSelection();
+	// Called once on agent inventory first change to find out when inventory gets usable
+	// and to create "My Landmarks" and "Teleport History" tabs.
+	void createTabs();
+	// Called when we receive the global 3D position of a parcel.
+	void changedGlobalPos(const LLVector3d &global_pos);
+
+	// Opens landmark info panel when agent creates or receives landmark.
+	void showAddedLandmarkInfo(const uuid_vec_t& items);
+
+	void setItem(LLInventoryItem* item);
+
+	LLInventoryItem* getItem() { return mItem; }
+
+	std::string getPlaceInfoType() { return mPlaceInfoType; }
+
+	/*virtual*/ S32 notifyParent(const LLSD& info);
 
 private:
-	LLSearchEditor*			mSearchEditor;
-	LLPanelPlacesTab*		mActivePanel;
-	LLTabContainer*			mTabContainer;
-	LLPanelPlaceInfo*		mPlaceInfo;
-	std::string				mFilterSubString;
+	void onLandmarkLoaded(LLLandmark* landmark);
+	void onFilterEdit(const std::string& search_string, bool force_filter);
+	void onTabSelected();
 
-	// Place information type currently shown in Information panel
-	std::string				mPlaceInfoType;
+	void onTeleportButtonClicked();
+	void onShowOnMapButtonClicked();
+	void onEditButtonClicked();
+	void onSaveButtonClicked();
+	void onCancelButtonClicked();
+	void onOverflowButtonClicked();
+	void onOverflowMenuItemClicked(const LLSD& param);
+	bool onOverflowMenuItemEnable(const LLSD& param);
+	void onCreateLandmarkButtonClicked(const LLUUID& folder_id);
+	void onBackButtonClicked();
+	void onProfileButtonClicked();
+
+	void toggleMediaPanel();
+	void togglePickPanel(BOOL visible);
+	void togglePlaceInfoPanel(BOOL visible);
+
+	/*virtual*/ void handleVisibilityChange(BOOL new_visibility);
+
+	void updateVerbs();
+
+	LLPanelPlaceInfo* getCurrentInfoPanel();
+
+	LLFilterEditor*				mFilterEditor;
+	LLPanelPlacesTab*			mActivePanel;
+	LLTabContainer*				mTabContainer;
+	LLPanelPlaceProfile*		mPlaceProfile;
+	LLPanelLandmarkInfo*		mLandmarkInfo;
+
+	LLPanelPickEdit*			mPickPanel;
+	LLToggleableMenu*			mPlaceMenu;
+	LLToggleableMenu*			mLandmarkMenu;
+
+	LLButton*					mPlaceProfileBackBtn;
+	LLButton*					mTeleportBtn;
+	LLButton*					mShowOnMapBtn;
+	LLButton*					mEditBtn;
+	LLButton*					mSaveBtn;
+	LLButton*					mCancelBtn;
+	LLButton*					mCloseBtn;
+	LLMenuButton*				mOverflowBtn;
+	LLButton*					mPlaceInfoBtn;
+
+	LLPlacesInventoryObserver*	mInventoryObserver;
+	LLPlacesParcelObserver*		mParcelObserver;
+	LLRemoteParcelInfoObserver* mRemoteParcelObserver;
+
+	// Pointer to a landmark item or to a linked landmark
+	LLPointer<LLInventoryItem>	mItem;
+
+	// Absolute position of the location for teleport, may not
+	// be available (hence zero)
+	LLVector3d					mPosGlobal;
+
+	// Sets a period of time during which the requested place information
+	// is expected to be updated and doesn't need to be reset.
+	LLTimer						mResetInfoTimer;
+
+	// Information type currently shown in Place Information panel
+	std::string					mPlaceInfoType;
+
+	bool						isLandmarkEditModeOn;
+
+	LLSafeHandle<LLParcelSelection>	mParcel;
 };
 
 #endif //LL_LLPANELPLACES_H

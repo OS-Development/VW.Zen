@@ -3,31 +3,25 @@
  * @brief Functions dealing with web browsers
  * @author James Cook
  *
- * $LicenseInfo:firstyear=2006&license=viewergpl$
- * 
- * Copyright (c) 2006-2009, Linden Research, Inc.
- * 
+ * $LicenseInfo:firstyear=2006&license=viewerlgpl$
  * Second Life Viewer Source Code
- * The source code in this file ("Source Code") is provided by Linden Lab
- * to you under the terms of the GNU General Public License, version 2.0
- * ("GPL"), unless you have obtained a separate licensing agreement
- * ("Other License"), formally executed by you and Linden Lab.  Terms of
- * the GPL can be found in doc/GPL-license.txt in this distribution, or
- * online at http://secondlifegrid.net/programs/open_source/licensing/gplv2
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
- * There are special exceptions to the terms and conditions of the GPL as
- * it is applied to this Source Code. View the full text of the exception
- * in the file doc/FLOSS-exception.txt in this software distribution, or
- * online at
- * http://secondlifegrid.net/programs/open_source/licensing/flossexception
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
  * 
- * By copying, modifying or distributing this software, you acknowledge
- * that you have read and understood your obligations described above,
- * and agree to abide by those obligations.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  * 
- * ALL LINDEN LAB SOURCE CODE IS PROVIDED "AS IS." LINDEN LAB MAKES NO
- * WARRANTIES, EXPRESS, IMPLIED OR OTHERWISE, REGARDING ITS ACCURACY,
- * COMPLETENESS OR PERFORMANCE.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
 
@@ -38,13 +32,29 @@
 // Library includes
 #include "llwindow.h"	// spawnWebBrowser()
 
-#include "llviewerwindow.h"
-#include "llviewercontrol.h"
-#include "llfloaterhtmlhelp.h"
+#include "llagent.h"
+#include "llappviewer.h"
+#include "llfloatermediabrowser.h"
+#include "llfloaterwebcontent.h"
 #include "llfloaterreg.h"
-#include "llalertdialog.h"
+#include "lllogininstance.h"
+#include "llparcel.h"
+#include "llsd.h"
+#include "lltoastalertpanel.h"
+#include "llui.h"
+#include "lluri.h"
+#include "llversioninfo.h"
+#include "llviewercontrol.h"
+#include "llviewernetwork.h"
+#include "llviewerparcelmgr.h"
+#include "llviewerregion.h"
+#include "llviewerwindow.h"
+#include "llnotificationsutil.h"
 
-class URLLoader : public LLAlertDialog::URLLoader
+bool on_load_url_external_response(const LLSD& notification, const LLSD& response, bool async );
+
+
+class URLLoader : public LLToastAlertPanel::URLLoader
 {
 	virtual void load(const std::string& url , bool force_open_externally)
 	{
@@ -64,28 +74,100 @@ static URLLoader sAlertURLLoader;
 // static
 void LLWeb::initClass()
 {
-	LLAlertDialog::setURLLoader(&sAlertURLLoader);
+	LLToastAlertPanel::setURLLoader(&sAlertURLLoader);
 }
 
+
 // static
-void LLWeb::loadURL(const std::string& url)
+void LLWeb::loadURL(const std::string& url, const std::string& target, const std::string& uuid)
 {
-	if (gSavedSettings.getBOOL("UseExternalBrowser"))
+	if(target == "_internal")
+	{
+		// Force load in the internal browser, as if with a blank target.
+		loadURLInternal(url, "", uuid);
+	}
+	else if (gSavedSettings.getBOOL("UseExternalBrowser") || (target == "_external"))
 	{
 		loadURLExternal(url);
 	}
 	else
 	{
-		LLFloaterReg::showInstance("media_browser",url);
+		loadURLInternal(url, target, uuid);
 	}
+}
+
+// static
+void LLWeb::loadWebURL(const std::string& url, const std::string& target, const std::string& uuid)
+{
+	if(target == "_internal")
+	{
+		// Force load in the internal browser, as if with a blank target.
+		loadWebURLInternal(url, "", uuid);
+	}
+	else if (gSavedSettings.getBOOL("UseExternalBrowser") || (target == "_external"))
+	{
+		loadURLExternal(url);
+	}
+	else
+	{
+		loadWebURLInternal(url, target, uuid);
+	}
+}
+
+// static
+void LLWeb::loadURLInternal(const std::string &url, const std::string& target, const std::string& uuid)
+{
+	LLFloaterMediaBrowser::create(url, target, uuid);
+}
+
+// static
+// Explicitly open a Web URL using the Web content floater
+void LLWeb::loadWebURLInternal(const std::string &url, const std::string& target, const std::string& uuid)
+{
+	LLFloaterWebContent::create(url, target, uuid);
 }
 
 
 // static
-void LLWeb::loadURLExternal(const std::string& url)
+void LLWeb::loadURLExternal(const std::string& url, const std::string& uuid)
 {
-	std::string escaped_url = escapeURL(url);
-	gViewerWindow->getWindow()->spawnWebBrowser(escaped_url);
+	loadURLExternal(url, true, uuid);
+}
+
+
+// static
+void LLWeb::loadURLExternal(const std::string& url, bool async, const std::string& uuid)
+{
+	// Act like the proxy window was closed, since we won't be able to track targeted windows in the external browser.
+	LLViewerMedia::proxyWindowClosed(uuid);
+	
+	if(gSavedSettings.getBOOL("DisableExternalBrowser"))
+	{
+		// Don't open an external browser under any circumstances.
+		llwarns << "Blocked attempt to open external browser." << llendl;
+		return;
+	}
+	
+	LLSD payload;
+	payload["url"] = url;
+	LLNotificationsUtil::add( "WebLaunchExternalTarget", LLSD(), payload, boost::bind(on_load_url_external_response, _1, _2, async));
+}
+
+// static 
+bool on_load_url_external_response(const LLSD& notification, const LLSD& response, bool async )
+{
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
+	if ( 0 == option )
+	{
+		LLSD payload = notification["payload"];
+		std::string url = payload["url"].asString();
+		std::string escaped_url = LLWeb::escapeURL(url);
+		if (gViewerWindow)
+		{
+			gViewerWindow->getWindow()->spawnWebBrowser(escaped_url, async);
+		}
+	}
+	return false;
 }
 
 
@@ -113,4 +195,55 @@ std::string LLWeb::escapeURL(const std::string& url)
 		}
 	}
 	return escaped_url;
+}
+
+//static
+std::string LLWeb::expandURLSubstitutions(const std::string &url,
+										  const LLSD &default_subs)
+{
+	LLSD substitution = default_subs;
+	substitution["VERSION"] = LLVersionInfo::getVersion();
+	substitution["VERSION_MAJOR"] = LLVersionInfo::getMajor();
+	substitution["VERSION_MINOR"] = LLVersionInfo::getMinor();
+	substitution["VERSION_PATCH"] = LLVersionInfo::getPatch();
+	substitution["VERSION_BUILD"] = LLVersionInfo::getBuild();
+	substitution["CHANNEL"] = LLVersionInfo::getChannel();
+	substitution["GRID"] = LLGridManager::getInstance()->getGridLabel();
+	substitution["OS"] = LLAppViewer::instance()->getOSInfo().getOSStringSimple();
+	substitution["SESSION_ID"] = gAgent.getSessionID();
+	substitution["FIRST_LOGIN"] = gAgent.isFirstLogin();
+
+	// work out the current language
+	std::string lang = LLUI::getLanguage();
+	if (lang == "en-us")
+	{
+		// *HACK: the correct fix is to change English.lproj/language.txt,
+		// but we're late in the release cycle and this is a less risky fix
+		lang = "en";
+	}
+	substitution["LANGUAGE"] = lang;
+
+	// find the region ID
+	LLUUID region_id;
+	LLViewerRegion *region = gAgent.getRegion();
+	if (region)
+	{
+		region_id = region->getRegionID();
+	}
+	substitution["REGION_ID"] = region_id;
+
+	// find the parcel local ID
+	S32 parcel_id = 0;
+	LLParcel* parcel = LLViewerParcelMgr::getInstance()->getAgentParcel();
+	if (parcel)
+	{
+		parcel_id = parcel->getLocalID();
+	}
+	substitution["PARCEL_ID"] = llformat("%d", parcel_id);
+
+	// expand all of the substitution strings and escape the url
+	std::string expanded_url = url;
+	LLStringUtil::format(expanded_url, substitution);
+
+	return LLWeb::escapeURL(expanded_url);
 }

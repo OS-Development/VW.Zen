@@ -1,14 +1,21 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
+ legacy_header_height="18"
  can_resize="true"
  height="640"
  layout="topleft"
  min_height="230"
  min_width="650"
  name="gui_preview_tool"
+ help_topic="gui_preview_tool"
  single_instance="true"
- title="XUI Preview Tool"
+ title="XUI PREVIEW TOOL"
+ translate="false"
  width="750">
+    <string name="ExternalEditorNotSet">
+Select an editor by setting the environment variable LL_XUI_EDITOR
+or the ExternalEditor setting
+or specifying its path in the "Editor Path" field.</string>
     <panel
      bottom="640"
      follows="left|top|right|bottom"
@@ -16,7 +23,7 @@
      left="0"
      mouse_opaque="false"
      name="main_panel"
-     right="650"
+     right="750"
      top="0">
         <text
          type="string"
@@ -41,13 +48,14 @@
          width="55">
             <combo_box.item
              label="en"
+             name="item1"
              value="en" />
         </combo_box>
         <button
          follows="left|top"
          height="25"
-         label="Display Floater"
-         label_selected="Display Floater"
+         label="Show"
+         label_selected="Show"
          layout="topleft"
          left_pad="10"
          name="display_floater"
@@ -58,8 +66,8 @@
          enabled="false"
          follows="left|top"
          height="25"
-         label="Close Floater"
-         label_selected="Close Floater"
+         label="Hide"
+         label_selected="Hide"
          layout="topleft"
          left_pad="10"
          name="close_displayed_floater"
@@ -69,8 +77,8 @@
         <button
          follows="left|top"
          height="25"
-         label="Edit Floater..."
-         label_selected="Edit Floater..."
+         label="Edit..."
+         label_selected="Edit..."
          layout="topleft"
          left_pad="10"
          name="edit_floater"
@@ -100,7 +108,6 @@
          top_delta="0"
          width="85" />
         <button
-         enabled="false"
          follows="right|top"
          height="25"
          is_toggle="true"
@@ -109,7 +116,7 @@
          layout="topleft"
          left_pad="15"
          name="toggle_overlap_panel"
-         tool_tip="Toggle highlighting and display panel for overlapping elements; right click an element to select it for this feature.  The selected element is marked by a red rectangle."
+         tool_tip="Toggle highlighting and display panel for overlapping elements; right-click an element to select it for this feature.  The selected element is marked by a red rectangle."
          top_delta="0"
          width="30" />
         <text
@@ -136,13 +143,13 @@
          width="55">
             <combo_box.item
              label="en"
+             name="item1"
              value="en" />
         </combo_box>
         <button
          follows="left|top"
          height="25"
-         label="Display Floater"
-         label_selected="Display Floater"
+         label="Show"
          layout="topleft"
          left_pad="10"
          name="display_floater_2"
@@ -153,14 +160,31 @@
          enabled="false"
          follows="left|top"
          height="25"
-         label="Close Floater"
-         label_selected="Close Floater"
+         label="Hide"
          layout="topleft"
          left_pad="10"
          name="close_displayed_floater_2"
          tool_tip="Closes the currently-displayed floater, if one exists"
          top_delta="0"
          width="85" />
+        <button
+         follows="left|top"
+         height="25"
+         label="Export Schema"
+         layout="topleft"
+         left_pad="10"
+         name="export_schema"
+         top_delta="0"
+         width="120" />
+        <check_box
+          follows="left|top"
+          label="Show Rectangles"
+          name="show_rectangles"
+          left_pad="10"
+          top_delta="0"
+          height="25"
+          width="120" />
+      
         <scroll_list
          bottom="525"
          column_padding="0"
@@ -183,7 +207,7 @@
              name="file_column"
              width="150" />
             <scroll_list.columns
-             dynamicwidth="true"
+             dynamic_width="true"
              label="Top-Level Node"
              name="top_level_node_column" />
         </scroll_list>
@@ -218,11 +242,10 @@
              border_thickness="1"
              follows="left|bottom"
              font="SansSerif"
-             handle_edit_keys_directly="true"
              height="20"
              layout="topleft"
              left_delta="100"
-             max_length="300"
+             max_length_bytes="300"
              name="executable_path_field"
              select_on_focus="true"
              tool_tip="The full path to an editor (executable) to edit floater XML files (quotes not necessary)"
@@ -258,11 +281,10 @@
              border_thickness="1"
              follows="left|bottom"
              font="SansSerif"
-             handle_edit_keys_directly="true"
              height="20"
              layout="topleft"
              left_delta="100"
-             max_length="300"
+             max_length_bytes="300"
              name="executable_args_field"
              select_on_focus="true"
              tool_tip="Command-line arguments to the editor; use &apos;%FILE%&apos; to refer to the target file; &apos;YourProgram.exe FileName.xml&apos; will be run if this field is empty"
@@ -300,11 +322,10 @@
              border_thickness="1"
              follows="left|bottom"
              font="SansSerif"
-             handle_edit_keys_directly="true"
              height="20"
              layout="topleft"
              left_delta="65"
-             max_length="300"
+             max_length_bytes="300"
              name="vlt_diff_path_field"
              select_on_focus="true"
              tool_tip="The full path to an XML D0 or D1 localization difference file generated by the Viewer Localization Toolkit"
@@ -337,14 +358,22 @@
     </panel>
     <scroll_container
      follows="top|right|bottom"
-     height="637"
+     height="600"
      layout="topleft"
-     left_delta="550"
+     left="750"
      name="overlap_scroll"
      reserve_scroll_corner="true"
-     top_delta="2"
+     top="20"
      width="300">
-        <panel
+      <panel
+        border="true"
+        name="overlap_dummy_panel"
+        top="0"
+        left="0"
+        width="300"
+        height="600"
+        >
+        <overlap_panel
          background_opaque="true"
          background_visible="true"
          bevel_style="in"
@@ -352,14 +381,14 @@
          bg_opaque_color="1 1 1 1"
          border="true"
          follows="top|right|bottom"
-         height="637"
+         height="600"
          label="Overlap Panel"
          layout="topleft"
-         left_delta="0"
+         left="0"
          min_width="300"
          name="overlap_panel"
          tool_tip="This panel displays the currently-selected element and all of the elements that overlap it, separated by horizontal lines"
-         top="-607"
+         top="0"
          visible="false"
          width="300" />
         <text
@@ -370,12 +399,11 @@
          height="30"
          layout="topleft"
          left="10"
-         left_delta="10"
          name="overlap_panel_label"
-         right="-50"
-         top="0"
+         top="10"
          width="150">
             Overlapping Elements:
         </text>
+      </panel>
     </scroll_container>
 </floater>
