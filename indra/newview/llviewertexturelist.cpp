@@ -89,15 +89,13 @@ LLViewerTextureList::LLViewerTextureList()
 }
 
 void LLViewerTextureList::init()
-{
+{			
 	sRenderThreadID = LLThread::currentID() ;
-
 	mInitialized = TRUE ;
 	sNumImages = 0;
+	mUpdateStats = TRUE;
 	mMaxResidentTexMemInMegaBytes = 0;
 	mMaxTotalTextureMemInMegaBytes = 0 ;
-	
-	mUpdateStats = TRUE;
 	
 	// Update how much texture RAM we're allowed to use.
 	updateMaxResidentTexMem(0); // 0 = use current
@@ -283,6 +281,8 @@ void LLViewerTextureList::shutdown()
 	mUUIDMap.clear();
 	
 	mImageList.clear();
+
+	mInitialized = FALSE ; //prevent loading textures again.
 }
 
 void LLViewerTextureList::dump()
@@ -330,6 +330,11 @@ LLViewerFetchedTexture* LLViewerTextureList::getImageFromFile(const std::string&
 												   LLGLenum primary_format, 
 												   const LLUUID& force_id)
 {
+	if(!mInitialized)
+	{
+		return NULL ;
+	}
+
 	std::string full_path = gDirUtilp->findSkinnedFilename("textures", filename);
 	if (full_path.empty())
 	{
@@ -350,6 +355,11 @@ LLViewerFetchedTexture* LLViewerTextureList::getImageFromUrl(const std::string& 
 												   LLGLenum primary_format, 
 												   const LLUUID& force_id)
 {
+	if(!mInitialized)
+	{
+		return NULL ;
+	}
+
 	// generate UUID based on hash of filename
 	LLUUID new_id;
 	if (force_id.notNull())
@@ -409,6 +419,11 @@ LLViewerFetchedTexture* LLViewerTextureList::getImage(const LLUUID &image_id,
 												   LLGLenum primary_format,
 												   LLHost request_from_host)
 {
+	if(!mInitialized)
+	{
+		return NULL ;
+	}
+
 	// Return the image with ID image_id
 	// If the image is not found, creates new image and
 	// enqueues a request for transmission

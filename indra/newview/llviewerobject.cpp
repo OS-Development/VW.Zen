@@ -89,7 +89,6 @@
 #include "llvopartgroup.h"
 #include "llvosky.h"
 #include "llvosurfacepatch.h"
-#include "llvotextbubble.h"
 #include "llvotree.h"
 #include "llvovolume.h"
 #include "llvowater.h"
@@ -102,6 +101,7 @@
 #include "lltrans.h"
 #include "llsdutil.h"
 #include "llmediaentry.h"
+#include "llaccountingquota.h"
 
 //#define DEBUG_UPDATE_TYPE
 
@@ -167,8 +167,6 @@ LLViewerObject *LLViewerObject::createObject(const LLUUID &id, const LLPCode pco
 // 	  llwarns << "Creating new tree!" << llendl;
 // 	  res = new LLVOTree(id, pcode, regionp); break;
 	  res = NULL; break;
-	case LL_PCODE_LEGACY_TEXT_BUBBLE:
-	  res = new LLVOTextBubble(id, pcode, regionp); break;
 	case LL_VO_CLOUDS:
 	  res = new LLVOClouds(id, pcode, regionp); break;
 	case LL_VO_SURFACE_PATCH:
@@ -1893,7 +1891,7 @@ U32 LLViewerObject::processUpdateMessage(LLMessageSystem *mesgsys,
 	//
 	//
 
-	// WTF?   If we're going to skip this message, why are we 
+	// If we're going to skip this message, why are we 
 	// doing all the parenting, etc above?
 	U32 packet_id = mesgsys->getCurrentRecvPacketID(); 
 	if (packet_id < mLatestRecvPacketID && 
@@ -1972,23 +1970,16 @@ U32 LLViewerObject::processUpdateMessage(LLMessageSystem *mesgsys,
 
 	if ( gShowObjectUpdates )
 	{
-		if (!((mPrimitiveCode == LL_PCODE_LEGACY_AVATAR) && (((LLVOAvatar *) this)->isSelf()))
-			&& mRegionp)
+		LLColor4 color;
+		if (update_type == OUT_TERSE_IMPROVED)
 		{
-			LLViewerObject* object = gObjectList.createObjectViewer(LL_PCODE_LEGACY_TEXT_BUBBLE, mRegionp);
-			LLVOTextBubble* bubble = (LLVOTextBubble*) object;
-
-			if (update_type == OUT_TERSE_IMPROVED)
-			{
-				bubble->mColor.setVec(0.f, 0.f, 1.f, 1.f);
-			}
-			else
-			{
-				bubble->mColor.setVec(1.f, 0.f, 0.f, 1.f);
-			}
-			object->setPositionGlobal(getPositionGlobal());
-			gPipeline.addObject(object);
+			color.setVec(0.f, 0.f, 1.f, 1.f);
 		}
+		else
+		{
+			color.setVec(1.f, 0.f, 0.f, 1.f);
+		}
+		gPipeline.addDebugBlip(getPositionAgent(), color);
 	}
 
 	if ((0.0f == vel_mag_sq) && 
@@ -5282,7 +5273,7 @@ bool LLViewerObject::specialHoverCursor() const
 			|| (mClickAction != 0);
 }
 
-void LLViewerObject::updateFlags()
+void LLViewerObject::updateFlags(BOOL physics_changed)
 {
 	LLViewerRegion* regionp = getRegion();
 	if(!regionp) return;
@@ -5295,12 +5286,15 @@ void LLViewerObject::updateFlags()
 	gMessageSystem->addBOOL("IsTemporary", flagTemporaryOnRez() );
 	gMessageSystem->addBOOL("IsPhantom", flagPhantom() );
 	gMessageSystem->addBOOL("CastsShadows", flagCastShadows() );
-	gMessageSystem->nextBlock("ExtraPhysics");
-	gMessageSystem->addU8("PhysicsShapeType", getPhysicsShapeType() );
-	gMessageSystem->addF32("Density", getPhysicsDensity() );
-	gMessageSystem->addF32("Friction", getPhysicsFriction() );
-	gMessageSystem->addF32("Restitution", getPhysicsRestitution() );
-	gMessageSystem->addF32("GravityMultiplier", getPhysicsGravity() );
+	if (physics_changed)
+	{
+		gMessageSystem->nextBlock("ExtraPhysics");
+		gMessageSystem->addU8("PhysicsShapeType", getPhysicsShapeType() );
+		gMessageSystem->addF32("Density", getPhysicsDensity() );
+		gMessageSystem->addF32("Friction", getPhysicsFriction() );
+		gMessageSystem->addF32("Restitution", getPhysicsRestitution() );
+		gMessageSystem->addF32("GravityMultiplier", getPhysicsGravity() );
+	}
 	gMessageSystem->sendReliable( regionp->getHost() );
 }
 
@@ -5699,3 +5693,10 @@ public:
 
 LLHTTPRegistration<ObjectPhysicsProperties>
 	gHTTPRegistrationObjectPhysicsProperties("/message/ObjectPhysicsProperties");
+
+
+void LLViewerObject::updateQuota( const SelectionQuota& quota )
+{
+	//update quotas
+	mSelectionQuota = quota;
+}

@@ -96,7 +96,6 @@
 #include "llviewerwindow.h"
 #include "llvlmanager.h"
 #include "llvoavatarself.h"
-#include "llvotextbubble.h"
 #include "llworld.h"
 #include "pipeline.h"
 #include "llfloaterworldmap.h"
@@ -3213,7 +3212,6 @@ void process_chat_from_simulator(LLMessageSystem *msg, void **user_data)
 	if (is_audible)
 	{
 		BOOL visible_in_chat_bubble = FALSE;
-		std::string verb;
 
 		color.setVec(1.f,1.f,1.f,1.f);
 		msg->getStringFast(_PREHASH_ChatData, _PREHASH_Message, mesg);
@@ -3262,18 +3260,19 @@ void process_chat_from_simulator(LLMessageSystem *msg, void **user_data)
 		}
 		else
 		{
+			chat.mText = "";
 			switch(chat.mChatType)
 			{
 			case CHAT_TYPE_WHISPER:
-				verb = LLTrans::getString("whisper") + " ";
+				chat.mText = LLTrans::getString("whisper") + " ";
 				break;
 			case CHAT_TYPE_DEBUG_MSG:
 			case CHAT_TYPE_OWNER:
 			case CHAT_TYPE_NORMAL:
-				verb = "";
+			case CHAT_TYPE_DIRECT:
 				break;
 			case CHAT_TYPE_SHOUT:
-				verb = LLTrans::getString("shout") + " ";
+				chat.mText = LLTrans::getString("shout") + " ";
 				break;
 			case CHAT_TYPE_START:
 			case CHAT_TYPE_STOP:
@@ -3281,13 +3280,9 @@ void process_chat_from_simulator(LLMessageSystem *msg, void **user_data)
 				break;
 			default:
 				LL_WARNS("Messaging") << "Unknown type " << chat.mChatType << " in chat!" << LL_ENDL;
-				verb = "";
 				break;
 			}
 
-
-			chat.mText = "";
-			chat.mText += verb;
 			chat.mText += mesg;
 		}
 		
@@ -4232,15 +4227,8 @@ void process_kill_object(LLMessageSystem *mesgsys, void **user_data)
 				// Display green bubble on kill
 				if ( gShowObjectUpdates )
 				{
-					LLViewerObject* newobject;
-					newobject = gObjectList.createObjectViewer(LL_PCODE_LEGACY_TEXT_BUBBLE, objectp->getRegion());
-
-					LLVOTextBubble* bubble = (LLVOTextBubble*) newobject;
-
-					bubble->mColor.setVec(0.f, 1.f, 0.f, 1.f);
-					bubble->setScale( 2.0f * bubble->getScale() );
-					bubble->setPositionGlobal(objectp->getPositionGlobal());
-					gPipeline.addObject(bubble);
+					LLColor4 color(0.f,1.f,0.f,1.f);
+					gPipeline.addDebugBlip(objectp->getPositionAgent(), color);
 				}
 
 				// Do the kill
@@ -4336,6 +4324,9 @@ void process_sound_trigger(LLMessageSystem *msg, void **)
 	{
 		return;
 	}
+
+	// Don't play sounds from gestures if they are not enabled.
+	if (!gSavedSettings.getBOOL("EnableGestureSounds")) return;
 		
 	gAudiop->triggerSound(sound_id, owner_id, gain, LLAudioEngine::AUDIO_TYPE_SFX, pos_global);
 }
@@ -6487,10 +6478,14 @@ void process_script_dialog(LLMessageSystem* msg, void**)
 	LLSD payload;
 
 	LLUUID object_id;
-    LLUUID owner_id;
-
 	msg->getUUID("Data", "ObjectID", object_id);
-    msg->getUUID("OwnerData", "OwnerID", owner_id);
+
+//	For compability with OS grids first check for presence of extended packet before fetching data.
+    LLUUID owner_id;
+	if (gMessageSystem->getNumberOfBlocks("OwnerData") > 0)
+	{
+		msg->getUUID("OwnerData", "OwnerID", owner_id);
+	}
 
 	if (LLMuteList::getInstance()->isMuted(object_id) || LLMuteList::getInstance()->isMuted(owner_id))
 	{
