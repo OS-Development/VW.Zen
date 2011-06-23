@@ -815,6 +815,11 @@ void LLFolderView::sanitizeSelection()
 		{
 			// nothing selected to start with, so pick "My Inventory" as best guess
 			new_selection = getItemByID(gInventory.getRootFolderID());
+			// ... except if it's hidden from the UI.
+			if (new_selection && new_selection->getHidden())
+			{
+				new_selection = NULL;
+			}
 		}
 
 		if (new_selection)
@@ -1646,8 +1651,8 @@ BOOL LLFolderView::handleKeyHere( KEY key, MASK mask )
 			LLFolderViewItem* parent_folder = last_selected->getParentFolder();
 			if (!last_selected->isOpen() && parent_folder && parent_folder->getParentFolder())
 			{
-				setSelection(parent_folder, FALSE, TRUE);
-			}
+					setSelection(parent_folder, FALSE, TRUE);
+				}
 			else
 			{
 				last_selected->setOpen( FALSE );
