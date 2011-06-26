@@ -85,6 +85,8 @@
 #include "llviewerwindow.h"
 #include "llvovolume.h"
 #include "lluictrlfactory.h"
+#include "llaccountingquotamanager.h"
+#include "llmeshrepository.h"
 
 // Globals
 LLFloaterTools *gFloaterTools = NULL;
@@ -422,7 +424,8 @@ void LLFloaterTools::refresh()
 	// Refresh object and prim count labels
 	LLLocale locale(LLLocale::USER_LOCALE);
 
-	if ((gAgent.getRegion() && gAgent.getRegion()->getCapability("GetMesh").empty()) || !gSavedSettings.getBOOL("MeshEnabled"))
+#if 0
+	if (gMeshRepo.meshRezEnabled())
 	{		
 		std::string obj_count_string;
 		LLResMgr::getInstance()->getIntegerString(obj_count_string, LLSelectMgr::getInstance()->getSelection()->getRootObjectCount());
@@ -446,6 +449,7 @@ void LLFloaterTools::refresh()
 		getChildView("RenderingCost")->setEnabled(have_selection && sShowObjectCost);
 	}
 	else
+#endif
 	{
 		// Get the number of objects selected
 		std::string root_object_count_string;
@@ -787,9 +791,7 @@ void LLFloaterTools::updatePopup(LLCoordGL center, MASK mask)
 		getChildView("Strength:")->setVisible( land_visible);
 	}
 
-	bool show_mesh_cost = gAgent.getRegion() && 
-		                  !gAgent.getRegion()->getCapability("GetMesh").empty() && 
-						  gSavedSettings.getBOOL("MeshEnabled");
+	bool show_mesh_cost = gMeshRepo.meshRezEnabled();
 
 	getChildView("obj_count")->setVisible( !land_visible && !show_mesh_cost);
 	getChildView("prim_count")->setVisible( !land_visible && !show_mesh_cost);

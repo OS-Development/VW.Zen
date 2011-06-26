@@ -601,7 +601,7 @@ public:
 			
 			ypos += y_inc;
 
-			if (gSavedSettings.getBOOL("MeshEnabled"))
+			if (gMeshRepo.meshRezEnabled())
 			{
 				addText(xpos, ypos, llformat("%.3f MB Mesh Data Received", LLMeshRepository::sBytesReceived/(1024.f*1024.f)));
 				
@@ -1638,6 +1638,7 @@ LLViewerWindow::LLViewerWindow(
 		gSavedSettings.setBOOL("RenderVBOEnable", FALSE);
 	}
 	LLVertexBuffer::initClass(gSavedSettings.getBOOL("RenderVBOEnable"), gSavedSettings.getBOOL("RenderVBOMappingDisable"));
+	LL_INFOS("RenderInit") << "LLVertexBuffer initialization done." << LL_ENDL ;
 
 	if (LLFeatureManager::getInstance()->isSafe()
 		|| (gSavedSettings.getS32("LastFeatureVersion") != LLFeatureManager::getInstance()->getVersion())
