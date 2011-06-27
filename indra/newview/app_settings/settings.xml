@@ -5611,6 +5611,17 @@
     <key>Value</key>
     <real>0</real>
   </map>
+  <key>MeshUploadTimeOut</key>
+  <map>
+    <key>Comment</key>
+    <string>Maximum time in seconds for llcurl to execute a mesh uoloading request</string>
+    <key>Persist</key>
+    <integer>1</integer>
+    <key>Type</key>
+    <string>S32</string>
+    <key>Value</key>
+    <real>600</real>
+  </map>
   <key>MigrateCacheDirectory</key>
     <map>
       <key>Comment</key>
@@ -9380,6 +9391,17 @@
     <map>
       <key>Comment</key>
       <string>Newly created objects are shared with the currently active group</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>0</integer>
+    </map>
+    <key>ShowAdvancedBuilderOptions</key>
+    <map>
+      <key>Comment</key>
+      <string>Shows physics and display weight</string>
       <key>Persist</key>
       <integer>1</integer>
       <key>Type</key>

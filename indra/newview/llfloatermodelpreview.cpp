@@ -1970,7 +1970,7 @@ bool LLModelLoader::loadFromSLM(const std::string& filename)
 			}
 			else
 			{
-				llassert(model[lod].empty());
+				return false;
 			}
 		}
 	}	
@@ -3107,18 +3107,20 @@ void LLModelPreview::rebuildUploadData()
 				}
 			}
 
-			for (U32 i = 0; i < LLModel::NUM_LODS; i++)
-			{ //fill LOD slots based on reference model index
-				if (!mModel[i].empty())
-				{
-					instance.mLOD[i] = mModel[i][idx];
-				}
-				else
-				{
-					instance.mLOD[i] = NULL;
+			if(idx < mBaseModel.size())
+			{
+				for (U32 i = 0; i < LLModel::NUM_LODS; i++)
+				{ //fill LOD slots based on reference model index
+					if (mModel[i].size() > idx)
+					{
+						instance.mLOD[i] = mModel[i][idx];
+					}
+					else
+					{
+						instance.mLOD[i] = NULL;
+					}
 				}
 			}
-
 			instance.mTransform = mat;
 			mUploadData.push_back(instance);
 		}
@@ -3734,7 +3736,9 @@ void LLModelPreview::genLODs(S32 which_lod, U32 decimation, bool enforce_tri_lim
 			U32 tri_count = 0;
 			for (U32 i = 0; i < mVertexBuffer[5][mdl].size(); ++i)
 			{
-				mVertexBuffer[5][mdl][i]->setBuffer(type_mask);
+				LLVertexBuffer* buff = mVertexBuffer[5][mdl][i];
+				buff->setBuffer(type_mask & buff->getTypeMask());
+				
 				U32 num_indices = mVertexBuffer[5][mdl][i]->getNumIndices();
 				if (num_indices > 2)
 				{
@@ -3856,6 +3860,8 @@ void LLModelPreview::genLODs(S32 which_lod, U32 decimation, bool enforce_tri_lim
 
 			for (GLint i = 0; i < patch_count; ++i)
 			{
+				type_mask = mVertexBuffer[5][base][i]->getTypeMask();
+
 				LLPointer<LLVertexBuffer> buff = new LLVertexBuffer(type_mask, 0);
 
 				if (sizes[i*2+1] > 0 && sizes[i*2] > 0)
@@ -3880,8 +3886,15 @@ void LLModelPreview::genLODs(S32 which_lod, U32 decimation, bool enforce_tri_lim
 				LLStrider<U16> index;
 
 				buff->getVertexStrider(pos);
-				buff->getNormalStrider(norm);
-				buff->getTexCoord0Strider(tc);
+				if (type_mask & LLVertexBuffer::MAP_NORMAL)
+				{
+					buff->getNormalStrider(norm);
+				}
+				if (type_mask & LLVertexBuffer::MAP_TEXCOORD0)
+				{
+					buff->getTexCoord0Strider(tc);
+				}
+
 				buff->getIndexStrider(index);
 
 				target_model->setVolumeFaceData(names[i], pos, norm, tc, index, buff->getNumVerts(), buff->getNumIndices());
@@ -4087,18 +4100,20 @@ void LLModelPreview::updateStatusMessages()
 			}
 			else if (!verts[lod].empty())
 			{
+				S32 sum_verts_higher_lod = 0;
+				S32 sum_verts_this_lod = 0;
 				for (U32 i = 0; i < verts[lod].size(); ++i)
 				{
-					S32 max_verts = i < verts[lod+1].size() ? verts[lod+1][i] : 0;
+					sum_verts_higher_lod += ((i < verts[lod+1].size()) ? verts[lod+1][i] : 0);
+					sum_verts_this_lod += verts[lod][i];
+				}
 
-					if (max_verts > 0)
-					{
-						if (verts[lod][i] > max_verts)
-						{ //too many vertices in this lod
-							message = "mesh_status_too_many_vertices";
-							upload_status[lod] = 2;
-						}
-					}
+				if ((sum_verts_higher_lod > 0) &&
+					(sum_verts_this_lod > sum_verts_higher_lod))
+				{
+					//too many vertices in this lod
+					message = "mesh_status_too_many_vertices";
+					upload_status[lod] = 2;
 				}
 			}
 		}
@@ -4485,7 +4500,7 @@ void LLModelPreview::genBuffers(S32 lod, bool include_skin_weights)
 
 			bool skinned = include_skin_weights && !mdl->mSkinWeights.empty();
 
-			U32 mask = LLVertexBuffer::MAP_VERTEX | LLVertexBuffer::MAP_NORMAL | LLVertexBuffer::MAP_TEXCOORD0;
+			U32 mask = LLVertexBuffer::MAP_VERTEX | LLVertexBuffer::MAP_NORMAL | LLVertexBuffer::MAP_TEXCOORD0 ;
 
 			if (skinned)
 			{
@@ -4503,8 +4518,6 @@ void LLModelPreview::genBuffers(S32 lod, bool include_skin_weights)
 			LLStrider<LLVector4> weights_strider;
 
 			vb->getVertexStrider(vertex_strider);
-			vb->getNormalStrider(normal_strider);
-			vb->getTexCoord0Strider(tc_strider);
 			vb->getIndexStrider(index_strider);
 
 			if (skinned)
@@ -4513,8 +4526,18 @@ void LLModelPreview::genBuffers(S32 lod, bool include_skin_weights)
 			}
 
 			LLVector4a::memcpyNonAliased16((F32*) vertex_strider.get(), (F32*) vf.mPositions, num_vertices*4*sizeof(F32));
-			LLVector4a::memcpyNonAliased16((F32*) tc_strider.get(), (F32*) vf.mTexCoords, num_vertices*2*sizeof(F32));
-			LLVector4a::memcpyNonAliased16((F32*) normal_strider.get(), (F32*) vf.mNormals, num_vertices*4*sizeof(F32));
+			
+			if (vf.mTexCoords)
+			{
+				vb->getTexCoord0Strider(tc_strider);
+				LLVector4a::memcpyNonAliased16((F32*) tc_strider.get(), (F32*) vf.mTexCoords, num_vertices*2*sizeof(F32));
+			}
+			
+			if (vf.mNormals)
+			{
+				vb->getNormalStrider(normal_strider);
+				LLVector4a::memcpyNonAliased16((F32*) normal_strider.get(), (F32*) vf.mNormals, num_vertices*4*sizeof(F32));
+			}
 
 			if (skinned)
 			{
@@ -4773,6 +4796,8 @@ BOOL LLModelPreview::render()
 	const F32 BRIGHTNESS = 0.9f;
 	gGL.color3f(BRIGHTNESS, BRIGHTNESS, BRIGHTNESS);
 
+	const U32 type_mask = LLVertexBuffer::MAP_VERTEX | LLVertexBuffer::MAP_NORMAL | LLVertexBuffer::MAP_TEXCOORD0;
+
 	LLGLEnable normalize(GL_NORMALIZE);
 
 	if (!mBaseModel.empty() && mVertexBuffer[5].empty())
@@ -4821,8 +4846,8 @@ BOOL LLModelPreview::render()
 				for (U32 i = 0; i < mVertexBuffer[mPreviewLOD][model].size(); ++i)
 				{
 					LLVertexBuffer* buffer = mVertexBuffer[mPreviewLOD][model][i];
-
-					buffer->setBuffer(LLVertexBuffer::MAP_VERTEX | LLVertexBuffer::MAP_NORMAL | LLVertexBuffer::MAP_TEXCOORD0);
+				
+					buffer->setBuffer(type_mask & buffer->getTypeMask());
 
 					if (textures)
 					{
@@ -4941,7 +4966,7 @@ BOOL LLModelPreview::render()
 						{
 							LLVertexBuffer* buffer = mVertexBuffer[LLModel::LOD_PHYSICS][model][i];
 
-							buffer->setBuffer(LLVertexBuffer::MAP_VERTEX | LLVertexBuffer::MAP_NORMAL | LLVertexBuffer::MAP_TEXCOORD0);
+							buffer->setBuffer(type_mask & buffer->getTypeMask());
 
 							buffer->drawRange(LLRender::TRIANGLES, 0, buffer->getNumVerts()-1, buffer->getNumIndices(), 0);
 							gGL.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
@@ -5007,7 +5032,7 @@ BOOL LLModelPreview::render()
 							{
 								LLVertexBuffer* buffer = mVertexBuffer[LLModel::LOD_PHYSICS][model][i];
 
-								buffer->setBuffer(LLVertexBuffer::MAP_VERTEX | LLVertexBuffer::MAP_NORMAL | LLVertexBuffer::MAP_TEXCOORD0);
+								buffer->setBuffer(type_mask & buffer->getTypeMask());
 
 								LLStrider<LLVector3> pos_strider; 
 								buffer->getVertexStrider(pos_strider, 0);
@@ -5132,7 +5157,7 @@ BOOL LLModelPreview::render()
 								position[j] = v;
 							}
 
-							buffer->setBuffer(LLVertexBuffer::MAP_VERTEX | LLVertexBuffer::MAP_NORMAL | LLVertexBuffer::MAP_TEXCOORD0);
+							buffer->setBuffer(type_mask & buffer->getTypeMask());
 							glColor4fv(instance.mMaterial[i].mDiffuseColor.mV);
 							gGL.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
 							buffer->draw(LLRender::TRIANGLES, buffer->getNumIndices(), 0);
