@@ -260,7 +260,7 @@ LLModel::EModelStatus load_face_from_dom_triangles(std::vector<LLVolumeFace>& fa
 
 			if (!tc_source)
 			{
-				ll_aligned_free_16(face.mTexCoords);
+				ll_aligned_free_16(new_face.mTexCoords);
 				new_face.mTexCoords = NULL;
 			}
 
@@ -291,7 +291,7 @@ LLModel::EModelStatus load_face_from_dom_triangles(std::vector<LLVolumeFace>& fa
 
 		if (!tc_source)
 		{
-			ll_aligned_free_16(face.mTexCoords);
+			ll_aligned_free_16(new_face.mTexCoords);
 			new_face.mTexCoords = NULL;
 		}
 	}
@@ -479,7 +479,7 @@ LLModel::EModelStatus load_face_from_dom_polylist(std::vector<LLVolumeFace>& fac
 
 				if (!tc_source)
 				{
-					ll_aligned_free_16(face.mTexCoords);
+					ll_aligned_free_16(new_face.mTexCoords);
 					new_face.mTexCoords = NULL;
 				}
 
@@ -513,7 +513,7 @@ LLModel::EModelStatus load_face_from_dom_polylist(std::vector<LLVolumeFace>& fac
 
 		if (!tc_source)
 		{
-			ll_aligned_free_16(face.mTexCoords);
+			ll_aligned_free_16(new_face.mTexCoords);
 			new_face.mTexCoords = NULL;
 		}
 	}
@@ -713,7 +713,7 @@ LLModel::EModelStatus load_face_from_dom_polygons(std::vector<LLVolumeFace>& fac
 
 		if (!t)
 		{
-			ll_aligned_free_16(face.mTexCoords);
+			ll_aligned_free_16(new_face.mTexCoords);
 			new_face.mTexCoords = NULL;
 		}
 	}
@@ -1784,6 +1784,7 @@ bool LLModel::loadModel(std::istream& is)
 	if (header[nm[lod]]["offset"].asInteger() == -1 || 
 		header[nm[lod]]["size"].asInteger() == 0 )
 	{ //cannot load requested LOD
+		llwarns << "LoD data is invalid!" << llendl;
 		return false;
 	}
 
@@ -1843,6 +1844,10 @@ bool LLModel::loadModel(std::istream& is)
 			}
 		}
 		return true;
+	}
+	else
+	{
+		llwarns << "unpackVolumeFaces failed!" << llendl;
 	}
 
 	return false;
