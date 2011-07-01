@@ -497,7 +497,7 @@ void LLFloaterModelWizard::onModelPhysicsFeeReceived(F64 physics, S32 fee, std::
 	childSetTextArg("review_fee", "[FEE]", llformat("%d", fee));
 	childSetTextArg("charged_fee", "[FEE]", llformat("%d", fee));
 
-	setState(llmin((int) UPLOAD, mState+1));
+	setState(REVIEW);
 }
 
 /*virtual*/
@@ -509,6 +509,8 @@ void LLFloaterModelWizard::setModelPhysicsFeeErrorStatus(U32 status, const std::
 	modelChangedCallback();
 
 	llwarns << "LLFloaterModelWizard::setModelPhysicsFeeErrorStatus(" << status << " : " << reason << ")" << llendl;
+
+	setState(PHYSICS);
 }
 
 /*virtual*/ 
@@ -523,6 +525,13 @@ void LLFloaterModelWizard::onModelUploadFailure()
 {
 	// Failure. Make the user recalculate fees
 	setState(PHYSICS);
+	// Disable the "Review" step if it has been previously enabled.
+	if (mLastEnabledState > PHYSICS)
+	{
+		 mLastEnabledState = PHYSICS;
+	}
+
+	updateButtons();
 }
 
 //static
