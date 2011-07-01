@@ -528,8 +528,8 @@ public:
 				addText(xpos,ypos, llformat("%s streaming cost: %.1f", label, cost));
 				ypos += y_inc;
 
-				addText(xpos, ypos, llformat("    %.1f KTris, %.1f/%.1f KB, %d objects",
-										count/1024.f, visible_bytes/1024.f, total_bytes/1024.f, object_count));
+				addText(xpos, ypos, llformat("    %.3f KTris, %.1f/%.1f KB, %d objects",
+										count/1000.f, visible_bytes/1024.f, total_bytes/1024.f, object_count));
 				ypos += y_inc;
 			
 			}
@@ -3140,6 +3140,12 @@ void LLViewerWindow::updateLayout()
 			gFloaterTools->setVisible(FALSE);
 		}
 		//gMenuBarView->setItemVisible("BuildTools", gFloaterTools->getVisible());
+	}
+
+	LLFloaterBuildOptions* build_options_floater = LLFloaterReg::getTypedInstance<LLFloaterBuildOptions>("build_options");
+	if (build_options_floater && build_options_floater->getVisible())
+	{
+		build_options_floater->updateGridMode();
 	}
 
 	// Always update console

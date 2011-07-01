@@ -1699,6 +1699,18 @@ bool LLViewerRegion::objectIsReturnable(const LLVector3& pos, const std::vector<
 				&& mParcelOverlay->encroachesOwned(boxes)) );
 }
 
+bool LLViewerRegion::childrenObjectReturnable( const std::vector<LLBBox>& boxes ) const
+{
+	bool result = false;
+	result = ( mParcelOverlay && mParcelOverlay->encroachesOnUnowned( boxes ) ) ? 1 : 0;
+	return result;
+}
+
+void LLViewerRegion::getNeighboringRegions( std::vector<LLViewerRegion*>& uniqueRegions )
+{
+	mImpl->mLandp->getNeighboringRegions( uniqueRegions );
+}
+
 void LLViewerRegion::showReleaseNotes()
 {
 	std::string url = this->getCapability("ServerReleaseNotes");
