@@ -39,6 +39,7 @@
 #include "lluictrlfactory.h"
 #include <set>
 
+class LLFolderViewFolder;
 class LLFolderViewItem;
 class LLInventoryFilter;
 class LLInventoryModel;
@@ -83,6 +84,7 @@ public:
 		Optional<Filter>					filter;
 		Optional<std::string>               start_folder;
 		Optional<bool>						use_label_suffix;
+		Optional<bool>						show_load_status;
 		Optional<LLScrollContainer::Params>	scroll;
 
 		Params()
@@ -93,6 +95,7 @@ public:
 			filter("filter"),
 			start_folder("start_folder"),
 			use_label_suffix("use_label_suffix", true),
+			show_load_status("show_load_status"),
 			scroll("scroll")
 		{}
 	};
@@ -177,6 +180,7 @@ protected:
 	LLInvPanelComplObserver*	mCompletionObserver;
 	BOOL 						mAllowMultiSelect;
 	BOOL 						mShowItemLinkOverlays; // Shows link graphic over inventory item icons
+	BOOL						mShowLoadStatus;
 
 	LLFolderView*				mFolderRoot;
 	LLScrollContainer*			mScroller;
@@ -221,6 +225,10 @@ protected:
 	virtual void		buildFolderView(const LLInventoryPanel::Params& params);
 	virtual void		buildNewViews(const LLUUID& id);
 	BOOL				getIsHiddenFolderType(LLFolderType::EType folder_type) const;
+	
+	virtual LLFolderView*		createFolderView(LLInvFVBridge * bridge, bool useLabelSuffix);
+	virtual LLFolderViewFolder*	createFolderViewFolder(LLInvFVBridge * bridge);
+	virtual LLFolderViewItem*	createFolderViewItem(LLInvFVBridge * bridge);
 private:
 	BOOL				mBuildDefaultHierarchy; // default inventory hierarchy should be created in postBuild()
 	BOOL				mViewsInitialized; // Views have been generated
