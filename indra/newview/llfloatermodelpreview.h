@@ -140,7 +140,7 @@ private:
 	static bool isAlive(LLModelLoader* loader) ;
 };
 
-class LLFloaterModelPreview : public LLFloater
+class LLFloaterModelPreview : public LLFloaterModelUploadBase
 {
 public:
 	
@@ -167,6 +167,8 @@ public:
 	BOOL handleHover(S32 x, S32 y, MASK mask);
 	BOOL handleScrollWheel(S32 x, S32 y, S32 clicks); 
 	
+	/*virtual*/ void onOpen(const LLSD& key);
+
 	static void onMouseCaptureLostModelPreview(LLMouseHandler*);
 	static void setUploadAmount(S32 amount) { sUploadAmount = amount; }
 
@@ -185,6 +187,7 @@ public:
 	void updateResourceCost();
 	
 	void			loadModel(S32 lod);
+	void 			loadModel(S32 lod, const std::string& file_name);
 	
 	void onViewOptionChecked(const LLSD& userdata);
 	bool isViewOptionChecked(const LLSD& userdata);
@@ -192,6 +195,20 @@ public:
 	void setViewOptionEnabled(const std::string& option, bool enabled);
 	void enableViewOption(const std::string& option);
 	void disableViewOption(const std::string& option);
+
+	// shows warning message if agent has no permissions to upload model
+	/*virtual*/ void onPermissionsReceived(const LLSD& result);
+
+	// called when error occurs during permissions request
+	/*virtual*/ void setPermissonsErrorStatus(U32 status, const std::string& reason);
+
+	/*virtual*/ void onModelPhysicsFeeReceived(F64 physics, S32 fee, std::string upload_url);
+
+	/*virtual*/ void setModelPhysicsFeeErrorStatus(U32 status, const std::string& reason);
+
+	/*virtual*/ void onModelUploadSuccess();
+
+	/*virtual*/ void onModelUploadFailure();
 
 protected:
 	friend class LLModelPreview;
@@ -258,6 +275,15 @@ protected:
 	LLToggleableMenu* mViewOptionMenu;
 	LLMutex* mStatusLock;
 
+private:
+	void onClickCalculateBtn();
+	void toggleCalculateButton();
+
+	// Toggles between "Calculate weights & fee" and "Upload" buttons.
+	void toggleCalculateButton(bool visible);
+
+	LLButton* mUploadBtn;
+	LLButton* mCalculateBtn;
 };
 
 class LLMeshFilePicker : public LLFilePickerThread
@@ -276,6 +302,7 @@ class LLModelPreview : public LLViewerDynamicTexture, public LLMutex
 {	
 	typedef boost::signals2::signal<void (F32 x, F32 y, F32 z, F32 streaming_cost, F32 physics_cost)> details_signal_t;
 	typedef boost::signals2::signal<void (void)> model_loaded_signal_t;
+	typedef boost::signals2::signal<void (bool)> model_updated_signal_t;
 
 public:
 	LLModelPreview(S32 width, S32 height, LLFloater* fmp);
@@ -335,6 +362,7 @@ public:
 	
 	boost::signals2::connection setDetailsCallback( const details_signal_t::slot_type& cb ){  return mDetailsSignal.connect(cb);  }
 	boost::signals2::connection setModelLoadedCallback( const model_loaded_signal_t::slot_type& cb ){  return mModelLoadedSignal.connect(cb);  }
+	boost::signals2::connection setModelUpdatedCallback( const model_updated_signal_t::slot_type& cb ){  return mModelUpdatedSignal.connect(cb);  }
 	
 	void setLoadState( U32 state ) { mLoadState = state; }
 	U32 getLoadState() { return mLoadState; }
@@ -420,6 +448,7 @@ private:
 
 	details_signal_t mDetailsSignal;
 	model_loaded_signal_t mModelLoadedSignal;
+	model_updated_signal_t mModelUpdatedSignal;
 	
 	LLVector3	mModelPivot;
 	bool		mHasPivot;

@@ -36,6 +36,7 @@
 #define LLCONVEXDECOMPINTER_STATIC 1
 
 #include "llconvexdecomposition.h"
+#include "lluploadfloaterobservers.h"
 
 class LLVOVolume;
 class LLMeshResponder;
@@ -401,7 +402,8 @@ public:
 	std::string		mWholeModelUploadURL;
 
 	LLMeshUploadThread(instance_list& data, LLVector3& scale, bool upload_textures,
-			bool upload_skin, bool upload_joints);
+			bool upload_skin, bool upload_joints, std::string upload_url, bool do_upload = true,
+					   LLHandle<LLWholeModelFeeObserver> fee_observer= (LLHandle<LLWholeModelFeeObserver>()), LLHandle<LLWholeModelUploadObserver> upload_observer = (LLHandle<LLWholeModelUploadObserver>()));
 	~LLMeshUploadThread();
 
 	bool finished() { return mFinished; }
@@ -410,7 +412,10 @@ public:
 	void discard() ;
 	BOOL isDiscarded();
 
+	void generateHulls();
+
 	void doWholeModelUpload();
+	void requestWholeModelFee();
 
 	void wholeModelToLLSD(LLSD& dest, bool include_textures);
 
@@ -418,6 +423,15 @@ public:
 							 LLVector3& result_pos,
 							 LLQuaternion& result_rot,
 							 LLVector3& result_scale);
+
+	void setFeeObserverHandle(LLHandle<LLWholeModelFeeObserver> observer_handle) { mFeeObserverHandle = observer_handle; }
+	void setUploadObserverHandle(LLHandle<LLWholeModelUploadObserver> observer_handle) { mUploadObserverHandle = observer_handle; }
+
+private:
+	LLHandle<LLWholeModelFeeObserver> mFeeObserverHandle;
+	LLHandle<LLWholeModelUploadObserver> mUploadObserverHandle;
+
+	bool mDoUpload; // if FALSE only model data will be requested, otherwise the model will be uploaded
 };
 
 class LLMeshRepository
@@ -468,7 +482,8 @@ public:
 	LLSD& getMeshHeader(const LLUUID& mesh_id);
 
 	void uploadModel(std::vector<LLModelInstance>& data, LLVector3& scale, bool upload_textures,
-			bool upload_skin, bool upload_joints);
+			bool upload_skin, bool upload_joints, std::string upload_url, bool do_upload = true,
+					 LLHandle<LLWholeModelFeeObserver> fee_observer= (LLHandle<LLWholeModelFeeObserver>()), LLHandle<LLWholeModelUploadObserver> upload_observer = (LLHandle<LLWholeModelUploadObserver>()));
 
 	S32 getMeshSize(const LLUUID& mesh_id, S32 lod);
 
