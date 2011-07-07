@@ -209,7 +209,7 @@ LLFolderView::LLFolderView(const Params& p)
 	mStatusTextBox(NULL)
 {
 	mRoot = this;
-	
+
 	mShowLoadStatus = p.show_load_status();
 
 	LLRect rect = p.rect;
@@ -323,15 +323,10 @@ void LLFolderView::setSortOrder(U32 order)
 	if (order != mSortOrder)
 	{
 		LLFastTimer t(FTM_SORT);
+		
 		mSortOrder = order;
 
-		for (folders_t::iterator iter = mFolders.begin();
-			 iter != mFolders.end();)
-		{
-			folders_t::iterator fit = iter++;
-			(*fit)->sortBy(order);
-		}
-
+		sortBy(order);
 		arrangeAll();
 	}
 }
@@ -936,14 +931,15 @@ void LLFolderView::draw()
 		if (LLInventoryModelBackgroundFetch::instance().backgroundFetchActive() || mCompletedFilterGeneration < mFilter->getMinRequiredGeneration())
 		{
 			mStatusText = LLTrans::getString("Searching");
-			//font->renderUTF8(mStatusText, 0, 2, 1, sSearchStatusColor, LLFontGL::LEFT, LLFontGL::TOP, LLFontGL::NORMAL,  LLFontGL::NO_SHADOW, S32_MAX, S32_MAX, NULL, FALSE );
 		}
 		else
 		{
-			LLStringUtil::format_map_t args;
-			args["[SEARCH_TERM]"] = LLURI::escape(getFilter()->getFilterSubStringOrig());
-			mStatusText = LLTrans::getString(getFilter()->getEmptyLookupMessage(), args);
-			//font->renderUTF8(mStatusText, 0, 2, 1, sSearchStatusColor, LLFontGL::LEFT, LLFontGL::TOP, LLFontGL::NORMAL,  LLFontGL::NO_SHADOW, S32_MAX, S32_MAX, NULL, FALSE );
+			if (getFilter())
+			{
+				LLStringUtil::format_map_t args;
+				args["[SEARCH_TERM]"] = LLURI::escape(getFilter()->getFilterSubStringOrig());
+				mStatusText = LLTrans::getString(getFilter()->getEmptyLookupMessage(), args);
+			}
 		}
 		mStatusTextBox->setValue(mStatusText);
 		mStatusTextBox->setVisible( TRUE );
