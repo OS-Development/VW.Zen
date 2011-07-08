@@ -163,5 +163,32 @@ void LLInboxFolderViewFolder::draw()
 	LLFolderViewFolder::draw();
 }
 
+void LLInboxFolderViewFolder::updateFlag() const
+{
+	LLDate saved_freshness_date = LLDate(gSavedSettings.getString("InboxFreshnessDate"));
+	if (getCreationDate() > saved_freshness_date.secondsSinceEpoch())
+	{
+		mFresh = true;
+	}
+}
+
+void LLInboxFolderViewFolder::selectItem()
+{
+	mFresh = false;
+	LLFolderViewFolder::selectItem();
+}
+
+void LLInboxFolderViewFolder::toggleOpen()
+{
+	mFresh = false;
+	LLFolderViewFolder::toggleOpen();
+}
+
+void LLInboxFolderViewFolder::setCreationDate(time_t creation_date_utc) const
+{ 
+	mCreationDate = creation_date_utc; 
+	updateFlag();
+}
+
 
 // eof
