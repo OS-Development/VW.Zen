@@ -4265,8 +4265,8 @@ void process_time_synch(LLMessageSystem *mesgsys, void **user_data)
 
 	LLWorld::getInstance()->setSpaceTimeUSec(space_time_usec);
 
-	//LL_DEBUGS("Messaging") << "time_synch() - " << sun_direction << ", " << sun_ang_velocity
-	//		 << ", " << phase << LL_ENDL;
+	LL_DEBUGS("Windlight Sync") << "time_synch() - " << sun_direction << ", " << sun_ang_velocity
+		<< ", " << phase << LL_ENDL;
 
 	gSky.setSunPhase(phase);
 	gSky.setSunTargetDirection(sun_direction, sun_ang_velocity);
@@ -4326,8 +4326,11 @@ void process_sound_trigger(LLMessageSystem *msg, void **)
 	}
 
 	// Don't play sounds from gestures if they are not enabled.
-	if (!gSavedSettings.getBOOL("EnableGestureSounds")) return;
-		
+	if (object_id == owner_id && !gSavedSettings.getBOOL("EnableGestureSounds"))
+	{
+		return;
+	}
+
 	gAudiop->triggerSound(sound_id, owner_id, gain, LLAudioEngine::AUDIO_TYPE_SFX, pos_global);
 }
 
