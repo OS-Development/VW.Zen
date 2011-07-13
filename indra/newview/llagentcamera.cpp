@@ -392,7 +392,7 @@ LLVector3 LLAgentCamera::calcFocusOffset(LLViewerObject *object, LLVector3 origi
 	}
 	
 	LLQuaternion inv_obj_rot = ~obj_rot; // get inverse of rotation
-	LLVector3 object_extents;	
+	LLVector3 object_extents = object->getScale();	
 	const LLVector4a* oe4 = object->mDrawable->getSpatialExtents();
 	object_extents.set( oe4[1][0], oe4[1][1], oe4[1][2] );
 	

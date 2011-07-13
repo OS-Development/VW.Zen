@@ -54,6 +54,7 @@
 #include "llfloaterreporter.h"
 #include "llfloaterregioninfo.h"
 #include "llhttpnode.h"
+#include "llregioninfomodel.h"
 #include "llsdutil.h"
 #include "llstartup.h"
 #include "lltrans.h"
@@ -64,11 +65,11 @@
 #include "llvlmanager.h"
 #include "llvlcomposition.h"
 #include "llvocache.h"
-#include "llvoclouds.h"
 #include "llworld.h"
 #include "llspatialpartition.h"
 #include "stringize.h"
 #include "llviewercontrol.h"
+#include "llsdserialize.h"
 
 #ifdef LL_WINDOWS
 	#pragma warning(disable:4355)
@@ -314,7 +315,6 @@ LLViewerRegion::LLViewerRegion(const U64 &handle,
 	mImpl->mObjectPartition.push_back(new LLWaterPartition());		//PARTITION_WATER
 	mImpl->mObjectPartition.push_back(new LLTreePartition());		//PARTITION_TREE
 	mImpl->mObjectPartition.push_back(new LLParticlePartition());	//PARTITION_PARTICLE
-	mImpl->mObjectPartition.push_back(new LLCloudPartition());		//PARTITION_CLOUD
 	mImpl->mObjectPartition.push_back(new LLGrassPartition());		//PARTITION_GRASS
 	mImpl->mObjectPartition.push_back(new LLVolumePartition());	//PARTITION_VOLUME
 	mImpl->mObjectPartition.push_back(new LLBridgePartition());	//PARTITION_BRIDGE
@@ -349,7 +349,6 @@ LLViewerRegion::~LLViewerRegion()
 	// Can't do this on destruction, because the neighbor pointers might be invalid.
 	// This should be reference counted...
 	disconnectAllNeighbors();
-	mCloudLayer.destroy();
 	LLViewerPartSim::getInstance()->cleanupRegion(this);
 
 	gObjectList.killObjects(this);
@@ -485,7 +484,6 @@ void LLViewerRegion::setOriginGlobal(const LLVector3d &origin_global)
 	updateRenderMatrix();
 	mImpl->mLandp->setOriginGlobal(origin_global);
 	mWind.setOriginGlobal(origin_global);
-	mCloudLayer.setOriginGlobal(origin_global);
 	calculateCenterGlobal();
 }
 
@@ -646,6 +644,9 @@ std::string LLViewerRegion::accessToShortString(U8 sim_access)
 void LLViewerRegion::processRegionInfo(LLMessageSystem* msg, void**)
 {
 	// send it to 'observers'
+	// *TODO: switch the floaters to using LLRegionInfoModel
+	llinfos << "Processing region info" << llendl;
+	LLRegionInfoModel::instance().update(msg);
 	LLFloaterGodTools::processRegionInfo(msg);
 	LLFloaterRegionInfo::processRegionInfo(msg);
 	LLFloaterReporter::processRegionInfo(msg);
@@ -708,14 +709,12 @@ void LLViewerRegion::forceUpdate()
 void LLViewerRegion::connectNeighbor(LLViewerRegion *neighborp, U32 direction)
 {
 	mImpl->mLandp->connectNeighbor(neighborp->mImpl->mLandp, direction);
-	mCloudLayer.connectNeighbor(&(neighborp->mCloudLayer), direction);
 }
 
 
 void LLViewerRegion::disconnectAllNeighbors()
 {
 	mImpl->mLandp->disconnectAllNeighbors();
-	mCloudLayer.disconnectAllNeighbors();
 }
 
 LLVLComposition * LLViewerRegion::getComposition() const
@@ -1140,6 +1139,20 @@ void LLViewerRegion::getInfo(LLSD& info)
 	info["Region"]["Handle"]["y"] = (LLSD::Integer)y;
 }
 
+void LLViewerRegion::getSimulatorFeatures(LLSD& sim_features)
+{
+	sim_features = mSimulatorFeatures;
+}
+
+void LLViewerRegion::setSimulatorFeatures(const LLSD& sim_features)
+{
+	std::stringstream str;
+	
+	LLSDSerialize::toPrettyXML(sim_features, str);
+	llinfos << str.str() << llendl;
+	mSimulatorFeatures = sim_features;
+}
+
 LLViewerRegion::eCacheUpdateResult LLViewerRegion::cacheFullUpdate(LLViewerObject* objectp, LLDataPackerBinaryBuffer &dp)
 {
 	U32 local_id = objectp->getLocalID();
@@ -1480,6 +1493,8 @@ void LLViewerRegion::setSeedCapability(const std::string& url)
 
 	LLSD capabilityNames = LLSD::emptyArray();
 	
+	capabilityNames.append("AccountingParcel");
+	capabilityNames.append("AccountingSelection");
 	capabilityNames.append("AttachmentResources");
 	capabilityNames.append("AvatarPickerSearch");
 	capabilityNames.append("ChatSessionRequest");
@@ -1487,6 +1502,7 @@ void LLViewerRegion::setSeedCapability(const std::string& url)
 	capabilityNames.append("DispatchRegionInfo");
 	capabilityNames.append("EstateChangeInfo");
 	capabilityNames.append("EventQueueGet");
+	capabilityNames.append("EnvironmentSettings");
 	capabilityNames.append("ObjectMedia");
 	capabilityNames.append("ObjectMediaNavigate");
 
@@ -1509,8 +1525,6 @@ void LLViewerRegion::setSeedCapability(const std::string& url)
 	capabilityNames.append("MapLayer");
 	capabilityNames.append("MapLayerGod");
 	capabilityNames.append("NewFileAgentInventory");
-	capabilityNames.append("NewFileAgentInventoryVariablePrice");
-	capabilityNames.append("ObjectAdd");
 	capabilityNames.append("ParcelPropertiesUpdate");
 	capabilityNames.append("ParcelMediaURLFilterList");
 	capabilityNames.append("ParcelNavigateMedia");
@@ -1541,10 +1555,14 @@ void LLViewerRegion::setSeedCapability(const std::string& url)
 	capabilityNames.append("UpdateNotecardTaskInventory");
 	capabilityNames.append("UpdateScriptTask");
 	capabilityNames.append("UploadBakedTexture");
-	capabilityNames.append("UploadObjectAsset");
 	capabilityNames.append("ViewerMetrics");
 	capabilityNames.append("ViewerStartAuction");
 	capabilityNames.append("ViewerStats");
+	//prep# Finalize these!!!!!!!!!
+	//capabilityNames.append("AccountingVO");	
+	capabilityNames.append("AccountingParcel");
+	capabilityNames.append("AccountingRegion");
+	
 	// Please add new capabilities alphabetically to reduce
 	// merge conflicts.
 
@@ -1553,6 +1571,42 @@ void LLViewerRegion::setSeedCapability(const std::string& url)
 	mImpl->mHttpResponderPtr = BaseCapabilitiesComplete::build(this) ;
 	LLHTTPClient::post(url, capabilityNames, mImpl->mHttpResponderPtr);
 }
+
+class SimulatorFeaturesReceived : public LLHTTPClient::Responder
+{
+	LOG_CLASS(SimulatorFeaturesReceived);
+public:
+    SimulatorFeaturesReceived(LLViewerRegion* region)
+	: mRegion(region)
+    { }
+	
+	
+    void error(U32 statusNum, const std::string& reason)
+    {
+		LL_WARNS2("AppInit", "SimulatorFeatures") << statusNum << ": " << reason << LL_ENDL;
+    }
+	
+    void result(const LLSD& content)
+    {
+		if(!mRegion) //region is removed or responder is not created.
+		{
+			return ;
+		}
+		
+		mRegion->setSimulatorFeatures(content);
+	}
+	
+    static boost::intrusive_ptr<SimulatorFeaturesReceived> build(
+																 LLViewerRegion* region)
+    {
+		return boost::intrusive_ptr<SimulatorFeaturesReceived>(
+															   new SimulatorFeaturesReceived(region));
+    }
+	
+private:
+	LLViewerRegion* mRegion;
+};
+
 
 void LLViewerRegion::setCapability(const std::string& name, const std::string& url)
 {
@@ -1565,6 +1619,11 @@ void LLViewerRegion::setCapability(const std::string& name, const std::string& u
 	else if(name == "UntrustedSimulatorMessage")
 	{
 		LLHTTPSender::setSender(mImpl->mHost, new LLCapHTTPSender(url));
+	}
+	else if (name == "SimulatorFeatures")
+	{
+		// kick off a request for simulator features
+		LLHTTPClient::get(url, new SimulatorFeaturesReceived(this));
 	}
 	else
 	{
@@ -1600,6 +1659,21 @@ bool LLViewerRegion::capabilitiesReceived() const
 void LLViewerRegion::setCapabilitiesReceived(bool received)
 {
 	mCapabilitiesReceived = received;
+
+	// Tell interested parties that we've received capabilities,
+	// so that they can safely use getCapability().
+	if (received)
+	{
+		mCapabilitiesReceivedSignal(getRegionID());
+
+		// This is a single-shot signal. Forget callbacks to save resources.
+		mCapabilitiesReceivedSignal.disconnect_all_slots();
+	}
+}
+
+boost::signals2::connection LLViewerRegion::setCapabilitiesReceivedCallback(const caps_received_signal_t::slot_type& cb)
+{
+	return mCapabilitiesReceivedSignal.connect(cb);
 }
 
 void LLViewerRegion::logActiveCapabilities() const
@@ -1658,3 +1732,17 @@ std::string LLViewerRegion::getDescription() const
 {
     return stringize(*this);
 }
+
+bool LLViewerRegion::meshUploadEnabled() const
+{
+	return (mSimulatorFeatures.has("MeshUploadEnabled") &&
+		mSimulatorFeatures["MeshUploadEnabled"].asBoolean());
+}
+
+bool LLViewerRegion::meshRezEnabled() const
+{
+	return (mSimulatorFeatures.has("MeshRezEnabled") &&
+				mSimulatorFeatures["MeshRezEnabled"].asBoolean());
+}
+
+
