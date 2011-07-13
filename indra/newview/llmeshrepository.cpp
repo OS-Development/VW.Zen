@@ -34,6 +34,7 @@
 #include "llagent.h"
 #include "llappviewer.h"
 #include "llbufferstream.h"
+#include "llcallbacklist.h"
 #include "llcurl.h"
 #include "lldatapacker.h"
 #include "llfloatermodelpreview.h"
@@ -48,6 +49,7 @@
 #include "llthread.h"
 #include "llvfile.h"
 #include "llviewercontrol.h"
+#include "llviewerinventory.h"
 #include "llviewermenufile.h"
 #include "llviewerobjectlist.h"
 #include "llviewerregion.h"
@@ -355,7 +357,6 @@ public:
 			cc = llsd_from_file("fake_upload_error.xml");
 		}
 			
-		llinfos << "completed" << llendl;
 		mThread->mPendingUploads--;
 		dump_llsd_to_file(cc,make_dump_name("whole_model_fee_response_",dump_num));
 
@@ -364,7 +365,6 @@ public:
 		if (isGoodStatus(status) &&
 			cc["state"].asString() == "upload")
 		{
-			llinfos << "fee request succeeded" << llendl;
 			mThread->mWholeModelUploadURL = cc["uploader"].asString();
 
 			if (observer)
@@ -414,8 +414,7 @@ public:
 		//assert_main_thread();
 		mThread->mPendingUploads--;
 		dump_llsd_to_file(cc,make_dump_name("whole_model_upload_response_",dump_num));
-		llinfos << "LLWholeModelUploadResponder content: " << cc << llendl;
-
+		
 		LLWholeModelUploadObserver* observer = mObserverHandle.get();
 
 		// requested "mesh" asset type isn't actually the type
@@ -423,13 +422,12 @@ public:
 		if (isGoodStatus(status) &&
 			cc["state"].asString() == "complete")
 		{
-			llinfos << "upload succeeded" << llendl;
 			mModelData["asset_type"] = "object";
 			gMeshRepo.updateInventory(LLMeshRepository::inventory_data(mModelData,cc));
 
 			if (observer)
 			{
-				observer->onModelUploadSuccess();
+				doOnIdleOneTime(boost::bind(&LLWholeModelUploadObserver::onModelUploadSuccess, observer));
 			}
 		}
 		else
@@ -440,7 +438,7 @@ public:
 
 			if (observer)
 			{
-				observer->onModelUploadFailure();
+				doOnIdleOneTime(boost::bind(&LLWholeModelUploadObserver::onModelUploadFailure, observer));
 			}
 		}
 	}
@@ -1304,6 +1302,7 @@ void LLMeshUploadThread::wholeModelToLLSD(LLSD& dest, bool include_textures)
 
 	LLSD res;
 	result["folder_id"] = gInventory.findCategoryUUIDForType(LLFolderType::FT_OBJECT);
+	result["texture_folder_id"] = gInventory.findCategoryUUIDForType(LLFolderType::FT_TEXTURE);
 	result["asset_type"] = "mesh";
 	result["inventory_type"] = "object";
 	result["description"] = "(No Description)";
@@ -2223,6 +2222,38 @@ void LLMeshRepository::notifyLoadedMeshes()
 			LLAssetType::EType asset_type = LLAssetType::lookup(data.mPostData["asset_type"].asString());
 			LLInventoryType::EType inventory_type = LLInventoryType::lookup(data.mPostData["inventory_type"].asString());
 
+			// Handle addition of texture, if any.
+			if ( data.mResponse.has("new_texture_folder_id") )
+			{
+				const LLUUID& folder_id = data.mResponse["new_texture_folder_id"].asUUID();
+
+				if ( folder_id.notNull() )
+				{
+					LLUUID parent_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_TEXTURE);
+
+					std::string name;
+					// Check if the server built a different name for the texture folder
+					if ( data.mResponse.has("new_texture_folder_name") )
+					{
+						name = data.mResponse["new_texture_folder_name"].asString();
+					}
+					else
+					{
+						name = data.mPostData["name"].asString();
+					}
+
+					// Add the category to the internal representation
+					LLPointer<LLViewerInventoryCategory> cat = 
+						new LLViewerInventoryCategory(folder_id, parent_id, 
+							LLFolderType::FT_NONE, name, gAgent.getID());
+					cat->setVersion(LLViewerInventoryCategory::VERSION_UNKNOWN);
+
+					LLInventoryModel::LLCategoryUpdate update(cat->getParentUUID(), 1);
+					gInventory.accountForUpdate(update);
+					gInventory.updateCategory(cat);
+				}
+			}
+
 			on_new_single_inventory_upload_complete(
 				asset_type,
 				inventory_type,
@@ -2232,6 +2263,7 @@ void LLMeshRepository::notifyLoadedMeshes()
 				data.mPostData["description"],
 				data.mResponse,
 				data.mResponse["upload_price"]);
+			//}
 			
 			mInventoryQ.pop();
 		}
