@@ -1,4 +1,4 @@
-	/** 
+/** 
  * @file llappviewer.cpp
  * @brief The LLAppViewer class definitions
  *
@@ -56,6 +56,7 @@
 #include "llallocator.h"
 #include "llares.h" 
 #include "llcurl.h"
+#include "llcalc.h"
 #include "lltexturestats.h"
 #include "lltexturestats.h"
 #include "llviewerwindow.h"
@@ -1543,7 +1544,9 @@ bool LLAppViewer::cleanup()
 	// Note: this is where gLocalSpeakerMgr and gActiveSpeakerMgr used to be deleted.
 
 	LLWorldMap::getInstance()->reset(); // release any images
-	
+
+	LLCalc::cleanUp();
+
 	llinfos << "Global stuff deleted" << llendflush;
 
 	if (gAudiop)
@@ -1640,9 +1643,7 @@ bool LLAppViewer::cleanup()
 	llinfos << "Cleaning up Objects" << llendflush;
 	
 	LLViewerObject::cleanupVOClasses();
-
-	LLWaterParamManager::cleanupClass();
-	LLWLParamManager::cleanupClass();
+	
 	LLPostProcess::cleanupClass();
 
 	LLTracker::cleanupInstance();
@@ -4341,7 +4342,6 @@ void LLAppViewer::idle()
 	//
 	// Update weather effects
 	//
-	LLWorld::getInstance()->updateClouds(gFrameDTClamped);
 	gSky.propagateHeavenlyBodies(gFrameDTClamped);				// moves sun, moon, and planets
 
 	// Update wind vector 
@@ -4357,9 +4357,6 @@ void LLAppViewer::idle()
 		// Compute average wind and use to drive motion of water
 		
 		average_wind = regionp->mWind.getAverage();
-		F32 cloud_density = regionp->mCloudLayer.getDensityRegion(wind_position_region);
-		
-		gSky.setCloudDensityAtAgent(cloud_density);
 		gSky.setWind(average_wind);
 		//LLVOWater::setWind(average_wind);
 	}
