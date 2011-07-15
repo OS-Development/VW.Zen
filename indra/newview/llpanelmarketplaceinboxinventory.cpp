@@ -182,7 +182,7 @@ void LLInboxFolderViewFolder::draw()
 
 void LLInboxFolderViewFolder::updateFlag() const
 {
-	LLDate saved_freshness_date = LLDate(gSavedSettings.getString("InboxFreshnessDate"));
+	LLDate saved_freshness_date = LLDate(gSavedPerAccountSettings.getString("LastInventoryInboxExpand"));
 	mFresh = (mCreationDate > saved_freshness_date.secondsSinceEpoch());
 }
 
