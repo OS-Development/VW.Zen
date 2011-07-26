@@ -225,6 +225,7 @@ void LLFastTimer::DeclareTimer::updateCachedPointers()
 		// update cached pointer
 		it->mFrameState = &it->mTimer.getFrameState();
 	}
+
 	// also update frame states of timers on stack
 	LLFastTimer* cur_timerp = LLFastTimer::sCurTimerData.mCurTimer;
 	while(cur_timerp->mLastTimerData.mCurTimer != cur_timerp)	
