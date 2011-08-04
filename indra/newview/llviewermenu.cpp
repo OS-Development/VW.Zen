@@ -44,6 +44,7 @@
 #include "llbottomtray.h"
 #include "llcompilequeue.h"
 #include "llconsole.h"
+#include "lldaycyclemanager.h"
 #include "lldebugview.h"
 #include "llenvmanager.h"
 #include "llfilepicker.h"
@@ -61,6 +62,7 @@
 #include "llfloatersnapshot.h"
 #include "llfloatertools.h"
 #include "llfloaterworldmap.h"
+#include "llfloaterbuildoptions.h"
 #include "llavataractions.h"
 #include "lllandmarkactions.h"
 #include "llgroupmgr.h"
@@ -100,6 +102,7 @@
 #include "llworldmap.h"
 #include "pipeline.h"
 #include "llviewerjoystick.h"
+#include "llwaterparammanager.h"
 #include "llwlanimator.h"
 #include "llwlparammanager.h"
 #include "llfloatercamera.h"
@@ -7161,9 +7164,11 @@ class LLToolsUseSelectionForGrid : public view_listener_t
 		} func;
 		LLSelectMgr::getInstance()->getSelection()->applyToRootObjects(&func);
 		LLSelectMgr::getInstance()->setGridMode(GRID_MODE_REF_OBJECT);
-		if (gFloaterTools)
+
+		LLFloaterBuildOptions* build_options_floater = LLFloaterReg::getTypedInstance<LLFloaterBuildOptions>("build_options");
+		if (build_options_floater && build_options_floater->getVisible())
 		{
-			gFloaterTools->mComboGridMode->setCurrentByIndex((S32)GRID_MODE_REF_OBJECT);
+			build_options_floater->setGridMode(GRID_MODE_REF_OBJECT);
 		}
 		return true;
 	}
@@ -7667,6 +7672,40 @@ class LLWorldEnvPreset : public view_listener_t
 	}
 };
 
+class LLWorldEnableEnvPreset : public view_listener_t
+{
+	bool handleEvent(const LLSD& userdata)
+	{
+		std::string item = userdata.asString();
+
+		if (item == "delete_water")
+		{
+			LLWaterParamManager::preset_name_list_t user_waters;
+			LLWaterParamManager::instance().getUserPresetNames(user_waters);
+			return !user_waters.empty();
+		}
+		else if (item == "delete_sky")
+		{
+			LLWLParamManager::preset_name_list_t user_skies;
+			LLWLParamManager::instance().getUserPresetNames(user_skies);
+			return !user_skies.empty();
+		}
+		else if (item == "delete_day_cycle")
+		{
+			LLDayCycleManager::preset_name_list_t user_days;
+			LLDayCycleManager::instance().getUserPresetNames(user_days);
+			return !user_days.empty();
+		}
+		else
+		{
+			llwarns << "Unknown item" << llendl;
+		}
+
+		return false;
+	}
+};
+
+
 /// Post-Process callbacks
 class LLWorldPostProcess : public view_listener_t
 {
@@ -7906,6 +7945,7 @@ void initialize_menus()
 	
 	view_listener_t::addMenu(new LLWorldEnvSettings(), "World.EnvSettings");
 	view_listener_t::addMenu(new LLWorldEnvPreset(), "World.EnvPreset");
+	view_listener_t::addMenu(new LLWorldEnableEnvPreset(), "World.EnableEnvPreset");
 	view_listener_t::addMenu(new LLWorldPostProcess(), "World.PostProcess");
 
 	view_listener_t::addMenu(new LLWorldToggleMovementControls(), "World.Toggle.MovementControls");
