@@ -557,6 +557,9 @@
 	     	 	 	<menu_item_call.on_click
 	     	 	 	function="World.EnvPreset"
 	     	 	 	parameter="delete_water"/>
+	     	 	 	<menu_item_call.on_enable
+	     	 	 	function="World.EnableEnvPreset"
+	     	 	 	parameter="delete_water"/>
 	     	 	</menu_item_call>
 	     	</menu>
 	     	
@@ -583,6 +586,9 @@
 	     	 	 	<menu_item_call.on_click
 	     	 	 	function="World.EnvPreset"
 	     	 	 	parameter="delete_sky"/>
+	     	 	 	<menu_item_call.on_enable
+	     	 	 	function="World.EnableEnvPreset"
+	     	 	 	parameter="delete_sky"/>
 	     	 	</menu_item_call>
 	     	</menu>
 	     	
@@ -608,6 +614,9 @@
 	     	 	 name="delete_day_preset">
 	     	 	 	<menu_item_call.on_click
 	     	 	 	function="World.EnvPreset"
+	     	 	 	parameter="delete_day_cycle"/>
+	     	 	 	<menu_item_call.on_enable
+	     	 	 	function="World.EnableEnvPreset"
 	     	 	 	parameter="delete_day_cycle"/>
 	     	 	</menu_item_call>
 	     	</menu>
@@ -1074,19 +1083,7 @@
             <menu_item_call.on_visible
             function="File.VisibleUploadModel"/>
             </menu_item_call>
-			<menu_item_call
-           label="Model Wizard..."
-           layout="topleft"
-           name="Upload Model Wizard">
-				<menu_item_call.on_click
-				 function="Floater.Show"
-				 parameter="upload_model_wizard" />
-				<menu_item_call.on_enable
-				 function="File.EnableUploadModel" />
-				<menu_item_call.on_visible
-				function="File.VisibleUploadModel"/>
-			</menu_item_call>
-            <menu_item_call
+	   <menu_item_call
              label="Bulk (L$[COST] per file)..."
              layout="topleft"
              name="Bulk Upload">
@@ -2088,15 +2085,14 @@
             </menu_item_check>
           <menu_item_check
              label="Show Upload Cost"
-             layout="topleft"
              name="Show Upload Cost">
-            <menu_item_check.on_check
+              <menu_item_check.on_check
              function="CheckControl"
              parameter="DebugShowUploadCost" />
             <menu_item_check.on_click
-             function="ToggleControl"
-             parameter="DebugShowUploadCost" />
-          </menu_item_check>
+                 function="ToggleControl"
+                 parameter="DebugShowUploadCost" />
+            </menu_item_check>
             <menu_item_check
              label="Show Render Info"
              name="Show Render Info">
@@ -2107,7 +2103,7 @@
                  function="ToggleControl"
                  parameter="DebugShowRenderInfo" />
             </menu_item_check>
-			<menu_item_check
+			  <menu_item_check
              label="Show Texture Info"
              name="Show Texture Info">
                 <menu_item_check.on_check
@@ -2919,18 +2915,6 @@
                 <menu_item_call.on_click
                  function="Advanced.PrintTextureMemoryStats" />
             </menu_item_call>
-            <menu_item_check
-             label="Region Debug Console"
-             name="Region Debug Console"
-             shortcut="control|shift|`"
-             use_mac_ctrl="true">
-                <menu_item_check.on_check
-                 function="Floater.Visible"
-                 parameter="region_debug_console" />
-                <menu_item_check.on_click
-                 function="Floater.Toggle"
-                 parameter="region_debug_console" />
-            </menu_item_check>
             <menu_item_check
              label="Region Debug Console"
              name="Region Debug Console"
