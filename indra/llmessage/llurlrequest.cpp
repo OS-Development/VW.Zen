@@ -35,6 +35,7 @@
 #include "llcurl.h"
 #include "llioutil.h"
 #include "llmemtype.h"
+#include "llproxy.h"
 #include "llpumpio.h"
 #include "llsd.h"
 #include "llstring.h"
@@ -227,8 +228,7 @@ void LLURLRequest::useProxy(bool use_proxy)
         }
     }
 
-
-    lldebugs << "use_proxy = " << (use_proxy?'Y':'N') << ", env_proxy = " << (env_proxy ? env_proxy : "(null)") << llendl;
+    LL_DEBUGS("Proxy") << "use_proxy = " << (use_proxy?'Y':'N') << ", env_proxy = " << (env_proxy ? env_proxy : "(null)") << LL_ENDL;
 
     if (env_proxy && use_proxy)
     {
@@ -438,6 +438,7 @@ void LLURLRequest::initialize()
 	LLMemType m1(LLMemType::MTYPE_IO_URL_REQUEST);
 	mState = STATE_INITIALIZED;
 	mDetail = new LLURLRequestDetail;
+	LLProxy::getInstance()->applyProxySettings(mDetail->mCurlRequest);
 	mDetail->mCurlRequest->setopt(CURLOPT_NOSIGNAL, 1);
 	mDetail->mCurlRequest->setWriteCallback(&downCallback, (void*)this);
 	mDetail->mCurlRequest->setReadCallback(&upCallback, (void*)this);
