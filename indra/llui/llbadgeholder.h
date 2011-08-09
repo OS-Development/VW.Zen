@@ -1,10 +1,10 @@
-/**
- * @file llsky_stub.cpp
- * @brief  stub class to allow unit testing
+/** 
+ * @file llbadgeholder.h
+ * @brief Header for badge holders
  *
- * $LicenseInfo:firstyear=2009&license=viewerlgpl$
+ * $LicenseInfo:firstyear=2001&license=viewerlgpl$
  * Second Life Viewer Source Code
- * Copyright (C) 2011, Linden Research, Inc.
+ * Copyright (C) 2010, Linden Research, Inc.
  * 
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -24,14 +24,33 @@
  * $/LicenseInfo$
  */
 
-class LLSky
+#ifndef LL_LLBADGEHOLDER_H
+#define LL_LLBADGEHOLDER_H
+
+//
+// Classes
+//
+
+class LLBadge;
+
+class LLBadgeHolder
 {
 public:
-	void setOverrideSun(BOOL override);
-	void setSunDirection(const LLVector3 &sun_direction, const LLVector3 &sun_ang_velocity);
+
+	LLBadgeHolder(bool acceptsBadge)
+		: mAcceptsBadge(acceptsBadge)
+	{
+	}
+
+	void setAcceptsBadge(bool acceptsBadge) { mAcceptsBadge = acceptsBadge; }
+	bool acceptsBadge() const { return mAcceptsBadge; }
+
+	virtual bool addBadge(LLBadge * badge);
+
+private:
+
+	bool		mAcceptsBadge;
+
 };
 
-void LLSky::setOverrideSun(BOOL override) {}
-void LLSky::setSunDirection(const LLVector3 &sun_direction, const LLVector3 &sun_ang_velocity) {}
-
-LLSky gSky;
+#endif  // LL_LLBADGEHOLDER_H
