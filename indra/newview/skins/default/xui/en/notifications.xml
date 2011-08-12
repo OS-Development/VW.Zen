@@ -201,6 +201,20 @@ Save changes to current clothing/body part?
 
   <notification
    icon="alertmodal.tga"
+     name="ConfirmNoCopyToOutbox"
+     type="alertmodal">
+        You don't have permission to copy this item to the Marketplace Outbox. Are you sure you want to move the following item?
+        [ITEM_NAME]
+        <usetemplate
+         name="okcancelbuttons"
+         notext="No"
+         yestext="Yes"/>
+    </notification>
+
+    
+
+    <notification
+   icon="alertmodal.tga"
    name="CompileQueueSaveText"
    type="alertmodal">
 There was a problem uploading the text for a script due to the following reason: [REASON]. Please try again later.
@@ -6810,7 +6824,7 @@ Select residents to share with.
 See the log file for details.
   </notification>
    
-   <notification
+  <notification
     name="MeshUploadPermError"
     icon="alert.tga"
     type="alert">

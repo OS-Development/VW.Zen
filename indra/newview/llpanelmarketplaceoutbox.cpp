@@ -38,7 +38,10 @@
 #include "llsidepanelinventory.h"
 #include "llsidetray.h"
 #include "lltimer.h"
-
+#include "llviewernetwork.h"
+#include "llagent.h"
+#include "llviewermedia.h"
+#include "llfolderview.h"
 
 static LLRegisterPanelClassWrapper<LLPanelMarketplaceOutbox> t_panel_marketplace_outbox("panel_marketplace_outbox");
 
@@ -83,7 +86,7 @@ void LLPanelMarketplaceOutbox::handleLoginComplete()
 void LLPanelMarketplaceOutbox::onFocusReceived()
 {
 	LLSidepanelInventory * sidepanel_inventory = LLSideTray::getInstance()->getPanel<LLSidepanelInventory>("sidepanel_inventory");
-	
+
 	sidepanel_inventory->clearSelections(true, true, false);
 }
 
@@ -104,6 +107,8 @@ LLInventoryPanel * LLPanelMarketplaceOutbox::setupInventoryPanel()
 														  outbox_inventory_parent,
 														  LLInventoryPanel::child_registry_t::instance());
 	
+	llassert(mInventoryPanel);
+	
 	// Reshape the inventory to the proper size
 	LLRect inventory_placeholder_rect = outbox_inventory_placeholder->getRect();
 	mInventoryPanel->setShape(inventory_placeholder_rect);
@@ -119,6 +124,27 @@ LLInventoryPanel * LLPanelMarketplaceOutbox::setupInventoryPanel()
 	outbox_inventory_placeholder->setVisible(FALSE);
 	
 	return mInventoryPanel;
+}
+
+BOOL LLPanelMarketplaceOutbox::handleDragAndDrop(S32 x, S32 y, MASK mask, BOOL drop,
+								   EDragAndDropType cargo_type,
+								   void* cargo_data,
+								   EAcceptance* accept,
+								   std::string& tooltip_msg)
+{
+	BOOL handled = LLPanel::handleDragAndDrop(x, y, mask, drop, cargo_type, cargo_data, accept, tooltip_msg);
+
+	if (!handled && mInventoryPanel && mInventoryPanel->getRootFolder())
+	{
+		handled = mInventoryPanel->getRootFolder()->handleDragAndDropFromChild(mask,drop,cargo_type,cargo_data,accept,tooltip_msg);
+
+		if (handled)
+		{
+			mInventoryPanel->getRootFolder()->setDragAndDropThisFrame();
+		}
+	}
+
+	return handled;
 }
 
 bool LLPanelMarketplaceOutbox::isOutboxEmpty() const
@@ -154,22 +180,70 @@ void timeDelay(LLCoros::self& self, LLPanelMarketplaceOutbox* outboxPanel)
 	gTimeDelayDebugFunc = "";
 }
 
+
+class LLInventorySyncResponder : public LLHTTPClient::Responder
+{
+public:
+	LLInventorySyncResponder(LLPanelMarketplaceOutbox * outboxPanel)
+		: LLCurl::Responder()
+		, mOutboxPanel(outboxPanel)
+	{
+	}
+
+	void completed(U32 status, const std::string& reason, const LLSD& content)
+	{
+		llinfos << "inventory_import complete status: " << status << llendl;
+
+		if (isGoodStatus(status))
+		{
+			// Complete success
+			llinfos << "success" << llendl;
+
+		}	
+		else
+		{
+			llwarns << "failed" << llendl;
+		}
+
+		mOutboxPanel->onSyncComplete();
+	}
+
+private:
+	LLPanelMarketplaceOutbox *	mOutboxPanel;
+};
+
 void LLPanelMarketplaceOutbox::onSyncButtonClicked()
 {
-	// TODO: Actually trigger sync to marketplace
-
+	// Get the sync animation going
 	mSyncInProgress = true;
 	updateSyncButtonStatus();
 
-	// Set a timer (for testing only)
+	// Make the url for the inventory import request
+	std::string url = "https://marketplace.secondlife.com/";
 
-    gTimeDelayDebugFunc = LLCoros::instance().launch("LLPanelMarketplaceOutbox timeDelay", boost::bind(&timeDelay, _1, this));
+	if (!LLGridManager::getInstance()->isInProductionGrid())
+	{
+		std::string gridLabel = LLGridManager::getInstance()->getGridLabel();
+		url = llformat("https://marketplace.%s.lindenlab.com/", utf8str_tolower(gridLabel).c_str());
+
+		// TEMP for Jim's pdp
+		//url = "http://pdp24.lindenlab.com:3000/";
+	}
+	
+	url += "api/1/users/";
+	url += gAgent.getID().getString();
+	url += "/inventory_import";
+
+	llinfos << "http get:  " << url << llendl;
+	LLHTTPClient::get(url, new LLInventorySyncResponder(this), LLViewerMedia::getHeaders());
+
+	// Set a timer (for testing only)
+    //gTimeDelayDebugFunc = LLCoros::instance().launch("LLPanelMarketplaceOutbox timeDelay", boost::bind(&timeDelay, _1, this));
 }
 
 void LLPanelMarketplaceOutbox::onSyncComplete()
 {
 	mSyncInProgress = false;
-
 	updateSyncButtonStatus();
 }
 
@@ -191,4 +265,41 @@ void LLPanelMarketplaceOutbox::updateSyncButtonStatus()
 		mSyncButton->setVisible(true);
 		mSyncButton->setEnabled(!isOutboxEmpty());
 	}
+}
+
+U32 LLPanelMarketplaceOutbox::getTotalItemCount() const
+{
+	U32 item_count = 0;
+
+	if (mInventoryPanel)
+	{
+		const LLFolderViewFolder * outbox_folder = mInventoryPanel->getRootFolder();
+
+		if (outbox_folder)
+		{
+			item_count += outbox_folder->getFoldersCount();
+		}
+	}
+
+	return item_count;
+}
+
+void LLPanelMarketplaceOutbox::draw()
+{
+	U32 item_count = getTotalItemCount();
+
+	if (item_count > 0)
+	{
+		std::string item_count_str = llformat("%d", item_count);
+
+		LLStringUtil::format_map_t args;
+		args["[NUM]"] = item_count_str;
+		getChild<LLButton>("outbox_btn")->setLabel(getString("OutboxLabelWithArg", args));
+	}
+	else
+	{
+		getChild<LLButton>("outbox_btn")->setLabel(getString("OutboxLabelNoArg"));
+	}
+
+	LLPanel::draw();
 }
