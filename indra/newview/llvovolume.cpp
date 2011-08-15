@@ -966,7 +966,7 @@ BOOL LLVOVolume::setVolume(const LLVolumeParams &params_in, const S32 detail, bo
 	S32 lod = mLOD;
 
 	BOOL is404 = FALSE;
-
+	
 	if (isSculpted())
 	{
 		// if it's a mesh
