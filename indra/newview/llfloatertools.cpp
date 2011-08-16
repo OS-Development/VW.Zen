@@ -435,7 +435,8 @@ void LLFloaterTools::refresh()
 		if (sShowObjectCost)
 		{
 			std::string prim_cost_string;
-			LLResMgr::getInstance()->getIntegerString(prim_cost_string, calcRenderCost());
+			S32 cost = LLSelectMgr::getInstance()->getSelection()->getSelectedObjectRenderCost();
+			LLResMgr::getInstance()->getIntegerString(prim_cost_string, cost);
 			getChild<LLUICtrl>("RenderingCost")->setTextArg("[COUNT]", prim_cost_string);
 		}
 		
@@ -452,6 +453,7 @@ void LLFloaterTools::refresh()
 		F32 link_cost  = LLSelectMgr::getInstance()->getSelection()->getSelectedLinksetCost();
 		S32 prim_count = LLSelectMgr::getInstance()->getSelection()->getObjectCount();
 		S32 link_count = LLSelectMgr::getInstance()->getSelection()->getRootObjectCount();
+		S32 draw_weight = LLSelectMgr::getInstance()->getSelection()->getSelectedObjectRenderCost();
 
 		LLStringUtil::format_map_t selection_args;
 		selection_args["OBJ_COUNT"] = llformat("%.1d", link_count);
@@ -480,7 +482,7 @@ void LLFloaterTools::refresh()
 			selection_info << ",";
 
 			childSetTextArg("selection_weight", "[PHYS_WEIGHT]", llformat("%.1f", link_phys_cost));
-			childSetTextArg("selection_weight", "[DISP_WEIGHT]", llformat("%.1d", calcRenderCost()));
+			childSetTextArg("selection_weight", "[DISP_WEIGHT]", llformat("%.1d", draw_weight));
 		}
 		else
 		{
@@ -1013,35 +1015,6 @@ void LLFloaterTools::onClickGridOptions()
 	// RN: this makes grid options dependent on build tools window
 	//floaterp->addDependentFloater(LLFloaterBuildOptions::getInstance(), FALSE);
 }
-
-S32 LLFloaterTools::calcRenderCost()
-{
-       S32 cost = 0;
-       std::set<LLUUID> textures;
-
-       for (LLObjectSelection::iterator selection_iter = LLSelectMgr::getInstance()->getSelection()->begin();
-                 selection_iter != LLSelectMgr::getInstance()->getSelection()->end();
-                 ++selection_iter)
-       {
-               LLSelectNode *select_node = *selection_iter;
-               if (select_node)
-               {
-                       LLViewerObject *vobj = select_node->getObject();
-                       if (vobj->getVolume())
-                       {
-                               LLVOVolume* volume = (LLVOVolume*) vobj;
-
-                               cost += volume->getRenderCost(textures);
-							   cost += textures.size() * LLVOVolume::ARC_TEXTURE_COST;
-							   textures.clear();
-                       }
-               }
-       }
-
-
-       return cost;
-}
-
 
 // static
 void LLFloaterTools::setEditTool(void* tool_pointer)

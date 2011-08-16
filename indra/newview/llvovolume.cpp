@@ -90,6 +90,8 @@ F32 LLVOVolume::sLODFactor = 1.f;
 F32	LLVOVolume::sLODSlopDistanceFactor = 0.5f; //Changing this to zero, effectively disables the LOD transition slop 
 F32 LLVOVolume::sDistanceFactor = 1.0f;
 S32 LLVOVolume::sNumLODChanges = 0;
+S32 LLVOVolume::mRenderComplexity_last = 0;
+S32 LLVOVolume::mRenderComplexity_current = 0;
 LLPointer<LLObjectMediaDataClient> LLVOVolume::sObjectMediaClient = NULL;
 LLPointer<LLObjectMediaNavigateClient> LLVOVolume::sObjectMediaNavigateClient = NULL;
 
@@ -2968,24 +2970,35 @@ const LLMatrix4 LLVOVolume::getRenderMatrix() const
 // total cost is returned value + 5 * size of the resulting set.
 // Cannot include cost of textures, as they may be re-used in linked
 // children, and cost should only be increased for unique textures  -Nyx
-U32 LLVOVolume::getRenderCost(std::set<LLUUID> &textures) const
+U32 LLVOVolume::getRenderCost(texture_cost_t &textures) const
 {
-	// base cost of each prim should be 10 points
-	static const U32 ARC_PRIM_COST = 10;
+	// Get access to params we'll need at various points.  
+	// Skip if this is object doesn't have a volume (e.g. is an avatar).
+	BOOL has_volume = (getVolume() != NULL);
+	LLVolumeParams volume_params;
+	LLPathParams path_params;
+	LLProfileParams profile_params;
+
+	U32 num_triangles = 0;
+
 	// per-prim costs
-	static const U32 ARC_INVISI_COST = 1;
-	static const U32 ARC_SHINY_COST = 1;
-	static const U32 ARC_GLOW_COST = 1;
-	static const U32 ARC_FLEXI_COST = 8;
-	static const U32 ARC_PARTICLE_COST = 16;
-	static const U32 ARC_BUMP_COST = 4;
+	static const U32 ARC_PARTICLE_COST = 1; // determined experimentally
+	static const U32 ARC_PARTICLE_MAX = 2048; // default values
+	static const U32 ARC_TEXTURE_COST = 16; // multiplier for texture resolution - performance tested
 
-	// per-face costs
-	static const U32 ARC_PLANAR_COST = 1;
-	static const U32 ARC_ANIM_TEX_COST = 4;
-	static const U32 ARC_ALPHA_COST = 4;
+	// per-prim multipliers
+	static const F32 ARC_GLOW_MULT = 1.5f; // tested based on performance
+	static const F32 ARC_BUMP_MULT = 1.25f; // tested based on performance
+	static const F32 ARC_FLEXI_MULT = 5; // tested based on performance
+	static const F32 ARC_SHINY_MULT = 1.6f; // tested based on performance
+	static const F32 ARC_INVISI_COST = 1.2f; // tested based on performance
+	static const F32 ARC_WEIGHTED_MESH = 1.2f; // tested based on performance
 
-	U32 shame = ARC_PRIM_COST;
+	static const F32 ARC_PLANAR_COST = 1.0f; // tested based on performance to have negligible impact
+	static const F32 ARC_ANIM_TEX_COST = 4.f; // tested based on performance
+	static const F32 ARC_ALPHA_COST = 4.f; // 4x max - based on performance
+
+	F32 shame = 0;
 
 	U32 invisi = 0;
 	U32 shiny = 0;
@@ -2994,9 +3007,73 @@ U32 LLVOVolume::getRenderCost(std::set<LLUUID> &textures) const
 	U32 flexi = 0;
 	U32 animtex = 0;
 	U32 particles = 0;
-	U32 scale = 0;
 	U32 bump = 0;
 	U32 planar = 0;
+	U32 weighted_mesh = 0;
+
+	// these multipliers are variable and can be floating point
+	F32 scale = 0.f;
+
+	const LLDrawable* drawablep = mDrawable;
+	U32 num_faces = drawablep->getNumFaces();
+
+	if (has_volume)
+	{
+		volume_params = getVolume()->getParams();
+		path_params = volume_params.getPathParams();
+		profile_params = volume_params.getProfileParams();
+
+		F32 weighted_triangles = -1.0;
+		getStreamingCost(NULL, NULL, &weighted_triangles);
+
+		if (weighted_triangles > 0.0)
+		{
+			num_triangles = (U32)weighted_triangles;
+		}
+	}
+
+	if (num_triangles == 0)
+	{
+		num_triangles = 4;
+	}
+
+	if (isSculpted())
+	{
+		if (isMesh())
+		{
+			// base cost is dependent on mesh complexity
+			// note that 3 is the highest LOD as of the time of this coding.
+			S32 size = gMeshRepo.getMeshSize(volume_params.getSculptID(),3);
+			if ( size > 0)
+			{
+				if (gMeshRepo.getSkinInfo(volume_params.getSculptID(), this))
+				{
+					// weighted attachment - 1 point for every 3 bytes
+					weighted_mesh = 1;
+				}
+
+			}
+			else
+			{
+				// something went wrong - user should know their content isn't render-free
+				return 0;
+			}
+		}
+		else
+		{
+			const LLSculptParams *sculpt_params = (LLSculptParams *) getParameterEntry(LLNetworkData::PARAMS_SCULPT);
+			LLUUID sculpt_id = sculpt_params->getSculptTexture();
+			if (textures.find(sculpt_id) == textures.end())
+			{
+				LLViewerFetchedTexture *texture = LLViewerTextureManager::getFetchedTexture(sculpt_id);
+				if (texture)
+				{
+					S32 texture_cost = 256 + (S32)(ARC_TEXTURE_COST * (texture->getFullHeight() / 128.f + texture->getFullWidth() / 128.f));
+					textures.insert(texture_cost_t::value_type(sculpt_id, texture_cost));
+				}
+			}
+		}
+	}
 
 	if (isFlexible())
 	{
@@ -3008,18 +3085,12 @@ U32 LLVOVolume::getRenderCost(std::set<LLUUID> &textures) const
 	}
 
 	const LLVector3& sc = getScale();
-	scale += (U32) sc.mV[0] + (U32) sc.mV[1] + (U32) sc.mV[2];
+	scale += (sc.mV[0] + sc.mV[1] + sc.mV[2]) / 4.f; // scale to 1/4 the sum of the size
+	// enforce scale multiplier to be in the range [1,7] (7 was determined to experimentally be a reasonable max)
+	scale = scale > 7.f ? 7.f : scale;
+	scale = scale < 1.f ? 1.f : scale;
 
-	const LLDrawable* drawablep = mDrawable;
-
-	if (isSculpted())
-	{
-		const LLSculptParams *sculpt_params = (LLSculptParams *) getParameterEntry(LLNetworkData::PARAMS_SCULPT);
-		LLUUID sculpt_id = sculpt_params->getSculptTexture();
-		textures.insert(sculpt_id);
-	}
-
-	for (S32 i = 0; i < drawablep->getNumFaces(); ++i)
+	for (S32 i = 0; i < num_faces; ++i)
 	{
 		const LLFace* face = drawablep->getFace(i);
 		const LLTextureEntry* te = face->getTextureEntry();
@@ -3027,12 +3098,16 @@ U32 LLVOVolume::getRenderCost(std::set<LLUUID> &textures) const
 
 		if (img)
 		{
-			textures.insert(img->getID());
+			if (textures.find(img->getID()) == textures.end())
+			{
+				S32 texture_cost = 256 + (S32)(ARC_TEXTURE_COST * (img->getFullHeight() / 128.f + img->getFullWidth() / 128.f));
+				textures.insert(texture_cost_t::value_type(img->getID(), texture_cost));
+			}
 		}
 
 		if (face->getPoolType() == LLDrawPool::POOL_ALPHA)
 		{
-			alpha++;
+			alpha = 1;
 		}
 		else if (img && img->getPrimaryFormat() == GL_ALPHA)
 		{
@@ -3043,61 +3118,106 @@ U32 LLVOVolume::getRenderCost(std::set<LLUUID> &textures) const
 		{
 			if (te->getBumpmap())
 			{
+				// bump is a multiplier, don't add per-face
 				bump = 1;
 			}
 			if (te->getShiny())
 			{
+				// shiny is a multiplier, don't add per-face
 				shiny = 1;
 			}
 			if (te->getGlow() > 0.f)
 			{
+				// glow is a multiplier, don't add per-face
 				glow = 1;
 			}
 			if (face->mTextureMatrix != NULL)
 			{
-				animtex++;
+				animtex = 1;
 			}
 			if (te->getTexGen())
 			{
-				planar++;
+				planar = 1;
 			}
 		}
 	}
 
+	// shame currently has the "base" cost of 1 point per 15 triangles, min 2.
+	shame = num_triangles / 15.f;
+	shame = shame < 2.f ? 2.f : shame;
 
-	shame += invisi * ARC_INVISI_COST;
-	shame += shiny * ARC_SHINY_COST;
-	shame += glow * ARC_GLOW_COST;
-	shame += alpha * ARC_ALPHA_COST;
-	shame += flexi * ARC_FLEXI_COST;
-	shame += animtex * ARC_ANIM_TEX_COST;
-	shame += particles * ARC_PARTICLE_COST;
-	shame += bump * ARC_BUMP_COST;
-	shame += planar * ARC_PLANAR_COST;
-	shame += scale;
+	// factor in scale
+	shame *= scale;
 
-	LLViewerObject::const_child_list_t& child_list = getChildren();
-	for (LLViewerObject::child_list_t::const_iterator iter = child_list.begin();
-		 iter != child_list.end(); 
-		 ++iter)
+	// multiply by per-face modifiers
+	if (planar)
 	{
-		const LLViewerObject* child_objectp = *iter;
-		const LLDrawable* child_drawablep = child_objectp->mDrawable;
-		if (child_drawablep)
-		{
-			const LLVOVolume* child_volumep = child_drawablep->getVOVolume();
-			if (child_volumep)
-			{
-				shame += child_volumep->getRenderCost(textures);
-			}
-		}
+		shame *= planar * ARC_PLANAR_COST;
 	}
 
-	return shame;
+	if (animtex)
+	{
+		shame *= animtex * ARC_ANIM_TEX_COST;
+	}
 
+	if (alpha)
+	{
+		shame *= alpha * ARC_ALPHA_COST;
+	}
+
+	if(invisi)
+	{
+		shame *= invisi * ARC_INVISI_COST;
+	}
+
+	if (glow)
+	{
+		shame *= glow * ARC_GLOW_MULT;
+	}
+
+	if (bump)
+	{
+		shame *= bump * ARC_BUMP_MULT;
+	}
+
+	if (shiny)
+	{
+		shame *= shiny * ARC_SHINY_MULT;
+	}
+
+
+	// multiply shame by multipliers
+	if (weighted_mesh)
+	{
+		shame *= weighted_mesh * ARC_WEIGHTED_MESH;
+	}
+
+	if (flexi)
+	{
+		shame *= flexi * ARC_FLEXI_MULT;
+	}
+
+
+	// add additional costs
+	if (particles)
+	{
+		const LLPartSysData *part_sys_data = &(mPartSourcep->mPartSysData);
+		const LLPartData *part_data = &(part_sys_data->mPartData);
+		U32 num_particles = (U32)(part_sys_data->mBurstPartCount * llceil( part_data->mMaxAge / part_sys_data->mBurstRate));
+		num_particles = num_particles > ARC_PARTICLE_MAX ? ARC_PARTICLE_MAX : num_particles;
+		F32 part_size = (llmax(part_data->mStartScale[0], part_data->mEndScale[0]) + llmax(part_data->mStartScale[1], part_data->mEndScale[1])) / 2.f;
+		shame += num_particles * part_size * ARC_PARTICLE_COST;
+	}
+
+	if (shame > mRenderComplexity_current)
+	{
+		mRenderComplexity_current = (S32)shame;
+	}
+
+	return (U32)shame;
 }
 
-F32 LLVOVolume::getStreamingCost(S32* bytes, S32* visible_bytes)
+F32 LLVOVolume::getStreamingCost(S32* bytes, S32* visible_bytes, F32* unscaled_value) const
 {
 	F32 radius = getScale().length()*0.5f;
 
@@ -3105,7 +3225,7 @@ F32 LLVOVolume::getStreamingCost(S32* bytes, S32* visible_bytes)
 	{	
 		LLSD& header = gMeshRepo.getMeshHeader(getVolume()->getParams().getSculptID());
 
-		return LLMeshRepository::getStreamingCost(header, radius, bytes, visible_bytes, mLOD);
+		return LLMeshRepository::getStreamingCost(header, radius, bytes, visible_bytes, mLOD, unscaled_value);
 	}
 	else
 	{
@@ -3119,11 +3239,18 @@ F32 LLVOVolume::getStreamingCost(S32* bytes, S32* visible_bytes)
 		header["medium_lod"]["size"] = counts[2] * 10;
 		header["high_lod"]["size"] = counts[3] * 10;
 
-		return LLMeshRepository::getStreamingCost(header, radius);
+		return LLMeshRepository::getStreamingCost(header, radius, NULL, NULL, -1, unscaled_value);
 	}	
 }
 
-U32 LLVOVolume::getTriangleCount()
+//static 
+void LLVOVolume::updateRenderComplexity()
+{
+	mRenderComplexity_last = mRenderComplexity_current;
+	mRenderComplexity_current = 0;
+}
+
+U32 LLVOVolume::getTriangleCount() const
 {
 	U32 count = 0;
 	LLVolume* volume = getVolume();

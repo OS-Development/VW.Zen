@@ -6522,7 +6522,7 @@ U32 LLObjectSelection::getSelectedObjectTriangleCount()
 	return count;
 }
 
-/*S32 LLObjectSelection::getSelectedObjectRenderCost()
+S32 LLObjectSelection::getSelectedObjectRenderCost()
 {
        S32 cost = 0;
        LLVOVolume::texture_cost_t textures;
@@ -6546,7 +6546,7 @@ U32 LLObjectSelection::getSelectedObjectTriangleCount()
 
 
        return cost;
-}*/
+}
 
 
 //-----------------------------------------------------------------------------
