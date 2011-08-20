@@ -369,16 +369,6 @@ void LLFolderView::closeAllFolders()
 	arrangeAll();
 }
 
-void LLFolderView::openFolder(const std::string& foldername)
-{
-	LLFolderViewFolder* inv = findChild<LLFolderViewFolder>(foldername);
-	if (inv)
-	{
-		setSelection(inv, FALSE, FALSE);
-		inv->setOpen(TRUE);
-	}
-}
-
 void LLFolderView::openTopLevelFolders()
 {
 	for (folders_t::iterator iter = mFolders.begin();
@@ -537,6 +527,7 @@ void LLFolderView::reshape(S32 width, S32 height, BOOL called_from_parent)
 		scroll_rect = mScrollContainer->getContentWindowRect();
 	}
 	width = llmax(mMinWidth, scroll_rect.getWidth());
+	height = llmax(height, scroll_rect.getHeight());
 
 	// restrict width with scroll container's width
 	if (mUseEllipses)
@@ -720,8 +711,10 @@ void LLFolderView::extendSelection(LLFolderViewItem* selection, LLFolderViewItem
 	mSignalSelectCallback = SIGNAL_KEYBOARD_FOCUS;
 }
 
+static LLFastTimer::DeclareTimer FTM_SANITIZE_SELECTION("Sanitize Selection");
 void LLFolderView::sanitizeSelection()
 {
+	LLFastTimer _(FTM_SANITIZE_SELECTION);
 	// store off current item in case it is automatically deselected
 	// and we want to preserve context
 	LLFolderViewItem* original_selected_item = getCurSelectedItem();
@@ -1913,21 +1906,15 @@ BOOL LLFolderView::handleDragAndDrop(S32 x, S32 y, MASK mask, BOOL drop,
 									 std::string& tooltip_msg)
 {
 	mDragAndDropThisFrame = TRUE;
+	// have children handle it first
 	BOOL handled = LLView::handleDragAndDrop(x, y, mask, drop, cargo_type, cargo_data,
 											 accept, tooltip_msg);
 
-	// When there are no visible children drag and drop is handled
+	// when drop is not handled by child, it should be handled
 	// by the folder which is the hierarchy root.
-	if (!handled && !hasVisibleChildren())
+	if (!handled && getListener()->getUUID().notNull())
 	{
-		if (mFolders.empty())
-		{
-			handled = handleDragAndDropFromChild(mask,drop,cargo_type,cargo_data,accept,tooltip_msg);
-		}
-		else
-		{
-		handled = mFolders.front()->handleDragAndDropFromChild(mask,drop,cargo_type,cargo_data,accept,tooltip_msg);
-	}
+		LLFolderViewFolder::handleDragAndDrop(x, y, mask, drop, cargo_type, cargo_data, accept, tooltip_msg);
 	}
 
 	if (handled)
@@ -2048,8 +2035,10 @@ void LLFolderView::removeItemID(const LLUUID& id)
 	mItemMap.erase(id);
 }
 
+LLFastTimer::DeclareTimer FTM_GET_ITEM_BY_ID("Get FolderViewItem by ID");
 LLFolderViewItem* LLFolderView::getItemByID(const LLUUID& id)
 {
+	LLFastTimer _(FTM_GET_ITEM_BY_ID);
 	if (id == getListener()->getUUID())
 	{
 		return this;
