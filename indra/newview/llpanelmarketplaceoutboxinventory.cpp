@@ -1,6 +1,6 @@
 /** 
- * @file llpanelmarketplaceinboxinventory.cpp
- * @brief LLInboxInventoryPanel  class definition
+ * @file llpanelmarketplaceoutboxinventory.cpp
+ * @brief LLOutboxInventoryPanel  class definition
  *
  * $LicenseInfo:firstyear=2009&license=viewerlgpl$
  * Second Life Viewer Source Code
@@ -26,7 +26,7 @@
 
 #include "llviewerprecompiledheaders.h"
 
-#include "llpanelmarketplaceinboxinventory.h"
+#include "llpanelmarketplaceoutboxinventory.h"
 
 #include "llfolderview.h"
 #include "llfoldervieweventlistener.h"
@@ -41,32 +41,32 @@
 // statics
 //
 
-static LLDefaultChildRegistry::Register<LLInboxInventoryPanel> r1("inbox_inventory_panel");
-static LLDefaultChildRegistry::Register<LLInboxFolderViewFolder> r2("inbox_folder_view_folder");
+static LLDefaultChildRegistry::Register<LLOutboxInventoryPanel> r1("outbox_inventory_panel");
+static LLDefaultChildRegistry::Register<LLOutboxFolderViewFolder> r2("outbox_folder_view_folder");
 
 
 //
-// LLInboxInventoryPanel Implementation
+// LLOutboxInventoryPanel Implementation
 //
 
-LLInboxInventoryPanel::LLInboxInventoryPanel(const LLInboxInventoryPanel::Params& p)
+LLOutboxInventoryPanel::LLOutboxInventoryPanel(const LLOutboxInventoryPanel::Params& p)
 	: LLInventoryPanel(p)
 {
 }
 
-LLInboxInventoryPanel::~LLInboxInventoryPanel()
+LLOutboxInventoryPanel::~LLOutboxInventoryPanel()
 {
 }
 
 // virtual
-void LLInboxInventoryPanel::buildFolderView(const LLInventoryPanel::Params& params)
+void LLOutboxInventoryPanel::buildFolderView(const LLInventoryPanel::Params& params)
 {
 	// Determine the root folder in case specified, and
 	// build the views starting with that folder.
 	
-	LLUUID root_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_INBOX, false, false);
+	LLUUID root_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_OUTBOX, false, false);
 	
-	// leslie -- temporary HACK to work around sim not creating inbox with proper system folder type
+	// leslie -- temporary HACK to work around sim not creating outbox with proper system folder type
 	if (root_id.isNull())
 	{
 		std::string start_folder_name(params.start_folder());
@@ -92,14 +92,14 @@ void LLInboxInventoryPanel::buildFolderView(const LLInventoryPanel::Params& para
 		
 		if (root_id == LLUUID::null)
 		{
-			llwarns << "No category found that matches inbox inventory panel start_folder: " << start_folder_name << llendl;
+			llwarns << "No category found that matches outbox inventory panel start_folder: " << start_folder_name << llendl;
 		}
 	}
 	// leslie -- end temporary HACK
 	
 	if (root_id == LLUUID::null)
 	{
-		llwarns << "Inbox inventory panel has no root folder!" << llendl;
+		llwarns << "Outbox inventory panel has no root folder!" << llendl;
 		root_id = LLUUID::generateNewID();
 	}
 	
@@ -113,9 +113,9 @@ void LLInboxInventoryPanel::buildFolderView(const LLInventoryPanel::Params& para
 	mFolderRoot = createFolderView(new_listener, params.use_label_suffix());
 }
 
-LLFolderViewFolder * LLInboxInventoryPanel::createFolderViewFolder(LLInvFVBridge * bridge)
+LLFolderViewFolder * LLOutboxInventoryPanel::createFolderViewFolder(LLInvFVBridge * bridge)
 {
-	LLInboxFolderViewFolder::Params params;
+	LLOutboxFolderViewFolder::Params params;
 	
 	params.name = bridge->getDisplayName();
 	params.icon = bridge->getIcon();
@@ -130,78 +130,42 @@ LLFolderViewFolder * LLInboxInventoryPanel::createFolderViewFolder(LLInvFVBridge
 	params.listener = bridge;
 	params.tool_tip = params.name;
 	
-	return LLUICtrlFactory::create<LLInboxFolderViewFolder>(params);
+	return LLUICtrlFactory::create<LLOutboxFolderViewFolder>(params);
 }
 
 
 //
-// LLInboxFolderViewFolder Implementation
+// LLOutboxFolderViewFolder Implementation
 //
 
-LLInboxFolderViewFolder::LLInboxFolderViewFolder(const Params& p)
+LLOutboxFolderViewFolder::LLOutboxFolderViewFolder(const Params& p)
 	: LLFolderViewFolder(p)
 	, LLBadgeOwner(getHandle())
-	, mFresh(true)
+	, mError(false)
 {
-#if SUPPORTING_FRESH_ITEM_COUNT
-	initBadgeParams(p.new_badge());
-#endif
+	initBadgeParams(p.error_badge());
 }
 
-LLInboxFolderViewFolder::~LLInboxFolderViewFolder()
+LLOutboxFolderViewFolder::~LLOutboxFolderViewFolder()
 {
-}
-
-// virtual
-time_t LLInboxFolderViewFolder::getCreationDate() const
-{
-	time_t ret_val = LLFolderViewFolder::getCreationDate();
-
-	if (!mCreationDate)
-	{
-		updateFlag();
-	}
-
-	return ret_val;
 }
 
 // virtual
-void LLInboxFolderViewFolder::draw()
+void LLOutboxFolderViewFolder::draw()
 {
-#if SUPPORTING_FRESH_ITEM_COUNT
 	if (!badgeHasParent())
 	{
 		addBadgeToParentPanel();
 	}
 	
-	setBadgeVisibility(mFresh);
-#endif
+	setBadgeVisibility(mError);
 
 	LLFolderViewFolder::draw();
 }
 
-void LLInboxFolderViewFolder::updateFlag() const
-{
-	LLDate saved_freshness_date = LLDate(gSavedPerAccountSettings.getString("LastInventoryInboxCollapse"));
-	mFresh = (mCreationDate > saved_freshness_date.secondsSinceEpoch());
-}
-
-void LLInboxFolderViewFolder::selectItem()
-{
-	mFresh = false;
-	LLFolderViewFolder::selectItem();
-}
-
-void LLInboxFolderViewFolder::toggleOpen()
-{
-	mFresh = false;
-	LLFolderViewFolder::toggleOpen();
-}
-
-void LLInboxFolderViewFolder::setCreationDate(time_t creation_date_utc) const
+void LLOutboxFolderViewFolder::setCreationDate(time_t creation_date_utc) const
 { 
 	mCreationDate = creation_date_utc; 
-	updateFlag();
 }
 
 
