@@ -1,6 +1,6 @@
 /** 
- * @file llpanelmarketplaceinboxinventory.h
- * @brief LLInboxInventoryPanel class declaration
+ * @file llpanelmarketplaceoutboxinventory.h
+ * @brief LLOutboxInventoryPanel class declaration
  *
  * $LicenseInfo:firstyear=2009&license=viewerlgpl$
  * Second Life Viewer Source Code
@@ -24,8 +24,8 @@
  * $/LicenseInfo$
  */
 
-#ifndef LL_INBOXINVENTORYPANEL_H
-#define LL_INBOXINVENTORYPANEL_H
+#ifndef LL_OUTBOXINVENTORYPANEL_H
+#define LL_OUTBOXINVENTORYPANEL_H
 
 
 #include "llbadgeowner.h"
@@ -33,11 +33,7 @@
 #include "llfolderviewitem.h"
 
 
-#define SUPPORTING_FRESH_ITEM_COUNT	1
-
-
-
-class LLInboxInventoryPanel : public LLInventoryPanel
+class LLOutboxInventoryPanel : public LLInventoryPanel
 {
 public:
 	struct Params : public LLInitParam::Block<Params, LLInventoryPanel::Params>
@@ -45,8 +41,8 @@ public:
 		Params() {}
 	};
 	
-	LLInboxInventoryPanel(const Params& p);
-	~LLInboxInventoryPanel();
+	LLOutboxInventoryPanel(const Params& p);
+	~LLOutboxInventoryPanel();
 
 	// virtual
 	void buildFolderView(const LLInventoryPanel::Params& params);
@@ -56,37 +52,31 @@ public:
 };
 
 
-class LLInboxFolderViewFolder : public LLFolderViewFolder, public LLBadgeOwner
+class LLOutboxFolderViewFolder : public LLFolderViewFolder, public LLBadgeOwner
 {
 public:
 	struct Params : public LLInitParam::Block<Params, LLFolderViewFolder::Params>
 	{
-		Optional<LLBadge::Params>	new_badge;
+		Optional<LLBadge::Params>	error_badge;
 		
 		Params()
-		: new_badge("new_badge")
+		: error_badge("error_badge")
 		{
 		}
 	};
 	
-	LLInboxFolderViewFolder(const Params& p);
-	~LLInboxFolderViewFolder();
+	LLOutboxFolderViewFolder(const Params& p);
+	~LLOutboxFolderViewFolder();
 
-	time_t getCreationDate() const;
-	
 	void draw();
 	
-	void updateFlag() const;
-	void selectItem();
-	void toggleOpen();
+	bool hasError() const { return mError; }
 
-	bool isFresh() const { return mFresh; }
-	
 protected:
 	void setCreationDate(time_t creation_date_utc) const;
-
-	mutable bool	mFresh;
+	
+	bool mError;
 };
 
 
-#endif //LL_INBOXINVENTORYPANEL_H
+#endif //LL_OUTBOXINVENTORYPANEL_H
