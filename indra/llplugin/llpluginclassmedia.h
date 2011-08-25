@@ -41,16 +41,16 @@ class LLPluginClassMedia : public LLPluginProcessParentOwner
 	LOG_CLASS(LLPluginClassMedia);
 public:
 	LLPluginClassMedia(LLPluginClassMediaOwner *owner);
-	virtual ~LLPluginClassMedia();
+	~LLPluginClassMedia();
 
 	// local initialization, called by the media manager when creating a source
-	virtual bool init(const std::string &launcher_filename, 
+	bool init(const std::string &launcher_filename, 
 					  const std::string &plugin_dir, 
 					  const std::string &plugin_filename, 
 					  bool debug);
 
 	// undoes everything init() didm called by the media manager when destroying a source
-	virtual void reset();
+	void reset();
 	
 	void idle(void);
 	
@@ -119,8 +119,7 @@ public:
 	void scrollEvent(int x, int y, MASK modifiers);
 
 	// Javascript <-> viewer events
-	void jsExposeObjectEvent( bool expose );
-	void jsValuesValidEvent( bool valid );
+	void jsEnableObject( bool enable );
 	void jsAgentLocationEvent( double x, double y, double z );
 	void jsAgentGlobalLocationEvent( double x, double y, double z );
 	void jsAgentOrientationEvent( double angle );

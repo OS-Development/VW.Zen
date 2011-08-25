@@ -1,4 +1,4 @@
-	/** 
+/** 
  * @file llappviewer.cpp
  * @brief The LLAppViewer class definitions
  *
@@ -56,6 +56,7 @@
 #include "llallocator.h"
 #include "llares.h" 
 #include "llcurl.h"
+#include "llcalc.h"
 #include "lltexturestats.h"
 #include "lltexturestats.h"
 #include "llviewerwindow.h"
@@ -136,6 +137,7 @@
 #include "lltoolmgr.h"
 #include "llassetstorage.h"
 #include "llpolymesh.h"
+#include "llproxy.h"
 #include "llaudioengine.h"
 #include "llstreamingaudio.h"
 #include "llviewermenu.h"
@@ -468,18 +470,6 @@ void request_initial_instant_messages()
 	}
 }
 
-// A settings system callback for CrashSubmitBehavior
-bool handleCrashSubmitBehaviorChanged(const LLSD& newvalue)
-{
-	S32 cb = newvalue.asInteger();
-	const S32 NEVER_SUBMIT_REPORT = 2;
-	if(cb == NEVER_SUBMIT_REPORT)
-	{
-		LLAppViewer::instance()->destroyMainloopTimeout();
-	}
-	return true;
-}
-
 // Use these strictly for things that are constructed at startup,
 // or for things that are performance critical.  JC
 static void settings_to_globals()
@@ -611,9 +601,6 @@ bool LLAppViewer::sendURLToOtherInstance(const std::string& url)
 // Static members.
 // The single viewer app.
 LLAppViewer* LLAppViewer::sInstance = NULL;
-
-const std::string LLAppViewer::sGlobalSettingsName = "Global"; 
-
 LLTextureCache* LLAppViewer::sTextureCache = NULL; 
 LLImageDecodeThread* LLAppViewer::sImageDecodeThread = NULL; 
 LLTextureFetch* LLAppViewer::sTextureFetch = NULL; 
@@ -722,7 +709,7 @@ bool LLAppViewer::init()
 
     // *NOTE:Mani - LLCurl::initClass is not thread safe. 
     // Called before threads are created.
-    LLCurl::initClass();
+    LLCurl::initClass(gSavedSettings.getBOOL("CurlUseMultipleThreads"));
 	LL_INFOS("InitInfo") << "LLCurl initialized." << LL_ENDL ;
 
     LLMachineID::init();
@@ -770,16 +757,6 @@ bool LLAppViewer::init()
 	//
 	LL_INFOS("InitInfo") << "J2C Engine is: " << LLImageJ2C::getEngineInfo() << LL_ENDL;
 	LL_INFOS("InitInfo") << "libcurl version is: " << LLCurl::getVersionString() << LL_ENDL;
-
-	// Get the single value from the crash settings file, if it exists
-	std::string crash_settings_filename = gDirUtilp->getExpandedFilename(LL_PATH_USER_SETTINGS, CRASH_SETTINGS_FILE);
-	gCrashSettings.loadFromFile(crash_settings_filename);
-	if(gSavedSettings.getBOOL("IgnoreAllNotifications"))
-	{
-		gCrashSettings.setS32(CRASH_BEHAVIOR_SETTING, CRASH_BEHAVIOR_ALWAYS_SEND);
-		gCrashSettings.saveToFile(crash_settings_filename, FALSE);
-	}
-	LL_INFOS("InitInfo") << "Crash settings done." << LL_ENDL ;
 
 	/////////////////////////////////////////////////
 	// OS-specific login dialogs
@@ -1055,7 +1032,7 @@ bool LLAppViewer::init()
 	//EXT-7013 - On windows for some locale (Japanese) standard 
 	//datetime formatting functions didn't support some parameters such as "weekday".
 	//Names for days and months localized in xml are also useful for Polish locale(STORM-107).
-	std::string language = LLControlGroup::getInstance(sGlobalSettingsName)->getString("Language");
+	std::string language = gSavedSettings.getString("Language");
 	if(language == "ja" || language == "pl")
 	{
 		LLStringOps::setupWeekDaysNames(LLTrans::getString("dateTimeWeekdaysNames"));
@@ -1543,7 +1520,9 @@ bool LLAppViewer::cleanup()
 	// Note: this is where gLocalSpeakerMgr and gActiveSpeakerMgr used to be deleted.
 
 	LLWorldMap::getInstance()->reset(); // release any images
-	
+
+	LLCalc::cleanUp();
+
 	llinfos << "Global stuff deleted" << llendflush;
 
 	if (gAudiop)
@@ -1640,9 +1619,7 @@ bool LLAppViewer::cleanup()
 	llinfos << "Cleaning up Objects" << llendflush;
 	
 	LLViewerObject::cleanupVOClasses();
-
-	LLWaterParamManager::cleanupClass();
-	LLWLParamManager::cleanupClass();
+	
 	LLPostProcess::cleanupClass();
 
 	LLTracker::cleanupInstance();
@@ -1707,10 +1684,6 @@ bool LLAppViewer::cleanup()
 		gSavedPerAccountSettings.saveToFile(gSavedSettings.getString("PerAccountSettingsFile"), TRUE);
 		llinfos << "Saved settings" << llendflush;
 	}
-
-	std::string crash_settings_filename = gDirUtilp->getExpandedFilename(LL_PATH_USER_SETTINGS, CRASH_SETTINGS_FILE);
-	// save all settings, even if equals defaults
-	gCrashSettings.saveToFile(crash_settings_filename, FALSE);
 
 	std::string warnings_settings_filename = gDirUtilp->getExpandedFilename(LL_PATH_USER_SETTINGS, getSettingsFilename("Default", "Warnings"));
 	gWarningSettings.saveToFile(warnings_settings_filename, TRUE);
@@ -1841,7 +1814,6 @@ bool LLAppViewer::cleanup()
 	
 	gSavedSettings.cleanup();
 	LLUIColorTable::instance().clear();
-	gCrashSettings.cleanup();
 
 	LLWatchdog::getInstance()->cleanup();
 
@@ -1869,6 +1841,8 @@ bool LLAppViewer::cleanup()
 		LLWeb::loadURLExternal( gLaunchFileOnQuit, false );
 		llinfos << "File launched." << llendflush;
 	}
+	llinfos << "Cleaning up LLProxy." << llendl;
+	LLProxy::cleanupClass();
 
 	LLMainLoopRepeater::instance().stop();
 
@@ -1984,7 +1958,6 @@ bool LLAppViewer::loadSettingsFromDirectory(const std::string& location_key,
 		llerrs << "Invalid settings location list" << llendl;
 	}
 
-	LLControlGroup* global_settings = LLControlGroup::getInstance(sGlobalSettingsName);  
 	for(LLInitParam::ParamIterator<SettingsGroup>::const_iterator it = mSettingsLocationList->groups.begin(), end_it = mSettingsLocationList->groups.end();
 		it != end_it;
 		++it)
@@ -2017,11 +1990,15 @@ bool LLAppViewer::loadSettingsFromDirectory(const std::string& location_key,
 			std::string full_settings_path;
 
 			if (file_it->file_name_setting.isProvided() 
-				&& global_settings->controlExists(file_it->file_name_setting))
+				&& gSavedSettings.controlExists(file_it->file_name_setting))
 			{
 				// try to find filename stored in file_name_setting control
-				full_settings_path = global_settings->getString(file_it->file_name_setting);
-				if (!gDirUtilp->fileExists(full_settings_path))
+				full_settings_path = gSavedSettings.getString(file_it->file_name_setting);
+				if (full_settings_path.empty())
+				{
+					continue;
+				}
+				else if (!gDirUtilp->fileExists(full_settings_path))
 				{
 					// search in default path
 					full_settings_path = gDirUtilp->getExpandedFilename((ELLPath)path_index, full_settings_path);
@@ -2167,8 +2144,6 @@ bool LLAppViewer::initConfiguration()
 	gSavedSettings.setS32("WatchdogEnabled", 0);
 #endif
 	
-	gCrashSettings.getControl(CRASH_BEHAVIOR_SETTING)->getSignal()->connect(boost::bind(&handleCrashSubmitBehaviorChanged, _2));	
-
 	// These are warnings that appear on the first experience of that condition.
 	// They are already set in the settings_default.xml file, but still need to be added to LLFirstUse
 	// for disable/reset ability
@@ -2299,15 +2274,33 @@ bool LLAppViewer::initConfiguration()
             {
                 const std::string& name = *itr;
                 const std::string& value = *(++itr);
-				LLControlVariable* c = LLControlGroup::getInstance(sGlobalSettingsName)->getControl(name);
-                if(c)
+                std::string name_part;
+                std::string group_part;
+				LLControlVariable* control = NULL;
+
+				// Name can be further split into ControlGroup.Name, with the default control group being Global
+				size_t pos = name.find('.');
+				if (pos != std::string::npos)
+				{
+					group_part = name.substr(0, pos);
+					name_part = name.substr(pos+1);
+					llinfos << "Setting " << group_part << "." << name_part << " to " << value << llendl;
+					LLControlGroup* g = LLControlGroup::getInstance(group_part);
+					if (g) control = g->getControl(name_part);
+				}
+				else
+				{
+					llinfos << "Setting Global." << name << " to " << value << llendl;
+					control = gSavedSettings.getControl(name);
+				}
+
+                if (control)
                 {
-                    c->setValue(value, false);
+                    control->setValue(value, false);
                 }
                 else
                 {
-                    llwarns << "'--set' specified with unknown setting: '"
-                        << name << "'." << llendl;
+					llwarns << "Failed --set " << name << ": setting name unknown." << llendl;
                 }
             }
         }
@@ -2764,7 +2757,8 @@ void LLAppViewer::checkForCrash(void)
         // Pop up a freeze or crash warning dialog
         //
         S32 choice;
-        if(gCrashSettings.getS32(CRASH_BEHAVIOR_SETTING) == CRASH_BEHAVIOR_ASK)
+	const S32 cb = gCrashSettings.getS32("CrashSubmitBehavior");
+        if(cb == CRASH_BEHAVIOR_ASK)
         {
             std::ostringstream msg;
 			msg << LLTrans::getString("MBFrozenCrashed");
@@ -2773,7 +2767,7 @@ void LLAppViewer::checkForCrash(void)
                                   alert,
                                   OSMB_YESNO);
         } 
-        else if(gCrashSettings.getS32(CRASH_BEHAVIOR_SETTING) == CRASH_BEHAVIOR_NEVER_SEND)
+        else if(cb == CRASH_BEHAVIOR_NEVER_SEND)
         {
             choice = OSBTN_NO;
         }
@@ -2830,10 +2824,9 @@ bool LLAppViewer::initWindow()
 	LL_INFOS("AppInit") << "gViewerwindow created." << LL_ENDL;
 
 	// Need to load feature table before cheking to start watchdog.
-	const S32 NEVER_SUBMIT_REPORT = 2;
 	bool use_watchdog = false;
 	int watchdog_enabled_setting = gSavedSettings.getS32("WatchdogEnabled");
-	if(watchdog_enabled_setting == -1)
+	if (watchdog_enabled_setting == -1)
 	{
 		use_watchdog = !LLFeatureManager::getInstance()->isFeatureAvailable("WatchdogDisabled");
 	}
@@ -2843,8 +2836,7 @@ bool LLAppViewer::initWindow()
 		use_watchdog = bool(watchdog_enabled_setting);
 	}
 
-	bool send_reports = gCrashSettings.getS32(CRASH_BEHAVIOR_SETTING) != NEVER_SUBMIT_REPORT;
-	if(use_watchdog && send_reports)
+	if (use_watchdog)
 	{
 		LLWatchdog::getInstance()->init(watchdog_killer_callback);
 	}
@@ -4014,6 +4006,8 @@ public:
 
 static LLFastTimer::DeclareTimer FTM_AUDIO_UPDATE("Update Audio");
 static LLFastTimer::DeclareTimer FTM_CLEANUP("Cleanup");
+static LLFastTimer::DeclareTimer FTM_CLEANUP_DRAWABLES("Drawables");
+static LLFastTimer::DeclareTimer FTM_CLEANUP_OBJECTS("Objects");
 static LLFastTimer::DeclareTimer FTM_IDLE_CB("Idle Callbacks");
 static LLFastTimer::DeclareTimer FTM_LOD_UPDATE("Update LOD");
 static LLFastTimer::DeclareTimer FTM_OBJECTLIST_UPDATE("Update Objectlist");
@@ -4290,8 +4284,14 @@ void LLAppViewer::idle()
 
 	{
 		LLFastTimer t(FTM_CLEANUP);
-		gObjectList.cleanDeadObjects();
-		LLDrawable::cleanupDeadDrawables();
+		{
+			LLFastTimer t(FTM_CLEANUP_OBJECTS);
+			gObjectList.cleanDeadObjects();
+		}
+		{
+			LLFastTimer t(FTM_CLEANUP_DRAWABLES);
+			LLDrawable::cleanupDeadDrawables();
+		}
 	}
 	
 	//
@@ -4341,7 +4341,6 @@ void LLAppViewer::idle()
 	//
 	// Update weather effects
 	//
-	LLWorld::getInstance()->updateClouds(gFrameDTClamped);
 	gSky.propagateHeavenlyBodies(gFrameDTClamped);				// moves sun, moon, and planets
 
 	// Update wind vector 
@@ -4357,9 +4356,6 @@ void LLAppViewer::idle()
 		// Compute average wind and use to drive motion of water
 		
 		average_wind = regionp->mWind.getAverage();
-		F32 cloud_density = regionp->mCloudLayer.getDensityRegion(wind_position_region);
-		
-		gSky.setCloudDensityAtAgent(cloud_density);
 		gSky.setWind(average_wind);
 		//LLVOWater::setWind(average_wind);
 	}
@@ -4519,7 +4515,7 @@ void LLAppViewer::idleShutdown()
 
 void LLAppViewer::sendLogoutRequest()
 {
-	if(!mLogoutRequestSent)
+	if(!mLogoutRequestSent && gMessageSystem)
 	{
 		LLMessageSystem* msg = gMessageSystem;
 		msg->newMessageFast(_PREHASH_LogoutRequest);
