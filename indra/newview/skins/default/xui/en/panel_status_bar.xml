@@ -78,11 +78,8 @@
      width="55" />
   </panel>
   <combo_box
-    follows="right|top"
+     follows="right|top"    
     left_pad="5"
-    drop_down_button.image_color="0 0 0 0"
-    drop_down_button.hover_glow_amount="0"
-    drop_down_button.pad_right="0"
     top="0"
     width="100"
     height="20"

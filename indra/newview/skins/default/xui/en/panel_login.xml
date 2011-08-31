@@ -129,9 +129,9 @@ label="Remember password"
   </text>
   <combo_box
     follows="left|bottom"
-    height="23"
+  height="23"
     max_chars="128"
-    tool_tip="Select your mode. Choose Basic for fast, easy exploration and chat. Choose Advanced to access more features."
+  tool_tip="Select your mode. Choose Basic for fast, easy exploration and chat. Choose Advanced to access more features."
     top_pad="0"
     name="mode_combo"
     width="110">
