@@ -125,7 +125,7 @@ public:
 
 	void buildJointToNodeMappingFromScene( daeElement* pRoot );
 	void processJointToNodeMapping( domNode* pNode );
-
+	void processChildJoints( domNode* pParentNode );
 
 	//map of avatar joints as named in COLLADA assets to internal joint names
 	std::map<std::string, std::string> mJointMap;
@@ -336,7 +336,8 @@ public:
 	void updateStatusMessages();
 	void clearGLODGroup();
 	void onLODParamCommit(bool enforce_tri_limit);
-
+	void addEmptyFace( LLModel* pTarget );
+	
 	const bool getModelPivot( void ) const { return mHasPivot; }
 	void setHasPivot( bool val ) { mHasPivot = val; }
 	void setModelPivot( const LLVector3& pivot ) { mModelPivot = pivot; }
@@ -365,9 +366,6 @@ public:
 	
 	void setLoadState( U32 state ) { mLoadState = state; }
 	U32 getLoadState() { return mLoadState; }
-	//setRestJointFlag: If an asset comes through that changes the joints, we want the reset to persist
-	void setResetJointFlag( bool state ) { if ( !mResetJoints ) mResetJoints = state; }
-	const bool getResetJointFlag( void ) const { return mResetJoints; }
 	void setRigWithSceneParity( bool state ) { mRigParityWithScene = state; }
 	const bool getRigWithSceneParity( void ) const { return mRigParityWithScene; }
 	
