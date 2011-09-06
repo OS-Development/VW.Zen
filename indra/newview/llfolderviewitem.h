@@ -173,6 +173,8 @@ protected:
 
 	static LLFontGL* getLabelFontForStyle(U8 style);
 
+	virtual void setCreationDate(time_t creation_date_utc) const { mCreationDate = creation_date_utc; }
+
 public:
 	BOOL postBuild();
 
@@ -228,7 +230,7 @@ public:
 	void deselectItem();
 
 	// this method is used to select this element
-	void selectItem();
+	virtual void selectItem();
 
 	// gets multiple-element selection
 	virtual std::set<LLUUID> getSelectionList() const;
@@ -325,6 +327,8 @@ public:
 	virtual BOOL handleHover( S32 x, S32 y, MASK mask );
 	virtual BOOL handleMouseUp( S32 x, S32 y, MASK mask );
 	virtual BOOL handleDoubleClick( S32 x, S32 y, MASK mask );
+
+	virtual LLView* findChildView(const std::string& name, BOOL recurse) const { return NULL; }
 
 	//	virtual void handleDropped();
 	virtual void draw();

@@ -812,9 +812,7 @@ void LLInventoryPanel::openStartFolderOrMyInventory()
 			&& fchild->getListener()
 				&& fchild->getListener()->getUUID() == gInventory.getRootFolderID())
 		{
-			const std::string& child_name = child->getName();
-			mFolderRoot->openFolder(child_name);
-			mFolderRoot->clearSelection();	// No need to keep it selected though!
+			fchild->setOpen(TRUE);
 			break;
 		}
 	}
@@ -900,6 +898,18 @@ void LLInventoryPanel::onFocusReceived()
 	LLEditMenuHandler::gEditMenuHandler = mFolderRoot;
 
 	LLPanel::onFocusReceived();
+}
+
+bool LLInventoryPanel::addBadge(LLBadge * badge)
+{
+	bool badge_added = false;
+
+	if (acceptsBadge())
+	{
+		badge_added = badge->addToView(mFolderRoot);
+	}
+
+	return badge_added;
 }
 
 void LLInventoryPanel::openAllFolders()

@@ -27,15 +27,14 @@
 #include "llviewerprecompiledheaders.h"
 
 #include "llpanelmarketplaceinbox.h"
+#include "llpanelmarketplaceinboxinventory.h"
 
 #include "llappviewer.h"
 #include "llbutton.h"
 #include "llinventorypanel.h"
 #include "llfolderview.h"
 #include "llsidepanelinventory.h"
-
-
-#define SUPPORTING_FRESH_ITEM_COUNT	0
+#include "llviewercontrol.h"
 
 
 static LLRegisterPanelClassWrapper<LLPanelMarketplaceInbox> t_panel_marketplace_inbox("panel_marketplace_inbox");
@@ -54,6 +53,10 @@ LLPanelMarketplaceInbox::LLPanelMarketplaceInbox(const Params& p)
 
 LLPanelMarketplaceInbox::~LLPanelMarketplaceInbox()
 {
+	if (getChild<LLButton>("inbox_btn")->getToggleState())
+	{
+		gSavedPerAccountSettings.setString("LastInventoryInboxExpand", LLDate::now().asString());
+	}
 }
 
 // virtual
@@ -80,7 +83,7 @@ void LLPanelMarketplaceInbox::handleLoginComplete()
 	LLSideTray::getInstance()->setTabButtonBadgeDriver("sidebar_inventory", this);
 }
 
-void LLPanelMarketplaceInbox::setupInventoryPanel()
+LLInventoryPanel * LLPanelMarketplaceInbox::setupInventoryPanel()
 {
 	LLView * inbox_inventory_placeholder = getChild<LLView>("inbox_inventory_placeholder");
 	LLView * inbox_inventory_parent = inbox_inventory_placeholder->getParent();
@@ -103,30 +106,15 @@ void LLPanelMarketplaceInbox::setupInventoryPanel()
 	
 	// Hide the placeholder text
 	inbox_inventory_placeholder->setVisible(FALSE);
+	
+	return mInventoryPanel;
 }
 
 void LLPanelMarketplaceInbox::onFocusReceived()
 {
 	LLSidepanelInventory * sidepanel_inventory = LLSideTray::getInstance()->getPanel<LLSidepanelInventory>("sidepanel_inventory");
 
-	if (sidepanel_inventory)
-	{
-		LLInventoryPanel * inv_panel = sidepanel_inventory->getActivePanel();
-
-		if (inv_panel)
-		{
-			inv_panel->clearSelection();
-		}
-	
-		LLInventoryPanel * outbox_panel = sidepanel_inventory->findChild<LLInventoryPanel>("inventory_outbox");
-
-		if (outbox_panel)
-		{
-			outbox_panel->clearSelection();
-		}
-		
-		sidepanel_inventory->updateVerbs();
-	}
+	sidepanel_inventory->clearSelections(true, false, true);
 }
 
 BOOL LLPanelMarketplaceInbox::handleDragAndDrop(S32 x, S32 y, MASK mask, BOOL drop, EDragAndDropType cargo_type, void *cargo_data, EAcceptance *accept, std::string& tooltip_msg)
@@ -157,10 +145,10 @@ U32 LLPanelMarketplaceInbox::getFreshItemCount() const
 
 			for (; folders_it != folders_end; ++folders_it)
 			{
-				const LLFolderViewFolder * folder = *folders_it;
+				const LLFolderViewFolder * folder_view = *folders_it;
+				const LLInboxFolderViewFolder * inbox_folder_view = dynamic_cast<const LLInboxFolderViewFolder*>(folder_view);
 
-				// TODO: Replace this check with new "fresh" flag
-				if (folder->getCreationDate() > 1500)
+				if (inbox_folder_view && inbox_folder_view->isFresh())
 				{
 					fresh_item_count++;
 				}

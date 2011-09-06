@@ -48,6 +48,7 @@
 #include "llstacktrace.h"
 
 #include "llglheaders.h"
+#include "llglslshader.h"
 
 #ifdef _DEBUG
 //#define GL_STATE_VERIFY
@@ -1781,6 +1782,16 @@ void LLGLState::checkClientArrays(const std::string& msg, U32 data_mask)
 LLGLState::LLGLState(LLGLenum state, S32 enabled) :
 	mState(state), mWasEnabled(FALSE), mIsEnabled(FALSE)
 {
+	if (LLGLSLShader::sNoFixedFunction)
+	{ //always disable state that's deprecated post GL 3.0
+		switch (state)
+		{
+			case GL_ALPHA_TEST:
+				enabled = 0;
+				break;
+		}
+	}
+
 	stop_glerror();
 	if (state)
 	{
@@ -2140,8 +2151,7 @@ void LLGLNamePool::release(GLuint name)
 void LLGLNamePool::upkeepPools()
 {
 	LLMemType mt(LLMemType::MTYPE_UPKEEP_POOLS);
-	tracker_t::LLInstanceTrackerScopedGuard guard;
-	for (tracker_t::instance_iter iter = guard.beginInstances(); iter != guard.endInstances(); ++iter)
+	for (tracker_t::instance_iter iter = beginInstances(); iter != endInstances(); ++iter)
 	{
 		LLGLNamePool & pool = *iter;
 		pool.upkeep();
@@ -2151,8 +2161,7 @@ void LLGLNamePool::upkeepPools()
 //static
 void LLGLNamePool::cleanupPools()
 {
-	tracker_t::LLInstanceTrackerScopedGuard guard;
-	for (tracker_t::instance_iter iter = guard.beginInstances(); iter != guard.endInstances(); ++iter)
+	for (tracker_t::instance_iter iter = beginInstances(); iter != endInstances(); ++iter)
 	{
 		LLGLNamePool & pool = *iter;
 		pool.cleanup();

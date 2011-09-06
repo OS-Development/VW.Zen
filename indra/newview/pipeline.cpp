@@ -103,6 +103,7 @@
 #include "llmutelist.h"
 #include "lltoolpie.h"
 #include "llcurl.h"
+#include "llnotifications.h"
 
 
 void check_stack_depth(S32 stack_depth)
@@ -317,6 +318,7 @@ BOOL	LLPipeline::sRenderFrameTest = FALSE;
 BOOL	LLPipeline::sRenderAttachedLights = TRUE;
 BOOL	LLPipeline::sRenderAttachedParticles = TRUE;
 BOOL	LLPipeline::sRenderDeferred = FALSE;
+BOOL    LLPipeline::sMemAllocationThrottled = FALSE;
 S32		LLPipeline::sVisibleLightCount = 0;
 F32		LLPipeline::sMinRenderSize = 0.f;
 
@@ -560,6 +562,24 @@ void LLPipeline::destroyGL()
 }
 
 static LLFastTimer::DeclareTimer FTM_RESIZE_SCREEN_TEXTURE("Resize Screen Texture");
+
+//static
+void LLPipeline::throttleNewMemoryAllocation(BOOL disable)
+{
+	if(sMemAllocationThrottled != disable)
+	{
+		sMemAllocationThrottled = disable ;
+
+		if(sMemAllocationThrottled)
+		{
+			//send out notification
+			LLNotification::Params params("LowMemory");
+			LLNotifications::instance().add(params);
+
+			//release some memory.
+		}
+	}
+}
 
 void LLPipeline::resizeScreenTexture()
 {
@@ -3340,13 +3360,15 @@ void render_hud_elements()
 	glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
 	
 	gGL.color4f(1,1,1,1);
+	
+	if (LLGLSLShader::sNoFixedFunction)
+	{
+		gUIProgram.bind();
+	}
+	LLGLDepthTest depth(GL_TRUE, GL_FALSE);
+
 	if (!LLPipeline::sReflectionRender && gPipeline.hasRenderDebugFeatureMask(LLPipeline::RENDER_DEBUG_FEATURE_UI))
 	{
-		if (LLGLSLShader::sNoFixedFunction)
-		{
-			gUIProgram.bind();
-		}
-
 		LLGLEnable multisample(gSavedSettings.getU32("RenderFSAASamples") > 0 ? GL_MULTISAMPLE_ARB : 0);
 		gViewerWindow->renderSelections(FALSE, FALSE, FALSE); // For HUD version in render_ui_3d()
 	
@@ -3360,10 +3382,6 @@ void render_hud_elements()
 	
 		// Render name tags.
 		LLHUDObject::renderAll();
-		if (LLGLSLShader::sNoFixedFunction)
-		{
-			gUIProgram.unbind();
-		}
 	}
 	else if (gForceRenderLandFence)
 	{
@@ -3373,6 +3391,11 @@ void render_hud_elements()
 	else if (gPipeline.hasRenderType(LLPipeline::RENDER_TYPE_HUD))
 	{
 		LLHUDText::renderAllHUD();
+	}
+
+	if (LLGLSLShader::sNoFixedFunction)
+	{
+		gUIProgram.unbind();
 	}
 	gGL.flush();
 }
@@ -3669,6 +3692,7 @@ void LLPipeline::renderGeom(LLCamera& camera, BOOL forceVBOUpdate)
 				occlude = FALSE;
 				gGLLastMatrix = NULL;
 				glLoadMatrixd(gGLModelView);
+				LLGLSLShader::bindNoShader();
 				doOcclusion(camera);
 			}
 
@@ -3734,6 +3758,7 @@ void LLPipeline::renderGeom(LLCamera& camera, BOOL forceVBOUpdate)
 			occlude = FALSE;
 			gGLLastMatrix = NULL;
 			glLoadMatrixd(gGLModelView);
+			LLGLSLShader::bindNoShader();
 			doOcclusion(camera);
 		}
 	}
@@ -3741,52 +3766,55 @@ void LLPipeline::renderGeom(LLCamera& camera, BOOL forceVBOUpdate)
 	LLVertexBuffer::unbind();
 	LLGLState::checkStates();
 
-	LLAppViewer::instance()->pingMainloopTimeout("Pipeline:RenderHighlights");
-
-	if (!sReflectionRender)
+	if (!LLPipeline::sImpostorRender)
 	{
-		renderHighlights();
-	}
+		LLAppViewer::instance()->pingMainloopTimeout("Pipeline:RenderHighlights");
 
-	// Contains a list of the faces of objects that are physical or
-	// have touch-handlers.
-	mHighlightFaces.clear();
-
-	LLAppViewer::instance()->pingMainloopTimeout("Pipeline:RenderDebug");
-	
-	renderDebug();
-
-	LLVertexBuffer::unbind();
-	
-	if (!LLPipeline::sReflectionRender && !LLPipeline::sRenderDeferred)
-	{
-		if (gPipeline.hasRenderDebugFeatureMask(LLPipeline::RENDER_DEBUG_FEATURE_UI))
+		if (!sReflectionRender)
 		{
-			// Render debugging beacons.
-			gObjectList.renderObjectBeacons();
-			gObjectList.resetObjectBeacons();
+			renderHighlights();
+		}
+
+		// Contains a list of the faces of objects that are physical or
+		// have touch-handlers.
+		mHighlightFaces.clear();
+
+		LLAppViewer::instance()->pingMainloopTimeout("Pipeline:RenderDebug");
+	
+		renderDebug();
+
+		LLVertexBuffer::unbind();
+	
+		if (!LLPipeline::sReflectionRender && !LLPipeline::sRenderDeferred)
+		{
+			if (gPipeline.hasRenderDebugFeatureMask(LLPipeline::RENDER_DEBUG_FEATURE_UI))
+			{
+				// Render debugging beacons.
+				gObjectList.renderObjectBeacons();
+				gObjectList.resetObjectBeacons();
+			}
+			else
+			{
+				// Make sure particle effects disappear
+				LLHUDObject::renderAllForTimer();
+			}
 		}
 		else
 		{
 			// Make sure particle effects disappear
 			LLHUDObject::renderAllForTimer();
 		}
-	}
-	else
-	{
-		// Make sure particle effects disappear
-		LLHUDObject::renderAllForTimer();
-	}
 
-	LLAppViewer::instance()->pingMainloopTimeout("Pipeline:RenderGeomEnd");
+		LLAppViewer::instance()->pingMainloopTimeout("Pipeline:RenderGeomEnd");
 
-	//HACK: preserve/restore matrices around HUD render
-	if (gPipeline.hasRenderType(LLPipeline::RENDER_TYPE_HUD))
-	{
-		for (U32 i = 0; i < 16; i++)
+		//HACK: preserve/restore matrices around HUD render
+		if (gPipeline.hasRenderType(LLPipeline::RENDER_TYPE_HUD))
 		{
-			gGLModelView[i] = saved_modelview[i];
-			gGLProjection[i] = saved_projection[i];
+			for (U32 i = 0; i < 16; i++)
+			{
+				gGLModelView[i] = saved_modelview[i];
+				gGLProjection[i] = saved_projection[i];
+			}
 		}
 	}
 
@@ -3931,6 +3959,7 @@ void LLPipeline::renderGeomPostDeferred(LLCamera& camera)
 			occlude = FALSE;
 			gGLLastMatrix = NULL;
 			glLoadMatrixd(gGLModelView);
+			LLGLSLShader::bindNoShader();
 			doOcclusion(camera);
 			gGL.setColorMask(true, false);
 		}
@@ -3996,6 +4025,7 @@ void LLPipeline::renderGeomPostDeferred(LLCamera& camera)
 		occlude = FALSE;
 		gGLLastMatrix = NULL;
 		glLoadMatrixd(gGLModelView);
+		LLGLSLShader::bindNoShader();
 		doOcclusion(camera);
 		gGLLastMatrix = NULL;
 		glLoadMatrixd(gGLModelView);
@@ -4218,63 +4248,6 @@ void LLPipeline::renderDebug()
 			bridge->renderDebug();
 			glPopMatrix();
 		}
-	}
-
-	if (gSavedSettings.getBOOL("DebugShowUploadCost"))
-	{
-		std::set<LLUUID> textures;
-		std::set<LLUUID> sculpts;
-		std::set<LLUUID> meshes;
-		
-		BOOL selected = TRUE;
-		if (LLSelectMgr::getInstance()->getSelection()->isEmpty())
-		{
-			selected = FALSE;
-		}
-			
-		for (LLCullResult::sg_list_t::iterator iter = sCull->beginVisibleGroups(); iter != sCull->endVisibleGroups(); ++iter)
-		{
-			LLSpatialGroup* group = *iter;
-			LLSpatialGroup::OctreeNode* node = group->mOctreeNode;
-			for (LLSpatialGroup::OctreeNode::element_iter elem = node->getData().begin(); elem != node->getData().end(); ++elem)
-			{
-				LLDrawable* drawable = *elem;
-				LLVOVolume* volume = drawable->getVOVolume();
-				if (volume && volume->isSelected() == selected)
-				{
-					for (U32 i = 0; i < volume->getNumTEs(); ++i)
-					{
-						LLTextureEntry* te = volume->getTE(i);
-						textures.insert(te->getID());
-					}
-
-					if (volume->isSculpted())
-					{
-						LLUUID sculpt_id = volume->getVolume()->getParams().getSculptID();
-						if (volume->isMesh())
-						{
-							meshes.insert(sculpt_id);
-						}
-						else
-						{
-							sculpts.insert(sculpt_id);
-						}
-					}
-				}
-			}
-		}
-
-		gPipeline.mDebugTextureUploadCost = textures.size() * 10;
-		gPipeline.mDebugSculptUploadCost = sculpts.size()*10;
-		
-		U32 mesh_cost = 0;
-
-		for (std::set<LLUUID>::iterator iter = meshes.begin(); iter != meshes.end(); ++iter)
-		{
-			mesh_cost += gMeshRepo.getResourceCost(*iter)*10;
-		}
-
-		gPipeline.mDebugMeshUploadCost = mesh_cost;
 	}
 
 	if (hasRenderDebugMask(LLPipeline::RENDER_DEBUG_SHADOW_FRUSTA))
@@ -6236,7 +6209,7 @@ void LLPipeline::renderBloom(BOOL for_snapshot, F32 zoom_factor, int subfield)
 		gGlowExtractProgram.uniform1f("warmthAmount", warmthAmount);
 		LLGLEnable blend_on(GL_BLEND);
 		LLGLEnable test(GL_ALPHA_TEST);
-		gGL.setAlphaRejectSettings(LLRender::CF_DEFAULT);
+		
 		gGL.setSceneBlendType(LLRender::BT_ADD_WITH_ALPHA);
 		
 		mScreen.bindTexture(0, 0);
@@ -8306,7 +8279,6 @@ void LLPipeline::renderShadow(glh::matrix4f& view, glh::matrix4f& proj, LLCamera
 			gOcclusionProgram.bind();
 		}
 		LLFastTimer ftm(FTM_SHADOW_SIMPLE);
-		LLGLDisable test(GL_ALPHA_TEST);
 		gGL.getTexUnit(0)->disable();
 		for (U32 i = 0; i < sizeof(types)/sizeof(U32); ++i)
 		{
@@ -8332,12 +8304,11 @@ void LLPipeline::renderShadow(glh::matrix4f& view, glh::matrix4f& proj, LLCamera
 
 	{
 		LLFastTimer ftm(FTM_SHADOW_ALPHA);
-		LLGLEnable test(GL_ALPHA_TEST);
-		gGL.setAlphaRejectSettings(LLRender::CF_GREATER, 0.6f);
+		gDeferredShadowAlphaMaskProgram.bind();
+		gDeferredShadowAlphaMaskProgram.setAlphaRange(0.6f, 1.f);
 		renderObjects(LLRenderPass::PASS_ALPHA_SHADOW, LLVertexBuffer::MAP_VERTEX | LLVertexBuffer::MAP_TEXCOORD0 | LLVertexBuffer::MAP_COLOR, TRUE);
 		glColor4f(1,1,1,1);
 		renderObjects(LLRenderPass::PASS_GRASS, LLVertexBuffer::MAP_VERTEX | LLVertexBuffer::MAP_TEXCOORD0, TRUE);
-		gGL.setAlphaRejectSettings(LLRender::CF_DEFAULT);
 	}
 
 	//glCullFace(GL_BACK);
@@ -8822,6 +8793,7 @@ void LLPipeline::generateSunShadow(LLCamera& camera)
 					LLPipeline::RENDER_TYPE_WATER,
 					LLPipeline::RENDER_TYPE_VOIDWATER,
 					LLPipeline::RENDER_TYPE_PASS_ALPHA_SHADOW,
+					LLPipeline::RENDER_TYPE_PASS_GRASS,
 					LLPipeline::RENDER_TYPE_PASS_SIMPLE,
 					LLPipeline::RENDER_TYPE_PASS_BUMP,
 					LLPipeline::RENDER_TYPE_PASS_FULLBRIGHT,

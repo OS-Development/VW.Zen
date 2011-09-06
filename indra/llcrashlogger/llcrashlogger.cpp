@@ -380,7 +380,7 @@ void LLCrashLogger::updateApplication(const std::string& message)
 
 bool LLCrashLogger::init()
 {
-	LLCurl::initClass();
+	LLCurl::initClass(false);
 
 	// We assume that all the logs we're looking for reside on the current drive
 	gDirUtilp->initAppDirs("SecondLife");
@@ -414,8 +414,7 @@ bool LLCrashLogger::init()
 		return false;
 	}
 
-	gServicePump = new LLPumpIO(gAPRPoolp);
-	gServicePump->prime(gAPRPoolp);
+	gServicePump = new LLPumpIO;
 	LLHTTPClient::setPump(*gServicePump);
 
 	//If we've opened the crash logger, assume we can delete the marker file if it exists
