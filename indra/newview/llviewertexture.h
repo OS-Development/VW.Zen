@@ -330,6 +330,7 @@ public:
 	static BOOL sUseTextureAtlas ;
 
 	static LLPointer<LLViewerTexture> sNullImagep; // Null texture for non-textured objects.
+	static LLPointer<LLViewerTexture> sBlackImagep;	// Texture to show NOTHING (pure black)
 };
 
 
@@ -465,7 +466,7 @@ public:
 	S32         getCachedRawImageLevel() const {return mCachedRawDiscardLevel;}
 	BOOL        isCachedRawImageReady() const {return mCachedRawImageReady ;}
 	BOOL        isRawImageValid()const { return mIsRawImageValid ; }	
-	void        forceToSaveRawImage(S32 desired_discard = 0) ;
+	void        forceToSaveRawImage(S32 desired_discard = 0, F32 kept_time = 0.f) ;
 	/*virtual*/ void setCachedRawImage(S32 discard_level, LLImageRaw* imageraw) ;
 	void        destroySavedRawImage() ;
 	LLImageRaw* getSavedRawImage() ;
@@ -550,6 +551,7 @@ protected:
 	S32 mSavedRawDiscardLevel;
 	S32 mDesiredSavedRawDiscardLevel;
 	F32 mLastReferencedSavedRawImageTime ;
+	F32 mKeptSavedRawImageTime ;
 
 	//a small version of the copy of the raw image (<= 64 * 64)
 	LLPointer<LLImageRaw> mCachedRawImage;
@@ -595,7 +597,7 @@ public:
 
 private:
 	void init(bool firstinit) ;
-	void scaleDown() ;		
+	bool scaleDown() ;		
 
 private:
 	F32 mDiscardVirtualSize;		// Virtual size used to calculate desired discard	

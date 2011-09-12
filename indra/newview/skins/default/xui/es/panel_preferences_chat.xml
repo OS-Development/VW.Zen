@@ -30,7 +30,9 @@
 	<spinner label="Duración de los interlocutores favoritos:" name="nearby_toasts_lifetime"/>
 	<spinner label="Tiempo de los otros interlocutores:" name="nearby_toasts_fadingtime"/>
 	<check_box name="translate_chat_checkbox"/>
-	<text name="translate_chb_label" >Usar la traducción automática (con Google) en el chat</text>
+	<text name="translate_chb_label">
+		Usar en el chat el traductor automático de Google
+	</text>
 	<text name="translate_language_text">
 		Traducir el chat al:
 	</text>

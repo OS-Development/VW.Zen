@@ -27,7 +27,6 @@
 #include "linden_common.h"
 #include "indra_constants.h"
 
-#include "llapr.h"
 #include "llerrorcontrol.h"
 
 #include <math.h>
@@ -185,9 +184,6 @@ LLMediaPluginTest::LLMediaPluginTest( int app_window, int window_width, int wind
 	{
 		std::cout << "Unable to read bookmarks from file: " << bookmarks_filename << std::endl;
 	};
-
-	// initialize linden lab APR module
-	ll_init_apr();
 
 	// Set up llerror logging
 	{
@@ -2154,6 +2150,10 @@ void LLMediaPluginTest::handleMediaEvent(LLPluginClassMedia* self, EMediaEvent e
 		}
 		break;
 
+		case MEDIA_EVENT_NAVIGATE_ERROR_PAGE:
+			std::cerr <<  "Media event:  MEDIA_EVENT_NAVIGATE_ERROR_PAGE, uri is: " << self->getClickURL() << std::endl;
+		break;
+			
 		case MEDIA_EVENT_CLICK_LINK_HREF:
 		{
 			std::cerr <<  "Media event:  MEDIA_EVENT_CLICK_LINK_HREF, uri is " << self->getClickURL() << ", target is " << self->getClickTarget() << std::endl;

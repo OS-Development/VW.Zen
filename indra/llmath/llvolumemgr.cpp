@@ -49,7 +49,7 @@ LLVolumeMgr::LLVolumeMgr()
 {
 	// the LLMutex magic interferes with easy unit testing,
 	// so you now must manually call useMutex() to use it
-	//mDataMutex = new LLMutex(gAPRPoolp);
+	//mDataMutex = new LLMutex;
 }
 
 LLVolumeMgr::~LLVolumeMgr()
@@ -216,7 +216,7 @@ void LLVolumeMgr::useMutex()
 { 
 	if (!mDataMutex)
 	{
-		mDataMutex = new LLMutex(gAPRPoolp);
+		mDataMutex = new LLMutex;
 	}
 }
 
@@ -314,7 +314,7 @@ BOOL LLVolumeLODGroup::derefLOD(LLVolume *volumep)
 		{
 			llassert_always(mLODRefs[i] > 0);
 			mLODRefs[i]--;
-#if 1 // SJB: Possible opt: keep other lods around
+#if 0 // SJB: Possible opt: keep other lods around
 			if (!mLODRefs[i])
 			{
 				mVolumeLODs[i] = NULL;
@@ -367,6 +367,19 @@ void LLVolumeLODGroup::getDetailProximity(const F32 tan_angle, F32 &to_lower, F3
 F32 LLVolumeLODGroup::getVolumeScaleFromDetail(const S32 detail)
 {
 	return mDetailScales[detail];
+}
+
+S32 LLVolumeLODGroup::getVolumeDetailFromScale(const F32 detail)
+{
+	for (S32 i = 1; i < 4; i++)
+	{
+		if (mDetailScales[i] > detail)
+		{
+			return i-1;
+		}
+	}
+
+	return 3;
 }
 
 F32 LLVolumeLODGroup::dump()

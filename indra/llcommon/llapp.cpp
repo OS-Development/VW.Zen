@@ -24,6 +24,10 @@
  * $/LicenseInfo$
  */
 
+#include "linden_common.h"
+
+#include "llapp.h"
+
 #include <cstdlib>
 
 #ifdef LL_DARWIN
@@ -31,9 +35,6 @@
 #include <unistd.h>
 #include <sys/sysctl.h>
 #endif
-
-#include "linden_common.h"
-#include "llapp.h"
 
 #include "llcommon.h"
 #include "llapr.h"
@@ -135,10 +136,6 @@ void LLApp::commonCtor()
 	{
 		mOptions.append(sd);
 	}
-
-	// Make sure we clean up APR when we exit
-	// Don't need to do this if we're cleaning up APR in the destructor
-	//atexit(ll_cleanup_apr);
 
 	// Set the application to this instance.
 	sApplication = this;

@@ -26,6 +26,8 @@
 
 #include "linden_common.h"
 
+#include "llvfs.h"
+
 #include <sys/stat.h>
 #include <set>
 #include <map>
@@ -39,8 +41,6 @@
 #include <sys/file.h>
 #endif
     
-#include "llvfs.h"
-
 #include "llstl.h"
 #include "lltimer.h"
     
@@ -234,7 +234,7 @@ LLVFS::LLVFS(const std::string& index_filename, const std::string& data_filename
 	mDataFP(NULL),
 	mIndexFP(NULL)
 {
-	mDataMutex = new LLMutex(0);
+	mDataMutex = new LLMutex;
 
 	S32 i;
 	for (i = 0; i < VFSLOCK_COUNT; i++)
@@ -1711,7 +1711,8 @@ void LLVFS::audit()
     
 	BOOL vfs_corrupt = FALSE;
 	
-	std::vector<U8> buffer(index_size);
+	// since we take the address of element 0, we need to have at least one element.
+	std::vector<U8> buffer(llmax<size_t>(index_size,1U));
 
 	if (fread(&buffer[0], 1, index_size, mIndexFP) != index_size)
 	{
@@ -2035,6 +2036,9 @@ std::string get_extension(LLAssetType::EType type)
 	case LLAssetType::AT_ANIMATION:
 		extension = ".lla";
 		break;
+	case LLAssetType::AT_MESH:
+		extension = ".slm";
+		break;
 	default:
 		// Just use the asset server filename extension in most cases
 		extension += ".";
@@ -2094,8 +2098,7 @@ void LLVFS::dumpFiles()
 			std::string filename = id.asString() + extension;
 			llinfos << " Writing " << filename << llendl;
 			
-			LLAPRFile outfile;
-			outfile.open(filename, LL_APR_WB);
+			LLAPRFile outfile(filename, LL_APR_WB);
 			outfile.write(&buffer[0], size);
 			outfile.close();
 

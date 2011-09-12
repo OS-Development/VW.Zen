@@ -34,6 +34,9 @@
 	<string name="StartupInitializingVFS">
 		VFS wird initialisiert...
 	</string>
+	<string name="StartupRequireDriverUpdate">
+		Grafikinitialisierung fehlgeschlagen. Bitte aktualisieren Sie Ihren Grafiktreiber.
+	</string>
 	<string name="ProgressRestoring">
 		Wird wiederhergestellt...
 	</string>
@@ -91,6 +94,12 @@
 	<string name="LoginQuicktimeOK">
 		QuickTime wurde initialisiert.
 	</string>
+	<string name="LoginRequestSeedCapGrant">
+		Regionsfähigkeiten anfordern...
+	</string>
+	<string name="LoginRetrySeedCapGrant">
+		Regionsfähigkeiten anfordern. Versuch [NUMBER]...
+	</string>
 	<string name="LoginWaitingForRegionHandshake">
 		Region-Handshake...
 	</string>
@@ -129,6 +138,139 @@
 	</string>
 	<string name="create_account_url">
 		http://join.secondlife.com/index.php?lang=de-DE
+	</string>
+	<string name="LoginFailedViewerNotPermitted">
+		Mit dem von Ihnen verwendeten Viewer ist der Zugriff auf Second Life nicht mehr möglich. Laden Sie von den folgenden Seite einen neuen Viewer herunter:
+http://secondlife.com/download
+
+Weitere Informationen finden Sie auf der folgenden FAQ-Seite: 
+http://secondlife.com/viewer-access-faq
+	</string>
+	<string name="LoginIntermediateOptionalUpdateAvailable">
+		Optionales Viewer-Update verfügbar: [VERSION]
+	</string>
+	<string name="LoginFailedRequiredUpdate">
+		Erforderliches Viewer-Update: [VERSION]
+	</string>
+	<string name="LoginFailedAlreadyLoggedIn">
+		Dieser Agent ist bereits angemeldet.
+	</string>
+	<string name="LoginFailedAuthenticationFailed">
+		Wir bitten um Entschuldigung! Wir konnten Sie nicht anmelden.
+Stellen Sie sicher, dass Sie die richtigen Informationen eingegeben haben:
+    * Benutzername (wie robertschmidt12 oder warme.sonne)
+    * Kennwort
+Stellen Sie außerdem sicher, dass die Umschaltsperre deaktiviert ist.
+	</string>
+	<string name="LoginFailedPasswordChanged">
+		Ihr Kennwort wurde aus Sicherheitsgründen geändert.
+Gehen Sie zur Seite „Mein Account“ unter http://secondlife.com/password
+und beantworten Sie die Sicherheitsfrage, um Ihr Kennwort zurückzusetzen.
+Wir entschuldigen uns für eventuell enstandene Unannehmlichkeiten.
+	</string>
+	<string name="LoginFailedPasswordReset">
+		Aufgrund von Systemänderungen müssen Sie Ihr Kennwort zurücksetzen.
+Gehen Sie zur Seite „Mein Account“ unter http://secondlife.com/password
+und beantworten Sie die Sicherheitsfrage, um Ihr Kennwort zurückzusetzen.
+Wir entschuldigen uns für eventuell enstandene Unannehmlichkeiten.
+	</string>
+	<string name="LoginFailedEmployeesOnly">
+		Second Life ist vorübergehend wegen Wartung geschlossen.
+Nur Mitarbeiter können sich anmelden.
+Aktuelle Informationen finden Sie unter www.secondlife.com/status.
+	</string>
+	<string name="LoginFailedPremiumOnly">
+		Die Anmeldung bei Second Life ist vorübergehend eingeschränkt, um sicherzustellen, dass Einwohner, die sich bereits inworld aufhalten, das bestmögliche Erlebnis haben.
+	 	
+Benutzer mit kostenlosen Konten können sich während dieses Zeitraums nicht bei Second Life anmelden, damit die Kapazität den Benutzern zur Verfügung steht, die ein gebührenpflichtiges Premium-Konto besitzen.
+	</string>
+	<string name="LoginFailedComputerProhibited">
+		Der Zugriff auf Second Life ist von diesem Computer aus nicht möglich.
+Wenn Sie der Ansicht sind, dass Sie diese Meldung fälschlicherweise erhalten haben, wenden Sie sich an
+support@secondlife.com.
+	</string>
+	<string name="LoginFailedAcountSuspended">
+		Ihr Konto ist erst ab
+[TIME] Pacific Time wieder verfügbar.
+	</string>
+	<string name="LoginFailedAccountDisabled">
+		Ihre Anfrage kann derzeit nicht bearbeitet werden.
+Wenden Sie sich unter http://secondlife.com/support an den Second Life-Support.
+Wenn Sie Ihr Kennwort nicht ändern können, rufen Sie die US-Nummer (866) 476-9763 an.
+	</string>
+	<string name="LoginFailedTransformError">
+		Nicht übereinstimmende Daten bei der Anmeldung festgestellt.
+Wenden Sie sich an support@secondlife.com.
+	</string>
+	<string name="LoginFailedAccountMaintenance">
+		An Ihrem Konto werden gerade kleinere Wartungsarbeiten durchgeführt.
+Ihr Konto ist erst ab
+[TIME] Pacific Time wieder verfügbar.
+Wenn Sie der Ansicht sind, dass Sie diese Meldung fälschlicherweise erhalten haben, wenden Sie sich an support@secondlife.com.
+	</string>
+	<string name="LoginFailedPendingLogoutFault">
+		Abmeldeanforderung führte zu einem Simulatorfehler.
+	</string>
+	<string name="LoginFailedPendingLogout">
+		Das System meldet Sie gerade ab.
+Ihr Konto ist erst ab
+[TIME] Pacific Time wieder verfügbar.
+	</string>
+	<string name="LoginFailedUnableToCreateSession">
+		Es kann keine gültige Sitzung erstellt werden.
+	</string>
+	<string name="LoginFailedUnableToConnectToSimulator">
+		Es kann keine Simulatorverbindung hergestellt werden.
+	</string>
+	<string name="LoginFailedRestrictedHours">
+		Mit Ihrem Konto ist der Zugriff auf Second Life
+nur zwischen [START] und [END] Pacific Time möglich.
+Schauen Sie während dieses Zeitraums vorbei.
+Wenn Sie der Ansicht sind, dass Sie diese Meldung fälschlicherweise erhalten haben, wenden Sie sich an support@secondlife.com.
+	</string>
+	<string name="LoginFailedIncorrectParameters">
+		Falsche Parameter.
+Wenn Sie der Ansicht sind, dass Sie diese Meldung fälschlicherweise erhalten haben, wenden Sie sich an support@secondlife.com.
+	</string>
+	<string name="LoginFailedFirstNameNotAlphanumeric">
+		Vorname muss alphanumerisch sein.
+Wenn Sie der Ansicht sind, dass Sie diese Meldung fälschlicherweise erhalten haben, wenden Sie sich an support@secondlife.com.
+	</string>
+	<string name="LoginFailedLastNameNotAlphanumeric">
+		Nachname muss alphanumerisch sein.
+Wenn Sie der Ansicht sind, dass Sie diese Meldung fälschlicherweise erhalten haben, wenden Sie sich an support@secondlife.com.
+	</string>
+	<string name="LogoutFailedRegionGoingOffline">
+		Die Region wird gerade offline geschaltet.
+Warten Sie kurz und versuchen Sie dann noch einmal, sich anzumelden.
+	</string>
+	<string name="LogoutFailedAgentNotInRegion">
+		Agent nicht in Region.
+Warten Sie kurz und versuchen Sie dann noch einmal, sich anzumelden.
+	</string>
+	<string name="LogoutFailedPendingLogin">
+		Die Region war gerade dabei, eine andere Sitzung anzumelden.
+Warten Sie kurz und versuchen Sie dann noch einmal, sich anzumelden.
+	</string>
+	<string name="LogoutFailedLoggingOut">
+		Die Region war gerade dabei, die vorherige Sitzung abzumelden.
+Warten Sie kurz und versuchen Sie dann noch einmal, sich anzumelden.
+	</string>
+	<string name="LogoutFailedStillLoggingOut">
+		Die Region ist noch immer dabei, die vorherige Sitzung abzumelden.
+Warten Sie kurz und versuchen Sie dann noch einmal, sich anzumelden.
+	</string>
+	<string name="LogoutSucceeded">
+		Die Region hat soeben die letzte Sitzung abgemeldet.
+Warten Sie kurz und versuchen Sie dann noch einmal, sich anzumelden.
+	</string>
+	<string name="LogoutFailedLogoutBegun">
+		Die Region hat den Abmeldevorgang gestartet.
+Warten Sie kurz und versuchen Sie dann noch einmal, sich anzumelden.
+	</string>
+	<string name="LoginFailedLoggingOutSession">
+		Das System hat begonnen, Ihre letzte Sitzung abzumelden.
+Warten Sie kurz und versuchen Sie dann noch einmal, sich anzumelden.
 	</string>
 	<string name="AgentLostConnection">
 		In dieser Region kann es zu Problemen kommen.  Bitte überprüfen Sie Ihre Internetverbindung.
@@ -440,6 +582,9 @@
 	</string>
 	<string name="symbolic folder link">
 		Link zu Ordner
+	</string>
+	<string name="mesh">
+		mesh
 	</string>
 	<string name="AvatarEditingAppearance">
 		(Aussehen wird bearbeitet)
@@ -876,6 +1021,9 @@
 	<string name="tattoo">
 		Tätowierung
 	</string>
+	<string name="physics">
+		Physik
+	</string>
 	<string name="invalid">
 		ungültig
 	</string>
@@ -914,6 +1062,9 @@
 	</string>
 	<string name="tattoo_not_worn">
 		Tätowierung nicht getragen
+	</string>
+	<string name="physics_not_worn">
+		Physik nicht getragen
 	</string>
 	<string name="invalid_not_worn">
 		ungültig
@@ -962,6 +1113,9 @@
 	</string>
 	<string name="create_new_tattoo">
 		Neue Tätowierung erstellen
+	</string>
+	<string name="create_new_physics">
+		Neue Physik erstellen
 	</string>
 	<string name="create_new_invalid">
 		ungültig
@@ -1047,6 +1201,12 @@
 	<string name="InventoryNoTexture">
 		Sie haben keine Kopie dieser Textur in Ihrem Inventar.
 	</string>
+	<string name="InventoryInboxNoItems">
+		Objekte, die auf dem Marktplatz gekauft wurden, werden hierher geliefert.
+	</string>
+	<string name="InventoryOutboxNoItems">
+		Objekte hierher ziehen, um Sie in Ihrer Marktplatz-Storefront zum Verkauf anzubieten.
+	</string>
 	<string name="no_transfer" value=" (kein Transferieren)"/>
 	<string name="no_modify" value=" (kein Bearbeiten)"/>
 	<string name="no_copy" value=" (kein Kopieren)"/>
@@ -1092,9 +1252,6 @@
 	<string name="Since Logoff" value=" - Seit Abmeldung"/>
 	<string name="InvFolder My Inventory">
 		Mein Inventar
-	</string>
-	<string name="InvFolder My Favorites">
-		Meine Favoriten
 	</string>
 	<string name="InvFolder Library">
 		Bibliothek
@@ -1154,10 +1311,10 @@
 		Gesten
 	</string>
 	<string name="InvFolder Favorite">
-		Favoriten
+		Meine Favoriten
 	</string>
 	<string name="InvFolder favorite">
-		Favoriten
+		Meine Favoriten
 	</string>
 	<string name="InvFolder Current Outfit">
 		Aktuelles Outfit
@@ -1171,11 +1328,17 @@
 	<string name="InvFolder Accessories">
 		Zubehör
 	</string>
+	<string name="InvFolder Meshes">
+		Netze
+	</string>
 	<string name="InvFolder Friends">
 		Freunde
 	</string>
 	<string name="InvFolder All">
 		Alle
+	</string>
+	<string name="no_attachments">
+		Keine Anhänge getragen
 	</string>
 	<string name="Buy">
 		Kaufen
@@ -1486,6 +1649,9 @@
 	</string>
 	<string name="SummaryForTheWeek" value="Zusammenfassung für diese Woche, beginnend am "/>
 	<string name="NextStipendDay" value=". Der nächste Stipendium-Tag ist "/>
+	<string name="GroupPlanningDate">
+		[mthnum,datetime,utc]/[day,datetime,utc]/[year,datetime,utc]
+	</string>
 	<string name="GroupIndividualShare" value="                      Gruppenanteil       Einzelanteil"/>
 	<string name="GroupColumn" value="Gruppe"/>
 	<string name="Balance">
@@ -1511,6 +1677,9 @@
 	</string>
 	<string name="IMTeen">
 		Teen
+	</string>
+	<string name="Anyone">
+		jeder
 	</string>
 	<string name="RegionInfoError">
 		Fehler
@@ -1725,7 +1894,7 @@
 	<string name="RegionNoCovenantOtherOwner">
 		Für diesen Grundbesitz liegt kein Vertrag vor. Das Land auf diesem Grundbesitz wird vom Grundbesitzer und nicht von Linden Lab verkauft.  Für Informationen zum Verkauf setzen Sie sich bitte mit dem Grundbesitzer in Verbindung.
 	</string>
-	<string name="covenant_last_modified" value="Zuletzt geändert:"/>
+	<string name="covenant_last_modified" value="Zuletzt geändert: "/>
 	<string name="none_text" value=" (keiner) "/>
 	<string name="never_text" value=" (nie) "/>
 	<string name="GroupOwned">
@@ -1733,6 +1902,12 @@
 	</string>
 	<string name="Public">
 		Öffentlich
+	</string>
+	<string name="LocalSettings">
+		Lokale Einstellungen
+	</string>
+	<string name="RegionSettings">
+		Regionseinstellungen
 	</string>
 	<string name="ClassifiedClicksTxt">
 		Klicks: [TELEPORT] teleportieren, [MAP] Karte, [PROFILE] Profil
@@ -1805,6 +1980,9 @@
 	</string>
 	<string name="GroupMoneyDebits">
 		Soll
+	</string>
+	<string name="GroupMoneyDate">
+		[weekday,datetime,utc] [mth,datetime,utc] [day,datetime,utc], [year,datetime,utc]
 	</string>
 	<string name="ViewerObjectContents">
 		Inhalte
@@ -2247,6 +2425,114 @@ Falls diese Meldung weiterhin angezeigt wird, wenden Sie sich bitte an [SUPPORT_
 	<string name="Bulbous Nose">
 		Knollennase
 	</string>
+	<string name="Breast Physics Mass">
+		Brust – Masse
+	</string>
+	<string name="Breast Physics Smoothing">
+		Brust – Glättung
+	</string>
+	<string name="Breast Physics Gravity">
+		Brust – Schwerkraft
+	</string>
+	<string name="Breast Physics Drag">
+		Brust – Luftwiderstand
+	</string>
+	<string name="Breast Physics InOut Max Effect">
+		Max. Effekt
+	</string>
+	<string name="Breast Physics InOut Spring">
+		Federn
+	</string>
+	<string name="Breast Physics InOut Gain">
+		Verstärkung
+	</string>
+	<string name="Breast Physics InOut Damping">
+		Dämpfung
+	</string>
+	<string name="Breast Physics UpDown Max Effect">
+		Max. Effekt
+	</string>
+	<string name="Breast Physics UpDown Spring">
+		Federn
+	</string>
+	<string name="Breast Physics UpDown Gain">
+		Verstärkung
+	</string>
+	<string name="Breast Physics UpDown Damping">
+		Dämpfung
+	</string>
+	<string name="Breast Physics LeftRight Max Effect">
+		Max. Effekt
+	</string>
+	<string name="Breast Physics LeftRight Spring">
+		Federn
+	</string>
+	<string name="Breast Physics LeftRight Gain">
+		Verstärkung
+	</string>
+	<string name="Breast Physics LeftRight Damping">
+		Dämpfung
+	</string>
+	<string name="Belly Physics Mass">
+		Bauch – Masse
+	</string>
+	<string name="Belly Physics Smoothing">
+		Bauch – Glättung
+	</string>
+	<string name="Belly Physics Gravity">
+		Bauch – Schwerkraft
+	</string>
+	<string name="Belly Physics Drag">
+		Bauch – Luftwiderstand
+	</string>
+	<string name="Belly Physics UpDown Max Effect">
+		Max. Effekt
+	</string>
+	<string name="Belly Physics UpDown Spring">
+		Federn
+	</string>
+	<string name="Belly Physics UpDown Gain">
+		Verstärkung
+	</string>
+	<string name="Belly Physics UpDown Damping">
+		Dämpfung
+	</string>
+	<string name="Butt Physics Mass">
+		Po – Masse
+	</string>
+	<string name="Butt Physics Smoothing">
+		Po – Glättung
+	</string>
+	<string name="Butt Physics Gravity">
+		Po – Schwerkraft
+	</string>
+	<string name="Butt Physics Drag">
+		Po – Luftwiderstand
+	</string>
+	<string name="Butt Physics UpDown Max Effect">
+		Max. Effekt
+	</string>
+	<string name="Butt Physics UpDown Spring">
+		Federn
+	</string>
+	<string name="Butt Physics UpDown Gain">
+		Verstärkung
+	</string>
+	<string name="Butt Physics UpDown Damping">
+		Dämpfung
+	</string>
+	<string name="Butt Physics LeftRight Max Effect">
+		Max. Effekt
+	</string>
+	<string name="Butt Physics LeftRight Spring">
+		Federn
+	</string>
+	<string name="Butt Physics LeftRight Gain">
+		Verstärkung
+	</string>
+	<string name="Butt Physics LeftRight Damping">
+		Dämpfung
+	</string>
 	<string name="Bushy Eyebrows">
 		Buschige Augenbrauen
 	</string>
@@ -2255,6 +2541,9 @@ Falls diese Meldung weiterhin angezeigt wird, wenden Sie sich bitte an [SUPPORT_
 	</string>
 	<string name="Butt Size">
 		Hintern, Größe
+	</string>
+	<string name="Butt Gravity">
+		Po – Schwerkraft
 	</string>
 	<string name="bustle skirt">
 		Tournürenrock
@@ -3468,6 +3757,9 @@ Falls diese Meldung weiterhin angezeigt wird, wenden Sie sich bitte an [SUPPORT_
 	<string name="LocationCtrlGeneralIconTooltip">
 		Generelle Region
 	</string>
+	<string name="LocationCtrlSeeAVsTooltip">
+		Avatare sichtbar; Chat außerhalb dieser Parzelle gestattet
+	</string>
 	<string name="UpdaterWindowTitle">
 		[APP_NAME] Aktualisierung
 	</string>
@@ -3642,6 +3934,9 @@ Falls diese Meldung weiterhin angezeigt wird, wenden Sie sich bitte an [SUPPORT_
 	<string name="session_initialization_timed_out_error">
 		Die Initialisierung der Sitzung ist fehlgeschlagen
 	</string>
+	<string name="Home position set.">
+		Position für Zuhause festgelegt.
+	</string>
 	<string name="voice_morphing_url">
 		http://secondlife.com/landing/voicemorphing
 	</string>
@@ -3763,6 +4058,9 @@ Missbrauchsbericht
 	</string>
 	<string name="New Tattoo">
 		Neue Tätowierung
+	</string>
+	<string name="New Physics">
+		Neue Physik
 	</string>
 	<string name="Invalid Wearable">
 		Ungültiges Objekt
@@ -3886,6 +4184,87 @@ Missbrauchsbericht
 	</string>
 	<string name="Female - Wow">
 		Weiblich - Wow
+	</string>
+	<string name="/bow">
+		/verbeugen
+	</string>
+	<string name="/clap">
+		/klatschen
+	</string>
+	<string name="/count">
+		/zählen
+	</string>
+	<string name="/extinguish">
+		/löschen
+	</string>
+	<string name="/kmb">
+		/lmaa
+	</string>
+	<string name="/muscle">
+		/Muskel
+	</string>
+	<string name="/no">
+		/nein
+	</string>
+	<string name="/no!">
+		/nein!
+	</string>
+	<string name="/paper">
+		/Papier
+	</string>
+	<string name="/pointme">
+		/auf mich zeigen
+	</string>
+	<string name="/pointyou">
+		/auf dich zeigen
+	</string>
+	<string name="/rock">
+		/Stein
+	</string>
+	<string name="/scissor">
+		/Schere
+	</string>
+	<string name="/smoke">
+		/rauchen
+	</string>
+	<string name="/stretch">
+		/dehnen
+	</string>
+	<string name="/whistle">
+		/pfeifen
+	</string>
+	<string name="/yes">
+		/ja
+	</string>
+	<string name="/yes!">
+		/ja!
+	</string>
+	<string name="afk">
+		afk
+	</string>
+	<string name="dance1">
+		Tanzen1
+	</string>
+	<string name="dance2">
+		Tanzen2
+	</string>
+	<string name="dance3">
+		Tanzen3
+	</string>
+	<string name="dance4">
+		Tanzen4
+	</string>
+	<string name="dance5">
+		Tanzen5
+	</string>
+	<string name="dance6">
+		Tanzen6
+	</string>
+	<string name="dance7">
+		Tanzen7
+	</string>
+	<string name="dance8">
+		Tanzen8
 	</string>
 	<string name="AvatarBirthDateFormat">
 		[mthnum,datetime,slt]/[day,datetime,slt]/[year,datetime,slt]

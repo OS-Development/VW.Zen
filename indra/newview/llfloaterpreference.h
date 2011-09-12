@@ -88,7 +88,8 @@ protected:
 	void		onBtnCancel();
 	void		onBtnApply();
 
-	void		onClickBrowserClearCache();
+	void		onClickClearCache();			// Clear viewer texture cache, vfs, and VO cache on next startup
+	void		onClickBrowserClearCache();		// Clear web history and caches as well as viewer caches above
 	void		onLanguageChange();
 	void		onNameTagOpacityChange(const LLSD& newvalue);
 
@@ -99,7 +100,7 @@ protected:
 	void onChangeCustom();
 	void updateMeterText(LLUICtrl* ctrl);
 	void onOpenHardwareSettings();
-	/// callback for defaults
+	// callback for defaults
 	void setHardwareDefaults();
 	// callback for when client turns on shaders
 	void onVertexShaderEnable();
@@ -128,6 +129,7 @@ public:
 	void onClickSetKey();
 	void setKey(KEY key);
 	void onClickSetMiddleMouse();
+	void onClickSetSounds();
 //	void onClickSkipDialogs();
 //	void onClickResetDialogs();
 	void onClickEnablePopup();
@@ -154,13 +156,12 @@ public:
 	void applyResolution();
 	void onChangeMaturity();
 	void onClickBlockList();
+	void onClickProxySettings();
 	void applyUIColor(LLUICtrl* ctrl, const LLSD& param);
 	void getUIColor(LLUICtrl* ctrl, const LLSD& param);
 	
 	void buildPopupLists();
 	static void refreshSkin(void* data);
-	// Remove record of current user's favorites from file on disk.
-	void removeFavoritesRecordOfUser();
 private:
 	static std::string sSkin;
 	// set true if state of double-click action checkbox or radio-group was changed by user
@@ -172,8 +173,6 @@ private:
 	bool mAvatarDataInitialized;
 	
 	bool mOriginalHideOnlineStatus;
-	// Record of current user's favorites may be stored in file on disk.
-	bool mFavoritesRecordMayExist;
 	std::string mDirectoryVisibility;
 	
 	LLAvatarData mAvatarProperties;
@@ -185,6 +184,8 @@ public:
 	LLPanelPreference();
 	/*virtual*/ BOOL postBuild();
 	
+	virtual ~LLPanelPreference();
+
 	virtual void apply();
 	virtual void cancel();
 	void setControlFalse(const LLSD& user_data);
@@ -198,6 +199,7 @@ public:
 	// cancel() can restore them.
 	virtual void saveSettings();
 	
+	class Updater;
 private:
 	//for "Only friends and groups can call or IM me"
 	static void showFriendsOnlyWarning(LLUICtrl*, const LLSD&);
@@ -209,6 +211,8 @@ private:
 
 	typedef std::map<std::string, LLColor4> string_color_map_t;
 	string_color_map_t mSavedColors;
+
+	Updater* mBandWidthUpdater;
 };
 
 class LLPanelPreferenceGraphics : public LLPanelPreference
@@ -225,5 +229,34 @@ protected:
 	void resetDirtyChilds();
 	
 };
+
+class LLFloaterPreferenceProxy : public LLFloater
+{
+public: 
+	LLFloaterPreferenceProxy(const LLSD& key);
+	~LLFloaterPreferenceProxy();
+
+	/// show off our menu
+	static void show();
+	void cancel();
+	
+protected:
+	BOOL postBuild();
+	void onOpen(const LLSD& key);
+	void onClose(bool app_quitting);
+	void saveSettings();
+	void onBtnOk();
+	void onBtnCancel();
+
+	void onChangeSocksSettings();
+
+private:
+	
+	bool mSocksSettingsDirty;
+	typedef std::map<LLControlVariable*, LLSD> control_values_map_t;
+	control_values_map_t mSavedValues;
+
+};
+
 
 #endif  // LL_LLPREFERENCEFLOATER_H

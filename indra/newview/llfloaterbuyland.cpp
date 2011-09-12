@@ -459,10 +459,18 @@ void LLFloaterBuyLandUI::updateParcelInfo()
 			return;
 		}
 
-		if (!authorizedBuyer.isNull()  &&  buyer != authorizedBuyer)
+		if (!authorizedBuyer.isNull() && buyer != authorizedBuyer)
 		{
-			mCannotBuyReason = getString("set_to_sell_to_other");
-			return;
+			// Maybe the parcel is set for sale to a group we are in.
+			bool authorized_group =
+				gAgent.hasPowerInGroup(authorizedBuyer,GP_LAND_DEED)
+				&& gAgent.hasPowerInGroup(authorizedBuyer,GP_LAND_SET_SALE_INFO);
+
+			if (!authorized_group)
+			{
+				mCannotBuyReason = getString("set_to_sell_to_other");
+				return;
+			}
 		}
 	}
 	else
@@ -500,7 +508,9 @@ void LLFloaterBuyLandUI::updateCovenantInfo()
 
 		LLIconCtrl* rating_icon = getChild<LLIconCtrl>("rating_icon");
 		LLRect rect = rating_icon->getRect();
-		S32 icon_left_pad = region_name->getRect().mLeft + region_name->getTextBoundingRect().getWidth() + ICON_PAD;
+		S32 region_name_width = llmin(region_name->getRect().getWidth(), region_name->getTextBoundingRect().getWidth());
+		S32 icon_left_pad = region_name->getRect().mLeft + region_name_width + ICON_PAD;
+		region_name->setToolTip(region_name->getText());
 		rating_icon->setRect(rect.setOriginAndSize(icon_left_pad, rect.mBottom, rect.getWidth(), rect.getHeight()));
 
 		switch(sim_access)
@@ -521,7 +531,8 @@ void LLFloaterBuyLandUI::updateCovenantInfo()
 	LLTextBox* region_type = getChild<LLTextBox>("region_type_text");
 	if (region_type)
 	{
-		region_type->setText(region->getSimProductName());
+		region_type->setText(region->getLocalizedSimProductName());
+		region_type->setToolTip(region->getLocalizedSimProductName());
 	}
 	
 	LLTextBox* resellable_clause = getChild<LLTextBox>("resellable_clause");
@@ -611,7 +622,8 @@ void LLFloaterBuyLandUI::updateFloaterCovenantText(const std::string &string, co
 void LLFloaterBuyLandUI::updateFloaterEstateName(const std::string& name)
 {
 	LLTextBox* box = getChild<LLTextBox>("estate_name_text");
-	if (box) box->setText(name);
+	box->setText(name);
+	box->setToolTip(name);
 }
 
 void LLFloaterBuyLandUI::updateFloaterLastModified(const std::string& text)

@@ -70,9 +70,10 @@
 #include "llappviewer.h"
 #include "llmapimagetype.h"
 #include "llweb.h"
-#include "llslider.h"
+#include "llsliderctrl.h"
 #include "message.h"
 #include "llwindow.h"			// copyTextToClipboard()
+#include <algorithm>
 
 //---------------------------------------------------------------------------
 // Constants
@@ -84,6 +85,16 @@ static const F32 MAP_ZOOM_TIME = 0.2f;
 // sessions and doesn't prevent the user to pan the world if it was to grow a lot beyond that limit.
 // Currently (01/26/09), this value allows the whole grid to be visible in a 1024x1024 window.
 static const S32 MAX_VISIBLE_REGIONS = 512;
+
+// It would be more logical to have this inside the method where it is used but to compile under gcc this
+// struct has to be here.
+struct SortRegionNames
+{
+	inline bool operator ()(std::pair <U64, LLSimInfo*> const& _left, std::pair <U64, LLSimInfo*> const& _right)
+	{
+		return(LLStringUtil::compareInsensitive(_left.second->getName(), _right.second->getName()) < 0);
+	}
+};
 
 enum EPanDirection
 {
@@ -226,16 +237,19 @@ const LLUUID LLFloaterWorldMap::sHomeID( "10000000-0000-0000-0000-000000000001" 
 
 LLFloaterWorldMap::LLFloaterWorldMap(const LLSD& key)
 :	LLFloater(key),
-mInventory(NULL),
-mInventoryObserver(NULL),
-mFriendObserver(NULL),
-mCompletingRegionName(),
-mCompletingRegionPos(),
-mWaitingForTracker(FALSE),
-mIsClosing(FALSE),
-mSetToUserPosition(TRUE),
-mTrackedLocation(0,0,0),
-mTrackedStatus(LLTracker::TRACKING_NOTHING)
+	mInventory(NULL),
+	mInventoryObserver(NULL),
+	mFriendObserver(NULL),
+	mCompletingRegionName(),
+	mCompletingRegionPos(),
+	mWaitingForTracker(FALSE),
+	mIsClosing(FALSE),
+	mSetToUserPosition(TRUE),
+	mTrackedLocation(0,0,0),
+	mTrackedStatus(LLTracker::TRACKING_NOTHING),
+	mListFriendCombo(NULL),
+	mListLandmarkCombo(NULL),
+	mListSearchResults(NULL)
 {
 	gFloaterWorldMap = this;
 	
@@ -270,17 +284,20 @@ BOOL LLFloaterWorldMap::postBuild()
 	avatar_combo->selectFirstItem();
 	avatar_combo->setPrearrangeCallback( boost::bind(&LLFloaterWorldMap::onAvatarComboPrearrange, this) );
 	avatar_combo->setTextEntryCallback( boost::bind(&LLFloaterWorldMap::onComboTextEntry, this) );
+	mListFriendCombo = dynamic_cast<LLCtrlListInterface *>(avatar_combo);
 	
 	LLSearchEditor *location_editor = getChild<LLSearchEditor>("location");
 	location_editor->setFocusChangedCallback(boost::bind(&LLFloaterWorldMap::onLocationFocusChanged, this, _1));
 	location_editor->setKeystrokeCallback( boost::bind(&LLFloaterWorldMap::onSearchTextEntry, this));
 	
 	getChild<LLScrollListCtrl>("search_results")->setDoubleClickCallback( boost::bind(&LLFloaterWorldMap::onClickTeleportBtn, this));
+	mListSearchResults = childGetListInterface("search_results");
 	
 	LLComboBox *landmark_combo = getChild<LLComboBox>( "landmark combo");
 	landmark_combo->selectFirstItem();
 	landmark_combo->setPrearrangeCallback( boost::bind(&LLFloaterWorldMap::onLandmarkComboPrearrange, this) );
 	landmark_combo->setTextEntryCallback( boost::bind(&LLFloaterWorldMap::onComboTextEntry, this) );
+	mListLandmarkCombo = dynamic_cast<LLCtrlListInterface *>(landmark_combo);
 	
 	mCurZoomVal = log(LLWorldMapView::sMapScale)/log(2.f);
 	getChild<LLUICtrl>("zoom slider")->setValue(LLWorldMapView::sMapScale);
@@ -853,7 +870,7 @@ void LLFloaterWorldMap::friendsChanged()
 // No longer really builds a list.  Instead, just updates mAvatarCombo.
 void LLFloaterWorldMap::buildAvatarIDList()
 {
-	LLCtrlListInterface *list = childGetListInterface("friend combo");
+	LLCtrlListInterface *list = mListFriendCombo;
 	if (!list) return;
 	
     // Delete all but the "None" entry
@@ -883,7 +900,7 @@ void LLFloaterWorldMap::buildAvatarIDList()
 
 void LLFloaterWorldMap::buildLandmarkIDLists()
 {
-	LLCtrlListInterface *list = childGetListInterface("landmark combo");
+	LLCtrlListInterface *list = mListLandmarkCombo;
 	if (!list) return;
 	
     // Delete all but the "None" entry
@@ -944,7 +961,7 @@ F32 LLFloaterWorldMap::getDistanceToDestination(const LLVector3d &destination,
 
 void LLFloaterWorldMap::clearLocationSelection(BOOL clear_ui)
 {
-	LLCtrlListInterface *list = childGetListInterface("search_results");
+	LLCtrlListInterface *list = mListSearchResults;
 	if (list)
 	{
 		list->operateOnAll(LLCtrlListInterface::OP_DELETE);
@@ -958,7 +975,7 @@ void LLFloaterWorldMap::clearLandmarkSelection(BOOL clear_ui)
 {
 	if (clear_ui || !childHasKeyboardFocus("landmark combo"))
 	{
-		LLCtrlListInterface *list = childGetListInterface("landmark combo");
+		LLCtrlListInterface *list = mListLandmarkCombo;
 		if (list)
 		{
 			list->selectByValue( "None" );
@@ -972,7 +989,7 @@ void LLFloaterWorldMap::clearAvatarSelection(BOOL clear_ui)
 	if (clear_ui || !childHasKeyboardFocus("friend combo"))
 	{
 		mTrackedStatus = LLTracker::TRACKING_NOTHING;
-		LLCtrlListInterface *list = childGetListInterface("friend combo");
+		LLCtrlListInterface *list = mListFriendCombo;
 		if (list)
 		{
 			list->selectByValue( "None" );
@@ -1018,7 +1035,7 @@ void LLFloaterWorldMap::adjustZoomSliderBounds()
 	
 	F32 min_power = log(pixels_per_region/256.f)/log(2.f);
 	
-	getChild<LLSlider>("zoom slider")->setMinValue(min_power);
+	getChild<LLSliderCtrl>("zoom slider")->setMinValue(min_power);
 }
 
 
@@ -1040,7 +1057,7 @@ void LLFloaterWorldMap::onLandmarkComboPrearrange( )
 		return;
 	}
 	
-	LLCtrlListInterface *list = childGetListInterface("landmark combo");
+	LLCtrlListInterface *list = mListLandmarkCombo;
 	if (!list) return;
 	
 	LLUUID current_choice = list->getCurrentID();
@@ -1059,7 +1076,7 @@ void LLFloaterWorldMap::onComboTextEntry()
 	// Reset the tracking whenever we start typing into any of the search fields,
 	// so that hitting <enter> does an auto-complete versus teleporting us to the
 	// previously selected landmark/friend.
-	LLTracker::clearFocus();
+	LLTracker::stopTracking(NULL);
 }
 
 void LLFloaterWorldMap::onSearchTextEntry( )
@@ -1076,7 +1093,7 @@ void LLFloaterWorldMap::onLandmarkComboCommit()
 		return;
 	}
 	
-	LLCtrlListInterface *list = childGetListInterface("landmark combo");
+	LLCtrlListInterface *list = mListLandmarkCombo;
 	if (!list) return;
 	
 	LLUUID asset_id;
@@ -1123,7 +1140,7 @@ void LLFloaterWorldMap::onAvatarComboPrearrange( )
 		return;
 	}
 	
-	LLCtrlListInterface *list = childGetListInterface("friend combo");
+	LLCtrlListInterface *list = mListFriendCombo;
 	if (!list) return;
 	
 	LLUUID current_choice;
@@ -1148,7 +1165,7 @@ void LLFloaterWorldMap::onAvatarComboCommit()
 		return;
 	}
 	
-	LLCtrlListInterface *list = childGetListInterface("friend combo");
+	LLCtrlListInterface *list = mListFriendCombo;
 	if (!list) return;
 	
 	const LLUUID& new_avatar_id = list->getCurrentID();
@@ -1209,6 +1226,12 @@ void LLFloaterWorldMap::onLocationCommit()
 	if ( str != saved_str )
 	{	// Set the value in the UI if any spaces were removed
 		getChild<LLUICtrl>("location")->setValue(str);
+	}
+
+	// Don't try completing empty name (STORM-1427).
+	if (str.empty())
+	{
+		return;
 	}
 	
 	LLStringUtil::toLower(str);
@@ -1483,10 +1506,13 @@ void LLFloaterWorldMap::updateSims(bool found_null_sim)
 	S32 name_length = mCompletingRegionName.length();
 	
 	LLSD match;
-	
+
 	S32 num_results = 0;
-	std::map<U64, LLSimInfo*>::const_iterator it;
-	for (it = LLWorldMap::getInstance()->getRegionMap().begin(); it != LLWorldMap::getInstance()->getRegionMap().end(); ++it)
+
+	std::vector<std::pair <U64, LLSimInfo*> > sim_info_vec(LLWorldMap::getInstance()->getRegionMap().begin(), LLWorldMap::getInstance()->getRegionMap().end());
+	std::sort(sim_info_vec.begin(), sim_info_vec.end(), SortRegionNames());
+
+	for (std::vector<std::pair <U64, LLSimInfo*> >::const_iterator it = sim_info_vec.begin(); it != sim_info_vec.end(); ++it)
 	{
 		LLSimInfo* info = it->second;
 		std::string sim_name_lower = info->getName();
@@ -1513,17 +1539,24 @@ void LLFloaterWorldMap::updateSims(bool found_null_sim)
 		mCompletingRegionName = "";
 	}
 	
-	// if match found, highlight it and go
-	if (!match.isUndefined())
+	if (num_results > 0)
 	{
-		list->selectByValue(match);
+		// if match found, highlight it and go
+		if (!match.isUndefined())
+		{
+			list->selectByValue(match);
+		}
+		// else select first found item
+		else
+		{
+			list->selectFirstItem();
+		}
 		getChild<LLUICtrl>("search_results")->setFocus(TRUE);
 		onCommitSearchResult();
 	}
-	
-	// if we found nothing, say "none"
-	if (num_results == 0)
+	else
 	{
+		// if we found nothing, say "none"
 		list->setCommentText(LLTrans::getString("worldmap_results_none_found"));
 		list->operateOnAll(LLCtrlListInterface::OP_DESELECT);
 	}
@@ -1532,7 +1565,7 @@ void LLFloaterWorldMap::updateSims(bool found_null_sim)
 
 void LLFloaterWorldMap::onCommitSearchResult()
 {
-	LLCtrlListInterface *list = childGetListInterface("search_results");
+	LLCtrlListInterface *list = mListSearchResults;
 	if (!list) return;
 	
 	LLSD selected_value = list->getSelectedValue();

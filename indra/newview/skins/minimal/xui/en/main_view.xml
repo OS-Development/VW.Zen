@@ -8,13 +8,13 @@
  tab_stop="false" 
  name="main_view"
  width="1024">
-  <panel top="0"
-   follows="all"
-   height="768"
-   mouse_opaque="false"
-   name="login_panel_holder"
-   width="1024"/>
- 
+              <panel top="0"
+               follows="all"
+               height="768"
+               mouse_opaque="false"
+               name="login_panel_holder"
+               width="1024"/>
+
   <layout_stack border_size="0"
                 follows="all"
                 mouse_opaque="false"
@@ -96,6 +96,7 @@
                      name="stand_stop_flying_container"
                      visible="false"
                      width="500"/>
+              
               <panel follows="all"
 										 height="500"
 										 left="0"
@@ -186,9 +187,9 @@
        name="status_bar_container"
        tab_stop="false"
        height="30"
-       left="-70"
+       left="-160"
        top="0"
-       width="70"
+       width="160"
        visible="false"/>
   <panel follows="top|bottom"
          height="500"
