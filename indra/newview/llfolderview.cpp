@@ -181,6 +181,7 @@ LLFolderView::Params::Params()
 // Default constructor
 LLFolderView::LLFolderView(const Params& p)
 :	LLFolderViewFolder(p),
+	mRunningHeight(0),
 	mScrollContainer( NULL ),
 	mPopupMenuHandle(),
 	mAllowMultiSelect(p.allow_multiselect),
@@ -479,6 +480,7 @@ S32 LLFolderView::arrange( S32* unused_width, S32* unused_height, S32 filter_gen
 		target_height = running_height;
 	}
 
+	mRunningHeight = running_height;
 	LLRect scroll_rect = mScrollContainer->getContentWindowRect();
 	reshape( llmax(scroll_rect.getWidth(), total_width), running_height );
 
@@ -524,10 +526,11 @@ void LLFolderView::reshape(S32 width, S32 height, BOOL called_from_parent)
 	LLRect scroll_rect;
 	if (mScrollContainer)
 	{
+		LLView::reshape(width, height, called_from_parent);
 		scroll_rect = mScrollContainer->getContentWindowRect();
 	}
 	width = llmax(mMinWidth, scroll_rect.getWidth());
-	height = llmax(height, scroll_rect.getHeight());
+	height = llmax(mRunningHeight, scroll_rect.getHeight());
 
 	// restrict width with scroll container's width
 	if (mUseEllipses)
@@ -1912,9 +1915,20 @@ BOOL LLFolderView::handleDragAndDrop(S32 x, S32 y, MASK mask, BOOL drop,
 
 	// when drop is not handled by child, it should be handled
 	// by the folder which is the hierarchy root.
-	if (!handled && getListener()->getUUID().notNull())
+	if (!handled)
+	{
+		if (getListener()->getUUID().notNull())
 	{
 		LLFolderViewFolder::handleDragAndDrop(x, y, mask, drop, cargo_type, cargo_data, accept, tooltip_msg);
+	}
+		else
+		{
+			if (!mFolders.empty())
+			{
+				// dispatch to last folder as a hack to support "Contents" folder in object inventory
+				handled = mFolders.back()->handleDragAndDropFromChild(mask,drop,cargo_type,cargo_data,accept,tooltip_msg);
+			}
+		}
 	}
 
 	if (handled)

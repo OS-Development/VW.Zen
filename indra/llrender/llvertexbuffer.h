@@ -79,7 +79,7 @@ public:
 
 //============================================================================
 // base class 
-
+class LLPrivateMemoryPool ;
 class LLVertexBuffer : public LLRefCount
 {
 public:
@@ -290,6 +290,9 @@ protected:
 	void placeFence() const;
 	void waitFence() const;
 
+
+private:
+	static LLPrivateMemoryPool* sPrivatePoolp ;
 
 public:
 	static S32 sCount;

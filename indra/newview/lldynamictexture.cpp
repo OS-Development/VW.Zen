@@ -40,6 +40,7 @@
 #include "llvertexbuffer.h"
 #include "llviewerdisplay.h"
 #include "llrender.h"
+#include "pipeline.h"
 #include "llglslshader.h"
 
 // static
@@ -202,7 +203,7 @@ void LLViewerDynamicTexture::postRender(BOOL success)
 BOOL LLViewerDynamicTexture::updateAllInstances()
 {
 	sNumRenders = 0;
-	if (gGLManager.mIsDisabled)
+	if (gGLManager.mIsDisabled || LLPipeline::sMemAllocationThrottled)
 	{
 		return TRUE;
 	}
