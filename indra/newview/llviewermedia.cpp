@@ -344,6 +344,8 @@ static LLViewerMedia::impl_id_map sViewerMediaTextureIDMap;
 static LLTimer sMediaCreateTimer;
 static const F32 LLVIEWERMEDIA_CREATE_DELAY = 1.0f;
 static F32 sGlobalVolume = 1.0f;
+static bool sForceUpdate = false;
+static LLUUID sOnlyAudibleTextureID = LLUUID::null;
 static F64 sLowestLoadableImplInterest = 0.0f;
 static bool sAnyMediaShowing = false;
 static boost::signals2::connection sTeleportFinishConnection;
@@ -606,7 +608,7 @@ bool LLViewerMedia::textureHasMedia(const LLUUID& texture_id)
 // static
 void LLViewerMedia::setVolume(F32 volume)
 {
-	if(volume != sGlobalVolume)
+	if(volume != sGlobalVolume || sForceUpdate)
 	{
 		sGlobalVolume = volume;
 		impl_list::iterator iter = sViewerMediaImplList.begin();
@@ -617,6 +619,8 @@ void LLViewerMedia::setVolume(F32 volume)
 			LLViewerMediaImpl* pimpl = *iter;
 			pimpl->updateVolume();
 		}
+
+		sForceUpdate = false;
 	}
 }
 
@@ -1362,6 +1366,10 @@ void LLViewerMedia::removeCookie(const std::string &name, const std::string &dom
 }
 
 
+// This is defined in two files but I don't want to create a dependence between this and llsidepanelinventory
+// just to be able to temporarily disable the outbox.
+#define ENABLE_INVENTORY_DISPLAY_OUTBOX		0	// keep in sync with ENABLE_MERCHANT_OUTBOX_PANEL, ENABLE_MERCHANT_OUTBOX_CONTEXT_MENU
+
 class LLInventoryUserStatusResponder : public LLHTTPClient::Responder
 {
 public:
@@ -1374,8 +1382,18 @@ public:
 	{
 		if (isGoodStatus(status))
 		{
+			std::string merchantStatus = content[gAgent.getID().getString()].asString();
+			llinfos << "Marketplace merchant status: " << merchantStatus << llendl;
+
+			// Save the merchant status before turning on the display
+			gSavedSettings.setString("InventoryMarketplaceUserStatus", merchantStatus);
+
 			// Complete success
 			gSavedSettings.setBOOL("InventoryDisplayInbox", true);
+
+#if ENABLE_INVENTORY_DISPLAY_OUTBOX
+			gSavedSettings.setBOOL("InventoryDisplayOutbox", true);
+#endif
 		}
 		else if (status == 401)
 		{
@@ -1389,6 +1407,39 @@ public:
 		}
 	}
 };
+
+
+void doOnetimeEarlyHTTPRequests()
+{
+	std::string url = "https://marketplace.secondlife.com/";
+
+	if (!LLGridManager::getInstance()->isInProductionGrid())
+	{
+		std::string gridLabel = LLGridManager::getInstance()->getGridLabel();
+		url = llformat("https://marketplace.%s.lindenlab.com/", utf8str_tolower(gridLabel).c_str());
+
+		// TEMP for Jim's pdp
+		//url = "http://pdp24.lindenlab.com:3000/";
+	}
+	
+	url += "api/1/users/";
+	url += gAgent.getID().getString();
+	url += "/user_status";
+
+	llinfos << "http get: " << url << llendl;
+	LLHTTPClient::get(url, new LLInventoryUserStatusResponder(), LLViewerMedia::getHeaders());
+}
+
+
+LLSD LLViewerMedia::getHeaders()
+{
+	LLSD headers = LLSD::emptyMap();
+	headers["Accept"] = "*/*";
+	headers["Cookie"] = sOpenIDCookie;
+	headers["User-Agent"] = getCurrentUserAgent();
+
+	return headers;
+}
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // static
@@ -1437,24 +1488,7 @@ void LLViewerMedia::setOpenIDCookie()
 			new LLViewerMediaWebProfileResponder(raw_profile_url.getAuthority()),
 			headers);
 
-		std::string url = "https://marketplace.secondlife.com/";
-
-		if (!LLGridManager::getInstance()->isInProductionGrid())
-		{
-			std::string gridLabel = LLGridManager::getInstance()->getGridLabel();
-			url = llformat("https://marketplace.%s.lindenlab.com/", utf8str_tolower(gridLabel).c_str());
-		}
-	
-		url += "api/1/users/";
-		url += gAgent.getID().getString();
-		url += "/user_status";
-
-		headers = LLSD::emptyMap();
-		headers["Accept"] = "*/*";
-		headers["Cookie"] = sOpenIDCookie;
-		headers["User-Agent"] = getCurrentUserAgent();
-
-		LLHTTPClient::get(url, new LLInventoryUserStatusResponder(), headers);
+		doOnetimeEarlyHTTPRequests();
 	}
 }
 
@@ -1626,6 +1660,15 @@ void LLViewerMedia::onTeleportFinished()
 	gSavedSettings.setBOOL("MediaTentativeAutoPlay", true);
 }
 
+
+//////////////////////////////////////////////////////////////////////////////////////////
+// static
+void LLViewerMedia::setOnlyAudibleMediaTextureID(const LLUUID& texture_id)
+{
+	sOnlyAudibleTextureID = texture_id;
+	sForceUpdate = true;
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////
 // LLViewerMediaImpl
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1763,6 +1806,7 @@ void LLViewerMediaImpl::createMediaSource()
 			LL_WARNS("Media") << "Failed to initialize media for mime type " << mMimeType << LL_ENDL;
 		}
 	}
+
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1867,7 +1911,10 @@ LLPluginClassMedia* LLViewerMediaImpl::newSourceFromMediaType(std::string media_
 			// collect 'javascript enabled' setting from prefs and send to embedded browser
 			bool javascript_enabled = gSavedSettings.getBOOL( "BrowserJavascriptEnabled" );
 			media_source->setJavascriptEnabled( javascript_enabled );
-			
+		
+			bool media_plugin_debugging_enabled = gSavedSettings.getBOOL("MediaPluginDebugging");
+			media_source->enableMediaPluginDebugging( media_plugin_debugging_enabled );
+
 			media_source->setTarget(target);
 			
 			const std::string plugin_dir = gDirUtilp->getLLPluginDir();
@@ -2188,7 +2235,14 @@ void LLViewerMediaImpl::updateVolume()
 			}
 		}
 
-		mMediaSource->setVolume(volume);
+		if (sOnlyAudibleTextureID == LLUUID::null || sOnlyAudibleTextureID == mTextureId)
+		{
+			mMediaSource->setVolume(volume);
+		}
+		else
+		{
+			mMediaSource->setVolume(0.0f);
+		}
 	}
 }
 

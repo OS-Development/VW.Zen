@@ -717,14 +717,6 @@ namespace LLInitParam
 			Param::enclosingBlock().paramChanged(*this, flag_as_provided);
 		}
 
-		void setIfNotProvided(value_assignment_t val, bool flag_as_provided = true)
-		{
-			if (!isProvided())
-			{
-				set(val, flag_as_provided);
-			}
-		}
-
 		// implicit conversion
 		operator value_assignment_t() const { return param_value_t::getValue(); } 
 		// explicit conversion
@@ -740,7 +732,6 @@ namespace LLInitParam
 			if (src_typed_param.isProvided()
 				&& (overwrite || !dst_typed_param.isProvided()))
 			{
-				dst_typed_param.clearValueName();
 				dst_typed_param.set(src_typed_param.getValue());
 				return true;
 			}
@@ -870,18 +861,10 @@ namespace LLInitParam
 			Param::enclosingBlock().paramChanged(*this, flag_as_provided);
 		}
 
-		void setIfNotProvided(value_assignment_t val, bool flag_as_provided = true)
-		{
-			if (!isProvided())
-			{
-				set(val, flag_as_provided);
-			}
-		}
-
 		// propagate changed status up to enclosing block
 		/*virtual*/ void paramChanged(const Param& changed_param, bool user_provided)
 		{ 
-			ParamValue<T, NAME_VALUE_LOOKUP>::paramChanged(changed_param, user_provided);
+			param_value_t::paramChanged(changed_param, user_provided);
 			Param::enclosingBlock().paramChanged(*this, user_provided);
 			if (user_provided)
 			{
@@ -1032,15 +1015,6 @@ namespace LLInitParam
 			mValues = val;
 			setProvided(flag_as_provided);
 			Param::enclosingBlock().paramChanged(*this, flag_as_provided);
-		}
-
-
-		void setIfNotProvided(value_assignment_t val, bool flag_as_provided = true)
-		{
-			if (!isProvided())
-			{
-				set(val, flag_as_provided);
-			}
 		}
 
 		value_t& add()
@@ -1231,14 +1205,6 @@ namespace LLInitParam
 			mValues = val;
 			setProvided(flag_as_provided);
 			Param::enclosingBlock().paramChanged(*this, flag_as_provided);
-		}
-
-		void setIfNotProvided(value_assignment_t val, bool flag_as_provided = true)
-		{
-			if (!isProvided())
-			{
-				set(val, flag_as_provided);
-			}
 		}
 
 		value_t& add()
@@ -1720,6 +1686,17 @@ namespace LLInitParam
 			static BlockDescriptor sBlockDescriptor;
 			return sBlockDescriptor;
 		}
+
+		template <typename T, typename NAME_VALUE_LOOKUP, bool multiple, bool is_block>
+		void changeDefault(TypedParam<T, NAME_VALUE_LOOKUP, multiple, is_block>& param, 
+			typename TypedParam<T, NAME_VALUE_LOOKUP, multiple, is_block>::value_assignment_t value)
+		{
+			if (!param.isProvided())
+			{
+				param.set(value, false);
+			}
+		}
+
 	};
 	
 	template<typename T>
@@ -1744,39 +1721,35 @@ namespace LLInitParam
 		:	mValue(value),
 			mValueAge(VALUE_AUTHORITATIVE),
 			mKeyVersion(0),
-			mValidatedVersion(-1)
+			mValidatedVersion(-1),
+			mValidated(false)
 		{}
 
 		bool deserializeBlock(Parser& parser, Parser::name_stack_range_t name_stack, S32 generation)
 		{
 			derived_t& typed_param = static_cast<derived_t&>(*this);
-			// type to apply parse direct value T
+			// try to parse direct value T
 			if (name_stack.first == name_stack.second)
 			{
 				if(parser.readValue(typed_param.mValue))
 				{
-					typed_param.clearValueName();
 					typed_param.mValueAge = VALUE_AUTHORITATIVE;
-					typed_param.updateBlockFromValue();
+					typed_param.updateBlockFromValue(false);
+
+					typed_param.clearValueName();
 
 					return true;
 				}
 			}
 
 			// fall back on parsing block components for T
-			// if we deserialized at least one component...
-			if (typed_param.BaseBlock::deserializeBlock(parser, name_stack, generation))
-			{
-				return true;
-			}
-
-			return false;
+			return typed_param.BaseBlock::deserializeBlock(parser, name_stack, generation);
 		}
 
 		void serializeBlock(Parser& parser, Parser::name_stack_t name_stack = Parser::name_stack_t(), const BaseBlock* diff_block = NULL) const
 		{
-			const self_t& typed_param = static_cast<const self_t&>(*this);
-			const self_t* diff_param = static_cast<const self_t*>(diff_block);
+			const derived_t& typed_param = static_cast<const derived_t&>(*this);
+			const derived_t* diff_param = static_cast<const derived_t*>(diff_block);
 			
 			std::string key = typed_param.getValueName();
 
@@ -1801,7 +1774,20 @@ namespace LLInitParam
 					// be exported as <color green="1"/>, since it was probably the intent of the user to 
 					// be specific about the RGB color values.  This also fixes an issue where we distinguish
 					// between rect.left not being provided and rect.left being explicitly set to 0 (same as default)
-					block_t::serializeBlock(parser, name_stack, NULL);
+
+					if (typed_param.mValueAge == VALUE_AUTHORITATIVE)
+					{
+						// if the value is authoritative but the parser doesn't accept the value type
+						// go ahead and make a copy, and splat the value out to its component params
+						// and serialize those params
+						derived_t copy(typed_param);
+						copy.updateBlockFromValue(true);
+						copy.block_t::serializeBlock(parser, name_stack, NULL);
+					}
+					else
+					{
+						block_t::serializeBlock(parser, name_stack, NULL);
+					}
 				}
 			}
 		}
@@ -1850,7 +1836,7 @@ namespace LLInitParam
 		{ 
 			BaseBlock::paramChanged(changed_param, user_provided);
 			if (user_provided)
-		{
+			{
 				// a parameter changed, so our value is out of date
 				mValueAge = VALUE_NEEDS_UPDATE;
 			}
@@ -1863,7 +1849,7 @@ namespace LLInitParam
 			mValueAge = VALUE_AUTHORITATIVE;
 			mValue = val;
 			typed_param.clearValueName();
-			static_cast<derived_t*>(const_cast<self_t*>(this))->updateBlockFromValue();
+			static_cast<derived_t*>(this)->updateBlockFromValue(false);
 		}
 
 		value_assignment_t getValue() const
@@ -1918,7 +1904,6 @@ namespace LLInitParam
 		mutable bool 		mValidated; // lazy validation flag
 
 	private:
-
 		mutable T			mValue;
 		mutable EValueAge	mValueAge;
 	};

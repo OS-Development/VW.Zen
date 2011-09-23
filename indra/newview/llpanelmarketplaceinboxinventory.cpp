@@ -37,6 +37,8 @@
 #include "llviewerfoldertype.h"
 
 
+#define DEBUGGING_FRESHNESS	0
+
 //
 // statics
 //
@@ -66,7 +68,7 @@ void LLInboxInventoryPanel::buildFolderView(const LLInventoryPanel::Params& para
 	
 	LLUUID root_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_INBOX, false, false);
 	
-	// leslie -- temporary HACK to work around sim not creating inbox and outbox with proper system folder type
+	// leslie -- temporary HACK to work around sim not creating inbox with proper system folder type
 	if (root_id.isNull())
 	{
 		std::string start_folder_name(params.start_folder());
@@ -133,6 +135,27 @@ LLFolderViewFolder * LLInboxInventoryPanel::createFolderViewFolder(LLInvFVBridge
 	return LLUICtrlFactory::create<LLInboxFolderViewFolder>(params);
 }
 
+LLFolderViewItem * LLInboxInventoryPanel::createFolderViewItem(LLInvFVBridge * bridge)
+{
+	LLFolderViewItem::Params params;
+
+	params.name = bridge->getDisplayName();
+	params.icon = bridge->getIcon();
+	params.icon_open = bridge->getOpenIcon();
+
+	if (mShowItemLinkOverlays) // if false, then links show up just like normal items
+	{
+		params.icon_overlay = LLUI::getUIImage("Inv_Link");
+	}
+
+	params.creation_date = bridge->getCreationDate();
+	params.root = mFolderRoot;
+	params.listener = bridge;
+	params.rect = LLRect (0, 0, 0, 0);
+	params.tool_tip = params.name;
+
+	return LLUICtrlFactory::create<LLInboxFolderViewItem>(params);
+}
 
 //
 // LLInboxFolderViewFolder Implementation
@@ -143,7 +166,9 @@ LLInboxFolderViewFolder::LLInboxFolderViewFolder(const Params& p)
 	, LLBadgeOwner(getHandle())
 	, mFresh(false)
 {
+#if SUPPORTING_FRESH_ITEM_COUNT
 	initBadgeParams(p.new_badge());
+#endif
 }
 
 LLInboxFolderViewFolder::~LLInboxFolderViewFolder()
@@ -153,15 +178,80 @@ LLInboxFolderViewFolder::~LLInboxFolderViewFolder()
 // virtual
 void LLInboxFolderViewFolder::draw()
 {
+#if SUPPORTING_FRESH_ITEM_COUNT
 	if (!badgeHasParent())
 	{
 		addBadgeToParentPanel();
 	}
 	
 	setBadgeVisibility(mFresh);
+#endif
 
 	LLFolderViewFolder::draw();
 }
 
+void LLInboxFolderViewFolder::computeFreshness()
+{
+	const U32 last_expansion_utc = gSavedPerAccountSettings.getU32("LastInventoryInboxActivity");
+
+	if (last_expansion_utc > 0)
+	{
+		const U32 time_offset_for_pdt = 7 * 60 * 60;
+		const U32 last_expansion = last_expansion_utc - time_offset_for_pdt;
+
+		mFresh = (mCreationDate > last_expansion);
+
+#if DEBUGGING_FRESHNESS
+		if (mFresh)
+		{
+			llinfos << "Item is fresh! -- creation " << mCreationDate << ", saved_freshness_date " << last_expansion << llendl;
+		}
+#endif
+	}
+	else
+	{
+		mFresh = true;
+	}
+}
+
+void LLInboxFolderViewFolder::deFreshify()
+{
+	mFresh = false;
+
+	gSavedPerAccountSettings.setU32("LastInventoryInboxActivity", time_corrected());
+}
+
+void LLInboxFolderViewFolder::selectItem()
+{
+	LLFolderViewFolder::selectItem();
+
+	deFreshify();
+}
+
+void LLInboxFolderViewFolder::toggleOpen()
+{
+	LLFolderViewFolder::toggleOpen();
+
+	deFreshify();
+}
+
+void LLInboxFolderViewFolder::setCreationDate(time_t creation_date_utc)
+{ 
+	mCreationDate = creation_date_utc; 
+
+	if (mParentFolder == mRoot)
+	{
+		computeFreshness();
+	}
+}
+
+//
+// LLInboxFolderViewItem Implementation
+//
+
+BOOL LLInboxFolderViewItem::handleDoubleClick(S32 x, S32 y, MASK mask)
+{
+	return TRUE;
+}
 
 // eof
