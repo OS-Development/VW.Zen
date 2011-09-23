@@ -33,9 +33,7 @@
 #include "llcommandmanager.h"
 #include "lltrans.h"
 
-// uncomment this and remove the one in llui.cpp when there is an external reference to this translation unit
-// thanks, MSVC!
-//static LLDefaultChildRegistry::Register<LLToolBar> r1("toolbar");
+static LLDefaultChildRegistry::Register<LLToolBar> r1("toolbar");
 
 namespace LLToolBarEnums
 {
@@ -65,7 +63,7 @@ LLToolBar::Params::Params()
 	background_image("background_image")
 {}
 
-LLToolBar::LLToolBar(const Params& p)
+LLToolBar::LLToolBar(const LLToolBar::Params& p)
 :	LLUICtrl(p),
 	mButtonType(p.button_display_mode),
 	mSideType(p.side),
@@ -83,6 +81,9 @@ LLToolBar::LLToolBar(const Params& p)
 
 void LLToolBar::initFromParams(const LLToolBar::Params& p)
 {
+	// Initialize the base object
+	LLUICtrl::initFromParams(p);
+	
 	LLLayoutStack::ELayoutOrientation orientation = getOrientation(p.side);
 
 	LLLayoutStack::Params centering_stack_p;
