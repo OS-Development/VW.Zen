@@ -76,6 +76,7 @@ hasAlphaMask(false)
 LLGLSLShader::LLGLSLShader()
 	: mProgramObject(0), mActiveTextureChannels(0), mShaderLevel(0), mShaderGroup(SG_DEFAULT), mUniformsDirty(FALSE)
 {
+
 }
 
 void LLGLSLShader::unload()
@@ -111,6 +112,13 @@ void LLGLSLShader::unload()
 BOOL LLGLSLShader::createShader(vector<string> * attributes,
 								vector<string> * uniforms)
 {
+	//reloading, reset matrix hash values
+	for (U32 i = 0; i < LLRender::NUM_MATRIX_MODES; ++i)
+	{
+		mMatHash[i] = 0xFFFFFFFF;
+	}
+	mLightHash = 0xFFFFFFFF;
+
 	llassert_always(!mShaderFiles.empty());
 	BOOL success = TRUE;
 
@@ -238,6 +246,13 @@ void LLGLSLShader::attachObjects(GLhandleARB* objects, S32 count)
 
 BOOL LLGLSLShader::mapAttributes(const vector<string> * attributes)
 {
+	//before linking, make sure reserved attributes always have consistent locations
+	for (U32 i = 0; i < LLShaderMgr::instance()->mReservedAttribs.size(); i++)
+	{
+		const char* name = LLShaderMgr::instance()->mReservedAttribs[i].c_str();
+		glBindAttribLocationARB(mProgramObject, i, (const GLcharARB *) name);
+	}
+	
 	//link the program
 	BOOL res = link();
 
@@ -995,6 +1010,7 @@ void LLGLSLShader::vertexAttrib4fv(U32 index, GLfloat* v)
 
 void LLGLSLShader::setAlphaRange(F32 minimum, F32 maximum)
 {
+	gGL.flush();
 	uniform1f("minimum_alpha", minimum);
 	uniform1f("maximum_alpha", maximum);
 }

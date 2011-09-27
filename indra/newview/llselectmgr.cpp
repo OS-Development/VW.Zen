@@ -5134,20 +5134,20 @@ void LLSelectMgr::renderSilhouettes(BOOL for_hud)
 		F32 cur_zoom = gAgentCamera.mHUDCurZoom;
 
 		// set up transform to encompass bounding box of HUD
-		glMatrixMode(GL_PROJECTION);
+		gGL.matrixMode(LLRender::MM_PROJECTION);
 		gGL.pushMatrix();
-		glLoadIdentity();
+		gGL.loadIdentity();
 		F32 depth = llmax(1.f, hud_bbox.getExtentLocal().mV[VX] * 1.1f);
-		glOrtho(-0.5f * LLViewerCamera::getInstance()->getAspect(), 0.5f * LLViewerCamera::getInstance()->getAspect(), -0.5f, 0.5f, 0.f, depth);
+		gGL.ortho(-0.5f * LLViewerCamera::getInstance()->getAspect(), 0.5f * LLViewerCamera::getInstance()->getAspect(), -0.5f, 0.5f, 0.f, depth);
 
-		glMatrixMode(GL_MODELVIEW);
+		gGL.matrixMode(LLRender::MM_MODELVIEW);
 		gGL.pushMatrix();
 		gGL.pushUIMatrix();
 		gGL.loadUIIdentity();
-		glLoadIdentity();
-		glLoadMatrixf(OGL_TO_CFR_ROTATION);		// Load Cory's favorite reference frame
-		glTranslatef(-hud_bbox.getCenterLocal().mV[VX] + (depth *0.5f), 0.f, 0.f);
-		glScalef(cur_zoom, cur_zoom, cur_zoom);
+		gGL.loadIdentity();
+		gGL.loadMatrix(OGL_TO_CFR_ROTATION);		// Load Cory's favorite reference frame
+		gGL.translatef(-hud_bbox.getCenterLocal().mV[VX] + (depth *0.5f), 0.f, 0.f);
+		gGL.scalef(cur_zoom, cur_zoom, cur_zoom);
 	}
 	if (mSelectedObjects->getNumNodes())
 	{
@@ -5240,10 +5240,10 @@ void LLSelectMgr::renderSilhouettes(BOOL for_hud)
 
 	if (isAgentAvatarValid() && for_hud)
 	{
-		glMatrixMode(GL_PROJECTION);
+		gGL.matrixMode(LLRender::MM_PROJECTION);
 		gGL.popMatrix();
 
-		glMatrixMode(GL_MODELVIEW);
+		gGL.matrixMode(LLRender::MM_MODELVIEW);
 		gGL.popMatrix();
 		gGL.popUIMatrix();
 		stop_glerror();
@@ -5567,7 +5567,7 @@ void pushWireframe(LLDrawable* drawable)
 			{
 				LLVertexBuffer::unbind();
 				gGL.pushMatrix();
-				glMultMatrixf((F32*) vobj->getRelativeXform().mMatrix);
+				gGL.multMatrix((F32*) vobj->getRelativeXform().mMatrix);
 				for (S32 i = 0; i < rigged_volume->getNumVolumeFaces(); ++i)
 				{
 					const LLVolumeFace& face = rigged_volume->getVolumeFace(i);
@@ -5611,22 +5611,22 @@ void LLSelectNode::renderOneWireframe(const LLColor4& color)
 		gHighlightProgram.bind();
 	}
 
-	glMatrixMode(GL_MODELVIEW);
+	gGL.matrixMode(LLRender::MM_MODELVIEW);
 	gGL.pushMatrix();
 	
 	BOOL is_hud_object = objectp->isHUDAttachment();
 
 	if (drawable->isActive())
 	{
-		glLoadMatrixd(gGLModelView);
-		glMultMatrixf((F32*) objectp->getRenderMatrix().mMatrix);
+		gGL.loadMatrix(gGLModelView);
+		gGL.multMatrix((F32*) objectp->getRenderMatrix().mMatrix);
 	}
 	else if (!is_hud_object)
 	{
-		glLoadIdentity();
-		glMultMatrixd(gGLModelView);
+		gGL.loadIdentity();
+		gGL.multMatrix(gGLModelView);
 		LLVector3 trans = objectp->getRegion()->getOriginAgent();		
-		glTranslatef(trans.mV[0], trans.mV[1], trans.mV[2]);		
+		gGL.translatef(trans.mV[0], trans.mV[1], trans.mV[2]);		
 	}
 	
 	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -5713,21 +5713,21 @@ void LLSelectNode::renderOneSilhouette(const LLColor4 &color)
 		return;
 	}
 
-	glMatrixMode(GL_MODELVIEW);
+	gGL.matrixMode(LLRender::MM_MODELVIEW);
 	gGL.pushMatrix();
 	gGL.pushUIMatrix();
 	gGL.loadUIIdentity();
 
 	if (!is_hud_object)
 	{
-		glLoadIdentity();
-		glMultMatrixd(gGLModelView);
+		gGL.loadIdentity();
+		gGL.multMatrix(gGLModelView);
 	}
 	
 	
 	if (drawable->isActive())
 	{
-		glMultMatrixf((F32*) objectp->getRenderMatrix().mMatrix);
+		gGL.multMatrix((F32*) objectp->getRenderMatrix().mMatrix);
 	}
 
 	LLVolume *volume = objectp->getVolume();
@@ -6541,32 +6541,75 @@ U32 LLObjectSelection::getSelectedObjectTriangleCount()
 	return count;
 }
 
-/*S32 LLObjectSelection::getSelectedObjectRenderCost()
+S32 LLObjectSelection::getSelectedObjectRenderCost()
 {
        S32 cost = 0;
        LLVOVolume::texture_cost_t textures;
+       typedef std::set<LLUUID> uuid_list_t;
+       uuid_list_t computed_objects;
+
+	   typedef std::list<LLPointer<LLViewerObject> > child_list_t;
+	   typedef const child_list_t const_child_list_t;
+
+	   // add render cost of complete linksets first, to get accurate texture counts
        for (list_t::iterator iter = mList.begin(); iter != mList.end(); ++iter)
        {
                LLSelectNode* node = *iter;
+			   
                LLVOVolume* object = (LLVOVolume*)node->getObject();
 
-               if (object)
+               if (object && object->isRootEdit())
                {
-                       cost += object->getRenderCost(textures);
-               }
+				   cost += object->getRenderCost(textures);
+				   computed_objects.insert(object->getID());
 
-               for (LLVOVolume::texture_cost_t::iterator iter = textures.begin(); iter != textures.end(); ++iter)
-               {
-                       // add the cost of each individual texture in the linkset
-                       cost += iter->second;
+				   const_child_list_t children = object->getChildren();
+				   for (const_child_list_t::const_iterator child_iter = children.begin();
+						 child_iter != children.end();
+						 ++child_iter)
+				   {
+					   LLViewerObject* child_obj = *child_iter;
+					   LLVOVolume *child = dynamic_cast<LLVOVolume*>( child_obj );
+					   if (child)
+					   {
+						   cost += child->getRenderCost(textures);
+						   computed_objects.insert(child->getID());
+					   }
+				   }
+
+				   for (LLVOVolume::texture_cost_t::iterator iter = textures.begin(); iter != textures.end(); ++iter)
+				   {
+					   // add the cost of each individual texture in the linkset
+					   cost += iter->second;
+				   }
+
+				   textures.clear();
                }
-               textures.clear();
        }
+	
+	   // add any partial linkset objects, texture cost may be slightly misleading
+		for (list_t::iterator iter = mList.begin(); iter != mList.end(); ++iter)
+		{
+			LLSelectNode* node = *iter;
+			LLVOVolume* object = (LLVOVolume*)node->getObject();
 
+			if (object && computed_objects.find(object->getID()) == computed_objects.end()  )
+			{
+					cost += object->getRenderCost(textures);
+					computed_objects.insert(object->getID());
+			}
+
+			for (LLVOVolume::texture_cost_t::iterator iter = textures.begin(); iter != textures.end(); ++iter)
+			{
+				// add the cost of each individual texture in the linkset
+				cost += iter->second;
+			}
+
+			textures.clear();
+		}
 
        return cost;
-}*/
-
+}
 
 //-----------------------------------------------------------------------------
 // getTECount()

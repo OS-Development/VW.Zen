@@ -23,7 +23,9 @@
  * $/LicenseInfo$
  */
 
-
+#ifdef DEFINE_GL_FRAGCOLOR
+out vec4 gl_FragColor;
+#endif
 
 //class 1 -- no shadows
 
@@ -35,7 +37,6 @@ uniform sampler2DRect depthMap;
 uniform sampler2DRect normalMap;
 uniform samplerCube environmentMap;
 uniform sampler2D noiseMap;
-uniform sampler2D lightFunc;
 uniform sampler2D projectionMap;
 
 uniform mat4 proj_mat; //screen space to light space
@@ -60,7 +61,7 @@ uniform vec3 color;
 uniform float falloff;
 uniform float size;
 
-varying vec4 vary_fragcoord;
+VARYING vec4 vary_fragcoord;
 uniform vec2 screen_res;
 
 uniform mat4 inv_proj;

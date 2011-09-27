@@ -261,7 +261,6 @@ void LLSpatialGroup::buildOcclusion()
 {
 	if (mOcclusionVerts.isNull())
 	{
-
 		mOcclusionVerts = new LLVertexBuffer(LLVertexBuffer::MAP_VERTEX, 
 			LLVertexBuffer::sUseStreamDraw ? mBufferUsage : 0); //if GL has a hard time with VBOs, don't use them for occlusion culling.
 		mOcclusionVerts->allocateBuffer(8, 64, true);
@@ -321,7 +320,7 @@ void LLSpatialGroup::buildOcclusion()
 	}
 	
 	{
-		mOcclusionVerts->setBuffer(0);
+		mOcclusionVerts->flush();
 	}
 
 	clearState(LLSpatialGroup::OCCLUSION_DIRTY);
@@ -2552,9 +2551,9 @@ void renderOctree(LLSpatialGroup* group)
 				LLDrawable* drawable = *i;
 				if (!group->mSpatialPartition->isBridge())
 				{
-					glPushMatrix();
+					gGL.pushMatrix();
 					LLVector3 trans = drawable->getRegion()->getOriginAgent();
-					glTranslatef(trans.mV[0], trans.mV[1], trans.mV[2]);
+					gGL.translatef(trans.mV[0], trans.mV[1], trans.mV[2]);
 				}
 				
 				for (S32 j = 0; j < drawable->getNumFaces(); j++)
@@ -2584,7 +2583,7 @@ void renderOctree(LLSpatialGroup* group)
 
 				if (!group->mSpatialPartition->isBridge())
 				{
-					glPopMatrix();
+					gGL.popMatrix();
 				}
 			}
 			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
@@ -2762,6 +2761,115 @@ void renderUpdateType(LLDrawable* drawablep)
 	}
 }
 
+void renderComplexityDisplay(LLDrawable* drawablep)
+{
+	LLViewerObject* vobj = drawablep->getVObj();
+	if (!vobj)
+	{
+		return;
+	}
+
+	LLVOVolume *voVol = dynamic_cast<LLVOVolume*>(vobj);
+
+	if (!voVol)
+	{
+		return;
+	}
+
+	if (!voVol->isRoot())
+	{
+		return;
+	}
+
+	LLVOVolume::texture_cost_t textures;
+	F32 cost = (F32) voVol->getRenderCost(textures);
+
+	// add any child volumes
+	LLViewerObject::const_child_list_t children = voVol->getChildren();
+	for (LLViewerObject::const_child_list_t::const_iterator iter = children.begin(); iter != children.end(); ++iter)
+	{
+		const LLViewerObject *child = *iter;
+		const LLVOVolume *child_volume = dynamic_cast<const LLVOVolume*>(child);
+		if (child_volume)
+		{
+			cost += child_volume->getRenderCost(textures);
+		}
+	}
+
+	// add texture cost
+	for (LLVOVolume::texture_cost_t::iterator iter = textures.begin(); iter != textures.end(); ++iter)
+	{
+		// add the cost of each individual texture in the linkset
+		cost += iter->second;
+	}
+
+	F32 cost_max = (F32) LLVOVolume::getRenderComplexityMax();
+
+
+
+	// allow user to set a static color scale
+	if (gSavedSettings.getS32("RenderComplexityStaticMax") > 0)
+	{
+		cost_max = gSavedSettings.getS32("RenderComplexityStaticMax");
+	}
+
+	F32 cost_ratio = cost / cost_max;
+	
+	// cap cost ratio at 1.0f in case cost_max is at a low threshold
+	cost_ratio = cost_ratio > 1.0f ? 1.0f : cost_ratio;
+	
+	LLGLEnable blend(GL_BLEND);
+
+	LLColor4 color;
+	const LLColor4 color_min = gSavedSettings.getColor4("RenderComplexityColorMin");
+	const LLColor4 color_mid = gSavedSettings.getColor4("RenderComplexityColorMid");
+	const LLColor4 color_max = gSavedSettings.getColor4("RenderComplexityColorMax");
+
+	if (cost_ratio < 0.5f)
+	{
+		color = color_min * (1 - cost_ratio * 2) + color_mid * (cost_ratio * 2);
+	}
+	else
+	{
+		color = color_mid * (1 - (cost_ratio - 0.5) * 2) + color_max * ((cost_ratio - 0.5) * 2);
+	}
+
+	LLSD color_val = color.getValue();
+
+	// don't highlight objects below the threshold
+	if (cost > gSavedSettings.getS32("RenderComplexityThreshold"))
+	{
+		glColor4f(color[0],color[1],color[2],0.5f);
+
+
+		S32 num_faces = drawablep->getNumFaces();
+		if (num_faces)
+		{
+			for (S32 i = 0; i < num_faces; ++i)
+			{
+				pushVerts(drawablep->getFace(i), LLVertexBuffer::MAP_VERTEX);
+			}
+		}
+		LLViewerObject::const_child_list_t children = voVol->getChildren();
+		for (LLViewerObject::const_child_list_t::const_iterator iter = children.begin(); iter != children.end(); ++iter)
+		{
+			const LLViewerObject *child = *iter;
+			if (child)
+			{
+				num_faces = child->getNumFaces();
+				if (num_faces)
+				{
+					for (S32 i = 0; i < num_faces; ++i)
+					{
+						pushVerts(child->mDrawable->getFace(i), LLVertexBuffer::MAP_VERTEX);
+					}
+				}
+			}
+		}
+	}
+	
+	voVol->setDebugText(llformat("%4.0f", cost));	
+}
 
 void renderBoundingBox(LLDrawable* drawable, BOOL set_color = TRUE)
 {
@@ -2866,7 +2974,7 @@ void renderNormals(LLDrawable* drawablep)
 	{
 		LLVolume* volume = vol->getVolume();
 		gGL.pushMatrix();
-		glMultMatrixf((F32*) vol->getRelativeXform().mMatrix);
+		gGL.multMatrix((F32*) vol->getRelativeXform().mMatrix);
 		
 		gGL.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
 
@@ -3018,7 +3126,7 @@ void renderPhysicsShape(LLDrawable* drawable, LLVOVolume* volume)
 	LLVector3 size(0.25f,0.25f,0.25f);
 
 	gGL.pushMatrix();
-	glMultMatrixf((F32*) volume->getRelativeXform().mMatrix);
+	gGL.multMatrix((F32*) volume->getRelativeXform().mMatrix);
 		
 	if (type == LLPhysicsShapeBuilderUtil::PhysicsShapeSpecification::USER_MESH)
 	{
@@ -3264,6 +3372,7 @@ void renderPhysicsShape(LLDrawable* drawable, LLVOVolume* volume)
 			LLVertexBuffer::unbind();
 			glVertexPointer(3, GL_FLOAT, 16, phys_volume->mHullPoints);
 			gGL.diffuseColor4fv(line_color.mV);
+			gGL.syncMatrices();
 			glDrawElements(GL_TRIANGLES, phys_volume->mNumHullIndices, GL_UNSIGNED_SHORT, phys_volume->mHullIndices);
 			
 			gGL.diffuseColor4fv(color.mV);
@@ -3302,7 +3411,7 @@ void renderPhysicsShapes(LLSpatialGroup* group)
 			{
 				gGL.pushMatrix();
 				LLVector3 trans = drawable->getRegion()->getOriginAgent();
-				glTranslatef(trans.mV[0], trans.mV[1], trans.mV[2]);
+				gGL.translatef(trans.mV[0], trans.mV[1], trans.mV[2]);
 				renderPhysicsShape(drawable, volume);
 				gGL.popMatrix();
 			}
@@ -3618,8 +3727,8 @@ void renderRaycast(LLDrawable* drawablep)
 					}
 
 					gGL.pushMatrix();
-					glTranslatef(trans.mV[0], trans.mV[1], trans.mV[2]);					
-					glMultMatrixf((F32*) vobj->getRelativeXform().mMatrix);
+					gGL.translatef(trans.mV[0], trans.mV[1], trans.mV[2]);					
+					gGL.multMatrix((F32*) vobj->getRelativeXform().mMatrix);
 
 					LLVector3 start, end;
 					if (transform)
@@ -3650,6 +3759,7 @@ void renderRaycast(LLDrawable* drawablep)
 						LLVertexBuffer::unbind();
 						gGL.diffuseColor4f(0,1,1,0.5f);
 						glVertexPointer(3, GL_FLOAT, sizeof(LLVector4a), face.mPositions);
+						gGL.syncMatrices();
 						glDrawElements(GL_TRIANGLES, face.mNumIndices, GL_UNSIGNED_SHORT, face.mIndices);
 					}
 						
@@ -3672,15 +3782,15 @@ void renderRaycast(LLDrawable* drawablep)
 		if (drawablep->getVObj() == gDebugRaycastObject)
 		{
 			// draw intersection point
-			glPushMatrix();
-			glLoadMatrixd(gGLModelView);
+			gGL.pushMatrix();
+			gGL.loadMatrix(gGLModelView);
 			LLVector3 translate = gDebugRaycastIntersection;
-			glTranslatef(translate.mV[0], translate.mV[1], translate.mV[2]);
+			gGL.translatef(translate.mV[0], translate.mV[1], translate.mV[2]);
 			LLCoordFrame orient;
 			orient.lookDir(gDebugRaycastNormal, gDebugRaycastBinormal);
 			LLMatrix4 rotation;
 			orient.getRotMatrixToParent(rotation);
-			glMultMatrixf((float*)rotation.mMatrix);
+			gGL.multMatrix((float*)rotation.mMatrix);
 			
 			gGL.color4f(1,0,0,0.5f);
 			drawBox(LLVector3(0, 0, 0), LLVector3(0.1f, 0.022f, 0.022f));
@@ -3688,7 +3798,7 @@ void renderRaycast(LLDrawable* drawablep)
 			drawBox(LLVector3(0, 0, 0), LLVector3(0.021f, 0.1f, 0.021f));
 			gGL.color4f(0,0,1,0.5f);
 			drawBox(LLVector3(0, 0, 0), LLVector3(0.02f, 0.02f, 0.1f));
-			glPopMatrix();
+			gGL.popMatrix();
 
 			// draw bounding box of prim
 			const LLVector4a* ext = drawablep->getSpatialExtents();
@@ -3763,13 +3873,13 @@ public:
 				group->rebuildMesh();
 
 				gGL.flush();
-				glPushMatrix();
+				gGL.pushMatrix();
 				gGLLastMatrix = NULL;
-				glLoadMatrixd(gGLModelView);
+				gGL.loadMatrix(gGLModelView);
 				renderVisibility(group, mCamera);
 				stop_glerror();
 				gGLLastMatrix = NULL;
-				glPopMatrix();
+				gGL.popMatrix();
 				gGL.color4f(1,1,1,1);
 			}
 		}
@@ -3852,6 +3962,10 @@ public:
 			if (gPipeline.hasRenderDebugMask(LLPipeline::RENDER_DEBUG_UPDATE_TYPE))
 			{
 				renderUpdateType(drawable);
+			}
+			if(gPipeline.hasRenderDebugMask(LLPipeline::RENDER_DEBUG_RENDER_COMPLEXITY))
+			{
+				renderComplexityDisplay(drawable);
 			}
 
 			LLVOAvatar* avatar = dynamic_cast<LLVOAvatar*>(drawable->getVObj().get());
@@ -4101,7 +4215,8 @@ void LLSpatialPartition::renderDebug()
 									  LLPipeline::RENDER_DEBUG_AVATAR_VOLUME |
 									  LLPipeline::RENDER_DEBUG_AGENT_TARGET |
 									  //LLPipeline::RENDER_DEBUG_BUILD_QUEUE |
-									  LLPipeline::RENDER_DEBUG_SHADOW_FRUSTA)) 
+									  LLPipeline::RENDER_DEBUG_SHADOW_FRUSTA |
+									  LLPipeline::RENDER_DEBUG_RENDER_COMPLEXITY)) 
 	{
 		return;
 	}

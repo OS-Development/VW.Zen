@@ -537,7 +537,7 @@ U32 LLViewerJointMesh::drawShape( F32 pixelArea, BOOL first_pass, BOOL is_dummy)
 
 	stop_glerror();
 	
-	LLGLSSpecular specular(LLColor4(1.f,1.f,1.f,1.f), mFace->getPool()->getVertexShaderLevel() > 0 ? 0.f : mShiny);
+	LLGLSSpecular specular(LLColor4(1.f,1.f,1.f,1.f), (mFace->getPool()->getVertexShaderLevel() > 0 || LLGLSLShader::sNoFixedFunction) ? 0.f : mShiny);
 
 	//----------------------------------------------------------------
 	// setup current texture
@@ -616,12 +616,12 @@ U32 LLViewerJointMesh::drawShape( F32 pixelArea, BOOL first_pass, BOOL is_dummy)
 	}
 	else
 	{
-		glPushMatrix();
+		gGL.pushMatrix();
 		LLMatrix4 jointToWorld = getWorldMatrix();
-		glMultMatrixf((GLfloat*)jointToWorld.mMatrix);
+		gGL.multMatrix((GLfloat*)jointToWorld.mMatrix);
 		buff->setBuffer(mask);
 		buff->drawRange(LLRender::TRIANGLES, start, end, count, offset);
-		glPopMatrix();
+		gGL.popMatrix();
 	}
 	gPipeline.addTrianglesDrawn(count);
 
@@ -817,7 +817,7 @@ void LLViewerJointMesh::updateGeometryOriginal(LLFace *mFace, LLPolyMesh *mMesh)
 		}
 	}
 
-	buffer->setBuffer(0);
+	buffer->flush();
 }
 
 const U32 UPDATE_GEOMETRY_CALL_MASK			= 0x1FFF; // 8K samples before overflow

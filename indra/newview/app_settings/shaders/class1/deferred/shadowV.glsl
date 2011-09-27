@@ -22,15 +22,17 @@
  * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
- 
-attribute vec3 position;
 
-varying vec4 post_pos;
+uniform mat4 modelview_projection_matrix;
+
+ATTRIBUTE vec3 position;
+
+VARYING vec4 post_pos;
 
 void main()
 {
 	//transform vertex
-	vec4 pos = gl_ModelViewProjectionMatrix*vec4(position.xyz, 1.0);
+	vec4 pos = modelview_projection_matrix*vec4(position.xyz, 1.0);
 	
 	post_pos = pos;
 	

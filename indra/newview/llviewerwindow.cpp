@@ -240,8 +240,6 @@ BOOL				gDisplayBadge = FALSE;
 static const U8 NO_FACE = 255;
 BOOL gQuietSnapshot = FALSE;
 
-const F32 MIN_AFK_TIME = 2.f; // minimum time after setting away state before coming back
-
 static const F32 MIN_DISPLAY_SCALE = 0.75f;
 
 std::string	LLViewerWindow::sSnapshotBaseName;
@@ -1214,7 +1212,7 @@ void LLViewerWindow::handleMouseMove(LLWindow *window,  LLCoordGL pos, MASK mask
 
 	mWindow->showCursorFromMouseMove();
 
-	if (gAwayTimer.getElapsedTimeF32() > MIN_AFK_TIME)
+	if (gAwayTimer.getElapsedTimeF32() > LLAgent::MIN_AFK_TIME)
 	{
 		gAgent.clearAFK();
 	}
@@ -1302,7 +1300,7 @@ BOOL LLViewerWindow::handleTranslatedKeyDown(KEY key,  MASK mask, BOOL repeated)
 	// Let the voice chat code check for its PTT key.  Note that this never affects event processing.
 	LLVoiceClient::getInstance()->keyDown(key, mask);
 	
-	if (gAwayTimer.getElapsedTimeF32() > MIN_AFK_TIME)
+	if (gAwayTimer.getElapsedTimeF32() > LLAgent::MIN_AFK_TIME)
 	{
 		gAgent.clearAFK();
 	}
@@ -1352,6 +1350,7 @@ BOOL LLViewerWindow::handleActivate(LLWindow *window, BOOL activated)
 	{
 		mActive = FALSE;
 				
+		// if the user has chosen to go Away automatically after some time, then go Away when minimizing
 		if (gSavedSettings.getS32("AFKTimeout"))
 		{
 			gAgent.setAFK();
@@ -1574,6 +1573,12 @@ LLViewerWindow::LLViewerWindow(
 		ignore_pixel_depth,
 		gSavedSettings.getBOOL("RenderDeferred") ? 0 : gSavedSettings.getU32("RenderFSAASamples")); //don't use window level anti-aliasing if FBOs are enabled
 
+	if (!LLViewerShaderMgr::sInitialized)
+	{ //immediately initialize shaders
+		LLViewerShaderMgr::sInitialized = TRUE;
+		LLViewerShaderMgr::instance()->setShaders();
+	}
+
 	if (NULL == mWindow)
 	{
 		LLSplashScreen::update(LLTrans::getString("StartupRequireDriverUpdate"));
@@ -1710,25 +1715,26 @@ LLViewerWindow::LLViewerWindow(
 void LLViewerWindow::initGLDefaults()
 {
 	gGL.setSceneBlendType(LLRender::BT_ALPHA);
-	glColorMaterial( GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE );
 
-	F32 ambient[4] = {0.f,0.f,0.f,0.f };
-	F32 diffuse[4] = {1.f,1.f,1.f,1.f };
-	glMaterialfv(GL_FRONT_AND_BACK,GL_AMBIENT,ambient);
-	glMaterialfv(GL_FRONT_AND_BACK,GL_DIFFUSE,diffuse);
-	
+	if (!LLGLSLShader::sNoFixedFunction)
+	{ //initialize fixed function state
+		glColorMaterial( GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE );
+
+		glMaterialfv(GL_FRONT_AND_BACK,GL_AMBIENT,LLColor4::black.mV);
+		glMaterialfv(GL_FRONT_AND_BACK,GL_DIFFUSE,LLColor4::white.mV);
+
+		// lights for objects
+		glShadeModel( GL_SMOOTH );
+
+		gGL.getTexUnit(0)->enable(LLTexUnit::TT_TEXTURE);
+		gGL.getTexUnit(0)->setTextureBlendType(LLTexUnit::TB_MULT);
+	}
+
 	glPixelStorei(GL_PACK_ALIGNMENT,1);
 	glPixelStorei(GL_UNPACK_ALIGNMENT,1);
 
-	gGL.getTexUnit(0)->enable(LLTexUnit::TT_TEXTURE);
-
-	// lights for objects
-	glShadeModel( GL_SMOOTH );
-
-	glLightModelfv(GL_LIGHT_MODEL_AMBIENT, ambient);
-	
-	gGL.getTexUnit(0)->setTextureBlendType(LLTexUnit::TB_MULT);
-
+	gGL.setAmbientLightColor(LLColor4::black);
+		
 	glCullFace(GL_BACK);
 
 	// RN: Need this for translation and stretch manip.
@@ -2275,9 +2281,9 @@ void LLViewerWindow::draw()
 
 	LLUI::setLineWidth(1.f);
 	// Reset any left-over transforms
-	glMatrixMode(GL_MODELVIEW);
+	gGL.matrixMode(LLRender::MM_MODELVIEW);
 	
-	glLoadIdentity();
+	gGL.loadIdentity();
 
 	//S32 screen_x, screen_y;
 
@@ -2292,7 +2298,7 @@ void LLViewerWindow::draw()
 		// draw timecode block
 		std::string text;
 
-		glLoadIdentity();
+		gGL.loadIdentity();
 
 		microsecondsToTimecodeString(gFrameTime,text);
 		const LLFontGL* font = LLFontGL::getFontSansSerif();
@@ -2328,10 +2334,10 @@ void LLViewerWindow::draw()
 			int pos_y = sub_region / llceil(zoom_factor);
 			int pos_x = sub_region - (pos_y*llceil(zoom_factor));
 			// offset for this tile
-			glTranslatef((F32)getWindowWidthScaled() * -(F32)pos_x, 
+			gGL.translatef((F32)getWindowWidthScaled() * -(F32)pos_x, 
 						(F32)getWindowHeightScaled() * -(F32)pos_y, 
 						0.f);
-			glScalef(zoom_factor, zoom_factor, 1.f);
+			gGL.scalef(zoom_factor, zoom_factor, 1.f);
 			LLUI::sGLScaleFactor *= zoom_factor;
 		}
 
@@ -2360,7 +2366,7 @@ void LLViewerWindow::draw()
 			S32 screen_x, screen_y;
 			top_ctrl->localPointToScreen(0, 0, &screen_x, &screen_y);
 
-			glMatrixMode(GL_MODELVIEW);
+			gGL.matrixMode(LLRender::MM_MODELVIEW);
 			LLUI::pushMatrix();
 			LLUI::translate( (F32) screen_x, (F32) screen_y, 0.f);
 			top_ctrl->draw();	
@@ -3424,17 +3430,17 @@ void LLViewerWindow::renderSelections( BOOL for_gl_pick, BOOL pick_parcel_walls,
 			LLBBox hud_bbox = gAgentAvatarp->getHUDBBox();
 
 			// set up transform to encompass bounding box of HUD
-			glMatrixMode(GL_PROJECTION);
-			glPushMatrix();
-			glLoadIdentity();
+			gGL.matrixMode(LLRender::MM_PROJECTION);
+			gGL.pushMatrix();
+			gGL.loadIdentity();
 			F32 depth = llmax(1.f, hud_bbox.getExtentLocal().mV[VX] * 1.1f);
-			glOrtho(-0.5f * LLViewerCamera::getInstance()->getAspect(), 0.5f * LLViewerCamera::getInstance()->getAspect(), -0.5f, 0.5f, 0.f, depth);
+			gGL.ortho(-0.5f * LLViewerCamera::getInstance()->getAspect(), 0.5f * LLViewerCamera::getInstance()->getAspect(), -0.5f, 0.5f, 0.f, depth);
 			
-			glMatrixMode(GL_MODELVIEW);
-			glPushMatrix();
-			glLoadIdentity();
-			glLoadMatrixf(OGL_TO_CFR_ROTATION);		// Load Cory's favorite reference frame
-			glTranslatef(-hud_bbox.getCenterLocal().mV[VX] + (depth *0.5f), 0.f, 0.f);
+			gGL.matrixMode(LLRender::MM_MODELVIEW);
+			gGL.pushMatrix();
+			gGL.loadIdentity();
+			gGL.loadMatrix(OGL_TO_CFR_ROTATION);		// Load Cory's favorite reference frame
+			gGL.translatef(-hud_bbox.getCenterLocal().mV[VX] + (depth *0.5f), 0.f, 0.f);
 		}
 
 		// Render light for editing
@@ -3444,12 +3450,12 @@ void LLViewerWindow::renderSelections( BOOL for_gl_pick, BOOL pick_parcel_walls,
 			LLGLEnable gls_blend(GL_BLEND);
 			LLGLEnable gls_cull(GL_CULL_FACE);
 			LLGLDepthTest gls_depth(GL_TRUE, GL_FALSE);
-			glMatrixMode(GL_MODELVIEW);
-			glPushMatrix();
+			gGL.matrixMode(LLRender::MM_MODELVIEW);
+			gGL.pushMatrix();
 			if (selection->getSelectType() == SELECT_TYPE_HUD)
 			{
 				F32 zoom = gAgentCamera.mHUDCurZoom;
-				glScalef(zoom, zoom, zoom);
+				gGL.scalef(zoom, zoom, zoom);
 			}
 
 			struct f : public LLSelectedObjectFunctor
@@ -3486,7 +3492,7 @@ void LLViewerWindow::renderSelections( BOOL for_gl_pick, BOOL pick_parcel_walls,
 			} func;
 			LLSelectMgr::getInstance()->getSelection()->applyToObjects(&func);
 			
-			glPopMatrix();
+			gGL.popMatrix();
 		}				
 		
 		// NOTE: The average position for the axis arrows of the selected objects should
@@ -3549,11 +3555,11 @@ void LLViewerWindow::renderSelections( BOOL for_gl_pick, BOOL pick_parcel_walls,
 			}
 			if (selection->getSelectType() == SELECT_TYPE_HUD && selection->getObjectCount())
 			{
-				glMatrixMode(GL_PROJECTION);
-				glPopMatrix();
+				gGL.matrixMode(LLRender::MM_PROJECTION);
+				gGL.popMatrix();
 
-				glMatrixMode(GL_MODELVIEW);
-				glPopMatrix();
+				gGL.matrixMode(LLRender::MM_MODELVIEW);
+				gGL.popMatrix();
 				stop_glerror();
 			}
 		}

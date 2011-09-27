@@ -22,22 +22,27 @@
  * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
- 
 
-attribute vec3 position;
-attribute vec3 normal;
-attribute vec4 diffuse_color;
-attribute vec2 texcoord0;
+uniform mat3 normal_matrix;
+uniform mat4 texture_matrix0;
+uniform mat4 modelview_projection_matrix;
 
-varying vec3 vary_normal;
+ATTRIBUTE vec3 position;
+ATTRIBUTE vec3 normal;
+ATTRIBUTE vec4 diffuse_color;
+ATTRIBUTE vec2 texcoord0;
+
+VARYING vec3 vary_normal;
+VARYING vec4 vertex_color;
+VARYING vec2 vary_texcoord0;
 
 void main()
 {
 	//transform vertex
-	gl_Position = gl_ModelViewProjectionMatrix * vec4(position.xyz, 1.0); 
-	gl_TexCoord[0] = gl_TextureMatrix[0] * vec4(texcoord0,0,1);
+	gl_Position = modelview_projection_matrix * vec4(position.xyz, 1.0); 
+	vary_texcoord0 = (texture_matrix0 * vec4(texcoord0,0,1)).xy;
 	
-	vary_normal = normalize(gl_NormalMatrix * normal);
+	vary_normal = normalize(normal_matrix * normal);
 
-	gl_FrontColor = diffuse_color;
+	vertex_color = diffuse_color;
 }

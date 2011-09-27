@@ -70,6 +70,7 @@ LLGLSLShader	gGlowCombineFXAAProgram;
 LLGLSLShader	gTwoTextureAddProgram;
 LLGLSLShader	gOneTextureNoColorProgram;
 LLGLSLShader	gDebugProgram;
+LLGLSLShader	gAlphaMaskProgram;
 
 //object shaders
 LLGLSLShader		gObjectSimpleProgram;
@@ -219,6 +220,7 @@ LLViewerShaderMgr::LLViewerShaderMgr() :
 	mShaderList.push_back(&gSolidColorProgram);
 	mShaderList.push_back(&gOcclusionProgram);
 	mShaderList.push_back(&gDebugProgram);
+	mShaderList.push_back(&gAlphaMaskProgram);
 	mShaderList.push_back(&gObjectEmissiveProgram);
 	mShaderList.push_back(&gObjectEmissiveWaterProgram);
 	mShaderList.push_back(&gObjectFullbrightProgram);
@@ -315,6 +317,7 @@ void LLViewerShaderMgr::initAttribsAndUniforms(void)
 		mReservedAttribs.push_back("weight");
 		mReservedAttribs.push_back("weight4");
 		mReservedAttribs.push_back("clothing");
+		mReservedAttribs.push_back("texture_index");
 
 		mAvatarUniforms.push_back("matrixPalette");
 		mAvatarUniforms.push_back("gWindDir");
@@ -380,7 +383,7 @@ void LLViewerShaderMgr::initAttribsAndUniforms(void)
 		mReservedUniforms.push_back("lastNormalGIMap");
 		mReservedUniforms.push_back("lastMinpGIMap");
 		mReservedUniforms.push_back("lastMaxpGIMap");
-					
+
 		mWLUniforms.push_back("camPosLocal");
 
 		mTerrainUniforms.reserve(5);
@@ -440,6 +443,20 @@ void LLViewerShaderMgr::setShaders()
 	{
 		return;
 	}
+
+	if (LLRender::sGLCoreProfile)
+	{ 
+		if (!gSavedSettings.getBOOL("VertexShaderEnable"))
+		{ //vertex shaders MUST be enabled to use core profile
+			gSavedSettings.setBOOL("VertexShaderEnable", TRUE);
+		}
+		
+		if (!gSavedSettings.getBOOL("RenderTransparentWater"))
+		{ //non-transparent water uses fixed function
+			gSavedSettings.setBOOL("RenderTransparentWater", TRUE);
+		}
+	}
+
 
 	//setup preprocessor definitions
 	LLShaderMgr::instance()->mDefinitions["samples"] = llformat("%d", gGLManager.getNumFBOFSAASamples(gSavedSettings.getU32("RenderFSAASamples")));
@@ -674,6 +691,7 @@ void LLViewerShaderMgr::unloadShaders()
 {
 	gOcclusionProgram.unload();
 	gDebugProgram.unload();
+	gAlphaMaskProgram.unload();
 	gUIProgram.unload();
 	gCustomAlphaProgram.unload();
 	gGlowCombineProgram.unload();
@@ -2104,6 +2122,14 @@ BOOL LLViewerShaderMgr::loadShadersObject()
 		gObjectBumpProgram.mShaderFiles.push_back(make_pair("objects/bumpF.glsl", GL_FRAGMENT_SHADER_ARB));
 		gObjectBumpProgram.mShaderLevel = mVertexShaderLevel[SHADER_OBJECT];
 		success = gObjectBumpProgram.createShader(NULL, NULL);
+
+		if (success)
+		{ //lldrawpoolbump assumes "texture0" has channel 0 and "texture1" has channel 1
+			gObjectBumpProgram.bind();
+			gObjectBumpProgram.uniform1i("texture0", 0);
+			gObjectBumpProgram.uniform1i("texture1", 1);
+			gObjectBumpProgram.unbind();
+		}
 	}
 	
 	
@@ -2745,6 +2771,16 @@ BOOL LLViewerShaderMgr::loadShadersInterface()
 		gDebugProgram.mShaderFiles.push_back(make_pair("interface/debugF.glsl", GL_FRAGMENT_SHADER_ARB));
 		gDebugProgram.mShaderLevel = mVertexShaderLevel[SHADER_INTERFACE];
 		success = gDebugProgram.createShader(NULL, NULL);
+	}
+
+	if (success)
+	{
+		gAlphaMaskProgram.mName = "Alpha Mask Shader";
+		gAlphaMaskProgram.mShaderFiles.clear();
+		gAlphaMaskProgram.mShaderFiles.push_back(make_pair("interface/alphamaskV.glsl", GL_VERTEX_SHADER_ARB));
+		gAlphaMaskProgram.mShaderFiles.push_back(make_pair("interface/alphamaskF.glsl", GL_FRAGMENT_SHADER_ARB));
+		gAlphaMaskProgram.mShaderLevel = mVertexShaderLevel[SHADER_INTERFACE];
+		success = gAlphaMaskProgram.createShader(NULL, NULL);
 	}
 
 	if( !success )

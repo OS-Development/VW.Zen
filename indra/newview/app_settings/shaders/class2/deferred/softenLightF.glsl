@@ -23,9 +23,11 @@
  * $/LicenseInfo$
  */
  
-
-
 #extension GL_ARB_texture_rectangle : enable
+
+#ifdef DEFINE_GL_FRAGCOLOR
+out vec4 gl_FragColor;
+#endif
 
 uniform sampler2DRect diffuseRect;
 uniform sampler2DRect specularRect;
@@ -67,7 +69,7 @@ uniform vec2 screen_res;
 
 uniform vec3 sun_dir;
 
-varying vec2 vary_fragcoord;
+VARYING vec2 vary_fragcoord;
 
 vec3 vary_PositionEye;
 
@@ -311,7 +313,7 @@ void main()
 			//
 			vec3 refnormpersp = normalize(reflect(pos.xyz, norm.xyz));
 			float sa = dot(refnormpersp, sun_dir.xyz);
-			vec3 dumbshiny = vary_SunlitColor*scol_ambocc.r*texture2D(lightFunc, vec2(sa, spec.a)).a;
+			vec3 dumbshiny = vary_SunlitColor*scol_ambocc.r*texture2D(lightFunc, vec2(sa, spec.a)).r;
 
 			// add the two types of shiny together
 			vec3 spec_contrib = dumbshiny * spec.rgb;

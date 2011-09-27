@@ -23,19 +23,22 @@
  * $/LicenseInfo$
  */
  
-attribute vec3 position;
-attribute vec3 normal;
-attribute vec2 texcoord0;
+uniform mat4 projection_matrix;
+
+ATTRIBUTE vec3 position;
+ATTRIBUTE vec3 normal;
+ATTRIBUTE vec2 texcoord0;
 
 mat4 getSkinnedTransform();
 
-attribute vec4 weight;
+ATTRIBUTE vec4 weight;
 
-varying vec3 vary_normal;
+VARYING vec3 vary_normal;
+VARYING vec2 vary_texcoord0;
 
 void main()
 {
-	gl_TexCoord[0] = vec4(texcoord0,0,1);
+	vary_texcoord0 = texcoord0;
 				
 	vec4 pos;
 	vec3 norm;
@@ -54,7 +57,7 @@ void main()
 	
 	vary_normal = norm;
 	
-	gl_Position = gl_ProjectionMatrix * pos;
+	gl_Position = projection_matrix * pos;
 }
 
 

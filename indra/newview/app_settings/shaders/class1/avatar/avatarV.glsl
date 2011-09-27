@@ -22,10 +22,16 @@
  * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
- 
-attribute vec3 position;
-attribute vec3 normal;
-attribute vec2 texcoord0;
+
+uniform mat4 projection_matrix;
+
+ATTRIBUTE vec3 position;
+ATTRIBUTE vec3 normal;
+ATTRIBUTE vec2 texcoord0;
+
+VARYING vec4 vertex_color;
+VARYING vec2 vary_texcoord0;
+VARYING float fog_depth;
 
 vec4 calcLighting(vec3 pos, vec3 norm, vec4 color, vec4 baseCol);
 mat4 getSkinnedTransform();
@@ -33,7 +39,7 @@ void calcAtmospherics(vec3 inPositionEye);
 
 void main()
 {
-	gl_TexCoord[0] = vec4(texcoord0,0,1);
+	vary_texcoord0 = texcoord0;
 				
 	vec4 pos;
 	vec3 norm;
@@ -51,16 +57,14 @@ void main()
 	norm.z = dot(trans[2].xyz, normal);
 	norm = normalize(norm);
 		
-	gl_Position = gl_ProjectionMatrix * pos;
+	gl_Position = projection_matrix * pos;
 	
-	//gl_Position = gl_ModelViewProjectionMatrix * position;
-	
-	gl_FogFragCoord = length(pos.xyz);
+	fog_depth = length(pos.xyz);
 
 	calcAtmospherics(pos.xyz);
 
 	vec4 color = calcLighting(pos.xyz, norm, vec4(1,1,1,1), vec4(0,0,0,0));
-	gl_FrontColor = color; 
+	vertex_color = color; 
 
 }
 

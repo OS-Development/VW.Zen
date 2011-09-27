@@ -22,21 +22,24 @@
  * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
- 
-varying vec2 vary_fragcoord;
+
+uniform mat4 modelview_projection_matrix;
+
+VARYING vec2 vary_fragcoord;
+VARYING vec4 vertex_color;
 
 uniform vec2 screen_res;
 
-attribute vec3 position;
-attribute vec4 diffuse_color;
+ATTRIBUTE vec3 position;
+ATTRIBUTE vec4 diffuse_color;
 
 void main()
 {
 	//transform vertex
-	vec4 pos = gl_ModelViewProjectionMatrix * vec4(position.xyz, 1.0);
+	vec4 pos = modelview_projection_matrix * vec4(position.xyz, 1.0);
 	gl_Position = pos; 
 	
 	vary_fragcoord = (pos.xy * 0.5 + 0.5)*screen_res;	
 
-	gl_FrontColor = diffuse_color;
+	vertex_color = diffuse_color;
 }

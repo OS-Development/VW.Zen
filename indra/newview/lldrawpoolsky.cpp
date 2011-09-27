@@ -76,13 +76,14 @@ void LLDrawPoolSky::render(S32 pass)
 		return;
 	}
 	
-	// use a shader only underwater
+	// don't render sky under water (background just gets cleared to fog color)
 	if(mVertexShaderLevel > 0 && LLPipeline::sUnderWaterRender)
 	{
-		mShader = &gObjectFullbrightWaterProgram;
-		mShader->bind();
+		return;
 	}
-	else if (LLGLSLShader::sNoFixedFunction)
+
+
+	if (LLGLSLShader::sNoFixedFunction)
 	{ //just use the UI shader (generic single texture no lighting)
 		gOneTextureNoColorProgram.bind();
 	}
@@ -111,9 +112,9 @@ void LLDrawPoolSky::render(S32 pass)
 	
 	LLGLDisable clip(GL_CLIP_PLANE0);
 
-	glPushMatrix();
+	gGL.pushMatrix();
 	LLVector3 origin = LLViewerCamera::getInstance()->getOrigin();
-	glTranslatef(origin.mV[0], origin.mV[1], origin.mV[2]);
+	gGL.translatef(origin.mV[0], origin.mV[1], origin.mV[2]);
 
 	S32 face_count = (S32)mDrawFace.size();
 
@@ -125,7 +126,7 @@ void LLDrawPoolSky::render(S32 pass)
 		renderSkyCubeFace(i);
 	}
 
-	glPopMatrix();
+	gGL.popMatrix();
 }
 
 void LLDrawPoolSky::renderSkyCubeFace(U8 side)

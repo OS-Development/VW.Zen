@@ -22,16 +22,19 @@
  * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
- 
-attribute vec3 position;
-attribute vec2 texcoord0;
+
+uniform mat4 modelview_projection_matrix;
+
+ATTRIBUTE vec3 position;
+ATTRIBUTE vec2 texcoord0;
 
 // SKY ////////////////////////////////////////////////////////////////////////
 // The vertex shader for creating the atmospheric sky
 ///////////////////////////////////////////////////////////////////////////////
 
 // Output parameters
-varying vec4 vary_HazeColor;
+VARYING vec4 vary_HazeColor;
+VARYING vec2 vary_texcoord0;
 
 // Inputs
 uniform vec3 camPosLocal;
@@ -58,8 +61,8 @@ void main()
 {
 
 	// World / view / projection
-	gl_Position = gl_ModelViewProjectionMatrix * vec4(position.xyz, 1.0);
-	gl_TexCoord[0] = vec4(texcoord0,0,1);
+	gl_Position = modelview_projection_matrix * vec4(position.xyz, 1.0);
+	vary_texcoord0 = texcoord0;
 
 	// Get relative position
 	vec3 P = position.xyz - camPosLocal.xyz + vec3(0,50,0);

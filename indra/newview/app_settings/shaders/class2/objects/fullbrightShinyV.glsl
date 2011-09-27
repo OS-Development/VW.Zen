@@ -22,37 +22,48 @@
  * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
- 
+
+uniform mat3 normal_matrix;
+uniform mat4 texture_matrix0;
+uniform mat4 texture_matrix1;
+uniform mat4 modelview_matrix;
+uniform mat4 modelview_projection_matrix;
 
 
 void calcAtmospherics(vec3 inPositionEye);
 
 uniform vec4 origin;
 
-varying float vary_texture_index;
+VARYING float vary_texture_index;
 
-attribute vec4 position;
-attribute vec3 normal;
-attribute vec4 diffuse_color;
-attribute vec2 texcoord0;
+ATTRIBUTE vec3 position;
+ATTRIBUTE float texture_index;
+ATTRIBUTE vec3 normal;
+ATTRIBUTE vec4 diffuse_color;
+ATTRIBUTE vec2 texcoord0;
+
+VARYING vec4 vertex_color;
+VARYING vec2 vary_texcoord0;
+VARYING vec3 vary_texcoord1;
+VARYING float fog_depth;
 
 void main()
 {
 	//transform vertex
 	vec4 vert = vec4(position.xyz,1.0);
-	vary_texture_index = position.w;
-	vec4 pos = (gl_ModelViewMatrix * vert);
-	gl_Position = gl_ModelViewProjectionMatrix*vec4(position.xyz, 1.0);
+	vary_texture_index = texture_index;
+	vec4 pos = (modelview_matrix * vert);
+	gl_Position = modelview_projection_matrix*vec4(position.xyz, 1.0);
 	
-	vec3 norm = normalize(gl_NormalMatrix * normal);
+	vec3 norm = normalize(normal_matrix * normal);
 	vec3 ref = reflect(pos.xyz, -norm);
 
-	gl_TexCoord[0] = gl_TextureMatrix[0] * vec4(texcoord0,0,1);
-	gl_TexCoord[1] = gl_TextureMatrix[1]*vec4(ref,1.0);
+	vary_texcoord0 = (texture_matrix0 * vec4(texcoord0,0,1)).xy;
+	vary_texcoord1 = (texture_matrix1*vec4(ref,1.0)).xyz;
 
 	calcAtmospherics(pos.xyz);
 
-	gl_FrontColor = diffuse_color;
+	vertex_color = diffuse_color;
 
-	gl_FogFragCoord = pos.z;
+	fog_depth = pos.z;
 }
