@@ -31,6 +31,7 @@
 #include "lltoolbar.h"
 
 #include "llcommandmanager.h"
+#include "llmenugl.h"
 #include "lltrans.h"
 
 // uncomment this and remove the one in llui.cpp when there is an external reference to this translation unit
@@ -51,6 +52,7 @@ namespace LLToolBarEnums
 		return orientation;
 	}
 }
+
 using namespace LLToolBarEnums;
 
 
@@ -58,8 +60,8 @@ namespace LLInitParam
 {
 	void TypeValues<ButtonType>::declareValues()
 	{
-		declare("icons_only",		BTNTYPE_ICONS_ONLY);
 		declare("icons_with_text",	BTNTYPE_ICONS_WITH_TEXT);
+		declare("icons_only",		BTNTYPE_ICONS_ONLY);
 	}
 
 	void TypeValues<SideType>::declareValues()
@@ -73,10 +75,11 @@ namespace LLInitParam
 
 LLToolBar::Params::Params()
 :	button_display_mode("button_display_mode"),
-	buttons("button"),
+	commands("command"),
 	side("side", SIDE_TOP),
 	button_icon("button_icon"),
 	button_icon_and_text("button_icon_and_text"),
+	read_only("read_only", false),
 	wrap("wrap", true),
 	min_button_width("min_button_width", 0),
 	max_button_width("max_button_width", S32_MAX),
@@ -91,6 +94,7 @@ LLToolBar::Params::Params()
 
 LLToolBar::LLToolBar(const LLToolBar::Params& p)
 :	LLUICtrl(p),
+	mReadOnly(p.read_only),
 	mButtonType(p.button_display_mode),
 	mSideType(p.side),
 	mWrap(p.wrap),
@@ -104,10 +108,41 @@ LLToolBar::LLToolBar(const LLToolBar::Params& p)
 	mPadRight(p.pad_right),
 	mPadTop(p.pad_top),
 	mPadBottom(p.pad_bottom),
-	mPadBetween(p.pad_between)
+	mPadBetween(p.pad_between),
+	mPopupMenuHandle()
 {
-	mButtonParams[LLToolBarEnums::BTNTYPE_ICONS_ONLY] = p.button_icon;
 	mButtonParams[LLToolBarEnums::BTNTYPE_ICONS_WITH_TEXT] = p.button_icon_and_text;
+	mButtonParams[LLToolBarEnums::BTNTYPE_ICONS_ONLY] = p.button_icon;
+}
+
+LLToolBar::~LLToolBar()
+{
+	delete mPopupMenuHandle.get();
+}
+
+void LLToolBar::createContextMenu()
+{
+	if (!mPopupMenuHandle.get())
+	{
+		LLUICtrl::CommitCallbackRegistry::Registrar& commit_reg = LLUICtrl::CommitCallbackRegistry::defaultRegistrar();
+		commit_reg.add("Toolbars.EnableSetting", boost::bind(&LLToolBar::onSettingEnable, this, _2));
+
+		LLUICtrl::EnableCallbackRegistry::Registrar& enable_reg = LLUICtrl::EnableCallbackRegistry::defaultRegistrar();
+		enable_reg.add("Toolbars.CheckSetting", boost::bind(&LLToolBar::isSettingChecked, this, _2));
+
+		LLContextMenu* menu = LLUICtrlFactory::instance().createFromFile<LLContextMenu>("menu_toolbars.xml", LLMenuGL::sMenuContainer, LLMenuHolderGL::child_registry_t::instance());
+
+		if (menu)
+		{
+			menu->setBackgroundColor(LLUIColorTable::instance().getColor("MenuPopupBgColor"));
+
+			mPopupMenuHandle = menu->getHandle();
+		}
+		else
+		{
+			llwarns << "Unable to load toolbars context menu." << llendl;
+		}
+	}
 }
 
 void LLToolBar::initFromParams(const LLToolBar::Params& p)
@@ -122,6 +157,7 @@ void LLToolBar::initFromParams(const LLToolBar::Params& p)
 	centering_stack_p.rect = getLocalRect();
 	centering_stack_p.follows.flags = FOLLOWS_ALL;
 	centering_stack_p.orientation = orientation;
+	centering_stack_p.mouse_opaque = false;
 
 	mCenteringStack = LLUICtrlFactory::create<LLLayoutStack>(centering_stack_p);
 	addChild(mCenteringStack);
@@ -131,6 +167,7 @@ void LLToolBar::initFromParams(const LLToolBar::Params& p)
 	border_panel_p.rect = getLocalRect();
 	border_panel_p.auto_resize = true;
 	border_panel_p.user_resize = false;
+	border_panel_p.mouse_opaque = false;
 	
 	mCenteringStack->addChild(LLUICtrlFactory::create<LLLayoutPanel>(border_panel_p));
 
@@ -145,58 +182,127 @@ void LLToolBar::initFromParams(const LLToolBar::Params& p)
 
 	LLPanel::Params button_panel_p(p.button_panel);
 	button_panel_p.rect = center_panel->getLocalRect();
-	switch(p.side())
-	{
-	case SIDE_LEFT:
 		button_panel_p.follows.flags = FOLLOWS_BOTTOM|FOLLOWS_LEFT;
-		break;
-	case SIDE_RIGHT:
-		button_panel_p.follows.flags = FOLLOWS_BOTTOM|FOLLOWS_RIGHT;
-		break;
-	case SIDE_TOP:
-		button_panel_p.follows.flags = FOLLOWS_TOP|FOLLOWS_LEFT;
-		break;
-	case SIDE_BOTTOM:
-		button_panel_p.follows.flags = FOLLOWS_BOTTOM|FOLLOWS_LEFT;
-		break;
-	}
 	mButtonPanel = LLUICtrlFactory::create<LLPanel>(button_panel_p);
 	center_panel->addChild(mButtonPanel);
 	
 	mCenteringStack->addChild(LLUICtrlFactory::create<LLLayoutPanel>(border_panel_p));
 
-	BOOST_FOREACH (LLToolBarButton::Params button_p, p.buttons)
+	BOOST_FOREACH (const LLCommandId::Params& command_id, p.commands)
 	{
-		button_p.fillFrom(mButtonParams[mButtonType]);
-		LLToolBarButton* buttonp = LLUICtrlFactory::create<LLToolBarButton>(button_p);
-
-		mButtons.push_back(buttonp);
-		mButtonPanel->addChild(buttonp);
-
-		mNeedsLayout = true;
+		mButtonCommands.push_back(command_id);
 	}
-}
-
-bool LLToolBar::addCommand(LLCommand * command)
-{
-	//
-	// Init basic toolbar button params
-	//
-	LLToolBarButton::Params button_p(mButtonParams[mButtonType]);
-	button_p.name = command->name();
-	button_p.label = LLTrans::getString(command->labelRef());
-	button_p.tool_tip = LLTrans::getString(command->tooltipRef());
-
-	//
-	// Add it to the list of buttons
-	//
-	LLToolBarButton * toolbar_button = LLUICtrlFactory::create<LLToolBarButton>(button_p);
-	mButtons.push_back(toolbar_button);
-	mButtonPanel->addChild(toolbar_button);
+	createButtons();
 
 	mNeedsLayout = true;
+}
 
-	return true;
+bool LLToolBar::addCommand(const LLCommandId& commandId)
+{
+	LLCommand * command = LLCommandManager::instance().getCommand(commandId);
+
+	bool add_command = (command != NULL);
+
+	mButtonCommands.push_back(commandId);
+	createButtons();
+
+	return add_command;
+}
+
+bool LLToolBar::hasCommand(const LLCommandId& commandId) const
+{
+	bool has_command = false;
+
+	if (commandId != LLCommandId::null)
+	{
+		for (std::list<LLCommandId>::const_iterator cmd = mButtonCommands.begin(); cmd != mButtonCommands.end(); ++cmd)
+		{
+			if ((*cmd) == commandId)
+			{
+				has_command = true;
+				break;
+			}
+		}
+	}
+
+	return has_command;
+}
+
+bool LLToolBar::enableCommand(const LLCommandId& commandId, bool enabled)
+{
+	LLButton * command_button = NULL;
+	
+	if (commandId != LLCommandId::null)
+	{
+		command_button = mButtonPanel->findChild<LLButton>(commandId.name());
+
+		if (command_button)
+		{
+			command_button->setEnabled(enabled);
+		}
+	}
+
+	return (command_button != NULL);
+}
+
+BOOL LLToolBar::handleRightMouseDown(S32 x, S32 y, MASK mask)
+{
+	BOOL handle_it_here = !mReadOnly;
+
+	if (handle_it_here)
+	{
+		createContextMenu();
+		LLContextMenu * menu = (LLContextMenu *) mPopupMenuHandle.get();
+
+		if (menu)
+		{
+			menu->show(x, y);
+			LLMenuGL::showPopup(this, menu, x, y);
+		}
+	}
+
+	return handle_it_here;
+}
+
+BOOL LLToolBar::isSettingChecked(const LLSD& userdata)
+{
+	BOOL retval = FALSE;
+
+	const std::string setting_name = userdata.asString();
+
+	if (setting_name == "icons_and_labels")
+	{
+		retval = (mButtonType == BTNTYPE_ICONS_WITH_TEXT);
+	}
+	else if (setting_name == "icons_only")
+	{
+		retval = (mButtonType == BTNTYPE_ICONS_ONLY);
+	}
+
+	return retval;
+}
+
+void LLToolBar::onSettingEnable(const LLSD& userdata)
+{
+	llassert(!mReadOnly);
+
+	const std::string setting_name = userdata.asString();
+
+	const ButtonType current_button_type = mButtonType;
+
+	if (setting_name == "icons_and_labels")
+	{
+		mButtonType = BTNTYPE_ICONS_WITH_TEXT;
+	}
+	else if (setting_name == "icons_only")
+	{
+		mButtonType = BTNTYPE_ICONS_ONLY;
+	}
+
+	if(current_button_type != mButtonType)
+	{
+		createButtons();
+	}
 }
 
 void LLToolBar::resizeButtonsInRow(std::vector<LLToolBarButton*>& buttons_in_row, S32 max_row_girth)
@@ -241,7 +347,6 @@ void LLToolBar::updateLayoutAsNeeded()
 		max_length = getRect().getWidth() - mPadLeft - mPadRight;
 		max_total_girth = getRect().getHeight() - mPadTop - mPadBottom;
 		row_pad_start = mPadLeft;
-		row_running_length = row_pad_start;
 		row_pad_end = mPadRight;
 		cur_row = mPadTop;
 		girth_pad_end = mPadBottom;
@@ -251,12 +356,12 @@ void LLToolBar::updateLayoutAsNeeded()
 		max_length = getRect().getHeight() - mPadTop - mPadBottom;
 		max_total_girth = getRect().getWidth() - mPadLeft - mPadRight;
 		row_pad_start = mPadTop;
-		row_running_length = row_pad_start;
 		row_pad_end = mPadBottom;
 		cur_row = mPadLeft;
 		girth_pad_end = mPadRight;
 	}
 	
+	row_running_length = row_pad_start;
 	cur_start = row_pad_start;
 
 
@@ -329,17 +434,20 @@ void LLToolBar::updateLayoutAsNeeded()
 	{
 		if (mSideType == SIDE_TOP)
 		{ // shift down to maintain top edge
-			mButtonPanel->translate(0, mButtonPanel->getRect().getHeight() - total_girth);
+			translate(0, getRect().getHeight() - total_girth);
 		}
 
+		reshape(getRect().getWidth(), total_girth);
 		mButtonPanel->reshape(max_row_length, total_girth);
 	}
 	else // VERTICAL
 	{
 		if (mSideType == SIDE_RIGHT)
 		{ // shift left to maintain right edge
-			mButtonPanel->translate(mButtonPanel->getRect().getWidth() - total_girth, 0);
+			translate(getRect().getWidth() - total_girth, 0);
 		}
+		
+		reshape(total_girth, getRect().getHeight());
 		mButtonPanel->reshape(total_girth, max_row_length);
 		}
 
@@ -360,6 +468,32 @@ void LLToolBar::draw()
 void LLToolBar::reshape(S32 width, S32 height, BOOL called_from_parent)
 {
 	LLUICtrl::reshape(width, height, called_from_parent);
+	mNeedsLayout = true;
+}
+
+void LLToolBar::createButtons()
+{
+	BOOST_FOREACH(LLToolBarButton* button, mButtons)
+	{
+		delete button;
+	}
+	mButtons.clear();
+	
+	BOOST_FOREACH(LLCommandId& command_id, mButtonCommands)
+	{
+		LLCommand* commandp = LLCommandManager::instance().getCommand(command_id);
+		if (!commandp) continue;
+
+		LLToolBarButton::Params button_p;
+		button_p.label = LLTrans::getString(commandp->labelRef());
+		button_p.image_overlay = LLUI::getUIImage(commandp->icon());
+		button_p.overwriteFrom(mButtonParams[mButtonType]);
+		LLToolBarButton* button = LLUICtrlFactory::create<LLToolBarButton>(button_p);
+
+		mButtons.push_back(button);
+		mButtonPanel->addChild(button);
+	}
+
 	mNeedsLayout = true;
 }
 

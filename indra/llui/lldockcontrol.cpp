@@ -161,7 +161,7 @@ bool LLDockControl::isDockVisible()
 			case TOP:
 			{
 				// check is dock inside parent rect
-				// assume that parent for all dockable flaoters
+				// assume that parent for all dockable floaters
 				// is the root view
 				LLRect dockParentRect =
 						mDockWidget->getRootView()->calcScreenRect();
