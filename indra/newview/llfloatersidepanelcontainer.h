@@ -53,16 +53,17 @@ public:
 
 	LLPanel* openChildPanel(const std::string& panel_name, const LLSD& params);
 
-	static LLPanel* getPanel(const std::string& floater_name, const std::string& panel_name = sMainPanelName);
-
 	static void showPanel(const std::string& floater_name, const LLSD& key);
 
 	static void showPanel(const std::string& floater_name, const std::string& panel_name, const LLSD& key);
-
+	
+	static LLPanel* getPanel(const std::string& floater_name, const std::string& panel_name = sMainPanelName);
+	
 	/**
 	 * Gets the panel of given type T (doesn't show it or do anything else with it).
 	 *
-	 * @param panel_name a string specifying a child panel to get.
+	 * @param floater_name a string specifying the floater to be searched for a child panel.
+	 * @param panel_name a string specifying the child panel to get.
 	 * @returns a pointer to the panel of given type T.
 	 */
 	template <typename T>

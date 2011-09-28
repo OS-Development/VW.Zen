@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
 
 <floater
-  legacy_header_height="18"
   can_close="true"
   can_resize="true"
-  height="588"
-  min_width="333"
+  height="570"
+  help_topic="sidebar_people"
   min_height="440"
+  min_width="333"
   layout="topleft"
   name="floater_people"
   save_rect="true"
@@ -16,11 +16,9 @@
     <panel_container
       default_panel_name="panel_people"
       follows="all"
-      layout="topleft"
+      height="570"
       name="main_panel"
-      top="18"
-      width="333"
-      height="570">
+      width="333">
       <panel
         class="panel_people"
         name="panel_people"

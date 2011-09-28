@@ -2634,7 +2634,7 @@ void handle_object_inspect()
 	{
 		LLSD key;
 		key["task"] = "task";
-		LLSideTray::getInstance()->showPanel("sidepanel_inventory", key);
+		LLFloaterSidePanelContainer::showPanel("my_inventory", key);
 	}
 	
 	/*
@@ -3758,7 +3758,7 @@ void handle_reset_view()
 	if (gAgentCamera.cameraCustomizeAvatar())
 	{
 		// switching to outfit selector should automagically save any currently edited wearable
-		LLSideTray::getInstance()->showPanel("sidepanel_appearance", LLSD().with("type", "my_outfits"));
+		LLFloaterSidePanelContainer::showPanel("appearance", LLSD().with("type", "my_outfits"));
 	}
 
 	gAgentCamera.switchCameraPreset(CAMERA_PRESET_REAR_VIEW);
@@ -5576,22 +5576,22 @@ void handle_viewer_disable_message_log(void*)
 
 void handle_customize_avatar()
 {
-	LLSideTray::getInstance()->showPanel("sidepanel_appearance", LLSD().with("type", "my_outfits"));
+	LLFloaterSidePanelContainer::showPanel("appearance", LLSD().with("type", "my_outfits"));
 }
 
 void handle_edit_outfit()
 {
-	LLSideTray::getInstance()->showPanel("sidepanel_appearance", LLSD().with("type", "edit_outfit"));
+	LLFloaterSidePanelContainer::showPanel("appearance", LLSD().with("type", "edit_outfit"));
 }
 
 void handle_edit_shape()
 {
-	LLSideTray::getInstance()->showPanel("sidepanel_appearance", LLSD().with("type", "edit_shape"));
+	LLFloaterSidePanelContainer::showPanel("appearance", LLSD().with("type", "edit_shape"));
 }
 
 void handle_edit_physics()
 {
-	LLSideTray::getInstance()->showPanel("sidepanel_appearance", LLSD().with("type", "edit_physics"));
+	LLFloaterSidePanelContainer::showPanel("appearance", LLSD().with("type", "edit_physics"));
 }
 
 void handle_report_abuse()
@@ -5661,18 +5661,18 @@ class LLShowSidetrayPanel : public view_listener_t
 {
 	bool handleEvent(const LLSD& userdata)
 	{
-		std::string panel_name = userdata.asString();
+		std::string floater_name = userdata.asString();
 
-		LLPanel* panel = LLSideTray::getInstance()->getPanel(panel_name);
+		LLPanel* panel = LLFloaterSidePanelContainer::getPanel(floater_name);
 		if (panel)
 		{
 			if (panel->isInVisibleChain())
 			{
-				LLSideTray::getInstance()->hidePanel(panel_name);
+				LLFloaterReg::getInstance(floater_name)->closeFloater();
 			}
 			else
 			{
-				LLSideTray::getInstance()->showPanel(panel_name);
+				LLFloaterReg::getInstance(floater_name)->openFloater();
 			}
 		}
 		return true;
@@ -5683,9 +5683,9 @@ class LLSidetrayPanelVisible : public view_listener_t
 {
 	bool handleEvent(const LLSD& userdata)
 	{
-		std::string panel_name = userdata.asString();
+		std::string floater_name = userdata.asString();
 		// Toggle the panel
-		if (LLSideTray::getInstance()->isPanelActive(panel_name))
+		if (LLFloaterReg::getInstance(floater_name)->isInVisibleChain())
 		{
 			return true;
 		}
