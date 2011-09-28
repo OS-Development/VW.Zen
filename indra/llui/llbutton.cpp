@@ -314,7 +314,7 @@ boost::signals2::connection LLButton::setHeldDownCallback( const commit_signal_t
 }
 
 
-// *TODO: Deprecate (for backwards compatability only)
+// *TODO: Deprecate (for backwards compatibility only)
 boost::signals2::connection LLButton::setClickedCallback( button_callback_t cb, void* data )
 {
 	return setClickedCallback(boost::bind(cb, data));
@@ -919,7 +919,7 @@ void LLButton::setToggleState(BOOL b)
 
 void LLButton::setFlashing( BOOL b )	
 { 
-	if (b != mFlashing)
+	if ((bool)b != mFlashing)
 	{
 		mFlashing = b; 
 		mFlashingTimer.reset();
@@ -989,11 +989,27 @@ void LLButton::resize(LLUIString label)
 	// get current btn length 
 	S32 btn_width =getRect().getWidth();
     // check if it need resize 
-	if (mAutoResize == TRUE)
+	if (mAutoResize)
 	{ 
-		if (btn_width - (mRightHPad + mLeftHPad) < label_width)
+		S32 min_width = label_width + mLeftHPad + mRightHPad;
+		if (mImageOverlay)
 		{
-			setRect(LLRect( getRect().mLeft, getRect().mTop, getRect().mLeft + label_width + mLeftHPad + mRightHPad , getRect().mBottom));
+			switch(mImageOverlayAlignment)
+			{
+			case LLFontGL::LEFT:
+			case LLFontGL::RIGHT:
+				min_width += mImageOverlay->getWidth() + mImgOverlayLabelSpace;
+				break;
+			case LLFontGL::HCENTER:
+				break;
+			default:
+				// draw nothing
+				break;
+			}
+		}
+		if (btn_width < min_width)
+		{
+			reshape(min_width, getRect().getHeight());
 		}
 	} 
 }
