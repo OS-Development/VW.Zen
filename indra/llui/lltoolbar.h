@@ -58,6 +58,7 @@ public:
 	};
 
 	LLToolBarButton(const Params& p);
+	~LLToolBarButton();
 
 	BOOL handleMouseDown(S32 x, S32 y, MASK mask);
 	BOOL handleHover(S32 x, S32 y, MASK mask);
@@ -65,15 +66,22 @@ public:
 
 	void setStartDragCallback(tool_startdrag_callback_t cb)   { mStartDragItemCallback  = cb; }
 	void setHandleDragCallback(tool_handledrag_callback_t cb) { mHandleDragItemCallback = cb; }
+
+	void onMouseEnter(S32 x, S32 y, MASK mask);
+
 private:
 	LLCommandId		mId;
 	S32				mMouseDownX;
 	S32				mMouseDownY;
 	LLUI::RangeS32	mWidthRange;
 	S32				mDesiredHeight;
-	bool							mIsDragged;
+	bool						mIsDragged;
 	tool_startdrag_callback_t		mStartDragItemCallback;
 	tool_handledrag_callback_t		mHandleDragItemCallback;
+
+	enable_signal_t*	mIsEnabledSignal;
+	enable_signal_t*	mIsRunningSignal;
+	enable_signal_t*	mIsStartingSignal;
 };
 
 
@@ -151,11 +159,12 @@ public:
 								   void* cargo_data,
 								   EAcceptance* accept,
 								   std::string& tooltip_msg);
-	
+
 	bool addCommand(const LLCommandId& commandId, int rank = -1);
 	bool removeCommand(const LLCommandId& commandId);
 	bool hasCommand(const LLCommandId& commandId) const;
 	bool enableCommand(const LLCommandId& commandId, bool enabled);
+
 	void setStartDragCallback(tool_startdrag_callback_t cb)   { mStartDragItemCallback  = cb; }
 	void setHandleDragCallback(tool_handledrag_callback_t cb) { mHandleDragItemCallback = cb; }
 	void setHandleDropCallback(tool_handledrop_callback_t cb) { mHandleDropCallback     = cb; }
@@ -171,7 +180,7 @@ protected:
 	tool_startdrag_callback_t		mStartDragItemCallback;
 	tool_handledrag_callback_t		mHandleDragItemCallback;
 	tool_handledrop_callback_t		mHandleDropCallback;
-	bool							mDragAndDropTarget;
+	bool						mDragAndDropTarget;
 
 public:
 	// Methods used in loading and saving toolbar settings
@@ -190,7 +199,8 @@ private:
 
 	const bool						mReadOnly;
 
-	std::list<LLToolBarButton*>		mButtons;
+	typedef std::list<LLToolBarButton*> toolbar_button_list;
+	toolbar_button_list				mButtons;
 	command_id_list_t				mButtonCommands;
 	typedef std::map<LLCommandId, LLToolBarButton*> command_id_map;
 	command_id_map					mButtonMap;
