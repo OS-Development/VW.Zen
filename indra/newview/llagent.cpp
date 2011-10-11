@@ -41,6 +41,7 @@
 #include "llcapabilitylistener.h"
 #include "llchannelmanager.h"
 #include "llconsole.h"
+#include "llenvmanager.h"
 #include "llfirstuse.h"
 #include "llfloatercamera.h"
 #include "llfloaterreg.h"
@@ -84,6 +85,7 @@
 #include "llwindow.h"
 #include "llworld.h"
 #include "llworldmap.h"
+#include "stringize.h"
 
 using namespace LLVOAvatarDefines;
 
@@ -105,13 +107,15 @@ const F64 CHAT_AGE_FAST_RATE = 3.0;
 const F32 MIN_FIDGET_TIME = 8.f; // seconds
 const F32 MAX_FIDGET_TIME = 20.f; // seconds
 
-
 // The agent instance.
 LLAgent gAgent;
 
 //--------------------------------------------------------------------
 // Statics
 //
+
+/// minimum time after setting away state before coming back based on movement
+const F32 LLAgent::MIN_AFK_TIME = 10.0f;
 
 const F32 LLAgent::TYPING_TIMEOUT_SECS = 5.f;
 
@@ -575,7 +579,10 @@ void LLAgent::setFlying(BOOL fly)
 // static
 void LLAgent::toggleFlying()
 {
-	LLToolPie::instance().stopClickToWalk();
+	if ( gAgent.mAutoPilot )
+	{
+		LLToolPie::instance().stopClickToWalk();
+	}
 
 	BOOL fly = !gAgent.getFlying();
 
@@ -608,6 +615,8 @@ void LLAgent::standUp()
 //-----------------------------------------------------------------------------
 void LLAgent::setRegion(LLViewerRegion *regionp)
 {
+	bool teleport = true;
+
 	llassert(regionp);
 	if (mRegionp != regionp)
 	{
@@ -645,6 +654,8 @@ void LLAgent::setRegion(LLViewerRegion *regionp)
 				gSky.mVOGroundp->setRegion(regionp);
 			}
 
+			// Notify windlight managers
+			teleport = (gAgent.getTeleportState() != LLAgent::TELEPORT_NONE);
 		}
 		else
 		{
@@ -685,6 +696,15 @@ void LLAgent::setRegion(LLViewerRegion *regionp)
 	LLSelectMgr::getInstance()->updateSelectionCenter();
 
 	LLFloaterMove::sUpdateFlyingStatus();
+
+	if (teleport)
+	{
+		LLEnvManagerNew::instance().onTeleport();
+	}
+	else
+	{
+		LLEnvManagerNew::instance().onRegionCrossing();
+	}
 }
 
 
@@ -1147,6 +1167,7 @@ void LLAgent::setAFK()
 	{
 		sendAnimationRequest(ANIM_AGENT_AWAY, ANIM_REQUEST_START);
 		setControlFlags(AGENT_CONTROL_AWAY | AGENT_CONTROL_STOP);
+		LL_INFOS("AFK") << "Setting Away" << LL_ENDL;
 		gAwayTimer.start();
 		if (gAFKMenu)
 		{
@@ -1170,6 +1191,7 @@ void LLAgent::clearAFK()
 	{
 		sendAnimationRequest(ANIM_AGENT_AWAY, ANIM_REQUEST_STOP);
 		clearControlFlags(AGENT_CONTROL_AWAY);
+		LL_INFOS("AFK") << "Clearing Away" << LL_ENDL;
 		if (gAFKMenu)
 		{
 			gAFKMenu->setLabel(LLTrans::getString("AvatarSetAway"));
@@ -3335,8 +3357,11 @@ bool LLAgent::teleportCore(bool is_local)
 	// hide land floater too - it'll be out of date
 	LLFloaterReg::hideInstance("about_land");
 
-	// hide the search floater (EXT-8276)
-	LLFloaterReg::hideInstance("search");
+	// hide the Region/Estate floater
+	LLFloaterReg::hideInstance("region_info");
+
+	// minimize the Search floater (STORM-1474)
+	LLFloaterReg::getInstance("search")->setMinimized(TRUE);
 
 	LLViewerParcelMgr::getInstance()->deselectLand();
 	LLViewerMediaFocus::getInstance()->clearFocus();

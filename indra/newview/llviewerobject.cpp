@@ -81,7 +81,6 @@
 #include "llviewerwindow.h" // For getSpinAxis
 #include "llvoavatar.h"
 #include "llvoavatarself.h"
-#include "llvoclouds.h"
 #include "llvograss.h"
 #include "llvoground.h"
 #include "llvolume.h"
@@ -101,7 +100,6 @@
 #include "lltrans.h"
 #include "llsdutil.h"
 #include "llmediaentry.h"
-#include "llaccountingquota.h"
 
 //#define DEBUG_UPDATE_TYPE
 
@@ -141,6 +139,7 @@ LLViewerObject *LLViewerObject::createObject(const LLUUID &id, const LLPCode pco
 			if (!gAgentAvatarp)
 			{
 				gAgentAvatarp = new LLVOAvatarSelf(id, pcode, regionp);
+				gAgentAvatarp->initInstance();
 			}
 			else 
 			{
@@ -150,9 +149,10 @@ LLViewerObject *LLViewerObject::createObject(const LLUUID &id, const LLPCode pco
 		}
 		else
 		{
-			res = new LLVOAvatar(id, pcode, regionp); 
+			LLVOAvatar *avatar = new LLVOAvatar(id, pcode, regionp); 
+			avatar->initInstance();
+			res = avatar;
 		}
-		static_cast<LLVOAvatar*>(res)->initInstance();
 		break;
 	}
 	case LL_PCODE_LEGACY_GRASS:
@@ -167,8 +167,6 @@ LLViewerObject *LLViewerObject::createObject(const LLUUID &id, const LLPCode pco
 // 	  llwarns << "Creating new tree!" << llendl;
 // 	  res = new LLVOTree(id, pcode, regionp); break;
 	  res = NULL; break;
-	case LL_VO_CLOUDS:
-	  res = new LLVOClouds(id, pcode, regionp); break;
 	case LL_VO_SURFACE_PATCH:
 	  res = new LLVOSurfacePatch(id, pcode, regionp); break;
 	case LL_VO_SKY:
@@ -519,7 +517,6 @@ void LLViewerObject::setNameValueList(const std::string& name_value_list)
 	}
 }
 
-
 // This method returns true if the object is over land owned by the
 // agent.
 bool LLViewerObject::isReturnable()
@@ -528,6 +525,112 @@ bool LLViewerObject::isReturnable()
 	{
 		return false;
 	}
+		
+	std::vector<LLBBox> boxes;
+	boxes.push_back(LLBBox(getPositionRegion(), getRotationRegion(), getScale() * -0.5f, getScale() * 0.5f).getAxisAligned());
+	for (child_list_t::iterator iter = mChildList.begin();
+		 iter != mChildList.end(); iter++)
+	{
+		LLViewerObject* child = *iter;
+		boxes.push_back( LLBBox(child->getPositionRegion(), child->getRotationRegion(), child->getScale() * -0.5f, child->getScale() * 0.5f).getAxisAligned());
+	}
+
+	bool result = (mRegionp && mRegionp->objectIsReturnable(getPositionRegion(), boxes)) ? 1 : 0;
+	
+	if ( !result )
+	{		
+		//Get list of neighboring regions relative to this vo's region
+		std::vector<LLViewerRegion*> uniqueRegions;
+		mRegionp->getNeighboringRegions( uniqueRegions );
+	
+		//Build aabb's - for root and all children
+		std::vector<PotentialReturnableObject> returnables;
+		typedef std::vector<LLViewerRegion*>::iterator RegionIt;
+		RegionIt regionStart = uniqueRegions.begin();
+		RegionIt regionEnd   = uniqueRegions.end();
+		
+		for (; regionStart != regionEnd; ++regionStart )
+		{
+			LLViewerRegion* pTargetRegion = *regionStart;
+			//Add the root vo as there may be no children and we still want
+			//to test for any edge overlap
+			buildReturnablesForChildrenVO( returnables, this, pTargetRegion );
+			//Add it's children
+			for (child_list_t::iterator iter = mChildList.begin();  iter != mChildList.end(); iter++)
+			{
+				LLViewerObject* pChild = *iter;		
+				buildReturnablesForChildrenVO( returnables, pChild, pTargetRegion );
+			}
+		}	
+	
+		//TBD#Eventually create a region -> box list map 
+		typedef std::vector<PotentialReturnableObject>::iterator ReturnablesIt;
+		ReturnablesIt retCurrentIt = returnables.begin();
+		ReturnablesIt retEndIt = returnables.end();
+	
+		for ( ; retCurrentIt !=retEndIt; ++retCurrentIt )
+		{
+			boxes.clear();
+			LLViewerRegion* pRegion = (*retCurrentIt).pRegion;
+			boxes.push_back( (*retCurrentIt).box );	
+			bool retResult = 	pRegion
+							 && pRegion->childrenObjectReturnable( boxes )
+							 && pRegion->canManageEstate();
+			if ( retResult )
+			{ 
+				result = true;
+				break;
+			}
+		}
+	}
+	return result;
+}
+
+void LLViewerObject::buildReturnablesForChildrenVO( std::vector<PotentialReturnableObject>& returnables, LLViewerObject* pChild, LLViewerRegion* pTargetRegion )
+{
+	if ( !pChild )
+	{
+		llerrs<<"child viewerobject is NULL "<<llendl;
+	}
+	
+	constructAndAddReturnable( returnables, pChild, pTargetRegion );
+	
+	//We want to handle any children VO's as well
+	for (child_list_t::iterator iter = pChild->mChildList.begin();  iter != pChild->mChildList.end(); iter++)
+	{
+		LLViewerObject* pChildofChild = *iter;
+		buildReturnablesForChildrenVO( returnables, pChildofChild, pTargetRegion );
+	}
+}
+
+void LLViewerObject::constructAndAddReturnable( std::vector<PotentialReturnableObject>& returnables, LLViewerObject* pChild, LLViewerRegion* pTargetRegion )
+{
+	
+	LLVector3 targetRegionPos;
+	targetRegionPos.setVec( pChild->getPositionGlobal() );	
+	
+	LLBBox childBBox = LLBBox( targetRegionPos, pChild->getRotationRegion(), pChild->getScale() * -0.5f, 
+							    pChild->getScale() * 0.5f).getAxisAligned();
+	
+	LLVector3 edgeA = targetRegionPos + childBBox.getMinLocal();
+	LLVector3 edgeB = targetRegionPos + childBBox.getMaxLocal();
+	
+	LLVector3d edgeAd, edgeBd;
+	edgeAd.setVec(edgeA);
+	edgeBd.setVec(edgeB);
+	
+	//Only add the box when either of the extents are in a neighboring region
+	if ( pTargetRegion->pointInRegionGlobal( edgeAd ) || pTargetRegion->pointInRegionGlobal( edgeBd ) )
+	{
+		PotentialReturnableObject returnableObj;
+		returnableObj.box		= childBBox;
+		returnableObj.pRegion	= pTargetRegion;
+		returnables.push_back( returnableObj );
+	}
+}
+
+bool LLViewerObject::crossesParcelBounds()
+{
 	std::vector<LLBBox> boxes;
 	boxes.push_back(LLBBox(getPositionRegion(), getRotationRegion(), getScale() * -0.5f, getScale() * 0.5f).getAxisAligned());
 	for (child_list_t::iterator iter = mChildList.begin();
@@ -537,8 +640,7 @@ bool LLViewerObject::isReturnable()
 		boxes.push_back(LLBBox(child->getPositionRegion(), child->getRotationRegion(), child->getScale() * -0.5f, child->getScale() * 0.5f).getAxisAligned());
 	}
 
-	return mRegionp
-		&& mRegionp->objectIsReturnable(getPositionRegion(), boxes);
+	return mRegionp && mRegionp->objectsCrossParcel(boxes);
 }
 
 BOOL LLViewerObject::setParent(LLViewerObject* parent)
@@ -2663,7 +2765,7 @@ void LLViewerObject::processTaskInv(LLMessageSystem* msg, void** user_data)
 		LLPointer<LLInventoryObject> obj;
 		obj = new LLInventoryObject(object->mID, LLUUID::null,
 									LLAssetType::AT_CATEGORY,
-									LLTrans::getString("ViewerObjectContents").c_str());
+									"Contents");
 		object->mInventory->push_front(obj);
 		object->doInventoryCallback();
 		delete ft;
@@ -2730,7 +2832,7 @@ void LLViewerObject::loadTaskInvFile(const std::string& filename)
 			{
 				LLPointer<LLInventoryObject> inv = new LLInventoryObject;
 				inv->importLegacyStream(ifs);
-				inv->rename(LLTrans::getString("ViewerObjectContents").c_str());
+				inv->rename("Contents");
 				mInventory->push_front(inv);
 			}
 			else
@@ -4790,6 +4892,10 @@ void LLViewerObject::adjustAudioGain(const F32 gain)
 
 bool LLViewerObject::unpackParameterEntry(U16 param_type, LLDataPacker *dp)
 {
+	if (LLNetworkData::PARAMS_MESH == param_type)
+	{
+		param_type = LLNetworkData::PARAMS_SCULPT;
+	}
 	ExtraParameter* param = getExtraParameterEntryCreate(param_type);
 	if (param)
 	{
@@ -5694,9 +5800,3 @@ public:
 LLHTTPRegistration<ObjectPhysicsProperties>
 	gHTTPRegistrationObjectPhysicsProperties("/message/ObjectPhysicsProperties");
 
-
-void LLViewerObject::updateQuota( const SelectionQuota& quota )
-{
-	//update quotas
-	mSelectionQuota = quota;
-}

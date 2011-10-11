@@ -613,6 +613,7 @@ BOOL LLToolDragAndDrop::handleToolTip(S32 x, S32 y, MASK mask)
 {
 	if (!mToolTipMsg.empty())
 	{
+		LLToolTipMgr::instance().unblockToolTips();
 		LLToolTipMgr::instance().show(LLToolTip::Params()
 			.message(mToolTipMsg)
 			.delay_time(gSavedSettings.getF32( "DragAndDropToolTipDelay" )));
@@ -1651,6 +1652,13 @@ EAcceptance LLToolDragAndDrop::dad3dRezAttachmentFromInv(
 		return ACCEPT_NO;
 	}
 
+	const LLUUID &outbox_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_OUTBOX, false);
+	if(gInventory.isObjectDescendentOf(item->getUUID(), outbox_id))
+	{
+		return ACCEPT_NO;
+	}
+
+
 	if( drop )
 	{
 		if(mSource == SOURCE_LIBRARY)
@@ -2050,6 +2058,12 @@ EAcceptance LLToolDragAndDrop::dad3dWearCategory(
 	{
 		const LLUUID trash_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_TRASH);
 		if( gInventory.isObjectDescendentOf( category->getUUID(), trash_id ) )
+		{
+			return ACCEPT_NO;
+		}
+
+		const LLUUID &outbox_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_OUTBOX, false);
+		if(gInventory.isObjectDescendentOf(category->getUUID(), outbox_id))
 		{
 			return ACCEPT_NO;
 		}

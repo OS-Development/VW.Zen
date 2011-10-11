@@ -41,6 +41,7 @@
 #include "llmemoryview.h"
 #include "llsceneview.h"
 #include "llviewertexture.h"
+#include "llfloaterreg.h"
 
 //
 // Globals
@@ -62,7 +63,8 @@ void LLDebugView::init()
 	LLRect r;
 	LLRect rect = getLocalRect();
 
-	r.set(10, rect.getHeight() - 100, rect.getWidth()/2, 100);
+	// Rectangle to draw debug data in (full height, 3/4 width)
+	r.set(10, rect.getHeight() - 100, ((rect.getWidth()*3)/4), 100);
 	LLConsole::Params cp;
 	cp.name("debug console");
 	cp.max_lines(20);
@@ -78,12 +80,7 @@ void LLDebugView::init()
 	r.setLeftTopAndSize(25, rect.getHeight() - 50, (S32) (gViewerWindow->getWindowRectScaled().getWidth() * 0.75f), 
   									 (S32) (gViewerWindow->getWindowRectScaled().getHeight() * 0.75f));
 	
-	mFastTimerView = new LLFastTimerView(r);
-	mFastTimerView->setFollowsTop();
-	mFastTimerView->setFollowsLeft();
-	mFastTimerView->setVisible(FALSE);			// start invisible
-	addChild(mFastTimerView);
-	mFastTimerView->setRect(rect);
+	mFastTimerView = dynamic_cast<LLFastTimerView*>(LLFloaterReg::getInstance("fast_timers"));
 
 	gSceneView = new LLSceneView(r);
 	gSceneView->setFollowsTop();

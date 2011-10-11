@@ -85,6 +85,19 @@ Accertati che la tua connessione Internet stia funzionando correttamente.
 		Salva i cambiamenti all&apos;attuale parte del corpo/abito?
 		<usetemplate canceltext="Annulla" name="yesnocancelbuttons" notext="Non salvare" yestext="Salva"/>
 	</notification>
+	<notification name="ConfirmNoCopyToOutbox">
+		Non hai l&apos;autorizzazione necessaria per copiare questo oggetto nella casella in uscita di Marketplace. Sei sicuro di volere spostare gli oggetti seguenti?
+        [ITEM_NAME]
+		<usetemplate name="okcancelbuttons" notext="No" yestext="Sì"/>
+	</notification>
+	<notification name="OutboxUploadComplete">
+		Caricamento di Marketplace completato.
+		<usetemplate name="okbutton" yestext="Ottimo!"/>
+	</notification>
+	<notification name="OutboxUploadHadErrors">
+		Caricamento di Marketplace completato senza errori.  Correggi i problemi nella casella in uscita e riprova. Grazie.
+		<usetemplate name="okbutton" yestext="Riprova"/>
+	</notification>
 	<notification name="CompileQueueSaveText">
 		C&apos;è stato un problema importando il testo di uno script per la seguente ragione: [REASON]. Riprova più tardi.
 	</notification>
@@ -1555,6 +1568,11 @@ Riprova più tardi.
 			<button name="Cancel" text="Annulla"/>
 		</form>
 	</notification>
+	<notification name="TooManyTeleportOffers">
+		Hai cercato di fare [OFFERS] offerte di teleport,
+più del limite [LIMIT].
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
 	<notification name="OfferTeleportFromGod">
 		Chiedere, in qualità di Admin, al residente di raggiungerti?
 		<form name="form">
@@ -1977,6 +1995,10 @@ Desideri abbandonare la modalità &apos;Occupato&apos; prima di completare quest
 		Vuoi veramente eliminare la cronologia viaggi, web e ricerche fatte?
 		<usetemplate name="okcancelbuttons" notext="Annulla" yestext="OK"/>
 	</notification>
+	<notification name="ConfirmClearCache">
+		Sei sicuro di volere cancellare la cache del viewer?
+		<usetemplate name="okcancelbuttons" notext="Annulla" yestext="OK"/>
+	</notification>
 	<notification name="ConfirmClearCookies">
 		Confermi di volere cancellare i tuoi cookie?
 		<usetemplate name="okcancelbuttons" notext="Annulla" yestext="Si"/>
@@ -2002,48 +2024,30 @@ Inseriscilo in una pagina web per dare ad altri un accesso facile a questa ubica
 		Vuoi sovrascrivere le preimpostazioni salvate?
 		<usetemplate name="okcancelbuttons" notext="No" yestext="Si"/>
 	</notification>
-	<notification name="WLDeletePresetAlert">
-		Vuoi cancellare [SKY]?
-		<usetemplate name="okcancelbuttons" notext="No" yestext="Si"/>
-	</notification>
 	<notification name="WLNoEditDefault">
 		Non puoi modificare o cancellare una preimpostazione di fabbrica.
 	</notification>
 	<notification name="WLMissingSky">
 		Questo file di ciclo giornaliero fa riferimento ad un file di cielo mancante: [SKY].
 	</notification>
+	<notification name="WLRegionApplyFail">
+		Queste impostazioni non possono essere applicare alla regione.  Uscendo dalla regione e ritornandoci potrebbe risolvere il problema.  Il motivo fornito: [FAIL_REASON]
+	</notification>
+	<notification name="EnvCannotDeleteLastDayCycleKey">
+		Impossibile cancellare l&apos;ultima chiave in questo ciclo giornata. Il ciclo giornata non può essere vuoto.  Invece di cancellare la chiave restante, modificala e quindi creane una nuova.
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
+	<notification name="DayCycleTooManyKeyframes">
+		Non puoi aggiungere altri frame chiave a questo ciclo giornata.  Il numero massimo di frame chiave per i cicli giornata nell&apos;ambito [SCOPE] è [MAX].
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
+	<notification name="EnvUpdateRate">
+		Puoi aggiornare le impostazioni dell&apos;ambiente della regione ogni [WAIT] secondi.  Attendi e riprova.
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
 	<notification name="PPSaveEffectAlert">
 		Effetto di post elaborazione già presente. Vuoi sovrascrivere?
 		<usetemplate name="okcancelbuttons" notext="No" yestext="Si"/>
-	</notification>
-	<notification name="NewSkyPreset">
-		Fornisci il nome per il nuovo cielo.
-		<form name="form">
-			<input name="message">
-				Nuova preimpostazione
-			</input>
-			<button name="OK" text="OK"/>
-			<button name="Cancel" text="Annulla"/>
-		</form>
-	</notification>
-	<notification name="ExistsSkyPresetAlert">
-		La preimpostazione esiste già!
-	</notification>
-	<notification name="NewWaterPreset">
-		Fornisci il nome per la nuova preregolazione del livello dell&apos;acqua.
-		<form name="form">
-			<input name="message">
-				Nuova preimpostazione
-			</input>
-			<button name="OK" text="OK"/>
-			<button name="Cancel" text="Annulla"/>
-		</form>
-	</notification>
-	<notification name="ExistsWaterPresetAlert">
-		La preimpostazione esiste già!
-	</notification>
-	<notification name="WaterNoEditDefault">
-		Non puoi modificare o cancellare una preimpostazione.
 	</notification>
 	<notification name="ChatterBoxSessionStartError">
 		Impossibile iniziare una nuova sessione di chat con [RECIPIENT].
@@ -2072,13 +2076,14 @@ Inseriscilo in una pagina web per dare ad altri un accesso facile a questa ubica
 		<usetemplate ignoretext="Indossare gli abiti che creo mentre modifico il mio aspetto" name="okcancelignore" notext="No" yestext="Si"/>
 	</notification>
 	<notification name="NotAgeVerified">
-		Per entrare in questa zona, devi avere eseguito la verifica dell&apos;età.  Vuoi andare sul sito di [SECOND_LIFE] per verificare la tua età?
+		Per accedere ai contenuti e alle aree per adulti in Second Life devi avere almeno 18 anni. Visita la pagina di verifica dell&apos;età per confermare di avere almeno 18 anni. 
+Verrà avviato il browser Web.
 
 [_URL]
 		<url name="url" option="0">
-			https://secondlife.com/account/verification.php?lang=it
+			https://secondlife.com/my/account/verification.php
 		</url>
-		<usetemplate ignoretext="Non ho verificato la mia età" name="okcancelignore" notext="No" yestext="Si"/>
+		<usetemplate ignoretext="Non ho verificato la mia età" name="okcancelignore" notext="Annulla" yestext="Passa alla verifica dell&apos;età"/>
 	</notification>
 	<notification name="Cannot enter parcel: no payment info on file">
 		Per poter visitare questa zona devi avere devi aver fornito informazioni di pagamento a Linden Lab.  Vuoi andare sul sito di [SECOND_LIFE] ed impostarle?
@@ -2334,6 +2339,9 @@ Qui non puoi volare.
 	<notification name="NoBuild">
 		In questa zona è proibita la costruzione. Qui non puoi costruire né rezzare oggetti.
 	</notification>
+	<notification name="SeeAvatars">
+		In questo lotto non si possono vedere avatar e chat di testo presenti in altri lotti.   Non puoi vedere altri residenti fuori dal lotto e loro non possono vederti.  Viene bloccata anche la normale chat di testo sul canale 0.
+	</notification>
 	<notification name="ScriptsStopped">
 		Un amministratore ha temporaneamente disabilitato gli script in questa regione.
 	</notification>
@@ -2425,11 +2433,19 @@ Riprova tra qualche istante.
 	</notification>
 	<notification name="ObjectGiveItem">
 		Un oggetto denominato &lt;nolink&gt;[OBJECTFROMNAME]&lt;/nolink&gt; di proprietà di [NAME_SLURL] ti ha dato questo [OBJECTTYPE]:
-[ITEM_SLURL]
+&lt;nolink&gt;[ITEM_SLURL]&lt;/nolink&gt;
 		<form name="form">
 			<button name="Keep" text="Prendi"/>
 			<button name="Discard" text="Rifiuta"/>
-			<button name="Mute" text="Blocca"/>
+			<button name="Mute" text="Blocca Proprietario"/>
+		</form>
+	</notification>
+	<notification name="OwnObjectGiveItem">
+		L&apos;oggetto denominato &lt;nolink&gt;[OBJECTFROMNAME]&lt;/nolink&gt; ti ha dato questo [OBJECTTYPE]:
+&lt;nolink&gt;[ITEM_SLURL]&lt;/nolink&gt;
+		<form name="form">
+			<button name="Keep" text="Mantieni"/>
+			<button name="Discard" text="Elimina"/>
 		</form>
 	</notification>
 	<notification name="UserGiveItem">
@@ -2573,6 +2589,7 @@ Concedi questa richiesta?
 		&apos;&lt;nolink&gt;[TITLE]&lt;/nolink&gt;&apos; di [NAME]
 [MESSAGE]
 		<form name="form">
+			<button name="Mute" text="Blocca"/>
 			<button name="Ignore" text="Ignora"/>
 		</form>
 	</notification>
@@ -2580,6 +2597,7 @@ Concedi questa richiesta?
 		&apos;&lt;nolink&gt;[TITLE]&lt;/nolink&gt;&apos; di [GROUPNAME]
 [MESSAGE]
 		<form name="form">
+			<button name="Mute" text="Blocca"/>
 			<button name="Ignore" text="Ignora"/>
 		</form>
 	</notification>
@@ -2758,7 +2776,15 @@ Il pulsante verrà visualizzato quando lo spazio sarà sufficiente.
 		Scegli i residenti con i quali condividere.
 	</notification>
 	<notification name="MeshUploadError">
-		[LABEL] non è stato caricato: [MESSAGE] [IDENTIFIER] [INVALIDITY_IDENTIFIER]
+		[LABEL] non è stato caricato: [MESSAGE] [IDENTIFIER] 
+
+Per informazioni dettagliate, vedi il file del registro.
+	</notification>
+	<notification name="MeshUploadPermError">
+		Errore durante la richiesta di autorizzazione al caricamento del reticolo.
+	</notification>
+	<notification name="RegionCapabilityRequestError">
+		Non è stata ottenuta la capacità della regione &apos;[CAPABILITY]&apos;.
 	</notification>
 	<notification name="ShareItemsConfirmation">
 		Sei sicuro di volere condividere gli oggetti
@@ -2901,12 +2927,66 @@ Clicca e trascina dovunque nel mondo per ruotare la visuale
 	<notification label="Hai dollari Linden!" name="HintLindenDollar">
 		Ecco il saldo attuale in L$. Clicca su Acquista L$ per acquistare altri dollari Linden.
 	</notification>
+	<notification name="LowMemory">
+		L&apos;allocazione di memoria è quasi esaurita. Alcune funzioni di SL sono state disattivate per evitare un crash. Chiudi le altre applicazioni. Se il problema persiste, riavvia SL.
+	</notification>
+	<notification name="ForceQuitDueToLowMemory">
+		SL verrà interrotto tra 30 secondi a causa di spazio di memoria insufficiente.
+	</notification>
 	<notification name="PopupAttempt">
 		Non è stato possibile aprire una finestra pop-up.
 		<form name="form">
 			<ignore name="ignore" text="Attiva tutti i pop-up"/>
 			<button name="open" text="Apri finestra pop-up"/>
 		</form>
+	</notification>
+	<notification name="SOCKS_NOT_PERMITTED">
+		Il proxy SOCKS 5 &quot;[HOST]:[PORT]&quot; ha rifiutato il collegamento, che non è consentito dalle regole.
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
+	<notification name="SOCKS_CONNECT_ERROR">
+		Il proxy SOCKS 5 &quot;[HOST]:[PORT]&quot; ha rifiutato il collegamento. Non è stato possibile aprire il canale TCP.
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
+	<notification name="SOCKS_NOT_ACCEPTABLE">
+		Il proxy SOCKS 5 &quot;[HOST]:[PORT]&quot; ha rifiutato il sistema di autenticazione selezionato.
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
+	<notification name="SOCKS_AUTH_FAIL">
+		Il proxy SOCKS 5 &quot;[HOST]:[PORT]&quot; ha indicato che le credenziali non sono valide.
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
+	<notification name="SOCKS_UDP_FWD_NOT_GRANTED">
+		Il proxy SOCKS 5 &quot;[HOST]:[PORT]&quot; ha rifiutato la richiesta associata UDP.
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
+	<notification name="SOCKS_HOST_CONNECT_FAILED">
+		Collegamento non riuscito al server proxy SOCKS 5 &quot;[HOST]:[PORT]&quot;.
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
+	<notification name="SOCKS_UNKNOWN_STATUS">
+		Errore proxy sconosciuto per il server &quot;[HOST]:[PORT]&quot;.
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
+	<notification name="SOCKS_INVALID_HOST">
+		Indirizzo proxy SOCKS o porta &quot;[HOST]:[PORT]&quot; non validi.
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
+	<notification name="SOCKS_BAD_CREDS">
+		Nome utente o password SOCKS 5 non validi.
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
+	<notification name="PROXY_INVALID_HTTP_HOST">
+		Indirizzo proxy HTTP o porta &quot;[HOST]:[PORT]&quot; non validi.
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
+	<notification name="PROXY_INVALID_SOCKS_HOST">
+		Indirizzo proxy SOCKS o porta &quot;[HOST]:[PORT]&quot; non validi.
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
+	<notification name="ChangeProxySettings">
+		Le impostazioni proxy avranno effetto dopo il riavvio di [APP_NAME].
+		<usetemplate name="okbutton" yestext="OK"/>
 	</notification>
 	<notification name="AuthRequest">
 		Il sito &apos;&lt;nolink&gt;[HOST_NAME]&lt;/nolink&gt;&apos; nel reame &apos;[REALM]&apos; richiede un nome utente e una password.

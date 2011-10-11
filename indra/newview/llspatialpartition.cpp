@@ -47,6 +47,7 @@
 #include "llvoavatar.h"
 #include "llvolumemgr.h"
 #include "lltextureatlas.h"
+#include "llglslshader.h"
 
 static LLFastTimer::DeclareTimer FTM_FRUSTUM_CULL("Frustum Culling");
 static LLFastTimer::DeclareTimer FTM_CULL_REBOUND("Cull Rebound");
@@ -520,6 +521,11 @@ LLTextureAtlasSlot* LLSpatialGroup::getCurUpdatingSlot(LLViewerTexture* imagep, 
 void LLSpatialGroup::clearDrawMap()
 {
 	mDrawMap.clear();
+}
+
+BOOL LLSpatialGroup::isHUDGroup() 
+{
+	return mSpatialPartition && mSpatialPartition->isHUDPartition() ; 
 }
 
 BOOL LLSpatialGroup::isRecentlyVisible() const
@@ -2757,6 +2763,115 @@ void renderUpdateType(LLDrawable* drawablep)
 	}
 }
 
+void renderComplexityDisplay(LLDrawable* drawablep)
+{
+	LLViewerObject* vobj = drawablep->getVObj();
+	if (!vobj)
+	{
+		return;
+	}
+
+	LLVOVolume *voVol = dynamic_cast<LLVOVolume*>(vobj);
+
+	if (!voVol)
+	{
+		return;
+	}
+
+	if (!voVol->isRoot())
+	{
+		return;
+	}
+
+	LLVOVolume::texture_cost_t textures;
+	F32 cost = (F32) voVol->getRenderCost(textures);
+
+	// add any child volumes
+	LLViewerObject::const_child_list_t children = voVol->getChildren();
+	for (LLViewerObject::const_child_list_t::const_iterator iter = children.begin(); iter != children.end(); ++iter)
+	{
+		const LLViewerObject *child = *iter;
+		const LLVOVolume *child_volume = dynamic_cast<const LLVOVolume*>(child);
+		if (child_volume)
+		{
+			cost += child_volume->getRenderCost(textures);
+		}
+	}
+
+	// add texture cost
+	for (LLVOVolume::texture_cost_t::iterator iter = textures.begin(); iter != textures.end(); ++iter)
+	{
+		// add the cost of each individual texture in the linkset
+		cost += iter->second;
+	}
+
+	F32 cost_max = (F32) LLVOVolume::getRenderComplexityMax();
+
+
+
+	// allow user to set a static color scale
+	if (gSavedSettings.getS32("RenderComplexityStaticMax") > 0)
+	{
+		cost_max = gSavedSettings.getS32("RenderComplexityStaticMax");
+	}
+
+	F32 cost_ratio = cost / cost_max;
+	
+	// cap cost ratio at 1.0f in case cost_max is at a low threshold
+	cost_ratio = cost_ratio > 1.0f ? 1.0f : cost_ratio;
+	
+	LLGLEnable blend(GL_BLEND);
+
+	LLColor4 color;
+	const LLColor4 color_min = gSavedSettings.getColor4("RenderComplexityColorMin");
+	const LLColor4 color_mid = gSavedSettings.getColor4("RenderComplexityColorMid");
+	const LLColor4 color_max = gSavedSettings.getColor4("RenderComplexityColorMax");
+
+	if (cost_ratio < 0.5f)
+	{
+		color = color_min * (1 - cost_ratio * 2) + color_mid * (cost_ratio * 2);
+	}
+	else
+	{
+		color = color_mid * (1 - (cost_ratio - 0.5) * 2) + color_max * ((cost_ratio - 0.5) * 2);
+	}
+
+	LLSD color_val = color.getValue();
+
+	// don't highlight objects below the threshold
+	if (cost > gSavedSettings.getS32("RenderComplexityThreshold"))
+	{
+		glColor4f(color[0],color[1],color[2],0.5f);
+
+
+		S32 num_faces = drawablep->getNumFaces();
+		if (num_faces)
+		{
+			for (S32 i = 0; i < num_faces; ++i)
+			{
+				pushVerts(drawablep->getFace(i), LLVertexBuffer::MAP_VERTEX);
+			}
+		}
+		LLViewerObject::const_child_list_t children = voVol->getChildren();
+		for (LLViewerObject::const_child_list_t::const_iterator iter = children.begin(); iter != children.end(); ++iter)
+		{
+			const LLViewerObject *child = *iter;
+			if (child)
+			{
+				num_faces = child->getNumFaces();
+				if (num_faces)
+				{
+					for (S32 i = 0; i < num_faces; ++i)
+					{
+						pushVerts(child->mDrawable->getFace(i), LLVertexBuffer::MAP_VERTEX);
+					}
+				}
+			}
+		}
+	}
+	
+	voVol->setDebugText(llformat("%4.0f", cost));	
+}
 
 void renderBoundingBox(LLDrawable* drawable, BOOL set_color = TRUE)
 {
@@ -2785,7 +2900,7 @@ void renderBoundingBox(LLDrawable* drawable, BOOL set_color = TRUE)
 						gGL.color4f(0,1,1,1);
 						break;
 				case LLViewerObject::LL_VO_CLOUDS:
-						gGL.color4f(0.5f,0.5f,0.5f,1.0f);
+						// no longer used
 						break;
 				case LLViewerObject::LL_VO_PART_GROUP:
 				case LLViewerObject::LL_VO_HUD_PART_GROUP:
@@ -3176,6 +3291,8 @@ void renderPhysicsShape(LLDrawable* drawable, LLVOVolume* volume)
 				glColor4fv(line_color.mV);
 				LLVertexBuffer::unbind();
 
+				llassert(!LLGLSLShader::sNoFixedFunction || LLGLSLShader::sCurBoundShader != 0);
+
 				glVertexPointer(3, GL_FLOAT, 16, phys_volume->mHullPoints);
 				glDrawElements(GL_TRIANGLES, phys_volume->mNumHullIndices, GL_UNSIGNED_SHORT, phys_volume->mHullIndices);
 				
@@ -3257,7 +3374,7 @@ void renderPhysicsShape(LLDrawable* drawable, LLVOVolume* volume)
 		if (phys_volume->mHullPoints && phys_volume->mHullIndices)
 		{
 			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-			
+			llassert(!LLGLSLShader::sNoFixedFunction || LLGLSLShader::sCurBoundShader != 0);
 			LLVertexBuffer::unbind();
 			glVertexPointer(3, GL_FLOAT, 16, phys_volume->mHullPoints);
 			glColor4fv(line_color.mV);
@@ -3859,6 +3976,10 @@ public:
 			{
 				renderUpdateType(drawable);
 			}
+			if(gPipeline.hasRenderDebugMask(LLPipeline::RENDER_DEBUG_RENDER_COMPLEXITY))
+			{
+				renderComplexityDisplay(drawable);
+			}
 
 			LLVOAvatar* avatar = dynamic_cast<LLVOAvatar*>(drawable->getVObj().get());
 			
@@ -4107,7 +4228,8 @@ void LLSpatialPartition::renderDebug()
 									  LLPipeline::RENDER_DEBUG_AVATAR_VOLUME |
 									  LLPipeline::RENDER_DEBUG_AGENT_TARGET |
 									  //LLPipeline::RENDER_DEBUG_BUILD_QUEUE |
-									  LLPipeline::RENDER_DEBUG_SHADOW_FRUSTA)) 
+									  LLPipeline::RENDER_DEBUG_SHADOW_FRUSTA |
+									  LLPipeline::RENDER_DEBUG_RENDER_COMPLEXITY)) 
 	{
 		return;
 	}
@@ -4152,6 +4274,10 @@ void LLSpatialGroup::drawObjectBox(LLColor4 col)
 	drawBox(mObjectBounds[0], size);
 }
 
+bool LLSpatialPartition::isHUDPartition() 
+{ 
+	return mPartitionType == LLViewerRegion::PARTITION_HUD ;
+} 
 
 BOOL LLSpatialPartition::isVisible(const LLVector3& v)
 {

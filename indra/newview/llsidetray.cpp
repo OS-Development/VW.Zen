@@ -30,6 +30,7 @@
 
 #include "llagentcamera.h"
 #include "llappviewer.h"
+#include "llbadge.h"
 #include "llbottomtray.h"
 #include "llfloaterreg.h"
 #include "llfirstuse.h"
@@ -40,6 +41,7 @@
 #include "llfocusmgr.h"
 #include "llrootview.h"
 #include "llnavigationbar.h"
+#include "llpanelmarketplaceinbox.h"
 
 #include "llaccordionctrltab.h"
 
@@ -59,6 +61,8 @@
 
 using namespace std;
 using namespace LLNotificationsUI;
+
+class LLSideTrayButton;
 
 static LLRootViewRegistry::Register<LLSideTray>	t1("side_tray");
 static LLDefaultChildRegistry::Register<LLSideTrayTab>	t2("sidetray_tab");
@@ -113,11 +117,14 @@ public:
 		Optional<std::string>		image_selected;
 		Optional<std::string>		tab_title;
 		Optional<std::string>		description;
+		Optional<LLBadge::Params>	badge;
+		
 		Params()
 		:	image("image"),
 			image_selected("image_selected"),
 			tab_title("tab_title","no title"),
-			description("description","no description")
+			description("description","no description"),
+			badge("badge")
 		{};
 	};
 protected:
@@ -140,7 +147,6 @@ public:
 	static LLSideTrayTab*  createInstance	();
 	
 	const std::string& getDescription () const { return mDescription;}
-	const std::string& getTabTitle() const { return mTabTitle;}
 	
 	void			onOpen		(const LLSD& key);
 	
@@ -150,7 +156,10 @@ public:
 
 	BOOL			handleScrollWheel(S32 x, S32 y, S32 clicks);
 
-	LLPanel *getPanel();
+	LLPanel*		getPanel();
+
+	LLButton*		createButton(bool allowTearOff, LLUICtrl::commit_callback_t callback);
+
 private:
 	std::string mTabTitle;
 	std::string mImage;
@@ -158,7 +167,133 @@ private:
 	std::string	mDescription;
 	
 	LLView*	mMainPanel;
+
+	bool			mHasBadge;
+	LLBadge::Params	mBadgeParams;
+	LLSideTrayButton*	mSideTrayButton;
 };
+
+//////////////////////////////////////////////////////////////////////////////
+// LLSideTrayButton
+// Side Tray tab button with "tear off" handling.
+//////////////////////////////////////////////////////////////////////////////
+
+class LLSideTrayButton : public LLButton
+{
+public:
+	/*virtual*/ BOOL handleMouseDown(S32 x, S32 y, MASK mask)
+	{
+		// Route future Mouse messages here preemptively.  (Release on mouse up.)
+		// No handler needed for focus lost since this class has no state that depends on it.
+		gFocusMgr.setMouseCapture(this);
+
+		localPointToScreen(x, y, &mDragLastScreenX, &mDragLastScreenY);
+
+		// Note: don't pass on to children
+		return TRUE;
+	}
+
+	/*virtual*/ BOOL handleHover(S32 x, S32 y, MASK mask)
+	{
+		// We only handle the click if the click both started and ended within us
+		if( !hasMouseCapture() ) return FALSE;
+
+		S32 screen_x;
+		S32 screen_y;
+		localPointToScreen(x, y, &screen_x, &screen_y);
+
+		S32 delta_x = screen_x - mDragLastScreenX;
+		S32 delta_y = screen_y - mDragLastScreenY;
+
+		LLSideTray* side_tray = LLSideTray::getInstance();
+
+		// Check if the tab we are dragging is docked.
+		if (!side_tray->isTabAttached(mTabName)) return FALSE;
+
+		// Same value is hardcoded in LLDragHandle::handleHover().
+		const S32 undock_threshold = 12;
+
+		// Detach a tab if it has been pulled further than undock_threshold.
+		if (delta_x <= -undock_threshold ||	delta_x >= undock_threshold	||
+			delta_y <= -undock_threshold ||	delta_y >= undock_threshold)
+		{
+			LLSideTrayTab* tab = side_tray->getTab(mTabName);
+			if (!tab) return FALSE;
+
+			tab->setDocked(false);
+
+			LLFloater* floater_tab = LLFloaterReg::getInstance("side_bar_tab", tab->getName());
+			if (!floater_tab) return FALSE;
+
+			LLRect original_rect = floater_tab->getRect();
+			S32 header_snap_y = floater_tab->getHeaderHeight() / 2;
+			S32 snap_x = screen_x - original_rect.mLeft - original_rect.getWidth() / 2;
+			S32 snap_y = screen_y - original_rect.mTop + header_snap_y;
+
+			// Move the floater to appear "under" the mouse pointer.
+			floater_tab->setRect(original_rect.translate(snap_x, snap_y));
+
+			// Snap the mouse pointer to the center of the floater header
+			// and call 'mouse down' event handler to begin dragging.
+			floater_tab->handleMouseDown(original_rect.getWidth() / 2,
+				original_rect.getHeight() - header_snap_y,
+				mask);
+
+			return TRUE;
+		}
+
+		return FALSE;
+	}
+
+	void setBadgeDriver(LLSideTrayTabBadgeDriver* driver)
+	{
+		mBadgeDriver = driver;
+	}
+
+	void setVisible(BOOL visible)
+	{
+		setBadgeVisibility(visible);
+
+		LLButton::setVisible(visible);
+	}
+
+protected:
+	LLSideTrayButton(const LLButton::Params& p)
+		: LLButton(p)
+		, mDragLastScreenX(0)
+		, mDragLastScreenY(0)
+		, mBadgeDriver(NULL)
+	{
+		// Find out the tab name to use in handleHover().
+		size_t pos = getName().find("_button");
+		llassert(pos != std::string::npos);
+		mTabName = getName().substr(0, pos);
+	}
+
+	friend class LLUICtrlFactory;
+
+	void draw()
+	{
+		if (mBadgeDriver)
+		{
+			setBadgeLabel(mBadgeDriver->getBadgeString());
+		}
+
+		LLButton::draw();
+	}
+
+private:
+	S32		mDragLastScreenX;
+	S32		mDragLastScreenY;
+
+	std::string					mTabName;
+	LLSideTrayTabBadgeDriver*	mBadgeDriver;
+};
+
+
+////////////////////////////////////////////////////
+// LLSideTrayTab implementation
+////////////////////////////////////////////////////
 
 LLSideTrayTab::LLSideTrayTab(const Params& p)
 :	LLPanel(),
@@ -166,8 +301,11 @@ LLSideTrayTab::LLSideTrayTab(const Params& p)
 	mImage(p.image),
 	mImageSelected(p.image_selected),
 	mDescription(p.description),
-	mMainPanel(NULL)
+	mMainPanel(NULL),
+	mBadgeParams(p.badge),
+	mSideTrayButton(NULL)
 {
+	mHasBadge = p.badge.isProvided();
 }
 
 LLSideTrayTab::~LLSideTrayTab()
@@ -182,8 +320,6 @@ bool LLSideTrayTab::addChild(LLView* view, S32 tab_group)
 	//return res;
 }
 
-
-
 //virtual 
 BOOL LLSideTrayTab::postBuild()
 {
@@ -196,7 +332,7 @@ BOOL LLSideTrayTab::postBuild()
 	getChild<LLButton>("undock")->setCommitCallback(boost::bind(&LLSideTrayTab::setDocked, this, false));
 	getChild<LLButton>("dock")->setCommitCallback(boost::bind(&LLSideTrayTab::setDocked, this, true));
 
-	return true;
+	return LLPanel::postBuild();
 }
 
 static const S32 splitter_margin = 1;
@@ -260,6 +396,11 @@ void LLSideTrayTab::toggleTabDocked(bool toggle_floater /* = true */)
 	if (!floater_tab) return;
 
 	bool docking = !isDocked();
+
+	if (mSideTrayButton)
+	{
+		mSideTrayButton->setVisible(docking);
+	}
 
 	// Hide the "Tear Off" button when a tab gets undocked
 	// and show "Dock" button instead.
@@ -452,92 +593,6 @@ template <>
 LLPanel* tab_cast<LLPanel*>(LLSideTrayTab* tab) { return tab; }
 
 //////////////////////////////////////////////////////////////////////////////
-// LLSideTrayButton
-// Side Tray tab button with "tear off" handling.
-//////////////////////////////////////////////////////////////////////////////
-
-class LLSideTrayButton : public LLButton
-{
-public:
-	/*virtual*/ BOOL handleMouseDown(S32 x, S32 y, MASK mask)
-	{
-		// Route future Mouse messages here preemptively.  (Release on mouse up.)
-		// No handler needed for focus lost since this class has no state that depends on it.
-		gFocusMgr.setMouseCapture(this);
-
-		localPointToScreen(x, y, &mDragLastScreenX, &mDragLastScreenY);
-
-		// Note: don't pass on to children
-		return TRUE;
-	}
-
-	/*virtual*/ BOOL handleHover(S32 x, S32 y, MASK mask)
-	{
-		// We only handle the click if the click both started and ended within us
-		if( !hasMouseCapture() ) return FALSE;
-
-		S32 screen_x;
-		S32 screen_y;
-		localPointToScreen(x, y, &screen_x, &screen_y);
-
-		S32 delta_x = screen_x - mDragLastScreenX;
-		S32 delta_y = screen_y - mDragLastScreenY;
-
-		LLSideTray* side_tray = LLSideTray::getInstance();
-
-		// Check if the tab we are dragging is docked.
-		if (!side_tray->isTabAttached(getName())) return FALSE;
-
-		// Same value is hardcoded in LLDragHandle::handleHover().
-		const S32 undock_threshold = 12;
-
-		// Detach a tab if it has been pulled further than undock_threshold.
-		if (delta_x <= -undock_threshold ||	delta_x >= undock_threshold	||
-			delta_y <= -undock_threshold ||	delta_y >= undock_threshold)
-		{
-			LLSideTrayTab* tab = side_tray->getTab(getName());
-			if (!tab) return FALSE;
-
-			tab->setDocked(false);
-
-			LLFloater* floater_tab = LLFloaterReg::getInstance("side_bar_tab", tab->getName());
-			if (!floater_tab) return FALSE;
-
-			LLRect original_rect = floater_tab->getRect();
-			S32 header_snap_y = floater_tab->getHeaderHeight() / 2;
-			S32 snap_x = screen_x - original_rect.mLeft - original_rect.getWidth() / 2;
-			S32 snap_y = screen_y - original_rect.mTop + header_snap_y;
-
-			// Move the floater to appear "under" the mouse pointer.
-			floater_tab->setRect(original_rect.translate(snap_x, snap_y));
-
-			// Snap the mouse pointer to the center of the floater header
-			// and call 'mouse down' event handler to begin dragging.
-			floater_tab->handleMouseDown(original_rect.getWidth() / 2,
-										 original_rect.getHeight() - header_snap_y,
-										 mask);
-
-			return TRUE;
-		}
-
-		return FALSE;
-	}
-
-protected:
-	LLSideTrayButton(const LLButton::Params& p)
-	: LLButton(p)
-	, mDragLastScreenX(0)
-	, mDragLastScreenY(0)
-	{}
-
-	friend class LLUICtrlFactory;
-
-private:
-	S32		mDragLastScreenX;
-	S32		mDragLastScreenY;
-};
-
-//////////////////////////////////////////////////////////////////////////////
 // LLSideTray
 //////////////////////////////////////////////////////////////////////////////
 
@@ -615,10 +670,30 @@ BOOL LLSideTray::postBuild()
 	return true;
 }
 
+void LLSideTray::setTabButtonBadgeDriver(std::string tabName, LLSideTrayTabBadgeDriver* driver)
+{
+	mTabButtonBadgeDrivers[tabName] = driver;
+}
+
 void LLSideTray::handleLoginComplete()
 {
 	//reset tab to "home" tab if it was changesd during login process
 	selectTabByName("sidebar_home");
+
+	for (badge_map_t::iterator it = mTabButtonBadgeDrivers.begin(); it != mTabButtonBadgeDrivers.end(); ++it)
+	{
+		LLButton* button = mTabButtons[it->first];
+		LLSideTrayButton* side_button = dynamic_cast<LLSideTrayButton*>(button);
+
+		if (side_button)
+		{
+			side_button->setBadgeDriver(it->second);
+		}
+		else
+		{
+			llwarns << "Unable to find button " << it->first << " to set the badge driver. " << llendl;
+		}
+	}
 
 	detachTabs();
 }
@@ -731,7 +806,7 @@ bool LLSideTray::selectTabByName(const std::string& name, bool keep_prev_visible
 	{
 		// Keep previously active tab visible if requested.
 		if (keep_prev_visible) tab_to_keep_visible = mActiveTab;
-	toggleTabButton(mActiveTab);
+		toggleTabButton(mActiveTab);
 	}
 
 	//select new tab
@@ -739,9 +814,9 @@ bool LLSideTray::selectTabByName(const std::string& name, bool keep_prev_visible
 
 	if (mActiveTab)
 	{
-	toggleTabButton(mActiveTab);
-	LLSD key;//empty
-	mActiveTab->onOpen(key);
+		toggleTabButton(mActiveTab);
+		LLSD key;//empty
+		mActiveTab->onOpen(key);
 	}
 
 	//arrange();
@@ -764,51 +839,6 @@ bool LLSideTray::selectTabByName(const std::string& name, bool keep_prev_visible
 		sidebar_tab->setVisible(vis);
 	}
 	return true;
-}
-
-LLButton* LLSideTray::createButton	(const std::string& name,const std::string& image,const std::string& tooltip,
-									 LLUICtrl::commit_callback_t callback)
-{
-	static LLSideTray::Params sidetray_params(LLUICtrlFactory::getDefaultParams<LLSideTray>());	
-	
-	LLButton::Params bparams;
-
-	LLRect rect;
-	rect.setOriginAndSize(0, 0, sidetray_params.default_button_width, sidetray_params.default_button_height); 
-
-	bparams.name(name);
-	bparams.follows.flags (FOLLOWS_LEFT | FOLLOWS_TOP);
-	bparams.rect (rect);
-	bparams.tab_stop(false);
-	bparams.image_unselected(sidetray_params.tab_btn_image_normal);
-	bparams.image_selected(sidetray_params.tab_btn_image_selected);
-	bparams.image_disabled(sidetray_params.tab_btn_image_normal);
-	bparams.image_disabled_selected(sidetray_params.tab_btn_image_selected);
-
-	LLButton* button;
-	if (name == "sidebar_openclose")
-	{
-		// "Open/Close" button shouldn't allow "tear off"
-		// hence it is created as LLButton instance.
-		button = LLUICtrlFactory::create<LLButton>(bparams);
-	}
-	else
-	{
-		button = LLUICtrlFactory::create<LLSideTrayButton>(bparams);
-	}
-
-	button->setClickedCallback(callback);
-
-	button->setToolTip(tooltip);
-	
-	if(image.length())
-	{
-		button->setImageOverlay(image);
-	}
-
-	mButtonsPanel->addChildInBack(button);
-
-	return button;
 }
 
 bool LLSideTray::addChild(LLView* view, S32 tab_group)
@@ -938,7 +968,58 @@ bool LLSideTray::addTab(LLSideTrayTab* tab)
 	return true;
 }
 
-void	LLSideTray::createButtons	()
+LLButton* LLSideTrayTab::createButton(bool allowTearOff, LLUICtrl::commit_callback_t callback)
+{
+	static LLSideTray::Params sidetray_params(LLUICtrlFactory::getDefaultParams<LLSideTray>());	
+
+	LLRect rect;
+	rect.setOriginAndSize(0, 0, sidetray_params.default_button_width, sidetray_params.default_button_height); 
+
+	LLButton::Params bparams;
+
+	// Append "_button" to the side tray tab name
+	std::string button_name = getName() + "_button";
+	bparams.name(button_name);
+	bparams.follows.flags (FOLLOWS_LEFT | FOLLOWS_TOP);
+	bparams.rect (rect);
+	bparams.tab_stop(false);
+	bparams.image_unselected(sidetray_params.tab_btn_image_normal);
+	bparams.image_selected(sidetray_params.tab_btn_image_selected);
+	bparams.image_disabled(sidetray_params.tab_btn_image_normal);
+	bparams.image_disabled_selected(sidetray_params.tab_btn_image_selected);
+
+	if (mHasBadge)
+	{
+		bparams.badge = mBadgeParams;
+	}
+
+	LLButton* button;
+	if (allowTearOff)
+	{
+		mSideTrayButton = LLUICtrlFactory::create<LLSideTrayButton>(bparams);
+
+		button = mSideTrayButton;
+	}
+	else
+	{
+		// "Open/Close" button shouldn't allow "tear off"
+		// hence it is created as LLButton instance.
+		button = LLUICtrlFactory::create<LLButton>(bparams);
+	}
+
+	button->setClickedCallback(callback);
+
+	button->setToolTip(mTabTitle);
+
+	if(mImage.length())
+	{
+		button->setImageOverlay(mImage);
+	}
+
+	return button;
+}
+
+void LLSideTray::createButtons()
 {
 	//create buttons for tabs
 	child_vector_const_iter_t child_it = mTabs.begin();
@@ -951,17 +1032,22 @@ void	LLSideTray::createButtons	()
 		// The "OpenClose" button will open/close the whole panel
 		if (name == "sidebar_openclose")
 		{
-			mCollapseButton = createButton(name,sidebar_tab->mImage,sidebar_tab->getTabTitle(),
-				boost::bind(&LLSideTray::onToggleCollapse, this));
+			mCollapseButton = sidebar_tab->createButton(false, boost::bind(&LLSideTray::onToggleCollapse, this));
+
+			mButtonsPanel->addChildInBack(mCollapseButton);
+
 			LLHints::registerHintTarget("side_panel_btn", mCollapseButton->getHandle());
 		}
 		else
 		{
-			LLButton* button = createButton(name,sidebar_tab->mImage,sidebar_tab->getTabTitle(),
-				boost::bind(&LLSideTray::onTabButtonClick, this, name));
+			LLButton* button = sidebar_tab->createButton(true, boost::bind(&LLSideTray::onTabButtonClick, this, name));
+
+			mButtonsPanel->addChildInBack(button);
+
 			mTabButtons[name] = button;
 		}
 	}
+
 	LLHints::registerHintTarget("inventory_btn", mTabButtons["sidebar_inventory"]->getHandle());
 }
 
@@ -1385,7 +1471,7 @@ void	LLSideTray::updateSidetrayVisibility()
 			parent->setVisible(new_visibility);
 
 			// Signal change of visible width.
-			llinfos << "Visible: " << new_visibility << llendl;
+			//llinfos << "Visible: " << new_visibility << llendl;
 			mVisibleWidthChangeSignal(this, new_visibility);
 		}
 	}

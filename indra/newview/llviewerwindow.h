@@ -62,6 +62,7 @@ class LLImageFormatted;
 class LLHUDIcon;
 class LLWindow;
 class LLRootView;
+class LLWindowListener;
 class LLViewerWindowListener;
 class LLPopupView;
 
@@ -271,6 +272,8 @@ public:
 	void			setProgressMessage(const std::string& msg);
 	void			setProgressCancelButtonVisible( BOOL b, const std::string& label = LLStringUtil::null );
 	LLProgressView *getProgressView() const;
+	void			revealIntroPanel();
+	void			setStartupComplete();
 
 	void			updateObjectUnderCursor();
 
@@ -454,7 +457,8 @@ protected:
 	bool			mStatesDirty;
 	U32			mCurrResolutionIndex;
 
-    boost::scoped_ptr<LLViewerWindowListener> mViewerWindowListener;
+	boost::scoped_ptr<LLWindowListener> mWindowListener;
+	boost::scoped_ptr<LLViewerWindowListener> mViewerWindowListener;
 
 protected:
 	static std::string sSnapshotBaseName;
