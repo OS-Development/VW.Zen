@@ -485,6 +485,12 @@ void LLViewerParcelMedia::handleMediaEvent(LLPluginClassMedia* self, EMediaEvent
 {
 	switch(event)
 	{
+		case MEDIA_EVENT_DEBUG_MESSAGE:
+		{
+			// LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_DEBUG_MESSAGE " << LL_ENDL;
+		};
+		break;
+
 		case MEDIA_EVENT_CONTENT_UPDATED:
 		{
 			// LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_CONTENT_UPDATED " << LL_ENDL;
@@ -536,6 +542,12 @@ void LLViewerParcelMedia::handleMediaEvent(LLPluginClassMedia* self, EMediaEvent
 		case MEDIA_EVENT_LOCATION_CHANGED:
 		{
 			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_LOCATION_CHANGED, new uri is: " << self->getLocation() << LL_ENDL;
+		};
+		break;
+
+		case MEDIA_EVENT_NAVIGATE_ERROR_PAGE:
+		{
+			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_NAVIGATE_ERROR_PAGE" << LL_ENDL;
 		};
 		break;
 

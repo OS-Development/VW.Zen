@@ -2,8 +2,28 @@
  * @file fullbrightV.glsl
  *
  * $LicenseInfo:firstyear=2007&license=viewerlgpl$
+ * Second Life Viewer Source Code
+ * Copyright (C) 2007, Linden Research, Inc.
+ * 
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
+ * 
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
+ 
+
 
 void calcAtmospherics(vec3 inPositionEye);
 
@@ -12,30 +32,23 @@ vec3 atmosAffectDirectionalLight(float lightIntensity);
 vec3 scaleDownLight(vec3 light);
 vec3 scaleUpLight(vec3 light);
 
-varying vec3 vary_ambient;
-varying vec3 vary_directional;
-varying vec3 vary_normal;
-varying vec3 vary_fragcoord;
-uniform float near_clip;
-varying vec4 vary_position;
+varying float vary_texture_index;
 
 void main()
 {
 	//transform vertex
-	gl_Position = ftransform(); 
+	vec4 vert = vec4(gl_Vertex.xyz, 1.0);
+	vary_texture_index = gl_Vertex.w;
+
+	gl_Position = gl_ModelViewProjectionMatrix*vert; 
 	
 	gl_TexCoord[0] = gl_TextureMatrix[0] * gl_MultiTexCoord0;
 	
-	vec4 pos = (gl_ModelViewMatrix * gl_Vertex);
-	vary_position = pos;
-		
+	vec4 pos = (gl_ModelViewMatrix * vert);
+				
 	calcAtmospherics(pos.xyz);
 	
 	gl_FrontColor = gl_Color;
 
 	gl_FogFragCoord = pos.z;
-	
-	pos = gl_ModelViewProjectionMatrix * gl_Vertex;
-	vary_fragcoord.xyz = pos.xyz + vec3(0,0,near_clip);
-	
 }

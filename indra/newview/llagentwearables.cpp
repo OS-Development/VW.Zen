@@ -33,7 +33,6 @@
 #include "llagentwearablesfetch.h"
 #include "llappearancemgr.h"
 #include "llcallbacklist.h"
-#include "llfolderview.h"
 #include "llgesturemgr.h"
 #include "llinventorybridge.h"
 #include "llinventoryfunctions.h"
@@ -45,6 +44,7 @@
 #include "llsidepanelappearance.h"
 #include "llsidetray.h"
 #include "lltexlayer.h"
+#include "lltooldraganddrop.h"
 #include "llviewerregion.h"
 #include "llvoavatarself.h"
 #include "llwearable.h"
@@ -821,7 +821,7 @@ void LLAgentWearables::popWearable(const LLWearableType::EType type, U32 index)
 	}
 }
 
-U32	LLAgentWearables::getWearableIndex(LLWearable *wearable)
+U32	LLAgentWearables::getWearableIndex(const LLWearable *wearable) const
 {
 	if (wearable == NULL)
 	{
@@ -1168,14 +1168,11 @@ private:
 	std::vector<LLWearable*> mWearablesAwaitingItems;
 };
 
-void LLAgentWearables::createStandardWearables(BOOL female)
+void LLAgentWearables::createStandardWearables()
 {
-	llwarns << "Creating Standard " << (female ? "female" : "male")
-			<< " Wearables" << llendl;
+	llwarns << "Creating standard wearables" << llendl;
 
 	if (!isAgentAvatarValid()) return;
-
-	gAgentAvatarp->setSex(female ? SEX_FEMALE : SEX_MALE);
 
 	const BOOL create[LLWearableType::WT_COUNT] = 
 		{
@@ -1692,37 +1689,6 @@ void LLAgentWearables::userRemoveWearablesOfType(const LLWearableType::EType &ty
 	}
 }
 
-// static
-void LLAgentWearables::userRemoveAllClothes()
-{
-	// We have to do this up front to avoid having to deal with the case of multiple wearables being dirty.
-	if (gAgentCamera.cameraCustomizeAvatar())
-	{
-		// switching to outfit editor should automagically save any currently edited wearable
-		LLSideTray::getInstance()->showPanel("sidepanel_appearance", LLSD().with("type", "edit_outfit"));
-	}
-	userRemoveAllClothesStep2(TRUE);
-}
-
-// static
-void LLAgentWearables::userRemoveAllClothesStep2(BOOL proceed)
-{
-	if (proceed)
-	{
-		gAgentWearables.removeWearable(LLWearableType::WT_SHIRT,true,0);
-		gAgentWearables.removeWearable(LLWearableType::WT_PANTS,true,0);
-		gAgentWearables.removeWearable(LLWearableType::WT_SHOES,true,0);
-		gAgentWearables.removeWearable(LLWearableType::WT_SOCKS,true,0);
-		gAgentWearables.removeWearable(LLWearableType::WT_JACKET,true,0);
-		gAgentWearables.removeWearable(LLWearableType::WT_GLOVES,true,0);
-		gAgentWearables.removeWearable(LLWearableType::WT_UNDERSHIRT,true,0);
-		gAgentWearables.removeWearable(LLWearableType::WT_UNDERPANTS,true,0);
-		gAgentWearables.removeWearable(LLWearableType::WT_SKIRT,true,0);
-		gAgentWearables.removeWearable(LLWearableType::WT_ALPHA,true,0);
-		gAgentWearables.removeWearable(LLWearableType::WT_TATTOO,true,0);
-	}
-}
-
 // Combines userRemoveAllAttachments() and userAttachMultipleAttachments() logic to
 // get attachments into desired state with minimal number of adds/removes.
 void LLAgentWearables::userUpdateAttachments(LLInventoryModel::item_array_t& obj_item_array)
@@ -2045,8 +2011,9 @@ void LLAgentWearables::editWearable(const LLUUID& item_id)
 		return;
 	}
 
+	const BOOL disable_camera_switch = LLWearableType::getDisableCameraSwitch(wearable->getType());
 	LLPanel* panel = LLSideTray::getInstance()->getPanel("sidepanel_appearance");
-	LLSidepanelAppearance::editWearable(wearable, panel);
+	LLSidepanelAppearance::editWearable(wearable, panel, disable_camera_switch);
 }
 
 // Request editing the item after it gets worn.

@@ -71,10 +71,12 @@ LLVOCacheEntry::LLVOCacheEntry()
 }
 
 LLVOCacheEntry::LLVOCacheEntry(LLAPRFile* apr_file)
+	: mBuffer(NULL)
 {
 	S32 size = -1;
 	BOOL success;
 
+	mDP.assignBuffer(mBuffer, 0);
 	success = check_read(apr_file, &mLocalID, sizeof(U32));
 	if(success)
 	{
@@ -135,7 +137,7 @@ LLVOCacheEntry::LLVOCacheEntry(LLAPRFile* apr_file)
 
 LLVOCacheEntry::~LLVOCacheEntry()
 {
-	delete [] mBuffer;
+	mDP.freeBuffer();
 }
 
 
@@ -281,8 +283,6 @@ LLVOCache::~LLVOCache()
 
 void LLVOCache::setDirNames(ELLPath location)
 {
-	std::string delem = gDirUtilp->getDirDelimiter();
-
 	mHeaderFileName = gDirUtilp->getExpandedFilename(location, object_cache_dirname, header_filename);
 	mObjectCacheDirName = gDirUtilp->getExpandedFilename(location, object_cache_dirname);
 }
@@ -335,8 +335,7 @@ void LLVOCache::removeCache(ELLPath location)
 
 	llinfos << "about to remove the object cache due to settings." << llendl ;
 
-	std::string delem = gDirUtilp->getDirDelimiter();
-	std::string mask = delem + "*";
+	std::string mask = "*";
 	std::string cache_dir = gDirUtilp->getExpandedFilename(location, object_cache_dirname);
 	llinfos << "Removing cache at " << cache_dir << llendl;
 	gDirUtilp->deleteFilesInDir(cache_dir, mask); //delete all files
@@ -357,8 +356,7 @@ void LLVOCache::removeCache()
 
 	llinfos << "about to remove the object cache due to some error." << llendl ;
 
-	std::string delem = gDirUtilp->getDirDelimiter();
-	std::string mask = delem + "*";
+	std::string mask = "*";
 	llinfos << "Removing cache at " << mObjectCacheDirName << llendl;
 	gDirUtilp->deleteFilesInDir(mObjectCacheDirName, mask); 
 
@@ -623,16 +621,20 @@ void LLVOCache::readFromCache(U64 handle, const LLUUID& id, LLVOCacheEntry::voca
 				S32 num_entries;
 				success = check_read(&apr_file, &num_entries, sizeof(S32)) ;
 	
-				for (S32 i = 0; success && i < num_entries; i++)
+				if(success)
 				{
-					LLVOCacheEntry* entry = new LLVOCacheEntry(&apr_file);
-					if (!entry->getLocalID())
+					for (S32 i = 0; i < num_entries; i++)
 					{
-						llwarns << "Aborting cache file load for " << filename << ", cache file corruption!" << llendl;
-						delete entry ;
-						success = false ;
+						LLVOCacheEntry* entry = new LLVOCacheEntry(&apr_file);
+						if (!entry->getLocalID())
+						{
+							llwarns << "Aborting cache file load for " << filename << ", cache file corruption!" << llendl;
+							delete entry ;
+							success = false ;
+							break ;
+						}
+						cache_entry_map[entry->getLocalID()] = entry;
 					}
-					cache_entry_map[entry->getLocalID()] = entry;
 				}
 			}
 		}		
@@ -749,4 +751,3 @@ void LLVOCache::writeToCache(U64 handle, const LLUUID& id, const LLVOCacheEntry:
 
 	return ;
 }
-

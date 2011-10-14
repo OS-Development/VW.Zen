@@ -73,7 +73,7 @@ Detalles del error: la notificación de nombre &apos;[_NAME]&apos; no se ha enco
 	</notification>
 	<notification name="LoginFailedNoNetwork">
 		No se puede conectar con [SECOND_LIFE_GRID].
-&apos;[DIAGNOSTIC]&apos;
+    &apos;[DIAGNOSTIC]&apos;
 Asegúrate de que tu conexión a Internet está funcionando adecuadamente.
 		<usetemplate name="okbutton" yestext="OK"/>
 	</notification>
@@ -84,6 +84,19 @@ Asegúrate de que tu conexión a Internet está funcionando adecuadamente.
 	<notification name="WearableSave">
 		¿Guardar los cambios en las ropas o partes del cuerpo actuales?
 		<usetemplate canceltext="Cancelar" name="yesnocancelbuttons" notext="No guardarlos" yestext="Guardarlos"/>
+	</notification>
+	<notification name="ConfirmNoCopyToOutbox">
+		No tienes permiso para copiar este objeto en el Buzón de salida de comerciante. ¿Estás seguro de que quieres mover el objeto siguiente?
+        [ITEM_NAME]
+		<usetemplate name="okcancelbuttons" notext="No" yestext="Sí"/>
+	</notification>
+	<notification name="OutboxUploadComplete">
+		Envío al mercado finalizado.
+		<usetemplate name="okbutton" yestext="¡Hurra!"/>
+	</notification>
+	<notification name="OutboxUploadHadErrors">
+		El envío al mercado ha tenido errores. Corrige los problemas de tu buzón de salida y repite la operación. Muchas gracias.
+		<usetemplate name="okbutton" yestext="Reintentar"/>
 	</notification>
 	<notification name="CompileQueueSaveText">
 		Hubo un problema al subir el texto de un script por la siguiente razón: [REASON]. Por favor, inténtalo más tarde.
@@ -329,13 +342,6 @@ Necesitas una cuenta para acceder a [SECOND_LIFE]. ¿Te gustaría crear una ahor
 	</notification>
 	<notification name="InvalidCredentialFormat">
 		Escribe el nombre de usuario o el nombre y el apellido de tu avatar en el campo Nombre de usuario e inicia sesión otra vez.
-	</notification>
-	<notification name="AddClassified">
-		Los anuncios clasificados aparecen durante una semana en la sección &apos;Clasificados&apos; de la búsqueda y en [http://secondlife.com/community/classifieds secondlife.com].
-Rellena tu anuncio y pulsa &apos;Publicar...&apos; para añadirlo al directorio.
-Cuando pulses Publicar, se te preguntará por un precio a pagar.
-El pagar más hará que tu anuncio aparezca más arriba en la lista, y que también aparezca más arriba en la lista cuando la gente busque por palabras clave.
-		<usetemplate ignoretext="Cómo crear un anuncio clasificado nuevo." name="okcancelignore" notext="Cancelar" yestext="OK"/>
 	</notification>
 	<notification name="DeleteClassified">
 		¿Borrar el clasificado &apos;[NAME]&apos;?
@@ -1567,6 +1573,11 @@ Vuelve a intentarlo más tarde.
 			<button name="Cancel" text="Cancelar"/>
 		</form>
 	</notification>
+	<notification name="TooManyTeleportOffers">
+		Has intentado hacer [OFFERS] ofertas de teleporte,
+excediendo el límite de [LIMIT].
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
 	<notification name="OfferTeleportFromGod">
 		¿Obligar a este Residente a ir a tu localización?
 		<form name="form">
@@ -1768,11 +1779,11 @@ Puedes pulsar &apos;Cambiar las Preferencias&apos; para incrementar las preferen
 		<usetemplate name="okcancelbuttons" notext="Cancelar" yestext="OK"/>
 	</notification>
 	<notification name="SetClassifiedMature">
-		¿Este anuncio tiene contenido &apos;Moderado&apos;?
+		¿Este anuncio tiene contenido moderado?
 		<usetemplate canceltext="Cancelar" name="yesnocancelbuttons" notext="No" yestext="Sí"/>
 	</notification>
 	<notification name="SetGroupMature">
-		¿Este grupo tiene contenido &apos;Moderado&apos;?
+		¿Este grupo tiene contenido moderado?
 		<usetemplate canceltext="Cancelar" name="yesnocancelbuttons" notext="No" yestext="Sí"/>
 	</notification>
 	<notification label="Confirmar el reinicio" name="ConfirmRestart">
@@ -1987,6 +1998,10 @@ Linden Lab
 		¿Estás seguro de que quieres borrar tu historial web, de viajes y de búsquedas?
 		<usetemplate name="okcancelbuttons" notext="Cancelar" yestext="OK"/>
 	</notification>
+	<notification name="ConfirmClearCache">
+		¿Estás seguro de que quieres vaciar la caché del visor?
+		<usetemplate name="okcancelbuttons" notext="Cancelar" yestext="OK"/>
+	</notification>
 	<notification name="ConfirmClearCookies">
 		¿Estás seguro de que quieres limpiar tus cookies?
 		<usetemplate name="okcancelbuttons" notext="Cancelar" yestext="Sí"/>
@@ -2012,48 +2027,30 @@ Publícala en una página web para que otros puedan acceder fácilmente a esta p
 		¿Quieres sobrescribir la preselección guardada?
 		<usetemplate name="okcancelbuttons" notext="No" yestext="Sí"/>
 	</notification>
-	<notification name="WLDeletePresetAlert">
-		¿Quieres borrar [SKY]?
-		<usetemplate name="okcancelbuttons" notext="No" yestext="Sí"/>
-	</notification>
 	<notification name="WLNoEditDefault">
 		No puedes editar ni borrar una preselección por defecto.
 	</notification>
 	<notification name="WLMissingSky">
 		Este archivo del ciclo de un día se refiere a un archivo perdido de cielo: [SKY].
 	</notification>
+	<notification name="WLRegionApplyFail">
+		No se pudo aplicar la configuración a la región. El problema podría solucionarse saliendo de la región y regresando a ella. La razón especificada fue: [FAIL_REASON]
+	</notification>
+	<notification name="EnvCannotDeleteLastDayCycleKey">
+		No se puede eliminar la última clave de este ciclo del día, ya que no puedes vaciar la caché del día. En lugar de intentar eliminar la última clave restante y después intentar crear una nueva, debes modificarla.
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
+	<notification name="DayCycleTooManyKeyframes">
+		No se pueden añadir más fotogramas clave a este ciclo del día. El número máximo de fotogramas clave para ciclos del día de alcance [SCOPE] es [MAX].
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
+	<notification name="EnvUpdateRate">
+		La configuración de entorno de la región sólo puede actualizarse cada [WAIT] segundos. Espera por lo menos este tiempo y vuelve intentarlo.
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
 	<notification name="PPSaveEffectAlert">
 		Ya existe un efecto de procesamiento. ¿Quieres sobreescribirlo?
 		<usetemplate name="okcancelbuttons" notext="No" yestext="Sí"/>
-	</notification>
-	<notification name="NewSkyPreset">
-		Dame un nombre para el cielo nuevo.
-		<form name="form">
-			<input name="message">
-				Preselección nueva
-			</input>
-			<button name="OK" text="OK"/>
-			<button name="Cancel" text="Cancelar"/>
-		</form>
-	</notification>
-	<notification name="ExistsSkyPresetAlert">
-		¡Esa preselección ya existe!
-	</notification>
-	<notification name="NewWaterPreset">
-		Dame un nombre para la nueva preselección de agua.
-		<form name="form">
-			<input name="message">
-				Preselección nueva
-			</input>
-			<button name="OK" text="OK"/>
-			<button name="Cancel" text="Cancelar"/>
-		</form>
-	</notification>
-	<notification name="ExistsWaterPresetAlert">
-		¡Esa preselección ya existe!
-	</notification>
-	<notification name="WaterNoEditDefault">
-		No puedes editar o borrar una preselección por defecto.
 	</notification>
 	<notification name="ChatterBoxSessionStartError">
 		No se puede empezar una nueva sesión de chat con [RECIPIENT].
@@ -2082,13 +2079,14 @@ Publícala en una página web para que otros puedan acceder fácilmente a esta p
 		<usetemplate ignoretext="Ponerme la ropa que estoy creando mientras modifico mi apariencia" name="okcancelignore" notext="No" yestext="Sí"/>
 	</notification>
 	<notification name="NotAgeVerified">
-		Debes haber verificado tu edad para visitar este sitio.  ¿Quieres ir al sitio web de [SECOND_LIFE] y verificarla?
+		Para acceder al contenido Adulto y los lugares de Second Life con dicho carácter, debes tener por lo menos 18 años. Visita la página de verificación de edad para confirmar que tienes más de 18 años. 
+Al hacerlo se iniciará el navegador web.
 
 [_URL]
 		<url name="url" option="0">
-			https://secondlife.com/account/verification.php?lang=es
+			https://secondlife.com/my/account/verification.php
 		</url>
-		<usetemplate ignoretext="No he verificado mi edad" name="okcancelignore" notext="No" yestext="Sí"/>
+		<usetemplate ignoretext="No he verificado mi edad" name="okcancelignore" notext="Cancelar" yestext="Ir a Verificación de la edad"/>
 	</notification>
 	<notification name="Cannot enter parcel: no payment info on file">
 		Para visitar este sitio debes haber aportado información de pago en tu cuenta.  ¿Quieres ir al sitio web de [SECOND_LIFE] y configurar esto?
@@ -2173,6 +2171,12 @@ Esto puede influir en tu contraseña.
 	<notification name="RezItemNoPermissions">
 		No tienes permisos suficientes para renderizar el objeto.
 	</notification>
+	<notification name="IMAcrossParentEstates">
+		No se pueden enviar mensajes instantáneos entre propiedades principales.
+	</notification>
+	<notification name="TransferInventoryAcrossParentEstates">
+		No se puede transferir el inventario entre propiedades principales.
+	</notification>
 	<notification name="UnableToLoadNotecard">
 		En este momento no se puede cargar la nota.
 	</notification>
@@ -2251,7 +2255,7 @@ Inténtalo seleccionando un trozo más pequeño de terreno.
 		Se han excluido algunos términos de tu búsqueda debido a restricciones en el contenido, según se especifica en las Normas de la Comunidad.
 	</notification>
 	<notification name="NoContentToSearch">
-		Por favor, elige al menos un tipo de contenido a buscar (&apos;PG&apos;, &apos;Mature&apos;, o &apos;Adult&apos;).
+		Por favor, elige al menos un tipo de contenido a buscar (General, Moderado o Adulto;).
 	</notification>
 	<notification name="SystemMessage">
 		[MESSAGE]
@@ -2338,6 +2342,9 @@ Aquí no puedes volar.
 	<notification name="NoBuild">
 		Este terreno tiene desactivado el poder construir. Aquí no puedes ni construir ni crear objetos.
 	</notification>
+	<notification name="SeeAvatars">
+		Esta parcela oculta los avatares y el chat de texto de otras parcelas. No podrás ver a los residentes que estén fuera la parcela ni ellos podrán verte a ti. El chat de texto regular del canal 0 también está bloqueado.
+	</notification>
 	<notification name="ScriptsStopped">
 		Un administrador ha detenido temporalmente los scripts en esta región.
 	</notification>
@@ -2365,6 +2372,9 @@ Por favor, dirígete a la Base de Conocimientos para más detalles sobre el acce
 	</notification>
 	<notification name="ImproperPaymentStatus">
 		No tienes el estado de pago adecuado para entrar a esta región.
+	</notification>
+	<notification name="MustGetAgeRgion">
+		Debes tener verificada la edad para entrar a esta región
 	</notification>
 	<notification name="MustGetAgeParcel">
 		Debes haber verificado tu edad para entrar a esta parcela.
@@ -2429,11 +2439,19 @@ Por favor, vuelve a intentarlo en unos momentos.
 	</notification>
 	<notification name="ObjectGiveItem">
 		Un objeto de nombre &lt;nolink&gt;[OBJECTFROMNAME]&lt;/nolink&gt;, propiedad de [NAME_SLURL], te ha dado este [OBJECTTYPE]:
-[ITEM_SLURL]
+&lt;nolink&gt;[ITEM_SLURL]&lt;/nolink&gt;
 		<form name="form">
 			<button name="Keep" text="Guardar"/>
 			<button name="Discard" text="Descartar"/>
-			<button name="Mute" text="Ignorar"/>
+			<button name="Mute" text="Ignorar al propietario"/>
+		</form>
+	</notification>
+	<notification name="OwnObjectGiveItem">
+		Tu objeto de nombre &lt;nolink&gt;[OBJECTFROMNAME]&lt;/nolink&gt; te ha dado este [OBJECTTYPE]:
+&lt;nolink&gt;[ITEM_SLURL]&lt;/nolink&gt;
+		<form name="form">
+			<button name="Keep" text="Guardar"/>
+			<button name="Discard" text="Descartar"/>
 		</form>
 	</notification>
 	<notification name="UserGiveItem">
@@ -2577,6 +2595,7 @@ Si no confias en este objeto y en su creador, deberías rehusar esta petición.
 		&apos;&lt;nolink&gt;[TITLE]&lt;/nolink&gt;&apos; de [NAME]
 [MESSAGE]
 		<form name="form">
+			<button name="Mute" text="Ignorar"/>
 			<button name="Ignore" text="Ignorar"/>
 		</form>
 	</notification>
@@ -2584,6 +2603,7 @@ Si no confias en este objeto y en su creador, deberías rehusar esta petición.
 		&apos;&lt;nolink&gt;[TITLE]&lt;/nolink&gt;&apos; de [GROUPNAME]
 [MESSAGE]
 		<form name="form">
+			<button name="Mute" text="Ignorar"/>
 			<button name="Ignore" text="Ignorar"/>
 		</form>
 	</notification>
@@ -2745,6 +2765,10 @@ Por tu seguridad, serán bloqueadas durante unos segundos.
 		Un moderador ha silenciado tu voz.
 		<usetemplate name="okbutton" yestext="OK"/>
 	</notification>
+	<notification name="UploadCostConfirmation">
+		Esta carga te costará [PRECIO] L$. ¿Deseas continuar?
+		<usetemplate name="okcancelbuttons" notext="Cancelar" yestext="Subir"/>
+	</notification>
 	<notification name="ConfirmClearTeleportHistory">
 		¿Estás seguro de que quieres borrar tu historial de teleportes?
 		<usetemplate name="okcancelbuttons" notext="Cancelar" yestext="OK"/>
@@ -2755,6 +2779,17 @@ Se mostrará cuando haya suficiente espacio.
 	</notification>
 	<notification name="ShareNotification">
 		Selecciona los residentes con quienes deseas compartir.
+	</notification>
+	<notification name="MeshUploadError">
+		[LABEL] no se pudo subir: [MESSAGE] [IDENTIFIER] 
+
+Consulta los detalles en el archivo de registro.
+	</notification>
+	<notification name="MeshUploadPermError">
+		Error al solicitar los permisos para subir la malla.
+	</notification>
+	<notification name="RegionCapabilityRequestError">
+		No se ha podido obtener la capacidad de la región &apos;[CAPABILITY]&apos;.
 	</notification>
 	<notification name="ShareItemsConfirmation">
 		¿Estás seguro de que quieres compartir los elementos siguientes?
@@ -2771,6 +2806,19 @@ Con los siguientes residentes:
 	</notification>
 	<notification name="DeedToGroupFail">
 		Error de transferencia a grupo.
+	</notification>
+	<notification name="ReleaseLandThrottled">
+		La parcela [NOMBRE_PARCELA] no se puede abandonar en este momento.
+	</notification>
+	<notification name="ReleasedLandWithReclaim">
+		Ya está disponible la parcela [NOMBRE_PARCELA] de [ÁREA] m².
+
+Dispondrás de [PERÍODO_DE_RECLAMACIÓN] horas para reclamar la cantidad de 0 L$ antes de que se ponga en venta.
+	</notification>
+	<notification name="ReleasedLandNoReclaim">
+		Ya está disponible la parcela [NOMBRE_PARCELA] de [ÁREA] m².
+
+Ya está en venta.
 	</notification>
 	<notification name="AvatarRezNotification">
 		( [EXISTENCE] segundos vivo)
@@ -2848,11 +2896,15 @@ Si lo haces, todos los residentes que se unan posteriormente a la llamada tambi�
 	<notification label="Levantarme" name="HintSit">
 		Para levantarte y salir de la posición de sentado, haz clic en el botón Levantarme.
 	</notification>
+	<notification label="Hablar" name="HintSpeak">
+		Pulsa en el botón: Hablar para conectar y desconectar el micrófono.
+
+Pulsa en el cursor arriba para ver el panel de control de voz.
+
+Al ocultar el botón Hablar se desactiva la función de voz.
+	</notification>
 	<notification label="Explora el mundo" name="HintDestinationGuide">
 		La Guía de destinos contiene miles de nuevos lugares por descubrir. Selecciona una ubicación y elige Teleportarme para iniciar la exploración.
-	</notification>
-	<notification label="Cambiar de apariencia" name="HintAvatarPicker">
-		¿Te gustaría cambiar de apariencia? Haz clic en el botón que aparece a continuación para ver más avatares.
 	</notification>
 	<notification label="Panel lateral" name="HintSidePanel">
 		Accede de manera rápida a tu inventario, así como a tu ropa, los perfiles y el resto de la información disponible en el panel lateral.
@@ -2860,11 +2912,13 @@ Si lo haces, todos los residentes que se unan posteriormente a la llamada tambi�
 	<notification label="Mover" name="HintMove">
 		Si deseas caminar o correr, abre el panel Mover y utiliza las flechas de dirección para navegar. También puedes utilizar las flechas de dirección del teclado.
 	</notification>
+	<notification label="" name="HintMoveClick">
+		1. Pulsa para caminar: Pulsa en cualquier punto del terreno para ir a él.
+
+2. Pulsa y arrastra para girar la vista: Pulsa y arrastra el cursor a cualquier parte del mundo para girar la vista.
+	</notification>
 	<notification label="Nombre mostrado" name="HintDisplayName">
 		Configura y personaliza aquí tu nombre mostrado. Esto se añadirá a tu nombre de usuario personal, que no puedes modificar. Puedes cambiar la manera en que ves los nombres de otras personas en tus preferencias.
-	</notification>
-	<notification label="Mover" name="HintMoveArrows">
-		Para caminar, utiliza las flechas de dirección del teclado. Para correr, pulsa dos veces la flecha hacia arriba.
 	</notification>
 	<notification label="Visión" name="HintView">
 		Para cambiar la vista de la cámara, utiliza los controles Orbital y Panorámica. Para restablecer tu vista, pulsa Esc o camina.
@@ -2875,12 +2929,66 @@ Si lo haces, todos los residentes que se unan posteriormente a la llamada tambi�
 	<notification label="¡Tienes dólares Linden!" name="HintLindenDollar">
 		Éste es tu saldo actual de L$. Haz clic en Comprar L$ para comprar más dólares Linden.
 	</notification>
+	<notification name="LowMemory">
+		Tu bloque de memoria es insuficiente. Algunas funciones de SL se han desactivado para evitar una caída. Por favor cierra otras aplicaciones. Si el problema continúa, reinicia SL.
+	</notification>
+	<notification name="ForceQuitDueToLowMemory">
+		SL saldrá en 30 segundos porque no hay memoria suficiente.
+	</notification>
 	<notification name="PopupAttempt">
 		Se ha impedido que se abriera una ventana emergente.
 		<form name="form">
 			<ignore name="ignore" text="Permitir todas las ventanas emergentes"/>
 			<button name="open" text="Abrir ventana emergente"/>
 		</form>
+	</notification>
+	<notification name="SOCKS_NOT_PERMITTED">
+		El proxy SOCKS 5 &quot;[HOST]:[PORT]&quot; ha rechazado la conexión, no está permitida por el juego de reglas.
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
+	<notification name="SOCKS_CONNECT_ERROR">
+		El proxy SOCKS 5 &quot;[HOST]:[PORT]&quot; ha rechazado la conexión, no se ha podido abrir el canal TCP.
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
+	<notification name="SOCKS_NOT_ACCEPTABLE">
+		El proxy SOCKS 5 &quot;[HOST]:[PORT]&quot; ha rechazado el sistema de autenticación seleccionado.
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
+	<notification name="SOCKS_AUTH_FAIL">
+		El proxy SOCKS 5 &quot;[HOST]:[PORT]&quot; contestó que tus credenciales no son válidas.
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
+	<notification name="SOCKS_UDP_FWD_NOT_GRANTED">
+		El proxy SOCKS 5 &quot;[HOST]:[PORT]&quot; ha rechazado la petición asociada de UDP.
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
+	<notification name="SOCKS_HOST_CONNECT_FAILED">
+		No se pudo establecer una conexión con el servidor proxy SOCKS 5 &quot;[HOST]:[PORT]&quot;.
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
+	<notification name="SOCKS_UNKNOWN_STATUS">
+		Error de proxy desconocido con el servidor &quot;[HOST]:[PORT]&quot;.
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
+	<notification name="SOCKS_INVALID_HOST">
+		Dirección o puerto de proxy SOCKS no válidos &quot;[HOST]:[PORT]&quot;.
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
+	<notification name="SOCKS_BAD_CREDS">
+		Nombre de usuario o contraseña de SOCKS 5 no válidos.
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
+	<notification name="PROXY_INVALID_HTTP_HOST">
+		Dirección o puerto de proxy HTTP no válidos &quot;[HOST]:[PORT]&quot;.
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
+	<notification name="PROXY_INVALID_SOCKS_HOST">
+		Dirección o puerto de proxy SOCKS no válidos &quot;[HOST]:[PORT]&quot;.
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
+	<notification name="ChangeProxySettings">
+		La configuración del puerto se activará cuando reinicies [APP_NAME].
+		<usetemplate name="okbutton" yestext="OK"/>
 	</notification>
 	<notification name="AuthRequest">
 		El sitio en &apos;&lt;nolink&gt;[HOST_NAME]&lt;/nolink&gt;&apos; de la plataforma &apos;[REALM]&apos; requiere un nombre de usuario y una contraseña.
@@ -2891,9 +2999,54 @@ Si lo haces, todos los residentes que se unan posteriormente a la llamada tambi�
 			<button name="cancel" text="Cancelar"/>
 		</form>
 	</notification>
-	<global name="UnsupportedCPU">
-		- La velocidad de tu CPU no cumple los requerimientos mínimos.
-	</global>
+	<notification label="" name="ModeChange">
+		Para cambiar de modo tienes que salir y reiniciar.
+		<usetemplate name="okcancelbuttons" notext="No salir" yestext="Salir"/>
+	</notification>
+	<notification label="" name="NoClassifieds">
+		La creación y edición de clasificados sólo está disponible en el modo Avanzado. ¿Quieres salir y cambiar de modo? El selector de modo se encuentra en la pantalla de inicio de sesión.
+		<usetemplate name="okcancelbuttons" notext="No salir" yestext="Salir"/>
+	</notification>
+	<notification label="" name="NoGroupInfo">
+		La creación y edición de grupos sólo está disponible en el modo Avanzado. ¿Quieres salir y cambiar de modo? El selector de modo se encuentra en la pantalla de inicio de sesión.
+		<usetemplate name="okcancelbuttons" notext="No salir" yestext="Salir"/>
+	</notification>
+	<notification label="" name="NoPlaceInfo">
+		La opción de consulta del perfil del lugar solo está disponible en el modo Avanzado. ¿Quieres salir y cambiar de modo? El selector de modo se encuentra en la pantalla de inicio de sesión.
+		<usetemplate name="okcancelbuttons" notext="No salir" yestext="Salir"/>
+	</notification>
+	<notification label="" name="NoPicks">
+		La creación y edición de Destacados sólo está disponible en el modo Avanzado. ¿Quieres salir y cambiar de modo? El selector de modo se encuentra en la pantalla de inicio de sesión.
+		<usetemplate name="okcancelbuttons" notext="No salir" yestext="Salir"/>
+	</notification>
+	<notification label="" name="NoWorldMap">
+		La visualización del mapa del mundo sólo está disponible en el modo Avanzado. ¿Quieres salir y cambiar de modo? El selector de modo se encuentra en la pantalla de inicio de sesión.
+		<usetemplate name="okcancelbuttons" notext="No salir" yestext="Salir"/>
+	</notification>
+	<notification label="" name="NoVoiceCall">
+		Las llamadas de voz sólo están disponibles en el modo Avanzado. ¿Quieres cerrar sesión y cambiar de modo?
+		<usetemplate name="okcancelbuttons" notext="No salir" yestext="Salir"/>
+	</notification>
+	<notification label="" name="NoAvatarShare">
+		Compartir sólo está disponible en el modo Avanzado. ¿Quieres cerrar sesión y cambiar de modo?
+		<usetemplate name="okcancelbuttons" notext="No salir" yestext="Salir"/>
+	</notification>
+	<notification label="" name="NoAvatarPay">
+		El pago a otros residentes sólo está disponible en el modo Avanzado. ¿Quieres cerrar sesión y cambiar de modo?
+		<usetemplate name="okcancelbuttons" notext="No salir" yestext="Salir"/>
+	</notification>
+	<notification label="" name="NoInventory">
+		La opción de consulta del inventario solo está disponible en el modo Avanzado. ¿Quieres cerrar sesión y cambiar de modo?
+		<usetemplate name="okcancelbuttons" notext="No salir" yestext="Salir"/>
+	</notification>
+	<notification label="" name="NoAppearance">
+		El editor de apariencia solo está disponible en el modo Avanzado. ¿Quieres cerrar sesión y cambiar de modo?
+		<usetemplate name="okcancelbuttons" notext="No salir" yestext="Salir"/>
+	</notification>
+	<notification label="" name="NoSearch">
+		Las búsquedas solo están disponibles en el modo Avanzado. ¿Quieres cerrar sesión y cambiar de modo?
+		<usetemplate name="okcancelbuttons" notext="No salir" yestext="Salir"/>
+	</notification>
 	<global name="UnsupportedGLRequirements">
 		Parece que no tienes el hardware apropiado para [APP_NAME]. [APP_NAME] requiere una tarjeta gráfica OpenGL que admita texturas múltiples (&apos;multitexture support&apos;). Si la tienes, comprueba que tienes los últimos &apos;drivers&apos; para tu tarjeta gráfica, así como los últimos parches y &apos;service packs&apos; para tu sistema operativo.
 

@@ -31,6 +31,9 @@
 	<string name="StartupInitializingVFS">
 		Inizializzazione VFS...
 	</string>
+	<string name="StartupRequireDriverUpdate">
+		Inizializzazione grafica non riuscita. Aggiorna il driver della scheda grafica!
+	</string>
 	<string name="ProgressRestoring">
 		Ripristino in corso...
 	</string>
@@ -85,6 +88,12 @@
 	<string name="LoginQuicktimeOK">
 		QuickTime configurato con successo.
 	</string>
+	<string name="LoginRequestSeedCapGrant">
+		Richiesta capacità regione...
+	</string>
+	<string name="LoginRetrySeedCapGrant">
+		Richiesta capacità regione, tentativo [NUMBER]...
+	</string>
 	<string name="LoginWaitingForRegionHandshake">
 		In attesa della risposta della regione...
 	</string>
@@ -123,6 +132,139 @@
 	</string>
 	<string name="create_account_url">
 		http://join.secondlife.com/index.php?lang=it-IT
+	</string>
+	<string name="LoginFailedViewerNotPermitted">
+		Il viewer utilizzato non è più in grado di accedere a Second Life. Visita la parina seguente per scaricare un nuovo viewer:
+http://secondlife.com/download.
+
+Per maggiori informazioni, consulta le domande frequenti alla pagina seguente:
+http://secondlife.com/viewer-access-faq
+	</string>
+	<string name="LoginIntermediateOptionalUpdateAvailable">
+		Disponibile aggiornamento facoltativo viewer: [VERSION]
+	</string>
+	<string name="LoginFailedRequiredUpdate">
+		Aggernamento viewer richiesto: [VERSION]
+	</string>
+	<string name="LoginFailedAlreadyLoggedIn">
+		Questo agente ha già eseguito il login.
+	</string>
+	<string name="LoginFailedAuthenticationFailed">
+		Siamo spiacenti. Il tentativo di accesso non è riuscito.
+Verifica di avere inserito correttamente
+    * Nome utente (come robby12 o Stella Soleggiato)
+    * Password
+Verifica anche che il blocco delle maiuscole non sia attivato.
+	</string>
+	<string name="LoginFailedPasswordChanged">
+		Come misura precauzionale, la tua password è stata cambiata.
+Visita la pagina del tuo account a http://secondlife.com/password
+e rispondi alla domanda di sicurezza per reimpostare la password.
+Ci scusiamo per l&apos;inconveniente.
+	</string>
+	<string name="LoginFailedPasswordReset">
+		Abbiamo effettuato delle modifiche al sistema che richiedono di reimpostare la password.
+Visita la pagina del tuo account a http://secondlife.com/password
+e rispondi alla domanda di sicurezza per reimpostare la password.
+Ci scusiamo per l&apos;inconveniente.
+	</string>
+	<string name="LoginFailedEmployeesOnly">
+		Second Life è chiuso temporaneamente per manutenzione.
+Al momento, solo i dipendenti possono eseguire l&apos;accesso.
+Visita www.secondlife.com/status per aggiornamenti.
+	</string>
+	<string name="LoginFailedPremiumOnly">
+		L&apos;accesso a Second Life è temporaneamente limitato per garantire che chi è nel mondo virtuale abbia la migliore esperienza possibile.
+	 	
+Le persona con account gratuiti non potrenno accedere a Second Life durante questo periodo, per lasciare spazio alle persone che hanno pagato per Second Life.
+	</string>
+	<string name="LoginFailedComputerProhibited">
+		Non si può accedere a Second Life da questo computer.
+Se ritieni che si tratta di un errore, contatta
+support@secondlife.com.
+	</string>
+	<string name="LoginFailedAcountSuspended">
+		Il tuo account non è accessibile fino alle
+[TIME] fuso orario del Pacifico.
+	</string>
+	<string name="LoginFailedAccountDisabled">
+		Non siamo attualmente in grado di completare la tua richiesta.
+Contatta l&apos;assistenza Second Life alla pagina http://secondlife.com/support.
+Se non sei in grado di cambiare la password, chiama (866) 476-9763.
+	</string>
+	<string name="LoginFailedTransformError">
+		Dati incompatibili rilevati durante l&apos;accesso.
+Contattare support@secondlife.com.
+	</string>
+	<string name="LoginFailedAccountMaintenance">
+		Il tuo account è in fase di leggera manutenzione.
+Il tuo account non è accessibile fino alle
+[TIME] fuso orario del Pacifico.
+Se ritieni che si tratta di un errore, contatta support@secondlife.com.
+	</string>
+	<string name="LoginFailedPendingLogoutFault">
+		Errore del simulatore in seguito alla richiesta di logout.
+	</string>
+	<string name="LoginFailedPendingLogout">
+		Il sistema sta eseguendo il logout in questo momento.
+Il tuo account non sarà disponibile fino alle
+[TIME] fuso orario del Pacifico.
+	</string>
+	<string name="LoginFailedUnableToCreateSession">
+		Non è possibile creare una sessione valida.
+	</string>
+	<string name="LoginFailedUnableToConnectToSimulator">
+		Non è possibile collegarsi a un simulatore.
+	</string>
+	<string name="LoginFailedRestrictedHours">
+		Il tuo account può accedere a Second Life solo
+tra le [START] e le [END] fuso orario del Pacifico.
+Torna durante quell&apos;orario.
+Se ritieni che si tratta di un errore, contatta support@secondlife.com.
+	</string>
+	<string name="LoginFailedIncorrectParameters">
+		Parametri errati.
+Se ritieni che si tratta di un errore, contatta support@secondlife.com.
+	</string>
+	<string name="LoginFailedFirstNameNotAlphanumeric">
+		Il parametro Nome deve includere solo caratteri alfanumerici.
+Se ritieni che si tratta di un errore, contatta support@secondlife.com.
+	</string>
+	<string name="LoginFailedLastNameNotAlphanumeric">
+		Il parametro Cognome deve includere solo caratteri alfanumerici.
+Se ritieni che si tratta di un errore, contatta support@secondlife.com.
+	</string>
+	<string name="LogoutFailedRegionGoingOffline">
+		La regione sta passando allo stato non in linea.
+Prova ad accedere nuovamente tra un minuto.
+	</string>
+	<string name="LogoutFailedAgentNotInRegion">
+		L&apos;agente non è nella regione.
+Prova ad accedere nuovamente tra un minuto.
+	</string>
+	<string name="LogoutFailedPendingLogin">
+		La regione ha eseguito l&apos;accesso in un&apos;altre sessione.
+Prova ad accedere nuovamente tra un minuto.
+	</string>
+	<string name="LogoutFailedLoggingOut">
+		La regione stava eseguendo il logout della sessione precedente.
+Prova ad accedere nuovamente tra un minuto.
+	</string>
+	<string name="LogoutFailedStillLoggingOut">
+		La regione sta ancora eseguendo il logout della sessione precedente.
+Prova ad accedere nuovamente tra un minuto.
+	</string>
+	<string name="LogoutSucceeded">
+		La regione ha eseguito il logout dell&apos;ultima sessione.
+Prova ad accedere nuovamente tra un minuto.
+	</string>
+	<string name="LogoutFailedLogoutBegun">
+		La regione ha iniziato la procedura di logout.
+Prova ad accedere nuovamente tra un minuto.
+	</string>
+	<string name="LoginFailedLoggingOutSession">
+		Il sistema ha iniziato il logout dell&apos;ultima sessione.
+Prova ad accedere nuovamente tra un minuto.
 	</string>
 	<string name="AgentLostConnection">
 		Questa regione sta avendo problemi.  Verifica la tua connessione a Internet.
@@ -191,6 +333,18 @@
 		Solo un singolo oggetto può essere creato qui
 	</string>
 	<string name="TooltipPrice" value="L$ [AMOUNT]:"/>
+	<string name="TooltipOutboxNoTransfer">
+		Almeno un oggetto non può essere venduto o trasferito a un altro utente.
+	</string>
+	<string name="TooltipOutboxWorn">
+		Stai indossando almeno uno degli oggetti. Rimuovili dall&apos;avatar e prova nuovamente a spostarli.
+	</string>
+	<string name="TooltipOutboxFolderLevels">
+		Questa cartella contiene troppi livelli di cartelle nidificate. Riordina le cartelle interne in modo che non ci siano più di 4 livelli (cartella principale che contiene la cartella A, che contiene la cartella B, che contiene la cartella C).
+	</string>
+	<string name="TooltipOutboxTooManyObjects">
+		Questa cartella contiene più di 200 oggetti. Inserisci alcuni oggetti in scatole per ridurne il numero.
+	</string>
 	<string name="TooltipHttpUrl">
 		Clicca per visitare questa pagina web
 	</string>
@@ -199,6 +353,9 @@
 	</string>
 	<string name="TooltipAgentUrl">
 		Clicca per vedere il profilo di questo residente
+	</string>
+	<string name="TooltipAgentInspect">
+		Ulteriori informazioni su questo Residente
 	</string>
 	<string name="TooltipAgentMute">
 		Clicca per disattivare l&apos;audio di questo residente
@@ -428,6 +585,9 @@
 	</string>
 	<string name="symbolic folder link">
 		link alla cartella
+	</string>
+	<string name="mesh">
+		reticolo
 	</string>
 	<string name="AvatarAway">
 		Assente
@@ -747,6 +907,12 @@
 	<string name="Estate / Full Region">
 		Proprietà immobiliare / Regione completa
 	</string>
+	<string name="Estate / Homestead">
+		Proprietà immobiliare / Homestead
+	</string>
+	<string name="Mainland / Homestead">
+		Continente / Homestead
+	</string>
 	<string name="Mainland / Full Region">
 		Continente / Regione completa
 	</string>
@@ -852,6 +1018,9 @@
 	<string name="tattoo">
 		Tatuaggio
 	</string>
+	<string name="physics">
+		Fisica
+	</string>
 	<string name="invalid">
 		non valido
 	</string>
@@ -890,6 +1059,9 @@
 	</string>
 	<string name="tattoo_not_worn">
 		Tatuaggio non portato
+	</string>
+	<string name="physics_not_worn">
+		Fisica non indossata
 	</string>
 	<string name="invalid_not_worn">
 		non valido
@@ -938,6 +1110,9 @@
 	</string>
 	<string name="create_new_tattoo">
 		Crea un nuovo tatuaggio
+	</string>
+	<string name="create_new_physics">
+		Crea nuova fisica
 	</string>
 	<string name="create_new_invalid">
 		non valido
@@ -1023,6 +1198,69 @@
 	<string name="InventoryNoTexture">
 		Non hai una copia di questa texture nel tuo inventario
 	</string>
+	<string name="InventoryInboxNoItems">
+		Gli elementi acquistati attraverso il mercato verranno consegnati qui
+	</string>
+	<string name="MarketplaceURL">
+		http://marketplace.[DOMAIN_NAME]/learn_more
+	</string>
+	<string name="MarketplaceURL_CreateStore">
+		http://marketplace.[DOMAIN_NAME]/create_store
+	</string>
+	<string name="MarketplaceURL_LearnMore">
+		http://marketplace.[DOMAIN_NAME]/learn_more
+	</string>
+	<string name="InventoryOutboxCreationErrorTitle">
+		La casella in uscita del rivenditore non è configurata correttamente
+	</string>
+	<string name="InventoryOutboxCreationErrorTooltip">
+		Errore di configurazione della casella in uscita del rivenditore
+	</string>
+	<string name="InventoryOutboxCreationError">
+		Contatta l&apos;Assistenza clienti per correggere il problema.
+	</string>
+	<string name="InventoryOutboxNotMerchantTitle">
+		Chiunque può vendere oggetti nel Marketplace
+	</string>
+	<string name="InventoryOutboxNotMerchantTooltip">
+		Diventa un rivenditore!
+	</string>
+	<string name="InventoryOutboxNotMerchant">
+		[[MARKETPLACE_URL] Second Life Marketplace] offre in vendita più di un milione di prodotti virtuali, tutti creati da Residenti. Anche tu puoi vendere gli oggetti che crei, oltre ad alcuni degli oggetti che hai acquistato. È facile da usare e l&apos;impostazione è gratuita. [[LEARN_MORE_URL] Leggi ulteriori informazioni] oppure [[CREATE_STORE_URL] crea un negozio] sul Marketplace per cominciare.
+	</string>
+	<string name="InventoryOutboxNoItemsTitle">
+		Un nuovo modo di inviare oggetti al Marketplace
+	</string>
+	<string name="InventoryOutboxNoItemsTooltip">
+		Trascina gli oggetti qui per prepararli per la vendita nel Marketplace
+	</string>
+	<string name="InventoryOutboxNoItems">
+		Trascina elementi o cartelle che desideri vendere in quest&apos;area. Verrà visualizzata una copia dell&apos;elemento, senza che venga modificato l&apos;inventario, tranne nel caso in cui venga trascinato un oggetto per cui non è permessa la copia. Clicca sul pulsante Carica per caricare gli elementi su Marketplace. Dopo aver spostato gli elementi nell&apos;inventario di Marketplace, non saranno più visibili in questa cartella.
+	</string>
+	<string name="Marketplace Error None">
+		Nessun errore
+	</string>
+	<string name="Marketplace Error Not Merchant">
+		Errore: Prima di inviare elementi al Marketplace devi essere impostato come rivenditore (gratis).
+	</string>
+	<string name="Marketplace Error Empty Folder">
+		Errore: questa cartella non include alcun contenuto.
+	</string>
+	<string name="Marketplace Error Unassociated Products">
+		Errore: Oggetto non caricato perché il tuo account venditore ha troppi oggetti che non sono associati con dei prodotti. Per risolvere questo errore, esegui l&apos;accesso al sito di Marketplace e riduci il numero di oggetti non associati.
+	</string>
+	<string name="Marketplace Error Object Limit">
+		Errore: questo elemento contiene troppi oggetti. Per risolvere questo problema, inserisci più oggetti insieme in una scatola per ridurre a meno di 200 il numero totale di oggetti.
+	</string>
+	<string name="Marketplace Error Folder Depth">
+		Errore: questo elemento contiene troppi livelli di cartelle nidificate. Riorganizzalo per ottenere un massimo di 3 livelli di cartelle nidificate.
+	</string>
+	<string name="Marketplace Error Unsellable Item">
+		Errore: Questo elemento non può essere venduto nel Marketplace.
+	</string>
+	<string name="Marketplace Error Internal Import">
+		Errore: problema con questo elemento. Riprova più tardi.
+	</string>
 	<string name="no_transfer" value="(nessun trasferimento)"/>
 	<string name="no_modify" value="(nessuna modifica)"/>
 	<string name="no_copy" value="(nessuna copia)"/>
@@ -1037,7 +1275,7 @@
 	</string>
 	<string name="WornOnAttachmentPoint" value="(indossato su [ATTACHMENT_POINT])"/>
 	<string name="ActiveGesture" value="[GESLABEL] (attivo)"/>
-	<string name="Chat" value="Chat :"/>
+	<string name="Chat Message" value="Chat:"/>
 	<string name="Sound" value="Suono :"/>
 	<string name="Wait" value="--- Attendi :"/>
 	<string name="AnimFlagStop" value="Ferma l&apos;animazione :"/>
@@ -1062,9 +1300,6 @@
 	<string name="Since Logoff" value="- Dall&apos;uscita"/>
 	<string name="InvFolder My Inventory">
 		Il mio inventario
-	</string>
-	<string name="InvFolder My Favorites">
-		I miei preferiti
 	</string>
 	<string name="InvFolder Library">
 		Libreria
@@ -1124,10 +1359,10 @@
 		Gesture
 	</string>
 	<string name="InvFolder Favorite">
-		Preferiti
+		I miei preferiti
 	</string>
 	<string name="InvFolder favorite">
-		Preferiti
+		I miei preferiti
 	</string>
 	<string name="InvFolder Current Outfit">
 		Abbigliamento attuale
@@ -1141,11 +1376,17 @@
 	<string name="InvFolder Accessories">
 		Accessori
 	</string>
+	<string name="InvFolder Meshes">
+		Reticoli
+	</string>
 	<string name="InvFolder Friends">
 		Amici
 	</string>
 	<string name="InvFolder All">
 		Tutto
+	</string>
+	<string name="no_attachments">
+		Nessun allegato indossato
 	</string>
 	<string name="Buy">
 		Acquista
@@ -1454,8 +1695,11 @@
 	<string name="Unknown">
 		(Sconosciuto)
 	</string>
-	<string name="SummaryForTheWeek" value="Riassunto della settimana, partendo dal"/>
-	<string name="NextStipendDay" value="Il prossimo giorno di stipendio è"/>
+	<string name="SummaryForTheWeek" value="Riassunto della settimana, partendo dal "/>
+	<string name="NextStipendDay" value=". Il prossimo giorno di stipendio è "/>
+	<string name="GroupPlanningDate">
+		[mthnum,datetime,utc]/[day,datetime,utc]/[year,datetime,utc]
+	</string>
 	<string name="GroupIndividualShare" value="Gruppo       Dividendi individuali"/>
 	<string name="GroupColumn" value="Gruppo"/>
 	<string name="Balance">
@@ -1481,6 +1725,9 @@
 	</string>
 	<string name="IMTeen">
 		teen
+	</string>
+	<string name="Anyone">
+		chiunque
 	</string>
 	<string name="RegionInfoError">
 		errore
@@ -1689,7 +1936,7 @@
 	<string name="RegionNoCovenantOtherOwner">
 		Non esiste alcun regolamento per questa proprietà. Il terreno di questa proprietà è messo in vendita dal proprietario, non dalla Linden Lab.  Contatta il proprietario del terreno per i dettagli della vendita.
 	</string>
-	<string name="covenant_last_modified" value="Ultima modifica:"/>
+	<string name="covenant_last_modified" value="Ultima modifica: "/>
 	<string name="none_text" value="(nessuno)"/>
 	<string name="never_text" value="(mai)"/>
 	<string name="GroupOwned">
@@ -1697,6 +1944,12 @@
 	</string>
 	<string name="Public">
 		Pubblica
+	</string>
+	<string name="LocalSettings">
+		Impostazioni locali
+	</string>
+	<string name="RegionSettings">
+		Impostazioni regione
 	</string>
 	<string name="ClassifiedClicksTxt">
 		Clicca: [TELEPORT] teleport, [MAP] mappa, [PROFILE] profilo
@@ -1737,11 +1990,8 @@
 	<string name="InvOfferGaveYou">
 		Ti ha offerto
 	</string>
-	<string name="InvOfferYouDecline">
-		Rifiuta
-	</string>
-	<string name="InvOfferFrom">
-		da
+	<string name="InvOfferDecline">
+		Non hai accettato [DESC] da &lt;nolink&gt;[NAME]&lt;/nolink&gt;.
 	</string>
 	<string name="GroupMoneyTotal">
 		Totale
@@ -1772,6 +2022,9 @@
 	</string>
 	<string name="GroupMoneyDebits">
 		Debiti
+	</string>
+	<string name="GroupMoneyDate">
+		[weekday,datetime,utc] [mth,datetime,utc] [day,datetime,utc], [year,datetime,utc]
 	</string>
 	<string name="ViewerObjectContents">
 		Contenuto
@@ -1821,12 +2074,6 @@ Tipi conosciuti .wav, .tga, .bmp, .jpg, .jpeg, or .bvh
 	</string>
 	<string name="accel-win-shift">
 		Shift+
-	</string>
-	<string name="Esc">
-		Esc
-	</string>
-	<string name="Home">
-		Home
 	</string>
 	<string name="FileSaved">
 		File salvato
@@ -1944,6 +2191,9 @@ Tipi conosciuti .wav, .tga, .bmp, .jpg, .jpeg, or .bvh
 	</string>
 	<string name="Other">
 		Altro
+	</string>
+	<string name="Rental">
+		Affitto
 	</string>
 	<string name="Any">
 		Tutti
@@ -2181,6 +2431,114 @@ Se il messaggio persiste, contatta [SUPPORT_SITE].
 	<string name="Bulbous Nose">
 		Naso bulboso
 	</string>
+	<string name="Breast Physics Mass">
+		Massa seno
+	</string>
+	<string name="Breast Physics Smoothing">
+		Lisciatura seno
+	</string>
+	<string name="Breast Physics Gravity">
+		Gravità seno
+	</string>
+	<string name="Breast Physics Drag">
+		Resistenza seno
+	</string>
+	<string name="Breast Physics InOut Max Effect">
+		Massimo effetto
+	</string>
+	<string name="Breast Physics InOut Spring">
+		Elasticità
+	</string>
+	<string name="Breast Physics InOut Gain">
+		Guadagno
+	</string>
+	<string name="Breast Physics InOut Damping">
+		Attenuazione
+	</string>
+	<string name="Breast Physics UpDown Max Effect">
+		Massimo effetto
+	</string>
+	<string name="Breast Physics UpDown Spring">
+		Elasticità
+	</string>
+	<string name="Breast Physics UpDown Gain">
+		Guadagno
+	</string>
+	<string name="Breast Physics UpDown Damping">
+		Attenuazione
+	</string>
+	<string name="Breast Physics LeftRight Max Effect">
+		Massimo effetto
+	</string>
+	<string name="Breast Physics LeftRight Spring">
+		Elasticità
+	</string>
+	<string name="Breast Physics LeftRight Gain">
+		Guadagno
+	</string>
+	<string name="Breast Physics LeftRight Damping">
+		Attenuazione
+	</string>
+	<string name="Belly Physics Mass">
+		Massa pancia
+	</string>
+	<string name="Belly Physics Smoothing">
+		Lisciatura pancia
+	</string>
+	<string name="Belly Physics Gravity">
+		Gravità pancia
+	</string>
+	<string name="Belly Physics Drag">
+		Resistenza pancia
+	</string>
+	<string name="Belly Physics UpDown Max Effect">
+		Massimo effetto
+	</string>
+	<string name="Belly Physics UpDown Spring">
+		Elasticità
+	</string>
+	<string name="Belly Physics UpDown Gain">
+		Guadagno
+	</string>
+	<string name="Belly Physics UpDown Damping">
+		Attenuazione
+	</string>
+	<string name="Butt Physics Mass">
+		Massa natiche
+	</string>
+	<string name="Butt Physics Smoothing">
+		Lisciatura natiche
+	</string>
+	<string name="Butt Physics Gravity">
+		Gravità natiche
+	</string>
+	<string name="Butt Physics Drag">
+		Resistenza natiche
+	</string>
+	<string name="Butt Physics UpDown Max Effect">
+		Massimo effetto
+	</string>
+	<string name="Butt Physics UpDown Spring">
+		Elasticità
+	</string>
+	<string name="Butt Physics UpDown Gain">
+		Guadagno
+	</string>
+	<string name="Butt Physics UpDown Damping">
+		Attenuazione
+	</string>
+	<string name="Butt Physics LeftRight Max Effect">
+		Massimo effetto
+	</string>
+	<string name="Butt Physics LeftRight Spring">
+		Elasticità
+	</string>
+	<string name="Butt Physics LeftRight Gain">
+		Guadagno
+	</string>
+	<string name="Butt Physics LeftRight Damping">
+		Attenuazione
+	</string>
 	<string name="Bushy Eyebrows">
 		Sopracciglia cespugliose
 	</string>
@@ -2189,6 +2547,9 @@ Se il messaggio persiste, contatta [SUPPORT_SITE].
 	</string>
 	<string name="Butt Size">
 		Grandezza del sedere
+	</string>
+	<string name="Butt Gravity">
+		Gravità natiche
 	</string>
 	<string name="bustle skirt">
 		Crinolina
@@ -3381,6 +3742,9 @@ Se il messaggio persiste, contatta [SUPPORT_SITE].
 	<string name="LocationCtrlGeneralIconTooltip">
 		Regione generale
 	</string>
+	<string name="LocationCtrlSeeAVsTooltip">
+		Avatar visibili e chat consentita fuori di questo lotto
+	</string>
 	<string name="UpdaterWindowTitle">
 		Aggiornamento [APP_NAME]
 	</string>
@@ -3478,7 +3842,7 @@ Se il messaggio persiste, contatta [SUPPORT_SITE].
 		Sei l&apos;unico utente di questa sessione.
 	</string>
 	<string name="offline_message">
-		[NAME] è offline.
+		[NAME] è offline
 	</string>
 	<string name="invite_message">
 		Clicca il tasto [BUTTON NAME] per accettare/connetterti a questa voice chat.
@@ -3543,10 +3907,16 @@ Se il messaggio persiste, contatta [SUPPORT_SITE].
 	<string name="session_initialization_timed_out_error">
 		Sessione di inizializzazione scaduta
 	</string>
+	<string name="Home position set.">
+		Posizione di base impostata.
+	</string>
 	<string name="voice_morphing_url">
 		http://secondlife.com/landing/voicemorphing
 	</string>
 	<string name="paid_you_ldollars">
+		[NAME] ti ha inviato un pagamento di L$[AMOUNT] [REASON].
+	</string>
+	<string name="paid_you_ldollars_no_reason">
 		[NAME] ti ha inviato un pagamento di L$[AMOUNT].
 	</string>
 	<string name="you_paid_ldollars">
@@ -3560,6 +3930,9 @@ Se il messaggio persiste, contatta [SUPPORT_SITE].
 	</string>
 	<string name="you_paid_ldollars_no_name">
 		Hai pagato L$ [AMOUNT] [REASON].
+	</string>
+	<string name="for item">
+		per [ITEM]
 	</string>
 	<string name="for a parcel of land">
 		per un lotto di terreno
@@ -3578,6 +3951,9 @@ Se il messaggio persiste, contatta [SUPPORT_SITE].
 	</string>
 	<string name="to upload">
 		per caricare
+	</string>
+	<string name="to publish a classified ad">
+		per pubblicare un annuncio
 	</string>
 	<string name="giving">
 		Contributo di L$ [AMOUNT]
@@ -3655,6 +4031,9 @@ Segnala abuso
 	</string>
 	<string name="New Tattoo">
 		Nuovo tatuaggio
+	</string>
+	<string name="New Physics">
+		Nuova fisica
 	</string>
 	<string name="Invalid Wearable">
 		Capo da indossare non valido
@@ -3779,6 +4158,87 @@ Segnala abuso
 	<string name="Female - Wow">
 		Femmina - Accipicchia
 	</string>
+	<string name="/bow1">
+		/inchino
+	</string>
+	<string name="/clap">
+		/applausi
+	</string>
+	<string name="/count">
+		/numero
+	</string>
+	<string name="/extinguish">
+		/estingui
+	</string>
+	<string name="/kmb">
+		/chissene
+	</string>
+	<string name="/muscle">
+		/muscolo
+	</string>
+	<string name="/no">
+		/no
+	</string>
+	<string name="/no!">
+		/no!
+	</string>
+	<string name="/paper">
+		/carta
+	</string>
+	<string name="/pointme">
+		/indicome
+	</string>
+	<string name="/pointyou">
+		/indicotu
+	</string>
+	<string name="/rock">
+		/sasso
+	</string>
+	<string name="/scissor">
+		/forbici
+	</string>
+	<string name="/smoke">
+		/fumo
+	</string>
+	<string name="/stretch">
+		/stiracchiata
+	</string>
+	<string name="/whistle">
+		/fischietto
+	</string>
+	<string name="/yes">
+		/si
+	</string>
+	<string name="/yes!">
+		/si!
+	</string>
+	<string name="afk">
+		non alla tastiera
+	</string>
+	<string name="dance1">
+		danza1
+	</string>
+	<string name="dance2">
+		danza2
+	</string>
+	<string name="dance3">
+		danza3
+	</string>
+	<string name="dance4">
+		danza4
+	</string>
+	<string name="dance5">
+		danza5
+	</string>
+	<string name="dance6">
+		danza6
+	</string>
+	<string name="dance7">
+		danza7
+	</string>
+	<string name="dance8">
+		danza8
+	</string>
 	<string name="AvatarBirthDateFormat">
 		[day,datetime,slt]/[mthnum,datetime,slt]/[year,datetime,slt]
 	</string>
@@ -3855,7 +4315,7 @@ Segnala abuso
 	<string name="Notices">
 		Avvisi
 	</string>
-	<string name="Chat">
+	<string name="Chat" value="Chat :">
 		Chat
 	</string>
 	<string name="DeleteItems">
@@ -3866,5 +4326,349 @@ Segnala abuso
 	</string>
 	<string name="EmptyOutfitText">
 		Questo vestiario non contiene alcun elemento
+	</string>
+	<string name="ExternalEditorNotSet">
+		Seleziona un editor usando le impostazioni ExternalEditor.
+	</string>
+	<string name="ExternalEditorNotFound">
+		L&apos;editor esterno specificato non è stato trovato.
+Prova a racchiudere il percorso dell&apos;editor in doppie virgolette.
+(per es. &quot;/percorso per il mio/editor&quot; &quot;%s&quot;)
+	</string>
+	<string name="ExternalEditorCommandParseError">
+		Errore nell&apos;elaborazione del comando dell&apos;editor esterno.
+	</string>
+	<string name="ExternalEditorFailedToRun">
+		L&apos;editor esterno non è stato avviato.
+	</string>
+	<string name="Esc">
+		Esc
+	</string>
+	<string name="Space">
+		Space
+	</string>
+	<string name="Enter">
+		Enter
+	</string>
+	<string name="Tab">
+		Tab
+	</string>
+	<string name="Ins">
+		Ins
+	</string>
+	<string name="Del">
+		Del
+	</string>
+	<string name="Backsp">
+		Backsp
+	</string>
+	<string name="Shift">
+		Shift
+	</string>
+	<string name="Ctrl">
+		Ctrl
+	</string>
+	<string name="Alt">
+		Alt
+	</string>
+	<string name="CapsLock">
+		CapsLock
+	</string>
+	<string name="Home">
+		Home
+	</string>
+	<string name="End">
+		End
+	</string>
+	<string name="PgUp">
+		PgUp
+	</string>
+	<string name="PgDn">
+		PgDn
+	</string>
+	<string name="F1">
+		F1
+	</string>
+	<string name="F2">
+		F2
+	</string>
+	<string name="F3">
+		F3
+	</string>
+	<string name="F4">
+		F4
+	</string>
+	<string name="F5">
+		F5
+	</string>
+	<string name="F6">
+		F6
+	</string>
+	<string name="F7">
+		F7
+	</string>
+	<string name="F8">
+		F8
+	</string>
+	<string name="F9">
+		F9
+	</string>
+	<string name="F10">
+		F10
+	</string>
+	<string name="F11">
+		F11
+	</string>
+	<string name="F12">
+		F12
+	</string>
+	<string name="Add">
+		Aggiungi
+	</string>
+	<string name="Subtract">
+		Sottrai
+	</string>
+	<string name="Multiply">
+		Moltiplica
+	</string>
+	<string name="Divide">
+		Dividi
+	</string>
+	<string name="PAD_DIVIDE">
+		PAD_DIVIDE
+	</string>
+	<string name="PAD_LEFT">
+		PAD_LEFT
+	</string>
+	<string name="PAD_RIGHT">
+		PAD_RIGHT
+	</string>
+	<string name="PAD_DOWN">
+		PAD_DOWN
+	</string>
+	<string name="PAD_UP">
+		PAD_UP
+	</string>
+	<string name="PAD_HOME">
+		PAD_HOME
+	</string>
+	<string name="PAD_END">
+		PAD_END
+	</string>
+	<string name="PAD_PGUP">
+		PAD_PGUP
+	</string>
+	<string name="PAD_PGDN">
+		PAD_PGDN
+	</string>
+	<string name="PAD_CENTER">
+		PAD_CENTER
+	</string>
+	<string name="PAD_INS">
+		PAD_INS
+	</string>
+	<string name="PAD_DEL">
+		PAD_DEL
+	</string>
+	<string name="PAD_Enter">
+		PAD_Enter
+	</string>
+	<string name="PAD_BUTTON0">
+		PAD_BUTTON0
+	</string>
+	<string name="PAD_BUTTON1">
+		PAD_BUTTON1
+	</string>
+	<string name="PAD_BUTTON2">
+		PAD_BUTTON2
+	</string>
+	<string name="PAD_BUTTON3">
+		PAD_BUTTON3
+	</string>
+	<string name="PAD_BUTTON4">
+		PAD_BUTTON4
+	</string>
+	<string name="PAD_BUTTON5">
+		PAD_BUTTON5
+	</string>
+	<string name="PAD_BUTTON6">
+		PAD_BUTTON6
+	</string>
+	<string name="PAD_BUTTON7">
+		PAD_BUTTON7
+	</string>
+	<string name="PAD_BUTTON8">
+		PAD_BUTTON8
+	</string>
+	<string name="PAD_BUTTON9">
+		PAD_BUTTON9
+	</string>
+	<string name="PAD_BUTTON10">
+		PAD_BUTTON10
+	</string>
+	<string name="PAD_BUTTON11">
+		PAD_BUTTON11
+	</string>
+	<string name="PAD_BUTTON12">
+		PAD_BUTTON12
+	</string>
+	<string name="PAD_BUTTON13">
+		PAD_BUTTON13
+	</string>
+	<string name="PAD_BUTTON14">
+		PAD_BUTTON14
+	</string>
+	<string name="PAD_BUTTON15">
+		PAD_BUTTON15
+	</string>
+	<string name="-">
+		-
+	</string>
+	<string name="=">
+		=
+	</string>
+	<string name="`">
+		`
+	</string>
+	<string name=";">
+		;
+	</string>
+	<string name="[">
+		[
+	</string>
+	<string name="]">
+		]
+	</string>
+	<string name="\">
+		\
+	</string>
+	<string name="0">
+		0
+	</string>
+	<string name="1">
+		1
+	</string>
+	<string name="2">
+		2
+	</string>
+	<string name="3">
+		3
+	</string>
+	<string name="4">
+		4
+	</string>
+	<string name="5">
+		5
+	</string>
+	<string name="6">
+		6
+	</string>
+	<string name="7">
+		7
+	</string>
+	<string name="8">
+		8
+	</string>
+	<string name="9">
+		9
+	</string>
+	<string name="A">
+		A
+	</string>
+	<string name="B">
+		B
+	</string>
+	<string name="C">
+		C
+	</string>
+	<string name="D">
+		D
+	</string>
+	<string name="E">
+		E
+	</string>
+	<string name="F">
+		F
+	</string>
+	<string name="G">
+		G
+	</string>
+	<string name="H">
+		H
+	</string>
+	<string name="I">
+		I
+	</string>
+	<string name="J">
+		J
+	</string>
+	<string name="K">
+		K
+	</string>
+	<string name="L">
+		L
+	</string>
+	<string name="M">
+		M
+	</string>
+	<string name="N">
+		N
+	</string>
+	<string name="O">
+		O
+	</string>
+	<string name="P">
+		P
+	</string>
+	<string name="Q">
+		Q
+	</string>
+	<string name="R">
+		R
+	</string>
+	<string name="S">
+		S
+	</string>
+	<string name="T">
+		T
+	</string>
+	<string name="U">
+		U
+	</string>
+	<string name="V">
+		V
+	</string>
+	<string name="W">
+		W
+	</string>
+	<string name="X">
+		X
+	</string>
+	<string name="Y">
+		Y
+	</string>
+	<string name="Z">
+		Z
+	</string>
+	<string name="BeaconParticle">
+		Visualizzazione marcatori particelle (blu)
+	</string>
+	<string name="BeaconPhysical">
+		Visualizzazione marcatori oggetti fisici (verde)
+	</string>
+	<string name="BeaconScripted">
+		Visualizzazione marcatori oggetti scriptati (rosso)
+	</string>
+	<string name="BeaconScriptedTouch">
+		Visualizzazione marcatori oggetti scriptati con funzione tocco (rosso)
+	</string>
+	<string name="BeaconSound">
+		Visualizzazione marcatori suoni (giallo)
+	</string>
+	<string name="BeaconMedia">
+		Visualizzazione marcatori multimedia (bianco)
+	</string>
+	<string name="ParticleHiding">
+		Particelle nascoste
 	</string>
 </strings>

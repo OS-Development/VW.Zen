@@ -90,7 +90,6 @@ const S32 TEAROFF_SEPARATOR_HEIGHT_PIXELS = 10;
 const S32 MENU_ITEM_PADDING = 4;
 
 const std::string SEPARATOR_NAME("separator");
-const std::string SEPARATOR_LABEL( "-----------" );
 const std::string VERTICAL_SEPARATOR_LABEL( "|" );
 
 const std::string LLMenuGL::BOOLEAN_TRUE_PREFIX( "\xE2\x9C\x94" ); // U+2714 HEAVY CHECK MARK
@@ -149,7 +148,7 @@ LLMenuItemGL::Params::Params()
 	highlight_bg_color("highlight_bg_color"),
 	highlight_fg_color("highlight_fg_color")
 {	
-	mouse_opaque = true;
+	changeDefault(mouse_opaque, true);
 }
 
 // Default constructor
@@ -566,8 +565,6 @@ void LLMenuItemGL::handleVisibilityChange(BOOL new_visibility)
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 LLMenuItemSeparatorGL::Params::Params()
 {
-	name = "separator";
-	label = SEPARATOR_LABEL;
 }
 
 LLMenuItemSeparatorGL::LLMenuItemSeparatorGL(const LLMenuItemSeparatorGL::Params& p) :
@@ -754,30 +751,6 @@ U32 LLMenuItemTearOffGL::getNominalHeight( void ) const
 { 
 	return TEAROFF_SEPARATOR_HEIGHT_PIXELS; 
 }
-
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// Class LLMenuItemBlankGL
-//
-// This class represents a blank, non-functioning item.
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-class LLMenuItemBlankGL : public LLMenuItemGL
-{
-public:
-	struct Params : public LLInitParam::Block<Params, LLMenuItemGL::Params>
-	{
-		Params()
-		{
-			name="";
-			enabled = false;
-		}
-	};
-	LLMenuItemBlankGL( const Params& p ) :	LLMenuItemGL( p )
-	{}
-	virtual void draw( void ) {}
-};
-
 
 ///============================================================================
 /// Class LLMenuItemCallGL
@@ -1936,9 +1909,15 @@ bool LLMenuGL::scrollItems(EScrollingDirection direction)
 	{
 		item_list_t::reverse_iterator first_visible_item_iter = mItems.rend();
 
+		// Need to scroll through number of actual existing items in menu.
+		// Otherwise viewer will hang for a time needed to scroll U32_MAX
+		// times in std::advance(). STORM-659.
+		size_t nitems = mItems.size();
+		U32 scrollable_items = nitems < mMaxScrollableItems ? nitems : mMaxScrollableItems;
+
 		// Advance by mMaxScrollableItems back from the end of the list
 		// to make the last item visible.
-		std::advance(first_visible_item_iter, mMaxScrollableItems);
+		std::advance(first_visible_item_iter, scrollable_items);
 		mFirstVisibleItem = *first_visible_item_iter;
 		break;
 	}
@@ -3099,9 +3078,6 @@ void LLMenuGL::showPopup(LLView* spawning_view, LLMenuGL* menu, S32 x, S32 y)
 		CURSOR_HEIGHT + MOUSE_CURSOR_PADDING * 2);
 	menu->translateIntoRectWithExclusion( menu_region_rect, mouse_rect, FALSE );
 	menu->getParent()->sendChildToFront(menu);
-
-
-
 }
 
 ///============================================================================

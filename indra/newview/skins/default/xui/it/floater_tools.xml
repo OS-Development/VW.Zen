@@ -24,20 +24,11 @@
 	<floater.string name="status_selectland">
 		Clicca e trascina per selezionare il terreno
 	</floater.string>
-	<floater.string name="grid_screen_text">
-		Schermo
+	<floater.string name="status_selectcount">
+		[OBJ_COUNT] oggetti ( [PRIM_COUNT] prim [PE_STRING] ) selezionati
 	</floater.string>
-	<floater.string name="grid_local_text">
-		Locale
-	</floater.string>
-	<floater.string name="grid_world_text">
-		Globale
-	</floater.string>
-	<floater.string name="grid_reference_text">
-		Riferimento
-	</floater.string>
-	<floater.string name="grid_attachment_text">
-		Accessorio
+	<floater.string name="status_selectprimequiv">
+		, [SEL_WEIGHT] prim equivalenti
 	</floater.string>
 	<button label="" label_selected="" name="button focus" tool_tip="Ingrandisci"/>
 	<button label="" label_selected="" name="button move" tool_tip="Sposta"/>
@@ -64,20 +55,14 @@
 		<radio_item label="Seleziona faccia" name="radio select face"/>
 	</radio_group>
 	<check_box label="Modifica parti collegate" name="checkbox edit linked parts"/>
-	<text name="RenderingCost" tool_tip="Mostra il costo di rendering calcolato per questo oggetto">
-		þ: [COUNT]
-	</text>
+	<button label="Collegamento" name="link_btn"/>
+	<button label="Scollega" name="unlink_btn"/>
 	<check_box label="" name="checkbox uniform"/>
 	<text label="Allunga entrambi i lati" name="checkbox uniform label">
 		Allunga entrambi i lati
 	</text>
 	<check_box initial_value="true" label="Ridimensiona le texture" name="checkbox stretch textures"/>
-	<check_box initial_value="true" label="Posiziona nella griglia" name="checkbox snap to grid"/>
-	<combo_box name="combobox grid mode" tool_tip="Scegli il tipo di righello per posizionare l&apos;oggetto">
-		<combo_box.item label="Rete del mondo" name="World"/>
-		<combo_box.item label="Rete locale" name="Local"/>
-		<combo_box.item label="Griglia di riferimento" name="Reference"/>
-	</combo_box>
+	<check_box initial_value="true" label="Scatto" name="checkbox snap to grid"/>
 	<button label="Opzioni..." label_selected="Opzioni..." name="Options..." tool_tip="Vedi più opzioni della griglia"/>
 	<button label="" label_selected="" name="ToolCube" tool_tip="Cubo"/>
 	<button label="" label_selected="" name="ToolPrism" tool_tip="Prisma"/>
@@ -118,11 +103,11 @@
 		Potenza
 	</text>
 	<button label="Applica" label_selected="Applica" name="button apply to selection" tool_tip="Modifica il terreno selezionato"/>
-	<text name="obj_count">
-		Oggetti: [COUNT]
+	<text name="selection_empty">
+		Nessuna selezione.
 	</text>
-	<text name="prim_count">
-		Prim: [COUNT]
+	<text name="selection_weight">
+		Peso fisica [PHYS_WEIGHT], costo rendering [DISP_WEIGHT].
 	</text>
 	<tab_container name="Object Info Tabs">
 		<panel label="Generale" name="General">
@@ -172,13 +157,13 @@
 				Creatore:
 			</text>
 			<text name="Creator Name">
-				Thrax Linden
+				Sig.ra Esbee Linden (esbee.linden)
 			</text>
 			<text name="Owner:">
 				Proprietario:
 			</text>
 			<text name="Owner Name">
-				Thrax Linden
+				Sig.ra Erica &quot;Moose&quot; Linden (erica.linden)
 			</text>
 			<text name="Group:">
 				Gruppo:
@@ -274,16 +259,7 @@
 				<combo_box.item label="Anello" name="Ring"/>
 				<combo_box.item label="Sculpted" name="Sculpted"/>
 			</combo_box>
-			<combo_box name="material">
-				<combo_box.item label="Pietra" name="Stone"/>
-				<combo_box.item label="Metallo" name="Metal"/>
-				<combo_box.item label="Vetro" name="Glass"/>
-				<combo_box.item label="Legno" name="Wood"/>
-				<combo_box.item label="Carne" name="Flesh"/>
-				<combo_box.item label="Plastica" name="Plastic"/>
-				<combo_box.item label="Gomma" name="Rubber"/>
-			</combo_box>
-			<text name="text cut" left_delta="-10" width="170">
+			<text left_delta="-10" name="text cut" width="170">
 				Riduci una sezione (inizio/fine)
 			</text>
 			<spinner label="I" name="cut begin"/>
@@ -358,6 +334,15 @@
 			</combo_box>
 		</panel>
 		<panel label="Caratteristiche" name="Features">
+			<panel.string name="None">
+				Nessuno
+			</panel.string>
+			<panel.string name="Prim">
+				Prim
+			</panel.string>
+			<panel.string name="Convex Hull">
+				Inviluppo convesso
+			</panel.string>
 			<text name="select_single">
 				Seleziona solo un prim per modificarne le caratteristiche.
 			</text>
@@ -382,6 +367,23 @@
 			<spinner label="Centro focale" name="Light Focus"/>
 			<spinner label="Attenuazione" name="Light Falloff"/>
 			<spinner label="Atmosfera" name="Light Ambiance"/>
+			<text name="label physicsshapetype">
+				Tipo di forma fisica:
+			</text>
+			<combo_box name="Physics Shape Type Combo Ctrl" tool_tip="Selezionare il tipo di forma fisica"/>
+			<combo_box name="material">
+				<combo_box.item label="Pietra" name="Stone"/>
+				<combo_box.item label="Metallo" name="Metal"/>
+				<combo_box.item label="Vetro" name="Glass"/>
+				<combo_box.item label="Legno" name="Wood"/>
+				<combo_box.item label="Carne" name="Flesh"/>
+				<combo_box.item label="Plastica" name="Plastic"/>
+				<combo_box.item label="Gomma" name="Rubber"/>
+			</combo_box>
+			<spinner label="Gravità" name="Physics Gravity"/>
+			<spinner label="Frizione" name="Physics Friction"/>
+			<spinner label="Densità in 100 kg/m^3" name="Physics Density"/>
+			<spinner label="Restituzione" name="Physics Restitution"/>
 		</panel>
 		<panel label="Texture" name="Texture">
 			<panel.string name="string repeats per meter">

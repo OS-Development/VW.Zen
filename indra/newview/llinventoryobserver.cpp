@@ -202,6 +202,7 @@ void LLInventoryFetchItemsObserver::changed(U32 mask)
 void fetch_items_from_llsd(const LLSD& items_llsd)
 {
 	if (!items_llsd.size() || gDisconnected) return;
+
 	LLSD body;
 	body[0]["cap_name"] = "FetchInventory2";
 	body[1]["cap_name"] = "FetchLib2";
@@ -212,7 +213,7 @@ void fetch_items_from_llsd(const LLSD& items_llsd)
 			body[0]["items"].append(items_llsd[i]);
 			continue;
 		}
-		if (items_llsd[i]["owner_id"].asString() == ALEXANDRIA_LINDEN_ID.asString())
+		else if (items_llsd[i]["owner_id"].asString() == ALEXANDRIA_LINDEN_ID.asString())
 		{
 			body[1]["items"].append(items_llsd[i]);
 			continue;
@@ -221,19 +222,23 @@ void fetch_items_from_llsd(const LLSD& items_llsd)
 		
 	for (S32 i=0; i<body.size(); i++)
 	{
-		if(!gAgent.getRegion())
+		if (!gAgent.getRegion())
 		{
-			llwarns<<"Agent's region is null"<<llendl;
+			llwarns << "Agent's region is null" << llendl;
 			break;
 		}
-		if (0 >= body[i].size()) continue;
-		std::string url = gAgent.getRegion()->getCapability(body[i]["cap_name"].asString());
 
+		if (0 == body[i]["items"].size()) {
+			lldebugs << "Skipping body with no items to fetch" << llendl;
+			continue;
+		}
+
+		std::string url = gAgent.getRegion()->getCapability(body[i]["cap_name"].asString());
 		if (!url.empty())
 		{
 			body[i]["agent_id"]	= gAgent.getID();
 			LLHTTPClient::post(url, body[i], new LLInventoryModel::fetchInventoryResponder(body[i]));
-			break;
+			continue;
 		}
 
 		LLMessageSystem* msg = gMessageSystem;
@@ -303,7 +308,7 @@ void LLInventoryFetchItemsObserver::startFetch()
 		// It's incomplete, so put it on the incomplete container, and
 		// pack this on the message.
 		mIncomplete.push_back(*it);
-		
+
 		// Prepare the data to fetch
 		LLSD item_entry;
 		item_entry["owner_id"] = owner_id;
@@ -572,16 +577,7 @@ void LLInventoryAddedObserver::changed(U32 mask)
 	// the network, figure out which item was updated.
 	LLMessageSystem* msg = gMessageSystem;
 
-	std::string msg_name;
-	if (mMessageName.empty())
-	{
-		msg_name = msg->getMessageName();
-	}
-	else
-	{
-		msg_name = mMessageName;
-	}
-
+	std::string msg_name = msg->getMessageName();
 	if (msg_name.empty())
 	{
 		return;
@@ -609,6 +605,34 @@ void LLInventoryAddedObserver::changed(U32 mask)
 		done();
 	}
 }
+
+void LLInventoryCategoryAddedObserver::changed(U32 mask)
+{
+	if (!(mask & LLInventoryObserver::ADD))
+	{
+		return;
+	}
+	
+	const LLInventoryModel::changed_items_t& changed_ids = gInventory.getChangedIDs();
+	
+	for (LLInventoryModel::changed_items_t::const_iterator cit = changed_ids.begin(); cit != changed_ids.end(); ++cit)
+	{
+		LLViewerInventoryCategory* cat = gInventory.getCategory(*cit);
+		
+		if (cat)
+		{
+			mAddedCategories.push_back(cat);
+		}
+	}
+	
+	if (!mAddedCategories.empty())
+	{
+		done();
+		
+		mAddedCategories.clear();
+	}
+}
+
 
 LLInventoryTransactionObserver::LLInventoryTransactionObserver(const LLTransactionID& transaction_id) :
 	mTransactionID(transaction_id)

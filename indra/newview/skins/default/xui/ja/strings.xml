@@ -34,6 +34,9 @@
 	<string name="StartupInitializingVFS">
 		VFS を初期化中です...
 	</string>
+	<string name="StartupRequireDriverUpdate">
+		グラフィックを初期化できませんでした。グラフィックドライバを更新してください。
+	</string>
 	<string name="ProgressRestoring">
 		復元中です...
 	</string>
@@ -91,6 +94,12 @@
 	<string name="LoginQuicktimeOK">
 		QuickTime が正常に初期化されました。
 	</string>
+	<string name="LoginRequestSeedCapGrant">
+		リージョンの機能をリクエストしています...
+	</string>
+	<string name="LoginRetrySeedCapGrant">
+		リージョンの機能をリクエスト、試行 [NUMBER] 回....
+	</string>
 	<string name="LoginWaitingForRegionHandshake">
 		リージョンのハンドシェイクを待っています...
 	</string>
@@ -129,6 +138,139 @@
 	</string>
 	<string name="create_account_url">
 		http://join.secondlife.com/index.php?lang=ja-JP
+	</string>
+	<string name="LoginFailedViewerNotPermitted">
+		お使いの古いビューワでは Second Life にアクセスできません。以下のページから新しいビューワをダウンロードしてください：
+http://secondlife.com/download
+
+詳細については、FAQ を参照してください：
+http://secondlife.com/viewer-access-faq
+	</string>
+	<string name="LoginIntermediateOptionalUpdateAvailable">
+		ビューワアップデート（オプション）があります： [VERSION]
+	</string>
+	<string name="LoginFailedRequiredUpdate">
+		ビューワアップデート（必須）： [VERSION]
+	</string>
+	<string name="LoginFailedAlreadyLoggedIn">
+		このエージェントは既にログインされています。
+	</string>
+	<string name="LoginFailedAuthenticationFailed">
+		申し訳ありませんが、ログインできませんでした。
+以下の情報が正しく入力されたことを確認してください：
+* ユーザー名（bobsmith12 または steller.sunshine など）
+* パスワード
+また、Caps Lock キーが有効になっていないこともお確かめください。
+	</string>
+	<string name="LoginFailedPasswordChanged">
+		セキュリティ上の理由により、あなたのパスワードは変更されました。
+アカウントページ（http://secondlife.com/password）に移動し、
+秘密の質問に答えて、パスワードをリセットしてください。
+ご迷惑をおかけして申し訳ございません。
+	</string>
+	<string name="LoginFailedPasswordReset">
+		弊社はシステムを若干変更しました。お手数ですが、パスワードのリセットをお願いします。
+アカウントページ（http://secondlife.com/password）に移動し、
+秘密の質問に答えて、パスワードをリセットしてください。
+ご迷惑をおかけして申し訳ございません。
+	</string>
+	<string name="LoginFailedEmployeesOnly">
+		Second Life はメンテナンスのため、一時的にご利用いただけません。
+従業員以外にはログインをご遠慮いただいています。
+最新の状況については www.secondlife.com/status でお確かめください。
+	</string>
+	<string name="LoginFailedPremiumOnly">
+		既にログインしているユーザーに最上のインワールド体験を提供するため、Second Life へのログインは一時的に制限されています。
+	 	
+申し訳ございませんが、有料アカウントのユーザーを優先するために、現時点のところ無料アカウントのユーザーには Second Life へのアクセスをご遠慮いただいています。
+	</string>
+	<string name="LoginFailedComputerProhibited">
+		このパソコンからは Second Life にアクセスできません。
+システムのエラーだと思われる場合は、
+support@secondlife.com にお問い合わせください。
+	</string>
+	<string name="LoginFailedAcountSuspended">
+		あなたのアカウントは
+太平洋時間の [TIME] までご利用いただけません。
+	</string>
+	<string name="LoginFailedAccountDisabled">
+		現在リクエストを完了することができません。
+Second Life のサポート（http://secondlife.com/support）にお問い合わせください。
+パスワードを変更できない場合には、(866) 476-9763 に電話でお問い合わせください。
+	</string>
+	<string name="LoginFailedTransformError">
+		ログイン時にデータの不一致が見つかりました。
+support@secondlife.com にお問い合わせください。
+	</string>
+	<string name="LoginFailedAccountMaintenance">
+		現在アカウントのメインテナンスが行われています。
+あなたのアカウントは
+太平洋時間の [TIME] までご利用いただけません。
+システムのエラーだと思われる場合は、support@secondlife.com にお問い合わせください。
+	</string>
+	<string name="LoginFailedPendingLogoutFault">
+		ログアウトをリスクエストしたら、シミュレーターから「fault」が返されました。
+	</string>
+	<string name="LoginFailedPendingLogout">
+		システムによるログアウトが実行されました。
+あなたのアカウントは
+太平洋時間の [TIME] までご利用いただけません。
+	</string>
+	<string name="LoginFailedUnableToCreateSession">
+		有効なセッションを生成できません。
+	</string>
+	<string name="LoginFailedUnableToConnectToSimulator">
+		シミュレーターに接続できませんでした。
+	</string>
+	<string name="LoginFailedRestrictedHours">
+		あなたの Second Life アカウントにアクセスできるのは、
+太平洋時間の [START] ～ [END] の間に限られます。
+有効な時間帯に再度お試しください。
+システムのエラーだと思われる場合は、support@secondlife.com にお問い合わせください。
+	</string>
+	<string name="LoginFailedIncorrectParameters">
+		パラメーターが正しくありません。
+システムのエラーだと思われる場合は、support@secondlife.com にお問い合わせください。
+	</string>
+	<string name="LoginFailedFirstNameNotAlphanumeric">
+		ファーストネームのパラメーターは英数字です。
+システムのエラーだと思われる場合は、support@secondlife.com にお問い合わせください。
+	</string>
+	<string name="LoginFailedLastNameNotAlphanumeric">
+		ラストネームのパラメーターは英数字です。
+システムのエラーだと思われる場合は、support@secondlife.com にお問い合わせください。
+	</string>
+	<string name="LogoutFailedRegionGoingOffline">
+		リージョンはオフライン中です。
+しばらくしてから再度お試しください。
+	</string>
+	<string name="LogoutFailedAgentNotInRegion">
+		エージェントがリージョンに不在です。
+しばらくしてから再度お試しください。
+	</string>
+	<string name="LogoutFailedPendingLogin">
+		このリージョンでは別のセッションがログインされていました。
+しばらくしてから再度お試しください。
+	</string>
+	<string name="LogoutFailedLoggingOut">
+		このリージョンでは前のセッションがログアウトされました。
+しばらくしてから再度お試しください。
+	</string>
+	<string name="LogoutFailedStillLoggingOut">
+		このリージョンでは現在も前のセッションのログアウトが処理されています。
+しばらくしてから再度お試しください。
+	</string>
+	<string name="LogoutSucceeded">
+		リージョンでは前のセッションがログアウトされました。
+しばらくしてから再度お試しください。
+	</string>
+	<string name="LogoutFailedLogoutBegun">
+		リージョンではログアウトプロセスが開始されました。
+しばらくしてから再度お試しください。
+	</string>
+	<string name="LoginFailedLoggingOutSession">
+		あなたの前のセッションはシステムによってログアウトされています。
+しばらくしてから再度お試しください。
 	</string>
 	<string name="AgentLostConnection">
 		このリージョンに不都合が発生している可能性があります。  ご使用のインターネット接続をご確認ください。
@@ -197,6 +339,18 @@
 		アイテムは 1 つだけここにドラッグできます
 	</string>
 	<string name="TooltipPrice" value="L$[AMOUNT]："/>
+	<string name="TooltipOutboxNoTransfer">
+		これらオブジェクトの 1 つまたは複数は、別のユーザーに売り渡したり譲渡できないものです。
+	</string>
+	<string name="TooltipOutboxWorn">
+		あなたはこれらオブジェクトの 1 つまたは複数を装着しています。アバターからそれらを取り外し、再び移動してみてください。
+	</string>
+	<string name="TooltipOutboxFolderLevels">
+		このフォルダにあるサブフォルダの階層が多すぎます。サブフォルダは4階層以内（ルートフォルダの下にA、その下にB、その下にCという風に）にまとめ直してください。
+	</string>
+	<string name="TooltipOutboxTooManyObjects">
+		このフォルダには 200 個以上のオブジェクトが含まれます。商品のいつかをボックスに入れ、オブジェクト数を減らしてください。
+	</string>
 	<string name="TooltipHttpUrl">
 		クリックしてこの Web ページを見ます
 	</string>
@@ -205,6 +359,9 @@
 	</string>
 	<string name="TooltipAgentUrl">
 		クリックしてこの住人のプロフィールを見ます
+	</string>
+	<string name="TooltipAgentInspect">
+		この住人の詳細を参照
 	</string>
 	<string name="TooltipAgentMute">
 		クリックしてこの住人に対して無視設定をします
@@ -437,6 +594,9 @@
 	</string>
 	<string name="symbolic folder link">
 		フォルダのリンク
+	</string>
+	<string name="mesh">
+		メッシュ
 	</string>
 	<string name="AvatarEditingAppearance">
 		（容姿の編集中）
@@ -762,6 +922,12 @@
 	<string name="Estate / Full Region">
 		不動産 / フルリージョン
 	</string>
+	<string name="Estate / Homestead">
+		エステート/ホームステッド
+	</string>
+	<string name="Mainland / Homestead">
+		メインランド/ホームステッド
+	</string>
 	<string name="Mainland / Full Region">
 		メインランド / フルリージョン
 	</string>
@@ -867,6 +1033,9 @@
 	<string name="tattoo">
 		タトゥ
 	</string>
+	<string name="physics">
+		物理作用
+	</string>
 	<string name="invalid">
 		無効
 	</string>
@@ -905,6 +1074,9 @@
 	</string>
 	<string name="tattoo_not_worn">
 		タトゥー未着用
+	</string>
+	<string name="physics_not_worn">
+		物理作用なし
 	</string>
 	<string name="invalid_not_worn">
 		無効
@@ -953,6 +1125,9 @@
 	</string>
 	<string name="create_new_tattoo">
 		新しいタトゥを作成
+	</string>
+	<string name="create_new_physics">
+		新しい物理作用を作成
 	</string>
 	<string name="create_new_invalid">
 		無効
@@ -1038,6 +1213,69 @@
 	<string name="InventoryNoTexture">
 		「持ち物」内にこのテクスチャのコピーがありません
 	</string>
+	<string name="InventoryInboxNoItems">
+		マーケットプレイスで購入した商品はここに配達されます。
+	</string>
+	<string name="MarketplaceURL">
+		http://marketplace.[DOMAIN_NAME]
+	</string>
+	<string name="MarketplaceURL_CreateStore">
+		http://marketplace.[DOMAIN_NAME]/create_store
+	</string>
+	<string name="MarketplaceURL_LearnMore">
+		http://marketplace.[DOMAIN_NAME]/learn_more
+	</string>
+	<string name="InventoryOutboxCreationErrorTitle">
+		マーチャントアウトボックスが正しく設定されていません
+	</string>
+	<string name="InventoryOutboxCreationErrorTooltip">
+		マーチャントアウトボックスの設定エラー
+	</string>
+	<string name="InventoryOutboxCreationError">
+		問題を解決するにはカスタマーサービスにお問い合わせください。
+	</string>
+	<string name="InventoryOutboxNotMerchantTitle">
+		マーケットプレイスは皆の売り場です
+	</string>
+	<string name="InventoryOutboxNotMerchantTooltip">
+		あなたもマーチャントに！
+	</string>
+	<string name="InventoryOutboxNotMerchant">
+		[[MARKETPLACE_URL] Second Life マーケットプレイス] では、SL 住人が制作した商品 100 万点以上が販売されています。あなたもご自分の自信作や、あなたが購入したアイテムを商品として売ってみませんか。その手順は簡単で、セットアップは無料です。[[LEARN_MORE_URL] こちらで詳細を確かめ]、マーケットプレイスに[[CREATE_STORE_URL] ストアを作成] しましょう。
+	</string>
+	<string name="InventoryOutboxNoItemsTitle">
+		マーケットプレイスへの新しい出荷方法
+	</string>
+	<string name="InventoryOutboxNoItemsTooltip">
+		商品をここにドラッグアンドドロップするだけで、マーケットプレイスの売り物となります
+	</string>
+	<string name="InventoryOutboxNoItems">
+		販売する商品またはフォルダをこのエリアにドラッグします。コピー不可のアイテムでない限り、ドラッグした商品のコピーが表示されるだけで、あなたの持ち物から商品が実際に移動するわけではありません。マーケットプレイスに商品を送る準備が整ったら、「アップロード」ボタンをクリックします。商品はマーケットプレイスインベントリに移動した時点でこのフォルダから削除されます。
+	</string>
+	<string name="Marketplace Error None">
+		エラーなし
+	</string>
+	<string name="Marketplace Error Not Merchant">
+		エラー：マーケットプレイスに商品を送る前に、あなた自身をマーチャント登録する必要があります（登録は無料です）。
+	</string>
+	<string name="Marketplace Error Empty Folder">
+		エラー：このフォルダは空です。
+	</string>
+	<string name="Marketplace Error Unassociated Products">
+		エラー：あなたのマーチャントアカウントには、商品と無関係のアイテムが多すぎるため、このアイテムをアップロードできませんでした。このエラーを解消するには、マーケットプレイスのウェブサイトにログインし、商品に関係のないアイテム数を減らしてください。
+	</string>
+	<string name="Marketplace Error Object Limit">
+		エラー：この商品に含まれるオブジェクトが多すぎます。オブジェクトをいくつかボックスにまとめ、オブジェクト数を200以下に減らしてください。
+	</string>
+	<string name="Marketplace Error Folder Depth">
+		エラー：この商品はネスト入りフォルダの階層が多すぎます。ネスト入りフォルダを 3 階層以内にまとめ直してください。
+	</string>
+	<string name="Marketplace Error Unsellable Item">
+		エラー：この項目をマーケットプレイスで販売することはできません。
+	</string>
+	<string name="Marketplace Error Internal Import">
+		エラー：この商品に関して問題が発生しました。しばらくしてからお試しください。
+	</string>
 	<string name="no_transfer" value=" （再販・プレゼント不可）"/>
 	<string name="no_modify" value=" （編集不可）"/>
 	<string name="no_copy" value=" （コピー不可）"/>
@@ -1058,7 +1296,7 @@
 	<string name="PermNo">
 		いいえ
 	</string>
-	<string name="Chat" value=" チャット："/>
+	<string name="Chat Message" value="チャット："/>
 	<string name="Sound" value=" サウンド："/>
 	<string name="Wait" value=" --- 待機：:"/>
 	<string name="AnimFlagStop" value=" アニメーションを停止："/>
@@ -1083,9 +1321,6 @@
 	<string name="Since Logoff" value=" - ログオフ以来"/>
 	<string name="InvFolder My Inventory">
 		持ち物
-	</string>
-	<string name="InvFolder My Favorites">
-		お気に入り
 	</string>
 	<string name="InvFolder Library">
 		ライブラリ
@@ -1162,11 +1397,17 @@
 	<string name="InvFolder Accessories">
 		アクセサリ
 	</string>
+	<string name="InvFolder Meshes">
+		メッシュ
+	</string>
 	<string name="InvFolder Friends">
 		フレンド
 	</string>
 	<string name="InvFolder All">
 		全員
+	</string>
+	<string name="no_attachments">
+		着用しているアタッチメントはありません
 	</string>
 	<string name="Buy">
 		買う
@@ -1477,6 +1718,9 @@
 	</string>
 	<string name="SummaryForTheWeek" value="今週のまとめ。開始日は"/>
 	<string name="NextStipendDay" value="です。次回のお小遣い支給日："/>
+	<string name="GroupPlanningDate">
+		[year,datetime,utc]/[mthnum,datetime,utc]/[day,datetime,utc]
+	</string>
 	<string name="GroupIndividualShare" value="                      グループ       個人の割り当て"/>
 	<string name="GroupColumn" value="グループの設定"/>
 	<string name="Balance">
@@ -1502,6 +1746,9 @@
 	</string>
 	<string name="IMTeen">
 		ティーン
+	</string>
+	<string name="Anyone">
+		全員
 	</string>
 	<string name="RegionInfoError">
 		エラー
@@ -1725,6 +1972,12 @@
 	<string name="Public">
 		パブリック
 	</string>
+	<string name="LocalSettings">
+		ローカル設定
+	</string>
+	<string name="RegionSettings">
+		リージョン（地域）の設定
+	</string>
 	<string name="ClassifiedClicksTxt">
 		クリック数： [TELEPORT] テレポート、 [MAP] 地図、 [PROFILE] プロフィール
 	</string>
@@ -1764,11 +2017,8 @@
 	<string name="InvOfferGaveYou">
 		が渡しました
 	</string>
-	<string name="InvOfferYouDecline">
-		拒否：
-	</string>
-	<string name="InvOfferFrom">
-		送信元：
+	<string name="InvOfferDecline">
+		&lt;nolink&gt;[NAME]&lt;/nolink&gt; からの [DESC] を拒否しました。
 	</string>
 	<string name="GroupMoneyTotal">
 		合計
@@ -1799,6 +2049,9 @@
 	</string>
 	<string name="GroupMoneyDebits">
 		支出
+	</string>
+	<string name="GroupMoneyDate">
+		[year,datetime,utc]年[mth,datetime,utc]月[day,datetime,utc]日[weekday,datetime,utc]
 	</string>
 	<string name="ViewerObjectContents">
 		内容
@@ -1858,12 +2111,6 @@
 	<string name="accel-win-shift">
 		Shift+
 	</string>
-	<string name="Esc">
-		Esc
-	</string>
-	<string name="Home">
-		ホーム
-	</string>
 	<string name="FileSaved">
 		ファイルが保存されました
 	</string>
@@ -1892,7 +2139,7 @@
 		右
 	</string>
 	<string name="Direction_Back">
-		後ろ
+		戻る
 	</string>
 	<string name="Direction_North">
 		北
@@ -1980,6 +2227,9 @@
 	</string>
 	<string name="Other">
 		その他
+	</string>
+	<string name="Rental">
+		レンタル
 	</string>
 	<string name="Any">
 		全員
@@ -2244,6 +2494,114 @@ www.secondlife.com から最新バージョンをダウンロードしてくだ�
 	<string name="Bulbous Nose">
 		だんご鼻
 	</string>
+	<string name="Breast Physics Mass">
+		胸の豊かさ
+	</string>
+	<string name="Breast Physics Smoothing">
+		胸の平滑化
+	</string>
+	<string name="Breast Physics Gravity">
+		胸の垂れ具合
+	</string>
+	<string name="Breast Physics Drag">
+		胸の空気抵抗
+	</string>
+	<string name="Breast Physics InOut Max Effect">
+		最大エフェクト数
+	</string>
+	<string name="Breast Physics InOut Spring">
+		振動速度
+	</string>
+	<string name="Breast Physics InOut Gain">
+		増加率
+	</string>
+	<string name="Breast Physics InOut Damping">
+		減衰
+	</string>
+	<string name="Breast Physics UpDown Max Effect">
+		最大エフェクト数
+	</string>
+	<string name="Breast Physics UpDown Spring">
+		振動速度
+	</string>
+	<string name="Breast Physics UpDown Gain">
+		増加率
+	</string>
+	<string name="Breast Physics UpDown Damping">
+		減衰
+	</string>
+	<string name="Breast Physics LeftRight Max Effect">
+		最大エフェクト数
+	</string>
+	<string name="Breast Physics LeftRight Spring">
+		振動速度
+	</string>
+	<string name="Breast Physics LeftRight Gain">
+		増加率
+	</string>
+	<string name="Breast Physics LeftRight Damping">
+		減衰
+	</string>
+	<string name="Belly Physics Mass">
+		お腹の豊かさ
+	</string>
+	<string name="Belly Physics Smoothing">
+		お腹の平滑化
+	</string>
+	<string name="Belly Physics Gravity">
+		お腹の垂れ具合
+	</string>
+	<string name="Belly Physics Drag">
+		お腹の空気抵抗
+	</string>
+	<string name="Belly Physics UpDown Max Effect">
+		最大エフェクト数
+	</string>
+	<string name="Belly Physics UpDown Spring">
+		振動速度
+	</string>
+	<string name="Belly Physics UpDown Gain">
+		増加率
+	</string>
+	<string name="Belly Physics UpDown Damping">
+		減衰
+	</string>
+	<string name="Butt Physics Mass">
+		お尻の豊かさ
+	</string>
+	<string name="Butt Physics Smoothing">
+		お尻の平滑化
+	</string>
+	<string name="Butt Physics Gravity">
+		お尻の垂れ具合
+	</string>
+	<string name="Butt Physics Drag">
+		お尻の空気抵抗
+	</string>
+	<string name="Butt Physics UpDown Max Effect">
+		最大エフェクト数
+	</string>
+	<string name="Butt Physics UpDown Spring">
+		振動速度
+	</string>
+	<string name="Butt Physics UpDown Gain">
+		増加率
+	</string>
+	<string name="Butt Physics UpDown Damping">
+		減衰
+	</string>
+	<string name="Butt Physics LeftRight Max Effect">
+		最大エフェクト数
+	</string>
+	<string name="Butt Physics LeftRight Spring">
+		振動速度
+	</string>
+	<string name="Butt Physics LeftRight Gain">
+		増加率
+	</string>
+	<string name="Butt Physics LeftRight Damping">
+		減衰
+	</string>
 	<string name="Bushy Eyebrows">
 		太
 	</string>
@@ -2252,6 +2610,9 @@ www.secondlife.com から最新バージョンをダウンロードしてくだ�
 	</string>
 	<string name="Butt Size">
 		お尻の大きさ
+	</string>
+	<string name="Butt Gravity">
+		お尻の垂れ具合
 	</string>
 	<string name="bustle skirt">
 		後ろの膨らみ
@@ -3465,6 +3826,9 @@ www.secondlife.com から最新バージョンをダウンロードしてくだ�
 	<string name="LocationCtrlGeneralIconTooltip">
 		General リージョン
 	</string>
+	<string name="LocationCtrlSeeAVsTooltip">
+		この区画外にアバターを見えるようにして、チャットも許可
+	</string>
 	<string name="UpdaterWindowTitle">
 		[APP_NAME] アップデート
 	</string>
@@ -3559,7 +3923,7 @@ www.secondlife.com から最新バージョンをダウンロードしてくだ�
 		アドホックコンファレンス
 	</string>
 	<string name="conference-title-incoming">
-		[AGENT_NAME]とコンファレンスする
+		[AGENT_NAME] とコンファレンスする
 	</string>
 	<string name="inventory_item_offered-im">
 		持ち物アイテムを送りました
@@ -3574,7 +3938,7 @@ www.secondlife.com から最新バージョンをダウンロードしてくだ�
 		このセッションにいるユーザーはあなただけです。
 	</string>
 	<string name="offline_message">
-		[NAME] はオフラインです。
+		[NAME] はオフライン中です。
 	</string>
 	<string name="invite_message">
 		このボイスチャットに応答・接続する場合は、[BUTTON NAME] をクリックしてください。
@@ -3639,11 +4003,17 @@ www.secondlife.com から最新バージョンをダウンロードしてくだ�
 	<string name="session_initialization_timed_out_error">
 		セッションの初期化がタイムアウトしました
 	</string>
+	<string name="Home position set.">
+		家の配置の設定。
+	</string>
 	<string name="voice_morphing_url">
 		http://secondlife.com/landing/voicemorphing
 	</string>
 	<string name="paid_you_ldollars">
-		[NAME] は L$[AMOUNT] 支払いました
+		[NAME] は [REASON] のために L$[AMOUNT] を支払いました。
+	</string>
+	<string name="paid_you_ldollars_no_reason">
+		[NAME] は L$[AMOUNT] を支払いました。
 	</string>
 	<string name="you_paid_ldollars">
 		[NAME] に L$ [AMOUNT] を支払いました：[REASON]
@@ -3656,6 +4026,9 @@ www.secondlife.com から最新バージョンをダウンロードしてくだ�
 	</string>
 	<string name="you_paid_ldollars_no_name">
 		L$ [AMOUNT] を支払いました：[REASON]
+	</string>
+	<string name="for item">
+		[ITEM] 向け
 	</string>
 	<string name="for a parcel of land">
 		土地区画のため
@@ -3674,6 +4047,9 @@ www.secondlife.com から最新バージョンをダウンロードしてくだ�
 	</string>
 	<string name="to upload">
 		アップロードするため
+	</string>
+	<string name="to publish a classified ad">
+		クラシファイド広告を掲載する
 	</string>
 	<string name="giving">
 		L$[AMOUNT] を渡します
@@ -3751,6 +4127,9 @@ www.secondlife.com から最新バージョンをダウンロードしてくだ�
 	</string>
 	<string name="New Tattoo">
 		新しいタトゥ
+	</string>
+	<string name="New Physics">
+		新規の物理作用
 	</string>
 	<string name="Invalid Wearable">
 		無効な着用物
@@ -3875,6 +4254,87 @@ www.secondlife.com から最新バージョンをダウンロードしてくだ�
 	<string name="Female - Wow">
 		女性 - Wow
 	</string>
+	<string name="/bow1">
+		/bow1
+	</string>
+	<string name="/clap">
+		/拍手
+	</string>
+	<string name="/count">
+		/数える
+	</string>
+	<string name="/extinguish">
+		/消す
+	</string>
+	<string name="/kmb">
+		/くそくらえ
+	</string>
+	<string name="/muscle">
+		/筋肉もりもり
+	</string>
+	<string name="/no">
+		/いいえ
+	</string>
+	<string name="/no!">
+		/だめ！
+	</string>
+	<string name="/paper">
+		/パー
+	</string>
+	<string name="/pointme">
+		/自分を指差す
+	</string>
+	<string name="/pointyou">
+		/相手を指差す
+	</string>
+	<string name="/rock">
+		/グー
+	</string>
+	<string name="/scissor">
+		/チョキ
+	</string>
+	<string name="/smoke">
+		/タバコを吸う
+	</string>
+	<string name="/stretch">
+		/伸びをする
+	</string>
+	<string name="/whistle">
+		/口笛を吹く
+	</string>
+	<string name="/yes">
+		/はい
+	</string>
+	<string name="/yes!">
+		/イエス！
+	</string>
+	<string name="afk">
+		一時退席中
+	</string>
+	<string name="dance1">
+		ダンス1
+	</string>
+	<string name="dance2">
+		ダンス2
+	</string>
+	<string name="dance3">
+		ダンス3
+	</string>
+	<string name="dance4">
+		ダンス4
+	</string>
+	<string name="dance5">
+		ダンス5
+	</string>
+	<string name="dance6">
+		ダンス6
+	</string>
+	<string name="dance7">
+		ダンス7
+	</string>
+	<string name="dance8">
+		ダンス8
+	</string>
 	<string name="AvatarBirthDateFormat">
 		[year,datetime,slt]/[mthnum,datetime,slt]/[day,datetime,slt]
 	</string>
@@ -3951,7 +4411,7 @@ www.secondlife.com から最新バージョンをダウンロードしてくだ�
 	<string name="Notices">
 		通知
 	</string>
-	<string name="Chat">
+	<string name="Chat" value=" チャット：">
 		チャット
 	</string>
 	<string name="DeleteItems">
@@ -3962,5 +4422,349 @@ www.secondlife.com から最新バージョンをダウンロードしてくだ�
 	</string>
 	<string name="EmptyOutfitText">
 		このアウトフィットにはアイテムがありません
+	</string>
+	<string name="ExternalEditorNotSet">
+		ExternalEditor 設定を使ってエディターを選択します。
+	</string>
+	<string name="ExternalEditorNotFound">
+		指定された外部エディターが見つかりません。
+エディターへのパスを二重引用符で囲んでみてください。
+（例：&quot;/path to my/editor&quot; &quot;%s&quot;）
+	</string>
+	<string name="ExternalEditorCommandParseError">
+		外部エディターのコマンドの解析中にエラーが見つかりました。
+	</string>
+	<string name="ExternalEditorFailedToRun">
+		外部エディターを実行できませんでした。
+	</string>
+	<string name="Esc">
+		Esc
+	</string>
+	<string name="Space">
+		Space
+	</string>
+	<string name="Enter">
+		Enter
+	</string>
+	<string name="Tab">
+		Tab
+	</string>
+	<string name="Ins">
+		Ins
+	</string>
+	<string name="Del">
+		Del
+	</string>
+	<string name="Backsp">
+		Backsp
+	</string>
+	<string name="Shift">
+		Shift
+	</string>
+	<string name="Ctrl">
+		Ctrl
+	</string>
+	<string name="Alt">
+		Alt
+	</string>
+	<string name="CapsLock">
+		CapsLock
+	</string>
+	<string name="Home">
+		ホーム
+	</string>
+	<string name="End">
+		End
+	</string>
+	<string name="PgUp">
+		PgUp
+	</string>
+	<string name="PgDn">
+		PgDn
+	</string>
+	<string name="F1">
+		F1
+	</string>
+	<string name="F2">
+		F2
+	</string>
+	<string name="F3">
+		F3
+	</string>
+	<string name="F4">
+		F4
+	</string>
+	<string name="F5">
+		F5
+	</string>
+	<string name="F6">
+		F6
+	</string>
+	<string name="F7">
+		F7
+	</string>
+	<string name="F8">
+		F8
+	</string>
+	<string name="F9">
+		F9
+	</string>
+	<string name="F10">
+		F10
+	</string>
+	<string name="F11">
+		F11
+	</string>
+	<string name="F12">
+		F12
+	</string>
+	<string name="Add">
+		追加
+	</string>
+	<string name="Subtract">
+		減算
+	</string>
+	<string name="Multiply">
+		乗算
+	</string>
+	<string name="Divide">
+		除算
+	</string>
+	<string name="PAD_DIVIDE">
+		PAD_DIVIDE
+	</string>
+	<string name="PAD_LEFT">
+		PAD_LEFT
+	</string>
+	<string name="PAD_RIGHT">
+		PAD_RIGHT
+	</string>
+	<string name="PAD_DOWN">
+		PAD_DOWN
+	</string>
+	<string name="PAD_UP">
+		PAD_UP
+	</string>
+	<string name="PAD_HOME">
+		PAD_HOME
+	</string>
+	<string name="PAD_END">
+		PAD_END
+	</string>
+	<string name="PAD_PGUP">
+		PAD_PGUP
+	</string>
+	<string name="PAD_PGDN">
+		PAD_PGDN
+	</string>
+	<string name="PAD_CENTER">
+		PAD_CENTER
+	</string>
+	<string name="PAD_INS">
+		PAD_INS
+	</string>
+	<string name="PAD_DEL">
+		PAD_DEL
+	</string>
+	<string name="PAD_Enter">
+		PAD_Enter
+	</string>
+	<string name="PAD_BUTTON0">
+		PAD_BUTTON0
+	</string>
+	<string name="PAD_BUTTON1">
+		PAD_BUTTON1
+	</string>
+	<string name="PAD_BUTTON2">
+		PAD_BUTTON2
+	</string>
+	<string name="PAD_BUTTON3">
+		PAD_BUTTON3
+	</string>
+	<string name="PAD_BUTTON4">
+		PAD_BUTTON4
+	</string>
+	<string name="PAD_BUTTON5">
+		PAD_BUTTON5
+	</string>
+	<string name="PAD_BUTTON6">
+		PAD_BUTTON6
+	</string>
+	<string name="PAD_BUTTON7">
+		PAD_BUTTON7
+	</string>
+	<string name="PAD_BUTTON8">
+		PAD_BUTTON8
+	</string>
+	<string name="PAD_BUTTON9">
+		PAD_BUTTON9
+	</string>
+	<string name="PAD_BUTTON10">
+		PAD_BUTTON10
+	</string>
+	<string name="PAD_BUTTON11">
+		PAD_BUTTON11
+	</string>
+	<string name="PAD_BUTTON12">
+		PAD_BUTTON12
+	</string>
+	<string name="PAD_BUTTON13">
+		PAD_BUTTON13
+	</string>
+	<string name="PAD_BUTTON14">
+		PAD_BUTTON14
+	</string>
+	<string name="PAD_BUTTON15">
+		PAD_BUTTON15
+	</string>
+	<string name="-">
+		-
+	</string>
+	<string name="=">
+		=
+	</string>
+	<string name="`">
+		`
+	</string>
+	<string name=";">
+		;
+	</string>
+	<string name="[">
+		[
+	</string>
+	<string name="]">
+		]
+	</string>
+	<string name="\">
+		\
+	</string>
+	<string name="0">
+		0
+	</string>
+	<string name="1">
+		1
+	</string>
+	<string name="2">
+		2
+	</string>
+	<string name="3">
+		3
+	</string>
+	<string name="4">
+		4
+	</string>
+	<string name="5">
+		5
+	</string>
+	<string name="6">
+		6
+	</string>
+	<string name="7">
+		7
+	</string>
+	<string name="8">
+		8
+	</string>
+	<string name="9">
+		9
+	</string>
+	<string name="A">
+		A
+	</string>
+	<string name="B">
+		B
+	</string>
+	<string name="C">
+		C
+	</string>
+	<string name="D">
+		D
+	</string>
+	<string name="E">
+		E
+	</string>
+	<string name="F">
+		F
+	</string>
+	<string name="G">
+		G
+	</string>
+	<string name="H">
+		H
+	</string>
+	<string name="I">
+		I
+	</string>
+	<string name="J">
+		J
+	</string>
+	<string name="K">
+		K
+	</string>
+	<string name="L">
+		L
+	</string>
+	<string name="M">
+		M
+	</string>
+	<string name="N">
+		N
+	</string>
+	<string name="O">
+		O
+	</string>
+	<string name="P">
+		P
+	</string>
+	<string name="Q">
+		Q
+	</string>
+	<string name="R">
+		R
+	</string>
+	<string name="S">
+		S
+	</string>
+	<string name="T">
+		T
+	</string>
+	<string name="U">
+		U
+	</string>
+	<string name="V">
+		V
+	</string>
+	<string name="W">
+		W
+	</string>
+	<string name="X">
+		X
+	</string>
+	<string name="Y">
+		Y
+	</string>
+	<string name="Z">
+		Z
+	</string>
+	<string name="BeaconParticle">
+		パーティクル源ビーコン（青）を表示中
+	</string>
+	<string name="BeaconPhysical">
+		物理的オブジェクトのビーコン（緑）を表示中
+	</string>
+	<string name="BeaconScripted">
+		スクリプトのオブジェクトのビーコン（赤）を表示中
+	</string>
+	<string name="BeaconScriptedTouch">
+		タッチ機能のビーコンが付いたスクリプトのオブジェクト（赤）を表示中
+	</string>
+	<string name="BeaconSound">
+		サウンドビーコン（黄）を表示中
+	</string>
+	<string name="BeaconMedia">
+		メディアビーコン（白）を表示中
+	</string>
+	<string name="ParticleHiding">
+		パーティクルを非表示
 	</string>
 </strings>

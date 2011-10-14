@@ -88,7 +88,8 @@ protected:
 	void		onBtnCancel();
 	void		onBtnApply();
 
-	void		onClickBrowserClearCache();
+	void		onClickClearCache();			// Clear viewer texture cache, vfs, and VO cache on next startup
+	void		onClickBrowserClearCache();		// Clear web history and caches as well as viewer caches above
 	void		onLanguageChange();
 	void		onNameTagOpacityChange(const LLSD& newvalue);
 
@@ -99,18 +100,17 @@ protected:
 	void onChangeCustom();
 	void updateMeterText(LLUICtrl* ctrl);
 	void onOpenHardwareSettings();
-	/// callback for defaults
+	// callback for defaults
 	void setHardwareDefaults();
 	// callback for when client turns on shaders
 	void onVertexShaderEnable();
-	// callback for changing double click action checkbox
-	void onDoubleClickCheckBox(LLUICtrl* ctrl);
-	// callback for selecting double click action radio-button
-	void onDoubleClickRadio();
-	// updates double-click action settings depending on controls from preferences
-	void updateDoubleClickSettings();
-	// updates double-click action controls depending on values from settings.xml
-	void updateDoubleClickControls();
+
+	// callback for commit in the "Single click on land" and "Double click on land" comboboxes.
+	void onClickActionChange();
+	// updates click/double-click action settings depending on controls values
+	void updateClickActionSettings();
+	// updates click/double-click action controls depending on values from settings.xml
+	void updateClickActionControls();
 	
 	// This function squirrels away the current values of the controls so that
 	// cancel() can restore them.	
@@ -128,6 +128,7 @@ public:
 	void onClickSetKey();
 	void setKey(KEY key);
 	void onClickSetMiddleMouse();
+	void onClickSetSounds();
 //	void onClickSkipDialogs();
 //	void onClickResetDialogs();
 	void onClickEnablePopup();
@@ -154,25 +155,21 @@ public:
 	void applyResolution();
 	void onChangeMaturity();
 	void onClickBlockList();
+	void onClickProxySettings();
 	void applyUIColor(LLUICtrl* ctrl, const LLSD& param);
 	void getUIColor(LLUICtrl* ctrl, const LLSD& param);
 	
 	void buildPopupLists();
 	static void refreshSkin(void* data);
-	// Remove record of current user's favorites from file on disk.
-	void removeFavoritesRecordOfUser();
 private:
 	static std::string sSkin;
-	// set true if state of double-click action checkbox or radio-group was changed by user
-	// (reset back to false on apply or cancel)
-	bool mDoubleClickActionDirty;
+	bool mClickActionDirty; ///< Set to true when the click/double-click options get changed by user.
 	bool mGotPersonalInfo;
 	bool mOriginalIMViaEmail;
 	bool mLanguageChanged;
+	bool mAvatarDataInitialized;
 	
 	bool mOriginalHideOnlineStatus;
-	// Record of current user's favorites may be stored in file on disk.
-	bool mFavoritesRecordMayExist;
 	std::string mDirectoryVisibility;
 	
 	LLAvatarData mAvatarProperties;
@@ -184,6 +181,8 @@ public:
 	LLPanelPreference();
 	/*virtual*/ BOOL postBuild();
 	
+	virtual ~LLPanelPreference();
+
 	virtual void apply();
 	virtual void cancel();
 	void setControlFalse(const LLSD& user_data);
@@ -197,6 +196,7 @@ public:
 	// cancel() can restore them.
 	virtual void saveSettings();
 	
+	class Updater;
 private:
 	//for "Only friends and groups can call or IM me"
 	static void showFriendsOnlyWarning(LLUICtrl*, const LLSD&);
@@ -208,6 +208,8 @@ private:
 
 	typedef std::map<std::string, LLColor4> string_color_map_t;
 	string_color_map_t mSavedColors;
+
+	Updater* mBandWidthUpdater;
 };
 
 class LLPanelPreferenceGraphics : public LLPanelPreference
@@ -224,5 +226,34 @@ protected:
 	void resetDirtyChilds();
 	
 };
+
+class LLFloaterPreferenceProxy : public LLFloater
+{
+public: 
+	LLFloaterPreferenceProxy(const LLSD& key);
+	~LLFloaterPreferenceProxy();
+
+	/// show off our menu
+	static void show();
+	void cancel();
+	
+protected:
+	BOOL postBuild();
+	void onOpen(const LLSD& key);
+	void onClose(bool app_quitting);
+	void saveSettings();
+	void onBtnOk();
+	void onBtnCancel();
+
+	void onChangeSocksSettings();
+
+private:
+	
+	bool mSocksSettingsDirty;
+	typedef std::map<LLControlVariable*, LLSD> control_values_map_t;
+	control_values_map_t mSavedValues;
+
+};
+
 
 #endif  // LL_LLPREFERENCEFLOATER_H

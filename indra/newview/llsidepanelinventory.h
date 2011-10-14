@@ -29,9 +29,13 @@
 
 #include "llpanel.h"
 
+class LLButton;
 class LLFolderViewItem;
+class LLInboxOutboxAddedObserver;
+class LLInventoryCategoriesObserver;
 class LLInventoryItem;
 class LLInventoryPanel;
+class LLLayoutPanel;
 class LLPanelMainInventory;
 class LLSidepanelItemInfo;
 class LLSidepanelTaskInfo;
@@ -42,12 +46,23 @@ public:
 	LLSidepanelInventory();
 	virtual ~LLSidepanelInventory();
 
+private:
+	void handleLoginComplete();
+	
+public:
+	void observeInboxOutboxCreation();
+	void observeInboxModifications(const LLUUID& inboxID);
+	void observeOutboxModifications(const LLUUID& outboxID);
+
 	/*virtual*/ BOOL postBuild();
 	/*virtual*/ void onOpen(const LLSD& key);
 
 	LLInventoryPanel* getActivePanel(); // Returns an active inventory panel, if any.
 	LLPanelMainInventory* getMainInventoryPanel() const { return mPanelMainInventory; }
 	BOOL isMainInventoryPanelActive() const;
+
+	void clearSelections(bool clearMain, bool clearInbox, bool clearOutbox);
+	std::set<LLUUID> getInboxOrOutboxSelectionList();
 
 	void showItemInfoPanel();
 	void showTaskInfoPanel();
@@ -56,6 +71,18 @@ public:
 	// checks can share selected item(s)
 	bool canShare();
 
+	void onToggleInboxBtn();
+	void onToggleOutboxBtn();
+
+	void enableInbox(bool enabled);
+	void enableOutbox(bool enabled);
+	
+	bool isInboxEnabled() const { return mInboxEnabled; }
+	bool isOutboxEnabled() const { return mOutboxEnabled; }
+
+	void updateOutboxUserStatus();
+	void updateVerbs();
+
 protected:
 	// Tracks highlighted (selected) item in inventory panel.
 	LLInventoryItem *getSelectedItem();
@@ -63,15 +90,21 @@ protected:
 	void onSelectionChange(const std::deque<LLFolderViewItem*> &items, BOOL user_action);
 	// "wear", "teleport", etc.
 	void performActionOnSelection(const std::string &action);
-	void updateVerbs();
 
 	bool canWearSelected(); // check whether selected items can be worn
+
+	void onInboxChanged(const LLUUID& inbox_id);
+	void onOutboxChanged(const LLUUID& outbox_id);
+
+	bool manageInboxOutboxPanels(LLButton * pressedButton, LLLayoutPanel * pressedPanel, LLButton * otherButton, LLLayoutPanel * otherPanel);
 
 	//
 	// UI Elements
 	//
 private:
 	LLPanel*					mInventoryPanel; // Main inventory view
+	LLInventoryPanel*			mInventoryPanelInbox;
+	LLInventoryPanel*			mInventoryPanelOutbox;
 	LLSidepanelItemInfo*		mItemPanel; // Individual item view
 	LLSidepanelTaskInfo*		mTaskPanel; // Individual in-world object view
 	LLPanelMainInventory*		mPanelMainInventory;
@@ -85,6 +118,7 @@ protected:
 	void 						onTeleportButtonClicked();
 	void 						onOverflowButtonClicked();
 	void 						onBackButtonClicked();
+
 private:
 	LLButton*					mInfoBtn;
 	LLButton*					mShareBtn;
@@ -94,6 +128,11 @@ private:
 	LLButton*					mOverflowBtn;
 	LLButton*					mShopBtn;
 
+	bool						mInboxEnabled;
+	bool						mOutboxEnabled;
+
+	LLInventoryCategoriesObserver* 			mCategoriesObserver;
+	LLInboxOutboxAddedObserver*				mInboxOutboxAddedObserver;
 };
 
 #endif //LL_LLSIDEPANELINVENTORY_H

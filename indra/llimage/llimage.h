@@ -29,13 +29,25 @@
 
 #include "lluuid.h"
 #include "llstring.h"
-//#include "llmemory.h"
 #include "llthread.h"
 #include "llmemtype.h"
 
 const S32 MIN_IMAGE_MIP =  2; // 4x4, only used for expand/contract power of 2
 const S32 MAX_IMAGE_MIP = 11; // 2048x2048
+
+// *TODO : Use MAX_IMAGE_MIP as max discard level and modify j2c management so that the number 
+// of levels is read from the header's file, not inferred from its size.
 const S32 MAX_DISCARD_LEVEL = 5;
+
+// JPEG2000 size constraints
+// Those are declared here as they are germane to other image constraints used in the viewer
+// and declared right here. Some come from the JPEG2000 spec, some conventions specific to SL.
+const S32 MAX_DECOMPOSITION_LEVELS = 32;	// Number of decomposition levels cannot exceed 32 according to jpeg2000 spec
+const S32 MIN_DECOMPOSITION_LEVELS = 5;		// the SL viewer will *crash* trying to decode images with fewer than 5 decomposition levels (unless image is small that is)
+const S32 MAX_PRECINCT_SIZE = 2048;			// No reason to be bigger than MAX_IMAGE_SIZE 
+const S32 MIN_PRECINCT_SIZE = 4;			// Can't be smaller than MIN_BLOCK_SIZE
+const S32 MAX_BLOCK_SIZE = 64;				// Max total block size is 4096, hence 64x64 when using square blocks
+const S32 MIN_BLOCK_SIZE = 4;				// Min block dim is 4 according to jpeg2000 spec
 
 const S32 MIN_IMAGE_SIZE = (1<<MIN_IMAGE_MIP); // 4, only used for expand/contract power of 2
 const S32 MAX_IMAGE_SIZE = (1<<MAX_IMAGE_MIP); // 2048
@@ -56,6 +68,7 @@ const S32 MAX_IMG_PACKET_SIZE = 1000;
 class LLImageFormatted;
 class LLImageRaw;
 class LLColor4U;
+class LLPrivateMemoryPool;
 
 typedef enum e_image_codec
 {
@@ -127,7 +140,7 @@ public:
 
 protected:
 	// special accessor to allow direct setting of mData and mDataSize by LLImageFormatted
-	void setDataAndSize(U8 *data, S32 size) { mData = data; mDataSize = size; }
+	void setDataAndSize(U8 *data, S32 size) { mData = data; mDataSize = size; }	
 	
 public:
 	static void generateMip(const U8 *indata, U8* mipdata, int width, int height, S32 nchannels);
@@ -138,6 +151,10 @@ public:
 
 	static EImageCodec getCodecFromExtension(const std::string& exten);
 	
+	static void createPrivatePool() ;
+	static void destroyPrivatePool() ;
+	static LLPrivateMemoryPool* getPrivatePool() {return sPrivatePoolp;}
+
 private:
 	U8 *mData;
 	S32 mDataSize;
@@ -149,6 +166,8 @@ private:
 
 	bool mBadBufferAllocation ;
 	bool mAllowOverSize ;
+
+	static LLPrivateMemoryPool* sPrivatePoolp ;
 public:
 	LLMemType::DeclareMemType& mMemType; // debug
 };
@@ -172,7 +191,7 @@ public:
 	
 	BOOL resize(U16 width, U16 height, S8 components);
 
-	U8 * getSubImage(U32 x_pos, U32 y_pos, U32 width, U32 height) const;
+	//U8 * getSubImage(U32 x_pos, U32 y_pos, U32 width, U32 height) const;
 	BOOL setSubImage(U32 x_pos, U32 y_pos, U32 width, U32 height,
 					 const U8 *data, U32 stride = 0, BOOL reverse_y = FALSE);
 
@@ -184,7 +203,7 @@ public:
 	void contractToPowerOfTwo(S32 max_dim = MAX_IMAGE_SIZE, BOOL scale_image = TRUE);
 	void biasedScaleToPowerOfTwo(S32 max_dim = MAX_IMAGE_SIZE);
 	BOOL scale( S32 new_width, S32 new_height, BOOL scale_image = TRUE );
-	BOOL scaleDownWithoutBlending( S32 new_width, S32 new_height) ;
+	//BOOL scaleDownWithoutBlending( S32 new_width, S32 new_height) ;
 
 	// Fill the buffer with a constant color
 	void fill( const LLColor4U& color );
@@ -266,13 +285,13 @@ public:
 	// subclasses must return a prefered file extension (lowercase without a leading dot)
 	virtual std::string getExtension() = 0;
 	// calcHeaderSize() returns the maximum size of header;
-	//   0 indicates we don't know have a header and have to lead the entire file
+	//   0 indicates we don't have a header and have to read the entire file
 	virtual S32 calcHeaderSize() { return 0; };
 	// calcDataSize() returns how many bytes to read to load discard_level (including header)
 	virtual S32 calcDataSize(S32 discard_level);
 	// calcDiscardLevelBytes() returns the smallest valid discard level based on the number of input bytes
 	virtual S32 calcDiscardLevelBytes(S32 bytes);
-	// getRawDiscardLevel()by default returns mDiscardLevel, but may be overridden (LLImageJ2C)
+	// getRawDiscardLevel() by default returns mDiscardLevel, but may be overridden (LLImageJ2C)
 	virtual S8  getRawDiscardLevel() { return mDiscardLevel; }
 	
 	BOOL load(const std::string& filename);

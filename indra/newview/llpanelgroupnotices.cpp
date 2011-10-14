@@ -82,8 +82,8 @@ public:
 		:	panel("panel"),
 			group_id("group_id")
 		{
-			mouse_opaque(false);
-			follows.flags(FOLLOWS_ALL);
+			changeDefault(mouse_opaque, false);
+			changeDefault(follows.flags, FOLLOWS_ALL);
 		}
 	};
 	LLGroupDropTarget(const Params&);
@@ -154,6 +154,7 @@ BOOL LLGroupDropTarget::handleDragAndDrop(S32 x, S32 y, MASK mask, BOOL drop,
 		case DAD_ANIMATION:
 		case DAD_GESTURE:
 		case DAD_CALLINGCARD:
+		case DAD_MESH:
 		{
 			LLViewerInventoryItem* inv_item = (LLViewerInventoryItem*)cargo_data;
 			if(gInventory.getItem(inv_item->getUUID())

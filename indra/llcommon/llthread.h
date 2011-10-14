@@ -35,8 +35,17 @@ class LLThread;
 class LLMutex;
 class LLCondition;
 
+#if LL_WINDOWS
+#define ll_thread_local __declspec(thread)
+#else
+#define ll_thread_local __thread
+#endif
+
 class LL_COMMON_API LLThread
 {
+private:
+	static U32 sIDIter;
+
 public:
 	typedef enum e_thread_status
 	{
@@ -91,7 +100,8 @@ protected:
 	apr_pool_t			*mAPRPoolp;
 	BOOL				mIsLocalPool;
 	EThreadStatus		mStatus;
-
+	U32					mID;
+	
 	//a local apr_pool for APRFile operations in this thread. If it exists, LLAPRFile::sAPRFilePoolp should not be used.
 	//Note: this pool is used by APRFile ONLY, do NOT use it for any other purposes.
 	//      otherwise it will cause severe memory leaking!!! --bao

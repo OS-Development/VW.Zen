@@ -64,9 +64,10 @@ LLPluginClassMedia::~LLPluginClassMedia()
 	reset();
 }
 
-bool LLPluginClassMedia::init(const std::string &launcher_filename, const std::string &plugin_filename, bool debug)
+bool LLPluginClassMedia::init(const std::string &launcher_filename, const std::string &plugin_dir, const std::string &plugin_filename, bool debug)
 {	
 	LL_DEBUGS("Plugin") << "launcher: " << launcher_filename << LL_ENDL;
+	LL_DEBUGS("Plugin") << "dir: " << plugin_dir << LL_ENDL;
 	LL_DEBUGS("Plugin") << "plugin: " << plugin_filename << LL_ENDL;
 	
 	mPlugin = new LLPluginProcessParent(this);
@@ -77,7 +78,7 @@ bool LLPluginClassMedia::init(const std::string &launcher_filename, const std::s
 	message.setValue("target", mTarget);
 	sendMessage(message);
 	
-	mPlugin->init(launcher_filename, plugin_filename, debug);
+	mPlugin->init(launcher_filename, plugin_dir, plugin_filename, debug);
 
 	return true;
 }
@@ -143,8 +144,10 @@ void LLPluginClassMedia::reset()
 	mStatusText.clear();
 	mProgressPercent = 0;	
 	mClickURL.clear();
+	mClickNavType.clear();
 	mClickTarget.clear();
 	mClickUUID.clear();
+	mStatusCode = 0;
 	
 	// media_time class
 	mCurrentTime = 0.0f;
@@ -431,6 +434,95 @@ std::string LLPluginClassMedia::translateModifiers(MASK modifiers)
 	}
 */	
 	return result;
+}
+
+void LLPluginClassMedia::jsEnableObject( bool enable )
+{
+	if( ! mPlugin || !mPlugin->isRunning() || mPlugin->isBlocked() )
+	{
+		return;
+	}
+
+	LLPluginMessage message(LLPLUGIN_MESSAGE_CLASS_MEDIA, "js_enable_object");
+	message.setValueBoolean( "enable", enable );
+	sendMessage( message );
+}
+
+void LLPluginClassMedia::jsAgentLocationEvent( double x, double y, double z )
+{
+	if( ! mPlugin || !mPlugin->isRunning() || mPlugin->isBlocked() )
+	{
+		return;
+	}
+
+	LLPluginMessage message(LLPLUGIN_MESSAGE_CLASS_MEDIA, "js_agent_location");
+	message.setValueReal( "x", x );
+	message.setValueReal( "y", y );
+	message.setValueReal( "z", z );
+	sendMessage( message );
+}
+
+void LLPluginClassMedia::jsAgentGlobalLocationEvent( double x, double y, double z )
+{
+	if( ! mPlugin || !mPlugin->isRunning() || mPlugin->isBlocked() )
+	{
+		return;
+	}
+
+	LLPluginMessage message(LLPLUGIN_MESSAGE_CLASS_MEDIA, "js_agent_global_location");
+	message.setValueReal( "x", x );
+	message.setValueReal( "y", y );
+	message.setValueReal( "z", z );
+	sendMessage( message );
+}
+
+void LLPluginClassMedia::jsAgentOrientationEvent( double angle )
+{
+	if( ! mPlugin || !mPlugin->isRunning() || mPlugin->isBlocked() )
+	{
+		return;
+	}
+
+	LLPluginMessage message(LLPLUGIN_MESSAGE_CLASS_MEDIA, "js_agent_orientation");
+	message.setValueReal( "angle", angle );
+
+	sendMessage( message );
+}
+
+void LLPluginClassMedia::jsAgentLanguageEvent( const std::string& language )
+{
+	if( ! mPlugin || !mPlugin->isRunning() || mPlugin->isBlocked() )
+	{
+		return;
+	}
+
+	LLPluginMessage message(LLPLUGIN_MESSAGE_CLASS_MEDIA, "js_agent_language");
+	message.setValue( "language", language );
+	sendMessage( message );
+}
+
+void LLPluginClassMedia::jsAgentRegionEvent( const std::string& region )
+{
+	if( ! mPlugin || !mPlugin->isRunning() || mPlugin->isBlocked() )
+	{
+		return;
+	}
+
+	LLPluginMessage message(LLPLUGIN_MESSAGE_CLASS_MEDIA, "js_agent_region");
+	message.setValue( "region", region );
+	sendMessage( message );
+}
+
+void LLPluginClassMedia::jsAgentMaturityEvent( const std::string& maturity )
+{
+	if( ! mPlugin || !mPlugin->isRunning() || mPlugin->isBlocked() )
+	{
+		return;
+	}
+
+	LLPluginMessage message(LLPLUGIN_MESSAGE_CLASS_MEDIA, "js_agent_maturity");
+	message.setValue( "maturity", maturity );
+	sendMessage( message );
 }
 
 void LLPluginClassMedia::mouseEvent(EMouseEventType type, int button, int x, int y, MASK modifiers)
@@ -750,6 +842,14 @@ void LLPluginClassMedia::setJavascriptEnabled(const bool enabled)
 	sendMessage(message);
 }
 
+
+void LLPluginClassMedia::enableMediaPluginDebugging( bool enable )
+{
+	LLPluginMessage message(LLPLUGIN_MESSAGE_CLASS_MEDIA, "enable_media_plugin_debugging");
+	message.setValueBoolean( "enable", enable );
+	sendMessage( message );
+}
+
 void LLPluginClassMedia::setTarget(const std::string &target)
 {
 	mTarget = target;
@@ -974,6 +1074,12 @@ void LLPluginClassMedia::receivePluginMessage(const LLPluginMessage &message)
 			mAuthURL = message.getValue("url");
 			mAuthRealm = message.getValue("realm");
 			mediaEvent(LLPluginClassMediaOwner::MEDIA_EVENT_AUTH_REQUEST);
+		}		
+		else if(message_name == "debug_message")
+		{
+			mDebugMessageText = message.getValue("message_text");
+			mDebugMessageLevel = message.getValue("message_level");
+			mediaEvent(LLPluginClassMediaOwner::MEDIA_EVENT_DEBUG_MESSAGE);
 		}
 		else
 		{
@@ -1023,8 +1129,14 @@ void LLPluginClassMedia::receivePluginMessage(const LLPluginMessage &message)
 		else if(message_name == "click_nofollow")
 		{
 			mClickURL = message.getValue("uri");
+			mClickNavType = message.getValue("nav_type");
 			mClickTarget.clear();
 			mediaEvent(LLPluginClassMediaOwner::MEDIA_EVENT_CLICK_LINK_NOFOLLOW);
+		}
+		else if(message_name == "navigate_error_page")
+		{
+			mStatusCode = message.getValueS32("status_code");
+			mediaEvent(LLPluginClassMediaOwner::MEDIA_EVENT_NAVIGATE_ERROR_PAGE);
 		}
 		else if(message_name == "cookie_set")
 		{
@@ -1191,22 +1303,19 @@ void LLPluginClassMedia::browse_back()
 	sendMessage(message);
 }
 
-void LLPluginClassMedia::set_status_redirect(int code, const std::string &url)
-{
-	LLPluginMessage message(LLPLUGIN_MESSAGE_CLASS_MEDIA_BROWSER, "set_status_redirect");
-
-	message.setValueS32("code", code);
-	message.setValue("url", url);
-
-	sendMessage(message);
-}
-
 void LLPluginClassMedia::setBrowserUserAgent(const std::string& user_agent)
 {
 	LLPluginMessage message(LLPLUGIN_MESSAGE_CLASS_MEDIA_BROWSER, "set_user_agent");
 
 	message.setValue("user_agent", user_agent);
 
+	sendMessage(message);
+}
+
+void LLPluginClassMedia::showWebInspector( bool show )
+{
+	LLPluginMessage message(LLPLUGIN_MESSAGE_CLASS_MEDIA_BROWSER, "show_web_inspector");
+	message.setValueBoolean("show", true);	// only open for now - closed manually by user
 	sendMessage(message);
 }
 

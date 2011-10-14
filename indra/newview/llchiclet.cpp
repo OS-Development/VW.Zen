@@ -126,9 +126,9 @@ LLSysWellChiclet::Params::Params()
 , unread_notifications("unread_notifications")
 , max_displayed_count("max_displayed_count", 99)
 {
-	button.name("button");
-	button.tab_stop(FALSE);
-	button.label(LLStringUtil::null);
+	button.name = "button";
+	button.tab_stop = FALSE;
+	button.label = LLStringUtil::null;
 }
 
 LLSysWellChiclet::LLSysWellChiclet(const Params& p)
@@ -483,8 +483,9 @@ void LLIMChiclet::setShowSpeaker(bool show)
 	if(needs_resize)
 	{		
 		mShowSpeaker = show;
-		toggleSpeakerControl();
 	}
+
+	toggleSpeakerControl();
 }
 
 void LLIMChiclet::enableCounterControl(bool enable) 
@@ -1183,6 +1184,10 @@ void LLChicletPanel::onCurrentVoiceChannelChanged(const LLUUID& session_id)
 		if(chiclet)
 		{
 			chiclet->setShowSpeaker(true);
+			if (gSavedSettings.getBOOL("OpenIMOnVoice"))
+			{
+				LLIMFloater::show(chiclet->getSessionId());
+			}
 		}
 	}
 

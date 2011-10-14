@@ -72,9 +72,9 @@ Fehlerdetails: The notification called &apos;[_NAME]&apos; was not found in noti
 		<usetemplate name="okbutton" yestext="OK"/>
 	</notification>
 	<notification name="LoginFailedNoNetwork">
-		Eine Verbindung zum [SECOND_LIFE_GRID] konnte nicht hergestellt werden.
-&apos;[DIAGNOSTIC]&apos;
-Bitte vergewissern Sie sich, dass Ihre Internetverbindung funktioniert.
+		Verbindung nicht möglich zum [SECOND_LIFE_GRID].
+    &apos;[DIAGNOSTIC]&apos;
+Stellen Sie sicher, dass Ihre Internetverbindung funktioniert.
 		<usetemplate name="okbutton" yestext="OK"/>
 	</notification>
 	<notification name="MessageTemplateNotFound">
@@ -84,6 +84,19 @@ Bitte vergewissern Sie sich, dass Ihre Internetverbindung funktioniert.
 	<notification name="WearableSave">
 		Änderung an aktueller Kleidung/Körperteil speichern?
 		<usetemplate canceltext="Abbrechen" name="yesnocancelbuttons" notext="Nicht speichern" yestext="Speichern"/>
+	</notification>
+	<notification name="ConfirmNoCopyToOutbox">
+		Ihnen fehlt die Berechtigung zum Kopieren dieses Artikels in die Händler-Outbox. Möchten Sie wirklich den folgenden Artikel verschieben?
+        [ITEM_NAME]
+		<usetemplate name="okcancelbuttons" notext="Nein" yestext="Ja"/>
+	</notification>
+	<notification name="OutboxUploadComplete">
+		Marktplatz-Upload abgeschlossen.
+		<usetemplate name="okbutton" yestext="Hurra!"/>
+	</notification>
+	<notification name="OutboxUploadHadErrors">
+		Marktplatz-Upload mit Fehlern abgeschlossen. Korrigieren Sie die Fehler in Ihrer Outbox und versuchen Sie es erneut. Vielen Dank!
+		<usetemplate name="okbutton" yestext="Erneut versuchen"/>
 	</notification>
 	<notification name="CompileQueueSaveText">
 		Der Text für ein Skript konnte aus folgendem Grund nicht hochgeladen werden: [REASON]. Bitte versuchen Sie es erneut.
@@ -339,13 +352,6 @@ Sie benötigen ein Konto, um [SECOND_LIFE] betreten zu können. Möchten Sie jet
 	</notification>
 	<notification name="InvalidCredentialFormat">
 		Sie müssen entweder den Benutzernamen oder den Vor- und Nachnamen Ihres Avatars in das Feld „Benutzername“ eingeben und die Anmeldung dann erneut versuchen.
-	</notification>
-	<notification name="AddClassified">
-		Anzeigen werden im Suchverzeichnis im Abschnitt „Anzeigen&quot; und auf [http://secondlife.com/community/classifieds secondlife.com] für eine Woche angezeigt.
-Füllen Sie Ihre Anzeige aus und klicken Sie auf &apos;Veröffentlichen...&apos;, um sie zum Verzeichnis hinzuzufügen.
-Sie werden gebeten für die Anzeige zu bezahlen, wenn Sie auf &apos;Veröffentlichen&apos; klicken.
-Wenn Sie mehr bezahlen, erscheint Ihre Anzeige weiter oben in der Liste, ebenso wenn ein Benutzer nach Ihren Suchbegriffen sucht.
-		<usetemplate ignoretext="So wird eine neue Anzeige erstellt" name="okcancelignore" notext="Abbrechen" yestext="OK"/>
 	</notification>
 	<notification name="DeleteClassified">
 		Anzeige „[NAME]“ löschen?
@@ -1572,6 +1578,11 @@ Versuchen Sie es später erneut.
 			<button name="Cancel" text="Abbrechen"/>
 		</form>
 	</notification>
+	<notification name="TooManyTeleportOffers">
+		Sie haben versucht, [OFFERS] Teleport-Angebote zu machen,
+womit Sie die Höchstgrenze von [LIMIT] überschreiten.
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
 	<notification name="OfferTeleportFromGod">
 		Einwohner zu Ihrem Standort einladen?
 		<form name="form">
@@ -1993,6 +2004,10 @@ Möchten Sie den Bechäftigt-Modus verlassen, bevor Sie diese Transaktion abschl
 		Sind Sie sicher, dass Sie Ihren Reise-, Internet- und Suchverlauf löschen möchten?
 		<usetemplate name="okcancelbuttons" notext="Abbrechen" yestext="OK"/>
 	</notification>
+	<notification name="ConfirmClearCache">
+		Möchten Sie Ihren Viewer-Cache wirklich leeren?
+		<usetemplate name="okcancelbuttons" notext="Abbrechen" yestext="OK"/>
+	</notification>
 	<notification name="ConfirmClearCookies">
 		Sind Sie sicher, dass Sie Ihre Cookies löschen möchten?
 		<usetemplate name="okcancelbuttons" notext="Abbrechen" yestext="Ja"/>
@@ -2018,48 +2033,30 @@ Von einer Webseite zu diesem Formular linken, um anderen leichten Zugang zu dies
 		Die gespeicherte Voreinstellung überschreiben?
 		<usetemplate name="okcancelbuttons" notext="Nein" yestext="Ja"/>
 	</notification>
-	<notification name="WLDeletePresetAlert">
-		[SKY] löschen?
-		<usetemplate name="okcancelbuttons" notext="Nein" yestext="Ja"/>
-	</notification>
 	<notification name="WLNoEditDefault">
 		Standardvoreinstellungen können nicht bearbeitet oder gelöscht werden.
 	</notification>
 	<notification name="WLMissingSky">
 		Diese Tageszyklusdatei verweist auf eine fehlende Himmel-Datei: [SKY].
 	</notification>
+	<notification name="WLRegionApplyFail">
+		Die Einstellungen konnten nicht auf die Region angewendet werden.  Verlassen Sie die Region und kehren Sie zurück, um das Problem zu beheben.  Angegebener Grund: [FAIL_REASON]
+	</notification>
+	<notification name="EnvCannotDeleteLastDayCycleKey">
+		Der letzte Schlüssel in diesem Tageszyklus kann nicht gelöscht werden, da ein Tageszyklus nicht leer sein kann.  Statt den letzten verbleibenden Schlüssel zu löschen, versuchen Sie stattdessen, ihn zu modifizieren und dann einen neuen zu erstellen.
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
+	<notification name="DayCycleTooManyKeyframes">
+		Sie können diesem Tageszyklus keine Keyframes mehr hinzufügen.  Die Höchstzahl an Keyframes für Tageszyklen mit Umfang [SCOPE] beträgt [MAX].
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
+	<notification name="EnvUpdateRate">
+		Sie können die Umgebungseinstellungen der Region nur alle [WAIT] Sekunden aktualisieren.  Warten Sie mindestens so lange und versuchen Sie es dann erneut.
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
 	<notification name="PPSaveEffectAlert">
 		Post-Processing-Effekt bereits vorhanden. Möchten Sie ihn überschreiben?
 		<usetemplate name="okcancelbuttons" notext="Nein" yestext="Ja"/>
-	</notification>
-	<notification name="NewSkyPreset">
-		Wählen Sie einen Namen für den neuen Himmel.
-		<form name="form">
-			<input name="message">
-				Neue Voreinstellung
-			</input>
-			<button name="OK" text="OK"/>
-			<button name="Cancel" text="Abbrechen"/>
-		</form>
-	</notification>
-	<notification name="ExistsSkyPresetAlert">
-		Voreinstellung bereits vorhanden!
-	</notification>
-	<notification name="NewWaterPreset">
-		Wählen Sie einen Namen für die neue Wasservoreinstellung.
-		<form name="form">
-			<input name="message">
-				Neue Voreinstellung
-			</input>
-			<button name="OK" text="OK"/>
-			<button name="Cancel" text="Abbrechen"/>
-		</form>
-	</notification>
-	<notification name="ExistsWaterPresetAlert">
-		Voreinstellung bereits vorhanden!
-	</notification>
-	<notification name="WaterNoEditDefault">
-		Standardvoreinstellungen können nicht bearbeitet oder gelöscht werden.
 	</notification>
 	<notification name="ChatterBoxSessionStartError">
 		Neue Chat-Sitzung mit [RECIPIENT] konnte nicht gestartet werden.
@@ -2088,13 +2085,14 @@ Von einer Webseite zu diesem Formular linken, um anderen leichten Zugang zu dies
 		<usetemplate ignoretext="Die Kleidung, die während dem Bearbeiten meines Aussehens erstellt wird, sofort anziehen" name="okcancelignore" notext="Nein" yestext="Ja"/>
 	</notification>
 	<notification name="NotAgeVerified">
-		Sie müssen altersüberprüft sein, um diesen Bereich betreten zu können.  Möchten Sie auf der [SECOND_LIFE]-Webseite Ihr Alter verifizieren lassen?
+		Um auf Adult-Inhalte und –Bereiche in Second Life zuzugreifen, müssen Sie mindestens 18 Jahre alt sein. Bitte besuchen Sie die Altersüberprüfungsseite, um zu bestätigen, dass Sie mindestens 18 Jahre alt sind. 
+Hierzu wird Ihr Webbrowser geöffnet.
 
 [_URL]
 		<url name="url" option="0">
-			https://secondlife.com/account/verification.php?lang=de
+			https://secondlife.com/my/account/verification.php
 		</url>
-		<usetemplate ignoretext="Ich habe mein Alter nicht verifizieren lassen" name="okcancelignore" notext="Nein" yestext="Ja"/>
+		<usetemplate ignoretext="Ich habe mein Alter nicht verifizieren lassen" name="okcancelignore" notext="Abbrechen" yestext="Zur Altersüberprüfung"/>
 	</notification>
 	<notification name="Cannot enter parcel: no payment info on file">
 		Um diesen Bereich besuchen zu können, müssen Ihre Zahlungsinformationen gespeichert sein.  Möchten Sie diese Einstellung auf der [SECOND_LIFE]-Webseite einrichten?
@@ -2178,6 +2176,12 @@ Dies kann die Eingabe Ihres Passworts beeinflussen.
 	</notification>
 	<notification name="RezItemNoPermissions">
 		Keine Berechtigung zum Rezzen von Objekten.
+	</notification>
+	<notification name="IMAcrossParentEstates">
+		Senden von IMs über übergeordnete Grundbesitze hinweg nicht möglich.
+	</notification>
+	<notification name="TransferInventoryAcrossParentEstates">
+		Inventarübertragung über übergeordnete Grundbesitze hinweg nicht möglich.
 	</notification>
 	<notification name="UnableToLoadNotecard">
 		Notizkarten-Asset konnte nicht geladen werden.
@@ -2344,6 +2348,9 @@ Fliegen ist hier nicht möglich.
 	<notification name="NoBuild">
 		In diesem Bereich ist das Bauen deaktiviert. Sie können keine Objekte bauen oder rezzen.
 	</notification>
+	<notification name="SeeAvatars">
+		Diese Parzelle verbirgt Avatare und Text-Chat vor einer anderen Parzelle.   Sie können Einwohner außerhalb dieser Parzelle weder sehen noch von ihnen gesehen werden.  Regulärer Text-Chat auf Kanal 0 ist ebenfalls blockiert.
+	</notification>
 	<notification name="ScriptsStopped">
 		Ein Administrator hat die Skriptausführung in dieser Region vorübergehend deaktiviert.
 	</notification>
@@ -2438,11 +2445,19 @@ Versuchen Sie es in einigen Minuten erneut.
 	</notification>
 	<notification name="ObjectGiveItem">
 		Ein Objekt namens &lt;nolink&gt;[OBJECTFROMNAME]&lt;/nolink&gt;, das [NAME_SLURL] gehört, hat Ihnen folgende/n/s [OBJECTTYPE] übergeben:
-[ITEM_SLURL]
+&lt;nolink&gt;[ITEM_SLURL]&lt;/nolink&gt;
 		<form name="form">
 			<button name="Keep" text="Behalten"/>
 			<button name="Discard" text="Verwerfen"/>
-			<button name="Mute" text="Ignorieren"/>
+			<button name="Mute" text="Eigentümer blockieren"/>
+		</form>
+	</notification>
+	<notification name="OwnObjectGiveItem">
+		Ein Objekt namens &lt;nolink&gt;[OBJECTFROMNAME]&lt;/nolink&gt; hat Ihnen folgende/n/s [OBJECTTYPE] übergeben:
+&lt;nolink&gt;[ITEM_SLURL]&lt;/nolink&gt;
+		<form name="form">
+			<button name="Keep" text="Beibehalten"/>
+			<button name="Discard" text="Verwerfen"/>
 		</form>
 	</notification>
 	<notification name="UserGiveItem">
@@ -2586,6 +2601,7 @@ Anfrage gestatten?
 		„&lt;nolink&gt;[TITLE]&lt;/nolink&gt;“ von [NAME]
 [MESSAGE]
 		<form name="form">
+			<button name="Mute" text="Blockieren"/>
 			<button name="Ignore" text="Ignorieren"/>
 		</form>
 	</notification>
@@ -2593,6 +2609,7 @@ Anfrage gestatten?
 		„&lt;nolink&gt;[TITLE]&lt;/nolink&gt;“ von [GROUPNAME]
 [MESSAGE]
 		<form name="form">
+			<button name="Mute" text="Blockieren"/>
 			<button name="Ignore" text="Ignorieren"/>
 		</form>
 	</notification>
@@ -2756,6 +2773,10 @@ Diese werden für ein paar Sekunden sicherheitshalber gesperrt.
 		Sie wurden vom Moderator stummgeschaltet.
 		<usetemplate name="okbutton" yestext="OK"/>
 	</notification>
+	<notification name="UploadCostConfirmation">
+		Das Hochladen kostet [PRICE] L$. Möchten Sie fortfahren?
+		<usetemplate name="okcancelbuttons" notext="Abbrechen" yestext="Hochladen"/>
+	</notification>
 	<notification name="ConfirmClearTeleportHistory">
 		Möchten Sie Ihre Teleport-Liste löschen?
 		<usetemplate name="okcancelbuttons" notext="Abbrechen" yestext="OK"/>
@@ -2767,12 +2788,23 @@ Die Schaltfläche wird angezeigt, wenn genügend Platz vorhanden ist.
 	<notification name="ShareNotification">
 		Wählen Sie Einwohner aus, für die Sie das Objekt freigeben möchten.
 	</notification>
+	<notification name="MeshUploadError">
+		[LABEL] konnte nicht hochgeladen werden: [MESSAGE] [IDENTIFIER] 
+
+Details finden Sie in der Protokolldatei.
+	</notification>
+	<notification name="MeshUploadPermError">
+		Fehler beim Anfordern der Berechtigungen zum Hochladen des Netzes
+	</notification>
+	<notification name="RegionCapabilityRequestError">
+		Regionsfähigkeit „[CAPABILITY]“ konnte nicht abgerufen werden.
+	</notification>
 	<notification name="ShareItemsConfirmation">
-		Möchten Sie diese Objekte wirklich für andere freigeben:
+		Möchten Sie wirklich die folgenden Objekte:
 
 &lt;nolink&gt;[ITEMS]&lt;/nolink&gt;
 
-Für folgende Einwohner:
+für folgende Einwohner freigeben:
 
 [RESIDENTS]
 		<usetemplate name="okcancelbuttons" notext="Abbrechen" yestext="OK"/>
@@ -2782,6 +2814,19 @@ Für folgende Einwohner:
 	</notification>
 	<notification name="DeedToGroupFail">
 		Übertragung an Gruppe ist fehlgeschlagen.
+	</notification>
+	<notification name="ReleaseLandThrottled">
+		Die Parzelle [PARCEL_NAME] kann zurzeit nicht aufgegeben werden.
+	</notification>
+	<notification name="ReleasedLandWithReclaim">
+		Die [AREA] m² große Parzelle „[PARCEL_NAME]“ wurde freigegeben.
+
+Sie haben [RECLAIM_PERIOD] Stunden, um die Parzelle für 0 L$ zurückzufordern, bevor sie zum Verkauf an alle freigegeben wird.
+	</notification>
+	<notification name="ReleasedLandNoReclaim">
+		Die [AREA] m² große Parzelle „[PARCEL_NAME]“ wurde freigegeben.
+
+Sie steht jetzt zum Verkauf an alle zur Verfügung.
 	</notification>
 	<notification name="AvatarRezNotification">
 		(Seit [EXISTENCE] Sekunden inworld )
@@ -2860,11 +2905,15 @@ Alle stummschalten?
 	<notification label="Stehen" name="HintSit">
 		Um aufzustehen, klicken Sie auf die Schaltfläche „Stehen“.
 	</notification>
+	<notification label="Sprechen" name="HintSpeak">
+		Auf Schaltfläche „Sprechen“ klicken, um das Mikrofon ein- und auszuschalten.
+
+Auf den Pfeil nach oben klicken, um die Sprachsteuerung zu sehen.
+
+Durch Ausblenden der Schaltfläche „Sprechen“ wird die Sprechfunktion deaktiviert.
+	</notification>
 	<notification label="Welt erkunden" name="HintDestinationGuide">
 		Im Reiseführer finden Sie Tausende von interessanten Orten. Wählen Sie einfach einen Ort aus und klicken Sie auf „Teleportieren“.
-	</notification>
-	<notification label="Aussehen ändern" name="HintAvatarPicker">
-		Möchten Sie einen neuen Look ausprobieren? Klicken Sie auf die Schaltfläche unten, um mehr Avatare zu sehen.
 	</notification>
 	<notification label="Seitenleiste" name="HintSidePanel">
 		In der Seitenleiste können Sie schnell auf Ihr Inventar, Ihre Outfits, Ihre Profile u. ä. zugreifen.
@@ -2872,11 +2921,13 @@ Alle stummschalten?
 	<notification label="Bewegen" name="HintMove">
 		Um zu gehen oder zu rennen, öffnen Sie das Bedienfeld „Bewegen“ und klicken Sie auf die Pfeile. Sie können auch die Pfeiltasten auf Ihrer Tastatur verwenden.
 	</notification>
+	<notification label="" name="HintMoveClick">
+		1. Zum Gehen klicken: Auf beliebige Stelle am Boden klicken, um zu dieser Stelle zu gehen.
+
+2. Zum Drehen der Anzeige klicken und ziehen: Auf beliebige Stelle in der Welt klicken und ziehen, um Ihre Ansicht zu ändern.
+	</notification>
 	<notification label="Anzeigename" name="HintDisplayName">
 		Hier können Sie Ihren anpassbaren Anzeigenamen festlegen. Der Anzeigename unterscheidet sich von Ihrem eindeutigen Benutzernamen, der nicht geändert werden kann. In den Einstellungen können Sie festlegen, welcher Name von anderen Einwohnern angezeigt wird.
-	</notification>
-	<notification label="Bewegen" name="HintMoveArrows">
-		Verwenden Sie zum Gehen die Pfeiltasten auf Ihrer Tastatur. Drücken Sie die Nach-oben-Taste zweimal, um zu rennen.
 	</notification>
 	<notification label="Ansicht" name="HintView">
 		Um die Kameraansicht zu ändern, verwenden Sie die Schwenk- und Kreissteuerungen. Um die Ansicht zurückzusetzen, drücken Sie die Esc-Taste oder laufen Sie einfach.
@@ -2887,12 +2938,66 @@ Alle stummschalten?
 	<notification label="Sie haben Linden-Dollar!" name="HintLindenDollar">
 		Hier wird Ihr aktueller L$-Kontostand angezeigt. Klicken Sie auf „L$ kaufen“, um mehr Linden-Dollar zu kaufen.
 	</notification>
+	<notification name="LowMemory">
+		Nicht genügend Arbeitsspeicher. Einige SL-Funktionen werden deaktiviert, um einen Absturz zu verhindern. Schließen Sie andere Anwendungen. Starten Sie SL neu, falls dieser Fehler erneut auftritt.
+	</notification>
+	<notification name="ForceQuitDueToLowMemory">
+		SL wird wegen Speichermangel in 30 Sekunden beendet.
+	</notification>
 	<notification name="PopupAttempt">
 		Ein Popup konnte nicht geöffnet werden.
 		<form name="form">
 			<ignore name="ignore" text="Alle Popups aktivieren"/>
 			<button name="open" text="Popup-Fenster öffnen"/>
 		</form>
+	</notification>
+	<notification name="SOCKS_NOT_PERMITTED">
+		SOCKS 5-Proxy „[HOST]:[PORT]“ hat Verbindungsverbindung abgewiesen, da laut Regelsatz nicht zulässig.
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
+	<notification name="SOCKS_CONNECT_ERROR">
+		SOCKS 5-Proxy „[HOST]:[PORT]“ hat den Verbindungsversuch abgewiesen. Der TCP-Kanal konnte nicht geöffnet werden.
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
+	<notification name="SOCKS_NOT_ACCEPTABLE">
+		SOCKS 5-Proxy „[HOST]:[PORT]“ hat das ausgewählte Authentifizierungssystem abgewiesen.
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
+	<notification name="SOCKS_AUTH_FAIL">
+		SOCKS 5-Proxy „[HOST]:[PORT]“ hat gemeldet, dass Ihre Angaben ungültig sind.
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
+	<notification name="SOCKS_UDP_FWD_NOT_GRANTED">
+		SOCKS 5-Proxy „[HOST]:[PORT]“ hat die Anforderung UDP ASSOCIATE abgewiesen.
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
+	<notification name="SOCKS_HOST_CONNECT_FAILED">
+		Keine Verbindung möglich zum SOCKS 5-Proxy-Server „[HOST]:[PORT]“.
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
+	<notification name="SOCKS_UNKNOWN_STATUS">
+		Unbekannter Proxy-Fehler bei Server „[HOST]:[PORT]“.
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
+	<notification name="SOCKS_INVALID_HOST">
+		SOCKS-Proxy-Address oder Port „[HOST]:[PORT]“ ungültig.
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
+	<notification name="SOCKS_BAD_CREDS">
+		SOCKS 5-Benutzername oder -Kennwort ungültig.
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
+	<notification name="PROXY_INVALID_HTTP_HOST">
+		HTTP-Proxy-Address oder Port „[HOST]:[PORT]“ ungültig.
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
+	<notification name="PROXY_INVALID_SOCKS_HOST">
+		SOCKS-Proxy-Address oder Port „[HOST]:[PORT]“ ungültig.
+		<usetemplate name="okbutton" yestext="OK"/>
+	</notification>
+	<notification name="ChangeProxySettings">
+		Proxy-Einstellungen treten nach Neustart von [APP_NAME] in Kraft.
+		<usetemplate name="okbutton" yestext="OK"/>
 	</notification>
 	<notification name="AuthRequest">
 		Für die Site „&lt;nolink&gt;[HOST_NAME]&lt;/nolink&gt;“ in der Domäne „[REALM]“ ist ein Benutzername und Kennwort erforderlich.
@@ -2903,9 +3008,54 @@ Alle stummschalten?
 			<button name="cancel" text="Abbrechen"/>
 		</form>
 	</notification>
-	<global name="UnsupportedCPU">
-		- Ihre CPU-Geschwindigkeit entspricht nicht den Mindestanforderungen.
-	</global>
+	<notification label="" name="ModeChange">
+		Zum Wechsel des Modus müssen Sie das Programm beenden und neu starten.
+		<usetemplate name="okcancelbuttons" notext="Nicht beenden" yestext="Beenden"/>
+	</notification>
+	<notification label="" name="NoClassifieds">
+		Die Erstellung und Bearbeitung von Anzeigen ist nur im Modus „Erweitert“ möglich. Möchten Sie das Programm beenden und den Modus wechseln? Die Modusauswahl ist auf dem Anmeldebildschirm zu finden.
+		<usetemplate name="okcancelbuttons" notext="Nicht beenden" yestext="Beenden"/>
+	</notification>
+	<notification label="" name="NoGroupInfo">
+		Die Erstellung und Bearbeitung von Gruppen ist nur im Modus „Erweitert“ möglich. Möchten Sie das Programm beenden und den Modus wechseln? Die Modusauswahl ist auf dem Anmeldebildschirm zu finden.
+		<usetemplate name="okcancelbuttons" notext="Nicht beenden" yestext="Beenden"/>
+	</notification>
+	<notification label="" name="NoPlaceInfo">
+		Die Anzeige des Ortsprofils ist nur im Modus „Erweitert“ möglich. Möchten Sie das Programm beenden und den Modus wechseln? Die Modusauswahl ist auf dem Anmeldebildschirm zu finden.
+		<usetemplate name="okcancelbuttons" notext="Nicht beenden" yestext="Beenden"/>
+	</notification>
+	<notification label="" name="NoPicks">
+		Die Erstellung und Bearbeitung von Auswahlen ist nur im Modus „Erweitert“ möglich. Möchten Sie das Programm beenden und den Modus wechseln? Die Modusauswahl ist auf dem Anmeldebildschirm zu finden.
+		<usetemplate name="okcancelbuttons" notext="Nicht beenden" yestext="Beenden"/>
+	</notification>
+	<notification label="" name="NoWorldMap">
+		Die Anzeige der Weltkarte ist nur im Modus „Erweitert“ möglich. Möchten Sie das Programm beenden und den Modus wechseln? Die Modusauswahl ist auf dem Anmeldebildschirm zu finden.
+		<usetemplate name="okcancelbuttons" notext="Nicht beenden" yestext="Beenden"/>
+	</notification>
+	<notification label="" name="NoVoiceCall">
+		Voice-Anrufe sind nur im Modus „Erweitert“ möglich. Möchten Sie sich abmelden und den Modus wechseln?
+		<usetemplate name="okcancelbuttons" notext="Nicht beenden" yestext="Beenden"/>
+	</notification>
+	<notification label="" name="NoAvatarShare">
+		Die Freigabe ist nur im Modus „Erweitert“ möglich. Möchten Sie sich abmelden und den Modus wechseln?
+		<usetemplate name="okcancelbuttons" notext="Nicht beenden" yestext="Beenden"/>
+	</notification>
+	<notification label="" name="NoAvatarPay">
+		Die Bezahlung anderer Einwohner ist nur im Modus „Erweitert“ möglich. Möchten Sie sich abmelden und den Modus wechseln?
+		<usetemplate name="okcancelbuttons" notext="Nicht beenden" yestext="Beenden"/>
+	</notification>
+	<notification label="" name="NoInventory">
+		Die Inventaranzeige ist nur im Modus „Erweitert“ möglich. Möchten Sie sich abmelden und den Modus wechseln?
+		<usetemplate name="okcancelbuttons" notext="Nicht beenden" yestext="Beenden"/>
+	</notification>
+	<notification label="" name="NoAppearance">
+		Das Fenster zum Bearbeiten des Aussehens ist nur im Modus „Erweitert“ verfügbar. Möchten Sie sich abmelden und den Modus wechseln?
+		<usetemplate name="okcancelbuttons" notext="Nicht beenden" yestext="Beenden"/>
+	</notification>
+	<notification label="" name="NoSearch">
+		Die Suche ist nur im Modus „Erweitert“ möglich. Möchten Sie sich abmelden und den Modus wechseln?
+		<usetemplate name="okcancelbuttons" notext="Nicht beenden" yestext="Beenden"/>
+	</notification>
 	<global name="UnsupportedGLRequirements">
 		Ihr Computer entspricht nicht den Hardwareanforderungen von [APP_NAME]. [APP_NAME] setzt eine OpenGL-Grafikkarte mit Multitextur-Unterstützung voraus. Falls Ihre Grafikkarte diese Funktion unterstützt, installieren Sie die neuesten Treiber sowie die aktuellen Service Packs und Patches für Ihr Betriebssystem.
 

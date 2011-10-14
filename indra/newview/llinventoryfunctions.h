@@ -28,14 +28,17 @@
 #ifndef LL_LLINVENTORYFUNCTIONS_H
 #define LL_LLINVENTORYFUNCTIONS_H
 
-#include "llinventorytype.h"
-#include "llfolderview.h"
-#include "llfolderviewitem.h"
+#include "llinventorymodel.h"
+#include "llinventory.h"
+#include "llwearabletype.h"
 
 /********************************************************************************
  **                                                                            **
  **                    MISCELLANEOUS GLOBAL FUNCTIONS
  **/
+
+// Is this a parent folder to a worn item
+BOOL get_is_parent_to_worn_item(const LLUUID& id);
 
 // Is this item or its baseitem is worn, attached, etc...
 BOOL get_is_item_worn(const LLUUID& id);
@@ -70,6 +73,10 @@ void rename_category(LLInventoryModel* model, const LLUUID& cat_id, const std::s
 
 // Generates a string containing the path to the item specified by item_id.
 void append_path(const LLUUID& id, std::string& path);
+
+void copy_item_to_outbox(LLInventoryItem* inv_item, LLUUID dest_folder, const LLUUID& top_level_folder);
+
+void copy_folder_to_outbox(LLInventoryCategory* inv_cat, const LLUUID& dest_folder, const LLUUID& top_level_folder);
 
 /**                    Miscellaneous global functions
  **                                                                            **
@@ -417,6 +424,24 @@ public:
 /**                    Inventory Collector Functions
  **                                                                            **
  *******************************************************************************/
+class LLFolderViewItem;
+class LLFolderViewFolder;
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Class LLFolderViewFunctor
+//
+// Simple abstract base class for applying a functor to folders and
+// items in a folder view hierarchy. This is suboptimal for algorithms
+// that only work folders or only work on items, but I'll worry about
+// that later when it's determined to be too slow.
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+class LLFolderViewFunctor
+{
+public:
+	virtual ~LLFolderViewFunctor() {}
+	virtual void doFolder(LLFolderViewFolder* folder) = 0;
+	virtual void doItem(LLFolderViewItem* item) = 0;
+};
 
 class LLInventoryState
 {

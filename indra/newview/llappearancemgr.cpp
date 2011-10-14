@@ -110,6 +110,12 @@ public:
 	{
 		// support secondlife:///app/appearance/show, but for now we just
 		// make all secondlife:///app/appearance SLapps behave this way
+		if (!LLUI::sSettingGroups["config"]->getBOOL("EnableAppearance"))
+		{
+			LLNotificationsUtil::add("NoAppearance", LLSD(), LLSD(), std::string("SwitchToStandardSkinAndQuit"));
+			return true;
+		}
+
 		LLSideTray::getInstance()->showPanel("sidepanel_appearance", LLSD());
 		return true;
 	}
@@ -2258,6 +2264,85 @@ void LLAppearanceMgr::updateIsDirty()
 	}
 }
 
+// *HACK: Must match name in Library or agent inventory
+const std::string ROOT_GESTURES_FOLDER = "Gestures";
+const std::string COMMON_GESTURES_FOLDER = "Common Gestures";
+const std::string MALE_GESTURES_FOLDER = "Male Gestures";
+const std::string FEMALE_GESTURES_FOLDER = "Female Gestures";
+const std::string SPEECH_GESTURES_FOLDER = "Speech Gestures";
+const std::string OTHER_GESTURES_FOLDER = "Other Gestures";
+
+void LLAppearanceMgr::copyLibraryGestures()
+{
+	llinfos << "Copying library gestures" << llendl;
+
+	// Copy gestures
+	LLUUID lib_gesture_cat_id =
+		gInventory.findCategoryUUIDForType(LLFolderType::FT_GESTURE,false,true);
+	if (lib_gesture_cat_id.isNull())
+	{
+		llwarns << "Unable to copy gestures, source category not found" << llendl;
+	}
+	LLUUID dst_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_GESTURE);
+
+	std::vector<std::string> gesture_folders_to_copy;
+	gesture_folders_to_copy.push_back(MALE_GESTURES_FOLDER);
+	gesture_folders_to_copy.push_back(FEMALE_GESTURES_FOLDER);
+	gesture_folders_to_copy.push_back(COMMON_GESTURES_FOLDER);
+	gesture_folders_to_copy.push_back(SPEECH_GESTURES_FOLDER);
+	gesture_folders_to_copy.push_back(OTHER_GESTURES_FOLDER);
+
+	for(std::vector<std::string>::iterator it = gesture_folders_to_copy.begin();
+		it != gesture_folders_to_copy.end();
+		++it)
+	{
+		std::string& folder_name = *it;
+
+		LLPointer<LLInventoryCallback> cb(NULL);
+
+		// After copying gestures, activate Common, Other, plus
+		// Male and/or Female, depending upon the initial outfit gender.
+		ESex gender = gAgentAvatarp->getSex();
+
+		std::string activate_male_gestures;
+		std::string activate_female_gestures;
+		switch (gender) {
+			case SEX_MALE:
+				activate_male_gestures = MALE_GESTURES_FOLDER;
+				break;
+			case SEX_FEMALE:
+				activate_female_gestures = FEMALE_GESTURES_FOLDER;
+				break;
+			case SEX_BOTH:
+				activate_male_gestures = MALE_GESTURES_FOLDER;
+				activate_female_gestures = FEMALE_GESTURES_FOLDER;
+				break;
+		}
+
+		if (folder_name == activate_male_gestures ||
+			folder_name == activate_female_gestures ||
+			folder_name == COMMON_GESTURES_FOLDER ||
+			folder_name == OTHER_GESTURES_FOLDER)
+		{
+			cb = new ActivateGestureCallback;
+		}
+
+		LLUUID cat_id = findDescendentCategoryIDByName(lib_gesture_cat_id,folder_name);
+		if (cat_id.isNull())
+		{
+			llwarns << "failed to find gesture folder for " << folder_name << llendl;
+		}
+		else
+		{
+			llinfos << "initiating fetch and copy for " << folder_name << " cat_id " << cat_id << llendl;
+			callAfterCategoryFetch(cat_id,
+								   boost::bind(&LLAppearanceMgr::shallowCopyCategory,
+											   &LLAppearanceMgr::instance(),
+											   cat_id, dst_id, cb));
+		}
+	}
+}
+
 void LLAppearanceMgr::autopopulateOutfits()
 {
 	// If this is the very first time the user has logged into viewer2+ (from a legacy viewer, or new account)
@@ -2279,7 +2364,16 @@ void LLAppearanceMgr::autopopulateOutfits()
 void LLAppearanceMgr::onFirstFullyVisible()
 {
 	gAgentAvatarp->debugAvatarVisible();
-	autopopulateOutfits();
+
+	// The auto-populate is failing at the point of generating outfits
+	// folders, so don't do the library copy until that is resolved.
+	// autopopulateOutfits();
+
+	// If this is the first time we've ever logged in,
+	// then copy default gestures from the library.
+	if (gAgent.isFirstLogin()) {
+		copyLibraryGestures();
+	}
 }
 
 bool LLAppearanceMgr::updateBaseOutfit()
@@ -2767,75 +2861,6 @@ BOOL LLAppearanceMgr::getIsProtectedCOFItem(const LLUUID& obj_id) const
 	*/
 }
 
-// Shim class to allow arbitrary boost::bind
-// expressions to be run as one-time idle callbacks.
-//
-// TODO: rework idle function spec to take a boost::function in the first place.
-class OnIdleCallbackOneTime
-{
-public:
-	OnIdleCallbackOneTime(nullary_func_t callable):
-		mCallable(callable)
-	{
-	}
-	static void onIdle(void *data)
-	{
-		gIdleCallbacks.deleteFunction(onIdle, data);
-		OnIdleCallbackOneTime* self = reinterpret_cast<OnIdleCallbackOneTime*>(data);
-		self->call();
-		delete self;
-	}
-	void call()
-	{
-		mCallable();
-	}
-private:
-	nullary_func_t mCallable;
-};
-
-void doOnIdleOneTime(nullary_func_t callable)
-{
-	OnIdleCallbackOneTime* cb_functor = new OnIdleCallbackOneTime(callable);
-	gIdleCallbacks.addFunction(&OnIdleCallbackOneTime::onIdle,cb_functor);
-}
-
-// Shim class to allow generic boost functions to be run as
-// recurring idle callbacks.  Callable should return true when done,
-// false to continue getting called.
-//
-// TODO: rework idle function spec to take a boost::function in the first place.
-class OnIdleCallbackRepeating
-{
-public:
-	OnIdleCallbackRepeating(bool_func_t callable):
-		mCallable(callable)
-	{
-	}
-	// Will keep getting called until the callable returns true.
-	static void onIdle(void *data)
-	{
-		OnIdleCallbackRepeating* self = reinterpret_cast<OnIdleCallbackRepeating*>(data);
-		bool done = self->call();
-		if (done)
-		{
-			gIdleCallbacks.deleteFunction(onIdle, data);
-			delete self;
-		}
-	}
-	bool call()
-	{
-		return mCallable();
-	}
-private:
-	bool_func_t mCallable;
-};
-
-void doOnIdleRepeating(bool_func_t callable)
-{
-	OnIdleCallbackRepeating* cb_functor = new OnIdleCallbackRepeating(callable);
-	gIdleCallbacks.addFunction(&OnIdleCallbackRepeating::onIdle,cb_functor);
-}
-
 class CallAfterCategoryFetchStage2: public LLInventoryFetchItemsObserver
 {
 public:
@@ -2978,6 +3003,9 @@ public:
 			// *TODOw: This may not be necessary if initial outfit is chosen already -- josh
 			gAgent.setGenderChosen(TRUE);
 		}
+
+		// release avatar picker keyboard focus
+		gFocusMgr.setKeyboardFocus( NULL );
 
 		return true;
 	}

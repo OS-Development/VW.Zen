@@ -113,7 +113,7 @@ public:
 	~LLTextureCacheWorker()
 	{
 		llassert_always(!haveWork());
-		delete[] mReadData;
+		FREE_MEM(LLImageBase::getPrivatePool(), mReadData);
 	}
 
 	// override this interface
@@ -215,7 +215,7 @@ bool LLTextureCacheLocalFileWorker::doRead()
 			mDataSize = 0;
 			return true;
 		}
-		mReadData = new U8[mDataSize];
+		mReadData = (U8*)ALLOCATE_MEM(LLImageBase::getPrivatePool(), mDataSize);
 		mBytesRead = -1;
 		mBytesToRead = mDataSize;
 		setPriority(LLWorkerThread::PRIORITY_LOW | mPriority);
@@ -233,7 +233,7 @@ bool LLTextureCacheLocalFileWorker::doRead()
 // 						<< " Bytes: " << mDataSize << " Offset: " << mOffset
 // 						<< " / " << mDataSize << llendl;
 				mDataSize = 0; // failed
-				delete[] mReadData;
+				FREE_MEM(LLImageBase::getPrivatePool(), mReadData);
 				mReadData = NULL;
 			}
 			return true;
@@ -248,7 +248,7 @@ bool LLTextureCacheLocalFileWorker::doRead()
 	{
 		mDataSize = local_size;
 	}
-	mReadData = new U8[mDataSize];
+	mReadData = (U8*)ALLOCATE_MEM(LLImageBase::getPrivatePool(), mDataSize);
 	
 	S32 bytes_read = LLAPRFile::readEx(mFileName, mReadData, mOffset, mDataSize, mCache->getLocalAPRFilePool());	
 
@@ -258,7 +258,7 @@ bool LLTextureCacheLocalFileWorker::doRead()
 // 				<< " Bytes: " << mDataSize << " Offset: " << mOffset
 // 				<< " / " << mDataSize << llendl;
 		mDataSize = 0;
-		delete[] mReadData;
+		FREE_MEM(LLImageBase::getPrivatePool(), mReadData);
 		mReadData = NULL;
 	}
 	else
@@ -377,7 +377,7 @@ bool LLTextureCacheRemoteWorker::doRead()
 			mDataSize = local_size;
 		}
 		// Allocate read buffer
-		mReadData = new U8[mDataSize];
+		mReadData = (U8*)ALLOCATE_MEM(LLImageBase::getPrivatePool(), mDataSize);
 		S32 bytes_read = LLAPRFile::readEx(local_filename, 
 											 mReadData, mOffset, mDataSize, mCache->getLocalAPRFilePool());
 		if (bytes_read != mDataSize)
@@ -386,7 +386,7 @@ bool LLTextureCacheRemoteWorker::doRead()
  					<< " Bytes: " << mDataSize << " Offset: " << mOffset
  					<< " / " << mDataSize << llendl;
 			mDataSize = 0;
-			delete[] mReadData;
+			FREE_MEM(LLImageBase::getPrivatePool(), mReadData);
 			mReadData = NULL;
 		}
 		else
@@ -429,7 +429,7 @@ bool LLTextureCacheRemoteWorker::doRead()
 		S32 size = TEXTURE_CACHE_ENTRY_SIZE - mOffset;
 		size = llmin(size, mDataSize);
 		// Allocate the read buffer
-		mReadData = new U8[size];
+		mReadData = (U8*)ALLOCATE_MEM(LLImageBase::getPrivatePool(), size);
 		S32 bytes_read = LLAPRFile::readEx(mCache->mHeaderDataFileName, 
 											 mReadData, offset, size, mCache->getLocalAPRFilePool());
 		if (bytes_read != size)
@@ -437,7 +437,7 @@ bool LLTextureCacheRemoteWorker::doRead()
 			llwarns << "LLTextureCacheWorker: "  << mID
 					<< " incorrect number of bytes read from header: " << bytes_read
 					<< " / " << size << llendl;
-			delete[] mReadData;
+			FREE_MEM(LLImageBase::getPrivatePool(), mReadData);
 			mReadData = NULL;
 			mDataSize = -1; // failed
 			done = true;
@@ -467,7 +467,7 @@ bool LLTextureCacheRemoteWorker::doRead()
 			S32 data_offset, file_size, file_offset;
 			
 			// Reserve the whole data buffer first
-			U8* data = new U8[mDataSize];
+			U8* data = (U8*)ALLOCATE_MEM(LLImageBase::getPrivatePool(), mDataSize);
 
 			// Set the data file pointers taking the read offset into account. 2 cases:
 			if (mOffset < TEXTURE_CACHE_ENTRY_SIZE)
@@ -480,7 +480,7 @@ bool LLTextureCacheRemoteWorker::doRead()
 				// Copy the raw data we've been holding from the header cache into the new sized buffer
 				llassert_always(mReadData);
 				memcpy(data, mReadData, data_offset);
-				delete[] mReadData;
+				FREE_MEM(LLImageBase::getPrivatePool(), mReadData);
 				mReadData = NULL;
 			}
 			else
@@ -506,7 +506,7 @@ bool LLTextureCacheRemoteWorker::doRead()
 				llwarns << "LLTextureCacheWorker: "  << mID
 						<< " incorrect number of bytes read from body: " << bytes_read
 						<< " / " << file_size << llendl;
-				delete[] mReadData;
+				FREE_MEM(LLImageBase::getPrivatePool(), mReadData);
 				mReadData = NULL;
 				mDataSize = -1; // failed
 				done = true;
@@ -598,11 +598,11 @@ bool LLTextureCacheRemoteWorker::doWrite()
 		{
 			// We need to write a full record in the header cache so, if the amount of data is smaller
 			// than a record, we need to transfer the data to a buffer padded with 0 and write that
-			U8* padBuffer = new U8[TEXTURE_CACHE_ENTRY_SIZE];
+			U8* padBuffer = (U8*)ALLOCATE_MEM(LLImageBase::getPrivatePool(), TEXTURE_CACHE_ENTRY_SIZE);
 			memset(padBuffer, 0, TEXTURE_CACHE_ENTRY_SIZE);		// Init with zeros
 			memcpy(padBuffer, mWriteData, mDataSize);			// Copy the write buffer
 			bytes_written = LLAPRFile::writeEx(mCache->mHeaderDataFileName, padBuffer, offset, size, mCache->getLocalAPRFilePool());
-			delete [] padBuffer;
+			FREE_MEM(LLImageBase::getPrivatePool(), padBuffer);
 		}
 		else
 		{
@@ -698,7 +698,7 @@ void LLTextureCacheWorker::finishWork(S32 param, bool completed)
 			}
 			else
 			{
-				delete[] mReadData;
+				FREE_MEM(LLImageBase::getPrivatePool(), mReadData);
 				mReadData = NULL;
 			}
 		}
@@ -949,7 +949,7 @@ S64 LLTextureCache::initCache(ELLPath location, S64 max_size, BOOL texture_cache
 	max_size -= sCacheMaxTexturesSize;
 	
 	LL_INFOS("TextureCache") << "Headers: " << sCacheMaxEntries
-			<< " Textures size: " << sCacheMaxTexturesSize/(1024*1024) << " MB" << LL_ENDL;
+			<< " Textures size: " << sCacheMaxTexturesSize / (1024 * 1024) << " MB" << LL_ENDL;
 
 	setDirNames(location);
 	
@@ -1419,22 +1419,21 @@ void LLTextureCache::readHeaderCache()
 					}
 				}
 			}
-			if (num_entries > sCacheMaxEntries)
+			if (num_entries - empty_entries > sCacheMaxEntries)
 			{
 				// Special case: cache size was reduced, need to remove entries
 				// Note: After we prune entries, we will call this again and create the LRU
-				U32 entries_to_purge = (num_entries-empty_entries) - sCacheMaxEntries;
+				U32 entries_to_purge = (num_entries - empty_entries) - sCacheMaxEntries;
 				llinfos << "Texture Cache Entries: " << num_entries << " Max: " << sCacheMaxEntries << " Empty: " << empty_entries << " Purging: " << entries_to_purge << llendl;
-				if (entries_to_purge > 0)
+				// We can exit the following loop with the given condition, since if we'd reach the end of the lru set we'd have:
+				// purge_list.size() = lru.size() = num_entries - empty_entries = entries_to_purge + sCacheMaxEntries >= entries_to_purge
+				// So, it's certain that iter will never reach lru.end() first.
+				std::set<lru_data_t>::iterator iter = lru.begin();
+				while (purge_list.size() < entries_to_purge)
 				{
-					for (std::set<lru_data_t>::iterator iter = lru.begin(); iter != lru.end(); ++iter)
-					{
-						purge_list.insert(iter->second);
-						if (purge_list.size() >= entries_to_purge)
-							break;
-					}
+					purge_list.insert(iter->second);
+					++iter;
 				}
-				llassert_always(purge_list.size() >= entries_to_purge);
 			}
 			else
 			{
@@ -1514,12 +1513,12 @@ void LLTextureCache::purgeAllTextures(bool purge_directories)
 	{
 		const char* subdirs = "0123456789abcdef";
 		std::string delem = gDirUtilp->getDirDelimiter();
-		std::string mask = delem + "*";
+		std::string mask = "*";
 		for (S32 i=0; i<16; i++)
 		{
 			std::string dirname = mTexturesDirName + delem + subdirs[i];
 			llinfos << "Deleting files in directory: " << dirname << llendl;
-			gDirUtilp->deleteFilesInDir(dirname,mask);
+			gDirUtilp->deleteFilesInDir(dirname, mask);
 			if (purge_directories)
 			{
 				LLFile::rmdir(dirname);
@@ -1656,7 +1655,7 @@ void LLTextureCache::purgeTextures(bool validate)
 	LL_INFOS("TextureCache") << "TEXTURE CACHE:"
 			<< " PURGED: " << purge_count
 			<< " ENTRIES: " << num_entries
-			<< " CACHE SIZE: " << mTexturesSizeTotal / 1024*1024 << " MB"
+			<< " CACHE SIZE: " << mTexturesSizeTotal / (1024 * 1024) << " MB"
 			<< llendl;
 }
 

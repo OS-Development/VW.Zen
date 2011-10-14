@@ -189,6 +189,9 @@ S32 LLFontGL::render(const LLWString &wstr, S32 begin_offset, F32 x, F32 y, cons
 	origin.mV[VX] -= llround((F32)sCurOrigin.mX) - (sCurOrigin.mX);
 	origin.mV[VY] -= llround((F32)sCurOrigin.mY) - (sCurOrigin.mY);
 
+	// Depth translation, so that floating text appears 'inworld'
+	// and is correclty occluded.
+	gGL.translatef(0.f,0.f,sCurOrigin.mZ);
 
 	S32 chars_drawn = 0;
 	S32 i;
@@ -270,7 +273,6 @@ S32 LLFontGL::render(const LLWString &wstr, S32 begin_offset, F32 x, F32 y, cons
 			draw_ellipses = TRUE;
 		}
 	}
-
 
 	const LLFontGlyphInfo* next_glyph = NULL;
 
@@ -555,7 +557,7 @@ S32 LLFontGL::maxDrawableChars(const llwchar* wchars, F32 max_pixels, S32 max_ch
 	BOOL in_word = FALSE;
 
 	// avoid S32 overflow when max_pixels == S32_MAX by staying in floating point
-	F32 scaled_max_pixels =	ceil(max_pixels * sScaleX);
+	F32 scaled_max_pixels =	max_pixels * sScaleX;
 	F32 width_padding = 0.f;
 	
 	LLFontGlyphInfo* next_glyph = NULL;

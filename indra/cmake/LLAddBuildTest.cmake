@@ -1,6 +1,7 @@
 # -*- cmake -*-
 include(LLTestCommand)
 include(GoogleMock)
+include(Tut)
 
 MACRO(LL_ADD_PROJECT_UNIT_TESTS project sources)
   # Given a project name and a list of sourcefiles (with optional properties on each),
@@ -57,11 +58,6 @@ INCLUDE(GoogleMock)
     ${CMAKE_SOURCE_DIR}/test/test.h
     )
 
-  # Use the default flags
-  if (LINUX)
-    SET(CMAKE_EXE_LINKER_FLAGS "")
-  endif (LINUX)
-
   # start the source test executable definitions
   SET(${project}_TEST_OUTPUT "")
   FOREACH (source ${sources})
@@ -99,7 +95,7 @@ INCLUDE(GoogleMock)
     IF(${name}_test_additional_INCLUDE_DIRS MATCHES NOTFOUND)
       SET(${name}_test_additional_INCLUDE_DIRS "")
     ENDIF(${name}_test_additional_INCLUDE_DIRS MATCHES NOTFOUND)
-    INCLUDE_DIRECTORIES(${alltest_INCLUDE_DIRS} ${name}_test_additional_INCLUDE_DIRS )
+    INCLUDE_DIRECTORIES(${alltest_INCLUDE_DIRS} ${${name}_test_additional_INCLUDE_DIRS} )
     IF(LL_TEST_VERBOSE)
       MESSAGE("LL_ADD_PROJECT_UNIT_TESTS ${name}_test_additional_INCLUDE_DIRS ${${name}_test_additional_INCLUDE_DIRS}")
     ENDIF(LL_TEST_VERBOSE)

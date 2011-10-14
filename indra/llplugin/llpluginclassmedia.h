@@ -41,15 +41,16 @@ class LLPluginClassMedia : public LLPluginProcessParentOwner
 	LOG_CLASS(LLPluginClassMedia);
 public:
 	LLPluginClassMedia(LLPluginClassMediaOwner *owner);
-	virtual ~LLPluginClassMedia();
+	~LLPluginClassMedia();
 
 	// local initialization, called by the media manager when creating a source
-	virtual bool init(const std::string &launcher_filename, 
+	bool init(const std::string &launcher_filename, 
+					  const std::string &plugin_dir, 
 					  const std::string &plugin_filename, 
 					  bool debug);
 
 	// undoes everything init() didm called by the media manager when destroying a source
-	virtual void reset();
+	void reset();
 	
 	void idle(void);
 	
@@ -116,7 +117,19 @@ public:
 	bool keyEvent(EKeyEventType type, int key_code, MASK modifiers, LLSD native_key_data);
 
 	void scrollEvent(int x, int y, MASK modifiers);
-	
+
+	// enable/disable media plugin debugging messages and info spam
+	void enableMediaPluginDebugging( bool enable );
+
+	// Javascript <-> viewer events
+	void jsEnableObject( bool enable );
+	void jsAgentLocationEvent( double x, double y, double z );
+	void jsAgentGlobalLocationEvent( double x, double y, double z );
+	void jsAgentOrientationEvent( double angle );
+	void jsAgentLanguageEvent( const std::string& language );
+	void jsAgentRegionEvent( const std::string& region_name );
+	void jsAgentMaturityEvent( const std::string& maturity );
+		
 	// Text may be unicode (utf8 encoded)
 	bool textInput(const std::string &text, MASK modifiers, LLSD native_key_data);
 	
@@ -198,8 +211,8 @@ public:
 	void browse_reload(bool ignore_cache = false);
 	void browse_forward();
 	void browse_back();
-	void set_status_redirect(int code, const std::string &url);
 	void setBrowserUserAgent(const std::string& user_agent);
+	void showWebInspector( bool show );
 	void proxyWindowOpened(const std::string &target, const std::string &uuid);
 	void proxyWindowClosed(const std::string &uuid);
 	void ignore_ssl_cert_errors(bool ignore);
@@ -226,11 +239,21 @@ public:
 	// This is valid after MEDIA_EVENT_CLICK_LINK_HREF or MEDIA_EVENT_CLICK_LINK_NOFOLLOW
 	std::string getClickURL() const { return mClickURL; };
 
+	// This is valid after MEDIA_EVENT_CLICK_LINK_NOFOLLOW
+	std::string getClickNavType() const { return mClickNavType; };
+
 	// This is valid after MEDIA_EVENT_CLICK_LINK_HREF
 	std::string getClickTarget() const { return mClickTarget; };
 
 	// This is valid during MEDIA_EVENT_CLICK_LINK_HREF and MEDIA_EVENT_GEOMETRY_CHANGE
 	std::string getClickUUID() const { return mClickUUID; };
+
+	// These are valid during MEDIA_EVENT_DEBUG_MESSAGE
+	std::string getDebugMessageText() const { return mDebugMessageText; };
+	std::string getDebugMessageLevel() const { return mDebugMessageLevel; };
+
+	// This is valid after MEDIA_EVENT_NAVIGATE_ERROR_PAGE
+	S32 getStatusCode() const { return mStatusCode; };
 	
 	// These are valid during MEDIA_EVENT_GEOMETRY_CHANGE
 	S32 getGeometryX() const { return mGeometryX; };
@@ -377,12 +400,16 @@ protected:
 	int				mProgressPercent;
 	std::string		mLocation;
 	std::string		mClickURL;
+	std::string		mClickNavType;
 	std::string		mClickTarget;
 	std::string		mClickUUID;
+	std::string		mDebugMessageText;
+	std::string		mDebugMessageLevel;
 	S32				mGeometryX;
 	S32				mGeometryY;
 	S32				mGeometryWidth;
 	S32				mGeometryHeight;
+	S32				mStatusCode;
 	std::string		mAuthURL;
 	std::string		mAuthRealm;
 	std::string		mHoverText;

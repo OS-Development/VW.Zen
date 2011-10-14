@@ -28,6 +28,7 @@
 #include "llrender.h"
 #include "llfocusmgr.h"
 #include "lluictrlfactory.h"
+#include "lluiimage.h"
 
 static LLDefaultChildRegistry::Register<LLViewBorder> r("view_border");
 
@@ -56,9 +57,6 @@ LLViewBorder::Params::Params()
 {
 	addSynonym(border_thickness, "thickness");
 	addSynonym(render_style, "style");
-	name = "view_border";
-	mouse_opaque = false;
-	follows.flags = FOLLOWS_ALL;
 }
 
 

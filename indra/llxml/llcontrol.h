@@ -289,7 +289,7 @@ public:
 	// as the given type.
 	U32	loadFromFileLegacy(const std::string& filename, BOOL require_declaration = TRUE, eControlType declare_as = TYPE_STRING);
  	U32 saveToFile(const std::string& filename, BOOL nondefault_only);
- 	U32	loadFromFile(const std::string& filename, bool default_values = false);
+ 	U32	loadFromFile(const std::string& filename, bool default_values = false, bool save_values = true);
 	void	resetToDefaults();
 };
 
@@ -385,7 +385,8 @@ class LLCachedControl
 {
 public:
 	LLCachedControl(LLControlGroup& group,
-					const std::string& name, 
+					const std::string& name,
+
 					const T& default_value, 
 					const std::string& comment = "Declared In Code")
 	{

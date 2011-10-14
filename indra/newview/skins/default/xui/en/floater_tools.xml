@@ -47,24 +47,12 @@
         Click and drag to select land
     </floater.string>
     <floater.string
-     name="grid_screen_text">
-        Screen
+     name="status_selectcount">
+        [OBJ_COUNT] objects selected, land impact [LAND_IMPACT]
     </floater.string>
     <floater.string
-     name="grid_local_text">
-        Local
-    </floater.string>
-    <floater.string
-     name="grid_world_text">
-        World
-    </floater.string>
-    <floater.string
-     name="grid_reference_text">
-        Reference
-    </floater.string>
-    <floater.string
-     name="grid_attachment_text">
-        Attachment
+     name="status_remaining_capacity">
+        Remaining capacity [LAND_CAPACITY].
     </floater.string>
     <button
      follows="left|top"
@@ -221,7 +209,7 @@
 	<radio_group
      follows="left|top"
 	 left="5"
-	 top="59"
+	 top="55"
 	 height="70"
      layout="topleft"
 	 name="edit_radio_group">
@@ -248,46 +236,59 @@
 			function="BuildTool.commitRadioEdit"/>
     </radio_group>
     <check_box
-     left="10"
+     left="5"
      follows="left|top"
      height="28"
 	 control_name="EditLinkedParts"
      label="Edit linked"
      layout="topleft"
      name="checkbox edit linked parts"
-     top_pad="2">
+     top_pad="-18">
 		  <check_box.commit_callback
 			function="BuildTool.selectComponent"/>
 	</check_box>
 
-   <text
-   text_color="LtGray_50"
-   follows="top|left"
-   halign="left"
-   left="13"
-   name="RenderingCost"
-   tool_tip="Shows the rendering cost calculated for this object"
-   top_pad="0"
-   type="string"
-   width="100">
-   þ: [COUNT]
-   </text>
-	<check_box
+   <button
+     follows="left|top"
+     height="20"
+     label="Link"
+     top="108"
+     layout="topleft"
+     left="143"
+     name="link_btn"
+     width="50">
+	  <button.commit_callback
+	     function="BuildTool.LinkObjects"/>
+    </button>
+    <button
+     follows="left|top"
+     height="20"
+     label="Unlink"
+     layout="topleft"
+     left_pad="2"
+     name="unlink_btn"
+     width="90">
+	  <button.commit_callback
+	     function="BuildTool.UnlinkObjects"/>
+    </button>
+    <check_box
      control_name="ScaleUniform"
      height="19"
      label=""
      layout="topleft"
      left="143"
      name="checkbox uniform"
-	 top="50"
+     top="48"
      width="20" />
     <text
      height="19"
      label="Stretch Both Sides"
-     left="163"
+     left_delta="20"
      name="checkbox uniform label"
-     top="55"
+     top_delta="2"
      width="120"
+     layout="topleft"
+     follows="top|left"
      wrap="true">
      	Stretch Both Sides
     </text>
@@ -299,51 +300,29 @@
      layout="topleft"
      left="143"
      name="checkbox stretch textures"
-     top_pad="7"
+     top_pad="-4"
+     follows="left|top"
      width="134" />
    <check_box
      control_name="SnapEnabled"
      height="18"
      initial_value="true"
-     label="Snap to grid"
+     label="Snap"
      layout="topleft"
      top_pad="0"
      name="checkbox snap to grid"
      width="134" />
-    <combo_box
-     height="23"
-     layout="topleft"
-     follows="left|top"
-     name="combobox grid mode"
-     tool_tip="Choose the type of grid ruler for positioning the object"
-     top_pad="0"
-     width="108">
-        <combo_box.item
-         label="World grid"
-         name="World"
-         value="World" />
-        <combo_box.item
-         label="Local grid"
-         name="Local"
-         value="Local" />
-        <combo_box.item
-         label="Reference grid"
-         name="Reference"
-         value="Reference" />
-		 <combo_box.commit_callback
-	     function="BuildTool.gridMode"/>
-    </combo_box>
     <button
      left_pad="0"
-     image_selected="ForwardArrow_Press"
-     image_unselected="ForwardArrow_Off"
+     label="Options..."
      layout="topleft"
+     follows="top|left"
      name="Options..."
      tool_tip="See more grid options"
-     top_delta="0"
-     right="-10"
-     width="18"
-     height="23" >
+     top="83"
+     right="-35"
+     width="65"
+     height="21" >
 	 <button.commit_callback
 	     function="BuildTool.gridOptions"/>
 	</button>
@@ -358,7 +337,7 @@
      left="10"
      name="ToolCube"
      tool_tip="Cube"
-     top="51"
+     top="58"
      width="20" />
     <button
      follows="left|top"
@@ -420,10 +399,10 @@
      image_selected="Object_Hemi_Cylinder_Selected"
      image_unselected="Object_Hemi_Cylinder"
      layout="topleft"
-     left_delta="29"
+     left="10"
      name="ToolHemiCylinder"
      tool_tip="Hemicylinder"
-     top_delta="0"
+     top="84"
      width="20" />
     <button
      follows="left|top"
@@ -488,7 +467,7 @@
      left="10"
      name="ToolTorus"
      tool_tip="Torus"
-     top="77"
+     top="109"
      width="20" />
     <button
      follows="left|top"
@@ -548,9 +527,9 @@
      height="19"
      label="Keep Tool selected"
      layout="topleft"
-     left="4"
+     left="155"
      name="checkbox sticky"
-     top="101"
+     top="55"
      width="128" />
     <check_box
      control_name="CreateToolCopySelection"
@@ -569,7 +548,7 @@
      layout="topleft"
      left_delta="18"
      name="checkbox copy centers"
-     top="132"
+     top="85"
      width="134" />
     <check_box
      control_name="CreateToolCopyRotates"
@@ -723,31 +702,83 @@
 	     function="BuildTool.applyToSelection"/>
     </button>
     <text
-    text_color="LtGray_50"
-     type="string"
-     length="1"
-     height="10"
-     follows="left|top"
-     halign="right"
-     layout="topleft"
-     right="-10"
-     name="obj_count"
-     top_pad="7"
-     width="143">
-        Objects: [COUNT]
-    </text>
-    <text
-    text_color="LtGray_50"
-     type="string"
-     length="1"
-     follows="left|top"
-     halign="right"
-     layout="topleft"
-     right="-10"
-     name="prim_count"
-     width="143">
-        Prims: [COUNT]
-    </text>
+	 text_color="LtGray_50"
+	  type="string"
+	  length="1"
+	  height="16"
+	  follows="left|top"
+	  font="SansSerifSmall"
+	  layout="topleft"
+	  left="10"
+	  name="selection_empty"
+	  top_pad="0"
+	  width="100">
+		Nothing selected.
+	</text>
+	<text
+	 text_color="LtGray_50"
+	  type="string"
+	  length="1"
+	  height="16"
+	  follows="left|top"
+	  font="SansSerifSmall"
+	  layout="topleft"
+	  left="10"
+	  name="selection_count"
+	  top_delta="0"
+	  visible="false"
+	  width="280">
+	</text>
+	<text
+	 text_color="LtGray_50"
+	  type="string"
+	  length="1"
+	  height="16"
+	  follows="left|top"
+	  font="SansSerifSmall"
+	  layout="topleft"
+	  left="10"
+	  name="remaining_capacity"
+	  top_pad="0"
+	  visible="false"
+	  width="280">
+	  [CAPACITY_STRING] [secondlife:///app/openfloater/object_weights More info]
+	</text>
+    <!-- <text -->
+    <!-- text_color="LtGray_50" -->
+    <!--  type="string" -->
+    <!--  length="1" -->
+    <!--  height="10" -->
+    <!--  follows="left|top" -->
+    <!--  halign="right" -->
+    <!--  layout="topleft" -->
+    <!--  right="-10" -->
+    <!--  name="obj_count" -->
+    <!--  top_pad="5" -->
+    <!--  width="143"> -->
+    <!--     Objects: [COUNT] -->
+    <!-- </text> -->
+    <!-- <text -->
+    <!-- text_color="LtGray_50" -->
+    <!--  type="string" -->
+    <!--  length="1" -->
+    <!--  follows="left|top" -->
+    <!--  halign="right" -->
+    <!--  layout="topleft" -->
+    <!--  right="-10" -->
+    <!--  name="prim_count" -->
+    <!--  width="143"> -->
+    <!--     Prims: [COUNT] -->
+    <!-- </text> -->
+    <view_border
+    bevel_style="none"
+    follows="top|left"
+    height="0"
+    layout="topleft"
+    left="6"
+    name="cost_text_border"
+    top="135"
+    width="282"/>
     <tab_container
      follows="left|top"
      height="410"
@@ -760,7 +791,8 @@
      tab_height="25"
      top="173"
      width="295">
-	<panel
+	
+<panel
 	 border="false"
 	 follows="all"
 	 label="General"
@@ -876,10 +908,11 @@
              layout="topleft"
              name="Creator Name"
              top_delta="0"
+             translate="false"
              width="190"
              word_wrap="true"
              use_ellipses="true">
-                Mrs. Esbee Linden (esbee.linden)
+                TestString PleaseIgnore (please.ignore)
             </text>
             <text
              type="string"
@@ -903,10 +936,11 @@
              name="Owner Name"
              left_pad="0"
              top_delta="0"
+             translate="false"
              width="190"
              word_wrap="true"
              use_ellipses="true">
-                Mrs. Erica "Moose" Linden (erica.linden)
+                TestString PleaseIgnore (please.ignore)
             </text>
            <text
              type="string"
@@ -1228,7 +1262,7 @@ even though the user gets a free copy.
       <panel
          border="false"
          follows="all"
-         height="367"
+         height="567"
          label="Object"
          layout="topleft"
          left_delta="0"
@@ -1347,7 +1381,7 @@ even though the user gets a free copy.
              label_width="10"
              layout="topleft"
              left_delta="0"
-             max_val="10"
+             max_val="64"
              min_val="0.01"
              name="Scale X"
              text_enabled_color="1 1 1 1"
@@ -1362,7 +1396,7 @@ even though the user gets a free copy.
              label_width="10"
              layout="topleft"
              left_delta="0"
-             max_val="10"
+             max_val="64"
              min_val="0.01"
              name="Scale Y"
              text_enabled_color="1 1 1 1"
@@ -1377,7 +1411,7 @@ even though the user gets a free copy.
              label_width="10"
              layout="topleft"
              left_delta="0"
-             max_val="10"
+             max_val="64"
              min_val="0.01"
              name="Scale Z"
              text_enabled_color="1 1 1 1"
@@ -1443,7 +1477,6 @@ even though the user gets a free copy.
              text_enabled_color="1 1 1 1"
              top_pad="3"
              width="87" />
-
  <!--           <text
              type="string"
              length="1"
@@ -1495,41 +1528,6 @@ even though the user gets a free copy.
                  label="Sculpted"
                  name="Sculpted"
                  value="Sculpted" />
-            </combo_box>
-            <combo_box
-             height="19"
-             layout="topleft"
-             name="material"
-             top_pad="5"
-             width="150">
-                <combo_box.item
-                 label="Stone"
-                 name="Stone"
-                 value="Stone" />
-                <combo_box.item
-                 label="Metal"
-                 name="Metal"
-                 value="Metal" />
-                <combo_box.item
-                 label="Glass"
-                 name="Glass"
-                 value="Glass" />
-                <combo_box.item
-                 label="Wood"
-                 name="Wood"
-                 value="Wood" />
-                <combo_box.item
-                 label="Flesh"
-                 name="Flesh"
-                 value="Flesh" />
-                <combo_box.item
-                 label="Plastic"
-                 name="Plastic"
-                 value="Plastic" />
-                <combo_box.item
-                 label="Rubber"
-                 name="Rubber"
-                 value="Rubber" />
             </combo_box>
             <text
              type="string"
@@ -1831,26 +1829,26 @@ even though the user gets a free copy.
             <spinner
              follows="left|top"
              height="19"
-             increment="0.025"
+             increment="0.02"
              initial_value="0"
              label="B"
              label_width="10"
              layout="topleft"
              left_delta="0"
-             max_val="0.95"
+             max_val="0.98"
              name="Path Limit Begin"
              top_pad="3"
              width="68" />
             <spinner
              follows="left|top"
              height="19"
-             increment="0.025"
+             increment="0.02"
              initial_value="1"
              label="E"
              label_width="10"
              layout="topleft"
              left_pad="10"
-             min_val="0.05"
+             min_val="0.02"
              name="Path Limit End"
              top_delta="0"
              width="68" />
@@ -2002,26 +2000,22 @@ even though the user gets a free copy.
              visible="false"
              width="150">
                 <combo_box.item
-                 label="(none)"
-                 name="None"
-                 value="None" />
-                <combo_box.item
                  label="Sphere"
                  name="Sphere"
-                 value="Sphere" />
+                 value="1" />
                 <combo_box.item
                  label="Torus"
                  name="Torus"
-                 value="Torus" />
+                 value="2" />
                 <combo_box.item
                  label="Plane"
                  name="Plane"
-                 value="Plane" />
+                 value="3" />
                 <combo_box.item
                  label="Cylinder"
                  name="Cylinder"
-                 value="Cylinder" />
-            </combo_box>
+                 value="4" />
+              </combo_box>
         </panel>
         <panel
          border="false"
@@ -2035,6 +2029,9 @@ even though the user gets a free copy.
          name="Features"
          top_delta="0"
          width="295">
+	<panel.string name="None">None</panel.string>
+	<panel.string name="Prim">Prim</panel.string>
+	<panel.string name="Convex Hull">Convex Hull</panel.string>
             <text
              type="string"
              length="1"
@@ -2177,6 +2174,7 @@ even though the user gets a free copy.
              name="FlexForceZ"
              top_pad="4"
              width="128" />
+
             <check_box
              height="16"
              label="Light"
@@ -2287,6 +2285,120 @@ even though the user gets a free copy.
                    mouse_opaque="true"
                    name="Light Ambiance"
                    width="120" />
+            <text
+             type="string"
+             length="1"
+             follows="left|top"
+             height="10"
+             layout="topleft"
+             name="label physicsshapetype"
+             top="38"
+             width="121">
+                Physics Shape Type:
+            </text>
+			<combo_box
+			   height="19"
+			   top_delta="15" 
+			   layout="topleft"
+			   follows="left|top"
+			   name="Physics Shape Type Combo Ctrl"
+			   tool_tip="Choose the physics shape type"
+			   width="108"/>
+            <combo_box
+             height="19"
+             layout="topleft"
+             name="material"
+             top_pad="5"
+             width="150">
+                <combo_box.item
+                 label="Stone"
+                 name="Stone"
+                 value="Stone" />
+                <combo_box.item
+                 label="Metal"
+                 name="Metal"
+                 value="Metal" />
+                <combo_box.item
+                 label="Glass"
+                 name="Glass"
+                 value="Glass" />
+                <combo_box.item
+                 label="Wood"
+                 name="Wood"
+                 value="Wood" />
+                <combo_box.item
+                 label="Flesh"
+                 name="Flesh"
+                 value="Flesh" />
+                <combo_box.item
+                 label="Plastic"
+                 name="Plastic"
+                 value="Plastic" />
+                <combo_box.item
+                 label="Rubber"
+                 name="Rubber"
+                 value="Rubber" />
+            </combo_box>
+
+            <spinner
+             follows="left|top"
+             height="19"
+             increment="1"
+             initial_value="1"
+             label="Gravity"
+             label_width="70"
+             layout="topleft"
+             min_val="-1"
+             max_val="28"
+             name="Physics Gravity"
+             top_pad="10"
+             width="132" />
+
+            <spinner
+             follows="left|top"
+             height="19"
+             increment="0.1"
+             initial_value="0"
+             label="Friction"
+             label_width="70"
+             layout="topleft"
+             left_delta="0"
+             max_val="255"
+             min_val="0"
+             name="Physics Friction"
+             top_pad="4"
+             width="132" />
+
+            <spinner
+             follows="left|top"
+             height="19"
+             increment="0.1"
+             initial_value="0"
+             label="Density in 100 kg/m^3"
+             label_width="70"
+             label_wrap="true"
+             layout="topleft"
+             left_delta="0"
+             max_val="22587"
+             min_val="1"
+             name="Physics Density"
+             top_pad="4"
+             width="132" />
+
+            <spinner
+             follows="left|top"
+             height="19"
+             increment="0.01"
+             initial_value="0"
+             label="Restitution"
+             label_width="70"
+             layout="topleft"
+             left_delta="0"
+             max_val="1"
+             min_val="0"
+             name="Physics Restitution"
+             top_pad="8"
+             width="132" />
         </panel>
          <panel
          border="false"
@@ -2353,7 +2465,7 @@ even though the user gets a free copy.
              initial_value="0"
              layout="topleft"
              left_delta="0"
-             max_val="90"
+             max_val="100"
              name="ColorTrans"
              top_pad="4"
              width="80" />

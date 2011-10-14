@@ -36,6 +36,7 @@
 #include "llimview.h"
 #include "llmenubutton.h"
 #include "llnotificationsutil.h"
+#include "llslurl.h"
 #include "lltexteditor.h"
 #include "lltexturectrl.h"
 #include "lltoggleablemenu.h"
@@ -65,8 +66,8 @@ public:
 		Params()
 		:	agent_id("agent_id")
 		{
-			mouse_opaque(false);
-			follows.flags(FOLLOWS_ALL);
+			changeDefault(mouse_opaque, false);
+			changeDefault(follows.flags, FOLLOWS_ALL);
 		}
 	};
 

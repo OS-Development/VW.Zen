@@ -89,6 +89,7 @@ public:
 		mInventoryItemsDict["New Skirt"]		= LLTrans::getString("New Skirt");
 		mInventoryItemsDict["New Alpha"]		= LLTrans::getString("New Alpha");
 		mInventoryItemsDict["New Tattoo"]		= LLTrans::getString("New Tattoo");
+		mInventoryItemsDict["New Physics"]		= LLTrans::getString("New Physics");
 		mInventoryItemsDict["Invalid Wearable"] = LLTrans::getString("Invalid Wearable");
 
 		mInventoryItemsDict["New Gesture"]		= LLTrans::getString("New Gesture");
@@ -138,7 +139,35 @@ public:
 		mInventoryItemsDict["Female - Shrug"]			= LLTrans::getString("Female - Shrug");
 		mInventoryItemsDict["Female - Stick tougue out"]= LLTrans::getString("Female - Stick tougue out");
 		mInventoryItemsDict["Female - Wow"]				= LLTrans::getString("Female - Wow");
-		
+
+		//common
+		mInventoryItemsDict["/bow"]						= LLTrans::getString("/bow");
+		mInventoryItemsDict["/clap"]					= LLTrans::getString("/clap");
+		mInventoryItemsDict["/count"]					= LLTrans::getString("/count");
+		mInventoryItemsDict["/extinguish"]				= LLTrans::getString("/extinguish");
+		mInventoryItemsDict["/kmb"]						= LLTrans::getString("/kmb");
+		mInventoryItemsDict["/muscle"]					= LLTrans::getString("/muscle");
+		mInventoryItemsDict["/no"]						= LLTrans::getString("/no");
+		mInventoryItemsDict["/no!"]						= LLTrans::getString("/no!");
+		mInventoryItemsDict["/paper"]					= LLTrans::getString("/paper");
+		mInventoryItemsDict["/pointme"]					= LLTrans::getString("/pointme");
+		mInventoryItemsDict["/pointyou"]				= LLTrans::getString("/pointyou");
+		mInventoryItemsDict["/rock"]					= LLTrans::getString("/rock");
+		mInventoryItemsDict["/scissor"]					= LLTrans::getString("/scissor");
+		mInventoryItemsDict["/smoke"]					= LLTrans::getString("/smoke");
+		mInventoryItemsDict["/stretch"]					= LLTrans::getString("/stretch");
+		mInventoryItemsDict["/whistle"]					= LLTrans::getString("/whistle");
+		mInventoryItemsDict["/yes"]						= LLTrans::getString("/yes");
+		mInventoryItemsDict["/yes!"]					= LLTrans::getString("/yes!");
+		mInventoryItemsDict["afk"]						= LLTrans::getString("afk");
+		mInventoryItemsDict["dance1"]					= LLTrans::getString("dance1");
+		mInventoryItemsDict["dance2"]					= LLTrans::getString("dance2");
+		mInventoryItemsDict["dance3"]					= LLTrans::getString("dance3");
+		mInventoryItemsDict["dance4"]					= LLTrans::getString("dance4");
+		mInventoryItemsDict["dance5"]					= LLTrans::getString("dance5");
+		mInventoryItemsDict["dance6"]					= LLTrans::getString("dance6");
+		mInventoryItemsDict["dance7"]					= LLTrans::getString("dance7");
+		mInventoryItemsDict["dance8"]					= LLTrans::getString("dance8");
 	}
 
 	/**
@@ -180,6 +209,12 @@ public:
 		if (params.size() < 1)
 		{
 			return false;
+		}
+
+		if (!LLUI::sSettingGroups["config"]->getBOOL("EnableInventory"))
+		{
+				LLNotificationsUtil::add("NoInventory", LLSD(), LLSD(), std::string("SwitchToStandardSkinAndQuit"));
+				return true;
 		}
 
 		// support secondlife:///app/inventory/show
@@ -411,6 +446,9 @@ void LLViewerInventoryItem::fetchFromServer(void) const
 BOOL LLViewerInventoryItem::unpackMessage(LLSD item)
 {
 	BOOL rv = LLInventoryItem::fromLLSD(item);
+
+	LLLocalizedInventoryItemsDictionary::getInstance()->localizeInventoryObjectName(mName);
+
 	mIsComplete = TRUE;
 	return rv;
 }
@@ -1262,7 +1300,7 @@ void menu_create_inventory_item(LLFolderView* root, LLFolderBridge *bridge, cons
 {
 	std::string type_name = userdata.asString();
 	
-	if (("category" == type_name) || ("current" == type_name) || ("outfit" == type_name) || ("my_otfts" == type_name))
+	if (("inbox" == type_name) || ("outbox" == type_name) || ("category" == type_name) || ("current" == type_name) || ("outfit" == type_name) || ("my_otfts" == type_name))
 	{
 		LLFolderType::EType preferred_type = LLFolderType::lookup(type_name);
 
@@ -1449,6 +1487,9 @@ private:
 
 	void saveFavoritesSLURLs();
 
+	// Remove record of current user's favorites from file on disk.
+	void removeFavoritesRecordOfUser();
+
 	void onLandmarkLoaded(const LLUUID& asset_id, LLLandmark* landmark);
 	void storeFavoriteSLURL(const LLUUID& asset_id, std::string& slurl);
 
@@ -1533,6 +1574,10 @@ void LLFavoritesOrderStorage::destroyClass()
 	{
 		LLFavoritesOrderStorage::instance().saveFavoritesSLURLs();
 	}
+	else
+	{
+		LLFavoritesOrderStorage::instance().removeFavoritesRecordOfUser();
+	}
 }
 
 void LLFavoritesOrderStorage::load()
@@ -1599,6 +1644,28 @@ void LLFavoritesOrderStorage::saveFavoritesSLURLs()
 	llofstream file;
 	file.open(filename);
 	LLSDSerialize::toPrettyXML(fav_llsd, file);
+}
+
+void LLFavoritesOrderStorage::removeFavoritesRecordOfUser()
+{
+	std::string filename = gDirUtilp->getExpandedFilename(LL_PATH_USER_SETTINGS, "stored_favorites.xml");
+	LLSD fav_llsd;
+	llifstream file;
+	file.open(filename);
+	if (!file.is_open()) return;
+	LLSDSerialize::fromXML(fav_llsd, file);
+
+	LLAvatarName av_name;
+	LLAvatarNameCache::get( gAgentID, &av_name );
+	if (fav_llsd.has(av_name.getLegacyName()))
+	{
+		fav_llsd.erase(av_name.getLegacyName());
+	}
+
+	llofstream out_file;
+	out_file.open(filename);
+	LLSDSerialize::toPrettyXML(fav_llsd, out_file);
+
 }
 
 void LLFavoritesOrderStorage::onLandmarkLoaded(const LLUUID& asset_id, LLLandmark* landmark)

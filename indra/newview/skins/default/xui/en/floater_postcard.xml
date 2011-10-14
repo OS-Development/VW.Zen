@@ -7,11 +7,11 @@
  height="380"
  layout="topleft"
  min_height="380"
- min_width="450"
+ min_width="490"
  name="Postcard"
  help_topic="postcard"
  title="EMAIL SNAPSHOT"
- width="450">
+ width="490">
     <floater.string
      name="default_subject">
         Postcard from [SECOND_LIFE].
@@ -36,10 +36,11 @@
         Recipient&apos;s Email:
     </text>
     <line_editor
+     control_name="LastPostcardRecipient"
      follows="left|top"
      height="20"
      layout="topleft"
-     left_delta="108"
+     left_delta="148"
      name="to_form"
      top_delta="-4"
      width="150" />
@@ -58,7 +59,7 @@
      follows="left|top"
      height="20"
      layout="topleft"
-     left_delta="108"
+     left_delta="148"
      name="from_form"
      top_delta="-4"
      width="150" />
@@ -77,7 +78,7 @@
      follows="left|top"
      height="20"
      layout="topleft"
-     left_delta="108"
+     left_delta="148"
      max_length_bytes="100"
      name="name_form"
      top_delta="-4"
@@ -98,7 +99,7 @@
      height="20"
      label="Type your subject here."
      layout="topleft"
-     left_delta="108"
+     left_delta="148"
      max_length_bytes="100"
      name="subject_form"
      top_delta="-4"

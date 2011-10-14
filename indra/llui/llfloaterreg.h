@@ -27,13 +27,8 @@
 #define LLFLOATERREG_H
 
 /// llcommon
-#include "llboost.h"
 #include "llrect.h"
-#include "llstl.h"
 #include "llsd.h"
-
-/// llui
-#include "lluictrl.h"
 
 #include <boost/function.hpp>
 
@@ -43,6 +38,7 @@
 //
 
 class LLFloater;
+class LLUICtrl;
 
 typedef boost::function<LLFloater* (const LLSD& key)> LLFloaterBuildFunc;
 
@@ -90,7 +86,7 @@ public:
 					const std::string& groupname = LLStringUtil::null);
 
 	// Helpers
-	static LLRect getFloaterRect(const std::string& name);
+	static LLFloater* getLastFloaterInGroup(const std::string& name);
 	
 	// Find / get (create) / remove / destroy
 	static LLFloater* findInstance(const std::string& name, const LLSD& key = LLSD());

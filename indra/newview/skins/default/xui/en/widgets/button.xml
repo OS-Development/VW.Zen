@@ -25,5 +25,7 @@
         pad_bottom="3" 
         height="23"
         scale_image="true"
-        use_draw_context_alpha="true">
+        handle_right_mouse="true"
+        use_draw_context_alpha="true"
+        held_down_delay.seconds="0.5">
 </button>

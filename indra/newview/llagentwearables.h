@@ -56,7 +56,7 @@ public:
 	LLAgentWearables();
 	virtual ~LLAgentWearables();
 	void 			setAvatarObject(LLVOAvatarSelf *avatar);
-	void			createStandardWearables(BOOL female); 
+	void			createStandardWearables(); 
 	void			cleanup();
 	void			dump();
 
@@ -124,7 +124,7 @@ public:
 	void			setWearableOutfit(const LLInventoryItem::item_array_t& items, const LLDynamicArray< LLWearable* >& wearables, BOOL remove);
 	void			setWearableName(const LLUUID& item_id, const std::string& new_name);
 	void			addLocalTextureObject(const LLWearableType::EType wearable_type, const LLVOAvatarDefines::ETextureIndex texture_type, U32 wearable_index);
-	U32				getWearableIndex(LLWearable *wearable);
+	U32				getWearableIndex(const LLWearable *wearable) const;
 
 protected:
 	void			setWearableFinal(LLInventoryItem* new_item, LLWearable* new_wearable, bool do_append = false);
@@ -165,7 +165,6 @@ private:
 	void			removeWearableFinal(const LLWearableType::EType type, bool do_remove_all /*= false*/, U32 index /*= 0*/);
 protected:
 	static bool		onRemoveWearableDialog(const LLSD& notification, const LLSD& response);
-	static void		userRemoveAllClothesStep2(BOOL proceed); // userdata is NULL
 	
 	//--------------------------------------------------------------------
 	// Server Communication
@@ -211,7 +210,6 @@ public:
 public:
 	static void		userRemoveWearable(const LLWearableType::EType &type, const U32 &index);
 	static void		userRemoveWearablesOfType(const LLWearableType::EType &type);
-	static void		userRemoveAllClothes();	
 	
 	typedef std::vector<LLViewerObject*> llvo_vec_t;
 

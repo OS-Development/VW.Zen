@@ -41,6 +41,7 @@ class LLMenuGL;
 class LLCallingCardObserver;
 class LLViewerJointAttachment;
 
+
 typedef std::vector<std::string> menuentry_vec_t;
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -51,7 +52,7 @@ typedef std::vector<std::string> menuentry_vec_t;
 //
 // You'll want to call LLInvItemFVELister::createBridge() to actually create
 // an instance of this class. This helps encapsulate the
-// funcationality a bit. (except for folders, you can create those
+// functionality a bit. (except for folders, you can create those
 // manually...)
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 class LLInvFVBridge : public LLFolderViewEventListener
@@ -69,6 +70,8 @@ public:
 	virtual ~LLInvFVBridge() {}
 
 	BOOL canShare() const;
+	BOOL canListOnMarketplace() const;
+	BOOL canListOnMarketplaceNow() const;
 
 	//--------------------------------------------------------------------
 	// LLInvFVBridge functionality
@@ -114,7 +117,8 @@ public:
 	virtual BOOL startDrag(EDragAndDropType* type, LLUUID* id) const;
 	virtual BOOL dragOrDrop(MASK mask, BOOL drop,
 							EDragAndDropType cargo_type,
-							void* cargo_data) { return FALSE; }
+							void* cargo_data,
+							std::string& tooltip_msg) { return FALSE; }
 	virtual LLInventoryType::EType getInventoryType() const { return mInvType; }
 	virtual LLWearableType::EType getWearableType() const { return LLWearableType::WT_NONE; }
 
@@ -138,6 +142,10 @@ protected:
 
 	BOOL isAgentInventory() const; // false if lost or in the inventory library
 	BOOL isCOFFolder() const; // true if COF or descendent of
+	BOOL isInboxFolder() const; // true if COF or descendent of marketplace inbox
+	BOOL isOutboxFolder() const; // true if COF or descendent of marketplace outbox
+	const LLUUID getOutboxFolder() const;
+
 	virtual BOOL isItemPermissive() const;
 	static void changeItemParent(LLInventoryModel* model,
 								 LLViewerInventoryItem* item,
@@ -206,8 +214,7 @@ public:
 	/*virtual*/ void clearDisplayName() { mDisplayName.clear(); }
 
 	LLViewerInventoryItem* getItem() const;
-	bool isAddAction(std::string action) const;
-	bool isRemoveAction(std::string action) const;
+
 protected:
 	BOOL confirmRemoveItem(const LLSD& notification, const LLSD& response);
 	virtual BOOL isItemPermissive() const;
@@ -226,8 +233,9 @@ public:
 		mCallingCards(FALSE),
 		mWearables(FALSE)
 	{}
-	BOOL dragItemIntoFolder(LLInventoryItem* inv_item, BOOL drop);
-	BOOL dragCategoryIntoFolder(LLInventoryCategory* inv_category, BOOL drop);
+		
+	BOOL dragItemIntoFolder(LLInventoryItem* inv_item, BOOL drop, std::string& tooltip_msg);
+	BOOL dragCategoryIntoFolder(LLInventoryCategory* inv_category, BOOL drop, std::string& tooltip_msg);
 
 	virtual void performAction(LLInventoryModel* model, std::string action);
 	virtual void openItem();
@@ -253,7 +261,8 @@ public:
 	virtual BOOL hasChildren() const;
 	virtual BOOL dragOrDrop(MASK mask, BOOL drop,
 							EDragAndDropType cargo_type,
-							void* cargo_data);
+							void* cargo_data,
+							std::string& tooltip_msg);
 
 	virtual BOOL isItemRemovable() const;
 	virtual BOOL isItemMovable() const ;
@@ -297,6 +306,8 @@ protected:
 
 	void dropToFavorites(LLInventoryItem* inv_item);
 	void dropToOutfit(LLInventoryItem* inv_item, BOOL move_is_into_current_outfit);
+	void dropToOutbox(LLInventoryItem* inv_item);
+	void dropFolderToOutbox(LLInventoryCategory* inv_cat);
 
 	//--------------------------------------------------------------------
 	// Messy hacks for handling folder options
@@ -376,7 +387,8 @@ public:
 	virtual void buildContextMenu(LLMenuGL& menu, U32 flags);
 	virtual BOOL dragOrDrop(MASK mask, BOOL drop,
 							EDragAndDropType cargo_type,
-							void* cargo_data);
+							void* cargo_data,
+							std::string& tooltip_msg);
 	void refreshFolderViewItem();
 protected:
 	LLCallingCardObserver* mObserver;
@@ -523,6 +535,24 @@ protected:
 	static std::string sPrefix;
 };
 
+
+class LLMeshBridge : public LLItemBridge
+{
+	friend class LLInvFVBridge;
+public:
+	virtual LLUIImagePtr getIcon() const;
+	virtual void openItem();
+	virtual void previewItem();
+	virtual void buildContextMenu(LLMenuGL& menu, U32 flags);
+
+protected:
+	LLMeshBridge(LLInventoryPanel* inventory, 
+		     LLFolderView* root,
+		     const LLUUID& uuid) :
+                       LLItemBridge(inventory, root, uuid) {}
+};
+
+
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Class LLInvFVBridgeAction
 //
@@ -553,6 +583,18 @@ protected:
 	LLInventoryModel* mModel;
 };
 
+class LLMeshBridgeAction: public LLInvFVBridgeAction
+{
+	friend class LLInvFVBridgeAction;
+public:
+	virtual void	doIt() ;
+	virtual ~LLMeshBridgeAction(){}
+protected:
+	LLMeshBridgeAction(const LLUUID& id,LLInventoryModel* model):LLInvFVBridgeAction(id,model){}
+
+};
+
+
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Recent Inventory Panel related classes
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -560,6 +602,7 @@ protected:
 // Overridden version of the Inventory-Folder-View-Bridge for Folders
 class LLRecentItemsFolderBridge : public LLFolderBridge
 {
+	friend class LLInvFVBridgeAction;
 public:
 	// Creates context menu for Folders related to Recent Inventory Panel.
 	// Uses base logic and than removes from visible items "New..." menu items.

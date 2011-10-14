@@ -34,6 +34,7 @@
 
 class LLViewBorder;
 class LLUICtrlFactory;
+class LLContextMenu;
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -63,6 +64,7 @@ public:
 
 		Optional<std::string>	initial_mime_type;
 		Optional<std::string>	media_id;
+		Optional<std::string>	error_page_url;
 		
 		Params();
 	};
@@ -113,10 +115,9 @@ public:
 
 		void setTarget(const std::string& target);
 
-		// set/clear URL to visit when a 404 page is reached
-		void set404RedirectUrl( std::string redirect_url );
-		void clr404RedirectUrl();
-		
+		void setErrorPageURL(const std::string& url);
+		const std::string& getErrorPageURL();
+
 		// Clear the browser cache when the instance gets loaded
 		void clearCache();
 
@@ -148,6 +149,8 @@ public:
 		void showNotification(boost::shared_ptr<class LLNotification> notify);
 		void hideNotification();
 
+		void setTrustedContent(bool trusted);
+
 		// over-rides
 		virtual BOOL handleKeyHere( KEY key, MASK mask);
 		virtual void handleVisibilityChange ( BOOL new_visibility );
@@ -163,6 +166,11 @@ public:
 		// Incoming media event dispatcher
 		virtual void handleMediaEvent(LLPluginClassMedia* self, EMediaEvent event);
 
+		// right click debugging item
+		void onOpenWebInspector();
+
+		LLUUID getTextureID() {return mMediaTextureID;}
+
 	protected:
 		void convertInputCoords(S32& x, S32& y);
 
@@ -175,10 +183,11 @@ public:
 		LLViewBorder* mBorder;
 		bool mFrequentUpdates;
 		bool mForceUpdate;
-		const bool mTrusted;
+		bool mTrusted;
 		std::string mHomePageUrl;
 		std::string mHomePageMimeType;
 		std::string mCurrentNavUrl;
+		std::string mErrorPageURL;
 		std::string mTarget;
 		bool mIgnoreUIScale;
 		bool mAlwaysRefresh;
@@ -194,6 +203,7 @@ public:
 		bool mClearCache;
 		class LLWindowShade* mWindowShade;
 		bool mHoverTextChanged;
+		LLContextMenu* mContextMenu;
 };
 
 #endif // LL_LLMediaCtrl_H

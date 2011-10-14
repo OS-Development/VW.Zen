@@ -139,7 +139,7 @@ void LLPluginProcessChild::idle(void)
 				if(!mPluginFile.empty())
 				{
 					mInstance = new LLPluginInstance(this);
-					if(mInstance->load(mPluginFile) == 0)
+					if(mInstance->load(mPluginDir, mPluginFile) == 0)
 					{
 						mHeartbeat.start();
 						mHeartbeat.setTimerExpirySec(HEARTBEAT_SECONDS);
@@ -348,6 +348,7 @@ void LLPluginProcessChild::receiveMessageRaw(const std::string &message)
 			if(message_name == "load_plugin")
 			{
 				mPluginFile = parsed.getValue("file");
+				mPluginDir = parsed.getValue("dir");
 			}
 			else if(message_name == "shm_add")
 			{
@@ -409,7 +410,7 @@ void LLPluginProcessChild::receiveMessageRaw(const std::string &message)
 			}
 			else if(message_name == "sleep_time")
 			{
-				mSleepTime = parsed.getValueReal("time");
+				mSleepTime = llmax(parsed.getValueReal("time"), 1.0 / 100.0); // clamp to maximum of 100Hz
 			}
 			else if(message_name == "crash")
 			{

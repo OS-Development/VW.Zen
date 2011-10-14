@@ -425,9 +425,8 @@ public:
 	// has been indicated.
 	void idleNotifyObservers();
 
-	// Call to explicitly update everyone on a new state.  The optional argument
-	// 'service_name' is used by Agent Inventory Service [DEV-20328]
-	void notifyObservers(const std::string service_name="");
+	// Call to explicitly update everyone on a new state.
+	void notifyObservers();
 
 	// Allows outsiders to tell the inventory if something has
 	// been changed 'under the hood', but outside the control of the
@@ -493,9 +492,12 @@ protected:
 	//--------------------------------------------------------------------
 public:
 	static void processUpdateCreateInventoryItem(LLMessageSystem* msg, void**);
+	static void removeInventoryItem(LLUUID agent_id, LLMessageSystem* msg, const char* msg_label);
 	static void processRemoveInventoryItem(LLMessageSystem* msg, void**);
 	static void processUpdateInventoryFolder(LLMessageSystem* msg, void**);
+	static void removeInventoryFolder(LLUUID agent_id, LLMessageSystem* msg);
 	static void processRemoveInventoryFolder(LLMessageSystem* msg, void**);
+	static void processRemoveInventoryObjects(LLMessageSystem* msg, void**);
 	static void processSaveAssetIntoInventory(LLMessageSystem* msg, void**);
 	static void processBulkUpdateInventory(LLMessageSystem* msg, void**);
 	static void processInventoryDescendents(LLMessageSystem* msg, void**);

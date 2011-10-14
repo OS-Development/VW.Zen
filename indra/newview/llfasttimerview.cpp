@@ -32,7 +32,9 @@
 #include "llrect.h"
 #include "llerror.h"
 #include "llgl.h"
+#include "llimagepng.h"
 #include "llrender.h"
+#include "llrendertarget.h"
 #include "lllocalcliprect.h"
 #include "llmath.h"
 #include "llfontgl.h"
@@ -49,6 +51,8 @@
 #include "llfasttimer.h"
 #include "lltreeiterators.h"
 #include "llmetricperformancetester.h"
+#include "llviewerstats.h"
+
 //////////////////////////////////////////////////////////////////////////////
 
 static const S32 MAX_VISIBLE_HISTORY = 10;
@@ -76,12 +80,10 @@ static timer_tree_iterator_t end_timer_tree()
 	return timer_tree_iterator_t(); 
 }
 
-LLFastTimerView::LLFastTimerView(const LLRect& rect)
-:	LLFloater(LLSD()),
+LLFastTimerView::LLFastTimerView(const LLSD& key)
+:	LLFloater(key),
 	mHoverTimer(NULL)
 {
-	setRect(rect);
-	setVisible(FALSE);
 	mDisplayMode = 0;
 	mAvgCountTotal = 0;
 	mMaxCountTotal = 0;
@@ -94,10 +96,30 @@ LLFastTimerView::LLFastTimerView(const LLRect& rect)
 	FTV_NUM_TIMERS = LLFastTimer::NamedTimer::instanceCount();
 	mPrintStats = -1;	
 	mAverageCyclesPerTimer = 0;
-	setCanMinimize(false);
-	setCanClose(true);
 }
 
+void LLFastTimerView::onPause()
+{
+	LLFastTimer::sPauseHistory = !LLFastTimer::sPauseHistory;
+	// reset scroll to bottom when unpausing
+	if (!LLFastTimer::sPauseHistory)
+	{
+		mScrollIndex = 0;
+		getChild<LLButton>("pause_btn")->setLabel(getString("pause"));
+	}
+	else
+	{
+		getChild<LLButton>("pause_btn")->setLabel(getString("run"));
+	}
+}
+
+BOOL LLFastTimerView::postBuild()
+{
+	LLButton& pause_btn = getChildRef<LLButton>("pause_btn");
+	
+	pause_btn.setCommitCallback(boost::bind(&LLFastTimerView::onPause, this));
+	return TRUE;
+}
 
 BOOL LLFastTimerView::handleRightMouseDown(S32 x, S32 y, MASK mask)
 {
@@ -112,14 +134,16 @@ BOOL LLFastTimerView::handleRightMouseDown(S32 x, S32 y, MASK mask)
 		{
 			mHoverTimer->getParent()->setCollapsed(true);
 		}
+		return TRUE;
 	}
 	else if (mBarRect.pointInRect(x, y))
 	{
 		S32 bar_idx = MAX_VISIBLE_HISTORY - ((y - mBarRect.mBottom) * (MAX_VISIBLE_HISTORY + 2) / mBarRect.getHeight());
 		bar_idx = llclamp(bar_idx, 0, MAX_VISIBLE_HISTORY);
 		mPrintStats = LLFastTimer::NamedTimer::HISTORY_NUM - mScrollIndex - bar_idx;
+		return TRUE;
 	}
-	return FALSE;
+	return LLFloater::handleRightMouseDown(x, y, mask);
 }
 
 LLFastTimer::NamedTimer* LLFastTimerView::getLegendID(S32 y)
@@ -147,18 +171,6 @@ BOOL LLFastTimerView::handleDoubleClick(S32 x, S32 y, MASK mask)
 
 BOOL LLFastTimerView::handleMouseDown(S32 x, S32 y, MASK mask)
 {
-
-	{
-		S32 local_x = x - mButtons[BUTTON_CLOSE]->getRect().mLeft;
-		S32 local_y = y - mButtons[BUTTON_CLOSE]->getRect().mBottom;
-		if(mButtons[BUTTON_CLOSE]->getVisible()
-			&&  mButtons[BUTTON_CLOSE]->pointInView(local_x, local_y)  )
-		{
-			return LLFloater::handleMouseDown(x, y, mask);;
-		}
-	}
-	
-
 	if (x < mBarRect.mLeft) 
 	{
 		LLFastTimer::NamedTimer* idp = getLegendID(y);
@@ -192,36 +204,42 @@ BOOL LLFastTimerView::handleMouseDown(S32 x, S32 y, MASK mask)
 	{
 		mDisplayCenter = (ChildAlignment)((mDisplayCenter + 1) % ALIGN_COUNT);
 	}
-	else
+	else if (mGraphRect.pointInRect(x, y))
 	{
-		// pause/unpause
-		LLFastTimer::sPauseHistory = !LLFastTimer::sPauseHistory;
-		// reset scroll to bottom when unpausing
-		if (!LLFastTimer::sPauseHistory)
-		{
-			mScrollIndex = 0;
-		}
+		gFocusMgr.setMouseCapture(this);
+		return TRUE;
 	}
-	// SJB: Don't pass mouse clicks through the display
-	return TRUE;
+	//else
+	//{
+	//	// pause/unpause
+	//	LLFastTimer::sPauseHistory = !LLFastTimer::sPauseHistory;
+	//	// reset scroll to bottom when unpausing
+	//	if (!LLFastTimer::sPauseHistory)
+	//	{
+	//		mScrollIndex = 0;
+	//	}
+	//}
+	return LLFloater::handleMouseDown(x, y, mask);
 }
 
 BOOL LLFastTimerView::handleMouseUp(S32 x, S32 y, MASK mask)
 {
+	if (hasMouseCapture())
 	{
-		S32 local_x = x - mButtons[BUTTON_CLOSE]->getRect().mLeft;
-		S32 local_y = y - mButtons[BUTTON_CLOSE]->getRect().mBottom;
-		if(mButtons[BUTTON_CLOSE]->getVisible()
-			&&  mButtons[BUTTON_CLOSE]->pointInView(local_x, local_y)  )
-		{
-			return LLFloater::handleMouseUp(x, y, mask);;
-		}
+		gFocusMgr.setMouseCapture(NULL);
 	}
-	return FALSE;
+	return LLFloater::handleMouseUp(x, y, mask);;
 }
 
 BOOL LLFastTimerView::handleHover(S32 x, S32 y, MASK mask)
 {
+	if (hasMouseCapture())
+	{
+		F32 lerp = llclamp(1.f - (F32) (x - mGraphRect.mLeft) / (F32) mGraphRect.getWidth(), 0.f, 1.f);
+		mScrollIndex = llround( lerp * (F32)(LLFastTimer::NamedTimer::HISTORY_NUM - MAX_VISIBLE_HISTORY));
+		mScrollIndex = llclamp(	mScrollIndex, 0, LLFastTimer::getLastFrameIndex());
+		return TRUE;
+	}
 	mHoverTimer = NULL;
 	mHoverID = NULL;
 
@@ -248,7 +266,15 @@ BOOL LLFastTimerView::handleHover(S32 x, S32 y, MASK mask)
 				x < mBarEnd[mHoverBarIndex][i])
 			{
 				mHoverID = (*it);
-				mHoverTimer = (*it);	
+				if (mHoverTimer != *it)
+				{
+					// could be that existing tooltip is for a parent and is thus
+					// covering region for this new timer, go ahead and unblock 
+					// so we can create a new tooltip
+					LLToolTipMgr::instance().unblockToolTips();
+					mHoverTimer = (*it);
+				}
+
 				mToolTipRect.set(mBarStart[mHoverBarIndex][i], 
 					mBarRect.mBottom + llround(((F32)(MAX_VISIBLE_HISTORY - mHoverBarIndex + 1)) * ((F32)mBarRect.getHeight() / ((F32)MAX_VISIBLE_HISTORY + 2.f))),
 					mBarEnd[mHoverBarIndex][i],
@@ -270,7 +296,7 @@ BOOL LLFastTimerView::handleHover(S32 x, S32 y, MASK mask)
 		}
 	}
 	
-	return FALSE;
+	return LLFloater::handleHover(x, y, mask);
 }
 
 
@@ -306,15 +332,15 @@ BOOL LLFastTimerView::handleToolTip(S32 x, S32 y, MASK mask)
 			}
 		}
 	}
-	
-	return FALSE;
+
+	return LLFloater::handleToolTip(x, y, mask);
 }
 
 BOOL LLFastTimerView::handleScrollWheel(S32 x, S32 y, S32 clicks)
 {
 	LLFastTimer::sPauseHistory = TRUE;
-	mScrollIndex = llclamp(mScrollIndex - clicks, 
-							0, 
+	mScrollIndex = llclamp(	mScrollIndex + clicks,
+							0,
 							llmin(LLFastTimer::getLastFrameIndex(), (S32)LLFastTimer::NamedTimer::HISTORY_NUM - MAX_VISIBLE_HISTORY));
 	return TRUE;
 }
@@ -333,8 +359,8 @@ void LLFastTimerView::draw()
 	F64 iclock_freq = 1000.0 / clock_freq;
 	
 	S32 margin = 10;
-	S32 height = (S32) (gViewerWindow->getWindowRectScaled().getHeight()*0.75f);
-	S32 width = (S32) (gViewerWindow->getWindowRectScaled().getWidth() * 0.75f);
+	S32 height = getRect().getHeight();
+	S32 width = getRect().getWidth();
 	
 	LLRect new_rect;
 	new_rect.setLeftTopAndSize(getRect().mLeft, getRect().mTop, width, height);
@@ -618,7 +644,6 @@ void LLFastTimerView::draw()
 										 LLFontGL::LEFT, LLFontGL::TOP);
 		}
 
-		LLRect graph_rect;
 		// Draw borders
 		{
 			gGL.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
@@ -651,9 +676,9 @@ void LLFastTimerView::draw()
 			by = LINE_GRAPH_HEIGHT-barh-dy-7;
 			
 			//line graph
-			graph_rect = LLRect(xleft-5, by, getRect().getWidth()-5, 5);
+			mGraphRect = LLRect(xleft-5, by, getRect().getWidth()-5, 5);
 			
-			gl_rect_2d(graph_rect, FALSE);
+			gl_rect_2d(mGraphRect, FALSE);
 		}
 		
 		mBarStart.clear();
@@ -801,7 +826,7 @@ void LLFastTimerView::draw()
 		//draw line graph history
 		{
 			gGL.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
-			LLLocalClipRect clip(graph_rect);
+			LLLocalClipRect clip(mGraphRect);
 			
 			//normalize based on last frame's maximum
 			static U64 last_max = 0;
@@ -818,8 +843,8 @@ void LLFastTimerView::draw()
 			else
 				tdesc = llformat("%4.2f ms", ms);
 							
-			x = graph_rect.mRight - LLFontGL::getFontMonospace()->getWidth(tdesc)-5;
-			y = graph_rect.mTop - ((S32)LLFontGL::getFontMonospace()->getLineHeight());
+			x = mGraphRect.mRight - LLFontGL::getFontMonospace()->getWidth(tdesc)-5;
+			y = mGraphRect.mTop - ((S32)LLFontGL::getFontMonospace()->getLineHeight());
  
 			LLFontGL::getFontMonospace()->renderUTF8(tdesc, 0, x, y, LLColor4::white,
 										 LLFontGL::LEFT, LLFontGL::TOP);
@@ -829,24 +854,24 @@ void LLFastTimerView::draw()
 				S32 first_frame = LLFastTimer::NamedTimer::HISTORY_NUM - mScrollIndex;
 				S32 last_frame = first_frame - MAX_VISIBLE_HISTORY;
 				
-				F32 frame_delta = ((F32) (graph_rect.getWidth()))/(LLFastTimer::NamedTimer::HISTORY_NUM-1);
+				F32 frame_delta = ((F32) (mGraphRect.getWidth()))/(LLFastTimer::NamedTimer::HISTORY_NUM-1);
 				
-				F32 right = (F32) graph_rect.mLeft + frame_delta*first_frame;
-				F32 left = (F32) graph_rect.mLeft + frame_delta*last_frame;
+				F32 right = (F32) mGraphRect.mLeft + frame_delta*first_frame;
+				F32 left = (F32) mGraphRect.mLeft + frame_delta*last_frame;
 				
 				gGL.color4f(0.5f,0.5f,0.5f,0.3f);
-				gl_rect_2d((S32) left, graph_rect.mTop, (S32) right, graph_rect.mBottom);
+				gl_rect_2d((S32) left, mGraphRect.mTop, (S32) right, mGraphRect.mBottom);
 				
 				if (mHoverBarIndex >= 0)
 				{
 					S32 bar_frame = first_frame - mHoverBarIndex;
-					F32 bar = (F32) graph_rect.mLeft + frame_delta*bar_frame;
+					F32 bar = (F32) mGraphRect.mLeft + frame_delta*bar_frame;
 
 					gGL.color4f(0.5f,0.5f,0.5f,1);
 				
 					gGL.begin(LLRender::LINES);
-					gGL.vertex2i((S32)bar, graph_rect.mBottom);
-					gGL.vertex2i((S32)bar, graph_rect.mTop);
+					gGL.vertex2i((S32)bar, mGraphRect.mBottom);
+					gGL.vertex2i((S32)bar, mGraphRect.mTop);
 					gGL.end();
 				}
 			}
@@ -871,7 +896,7 @@ void LLFastTimerView::draw()
 				
 				if (mHoverID != NULL &&
 					idp != mHoverID)
-				{	//fade out non-hihglighted timers
+				{	//fade out non-highlighted timers
 					if (idp->getParent() != mHoverID)
 					{
 						alpha = alpha_interp;
@@ -879,8 +904,10 @@ void LLFastTimerView::draw()
 				}
 
 				gGL.color4f(col[0], col[1], col[2], alpha);				
-				gGL.begin(LLRender::LINE_STRIP);
-				for (U32 j = 0; j < LLFastTimer::NamedTimer::HISTORY_NUM; j++)
+				gGL.begin(LLRender::TRIANGLE_STRIP);
+				for (U32 j = llmax(0, LLFastTimer::NamedTimer::HISTORY_NUM - LLFastTimer::getLastFrameIndex());
+					j < LLFastTimer::NamedTimer::HISTORY_NUM;
+					j++)
 				{
 					U64 ticks = idp->getHistoricalCount(j);
 
@@ -900,9 +927,10 @@ void LLFastTimerView::draw()
 						//normalize to highlighted timer
 						cur_max = llmax(cur_max, ticks);
 					}
-					F32 x = graph_rect.mLeft + ((F32) (graph_rect.getWidth()))/(LLFastTimer::NamedTimer::HISTORY_NUM-1)*j;
-					F32 y = graph_rect.mBottom + (F32) graph_rect.getHeight()/max_ticks*ticks;
+					F32 x = mGraphRect.mLeft + ((F32) (mGraphRect.getWidth()))/(LLFastTimer::NamedTimer::HISTORY_NUM-1)*j;
+					F32 y = mGraphRect.mBottom + (F32) mGraphRect.getHeight()/max_ticks*ticks;
 					gGL.vertex2f(x,y);
+					gGL.vertex2f(x,mGraphRect.mBottom);
 				}
 				gGL.end();
 				
@@ -920,18 +948,20 @@ void LLFastTimerView::draw()
 			}
 			
 			//interpolate towards new maximum
-			F32 dt = gFrameIntervalSeconds*3.f;
-			last_max = (U64) ((F32) last_max + ((F32) cur_max- (F32) last_max) * dt);
+			last_max = (U64) lerp((F32)last_max, (F32) cur_max, LLCriticalDamp::getInterpolant(0.1f));
+			if (last_max - cur_max <= 1 ||  cur_max - last_max  <= 1)
+			{
+				last_max = cur_max;
+			}
 			F32 alpha_target = last_max > cur_max ?
 								llmin((F32) last_max/ (F32) cur_max - 1.f,1.f) :
 								llmin((F32) cur_max/ (F32) last_max - 1.f,1.f);
-			
-			alpha_interp = alpha_interp + (alpha_target-alpha_interp) * dt;
+			alpha_interp = lerp(alpha_interp, alpha_target, LLCriticalDamp::getInterpolant(0.1f));
 
 			if (mHoverID != NULL)
 			{
-				x = (graph_rect.mRight + graph_rect.mLeft)/2;
-				y = graph_rect.mBottom + 8;
+				x = (mGraphRect.mRight + mGraphRect.mLeft)/2;
+				y = mGraphRect.mBottom + 8;
 
 				LLFontGL::getFontMonospace()->renderUTF8(
 					mHoverID->getName(), 
@@ -1020,6 +1050,327 @@ F64 LLFastTimerView::getTime(const std::string& name)
 	return 0.0;
 }
 
+void saveChart(const std::string& label, const char* suffix, LLImageRaw* scratch)
+{
+	//read result back into raw image
+	glReadPixels(0, 0, 1024, 512, GL_RGB, GL_UNSIGNED_BYTE, scratch->getData());
+
+	//write results to disk
+	LLPointer<LLImagePNG> result = new LLImagePNG();
+	result->encode(scratch, 0.f);
+
+	std::string ext = result->getExtension();
+	std::string filename = llformat("%s_%s.%s", label.c_str(), suffix, ext.c_str());
+	
+	std::string out_file = gDirUtilp->getExpandedFilename(LL_PATH_LOGS, filename);
+	result->save(out_file);
+}
+
+//static
+void LLFastTimerView::exportCharts(const std::string& base, const std::string& target)
+{
+	//allocate render target for drawing charts 
+	LLRenderTarget buffer;
+	buffer.allocate(1024,512, GL_RGB, FALSE, FALSE);
+	
+
+	LLSD cur;
+
+	LLSD base_data;
+
+	{ //read base log into memory
+		S32 i = 0;
+		std::ifstream is(base.c_str());
+		while (!is.eof() && LLSDSerialize::fromXML(cur, is))
+		{
+			base_data[i++] = cur;
+		}
+		is.close();
+	}
+
+	LLSD cur_data;
+	std::set<std::string> chart_names;
+
+	{ //read current log into memory
+		S32 i = 0;
+		std::ifstream is(target.c_str());
+		while (!is.eof() && LLSDSerialize::fromXML(cur, is))
+		{
+			cur_data[i++] = cur;
+
+			for (LLSD::map_iterator iter = cur.beginMap(); iter != cur.endMap(); ++iter)
+			{
+				std::string label = iter->first;
+				chart_names.insert(label);
+			}
+		}
+		is.close();
+	}
+
+	//get time domain
+	LLSD::Real cur_total_time = 0.0;
+
+	for (U32 i = 0; i < cur_data.size(); ++i)
+	{
+		cur_total_time += cur_data[i]["Total"]["Time"].asReal();
+	}
+
+	LLSD::Real base_total_time = 0.0;
+	for (U32 i = 0; i < base_data.size(); ++i)
+	{
+		base_total_time += base_data[i]["Total"]["Time"].asReal();
+	}
+
+	//allocate raw scratch space
+	LLPointer<LLImageRaw> scratch = new LLImageRaw(1024, 512, 3);
+
+	gGL.pushMatrix();
+	glLoadIdentity();
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	glOrtho(-0.05, 1.05, -0.05, 1.05, -1.0, 1.0);
+
+	//render charts
+	gGL.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
+	
+	buffer.bindTarget();
+
+	for (std::set<std::string>::iterator iter = chart_names.begin(); iter != chart_names.end(); ++iter)
+	{
+		std::string label = *iter;
+	
+		LLSD::Real max_time = 0.0;
+		LLSD::Integer max_calls = 0;
+		LLSD::Real max_execution = 0.0;
+
+		std::vector<LLSD::Real> cur_execution;
+		std::vector<LLSD::Real> cur_times;
+		std::vector<LLSD::Integer> cur_calls;
+
+		std::vector<LLSD::Real> base_execution;
+		std::vector<LLSD::Real> base_times;
+		std::vector<LLSD::Integer> base_calls;
+
+		for (U32 i = 0; i < cur_data.size(); ++i)
+		{
+			LLSD::Real time = cur_data[i][label]["Time"].asReal();
+			LLSD::Integer calls = cur_data[i][label]["Calls"].asInteger();
+
+			LLSD::Real execution = 0.0;
+			if (calls > 0)
+			{
+				execution = time/calls;
+				cur_execution.push_back(execution);
+				cur_times.push_back(time);
+			}
+
+			cur_calls.push_back(calls);
+		}
+
+		for (U32 i = 0; i < base_data.size(); ++i)
+		{
+			LLSD::Real time = base_data[i][label]["Time"].asReal();
+			LLSD::Integer calls = base_data[i][label]["Calls"].asInteger();
+
+			LLSD::Real execution = 0.0;
+			if (calls > 0)
+			{
+				execution = time/calls;
+				base_execution.push_back(execution);
+				base_times.push_back(time);
+			}
+
+			base_calls.push_back(calls);
+		}
+
+		std::sort(base_calls.begin(), base_calls.end());
+		std::sort(base_times.begin(), base_times.end());
+		std::sort(base_execution.begin(), base_execution.end());
+
+		std::sort(cur_calls.begin(), cur_calls.end());
+		std::sort(cur_times.begin(), cur_times.end());
+		std::sort(cur_execution.begin(), cur_execution.end());
+
+		//remove outliers
+		const U32 OUTLIER_CUTOFF = 512;
+		if (base_times.size() > OUTLIER_CUTOFF)
+		{ 
+			ll_remove_outliers(base_times, 1.f);
+		}
+
+		if (base_execution.size() > OUTLIER_CUTOFF)
+		{ 
+			ll_remove_outliers(base_execution, 1.f);
+		}
+
+		if (cur_times.size() > OUTLIER_CUTOFF)
+		{ 
+			ll_remove_outliers(cur_times, 1.f);
+		}
+
+		if (cur_execution.size() > OUTLIER_CUTOFF)
+		{ 
+			ll_remove_outliers(cur_execution, 1.f);
+		}
+
+
+		max_time = llmax(base_times.empty() ? 0.0 : *base_times.rbegin(), cur_times.empty() ? 0.0 : *cur_times.rbegin());
+		max_calls = llmax(base_calls.empty() ? 0 : *base_calls.rbegin(), cur_calls.empty() ? 0 : *cur_calls.rbegin());
+		max_execution = llmax(base_execution.empty() ? 0.0 : *base_execution.rbegin(), cur_execution.empty() ? 0.0 : *cur_execution.rbegin());
+
+
+		LLVector3 last_p;
+
+		//====================================
+		// basic
+		//====================================
+		buffer.clear();
+
+		last_p.clear();
+
+		LLGLDisable cull(GL_CULL_FACE);
+
+		LLVector3 base_col(0, 0.7f, 0.f);
+		LLVector3 cur_col(1.f, 0.f, 0.f);
+
+		gGL.setSceneBlendType(LLRender::BT_ADD);
+
+		gGL.color3fv(base_col.mV);
+		for (U32 i = 0; i < base_times.size(); ++i)
+		{
+			gGL.begin(LLRender::TRIANGLE_STRIP);
+			gGL.vertex3fv(last_p.mV);
+			gGL.vertex3f(last_p.mV[0], 0.f, 0.f);
+			last_p.set((F32)i/(F32) base_times.size(), base_times[i]/max_time, 0.f);
+			gGL.vertex3fv(last_p.mV);
+			gGL.vertex3f(last_p.mV[0], 0.f, 0.f);
+			gGL.end();
+		}
+		
+		gGL.flush();
+
+		
+		last_p.clear();
+		{
+			LLGLEnable blend(GL_BLEND);
+						
+			gGL.color3fv(cur_col.mV);
+			for (U32 i = 0; i < cur_times.size(); ++i)
+			{
+				gGL.begin(LLRender::TRIANGLE_STRIP);
+				gGL.vertex3f(last_p.mV[0], 0.f, 0.f);
+				gGL.vertex3fv(last_p.mV);
+				last_p.set((F32) i / (F32) cur_times.size(), cur_times[i]/max_time, 0.f);
+				gGL.vertex3f(last_p.mV[0], 0.f, 0.f);
+				gGL.vertex3fv(last_p.mV);
+				gGL.end();
+			}
+			
+			gGL.flush();
+		}
+
+		saveChart(label, "time", scratch);
+		
+		//======================================
+		// calls
+		//======================================
+		buffer.clear();
+
+		last_p.clear();
+
+		gGL.color3fv(base_col.mV);
+		for (U32 i = 0; i < base_calls.size(); ++i)
+		{
+			gGL.begin(LLRender::TRIANGLE_STRIP);
+			gGL.vertex3fv(last_p.mV);
+			gGL.vertex3f(last_p.mV[0], 0.f, 0.f);
+			last_p.set((F32) i / (F32) base_calls.size(), (F32)base_calls[i]/max_calls, 0.f);
+			gGL.vertex3fv(last_p.mV);
+			gGL.vertex3f(last_p.mV[0], 0.f, 0.f);
+			gGL.end();
+		}
+		
+		gGL.flush();
+
+		{
+			LLGLEnable blend(GL_BLEND);
+			gGL.color3fv(cur_col.mV);
+			last_p.clear();
+
+			for (U32 i = 0; i < cur_calls.size(); ++i)
+			{
+				gGL.begin(LLRender::TRIANGLE_STRIP);
+				gGL.vertex3f(last_p.mV[0], 0.f, 0.f);
+				gGL.vertex3fv(last_p.mV);
+				last_p.set((F32) i / (F32) cur_calls.size(), (F32) cur_calls[i]/max_calls, 0.f);
+				gGL.vertex3f(last_p.mV[0], 0.f, 0.f);
+				gGL.vertex3fv(last_p.mV);
+				gGL.end();
+				
+			}
+			
+			gGL.flush();
+		}
+
+		saveChart(label, "calls", scratch);
+
+		//======================================
+		// execution
+		//======================================
+		buffer.clear();
+
+
+		gGL.color3fv(base_col.mV);
+		U32 count = 0;
+		U32 total_count = base_execution.size();
+
+		last_p.clear();
+
+		for (std::vector<LLSD::Real>::iterator iter = base_execution.begin(); iter != base_execution.end(); ++iter)
+		{
+			gGL.begin(LLRender::TRIANGLE_STRIP);
+			gGL.vertex3fv(last_p.mV);
+			gGL.vertex3f(last_p.mV[0], 0.f, 0.f);
+			last_p.set((F32)count/(F32)total_count, *iter/max_execution, 0.f);
+			gGL.vertex3fv(last_p.mV);
+			gGL.vertex3f(last_p.mV[0], 0.f, 0.f);
+			gGL.end();
+			count++;
+		}
+
+		last_p.clear();
+				
+		{
+			LLGLEnable blend(GL_BLEND);
+			gGL.color3fv(cur_col.mV);
+			count = 0;
+			total_count = cur_execution.size();
+
+			for (std::vector<LLSD::Real>::iterator iter = cur_execution.begin(); iter != cur_execution.end(); ++iter)
+			{
+				gGL.begin(LLRender::TRIANGLE_STRIP);
+				gGL.vertex3f(last_p.mV[0], 0.f, 0.f);
+				gGL.vertex3fv(last_p.mV);
+				last_p.set((F32)count/(F32)total_count, *iter/max_execution, 0.f);			
+				gGL.vertex3f(last_p.mV[0], 0.f, 0.f);
+				gGL.vertex3fv(last_p.mV);
+				gGL.end();
+				count++;
+			}
+
+			gGL.flush();
+		}
+
+		saveChart(label, "execution", scratch);
+	}
+
+	buffer.flush();
+
+	gGL.popMatrix();
+	glMatrixMode(GL_MODELVIEW);
+	gGL.popMatrix();
+}
+
 //static
 LLSD LLFastTimerView::analyzePerformanceLogDefault(std::istream& is)
 {
@@ -1029,6 +1380,10 @@ LLSD LLFastTimerView::analyzePerformanceLogDefault(std::istream& is)
 
 	LLSD::Real total_time = 0.0;
 	LLSD::Integer total_frames = 0;
+
+	typedef std::map<std::string,LLViewerStats::StatsAccumulator> stats_map_t;
+	stats_map_t time_stats;
+	stats_map_t sample_stats;
 
 	while (!is.eof() && LLSDSerialize::fromXML(cur, is))
 	{
@@ -1046,34 +1401,30 @@ LLSD LLFastTimerView::analyzePerformanceLogDefault(std::istream& is)
 
 			if (time > 0.0)
 			{
-				ret[label]["TotalTime"] = ret[label]["TotalTime"].asReal() + time;
-				ret[label]["MaxTime"] = llmax(time, ret[label]["MaxTime"].asReal());
-
-				if (ret[label]["MinTime"].asReal() == 0)
-				{
-					ret[label]["MinTime"] = time;
-				}
-				else
-				{
-					ret[label]["MinTime"] = llmin(ret[label]["MinTime"].asReal(), time);
-				}
-				
 				LLSD::Integer samples = iter->second["Calls"].asInteger();
 
-				ret[label]["Samples"] = ret[label]["Samples"].asInteger() + samples;
-				ret[label]["MaxSamples"] = llmax(ret[label]["MaxSamples"].asInteger(), samples);
-
-				if (ret[label]["MinSamples"].asInteger() == 0)
-				{
-					ret[label]["MinSamples"] = samples;
-				}
-				else
-				{
-					ret[label]["MinSamples"] = llmin(ret[label]["MinSamples"].asInteger(), samples);
-				}
+				time_stats[label].push(time);
+				sample_stats[label].push(samples);
 			}
 		}
 		total_frames++;
+	}
+
+	for(stats_map_t::iterator it = time_stats.begin(); it != time_stats.end(); ++it)
+	{
+		std::string label = it->first;
+		ret[label]["TotalTime"] = time_stats[label].mSum;
+		ret[label]["MeanTime"] = time_stats[label].getMean();
+		ret[label]["MaxTime"] = time_stats[label].getMaxValue();
+		ret[label]["MinTime"] = time_stats[label].getMinValue();
+		ret[label]["StdDevTime"] = time_stats[label].getStdDev();
+		
+		ret[label]["Samples"] = sample_stats[label].mSum;
+		ret[label]["MaxSamples"] = sample_stats[label].getMaxValue();
+		ret[label]["MinSamples"] = sample_stats[label].getMinValue();
+		ret[label]["StdDevSamples"] = sample_stats[label].getStdDev();
+
+		ret[label]["Frames"] = (LLSD::Integer)time_stats[label].getCount();
 	}
 		
 	ret["SessionTime"] = total_time;
@@ -1109,8 +1460,27 @@ void LLFastTimerView::doAnalysisDefault(std::string baseline, std::string target
 	std::ofstream os(output.c_str());
 
 	LLSD::Real session_time = current["SessionTime"].asReal();
-	
-	os << "Label, % Change, % of Session, Cur Min, Cur Max, Cur Mean, Cur Total, Cur Samples, Base Min, Base Max, Base Mean, Base Total, Base Samples\n"; 
+	os <<
+		"Label, "
+		"% Change, "
+		"% of Session, "
+		"Cur Min, "
+		"Cur Max, "
+		"Cur Mean/sample, "
+		"Cur Mean/frame, "
+		"Cur StdDev/frame, "
+		"Cur Total, "
+		"Cur Frames, "
+		"Cur Samples, "
+		"Base Min, "
+		"Base Max, "
+		"Base Mean/sample, "
+		"Base Mean/frame, "
+		"Base StdDev/frame, "
+		"Base Total, "
+		"Base Frames, "
+		"Base Samples\n"; 
+
 	for (LLSD::map_iterator iter = base.beginMap();  iter != base.endMap(); ++iter)
 	{
 		LLSD::String label = iter->first;
@@ -1122,61 +1492,39 @@ void LLFastTimerView::doAnalysisDefault(std::string baseline, std::string target
 			continue;
 		}	
 		LLSD::Real a = base[label]["TotalTime"].asReal() / base[label]["Samples"].asReal();
-		LLSD::Real b = current[label]["TotalTime"].asReal() / base[label]["Samples"].asReal();
+		LLSD::Real b = current[label]["TotalTime"].asReal() / current[label]["Samples"].asReal();
 			
 		LLSD::Real diff = b-a;
 
 		LLSD::Real perc = diff/a * 100;
 
-		os << llformat("%s, %.2f, %.4f, %.4f, %.4f, %.4f, %.4f, %d, %.4f, %.4f, %.4f, %.4f, %d\n",
+		os << llformat("%s, %.2f, %.4f, %.4f, %.4f, %.4f, %.4f, %.4f, %.4f, %d, %d, %.4f, %.4f, %.4f, %.4f, %.4f, %.4f, %d, %d\n",
 			label.c_str(), 
 			(F32) perc, 
 			(F32) (current[label]["TotalTime"].asReal()/session_time * 100.0), 
+
 			(F32) current[label]["MinTime"].asReal(), 
 			(F32) current[label]["MaxTime"].asReal(), 
 			(F32) b, 
+			(F32) current[label]["MeanTime"].asReal(), 
+			(F32) current[label]["StdDevTime"].asReal(),
 			(F32) current[label]["TotalTime"].asReal(), 
+			current[label]["Frames"].asInteger(),
 			current[label]["Samples"].asInteger(),
 			(F32) base[label]["MinTime"].asReal(), 
 			(F32) base[label]["MaxTime"].asReal(), 
 			(F32) a, 
+			(F32) base[label]["MeanTime"].asReal(), 
+			(F32) base[label]["StdDevTime"].asReal(),
 			(F32) base[label]["TotalTime"].asReal(), 
+			base[label]["Frames"].asInteger(),
 			base[label]["Samples"].asInteger());			
 	}
 
-	
+	exportCharts(baseline, target);
+
 	os.flush();
 	os.close();
-}
-
-//-------------------------
-//static
-LLSD LLFastTimerView::analyzeMetricPerformanceLog(std::istream& is)
-{
-	LLSD ret;
-	LLSD cur;
-
-	while (!is.eof() && LLSDSerialize::fromXML(cur, is))
-	{
-		for (LLSD::map_iterator iter = cur.beginMap(); iter != cur.endMap(); ++iter)
-		{
-			std::string label = iter->first;
-
-			LLMetricPerformanceTesterBasic* tester = LLMetricPerformanceTesterBasic::getTester(iter->second["Name"].asString()) ;
-			if(tester)
-			{
-				ret[label]["Name"] = iter->second["Name"] ;
-
-				S32 num_of_metrics = tester->getNumberOfMetrics() ;
-				for(S32 index = 0 ; index < num_of_metrics ; index++)
-				{
-					ret[label][ tester->getMetricName(index) ] = iter->second[ tester->getMetricName(index) ] ;
-				}
-			}
-		}
-	}
-		
-	return ret;
 }
 
 //static
@@ -1194,48 +1542,6 @@ void LLFastTimerView::outputAllMetrics()
 }
 
 //static
-void LLFastTimerView::doAnalysisMetrics(std::string baseline, std::string target, std::string output)
-{
-	if(!LLMetricPerformanceTesterBasic::hasMetricPerformanceTesters())
-	{
-		return ;
-	}
-
-	// Open baseline and current target, exit if one is inexistent
-	std::ifstream base_is(baseline.c_str());
-	std::ifstream target_is(target.c_str());
-	if (!base_is.is_open() || !target_is.is_open())
-	{
-		llwarns << "'-analyzeperformance' error : baseline or current target file inexistent" << llendl;
-		base_is.close();
-		target_is.close();
-		return;
-	}
-
-	//analyze baseline
-	LLSD base = analyzeMetricPerformanceLog(base_is);
-	base_is.close();
-
-	//analyze current
-	LLSD current = analyzeMetricPerformanceLog(target_is);
-	target_is.close();
-
-	//output comparision
-	std::ofstream os(output.c_str());
-	
-	os << "Label, Metric, Base(B), Target(T), Diff(T-B), Percentage(100*T/B)\n"; 
-	for(LLMetricPerformanceTesterBasic::name_tester_map_t::iterator iter = LLMetricPerformanceTesterBasic::sTesterMap.begin() ; 
-		iter != LLMetricPerformanceTesterBasic::sTesterMap.end() ; ++iter)
-	{
-		LLMetricPerformanceTesterBasic* tester = ((LLMetricPerformanceTesterBasic*)iter->second) ;	
-		tester->analyzePerformance(&os, &base, &current) ;
-	}
-	
-	os.flush();
-	os.close();
-}
-
-//static
 void LLFastTimerView::doAnalysis(std::string baseline, std::string target, std::string output)
 {
 	if(LLFastTimer::sLog)
@@ -1246,7 +1552,7 @@ void LLFastTimerView::doAnalysis(std::string baseline, std::string target, std::
 
 	if(LLFastTimer::sMetricLog)
 	{
-		doAnalysisMetrics(baseline, target, output) ;
+		LLMetricPerformanceTesterBasic::doAnalysisMetrics(baseline, target, output) ;
 		return ;
 	}
 }

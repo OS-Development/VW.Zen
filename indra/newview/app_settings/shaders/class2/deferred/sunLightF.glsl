@@ -2,8 +2,28 @@
  * @file sunLightF.glsl
  *
  * $LicenseInfo:firstyear=2007&license=viewerlgpl$
+ * Second Life Viewer Source Code
+ * Copyright (C) 2007, Linden Research, Inc.
+ * 
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License only.
+ * 
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * 
+ * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
+ 
+
 
 #extension GL_ARB_texture_rectangle : enable
 
@@ -17,9 +37,6 @@ uniform sampler2DRectShadow shadowMap2;
 uniform sampler2DRectShadow shadowMap3;
 uniform sampler2DShadow shadowMap4;
 uniform sampler2DShadow shadowMap5;
-uniform sampler2D noiseMap;
-
-uniform sampler2D		lightFunc;
 
 
 // Inputs
@@ -46,7 +63,7 @@ uniform float spot_shadow_offset;
 
 vec4 getPosition(vec2 pos_screen)
 {
-	float depth = texture2DRect(depthMap, pos_screen.xy).a;
+	float depth = texture2DRect(depthMap, pos_screen.xy).r;
 	vec2 sc = pos_screen.xy*2.0;
 	sc /= screen_res;
 	sc -= vec2(1.0,1.0);

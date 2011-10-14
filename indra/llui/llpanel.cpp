@@ -87,9 +87,9 @@ LLPanel::Params::Params()
 	filename("filename"),
 	class_name("class"),
 	help_topic("help_topic"),
-	visible_callback("visible_callback")
+	visible_callback("visible_callback"),
+	accepts_badge("accepts_badge")
 {
-	name = "panel";
 	addSynonym(background_visible, "bg_visible");
 	addSynonym(has_border, "border_visible");
 	addSynonym(label, "title");
@@ -98,6 +98,7 @@ LLPanel::Params::Params()
 
 LLPanel::LLPanel(const LLPanel::Params& p)
 :	LLUICtrl(p),
+	LLBadgeHolder(p.accepts_badge),
 	mBgVisible(p.background_visible),
 	mBgOpaque(p.background_opaque),
 	mBgOpaqueColor(p.bg_opaque_color()),
@@ -485,6 +486,8 @@ void LLPanel::initFromParams(const LLPanel::Params& p)
 	mBgAlphaImage = p.bg_alpha_image();
 	mBgOpaqueImageOverlay = p.bg_opaque_image_overlay;
 	mBgAlphaImageOverlay = p.bg_alpha_image_overlay;
+
+	setAcceptsBadge(p.accepts_badge);
 }
 
 static LLFastTimer::DeclareTimer FTM_PANEL_SETUP("Panel Setup");
@@ -511,9 +514,6 @@ BOOL LLPanel::initPanelXML(LLXMLNodePtr node, LLView *parent, LLXMLNodePtr outpu
 
 		if (!xml_filename.empty())
 		{
-			LLUICtrlFactory::instance().pushFileName(xml_filename);
-
-			LLFastTimer timer(FTM_EXTERNAL_PANEL_LOAD);
 			if (output_node)
 			{
 				//if we are exporting, we want to export the current xml
@@ -526,6 +526,9 @@ BOOL LLPanel::initPanelXML(LLXMLNodePtr node, LLView *parent, LLXMLNodePtr outpu
 				return TRUE;
 			}
 		
+			LLUICtrlFactory::instance().pushFileName(xml_filename);
+
+			LLFastTimer timer(FTM_EXTERNAL_PANEL_LOAD);
 			if (!LLUICtrlFactory::getLayeredXMLNode(xml_filename, referenced_xml))
 			{
 				llwarns << "Couldn't parse panel from: " << xml_filename << llendl;

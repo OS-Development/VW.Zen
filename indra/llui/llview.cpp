@@ -114,7 +114,8 @@ LLView::Params::Params()
 }
 
 LLView::LLView(const LLView::Params& p)
-:	mName(p.name),
+:	mVisible(p.visible),
+	mName(p.name),
 	mParentView(NULL),
 	mReshapeFlags(FOLLOWS_NONE),
 	mFromXUI(p.from_xui),
@@ -123,7 +124,6 @@ LLView::LLView(const LLView::Params& p)
 	mNextInsertionOrdinal(0),
 	mHoverCursor(getCursorFromString(p.hover_cursor)),
 	mEnabled(p.enabled),
-	mVisible(p.visible),
 	mMouseOpaque(p.mouse_opaque),
 	mSoundFlags(p.sound_flags),
 	mUseBoundingRect(p.use_bounding_rect),
@@ -338,7 +338,7 @@ void LLView::removeChild(LLView* child)
 	}
 	else
 	{
-		llerrs << "LLView::removeChild called with non-child" << llendl;
+		llwarns << child->getName() << "is not a child of " << getName() << llendl;
 	}
 	updateBoundingRect();
 }
@@ -1299,9 +1299,7 @@ void LLView::drawChildren()
 {
 	if (!mChildList.empty())
 	{
-		LLRect rootRect = getRootView()->getRect();
-		LLRect screenRect;
-
+		LLView* rootp = LLUI::getRootView();		
 		++sDepth;
 
 		for (child_list_reverse_iter_t child_iter = mChildList.rbegin(); child_iter != mChildList.rend();)  // ++child_iter)
@@ -1311,9 +1309,8 @@ void LLView::drawChildren()
 
 			if (viewp->getVisible() && viewp->getRect().isValid())
 			{
-				// Only draw views that are within the root view
-				localRectToScreen(viewp->getRect(),&screenRect);
-				if ( rootRect.overlaps(screenRect)  && LLUI::sDirtyRect.overlaps(screenRect))
+				LLRect screen_rect = viewp->calcScreenRect();
+				if ( rootp->getLocalRect().overlaps(screen_rect)  && LLUI::sDirtyRect.overlaps(screen_rect))
 				{
 					LLUI::pushMatrix();
 					{
@@ -1658,15 +1655,19 @@ BOOL LLView::hasAncestor(const LLView* parentp) const
 
 BOOL LLView::childHasKeyboardFocus( const std::string& childname ) const
 {
-	LLView *child = findChildView(childname, TRUE);
-	if (child)
+	LLView *focus = dynamic_cast<LLView *>(gFocusMgr.getKeyboardFocus());
+	
+	while (focus != NULL)
 	{
-		return gFocusMgr.childHasKeyboardFocus(child);
+		if (focus->getName() == childname)
+		{
+			return TRUE;
+		}
+		
+		focus = focus->getParent();
 	}
-	else
-	{
-		return FALSE;
-	}
+	
+	return FALSE;
 }
 
 //-----------------------------------------------------------------------------
@@ -1958,7 +1959,7 @@ void LLView::centerWithin(const LLRect& bounds)
 	translate( left - getRect().mLeft, bottom - getRect().mBottom );
 }
 
-BOOL LLView::localPointToOtherView( S32 x, S32 y, S32 *other_x, S32 *other_y, LLView* other_view) const
+BOOL LLView::localPointToOtherView( S32 x, S32 y, S32 *other_x, S32 *other_y, const LLView* other_view) const
 {
 	const LLView* cur_view = this;
 	const LLView* root_view = NULL;
@@ -2001,7 +2002,7 @@ BOOL LLView::localPointToOtherView( S32 x, S32 y, S32 *other_x, S32 *other_y, LL
 	return FALSE;
 }
 
-BOOL LLView::localRectToOtherView( const LLRect& local, LLRect* other, LLView* other_view ) const
+BOOL LLView::localRectToOtherView( const LLRect& local, LLRect* other, const LLView* other_view ) const
 {
 	LLRect cur_rect = local;
 	const LLView* cur_view = this;
@@ -2484,7 +2485,7 @@ void LLView::applyXUILayout(LLView::Params& p, LLView* parent)
 	{
 		LLRect parent_rect = parent->getLocalRect();
 		// overwrite uninitialized rect params, using context
-		LLRect last_rect = parent->getLocalRect();
+		LLRect default_rect = parent->getLocalRect();
 
 		bool layout_topleft = (p.layout() == "topleft");
 
@@ -2508,15 +2509,13 @@ void LLView::applyXUILayout(LLView::Params& p, LLView* parent)
 			p.rect.height = MIN_WIDGET_HEIGHT;
 		}
 
-		last_rect.translate(0, last_rect.getHeight());
+		default_rect.translate(0, default_rect.getHeight());
 
 		// If there was a recently constructed child, use its rectangle
-		get_last_child_rect(parent, &last_rect);
+		get_last_child_rect(parent, &default_rect);
 
 		if (layout_topleft)
 		{
-			p.bottom_delta.setIfNotProvided(0, false);
-
 			// Invert the sense of bottom_delta for topleft layout
 			if (p.bottom_delta.isProvided())
 			{
@@ -2529,33 +2528,44 @@ void LLView::applyXUILayout(LLView::Params& p, LLView* parent)
 			else if (p.top_delta.isProvided())
 			{
 				p.bottom_delta =
-					-(p.top_delta + p.rect.height - last_rect.getHeight());
+					-(p.top_delta + p.rect.height - default_rect.getHeight());
 			}
-			else if (!p.bottom_delta.isProvided()
-					 && !p.left_delta.isProvided()
-					 && !p.top_pad.isProvided()
+			else if (!p.left_delta.isProvided()
 					 && !p.left_pad.isProvided())
 			{
 				// set default position is just below last rect
 				p.bottom_delta.set(-(p.rect.height + VPAD), false);
 			}
+			else
+			{
+				p.bottom_delta.set(0, false);
+			}
 	
 			// default to same left edge
-			p.left_delta.setIfNotProvided(0, false);
+			if (!p.left_delta.isProvided())
+			{
+				p.left_delta.set(0, false);
+			}
 			if (p.left_pad.isProvided())
 			{
 				// left_pad is based on prior widget's right edge
-				p.left_delta.set(p.left_pad + last_rect.getWidth(), false);
+				p.left_delta.set(p.left_pad + default_rect.getWidth(), false);
 			}
 			
-			last_rect.translate(p.left_delta, p.bottom_delta);				
+			default_rect.translate(p.left_delta, p.bottom_delta);				
 		}
 		else
 		{	
 			// set default position is just below last rect
-			p.bottom_delta.setIfNotProvided(-(p.rect.height + VPAD), false);
-			p.left_delta.setIfNotProvided(0, false);
-			last_rect.translate(p.left_delta, p.bottom_delta);
+			if (!p.bottom_delta.isProvided())
+			{
+				p.bottom_delta.set(-(p.rect.height + VPAD), false);
+			}
+			if (!p.left_delta.isProvided())
+			{
+				p.left_delta.set(0, false);
+			}
+			default_rect.translate(p.left_delta, p.bottom_delta);
 		}
 
 		// this handles case where *both* x and x_delta are provided
@@ -2566,12 +2576,38 @@ void LLView::applyXUILayout(LLView::Params& p, LLView* parent)
 		// selectively apply rectangle defaults, making sure that
 		// params are not flagged as having been "provided"
 		// as rect params are overconstrained and rely on provided flags
-		p.rect.left.setIfNotProvided(last_rect.mLeft, false);
-		p.rect.bottom.setIfNotProvided(last_rect.mBottom, false);
-		p.rect.top.setIfNotProvided(last_rect.mTop, false);
-		p.rect.right.setIfNotProvided(last_rect.mRight, false);
-		p.rect.width.setIfNotProvided(last_rect.getWidth(), false);
-		p.rect.height.setIfNotProvided(last_rect.getHeight(), false);
+		if (!p.rect.left.isProvided())
+		{
+			p.rect.left.set(default_rect.mLeft, false);
+			//HACK: get around the fact that setting a rect param component value won't invalidate the existing rect object value
+			p.rect.paramChanged(p.rect.left, true);
+		}
+		if (!p.rect.bottom.isProvided())
+		{
+			p.rect.bottom.set(default_rect.mBottom, false);
+			p.rect.paramChanged(p.rect.bottom, true);
+		}
+		if (!p.rect.top.isProvided())
+		{
+			p.rect.top.set(default_rect.mTop, false);
+			p.rect.paramChanged(p.rect.top, true);
+		}
+		if (!p.rect.right.isProvided())
+		{
+			p.rect.right.set(default_rect.mRight, false);
+			p.rect.paramChanged(p.rect.right, true);
+
+		}
+		if (!p.rect.width.isProvided())
+		{
+			p.rect.width.set(default_rect.getWidth(), false);
+			p.rect.paramChanged(p.rect.width, true);
+		}
+		if (!p.rect.height.isProvided())
+		{
+			p.rect.height.set(default_rect.getHeight(), false);
+			p.rect.paramChanged(p.rect.height, true);
+		}
 	}
 }
 

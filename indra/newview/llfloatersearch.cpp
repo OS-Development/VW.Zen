@@ -31,6 +31,7 @@
 #include "llfloaterreg.h"
 #include "llfloatersearch.h"
 #include "llmediactrl.h"
+#include "llnotificationsutil.h"
 #include "lllogininstance.h"
 #include "lluri.h"
 #include "llagent.h"
@@ -46,6 +47,12 @@ public:
 	LLSearchHandler() : LLCommandHandler("search", UNTRUSTED_THROTTLE) { }
 	bool handle(const LLSD& tokens, const LLSD& query_map, LLMediaCtrl* web)
 	{
+		if (!LLUI::sSettingGroups["config"]->getBOOL("EnableSearch"))
+		{
+			LLNotificationsUtil::add("NoSearch", LLSD(), LLSD(), std::string("SwitchToStandardSkinAndQuit"));
+			return true;
+		}
+
 		const size_t parts = tokens.size();
 
 		// get the (optional) category for the search
@@ -63,21 +70,24 @@ public:
 		}
 
 		// create the LLSD arguments for the search floater
-		LLSD args;
-		args["category"] = category;
-		args["id"] = LLURI::unescape(search_text);
+		LLFloaterSearch::Params p;
+		p.search.category = category;
+		p.search.query = LLURI::unescape(search_text);
 
 		// open the search floater and perform the requested search
-		LLFloaterReg::showInstance("search", args);
+		LLFloaterReg::showInstance("search", p);
 		return true;
 	}
 };
 LLSearchHandler gSearchHandler;
 
-LLFloaterSearch::LLFloaterSearch(const LLSD& key) :
-	LLFloater(key),
-	LLViewerMediaObserver(),
-	mBrowser(NULL),
+LLFloaterSearch::SearchQuery::SearchQuery()
+:	category("category", ""),
+	query("query")
+{}
+
+LLFloaterSearch::LLFloaterSearch(const Params& key) :
+	LLFloaterWebContent(key),
 	mSearchGodLevel(0)
 {
 	// declare a map that transforms a category name into
@@ -95,39 +105,28 @@ LLFloaterSearch::LLFloaterSearch(const LLSD& key) :
 
 BOOL LLFloaterSearch::postBuild()
 {
-	mBrowser = getChild<LLMediaCtrl>("browser");
-	mBrowser->addObserver(this);
+	LLFloaterWebContent::postBuild();
+	mWebBrowser->addObserver(this);
 
 	return TRUE;
 }
 
 void LLFloaterSearch::onOpen(const LLSD& key)
 {
-	search(key);
+	Params p(key);
+	p.trusted_content = true;
+	p.allow_address_entry = false;
+
+	LLFloaterWebContent::onOpen(p);
+	search(p.search);
 }
 
 void LLFloaterSearch::onClose(bool app_quitting)
 {
+	LLFloaterWebContent::onClose(app_quitting);
 	// tear down the web view so we don't show the previous search
 	// result when the floater is opened next time
 	destroy();
-}
-
-void LLFloaterSearch::handleMediaEvent(LLPluginClassMedia *self, EMediaEvent event)
-{
-	switch (event) 
-	{
-	case MEDIA_EVENT_NAVIGATE_BEGIN:
-		getChild<LLUICtrl>("status_text")->setValue(getString("loading_text"));
-		break;
-		
-	case MEDIA_EVENT_NAVIGATE_COMPLETE:
-		getChild<LLUICtrl>("status_text")->setValue(getString("done_text"));
-		break;
-
-	default:
-		break;
-	}
 }
 
 void LLFloaterSearch::godLevelChanged(U8 godlevel)
@@ -136,12 +135,15 @@ void LLFloaterSearch::godLevelChanged(U8 godlevel)
 	// changes god level, then give them a warning (we don't refresh
 	// the search as this might undo any page navigation or
 	// AJAX-driven changes since the last search).
-	getChildView("refresh_search")->setVisible( (godlevel != mSearchGodLevel));
+	
+	//FIXME: set status bar text
+
+	//getChildView("refresh_search")->setVisible( (godlevel != mSearchGodLevel));
 }
 
-void LLFloaterSearch::search(const LLSD &key)
+void LLFloaterSearch::search(const SearchQuery &p)
 {
-	if (! mBrowser)
+	if (! mWebBrowser || !p.validateBlock())
 	{
 		return;
 	}
@@ -152,10 +154,9 @@ void LLFloaterSearch::search(const LLSD &key)
 
 	// work out the subdir to use based on the requested category
 	LLSD subs;
-	std::string category = key.has("category") ? key["category"].asString() : "";
-	if (mCategoryPaths.has(category))
+	if (mCategoryPaths.has(p.category))
 	{
-		subs["CATEGORY"] = mCategoryPaths[category].asString();
+		subs["CATEGORY"] = mCategoryPaths[p.category].asString();
 	}
 	else
 	{
@@ -163,8 +164,7 @@ void LLFloaterSearch::search(const LLSD &key)
 	}
 
 	// add the search query string
-	std::string search_text = key.has("id") ? key["id"].asString() : "";
-	subs["QUERY"] = LLURI::escape(search_text);
+	subs["QUERY"] = LLURI::escape(p.query);
 
 	// add the permissions token that login.cgi gave us
 	// We use "search_token", and fallback to "auth_token" if not present.
@@ -200,5 +200,5 @@ void LLFloaterSearch::search(const LLSD &key)
 	url = LLWeb::expandURLSubstitutions(url, subs);
 
 	// and load the URL in the web view
-	mBrowser->navigateTo(url, "text/html");
+	mWebBrowser->navigateTo(url, "text/html");
 }
