@@ -401,6 +401,11 @@ void LLToolBar::resizeButtonsInRow(std::vector<LLToolBarButton*>& buttons_in_row
 // Various drag data are stored in the toolbar object though are not exposed outside (and shouldn't).
 int LLToolBar::getRankFromPosition(S32 x, S32 y)
 {
+	if (mButtons.empty())
+	{
+		return RANK_NONE;
+	}
+	
 	int rank = 0;
 
 	// Convert the toolbar coord into button panel coords
@@ -418,20 +423,8 @@ int LLToolBar::getRankFromPosition(S32 x, S32 y)
 	while (it_button != end_button)
 	{
 		button_rect = (*it_button)->getRect();
-		mDragCommand = (*it_button)->mId;
-		S32 point_x, point_y;
-		if (orientation == LLLayoutStack::HORIZONTAL)
-		{
-			// Horizontal
-			point_x = (button_rect.mRight + button_rect.mLeft) / 2;
-			point_y = button_rect.mBottom - mPadBottom;
-		}
-		else
-		{
-			// Vertical
-			point_x = button_rect.mRight + mPadRight;
-			point_y = (button_rect.mTop + button_rect.mBottom) / 2;
-		}
+		S32 point_x = button_rect.mRight + mPadRight;
+		S32 point_y = button_rect.mBottom - mPadBottom;
 
 		if ((button_panel_x < point_x) && (button_panel_y > point_y))
 		{
@@ -445,8 +438,38 @@ int LLToolBar::getRankFromPosition(S32 x, S32 y)
 	// (different depending on toolbar orientation)
 	if (rank < mButtons.size())
 	{
+		if (orientation == LLLayoutStack::HORIZONTAL)
+		{
+			// Horizontal
+			S32 mid_point = (button_rect.mRight + button_rect.mLeft) / 2;
+			if (button_panel_x < mid_point)
+			{
 		mDragx = button_rect.mLeft - mPadLeft;
 		mDragy = button_rect.mTop + mPadTop;
+	}
+	else
+	{
+				rank++;
+				mDragx = button_rect.mRight + mPadRight - 1;
+				mDragy = button_rect.mTop + mPadTop;
+			}
+		}
+		else
+		{
+			// Vertical
+			S32 mid_point = (button_rect.mTop + button_rect.mBottom) / 2;
+			if (button_panel_y > mid_point)
+			{
+				mDragx = button_rect.mLeft - mPadLeft;
+				mDragy = button_rect.mTop + mPadTop;
+			}
+			else
+			{
+				rank++;
+				mDragx = button_rect.mLeft - mPadLeft;
+				mDragy = button_rect.mBottom - mPadBottom + 1;
+			}
+		}
 	}
 	else
 	{
@@ -850,7 +873,7 @@ BOOL LLToolBar::handleDragAndDrop(S32 x, S32 y, MASK mask, BOOL drop,
 			mDragRank = getRankFromPosition(x, y);
 			// Don't DaD if we're dragging a command on itself
 			mDragAndDropTarget = ((orig_rank != RANK_NONE) && ((mDragRank == orig_rank) || ((mDragRank-1) == orig_rank)) ? false : true);
-			llinfos << "Merov debug : DaD, rank = " << mDragRank << ", hit uuid = " << mDragCommand.uuid() << ", dragged uui = " << inv_item->getUUID() << llendl; 
+			//llinfos << "Merov debug : DaD, rank = " << mDragRank << ", dragged uui = " << inv_item->getUUID() << llendl; 
 			/* Do the following if you want to animate the button itself
 			LLCommandId dragged_command(inv_item->getUUID());
 			removeCommand(dragged_command);
